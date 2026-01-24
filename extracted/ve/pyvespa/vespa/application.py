@@ -3,8 +3,10 @@
 import sys
 import asyncio
 import traceback
+import certifi
 import concurrent.futures
 import warnings
+import ssl
 from typing import Optional, Dict, Generator, List, IO, Iterable, Callable, Tuple, Union
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 from queue import Queue, Empty
@@ -33,6 +35,7 @@ import time
 from vespa.exceptions import VespaError
 from vespa.io import VespaQueryResponse, VespaResponse, VespaVisitResponse
 from vespa.package import ApplicationPackage
+from vespa.throttling import AdaptiveThrottler
 import httpx
 import vespa
 import gzip
@@ -43,6 +46,26 @@ import logging
 logging.getLogger("urllib3").setLevel(logging.ERROR)
 
 VESPA_CLOUD_SECRET_TOKEN: str = "VESPA_CLOUD_SECRET_TOKEN"
+
+
+def get_profiling_params() -> Dict[str, str]:
+    """
+    Get the profiling parameters to add to a query.
+
+    When profiling is enabled, these parameters add detailed trace and timing
+    information to the query response. Note that the response may be significantly
+    larger when profiling is enabled.
+
+    Returns:
+        Dict[str, str]: Dictionary of profiling parameters to merge with query params.
+    """
+    return {
+        "trace.level": "1",
+        "trace.explainLevel": "1",
+        "trace.profileDepth": "100",
+        "trace.timestamps": "true",
+        "presentation.timing": "true",
+    }
 
 
 def raise_for_status(
@@ -150,7 +173,8 @@ class Vespa(object):
         self,
         connections: Optional[int] = 1,
         total_timeout: Optional[int] = None,
-        timeout: Union[httpx.Timeout, int] = httpx.Timeout(5),
+        timeout: Union[httpx.Timeout, int] = httpx.Timeout(5.0, read=30.0),
+        client: Optional[httpx.AsyncClient] = None,
         **kwargs,
     ) -> "VespaAsync":
         """
@@ -174,7 +198,9 @@ class Vespa(object):
         Args:
             connections (int): Number of maximum_keepalive_connections.
             total_timeout (int, optional): Deprecated. Will be ignored. Use timeout instead.
-            timeout (httpx.Timeout, optional): httpx.Timeout object. See [Timeouts](https://www.python-httpx.org/advanced/timeouts/). Defaults to 5 seconds.
+            timeout (httpx.Timeout, optional): httpx.Timeout object. See [Timeouts](https://www.python-httpx.org/advanced/timeouts/). Defaults to 5 seconds for connect/write/pool and 30 seconds for read.
+            client (httpx.AsyncClient, optional): Reusable httpx.AsyncClient to use instead of creating a new
+                one. When provided, the caller is responsible for closing the client.
             **kwargs (dict, optional): Additional arguments to be passed to the httpx.AsyncClient.
 
         Returns:
@@ -186,13 +212,49 @@ class Vespa(object):
             connections=connections,
             total_timeout=total_timeout,
             timeout=timeout,
+            client=client,
             **kwargs,
         )
+
+    def get_async_session(
+        self,
+        connections: Optional[int] = 1,
+        total_timeout: Optional[int] = None,
+        timeout: Union[httpx.Timeout, int] = httpx.Timeout(5.0, read=30.0),
+        **kwargs,
+    ) -> httpx.AsyncClient:
+        """Return a configured `httpx.AsyncClient` for reuse.
+
+        The client is created with the same configuration as `VespaAsync` and is HTTP/2
+        enabled by default. Callers are responsible for closing the client via
+        `await client.aclose()` when finished.
+
+        Args:
+            connections (int, optional): Number of logical connections to keep alive.
+            timeout (httpx.Timeout | int, optional): Timeout configuration for the client.
+            **kwargs: Additional keyword arguments forwarded to `httpx.AsyncClient`.
+
+        Returns:
+            httpx.AsyncClient: Configured asynchronous HTTP client.
+        """
+
+        async_layer = VespaAsync(
+            app=self,
+            connections=connections,
+            total_timeout=total_timeout,
+            timeout=timeout,
+            client=None,
+            **kwargs,
+        )
+        client = async_layer._open_httpx_client()
+        async_layer._owns_client = False
+        return client
 
     def syncio(
         self,
         connections: Optional[int] = 8,
         compress: Union[str, bool] = "auto",
+        session: Optional[Session] = None,
     ) -> "VespaSync":
         """
         Access Vespa synchronous connection layer.
@@ -212,6 +274,8 @@ class Vespa(object):
             total_timeout (float): Total timeout in seconds.
             compress (Union[str, bool], optional): Whether to compress the request body. Defaults to "auto",
                 which will compress if the body is larger than 1024 bytes.
+            session (requests.Session, optional): Reusable requests session to utilise for all requests made
+                within the context manager. When provided, the caller is responsible for closing the session.
 
         Returns:
             VespaAsyncLayer: Instance of Vespa asynchronous layer.
@@ -221,7 +285,38 @@ class Vespa(object):
             pool_connections=connections,
             pool_maxsize=connections,
             compress=compress,
+            session=session,
         )
+
+    def get_sync_session(
+        self,
+        connections: Optional[int] = 8,
+        compress: Union[str, bool] = "auto",
+    ) -> Session:
+        """Return a configured `requests.Session` for reuse.
+
+        The returned session is configured with the same headers, authentication, and
+        connection pooling behaviour as the `VespaSync` context manager. Callers are
+        responsible for closing the session when it is no longer needed.
+
+        Args:
+            connections (int, optional): Number of allowed concurrent connections.
+            compress (Union[str, bool], optional): Whether to compress request bodies.
+
+        Returns:
+            Session: Configured requests session using `CustomHTTPAdapter` pooling.
+        """
+
+        sync_layer = VespaSync(
+            app=self,
+            pool_connections=connections,
+            pool_maxsize=connections,
+            compress=compress,
+            session=Session(),
+        )
+        session = sync_layer._open_http_session()
+        sync_layer._owns_session = False
+        return session
 
     @staticmethod
     def _run_coroutine_new_event_loop(loop, coro):
@@ -332,6 +427,7 @@ class Vespa(object):
         body: Optional[Dict] = None,
         groupname: str = None,
         streaming: bool = False,
+        profile: bool = False,
         **kwargs,
     ) -> Union[VespaQueryResponse, Generator[str, None, None]]:
         """
@@ -343,6 +439,7 @@ class Vespa(object):
             body (dict): Dictionary containing request parameters.
             groupname (str, optional): The groupname used with streaming search.
             streaming (bool, optional): Whether to use streaming mode (SSE). Defaults to False.
+            profile (bool, optional): Add profiling parameters to the query (response may be large). Defaults to False.
             **kwargs (dict, optional): Extra Vespa Query API parameters.
 
         Returns:
@@ -352,7 +449,11 @@ class Vespa(object):
         # Use one connection as this is a single query
         with VespaSync(self, pool_maxsize=1, pool_connections=1) as sync_app:
             return sync_app.query(
-                body=body, groupname=groupname, streaming=streaming, **kwargs
+                body=body,
+                groupname=groupname,
+                streaming=streaming,
+                profile=profile,
+                **kwargs,
             )
 
     def feed_data_point(
@@ -775,6 +876,7 @@ class Vespa(object):
         queries: Iterable[Dict],
         num_connections: int = 1,
         max_concurrent: int = 100,
+        adaptive: bool = True,
         client_kwargs: Dict = {},
         **query_kwargs,
     ) -> List[VespaQueryResponse]:
@@ -783,10 +885,15 @@ class Vespa(object):
         Number of concurrent requests is controlled by the `max_concurrent` parameter.
         Each query will be retried up to 3 times using an exponential backoff strategy.
 
+        When adaptive=True (default), an AdaptiveThrottler is used that starts with
+        a conservative concurrency limit and automatically adjusts based on server
+        responses to prevent overloading Vespa with expensive operations.
+
         Args:
             queries (Iterable[dict]): Iterable of query bodies (dictionaries) to be sent.
             num_connections (int, optional): Number of connections to be used in the asynchronous client (uses HTTP/2). Defaults to 1.
             max_concurrent (int, optional): Maximum concurrent requests to be sent. Defaults to 100. Be careful with increasing too much.
+            adaptive (bool, optional): Use adaptive throttling. Defaults to True. When True, starts with lower concurrency and adjusts based on error rates.
             client_kwargs (dict, optional): Additional arguments to be passed to the httpx.AsyncClient.
             **query_kwargs (dict, optional): Additional arguments to be passed to the query method.
 
@@ -797,14 +904,26 @@ class Vespa(object):
         results = []
         # Use the asynchronous client from VespaAsync (created via self.asyncio).
         async with self.asyncio(connections=num_connections, **client_kwargs) as client:
-            sem = asyncio.Semaphore(max_concurrent)
+            if adaptive:
+                throttler = AdaptiveThrottler(
+                    initial_concurrent=min(10, max_concurrent),
+                    max_concurrent=max_concurrent,
+                )
+            else:
+                throttler = None
+                sem = asyncio.Semaphore(max_concurrent)
 
             async def query_wrapper(query_body: Dict) -> VespaQueryResponse:
-                async with sem:
+                # Access semaphore dynamically to pick up throttler adjustments
+                async with throttler.semaphore if throttler else sem:
                     try:
                         response = await client.query(query_body, **query_kwargs)
+                        if throttler:
+                            await throttler.record_result(response.status_code)
                         return response
                     except HTTPError as e:
+                        if throttler:
+                            await throttler.record_result(e.response.status_code)
                         return VespaQueryResponse(
                             json=str(e),
                             status_code=e.response.status_code,
@@ -821,6 +940,7 @@ class Vespa(object):
         queries: Iterable[Dict],
         num_connections: int = 1,
         max_concurrent: int = 100,
+        adaptive: bool = True,
         client_kwargs: Dict = {},
         **query_kwargs,
     ) -> List[VespaQueryResponse]:
@@ -830,10 +950,15 @@ class Vespa(object):
         Number of concurrent requests is controlled by the `max_concurrent` parameter.
         Each query will be retried up to 3 times using an exponential backoff strategy.
 
+        When adaptive=True (default), an AdaptiveThrottler is used that starts with
+        a conservative concurrency limit and automatically adjusts based on server
+        responses to prevent overloading Vespa with expensive operations.
+
         Args:
             queries (Iterable[dict]): Iterable of query bodies (dictionaries) to be sent.
             num_connections (int, optional): Number of connections to be used in the asynchronous client (uses HTTP/2). Defaults to 1.
             max_concurrent (int, optional): Maximum concurrent requests to be sent. Defaults to 100. Be careful with increasing too much.
+            adaptive (bool, optional): Use adaptive throttling. Defaults to True. When True, starts with lower concurrency and adjusts based on error rates.
             client_kwargs (dict, optional): Additional arguments to be passed to the httpx.AsyncClient.
             **query_kwargs (dict, optional): Additional arguments to be passed to the query method.
 
@@ -845,6 +970,7 @@ class Vespa(object):
                 queries=queries,
                 num_connections=num_connections,
                 max_concurrent=max_concurrent,
+                adaptive=adaptive,
                 client_kwargs=client_kwargs,
                 **query_kwargs,
             )
@@ -1234,6 +1360,7 @@ class VespaSync(object):
         pool_maxsize: int = 10,
         pool_connections: int = 10,
         compress: Union[str, bool] = "auto",
+        session: Optional[Session] = None,
     ) -> None:
         """
         Class to handle synchronous requests to Vespa.
@@ -1252,6 +1379,22 @@ class VespaSync(object):
                 with app.syncio() as sync_app:
                     response = sync_app.query(body=body)
                 ```
+
+            **Reusing a session across multiple contexts** (avoids TLS handshake overhead):
+                ```python
+                # Get a reusable session
+                session = app.get_sync_session()
+                try:
+                    # Use it multiple times
+                    with app.syncio(session=session) as sync_app:
+                        response1 = sync_app.query(body=body1)
+                    with app.syncio(session=session) as sync_app:
+                        response2 = sync_app.query(body=body2)
+                finally:
+                    # User is responsible for closing
+                    session.close()
+                ```
+
             See also `Vespa.feed_iterable` for a convenient way to feed data synchronously.
 
         Args:
@@ -1259,6 +1402,7 @@ class VespaSync(object):
             pool_maxsize (int, optional): The maximum number of connections to save in the pool. Defaults to 10.
             pool_connections (int, optional): The number of urllib3 connection pools to cache. Defaults to 10.
             compress (Union[str, bool], optional): Whether to compress the request body. Defaults to "auto", which will compress if the body is larger than 1024 bytes.
+            session (requests.Session, optional): An externally managed session to reuse. When provided, the caller is responsible for closing it. Defaults to None.
         """
 
         if compress not in ["auto", True, False]:
@@ -1277,7 +1421,10 @@ class VespaSync(object):
                 {"Authorization": f"Bearer {self.app.vespa_cloud_secret_token}"}
             )
         self.compress = compress
-        self.http_session = None
+        self.http_session = session
+        # Automatically determine ownership based on whether session was provided
+        self._owns_session = session is None
+        self._session_configured = False
         self.adapter = CustomHTTPAdapter(
             pool_maxsize=pool_maxsize,
             pool_connections=pool_connections,
@@ -1295,24 +1442,28 @@ class VespaSync(object):
         self._close_http_session()
 
     def _open_http_session(self):
-        if self.http_session is not None:
-            return
+        if self.http_session is None:
+            self.http_session = Session()
+            self._owns_session = True
 
-        self.http_session = Session()
-        self.http_session.headers.update(self.headers)
-        self.http_session.mount("https://", self.adapter)
-        self.http_session.mount("http://", self.adapter)
-        if self.app.auth_method == "token" and self.app.vespa_cloud_secret_token:
+        if not self._session_configured:
             self.http_session.headers.update(self.headers)
-        else:
-            self.http_session.cert = self.cert
+            self.http_session.mount("https://", self.adapter)
+            self.http_session.mount("http://", self.adapter)
+            if self.app.auth_method == "token" and self.app.vespa_cloud_secret_token:
+                self.http_session.headers.update(self.headers)
+            elif self.cert and getattr(self.http_session, "cert", None) != self.cert:
+                self.http_session.cert = self.cert
+            self._session_configured = True
 
         return self.http_session
 
     def _close_http_session(self):
         if self.http_session is None:
             return
-        self.http_session.close()
+        if self._owns_session:
+            self.http_session.close()
+        self._session_configured = False
 
     def get_model_endpoint(self, model_id: Optional[str] = None) -> Optional[dict]:
         """Get model evaluation endpoints."""
@@ -1350,7 +1501,11 @@ class VespaSync(object):
             if response.status_code == 200:
                 return response.json()
             else:
-                return {"status_code": response.status_code, "message": response.reason}
+                return {
+                    "status_code": response.status_code,
+                    "body": response.json(),
+                    "message": response.reason,
+                }
         except ConnectionError:
             response = None
         return response
@@ -1401,6 +1556,7 @@ class VespaSync(object):
         body: Optional[Dict] = None,
         groupname: str = None,
         streaming: bool = False,
+        profile: bool = False,
         **kwargs,
     ) -> Union[VespaQueryResponse, Generator[str, None, None]]:
         """
@@ -1410,6 +1566,7 @@ class VespaSync(object):
             body (dict): Dict containing all the request parameters.
             groupname (str, optional): The groupname used in streaming search.
             streaming (bool, optional): Whether to use streaming mode (SSE). Defaults to False.
+            profile (bool, optional): Add profiling parameters to the query (response may be large). Defaults to False.
             **kwargs (dict, optional): Additional valid Vespa HTTP Query API parameters. See: <https://docs.vespa.ai/en/reference/query-api-reference.html>.
 
         Returns:
@@ -1421,6 +1578,8 @@ class VespaSync(object):
 
         if groupname:
             kwargs["streaming.groupname"] = groupname
+        if profile:
+            kwargs.update(get_profiling_params())
         if streaming:
             return self._query_streaming(body, **kwargs)
         else:
@@ -1735,7 +1894,8 @@ class VespaAsync(object):
         app: Vespa,
         connections: Optional[int] = 1,
         total_timeout: Optional[int] = None,
-        timeout: Union[httpx.Timeout, int] = httpx.Timeout(5),
+        timeout: Union[httpx.Timeout, int] = httpx.Timeout(5.0, read=30.0),
+        client: Optional[httpx.AsyncClient] = None,
         **kwargs,
     ) -> None:
         """
@@ -1784,13 +1944,29 @@ class VespaAsync(object):
                 )
             ```
 
+        **Reusing a client across multiple contexts** (avoids TLS handshake overhead):
+            ```python
+            # Get a reusable client
+            client = app.get_async_session()
+            try:
+                # Use it multiple times
+                async with app.asyncio(client=client) as async_app:
+                    response1 = await async_app.query(body=body1)
+                async with app.asyncio(client=client) as async_app:
+                    response2 = await async_app.query(body=body2)
+            finally:
+                # User is responsible for closing
+                await client.aclose()
+            ```
+
         See also `Vespa.feed_async_iterable` for a convenient interface to async data feeding.
 
         Args:
             app (Vespa): Vespa application object.
             connections (Optional[int], optional): Number of connections. Defaults to 1 as HTTP/2 is multiplexed.
             total_timeout (int, optional): **Deprecated**. Will be ignored and removed in future versions. Use `timeout` to pass an `httpx.Timeout` object instead.
-            timeout (httpx.Timeout, optional): Timeout settings for the `httpx.AsyncClient`. Defaults to `httpx.Timeout(5)`.
+            timeout (httpx.Timeout, optional): Timeout settings for the `httpx.AsyncClient`. Defaults to 5 seconds for connect/write/pool and 30 seconds for read.
+            client (httpx.AsyncClient, optional): An externally managed async client to reuse. When provided, the caller is responsible for closing it. Defaults to None.
             **kwargs: Additional arguments to be passed to the `httpx.AsyncClient`. See
                 [HTTPX AsyncClient documentation](https://www.python-httpx.org/api/#asyncclient) for more details.
 
@@ -1799,9 +1975,10 @@ class VespaAsync(object):
             - The `limits` parameter can be used to control connection pooling behavior, such as the maximum number of concurrent connections.
             - See [HTTPX documentation](https://www.python-httpx.org/) for more information on `httpx` and its features.
         """
-
         self.app = app
-        self.httpx_client = None
+        self.httpx_client = client
+        # Automatically determine ownership based on whether client was provided
+        self._owns_client = client is None
         self.connections = connections
         self.total_timeout = total_timeout
         if self.total_timeout is not None:
@@ -1839,10 +2016,11 @@ class VespaAsync(object):
 
     def _open_httpx_client(self):
         if self.httpx_client is not None:
-            return
+            return self.httpx_client
 
         if self.app.cert is not None:
-            sslcontext = httpx.create_ssl_context(cert=(self.app.cert, self.app.key))
+            sslcontext = ssl.create_default_context(cafile=certifi.where())
+            sslcontext.load_cert_chain(certfile=self.app.cert, keyfile=self.app.key)
         else:
             sslcontext = False
         self.httpx_client = httpx.AsyncClient(
@@ -1853,12 +2031,14 @@ class VespaAsync(object):
             http1=False,
             **self.kwargs,
         )
+        self._owns_client = True
         return self.httpx_client
 
     async def _close_httpx_client(self):
         if self.httpx_client is None:
             return
-        await self.httpx_client.aclose()
+        if self._owns_client:
+            await self.httpx_client.aclose()
 
     async def _wait(f, args, **kwargs):
         tasks = [asyncio.create_task(f(*arg, **kwargs)) for arg in args]
@@ -1874,10 +2054,28 @@ class VespaAsync(object):
         wait=wait_random_exponential(multiplier=1.5, max=60), stop=stop_after_attempt(5)
     )
     async def query(
-        self, body: Optional[Dict] = None, groupname: str = None, **kwargs
+        self,
+        body: Optional[Dict] = None,
+        groupname: str = None,
+        profile: bool = False,
+        **kwargs,
     ) -> VespaQueryResponse:
+        """
+        Send a query request to the Vespa application.
+
+        Args:
+            body (dict): Dict containing all the request parameters.
+            groupname (str, optional): The groupname used in streaming search.
+            profile (bool, optional): Add profiling parameters to the query (response may be large). Defaults to False.
+            **kwargs (dict, optional): Additional valid Vespa HTTP Query API parameters.
+
+        Returns:
+            VespaQueryResponse: The response from the query.
+        """
         if groupname:
             kwargs["streaming.groupname"] = groupname
+        if profile:
+            kwargs.update(get_profiling_params())
         r = await self.httpx_client.post(
             self.app.search_end_point, json=body, params=kwargs
         )

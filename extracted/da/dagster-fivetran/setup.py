@@ -23,18 +23,18 @@ setup(
     description="Package for integrating Fivetran with Dagster.",
     url="https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-fivetran",
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_fivetran_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.14",
-    install_requires=["dagster==1.11.11"],
+    python_requires=">=3.10,<3.15",
+    install_requires=["dagster==1.12.12"],
     zip_safe=False,
     entry_points={
         "console_scripts": [
@@ -46,7 +46,7 @@ setup(
     },
     extras_require={
         "managed": [
-            "dagster-managed-elements==0.27.11",
+            "dagster-managed-elements==0.28.12",
         ],
         "test": [
             "pytest-order",

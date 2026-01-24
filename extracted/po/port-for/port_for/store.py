@@ -2,7 +2,6 @@
 
 import os
 from configparser import DEFAULTSECT, ConfigParser
-from typing import List, Optional, Tuple, Union
 
 from .api import select_random
 from .exceptions import PortForException
@@ -10,21 +9,19 @@ from .exceptions import PortForException
 DEFAULT_CONFIG_PATH = "/etc/port-for.conf"
 
 
-class PortStore(object):
+class PortStore:
     """PortStore binds, reads and stores bound ports in config."""
 
     def __init__(self, config_filename: str = DEFAULT_CONFIG_PATH):
         """Initialize PortStore."""
         self._config = config_filename
 
-    def bind_port(
-        self, app: str, port: Optional[Union[int, str]] = None
-    ) -> int:
+    def bind_port(self, app: str, port: int | str | None = None) -> int:
         """Binds port to app in the config."""
         if "=" in app or ":" in app:
-            raise Exception('invalid app name: "%s"' % app)
+            raise Exception(f'invalid app name: "{app}"')
 
-        requested_port: Optional[str] = None
+        requested_port: str | None = None
         if port is not None:
             requested_port = str(port)
 
@@ -35,8 +32,8 @@ class PortStore(object):
             actual_port = parser.get(DEFAULTSECT, app)
             if requested_port is not None and requested_port != actual_port:
                 msg = (
-                    "Can't bind to port %s: %s is already associated "
-                    "with port %s" % (requested_port, app, actual_port)
+                    f"Can't bind to port {requested_port}: "
+                    f"{app} is already associated with port {actual_port}"
                 )
                 raise PortForException(msg)
             return int(actual_port)
@@ -46,17 +43,12 @@ class PortStore(object):
         bound_port_numbers = map(int, app_by_port.keys())
 
         if requested_port is None:
-            requested_port = str(
-                select_random(exclude_ports=bound_port_numbers)
-            )
+            requested_port = str(select_random(exclude_ports=bound_port_numbers))
 
         if requested_port in app_by_port:
             binding_app = app_by_port[requested_port]
             if binding_app != app:
-                raise PortForException(
-                    "Port %s is already used by %s!"
-                    % (requested_port, binding_app)
-                )
+                raise PortForException(f"Port {requested_port} is already used by {binding_app}!")
 
         # new app & new port
         parser.set(DEFAULTSECT, app, requested_port)
@@ -70,16 +62,13 @@ class PortStore(object):
         parser.remove_option(DEFAULTSECT, app)
         self._save(parser)
 
-    def bound_ports(self) -> List[Tuple[str, int]]:
+    def bound_ports(self) -> list[tuple[str, int]]:
         """List all bound ports."""
-        return [
-            (app, int(port))
-            for app, port in self._get_parser().items(DEFAULTSECT)
-        ]
+        return [(app, int(port)) for app, port in self._get_parser().items(DEFAULTSECT)]
 
     def _ensure_config_exists(self) -> None:
         if not os.path.exists(self._config):
-            with open(self._config, "wb"):
+            with open(self._config, "w"):
                 pass
 
     def _get_parser(self) -> ConfigParser:
@@ -89,5 +78,5 @@ class PortStore(object):
         return parser
 
     def _save(self, parser: ConfigParser) -> None:
-        with open(self._config, "wt") as f:
+        with open(self._config, "w") as f:
             parser.write(f)

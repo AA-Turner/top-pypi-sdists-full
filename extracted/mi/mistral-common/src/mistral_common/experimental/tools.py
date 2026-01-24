@@ -1,5 +1,5 @@
 import json
-from typing import List, Sequence, Tuple
+from typing import Sequence
 
 from mistral_common.experimental.utils import (
     _split_integer_list_by_value,
@@ -18,8 +18,8 @@ class InvalidArgsToolCallError(InvalidToolCallError):
 
 
 def _split_content_and_tool_calls(
-    tokens: List[int], tool_call_token_id: int
-) -> tuple[List[int], Tuple[List[int], ...]]:
+    tokens: list[int], tool_call_token_id: int
+) -> tuple[list[int], tuple[list[int], ...]]:
     r"""Split the content and tool calls from a list of tokens.
 
     The content is the first sequence of tokens that does not start with the tool call token ID.
@@ -48,7 +48,7 @@ def _split_content_and_tool_calls(
     return content_tokens, tools_calls_tokens
 
 
-def _decode_tool_calls_v2_up_to_v7(tool_call_tokens: list[int], tokenizer: Tokenizer) -> List[ToolCall]:
+def _decode_tool_calls_v2_up_to_v7(tool_call_tokens: list[int], tokenizer: Tokenizer) -> list[ToolCall]:
     r"""Decode a list of tool call tokens into a list of tool calls for tokenizer versions v2 to v7.
 
     Note:
@@ -130,7 +130,7 @@ def _decode_tool_call_v11(tool_call_tokens: list[int], tokenizer: Tokenizer) -> 
     return tool_call
 
 
-def _decode_tool_calls(tool_call_tokens: Sequence[list[int]], tokenizer: Tokenizer) -> List[ToolCall]:
+def _decode_tool_calls(tool_call_tokens: Sequence[list[int]], tokenizer: Tokenizer) -> list[ToolCall]:
     r"""Decode a list of tool call tokens into a list of tool calls.
 
     Note:
@@ -152,7 +152,7 @@ def _decode_tool_calls(tool_call_tokens: Sequence[list[int]], tokenizer: Tokeniz
             raise ValueError("Tool calls are not supported for tokenizer version v1.")
         elif tokenizer.version <= TokenizerVersion.v7:
             tools_calls.extend(_decode_tool_calls_v2_up_to_v7(tool_call, tokenizer))
-        elif tokenizer.version == TokenizerVersion.v11 and tokenizer.get_control_token("[CALL_ID]") in tool_call:
+        elif tokenizer.version == TokenizerVersion.v11 and tokenizer.get_special_token("[CALL_ID]") in tool_call:
             tools_calls.append(_decode_tool_call_v11_with_call_id(tool_call, tokenizer))
         else:
             tools_calls.append(_decode_tool_call_v11(tool_call, tokenizer))

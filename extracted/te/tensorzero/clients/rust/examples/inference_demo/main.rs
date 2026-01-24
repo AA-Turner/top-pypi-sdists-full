@@ -3,10 +3,10 @@
 use std::{io::Write, path::PathBuf};
 
 use tensorzero::{
-    ClientBuilder, ClientBuilderMode, ClientInferenceParams, ClientInput, ClientInputMessage,
-    ClientInputMessageContent, ContentBlockChunk, InferenceOutput, InferenceResponseChunk, Role,
+    ClientBuilder, ClientBuilderMode, ClientInferenceParams, ContentBlockChunk, InferenceOutput,
+    InferenceResponseChunk, Input, InputMessage, InputMessageContent, PostgresConfig, Role,
 };
-use tensorzero_core::inference::types::TextKind;
+use tensorzero_core::inference::types::Template;
 use tokio_stream::StreamExt;
 
 use clap::Parser;
@@ -49,16 +49,22 @@ async fn main() {
         (None, Some(config_file)) => ClientBuilder::new(ClientBuilderMode::EmbeddedGateway {
             config_file: Some(config_file),
             clickhouse_url: std::env::var("TENSORZERO_CLICKHOUSE_URL").ok(),
-            postgres_url: std::env::var("TENSORZERO_POSTGRES_URL").ok(),
+            postgres_config: std::env::var("TENSORZERO_POSTGRES_URL")
+                .ok()
+                .map(PostgresConfig::Url),
+            valkey_url: std::env::var("TENSORZERO_VALKEY_URL").ok(),
             timeout: None,
             verify_credentials: true,
             allow_batch_writes: false,
         }),
         (Some(_), Some(_)) => {
+            tracing::error!("Cannot specify both gateway URL and config path");
+            #[expect(clippy::disallowed_methods)]
             std::process::exit(1);
         }
         (None, None) => {
             tracing::error!("Gateway URL or config path is required");
+            #[expect(clippy::disallowed_methods)]
             std::process::exit(1);
         }
     }
@@ -72,10 +78,11 @@ async fn main() {
         .inference(ClientInferenceParams {
             function_name: Some(args.function_name),
             stream: Some(args.streaming),
-            input: ClientInput {
-                messages: vec![ClientInputMessage {
+            input: Input {
+                messages: vec![InputMessage {
                     role: Role::User,
-                    content: vec![ClientInputMessageContent::Text(TextKind::Arguments {
+                    content: vec![InputMessageContent::Template(Template {
+                        name: "user".to_string(),
                         arguments: input,
                     })],
                 }],

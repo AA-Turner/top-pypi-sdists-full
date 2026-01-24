@@ -2,6 +2,7 @@
 
 use crate::exc::*;
 use crate::ffi::*;
+use crate::io::WriteSlices;
 use crate::msgpack;
 use crate::opt::*;
 use crate::serialize::bytearray::*;
@@ -19,11 +20,11 @@ use crate::serialize::str::*;
 use crate::serialize::tuple::*;
 use crate::serialize::uuid::*;
 use crate::serialize::writer::*;
-use crate::typeref::*;
+use crate::serialize::RECURSION_LIMIT;
+use crate::state::State;
 use serde::ser::{Impossible, Serialize, SerializeMap, SerializeSeq, Serializer};
+use std::os::raw::c_ulong;
 use std::ptr::NonNull;
-
-pub const RECURSION_LIMIT: u8 = 255;
 
 #[derive(Debug)]
 pub enum Error {
@@ -67,7 +68,7 @@ struct ExtSerializer<'a, W> {
 
 impl<'a, W> ExtSerializer<'a, W>
 where
-    W: std::io::Write,
+    W: WriteSlices,
 {
     #[inline]
     fn new(tag: i8, writer: &'a mut W) -> Self {
@@ -80,7 +81,7 @@ where
 
 impl<W> Serializer for &mut ExtSerializer<'_, W>
 where
-    W: std::io::Write,
+    W: WriteSlices,
 {
     type Ok = ();
     type Error = Error;
@@ -253,15 +254,19 @@ where
 
 pub struct MessagePackSerializer<W> {
     writer: W,
+    recursion: u8,
 }
 
 impl<W> MessagePackSerializer<W>
 where
-    W: std::io::Write,
+    W: WriteSlices,
 {
     #[inline]
     pub fn new(writer: W) -> Self {
-        MessagePackSerializer { writer }
+        MessagePackSerializer {
+            writer,
+            recursion: 0,
+        }
     }
 }
 
@@ -271,7 +276,7 @@ pub struct Compound<'a, W> {
 
 impl<W> SerializeSeq for Compound<'_, W>
 where
-    W: std::io::Write,
+    W: WriteSlices,
 {
     type Ok = ();
     type Error = Error;
@@ -284,13 +289,14 @@ where
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
+        self.se.recursion -= 1;
         Ok(())
     }
 }
 
 impl<W> SerializeMap for Compound<'_, W>
 where
-    W: std::io::Write,
+    W: WriteSlices,
 {
     type Ok = ();
     type Error = Error;
@@ -310,13 +316,14 @@ where
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
+        self.se.recursion -= 1;
         Ok(())
     }
 }
 
 impl<'a, W> Serializer for &'a mut MessagePackSerializer<W>
 where
-    W: std::io::Write,
+    W: WriteSlices,
 {
     type Ok = ();
     type Error = Error;
@@ -457,6 +464,11 @@ where
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Error> {
         match len {
             Some(len) => {
+                if unlikely!(self.recursion == RECURSION_LIMIT) {
+                    return Err(Error::Custom(RECURSION_LIMIT_REACHED.to_string()));
+                }
+
+                self.recursion += 1;
                 msgpack::write_array_len(&mut self.writer, len)?;
                 Ok(Compound { se: self })
             }
@@ -489,6 +501,11 @@ where
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Error> {
         match len {
             Some(len) => {
+                if unlikely!(self.recursion == RECURSION_LIMIT) {
+                    return Err(Error::Custom(RECURSION_LIMIT_REACHED.to_string()));
+                }
+
+                self.recursion += 1;
                 msgpack::write_map_len(&mut self.writer, len)?;
                 Ok(Compound { se: self })
             }
@@ -517,51 +534,63 @@ where
 
 pub fn serialize(
     ptr: *mut pyo3::ffi::PyObject,
+    state: *mut State,
     default: Option<NonNull<pyo3::ffi::PyObject>>,
     opts: Opt,
 ) -> Result<NonNull<pyo3::ffi::PyObject>, String> {
     let mut buf = BytesWriter::default();
-    let obj = PyObject::new(ptr, opts, 0, 0, default);
+    let default_hook = DefaultHook::new(default);
+    let obj = PyObject::new(ptr, state, opts, &default_hook);
     let mut ser = MessagePackSerializer::new(&mut buf);
     let res = obj.serialize(&mut ser);
     match res {
         Ok(_) => Ok(buf.finish()),
         Err(err) => {
-            ffi!(Py_DECREF(buf.finish().as_ptr()));
+            unsafe { pyo3::ffi::Py_DECREF(buf.finish().as_ptr()) };
             Err(err.to_string())
         }
     }
 }
 
-macro_rules! is_subclass {
-    ($ob_type:expr, $flag:ident) => {
-        unsafe { (((*$ob_type).tp_flags & pyo3::ffi::$flag) != 0) }
-    };
+#[inline(always)]
+fn is_subclass(op: *mut pyo3::ffi::PyTypeObject, feature: c_ulong) -> bool {
+    unsafe { pyo3::ffi::PyType_HasFeature(op, feature) != 0 }
 }
 
-pub struct PyObject {
+pub struct PyObject<'a> {
     ptr: *mut pyo3::ffi::PyObject,
+    state: *mut State,
     opts: Opt,
-    default_calls: u8,
-    recursion: u8,
-    default: Option<NonNull<pyo3::ffi::PyObject>>,
+    default: &'a DefaultHook,
 }
 
-impl PyObject {
+impl<'a> PyObject<'a> {
     pub fn new(
         ptr: *mut pyo3::ffi::PyObject,
+        state: *mut State,
         opts: Opt,
-        default_calls: u8,
-        recursion: u8,
-        default: Option<NonNull<pyo3::ffi::PyObject>>,
+        default: &'a DefaultHook,
     ) -> Self {
         PyObject {
             ptr: ptr,
+            state: state,
             opts: opts,
-            default_calls: default_calls,
-            recursion: recursion,
             default: default,
         }
+    }
+
+    fn serialize_with_default_hook<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let obj = self
+            .default
+            .enter_call(self.ptr)
+            .map_err(serde::ser::Error::custom)?;
+        let res = PyObject::new(obj, self.state, self.opts, self.default).serialize(serializer);
+        self.default.leave_call();
+        unsafe { pyo3::ffi::Py_DECREF(obj) };
+        res
     }
 
     #[inline(never)]
@@ -572,162 +601,92 @@ impl PyObject {
         let ob_type = ob_type!(self.ptr);
 
         if self.opts & PASSTHROUGH_DATETIME == 0 {
-            if py_is!(ob_type, DATETIME_TYPE) {
-                match DateTime::new(self.ptr, self.opts) {
+            let datetime_api = unsafe { *pyo3::ffi::PyDateTimeAPI() };
+            if ob_type == datetime_api.DateTimeType {
+                match DateTime::new(self.ptr, self.state, self.opts) {
                     Ok(val) => return val.serialize(serializer),
-                    Err(err) => err!(err),
+                    Err(err) => return Err(serde::ser::Error::custom(err)),
                 }
             }
-            if py_is!(ob_type, DATE_TYPE) {
+            if ob_type == datetime_api.DateType {
                 return Date::new(self.ptr).serialize(serializer);
             }
-            if py_is!(ob_type, TIME_TYPE) {
+            if ob_type == datetime_api.TimeType {
                 match Time::new(self.ptr, self.opts) {
                     Ok(val) => return val.serialize(serializer),
-                    Err(err) => err!(err),
+                    Err(err) => return Err(serde::ser::Error::custom(err)),
                 };
             }
         }
 
-        if self.opts & PASSTHROUGH_TUPLE == 0 && py_is!(ob_type, TUPLE_TYPE) {
-            if unlikely!(self.recursion == RECURSION_LIMIT) {
-                err!(RECURSION_LIMIT_REACHED)
-            }
-            return Tuple::new(
-                self.ptr,
-                self.opts,
-                self.default_calls,
-                self.recursion,
-                self.default,
-            )
-            .serialize(serializer);
+        if self.opts & PASSTHROUGH_TUPLE == 0 && ob_type == &raw mut pyo3::ffi::PyTuple_Type {
+            return Tuple::new(self.ptr, self.state, self.opts, self.default).serialize(serializer);
         }
 
-        if self.opts & PASSTHROUGH_UUID == 0 && py_is!(ob_type, UUID_TYPE) {
-            return UUID::new(self.ptr).serialize(serializer);
+        if self.opts & PASSTHROUGH_UUID == 0 && ob_type == unsafe { (*self.state).uuid_type } {
+            return UUID::new(self.ptr, self.state).serialize(serializer);
         }
 
-        if py_is!(ob_type!(ob_type), ENUM_TYPE) {
+        if ob_type!(ob_type) == unsafe { (*self.state).enum_type } {
             if self.opts & PASSTHROUGH_ENUM == 0 {
-                let value = ffi!(PyObject_GetAttr(self.ptr, VALUE_STR));
-                ffi!(Py_DECREF(value));
-                return PyObject::new(
-                    value,
-                    self.opts,
-                    self.default_calls,
-                    self.recursion,
-                    self.default,
-                )
-                .serialize(serializer);
+                let value =
+                    unsafe { pyo3::ffi::PyObject_GetAttr(self.ptr, (*self.state).value_str) };
+                unsafe { pyo3::ffi::Py_DECREF(value) };
+                return PyObject::new(value, self.state, self.opts, self.default)
+                    .serialize(serializer);
             } else {
-                return Default::new(
-                    self.ptr,
-                    self.opts,
-                    self.default_calls,
-                    self.recursion,
-                    self.default,
-                )
-                .serialize(serializer);
+                return self.serialize_with_default_hook(serializer);
             }
         }
 
         if self.opts & PASSTHROUGH_SUBCLASS == 0 {
-            if is_subclass!(ob_type, Py_TPFLAGS_UNICODE_SUBCLASS) {
-                return StrSubclass::new(self.ptr).serialize(serializer);
+            if is_subclass(ob_type, pyo3::ffi::Py_TPFLAGS_UNICODE_SUBCLASS) {
+                return StrSubclass::new(self.ptr, self.opts).serialize(serializer);
             }
-            if is_subclass!(ob_type, Py_TPFLAGS_LONG_SUBCLASS) {
+            if is_subclass(ob_type, pyo3::ffi::Py_TPFLAGS_LONG_SUBCLASS) {
                 match Int::new(self.ptr) {
                     Ok(val) => return val.serialize(serializer),
                     Err(err) => {
                         if self.opts & PASSTHROUGH_BIG_INT != 0 {
-                            return Default::new(
-                                self.ptr,
-                                self.opts,
-                                self.default_calls,
-                                self.recursion,
-                                self.default,
-                            )
-                            .serialize(serializer);
+                            return self.serialize_with_default_hook(serializer);
                         } else {
-                            err!(err)
+                            return Err(serde::ser::Error::custom(err));
                         }
                     }
                 }
             }
-            if is_subclass!(ob_type, Py_TPFLAGS_LIST_SUBCLASS) {
-                if unlikely!(self.recursion == RECURSION_LIMIT) {
-                    err!(RECURSION_LIMIT_REACHED)
-                }
-                return List::new(
-                    self.ptr,
-                    self.opts,
-                    self.default_calls,
-                    self.recursion,
-                    self.default,
-                )
-                .serialize(serializer);
+            if is_subclass(ob_type, pyo3::ffi::Py_TPFLAGS_LIST_SUBCLASS) {
+                return List::new(self.ptr, self.state, self.opts, self.default)
+                    .serialize(serializer);
             }
-            if is_subclass!(ob_type, Py_TPFLAGS_DICT_SUBCLASS) {
-                if unlikely!(self.recursion == RECURSION_LIMIT) {
-                    err!(RECURSION_LIMIT_REACHED)
-                }
-                return Dict::new(
-                    self.ptr,
-                    self.opts,
-                    self.default_calls,
-                    self.recursion,
-                    self.default,
-                )
-                .serialize(serializer);
+            if is_subclass(ob_type, pyo3::ffi::Py_TPFLAGS_DICT_SUBCLASS) {
+                return Dict::new(self.ptr, self.state, self.opts, self.default)
+                    .serialize(serializer);
             }
         }
 
-        if py_is!(ob_type, EXT_TYPE) {
+        if ob_type == unsafe { (*self.state).ext_type } {
             return Ext::new(self.ptr).serialize(serializer);
         }
 
-        if self.opts & PASSTHROUGH_DATACLASS == 0 && pydict_contains!(ob_type, DATACLASS_FIELDS_STR)
-        {
-            if unlikely!(self.recursion == RECURSION_LIMIT) {
-                err!(RECURSION_LIMIT_REACHED)
-            }
-            return Dataclass::new(
-                self.ptr,
-                self.opts,
-                self.default_calls,
-                self.recursion,
-                self.default,
-            )
-            .serialize(serializer);
+        if self.opts & PASSTHROUGH_DATACLASS == 0 && is_dataclass(ob_type, self.state) {
+            return Dataclass::new(self.ptr, self.state, self.opts, self.default)
+                .serialize(serializer);
         }
 
-        if self.opts & SERIALIZE_PYDANTIC != 0
-            && (pydict_contains!(ob_type, PYDANTIC_FIELDS_STR)
-                || pydict_contains!(ob_type, PYDANTIC2_VALIDATOR_STR))
-        {
-            if unlikely!(self.recursion == RECURSION_LIMIT) {
-                err!(RECURSION_LIMIT_REACHED)
-            }
-            match PydanticModel::new(
-                self.ptr,
-                self.opts,
-                self.default_calls,
-                self.recursion,
-                self.default,
-            ) {
-                Ok(val) => return val.serialize(serializer),
-                Err(err) => err!(err),
-            };
+        if self.opts & SERIALIZE_PYDANTIC != 0 && is_pydantic_model(ob_type, self.state) {
+            return PydanticModel::new(self.ptr, self.state, self.opts, self.default)
+                .serialize(serializer);
         }
 
         if self.opts & SERIALIZE_NUMPY != 0 {
-            if let Some(numpy_types) = unsafe { NUMPY_TYPES.get_or_init(load_numpy_types) } {
-                let numpy_types_ref = unsafe { numpy_types.as_ref() };
+            if let Some(numpy_types_ref) = unsafe { (*self.state).get_numpy_types() } {
                 if ob_type == numpy_types_ref.bool_ {
                     return NumpyBool::new(self.ptr).serialize(serializer);
                 }
                 if ob_type == numpy_types_ref.datetime64 {
-                    return NumpyDatetime64::new(self.ptr, self.opts).serialize(serializer);
+                    return NumpyDatetime64::new(self.ptr, self.state, self.opts)
+                        .serialize(serializer);
                 }
                 if ob_type == numpy_types_ref.float16 {
                     return NumpyFloat16::new(self.ptr).serialize(serializer);
@@ -763,13 +722,15 @@ impl PyObject {
                     return NumpyUint64::new(self.ptr).serialize(serializer);
                 }
                 if ob_type == numpy_types_ref.array {
-                    match NumpyArray::new(self.ptr, self.opts) {
+                    match NumpyArray::new(self.ptr, self.state, self.opts) {
                         Ok(val) => return val.serialize(serializer),
-                        Err(PyArrayError::Malformed) => err!("numpy array is malformed"),
+                        Err(PyArrayError::Malformed) => {
+                            return Err(serde::ser::Error::custom("numpy array is malformed"))
+                        }
                         Err(PyArrayError::NotContiguous)
                         | Err(PyArrayError::UnsupportedDataType) => {
-                            if self.default.is_none() {
-                                err!("numpy array is not C contiguous; use ndarray.tolist() in default")
+                            if self.default.inner.is_none() {
+                                return Err(serde::ser::Error::custom("numpy array is not C contiguous; use ndarray.tolist() in default"));
                             }
                         }
                     }
@@ -777,82 +738,48 @@ impl PyObject {
             }
         }
 
-        if py_is!(ob_type, BYTEARRAY_TYPE) {
+        if ob_type == &raw mut pyo3::ffi::PyByteArray_Type {
             return ByteArray::new(self.ptr).serialize(serializer);
         }
-        if py_is!(ob_type, MEMORYVIEW_TYPE) {
+        if ob_type == &raw mut pyo3::ffi::PyMemoryView_Type {
             return MemoryView::new(self.ptr).serialize(serializer);
         }
 
-        Default::new(
-            self.ptr,
-            self.opts,
-            self.default_calls,
-            self.recursion,
-            self.default,
-        )
-        .serialize(serializer)
+        self.serialize_with_default_hook(serializer)
     }
 }
 
-impl Serialize for PyObject {
+impl Serialize for PyObject<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         let ob_type = ob_type!(self.ptr);
-        if py_is!(ob_type, STR_TYPE) {
-            Str::new(self.ptr).serialize(serializer)
-        } else if py_is!(ob_type, BYTES_TYPE) {
+        if ob_type == &raw mut pyo3::ffi::PyUnicode_Type {
+            Str::new(self.ptr, self.opts).serialize(serializer)
+        } else if ob_type == &raw mut pyo3::ffi::PyBytes_Type {
             Bytes::new(self.ptr).serialize(serializer)
-        } else if py_is!(ob_type, INT_TYPE) {
+        } else if ob_type == &raw mut pyo3::ffi::PyLong_Type {
             match Int::new(self.ptr) {
                 Ok(val) => val.serialize(serializer),
                 Err(err) => {
                     if self.opts & PASSTHROUGH_BIG_INT != 0 {
-                        Default::new(
-                            self.ptr,
-                            self.opts,
-                            self.default_calls,
-                            self.recursion,
-                            self.default,
-                        )
-                        .serialize(serializer)
+                        self.serialize_with_default_hook(serializer)
                     } else {
-                        err!(err)
+                        Err(serde::ser::Error::custom(err))
                     }
                 }
             }
-        } else if py_is!(ob_type, BOOL_TYPE) {
-            serializer.serialize_bool(unsafe { self.ptr == TRUE })
-        } else if py_is!(self.ptr, NONE) {
+        } else if ob_type == &raw mut pyo3::ffi::PyBool_Type {
+            serializer.serialize_bool(unsafe { self.ptr == pyo3::ffi::Py_True() })
+        } else if self.ptr == unsafe { pyo3::ffi::Py_None() } {
             serializer.serialize_unit()
-        } else if py_is!(ob_type, FLOAT_TYPE) {
-            serializer.serialize_f64(ffi!(PyFloat_AS_DOUBLE(self.ptr)))
-        } else if py_is!(ob_type, LIST_TYPE) {
-            if unlikely!(self.recursion == RECURSION_LIMIT) {
-                err!(RECURSION_LIMIT_REACHED)
-            }
-            List::new(
-                self.ptr,
-                self.opts,
-                self.default_calls,
-                self.recursion,
-                self.default,
-            )
-            .serialize(serializer)
-        } else if py_is!(ob_type, DICT_TYPE) {
-            if unlikely!(self.recursion == RECURSION_LIMIT) {
-                err!(RECURSION_LIMIT_REACHED)
-            }
-            Dict::new(
-                self.ptr,
-                self.opts,
-                self.default_calls,
-                self.recursion,
-                self.default,
-            )
-            .serialize(serializer)
+        } else if ob_type == &raw mut pyo3::ffi::PyFloat_Type {
+            serializer.serialize_f64(unsafe { pyo3::ffi::PyFloat_AS_DOUBLE(self.ptr) })
+        } else if ob_type == &raw mut pyo3::ffi::PyList_Type {
+            List::new(self.ptr, self.state, self.opts, self.default).serialize(serializer)
+        } else if ob_type == &raw mut pyo3::ffi::PyDict_Type {
+            Dict::new(self.ptr, self.state, self.opts, self.default).serialize(serializer)
         } else {
             self.serialize_unlikely(serializer)
         }
@@ -861,16 +788,16 @@ impl Serialize for PyObject {
 
 pub struct DictTupleKey {
     ptr: *mut pyo3::ffi::PyObject,
+    state: *mut State,
     opts: Opt,
-    recursion: u8,
 }
 
 impl DictTupleKey {
-    pub fn new(ptr: *mut pyo3::ffi::PyObject, opts: Opt, recursion: u8) -> Self {
+    pub fn new(ptr: *mut pyo3::ffi::PyObject, state: *mut State, opts: Opt) -> Self {
         DictTupleKey {
             ptr: ptr,
+            state: state,
             opts: opts,
-            recursion: recursion,
         }
     }
 }
@@ -881,11 +808,11 @@ impl Serialize for DictTupleKey {
     where
         S: Serializer,
     {
-        let len = ffi!(Py_SIZE(self.ptr)) as usize;
-        let mut seq = serializer.serialize_seq(Some(len)).unwrap();
+        let len = unsafe { pyo3::ffi::Py_SIZE(self.ptr) } as usize;
+        let mut seq = serializer.serialize_seq(Some(len))?;
         for i in 0..len {
             let item = unsafe { pytuple_get_item(self.ptr, i as isize) };
-            let value = DictKey::new(item, self.opts, self.recursion + 1);
+            let value = DictKey::new(item, self.state, self.opts);
             seq.serialize_element(&value)?;
         }
         seq.end()
@@ -894,16 +821,16 @@ impl Serialize for DictTupleKey {
 
 pub struct DictKey {
     ptr: *mut pyo3::ffi::PyObject,
+    state: *mut State,
     opts: Opt,
-    recursion: u8,
 }
 
 impl DictKey {
-    pub fn new(ptr: *mut pyo3::ffi::PyObject, opts: Opt, recursion: u8) -> Self {
+    pub fn new(ptr: *mut pyo3::ffi::PyObject, state: *mut State, opts: Opt) -> Self {
         DictKey {
             ptr: ptr,
+            state: state,
             opts: opts,
-            recursion: recursion,
         }
     }
 
@@ -914,54 +841,54 @@ impl DictKey {
     {
         let ob_type = ob_type!(self.ptr);
 
-        if py_is!(ob_type, DATETIME_TYPE) {
-            match DateTime::new(self.ptr, self.opts) {
+        let datetime_api = unsafe { *pyo3::ffi::PyDateTimeAPI() };
+        if ob_type == datetime_api.DateTimeType {
+            match DateTime::new(self.ptr, self.state, self.opts) {
                 Ok(val) => return val.serialize(serializer),
-                Err(err) => err!(err),
+                Err(err) => return Err(serde::ser::Error::custom(err)),
             }
         }
-        if py_is!(ob_type, DATE_TYPE) {
+        if ob_type == datetime_api.DateType {
             return Date::new(self.ptr).serialize(serializer);
         }
-        if py_is!(ob_type, TIME_TYPE) {
+        if ob_type == datetime_api.TimeType {
             match Time::new(self.ptr, self.opts) {
                 Ok(val) => return val.serialize(serializer),
-                Err(err) => err!(err),
+                Err(err) => return Err(serde::ser::Error::custom(err)),
             };
         }
 
-        if py_is!(ob_type, TUPLE_TYPE) {
-            if unlikely!(self.recursion == RECURSION_LIMIT) {
-                err!(RECURSION_LIMIT_REACHED)
-            }
-            return DictTupleKey::new(self.ptr, self.opts, self.recursion).serialize(serializer);
+        if ob_type == &raw mut pyo3::ffi::PyTuple_Type {
+            return DictTupleKey::new(self.ptr, self.state, self.opts).serialize(serializer);
         }
 
-        if py_is!(ob_type, UUID_TYPE) {
-            return UUID::new(self.ptr).serialize(serializer);
+        if ob_type == unsafe { (*self.state).uuid_type } {
+            return UUID::new(self.ptr, self.state).serialize(serializer);
         }
 
-        if py_is!(ob_type!(ob_type), ENUM_TYPE) {
-            let value = ffi!(PyObject_GetAttr(self.ptr, VALUE_STR));
-            ffi!(Py_DECREF(value));
-            return DictKey::new(value, self.opts, self.recursion).serialize(serializer);
+        if ob_type!(ob_type) == unsafe { (*self.state).enum_type } {
+            let value = unsafe { pyo3::ffi::PyObject_GetAttr(self.ptr, (*self.state).value_str) };
+            unsafe { pyo3::ffi::Py_DECREF(value) };
+            return DictKey::new(value, self.state, self.opts).serialize(serializer);
         }
 
-        if is_subclass!(ob_type, Py_TPFLAGS_UNICODE_SUBCLASS) {
-            return StrSubclass::new(self.ptr).serialize(serializer);
+        if is_subclass(ob_type, pyo3::ffi::Py_TPFLAGS_UNICODE_SUBCLASS) {
+            return StrSubclass::new(self.ptr, self.opts).serialize(serializer);
         }
-        if is_subclass!(ob_type, Py_TPFLAGS_LONG_SUBCLASS) {
+        if is_subclass(ob_type, pyo3::ffi::Py_TPFLAGS_LONG_SUBCLASS) {
             match Int::new(self.ptr) {
                 Ok(val) => return val.serialize(serializer),
-                Err(err) => err!(err),
+                Err(err) => return Err(serde::ser::Error::custom(err)),
             }
         }
 
-        if py_is!(ob_type, MEMORYVIEW_TYPE) {
+        if ob_type == &raw mut pyo3::ffi::PyMemoryView_Type {
             return MemoryView::new(self.ptr).serialize(serializer);
         }
 
-        err!("Dict key must a type serializable with OPT_NON_STR_KEYS")
+        Err(serde::ser::Error::custom(
+            "Dict key must a type serializable with OPT_NON_STR_KEYS",
+        ))
     }
 }
 
@@ -971,21 +898,21 @@ impl Serialize for DictKey {
         S: Serializer,
     {
         let ob_type = ob_type!(self.ptr);
-        if py_is!(ob_type, STR_TYPE) {
-            Str::new(self.ptr).serialize(serializer)
-        } else if py_is!(ob_type, BYTES_TYPE) {
+        if ob_type == &raw mut pyo3::ffi::PyUnicode_Type {
+            Str::new(self.ptr, self.opts).serialize(serializer)
+        } else if ob_type == &raw mut pyo3::ffi::PyBytes_Type {
             Bytes::new(self.ptr).serialize(serializer)
-        } else if py_is!(ob_type, INT_TYPE) {
+        } else if ob_type == &raw mut pyo3::ffi::PyLong_Type {
             match Int::new(self.ptr) {
                 Ok(val) => val.serialize(serializer),
-                Err(err) => err!(err),
+                Err(err) => Err(serde::ser::Error::custom(err)),
             }
-        } else if py_is!(ob_type, BOOL_TYPE) {
-            serializer.serialize_bool(unsafe { self.ptr == TRUE })
-        } else if py_is!(self.ptr, NONE) {
+        } else if ob_type == &raw mut pyo3::ffi::PyBool_Type {
+            serializer.serialize_bool(unsafe { self.ptr == pyo3::ffi::Py_True() })
+        } else if self.ptr == unsafe { pyo3::ffi::Py_None() } {
             serializer.serialize_unit()
-        } else if py_is!(ob_type, FLOAT_TYPE) {
-            serializer.serialize_f64(ffi!(PyFloat_AS_DOUBLE(self.ptr)))
+        } else if ob_type == &raw mut pyo3::ffi::PyFloat_Type {
+            serializer.serialize_f64(unsafe { pyo3::ffi::PyFloat_AS_DOUBLE(self.ptr) })
         } else {
             self.serialize_unlikely(serializer)
         }

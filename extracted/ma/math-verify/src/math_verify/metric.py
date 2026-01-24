@@ -1,7 +1,7 @@
 ## Parser definition
 import logging
+from math_verify.errors import TimeoutException
 from typing import Callable, Optional, Sequence
-
 from math_verify.grader import verify
 from math_verify.parser import ExprExtractionConfig, ExtractionTarget, parse
 from math_verify.utils import timeout
@@ -33,10 +33,6 @@ def math_metric(
             Extraction targets to use for predictions. Defaults to extracting simple math expressions.
         aggregation_function: Callable[[list[float]], float]
             Function to aggregate scores when multiple golds/predictions are present. Defaults to max.
-        fallback_mode: Literal["no_fallback", "first_match"]
-            How to perform extraction. Defaults to "first_match".
-            - "no_fallback": Only use first successfully parsed matches
-            - "first_match": Use the first successfully parsed match + first match irregardless the parsing success
         precision: int
             Number of decimal places to use when comparing numerical values. Defaults to 6.
 
@@ -78,7 +74,7 @@ def math_metric(
             str_preds = get_str_preds_with_timeout(
                 extracted_predictions, extracted_golds
             )
-        except Exception:
+        except TimeoutException:
             logger.warning(
                 "Timeout when adding extracted predictions and golds to specific"
             )

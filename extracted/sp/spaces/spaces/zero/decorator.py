@@ -1,19 +1,18 @@
 """
 """
-from __future__ import annotations
-
 import inspect
-import sys
 import warnings
 from datetime import timedelta
 from functools import partial
 from typing import Callable
+from typing import Literal
 from typing import TypeVar
 from typing import overload
 from typing_extensions import ParamSpec
 from typing_extensions import Unpack
 
 from ..config import Config
+from .api import GPUSize
 from .types import DynamicDuration
 from .types import EmptyKwargs
 
@@ -29,23 +28,35 @@ decorated_cache: dict[Callable, Callable] = {}
 def GPU(
     task: None = None, *,
     duration: DynamicDuration[P] = None,
+    size: Literal['large', 'xlarge'] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     ...
 @overload
 def GPU(
     task: Callable[P, R], *,
     duration: DynamicDuration[P] = None,
+    size: Literal['large', 'xlarge'] | None = None,
 ) -> Callable[P, R]:
     ...
 def GPU(
     task: Callable[P, R] | None = None, *,
     duration: DynamicDuration[P] = None,
+    size: Literal['large', 'xlarge'] | None = None,
     **kwargs: Unpack[EmptyKwargs],
 ) -> Callable[[Callable[P, R]], Callable[P, R]] | Callable[P, R]:
     """
     ZeroGPU decorator
 
-    Basic usage:
+    Args:
+        task (`Callable | None`): Python function that requires CUDA
+        duration (`int | datetime.timedelta`): Estimated duration in seconds or `datetime.timedelta`
+        size (`"large" | "xlarge" | None`): Defaults to **large** when running on ZeroGPU
+
+    Returns:
+        `Callable`: GPU-ready function
+
+    Examples:
+        Basic usage:
         ```
         @spaces.GPU
         def fn(...):
@@ -53,31 +64,35 @@ def GPU(
             pass
         ```
 
-    With custom duration:
+        With custom duration:
         ```
         @spaces.GPU(duration=45) # Expressed in seconds
         def fn(...):
-            # CUDA is available here
             pass
         ```
 
-    Args:
-        task (`Callable | None`): Python function that requires CUDA
-        duration (`int | datetime.timedelta`): Estimated duration in seconds or `datetime.timedelta`
-
-    Returns:
-        `Callable`: GPU-ready function
+        With custom duration and size:
+        ```
+        @spaces.GPU(duration=45, size='xlarge')
+        def fn(...):
+            pass
+        ```
     """
     if "enable_queue" in kwargs:
         warnings.warn("`enable_queue` parameter is now ignored and always set to `True`")
-    if task is None:
-        return partial(_GPU, duration=duration)
-    return _GPU(task, duration)
+    if not callable(task):
+        if isinstance(task, str): # pragma: no cover (@spaces.GPU('xlarge'))
+            size = task
+        elif task is not None: # pragma: no cover (@spaces.GPU(45))
+            duration = task
+        return partial(_GPU, duration=duration, size=size)
+    return _GPU(task, duration, size)
 
 
 def _GPU(
     task: Callable[P, R],
     duration: DynamicDuration[P],
+    size: GPUSize | None,
 ) -> Callable[P, R]:
 
     if not Config.zero_gpu:
@@ -87,9 +102,6 @@ def _GPU(
     from .wrappers import regular_function_wrapper
     from .wrappers import generator_function_wrapper
 
-    if sys.version_info.minor < 9: # pragma: no cover
-        raise RuntimeError("Actually using @spaces.GPU on a ZeroGPU Space requires Python 3.9+")
-
     if task in decorated_cache:
         # TODO: Assert same duration ?
         return decorated_cache[task] # type: ignore
@@ -98,9 +110,9 @@ def _GPU(
         raise NotImplementedError
 
     if inspect.isgeneratorfunction(task):
-        decorated = generator_function_wrapper(task, duration)
+        decorated = generator_function_wrapper(task, duration, size)
     else:
-        decorated = regular_function_wrapper(task, duration)
+        decorated = regular_function_wrapper(task, duration, size)
 
     setattr(decorated, 'zerogpu', None)
 

@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import sys
@@ -7,11 +8,11 @@ from typing import Any, Literal, cast
 import anyio
 from anyio.abc import TaskGroup
 
-from inspect_ai._eval.task.task import resolve_model_roles
 from inspect_ai._util.notgiven import NOT_GIVEN, NotGiven
 from inspect_ai.agent._agent import Agent, is_agent
 from inspect_ai.agent._as_solver import as_solver
-from inspect_ai.log._model import model_roles_config_to_model_roles
+from inspect_ai.model._model_config import model_roles_config_to_model_roles
+from inspect_ai.model._util import resolve_model_roles
 from inspect_ai.util._anyio import inner_exception
 
 if sys.version_info < (3, 11):
@@ -53,6 +54,7 @@ from inspect_ai.model._model import (
     get_model,
     init_active_model,
     init_model_roles,
+    init_model_usage,
     resolve_models,
 )
 from inspect_ai.scorer._reducer import reducer_log_names
@@ -90,7 +92,7 @@ def eval(
     metadata: dict[str, Any] | None = None,
     trace: bool | None = None,
     display: DisplayType | None = None,
-    approval: str | list[ApprovalPolicy] | None = None,
+    approval: str | list[ApprovalPolicy] | ApprovalPolicyConfig | None = None,
     log_level: str | None = None,
     log_level_transcript: str | None = None,
     log_dir: str | None = None,
@@ -149,7 +151,7 @@ def eval(
         trace: Trace message interactions with evaluated model to terminal.
         display: Task display type (defaults to 'full').
         approval: Tool use approval policies.
-            Either a path to an approval policy config file or a list of approval policies.
+            Either a path to an approval policy config file, an ApprovalPolicyConfig, or a list of approval policies.
             Defaults to no approval policy.
         log_level: Level for logging to the console: "debug", "http", "sandbox",
             "info", "warning", "error", "critical", or "notset" (defaults to "warning")
@@ -342,7 +344,7 @@ async def eval_async(
         tags: Tags to associate with this evaluation run.
         metadata: Metadata to associate with this evaluation run.
         approval: Tool use approval policies.
-          Either a path to an approval policy config file or a list of approval policies.
+          Either a path to an approval policy config file, an ApprovalPolicyConfig, or a list of approval policies.
           Defaults to no approval policy.
         log_level: Level for logging to the console: "debug", "http", "sandbox",
           "info", "warning", "error", "critical", or "notset" (defaults to "warning")
@@ -453,7 +455,8 @@ async def eval_async(
         raise inner_exception(ex)
     except anyio.get_cancelled_exc_class():
         # Cancelled exceptions are expected and handled by _eval_async_inner
-        pass
+        if result is None:
+            raise
 
     assert result is not None, "Eval async did not return a result."
 
@@ -760,6 +763,7 @@ def eval_retry(
     score_display: bool | None = None,
     max_retries: int | None = None,
     timeout: int | None = None,
+    attempt_timeout: int | None = None,
     max_connections: int | None = None,
 ) -> list[EvalLog]:
     """Retry a previously failed evaluation task.
@@ -811,6 +815,8 @@ def eval_retry(
             Maximum number of times to retry request.
         timeout:
             Request timeout (in seconds)
+        attempt_timeout:
+            Timeout (in seconds) for any given attempt (if exceeded, will abandon attempt and retry according to max_retries).
         max_connections:
             Maximum number of concurrent connections to Model API (default is per Model API)
 
@@ -848,6 +854,7 @@ def eval_retry(
             score_display=score_display,
             max_retries=max_retries,
             timeout=timeout,
+            attempt_timeout=attempt_timeout,
             max_connections=max_connections,
         )
 
@@ -878,6 +885,7 @@ async def eval_retry_async(
     score_display: bool | None = None,
     max_retries: int | None = None,
     timeout: int | None = None,
+    attempt_timeout: int | None = None,
     max_connections: int | None = None,
 ) -> list[EvalLog]:
     """Retry a previously failed evaluation task.
@@ -919,6 +927,7 @@ async def eval_retry_async(
         score_display: Show scoring metrics in realtime (defaults to True)
         max_retries: Maximum number of times to retry request.
         timeout: Request timeout (in seconds)
+        attempt_timeout: Timeout (in seconds) for any given attempt (if exceeded, will abandon attempt and retry according to max_retries).
         max_connections: Maximum number of concurrent connections to Model API (default is per Model API)
 
     Returns:
@@ -959,7 +968,9 @@ async def eval_retry_async(
                 raise FileNotFoundError(f"Task file '{task_file}' not found")
             task = f"{task_file}@{task_name}"
         else:
-            if registry_lookup("task", task_name) is None:
+            if registry_lookup("task", task_name) is None and not task_name.startswith(
+                "hf/"
+            ):
                 # if this object is in a package then let the user know
                 # that they need to register it to work with eval-retry
                 package_name = registry_package_name(task_name)
@@ -973,7 +984,11 @@ async def eval_retry_async(
 
         # see if there is solver spec in the eval log
         solver = (
-            SolverSpec(eval_log.eval.solver, eval_log.eval.solver_args or {})
+            SolverSpec(
+                eval_log.eval.solver,
+                eval_log.eval.solver_args or {},
+                eval_log.eval.solver_args_passed or {},
+            )
             if eval_log.eval.solver
             else None
         )
@@ -992,6 +1007,7 @@ async def eval_retry_async(
         # collect the rest of the params we need for the eval
         task_args = eval_log.eval.task_args_passed
         tags = eval_log.eval.tags
+        metadata = eval_log.eval.metadata
         limit = eval_log.eval.config.limit
         # try to match log format of retried log
         if log_format is None and eval_log.location:
@@ -1063,7 +1079,17 @@ async def eval_retry_async(
         config = eval_log.plan.config
         config.max_retries = max_retries or config.max_retries
         config.timeout = timeout or config.timeout
+        config.attempt_timeout = attempt_timeout or config.attempt_timeout
         config.max_connections = max_connections or config.max_connections
+
+        # extract previous model usage to continue token counting (make a deep copy to avoid modifying the original log)
+        initial_model_usage = (
+            copy.deepcopy(eval_log.stats.model_usage)
+            if eval_log.stats.model_usage
+            else None
+        )
+        if initial_model_usage:
+            init_model_usage(initial_model_usage)
 
         # run the eval
         log = (
@@ -1075,6 +1101,7 @@ async def eval_retry_async(
                     model=None,
                     model_roles=None,
                     log=eval_log,
+                    log_info=None,
                 ),
                 model=model,
                 model_roles=cast(dict[str, str | Model], model_roles),
@@ -1083,6 +1110,7 @@ async def eval_retry_async(
                 sandbox_cleanup=sandbox_cleanup,
                 solver=solver,
                 tags=tags,
+                metadata=metadata,
                 approval=approval,
                 log_level=log_level,
                 log_level_transcript=log_level_transcript,

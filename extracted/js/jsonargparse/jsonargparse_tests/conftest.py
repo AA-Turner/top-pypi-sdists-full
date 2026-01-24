@@ -83,6 +83,12 @@ skip_if_responses_unavailable = pytest.mark.skipif(
     reason="responses package is required",
 )
 
+skip_if_omegaconf_unavailable = pytest.mark.skipif(
+    not omegaconf_support,
+    reason="omegaconf package is required",
+)
+
+
 skip_if_running_as_root = pytest.mark.skipif(
     is_posix and os.geteuid() == 0,
     reason="User is root, permission tests will not work",
@@ -126,6 +132,11 @@ def parser(request) -> ArgumentParser:
 
 @pytest.fixture
 def subparser() -> ArgumentParser:
+    return ArgumentParser(exit_on_error=False)
+
+
+@pytest.fixture
+def subsubparser() -> ArgumentParser:
     return ArgumentParser(exit_on_error=False)
 
 
@@ -217,7 +228,7 @@ def get_parse_args_stdout(parser: ArgumentParser, args: List[str]) -> str:
 def get_parse_args_stderr(parser: ArgumentParser, args: List[str]) -> str:
     err = StringIO()
     with patch.object(parser, "exit_on_error", return_value=True):
-        with redirect_stderr(err), pytest.raises(SystemExit):
+        with patch.dict(os.environ, {"COLUMNS": columns}), redirect_stderr(err), pytest.raises(SystemExit):
             parser.parse_args(args)
     return err.getvalue()
 

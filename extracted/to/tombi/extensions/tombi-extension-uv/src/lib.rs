@@ -1,15 +1,33 @@
+mod code_action;
 mod document_link;
 mod goto_declaration;
 mod goto_definition;
 
+use std::str::FromStr;
+
+pub use code_action::code_action;
 pub use document_link::document_link;
 pub use goto_declaration::goto_declaration;
 pub use goto_definition::goto_definition;
 use itertools::Itertools;
+use pep508_rs::{Requirement, VerbatimUrl, VersionOrUrl};
 use tombi_ast::AstNode;
 use tombi_config::TomlVersion;
-use tombi_document_tree::{dig_accessors, TryIntoDocumentTree};
+use tombi_document_tree::{TryIntoDocumentTree, dig_accessors, dig_keys};
 use tombi_schema_store::matches_accessors;
+
+#[derive(Debug, Clone)]
+struct DependencyRequirement<'a> {
+    dependency: &'a tombi_document_tree::String,
+    requirement: Requirement<VerbatimUrl>,
+}
+
+impl<'a> DependencyRequirement<'a> {
+    #[inline]
+    fn version_or_url(&self) -> Option<&VersionOrUrl<VerbatimUrl>> {
+        self.requirement.version_or_url.as_ref()
+    }
+}
 
 #[derive(Debug, Clone)]
 struct PackageLocation {
@@ -33,19 +51,35 @@ impl From<PackageLocation> for Option<tombi_extension::DefinitionLocation> {
 fn load_pyproject_toml(
     pyproject_toml_path: &std::path::Path,
     toml_version: TomlVersion,
-) -> Option<tombi_document_tree::DocumentTree> {
+) -> Option<(tombi_ast::Root, tombi_document_tree::DocumentTree)> {
     let toml_text = std::fs::read_to_string(pyproject_toml_path).ok()?;
 
     let root =
         tombi_ast::Root::cast(tombi_parser::parse(&toml_text, toml_version).into_syntax_node())?;
 
-    root.try_into_document_tree(toml_version).ok()
+    // Clone the root before converting to document tree
+    let root_clone = tombi_ast::Root::cast(root.syntax().clone())?;
+    let document_tree = root.try_into_document_tree(toml_version).ok()?;
+
+    Some((root_clone, document_tree))
+}
+
+fn load_pyproject_toml_document_tree(
+    pyproject_toml_path: &std::path::Path,
+    toml_version: TomlVersion,
+) -> Option<tombi_document_tree::DocumentTree> {
+    let (_, document_tree) = load_pyproject_toml(pyproject_toml_path, toml_version)?;
+    Some(document_tree)
 }
 
 fn find_workspace_pyproject_toml(
     pyproject_toml_path: &std::path::Path,
     toml_version: TomlVersion,
-) -> Option<(std::path::PathBuf, tombi_document_tree::DocumentTree)> {
+) -> Option<(
+    std::path::PathBuf,
+    tombi_ast::Root,
+    tombi_document_tree::DocumentTree,
+)> {
     let mut current_dir = pyproject_toml_path.parent()?;
 
     while let Some(target_dir) = current_dir.parent() {
@@ -53,23 +87,16 @@ fn find_workspace_pyproject_toml(
         let workspace_pyproject_toml_path = current_dir.join("pyproject.toml");
 
         if workspace_pyproject_toml_path.exists() {
-            let Some(package_pyproject_toml_document_tree) =
+            let Some((root, document_tree)) =
                 load_pyproject_toml(&workspace_pyproject_toml_path, toml_version)
             else {
                 continue;
             };
 
             // Check if this pyproject.toml has a [tool.uv.workspace] section
-            if tombi_document_tree::dig_keys(
-                &package_pyproject_toml_document_tree,
-                &["tool", "uv", "workspace"],
-            )
-            .is_some()
+            if tombi_document_tree::dig_keys(&document_tree, &["tool", "uv", "workspace"]).is_some()
             {
-                return Some((
-                    workspace_pyproject_toml_path,
-                    package_pyproject_toml_document_tree,
-                ));
+                return Some((workspace_pyproject_toml_path, root, document_tree));
             }
         }
     }
@@ -259,12 +286,12 @@ fn goto_workspace_member(
     toml_version: TomlVersion,
     jump_to_package: bool,
 ) -> Result<Option<tombi_extension::DefinitionLocation>, tower_lsp::jsonrpc::Error> {
-    assert!(
+    debug_assert!(
         matches_accessors!(accessors, ["tool", "uv", "sources", _])
             || matches_accessors!(accessors, ["tool", "uv", "sources", _, "workspace"])
     );
 
-    let Some((workspace_pyproject_toml_path, workspace_pyproject_toml_document_tree)) =
+    let Some((workspace_pyproject_toml_path, _, workspace_pyproject_toml_document_tree)) =
         find_workspace_pyproject_toml(pyproject_toml_path, toml_version)
     else {
         return Ok(None);
@@ -275,14 +302,12 @@ fn goto_workspace_member(
     } else {
         return Ok(None);
     };
-    if accessors.len() == 3 {
-        if let Some((_, tombi_document_tree::Value::Table(table))) =
+    if accessors.len() == 3
+        && let Some((_, tombi_document_tree::Value::Table(table))) =
             dig_accessors(document_tree, accessors)
-        {
-            if !table.contains_key("workspace") {
-                return Ok(None);
-            }
-        }
+        && !table.contains_key("workspace")
+    {
+        return Ok(None);
     }
 
     let Some((package_toml_path, member_range)) = find_member_project_toml(
@@ -299,7 +324,8 @@ fn goto_workspace_member(
         else {
             return Ok(None);
         };
-        let Some(member_document_tree) = load_pyproject_toml(pyproject_toml_path, toml_version)
+        let Some(member_document_tree) =
+            load_pyproject_toml_document_tree(pyproject_toml_path, toml_version)
         else {
             return Ok(None);
         };
@@ -352,7 +378,8 @@ fn goto_member_pyprojects(
     for (_, pyproject_toml_path) in
         find_pyproject_toml_paths(&member_patterns, &exclude_patterns, workspace_dir_path)
     {
-        let Some(member_document_tree) = load_pyproject_toml(&pyproject_toml_path, toml_version)
+        let Some(member_document_tree) =
+            load_pyproject_toml_document_tree(&pyproject_toml_path, toml_version)
         else {
             continue;
         };
@@ -385,17 +412,95 @@ fn find_member_project_toml(
         find_pyproject_toml_paths(&member_patterns, &exclude_patterns, workspace_dir_path)
     {
         let Some(package_project_toml_document_tree) =
-            load_pyproject_toml(&package_project_toml_path, toml_version)
+            load_pyproject_toml_document_tree(&package_project_toml_path, toml_version)
         else {
             continue;
         };
 
-        if let Some(name) = get_project_name(&package_project_toml_document_tree) {
-            if name.value() == package_name {
-                return Some((package_project_toml_path, member_item.unquoted_range()));
-            }
+        if let Some(name) = get_project_name(&package_project_toml_document_tree)
+            && name.value() == package_name
+        {
+            return Some((package_project_toml_path, member_item.unquoted_range()));
         }
     }
 
     None
+}
+
+fn parse_requirement(dependency: &str) -> Option<Requirement<VerbatimUrl>> {
+    match Requirement::<VerbatimUrl>::from_str(dependency) {
+        Ok(requirement) => Some(requirement),
+        Err(e) => {
+            tracing::debug!(
+                dependency = %dependency,
+                error = %e,
+                "Failed to parse PEP 508 dependency string"
+            );
+            None
+        }
+    }
+}
+
+fn parse_dependency_requirement<'a>(
+    dependency: &'a tombi_document_tree::String,
+) -> Option<DependencyRequirement<'a>> {
+    parse_requirement(dependency.value()).map(|requirement| DependencyRequirement {
+        requirement,
+        dependency,
+    })
+}
+
+fn collect_dependency_requirements_from_document_tree<'a>(
+    document_tree: &'a tombi_document_tree::DocumentTree,
+) -> Vec<DependencyRequirement<'a>> {
+    let mut dependency_requirements = Vec::new();
+
+    if let Some((_, tombi_document_tree::Value::Array(dep_array))) =
+        dig_keys(document_tree, &["project", "dependencies"])
+    {
+        dependency_requirements.extend(collect_dependency_requirements_from_values::<'a>(
+            dep_array.iter(),
+        ));
+    }
+    if let Some((_, tombi_document_tree::Value::Table(dep_group))) =
+        dig_keys(document_tree, &["project", "optional-dependencies"])
+    {
+        for value in dep_group.values() {
+            if let tombi_document_tree::Value::Array(dep_array) = value {
+                dependency_requirements.extend(collect_dependency_requirements_from_values(
+                    dep_array.iter(),
+                ));
+            }
+        }
+    }
+    if let Some((_, tombi_document_tree::Value::Table(dep_group))) =
+        dig_keys(document_tree, &["dependency-groups"])
+    {
+        for value in dep_group.values() {
+            if let tombi_document_tree::Value::Array(dep_array) = value {
+                dependency_requirements.extend(collect_dependency_requirements_from_values(
+                    dep_array.iter(),
+                ));
+            }
+        }
+    }
+
+    dependency_requirements
+}
+
+fn collect_dependency_requirements_from_values<'a>(
+    dependencies: impl Iterator<Item = &'a tombi_document_tree::Value>,
+) -> Vec<DependencyRequirement<'a>> {
+    dependencies
+        .filter_map(|value| {
+            if let tombi_document_tree::Value::String(dep_str) = value {
+                parse_requirement(dep_str.value()).map(|requirement| DependencyRequirement {
+                    requirement,
+                    dependency: dep_str,
+                })
+            } else {
+                None
+            }
+        })
+        .collect()
 }

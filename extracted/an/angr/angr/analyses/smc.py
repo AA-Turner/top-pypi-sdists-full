@@ -12,7 +12,6 @@ from angr.sim_state import SimState
 
 from angr.utils.tagged_interval_map import TaggedIntervalMap
 
-
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
@@ -112,9 +111,8 @@ class SelfModifyingCodeAnalysis(Analysis):
         if subject is None:
             subject = self.project.entry
         if isinstance(subject, str):
-            try:
-                addr = self.project.kb.labels.lookup(subject)
-            except KeyError:
+            addr = self.project.kb.labels.lookup(subject)
+            if addr is None:
                 addr = self.project.kb.functions[subject].addr
         elif isinstance(subject, Function):
             addr = subject.addr

@@ -1,0 +1,6 @@
+[workspace]
+members = ["py"]
+resolver = "2"
+
+[profile.bench.package.pgpq]
+debug = true

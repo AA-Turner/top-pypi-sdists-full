@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-from wheel.metadata import pkginfo_to_metadata
+from pathlib import Path
+
+import pytest
+
+from wheel._metadata import pkginfo_to_metadata
 
 
-def test_pkginfo_to_metadata(tmp_path):
+def test_pkginfo_to_metadata(tmp_path: Path) -> None:
     expected_metadata = [
         ("Metadata-Version", "2.1"),
         ("Name", "spam"),
         ("Version", "0.1"),
-        ("Requires-Dist", "pip@ https://github.com/pypa/pip/archive/1.3.1.zip"),
+        ("Requires-Dist", "pip @ https://github.com/pypa/pip/archive/1.3.1.zip"),
         ("Requires-Dist", 'pywin32; sys_platform == "win32"'),
-        ("Requires-Dist", 'foo@ http://host/foo.zip ; sys_platform == "win32"'),
+        ("Requires-Dist", 'foo @ http://host/foo.zip ; sys_platform == "win32"'),
         ("Provides-Extra", "signatures"),
         (
             "Requires-Dist",
@@ -18,7 +22,7 @@ def test_pkginfo_to_metadata(tmp_path):
         ),
         ("Provides-Extra", "empty_extra"),
         ("Provides-Extra", "extra"),
-        ("Requires-Dist", 'bar@ http://host/bar.zip ; extra == "extra"'),
+        ("Requires-Dist", 'bar @ http://host/bar.zip ; extra == "extra"'),
         ("Provides-Extra", "faster-signatures"),
         ("Requires-Dist", 'ed25519ll; extra == "faster-signatures"'),
         ("Provides-Extra", "rest"),
@@ -83,3 +87,10 @@ pytest-cov""",
         egg_info_path=str(egg_info_dir), pkginfo_path=str(pkg_info)
     )
     assert message.items() == expected_metadata
+
+
+def test_metadata_deprecated() -> None:
+    with pytest.warns(DeprecationWarning, match="has been made private"):
+        from wheel import metadata
+
+        assert hasattr(metadata, "pkginfo_to_metadata")

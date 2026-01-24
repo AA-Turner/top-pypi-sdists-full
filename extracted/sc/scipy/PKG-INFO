@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: scipy
-Version: 1.16.2
+Version: 1.17.0
 Summary: Fundamental algorithms for scientific computing in Python
 Maintainer-Email: SciPy Developers <scipy-dev@python.org>
 License: Copyright (c) 2001-2002 Enthought, Inc. 2003, SciPy Developers.
@@ -58,7 +58,7 @@ Project-URL: source, https://github.com/scipy/scipy
 Project-URL: download, https://github.com/scipy/scipy/releases
 Project-URL: tracker, https://github.com/scipy/scipy/issues
 Requires-Python: >=3.11
-Requires-Dist: numpy<2.6,>=1.25.2
+Requires-Dist: numpy<2.7,>=1.26.4
 Provides-Extra: test
 Requires-Dist: pytest>=8.0.0; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
@@ -89,16 +89,16 @@ Requires-Dist: pooch; extra == "doc"
 Requires-Dist: jupyterlite-sphinx>=0.19.1; extra == "doc"
 Requires-Dist: jupyterlite-pyodide-kernel; extra == "doc"
 Requires-Dist: linkify-it-py; extra == "doc"
+Requires-Dist: tabulate; extra == "doc"
 Provides-Extra: dev
+Requires-Dist: click<8.3.0; extra == "dev"
+Requires-Dist: spin; extra == "dev"
 Requires-Dist: mypy==1.10.0; extra == "dev"
 Requires-Dist: typing_extensions; extra == "dev"
 Requires-Dist: types-psutil; extra == "dev"
 Requires-Dist: pycodestyle; extra == "dev"
-Requires-Dist: ruff>=0.0.292; extra == "dev"
+Requires-Dist: ruff>=0.12.0; extra == "dev"
 Requires-Dist: cython-lint>=0.12.2; extra == "dev"
-Requires-Dist: rich-click; extra == "dev"
-Requires-Dist: doit>=0.36.0; extra == "dev"
-Requires-Dist: pydevtool; extra == "dev"
 Description-Content-Type: text/x-rst
 
 .. image:: https://raw.githubusercontent.com/scipy/scipy/main/doc/source/_static/logo.svg
@@ -121,6 +121,9 @@ Description-Content-Type: text/x-rst
 
 .. image:: https://img.shields.io/badge/DOI-10.1038%2Fs41592--019--0686--2-blue.svg
   :target: https://www.nature.com/articles/s41592-019-0686-2
+
+.. image:: https://insights.linuxfoundation.org/api/badge/health-score?project=scipy
+  :target: https://insights.linuxfoundation.org/project/scipy
 
 SciPy (pronounced "Sigh Pie") is an open-source software for mathematics,
 science, and engineering. It includes modules for statistics, optimization,

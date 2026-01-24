@@ -8,6 +8,7 @@ Authors
 
 import re
 import ast
+import sys
 import yaml
 import copy
 import pydoc
@@ -309,7 +310,7 @@ def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
     preview = ruamel_yaml.load(yaml_stream)
 
     # Apply override changes to the preview tree
-    if overrides is not None and overrides != "":
+    if overrides is not None and len(overrides) > 0:
         if isinstance(overrides, str):
             overrides = ruamel_yaml.load(overrides)
         try:
@@ -715,9 +716,18 @@ def _ast_eval(node):
         ast.Pow: op.pow,
         ast.Mod: op.mod,
     }
-    if isinstance(node, ast.Num):  # <number>
-        return node.n
-    elif isinstance(node, ast.BinOp):  # <left> <operator> <right>
+
+    # Compatibility check for Python versions
+    # In Python 3.8, ast.Num was deprecated and replaced by ast.Constant.
+    if sys.version_info >= (3, 8): 
+        if isinstance(node, ast.Constant):  # <number>, <string>, <bool>, <None>
+            return node.value
+    else:
+        # For Python versions older than 3.8
+        if isinstance(node, ast.Num):  # <number>
+            return node.n
+
+    if isinstance(node, ast.BinOp):  # <left> <operator> <right>
         return ops[type(node.op)](_ast_eval(node.left), _ast_eval(node.right))
     elif isinstance(node, ast.UnaryOp):  # <operator> <operand> e.g., -1
         return ops[type(node.op)](_ast_eval(node.operand))

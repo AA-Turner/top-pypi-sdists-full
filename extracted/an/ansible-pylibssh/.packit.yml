@@ -70,6 +70,9 @@ notifications:
 patch_generation_ignore_paths: []
 patch_generation_patch_id_digits: 4
 
+parse_time_macros:
+  upstream_version: 666
+
 # sources: []
 
 specfile_path: packaging/rpm/ansible-pylibssh.spec

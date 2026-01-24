@@ -100,13 +100,13 @@ def jabber_broadcast_view(request):
                 if main_char is not None:
                     message_to_send = form.cleaned_data['message'] + "\n##### SENT BY: " + "[" + main_char.corporation_ticker + "]" + \
                                         main_char.character_name + " TO: " + \
-                                        form.cleaned_data['group'] + " WHEN: " + datetime.datetime.utcnow().strftime(
+                                        form.cleaned_data['group'] + " WHEN: " + datetime.datetime.now(datetime.timezone.utc).strftime(
                                             "%Y-%m-%d %H:%M:%S") + " #####\n##### Replies are NOT monitored #####\n"
                     group_to_send = form.cleaned_data['group']
 
                 else:
                     message_to_send = form.cleaned_data['message'] + "\n##### SENT BY: " + "No character but can send pings?" + " TO: " + \
-                                        form.cleaned_data['group'] + " WHEN: " + datetime.datetime.utcnow().strftime(
+                                        form.cleaned_data['group'] + " WHEN: " + datetime.datetime.now(datetime.timezone.utc).strftime(
                                             "%Y-%m-%d %H:%M:%S") + " #####\n##### Replies are NOT monitored #####\n"
                     group_to_send = form.cleaned_data['group']
 

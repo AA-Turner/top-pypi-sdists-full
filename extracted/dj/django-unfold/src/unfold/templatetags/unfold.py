@@ -1,33 +1,44 @@
 import json
 from collections.abc import Iterable, Mapping
-from typing import Any, Optional, Union
+from typing import Any
 
 from django import template
-from django.contrib.admin.helpers import AdminForm, Fieldset
+from django.contrib.admin.helpers import (
+    AdminField,
+    AdminForm,
+    AdminReadonlyField,
+    Fieldset,
+)
 from django.contrib.admin.views.main import PAGE_VAR, ChangeList
 from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
 from django.core.paginator import Paginator
 from django.db.models import Model
 from django.db.models.options import Options
-from django.forms import BoundField, CheckboxSelectMultiple, Field
+from django.forms import BoundField, CheckboxSelectMultiple
 from django.http import HttpRequest, QueryDict
 from django.template import Context, Library, Node, RequestContext, TemplateSyntaxError
 from django.template.base import NodeList, Parser, Token, token_kwargs
+from django.template.defaultfilters import slugify
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
-from django.utils.safestring import SafeText, mark_safe
+from django.utils.module_loading import import_string
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from unfold.components import ComponentRegistry
-from unfold.dataclasses import UnfoldAction
 from unfold.enums import ActionVariant
-from unfold.widgets import UnfoldAdminMoneyWidget, UnfoldAdminSplitDateTimeWidget
+from unfold.sections import BaseSection
+from unfold.widgets import (
+    UnfoldAdminMoneyWidget,
+    UnfoldAdminSelect2Widget,
+    UnfoldAdminSplitDateTimeWidget,
+)
 
 register = Library()
 
 
 def _get_tabs_list(
-    context: RequestContext, page: str, opts: Optional[Options] = None
+    context: RequestContext, page: str, opts: Options | None = None
 ) -> list:
     tabs_list = []
     page_id = None
@@ -62,15 +73,29 @@ def _get_tabs_list(
     return tabs_list
 
 
-@register.simple_tag(name="tab_list", takes_context=True)
-def tab_list(context: RequestContext, page: str, opts: Optional[Options] = None) -> str:
-    inlines_list = []
-
+@register.simple_tag(name="action_list", takes_context=True)
+def action_list(context: RequestContext) -> str:
     data = {
         "nav_global": context.get("nav_global"),
         "actions_detail": context.get("actions_detail"),
+        "actions_detail_hide_default": context.get("actions_detail_hide_default"),
         "actions_list": context.get("actions_list"),
+        "actions_list_hide_default": context.get("actions_list_hide_default"),
         "actions_items": context.get("actions_items"),
+    }
+
+    return render_to_string(
+        "unfold/helpers/tab_actions.html",
+        request=context["request"],
+        context=data,
+    )
+
+
+@register.simple_tag(name="tab_list", takes_context=True)
+def tab_list(context: RequestContext, page: str, opts: Options | None = None) -> str:
+    inlines_list = []
+    datasets_list = []
+    data = {
         "is_popup": context.get("is_popup"),
         "tabs_list": _get_tabs_list(context, page, opts),
     }
@@ -79,11 +104,18 @@ def tab_list(context: RequestContext, page: str, opts: Optional[Options] = None)
     # specified, check for inlines to put into tabs
     if page == "changeform" and len(data["tabs_list"]) == 0:
         for inline in context.get("inline_admin_formsets", []):
-            if opts and hasattr(inline.opts, "tab"):
+            if opts and getattr(inline.opts, "tab", False):
                 inlines_list.append(inline)
 
         if len(inlines_list) > 0:
             data["inlines_list"] = inlines_list
+
+        for dataset in context.get("datasets", []):
+            if dataset and getattr(dataset, "tab", False):
+                datasets_list.append(dataset)
+
+        if len(datasets_list) > 0:
+            data["datasets_list"] = datasets_list
 
     return render_to_string(
         "unfold/helpers/tab_list.html",
@@ -93,12 +125,26 @@ def tab_list(context: RequestContext, page: str, opts: Optional[Options] = None)
 
 
 @register.simple_tag(name="render_section", takes_context=True)
-def render_section(context: Context, section_class, instance: Model) -> str:
-    return section_class(context.request, instance).render()
+def render_section(
+    context: RequestContext, section_class: type[BaseSection] | str, instance: Model
+) -> str:
+    if isinstance(section_class, str):
+        section_class: type[BaseSection] = import_string(section_class)
+
+    return section_class(context.get("request"), instance).render()
 
 
 @register.simple_tag(name="has_nav_item_active")
 def has_nav_item_active(items: list) -> bool:
+    for item in items:
+        if "active" in item and item["active"]:
+            return True
+
+    return False
+
+
+@register.filter
+def has_active_item(items: list[dict]) -> bool:
     for item in items:
         if "active" in item and item["active"]:
             return True
@@ -112,17 +158,8 @@ def class_name(value: Any) -> str:
 
 
 @register.filter
-def is_list(value: Any) -> str:
+def is_list(value: Any) -> bool:
     return isinstance(value, list)
-
-
-@register.filter
-def has_active_item(items: list[dict]) -> bool:
-    for item in items:
-        if "active" in item and item["active"]:
-            return True
-
-    return False
 
 
 @register.filter
@@ -144,82 +181,12 @@ def tabs(adminform: AdminForm) -> list[Fieldset]:
     return result
 
 
-class CaptureNode(Node):
-    def __init__(self, nodelist: NodeList, varname: str, silent: bool) -> None:
-        self.nodelist = nodelist
-        self.varname = varname
-        self.silent = silent
-
-    def render(self, context: dict[str, Any]) -> Union[str, SafeText]:
-        output = self.nodelist.render(context)
-        context[self.varname] = output
-        if self.silent:
-            return ""
-        else:
-            return output
-
-
-@register.tag(name="capture")
-def do_capture(parser: Parser, token: Token) -> CaptureNode:
-    """
-    Capture the contents of a tag output.
-    Usage:
-    .. code-block:: html+django
-        {% capture %}..{% endcapture %}                    # output in {{ capture }}
-        {% capture silent %}..{% endcapture %}             # output in {{ capture }} only
-        {% capture as varname %}..{% endcapture %}         # output in {{ varname }}
-        {% capture as varname silent %}..{% endcapture %}  # output in {{ varname }} only
-    For example:
-    .. code-block:: html+django
-        {# Allow templates to override the page title/description #}
-        <meta name="description" content="{% capture as meta_description %}
-            {% block meta-description %}{% endblock %}{% endcapture %}" />
-        <title>{% capture as meta_title %}{% block meta-title %}Untitled{% endblock %}{% endcapture %}</title>
-        {# copy the values to the Social Media meta tags #}
-        <meta property="og:description" content="{% block og-description %}{{ meta_description }}{% endblock %}" />
-        <meta name="twitter:title" content="{% block twitter-title %}{{ meta_title }}{% endblock %}" />
-    """
-    bits = token.split_contents()
-
-    # tokens
-    t_as = "as"
-    t_silent = "silent"
-    var = "capture"
-    silent = False
-
-    num_bits = len(bits)
-    if len(bits) > 4:
-        raise TemplateSyntaxError(
-            "'capture' node supports '[as variable] [silent]' parameters."
-        )
-    elif num_bits == 4:
-        t_name, t_as, var, t_silent = bits
-        silent = True
-    elif num_bits == 3:
-        t_name, t_as, var = bits
-    elif num_bits == 2:
-        t_name, t_silent = bits
-        silent = True
-    else:
-        var = "capture"
-        silent = False
-
-    if t_silent != "silent" or t_as != "as":
-        raise TemplateSyntaxError(
-            "'capture' node expects 'as variable' or 'silent' syntax."
-        )
-
-    nodelist = parser.parse(("endcapture",))
-    parser.delete_first_token()
-    return CaptureNode(nodelist, var, silent)
-
-
 class RenderComponentNode(template.Node):
     def __init__(
         self,
         template_name: str,
         nodelist: NodeList,
-        extra_context: Optional[dict] = None,
+        extra_context: dict | None = None,
         include_context: bool = False,
         *args,
         **kwargs,
@@ -264,7 +231,7 @@ class RenderComponentNode(template.Node):
 
 
 @register.tag("component")
-def do_component(parser: Parser, token: Token) -> str:
+def do_component(parser: Parser, token: Token) -> RenderComponentNode:
     bits = token.split_contents()
 
     if len(bits) < 2:
@@ -308,7 +275,7 @@ def do_component(parser: Parser, token: Token) -> str:
 
 
 @register.filter
-def add_css_class(field: Field, classes: Union[list, tuple]) -> Field:
+def add_css_class(field: BoundField, classes: list | tuple) -> BoundField:
     if type(classes) in (list, tuple):
         classes = " ".join(classes)
 
@@ -325,12 +292,12 @@ def add_css_class(field: Field, classes: Union[list, tuple]) -> Field:
     takes_context=True,
     name="preserve_filters",
 )
-def preserve_changelist_filters(context: Context) -> dict[str, dict[str, str]]:
+def preserve_changelist_filters(context: RequestContext) -> dict[str, dict[str, str]]:
     """
     Generate hidden input fields to preserve filters for POST forms.
     """
-    request: Optional[HttpRequest] = context.get("request")
-    changelist: Optional[ChangeList] = context.get("cl")
+    request: HttpRequest | None = context.get("request")
+    changelist: ChangeList | None = context.get("cl")
 
     if not request or not changelist:
         return {"params": {}}
@@ -346,9 +313,9 @@ def preserve_changelist_filters(context: Context) -> dict[str, dict[str, str]]:
 
 
 @register.simple_tag(takes_context=True)
-def element_classes(context: Context, key: str) -> str:
+def element_classes(context: RequestContext, key: str) -> str:
     if key in context.get("element_classes", {}):
-        if isinstance(context["element_classes"][key], (list, tuple)):
+        if isinstance(context["element_classes"][key], list | tuple):
             return " ".join(context["element_classes"][key])
 
         return context["element_classes"][key]
@@ -357,8 +324,9 @@ def element_classes(context: Context, key: str) -> str:
 
 
 @register.simple_tag(takes_context=True)
-def fieldset_rows_classes(context: Context) -> str:
+def fieldset_rows_classes(context: RequestContext) -> str:
     classes = [
+        "form-rows",
         "aligned",
     ]
 
@@ -377,7 +345,7 @@ def fieldset_rows_classes(context: Context) -> str:
 
 
 @register.simple_tag(takes_context=True)
-def fieldset_row_classes(context: Context) -> str:
+def fieldset_row_classes(context: RequestContext) -> str:
     classes = [
         "form-row",
         "field-row",
@@ -412,7 +380,7 @@ def fieldset_row_classes(context: Context) -> str:
 
 
 @register.simple_tag(takes_context=True)
-def fieldset_line_classes(context: Context) -> str:
+def fieldset_line_classes(context: RequestContext) -> str:
     classes = [
         "field-line",
         "flex",
@@ -454,77 +422,63 @@ def fieldset_line_classes(context: Context) -> str:
 
 
 @register.simple_tag(takes_context=True)
-def action_item_classes(context: Context, action: UnfoldAction) -> str:
+def action_item_classes(context: RequestContext, action: dict) -> str:
     classes = [
         "border",
         "border-base-200",
-        "max-md:-mt-px",
-        "max-md:first:rounded-t-default",
-        "max-md:last:rounded-b-default",
-        "md:-ml-px",
-        "md:first:rounded-l-default",
-        "md:last:rounded-r-default",
+        "max-lg:-mt-px",
+        "max-lg:first:rounded-t-default",
+        "max-lg:last:rounded-b-default",
+        "min-lg:-ml-px",
+        "min-lg:first:rounded-l-default",
+        "min-lg:last:rounded-r-default",
     ]
+
+    variant_classes = {
+        ActionVariant.PRIMARY: [
+            "border-primary-700",
+            "bg-primary-600",
+            "text-white",
+            "dark:border-primary-500",
+        ],
+        ActionVariant.DANGER: [
+            "border-red-700",
+            "bg-red-600",
+            "text-white",
+            "dark:border-red-500",
+        ],
+        ActionVariant.SUCCESS: [
+            "border-green-700",
+            "bg-green-600",
+            "text-white",
+            "dark:border-green-500",
+        ],
+        ActionVariant.INFO: [
+            "border-blue-700",
+            "bg-blue-600",
+            "text-white",
+            "dark:border-blue-500",
+        ],
+        ActionVariant.WARNING: [
+            "border-orange-700",
+            "bg-orange-600",
+            "text-white",
+            "dark:border-orange-500",
+        ],
+        ActionVariant.DEFAULT: [
+            "border-base-200",
+            "hover:text-primary-600",
+            "dark:hover:text-primary-500",
+            "dark:border-base-700",
+        ],
+    }
 
     if "variant" not in action:
         variant = ActionVariant.DEFAULT
     else:
         variant = action["variant"]
 
-    if variant == ActionVariant.PRIMARY:
-        classes.extend(
-            [
-                "border-primary-700",
-                "bg-primary-600",
-                "text-white",
-                "dark:border-primary-500",
-            ]
-        )
-    elif variant == ActionVariant.DANGER:
-        classes.extend(
-            [
-                "border-red-700",
-                "bg-red-600",
-                "text-white",
-                "dark:border-red-500",
-            ]
-        )
-    elif variant == ActionVariant.SUCCESS:
-        classes.extend(
-            [
-                "border-green-700",
-                "bg-green-600",
-                "text-white",
-                "dark:border-green-500",
-            ]
-        )
-    elif variant == ActionVariant.INFO:
-        classes.extend(
-            [
-                "border-blue-700",
-                "bg-blue-600",
-                "text-white",
-                "dark:border-blue-500",
-            ]
-        )
-    elif variant == ActionVariant.WARNING:
-        classes.extend(
-            [
-                "border-orange-700",
-                "bg-orange-600",
-                "text-white",
-                "dark:border-orange-500",
-            ]
-        )
-    else:
-        classes.extend(
-            [
-                "border-base-200",
-                "hover:text-primary-600",
-                "dark:hover:text-primary-500",
-                "dark:border-base-700",
-            ]
-        )
+    classes.extend(variant_classes[variant])
 
     return " ".join(set(classes))
 
@@ -555,13 +509,20 @@ def changeform_data(adminform: AdminForm) -> str:
 
 
 @register.filter
-def changeform_condition(field: BoundField) -> BoundField:
+def changeform_condition(
+    field: AdminField | AdminReadonlyField,
+) -> AdminField | AdminReadonlyField:
     if isinstance(field.field, dict):
         return field
 
     if isinstance(field.field.field.widget, RelatedFieldWidgetWrapper):
         field.field.field.widget.widget.attrs["x-model.fill"] = field.field.name
         field.field.field.widget.widget.attrs["x-init"] = mark_safe(
+            f"const $ = django.jQuery; $(function () {{ const select = $('#{field.field.auto_id}'); select.on('change', (ev) => {{ {field.field.name} = select.val(); }}); }});"
+        )
+    elif isinstance(field.field.field.widget, UnfoldAdminSelect2Widget):
+        field.field.field.widget.attrs["x-model.fill"] = field.field.name
+        field.field.field.widget.attrs["x-init"] = mark_safe(
             f"const $ = django.jQuery; $(function () {{ const select = $('#{field.field.auto_id}'); select.on('change', (ev) => {{ {field.field.name} = select.val(); }}); }});"
         )
     elif isinstance(
@@ -585,13 +546,9 @@ def infinite_paginator_url(cl, i):
 
 
 @register.simple_tag
-def elided_page_range(
-    paginator: Paginator, number: int
-) -> Optional[list[Union[int, str]]]:
-    if not paginator or not number:
-        return None
-
-    return paginator.get_elided_page_range(number=number)
+def elided_page_range(paginator: Paginator, number: int) -> Iterable[int | str] | None:
+    if paginator and number:
+        return paginator.get_elided_page_range(number=number)
 
 
 @register.simple_tag(takes_context=True)
@@ -617,7 +574,8 @@ def querystring_params(
 def unfold_querystring(context, *args, **kwargs):
     """
     Duplicated querystring template tag from Django core to allow
-    it using in Django 4.x. Once 4.x is not supported, remove it.
+    it using in Django 4.x.
+    TODO: Once 4.x is not supported, remove it.
     """
     if not args:
         args = [context.request.GET]
@@ -647,7 +605,7 @@ def unfold_querystring(context, *args, **kwargs):
 @register.simple_tag(takes_context=True)
 def header_title(context: RequestContext) -> str:
     parts = []
-    opts = context.get("opts")
+    opts: Options | None = context.get("opts")
     current_app = (
         context.request.current_app
         if hasattr(context.request, "current_app")
@@ -764,9 +722,12 @@ def header_title(context: RequestContext) -> str:
         )
 
     if len(parts) == 0:
-        username = (
-            context.request.user.get_short_name() or context.request.user.get_username()
-        )
+        user = context.request.user
+        username = user.get_username()
+
+        if hasattr(user, "get_short_name") and callable(user.get_short_name):
+            username = user.get_short_name() or user.get_username()
+
         parts.append({"title": f"{_('Welcome')} {username}"})
 
     return render_to_string(
@@ -789,8 +750,76 @@ def admin_object_app_url(context: RequestContext, object: Model, arg: str) -> st
     return f"{current_app}:{object._meta.app_label}_{object._meta.model_name}_{arg}"
 
 
+class RenderCaptureNode(Node):
+    def __init__(self, nodelist: NodeList, variable_name: str, silent: bool) -> None:
+        self.nodelist = nodelist
+        self.variable_name = variable_name
+        self.silent = silent
+
+    def render(self, context: Context) -> str:
+        content = self.nodelist.render(context)
+
+        if not self.silent:
+            return content
+
+        context.update(
+            {
+                self.variable_name: content,
+            }
+        )
+
+        return ""
+
+
+@register.tag(name="capture")
+def do_capture(parser: Parser, token: Token) -> RenderCaptureNode:
+    parts = token.split_contents()
+    variable_name = ""
+    silent = False
+
+    if len(parts) > 4:
+        raise TemplateSyntaxError("Too many arguments for 'capture' tag.")
+
+    if len(parts) >= 3:
+        if parts[1] != "as":
+            raise TemplateSyntaxError("'as' is required for 'capture' tag.")
+
+        variable_name = parts[2]
+
+    if len(parts) == 4:
+        if parts[3] != "silent":
+            raise TemplateSyntaxError("'silent' is required for 'capture' tag.")
+
+        silent = True
+
+    nodelist = parser.parse(("endcapture",))
+    parser.delete_first_token()
+    return RenderCaptureNode(nodelist, variable_name, silent)
+
+
 @register.filter
-def has_nested_tables(table: dict) -> bool:
-    return any(
-        isinstance(row, dict) and "table" in row for row in table.get("rows", [])
-    )
+def tabs_active(fieldsets: list[Fieldset]) -> str:
+    active = ""
+
+    if len(fieldsets) > 0:
+        active = slugify(fieldsets[0].name)
+
+    for fieldset in fieldsets:
+        for field_line in fieldset:
+            for field in field_line:
+                if not field.is_readonly and field.errors():
+                    active = slugify(fieldset.name)
+
+    return active
+
+
+@register.filter
+def tabs_errors_count(fieldset: Fieldset) -> int:
+    count = 0
+
+    for field_line in fieldset:
+        for field in field_line:
+            if not field.is_readonly and field.errors():
+                count += 1
+
+    return count

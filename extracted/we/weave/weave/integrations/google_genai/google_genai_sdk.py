@@ -1,5 +1,5 @@
 import importlib
-from typing import Callable, Union
+from collections.abc import Callable
 
 from weave.integrations.google_genai.gemini_utils import (
     google_genai_gemini_wrapper_async,
@@ -25,13 +25,20 @@ def get_google_genai_symbol_patcher(
     return SymbolPatcher(
         lambda: importlib.import_module(base_symbol),
         attribute_name,
-        wrapper(settings.model_copy(update={"name": settings.name or display_name})),
+        wrapper(
+            settings.model_copy(
+                update={
+                    "name": settings.name or display_name,
+                    "kind": settings.kind or "llm",
+                }
+            )
+        ),
     )
 
 
 def get_google_genai_patcher(
-    settings: Union[IntegrationSettings, None] = None,
-) -> Union[MultiPatcher, NoOpPatcher]:
+    settings: IntegrationSettings | None = None,
+) -> MultiPatcher | NoOpPatcher:
     if settings is None:
         settings = IntegrationSettings()
 

@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -44,6 +45,10 @@ from .type_defs import (
     CreateGrantResponseTypeDef,
     CreateGrantVersionRequestTypeDef,
     CreateGrantVersionResponseTypeDef,
+    CreateLicenseAssetGroupRequestTypeDef,
+    CreateLicenseAssetGroupResponseTypeDef,
+    CreateLicenseAssetRulesetRequestTypeDef,
+    CreateLicenseAssetRulesetResponseTypeDef,
     CreateLicenseConfigurationRequestTypeDef,
     CreateLicenseConfigurationResponseTypeDef,
     CreateLicenseConversionTaskForResourceRequestTypeDef,
@@ -58,6 +63,9 @@ from .type_defs import (
     CreateTokenResponseTypeDef,
     DeleteGrantRequestTypeDef,
     DeleteGrantResponseTypeDef,
+    DeleteLicenseAssetGroupRequestTypeDef,
+    DeleteLicenseAssetGroupResponseTypeDef,
+    DeleteLicenseAssetRulesetRequestTypeDef,
     DeleteLicenseConfigurationRequestTypeDef,
     DeleteLicenseManagerReportGeneratorRequestTypeDef,
     DeleteLicenseRequestTypeDef,
@@ -69,6 +77,10 @@ from .type_defs import (
     GetAccessTokenResponseTypeDef,
     GetGrantRequestTypeDef,
     GetGrantResponseTypeDef,
+    GetLicenseAssetGroupRequestTypeDef,
+    GetLicenseAssetGroupResponseTypeDef,
+    GetLicenseAssetRulesetRequestTypeDef,
+    GetLicenseAssetRulesetResponseTypeDef,
     GetLicenseConfigurationRequestTypeDef,
     GetLicenseConfigurationResponseTypeDef,
     GetLicenseConversionTaskRequestTypeDef,
@@ -80,12 +92,20 @@ from .type_defs import (
     GetLicenseUsageRequestTypeDef,
     GetLicenseUsageResponseTypeDef,
     GetServiceSettingsResponseTypeDef,
+    ListAssetsForLicenseAssetGroupRequestTypeDef,
+    ListAssetsForLicenseAssetGroupResponseTypeDef,
     ListAssociationsForLicenseConfigurationRequestTypeDef,
     ListAssociationsForLicenseConfigurationResponseTypeDef,
     ListDistributedGrantsRequestTypeDef,
     ListDistributedGrantsResponseTypeDef,
     ListFailuresForLicenseConfigurationOperationsRequestTypeDef,
     ListFailuresForLicenseConfigurationOperationsResponseTypeDef,
+    ListLicenseAssetGroupsRequestTypeDef,
+    ListLicenseAssetGroupsResponseTypeDef,
+    ListLicenseAssetRulesetsRequestTypeDef,
+    ListLicenseAssetRulesetsResponseTypeDef,
+    ListLicenseConfigurationsForOrganizationRequestTypeDef,
+    ListLicenseConfigurationsForOrganizationResponseTypeDef,
     ListLicenseConfigurationsRequestTypeDef,
     ListLicenseConfigurationsResponseTypeDef,
     ListLicenseConversionTasksRequestTypeDef,
@@ -118,18 +138,16 @@ from .type_defs import (
     RejectGrantResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateLicenseAssetGroupRequestTypeDef,
+    UpdateLicenseAssetGroupResponseTypeDef,
+    UpdateLicenseAssetRulesetRequestTypeDef,
+    UpdateLicenseAssetRulesetResponseTypeDef,
     UpdateLicenseConfigurationRequestTypeDef,
     UpdateLicenseManagerReportGeneratorRequestTypeDef,
     UpdateLicenseSpecificationsForResourceRequestTypeDef,
     UpdateServiceSettingsRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -138,24 +156,24 @@ else:
 __all__ = ("LicenseManagerClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    AuthorizationException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    EntitlementNotAllowedException: Type[BotocoreClientError]
-    FailedDependencyException: Type[BotocoreClientError]
-    FilterLimitExceededException: Type[BotocoreClientError]
-    InvalidParameterValueException: Type[BotocoreClientError]
-    InvalidResourceStateException: Type[BotocoreClientError]
-    LicenseUsageException: Type[BotocoreClientError]
-    NoEntitlementsAllowedException: Type[BotocoreClientError]
-    RateLimitExceededException: Type[BotocoreClientError]
-    RedirectException: Type[BotocoreClientError]
-    ResourceLimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServerInternalException: Type[BotocoreClientError]
-    UnsupportedDigitalSignatureMethodException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AuthorizationException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    EntitlementNotAllowedException: type[BotocoreClientError]
+    FailedDependencyException: type[BotocoreClientError]
+    FilterLimitExceededException: type[BotocoreClientError]
+    InvalidParameterValueException: type[BotocoreClientError]
+    InvalidResourceStateException: type[BotocoreClientError]
+    LicenseUsageException: type[BotocoreClientError]
+    NoEntitlementsAllowedException: type[BotocoreClientError]
+    RateLimitExceededException: type[BotocoreClientError]
+    RedirectException: type[BotocoreClientError]
+    ResourceLimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServerInternalException: type[BotocoreClientError]
+    UnsupportedDigitalSignatureMethodException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class LicenseManagerClient(BaseClient):
     """
@@ -202,7 +220,7 @@ class LicenseManagerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#accept_grant)
         """
 
-    def check_in_license(self, **kwargs: Unpack[CheckInLicenseRequestTypeDef]) -> Dict[str, Any]:
+    def check_in_license(self, **kwargs: Unpack[CheckInLicenseRequestTypeDef]) -> dict[str, Any]:
         """
         Checks in the specified license.
 
@@ -258,6 +276,26 @@ class LicenseManagerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/create_license.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#create_license)
+        """
+
+    def create_license_asset_group(
+        self, **kwargs: Unpack[CreateLicenseAssetGroupRequestTypeDef]
+    ) -> CreateLicenseAssetGroupResponseTypeDef:
+        """
+        Creates a license asset group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/create_license_asset_group.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#create_license_asset_group)
+        """
+
+    def create_license_asset_ruleset(
+        self, **kwargs: Unpack[CreateLicenseAssetRulesetRequestTypeDef]
+    ) -> CreateLicenseAssetRulesetResponseTypeDef:
+        """
+        Creates a license asset ruleset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/create_license_asset_ruleset.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#create_license_asset_ruleset)
         """
 
     def create_license_configuration(
@@ -330,9 +368,29 @@ class LicenseManagerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#delete_license)
         """
 
+    def delete_license_asset_group(
+        self, **kwargs: Unpack[DeleteLicenseAssetGroupRequestTypeDef]
+    ) -> DeleteLicenseAssetGroupResponseTypeDef:
+        """
+        Deletes a license asset group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/delete_license_asset_group.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#delete_license_asset_group)
+        """
+
+    def delete_license_asset_ruleset(
+        self, **kwargs: Unpack[DeleteLicenseAssetRulesetRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a license asset ruleset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/delete_license_asset_ruleset.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#delete_license_asset_ruleset)
+        """
+
     def delete_license_configuration(
         self, **kwargs: Unpack[DeleteLicenseConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified license configuration.
 
@@ -342,7 +400,7 @@ class LicenseManagerClient(BaseClient):
 
     def delete_license_manager_report_generator(
         self, **kwargs: Unpack[DeleteLicenseManagerReportGeneratorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified report generator.
 
@@ -350,7 +408,7 @@ class LicenseManagerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#delete_license_manager_report_generator)
         """
 
-    def delete_token(self, **kwargs: Unpack[DeleteTokenRequestTypeDef]) -> Dict[str, Any]:
+    def delete_token(self, **kwargs: Unpack[DeleteTokenRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified token.
 
@@ -392,6 +450,26 @@ class LicenseManagerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/get_license.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#get_license)
+        """
+
+    def get_license_asset_group(
+        self, **kwargs: Unpack[GetLicenseAssetGroupRequestTypeDef]
+    ) -> GetLicenseAssetGroupResponseTypeDef:
+        """
+        Gets a license asset group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/get_license_asset_group.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#get_license_asset_group)
+        """
+
+    def get_license_asset_ruleset(
+        self, **kwargs: Unpack[GetLicenseAssetRulesetRequestTypeDef]
+    ) -> GetLicenseAssetRulesetResponseTypeDef:
+        """
+        Gets a license asset ruleset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/get_license_asset_ruleset.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#get_license_asset_ruleset)
         """
 
     def get_license_configuration(
@@ -442,6 +520,16 @@ class LicenseManagerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#get_service_settings)
         """
 
+    def list_assets_for_license_asset_group(
+        self, **kwargs: Unpack[ListAssetsForLicenseAssetGroupRequestTypeDef]
+    ) -> ListAssetsForLicenseAssetGroupResponseTypeDef:
+        """
+        Lists assets for a license asset group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/list_assets_for_license_asset_group.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#list_assets_for_license_asset_group)
+        """
+
     def list_associations_for_license_configuration(
         self, **kwargs: Unpack[ListAssociationsForLicenseConfigurationRequestTypeDef]
     ) -> ListAssociationsForLicenseConfigurationResponseTypeDef:
@@ -472,6 +560,26 @@ class LicenseManagerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#list_failures_for_license_configuration_operations)
         """
 
+    def list_license_asset_groups(
+        self, **kwargs: Unpack[ListLicenseAssetGroupsRequestTypeDef]
+    ) -> ListLicenseAssetGroupsResponseTypeDef:
+        """
+        Lists license asset groups.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/list_license_asset_groups.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#list_license_asset_groups)
+        """
+
+    def list_license_asset_rulesets(
+        self, **kwargs: Unpack[ListLicenseAssetRulesetsRequestTypeDef]
+    ) -> ListLicenseAssetRulesetsResponseTypeDef:
+        """
+        Lists license asset rulesets.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/list_license_asset_rulesets.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#list_license_asset_rulesets)
+        """
+
     def list_license_configurations(
         self, **kwargs: Unpack[ListLicenseConfigurationsRequestTypeDef]
     ) -> ListLicenseConfigurationsResponseTypeDef:
@@ -480,6 +588,16 @@ class LicenseManagerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/list_license_configurations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#list_license_configurations)
+        """
+
+    def list_license_configurations_for_organization(
+        self, **kwargs: Unpack[ListLicenseConfigurationsForOrganizationRequestTypeDef]
+    ) -> ListLicenseConfigurationsForOrganizationResponseTypeDef:
+        """
+        Lists license configurations for an organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/list_license_configurations_for_organization.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#list_license_configurations_for_organization)
         """
 
     def list_license_conversion_tasks(
@@ -621,7 +739,7 @@ class LicenseManagerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#reject_grant)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the specified resource.
 
@@ -629,7 +747,7 @@ class LicenseManagerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the specified resource.
 
@@ -637,9 +755,29 @@ class LicenseManagerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#untag_resource)
         """
 
+    def update_license_asset_group(
+        self, **kwargs: Unpack[UpdateLicenseAssetGroupRequestTypeDef]
+    ) -> UpdateLicenseAssetGroupResponseTypeDef:
+        """
+        Updates a license asset group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/update_license_asset_group.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#update_license_asset_group)
+        """
+
+    def update_license_asset_ruleset(
+        self, **kwargs: Unpack[UpdateLicenseAssetRulesetRequestTypeDef]
+    ) -> UpdateLicenseAssetRulesetResponseTypeDef:
+        """
+        Updates a license asset ruleset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/license-manager/client/update_license_asset_ruleset.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_license_manager/client/#update_license_asset_ruleset)
+        """
+
     def update_license_configuration(
         self, **kwargs: Unpack[UpdateLicenseConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the attributes of an existing license configuration.
 
@@ -649,7 +787,7 @@ class LicenseManagerClient(BaseClient):
 
     def update_license_manager_report_generator(
         self, **kwargs: Unpack[UpdateLicenseManagerReportGeneratorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a report generator.
 
@@ -659,7 +797,7 @@ class LicenseManagerClient(BaseClient):
 
     def update_license_specifications_for_resource(
         self, **kwargs: Unpack[UpdateLicenseSpecificationsForResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds or removes the specified license configurations for the specified Amazon
         Web Services resource.
@@ -670,7 +808,7 @@ class LicenseManagerClient(BaseClient):
 
     def update_service_settings(
         self, **kwargs: Unpack[UpdateServiceSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates License Manager settings for the current Region.
 

@@ -13,7 +13,7 @@ use super::stream::ByteStreamItem;
 use super::stream::S3ByteStream;
 use super::StorageConfigError;
 use super::{DeleteOptions, PutOptions};
-use crate::{ETag, GetOptions, StorageError};
+use crate::{ETag, GetOptions, PutMode, StorageError};
 use async_trait::async_trait;
 use aws_config::retry::RetryConfig;
 use aws_config::timeout::TimeoutConfigBuilder;
@@ -156,7 +156,7 @@ impl Default for StorageMetrics {
 
 #[derive(Clone)]
 pub struct S3Storage {
-    pub(super) bucket: String,
+    pub(crate) bucket: String,
     pub(super) client: aws_sdk_s3::Client,
     pub(super) upload_part_size_bytes: usize,
     pub(super) download_part_size_bytes: usize,
@@ -288,13 +288,28 @@ impl S3Storage {
                             })
                         }
                         _ => {
-                            if inner.code() == Some("SlowDown") {
-                                Err(StorageError::Backoff)
-                            } else {
-                                tracing::error!("error: {}", inner.to_string());
-                                Err(StorageError::Generic {
-                                    source: Arc::new(inner),
-                                })
+                            match inner.code() {
+                                Some("SlowDown") => Err(StorageError::Backoff),
+                                Some("AccessDenied") => {
+                                    // Log all the details we need for debugging
+                                    tracing::error!(
+                                        bucket = %self.bucket,
+                                        key = %key,
+                                        error_code = "AccessDenied",
+                                        error_message = %inner,
+                                        "S3 access denied error"
+                                    );
+                                    Err(StorageError::PermissionDenied {
+                                        path: key.to_string(),
+                                        source: Arc::new(inner),
+                                    })
+                                }
+                                _ => {
+                                    tracing::error!("error: {}", inner.to_string());
+                                    Err(StorageError::Generic {
+                                        source: Arc::new(inner),
+                                    })
+                                }
                             }
                         }
                     }
@@ -637,14 +652,10 @@ impl S3Storage {
             .bucket(&self.bucket)
             .key(key)
             .body(create_bytestream_fn(0..total_size_bytes).await?);
-        let req = match options.if_not_exists {
-            true => req.if_none_match('*'),
-            false => req,
-        };
-
-        let req = match options.if_match {
-            Some(e_tag) => req.if_match(e_tag.0),
-            None => req,
+        let req = match options.mode {
+            PutMode::IfMatch(etag) => req.if_match(etag.0),
+            PutMode::IfNotExist => req.if_none_match('*'),
+            PutMode::Upsert => req,
         };
 
         let resp = req.send().await.map_err(|err| {
@@ -776,15 +787,10 @@ impl S3Storage {
                     .build(),
             )
             .upload_id(upload_id);
-
-        let complete_req = match options.if_not_exists {
-            true => complete_req.if_none_match('*'),
-            false => complete_req,
-        };
-
-        let complete_req = match options.if_match {
-            Some(e_tag) => complete_req.if_match(e_tag.0),
-            None => complete_req,
+        let complete_req = match options.mode {
+            PutMode::IfMatch(etag) => complete_req.if_match(etag.0),
+            PutMode::IfNotExist => complete_req.if_none_match('*'),
+            PutMode::Upsert => complete_req,
         };
 
         let resp = complete_req
@@ -838,11 +844,6 @@ impl S3Storage {
         self.metrics.s3_delete_count.add(1, &[]);
 
         let req = self.client.delete_object().bucket(&self.bucket).key(key);
-
-        let req = match options.if_match {
-            Some(e_tag) => req.if_match(e_tag.0),
-            None => req,
-        };
 
         match req.send().await {
             Ok(_) => {
@@ -1035,6 +1036,24 @@ impl Configurable<StorageConfig> for S3Storage {
     ) -> Result<Self, Box<dyn ChromaError>> {
         match &config {
             StorageConfig::S3(s3_config) => {
+                let timeout_config = TimeoutConfigBuilder::default()
+                    .connect_timeout(Duration::from_millis(s3_config.connect_timeout_ms))
+                    .operation_timeout(Duration::from_millis(s3_config.request_timeout_ms))
+                    .operation_attempt_timeout(Duration::from_millis(
+                        (s3_config.request_timeout_ms
+                            / s3_config.request_retry_count.max(1) as u64)
+                            .max(1),
+                    ))
+                    .build();
+
+                let stalled_config = StalledStreamProtectionConfig::enabled()
+                    .upload_enabled(true)
+                    .grace_period(Duration::from_millis(s3_config.stall_protection_ms))
+                    .build();
+
+                let retry_config =
+                    RetryConfig::standard().with_max_attempts(s3_config.request_retry_count);
+
                 let client = match &s3_config.credentials {
                     super::config::S3CredentialsConfig::Minio
                     | super::config::S3CredentialsConfig::Localhost => {
@@ -1046,11 +1065,6 @@ impl Configurable<StorageConfig> for S3Storage {
                             None,
                             "loaded-from-env",
                         );
-
-                        let timeout_config_builder = TimeoutConfigBuilder::default()
-                            .connect_timeout(Duration::from_millis(s3_config.connect_timeout_ms))
-                            .read_timeout(Duration::from_millis(s3_config.request_timeout_ms));
-                        let retry_config = RetryConfig::standard();
 
                         let mut endpoint_url = "http://minio.chroma:9000".to_string();
                         if matches!(
@@ -1067,22 +1081,19 @@ impl Configurable<StorageConfig> for S3Storage {
                             .behavior_version_latest()
                             .region(aws_sdk_s3::config::Region::new("us-east-1"))
                             .force_path_style(true)
-                            .timeout_config(timeout_config_builder.build())
+                            .timeout_config(timeout_config)
+                            .stalled_stream_protection(stalled_config)
                             .retry_config(retry_config)
                             .build();
                         aws_sdk_s3::Client::from_conf(config)
                     }
                     super::config::S3CredentialsConfig::AWS => {
                         let config = aws_config::load_from_env().await;
-                        let timeout_config_builder = TimeoutConfigBuilder::default()
-                            .connect_timeout(Duration::from_millis(s3_config.connect_timeout_ms))
-                            .read_timeout(Duration::from_millis(s3_config.request_timeout_ms));
-                        let retry_config = RetryConfig::standard();
                         let config = config
                             .to_builder()
-                            .timeout_config(timeout_config_builder.build())
+                            .timeout_config(timeout_config)
+                            .stalled_stream_protection(stalled_config)
                             .retry_config(retry_config)
-                            .stalled_stream_protection(StalledStreamProtectionConfig::disabled())
                             .build();
                         aws_sdk_s3::Client::new(&config)
                     }
@@ -1353,11 +1364,7 @@ mod tests {
                 "test",
                 0,
                 |_| Box::pin(ready(Ok(ByteStream::from(Bytes::new())))) as _,
-                PutOptions {
-                    if_not_exists: true,
-                    if_match: None,
-                    priority: StorageRequestPriority::P0,
-                },
+                PutOptions::default().with_mode(PutMode::IfNotExist),
             )
             .await
             .unwrap();
@@ -1367,11 +1374,7 @@ mod tests {
                 "test",
                 0,
                 |_| Box::pin(ready(Ok(ByteStream::from(Bytes::new())))) as _,
-                PutOptions {
-                    if_not_exists: true,
-                    if_match: None,
-                    priority: StorageRequestPriority::P0,
-                },
+                PutOptions::default().with_mode(PutMode::IfNotExist),
             )
             .await
             .unwrap_err();
@@ -1393,11 +1396,7 @@ mod tests {
                 "test",
                 0,
                 |_| Box::pin(ready(Ok(ByteStream::from(Bytes::new())))) as _,
-                PutOptions {
-                    if_not_exists: true,
-                    if_match: None,
-                    priority: StorageRequestPriority::P0,
-                },
+                PutOptions::default().with_mode(PutMode::IfNotExist),
             )
             .await
             .unwrap();
@@ -1409,11 +1408,7 @@ mod tests {
                 "test",
                 0,
                 |_| Box::pin(ready(Ok(ByteStream::from(Bytes::new())))) as _,
-                PutOptions {
-                    if_not_exists: false,
-                    if_match: e_tag,
-                    priority: StorageRequestPriority::P0,
-                },
+                PutOptions::default().with_mode(PutMode::IfMatch(e_tag.unwrap())),
             )
             .await
             .unwrap();
@@ -1427,11 +1422,7 @@ mod tests {
                 "test",
                 0,
                 |_| Box::pin(ready(Ok(ByteStream::from(Bytes::new())))) as _,
-                PutOptions {
-                    if_not_exists: true,
-                    if_match: None,
-                    priority: StorageRequestPriority::P0,
-                },
+                PutOptions::default().with_mode(PutMode::IfNotExist),
             )
             .await
             .unwrap();
@@ -1441,11 +1432,7 @@ mod tests {
                 "test",
                 0,
                 |_| Box::pin(ready(Ok(ByteStream::from(Bytes::new())))) as _,
-                PutOptions {
-                    if_not_exists: false,
-                    if_match: Some(ETag("e_tag".to_string())),
-                    priority: StorageRequestPriority::P0,
-                },
+                PutOptions::default().with_mode(PutMode::IfMatch(ETag("e_tag".to_string()))),
             )
             .await
             .unwrap_err();
@@ -1466,11 +1453,14 @@ mod tests {
 
     #[test]
     fn test_put_options_default() {
-        let default = PutOptions::default();
-
-        assert!(!default.if_not_exists);
-        assert_eq!(default.if_match, None);
-        assert_eq!(default.priority, StorageRequestPriority::P0);
+        assert_eq!(
+            PutOptions::default(),
+            PutOptions {
+                cmek: None,
+                mode: PutMode::Upsert,
+                priority: StorageRequestPriority::P0
+            }
+        );
     }
 
     #[tokio::test]
@@ -1481,11 +1471,7 @@ mod tests {
                 "test/00",
                 9,
                 |_| Box::pin(ready(Ok(ByteStream::from(Bytes::from("ABC123XYZ"))))) as _,
-                PutOptions {
-                    if_not_exists: true,
-                    if_match: None,
-                    priority: StorageRequestPriority::P0,
-                },
+                PutOptions::default().with_mode(PutMode::IfNotExist),
             )
             .await
             .unwrap();
@@ -1506,11 +1492,7 @@ mod tests {
                     &format!("test/{:02x}", i),
                     0,
                     |_| Box::pin(ready(Ok(ByteStream::from(Bytes::new())))) as _,
-                    PutOptions {
-                        if_not_exists: true,
-                        if_match: None,
-                        priority: StorageRequestPriority::P0,
-                    },
+                    PutOptions::default().with_mode(PutMode::IfNotExist),
                 )
                 .await
                 .unwrap();
@@ -1538,11 +1520,7 @@ mod tests {
                     &key,
                     0,
                     |_| Box::pin(ready(Ok(ByteStream::from(Bytes::new())))) as _,
-                    PutOptions {
-                        if_not_exists: true,
-                        if_match: None,
-                        priority: StorageRequestPriority::P0,
-                    },
+                    PutOptions::default().with_mode(PutMode::IfNotExist),
                 )
                 .await
                 .unwrap();

@@ -16,6 +16,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import asammdf.mdf as mdf_module
 
 from ... import tool
+from ...blocks.options import get_global_option
 from ...blocks.utils import extract_encryption_information, extract_xml_comment, Terminated
 from ...blocks.v4_blocks import AttachmentBlock, FileHistory, HeaderBlock
 from ...blocks.v4_blocks import TextBlock as TextV4
@@ -140,11 +141,13 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
         databases = kwargs.pop("databases", None)
         show_progress = kwargs.pop("show_progress", True)
         process_bus_logging = kwargs.pop("process_bus_logging", True)
+        ignore_invalidation_bits = kwargs.pop("ignore_invalidation_bits", False)
         mdf = kwargs.pop("mdf", None)
 
         self._progress = None
 
         self.loaded_display_file = Path(""), b""
+        self._previous_window_config = b""
 
         super(Ui_file_widget, self).__init__(*args, **kwargs)
         WithMDIArea.__init__(self, comparison=False)
@@ -263,6 +266,7 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
                         "password": password,
                         "use_display_names": True,
                         "process_bus_logging": process_bus_logging,
+                        "ignore_invalidation_bits": ignore_invalidation_bits,
                     }
 
                     try:
@@ -311,12 +315,12 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
             self.channel_view.setCurrentIndex(-1)
             self.filter_view.setCurrentIndex(-1)
 
-            self.filter_view.setCurrentText(self._settings.value("filter_view", "Internal file structure"))
+            self.filter_view.setCurrentText(self._settings.value("mdf/filter_view", "Internal file structure"))
 
             self.channel_view.currentIndexChanged.connect(partial(self._update_channel_tree, widget=self.channels_tree))
             self.filter_view.currentIndexChanged.connect(partial(self._update_channel_tree, widget=self.filter_tree))
 
-            self.channel_view.setCurrentText(self._settings.value("channels_view", "Internal file structure"))
+            self.channel_view.setCurrentText(self._settings.value("mdf/channels_view", "Internal file structure"))
 
             if progress:
                 progress.setValue(70)
@@ -674,7 +678,7 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
                 items.sort(key=lambda x: x.name)
             widget.addTopLevelItems(items)
 
-        setting = "channels_view" if widget is self.channels_tree else "filter_view"
+        setting = "mdf/channels_view" if widget is self.channels_tree else "mdf/filter_view"
         self._settings.setValue(setting, view.currentText())
 
     def output_format_changed(self, name):
@@ -734,8 +738,8 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
             parent=self,
         )
         dlg.setModal(True)
-        dlg.exec_()
-        result, pattern_window = dlg.result, dlg.pattern_window
+        dlg.exec()
+        result, pattern_window = dlg.payload, dlg.pattern_window
 
         if result:
             if pattern_window:
@@ -747,7 +751,7 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
 
                 dialog = WindowSelectionDialog(options=options, parent=self)
                 dialog.setModal(True)
-                dialog.exec_()
+                dialog.exec()
 
                 if dialog.result():
                     window_type = dialog.selected_type()
@@ -875,7 +879,7 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
 
                     dialog = WindowSelectionDialog(options=options, default=default, parent=self)
                     dialog.setModal(True)
-                    dialog.exec_()
+                    dialog.exec()
 
                     if dialog.result():
                         window_type = dialog.selected_type()
@@ -917,28 +921,29 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
         if toggle_frames:
             self.toggle_frames()
 
-    def to_config(self):
+    def to_config(self, check_save=False):
         config = {}
 
         iterator = QtWidgets.QTreeWidgetItemIterator(self.channels_tree)
 
         signals = []
-        if self.channel_view.currentText() == "Internal file structure":
-            while item := iterator.value():
-                if item.parent() is None:
+        if not check_save:
+            if self.channel_view.currentText() == "Internal file structure":
+                while item := iterator.value():
+                    if item.parent() is None:
+                        iterator += 1
+                        continue
+
+                    if item.checkState(0) == QtCore.Qt.CheckState.Checked:
+                        signals.append(item.text(0))
+
                     iterator += 1
-                    continue
+            else:
+                while item := iterator.value():
+                    if item.checkState(0) == QtCore.Qt.CheckState.Checked:
+                        signals.append(item.text(0))
 
-                if item.checkState(0) == QtCore.Qt.CheckState.Checked:
-                    signals.append(item.text(0))
-
-                iterator += 1
-        else:
-            while item := iterator.value():
-                if item.checkState(0) == QtCore.Qt.CheckState.Checked:
-                    signals.append(item.text(0))
-
-                iterator += 1
+                    iterator += 1
 
         config["selected_channels"] = signals
 
@@ -949,7 +954,7 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
             if not wid_config:
                 continue
 
-            geometry = window.geometry()
+            geometry = window.geometry() if not check_save else QtCore.QRect()
             window_config = {
                 "title": window.windowTitle(),
                 "configuration": wid_config,
@@ -959,8 +964,8 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
                     geometry.width(),
                     geometry.height(),
                 ],
-                "maximized": window.isMaximized(),
-                "minimized": window.isMinimized(),
+                "maximized": window.isMaximized() if not check_save else False,
+                "minimized": window.isMinimized() if not check_save else False,
             }
             if isinstance(wid, Numeric):
                 window_config["type"] = "Numeric"
@@ -985,7 +990,7 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
 
             windows.append(window_config)
 
-        current_window = self.mdi_area.currentSubWindow()
+        current_window = self.mdi_area.currentSubWindow() if not check_save else None
 
         config["windows"] = windows
         config["active_window"] = current_window.windowTitle() if current_window else ""
@@ -999,7 +1004,8 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
             if self.loaded_display_file[0].is_file():
                 dir = str(self.loaded_display_file[0])
             else:
-                dir = self.default_folder
+                settings = QtCore.QSettings()
+                dir = self.default_folder or settings.value("paths/previous/offline_display_path", "")
 
             file_name, _ = QtWidgets.QFileDialog.getSaveFileName(
                 self,
@@ -1010,11 +1016,12 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
 
         if file_name:
             file_name = Path(file_name).with_suffix(".dspf")
-            file_name.write_text(json.dumps(self.to_config(), indent=2, cls=ExtendedJsonEncoder))
+            file_name.write_text(json.dumps(self.to_config(), indent=2, cls=ExtendedJsonEncoder), encoding='utf-8')
 
             worker = md5()
             worker.update(file_name.read_bytes())
             self.loaded_display_file = file_name, worker.hexdigest()
+            self._previous_window_config = self.loaded_display_file[1]
 
             self.display_file_modified.emit(Path(self.loaded_display_file[0]).name)
 
@@ -1258,6 +1265,9 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
                         self.mdf.original_name = original_file_name
                         self.mdf.uuid = uuid
 
+                settings = QtCore.QSettings()
+                settings.setValue("paths/previous/offline_display_path", str(file_name))
+
             else:
                 return
 
@@ -1303,6 +1313,8 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
 
                     iterator += 1
 
+        self.clear_windows()
+
         if extension in (".dspf", ".dsp"):
             new_functions = {}
 
@@ -1338,8 +1350,6 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
 
             if new_functions or info.get("global_variables", "") != self.global_variables:
                 self.update_functions({}, new_functions, f"{self.global_variables}\n{info.get('global_variables', '')}")
-
-        self.clear_windows()
 
         windows = info.get("windows", [])
         errors = {}
@@ -1381,6 +1391,10 @@ class FileWidget(WithMDIArea, Ui_file_widget, QtWidgets.QWidget):
                 if window.windowTitle() == active_window:
                     self.mdi_area.setActiveSubWindow(window)
                     break
+
+        worker = md5()
+        worker.update(json.dumps(self.to_config(check_save=True), indent=2, cls=ExtendedJsonEncoder).encode('utf-8', errors='ignore'))
+        self._previous_window_config = worker.hexdigest()
 
         self.display_file_modified.emit(Path(self.loaded_display_file[0]).name)
 
@@ -1636,6 +1650,36 @@ MultiRasterSeparator;&
                 iterator += 1
 
     def close(self):
+        if get_global_option("check_unsaved_display_file"):
+            hexdigest = self._previous_window_config
+            windows = self.mdi_area.subWindowList()
+
+            if windows:
+                unsaved = False
+                
+                if hexdigest:
+                    worker = md5()
+                    try:
+                        worker.update(json.dumps(self.to_config(check_save=True), indent=2, cls=ExtendedJsonEncoder).encode('utf-8'))
+                        unsaved = worker.hexdigest() != hexdigest
+                    except:
+                        unsaved = False
+
+                else:
+                    unsaved = True
+
+                if unsaved:
+                    answer = MessageBox.question(
+                        self,
+                        "Unsaved display windows",
+                        f"{self.mdf.original_name.name} contains unsaved display changes.\n"
+                        "Do you want to save the windows to a display file?",
+                        detailed_text=f'Complete file path:\n{self.mdf.original_name}',
+                    )
+
+                    if answer == MessageBox.StandardButton.Yes:
+                        self.save_channel_list()
+
         self.clear_windows(is_closing=True)
 
         if self.mdf is not None:
@@ -1664,7 +1708,7 @@ MultiRasterSeparator;&
                 parent=self,
             )
             dialog.setModal(True)
-            dialog.exec_()
+            dialog.exec()
 
             if dialog.result():
                 window_type = dialog.selected_type()
@@ -1717,7 +1761,7 @@ MultiRasterSeparator;&
                 parent=self,
             )
             dlg.setModal(True)
-            dlg.exec_()
+            dlg.exec()
 
             if dlg.valid:
                 latitude = dlg.latitude.text().strip()
@@ -1830,7 +1874,7 @@ MultiRasterSeparator;&
 
     def extract_bus_logging_finished(self):
         if self._progress.error is None:
-            file_name, message = self._progress.result
+            file_name, message = self._progress.output
 
             self.output_info_bus.setPlainText("\n".join(message))
             self.open_new_files.emit([str(file_name)])
@@ -1969,7 +2013,7 @@ MultiRasterSeparator;&
 
     def extract_bus_csv_logging_finished(self):
         if self._progress.error is None:
-            message = self._progress.result
+            message = self._progress.output
 
             self.output_info_bus.setPlainText("\n".join(message))
 
@@ -2783,9 +2827,15 @@ MultiRasterSeparator;&
         output_format = opts.output_format
 
         split_size = opts.mdf_split_size if output_format == "MDF" else 0
-        self.mdf.configure(read_fragment_size=split_size)
 
-        mdf = None
+        if opts.needs_cut and not opts.cut_time_from_zero:
+            mdf = mdf_module.MDF(self.mdf.original_name, password=self.mdf._mdf._password,
+                    use_display_names=True)
+            mdf.configure(read_fragment_size=split_size)
+        else:
+            mdf = self.mdf
+            mdf.configure(read_fragment_size=split_size)
+
         integer_interpolation = self.mdf._mdf._integer_interpolation
         float_interpolation = self.mdf._mdf._float_interpolation
 
@@ -2797,18 +2847,22 @@ MultiRasterSeparator;&
             progress.signals.setLabelText.emit(f'Filtering selected channels from "{self.file_name}"')
 
             # filtering self.mdf
-            mdf = self.mdf.filter(
+            result = mdf.filter(
                 channels=channels,
                 version=opts.mdf_version if output_format == "MDF" else "4.10",
                 progress=progress,
             )
 
-            mdf.configure(
+            result.configure(
                 read_fragment_size=split_size,
                 write_fragment_size=split_size,
                 integer_interpolation=integer_interpolation,
                 float_interpolation=float_interpolation,
             )
+
+            if mdf is not self.mdf:
+                mdf.close()
+            mdf = result
 
         if opts.needs_cut:
             icon = QtGui.QIcon()
@@ -2817,29 +2871,29 @@ MultiRasterSeparator;&
             progress.signals.setWindowTitle.emit("Cutting measurement")
             progress.signals.setLabelText.emit(f"Cutting from {opts.cut_start}s to {opts.cut_stop}s")
 
+            inplace=not opts.cut_time_from_zero
+
             # cut self.mdf
-            target = self.mdf.cut if mdf is None else mdf.cut
-            result = target(
+            result = mdf.cut(
                 start=opts.cut_start,
                 stop=opts.cut_stop,
                 whence=opts.whence,
                 version=opts.mdf_version if output_format == "MDF" else "4.10",
                 time_from_zero=opts.cut_time_from_zero,
+                inplace=inplace,
                 progress=progress,
             )
 
-            if mdf is None:
-                mdf = result
-            else:
-                mdf.close()
-                mdf = result
-
-            mdf.configure(
+            result.configure(
                 read_fragment_size=split_size,
                 write_fragment_size=split_size,
                 integer_interpolation=integer_interpolation,
                 float_interpolation=float_interpolation,
             )
+
+            if mdf is not self.mdf and not inplace:
+                mdf.close()
+            mdf = result
 
         if opts.needs_resample:
             if opts.raster_type_channel:
@@ -2856,27 +2910,23 @@ MultiRasterSeparator;&
             progress.signals.setLabelText.emit(message)
 
             # resample self.mdf
-            target = self.mdf.resample if mdf is None else mdf.resample
-
-            result = target(
+            result = mdf.resample(
                 raster=raster,
                 version=opts.mdf_version if output_format == "MDF" else "4.10",
                 time_from_zero=opts.resample_time_from_zero,
                 progress=progress,
             )
 
-            if mdf is None:
-                mdf = result
-            else:
-                mdf.close()
-                mdf = result
-
-            mdf.configure(
+            result.configure(
                 read_fragment_size=split_size,
                 write_fragment_size=split_size,
                 integer_interpolation=integer_interpolation,
                 float_interpolation=float_interpolation,
             )
+
+            if mdf is not self.mdf:
+                mdf.close()
+            mdf = result
 
         if output_format == "MDF":
             if mdf is None:
@@ -2888,18 +2938,22 @@ MultiRasterSeparator;&
                     f'Converting "{self.file_name}" from {self.mdf.version} to {version}'
                 )
 
-                # convert self.mdf
-                mdf = self.mdf.convert(
-                    version=version,
-                    progress=progress,
-                )
+            # convert self.mdf
+            result = mdf.convert(
+                version=version,
+                progress=progress,
+            )
 
-            mdf.configure(
+            result.configure(
                 read_fragment_size=split_size,
                 write_fragment_size=split_size,
                 integer_interpolation=integer_interpolation,
                 float_interpolation=float_interpolation,
             )
+
+            if mdf is not self.mdf:
+                mdf.close()
+            mdf = result
 
             # then save it
             icon = QtGui.QIcon()
@@ -2969,7 +3023,6 @@ MultiRasterSeparator;&
             if delimiter == "\\t":
                 delimiter = "\t"
 
-            target = self.mdf.export if mdf is None else mdf.export
             kwargs = {
                 "fmt": opts.output_format.lower(),
                 "filename": file_name,
@@ -2996,9 +3049,12 @@ MultiRasterSeparator;&
             }
 
             try:
-                target(**kwargs)
+                mdf.export(**kwargs)
             except:
                 print(format_exc())
+
+        if mdf is not self.mdf:
+            mdf.close()
 
     def raster_search(self, event):
         dlg = AdvancedSearch(
@@ -3011,8 +3067,8 @@ MultiRasterSeparator;&
             parent=self,
         )
         dlg.setModal(True)
-        dlg.exec_()
-        result = dlg.result
+        dlg.exec()
+        result = dlg.payload
         if result:
             name = list(result)[0]
             self.raster_channel.setCurrentText(name)
@@ -3326,7 +3382,7 @@ MultiRasterSeparator;&
         self.oned_as.currentTextChanged.connect(self.store_export_setttings)
 
     def restore_export_setttings(self):
-        self.output_format.setCurrentText(self._settings.value("export", "MDF"))
+        self.output_format.setCurrentText(self._settings.value("export/format", "MDF"))
 
         self.mdf_version.setCurrentText(self._settings.setValue("export/MDF/version", "4.10"))
         self.mdf_compression.setCurrentText(self._settings.value("export/MDF/compression", "transposed deflate"))
@@ -3436,3 +3492,9 @@ MultiRasterSeparator;&
 
         if hide_embedded_btn:
             self.load_embedded_channel_list_btn.setDisabled(True)
+
+    def finalize_init(self):
+        if self.mdi_area.subWindowList():
+            worker = md5()
+            worker.update(json.dumps(self.to_config(check_save=True), indent=2, cls=ExtendedJsonEncoder).encode('utf-8', errors='ignore'))
+            self._previous_window_config = worker.hexdigest()

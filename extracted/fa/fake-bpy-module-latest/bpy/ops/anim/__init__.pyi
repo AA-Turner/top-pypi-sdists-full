@@ -11,17 +11,14 @@ def change_frame(
     frame: float | None = 0.0,
     snap: bool | None = False,
     seq_solo_preview: bool | None = False,
+    pass_through_on_strip_handles: bool | None = False,
 ) -> None:
     """Interactively change the current frame number
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param frame: Frame
-    :type frame: float | None
     :param snap: Snap
-    :type snap: bool | None
     :param seq_solo_preview: Strip Preview
-    :type seq_solo_preview: bool | None
+    :param pass_through_on_strip_handles: Pass Through on Strip Handles, Allow another operator to operate on strip handles
     """
 
 def channel_select_keys(
@@ -33,10 +30,7 @@ def channel_select_keys(
 ) -> None:
     """Select all keyframes of channel under mouse
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend, Extend selection
-    :type extend: bool | None
     """
 
 def channel_view_pick(
@@ -49,12 +43,8 @@ def channel_view_pick(
 ) -> None:
     """Reset viewable area to show the channel under the cursor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param include_handles: Include Handles, Include handles of keyframes when calculating extents
-    :type include_handles: bool | None
     :param use_preview_range: Use Preview Range, Ignore frames outside of the preview range
-    :type use_preview_range: bool | None
     """
 
 def channels_bake(
@@ -62,6 +52,7 @@ def channels_bake(
     undo: bool | None = None,
     /,
     *,
+    use_scene_range: bool | None = True,
     range: collections.abc.Iterable[int] | None = (0, 0),
     step: float | None = 1.0,
     remove_outside_range: bool | None = False,
@@ -70,14 +61,10 @@ def channels_bake(
 ) -> None:
     """Create keyframes following the current shape of F-Curves of selected channels
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
-        :param range: Frame Range, The range in which to create new keys
-        :type range: collections.abc.Iterable[int] | None
+        :param use_scene_range: Use Scene Range, If enabled, the scene start and end frame will be used to determine the bake range
+        :param range: Frame Range, The custom range in which to create new keys. Only used when not using the scene range
         :param step: Frame Step, At which interval to add keys
-        :type step: float | None
         :param remove_outside_range: Remove Outside Range, Removes keys outside the given range, leaving only the newly baked
-        :type remove_outside_range: bool | None
         :param interpolation_type: Interpolation Type, Choose the interpolation type with which new keys will be added
 
     BEZIER
@@ -88,9 +75,7 @@ def channels_bake(
 
     CONST
     Constant -- New keys will be constant.
-        :type interpolation_type: typing.Literal['BEZIER','LIN','CONST'] | None
         :param bake_modifiers: Bake Modifiers, Bake Modifiers into keyframes and delete them after
-        :type bake_modifiers: bool | None
     """
 
 def channels_clean_empty(
@@ -98,11 +83,7 @@ def channels_clean_empty(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete all empty animation data containers from visible data-blocks
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete all empty animation data containers from visible data-blocks"""
 
 def channels_click(
     execution_context: int | str | None = None,
@@ -115,14 +96,9 @@ def channels_click(
 ) -> None:
     """Handle mouse clicks over animation channels
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend Select
-    :type extend: bool | None
     :param extend_range: Extend Range, Selection of active channel to clicked channel
-    :type extend_range: bool | None
     :param children_only: Select Children Only
-    :type children_only: bool | None
     """
 
 def channels_collapse(
@@ -134,10 +110,7 @@ def channels_collapse(
 ) -> None:
     """Collapse (close) all selected expandable animation channels
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param all: All, Collapse all channels (not just selected ones)
-    :type all: bool | None
     """
 
 def channels_delete(
@@ -145,11 +118,7 @@ def channels_delete(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete all selected animation channels
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete all selected animation channels"""
 
 def channels_editable_toggle(
     execution_context: int | str | None = None,
@@ -161,12 +130,8 @@ def channels_editable_toggle(
 ) -> None:
     """Toggle editability of selected channels
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mode: Mode
-    :type mode: typing.Literal['TOGGLE','DISABLE','ENABLE','INVERT'] | None
     :param type: Type
-    :type type: typing.Literal['PROTECT','MUTE'] | None
     """
 
 def channels_expand(
@@ -178,10 +143,7 @@ def channels_expand(
 ) -> None:
     """Expand (open) all selected expandable animation channels
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param all: All, Expand all channels (not just selected ones)
-    :type all: bool | None
     """
 
 def channels_fcurves_enable(
@@ -189,11 +151,7 @@ def channels_fcurves_enable(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Clear disabled tag from all F-Curves to get broken F-Curves working again
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Clear disabled tag from all F-Curves to get broken F-Curves working again"""
 
 def channels_group(
     execution_context: int | str | None = None,
@@ -204,10 +162,7 @@ def channels_group(
 ) -> None:
     """Add selected F-Curves to a new group
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of newly created group
-    :type name: str
     """
 
 def channels_move(
@@ -219,10 +174,7 @@ def channels_move(
 ) -> None:
     """Rearrange selected animation channels
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction
-    :type direction: typing.Literal['TOP','UP','DOWN','BOTTOM'] | None
     """
 
 def channels_rename(
@@ -230,11 +182,7 @@ def channels_rename(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Rename animation channel under mouse
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Rename animation channel under mouse"""
 
 def channels_select_all(
     execution_context: int | str | None = None,
@@ -245,8 +193,6 @@ def channels_select_all(
 ) -> None:
     """Toggle selection of all animation channels
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -260,7 +206,6 @@ def channels_select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def channels_select_box(
@@ -278,22 +223,13 @@ def channels_select_box(
 ) -> None:
     """Select all animation channels within the specified region
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param xmin: X Min
-    :type xmin: int | None
     :param xmax: X Max
-    :type xmax: int | None
     :param ymin: Y Min
-    :type ymin: int | None
     :param ymax: Y Max
-    :type ymax: int | None
     :param wait_for_input: Wait for Input
-    :type wait_for_input: bool | None
     :param deselect: Deselect, Deselect rather than select items
-    :type deselect: bool | None
     :param extend: Extend, Extend selection instead of deselecting everything first
-    :type extend: bool | None
     """
 
 def channels_select_filter(
@@ -301,11 +237,7 @@ def channels_select_filter(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Start entering text which filters the set of channels shown to only include those with matching names
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Start entering text which filters the set of channels shown to only include those with matching names"""
 
 def channels_setting_disable(
     execution_context: int | str | None = None,
@@ -317,12 +249,8 @@ def channels_setting_disable(
 ) -> None:
     """Disable specified setting on all selected animation channels
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mode: Mode
-    :type mode: typing.Literal['TOGGLE','DISABLE','ENABLE','INVERT'] | None
     :param type: Type
-    :type type: typing.Literal['PROTECT','MUTE'] | None
     """
 
 def channels_setting_enable(
@@ -335,12 +263,8 @@ def channels_setting_enable(
 ) -> None:
     """Enable specified setting on all selected animation channels
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mode: Mode
-    :type mode: typing.Literal['TOGGLE','DISABLE','ENABLE','INVERT'] | None
     :param type: Type
-    :type type: typing.Literal['PROTECT','MUTE'] | None
     """
 
 def channels_setting_toggle(
@@ -353,12 +277,8 @@ def channels_setting_toggle(
 ) -> None:
     """Toggle specified setting on all selected animation channels
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mode: Mode
-    :type mode: typing.Literal['TOGGLE','DISABLE','ENABLE','INVERT'] | None
     :param type: Type
-    :type type: typing.Literal['PROTECT','MUTE'] | None
     """
 
 def channels_ungroup(
@@ -366,11 +286,7 @@ def channels_ungroup(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove selected F-Curves from their current groups
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove selected F-Curves from their current groups"""
 
 def channels_view_selected(
     execution_context: int | str | None = None,
@@ -382,12 +298,8 @@ def channels_view_selected(
 ) -> None:
     """Reset viewable area to show the selected channels
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param include_handles: Include Handles, Include handles of keyframes when calculating extents
-    :type include_handles: bool | None
     :param use_preview_range: Use Preview Range, Ignore frames outside of the preview range
-    :type use_preview_range: bool | None
     """
 
 def clear_useless_actions(
@@ -399,21 +311,7 @@ def clear_useless_actions(
 ) -> None:
     """Mark actions with no F-Curves for deletion after save and reload of file preserving "action libraries"
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param only_unused: Only Unused, Only unused (Fake User only) actions get considered
-    :type only_unused: bool | None
-    """
-
-def convert_legacy_action(
-    execution_context: int | str | None = None,
-    undo: bool | None = None,
-    /,
-) -> None:
-    """Convert a legacy Action to a layered Action on the active object
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
     """
 
 def copy_driver_button(
@@ -421,33 +319,21 @@ def copy_driver_button(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the driver for the highlighted button
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the driver for the highlighted button"""
 
 def driver_button_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add driver for the property under the cursor
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add driver for the property under the cursor"""
 
 def driver_button_edit(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Edit the drivers for the connected property represented by the highlighted button
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Edit the drivers for the connected property represented by the highlighted button"""
 
 def driver_button_remove(
     execution_context: int | str | None = None,
@@ -458,10 +344,7 @@ def driver_button_remove(
 ) -> None:
     """Remove the driver(s) for the connected property(s) represented by the highlighted button
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param all: All, Delete drivers for all elements of the array
-    :type all: bool | None
     """
 
 def end_frame_set(
@@ -469,11 +352,7 @@ def end_frame_set(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set the current frame as the preview or scene end frame
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set the current frame as the preview or scene end frame"""
 
 def keyframe_clear_button(
     execution_context: int | str | None = None,
@@ -484,10 +363,7 @@ def keyframe_clear_button(
 ) -> None:
     """Clear all keyframes on the currently active property
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param all: All, Clear keyframes from all elements of the array
-    :type all: bool | None
     """
 
 def keyframe_clear_v3d(
@@ -499,10 +375,7 @@ def keyframe_clear_v3d(
 ) -> None:
     """Remove all keyframe animation for selected objects
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param confirm: Confirm, Prompt for confirmation
-    :type confirm: bool | None
     """
 
 def keyframe_clear_vse(
@@ -514,10 +387,7 @@ def keyframe_clear_vse(
 ) -> None:
     """Remove all keyframe animation for selected strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param confirm: Confirm, Prompt for confirmation
-    :type confirm: bool | None
     """
 
 def keyframe_delete(
@@ -529,10 +399,7 @@ def keyframe_delete(
 ) -> None:
     """Delete keyframes on the current frame for all properties in the specified Keying Set
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Keying Set, The Keying Set to use
-    :type type: str | None
     """
 
 def keyframe_delete_button(
@@ -544,10 +411,7 @@ def keyframe_delete_button(
 ) -> None:
     """Delete current keyframe of current UI-active property
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param all: All, Delete keyframes from all elements of the array
-    :type all: bool | None
     """
 
 def keyframe_delete_by_name(
@@ -559,10 +423,7 @@ def keyframe_delete_by_name(
 ) -> None:
     """Alternate access to Delete Keyframe for keymaps to use
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Keying Set, The Keying Set to use
-    :type type: str
     """
 
 def keyframe_delete_v3d(
@@ -574,10 +435,7 @@ def keyframe_delete_v3d(
 ) -> None:
     """Remove keyframes on current frame for selected objects and bones
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param confirm: Confirm, Prompt for confirmation
-    :type confirm: bool | None
     """
 
 def keyframe_delete_vse(
@@ -589,10 +447,7 @@ def keyframe_delete_vse(
 ) -> None:
     """Remove keyframes on current frame for selected strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param confirm: Confirm, Prompt for confirmation
-    :type confirm: bool | None
     """
 
 def keyframe_insert(
@@ -604,10 +459,7 @@ def keyframe_insert(
 ) -> None:
     """Insert keyframes on the current frame using either the active keying set, or the user preferences if no keying set is active
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Keying Set, The Keying Set to use
-    :type type: str | None
     """
 
 def keyframe_insert_button(
@@ -619,10 +471,7 @@ def keyframe_insert_button(
 ) -> None:
     """Insert a keyframe for current UI-active property
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param all: All, Insert a keyframe for all element of the array
-    :type all: bool | None
     """
 
 def keyframe_insert_by_name(
@@ -634,10 +483,7 @@ def keyframe_insert_by_name(
 ) -> None:
     """Alternate access to Insert Keyframe for keymaps to use
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Keying Set, The Keying Set to use
-    :type type: str
     """
 
 def keyframe_insert_menu(
@@ -650,12 +496,8 @@ def keyframe_insert_menu(
 ) -> None:
     """Insert Keyframes for specified Keying Set, with menu of available Keying Sets if undefined
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Keying Set, The Keying Set to use
-    :type type: str | None
     :param always_prompt: Always Show Menu
-    :type always_prompt: bool | None
     """
 
 def keying_set_active_set(
@@ -667,10 +509,7 @@ def keying_set_active_set(
 ) -> None:
     """Set a new active keying set
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Keying Set, The Keying Set to use
-    :type type: str | None
     """
 
 def keying_set_add(
@@ -678,11 +517,7 @@ def keying_set_add(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a new (empty) keying set to the active Scene
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a new (empty) keying set to the active Scene"""
 
 def keying_set_export(
     execution_context: int | str | None = None,
@@ -696,16 +531,10 @@ def keying_set_export(
 ) -> None:
     """Export Keying Set to a Python script
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filepath: filepath
-    :type filepath: str
     :param filter_folder: Filter folders
-    :type filter_folder: bool | None
     :param filter_text: Filter text
-    :type filter_text: bool | None
     :param filter_python: Filter Python
-    :type filter_python: bool | None
     """
 
 def keying_set_path_add(
@@ -713,33 +542,21 @@ def keying_set_path_add(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add empty path to active keying set
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add empty path to active keying set"""
 
 def keying_set_path_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove active Path from active keying set
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove active Path from active keying set"""
 
 def keying_set_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove the active keying set
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove the active keying set"""
 
 def keyingset_button_add(
     execution_context: int | str | None = None,
@@ -750,10 +567,7 @@ def keyingset_button_add(
 ) -> None:
     """Add current UI-active property to current keying set
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param all: All, Add all elements of the array to a Keying Set
-    :type all: bool | None
     """
 
 def keyingset_button_remove(
@@ -761,44 +575,28 @@ def keyingset_button_remove(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove current UI-active property from current keying set
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove current UI-active property from current keying set"""
 
 def merge_animation(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Merge the animation of the selected objects into the action of the active object. Actions are not deleted by this, but might end up with zero users
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Merge the animation of the selected objects into the action of the active object. Actions are not deleted by this, but might end up with zero users"""
 
 def paste_driver_button(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Paste the driver in the internal clipboard to the highlighted button
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Paste the driver in the internal clipboard to the highlighted button"""
 
 def previewrange_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Clear preview range
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Clear preview range"""
 
 def previewrange_set(
     execution_context: int | str | None = None,
@@ -813,18 +611,11 @@ def previewrange_set(
 ) -> None:
     """Interactively define frame range used for playback
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param xmin: X Min
-    :type xmin: int | None
     :param xmax: X Max
-    :type xmax: int | None
     :param ymin: Y Min
-    :type ymin: int | None
     :param ymax: Y Max
-    :type ymax: int | None
     :param wait_for_input: Wait for Input
-    :type wait_for_input: bool | None
     """
 
 def scene_range_frame(
@@ -832,88 +623,56 @@ def scene_range_frame(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reset the horizontal view to the current scene frame range, taking the preview range into account if it is active
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reset the horizontal view to the current scene frame range, taking the preview range into account if it is active"""
 
 def separate_slots(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move all slots of the action on the active object into newly created, separate actions. All users of those slots will be reassigned to the new actions. The current action wont be deleted but will be empty and might end up having zero users
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move all slots of the action on the active object into newly created, separate actions. All users of those slots will be reassigned to the new actions. The current action wont be deleted but will be empty and might end up having zero users"""
 
 def slot_channels_move_to_new_action(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move the selected slots into a newly created action
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move the selected slots into a newly created action"""
 
 def slot_new_for_id(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create a new action slot for this data-block, to hold its animation
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create a new action slot for this data-block, to hold its animation"""
 
 def slot_unassign_from_constraint(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Un-assign the action slot from this constraint
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Un-assign the action slot from this constraint"""
 
 def slot_unassign_from_id(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Un-assign the action slot, effectively making this data-block non-animated
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Un-assign the action slot, effectively making this data-block non-animated"""
 
 def slot_unassign_from_nla_strip(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Un-assign the action slot from this NLA strip, effectively making it non-animated
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Un-assign the action slot from this NLA strip, effectively making it non-animated"""
 
 def start_frame_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set the current frame as the preview or scene start frame
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set the current frame as the preview or scene start frame"""
 
 def update_animated_transform_constraints(
     execution_context: int | str | None = None,
@@ -924,11 +683,15 @@ def update_animated_transform_constraints(
 ) -> None:
     """Update f-curves/drivers affecting Transform constraints (use it with files from 2.70 and earlier)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_convert_to_radians: Convert to Radians, Convert f-curves/drivers affecting rotations to radians.Warning: Use this only once
-    :type use_convert_to_radians: bool | None
     """
+
+def version_bone_hide_property(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Moves any F-Curves for the hide property of selected armatures into the action of the object. This will only operate on the first layer and strip of the action"""
 
 def view_curve_in_graph_editor(
     execution_context: int | str | None = None,
@@ -940,10 +703,6 @@ def view_curve_in_graph_editor(
 ) -> None:
     """Frame the property under the cursor in the Graph Editor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param all: Show All, Frame the whole array property instead of only the index under the cursor
-    :type all: bool | None
     :param isolate: Isolate, Hides all F-Curves other than the ones being framed
-    :type isolate: bool | None
     """

@@ -525,7 +525,7 @@ gmrz2 = np.identity(4, dtype=np.float64)
 
 def coord_space(
     a0: np.ndarray, a1: np.ndarray, a2: np.ndarray, rev: bool = False
-) -> tuple[np.ndarray, Optional[np.ndarray]]:
+) -> tuple[np.ndarray, np.ndarray | None]:
     """Generate transformation matrix to coordinate space defined by 3 points.
 
     New coordinate space will have:
@@ -548,10 +548,7 @@ def coord_space(
     # a1 = acs[1]
     # a2 = acs[2]
 
-    global gtm
-    global gmry
-    global gmrz, gmrz2
-
+    # the gtm, gmry, gmrz, and gmrz2 variables are read from the global namespace
     tm = gtm
     mry = gmry
     mrz = gmrz

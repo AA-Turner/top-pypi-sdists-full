@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -34,12 +35,6 @@ from .literals import (
     ServiceNamespaceType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -92,13 +87,13 @@ __all__ = (
 
 class TagFilterOutputTypeDef(TypedDict):
     Key: NotRequired[str]
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
 
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -151,7 +146,7 @@ class TagFilterTypeDef(TypedDict):
 
 class ApplicationSourceOutputTypeDef(TypedDict):
     CloudFormationStackARN: NotRequired[str]
-    TagFilters: NotRequired[List[TagFilterOutputTypeDef]]
+    TagFilters: NotRequired[list[TagFilterOutputTypeDef]]
 
 
 class CreateScalingPlanResponseTypeDef(TypedDict):
@@ -163,7 +158,7 @@ class CustomizedLoadMetricSpecificationOutputTypeDef(TypedDict):
     MetricName: str
     Namespace: str
     Statistic: MetricStatisticType
-    Dimensions: NotRequired[List[MetricDimensionTypeDef]]
+    Dimensions: NotRequired[list[MetricDimensionTypeDef]]
     Unit: NotRequired[str]
 
 
@@ -179,7 +174,7 @@ class CustomizedScalingMetricSpecificationOutputTypeDef(TypedDict):
     MetricName: str
     Namespace: str
     Statistic: MetricStatisticType
-    Dimensions: NotRequired[List[MetricDimensionTypeDef]]
+    Dimensions: NotRequired[list[MetricDimensionTypeDef]]
     Unit: NotRequired[str]
 
 
@@ -192,7 +187,7 @@ class CustomizedScalingMetricSpecificationTypeDef(TypedDict):
 
 
 class GetScalingPlanResourceForecastDataResponseTypeDef(TypedDict):
-    Datapoints: List[DatapointTypeDef]
+    Datapoints: list[DatapointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -247,7 +242,7 @@ class ScalingInstructionOutputTypeDef(TypedDict):
     ScalableDimension: ScalableDimensionType
     MinCapacity: int
     MaxCapacity: int
-    TargetTrackingConfigurations: List[TargetTrackingConfigurationOutputTypeDef]
+    TargetTrackingConfigurations: list[TargetTrackingConfigurationOutputTypeDef]
     PredefinedLoadMetricSpecification: NotRequired[PredefinedLoadMetricSpecificationTypeDef]
     CustomizedLoadMetricSpecification: NotRequired[CustomizedLoadMetricSpecificationOutputTypeDef]
     ScheduledActionBufferTime: NotRequired[int]
@@ -283,7 +278,7 @@ class ScalingPlanTypeDef(TypedDict):
     ScalingPlanName: str
     ScalingPlanVersion: int
     ApplicationSource: ApplicationSourceOutputTypeDef
-    ScalingInstructions: List[ScalingInstructionOutputTypeDef]
+    ScalingInstructions: list[ScalingInstructionOutputTypeDef]
     StatusCode: ScalingPlanStatusCodeType
     StatusMessage: NotRequired[str]
     StatusStartTime: NotRequired[datetime]
@@ -297,7 +292,7 @@ class ScalingPlanResourceTypeDef(TypedDict):
     ResourceId: str
     ScalableDimension: ScalableDimensionType
     ScalingStatusCode: ScalingStatusCodeType
-    ScalingPolicies: NotRequired[List[ScalingPolicyTypeDef]]
+    ScalingPolicies: NotRequired[list[ScalingPolicyTypeDef]]
     ScalingStatusMessage: NotRequired[str]
 
 
@@ -322,13 +317,13 @@ class DescribeScalingPlansRequestTypeDef(TypedDict):
 
 
 class DescribeScalingPlansResponseTypeDef(TypedDict):
-    ScalingPlans: List[ScalingPlanTypeDef]
+    ScalingPlans: list[ScalingPlanTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeScalingPlanResourcesResponseTypeDef(TypedDict):
-    ScalingPlanResources: List[ScalingPlanResourceTypeDef]
+    ScalingPlanResources: list[ScalingPlanResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

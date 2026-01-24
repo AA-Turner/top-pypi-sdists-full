@@ -1,15 +1,14 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: samplerate
-Version: 0.2.1
+Version: 0.2.3
 Summary: Monolithic python wrapper for libsamplerate based on pybind11 and NumPy
 Author-email: Robin Scheibler <fakufaku@gmail.com>, Tino Wagner <ich@tinowagner.com>
-License: MIT
+License-Expression: MIT
 Keywords: samplerate,converter,signal processing,audio
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering
@@ -18,6 +17,7 @@ Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
 Requires-Dist: numpy
+Dynamic: license-file
 
 python-samplerate
 =================

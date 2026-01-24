@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests for coverage.py's API."""
 
@@ -15,15 +15,15 @@ import shutil
 import sys
 import textwrap
 
-from typing import cast, Callable
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from typing import cast
 
 import pytest
 
 import coverage
 from coverage import Coverage, env
 from coverage.data import line_counts, sorted_lines
-from coverage.exceptions import ConfigError, CoverageException, DataError, NoDataError, NoSource
+from coverage.exceptions import ConfigError, CoverageException, NoDataError, NoSource
 from coverage.files import abs_file, relative_filename
 from coverage.misc import import_local_file
 from coverage.types import FilePathClasses, FilePathType, TCovKwargs
@@ -337,7 +337,7 @@ class ApiTest(CoverageTest):
             cov.report()
 
     def test_completely_zero_reporting(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/884
+        # https://github.com/coveragepy/coveragepy/issues/884
         # If nothing was measured, the file-touching didn't happen properly.
         self.make_file("foo/bar.py", "print('Never run')")
         self.make_file("test.py", "assert True")
@@ -354,17 +354,6 @@ class ApiTest(CoverageTest):
 
         last = self.last_line_squeezed(self.stdout())
         assert "TOTAL 1 1 0%" == last
-
-    def test_cov4_data_file(self) -> None:
-        cov4_data = (
-            "!coverage.py: This is a private format, don't read it directly!"
-            + '{"lines":{"/somewhere/not/really.py":[1,5,2,3]}}'
-        )
-        self.make_file(".coverage", cov4_data)
-        cov = coverage.Coverage()
-        with pytest.raises(DataError, match="Looks like a coverage 4.x data file"):
-            cov.load()
-        cov.erase()
 
     def make_code1_code2(self) -> None:
         """Create the code1.py and code2.py files."""
@@ -514,7 +503,7 @@ class ApiTest(CoverageTest):
         self.check_code1_code2(cov)
 
     def test_ordered_combine(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/649
+        # https://github.com/coveragepy/coveragepy/issues/649
         # The order of the [paths] setting used to matter. Now the
         # resulting path must exist, so the order doesn't matter.
         def make_files() -> None:
@@ -647,7 +636,7 @@ class ApiTest(CoverageTest):
         ]
 
     def test_source_and_include_dont_conflict(self) -> None:
-        # A bad fix made this case fail: https://github.com/nedbat/coveragepy/issues/541
+        # A bad fix made this case fail: https://github.com/coveragepy/coveragepy/issues/541
         self.make_file("a.py", "import b\na = 1")
         self.make_file("b.py", "b = 1")
         self.make_file(
@@ -694,7 +683,7 @@ class ApiTest(CoverageTest):
         cov.stop()
 
     def test_run_debug_sys(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/907
+        # https://github.com/coveragepy/coveragepy/issues/907
         cov = coverage.Coverage()
         with cov.collect():
             d = dict(cov.sys_info())
@@ -1012,7 +1001,7 @@ class SourceIncludeOmitTest(IncludeOmitTestsMixin, CoverageTest):
         self.filenames_not_in(list(lines), "p1a p1c p2a p2b othera otherb osa osb")
 
     def test_source_package_part_omitted(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/218
+        # https://github.com/coveragepy/coveragepy/issues/218
         # Used to be if you omitted something executed and inside the source,
         # then after it was executed but not recorded, it would be found in
         # the search for un-executed files, and given a score of 0%.
@@ -1025,7 +1014,7 @@ class SourceIncludeOmitTest(IncludeOmitTestsMixin, CoverageTest):
         assert lines["p1c"] == 0
 
     def test_source_package_as_package_part_omitted(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/638
+        # https://github.com/coveragepy/coveragepy/issues/638
         lines = self.coverage_usepkgs_counts(source=["pkg1"], omit=["*/p1b.py"])
         self.filenames_in(list(lines), "p1a")
         self.filenames_not_in(list(lines), "p1b")
@@ -1152,7 +1141,8 @@ class TestRunnerPluginTest(CoverageTest):
 
     """
 
-    def pretend_to_be_nose_with_cover(self, erase: bool = False, cd: bool = False) -> None:
+    @pytest.mark.parametrize("erase, cd", [(False, False), (True, False), (False, True)])
+    def test_pretend_to_be_nose_with_cover(self, erase: bool, cd: bool) -> None:
         """This is what the nose --with-cover plugin does."""
         self.make_file(
             "no_biggie.py",
@@ -1186,17 +1176,8 @@ class TestRunnerPluginTest(CoverageTest):
         if cd:
             os.chdir("..")
 
-    def test_nose_plugin(self) -> None:
-        self.pretend_to_be_nose_with_cover()
-
-    def test_nose_plugin_with_erase(self) -> None:
-        self.pretend_to_be_nose_with_cover(erase=True)
-
-    def test_nose_plugin_with_cd(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/916
-        self.pretend_to_be_nose_with_cover(cd=True)
-
-    def pretend_to_be_pytestcov(self, append: bool) -> None:
+    @pytest.mark.parametrize("append", [False, True])
+    def test_pretend_to_be_pytestcov(self, append: bool) -> None:
         """Act like pytest-cov."""
         self.make_file(
             "prog.py",
@@ -1237,12 +1218,6 @@ class TestRunnerPluginTest(CoverageTest):
             """)
         self.assert_file_count(".coverage", 0)
         self.assert_file_count(".coverage.*", 1)
-
-    def test_pytestcov_parallel(self) -> None:
-        self.pretend_to_be_pytestcov(append=False)
-
-    def test_pytestcov_parallel_append(self) -> None:
-        self.pretend_to_be_pytestcov(append=True)
 
 
 class ImmutableConfigTest(CoverageTest):
@@ -1389,7 +1364,7 @@ class RelativePathTest(CoverageTest):
         self.assert_exists(".coverage")
 
     def test_files_up_one_level(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/1280
+        # https://github.com/coveragepy/coveragepy/issues/1280
         self.make_file(
             "src/mycode.py",
             """\
@@ -1517,7 +1492,7 @@ class CombiningTest(CoverageTest):
         assert line_counts(data)["b_or_c.py"] == 8
 
     def test_combine_no_usable_files(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/629
+        # https://github.com/coveragepy/coveragepy/issues/629
         self.make_b_or_c_py()
         self.make_data_file(".coverage", lines=self.B_LINES)
 
@@ -1620,7 +1595,7 @@ class CombiningTest(CoverageTest):
 
     @pytest.mark.parametrize("abs_order, rel_order", [(1, 2), (2, 1)])
     def test_combine_absolute_then_relative_1752(self, abs_order: int, rel_order: int) -> None:
-        # https://github.com/nedbat/coveragepy/issues/1752
+        # https://github.com/coveragepy/coveragepy/issues/1752
         # If we're combining a relative data file and an absolute data file,
         # the absolutes were made relative only if the relative file name was
         # encountered first.  Test combining in both orders and check that the

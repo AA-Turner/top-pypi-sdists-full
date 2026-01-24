@@ -28,12 +28,12 @@ from .names import (
 )
 
 __all__ = [
-    "Color",
-    "Style",
     "ANSIStyle",
-    "HTMLStyle",
-    "ColorNotFound",
     "AttributeNotFound",
+    "Color",
+    "ColorNotFound",
+    "HTMLStyle",
+    "Style",
 ]
 
 _lower_camel_names = [n.replace("_", "") for n in color_names]
@@ -122,7 +122,7 @@ class Color:
 
         """
 
-    __slots__ = ("fg", "isreset", "rgb", "number", "representation", "exact")
+    __slots__ = ("exact", "fg", "isreset", "number", "representation", "rgb")
 
     def __init__(self, r_or_color=None, g=None, b=None, fg=True):
         """This works from color values, or tries to load non-simple ones."""
@@ -282,6 +282,9 @@ class Color:
         """Reset colors are equal, otherwise rgb have to match."""
         return other.isreset if self.isreset else self.rgb == other.rgb
 
+    def __hash__(self):
+        return hash(self.isreset or self.rgb)
+
     @property
     def ansi_sequence(self):
         """This is the ansi sequence as a string, ready to use."""
@@ -337,7 +340,7 @@ class Style(metaclass=ABCMeta):
     and can be called in a with statement.
     """
 
-    __slots__ = ("attributes", "fg", "bg", "isreset", "__weakref__")
+    __slots__ = ("__weakref__", "attributes", "bg", "fg", "isreset")
 
     color_class = Color
     """The class of color to use. Never hardcode ``Color`` call when writing a Style
@@ -589,6 +592,8 @@ class Style(metaclass=ABCMeta):
             )
 
         return str(self) == other
+
+    __hash__ = None  # type: ignore[assignment]
 
     @abstractmethod
     def __str__(self):

@@ -20,7 +20,7 @@ from pcluster.aws.aws_api import AWSApi
 from pcluster.aws.aws_resources import InstanceTypeInfo
 from pcluster.aws.common import AWSClientError
 from pcluster.cli.commands.dcv_util import get_supported_dcv_os
-from pcluster.config.common import CapacityType
+from pcluster.config.common import CapacityType, SharedStorageType
 from pcluster.constants import (
     CIDR_ALL_IPS,
     DELETE_POLICY,
@@ -534,15 +534,18 @@ def _populate_allowed_src_or_dst(rule, ip_ranges, allowed_security_groups):
     """
     if rule.get("PrefixListIds"):
         return True  # Always assume prefix list is properly set for code simplicity
-    elif rule.get("IpRanges"):
+    if rule.get("IpRanges"):
         ip_ranges.extend(rule.get("IpRanges"))
-        return False  # Ip Ranges have to be checked later. Return False because the rule allowance is not determined.
-    elif rule.get("UserIdGroupPairs"):
+        # Ip Ranges have to be checked later. Return False because the rule allowance is not determined.
+    if rule.get("Ipv4Ranges"):
+        # Currently the describe_security_groups API response syntax contains "IpRanges".
+        # This check is added for future compatibility if API changes to use "Ipv4Ranges"
+        ip_ranges.extend(rule.get("Ipv4Ranges"))
+    if rule.get("UserIdGroupPairs"):
         allowed_security_groups.update(
             {user_id_group_pair.get("GroupId") for user_id_group_pair in rule.get("UserIdGroupPairs")}
         )
         # Security groups have to be checked later. Return False because the rule allowance is not determined.
-        return False
     return False
 
 
@@ -673,7 +676,7 @@ class ExistingFsxNetworkingValidator(Validator):
                         self._add_failure(
                             f"The current security group settings on file storage '{file_storage_id}' does not"
                             " satisfy mounting requirement. The file storage must be associated to a security group"
-                            f" that allows {direction } {protocol.upper()} traffic through ports {ports}. "
+                            f" that allows {direction} {protocol.upper()} traffic through ports {ports}. "
                             f"Missing ports: {missing_ports}",
                             FailureLevel.ERROR,
                         )
@@ -1058,6 +1061,14 @@ class DcvValidator(Validator):
                     FailureLevel.WARNING,
                 )
 
+            instance_info = AWSApi.instance().ec2.get_instance_type_info(instance_type)
+            if not instance_info.gpu_count():
+                self._add_failure(
+                    f"DCV is enabled but the instance type '{instance_type}' does not have a GPU. "
+                    "It is recommended to use DCV with a GPU-enabled instance type.",
+                    FailureLevel.WARNING,
+                )
+
 
 class IntelHpcOsValidator(Validator):
     """Intel HPC OS validator."""
@@ -1329,6 +1340,24 @@ class HeadNodeMemorySizeValidator(Validator):
                 f"Head node instance type {head_node_instance_type} has {head_node_memory} GB of memory. "
                 f"Please choose a head node instance type with at least {required_memory} GB of memory"
                 f" to manage {total_max_compute_nodes} compute nodes.",
+                FailureLevel.ERROR,
+            )
+
+
+class SharedStorageEfsSettingsValidator(Validator):
+    """
+    HeadNode SharedStorageEfsSettings Validator.
+
+    Verify HeadNode SharedStorageEfsSettings can only be used with Efs SharedStorageType.
+    """
+
+    def _validate(self, shared_storage_type: str, shared_storage_efs_settings):
+        if shared_storage_efs_settings and shared_storage_type.lower() != SharedStorageType.EFS.value:
+            self._add_failure(
+                "SharedStorageEfsSettings is specified "
+                f"but the SharedStorageType is set to {shared_storage_type}. "
+                "SharedStorageEfsSettings can only be used when "
+                f"SharedStorageType is {SharedStorageType.EFS.value.capitalize()}.",
                 FailureLevel.ERROR,
             )
 

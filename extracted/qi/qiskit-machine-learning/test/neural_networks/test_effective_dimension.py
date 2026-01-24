@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2022, 2024.
+# (C) Copyright IBM 2022, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -9,7 +9,7 @@
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
-""" Unit Tests for Effective Dimension Algorithm """
+"""Unit Tests for Effective Dimension Algorithm"""
 
 import unittest
 
@@ -19,7 +19,8 @@ import numpy as np
 from ddt import ddt, data, unpack
 
 from qiskit.circuit import QuantumCircuit
-from qiskit.circuit.library import ZFeatureMap, RealAmplitudes
+from qiskit.circuit.library import z_feature_map, real_amplitudes
+from qiskit_machine_learning.primitives import QMLSampler as Sampler, QMLEstimator as Estimator
 from qiskit_machine_learning.utils import algorithm_globals
 
 from qiskit_machine_learning.neural_networks import (
@@ -42,8 +43,8 @@ class TestEffectiveDimension(QiskitMachineLearningTestCase):
 
         # set up quantum neural networks
         num_qubits = 3
-        feature_map = ZFeatureMap(feature_dimension=num_qubits, reps=1)
-        ansatz = RealAmplitudes(num_qubits, reps=1)
+        feature_map = z_feature_map(feature_dimension=num_qubits, reps=1)
+        ansatz = real_amplitudes(num_qubits, reps=1)
 
         # SamplerQNNs
         qc = QuantumCircuit(num_qubits)
@@ -59,12 +60,14 @@ class TestEffectiveDimension(QiskitMachineLearningTestCase):
             weight_params=ansatz.parameters,
             interpret=parity,
             output_shape=2,
+            sampler=Sampler(),
         )
 
         sampler_qnn_2 = SamplerQNN(
             circuit=qc,
             input_params=feature_map.parameters,
             weight_params=ansatz.parameters,
+            sampler=Sampler(),
         )
 
         # EstimatorQNN
@@ -72,6 +75,7 @@ class TestEffectiveDimension(QiskitMachineLearningTestCase):
             circuit=qc,
             input_params=feature_map.parameters,
             weight_params=ansatz.parameters,
+            estimator=Estimator(default_precision=0.01, seed=123),
         )
 
         self.qnns = {

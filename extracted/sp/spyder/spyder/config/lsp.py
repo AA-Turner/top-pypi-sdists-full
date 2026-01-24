@@ -34,11 +34,6 @@ PYTHON_CONFIG = {
             'plugins': {
                 'pycodestyle': {
                     'enabled': False,
-                    'exclude': [],
-                    'filename': [],
-                    'select': [],
-                    'ignore': [],
-                    'hangClosing': False,
                     'maxLineLength': 79
                 },
                 'pyflakes': {
@@ -79,6 +74,7 @@ PYTHON_CONFIG = {
                     'environment': None,
                     'extra_paths': [],
                     'env_vars': None,
+                    'prioritize_extra_paths': False,
                     # Until we have a graphical way for users to add modules to
                     # this option
                     'auto_import_modules': [
@@ -127,6 +123,11 @@ PYTHON_CONFIG = {
                 },
                 'flake8': {
                     'enabled': False,
+                    'exclude': [],
+                    'extendSelect': [],
+                    'extendIgnore': [],
+                    'indentSize': 4,
+                    'max_line_length': 79
                 },
                 'pyls_spyder': {
                     'enable_block_comments': True,
@@ -137,9 +138,15 @@ PYTHON_CONFIG = {
                     'enabled': False,
                 },
                 'ruff': {
-                    # Disable it until we have a graphical option for users to
-                    # enable it.
                     'enabled': False,
+                    'formatedEnabled': False,
+                    'exclude': [],
+                    'extendSelect': [],
+                    'extendIgnore': [],
+                    'lineLength': 79,
+                },
+                'no_linting': {
+                    'enabled' : False
                 }
             },
 

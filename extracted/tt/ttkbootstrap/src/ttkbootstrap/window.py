@@ -1,17 +1,59 @@
-"""
-    This module contains a class of the same name that wraps the
-    tkinter.Tk and ttkbootstrap.style.Style classes to provide a more
-    consolidated api for initial application startup.
+"""Window and Toplevel classes for ttkbootstrap applications.
+
+This module provides enhanced Window and Toplevel classes that wrap tkinter.Tk
+and tkinter.Toplevel with integrated ttkbootstrap Style support, providing a
+consolidated API for application initialization and window creation.
+
+Classes:
+    Window: Main application window (wraps tk.Tk with Style)
+    Toplevel: Top-level popup window (wraps tk.Toplevel with Style)
+
+Features:
+    - Integrated ttkbootstrap theme support
+    - Simplified window configuration (size, position, title, etc.)
+    - High-DPI awareness configuration
+    - Window positioning utilities (center, place)
+    - Alpha transparency support
+    - Icon management (PhotoImage or file path)
+    - Resizable window control
+    - Theme-aware styling
+
+Example:
+    ```python
+    import ttkbootstrap as ttk
+    from ttkbootstrap.constants import *
+
+    # Create main window with theme
+    root = ttk.Window(
+        title="My Application",
+        themename="darkly",
+        size=(800, 600),
+        position=(100, 100),
+        resizable=(True, True)
+    )
+
+    # Add widgets
+    ttk.Label(root, text="Hello, World!").pack(padx=20, pady=20)
+    ttk.Button(root, text="Click Me", bootstyle="success").pack()
+
+    # Create toplevel popup
+    popup = ttk.Toplevel(title="Popup Window")
+    popup.geometry("400x300")
+
+    root.mainloop()
+    ```
 """
 import tkinter
+from typing import Any, Optional, Tuple, Union
+
+from ttkbootstrap import utility
 from ttkbootstrap.constants import *
+from ttkbootstrap.icons import Icon
 from ttkbootstrap.publisher import Publisher
 from ttkbootstrap.style import Style
-from ttkbootstrap.icons import Icon
-from ttkbootstrap import utility
 
 
-def get_default_root(what=None):
+def get_default_root(what: Optional[str] = None) -> tkinter.Tk:
     """Returns the default root if it has been created, otherwise
     returns a new instance."""
     if not tkinter._support_default_root:
@@ -26,7 +68,7 @@ def get_default_root(what=None):
     return tkinter._default_root
 
 
-def apply_class_bindings(window: tkinter.Widget):
+def apply_class_bindings(window: tkinter.Widget) -> None:
     """Add class level event bindings in application"""
     for className in ["TEntry", "TSpinbox", "TCombobox", "Text"]:
         window.bind_class(
@@ -43,7 +85,7 @@ def apply_class_bindings(window: tkinter.Widget):
 
     window.unbind_class("TButton", "<Key-space>")
 
-    def button_default_binding(event):
+    def button_default_binding(event: tkinter.Event) -> None:
         """The default keybind on a button when the return or enter key
         is pressed and the button has focus or is the default button."""
         try:
@@ -58,13 +100,13 @@ def apply_class_bindings(window: tkinter.Widget):
     window.bind_class("TButton", "<KP_Enter>", button_default_binding, add="+")
 
 
-def apply_all_bindings(window: tkinter.Widget):
+def apply_all_bindings(window: tkinter.Widget) -> None:
     """Add bindings to all widgets in the application"""
     window.bind_all('<Map>', on_map_child, '+')
     window.bind_all('<Destroy>', lambda e: Publisher.unsubscribe(e.widget))
 
 
-def on_visibility(event):
+def on_visibility(event: tkinter.Event) -> None:
     """Set Window or Toplevel alpha value on Visibility (X11)"""
     widget = event.widget
     if isinstance(widget, (Window, Toplevel)) and widget.alpha_bind:
@@ -72,7 +114,7 @@ def on_visibility(event):
         widget.attributes("-alpha", widget.alpha)
 
 
-def on_disabled_readonly_state(event):
+def on_disabled_readonly_state(event: tkinter.Event) -> None:
     """Change the cursor of entry type widgets to 'arrow' if in a
     disabled or readonly state."""
     try:
@@ -93,7 +135,7 @@ def on_disabled_readonly_state(event):
         pass
 
 
-def on_map_child(event):
+def on_map_child(event: tkinter.Event) -> None:
     """Callback for <Map> event which generates a <<MapChild>> virtual
     event on the parent"""
     widget: tkinter.Widget = event.widget
@@ -107,7 +149,7 @@ def on_map_child(event):
         return
 
 
-def on_select_all(event):
+def on_select_all(event: tkinter.Event) -> None:
     """Callback to select all text in Entry or Text widget when Ctrl+A is pressed."""
     widget = event.widget
 
@@ -139,21 +181,21 @@ class Window(tkinter.Tk):
 
     def __init__(
             self,
-            title="ttkbootstrap",
-            themename="litera",
-            iconphoto='',
-            size=None,
-            position=None,
-            minsize=None,
-            maxsize=None,
-            resizable=None,
-            hdpi=True,
-            scaling=None,
-            transient=None,
-            overrideredirect=False,
-            alpha=1.0,
-            **kwargs,
-    ):
+            title: str = "ttkbootstrap",
+            themename: str = "litera",
+            iconphoto: Optional[str] = '',
+            size: Optional[Tuple[int, int]] = None,
+            position: Optional[Tuple[int, int]] = None,
+            minsize: Optional[Tuple[int, int]] = None,
+            maxsize: Optional[Tuple[int, int]] = None,
+            resizable: Optional[Tuple[bool, bool]] = None,
+            hdpi: bool = True,
+            scaling: Optional[float] = None,
+            transient: Optional[tkinter.Misc] = None,
+            overrideredirect: bool = False,
+            alpha: float = 1.0,
+            **kwargs: Any,
+    ) -> None:
         """
         Parameters:
 
@@ -172,28 +214,28 @@ class Window(tkinter.Tk):
                 this default behavior, set the value to `None` and use
                 the `Tk.iconphoto` or `Tk.iconbitmap` methods directly.
 
-            size (Tuple[int, int]):
+            size (tuple[int, int]):
                 The width and height of the application window.
                 Internally, this argument is passed to the
                 `Window.geometry` method.
 
-            position (Tuple[int, int]):
+            position (tuple[int, int]):
                 The horizontal and vertical position of the window on
                 the screen relative to the top-left coordinate.
                 Internally this is passed to the `Window.geometry`
                 method.
 
-            minsize (Tuple[int, int]):
+            minsize (tuple[int, int]):
                 Specifies the minimum permissible dimensions for the
                 window. Internally, this argument is passed to the
                 `Window.minsize` method.
 
-            maxsize (Tuple[int, int]):
+            maxsize (tuple[int, int]):
                 Specifies the maximum permissible dimensions for the
                 window. Internally, this argument is passed to the
                 `Window.maxsize` method.
 
-            resizable (Tuple[bool, bool]):
+            resizable (tuple[bool, bool]):
                 Specifies whether the user may interactively resize the
                 toplevel window. Must pass in two arguments that specify
                 this flag for _horizontal_ and _vertical_ dimensions.
@@ -234,7 +276,7 @@ class Window(tkinter.Tk):
             utility.enable_high_dpi_awareness()
 
         super().__init__(**kwargs)
-        self.winsys = self.tk.call('tk', 'windowingsystem')
+        self.winsys: str = self.tk.call('tk', 'windowingsystem')
 
         if scaling is not None:
             utility.enable_high_dpi_awareness(self, scaling)
@@ -295,16 +337,16 @@ class Window(tkinter.Tk):
         self._style = Style(themename)
 
     @property
-    def style(self):
+    def style(self) -> Style:
         """Return a reference to the `ttkbootstrap.style.Style` object."""
         return self._style
 
-    def destroy(self):
+    def destroy(self) -> None:
         """Destroy the window and all its children."""
         self._style.instance = None
         super().destroy()
 
-    def place_window_center(self):
+    def place_window_center(self) -> None:
         """Position the toplevel in the center of the screen. Does not
         account for titlebar height."""
         self.update_idletasks()
@@ -338,21 +380,21 @@ class Toplevel(tkinter.Toplevel):
 
     def __init__(
             self,
-            title="ttkbootstrap",
-            iconphoto='',
-            size=None,
-            position=None,
-            minsize=None,
-            maxsize=None,
-            resizable=None,
-            transient=None,
-            overrideredirect=False,
-            windowtype=None,
-            topmost=False,
-            toolwindow=False,
-            alpha=1.0,
-            **kwargs,
-    ):
+            title: str = "ttkbootstrap",
+            iconphoto: str = '',
+            size: Optional[Tuple[int, int]] = None,
+            position: Optional[Tuple[int, int]] = None,
+            minsize: Optional[Tuple[int, int]] = None,
+            maxsize: Optional[Tuple[int, int]] = None,
+            resizable: Optional[Tuple[bool, bool]] = None,
+            transient: Optional[tkinter.Misc] = None,
+            overrideredirect: bool = False,
+            windowtype: Optional[str] = None,
+            topmost: bool = False,
+            toolwindow: bool = False,
+            alpha: float = 1.0,
+            **kwargs: Any,
+    ) -> None:
         """
         Parameters:
 
@@ -364,28 +406,28 @@ class Toplevel(tkinter.Toplevel):
                 Internally this is passed to the `Tk.iconphoto` method.
                 By default the application icon is used.
 
-            size (Tuple[int, int]):
+            size (tuple[int, int]):
                 The width and height of the application window.
                 Internally, this argument is passed to the
                 `Toplevel.geometry` method.
 
-            position (Tuple[int, int]):
+            position (tuple[int, int]):
                 The horizontal and vertical position of the window on
                 the screen relative to the top-left coordinate.
                 Internally this is passed to the `Toplevel.geometry`
                 method.
 
-            minsize (Tuple[int, int]):
+            minsize (tuple[int, int]):
                 Specifies the minimum permissible dimensions for the
                 window. Internally, this argument is passed to the
                 `Toplevel.minsize` method.
 
-            maxsize (Tuple[int, int]):
+            maxsize (tuple[int, int]):
                 Specifies the maximum permissible dimensions for the
                 window. Internally, this argument is passed to the
                 `Toplevel.maxsize` method.
 
-            resizable (Tuple[bool, bool]):
+            resizable (tuple[bool, bool]):
                 Specifies whether the user may interactively resize the
                 toplevel window. Must pass in two arguments that specify
                 this flag for _horizontal_ and _vertical_ dimensions.
@@ -433,7 +475,7 @@ class Toplevel(tkinter.Toplevel):
             iconify = None
 
         super().__init__(**kwargs)
-        self.winsys = self.tk.call('tk', 'windowingsystem')
+        self.winsys: str = self.tk.call('tk', 'windowingsystem')
 
         if iconphoto != '':
             try:
@@ -495,11 +537,11 @@ class Toplevel(tkinter.Toplevel):
                 self.attributes("-alpha", alpha)
 
     @property
-    def style(self):
+    def style(self) -> Style:
         """Return a reference to the `ttkbootstrap.style.Style` object."""
         return Style()
 
-    def place_window_center(self):
+    def place_window_center(self) -> None:
         """Position the toplevel in the center of the screen. Does not
         account for titlebar height."""
         self.update_idletasks()

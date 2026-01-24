@@ -5,6 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .section_source import SectionSource
 
 
 class SongSection(UncheckedBaseModel):
@@ -15,12 +16,12 @@ class SongSection(UncheckedBaseModel):
 
     positive_local_styles: typing.List[str] = pydantic.Field()
     """
-    The styles that should be present in this section.
+    The styles and musical directions that should be present in this section. Use English language for best result.
     """
 
     negative_local_styles: typing.List[str] = pydantic.Field()
     """
-    The styles that should not be present in this section.
+    The styles and musical directions that should not be present in this section. Use English language for best result.
     """
 
     duration_ms: int = pydantic.Field()
@@ -30,7 +31,12 @@ class SongSection(UncheckedBaseModel):
 
     lines: typing.List[str] = pydantic.Field()
     """
-    The lyrics of the section.
+    The lyrics of the section. Max 200 characters per line.
+    """
+
+    source_from: typing.Optional[SectionSource] = pydantic.Field(default=None)
+    """
+    Optional source to extract the section from. Used for inpainting. Only available to enterprise clients with access to the inpainting API.
     """
 
     if IS_PYDANTIC_V2:

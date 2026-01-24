@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -64,12 +65,6 @@ from .literals import (
     VerifyModeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -193,6 +188,8 @@ __all__ = (
     "TagResourceRequestTypeDef",
     "TaskExecutionFilesFailedDetailTypeDef",
     "TaskExecutionFilesListedDetailTypeDef",
+    "TaskExecutionFoldersFailedDetailTypeDef",
+    "TaskExecutionFoldersListedDetailTypeDef",
     "TaskExecutionListEntryTypeDef",
     "TaskExecutionResultDetailTypeDef",
     "TaskFilterTypeDef",
@@ -239,7 +236,7 @@ class TagListEntryTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -304,8 +301,8 @@ class DescribeAgentRequestTypeDef(TypedDict):
 class PrivateLinkConfigTypeDef(TypedDict):
     VpcEndpointId: NotRequired[str]
     PrivateLinkEndpoint: NotRequired[str]
-    SubnetArns: NotRequired[List[str]]
-    SecurityGroupArns: NotRequired[List[str]]
+    SubnetArns: NotRequired[list[str]]
+    SecurityGroupArns: NotRequired[list[str]]
 
 class DescribeLocationAzureBlobRequestTypeDef(TypedDict):
     LocationArn: str
@@ -318,7 +315,7 @@ class DescribeLocationEfsRequestTypeDef(TypedDict):
 
 class Ec2ConfigOutputTypeDef(TypedDict):
     SubnetArn: str
-    SecurityGroupArns: List[str]
+    SecurityGroupArns: list[str]
 
 class DescribeLocationFsxLustreRequestTypeDef(TypedDict):
     LocationArn: str
@@ -339,7 +336,7 @@ class DescribeLocationNfsRequestTypeDef(TypedDict):
     LocationArn: str
 
 class OnPremConfigOutputTypeDef(TypedDict):
-    AgentArns: List[str]
+    AgentArns: list[str]
 
 class DescribeLocationObjectStorageRequestTypeDef(TypedDict):
     LocationArn: str
@@ -365,6 +362,21 @@ class TaskExecutionFilesFailedDetailTypeDef(TypedDict):
     Delete: NotRequired[int]
 
 class TaskExecutionFilesListedDetailTypeDef(TypedDict):
+    AtSource: NotRequired[int]
+    AtDestinationForDelete: NotRequired[int]
+
+TaskExecutionFoldersFailedDetailTypeDef = TypedDict(
+    "TaskExecutionFoldersFailedDetailTypeDef",
+    {
+        "List": NotRequired[int],
+        "Prepare": NotRequired[int],
+        "Transfer": NotRequired[int],
+        "Verify": NotRequired[int],
+        "Delete": NotRequired[int],
+    },
+)
+
+class TaskExecutionFoldersListedDetailTypeDef(TypedDict):
     AtSource: NotRequired[int]
     AtDestinationForDelete: NotRequired[int]
 
@@ -566,21 +578,21 @@ class CreateTaskResponseTypeDef(TypedDict):
 class DescribeLocationFsxLustreResponseTypeDef(TypedDict):
     LocationArn: str
     LocationUri: str
-    SecurityGroupArns: List[str]
+    SecurityGroupArns: list[str]
     CreationTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeLocationFsxWindowsResponseTypeDef(TypedDict):
     LocationArn: str
     LocationUri: str
-    SecurityGroupArns: List[str]
+    SecurityGroupArns: list[str]
     CreationTime: datetime
     User: str
     Domain: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagListEntryTypeDef]
+    Tags: list[TagListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -656,7 +668,7 @@ class CreateLocationHdfsRequestTypeDef(TypedDict):
 class DescribeLocationHdfsResponseTypeDef(TypedDict):
     LocationArn: str
     LocationUri: str
-    NameNodes: List[HdfsNameNodeTypeDef]
+    NameNodes: list[HdfsNameNodeTypeDef]
     BlockSize: int
     ReplicationFactor: int
     KmsKeyProviderUri: str
@@ -664,7 +676,7 @@ class DescribeLocationHdfsResponseTypeDef(TypedDict):
     AuthenticationType: HdfsAuthenticationTypeType
     SimpleUser: str
     KerberosPrincipal: str
-    AgentArns: List[str]
+    AgentArns: list[str]
     CreationTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -699,7 +711,7 @@ class DescribeLocationS3ResponseTypeDef(TypedDict):
     LocationUri: str
     S3StorageClass: S3StorageClassType
     S3Config: S3ConfigTypeDef
-    AgentArns: List[str]
+    AgentArns: list[str]
     CreationTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -716,6 +728,8 @@ class CreateLocationSmbRequestTypeDef(TypedDict):
     User: NotRequired[str]
     Domain: NotRequired[str]
     Password: NotRequired[str]
+    CmkSecretConfig: NotRequired[CmkSecretConfigTypeDef]
+    CustomSecretConfig: NotRequired[CustomSecretConfigTypeDef]
     MountOptions: NotRequired[SmbMountOptionsTypeDef]
     Tags: NotRequired[Sequence[TagListEntryTypeDef]]
     AuthenticationType: NotRequired[SmbAuthenticationTypeType]
@@ -723,19 +737,6 @@ class CreateLocationSmbRequestTypeDef(TypedDict):
     KerberosPrincipal: NotRequired[str]
     KerberosKeytab: NotRequired[BlobTypeDef]
     KerberosKrb5Conf: NotRequired[BlobTypeDef]
-
-class DescribeLocationSmbResponseTypeDef(TypedDict):
-    LocationArn: str
-    LocationUri: str
-    AgentArns: List[str]
-    User: str
-    Domain: str
-    MountOptions: SmbMountOptionsTypeDef
-    CreationTime: datetime
-    DnsIpAddresses: List[str]
-    KerberosPrincipal: str
-    AuthenticationType: SmbAuthenticationTypeType
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class FsxProtocolSmbTypeDef(TypedDict):
     Password: str
@@ -756,6 +757,8 @@ class UpdateLocationSmbRequestTypeDef(TypedDict):
     User: NotRequired[str]
     Domain: NotRequired[str]
     Password: NotRequired[str]
+    CmkSecretConfig: NotRequired[CmkSecretConfigTypeDef]
+    CustomSecretConfig: NotRequired[CustomSecretConfigTypeDef]
     AgentArns: NotRequired[Sequence[str]]
     MountOptions: NotRequired[SmbMountOptionsTypeDef]
     AuthenticationType: NotRequired[SmbAuthenticationTypeType]
@@ -785,7 +788,7 @@ class DescribeLocationAzureBlobResponseTypeDef(TypedDict):
     AuthenticationType: AzureBlobAuthenticationTypeType
     BlobType: Literal["BLOCK"]
     AccessTier: AzureAccessTierType
-    AgentArns: List[str]
+    AgentArns: list[str]
     CreationTime: datetime
     ManagedSecretConfig: ManagedSecretConfigTypeDef
     CmkSecretConfig: CmkSecretConfigTypeDef
@@ -798,9 +801,25 @@ class DescribeLocationObjectStorageResponseTypeDef(TypedDict):
     AccessKey: str
     ServerPort: int
     ServerProtocol: ObjectStorageServerProtocolType
-    AgentArns: List[str]
+    AgentArns: list[str]
     CreationTime: datetime
     ServerCertificate: bytes
+    ManagedSecretConfig: ManagedSecretConfigTypeDef
+    CmkSecretConfig: CmkSecretConfigTypeDef
+    CustomSecretConfig: CustomSecretConfigTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeLocationSmbResponseTypeDef(TypedDict):
+    LocationArn: str
+    LocationUri: str
+    AgentArns: list[str]
+    User: str
+    Domain: str
+    MountOptions: SmbMountOptionsTypeDef
+    CreationTime: datetime
+    DnsIpAddresses: list[str]
+    KerberosPrincipal: str
+    AuthenticationType: SmbAuthenticationTypeType
     ManagedSecretConfig: ManagedSecretConfigTypeDef
     CmkSecretConfig: CmkSecretConfigTypeDef
     CustomSecretConfig: CustomSecretConfigTypeDef
@@ -847,12 +866,12 @@ class ListLocationsRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[LocationFilterTypeDef]]
 
 class ListLocationsResponseTypeDef(TypedDict):
-    Locations: List[LocationListEntryTypeDef]
+    Locations: list[LocationListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTaskExecutionsResponseTypeDef(TypedDict):
-    TaskExecutions: List[TaskExecutionListEntryTypeDef]
+    TaskExecutions: list[TaskExecutionListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -866,7 +885,7 @@ class ListTasksRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[TaskFilterTypeDef]]
 
 class ListTasksResponseTypeDef(TypedDict):
-    Tasks: List[TaskListEntryTypeDef]
+    Tasks: list[TaskListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -885,7 +904,7 @@ class SourceManifestConfigTypeDef(TypedDict):
     S3: S3ManifestConfigTypeDef
 
 class ListAgentsResponseTypeDef(TypedDict):
-    Agents: List[AgentListEntryTypeDef]
+    Agents: list[AgentListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -959,7 +978,7 @@ DescribeLocationFsxOntapResponseTypeDef = TypedDict(
         "LocationArn": str,
         "LocationUri": str,
         "Protocol": FsxProtocolTypeDef,
-        "SecurityGroupArns": List[str],
+        "SecurityGroupArns": list[str],
         "StorageVirtualMachineArn": str,
         "FsxFilesystemArn": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -970,7 +989,7 @@ DescribeLocationFsxOpenZfsResponseTypeDef = TypedDict(
     {
         "LocationArn": str,
         "LocationUri": str,
-        "SecurityGroupArns": List[str],
+        "SecurityGroupArns": list[str],
         "Protocol": FsxProtocolTypeDef,
         "CreationTime": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -1011,8 +1030,8 @@ class DescribeTaskExecutionResponseTypeDef(TypedDict):
     TaskExecutionArn: str
     Status: TaskExecutionStatusType
     Options: OptionsTypeDef
-    Excludes: List[FilterRuleTypeDef]
-    Includes: List[FilterRuleTypeDef]
+    Excludes: list[FilterRuleTypeDef]
+    Includes: list[FilterRuleTypeDef]
     ManifestConfig: ManifestConfigTypeDef
     StartTime: datetime
     EstimatedFilesToTransfer: int
@@ -1032,6 +1051,15 @@ class DescribeTaskExecutionResponseTypeDef(TypedDict):
     FilesPrepared: int
     FilesListed: TaskExecutionFilesListedDetailTypeDef
     FilesFailed: TaskExecutionFilesFailedDetailTypeDef
+    EstimatedFoldersToDelete: int
+    EstimatedFoldersToTransfer: int
+    FoldersSkipped: int
+    FoldersPrepared: int
+    FoldersTransferred: int
+    FoldersVerified: int
+    FoldersDeleted: int
+    FoldersListed: TaskExecutionFoldersListedDetailTypeDef
+    FoldersFailed: TaskExecutionFoldersFailedDetailTypeDef
     LaunchTime: datetime
     EndTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1044,15 +1072,15 @@ class DescribeTaskResponseTypeDef(TypedDict):
     SourceLocationArn: str
     DestinationLocationArn: str
     CloudWatchLogGroupArn: str
-    SourceNetworkInterfaceArns: List[str]
-    DestinationNetworkInterfaceArns: List[str]
+    SourceNetworkInterfaceArns: list[str]
+    DestinationNetworkInterfaceArns: list[str]
     Options: OptionsTypeDef
-    Excludes: List[FilterRuleTypeDef]
+    Excludes: list[FilterRuleTypeDef]
     Schedule: TaskScheduleTypeDef
     ErrorCode: str
     ErrorDetail: str
     CreationTime: datetime
-    Includes: List[FilterRuleTypeDef]
+    Includes: list[FilterRuleTypeDef]
     ManifestConfig: ManifestConfigTypeDef
     TaskReportConfig: TaskReportConfigTypeDef
     ScheduleDetails: TaskScheduleDetailsTypeDef

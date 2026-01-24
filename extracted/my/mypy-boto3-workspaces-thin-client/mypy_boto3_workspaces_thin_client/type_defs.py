@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -35,12 +36,6 @@ from .literals import (
     TargetDeviceStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -95,7 +90,7 @@ __all__ = (
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -177,7 +172,7 @@ MaintenanceWindowOutputTypeDef = TypedDict(
         "startTimeMinute": NotRequired[int],
         "endTimeHour": NotRequired[int],
         "endTimeMinute": NotRequired[int],
-        "daysOfTheWeek": NotRequired[List[DayOfWeekType]],
+        "daysOfTheWeek": NotRequired[list[DayOfWeekType]],
         "applyTimeOf": NotRequired[ApplyTimeOfType],
     },
 )
@@ -287,12 +282,12 @@ UpdateSoftwareSetRequestTypeDef = TypedDict(
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListDevicesResponseTypeDef(TypedDict):
-    devices: List[DeviceSummaryTypeDef]
+    devices: list[DeviceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -347,7 +342,7 @@ EnvironmentTypeDef = TypedDict(
         "updatedAt": NotRequired[datetime],
         "arn": NotRequired[str],
         "kmsKeyArn": NotRequired[str],
-        "deviceCreationTags": NotRequired[Dict[str, str]],
+        "deviceCreationTags": NotRequired[dict[str, str]],
     },
 )
 
@@ -365,7 +360,7 @@ class ListSoftwareSetsRequestPaginateTypeDef(TypedDict):
 
 
 class ListSoftwareSetsResponseTypeDef(TypedDict):
-    softwareSets: List[SoftwareSetSummaryTypeDef]
+    softwareSets: list[SoftwareSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -379,7 +374,7 @@ SoftwareSetTypeDef = TypedDict(
         "releasedAt": NotRequired[datetime],
         "supportedUntil": NotRequired[datetime],
         "validationStatus": NotRequired[SoftwareSetValidationStatusType],
-        "software": NotRequired[List[SoftwareTypeDef]],
+        "software": NotRequired[list[SoftwareTypeDef]],
         "arn": NotRequired[str],
     },
 )
@@ -391,7 +386,7 @@ class CreateEnvironmentResponseTypeDef(TypedDict):
 
 
 class ListEnvironmentsResponseTypeDef(TypedDict):
-    environments: List[EnvironmentSummaryTypeDef]
+    environments: list[EnvironmentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

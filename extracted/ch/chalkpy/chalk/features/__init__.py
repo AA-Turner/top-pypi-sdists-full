@@ -9,6 +9,7 @@ from chalk.features._encoding.missing_value import MissingValueStrategy
 from chalk.features._encoding.primitive import TPrimitive, TPrimitiveArrowScalar
 from chalk.features._encoding.serialized_dtype import deserialize_dtype, serialize_dtype
 from chalk.features._geospatial import LatLon, LatLonRadians
+from chalk.features._tensor import Tensor, TensorLayout
 from chalk.features._vector import Vector
 from chalk.features.dataframe import DataFrame
 from chalk.features.feature_field import CacheStrategy, Feature, FeatureNotFoundException, feature, has_many, has_one
@@ -19,7 +20,7 @@ from chalk.features.feature_wrapper import FeatureWrapper, ensure_feature, unwra
 from chalk.features.filter import Filter, TimeDelta, after, before
 from chalk.features.hooks import after_all, before_all
 from chalk.features.primary import Primary, is_primary
-from chalk.features.resolver import Cron, Resolver, ResolverProtocol, offline, online, sink
+from chalk.features.resolver import Cron, Resolver, ResolverProtocol, Sink, make_stream_resolver, offline, online, sink
 from chalk.features.tag import Environments, Tags
 from chalk.features.underscore import Underscore, _, __, underscore
 from chalk.queries.scheduled_query import ScheduledQuery  # import to maintain backwards compatibility
@@ -184,7 +185,7 @@ def version(f: Any) -> int | None:
     raise TypeError(f"Could not determine the version of '{f}' as it is not a Feature.")
 
 
-__all__ = [
+__all__ = (
     "Aggregation",
     "CacheStrategy",
     "Cron",
@@ -198,19 +199,24 @@ __all__ = [
     "FeatureWrapper",
     "Features",
     "Filter",
+    "LatLon",
+    "LatLonRadians",
     "MachineType",
     "MissingValueStrategy",
     "Primary",
     "ResolverProtocol",
     "ScheduledQuery",
+    "Sink",
     "TPrimitive",
     "TPrimitiveArrowScalar",
     "Tags",
+    "Tensor",
+    "TensorLayout",
     "TimeDelta",
     "Underscore",
     "Vector",
-    "LatLon",
-    "LatLonRadians",
+    "_",
+    "__",
     "after",
     "after_all",
     "before",
@@ -227,6 +233,7 @@ __all__ = [
     "is_feature_time",
     "is_features_cls",
     "is_primary",
+    "make_stream_resolver",
     "offline",
     "online",
     "op",
@@ -234,8 +241,6 @@ __all__ = [
     "serialize_dtype",
     "sink",
     "tags",
-    "_",
-    "__",
     "underscore",
     "unwrap_feature",
-]
+)

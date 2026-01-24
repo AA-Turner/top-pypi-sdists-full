@@ -5,27 +5,15 @@ String transformers that can split and merge strings.
 import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from collections.abc import Callable, Collection, Iterable, Iterator, Sequence
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Collection,
-    Final,
-    Iterable,
-    Iterator,
-    Literal,
-    Optional,
-    Sequence,
-    TypeVar,
-    Union,
-)
+from typing import Any, ClassVar, Final, Literal, TypeVar, Union
 
 from mypy_extensions import trait
 
 from pyink.comments import contains_pragma_comment
 from pyink.lines import Indentation, Line, append_leaves
-from pyink.mode import Feature, Mode, Preview, Quote
+from pyink.mode import Feature, Mode, Quote
 from pyink.nodes import (
     CLOSING_BRACKETS,
     OPENING_BRACKETS,
@@ -94,18 +82,12 @@ def hug_power_op(
         # Brackets and parentheses indicate calls, subscripts, etc. ...
         # basically stuff that doesn't count as "simple". Only a NAME lookup
         # or dotted lookup (eg. NAME.NAME) is OK.
-        if Preview.is_simple_lookup_for_doublestar_expression not in mode:
-            return original_is_simple_lookup_func(line, index, kind)
-
+        if kind == -1:
+            return handle_is_simple_look_up_prev(line, index, {token.RPAR, token.RSQB})
         else:
-            if kind == -1:
-                return handle_is_simple_look_up_prev(
-                    line, index, {token.RPAR, token.RSQB}
-                )
-            else:
-                return handle_is_simple_lookup_forward(
-                    line, index, {token.LPAR, token.LSQB}
-                )
+            return handle_is_simple_lookup_forward(
+                line, index, {token.LPAR, token.LSQB}
+            )
 
     def is_simple_operand(index: int, kind: Literal[1, -1]) -> bool:
         # An operand is considered "simple" if's a NAME, a numeric CONSTANT, a simple
@@ -149,30 +131,6 @@ def hug_power_op(
             new_line.append(comment_leaf, preformatted=True)
 
     yield new_line
-
-
-def original_is_simple_lookup_func(
-    line: Line, index: int, step: Literal[1, -1]
-) -> bool:
-    if step == -1:
-        disallowed = {token.RPAR, token.RSQB}
-    else:
-        disallowed = {token.LPAR, token.LSQB}
-
-    while 0 <= index < len(line.leaves):
-        current = line.leaves[index]
-        if current.type in disallowed:
-            return False
-        if current.type not in {token.NAME, token.DOT} or current.value == "for":
-            # If the current token isn't disallowed, we'll assume this is
-            # simple as only the disallowed tokens are semantically
-            # attached to this lookup expression we're checking. Also,
-            # stop early if we hit the 'for' bit of a comprehension.
-            return True
-
-        index += step
-
-    return True
 
 
 def handle_is_simple_look_up_prev(line: Line, index: int, disallowed: set[int]) -> bool:
@@ -385,6 +343,9 @@ class CustomSplit:
     break_idx: int
 
 
+CustomSplitMapKey = tuple[StringID, str]
+
+
 @trait
 class CustomSplitMapMixin:
     """
@@ -393,13 +354,12 @@ class CustomSplitMapMixin:
     the resultant substrings go over the configured max line length.
     """
 
-    _Key: ClassVar = tuple[StringID, str]
-    _CUSTOM_SPLIT_MAP: ClassVar[dict[_Key, tuple[CustomSplit, ...]]] = defaultdict(
-        tuple
+    _CUSTOM_SPLIT_MAP: ClassVar[dict[CustomSplitMapKey, tuple[CustomSplit, ...]]] = (
+        defaultdict(tuple)
     )
 
     @staticmethod
-    def _get_key(string: str) -> "CustomSplitMapMixin._Key":
+    def _get_key(string: str) -> CustomSplitMapKey:
         """
         Returns:
             A unique identifier that is used internally to map @string to a
@@ -635,7 +595,7 @@ class StringMerger(StringTransformer, CustomSplitMapMixin):
                 <= i
                 < previous_merged_string_idx + previous_merged_num_of_strings
             ):
-                for comment_leaf in line.comments_after(LL[i]):
+                for comment_leaf in line.comments_after(leaf):
                     new_line.append(comment_leaf, preformatted=True)
                 continue
 
@@ -681,10 +641,10 @@ class StringMerger(StringTransformer, CustomSplitMapMixin):
             """
             assert_is_leaf_string(string)
             if "f" in string_prefix:
-                f_expressions = (
+                f_expressions = [
                     string[span[0] + 1 : span[1] - 1]  # +-1 to get rid of curly braces
                     for span in iter_fexpr_spans(string)
-                )
+                ]
                 debug_expressions_contain_visible_quotes = any(
                     re.search(r".*[\'\"].*(?<![!:=])={1}(?!=)(?![^\s:])", expression)
                     for expression in f_expressions
@@ -817,6 +777,8 @@ class StringMerger(StringTransformer, CustomSplitMapMixin):
                 - The set of all string prefixes in the string group is of
                   length greater than one and is not equal to {"", "f"}.
                 - The string group consists of raw strings.
+                - The string group would merge f-strings with different quote types
+                  and internal quotes.
                 - The string group is stringified type annotations. We don't want to
                   process stringified type annotations since pyright doesn't support
                   them spanning multiple string values. (NOTE: mypy, pytype, pyre do
@@ -843,6 +805,8 @@ class StringMerger(StringTransformer, CustomSplitMapMixin):
 
                 i += inc
 
+        QUOTE = line.leaves[string_idx].value[-1]
+
         num_of_inline_string_comments = 0
         set_of_prefixes = set()
         num_of_strings = 0
@@ -864,6 +828,19 @@ class StringMerger(StringTransformer, CustomSplitMapMixin):
                 return TErr("StringMerger does NOT merge raw strings.")
 
             set_of_prefixes.add(prefix)
+
+            if (
+                "f" in prefix
+                and leaf.value[-1] != QUOTE
+                and (
+                    "'" in leaf.value[len(prefix) + 1 : -1]
+                    or '"' in leaf.value[len(prefix) + 1 : -1]
+                )
+            ):
+                return TErr(
+                    "StringMerger does NOT merge f-strings with different quote types"
+                    " and internal quotes."
+                )
 
             if id(leaf) in line.comments:
                 num_of_inline_string_comments += 1
@@ -893,6 +870,7 @@ class StringParenStripper(StringTransformer):
         The line contains a string which is surrounded by parentheses and:
             - The target string is NOT the only argument to a function call.
             - The target string is NOT a "pointless" string.
+            - The target string is NOT a dictionary value.
             - If the target string contains a PERCENT, the brackets are not
               preceded or followed by an operator with higher precedence than
               PERCENT.
@@ -940,11 +918,14 @@ class StringParenStripper(StringTransformer):
             ):
                 continue
 
-            # That LPAR should NOT be preceded by a function name or a closing
-            # bracket (which could be a function which returns a function or a
-            # list/dictionary that contains a function)...
+            # That LPAR should NOT be preceded by a colon (which could be a
+            # dictionary value), function name, or a closing bracket (which
+            # could be a function returning a function or a list/dictionary
+            # containing a function)...
             if is_valid_index(idx - 2) and (
-                LL[idx - 2].type == token.NAME or LL[idx - 2].type in CLOSING_BRACKETS
+                LL[idx - 2].type == token.COLON
+                or LL[idx - 2].type == token.NAME
+                or LL[idx - 2].type in CLOSING_BRACKETS
             ):
                 continue
 
@@ -1297,7 +1278,7 @@ class BaseStringSplitter(StringTransformer):
         return max_string_length
 
     @staticmethod
-    def _prefer_paren_wrap_match(LL: list[Leaf]) -> Optional[int]:
+    def _prefer_paren_wrap_match(LL: list[Leaf]) -> int | None:
         """
         Returns:
             string_idx such that @LL[string_idx] is equal to our target (i.e.
@@ -1744,10 +1725,10 @@ class StringSplitter(BaseStringSplitter, CustomSplitMapMixin):
             yield Ok(last_line)
 
     def _iter_nameescape_slices(self, string: str) -> Iterator[tuple[Index, Index]]:
-        """
+        r"""
         Yields:
             All ranges of @string which, if @string were to be split there,
-            would result in the splitting of an \\N{...} expression (which is NOT
+            would result in the splitting of an \N{...} expression (which is NOT
             allowed).
         """
         # True - the previous backslash was unescaped
@@ -1793,10 +1774,10 @@ class StringSplitter(BaseStringSplitter, CustomSplitMapMixin):
         ]
         for it in iterators:
             for begin, end in it:
-                illegal_indices.update(range(begin, end + 1))
+                illegal_indices.update(range(begin, end))
         return illegal_indices
 
-    def _get_break_idx(self, string: str, max_break_idx: int) -> Optional[int]:
+    def _get_break_idx(self, string: str, max_break_idx: int) -> int | None:
         """
         This method contains the algorithm that StringSplitter uses to
         determine which character to split each string at.
@@ -2024,7 +2005,7 @@ class StringParenWrapper(BaseStringSplitter, CustomSplitMapMixin):
         return TErr("This line does not contain any non-atomic strings.")
 
     @staticmethod
-    def _return_match(LL: list[Leaf]) -> Optional[int]:
+    def _return_match(LL: list[Leaf]) -> int | None:
         """
         Returns:
             string_idx such that @LL[string_idx] is equal to our target (i.e.
@@ -2049,7 +2030,7 @@ class StringParenWrapper(BaseStringSplitter, CustomSplitMapMixin):
         return None
 
     @staticmethod
-    def _else_match(LL: list[Leaf]) -> Optional[int]:
+    def _else_match(LL: list[Leaf]) -> int | None:
         """
         Returns:
             string_idx such that @LL[string_idx] is equal to our target (i.e.
@@ -2076,7 +2057,7 @@ class StringParenWrapper(BaseStringSplitter, CustomSplitMapMixin):
         return None
 
     @staticmethod
-    def _assert_match(LL: list[Leaf]) -> Optional[int]:
+    def _assert_match(LL: list[Leaf]) -> int | None:
         """
         Returns:
             string_idx such that @LL[string_idx] is equal to our target (i.e.
@@ -2111,7 +2092,7 @@ class StringParenWrapper(BaseStringSplitter, CustomSplitMapMixin):
         return None
 
     @staticmethod
-    def _assign_match(LL: list[Leaf]) -> Optional[int]:
+    def _assign_match(LL: list[Leaf]) -> int | None:
         """
         Returns:
             string_idx such that @LL[string_idx] is equal to our target (i.e.
@@ -2158,7 +2139,7 @@ class StringParenWrapper(BaseStringSplitter, CustomSplitMapMixin):
         return None
 
     @staticmethod
-    def _dict_or_lambda_match(LL: list[Leaf]) -> Optional[int]:
+    def _dict_or_lambda_match(LL: list[Leaf]) -> int | None:
         """
         Returns:
             string_idx such that @LL[string_idx] is equal to our target (i.e.
@@ -2279,12 +2260,12 @@ class StringParenWrapper(BaseStringSplitter, CustomSplitMapMixin):
             elif right_leaves and right_leaves[-1].type == token.RPAR:
                 # Special case for lambda expressions as dict's value, e.g.:
                 #     my_dict = {
-                #        "key": lambda x: f"formatted: {x},
+                #        "key": lambda x: f"formatted: {x}",
                 #     }
                 # After wrapping the dict's value with parentheses, the string is
                 # followed by a RPAR but its opening bracket is lambda's, not
                 # the string's:
-                #        "key": (lambda x: f"formatted: {x}),
+                #        "key": (lambda x: f"formatted: {x}"),
                 opening_bracket = right_leaves[-1].opening_bracket
                 if opening_bracket is not None and opening_bracket in left_leaves:
                     index = left_leaves.index(opening_bracket)

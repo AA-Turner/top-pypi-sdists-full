@@ -73,9 +73,10 @@ class TranslationServiceTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -227,6 +228,11 @@ class TranslationServiceTransport(abc.ABC):
                     deadline=600.0,
                 ),
                 default_timeout=600.0,
+                client_info=client_info,
+            ),
+            self.refine_text: gapic_v1.method.wrap_method(
+                self.refine_text,
+                default_timeout=None,
                 client_info=client_info,
             ),
             self.get_location: gapic_v1.method.wrap_method(
@@ -382,6 +388,18 @@ class TranslationServiceTransport(abc.ABC):
     ) -> Callable[
         [translation_service.DeleteGlossaryRequest],
         Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def refine_text(
+        self,
+    ) -> Callable[
+        [translation_service.RefineTextRequest],
+        Union[
+            translation_service.RefineTextResponse,
+            Awaitable[translation_service.RefineTextResponse],
+        ],
     ]:
         raise NotImplementedError()
 

@@ -103,7 +103,7 @@ def ensure_newline_after_last_content(lines: list[str]) -> None:
         lines.append("")
 
 
-def parse_document(  # pylint: disable=too-many-arguments
+def parse_document(
     content: str,
     *,
     parser_name: SupportedParser,

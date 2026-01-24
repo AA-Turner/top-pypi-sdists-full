@@ -208,10 +208,15 @@ class TestCronScheduler(RQTestCase):
         meta = {'purpose': 'testing'}
 
         cron_job = cron.register(
-            func=say_hello, queue_name=self.queue_name, interval=30, timeout=timeout, result_ttl=result_ttl, meta=meta
+            func=say_hello,
+            queue_name=self.queue_name,
+            interval=30,
+            job_timeout=timeout,
+            result_ttl=result_ttl,
+            meta=meta,
         )
 
-        self.assertEqual(cron_job.job_options['timeout'], timeout)
+        self.assertEqual(cron_job.job_options['job_timeout'], timeout)
         self.assertEqual(cron_job.job_options['result_ttl'], result_ttl)
         self.assertEqual(cron_job.job_options['meta'], meta)
 
@@ -642,7 +647,7 @@ class TestCronScheduler(RQTestCase):
         self.assertEqual(fetched_cron.created_at, cron.created_at)
 
     def test_heartbeat(self):
-        """Test that heartbeat() updates scheduler's timestamp in registry"""
+        """Test that heartbeat() updates scheduler's timestamp in registry and extends TTL"""
         cron = CronScheduler(connection=self.connection)
 
         # Ensure registry is clean
@@ -654,6 +659,10 @@ class TestCronScheduler(RQTestCase):
         initial_score = self.connection.zscore(registry_key, cron.name)
         self.assertIsNotNone(initial_score)
 
+        # Verify initial TTL (should be 60 seconds from register_birth)
+        initial_ttl = self.connection.ttl(cron.key)
+        self.assertTrue(0 < initial_ttl <= 60)
+
         # Wait a brief moment to ensure timestamp difference
         time.sleep(0.01)
 
@@ -661,6 +670,11 @@ class TestCronScheduler(RQTestCase):
         new_score = self.connection.zscore(registry_key, cron.name)
         self.assertIsNotNone(new_score)
         self.assertGreater(cast(float, new_score), cast(float, initial_score))
+
+        # Verify TTL was extended to 120 seconds
+        new_ttl = self.connection.ttl(cron.key)
+        self.assertTrue(60 < new_ttl <= 120)
+
         cron.register_death()
 
         # Test heartbeat on unregistered scheduler

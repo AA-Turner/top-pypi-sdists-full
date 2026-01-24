@@ -2,14 +2,24 @@
 import datetime
 import json
 from calendar import timegm
+from unittest.mock import patch
 
+import ddt
 import jwt
+import pytest
+import responses
 import six
 from Cryptodome.PublicKey import RSA
+from django.contrib.auth import get_user_model
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.cache import cache
+from django.test import RequestFactory
 from social_core.tests.backends.oauth import OAuth2Test
 
+User = get_user_model()
 
+
+@ddt.ddt
 class EdXOAuth2Tests(OAuth2Test):
     """ Tests for the EdXOAuth2 backend. """
 
@@ -37,10 +47,13 @@ class EdXOAuth2Tests(OAuth2Test):
         # does not rely on Django settings.
         self.strategy.set_settings({f'SOCIAL_AUTH_{backend_name}_{setting_name}': value})
 
-    def access_token_body(self, request, _url, headers):
+    def access_token_body(self, request):
         """ Generates a response from the provider's access token endpoint. """
         # The backend should always request JWT access tokens, not Bearer.
-        body = six.moves.urllib.parse.parse_qs(request.body.decode('utf8'))
+        body_content = request.body
+        if isinstance(body_content, bytes):
+            body_content = body_content.decode('utf8')
+        body = six.moves.urllib.parse.parse_qs(body_content)
         self.assertEqual(body['token_type'], ['jwt'])
 
         expires_in = 3600
@@ -51,7 +64,16 @@ class EdXOAuth2Tests(OAuth2Test):
             'expires_in': expires_in,
             'access_token': access_token
         })
-        return 200, headers, body
+        return (200, {}, body)
+
+    def pre_complete_callback(self, start_url):
+        """ Override to properly set up the access token response with callback. """
+        responses.add_callback(
+            responses.POST,
+            url=self.backend.access_token_url(),
+            callback=self.access_token_body,
+            content_type="application/json",
+        )
 
     def create_jwt_access_token(self, expires_in=3600, issuer=None, key=None, alg='RS512'):
         """
@@ -102,6 +124,40 @@ class EdXOAuth2Tests(OAuth2Test):
 
     def test_login(self):
         self.do_login()
+
+    @pytest.mark.django_db
+    @ddt.data(True, False)  # Test with and without authenticated user
+    @patch('auth_backends.backends.set_custom_attribute')
+    @patch('auth_backends.backends.logger')
+    def test_start_with_session_cleanup(self, user_authenticated, mock_logger, mock_set_attr):
+        """Test start method for session cleanup with and without authenticated user."""
+        request = RequestFactory().get('/auth/login/edx-oauth2/')
+
+        if user_authenticated:
+            existing_user = User.objects.create_user(username='existing_user', email='existing@example.com')
+            request.user = existing_user
+
+        middleware = SessionMiddleware(lambda req: None)
+        middleware.process_request(request)
+        request.session.save()
+
+        initial_session_key = request.session.session_key
+
+        self.backend.strategy.request = request
+
+        self.do_start()
+
+        mock_set_attr.assert_called_once_with('session_cleanup.logout_required', user_authenticated)
+
+        if user_authenticated:
+            self.assertNotEqual(request.session.session_key, initial_session_key)
+            self.assertTrue(request.user.is_anonymous)
+            mock_logger.info.assert_called_with(
+                "OAuth start: Performing session cleanup for user '%s'",
+                'existing_user'
+            )
+        else:
+            mock_logger.info.assert_not_called()
 
     def test_partial_pipeline(self):
         self.do_partial_pipeline()

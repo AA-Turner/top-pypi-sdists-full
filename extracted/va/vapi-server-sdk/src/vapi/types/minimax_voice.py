@@ -9,7 +9,9 @@ from ..core.serialization import FieldMetadata
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .chunk_plan import ChunkPlan
 from .fallback_plan import FallbackPlan
+from .minimax_voice_language_boost import MinimaxVoiceLanguageBoost
 from .minimax_voice_model import MinimaxVoiceModel
+from .minimax_voice_provider import MinimaxVoiceProvider
 from .minimax_voice_region import MinimaxVoiceRegion
 
 
@@ -21,7 +23,7 @@ class MinimaxVoice(UncheckedBaseModel):
     This is the flag to toggle voice caching for the assistant.
     """
 
-    provider: typing.Literal["minimax"] = pydantic.Field(default="minimax")
+    provider: MinimaxVoiceProvider = pydantic.Field()
     """
     This is the voice provider that will be used.
     """
@@ -67,6 +69,20 @@ class MinimaxVoice(UncheckedBaseModel):
     region: typing.Optional[MinimaxVoiceRegion] = pydantic.Field(default=None)
     """
     The region for Minimax API. Defaults to "worldwide".
+    """
+
+    language_boost: typing_extensions.Annotated[
+        typing.Optional[MinimaxVoiceLanguageBoost], FieldMetadata(alias="languageBoost")
+    ] = pydantic.Field(default=None)
+    """
+    Language hint for MiniMax T2A. Example: yue (Cantonese), zh (Chinese), en (English).
+    """
+
+    text_normalization_enabled: typing_extensions.Annotated[
+        typing.Optional[bool], FieldMetadata(alias="textNormalizationEnabled")
+    ] = pydantic.Field(default=None)
+    """
+    Enable MiniMax text normalization to improve number reading and formatting.
     """
 
     chunk_plan: typing_extensions.Annotated[typing.Optional[ChunkPlan], FieldMetadata(alias="chunkPlan")] = (

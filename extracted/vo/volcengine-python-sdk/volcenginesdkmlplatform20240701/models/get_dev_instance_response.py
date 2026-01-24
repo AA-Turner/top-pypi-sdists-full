@@ -36,12 +36,14 @@ class GetDevInstanceResponse(object):
         'allow_image_build': 'bool',
         'create_time': 'str',
         'creator_trn': 'str',
+        'credential': 'CredentialForGetDevInstanceOutput',
         'default_folder': 'str',
         'description': 'str',
         'expected_stop_time': 'str',
         'id': 'str',
         'image': 'ImageForGetDevInstanceOutput',
         'is_building_image': 'bool',
+        'isaac_api_key': 'str',
         'launch_time': 'str',
         'name': 'str',
         'node_affinity_spec': 'NodeAffinitySpecForGetDevInstanceOutput',
@@ -66,12 +68,14 @@ class GetDevInstanceResponse(object):
         'allow_image_build': 'AllowImageBuild',
         'create_time': 'CreateTime',
         'creator_trn': 'CreatorTrn',
+        'credential': 'Credential',
         'default_folder': 'DefaultFolder',
         'description': 'Description',
         'expected_stop_time': 'ExpectedStopTime',
         'id': 'Id',
         'image': 'Image',
         'is_building_image': 'IsBuildingImage',
+        'isaac_api_key': 'IsaacApiKey',
         'launch_time': 'LaunchTime',
         'name': 'Name',
         'node_affinity_spec': 'NodeAffinitySpec',
@@ -92,7 +96,7 @@ class GetDevInstanceResponse(object):
         'zone_id': 'ZoneID'
     }
 
-    def __init__(self, allow_image_build=None, create_time=None, creator_trn=None, default_folder=None, description=None, expected_stop_time=None, id=None, image=None, is_building_image=None, launch_time=None, name=None, node_affinity_spec=None, numa_affinity=None, numa_status=None, ports=None, project_name=None, resource_claim=None, resource_queue_id=None, resource_reservation_plan_id=None, ssh_public_key=None, status=None, stop_time=None, stopped_time=None, storages=None, update_time=None, volume=None, zone_id=None, _configuration=None):  # noqa: E501
+    def __init__(self, allow_image_build=None, create_time=None, creator_trn=None, credential=None, default_folder=None, description=None, expected_stop_time=None, id=None, image=None, is_building_image=None, isaac_api_key=None, launch_time=None, name=None, node_affinity_spec=None, numa_affinity=None, numa_status=None, ports=None, project_name=None, resource_claim=None, resource_queue_id=None, resource_reservation_plan_id=None, ssh_public_key=None, status=None, stop_time=None, stopped_time=None, storages=None, update_time=None, volume=None, zone_id=None, _configuration=None):  # noqa: E501
         """GetDevInstanceResponse - a model defined in Swagger"""  # noqa: E501
         if _configuration is None:
             _configuration = Configuration()
@@ -101,12 +105,14 @@ class GetDevInstanceResponse(object):
         self._allow_image_build = None
         self._create_time = None
         self._creator_trn = None
+        self._credential = None
         self._default_folder = None
         self._description = None
         self._expected_stop_time = None
         self._id = None
         self._image = None
         self._is_building_image = None
+        self._isaac_api_key = None
         self._launch_time = None
         self._name = None
         self._node_affinity_spec = None
@@ -133,6 +139,8 @@ class GetDevInstanceResponse(object):
             self.create_time = create_time
         if creator_trn is not None:
             self.creator_trn = creator_trn
+        if credential is not None:
+            self.credential = credential
         if default_folder is not None:
             self.default_folder = default_folder
         if description is not None:
@@ -145,6 +153,8 @@ class GetDevInstanceResponse(object):
             self.image = image
         if is_building_image is not None:
             self.is_building_image = is_building_image
+        if isaac_api_key is not None:
+            self.isaac_api_key = isaac_api_key
         if launch_time is not None:
             self.launch_time = launch_time
         if name is not None:
@@ -244,6 +254,27 @@ class GetDevInstanceResponse(object):
         """
 
         self._creator_trn = creator_trn
+
+    @property
+    def credential(self):
+        """Gets the credential of this GetDevInstanceResponse.  # noqa: E501
+
+
+        :return: The credential of this GetDevInstanceResponse.  # noqa: E501
+        :rtype: CredentialForGetDevInstanceOutput
+        """
+        return self._credential
+
+    @credential.setter
+    def credential(self, credential):
+        """Sets the credential of this GetDevInstanceResponse.
+
+
+        :param credential: The credential of this GetDevInstanceResponse.  # noqa: E501
+        :type: CredentialForGetDevInstanceOutput
+        """
+
+        self._credential = credential
 
     @property
     def default_folder(self):
@@ -370,6 +401,27 @@ class GetDevInstanceResponse(object):
         """
 
         self._is_building_image = is_building_image
+
+    @property
+    def isaac_api_key(self):
+        """Gets the isaac_api_key of this GetDevInstanceResponse.  # noqa: E501
+
+
+        :return: The isaac_api_key of this GetDevInstanceResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._isaac_api_key
+
+    @isaac_api_key.setter
+    def isaac_api_key(self, isaac_api_key):
+        """Sets the isaac_api_key of this GetDevInstanceResponse.
+
+
+        :param isaac_api_key: The isaac_api_key of this GetDevInstanceResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._isaac_api_key = isaac_api_key
 
     @property
     def launch_time(self):

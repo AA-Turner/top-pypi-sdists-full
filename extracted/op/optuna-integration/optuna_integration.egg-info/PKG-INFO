@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optuna-integration
-Version: 4.5.0
+Version: 4.7.0
 Summary: Integration libraries of Optuna.
 Project-URL: repository, https://github.com/optuna/optuna-integration
 Classifier: Development Status :: 5 - Production/Stable
@@ -8,11 +8,11 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Mathematics
@@ -20,7 +20,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: optuna
@@ -31,8 +31,8 @@ Requires-Dist: fakeredis[lua]; extra == "test"
 Requires-Dist: grpcio; extra == "test"
 Requires-Dist: protobuf>=5.28.1; extra == "test"
 Provides-Extra: checking
-Requires-Dist: black; extra == "checking"
-Requires-Dist: blackdoc; extra == "checking"
+Requires-Dist: black<25.9.0; extra == "checking"
+Requires-Dist: blackdoc<0.4.2; extra == "checking"
 Requires-Dist: hacking; extra == "checking"
 Requires-Dist: isort; extra == "checking"
 Requires-Dist: mypy; extra == "checking"
@@ -44,7 +44,7 @@ Provides-Extra: document
 Requires-Dist: mlflow; extra == "document"
 Requires-Dist: pandas; extra == "document"
 Requires-Dist: scikit-learn>=0.24.2; extra == "document"
-Requires-Dist: scipy>=1.9.2; python_version >= "3.8" and extra == "document"
+Requires-Dist: scipy>=1.9.2; python_version >= "3.9" and extra == "document"
 Requires-Dist: sphinx; extra == "document"
 Requires-Dist: sphinx-notfound-page; extra == "document"
 Requires-Dist: sphinx_rtd_theme; extra == "document"
@@ -120,11 +120,10 @@ Dynamic: license-file
 
 # Optuna-Integration
 
-[![Python](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org)
+[![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://www.python.org)
 [![pypi](https://img.shields.io/pypi/v/optuna-integration.svg)](https://pypi.python.org/pypi/optuna-integration)
 [![conda](https://img.shields.io/conda/vn/conda-forge/optuna-integration.svg)](https://anaconda.org/conda-forge/optuna-integration)
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/optuna/optuna-integration)
-[![Codecov](https://codecov.io/gh/optuna/optuna-integration/branch/main/graph/badge.svg)](https://codecov.io/gh/optuna/optuna-integration/branch/main)
 [![Read the Docs](https://readthedocs.org/projects/optuna-integration/badge/?version=stable)](https://optuna-integration.readthedocs.io/en/stable/)
 
 This package is an integration module of [Optuna](https://github.com/optuna/optuna), an automatic Hyperparameter optimization software framework.
@@ -155,7 +154,7 @@ $ conda install -c conda-forge optuna-integration
 > ```
 
 > [!NOTE]
-> Optuna-Integration supports from Python 3.8 to Python 3.12.
+> Optuna-Integration supports from Python 3.9 to Python 3.13.
 > Optuna Docker image is also provided at [DockerHub](https://hub.docker.com/r/optuna/optuna).
 
 ## Integration Modules

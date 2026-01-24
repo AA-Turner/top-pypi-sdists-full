@@ -3,6 +3,7 @@
 
 import grpc
 
+from chalk._gen.chalk.server.v1 import incident_pb2 as chalk_dot_server_dot_v1_dot_incident__pb2
 from chalk._gen.chalk.server.v1 import monitoring_pb2 as chalk_dot_server_dot_v1_dot_monitoring__pb2
 
 
@@ -79,6 +80,31 @@ class MonitoringServiceStub(object):
             "/chalk.server.v1.MonitoringService/GetIncidentIoIntegration",
             request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetIncidentIoIntegrationRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetIncidentIoIntegrationResponse.FromString,
+        )
+        self.ListIncidents = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/ListIncidents",
+            request_serializer=chalk_dot_server_dot_v1_dot_incident__pb2.ListIncidentsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_incident__pb2.ListIncidentsResponse.FromString,
+        )
+        self.GetIncident = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/GetIncident",
+            request_serializer=chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentResponse.FromString,
+        )
+        self.GetIncidentAlertsChart = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/GetIncidentAlertsChart",
+            request_serializer=chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentAlertsChartRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentAlertsChartResponse.FromString,
+        )
+        self.ListAlertChannels = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/ListAlertChannels",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.ListAlertChannelsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.ListAlertChannelsResponse.FromString,
+        )
+        self.GetSlackIntegration = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/GetSlackIntegration",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackIntegrationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackIntegrationResponse.FromString,
         )
 
 
@@ -163,6 +189,36 @@ class MonitoringServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListIncidents(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetIncident(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetIncidentAlertsChart(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListAlertChannels(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetSlackIntegration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_MonitoringServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -230,6 +286,31 @@ def add_MonitoringServiceServicer_to_server(servicer, server):
             servicer.GetIncidentIoIntegration,
             request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetIncidentIoIntegrationRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetIncidentIoIntegrationResponse.SerializeToString,
+        ),
+        "ListIncidents": grpc.unary_unary_rpc_method_handler(
+            servicer.ListIncidents,
+            request_deserializer=chalk_dot_server_dot_v1_dot_incident__pb2.ListIncidentsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_incident__pb2.ListIncidentsResponse.SerializeToString,
+        ),
+        "GetIncident": grpc.unary_unary_rpc_method_handler(
+            servicer.GetIncident,
+            request_deserializer=chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentResponse.SerializeToString,
+        ),
+        "GetIncidentAlertsChart": grpc.unary_unary_rpc_method_handler(
+            servicer.GetIncidentAlertsChart,
+            request_deserializer=chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentAlertsChartRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentAlertsChartResponse.SerializeToString,
+        ),
+        "ListAlertChannels": grpc.unary_unary_rpc_method_handler(
+            servicer.ListAlertChannels,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.ListAlertChannelsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.ListAlertChannelsResponse.SerializeToString,
+        ),
+        "GetSlackIntegration": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSlackIntegration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackIntegrationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackIntegrationResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.MonitoringService", rpc_method_handlers)
@@ -607,6 +688,151 @@ class MonitoringService(object):
             "/chalk.server.v1.MonitoringService/GetIncidentIoIntegration",
             chalk_dot_server_dot_v1_dot_monitoring__pb2.GetIncidentIoIntegrationRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_monitoring__pb2.GetIncidentIoIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListIncidents(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/ListIncidents",
+            chalk_dot_server_dot_v1_dot_incident__pb2.ListIncidentsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_incident__pb2.ListIncidentsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetIncident(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/GetIncident",
+            chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetIncidentAlertsChart(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/GetIncidentAlertsChart",
+            chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentAlertsChartRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentAlertsChartResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListAlertChannels(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/ListAlertChannels",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.ListAlertChannelsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.ListAlertChannelsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSlackIntegration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/GetSlackIntegration",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackIntegrationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackIntegrationResponse.FromString,
             options,
             channel_credentials,
             insecure,

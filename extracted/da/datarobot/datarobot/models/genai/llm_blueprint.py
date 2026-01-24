@@ -32,9 +32,7 @@ from datarobot.utils.pagination import unpaginate
 from datarobot.utils.waiters import wait_for_async_resolution
 
 
-def get_entity_id(
-    entity: Union[Playground, LLMDefinition, VectorDatabase, LLMBlueprint, str]
-) -> str:
+def get_entity_id(entity: Union[Playground, LLMDefinition, VectorDatabase, LLMBlueprint, str]) -> str:
     """
     Get the entity ID from the entity parameter.
 
@@ -75,47 +73,49 @@ class LLMSettingsCustomModelDict(TypedDict):
     validation_id: Optional[str]
 
 
-vector_database_settings_trafaret = t.Dict(
-    {
-        t.Key("max_documents_retrieved_per_prompt", optional=True): t.Or(t.Int, t.Null),
-        t.Key("max_tokens", optional=True): t.Or(t.Int, t.Null),
-        t.Key("retriever", optional=True): t.Enum(*VectorDatabaseRetrievers._member_names_),
-        t.Key("add_neighbor_chunks", optional=True): t.Bool,
-        t.Key("retrieval_mode", optional=True): t.Enum(*enum_to_list(VectorDatabaseRetrievalMode)),
-        t.Key("maximal_marginal_relevance_lambda", optional=True): t.Or(t.Float, t.Null),
-    }
-).ignore_extra("*")
+class LLMSettingsAgenticWorkflowCustomModelDict(TypedDict):
+    """LLM settings used for an agent workflow in the playground chat."""
 
-llm_blueprint_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String(allow_blank=True),
-        t.Key("description"): t.String(allow_blank=True),
-        t.Key("is_saved"): t.Bool,
-        t.Key("is_starred"): t.Bool,
-        t.Key("playground_id"): t.String,
-        t.Key("llm_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("llm_settings", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
-        t.Key("llm_name", optional=True): t.Or(t.String(allow_blank=True), t.Null),
-        t.Key("creation_date"): t.String,
-        t.Key("creation_user_id"): t.String,
-        t.Key("creation_user_name"): t.String(allow_blank=True),
-        t.Key("last_update_date"): t.String,
-        t.Key("last_update_user_id"): t.String,
-        t.Key("prompt_type"): t.Enum(*enum_to_list(PromptType)),
-        t.Key("vector_database_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("vector_database_settings", optional=True): t.Or(
-            vector_database_settings_trafaret, t.Null
-        ),
-        t.Key("vector_database_name", optional=True): t.Or(t.String(allow_blank=True), t.Null),
-        t.Key("vector_database_status", optional=True): t.Or(t.String, t.Null),
-        t.Key("vector_database_error_message", optional=True): t.Or(t.String, t.Null),
-        t.Key("vector_database_error_resolution", optional=True): t.Or(t.String, t.Null),
-        t.Key("custom_model_llm_validation_status", optional=True): t.Or(t.String, t.Null),
-        t.Key("custom_model_llm_error_message", optional=True): t.Or(t.String, t.Null),
-        t.Key("custom_model_llm_error_resolution", optional=True): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+    custom_model_id: str
+    system_prompt: Optional[str]
+    custom_model_version_id: Optional[str]
+
+
+vector_database_settings_trafaret = t.Dict({
+    t.Key("max_documents_retrieved_per_prompt", optional=True): t.Or(t.Int, t.Null),
+    t.Key("max_tokens", optional=True): t.Or(t.Int, t.Null),
+    t.Key("retriever", optional=True): t.Enum(*VectorDatabaseRetrievers._member_names_),
+    t.Key("add_neighbor_chunks", optional=True): t.Bool,
+    t.Key("retrieval_mode", optional=True): t.Enum(*enum_to_list(VectorDatabaseRetrievalMode)),
+    t.Key("maximal_marginal_relevance_lambda", optional=True): t.Or(t.Float, t.Null),
+}).ignore_extra("*")
+
+llm_blueprint_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String(allow_blank=True),
+    t.Key("description"): t.String(allow_blank=True),
+    t.Key("is_saved"): t.Bool,
+    t.Key("is_starred"): t.Bool,
+    t.Key("playground_id"): t.String,
+    t.Key("llm_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("llm_settings", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+    t.Key("llm_name", optional=True): t.Or(t.String(allow_blank=True), t.Null),
+    t.Key("creation_date"): t.String,
+    t.Key("creation_user_id"): t.String,
+    t.Key("creation_user_name"): t.String(allow_blank=True),
+    t.Key("last_update_date"): t.String,
+    t.Key("last_update_user_id"): t.String,
+    t.Key("prompt_type"): t.Enum(*enum_to_list(PromptType)),
+    t.Key("vector_database_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("vector_database_settings", optional=True): t.Or(vector_database_settings_trafaret, t.Null),
+    t.Key("vector_database_name", optional=True): t.Or(t.String(allow_blank=True), t.Null),
+    t.Key("vector_database_status", optional=True): t.Or(t.String, t.Null),
+    t.Key("vector_database_error_message", optional=True): t.Or(t.String, t.Null),
+    t.Key("vector_database_error_resolution", optional=True): t.Or(t.String, t.Null),
+    t.Key("custom_model_llm_validation_status", optional=True): t.Or(t.String, t.Null),
+    t.Key("custom_model_llm_error_message", optional=True): t.Or(t.String, t.Null),
+    t.Key("custom_model_llm_error_resolution", optional=True): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
 
 class VectorDatabaseSettings(APIObject):
@@ -146,9 +146,7 @@ class VectorDatabaseSettings(APIObject):
         self,
         max_documents_retrieved_per_prompt: Optional[int] = None,
         max_tokens: Optional[int] = None,
-        retriever: Optional[
-            VectorDatabaseRetrievers
-        ] = VectorDatabaseRetrievers.SINGLE_LOOKUP_RETRIEVER,
+        retriever: Optional[VectorDatabaseRetrievers] = VectorDatabaseRetrievers.SINGLE_LOOKUP_RETRIEVER,
         add_neighbor_chunks: Optional[bool] = False,
         retrieval_mode: VectorDatabaseRetrievalMode = VectorDatabaseRetrievalMode.SIMILARITY,
         maximal_marginal_relevance_lambda: float = 0.5,
@@ -210,6 +208,10 @@ class LLMBlueprint(APIObject):
         - validation_id - The ID of the external model LLM validation.
         - external_llm_context_size - The external LLM's context size, in tokens,
         for external model LLM blueprints.
+        Or
+        - custom_model_id - The ID of the custom model.
+        - custom_model_version_id - The ID of the version of the custom model.
+        - system_prompt - The system prompt that tells the LLM how to behave.
     creation_date : str
         The date the playground was created.
     creation_user_id : str
@@ -263,7 +265,9 @@ class LLMBlueprint(APIObject):
         prompt_type: PromptType,
         llm_id: Optional[str] = None,
         llm_name: Optional[str] = None,
-        llm_settings: Optional[Union[LLMSettingsCommonDict, LLMSettingsCustomModelDict]] = None,
+        llm_settings: Optional[
+            Union[LLMSettingsCommonDict, LLMSettingsCustomModelDict, LLMSettingsAgenticWorkflowCustomModelDict]
+        ] = None,
         vector_database_id: Optional[str] = None,
         vector_database_settings: Optional[Dict[str, Any]] = None,
         vector_database_name: Optional[str] = None,
@@ -298,15 +302,11 @@ class LLMBlueprint(APIObject):
         self.custom_model_llm_error_message = custom_model_llm_error_message
         self.custom_model_llm_error_resolution = custom_model_llm_error_resolution
         self.vector_database_settings = (
-            VectorDatabaseSettings.from_server_data(vector_database_settings)
-            if vector_database_settings
-            else None
+            VectorDatabaseSettings.from_server_data(vector_database_settings) if vector_database_settings else None
         )
 
     def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}(id={self.id}, name={self.name}, is_saved={self.is_saved})"
-        )
+        return f"{self.__class__.__name__}(id={self.id}, name={self.name}, is_saved={self.is_saved})"
 
     @classmethod
     def create(
@@ -316,7 +316,9 @@ class LLMBlueprint(APIObject):
         prompt_type: PromptType = PromptType.CHAT_HISTORY_AWARE,
         description: str = "",
         llm: Optional[Union[LLMDefinition, str]] = None,
-        llm_settings: Optional[Union[LLMSettingsCommonDict, LLMSettingsCustomModelDict]] = None,
+        llm_settings: Optional[
+            Union[LLMSettingsCommonDict, LLMSettingsCustomModelDict, LLMSettingsAgenticWorkflowCustomModelDict]
+        ] = None,
         vector_database: Optional[Union[VectorDatabase, str]] = None,
         vector_database_settings: Optional[VectorDatabaseSettings] = None,
     ) -> LLMBlueprint:
@@ -348,6 +350,10 @@ class LLMBlueprint(APIObject):
             - system_prompt - The system prompt that tells the LLM how to behave.
             - validation_id - The ID of the custom model LLM validation
             for custom model LLM blueprints.
+            Or
+            - custom_model_id - The ID of the custom model.
+            - custom_model_version_id - The ID of the version of the custom model.
+            - system_prompt - The system prompt that tells the LLM how to behave.
         vector_database: VectorDatabase, str, or None, optional
             The vector database to use with this LLM blueprint, either
             `VectorDatabase` or vector database ID.
@@ -367,9 +373,7 @@ class LLMBlueprint(APIObject):
             "llm_id": get_entity_id(llm) if llm else None,
             "llm_settings": llm_settings,
             "vector_database_id": get_entity_id(vector_database) if vector_database else None,
-            "vector_database_settings": (
-                vector_database_settings.to_dict() if vector_database_settings else None
-            ),
+            "vector_database_settings": (vector_database_settings.to_dict() if vector_database_settings else None),
         }
 
         url = f"{cls._client.domain}/{cls._path}/"
@@ -479,9 +483,7 @@ class LLMBlueprint(APIObject):
         params = {
             "playground_id": get_entity_id(playground) if playground else None,
             "llm_ids": [get_entity_id(llm) for llm in llms] if llms else None,
-            "vector_databases": (
-                [get_entity_id(vdb) for vdb in vector_databases] if vector_databases else None
-            ),
+            "vector_databases": ([get_entity_id(vdb) for vdb in vector_databases] if vector_databases else None),
             "is_saved": is_saved,
             "is_starred": is_starred,
             "sort": sort,
@@ -495,7 +497,9 @@ class LLMBlueprint(APIObject):
         name: Optional[str] = None,
         description: Optional[str] = None,
         llm: Optional[Union[LLMDefinition, str]] = None,
-        llm_settings: Optional[Union[LLMSettingsCommonDict, LLMSettingsCustomModelDict]] = None,
+        llm_settings: Optional[
+            Union[LLMSettingsCommonDict, LLMSettingsCustomModelDict, LLMSettingsAgenticWorkflowCustomModelDict]
+        ] = None,
         vector_database: Optional[Union[VectorDatabase, str]] = None,
         vector_database_settings: Optional[VectorDatabaseSettings] = None,
         is_saved: Optional[bool] = None,
@@ -526,6 +530,10 @@ class LLMBlueprint(APIObject):
             - system_prompt - The system prompt that tells the LLM how to behave.
             - validation_id - The ID of the custom model LLM validation
             for custom model LLM blueprints.
+            Or
+            - custom_model_id - The ID of the custom model.
+            - custom_model_version_id - The ID of the version of the custom model.
+            - system_prompt - The system prompt that tells the LLM how to behave.
         vector_database: Optional[Union[VectorDatabase, str]], optional
             The new vector database for the LLM blueprint.
         vector_database_settings: Optional[VectorDatabaseSettings], optional
@@ -551,9 +559,7 @@ class LLMBlueprint(APIObject):
             "llm_id": get_entity_id(llm) if llm else None,
             "llm_settings": llm_settings,
             "vector_database_id": get_entity_id(vector_database) if vector_database else None,
-            "vector_database_settings": (
-                vector_database_settings.to_dict() if vector_database_settings else None
-            ),
+            "vector_database_settings": (vector_database_settings.to_dict() if vector_database_settings else None),
             "is_saved": is_saved,
             "is_starred": is_starred,
             "prompt_type": prompt_type,

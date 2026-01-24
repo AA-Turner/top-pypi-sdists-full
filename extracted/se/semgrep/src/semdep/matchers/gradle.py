@@ -10,7 +10,10 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the file
 # LICENSE for more details.
 #
+import functools
+import glob
 from dataclasses import dataclass
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import FrozenSet
 from typing import List
@@ -42,15 +45,29 @@ class GradleMatcher(SubprojectMatcher):
 
     BUILD_FILENAMES = ["build.gradle", "build.gradle.kts"]
     SETTINGS_FILENAMES = ["settings.gradle", "settings.gradle.kts"]
-    LOCKFILE_FILENAME = "gradle.lockfile"
+    # Gradle allows setting arbitrary filenamese for its lockfiles
+    # (https://docs.gradle.org/current/userguide/dependency_locking.html#sec:configuring-the-per-project-lock-file-name-and-location).
+    # Our framework does not support arbitrary filenames, but we attempt to handle the most
+    # common cases with this pattern.
+    LOCKFILE_PATTERN = "gradle*.lockfile"
     ECOSYSTEM = out.Ecosystem(out.Maven())
+
+    @functools.cached_property
+    def subproject_identifying_glob_filters(self) -> FrozenSet[str]:
+        return frozenset(
+            list(map(glob.escape, self.BUILD_FILENAMES))
+            + list(map(glob.escape, self.SETTINGS_FILENAMES))
+            + [self.LOCKFILE_PATTERN]
+        )
+
+    def _is_lockfile_match(self, path: Path) -> bool:
+        return fnmatch(str(path.name), self.LOCKFILE_PATTERN)
 
     def is_match(self, path: Path) -> bool:
         return path.name in [
             *self.BUILD_FILENAMES,
             *self.SETTINGS_FILENAMES,
-            self.LOCKFILE_FILENAME,
-        ]
+        ] or self._is_lockfile_match(path)
 
     def _lockfile_to_settings_and_build(
         self, lockfile_path: Path, candidates: FrozenSet[Path]
@@ -96,7 +113,7 @@ class GradleMatcher(SubprojectMatcher):
                 build_files.add(path)
             elif path.name in self.SETTINGS_FILENAMES:
                 settings_files.add(path)
-            elif path.name == self.LOCKFILE_FILENAME:
+            elif self._is_lockfile_match(path):
                 lockfiles.add(path)
         return settings_files, build_files, lockfiles
 
@@ -139,7 +156,7 @@ class GradleMatcher(SubprojectMatcher):
             if build_path is not None:
                 kind: Union[out.BuildGradle, out.BuildGradleKts] = (
                     out.BuildGradleKts()
-                    if build_path == "build.gradle.kts"
+                    if build_path.suffix == ".kts"
                     else out.BuildGradle()
                 )
                 # if both settings.gradle and build.gradle exist,
@@ -199,7 +216,7 @@ class GradleMatcher(SubprojectMatcher):
                 used_build_paths.add(first_build_path)
                 kind = (
                     out.BuildGradleKts()
-                    if first_build_path == "build.gradle.kts"
+                    if first_build_path.suffix == ".kts"
                     else out.BuildGradle()
                 )
                 manifest = out.Manifest(
@@ -238,7 +255,7 @@ class GradleMatcher(SubprojectMatcher):
 
             kind = (
                 out.BuildGradleKts()
-                if build_path == "build.gradle.kts"
+                if build_path.suffix == ".kts"
                 else out.BuildGradle()
             )
             # if we make it to here, we have decided that this build.gradle file defines a single-project

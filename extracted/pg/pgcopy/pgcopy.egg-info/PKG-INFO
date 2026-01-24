@@ -1,17 +1,18 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pgcopy
-Version: 1.6.0
+Version: 1.6.2
 Summary: Fast db insert with postgresql binary copy
 Home-page: https://pgcopy.readthedocs.io/en/latest/
 Author: Aryeh Leib Taurog
 Author-email: python@aryehleib.com
 License: MIT
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -20,6 +21,18 @@ Classifier: Topic :: Database
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
+Requires-Dist: psycopg2
+Requires-Dist: pytz
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 .. home-start
 
@@ -116,15 +129,9 @@ Documentation
 
 .. _Read the docs.: pgcopy_
 
-See Also
---------
-
-cpgcopy_, a Cython implementation, about twice as fast.
-
 
 .. _binary copy: http://www.postgresql.org/docs/9.3/static/sql-copy.html
 .. _psycopg2: https://pypi.org/project/psycopg2/
 .. _pytz: https://pypi.org/project/pytz/
 .. _pytest: https://pypi.org/project/pytest/
-.. _cpgcopy: https://github.com/altaurog/cpgcopy
 .. _Tox: https://tox.readthedocs.io/en/latest/

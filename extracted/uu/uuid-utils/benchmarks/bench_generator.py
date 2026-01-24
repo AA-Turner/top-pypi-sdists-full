@@ -3,46 +3,67 @@ import uuid
 import uuid_utils
 
 node = uuid.getnode()
+iterations = 10_000
 
 
 def uuid_uuid1() -> None:
-    for _ in range(10_000):
+    for _ in range(iterations):
         uuid.uuid1(node)
 
 
 def uuid_utils_uuid1() -> None:
-    for _ in range(10_000):
+    for _ in range(iterations):
         uuid_utils.uuid1(node)
 
 
 def uuid_uuid3() -> None:
-    for _ in range(10_000):
+    for _ in range(iterations):
         uuid.uuid3(namespace=uuid.NAMESPACE_DNS, name="python.org")
 
 
 def uuid_utils_uuid3() -> None:
-    for _ in range(10_000):
+    for _ in range(iterations):
         uuid_utils.uuid3(namespace=uuid_utils.NAMESPACE_DNS, name="python.org")
 
 
 def uuid_uuid4() -> None:
-    for _ in range(10_000):
+    for _ in range(iterations):
         uuid.uuid4()
 
 
 def uuid_utils_uuid4() -> None:
-    for _ in range(10_000):
+    for _ in range(iterations):
         uuid_utils.uuid4()
 
 
 def uuid_uuid5() -> None:
-    for _ in range(10_000):
+    for _ in range(iterations):
         uuid.uuid5(namespace=uuid.NAMESPACE_DNS, name="python.org")
 
 
 def uuid_utils_uuid5() -> None:
-    for _ in range(10_000):
+    for _ in range(iterations):
         uuid_utils.uuid5(namespace=uuid_utils.NAMESPACE_DNS, name="python.org")
+
+
+def uuid_uuid6() -> None:
+    for _ in range(iterations):
+        uuid.uuid6()
+
+
+def uuid_utils_uuid6() -> None:
+    for _ in range(iterations):
+        uuid_utils.uuid6()
+
+
+def uuid_uuid7() -> None:
+    for _ in range(iterations):
+        uuid.uuid7()
+
+
+def uuid_utils_uuid7() -> None:
+    for _ in range(iterations):
+        uuid_utils.uuid7()
 
 
 __benchmarks__ = [
@@ -50,4 +71,6 @@ __benchmarks__ = [
     (uuid_uuid3, uuid_utils_uuid3, "UUID v3"),
     (uuid_uuid4, uuid_utils_uuid4, "UUID v4"),
     (uuid_uuid5, uuid_utils_uuid5, "UUID v5"),
+    (uuid_uuid6, uuid_utils_uuid6, "UUID v6"),
+    (uuid_uuid7, uuid_utils_uuid7, "UUID v7"),
 ]

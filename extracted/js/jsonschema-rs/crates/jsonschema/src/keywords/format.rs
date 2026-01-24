@@ -5,23 +5,24 @@ use std::{
     sync::Arc,
 };
 
-use email_address::EmailAddress;
+use email_address::{EmailAddress, Options as EmailAddressOptions};
 use fancy_regex::Regex;
-use once_cell::sync::Lazy;
 use serde_json::{Map, Value};
+use std::sync::LazyLock;
+use unicode_general_category::{get_general_category, GeneralCategory};
 use uuid_simd::{parse_hyphenated, Out};
 
 use crate::{
     compiler, ecma,
     error::ValidationError,
     keywords::CompilationResult,
-    paths::{LazyLocation, Location},
+    paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
-    validator::Validate,
+    validator::{Validate, ValidationContext},
     Draft,
 };
 
-static URI_TEMPLATE_RE: Lazy<Regex> = Lazy::new(|| {
+static URI_TEMPLATE_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r#"^(?:(?:[^\x00-\x20"'<>%\\^`{|}]|%[0-9a-f]{2})|\{[+#./;?&=,!@|]?(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\*)?(?:,(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\*)?)*})*\z"#
     )
@@ -191,12 +192,14 @@ macro_rules! handle_offset {
         }
 
         if $second == 60 {
-            let mut utc_hh = $hour as i8;
-            let mut utc_mm = $minute as i8;
+            let mut utc_hh = i16::from($hour);
+            let mut utc_mm = i16::from($minute);
+            let offset_hh = i16::from(offset_hh);
+            let offset_mm = i16::from(offset_mm);
 
             // Apply offset based on the sign (+ or -)
-            utc_hh $sign offset_hh as i8;
-            utc_mm $sign offset_mm as i8;
+            utc_hh $sign offset_hh;
+            utc_mm $sign offset_mm;
 
             // Adjust for minute overflow/underflow
             utc_hh += utc_mm / 60;
@@ -286,11 +289,21 @@ fn is_valid_datetime(datetime: &str) -> bool {
     is_valid_date(date_part) && is_valid_time(&time_part[1..])
 }
 
-fn is_valid_email_impl<F>(email: &str, is_valid_hostname_impl: F) -> bool
+fn is_valid_email_impl<F>(
+    email: &str,
+    is_valid_hostname_impl: F,
+    options: Option<&EmailAddressOptions>,
+) -> bool
 where
     F: Fn(&str) -> bool,
 {
-    if let Ok(parsed) = EmailAddress::from_str(email) {
+    let parsed = if let Some(opts) = options {
+        EmailAddress::parse_with_options(email, *opts)
+    } else {
+        EmailAddress::from_str(email)
+    };
+
+    if let Ok(parsed) = parsed {
         let domain = parsed.domain();
         if let Some(domain) = domain.strip_prefix('[').and_then(|d| d.strip_suffix(']')) {
             if let Some(domain) = domain.strip_prefix("IPv6:") {
@@ -306,27 +319,65 @@ where
     }
 }
 
-fn is_valid_email(email: &str) -> bool {
-    is_valid_email_impl(email, is_valid_hostname)
+fn is_valid_email(email: &str, options: Option<&EmailAddressOptions>) -> bool {
+    is_valid_email_impl(email, is_valid_hostname, options)
 }
 
-fn is_valid_idn_email(email: &str) -> bool {
-    is_valid_email_impl(email, is_valid_idn_hostname)
+fn is_valid_idn_email(email: &str, options: Option<&EmailAddressOptions>) -> bool {
+    is_valid_email_impl(email, is_valid_idn_hostname, options)
 }
 
 fn is_valid_hostname(hostname: &str) -> bool {
     const VALID_CHARS: [bool; 256] = {
         let mut table = [false; 256];
-        let mut i = 0;
-        while i < 256 {
-            table[i] = matches!(i as u8, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-');
-            i += 1;
+        let mut byte: u8 = 0;
+        while byte < 255 {
+            table[byte as usize] = matches!(byte, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-');
+            byte += 1;
         }
+        // Handle byte 255 separately to avoid overflow
+        table[255] = matches!(255u8, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-');
         table
     };
-    let hostname = hostname.as_bytes();
-    let len = hostname.len();
-    if len == 0 || len > 253 || hostname[len - 1] == b'.' {
+
+    fn label_allows_punycode(label: &[u8]) -> bool {
+        label.len() >= 4
+            && label[0] == b'x'
+            && label[1] == b'n'
+            && label[2] == b'-'
+            && label[3] == b'-'
+    }
+
+    fn validate_label(label: &[u8]) -> bool {
+        if label.is_empty()
+            || label.len() > 63
+            || label[0] == b'-'
+            || *label.last().unwrap() == b'-'
+        {
+            return false;
+        }
+
+        if label.len() >= 4 && label[2] == b'-' && label[3] == b'-' && !label_allows_punycode(label)
+        {
+            return false;
+        }
+
+        true
+    }
+
+    fn contains_punycode_label(hostname: &[u8]) -> bool {
+        hostname.split(|&b| b == b'.').any(|label| {
+            label.len() >= 4
+                && label[0] == b'x'
+                && label[1] == b'n'
+                && label[2] == b'-'
+                && label[3] == b'-'
+        })
+    }
+
+    let hostname_bytes = hostname.as_bytes();
+    let len = hostname_bytes.len();
+    if len == 0 || len > 253 || hostname_bytes[len - 1] == b'.' {
         return false;
     }
 
@@ -334,49 +385,59 @@ fn is_valid_hostname(hostname: &str) -> bool {
     let mut i = 0;
 
     while i < len {
-        if hostname[i] == b'.' {
-            let label_len = i - label_start;
-            if label_len == 0
-                || label_len > 63
-                || hostname[label_start] == b'-'
-                || hostname[i - 1] == b'-'
-            {
+        if hostname_bytes[i] == b'.' {
+            if !validate_label(&hostname_bytes[label_start..i]) {
                 return false;
             }
             label_start = i + 1;
-        } else if !VALID_CHARS[hostname[i] as usize] {
+        } else if !VALID_CHARS[hostname_bytes[i] as usize] {
             return false;
         }
         i += 1;
     }
 
-    let last_label_len = len - label_start;
-    !(last_label_len == 0
-        || last_label_len > 63
-        || hostname[label_start] == b'-'
-        || hostname[len - 1] == b'-')
+    if !validate_label(&hostname_bytes[label_start..]) {
+        return false;
+    }
+
+    if contains_punycode_label(hostname_bytes) {
+        use idna::punycode;
+        for label in hostname_bytes.split(|&b| b == b'.') {
+            if label.len() >= 4
+                && label[0] == b'x'
+                && label[1] == b'n'
+                && label[2] == b'-'
+                && label[3] == b'-'
+            {
+                let payload =
+                    std::str::from_utf8(&label[4..]).expect("ASCII label already validated");
+                let Some(decoded) = punycode::decode_to_string(payload) else {
+                    return false;
+                };
+                if !validate_unicode_label(&decoded) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    true
 }
 
-fn is_valid_idn_hostname(hostname: &str) -> bool {
-    use idna::uts46::{AsciiDenyList, DnsLength, Hyphens, Uts46};
-
-    let Ok(ascii_hostname) = Uts46::new().to_ascii(
-        hostname.as_bytes(),
-        AsciiDenyList::STD3,
-        // Prohibit hyphens in the first, third, fourth, and last position in the label
-        Hyphens::Check,
-        DnsLength::Verify,
-    ) else {
-        return false;
-    };
-    let (unicode_hostname, _) = Uts46::new().to_unicode(
-        ascii_hostname.as_bytes(),
-        AsciiDenyList::EMPTY,
-        Hyphens::Allow,
-    );
-
-    let mut chars = unicode_hostname.chars().peekable();
-    let mut previous = '\0';
+fn validate_unicode_label(label: &str) -> bool {
+    let mut chars = label.chars().peekable();
+    if let Some(&first) = chars.peek() {
+        let category = get_general_category(first);
+        if matches!(
+            category,
+            GeneralCategory::SpacingMark
+                | GeneralCategory::NonspacingMark
+                | GeneralCategory::EnclosingMark
+        ) {
+            return false;
+        }
+    }
+    let mut previous = None;
     let mut has_katakana_middle_dot = false;
     let mut has_hiragana_katakana_han = false;
     let mut has_arabic_indic_digits = false;
@@ -387,65 +448,67 @@ fn is_valid_idn_hostname(hostname: &str) -> bool {
             // ZERO WIDTH JOINER
             // https://www.rfc-editor.org/rfc/rfc5892#appendix-A.2
             '\u{200D}'
-                if !matches!(
-                    previous,
-                    '\u{094D}'
-                        | '\u{09CD}'
-                        | '\u{0A4D}'
-                        | '\u{0ACD}'
-                        | '\u{0B4D}'
-                        | '\u{0BCD}'
-                        | '\u{0C4D}'
-                        | '\u{0CCD}'
-                        | '\u{0D4D}'
-                        | '\u{0DCA}'
-                        | '\u{0E3A}'
-                        | '\u{0F84}'
-                        | '\u{1039}'
-                        | '\u{1714}'
-                        | '\u{1734}'
-                        | '\u{17D2}'
-                        | '\u{1A60}'
-                        | '\u{1B44}'
-                        | '\u{1BAA}'
-                        | '\u{1BF2}'
-                        | '\u{1BF3}'
-                        | '\u{2D7F}'
-                        | '\u{A806}'
-                        | '\u{A8C4}'
-                        | '\u{A953}'
-                        | '\u{ABED}'
-                        | '\u{10A3F}'
-                        | '\u{11046}'
-                        | '\u{1107F}'
-                        | '\u{110B9}'
-                        | '\u{11133}'
-                        | '\u{111C0}'
-                        | '\u{11235}'
-                        | '\u{112EA}'
-                        | '\u{1134D}'
-                        | '\u{11442}'
-                        | '\u{114C2}'
-                        | '\u{115BF}'
-                        | '\u{1163F}'
-                        | '\u{116B6}'
-                        | '\u{1172B}'
-                        | '\u{11839}'
-                        | '\u{119E0}'
-                        | '\u{11A34}'
-                        | '\u{11A47}'
-                        | '\u{11A99}'
-                        | '\u{11C3F}'
-                        | '\u{11D44}'
-                        | '\u{11D45}'
-                        | '\u{11D97}'
-                ) =>
+                if !previous.is_some_and(|prev| {
+                    matches!(
+                        prev,
+                        '\u{094D}'
+                            | '\u{09CD}'
+                            | '\u{0A4D}'
+                            | '\u{0ACD}'
+                            | '\u{0B4D}'
+                            | '\u{0BCD}'
+                            | '\u{0C4D}'
+                            | '\u{0CCD}'
+                            | '\u{0D4D}'
+                            | '\u{0DCA}'
+                            | '\u{0E3A}'
+                            | '\u{0F84}'
+                            | '\u{1039}'
+                            | '\u{1714}'
+                            | '\u{1734}'
+                            | '\u{17D2}'
+                            | '\u{1A60}'
+                            | '\u{1B44}'
+                            | '\u{1BAA}'
+                            | '\u{1BF2}'
+                            | '\u{1BF3}'
+                            | '\u{2D7F}'
+                            | '\u{A806}'
+                            | '\u{A8C4}'
+                            | '\u{A953}'
+                            | '\u{ABED}'
+                            | '\u{10A3F}'
+                            | '\u{11046}'
+                            | '\u{1107F}'
+                            | '\u{110B9}'
+                            | '\u{11133}'
+                            | '\u{111C0}'
+                            | '\u{11235}'
+                            | '\u{112EA}'
+                            | '\u{1134D}'
+                            | '\u{11442}'
+                            | '\u{114C2}'
+                            | '\u{115BF}'
+                            | '\u{1163F}'
+                            | '\u{116B6}'
+                            | '\u{1172B}'
+                            | '\u{11839}'
+                            | '\u{119E0}'
+                            | '\u{11A34}'
+                            | '\u{11A47}'
+                            | '\u{11A99}'
+                            | '\u{11C3F}'
+                            | '\u{11D44}'
+                            | '\u{11D45}'
+                            | '\u{11D97}'
+                    )
+                }) =>
             {
                 return false;
             }
             // MIDDLE DOT
             // https://www.rfc-editor.org/rfc/rfc5892#appendix-A.3
-            '\u{00B7}' if previous != 'l' || chars.peek() != Some(&'l') => return false,
+            '\u{00B7}' if previous != Some('l') || chars.peek() != Some(&'l') => return false,
             // Greek KERAIA
             // https://www.rfc-editor.org/rfc/rfc5892#appendix-A.4
             '\u{0375}'
@@ -458,7 +521,9 @@ fn is_valid_idn_hostname(hostname: &str) -> bool {
             // Hebrew GERESH and GERSHAYIM
             // https://www.rfc-editor.org/rfc/rfc5892#appendix-A.5
             // https://www.rfc-editor.org/rfc/rfc5892#appendix-A.6
-            '\u{05F3}' | '\u{05F4}' if !('\u{0590}'..='\u{05FF}').contains(&previous) => {
+            '\u{05F3}' | '\u{05F4}'
+                if !previous.is_some_and(|prev| ('\u{0590}'..='\u{05FF}').contains(&prev)) =>
+            {
                 return false
             }
             // KATAKANA MIDDLE DOT
@@ -480,7 +545,7 @@ fn is_valid_idn_hostname(hostname: &str) -> bool {
 
             _ => {}
         }
-        previous = current;
+        previous = Some(current);
     }
 
     if (has_katakana_middle_dot && !has_hiragana_katakana_han)
@@ -489,7 +554,40 @@ fn is_valid_idn_hostname(hostname: &str) -> bool {
         return false;
     }
 
-    is_valid_hostname(&ascii_hostname)
+    true
+}
+
+fn is_valid_idn_hostname(hostname: &str) -> bool {
+    use idna::uts46::{AsciiDenyList, DnsLength, Hyphens, Uts46};
+
+    let Ok(ascii_hostname) = Uts46::new().to_ascii(
+        hostname.as_bytes(),
+        AsciiDenyList::STD3,
+        // Prohibit hyphens in the first, third, fourth, and last position in the label
+        Hyphens::Check,
+        DnsLength::Verify,
+    ) else {
+        return false;
+    };
+
+    if !is_valid_hostname(&ascii_hostname) {
+        return false;
+    }
+
+    let (unicode_hostname, _) = Uts46::new().to_unicode(
+        ascii_hostname.as_bytes(),
+        AsciiDenyList::EMPTY,
+        Hyphens::Allow,
+    );
+
+    unicode_hostname
+        .split('.')
+        .all(|label| !label.is_empty() && validate_unicode_label(label))
+}
+
+#[inline]
+fn unit_index(units: &[u8], unit: u8) -> Option<usize> {
+    units.iter().position(|&u| u == unit)
 }
 
 fn is_valid_duration(duration: &str) -> bool {
@@ -511,10 +609,6 @@ fn is_valid_duration(duration: &str) -> bool {
 
     let date_units = [b'Y', b'M', b'W', b'D'];
     let time_units = [b'H', b'M', b'S'];
-
-    fn unit_index(units: &[u8], unit: u8) -> Option<usize> {
-        units.iter().position(|&u| u == unit)
-    }
 
     while i < len {
         if bytes[i] == b'T' {
@@ -627,7 +721,7 @@ macro_rules! format_validators {
             }
 
             impl Validate for $validator {
-                fn is_valid(&self, instance: &Value) -> bool {
+                fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
                     if let Value::String(item) = instance {
                         $validation_fn(item)
                     } else {
@@ -639,11 +733,14 @@ macro_rules! format_validators {
                     &self,
                     instance: &'i Value,
                     location: &LazyLocation,
+                    tracker: Option<&RefTracker>,
+                    ctx: &mut ValidationContext,
                 ) -> Result<(), ValidationError<'i>> {
                     if let Value::String(_item) = instance {
-                        if !self.is_valid(instance) {
+                        if !self.is_valid(instance, ctx) {
                             return Err(ValidationError::format(
                                 self.location.clone(),
+                                crate::paths::capture_evaluation_path(tracker, &self.location),
                                 location.into(),
                                 instance,
                                 $format,
@@ -660,9 +757,7 @@ format_validators!(
     (DateValidator, "date", is_valid_date),
     (DateTimeValidator, "date-time", is_valid_datetime),
     (DurationValidator, "duration", is_valid_duration),
-    (EmailValidator, "email", is_valid_email),
     (HostnameValidator, "hostname", is_valid_hostname),
-    (IdnEmailValidator, "idn-email", is_valid_idn_email),
     (IdnHostnameValidator, "idn-hostname", is_valid_idn_hostname),
     (IpV4Validator, "ipv4", is_valid_ipv4),
     (IpV6Validator, "ipv6", is_valid_ipv6),
@@ -690,6 +785,102 @@ format_validators!(
     (UuidValidator, "uuid", is_valid_uuid),
 );
 
+// Custom EmailValidator that supports email options
+struct EmailValidator {
+    location: Location,
+    email_options: Option<EmailAddressOptions>,
+}
+
+impl EmailValidator {
+    pub(crate) fn compile<'a>(ctx: &compiler::Context) -> CompilationResult<'a> {
+        let location = ctx.location().join("format");
+        let email_options = ctx.config().email_options().copied();
+        Ok(Box::new(EmailValidator {
+            location,
+            email_options,
+        }))
+    }
+}
+
+impl Validate for EmailValidator {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
+        if let Value::String(item) = instance {
+            is_valid_email(item, self.email_options.as_ref())
+        } else {
+            true
+        }
+    }
+
+    fn validate<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> Result<(), ValidationError<'i>> {
+        if let Value::String(_item) = instance {
+            if !self.is_valid(instance, ctx) {
+                return Err(ValidationError::format(
+                    self.location.clone(),
+                    crate::paths::capture_evaluation_path(tracker, &self.location),
+                    location.into(),
+                    instance,
+                    "email",
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+// Custom IdnEmailValidator that supports email options
+struct IdnEmailValidator {
+    location: Location,
+    email_options: Option<EmailAddressOptions>,
+}
+
+impl IdnEmailValidator {
+    pub(crate) fn compile<'a>(ctx: &compiler::Context) -> CompilationResult<'a> {
+        let location = ctx.location().join("format");
+        let email_options = ctx.config().email_options().copied();
+        Ok(Box::new(IdnEmailValidator {
+            location,
+            email_options,
+        }))
+    }
+}
+
+impl Validate for IdnEmailValidator {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
+        if let Value::String(item) = instance {
+            is_valid_idn_email(item, self.email_options.as_ref())
+        } else {
+            true
+        }
+    }
+
+    fn validate<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> Result<(), ValidationError<'i>> {
+        if let Value::String(_item) = instance {
+            if !self.is_valid(instance, ctx) {
+                return Err(ValidationError::format(
+                    self.location.clone(),
+                    crate::paths::capture_evaluation_path(tracker, &self.location),
+                    location.into(),
+                    instance,
+                    "idn-email",
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 struct CustomFormatValidator {
     location: Location,
     format_name: String,
@@ -715,12 +906,15 @@ impl Validate for CustomFormatValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance) {
+        if self.is_valid(instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::format(
                 self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
                 instance,
                 self.format_name.clone(),
@@ -728,7 +922,7 @@ impl Validate for CustomFormatValidator {
         }
     }
 
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         if let Value::String(item) = instance {
             self.check.is_valid(item)
         } else {
@@ -796,9 +990,11 @@ pub(crate) fn compile<'a>(
                 if ctx.are_unknown_formats_ignored() {
                     None
                 } else {
-                    Some(Err(ValidationError::custom(
-                        Location::new().join("format"),
-                        ctx.location().clone(),
+                    let location = ctx.location().join("format");
+                    Some(Err(ValidationError::compile_error(
+                        location.clone(),
+                        location,
+                        Location::new(),
                         schema,
                         format!("Unknown format: '{name}'. Adjust configuration to ignore unrecognized formats"),
                     )))
@@ -806,9 +1002,11 @@ pub(crate) fn compile<'a>(
             }
         }
     } else {
+        let location = ctx.location().join("format");
         Some(Err(ValidationError::single_type_error(
+            location.clone(),
+            location,
             Location::new(),
-            ctx.location().clone(),
             schema,
             JsonType::String,
         )))
@@ -821,7 +1019,7 @@ mod tests {
     use serde_json::json;
     use test_case::test_case;
 
-    use crate::tests_util;
+    use crate::{tests_util, EmailOptions};
 
     use super::*;
 
@@ -1026,10 +1224,23 @@ mod tests {
         assert!(is_valid_idn_hostname(input));
     }
 
+    #[test_case("xn--ll-0ea" ; "punycode with valid middle dot context")]
+    #[test_case("xn--11b2ezcw70k" ; "zero width joiner preceded by virama")]
+    fn test_valid_punycode_hostnames(input: &str) {
+        assert!(is_valid_hostname(input));
+    }
+
     #[test_case("ex--ample.com" ; "hyphen at 3rd & 4th position")]
     #[test_case("-example.com" ; "leading hyphen")]
     #[test_case("example-.com" ; "trailing hyphen")]
     #[test_case("xn--example.com" ; "invalid punycode")]
+    #[test_case("xn--x" ; "too short punycode label")]
+    #[test_case("xn--vek" ; "katakana middle dot without companions")]
+    #[test_case("xn--l-fda" ; "middle dot with nothing preceding")]
+    #[test_case("xn--l-gda" ; "middle dot with nothing following")]
+    #[test_case("xn--02b508i" ; "zero width joiner not preceded by virama")]
+    #[test_case("xn--a-2hc5h" ; "hebrew geresh not preceded by hebrew")]
+    #[test_case("xn--a-2hc8h" ; "hebrew gershayim not preceded by hebrew")]
     #[test_case("test\u{200D}example.com" ; "zero width joiner not after virama")]
     #[test_case("test\u{0061}\u{200D}example.com" ; "zero width joiner after non-virama")]
     #[test_case("" ; "empty string")]
@@ -1043,6 +1254,18 @@ mod tests {
     #[test_case("example・com" ; "katakana middle dot without hiragana/katakana/han")]
     fn test_invalid_idn_hostnames(input: &str) {
         assert!(!is_valid_idn_hostname(input));
+    }
+
+    #[test_case("xn--l-fda" ; "middle dot with nothing preceding")]
+    #[test_case("xn--l-gda" ; "middle dot with nothing following")]
+    #[test_case("xn--02b508i" ; "zero width joiner not preceded by anything")]
+    #[test_case("xn--11b2er09f" ; "zero width joiner not preceded by virama")]
+    #[test_case("xn--hello-zed" ; "punycode beginning with nonspacing mark")]
+    #[test_case("xn--hello-txk" ; "punycode beginning with spacing combining mark")]
+    #[test_case("xn--hello-6bf" ; "punycode beginning with enclosing mark")]
+    #[test_case("XN--aa---o47jg78q" ; "uppercase punycode prefix rejected")]
+    fn test_invalid_punycode_hostnames(input: &str) {
+        assert!(!is_valid_hostname(input));
     }
 
     #[test]
@@ -1092,5 +1315,178 @@ mod tests {
     #[test_case("1/~"; "incomplete escape in json pointer")]
     fn test_invalid_relative_json_pointer(pointer: &str) {
         assert!(!is_valid_relative_json_pointer(pointer));
+    }
+
+    #[test]
+    fn email_options_backward_compatibility() {
+        // Test that default behavior is unchanged (backward compatibility)
+        let schema = json!({"format": "email", "type": "string"});
+        let validator = crate::options()
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("Schema should compile");
+
+        // "missing@domain" should validate as valid with default options (per spec)
+        assert!(validator.is_valid(&json!("missing@domain")));
+        assert!(validator.is_valid(&json!("user@example.com")));
+        assert!(!validator.is_valid(&json!("not-an-email")));
+    }
+
+    #[test]
+    fn email_options_custom() {
+        let schema = json!({"format": "email", "type": "string"});
+
+        // Test with custom email options
+        let validator = crate::options()
+            .with_email_options(EmailOptions::default())
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("Schema should compile");
+
+        // Should still work with custom options (same as default for now)
+        assert!(validator.is_valid(&json!("user@example.com")));
+        assert!(!validator.is_valid(&json!("not-an-email")));
+    }
+
+    #[test]
+    fn email_options_default() {
+        let schema = json!({"format": "email", "type": "string"});
+        let validator = crate::options()
+            .with_email_options(EmailOptions::default())
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("Schema should compile");
+
+        assert!(validator.is_valid(&json!("user@example.com")));
+        assert!(!validator.is_valid(&json!("not-an-email")));
+    }
+
+    #[test]
+    fn idn_email_options() {
+        let schema = json!({"format": "idn-email", "type": "string"});
+        let validator = crate::options()
+            .with_email_options(EmailOptions::default())
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("Schema should compile");
+
+        assert!(validator.is_valid(&json!("user@example.com")));
+        assert!(!validator.is_valid(&json!("not-an-email")));
+    }
+
+    #[test]
+    fn email_options_minimum_sub_domains() {
+        let schema = json!({"format": "email", "type": "string"});
+
+        // Test with no minimum sub domains - localhost should be valid
+        let validator = crate::options()
+            .with_email_options(EmailOptions::default().with_no_minimum_sub_domains())
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("Schema should compile");
+
+        assert!(validator.is_valid(&json!("simon@localhost")));
+        assert!(validator.is_valid(&json!("user@example.com")));
+
+        // Test with required TLD - localhost should be invalid
+        let validator = crate::options()
+            .with_email_options(EmailOptions::default().with_required_tld())
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("Schema should compile");
+
+        assert!(!validator.is_valid(&json!("simon@localhost")));
+        assert!(validator.is_valid(&json!("user@example.com")));
+
+        // Test with custom minimum sub domains
+        let validator = crate::options()
+            .with_email_options(EmailOptions::default().with_minimum_sub_domains(3))
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("Schema should compile");
+
+        assert!(!validator.is_valid(&json!("user@example.com")));
+        assert!(validator.is_valid(&json!("user@sub.example.com")));
+    }
+
+    #[test]
+    fn email_options_domain_literal() {
+        let schema = json!({"format": "email", "type": "string"});
+
+        // Test with domain literal allowed (default)
+        let validator = crate::options()
+            .with_email_options(EmailOptions::default().with_domain_literal())
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("Schema should compile");
+
+        // Domain literal format is allowed (even if IPv4 is invalid)
+        assert!(validator.is_valid(&json!("email@[127.0.0.1]")));
+        assert!(validator.is_valid(&json!("email@[IPv6:2001:db8::1]")));
+
+        // Test without domain literal - should reject domain literals
+        let validator = crate::options()
+            .with_email_options(EmailOptions::default().without_domain_literal())
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("Schema should compile");
+
+        assert!(!validator.is_valid(&json!("email@[127.0.0.1]")));
+        assert!(!validator.is_valid(&json!("email@[IPv6:2001:db8::1]")));
+        assert!(validator.is_valid(&json!("user@example.com")));
+    }
+
+    #[test]
+    fn email_options_display_text() {
+        let schema = json!({"format": "email", "type": "string"});
+
+        // Test with display text allowed (default)
+        let validator = crate::options()
+            .with_email_options(EmailOptions::default().with_display_text())
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("Schema should compile");
+
+        // Display text format with actual display name should be allowed
+        assert!(validator.is_valid(&json!("Simon <simon@example.com>")));
+        // Plain email should always be valid
+        assert!(validator.is_valid(&json!("simon@example.com")));
+
+        // Test without display text - should reject display text formats
+        let validator = crate::options()
+            .with_email_options(EmailOptions::default().without_display_text())
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("Schema should compile");
+
+        assert!(!validator.is_valid(&json!("Simon <simon@example.com>")));
+        assert!(!validator.is_valid(&json!("<simon@example.com>")));
+        assert!(validator.is_valid(&json!("simon@example.com")));
+    }
+
+    #[test]
+    fn email_options_combined() {
+        let schema = json!({"format": "email", "type": "string"});
+
+        // Test combining multiple options - strict validation
+        let validator = crate::options()
+            .with_email_options(
+                EmailOptions::default()
+                    .with_required_tld()
+                    .without_domain_literal()
+                    .without_display_text(),
+            )
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("Schema should compile");
+
+        // Should reject addresses without TLD
+        assert!(!validator.is_valid(&json!("user@localhost")));
+        // Should reject domain literals
+        assert!(!validator.is_valid(&json!("user@[127.0.0.1]")));
+        // Should reject display text
+        assert!(!validator.is_valid(&json!("Name <user@example.com>")));
+        // Should accept valid email with TLD
+        assert!(validator.is_valid(&json!("user@example.com")));
     }
 }

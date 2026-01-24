@@ -18,7 +18,7 @@ from chalk._gen.chalk.server.v1 import scheduled_query_run_pb2 as chalk_dot_serv
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n%chalk/server/v1/scheduled_query.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a)chalk/server/v1/scheduled_query_run.proto2\x91\x01\n\x15ScheduledQueryService\x12x\n\x14GetScheduledQueryRun\x12,.chalk.server.v1.GetScheduledQueryRunRequest\x1a-.chalk.server.v1.GetScheduledQueryRunResponse"\x03\x80}\x06\x42\x9c\x01\n\x13\x63om.chalk.server.v1B\x13ScheduledQueryProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n%chalk/server/v1/scheduled_query.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a)chalk/server/v1/scheduled_query_run.proto2\x8e\x02\n\x15ScheduledQueryService\x12x\n\x14GetScheduledQueryRun\x12,.chalk.server.v1.GetScheduledQueryRunRequest\x1a-.chalk.server.v1.GetScheduledQueryRunResponse"\x03\x80}\x06\x12{\n\x15GetScheduledQueryRuns\x12-.chalk.server.v1.GetScheduledQueryRunsRequest\x1a..chalk.server.v1.GetScheduledQueryRunsResponse"\x03\x80}\x0b\x42\x9c\x01\n\x13\x63om.chalk.server.v1B\x13ScheduledQueryProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -31,6 +31,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\n\023com.chalk.server.v1B\023ScheduledQueryProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
     _globals["_SCHEDULEDQUERYSERVICE"].methods_by_name["GetScheduledQueryRun"]._options = None
     _globals["_SCHEDULEDQUERYSERVICE"].methods_by_name["GetScheduledQueryRun"]._serialized_options = b"\200}\006"
+    _globals["_SCHEDULEDQUERYSERVICE"].methods_by_name["GetScheduledQueryRuns"]._options = None
+    _globals["_SCHEDULEDQUERYSERVICE"].methods_by_name["GetScheduledQueryRuns"]._serialized_options = b"\200}\013"
     _globals["_SCHEDULEDQUERYSERVICE"]._serialized_start = 135
-    _globals["_SCHEDULEDQUERYSERVICE"]._serialized_end = 280
+    _globals["_SCHEDULEDQUERYSERVICE"]._serialized_end = 405
 # @@protoc_insertion_point(module_scope)

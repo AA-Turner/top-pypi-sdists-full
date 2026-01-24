@@ -30,7 +30,7 @@ from fsspec.implementations.memory import MemoryFileSystem
 from airflow.sdk import Asset, ObjectStoragePath
 from airflow.sdk.io import attach
 from airflow.sdk.io.store import _STORE_CACHE, ObjectStore
-from airflow.utils.module_loading import qualname
+from airflow.sdk.module_loading import qualname
 
 
 def test_init():
@@ -74,6 +74,8 @@ def test_lazy_load():
 
     assert o.fs is not None
     assert o._fs_cached
+    # Clear the cache to avoid side effects in other tests below
+    _STORE_CACHE.clear()
 
 
 class _FakeRemoteFileSystem(MemoryFileSystem):
@@ -123,7 +125,7 @@ class TestAttach:
     def test_alias(self):
         store = attach("file", alias="local")
         assert isinstance(store.fs, LocalFileSystem)
-        assert {"local": store, "file": store} == _STORE_CACHE
+        assert {"local": store} == _STORE_CACHE
 
     def test_objectstoragepath_init_conn_id_in_uri(self):
         attach(protocol="fake", conn_id="fake", fs=_FakeRemoteFileSystem(conn_id="fake"))
@@ -211,6 +213,15 @@ class TestLocalPath:
         with o.open("wb") as f:
             f.write(b"foo")
         assert o.open("rb").read() == b"foo"
+        o.unlink()
+
+    def test_read_line_by_line(self, target):
+        o = ObjectStoragePath(f"file://{target}")
+        with o.open("wb") as f:
+            f.write(b"foo\nbar\n")
+        with o.open("rb") as f:
+            lines = list(f)
+        assert lines == [b"foo\n", b"bar\n"]
         o.unlink()
 
     def test_stat(self, target):
@@ -325,7 +336,7 @@ class TestLocalPath:
 class TestBackwardsCompatibility:
     @pytest.fixture(autouse=True)
     def reset(self):
-        from airflow.io import _register_filesystems
+        from airflow.sdk.io.fs import _register_filesystems
 
         _register_filesystems.cache_clear()
         yield

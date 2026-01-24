@@ -2,7 +2,7 @@ from __future__ import annotations
 import argparse
 import logging
 import json
-from . import PAMGatewayActionDiscoverCommandBase, GatewayContext
+from . import PAMGatewayActionDiscoverCommandBase, GatewayContext, MultiConfigurationException, multi_conf_msg
 from .job_status import PAMGatewayActionDiscoverJobStatusCommand
 from ..pam.router_helper import router_send_action_to_gateway, print_router_response, router_get_connected_gateways
 from ..pam.user_facade import PamUserRecordFacade
@@ -20,11 +20,14 @@ if TYPE_CHECKING:
 
 
 class PAMGatewayActionDiscoverJobStartCommand(PAMGatewayActionDiscoverCommandBase):
-    parser = argparse.ArgumentParser(prog='pam-action-discover-start')
+    parser = argparse.ArgumentParser(prog='pam action discover start')
     parser.add_argument('--gateway', '-g', required=True, dest='gateway', action='store',
                         help='Gateway name of UID.')
+    parser.add_argument('--configuration-uid', '-c', required=False, dest='configuration_uid',
+                        action='store', help='PAM configuration UID, if gateway has multiple.')
     parser.add_argument('--resource', '-r', required=False, dest='resource_uid', action='store',
                         help='UID of the resource record. Set to discover specific resource.')
+
     parser.add_argument('--lang', required=False, dest='language', action='store', default="en_US",
                         help='Language')
     parser.add_argument('--include-machine-dir-users', required=False, dest='include_machine_dir_users',
@@ -41,10 +44,11 @@ class PAMGatewayActionDiscoverJobStartCommand(PAMGatewayActionDiscoverCommandBas
                         action='store_true', help='Skip discovering directories.')
     parser.add_argument('--skip-cloud-users', required=False, dest='skip_cloud_users',
                         action='store_true', help='Skip discovering cloud users.')
-    parser.add_argument('--cred', required=False, dest='credentials',
-                        action='append', help='List resource credentials.')
-    parser.add_argument('--cred-file', required=False, dest='credential_file',
-                        action='store', help='A JSON file containing list of credentials.')
+
+    # parser.add_argument('--cred', required=False, dest='credentials',
+    #                     action='append', help='List resource credentials.')
+    # parser.add_argument('--cred-file', required=False, dest='credential_file',
+    #                    action='store', help='A JSON file containing list of credentials.')
 
     def get_parser(self):
         return PAMGatewayActionDiscoverJobStartCommand.parser
@@ -97,10 +101,15 @@ class PAMGatewayActionDiscoverJobStartCommand(PAMGatewayActionDiscoverCommandBas
 
         # Load the configuration record and get the gateway_uid from the facade.
         gateway = kwargs.get('gateway')
-
-        gateway_context = GatewayContext.from_gateway(params, gateway)
-        if gateway_context is None:
-            print(f"{bcolors.FAIL}Could not find the gateway configuration for {gateway}.")
+        try:
+            gateway_context = GatewayContext.from_gateway(params=params,
+                                                          gateway=gateway,
+                                                          configuration_uid=kwargs.get('configuration_uid'))
+            if gateway_context is None:
+                print(f"{bcolors.FAIL}Could not find the gateway configuration for {gateway}.{bcolors.ENDC}")
+                return
+        except MultiConfigurationException as err:
+            multi_conf_msg(gateway, err)
             return
 
         jobs = Jobs(record=gateway_context.configuration, params=params)
@@ -145,7 +154,7 @@ class PAMGatewayActionDiscoverJobStartCommand(PAMGatewayActionDiscoverCommandBas
                     if len(kv) != 2:
                         print(f"{bcolors.FAIL}A '--cred' is invalid. It does not have a value.{bcolors.ENDC}")
                         return
-                    if hasattr(c, kv[0]) is False:
+                    if not hasattr(c, kv[0]):
                         print(f"{bcolors.FAIL}A '--cred' is invalid. The key '{kv[0]}' is invalid.{bcolors.ENDC}")
                         return
                     if hasattr(c, kv[1]) == "":
@@ -170,14 +179,14 @@ class PAMGatewayActionDiscoverJobStartCommand(PAMGatewayActionDiscoverCommandBas
                     print(f"{bcolors.FAIL}The JSON file {credential_files} could not be imported: {err}{bcolors.ENDC}")
                     return
 
-                if isinstance(creds, list) is False:
+                if not isinstance(creds, list):
                     print(f"{bcolors.FAIL}Credential file is invalid. Structure is not an array.{bcolors.ENDC}")
                     return
                 num = 1
                 for obj in creds:
                     c = CredentialBase()
                     for key in obj:
-                        if hasattr(c, key) is False:
+                        if not hasattr(c, key):
                             print(f"{bcolors.FAIL}Object {num} has the invalid key {key}.{bcolors.ENDC}")
                             return
                         setattr(c, key, obj[key])

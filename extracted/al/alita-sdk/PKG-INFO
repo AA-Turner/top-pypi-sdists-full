@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alita_sdk
-Version: 0.3.344
+Version: 0.3.640
 Summary: SDK for building langchain agents using resources from Alita
 Author-email: Artem Rozumenko <artyom.rozumenko@gmail.com>, Mikalai Biazruchka <mikalai_biazruchka@epam.com>, Roman Mitusov <roman_mitusov@epam.com>, Ivan Krakhmaliuk <lifedj27@gmail.com>, Artem Dubrovskiy <ad13box@gmail.com>
 License-Expression: Apache-2.0
@@ -18,30 +18,34 @@ Requires-Dist: python-dotenv~=1.0.1
 Requires-Dist: jinja2~=3.1.3
 Requires-Dist: pillow~=11.1.0
 Requires-Dist: requests~=2.3
-Requires-Dist: pydantic~=2.10.0
+Requires-Dist: pydantic~=2.12.0
 Requires-Dist: chardet==5.2.0
 Requires-Dist: fastapi==0.115.9
 Requires-Dist: httpcore==1.0.7
 Requires-Dist: urllib3>=2
 Requires-Dist: certifi==2024.8.30
+Requires-Dist: aiohttp>=3.9.0
 Provides-Extra: runtime
-Requires-Dist: streamlit>=1.28.0; extra == "runtime"
-Requires-Dist: langchain_core<0.4.0,>=0.3.76; extra == "runtime"
-Requires-Dist: langchain<0.4.0,>=0.3.22; extra == "runtime"
-Requires-Dist: langchain_community<0.4.0,>=0.3.7; extra == "runtime"
-Requires-Dist: langchain-openai<0.4.0,>=0.3.0; extra == "runtime"
-Requires-Dist: langchain-anthropic<0.4.0,>=0.3.10; extra == "runtime"
-Requires-Dist: anthropic>=0.57.0; extra == "runtime"
-Requires-Dist: langgraph<0.5,>=0.4.8; extra == "runtime"
-Requires-Dist: langgraph-prebuilt==0.5.2; extra == "runtime"
-Requires-Dist: langgraph-checkpoint-sqlite~=2.0.0; extra == "runtime"
+Requires-Dist: langchain-core==1.2.7; extra == "runtime"
+Requires-Dist: langchain==1.2.6; extra == "runtime"
+Requires-Dist: langchain-community==0.4.1; extra == "runtime"
+Requires-Dist: langchain-openai==1.1.7; extra == "runtime"
+Requires-Dist: langchain-anthropic==1.3.1; extra == "runtime"
+Requires-Dist: langchain-text-splitters==1.1.0; extra == "runtime"
+Requires-Dist: langchain-chroma==1.0.0; extra == "runtime"
+Requires-Dist: langchain-unstructured==1.0.0; extra == "runtime"
+Requires-Dist: langchain-postgres==0.0.16; extra == "runtime"
+Requires-Dist: langchain-mcp-adapters<0.2.0,>=0.1.14; extra == "runtime"
+Requires-Dist: langgraph==1.0.7; extra == "runtime"
+Requires-Dist: langgraph-prebuilt==1.0.7; extra == "runtime"
+Requires-Dist: langgraph-swarm==0.1.0; extra == "runtime"
+Requires-Dist: langgraph-checkpoint==2.1.2; extra == "runtime"
+Requires-Dist: langgraph-checkpoint-sqlite==2.0.11; extra == "runtime"
 Requires-Dist: langgraph-checkpoint-postgres==2.0.21; extra == "runtime"
 Requires-Dist: langsmith>=0.3.45; extra == "runtime"
-Requires-Dist: langchain_chroma<0.3.0,>=0.2.2; extra == "runtime"
-Requires-Dist: chromadb==0.5.20; extra == "runtime"
+Requires-Dist: anthropic==0.76.0; extra == "runtime"
+Requires-Dist: chromadb<2.0.0,>=1.0.20; extra == "runtime"
 Requires-Dist: pgvector==0.2.5; extra == "runtime"
-Requires-Dist: langchain-unstructured~=0.1.6; extra == "runtime"
-Requires-Dist: langchain-postgres~=0.0.13; extra == "runtime"
 Requires-Dist: unstructured[local-inference]==0.16.23; extra == "runtime"
 Requires-Dist: unstructured_pytesseract==0.3.13; extra == "runtime"
 Requires-Dist: unstructured_inference==0.8.7; extra == "runtime"
@@ -67,12 +71,12 @@ Requires-Dist: pytesseract==0.3.13; extra == "runtime"
 Requires-Dist: markdown==3.5.1; extra == "runtime"
 Requires-Dist: beautifulsoup4==4.12.2; extra == "runtime"
 Requires-Dist: charset_normalizer==3.3.2; extra == "runtime"
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.25.0; extra == "runtime"
-Requires-Dist: opentelemetry_api==1.25.0; extra == "runtime"
-Requires-Dist: opentelemetry_instrumentation==0.46b0; extra == "runtime"
-Requires-Dist: grpcio_status==1.63.0rc1; extra == "runtime"
-Requires-Dist: protobuf==4.25.7; extra == "runtime"
-Requires-Dist: langchain-sandbox>=0.0.6; extra == "runtime"
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.25.0; extra == "runtime"
+Requires-Dist: opentelemetry_api>=1.25.0; extra == "runtime"
+Requires-Dist: opentelemetry_instrumentation>=0.46b0; extra == "runtime"
+Requires-Dist: grpcio_status>=1.63.0rc1; extra == "runtime"
+Requires-Dist: protobuf>=4.25.7; extra == "runtime"
+Requires-Dist: streamlit>=1.28.0; extra == "runtime"
 Provides-Extra: tools
 Requires-Dist: dulwich==0.21.6; extra == "tools"
 Requires-Dist: paramiko==3.3.1; extra == "tools"
@@ -82,13 +86,9 @@ Requires-Dist: gitpython==3.1.43; extra == "tools"
 Requires-Dist: atlassian-python-api~=4.0.7; extra == "tools"
 Requires-Dist: jira==3.8.0; extra == "tools"
 Requires-Dist: qtest-swagger-client==0.0.3; extra == "tools"
-Requires-Dist: testrail-api==1.13.2; extra == "tools"
-Requires-Dist: azure-devops==7.1.0b4; extra == "tools"
-Requires-Dist: msrest==0.7.1; extra == "tools"
-Requires-Dist: python-graphql-client~=0.4.3; extra == "tools"
+Requires-Dist: testrail-api==1.13.4; extra == "tools"
 Requires-Dist: zephyr-python-api==0.1.0; extra == "tools"
-Requires-Dist: pyral==1.6.0; extra == "tools"
-Requires-Dist: boto3>=1.37.23; extra == "tools"
+Requires-Dist: azure-devops==7.1.0b4; extra == "tools"
 Requires-Dist: azure-core==1.30.2; extra == "tools"
 Requires-Dist: azure-identity==1.16.0; extra == "tools"
 Requires-Dist: azure-keyvault-keys==4.9.0; extra == "tools"
@@ -98,6 +98,8 @@ Requires-Dist: azure-mgmt-resource==23.0.1; extra == "tools"
 Requires-Dist: azure-mgmt-storage==21.1.0; extra == "tools"
 Requires-Dist: azure-storage-blob==12.23.1; extra == "tools"
 Requires-Dist: azure-search-documents==11.5.2; extra == "tools"
+Requires-Dist: msrest==0.7.1; extra == "tools"
+Requires-Dist: boto3>=1.37.23; extra == "tools"
 Requires-Dist: PyMySQL==1.1.1; extra == "tools"
 Requires-Dist: psycopg2-binary==2.9.10; extra == "tools"
 Requires-Dist: Office365-REST-Python-Client==2.5.14; extra == "tools"
@@ -117,10 +119,12 @@ Requires-Dist: playwright>=1.52.0; extra == "tools"
 Requires-Dist: google-api-python-client==2.154.0; extra == "tools"
 Requires-Dist: wikipedia==1.4.0; extra == "tools"
 Requires-Dist: lxml==5.2.2; extra == "tools"
+Requires-Dist: python-graphql-client~=0.4.3; extra == "tools"
 Requires-Dist: pymupdf==1.24.9; extra == "tools"
 Requires-Dist: googlemaps==4.10.0; extra == "tools"
 Requires-Dist: yagmail==0.15.293; extra == "tools"
 Requires-Dist: pysnc==1.1.10; extra == "tools"
+Requires-Dist: pyral==1.6.0; extra == "tools"
 Requires-Dist: shortuuid==1.0.13; extra == "tools"
 Requires-Dist: yarl==1.17.1; extra == "tools"
 Requires-Dist: langmem==0.0.27; extra == "tools"
@@ -128,10 +132,12 @@ Requires-Dist: textract-py3==2.1.1; extra == "tools"
 Requires-Dist: slack_sdk==3.35.0; extra == "tools"
 Requires-Dist: deltalake==1.0.2; extra == "tools"
 Requires-Dist: google_cloud_bigquery==3.34.0; extra == "tools"
+Requires-Dist: python-calamine==0.5.3; extra == "tools"
 Provides-Extra: community
 Requires-Dist: retry-extended==0.2.3; extra == "community"
 Requires-Dist: pyobjtojson==0.3; extra == "community"
 Requires-Dist: elitea-analyse==0.1.2; extra == "community"
+Requires-Dist: networkx>=3.0; extra == "community"
 Provides-Extra: all
 Requires-Dist: alita-sdk[runtime]; extra == "all"
 Requires-Dist: alita-sdk[tools]; extra == "all"
@@ -142,6 +148,11 @@ Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
+Provides-Extra: cli
+Requires-Dist: click>=8.1.0; extra == "cli"
+Requires-Dist: rich>=13.0.0; extra == "cli"
+Requires-Dist: pyyaml>=6.0; extra == "cli"
+Requires-Dist: langchain-mcp-adapters; extra == "cli"
 Dynamic: license-file
 
 Alita SDK
@@ -198,6 +209,144 @@ PROJECT_ID=<your_project_id>
 
 NOTE: these variables can be grabbed from your Elitea platform configuration page.
 ![Platform configuration](docs/readme_imgs/platform_config.png "Platform configuration")
+
+### Custom .env File Location
+
+By default, the CLI looks for `.env` files in the following order:
+1. `.alita/.env` (recommended)
+2. `.env` in the current directory
+
+You can override this by setting the `ALITA_ENV_FILE` environment variable:
+
+```bash
+export ALITA_ENV_FILE=/path/to/your/.env
+alita-cli agent chat
+```
+
+Using the CLI for Interactive Chat
+----------------------------------
+
+The Alita SDK includes a powerful CLI for interactive agent chat sessions.
+
+### Starting a Chat Session
+
+```bash
+# Interactive selection (shows all available agents + direct chat option)
+alita-cli agent chat
+
+# Chat with a specific local agent
+alita-cli agent chat .alita/agents/my-agent.agent.md
+
+# Chat with a platform agent
+alita-cli agent chat my-agent-name
+```
+
+### Direct Chat Mode (No Agent)
+
+You can start a chat session directly with the LLM without any agent configuration:
+
+```bash
+alita-cli agent chat
+# Select option 1: "Direct chat with model (no agent)"
+```
+
+This is useful for quick interactions or testing without setting up an agent.
+
+### Chat Commands
+
+During a chat session, you can use the following commands:
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show all available commands |
+| `/model` | Switch to a different model (preserves chat history) |
+| `/add_mcp` | Add an MCP server from your local mcp.json (preserves chat history) |
+| `/add_toolkit` | Add a toolkit from $ALITA_DIR/tools (preserves chat history) |
+| `/clear` | Clear conversation history |
+| `/history` | Show conversation history |
+| `/save` | Save conversation to file |
+| `exit` | End conversation |
+
+### Enhanced Input Features
+
+The chat interface includes readline-based input enhancements:
+
+| Feature | Key/Action |
+|---------|------------|
+| **Tab completion** | Press `Tab` to autocomplete commands (e.g., `/mo` → `/model`) |
+| **Command history** | `↑` / `↓` arrows to navigate through previous messages |
+| **Cursor movement** | `←` / `→` arrows to move within the current line |
+| **Start of line** | `Ctrl+A` jumps to the beginning of the line |
+| **End of line** | `Ctrl+E` jumps to the end of the line |
+| **Delete word** | `Ctrl+W` deletes the word before cursor |
+| **Clear line** | `Ctrl+U` clears from cursor to beginning of line |
+
+### Dynamic Model Switching
+
+Use `/model` to switch models on the fly:
+
+```
+> /model
+
+🔧 Select a model:
+
+#    Model              Type
+1    gpt-4o             openai
+2    gpt-4o-mini        openai
+3    claude-3-sonnet    anthropic
+
+Select model number: 1
+
+✓ Selected: gpt-4o
+╭──────────────────────────────────────────────────────────────╮
+│ ℹ Model switched to gpt-4o. Agent state reset, chat history  │
+│ preserved.                                                    │
+╰──────────────────────────────────────────────────────────────╯
+```
+
+### Adding MCP Servers Dynamically
+
+Use `/add_mcp` to add MCP servers during a chat session. Servers are loaded from your local `mcp.json` file (typically at `.alita/mcp.json`):
+
+```
+> /add_mcp
+
+🔌 Select an MCP server to add:
+
+#    Server       Type     Command/URL
+1    playwright   stdio    npx @playwright/mcp@latest
+2    filesystem   stdio    npx @anthropic/mcp-fs
+
+Select MCP server number: 1
+
+✓ Selected: playwright
+╭──────────────────────────────────────────────────────────────╮
+│ ℹ Added MCP: playwright. Agent state reset, chat history     │
+│ preserved.                                                    │
+╰──────────────────────────────────────────────────────────────╯
+```
+
+### Adding Toolkits Dynamically
+
+Use `/add_toolkit` to add toolkits from your `$ALITA_DIR/tools` directory (default: `.alita/tools`):
+
+```
+> /add_toolkit
+
+🧰 Select a toolkit to add:
+
+#    Toolkit    Type    File
+1    jira       jira    jira-config.json
+2    github     github  github-config.json
+
+Select toolkit number: 1
+
+✓ Selected: jira
+╭──────────────────────────────────────────────────────────────╮
+│ ℹ Added toolkit: jira. Agent state reset, chat history       │
+│ preserved.                                                    │
+╰──────────────────────────────────────────────────────────────╯
+```
 
 
 

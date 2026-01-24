@@ -1,142 +1,94 @@
 [build-system]
-requires = [
-    "pdm-backend",
-]
-build-backend = "pdm.backend"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
-authors = []
-requires-python = ">=3.9"
-dependencies = [
-    "langchain-core>=0.3.68",
-    "tokenizers<1,>=0.15.1",
-    "httpx<1,>=0.25.2",
-    "httpx-sse<1,>=0.3.1",
-    "pydantic<3,>=2",
-]
 name = "langchain-mistralai"
-version = "0.2.12"
 description = "An integration package connecting Mistral and LangChain"
+license = { text = "MIT" }
 readme = "README.md"
+authors = []
 
-[project.license]
-text = "MIT"
+version = "1.1.1"
+requires-python = ">=3.10.0,<4.0.0"
+dependencies = [
+    "langchain-core>=1.1.0,<2.0.0",
+    "tokenizers>=0.15.1,<1.0.0",
+    "httpx>=0.25.2,<1.0.0",
+    "httpx-sse>=0.3.1,<1.0.0",
+    "pydantic>=2.0.0,<3.0.0",
+]
 
 [project.urls]
-"Source Code" = "https://github.com/langchain-ai/langchain/tree/master/libs/partners/mistralai"
-"Release Notes" = "https://github.com/langchain-ai/langchain/releases?q=tag%3A%22langchain-mistralai%3D%3D0%22&expanded=true"
-repository = "https://github.com/langchain-ai/langchain"
+Homepage = "https://docs.langchain.com/oss/python/integrations/providers/mistralai"
+Documentation = "https://reference.langchain.com/python/integrations/langchain_mistralai/"
+Source = "https://github.com/langchain-ai/langchain/tree/master/libs/partners/mistralai"
+Changelog = "https://github.com/langchain-ai/langchain/releases?q=%22langchain-mistralai%22"
+Twitter = "https://x.com/LangChainAI"
+Slack = "https://www.langchain.com/join-community"
+Reddit = "https://www.reddit.com/r/LangChain/"
 
 [dependency-groups]
 test = [
-    "pytest<8.0.0,>=7.3.0",
-    "pytest-asyncio<1.0.0,>=0.21.1",
-    "pytest-watcher<1.0.0,>=0.3.4",
+    "pytest>=7.3.0,<8.0.0",
+    "pytest-asyncio>=0.21.1,<1.0.0",
+    "pytest-watcher>=0.3.4,<1.0.0",
     "langchain-core",
     "langchain-tests",
 ]
 test_integration = []
-codespell = [
-    "codespell<3.0.0,>=2.2.0",
-]
-lint = [
-    "ruff<0.13,>=0.12.2",
-]
-dev = [
-    "langchain-core",
-]
+lint = ["ruff>=0.13.1,<0.14.0"]
+dev = ["langchain-core"]
 typing = [
-    "mypy<2.0,>=1.10",
-    "langchain-core",
+    "mypy>=1.10.0,<2.0.0",
+    "langchain-core"
 ]
 
-[tool.uv.sources.langchain-core]
-path = "../../core"
-editable = true
-
-[tool.uv.sources.langchain-tests]
-path = "../../standard-tests"
-editable = true
+[tool.uv.sources]
+langchain-core = { path = "../../core", editable = true }
+langchain-tests = { path = "../../standard-tests", editable = true }
 
 [tool.mypy]
 disallow_untyped_defs = "True"
 
-[tool.ruff]
-target-version = "py39"
+[tool.ruff.format]
+docstring-code-format = true
 
 [tool.ruff.lint]
-select = [
-    "A",
-    "B",
-    "ASYNC",
-    "C4",
-    "COM",
-    "D",
-    "E",
-    "EM",
-    "F",
-    "FA",
-    "FBT",
-    "FLY",
-    "I",
-    "ICN",
-    "INT",
-    "ISC",
-    "PGH",
-    "PIE",
-    "PERF",
-    "PYI",
-    "Q",
-    "RET",
-    "RSE",
-    "RUF",
-    "S",
-    "SLF",
-    "SLOT",
-    "SIM",
-    "T10",
-    "T20",
-    "TID",
-    "UP",
-    "W",
-    "YTT",
-]
+select = ["ALL"]
 ignore = [
+    "COM812",  # Messes with the formatter
+    "ISC001",  # Messes with the formatter
+    "PERF203", # Rarely useful
+    "S112",    # Rarely useful
+    "RUF012",  # Doesn't play well with Pydantic
+    "SLF001",  # Private member access
+    "TD",
+    "PLR0912",
+    "C901",
+    "FIX",
+
+    # TODO
+    "TC002",
+    "ANN401",
+    "ARG001",
+    "ARG002",
+    "PT011",
+    "PLC0415",
+    "PLR2004",
+    "BLE001",
     "D100",
-    "D101",
     "D102",
-    "D103",
     "D104",
-    "D105",
-    "D107",
-    "D203",
-    "D407",
-    "COM812",
-    "ISC001",
-    "PERF203",
-    "S112",
-    "RUF012",
-    "SLF001",
-    "UP007",
-    "UP045",
 ]
-unfixable = [
-    "B028",
-]
+unfixable = ["B028"] # People should intentionally tune the stacklevel
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
-
-[tool.ruff.lint.extend-per-file-ignores]
-"tests/**/*.py" = [
-    "S101",
-    "S311",
-]
+ignore-var-parameters = true  # ignore missing documentation for *args and **kwargs parameters
 
 [tool.coverage.run]
-omit = [
-    "tests/*",
-]
+omit = ["tests/*"]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers --strict-config --durations=5"
@@ -145,3 +97,14 @@ markers = [
     "compile: mark placeholder test used to compile integration tests without running them",
 ]
 asyncio_mode = "auto"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "S101", # Tests need assertions
+    "S311", # Standard pseudo-random generators are not suitable for cryptographic purposes
+    "PLR2004",
+    "D",
+]
+"scripts/*.py" = [
+    "INP001",   # Not a package
+]

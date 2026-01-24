@@ -4,12 +4,12 @@ use crate::{
     evaluation::evaluation_types::{ExtraExposureInfo, GateEvaluation},
     event_logging::{
         event_logger::ExposureTrigger,
-        exposable_string::ExposableString,
         exposure_sampling::{EvtSamplingDecision, ExposureSamplingKey},
         exposure_utils::{get_metadata_with_details, get_statsig_metadata_with_sampling_decision},
         statsig_event::StatsigEvent,
         statsig_event_internal::{StatsigEventInternal, GATE_EXPOSURE_EVENT_NAME},
     },
+    interned_string::InternedString,
     user::{StatsigUserInternal, StatsigUserLoggable},
     EvaluationDetails, SecondaryExposure,
 };
@@ -76,15 +76,15 @@ impl<'a> QueuedExposure<'a> for EnqueueGateExpoOp<'a> {
 
 pub struct QueuedGateExposureEvent {
     pub user: StatsigUserLoggable,
-    pub gate_name: ExposableString,
+    pub gate_name: InternedString,
     pub value: bool,
-    pub rule_id: ExposableString,
+    pub rule_id: InternedString,
     pub secondary_exposures: Option<Vec<SecondaryExposure>>,
     pub evaluation_details: EvaluationDetails,
     pub version: Option<u32>,
     pub exposure_trigger: ExposureTrigger,
     pub sampling_decision: EvtSamplingDecision,
-    pub override_config_name: Option<String>,
+    pub override_config_name: Option<InternedString>,
     pub exposure_time: u64,
 }
 
@@ -107,7 +107,10 @@ impl QueuedGateExposureEvent {
         }
 
         if let Some(override_config_name) = self.override_config_name {
-            metadata.insert("overrideConfigName".into(), override_config_name);
+            metadata.insert(
+                "overrideConfigName".into(),
+                override_config_name.unperformant_to_string(),
+            );
         }
 
         let statsig_metadata = get_statsig_metadata_with_sampling_decision(self.sampling_decision);
@@ -129,11 +132,11 @@ impl QueuedGateExposureEvent {
 }
 
 type ExtractInfoResult = (
-    ExposableString,
-    ExposableString,
+    InternedString,
+    InternedString,
     bool,
     Option<u32>,
-    Option<String>,
+    Option<InternedString>,
     Option<Vec<SecondaryExposure>>,
 );
 
@@ -142,8 +145,8 @@ fn extract_from_cow(moo: Option<Cow<'_, GateEvaluation>>) -> ExtractInfoResult {
         Some(m) => m,
         None => {
             return (
-                ExposableString::default(),
-                ExposableString::default(),
+                InternedString::default(),
+                InternedString::default(),
                 false,
                 None,
                 None,

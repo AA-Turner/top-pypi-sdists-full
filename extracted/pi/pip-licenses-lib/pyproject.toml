@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "pip-licenses-lib"
 description = "Retrieve the software license list of Python packages installed with pip."
 dynamic = ["version"]
-license = {text = "MIT"}
+license = "MIT"
 readme = {file = "README.md", content-type = "text/markdown"}
 authors = [
     {name = "raimon49"},
@@ -16,7 +16,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Software Development",
@@ -30,7 +29,7 @@ keywords = [
     "dependency",
     "licensing"
 ]
-requires-python = ">=3.9, <4"
+requires-python = ">=3.10, <4"
 dependencies = [
 ]
 
@@ -50,8 +49,9 @@ dev = [
     "mypy",
     "types-requests",
     # Test code
-    "requests",
+    "coverage",
     "pypdf",
+    "requests",
     # Spelling
     "codespell",
 ]
@@ -78,7 +78,11 @@ namespaces = false
 strict = true
 files = "piplicenses_lib,tests"
 
+[tool.coverage.run]
+branch = true
+include = ["piplicenses_lib/*"]
+
 [tool.codespell]
-skip = './.git/*,./.mypy*,./venv*,./docs/_build/*,./docs/importlib.metadata-inv.txt,'
+skip = './.git/*,./.mypy*,./venv*,./docs/_build/*,./htmlcov/*'
 check-hidden = true
 ignore-words-list = 'assertIn,'

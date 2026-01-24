@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spglib
-Version: 2.6.0
+Version: 2.7.0
 Summary: This is the spglib module.
 Author-Email: Atsushi Togo <atz.togo@gmail.com>
 Maintainer-Email: Atsushi Togo <atz.togo@gmail.com>, Cristian Le <git@lecris.dev>, Kohei Shinohara <kshinohara0508@gmail.com>

@@ -7,6 +7,11 @@ This implementation:
 4. Efficient caching with parquet files
 5. Vectorized operations only
 """
+# NOTE: This module is intentionally disabled. The DataBento Polars migration only
+# supports Polars for DataBento; other data sources must use the pandas implementations.
+raise RuntimeError('Yahoo/Polygon Polars backends are not production-ready; use the pandas data sources instead.')
+
+
 
 import traceback
 from datetime import timedelta
@@ -45,6 +50,7 @@ class PolygonDataPolars(PolarsMixin, DataSourceBacktesting):
         {"timestep": "minute", "representations": ["1m", "1 minute", "minute"]},
         {"timestep": "hour", "representations": ["1h", "1 hour", "hour"]},
     ]
+    option_quote_fallback_allowed = True
 
     def __init__(
         self,
@@ -295,7 +301,8 @@ class PolygonDataPolars(PolarsMixin, DataSourceBacktesting):
                 msg = (
                     "Polygon Access Denied: Your subscription does not allow you to backtest that far back in time. "
                     f"Requested {asset_separated} {ts_unit} bars from {formatted_start_datetime} to {formatted_end_datetime}. "
-                    "Consider starting later or upgrading your Polygon subscription (https://polygon.io/?utm_source=affiliate&utm_campaign=lumi10, code 'LUMI10')."
+                    "We strongly recommend switching to ThetaData (https://www.thetadata.net/ with promo code 'BotSpot10') for higher-quality, faster data and first-class LumiBot support. "
+                    "If you must stay on Polygon, consider starting later or upgrading your Polygon plan (https://polygon.io/?utm_source=affiliate&utm_campaign=lumi10, code 'LUMI10')."
                 )
                 logger.error(colored(msg, color="red"))
                 # Non-fatal: skip this download window and continue
@@ -306,7 +313,8 @@ class PolygonDataPolars(PolarsMixin, DataSourceBacktesting):
                     "Please check your API key and try again. "
                     "You can get an API key at https://polygon.io/?utm_source=affiliate&utm_campaign=lumi10 "
                     "Please use the full link to give us credit for the sale, it helps support this project. "
-                    "You can use the coupon code 'LUMI10' for 10% off. ",
+                    "You can use the coupon code 'LUMI10' for 10% off. "
+                    "We recommend switching to ThetaData (https://www.thetadata.net/ with promo code 'BotSpot10') for better coverage, faster pulls, and native LumiBot optimization. ",
                     color="red")
                 raise Exception(error_message) from e
             else:
@@ -567,9 +575,11 @@ class PolygonDataPolars(PolarsMixin, DataSourceBacktesting):
         if start_date or end_date:
             filters = []
             if start_date:
-                filters.append(pl.col("datetime") >= start_date)
+                # Use pl.lit() to ensure datetime precision compatibility across Polars versions
+                filters.append(pl.col("datetime") >= pl.lit(start_date))
             if end_date:
-                filters.append(pl.col("datetime") <= end_date)
+                # Use pl.lit() to ensure datetime precision compatibility across Polars versions
+                filters.append(pl.col("datetime") <= pl.lit(end_date))
 
             response = lazy_data.filter(pl.all_horizontal(filters)).collect()
         else:

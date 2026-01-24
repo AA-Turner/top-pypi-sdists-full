@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Coroutine
+import itertools
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -25,7 +26,9 @@ from .api_pb2 import (  # type: ignore
     BluetoothScannerStateResponse,
     CameraImageResponse,
     HomeassistantActionRequest,
+    InfraredRFReceiveEvent,
     SubscribeHomeAssistantStateResponse,
+    ZWaveProxyRequest,
 )
 from .connection import ConnectionParams
 from .core import APIConnectionError
@@ -34,8 +37,11 @@ from .model import (
     BluetoothLEAdvertisement,
     BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     CameraState,
+    DeviceInfo,
     EntityState,
     HomeassistantServiceCall,
+    InfraredRFReceiveEvent as InfraredRFReceiveEventModel,
+    ZWaveProxyRequest as ZWaveProxyRequestModel,
 )
 from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES
 from .util import build_log_name, create_eager_task
@@ -83,11 +89,11 @@ def on_state_msg(
             on_state(CameraState(key=msg.key, data=image_data, device_id=msg.device_id))  # type: ignore[call-arg]
 
 
-def on_home_assistant_service_response(
-    on_service_call: Callable[[HomeassistantServiceCall], None],
+def on_home_assistant_action_request(
+    on_action: Callable[[HomeassistantServiceCall], None],
     msg: HomeassistantActionRequest,
 ) -> None:
-    on_service_call(HomeassistantServiceCall.from_pb(msg))
+    on_action(HomeassistantServiceCall.from_pb(msg))
 
 
 def on_bluetooth_le_advertising_response(
@@ -191,6 +197,20 @@ def on_bluetooth_message_types(
     return type(msg) in msg_types and bool(msg.address == address)
 
 
+def on_zwave_proxy_request_message(
+    on_zwave_proxy_request: Callable[[ZWaveProxyRequestModel], None],
+    msg: ZWaveProxyRequest,
+) -> None:
+    on_zwave_proxy_request(ZWaveProxyRequestModel.from_pb(msg))
+
+
+def on_infrared_rf_receive_event(
+    on_infrared_rf_receive: Callable[[InfraredRFReceiveEventModel], None],
+    msg: InfraredRFReceiveEvent,
+) -> None:
+    on_infrared_rf_receive(InfraredRFReceiveEventModel.from_pb(msg))
+
+
 str_ = str
 
 
@@ -209,6 +229,8 @@ class APIClientBase:
 
     __slots__ = (
         "_background_tasks",
+        "_cached_device_info",
+        "_call_id_counter",
         "_connection",
         "_debug_enabled",
         "_loop",
@@ -274,9 +296,11 @@ class APIClientBase:
             timezone=_stringify_or_none(timezone) or None,
         )
         self._connection: APIConnection | None = None
+        self._cached_device_info: DeviceInfo | None = None
         self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_running_loop()
+        self._call_id_counter = itertools.count(1)
         self._set_log_name()
 
     def set_debug(self, enabled: bool) -> None:

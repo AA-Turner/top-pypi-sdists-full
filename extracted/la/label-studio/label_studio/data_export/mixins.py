@@ -8,6 +8,7 @@ from datetime import datetime
 from functools import reduce
 
 import django_rq
+from core.feature_flags import flag_set
 from core.redis import redis_connected
 from core.utils.common import batch
 from core.utils.io import (
@@ -151,9 +152,21 @@ class ExportMixin:
         return options
 
     def get_task_queryset(self, ids, annotation_filter_options):
+        from core.feature_flags import flag_set
+
         annotations_qs = self._get_filtered_annotations_queryset(annotation_filter_options=annotation_filter_options)
 
-        return (
+        # Only annotate FSM state if both feature flags are enabled
+        # This prevents unnecessary query annotations when state won't be serialized
+        user = getattr(self, 'created_by', None)
+        if (
+            flag_set('fflag_feat_fit_568_finite_state_management', user=user)
+            and flag_set('fflag_feat_fit_710_fsm_state_fields', user=user)
+            and hasattr(annotations_qs, 'with_state')
+        ):
+            annotations_qs = annotations_qs.with_state()
+
+        qs = (
             Task.objects.filter(id__in=ids)
             .select_related('file_upload')  # select_related more efficient for regular foreign-key relationship
             .prefetch_related(
@@ -162,6 +175,16 @@ class ExportMixin:
                 'comment_authors',
             )
         )
+
+        # Add FSM state annotation to tasks as well to avoid N+1 queries during export
+        if (
+            flag_set('fflag_feat_fit_568_finite_state_management', user=user)
+            and flag_set('fflag_feat_fit_710_fsm_state_fields', user=user)
+            and hasattr(qs, 'with_state')
+        ):
+            qs = qs.with_state()
+
+        return qs
 
     def get_export_data(self, task_filter_options=None, annotation_filter_options=None, serialization_options=None):
         """
@@ -197,14 +220,19 @@ class ExportMixin:
             self.counters = {'task_number': 0}
             all_tasks = self.project.tasks
             logger.debug('Tasks filtration')
-            task_ids = (
+            task_ids = list(
                 self._get_filtered_tasks(all_tasks, task_filter_options=task_filter_options)
                 .distinct()
                 .values_list('id', flat=True)
             )
             base_export_serializer_option = self._get_export_serializer_option(serialization_options)
             i = 0
-            BATCH_SIZE = 1000
+
+            if flag_set('fflag_fix_back_plt_807_batch_size_26062025_short', self.project.organization.created_by):
+                BATCH_SIZE = self.project.get_task_batch_size()
+            else:
+                BATCH_SIZE = settings.BATCH_SIZE
+
             for ids in batch(task_ids, BATCH_SIZE):
                 i += 1
                 tasks = list(self.get_task_queryset(ids, annotation_filter_options))

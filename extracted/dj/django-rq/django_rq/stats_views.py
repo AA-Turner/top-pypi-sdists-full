@@ -7,7 +7,7 @@ from django.shortcuts import render
 from django.views.decorators.cache import never_cache
 
 from .settings import API_TOKEN
-from .utils import get_scheduler_statistics, get_statistics
+from .utils import get_cron_schedulers, get_scheduler_statistics, get_statistics
 
 try:
     import prometheus_client
@@ -33,7 +33,10 @@ def is_authorized(request):
 def prometheus_metrics(request):
     if not is_authorized(request):
         return JsonResponse(
-            {"error": True, "description": "Missing bearer token. Set token in headers and configure RQ_API_TOKEN in settings.py"}
+            {
+                "error": True,
+                "description": "Missing bearer token. Set token in headers and configure RQ_API_TOKEN in settings.py",
+            }
         )
 
     global registry
@@ -60,6 +63,7 @@ def stats(request):
         **get_statistics(run_maintenance_tasks=True),
         **get_scheduler_statistics(),
         "view_metrics": RQCollector is not None,
+        "cron_schedulers": get_cron_schedulers(),
     }
     return render(request, 'django_rq/stats.html', context_data)
 
@@ -71,7 +75,10 @@ def stats_json(request, token=None):
             return JsonResponse(get_statistics())
         else:
             return JsonResponse(
-                {"error": True, "description": "Missing bearer token. Set token in headers and configure RQ_API_TOKEN in settings.py"}
+                {
+                    "error": True,
+                    "description": "Missing bearer token. Set token in headers and configure RQ_API_TOKEN in settings.py",
+                }
             )
-    
+
     return JsonResponse(get_statistics())

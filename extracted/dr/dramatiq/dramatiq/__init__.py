@@ -15,51 +15,73 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 from .actor import Actor, actor
 from .broker import Broker, Consumer, MessageProxy, get_broker, set_broker
 from .composition import group, pipeline
 from .encoder import Encoder, JSONEncoder, PickleEncoder
 from .errors import (
-    ActorNotFound, BrokerError, ConnectionClosed, ConnectionError, ConnectionFailed, DecodeError, DramatiqError,
-    QueueJoinTimeout, QueueNotFound, RateLimitExceeded, Retry
+    ActorNotFound,
+    BrokerError,
+    ConnectionClosed,
+    ConnectionError,
+    ConnectionFailed,
+    DecodeError,
+    DramatiqError,
+    QueueJoinTimeout,
+    QueueNotFound,
+    RateLimitExceeded,
+    Retry,
 )
 from .generic import GenericActor
 from .logging import get_logger
 from .message import Message, get_encoder, set_encoder
 from .middleware import Middleware
-from .worker import Worker
+from .worker import ConsumerThread, Worker, WorkerThread
 
 __all__ = [
     # Actors
-    "Actor", "GenericActor", "actor",
-
+    "Actor",
+    "GenericActor",
+    "actor",
     # Brokers
-    "Broker", "Consumer", "MessageProxy", "get_broker", "set_broker",
-
+    "Broker",
+    "Consumer",
+    "MessageProxy",
+    "get_broker",
+    "set_broker",
     # Composition
-    "group", "pipeline",
-
+    "group",
+    "pipeline",
     # Encoding
-    "Encoder", "JSONEncoder", "PickleEncoder",
-
+    "Encoder",
+    "JSONEncoder",
+    "PickleEncoder",
     # Errors
     "DramatiqError",
-    "BrokerError", "DecodeError",
-    "ActorNotFound", "QueueNotFound", "QueueJoinTimeout",
-    "ConnectionError", "ConnectionClosed", "ConnectionFailed",
-    "RateLimitExceeded", "Retry",
-
+    "BrokerError",
+    "DecodeError",
+    "ActorNotFound",
+    "QueueNotFound",
+    "QueueJoinTimeout",
+    "ConnectionError",
+    "ConnectionClosed",
+    "ConnectionFailed",
+    "RateLimitExceeded",
+    "Retry",
     # Logging
     "get_logger",
-
     # Messages
-    "Message", "get_encoder", "set_encoder",
-
+    "Message",
+    "get_encoder",
+    "set_encoder",
     # Middlware
     "Middleware",
-
     # Workers
     "Worker",
+    "ConsumerThread",
+    "WorkerThread",
 ]
 
-__version__ = "1.18.0"
+__version__ = "2.0.1"

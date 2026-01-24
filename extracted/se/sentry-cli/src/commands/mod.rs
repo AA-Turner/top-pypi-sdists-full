@@ -20,15 +20,16 @@ use crate::utils::update::run_sentrycli_update_nagger;
 use crate::utils::value_parsers::auth_token_parser;
 
 mod bash_hook;
+mod build;
+mod dart_symbol_map;
 mod debug_files;
 mod deploys;
 mod derive_parser;
 mod events;
-mod files;
 mod info;
 mod issues;
 mod login;
-mod mobile_app;
+mod logs;
 mod monitors;
 mod organizations;
 mod projects;
@@ -37,7 +38,6 @@ mod releases;
 mod repos;
 mod send_envelope;
 mod send_event;
-mod send_metric;
 mod sourcemaps;
 #[cfg(not(feature = "managed"))]
 mod uninstall;
@@ -50,15 +50,14 @@ mod upload_proguard;
 macro_rules! each_subcommand {
     ($mac:ident) => {
         $mac!(bash_hook);
+        $mac!(build);
         $mac!(debug_files);
         $mac!(deploys);
         $mac!(events);
-        $mac!(files);
         $mac!(info);
         $mac!(issues);
         $mac!(login);
-        #[cfg(feature = "unstable-mobile-app")]
-        $mac!(mobile_app);
+        $mac!(logs);
         $mac!(monitors);
         $mac!(organizations);
         $mac!(projects);
@@ -67,8 +66,8 @@ macro_rules! each_subcommand {
         $mac!(repos);
         $mac!(send_event);
         $mac!(send_envelope);
-        $mac!(send_metric);
         $mac!(sourcemaps);
+        $mac!(dart_symbol_map);
         #[cfg(not(feature = "managed"))]
         $mac!(uninstall);
         #[cfg(not(feature = "managed"))]
@@ -95,6 +94,7 @@ const UPDATE_NAGGER_CMDS: &[&str] = &[
     "info",
     "issues",
     "login",
+    "logs",
     "organizations",
     "projects",
     "releases",
@@ -133,10 +133,6 @@ fn preexecute_hooks() -> Result<bool> {
 }
 
 fn configure_args(config: &mut Config, matches: &ArgMatches) {
-    if let Some(api_key) = matches.get_one::<String>("api_key") {
-        config.set_auth(Auth::Key(api_key.to_owned()));
-    }
-
     if let Some(auth_token) = matches.get_one::<AuthToken>("auth_token") {
         config.set_auth(Auth::Token(auth_token.to_owned()));
     }
@@ -179,12 +175,6 @@ fn app() -> Command {
                 .global(true)
                 .value_parser(auth_token_parser)
                 .help("Use the given Sentry auth token."),
-        )
-        .arg(
-            Arg::new("api_key")
-                .value_name("API_KEY")
-                .long("api-key")
-                .help("Use the given Sentry API key."),
         )
         .arg(
             Arg::new("log_level")
@@ -284,10 +274,7 @@ pub fn execute() -> Result<()> {
         );
     }
 
-    debug!(
-        "sentry-cli version: {}, platform: \"{}\", architecture: \"{}\"",
-        VERSION, PLATFORM, ARCH
-    );
+    debug!("sentry-cli version: {VERSION}, platform: \"{PLATFORM}\", architecture: \"{ARCH}\"");
 
     info!(
         "sentry-cli was invoked with the following command line: {}",
@@ -354,7 +341,7 @@ fn setup() {
     set_logger(&Logger).unwrap();
 
     if let Err(e) = load_dotenv_result {
-        log::warn!("Failed to load .env file: {}", e);
+        log::warn!("Failed to load .env file: {e}");
     }
 }
 
@@ -388,7 +375,12 @@ pub fn main() -> ! {
     process::exit(exit_code);
 }
 
-#[test]
-fn verify_app() {
-    app().debug_assert();
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verify_app() {
+        app().debug_assert();
+    }
 }

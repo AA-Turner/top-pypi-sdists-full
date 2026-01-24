@@ -59,6 +59,7 @@ class Connection(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, False, "json", shared.Connection
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -75,7 +76,7 @@ class Connection(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createUnifiedConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -150,6 +151,7 @@ class Connection(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, False, "json", shared.Connection
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -166,7 +168,7 @@ class Connection(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createUnifiedConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -239,6 +241,7 @@ class Connection(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -255,7 +258,7 @@ class Connection(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getUnifiedConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -328,6 +331,7 @@ class Connection(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -344,7 +348,7 @@ class Connection(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getUnifiedConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -417,6 +421,7 @@ class Connection(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -433,7 +438,7 @@ class Connection(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listUnifiedConnections",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -506,6 +511,7 @@ class Connection(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -522,7 +528,7 @@ class Connection(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listUnifiedConnections",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -598,6 +604,7 @@ class Connection(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.connection, False, False, "json", shared.Connection
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -614,7 +621,7 @@ class Connection(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchUnifiedConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -690,6 +697,7 @@ class Connection(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.connection, False, False, "json", shared.Connection
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -706,7 +714,7 @@ class Connection(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchUnifiedConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -781,6 +789,7 @@ class Connection(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -797,7 +806,7 @@ class Connection(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeUnifiedConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -877,6 +886,7 @@ class Connection(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -893,7 +903,7 @@ class Connection(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeUnifiedConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -976,6 +986,7 @@ class Connection(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.connection, False, False, "json", shared.Connection
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -992,7 +1003,7 @@ class Connection(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateUnifiedConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1070,6 +1081,7 @@ class Connection(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.connection, False, False, "json", shared.Connection
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1086,7 +1098,7 @@ class Connection(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateUnifiedConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

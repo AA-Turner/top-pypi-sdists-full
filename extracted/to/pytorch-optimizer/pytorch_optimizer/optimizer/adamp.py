@@ -6,17 +6,17 @@ from torch.nn.functional import cosine_similarity
 
 from pytorch_optimizer.base.exception import NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 from pytorch_optimizer.optimizer.gradient_centralization import centralize_gradient
 
 
 def channel_view(x: torch.Tensor) -> torch.Tensor:
-    r"""Do channel view."""
+    """Do channel view."""
     return x.view(x.size()[0], -1)
 
 
 def layer_view(x: torch.Tensor) -> torch.Tensor:
-    r"""Do layer view."""
+    """Do layer view."""
     return x.view(1, -1)
 
 
@@ -26,12 +26,13 @@ def cosine_similarity_by_view(
     eps: float,
     view_func: Callable[[torch.Tensor], torch.Tensor],
 ) -> torch.Tensor:
-    r"""Calculate cosine similarity by the view.
+    """Calculate cosine similarity by the view.
 
-    :param x: torch.Tensor. src.
-    :param y: torch.Tensor. dst.
-    :param eps: float. epsilon.
-    :param view_func: Callable. view (channel or layer) function.
+    Args:
+        x (torch.Tensor): Source tensor.
+        y (torch.Tensor): Destination tensor.
+        eps (float): Small constant epsilon added for numerical stability.
+        view_func (Callable): Function defining the view (e.g., per-channel or per-layer).
     """
     x = view_func(x)
     y = view_func(y)
@@ -46,7 +47,7 @@ def projection(
     wd_ratio: float,
     eps: float,
 ) -> Tuple[torch.Tensor, float]:
-    r"""Project to remove the radial component from the update vector."""
+    """Project to remove the radial component from the update vector."""
     wd: float = 1.0
     expand_size: List[int] = [-1] + [1] * (len(p.shape) - 1)
     for view_func in (channel_view, layer_view):
@@ -62,26 +63,27 @@ def projection(
 
 
 class SGDP(BaseOptimizer):
-    r"""SGD + Slowing Down the Slowdown for Momentum Optimizers on Scale-invariant Weights.
+    """SGD + Slowing Down the Slowdown for Momentum Optimizers on Scale-invariant Weights.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param momentum: float. momentum factor.
-    :param dampening: float. dampening for momentum.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param delta: float. threshold that determines whether a set of parameters is scale invariant or not.
-    :param wd_ratio: float. relative weight decay applied on scale-invariant parameters compared to that applied on
-        scale-variant parameters.
-    :param nesterov: bool. enables nesterov momentum.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        momentum (float): Momentum factor.
+        dampening (float): Dampening for momentum.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): Whether to use decoupled weight decay as in AdamW.
+        fixed_decay (bool): Apply fixed weight decay instead of adaptive.
+        delta (float): Threshold that determines whether a set of parameters is scale-invariant or not.
+        wd_ratio (float): Relative weight decay applied on scale-invariant parameters compared to that applied
+            on scale-variant parameters.
+        nesterov (bool): Enables Nesterov momentum.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-3,
         momentum: float = 0.0,
         dampening: float = 0.0,
@@ -102,7 +104,7 @@ class SGDP(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'weight_decay': weight_decay,
             'weight_decouple': weight_decouple,
@@ -120,7 +122,10 @@ class SGDP(BaseOptimizer):
     def __str__(self) -> str:
         return 'SGDP'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -134,18 +139,15 @@ class SGDP(BaseOptimizer):
                 state['momentum'] = torch.zeros_like(grad)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             momentum = group['momentum']
 
@@ -196,27 +198,28 @@ class SGDP(BaseOptimizer):
 
 
 class AdamP(BaseOptimizer):
-    r"""Slowing Down the Slowdown for Momentum Optimizers on Scale-invariant Weights.
+    """Slowing Down the Slowdown for Momentum Optimizers on Scale-invariant Weights.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param delta: float. threshold that determines whether a set of parameters is scale invariant or not.
-    :param wd_ratio: float. relative weight decay applied on scale-invariant parameters compared to that applied
-        on scale-variant parameters.
-    :param nesterov: bool. enables Nesterov momentum.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): Whether to use decoupled weight decay as in AdamW.
+        fixed_decay (bool): Apply fixed weight decay instead of adaptive.
+        delta (float): Threshold that determines whether a set of parameters is scale-invariant or not.
+        wd_ratio (float): Relative weight decay applied on scale-invariant parameters compared to that applied
+            on scale-variant parameters.
+        nesterov (bool): Enables Nesterov momentum.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-3,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         weight_decay: float = 0.0,
         weight_decouple: bool = True,
         fixed_decay: bool = False,
@@ -235,7 +238,7 @@ class AdamP(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'weight_decay': weight_decay,
@@ -253,7 +256,10 @@ class AdamP(BaseOptimizer):
     def __str__(self) -> str:
         return 'AdamP'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -272,18 +278,15 @@ class AdamP(BaseOptimizer):
                     state['exp_grad_adanorm'] = torch.zeros((1,), dtype=grad.dtype, device=grad.device)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2 = group['betas']
 

@@ -1,7 +1,9 @@
 import pytest
 from apimatic_core_interfaces.types.http_method_enum import HttpMethodEnum
 
+from apimatic_requests_client_adapter.requests_client import RequestsClient
 from tests.apimatic_requests_client_adapter.base import Base
+from tests.apimatic_requests_client_adapter.models.internal.http_response_factory import HttpResponseFactory
 
 
 class TestRequestsClient(Base):
@@ -33,17 +35,40 @@ class TestRequestsClient(Base):
                              [
                                  (100, False, 10, 4.3, [400, 401, 415, 429], [HttpMethodEnum.GET], False, None, False,
                                   100, 10, 4.3, [400, 401, 415, 429], [HttpMethodEnum.GET], False, False, False),
+
                                  (100, True, 10, 4.3, [400, 401, 415, 429], [HttpMethodEnum.GET], False, None, False,
                                   100, 10, 4.3, [400, 401, 415, 429], [HttpMethodEnum.GET], False, False, False),
+
                                  (100, False, 10, 4.3, [400, 401, 415, 429], [HttpMethodEnum.GET], False,
                                   Base.custom_requests_client(500, False, 1000, 55.5, [400],
                                                               [HttpMethodEnum.DELETE], True, None,
                                                               False), False,
                                   500, 1000, 55.5, [400], [HttpMethodEnum.DELETE], True, False, False),
+
                                  (100, False, 10, 4.3, [400, 401, 415, 429], [HttpMethodEnum.GET], False,
                                   Base.custom_requests_client(500, False, 1000, 55.5, [400],
                                                               [HttpMethodEnum.DELETE], True, None,
                                                               False), True,
+                                  100, 10, 4.3, [400, 401, 415, 429], [HttpMethodEnum.GET], False, False, False),
+
+                                 (100, False, 10, 4.3, [400, 401, 415, 429], [HttpMethodEnum.GET], False,
+                                  Base.custom_http_client(500, False, 1000, 55.5, [400],
+                                                              [HttpMethodEnum.DELETE], True), False,
+                                  500, 1000, 55.5, [400], [HttpMethodEnum.DELETE], True, False, False),
+
+                                 (100, False, 10, 4.3, [400, 401, 415, 429], [HttpMethodEnum.GET], False,
+                                  Base.custom_http_client(500, False, 1000, 55.5, [400],
+                                                          [HttpMethodEnum.DELETE], True), True,
+                                  100, 10, 4.3, [400, 401, 415, 429], [HttpMethodEnum.GET], False, False, False),
+
+                                 (100, False, 10, 4.3, [400, 401, 415, 429], [HttpMethodEnum.GET], False,
+                                  Base.custom_session(False, 1000, 55.5, [400],
+                                                          [HttpMethodEnum.DELETE], True), False,
+                                  100, 1000, 55.5, [400], [HttpMethodEnum.DELETE], True, False, False),
+
+                                 (100, False, 10, 4.3, [400, 401, 415, 429], [HttpMethodEnum.GET], False,
+                                  Base.custom_session(False, 1000, 55.5, [400],
+                                                          [HttpMethodEnum.DELETE], True), True,
                                   100, 10, 4.3, [400, 401, 415, 429], [HttpMethodEnum.GET], False, False, False)
                              ])
     def test_custom_client(self, timeout, cache, max_retries, backoff_factor, retry_statuses,
@@ -51,9 +76,12 @@ class TestRequestsClient(Base):
                            expected_timeout, expected_max_retries, expected_backoff_factor, expected_retry_statuses,
                            expected_retry_methods, expected_verify, expected_raise_on_status,
                            expected_raise_on_redirect):
-        actual_client = Base.custom_requests_client(timeout, cache, max_retries, backoff_factor, retry_statuses,
-                                                    retry_methods, verify, http_client_instance,
-                                                    override_http_client_configuration)
+        actual_client = RequestsClient(timeout=timeout, cache=cache, max_retries=max_retries, backoff_factor=backoff_factor,
+                              retry_statuses=retry_statuses, retry_methods=retry_methods, verify=verify,
+                              http_client_instance=http_client_instance,
+                              override_http_client_configuration=override_http_client_configuration,
+                              response_factory=HttpResponseFactory())
+
         for adapter in actual_client.session.adapters.values():
             assert adapter.max_retries.total == expected_max_retries
             assert adapter.max_retries.backoff_factor == expected_backoff_factor

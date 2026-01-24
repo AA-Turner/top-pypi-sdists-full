@@ -1,4 +1,4 @@
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use std::fs;
 use tempfile::tempdir;
@@ -18,7 +18,7 @@ Content with trailing space{}
 
     fs::write(&test_file, content).unwrap();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check")
         .arg("--output-format")
         .arg("grouped")
@@ -45,7 +45,7 @@ Content with trailing space{}
 
     fs::write(&test_file, content).unwrap();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check")
         .arg("--output-format")
         .arg("pylint")
@@ -71,7 +71,7 @@ Content with trailing space{}
 
     fs::write(&test_file, content).unwrap();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check")
         .arg("--output-format")
         .arg("azure")
@@ -104,7 +104,7 @@ Content with trailing space{}
 //     fs::write(&test_file, md_content).unwrap();
 //     fs::write(&config_file, config_content).unwrap();
 //
-//     let mut cmd = Command::cargo_bin("rumdl").unwrap();
+//     let mut cmd = cargo_bin_cmd!("rumdl");
 //     cmd.current_dir(&temp_dir)
 //         .arg("check")
 //         .arg("test.md");
@@ -132,7 +132,7 @@ Content with trailing space{}
 //     fs::write(&test_file, md_content).unwrap();
 //     fs::write(&config_file, config_content).unwrap();
 //
-//     let mut cmd = Command::cargo_bin("rumdl").unwrap();
+//     let mut cmd = cargo_bin_cmd!("rumdl");
 //     cmd.current_dir(&temp_dir)
 //         .arg("check")
 //         .arg("--output-format")
@@ -144,3 +144,90 @@ Content with trailing space{}
 //         .failure()
 //         .stdout(predicate::str::contains("##vso[task.logissue type=warning;"));
 // }
+
+#[test]
+fn test_rumdl_output_format_env_var() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.md");
+
+    let content = format!(
+        r#"# Heading
+Content with trailing space{}
+"#,
+        "   "
+    );
+
+    fs::write(&test_file, content).unwrap();
+
+    // Test that RUMDL_OUTPUT_FORMAT env var is respected
+    let mut cmd = cargo_bin_cmd!("rumdl");
+    cmd.env("RUMDL_OUTPUT_FORMAT", "github")
+        .arg("check")
+        .arg(test_file.to_str().unwrap());
+
+    // GitHub format uses ::warning:: annotations
+    cmd.assert()
+        .failure()
+        .stdout(predicate::str::contains("::warning file="));
+}
+
+#[test]
+fn test_rumdl_output_format_env_var_cli_override() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.md");
+
+    let content = format!(
+        r#"# Heading
+Content with trailing space{}
+"#,
+        "   "
+    );
+
+    fs::write(&test_file, content).unwrap();
+
+    // CLI flag should override env var
+    let mut cmd = cargo_bin_cmd!("rumdl");
+    cmd.env("RUMDL_OUTPUT_FORMAT", "github")
+        .arg("check")
+        .arg("--output-format")
+        .arg("azure")
+        .arg(test_file.to_str().unwrap());
+
+    // Should use azure format from CLI, not github from env var
+    cmd.assert()
+        .failure()
+        .stdout(predicate::str::contains("##vso[task.logissue type=warning;"));
+}
+
+#[test]
+fn test_rumdl_output_format_env_var_overrides_config() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.md");
+    let config_file = temp_dir.path().join(".rumdl.toml");
+
+    let config_content = r#"[global]
+output-format = "pylint"
+"#;
+
+    let md_content = format!(
+        r#"# Heading
+Content with trailing space{}
+"#,
+        "   "
+    );
+
+    fs::write(&test_file, md_content).unwrap();
+    fs::write(&config_file, config_content).unwrap();
+
+    // Env var should override config file
+    let mut cmd = cargo_bin_cmd!("rumdl");
+    cmd.current_dir(&temp_dir)
+        .env("RUMDL_OUTPUT_FORMAT", "azure")
+        .arg("check")
+        .arg("test.md");
+
+    // Should use azure format from env var, not pylint from config
+    cmd.assert()
+        .failure()
+        .stdout(predicate::str::contains("##vso[task.logissue type=warning;"));
+}

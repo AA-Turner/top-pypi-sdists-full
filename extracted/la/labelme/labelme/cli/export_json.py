@@ -9,7 +9,7 @@ import PIL.Image
 from loguru import logger
 
 from labelme import utils
-from labelme.label_file import LabelFile
+from labelme._label_file import LabelFile
 
 
 def main():
@@ -56,9 +56,9 @@ def main():
 
     with open(osp.join(out_dir, "label_names.txt"), "w") as f:
         for lbl_name in label_names:
-            f.write(lbl_name + "\n")  # type: ignore[operator]
+            f.write(f"{lbl_name}\n")
 
-    logger.info("Saved to: {}".format(out_dir))
+    logger.info(f"Saved to: {out_dir}")
 
 
 if __name__ == "__main__":

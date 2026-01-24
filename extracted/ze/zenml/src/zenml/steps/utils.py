@@ -18,6 +18,7 @@ import ast
 import contextlib
 import inspect
 import textwrap
+from collections import Counter
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -25,6 +26,7 @@ from typing import (
     Dict,
     Optional,
     Tuple,
+    TypeVar,
     Union,
 )
 from uuid import UUID
@@ -562,7 +564,7 @@ def run_as_single_step_pipeline(
     def single_step_pipeline() -> None:
         __step(**inputs)
 
-    run = single_step_pipeline.with_options(unlisted=True)()
+    run = single_step_pipeline()
     assert run
     run = wait_for_pipeline_run_to_finish(run.id)
 
@@ -584,3 +586,42 @@ def run_as_single_step_pipeline(
         return outputs[0]
     else:
         return tuple(outputs)
+
+
+T = TypeVar("T")
+
+
+def get_unique_step_output_names(
+    step_outputs: Dict[Tuple[str, str], T],
+) -> Dict[Tuple[str, str], Tuple[T, str]]:
+    """Get unique step output names.
+
+    Given a dictionary of step outputs indexed by (invocation_id, output_name),
+    where the value is an arbitrary context object, return the same dictionary
+    complemented with unique step output names.
+
+    If an output name is repeated, the context object is prepended to the
+    output_name to make it unique.
+
+    Args:
+        step_outputs: The step outputs as arbitrary objects indexed by
+            (invocation_id, output_name).
+
+    Returns:
+        The input dictionary complemented with unique step output names.
+    """
+    output_name_count = Counter(
+        output_name for _, output_name in step_outputs.keys()
+    )
+
+    unique_step_output_mapping = {}
+    for invocation_id, output_name in step_outputs.keys():
+        if output_name_count[output_name] > 1:
+            unique_step_output_name = f"{invocation_id}.{output_name}"
+        else:
+            unique_step_output_name = output_name
+        unique_step_output_mapping[invocation_id, output_name] = (
+            step_outputs[invocation_id, output_name],
+            unique_step_output_name,
+        )
+    return unique_step_output_mapping

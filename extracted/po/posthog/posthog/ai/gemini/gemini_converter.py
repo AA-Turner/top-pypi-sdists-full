@@ -29,35 +29,76 @@ class GeminiMessage(TypedDict, total=False):
     text: str
 
 
-def _extract_text_from_parts(parts: List[Any]) -> str:
+def _format_parts_as_content_blocks(parts: List[Any]) -> List[FormattedContentItem]:
     """
-    Extract and concatenate text from a parts array.
+    Format Gemini parts array into structured content blocks.
+
+    Preserves structure for multimodal content (text + images) instead of
+    concatenating everything into a string.
 
     Args:
-        parts: List of parts that may contain text content
+        parts: List of parts that may contain text, inline_data, etc.
 
     Returns:
-        Concatenated text from all parts
+        List of formatted content blocks
     """
-
-    content_parts = []
+    content_blocks: List[FormattedContentItem] = []
 
     for part in parts:
+        # Handle dict with text field
         if isinstance(part, dict) and "text" in part:
-            content_parts.append(part["text"])
+            content_blocks.append({"type": "text", "text": part["text"]})
 
+        # Handle string parts
         elif isinstance(part, str):
-            content_parts.append(part)
+            content_blocks.append({"type": "text", "text": part})
 
+        # Handle dict with inline_data (images, documents, etc.)
+        elif isinstance(part, dict) and "inline_data" in part:
+            inline_data = part["inline_data"]
+            mime_type = inline_data.get("mime_type", "")
+            content_type = "image" if mime_type.startswith("image/") else "document"
+
+            content_blocks.append(
+                {
+                    "type": content_type,
+                    "inline_data": inline_data,
+                }
+            )
+
+        # Handle object with text attribute
         elif hasattr(part, "text"):
-            # Get the text attribute value
             text_value = getattr(part, "text", "")
-            content_parts.append(text_value if text_value else str(part))
+            if text_value:
+                content_blocks.append({"type": "text", "text": text_value})
 
-        else:
-            content_parts.append(str(part))
+        # Handle object with inline_data attribute
+        elif hasattr(part, "inline_data"):
+            inline_data = part.inline_data
+            # Convert to dict if needed
+            if hasattr(inline_data, "mime_type") and hasattr(inline_data, "data"):
+                # Determine type based on mime_type
+                mime_type = inline_data.mime_type
+                content_type = "image" if mime_type.startswith("image/") else "document"
 
-    return "".join(content_parts)
+                content_blocks.append(
+                    {
+                        "type": content_type,
+                        "inline_data": {
+                            "mime_type": mime_type,
+                            "data": inline_data.data,
+                        },
+                    }
+                )
+            else:
+                content_blocks.append(
+                    {
+                        "type": "image",
+                        "inline_data": inline_data,
+                    }
+                )
+
+    return content_blocks
 
 
 def _format_dict_message(item: Dict[str, Any]) -> FormattedMessage:
@@ -73,16 +114,17 @@ def _format_dict_message(item: Dict[str, Any]) -> FormattedMessage:
 
     # Handle dict format with parts array (Gemini-specific format)
     if "parts" in item and isinstance(item["parts"], list):
-        content = _extract_text_from_parts(item["parts"])
-        return {"role": item.get("role", "user"), "content": content}
+        content_blocks = _format_parts_as_content_blocks(item["parts"])
+        return {"role": item.get("role", "user"), "content": content_blocks}
 
     # Handle dict with content field
     if "content" in item:
         content = item["content"]
 
         if isinstance(content, list):
-            # If content is a list, extract text from it
-            content = _extract_text_from_parts(content)
+            # If content is a list, format it as content blocks
+            content_blocks = _format_parts_as_content_blocks(content)
+            return {"role": item.get("role", "user"), "content": content_blocks}
 
         elif not isinstance(content, str):
             content = str(content)
@@ -110,14 +152,14 @@ def _format_object_message(item: Any) -> FormattedMessage:
 
     # Handle object with parts attribute
     if hasattr(item, "parts") and hasattr(item.parts, "__iter__"):
-        content = _extract_text_from_parts(item.parts)
+        content_blocks = _format_parts_as_content_blocks(list(item.parts))
         role = getattr(item, "role", "user") if hasattr(item, "role") else "user"
 
         # Ensure role is a string
         if not isinstance(role, str):
             role = "user"
 
-        return {"role": role, "content": content}
+        return {"role": role, "content": content_blocks}
 
     # Handle object with text attribute
     if hasattr(item, "text"):
@@ -140,7 +182,8 @@ def _format_object_message(item: Any) -> FormattedMessage:
         content = item.content
 
         if isinstance(content, list):
-            content = _extract_text_from_parts(content)
+            content_blocks = _format_parts_as_content_blocks(content)
+            return {"role": role, "content": content_blocks}
 
         elif not isinstance(content, str):
             content = str(content)
@@ -190,6 +233,29 @@ def format_gemini_response(response: Any) -> List[FormattedMessage]:
                                         "name": function_call.name,
                                         "arguments": function_call.args,
                                     },
+                                }
+                            )
+
+                        elif hasattr(part, "inline_data") and part.inline_data:
+                            # Handle audio/media inline data
+                            import base64
+
+                            inline_data = part.inline_data
+                            mime_type = getattr(inline_data, "mime_type", "audio/pcm")
+                            raw_data = getattr(inline_data, "data", b"")
+
+                            # Encode binary data as base64 string for JSON serialization
+                            if isinstance(raw_data, bytes):
+                                data = base64.b64encode(raw_data).decode("utf-8")
+                            else:
+                                # Already a string (base64)
+                                data = raw_data
+
+                            content.append(
+                                {
+                                    "type": "audio",
+                                    "mime_type": mime_type,
+                                    "data": data,
                                 }
                             )
 
@@ -338,6 +404,61 @@ def format_gemini_input(contents: Any) -> List[FormattedMessage]:
     return [_format_object_message(contents)]
 
 
+def extract_gemini_web_search_count(response: Any) -> int:
+    """
+    Extract web search count from Gemini response.
+
+    Gemini bills per request that uses grounding, not per query.
+    Returns 1 if grounding_metadata is present with actual search data, 0 otherwise.
+
+    Args:
+        response: The response from Gemini API
+
+    Returns:
+        1 if web search/grounding was used, 0 otherwise
+    """
+
+    # Check for grounding_metadata in candidates
+    if hasattr(response, "candidates"):
+        for candidate in response.candidates:
+            if (
+                hasattr(candidate, "grounding_metadata")
+                and candidate.grounding_metadata
+            ):
+                grounding_metadata = candidate.grounding_metadata
+
+                # Check if web_search_queries exists and is non-empty
+                if hasattr(grounding_metadata, "web_search_queries"):
+                    queries = grounding_metadata.web_search_queries
+
+                    if queries is not None and len(queries) > 0:
+                        return 1
+
+                # Check if grounding_chunks exists and is non-empty
+                if hasattr(grounding_metadata, "grounding_chunks"):
+                    chunks = grounding_metadata.grounding_chunks
+
+                    if chunks is not None and len(chunks) > 0:
+                        return 1
+
+            # Also check for google_search or grounding in function call names
+            if hasattr(candidate, "content") and candidate.content:
+                if hasattr(candidate.content, "parts") and candidate.content.parts:
+                    for part in candidate.content.parts:
+                        if hasattr(part, "function_call") and part.function_call:
+                            function_name = getattr(
+                                part.function_call, "name", ""
+                            ).lower()
+
+                            if (
+                                "google_search" in function_name
+                                or "grounding" in function_name
+                            ):
+                                return 1
+
+    return 0
+
+
 def _extract_usage_from_metadata(metadata: Any) -> TokenUsage:
     """
     Common logic to extract usage from Gemini metadata.
@@ -382,7 +503,14 @@ def extract_gemini_usage_from_response(response: Any) -> TokenUsage:
     if not hasattr(response, "usage_metadata") or not response.usage_metadata:
         return TokenUsage(input_tokens=0, output_tokens=0)
 
-    return _extract_usage_from_metadata(response.usage_metadata)
+    usage = _extract_usage_from_metadata(response.usage_metadata)
+
+    # Add web search count if present
+    web_search_count = extract_gemini_web_search_count(response)
+    if web_search_count > 0:
+        usage["web_search_count"] = web_search_count
+
+    return usage
 
 
 def extract_gemini_usage_from_chunk(chunk: Any) -> TokenUsage:
@@ -398,11 +526,19 @@ def extract_gemini_usage_from_chunk(chunk: Any) -> TokenUsage:
 
     usage: TokenUsage = TokenUsage()
 
+    # Extract web search count from the chunk before checking for usage_metadata
+    # Web search indicators can appear on any chunk, not just those with usage data
+    web_search_count = extract_gemini_web_search_count(chunk)
+    if web_search_count > 0:
+        usage["web_search_count"] = web_search_count
+
     if not hasattr(chunk, "usage_metadata") or not chunk.usage_metadata:
         return usage
 
-    # Use the shared helper to extract usage
-    usage = _extract_usage_from_metadata(chunk.usage_metadata)
+    usage_from_metadata = _extract_usage_from_metadata(chunk.usage_metadata)
+
+    # Merge the usage from metadata with any web search count we found
+    usage.update(usage_from_metadata)
 
     return usage
 

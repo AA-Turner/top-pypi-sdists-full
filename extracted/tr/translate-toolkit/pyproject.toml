@@ -13,27 +13,33 @@ dev = [
 ]
 docs = [
   # Do not attempt to build doc on older Python
-  "furo==2025.7.19; python_version >= '3.11'",
-  "matplotlib==3.10.5; python_version >= '3.11'",
-  "sphinx-copybutton==0.5.2; python_version >= '3.11'",
-  "Sphinx==8.2.3; python_version >= '3.11'",
-  "sphinxext-opengraph==0.12.0; python_version >= '3.11'"
+  "furo==2025.12.19; python_version >= '3.12'",
+  "matplotlib==3.10.8; python_version >= '3.12'",
+  "sphinx-copybutton==0.5.2; python_version >= '3.12'",
+  "Sphinx==9.1.0; python_version >= '3.12'",
+  "sphinxext-opengraph==0.13.0; python_version >= '3.12'"
 ]
 lint = [
-  {include-group = "pre-commit"}
+  {include-group = "pre-commit"},
+  {include-group = "pylint"}
 ]
 pre-commit = [
-  "pre-commit==4.3.0"
+  "pre-commit==4.5.1"
+]
+pylint = [
+  "pylint==4.0.4"
 ]
 test = [
-  "pytest-cov==6.2.1",
+  "pytest-cov==7.0.0",
   "pytest-xdist==3.8.0",
-  "pytest==8.4.1",
-  "syrupy==4.9.1"
+  "pytest==9.0.2",
+  "syrupy==5.0.0"
 ]
 types = [
   "setuptools>=61.2",
-  "types-lxml==2025.3.30"
+  "ty==0.0.11",
+  "types-lxml==2026.1.1",
+  "wcwidth-stubs==0.2.14.0"
 ]
 
 [project]
@@ -50,19 +56,18 @@ classifiers = [
   "Operating System :: Unix",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python",
   "Topic :: Software Development :: Internationalization",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Topic :: Software Development :: Localization"
 ]
 dependencies = [
-  "cwcwidth>=0.1.10,<0.2",
-  "lxml>=5.2.0,<6.1"
+  "lxml>=5.2.0,<6.1",
+  "unicode-segmentation-rs>=0.2.0,<0.3"
 ]
 description = "Tools and API for translation and localization engineering."
 dynamic = [
@@ -74,11 +79,11 @@ keywords = [
 license = "GPL-2.0-or-later"
 license-files = ["COPYING"]
 name = "translate-toolkit"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 
 [project.optional-dependencies]
 all = [
-  "translate-toolkit[chardet,fluent,ical,ini,levenshtein,markdown,php,rc,spellcheck,subtitles,tmserver,trados,yaml]"
+  "translate-toolkit[chardet,fluent,ical,ini,levenshtein,markdown,php,rc,spellcheck,subtitles,tmserver,toml,trados,yaml]"
 ]
 chardet = [
   "charset-normalizer>=3.4.0,<4.0"
@@ -96,28 +101,31 @@ levenshtein = [
   "python-Levenshtein>=0.21.0"
 ]
 markdown = [
-  "mistletoe>=1.4.0,<1.5.0"
+  "mistletoe>=1.4.0,<1.6.0"
 ]
 php = [
   "phply>=1.2.6,<1.3"
 ]
 rc = [
-  "pyparsing>=3.2.0,<3.3"
+  "pyparsing>=3.2.0,<3.4"
 ]
 spellcheck = [
-  "pyenchant==3.2.2"
+  "pyenchant==3.3.0"
 ]
 subtitles = [
   "aeidon>=1.14.1,<1.16"
 ]
 tmserver = [
-  "cheroot==10.0.1"
+  "cheroot==11.1.2"
+]
+toml = [
+  "tomlkit>=0.13.0,<0.15.0"
 ]
 trados = [
   "BeautifulSoup4>=4.13.0"
 ]
 yaml = [
-  "ruamel.yaml>=0.18.0,<0.19.0"
+  "ruamel.yaml>=0.18.0,<0.20.0"
 ]
 
 [project.readme]
@@ -157,6 +165,7 @@ po2json = "translate.convert.po2json:main"
 po2md = "translate.convert.po2md:main"
 po2moz = "translate.convert.po2moz:main"
 po2mozlang = "translate.convert.po2mozlang:main"
+po2odf = "translate.convert.po2odf:main"
 po2oo = "translate.convert.po2oo:main"
 po2php = "translate.convert.po2php:main"
 po2prop = "translate.convert.po2prop:main"
@@ -166,6 +175,7 @@ po2sub = "translate.convert.po2sub:main"
 po2symb = "translate.convert.po2symb:main"
 po2tiki = "translate.convert.po2tiki:main"
 po2tmx = "translate.convert.po2tmx:main"
+po2toml = "translate.convert.po2toml:main"
 po2ts = "translate.convert.po2ts:main"
 po2txt = "translate.convert.po2txt:main"
 po2web2py = "translate.convert.po2web2py:main"
@@ -197,6 +207,7 @@ symb2po = "translate.convert.symb2po:main"
 tbx2po = "translate.convert.tbx2po:main"
 tiki2po = "translate.convert.tiki2po:main"
 tmserver = "translate.services.tmserver:main"
+toml2po = "translate.convert.toml2po:main"
 ts2po = "translate.convert.ts2po:main"
 txt2po = "translate.convert.txt2po:main"
 web2py2po = "translate.convert.web2py2po:main"
@@ -238,6 +249,10 @@ ignore = [
   "translate/storage/debug.properties"  # TODO: this should be converted to tests
 ]
 
+[tool.coverage.run]
+# C Tracer not available in quemu testing
+disable_warnings = ["no-ctracer"]
+
 [tool.isort]
 known_third_party = [
   "bs4",
@@ -254,11 +269,75 @@ known_third_party = [
 ]
 profile = "black"
 
-[tool.pytest.ini_options]
-norecursedirs = ".git build docs"
+[tool.pylint.main]
+disable = [
+  "abstract-method",  # TODO
+  "arguments-differ",  # TODO
+  "arguments-renamed",  # TODO
+  "attribute-defined-outside-init",  # TODO
+  "bidirectional-unicode",  # TODO
+  "broad-exception-caught",  # TODO
+  "c-extension-no-member",  # TODO
+  "consider-using-f-string",  # TODO
+  "consider-using-with",  # TODO
+  "cyclic-import",
+  "dangerous-default-value",  # TODO
+  "disallowed-name",  # TODO
+  "duplicate-code",  # TODO
+  "fixme",
+  "global-statement",  # TODO
+  "invalid-name",  # TODO
+  "invalid-overridden-method",  # TODO
+  "keyword-arg-before-vararg",  # TODO
+  "line-too-long",
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "missing-module-docstring",
+  "no-member",  # TODO
+  "no-name-in-module",  # TODO
+  "no-value-for-parameter",  # TODO
+  "not-an-iterable",  # TODO
+  "not-callable",  # TODO
+  "protected-access",  # TODO
+  "redefined-builtin",  # TODO
+  "redefined-outer-name",  # TODO
+  "signature-differs",  # TODO
+  "super-init-not-called",  # TODO
+  "too-few-public-methods",
+  "too-many-arguments",
+  "too-many-boolean-expressions",  # TODO
+  "too-many-branches",
+  "too-many-function-args",
+  "too-many-instance-attributes",
+  "too-many-lines",
+  "too-many-locals",
+  "too-many-nested-blocks",
+  "too-many-positional-arguments",
+  "too-many-public-methods",
+  "too-many-return-statements",
+  "too-many-statements",
+  "unidiomatic-typecheck",  # TODO
+  "unspecified-encoding",  # TODO
+  "unsubscriptable-object",  # TODO
+  "unsupported-assignment-operation",  # TODO
+  "unused-argument",
+  "use-implicit-booleaness-not-comparison",  # TODO
+  "use-implicit-booleaness-not-len",  # TODO
+  "used-before-assignment"  # TODO
+]
 
-[tool.ruff]
-target-version = "py39"
+[tool.pytest.ini_options]
+filterwarnings = [
+  # Treat all unfiltered warnings as errors
+  "error",
+  # translate-toolkit warning for accesskeys
+  "ignore:Could not find accesskey:UserWarning:translate.convert",
+  # warning in a third-party library
+  "ignore:The 'u' type code is deprecated:DeprecationWarning:enchant.checker",
+  # TODO: these might be worth investigating
+  'default:unclosed:ResourceWarning'
+]
+norecursedirs = ".git build docs"
 
 [tool.ruff.lint]
 extend-safe-fixes = [
@@ -272,18 +351,14 @@ extend-safe-fixes = [
 ignore = [
   "A001",  # TODO: Variable is shadowing a Python builtin
   "A002",  # TODO: overriding builtins (might need noqa tags)
-  "A005",  # TODO: Module `statistics` is shadowing a Python builtin module
   "ANN",  # TODO: type annotations missing
   "ARG001",  # TODO: Unused function argument (mostly for API compatibility)
   "ARG002",  # TODO: Unused method argument (mostly for API compatibility)
   "ARG004",  # TODO: Unused static method argument
   "ARG005",  # TODO: Unused lambda argument:
   "B006",  # TODO: Do not use mutable data structures for argument defaults
-  "B007",  # TODO: Loop control variable not used within loop body
   "B020",  # TODO: Loop control variable `node` overrides iterable it iterates
   "B028",  # TODO: No explicit `stacklevel` keyword argument found
-  "B904",  # TODO: Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
-  "B909",  # X-TODO: Mutation to loop iterable `inputpo.units` during iteration
   "BLE001",  # WONTFIX: Do not catch blind exception: `Exception`, third-party modules do not have defined exceptions
   "C901",  # TODO: too complex
   "COM",  # CONFIG: No trailing commas
@@ -297,15 +372,12 @@ ignore = [
   "D404",  # TODO: First word of the docstring should not be "This"
   "D409",  # TODO: Section underline should match the length of its name
   "DOC",  # TODO: is not documented in docstring
-  "DTZ005",  # TODO: The use of `datetime.datetime.now()` without `tz` argument is not allowed
   "E262",  # TODO: Inline comment should start with `# `
   "E265",  # TODO: Block comment should start with `# `
   "E266",  # TODO: Too many leading `#` before block comment
   "E501",  # WONTFIX: we accept long strings (rest is formatted by black)
-  "E741",  # TODO: Ambiguous variable name:
   "EM",  # TODO: Exception strings
   "ERA001",  # TODO: Found commented-out code
-  "F841",  # TODO: Local variable `args` is assigned to but never used
   "FBT",  # TODO: Boolean in function definition
   "FIX001",  # TODO: Line contains FIXME, consider resolving the issue
   "FIX002",  # CONFIG: we use TODO
@@ -323,8 +395,6 @@ ignore = [
   "N815",  # TODO: Variable `bodyNode` in class scope should not be mixedCase
   "N816",  # TODO: Variable `theDOMImplementation` in global scope should not be mixedCase
   "N818",  # TODO: Exception name `FilterFailure` should be named with an Error suffix
-  "PD011",  # WONTFIX: Use `.to_numpy()` instead of `.values
-  "PLC0415",  # TODO: `import` should be at the top-level of a file
   "PLE2502",  # TODO: Contains control characters that can permit obfuscated code
   "PLR0904",  # TODO: Too many public methods (21 > 20)
   "PLR0911",  # TODO: Too many return statements
@@ -337,7 +407,6 @@ ignore = [
   "PLR1702",  # TODO: Too many nested blocks (8 > 5)
   "PLR2004",  # TODO: Magic value used in comparison, consider replacing with a constant variable
   "PLR6301",  # TODO: Method `entry` could be a function, class method, or static method
-  "PLW1510",  # TODO: `subprocess.run` without explicit `check` argument
   "PLW1514",  # TODO: `open` in text mode without explicit `encoding` argument
   "PLW1641",  # TODO: Object does not implement `__hash__` method
   "PLW2901",  # TODO: `for` loop variable `input_unit` overwritten by assignment target
@@ -350,16 +419,11 @@ ignore = [
   "RUF003",  # WONTFIX: Comment contains ambiguous
   "RUF012",  # TODO: Mutable class attributes should be annotated with `typing.ClassVar`
   "S101",  # CONFIG: Use of `assert` detected
-  "S301",  # TODO: `pickle` and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue
-  "S311",  # TODO: Standard pseudo-random generators are not suitable for cryptographic purposes
-  "S324",  # TODO: Probable use of insecure hash functions in `hashlib`: `md5`
-  "S403",  # TODO: `pickle`, `cPickle`, `dill`, and `shelve` modules are possibly insecure
   "S404",  # TODO: `subprocess` module is possibly insecure
   "S407",  # TODO: `xml.dom.expatbuilder` is vulnerable to XML attacks
   "S408",  # TODO: `xml.dom.minidom` is vulnerable to XML attacks
   "S603",  # CONFIG: `subprocess` call: check for execution of untrusted input
   "S607",  # CONFIG: executing system installed tools
-  "SIM102",  # TODO: Use a single `if` statement instead of nested `if` statements
   "SIM115",  # TODO: Use context handler for opening files
   "SLF001",  # TODO: Private member accessed
   "SLOT000",  # TODO: Subclasses of `str` should define `__slots__`
@@ -371,7 +435,6 @@ ignore = [
   "TD007",  # TODO: Missing space after colon in TODO
   "TID252",  # TODO: Relative imports from parent modules are banned
   "TRY003",  # WONTFIX: Avoid specifying long messages outside the exception class
-  "UP031",  # X-TODO: Use format specifiers instead of percent format
   'ISC001',  # CONFIG: formatter
   'Q000',  # CONFIG: formatter
   'Q001',  # CONFIG: formatter
@@ -430,8 +493,14 @@ extend-ignore-re = [
 plasTeX = "plasTeX"
 
 [tool.typos.default.extend-words]
+# Belarusian/Polish translations in test files
+dni = "dni"
+"dźeń" = "dźeń"
+"dźon" = "dźon"
+elementy = "elementy"
 # Open Document Format acronym
 ODF = "ODF"
+tamu = "tamu"
 Uniforum = "Uniforum"
 # Author name
 Wil = "Wil"
@@ -443,6 +512,7 @@ extend-exclude = [
   "tests/translate/filters/test_checks.py",
   "tests/translate/lang/test_*.py",
   "tests/translate/lang/test_identify.py",
+  "tests/translate/tools/data/pocount_syntax_errors/",
   "tests/xliff_conformance/af-pootle.po",
   "tests/xliff_conformance/en-US.sdf",
   "translate/lang/data.py",

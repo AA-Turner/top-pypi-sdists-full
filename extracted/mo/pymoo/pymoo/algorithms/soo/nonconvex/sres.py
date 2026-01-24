@@ -4,7 +4,7 @@ from pymoo.algorithms.soo.nonconvex.es import ES
 from pymoo.core.population import Population, calc_cv
 from pymoo.core.survival import Survival
 from pymoo.docs import parse_doc_string
-from pymoo.util.function_loader import load_function
+from pymoo.functions import load_function
 
 
 class StochasticRankingSurvival(Survival):
@@ -13,7 +13,7 @@ class StochasticRankingSurvival(Survival):
         super().__init__(filter_infeasible=False)
         self.PR = PR
 
-    def _do(self, problem, pop, *args, n_survive=None, tcv=None, **kwargs):
+    def _do(self, problem, pop, *args, n_survive=None, tcv=None, random_state=None, **kwargs):
         assert problem.n_obj == 1, "This stochastic ranking implementation only works for single-objective problems."
 
         F, G = pop.get("F", "G")
@@ -25,7 +25,7 @@ class StochasticRankingSurvival(Survival):
         else:
             phi = calc_cv(pop)
             J = np.arange(len(phi))
-            I = load_function("stochastic_ranking")(f, phi, self.PR, J)
+            I = load_function("stochastic_ranking")(f, phi, self.PR, J, random_state=random_state)
 
         return pop[I][:n_survive]
 

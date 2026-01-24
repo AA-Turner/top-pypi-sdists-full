@@ -69,7 +69,7 @@ RANKED = {
         VM_INTS,
         "/tables/routing/protocols/bgp/neighbors",
         "/tables/routing/protocols/is-is/neighbors",
-        "/tables/routing/protocols/ospf-v3/neighbors",  # NIM-15216
+        "/tables/routing/protocols/ospf-v3/neighbors",
     ],
     "mac": [
         "/tables/addressing/managed-devs",
@@ -165,7 +165,7 @@ class GlobalSearch(BaseModel):
         first_match: bool = False,
     ) -> dict[str, dict[str, Union[str, list]]]:
 
-        results, data = OrderedDict(), list()
+        results, data = OrderedDict(), []
 
         for path in getattr(self, search_type):
             search_data = getattr(path, search_type)

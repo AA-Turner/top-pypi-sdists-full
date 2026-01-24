@@ -110,7 +110,7 @@ class EvaluateSplitAgent {
     return gpair;
   }
 
-  __device__ __forceinline__ void Numerical(DeviceSplitCandidate *best_split) {
+  __device__ __forceinline__ void Numerical(DeviceSplitCandidate * best_split) {
     for (int scan_begin = gidx_begin; scan_begin < gidx_end; scan_begin += kBlockSize) {
       bool thread_active = (scan_begin + threadIdx.x) < gidx_end;
       GradientPairInt64 bin = thread_active ? LoadGpair(node_histogram + scan_begin + threadIdx.x)
@@ -302,11 +302,7 @@ __global__ __launch_bounds__(kBlockSize) void EvaluateSplitsKernel(
     agent.Numerical(&best_split);
   }
 
-#if CUB_VERSION >= 300000
   __syncthreads();
-#else
-  cub::CTA_SYNC();
-#endif
   if (threadIdx.x == 0) {
     // Record best loss for each feature
     out_candidates[blockIdx.x] = best_split;
@@ -356,9 +352,8 @@ __device__ void SetCategoricalSplit(const EvaluateSplitSharedInputs &shared_inpu
 }
 
 void GPUHistEvaluator::LaunchEvaluateSplits(
-    bst_feature_t max_active_features,
-    common::Span<const EvaluateSplitInputs> d_inputs,
-    EvaluateSplitSharedInputs shared_inputs,
+    Context const *ctx, bst_feature_t max_active_features,
+    common::Span<const EvaluateSplitInputs> d_inputs, EvaluateSplitSharedInputs shared_inputs,
     TreeEvaluator::SplitEvaluator<GPUTrainingParam> evaluator,
     common::Span<DeviceSplitCandidate> out_splits) {
   if (need_sort_histogram_) {
@@ -371,28 +366,25 @@ void GPUHistEvaluator::LaunchEvaluateSplits(
 
   // One block for each feature
   uint32_t constexpr kBlockThreads = 32;
-  dh::LaunchKernel {static_cast<uint32_t>(combined_num_features), kBlockThreads,
-                    0}(
-      EvaluateSplitsKernel<kBlockThreads>, max_active_features, d_inputs,
-      shared_inputs,
-      this->SortedIdx(d_inputs.size(), shared_inputs.feature_values.size()),
-      evaluator, dh::ToSpan(feature_best_splits));
+  dh::LaunchKernel{static_cast<uint32_t>(combined_num_features), kBlockThreads, 0,  // NOLINT
+                   ctx->CUDACtx()->Stream()}(
+      EvaluateSplitsKernel<kBlockThreads>, max_active_features, d_inputs, shared_inputs,
+      this->SortedIdx(d_inputs.size(), shared_inputs.feature_values.size()), evaluator,
+      dh::ToSpan(feature_best_splits));
 
   // Reduce to get best candidate for left and right child over all features
-  auto reduce_offset =
-      dh::MakeTransformIterator<size_t>(thrust::make_counting_iterator(0llu),
-                                        [=] __device__(size_t idx) -> size_t {
-                                          return idx * max_active_features;
-                                        });
+  auto reduce_offset = dh::MakeTransformIterator<size_t>(
+      thrust::make_counting_iterator(0llu),
+      [=] __device__(size_t idx) -> size_t { return idx * max_active_features; });
   size_t temp_storage_bytes = 0;
   auto num_segments = out_splits.size();
-  cub::DeviceSegmentedReduce::Sum(nullptr, temp_storage_bytes, feature_best_splits.data(),
-                                  out_splits.data(), num_segments, reduce_offset,
-                                  reduce_offset + 1);
+  dh::safe_cuda(cub::DeviceSegmentedReduce::Sum(
+      nullptr, temp_storage_bytes, feature_best_splits.data(), out_splits.data(), num_segments,
+      reduce_offset, reduce_offset + 1, ctx->CUDACtx()->Stream()));
   dh::TemporaryArray<int8_t> temp(temp_storage_bytes);
-  cub::DeviceSegmentedReduce::Sum(temp.data().get(), temp_storage_bytes, feature_best_splits.data(),
-                                  out_splits.data(), num_segments, reduce_offset,
-                                  reduce_offset + 1);
+  dh::safe_cuda(cub::DeviceSegmentedReduce::Sum(
+      temp.data().get(), temp_storage_bytes, feature_best_splits.data(), out_splits.data(),
+      num_segments, reduce_offset, reduce_offset + 1, ctx->CUDACtx()->Stream()));
 }
 
 void GPUHistEvaluator::CopyToHost(const std::vector<bst_node_t> &nidx) {
@@ -418,8 +410,8 @@ void GPUHistEvaluator::EvaluateSplits(Context const *ctx, const std::vector<bst_
 
   dh::TemporaryArray<DeviceSplitCandidate> splits_out_storage(d_inputs.size());
   auto out_splits = dh::ToSpan(splits_out_storage);
-  this->LaunchEvaluateSplits(max_active_features, d_inputs, shared_inputs,
-                             evaluator, out_splits);
+  this->LaunchEvaluateSplits(ctx, max_active_features, d_inputs, shared_inputs, evaluator,
+                             out_splits);
 
   if (is_column_split_) {
     // With column-wise data split, we gather the split candidates from all the workers and find the
@@ -431,7 +423,7 @@ void GPUHistEvaluator::EvaluateSplits(Context const *ctx, const std::vector<bst_
         all_candidates.subspan(collective::GetRank() * out_splits.size(), out_splits.size());
     dh::safe_cuda(cudaMemcpyAsync(current_rank.data(), out_splits.data(),
                                   out_splits.size() * sizeof(DeviceSplitCandidate),
-                                  cudaMemcpyDeviceToDevice));
+                                  cudaMemcpyDeviceToDevice, ctx->CUDACtx()->Stream()));
     auto rc = collective::Allgather(
         ctx, linalg::MakeVec(all_candidates.data(), all_candidates.size(), ctx->Device()));
     collective::SafeColl(rc);

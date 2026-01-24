@@ -3,7 +3,7 @@ Type annotations for glacier service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glacier/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -89,11 +90,6 @@ from .type_defs import (
 )
 from .waiter import VaultExistsWaiter, VaultNotExistsWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -104,15 +100,16 @@ __all__ = ("GlacierClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InsufficientCapacityException: Type[BotocoreClientError]
-    InvalidParameterValueException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MissingParameterValueException: Type[BotocoreClientError]
-    PolicyEnforcedException: Type[BotocoreClientError]
-    RequestTimeoutException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InsufficientCapacityException: type[BotocoreClientError]
+    InvalidParameterValueException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MissingParameterValueException: type[BotocoreClientError]
+    NoLongerSupportedException: type[BotocoreClientError]
+    PolicyEnforcedException: type[BotocoreClientError]
+    RequestTimeoutException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
 
 
 class GlacierClient(BaseClient):
@@ -185,9 +182,9 @@ class GlacierClient(BaseClient):
         self, **kwargs: Unpack[CompleteMultipartUploadInputTypeDef]
     ) -> ArchiveCreationOutputTypeDef:
         """
-        You call this operation to inform Amazon S3 Glacier (Glacier) that all the
-        archive parts have been uploaded and that Glacier can now assemble the archive
-        from the uploaded parts.
+        You call this operation to inform Amazon Glacier (Glacier) that all the archive
+        parts have been uploaded and that Glacier can now assemble the archive from the
+        uploaded parts.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glacier/client/complete_multipart_upload.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glacier/client/#complete_multipart_upload)
@@ -259,7 +256,7 @@ class GlacierClient(BaseClient):
         """
         This operation returns information about a job you previously initiated,
         including the job initiation date, the user who initiated the job, the job
-        status code/message and the Amazon SNS topic to notify after Amazon S3 Glacier
+        status code/message and the Amazon SNS topic to notify after Amazon Glacier
         (Glacier) completes the job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glacier/client/describe_job.html)

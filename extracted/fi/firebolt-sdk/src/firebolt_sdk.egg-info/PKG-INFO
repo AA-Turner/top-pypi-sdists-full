@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: firebolt_sdk
-Version: 1.15.0
+Version: 1.18.3
 Summary: Python SDK for Firebolt
 Home-page: https://github.com/firebolt-db/firebolt-sdk
 Author: Firebolt
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aiorwlock==1.1.0
+Requires-Dist: aiorwlock==1.5.0
 Requires-Dist: anyio>=3.7.1
 Requires-Dist: appdirs>=1.4.4
 Requires-Dist: appdirs-stubs>=0.1.0
@@ -37,23 +37,24 @@ Provides-Extra: ciso8601
 Requires-Dist: ciso8601==2.2.0; extra == "ciso8601"
 Provides-Extra: dev
 Requires-Dist: allure-pytest==2.*; extra == "dev"
-Requires-Dist: devtools==0.7.0; extra == "dev"
-Requires-Dist: mypy<1.10.0,==1.*; extra == "dev"
+Requires-Dist: devtools==0.12.2; extra == "dev"
+Requires-Dist: mypy<2,>=1; extra == "dev"
 Requires-Dist: pre-commit==3.5.0; extra == "dev"
 Requires-Dist: psutil==7.0.0; extra == "dev"
 Requires-Dist: pyfakefs<=5.6.0,>=4.5.3; extra == "dev"
-Requires-Dist: pytest==7.2.0; extra == "dev"
+Requires-Dist: pytest==8.4.1; extra == "dev"
 Requires-Dist: pytest-cov==3.0.0; extra == "dev"
 Requires-Dist: pytest-httpx>=0.13.0; extra == "dev"
-Requires-Dist: pytest-mock==3.6.1; extra == "dev"
+Requires-Dist: pytest-mock==3.15.1; extra == "dev"
 Requires-Dist: pytest-timeout==2.1.0; extra == "dev"
 Requires-Dist: pytest-trio==0.8.0; extra == "dev"
 Requires-Dist: pytest-xdist==2.5.0; extra == "dev"
-Requires-Dist: trio-typing[mypy]==0.6.*; extra == "dev"
+Requires-Dist: trio-typing[mypy]<0.11,>=0.6; extra == "dev"
 Requires-Dist: types-cryptography==3.3.18; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx==7.*; extra == "docs"
 Requires-Dist: sphinx-rtd-theme==2.*; extra == "docs"
+Dynamic: license-file
 
 # firebolt-sdk
 [![Nightly code check](https://github.com/firebolt-db/firebolt-python-sdk/actions/workflows/nightly-v2.yml/badge.svg)](https://github.com/firebolt-db/firebolt-python-sdk/actions/workflows/nightly-v2.yml)

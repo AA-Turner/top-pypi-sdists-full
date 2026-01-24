@@ -1,7 +1,6 @@
 from contextlib import suppress
 from importlib import import_module
 from inspect import getmembers
-from types import ModuleType
 from typing import Any, Iterable
 
 from django.conf import settings
@@ -15,21 +14,24 @@ class ConfigRegistry:
     in the APIView of this module.
     """
 
-    def __init__(self, request: Request, *args, **kwargs):
-        self.request = request
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        self.config_members = []
+        self._load_configs()
 
-    def discover_configs(self) -> Iterable[ModuleType]:
+    def _load_configs(self):
         for app in settings.INSTALLED_APPS:
             with suppress(ModuleNotFoundError):
                 module = import_module(f"{app}.configs")
-                yield module
+                for member in getmembers(module, lambda member: hasattr(member, "_is_config")):
+                    self.config_members.append(member[1])
 
-    def get_configs(self) -> Iterable[tuple[str, Any]]:
-        for module in self.discover_configs():
-            for member in getmembers(module, lambda member: hasattr(member, "_is_config")):
-                if res := member[1](request=self.request):
-                    yield res
+    def get_configs(self, request: Request) -> Iterable[tuple[str, Any]]:
+        for member in self.config_members:
+            if res := member(request=request):
+                yield res
 
-    def get_config_dict(self) -> dict[str, Any]:
-        return dict(self.get_configs())
+    def get_config_dict(self, request: Request) -> dict[str, Any]:
+        return dict(self.get_configs(request))
+
+
+config_registry = ConfigRegistry()

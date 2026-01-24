@@ -9,7 +9,7 @@ from time import time, sleep
 from kafka.admin import (
     ACLFilter, ACLOperation, ACLPermissionType, ResourcePattern, ResourceType, ACL, ConfigResource, ConfigResourceType)
 from kafka.errors import (
-        BrokerResponseError, KafkaError, NoError, CoordinatorNotAvailableError, NonEmptyGroupError,
+        BrokerResponseError, NoError, CoordinatorNotAvailableError, NonEmptyGroupError,
         GroupIdNotFoundError, OffsetOutOfRangeError, UnknownTopicOrPartitionError)
 
 
@@ -231,7 +231,7 @@ def test_describe_consumer_group_exists(kafka_admin_client, kafka_consumer_facto
             else:
                 assert(len(consumer_group.members) == 1)
             for member in consumer_group.members:
-                    assert(member.member_metadata.subscription[0] == topic)
+                    assert(member.member_metadata.topics[0] == topic)
                     assert(member.member_assignment.assignment[0][0] == topic)
             consumer_groups.add(consumer_group.group)
         assert(sorted(list(consumer_groups)) == group_id_list)
@@ -383,6 +383,3 @@ def test_delete_records_with_errors(kafka_admin_client, topic, send_messages):
         kafka_admin_client.delete_records({p0: 1000})
     with pytest.raises(BrokerResponseError):
         kafka_admin_client.delete_records({p0: 1000, p1: 1000})
-
-
-

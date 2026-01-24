@@ -1,4 +1,5 @@
 import unittest
+import urllib.parse
 from datetime import datetime
 
 from dune_client.query import QueryBase, parse_query_object_or_id
@@ -13,21 +14,28 @@ class TestQueryBase(unittest.TestCase):
             QueryParameter.text_type("Text", "plain text"),
             QueryParameter.number_type("Number", 12),
             QueryParameter.date_type("Date", "2021-01-01 12:34:56"),
+            QueryParameter.enum_type("Multi", ["a1", "a2"]),
         ]
         self.query = QueryBase(name="", query_id=0, params=self.query_params)
 
     def test_base_url(self):
-        self.assertEqual(self.query.base_url(), "https://dune.com/queries/0")
+        assert self.query.base_url() == "https://dune.com/queries/0"
 
     def test_url(self):
-        self.assertEqual(
-            self.query.url(),
-            "https://dune.com/queries/0?Enum=option1&Text=plain+text&Number=12&Date=2021-01-01+12%3A34%3A56",
+        raw_params = (
+            'Enum=option1&Text=plain text&Number=12&Date=2021-01-01 12:34:56&Multi=["a1","a2"]'
         )
-        self.assertEqual(QueryBase(0, "", []).url(), "https://dune.com/queries/0")
+        expected_url = "?".join(
+            [
+                "https://dune.com/queries/0",
+                urllib.parse.quote_plus(raw_params, safe="=&?"),
+            ]
+        )
+        assert self.query.url() == expected_url
+        assert QueryBase(0, "", []).url() == "https://dune.com/queries/0"
 
     def test_parameters(self):
-        self.assertEqual(self.query.parameters(), self.query_params)
+        assert self.query.parameters() == self.query_params
 
     def test_request_format(self):
         expected_answer = {
@@ -36,29 +44,26 @@ class TestQueryBase(unittest.TestCase):
                 "Text": "plain text",
                 "Number": "12",
                 "Date": "2021-01-01 12:34:56",
+                "Multi": ["a1", "a2"],
             }
         }
-        self.assertEqual(self.query.request_format(), expected_answer)
+        assert self.query.request_format() == expected_answer
 
     def test_hash(self):
         # Same ID, different params
-        query1 = QueryBase(
-            query_id=0, params=[QueryParameter.text_type("Text", "word1")]
-        )
-        query2 = QueryBase(
-            query_id=0, params=[QueryParameter.text_type("Text", "word2")]
-        )
-        self.assertNotEqual(hash(query1), hash(query2))
+        query1 = QueryBase(query_id=0, params=[QueryParameter.text_type("Text", "word1")])
+        query2 = QueryBase(query_id=0, params=[QueryParameter.text_type("Text", "word2")])
+        assert hash(query1) != hash(query2)
 
         # Different ID, same
         query1 = QueryBase(query_id=0)
         query2 = QueryBase(query_id=1)
-        self.assertNotEqual(hash(query1), hash(query2))
+        assert hash(query1) != hash(query2)
 
         # Different ID different params
         query1 = QueryBase(query_id=0)
         query2 = QueryBase(query_id=1, params=[QueryParameter.number_type("num", 1)])
-        self.assertNotEqual(hash(query1), hash(query2))
+        assert hash(query1) != hash(query2)
 
     def test_parse_object_or_id(self):
         expected_params = {
@@ -66,22 +71,18 @@ class TestQueryBase(unittest.TestCase):
             "params.Enum": "option1",
             "params.Number": "12",
             "params.Text": "plain text",
+            "params.Multi": ["a1", "a2"],
         }
         expected_query_id = self.query.query_id
         # Query Object
-        self.assertEqual(
-            parse_query_object_or_id(self.query), (expected_params, expected_query_id)
-        )
+        assert parse_query_object_or_id(self.query) == (expected_params, expected_query_id)
         # Query ID (integer)
         expected_params = None
-        self.assertEqual(
-            parse_query_object_or_id(self.query.query_id),
-            (expected_params, expected_query_id),
-        )
+        assert parse_query_object_or_id(self.query.query_id) == (expected_params, expected_query_id)
         # Query ID (string)
-        self.assertEqual(
-            parse_query_object_or_id(str(self.query.query_id)),
-            (expected_params, expected_query_id),
+        assert parse_query_object_or_id(str(self.query.query_id)) == (
+            expected_params,
+            expected_query_id,
         )
 
 

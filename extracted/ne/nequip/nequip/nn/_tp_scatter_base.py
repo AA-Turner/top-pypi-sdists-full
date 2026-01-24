@@ -41,7 +41,7 @@ class TensorProductScatter(torch.nn.Module):
         persistent=False,
         private=False,
         unsupported_devices=["cpu"],
-        supported_compile_modes=["torchscript"],
+        supported_compile_modes=["torchscript", "aotinductor"],
     )
     @classmethod
     def enable_OpenEquivariance(cls, model):
@@ -52,10 +52,10 @@ class TensorProductScatter(torch.nn.Module):
 
         from ._tp_scatter_oeq import OpenEquivarianceTensorProductScatter
         from nequip.utils.dtype import torch_default_dtype
-        from nequip.utils.versions.torch_versions import _TORCH_GE_2_4
+        from nequip.utils.versions.torch_versions import _TORCH_GE_2_7
 
-        if not _TORCH_GE_2_4:
-            raise RuntimeError("OpenEquivariance requires PyTorch >= 2.4.")
+        if not _TORCH_GE_2_7:
+            raise RuntimeError("OpenEquivariance requires PyTorch >= 2.7.")
 
         _TRAIN_TIME_COMPILE: bool = model.is_compile_graph_model
 

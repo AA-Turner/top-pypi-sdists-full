@@ -7,6 +7,8 @@ from ..models.create_http_triggers_json_body_item_authentication_method import (
     CreateHttpTriggersJsonBodyItemAuthenticationMethod,
 )
 from ..models.create_http_triggers_json_body_item_http_method import CreateHttpTriggersJsonBodyItemHttpMethod
+from ..models.create_http_triggers_json_body_item_mode import CreateHttpTriggersJsonBodyItemMode
+from ..models.create_http_triggers_json_body_item_request_type import CreateHttpTriggersJsonBodyItemRequestType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -31,7 +33,6 @@ class CreateHttpTriggersJsonBodyItem:
         route_path (str):
         is_flow (bool):
         http_method (CreateHttpTriggersJsonBodyItemHttpMethod):
-        is_async (bool):
         authentication_method (CreateHttpTriggersJsonBodyItemAuthenticationMethod):
         is_static_website (bool):
         workspaced_route (Union[Unset, bool]):
@@ -39,12 +40,15 @@ class CreateHttpTriggersJsonBodyItem:
         description (Union[Unset, str]):
         static_asset_config (Union[Unset, CreateHttpTriggersJsonBodyItemStaticAssetConfig]):
         authentication_resource_path (Union[Unset, str]):
+        is_async (Union[Unset, bool]): Deprecated, use request_type instead
+        request_type (Union[Unset, CreateHttpTriggersJsonBodyItemRequestType]):
         wrap_body (Union[Unset, bool]):
+        mode (Union[Unset, CreateHttpTriggersJsonBodyItemMode]): job trigger mode
         raw_string (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, CreateHttpTriggersJsonBodyItemErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, CreateHttpTriggersJsonBodyItemRetry]):
+        retry (Union[Unset, CreateHttpTriggersJsonBodyItemRetry]): Retry configuration for failed module executions
     """
 
     path: str
@@ -52,7 +56,6 @@ class CreateHttpTriggersJsonBodyItem:
     route_path: str
     is_flow: bool
     http_method: CreateHttpTriggersJsonBodyItemHttpMethod
-    is_async: bool
     authentication_method: CreateHttpTriggersJsonBodyItemAuthenticationMethod
     is_static_website: bool
     workspaced_route: Union[Unset, bool] = UNSET
@@ -60,7 +63,10 @@ class CreateHttpTriggersJsonBodyItem:
     description: Union[Unset, str] = UNSET
     static_asset_config: Union[Unset, "CreateHttpTriggersJsonBodyItemStaticAssetConfig"] = UNSET
     authentication_resource_path: Union[Unset, str] = UNSET
+    is_async: Union[Unset, bool] = UNSET
+    request_type: Union[Unset, CreateHttpTriggersJsonBodyItemRequestType] = UNSET
     wrap_body: Union[Unset, bool] = UNSET
+    mode: Union[Unset, CreateHttpTriggersJsonBodyItemMode] = UNSET
     raw_string: Union[Unset, bool] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "CreateHttpTriggersJsonBodyItemErrorHandlerArgs"] = UNSET
@@ -74,7 +80,6 @@ class CreateHttpTriggersJsonBodyItem:
         is_flow = self.is_flow
         http_method = self.http_method.value
 
-        is_async = self.is_async
         authentication_method = self.authentication_method.value
 
         is_static_website = self.is_static_website
@@ -86,7 +91,16 @@ class CreateHttpTriggersJsonBodyItem:
             static_asset_config = self.static_asset_config.to_dict()
 
         authentication_resource_path = self.authentication_resource_path
+        is_async = self.is_async
+        request_type: Union[Unset, str] = UNSET
+        if not isinstance(self.request_type, Unset):
+            request_type = self.request_type.value
+
         wrap_body = self.wrap_body
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         raw_string = self.raw_string
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
@@ -106,7 +120,6 @@ class CreateHttpTriggersJsonBodyItem:
                 "route_path": route_path,
                 "is_flow": is_flow,
                 "http_method": http_method,
-                "is_async": is_async,
                 "authentication_method": authentication_method,
                 "is_static_website": is_static_website,
             }
@@ -121,8 +134,14 @@ class CreateHttpTriggersJsonBodyItem:
             field_dict["static_asset_config"] = static_asset_config
         if authentication_resource_path is not UNSET:
             field_dict["authentication_resource_path"] = authentication_resource_path
+        if is_async is not UNSET:
+            field_dict["is_async"] = is_async
+        if request_type is not UNSET:
+            field_dict["request_type"] = request_type
         if wrap_body is not UNSET:
             field_dict["wrap_body"] = wrap_body
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if raw_string is not UNSET:
             field_dict["raw_string"] = raw_string
         if error_handler_path is not UNSET:
@@ -155,8 +174,6 @@ class CreateHttpTriggersJsonBodyItem:
 
         http_method = CreateHttpTriggersJsonBodyItemHttpMethod(d.pop("http_method"))
 
-        is_async = d.pop("is_async")
-
         authentication_method = CreateHttpTriggersJsonBodyItemAuthenticationMethod(d.pop("authentication_method"))
 
         is_static_website = d.pop("is_static_website")
@@ -176,7 +193,23 @@ class CreateHttpTriggersJsonBodyItem:
 
         authentication_resource_path = d.pop("authentication_resource_path", UNSET)
 
+        is_async = d.pop("is_async", UNSET)
+
+        _request_type = d.pop("request_type", UNSET)
+        request_type: Union[Unset, CreateHttpTriggersJsonBodyItemRequestType]
+        if isinstance(_request_type, Unset):
+            request_type = UNSET
+        else:
+            request_type = CreateHttpTriggersJsonBodyItemRequestType(_request_type)
+
         wrap_body = d.pop("wrap_body", UNSET)
+
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, CreateHttpTriggersJsonBodyItemMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = CreateHttpTriggersJsonBodyItemMode(_mode)
 
         raw_string = d.pop("raw_string", UNSET)
 
@@ -202,7 +235,6 @@ class CreateHttpTriggersJsonBodyItem:
             route_path=route_path,
             is_flow=is_flow,
             http_method=http_method,
-            is_async=is_async,
             authentication_method=authentication_method,
             is_static_website=is_static_website,
             workspaced_route=workspaced_route,
@@ -210,7 +242,10 @@ class CreateHttpTriggersJsonBodyItem:
             description=description,
             static_asset_config=static_asset_config,
             authentication_resource_path=authentication_resource_path,
+            is_async=is_async,
+            request_type=request_type,
             wrap_body=wrap_body,
+            mode=mode,
             raw_string=raw_string,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,

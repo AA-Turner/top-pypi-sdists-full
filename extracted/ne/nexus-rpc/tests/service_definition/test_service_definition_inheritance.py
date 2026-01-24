@@ -3,9 +3,10 @@
 # See https://docs.python.org/3/howto/annotations.html#accessing-the-annotations-dict-of-an-object-in-python-3-9-and-older
 from __future__ import annotations
 
-from typing import Any, Optional, Type
+from typing import Any, Optional
 
 import pytest
+from typing_extensions import dataclass_transform
 
 import nexusrpc
 from nexusrpc import Operation, ServiceDefinition
@@ -14,8 +15,13 @@ from nexusrpc._util import get_service_definition
 # See https://docs.python.org/3/howto/annotations.html
 
 
-class _TestCase:
-    UserService: Type[Any]
+@dataclass_transform()
+class _BaseTestCase:
+    pass
+
+
+class _TestCase(_BaseTestCase):
+    UserService: type[Any]
     expected_operation_names: set[str]
     expected_error: Optional[str] = None
 
@@ -25,8 +31,9 @@ class TypeAnnotationsOnly(_TestCase):
     class A1:
         a: Operation[int, str]
 
+    # TODO(preview) why is the decorator omitted here?
     class A2(A1):
-        b: Operation[int, str]
+        b: Operation[int, str]  # type: ignore[reportUninitializedInstanceVariable]
 
     UserService = A2
     expected_operation_names = {"a", "b"}
@@ -37,6 +44,7 @@ class TypeAnnotationsWithValues(_TestCase):
     class A1:
         a: Operation[int, str] = Operation[int, str](name="a-name")
 
+    # TODO(preview) why is the decorator omitted here?
     class A2(A1):
         b: Operation[int, str] = Operation[int, str](name="b-name")
 
@@ -76,9 +84,7 @@ class InstanceWithoutTypeAnnotationIsAnError(_TestCase):
         a = Operation[int, str](name="a-name")
 
     UserService = A1
-    expected_error = (
-        "Operation 'a-name' has no input type, Operation 'a-name' has no output type"
-    )
+    expected_error = "Operation 'a-name' has no input type"
 
 
 class InvalidUseOfTypeAsValue(_TestCase):
@@ -111,7 +117,7 @@ class ChildClassSynthesizedWithTypeValues(_TestCase):
         ChildClassSynthesizedWithTypeValues,
     ],
 )
-def test_user_service_definition_inheritance(test_case: Type[_TestCase]):
+def test_user_service_definition_inheritance(test_case: type[_TestCase]):
     if test_case.expected_error:
         with pytest.raises(Exception, match=test_case.expected_error):
             nexusrpc.service(test_case.UserService)
@@ -119,7 +125,7 @@ def test_user_service_definition_inheritance(test_case: Type[_TestCase]):
 
     service_defn = get_service_definition(nexusrpc.service(test_case.UserService))
     assert isinstance(service_defn, ServiceDefinition)
-    assert set(service_defn.operations) == test_case.expected_operation_names
-    for op in service_defn.operations.values():
+    assert set(service_defn.operation_definitions) == test_case.expected_operation_names
+    for op in service_defn.operation_definitions.values():
         assert op.input_type is int
         assert op.output_type is str

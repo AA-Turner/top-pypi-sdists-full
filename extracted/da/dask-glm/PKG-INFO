@@ -1,14 +1,46 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dask-glm
-Version: 0.3.2
+Version: 0.4.0
 Summary: Generalized Linear Models with Dask
-Home-page: http://github.com/dask/dask-glm/
-Maintainer: Matthew Rocklin
-Maintainer-email: mrocklin@gmail.com
-License: BSD
-Keywords: dask,glm
-Provides-Extra: docs
+Maintainer-email: Matthew Rocklin <mrocklin@gmail.com>
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/dask/dask-glm
+Project-URL: Documentation, https://dask-glm.readthedocs.io
+Project-URL: Repository, https://github.com/dask/dask-glm
+Keywords: dask,glm,machine-learning
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Requires-Dist: cloudpickle>=1.0
+Requires-Dist: dask[array]>=2022.1.0
+Requires-Dist: distributed>=2022.1.0
+Requires-Dist: multipledispatch>=0.6.0
+Requires-Dist: numba>=0.59
+Requires-Dist: numpy>=1.21
+Requires-Dist: scipy>=1.7
+Requires-Dist: scikit-learn>=1.0
+Requires-Dist: sparse>=0.15
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-xdist>=3.0; extra == "dev"
+Requires-Dist: pre-commit>=3.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: jupyter; extra == "docs"
+Requires-Dist: nbsphinx; extra == "docs"
+Requires-Dist: notebook; extra == "docs"
+Requires-Dist: numpydoc; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Dynamic: license-file
 
 Generalized Linear Models in Dask
 =================================

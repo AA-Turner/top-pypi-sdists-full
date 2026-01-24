@@ -88,8 +88,8 @@ class ImportSourceModelSerializer(ModelSerializer):
                 parser_lookup = dict(id=parser_handler)
             try:
                 data["parser_handler"] = ParserHandler.objects.get(**parser_lookup)
-            except (ParserHandler.DoesNotExist, ValueError):
-                raise ValidationError({"parser_handler": "Invalid parser handler"})
+            except (ParserHandler.DoesNotExist, ValueError) as e:
+                raise ValidationError({"parser_handler": "Invalid parser handler"}) from e
         return data
 
     def create(self, validated_data):

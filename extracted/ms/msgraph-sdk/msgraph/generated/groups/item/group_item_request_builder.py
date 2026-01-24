@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from .members_with_license_errors.members_with_license_errors_request_builder import MembersWithLicenseErrorsRequestBuilder
     from .member_of.member_of_request_builder import MemberOfRequestBuilder
     from .onenote.onenote_request_builder import OnenoteRequestBuilder
+    from .on_premises_sync_behavior.on_premises_sync_behavior_request_builder import OnPremisesSyncBehaviorRequestBuilder
     from .owners.owners_request_builder import OwnersRequestBuilder
     from .permission_grants.permission_grants_request_builder import PermissionGrantsRequestBuilder
     from .photo.photo_request_builder import PhotoRequestBuilder
@@ -75,7 +76,7 @@ class GroupItemRequestBuilder(BaseRequestBuilder):
     
     async def delete(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> None:
         """
-        Delete a group. When deleted, Microsoft 365 groups are moved to a temporary container and can be restored within 30 days. After that time, they're permanently deleted. This isn't applicable to Security groups and Distribution groups which are permanently deleted immediately. To learn more, see deletedItems.
+        Delete a group. When deleted, both Microsoft 365 and security groups are moved to a temporary container and can be restored within 30 days. After that time, they're permanently deleted. This doesn't apply to Distribution groups which are permanently deleted immediately. To learn more, see deletedItems.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: None
         Find more info here: https://learn.microsoft.com/graph/api/group-delete?view=graph-rest-1.0
@@ -139,7 +140,7 @@ class GroupItemRequestBuilder(BaseRequestBuilder):
     
     def to_delete_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
-        Delete a group. When deleted, Microsoft 365 groups are moved to a temporary container and can be restored within 30 days. After that time, they're permanently deleted. This isn't applicable to Security groups and Distribution groups which are permanently deleted immediately. To learn more, see deletedItems.
+        Delete a group. When deleted, both Microsoft 365 and security groups are moved to a temporary container and can be restored within 30 days. After that time, they're permanently deleted. This doesn't apply to Distribution groups which are permanently deleted immediately. To learn more, see deletedItems.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """
@@ -372,6 +373,15 @@ class GroupItemRequestBuilder(BaseRequestBuilder):
         from .members_with_license_errors.members_with_license_errors_request_builder import MembersWithLicenseErrorsRequestBuilder
 
         return MembersWithLicenseErrorsRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def on_premises_sync_behavior(self) -> OnPremisesSyncBehaviorRequestBuilder:
+        """
+        Provides operations to manage the onPremisesSyncBehavior property of the microsoft.graph.group entity.
+        """
+        from .on_premises_sync_behavior.on_premises_sync_behavior_request_builder import OnPremisesSyncBehaviorRequestBuilder
+
+        return OnPremisesSyncBehaviorRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def onenote(self) -> OnenoteRequestBuilder:

@@ -20,12 +20,14 @@ sdk = AnyscaleSDK()
 
 def _build_model_to_module_mapping() -> Dict[str, str]:
     """Build mapping from model name (lowercase) to module filename.
-    
+
     This dynamically discovers the mapping from ALL_MODULES configuration,
     eliminating the need for hardcoded constants.
     """
     # Import here to avoid circular imports
-    from anyscale._private.docgen.__main__ import ALL_MODULES
+    from anyscale._private.docgen.__main__ import (  # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular import at module load")
+        ALL_MODULES,
+    )
 
     model_name_to_file = {}
 
@@ -42,8 +44,14 @@ def _build_model_to_module_mapping() -> Dict[str, str]:
     return model_name_to_file
 
 
-def _transform_legacy_links(text: str) -> str:
-    """Transform legacy model links to include proper cross-module references."""
+def _transform_legacy_links(text: str, for_legacy_file: bool = True) -> str:
+    """Transform legacy model links to include proper cross-module references.
+
+    Args:
+        text: The text containing links to transform
+        for_legacy_file: If True, generate links for legacy files (in legacy/ subfolder).
+                        If False, generate links for main files with -legacy anchors.
+    """
     # Build the mapping dynamically
     model_mapping = _build_model_to_module_mapping()
 
@@ -51,20 +59,34 @@ def _transform_legacy_links(text: str) -> str:
         model_name = match.group(1)
         if model_name in model_mapping:
             module_file = model_mapping[model_name]
+            if for_legacy_file:
+                # In legacy files, link to other legacy files without -legacy suffix
+                return f"({module_file}#{model_name})"
+            # In main files, link with -legacy suffix
             return f"({module_file}#{model_name}-legacy)"
-        else:
-            # Fallback for unmapped models (stay in same file)
-            return f"(#{model_name}-legacy)"
+        # Fallback for unmapped models (stay in same file)
+        if for_legacy_file:
+            return f"(#{model_name})"
+        return f"(#{model_name}-legacy)"
 
     # Transform links from (#modelname) to proper cross-module references
     text = re.sub(r"\(#([a-z]+)\)", replace_link, text)
 
-    # Transform workspace command references to point to workspaces.md
-    text = re.sub(
-        r"\(#anyscale-workspace_v2-([a-z]+)\)",
-        r"(workspaces.md#anyscale-workspace_v2-\1)",
-        text,
-    )
+    # Transform workspace command references
+    if for_legacy_file:
+        # In legacy files, point to legacy workspace file
+        text = re.sub(
+            r"\(#anyscale-workspace_v2-([a-z]+)\)",
+            r"(workspaces.md#anyscale-workspace_v2-\1)",
+            text,
+        )
+    else:
+        # In main files, point to main workspace file
+        text = re.sub(
+            r"\(#anyscale-workspace_v2-([a-z]+)\)",
+            r"(workspaces.md#anyscale-workspace_v2-\1)",
+            text,
+        )
 
     return text
 
@@ -86,10 +108,12 @@ class LegacySDK:
             if line.startswith("### "):
                 name = line[4:]
             else:
-                # First transform ./models.md links, then transform local links
-                line = re.sub(r"\(./models\.md#([a-z]+)\)", r"(#\1-legacy)", line)
-                line = _transform_legacy_links(line)
-                docstring += line + "\n"
+                # Transform ./models.md links and local links
+                transformed = _transform_legacy_links(
+                    re.sub(r"\(./models\.md#([a-z]+)\)", r"(#\1-legacy)", line),
+                    for_legacy_file=False,
+                )
+                docstring += transformed + "\n"
 
         return cls(name=name, docstring=docstring.strip())
 
@@ -111,7 +135,7 @@ class LegacyModel:
             if line.startswith("## "):
                 name = line[3:]
             else:
-                docstring += _transform_legacy_links(line) + "\n"
+                docstring += _transform_legacy_links(line, for_legacy_file=False) + "\n"
 
         return cls(name=name, docstring=docstring.strip())
 

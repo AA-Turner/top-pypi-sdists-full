@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from ..exceptions import ExecutionError
 
@@ -9,14 +11,14 @@ if TYPE_CHECKING:
 
 class EnvFileCache:
     _cache: dict[str, dict[str, str]] = {}
-    _io: "PoeIO"
+    _io: PoeIO
     _project_dir: Path
 
-    def __init__(self, project_dir: Path, io: "PoeIO"):
+    def __init__(self, project_dir: Path, io: PoeIO):
         self._project_dir = project_dir
         self._io = io
 
-    def get(self, envfile: Union[str, Path]) -> dict[str, str]:
+    def get(self, envfile: str | Path, *, optional: bool = False) -> dict[str, str]:
         """
         Parse, cache, and return the environment variables from the envfile at the
         given path. The path is used as the cache key.
@@ -42,6 +44,13 @@ class EnvFileCache:
                     f"Syntax error in referenced envfile: {envfile_path_str!r};"
                     f" {message}"
                 ) from error
+
+        elif optional:
+            self._io.print_debug(
+                f" - Optional envfile not found at {envfile_path_str!r}"
+            )
+            # Return without caching
+            return result
 
         else:
             self._io.print_warning(

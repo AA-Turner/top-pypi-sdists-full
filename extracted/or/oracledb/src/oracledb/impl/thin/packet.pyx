@@ -767,12 +767,12 @@ cdef class ReadBuffer(Buffer):
 
     async def wait_for_response_async(self):
         """
-        Wait for packets to arrive in response to the request that was sent to
-        the database (using asyncio). This method will not return until the
+        Wait for packets to arrive in response to the request that was sent
+        to the database (using asyncio). This method will not return until the
         complete response has been received. This requires the "end of
-        response" capability available in Oracle Database 23ai and higher. This
-        method also assumes that the current list of saved packets does not
-        contain a full response.
+        response" capability available in Oracle Database version 23, and
+        later. This method also assumes that the current list of saved packets
+        does not contain a full response.
         """
         try:
             self._check_request_boundary = True
@@ -941,8 +941,8 @@ cdef class WriteBuffer(Buffer):
         self.write_uint64be(0)              # unused
         self.write_uint64be(0)              # unused
 
-    cdef object write_oson(self, value, ssize_t max_fname_size,
-                           bint write_length=True):
+    cdef int write_oson(self, value, ssize_t max_fname_size,
+                        bint write_length=True) except -1:
         """
         Encodes the given value to OSON and then writes that to the buffer.
         it.
@@ -958,7 +958,7 @@ cdef class WriteBuffer(Buffer):
             self._seq_num = 1
         self.write_uint8(self._seq_num)
 
-    cdef object write_vector(self, value):
+    cdef int write_vector(self, value) except -1:
         """
         Encodes the given value to VECTOR and then writes that to the buffer.
         """

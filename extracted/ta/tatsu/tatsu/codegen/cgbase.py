@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ..exceptions import CodegenError
 from ..objectmodel import Node
-from ..rendering import Renderer, RenderingFormatter, render
+from .rendering import Renderer, RenderingFormatter, render
 
 __all__ = [
     'DelegatingRenderingFormatter',
@@ -47,7 +47,7 @@ class ModelRenderer(Renderer):
 
     def __getattr__(self, name):
         try:
-            super().__getattr__(name)
+            super().__getattribute__(name)
         except AttributeError:
             if name.startswith('_'):
                 raise

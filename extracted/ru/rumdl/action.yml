@@ -1,0 +1,49 @@
+name: "rumdl-action"
+description: "Lint Markdown files with rumdl"
+author: "rvben"
+
+branding:
+  icon: "check-circle"
+  color: "orange"
+
+inputs:
+  version:
+    description: "Version of rumdl to install (default: latest)"
+    required: false
+    default: ""
+  path:
+    description: "Path to lint (default: workspace root)"
+    required: false
+    default: ""
+  config:
+    description: "Path to config file"
+    required: false
+    default: ""
+  report-type:
+    description: |
+      How this action should report results.
+      Possible values: logs (default), annotations
+    required: false
+    default: "logs"
+  fail-on-error:
+    description: "Fail the workflow if violations are found (default: true)"
+    required: false
+    default: "true"
+  output-file:
+    description: "Write results to this file path (optional)"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Lint Markdown files with rumdl
+      shell: bash
+      run: $GITHUB_ACTION_PATH/scripts/rumdl-action.sh
+      env:
+        GHA_RUMDL_VERSION: ${{ inputs.version }}
+        GHA_RUMDL_PATH: ${{ inputs.path }}
+        GHA_RUMDL_CONFIG: ${{ inputs.config }}
+        GHA_RUMDL_REPORT_TYPE: ${{ inputs.report-type }}
+        GHA_RUMDL_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        GHA_RUMDL_OUTPUT_FILE: ${{ inputs.output-file }}

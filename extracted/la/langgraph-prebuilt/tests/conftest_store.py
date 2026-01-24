@@ -1,12 +1,9 @@
-import sys
 from contextlib import asynccontextmanager, contextmanager
 from uuid import uuid4
 
-import pytest
-from psycopg import AsyncConnection, Connection
-
 from langgraph.store.memory import InMemoryStore
 from langgraph.store.postgres import AsyncPostgresStore, PostgresStore
+from psycopg import AsyncConnection, Connection
 
 DEFAULT_POSTGRES_URI = "postgres://postgres:postgres@localhost:5442/"
 
@@ -75,8 +72,6 @@ def _store_postgres_pool():
 
 @asynccontextmanager
 async def _store_postgres_aio():
-    if sys.version_info < (3, 10):
-        pytest.skip("Async Postgres tests require Python 3.10+")
     database = f"test_{uuid4().hex[:16]}"
     async with await AsyncConnection.connect(
         DEFAULT_POSTGRES_URI, autocommit=True
@@ -97,8 +92,6 @@ async def _store_postgres_aio():
 
 @asynccontextmanager
 async def _store_postgres_aio_pipe():
-    if sys.version_info < (3, 10):
-        pytest.skip("Async Postgres tests require Python 3.10+")
     database = f"test_{uuid4().hex[:16]}"
     async with await AsyncConnection.connect(
         DEFAULT_POSTGRES_URI, autocommit=True
@@ -122,8 +115,6 @@ async def _store_postgres_aio_pipe():
 
 @asynccontextmanager
 async def _store_postgres_aio_pool():
-    if sys.version_info < (3, 10):
-        pytest.skip("Async Postgres tests require Python 3.10+")
     database = f"test_{uuid4().hex[:16]}"
     async with await AsyncConnection.connect(
         DEFAULT_POSTGRES_URI, autocommit=True

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inline-snapshot
-Version: 0.29.0
+Version: 0.31.1
 Summary: golden master/snapshot/approval testing library which puts the values right into your source code
 Project-URL: Changelog, https://15r10nk.github.io/inline-snapshot/latest/changelog/
 Project-URL: Discussions, https://github.com/15r10nk/inline-snapshots/discussions
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Testing
@@ -53,6 +54,7 @@ Description-Content-Type: text/markdown
 [![PyPI - Downloads](https://img.shields.io/pypi/dw/inline-snapshot)](https://pypacktrends.com/?packages=inline-snapshot&time_range=2years)
 [![coverage](https://img.shields.io/badge/coverage-100%25-blue)](https://15r10nk.github.io/inline-snapshot/latest/contributing/#coverage)
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/15r10nk)](https://github.com/sponsors/15r10nk)
+[![Discord](https://img.shields.io/discord/1435889192143159346)](https://discord.gg/6vjeQuZ4)
 
 <!-- -8<- [end:Header] -->
 
@@ -73,7 +75,7 @@ pip install inline-snapshot
     assert 1 + 1 == 3
     ```
 
-    You can learn [here](fix_assert.md) more about this feature.
+    You can learn [here](https://15r10nk.github.io/inline-snapshot/latest/fix_assert/) more about this feature.
 
 
 - **Intuitive Semantics:** `snapshot(x)` mirrors `x` for easy understanding.
@@ -89,7 +91,7 @@ pip install inline-snapshot
 - **Customizable:** code generation can be customized with [@customize_repr](https://15r10nk.github.io/inline-snapshot/latest/customize_repr)
 - **Nested Snapshot Support:** snapshots can contain [other snapshots](https://15r10nk.github.io/inline-snapshot/latest/eq_snapshot/#inner-snapshots)
 - **Fuzzy Matching:** Incorporate [dirty-equals](https://15r10nk.github.io/inline-snapshot/latest/eq_snapshot/#dirty-equals) for flexible comparisons within snapshots.
-- **Dynamic Snapshot Content:** snashots can contain [non-constant values](https://15r10nk.github.io/inline-snapshot/latest/eq_snapshot/#is)
+- **Dynamic Snapshot Content:** snapshots can contain [non-constant values](https://15r10nk.github.io/inline-snapshot/latest/eq_snapshot/#is)
 - **Comprehensive Documentation:** Access detailed [documentation](https://15r10nk.github.io/inline-snapshot/latest) for complete guidance.
 
 

@@ -1,17 +1,16 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: jedi-language-server
-Version: 0.45.1
+Version: 0.46.0
 Summary: A language server for Jedi!
 License: MIT
+License-File: LICENSE
 Keywords: python,completion,refactoring,lsp,language-server-protocol
 Author: Sam Roeca
 Author-email: samuel.roeca@gmail.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.9
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -23,15 +22,15 @@ Classifier: Topic :: Text Editors :: Integrated Development Environments (IDE)
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Dist: cattrs (>=23.1.2)
-Requires-Dist: docstring-to-markdown (==0.*)
-Requires-Dist: jedi (>=0.19.2,<0.20.0)
+Requires-Dist: docstring-to-markdown (<1)
+Requires-Dist: jedi (>=0.19.2,<0.20)
 Requires-Dist: lsprotocol (>=2023.0.1)
-Requires-Dist: pygls (>=1.1.0,<2.0.0)
-Requires-Dist: typing-extensions (>=4.5.0,<5.0.0) ; python_version < "3.10"
-Project-URL: Changelog, https://github.com/pappasam/jedi-language-server/blob/main/CHANGELOG.md
+Requires-Dist: pygls (>=2.0.0,<3)
+Requires-Dist: typing-extensions (>=4.5.0,<5) ; python_version < "3.10"
 Project-URL: Homepage, https://github.com/pappasam/jedi-language-server
-Project-URL: Issues, https://github.com/pappasam/jedi-language-server/issues
-Project-URL: Repository, https://github.com/pappasam/jedi-language-server
+Project-URL: changelog, https://github.com/pappasam/jedi-language-server/blob/main/CHANGELOG.md
+Project-URL: issues, https://github.com/pappasam/jedi-language-server/issues
+Project-URL: source, https://github.com/pappasam/jedi-language-server
 Description-Content-Type: text/markdown
 
 # Jedi Language Server
@@ -75,8 +74,10 @@ Note: this list is non-exhaustive. If you know of a great choice not included in
 Users may choose one of the following options:
 
 - [lsp-jedi](https://github.com/fredcamps/lsp-jedi).
-- [eglot](https://github.com/joaotavora/eglot)
-
+- [eglot](https://github.com/joaotavora/eglot).
+- [lsp-bridge](https://github.com/manateelazycat/lsp-bridge).
+- [lspce](https://github.com/zbelial/lspce).
+  
 Note: this list is non-exhaustive. If you know of a great choice not included in this list, please submit a PR!
 
 ### Visual Studio Code (vscode)

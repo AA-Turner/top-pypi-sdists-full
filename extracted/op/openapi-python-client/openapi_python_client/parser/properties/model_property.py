@@ -140,8 +140,8 @@ class ModelProperty(PropertyProtocol):
         """Constructs a self import statement from this ModelProperty's attributes"""
         return f"models.{self.class_info.module_name} import {self.class_info.name}"
 
-    def get_base_type_string(self, *, quoted: bool = False) -> str:
-        return f'"{self.class_info.name}"' if quoted else self.class_info.name
+    def get_base_type_string(self) -> str:
+        return self.class_info.name
 
     def get_imports(self, *, prefix: str) -> set[str]:
         """
@@ -188,8 +188,6 @@ class ModelProperty(PropertyProtocol):
         self,
         no_optional: bool = False,
         json: bool = False,
-        *,
-        quoted: bool = False,
     ) -> str:
         """
         Get a string representation of type that should be used when declaring this property
@@ -203,13 +201,9 @@ class ModelProperty(PropertyProtocol):
         else:
             type_string = self.get_base_type_string()
 
-        if quoted:
-            if type_string == self.class_info.name:
-                type_string = f"'{type_string}'"
-
         if no_optional or self.required:
             return type_string
-        return f"Union[Unset, {type_string}]"
+        return f"{type_string} | Unset"
 
 
 from .property import Property  # noqa: E402
@@ -297,6 +291,11 @@ def _process_properties(  # noqa: PLR0912, PLR0911
         else:
             unprocessed_props.extend(sub_prop.properties.items() if sub_prop.properties else [])
             required_set.update(sub_prop.required or [])
+
+    # Update properties that are marked as required in the schema
+    for prop_name in required_set:
+        if prop_name in properties and not properties[prop_name].required:
+            properties[prop_name] = evolve(properties[prop_name], required=True)
 
     for key, value in unprocessed_props:
         prop_required = key in required_set

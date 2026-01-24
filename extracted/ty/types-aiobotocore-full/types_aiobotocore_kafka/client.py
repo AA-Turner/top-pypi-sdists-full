@@ -3,7 +3,7 @@ Type annotations for kafka service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -29,6 +30,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    DescribeTopicPartitionsPaginator,
     ListClientVpcConnectionsPaginator,
     ListClusterOperationsPaginator,
     ListClusterOperationsV2Paginator,
@@ -40,6 +42,7 @@ from .paginator import (
     ListNodesPaginator,
     ListReplicatorsPaginator,
     ListScramSecretsPaginator,
+    ListTopicsPaginator,
     ListVpcConnectionsPaginator,
 )
 from .type_defs import (
@@ -80,6 +83,10 @@ from .type_defs import (
     DescribeConfigurationRevisionResponseTypeDef,
     DescribeReplicatorRequestTypeDef,
     DescribeReplicatorResponseTypeDef,
+    DescribeTopicPartitionsRequestTypeDef,
+    DescribeTopicPartitionsResponseTypeDef,
+    DescribeTopicRequestTypeDef,
+    DescribeTopicResponseTypeDef,
     DescribeVpcConnectionRequestTypeDef,
     DescribeVpcConnectionResponseTypeDef,
     EmptyResponseMetadataTypeDef,
@@ -113,6 +120,8 @@ from .type_defs import (
     ListScramSecretsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListTopicsRequestTypeDef,
+    ListTopicsResponseTypeDef,
     ListVpcConnectionsRequestTypeDef,
     ListVpcConnectionsResponseTypeDef,
     PutClusterPolicyRequestTypeDef,
@@ -138,6 +147,8 @@ from .type_defs import (
     UpdateConnectivityResponseTypeDef,
     UpdateMonitoringRequestTypeDef,
     UpdateMonitoringResponseTypeDef,
+    UpdateRebalancingRequestTypeDef,
+    UpdateRebalancingResponseTypeDef,
     UpdateReplicationInfoRequestTypeDef,
     UpdateReplicationInfoResponseTypeDef,
     UpdateSecurityRequestTypeDef,
@@ -146,12 +157,6 @@ from .type_defs import (
     UpdateStorageResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -162,15 +167,15 @@ __all__ = ("KafkaClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
 
 
 class KafkaClient(AioBaseClient):
@@ -281,7 +286,7 @@ class KafkaClient(AioBaseClient):
 
     async def delete_cluster_policy(
         self, **kwargs: Unpack[DeleteClusterPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the MSK cluster policy specified by the Amazon Resource Name (ARN) in
         the request.
@@ -390,6 +395,26 @@ class KafkaClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/describe_replicator.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#describe_replicator)
+        """
+
+    async def describe_topic(
+        self, **kwargs: Unpack[DescribeTopicRequestTypeDef]
+    ) -> DescribeTopicResponseTypeDef:
+        """
+        Returns topic details of this topic on a MSK cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/describe_topic.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#describe_topic)
+        """
+
+    async def describe_topic_partitions(
+        self, **kwargs: Unpack[DescribeTopicPartitionsRequestTypeDef]
+    ) -> DescribeTopicPartitionsResponseTypeDef:
+        """
+        Returns partition details of this topic on a MSK cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/describe_topic_partitions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#describe_topic_partitions)
         """
 
     async def describe_vpc_connection(
@@ -565,6 +590,16 @@ class KafkaClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#list_client_vpc_connections)
         """
 
+    async def list_topics(
+        self, **kwargs: Unpack[ListTopicsRequestTypeDef]
+    ) -> ListTopicsResponseTypeDef:
+        """
+        List topics in a MSK cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/list_topics.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#list_topics)
+        """
+
     async def list_vpc_connections(
         self, **kwargs: Unpack[ListVpcConnectionsRequestTypeDef]
     ) -> ListVpcConnectionsResponseTypeDef:
@@ -577,7 +612,7 @@ class KafkaClient(AioBaseClient):
 
     async def reject_client_vpc_connection(
         self, **kwargs: Unpack[RejectClientVpcConnectionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Returns empty response.
 
@@ -707,6 +742,17 @@ class KafkaClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#update_monitoring)
         """
 
+    async def update_rebalancing(
+        self, **kwargs: Unpack[UpdateRebalancingRequestTypeDef]
+    ) -> UpdateRebalancingResponseTypeDef:
+        """
+        Use this resource to update the intelligent rebalancing status of an Amazon MSK
+        Provisioned cluster with Express brokers.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/update_rebalancing.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#update_rebalancing)
+        """
+
     async def update_replication_info(
         self, **kwargs: Unpack[UpdateReplicationInfoRequestTypeDef]
     ) -> UpdateReplicationInfoResponseTypeDef:
@@ -735,6 +781,17 @@ class KafkaClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/update_storage.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#update_storage)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_topic_partitions"]
+    ) -> DescribeTopicPartitionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]
@@ -860,6 +917,17 @@ class KafkaClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_topics"]
+    ) -> ListTopicsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_vpc_connections"]
     ) -> ListVpcConnectionsPaginator:
         """
@@ -877,7 +945,7 @@ class KafkaClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

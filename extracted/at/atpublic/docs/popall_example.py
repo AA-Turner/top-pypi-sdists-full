@@ -1,4 +1,4 @@
-# `import example`
+# example.py
 from public import populate_all
 
 def foo():

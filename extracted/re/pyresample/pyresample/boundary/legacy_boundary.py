@@ -45,8 +45,9 @@ class Boundary(object):
     def contour_poly(self):
         """Get the Spherical polygon corresponding to the Boundary."""
         if self._contour_poly is None:
+            # force 64-bit for more accuracy
             self._contour_poly = SphPolygon(
-                np.deg2rad(np.vstack(self.contour()).T))
+                np.deg2rad(np.vstack(self.contour()).T, dtype=np.float64))
         return self._contour_poly
 
     def draw(self, mapper, options, **more_options):
@@ -66,7 +67,7 @@ class AreaBoundary(Boundary):
         if len(sides) != 4:
             raise ValueError("AreaBoundary expects 4 sides.")
         # Retrieve sides
-        self.sides_lons, self.sides_lats = zip(*sides)
+        self.sides_lons, self.sides_lats = zip(*sides, strict=True)
         self.sides_lons = list(self.sides_lons)
         self.sides_lats = list(self.sides_lats)
 
@@ -81,7 +82,7 @@ class AreaBoundary(Boundary):
                  np.array([vmn, ..., vm1, vm0]),
                  np.array([vm0, ... ,v10, v00])]
         """
-        boundary = cls(*zip(lon_sides, lat_sides))
+        boundary = cls(*zip(lon_sides, lat_sides, strict=True))
         return boundary
 
     def contour(self):
@@ -125,7 +126,7 @@ class AreaDefBoundary(AreaBoundary):
                       "Use the Swath/AreaDefinition 'boundary' method instead!.",
                       PendingDeprecationWarning, stacklevel=2)
         AreaBoundary.__init__(self,
-                              *zip(lons, lats))
+                              *zip(lons, lats, strict=True))
 
         if frequency != 1:
             self.decimate(frequency)

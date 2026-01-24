@@ -8,6 +8,7 @@ use bytes::{Bytes, BytesMut};
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::{PyIndexError, PyValueError};
 use pyo3::prelude::*;
+use pyo3::pybacked::PyBackedBytes;
 use pyo3::types::{PyDict, PySlice, PyString, PyTuple};
 use pyo3::{IntoPyObjectExt, ffi};
 
@@ -34,8 +35,9 @@ use crate::python_bytes_methods::PythonBytesMethods;
 /// data view without copies. In Python, this `PyBytes` object can be passed to Python `bytes` or
 /// `memoryview` constructors, `numpy.frombuffer`, or any other function that supports buffer
 /// protocol input.
-#[pyclass(name = "Bytes", subclass, frozen, sequence, weakref)]
+#[pyclass(name = "Bytes", subclass, frozen, immutable_type, sequence, weakref)]
 #[derive(Hash, PartialEq, PartialOrd, Eq, Ord)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct PyBytes(Bytes);
 
 impl PythonBytesMethods for PyBytes {}
@@ -439,8 +441,8 @@ impl PyBytes {
     /// (string, /)
     /// ```
     #[staticmethod]
-    fn fromhex(s: &str) -> PyResult<Self> {
-        Self::py_fromhex(s)
+    fn fromhex(string: &str) -> PyResult<Self> {
+        Self::py_fromhex(string)
     }
 
     /// Return True if B is a titlecased string and there is at least one
@@ -525,28 +527,28 @@ impl PyBytes {
         self.py_expandtabs(tabsize)
     }
 
-    #[pyo3(signature = (bin=None))]
-    fn strip(&self, bin: Option<Self>) -> Self {
-        if let Some(bin) = bin {
-            self.py_strip(Some(bin.as_ref()))
+    #[pyo3(signature = (chars=None, /))]
+    fn strip(&self, chars: Option<Self>) -> Self {
+        if let Some(chars) = chars {
+            self.py_strip(Some(chars.as_ref()))
         } else {
             self.py_strip(None)
         }
     }
 
-    #[pyo3(signature = (bin=None))]
-    fn lstrip(&self, bin: Option<Self>) -> Self {
-        if let Some(bin) = bin {
-            self.py_lstrip(Some(bin.as_ref()))
+    #[pyo3(signature = (chars=None, /))]
+    fn lstrip(&self, chars: Option<Self>) -> Self {
+        if let Some(chars) = chars {
+            self.py_lstrip(Some(chars.as_ref()))
         } else {
             self.py_lstrip(None)
         }
     }
 
-    #[pyo3(signature = (bin=None))]
-    fn rstrip(&self, bin: Option<Self>) -> Self {
-        if let Some(bin) = bin {
-            self.py_rstrip(Some(bin.as_ref()))
+    #[pyo3(signature = (chars=None, /))]
+    fn rstrip(&self, chars: Option<Self>) -> Self {
+        if let Some(chars) = chars {
+            self.py_rstrip(Some(chars.as_ref()))
         } else {
             self.py_rstrip(None)
         }
@@ -554,11 +556,20 @@ impl PyBytes {
     // </python-bytes-methods>
 }
 
-impl<'py> FromPyObject<'py> for PyBytes {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let buffer = ob.extract::<PyBytesWrapper>()?;
-        let bytes = Bytes::from_owner(buffer);
-        Ok(Self(bytes))
+impl<'py> FromPyObject<'_, 'py> for PyBytes {
+    type Error = pyo3::PyErr;
+
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if ob.is_exact_instance_of::<pyo3::types::PyBytes>() {
+            let pbb = ob.extract::<PyBackedBytes>()?;
+            Ok(Bytes::from_owner(pbb).into())
+        } else if let Ok(pb) = ob.cast_exact::<Self>() {
+            Ok(Self(pb.get().0.clone())) // supa fast clone the inner bytes::Bytes
+        } else {
+            let buffer = ob.extract::<PyBytesWrapper>()?;
+            let bytes = Bytes::from_owner(buffer);
+            Ok(Self(bytes))
+        }
     }
 }
 
@@ -600,8 +611,9 @@ fn validate_buffer(buf: &PyBuffer<u8>) -> PyResult<()> {
     Ok(())
 }
 
-impl<'py> FromPyObject<'py> for PyBytesWrapper {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'py> FromPyObject<'_, 'py> for PyBytesWrapper {
+    type Error = pyo3::PyErr;
+    fn extract(ob: pyo3::Borrowed<'_, 'py, pyo3::PyAny>) -> PyResult<Self> {
         if ob.is_instance_of::<pyo3::types::PyBytes>() {
             let buffer = ob.extract::<PyBuffer<u8>>()?;
             Ok(Self(buffer))

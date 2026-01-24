@@ -534,19 +534,20 @@ def _run_transform(
 ):
     output: dict[str, list[dict]] = {}
     output_schemas = {}
+    logger = logging.getLogger()
     mapper = PluginMapper(
         plugin_config={
             "stream_maps": stream_maps,
             "stream_map_config": stream_map_config,
         },
-        logger=logging.getLogger(),
+        logger=logger,
     )
     mapper.register_raw_streams_from_catalog(sample_catalog_obj)
 
     for stream_name, stream in sample_stream.items():
         for stream_map in mapper.stream_maps[stream_name]:
             if isinstance(stream_map, RemoveRecordTransform):
-                logging.info("Skipping ignored stream '%s'", stream_name)
+                logger.info("Skipping ignored stream '%s'", stream_name)
                 continue
             output_schemas[stream_map.stream_alias] = stream_map.transformed_schema
             output[stream_map.stream_alias] = []
@@ -977,10 +978,16 @@ class MappedTap(Tap):
             id="json_dumps",
         ),
         pytest.param(
-            {"mystream": {"__filter__": "bool(count < 20)"}},
+            {"mystream": {"__filter__": "count < 20"}},
             {"flattening_enabled": False, "flattening_max_depth": 0},
             "filter_records.jsonl",
             id="filter_records",
+        ),
+        pytest.param(
+            {"mystream": {"__filter__": "bool(count < 20)"}},
+            {"flattening_enabled": False, "flattening_max_depth": 0},
+            "filter_records_cast_to_bool.jsonl",
+            id="filter_records_cast_to_bool",
         ),
         pytest.param(
             {"mystream": "__NULL__"},

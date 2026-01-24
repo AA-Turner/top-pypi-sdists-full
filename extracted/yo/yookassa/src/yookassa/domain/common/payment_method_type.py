@@ -4,26 +4,26 @@ class PaymentMethodType:
     """
     Константы, представляющие значения payment_method_data. Возможные значения:
 
-    * yookassa.domain.common.PaymentMethodType.YOO_MONEY
-    * yookassa.domain.common.PaymentMethodType.BANK_CARD
-    * yookassa.domain.common.PaymentMethodType.SBERBANK
-    * yookassa.domain.common.PaymentMethodType.CASH
-    * yookassa.domain.common.PaymentMethodType.MOBILE_BALANCE
-    * yookassa.domain.common.PaymentMethodType.PSB
-    * yookassa.domain.common.PaymentMethodType.QIWI
-    * yookassa.domain.common.PaymentMethodType.WEBMONEY
-    * yookassa.domain.common.PaymentMethodType.ALFABANK
-    * yookassa.domain.common.PaymentMethodType.APPLEPAY
-    * yookassa.domain.common.PaymentMethodType.GOOGLE_PAY
-    * yookassa.domain.common.PaymentMethodType.INSTALMENTS
-    * yookassa.domain.common.PaymentMethodType.B2B_SBERBANK
-    * yookassa.domain.common.PaymentMethodType.TINKOFF_BANK
-    * yookassa.domain.common.PaymentMethodType.WECHAT
-    * yookassa.domain.common.PaymentMethodType.SBP
-    * yookassa.domain.common.PaymentMethodType.SBER_LOAN
-    * yookassa.domain.common.PaymentMethodType.ELECTRONIC_CERTIFICATE
-    * yookassa.domain.common.PaymentMethodType.SBER_BNPL
-    * yookassa.domain.common.PaymentMethodType.UNKNOWN
+    * yoo_money - Платеж из кошелька ЮMoney
+    * bank_card - Платеж с произвольной банковской карты
+    * sberbank - Платеж СбербанкОнлайн
+    * cash - Платеж наличными
+    * mobile_balance - Платеж с баланса мобильного телефона
+    * psb - ПромсвязьБанк
+    * qiwi - Платеж из кошелька Qiwi
+    * webmoney - Платеж из кошелька Webmoney
+    * alfabank - Платеж через Альфа-Клик
+    * apple_pay - Платеж ApplePay
+    * google_pay - Платеж Google Pay
+    * installments - Заплатить по частям
+    * b2b_sberbank - Сбербанк Бизнес Онлайн
+    * tinkoff_bank - T-Pay
+    * wechat - Оплата через WeChat
+    * sbp - Оплата через сервис быстрых платежей
+    * sber_loan - Прием оплаты с использованием Кредита от СберБанка
+    * electronic_certificate - Прием платежей по электронному сертификату, привязанному к карте «Мир»
+    * sber_bnpl - Прием платежей через сервис «Плати частями»
+    * unknown - Для неизвестных методов оплаты
     """  # noqa: E501
 
     """

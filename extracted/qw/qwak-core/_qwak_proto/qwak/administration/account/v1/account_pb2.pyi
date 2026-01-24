@@ -113,6 +113,7 @@ class Account(google.protobuf.message.Message):
     TIER_FIELD_NUMBER: builtins.int
     ACCEPTED_TERMS_FIELD_NUMBER: builtins.int
     JFROG_TENANT_DETAILS_FIELD_NUMBER: builtins.int
+    CONTROL_PLANE_DESCRIPTOR_FIELD_NUMBER: builtins.int
     id: builtins.str
     """Assigned account ID"""
     name: builtins.str
@@ -140,6 +141,9 @@ class Account(google.protobuf.message.Message):
     @property
     def jfrog_tenant_details(self) -> qwak.administration.account.v1.jfrog_tenant_details_pb2.JfrogTenantDetails:
         """The JFrog tenant details"""
+    @property
+    def control_plane_descriptor(self) -> global___ControlPlaneDescriptor:
+        """The Control Plane descriptor"""
     def __init__(
         self,
         *,
@@ -154,11 +158,26 @@ class Account(google.protobuf.message.Message):
         tier: global___AccountTier.ValueType = ...,
         accepted_terms: qwak.administration.account.v1.terms_pb2.AccountAcceptedTerms | None = ...,
         jfrog_tenant_details: qwak.administration.account.v1.jfrog_tenant_details_pb2.JfrogTenantDetails | None = ...,
+        control_plane_descriptor: global___ControlPlaneDescriptor | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["accepted_terms", b"accepted_terms", "created_at", b"created_at", "jfrog_tenant_details", b"jfrog_tenant_details", "last_modified_at", b"last_modified_at", "preferences", b"preferences"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["accepted_terms", b"accepted_terms", "created_at", b"created_at", "default_environment_id", b"default_environment_id", "id", b"id", "jfrog_tenant_details", b"jfrog_tenant_details", "last_modified_at", b"last_modified_at", "name", b"name", "preferences", b"preferences", "status", b"status", "tier", b"tier", "type", b"type"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["accepted_terms", b"accepted_terms", "control_plane_descriptor", b"control_plane_descriptor", "created_at", b"created_at", "jfrog_tenant_details", b"jfrog_tenant_details", "last_modified_at", b"last_modified_at", "preferences", b"preferences"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["accepted_terms", b"accepted_terms", "control_plane_descriptor", b"control_plane_descriptor", "created_at", b"created_at", "default_environment_id", b"default_environment_id", "id", b"id", "jfrog_tenant_details", b"jfrog_tenant_details", "last_modified_at", b"last_modified_at", "name", b"name", "preferences", b"preferences", "status", b"status", "tier", b"tier", "type", b"type"]) -> None: ...
 
 global___Account = Account
+
+class ControlPlaneDescriptor(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HOST_FIELD_NUMBER: builtins.int
+    host: builtins.str
+    def __init__(
+        self,
+        *,
+        host: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["host", b"host"]) -> None: ...
+
+global___ControlPlaneDescriptor = ControlPlaneDescriptor
 
 class ListAccountFilter(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

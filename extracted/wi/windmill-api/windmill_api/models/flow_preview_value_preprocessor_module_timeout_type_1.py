@@ -12,10 +12,13 @@ T = TypeVar("T", bound="FlowPreviewValuePreprocessorModuleTimeoutType1")
 
 @_attrs_define
 class FlowPreviewValuePreprocessorModuleTimeoutType1:
-    """
-    Attributes:
-        expr (str):
-        type (FlowPreviewValuePreprocessorModuleTimeoutType1Type):
+    """JavaScript expression evaluated at runtime. Can reference previous step results via 'results.step_id' or flow inputs
+    via 'flow_input.property'. Inside loops, use 'flow_input.iter.value' for the current iteration value
+
+        Attributes:
+            expr (str): JavaScript expression returning the value. Available variables - results (object with all previous
+                step results), flow_input (flow inputs), flow_input.iter (in loops)
+            type (FlowPreviewValuePreprocessorModuleTimeoutType1Type):
     """
 
     expr: str

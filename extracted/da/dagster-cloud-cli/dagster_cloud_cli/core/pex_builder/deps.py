@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import click
+from dagster_shared.utils import find_uv_workspace_root
 from packaging import version
 
 try:
@@ -88,6 +89,7 @@ def local_path_for(line: str, relative_to: str) -> Optional[str]:
 
 def get_requirements_lines(local_dir, python_interpreter: str) -> list[str]:
     # Combine dependencies specified in requirements.txt, setup.py, and pyproject.toml
+
     lines = get_requirements_txt_deps(local_dir)
     lines.extend(get_setup_py_deps(local_dir, python_interpreter))
     lines.extend(get_pyproject_toml_deps(local_dir))
@@ -95,6 +97,22 @@ def get_requirements_lines(local_dir, python_interpreter: str) -> list[str]:
 
 
 def collect_requirements(code_directory, python_interpreter: str) -> tuple[list[str], list[str]]:
+    if not os.path.exists(code_directory):
+        raise Exception(
+            f"Specified a build directory that does not exist: {os.path.abspath(code_directory)}."
+        )
+
+    required_files = [
+        "setup.py",
+        "requirements.txt",
+        "pyproject.toml",
+    ]
+
+    if not any(os.path.exists(os.path.join(code_directory, file)) for file in required_files):
+        raise Exception(
+            f"Could not find a setup.py, requirements.txt, or pyproject.toml in build directory {os.path.abspath(code_directory)}."
+        )
+
     # traverse all local packages and return the list of local packages and other requirements
     pending = [os.path.abspath(code_directory)]  # local packages to be processed
     seen = set()
@@ -126,6 +144,9 @@ def get_deps_requirements(
     code_directory, python_version: version.Version
 ) -> tuple[LocalPackages, DepsRequirements]:
     python_interpreter = util.python_interpreter_for(python_version)
+
+    ui.print(f"Finding dependencies using build directory {os.path.abspath(code_directory)}")
+
     local_package_paths, deps_lines = collect_requirements(code_directory, python_interpreter)
 
     deps_requirements_text = "\n".join(
@@ -350,7 +371,7 @@ def get_setup_py_deps(code_directory: str, python_interpreter: str) -> list[str]
             [python_interpreter, setup_py_path, "egg_info", f"--egg-base={temp_dir}"],
             capture_output=True,
             check=False,
-            cwd=temp_dir,
+            cwd=code_directory,
         )
         if proc.returncode:
             raise ValueError(
@@ -366,6 +387,24 @@ def get_setup_py_deps(code_directory: str, python_interpreter: str) -> list[str]
             lines.append(requirement)
 
     return lines
+
+
+def _resolve_uv_workspace_dep(dep_name: str, code_directory: str) -> Optional[str]:
+    """Find the relative path to a uv workspace member by package name.
+
+    Returns a relative path like "../shared-lib" or None if not found.
+    Assumes the directory name matches the package name.
+    """
+    result = find_uv_workspace_root(code_directory)
+    if not result:
+        return None
+
+    workspace_root, _ = result
+    candidate = os.path.join(str(workspace_root), dep_name)
+    if os.path.isdir(candidate):
+        return os.path.relpath(candidate, code_directory)
+
+    return None
 
 
 def get_pyproject_toml_deps(code_directory: str) -> list[str]:
@@ -421,6 +460,24 @@ def get_pyproject_toml_deps(code_directory: str) -> list[str]:
                 lines.append(f"{dep_name}{version_spec}")
             else:
                 lines.append(dep_name)
+
+    # Handle [tool.uv.sources] - resolve workspace and path dependencies to local paths
+    uv_sources = pyproject_data.get("tool", {}).get("uv", {}).get("sources", {})
+    if uv_sources:
+        resolved_lines = []
+        for line in lines:
+            source_config = uv_sources.get(line)
+            if source_config:
+                if source_config.get("workspace"):
+                    resolved_path = _resolve_uv_workspace_dep(line, code_directory)
+                    if resolved_path:
+                        resolved_lines.append(resolved_path)
+                        continue
+                elif "path" in source_config:
+                    resolved_lines.append(source_config["path"])
+                    continue
+            resolved_lines.append(line)
+        return resolved_lines
 
     return lines
 

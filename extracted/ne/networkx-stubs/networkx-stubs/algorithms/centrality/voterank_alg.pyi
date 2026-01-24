@@ -1,3 +1,0 @@
-from typing import Any
-
-def voterank(G, number_of_nodes: Any | None = ...): ...

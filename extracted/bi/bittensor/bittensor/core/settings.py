@@ -1,5 +1,5 @@
-import os
 import importlib.metadata
+import os
 import re
 from pathlib import Path
 
@@ -14,6 +14,8 @@ USER_BITTENSOR_DIR = HOME_DIR / ".bittensor"
 WALLETS_DIR = USER_BITTENSOR_DIR / "wallets"
 MINERS_DIR = USER_BITTENSOR_DIR / "miners"
 
+TAO_APP_BLOCK_EXPLORER = "https://www.tao.app/block/"
+
 __version__ = importlib.metadata.version("bittensor")
 
 
@@ -23,14 +25,13 @@ if not READ_ONLY:
     MINERS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Bittensor networks name
-NETWORKS = ["finney", "test", "archive", "local", "subvortex", "latent-lite"]
+NETWORKS = ["finney", "test", "archive", "local", "latent-lite"]
 
 # Bittensor endpoints (Needs to use wss://)
 FINNEY_ENTRYPOINT = "wss://entrypoint-finney.opentensor.ai:443"
 FINNEY_TEST_ENTRYPOINT = "wss://test.finney.opentensor.ai:443"
 ARCHIVE_ENTRYPOINT = "wss://archive.chain.opentensor.ai:443"
 LOCAL_ENTRYPOINT = os.getenv("BT_SUBTENSOR_CHAIN_ENDPOINT") or "ws://127.0.0.1:9944"
-SUBVORTEX_ENTRYPOINT = "ws://subvortex.info:9944"
 LATENT_LITE_ENTRYPOINT = "wss://lite.sub.latent.to:443"
 
 NETWORK_MAP = {
@@ -38,8 +39,7 @@ NETWORK_MAP = {
     NETWORKS[1]: FINNEY_TEST_ENTRYPOINT,
     NETWORKS[2]: ARCHIVE_ENTRYPOINT,
     NETWORKS[3]: LOCAL_ENTRYPOINT,
-    NETWORKS[4]: SUBVORTEX_ENTRYPOINT,
-    NETWORKS[5]: LATENT_LITE_ENTRYPOINT,
+    NETWORKS[4]: LATENT_LITE_ENTRYPOINT,
 }
 
 REVERSE_NETWORK_MAP = {
@@ -47,8 +47,7 @@ REVERSE_NETWORK_MAP = {
     FINNEY_TEST_ENTRYPOINT: NETWORKS[1],
     ARCHIVE_ENTRYPOINT: NETWORKS[2],
     LOCAL_ENTRYPOINT: NETWORKS[3],
-    SUBVORTEX_ENTRYPOINT: NETWORKS[4],
-    LATENT_LITE_ENTRYPOINT: NETWORKS[5],
+    LATENT_LITE_ENTRYPOINT: NETWORKS[4],
 }
 
 DEFAULT_NETWORK = NETWORKS[0]
@@ -64,11 +63,24 @@ PIPADDRESS = "https://pypi.org/pypi/bittensor/json"
 # Substrate chain block time (seconds).
 BLOCKTIME = 12
 
-# Substrate ss58_format
-SS58_FORMAT = 42
-
 # Wallet ss58 address length
 SS58_ADDRESS_LENGTH = 48
+
+# Default period for extrinsics Era
+# details https://paritytech.github.io/polkadot-sdk/master/src/sp_runtime/generic/era.rs.html#65-72
+DEFAULT_PERIOD = 128
+
+# Default MEV Shield protection setting for extrinsics.
+# When enabled, transactions are encrypted to protect against Miner Extractable Value (MEV) attacks.
+DEFAULT_MEV_PROTECTION = os.getenv("BT_MEV_PROTECTION", "").lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
+
+# Public_key size for ML-KEM-768 (must be exactly 1184 bytes)
+MLKEM768_PUBLIC_KEY_SIZE = 1184
 
 # Block Explorers map network to explorer url
 # Must all be polkadotjs explorer urls
@@ -108,11 +120,17 @@ DEFAULTS = munchify(
             "max_workers": int(_BT_AXON_MAX_WORKERS) if _BT_AXON_MAX_WORKERS else 10,
         },
         "logging": {
-            "debug": os.getenv("BT_LOGGING_DEBUG") or False,
-            "trace": os.getenv("BT_LOGGING_TRACE") or False,
-            "info": os.getenv("BT_LOGGING_INFO") or False,
-            "record_log": os.getenv("BT_LOGGING_RECORD_LOG") or False,
-            "logging_dir": os.getenv("BT_LOGGING_LOGGING_DIR") or str(MINERS_DIR),
+            "debug": bool(os.getenv("BT_LOGGING_DEBUG")) or False,
+            "trace": bool(os.getenv("BT_LOGGING_TRACE")) or False,
+            "info": bool(os.getenv("BT_LOGGING_INFO")) or False,
+            "record_log": bool(os.getenv("BT_LOGGING_RECORD_LOG")) or False,
+            "logging_dir": None
+            if READ_ONLY
+            else os.getenv("BT_LOGGING_LOGGING_DIR") or str(MINERS_DIR),
+            "enable_third_party_loggers": os.getenv(
+                "BT_LOGGING_ENABLE_THIRD_PARTY_LOGGERS"
+            )
+            or False,
         },
         "priority": {
             "max_workers": int(_BT_PRIORITY_MAX_WORKERS)
@@ -121,8 +139,9 @@ DEFAULTS = munchify(
             "maxsize": int(_BT_PRIORITY_MAXSIZE) if _BT_PRIORITY_MAXSIZE else 10,
         },
         "subtensor": {
-            "chain_endpoint": os.getenv("BT_CHAIN_ENDPOINT") or DEFAULT_ENDPOINT,
-            "network": os.getenv("BT_NETWORK") or DEFAULT_NETWORK,
+            "chain_endpoint": os.getenv("BT_SUBTENSOR_CHAIN_ENDPOINT")
+            or DEFAULT_ENDPOINT,
+            "network": os.getenv("BT_SUBTENSOR_NETWORK") or DEFAULT_NETWORK,
             "_mock": False,
         },
         "wallet": {
@@ -130,6 +149,9 @@ DEFAULTS = munchify(
             "hotkey": os.getenv("BT_WALLET_HOTKEY") or "default",
             "path": os.getenv("BT_WALLET_PATH") or str(WALLETS_DIR),
         },
+        "config": False,
+        "strict": False,
+        "no_version_checking": False,
     }
 )
 
@@ -137,8 +159,8 @@ DEFAULTS = munchify(
 # Parsing version without any literals.
 __version__ = re.match(r"^\d+\.\d+\.\d+", __version__).group(0)
 
-version_split = __version__.split(".")
-_version_info = tuple(int(part) for part in version_split)
+__version_split = __version__.split(".")
+_version_info = tuple(int(part) for part in __version_split)
 _version_int_base = 1000
 assert max(_version_info) < _version_int_base
 
@@ -146,19 +168,3 @@ version_as_int: int = sum(
     e * (_version_int_base**i) for i, e in enumerate(reversed(_version_info))
 )
 assert version_as_int < 2**31  # fits in int32
-
-
-def __apply_nest_asyncio():
-    """
-    Apply nest_asyncio if the environment variable NEST_ASYNCIO is set to "1" or not set.
-    If not set, warn the user that the default will change in the future.
-    """
-    nest_asyncio_env = os.getenv("NEST_ASYNCIO")
-    if nest_asyncio_env == "1":
-        # Install and apply nest asyncio to allow the async functions to run in a .ipynb
-        import nest_asyncio
-
-        nest_asyncio.apply()
-
-
-__apply_nest_asyncio()

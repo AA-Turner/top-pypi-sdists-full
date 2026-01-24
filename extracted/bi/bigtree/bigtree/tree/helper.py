@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
+from typing import Any, Iterable, TypeVar
 
 from bigtree.node import basenode, binarynode, node
 from bigtree.tree import construct, export, search
@@ -23,15 +23,16 @@ BinaryNodeT = TypeVar("BinaryNodeT", bound=binarynode.BinaryNode)
 NodeT = TypeVar("NodeT", bound=node.Node)
 
 
-def clone_tree(tree: basenode.BaseNode, node_type: Type[BaseNodeT]) -> BaseNodeT:
+def clone_tree(tree: basenode.BaseNode, node_type: type[BaseNodeT]) -> BaseNodeT:
     """Clone tree to another ``Node`` type. If the same type is needed, simply do a tree.copy().
 
     Examples:
-        >>> from bigtree import BaseNode, Node, clone_tree
+        >>> from bigtree import BaseNode, Node, Tree
         >>> root = BaseNode(name="a")
         >>> b = BaseNode(name="b", parent=root)
-        >>> clone_tree(root, Node)
-        Node(/a, )
+        >>> tree = Tree(root)
+        >>> tree.clone(Node)
+        Tree(/a, )
 
     Args:
         tree: tree to be cloned, must inherit from BaseNode
@@ -68,7 +69,7 @@ def clone_tree(tree: basenode.BaseNode, node_type: Type[BaseNodeT]) -> BaseNodeT
 
 def get_subtree(
     tree: NodeT,
-    node_name_or_path: Optional[str] = None,
+    node_name_or_path: str | None = None,
     max_depth: int = 0,
 ) -> NodeT:
     """Get subtree based on node name or node path, and/or maximum depth of tree. Subtrees are smaller trees with
@@ -124,12 +125,12 @@ def get_subtree(
 
 
 def prune_tree(
-    tree: Union[BinaryNodeT, NodeT],
-    prune_path: Optional[Union[Iterable[str], str]] = None,
+    tree: BinaryNodeT | NodeT,
+    prune_path: Iterable[str] | str | None = None,
     exact: bool = False,
     sep: str = "/",
     max_depth: int = 0,
-) -> Union[BinaryNodeT, NodeT]:
+) -> BinaryNodeT | NodeT:
     """Prune tree by path or depth. Pruned trees are smaller trees with same root. Returns a copy of the tree; does not
     affect original tree.
 
@@ -149,13 +150,14 @@ def prune_tree(
     - For example: Path string "a/b" refers to Node("b") with parent Node("a")
 
     Examples:
-        >>> from bigtree import Node, prune_tree
+        >>> from bigtree import Node, Tree
         >>> root = Node("a")
         >>> b = Node("b", parent=root)
         >>> c = Node("c", parent=b)
         >>> d = Node("d", parent=b)
         >>> e = Node("e", parent=root)
-        >>> root.show()
+        >>> tree = Tree(root)
+        >>> tree.show()
         a
         ├── b
         │   ├── c
@@ -164,7 +166,7 @@ def prune_tree(
 
         Prune tree
 
-        >>> root_pruned = prune_tree(root, "a/b")
+        >>> root_pruned = tree.prune("a/b")
         >>> root_pruned.show()
         a
         └── b
@@ -173,14 +175,14 @@ def prune_tree(
 
         Prune by exact path
 
-        >>> root_pruned = prune_tree(root, "a/b", exact=True)
+        >>> root_pruned = tree.prune("a/b", exact=True)
         >>> root_pruned.show()
         a
         └── b
 
         Prune by multiple paths
 
-        >>> root_pruned = prune_tree(root, ["a/b/d", "a/e"])
+        >>> root_pruned = tree.prune(["a/b/d", "a/e"])
         >>> root_pruned.show()
         a
         ├── b
@@ -189,7 +191,7 @@ def prune_tree(
 
         Prune by depth
 
-        >>> root_pruned = prune_tree(root, max_depth=2)
+        >>> root_pruned = tree.prune(max_depth=2)
         >>> root_pruned.show()
         a
         ├── b
@@ -215,8 +217,8 @@ def prune_tree(
 
     # Prune by path (prune bottom-up)
     if prune_path:
-        ancestors_to_prune: Set[Union[BinaryNodeT, NodeT]] = set()
-        nodes_to_prune: Set[Union[BinaryNodeT, NodeT]] = set()
+        ancestors_to_prune: set[BinaryNodeT | NodeT] = set()
+        nodes_to_prune: set[BinaryNodeT | NodeT] = set()
         for path in prune_path:
             path = path.replace(sep, tree.sep)
             child = search.find_path(tree_copy, path)
@@ -257,7 +259,7 @@ def get_tree_diff_dataframe(
     only_diff: bool = True,
     detail: bool = False,
     aggregate: bool = False,
-    attr_list: Optional[List[str]] = None,
+    attr_list: list[str] | None = None,
     fallback_sep: str = "/",
     name_col: str = "name",
     path_col: str = "path",
@@ -286,9 +288,9 @@ def get_tree_diff_dataframe(
 
     Examples:
         >>> # Create original tree
-        >>> from bigtree import Node, get_tree_diff_dataframe, list_to_tree
-        >>> root = list_to_tree(["Downloads/Pictures/photo1.jpg", "Downloads/file1.doc", "Downloads/Trip/photo2.jpg"])
-        >>> root.show()
+        >>> from bigtree import Node, get_tree_diff_dataframe, Tree
+        >>> tree = Tree.from_list(["Downloads/Pictures/photo1.jpg", "Downloads/file1.doc", "Downloads/Trip/photo2.jpg"])
+        >>> tree.show()
         Downloads
         ├── Pictures
         │   └── photo1.jpg
@@ -297,10 +299,10 @@ def get_tree_diff_dataframe(
             └── photo2.jpg
 
         >>> # Create other tree
-        >>> root_other = list_to_tree(
+        >>> tree_other = Tree.from_list(
         ...     ["Downloads/Pictures/photo1.jpg", "Downloads/Pictures/Trip/photo2.jpg", "Downloads/file1.doc", "Downloads/file2.doc"]
         ... )
-        >>> root_other.show()
+        >>> tree_other.show()
         Downloads
         ├── Pictures
         │   ├── photo1.jpg
@@ -311,7 +313,7 @@ def get_tree_diff_dataframe(
 
         Comparing tree structure
 
-        >>> get_tree_diff_dataframe(root, root_other, detail=True)
+        >>> tree.diff_dataframe(tree_other, detail=True)
                                           path        name     parent      Exists      suffix
         0                           /Downloads   Downloads       None        both         NaN
         1                  /Downloads/Pictures    Pictures  Downloads        both         NaN
@@ -437,7 +439,7 @@ def get_tree_diff(
     only_diff: bool = True,
     detail: bool = False,
     aggregate: bool = False,
-    attr_list: Optional[Iterable[str]] = None,
+    attr_list: Iterable[str] | None = None,
     fallback_sep: str = "/",
 ) -> node.Node:
     """Get difference of `tree` to `other_tree`, changes are relative to `tree`.
@@ -459,9 +461,9 @@ def get_tree_diff(
 
     Examples:
         >>> # Create original tree
-        >>> from bigtree import Node, get_tree_diff, list_to_tree
-        >>> root = list_to_tree(["Downloads/Pictures/photo1.jpg", "Downloads/file1.doc", "Downloads/Trip/photo2.jpg"])
-        >>> root.show()
+        >>> from bigtree import Node, Tree
+        >>> tree = Tree.from_list(["Downloads/Pictures/photo1.jpg", "Downloads/file1.doc", "Downloads/Trip/photo2.jpg"])
+        >>> tree.show()
         Downloads
         ├── Pictures
         │   └── photo1.jpg
@@ -470,10 +472,10 @@ def get_tree_diff(
             └── photo2.jpg
 
         >>> # Create other tree
-        >>> root_other = list_to_tree(
+        >>> tree_other = Tree.from_list(
         ...     ["Downloads/Pictures/photo1.jpg", "Downloads/Pictures/Trip/photo2.jpg", "Downloads/file1.doc", "Downloads/file2.doc"]
         ... )
-        >>> root_other.show()
+        >>> tree_other.show()
         Downloads
         ├── Pictures
         │   ├── photo1.jpg
@@ -484,7 +486,7 @@ def get_tree_diff(
 
         Comparing tree structure
 
-        >>> tree_diff = get_tree_diff(root, root_other)
+        >>> tree_diff = tree.diff(tree_other)
         >>> tree_diff.show()
         Downloads
         ├── Pictures
@@ -496,7 +498,7 @@ def get_tree_diff(
 
         All differences
 
-        >>> tree_diff = get_tree_diff(root, root_other, only_diff=False)
+        >>> tree_diff = tree.diff(tree_other, only_diff=False)
         >>> tree_diff.show()
         Downloads
         ├── Pictures
@@ -510,9 +512,7 @@ def get_tree_diff(
 
         All differences with details
 
-        >>> tree_diff = get_tree_diff(
-        ...     root, root_other, only_diff=False, detail=True
-        ... )
+        >>> tree_diff = tree.diff(tree_other, only_diff=False, detail=True)
         >>> tree_diff.show()
         Downloads
         ├── Pictures
@@ -526,9 +526,7 @@ def get_tree_diff(
 
         All differences with details on aggregated level
 
-        >>> tree_diff = get_tree_diff(
-        ...     root, root_other, only_diff=False, detail=True, aggregate=True
-        ... )
+        >>> tree_diff = tree.diff(tree_other, only_diff=False, detail=True, aggregate=True)
         >>> tree_diff.show()
         Downloads
         ├── Pictures
@@ -542,7 +540,7 @@ def get_tree_diff(
 
         Only differences with details on aggregated level
 
-        >>> tree_diff = get_tree_diff(root, root_other, detail=True, aggregate=True)
+        >>> tree_diff = tree.diff(tree_other, detail=True, aggregate=True)
         >>> tree_diff.show()
         Downloads
         ├── Pictures
@@ -561,7 +559,8 @@ def get_tree_diff(
         >>> picture_folder = Node("Pictures", parent=root)
         >>> photo2 = Node("photo1.jpg", tags="photo1", parent=picture_folder)
         >>> file1 = Node("file1.doc", tags="file1", parent=root)
-        >>> root.show(attr_list=["tags"])
+        >>> tree = Tree(root)
+        >>> tree.show(attr_list=["tags"])
         Downloads
         ├── Pictures
         │   └── photo1.jpg [tags=photo1]
@@ -573,7 +572,8 @@ def get_tree_diff(
         >>> photo1 = Node("photo1.jpg", tags="photo1-edited", parent=picture_folder)
         >>> photo2 = Node("photo2.jpg", tags="photo2-new", parent=picture_folder)
         >>> file1 = Node("file1.doc", tags="file1", parent=root_other)
-        >>> root_other.show(attr_list=["tags"])
+        >>> tree_other = Tree(root_other)
+        >>> tree_other.show(attr_list=["tags"])
         Downloads
         ├── Pictures
         │   ├── photo1.jpg [tags=photo1-edited]
@@ -581,7 +581,7 @@ def get_tree_diff(
         └── file1.doc [tags=file1]
 
         >>> # Get tree attribute differences
-        >>> tree_diff = get_tree_diff(root, root_other, attr_list=["tags"])
+        >>> tree_diff = tree.diff(tree_other, attr_list=["tags"])
         >>> tree_diff.show(attr_list=["tags"])
         Downloads
         └── Pictures
@@ -607,13 +607,13 @@ def get_tree_diff(
     Returns:
         Tree highlighting the difference between tree and other_tree
     """
-    name_col = "name"
-    path_col = "path"
-    parent_col = "parent"
-    indicator_col = "Exists"
-    old_suffix = "_old"
-    new_suffix = "_new"
-    suffix_col = "suffix"
+    _name_col = "name"
+    _path_col = "path"
+    _parent_col = "parent"
+    _indicator_col = "Exists"
+    _old_suffix = "_old"
+    _new_suffix = "_new"
+    _suffix_col = "suffix"
 
     data_diff_all = get_tree_diff_dataframe(
         tree,
@@ -623,54 +623,57 @@ def get_tree_diff(
         aggregate,
         attr_list,
         fallback_sep,
-        name_col,
-        path_col,
-        parent_col,
-        indicator_col,
-        old_suffix,
-        new_suffix,
-        suffix_col,
+        _name_col,
+        _path_col,
+        _parent_col,
+        _indicator_col,
+        _old_suffix,
+        _new_suffix,
+        _suffix_col,
     )
 
     # Check tree structure difference
-    data_diff = data_diff_all.dropna(subset=[suffix_col])
-    path_to_suffix = dict(zip(data_diff[path_col], data_diff[suffix_col], strict=True))
+    data_diff = data_diff_all.dropna(subset=[_suffix_col])
+    path_to_suffix = dict(
+        zip(data_diff[_path_col], data_diff[_suffix_col], strict=True)
+    )
 
     # Check tree attribute difference
-    path_attr_diff: Dict[str, Dict[str, Any]] = {}
+    path_attr_diff: dict[str, dict[str, Any]] = {}
     if attr_list:
-        data_both = data_diff_all[data_diff_all[indicator_col] == "both"]
+        data_both = data_diff_all[data_diff_all[_indicator_col] == "both"]
         condition_attr_diff = (
             "("
             + ") | (".join(
                 [
-                    f"""(data_both["{attr}{old_suffix}"] != data_both["{attr}{new_suffix}"]) """
-                    f"""& ~(data_both["{attr}{old_suffix}"].isnull() & data_both["{attr}{new_suffix}"].isnull())"""
+                    f"""(data_both["{attr}{_old_suffix}"] != data_both["{attr}{_new_suffix}"]) """
+                    f"""& ~(data_both["{attr}{_old_suffix}"].isnull() & data_both["{attr}{_new_suffix}"].isnull())"""
                     for attr in attr_list
                 ]
             )
             + ")"
         )
         data_attr_diff = data_both[eval(condition_attr_diff)]
-        dict_attr_all = data_attr_diff.set_index(path_col).to_dict(orient="index")
+        dict_attr_all = data_attr_diff.set_index(_path_col).to_dict(orient="index")
         for path, node_attr in dict_attr_all.items():
             path_attr_diff[path] = {
                 attr: (
-                    node_attr[f"{attr}{old_suffix}"],
-                    node_attr[f"{attr}{new_suffix}"],
+                    node_attr[f"{attr}{_old_suffix}"],
+                    node_attr[f"{attr}{_new_suffix}"],
                 )
                 for attr in attr_list
-                if node_attr[f"{attr}{old_suffix}"] != node_attr[f"{attr}{new_suffix}"]
-                and node_attr[f"{attr}{old_suffix}"]
-                and node_attr[f"{attr}{new_suffix}"]
+                if node_attr[f"{attr}{_old_suffix}"]
+                != node_attr[f"{attr}{_new_suffix}"]
+                and node_attr[f"{attr}{_old_suffix}"]
+                and node_attr[f"{attr}{_new_suffix}"]
             }
 
     if only_diff:
         data_diff_all = data_diff_all[
-            (data_diff_all[indicator_col] != "both")
-            | (data_diff_all[path_col].isin(path_attr_diff.keys()))
+            (data_diff_all[_indicator_col] != "both")
+            | (data_diff_all[_path_col].isin(path_attr_diff.keys()))
         ]
-    data_diff_all = data_diff_all[[path_col]].sort_values(path_col)
+    data_diff_all = data_diff_all[[_path_col]].sort_values(_path_col)
     if len(data_diff_all):
         tree_diff = construct.dataframe_to_tree(
             data_diff_all, node_type=tree.__class__, sep=tree.sep
@@ -682,7 +685,9 @@ def get_tree_diff(
 
         # Handle tree attribute difference
         if path_attr_diff:
-            tree_diff = construct.add_dict_to_tree_by_path(tree_diff, path_attr_diff)
+            tree_diff = construct.add_dict_to_tree_by_path(
+                tree_diff, path_attr_diff, sep=tree_diff.sep
+            )
             for path in sorted(path_attr_diff, reverse=True):
                 _node = search.find_full_path(tree_diff, path)
                 _node.name += " (~)"

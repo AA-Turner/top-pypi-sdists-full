@@ -3,7 +3,7 @@ Type annotations for security-ir service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_security_ir/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -29,6 +30,7 @@ from .paginator import (
     ListCaseEditsPaginator,
     ListCasesPaginator,
     ListCommentsPaginator,
+    ListInvestigationsPaginator,
     ListMembershipsPaginator,
 )
 from .type_defs import (
@@ -58,10 +60,13 @@ from .type_defs import (
     ListCasesResponseTypeDef,
     ListCommentsRequestTypeDef,
     ListCommentsResponseTypeDef,
+    ListInvestigationsRequestTypeDef,
+    ListInvestigationsResponseTypeDef,
     ListMembershipsRequestTypeDef,
     ListMembershipsResponseTypeDef,
     ListTagsForResourceInputTypeDef,
     ListTagsForResourceOutputTypeDef,
+    SendFeedbackRequestTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
     UpdateCaseCommentRequestTypeDef,
@@ -74,12 +79,6 @@ from .type_defs import (
     UpdateResolverTypeResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -90,16 +89,16 @@ __all__ = ("SecurityIncidentResponseClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidTokenException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    SecurityIncidentResponseNotActiveException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidTokenException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    SecurityIncidentResponseNotActiveException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class SecurityIncidentResponseClient(BaseClient):
@@ -260,6 +259,16 @@ class SecurityIncidentResponseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_security_ir/client/#list_comments)
         """
 
+    def list_investigations(
+        self, **kwargs: Unpack[ListInvestigationsRequestTypeDef]
+    ) -> ListInvestigationsResponseTypeDef:
+        """
+        Investigation performed by an agent for a security incident...
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/list_investigations.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_security_ir/client/#list_investigations)
+        """
+
     def list_memberships(
         self, **kwargs: Unpack[ListMembershipsRequestTypeDef]
     ) -> ListMembershipsResponseTypeDef:
@@ -280,7 +289,15 @@ class SecurityIncidentResponseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_security_ir/client/#list_tags_for_resource)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    def send_feedback(self, **kwargs: Unpack[SendFeedbackRequestTypeDef]) -> dict[str, Any]:
+        """
+        Send feedback based on response investigation action.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/send_feedback.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_security_ir/client/#send_feedback)
+        """
+
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds a tag(s) to a designated resource.
 
@@ -288,7 +305,7 @@ class SecurityIncidentResponseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_security_ir/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes a tag(s) from a designate resource.
 
@@ -296,7 +313,7 @@ class SecurityIncidentResponseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_security_ir/client/#untag_resource)
         """
 
-    def update_case(self, **kwargs: Unpack[UpdateCaseRequestTypeDef]) -> Dict[str, Any]:
+    def update_case(self, **kwargs: Unpack[UpdateCaseRequestTypeDef]) -> dict[str, Any]:
         """
         Updates an existing case.
 
@@ -324,7 +341,7 @@ class SecurityIncidentResponseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_security_ir/client/#update_case_status)
         """
 
-    def update_membership(self, **kwargs: Unpack[UpdateMembershipRequestTypeDef]) -> Dict[str, Any]:
+    def update_membership(self, **kwargs: Unpack[UpdateMembershipRequestTypeDef]) -> dict[str, Any]:
         """
         Updates membership configuration.
 
@@ -368,6 +385,17 @@ class SecurityIncidentResponseClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_comments"]
     ) -> ListCommentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_security_ir/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_investigations"]
+    ) -> ListInvestigationsPaginator:
         """
         Create a paginator for an operation.
 

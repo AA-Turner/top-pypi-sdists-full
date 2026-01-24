@@ -6,13 +6,15 @@ import os
 import tempfile
 import time
 import zipfile
+from importlib.resources import files
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import boto3
 from botocore.exceptions import ClientError
 
 from ..operations.runtime.create_role import get_or_create_codebuild_execution_role
+from .ecr import generate_image_tag, sanitize_ecr_repo_name
 
 
 class CodeBuildService:
@@ -26,6 +28,7 @@ class CodeBuildService:
         self.iam_client = session.client("iam")
         self.logger = logging.getLogger(__name__)
         self.source_bucket = None
+        self.account_id = session.client("sts").get_caller_identity()["Account"]
 
     def get_source_bucket_name(self, account_id: str) -> str:
         """Get S3 bucket name for CodeBuild sources."""
@@ -37,10 +40,18 @@ class CodeBuildService:
         bucket_name = self.get_source_bucket_name(account_id)
 
         try:
-            self.s3_client.head_bucket(Bucket=bucket_name)
+            self.s3_client.head_bucket(Bucket=bucket_name, ExpectedBucketOwner=account_id)
             self.logger.debug("Using existing S3 bucket: %s", bucket_name)
-        except ClientError:
-            # Create bucket
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "403":
+                self.logger.error("Unable to access bucket %s due to permission constraints", bucket_name)
+                raise RuntimeError(
+                    f"Access Error: Unable to access S3 bucket '{bucket_name}' due to permission constraints. "
+                    f"The bucket may exist but you don't have sufficient permissions, or it could be "
+                    f"owned by another account."
+                ) from e
+
+            # Create bucket (no ExpectedBucketOwner needed for create_bucket)
             region = self.session.region_name
             if region == "us-east-1":
                 self.s3_client.create_bucket(Bucket=bucket_name)
@@ -49,9 +60,9 @@ class CodeBuildService:
                     Bucket=bucket_name, CreateBucketConfiguration={"LocationConstraint": region}
                 )
 
-            # Set lifecycle to cleanup old builds
             self.s3_client.put_bucket_lifecycle_configuration(
                 Bucket=bucket_name,
+                ExpectedBucketOwner=account_id,
                 LifecycleConfiguration={
                     "Rules": [{"ID": "DeleteOldBuilds", "Status": "Enabled", "Filter": {}, "Expiration": {"Days": 7}}]
                 },
@@ -61,21 +72,28 @@ class CodeBuildService:
 
         return bucket_name
 
-    def upload_source(self, agent_name: str) -> str:
-        """Upload current directory to S3, respecting .dockerignore patterns."""
-        account_id = self.session.client("sts").get_caller_identity()["Account"]
+    def upload_source(self, agent_name: str, source_dir: str = ".", dockerfile_dir: Optional[str] = None) -> str:
+        """Upload source directory to S3, respecting .dockerignore patterns.
+
+        Args:
+            agent_name: Name of the agent
+            source_dir: Directory to upload (defaults to current directory)
+            dockerfile_dir: Directory containing Dockerfile (may be different from source_dir)
+        """
+        account_id = self.account_id
         bucket_name = self.ensure_source_bucket(account_id)
         self.source_bucket = bucket_name
 
-        # Parse .dockerignore patterns
+        # Parse .dockerignore patterns from template for consistent filtering
         ignore_patterns = self._parse_dockerignore()
 
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_zip:
             try:
                 with zipfile.ZipFile(temp_zip.name, "w", zipfile.ZIP_DEFLATED) as zipf:
-                    for root, dirs, files in os.walk("."):
-                        # Convert to relative path
-                        rel_root = os.path.relpath(root, ".")
+                    # First, add all files from source_dir
+                    for root, dirs, files in os.walk(source_dir):
+                        # Convert to relative path from source_dir
+                        rel_root = os.path.relpath(root, source_dir)
                         if rel_root == ".":
                             rel_root = ""
 
@@ -98,10 +116,22 @@ class CodeBuildService:
                             file_path = Path(root) / file
                             zipf.write(file_path, file_rel_path)
 
+                    # If Dockerfile is in a different directory, include it in the zip
+                    if dockerfile_dir and source_dir != dockerfile_dir:
+                        dockerfile_path = Path(dockerfile_dir) / "Dockerfile"
+                        source_dockerfile = Path(source_dir) / "Dockerfile"
+
+                        if dockerfile_path.exists() and not source_dockerfile.exists():
+                            # Include the Dockerfile from dockerfile_dir
+                            zipf.write(dockerfile_path, "Dockerfile")
+                            self.logger.info("Including Dockerfile from %s in source.zip", dockerfile_dir)
+
                 # Create agent-organized S3 key: agentname/source.zip (fixed naming for cache consistency)
                 s3_key = f"{agent_name}/source.zip"
 
-                self.s3_client.upload_file(temp_zip.name, bucket_name, s3_key)
+                self.s3_client.upload_file(
+                    temp_zip.name, bucket_name, s3_key, ExtraArgs={"ExpectedBucketOwner": account_id}
+                )
 
                 self.logger.info("Uploaded source to S3: %s", s3_key)
                 return f"s3://{bucket_name}/{s3_key}"
@@ -127,12 +157,21 @@ class CodeBuildService:
         )
 
     def create_or_update_project(
-        self, agent_name: str, ecr_repository_uri: str, execution_role: str, source_location: str
+        self,
+        agent_name: str,
+        ecr_repository_uri: str,
+        execution_role: str,
+        source_location: str,
+        image_tag: Optional[str] = None,
     ) -> str:
         """Create or update CodeBuild project for ARM64 builds."""
-        project_name = f"bedrock-agentcore-{agent_name}-builder"
+        # Generate tag if not provided
+        if not image_tag:
+            image_tag = generate_image_tag()
 
-        buildspec = self._get_arm64_buildspec(ecr_repository_uri)
+        project_name = f"bedrock-agentcore-{sanitize_ecr_repo_name(agent_name)}-builder"
+
+        buildspec = self._get_arm64_buildspec(ecr_repository_uri, image_tag)
 
         # CodeBuild expects S3 location without s3:// prefix (bucket/key format)
         codebuild_source_location = self._normalize_s3_location(source_location)
@@ -232,8 +271,8 @@ class CodeBuildService:
         minutes, seconds = divmod(int(total_duration), 60)
         raise TimeoutError(f"CodeBuild timed out after {minutes}m {seconds}s (current phase: {current_phase})")
 
-    def _get_arm64_buildspec(self, ecr_repository_uri: str) -> str:
-        """Get optimized buildspec with parallel ECR authentication."""
+    def _get_arm64_buildspec(self, ecr_repository_uri: str, image_tag: str) -> str:
+        """Get buildspec for ARM64 builds with versioned tagging."""
         return f"""
 version: 0.2
 phases:
@@ -259,31 +298,42 @@ phases:
           exit 1
         fi
         echo "Both build and auth completed successfully"
-      - echo "Tagging image..."
-      - docker tag bedrock-agentcore-arm64:latest {ecr_repository_uri}:latest
+      - echo "Tagging image with version {image_tag}..."
+      - "docker tag bedrock-agentcore-arm64:latest {ecr_repository_uri}:{image_tag}"
   post_build:
     commands:
-      - echo "Pushing ARM64 image to ECR..."
-      - docker push {ecr_repository_uri}:latest
+      - echo "Pushing versioned image to ECR..."
+      - "docker push {ecr_repository_uri}:{image_tag}"
       - echo "Build completed at $(date)"
 """
 
     def _parse_dockerignore(self) -> List[str]:
-        """Parse .dockerignore file and return list of patterns."""
-        dockerignore_path = Path(".dockerignore")
-        patterns = []
+        """Parse .dockerignore patterns from template for consistent filtering.
 
-        if dockerignore_path.exists():
-            with open(dockerignore_path, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        patterns.append(line)
+        Always uses the dockerignore.template to ensure consistent file filtering
+        during zip creation, regardless of source_path configuration.
+        """
+        # Use dockerignore.template from package resources
+        try:
+            template_content = (
+                files("bedrock_agentcore_starter_toolkit")
+                .joinpath("utils/runtime/templates/dockerignore.template")
+                .read_text()
+            )
 
-            self.logger.info("Using .dockerignore with %d patterns", len(patterns))
-        else:
-            # Default patterns if no .dockerignore
-            patterns = [
+            patterns = []
+            for line in template_content.splitlines():
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    patterns.append(line)
+
+            self.logger.info("Using dockerignore.template with %d patterns for zip filtering", len(patterns))
+            return patterns
+
+        except Exception as e:
+            # Fallback to minimal default patterns if template not found
+            self.logger.warning("Could not load dockerignore.template (%s), using minimal default patterns", e)
+            return [
                 ".git",
                 "__pycache__",
                 "*.pyc",
@@ -294,9 +344,6 @@ phases:
                 "*.egg-info",
                 ".bedrock_agentcore.yaml",  # Always exclude config
             ]
-            self.logger.info("No .dockerignore found, using default exclude patterns")
-
-        return patterns
 
     def _should_ignore(self, path: str, patterns: List[str], is_dir: bool = False) -> bool:
         """Check if path should be ignored based on dockerignore patterns."""

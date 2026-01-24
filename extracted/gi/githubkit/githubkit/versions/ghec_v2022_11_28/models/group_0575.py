@@ -9,7 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+import datetime as _dt
 from typing import Literal, Union
 
 from pydantic import Field
@@ -18,101 +18,213 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
-from .group_0505 import EnterpriseWebhooks
-from .group_0506 import SimpleInstallation
-from .group_0507 import OrganizationSimpleWebhooks
-from .group_0508 import RepositoryWebhooks
+from .group_0198 import IssueType
+from .group_0200 import IssueDependenciesSummary, SubIssuesSummary
+from .group_0201 import IssueFieldValue
 
 
-class WebhookCheckSuiteRequested(GitHubModel):
-    """check_suite requested event"""
+class WebhooksIssue(GitHubModel):
+    """Issue
 
-    action: Literal["requested"] = Field()
-    check_suite: WebhookCheckSuiteRequestedPropCheckSuite = Field(
-        description="The [check_suite](https://docs.github.com/enterprise-cloud@latest//rest/checks/suites#get-a-check-suite)."
-    )
-    enterprise: Missing[EnterpriseWebhooks] = Field(
-        default=UNSET,
-        title="Enterprise",
-        description='An enterprise on GitHub. Webhook payloads contain the `enterprise` property when the webhook is configured\non an enterprise account or an organization that\'s part of an enterprise account. For more information,\nsee "[About enterprise accounts](https://docs.github.com/enterprise-cloud@latest//admin/overview/about-enterprise-accounts)."',
-    )
-    installation: Missing[SimpleInstallation] = Field(
-        default=UNSET,
-        title="Simple Installation",
-        description='The GitHub App installation. Webhook payloads contain the `installation` property when the event is configured\nfor and sent to a GitHub App. For more information,\nsee "[Using webhooks with GitHub Apps](https://docs.github.com/enterprise-cloud@latest//apps/creating-github-apps/registering-a-github-app/using-webhooks-with-github-apps)."',
-    )
-    organization: Missing[OrganizationSimpleWebhooks] = Field(
-        default=UNSET,
-        title="Organization Simple",
-        description="A GitHub organization. Webhook payloads contain the `organization` property when the webhook is configured for an\norganization, or when the event occurs from activity in a repository owned by an organization.",
-    )
-    repository: RepositoryWebhooks = Field(
-        title="Repository",
-        description="The repository on GitHub where the event occurred. Webhook payloads contain the `repository` property\nwhen the event occurs from activity in a repository.",
-    )
-    sender: SimpleUser = Field(title="Simple User", description="A GitHub user.")
-
-
-class WebhookCheckSuiteRequestedPropCheckSuite(GitHubModel):
-    """WebhookCheckSuiteRequestedPropCheckSuite
-
-    The [check_suite](https://docs.github.com/enterprise-
-    cloud@latest//rest/checks/suites#get-a-check-suite).
+    The [issue](https://docs.github.com/enterprise-
+    cloud@latest//rest/issues/issues#get-an-issue) itself.
     """
 
-    after: Union[str, None] = Field()
-    app: WebhookCheckSuiteRequestedPropCheckSuitePropApp = Field(
+    active_lock_reason: Union[
+        None, Literal["resolved", "off-topic", "too heated", "spam"]
+    ] = Field()
+    assignee: Missing[Union[WebhooksIssuePropAssignee, None]] = Field(
+        default=UNSET, title="User"
+    )
+    assignees: list[Union[WebhooksIssuePropAssigneesItems, None]] = Field()
+    author_association: Literal[
+        "COLLABORATOR",
+        "CONTRIBUTOR",
+        "FIRST_TIMER",
+        "FIRST_TIME_CONTRIBUTOR",
+        "MANNEQUIN",
+        "MEMBER",
+        "NONE",
+        "OWNER",
+    ] = Field(
+        title="AuthorAssociation",
+        description="How the author is associated with the repository.",
+    )
+    body: Union[str, None] = Field(description="Contents of the issue")
+    closed_at: Union[_dt.datetime, None] = Field()
+    comments: int = Field()
+    comments_url: str = Field()
+    created_at: _dt.datetime = Field()
+    draft: Missing[bool] = Field(default=UNSET)
+    events_url: str = Field()
+    html_url: str = Field()
+    id: int = Field()
+    labels: Missing[list[WebhooksIssuePropLabelsItems]] = Field(default=UNSET)
+    labels_url: str = Field()
+    locked: Missing[bool] = Field(default=UNSET)
+    milestone: Union[WebhooksIssuePropMilestone, None] = Field(
+        title="Milestone",
+        description="A collection of related issues and pull requests.",
+    )
+    node_id: str = Field()
+    number: int = Field()
+    performed_via_github_app: Missing[
+        Union[WebhooksIssuePropPerformedViaGithubApp, None]
+    ] = Field(
+        default=UNSET,
         title="App",
         description="GitHub apps are a new way to extend GitHub. They can be installed directly on organizations and user accounts and granted access to specific repositories. They come with granular permissions and built-in webhooks. GitHub apps are first class actors within GitHub.",
     )
-    before: Union[str, None] = Field()
-    check_runs_url: str = Field()
-    conclusion: Union[
-        None,
-        Literal[
-            "success",
-            "failure",
-            "neutral",
-            "cancelled",
-            "timed_out",
-            "action_required",
-            "stale",
-            "skipped",
-        ],
-    ] = Field(
-        description="The summary conclusion for all check runs that are part of the check suite. This value will be `null` until the check run has completed."
+    pull_request: Missing[WebhooksIssuePropPullRequest] = Field(default=UNSET)
+    reactions: WebhooksIssuePropReactions = Field(title="Reactions")
+    repository_url: str = Field()
+    sub_issues_summary: Missing[SubIssuesSummary] = Field(
+        default=UNSET, title="Sub-issues Summary"
     )
-    created_at: datetime = Field()
-    head_branch: Union[str, None] = Field(
-        description="The head branch name the changes are on."
+    issue_dependencies_summary: Missing[IssueDependenciesSummary] = Field(
+        default=UNSET, title="Issue Dependencies Summary"
     )
-    head_commit: WebhookCheckSuiteRequestedPropCheckSuitePropHeadCommit = Field(
-        title="SimpleCommit"
+    issue_field_values: Missing[list[IssueFieldValue]] = Field(default=UNSET)
+    state: Missing[Literal["open", "closed"]] = Field(
+        default=UNSET, description="State of the issue; either 'open' or 'closed'"
     )
-    head_sha: str = Field(
-        description="The SHA of the head commit that is being checked."
+    state_reason: Missing[Union[str, None]] = Field(default=UNSET)
+    timeline_url: Missing[str] = Field(default=UNSET)
+    title: str = Field(description="Title of the issue")
+    type: Missing[Union[IssueType, None]] = Field(
+        default=UNSET, title="Issue Type", description="The type of issue."
     )
+    updated_at: _dt.datetime = Field()
+    url: str = Field(description="URL for the issue")
+    user: Union[WebhooksIssuePropUser, None] = Field(title="User")
+
+
+class WebhooksIssuePropAssignee(GitHubModel):
+    """User"""
+
+    avatar_url: Missing[str] = Field(default=UNSET)
+    deleted: Missing[bool] = Field(default=UNSET)
+    email: Missing[Union[str, None]] = Field(default=UNSET)
+    events_url: Missing[str] = Field(default=UNSET)
+    followers_url: Missing[str] = Field(default=UNSET)
+    following_url: Missing[str] = Field(default=UNSET)
+    gists_url: Missing[str] = Field(default=UNSET)
+    gravatar_id: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(default=UNSET)
     id: int = Field()
-    latest_check_runs_count: int = Field()
+    login: str = Field()
+    name: Missing[str] = Field(default=UNSET)
+    node_id: Missing[str] = Field(default=UNSET)
+    organizations_url: Missing[str] = Field(default=UNSET)
+    received_events_url: Missing[str] = Field(default=UNSET)
+    repos_url: Missing[str] = Field(default=UNSET)
+    site_admin: Missing[bool] = Field(default=UNSET)
+    starred_url: Missing[str] = Field(default=UNSET)
+    subscriptions_url: Missing[str] = Field(default=UNSET)
+    type: Missing[Literal["Bot", "User", "Organization", "Mannequin"]] = Field(
+        default=UNSET
+    )
+    url: Missing[str] = Field(default=UNSET)
+    user_view_type: Missing[str] = Field(default=UNSET)
+
+
+class WebhooksIssuePropAssigneesItems(GitHubModel):
+    """User"""
+
+    avatar_url: Missing[str] = Field(default=UNSET)
+    deleted: Missing[bool] = Field(default=UNSET)
+    email: Missing[Union[str, None]] = Field(default=UNSET)
+    events_url: Missing[str] = Field(default=UNSET)
+    followers_url: Missing[str] = Field(default=UNSET)
+    following_url: Missing[str] = Field(default=UNSET)
+    gists_url: Missing[str] = Field(default=UNSET)
+    gravatar_id: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(default=UNSET)
+    id: int = Field()
+    login: str = Field()
+    name: Missing[str] = Field(default=UNSET)
+    node_id: Missing[str] = Field(default=UNSET)
+    organizations_url: Missing[str] = Field(default=UNSET)
+    received_events_url: Missing[str] = Field(default=UNSET)
+    repos_url: Missing[str] = Field(default=UNSET)
+    site_admin: Missing[bool] = Field(default=UNSET)
+    starred_url: Missing[str] = Field(default=UNSET)
+    subscriptions_url: Missing[str] = Field(default=UNSET)
+    type: Missing[Literal["Bot", "User", "Organization", "Mannequin"]] = Field(
+        default=UNSET
+    )
+    url: Missing[str] = Field(default=UNSET)
+    user_view_type: Missing[str] = Field(default=UNSET)
+
+
+class WebhooksIssuePropLabelsItems(GitHubModel):
+    """Label"""
+
+    color: str = Field(
+        description="6-character hex code, without the leading #, identifying the color"
+    )
+    default: bool = Field()
+    description: Union[str, None] = Field()
+    id: int = Field()
+    name: str = Field(description="The name of the label.")
     node_id: str = Field()
-    pull_requests: list[
-        WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItems
-    ] = Field(
-        description="An array of pull requests that match this check suite. A pull request matches a check suite if they have the same `head_sha` and `head_branch`. When the check suite's `head_branch` is in a forked repository it will be `null` and the `pull_requests` array will be empty."
-    )
-    rerequestable: Missing[bool] = Field(default=UNSET)
-    runs_rerequestable: Missing[bool] = Field(default=UNSET)
-    status: Union[None, Literal["requested", "in_progress", "completed", "queued"]] = (
-        Field(
-            description="The summary status for all check runs that are part of the check suite. Can be `requested`, `in_progress`, or `completed`."
-        )
-    )
-    updated_at: datetime = Field()
-    url: str = Field(description="URL that points to the check suite API resource.")
+    url: str = Field(description="URL for the label")
 
 
-class WebhookCheckSuiteRequestedPropCheckSuitePropApp(GitHubModel):
+class WebhooksIssuePropMilestone(GitHubModel):
+    """Milestone
+
+    A collection of related issues and pull requests.
+    """
+
+    closed_at: Union[_dt.datetime, None] = Field()
+    closed_issues: int = Field()
+    created_at: _dt.datetime = Field()
+    creator: Union[WebhooksIssuePropMilestonePropCreator, None] = Field(title="User")
+    description: Union[str, None] = Field()
+    due_on: Union[_dt.datetime, None] = Field()
+    html_url: str = Field()
+    id: int = Field()
+    labels_url: str = Field()
+    node_id: str = Field()
+    number: int = Field(description="The number of the milestone.")
+    open_issues: int = Field()
+    state: Literal["open", "closed"] = Field(description="The state of the milestone.")
+    title: str = Field(description="The title of the milestone.")
+    updated_at: _dt.datetime = Field()
+    url: str = Field()
+
+
+class WebhooksIssuePropMilestonePropCreator(GitHubModel):
+    """User"""
+
+    avatar_url: Missing[str] = Field(default=UNSET)
+    deleted: Missing[bool] = Field(default=UNSET)
+    email: Missing[Union[str, None]] = Field(default=UNSET)
+    events_url: Missing[str] = Field(default=UNSET)
+    followers_url: Missing[str] = Field(default=UNSET)
+    following_url: Missing[str] = Field(default=UNSET)
+    gists_url: Missing[str] = Field(default=UNSET)
+    gravatar_id: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(default=UNSET)
+    id: int = Field()
+    login: str = Field()
+    name: Missing[str] = Field(default=UNSET)
+    node_id: Missing[str] = Field(default=UNSET)
+    organizations_url: Missing[str] = Field(default=UNSET)
+    received_events_url: Missing[str] = Field(default=UNSET)
+    repos_url: Missing[str] = Field(default=UNSET)
+    site_admin: Missing[bool] = Field(default=UNSET)
+    starred_url: Missing[str] = Field(default=UNSET)
+    subscriptions_url: Missing[str] = Field(default=UNSET)
+    type: Missing[Literal["Bot", "User", "Organization", "Mannequin"]] = Field(
+        default=UNSET
+    )
+    url: Missing[str] = Field(default=UNSET)
+    user_view_type: Missing[str] = Field(default=UNSET)
+
+
+class WebhooksIssuePropPerformedViaGithubApp(GitHubModel):
     """App
 
     GitHub apps are a new way to extend GitHub. They can be installed directly on
@@ -121,7 +233,7 @@ class WebhookCheckSuiteRequestedPropCheckSuitePropApp(GitHubModel):
     class actors within GitHub.
     """
 
-    created_at: Union[datetime, None] = Field()
+    created_at: Union[_dt.datetime, None] = Field()
     description: Union[str, None] = Field()
     events: Missing[list[str]] = Field(
         default=UNSET, description="The list of events for the GitHub app"
@@ -129,24 +241,21 @@ class WebhookCheckSuiteRequestedPropCheckSuitePropApp(GitHubModel):
     external_url: Union[str, None] = Field()
     html_url: str = Field()
     id: Union[int, None] = Field(description="Unique identifier of the GitHub app")
-    client_id: Missing[Union[str, None]] = Field(
-        default=UNSET, description="Client ID of the GitHub app"
-    )
     name: str = Field(description="The name of the GitHub app")
     node_id: str = Field()
-    owner: Union[WebhookCheckSuiteRequestedPropCheckSuitePropAppPropOwner, None] = (
-        Field(title="User")
+    owner: Union[WebhooksIssuePropPerformedViaGithubAppPropOwner, None] = Field(
+        title="User"
     )
-    permissions: Missing[
-        WebhookCheckSuiteRequestedPropCheckSuitePropAppPropPermissions
-    ] = Field(default=UNSET, description="The set of permissions for the GitHub app")
+    permissions: Missing[WebhooksIssuePropPerformedViaGithubAppPropPermissions] = Field(
+        default=UNSET, description="The set of permissions for the GitHub app"
+    )
     slug: Missing[str] = Field(
         default=UNSET, description="The slug name of the GitHub app"
     )
-    updated_at: Union[datetime, None] = Field()
+    updated_at: Union[_dt.datetime, None] = Field()
 
 
-class WebhookCheckSuiteRequestedPropCheckSuitePropAppPropOwner(GitHubModel):
+class WebhooksIssuePropPerformedViaGithubAppPropOwner(GitHubModel):
     """User"""
 
     avatar_url: Missing[str] = Field(default=UNSET)
@@ -173,8 +282,8 @@ class WebhookCheckSuiteRequestedPropCheckSuitePropAppPropOwner(GitHubModel):
     user_view_type: Missing[str] = Field(default=UNSET)
 
 
-class WebhookCheckSuiteRequestedPropCheckSuitePropAppPropPermissions(GitHubModel):
-    """WebhookCheckSuiteRequestedPropCheckSuitePropAppPropPermissions
+class WebhooksIssuePropPerformedViaGithubAppPropPermissions(GitHubModel):
+    """WebhooksIssuePropPerformedViaGithubAppPropPermissions
 
     The set of permissions for the GitHub app
     """
@@ -210,9 +319,7 @@ class WebhookCheckSuiteRequestedPropCheckSuitePropAppPropPermissions(GitHubModel
     pages: Missing[Literal["read", "write"]] = Field(default=UNSET)
     pull_requests: Missing[Literal["read", "write"]] = Field(default=UNSET)
     repository_hooks: Missing[Literal["read", "write"]] = Field(default=UNSET)
-    repository_projects: Missing[Literal["read", "write", "admin"]] = Field(
-        default=UNSET
-    )
+    repository_projects: Missing[Literal["read", "write"]] = Field(default=UNSET)
     secret_scanning_alerts: Missing[Literal["read", "write"]] = Field(default=UNSET)
     secrets: Missing[Literal["read", "write"]] = Field(default=UNSET)
     security_events: Missing[Literal["read", "write"]] = Field(default=UNSET)
@@ -224,137 +331,84 @@ class WebhookCheckSuiteRequestedPropCheckSuitePropAppPropPermissions(GitHubModel
     workflows: Missing[Literal["read", "write"]] = Field(default=UNSET)
 
 
-class WebhookCheckSuiteRequestedPropCheckSuitePropHeadCommit(GitHubModel):
-    """SimpleCommit"""
+class WebhooksIssuePropPullRequest(GitHubModel):
+    """WebhooksIssuePropPullRequest"""
 
-    author: WebhookCheckSuiteRequestedPropCheckSuitePropHeadCommitPropAuthor = Field(
-        title="Committer",
-        description="Metaproperties for Git author/committer information.",
-    )
-    committer: WebhookCheckSuiteRequestedPropCheckSuitePropHeadCommitPropCommitter = (
-        Field(
-            title="Committer",
-            description="Metaproperties for Git author/committer information.",
-        )
-    )
-    id: str = Field()
-    message: str = Field()
-    timestamp: str = Field()
-    tree_id: str = Field()
+    diff_url: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(default=UNSET)
+    merged_at: Missing[Union[_dt.datetime, None]] = Field(default=UNSET)
+    patch_url: Missing[str] = Field(default=UNSET)
+    url: Missing[str] = Field(default=UNSET)
 
 
-class WebhookCheckSuiteRequestedPropCheckSuitePropHeadCommitPropAuthor(GitHubModel):
-    """Committer
+class WebhooksIssuePropReactions(GitHubModel):
+    """Reactions"""
 
-    Metaproperties for Git author/committer information.
-    """
-
-    date: Missing[datetime] = Field(default=UNSET)
-    email: Union[str, None] = Field()
-    name: str = Field(description="The git author's name.")
-    username: Missing[str] = Field(default=UNSET)
-
-
-class WebhookCheckSuiteRequestedPropCheckSuitePropHeadCommitPropCommitter(GitHubModel):
-    """Committer
-
-    Metaproperties for Git author/committer information.
-    """
-
-    date: Missing[datetime] = Field(default=UNSET)
-    email: Union[str, None] = Field()
-    name: str = Field(description="The git author's name.")
-    username: Missing[str] = Field(default=UNSET)
-
-
-class WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItems(GitHubModel):
-    """Check Run Pull Request"""
-
-    base: WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropBase = (
-        Field()
-    )
-    head: WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropHead = (
-        Field()
-    )
-    id: int = Field()
-    number: int = Field()
+    plus_one: int = Field(alias="+1")
+    minus_one: int = Field(alias="-1")
+    confused: int = Field()
+    eyes: int = Field()
+    heart: int = Field()
+    hooray: int = Field()
+    laugh: int = Field()
+    rocket: int = Field()
+    total_count: int = Field()
     url: str = Field()
 
 
-class WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropBase(
-    GitHubModel
-):
-    """WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropBase"""
+class WebhooksIssuePropUser(GitHubModel):
+    """User"""
 
-    ref: str = Field()
-    repo: WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropBasePropRepo = Field(
-        title="Repo Ref"
-    )
-    sha: str = Field()
-
-
-class WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropBasePropRepo(
-    GitHubModel
-):
-    """Repo Ref"""
-
+    avatar_url: Missing[str] = Field(default=UNSET)
+    deleted: Missing[bool] = Field(default=UNSET)
+    email: Missing[Union[str, None]] = Field(default=UNSET)
+    events_url: Missing[str] = Field(default=UNSET)
+    followers_url: Missing[str] = Field(default=UNSET)
+    following_url: Missing[str] = Field(default=UNSET)
+    gists_url: Missing[str] = Field(default=UNSET)
+    gravatar_id: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(default=UNSET)
     id: int = Field()
-    name: str = Field()
-    url: str = Field()
-
-
-class WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropHead(
-    GitHubModel
-):
-    """WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropHead"""
-
-    ref: str = Field()
-    repo: WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropHeadPropRepo = Field(
-        title="Repo Ref"
+    login: str = Field()
+    name: Missing[str] = Field(default=UNSET)
+    node_id: Missing[str] = Field(default=UNSET)
+    organizations_url: Missing[str] = Field(default=UNSET)
+    received_events_url: Missing[str] = Field(default=UNSET)
+    repos_url: Missing[str] = Field(default=UNSET)
+    site_admin: Missing[bool] = Field(default=UNSET)
+    starred_url: Missing[str] = Field(default=UNSET)
+    subscriptions_url: Missing[str] = Field(default=UNSET)
+    type: Missing[Literal["Bot", "User", "Organization", "Mannequin"]] = Field(
+        default=UNSET
     )
-    sha: str = Field()
+    url: Missing[str] = Field(default=UNSET)
+    user_view_type: Missing[str] = Field(default=UNSET)
 
 
-class WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropHeadPropRepo(
-    GitHubModel
-):
-    """Repo Ref"""
-
-    id: int = Field()
-    name: str = Field()
-    url: str = Field()
-
-
-model_rebuild(WebhookCheckSuiteRequested)
-model_rebuild(WebhookCheckSuiteRequestedPropCheckSuite)
-model_rebuild(WebhookCheckSuiteRequestedPropCheckSuitePropApp)
-model_rebuild(WebhookCheckSuiteRequestedPropCheckSuitePropAppPropOwner)
-model_rebuild(WebhookCheckSuiteRequestedPropCheckSuitePropAppPropPermissions)
-model_rebuild(WebhookCheckSuiteRequestedPropCheckSuitePropHeadCommit)
-model_rebuild(WebhookCheckSuiteRequestedPropCheckSuitePropHeadCommitPropAuthor)
-model_rebuild(WebhookCheckSuiteRequestedPropCheckSuitePropHeadCommitPropCommitter)
-model_rebuild(WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItems)
-model_rebuild(WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropBase)
-model_rebuild(
-    WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropBasePropRepo
-)
-model_rebuild(WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropHead)
-model_rebuild(
-    WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropHeadPropRepo
-)
+model_rebuild(WebhooksIssue)
+model_rebuild(WebhooksIssuePropAssignee)
+model_rebuild(WebhooksIssuePropAssigneesItems)
+model_rebuild(WebhooksIssuePropLabelsItems)
+model_rebuild(WebhooksIssuePropMilestone)
+model_rebuild(WebhooksIssuePropMilestonePropCreator)
+model_rebuild(WebhooksIssuePropPerformedViaGithubApp)
+model_rebuild(WebhooksIssuePropPerformedViaGithubAppPropOwner)
+model_rebuild(WebhooksIssuePropPerformedViaGithubAppPropPermissions)
+model_rebuild(WebhooksIssuePropPullRequest)
+model_rebuild(WebhooksIssuePropReactions)
+model_rebuild(WebhooksIssuePropUser)
 
 __all__ = (
-    "WebhookCheckSuiteRequested",
-    "WebhookCheckSuiteRequestedPropCheckSuite",
-    "WebhookCheckSuiteRequestedPropCheckSuitePropApp",
-    "WebhookCheckSuiteRequestedPropCheckSuitePropAppPropOwner",
-    "WebhookCheckSuiteRequestedPropCheckSuitePropAppPropPermissions",
-    "WebhookCheckSuiteRequestedPropCheckSuitePropHeadCommit",
-    "WebhookCheckSuiteRequestedPropCheckSuitePropHeadCommitPropAuthor",
-    "WebhookCheckSuiteRequestedPropCheckSuitePropHeadCommitPropCommitter",
-    "WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItems",
-    "WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropBase",
-    "WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropBasePropRepo",
-    "WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropHead",
-    "WebhookCheckSuiteRequestedPropCheckSuitePropPullRequestsItemsPropHeadPropRepo",
+    "WebhooksIssue",
+    "WebhooksIssuePropAssignee",
+    "WebhooksIssuePropAssigneesItems",
+    "WebhooksIssuePropLabelsItems",
+    "WebhooksIssuePropMilestone",
+    "WebhooksIssuePropMilestonePropCreator",
+    "WebhooksIssuePropPerformedViaGithubApp",
+    "WebhooksIssuePropPerformedViaGithubAppPropOwner",
+    "WebhooksIssuePropPerformedViaGithubAppPropPermissions",
+    "WebhooksIssuePropPullRequest",
+    "WebhooksIssuePropReactions",
+    "WebhooksIssuePropUser",
 )

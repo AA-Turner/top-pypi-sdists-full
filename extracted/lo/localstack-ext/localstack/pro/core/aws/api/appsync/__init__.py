@@ -1,6 +1,7 @@
+from collections.abc import Iterable
 from datetime import datetime
 from enum import StrEnum
-from typing import IO, Dict, Iterable, List, Optional, TypedDict, Union
+from typing import IO, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -292,20 +293,20 @@ class ApiLimitExceededException(ServiceException):
 class CodeErrorLocation(TypedDict, total=False):
     """Describes the location of the error in a code sample."""
 
-    line: Optional[CodeErrorLine]
-    column: Optional[CodeErrorColumn]
-    span: Optional[CodeErrorSpan]
+    line: CodeErrorLine | None
+    column: CodeErrorColumn | None
+    span: CodeErrorSpan | None
 
 
 class CodeError(TypedDict, total=False):
     """Describes an AppSync error."""
 
-    errorType: Optional[String]
-    value: Optional[String]
-    location: Optional[CodeErrorLocation]
+    errorType: String | None
+    value: String | None
+    location: CodeErrorLocation | None
 
 
-CodeErrors = List[CodeError]
+CodeErrors = list[CodeError]
 
 
 class BadRequestDetail(TypedDict, total=False):
@@ -314,7 +315,7 @@ class BadRequestDetail(TypedDict, total=False):
     errors.
     """
 
-    codeErrors: Optional[CodeErrors]
+    codeErrors: CodeErrors | None
 
 
 class BadRequestException(ServiceException):
@@ -325,8 +326,8 @@ class BadRequestException(ServiceException):
     code: str = "BadRequestException"
     sender_fault: bool = False
     status_code: int = 400
-    reason: Optional[BadRequestReason]
-    detail: Optional[BadRequestDetail]
+    reason: BadRequestReason | None
+    detail: BadRequestDetail | None
 
 
 class ConcurrentModificationException(ServiceException):
@@ -407,9 +408,9 @@ class LambdaAuthorizerConfig(TypedDict, total=False):
     AppSync API can have only one Lambda authorizer configured at a time.
     """
 
-    authorizerResultTtlInSeconds: Optional[TTL]
+    authorizerResultTtlInSeconds: TTL | None
     authorizerUri: String
-    identityValidationExpression: Optional[String]
+    identityValidationExpression: String | None
 
 
 class CognitoUserPoolConfig(TypedDict, total=False):
@@ -417,7 +418,7 @@ class CognitoUserPoolConfig(TypedDict, total=False):
 
     userPoolId: String
     awsRegion: String
-    appIdClientRegex: Optional[String]
+    appIdClientRegex: String | None
 
 
 Long = int
@@ -427,21 +428,21 @@ class OpenIDConnectConfig(TypedDict, total=False):
     """Describes an OpenID Connect (OIDC) configuration."""
 
     issuer: String
-    clientId: Optional[String]
-    iatTTL: Optional[Long]
-    authTTL: Optional[Long]
+    clientId: String | None
+    iatTTL: Long | None
+    authTTL: Long | None
 
 
 class AdditionalAuthenticationProvider(TypedDict, total=False):
     """Describes an additional authentication provider."""
 
-    authenticationType: Optional[AuthenticationType]
-    openIDConnectConfig: Optional[OpenIDConnectConfig]
-    userPoolConfig: Optional[CognitoUserPoolConfig]
-    lambdaAuthorizerConfig: Optional[LambdaAuthorizerConfig]
+    authenticationType: AuthenticationType | None
+    openIDConnectConfig: OpenIDConnectConfig | None
+    userPoolConfig: CognitoUserPoolConfig | None
+    lambdaAuthorizerConfig: LambdaAuthorizerConfig | None
 
 
-AdditionalAuthenticationProviders = List[AdditionalAuthenticationProvider]
+AdditionalAuthenticationProviders = list[AdditionalAuthenticationProvider]
 
 
 class EventLogConfig(TypedDict, total=False):
@@ -460,7 +461,7 @@ class AuthMode(TypedDict, total=False):
     authType: AuthenticationType
 
 
-AuthModes = List[AuthMode]
+AuthModes = list[AuthMode]
 
 
 class CognitoConfig(TypedDict, total=False):
@@ -468,19 +469,19 @@ class CognitoConfig(TypedDict, total=False):
 
     userPoolId: String
     awsRegion: String
-    appIdClientRegex: Optional[String]
+    appIdClientRegex: String | None
 
 
 class AuthProvider(TypedDict, total=False):
     """Describes an authorization provider."""
 
     authType: AuthenticationType
-    cognitoConfig: Optional[CognitoConfig]
-    openIDConnectConfig: Optional[OpenIDConnectConfig]
-    lambdaAuthorizerConfig: Optional[LambdaAuthorizerConfig]
+    cognitoConfig: CognitoConfig | None
+    openIDConnectConfig: OpenIDConnectConfig | None
+    lambdaAuthorizerConfig: LambdaAuthorizerConfig | None
 
 
-AuthProviders = List[AuthProvider]
+AuthProviders = list[AuthProvider]
 
 
 class EventConfig(TypedDict, total=False):
@@ -492,12 +493,12 @@ class EventConfig(TypedDict, total=False):
     connectionAuthModes: AuthModes
     defaultPublishAuthModes: AuthModes
     defaultSubscribeAuthModes: AuthModes
-    logConfig: Optional[EventLogConfig]
+    logConfig: EventLogConfig | None
 
 
 Timestamp = datetime
-MapOfStringToString = Dict[String, String]
-TagMap = Dict[TagKey, TagValue]
+MapOfStringToString = dict[String, String]
+TagMap = dict[TagKey, TagValue]
 
 
 class Api(TypedDict, total=False):
@@ -506,35 +507,35 @@ class Api(TypedDict, total=False):
     real-time message publishing and message subscriptions over WebSockets.
     """
 
-    apiId: Optional[String]
-    name: Optional[ApiName]
-    ownerContact: Optional[OwnerContact]
-    tags: Optional[TagMap]
-    dns: Optional[MapOfStringToString]
-    apiArn: Optional[String]
-    created: Optional[Timestamp]
-    xrayEnabled: Optional[Boolean]
-    wafWebAclArn: Optional[String]
-    eventConfig: Optional[EventConfig]
+    apiId: String | None
+    name: ApiName | None
+    ownerContact: OwnerContact | None
+    tags: TagMap | None
+    dns: MapOfStringToString | None
+    apiArn: String | None
+    created: Timestamp | None
+    xrayEnabled: Boolean | None
+    wafWebAclArn: String | None
+    eventConfig: EventConfig | None
 
 
 class ApiAssociation(TypedDict, total=False):
     """Describes an ``ApiAssociation`` object."""
 
-    domainName: Optional[DomainName]
-    apiId: Optional[String]
-    associationStatus: Optional[AssociationStatus]
-    deploymentDetail: Optional[String]
+    domainName: DomainName | None
+    apiId: String | None
+    associationStatus: AssociationStatus | None
+    deploymentDetail: String | None
 
 
 class ApiCache(TypedDict, total=False):
-    ttl: Optional[Long]
-    apiCachingBehavior: Optional[ApiCachingBehavior]
-    transitEncryptionEnabled: Optional[Boolean]
-    atRestEncryptionEnabled: Optional[Boolean]
-    type: Optional[ApiCacheType]
-    status: Optional[ApiCacheStatus]
-    healthMetricsConfig: Optional[CacheHealthMetricsConfig]
+    ttl: Long | None
+    apiCachingBehavior: ApiCachingBehavior | None
+    transitEncryptionEnabled: Boolean | None
+    atRestEncryptionEnabled: Boolean | None
+    type: ApiCacheType | None
+    status: ApiCacheStatus | None
+    healthMetricsConfig: CacheHealthMetricsConfig | None
 
 
 class ApiKey(TypedDict, total=False):
@@ -585,14 +586,14 @@ class ApiKey(TypedDict, total=False):
        deletion time.
     """
 
-    id: Optional[String]
-    description: Optional[String]
-    expires: Optional[Long]
-    deletes: Optional[Long]
+    id: String | None
+    description: String | None
+    expires: Long | None
+    deletes: Long | None
 
 
-ApiKeys = List[ApiKey]
-Apis = List[Api]
+ApiKeys = list[ApiKey]
+Apis = list[Api]
 
 
 class AppSyncRuntime(TypedDict, total=False):
@@ -612,7 +613,7 @@ class AssociateApiRequest(ServiceRequest):
 
 
 class AssociateApiResponse(TypedDict, total=False):
-    apiAssociation: Optional[ApiAssociation]
+    apiAssociation: ApiAssociation | None
 
 
 class SourceApiAssociationConfig(TypedDict, total=False):
@@ -620,14 +621,14 @@ class SourceApiAssociationConfig(TypedDict, total=False):
     API.
     """
 
-    mergeType: Optional[MergeType]
+    mergeType: MergeType | None
 
 
 class AssociateMergedGraphqlApiRequest(ServiceRequest):
     sourceApiIdentifier: String
     mergedApiIdentifier: String
-    description: Optional[String]
-    sourceApiAssociationConfig: Optional[SourceApiAssociationConfig]
+    description: String | None
+    sourceApiAssociationConfig: SourceApiAssociationConfig | None
 
 
 Date = datetime
@@ -648,39 +649,39 @@ class SourceApiAssociation(TypedDict, total=False):
     in the *Amazon Web Services Resource Access Manager* guide.
     """
 
-    associationId: Optional[String]
-    associationArn: Optional[String]
-    sourceApiId: Optional[String]
-    sourceApiArn: Optional[String]
-    mergedApiArn: Optional[String]
-    mergedApiId: Optional[String]
-    description: Optional[String]
-    sourceApiAssociationConfig: Optional[SourceApiAssociationConfig]
-    sourceApiAssociationStatus: Optional[SourceApiAssociationStatus]
-    sourceApiAssociationStatusDetail: Optional[String]
-    lastSuccessfulMergeDate: Optional[Date]
+    associationId: String | None
+    associationArn: String | None
+    sourceApiId: String | None
+    sourceApiArn: String | None
+    mergedApiArn: String | None
+    mergedApiId: String | None
+    description: String | None
+    sourceApiAssociationConfig: SourceApiAssociationConfig | None
+    sourceApiAssociationStatus: SourceApiAssociationStatus | None
+    sourceApiAssociationStatusDetail: String | None
+    lastSuccessfulMergeDate: Date | None
 
 
 class AssociateMergedGraphqlApiResponse(TypedDict, total=False):
-    sourceApiAssociation: Optional[SourceApiAssociation]
+    sourceApiAssociation: SourceApiAssociation | None
 
 
 class AssociateSourceGraphqlApiRequest(ServiceRequest):
     mergedApiIdentifier: String
     sourceApiIdentifier: String
-    description: Optional[String]
-    sourceApiAssociationConfig: Optional[SourceApiAssociationConfig]
+    description: String | None
+    sourceApiAssociationConfig: SourceApiAssociationConfig | None
 
 
 class AssociateSourceGraphqlApiResponse(TypedDict, total=False):
-    sourceApiAssociation: Optional[SourceApiAssociation]
+    sourceApiAssociation: SourceApiAssociation | None
 
 
 class AwsIamConfig(TypedDict, total=False):
     """The Identity and Access Management (IAM) configuration."""
 
-    signingRegion: Optional[String]
-    signingServiceName: Optional[String]
+    signingRegion: String | None
+    signingServiceName: String | None
 
 
 class AuthorizationConfig(TypedDict, total=False):
@@ -689,31 +690,31 @@ class AuthorizationConfig(TypedDict, total=False):
     """
 
     authorizationType: AuthorizationType
-    awsIamConfig: Optional[AwsIamConfig]
+    awsIamConfig: AwsIamConfig | None
 
 
 Blob = bytes
-CachingKeys = List[String]
+CachingKeys = list[String]
 
 
 class CachingConfig(TypedDict, total=False):
     """The caching configuration for a resolver that has caching activated."""
 
     ttl: Long
-    cachingKeys: Optional[CachingKeys]
+    cachingKeys: CachingKeys | None
 
 
 class LambdaConfig(TypedDict, total=False):
     """The configuration for a Lambda data source."""
 
-    invokeType: Optional[InvokeType]
+    invokeType: InvokeType | None
 
 
 class Integration(TypedDict, total=False):
     """The integration data source configuration for the handler."""
 
     dataSourceName: String
-    lambdaConfig: Optional[LambdaConfig]
+    lambdaConfig: LambdaConfig | None
 
 
 class HandlerConfig(TypedDict, total=False):
@@ -726,8 +727,8 @@ class HandlerConfig(TypedDict, total=False):
 class HandlerConfigs(TypedDict, total=False):
     """The configuration for the ``OnPublish`` and ``OnSubscribe`` handlers."""
 
-    onPublish: Optional[HandlerConfig]
-    onSubscribe: Optional[HandlerConfig]
+    onPublish: HandlerConfig | None
+    onSubscribe: HandlerConfig | None
 
 
 class ChannelNamespace(TypedDict, total=False):
@@ -736,70 +737,70 @@ class ChannelNamespace(TypedDict, total=False):
     ``Api``.
     """
 
-    apiId: Optional[String]
-    name: Optional[Namespace]
-    subscribeAuthModes: Optional[AuthModes]
-    publishAuthModes: Optional[AuthModes]
-    codeHandlers: Optional[Code]
-    tags: Optional[TagMap]
-    channelNamespaceArn: Optional[String]
-    created: Optional[Timestamp]
-    lastModified: Optional[Timestamp]
-    handlerConfigs: Optional[HandlerConfigs]
+    apiId: String | None
+    name: Namespace | None
+    subscribeAuthModes: AuthModes | None
+    publishAuthModes: AuthModes | None
+    codeHandlers: Code | None
+    tags: TagMap | None
+    channelNamespaceArn: String | None
+    created: Timestamp | None
+    lastModified: Timestamp | None
+    handlerConfigs: HandlerConfigs | None
 
 
-ChannelNamespaces = List[ChannelNamespace]
+ChannelNamespaces = list[ChannelNamespace]
 
 
 class CreateApiCacheRequest(TypedDict, total=False):
     apiId: String
     ttl: Long
-    transitEncryptionEnabled: Optional[Boolean]
-    atRestEncryptionEnabled: Optional[Boolean]
+    transitEncryptionEnabled: Boolean | None
+    atRestEncryptionEnabled: Boolean | None
     apiCachingBehavior: ApiCachingBehavior
     type: ApiCacheType
-    healthMetricsConfig: Optional[CacheHealthMetricsConfig]
+    healthMetricsConfig: CacheHealthMetricsConfig | None
 
 
 class CreateApiCacheResponse(TypedDict, total=False):
     """Represents the output of a ``CreateApiCache`` operation."""
 
-    apiCache: Optional[ApiCache]
+    apiCache: ApiCache | None
 
 
 class CreateApiKeyRequest(ServiceRequest):
     apiId: String
-    description: Optional[String]
-    expires: Optional[Long]
+    description: String | None
+    expires: Long | None
 
 
 class CreateApiKeyResponse(TypedDict, total=False):
-    apiKey: Optional[ApiKey]
+    apiKey: ApiKey | None
 
 
 class CreateApiRequest(ServiceRequest):
     name: ApiName
-    ownerContact: Optional[String]
-    tags: Optional[TagMap]
-    eventConfig: Optional[EventConfig]
+    ownerContact: String | None
+    tags: TagMap | None
+    eventConfig: EventConfig | None
 
 
 class CreateApiResponse(TypedDict, total=False):
-    api: Optional[Api]
+    api: Api | None
 
 
 class CreateChannelNamespaceRequest(ServiceRequest):
     apiId: String
     name: Namespace
-    subscribeAuthModes: Optional[AuthModes]
-    publishAuthModes: Optional[AuthModes]
-    codeHandlers: Optional[Code]
-    tags: Optional[TagMap]
-    handlerConfigs: Optional[HandlerConfigs]
+    subscribeAuthModes: AuthModes | None
+    publishAuthModes: AuthModes | None
+    codeHandlers: Code | None
+    tags: TagMap | None
+    handlerConfigs: HandlerConfigs | None
 
 
 class CreateChannelNamespaceResponse(TypedDict, total=False):
-    channelNamespace: Optional[ChannelNamespace]
+    channelNamespace: ChannelNamespace | None
 
 
 class EventBridgeDataSourceConfig(TypedDict, total=False):
@@ -813,25 +814,25 @@ class RdsHttpEndpointConfig(TypedDict, total=False):
     configuration.
     """
 
-    awsRegion: Optional[String]
-    dbClusterIdentifier: Optional[String]
-    databaseName: Optional[String]
-    schema: Optional[String]
-    awsSecretStoreArn: Optional[String]
+    awsRegion: String | None
+    dbClusterIdentifier: String | None
+    databaseName: String | None
+    schema: String | None
+    awsSecretStoreArn: String | None
 
 
 class RelationalDatabaseDataSourceConfig(TypedDict, total=False):
     """Describes a relational database data source configuration."""
 
-    relationalDatabaseSourceType: Optional[RelationalDatabaseSourceType]
-    rdsHttpEndpointConfig: Optional[RdsHttpEndpointConfig]
+    relationalDatabaseSourceType: RelationalDatabaseSourceType | None
+    rdsHttpEndpointConfig: RdsHttpEndpointConfig | None
 
 
 class HttpDataSourceConfig(TypedDict, total=False):
     """Describes an HTTP data source configuration."""
 
-    endpoint: Optional[String]
-    authorizationConfig: Optional[AuthorizationConfig]
+    endpoint: String | None
+    authorizationConfig: AuthorizationConfig | None
 
 
 class OpenSearchServiceDataSourceConfig(TypedDict, total=False):
@@ -862,9 +863,9 @@ class LambdaDataSourceConfig(TypedDict, total=False):
 class DeltaSyncConfig(TypedDict, total=False):
     """Describes a Delta Sync configuration."""
 
-    baseTableTTL: Optional[Long]
-    deltaSyncTableName: Optional[String]
-    deltaSyncTableTTL: Optional[Long]
+    baseTableTTL: Long | None
+    deltaSyncTableName: String | None
+    deltaSyncTableTTL: Long | None
 
 
 class DynamodbDataSourceConfig(TypedDict, total=False):
@@ -872,68 +873,68 @@ class DynamodbDataSourceConfig(TypedDict, total=False):
 
     tableName: String
     awsRegion: String
-    useCallerCredentials: Optional[Boolean]
-    deltaSyncConfig: Optional[DeltaSyncConfig]
-    versioned: Optional[Boolean]
+    useCallerCredentials: Boolean | None
+    deltaSyncConfig: DeltaSyncConfig | None
+    versioned: Boolean | None
 
 
 class CreateDataSourceRequest(TypedDict, total=False):
     apiId: String
     name: ResourceName
-    description: Optional[String]
+    description: String | None
     type: DataSourceType
-    serviceRoleArn: Optional[String]
-    dynamodbConfig: Optional[DynamodbDataSourceConfig]
-    lambdaConfig: Optional[LambdaDataSourceConfig]
-    elasticsearchConfig: Optional[ElasticsearchDataSourceConfig]
-    openSearchServiceConfig: Optional[OpenSearchServiceDataSourceConfig]
-    httpConfig: Optional[HttpDataSourceConfig]
-    relationalDatabaseConfig: Optional[RelationalDatabaseDataSourceConfig]
-    eventBridgeConfig: Optional[EventBridgeDataSourceConfig]
-    metricsConfig: Optional[DataSourceLevelMetricsConfig]
+    serviceRoleArn: String | None
+    dynamodbConfig: DynamodbDataSourceConfig | None
+    lambdaConfig: LambdaDataSourceConfig | None
+    elasticsearchConfig: ElasticsearchDataSourceConfig | None
+    openSearchServiceConfig: OpenSearchServiceDataSourceConfig | None
+    httpConfig: HttpDataSourceConfig | None
+    relationalDatabaseConfig: RelationalDatabaseDataSourceConfig | None
+    eventBridgeConfig: EventBridgeDataSourceConfig | None
+    metricsConfig: DataSourceLevelMetricsConfig | None
 
 
 class DataSource(TypedDict, total=False):
-    dataSourceArn: Optional[String]
-    name: Optional[ResourceName]
-    description: Optional[String]
-    type: Optional[DataSourceType]
-    serviceRoleArn: Optional[String]
-    dynamodbConfig: Optional[DynamodbDataSourceConfig]
-    lambdaConfig: Optional[LambdaDataSourceConfig]
-    elasticsearchConfig: Optional[ElasticsearchDataSourceConfig]
-    openSearchServiceConfig: Optional[OpenSearchServiceDataSourceConfig]
-    httpConfig: Optional[HttpDataSourceConfig]
-    relationalDatabaseConfig: Optional[RelationalDatabaseDataSourceConfig]
-    eventBridgeConfig: Optional[EventBridgeDataSourceConfig]
-    metricsConfig: Optional[DataSourceLevelMetricsConfig]
+    dataSourceArn: String | None
+    name: ResourceName | None
+    description: String | None
+    type: DataSourceType | None
+    serviceRoleArn: String | None
+    dynamodbConfig: DynamodbDataSourceConfig | None
+    lambdaConfig: LambdaDataSourceConfig | None
+    elasticsearchConfig: ElasticsearchDataSourceConfig | None
+    openSearchServiceConfig: OpenSearchServiceDataSourceConfig | None
+    httpConfig: HttpDataSourceConfig | None
+    relationalDatabaseConfig: RelationalDatabaseDataSourceConfig | None
+    eventBridgeConfig: EventBridgeDataSourceConfig | None
+    metricsConfig: DataSourceLevelMetricsConfig | None
 
 
 class CreateDataSourceResponse(TypedDict, total=False):
-    dataSource: Optional[DataSource]
+    dataSource: DataSource | None
 
 
 class CreateDomainNameRequest(ServiceRequest):
     domainName: DomainName
     certificateArn: CertificateArn
-    description: Optional[Description]
-    tags: Optional[TagMap]
+    description: Description | None
+    tags: TagMap | None
 
 
 class DomainNameConfig(TypedDict, total=False):
     """Describes a configuration for a custom domain."""
 
-    domainName: Optional[DomainName]
-    description: Optional[Description]
-    certificateArn: Optional[CertificateArn]
-    appsyncDomainName: Optional[String]
-    hostedZoneId: Optional[String]
-    tags: Optional[TagMap]
-    domainNameArn: Optional[String]
+    domainName: DomainName | None
+    description: Description | None
+    certificateArn: CertificateArn | None
+    appsyncDomainName: String | None
+    hostedZoneId: String | None
+    tags: TagMap | None
+    domainNameArn: String | None
 
 
 class CreateDomainNameResponse(TypedDict, total=False):
-    domainNameConfig: Optional[DomainNameConfig]
+    domainNameConfig: DomainNameConfig | None
 
 
 class LambdaConflictHandlerConfig(TypedDict, total=False):
@@ -941,7 +942,7 @@ class LambdaConflictHandlerConfig(TypedDict, total=False):
     as the Conflict Handler.
     """
 
-    lambdaConflictHandlerArn: Optional[String]
+    lambdaConflictHandlerArn: String | None
 
 
 class SyncConfig(TypedDict, total=False):
@@ -951,23 +952,23 @@ class SyncConfig(TypedDict, total=False):
     use when the resolver is invoked.
     """
 
-    conflictHandler: Optional[ConflictHandlerType]
-    conflictDetection: Optional[ConflictDetectionType]
-    lambdaConflictHandlerConfig: Optional[LambdaConflictHandlerConfig]
+    conflictHandler: ConflictHandlerType | None
+    conflictDetection: ConflictDetectionType | None
+    lambdaConflictHandlerConfig: LambdaConflictHandlerConfig | None
 
 
 class CreateFunctionRequest(ServiceRequest):
     apiId: String
     name: ResourceName
-    description: Optional[String]
+    description: String | None
     dataSourceName: ResourceName
-    requestMappingTemplate: Optional[MappingTemplate]
-    responseMappingTemplate: Optional[MappingTemplate]
-    functionVersion: Optional[String]
-    syncConfig: Optional[SyncConfig]
-    maxBatchSize: Optional[MaxBatchSize]
-    runtime: Optional[AppSyncRuntime]
-    code: Optional[Code]
+    requestMappingTemplate: MappingTemplate | None
+    responseMappingTemplate: MappingTemplate | None
+    functionVersion: String | None
+    syncConfig: SyncConfig | None
+    maxBatchSize: MaxBatchSize | None
+    runtime: AppSyncRuntime | None
+    code: Code | None
 
 
 class FunctionConfiguration(TypedDict, total=False):
@@ -975,22 +976,22 @@ class FunctionConfiguration(TypedDict, total=False):
     compose the resolver logic.
     """
 
-    functionId: Optional[String]
-    functionArn: Optional[String]
-    name: Optional[ResourceName]
-    description: Optional[String]
-    dataSourceName: Optional[ResourceName]
-    requestMappingTemplate: Optional[MappingTemplate]
-    responseMappingTemplate: Optional[MappingTemplate]
-    functionVersion: Optional[String]
-    syncConfig: Optional[SyncConfig]
-    maxBatchSize: Optional[MaxBatchSize]
-    runtime: Optional[AppSyncRuntime]
-    code: Optional[Code]
+    functionId: String | None
+    functionArn: String | None
+    name: ResourceName | None
+    description: String | None
+    dataSourceName: ResourceName | None
+    requestMappingTemplate: MappingTemplate | None
+    responseMappingTemplate: MappingTemplate | None
+    functionVersion: String | None
+    syncConfig: SyncConfig | None
+    maxBatchSize: MaxBatchSize | None
+    runtime: AppSyncRuntime | None
+    code: Code | None
 
 
 class CreateFunctionResponse(TypedDict, total=False):
-    functionConfiguration: Optional[FunctionConfiguration]
+    functionConfiguration: FunctionConfiguration | None
 
 
 class EnhancedMetricsConfig(TypedDict, total=False):
@@ -1076,7 +1077,7 @@ class UserPoolConfig(TypedDict, total=False):
     userPoolId: String
     awsRegion: String
     defaultAction: DefaultAction
-    appIdClientRegex: Optional[String]
+    appIdClientRegex: String | None
 
 
 class LogConfig(TypedDict, total=False):
@@ -1084,108 +1085,108 @@ class LogConfig(TypedDict, total=False):
 
     fieldLogLevel: FieldLogLevel
     cloudWatchLogsRoleArn: String
-    excludeVerboseContent: Optional[Boolean]
+    excludeVerboseContent: Boolean | None
 
 
 class CreateGraphqlApiRequest(ServiceRequest):
     name: String
-    logConfig: Optional[LogConfig]
+    logConfig: LogConfig | None
     authenticationType: AuthenticationType
-    userPoolConfig: Optional[UserPoolConfig]
-    openIDConnectConfig: Optional[OpenIDConnectConfig]
-    tags: Optional[TagMap]
-    additionalAuthenticationProviders: Optional[AdditionalAuthenticationProviders]
-    xrayEnabled: Optional[Boolean]
-    lambdaAuthorizerConfig: Optional[LambdaAuthorizerConfig]
-    apiType: Optional[GraphQLApiType]
-    mergedApiExecutionRoleArn: Optional[String]
-    visibility: Optional[GraphQLApiVisibility]
-    ownerContact: Optional[String]
-    introspectionConfig: Optional[GraphQLApiIntrospectionConfig]
-    queryDepthLimit: Optional[QueryDepthLimit]
-    resolverCountLimit: Optional[ResolverCountLimit]
-    enhancedMetricsConfig: Optional[EnhancedMetricsConfig]
+    userPoolConfig: UserPoolConfig | None
+    openIDConnectConfig: OpenIDConnectConfig | None
+    tags: TagMap | None
+    additionalAuthenticationProviders: AdditionalAuthenticationProviders | None
+    xrayEnabled: Boolean | None
+    lambdaAuthorizerConfig: LambdaAuthorizerConfig | None
+    apiType: GraphQLApiType | None
+    mergedApiExecutionRoleArn: String | None
+    visibility: GraphQLApiVisibility | None
+    ownerContact: String | None
+    introspectionConfig: GraphQLApiIntrospectionConfig | None
+    queryDepthLimit: QueryDepthLimit | None
+    resolverCountLimit: ResolverCountLimit | None
+    enhancedMetricsConfig: EnhancedMetricsConfig | None
 
 
 class GraphqlApi(TypedDict, total=False):
     """Describes a GraphQL API."""
 
-    name: Optional[ResourceName]
-    apiId: Optional[String]
-    authenticationType: Optional[AuthenticationType]
-    logConfig: Optional[LogConfig]
-    userPoolConfig: Optional[UserPoolConfig]
-    openIDConnectConfig: Optional[OpenIDConnectConfig]
-    arn: Optional[String]
-    uris: Optional[MapOfStringToString]
-    tags: Optional[TagMap]
-    additionalAuthenticationProviders: Optional[AdditionalAuthenticationProviders]
-    xrayEnabled: Optional[Boolean]
-    wafWebAclArn: Optional[String]
-    lambdaAuthorizerConfig: Optional[LambdaAuthorizerConfig]
-    dns: Optional[MapOfStringToString]
-    visibility: Optional[GraphQLApiVisibility]
-    apiType: Optional[GraphQLApiType]
-    mergedApiExecutionRoleArn: Optional[String]
-    owner: Optional[String]
-    ownerContact: Optional[String]
-    introspectionConfig: Optional[GraphQLApiIntrospectionConfig]
-    queryDepthLimit: Optional[QueryDepthLimit]
-    resolverCountLimit: Optional[ResolverCountLimit]
-    enhancedMetricsConfig: Optional[EnhancedMetricsConfig]
+    name: ResourceName | None
+    apiId: String | None
+    authenticationType: AuthenticationType | None
+    logConfig: LogConfig | None
+    userPoolConfig: UserPoolConfig | None
+    openIDConnectConfig: OpenIDConnectConfig | None
+    arn: String | None
+    uris: MapOfStringToString | None
+    tags: TagMap | None
+    additionalAuthenticationProviders: AdditionalAuthenticationProviders | None
+    xrayEnabled: Boolean | None
+    wafWebAclArn: String | None
+    lambdaAuthorizerConfig: LambdaAuthorizerConfig | None
+    dns: MapOfStringToString | None
+    visibility: GraphQLApiVisibility | None
+    apiType: GraphQLApiType | None
+    mergedApiExecutionRoleArn: String | None
+    owner: String | None
+    ownerContact: String | None
+    introspectionConfig: GraphQLApiIntrospectionConfig | None
+    queryDepthLimit: QueryDepthLimit | None
+    resolverCountLimit: ResolverCountLimit | None
+    enhancedMetricsConfig: EnhancedMetricsConfig | None
 
 
 class CreateGraphqlApiResponse(TypedDict, total=False):
-    graphqlApi: Optional[GraphqlApi]
+    graphqlApi: GraphqlApi | None
 
 
-FunctionsIds = List[String]
+FunctionsIds = list[String]
 
 
 class PipelineConfig(TypedDict, total=False):
     """The pipeline configuration for a resolver of kind ``PIPELINE``."""
 
-    functions: Optional[FunctionsIds]
+    functions: FunctionsIds | None
 
 
 class CreateResolverRequest(ServiceRequest):
     apiId: String
     typeName: ResourceName
     fieldName: ResourceName
-    dataSourceName: Optional[ResourceName]
-    requestMappingTemplate: Optional[MappingTemplate]
-    responseMappingTemplate: Optional[MappingTemplate]
-    kind: Optional[ResolverKind]
-    pipelineConfig: Optional[PipelineConfig]
-    syncConfig: Optional[SyncConfig]
-    cachingConfig: Optional[CachingConfig]
-    maxBatchSize: Optional[MaxBatchSize]
-    runtime: Optional[AppSyncRuntime]
-    code: Optional[Code]
-    metricsConfig: Optional[ResolverLevelMetricsConfig]
+    dataSourceName: ResourceName | None
+    requestMappingTemplate: MappingTemplate | None
+    responseMappingTemplate: MappingTemplate | None
+    kind: ResolverKind | None
+    pipelineConfig: PipelineConfig | None
+    syncConfig: SyncConfig | None
+    cachingConfig: CachingConfig | None
+    maxBatchSize: MaxBatchSize | None
+    runtime: AppSyncRuntime | None
+    code: Code | None
+    metricsConfig: ResolverLevelMetricsConfig | None
 
 
 class Resolver(TypedDict, total=False):
     """Describes a resolver."""
 
-    typeName: Optional[ResourceName]
-    fieldName: Optional[ResourceName]
-    dataSourceName: Optional[ResourceName]
-    resolverArn: Optional[String]
-    requestMappingTemplate: Optional[MappingTemplate]
-    responseMappingTemplate: Optional[MappingTemplate]
-    kind: Optional[ResolverKind]
-    pipelineConfig: Optional[PipelineConfig]
-    syncConfig: Optional[SyncConfig]
-    cachingConfig: Optional[CachingConfig]
-    maxBatchSize: Optional[MaxBatchSize]
-    runtime: Optional[AppSyncRuntime]
-    code: Optional[Code]
-    metricsConfig: Optional[ResolverLevelMetricsConfig]
+    typeName: ResourceName | None
+    fieldName: ResourceName | None
+    dataSourceName: ResourceName | None
+    resolverArn: String | None
+    requestMappingTemplate: MappingTemplate | None
+    responseMappingTemplate: MappingTemplate | None
+    kind: ResolverKind | None
+    pipelineConfig: PipelineConfig | None
+    syncConfig: SyncConfig | None
+    cachingConfig: CachingConfig | None
+    maxBatchSize: MaxBatchSize | None
+    runtime: AppSyncRuntime | None
+    code: Code | None
+    metricsConfig: ResolverLevelMetricsConfig | None
 
 
 class CreateResolverResponse(TypedDict, total=False):
-    resolver: Optional[Resolver]
+    resolver: Resolver | None
 
 
 class CreateTypeRequest(ServiceRequest):
@@ -1197,58 +1198,58 @@ class CreateTypeRequest(ServiceRequest):
 class Type(TypedDict, total=False):
     """Describes a type."""
 
-    name: Optional[ResourceName]
-    description: Optional[String]
-    arn: Optional[String]
-    definition: Optional[String]
-    format: Optional[TypeDefinitionFormat]
+    name: ResourceName | None
+    description: String | None
+    arn: String | None
+    definition: String | None
+    format: TypeDefinitionFormat | None
 
 
 class CreateTypeResponse(TypedDict, total=False):
-    type: Optional[Type]
+    type: Type | None
 
 
-DataSourceIntrospectionModelIndexFields = List[String]
+DataSourceIntrospectionModelIndexFields = list[String]
 
 
 class DataSourceIntrospectionModelIndex(TypedDict, total=False):
     """The index that was retrieved from the introspected data."""
 
-    name: Optional[String]
-    fields: Optional[DataSourceIntrospectionModelIndexFields]
+    name: String | None
+    fields: DataSourceIntrospectionModelIndexFields | None
 
 
-DataSourceIntrospectionModelIndexes = List[DataSourceIntrospectionModelIndex]
-DataSourceIntrospectionModelFieldTypeValues = List[String]
+DataSourceIntrospectionModelIndexes = list[DataSourceIntrospectionModelIndex]
+DataSourceIntrospectionModelFieldTypeValues = list[String]
 
 
 class DataSourceIntrospectionModelFieldType(TypedDict, total=False):
-    kind: Optional["String"]
-    name: Optional["String"]
-    type: Optional["DataSourceIntrospectionModelFieldType"]
-    values: Optional["DataSourceIntrospectionModelFieldTypeValues"]
+    kind: "String | None"
+    name: "String | None"
+    type: "DataSourceIntrospectionModelFieldType | None"
+    values: "DataSourceIntrospectionModelFieldTypeValues | None"
 
 
 class DataSourceIntrospectionModelField(TypedDict, total=False):
-    name: Optional[String]
-    type: Optional[DataSourceIntrospectionModelFieldType]
-    length: Optional[Long]
+    name: String | None
+    type: DataSourceIntrospectionModelFieldType | None
+    length: Long | None
 
 
-DataSourceIntrospectionModelFields = List[DataSourceIntrospectionModelField]
+DataSourceIntrospectionModelFields = list[DataSourceIntrospectionModelField]
 
 
 class DataSourceIntrospectionModel(TypedDict, total=False):
     """Contains the introspected data that was retrieved from the data source."""
 
-    name: Optional[String]
-    fields: Optional[DataSourceIntrospectionModelFields]
-    primaryKey: Optional[DataSourceIntrospectionModelIndex]
-    indexes: Optional[DataSourceIntrospectionModelIndexes]
-    sdl: Optional[String]
+    name: String | None
+    fields: DataSourceIntrospectionModelFields | None
+    primaryKey: DataSourceIntrospectionModelIndex | None
+    indexes: DataSourceIntrospectionModelIndexes | None
+    sdl: String | None
 
 
-DataSourceIntrospectionModels = List[DataSourceIntrospectionModel]
+DataSourceIntrospectionModels = list[DataSourceIntrospectionModel]
 
 
 class DataSourceIntrospectionResult(TypedDict, total=False):
@@ -1256,11 +1257,11 @@ class DataSourceIntrospectionResult(TypedDict, total=False):
     the populated result of a ``GetDataSourceIntrospection`` operation.
     """
 
-    models: Optional[DataSourceIntrospectionModels]
-    nextToken: Optional[PaginationToken]
+    models: DataSourceIntrospectionModels | None
+    nextToken: PaginationToken | None
 
 
-DataSources = List[DataSource]
+DataSources = list[DataSource]
 
 
 class DeleteApiCacheRequest(ServiceRequest):
@@ -1368,7 +1369,7 @@ class DisassociateMergedGraphqlApiRequest(ServiceRequest):
 
 
 class DisassociateMergedGraphqlApiResponse(TypedDict, total=False):
-    sourceApiAssociationStatus: Optional[SourceApiAssociationStatus]
+    sourceApiAssociationStatus: SourceApiAssociationStatus | None
 
 
 class DisassociateSourceGraphqlApiRequest(ServiceRequest):
@@ -1377,11 +1378,11 @@ class DisassociateSourceGraphqlApiRequest(ServiceRequest):
 
 
 class DisassociateSourceGraphqlApiResponse(TypedDict, total=False):
-    sourceApiAssociationStatus: Optional[SourceApiAssociationStatus]
+    sourceApiAssociationStatus: SourceApiAssociationStatus | None
 
 
-DomainNameConfigs = List[DomainNameConfig]
-EnvironmentVariableMap = Dict[EnvironmentVariableKey, EnvironmentVariableValue]
+DomainNameConfigs = list[DomainNameConfig]
+EnvironmentVariableMap = dict[EnvironmentVariableKey, EnvironmentVariableValue]
 
 
 class ErrorDetail(TypedDict, total=False):
@@ -1389,32 +1390,32 @@ class ErrorDetail(TypedDict, total=False):
     apply to the request or response function evaluation.
     """
 
-    message: Optional[ErrorMessage]
+    message: ErrorMessage | None
 
 
 class EvaluateCodeErrorDetail(TypedDict, total=False):
     """Contains the list of errors from a code evaluation response."""
 
-    message: Optional[ErrorMessage]
-    codeErrors: Optional[CodeErrors]
+    message: ErrorMessage | None
+    codeErrors: CodeErrors | None
 
 
 class EvaluateCodeRequest(ServiceRequest):
     runtime: AppSyncRuntime
     code: Code
     context: Context
-    function: Optional[String]
+    function: String | None
 
 
-Logs = List[String]
+Logs = list[String]
 
 
 class EvaluateCodeResponse(TypedDict, total=False):
-    evaluationResult: Optional[EvaluationResult]
-    error: Optional[EvaluateCodeErrorDetail]
-    logs: Optional[Logs]
-    stash: Optional[Stash]
-    outErrors: Optional[OutErrors]
+    evaluationResult: EvaluationResult | None
+    error: EvaluateCodeErrorDetail | None
+    logs: Logs | None
+    stash: Stash | None
+    outErrors: OutErrors | None
 
 
 class EvaluateMappingTemplateRequest(ServiceRequest):
@@ -1423,11 +1424,11 @@ class EvaluateMappingTemplateRequest(ServiceRequest):
 
 
 class EvaluateMappingTemplateResponse(TypedDict, total=False):
-    evaluationResult: Optional[EvaluationResult]
-    error: Optional[ErrorDetail]
-    logs: Optional[Logs]
-    stash: Optional[Stash]
-    outErrors: Optional[OutErrors]
+    evaluationResult: EvaluationResult | None
+    error: ErrorDetail | None
+    logs: Logs | None
+    stash: Stash | None
+    outErrors: OutErrors | None
 
 
 class FlushApiCacheRequest(ServiceRequest):
@@ -1442,7 +1443,7 @@ class FlushApiCacheResponse(TypedDict, total=False):
     pass
 
 
-Functions = List[FunctionConfiguration]
+Functions = list[FunctionConfiguration]
 
 
 class GetApiAssociationRequest(ServiceRequest):
@@ -1450,7 +1451,7 @@ class GetApiAssociationRequest(ServiceRequest):
 
 
 class GetApiAssociationResponse(TypedDict, total=False):
-    apiAssociation: Optional[ApiAssociation]
+    apiAssociation: ApiAssociation | None
 
 
 class GetApiCacheRequest(ServiceRequest):
@@ -1462,7 +1463,7 @@ class GetApiCacheRequest(ServiceRequest):
 class GetApiCacheResponse(TypedDict, total=False):
     """Represents the output of a ``GetApiCache`` operation."""
 
-    apiCache: Optional[ApiCache]
+    apiCache: ApiCache | None
 
 
 class GetApiRequest(ServiceRequest):
@@ -1470,7 +1471,7 @@ class GetApiRequest(ServiceRequest):
 
 
 class GetApiResponse(TypedDict, total=False):
-    api: Optional[Api]
+    api: Api | None
 
 
 class GetChannelNamespaceRequest(ServiceRequest):
@@ -1479,21 +1480,21 @@ class GetChannelNamespaceRequest(ServiceRequest):
 
 
 class GetChannelNamespaceResponse(TypedDict, total=False):
-    channelNamespace: Optional[ChannelNamespace]
+    channelNamespace: ChannelNamespace | None
 
 
 class GetDataSourceIntrospectionRequest(ServiceRequest):
     introspectionId: String
-    includeModelsSDL: Optional[Boolean]
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    includeModelsSDL: Boolean | None
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class GetDataSourceIntrospectionResponse(TypedDict, total=False):
-    introspectionId: Optional[String]
-    introspectionStatus: Optional[DataSourceIntrospectionStatus]
-    introspectionStatusDetail: Optional[String]
-    introspectionResult: Optional[DataSourceIntrospectionResult]
+    introspectionId: String | None
+    introspectionStatus: DataSourceIntrospectionStatus | None
+    introspectionStatusDetail: String | None
+    introspectionResult: DataSourceIntrospectionResult | None
 
 
 class GetDataSourceRequest(ServiceRequest):
@@ -1502,7 +1503,7 @@ class GetDataSourceRequest(ServiceRequest):
 
 
 class GetDataSourceResponse(TypedDict, total=False):
-    dataSource: Optional[DataSource]
+    dataSource: DataSource | None
 
 
 class GetDomainNameRequest(ServiceRequest):
@@ -1510,7 +1511,7 @@ class GetDomainNameRequest(ServiceRequest):
 
 
 class GetDomainNameResponse(TypedDict, total=False):
-    domainNameConfig: Optional[DomainNameConfig]
+    domainNameConfig: DomainNameConfig | None
 
 
 class GetFunctionRequest(ServiceRequest):
@@ -1519,7 +1520,7 @@ class GetFunctionRequest(ServiceRequest):
 
 
 class GetFunctionResponse(TypedDict, total=False):
-    functionConfiguration: Optional[FunctionConfiguration]
+    functionConfiguration: FunctionConfiguration | None
 
 
 class GetGraphqlApiEnvironmentVariablesRequest(ServiceRequest):
@@ -1527,7 +1528,7 @@ class GetGraphqlApiEnvironmentVariablesRequest(ServiceRequest):
 
 
 class GetGraphqlApiEnvironmentVariablesResponse(TypedDict, total=False):
-    environmentVariables: Optional[EnvironmentVariableMap]
+    environmentVariables: EnvironmentVariableMap | None
 
 
 class GetGraphqlApiRequest(ServiceRequest):
@@ -1535,17 +1536,17 @@ class GetGraphqlApiRequest(ServiceRequest):
 
 
 class GetGraphqlApiResponse(TypedDict, total=False):
-    graphqlApi: Optional[GraphqlApi]
+    graphqlApi: GraphqlApi | None
 
 
 class GetIntrospectionSchemaRequest(ServiceRequest):
     apiId: String
     format: OutputType
-    includeDirectives: Optional[BooleanValue]
+    includeDirectives: BooleanValue | None
 
 
 class GetIntrospectionSchemaResponse(TypedDict, total=False):
-    schema: Optional[Union[Blob, IO[Blob], Iterable[Blob]]]
+    schema: Blob | IO[Blob] | Iterable[Blob] | None
 
 
 class GetResolverRequest(ServiceRequest):
@@ -1555,7 +1556,7 @@ class GetResolverRequest(ServiceRequest):
 
 
 class GetResolverResponse(TypedDict, total=False):
-    resolver: Optional[Resolver]
+    resolver: Resolver | None
 
 
 class GetSchemaCreationStatusRequest(ServiceRequest):
@@ -1563,8 +1564,8 @@ class GetSchemaCreationStatusRequest(ServiceRequest):
 
 
 class GetSchemaCreationStatusResponse(TypedDict, total=False):
-    status: Optional[SchemaStatus]
-    details: Optional[String]
+    status: SchemaStatus | None
+    details: String | None
 
 
 class GetSourceApiAssociationRequest(ServiceRequest):
@@ -1573,7 +1574,7 @@ class GetSourceApiAssociationRequest(ServiceRequest):
 
 
 class GetSourceApiAssociationResponse(TypedDict, total=False):
-    sourceApiAssociation: Optional[SourceApiAssociation]
+    sourceApiAssociation: SourceApiAssociation | None
 
 
 class GetTypeRequest(ServiceRequest):
@@ -1583,119 +1584,119 @@ class GetTypeRequest(ServiceRequest):
 
 
 class GetTypeResponse(TypedDict, total=False):
-    type: Optional[Type]
+    type: Type | None
 
 
-GraphqlApis = List[GraphqlApi]
+GraphqlApis = list[GraphqlApi]
 
 
 class ListApiKeysRequest(ServiceRequest):
     apiId: String
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class ListApiKeysResponse(TypedDict, total=False):
-    apiKeys: Optional[ApiKeys]
-    nextToken: Optional[PaginationToken]
+    apiKeys: ApiKeys | None
+    nextToken: PaginationToken | None
 
 
 class ListApisRequest(ServiceRequest):
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class ListApisResponse(TypedDict, total=False):
-    apis: Optional[Apis]
-    nextToken: Optional[PaginationToken]
+    apis: Apis | None
+    nextToken: PaginationToken | None
 
 
 class ListChannelNamespacesRequest(ServiceRequest):
     apiId: String
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class ListChannelNamespacesResponse(TypedDict, total=False):
-    channelNamespaces: Optional[ChannelNamespaces]
-    nextToken: Optional[PaginationToken]
+    channelNamespaces: ChannelNamespaces | None
+    nextToken: PaginationToken | None
 
 
 class ListDataSourcesRequest(ServiceRequest):
     apiId: String
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class ListDataSourcesResponse(TypedDict, total=False):
-    dataSources: Optional[DataSources]
-    nextToken: Optional[PaginationToken]
+    dataSources: DataSources | None
+    nextToken: PaginationToken | None
 
 
 class ListDomainNamesRequest(ServiceRequest):
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class ListDomainNamesResponse(TypedDict, total=False):
-    domainNameConfigs: Optional[DomainNameConfigs]
-    nextToken: Optional[PaginationToken]
+    domainNameConfigs: DomainNameConfigs | None
+    nextToken: PaginationToken | None
 
 
 class ListFunctionsRequest(ServiceRequest):
     apiId: String
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class ListFunctionsResponse(TypedDict, total=False):
-    functions: Optional[Functions]
-    nextToken: Optional[PaginationToken]
+    functions: Functions | None
+    nextToken: PaginationToken | None
 
 
 class ListGraphqlApisRequest(ServiceRequest):
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
-    apiType: Optional[GraphQLApiType]
-    owner: Optional[Ownership]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
+    apiType: GraphQLApiType | None
+    owner: Ownership | None
 
 
 class ListGraphqlApisResponse(TypedDict, total=False):
-    graphqlApis: Optional[GraphqlApis]
-    nextToken: Optional[PaginationToken]
+    graphqlApis: GraphqlApis | None
+    nextToken: PaginationToken | None
 
 
 class ListResolversByFunctionRequest(ServiceRequest):
     apiId: String
     functionId: String
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
-Resolvers = List[Resolver]
+Resolvers = list[Resolver]
 
 
 class ListResolversByFunctionResponse(TypedDict, total=False):
-    resolvers: Optional[Resolvers]
-    nextToken: Optional[PaginationToken]
+    resolvers: Resolvers | None
+    nextToken: PaginationToken | None
 
 
 class ListResolversRequest(ServiceRequest):
     apiId: String
     typeName: String
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class ListResolversResponse(TypedDict, total=False):
-    resolvers: Optional[Resolvers]
-    nextToken: Optional[PaginationToken]
+    resolvers: Resolvers | None
+    nextToken: PaginationToken | None
 
 
 class ListSourceApiAssociationsRequest(ServiceRequest):
     apiId: String
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class SourceApiAssociationSummary(TypedDict, total=False):
@@ -1703,21 +1704,21 @@ class SourceApiAssociationSummary(TypedDict, total=False):
     APIs.
     """
 
-    associationId: Optional[String]
-    associationArn: Optional[String]
-    sourceApiId: Optional[String]
-    sourceApiArn: Optional[String]
-    mergedApiId: Optional[String]
-    mergedApiArn: Optional[String]
-    description: Optional[String]
+    associationId: String | None
+    associationArn: String | None
+    sourceApiId: String | None
+    sourceApiArn: String | None
+    mergedApiId: String | None
+    mergedApiArn: String | None
+    description: String | None
 
 
-SourceApiAssociationSummaryList = List[SourceApiAssociationSummary]
+SourceApiAssociationSummaryList = list[SourceApiAssociationSummary]
 
 
 class ListSourceApiAssociationsResponse(TypedDict, total=False):
-    sourceApiAssociationSummaries: Optional[SourceApiAssociationSummaryList]
-    nextToken: Optional[PaginationToken]
+    sourceApiAssociationSummaries: SourceApiAssociationSummaryList | None
+    nextToken: PaginationToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -1725,35 +1726,35 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    tags: Optional[TagMap]
+    tags: TagMap | None
 
 
 class ListTypesByAssociationRequest(ServiceRequest):
     mergedApiIdentifier: String
     associationId: String
     format: TypeDefinitionFormat
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
-TypeList = List[Type]
+TypeList = list[Type]
 
 
 class ListTypesByAssociationResponse(TypedDict, total=False):
-    types: Optional[TypeList]
-    nextToken: Optional[PaginationToken]
+    types: TypeList | None
+    nextToken: PaginationToken | None
 
 
 class ListTypesRequest(ServiceRequest):
     apiId: String
     format: TypeDefinitionFormat
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class ListTypesResponse(TypedDict, total=False):
-    types: Optional[TypeList]
-    nextToken: Optional[PaginationToken]
+    types: TypeList | None
+    nextToken: PaginationToken | None
 
 
 class PutGraphqlApiEnvironmentVariablesRequest(ServiceRequest):
@@ -1762,7 +1763,7 @@ class PutGraphqlApiEnvironmentVariablesRequest(ServiceRequest):
 
 
 class PutGraphqlApiEnvironmentVariablesResponse(TypedDict, total=False):
-    environmentVariables: Optional[EnvironmentVariableMap]
+    environmentVariables: EnvironmentVariableMap | None
 
 
 class RdsDataApiConfig(TypedDict, total=False):
@@ -1774,13 +1775,13 @@ class RdsDataApiConfig(TypedDict, total=False):
 
 
 class StartDataSourceIntrospectionRequest(ServiceRequest):
-    rdsDataApiConfig: Optional[RdsDataApiConfig]
+    rdsDataApiConfig: RdsDataApiConfig | None
 
 
 class StartDataSourceIntrospectionResponse(TypedDict, total=False):
-    introspectionId: Optional[String]
-    introspectionStatus: Optional[DataSourceIntrospectionStatus]
-    introspectionStatusDetail: Optional[String]
+    introspectionId: String | None
+    introspectionStatus: DataSourceIntrospectionStatus | None
+    introspectionStatusDetail: String | None
 
 
 class StartSchemaCreationRequest(ServiceRequest):
@@ -1789,7 +1790,7 @@ class StartSchemaCreationRequest(ServiceRequest):
 
 
 class StartSchemaCreationResponse(TypedDict, total=False):
-    status: Optional[SchemaStatus]
+    status: SchemaStatus | None
 
 
 class StartSchemaMergeRequest(ServiceRequest):
@@ -1798,10 +1799,10 @@ class StartSchemaMergeRequest(ServiceRequest):
 
 
 class StartSchemaMergeResponse(TypedDict, total=False):
-    sourceApiAssociationStatus: Optional[SourceApiAssociationStatus]
+    sourceApiAssociationStatus: SourceApiAssociationStatus | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -1827,166 +1828,166 @@ class UpdateApiCacheRequest(TypedDict, total=False):
     ttl: Long
     apiCachingBehavior: ApiCachingBehavior
     type: ApiCacheType
-    healthMetricsConfig: Optional[CacheHealthMetricsConfig]
+    healthMetricsConfig: CacheHealthMetricsConfig | None
 
 
 class UpdateApiCacheResponse(TypedDict, total=False):
     """Represents the output of a ``UpdateApiCache`` operation."""
 
-    apiCache: Optional[ApiCache]
+    apiCache: ApiCache | None
 
 
 class UpdateApiKeyRequest(ServiceRequest):
     apiId: String
     id: String
-    description: Optional[String]
-    expires: Optional[Long]
+    description: String | None
+    expires: Long | None
 
 
 class UpdateApiKeyResponse(TypedDict, total=False):
-    apiKey: Optional[ApiKey]
+    apiKey: ApiKey | None
 
 
 class UpdateApiRequest(ServiceRequest):
     apiId: String
     name: ApiName
-    ownerContact: Optional[String]
-    eventConfig: Optional[EventConfig]
+    ownerContact: String | None
+    eventConfig: EventConfig | None
 
 
 class UpdateApiResponse(TypedDict, total=False):
-    api: Optional[Api]
+    api: Api | None
 
 
 class UpdateChannelNamespaceRequest(ServiceRequest):
     apiId: String
     name: Namespace
-    subscribeAuthModes: Optional[AuthModes]
-    publishAuthModes: Optional[AuthModes]
-    codeHandlers: Optional[Code]
-    handlerConfigs: Optional[HandlerConfigs]
+    subscribeAuthModes: AuthModes | None
+    publishAuthModes: AuthModes | None
+    codeHandlers: Code | None
+    handlerConfigs: HandlerConfigs | None
 
 
 class UpdateChannelNamespaceResponse(TypedDict, total=False):
-    channelNamespace: Optional[ChannelNamespace]
+    channelNamespace: ChannelNamespace | None
 
 
 class UpdateDataSourceRequest(TypedDict, total=False):
     apiId: String
     name: ResourceName
-    description: Optional[String]
+    description: String | None
     type: DataSourceType
-    serviceRoleArn: Optional[String]
-    dynamodbConfig: Optional[DynamodbDataSourceConfig]
-    lambdaConfig: Optional[LambdaDataSourceConfig]
-    elasticsearchConfig: Optional[ElasticsearchDataSourceConfig]
-    openSearchServiceConfig: Optional[OpenSearchServiceDataSourceConfig]
-    httpConfig: Optional[HttpDataSourceConfig]
-    relationalDatabaseConfig: Optional[RelationalDatabaseDataSourceConfig]
-    eventBridgeConfig: Optional[EventBridgeDataSourceConfig]
-    metricsConfig: Optional[DataSourceLevelMetricsConfig]
+    serviceRoleArn: String | None
+    dynamodbConfig: DynamodbDataSourceConfig | None
+    lambdaConfig: LambdaDataSourceConfig | None
+    elasticsearchConfig: ElasticsearchDataSourceConfig | None
+    openSearchServiceConfig: OpenSearchServiceDataSourceConfig | None
+    httpConfig: HttpDataSourceConfig | None
+    relationalDatabaseConfig: RelationalDatabaseDataSourceConfig | None
+    eventBridgeConfig: EventBridgeDataSourceConfig | None
+    metricsConfig: DataSourceLevelMetricsConfig | None
 
 
 class UpdateDataSourceResponse(TypedDict, total=False):
-    dataSource: Optional[DataSource]
+    dataSource: DataSource | None
 
 
 class UpdateDomainNameRequest(ServiceRequest):
     domainName: DomainName
-    description: Optional[Description]
+    description: Description | None
 
 
 class UpdateDomainNameResponse(TypedDict, total=False):
-    domainNameConfig: Optional[DomainNameConfig]
+    domainNameConfig: DomainNameConfig | None
 
 
 class UpdateFunctionRequest(ServiceRequest):
     apiId: String
     name: ResourceName
-    description: Optional[String]
+    description: String | None
     functionId: ResourceName
     dataSourceName: ResourceName
-    requestMappingTemplate: Optional[MappingTemplate]
-    responseMappingTemplate: Optional[MappingTemplate]
-    functionVersion: Optional[String]
-    syncConfig: Optional[SyncConfig]
-    maxBatchSize: Optional[MaxBatchSize]
-    runtime: Optional[AppSyncRuntime]
-    code: Optional[Code]
+    requestMappingTemplate: MappingTemplate | None
+    responseMappingTemplate: MappingTemplate | None
+    functionVersion: String | None
+    syncConfig: SyncConfig | None
+    maxBatchSize: MaxBatchSize | None
+    runtime: AppSyncRuntime | None
+    code: Code | None
 
 
 class UpdateFunctionResponse(TypedDict, total=False):
-    functionConfiguration: Optional[FunctionConfiguration]
+    functionConfiguration: FunctionConfiguration | None
 
 
 class UpdateGraphqlApiRequest(ServiceRequest):
     apiId: String
     name: String
-    logConfig: Optional[LogConfig]
+    logConfig: LogConfig | None
     authenticationType: AuthenticationType
-    userPoolConfig: Optional[UserPoolConfig]
-    openIDConnectConfig: Optional[OpenIDConnectConfig]
-    additionalAuthenticationProviders: Optional[AdditionalAuthenticationProviders]
-    xrayEnabled: Optional[Boolean]
-    lambdaAuthorizerConfig: Optional[LambdaAuthorizerConfig]
-    mergedApiExecutionRoleArn: Optional[String]
-    ownerContact: Optional[String]
-    introspectionConfig: Optional[GraphQLApiIntrospectionConfig]
-    queryDepthLimit: Optional[QueryDepthLimit]
-    resolverCountLimit: Optional[ResolverCountLimit]
-    enhancedMetricsConfig: Optional[EnhancedMetricsConfig]
+    userPoolConfig: UserPoolConfig | None
+    openIDConnectConfig: OpenIDConnectConfig | None
+    additionalAuthenticationProviders: AdditionalAuthenticationProviders | None
+    xrayEnabled: Boolean | None
+    lambdaAuthorizerConfig: LambdaAuthorizerConfig | None
+    mergedApiExecutionRoleArn: String | None
+    ownerContact: String | None
+    introspectionConfig: GraphQLApiIntrospectionConfig | None
+    queryDepthLimit: QueryDepthLimit | None
+    resolverCountLimit: ResolverCountLimit | None
+    enhancedMetricsConfig: EnhancedMetricsConfig | None
 
 
 class UpdateGraphqlApiResponse(TypedDict, total=False):
-    graphqlApi: Optional[GraphqlApi]
+    graphqlApi: GraphqlApi | None
 
 
 class UpdateResolverRequest(ServiceRequest):
     apiId: String
     typeName: ResourceName
     fieldName: ResourceName
-    dataSourceName: Optional[ResourceName]
-    requestMappingTemplate: Optional[MappingTemplate]
-    responseMappingTemplate: Optional[MappingTemplate]
-    kind: Optional[ResolverKind]
-    pipelineConfig: Optional[PipelineConfig]
-    syncConfig: Optional[SyncConfig]
-    cachingConfig: Optional[CachingConfig]
-    maxBatchSize: Optional[MaxBatchSize]
-    runtime: Optional[AppSyncRuntime]
-    code: Optional[Code]
-    metricsConfig: Optional[ResolverLevelMetricsConfig]
+    dataSourceName: ResourceName | None
+    requestMappingTemplate: MappingTemplate | None
+    responseMappingTemplate: MappingTemplate | None
+    kind: ResolverKind | None
+    pipelineConfig: PipelineConfig | None
+    syncConfig: SyncConfig | None
+    cachingConfig: CachingConfig | None
+    maxBatchSize: MaxBatchSize | None
+    runtime: AppSyncRuntime | None
+    code: Code | None
+    metricsConfig: ResolverLevelMetricsConfig | None
 
 
 class UpdateResolverResponse(TypedDict, total=False):
-    resolver: Optional[Resolver]
+    resolver: Resolver | None
 
 
 class UpdateSourceApiAssociationRequest(ServiceRequest):
     associationId: String
     mergedApiIdentifier: String
-    description: Optional[String]
-    sourceApiAssociationConfig: Optional[SourceApiAssociationConfig]
+    description: String | None
+    sourceApiAssociationConfig: SourceApiAssociationConfig | None
 
 
 class UpdateSourceApiAssociationResponse(TypedDict, total=False):
-    sourceApiAssociation: Optional[SourceApiAssociation]
+    sourceApiAssociation: SourceApiAssociation | None
 
 
 class UpdateTypeRequest(ServiceRequest):
     apiId: String
     typeName: ResourceName
-    definition: Optional[String]
+    definition: String | None
     format: TypeDefinitionFormat
 
 
 class UpdateTypeResponse(TypedDict, total=False):
-    type: Optional[Type]
+    type: Type | None
 
 
 class AppsyncApi:
-    service = "appsync"
-    version = "2017-07-25"
+    service: str = "appsync"
+    version: str = "2017-07-25"
 
     @handler("AssociateApi")
     def associate_api(

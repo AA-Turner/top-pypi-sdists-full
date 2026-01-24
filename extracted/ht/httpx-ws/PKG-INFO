@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: httpx-ws
-Version: 0.8.0
+Version: 0.8.2
 Summary: WebSockets support for HTTPX
 Project-URL: Documentation, https://frankie567.github.io/httpx-ws/
 Project-URL: Source, https://github.com/frankie567/httpx-ws
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP :: Session
 Requires-Python: >=3.10
 Requires-Dist: anyio>=4
@@ -104,14 +105,14 @@ This project follows the [all-contributors](https://github.com/all-contributors/
 
 ### Setup environment
 
-We use [Hatch](https://hatch.pypa.io/latest/install/) to manage the development environment and production build. Ensure it's installed on your system.
+We use [uv](https://docs.astral.sh/uv/) to manage the development environment and production build, and [just](https://github.com/casey/just) to manage command shortcuts. Ensure they are installed on your system.
 
 ### Run unit tests
 
 You can run all the tests with:
 
 ```bash
-hatch run test
+just test
 ```
 
 ### Format the code
@@ -119,7 +120,7 @@ hatch run test
 Execute the following command to apply linting and check typing:
 
 ```bash
-hatch run lint
+just lint
 ```
 
 ## License

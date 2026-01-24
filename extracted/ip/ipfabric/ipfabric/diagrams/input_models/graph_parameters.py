@@ -68,9 +68,9 @@ class Algorithm(BaseModel):
     @model_serializer
     def _serialize_algorithm(self) -> dict[str, Any]:
         if self.entryPoints:
-            return dict(type=self.type, entryPoints=[_.model_dump() for _ in self.entryPoints])
+            return {"type": self.type, "entryPoints": [_.model_dump() for _ in self.entryPoints]}
         else:
-            return dict(type=self.type, vrf=self.vrf) if self.vrf else dict(type=self.type)
+            return {"type": self.type, "vrf": self.vrf} if self.vrf else {"type": self.type}
 
 
 class PathLookup(BaseModel, extra=PYDANTIC_EXTRAS):
@@ -131,28 +131,28 @@ class PathLookup(BaseModel, extra=PYDANTIC_EXTRAS):
     @property
     def l4_options(self) -> dict[str, Any]:
         if self.protocol == "icmp":
-            return dict(type=self.icmp.type, code=self.icmp.code)
+            return {"type": self.icmp.type, "code": self.icmp.code}
         elif self.protocol == "udp":
-            return dict(srcPorts=self.srcPorts, dstPorts=self.dstPorts)
+            return {"srcPorts": self.srcPorts, "dstPorts": self.dstPorts}
         else:
-            return dict(srcPorts=self.srcPorts, dstPorts=self.dstPorts, flags=self.tcpFlags)
+            return {"srcPorts": self.srcPorts, "dstPorts": self.dstPorts, "flags": self.tcpFlags}
 
     @model_serializer
     def _serializer(self) -> dict[str, Any]:
-        return dict(
-            type="pathLookup",
-            groupBy="siteName",
-            protocol=self.protocol,
-            ttl=self.ttl,
-            fragmentOffset=self.fragmentOffset,
-            securedPath=self.securedPath,
-            enableRegions=self.enableRegions,
-            srcRegions=self.srcRegions,
-            dstRegions=self.dstRegions,
-            l4Options=self.l4_options,
-            otherOptions=vars(self.otherOptions),
-            firstHopAlgorithm=self.firstHopAlgorithm.model_dump(),
-        )
+        return {
+            "type": "pathLookup",
+            "groupBy": "siteName",
+            "protocol": self.protocol,
+            "ttl": self.ttl,
+            "fragmentOffset": self.fragmentOffset,
+            "securedPath": self.securedPath,
+            "enableRegions": self.enableRegions,
+            "srcRegions": self.srcRegions,
+            "dstRegions": self.dstRegions,
+            "l4Options": self.l4_options,
+            "otherOptions": vars(self.otherOptions),
+            "firstHopAlgorithm": self.firstHopAlgorithm.model_dump(),
+        }
 
 
 class Multicast(PathLookup, BaseModel, extra=PYDANTIC_EXTRAS):
@@ -224,12 +224,12 @@ class Host2GW(BaseModel, extra=PYDANTIC_EXTRAS):
 
     @model_serializer
     def _serializer(self) -> dict[str, Any]:
-        parameters = dict(
-            pathLookupType="hostToDefaultGW",
-            type="pathLookup",
-            groupBy="siteName",
-            startingPoint=self.startingPoint,
-        )
+        parameters = {
+            "pathLookupType": "hostToDefaultGW",
+            "type": "pathLookup",
+            "groupBy": "siteName",
+            "startingPoint": self.startingPoint,
+        }
         if self.vrf:
             parameters["vrf"] = self.vrf
         return parameters
@@ -262,7 +262,7 @@ class Network(BaseModel, extra=PYDANTIC_EXTRAS):
 
     @model_serializer
     def _serializer(self) -> dict[str, Any]:
-        parameters = dict(type="topology", groupBy="siteName", paths=self.sites.copy())
+        parameters = {"type": "topology", "groupBy": "siteName", "paths": self.sites.copy()}
         if self.all_network and ALL_NETWORK not in parameters["paths"]:
             parameters["paths"].append(ALL_NETWORK)
         if self.layouts:

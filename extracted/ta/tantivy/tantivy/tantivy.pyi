@@ -241,6 +241,10 @@ class Query:
         pass
 
     @staticmethod
+    def empty_query() -> Query:
+        pass
+
+    @staticmethod
     def fuzzy_term_query(
         schema: Schema,
         field_name: str,
@@ -253,6 +257,23 @@ class Query:
 
     @staticmethod
     def phrase_query(
+        schema: Schema,
+        field_name: str,
+        words: list[Union[str, tuple[int, str]]],
+        slop: int = 0,
+    ) -> Query:
+        pass
+
+    @staticmethod
+    def phrase_prefix_query(
+        schema: Schema,
+        field_name: str,
+        words: list[Union[str, tuple[int, str]]],
+    ) -> Query:
+        pass
+
+    @staticmethod
+    def regex_phrase_query(
         schema: Schema,
         field_name: str,
         words: list[Union[str, tuple[int, str]]],
@@ -305,6 +326,7 @@ class Query:
         upper_bound: _RangeType,
         include_lower: bool = True,
         include_upper: bool = True,
+        use_inverted_index: bool = False,
     ) -> Query:
         pass
 
@@ -463,6 +485,7 @@ class Index:
         default_field_names: Optional[list[str]] = None,
         field_boosts: Optional[dict[str, float]] = None,
         fuzzy_fields: Optional[dict[str, tuple[bool, int, bool]]] = None,
+        conjunction_by_default: bool = False,
     ) -> Query:
         pass
 
@@ -472,10 +495,15 @@ class Index:
         default_field_names: Optional[list[str]] = None,
         field_boosts: Optional[dict[str, float]] = None,
         fuzzy_fields: Optional[dict[str, tuple[bool, int, bool]]] = None,
+        conjunction_by_default: bool = False,
     ) -> tuple[Query, list[Any]]:
         pass
 
     def register_tokenizer(
+        self, name: str, text_analyzer: TextAnalyzer
+    ) -> None: ...
+
+    def register_fast_field_tokenizer(
         self, name: str, text_analyzer: TextAnalyzer
     ) -> None: ...
 
@@ -592,5 +620,33 @@ class TextAnalyzerBuilder:
     def build(self) -> TextAnalyzer:
         pass
 
+def parse_query(query: str) -> dict[str, Any]:
+    """
+    Parse a query string into an abstract syntax tree (AST).
+
+    Args:
+        query: The query string to parse.
+
+    Returns:
+        A dictionary representing the parsed query AST.
+
+    Raises:
+        ValueError: If the query has invalid syntax.
+    """
+    pass
+
+def parse_query_lenient(query: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """
+    Parse a query string leniently, recovering from syntax errors.
+
+    Args:
+        query: The query string to parse.
+
+    Returns:
+        A tuple containing:
+            - A dictionary representing the parsed query AST
+            - A list of error dictionaries describing syntax errors
+    """
+    pass
 
 __version__: str

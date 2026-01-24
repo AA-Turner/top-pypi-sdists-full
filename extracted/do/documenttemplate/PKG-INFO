@@ -1,32 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: DocumentTemplate
-Version: 4.6
+Version: 5.1
 Summary: Document Templating Markup Language (DTML)
-Home-page: https://github.com/zopefoundation/DocumentTemplate
-Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.org
-License: ZPL 2.1
+Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
 Project-URL: Documentation, https://zope.readthedocs.io/en/latest/zopebook/index.html
-Project-URL: Issue Tracker, https://github.com/zopefoundation/DocumentTemplate/issues
-Project-URL: Sources, https://github.com/zopefoundation/DocumentTemplate
-Keywords: DTML template zope HTML SQL web markup
+Project-URL: Source, https://github.com/zopefoundation/DocumentTemplate
+Project-URL: Issues, https://github.com/zopefoundation/DocumentTemplate/issues
+Keywords: DTML,template,zope,HTML,SQL,web,markup
 Classifier: Development Status :: 6 - Mature
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Zope
 Classifier: Framework :: Zope :: 5
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Text Processing :: Markup
-Requires-Python: >=3.7
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: AccessControl>=4.0a5
 Requires-Dist: Acquisition
@@ -38,6 +36,7 @@ Requires-Dist: zope.sequencesort
 Requires-Dist: zope.structuredtext
 Provides-Extra: test
 Requires-Dist: docutils; extra == "test"
+Dynamic: license-file
 
 .. image:: https://github.com/zopefoundation/DocumentTemplate/actions/workflows/tests.yml/badge.svg
    :target: https://github.com/zopefoundation/DocumentTemplate/actions/workflows/tests.yml
@@ -63,9 +62,29 @@ such as variable replacement, conditional logic and loops.
 Inside Zope environments page templates and TAL have superseded DTML for most
 use cases.
 
-
 Changelog
 =========
+
+5.1 (2026-01-19)
+----------------
+
+- Move package metadata from setup.py to pyproject.toml.
+
+- Fix Zope test failures accessing sequence wrappers introduced in #76
+  from untrusted code.
+  (`#81 <https://github.com/zopefoundation/DocumentTemplate/issues/81>`_)
+
+
+5.0 (2025-11-27)
+----------------
+
+- Add support for Python 3.13, 3.14.
+
+- Drop support for Python 3.7, 3.8, 3.9.
+
+- Support lazy batching again, support general iterators
+  (`#75 <https://github.com/zopefoundation/DocumentTemplate/issues/75>`_)
+
 
 4.6 (2023-11-13)
 ----------------

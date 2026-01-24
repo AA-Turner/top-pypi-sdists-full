@@ -242,6 +242,20 @@ class Client(object):
             Leap OAuth 2.0 Ocean client id. Reserved for testing, otherwise
             don't override.
 
+        cache_enabled (bool, optional, default=True):
+            A flag to explicitly disable cache. Can also be done by setting
+            ``cache_home`` to ``"off"``.
+
+            .. versionadded:: 0.14.2
+
+        cache_home (str, optional):
+            Disk cache base directory. Set to ``"off"`` to disable caching, and
+            set to ``"default"`` (or leave unspecified) to use the default cache
+            directory inferred from the environment, as returned by
+            :meth:`~dwave.cloud.config.loaders.get_cache_dir`.
+
+            .. versionadded:: 0.14.2
+
         defaults (dict, optional):
             Defaults for the client instance that override the class
             :attr:`.Client.DEFAULTS`.
@@ -338,6 +352,9 @@ class Client(object):
         'http_retry_status': None,
         'http_retry_backoff_factor': 0.01,
         'http_retry_backoff_max': 60,
+        # cache conf
+        'cache_enabled': True,
+        'cache_home': None,
     }
 
     # Number of problems to include in a submit/status query
@@ -360,9 +377,8 @@ class Client(object):
     _DEFAULT_SOLVERS_STATIC_PART_MAXAGE = 3600  # 1 hour
     _DEFAULT_SOLVERS_DYNAMIC_PART_MAXAGE = 900  # 15 min
     _DEFAULT_SOLVERS_CACHE_CONFIG = dict(
-        enabled=True,
         # heuristic maxage (cache-control in response overrides it)
-        maxage=_DEFAULT_SOLVERS_STATIC_PART_MAXAGE,
+        default_maxage=_DEFAULT_SOLVERS_STATIC_PART_MAXAGE,
     )
 
     # Downloaded region metadata cache maxage [sec]
@@ -966,7 +982,7 @@ class Client(object):
 
         Derived properies are:
 
-        * `identity` (str): Solver identity dict. Includes a name, and possibly version(s).
+        * `identity` (dict): Solver identity dict. Includes a name, and possibly version(s).
         * `name` (str): Solver name.
         * `version` (dict): QPU solver version dict (contains at least `graph_id`)
         * `graph_id` (str): QPU solver working graph id
@@ -985,7 +1001,6 @@ class Client(object):
         Common solver properties are:
 
         * `num_qubits` (int): Number of qubits available.
-        * `vfyc` (bool): Should solver work on "virtual full-yield chip"?
         * `max_anneal_schedule_points` (int): Piecewise linear annealing schedule points.
         * `h_range` ([int,int]), j_range ([int,int]): Biases/couplings values range.
         * `num_reads_range` ([int,int]): Range of allowed values for `num_reads` parameter.
@@ -1463,7 +1478,23 @@ class Client(object):
                     # An alternative to making this call here would be to pass
                     # self in with the message
                     if future.solver is None:
-                        future.solver = self.get_solver(identity=message['solver'])
+                        # handle problems with v2 solver representation
+                        # (prior to `graph_id` introduction)
+                        # see: https://github.com/dwavesystems/dwave-cloud-client/issues/727
+                        # TODO: remove after a server-side fix
+                        solver = message['solver']
+                        if isinstance(solver, dict):
+                            if solver.get('version'):
+                                # full identity match for valid v3 response (and non-empty/null version)
+                                future.solver = self.get_solver(identity=solver)
+                            elif name := solver.get('name'):
+                                # partial solver match; valid during v2 deprecation period
+                                future.solver = self.get_solver(name=name)
+                            else:
+                                raise InvalidAPIResponseError("incomplete solver object in problem description response")
+                        else:
+                            # v2 solver representation (string), now deprecated
+                            future.solver = self.get_solver(name=solver)
 
                     future._set_message(message)
 

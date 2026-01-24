@@ -11,8 +11,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from concurrent.futures import ProcessPoolExecutor
-from concurrent.futures.process import BrokenProcessPool
+from concurrent.futures.process import BrokenProcessPool, ProcessPoolExecutor
 from pathlib import Path
 from pickle import PickleError
 from typing import TYPE_CHECKING
@@ -29,6 +28,7 @@ from pylint.lint import PyLinter, augmented_sys_path
 from pylint.lint.parallel import _worker_check_single_file as worker_check_single_file
 from pylint.lint.parallel import _worker_initialize as worker_initialize
 from pylint.lint.parallel import check_parallel
+from pylint.reporters.progress_reporters import ProgressReporter
 from pylint.testutils import GenericTestReporter as Reporter
 from pylint.testutils.utils import _test_cwd
 from pylint.typing import FileItem
@@ -483,9 +483,7 @@ class TestCheckParallel:
         # with the number of files.
         expected_stats = LinterStats(
             by_module={
-                # pylint: disable-next=consider-using-f-string
-                "--test-file_data-name-%d--"
-                % idx: ModuleStats(
+                f"--test-file_data-name-{idx}--": ModuleStats(
                     convention=0,
                     error=0,
                     fatal=0,
@@ -508,6 +506,8 @@ class TestCheckParallel:
 
         file_infos = _gen_file_datas(num_files)
 
+        progress_reporter = ProgressReporter(is_verbose=False)
+
         # Loop for single-proc and mult-proc, so we can ensure the same linter-config
         for do_single_proc in range(2):
             linter = PyLinter(reporter=Reporter())
@@ -525,9 +525,13 @@ class TestCheckParallel:
                 assert (
                     linter.config.jobs == 1
                 ), "jobs>1 are ignored when calling _lint_files"
-                ast_mapping = linter._get_asts(iter(file_infos), None)
+                ast_mapping = linter._get_asts(
+                    iter(file_infos), None, progress_reporter
+                )
                 with linter._astroid_module_checker() as check_astroid_module:
-                    linter._lint_files(ast_mapping, check_astroid_module)
+                    linter._lint_files(
+                        ast_mapping, check_astroid_module, progress_reporter
+                    )
                 assert linter.msg_status == 0, "We should not fail the lint"
                 stats_single_proc = linter.stats
             else:
@@ -587,14 +591,20 @@ class TestCheckParallel:
             if num_checkers > 2:
                 linter.register_checker(ThirdParallelTestChecker(linter))
 
+            progress_reporter = ProgressReporter(is_verbose=False)
+
             if do_single_proc:
                 # establish the baseline
                 assert (
                     linter.config.jobs == 1
                 ), "jobs>1 are ignored when calling _lint_files"
-                ast_mapping = linter._get_asts(iter(file_infos), None)
+                ast_mapping = linter._get_asts(
+                    iter(file_infos), None, progress_reporter
+                )
                 with linter._astroid_module_checker() as check_astroid_module:
-                    linter._lint_files(ast_mapping, check_astroid_module)
+                    linter._lint_files(
+                        ast_mapping, check_astroid_module, progress_reporter
+                    )
                 stats_single_proc = linter.stats
             else:
                 check_parallel(

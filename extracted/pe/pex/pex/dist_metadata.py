@@ -9,6 +9,7 @@ import functools
 import glob
 import importlib
 import itertools
+import json
 import os
 import sys
 import tarfile
@@ -22,8 +23,9 @@ from textwrap import dedent
 
 from pex import pex_warnings, specifier_sets
 from pex.common import open_zip, pluralize
-from pex.compatibility import PY2, to_unicode
+from pex.compatibility import PY2, string, to_unicode
 from pex.enum import Enum
+from pex.exceptions import reportable_unexpected_error_msg
 from pex.pep_440 import Version
 from pex.pep_503 import ProjectName
 from pex.third_party.packaging.markers import Marker
@@ -42,6 +44,7 @@ if TYPE_CHECKING:
         Iterable,
         Iterator,
         List,
+        Mapping,
         Optional,
         Text,
         Tuple,
@@ -778,7 +781,7 @@ class Constraint(object):
         )
 
     name = attr.ib(eq=False)  # type: str
-    specifier = attr.ib(factory=SpecifierSet)  # type: SpecifierSet
+    specifier = attr.ib(factory=SpecifierSet, order=False)  # type: SpecifierSet
     marker = attr.ib(default=None, eq=str)  # type: Optional[Marker]
 
     project_name = attr.ib(init=False, repr=False)  # type: ProjectName
@@ -931,12 +934,16 @@ class Requirement(Constraint):
         parts = [self.name]
         if self.extras:
             parts.append("[{extras}]".format(extras=",".join(sorted(self.extras))))
-        if self.specifier:
-            parts.append(str(self.specifier))
+
+        # N.B.: URLs and specifiers are mutually exclusive in the spec:
+        #   https://packaging.python.org/en/latest/specifications/dependency-specifiers/#grammar
         if self.url:
-            parts.append("@ {url}".format(url=self.url))
+            parts.append(" @ {url}".format(url=self.url))
             if self.marker:
                 parts.append(" ")
+        elif self.specifier:
+            parts.append(str(self.specifier))
+
         if self.marker:
             parts.append("; {marker}".format(marker=self.marker))
         object.__setattr__(self, "_str", "".join(parts))
@@ -946,19 +953,29 @@ class Requirement(Constraint):
         return Constraint(name=self.name, specifier=self.specifier, marker=self.marker)
 
 
-# N.B.: DistributionMetadata can have an expensive hash when a distribution has many requirements;
+# N.B.: ProjectMetadata can have an expensive hash when a distribution has many requirements;
 # so we cache the hash. See: https://github.com/pex-tool/pex/issues/1928
 @attr.s(frozen=True, cache_hash=True)
+class ProjectMetadata(object):
+    project_name = attr.ib()  # type: ProjectName
+    version = attr.ib()  # type: Version
+    requires_dists = attr.ib(default=())  # type: Tuple[Requirement, ...]
+    requires_python = attr.ib(default=SpecifierSet())  # type: Optional[SpecifierSet]
+
+
+@attr.s(frozen=True)
 class DistMetadata(object):
     @classmethod
     def from_metadata_files(cls, metadata_files):
         # type: (MetadataFiles) -> DistMetadata
         return cls(
             files=metadata_files,
-            project_name=metadata_files.metadata.project_name,
-            version=metadata_files.metadata.version,
-            requires_dists=tuple(requires_dists(metadata_files)),
-            requires_python=requires_python(metadata_files),
+            project_metadata=ProjectMetadata(
+                project_name=metadata_files.metadata.project_name,
+                version=metadata_files.metadata.version,
+                requires_dists=tuple(requires_dists(metadata_files)),
+                requires_python=requires_python(metadata_files),
+            ),
         )
 
     @classmethod
@@ -978,10 +995,27 @@ class DistMetadata(object):
         return cls.from_metadata_files(metadata_files)
 
     files = attr.ib(eq=False)  # type: MetadataFiles
-    project_name = attr.ib()  # type: ProjectName
-    version = attr.ib()  # type: Version
-    requires_dists = attr.ib(default=())  # type: Tuple[Requirement, ...]
-    requires_python = attr.ib(default=SpecifierSet())  # type: Optional[SpecifierSet]
+    project_metadata = attr.ib()  # type: ProjectMetadata
+
+    @property
+    def project_name(self):
+        # type: () -> ProjectName
+        return self.project_metadata.project_name
+
+    @property
+    def version(self):
+        # type: () -> Version
+        return self.project_metadata.version
+
+    @property
+    def requires_dists(self):
+        # type: () -> Tuple[Requirement, ...]
+        return self.project_metadata.requires_dists
+
+    @property
+    def requires_python(self):
+        # type: () -> Optional[SpecifierSet]
+        return self.project_metadata.requires_python
 
     @property
     def type(self):
@@ -1016,6 +1050,34 @@ DistributionType.seal()
 
 
 @attr.s(frozen=True)
+class EntryPoints(object):
+    _values = attr.ib(
+        factory=lambda: defaultdict(dict)
+    )  # type: Mapping[str, Mapping[str, NamedEntryPoint]]
+    source = attr.ib(default=None)  # type: Optional[Text]
+
+    def __attrs_post_init__(self):
+        if len(self._values) > 0 and not self.source:
+            raise ValueError("A source must be supplied when there are entry points values.")
+
+    def __getitem__(self, item):
+        # type: (str) -> Mapping[str, NamedEntryPoint]
+        return self._values[item]
+
+    def get(
+        self,
+        item,  # type: str
+        default,  # type: Mapping[str, NamedEntryPoint]
+    ):
+        # type: (...) -> Mapping[str, NamedEntryPoint]
+        return self._values.get(item, default)
+
+    def __len__(self):
+        # type: () -> int
+        return len(self._values)
+
+
+@attr.s(frozen=True)
 class Distribution(object):
     @staticmethod
     def _read_metadata_lines(metadata_bytes):
@@ -1031,8 +1093,12 @@ class Distribution(object):
                 yield normalized
 
     @classmethod
-    def parse_entry_map(cls, entry_points_contents):
-        # type: (bytes) -> Dict[str, Dict[str, NamedEntryPoint]]
+    def parse_entry_map(
+        cls,
+        entry_points_contents,  # type: bytes
+        source,  # type: Text
+    ):
+        # type: (...) -> EntryPoints
 
         # This file format is defined here:
         #   https://packaging.python.org/en/latest/specifications/entry-points/#file-format
@@ -1050,7 +1116,7 @@ class Distribution(object):
             else:
                 entry_point = NamedEntryPoint.parse(line)
                 entry_map[group][entry_point.name] = entry_point
-        return entry_map
+        return EntryPoints(values=entry_map, source=source)
 
     @classmethod
     def load(cls, location):
@@ -1118,11 +1184,45 @@ class Distribution(object):
                 yield line
 
     def get_entry_map(self):
-        # type: () -> Dict[str, Dict[str, NamedEntryPoint]]
+        # type: () -> EntryPoints
         entry_points_metadata_file = self._read_metadata_file("entry_points.txt")
         if entry_points_metadata_file is None:
-            return defaultdict(dict)
-        return self.parse_entry_map(entry_points_metadata_file)
+            return EntryPoints(values=defaultdict(dict))
+
+        entry_points_txt_relpath = self.metadata.files.metadata_file_rel_path("entry_points.txt")
+        if entry_points_txt_relpath is None:
+            raise AssertionError(reportable_unexpected_error_msg())
+
+        return self.parse_entry_map(
+            entry_points_metadata_file,
+            source=os.path.join(self.metadata.files.metadata.location, entry_points_txt_relpath),
+        )
+
+    def editable_install_url(self):
+        # type: () -> Optional[Text]
+
+        # For the spec, see: https://peps.python.org/pep-0660/#frontend-requirements
+        direct_url_json_bytes = self._read_metadata_file("direct_url.json")
+        if not direct_url_json_bytes:
+            return None
+
+        direct_url_json_data = json.loads(direct_url_json_bytes)
+        if not direct_url_json_data.get("dir_info", {}).get("editable", False):
+            return None
+
+        url = direct_url_json_data.get("url", None)
+        if url is None:
+            return None
+
+        if not isinstance(url, string):
+            raise InvalidMetadataError(
+                "The direct_url.json metadata for {dist} at {location} is invalid.\n"
+                "Expected `url` to be a string but found {value} of type {type}".format(
+                    dist=self, location=self.location, value=url, type=type(url)
+                )
+            )
+
+        return cast("Text", url)
 
     def __str__(self):
         # type: () -> str

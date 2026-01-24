@@ -18,14 +18,16 @@ from angr.analyses.decompiler.optimization_passes import (
     ReturnDeduplicator,
     FlipBooleanCmp,
     InlinedStringTransformationSimplifier,
+    InlinedStrlenSimplifier,
     CallStatementRewriter,
     DeadblockRemover,
     SwitchReusedEntryRewriter,
     ConditionConstantPropagation,
+    RegisterSaveAreaSimplifierAdvanced,
     DetermineLoadSizes,
     PostStructuringPeepholeOptimizationPass,
+    EagerStdStringConcatenationPass,
 )
-
 
 preset_fast = DecompilationPreset(
     "fast",
@@ -33,6 +35,7 @@ preset_fast = DecompilationPreset(
         RegisterSaveAreaSimplifier,
         StackCanarySimplifier,
         WinStackCanarySimplifier,
+        RegisterSaveAreaSimplifierAdvanced,
         BasePointerSaveSimplifier,
         ConstantDereferencesSimplifier,
         RetAddrSaveSimplifier,
@@ -49,10 +52,12 @@ preset_fast = DecompilationPreset(
         ReturnDeduplicator,
         FlipBooleanCmp,
         InlinedStringTransformationSimplifier,
+        InlinedStrlenSimplifier,
         CallStatementRewriter,
         ConditionConstantPropagation,
         DetermineLoadSizes,
         PostStructuringPeepholeOptimizationPass,
+        EagerStdStringConcatenationPass,
     ],
 )
 

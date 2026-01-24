@@ -8,8 +8,9 @@ from django.db.models import Model, Q, QuerySet
 from django.utils import timezone
 from guardian.shortcuts import assign_perm, get_anonymous_user
 from psycopg.errors import InvalidCursorName
+
 from wbcore.contrib.authentication.models import User
-from wbcore.contrib.guardian.models.models import UserObjectPermission
+from wbcore.contrib.guardian.models import UserObjectPermission
 from wbcore.permissions.shortcuts import get_internal_users
 
 if TYPE_CHECKING:

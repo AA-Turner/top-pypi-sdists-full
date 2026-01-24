@@ -65,6 +65,7 @@ setup(
             'build>=0.7.0',
             'changelet',
             'isort>=5.11.5',
+            'proviso',
             'pycountry>=19.8.18',
             'pycountry-convert>=0.7.2',
             'pyflakes>=2.2.0',
@@ -72,11 +73,13 @@ setup(
             'twine>=3.4.2',
         ),
         'docs': (
-            'Sphinx>=8.2.3',
-            'furo>=2024.8.6',
             'myst-parser>=4.0.1',
+            'Sphinx>=8.1.0',
+            'sphinxcontrib-mermaid>=1.0.0',
             'sphinx-copybutton>=0.5.2',
+            'sphinx_rtd_theme',
         ),
+        'test': tests_require,
     },
     install_requires=(
         'PyYaml>=4.2b1',

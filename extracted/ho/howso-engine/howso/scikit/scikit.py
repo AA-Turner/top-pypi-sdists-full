@@ -468,10 +468,8 @@ class HowsoEstimator(BaseEstimator):
             context_features=self.feature_names
         )
 
-        # Convert to dictionary, new trainee outputs a pd.DataFrame
-        results['action'] = results['action'].to_dict('records')
-        results['action'] = utils.replace_none_with_nan(results['action'])
-        action_values = pd.DataFrame(results['action']).values
+        results["action"] = utils.replace_none_with_nan(results["action"])
+        action_values = results["action"].values
         out = np.array(action_values).astype(float)
         out.shape = (out.shape[0],)
         if np.isnan(np.sum(out)):
@@ -509,6 +507,9 @@ class HowsoEstimator(BaseEstimator):
         features=None,
         *,
         analyze=None,
+        clustering=None,
+        clustering_expansion_threshold=None,
+        clustering_inclusion_relative_threshold=None,
         distance_contribution=False,
         familiarity_conviction_addition=False,
         familiarity_conviction_removal=False,
@@ -578,6 +579,9 @@ class HowsoEstimator(BaseEstimator):
         self.trainee.react_into_features(
             features=features,
             analyze=analyze,
+            clustering=clustering,
+            clustering_expansion_threshold=clustering_expansion_threshold,
+            clustering_inclusion_relative_threshold=clustering_inclusion_relative_threshold,
             distance_contribution=distance_contribution,
             familiarity_conviction_addition=familiarity_conviction_addition,
             familiarity_conviction_removal=familiarity_conviction_removal,
@@ -965,8 +969,6 @@ class HowsoEstimator(BaseEstimator):
                 details=details
             )
 
-        # Convert to Dictionary
-        audit_data['action'] = audit_data['action'].to_dict('records')
         audit_data['action'] = utils.replace_none_with_nan(audit_data['action'])
         return audit_data
 

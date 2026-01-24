@@ -1,0 +1,806 @@
+openapi: 3.1.2
+
+info:
+  title: dstack-shim API
+  version: v2/0.20.1
+  x-logo:
+    url: https://avatars.githubusercontent.com/u/54146142?s=260
+  description: >
+    ## Versioning
+
+    `dstack-shim` versioning and release cycles are tied to those of `dstack`, meaning that we
+    cannot use shim version to express shim API versioning. To get around this limitation, we use
+    two version schemes:
+
+    * shim binary version, the same as the server version, in the form of `MAJOR.MINOR.MICRO`, e.g,
+      `0.18.33`. This version is exposed via the `/healthcheck` endpoint. Used to discriminate
+      different API versions (`if shim_version >= x.y.z then api_version = 2 else api_version = 1`)
+      and detect features within one API version (`if shim_version >= x.y.z then has_x_feature = true`)
+
+    * shim API version (you can think of it as a “generation”), in the form or `vN`, e.g., `v2`.
+      Diferrent API versions represent _totally different_ APIs. When two such API versions coexist
+      in the same shim binary (naturally, they should coexist for some time to ensure seamless migration),
+      we call the older one “Legacy API” and the newer one “Future API”. These versions are not exposed
+      via API, clients should figure out them via shim binary version
+
+servers:
+  - url: http://localhost:10998/api
+
+paths:
+  /healthcheck:
+    get:
+      summary: Ping and API version negotiation
+      description: >
+        Serves two roles:
+
+        * as the path implies, it's a healthcheck, although there is no field in the response that
+          indicate if shim is healthy. Basically, it not is a proper healthcheck but
+          a basic "ping" method
+        * API version negotiation. Server inspects `version` field to figure out which API features
+          it should use
+
+        **Important**: Since this endpoint is used for negotiation, it should always stay
+        backward/future compatible, specifically the `version` field
+      tags: [shim]
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthcheckResponse"
+
+  /shutdown:
+    post:
+      summary: Request shim shutdown
+      description: |
+        (since [0.20.1](https://github.com/dstackai/dstack/releases/tag/0.20.1)) Request shim to shut down itself.
+        Restart must be handled by an external process supervisor, e.g., `systemd`.
+
+        **Note**: background jobs (e.g., component installation) are canceled regardless of the `force` option.
+      tags: [shim]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShutdownRequest"
+      responses:
+        "200":
+          description: Request accepted
+          $ref: "#/components/responses/PlainTextOk"
+        "400":
+          description: Malformed JSON body or validation error
+          $ref: "#/components/responses/PlainTextBadRequest"
+
+  /instance/health:
+    get:
+      summary: Get instance health
+      description: (since [0.19.22](https://github.com/dstackai/dstack/releases/tag/0.19.22)) Returns an object of optional passive system checks
+      tags: [Instance]
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceHealthResponse"
+
+  /components:
+    get:
+      summary: Get components
+      description: (since [0.20.0](https://github.com/dstackai/dstack/releases/tag/0.20.0)) Returns a list of software components (e.g., `dstack-runner`)
+      tags: [Components]
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComponentListResponse"
+
+  /components/install:
+    post:
+      summary: Install component
+      description: >
+        (since [0.20.0](https://github.com/dstackai/dstack/releases/tag/0.20.0)) Request installing/updating the software component.
+        Components are installed asynchronously
+      tags: [Components]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComponentInstallRequest"
+      responses:
+        "200":
+          description: Request accepted
+          $ref: "#/components/responses/PlainTextOk"
+        "400":
+          description: Malformed JSON body or validation error
+          $ref: "#/components/responses/PlainTextBadRequest"
+        "409":
+          description: The component is already being installed
+          $ref: "#/components/responses/PlainTextConflict"
+
+  /tasks:
+    get:
+      summary: Get task list
+      description: Returns a list of all tasks known to shim, including terminated ones
+      tags: [Tasks]
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskListResponse"
+    post:
+      summary: Submit and run new task
+      tags: [Tasks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskSubmitRequest"
+      responses:
+        "200":
+          description: Pending task info
+          $ref: "#/components/responses/TaskInfo"
+        "400":
+          description: Malformed JSON body or validation error
+          $ref: "#/components/responses/PlainTextBadRequest"
+        "409":
+          description: Task with the same ID already submitted
+          $ref: "#/components/responses/PlainTextConflict"
+        "500":
+          description: Internal error
+          $ref: "#/components/responses/PlainTextInternalError"
+
+  /tasks/{id}:
+    get:
+      summary: Get task info
+      tags: [Tasks]
+      parameters:
+        - $ref: "#/components/parameters/taskId"
+      responses:
+        "200":
+          $ref: "#/components/responses/TaskInfo"
+        "404":
+          description: Task not found
+          $ref: "#/components/responses/PlainTextNotFound"
+
+  /tasks/{id}/terminate:
+    post:
+      summary: Terminate task
+      description: >
+        Stops the task, that is, cancels image pulling if in progress,
+        stops the container if running, and sets the status to `terminated`.
+        No-op if the task is already terminated
+      tags: [Tasks]
+      parameters:
+        - in: path
+          name: id
+          schema:
+            $ref: "#/components/schemas/TaskID"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskTerminateRequest"
+      responses:
+        "200":
+          description: Updated task info
+          $ref: "#/components/responses/TaskInfo"
+        "404":
+          description: Task not found
+          $ref: "#/components/responses/PlainTextNotFound"
+        "500":
+          description: Internal error, e.g., failed to remove a container
+          $ref: "#/components/responses/PlainTextInternalError"
+
+  /tasks/{id}/remove:
+    post:
+      summary: Remove task
+      description: >
+        Removes the task from in-memory storage and destroys its associated
+        resources: a container, logs, etc.
+      tags: [Tasks]
+      parameters:
+        - $ref: "#/components/parameters/taskId"
+      responses:
+        "200":
+          description: Task removed
+          $ref: "#/components/responses/PlainTextOk"
+        "404":
+          description: Task not found
+          $ref: "#/components/responses/PlainTextNotFound"
+        "409":
+          description: Task is not terminated, cannot remove
+          $ref: "#/components/responses/PlainTextConflict"
+        "500":
+          description: Internal error, e.g., failed to remove a container
+          $ref: "#/components/responses/PlainTextInternalError"
+
+components:
+  parameters:
+    taskId:
+      name: id
+      in: path
+      schema:
+        $ref: "#/components/schemas/TaskID"
+      required: true
+
+  schemas:
+    TaskID:
+      description: Unique task ID assigned by dstack server
+      type: string
+      examples:
+        - 23a2c7a0-6c88-48ee-8028-b9ad9f6f5c24
+
+    TaskStatus:
+      title: shim.TaskStatus
+      type: string
+      enum:
+        - pending
+        - preparing
+        - pulling
+        - creating
+        - running
+        - terminated
+
+    TerminationReason:
+      type: string
+      enum:
+        - executor_error
+        - creating_container_error
+        - container_exited_with_error
+        - done_by_runner
+        - terminated_by_user
+        - terminated_by_server
+        - max_duration_exceeded
+
+    GpuID:
+      description: >
+        A vendor-specific unique identifier of GPU:
+          * NVIDIA: "globally unique immutable alphanumeric identifier of the GPU",
+            in the form of `GPU-<UUID>`
+          * AMD: `/dev/dri/renderD<N>` path
+      type: string
+      examples:
+        - GPU-2b79666e-d81f-f3f8-fd47-9903f118c3f5
+        - /dev/dri/renderD128
+
+    NetworkMode:
+      title: shim.NetworkMode
+      type: string
+      enum:
+        - host
+        - bridge
+
+    PortMapping:
+      title: shim.PortMapping
+      description: Task host:container port mapping pair
+      type: object
+      properties:
+        host:
+          type: integer
+          description: host port
+          examples:
+            - 32770
+        container:
+          type: integer
+          description: container port
+          examples:
+            - 80
+      required:
+        - host
+        - container
+      additionalProperties: false
+
+    VolumeInfo:
+      title: shim.VolumeInfo
+      type: object
+      properties:
+        backend:
+          type: string
+          enum: [aws, gcp]
+        name:
+          type: string
+          default: ""
+          description: >
+            `dstack` volume [name](https://dstack.ai/docs/reference/dstack.yml/volume/#name)
+        volume_id:
+          type: string
+          default: ""
+        init_fs:
+          type: boolean
+          default: false
+          description: >
+            Create a filesystem when it doesn't exist if `true`, fail with error if `false`
+
+    VolumeMountPoint:
+      title: shim.VolumeMountPoint
+      type: object
+      properties:
+        name:
+          type: string
+          default: ""
+          description: >
+            `dstack` volume [name](https://dstack.ai/docs/reference/dstack.yml/volume/#name)
+        path:
+          type: string
+          default: ""
+          description: Mount point inside container
+
+    InstanceMountPoint:
+      title: shim.InstanceMountPoint
+      type: object
+      properties:
+        instance_name:
+          type: string
+          default: ""
+          description: Instance (host) path
+        path:
+          type: string
+          default: ""
+          description: Mount point inside container
+
+    GPUDevice:
+      title: shim.GPUDevice
+      type: object
+      properties:
+        path_on_host:
+          type: string
+          default: ""
+          description: Instance (host) path
+        path_in_container:
+          type: string
+          default: ""
+          description: Path inside container
+
+    DCGMHealth:
+      title: shim.dcgm.Health
+      type: object
+      properties:
+        overall_health:
+          type: integer
+          description: >
+            [dcgmHealthWatchResult_enum](https://docs.nvidia.com/datacenter/dcgm/latest/dcgm-api/dcgm-api-data-structs.html#_CPPv426dcgmHealthWatchResult_enum)
+          examples:
+            - 10
+        incidents:
+          type: array
+          items:
+            $ref: "#/components/schemas/DCGMHealthIncident"
+      required:
+        - overall_health
+        - incidents
+      additionalProperties: false
+
+    DCGMHealthIncident:
+      title: shim.dcgm.HealthIncident
+      type: object
+      properties:
+        system:
+          type: integer
+          description: >
+            [dcgmHealthSystems_enum](https://docs.nvidia.com/datacenter/dcgm/latest/dcgm-api/dcgm-api-data-structs.html#_CPPv422dcgmHealthSystems_enum)
+          examples:
+            - 1
+        health:
+          type: integer
+          description: >
+            [dcgmHealthWatchResult_enum](https://docs.nvidia.com/datacenter/dcgm/latest/dcgm-api/dcgm-api-data-structs.html#_CPPv426dcgmHealthWatchResult_enum)
+          examples:
+            - 10
+        error_message:
+          type: string
+          examples:
+            - >
+              Detected more than 16 PCIe replays per minute for GPU 0 : 99 Reconnect PCIe card.
+              Run system side PCIE diagnostic utilities to verify hops off the GPU board. If issue is on the board, run the field diagnostic.
+        error_code:
+          type: integer
+          description: >
+            [dcgmError_enum](https://github.com/NVIDIA/DCGM/blob/master/dcgmlib/dcgm_errors.h)
+          examples:
+            - 3
+        entity_group_id:
+          type: integer
+          description: >
+            [dcgm_field_entity_group_t](https://docs.nvidia.com/datacenter/dcgm/latest/dcgm-api/dcgm-api-field-entity.html#_CPPv425dcgm_field_entity_group_t)
+          examples:
+            - 1
+        entity_id:
+          type: integer
+          examples:
+            - 0
+      required:
+        - system
+        - health
+        - error_message
+        - error_code
+        - entity_group_id
+        - entity_id
+      additionalProperties: false
+
+    ComponentName:
+      title: shim.components.ComponentName
+      type: string
+      enum:
+        - dstack-runner
+        - dstack-shim
+      description: |
+        * (since [0.20.0](https://github.com/dstackai/dstack/releases/tag/0.20.0)) `dstack-runner`
+        * (since [0.20.1](https://github.com/dstackai/dstack/releases/tag/0.20.1)) `dstack-shim`
+
+    ComponentStatus:
+      title: shim.components.ComponentStatus
+      type: string
+      enum:
+        - not-installed
+        - installed
+        - installing
+        - error
+
+    ComponentInfo:
+      title: shim.components.ComponenInfo
+      type: object
+      properties:
+        name:
+          $ref: "#/components/schemas/ComponentName"
+        version:
+          type: string
+          description: An empty string if status != installed
+          examples:
+            - 0.20.1
+        status:
+          allOf:
+            - $ref: "#/components/schemas/ComponentStatus"
+            - examples:
+              - installed
+      required:
+        - name
+        - version
+        - status
+      additionalProperties: false
+
+    HealthcheckResponse:
+      title: shim.api.HealthcheckResponse
+      type: object
+      properties:
+        service:
+          const: dstack-shim
+        version:
+          type: string
+          examples:
+            - 0.18.34
+      required:
+        - service
+        - version
+      additionalProperties: false
+
+    ShutdownRequest:
+      title: shim.api.ShutdownRequest
+      type: object
+      properties:
+        force:
+          type: boolean
+          examples:
+            - false
+          description: If `true`, don't wait for background job coroutines to complete after canceling them and close HTTP server forcefully.
+      required:
+        - force
+
+    InstanceHealthResponse:
+      title: shim.api.InstanceHealthResponse
+      type: object
+      properties:
+        dcgm:
+          $ref: "#/components/schemas/DCGMHealth"
+      additionalProperties: false
+
+    ComponentListResponse:
+      title: shim.api.ComponentListResponse
+      type: object
+      properties:
+        components:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComponentInfo"
+      required:
+        - components
+      additionalProperties: false
+
+    ComponentInstallRequest:
+      title: shim.api.ComponentInstallRequest
+      type: object
+      properties:
+        name:
+          $ref: "#/components/schemas/ComponentName"
+        url:
+          type: string
+          examples:
+            - https://dstack-runner-downloads.s3.eu-west-1.amazonaws.com/0.20.1/binaries/dstack-runner-linux-amd64
+      required:
+        - name
+        - url
+
+    TaskListResponse:
+      title: shim.api.TaskListResponse
+      type: object
+      properties:
+        tasks:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                $ref: "#/components/schemas/TaskID"
+              status:
+                $ref: "#/components/schemas/TaskStatus"
+            required:
+              - id
+              - status
+          description: A list of all tasks tracked by shim, each with its ID and status
+      required:
+        - tasks
+      additionalProperties: false
+
+    TaskInfoResponse:
+      title: shim.api.TaskInfoResponse
+      description: Same as `shim.TaskInfo`
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/TaskID"
+        status:
+          allOf:
+            - $ref: "#/components/schemas/TaskStatus"
+            - examples:
+                - terminated
+        termination_reason:
+          $ref: "#/components/schemas/TerminationReason"
+        termination_message:
+          type: string
+          description: A shim-generated message or N last lines from the container logs
+        ports:
+          oneOf:
+            - type: array
+              items:
+                $ref: "#/components/schemas/PortMapping"
+            - type: "null"
+          description: >
+            A host:container port mapping or `null` if this information is not yet available.
+            In the `host` network mode the array is empty (or `null` if is not ready yet, see above).
+        container_name:
+          type: string
+          examples:
+            - horrible-mule-1-0-0-44f7cb95
+        container_id:
+          type: string
+          examples:
+            - a6bb8d4bb8af8ec72482ecd194ff92fac9974521aa5ad8a46abfc4f0ba858775
+        gpu_ids:
+          oneOf:
+            - type: array
+              items:
+                $ref: "#/components/schemas/GpuID"
+            - type: "null"
+          description: >
+            An array of GPU identifiers or `null` if this information is not yet available
+      required:
+        - id
+        - status
+        - termination_reason
+        - termination_message
+        - ports
+        - container_name
+        - container_id
+        - gpu_ids
+      additionalProperties: false
+
+    TaskSubmitRequest:
+      title: shim.api.TaskSubmitRequest
+      description: Same as `shim.TaskConfig`
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/TaskID"
+        name:
+          type: string
+          description: Task name. Used to construct unique container name
+          examples:
+            - horrible-mule-1-0-0
+        registry_username:
+          type: string
+          default: ""
+          description: Private container registry username
+          examples:
+            - registry-user
+        registry_password:
+          type: string
+          default: ""
+          description: Private container registry password
+          examples:
+            - registry-token
+        image_name:
+          type: string
+          examples:
+            - ubuntu:22.04
+        container_user:
+          type: string
+          default: root
+          description: >
+            If not set, the default image user is used. As of 0.18.24, `dstack` always uses `root`
+          examples:
+            - root
+        privileged:
+          type: boolean
+          default: false
+          description: Start container in privileged mode
+        gpu:
+          type: integer
+          minimum: -1
+          default: 0
+          description: >
+            Number of GPUs allocated for the container. A special value `-1` means "all available,
+            even if none", `0` means "zero GPUs"
+        cpu:
+          type: number
+          minimum: 0
+          default: 0
+          description: >
+            Amount of CPU resources available to the container. A special value `0` means "all".
+            Fractional values are allowed, e.g., `1.5` — one and a half CPUs
+        memory:
+          type: number
+          minimum: 0
+          default: 0
+          description: >
+            Amount of memory available to the container, in bytes. A special value `0` means "all"
+        shm_size:
+          type: integer
+          minimum: 0
+          default: 0
+          description: >
+            POSIX shared memory, bytes. A special value `0` means "use the default value (64MiB)".
+            If > 0, tmpfs is mounted with the `exec` option, unlike the default mount options
+          examples:
+            - 1073741824
+        network_mode:
+          allOf:
+          - $ref: "#/components/schemas/NetworkMode"
+          - default: host
+        volumes:
+          type: array
+          items:
+            $ref: "#/components/schemas/VolumeInfo"
+          default: []
+        volume_mounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/VolumeMountPoint"
+          default: []
+        instance_mounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/InstanceMountPoint"
+          default: []
+        gpu_devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/GPUDevice"
+          default: []
+        host_ssh_user:
+          type: string
+          default: ""
+          description: >
+            Instance (host) user for SSH access, either directly (`ssh {run_name}-host`)
+            or for `ProxyJump`ing inside the container. Ignored if `host_ssh_keys` is not set
+          examples:
+            - root
+        host_ssh_keys:
+          type: array
+          items:
+            type: string
+          default: []
+          description: >
+            SSH public keys for access to the instance (host). If set, the keys will be added
+            to the `host_ssh_user`'s `~/.ssh/authorized_keys` when the run starts and removed
+            when the run exits.
+          examples:
+            - "ssh-ed25519 <BASE64> me@laptop"
+        container_ssh_keys:
+          type: array
+          items:
+            type: string
+          default: []
+          description: >
+            SSH public keys for `container_user`. As of 0.18.24, `dstack` submits two keys:
+            project key (generated by the server) and user key (either generated by
+            the CLI client or provided by the user)
+          examples:
+            - ["ssh-rsa <BASE64> project@dstack", "ssh-ed25519 <BASE64> me@laptop"]
+      required:
+        - id
+        - name
+        - image_name
+
+    TaskTerminateRequest:
+      title: shim.api.TaskTerminateRequest
+      type: object
+      properties:
+        termination_reason:
+          allOf:
+            - $ref: "#/components/schemas/TerminationReason"
+            - examples:
+              - TERMINATED_BY_USER
+              - TERMINATED_BY_SERVER
+          default: ""
+        termination_message:
+          type: string
+          default: ""
+        timeout:
+          type: boolean
+          default: 0
+          description: >
+            Seconds to wait before killing the container. If zero, kill
+            the container immediately (no graceful shutdown)
+
+  responses:
+    TaskInfo:
+      description: Task info
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/TaskInfoResponse"
+
+    PlainTextOk:
+      description: ""
+      content:
+        text/plain:
+          schema:
+            type: string
+            examples:
+              - OK
+
+    PlainTextBadRequest:
+      description: ""
+      content:
+        text/plain:
+          schema:
+            type: string
+            examples:
+              - bad request
+
+    PlainTextNotFound:
+      description: ""
+      content:
+        text/plain:
+          schema:
+            type: string
+            examples:
+              - not found
+
+    PlainTextConflict:
+      description: ""
+      content:
+        text/plain:
+          schema:
+            type: string
+            examples:
+              - conflict
+
+    PlainTextInternalError:
+      description: ""
+      content:
+        text/plain:
+          schema:
+            type: string
+            examples:
+              - internal error

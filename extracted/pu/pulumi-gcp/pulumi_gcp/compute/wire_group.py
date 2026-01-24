@@ -393,7 +393,7 @@ class WireGroup(pulumi.CustomResource):
 
         To get more information about WireGroup, see:
 
-        * [API documentation](https://cloud.google.com/compute/docs/reference/rest/beta/wireGroups)
+        * [API documentation](https://cloud.google.com/compute/docs/reference/rest/v1/wireGroups)
         * How-to Guides
             * [Create a WireGroup](https://cloud.google.com/network-connectivity/docs/interconnect/how-to/cross-site/modify-network#add-wire-group)
 
@@ -416,6 +416,29 @@ class WireGroup(pulumi.CustomResource):
             wire_properties={
                 "bandwidth_unmetered": 10,
                 "fault_response": "NONE",
+                "bandwidth_allocation": "ALLOCATE_PER_WIRE",
+            },
+            admin_enabled=True,
+            opts = pulumi.ResourceOptions(depends_on=[example_cross_site_network]))
+        ```
+        ### Compute Wire Group Basic Beta
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        project = gcp.organizations.get_project()
+        example_cross_site_network = gcp.compute.CrossSiteNetwork("example-cross-site-network",
+            name="test-cross-site-network-beta",
+            description="Example cross site network")
+        example_test_wire_group_beta = gcp.compute.WireGroup("example-test-wire-group-beta",
+            name="test-wire-group-beta",
+            description="Example Wire Group Beta",
+            cross_site_network="test-cross-site-network-beta",
+            wire_properties={
+                "bandwidth_unmetered": 10,
+                "fault_response": "NONE",
+                "bandwidth_allocation": "ALLOCATE_PER_WIRE",
             },
             wire_group_properties={
                 "type": "WIRE",
@@ -478,7 +501,7 @@ class WireGroup(pulumi.CustomResource):
 
         To get more information about WireGroup, see:
 
-        * [API documentation](https://cloud.google.com/compute/docs/reference/rest/beta/wireGroups)
+        * [API documentation](https://cloud.google.com/compute/docs/reference/rest/v1/wireGroups)
         * How-to Guides
             * [Create a WireGroup](https://cloud.google.com/network-connectivity/docs/interconnect/how-to/cross-site/modify-network#add-wire-group)
 
@@ -501,6 +524,29 @@ class WireGroup(pulumi.CustomResource):
             wire_properties={
                 "bandwidth_unmetered": 10,
                 "fault_response": "NONE",
+                "bandwidth_allocation": "ALLOCATE_PER_WIRE",
+            },
+            admin_enabled=True,
+            opts = pulumi.ResourceOptions(depends_on=[example_cross_site_network]))
+        ```
+        ### Compute Wire Group Basic Beta
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        project = gcp.organizations.get_project()
+        example_cross_site_network = gcp.compute.CrossSiteNetwork("example-cross-site-network",
+            name="test-cross-site-network-beta",
+            description="Example cross site network")
+        example_test_wire_group_beta = gcp.compute.WireGroup("example-test-wire-group-beta",
+            name="test-wire-group-beta",
+            description="Example Wire Group Beta",
+            cross_site_network="test-cross-site-network-beta",
+            wire_properties={
+                "bandwidth_unmetered": 10,
+                "fault_response": "NONE",
+                "bandwidth_allocation": "ALLOCATE_PER_WIRE",
             },
             wire_group_properties={
                 "type": "WIRE",

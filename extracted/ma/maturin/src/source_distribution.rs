@@ -1,7 +1,6 @@
-use crate::module_writer::ModuleWriter;
-use crate::pyproject_toml::SdistGenerator;
-use crate::{pyproject_toml::Format, BuildContext, PyProjectToml, SDistWriter};
-use anyhow::{bail, Context, Result};
+use crate::pyproject_toml::{Format, SdistGenerator};
+use crate::{BuildContext, ModuleWriter, PyProjectToml, SDistWriter, VirtualWriter};
+use anyhow::{Context, Result, bail};
 use cargo_metadata::camino::Utf8Path;
 use cargo_metadata::{Metadata, MetadataCommand, PackageId};
 use fs_err as fs;
@@ -10,13 +9,14 @@ use normpath::PathExt as _;
 use path_slash::PathExt as _;
 use pyproject_toml::check_pep639_glob;
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::ffi::OsStr;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str;
 use toml_edit::DocumentMut;
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 
 /// Path dependency information.
 /// It may be in a different workspace than the root crate.
@@ -71,7 +71,7 @@ fn rewrite_cargo_toml(
             } else {
                 let mut new_members = toml_edit::Array::new();
                 for member in members {
-                    if let toml_edit::Value::String(ref s) = member {
+                    if let toml_edit::Value::String(s) = member {
                         let member_path = s.value();
                         // See https://github.com/rust-lang/cargo/blob/0de91c89e6479016d0ed8719fdc2947044335b36/src/cargo/util/restricted_names.rs#L119-L122
                         let is_glob_pattern = member_path.contains(['*', '?', '[', ']']);
@@ -178,7 +178,7 @@ fn rewrite_pyproject_toml(
 ///
 /// Runs `cargo package --list --allow-dirty` to obtain a list of files to package.
 fn add_crate_to_source_distribution(
-    writer: &mut SDistWriter,
+    writer: &mut VirtualWriter<SDistWriter>,
     manifest_path: impl AsRef<Path>,
     prefix: impl AsRef<Path>,
     readme: Option<&Path>,
@@ -237,7 +237,6 @@ fn add_crate_to_source_distribution(
             (relative_to_manifests, relative_to_cwd)
         })
         .filter(|(target, source)| {
-            #[allow(clippy::if_same_then_else)]
             if *target == "Cargo.toml.orig" {
                 // Skip generated files. See https://github.com/rust-lang/cargo/issues/7938#issuecomment-593280660
                 // and https://github.com/PyO3/maturin/issues/449
@@ -262,12 +261,12 @@ fn add_crate_to_source_distribution(
                 debug!("Ignoring {}", target);
                 false
             } else {
-                source.exists()
+                // Use `is_file` instead of `exists` to work around cargo bug:
+                // https://github.com/rust-lang/cargo/issues/16465
+                source.is_file()
             }
         })
         .collect();
-
-    writer.add_directory(prefix)?;
 
     let cargo_toml_path = prefix.join(manifest_path.file_name().unwrap());
 
@@ -289,6 +288,7 @@ fn add_crate_to_source_distribution(
             cargo_toml_path,
             Some(manifest_path),
             document.to_string().as_bytes(),
+            false,
         )?;
     } else if !skip_cargo_toml {
         let mut document = parse_toml_file(manifest_path, "Cargo.toml")?;
@@ -297,11 +297,12 @@ fn add_crate_to_source_distribution(
             cargo_toml_path,
             Some(manifest_path),
             document.to_string().as_bytes(),
+            false,
         )?;
     }
 
     for (target, source) in target_source {
-        writer.add_file(prefix.join(target), source)?;
+        writer.add_file(prefix.join(target), source, false)?;
     }
 
     Ok(())
@@ -342,7 +343,7 @@ pub fn find_path_deps(cargo_metadata: &Metadata) -> Result<HashMap<String, PathD
             let dependency = top
                 .dependencies
                 .iter()
-                .find(|package| {
+                .find(|&package| {
                     // Package ids are opaque and there seems to be no way to query their name.
                     let dep_name = &cargo_metadata
                         .packages
@@ -350,7 +351,7 @@ pub fn find_path_deps(cargo_metadata: &Metadata) -> Result<HashMap<String, PathD
                         .find(|package| &package.id == dep_id)
                         .unwrap()
                         .name;
-                    &package.name == dep_name
+                    package.name == dep_name.as_ref()
                 })
                 .unwrap();
             if let Some(path) = &dependency.path {
@@ -405,7 +406,7 @@ pub fn find_path_deps(cargo_metadata: &Metadata) -> Result<HashMap<String, PathD
 /// Runs `git ls-files -z` to obtain a list of files to package.
 fn add_git_tracked_files_to_sdist(
     pyproject_toml_path: &Path,
-    writer: &mut SDistWriter,
+    writer: &mut VirtualWriter<SDistWriter>,
     prefix: impl AsRef<Path>,
 ) -> Result<()> {
     let pyproject_dir = pyproject_toml_path.parent().unwrap();
@@ -425,15 +426,13 @@ fn add_git_tracked_files_to_sdist(
     }
 
     let prefix = prefix.as_ref();
-    writer.add_directory(prefix)?;
-
     let file_paths = str::from_utf8(&output.stdout)
         .context("git printed invalid utf-8 ಠ_ಠ")?
         .split('\0')
         .filter(|s| !s.is_empty())
         .map(Path::new);
     for source in file_paths {
-        writer.add_file(prefix.join(source), pyproject_dir.join(source))?;
+        writer.add_file(prefix.join(source), pyproject_dir.join(source), false)?;
     }
     Ok(())
 }
@@ -443,7 +442,7 @@ fn add_git_tracked_files_to_sdist(
 fn add_cargo_package_files_to_sdist(
     build_context: &BuildContext,
     pyproject_toml_path: &Path,
-    writer: &mut SDistWriter,
+    writer: &mut VirtualWriter<SDistWriter>,
     root_dir: &Path,
 ) -> Result<()> {
     let manifest_path = &build_context.manifest_path;
@@ -521,6 +520,7 @@ fn add_cargo_package_files_to_sdist(
                 .join(relative_main_crate_manifest_dir)
                 .join(readme.file_name().unwrap()),
             &abs_readme,
+            false,
         )?;
         Some(abs_readme)
     } else {
@@ -558,7 +558,7 @@ fn add_cargo_package_files_to_sdist(
                 pyproject_root
             };
         let relative_cargo_lock = cargo_lock_path.strip_prefix(project_root).unwrap();
-        writer.add_file(root_dir.join(relative_cargo_lock), &cargo_lock_path)?;
+        writer.add_file(root_dir.join(relative_cargo_lock), &cargo_lock_path, false)?;
         if use_workspace_cargo_lock {
             let relative_workspace_cargo_toml = relative_cargo_lock.with_file_name("Cargo.toml");
             let mut deps_to_keep = known_path_deps.clone();
@@ -588,6 +588,7 @@ fn add_cargo_package_files_to_sdist(
                 root_dir.join(relative_workspace_cargo_toml),
                 Some(workspace_manifest_path.as_std_path()),
                 document.to_string().as_bytes(),
+                false,
             )?;
         }
     } else if cargo_lock_required {
@@ -611,9 +612,10 @@ fn add_cargo_package_files_to_sdist(
             root_dir.join("pyproject.toml"),
             Some(pyproject_toml_path),
             rewritten_pyproject_toml.as_bytes(),
+            false,
         )?;
     } else {
-        writer.add_file(root_dir.join("pyproject.toml"), pyproject_toml_path)?;
+        writer.add_file(root_dir.join("pyproject.toml"), pyproject_toml_path, false)?;
     }
 
     // Add python source files
@@ -647,10 +649,8 @@ fn add_cargo_package_files_to_sdist(
                 continue;
             }
             let target = root_dir.join(source.strip_prefix(pyproject_dir).unwrap());
-            if source.is_dir() {
-                writer.add_directory(target)?;
-            } else {
-                writer.add_file(target, &source)?;
+            if !source.is_dir() {
+                writer.add_file(target, &source, false)?;
             }
         }
     }
@@ -660,7 +660,7 @@ fn add_cargo_package_files_to_sdist(
 
 #[allow(clippy::too_many_arguments)] // TODO(konsti)
 fn add_path_dep(
-    writer: &mut SDistWriter,
+    writer: &mut VirtualWriter<SDistWriter>,
     root_dir: &Path,
     workspace_root: &Utf8Path,
     workspace_manifest_path: &Utf8Path,
@@ -713,6 +713,7 @@ fn add_path_dep(
                 .join(relative_path_dep_manifest_dir)
                 .join(readme.file_name().unwrap()),
             &abs_readme,
+            false,
         )?;
     }
     // Handle different workspace manifest
@@ -724,6 +725,7 @@ fn add_path_dep(
         writer.add_file(
             root_dir.join(relative_path_dep_workspace_manifest),
             &path_dep_workspace_manifest,
+            false,
         )?;
     }
     Ok(())
@@ -750,8 +752,21 @@ pub fn source_distribution(
             )
         })?
         .into_path_buf();
+
+    let source_date_epoch: Option<u64> =
+        env::var("SOURCE_DATE_EPOCH")
+            .ok()
+            .and_then(|var| match var.parse() {
+                Err(_) => {
+                    warn!("SOURCE_DATE_EPOCH is malformed, ignoring");
+                    None
+                }
+                Ok(val) => Some(val),
+            });
+
     let metadata24 = &build_context.metadata24;
-    let mut writer = SDistWriter::new(&build_context.out, metadata24, excludes)?;
+    let writer = SDistWriter::new(&build_context.out, metadata24, source_date_epoch)?;
+    let mut writer = VirtualWriter::new(writer, excludes);
     let root_dir = PathBuf::from(format!(
         "{}-{}",
         &metadata24.get_distribution_escaped(),
@@ -784,10 +799,10 @@ pub fn source_distribution(
     // Add readme, license
     if let Some(project) = pyproject.project.as_ref() {
         if let Some(pyproject_toml::ReadMe::RelativePath(readme)) = project.readme.as_ref() {
-            writer.add_file(root_dir.join(readme), pyproject_dir.join(readme))?;
+            writer.add_file(root_dir.join(readme), pyproject_dir.join(readme), false)?;
         }
         if let Some(pyproject_toml::License::File { file }) = project.license.as_ref() {
-            writer.add_file(root_dir.join(file), pyproject_dir.join(file))?;
+            writer.add_file(root_dir.join(file), pyproject_dir.join(file), false)?;
         }
         if let Some(license_files) = &project.license_files {
             // Safe on Windows and Unix as neither forward nor backwards slashes are escaped.
@@ -812,6 +827,7 @@ pub fn source_distribution(
                         writer.add_file(
                             root_dir.join(&license_path),
                             pyproject_dir.join(&license_path),
+                            false,
                         )?;
                     }
                 }
@@ -826,10 +842,8 @@ pub fn source_distribution(
             .filter_map(Result::ok)
         {
             let target = root_dir.join(source.strip_prefix(pyproject_dir).unwrap());
-            if source.is_dir() {
-                writer.add_directory(target)?;
-            } else {
-                writer.add_file(target, source)?;
+            if !source.is_dir() {
+                writer.add_file(target, source, false)?;
             }
         }
         Ok(())
@@ -844,13 +858,15 @@ pub fn source_distribution(
         }
     }
 
+    let pkg_info = root_dir.join("PKG-INFO");
     writer.add_bytes(
-        root_dir.join("PKG-INFO"),
+        &pkg_info,
         None,
         metadata24.to_file_contents()?.as_bytes(),
+        false,
     )?;
 
-    let source_distribution_path = writer.finish()?;
+    let source_distribution_path = writer.finish(&pkg_info)?;
 
     eprintln!(
         "📦 Built source distribution to {}",
@@ -884,9 +900,5 @@ where
             break;
         }
     }
-    if found {
-        Some(final_path)
-    } else {
-        None
-    }
+    if found { Some(final_path) } else { None }
 }

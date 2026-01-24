@@ -1400,6 +1400,8 @@ class CloudNativeAPIGatewayConfig(AbstractModel):
         :type NetworkId: str
         :param _IPV6FullChain: 是否为新 ipv6 CLB
         :type IPV6FullChain: bool
+        :param _CustomizedConfigContent: 负载均衡个性化配置内容
+        :type CustomizedConfigContent: str
         """
         self._ConsoleType = None
         self._HttpUrl = None
@@ -1423,6 +1425,7 @@ class CloudNativeAPIGatewayConfig(AbstractModel):
         self._SlaveZoneName = None
         self._NetworkId = None
         self._IPV6FullChain = None
+        self._CustomizedConfigContent = None
 
     @property
     def ConsoleType(self):
@@ -1667,6 +1670,17 @@ class CloudNativeAPIGatewayConfig(AbstractModel):
     def IPV6FullChain(self, IPV6FullChain):
         self._IPV6FullChain = IPV6FullChain
 
+    @property
+    def CustomizedConfigContent(self):
+        r"""负载均衡个性化配置内容
+        :rtype: str
+        """
+        return self._CustomizedConfigContent
+
+    @CustomizedConfigContent.setter
+    def CustomizedConfigContent(self, CustomizedConfigContent):
+        self._CustomizedConfigContent = CustomizedConfigContent
+
 
     def _deserialize(self, params):
         self._ConsoleType = params.get("ConsoleType")
@@ -1693,6 +1707,7 @@ class CloudNativeAPIGatewayConfig(AbstractModel):
         self._SlaveZoneName = params.get("SlaveZoneName")
         self._NetworkId = params.get("NetworkId")
         self._IPV6FullChain = params.get("IPV6FullChain")
+        self._CustomizedConfigContent = params.get("CustomizedConfigContent")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -6897,6 +6912,27 @@ polarismesh - STANDARD版本
 - 1：预付费（接口暂不支持创建预付费实例）
         :type TradeType: int
         :param _EngineResourceSpec: 引擎的节点规格 ID。参见EngineProductVersion字段说明
+北极星支持的引擎规格ID与节点数对应关系：
+基础版：
+spec-c160bas1 500
+spec-c160bas2 1000
+spec-c160bas3 2000
+spec-c160bas4 5000
+spec-c160bas5 10000
+spec-c160bas6 20000
+spec-c160bas7 50000
+企业版：
+spec-c160pro50 50
+spec-c160pro100 100
+spec-c160pro200 200
+spec-c160pro500 500
+spec-c160pro1k 1000
+spec-c160pro5k 5000
+spec-c160pro10k 10000
+spec-c160pro20k 20000
+spec-c160pro50k 50000
+开发版：
+spec-c160dev1 50
         :type EngineResourceSpec: str
         :param _EngineNodeNum: 引擎的节点数量。参见EngineProductVersion字段说明
         :type EngineNodeNum: int
@@ -7085,6 +7121,27 @@ polarismesh - STANDARD版本
     @property
     def EngineResourceSpec(self):
         r"""引擎的节点规格 ID。参见EngineProductVersion字段说明
+北极星支持的引擎规格ID与节点数对应关系：
+基础版：
+spec-c160bas1 500
+spec-c160bas2 1000
+spec-c160bas3 2000
+spec-c160bas4 5000
+spec-c160bas5 10000
+spec-c160bas6 20000
+spec-c160bas7 50000
+企业版：
+spec-c160pro50 50
+spec-c160pro100 100
+spec-c160pro200 200
+spec-c160pro500 500
+spec-c160pro1k 1000
+spec-c160pro5k 5000
+spec-c160pro10k 10000
+spec-c160pro20k 20000
+spec-c160pro50k 50000
+开发版：
+spec-c160dev1 50
         :rtype: str
         """
         return self._EngineResourceSpec
@@ -8170,10 +8227,13 @@ class CreateNativeGatewayServiceSourceResponse(AbstractModel):
         r"""
         :param _Result: 创建是否成功
         :type Result: bool
+        :param _SourceID: 服务来源ID
+        :type SourceID: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._Result = None
+        self._SourceID = None
         self._RequestId = None
 
     @property
@@ -8186,6 +8246,17 @@ class CreateNativeGatewayServiceSourceResponse(AbstractModel):
     @Result.setter
     def Result(self, Result):
         self._Result = Result
+
+    @property
+    def SourceID(self):
+        r"""服务来源ID
+        :rtype: str
+        """
+        return self._SourceID
+
+    @SourceID.setter
+    def SourceID(self, SourceID):
+        self._SourceID = SourceID
 
     @property
     def RequestId(self):
@@ -8201,6 +8272,146 @@ class CreateNativeGatewayServiceSourceResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._Result = params.get("Result")
+        self._SourceID = params.get("SourceID")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateOrModifyCloudNativeAPIGatewayIPRestrictionRequest(AbstractModel):
+    r"""CreateOrModifyCloudNativeAPIGatewayIPRestriction请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _GatewayId: 网关ID
+        :type GatewayId: str
+        :param _SourceType: 访问控制插件绑定的资源类型：route|service
+        :type SourceType: str
+        :param _SourceId: 路由或服务的id
+        :type SourceId: str
+        :param _Enabled: 是否启用插件
+        :type Enabled: bool
+        :param _RestrictionType: 访问控制类型：whiteList｜blackList
+        :type RestrictionType: str
+        :param _AddressList: cidr｜ip
+        :type AddressList: list of str
+        """
+        self._GatewayId = None
+        self._SourceType = None
+        self._SourceId = None
+        self._Enabled = None
+        self._RestrictionType = None
+        self._AddressList = None
+
+    @property
+    def GatewayId(self):
+        r"""网关ID
+        :rtype: str
+        """
+        return self._GatewayId
+
+    @GatewayId.setter
+    def GatewayId(self, GatewayId):
+        self._GatewayId = GatewayId
+
+    @property
+    def SourceType(self):
+        r"""访问控制插件绑定的资源类型：route|service
+        :rtype: str
+        """
+        return self._SourceType
+
+    @SourceType.setter
+    def SourceType(self, SourceType):
+        self._SourceType = SourceType
+
+    @property
+    def SourceId(self):
+        r"""路由或服务的id
+        :rtype: str
+        """
+        return self._SourceId
+
+    @SourceId.setter
+    def SourceId(self, SourceId):
+        self._SourceId = SourceId
+
+    @property
+    def Enabled(self):
+        r"""是否启用插件
+        :rtype: bool
+        """
+        return self._Enabled
+
+    @Enabled.setter
+    def Enabled(self, Enabled):
+        self._Enabled = Enabled
+
+    @property
+    def RestrictionType(self):
+        r"""访问控制类型：whiteList｜blackList
+        :rtype: str
+        """
+        return self._RestrictionType
+
+    @RestrictionType.setter
+    def RestrictionType(self, RestrictionType):
+        self._RestrictionType = RestrictionType
+
+    @property
+    def AddressList(self):
+        r"""cidr｜ip
+        :rtype: list of str
+        """
+        return self._AddressList
+
+    @AddressList.setter
+    def AddressList(self, AddressList):
+        self._AddressList = AddressList
+
+
+    def _deserialize(self, params):
+        self._GatewayId = params.get("GatewayId")
+        self._SourceType = params.get("SourceType")
+        self._SourceId = params.get("SourceId")
+        self._Enabled = params.get("Enabled")
+        self._RestrictionType = params.get("RestrictionType")
+        self._AddressList = params.get("AddressList")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateOrModifyCloudNativeAPIGatewayIPRestrictionResponse(AbstractModel):
+    r"""CreateOrModifyCloudNativeAPIGatewayIPRestriction返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
 
 
@@ -8746,6 +8957,100 @@ class DeleteCloudNativeAPIGatewayCertificateRequest(AbstractModel):
 
 class DeleteCloudNativeAPIGatewayCertificateResponse(AbstractModel):
     r"""DeleteCloudNativeAPIGatewayCertificate返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteCloudNativeAPIGatewayIPRestrictionRequest(AbstractModel):
+    r"""DeleteCloudNativeAPIGatewayIPRestriction请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _GatewayId: 网关ID
+        :type GatewayId: str
+        :param _SourceType: 访问控制插件绑定的资源类型：route|service
+        :type SourceType: str
+        :param _SourceId: 路由或服务的id
+        :type SourceId: str
+        """
+        self._GatewayId = None
+        self._SourceType = None
+        self._SourceId = None
+
+    @property
+    def GatewayId(self):
+        r"""网关ID
+        :rtype: str
+        """
+        return self._GatewayId
+
+    @GatewayId.setter
+    def GatewayId(self, GatewayId):
+        self._GatewayId = GatewayId
+
+    @property
+    def SourceType(self):
+        r"""访问控制插件绑定的资源类型：route|service
+        :rtype: str
+        """
+        return self._SourceType
+
+    @SourceType.setter
+    def SourceType(self, SourceType):
+        self._SourceType = SourceType
+
+    @property
+    def SourceId(self):
+        r"""路由或服务的id
+        :rtype: str
+        """
+        return self._SourceId
+
+    @SourceId.setter
+    def SourceId(self, SourceId):
+        self._SourceId = SourceId
+
+
+    def _deserialize(self, params):
+        self._GatewayId = params.get("GatewayId")
+        self._SourceType = params.get("SourceType")
+        self._SourceId = params.get("SourceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteCloudNativeAPIGatewayIPRestrictionResponse(AbstractModel):
+    r"""DeleteCloudNativeAPIGatewayIPRestriction返回参数结构体
 
     """
 
@@ -11509,6 +11814,119 @@ class DescribeCloudNativeAPIGatewayConfigResult(AbstractModel):
         
 
 
+class DescribeCloudNativeAPIGatewayIPRestrictionRequest(AbstractModel):
+    r"""DescribeCloudNativeAPIGatewayIPRestriction请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _GatewayId: 网关ID
+        :type GatewayId: str
+        :param _SourceType: 访问控制插件绑定的资源类型：route|service
+        :type SourceType: str
+        :param _SourceId: 路由或服务的id
+        :type SourceId: str
+        """
+        self._GatewayId = None
+        self._SourceType = None
+        self._SourceId = None
+
+    @property
+    def GatewayId(self):
+        r"""网关ID
+        :rtype: str
+        """
+        return self._GatewayId
+
+    @GatewayId.setter
+    def GatewayId(self, GatewayId):
+        self._GatewayId = GatewayId
+
+    @property
+    def SourceType(self):
+        r"""访问控制插件绑定的资源类型：route|service
+        :rtype: str
+        """
+        return self._SourceType
+
+    @SourceType.setter
+    def SourceType(self, SourceType):
+        self._SourceType = SourceType
+
+    @property
+    def SourceId(self):
+        r"""路由或服务的id
+        :rtype: str
+        """
+        return self._SourceId
+
+    @SourceId.setter
+    def SourceId(self, SourceId):
+        self._SourceId = SourceId
+
+
+    def _deserialize(self, params):
+        self._GatewayId = params.get("GatewayId")
+        self._SourceType = params.get("SourceType")
+        self._SourceId = params.get("SourceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeCloudNativeAPIGatewayIPRestrictionResponse(AbstractModel):
+    r"""DescribeCloudNativeAPIGatewayIPRestriction返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: 出参
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Result: :class:`tencentcloud.tse.v20201207.models.DescribeKongIpRestrictionResult`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Result = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""出参
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.tse.v20201207.models.DescribeKongIpRestrictionResult`
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Result") is not None:
+            self._Result = DescribeKongIpRestrictionResult()
+            self._Result._deserialize(params.get("Result"))
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeCloudNativeAPIGatewayInfoByIpRequest(AbstractModel):
     r"""DescribeCloudNativeAPIGatewayInfoByIp请求参数结构体
 
@@ -11996,6 +12414,9 @@ class DescribeCloudNativeAPIGatewayResult(AbstractModel):
         :type PublicIpAddresses: list of str
         :param _DeleteProtect: 是否开启删除保护
         :type DeleteProtect: bool
+        :param _AvailableVersions: 表示可以升级的版本号
+注意：此字段可能返回 null，表示取不到有效值。
+        :type AvailableVersions: list of str
         """
         self._GatewayId = None
         self._Status = None
@@ -12023,6 +12444,7 @@ class DescribeCloudNativeAPIGatewayResult(AbstractModel):
         self._LoadBalancerType = None
         self._PublicIpAddresses = None
         self._DeleteProtect = None
+        self._AvailableVersions = None
 
     @property
     def GatewayId(self):
@@ -12313,6 +12735,18 @@ class DescribeCloudNativeAPIGatewayResult(AbstractModel):
     def DeleteProtect(self, DeleteProtect):
         self._DeleteProtect = DeleteProtect
 
+    @property
+    def AvailableVersions(self):
+        r"""表示可以升级的版本号
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of str
+        """
+        return self._AvailableVersions
+
+    @AvailableVersions.setter
+    def AvailableVersions(self, AvailableVersions):
+        self._AvailableVersions = AvailableVersions
+
 
     def _deserialize(self, params):
         self._GatewayId = params.get("GatewayId")
@@ -12352,6 +12786,7 @@ class DescribeCloudNativeAPIGatewayResult(AbstractModel):
         self._LoadBalancerType = params.get("LoadBalancerType")
         self._PublicIpAddresses = params.get("PublicIpAddresses")
         self._DeleteProtect = params.get("DeleteProtect")
+        self._AvailableVersions = params.get("AvailableVersions")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -15713,6 +16148,8 @@ class DescribeGovernanceServicesRequest(AbstractModel):
         :type OnlyExistHealthyInstance: bool
         :param _SyncToGlobalRegistry: 是否开启同步到全局注册中心	
         :type SyncToGlobalRegistry: str
+        :param _StatusFilter: 过滤筛选条件
+        :type StatusFilter: list of Filter
         """
         self._Name = None
         self._Namespace = None
@@ -15725,6 +16162,7 @@ class DescribeGovernanceServicesRequest(AbstractModel):
         self._Host = None
         self._OnlyExistHealthyInstance = None
         self._SyncToGlobalRegistry = None
+        self._StatusFilter = None
 
     @property
     def Name(self):
@@ -15847,6 +16285,17 @@ class DescribeGovernanceServicesRequest(AbstractModel):
     def SyncToGlobalRegistry(self, SyncToGlobalRegistry):
         self._SyncToGlobalRegistry = SyncToGlobalRegistry
 
+    @property
+    def StatusFilter(self):
+        r"""过滤筛选条件
+        :rtype: list of Filter
+        """
+        return self._StatusFilter
+
+    @StatusFilter.setter
+    def StatusFilter(self, StatusFilter):
+        self._StatusFilter = StatusFilter
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -15865,6 +16314,12 @@ class DescribeGovernanceServicesRequest(AbstractModel):
         self._Host = params.get("Host")
         self._OnlyExistHealthyInstance = params.get("OnlyExistHealthyInstance")
         self._SyncToGlobalRegistry = params.get("SyncToGlobalRegistry")
+        if params.get("StatusFilter") is not None:
+            self._StatusFilter = []
+            for item in params.get("StatusFilter"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._StatusFilter.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -16257,6 +16712,112 @@ class DescribeInstanceTagInfosResponse(AbstractModel):
                 obj._deserialize(item)
                 self._TagInfos.append(obj)
         self._RequestId = params.get("RequestId")
+
+
+class DescribeKongIpRestrictionResult(AbstractModel):
+    r"""查询云原生网关访问控制配置出参
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SourceType: 访问控制插件绑定的资源类型：route | service
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SourceType: str
+        :param _SourceId: 路由或服务的id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SourceId: str
+        :param _Enabled: 是否启用插件
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Enabled: bool
+        :param _RestrictionType: 访问控制类型：whiteList｜blackList
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RestrictionType: str
+        :param _AddressList: cidr｜ip
+注意：此字段可能返回 null，表示取不到有效值。
+        :type AddressList: list of str
+        """
+        self._SourceType = None
+        self._SourceId = None
+        self._Enabled = None
+        self._RestrictionType = None
+        self._AddressList = None
+
+    @property
+    def SourceType(self):
+        r"""访问控制插件绑定的资源类型：route | service
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._SourceType
+
+    @SourceType.setter
+    def SourceType(self, SourceType):
+        self._SourceType = SourceType
+
+    @property
+    def SourceId(self):
+        r"""路由或服务的id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._SourceId
+
+    @SourceId.setter
+    def SourceId(self, SourceId):
+        self._SourceId = SourceId
+
+    @property
+    def Enabled(self):
+        r"""是否启用插件
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._Enabled
+
+    @Enabled.setter
+    def Enabled(self, Enabled):
+        self._Enabled = Enabled
+
+    @property
+    def RestrictionType(self):
+        r"""访问控制类型：whiteList｜blackList
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._RestrictionType
+
+    @RestrictionType.setter
+    def RestrictionType(self, RestrictionType):
+        self._RestrictionType = RestrictionType
+
+    @property
+    def AddressList(self):
+        r"""cidr｜ip
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of str
+        """
+        return self._AddressList
+
+    @AddressList.setter
+    def AddressList(self, AddressList):
+        self._AddressList = AddressList
+
+
+    def _deserialize(self, params):
+        self._SourceType = params.get("SourceType")
+        self._SourceId = params.get("SourceId")
+        self._Enabled = params.get("Enabled")
+        self._RestrictionType = params.get("RestrictionType")
+        self._AddressList = params.get("AddressList")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
 
 
 class DescribeNacosReplicasRequest(AbstractModel):
@@ -16661,6 +17222,8 @@ class DescribeNativeGatewayServiceSourcesRequest(AbstractModel):
         :type Limit: int
         :param _Offset: 分页偏移量
         :type Offset: int
+        :param _SourceID: 服务来源ID
+        :type SourceID: str
         :param _SourceName: 服务来源实例名称，模糊搜索
         :type SourceName: str
         :param _SourceTypes: 微服务引擎类型：TSE-Nacos｜TSE-Consul｜TSE-PolarisMesh｜Customer-Nacos｜Customer-Consul｜Customer-PolarisMesh
@@ -16673,6 +17236,7 @@ class DescribeNativeGatewayServiceSourcesRequest(AbstractModel):
         self._GatewayID = None
         self._Limit = None
         self._Offset = None
+        self._SourceID = None
         self._SourceName = None
         self._SourceTypes = None
         self._OrderField = None
@@ -16710,6 +17274,17 @@ class DescribeNativeGatewayServiceSourcesRequest(AbstractModel):
     @Offset.setter
     def Offset(self, Offset):
         self._Offset = Offset
+
+    @property
+    def SourceID(self):
+        r"""服务来源ID
+        :rtype: str
+        """
+        return self._SourceID
+
+    @SourceID.setter
+    def SourceID(self, SourceID):
+        self._SourceID = SourceID
 
     @property
     def SourceName(self):
@@ -16760,6 +17335,7 @@ class DescribeNativeGatewayServiceSourcesRequest(AbstractModel):
         self._GatewayID = params.get("GatewayID")
         self._Limit = params.get("Limit")
         self._Offset = params.get("Offset")
+        self._SourceID = params.get("SourceID")
         self._SourceName = params.get("SourceName")
         self._SourceTypes = params.get("SourceTypes")
         self._OrderField = params.get("OrderField")
@@ -20687,6 +21263,10 @@ class GovernanceService(AbstractModel):
         :type Revision: str
         :param _SyncToGlobalRegistry: 是否开启同步到全局注册中心
         :type SyncToGlobalRegistry: bool
+        :param _IsolateInstanceCount: 隔离实例数
+        :type IsolateInstanceCount: int
+        :param _ServiceStatus: 服务健康状态
+        :type ServiceStatus: int
         """
         self._Name = None
         self._Namespace = None
@@ -20707,6 +21287,8 @@ class GovernanceService(AbstractModel):
         self._ExportTo = None
         self._Revision = None
         self._SyncToGlobalRegistry = None
+        self._IsolateInstanceCount = None
+        self._ServiceStatus = None
 
     @property
     def Name(self):
@@ -20917,6 +21499,28 @@ class GovernanceService(AbstractModel):
     def SyncToGlobalRegistry(self, SyncToGlobalRegistry):
         self._SyncToGlobalRegistry = SyncToGlobalRegistry
 
+    @property
+    def IsolateInstanceCount(self):
+        r"""隔离实例数
+        :rtype: int
+        """
+        return self._IsolateInstanceCount
+
+    @IsolateInstanceCount.setter
+    def IsolateInstanceCount(self, IsolateInstanceCount):
+        self._IsolateInstanceCount = IsolateInstanceCount
+
+    @property
+    def ServiceStatus(self):
+        r"""服务健康状态
+        :rtype: int
+        """
+        return self._ServiceStatus
+
+    @ServiceStatus.setter
+    def ServiceStatus(self, ServiceStatus):
+        self._ServiceStatus = ServiceStatus
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -20943,6 +21547,8 @@ class GovernanceService(AbstractModel):
         self._ExportTo = params.get("ExportTo")
         self._Revision = params.get("Revision")
         self._SyncToGlobalRegistry = params.get("SyncToGlobalRegistry")
+        self._IsolateInstanceCount = params.get("IsolateInstanceCount")
+        self._ServiceStatus = params.get("ServiceStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -26815,6 +27421,16 @@ class ModifyNetworkBasicInfoRequest(AbstractModel):
         :type InternetMaxBandwidthOut: int
         :param _Description: 负载均衡描述
         :type Description: str
+        :param _SlaType: 负载均衡的规格类型，支持：
+- 不传为共享型。
+- clb.c2.medium：标准型规格
+- clb.c3.small：高阶型1规格
+- clb.c3.medium：高阶型2规格
+- clb.c4.small：超强型1规格
+- clb.c4.medium：超强型2规格
+- clb.c4.large：超强型3规格
+- clb.c4.xlarge：超强型4规格
+        :type SlaType: str
         """
         self._GatewayId = None
         self._GroupId = None
@@ -26822,6 +27438,7 @@ class ModifyNetworkBasicInfoRequest(AbstractModel):
         self._Vip = None
         self._InternetMaxBandwidthOut = None
         self._Description = None
+        self._SlaType = None
 
     @property
     def GatewayId(self):
@@ -26892,6 +27509,25 @@ class ModifyNetworkBasicInfoRequest(AbstractModel):
     def Description(self, Description):
         self._Description = Description
 
+    @property
+    def SlaType(self):
+        r"""负载均衡的规格类型，支持：
+- 不传为共享型。
+- clb.c2.medium：标准型规格
+- clb.c3.small：高阶型1规格
+- clb.c3.medium：高阶型2规格
+- clb.c4.small：超强型1规格
+- clb.c4.medium：超强型2规格
+- clb.c4.large：超强型3规格
+- clb.c4.xlarge：超强型4规格
+        :rtype: str
+        """
+        return self._SlaType
+
+    @SlaType.setter
+    def SlaType(self, SlaType):
+        self._SlaType = SlaType
+
 
     def _deserialize(self, params):
         self._GatewayId = params.get("GatewayId")
@@ -26900,6 +27536,7 @@ class ModifyNetworkBasicInfoRequest(AbstractModel):
         self._Vip = params.get("Vip")
         self._InternetMaxBandwidthOut = params.get("InternetMaxBandwidthOut")
         self._Description = params.get("Description")
+        self._SlaType = params.get("SlaType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

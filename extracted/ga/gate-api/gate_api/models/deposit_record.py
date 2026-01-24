@@ -35,7 +35,6 @@ class DepositRecord(object):
     openapi_types = {
         'id': 'str',
         'txid': 'str',
-        'withdraw_order_id': 'str',
         'timestamp': 'str',
         'amount': 'str',
         'currency': 'str',
@@ -48,7 +47,6 @@ class DepositRecord(object):
     attribute_map = {
         'id': 'id',
         'txid': 'txid',
-        'withdraw_order_id': 'withdraw_order_id',
         'timestamp': 'timestamp',
         'amount': 'amount',
         'currency': 'currency',
@@ -58,8 +56,8 @@ class DepositRecord(object):
         'chain': 'chain'
     }
 
-    def __init__(self, id=None, txid=None, withdraw_order_id=None, timestamp=None, amount=None, currency=None, address=None, memo=None, status=None, chain=None, local_vars_configuration=None):  # noqa: E501
-        # type: (str, str, str, str, str, str, str, str, str, str, Configuration) -> None
+    def __init__(self, id=None, txid=None, timestamp=None, amount=None, currency=None, address=None, memo=None, status=None, chain=None, local_vars_configuration=None):  # noqa: E501
+        # type: (str, str, str, str, str, str, str, str, str, Configuration) -> None
         """DepositRecord - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -67,7 +65,6 @@ class DepositRecord(object):
 
         self._id = None
         self._txid = None
-        self._withdraw_order_id = None
         self._timestamp = None
         self._amount = None
         self._currency = None
@@ -81,8 +78,6 @@ class DepositRecord(object):
             self.id = id
         if txid is not None:
             self.txid = txid
-        if withdraw_order_id is not None:
-            self.withdraw_order_id = withdraw_order_id
         if timestamp is not None:
             self.timestamp = timestamp
         self.amount = amount
@@ -140,29 +135,6 @@ class DepositRecord(object):
         """
 
         self._txid = txid
-
-    @property
-    def withdraw_order_id(self):
-        """Gets the withdraw_order_id of this DepositRecord.  # noqa: E501
-
-        Client order id, up to 32 length and can only include 0-9, A-Z, a-z, underscore(_), hyphen(-) or dot(.)   # noqa: E501
-
-        :return: The withdraw_order_id of this DepositRecord.  # noqa: E501
-        :rtype: str
-        """
-        return self._withdraw_order_id
-
-    @withdraw_order_id.setter
-    def withdraw_order_id(self, withdraw_order_id):
-        """Sets the withdraw_order_id of this DepositRecord.
-
-        Client order id, up to 32 length and can only include 0-9, A-Z, a-z, underscore(_), hyphen(-) or dot(.)   # noqa: E501
-
-        :param withdraw_order_id: The withdraw_order_id of this DepositRecord.  # noqa: E501
-        :type: str
-        """
-
-        self._withdraw_order_id = withdraw_order_id
 
     @property
     def timestamp(self):
@@ -287,7 +259,7 @@ class DepositRecord(object):
     def status(self):
         """Gets the status of this DepositRecord.  # noqa: E501
 
-        Trading Status  - REVIEW: Recharge review (compliance review) - PEND: Processing - DONE: Waiting for funds to be unlocked - INVALID: Invalid data - TRACK: Track the number of confirmations, waiting to add funds to the user (spot) - BLOCKED: Rejected Recharge - DEP_CREDITED: Recharge to account, withdrawal is not unlocked  # noqa: E501
+        Transaction Status  - BLOCKED: Deposit Blocked - DEP_CREDITED: Deposit Credited, Withdrawal Pending Unlock - DONE: Funds Credited to Spot Account - INVALID: Invalid Transaction - MANUAL: Manual Review Required - PEND: Processing - REVIEW: Under Compliance Review - TRACK: Tracking Block Confirmations, Pending Spot Account Credit  # noqa: E501
 
         :return: The status of this DepositRecord.  # noqa: E501
         :rtype: str
@@ -298,7 +270,7 @@ class DepositRecord(object):
     def status(self, status):
         """Sets the status of this DepositRecord.
 
-        Trading Status  - REVIEW: Recharge review (compliance review) - PEND: Processing - DONE: Waiting for funds to be unlocked - INVALID: Invalid data - TRACK: Track the number of confirmations, waiting to add funds to the user (spot) - BLOCKED: Rejected Recharge - DEP_CREDITED: Recharge to account, withdrawal is not unlocked  # noqa: E501
+        Transaction Status  - BLOCKED: Deposit Blocked - DEP_CREDITED: Deposit Credited, Withdrawal Pending Unlock - DONE: Funds Credited to Spot Account - INVALID: Invalid Transaction - MANUAL: Manual Review Required - PEND: Processing - REVIEW: Under Compliance Review - TRACK: Tracking Block Confirmations, Pending Spot Account Credit  # noqa: E501
 
         :param status: The status of this DepositRecord.  # noqa: E501
         :type: str

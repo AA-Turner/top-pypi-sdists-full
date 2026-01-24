@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use pyo3::{IntoPyObjectExt, intern};
 
-#[pyclass(name = "SizeFormatter", frozen)]
+#[pyclass(name = "SizeFormatter", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct PySizeFormatter {
     formatter: size::fmt::SizeFormatter,
@@ -14,10 +14,11 @@ pub struct PySizeFormatter {
 #[pymethods]
 impl PySizeFormatter {
     #[new]
-    #[pyo3(signature = (base = None, style = None))]
-    fn py_new(base: Option<Base>, style: Option<Style>) -> Self {
-        let base = base.unwrap_or_default();
-        let style = style.unwrap_or_default();
+    #[pyo3(
+        signature = (base = Base::default(), style = Style::default()),
+        text_signature = "(base=2, style='default')"
+    )]
+    fn py_new(base: Base, style: Style) -> Self {
         let formatter = size::fmt::SizeFormatter::new()
             .with_base(base.0)
             .with_style(style.0);

@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: All Contributors to the PyTango project
 # SPDX-License-Identifier: LGPL-3.0-or-later
+import asyncio
+import inspect
 import multiprocessing
+import os
 import sys
 import textwrap
 import threading
 import time
-import asyncio
 
 import numpy as np
 
@@ -35,9 +37,9 @@ from tango import (
     GreenMode,
     LatestDeviceImpl,
     EnsureOmniThread,
-    PyTangoUserWarning,  # noqa
+    LockerLanguage,
 )
-from tango.server import BaseDevice, Device
+from tango.server import __to_callback, BaseDevice, Device
 from tango.pyutil import parse_args
 from tango.server import command, attribute, class_property, device_property
 from tango.test_utils import (
@@ -48,6 +50,7 @@ from tango.test_utils import (
     BadEnumSkipValues,
     BadEnumDuplicates,
     DEVICE_SERVER_ARGUMENTS,
+    wait_for_proxy,
 )
 from tango.utils import (
     EnumTypeError,
@@ -190,7 +193,7 @@ def test_set_state_status(state, server_green_mode, force_user_status):
             )
         )
     else:
-        status = f"The device is in {state!s} state."
+        status = f"The device is in {state} state."
 
     if server_green_mode == GreenMode.Asyncio:
 
@@ -317,10 +320,9 @@ def test_device_get_attr_config(server_green_mode):
         def attr_config_ok(self):
             # testing that call to get_attribute_config for all types of
             # input arguments gives same result and doesn't raise an exception
-            ac1 = self.get_attribute_config(b"attr_config_ok")
-            ac2 = self.get_attribute_config("attr_config_ok")
-            ac3 = self.get_attribute_config(["attr_config_ok"])
-            return repr(ac1) == repr(ac2) == repr(ac3)
+            ac1 = self.get_attribute_config("attr_config_ok")
+            ac2 = self.get_attribute_config(["attr_config_ok"])
+            return repr(ac1) == repr(ac2)
         """
         )
 
@@ -352,7 +354,7 @@ def test_device_set_attr_config(server_green_mode):
             self.set_attribute_config(attr_config)
             assert repr(attr_config) == repr(self.get_attribute_config("attr"))
 
-            with pytest.warns(PyTangoUserWarning, match="is not supported by Tango IDL"):
+            with pytest.raises(AttributeError, match="object has no attribute 'lala'"):
                 attr_config[0].lala = "7"
 
             attr_config = self.get_attribute_config_3("attr")
@@ -367,7 +369,7 @@ def test_device_set_attr_config(server_green_mode):
             self.set_attribute_config_3(attr_config)
             assert repr(attr_config) == repr(self.get_attribute_config_3("attr"))
 
-            with pytest.warns(PyTangoUserWarning, match="is not supported by Tango IDL"):
+            with pytest.raises(AttributeError, match="object has no attribute 'lala'"):
                 attr_config[0].lala = "7"
 
             attr = self.get_device_attr().get_attr_by_name("attr")
@@ -1111,7 +1113,7 @@ def test_server_init_hook_subscribe_event_multiple_devices():
 
         def init_device(self):
             super().init_device()
-            self.set_change_event("some_attribute", True, False)
+            self.set_change_event("some_attribute", implemented=True, detect=False)
 
         @command
         def push_event_cmd(self):
@@ -1396,7 +1398,7 @@ def test_no_sync_attribute_locks(server_green_mode):
             )
             self._publisher.daemon = True
             self._running = False
-            self.set_change_event("H22", True, False)
+            self.set_change_event("H22", implemented=True, detect=False)
 
         def _publisher_thread(self):
             with EnsureOmniThread():
@@ -1569,6 +1571,22 @@ def test_restart_server_command_cpp_and_py(mixed_tango_test_server):
     assert process.exitcode == 0
 
 
+def test_restart_simple_server_does_not_crash(server_green_mode):
+
+    class TestDevice(Device):
+        pass
+
+    devices_info = ({"class": TestDevice, "devices": [{"name": "device/test/1"}]},)
+    with MultiDeviceTestContext(devices_info) as context:
+        proxy = context.get_device(context.server_name)
+        assert proxy.state() == DevState.ON
+        proxy.command_inout("RestartServer")
+        time.sleep(0.1)
+        new_proxy = wait_for_proxy(context.server_name)
+        assert new_proxy.state() == DevState.ON
+        assert proxy.state() == DevState.ON
+
+
 def test_attr_data_default_fwd_properties():
 
     attr_name = "some_attr"
@@ -1638,9 +1656,7 @@ def test_attr_data_enum_labels():
 
     # set different enum values
     attr_data.set_enum_labels_to_attr_prop([label_value_2])
-    # I do think it is suprising that the enumeration labels are appended, see
-    # https://gitlab.com/tango-controls/cppTango/-/issues/1368
-    assert attr_data.att_prop.enum_labels == label_value_1 + label_value_2
+    assert attr_data.att_prop.enum_labels == label_value_2
 
 
 def test_attr_data_to_attr():
@@ -1822,3 +1838,161 @@ def test_device_repr_does_not_segfault_with_pytest(mocked_driver, TestFixtureDev
     with DeviceTestContext(TestFixtureDevice) as dp:
         with pytest.raises(DevFailed):
             dp.cmd()
+
+
+def test_client_ident(server_green_mode):
+
+    class MyDevice(Device):
+
+        green_mode = server_green_mode
+
+        if server_green_mode == GreenMode.Asyncio:
+
+            @command()
+            async def test_client_ident(self):
+                self.assert_client_ident_is_none_for_non_sync_servers()
+
+        elif server_green_mode == GreenMode.Gevent:
+
+            @command()
+            def test_client_ident(self):
+                self.assert_client_ident_is_none_for_non_sync_servers()
+
+        else:
+
+            @command()
+            def test_client_ident(self):
+                self.assert_client_ident_valid()
+
+        def assert_client_ident_valid(self):
+            data = self.get_client_ident()
+            assert data.client_ident
+            assert data.client_lang == LockerLanguage.CPP_6
+            assert data.client_pid == os.getpid()
+            assert data.client_ip == "collocated client (c++ to c++ call)"
+            data2 = self.get_client_ident()
+            assert data2 == data
+
+        def assert_client_ident_is_none_for_non_sync_servers(self):
+            assert self.get_client_ident() is None
+
+    with DeviceTestContext(MyDevice) as dev:
+        dev.test_client_ident()
+
+
+@pytest.mark.asyncio
+async def test___to_callback():
+
+    def callback1():
+        return "called"
+
+    def callback2(a, b):
+        return f"called {a=}, {b=}"
+
+    def callback3(a, b, c=0):
+        return f"called {a=}, {b=}, {c=}"
+
+    cb = __to_callback(None, "None-becomes-callable", GreenMode.Synchronous)
+    assert callable(cb)
+
+    cb = __to_callback(callback1, "callable", GreenMode.Synchronous)
+    assert callable(cb)
+    assert cb() == "called"
+
+    cb = __to_callback([callback1], "seq-length-1", GreenMode.Synchronous)
+    assert callable(cb)
+    assert cb() == "called"
+
+    args = (1, 2)
+    cb = __to_callback([callback2, args], "seq-length-2", GreenMode.Synchronous)
+    assert callable(cb)
+    assert cb() == "called a=1, b=2"
+
+    kwargs = {"c": 3}
+    cb = __to_callback([callback3, args, kwargs], "seq-length-3", GreenMode.Synchronous)
+    assert callable(cb)
+    assert cb() == "called a=1, b=2, c=3"
+
+    with pytest.raises(TypeError):
+        _ = __to_callback({}, "wrong-type", GreenMode.Synchronous)
+
+    with pytest.raises(TypeError):
+        _ = __to_callback([], "seq-length-0", GreenMode.Synchronous)
+
+    with pytest.raises(TypeError):
+        _ = __to_callback(["invalid"], "seq-length-1-bad-type", GreenMode.Synchronous)
+
+    with pytest.raises(TypeError):
+        _ = __to_callback([callback1, [], {}, 4], "seq-length-4", GreenMode.Synchronous)
+
+    cb = __to_callback(callback1, "sync-func-becomes-coroutine", GreenMode.Asyncio)
+    assert inspect.iscoroutinefunction(cb)
+    result = await cb()
+    assert result == "called"
+
+    cb = __to_callback(asyncio.sleep, "coroutine-unchanged", GreenMode.Asyncio)
+    assert cb is asyncio.sleep
+
+
+def test_no_crash_when_error_in_delete_device(capfd):
+
+    class TestDevice(Device):
+        def delete_device(self):
+            raise RuntimeError("Don't crash please")
+
+    with DeviceTestContext(TestDevice) as dev:
+        dev.ping()
+
+    _, err = capfd.readouterr()
+
+    assert "delete_device() raised a DevFailed exception" in err
+    assert "RuntimeError: Don't crash please" in err
+
+
+def test_polling_configuration():
+    class TestDevice(Device):
+
+        def init_device(self):
+            # check polling from attribute/command definition
+            assert self.is_attribute_polled("attr")
+            assert self.get_attribute_poll_period("attr") == 1000
+            assert self.is_command_polled("cmd")
+            assert self.get_command_poll_period("cmd") == 2000
+
+            # check polling can be changed
+            self.poll_attribute("attr", 1100)
+            assert self.is_attribute_polled("attr")
+            assert self.get_attribute_poll_period("attr") == 1100
+            self.poll_command("cmd", 2100)
+            assert self.is_command_polled("cmd")
+            assert self.get_command_poll_period("cmd") == 2100
+
+            # check polling can be stopped
+            self.stop_poll_attribute("attr")
+            assert not self.is_attribute_polled("attr")
+            self.stop_poll_command("cmd")
+            assert not self.is_command_polled("cmd")
+
+            # restart polling for client to check
+            self.poll_attribute("attr", 1200)
+            self.poll_command("cmd", 2200)
+
+        @attribute(polling_period=1000)
+        def attr(self) -> int:
+            return 55
+
+        @command(polling_period=2000)
+        def cmd(self):
+            pass
+
+    with DeviceTestContext(TestDevice) as proxy:
+        # check polling enabled
+        assert proxy.is_attribute_polled("attr")
+        assert proxy.get_attribute_poll_period("attr") == 1200
+        assert proxy.is_command_polled("cmd")
+        assert proxy.get_command_poll_period("cmd") == 2200
+        # check polling can be stopped
+        proxy.stop_poll_attribute("attr")
+        assert not proxy.is_attribute_polled("attr")
+        proxy.stop_poll_command("cmd")
+        assert not proxy.is_command_polled("cmd")

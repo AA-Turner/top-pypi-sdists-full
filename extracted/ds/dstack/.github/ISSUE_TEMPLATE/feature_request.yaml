@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest a feature or an enhancement
+title: "[Feature]: "
+labels: ["feature"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Is this feature related to a problem? Please provide more context.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution
+      description: What solution or enhancement would you propose to solve the problem?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workaround
+      description: Are there any workarounds currently available to solve the problem?
+  - type: dropdown
+    id: contributing
+    attributes:
+      label: Would you like to help us implement this feature by sending a PR?
+      options:
+        - 'Yes'
+        - 'No'
+    validations:
+      required: true

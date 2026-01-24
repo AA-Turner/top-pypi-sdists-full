@@ -84,10 +84,7 @@ SizeInfo SizeInfo::substitute(ssize_t max_depth) const {
     sizeinfo.offset += this->offset;
 
     if (sizeinfo.min) {
-        if (this->multiplier != 1) {
-            sizeinfo.min = static_cast<ssize_t>(this->multiplier * *sizeinfo.min);
-        }
-        sizeinfo.min = std::max<ssize_t>(0, *sizeinfo.min + this->offset);
+        sizeinfo.min = std::max<ssize_t>(0, (*sizeinfo.min * this->multiplier + this->offset).ceil());
         if (this->min) {
             sizeinfo.min = std::max<ssize_t>(*sizeinfo.min, *this->min);
         }
@@ -96,10 +93,7 @@ SizeInfo SizeInfo::substitute(ssize_t max_depth) const {
     }
 
     if (sizeinfo.max) {
-        if (this->multiplier != 1) {
-            sizeinfo.max = static_cast<ssize_t>(this->multiplier * *sizeinfo.max);
-        }
-        sizeinfo.max = std::max<ssize_t>(0, *sizeinfo.max + this->offset);
+        sizeinfo.max = std::max<ssize_t>(0, (*sizeinfo.max * this->multiplier + this->offset).ceil());
         if (this->max) {
             sizeinfo.max = std::min<ssize_t>(*sizeinfo.max, *this->max);
         }
@@ -229,8 +223,8 @@ bool array_shape_equal(const Array& lhs, const Array& rhs) { return array_shape_
 
 // We follow NumPy's broadcasting rules
 // See https://numpy.org/doc/stable/user/basics.broadcasting.html
-std::vector<ssize_t> broadcast_shape(const std::span<const ssize_t> lhs,
-                                     const std::span<const ssize_t> rhs) {
+std::vector<ssize_t> broadcast_shapes(const std::span<const ssize_t> lhs,
+                                      const std::span<const ssize_t> rhs) {
     // The resulting number of dimensions is the larger of the two broadcast arrays.
     std::vector<ssize_t> shape(std::max(lhs.size(), rhs.size()));
 
@@ -270,11 +264,17 @@ std::vector<ssize_t> broadcast_shape(const std::span<const ssize_t> lhs,
     }
     assert(sit == shape.rend());
 
+    // Check that we haven't put a dynamic axis anywhere except axis 0
+    if (std::ranges::any_of(shape | std::views::drop(1), [](const auto& val) { return val < 0; })) {
+        throw std::invalid_argument("operands could not be broadcast together with shapes " +
+                                    shape_to_string(lhs) + " " + shape_to_string(rhs));
+    }
+
     return shape;
 }
-std::vector<ssize_t> broadcast_shape(std::initializer_list<ssize_t> lhs,
-                                     std::initializer_list<ssize_t> rhs) {
-    return broadcast_shape(std::span(lhs), std::span(rhs));
+std::vector<ssize_t> broadcast_shapes(std::initializer_list<ssize_t> lhs,
+                                      std::initializer_list<ssize_t> rhs) {
+    return broadcast_shapes(std::span(lhs), std::span(rhs));
 }
 
 void deduplicate_diff(std::vector<Update>& diff) {
@@ -332,6 +332,32 @@ void deduplicate_diff(std::vector<Update>& diff) {
     // the value passed to resize doesn't matter (just to avoid implementing a
     // construct_at method for Update)
     diff.resize(new_index + 1, Update::placement(-666, 666));
+}
+
+bool is_contiguous(const ssize_t ndim, const ssize_t* shape, const ssize_t* strides) {
+    assert(ndim >= 0);
+    if (!ndim) return true;  // scalars are contiguous
+
+    ssize_t sd = sizeof(double);
+    for (ssize_t i = ndim - 1; i >= 0; --i) {
+        const ssize_t dim = shape[i];
+
+        // This method is fine with state-dependent shape/size under the
+        // assumption that we only ever allow it on the 0-axis.
+        assert(dim >= 0 || i == 0);
+
+        // If dim == 0 then we're contiguous because we're empty
+        if (!dim) return true;
+
+        if (dim != 1 && strides[i] != sd) return false;
+        sd *= dim;
+    }
+
+    return true;
+}
+bool is_contiguous(std::span<const ssize_t> shape, std::span<const ssize_t> strides) {
+    assert(shape.size() == strides.size());
+    return is_contiguous(shape.size(), shape.data(), strides.data());
 }
 
 bool is_integer(const double& value) {

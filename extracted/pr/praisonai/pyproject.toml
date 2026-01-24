@@ -1,0 +1,131 @@
+[project]
+name = "PraisonAI"
+dynamic = ["version"]
+description = "PraisonAI is an AI Agents Framework with Self Reflection. PraisonAI application combines PraisonAI Agents, AutoGen, and CrewAI into a low-code solution for building and managing multi-agent LLM systems, focusing on simplicity, customisation, and efficient human-agent collaboration."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    { name = "Mervin Praison" }
+]
+dependencies = [
+    "rich>=13.7",
+    "markdown>=3.5",
+    "pyparsing>=3.0.0",
+    "praisonaiagents>=0.13.12",
+    "python-dotenv>=0.19.0",
+    "instructor>=1.3.3",
+    "PyYAML>=6.0",
+    "mcp>=1.6.0",
+    "typer>=0.9.0",
+    "textual>=0.47.0",
+]
+
+[project.scripts]
+praisonai = "praisonai.__main__:main"
+setup-conda-env = "praisonai.setup.setup_conda_env:main"
+praisonai-call = "praisonai.api.call:main"
+
+[project.optional-dependencies]
+ui = [
+    "chainlit>=2.8.5,<2.9.0",
+    "sqlalchemy>=2.0.36",
+    "aiosqlite>=0.20.0",
+    "greenlet>=3.0.3",
+    "pydantic<=2.10.1"
+]
+gradio = ["gradio>=4.26.0"]
+api = [
+    "flask>=3.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    "sse-starlette>=1.6.0"
+]
+agentops = ["agentops>=0.3.12"]
+google = ["langchain-google-genai>=2.1.0"]
+openai = ["langchain-openai>=0.2.1,<0.3.0"]
+anthropic = ["langchain-anthropic>=0.3.0"]
+cohere = ["langchain-cohere>=0.3.0,<0.4.0"]
+chat = [
+    "chainlit>=2.8.5,<2.9.0",
+    "litellm>=1.72.6",
+    "aiosqlite>=0.20.0",
+    "greenlet>=3.0.3",
+    "tavily-python==0.5.0",
+    "crawl4ai>=0.7.0",
+    "sqlalchemy>=2.0.36",
+    "playwright>=1.47.0",
+    "rich",
+    "pydantic<=2.10.1"
+]
+code = [
+    "chainlit>=2.8.5,<2.9.0",
+    "litellm>=1.72.6",
+    "aiosqlite>=0.20.0",
+    "greenlet>=3.0.3",
+    "tavily-python==0.5.0",
+    "crawl4ai>=0.7.0",
+    "sqlalchemy>=2.0.36",
+    "playwright>=1.47.0",
+    "pydantic<=2.10.1"
+]
+realtime = [
+    "chainlit>=2.8.5,<2.9.0",
+    "litellm>=1.72.6",
+    "aiosqlite>=0.20.0",
+    "greenlet>=3.0.3",
+    "tavily-python==0.5.0",
+    "crawl4ai>=0.7.0",
+    "websockets>=12.0",
+    "plotly>=5.24.0",
+    "yfinance>=0.2.44",
+    "duckduckgo_search>=6.3.0",
+    "sqlalchemy>=2.0.36"
+]
+call = [
+    "twilio>=7.0.0",
+    "fastapi>=0.95.0",
+    "uvicorn>=0.20.0",
+    "websockets>=12.0",
+    "flaml[automl]>=2.3.1",
+    "pyngrok>=1.4.0",
+    "rich",
+    "openai>=1.54.0",
+]
+train = []
+crewai = ["crewai>=0.157.0", "praisonai-tools>=0.1.0"]
+autogen = ["pyautogen==0.2.29", "praisonai-tools>=0.1.0", "crewai"]
+autogen-v4 = [
+    "autogen-agentchat>=0.4.0", 
+    "autogen-ext[openai]>=0.4.0", 
+    "autogen-core>=0.4.0",
+    "praisonai-tools>=0.1.0", 
+    "crewai"
+]
+acp = [
+    "agent-client-protocol>=0.7.0",
+]
+lite = [
+    # Minimal installation without TUI, litellm - just core agent functionality
+    # Use: pip install praisonai[lite] for lightweight deployments
+]
+dev = [
+    "textual-dev>=1.0.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.urls]
+Homepage = "https://docs.praison.ai"
+Repository = "https://github.com/mervinpraison/PraisonAI"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "praisonai.version.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["praisonai*"]

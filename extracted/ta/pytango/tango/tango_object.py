@@ -20,8 +20,8 @@ except ImportError:
 from tango.codec import loads, dumps
 from tango.attr_data import AttrData
 from tango.utils import TO_TANGO_TYPE
-from tango._tango import AttrDataFormat, CmdArgType, GreenMode
-from tango._tango import DbDevInfo, Database, DevState
+from tango import AttrDataFormat, CmdArgType, GreenMode
+from tango import DbDevInfo, Database, DevState
 from tango.server import Device, _to_classes, _add_classes
 from tango.device_server import get_worker, set_worker
 from tango.green import get_executor

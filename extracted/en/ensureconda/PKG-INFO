@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ensureconda
-Version: 1.4.7
+Version: 1.6.0
 Summary: Lightweight bootstrapper for a conda executable
 Project-URL: Homepage, https://github.com/conda-incubator/ensureconda
 Author-email: Marius van Niekerk <marius.v.niekerk@gmail.com>
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8
 Requires-Dist: appdirs
 Requires-Dist: click>=5.1
+Requires-Dist: conda-package-streaming
 Requires-Dist: filelock
 Requires-Dist: packaging
 Requires-Dist: requests>=2
@@ -110,6 +111,22 @@ Options:
   --help                          Show this message and exit.
 ```
 
+### Configuring conda-standalone channel
+
+When ensureconda downloads the conda-standalone executable, you can select the
+channel via the environment variable `ENSURECONDA_CONDA_STANDALONE_CHANNEL`.
+It defaults to `conda-forge`, and you can set it to `anaconda` if you prefer:
+
+```bash
+export ENSURECONDA_CONDA_STANDALONE_CHANNEL=anaconda
+ensureconda --conda-exe
+```
+
+The corresponding package page used is:
+
+```text
+https://anaconda.org/$ENSURECONDA_CONDA_STANDALONE_CHANNEL/conda-standalone
+```
 
 ## License
 

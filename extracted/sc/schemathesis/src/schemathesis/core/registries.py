@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Callable, Generic, Sequence, TypeVar, Union
+from collections.abc import Callable, Sequence
+from typing import Generic, TypeVar
 
-T = TypeVar("T", bound=Union[Callable, type])
+T = TypeVar("T", bound=Callable | type)
 
 
 class Registry(Generic[T]):
@@ -25,6 +26,9 @@ class Registry(Generic[T]):
 
     def get_all(self) -> list[T]:
         return list(self._items.values())
+
+    def get_one(self, name: str) -> T:
+        return self._items[name]
 
     def get_by_names(self, names: Sequence[str]) -> list[T]:
         """Get items by their names."""

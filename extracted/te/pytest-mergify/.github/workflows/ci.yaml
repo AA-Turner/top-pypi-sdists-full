@@ -1,0 +1,50 @@
+name: Continuous Integration
+permissions: read-all
+
+on:
+  pull_request:
+    branches:
+      - main
+      - devs/**
+
+jobs:
+  test:
+    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v6.0.1
+      - uses: actions/setup-python@v6.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          version-file: requirements-uv.txt
+
+      - env:
+          _MERGIFY_TEST_NEW_FLAKY_DETECTION: "true"
+        run: |
+          export UV_PYTHON=${{ matrix.python-version }}
+          export UV_LOCKED=1
+          uv run poe linters
+          uv run poe test
+          uv build
+
+  semgrep:
+    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    container:
+      image: semgrep/semgrep:1.100.0
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Run Semgrep
+        run: |
+          semgrep --config=auto --error --timeout=15 .

@@ -61,7 +61,7 @@ class NotifyPushBullet(NotifyBase):
     request_rate_per_sec = 1.2
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_pushbullet"
+    setup_url = "https://appriseit.com/services/pushbullet/"
 
     # PushBullet uses the http protocol with JSON requests
     notify_url = "https://api.pushbullet.com/v2/{}"
@@ -382,7 +382,8 @@ class NotifyPushBullet(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 return False, response
 

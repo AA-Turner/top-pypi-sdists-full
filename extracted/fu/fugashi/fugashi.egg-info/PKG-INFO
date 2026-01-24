@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fugashi
-Version: 1.5.1
+Version: 1.5.2
 Summary: Cython MeCab wrapper for fast, pythonic Japanese tokenization.
 Author-email: Paul O'Leary McCann <polm@dampfkraft.com>
 License-Expression: MIT AND BSD-3-Clause

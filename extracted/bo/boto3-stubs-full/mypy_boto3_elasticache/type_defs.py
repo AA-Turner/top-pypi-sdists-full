@@ -3,7 +3,7 @@ Type annotations for elasticache service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elasticache/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -49,12 +50,6 @@ from .literals import (
     UpdateActionStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -313,7 +308,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -359,7 +354,7 @@ class BatchStopUpdateActionMessageTypeDef(TypedDict):
 class CacheParameterGroupStatusTypeDef(TypedDict):
     CacheParameterGroupName: NotRequired[str]
     ParameterApplyStatus: NotRequired[str]
-    CacheNodeIdsToReboot: NotRequired[List[str]]
+    CacheNodeIdsToReboot: NotRequired[list[str]]
 
 
 class CacheSecurityGroupMembershipTypeDef(TypedDict):
@@ -764,9 +759,9 @@ class NodeGroupConfigurationOutputTypeDef(TypedDict):
     Slots: NotRequired[str]
     ReplicaCount: NotRequired[int]
     PrimaryAvailabilityZone: NotRequired[str]
-    ReplicaAvailabilityZones: NotRequired[List[str]]
+    ReplicaAvailabilityZones: NotRequired[list[str]]
     PrimaryOutpostArn: NotRequired[str]
-    ReplicaOutpostArns: NotRequired[List[str]]
+    ReplicaOutpostArns: NotRequired[list[str]]
 
 
 class NodeGroupConfigurationTypeDef(TypedDict):
@@ -819,8 +814,8 @@ class RemoveTagsFromResourceMessageTypeDef(TypedDict):
 
 
 class UserGroupsUpdateStatusTypeDef(TypedDict):
-    UserGroupIdsToAdd: NotRequired[List[str]]
-    UserGroupIdsToRemove: NotRequired[List[str]]
+    UserGroupIdsToAdd: NotRequired[list[str]]
+    UserGroupIdsToRemove: NotRequired[list[str]]
 
 
 class SlotMigrationTypeDef(TypedDict):
@@ -872,8 +867,8 @@ class UnprocessedUpdateActionTypeDef(TypedDict):
 
 
 class UserGroupPendingChangesTypeDef(TypedDict):
-    UserIdsToRemove: NotRequired[List[str]]
-    UserIdsToAdd: NotRequired[List[str]]
+    UserIdsToRemove: NotRequired[list[str]]
+    UserIdsToAdd: NotRequired[list[str]]
 
 
 class AddTagsToResourceMessageTypeDef(TypedDict):
@@ -946,8 +941,8 @@ class PurchaseReservedCacheNodesOfferingMessageTypeDef(TypedDict):
 
 
 class AllowedNodeTypeModificationsMessageTypeDef(TypedDict):
-    ScaleUpModifications: List[str]
-    ScaleDownModifications: List[str]
+    ScaleUpModifications: list[str]
+    ScaleDownModifications: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -961,7 +956,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class TagListMessageTypeDef(TypedDict):
-    TagList: List[TagTypeDef]
+    TagList: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -993,7 +988,7 @@ class UserResponseTypeDef(TypedDict):
     Engine: str
     MinimumEngineVersion: str
     AccessString: str
-    UserGroupIds: List[str]
+    UserGroupIds: list[str]
     Authentication: AuthenticationTypeDef
     ARN: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1006,7 +1001,7 @@ class UserTypeDef(TypedDict):
     Engine: NotRequired[str]
     MinimumEngineVersion: NotRequired[str]
     AccessString: NotRequired[str]
-    UserGroupIds: NotRequired[List[str]]
+    UserGroupIds: NotRequired[list[str]]
     Authentication: NotRequired[AuthenticationTypeDef]
     ARN: NotRequired[str]
 
@@ -1033,7 +1028,7 @@ class NodeGroupMemberTypeDef(TypedDict):
 
 class CacheEngineVersionMessageTypeDef(TypedDict):
     Marker: str
-    CacheEngineVersions: List[CacheEngineVersionTypeDef]
+    CacheEngineVersions: list[CacheEngineVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1045,13 +1040,13 @@ class CacheNodeTypeSpecificParameterTypeDef(TypedDict):
     AllowedValues: NotRequired[str]
     IsModifiable: NotRequired[bool]
     MinimumEngineVersion: NotRequired[str]
-    CacheNodeTypeSpecificValues: NotRequired[List[CacheNodeTypeSpecificValueTypeDef]]
+    CacheNodeTypeSpecificValues: NotRequired[list[CacheNodeTypeSpecificValueTypeDef]]
     ChangeType: NotRequired[ChangeTypeType]
 
 
 class CacheParameterGroupsMessageTypeDef(TypedDict):
     Marker: str
-    CacheParameterGroups: List[CacheParameterGroupTypeDef]
+    CacheParameterGroups: list[CacheParameterGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1064,7 +1059,7 @@ class CacheSecurityGroupTypeDef(TypedDict):
     OwnerId: NotRequired[str]
     CacheSecurityGroupName: NotRequired[str]
     Description: NotRequired[str]
-    EC2SecurityGroups: NotRequired[List[EC2SecurityGroupTypeDef]]
+    EC2SecurityGroups: NotRequired[list[EC2SecurityGroupTypeDef]]
     ARN: NotRequired[str]
 
 
@@ -1279,7 +1274,7 @@ class DestinationDetailsTypeDef(TypedDict):
 
 class EventsMessageTypeDef(TypedDict):
     Marker: str
-    Events: List[EventTypeDef]
+    Events: list[EventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1290,9 +1285,9 @@ class GlobalReplicationGroupTypeDef(TypedDict):
     CacheNodeType: NotRequired[str]
     Engine: NotRequired[str]
     EngineVersion: NotRequired[str]
-    Members: NotRequired[List[GlobalReplicationGroupMemberTypeDef]]
+    Members: NotRequired[list[GlobalReplicationGroupMemberTypeDef]]
     ClusterEnabled: NotRequired[bool]
-    GlobalNodeGroups: NotRequired[List[GlobalNodeGroupTypeDef]]
+    GlobalNodeGroups: NotRequired[list[GlobalNodeGroupTypeDef]]
     AuthTokenEnabled: NotRequired[bool]
     TransitEncryptionEnabled: NotRequired[bool]
     AtRestEncryptionEnabled: NotRequired[bool]
@@ -1342,7 +1337,7 @@ NodeGroupConfigurationUnionTypeDef = Union[
 
 class NodeGroupUpdateStatusTypeDef(TypedDict):
     NodeGroupId: NotRequired[str]
-    NodeGroupMemberUpdateStatus: NotRequired[List[NodeGroupMemberUpdateStatusTypeDef]]
+    NodeGroupMemberUpdateStatus: NotRequired[list[NodeGroupMemberUpdateStatusTypeDef]]
 
 
 class ReservedCacheNodeTypeDef(TypedDict):
@@ -1357,7 +1352,7 @@ class ReservedCacheNodeTypeDef(TypedDict):
     ProductDescription: NotRequired[str]
     OfferingType: NotRequired[str]
     State: NotRequired[str]
-    RecurringCharges: NotRequired[List[RecurringChargeTypeDef]]
+    RecurringCharges: NotRequired[list[RecurringChargeTypeDef]]
     ReservationARN: NotRequired[str]
 
 
@@ -1369,7 +1364,7 @@ class ReservedCacheNodesOfferingTypeDef(TypedDict):
     UsagePrice: NotRequired[float]
     ProductDescription: NotRequired[str]
     OfferingType: NotRequired[str]
-    RecurringCharges: NotRequired[List[RecurringChargeTypeDef]]
+    RecurringCharges: NotRequired[list[RecurringChargeTypeDef]]
 
 
 class ReshardingStatusTypeDef(TypedDict):
@@ -1390,7 +1385,7 @@ class ServerlessCacheSnapshotTypeDef(TypedDict):
 
 class ServiceUpdatesMessageTypeDef(TypedDict):
     Marker: str
-    ServiceUpdates: List[ServiceUpdateTypeDef]
+    ServiceUpdates: list[ServiceUpdateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1398,12 +1393,12 @@ class SubnetTypeDef(TypedDict):
     SubnetIdentifier: NotRequired[str]
     SubnetAvailabilityZone: NotRequired[AvailabilityZoneTypeDef]
     SubnetOutpost: NotRequired[SubnetOutpostTypeDef]
-    SupportedNetworkTypes: NotRequired[List[NetworkTypeType]]
+    SupportedNetworkTypes: NotRequired[list[NetworkTypeType]]
 
 
 class UpdateActionResultsMessageTypeDef(TypedDict):
-    ProcessedUpdateActions: List[ProcessedUpdateActionTypeDef]
-    UnprocessedUpdateActions: List[UnprocessedUpdateActionTypeDef]
+    ProcessedUpdateActions: list[ProcessedUpdateActionTypeDef]
+    UnprocessedUpdateActions: list[UnprocessedUpdateActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1411,11 +1406,11 @@ class UserGroupResponseTypeDef(TypedDict):
     UserGroupId: str
     Status: str
     Engine: str
-    UserIds: List[str]
+    UserIds: list[str]
     MinimumEngineVersion: str
     PendingChanges: UserGroupPendingChangesTypeDef
-    ReplicationGroups: List[str]
-    ServerlessCaches: List[str]
+    ReplicationGroups: list[str]
+    ServerlessCaches: list[str]
     ARN: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1424,16 +1419,16 @@ class UserGroupTypeDef(TypedDict):
     UserGroupId: NotRequired[str]
     Status: NotRequired[str]
     Engine: NotRequired[str]
-    UserIds: NotRequired[List[str]]
+    UserIds: NotRequired[list[str]]
     MinimumEngineVersion: NotRequired[str]
     PendingChanges: NotRequired[UserGroupPendingChangesTypeDef]
-    ReplicationGroups: NotRequired[List[str]]
-    ServerlessCaches: NotRequired[List[str]]
+    ReplicationGroups: NotRequired[list[str]]
+    ServerlessCaches: NotRequired[list[str]]
     ARN: NotRequired[str]
 
 
 class DescribeUsersResultTypeDef(TypedDict):
-    Users: List[UserTypeDef]
+    Users: list[UserTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1444,21 +1439,21 @@ class NodeGroupTypeDef(TypedDict):
     PrimaryEndpoint: NotRequired[EndpointTypeDef]
     ReaderEndpoint: NotRequired[EndpointTypeDef]
     Slots: NotRequired[str]
-    NodeGroupMembers: NotRequired[List[NodeGroupMemberTypeDef]]
+    NodeGroupMembers: NotRequired[list[NodeGroupMemberTypeDef]]
 
 
 class CacheParameterGroupDetailsTypeDef(TypedDict):
     Marker: str
-    Parameters: List[ParameterTypeDef]
-    CacheNodeTypeSpecificParameters: List[CacheNodeTypeSpecificParameterTypeDef]
+    Parameters: list[ParameterTypeDef]
+    CacheNodeTypeSpecificParameters: list[CacheNodeTypeSpecificParameterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class EngineDefaultsTypeDef(TypedDict):
     CacheParameterGroupFamily: NotRequired[str]
     Marker: NotRequired[str]
-    Parameters: NotRequired[List[ParameterTypeDef]]
-    CacheNodeTypeSpecificParameters: NotRequired[List[CacheNodeTypeSpecificParameterTypeDef]]
+    Parameters: NotRequired[list[ParameterTypeDef]]
+    CacheNodeTypeSpecificParameters: NotRequired[list[CacheNodeTypeSpecificParameterTypeDef]]
 
 
 class AuthorizeCacheSecurityGroupIngressResultTypeDef(TypedDict):
@@ -1468,7 +1463,7 @@ class AuthorizeCacheSecurityGroupIngressResultTypeDef(TypedDict):
 
 class CacheSecurityGroupMessageTypeDef(TypedDict):
     Marker: str
-    CacheSecurityGroups: List[CacheSecurityGroupTypeDef]
+    CacheSecurityGroups: list[CacheSecurityGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1521,12 +1516,12 @@ class ServerlessCacheTypeDef(TypedDict):
     FullEngineVersion: NotRequired[str]
     CacheUsageLimits: NotRequired[CacheUsageLimitsTypeDef]
     KmsKeyId: NotRequired[str]
-    SecurityGroupIds: NotRequired[List[str]]
+    SecurityGroupIds: NotRequired[list[str]]
     Endpoint: NotRequired[EndpointTypeDef]
     ReaderEndpoint: NotRequired[EndpointTypeDef]
     ARN: NotRequired[str]
     UserGroupId: NotRequired[str]
-    SubnetIds: NotRequired[List[str]]
+    SubnetIds: NotRequired[list[str]]
     SnapshotRetentionLimit: NotRequired[int]
     DailySnapshotTime: NotRequired[str]
 
@@ -1597,7 +1592,7 @@ class DeleteGlobalReplicationGroupResultTypeDef(TypedDict):
 
 class DescribeGlobalReplicationGroupsResultTypeDef(TypedDict):
     Marker: str
-    GlobalReplicationGroups: List[GlobalReplicationGroupTypeDef]
+    GlobalReplicationGroups: list[GlobalReplicationGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1658,7 +1653,7 @@ class SnapshotTypeDef(TypedDict):
     SnapshotWindow: NotRequired[str]
     NumNodeGroups: NotRequired[int]
     AutomaticFailover: NotRequired[AutomaticFailoverStatusType]
-    NodeSnapshots: NotRequired[List[NodeSnapshotTypeDef]]
+    NodeSnapshots: NotRequired[list[NodeSnapshotTypeDef]]
     KmsKeyId: NotRequired[str]
     ARN: NotRequired[str]
     DataTiering: NotRequired[DataTieringStatusType]
@@ -1678,8 +1673,8 @@ class UpdateActionTypeDef(TypedDict):
     NodesUpdated: NotRequired[str]
     UpdateActionStatusModifiedDate: NotRequired[datetime]
     SlaMet: NotRequired[SlaMetType]
-    NodeGroupUpdateStatus: NotRequired[List[NodeGroupUpdateStatusTypeDef]]
-    CacheNodeUpdateStatus: NotRequired[List[CacheNodeUpdateStatusTypeDef]]
+    NodeGroupUpdateStatus: NotRequired[list[NodeGroupUpdateStatusTypeDef]]
+    CacheNodeUpdateStatus: NotRequired[list[CacheNodeUpdateStatusTypeDef]]
     EstimatedUpdateTime: NotRequired[str]
     Engine: NotRequired[str]
 
@@ -1691,13 +1686,13 @@ class PurchaseReservedCacheNodesOfferingResultTypeDef(TypedDict):
 
 class ReservedCacheNodeMessageTypeDef(TypedDict):
     Marker: str
-    ReservedCacheNodes: List[ReservedCacheNodeTypeDef]
+    ReservedCacheNodes: list[ReservedCacheNodeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ReservedCacheNodesOfferingMessageTypeDef(TypedDict):
     Marker: str
-    ReservedCacheNodesOfferings: List[ReservedCacheNodesOfferingTypeDef]
+    ReservedCacheNodesOfferings: list[ReservedCacheNodesOfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1717,7 +1712,7 @@ class DeleteServerlessCacheSnapshotResponseTypeDef(TypedDict):
 
 
 class DescribeServerlessCacheSnapshotsResponseTypeDef(TypedDict):
-    ServerlessCacheSnapshots: List[ServerlessCacheSnapshotTypeDef]
+    ServerlessCacheSnapshots: list[ServerlessCacheSnapshotTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1731,13 +1726,13 @@ class CacheSubnetGroupTypeDef(TypedDict):
     CacheSubnetGroupName: NotRequired[str]
     CacheSubnetGroupDescription: NotRequired[str]
     VpcId: NotRequired[str]
-    Subnets: NotRequired[List[SubnetTypeDef]]
+    Subnets: NotRequired[list[SubnetTypeDef]]
     ARN: NotRequired[str]
-    SupportedNetworkTypes: NotRequired[List[NetworkTypeType]]
+    SupportedNetworkTypes: NotRequired[list[NetworkTypeType]]
 
 
 class DescribeUserGroupsResultTypeDef(TypedDict):
-    UserGroups: List[UserGroupTypeDef]
+    UserGroups: list[UserGroupTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1758,7 +1753,7 @@ class DeleteServerlessCacheResponseTypeDef(TypedDict):
 
 
 class DescribeServerlessCachesResponseTypeDef(TypedDict):
-    ServerlessCaches: List[ServerlessCacheTypeDef]
+    ServerlessCaches: list[ServerlessCacheTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1904,11 +1899,11 @@ class ModifyReplicationGroupMessageTypeDef(TypedDict):
 
 class PendingModifiedValuesTypeDef(TypedDict):
     NumCacheNodes: NotRequired[int]
-    CacheNodeIdsToRemove: NotRequired[List[str]]
+    CacheNodeIdsToRemove: NotRequired[list[str]]
     EngineVersion: NotRequired[str]
     CacheNodeType: NotRequired[str]
     AuthTokenStatus: NotRequired[AuthTokenUpdateStatusType]
-    LogDeliveryConfigurations: NotRequired[List[PendingLogDeliveryConfigurationTypeDef]]
+    LogDeliveryConfigurations: NotRequired[list[PendingLogDeliveryConfigurationTypeDef]]
     TransitEncryptionEnabled: NotRequired[bool]
     TransitEncryptionMode: NotRequired[TransitEncryptionModeType]
     ScaleConfig: NotRequired[ScaleConfigTypeDef]
@@ -1920,7 +1915,7 @@ class ReplicationGroupPendingModifiedValuesTypeDef(TypedDict):
     Resharding: NotRequired[ReshardingStatusTypeDef]
     AuthTokenStatus: NotRequired[AuthTokenUpdateStatusType]
     UserGroups: NotRequired[UserGroupsUpdateStatusTypeDef]
-    LogDeliveryConfigurations: NotRequired[List[PendingLogDeliveryConfigurationTypeDef]]
+    LogDeliveryConfigurations: NotRequired[list[PendingLogDeliveryConfigurationTypeDef]]
     TransitEncryptionEnabled: NotRequired[bool]
     TransitEncryptionMode: NotRequired[TransitEncryptionModeType]
     ClusterMode: NotRequired[ClusterModeType]
@@ -1943,19 +1938,19 @@ class DeleteSnapshotResultTypeDef(TypedDict):
 
 class DescribeSnapshotsListMessageTypeDef(TypedDict):
     Marker: str
-    Snapshots: List[SnapshotTypeDef]
+    Snapshots: list[SnapshotTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateActionsMessageTypeDef(TypedDict):
     Marker: str
-    UpdateActions: List[UpdateActionTypeDef]
+    UpdateActions: list[UpdateActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CacheSubnetGroupMessageTypeDef(TypedDict):
     Marker: str
-    CacheSubnetGroups: List[CacheSubnetGroupTypeDef]
+    CacheSubnetGroups: list[CacheSubnetGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1984,12 +1979,12 @@ class CacheClusterTypeDef(TypedDict):
     PreferredMaintenanceWindow: NotRequired[str]
     PendingModifiedValues: NotRequired[PendingModifiedValuesTypeDef]
     NotificationConfiguration: NotRequired[NotificationConfigurationTypeDef]
-    CacheSecurityGroups: NotRequired[List[CacheSecurityGroupMembershipTypeDef]]
+    CacheSecurityGroups: NotRequired[list[CacheSecurityGroupMembershipTypeDef]]
     CacheParameterGroup: NotRequired[CacheParameterGroupStatusTypeDef]
     CacheSubnetGroupName: NotRequired[str]
-    CacheNodes: NotRequired[List[CacheNodeTypeDef]]
+    CacheNodes: NotRequired[list[CacheNodeTypeDef]]
     AutoMinorVersionUpgrade: NotRequired[bool]
-    SecurityGroups: NotRequired[List[SecurityGroupMembershipTypeDef]]
+    SecurityGroups: NotRequired[list[SecurityGroupMembershipTypeDef]]
     ReplicationGroupId: NotRequired[str]
     SnapshotRetentionLimit: NotRequired[int]
     SnapshotWindow: NotRequired[str]
@@ -1999,7 +1994,7 @@ class CacheClusterTypeDef(TypedDict):
     AtRestEncryptionEnabled: NotRequired[bool]
     ARN: NotRequired[str]
     ReplicationGroupLogDeliveryEnabled: NotRequired[bool]
-    LogDeliveryConfigurations: NotRequired[List[LogDeliveryConfigurationTypeDef]]
+    LogDeliveryConfigurations: NotRequired[list[LogDeliveryConfigurationTypeDef]]
     NetworkType: NotRequired[NetworkTypeType]
     IpDiscovery: NotRequired[IpDiscoveryType]
     TransitEncryptionMode: NotRequired[TransitEncryptionModeType]
@@ -2011,8 +2006,8 @@ class ReplicationGroupTypeDef(TypedDict):
     GlobalReplicationGroupInfo: NotRequired[GlobalReplicationGroupInfoTypeDef]
     Status: NotRequired[str]
     PendingModifiedValues: NotRequired[ReplicationGroupPendingModifiedValuesTypeDef]
-    MemberClusters: NotRequired[List[str]]
-    NodeGroups: NotRequired[List[NodeGroupTypeDef]]
+    MemberClusters: NotRequired[list[str]]
+    NodeGroups: NotRequired[list[NodeGroupTypeDef]]
     SnapshottingClusterId: NotRequired[str]
     AutomaticFailover: NotRequired[AutomaticFailoverStatusType]
     MultiAZ: NotRequired[MultiAZStatusType]
@@ -2025,11 +2020,11 @@ class ReplicationGroupTypeDef(TypedDict):
     AuthTokenLastModifiedDate: NotRequired[datetime]
     TransitEncryptionEnabled: NotRequired[bool]
     AtRestEncryptionEnabled: NotRequired[bool]
-    MemberClustersOutpostArns: NotRequired[List[str]]
+    MemberClustersOutpostArns: NotRequired[list[str]]
     KmsKeyId: NotRequired[str]
     ARN: NotRequired[str]
-    UserGroupIds: NotRequired[List[str]]
-    LogDeliveryConfigurations: NotRequired[List[LogDeliveryConfigurationTypeDef]]
+    UserGroupIds: NotRequired[list[str]]
+    LogDeliveryConfigurations: NotRequired[list[LogDeliveryConfigurationTypeDef]]
     ReplicationGroupCreateTime: NotRequired[datetime]
     DataTiering: NotRequired[DataTieringStatusType]
     AutoMinorVersionUpgrade: NotRequired[bool]
@@ -2042,7 +2037,7 @@ class ReplicationGroupTypeDef(TypedDict):
 
 class CacheClusterMessageTypeDef(TypedDict):
     Marker: str
-    CacheClusters: List[CacheClusterTypeDef]
+    CacheClusters: list[CacheClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2103,7 +2098,7 @@ class ModifyReplicationGroupShardConfigurationResultTypeDef(TypedDict):
 
 class ReplicationGroupMessageTypeDef(TypedDict):
     Marker: str
-    ReplicationGroups: List[ReplicationGroupTypeDef]
+    ReplicationGroups: list[ReplicationGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

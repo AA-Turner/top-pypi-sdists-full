@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: sphinxcontrib-video
-Version: 0.4.1
+Version: 0.4.2
 Summary: Allows embedding of HTML5 videos in sphinx
 Author-email: Raphael Massabot <rmassabot@gmail.com>
 License: Apache Software License
@@ -12,9 +12,6 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -22,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Documentation
 Classifier: Topic :: Utilities
-Requires-Python: >=3.6.9
+Requires-Python: >=3.9.0
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: sphinx
@@ -37,9 +34,9 @@ Requires-Dist: pytest-regressions; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: defusedxml; extra == "test"
 Provides-Extra: doc
-Requires-Dist: sphinx<8; extra == "doc"
 Requires-Dist: pydata-sphinx-theme; extra == "doc"
 Requires-Dist: sphinx-design; extra == "doc"
+Dynamic: license-file
 
 sphinxcontrib-video
 ===================

@@ -28,7 +28,7 @@ from construct import (  # type: ignore
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 
-from roborock.containers import RRiot
+from roborock.data import RRiot
 from roborock.exceptions import RoborockException
 from roborock.mqtt.session import MqttParams
 from roborock.roborock_message import RoborockMessage
@@ -163,12 +163,12 @@ class Utils:
         return digest[:12]
 
     @staticmethod
-    def _l01_aad(timestamp: int, nonce: int, sequence: int, connect_nonce: int, ack_nonce: int) -> bytes:
+    def _l01_aad(timestamp: int, nonce: int, sequence: int, connect_nonce: int, ack_nonce: int | None = None) -> bytes:
         """Derive AAD for L01 protocol."""
         return (
             sequence.to_bytes(4, "big")
             + connect_nonce.to_bytes(4, "big")
-            + ack_nonce.to_bytes(4, "big")
+            + (ack_nonce.to_bytes(4, "big") if ack_nonce is not None else b"")
             + nonce.to_bytes(4, "big")
             + timestamp.to_bytes(4, "big")
         )
@@ -181,7 +181,7 @@ class Utils:
         sequence: int,
         nonce: int,
         connect_nonce: int,
-        ack_nonce: int,
+        ack_nonce: int | None = None,
     ) -> bytes:
         """Encrypt plaintext for L01 protocol using AES-256-GCM."""
         if not isinstance(plaintext, bytes):
@@ -276,12 +276,11 @@ class EncryptionAdapter(Construct):
         if context.version == b"A01":
             iv = md5hex(format(context.random, "08x") + A01_HASH)[8:24]
             decipher = AES.new(bytes(context.search("local_key"), "utf-8"), AES.MODE_CBC, bytes(iv, "utf-8"))
-            f = decipher.encrypt(obj)
-            return f
+            return decipher.encrypt(obj)
         elif context.version == b"B01":
             iv = md5hex(f"{context.random:08x}" + B01_HASH)[9:25]
             decipher = AES.new(bytes(context.search("local_key"), "utf-8"), AES.MODE_CBC, bytes(iv, "utf-8"))
-            return decipher.encrypt(obj)
+            return decipher.encrypt(pad(obj, AES.block_size))
         elif context.version == b"L01":
             return Utils.encrypt_gcm_l01(
                 plaintext=obj,
@@ -301,12 +300,11 @@ class EncryptionAdapter(Construct):
         if context.version == b"A01":
             iv = md5hex(format(context.random, "08x") + A01_HASH)[8:24]
             decipher = AES.new(bytes(context.search("local_key"), "utf-8"), AES.MODE_CBC, bytes(iv, "utf-8"))
-            f = decipher.decrypt(obj)
-            return f
+            return decipher.decrypt(obj)
         elif context.version == b"B01":
             iv = md5hex(f"{context.random:08x}" + B01_HASH)[9:25]
             decipher = AES.new(bytes(context.search("local_key"), "utf-8"), AES.MODE_CBC, bytes(iv, "utf-8"))
-            return decipher.decrypt(obj)
+            return unpad(decipher.decrypt(obj), AES.block_size)
         elif context.version == b"L01":
             return Utils.decrypt_gcm_l01(
                 payload=obj,
@@ -341,9 +339,40 @@ class PrefixedStruct(Struct):
     def _parse(self, stream, context, path):
         subcon1 = Peek(Optional(Bytes(3)))
         peek_version = subcon1.parse_stream(stream, **context)
-        if peek_version not in (b"1.0", b"A01", b"B01", b"L01"):
-            subcon2 = Bytes(4)
-            subcon2.parse_stream(stream, **context)
+
+        valid_versions = (b"1.0", b"A01", b"B01", b"L01")
+        if peek_version not in valid_versions:
+            # Current stream position does not start with a valid version.
+            # Scan forward to find one.
+            current_pos = stream_tell(stream, path)
+            # Read remaining data to find a valid header
+            data = stream.read()
+
+            if not data:
+                # EOF reached, let the parser fail naturally without logging
+                stream_seek(stream, current_pos, 0, path)
+                return super()._parse(stream, context, path)
+
+            start_index = -1
+            # Find the earliest occurrence of any valid version in a single pass
+            for i in range(len(data) - 2):
+                if data[i : i + 3] in valid_versions:
+                    start_index = i
+                    break
+
+            if start_index != -1:
+                # Found a valid version header at `start_index`.
+                # Seek to that position (original_pos + index).
+                if start_index != 4:
+                    # 4 is the typical/expected amount we prune off,
+                    # therefore, we only want a debug if we have a different length.
+                    _LOGGER.debug("Stripping %d bytes of invalid data from stream", start_index)
+                stream_seek(stream, current_pos + start_index, 0, path)
+            else:
+                _LOGGER.debug("No valid version header found in stream, continuing anyways...")
+                # Seek back to the original position to avoid parsing at EOF
+                stream_seek(stream, current_pos, 0, path)
+
         return super()._parse(stream, context, path)
 
     def _build(self, obj, stream, context, path):
@@ -511,6 +540,8 @@ def create_local_decoder(local_key: str, connect_nonce: int | None = None, ack_n
         parsed_messages, remaining = MessageParser.parse(
             buffer, local_key=local_key, connect_nonce=connect_nonce, ack_nonce=ack_nonce
         )
+        if remaining:
+            _LOGGER.debug("Found %d extra bytes: %s", len(remaining), remaining)
         buffer = remaining
         return parsed_messages
 

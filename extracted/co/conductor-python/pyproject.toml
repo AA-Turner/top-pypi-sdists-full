@@ -1,0 +1,174 @@
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "conductor-python"
+version = "1.3.2" # Do not change! Placeholder. Real version injected during build (edited) 
+description = "Python SDK for working with https://github.com/conductor-oss/conductor"
+authors = ["Orkes <developers@orkes.io>"]
+license = "Apache-2.0"
+readme = "README.md"
+packages = [
+    { include = "conductor", from = "./src" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.13"
+certifi = ">=14.05.14"
+prometheus-client = ">=0.13.1"
+six = ">=1.10"
+requests = ">=2.31.0"
+typing-extensions = ">=4.2.0"
+astor = ">=0.8.1"
+shortuuid = ">=1.0.11"
+dacite = ">=1.8.1"
+deprecated = ">=1.2.14"
+python-dateutil = "^2.8.2"
+httpx = {version = ">=0.26.0", extras = ["http2"]}
+h2 = ">=4.1.0"
+
+[tool.poetry.group.dev.dependencies]
+pylint = ">=2.17.5"
+coverage = ">=7.2.7"
+pytest-cov = ">=4.1.0"
+ruff = "^0.12.0"
+pre-commit = "^4.2.0"
+setuptools = "^80.9.0"
+pytest = "^8.4.1"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+src = ["src"]
+extend-exclude = [
+    "tests/",
+    "examples/",
+    "docs/",
+    "*.egg-info",
+    "build",
+    "dist",
+]
+fix = false
+show-fixes = true
+
+[tool.ruff.lint]
+select = [
+  # pyflakes
+  "F",
+  # pycodestyle
+  "E", "W",
+  # flake8-2020
+  "YTT",
+  # flake8-bugbear
+  "B",
+  # flake8-quotes
+  "Q",
+  # flake8-debugger
+  "T10",
+  # flake8-gettext
+  "INT",
+  # pylint
+  "PL",
+  # flake8-pytest-style
+  "PT",
+  # misc lints
+  "PIE",
+  # flake8-pyi
+  "PYI",
+  # tidy imports
+  "TID",
+  # implicit string concatenation
+  "ISC",
+  # comprehensions
+  "C4",
+  # pygrep-hooks
+  "PGH",
+  # Ruff-specific rules
+  "RUF",
+  # flake8-bandit: exec-builtin
+  "S102",
+  # numpy-legacy-random
+  "NPY002",
+  # Perflint
+  "PERF",
+  # flynt
+  "FLY",
+  # flake8-logging-format
+  "G",
+  # flake8-future-annotations
+  "FA",
+  # unconventional-import-alias
+  "ICN001",
+  # flake8-slots
+  "SLOT",
+  # flake8-raise
+  "RSE"
+]
+
+ignore = [
+    "B008",
+    "C901",
+    "W191",
+    "E501",
+    "B011",
+    # too-many-arguments
+    "PLR0913",
+    # collapsible-else-if
+    "PLR5501",
+    # too-many-branches
+    "PLR0912",
+    # too-many-return-statements
+    "PLR0911",
+    # flake8-type-checking (150 errors)
+    "TC"
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["conductor"]
+required-imports = ["from __future__ import annotations"]
+combine-as-imports = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.per-file-ignores]
+"src/conductor/client/http/**/*.py" = ["ALL"]
+"src/conductor/client/orkes/api/*.py" = ["ALL"]
+"tests/**/*.py" = ["B", "C4", "SIM"]
+"examples/**/*.py" = ["B", "C4", "SIM"]
+
+[tool.coverage.run]
+source = ["src/conductor"]
+omit = [
+    "tests/*",
+    "examples/*",
+    "*/__init__.py"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+    "except ImportError:",
+    "if TYPE_CHECKING:"
+]

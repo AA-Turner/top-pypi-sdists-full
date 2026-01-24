@@ -3,7 +3,7 @@ Type annotations for snowball service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_snowball/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -38,12 +39,6 @@ from .literals import (
     TransferOptionType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -183,7 +178,7 @@ class ClusterListEntryTypeDef(TypedDict):
 
 class NotificationOutputTypeDef(TypedDict):
     SnsTopicARN: NotRequired[str]
-    JobStatesToNotify: NotRequired[List[JobStateType]]
+    JobStatesToNotify: NotRequired[list[JobStateType]]
     NotifyAll: NotRequired[bool]
     DevicePickupSnsTopicARN: NotRequired[str]
 
@@ -194,7 +189,7 @@ class CompatibleImageTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -318,7 +313,7 @@ class LongTermPricingListEntryTypeDef(TypedDict):
     IsLongTermPricingAutoRenew: NotRequired[bool]
     LongTermPricingStatus: NotRequired[str]
     SnowballType: NotRequired[SnowballTypeType]
-    JobIds: NotRequired[List[str]]
+    JobIds: NotRequired[list[str]]
 
 class ListPickupLocationsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
@@ -393,7 +388,7 @@ class DescribeAddressResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeAddressesResultTypeDef(TypedDict):
-    Addresses: List[AddressTypeDef]
+    Addresses: list[AddressTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -421,32 +416,32 @@ class GetSoftwareUpdatesResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListClustersResultTypeDef(TypedDict):
-    ClusterListEntries: List[ClusterListEntryTypeDef]
+    ClusterListEntries: list[ClusterListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListCompatibleImagesResultTypeDef(TypedDict):
-    CompatibleImages: List[CompatibleImageTypeDef]
+    CompatibleImages: list[CompatibleImageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListPickupLocationsResultTypeDef(TypedDict):
-    Addresses: List[AddressTypeDef]
+    Addresses: list[AddressTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class CreateClusterResultTypeDef(TypedDict):
     ClusterId: str
-    JobListEntries: List[JobListEntryTypeDef]
+    JobListEntries: list[JobListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListClusterJobsResultTypeDef(TypedDict):
-    JobListEntries: List[JobListEntryTypeDef]
+    JobListEntries: list[JobListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListJobsResultTypeDef(TypedDict):
-    JobListEntries: List[JobListEntryTypeDef]
+    JobListEntries: list[JobListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -479,7 +474,7 @@ class ListLongTermPricingRequestPaginateTypeDef(TypedDict):
 
 class LambdaResourceOutputTypeDef(TypedDict):
     LambdaArn: NotRequired[str]
-    EventTriggers: NotRequired[List[EventTriggerDefinitionTypeDef]]
+    EventTriggers: NotRequired[list[EventTriggerDefinitionTypeDef]]
 
 class LambdaResourceTypeDef(TypedDict):
     LambdaArn: NotRequired[str]
@@ -489,7 +484,7 @@ class TaxDocumentsTypeDef(TypedDict):
     IND: NotRequired[INDTaxDocumentsTypeDef]
 
 class ListLongTermPricingResultTypeDef(TypedDict):
-    LongTermPricingEntries: List[LongTermPricingListEntryTypeDef]
+    LongTermPricingEntries: list[LongTermPricingListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -513,7 +508,7 @@ class PickupDetailsTypeDef(TypedDict):
 class S3ResourceOutputTypeDef(TypedDict):
     BucketArn: NotRequired[str]
     KeyRange: NotRequired[KeyRangeTypeDef]
-    TargetOnDeviceServices: NotRequired[List[TargetOnDeviceServiceTypeDef]]
+    TargetOnDeviceServices: NotRequired[list[TargetOnDeviceServiceTypeDef]]
 
 class S3ResourceTypeDef(TypedDict):
     BucketArn: NotRequired[str]
@@ -540,9 +535,9 @@ ListServiceVersionsRequestTypeDef = TypedDict(
 ListServiceVersionsResultTypeDef = TypedDict(
     "ListServiceVersionsResultTypeDef",
     {
-        "ServiceVersions": List[ServiceVersionTypeDef],
+        "ServiceVersions": list[ServiceVersionTypeDef],
         "ServiceName": ServiceNameType,
-        "DependentServices": List[DependentServiceTypeDef],
+        "DependentServices": list[DependentServiceTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
         "NextToken": NotRequired[str],
     },
@@ -550,9 +545,9 @@ ListServiceVersionsResultTypeDef = TypedDict(
 PickupDetailsUnionTypeDef = Union[PickupDetailsTypeDef, PickupDetailsOutputTypeDef]
 
 class JobResourceOutputTypeDef(TypedDict):
-    S3Resources: NotRequired[List[S3ResourceOutputTypeDef]]
-    LambdaResources: NotRequired[List[LambdaResourceOutputTypeDef]]
-    Ec2AmiResources: NotRequired[List[Ec2AmiResourceTypeDef]]
+    S3Resources: NotRequired[list[S3ResourceOutputTypeDef]]
+    LambdaResources: NotRequired[list[LambdaResourceOutputTypeDef]]
+    Ec2AmiResources: NotRequired[list[Ec2AmiResourceTypeDef]]
 
 class JobResourceTypeDef(TypedDict):
     S3Resources: NotRequired[Sequence[S3ResourceTypeDef]]
@@ -678,5 +673,5 @@ class UpdateJobRequestTypeDef(TypedDict):
 
 class DescribeJobResultTypeDef(TypedDict):
     JobMetadata: JobMetadataTypeDef
-    SubJobMetadata: List[JobMetadataTypeDef]
+    SubJobMetadata: list[JobMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

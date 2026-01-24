@@ -1,9 +1,9 @@
 # flake8: noqa
 
+import json
 import os.path as osp
 
 import numpy as np
-import yaml
 
 here = osp.dirname(osp.abspath(__file__))
 
@@ -23,9 +23,9 @@ def arc2017():
         class_names = [name.strip() for name in f]
     data["class_names"] = class_names
 
-    data["res4"] = np.load(osp.join(here, "res4.npz"), allow_pickle=True)["res4"]
+    data["res4"] = np.load(osp.join(here, "res4.npz"))["res4"]
 
-    with open(osp.join(here, "camera_info.yaml")) as f:
-        data["camera_info"] = yaml.safe_load(f)
+    with open(osp.join(here, "camera_info.json")) as f:
+        data["camera_info"] = json.load(f)
 
     return data

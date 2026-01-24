@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
+import google.protobuf
 
 from google.cloud.resourcemanager_v3 import gapic_version as package_version
 
@@ -153,6 +154,34 @@ class ProjectsClient(metaclass=ProjectsClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "cloudresourcemanager.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -334,12 +363,8 @@ class ProjectsClient(metaclass=ProjectsClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = ProjectsClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -347,7 +372,7 @@ class ProjectsClient(metaclass=ProjectsClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -379,20 +404,14 @@ class ProjectsClient(metaclass=ProjectsClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = ProjectsClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -1018,39 +1037,38 @@ class ProjectsClient(metaclass=ProjectsClientMeta):
                 query, then it will return results that match any of the
                 fields. Some eligible fields are:
 
-                -  **``displayName``, ``name``**: Filters by
-                   displayName.
-                -  **``parent``**: Project's parent (for example:
-                   ``folders/123``, ``organizations/*``). Prefer
-                   ``parent`` field over ``parent.type`` and
-                   ``parent.id``.
-                -  **``parent.type``**: Parent's type: ``folder`` or
-                   ``organization``.
-                -  **``parent.id``**: Parent's id number (for example:
-                   ``123``).
-                -  **``id``, ``projectId``**: Filters by projectId.
-                -  **``state``, ``lifecycleState``**: Filters by state.
-                -  **``labels``**: Filters by label name or value.
-                -  **``labels.<key>`` (where ``<key>`` is the name of a
-                   label)**: Filters by label name.
+                - **``displayName``, ``name``**: Filters by displayName.
+                - **``parent``**: Project's parent (for example:
+                  ``folders/123``, ``organizations/*``). Prefer
+                  ``parent`` field over ``parent.type`` and
+                  ``parent.id``.
+                - **``parent.type``**: Parent's type: ``folder`` or
+                  ``organization``.
+                - **``parent.id``**: Parent's id number (for example:
+                  ``123``).
+                - **``id``, ``projectId``**: Filters by projectId.
+                - **``state``, ``lifecycleState``**: Filters by state.
+                - **``labels``**: Filters by label name or value.
+                - **``labels.<key>`` (where ``<key>`` is the name of a
+                  label)**: Filters by label name.
 
                 Search expressions are case insensitive.
 
                 Some examples queries:
 
-                -  **``name:how*``**: The project's name starts with
-                   "how".
-                -  **``name:Howl``**: The project's name is ``Howl`` or
-                   ``howl``.
-                -  **``name:HOWL``**: Equivalent to above.
-                -  **``NAME:howl``**: Equivalent to above.
-                -  **``labels.color:*``**: The project has the label
-                   ``color``.
-                -  **``labels.color:red``**: The project's label
-                   ``color`` has the value ``red``.
-                -  **``labels.color:red labels.size:big``**: The
-                   project's label ``color`` has the value ``red`` or
-                   its label ``size`` has the value ``big``.
+                - **``name:how*``**: The project's name starts with
+                  "how".
+                - **``name:Howl``**: The project's name is ``Howl`` or
+                  ``howl``.
+                - **``name:HOWL``**: Equivalent to above.
+                - **``NAME:howl``**: Equivalent to above.
+                - **``labels.color:*``**: The project has the label
+                  ``color``.
+                - **``labels.color:red``**: The project's label
+                  ``color`` has the value ``red``.
+                - **``labels.color:red labels.size:big``**: The
+                  project's label ``color`` has the value ``red`` or its
+                  label ``size`` has the value ``big``.
 
                 If no query is specified, the call will return projects
                 for which the user has the
@@ -1928,19 +1946,19 @@ class ProjectsClient(metaclass=ProjectsClientMeta):
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         # Create or coerce a protobuf request object.
@@ -2012,41 +2030,41 @@ class ProjectsClient(metaclass=ProjectsClientMeta):
 
         The following constraints apply when using ``setIamPolicy()``:
 
-        -  Project does not support ``allUsers`` and
-           ``allAuthenticatedUsers`` as ``members`` in a ``Binding`` of
-           a ``Policy``.
+        - Project does not support ``allUsers`` and
+          ``allAuthenticatedUsers`` as ``members`` in a ``Binding`` of a
+          ``Policy``.
 
-        -  The owner role can be granted to a ``user``,
-           ``serviceAccount``, or a group that is part of an
-           organization. For example, group@myownpersonaldomain.com
-           could be added as an owner to a project in the
-           myownpersonaldomain.com organization, but not the
-           examplepetstore.com organization.
+        - The owner role can be granted to a ``user``,
+          ``serviceAccount``, or a group that is part of an
+          organization. For example, group@myownpersonaldomain.com could
+          be added as an owner to a project in the
+          myownpersonaldomain.com organization, but not the
+          examplepetstore.com organization.
 
-        -  Service accounts can be made owners of a project directly
-           without any restrictions. However, to be added as an owner, a
-           user must be invited using the Cloud Platform console and
-           must accept the invitation.
+        - Service accounts can be made owners of a project directly
+          without any restrictions. However, to be added as an owner, a
+          user must be invited using the Cloud Platform console and must
+          accept the invitation.
 
-        -  A user cannot be granted the owner role using
-           ``setIamPolicy()``. The user must be granted the owner role
-           using the Cloud Platform Console and must explicitly accept
-           the invitation.
+        - A user cannot be granted the owner role using
+          ``setIamPolicy()``. The user must be granted the owner role
+          using the Cloud Platform Console and must explicitly accept
+          the invitation.
 
-        -  Invitations to grant the owner role cannot be sent using
-           ``setIamPolicy()``; they must be sent only using the Cloud
-           Platform Console.
+        - Invitations to grant the owner role cannot be sent using
+          ``setIamPolicy()``; they must be sent only using the Cloud
+          Platform Console.
 
-        -  If the project is not part of an organization, there must be
-           at least one owner who has accepted the Terms of Service
-           (ToS) agreement in the policy. Calling ``setIamPolicy()`` to
-           remove the last ToS-accepted owner from the policy will fail.
-           This restriction also applies to legacy projects that no
-           longer have owners who have accepted the ToS. Edits to IAM
-           policies will be rejected until the lack of a ToS-accepting
-           owner is rectified. If the project is part of an
-           organization, you can remove all owners, potentially making
-           the organization inaccessible.
+        - If the project is not part of an organization, there must be
+          at least one owner who has accepted the Terms of Service (ToS)
+          agreement in the policy. Calling ``setIamPolicy()`` to remove
+          the last ToS-accepted owner from the policy will fail. This
+          restriction also applies to legacy projects that no longer
+          have owners who have accepted the ToS. Edits to IAM policies
+          will be rejected until the lack of a ToS-accepting owner is
+          rectified. If the project is part of an organization, you can
+          remove all owners, potentially making the organization
+          inaccessible.
 
         .. code-block:: python
 
@@ -2114,19 +2132,19 @@ class ProjectsClient(metaclass=ProjectsClientMeta):
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         # Create or coerce a protobuf request object.
@@ -2377,5 +2395,7 @@ DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
     gapic_version=package_version.__version__
 )
 
+if hasattr(DEFAULT_CLIENT_INFO, "protobuf_runtime_version"):  # pragma: NO COVER
+    DEFAULT_CLIENT_INFO.protobuf_runtime_version = google.protobuf.__version__
 
 __all__ = ("ProjectsClient",)

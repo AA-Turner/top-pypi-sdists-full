@@ -3,20 +3,15 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 """Fuzzfetch argument parser"""
 
-from __future__ import annotations
-
 from argparse import ArgumentParser, Namespace
+from collections.abc import Sequence
 from itertools import chain
 from logging import getLogger
 from pathlib import Path
 from platform import machine, system
-from typing import TYPE_CHECKING
 
 from .models import BuildSearchOrder, Platform
 from .utils import extract_branch_from_ns, is_namespace
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
 
 LOG = getLogger("fuzzfetch")
 
@@ -54,8 +49,17 @@ class FetcherArgs:
             "--target",
             nargs="*",
             default=[],
+            choices=(
+                "common",
+                "firefox",
+                "gtest",
+                "js",
+                "mozharness",
+                "searchfox",
+                "thunderbird",
+                "xpcshell",
+            ),
             help="Specify the build artifacts to download. "
-            "Valid options: firefox js common gtest mozharness searchfox "
             f"(default: {' '.join(FetcherArgs.DEFAULT_TARGETS)})",
         )
         target_group.add_argument(
@@ -185,6 +189,9 @@ class FetcherArgs:
 
         if args.branch is None:
             args.branch = "central"
+
+        if set(args.target) >= {"firefox", "thunderbird"}:
+            self.parser.error("Cannot combine --target firefox and thunderbird")
 
         if "firefox" in args.target and args.fuzzilli:
             self.parser.error("Cannot specify --target firefox and --fuzzilli")

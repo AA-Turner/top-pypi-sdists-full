@@ -5,40 +5,22 @@
 from __future__ import annotations
 
 import datetime
-import json
 import pathlib
 import time
 import urllib.parse
 from concurrent.futures import Future
 from itertools import zip_longest
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Mapping,
-    Sequence,
-    TypeVar,
-    Union,
-    cast,
-)
+from string import ascii_lowercase, ascii_uppercase, digits
+from typing import Any, TypeVar
 
 import numpy as np
+import pandas as pd
 import pyarrow as pa
 import somacore
 from somacore import options
 
 from . import pytiledbsoma as clib
-from ._types import OpenTimestamp, Slice, is_nonstringy_sequence, is_slice_of
-from .options._tiledb_create_write_options import (
-    TileDBCreateOptions,
-    _ColumnConfig,
-    _DictFilterSpec,
-)
-
-if TYPE_CHECKING:
-    from ._read_iters import ManagedQuery
-
-_JSONFilter = Union[str, dict[str, Union[str, Union[int, float]]]]
-_JSONFilterList = Union[str, list[_JSONFilter]]
+from ._types import DataProtocol, OpenTimestamp, Slice, is_slice_of
 
 
 def get_start_stamp() -> float:
@@ -56,15 +38,13 @@ def format_elapsed(start_stamp: float, message: str) -> str:
 
     Used for annotating elapsed time of a task.
     """
-    return "%s TIME %.3f seconds" % (message, time.time() - start_stamp)
+    return f"{message} TIME {time.time() - start_stamp:.3f} seconds"
 
 
 def is_local_path(path: str) -> bool:
     if path.startswith("file://"):
         return True
-    if "://" in path:
-        return False
-    return True
+    return "://" not in path
 
 
 def make_relative_path(uri: str, relative_to: str) -> str:
@@ -79,15 +59,12 @@ def make_relative_path(uri: str, relative_to: str) -> str:
     p_uri = urllib.parse.urlparse(uri)
     p_relative_to = urllib.parse.urlparse(relative_to)
 
-    uri_scheme = p_uri.scheme if p_uri.scheme != "" else "file"
-    relative_to_scheme = p_relative_to.scheme if p_relative_to.scheme != "" else "file"
+    uri_scheme = p_uri.scheme if p_uri.scheme else "file"
+    relative_to_scheme = p_relative_to.scheme if p_relative_to.scheme else "file"
     if uri_scheme != relative_to_scheme:
-        raise ValueError(
-            "Unable to make relative path between URIs with different scheme"
-        )
+        raise ValueError("Unable to make relative path between URIs with different scheme")
 
-    relpath = pathlib.PurePath(p_uri.path).relative_to(p_relative_to.path).as_posix()
-    return relpath
+    return pathlib.PurePath(p_uri.path).relative_to(p_relative_to.path).as_posix()
 
 
 def is_relative_uri(uri: str) -> bool:
@@ -108,8 +85,10 @@ def uri_joinpath(base: str, path: str) -> str:
     if len(path) == 0:
         return base
 
-    if p_base.scheme == "" or p_base.scheme == "file":
-        # if a file path, just use pathlib.
+    if not p_base.scheme or p_base.scheme == "file":
+        # if a file path, just use pathlib. This is significantly more
+        # permissive than it should be, given that `file://` URIs are
+        # only absolute.
         parts[2] = pathlib.PurePath(p_base.path).joinpath(path).as_posix()
     else:
         if ".." in path:
@@ -135,19 +114,13 @@ def validate_slice(slc: Slice[Any]) -> None:
         # All half-specified slices are valid.
         return
 
-    if isinstance(slc.stop, pa.TimestampScalar) or isinstance(
-        slc.start, pa.TimestampScalar
-    ):
+    if isinstance(slc.stop, pa.TimestampScalar) or isinstance(slc.start, pa.TimestampScalar):
         if to_unix_ts(slc.stop) < to_unix_ts(slc.start):
-            raise ValueError(
-                f"slice start ({slc.start!r}) must be <= slice stop ({slc.stop!r})"
-            )
+            raise ValueError(f"slice start ({slc.start!r}) must be <= slice stop ({slc.stop!r})")
         return
 
     if slc.stop < slc.start:
-        raise ValueError(
-            f"slice start ({slc.start!r}) must be <= slice stop ({slc.stop!r})"
-        )
+        raise ValueError(f"slice start ({slc.start!r}) must be <= slice stop ({slc.stop!r})")
 
 
 _T = TypeVar("_T")
@@ -157,9 +130,7 @@ class NonNumericDimensionError(TypeError):
     """Raised when trying to get a numeric range for a non-numeric dimension."""
 
 
-def slice_to_numeric_range(
-    slc: Slice[Any], domain: tuple[_T, _T]
-) -> tuple[_T, _T] | None:
+def slice_to_numeric_range(slc: Slice[Any], domain: tuple[_T, _T]) -> tuple[_T, _T] | None:
     """Constrains the given slice to the ``domain`` for numeric dimensions.
 
     We assume the slice has already been validated by validate_slice.
@@ -182,10 +153,7 @@ def slice_to_numeric_range(
         # With the above, we have guaranteed that at least one bound will
         # include the domain.  If we get here, that means that the other bound
         # never included it (e.g. stop == slc.stop < domain_start == start).
-        raise ValueError(
-            f"slice [{slc.start!r}:{slc.stop!r}] does not overlap"
-            f" [{domain_start!r}:{domain_stop!r}]"
-        )
+        raise ValueError(f"slice [{slc.start!r}:{slc.stop!r}] does not overlap [{domain_start!r}:{domain_stop!r}]")
 
     return start, stop
 
@@ -201,15 +169,9 @@ def dense_indices_to_shape(
     to the number of dimensions in the array.
     """
     if len(coords) > len(array_shape):
-        raise ValueError(
-            f"coordinate length ({len(coords)}) must be <="
-            f" array dimension count ({len(array_shape)})"
-        )
+        raise ValueError(f"coordinate length ({len(coords)}) must be <= array dimension count ({len(array_shape)})")
 
-    shape = tuple(
-        dense_index_to_shape(coord, extent)
-        for coord, extent in zip_longest(coords, array_shape)
-    )
+    shape = tuple(dense_index_to_shape(coord, extent) for coord, extent in zip_longest(coords, array_shape))
     if result_order == somacore.ResultOrder.ROW_MAJOR:
         return shape
     return tuple(reversed(shape))
@@ -230,10 +192,7 @@ def dense_index_to_shape(coord: options.DenseCoord, array_length: int) -> int:
     if is_slice_of(coord, int):
         # We verify that ``step`` is None elsewhere, so we can always assume
         # that we're asked for a continuous slice.
-        if coord.stop is None:
-            stop = array_length
-        else:
-            stop = min(coord.stop + 1, array_length)
+        stop = array_length if coord.stop is None else min(coord.stop + 1, array_length)
         return stop - (coord.start or 0)
 
     raise TypeError(f"coordinate {coord} must be integer or integer slice")
@@ -241,18 +200,14 @@ def dense_index_to_shape(coord: options.DenseCoord, array_length: int) -> int:
 
 def check_type(
     name: str,
-    actual_value: Any,
+    actual_value: Any,  # noqa: ANN401
     expected_types: tuple[type[Any], ...],
 ) -> None:
     """Verifies the type of an argument, or produces a useful error message."""
     if not isinstance(actual_value, expected_types):
         if len(expected_types) == 1:
-            raise TypeError(
-                f"expected {name} argument to be of type {expected_types[0]}; got {type(actual_value)}"
-            )
-        raise TypeError(
-            f"expected {name} argument to be one of {expected_types!r}; got {type(actual_value)}"
-        )
+            raise TypeError(f"expected {name} argument to be of type {expected_types[0]}; got {type(actual_value)}")
+        raise TypeError(f"expected {name} argument to be one of {expected_types!r}; got {type(actual_value)}")
 
 
 def check_unpartitioned(partitions: options.ReadPartitions | None) -> None:
@@ -329,127 +284,8 @@ def pa_types_is_string_or_bytes(dtype: pa.DataType) -> bool:
         pa.types.is_large_string(dtype)
         or pa.types.is_large_binary(dtype)
         or pa.types.is_string(dtype)
-        or pa.types.is_binary(dtype)
+        or pa.types.is_binary(dtype),
     )
-
-
-def build_clib_platform_config(
-    platform_config: options.PlatformConfig | None,
-) -> clib.PlatformConfig:
-    """Copy over Python PlatformConfig values to the C++ clib.PlatformConfig."""
-    plt_cfg = clib.PlatformConfig()
-
-    if platform_config is None:
-        return plt_cfg
-
-    ops = TileDBCreateOptions.from_platform_config(platform_config)
-    plt_cfg.dataframe_dim_zstd_level = ops.dataframe_dim_zstd_level
-    plt_cfg.sparse_nd_array_dim_zstd_level = ops.sparse_nd_array_dim_zstd_level
-    plt_cfg.dense_nd_array_dim_zstd_level = ops.dense_nd_array_dim_zstd_level
-    plt_cfg.write_X_chunked = ops.write_X_chunked
-    plt_cfg.goal_chunk_nnz = ops.goal_chunk_nnz
-    plt_cfg.capacity = ops.capacity
-    plt_cfg.offsets_filters = _build_filter_list(ops.offsets_filters)
-    plt_cfg.validity_filters = _build_filter_list(ops.validity_filters)
-    plt_cfg.allows_duplicates = ops.allows_duplicates
-    plt_cfg.tile_order = ops.tile_order
-    plt_cfg.cell_order = ops.cell_order
-    plt_cfg.dims = _build_column_config(ops.dims)
-    plt_cfg.attrs = _build_column_config(ops.attrs)
-    return plt_cfg
-
-
-def _build_column_config(col: Mapping[str, _ColumnConfig] | None) -> str:
-    column_config: dict[str, dict[str, _JSONFilterList | int]] = dict()
-
-    if col is None:
-        return ""
-
-    for k in col:
-        dikt: dict[str, _JSONFilterList | int] = {}
-        if col[k].filters is not None:
-            dikt["filters"] = _build_filter_list(col[k].filters, False)
-        if col[k].tile is not None:
-            dikt["tile"] = cast(int, col[k].tile)
-        if len(dikt) != 0:
-            column_config[k] = dikt
-    return json.dumps(column_config)
-
-
-def _build_filter_list(
-    filters: tuple[_DictFilterSpec, ...] | None, return_json: bool = True
-) -> _JSONFilterList:
-    _convert_filter = {
-        "GzipFilter": "GZIP",
-        "ZstdFilter": "ZSTD",
-        "LZ4Filter": "LZ4",
-        "Bzip2Filter": "BZIP2",
-        "RleFilter": "RLE",
-        "DeltaFilter": "DELTA",
-        "DoubleDeltaFilter": "DOUBLE_DELTA",
-        "BitWidthReductionFilter": "BIT_WIDTH_REDUCTION",
-        "BitShuffleFilter": "BITSHUFFLE",
-        "ByteShuffleFilter": "BYTESHUFFLE",
-        "PositiveDeltaFilter": "POSITIVE_DELTA",
-        "ChecksumMD5Filter": "CHECKSUM_MD5",
-        "ChecksumSHA256Filter": "CHECKSUM_SHA256",
-        "DictionaryFilter": "DICTIONARY_ENCODING",
-        "FloatScaleFilter": "SCALE_FLOAT",
-        "XORFilter": "XOR",
-        "WebpFilter": "WEBP",
-        "NoOpFilter": "NOOP",
-    }
-
-    _convert_option = {
-        "GZIP": {"level": "COMPRESSION_LEVEL"},
-        "ZSTD": {"level": "COMPRESSION_LEVEL"},
-        "LZ4": {"level": "COMPRESSION_LEVEL"},
-        "BZIP2": {"level": "COMPRESSION_LEVEL"},
-        "RLE": {"level": "COMPRESSION_LEVEL"},
-        "DELTA": {
-            "level": "COMPRESSION_LEVEL",
-            "reinterp_dtype": "COMPRESSION_REINTERPRET_DATATYPE",
-        },
-        "DOUBLE_DELTA": {
-            "level": "COMPRESSION_LEVEL",
-            "reinterp_dtype": "COMPRESSION_REINTERPRET_DATATYPE",
-        },
-        "DICTIONARY_ENCODING": {"level": "COMPRESSION_LEVEL"},
-        "BIT_WIDTH_REDUCTION": {"window": "BIT_WIDTH_MAX_WINDOW"},
-        "POSITIVE_DELTA": {"window": "POSITIVE_DELTA_MAX_WINDOW"},
-        "SCALE_FLOAT": {
-            "factor": "SCALE_FLOAT_FACTOR",
-            "offset": "SCALE_FLOAT_OFFSET",
-            "bytewidth": "SCALE_FLOAT_BYTEWIDTH",
-        },
-        "WEBP": {
-            "input_format": "WEBP_INPUT_FORMAT",
-            "quality": "WEBP_QUALITY",
-            "lossless": "WEBP_LOSSLESS",
-        },
-    }
-
-    if filters is None:
-        return ""
-
-    filter: _JSONFilter
-    filter_list: list[_JSONFilter] = []
-
-    for info in filters:
-        if len(info) == 1:
-            filter = _convert_filter[cast(str, info["_type"])]
-        else:
-            filter = dict()
-            for option_name, option_value in info.items():
-                filter_name = _convert_filter[cast(str, info["_type"])]
-                if option_name == "_type":
-                    filter["name"] = filter_name
-                else:
-                    filter[_convert_option[filter_name][option_name]] = cast(
-                        Union[float, int], option_value
-                    )
-        filter_list.append(filter)
-    return json.dumps(filter_list) if return_json else filter_list
 
 
 def _cast_domainish(domainish: list[Any]) -> tuple[tuple[object, object], ...]:
@@ -457,229 +293,11 @@ def _cast_domainish(domainish: list[Any]) -> tuple[tuple[object, object], ...]:
     for slot in domainish:
         arrow_type = slot[0].type
         if pa.types.is_timestamp(arrow_type):
-            result.append(
-                tuple(pa.scalar(to_unix_ts(e), type=arrow_type) for e in slot)
-            )
+            result.append(tuple(pa.scalar(to_unix_ts(e), type=arrow_type) for e in slot))
         else:
             result.append(tuple(e.as_py() for e in slot))
 
     return tuple(result)
-
-
-def _set_coords(
-    mq: ManagedQuery,
-    coords: options.SparseNDCoords,
-    axis_names: Sequence[str] | None = None,
-) -> None:
-    if not is_nonstringy_sequence(coords):
-        raise TypeError(
-            f"coords type {type(coords)} must be a regular sequence,"
-            " not str or bytes"
-        )
-
-    if len(coords) > len(mq._array._handle._handle.dimension_names):
-        raise ValueError(
-            f"coords ({len(coords)} elements) must be shorter than ndim"
-            f" ({len(mq._array._handle._handle.dimension_names)})"
-        )
-
-    for i, coord in enumerate(coords):
-        _set_coord(i, mq, coord, axis_names)
-
-
-def _set_coord(
-    dim_idx: int,
-    mq: ManagedQuery,
-    coord: object,
-    axis_names: Sequence[str] | None = None,
-) -> None:
-    if coord is None:
-        return
-
-    dim = mq._array._handle._handle.schema.field(dim_idx)
-    dom = _cast_domainish(mq._array._handle._handle.domain())[dim_idx]
-
-    column = mq._array._handle._handle.get_column(dim.name)
-
-    if dim.metadata is not None:
-        if dim.metadata[b"dtype"].decode("utf-8") == "WKB":
-            if axis_names is None:
-                raise ValueError(
-                    "Axis names are required to set geometry column coordinates"
-                )
-            if not isinstance(dom[0], Mapping) or not isinstance(dom[1], Mapping):
-                raise ValueError(
-                    "Domain should be expressed per axis for geometry columns"
-                )
-
-            _set_geometry_coord(
-                mq,
-                dim,
-                cast(tuple[Mapping[str, float], Mapping[str, float]], dom),
-                coord,
-                axis_names,
-            )
-            return
-
-    if isinstance(coord, (str, bytes)):
-        column.set_dim_points_string_or_bytes(mq._handle, [coord])
-        return
-
-    if isinstance(coord, (pa.Array, pa.ChunkedArray)):
-        column.set_dim_points_arrow(mq._handle, coord)
-        return
-
-    if isinstance(coord, (Sequence, np.ndarray)):
-        _set_coord_by_py_seq_or_np_array(mq, dim, coord)
-        return
-
-    if isinstance(coord, int):
-        column.set_dim_points_int64(mq._handle, [coord])
-        return
-
-    # Note: slice(None, None) matches the is_slice_of part, unless we also check
-    # the dim-type part
-    if (
-        is_slice_of(coord, str) or is_slice_of(coord, bytes)
-    ) and pa_types_is_string_or_bytes(dim.type):
-        validate_slice(coord)
-        dim_type = type(dom[0])
-        # A ``None`` or empty start is always equivalent to empty str/bytes.
-        start = coord.start or dim_type()
-        if coord.stop is None:
-            # There's no way to specify "to infinity" for strings.
-            # We have to get the nonempty domain and use that as the end.\
-            ned = _cast_domainish(mq._array._handle._handle.non_empty_domain())
-            _, stop = ned[dim_idx]
-        else:
-            stop = coord.stop
-        column.set_dim_ranges_string_or_bytes(mq._handle, [(start, stop)])
-        return
-
-    # Note: slice(None, None) matches the is_slice_of part, unless we also check
-    # the dim-type part.
-    if (
-        is_slice_of(coord, np.datetime64)
-        or is_slice_of(coord, pa.TimestampScalar)
-        or is_slice_of(coord, int)
-    ) and pa.types.is_timestamp(dim.type):
-        validate_slice(coord)
-
-        # These timestamp types are stored in Arrow as well as TileDB as 64-bit
-        # integers (with distinguishing metadata of course). For purposes of the
-        # query logic they're just int64.
-        istart = to_unix_ts(coord.start or dom[0])
-        istop = to_unix_ts(coord.stop or dom[1])
-        column.set_dim_ranges_int64(mq._handle, [(istart, istop)])
-        return
-
-    if isinstance(coord, slice):
-        validate_slice(coord)
-        if coord.start is None and coord.stop is None:
-            return
-        _set_coord_by_numeric_slice(mq, dim, dom, coord)
-        return
-
-    raise TypeError(f"unhandled type {dim.type} for index column named {dim.name}")
-
-
-def _set_geometry_coord(
-    mq: ManagedQuery,
-    dim: pa.Field,
-    dom: tuple[Mapping[str, float], Mapping[str, float]],
-    coord: object,
-    axis_names: Sequence[str],
-) -> None:
-    if not isinstance(coord, Sequence):
-        raise ValueError(
-            f"unhandled coord type {type(coord)} for index column named {dim.name}"
-        )
-
-    ordered_dom_min = [dom[0][axis] for axis in axis_names]
-    ordered_dom_max = [dom[1][axis] for axis in axis_names]
-
-    column = mq._array._handle._handle.get_column(dim.name)
-
-    if all([is_slice_of(x, np.float64) for x in coord]):
-        range_min = []
-        range_max = []
-        for sub_coord, dom_min, dom_max in zip(coord, ordered_dom_min, ordered_dom_max):
-            validate_slice(sub_coord)
-            lo_hi = slice_to_numeric_range(sub_coord, (dom_min, dom_max))
-
-            # None slices need to be set to the domain size
-            if lo_hi is None:
-                range_min.append(dom_min)
-                range_max.append(dom_max)
-            else:
-                range_min.append(lo_hi[0])
-                range_max.append(lo_hi[1])
-
-        column.set_dim_ranges_double_array(mq._handle, [(range_min, range_max)])
-    elif all([isinstance(x, np.number) for x in coord]):
-        column.set_dim_points_double_array(mq._handle, [coord])
-    else:
-        raise ValueError(
-            f"Unsupported spatial coordinate type. Expected slice or float, found {type(coord)}"
-        )
-
-
-def _set_coord_by_py_seq_or_np_array(
-    mq: ManagedQuery, dim: pa.Field, coord: object
-) -> None:
-    if isinstance(coord, np.ndarray):
-        if coord.ndim != 1:
-            raise ValueError(
-                f"only 1D numpy arrays may be used to index; got {coord.ndim}"
-            )
-
-    column = mq._array._handle._handle.get_column(dim.name)
-
-    try:
-        set_dim_points = getattr(column, f"set_dim_points_{dim.type}")
-    except AttributeError:
-        # We have to handle this type specially below
-        pass
-    else:
-        set_dim_points(mq._handle, coord)
-        return
-
-    if pa_types_is_string_or_bytes(dim.type):
-        column.set_dim_points_string_or_bytes(mq._handle, coord)
-        return
-
-    if pa.types.is_timestamp(dim.type):
-        if not isinstance(coord, (tuple, list, np.ndarray)):
-            raise ValueError(
-                f"unhandled coord type {type(coord)} for index column named {dim.name}"
-            )
-
-        icoord = [to_unix_ts(e) for e in coord]
-        column.set_dim_points_int64(mq._handle, icoord)
-        return
-
-    raise ValueError(f"unhandled type {dim.type} for index column named {dim.name}")
-
-
-def _set_coord_by_numeric_slice(
-    mq: ManagedQuery, dim: pa.Field, dom: tuple[object, object], coord: Slice[Any]
-) -> None:
-    try:
-        lo_hi = slice_to_numeric_range(coord, dom)
-    except NonNumericDimensionError:
-        return
-
-    if not lo_hi:
-        return
-
-    column = mq._array._handle._handle.get_column(dim.name)
-
-    try:
-        set_dim_range = getattr(column, f"set_dim_ranges_{dim.type}")
-        set_dim_range(mq._handle, [lo_hi])
-        return
-    except AttributeError:
-        return
 
 
 def _resolve_futures(unresolved: dict[str, Any], deep: bool = False) -> dict[str, Any]:
@@ -712,7 +330,54 @@ class Sentinel:
     the user passing ``foo=None`` and the user not passing any ``foo`` at all.
     """
 
-    pass
-
 
 MISSING = Sentinel()
+
+
+def sanitize_key(key: str, data_protocol: DataProtocol) -> str:
+    # Encode everything outside of the safe characters set
+
+    if data_protocol == "tiledbv3":
+        # Carrara data model supports anything exclusive of '/'
+        if "/" in key:
+            raise ValueError(f"{key} is not a supported name - must not contain slash (/)")
+        sanitized_name = key
+    elif data_protocol == "tiledbv2":
+        safe_puncuation = "-_.()^!@+={}~'"
+        safe_character_set = f"{digits}{ascii_lowercase}{ascii_uppercase}{safe_puncuation}"
+        sanitized_name = urllib.parse.quote(key, safe=safe_character_set)
+    else:
+        raise ValueError(f"Unknown data protocol {data_protocol}")
+
+    # Ensure that the final key is valid
+    if sanitized_name in ["..", "."]:
+        raise ValueError(f"{key} is not a supported name")
+
+    return sanitized_name
+
+
+def _df_set_index(
+    df: pd.DataFrame,
+    default_index_name: str | None = None,
+    fallback_index_name: str | None = None,
+) -> None:
+    if default_index_name is not None:
+        # One or both of the following was true:
+        # - Original DataFrame had an index name (other than "index") ⇒ that name was written as `OriginalIndexMetadata`
+        # - `default_index_name` was provided (e.g. `{obs,var}_id_name` args to `to_anndata`)
+        #
+        # ⇒ Verify a column with that name exists, and set it as index (keeping its name).
+        if default_index_name not in df:
+            raise ValueError(f"Requested ID column name {default_index_name} not found in input: {df.keys()}")
+        df.set_index(default_index_name, inplace=True)
+
+    else:
+        # The assumption here is that the original index was unnamed, and was given a "fallback name" (e.g. "obs_id",
+        # "var_id") during ingest that matches the `fallback_index_name` arg here. In this case, we restore that column
+        # as index, and remove the name.
+        #
+        # NOTE: several edge cases result in the outgested DF not matching the original DF; see
+        # https://github.com/single-cell-data/TileDB-SOMA/issues/2829.
+        if fallback_index_name is not None and fallback_index_name in df:
+            df.set_index(fallback_index_name, inplace=True)
+            df.index.name = None

@@ -1,4 +1,8 @@
 import os
+from monty.io import zopen
+
+from emmet.core.trajectory import Trajectory
+
 from emmet.api.routes.materials.tasks.query_operators import (
     MultipleTaskIDsQuery,
     TrajectoryQuery,
@@ -7,9 +11,7 @@ from emmet.api.routes.materials.tasks.query_operators import (
 )
 from emmet.api.core.settings import MAPISettings
 
-from monty.tempfile import ScratchDir
-from monty.serialization import loadfn, dumpfn
-from json import load
+import json
 
 
 def test_multiple_task_ids_query():
@@ -19,74 +21,62 @@ def test_multiple_task_ids_query():
         "criteria": {"task_id": {"$in": ["mp-149", "mp-13"]}}
     }
 
-    with ScratchDir("."):
-        dumpfn(op, "temp.json")
-        new_op = loadfn("temp.json")
-
-        assert new_op.query(task_ids=" mp-149, mp-13") == {
-            "criteria": {"task_id": {"$in": ["mp-149", "mp-13"]}}
-        }
-
 
 def test_entries_query():
     op = EntryQuery()
 
-    assert op.query(task_ids=" mp-149, mp-13") == {
-        "criteria": {"task_id": {"$in": ["mp-149", "mp-13"]}}
-    }
+    q = {"criteria": {"task_id": {"$in": ["mp-149", "mp-13"]}}}
 
-    with ScratchDir("."):
-        dumpfn(op, "temp.json")
-        new_op = loadfn("temp.json")
-        query = {"criteria": {"task_id": {"$in": ["mp-149", "mp-13"]}}}
+    assert op.query(task_ids=" mp-149, mp-13") == q
 
-        assert new_op.query(task_ids=" mp-149, mp-13") == query
-
-    with open(os.path.join(MAPISettings().TEST_FILES, "tasks_Li_Fe_V.json")) as file:
-        tasks = load(file)
-    docs = op.post_process(tasks, query)
+    with zopen(
+        os.path.join(MAPISettings().TEST_FILES, "tasks_Li_Fe_V.json.gz")
+    ) as file:
+        tasks = json.load(file)
+    docs = op.post_process(tasks, q)
     assert docs[0]["entry"]["@class"] == "ComputedStructureEntry"
 
 
 def test_trajectory_query():
     op = TrajectoryQuery()
 
-    assert op.query(task_ids=" mp-149, mp-13") == {
-        "criteria": {"task_id": {"$in": ["mp-149", "mp-13"]}}
+    q = {"criteria": {"task_id": {"$in": ["mp-149", "mp-13"]}}}
+
+    assert op.query(task_ids=" mp-149, mp-13") == q
+
+    with zopen(
+        os.path.join(MAPISettings().TEST_FILES, "tasks_Li_Fe_V.json.gz")
+    ) as file:
+        tasks = json.load(file)
+    docs = op.post_process(tasks, q)
+
+    # assert return type is a trajectory by duck typing
+    traj_model_dump_fields = {
+        field
+        for field, field_meta in Trajectory.model_fields.items()
+        if not field_meta.exclude
     }
+    assert (
+        set(docs[0]["trajectories"][0]).intersection(traj_model_dump_fields)
+        == traj_model_dump_fields
+    )
 
-    with ScratchDir("."):
-        dumpfn(op, "temp.json")
-        new_op = loadfn("temp.json")
-        query = {"criteria": {"task_id": {"$in": ["mp-149", "mp-13"]}}}
-
-        assert new_op.query(task_ids=" mp-149, mp-13") == query
-
-    with open(os.path.join(MAPISettings().TEST_FILES, "tasks_Li_Fe_V.json")) as file:
-        tasks = load(file)
-    docs = op.post_process(tasks, query)
-    assert docs[0]["trajectories"][0]["@class"] == "Trajectory"
+    # assert that returned traj is JSONable
+    assert isinstance(json.dumps(docs[0]["trajectories"]), str)
 
 
 def test_deprecation_query():
     op = DeprecationQuery()
 
-    assert op.query(task_ids=" mp-149, mp-13") == {
-        "criteria": {"deprecated_tasks": {"$in": ["mp-149", "mp-13"]}}
-    }
+    q = {"criteria": {"deprecated_tasks": {"$in": ["mp-149", "mp-13"]}}}
 
-    with ScratchDir("."):
-        dumpfn(op, "temp.json")
-        new_op = loadfn("temp.json")
-        query = {"criteria": {"deprecated_tasks": {"$in": ["mp-149", "mp-13"]}}}
-
-        assert new_op.query(task_ids=" mp-149, mp-13") == query
+    assert op.query(task_ids=" mp-149, mp-13") == q
 
     docs = [
         {"task_id": "mp-149", "deprecated_tasks": ["mp-149"]},
         {"task_id": "mp-13", "deprecated_tasks": ["mp-1234"]},
     ]
-    r = op.post_process(docs, query)
+    r = op.post_process(docs, q)
 
     assert r[0] == {
         "task_id": "mp-149",

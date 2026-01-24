@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from tach.cli import tach_sync
+from tach.icons import SUCCESS
 from tach.parsing.config import parse_project_config
 
 
@@ -123,3 +124,59 @@ def test_many_features_example_dir(example_dir, capfd):
                 temp_project_root / "real_src" / "module3" / "tach.domain.toml"
             ).read_text()
         )
+
+
+def test_layers_explicit_depends_on_sync(
+    example_dir: Path, capfd: pytest.CaptureFixture[str]
+):
+    """Test that tach sync populates depends_on and preserves layer config when layers_explicit_depends_on=true."""
+    project_root = example_dir / "layers_explicit_depends_on"
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_project_root = Path(temp_dir) / "layers_explicit_depends_on"
+        _ = shutil.copytree(project_root, temp_project_root)
+
+        # Parse config before sync
+        project_config = parse_project_config(root=temp_project_root)
+        assert project_config is not None
+        assert project_config.layers_explicit_depends_on is True
+
+        # Verify initial state - api has layer but empty depends_on
+        modules = project_config.all_modules()
+        api_module = next(m for m in modules if m.path == "api")
+        service_module = next(m for m in modules if m.path == "service")
+
+        assert api_module.layer == "presentation"
+        assert api_module.depends_on == []  # Empty before sync
+        assert service_module.layer == "business"
+
+        # Run sync
+        with pytest.raises(SystemExit) as exc_info:
+            tach_sync(
+                project_root=temp_project_root,
+                project_config=project_config,
+                add=False,
+            )
+
+        # Should exit successfully
+        assert exc_info.value.code == 0
+
+        captured = capfd.readouterr()
+        assert SUCCESS in captured.err
+
+        # Parse config after sync
+        project_config = parse_project_config(root=temp_project_root)
+        assert project_config is not None
+        modules = project_config.all_modules()
+
+        # Verify sync populated depends_on
+        api_module = next(m for m in modules if m.path == "api")
+        service_module = next(m for m in modules if m.path == "service")
+
+        # Sync should have detected the import from api to service
+        assert api_module.depends_on is not None
+        assert {depends_on.path for depends_on in api_module.depends_on} == {"service"}
+
+        # CRITICAL: Layer configuration should be preserved
+        assert api_module.layer == "presentation"
+        assert service_module.layer == "business"

@@ -566,6 +566,8 @@ class TransformerUtility:
         """
         return [
             TransformerUtility.key_value("KeyId"),
+            TransformerUtility.key_value("KeyMaterialId"),
+            TransformerUtility.key_value("CurrentKeyMaterialId"),
             TransformerUtility.jsonpath(
                 jsonpath="$..Signature",
                 value_replacement="<signature>",
@@ -787,6 +789,11 @@ class TransformerUtility:
             JsonpathTransformer(
                 "$..x-amzn-RequestId",
                 "x-amzn-RequestId",
+                replace_reference=False,
+            ),
+            JsonpathTransformer(
+                "$..x-amzn-requestid",
+                "x-amzn-requestid",
                 replace_reference=False,
             ),
             KeyValueBasedTransformer(_transform_stepfunctions_cause_details, "json-input"),

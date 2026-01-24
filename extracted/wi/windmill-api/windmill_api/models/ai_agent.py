@@ -16,12 +16,15 @@ T = TypeVar("T", bound="AiAgent")
 
 @_attrs_define
 class AiAgent:
-    """
-    Attributes:
-        input_transforms (AiAgentInputTransforms):
-        tools (List['AiAgentToolsItem']):
-        type (AiAgentType):
-        parallel (Union[Unset, bool]):
+    """AI agent step that can use tools to accomplish tasks. The agent receives inputs and can call any of its configured
+    tools to complete the task
+
+        Attributes:
+            input_transforms (AiAgentInputTransforms): Input parameters for the AI agent mapped to their values
+            tools (List['AiAgentToolsItem']): Array of tools the agent can use. The agent decides which tools to call based
+                on the task
+            type (AiAgentType):
+            parallel (Union[Unset, bool]): If true, the agent can execute multiple tool calls in parallel
     """
 
     input_transforms: "AiAgentInputTransforms"

@@ -4,7 +4,9 @@ import re
 from datetime import datetime
 from typing import Optional, Any, Union, Literal, overload
 
-from httpx import InvalidURL, URL
+from niquests import Response
+from niquests.exceptions import InvalidURL
+from urllib.parse import urljoin, urlparse, parse_qs
 from pydantic import ConfigDict, BaseModel
 
 from ipfabric.api import IPFabricAPI, check_deprecated
@@ -12,7 +14,7 @@ from ipfabric.diagrams import Diagram
 from ipfabric.models import Technology, Inventory, Jobs, Intent, Devices, Extensions
 from ipfabric.models.oas import Methods
 from ipfabric.settings import Settings
-from ipfabric.tools import TIMEZONES, raise_for_status, valid_snapshot
+from ipfabric.tools import TIMEZONES, raise_for_status, valid_snapshot, api_header
 
 try:
     from pandas import DataFrame
@@ -151,6 +153,8 @@ class IPFClient(IPFabricAPI, BaseModel):
         url = self._check_url(url)
         payload = self._create_payload(url, snapshot_id, filters, sort, attr_filters)
         oas_data = self.oas.get(url, Methods(full_api_endpoint="")).post
+        if oas_data and oas_data.snapshot is False:
+            payload.pop("snapshot", None)
 
         if export != "csv":
             if isinstance(reports, (str, list)):
@@ -175,38 +179,77 @@ class IPFClient(IPFabricAPI, BaseModel):
         return url, payload
 
     def _get_payload(self, url, payload) -> Union[str, bool]:
-        snapshot_id = payload.pop("snapshot", None)
-        reports = payload.pop("reports") if "reports" in payload and isinstance(payload["reports"], str) else None
-        p = "&".join([f"{k}={json.dumps(v, separators=(',', ':'))}" for k, v in payload.items()])
+        tmp = payload.copy()
+        snapshot_id = tmp.pop("snapshot", None)
+        reports = tmp.pop("reports") if "reports" in tmp and isinstance(tmp["reports"], str) else None
+        p = "&".join([f"{k}={json.dumps(v, separators=(',', ':'))}" for k, v in tmp.items()])
         if snapshot_id:
             p += f"&snapshot={snapshot_id}"
         if reports:
             p += f"&reports={reports}"
-        url = self.base_url.join(url + f"?{p}")
+        url = urljoin(self.base_url, url + f"?{p}")
         if len(str(url)) > 4096:
             return False
         return url
 
+    @staticmethod
+    def _stream_data(resp: Response, export: str):
+        if resp.raw.chunked:
+            data = resp.content
+        else:
+            data = b""
+            for chunk in resp.iter_content(chunk_size=-1):
+                data += chunk
+        return data if export == "csv" else json.loads(data)["data"]
+
+    def _prepared_request(self, url: str, payload: dict):
+        resp = self.post("prepared-requests", json=payload, params={"method": "POST", "path": "/" + url})
+        if resp.status_code == 403:
+            logger.warning(
+                "User or Token does not have access to 'POST /prepared-requests' or table endpoint. "
+                "Falling back to old method, if successful please update policies to allow 'POST /prepared-requests'."
+            )
+            return None
+        elif not resp.ok:
+            raise_for_status(resp)
+        stream_resp = self.stream(f"prepared-requests/{resp.json()['preparedRequestId']}/execute")
+        if stream_resp.status_code == 403:
+            logger.warning(
+                "User or Token does not have access to 'GET /prepared-requests/{id}/execute' or table endpoint. "
+                "Falling back to old method, if successful please update policies to allow "
+                "'GET /prepared-requests/{id}/execute'."
+            )
+            return None
+        elif not stream_resp.ok:
+            raise_for_status(stream_resp)
+        return stream_resp
+
     @check_deprecated("post")
     def _stream(self, url, payload, export):
+        if self._psql and (stream_resp := self._prepared_request(url, payload)):
+            return self._stream_data(stream_resp, export)
         get_url = self._get_payload(url, payload)
         if get_url is False and export == "csv":
             raise InvalidURL("URL exceeds max character limit of 4096 cannot export to CSV.")
         elif get_url is False:
             logger.warning("URL exceeds max character limit of 4096 switching to pagination.")
             return False
-        with self.stream("GET", get_url) as stream_resp:
-            data = stream_resp.read()
+        with self.stream(get_url) as stream_resp:
             raise_for_status(stream_resp)
-        return data if export == "csv" else json.loads(data)["data"]
+            return self._stream_data(stream_resp, export)
 
-    def query(self, url: str, payload: Union[str, dict], get_all: bool = True) -> Union[list[dict], bytes]:
+    def query(
+        self, url: str, payload: Union[str, dict], get_all: bool = True, api_version: Optional[Union[str, int]] = None
+    ) -> Union[list[dict], bytes]:
         """Submits a query, does no formatting on the parameters.  Use for copy/pasting from the webpage.
 
         Args:
             url: Example: https://demo1.ipfabric.io/api/v1/tables/vlan/device-summary or tables/vlan/device-summary
             payload: Dictionary to submit in POST or can be JSON string (i.e. read from file).
             get_all: Default use pager to get all results and ignore pagination information in the payload
+            api_version: Optional API version to use for this request's X-API-Version header,
+                         default None will use latest version. Values other than None will not use streaming requests
+                         and will switch to pagination. API Version is not supported with CSV export.
 
         Returns:
             list or bytes: List of Dictionary objects or bytes if csv.
@@ -215,15 +258,16 @@ class IPFClient(IPFabricAPI, BaseModel):
         if isinstance(payload, str):
             payload = json.loads(payload)
         export = payload.get("format", {}).get("dataType", "json")
-        data = False
-        if export == "csv" or (self.streaming and get_all):
-            data = self._stream(url, payload, export)
-        elif get_all and data is False:
-            data = list(self._ipf_pager(url, payload))
-        elif data is False:
-            res = raise_for_status(self.post(url, json=payload))
-            data = res.json()["data"]
-        return data
+        if export == "csv":
+            if api_version:  # TODO: NIM-21720 api_version needs implemented
+                logger.warning("API Version is not supported with CSV export.")
+            return self._stream(url, payload, export)
+        elif self.streaming and get_all and not api_version:
+            return self._stream(url, payload, export)
+        elif get_all:
+            return list(self._ipf_pager(url, payload, api_version=api_version))
+        res = raise_for_status(self.post(url, json=payload, headers=api_header(api_version)))
+        return res.json()["data"]
 
     def get_columns(self, url: str, ui: bool = False) -> list[str]:
         """Checks OAS to find available columns.
@@ -249,6 +293,7 @@ class IPFClient(IPFabricAPI, BaseModel):
         snapshot_id: Optional[str] = None,
         snapshot: bool = True,
         reports: Optional[Union[bool, list, str]] = False,
+        api_version: Optional[Union[str, int]] = None,
     ) -> int:
         """Get a total number of rows
         Args:
@@ -259,6 +304,8 @@ class IPFClient(IPFabricAPI, BaseModel):
             snapshot: Set to False for some tables like management endpoints.
             reports: Boolean to return default reports, string of frontend URL where the reports are displayed,
                      or a list of report IDs
+            api_version: Optional API version to use for this request's X-API-Version header,
+                         default None will use latest version.
         Returns:
             int: a count of rows
         """
@@ -267,7 +314,7 @@ class IPFClient(IPFabricAPI, BaseModel):
             url, "json", None, snapshot_id, filters, reports, None, attr_filters, None, snapshot
         )
         payload.update({"columns": ["id"], "pagination": {"limit": 1, "start": 0}})
-        res = raise_for_status(self.post(url, json=payload))
+        res = raise_for_status(self.post(url, json=payload, headers=api_header(api_version)))
         return res.json()["_meta"]["count"]
 
     def _fetch_setup(self, url, export, columns, snapshot_id, filters, reports, sort, attr_filters, csv_tz, snapshot):
@@ -289,6 +336,21 @@ class IPFClient(IPFabricAPI, BaseModel):
             )
         return url, payload
 
+    def _send_request(
+        self, export: str, url: str, payload: dict, api_version: Optional[Union[str, int]] = None, get_all: bool = True
+    ):
+        data = False
+        if export == "csv" or (self.streaming and not api_version):  # TODO: NIM-21720 api_version needs implemented
+            data = self._stream(url, payload, export)
+        if data is False and not get_all:
+            res = raise_for_status(self.post(url, json=payload, headers=api_header(api_version)))
+            data = res.json()["data"]
+        elif data is False:
+            data = list(self._ipf_pager(url, payload, api_version=api_version))
+        if export == "df":
+            data = DataFrame.from_records(data, columns=payload["columns"]) if export == "df" else data
+        return data
+
     @overload
     def fetch(
         self,
@@ -303,6 +365,7 @@ class IPFClient(IPFabricAPI, BaseModel):
         sort: Optional[dict] = None,
         attr_filters: Optional[dict[str, list[str]]] = None,
         snapshot: bool = True,
+        api_version: Optional[Union[str, int]] = None,
     ) -> list[dict]: ...
 
     @overload
@@ -319,6 +382,7 @@ class IPFClient(IPFabricAPI, BaseModel):
         attr_filters: Optional[dict[str, list[str]]] = None,
         snapshot: bool = True,
         csv_tz: Optional[str] = None,
+        # api_version: Optional[Union[str, int]] = None,  # TODO: NIM-21720
     ) -> bytes: ...
 
     @overload
@@ -335,6 +399,7 @@ class IPFClient(IPFabricAPI, BaseModel):
         sort: Optional[dict] = None,
         attr_filters: Optional[dict[str, list[str]]] = None,
         snapshot: bool = True,
+        api_version: Optional[Union[str, int]] = None,
     ) -> DataFrame: ...
 
     def fetch(
@@ -351,6 +416,7 @@ class IPFClient(IPFabricAPI, BaseModel):
         attr_filters: Optional[dict[str, list[str]]] = None,
         snapshot: bool = True,
         csv_tz: Optional[str] = None,
+        api_version: Optional[Union[str, int]] = None,
     ):
         """Gets data from IP Fabric for specified endpoint
 
@@ -369,22 +435,17 @@ class IPFClient(IPFabricAPI, BaseModel):
             snapshot: Set to False for some tables like management endpoints.
             csv_tz: str: Default None, set a timezone to return human-readable dates when using CSV;
                          see `ipfabric.tools.shared.TIMEZONES`
+            api_version: Optional API version to use for this request's X-API-Version header,
+                         default None will use latest version. Values other than None will not use streaming requests
+                         and will switch to pagination. API Version is not supported with CSV export.
         Returns:
             Union[list[dict], bytes, pandas.DataFrame]: List of dict if json, bytes string if CSV, DataFrame is df
         """
         url, payload = self._fetch_setup(
             url, export, columns, snapshot_id, filters, reports, sort, attr_filters, csv_tz, snapshot
         )
-        payload["pagination"] = dict(start=start, limit=limit)
-        data = False
-        if export == "csv" or self.streaming:
-            data = self._stream(url, payload, export)
-        if data is False:
-            res = raise_for_status(self.post(url, json=payload))
-            data = res.json()["data"]
-        if export == "df":
-            data = DataFrame.from_records(data) if export == "df" else data
-        return data
+        payload["pagination"] = {"start": start, "limit": limit}
+        return self._send_request(export, url, payload, api_version, get_all=False)
 
     @overload
     def fetch_all(
@@ -398,6 +459,7 @@ class IPFClient(IPFabricAPI, BaseModel):
         sort: Optional[dict] = None,
         attr_filters: Optional[dict[str, list[str]]] = None,
         snapshot: bool = True,
+        api_version: Optional[Union[str, int]] = None,
     ) -> list[dict]: ...
 
     @overload
@@ -412,6 +474,7 @@ class IPFClient(IPFabricAPI, BaseModel):
         attr_filters: Optional[dict[str, list[str]]] = None,
         snapshot: bool = True,
         csv_tz: Optional[str] = None,
+        # api_version: Optional[Union[str, int]] = None,  # TODO: NIM-21720
     ) -> bytes: ...
 
     @overload
@@ -426,6 +489,7 @@ class IPFClient(IPFabricAPI, BaseModel):
         sort: Optional[dict] = None,
         attr_filters: Optional[dict[str, list[str]]] = None,
         snapshot: bool = True,
+        api_version: Optional[Union[str, int]] = None,
     ) -> DataFrame: ...
 
     def fetch_all(
@@ -440,6 +504,8 @@ class IPFClient(IPFabricAPI, BaseModel):
         attr_filters: Optional[dict[str, list[str]]] = None,
         snapshot: bool = True,
         csv_tz: Optional[str] = None,
+        api_version: Optional[Union[str, int]] = None,
+        **kwargs,
     ):
         """Gets all data from IP Fabric for specified endpoint
 
@@ -456,30 +522,30 @@ class IPFClient(IPFabricAPI, BaseModel):
             snapshot: Set to False for some tables like management endpoints.
             csv_tz: str: Default None, set a timezone to return human-readable dates when using CSV;
                          see `ipfabric.tools.shared.TIMEZONES`
+            api_version: Optional API version to use for this request's X-API-Version header,
+                         default None will use latest version. Values other than None will not use streaming requests
+                         and will switch to pagination. API Version is not supported with CSV export.
         Returns:
             Union[list[dict], bytes, pandas.DataFrame]: List of dict if json, bytes string if CSV, DataFrame is df
         """
         url, payload = self._fetch_setup(
             url, export, columns, snapshot_id, filters, reports, sort, attr_filters, csv_tz, snapshot
         )
-        data = False
-        if export == "csv" or self.streaming:
-            data = self._stream(url, payload, export)
-        if data is False:
-            data = list(self._ipf_pager(url, payload))
-        if export == "df":
-            data = DataFrame.from_records(data)
-        return data
+        if "bind_variables" in kwargs:
+            payload["bindVariables"] = kwargs["bind_variables"]
+            return list(self._ipf_pager(url, payload, api_version=api_version))
+        return self._send_request(export, url, payload, api_version)
 
     def _shared_url(self, url: Union[int, str], table: bool = True) -> tuple[dict, str]:
         snapshot = None
         try:
             url_id = str(int(url))
         except ValueError:
-            parsed_url = URL(url)
-            snapshot = parsed_url.params.get("selectSnapshot", None)
-            if table and parsed_url.params.get("copyId"):
-                url_id = parsed_url.params.get("copyId")
+            parsed_url = urlparse(url)
+            params = parse_qs(parsed_url.query)
+            snapshot = params.get("selectSnapshot", None)
+            if table and params.get("copyId"):
+                url_id = params.get("copyId")[0]
             elif not table:
                 url_id = parsed_url.path.split("/")[-1]
             else:
@@ -502,13 +568,13 @@ class IPFClient(IPFabricAPI, BaseModel):
         """
         query, snapshot = self._shared_url(url, True)
         url = self.web_to_api[query["webEndpoint"]].api_endpoint
-        hidden = {k for k, v in query.get("columnVisibility", {}).items() if not v}
-        columns = {k for k, v in query.get("columnVisibility", {}).items() if v}
-        columns.update({_ for _ in query.get("columnWidth", {}) if _ not in hidden})
+        hidden = {k for k, v in (query.get("columnVisibility") or {}).items() if not v}
+        columns = {k for k, v in (query.get("columnVisibility") or {}).items() if v}
+        columns.update({_ for _ in query.get("columnWidth") or {} if _ not in hidden})
         columns.update({_ for _ in self.get_columns(url, ui=True) if _ not in hidden})
-        columns = sorted(list(columns))
+        columns = sorted(list(columns))  # noqa: S7508
 
-        filters, sort = query.get("filters", {}), query.get("sort", {})
+        filters, sort = query.get("filters") or {}, query.get("sort") or {}
         filters.pop("selectedFilter", None)
 
         if data:
@@ -553,7 +619,7 @@ class IPFClient(IPFabricAPI, BaseModel):
             web_endpoint = self.oas[url].post.web_endpoint
         except KeyError:
             raise NotImplementedError(f"Cannot create Shared View URL for table `{url}` as it has no web endpoint.")
-        _columns = {_: True for _ in self.get_columns(url)}
+        _columns = dict.fromkeys(self.get_columns(url), True)
 
         if columns:
             _columns.update({_: False for _ in _columns if _ not in columns})
@@ -587,7 +653,7 @@ class IPFClient(IPFabricAPI, BaseModel):
             select_snap = f"&selectSnapshot={self.snapshot_id}"
         elif valid_snapshot(snapshot) and snapshot in self.snapshots:
             select_snap = f"&selectSnapshot={snapshot}"
-        return str(self.base_url.join(web_endpoint)) + f"?copyId={resp.json()['id']}" + select_snap
+        return urljoin(self.base_url, web_endpoint) + f"?copyId={resp.json()['id']}" + select_snap
 
     def post_to_get(self, url: str, payload: Union[dict, str], ignore_reports: bool = False):
         """

@@ -7,6 +7,7 @@ import itertools
 import logging
 import warnings
 import zoneinfo
+from collections.abc import Callable
 from collections.abc import Generator
 from collections.abc import Iterator
 from collections.abc import Mapping
@@ -18,7 +19,6 @@ from typing import IO
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import BinaryIO
-from typing import Callable
 from typing import Final
 from typing import Literal
 from typing import Protocol
@@ -35,6 +35,7 @@ from databento_dbn import FIXED_PRICE_SCALE
 from databento_dbn import UNDEF_PRICE
 from databento_dbn import Compression
 from databento_dbn import DBNDecoder
+from databento_dbn import DBNRecord
 from databento_dbn import Encoding
 from databento_dbn import InstrumentDefMsg
 from databento_dbn import InstrumentDefMsgV1
@@ -54,12 +55,12 @@ from databento.common.enums import PriceType
 from databento.common.error import BentoError
 from databento.common.error import BentoWarning
 from databento.common.symbology import InstrumentMap
-from databento.common.types import DBNRecord
 from databento.common.types import Default
 from databento.common.types import MappingIntervalDict
 from databento.common.validation import validate_enum
 from databento.common.validation import validate_file_write_path
 from databento.common.validation import validate_maybe_enum
+from databento.common.validation import validate_path
 
 
 logger = logging.getLogger(__name__)
@@ -138,15 +139,15 @@ class FileDataSource(DataSource):
         The name of the file.
     nbytes : int
         The size of the data in bytes; equal to the file size.
-    path : PathLike[str] or str
+    path : Path
         The path of the file.
     reader : IO[bytes]
         A `BufferedReader` for this file-backed data.
 
     """
 
-    def __init__(self, source: PathLike[str] | str):
-        self._path = Path(source)
+    def __init__(self, source: Path):
+        self._path = source
 
         if not self._path.is_file() or not self._path.exists():
             raise FileNotFoundError(source)
@@ -653,7 +654,7 @@ class DBNStore:
             If an empty file is specified.
 
         """
-        return cls(FileDataSource(path))
+        return cls(FileDataSource(validate_path(path, "path")))
 
     @classmethod
     def from_bytes(cls, data: BytesIO | bytes | IO[bytes]) -> DBNStore:
@@ -1286,7 +1287,7 @@ class DBNStore:
     ) -> None:
         if map_symbols:
             self._instrument_map.insert_metadata(self.metadata)
-            symbol_map = self._instrument_map._data
+            symbol_map = self._instrument_map.build_symbol_map()
         else:
             symbol_map = None
 
@@ -1298,7 +1299,7 @@ class DBNStore:
             pretty_ts=pretty_ts,
             has_metadata=True,
             map_symbols=map_symbols,
-            symbol_interval_map=symbol_map,  # type: ignore [arg-type]
+            symbol_interval_map=symbol_map,
             schema=schema,
         )
 
@@ -1507,19 +1508,12 @@ class DataFrameIterator:
     def _format_map_symbols(self, df: pd.DataFrame) -> None:
         # the first ordered field will be ts_recv or ts_event when appropriate
         ts_name = self._struct_type._ordered_fields[0]
+        dates = df[ts_name] if self._pretty_ts else pd.to_datetime(df[ts_name], utc=True).dt.date
 
-        if df.empty:
-            df["symbol"] = []
-        else:
-            df["symbol"] = df.apply(
-                lambda r: self._instrument_map.resolve(
-                    r["instrument_id"],
-                    (
-                        r[ts_name] if self._pretty_ts else pd.to_datetime(r[ts_name], utc=True)
-                    ).date(),
-                ),
-                axis=1,
-            )
+        df["symbol"] = self._instrument_map.resolve_many(
+            df["instrument_id"].to_numpy(),
+            np.asarray(dates, dtype="datetime64[D]"),
+        )
 
     def _format_timezone(self, df: pd.DataFrame) -> None:
         for field in self._struct_type._timestamp_fields:

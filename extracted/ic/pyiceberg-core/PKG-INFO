@@ -1,16 +1,17 @@
 Metadata-Version: 2.4
 Name: pyiceberg-core
-Version: 0.6.0
+Version: 0.8.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+License-File: LICENSE
+License-File: NOTICE
 Home-Page: https://rust.iceberg.apache.org
-Requires-Python: ~=3.9
+Requires-Python: >=3.10, <3.13
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 <!--

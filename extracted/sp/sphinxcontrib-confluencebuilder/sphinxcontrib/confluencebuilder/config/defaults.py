@@ -3,6 +3,8 @@
 
 from pathlib import Path
 from sphinxcontrib.confluencebuilder.debug import PublishDebug
+from sphinxcontrib.confluencebuilder.std.confluence import API_CLOUD_ENDPOINT
+from sphinxcontrib.confluencebuilder.util import detect_cloud
 from sphinxcontrib.confluencebuilder.util import str2bool
 import contextlib
 
@@ -44,6 +46,12 @@ def apply_defaults(app):
     if conf.confluence_adv_restricted is None:
         conf.confluence_adv_restricted = []
 
+    # force default v2 api if a scoped api token or modern api is detected
+    confluence_server_url = conf.confluence_server_url or ''
+    if conf.confluence_api_mode is None and (conf.confluence_api_token_scoped \
+            or confluence_server_url.startswith(API_CLOUD_ENDPOINT)):
+        conf.confluence_api_mode = 'v2'
+
     if conf.confluence_ca_cert:
         if not Path(conf.confluence_ca_cert).is_absolute():
             # if the ca path is not an absolute path, the path is a relative
@@ -62,11 +70,15 @@ def apply_defaults(app):
         if not isinstance(conf.confluence_client_cert, tuple):
             conf.confluence_client_cert = (conf.confluence_client_cert, None)
 
+    if conf.confluence_cloud is None:
+        conf.confluence_cloud = detect_cloud(confluence_server_url)
+
     if conf.confluence_disable_notifications is None:
         conf.confluence_disable_notifications = True
 
     if conf.confluence_editor is None:
-        conf.confluence_editor = DEFAULT_EDITOR
+        # default the editor to v2 for cloud instances; otherwise, use v1
+        conf.confluence_editor = 'v2' if conf.confluence_cloud else 'v1'
 
     if conf.confluence_file_suffix:
         if conf.confluence_file_suffix.endswith('.'):
@@ -80,10 +92,6 @@ def apply_defaults(app):
     if conf.confluence_jira_servers is None:
         conf.confluence_jira_servers = {}
 
-    if conf.confluence_lang_overrides is None and \
-            conf.confluence_lang_transform is not None:
-        conf.confluence_lang_overrides = conf.confluence_lang_transform
-
     if conf.confluence_latex_macro and \
             not isinstance(conf.confluence_latex_macro, dict):
         conf.confluence_latex_macro = {
@@ -96,10 +104,6 @@ def apply_defaults(app):
 
     if conf.confluence_page_hierarchy is None:
         conf.confluence_page_hierarchy = True
-
-    if conf.confluence_permit_raw_html is None and \
-            conf.confluence_adv_permit_raw_html is not None:
-        conf.confluence_permit_raw_html = conf.confluence_adv_permit_raw_html
 
     # ensure confluence_publish_debug is set with its expected enum value
     publish_debug = conf.confluence_publish_debug
@@ -122,14 +126,14 @@ def apply_defaults(app):
         conf.confluence_publish_orphan = True
 
     if conf.confluence_publish_override_api_prefix is None:
-        # confluence_publish_disable_api_prefix is deprecated, but we will
-        # use its presence to configure v1 api for old config support
-        if conf.confluence_publish_disable_api_prefix:
-            conf.confluence_publish_override_api_prefix = {
-                'v1': '',
-            }
-        else:
-            conf.confluence_publish_override_api_prefix = {}
+        conf.confluence_publish_override_api_prefix = {}
+
+    if conf.confluence_publish_postfix_hash_modifier is None:
+        conf.confluence_publish_postfix_hash_modifier = (
+            str(conf.project)
+            + str(conf.confluence_parent_page)
+            + str(conf.confluence_publish_root)
+        )
 
     if conf.confluence_remove_title is None:
         conf.confluence_remove_title = True

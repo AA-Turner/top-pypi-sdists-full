@@ -1,10 +1,10 @@
 [build-system]
-requires = ["uv_build>=0.8.4,<0.9.0"]
+requires = ["uv_build>=0.8.4,<0.10.0"]
 build-backend = "uv_build"
 
 [project]
 name = "dagger-io"
-version = "0.18.19"
+version = "0.19.10"
 description = "A client package for running Dagger pipelines in Python."
 readme = "README.md"
 authors = [{ name = "Dagger", email = "hello@dagger.io" }]
@@ -48,8 +48,8 @@ dependencies = [
 "Community" = "https://discord.gg/ufnyBtc8uY"
 "Twitter" = "https://twitter.com/dagger_io"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "codegen",
     # lint
     "ruff>=0.3.4",

@@ -17,8 +17,12 @@ from typing import (
     Sequence,
     Tuple,
     Type,
+    TypedDict,
     Union,
+    cast,
 )
+from typing_extensions import is_typeddict
+from operator import itemgetter
 
 from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,
@@ -54,8 +58,15 @@ from langchain_core.outputs import (
     ChatGenerationChunk,
     ChatResult,
 )
-from langchain_core.runnables import Runnable
+from langchain_core.output_parsers import (
+    JsonOutputParser,
+    PydanticOutputParser,
+    PydanticToolsParser,
+    JsonOutputKeyToolsParser
+)
+from langchain_core.runnables import Runnable, RunnablePassthrough
 from langchain_core.tools import BaseTool
+from langchain_core.utils.pydantic import TypeBaseModel, is_basemodel_subclass
 from langchain_core.utils import get_from_dict_or_env, pre_init
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from litellm.types.utils import Delta
@@ -105,6 +116,20 @@ def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
         if _dict.get("tool_calls"):
             additional_kwargs["tool_calls"] = _dict["tool_calls"]
 
+        if _dict.get("reasoning_content"):
+            additional_kwargs["reasoning_content"] = _dict["reasoning_content"]
+        
+        # Check litellm's response for provider specific fields
+        provider_specific_fields = _dict.get("provider_specific_fields")
+        
+        # Check if litellm's response has null provider_specific_fields but has Vertex AI specific fields
+        if not provider_specific_fields:
+            provider_specific_fields = _dict.get("vertex_ai_grounding_metadata")
+        
+        # Attach provider specific fields if present
+        if provider_specific_fields:
+            additional_kwargs["provider_specific_fields"] = provider_specific_fields
+
         return AIMessage(content=content, additional_kwargs=additional_kwargs)
     elif role == "system":
         return SystemMessage(content=_dict["content"])
@@ -114,22 +139,6 @@ def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
         return ToolMessage(content=_dict["content"], tool_call_id=_dict["tool_call_id"])
     else:
         return ChatMessage(content=_dict["content"], role=role)
-
-
-async def acompletion_with_retry(
-    llm: ChatLiteLLM,
-    run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
-    **kwargs: Any,
-) -> Any:
-    """Use tenacity to retry the async completion call."""
-    retry_decorator = _create_retry_decorator(llm, run_manager=run_manager)
-
-    @retry_decorator
-    async def _completion_with_retry(**kwargs: Any) -> Any:
-        # Use OpenAI's async api https://github.com/openai/openai-python#async-api
-        return await llm.client.acreate(**kwargs)
-
-    return await _completion_with_retry(**kwargs)
 
 
 def _convert_delta_to_message_chunk(
@@ -142,13 +151,21 @@ def _convert_delta_to_message_chunk(
         function_call = delta.get("function_call")
         raw_tool_calls = delta.get("tool_calls")
         reasoning_content = delta.get("reasoning_content")
+        # Check standard field first, then fallback to Vertex specific field
+        provider_specific_fields = delta.get("provider_specific_fields")
+        if not provider_specific_fields:
+            provider_specific_fields = delta.get("vertex_ai_grounding_metadata")
     else:
         role = delta.role
         content = delta.content or ""
         function_call = delta.function_call
         raw_tool_calls = delta.tool_calls
         reasoning_content = getattr(delta, "reasoning_content", None)
-    
+        # Check standard field first, then fallback to Vertex specific field
+        provider_specific_fields = getattr(delta, "provider_specific_fields", None)
+        if not provider_specific_fields:
+            provider_specific_fields = getattr(delta, "vertex_ai_grounding_metadata", None)
+
     if function_call:
         additional_kwargs = {"function_call": dict(function_call)}
     # The hasattr check is necessary because litellm explicitly deletes the
@@ -159,6 +176,9 @@ def _convert_delta_to_message_chunk(
         additional_kwargs = {"reasoning_content": reasoning_content}
     else:
         additional_kwargs = {}
+    
+    if provider_specific_fields is not None:
+        additional_kwargs["provider_specific_fields"] = provider_specific_fields
 
     tool_call_chunks = []
     if raw_tool_calls:
@@ -166,8 +186,12 @@ def _convert_delta_to_message_chunk(
         try:
             tool_call_chunks = [
                 ToolCallChunk(
-                    name=rtc["function"]["name"] if isinstance(rtc, dict) else rtc.function.name,
-                    args=rtc["function"]["arguments"] if isinstance(rtc, dict) else rtc.function.arguments,
+                    name=rtc["function"]["name"]
+                    if isinstance(rtc, dict)
+                    else rtc.function.name,
+                    args=rtc["function"]["arguments"]
+                    if isinstance(rtc, dict)
+                    else rtc.function.arguments,
                     id=rtc["id"] if isinstance(rtc, dict) else rtc.id,
                     index=rtc["index"] if isinstance(rtc, dict) else rtc.index,
                 )
@@ -193,9 +217,7 @@ def _convert_delta_to_message_chunk(
         else:
             func_args = delta.function_call.arguments if function_call else ""
             func_name = delta.function_call.name if function_call else ""
-        return FunctionMessageChunk(
-            content=func_args, name=func_name
-        )
+        return FunctionMessageChunk(content=func_args, name=func_name)
     elif role or default_class == ChatMessageChunk:
         return ChatMessageChunk(content=content, role=role)  # type: ignore[arg-type]
     else:
@@ -243,7 +265,9 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
         message_dict["name"] = message.additional_kwargs["name"]
     return message_dict
 
+
 _OPENAI_MODELS = get_valid_models(custom_llm_provider="openai")
+
 
 class ChatLiteLLM(BaseChatModel):
     """Chat model that uses the LiteLLM API."""
@@ -251,6 +275,9 @@ class ChatLiteLLM(BaseChatModel):
     client: Any = None  #: :meta private:
     model: str = "gpt-3.5-turbo"
     model_name: Optional[str] = None
+    stream_options: Optional[Dict[str, Any]] = Field(
+        default_factory=lambda: {"include_usage": True}
+    )
     """Model name to use."""
     openai_api_key: Optional[str] = None
     azure_api_key: Optional[str] = None
@@ -263,6 +290,7 @@ class ChatLiteLLM(BaseChatModel):
     api_base: Optional[str] = None
     organization: Optional[str] = None
     custom_llm_provider: Optional[str] = None
+    extra_headers: Optional[Dict[str, str]] = None
     request_timeout: Optional[Union[float, Tuple[float, float]]] = None
     temperature: Optional[float] = None
     """Run inference with this temperature. Must be in the closed
@@ -327,6 +355,11 @@ class ChatLiteLLM(BaseChatModel):
             "force_timeout": self.request_timeout,
             "api_base": self.api_base,
         }
+        # Forward any extra headers to the client and include in params
+        if self.extra_headers is not None:
+            # set attribute on client for runtime usage
+            setattr(self.client, "extra_headers", self.extra_headers)
+            creds["extra_headers"] = self.extra_headers
         return {**self._default_params, **creds}
 
     def completion_with_retry(
@@ -340,6 +373,21 @@ class ChatLiteLLM(BaseChatModel):
             return self.client.completion(**kwargs)
 
         return _completion_with_retry(**kwargs)
+
+
+    async def acompletion_with_retry(
+        self,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any
+    ) -> Any:
+        """Use tenacity to retry the async completion call."""
+        retry_decorator = _create_retry_decorator(self, run_manager=run_manager)
+
+        @retry_decorator
+        async def _completion_with_retry(**kwargs: Any) -> Any:
+            return await self.client.acompletion(**kwargs)
+
+        return await _completion_with_retry(**kwargs)
 
     @pre_init
     def validate_environment(cls, values: Dict) -> Dict:
@@ -423,13 +471,21 @@ class ChatLiteLLM(BaseChatModel):
                 message.usage_metadata = _create_usage_metadata(token_usage)
             gen = ChatGeneration(
                 message=message,
-                generation_info=dict(finish_reason=res.get("finish_reason")),
+                generation_info=dict(finish_reason=res.get("finish_reason"), logprobs=res.get("logprobs")),
             )
             generations.append(gen)
         set_model_value = self.model
         if self.model_name is not None:
             set_model_value = self.model_name
         llm_output = {"token_usage": token_usage, "model": set_model_value}
+        # Check standard field first, then fallback to Vertex specific field
+        provider_specific_fields = response.get("provider_specific_fields")
+        if not provider_specific_fields:
+            provider_specific_fields = response.get("vertex_ai_grounding_metadata")
+
+        # Add provider_specific_fields if present at response level
+        if provider_specific_fields:
+            llm_output["provider_specific_fields"] = provider_specific_fields
         return ChatResult(generations=generations, llm_output=llm_output)
 
     def _create_message_dicts(
@@ -452,17 +508,33 @@ class ChatLiteLLM(BaseChatModel):
     ) -> Iterator[ChatGenerationChunk]:
         message_dicts, params = self._create_message_dicts(messages, stop)
         params = {**params, **kwargs, "stream": True}
-
+        params["stream_options"] = self.stream_options
         default_chunk_class = AIMessageChunk
         for chunk in self.completion_with_retry(
             messages=message_dicts, run_manager=run_manager, **params
         ):
+            usage_metadata = None
             if not isinstance(chunk, dict):
                 chunk = chunk.model_dump()
+            if "usage" in chunk and chunk["usage"]:
+                usage_metadata = _create_usage_metadata(chunk["usage"])
             if len(chunk["choices"]) == 0:
                 continue
             delta = chunk["choices"][0]["delta"]
+            # --- BRIDGE FIX: Inject Root Metadata into Delta ---
+            # 1. Grab metadata from the ROOT of the chunk
+            root_metadata = chunk.get("provider_specific_fields")
+            if not root_metadata:
+                root_metadata = chunk.get("vertex_ai_grounding_metadata")
+            
+            # 2. Inject it into the DELTA so the converter sees it
+            if root_metadata:
+                delta["provider_specific_fields"] = root_metadata
+            # ---------------------------------------------------
             chunk = _convert_delta_to_message_chunk(delta, default_chunk_class)
+            if usage_metadata and isinstance(chunk, AIMessageChunk):
+                chunk.usage_metadata = usage_metadata
+
             default_chunk_class = chunk.__class__
             cg_chunk = ChatGenerationChunk(message=chunk)
             if run_manager:
@@ -478,17 +550,30 @@ class ChatLiteLLM(BaseChatModel):
     ) -> AsyncIterator[ChatGenerationChunk]:
         message_dicts, params = self._create_message_dicts(messages, stop)
         params = {**params, **kwargs, "stream": True}
-
+        params["stream_options"] = self.stream_options
         default_chunk_class = AIMessageChunk
-        async for chunk in await acompletion_with_retry(
-            self, messages=message_dicts, run_manager=run_manager, **params
+        async for chunk in await self.acompletion_with_retry(
+            messages=message_dicts, run_manager=run_manager, **params
         ):
+            usage_metadata = None
             if not isinstance(chunk, dict):
                 chunk = chunk.model_dump()
+            if "usage" in chunk and chunk["usage"]:
+                usage_metadata = _create_usage_metadata(chunk["usage"])
             if len(chunk["choices"]) == 0:
                 continue
             delta = chunk["choices"][0]["delta"]
+            # --- BRIDGE FIX: Inject Root Metadata into Delta ---
+            root_metadata = chunk.get("provider_specific_fields")
+            if not root_metadata:
+                root_metadata = chunk.get("vertex_ai_grounding_metadata")
+            
+            if root_metadata:
+                delta["provider_specific_fields"] = root_metadata
+            # ---------------------------------------------------
             chunk = _convert_delta_to_message_chunk(delta, default_chunk_class)
+            if usage_metadata and isinstance(chunk, AIMessageChunk):
+                chunk.usage_metadata = usage_metadata
             default_chunk_class = chunk.__class__
             cg_chunk = ChatGenerationChunk(message=chunk)
             if run_manager:
@@ -512,8 +597,8 @@ class ChatLiteLLM(BaseChatModel):
 
         message_dicts, params = self._create_message_dicts(messages, stop)
         params = {**params, **kwargs}
-        response = await acompletion_with_retry(
-            self, messages=message_dicts, run_manager=run_manager, **params
+        response = await self.acompletion_with_retry(
+            messages=message_dicts, run_manager=run_manager, **params
         )
         return self._create_chat_result(response)
 
@@ -524,7 +609,7 @@ class ChatLiteLLM(BaseChatModel):
             Union[dict, str, Literal["auto", "none", "required", "any"], bool]
         ] = None,
         **kwargs: Any,
-    ) -> Runnable[LanguageModelInput, BaseMessage]:
+    ) -> Runnable[LanguageModelInput, AIMessage]:
         """Bind tool-like objects to this chat model.
 
         LiteLLM expects tools argument in OpenAI format.
@@ -575,6 +660,86 @@ class ChatLiteLLM(BaseChatModel):
                     f"provided tools were {tool_names}."
                 )
         return super().bind(tools=formatted_tools, tool_choice=tool_choice, **kwargs)
+    
+    def with_structured_output(
+        self,
+        schema: Union[Dict[str, Any], type, BaseModel],
+        *,
+        method: Optional[Literal["json_schema", "function_calling"]] = "json_schema",
+        include_raw: bool = False,
+        strict: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> Runnable[LanguageModelInput, Union[Dict, BaseModel]]:
+        # Remove unsupported parameters
+        _ = kwargs.pop("tools", None)
+        if kwargs:
+            msg = f"Received unsupported arguments {kwargs}"
+            raise ValueError(msg)         
+
+        if method == "function_calling":
+            # pydantic
+            if isinstance(schema, type) and is_basemodel_subclass(schema):
+                parser = PydanticToolsParser(
+                    tools=[cast(TypeBaseModel, schema)], 
+                    first_tool_only=True
+                )
+                llm = self.bind_tools([schema], tool_choice="required")
+            # dict or typeddict
+            elif is_typeddict(schema) or isinstance(schema, dict):
+                tool_def = convert_to_openai_tool(schema)
+                function_name = tool_def['function']['name']
+                parser = JsonOutputKeyToolsParser(
+                    key_name=function_name,
+                    first_tool_only=True
+                )
+                llm = self.bind_tools([tool_def], tool_choice="required")
+            else:                
+                msg = f"Unsupported schema type {type(schema)}"
+                raise ValueError(msg)
+
+        elif method == "json_schema":
+
+            if strict is None:
+                strict_flag = True
+            else:
+                strict_flag = strict
+
+            # Setup parser for JSON text
+            if isinstance(schema, type) and is_basemodel_subclass(schema):
+                parser = PydanticOutputParser(pydantic_object=schema)
+            else:
+                parser = JsonOutputParser()
+            
+            # Setup LLM with json_schema
+            tool_def = convert_to_openai_tool(schema)
+            raw_schema = tool_def["function"]["parameters"]
+            json_schema = _ensure_additional_properties_false(raw_schema)
+            
+            # Safe schema name extraction
+            schema_name = getattr(schema, '__name__', tool_def["function"]["name"])
+
+            llm = self.bind(
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema_name,
+                        "schema": json_schema,
+                        "strict": strict_flag
+                    }
+                }
+            )
+    
+        if include_raw:
+            parser_with_fallback = RunnablePassthrough.assign(
+                parsed=itemgetter("raw") | parser,
+                parsing_error=lambda _: None
+            ).with_fallbacks(
+                [RunnablePassthrough.assign(parsed=lambda _: None)],
+                exception_key="parsing_error",
+            )
+            return {"raw": llm} | parser_with_fallback
+        
+        return llm | parser
 
     @property
     def _identifying_params(self) -> Dict[str, Any]:
@@ -603,3 +768,24 @@ def _create_usage_metadata(token_usage: Mapping[str, Any]) -> UsageMetadata:
         output_tokens=output_tokens,
         total_tokens=input_tokens + output_tokens,
     )
+
+def _ensure_additional_properties_false(schema_dict: dict) -> dict:
+    """Recursively ensure additionalProperties is set to false for all objects."""
+    if isinstance(schema_dict, dict):
+        result = schema_dict.copy()
+        
+        if result.get("type") == "object":
+            result["additionalProperties"] = False
+        
+        for key, value in result.items():
+            if isinstance(value, dict):
+                result[key] = _ensure_additional_properties_false(value)
+            elif isinstance(value, list):
+                result[key] = [
+                    _ensure_additional_properties_false(item) 
+                    if isinstance(item, dict) else item 
+                    for item in value
+                ]
+        
+        return result
+    return schema_dict

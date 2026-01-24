@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyannote-database
-Version: 6.1.0
+Version: 6.1.1
 Summary: Interface to multimedia databases and experimental protocols
 Author-email: Hervé BREDIN <herve@pyannote.ai>
 License-File: LICENSE

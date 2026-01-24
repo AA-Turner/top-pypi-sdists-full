@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "scim2-models"
-version = "0.5.0"
+version = "0.5.2"
 description = "SCIM2 models serialization and validation with pydantic"
 authors = [{name="Yaal Coop", email="contact@yaal.coop"}]
 license = {file = "LICENSE"}
@@ -25,7 +25,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 dependencies = [
     "pydantic[email]>=2.7.0"
 ]
@@ -44,7 +44,7 @@ dev = [
     "mypy>=1.13.0",
     "pytest>=8.2.1",
     "pytest-cov>=6.0.0",
-    "pre-commit-uv>=4.1.4",
+    "prek>=0.1.0",
     "tox-uv>=1.16.0",
 ]
 doc = [
@@ -128,11 +128,11 @@ warn_required_dynamic_aliases = true
 requires = ["tox>=4.19"]
 env_list = [
     "style",
-    "py39",
     "py310",
     "py311",
     "py312",
     "py313",
+    "py314",
     "minversions",
     "doc",
     "coverage",
@@ -149,7 +149,7 @@ commands = [
 skip_install = true
 runner = "uv-venv-runner"
 commands = [
-    ["pre-commit", "run", "--all-files", "--show-diff-on-failure"],
+    ["prek", "run", "--all-files", "--show-diff-on-failure"],
 ]
 
 [tool.tox.env.minversions]

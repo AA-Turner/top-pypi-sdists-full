@@ -27,6 +27,15 @@ class Server(UncheckedBaseModel):
     The credential ID for server authentication
     """
 
+    static_ip_addresses_enabled: typing_extensions.Annotated[
+        typing.Optional[bool], FieldMetadata(alias="staticIpAddressesEnabled")
+    ] = pydantic.Field(default=None)
+    """
+    If enabled, requests will originate from a static set of IPs owned and managed by Vapi.
+    
+    @default false
+    """
+
     url: typing.Optional[str] = pydantic.Field(default=None)
     """
     This is where the request will be sent.
@@ -37,6 +46,8 @@ class Server(UncheckedBaseModel):
     These are the headers to include in the request.
     
     Each key-value pair represents a header name and its value.
+    
+    Note: Specifying an Authorization header here will override the authorization provided by the `credentialId` (if provided). This is an anti-pattern and should be avoided outside of edge case scenarios.
     """
 
     backoff_plan: typing_extensions.Annotated[typing.Optional[BackoffPlan], FieldMetadata(alias="backoffPlan")] = (

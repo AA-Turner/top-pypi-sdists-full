@@ -1,15 +1,11 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use clap_verbosity_flag::{InfoLevel, Verbosity};
-use tombi_diagnostic::{printer::Pretty, Diagnostic, Print};
+use tombi_diagnostic::{Diagnostic, Print, printer::Pretty};
 use tracing_subscriber::prelude::*;
 
 #[derive(clap::Parser)]
-pub struct Args {
-    #[command(flatten)]
-    verbose: Verbosity<InfoLevel>,
-}
+pub struct Args {}
 
 pub fn project_root_path() -> PathBuf {
     let dir = std::env::var("CARGO_MANIFEST_DIR")
@@ -27,12 +23,9 @@ pub fn source_file() -> PathBuf {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Args::parse_from(std::env::args_os());
+    let _args = Args::parse_from(std::env::args_os());
 
     tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::from(
-            args.verbose.log_level_filter().to_string(),
-        ))
         .with(tracing_subscriber::fmt::layer().pretty().without_time())
         .init();
 
@@ -45,10 +38,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let error = Diagnostic::new_error("Some error occured.", "tombi-diagnostic", ((2, 1), (2, 3)));
 
-    warning.print(&mut Pretty);
-    warning.with_source_file(&source_file).print(&mut Pretty);
-    error.print(&mut Pretty);
-    error.with_source_file(&source_file).print(&mut Pretty);
+    warning.print(&mut Pretty {
+        use_ansi_color: true,
+    });
+    warning.with_source_file(&source_file).print(&mut Pretty {
+        use_ansi_color: true,
+    });
+    error.print(&mut Pretty {
+        use_ansi_color: true,
+    });
+    error.with_source_file(&source_file).print(&mut Pretty {
+        use_ansi_color: true,
+    });
 
     Ok(())
 }

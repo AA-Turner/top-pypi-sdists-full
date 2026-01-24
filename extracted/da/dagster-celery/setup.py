@@ -23,16 +23,15 @@ setup(
     description="Package for using Celery as Dagster's execution engine.",
     url="https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-celery",
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_celery_tests*"]),
     entry_points={"console_scripts": ["dagster-celery = dagster_celery.cli:main"]},
-    python_requires=">=3.9,<3.14",
+    python_requires=">=3.10,<3.15",
     install_requires=[
-        "dagster==1.11.11",
+        "dagster==1.12.12",
         "celery>=4.3.0",
         "click>=5.0,<9.0",
         "importlib_metadata<5.0.0; python_version<'3.8'",  # https://github.com/celery/celery/issues/7783

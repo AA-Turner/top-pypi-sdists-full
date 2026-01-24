@@ -1,18 +1,14 @@
 import builtins
 import dataclasses
 import inspect
-import sys
 import types
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import (
     Any,
-    Callable,
-    Optional,
     TypeVar,
-    Union,
     overload,
 )
-from typing_extensions import dataclass_transform
+from typing_extensions import dataclass_transform, get_annotations
 
 from strawberry.exceptions import (
     InvalidSuperclassInterfaceError,
@@ -51,7 +47,8 @@ def _check_field_annotations(cls: builtins.type[Any]) -> None:
 
     https://github.com/python/cpython/blob/6fed3c85402c5ca704eb3f3189ca3f5c67a08d19/Lib/dataclasses.py#L881-L884
     """
-    cls_annotations = cls.__dict__.get("__annotations__", {})
+    cls_annotations = get_annotations(cls)
+    # TODO: do we need this?
     cls.__annotations__ = cls_annotations
 
     for field_name, field_ in cls.__dict__.items():
@@ -104,24 +101,7 @@ def _wrap_dataclass(cls: builtins.type[T]) -> builtins.type[T]:
     """Wrap a strawberry.type class with a dataclass and check for any issues before doing so."""
     # Ensure all Fields have been properly type-annotated
     _check_field_annotations(cls)
-
-    dclass_kwargs: dict[str, bool] = {}
-
-    # Python 3.10 introduces the kw_only param. If we're on an older version
-    # then generate our own custom init function
-    if sys.version_info >= (3, 10):
-        dclass_kwargs["kw_only"] = True
-    else:
-        dclass_kwargs["init"] = False
-
-    dclass = dataclasses.dataclass(cls, **dclass_kwargs)
-
-    if sys.version_info < (3, 10):
-        from strawberry.utils.dataclasses import add_custom_init_fn
-
-        add_custom_init_fn(dclass)
-
-    return dclass
+    return dataclasses.dataclass(kw_only=True)(cls)
 
 
 def _inject_default_for_maybe_annotations(
@@ -129,20 +109,27 @@ def _inject_default_for_maybe_annotations(
 ) -> None:
     """Inject `= None` for fields with `Maybe` annotations and no default value."""
     for name, annotation in annotations.copy().items():
-        if _annotation_is_maybe(annotation) and not hasattr(cls, name):
-            setattr(cls, name, None)
+        if _annotation_is_maybe(annotation):
+            if not hasattr(cls, name):
+                setattr(cls, name, None)
+            elif (
+                isinstance(attr := getattr(cls, name), StrawberryField)
+                and attr.default is dataclasses.MISSING
+                and attr.default_factory is dataclasses.MISSING
+            ):
+                attr.default = None
 
 
 def _process_type(
     cls: T,
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     is_input: bool = False,
     is_interface: bool = False,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
     extend: bool = False,
-    original_type_annotations: Optional[dict[str, Any]] = None,
+    original_type_annotations: dict[str, Any] | None = None,
 ) -> T:
     name = name or to_camel_case(cls.__name__)
     original_type_annotations = original_type_annotations or {}
@@ -208,11 +195,11 @@ def _process_type(
 def type(
     cls: T,
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     is_input: bool = False,
     is_interface: bool = False,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
     extend: bool = False,
 ) -> T: ...
 
@@ -223,25 +210,25 @@ def type(
 )
 def type(
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     is_input: bool = False,
     is_interface: bool = False,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
     extend: bool = False,
 ) -> Callable[[T], T]: ...
 
 
 def type(
-    cls: Optional[T] = None,
+    cls: T | None = None,
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     is_input: bool = False,
     is_interface: bool = False,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
     extend: bool = False,
-) -> Union[T, Callable[[T], T]]:
+) -> T | Callable[[T], T]:
     """Annotates a class as a GraphQL type.
 
     Similar to `dataclasses.dataclass`, but with additional functionality for
@@ -330,10 +317,10 @@ def type(
 def input(
     cls: T,
     *,
-    name: Optional[str] = None,
-    one_of: Optional[bool] = None,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
+    name: str | None = None,
+    one_of: bool | None = None,
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
 ) -> T: ...
 
 
@@ -343,20 +330,20 @@ def input(
 )
 def input(
     *,
-    name: Optional[str] = None,
-    one_of: Optional[bool] = None,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
+    name: str | None = None,
+    one_of: bool | None = None,
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
 ) -> Callable[[T], T]: ...
 
 
 def input(
-    cls: Optional[T] = None,
+    cls: T | None = None,
     *,
-    name: Optional[str] = None,
-    one_of: Optional[bool] = None,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
+    name: str | None = None,
+    one_of: bool | None = None,
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
 ):
     """Annotates a class as a GraphQL Input type.
 
@@ -409,9 +396,9 @@ def input(
 def interface(
     cls: T,
     *,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
+    name: str | None = None,
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
 ) -> T: ...
 
 
@@ -421,9 +408,9 @@ def interface(
 )
 def interface(
     *,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
+    name: str | None = None,
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
 ) -> Callable[[T], T]: ...
 
 
@@ -431,11 +418,11 @@ def interface(
     order_default=True, kw_only_default=True, field_specifiers=(field, StrawberryField)
 )
 def interface(
-    cls: Optional[T] = None,
+    cls: T | None = None,
     *,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
+    name: str | None = None,
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
 ):
     """Annotates a class as a GraphQL Interface.
 

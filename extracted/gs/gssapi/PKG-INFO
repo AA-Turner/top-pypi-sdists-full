@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: gssapi
-Version: 1.10.0
+Version: 1.10.1
 Summary: Python GSSAPI Wrapper
 Home-page: https://github.com/pythongssapi/python-gssapi
 Author: The Python GSSAPI Team
 Author-email: jborean93@gmail.com
-License: LICENSE.txt
+License: ISC
 Keywords: gssapi,security
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
@@ -22,12 +22,14 @@ Classifier: Programming Language :: Cython
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: decorator
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
+Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license

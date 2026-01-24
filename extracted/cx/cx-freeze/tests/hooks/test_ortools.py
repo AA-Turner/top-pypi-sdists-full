@@ -15,7 +15,7 @@ from cx_Freeze._compat import (
     IS_WINDOWS,
 )
 
-TIMEOUT = 10
+TIMEOUT = 15
 
 zip_packages = pytest.mark.parametrize(
     "zip_packages", [False, True], ids=["", "zip_packages"]
@@ -121,6 +121,12 @@ pyproject.toml
     sys.version_info[:2] >= (3, 13) and ABI_THREAD == "t" and not IS_LINUX,
     raises=ModuleNotFoundError,
     reason="ortools supports Python 3.13t on Linux only",
+    strict=True,
+)
+@pytest.mark.xfail(
+    sys.version_info[:2] >= (3, 14),
+    raises=ModuleNotFoundError,
+    reason="rasterio does not support Python 3.14+",
     strict=True,
 )
 @pytest.mark.venv

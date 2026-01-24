@@ -3,12 +3,16 @@ from __future__ import annotations
 import typing as t
 import uuid
 
-from globus_sdk import client, exc, paging, response, scopes, utils
+from globus_sdk import client, paging, response
+from globus_sdk._internal.classprop import classproperty
+from globus_sdk._internal.remarshal import commajoin
+from globus_sdk._internal.utils import slash_join
+from globus_sdk._missing import MISSING, MissingType
 from globus_sdk.authorizers import GlobusAuthorizer
 from globus_sdk.globus_app import GlobusApp
-from globus_sdk.scopes import Scope
+from globus_sdk.scopes import GCSCollectionScopes, GCSEndpointScopes, Scope
+from globus_sdk.transport import RequestsTransport, RetryConfig
 
-from .connector_table import ConnectorTable
 from .data import (
     CollectionDocument,
     EndpointDocument,
@@ -53,7 +57,8 @@ class GCSClient(client.BaseClient):
         environment: str | None = None,
         authorizer: GlobusAuthorizer | None = None,
         app_name: str | None = None,
-        transport_params: dict[str, t.Any] | None = None,
+        transport: RequestsTransport | None = None,
+        retry_config: RetryConfig | None = None,
     ) -> None:
         # check if the provided address was a DNS name or an HTTPS URL
         if not gcs_address.startswith("https://"):
@@ -62,7 +67,7 @@ class GCSClient(client.BaseClient):
         # if it was an HTTPS URL, check that it ends with /api/
         elif not gcs_address.endswith(("/api/", "/api")):
             # if it doesn't, add it
-            gcs_address = utils.slash_join(gcs_address, "/api/")
+            gcs_address = slash_join(gcs_address, "/api/")
 
         self._endpoint_client_id: str | None = None
 
@@ -73,76 +78,47 @@ class GCSClient(client.BaseClient):
             app_scopes=app_scopes,
             authorizer=authorizer,
             app_name=app_name,
-            transport_params=transport_params,
+            transport=transport,
+            retry_config=retry_config,
         )
 
     @staticmethod
     def get_gcs_endpoint_scopes(
         endpoint_id: uuid.UUID | str,
-    ) -> scopes.GCSEndpointScopeBuilder:
+    ) -> GCSEndpointScopes:
         """Given a GCS Endpoint ID, this helper constructs an object containing the
         scopes for that Endpoint.
 
         :param endpoint_id: The ID of the Endpoint
 
-        See documentation for :class:`globus_sdk.scopes.GCSEndpointScopeBuilder` for
+        See documentation for :class:`globus_sdk.scopes.GCSEndpointScopes` for
         more information.
         """
-        return scopes.GCSEndpointScopeBuilder(str(endpoint_id))
+        return GCSEndpointScopes(str(endpoint_id))
 
     @staticmethod
     def get_gcs_collection_scopes(
         collection_id: uuid.UUID | str,
-    ) -> scopes.GCSCollectionScopeBuilder:
+    ) -> GCSCollectionScopes:
         """Given a GCS Collection ID, this helper constructs an object containing the
         scopes for that Collection.
 
         :param collection_id: The ID of the Collection
 
-        See documentation for :class:`globus_sdk.scopes.GCSCollectionScopeBuilder` for
+        See documentation for :class:`globus_sdk.scopes.GCSCollectionScopes` for
         more information.
         """
-        return scopes.GCSCollectionScopeBuilder(str(collection_id))
-
-    @staticmethod
-    def connector_id_to_name(connector_id: uuid.UUID | str) -> str | None:
-        """
-        .. warning::
-
-            This method is deprecated -- use
-            ``ConnectorTable.lookup`` instead.
-
-        Helper that converts a given connector ID into a human-readable
-        connector name string.
-
-        :param connector_id: The ID of the connector
-        """
-        exc.warn_deprecated(
-            "`connector_id_to_name` has been replaced with "
-            "`ConnectorTable.lookup`. Use that instead, "
-            "and retrieve the `name` attribute from the result."
-        )
-        connector_obj = ConnectorTable.lookup(connector_id)
-        if connector_obj is None:
-            return None
-        name = connector_obj.name
-        # compatibility shim due to name change in the data (which was updated to
-        # match internal sources referring to this only as "BlackPearl")
-        if name == "BlackPearl":
-            name = "Spectralogic BlackPearl"
-        return name
+        return GCSCollectionScopes(str(collection_id))
 
     @property
     def default_scope_requirements(self) -> list[Scope]:
         return [
-            Scope(
-                GCSClient.get_gcs_endpoint_scopes(
-                    self.endpoint_client_id
-                ).manage_collections
-            )
+            GCSClient.get_gcs_endpoint_scopes(
+                self.endpoint_client_id
+            ).manage_collections
         ]
 
-    @utils.classproperty
+    @classproperty
     def resource_server(  # pylint: disable=missing-param-doc
         self_or_cls: client.BaseClient | type[client.BaseClient],
     ) -> str | None:
@@ -233,8 +209,8 @@ class GCSClient(client.BaseClient):
         endpoint_data: dict[str, t.Any] | EndpointDocument,
         *,
         include: (
-            t.Iterable[t.Literal["endpoint"]] | t.Literal["endpoint"] | None
-        ) = None,
+            t.Iterable[t.Literal["endpoint"]] | t.Literal["endpoint"] | MissingType
+        ) = MISSING,
         query_params: dict[str, t.Any] | None = None,
     ) -> UnpackingGCSResponse:
         """
@@ -255,10 +231,7 @@ class GCSClient(client.BaseClient):
                     :ref: openapi_Endpoint/#patchEndpoint
                     :service: gcs
         """
-        query_params = query_params or {}
-        if include is not None:
-            query_params["include"] = utils.commajoin(include)
-
+        query_params = {"include": commajoin(include), **(query_params or {})}
         return UnpackingGCSResponse(
             self.patch(
                 "/endpoint",
@@ -279,13 +252,13 @@ class GCSClient(client.BaseClient):
     def get_collection_list(
         self,
         *,
-        mapped_collection_id: uuid.UUID | str | None = None,
+        mapped_collection_id: uuid.UUID | str | MissingType = MISSING,
         filter: (  # pylint: disable=redefined-builtin
-            str | t.Iterable[str] | None
-        ) = None,
-        include: str | t.Iterable[str] | None = None,
-        page_size: int | None = None,
-        marker: str | None = None,
+            str | t.Iterable[str] | MissingType
+        ) = MISSING,
+        include: str | t.Iterable[str] | MissingType = MISSING,
+        page_size: int | MissingType = MISSING,
+        marker: str | MissingType = MISSING,
         query_params: dict[str, t.Any] | None = None,
     ) -> IterableGCSResponse:
         """
@@ -312,20 +285,14 @@ class GCSClient(client.BaseClient):
                     :ref: openapi_Collections/#ListCollections
                     :service: gcs
         """
-        if query_params is None:
-            query_params = {}
-        if include is not None:
-            query_params["include"] = ",".join(utils.safe_strseq_iter(include))
-        if page_size is not None:
-            query_params["page_size"] = page_size
-        if marker is not None:
-            query_params["marker"] = marker
-        if mapped_collection_id is not None:
-            query_params["mapped_collection_id"] = mapped_collection_id
-        if filter is not None:
-            if isinstance(filter, str):
-                filter = [filter]
-            query_params["filter"] = ",".join(filter)
+        query_params = {
+            "include": commajoin(include),
+            "page_size": page_size,
+            "marker": marker,
+            "mapped_collection_id": mapped_collection_id,
+            "filter": commajoin(filter),
+            **(query_params or {}),
+        }
         return IterableGCSResponse(self.get("collections", query_params=query_params))
 
     def get_collection(
@@ -454,9 +421,9 @@ class GCSClient(client.BaseClient):
     def get_storage_gateway_list(
         self,
         *,
-        include: None | str | t.Iterable[str] = None,
-        page_size: int | None = None,
-        marker: str | None = None,
+        include: str | t.Iterable[str] | MissingType = MISSING,
+        page_size: int | MissingType = MISSING,
+        marker: str | MissingType = MISSING,
         query_params: dict[str, t.Any] | None = None,
     ) -> IterableGCSResponse:
         """
@@ -485,14 +452,12 @@ class GCSClient(client.BaseClient):
                     :ref: openapi_Storage_Gateways/#getStorageGateways
                     :service: gcs
         """
-        if query_params is None:
-            query_params = {}
-        if include is not None:
-            query_params["include"] = ",".join(utils.safe_strseq_iter(include))
-        if page_size is not None:
-            query_params["page_size"] = page_size
-        if marker is not None:
-            query_params["marker"] = marker
+        query_params = {
+            "include": commajoin(include),
+            "page_size": page_size,
+            "marker": marker,
+            **(query_params or {}),
+        }
         return IterableGCSResponse(
             self.get("/storage_gateways", query_params=query_params)
         )
@@ -529,7 +494,7 @@ class GCSClient(client.BaseClient):
         self,
         storage_gateway_id: uuid.UUID | str,
         *,
-        include: None | str | t.Iterable[str] = None,
+        include: str | t.Iterable[str] | MissingType = MISSING,
         query_params: dict[str, t.Any] | None = None,
     ) -> UnpackingGCSResponse:
         """
@@ -552,11 +517,7 @@ class GCSClient(client.BaseClient):
                     :ref: openapi_Storage_Gateways/#getStorageGateway
                     :service: gcs
         """
-        if query_params is None:
-            query_params = {}
-        if include is not None:
-            query_params["include"] = ",".join(utils.safe_strseq_iter(include))
-
+        query_params = {"include": commajoin(include), **(query_params or {})}
         return UnpackingGCSResponse(
             self.get(
                 f"/storage_gateways/{storage_gateway_id}",
@@ -632,10 +593,10 @@ class GCSClient(client.BaseClient):
     )
     def get_role_list(
         self,
-        collection_id: uuid.UUID | str | None = None,
-        include: str | None = None,
-        page_size: int | None = None,
-        marker: str | None = None,
+        collection_id: uuid.UUID | str | MissingType = MISSING,
+        include: str | MissingType = MISSING,
+        page_size: int | MissingType = MISSING,
+        marker: str | MissingType = MISSING,
         query_params: dict[str, t.Any] | None = None,
     ) -> IterableGCSResponse:
         """
@@ -662,17 +623,13 @@ class GCSClient(client.BaseClient):
                     :ref: openapi_Roles/#listRoles
                     :service: gcs
         """
-        if query_params is None:
-            query_params = {}
-        if include is not None:
-            query_params["include"] = include
-        if page_size is not None:
-            query_params["page_size"] = page_size
-        if marker is not None:
-            query_params["marker"] = marker
-        if collection_id is not None:
-            query_params["collection_id"] = collection_id
-
+        query_params = {
+            "include": include,
+            "page_size": page_size,
+            "marker": marker,
+            "collection_id": collection_id,
+            **(query_params or {}),
+        }
         path = "/roles"
         return IterableGCSResponse(self.get(path, query_params=query_params))
 
@@ -758,10 +715,10 @@ class GCSClient(client.BaseClient):
     )
     def get_user_credential_list(
         self,
-        storage_gateway: uuid.UUID | str | None = None,
+        storage_gateway: uuid.UUID | str | MissingType = MISSING,
+        page_size: int | MissingType = MISSING,
+        marker: str | MissingType = MISSING,
         query_params: dict[str, t.Any] | None = None,
-        page_size: int | None = None,
-        marker: str | None = None,
     ) -> IterableGCSResponse:
         """
         List User Credentials
@@ -782,15 +739,12 @@ class GCSClient(client.BaseClient):
                     :ref: openapi_User_Credentials/#getUserCredentials
                     :service: gcs
         """
-        if query_params is None:
-            query_params = {}
-        if storage_gateway is not None:
-            query_params["storage_gateway"] = storage_gateway
-        if page_size is not None:
-            query_params["page_size"] = page_size
-        if marker is not None:
-            query_params["marker"] = marker
-
+        query_params = {
+            "storage_gateway": storage_gateway,
+            "page_size": page_size,
+            "marker": marker,
+            **(query_params or {}),
+        }
         path = "/user_credentials"
         return IterableGCSResponse(self.get(path, query_params=query_params))
 

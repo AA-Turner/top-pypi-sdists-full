@@ -131,8 +131,8 @@ class RelationshipModelSerializer(serializers.ModelSerializer):
                 data["from_entry_id"] = self.instance.from_entry.id
             else:
                 data["from_entry_id"] = self.context["view"].kwargs["entry_id"]
-        except KeyError:
-            raise ValidationError(_("From entry has to be set."))
+        except KeyError as e:
+            raise ValidationError(_("From entry has to be set.")) from e
         from_entry = data.get("from_entry", getattr(self.instance, "from_entry", None))
         to_entry = data.get("to_entry", getattr(self.instance, "to_entry", None))
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fixtures
-Version: 4.2.6
+Version: 4.2.8
 Summary: Fixtures, reusable state for writing clean tests and more.
 Project-URL: Homepage, https://github.com/testing-cabal/fixtures
 Project-URL: Bug Tracker, https://github.com/testing-cabal/fixtures/issues
@@ -16,20 +16,20 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Provides-Extra: docs
 Requires-Dist: docutils; extra == 'docs'
 Provides-Extra: streams
-Requires-Dist: testools; extra == 'streams'
+Requires-Dist: testtools; extra == 'streams'
 Provides-Extra: test
 Requires-Dist: testtools; extra == 'test'
 Description-Content-Type: text/x-rst
@@ -47,7 +47,7 @@ provided that makes using fixtures that meet the ``Fixtures`` contract in
 Dependencies
 ============
 
-* Python 3.9+
+* Python
   This is the base language fixtures is written in and for.
 
 The ``fixtures[streams]`` extra adds:
@@ -64,6 +64,9 @@ is easy. Alternatively, you can simply use Fixtures directly without any
 support code.
 
 To run the test suite for fixtures, ``testtools`` is needed.
+
+To see exactly what version of Python is supported, see
+``requires-python`` in ``pyprojec.toml``.
 
 Why Fixtures
 ============

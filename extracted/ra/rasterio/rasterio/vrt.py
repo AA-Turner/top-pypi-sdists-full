@@ -68,8 +68,10 @@ class WarpedVRT(WarpedVRTReaderBase, WindowMethodsMixin, TransformMethodsMixin):
     dtype : str, optional
         The working data type for warp operation and output.
     warp_extras : dict
-        GDAL extra warp options. See
-        https://gdal.org/doxygen/structGDALWarpOptions.html.
+        Additional arguments passed to both the image to image
+        transformer :cpp:func:`GDALCreateGenImgProjTransformer2` (for example,
+        MAX_GCP_ORDER=2) and the :cpp:struct:`GDALWarpOptions` (for example,
+        INIT_DEST=NO_DATA).
 
     Attributes
     ----------
@@ -92,8 +94,10 @@ class WarpedVRT(WarpedVRTReaderBase, WindowMethodsMixin, TransformMethodsMixin):
     working_dtype : str, optional
         The working data type for warp operation and output.
     warp_extras : dict
-        GDAL extra warp options. See
-        https://gdal.org/doxygen/structGDALWarpOptions.html.
+        Additional arguments passed to both the image to image
+        transformer :cpp:func:`GDALCreateGenImgProjTransformer2` (for example,
+        MAX_GCP_ORDER=2) and the :cpp:struct:`GDALWarpOptions` (for example,
+        INIT_DEST=NO_DATA).
 
     Examples
     --------
@@ -113,12 +117,10 @@ class WarpedVRT(WarpedVRTReaderBase, WindowMethodsMixin, TransformMethodsMixin):
         return self
 
     def __exit__(self, *args, **kwargs):
-        if not self._closed:
-            self.close()
+        self.close()
 
     def __del__(self):
-        if not self._closed:
-            self.close()
+        self.close()
 
 
 def _boundless_vrt_doc(

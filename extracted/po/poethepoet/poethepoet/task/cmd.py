@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import shlex
 from typing import TYPE_CHECKING, Literal
 
@@ -8,6 +10,7 @@ if TYPE_CHECKING:
     from ..config import PoeConfig
     from ..context import RunContext
     from ..env.manager import EnvVarsManager
+    from ..executor.task_run import PoeTaskRun
     from .base import TaskSpecFactory
 
 
@@ -24,6 +27,7 @@ class CmdTask(PoeTask):
     class TaskOptions(PoeTask.TaskOptions):
         use_exec: bool = False
         empty_glob: Literal["pass", "null", "fail"] = "pass"
+        ignore_fail: bool | list[int] = False
 
         def validate(self):
             """
@@ -38,9 +42,9 @@ class CmdTask(PoeTask):
 
     class TaskSpec(PoeTask.TaskSpec):
         content: str
-        options: "CmdTask.TaskOptions"
+        options: CmdTask.TaskOptions
 
-        def _task_validations(self, config: "PoeConfig", task_specs: "TaskSpecFactory"):
+        def _task_validations(self, config: PoeConfig, task_specs: TaskSpecFactory):
             """
             Perform validations on this TaskSpec that apply to a specific task type
             """
@@ -49,11 +53,12 @@ class CmdTask(PoeTask):
 
     spec: TaskSpec
 
-    def _handle_run(
-        self,
-        context: "RunContext",
-        env: "EnvVarsManager",
-    ) -> int:
+    async def _handle_run(
+        self, context: RunContext, env: EnvVarsManager, task_state: PoeTaskRun
+    ):
+        if ignore_fail := self.spec.options.ignore_fail:
+            task_state.ignore_failure(ignore_fail)
+
         named_arg_values, extra_args = self.get_parsed_arguments(env)
         env.update(named_arg_values)
 
@@ -64,11 +69,13 @@ class CmdTask(PoeTask):
 
         self._print_action(shlex.join(cmd), context.dry)
 
-        result = executor.execute(
+        process = await executor.execute(
             cmd, use_exec=self.spec.options.get("use_exec", False)
         )
+        await task_state.add_process(process, finalize=True)
 
-        if result != 0 and self.__passed_unmatched_glob:
+        await process.wait()
+        if process.returncode != 0 and self.__passed_unmatched_glob:
             # We made a breaking change in 0.36.0 to pass through glob patterns with no
             # matches. If this might have been the cause of the failure, we print a
             # warning with a link.
@@ -78,9 +85,7 @@ class CmdTask(PoeTask):
                 "More details: https://github.com/nat-n/poethepoet/discussions/314",
             )
 
-        return result
-
-    def _resolve_commandline(self, context: "RunContext", env: "EnvVarsManager"):
+    def _resolve_commandline(self, context: RunContext, env: EnvVarsManager):
         from ..helpers.command import parse_poe_cmd, resolve_command_tokens
         from ..helpers.command.ast_core import ParseError
 

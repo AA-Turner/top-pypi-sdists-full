@@ -10,7 +10,9 @@ The implementation currently supports JSON-RPC 2.0 transport only.
 Push notifications are not implemented.
 """
 
+import asyncio
 import functools
+import os
 import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal, NotRequired, cast
@@ -25,8 +27,10 @@ from typing_extensions import TypedDict
 from langgraph_api import __version__
 from langgraph_api.metadata import USER_API_URL
 from langgraph_api.route import ApiRequest, ApiRoute
+from langgraph_api.schema import RunCommand
 from langgraph_api.sse import EventSourceResponse
 from langgraph_api.utils.cache import LRUCache
+from langgraph_api.utils.uuids import uuid7
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -62,12 +66,6 @@ class JsonRpcResponse(TypedDict):
     error: NotRequired[JsonRpcErrorObject]
 
 
-class JsonRpcNotification(TypedDict):
-    jsonrpc: Literal["2.0"]
-    method: str
-    params: NotRequired[dict[str, Any]]
-
-
 # ============================================================================
 # A2A Specific Error Codes
 # ============================================================================
@@ -99,6 +97,34 @@ A2A_PROTOCOL_VERSION = "0.3.0"
 def _client() -> LangGraphClient:
     """Get a client for local operations."""
     return get_client(url=None)
+
+
+def _make_task_id(context_id: str, run_id: str) -> str:
+    """Create composite A2A task ID from contextId and run_id.
+
+    A2A spec allows task IDs to be any string (UUIDs are just an example).
+    We encode both thread_id (contextId) and run_id to allow tasks/get
+    to work without requiring contextId as a separate parameter.
+
+    Format: "{context_id}:{run_id}"
+    """
+    return f"{context_id}:{run_id}"
+
+
+def _parse_task_id(task_id: str) -> tuple[str, str]:
+    """Parse composite task ID into (context_id, run_id).
+
+    If task_id contains ":", split on first occurrence.
+    Otherwise, return empty context_id (caller must get it from params).
+
+    Returns:
+        Tuple of (context_id, run_id)
+    """
+    if ":" in task_id:
+        context_id, run_id = task_id.split(":", 1)
+        return context_id, run_id
+    # Fallback for raw run_id (requires contextId in params)
+    return "", task_id
 
 
 async def _get_assistant(
@@ -168,7 +194,7 @@ async def _validate_supports_messages(
     # Validate messages field only if there are text parts
     has_text_parts = any(part.get("kind") == "text" for part in parts)
     if has_text_parts:
-        input_schema = schemas.get("input_schema")
+        input_schema = schemas.get("input_schema") or schemas.get("state_schema")
         if not input_schema:
             raise ValueError(
                 f"Assistant '{assistant_id}' has no input schema defined. "
@@ -187,8 +213,170 @@ async def _validate_supports_messages(
     return schemas
 
 
+def _extract_and_validate_command(
+    message: dict[str, Any],
+    context_id: str | None,
+) -> tuple[RunCommand | None, dict[str, Any] | None]:
+    """Extract and validate command field from A2A message.
+
+    Args:
+        message: The A2A message dict
+        context_id: The context ID (thread ID) from the message
+
+    Returns:
+        Tuple of (command, error_dict). If validation passes, error_dict is None.
+        If validation fails, command is None and error_dict contains code/message.
+    """
+    command: RunCommand | None = message.get("command")
+
+    if command is not None and command.get("resume") and not context_id:
+        # Validate that resume requires contextId (maps to thread_id)
+        return None, {
+            "code": ERROR_CODE_INVALID_PARAMS,
+            "message": "contextId is required when resuming a task with command.resume",
+        }
+
+    return command, None
+
+
+def _extract_resume_from_parts(
+    parts: list[dict[str, Any]],
+) -> tuple[Any | None, dict[str, Any] | None]:
+    """Extract resume payload from A2A data parts.
+
+    Returns:
+        Tuple of (resume_value, error_dict). If no resume payload is found,
+        resume_value is None and error_dict is None.
+    """
+    resume_values = []
+    for part in parts:
+        if part.get("kind") != "data":
+            continue
+        part_data = part.get("data")
+        if not isinstance(part_data, dict):
+            continue
+        if "resume" in part_data:
+            resume_values.append(part_data.get("resume"))
+
+    if not resume_values:
+        return None, None
+    if len(resume_values) > 1:
+        return None, {
+            "code": ERROR_CODE_INVALID_PARAMS,
+            "message": "Only one resume value is allowed in data parts",
+        }
+
+    return resume_values[0], None
+
+
+def _extract_text_from_parts(parts: list[dict[str, Any]]) -> str | None:
+    texts: list[str] = []
+    for part in parts:
+        if part.get("kind") != "text":
+            continue
+        text = part.get("text")
+        if isinstance(text, str):
+            texts.append(text)
+    if not texts:
+        return None
+    return "\n".join(texts)
+
+
+async def _is_thread_interrupted(
+    client: LangGraphClient,
+    context_id: str,
+    headers: Headers,
+    *,
+    attempts: int = 3,
+    delay_seconds: float = 0.05,
+) -> bool:
+    for attempt in range(attempts):
+        try:
+            thread_info = await client.threads.get(
+                thread_id=context_id,
+                headers=headers,
+            )
+        except Exception:
+            return False
+        if thread_info.get("status") == "interrupted":
+            return True
+        if attempt < attempts - 1:
+            await asyncio.sleep(delay_seconds)
+    return False
+
+
+async def _maybe_promote_resume_to_command(
+    *,
+    client: LangGraphClient,
+    parts: list[dict[str, Any]],
+    context_id: str | None,
+    task_id: str | None,
+    input_content: dict[str, Any],
+    headers: Headers,
+) -> tuple[RunCommand | None, dict[str, Any] | None, dict[str, Any]]:
+    """Convert resume content to a command when the thread is interrupted."""
+    resume_value, resume_error = _extract_resume_from_parts(parts)
+    resume_source = "data" if resume_value is not None else None
+    if resume_error:
+        return None, resume_error, input_content
+
+    if resume_source is None:
+        text_resume = _extract_text_from_parts(parts)
+        if text_resume is not None:
+            resume_value = text_resume
+            resume_source = "text"
+
+    if resume_source is None:
+        return None, None, input_content
+    if resume_source == "data":
+        if not context_id or not task_id:
+            return (
+                None,
+                {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": "contextId and taskId are required when resuming a task",
+                },
+                input_content,
+            )
+        if not await _is_thread_interrupted(client, context_id, headers):
+            return (
+                None,
+                {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": "Task is not awaiting input",
+                },
+                input_content,
+            )
+        if "resume" in input_content:
+            input_content = dict(input_content)
+            input_content.pop("resume", None)
+        return {"resume": resume_value}, None, input_content
+
+    if not context_id:
+        return None, None, input_content
+    if not await _is_thread_interrupted(client, context_id, headers):
+        return None, None, input_content
+    if not task_id:
+        return (
+            None,
+            {
+                "code": ERROR_CODE_INVALID_PARAMS,
+                "message": "contextId and taskId are required when resuming a task",
+            },
+            input_content,
+        )
+
+    if resume_source == "text" and "messages" in input_content:
+        input_content = dict(input_content)
+        input_content.pop("messages", None)
+
+    return {"resume": resume_value}, None, input_content
+
+
 def _process_a2a_message_parts(
-    parts: list[dict[str, Any]], message_role: str
+    parts: list[dict[str, Any]],
+    message_role: str,
+    message_id: str,
 ) -> dict[str, Any]:
     """Convert A2A message parts to LangChain messages format.
 
@@ -215,7 +403,9 @@ def _process_a2a_message_parts(
 
             # Map A2A role to LangGraph role
             langgraph_role = "human" if message_role == "user" else "assistant"
-            messages.append({"role": langgraph_role, "content": part["text"]})
+            messages.append(
+                {"role": langgraph_role, "content": part["text"], "id": message_id}
+            )
 
         elif part_kind == "data":
             # Data parts become structured input parameters
@@ -276,9 +466,7 @@ def _extract_a2a_response(result: dict[str, Any]) -> str:
             isinstance(message, dict)
             and message.get("role") == "assistant"
             and "content" in message
-            or message.get("type") == "ai"
-            and "content" in message
-        ):
+        ) or (message.get("type") == "ai" and "content" in message):
             return message["content"]
 
     # If no assistant message found, return the last message content
@@ -287,6 +475,33 @@ def _extract_a2a_response(result: dict[str, Any]) -> str:
         return last_message.get("content", str(last_message))
 
     return str(last_message)
+
+
+def _create_interrupt_artifact(interrupts: list[dict[str, Any]]) -> dict[str, Any]:
+    """Create an A2A artifact from interrupt data.
+
+    Args:
+        interrupts: List of interrupt objects with 'id' and 'value' keys
+
+    Returns:
+        A2A artifact dict with interrupt data parts
+    """
+    interrupt_parts = [
+        {
+            "kind": "data",
+            "data": {
+                "id": interrupt_obj.get("id"),
+                "value": interrupt_obj.get("value"),
+            },
+        }
+        for interrupt_obj in interrupts
+    ]
+    return {
+        "artifactId": str(uuid.uuid4()),
+        "name": "Interrupt",
+        "description": "Agent requires input to continue",
+        "parts": interrupt_parts,
+    }
 
 
 def _lc_stream_items_to_a2a_message(
@@ -446,7 +661,7 @@ def _map_runs_create_error_to_rpc(
     return {
         "error": {
             "code": ERROR_CODE_INTERNAL_ERROR,
-            "message": f"Internal server error: {str(exception)}",
+            "message": f"Internal server error: {exception!s}",
         }
     }
 
@@ -502,7 +717,7 @@ def _map_runs_get_error_to_rpc(
     return {
         "error": {
             "code": ERROR_CODE_INTERNAL_ERROR,
-            "message": f"Internal server error: {str(exception)}",
+            "message": f"Internal server error: {exception!s}",
         }
     }
 
@@ -530,6 +745,7 @@ def _convert_messages_to_a2a_format(
             msg_type = msg.get("type", "ai")
             msg_role = msg.get("role", "")
             content = msg.get("content", "")
+            id = msg.get("id") or str(uuid7())
 
             # Support both LangChain style (type: "human"/"ai") and OpenAI style (role: "user"/"assistant")
             # Map to A2A roles: "human"/"user" -> "user", everything else -> "agent"
@@ -538,7 +754,7 @@ def _convert_messages_to_a2a_format(
             a2a_message = {
                 "role": a2a_role,
                 "parts": [{"kind": "text", "text": str(content)}],
-                "messageId": str(uuid.uuid4()),
+                "messageId": id,
                 "taskId": task_id,
                 "contextId": context_id,
                 "kind": "message",
@@ -595,6 +811,12 @@ async def _create_task_response(
                 "kind": "message",
             },
         }
+    elif "__interrupt__" in result:
+        base_task["status"] = {
+            "state": "input-required",
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+        base_task["artifacts"] = [_create_interrupt_artifact(result["__interrupt__"])]
     else:
         artifact_id = str(uuid.uuid4())
         artifacts = [
@@ -658,48 +880,112 @@ async def handle_post_request(request: ApiRequest, assistant_id: str) -> Respons
     try:
         message = orjson.loads(body)
     except orjson.JSONDecodeError:
-        return create_error_response("Invalid JSON payload", 400)
+        # JSON-RPC 2.0: Parse error (-32700) - Invalid JSON was received
+        return create_jsonrpc_error_response(
+            ERROR_CODE_PARSE_ERROR, "Invalid JSON payload"
+        )
 
     if not isinstance(message, dict):
-        return create_error_response("Invalid message format", 400)
+        # JSON-RPC 2.0: Invalid Request (-32600) - Not a valid Request object
+        return create_jsonrpc_error_response(
+            ERROR_CODE_INVALID_REQUEST, "Invalid message format: expected object"
+        )
 
     if message.get("jsonrpc") != "2.0":
-        return create_error_response(
-            "Invalid JSON-RPC message. Missing or invalid jsonrpc version", 400
+        # JSON-RPC 2.0: Invalid Request (-32600) - Missing or invalid jsonrpc version
+        return create_jsonrpc_error_response(
+            ERROR_CODE_INVALID_REQUEST,
+            "Invalid JSON-RPC message: missing or invalid jsonrpc version",
+            message.get("id"),
         )
 
     # Route based on message type
     id_ = message.get("id")
     method = message.get("method")
 
+    # Validate id type: JSON-RPC 2.0 requires id to be String, Number, or Null
+    # Objects and arrays are not valid id types
+    if id_ is not None and not isinstance(id_, (str, int, float)):
+        return create_jsonrpc_error_response(
+            ERROR_CODE_INVALID_REQUEST,
+            "Invalid JSON-RPC request: 'id' must be a string, number, or null",
+            None,  # Can't echo back invalid id
+        )
+
+    # Validate method type: JSON-RPC 2.0 requires method to be a String
+    # Per A2A TCK, invalid method type returns "Method Not Found" (-32601)
+    if method is not None and not isinstance(method, str):
+        return create_jsonrpc_error_response(
+            ERROR_CODE_METHOD_NOT_FOUND,
+            "Method not found: method must be a string",
+            id_ if isinstance(id_, (str, int, float, type(None))) else None,
+        )
+
+    # Validate method is a known A2A method
+    known_methods = {
+        "message/send",
+        "message/stream",
+        "tasks/get",
+        "tasks/cancel",
+        "agent/authenticatedExtendedCard",
+        "agent/getAuthenticatedExtendedCard",
+    }
+    if method is not None and method not in known_methods:
+        return create_jsonrpc_error_response(
+            ERROR_CODE_METHOD_NOT_FOUND,
+            f"Method not found: {method}",
+            id_,
+        )
+
+    params = message.get("params", {})
+    if method in ("message/send", "message/stream"):
+        if not isinstance(params, dict):
+            return create_jsonrpc_error_response(
+                ERROR_CODE_INVALID_PARAMS,
+                "Invalid params: must be an object",
+                id_,
+            )
+        msg = params.get("message")
+        if not msg or not isinstance(msg, dict):
+            return create_jsonrpc_error_response(
+                ERROR_CODE_INVALID_PARAMS,
+                "Missing or invalid 'message' in params",
+                id_,
+            )
+
     accept_header = request.headers.get("Accept") or ""
     if method == "message/stream":
-        if "text/event-stream" not in accept_header:
+        if not _accepts_media_type(accept_header, "text/event-stream"):
             return create_error_response(
                 "Accept header must include text/event-stream for streaming", 400
             )
     else:
-        if "application/json" not in accept_header:
+        if not _accepts_media_type(accept_header, "application/json"):
             return create_error_response(
                 "Accept header must include application/json", 400
             )
 
     if id_ is not None and method:
-        # JSON-RPC request
+        # JSON-RPC request: has id and method
         return await handle_jsonrpc_request(
-            request, cast(JsonRpcRequest, message), assistant_id
+            request, cast("JsonRpcRequest", message), assistant_id
         )
-    elif id_ is not None:
-        # JSON-RPC response (not expected in A2A server context)
+    elif id_ is not None and ("result" in message or "error" in message):
+        # JSON-RPC response: has id plus result or error (not expected in A2A server context)
         return handle_jsonrpc_response()
-    elif method:
-        # JSON-RPC notification
-        return handle_jsonrpc_notification(cast(JsonRpcNotification, message))
+    elif id_ is not None:
+        # Has id but no method and not a valid response - Invalid Request
+        # JSON-RPC 2.0: Request objects MUST have a "method" member
+        return create_jsonrpc_error_response(
+            ERROR_CODE_INVALID_REQUEST,
+            "Invalid JSON-RPC request: missing 'method' field",
+            id_,
+        )
     else:
-        return create_error_response(
-            "Invalid message format. Message must be a JSON-RPC request, "
-            "response, or notification",
-            400,
+        # JSON-RPC 2.0: Invalid Request (-32600) - Neither request nor notification
+        return create_jsonrpc_error_response(
+            ERROR_CODE_INVALID_REQUEST,
+            "Invalid message format: must be a JSON-RPC request or notification",
         )
 
 
@@ -718,6 +1004,47 @@ def create_error_response(message: str, status_code: int) -> Response:
         status_code=status_code,
         media_type="application/json",
     )
+
+
+def create_jsonrpc_error_response(
+    code: int, message: str, id: str | int | float | None = None
+) -> Response:
+    """Create a JSON-RPC 2.0 error response.
+
+    Per JSON-RPC 2.0 spec, error responses MUST have HTTP 200 status.
+    The error is conveyed in the response body, not via HTTP status code.
+
+    Args:
+        code: JSON-RPC error code (e.g., -32700 for parse error)
+        message: Human-readable error message
+        id: Request ID (None for parse errors where id couldn't be determined)
+
+    Returns:
+        JSON-RPC 2.0 compliant error response with HTTP 200 status
+    """
+    return JSONResponse(
+        {"jsonrpc": "2.0", "id": id, "error": {"code": code, "message": message}}
+    )
+
+
+def _accepts_media_type(accept_header: str, media_type: str) -> bool:
+    """Return True if the Accept header allows the provided media type."""
+    if not accept_header:
+        return False
+
+    target = media_type.lower()
+    for media_range in accept_header.split(","):
+        value = media_range.strip().lower()
+        if not value:
+            continue
+        candidate = value.split(";", 1)[0].strip()
+        if candidate == "*/*" or candidate == target:
+            return True
+        if candidate.endswith("/*"):
+            type_prefix = candidate.split("/", 1)[0]
+            if target.startswith(f"{type_prefix}/"):
+                return True
+    return False
 
 
 # ============================================================================
@@ -749,6 +1076,13 @@ async def handle_jsonrpc_request(
         result_or_error = await handle_tasks_get(request, params)
     elif method == "tasks/cancel":
         result_or_error = await handle_tasks_cancel(request, params)
+    elif method in (
+        "agent/getAuthenticatedExtendedCard",
+        "agent/authenticatedExtendedCard",
+    ):
+        # Return the agent card as the "extended" card
+        # (note that we don't have auth differentiation today)
+        result_or_error = await handle_get_extended_card(request, assistant_id)
     else:
         result_or_error = {
             "error": {
@@ -784,18 +1118,6 @@ def handle_jsonrpc_response() -> Response:
     return Response(status_code=202)
 
 
-def handle_jsonrpc_notification(message: JsonRpcNotification) -> Response:
-    """Handle JSON-RPC notifications.
-
-    Args:
-        message: Parsed JSON-RPC notification
-
-    Returns:
-        202 Accepted acknowledgement
-    """
-    return Response(status_code=202)
-
-
 # ============================================================================
 # A2A Method Implementations
 # ============================================================================
@@ -820,6 +1142,7 @@ async def handle_message_send(
         {"result": Task} or {"error": JsonRpcErrorObject}
     """
     client = _client()
+    context_id: str | None
 
     try:
         message = params.get("message")
@@ -831,7 +1154,32 @@ async def handle_message_send(
                 }
             }
 
+        message_id = message.get("messageId")
+        if not message_id:
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": "Missing required 'messageId' in message",
+                }
+            }
+
+        role = message.get("role")
+        if not role:
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": "Missing required 'role' in message",
+                }
+            }
+
         parts = message.get("parts", [])
+        if not isinstance(parts, list):
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": "Invalid params: 'parts' must be an array",
+                }
+            }
         if not parts:
             return {
                 "error": {
@@ -856,7 +1204,7 @@ async def handle_message_send(
             message_role = message.get(
                 "role", "user"
             )  # Default to "user" if role not specified
-            input_content = _process_a2a_message_parts(parts, message_role)
+            input_content = _process_a2a_message_parts(parts, message_role, message_id)
         except ValueError as e:
             return {
                 "error": {
@@ -866,6 +1214,41 @@ async def handle_message_send(
             }
 
         context_id = message.get("contextId")
+        # Check if this is a continuation (taskId provided in message)
+        existing_task_id = message.get("taskId")
+
+        # Extract and validate command (LangGraph extension for resuming interrupts)
+        command, command_error = _extract_and_validate_command(message, context_id)
+        if command_error:
+            return {"error": command_error}
+        if command is not None and command.get("resume") and existing_task_id is None:
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": "taskId is required when resuming a task",
+                }
+            }
+        if command is None:
+            (
+                command,
+                command_error,
+                input_content,
+            ) = await _maybe_promote_resume_to_command(
+                client=client,
+                parts=parts,
+                context_id=context_id,
+                task_id=existing_task_id,
+                input_content=input_content,
+                headers=request.headers,
+            )
+            if command_error:
+                return {"error": command_error}
+
+        if existing_task_id is not None and command is None:
+            await logger.awarning(
+                "User requested to resume a task without specifying a Command.",
+                task_id=existing_task_id,
+            )
 
         # If no contextId provided, generate a UUID so we don't pass None to runs.create
         if context_id is None:
@@ -876,6 +1259,7 @@ async def handle_message_send(
                 thread_id=context_id,
                 assistant_id=assistant_id,
                 input=input_content,
+                command=command,
                 if_not_exists="create",
                 headers=request.headers,
             )
@@ -891,8 +1275,10 @@ async def handle_message_send(
             headers=request.headers,
         )
 
-        task_id = run["run_id"]
-        context_id = run["thread_id"]
+        context_id = str(run["thread_id"])
+        # If continuing an existing task, preserve the original task_id
+        # Otherwise create a new composite task_id
+        task_id = existing_task_id or _make_task_id(context_id, run["run_id"])
 
         return await _create_task_response(
             task_id=task_id,
@@ -906,7 +1292,7 @@ async def handle_message_send(
         return {
             "error": {
                 "code": ERROR_CODE_INTERNAL_ERROR,
-                "message": f"Internal server error: {str(e)}",
+                "message": f"Internal server error: {e!s}",
             }
         }
 
@@ -962,11 +1348,11 @@ async def handle_tasks_get(
     client = _client()
 
     try:
-        task_id = params.get("id")
-        context_id = params.get("contextId")
+        task_id_raw = params.get("id")
+        context_id_param = params.get("contextId")
         history_length = params.get("historyLength")
 
-        if not task_id:
+        if not task_id_raw:
             return {
                 "error": {
                     "code": ERROR_CODE_INVALID_PARAMS,
@@ -974,13 +1360,23 @@ async def handle_tasks_get(
                 }
             }
 
+        # Parse composite task_id to extract context_id and run_id
+        parsed_context_id, run_id = _parse_task_id(task_id_raw)
+
+        # Use contextId from params if provided, otherwise from task_id
+        context_id = context_id_param or parsed_context_id
+
         if not context_id:
+            # If task_id isn't a composite ID and no contextId provided, task doesn't exist
             return {
                 "error": {
-                    "code": ERROR_CODE_INVALID_PARAMS,
-                    "message": "Missing required parameter: contextId (thread_id)",
+                    "code": ERROR_CODE_TASK_NOT_FOUND,
+                    "message": f"Task not found: {task_id_raw}",
                 }
             }
+
+        # Keep original task_id for A2A response (preserve what was sent/received)
+        task_id = task_id_raw
 
         # Validate history_length parameter per A2A spec
         if history_length is not None:
@@ -1000,30 +1396,24 @@ async def handle_tasks_get(
                 }
 
         try:
-            run_info = await client.runs.get(
-                thread_id=context_id,
-                run_id=task_id,
-                headers=request.headers,
+            # TODO: fix the N+1 query issue
+            run_info, thread_info = await asyncio.gather(
+                client.runs.get(
+                    thread_id=context_id,
+                    run_id=run_id,
+                    headers=request.headers,
+                ),
+                client.threads.get(
+                    thread_id=context_id,
+                    headers=request.headers,
+                ),
             )
         except Exception as e:
-            error_response = _map_runs_get_error_to_rpc(e, task_id, context_id)
+            error_response = _map_runs_get_error_to_rpc(e, run_id, context_id)
             if error_response.get("error", {}).get("code") == ERROR_CODE_INTERNAL_ERROR:
                 # For unmapped errors, re-raise to be caught by outer exception handler
                 raise
             return error_response
-
-        assistant_id = run_info.get("assistant_id")
-        if assistant_id:
-            try:
-                # Verify that the assistant exists
-                await _get_assistant(assistant_id, request.headers)
-            except ValueError as e:
-                return {
-                    "error": {
-                        "code": ERROR_CODE_INVALID_PARAMS,
-                        "message": str(e),
-                    }
-                }
 
         lg_status = run_info.get("status", "unknown")
 
@@ -1032,8 +1422,18 @@ async def handle_tasks_get(
         elif lg_status == "running":
             a2a_state = "working"
         elif lg_status == "success":
-            a2a_state = "completed"
-        elif lg_status in ["error", "timeout", "interrupted"]:
+            # Hack hack: if the thread **at present** is interrupted, assume
+            # the run also is interrupted
+            if thread_info.get("status") == "interrupted":
+                a2a_state = "input-required"
+            else:
+                # Inspect whether there are next tasks
+                a2a_state = "completed"
+        elif (
+            lg_status == "interrupted"
+        ):  # Note that this is if you interrupt FROM the outside (i.e., with double texting)
+            a2a_state = "input-required"
+        elif lg_status in ["error", "timeout"]:
             a2a_state = "failed"
         else:
             a2a_state = "submitted"
@@ -1083,12 +1483,12 @@ async def handle_tasks_get(
 
     except Exception as e:
         await logger.aerror(
-            f"Error in tasks/get for task {params.get('id')}: {str(e)}", exc_info=True
+            f"Error in tasks/get for task {params.get('id')}: {e!s}", exc_info=True
         )
         return {
             "error": {
                 "code": ERROR_CODE_INTERNAL_ERROR,
-                "message": f"Internal server error: {str(e)}",
+                "message": f"Internal server error: {e!s}",
             }
         }
 
@@ -1100,8 +1500,9 @@ async def handle_tasks_cancel(
 
     This method:
     1. Accepts task ID from params
-    2. Maps to LangGraph run cancellation
-    3. Returns updated Task with canceled state
+    2. Checks if the task exists
+    3. Cancels the run if it's pending/running
+    4. Returns the Task with state "canceled"
 
     Args:
         request: HTTP request for auth/headers
@@ -1110,18 +1511,157 @@ async def handle_tasks_cancel(
     Returns:
         {"result": Task} or {"error": JsonRpcErrorObject}
     """
-    # TODO: Implement tasks/cancel
-    # - Extract task_id from params
-    # - Map task_id to run_id
-    # - Cancel run via client if possible
-    # - Return updated Task with canceled status
+    client = _client()
 
-    return {
-        "error": {
-            "code": ERROR_CODE_UNSUPPORTED_OPERATION,
-            "message": "Task cancellation is not currently supported",
+    task_id_raw = params.get("id")
+    context_id_param = params.get("contextId")
+
+    if not task_id_raw:
+        return {
+            "error": {
+                "code": ERROR_CODE_INVALID_PARAMS,
+                "message": "Missing required parameter: id (task_id)",
+            }
         }
+
+    # Parse composite task_id to extract context_id and run_id
+    parsed_context_id, run_id = _parse_task_id(task_id_raw)
+    context_id = context_id_param or parsed_context_id
+
+    if not context_id:
+        # If task_id isn't a composite ID and no contextId provided, task doesn't exist
+        return {
+            "error": {
+                "code": ERROR_CODE_TASK_NOT_FOUND,
+                "message": f"Task not found: {task_id_raw}",
+            }
+        }
+
+    # Check if the task exists first
+    try:
+        run_info = await client.runs.get(
+            thread_id=context_id,
+            run_id=run_id,
+            headers=request.headers,
+        )
+    except Exception as e:
+        # Check if it's a 404 error
+        if (
+            hasattr(e, "response")
+            and hasattr(e.response, "status_code")
+            and e.response.status_code == 404
+        ):
+            return {
+                "error": {
+                    "code": ERROR_CODE_TASK_NOT_FOUND,
+                    "message": f"Task not found: {task_id_raw}",
+                }
+            }
+        # For other errors, return internal error
+        return {
+            "error": {
+                "code": ERROR_CODE_INTERNAL_ERROR,
+                "message": f"Failed to check task status: {e!s}",
+            }
+        }
+
+    # Check if the task is in a cancelable state
+    lg_status = run_info.get("status", "unknown")
+
+    # If task is already in a terminal state, return it as "canceled" per A2A spec
+    # The spec expects idempotent behavior - tasks/cancel always returns canceled state
+    if lg_status not in ("pending", "running"):
+        task_response = {
+            "id": task_id_raw,
+            "contextId": context_id,
+            "kind": "task",
+            "status": {
+                "state": "canceled",
+                "message": {
+                    "role": "agent",
+                    "parts": [
+                        {
+                            "kind": "text",
+                            "text": f"Task cancel acknowledged (was: {lg_status})",
+                        }
+                    ],
+                    "messageId": str(uuid.uuid4()),
+                    "taskId": task_id_raw,
+                },
+            },
+        }
+        return {"result": task_response}
+
+    # Cancel the run
+    try:
+        await client.runs.cancel(
+            thread_id=context_id,
+            run_id=run_id,
+            wait=True,  # Wait for cancellation to complete
+            action="interrupt",
+            headers=request.headers,
+        )
+    except Exception as e:
+        await logger.aerror(f"Failed to cancel run {run_id}: {e!s}", exc_info=True)
+        return {
+            "error": {
+                "code": ERROR_CODE_INTERNAL_ERROR,
+                "message": f"Failed to cancel task: {e!s}",
+            }
+        }
+
+    # Return the canceled task
+    task_response = {
+        "id": task_id_raw,
+        "contextId": context_id,
+        "kind": "task",
+        "status": {
+            "state": "canceled",
+            "message": {
+                "role": "agent",
+                "parts": [{"kind": "text", "text": "Task was canceled"}],
+                "messageId": str(uuid.uuid4()),
+                "taskId": task_id_raw,
+            },
+        },
     }
+
+    return {"result": task_response}
+
+
+async def handle_get_extended_card(
+    request: ApiRequest, assistant_id: str
+) -> dict[str, Any]:
+    """Handle agent/getAuthenticatedExtendedCard requests.
+
+    Returns the agent card as the "extended" card. Since we don't have
+    auth differentiation, this returns the same card as the public one.
+
+    Args:
+        request: HTTP request for auth/headers
+        assistant_id: The target assistant ID
+
+    Returns:
+        {"result": AgentCard} or {"error": JsonRpcErrorObject}
+    """
+    try:
+        agent_card = await generate_agent_card(request, assistant_id)
+        return {"result": agent_card}
+    except ValueError as e:
+        return {
+            "error": {
+                "code": ERROR_CODE_INVALID_PARAMS,
+                "message": str(e),
+            }
+        }
+    except Exception as e:
+        logger.exception(f"Error generating extended agent card for {assistant_id}")
+        return {
+            "error": {
+                "code": ERROR_CODE_INTERNAL_ERROR,
+                "message": f"Internal server error: {e!s}",
+            }
+        }
 
 
 # ============================================================================
@@ -1148,7 +1688,7 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
     schemas = await client.assistants.get_schemas(assistant_id, headers=request.headers)
 
     # Extract schema information for metadata
-    input_schema = schemas.get("input_schema", {})
+    input_schema = schemas.get("input_schema") or schemas.get("state_schema") or {}
     properties = input_schema.get("properties", {})
     required = input_schema.get("required", [])
 
@@ -1191,12 +1731,13 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
             base_url = f"{scheme}://{host}:{port}{path}"
         else:
             base_url = f"{scheme}://{host}"
+    agent_path = f"/a2a/{assistant_id}"
 
     return {
         "protocolVersion": A2A_PROTOCOL_VERSION,
         "name": assistant_name,
         "description": assistant_description,
-        "url": f"{base_url}/a2a/{assistant_id}",
+        "url": f"{base_url}{agent_path}",
         "preferredTransport": "JSONRPC",
         "capabilities": {
             "streaming": True,
@@ -1215,6 +1756,9 @@ async def handle_agent_card_endpoint(request: ApiRequest) -> Response:
 
     Expected URL: /.well-known/agent-card.json?assistant_id=uuid
 
+    Can also use DEFAULT_A2A_ASSISTANT_ID env var as fallback when no
+    query parameter is provided (useful for TCK testing in multi-tenant mode).
+
     Args:
         request: HTTP request
 
@@ -1222,8 +1766,16 @@ async def handle_agent_card_endpoint(request: ApiRequest) -> Response:
         JSON response with Agent Card for the specific assistant
     """
     try:
-        # Get assistant_id from query parameters
+        # Get assistant_id from query parameters, env var, or file fallback
+        # The file fallback is used by run_a2a_tck.py for testing
         assistant_id = request.query_params.get("assistant_id")
+        if not assistant_id:
+            assistant_id = os.environ.get("DEFAULT_A2A_ASSISTANT_ID")
+        if not assistant_id:
+            tck_file = "/tmp/langgraph_tck_assistant_id"
+            if os.path.exists(tck_file):
+                with open(tck_file) as f:
+                    assistant_id = f.read().strip()
 
         if not assistant_id:
             error_response = {
@@ -1259,7 +1811,7 @@ async def handle_agent_card_endpoint(request: ApiRequest) -> Response:
         error_response = {
             "error": {
                 "code": ERROR_CODE_INTERNAL_ERROR,
-                "message": f"Internal server error: {str(e)}",
+                "message": f"Internal server error: {e!s}",
             }
         }
         return Response(
@@ -1307,6 +1859,36 @@ async def handle_message_stream(
                 )
                 return
 
+            message_id = message.get("messageId")
+            if not message_id:
+                yield (
+                    b"message",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "error": {
+                            "code": ERROR_CODE_INVALID_PARAMS,
+                            "message": "Missing required 'messageId' in message",
+                        },
+                    },
+                )
+                return
+
+            role = message.get("role")
+            if not role:
+                yield (
+                    b"message",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "error": {
+                            "code": ERROR_CODE_INVALID_PARAMS,
+                            "message": "Missing required 'role' in message",
+                        },
+                    },
+                )
+                return
+
             parts = message.get("parts", [])
             if not parts:
                 yield (
@@ -1342,7 +1924,9 @@ async def handle_message_stream(
             # Process A2A message parts into LangChain messages format
             try:
                 message_role = message.get("role", "user")
-                input_content = _process_a2a_message_parts(parts, message_role)
+                input_content = _process_a2a_message_parts(
+                    parts, message_role, message_id
+                )
             except ValueError as e:
                 yield (
                     b"message",
@@ -1357,23 +1941,94 @@ async def handle_message_stream(
                 )
                 return
 
+            # Check if this is a continuation (taskId provided in message)
+            existing_task_id = message.get("taskId")
+            context_id_from_message = message.get("contextId")
+
+            # Extract and validate command (LangGraph extension for resuming interrupts)
+            command, command_error = _extract_and_validate_command(
+                message, context_id_from_message
+            )
+            if command_error:
+                yield (
+                    b"message",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "error": command_error,
+                    },
+                )
+                return
+            if (
+                command is not None
+                and command.get("resume")
+                and existing_task_id is None
+            ):
+                yield (
+                    b"message",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "error": {
+                            "code": ERROR_CODE_INVALID_PARAMS,
+                            "message": "taskId is required when resuming a task",
+                        },
+                    },
+                )
+                return
+            if command is None:
+                (
+                    command,
+                    command_error,
+                    input_content,
+                ) = await _maybe_promote_resume_to_command(
+                    client=client,
+                    parts=parts,
+                    context_id=context_id_from_message,
+                    task_id=existing_task_id,
+                    input_content=input_content,
+                    headers=request.headers,
+                )
+                if command_error:
+                    yield (
+                        b"message",
+                        {
+                            "jsonrpc": "2.0",
+                            "id": rpc_id,
+                            "error": command_error,
+                        },
+                    )
+                    return
+
+            if existing_task_id is not None and command is None:
+                await logger.awarning(
+                    "User requested to resume a task without specifying a Command.",
+                    task_id=existing_task_id,
+                )
+            if context_id_from_message is None:
+                context_id_from_message = str(uuid.uuid4())
+
             run = await client.runs.create(
-                thread_id=message.get("contextId"),
+                thread_id=str(context_id_from_message),
                 assistant_id=assistant_id,
                 stream_mode=["messages", "values"],
                 if_not_exists="create",
                 input=input_content,
+                command=command,
                 headers=request.headers,
             )
-            context_id = run["thread_id"]
+            context_id = str(run["thread_id"])
+            run_id = run["run_id"]  # Keep raw run_id for SDK calls
+            # If continuing an existing task, preserve the original task_id
+            task_id = existing_task_id or _make_task_id(context_id, run_id)
             # Emit initial Task object to establish task context
             initial_task = {
-                "id": run["run_id"],
+                "id": task_id,
                 "contextId": context_id,
                 "history": [
                     {
                         **message,
-                        "taskId": run["run_id"],
+                        "taskId": task_id,
                         "contextId": context_id,
                         "kind": "message",
                     }
@@ -1385,9 +2040,8 @@ async def handle_message_stream(
                 },
             }
             yield (b"message", {"jsonrpc": "2.0", "id": rpc_id, "result": initial_task})
-            task_id = run["run_id"]
             stream = client.runs.join_stream(
-                run_id=task_id,
+                run_id=run_id,
                 thread_id=context_id,
                 headers=request.headers,
             )
@@ -1425,17 +2079,29 @@ async def handle_message_stream(
                                     "contextId": context_id,
                                     "kind": "message",
                                 }
+                            # Check if result contains an interrupt
+                            final_state = (
+                                "input-required"
+                                if isinstance(result, dict)
+                                and "__interrupt__" in result
+                                else "completed"
+                            )
                             completed = {
                                 "taskId": task_id,
                                 "contextId": context_id,
                                 "kind": "status-update",
                                 "status": {
-                                    "state": "completed",
+                                    "state": final_state,
                                     "message": final_message,
                                     "timestamp": datetime.now(UTC).isoformat(),
                                 },
                                 "final": True,
                             }
+                            # Add interrupt artifact if present
+                            if isinstance(result, dict) and "__interrupt__" in result:
+                                completed["artifacts"] = [
+                                    _create_interrupt_artifact(result["__interrupt__"])
+                                ]
                             yield (
                                 b"message",
                                 {"jsonrpc": "2.0", "id": rpc_id, "result": completed},
@@ -1503,21 +2169,33 @@ async def handle_message_stream(
                     "contextId": context_id,
                     "kind": "message",
                 }
+            # Determine final state: failed > input-required > completed
+            if err:
+                fallback_state = "failed"
+            elif isinstance(result, dict) and "__interrupt__" in result:
+                fallback_state = "input-required"
+            else:
+                fallback_state = "completed"
             fallback = {
                 "taskId": task_id,
                 "contextId": context_id,
                 "kind": "status-update",
                 "status": {
-                    "state": "failed" if err else "completed",
+                    "state": fallback_state,
                     **({"message": final_message} if final_message else {}),
                     "timestamp": datetime.now(UTC).isoformat(),
                 },
                 "final": True,
             }
+            # Add interrupt artifact if present
+            if isinstance(result, dict) and "__interrupt__" in result:
+                fallback["artifacts"] = [
+                    _create_interrupt_artifact(result["__interrupt__"])
+                ]
             yield (b"message", {"jsonrpc": "2.0", "id": rpc_id, "result": fallback})
         except Exception as e:
             await logger.aerror(
-                f"Error in message/stream for assistant {assistant_id}: {str(e)}",
+                f"Error in message/stream for assistant {assistant_id}: {e!s}",
                 exc_info=True,
             )
             yield (
@@ -1527,7 +2205,7 @@ async def handle_message_stream(
                     "id": rpc_id,
                     "error": {
                         "code": ERROR_CODE_INTERNAL_ERROR,
-                        "message": f"Internal server error: {str(e)}",
+                        "message": f"Internal server error: {e!s}",
                     },
                 },
             )
@@ -1566,11 +2244,71 @@ async def handle_a2a_assistant_endpoint(request: ApiRequest) -> Response:
     if request.method == "POST":
         return await handle_post_request(request, assistant_id)
     elif request.method == "GET":
-        return handle_get_request()
+        # Return agent card for this assistant (A2A spec: GET on agent URL returns card)
+        return await handle_assistant_agent_card_endpoint(request)
     elif request.method == "DELETE":
         return handle_delete_request()
     else:
         return Response(status_code=405)  # Method Not Allowed
+
+
+async def handle_assistant_agent_card_endpoint(request: ApiRequest) -> Response:
+    """Serve Agent Card for a specific assistant via path parameter.
+
+    Expected URL: /a2a/{assistant_id}/.well-known/agent-card.json
+
+    This endpoint follows the A2A multi-tenant pattern where each agent has
+    its own well-known agent card path.
+
+    Args:
+        request: HTTP request
+
+    Returns:
+        JSON response with Agent Card for the specific assistant
+    """
+    try:
+        assistant_id = request.path_params.get("assistant_id")
+        if not assistant_id:
+            error_response = {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": "Missing assistant_id in path",
+                }
+            }
+            return Response(
+                content=orjson.dumps(error_response),
+                status_code=400,
+                media_type="application/json",
+            )
+
+        agent_card = await generate_agent_card(request, assistant_id)
+        return JSONResponse(agent_card)
+
+    except ValueError as e:
+        error_response = {
+            "error": {
+                "code": ERROR_CODE_INVALID_PARAMS,
+                "message": str(e),
+            }
+        }
+        return Response(
+            content=orjson.dumps(error_response),
+            status_code=400,
+            media_type="application/json",
+        )
+    except Exception as e:
+        logger.exception("Failed to generate agent card")
+        error_response = {
+            "error": {
+                "code": ERROR_CODE_INTERNAL_ERROR,
+                "message": f"Internal server error: {e!s}",
+            }
+        }
+        return Response(
+            content=orjson.dumps(error_response),
+            status_code=500,
+            media_type="application/json",
+        )
 
 
 a2a_routes = [
@@ -1580,6 +2318,13 @@ a2a_routes = [
         handle_a2a_assistant_endpoint,
         methods=["GET", "POST", "DELETE"],
     ),
+    # Per-assistant agent card (multi-tenant pattern)
+    ApiRoute(
+        "/a2a/{assistant_id}/.well-known/agent-card.json",
+        handle_assistant_agent_card_endpoint,
+        methods=["GET"],
+    ),
+    # Domain-root agent card (with query param or env var fallback)
     ApiRoute(
         "/.well-known/agent-card.json", handle_agent_card_endpoint, methods=["GET"]
     ),

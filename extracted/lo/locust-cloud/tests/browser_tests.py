@@ -11,15 +11,15 @@ HEADLESS = bool(os.environ.get("HEADLESS", False))
 def do_url_test(page, _context):
     # skip dashboard tutorial
     page.get_by_text("Skip").click()
-    time.sleep(5)
 
-    page.get_by_text("Run in Browser").click()
+    page.get_by_text("Single Url Load Test").click()
+    time.sleep(10)
 
     # skip locust tutorial
     page.get_by_text("Skip").click()
 
-    # Select the mock target class for this test run
-    page.get_by_text("Mock Target").click()
+    # Use the mock target as host for this test run
+    page.fill('input[name="host"]', "https://mock-test-target.eu-north-1.locust.cloud")
 
     button = page.locator("button[type='submit']")
     expect(button).to_be_enabled(timeout=80000)
@@ -29,11 +29,11 @@ def do_url_test(page, _context):
     time.sleep(20)
 
     # Stop the test
-    page.get_by_text("Stop").click()
+    page.locator('button:has-text("Stop"):visible').click()
 
     # Wait for the test to have stopped and the new button to appear
-    button = page.locator('button:has-text("New")')
-    button.wait_for(state="visible", timeout=10000)
+    button = page.locator('button:has-text("New"):visible')
+    expect(button).to_be_enabled(timeout=2000)
 
 
 def do_signup(region):
@@ -42,7 +42,7 @@ def do_signup(region):
         context = browser.new_context(viewport={"width": 1280, "height": 1000})
         page = context.new_page()
 
-        page.goto("http://auth.locust.cloud/signup")
+        page.goto("http://app.locust.cloud/signup")
 
         # sleeps are to avoid getting flagged by recaptcha
         page.fill('input[name="email"]', f"andrew+{region}_signup_test@locust.cloud")
@@ -90,7 +90,7 @@ def test_login_and_dashboard_actions():
         context = browser.new_context(viewport={"width": 1280, "height": 1000})
         page = context.new_page()
 
-        page.goto("http://auth.dev.locust.cloud")
+        page.goto("http://auth.dev.locust.cloud/login")
 
         page.fill('input[name="email"]', os.environ["LOCUSTCLOUD_USERNAME"])
         page.fill('input[name="password"]', os.environ["LOCUSTCLOUD_PASSWORD"])

@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: testtools
-Version: 2.7.2
+Version: 2.8.2
 Summary: Extensions to the Python standard library unit testing framework
 Project-URL: Homepage, https://github.com/testing-cabal/testtools
 Author-email: "Jonathan M. Lange" <jml+testtools@mumak.net>
@@ -12,20 +12,20 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.8
-Requires-Dist: setuptools; python_version >= '3.12'
+Requires-Python: >=3.10
 Provides-Extra: dev
-Requires-Dist: ruff==0.4.8; extra == 'dev'
+Requires-Dist: mypy>=1.0.0; extra == 'dev'
+Requires-Dist: ruff==0.14.9; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: testresources; extra == 'test'
 Requires-Dist: testscenarios; extra == 'test'
@@ -120,7 +120,7 @@ Cross-Python compatibility
 --------------------------
 
 testtools gives you the very latest in unit testing technology in a way that
-will work with Python 3.7+ and PyPy3.
+will work with Python 3.10+ and PyPy3.
 
 If you wish to use testtools with Python 2.4 or 2.5, then please use testtools
 0.9.15.

@@ -1,0 +1,111 @@
+Metadata-Version: 2.4
+Name: pydantic-tes
+Version: 0.2.0
+Summary: Pydantic Models for the GA4GH Task Execution Service
+Author: John Chilton
+Author-email: jmchilton@gmail.com
+License: MIT
+Project-URL: Bug Tracker, https://github.com/jmchilton/pydantic-tes/issues
+Project-URL: Source Code, https://github.com/jmchilton/pydantic-tes/issues
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.6
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: pydantic
+Requires-Dist: requests
+Requires-Dist: typing-extensions
+Provides-Extra: testing
+Requires-Dist: pytest; extra == "testing"
+Dynamic: license-file
+
+
+pydantic-tes
+---------------------
+
+.. image:: https://badge.fury.io/py/pydantic-tes.svg
+   :target: https://pypi.python.org/pypi/pydantic-tes/
+   :alt: pydantic-tes on the Python Package Index (PyPI)
+
+A collection of pydantic_ models for `GA4GH Task Execution Service`_.
+
+In addition to the models, this package contains a lightweight client for TES based
+on them using requests_ and utilities for working and testing it against Funnel_ - 
+a the TES implementation.
+
+This Python project can be installed from PyPI using ``pip``.
+
+::
+
+    $ python3 -m venv .venv
+    $ . .venv/bin/activate
+    $ pip install pydantic-tes
+
+Checkout `py-tes`_ for an alternative set of Python models and an API client based on the
+more lightweight attrs_ package.
+
+.. _Funnel: https://ohsu-comp-bio.github.io/funnel/
+.. _requests: https://requests.readthedocs.io/en/latest/
+.. _GA4GH Task Execution Service: https://github.com/ga4gh/task-execution-schemas
+.. _pydantic: https://pydantic-docs.helpmanual.io/
+.. _py-tes: https://github.com/ohsu-comp-bio/py-tes
+.. _attrs: https://www.attrs.org/en/stable/
+
+.. :changelog:
+
+History
+-------
+
+.. to_doc
+
+---------------------
+0.2.0 (2025-04-10)
+---------------------
+
+* Allow creating tes client with extra headers (e.g. for auth) thanks to @BorisYourich.
+* Fixes for running against tesk thanks to @mvdbeek.
+
+---------------------
+0.1.5 (2022-10-06)
+---------------------
+
+* Messed up 0.1.4 release, retrying.
+
+---------------------
+0.1.4 (2022-10-06)
+---------------------
+
+* Further hacking around funnel responses to produce validating responses.
+
+---------------------
+0.1.3 (2022-10-05)
+---------------------
+
+* Another attempt at publishing types.
+
+---------------------
+0.1.2 (2022-10-05)
+---------------------
+
+* Add support for Python 3.6.
+* Add py.typed to package.
+
+---------------------
+0.1.1 (2022-09-29)
+---------------------
+
+* Fixes to project publication scripts and process.
+
+---------------------
+0.1.0 (2022-09-29)
+---------------------
+
+* Inital version.

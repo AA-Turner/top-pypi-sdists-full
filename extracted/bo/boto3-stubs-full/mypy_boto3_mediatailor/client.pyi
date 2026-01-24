@@ -3,7 +3,7 @@ Type annotations for mediatailor service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediatailor/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -114,12 +115,6 @@ from .type_defs import (
     UpdateVodSourceResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -128,8 +123,8 @@ else:
 __all__ = ("MediaTailorClient",)
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
 
 class MediaTailorClient(BaseClient):
     """
@@ -247,7 +242,7 @@ class MediaTailorClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediatailor/client/#create_vod_source)
         """
 
-    def delete_channel(self, **kwargs: Unpack[DeleteChannelRequestTypeDef]) -> Dict[str, Any]:
+    def delete_channel(self, **kwargs: Unpack[DeleteChannelRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a channel.
 
@@ -257,7 +252,7 @@ class MediaTailorClient(BaseClient):
 
     def delete_channel_policy(
         self, **kwargs: Unpack[DeleteChannelPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The channel policy to delete.
 
@@ -267,7 +262,7 @@ class MediaTailorClient(BaseClient):
 
     def delete_live_source(
         self, **kwargs: Unpack[DeleteLiveSourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The live source to delete.
 
@@ -277,7 +272,7 @@ class MediaTailorClient(BaseClient):
 
     def delete_playback_configuration(
         self, **kwargs: Unpack[DeletePlaybackConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a playback configuration.
 
@@ -287,7 +282,7 @@ class MediaTailorClient(BaseClient):
 
     def delete_prefetch_schedule(
         self, **kwargs: Unpack[DeletePrefetchScheduleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a prefetch schedule for a specific playback configuration.
 
@@ -295,7 +290,7 @@ class MediaTailorClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediatailor/client/#delete_prefetch_schedule)
         """
 
-    def delete_program(self, **kwargs: Unpack[DeleteProgramRequestTypeDef]) -> Dict[str, Any]:
+    def delete_program(self, **kwargs: Unpack[DeleteProgramRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a program within a channel.
 
@@ -305,7 +300,7 @@ class MediaTailorClient(BaseClient):
 
     def delete_source_location(
         self, **kwargs: Unpack[DeleteSourceLocationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a source location.
 
@@ -313,7 +308,7 @@ class MediaTailorClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediatailor/client/#delete_source_location)
         """
 
-    def delete_vod_source(self, **kwargs: Unpack[DeleteVodSourceRequestTypeDef]) -> Dict[str, Any]:
+    def delete_vod_source(self, **kwargs: Unpack[DeleteVodSourceRequestTypeDef]) -> dict[str, Any]:
         """
         The video on demand (VOD) source to delete.
 
@@ -494,7 +489,7 @@ class MediaTailorClient(BaseClient):
 
     def put_channel_policy(
         self, **kwargs: Unpack[PutChannelPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates an IAM policy for the channel.
 
@@ -512,7 +507,7 @@ class MediaTailorClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediatailor/client/#put_playback_configuration)
         """
 
-    def start_channel(self, **kwargs: Unpack[StartChannelRequestTypeDef]) -> Dict[str, Any]:
+    def start_channel(self, **kwargs: Unpack[StartChannelRequestTypeDef]) -> dict[str, Any]:
         """
         Starts a channel.
 
@@ -520,7 +515,7 @@ class MediaTailorClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediatailor/client/#start_channel)
         """
 
-    def stop_channel(self, **kwargs: Unpack[StopChannelRequestTypeDef]) -> Dict[str, Any]:
+    def stop_channel(self, **kwargs: Unpack[StopChannelRequestTypeDef]) -> dict[str, Any]:
         """
         Stops a channel.
 

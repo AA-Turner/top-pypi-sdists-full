@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cryptg
-Version: 0.5.1
+Version: 0.5.2
 Summary: Cryptographic utilities for Telegram.
 Home-page: https://github.com/cher-nov/cryptg
 Download-URL: https://github.com/cher-nov/cryptg/releases

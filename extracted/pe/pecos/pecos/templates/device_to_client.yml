@@ -1,0 +1,32 @@
+Client: 
+  IP: 127.0.0.1
+  Database: db_name
+  Table: table_name
+  Username: username
+  Password: password
+  Interval: 1 
+  Retries: 2
+Devices: 
+- Name: Device1
+  USB: /dev/ttyUSB0       
+  Address: 21        
+  Baud: 9600
+  Parity: N
+  Bytes: 8
+  Stopbits: 1
+  Timeout: 0.05
+  Data:
+  - Name: AmbientTemp
+    Type: Temp
+    Scale: 1
+    Conversion: 1.0
+    Channel: 0
+    Signed: True
+    Fcode: 4
+  - Name: DC Power
+    Type: Power
+    Scale: 1
+    Conversion: 1.0
+    Channel: 1
+    Signed: True
+    Fcode: 4

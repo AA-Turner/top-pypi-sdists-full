@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: fluidattacks_connection_manager
+Version: 2.0.0
+Summary: Common connection utils
+Author-email: Product Team <development@fluidattacks.com>
+Requires-Python: >=3.11
+Classifier: License :: OSI Approved :: MIT License
+Requires-Dist: fa-purity >=2.1.0, <3.0.0
+Requires-Dist: fluidattacks-etl-utils >=2.0.0, <3.0.0
+Requires-Dist: redshift-client >=8.0.1, <9.0.0
+Requires-Dist: snowflake-client >=3.0.2, <4.0.0

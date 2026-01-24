@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.open_figi_data import OpenFigiData
 from finbourne_horizon.models.perm_id_data import PermIdData
 
@@ -27,8 +29,8 @@ class OpenFigiPermIdResult(BaseModel):
     """
     A packed WebAPI OpenFigi DTO and PermId DTO  # noqa: E501
     """
-    open_figi_result: OpenFigiData = Field(..., alias="openFigiResult")
-    perm_id_result: Optional[PermIdData] = Field(None, alias="permIdResult")
+    open_figi_result: OpenFigiData = Field(alias="openFigiResult")
+    perm_id_result: Optional[PermIdData] = Field(default=None, alias="permIdResult")
     __properties = ["openFigiResult", "permIdResult"]
 
     class Config:
@@ -85,3 +87,5 @@ class OpenFigiPermIdResult(BaseModel):
             "perm_id_result": PermIdData.from_dict(obj.get("permIdResult")) if obj.get("permIdResult") is not None else None
         })
         return _obj
+
+OpenFigiPermIdResult.update_forward_refs()

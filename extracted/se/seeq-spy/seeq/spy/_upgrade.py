@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional, List
 
 from seeq import spy
-from seeq.spy import _common, _login, Session, Status, _datalab
+from seeq.spy import _common, _version, Session, Status, _datalab
 from seeq.spy._errors import *
 
 
@@ -68,7 +68,7 @@ def upgrade(version: Optional[str] = None, force_restart: bool = False, use_test
         raise SPyRuntimeError('Not logged in. Execute spy.login() before calling this function so that the upgrade '
                               'mechanism knows what version of Seeq Server you are interfacing with.')
 
-    pip_command = _login.generate_pip_upgrade_command(session, version, use_testpypi, dependencies)
+    pip_command = _version.generate_pip_upgrade_command(session, version, use_testpypi, dependencies)
 
     try:
         import IPython

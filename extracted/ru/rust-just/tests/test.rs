@@ -147,7 +147,6 @@ impl Test {
     self
   }
 
-  #[allow(unused)]
   pub(crate) fn test_round_trip(mut self, test_round_trip: bool) -> Self {
     self.test_round_trip = test_round_trip;
     self
@@ -321,8 +320,6 @@ impl Test {
   }
 
   fn round_trip(&self) {
-    println!("Reparsing...");
-
     let output = Command::new(executable_path("just"))
       .current_dir(self.tempdir.path())
       .arg("--dump")

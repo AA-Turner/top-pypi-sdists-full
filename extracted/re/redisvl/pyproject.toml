@@ -1,9 +1,9 @@
 [project]
 name = "redisvl"
-version = "0.8.2"
+version = "0.13.2"
 description = "Python client library and CLI for using Redis as a vector database"
 authors = [{ name = "Redis Inc.", email = "applied.ai@redis.com" }]
-requires-python = ">=3.9,<3.14"
+requires-python = ">=3.9.2,<3.14"
 readme = "README.md"
 license = "MIT"
 keywords = [
@@ -24,7 +24,7 @@ classifiers = [
 dependencies = [
     "numpy>=1.26.0,<3",
     "pyyaml>=5.4,<7.0",
-    "redis>=5.0,<7.0",
+    "redis>=5.0,<7.2",
     "pydantic>=2,<3",
     "tenacity>=8.2.2",
     "ml-dtypes>=0.4.0,<1.0.0",
@@ -39,6 +39,7 @@ nltk = ["nltk>=3.8.1,<4"]
 cohere = ["cohere>=4.44"]
 voyageai = ["voyageai>=0.2.2"]
 sentence-transformers = ["sentence-transformers>=3.4.0,<4"]
+langcache = ["langcache>=0.11.0"]
 vertexai = [
     "google-cloud-aiplatform>=1.26,<2.0.0",
     "protobuf>=5.28.0,<6.0.0",
@@ -46,6 +47,9 @@ vertexai = [
 bedrock = [
     "boto3>=1.36.0,<2",
     "urllib3<2.2.0",
+]
+pillow = [
+    "pillow>=11.3.0",
 ]
 
 [project.urls]
@@ -76,6 +80,7 @@ dev = [
     "testcontainers>=4.3.1,<5",
     "cryptography>=44.0.1 ; python_version > '3.9.1'",
     "codespell>=2.4.1,<3",
+    "langcache>=0.9.0",
 ]
 docs = [
     "sphinx>=4.4.0",
@@ -115,6 +120,9 @@ exclude = '''
 [tool.pytest.ini_options]
 log_cli = true
 asyncio_mode = "auto"
+filterwarnings = [
+    "ignore:get_async_redis_connection will become async in the next major release:DeprecationWarning",
+]
 
 [tool.mypy]
 warn_unused_configs = true

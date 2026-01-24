@@ -8,11 +8,15 @@ If student have answered - words he entered and cloud.
 import uuid
 
 from django.utils.translation import gettext_noop as _
+from lxml import etree
+from opaque_keys.edx.keys import UsageKey
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
 from xblock.fields import Boolean, Dict, Integer, List, Scope, String
 from xblock.utils.resources import ResourceLoader
 from xblock.utils.studio_editable import StudioEditableXBlockMixin
+
+from xblocks_contrib.common.xml_utils import LegacyXmlMixin
 
 resource_loader = ResourceLoader(__name__)
 
@@ -28,7 +32,7 @@ def pretty_bool(value):
 
 
 @XBlock.needs("i18n")
-class WordCloudBlock(StudioEditableXBlockMixin, XBlock):
+class WordCloudBlock(StudioEditableXBlockMixin, LegacyXmlMixin, XBlock):
     """
     Word Cloud XBlock.
     """
@@ -94,6 +98,26 @@ class WordCloudBlock(StudioEditableXBlockMixin, XBlock):
         help=_("Top num_top_words words for word cloud."),
         scope=Scope.user_state_summary
     )
+
+    @property
+    def category(self):
+        return self.scope_ids.block_type
+
+    @property
+    def url_name(self):
+        return self.location.block_id
+
+    @property
+    def location(self):
+        return self.scope_ids.usage_id
+
+    @location.setter
+    def location(self, value):
+        assert isinstance(value, UsageKey)
+        self.scope_ids = self.scope_ids._replace(
+            def_id=value,  # Note: assigning a UsageKey as def_id is OK in old mongo / import system but wrong in split
+            usage_id=value,
+        )
 
     @staticmethod
     def workbench_scenarios():
@@ -308,3 +332,14 @@ class WordCloudBlock(StudioEditableXBlockMixin, XBlock):
         xblock_body["content_type"] = "Word Cloud"
 
         return xblock_body
+
+    @classmethod
+    def definition_from_xml(cls, xml_object, system):
+        if len(xml_object) == 0 and len(list(xml_object.items())) == 0:
+            return {'data': ''}, []
+        return {'data': etree.tostring(xml_object, pretty_print=True, encoding='unicode')}, []
+
+    def definition_to_xml(self, resource_fs):
+        if self.data:
+            return etree.fromstring(self.data)
+        return etree.Element(self.category)

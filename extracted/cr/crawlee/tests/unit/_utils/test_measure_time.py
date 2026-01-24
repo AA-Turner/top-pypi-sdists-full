@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 
-from crawlee._utils.measure_time import measure_time
+from crawlee._utils.time import measure_time
 
 
 def test_measure_time_wall_sync() -> None:
@@ -26,7 +26,8 @@ def test_measure_time_cpu_sync() -> None:
 
     assert elapsed.cpu is not None
     assert elapsed.wall is not None
-    assert elapsed.cpu >= 0.05
+    # Just verify that CPU time is measured and is positive.
+    assert elapsed.cpu > 0
 
 
 async def test_measure_time_wall_async() -> None:

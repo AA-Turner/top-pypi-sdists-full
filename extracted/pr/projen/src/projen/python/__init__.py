@@ -30,6 +30,7 @@ def check_type(argname: str, value: object, expected_type: typing.Any) -> typing
 
 from .._jsii import *
 
+import constructs as _constructs_77d1e7e8
 from .. import (
     Component as _Component_2b0ad27f,
     Dependency as _Dependency_f510e013,
@@ -59,6 +60,91 @@ from ..github import (
 )
 from ..javascript import ProjenrcOptions as _ProjenrcOptions_179dd39f
 from ..typescript import ProjenrcTsOptions as _ProjenrcTsOptions_e3a2602d
+from .uv_config import UvConfiguration as _UvConfiguration_126496a9
+
+
+@jsii.data_type(
+    jsii_type="projen.python.BuildSystem",
+    jsii_struct_bases=[],
+    name_mapping={
+        "requires": "requires",
+        "backend_path": "backendPath",
+        "build_backend": "buildBackend",
+    },
+)
+class BuildSystem:
+    def __init__(
+        self,
+        *,
+        requires: typing.Sequence[builtins.str],
+        backend_path: typing.Optional[typing.Sequence[builtins.str]] = None,
+        build_backend: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Declares any Python level dependencies that must be installed in order to run the project’s build system successfully.
+
+        :param requires: (experimental) List of strings following the version specifier specification, representing dependencies required to execute the build system.
+        :param backend_path: (experimental) list of directories to prepend to ``sys.path`` when loading the build backend, relative to project root.
+        :param build_backend: (experimental) String is formatted following the same ``module:object`` syntax as a ``setuptools`` entry point. It’s also legal to leave out the ``:object`` part.
+
+        :stability: experimental
+        :schema: BuildSystem
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e9da99c32d038945aadcf71f5eefe5c42c4d7218b8a2d3e62f288c5a8081f35f)
+            check_type(argname="argument requires", value=requires, expected_type=type_hints["requires"])
+            check_type(argname="argument backend_path", value=backend_path, expected_type=type_hints["backend_path"])
+            check_type(argname="argument build_backend", value=build_backend, expected_type=type_hints["build_backend"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "requires": requires,
+        }
+        if backend_path is not None:
+            self._values["backend_path"] = backend_path
+        if build_backend is not None:
+            self._values["build_backend"] = build_backend
+
+    @builtins.property
+    def requires(self) -> typing.List[builtins.str]:
+        '''(experimental) List of strings following the version specifier specification, representing dependencies required to execute the build system.
+
+        :stability: experimental
+        :schema: BuildSystem#requires
+        '''
+        result = self._values.get("requires")
+        assert result is not None, "Required property 'requires' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def backend_path(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) list of directories to prepend to ``sys.path`` when loading the build backend, relative to project root.
+
+        :stability: experimental
+        :schema: BuildSystem#backend-path
+        '''
+        result = self._values.get("backend_path")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def build_backend(self) -> typing.Optional[builtins.str]:
+        '''(experimental) String is formatted following the same ``module:object`` syntax as a ``setuptools`` entry point.
+
+        It’s also legal to leave out the ``:object`` part.
+
+        :stability: experimental
+        :schema: BuildSystem#build-backend
+        '''
+        result = self._values.get("build_backend")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BuildSystem(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.interface(jsii_type="projen.python.IPackageProvider")
@@ -69,7 +155,7 @@ class IPackageProvider(typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="packages")
-    def packages(self) -> typing.List[_Dependency_f510e013]:
+    def packages(self) -> typing.List["_Dependency_f510e013"]:
         '''(experimental) An array of packages (may be dynamically generated).
 
         :stability: experimental
@@ -86,12 +172,12 @@ class _IPackageProviderProxy:
 
     @builtins.property
     @jsii.member(jsii_name="packages")
-    def packages(self) -> typing.List[_Dependency_f510e013]:
+    def packages(self) -> typing.List["_Dependency_f510e013"]:
         '''(experimental) An array of packages (may be dynamically generated).
 
         :stability: experimental
         '''
-        return typing.cast(typing.List[_Dependency_f510e013], jsii.get(self, "packages"))
+        return typing.cast(typing.List["_Dependency_f510e013"], jsii.get(self, "packages"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IPackageProvider).__jsii_proxy_class__ = lambda : _IPackageProviderProxy
@@ -105,7 +191,7 @@ class IPythonDeps(typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="installCiTask")
-    def install_ci_task(self) -> _Task_9fa875b6:
+    def install_ci_task(self) -> "_Task_9fa875b6":
         '''(experimental) A task that installs and updates dependencies.
 
         :stability: experimental
@@ -150,12 +236,12 @@ class _IPythonDepsProxy:
 
     @builtins.property
     @jsii.member(jsii_name="installCiTask")
-    def install_ci_task(self) -> _Task_9fa875b6:
+    def install_ci_task(self) -> "_Task_9fa875b6":
         '''(experimental) A task that installs and updates dependencies.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "installCiTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "installCiTask"))
 
     @jsii.member(jsii_name="addDependency")
     def add_dependency(self, spec: builtins.str) -> None:
@@ -237,7 +323,7 @@ class IPythonPackaging(typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="publishTask")
-    def publish_task(self) -> _Task_9fa875b6:
+    def publish_task(self) -> "_Task_9fa875b6":
         '''(experimental) A task that uploads the package to a package repository.
 
         :stability: experimental
@@ -254,12 +340,12 @@ class _IPythonPackagingProxy:
 
     @builtins.property
     @jsii.member(jsii_name="publishTask")
-    def publish_task(self) -> _Task_9fa875b6:
+    def publish_task(self) -> "_Task_9fa875b6":
         '''(experimental) A task that uploads the package to a package repository.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "publishTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTask"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IPythonPackaging).__jsii_proxy_class__ = lambda : _IPythonPackagingProxy
@@ -272,7 +358,7 @@ class Pip(_Component_2b0ad27f, metaclass=jsii.JSIIMeta, jsii_type="projen.python
     :stability: experimental
     '''
 
-    def __init__(self, project: _Project_57d89203) -> None:
+    def __init__(self, project: "_Project_57d89203") -> None:
         '''
         :param project: -
 
@@ -321,12 +407,12 @@ class Pip(_Component_2b0ad27f, metaclass=jsii.JSIIMeta, jsii_type="projen.python
 
     @builtins.property
     @jsii.member(jsii_name="installCiTask")
-    def install_ci_task(self) -> _Task_9fa875b6:
+    def install_ci_task(self) -> "_Task_9fa875b6":
         '''(experimental) A task that installs and updates dependencies.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "installCiTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "installCiTask"))
 
 
 @jsii.data_type(
@@ -367,7 +453,7 @@ class Poetry(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         author_email: builtins.str,
         author_name: builtins.str,
@@ -379,6 +465,7 @@ class Poetry(
         package_name: typing.Optional[builtins.str] = None,
         poetry_options: typing.Optional[typing.Union["PoetryPyprojectOptionsWithoutDeps", typing.Dict[builtins.str, typing.Any]]] = None,
         setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        uv_options: typing.Optional[typing.Union["UvOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         python_exec: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -393,6 +480,7 @@ class Poetry(
         :param package_name: (experimental) Package name.
         :param poetry_options: (experimental) Additional options to set for poetry if using poetry.
         :param setup_config: (experimental) Additional fields to pass in the setup() function if using setuptools.
+        :param uv_options: (experimental) Additional options to set for uv if using uv.
         :param python_exec: (experimental) Path to the python executable to use. Default: "python"
 
         :stability: experimental
@@ -411,6 +499,7 @@ class Poetry(
             package_name=package_name,
             poetry_options=poetry_options,
             setup_config=setup_config,
+            uv_options=uv_options,
             python_exec=python_exec,
         )
 
@@ -460,39 +549,39 @@ class Poetry(
 
     @builtins.property
     @jsii.member(jsii_name="installCiTask")
-    def install_ci_task(self) -> _Task_9fa875b6:
+    def install_ci_task(self) -> "_Task_9fa875b6":
         '''(experimental) Task for installing dependencies according to the existing lockfile.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "installCiTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "installCiTask"))
 
     @builtins.property
     @jsii.member(jsii_name="installTask")
-    def install_task(self) -> _Task_9fa875b6:
+    def install_task(self) -> "_Task_9fa875b6":
         '''(experimental) Task for updating the lockfile and installing project dependencies.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "installTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "installTask"))
 
     @builtins.property
     @jsii.member(jsii_name="publishTask")
-    def publish_task(self) -> _Task_9fa875b6:
+    def publish_task(self) -> "_Task_9fa875b6":
         '''(experimental) Task for publishing the package to a package repository.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "publishTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTask"))
 
     @builtins.property
     @jsii.member(jsii_name="publishTestTask")
-    def publish_test_task(self) -> _Task_9fa875b6:
+    def publish_test_task(self) -> "_Task_9fa875b6":
         '''(experimental) Task for publishing the package to the Test PyPI repository for testing purposes.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "publishTestTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTestTask"))
 
 
 class PoetryPyproject(
@@ -508,7 +597,7 @@ class PoetryPyproject(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        scope: "_constructs_77d1e7e8.IConstruct",
         *,
         dependencies: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dev_dependencies: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -535,7 +624,7 @@ class PoetryPyproject(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project: -
+        :param scope: -
         :param dependencies: (experimental) A list of dependencies for the project. The python version for which your package is compatible is also required.
         :param dev_dependencies: (experimental) A list of development dependencies for the project.
         :param authors: (experimental) The authors of the package. Must be in the form "name "
@@ -564,7 +653,7 @@ class PoetryPyproject(
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a59b8e6934c492000192079edad9aaf1327a40b3bdba4192b78814ddbbfa98a)
-            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = PoetryPyprojectOptions(
             dependencies=dependencies,
             dev_dependencies=dev_dependencies,
@@ -591,15 +680,15 @@ class PoetryPyproject(
             version=version,
         )
 
-        jsii.create(self.__class__, self, [project, options])
+        jsii.create(self.__class__, self, [scope, options])
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> _TomlFile_dab3b22f:
+    def file(self) -> "PyprojectTomlFile":
         '''
         :stability: experimental
         '''
-        return typing.cast(_TomlFile_dab3b22f, jsii.get(self, "file"))
+        return typing.cast("PyprojectTomlFile", jsii.get(self, "file"))
 
 
 @jsii.data_type(
@@ -975,6 +1064,65 @@ class PoetryPyprojectOptionsWithoutDeps:
         )
 
 
+@jsii.data_type(
+    jsii_type="projen.python.ProjectAuthor",
+    jsii_struct_bases=[],
+    name_mapping={"email": "email", "name": "name"},
+)
+class ProjectAuthor:
+    def __init__(
+        self,
+        *,
+        email: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param email: 
+        :param name: 
+
+        :stability: experimental
+        :schema: projectAuthor
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c75ee0fa1f03d64ef2f4f70177834504f849664100250bdf991680eba3b01d4e)
+            check_type(argname="argument email", value=email, expected_type=type_hints["email"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if email is not None:
+            self._values["email"] = email
+        if name is not None:
+            self._values["name"] = name
+
+    @builtins.property
+    def email(self) -> typing.Optional[builtins.str]:
+        '''
+        :stability: experimental
+        :schema: projectAuthor#email
+        '''
+        result = self._values.get("email")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''
+        :stability: experimental
+        :schema: projectAuthor#name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProjectAuthor(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class Projenrc(
     _ProjenrcFile_50432c7e,
     metaclass=jsii.JSIIMeta,
@@ -990,7 +1138,7 @@ class Projenrc(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         filename: typing.Optional[builtins.str] = None,
         projen_version: typing.Optional[builtins.str] = None,
@@ -1115,6 +1263,1054 @@ class ProjenrcOptions:
         )
 
 
+@jsii.data_type(
+    jsii_type="projen.python.PyprojectToml",
+    jsii_struct_bases=[],
+    name_mapping={
+        "build_system": "buildSystem",
+        "dependency_groups": "dependencyGroups",
+        "project": "project",
+        "tool": "tool",
+    },
+)
+class PyprojectToml:
+    def __init__(
+        self,
+        *,
+        build_system: typing.Optional[typing.Union["BuildSystem", typing.Dict[builtins.str, typing.Any]]] = None,
+        dependency_groups: typing.Optional[typing.Union["PyprojectTomlDependencyGroups", typing.Dict[builtins.str, typing.Any]]] = None,
+        project: typing.Optional[typing.Union["PyprojectTomlProject", typing.Dict[builtins.str, typing.Any]]] = None,
+        tool: typing.Optional[typing.Union["PyprojectTomlTool", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param build_system: 
+        :param dependency_groups: (experimental) Named groups of dependencies, similar to ``requirements.txt`` files, which launchers, IDEs, and other tools can find and identify by name. Each item in ``[dependency-groups]`` is defined as mapping of group name to list of `dependency specifiers <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_.
+        :param project: (experimental) There are two kinds of metadata: *static* and *dynamic*. - Static metadata is listed in the ``[project]`` table directly and cannot be specified or changed by a tool. - Dynamic metadata key names are listed inside the ``dynamic`` key and represents metadata that a tool will later provide.
+        :param tool: (experimental) Every tool that is used by the project can have users specify configuration data as long as they use a sub-table within ``[tool]``. Generally a project can use the subtable ``tool.$NAME`` if, and only if, they own the entry for ``$NAME`` in the Cheeseshop/PyPI.
+
+        :stability: experimental
+        :schema: PyprojectToml
+        '''
+        if isinstance(build_system, dict):
+            build_system = BuildSystem(**build_system)
+        if isinstance(dependency_groups, dict):
+            dependency_groups = PyprojectTomlDependencyGroups(**dependency_groups)
+        if isinstance(project, dict):
+            project = PyprojectTomlProject(**project)
+        if isinstance(tool, dict):
+            tool = PyprojectTomlTool(**tool)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1fc10fe84bb8f10fcd95137adbc465ef44fa0a114d64da3b25bdc76d9324fe3)
+            check_type(argname="argument build_system", value=build_system, expected_type=type_hints["build_system"])
+            check_type(argname="argument dependency_groups", value=dependency_groups, expected_type=type_hints["dependency_groups"])
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+            check_type(argname="argument tool", value=tool, expected_type=type_hints["tool"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if build_system is not None:
+            self._values["build_system"] = build_system
+        if dependency_groups is not None:
+            self._values["dependency_groups"] = dependency_groups
+        if project is not None:
+            self._values["project"] = project
+        if tool is not None:
+            self._values["tool"] = tool
+
+    @builtins.property
+    def build_system(self) -> typing.Optional["BuildSystem"]:
+        '''
+        :stability: experimental
+        :schema: PyprojectToml#build-system
+        '''
+        result = self._values.get("build_system")
+        return typing.cast(typing.Optional["BuildSystem"], result)
+
+    @builtins.property
+    def dependency_groups(self) -> typing.Optional["PyprojectTomlDependencyGroups"]:
+        '''(experimental) Named groups of dependencies, similar to ``requirements.txt`` files, which launchers, IDEs, and other tools can find and identify by name. Each item in ``[dependency-groups]`` is defined as mapping of group name to list of `dependency specifiers <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_.
+
+        :stability: experimental
+        :schema: PyprojectToml#dependency-groups
+        '''
+        result = self._values.get("dependency_groups")
+        return typing.cast(typing.Optional["PyprojectTomlDependencyGroups"], result)
+
+    @builtins.property
+    def project(self) -> typing.Optional["PyprojectTomlProject"]:
+        '''(experimental) There are two kinds of metadata: *static* and *dynamic*.
+
+        - Static metadata is listed in the ``[project]`` table directly and cannot be specified or changed by a tool.
+        - Dynamic metadata key names are listed inside the ``dynamic`` key and represents metadata that a tool will later provide.
+
+        :stability: experimental
+        :schema: PyprojectToml#project
+        '''
+        result = self._values.get("project")
+        return typing.cast(typing.Optional["PyprojectTomlProject"], result)
+
+    @builtins.property
+    def tool(self) -> typing.Optional["PyprojectTomlTool"]:
+        '''(experimental) Every tool that is used by the project can have users specify configuration data as long as they use a sub-table within ``[tool]``.
+
+        Generally a project can use the subtable ``tool.$NAME`` if, and only if, they own the entry for ``$NAME`` in the Cheeseshop/PyPI.
+
+        :stability: experimental
+        :schema: PyprojectToml#tool
+        '''
+        result = self._values.get("tool")
+        return typing.cast(typing.Optional["PyprojectTomlTool"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PyprojectToml(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.python.PyprojectTomlDependencyGroups",
+    jsii_struct_bases=[],
+    name_mapping={"dev": "dev"},
+)
+class PyprojectTomlDependencyGroups:
+    def __init__(
+        self,
+        *,
+        dev: typing.Optional[typing.Sequence[typing.Any]] = None,
+    ) -> None:
+        '''(experimental) Named groups of dependencies, similar to ``requirements.txt`` files, which launchers, IDEs, and other tools can find and identify by name. Each item in ``[dependency-groups]`` is defined as mapping of group name to list of `dependency specifiers <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_.
+
+        :param dev: 
+
+        :stability: experimental
+        :schema: PyprojectTomlDependencyGroups
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3172b8764f200359be57f771adc03f41306604c3a8551c94b129802a9f212c87)
+            check_type(argname="argument dev", value=dev, expected_type=type_hints["dev"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if dev is not None:
+            self._values["dev"] = dev
+
+    @builtins.property
+    def dev(self) -> typing.Optional[typing.List[typing.Any]]:
+        '''
+        :stability: experimental
+        :schema: PyprojectTomlDependencyGroups#dev
+        '''
+        result = self._values.get("dev")
+        return typing.cast(typing.Optional[typing.List[typing.Any]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PyprojectTomlDependencyGroups(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class PyprojectTomlFile(
+    _TomlFile_dab3b22f,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.python.PyprojectTomlFile",
+):
+    '''(experimental) Represents configuration of a pyproject.toml file.
+
+    :see: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.IConstruct",
+        *,
+        build_system: typing.Optional[typing.Union["BuildSystem", typing.Dict[builtins.str, typing.Any]]] = None,
+        dependency_groups: typing.Optional[typing.Union["PyprojectTomlDependencyGroups", typing.Dict[builtins.str, typing.Any]]] = None,
+        project: typing.Optional[typing.Union["PyprojectTomlProject", typing.Dict[builtins.str, typing.Any]]] = None,
+        tool: typing.Optional[typing.Union["PyprojectTomlTool", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param build_system: 
+        :param dependency_groups: (experimental) Named groups of dependencies, similar to ``requirements.txt`` files, which launchers, IDEs, and other tools can find and identify by name. Each item in ``[dependency-groups]`` is defined as mapping of group name to list of `dependency specifiers <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_.
+        :param project: (experimental) There are two kinds of metadata: *static* and *dynamic*. - Static metadata is listed in the ``[project]`` table directly and cannot be specified or changed by a tool. - Dynamic metadata key names are listed inside the ``dynamic`` key and represents metadata that a tool will later provide.
+        :param tool: (experimental) Every tool that is used by the project can have users specify configuration data as long as they use a sub-table within ``[tool]``. Generally a project can use the subtable ``tool.$NAME`` if, and only if, they own the entry for ``$NAME`` in the Cheeseshop/PyPI.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d9e7cb471169a85cb7809c67deb7b7e20dde1ce20a6a49f8357e0726c13b0040)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        config = PyprojectToml(
+            build_system=build_system,
+            dependency_groups=dependency_groups,
+            project=project,
+            tool=tool,
+        )
+
+        jsii.create(self.__class__, self, [scope, config])
+
+    @jsii.member(jsii_name="synthesizeContent")
+    def _synthesize_content(
+        self,
+        resolver: "_IResolver_0b7d1958",
+    ) -> typing.Optional[builtins.str]:
+        '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
+
+        :param resolver: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8c653bb340110f30f664421242162e21f98489f495f8991c5180052f98429065)
+            check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
+        return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
+
+
+@jsii.data_type(
+    jsii_type="projen.python.PyprojectTomlProject",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "authors": "authors",
+        "classifiers": "classifiers",
+        "dependencies": "dependencies",
+        "description": "description",
+        "dynamic": "dynamic",
+        "entry_points": "entryPoints",
+        "gui_scripts": "guiScripts",
+        "import_names": "importNames",
+        "import_namespaces": "importNamespaces",
+        "keywords": "keywords",
+        "license": "license",
+        "license_files": "licenseFiles",
+        "maintainers": "maintainers",
+        "optional_dependencies": "optionalDependencies",
+        "readme": "readme",
+        "requires_python": "requiresPython",
+        "scripts": "scripts",
+        "urls": "urls",
+        "version": "version",
+    },
+)
+class PyprojectTomlProject:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        authors: typing.Optional[typing.Sequence[typing.Union["ProjectAuthor", typing.Dict[builtins.str, typing.Any]]]] = None,
+        classifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+        dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
+        description: typing.Optional[builtins.str] = None,
+        dynamic: typing.Optional[typing.Sequence["PyprojectTomlProjectDynamic"]] = None,
+        entry_points: typing.Any = None,
+        gui_scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        import_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+        import_namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+        keywords: typing.Optional[typing.Sequence[builtins.str]] = None,
+        license: typing.Any = None,
+        license_files: typing.Optional[typing.Sequence[builtins.str]] = None,
+        maintainers: typing.Optional[typing.Sequence[typing.Union["ProjectAuthor", typing.Dict[builtins.str, typing.Any]]]] = None,
+        optional_dependencies: typing.Any = None,
+        readme: typing.Any = None,
+        requires_python: typing.Optional[builtins.str] = None,
+        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        urls: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) There are two kinds of metadata: *static* and *dynamic*.
+
+        - Static metadata is listed in the ``[project]`` table directly and cannot be specified or changed by a tool.
+        - Dynamic metadata key names are listed inside the ``dynamic`` key and represents metadata that a tool will later provide.
+
+        :param name: (experimental) Valid name consists only of ASCII letters and numbers, period, underscore and hyphen. It must start and end with a letter or number.
+        :param authors: (experimental) People or organizations considered as 'authors' of the project. Each author is a table with ``name`` key, ``email`` key, or both.
+        :param classifiers: (experimental) List of `Trove classifiers <https://pypi.org/classifiers/>`_ that describe the project. PyPI use the classifiers to categorize projects.
+        :param dependencies: (experimental) An array of `dependency specifier <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_ strings, each representing a mandatory dependent package of the project.
+        :param description: (experimental) Summary description of the project in one line. Tools may not accept multiple lines.
+        :param dynamic: (experimental) Specifies which keys are intentionally unspecified under ``[project]`` table so build backend can/will provide such metadata dynamically. Each key must be listed only once. It is an error to both list a key in ``dynamic`` and use the key directly in ``[project]``. One of the most common usage is ``version``, which allows build backend to retrieve project version from source code or version control system instead of hardcoding it in ``pyproject.toml``.
+        :param entry_points: (experimental) Extra `entry point groups <https://packaging.python.org/en/latest/specifications/entry-points/>`_ that allow applications to load plugins. For example, Pygments (a syntax highlighting tool) can use additional styles from separately installed packages through ``[project.entry-points."pygments.styles"]``. Each key is the name of the entry-point group, and each value is a table of entry points.
+        :param gui_scripts: (experimental) Table of `entry points <https://packaging.python.org/en/latest/specifications/entry-points/>`_ that allows package installers to create a GUI wrapper for. Each key is the name of the script to be created, and each value is the function or object to all, in form of either ``importable.module`` or ``importable.module:object.attr``. Windows platform treats ``gui_scripts`` specially in that they are wrapped in a GUI executable, so they can be started without a console, but cannot use standard streams unless application code redirects them.
+        :param import_names: (experimental) An array of strings specifying the import names that the project exclusively provides when installed.
+        :param import_namespaces: (experimental) An array of strings specifying the import names that the project provides when installed, but not exclusively.
+        :param keywords: (experimental) List of keywords or tags that describe the project. They could be used by search engines to categorize the project.
+        :param license: (experimental) For now it is a table with either: - ``file`` key specifying a relative path to a license file, or - ``text`` key containing full license content. Newer tool may accept a single `SPDX license expression <https://spdx.github.io/spdx-spec/v2.2.2/SPDX-license-expressions/>`_ string instead of a table.
+        :param license_files: (experimental) Relative paths or globs to paths of license files. Can be an empty list.
+        :param maintainers: (experimental) People or organizations considered as 'maintainers' of the project. Each maintainer is a table with ``name`` key, ``email`` key, or both.
+        :param optional_dependencies: (experimental) Each entry is a key/value pair, with the key specifying `extra feature name <https://packaging.python.org/en/latest/specifications/core-metadata/#provides-extra-multiple-use>`_ (such as ``socks`` in ``requests[socks]``), and value is an array of `dependency specifier <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_ strings.
+        :param readme: (experimental) Value can be a relative path to text / markdown (``.md`` suffix) / reStructuredText (``.rst`` suffix) readme file, or a table with either: - ``file`` key containing path of aforementioned readme file, or - ``text`` key containing the full readme text embedded inside ``pyproject.toml``.
+        :param requires_python: (experimental) Specifies the Python version(s) that the distribution is compatible with. Must be in the format specified in `Version specifiers <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_.
+        :param scripts: (experimental) Table of `entry points <https://packaging.python.org/en/latest/specifications/entry-points/>`_ that allows package installers to create a command-line wrapper for. Each key is the name of the script to be created, and each value is the function or object to all, in form of either ``importable.module`` or ``importable.module:object.attr``. Windows platform treats ``console_scripts`` specially in that they are wrapped in a console executable, so they are attached to a console and can use ``sys.stdin``, ``sys.stdout`` and ``sys.stderr`` for I/O.
+        :param urls: (experimental) Table consisting one or multiple ``label: URL`` pairs. Common indexes like PyPI uses `well-known Project URLs <https://packaging.python.org/en/latest/specifications/well-known-project-urls/#well-known-labels>`_ when presenting project pages.
+        :param version: (experimental) Version of the project, as defined in the `Version specifier specification <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_, and preferably `already normalized <https://packaging.python.org/en/latest/specifications/version-specifiers/#normalization>`_.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b8e342a1a2af5016dbe0f8461f2a5c512da049f10c5dfb936ea942878407c985)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument authors", value=authors, expected_type=type_hints["authors"])
+            check_type(argname="argument classifiers", value=classifiers, expected_type=type_hints["classifiers"])
+            check_type(argname="argument dependencies", value=dependencies, expected_type=type_hints["dependencies"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument dynamic", value=dynamic, expected_type=type_hints["dynamic"])
+            check_type(argname="argument entry_points", value=entry_points, expected_type=type_hints["entry_points"])
+            check_type(argname="argument gui_scripts", value=gui_scripts, expected_type=type_hints["gui_scripts"])
+            check_type(argname="argument import_names", value=import_names, expected_type=type_hints["import_names"])
+            check_type(argname="argument import_namespaces", value=import_namespaces, expected_type=type_hints["import_namespaces"])
+            check_type(argname="argument keywords", value=keywords, expected_type=type_hints["keywords"])
+            check_type(argname="argument license", value=license, expected_type=type_hints["license"])
+            check_type(argname="argument license_files", value=license_files, expected_type=type_hints["license_files"])
+            check_type(argname="argument maintainers", value=maintainers, expected_type=type_hints["maintainers"])
+            check_type(argname="argument optional_dependencies", value=optional_dependencies, expected_type=type_hints["optional_dependencies"])
+            check_type(argname="argument readme", value=readme, expected_type=type_hints["readme"])
+            check_type(argname="argument requires_python", value=requires_python, expected_type=type_hints["requires_python"])
+            check_type(argname="argument scripts", value=scripts, expected_type=type_hints["scripts"])
+            check_type(argname="argument urls", value=urls, expected_type=type_hints["urls"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if authors is not None:
+            self._values["authors"] = authors
+        if classifiers is not None:
+            self._values["classifiers"] = classifiers
+        if dependencies is not None:
+            self._values["dependencies"] = dependencies
+        if description is not None:
+            self._values["description"] = description
+        if dynamic is not None:
+            self._values["dynamic"] = dynamic
+        if entry_points is not None:
+            self._values["entry_points"] = entry_points
+        if gui_scripts is not None:
+            self._values["gui_scripts"] = gui_scripts
+        if import_names is not None:
+            self._values["import_names"] = import_names
+        if import_namespaces is not None:
+            self._values["import_namespaces"] = import_namespaces
+        if keywords is not None:
+            self._values["keywords"] = keywords
+        if license is not None:
+            self._values["license"] = license
+        if license_files is not None:
+            self._values["license_files"] = license_files
+        if maintainers is not None:
+            self._values["maintainers"] = maintainers
+        if optional_dependencies is not None:
+            self._values["optional_dependencies"] = optional_dependencies
+        if readme is not None:
+            self._values["readme"] = readme
+        if requires_python is not None:
+            self._values["requires_python"] = requires_python
+        if scripts is not None:
+            self._values["scripts"] = scripts
+        if urls is not None:
+            self._values["urls"] = urls
+        if version is not None:
+            self._values["version"] = version
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''(experimental) Valid name consists only of ASCII letters and numbers, period, underscore and hyphen.
+
+        It must start and end with a letter or number.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def authors(self) -> typing.Optional[typing.List["ProjectAuthor"]]:
+        '''(experimental) People or organizations considered as 'authors' of the project.
+
+        Each author is a table with ``name`` key, ``email`` key, or both.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#authors
+        '''
+        result = self._values.get("authors")
+        return typing.cast(typing.Optional[typing.List["ProjectAuthor"]], result)
+
+    @builtins.property
+    def classifiers(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) List of `Trove classifiers <https://pypi.org/classifiers/>`_ that describe the project. PyPI use the classifiers to categorize projects.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#classifiers
+        '''
+        result = self._values.get("classifiers")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def dependencies(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) An array of `dependency specifier <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_ strings, each representing a mandatory dependent package of the project.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#dependencies
+        '''
+        result = self._values.get("dependencies")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Summary description of the project in one line.
+
+        Tools may not accept multiple lines.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def dynamic(self) -> typing.Optional[typing.List["PyprojectTomlProjectDynamic"]]:
+        '''(experimental) Specifies which keys are intentionally unspecified under ``[project]`` table so build backend can/will provide such metadata dynamically.
+
+        Each key must be listed only once. It is an error to both list a key in ``dynamic`` and use the key directly in ``[project]``.
+        One of the most common usage is ``version``, which allows build backend to retrieve project version from source code or version control system instead of hardcoding it in ``pyproject.toml``.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#dynamic
+        '''
+        result = self._values.get("dynamic")
+        return typing.cast(typing.Optional[typing.List["PyprojectTomlProjectDynamic"]], result)
+
+    @builtins.property
+    def entry_points(self) -> typing.Any:
+        '''(experimental) Extra `entry point groups <https://packaging.python.org/en/latest/specifications/entry-points/>`_ that allow applications to load plugins. For example, Pygments (a syntax highlighting tool) can use additional styles from separately installed packages through ``[project.entry-points."pygments.styles"]``. Each key is the name of the entry-point group, and each value is a table of entry points.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#entry-points
+        '''
+        result = self._values.get("entry_points")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def gui_scripts(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Table of `entry points <https://packaging.python.org/en/latest/specifications/entry-points/>`_ that allows package installers to create a GUI wrapper for. Each key is the name of the script to be created, and each value is the function or object to all, in form of either ``importable.module`` or ``importable.module:object.attr``. Windows platform treats ``gui_scripts`` specially in that they are wrapped in a GUI executable, so they can be started without a console, but cannot use standard streams unless application code redirects them.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#gui-scripts
+        '''
+        result = self._values.get("gui_scripts")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def import_names(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) An array of strings specifying the import names that the project exclusively provides when installed.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#import-names
+        '''
+        result = self._values.get("import_names")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def import_namespaces(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) An array of strings specifying the import names that the project provides when installed, but not exclusively.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#import-namespaces
+        '''
+        result = self._values.get("import_namespaces")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def keywords(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) List of keywords or tags that describe the project.
+
+        They could be used by search engines to categorize the project.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#keywords
+        '''
+        result = self._values.get("keywords")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def license(self) -> typing.Any:
+        '''(experimental) For now it is a table with either: - ``file`` key specifying a relative path to a license file, or - ``text`` key containing full license content.
+
+        Newer tool may accept a single `SPDX license expression <https://spdx.github.io/spdx-spec/v2.2.2/SPDX-license-expressions/>`_ string instead of a table.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#license
+        '''
+        result = self._values.get("license")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def license_files(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Relative paths or globs to paths of license files.
+
+        Can be an empty list.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#license-files
+        '''
+        result = self._values.get("license_files")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def maintainers(self) -> typing.Optional[typing.List["ProjectAuthor"]]:
+        '''(experimental) People or organizations considered as 'maintainers' of the project.
+
+        Each maintainer is a table with ``name`` key, ``email`` key, or both.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#maintainers
+        '''
+        result = self._values.get("maintainers")
+        return typing.cast(typing.Optional[typing.List["ProjectAuthor"]], result)
+
+    @builtins.property
+    def optional_dependencies(self) -> typing.Any:
+        '''(experimental) Each entry is a key/value pair, with the key specifying `extra feature name <https://packaging.python.org/en/latest/specifications/core-metadata/#provides-extra-multiple-use>`_ (such as ``socks`` in ``requests[socks]``), and value is an array of `dependency specifier <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_ strings.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#optional-dependencies
+        '''
+        result = self._values.get("optional_dependencies")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def readme(self) -> typing.Any:
+        '''(experimental) Value can be a relative path to text / markdown (``.md`` suffix) / reStructuredText (``.rst`` suffix) readme file, or a table with either: - ``file`` key containing path of aforementioned readme file, or - ``text`` key containing the full readme text embedded inside ``pyproject.toml``.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#readme
+        '''
+        result = self._values.get("readme")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def requires_python(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Specifies the Python version(s) that the distribution is compatible with.
+
+        Must be in the format specified in `Version specifiers <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#requires-python
+        '''
+        result = self._values.get("requires_python")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scripts(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Table of `entry points <https://packaging.python.org/en/latest/specifications/entry-points/>`_ that allows package installers to create a command-line wrapper for. Each key is the name of the script to be created, and each value is the function or object to all, in form of either ``importable.module`` or ``importable.module:object.attr``. Windows platform treats ``console_scripts`` specially in that they are wrapped in a console executable, so they are attached to a console and can use ``sys.stdin``, ``sys.stdout`` and ``sys.stderr`` for I/O.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#scripts
+        '''
+        result = self._values.get("scripts")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def urls(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Table consisting one or multiple ``label: URL`` pairs.
+
+        Common indexes like PyPI uses `well-known Project URLs <https://packaging.python.org/en/latest/specifications/well-known-project-urls/#well-known-labels>`_ when presenting project pages.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#urls
+        '''
+        result = self._values.get("urls")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def version(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Version of the project, as defined in the `Version specifier specification <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_, and preferably `already normalized <https://packaging.python.org/en/latest/specifications/version-specifiers/#normalization>`_.
+
+        :stability: experimental
+        :schema: PyprojectTomlProject#version
+        '''
+        result = self._values.get("version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PyprojectTomlProject(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="projen.python.PyprojectTomlProjectDynamic")
+class PyprojectTomlProjectDynamic(enum.Enum):
+    '''
+    :stability: experimental
+    :schema: PyprojectTomlProjectDynamic
+    '''
+
+    VERSION = "VERSION"
+    '''(experimental) version.
+
+    :stability: experimental
+    '''
+    DESCRIPTION = "DESCRIPTION"
+    '''(experimental) description.
+
+    :stability: experimental
+    '''
+    README = "README"
+    '''(experimental) readme.
+
+    :stability: experimental
+    '''
+    REQUIRES_HYPHEN_PYTHON = "REQUIRES_HYPHEN_PYTHON"
+    '''(experimental) requires-python.
+
+    :stability: experimental
+    '''
+    LICENSE = "LICENSE"
+    '''(experimental) license.
+
+    :stability: experimental
+    '''
+    LICENSE_HYPHEN_FILES = "LICENSE_HYPHEN_FILES"
+    '''(experimental) license-files.
+
+    :stability: experimental
+    '''
+    AUTHORS = "AUTHORS"
+    '''(experimental) authors.
+
+    :stability: experimental
+    '''
+    MAINTAINERS = "MAINTAINERS"
+    '''(experimental) maintainers.
+
+    :stability: experimental
+    '''
+    KEYWORDS = "KEYWORDS"
+    '''(experimental) keywords.
+
+    :stability: experimental
+    '''
+    CLASSIFIERS = "CLASSIFIERS"
+    '''(experimental) classifiers.
+
+    :stability: experimental
+    '''
+    URLS = "URLS"
+    '''(experimental) urls.
+
+    :stability: experimental
+    '''
+    SCRIPTS = "SCRIPTS"
+    '''(experimental) scripts.
+
+    :stability: experimental
+    '''
+    GUI_HYPHEN_SCRIPTS = "GUI_HYPHEN_SCRIPTS"
+    '''(experimental) gui-scripts.
+
+    :stability: experimental
+    '''
+    ENTRY_HYPHEN_POINTS = "ENTRY_HYPHEN_POINTS"
+    '''(experimental) entry-points.
+
+    :stability: experimental
+    '''
+    DEPENDENCIES = "DEPENDENCIES"
+    '''(experimental) dependencies.
+
+    :stability: experimental
+    '''
+    OPTIONAL_HYPHEN_DEPENDENCIES = "OPTIONAL_HYPHEN_DEPENDENCIES"
+    '''(experimental) optional-dependencies.
+
+    :stability: experimental
+    '''
+    IMPORT_HYPHEN_NAMES = "IMPORT_HYPHEN_NAMES"
+    '''(experimental) import-names.
+
+    :stability: experimental
+    '''
+    IMPORT_HYPHEN_NAMESPACES = "IMPORT_HYPHEN_NAMESPACES"
+    '''(experimental) import-namespaces.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="projen.python.PyprojectTomlTool",
+    jsii_struct_bases=[],
+    name_mapping={
+        "black": "black",
+        "cibuildwheel": "cibuildwheel",
+        "hatch": "hatch",
+        "maturin": "maturin",
+        "mypy": "mypy",
+        "pdm": "pdm",
+        "poe": "poe",
+        "poetry": "poetry",
+        "pyright": "pyright",
+        "pytest": "pytest",
+        "repo_review": "repoReview",
+        "ruff": "ruff",
+        "scikit_build": "scikitBuild",
+        "setuptools": "setuptools",
+        "setuptools_scm": "setuptoolsScm",
+        "taskipy": "taskipy",
+        "tombi": "tombi",
+        "tox": "tox",
+        "ty": "ty",
+        "uv": "uv",
+    },
+)
+class PyprojectTomlTool:
+    def __init__(
+        self,
+        *,
+        black: typing.Any = None,
+        cibuildwheel: typing.Any = None,
+        hatch: typing.Any = None,
+        maturin: typing.Any = None,
+        mypy: typing.Any = None,
+        pdm: typing.Any = None,
+        poe: typing.Any = None,
+        poetry: typing.Any = None,
+        pyright: typing.Any = None,
+        pytest: typing.Any = None,
+        repo_review: typing.Any = None,
+        ruff: typing.Any = None,
+        scikit_build: typing.Any = None,
+        setuptools: typing.Any = None,
+        setuptools_scm: typing.Any = None,
+        taskipy: typing.Any = None,
+        tombi: typing.Any = None,
+        tox: typing.Any = None,
+        ty: typing.Any = None,
+        uv: typing.Any = None,
+    ) -> None:
+        '''(experimental) Every tool that is used by the project can have users specify configuration data as long as they use a sub-table within ``[tool]``.
+
+        Generally a project can use the subtable ``tool.$NAME`` if, and only if, they own the entry for ``$NAME`` in the Cheeseshop/PyPI.
+
+        :param black: (experimental) The uncompromising Python code formatter.
+        :param cibuildwheel: (experimental) Build Python wheels for all platforms.
+        :param hatch: (experimental) Modern, extensible Python project management.
+        :param maturin: (experimental) Build and publish crates with pyo3, cffi and uniffi bindings as well as rust binaries as python packages.
+        :param mypy: (experimental) Optional static typing for Python.
+        :param pdm: (experimental) A modern Python package manager with PEP 621 support.
+        :param poe: (experimental) A task runner that works well with pyproject.toml files.
+        :param poetry: (experimental) Python dependency management and packaging made easy.
+        :param pyright: (experimental) Static type checker for Python.
+        :param pytest: (experimental) Standardized automated testing of Python packages.
+        :param repo_review: (experimental) Review a repository for best practices.
+        :param ruff: (experimental) An extremely fast Python linter and formatter, written in Rust.
+        :param scikit_build: (experimental) Improved build system generator for Python C/C++/Fortran extensions.
+        :param setuptools: (experimental) Easily download, build, install, upgrade, and uninstall Python packages.
+        :param setuptools_scm: (experimental) Manage Python package versions using SCM (e.g. Git).
+        :param taskipy: (experimental) The complementary task runner for python.
+        :param tombi: (experimental) Tombi is a toolkit for TOML; providing a formatter/linter and language server
+        :param tox: (experimental) Standardized automated testing of Python packages.
+        :param ty: (experimental) An extremely fast Python type checker, written in Rust.
+        :param uv: (experimental) An extremely fast Python package installer and resolver, written in Rust.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc2ba765e25294b713eef60bd54f79fe7e8b12bdfb44298beec4d108cc84cf15)
+            check_type(argname="argument black", value=black, expected_type=type_hints["black"])
+            check_type(argname="argument cibuildwheel", value=cibuildwheel, expected_type=type_hints["cibuildwheel"])
+            check_type(argname="argument hatch", value=hatch, expected_type=type_hints["hatch"])
+            check_type(argname="argument maturin", value=maturin, expected_type=type_hints["maturin"])
+            check_type(argname="argument mypy", value=mypy, expected_type=type_hints["mypy"])
+            check_type(argname="argument pdm", value=pdm, expected_type=type_hints["pdm"])
+            check_type(argname="argument poe", value=poe, expected_type=type_hints["poe"])
+            check_type(argname="argument poetry", value=poetry, expected_type=type_hints["poetry"])
+            check_type(argname="argument pyright", value=pyright, expected_type=type_hints["pyright"])
+            check_type(argname="argument pytest", value=pytest, expected_type=type_hints["pytest"])
+            check_type(argname="argument repo_review", value=repo_review, expected_type=type_hints["repo_review"])
+            check_type(argname="argument ruff", value=ruff, expected_type=type_hints["ruff"])
+            check_type(argname="argument scikit_build", value=scikit_build, expected_type=type_hints["scikit_build"])
+            check_type(argname="argument setuptools", value=setuptools, expected_type=type_hints["setuptools"])
+            check_type(argname="argument setuptools_scm", value=setuptools_scm, expected_type=type_hints["setuptools_scm"])
+            check_type(argname="argument taskipy", value=taskipy, expected_type=type_hints["taskipy"])
+            check_type(argname="argument tombi", value=tombi, expected_type=type_hints["tombi"])
+            check_type(argname="argument tox", value=tox, expected_type=type_hints["tox"])
+            check_type(argname="argument ty", value=ty, expected_type=type_hints["ty"])
+            check_type(argname="argument uv", value=uv, expected_type=type_hints["uv"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if black is not None:
+            self._values["black"] = black
+        if cibuildwheel is not None:
+            self._values["cibuildwheel"] = cibuildwheel
+        if hatch is not None:
+            self._values["hatch"] = hatch
+        if maturin is not None:
+            self._values["maturin"] = maturin
+        if mypy is not None:
+            self._values["mypy"] = mypy
+        if pdm is not None:
+            self._values["pdm"] = pdm
+        if poe is not None:
+            self._values["poe"] = poe
+        if poetry is not None:
+            self._values["poetry"] = poetry
+        if pyright is not None:
+            self._values["pyright"] = pyright
+        if pytest is not None:
+            self._values["pytest"] = pytest
+        if repo_review is not None:
+            self._values["repo_review"] = repo_review
+        if ruff is not None:
+            self._values["ruff"] = ruff
+        if scikit_build is not None:
+            self._values["scikit_build"] = scikit_build
+        if setuptools is not None:
+            self._values["setuptools"] = setuptools
+        if setuptools_scm is not None:
+            self._values["setuptools_scm"] = setuptools_scm
+        if taskipy is not None:
+            self._values["taskipy"] = taskipy
+        if tombi is not None:
+            self._values["tombi"] = tombi
+        if tox is not None:
+            self._values["tox"] = tox
+        if ty is not None:
+            self._values["ty"] = ty
+        if uv is not None:
+            self._values["uv"] = uv
+
+    @builtins.property
+    def black(self) -> typing.Any:
+        '''(experimental) The uncompromising Python code formatter.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#black
+        '''
+        result = self._values.get("black")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def cibuildwheel(self) -> typing.Any:
+        '''(experimental) Build Python wheels for all platforms.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#cibuildwheel
+        '''
+        result = self._values.get("cibuildwheel")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def hatch(self) -> typing.Any:
+        '''(experimental) Modern, extensible Python project management.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#hatch
+        '''
+        result = self._values.get("hatch")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def maturin(self) -> typing.Any:
+        '''(experimental) Build and publish crates with pyo3, cffi and uniffi bindings as well as rust binaries as python packages.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#maturin
+        '''
+        result = self._values.get("maturin")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def mypy(self) -> typing.Any:
+        '''(experimental) Optional static typing for Python.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#mypy
+        '''
+        result = self._values.get("mypy")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def pdm(self) -> typing.Any:
+        '''(experimental) A modern Python package manager with PEP 621 support.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#pdm
+        '''
+        result = self._values.get("pdm")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def poe(self) -> typing.Any:
+        '''(experimental) A task runner that works well with pyproject.toml files.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#poe
+        '''
+        result = self._values.get("poe")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def poetry(self) -> typing.Any:
+        '''(experimental) Python dependency management and packaging made easy.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#poetry
+        '''
+        result = self._values.get("poetry")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def pyright(self) -> typing.Any:
+        '''(experimental) Static type checker for Python.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#pyright
+        '''
+        result = self._values.get("pyright")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def pytest(self) -> typing.Any:
+        '''(experimental) Standardized automated testing of Python packages.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#pytest
+        '''
+        result = self._values.get("pytest")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def repo_review(self) -> typing.Any:
+        '''(experimental) Review a repository for best practices.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#repo-review
+        '''
+        result = self._values.get("repo_review")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def ruff(self) -> typing.Any:
+        '''(experimental) An extremely fast Python linter and formatter, written in Rust.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#ruff
+        '''
+        result = self._values.get("ruff")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def scikit_build(self) -> typing.Any:
+        '''(experimental) Improved build system generator for Python C/C++/Fortran extensions.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#scikit-build
+        '''
+        result = self._values.get("scikit_build")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def setuptools(self) -> typing.Any:
+        '''(experimental) Easily download, build, install, upgrade, and uninstall Python packages.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#setuptools
+        '''
+        result = self._values.get("setuptools")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def setuptools_scm(self) -> typing.Any:
+        '''(experimental) Manage Python package versions using SCM (e.g. Git).
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#setuptools_scm
+        '''
+        result = self._values.get("setuptools_scm")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def taskipy(self) -> typing.Any:
+        '''(experimental) The complementary task runner for python.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#taskipy
+        '''
+        result = self._values.get("taskipy")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def tombi(self) -> typing.Any:
+        '''(experimental) Tombi is a toolkit for TOML;
+
+        providing a formatter/linter and language server
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#tombi
+        '''
+        result = self._values.get("tombi")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def tox(self) -> typing.Any:
+        '''(experimental) Standardized automated testing of Python packages.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#tox
+        '''
+        result = self._values.get("tox")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def ty(self) -> typing.Any:
+        '''(experimental) An extremely fast Python type checker, written in Rust.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#ty
+        '''
+        result = self._values.get("ty")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def uv(self) -> typing.Any:
+        '''(experimental) An extremely fast Python package installer and resolver, written in Rust.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#uv
+        '''
+        result = self._values.get("uv")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PyprojectTomlTool(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class Pytest(
     _Component_2b0ad27f,
     metaclass=jsii.JSIIMeta,
@@ -1126,7 +2322,7 @@ class Pytest(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         max_failures: typing.Optional[jsii.Number] = None,
         testdir: typing.Optional[builtins.str] = None,
@@ -1297,7 +2493,7 @@ class PytestSample(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         module_name: builtins.str,
         testdir: builtins.str,
@@ -1428,6 +2624,7 @@ class PythonExecutableOptions:
         "package_name": "packageName",
         "poetry_options": "poetryOptions",
         "setup_config": "setupConfig",
+        "uv_options": "uvOptions",
     },
 )
 class PythonPackagingOptions:
@@ -1442,8 +2639,9 @@ class PythonPackagingOptions:
         homepage: typing.Optional[builtins.str] = None,
         license: typing.Optional[builtins.str] = None,
         package_name: typing.Optional[builtins.str] = None,
-        poetry_options: typing.Optional[typing.Union[PoetryPyprojectOptionsWithoutDeps, typing.Dict[builtins.str, typing.Any]]] = None,
+        poetry_options: typing.Optional[typing.Union["PoetryPyprojectOptionsWithoutDeps", typing.Dict[builtins.str, typing.Any]]] = None,
         setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        uv_options: typing.Optional[typing.Union["UvOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param author_email: (experimental) Author's e-mail. Default: $GIT_USER_EMAIL
@@ -1456,11 +2654,14 @@ class PythonPackagingOptions:
         :param package_name: (experimental) Package name.
         :param poetry_options: (experimental) Additional options to set for poetry if using poetry.
         :param setup_config: (experimental) Additional fields to pass in the setup() function if using setuptools.
+        :param uv_options: (experimental) Additional options to set for uv if using uv.
 
         :stability: experimental
         '''
         if isinstance(poetry_options, dict):
             poetry_options = PoetryPyprojectOptionsWithoutDeps(**poetry_options)
+        if isinstance(uv_options, dict):
+            uv_options = UvOptions(**uv_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8103f3b830f25b7a5e774ec261700198b120623a2bd5b4934a1fd82d8b48fb8a)
             check_type(argname="argument author_email", value=author_email, expected_type=type_hints["author_email"])
@@ -1473,6 +2674,7 @@ class PythonPackagingOptions:
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument poetry_options", value=poetry_options, expected_type=type_hints["poetry_options"])
             check_type(argname="argument setup_config", value=setup_config, expected_type=type_hints["setup_config"])
+            check_type(argname="argument uv_options", value=uv_options, expected_type=type_hints["uv_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "author_email": author_email,
             "author_name": author_name,
@@ -1492,6 +2694,8 @@ class PythonPackagingOptions:
             self._values["poetry_options"] = poetry_options
         if setup_config is not None:
             self._values["setup_config"] = setup_config
+        if uv_options is not None:
+            self._values["uv_options"] = uv_options
 
     @builtins.property
     def author_email(self) -> builtins.str:
@@ -1578,13 +2782,13 @@ class PythonPackagingOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def poetry_options(self) -> typing.Optional[PoetryPyprojectOptionsWithoutDeps]:
+    def poetry_options(self) -> typing.Optional["PoetryPyprojectOptionsWithoutDeps"]:
         '''(experimental) Additional options to set for poetry if using poetry.
 
         :stability: experimental
         '''
         result = self._values.get("poetry_options")
-        return typing.cast(typing.Optional[PoetryPyprojectOptionsWithoutDeps], result)
+        return typing.cast(typing.Optional["PoetryPyprojectOptionsWithoutDeps"], result)
 
     @builtins.property
     def setup_config(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
@@ -1594,6 +2798,15 @@ class PythonPackagingOptions:
         '''
         result = self._values.get("setup_config")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def uv_options(self) -> typing.Optional["UvOptions"]:
+        '''(experimental) Additional options to set for uv if using uv.
+
+        :stability: experimental
+        '''
+        result = self._values.get("uv_options")
+        return typing.cast(typing.Optional["UvOptions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1627,34 +2840,35 @@ class PythonProject(
         pip: typing.Optional[builtins.bool] = None,
         poetry: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union[_ProjenrcOptions_179dd39f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_python: typing.Optional[builtins.bool] = None,
-        projenrc_python_options: typing.Optional[typing.Union[ProjenrcOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_python_options: typing.Optional[typing.Union["ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union[_ProjenrcTsOptions_e3a2602d, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcTsOptions_e3a2602d", typing.Dict[builtins.str, typing.Any]]] = None,
         pytest: typing.Optional[builtins.bool] = None,
-        pytest_options: typing.Optional[typing.Union[PytestOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        pytest_options: typing.Optional[typing.Union["PytestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         sample: typing.Optional[builtins.bool] = None,
         sample_testdir: typing.Optional[builtins.str] = None,
         setuptools: typing.Optional[builtins.bool] = None,
+        uv: typing.Optional[builtins.bool] = None,
         venv: typing.Optional[builtins.bool] = None,
         venv_options: typing.Optional[typing.Union["VenvOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         author_email: builtins.str,
         author_name: builtins.str,
@@ -1664,21 +2878,23 @@ class PythonProject(
         homepage: typing.Optional[builtins.str] = None,
         license: typing.Optional[builtins.str] = None,
         package_name: typing.Optional[builtins.str] = None,
-        poetry_options: typing.Optional[typing.Union[PoetryPyprojectOptionsWithoutDeps, typing.Dict[builtins.str, typing.Any]]] = None,
+        poetry_options: typing.Optional[typing.Union["PoetryPyprojectOptionsWithoutDeps", typing.Dict[builtins.str, typing.Any]]] = None,
         setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        uv_options: typing.Optional[typing.Union["UvOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         python_exec: typing.Optional[builtins.str] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param module_name: (experimental) Name of the python package as used in imports and filenames. Must only consist of alphanumeric characters and underscores. Default: $PYTHON_MODULE_NAME
@@ -1697,6 +2913,7 @@ class PythonProject(
         :param sample: (experimental) Include sample code and test if the relevant directories don't exist. Default: true
         :param sample_testdir: (experimental) Location of sample tests. Typically the same directory where project tests will be located. Default: "tests"
         :param setuptools: (experimental) Use setuptools with a setup.py script for packaging and publishing. Default: - true, unless poetry is true, then false
+        :param uv: (experimental) Use uv to manage your project dependencies, virtual environment, and (optional) packaging/publishing. Default: false
         :param venv: (experimental) Use venv to manage a virtual environment for installing dependencies inside. Default: - true, unless poetry is true, then false
         :param venv_options: (experimental) Venv options. Default: - defaults
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
@@ -1726,6 +2943,7 @@ class PythonProject(
         :param package_name: (experimental) Package name.
         :param poetry_options: (experimental) Additional options to set for poetry if using poetry.
         :param setup_config: (experimental) Additional fields to pass in the setup() function if using setuptools.
+        :param uv_options: (experimental) Additional options to set for uv if using uv.
         :param python_exec: (experimental) Path to the python executable to use. Default: "python"
         :param name: (experimental) This is the name of your project. Default: $BASEDIR
         :param commit_generated: (experimental) Whether to commit the managed files by default. Default: true
@@ -1734,6 +2952,7 @@ class PythonProject(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -1759,6 +2978,7 @@ class PythonProject(
             sample=sample,
             sample_testdir=sample_testdir,
             setuptools=setuptools,
+            uv=uv,
             venv=venv,
             venv_options=venv_options,
             auto_approve_options=auto_approve_options,
@@ -1788,6 +3008,7 @@ class PythonProject(
             package_name=package_name,
             poetry_options=poetry_options,
             setup_config=setup_config,
+            uv_options=uv_options,
             python_exec=python_exec,
             name=name,
             commit_generated=commit_generated,
@@ -1796,6 +3017,7 @@ class PythonProject(
             logging=logging,
             outdir=outdir,
             parent=parent,
+            project_tree=project_tree,
             projen_command=projen_command,
             projenrc_json=projenrc_json,
             projenrc_json_options=projenrc_json_options,
@@ -1843,21 +3065,21 @@ class PythonProject(
 
     @builtins.property
     @jsii.member(jsii_name="depsManager")
-    def deps_manager(self) -> IPythonDeps:
+    def deps_manager(self) -> "IPythonDeps":
         '''(experimental) API for managing dependencies.
 
         :stability: experimental
         '''
-        return typing.cast(IPythonDeps, jsii.get(self, "depsManager"))
+        return typing.cast("IPythonDeps", jsii.get(self, "depsManager"))
 
     @builtins.property
     @jsii.member(jsii_name="envManager")
-    def env_manager(self) -> IPythonEnv:
-        '''(experimental) API for mangaging the Python runtime environment.
+    def env_manager(self) -> "IPythonEnv":
+        '''(experimental) API for managing the Python runtime environment.
 
         :stability: experimental
         '''
-        return typing.cast(IPythonEnv, jsii.get(self, "envManager"))
+        return typing.cast("IPythonEnv", jsii.get(self, "envManager"))
 
     @builtins.property
     @jsii.member(jsii_name="moduleName")
@@ -1890,26 +3112,26 @@ class PythonProject(
 
     @builtins.property
     @jsii.member(jsii_name="packagingManager")
-    def packaging_manager(self) -> typing.Optional[IPythonPackaging]:
+    def packaging_manager(self) -> typing.Optional["IPythonPackaging"]:
         '''(experimental) API for managing packaging the project as a library.
 
         Only applies when the ``projectType`` is LIB.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[IPythonPackaging], jsii.get(self, "packagingManager"))
+        return typing.cast(typing.Optional["IPythonPackaging"], jsii.get(self, "packagingManager"))
 
     @builtins.property
     @jsii.member(jsii_name="pytest")
-    def pytest(self) -> typing.Optional[Pytest]:
+    def pytest(self) -> typing.Optional["Pytest"]:
         '''(experimental) Pytest component.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[Pytest], jsii.get(self, "pytest"))
+        return typing.cast(typing.Optional["Pytest"], jsii.get(self, "pytest"))
 
     @pytest.setter
-    def pytest(self, value: typing.Optional[Pytest]) -> None:
+    def pytest(self, value: typing.Optional["Pytest"]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cabdb593e4357c0da03ac92882cb152b8d7fd4429738682c7081bc2132bad82b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1929,6 +3151,7 @@ class PythonProject(
         "logging": "logging",
         "outdir": "outdir",
         "parent": "parent",
+        "project_tree": "projectTree",
         "projen_command": "projenCommand",
         "projenrc_json": "projenrcJson",
         "projenrc_json_options": "projenrcJsonOptions",
@@ -1961,6 +3184,7 @@ class PythonProject(
         "package_name": "packageName",
         "poetry_options": "poetryOptions",
         "setup_config": "setupConfig",
+        "uv_options": "uvOptions",
         "python_exec": "pythonExec",
         "module_name": "moduleName",
         "deps": "deps",
@@ -1978,6 +3202,7 @@ class PythonProject(
         "sample": "sample",
         "sample_testdir": "sampleTestdir",
         "setuptools": "setuptools",
+        "uv": "uv",
         "venv": "venv",
         "venv_options": "venvOptions",
     },
@@ -1992,32 +3217,33 @@ class PythonProjectOptions(
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         author_email: builtins.str,
         author_name: builtins.str,
@@ -2027,8 +3253,9 @@ class PythonProjectOptions(
         homepage: typing.Optional[builtins.str] = None,
         license: typing.Optional[builtins.str] = None,
         package_name: typing.Optional[builtins.str] = None,
-        poetry_options: typing.Optional[typing.Union[PoetryPyprojectOptionsWithoutDeps, typing.Dict[builtins.str, typing.Any]]] = None,
+        poetry_options: typing.Optional[typing.Union["PoetryPyprojectOptionsWithoutDeps", typing.Dict[builtins.str, typing.Any]]] = None,
         setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        uv_options: typing.Optional[typing.Union["UvOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         python_exec: typing.Optional[builtins.str] = None,
         module_name: builtins.str,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2036,16 +3263,17 @@ class PythonProjectOptions(
         pip: typing.Optional[builtins.bool] = None,
         poetry: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union[_ProjenrcOptions_179dd39f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_python: typing.Optional[builtins.bool] = None,
-        projenrc_python_options: typing.Optional[typing.Union[ProjenrcOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_python_options: typing.Optional[typing.Union["ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union[_ProjenrcTsOptions_e3a2602d, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcTsOptions_e3a2602d", typing.Dict[builtins.str, typing.Any]]] = None,
         pytest: typing.Optional[builtins.bool] = None,
-        pytest_options: typing.Optional[typing.Union[PytestOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        pytest_options: typing.Optional[typing.Union["PytestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         sample: typing.Optional[builtins.bool] = None,
         sample_testdir: typing.Optional[builtins.str] = None,
         setuptools: typing.Optional[builtins.bool] = None,
+        uv: typing.Optional[builtins.bool] = None,
         venv: typing.Optional[builtins.bool] = None,
         venv_options: typing.Optional[typing.Union["VenvOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -2058,6 +3286,7 @@ class PythonProjectOptions(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -2090,6 +3319,7 @@ class PythonProjectOptions(
         :param package_name: (experimental) Package name.
         :param poetry_options: (experimental) Additional options to set for poetry if using poetry.
         :param setup_config: (experimental) Additional fields to pass in the setup() function if using setuptools.
+        :param uv_options: (experimental) Additional options to set for uv if using uv.
         :param python_exec: (experimental) Path to the python executable to use. Default: "python"
         :param module_name: (experimental) Name of the python package as used in imports and filenames. Must only consist of alphanumeric characters and underscores. Default: $PYTHON_MODULE_NAME
         :param deps: (experimental) List of runtime dependencies for this project. Dependencies use the format: ``<module>@<semver>`` Additional dependencies can be added via ``project.addDependency()``. Default: []
@@ -2107,6 +3337,7 @@ class PythonProjectOptions(
         :param sample: (experimental) Include sample code and test if the relevant directories don't exist. Default: true
         :param sample_testdir: (experimental) Location of sample tests. Typically the same directory where project tests will be located. Default: "tests"
         :param setuptools: (experimental) Use setuptools with a setup.py script for packaging and publishing. Default: - true, unless poetry is true, then false
+        :param uv: (experimental) Use uv to manage your project dependencies, virtual environment, and (optional) packaging/publishing. Default: false
         :param venv: (experimental) Use venv to manage a virtual environment for installing dependencies inside. Default: - true, unless poetry is true, then false
         :param venv_options: (experimental) Venv options. Default: - defaults
 
@@ -2136,6 +3367,8 @@ class PythonProjectOptions(
             stale_options = _StaleOptions_929db764(**stale_options)
         if isinstance(poetry_options, dict):
             poetry_options = PoetryPyprojectOptionsWithoutDeps(**poetry_options)
+        if isinstance(uv_options, dict):
+            uv_options = UvOptions(**uv_options)
         if isinstance(projenrc_js_options, dict):
             projenrc_js_options = _ProjenrcOptions_179dd39f(**projenrc_js_options)
         if isinstance(projenrc_python_options, dict):
@@ -2155,6 +3388,7 @@ class PythonProjectOptions(
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
             check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
+            check_type(argname="argument project_tree", value=project_tree, expected_type=type_hints["project_tree"])
             check_type(argname="argument projen_command", value=projen_command, expected_type=type_hints["projen_command"])
             check_type(argname="argument projenrc_json", value=projenrc_json, expected_type=type_hints["projenrc_json"])
             check_type(argname="argument projenrc_json_options", value=projenrc_json_options, expected_type=type_hints["projenrc_json_options"])
@@ -2187,6 +3421,7 @@ class PythonProjectOptions(
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument poetry_options", value=poetry_options, expected_type=type_hints["poetry_options"])
             check_type(argname="argument setup_config", value=setup_config, expected_type=type_hints["setup_config"])
+            check_type(argname="argument uv_options", value=uv_options, expected_type=type_hints["uv_options"])
             check_type(argname="argument python_exec", value=python_exec, expected_type=type_hints["python_exec"])
             check_type(argname="argument module_name", value=module_name, expected_type=type_hints["module_name"])
             check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
@@ -2204,6 +3439,7 @@ class PythonProjectOptions(
             check_type(argname="argument sample", value=sample, expected_type=type_hints["sample"])
             check_type(argname="argument sample_testdir", value=sample_testdir, expected_type=type_hints["sample_testdir"])
             check_type(argname="argument setuptools", value=setuptools, expected_type=type_hints["setuptools"])
+            check_type(argname="argument uv", value=uv, expected_type=type_hints["uv"])
             check_type(argname="argument venv", value=venv, expected_type=type_hints["venv"])
             check_type(argname="argument venv_options", value=venv_options, expected_type=type_hints["venv_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2225,6 +3461,8 @@ class PythonProjectOptions(
             self._values["outdir"] = outdir
         if parent is not None:
             self._values["parent"] = parent
+        if project_tree is not None:
+            self._values["project_tree"] = project_tree
         if projen_command is not None:
             self._values["projen_command"] = projen_command
         if projenrc_json is not None:
@@ -2283,6 +3521,8 @@ class PythonProjectOptions(
             self._values["poetry_options"] = poetry_options
         if setup_config is not None:
             self._values["setup_config"] = setup_config
+        if uv_options is not None:
+            self._values["uv_options"] = uv_options
         if python_exec is not None:
             self._values["python_exec"] = python_exec
         if deps is not None:
@@ -2315,6 +3555,8 @@ class PythonProjectOptions(
             self._values["sample_testdir"] = sample_testdir
         if setuptools is not None:
             self._values["setuptools"] = setuptools
+        if uv is not None:
+            self._values["uv"] = uv
         if venv is not None:
             self._values["venv"] = venv
         if venv_options is not None:
@@ -2345,25 +3587,25 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def git_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional[_GitOptions_a65916a3]:
+    def git_options(self) -> typing.Optional["_GitOptions_a65916a3"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional[_GitOptions_a65916a3], result)
+        return typing.cast(typing.Optional["_GitOptions_a65916a3"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional[_LoggerOptions_eb0f6309]:
+    def logging(self) -> typing.Optional["_LoggerOptions_eb0f6309"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -2371,7 +3613,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional[_LoggerOptions_eb0f6309], result)
+        return typing.cast(typing.Optional["_LoggerOptions_eb0f6309"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -2391,13 +3633,24 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional[_Project_57d89203]:
+    def parent(self) -> typing.Optional["_Project_57d89203"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional[_Project_57d89203], result)
+        return typing.cast(typing.Optional["_Project_57d89203"], result)
+
+    @builtins.property
+    def project_tree(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("project_tree")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def projen_command(self) -> typing.Optional[builtins.str]:
@@ -2424,7 +3677,7 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_json_options(self) -> typing.Optional[_ProjenrcJsonOptions_9c40dd4f]:
+    def projenrc_json_options(self) -> typing.Optional["_ProjenrcJsonOptions_9c40dd4f"]:
         '''(experimental) Options for .projenrc.json.
 
         :default: - default options
@@ -2432,7 +3685,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_json_options")
-        return typing.cast(typing.Optional[_ProjenrcJsonOptions_9c40dd4f], result)
+        return typing.cast(typing.Optional["_ProjenrcJsonOptions_9c40dd4f"], result)
 
     @builtins.property
     def renovatebot(self) -> typing.Optional[builtins.bool]:
@@ -2446,7 +3699,7 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def renovatebot_options(self) -> typing.Optional[_RenovatebotOptions_18e6b8a1]:
+    def renovatebot_options(self) -> typing.Optional["_RenovatebotOptions_18e6b8a1"]:
         '''(experimental) Options for renovatebot.
 
         :default: - default options
@@ -2454,10 +3707,10 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("renovatebot_options")
-        return typing.cast(typing.Optional[_RenovatebotOptions_18e6b8a1], result)
+        return typing.cast(typing.Optional["_RenovatebotOptions_18e6b8a1"], result)
 
     @builtins.property
-    def auto_approve_options(self) -> typing.Optional[_AutoApproveOptions_dac86cbe]:
+    def auto_approve_options(self) -> typing.Optional["_AutoApproveOptions_dac86cbe"]:
         '''(experimental) Enable and configure the 'auto approve' workflow.
 
         :default: - auto approve is disabled
@@ -2465,7 +3718,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_approve_options")
-        return typing.cast(typing.Optional[_AutoApproveOptions_dac86cbe], result)
+        return typing.cast(typing.Optional["_AutoApproveOptions_dac86cbe"], result)
 
     @builtins.property
     def auto_merge(self) -> typing.Optional[builtins.bool]:
@@ -2482,7 +3735,7 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_merge_options(self) -> typing.Optional[_AutoMergeOptions_d112cd3c]:
+    def auto_merge_options(self) -> typing.Optional["_AutoMergeOptions_d112cd3c"]:
         '''(experimental) Configure options for automatic merging on GitHub.
 
         Has no effect if
@@ -2493,7 +3746,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_merge_options")
-        return typing.cast(typing.Optional[_AutoMergeOptions_d112cd3c], result)
+        return typing.cast(typing.Optional["_AutoMergeOptions_d112cd3c"], result)
 
     @builtins.property
     def clobber(self) -> typing.Optional[builtins.bool]:
@@ -2531,7 +3784,7 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def github_options(self) -> typing.Optional[_GitHubOptions_21553699]:
+    def github_options(self) -> typing.Optional["_GitHubOptions_21553699"]:
         '''(experimental) Options for GitHub integration.
 
         :default: - see GitHubOptions
@@ -2539,7 +3792,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("github_options")
-        return typing.cast(typing.Optional[_GitHubOptions_21553699], result)
+        return typing.cast(typing.Optional["_GitHubOptions_21553699"], result)
 
     @builtins.property
     def gitpod(self) -> typing.Optional[builtins.bool]:
@@ -2566,7 +3819,7 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify_options(self) -> typing.Optional[_MergifyOptions_a6faaab3]:
+    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
         '''(deprecated) Options for mergify.
 
         :default: - default options
@@ -2576,10 +3829,10 @@ class PythonProjectOptions(
         :stability: deprecated
         '''
         result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional[_MergifyOptions_a6faaab3], result)
+        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
 
     @builtins.property
-    def project_type(self) -> typing.Optional[_ProjectType_fd80c725]:
+    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
         '''(deprecated) Which type of project this is (library/app).
 
         :default: ProjectType.UNKNOWN
@@ -2589,10 +3842,10 @@ class PythonProjectOptions(
         :stability: deprecated
         '''
         result = self._values.get("project_type")
-        return typing.cast(typing.Optional[_ProjectType_fd80c725], result)
+        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional[_GithubCredentials_ae257072]:
+    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
         :default: - use a personal access token named PROJEN_GITHUB_TOKEN
@@ -2600,7 +3853,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional[_GithubCredentials_ae257072], result)
+        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
 
     @builtins.property
     def projen_token_secret(self) -> typing.Optional[builtins.str]:
@@ -2619,7 +3872,7 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def readme(self) -> typing.Optional[_SampleReadmeProps_3518b03b]:
+    def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
         '''(experimental) The README setup.
 
         :default: - { filename: 'README.md', contents: '# replace this' }
@@ -2631,7 +3884,7 @@ class PythonProjectOptions(
             "{ filename: 'readme.md', contents: '# title' }"
         '''
         result = self._values.get("readme")
-        return typing.cast(typing.Optional[_SampleReadmeProps_3518b03b], result)
+        return typing.cast(typing.Optional["_SampleReadmeProps_3518b03b"], result)
 
     @builtins.property
     def stale(self) -> typing.Optional[builtins.bool]:
@@ -2647,7 +3900,7 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stale_options(self) -> typing.Optional[_StaleOptions_929db764]:
+    def stale_options(self) -> typing.Optional["_StaleOptions_929db764"]:
         '''(experimental) Auto-close stale issues and pull requests.
 
         To disable set ``stale`` to ``false``.
@@ -2657,7 +3910,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("stale_options")
-        return typing.cast(typing.Optional[_StaleOptions_929db764], result)
+        return typing.cast(typing.Optional["_StaleOptions_929db764"], result)
 
     @builtins.property
     def vscode(self) -> typing.Optional[builtins.bool]:
@@ -2757,13 +4010,13 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def poetry_options(self) -> typing.Optional[PoetryPyprojectOptionsWithoutDeps]:
+    def poetry_options(self) -> typing.Optional["PoetryPyprojectOptionsWithoutDeps"]:
         '''(experimental) Additional options to set for poetry if using poetry.
 
         :stability: experimental
         '''
         result = self._values.get("poetry_options")
-        return typing.cast(typing.Optional[PoetryPyprojectOptionsWithoutDeps], result)
+        return typing.cast(typing.Optional["PoetryPyprojectOptionsWithoutDeps"], result)
 
     @builtins.property
     def setup_config(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
@@ -2773,6 +4026,15 @@ class PythonProjectOptions(
         '''
         result = self._values.get("setup_config")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def uv_options(self) -> typing.Optional["UvOptions"]:
+        '''(experimental) Additional options to set for uv if using uv.
+
+        :stability: experimental
+        '''
+        result = self._values.get("uv_options")
+        return typing.cast(typing.Optional["UvOptions"], result)
 
     @builtins.property
     def python_exec(self) -> typing.Optional[builtins.str]:
@@ -2873,7 +4135,7 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_js_options(self) -> typing.Optional[_ProjenrcOptions_179dd39f]:
+    def projenrc_js_options(self) -> typing.Optional["_ProjenrcOptions_179dd39f"]:
         '''(experimental) Options related to projenrc in JavaScript.
 
         :default: - default options
@@ -2881,7 +4143,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_js_options")
-        return typing.cast(typing.Optional[_ProjenrcOptions_179dd39f], result)
+        return typing.cast(typing.Optional["_ProjenrcOptions_179dd39f"], result)
 
     @builtins.property
     def projenrc_python(self) -> typing.Optional[builtins.bool]:
@@ -2898,7 +4160,7 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_python_options(self) -> typing.Optional[ProjenrcOptions]:
+    def projenrc_python_options(self) -> typing.Optional["ProjenrcOptions"]:
         '''(experimental) Options related to projenrc in python.
 
         :default: - default options
@@ -2906,7 +4168,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_python_options")
-        return typing.cast(typing.Optional[ProjenrcOptions], result)
+        return typing.cast(typing.Optional["ProjenrcOptions"], result)
 
     @builtins.property
     def projenrc_ts(self) -> typing.Optional[builtins.bool]:
@@ -2923,7 +4185,7 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_ts_options(self) -> typing.Optional[_ProjenrcTsOptions_e3a2602d]:
+    def projenrc_ts_options(self) -> typing.Optional["_ProjenrcTsOptions_e3a2602d"]:
         '''(experimental) Options related to projenrc in TypeScript.
 
         :default: - default options
@@ -2931,7 +4193,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_ts_options")
-        return typing.cast(typing.Optional[_ProjenrcTsOptions_e3a2602d], result)
+        return typing.cast(typing.Optional["_ProjenrcTsOptions_e3a2602d"], result)
 
     @builtins.property
     def pytest(self) -> typing.Optional[builtins.bool]:
@@ -2946,7 +4208,7 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def pytest_options(self) -> typing.Optional[PytestOptions]:
+    def pytest_options(self) -> typing.Optional["PytestOptions"]:
         '''(experimental) pytest options.
 
         :default: - defaults
@@ -2954,7 +4216,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("pytest_options")
-        return typing.cast(typing.Optional[PytestOptions], result)
+        return typing.cast(typing.Optional["PytestOptions"], result)
 
     @builtins.property
     def sample(self) -> typing.Optional[builtins.bool]:
@@ -2990,6 +4252,18 @@ class PythonProjectOptions(
         :featured: true
         '''
         result = self._values.get("setuptools")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def uv(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use uv to manage your project dependencies, virtual environment, and (optional) packaging/publishing.
+
+        :default: false
+
+        :stability: experimental
+        :featured: true
+        '''
+        result = self._values.get("uv")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -3037,7 +4311,7 @@ class PythonSample(
     :stability: experimental
     '''
 
-    def __init__(self, project: _Project_57d89203, *, dir: builtins.str) -> None:
+    def __init__(self, project: "_Project_57d89203", *, dir: builtins.str) -> None:
         '''
         :param project: -
         :param dir: (experimental) Sample code directory.
@@ -3107,10 +4381,10 @@ class RequirementsFile(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         file_path: builtins.str,
         *,
-        package_provider: typing.Optional[IPackageProvider] = None,
+        package_provider: typing.Optional["IPackageProvider"] = None,
     ) -> None:
         '''
         :param project: -
@@ -3145,7 +4419,7 @@ class RequirementsFile(
     @jsii.member(jsii_name="synthesizeContent")
     def _synthesize_content(
         self,
-        resolver: _IResolver_0b7d1958,
+        resolver: "_IResolver_0b7d1958",
     ) -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
@@ -3168,7 +4442,7 @@ class RequirementsFileOptions:
     def __init__(
         self,
         *,
-        package_provider: typing.Optional[IPackageProvider] = None,
+        package_provider: typing.Optional["IPackageProvider"] = None,
     ) -> None:
         '''
         :param package_provider: (experimental) Provide a list of packages that can be dynamically updated.
@@ -3183,13 +4457,13 @@ class RequirementsFileOptions:
             self._values["package_provider"] = package_provider
 
     @builtins.property
-    def package_provider(self) -> typing.Optional[IPackageProvider]:
+    def package_provider(self) -> typing.Optional["IPackageProvider"]:
         '''(experimental) Provide a list of packages that can be dynamically updated.
 
         :stability: experimental
         '''
         result = self._values.get("package_provider")
-        return typing.cast(typing.Optional[IPackageProvider], result)
+        return typing.cast(typing.Optional["IPackageProvider"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3215,7 +4489,7 @@ class SetupPy(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         additional_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         author_email: typing.Optional[builtins.str] = None,
@@ -3264,7 +4538,7 @@ class SetupPy(
     @jsii.member(jsii_name="synthesizeContent")
     def _synthesize_content(
         self,
-        resolver: _IResolver_0b7d1958,
+        resolver: "_IResolver_0b7d1958",
     ) -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
@@ -3477,7 +4751,7 @@ class Setuptools(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         author_email: builtins.str,
         author_name: builtins.str,
@@ -3487,8 +4761,9 @@ class Setuptools(
         homepage: typing.Optional[builtins.str] = None,
         license: typing.Optional[builtins.str] = None,
         package_name: typing.Optional[builtins.str] = None,
-        poetry_options: typing.Optional[typing.Union[PoetryPyprojectOptionsWithoutDeps, typing.Dict[builtins.str, typing.Any]]] = None,
+        poetry_options: typing.Optional[typing.Union["PoetryPyprojectOptionsWithoutDeps", typing.Dict[builtins.str, typing.Any]]] = None,
         setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        uv_options: typing.Optional[typing.Union["UvOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         python_exec: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -3503,6 +4778,7 @@ class Setuptools(
         :param package_name: (experimental) Package name.
         :param poetry_options: (experimental) Additional options to set for poetry if using poetry.
         :param setup_config: (experimental) Additional fields to pass in the setup() function if using setuptools.
+        :param uv_options: (experimental) Additional options to set for uv if using uv.
         :param python_exec: (experimental) Path to the python executable to use. Default: "python"
 
         :stability: experimental
@@ -3521,6 +4797,7 @@ class Setuptools(
             package_name=package_name,
             poetry_options=poetry_options,
             setup_config=setup_config,
+            uv_options=uv_options,
             python_exec=python_exec,
         )
 
@@ -3528,21 +4805,21 @@ class Setuptools(
 
     @builtins.property
     @jsii.member(jsii_name="publishTask")
-    def publish_task(self) -> _Task_9fa875b6:
+    def publish_task(self) -> "_Task_9fa875b6":
         '''(experimental) A task that uploads the package to a package repository.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "publishTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTask"))
 
     @builtins.property
     @jsii.member(jsii_name="publishTestTask")
-    def publish_test_task(self) -> _Task_9fa875b6:
+    def publish_test_task(self) -> "_Task_9fa875b6":
         '''(experimental) A task that uploads the package to the Test PyPI repository.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "publishTestTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTestTask"))
 
 
 @jsii.data_type(
@@ -3559,6 +4836,7 @@ class Setuptools(
         "package_name": "packageName",
         "poetry_options": "poetryOptions",
         "setup_config": "setupConfig",
+        "uv_options": "uvOptions",
         "python_exec": "pythonExec",
     },
 )
@@ -3574,8 +4852,9 @@ class SetuptoolsOptions(PythonPackagingOptions, PythonExecutableOptions):
         homepage: typing.Optional[builtins.str] = None,
         license: typing.Optional[builtins.str] = None,
         package_name: typing.Optional[builtins.str] = None,
-        poetry_options: typing.Optional[typing.Union[PoetryPyprojectOptionsWithoutDeps, typing.Dict[builtins.str, typing.Any]]] = None,
+        poetry_options: typing.Optional[typing.Union["PoetryPyprojectOptionsWithoutDeps", typing.Dict[builtins.str, typing.Any]]] = None,
         setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        uv_options: typing.Optional[typing.Union["UvOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         python_exec: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -3589,12 +4868,15 @@ class SetuptoolsOptions(PythonPackagingOptions, PythonExecutableOptions):
         :param package_name: (experimental) Package name.
         :param poetry_options: (experimental) Additional options to set for poetry if using poetry.
         :param setup_config: (experimental) Additional fields to pass in the setup() function if using setuptools.
+        :param uv_options: (experimental) Additional options to set for uv if using uv.
         :param python_exec: (experimental) Path to the python executable to use. Default: "python"
 
         :stability: experimental
         '''
         if isinstance(poetry_options, dict):
             poetry_options = PoetryPyprojectOptionsWithoutDeps(**poetry_options)
+        if isinstance(uv_options, dict):
+            uv_options = UvOptions(**uv_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__efb76fcc4729646986081d64b0050704d856d4acab1092db7f22a97d767ca944)
             check_type(argname="argument author_email", value=author_email, expected_type=type_hints["author_email"])
@@ -3607,6 +4889,7 @@ class SetuptoolsOptions(PythonPackagingOptions, PythonExecutableOptions):
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument poetry_options", value=poetry_options, expected_type=type_hints["poetry_options"])
             check_type(argname="argument setup_config", value=setup_config, expected_type=type_hints["setup_config"])
+            check_type(argname="argument uv_options", value=uv_options, expected_type=type_hints["uv_options"])
             check_type(argname="argument python_exec", value=python_exec, expected_type=type_hints["python_exec"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "author_email": author_email,
@@ -3627,6 +4910,8 @@ class SetuptoolsOptions(PythonPackagingOptions, PythonExecutableOptions):
             self._values["poetry_options"] = poetry_options
         if setup_config is not None:
             self._values["setup_config"] = setup_config
+        if uv_options is not None:
+            self._values["uv_options"] = uv_options
         if python_exec is not None:
             self._values["python_exec"] = python_exec
 
@@ -3715,13 +5000,13 @@ class SetuptoolsOptions(PythonPackagingOptions, PythonExecutableOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def poetry_options(self) -> typing.Optional[PoetryPyprojectOptionsWithoutDeps]:
+    def poetry_options(self) -> typing.Optional["PoetryPyprojectOptionsWithoutDeps"]:
         '''(experimental) Additional options to set for poetry if using poetry.
 
         :stability: experimental
         '''
         result = self._values.get("poetry_options")
-        return typing.cast(typing.Optional[PoetryPyprojectOptionsWithoutDeps], result)
+        return typing.cast(typing.Optional["PoetryPyprojectOptionsWithoutDeps"], result)
 
     @builtins.property
     def setup_config(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
@@ -3731,6 +5016,15 @@ class SetuptoolsOptions(PythonPackagingOptions, PythonExecutableOptions):
         '''
         result = self._values.get("setup_config")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def uv_options(self) -> typing.Optional["UvOptions"]:
+        '''(experimental) Additional options to set for uv if using uv.
+
+        :stability: experimental
+        '''
+        result = self._values.get("uv_options")
+        return typing.cast(typing.Optional["UvOptions"], result)
 
     @builtins.property
     def python_exec(self) -> typing.Optional[builtins.str]:
@@ -3755,6 +5049,228 @@ class SetuptoolsOptions(PythonPackagingOptions, PythonExecutableOptions):
         )
 
 
+@jsii.implements(IPythonDeps, IPythonEnv, IPythonPackaging)
+class Uv(_Component_2b0ad27f, metaclass=jsii.JSIIMeta, jsii_type="projen.python.Uv"):
+    '''(experimental) Manage project dependencies, virtual environments, and packaging through uv.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.IConstruct",
+        *,
+        build_system: typing.Optional[typing.Union["BuildSystem", typing.Dict[builtins.str, typing.Any]]] = None,
+        project: typing.Optional[typing.Union["PyprojectTomlProject", typing.Dict[builtins.str, typing.Any]]] = None,
+        uv: typing.Optional[typing.Union["_UvConfiguration_126496a9", typing.Dict[builtins.str, typing.Any]]] = None,
+        python_exec: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param build_system: (experimental) Declares any Python level dependencies that must be installed in order to run the project’s build system successfully. Default: - no build system
+        :param project: (experimental) The project's basic metadata configuration.
+        :param uv: (experimental) The configuration and metadata for uv.
+        :param python_exec: (experimental) Path to the python executable to use. Default: "python"
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c6af3eeebf702d4696ff95e3dd9f7765abd1bead0231202b6c3d96e210ebae53)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        options = UvOptions(
+            build_system=build_system, project=project, uv=uv, python_exec=python_exec
+        )
+
+        jsii.create(self.__class__, self, [scope, options])
+
+    @jsii.member(jsii_name="addDependency")
+    def add_dependency(self, spec: builtins.str) -> None:
+        '''(experimental) Adds a runtime dependency.
+
+        :param spec: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cfefccda3fbe1ff1c577b203b8a3bbfc01f7f1d4af0e6ac2d49593339709bd0c)
+            check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
+        return typing.cast(None, jsii.invoke(self, "addDependency", [spec]))
+
+    @jsii.member(jsii_name="addDevDependency")
+    def add_dev_dependency(self, spec: builtins.str) -> None:
+        '''(experimental) Adds a dev dependency.
+
+        :param spec: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__476e06a93af3d873cd3d5aa2eb681ec297066fbb9e27bac268fb38df7b1fe327)
+            check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
+        return typing.cast(None, jsii.invoke(self, "addDevDependency", [spec]))
+
+    @jsii.member(jsii_name="installDependencies")
+    def install_dependencies(self) -> None:
+        '''(experimental) Installs dependencies (called during post-synthesis).
+
+        :stability: experimental
+        '''
+        return typing.cast(None, jsii.invoke(self, "installDependencies", []))
+
+    @jsii.member(jsii_name="setupEnvironment")
+    def setup_environment(self) -> None:
+        '''(experimental) Initializes the virtual environment if it doesn't exist (called during post-synthesis).
+
+        :stability: experimental
+        '''
+        return typing.cast(None, jsii.invoke(self, "setupEnvironment", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="file")
+    def file(self) -> "PyprojectTomlFile":
+        '''(experimental) The ``pyproject.toml`` file.
+
+        :stability: experimental
+        '''
+        return typing.cast("PyprojectTomlFile", jsii.get(self, "file"))
+
+    @builtins.property
+    @jsii.member(jsii_name="installCiTask")
+    def install_ci_task(self) -> "_Task_9fa875b6":
+        '''(experimental) A task that installs and updates dependencies.
+
+        :stability: experimental
+        '''
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "installCiTask"))
+
+    @builtins.property
+    @jsii.member(jsii_name="installTask")
+    def install_task(self) -> "_Task_9fa875b6":
+        '''
+        :stability: experimental
+        '''
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "installTask"))
+
+    @builtins.property
+    @jsii.member(jsii_name="publishTask")
+    def publish_task(self) -> "_Task_9fa875b6":
+        '''(experimental) A task that uploads the package to a package repository.
+
+        :stability: experimental
+        '''
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTask"))
+
+    @builtins.property
+    @jsii.member(jsii_name="publishTestTask")
+    def publish_test_task(self) -> "_Task_9fa875b6":
+        '''
+        :stability: experimental
+        '''
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTestTask"))
+
+
+@jsii.data_type(
+    jsii_type="projen.python.UvOptions",
+    jsii_struct_bases=[PythonExecutableOptions],
+    name_mapping={
+        "python_exec": "pythonExec",
+        "build_system": "buildSystem",
+        "project": "project",
+        "uv": "uv",
+    },
+)
+class UvOptions(PythonExecutableOptions):
+    def __init__(
+        self,
+        *,
+        python_exec: typing.Optional[builtins.str] = None,
+        build_system: typing.Optional[typing.Union["BuildSystem", typing.Dict[builtins.str, typing.Any]]] = None,
+        project: typing.Optional[typing.Union["PyprojectTomlProject", typing.Dict[builtins.str, typing.Any]]] = None,
+        uv: typing.Optional[typing.Union["_UvConfiguration_126496a9", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''(experimental) Options for UV project.
+
+        :param python_exec: (experimental) Path to the python executable to use. Default: "python"
+        :param build_system: (experimental) Declares any Python level dependencies that must be installed in order to run the project’s build system successfully. Default: - no build system
+        :param project: (experimental) The project's basic metadata configuration.
+        :param uv: (experimental) The configuration and metadata for uv.
+
+        :stability: experimental
+        '''
+        if isinstance(build_system, dict):
+            build_system = BuildSystem(**build_system)
+        if isinstance(project, dict):
+            project = PyprojectTomlProject(**project)
+        if isinstance(uv, dict):
+            uv = _UvConfiguration_126496a9(**uv)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7160d30dca474dc5d88b1ee88cb680c95003b72e43b0c36e6476ea71df3e39bc)
+            check_type(argname="argument python_exec", value=python_exec, expected_type=type_hints["python_exec"])
+            check_type(argname="argument build_system", value=build_system, expected_type=type_hints["build_system"])
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+            check_type(argname="argument uv", value=uv, expected_type=type_hints["uv"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if python_exec is not None:
+            self._values["python_exec"] = python_exec
+        if build_system is not None:
+            self._values["build_system"] = build_system
+        if project is not None:
+            self._values["project"] = project
+        if uv is not None:
+            self._values["uv"] = uv
+
+    @builtins.property
+    def python_exec(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Path to the python executable to use.
+
+        :default: "python"
+
+        :stability: experimental
+        '''
+        result = self._values.get("python_exec")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def build_system(self) -> typing.Optional["BuildSystem"]:
+        '''(experimental) Declares any Python level dependencies that must be installed in order to run the project’s build system successfully.
+
+        :default: - no build system
+
+        :stability: experimental
+        '''
+        result = self._values.get("build_system")
+        return typing.cast(typing.Optional["BuildSystem"], result)
+
+    @builtins.property
+    def project(self) -> typing.Optional["PyprojectTomlProject"]:
+        '''(experimental) The project's basic metadata configuration.
+
+        :stability: experimental
+        '''
+        result = self._values.get("project")
+        return typing.cast(typing.Optional["PyprojectTomlProject"], result)
+
+    @builtins.property
+    def uv(self) -> typing.Optional["_UvConfiguration_126496a9"]:
+        '''(experimental) The configuration and metadata for uv.
+
+        :stability: experimental
+        '''
+        result = self._values.get("uv")
+        return typing.cast(typing.Optional["_UvConfiguration_126496a9"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UvOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(IPythonEnv)
 class Venv(
     _Component_2b0ad27f,
@@ -3768,7 +5284,7 @@ class Venv(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         envdir: typing.Optional[builtins.str] = None,
         python_exec: typing.Optional[builtins.str] = None,
@@ -3873,6 +5389,7 @@ class VenvOptions:
         "package_name": "packageName",
         "poetry_options": "poetryOptions",
         "setup_config": "setupConfig",
+        "uv_options": "uvOptions",
         "python_exec": "pythonExec",
     },
 )
@@ -3888,8 +5405,9 @@ class PoetryOptions(PythonPackagingOptions, PythonExecutableOptions):
         homepage: typing.Optional[builtins.str] = None,
         license: typing.Optional[builtins.str] = None,
         package_name: typing.Optional[builtins.str] = None,
-        poetry_options: typing.Optional[typing.Union[PoetryPyprojectOptionsWithoutDeps, typing.Dict[builtins.str, typing.Any]]] = None,
+        poetry_options: typing.Optional[typing.Union["PoetryPyprojectOptionsWithoutDeps", typing.Dict[builtins.str, typing.Any]]] = None,
         setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        uv_options: typing.Optional[typing.Union["UvOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         python_exec: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -3903,12 +5421,15 @@ class PoetryOptions(PythonPackagingOptions, PythonExecutableOptions):
         :param package_name: (experimental) Package name.
         :param poetry_options: (experimental) Additional options to set for poetry if using poetry.
         :param setup_config: (experimental) Additional fields to pass in the setup() function if using setuptools.
+        :param uv_options: (experimental) Additional options to set for uv if using uv.
         :param python_exec: (experimental) Path to the python executable to use. Default: "python"
 
         :stability: experimental
         '''
         if isinstance(poetry_options, dict):
             poetry_options = PoetryPyprojectOptionsWithoutDeps(**poetry_options)
+        if isinstance(uv_options, dict):
+            uv_options = UvOptions(**uv_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ffb2a68f24fc1fda645188af9796f00c5dd2cfddf0c67e4d824be027c0c1f1a8)
             check_type(argname="argument author_email", value=author_email, expected_type=type_hints["author_email"])
@@ -3921,6 +5442,7 @@ class PoetryOptions(PythonPackagingOptions, PythonExecutableOptions):
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument poetry_options", value=poetry_options, expected_type=type_hints["poetry_options"])
             check_type(argname="argument setup_config", value=setup_config, expected_type=type_hints["setup_config"])
+            check_type(argname="argument uv_options", value=uv_options, expected_type=type_hints["uv_options"])
             check_type(argname="argument python_exec", value=python_exec, expected_type=type_hints["python_exec"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "author_email": author_email,
@@ -3941,6 +5463,8 @@ class PoetryOptions(PythonPackagingOptions, PythonExecutableOptions):
             self._values["poetry_options"] = poetry_options
         if setup_config is not None:
             self._values["setup_config"] = setup_config
+        if uv_options is not None:
+            self._values["uv_options"] = uv_options
         if python_exec is not None:
             self._values["python_exec"] = python_exec
 
@@ -4029,13 +5553,13 @@ class PoetryOptions(PythonPackagingOptions, PythonExecutableOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def poetry_options(self) -> typing.Optional[PoetryPyprojectOptionsWithoutDeps]:
+    def poetry_options(self) -> typing.Optional["PoetryPyprojectOptionsWithoutDeps"]:
         '''(experimental) Additional options to set for poetry if using poetry.
 
         :stability: experimental
         '''
         result = self._values.get("poetry_options")
-        return typing.cast(typing.Optional[PoetryPyprojectOptionsWithoutDeps], result)
+        return typing.cast(typing.Optional["PoetryPyprojectOptionsWithoutDeps"], result)
 
     @builtins.property
     def setup_config(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
@@ -4045,6 +5569,15 @@ class PoetryOptions(PythonPackagingOptions, PythonExecutableOptions):
         '''
         result = self._values.get("setup_config")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def uv_options(self) -> typing.Optional["UvOptions"]:
+        '''(experimental) Additional options to set for uv if using uv.
+
+        :stability: experimental
+        '''
+        result = self._values.get("uv_options")
+        return typing.cast(typing.Optional["UvOptions"], result)
 
     @builtins.property
     def python_exec(self) -> typing.Optional[builtins.str]:
@@ -4485,6 +6018,7 @@ class PoetryPyprojectOptions(PoetryPyprojectOptionsWithoutDeps):
 
 
 __all__ = [
+    "BuildSystem",
     "IPackageProvider",
     "IPythonDeps",
     "IPythonEnv",
@@ -4496,8 +6030,15 @@ __all__ = [
     "PoetryPyproject",
     "PoetryPyprojectOptions",
     "PoetryPyprojectOptionsWithoutDeps",
+    "ProjectAuthor",
     "Projenrc",
     "ProjenrcOptions",
+    "PyprojectToml",
+    "PyprojectTomlDependencyGroups",
+    "PyprojectTomlFile",
+    "PyprojectTomlProject",
+    "PyprojectTomlProjectDynamic",
+    "PyprojectTomlTool",
     "Pytest",
     "PytestOptions",
     "PytestSample",
@@ -4514,11 +6055,26 @@ __all__ = [
     "SetupPyOptions",
     "Setuptools",
     "SetuptoolsOptions",
+    "Uv",
+    "UvOptions",
     "Venv",
     "VenvOptions",
+    "uv_config",
 ]
 
 publication.publish()
+
+# Loading modules to ensure their types are registered with the jsii runtime library
+from . import uv_config
+
+def _typecheckingstub__e9da99c32d038945aadcf71f5eefe5c42c4d7218b8a2d3e62f288c5a8081f35f(
+    *,
+    requires: typing.Sequence[builtins.str],
+    backend_path: typing.Optional[typing.Sequence[builtins.str]] = None,
+    build_backend: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__19b787f4d5b675eaec41431c3ba2e6ceb259e8bb95072e76cd0d5e8c357712bf(
     spec: builtins.str,
@@ -4563,6 +6119,7 @@ def _typecheckingstub__5f89c074241aa542e5f366ea84bd8e5e2e9da8150d15e44f4ae6c7152
     package_name: typing.Optional[builtins.str] = None,
     poetry_options: typing.Optional[typing.Union[PoetryPyprojectOptionsWithoutDeps, typing.Dict[builtins.str, typing.Any]]] = None,
     setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    uv_options: typing.Optional[typing.Union[UvOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     python_exec: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4581,7 +6138,7 @@ def _typecheckingstub__5eed5b0b32c136cc537ac5c8208e73e035698914697eda882cc3e7220
     pass
 
 def _typecheckingstub__3a59b8e6934c492000192079edad9aaf1327a40b3bdba4192b78814ddbbfa98a(
-    project: _Project_57d89203,
+    scope: _constructs_77d1e7e8.IConstruct,
     *,
     dependencies: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     dev_dependencies: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -4637,6 +6194,14 @@ def _typecheckingstub__eb1217212a32e72c78081b42cb386e25f582240ca4f8a652cbb237b3c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c75ee0fa1f03d64ef2f4f70177834504f849664100250bdf991680eba3b01d4e(
+    *,
+    email: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__dd796c2ffac4ce790fd379f22162cb352a7e6e5fcca10c21249e16c756967555(
     project: _Project_57d89203,
     *,
@@ -4652,6 +6217,92 @@ def _typecheckingstub__7b016d0638a2d569458bc60c6c0631e67606ffba250b97da0a8bb9943
     filename: typing.Optional[builtins.str] = None,
     projen_version: typing.Optional[builtins.str] = None,
     python_exec: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1fc10fe84bb8f10fcd95137adbc465ef44fa0a114d64da3b25bdc76d9324fe3(
+    *,
+    build_system: typing.Optional[typing.Union[BuildSystem, typing.Dict[builtins.str, typing.Any]]] = None,
+    dependency_groups: typing.Optional[typing.Union[PyprojectTomlDependencyGroups, typing.Dict[builtins.str, typing.Any]]] = None,
+    project: typing.Optional[typing.Union[PyprojectTomlProject, typing.Dict[builtins.str, typing.Any]]] = None,
+    tool: typing.Optional[typing.Union[PyprojectTomlTool, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3172b8764f200359be57f771adc03f41306604c3a8551c94b129802a9f212c87(
+    *,
+    dev: typing.Optional[typing.Sequence[typing.Any]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9e7cb471169a85cb7809c67deb7b7e20dde1ce20a6a49f8357e0726c13b0040(
+    scope: _constructs_77d1e7e8.IConstruct,
+    *,
+    build_system: typing.Optional[typing.Union[BuildSystem, typing.Dict[builtins.str, typing.Any]]] = None,
+    dependency_groups: typing.Optional[typing.Union[PyprojectTomlDependencyGroups, typing.Dict[builtins.str, typing.Any]]] = None,
+    project: typing.Optional[typing.Union[PyprojectTomlProject, typing.Dict[builtins.str, typing.Any]]] = None,
+    tool: typing.Optional[typing.Union[PyprojectTomlTool, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c653bb340110f30f664421242162e21f98489f495f8991c5180052f98429065(
+    resolver: _IResolver_0b7d1958,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8e342a1a2af5016dbe0f8461f2a5c512da049f10c5dfb936ea942878407c985(
+    *,
+    name: builtins.str,
+    authors: typing.Optional[typing.Sequence[typing.Union[ProjectAuthor, typing.Dict[builtins.str, typing.Any]]]] = None,
+    classifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
+    description: typing.Optional[builtins.str] = None,
+    dynamic: typing.Optional[typing.Sequence[PyprojectTomlProjectDynamic]] = None,
+    entry_points: typing.Any = None,
+    gui_scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    import_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+    import_namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+    keywords: typing.Optional[typing.Sequence[builtins.str]] = None,
+    license: typing.Any = None,
+    license_files: typing.Optional[typing.Sequence[builtins.str]] = None,
+    maintainers: typing.Optional[typing.Sequence[typing.Union[ProjectAuthor, typing.Dict[builtins.str, typing.Any]]]] = None,
+    optional_dependencies: typing.Any = None,
+    readme: typing.Any = None,
+    requires_python: typing.Optional[builtins.str] = None,
+    scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    urls: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc2ba765e25294b713eef60bd54f79fe7e8b12bdfb44298beec4d108cc84cf15(
+    *,
+    black: typing.Any = None,
+    cibuildwheel: typing.Any = None,
+    hatch: typing.Any = None,
+    maturin: typing.Any = None,
+    mypy: typing.Any = None,
+    pdm: typing.Any = None,
+    poe: typing.Any = None,
+    poetry: typing.Any = None,
+    pyright: typing.Any = None,
+    pytest: typing.Any = None,
+    repo_review: typing.Any = None,
+    ruff: typing.Any = None,
+    scikit_build: typing.Any = None,
+    setuptools: typing.Any = None,
+    setuptools_scm: typing.Any = None,
+    taskipy: typing.Any = None,
+    tombi: typing.Any = None,
+    tox: typing.Any = None,
+    ty: typing.Any = None,
+    uv: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4713,6 +6364,7 @@ def _typecheckingstub__8103f3b830f25b7a5e774ec261700198b120623a2bd5b4934a1fd82d8
     package_name: typing.Optional[builtins.str] = None,
     poetry_options: typing.Optional[typing.Union[PoetryPyprojectOptionsWithoutDeps, typing.Dict[builtins.str, typing.Any]]] = None,
     setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    uv_options: typing.Optional[typing.Union[UvOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4744,6 +6396,7 @@ def _typecheckingstub__b659222a1357930d78c896c62a88d02f0761b15a41c74e5e00700ccfe
     logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
     parent: typing.Optional[_Project_57d89203] = None,
+    project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
     projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4776,6 +6429,7 @@ def _typecheckingstub__b659222a1357930d78c896c62a88d02f0761b15a41c74e5e00700ccfe
     package_name: typing.Optional[builtins.str] = None,
     poetry_options: typing.Optional[typing.Union[PoetryPyprojectOptionsWithoutDeps, typing.Dict[builtins.str, typing.Any]]] = None,
     setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    uv_options: typing.Optional[typing.Union[UvOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     python_exec: typing.Optional[builtins.str] = None,
     module_name: builtins.str,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -4793,6 +6447,7 @@ def _typecheckingstub__b659222a1357930d78c896c62a88d02f0761b15a41c74e5e00700ccfe
     sample: typing.Optional[builtins.bool] = None,
     sample_testdir: typing.Optional[builtins.str] = None,
     setuptools: typing.Optional[builtins.bool] = None,
+    uv: typing.Optional[builtins.bool] = None,
     venv: typing.Optional[builtins.bool] = None,
     venv_options: typing.Optional[typing.Union[VenvOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -4894,6 +6549,7 @@ def _typecheckingstub__990ed4ecaa4edf7848fc5144b71682e590ee9d8b8da5b2facfae58711
     package_name: typing.Optional[builtins.str] = None,
     poetry_options: typing.Optional[typing.Union[PoetryPyprojectOptionsWithoutDeps, typing.Dict[builtins.str, typing.Any]]] = None,
     setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    uv_options: typing.Optional[typing.Union[UvOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     python_exec: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4911,7 +6567,41 @@ def _typecheckingstub__efb76fcc4729646986081d64b0050704d856d4acab1092db7f22a97d7
     package_name: typing.Optional[builtins.str] = None,
     poetry_options: typing.Optional[typing.Union[PoetryPyprojectOptionsWithoutDeps, typing.Dict[builtins.str, typing.Any]]] = None,
     setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    uv_options: typing.Optional[typing.Union[UvOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     python_exec: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6af3eeebf702d4696ff95e3dd9f7765abd1bead0231202b6c3d96e210ebae53(
+    scope: _constructs_77d1e7e8.IConstruct,
+    *,
+    build_system: typing.Optional[typing.Union[BuildSystem, typing.Dict[builtins.str, typing.Any]]] = None,
+    project: typing.Optional[typing.Union[PyprojectTomlProject, typing.Dict[builtins.str, typing.Any]]] = None,
+    uv: typing.Optional[typing.Union[_UvConfiguration_126496a9, typing.Dict[builtins.str, typing.Any]]] = None,
+    python_exec: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cfefccda3fbe1ff1c577b203b8a3bbfc01f7f1d4af0e6ac2d49593339709bd0c(
+    spec: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__476e06a93af3d873cd3d5aa2eb681ec297066fbb9e27bac268fb38df7b1fe327(
+    spec: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7160d30dca474dc5d88b1ee88cb680c95003b72e43b0c36e6476ea71df3e39bc(
+    *,
+    python_exec: typing.Optional[builtins.str] = None,
+    build_system: typing.Optional[typing.Union[BuildSystem, typing.Dict[builtins.str, typing.Any]]] = None,
+    project: typing.Optional[typing.Union[PyprojectTomlProject, typing.Dict[builtins.str, typing.Any]]] = None,
+    uv: typing.Optional[typing.Union[_UvConfiguration_126496a9, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4945,6 +6635,7 @@ def _typecheckingstub__ffb2a68f24fc1fda645188af9796f00c5dd2cfddf0c67e4d824be027c
     package_name: typing.Optional[builtins.str] = None,
     poetry_options: typing.Optional[typing.Union[PoetryPyprojectOptionsWithoutDeps, typing.Dict[builtins.str, typing.Any]]] = None,
     setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    uv_options: typing.Optional[typing.Union[UvOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     python_exec: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4978,3 +6669,6 @@ def _typecheckingstub__58d69e7441cb3bc0f904d3072147d8851b799f65424aafad7c14abead
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IPackageProvider, IPythonDeps, IPythonEnv, IPythonPackaging]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

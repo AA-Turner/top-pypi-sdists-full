@@ -3,14 +3,14 @@ Type annotations for bedrock-agentcore-control service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from mypy_boto3_bedrock_agentcore_control.literals import AgentRuntimeEndpointStatusType
+    from mypy_boto3_bedrock_agentcore_control.literals import AgentManagedRuntimeTypeType
 
-    data: AgentRuntimeEndpointStatusType = "CREATE_FAILED"
+    data: AgentManagedRuntimeTypeType = "PYTHON_3_10"
     ```
 """
 
@@ -22,20 +22,30 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AgentManagedRuntimeTypeType",
     "AgentRuntimeEndpointStatusType",
     "AgentRuntimeStatusType",
     "ApiKeyCredentialLocationType",
     "AuthorizerTypeType",
-    "BedrockAgentCoreControlPlaneFrontingLayerServiceName",
+    "BedrockAgentCoreControlServiceName",
     "BrowserNetworkModeType",
     "BrowserStatusType",
+    "ClaimMatchOperatorTypeType",
     "CodeInterpreterNetworkModeType",
     "CodeInterpreterStatusType",
     "CredentialProviderTypeType",
     "CredentialProviderVendorTypeType",
+    "EvaluatorLevelType",
+    "EvaluatorStatusType",
+    "EvaluatorTypeType",
     "ExceptionLevelType",
+    "FilterOperatorType",
+    "FindingTypeType",
+    "GatewayInterceptionPointType",
+    "GatewayPolicyEngineModeType",
     "GatewayProtocolTypeType",
     "GatewayStatusType",
+    "InboundTokenClaimValueTypeType",
     "KeyTypeType",
     "ListAgentRuntimeEndpointsPaginatorName",
     "ListAgentRuntimeVersionsPaginatorName",
@@ -43,20 +53,40 @@ __all__ = (
     "ListApiKeyCredentialProvidersPaginatorName",
     "ListBrowsersPaginatorName",
     "ListCodeInterpretersPaginatorName",
+    "ListEvaluatorsPaginatorName",
     "ListGatewayTargetsPaginatorName",
     "ListGatewaysPaginatorName",
     "ListMemoriesPaginatorName",
     "ListOauth2CredentialProvidersPaginatorName",
+    "ListOnlineEvaluationConfigsPaginatorName",
+    "ListPoliciesPaginatorName",
+    "ListPolicyEnginesPaginatorName",
+    "ListPolicyGenerationAssetsPaginatorName",
+    "ListPolicyGenerationsPaginatorName",
     "ListWorkloadIdentitiesPaginatorName",
     "MemoryCreatedWaiterName",
     "MemoryStatusType",
     "MemoryStrategyStatusType",
     "MemoryStrategyTypeType",
+    "MemoryViewType",
     "NetworkModeType",
+    "OAuthGrantTypeType",
+    "OnlineEvaluationConfigStatusType",
+    "OnlineEvaluationExecutionStatusType",
     "OverrideTypeType",
     "PaginatorName",
+    "PolicyActiveWaiterName",
+    "PolicyDeletedWaiterName",
+    "PolicyEngineActiveWaiterName",
+    "PolicyEngineDeletedWaiterName",
+    "PolicyEngineStatusType",
+    "PolicyGenerationCompletedWaiterName",
+    "PolicyGenerationStatusType",
+    "PolicyStatusType",
+    "PolicyValidationModeType",
     "ResourceServiceName",
     "ResourceTypeType",
+    "RestApiMethodType",
     "SchemaTypeType",
     "SearchTypeType",
     "ServerProtocolType",
@@ -65,6 +95,7 @@ __all__ = (
     "WaiterName",
 )
 
+AgentManagedRuntimeTypeType = Literal["PYTHON_3_10", "PYTHON_3_11", "PYTHON_3_12", "PYTHON_3_13"]
 AgentRuntimeEndpointStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
@@ -72,29 +103,70 @@ AgentRuntimeStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
 ApiKeyCredentialLocationType = Literal["HEADER", "QUERY_PARAMETER"]
-AuthorizerTypeType = Literal["CUSTOM_JWT"]
+AuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT", "NONE"]
 BrowserNetworkModeType = Literal["PUBLIC", "VPC"]
 BrowserStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
 ]
+ClaimMatchOperatorTypeType = Literal["CONTAINS", "CONTAINS_ANY", "EQUALS"]
 CodeInterpreterNetworkModeType = Literal["PUBLIC", "SANDBOX", "VPC"]
 CodeInterpreterStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
 ]
 CredentialProviderTypeType = Literal["API_KEY", "GATEWAY_IAM_ROLE", "OAUTH"]
 CredentialProviderVendorTypeType = Literal[
+    "AtlassianOauth2",
+    "Auth0Oauth2",
+    "CognitoOauth2",
     "CustomOauth2",
+    "CyberArkOauth2",
+    "DropboxOauth2",
+    "FacebookOauth2",
+    "FusionAuthOauth2",
     "GithubOauth2",
     "GoogleOauth2",
+    "HubspotOauth2",
+    "LinkedinOauth2",
     "MicrosoftOauth2",
+    "NotionOauth2",
+    "OktaOauth2",
+    "OneLoginOauth2",
+    "PingOneOauth2",
+    "RedditOauth2",
     "SalesforceOauth2",
     "SlackOauth2",
+    "SpotifyOauth2",
+    "TwitchOauth2",
+    "XOauth2",
+    "YandexOauth2",
+    "ZoomOauth2",
 ]
+EvaluatorLevelType = Literal["SESSION", "TOOL_CALL", "TRACE"]
+EvaluatorStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
+EvaluatorTypeType = Literal["Builtin", "Custom"]
 ExceptionLevelType = Literal["DEBUG"]
+FilterOperatorType = Literal[
+    "Contains",
+    "Equals",
+    "GreaterThan",
+    "GreaterThanOrEqual",
+    "LessThan",
+    "LessThanOrEqual",
+    "NotContains",
+    "NotEquals",
+]
+FindingTypeType = Literal[
+    "ALLOW_ALL", "ALLOW_NONE", "DENY_ALL", "DENY_NONE", "INVALID", "NOT_TRANSLATABLE", "VALID"
+]
+GatewayInterceptionPointType = Literal["REQUEST", "RESPONSE"]
+GatewayPolicyEngineModeType = Literal["ENFORCE", "LOG_ONLY"]
 GatewayProtocolTypeType = Literal["MCP"]
 GatewayStatusType = Literal[
     "CREATING", "DELETING", "FAILED", "READY", "UPDATE_UNSUCCESSFUL", "UPDATING"
 ]
+InboundTokenClaimValueTypeType = Literal["STRING", "STRING_ARRAY"]
 KeyTypeType = Literal["CustomerManagedKey", "ServiceManagedKey"]
 ListAgentRuntimeEndpointsPaginatorName = Literal["list_agent_runtime_endpoints"]
 ListAgentRuntimeVersionsPaginatorName = Literal["list_agent_runtime_versions"]
@@ -102,25 +174,66 @@ ListAgentRuntimesPaginatorName = Literal["list_agent_runtimes"]
 ListApiKeyCredentialProvidersPaginatorName = Literal["list_api_key_credential_providers"]
 ListBrowsersPaginatorName = Literal["list_browsers"]
 ListCodeInterpretersPaginatorName = Literal["list_code_interpreters"]
+ListEvaluatorsPaginatorName = Literal["list_evaluators"]
 ListGatewayTargetsPaginatorName = Literal["list_gateway_targets"]
 ListGatewaysPaginatorName = Literal["list_gateways"]
 ListMemoriesPaginatorName = Literal["list_memories"]
 ListOauth2CredentialProvidersPaginatorName = Literal["list_oauth2_credential_providers"]
+ListOnlineEvaluationConfigsPaginatorName = Literal["list_online_evaluation_configs"]
+ListPoliciesPaginatorName = Literal["list_policies"]
+ListPolicyEnginesPaginatorName = Literal["list_policy_engines"]
+ListPolicyGenerationAssetsPaginatorName = Literal["list_policy_generation_assets"]
+ListPolicyGenerationsPaginatorName = Literal["list_policy_generations"]
 ListWorkloadIdentitiesPaginatorName = Literal["list_workload_identities"]
 MemoryCreatedWaiterName = Literal["memory_created"]
 MemoryStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
 MemoryStrategyStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
-MemoryStrategyTypeType = Literal["CUSTOM", "SEMANTIC", "SUMMARIZATION", "USER_PREFERENCE"]
+MemoryStrategyTypeType = Literal[
+    "CUSTOM", "EPISODIC", "SEMANTIC", "SUMMARIZATION", "USER_PREFERENCE"
+]
+MemoryViewType = Literal["full", "without_decryption"]
 NetworkModeType = Literal["PUBLIC", "VPC"]
-OverrideTypeType = Literal["SEMANTIC_OVERRIDE", "SUMMARY_OVERRIDE", "USER_PREFERENCE_OVERRIDE"]
+OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS"]
+OnlineEvaluationConfigStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
+OnlineEvaluationExecutionStatusType = Literal["DISABLED", "ENABLED"]
+OverrideTypeType = Literal[
+    "EPISODIC_OVERRIDE",
+    "SELF_MANAGED",
+    "SEMANTIC_OVERRIDE",
+    "SUMMARY_OVERRIDE",
+    "USER_PREFERENCE_OVERRIDE",
+]
+PolicyActiveWaiterName = Literal["policy_active"]
+PolicyDeletedWaiterName = Literal["policy_deleted"]
+PolicyEngineActiveWaiterName = Literal["policy_engine_active"]
+PolicyEngineDeletedWaiterName = Literal["policy_engine_deleted"]
+PolicyEngineStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
+PolicyGenerationCompletedWaiterName = Literal["policy_generation_completed"]
+PolicyGenerationStatusType = Literal["DELETE_FAILED", "GENERATED", "GENERATE_FAILED", "GENERATING"]
+PolicyStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
+PolicyValidationModeType = Literal["FAIL_ON_ANY_FINDINGS", "IGNORE_ALL_FINDINGS"]
 ResourceTypeType = Literal["CUSTOM", "SYSTEM"]
+RestApiMethodType = Literal["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
 SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "string"]
 SearchTypeType = Literal["SEMANTIC"]
-ServerProtocolType = Literal["HTTP", "MCP"]
+ServerProtocolType = Literal["A2A", "HTTP", "MCP"]
 TargetStatusType = Literal[
-    "CREATING", "DELETING", "FAILED", "READY", "UPDATE_UNSUCCESSFUL", "UPDATING"
+    "CREATING",
+    "DELETING",
+    "FAILED",
+    "READY",
+    "SYNCHRONIZE_UNSUCCESSFUL",
+    "SYNCHRONIZING",
+    "UPDATE_UNSUCCESSFUL",
+    "UPDATING",
 ]
-BedrockAgentCoreControlPlaneFrontingLayerServiceName = Literal["bedrock-agentcore-control"]
+BedrockAgentCoreControlServiceName = Literal["bedrock-agentcore-control"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
@@ -147,7 +260,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -217,6 +329,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -262,7 +375,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -315,7 +427,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -354,8 +465,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -390,6 +499,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -399,6 +509,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -409,6 +520,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -430,8 +544,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -446,15 +558,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -485,6 +598,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -525,6 +639,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -545,10 +660,23 @@ PaginatorName = Literal[
     "list_api_key_credential_providers",
     "list_browsers",
     "list_code_interpreters",
+    "list_evaluators",
     "list_gateway_targets",
     "list_gateways",
     "list_memories",
     "list_oauth2_credential_providers",
+    "list_online_evaluation_configs",
+    "list_policies",
+    "list_policy_engines",
+    "list_policy_generation_assets",
+    "list_policy_generations",
     "list_workload_identities",
 ]
-WaiterName = Literal["memory_created"]
+WaiterName = Literal[
+    "memory_created",
+    "policy_active",
+    "policy_deleted",
+    "policy_engine_active",
+    "policy_engine_deleted",
+    "policy_generation_completed",
+]

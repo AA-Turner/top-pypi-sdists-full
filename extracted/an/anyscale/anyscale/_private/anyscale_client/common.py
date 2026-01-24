@@ -1,13 +1,15 @@
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 from anyscale._private.models.image_uri import ImageURI
 from anyscale.client.openapi_client.models import (
     AdminCreatedUser,
     AdminCreateUser,
     AnyscaleServiceAccount,
+    ApplyProductionServiceMultiVersionV2Model,
     Cloud,
+    CloudListResponse,
     ClusteroperationResponse,
     CollaboratorType,
     ComputeTemplateConfig,
@@ -16,28 +18,48 @@ from anyscale.client.openapi_client.models import (
     CreateInternalProductionJob,
     CreateResourceQuota,
     CreateUserProjectCollaborator,
+    DecoratedCloudResource,
     DecoratedComputeTemplate,
     DecoratedjobqueueListResponse,
     DecoratedlistserviceapimodelListResponse,
+    DecoratedproductionjobListResponse,
     DecoratedProductionServiceV2APIModel,
+    DecoratedProductionServiceV2VersionAPIModel,
     InternalProductionJob,
     JobQueueSortDirective,
     OrganizationCollaborator,
+    OrganizationcollaboratorListResponse,
     OrganizationInvitation,
+    PolicyResponse,
     Project,
     ProjectBase,
     ProjectListResponse,
+    ResourcepolicyitemListResponse,
     ResourceQuota,
+    ResourceTagResourceType,
     ServerSessionToken,
     SessionState,
+    UpdatePolicyRequest,
+    UserGroup,
+    UsergroupListResponse,
     WorkspaceDataplaneProxiedArtifacts,
     WriteProject,
 )
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
+from anyscale.client.openapi_client.models.decorated_application_template import (
+    DecoratedApplicationTemplate,
+)
 from anyscale.client.openapi_client.models.decorated_job_queue import DecoratedJobQueue
 from anyscale.client.openapi_client.models.decorated_schedule import DecoratedSchedule
 from anyscale.client.openapi_client.models.decorated_session import DecoratedSession
+from anyscale.client.openapi_client.models.decoratedapplicationtemplate_list_response import (
+    DecoratedapplicationtemplateListResponse,
+)
+from anyscale.client.openapi_client.models.decoratedschedule_list_response import (
+    DecoratedscheduleListResponse,
+)
 from anyscale.client.openapi_client.models.production_job import ProductionJob
+from anyscale.client.openapi_client.models.resource_tag_record import ResourceTagRecord
 from anyscale.client.openapi_client.models.session_ssh_key import SessionSshKey
 from anyscale.sdk.anyscale_client.models import (
     ApplyProductionServiceV2Model,
@@ -57,7 +79,7 @@ from anyscale.utils.workspace_notification import WorkspaceNotification
 # Maybe just make it part of the release process to update it, or fetch the
 # default builds and get the latest one. The best thing to do is probably
 # to populate this in the backend.
-DEFAULT_RAY_VERSION = "2.49.2"  # RAY_RELEASE_UPDATE: update to latest version.
+DEFAULT_RAY_VERSION = "2.53.0"  # RAY_RELEASE_UPDATE: update to latest version
 DEFAULT_PYTHON_VERSION = "py311"
 RUNTIME_ENV_PACKAGE_FORMAT = "pkg_{content_hash}.zip"
 
@@ -167,8 +189,25 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_cloud_resource_by_name(
+        self, cloud_id: str, cloud_resource_name: str
+    ) -> Optional[DecoratedCloudResource]:
+        """Get a cloud resource by name."""
+        raise NotImplementedError
+
+    @abstractmethod
     def get_default_cloud(self) -> Optional[Cloud]:
         """Get the user's default cloud."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_clouds(
+        self, *, paging_token: Optional[str] = None, count: Optional[int] = None
+    ) -> CloudListResponse:
+        """List clouds with optional paging.
+
+        Returns a paged response with `.results` and `.metadata.next_paging_token`.
+        """
         raise NotImplementedError
 
     @abstractmethod
@@ -234,7 +273,26 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_default_compute_config(self, *, cloud_id: str) -> ClusterCompute:
+    def search_cluster_computes(self, query: Dict[str, Any]):
+        """Search for cluster computes matching the provided query.
+
+        Args:
+            query: Dictionary containing search parameters including:
+                - paging: Pagination parameters (count, paging_token)
+                - name: Name filter
+                - cloud_id: Cloud ID filter
+                - creator_id: Creator ID filter
+                - sort_by_clauses: Sorting parameters
+
+        Returns:
+            Search result with results list and metadata
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_default_compute_config(
+        self, *, cloud_id: str, cloud_resource_id: Optional[str] = None
+    ) -> ClusterCompute:
         """Get the default compute config for the provided cloud ID."""
         raise NotImplementedError
 
@@ -268,6 +326,29 @@ class AnyscaleClientInterface(ABC):
     def get_cluster_env_build(self, build_id: str) -> Optional[ClusterEnvironmentBuild]:
         """Get the cluster env build.
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_application_template(
+        self, application_template_id: str
+    ) -> Optional[DecoratedApplicationTemplate]:
+        """Get an application template (image) by id."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_application_templates(
+        self,
+        *,
+        name: Optional[str],
+        image_name: Optional[str],
+        creator_id: Optional[str],
+        project: Optional[str],
+        include_archived: bool,
+        defaults_first: bool,
+        count: Optional[int],
+        paging_token: Optional[str],
+    ) -> DecoratedapplicationtemplateListResponse:
+        """List application templates accessible to the current user."""
         raise NotImplementedError
 
     @abstractmethod
@@ -318,6 +399,14 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def archive_image(self, *, image_id: str) -> None:
+        """Archive an image (cluster environment) by ID.
+
+        Once archived, the image name will no longer be usable in the organization.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def get_service(
         self,
         name: str,
@@ -345,6 +434,7 @@ class AnyscaleClientInterface(ABC):
         *,
         name: Optional[str],
         state_filter: Optional[List[str]],
+        tag_filter: Optional[List[str]],
         creator_id: Optional[str],
         cloud: Optional[str],
         project: Optional[str],
@@ -379,6 +469,13 @@ class AnyscaleClientInterface(ABC):
         count: Optional[int] = None,
     ) -> ProjectListResponse:
         """List projects."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_service_versions(
+        self, service_id: str, read_all_versions: bool = False
+    ) -> List[DecoratedProductionServiceV2VersionAPIModel]:
+        """Get the versions of a service."""
         raise NotImplementedError
 
     @abstractmethod
@@ -453,6 +550,7 @@ class AnyscaleClientInterface(ABC):
         cluster_status: Optional[SessionState] = None,
         project: Optional[str] = None,
         cloud: Optional[str] = None,
+        tags_filter: Optional[Dict[str, List[str]]] = None,
         count: Optional[int] = None,
         paging_token: Optional[str] = None,
         sorting_directives: Optional[List[JobQueueSortDirective]] = None,
@@ -461,10 +559,36 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def list_jobs(
+        self,
+        *,
+        name: Optional[str] = None,
+        project_id: Optional[str] = None,
+        creator_id: Optional[str] = None,
+        state_filter: Optional[List[str]] = None,
+        archive_status: Optional[str] = None,
+        tags_filter: Optional[List[str]] = None,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,
+    ) -> DecoratedproductionjobListResponse:
+        """List jobs with filtering and pagination."""
+        raise NotImplementedError
+
+    @abstractmethod
     def rollout_service(
         self, model: ApplyProductionServiceV2Model
     ) -> DecoratedProductionServiceV2APIModel:
         """Deploy or update the service to use the provided config.
+
+        Returns the service ID.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def rollout_service_multi_version(
+        self, model: ApplyProductionServiceMultiVersionV2Model
+    ) -> DecoratedProductionServiceV2APIModel:
+        """Deploy or update the service to use the provided multi-version configs.
 
         Returns the service ID.
         """
@@ -778,7 +902,20 @@ class AnyscaleClientInterface(ABC):
         collaborator_type: Optional[CollaboratorType] = None,
         is_service_account: Optional[bool] = None,
     ) -> List[OrganizationCollaborator]:
-        """Get organization collaborators."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_organization_collaborators(
+        self,
+        *,
+        email: Optional[str] = None,
+        name: Optional[str] = None,
+        collaborator_type: Optional[CollaboratorType] = None,
+        is_service_account: Optional[bool] = None,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,
+    ) -> OrganizationcollaboratorListResponse:
+        """List organization collaborators with pagination support."""
         raise NotImplementedError
 
     @abstractmethod
@@ -820,4 +957,112 @@ class AnyscaleClientInterface(ABC):
         self, resource_quota_id: str, is_enabled: bool
     ) -> None:
         """Set the status of a resource quota."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def upsert_resource_tags(
+        self,
+        resource_type: ResourceTagResourceType,
+        resource_id: str,
+        tags: Dict[str, str],
+    ) -> None:
+        """Upsert tags (add/update) for a resource."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_resource_tags(
+        self, resource_type: ResourceTagResourceType, resource_id: str, keys: List[str],
+    ) -> None:
+        """Delete tags for the provided keys from a resource."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_resource_tags(
+        self, resource_type: ResourceTagResourceType, resource_id: str
+    ) -> List[ResourceTagRecord]:
+        """List tags for a resource as ResourceTagRecord entries."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_user_groups(
+        self, *, count: int = 50, paging_token: Optional[str] = None,
+    ) -> "UsergroupListResponse":
+        """List user groups in the organization."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_user_group(self, group_id: str) -> "UserGroup":
+        """Get a specific user group by ID."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_user_group_memberships(self) -> Dict:
+        """List all user groups with their members.
+
+        Returns:
+            Dict containing groups with their members, including is_service_account flag.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_resource_policy(
+        self, resource_type: str, resource_id: str, policy: "UpdatePolicyRequest",
+    ) -> None:
+        """Update user group permission policy for a resource."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_resource_policy(
+        self, resource_type: str, resource_id: str,
+    ) -> "PolicyResponse":
+        """Get user group permission policy for a resource."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_resource_policies(
+        self, resource_type: str,
+    ) -> "ResourcepolicyitemListResponse":
+        """List permission policies for all resources of a specific type."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_schedules(
+        self,
+        *,
+        name: Optional[str] = None,
+        project_id: Optional[str] = None,
+        cloud_id: Optional[str] = None,
+        creator_id: Optional[str] = None,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,
+    ) -> DecoratedscheduleListResponse:
+        """List schedules with filtering and pagination."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def migrate_scim_permissions(self, *, dry_run: bool = True) -> Dict:
+        """Migrate organization permissions to SCIM-based user group permissions.
+
+        This removes ALL direct user permissions so that users only have permissions
+        through their user groups.
+
+        Args:
+            dry_run: If True (default), only simulate the migration without making changes.
+                     Pass False to actually apply the changes.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_scim_user_permissions(self, user_id: Optional[str] = None) -> Dict:
+        """List users and their effective permissions (clouds/projects) plus org owners.
+
+        Args:
+            user_id: Optional user ID to filter. If provided, only that user's permissions
+                     are returned.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_user_info(self) -> Any:
+        """Get information about the current user."""
         raise NotImplementedError

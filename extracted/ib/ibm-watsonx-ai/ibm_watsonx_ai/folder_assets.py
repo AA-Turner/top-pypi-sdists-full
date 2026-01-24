@@ -1,12 +1,11 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ibm_watsonx_ai._wrappers import requests
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.metanames import FolderAssetsMetaNames
 from ibm_watsonx_ai.utils import DATA_ASSETS_DETAILS_TYPE
@@ -35,7 +34,7 @@ class FolderAssets(WMLResource):
         get_all: bool | None = None,
         limit: int | None = None,
         **kwargs: Any,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Get folder asset details. If no ``folder_asset_id`` is passed, details for all assets are returned.
 
         :param folder_asset_id: unique ID of the asset
@@ -96,7 +95,7 @@ class FolderAssets(WMLResource):
             folder_asset_details = client.folder_assets.create(
                 name="sample_folder_asset",
                 connection_id="sample_connection_id",
-                connection_path="/bucket1/folder1/folder1.1"
+                connection_path="/bucket1/folder1/folder1.1",
             )
 
         """
@@ -110,7 +109,7 @@ class FolderAssets(WMLResource):
             connection_id=connection_id,
         )
 
-    def store(self, meta_props: dict) -> dict[str, Any]:
+    def store(self, meta_props: dict[str, str]) -> dict[str, Any]:
         """Create a folder asset.
 
         :param meta_props: metadata of the space configuration. To see available meta names, use:
@@ -128,9 +127,9 @@ class FolderAssets(WMLResource):
         .. code-block:: python
 
             metadata = {
-                client.folder_assets.ConfigurationMetaNames.NAME: 'my folder asset',
-                client.folder_assets.ConfigurationMetaNames.DESCRIPTION: 'sample description',
-                client.folder_assets.ConfigurationMetaNames.CONNECTION_PATH: '/bucket1/folder1/folder1.1'
+                client.folder_assets.ConfigurationMetaNames.NAME: "my folder asset",
+                client.folder_assets.ConfigurationMetaNames.DESCRIPTION: "sample description",
+                client.folder_assets.ConfigurationMetaNames.CONNECTION_PATH: "/bucket1/folder1/folder1.1",
             }
             asset_details = client.folder_assets.store(meta_props=metadata)
 
@@ -139,10 +138,10 @@ class FolderAssets(WMLResource):
         .. code-block:: python
 
             metadata = {
-                client.folder_assets.ConfigurationMetaNames.NAME: 'my folder asset',
-                client.folder_assets.ConfigurationMetaNames.DESCRIPTION: 'sample description',
-                client.folder_assets.ConfigurationMetaNames.CONNECTION_ID: 'f1fea17c-a7e5-49e4-9f8e-23cef3e11ed5',
-                client.folder_assets.ConfigurationMetaNames.CONNECTION_PATH: '/bucket1/folder1/folder1.1'
+                client.folder_assets.ConfigurationMetaNames.NAME: "my folder asset",
+                client.folder_assets.ConfigurationMetaNames.DESCRIPTION: "sample description",
+                client.folder_assets.ConfigurationMetaNames.CONNECTION_ID: "f1fea17c-a7e5-49e4-9f8e-23cef3e11ed5",
+                client.folder_assets.ConfigurationMetaNames.CONNECTION_PATH: "/bucket1/folder1/folder1.1",
             }
             asset_details = client.folder_assets.store(meta_props=metadata)
 
@@ -153,16 +152,11 @@ class FolderAssets(WMLResource):
         FolderAssets._validate_meta_prop(meta_props, "name", str, True)
         FolderAssets._validate_meta_prop(meta_props, "connection_path", str, True)
 
-        name = meta_props[self.ConfigurationMetaNames.NAME]
-        connection_path = meta_props[self.ConfigurationMetaNames.CONNECTION_PATH]
-        connection_id = meta_props.get(self.ConfigurationMetaNames.CONNECTION_ID)
-        description = meta_props.get(self.ConfigurationMetaNames.DESCRIPTION, "")
-
         return self._create_asset(
-            name=name,
-            connection_path=connection_path,
-            connection_id=connection_id,
-            description=description,
+            name=meta_props[self.ConfigurationMetaNames.NAME],
+            connection_path=meta_props[self.ConfigurationMetaNames.CONNECTION_PATH],
+            connection_id=meta_props.get(self.ConfigurationMetaNames.CONNECTION_ID),
+            description=meta_props.get(self.ConfigurationMetaNames.DESCRIPTION, ""),
         )
 
     def _create_asset(
@@ -173,12 +167,10 @@ class FolderAssets(WMLResource):
         description: str | None = None,
     ) -> dict:
         # Step 1: Process payload
-        desc = description or ""
-
         asset_meta: dict[str, Any] = {
             "metadata": {
                 "name": name,
-                "description": desc,
+                "description": description or "",
                 "asset_type": "folder_asset",
                 "origin_country": "us",
                 "asset_category": "USER",
@@ -190,15 +182,13 @@ class FolderAssets(WMLResource):
                 {"connection_id": connection_id}
             )
 
-        params = self._client._params()
-
         # Step 2: Create a folder asset
         print(Messages.get_message(message_id="creating_folder_asset"))
 
-        creation_response = requests.post(
-            self._client._href_definitions.get_folder_assets_href(),
+        creation_response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_folder_assets_href(),
             headers=self._client._get_headers(),
-            params=params,
+            params=self._client._params(),
             json=asset_meta,
         )
 
@@ -237,7 +227,7 @@ class FolderAssets(WMLResource):
         )
 
     @staticmethod
-    def get_id(asset_details: dict) -> str:
+    def get_id(asset_details: dict[str, Any]) -> str:
         """Get the unique ID of a stored folder asset.
 
         :param asset_details: details of the stored folder asset
@@ -257,11 +247,11 @@ class FolderAssets(WMLResource):
         FolderAssets._validate_type_of_details(asset_details, DATA_ASSETS_DETAILS_TYPE)
 
         return WMLResource._get_required_element_from_dict(
-            asset_details, "folder_assets_details", ["metadata", "guid"]
+            asset_details, "folder_assets_details", ["metadata", "guid"], str
         )
 
     @staticmethod
-    def get_href(asset_details: dict) -> str:
+    def get_href(asset_details: dict[str, Any]) -> str:
         """Get the URL of a stored folder asset.
 
         :param asset_details: details of the stored folder asset
@@ -282,7 +272,7 @@ class FolderAssets(WMLResource):
         FolderAssets._validate_type_of_details(asset_details, DATA_ASSETS_DETAILS_TYPE)
 
         return WMLResource._get_required_element_from_dict(
-            asset_details, "asset_details", ["metadata", "href"]
+            asset_details, "asset_details", ["metadata", "href"], str
         )
 
     def delete(
@@ -317,7 +307,9 @@ class FolderAssets(WMLResource):
             **kwargs,
         )
 
-    def _get_required_element_from_response(self, response_data: dict) -> dict:
+    def _get_required_element_from_response(
+        self, response_data: dict[str, Any]
+    ) -> dict[str, Any]:
         WMLResource._validate_type(response_data, "folder assets response", dict)
 
         import copy

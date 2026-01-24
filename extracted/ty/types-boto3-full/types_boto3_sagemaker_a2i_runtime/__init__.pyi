@@ -3,7 +3,7 @@ Main interface for sagemaker-a2i-runtime service.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker_a2i_runtime/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

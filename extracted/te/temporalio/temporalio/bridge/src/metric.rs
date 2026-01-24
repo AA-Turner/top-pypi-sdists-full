@@ -4,7 +4,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use pyo3::prelude::*;
 use pyo3::{exceptions::PyTypeError, types::PyDict};
-use temporal_sdk_core_api::telemetry::metrics::{
+use temporalio_common::telemetry::metrics::{
     self, BufferInstrumentRef, CustomMetricAttributes, MetricEvent, NewAttributes,
 };
 
@@ -107,14 +107,11 @@ impl MetricMeterRef {
         unit: Option<String>,
     ) -> MetricHistogramFloatRef {
         MetricHistogramFloatRef {
-            histogram: self
-                .meter
-                .inner
-                .histogram_f64(build_metric_parameters(
-                    name,
-                    description,
-                    unit,
-                )),
+            histogram: self.meter.inner.histogram_f64(build_metric_parameters(
+                name,
+                description,
+                unit,
+            )),
         }
     }
 
@@ -125,14 +122,11 @@ impl MetricMeterRef {
         unit: Option<String>,
     ) -> MetricHistogramDurationRef {
         MetricHistogramDurationRef {
-            histogram: self
-                .meter
-                .inner
-                .histogram_duration(build_metric_parameters(
-                    name,
-                    description,
-                    unit,
-                )),
+            histogram: self.meter.inner.histogram_duration(build_metric_parameters(
+                name,
+                description,
+                unit,
+            )),
         }
     }
 
@@ -213,16 +207,11 @@ fn build_metric_parameters(
     description: Option<String>,
     unit: Option<String>,
 ) -> metrics::MetricParameters {
-    let mut build = metrics::MetricParametersBuilder::default();
-    build.name(name);
-    if let Some(description) = description {
-        build.description(description);
-    }
-    if let Some(unit) = unit {
-        build.unit(unit);
-    }
-    // Should be nothing that would fail validation here
-    build.build().unwrap()
+    metrics::MetricParameters::builder()
+        .name(name)
+        .maybe_description(description)
+        .maybe_unit(unit)
+        .build()
 }
 
 #[pymethods]

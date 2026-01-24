@@ -1,5 +1,5 @@
-import numpy as np
 import pytensor
+import numpy as np
 
 
 class Prior:
@@ -10,13 +10,13 @@ class Prior:
     name : str
         Name of prior distribution. Must be the name of a PyMC distribution
         (e.g., `"Normal"`, `"Bernoulli"`, etc.)
-    auto_scale: bool
+    auto_scale : bool, optional
         Whether to adjust the parameters of the prior or use them as passed. Default to `True`.
-    kwargs : dict
-        Optional keywords specifying the parameters of the named distribution.
-    dist : pymc.distributions.distribution.DistributionMeta or callable
+    dist : pymc.Distribution or callable or None, optional
         A callable that returns a valid PyMC distribution. The signature must contain `name`,
         `dims`, and `shape`, as well as its own keyworded arguments.
+    kwargs : dict
+        Optional keywords specifying the parameters of the named distribution.
     """
 
     def __init__(self, name, auto_scale=True, dist=None, **kwargs):

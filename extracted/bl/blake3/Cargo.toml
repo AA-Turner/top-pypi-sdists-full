@@ -5,7 +5,7 @@
 # PyPI. Installing this with `pip install blake3` is better than something
 # redundant like `pip install PyBLAKE3-py`.
 name = "blake3"
-version = "1.0.6"
+version = "1.0.8"
 authors = ["Jack O'Connor <oconnor663@gmail.com>"]
 description = "Python bindings for the Rust blake3 crate"
 repository = "https://github.com/oconnor663/blake3-py"
@@ -13,8 +13,6 @@ homepage = "https://github.com/oconnor663/blake3-py"
 license = "CC0-1.0 OR Apache-2.0"
 readme = "README.md"
 edition = "2021"
-# MSRV, keep in sync with .github/workflows/tests.yml
-rust-version = "1.66"
 
 [lib]
 crate-type = ["cdylib"]
@@ -25,6 +23,5 @@ neon = ["blake3/neon"]
 [dependencies]
 blake3 = { version = "1.5.5", features = ["mmap", "rayon"] }
 hex = "0.4.3"
-pyo3 = { version = "0.25.0", features = ["extension-module"] }
-rayon = "~1.10.0"
-rayon-core = "~1.12.1"
+pyo3 = { version = "0.26.0", features = ["extension-module"] }
+rayon = "1.11.0"

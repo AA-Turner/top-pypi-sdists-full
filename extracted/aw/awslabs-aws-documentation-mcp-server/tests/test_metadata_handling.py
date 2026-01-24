@@ -37,6 +37,7 @@ class TestMetadataHandling:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
+            'queryId': 'test-query-id',
             'suggestions': [
                 {
                     'textExcerptSuggestion': {
@@ -51,14 +52,16 @@ class TestMetadataHandling:
                         },
                     }
                 }
-            ]
+            ],
         }
 
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            results = await search_documentation(ctx, search_phrase='test', limit=10)
-
+            response = await search_documentation(
+                ctx, search_phrase='test', limit=10, product_types=None, guide_types=None
+            )
+            results = response.search_results
             assert len(results) == 1
             assert results[0].context == 'SEO optimized abstract'
 
@@ -70,6 +73,7 @@ class TestMetadataHandling:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
+            'queryId': 'test-query-id',
             'suggestions': [
                 {
                     'textExcerptSuggestion': {
@@ -83,14 +87,16 @@ class TestMetadataHandling:
                         },
                     }
                 }
-            ]
+            ],
         }
 
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            results = await search_documentation(ctx, search_phrase='test', limit=10)
-
+            response = await search_documentation(
+                ctx, search_phrase='test', limit=10, product_types=None, guide_types=None
+            )
+            results = response.search_results
             assert len(results) == 1
             assert results[0].context == 'Regular abstract'
 
@@ -102,6 +108,7 @@ class TestMetadataHandling:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
+            'queryId': 'test-query-id',
             'suggestions': [
                 {
                     'textExcerptSuggestion': {
@@ -112,14 +119,16 @@ class TestMetadataHandling:
                         'metadata': {},
                     }
                 }
-            ]
+            ],
         }
 
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            results = await search_documentation(ctx, search_phrase='test', limit=10)
-
+            response = await search_documentation(
+                ctx, search_phrase='test', limit=10, product_types=None, guide_types=None
+            )
+            results = response.search_results
             assert len(results) == 1
             assert results[0].context == 'Regular summary'
 
@@ -131,6 +140,7 @@ class TestMetadataHandling:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
+            'queryId': 'test-query-id',
             'suggestions': [
                 {
                     'textExcerptSuggestion': {
@@ -140,14 +150,16 @@ class TestMetadataHandling:
                         'metadata': {},
                     }
                 }
-            ]
+            ],
         }
 
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            results = await search_documentation(ctx, search_phrase='test', limit=10)
-
+            response = await search_documentation(
+                ctx, search_phrase='test', limit=10, product_types=None, guide_types=None
+            )
+            results = response.search_results
             assert len(results) == 1
             assert results[0].context == 'Suggestion body text'
 
@@ -159,6 +171,7 @@ class TestMetadataHandling:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
+            'queryId': 'test-query-id',
             'suggestions': [
                 {
                     'textExcerptSuggestion': {
@@ -167,14 +180,16 @@ class TestMetadataHandling:
                         'metadata': {},
                     }
                 }
-            ]
+            ],
         }
 
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            results = await search_documentation(ctx, search_phrase='test', limit=10)
-
+            response = await search_documentation(
+                ctx, search_phrase='test', limit=10, product_types=None, guide_types=None
+            )
+            results = response.search_results
             assert len(results) == 1
             assert results[0].context is None
 
@@ -186,6 +201,7 @@ class TestMetadataHandling:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
+            'queryId': 'test-query-id',
             'suggestions': [
                 {
                     'textExcerptSuggestion': {
@@ -195,14 +211,16 @@ class TestMetadataHandling:
                         'metadata': {},
                     }
                 }
-            ]
+            ],
         }
 
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            results = await search_documentation(ctx, search_phrase='test', limit=10)
-
+            response = await search_documentation(
+                ctx, search_phrase='test', limit=10, product_types=None, guide_types=None
+            )
+            results = response.search_results
             assert len(results) == 1
             assert results[0].context == 'Regular summary'
 
@@ -214,6 +232,7 @@ class TestMetadataHandling:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
+            'queryId': 'test-query-id',
             'suggestions': [
                 {
                     'textExcerptSuggestion': {
@@ -247,14 +266,16 @@ class TestMetadataHandling:
                         'metadata': {},
                     }
                 },
-            ]
+            ],
         }
 
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            results = await search_documentation(ctx, search_phrase='test', limit=10)
-
+            response = await search_documentation(
+                ctx, search_phrase='test', limit=10, product_types=None, guide_types=None
+            )
+            results = response.search_results
             assert len(results) == 4
             assert results[0].context == 'SEO abstract 1'
             assert results[1].context == 'Regular abstract 2'
@@ -270,6 +291,7 @@ class TestMetadataHandling:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
+            'queryId': 'test-query-id',
             'suggestions': [
                 {
                     'textExcerptSuggestion': {
@@ -293,14 +315,16 @@ class TestMetadataHandling:
                         'metadata': {'last_updated': '2025-08-23T15:00:48.000Z', 'summary': 'S3'},
                     }
                 },
-            ]
+            ],
         }
 
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            results = await search_documentation(ctx, search_phrase='s3', limit=10)
-
+            response = await search_documentation(
+                ctx, search_phrase='s3', limit=10, product_types=None, guide_types=None
+            )
+            results = response.search_results
             assert len(results) == 2
             # First result should use seo_abstract
             assert (
@@ -318,6 +342,7 @@ class TestMetadataHandling:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
+            'queryId': 'test-query-id',
             'suggestions': [
                 {
                     'textExcerptSuggestion': {
@@ -327,13 +352,15 @@ class TestMetadataHandling:
                         # No metadata field at all
                     }
                 }
-            ]
+            ],
         }
 
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            results = await search_documentation(ctx, search_phrase='test', limit=10)
-
+            response = await search_documentation(
+                ctx, search_phrase='test', limit=10, product_types=None, guide_types=None
+            )
+            results = response.search_results
             assert len(results) == 1
             assert results[0].context == 'Regular summary'

@@ -33,8 +33,8 @@ from gremlin_python import statics
 from gremlin_python.statics import FloatType, BigDecimal, FunctionType, ShortType, IntType, LongType, BigIntType, \
                                    TypeType, DictType, ListType, SetType, SingleByte, ByteBufferType, GremlinType, \
                                    SingleChar
-from gremlin_python.process.traversal import Barrier, Binding, Bytecode, Cardinality, Column, Direction, DT, Merge, \
-                                             Operator, Order, Pick, Pop, P, Scope, TextP, Traversal, Traverser, \
+from gremlin_python.process.traversal import Barrier, Binding, Bytecode, Cardinality, Column, Direction, DT, GType, \
+                                             Merge,Operator, Order, Pick, Pop, P, Scope, TextP, Traversal, Traverser, \
                                              TraversalStrategy, T
 from gremlin_python.process.graph_traversal import GraphTraversal
 from gremlin_python.structure.graph import Graph, Edge, Property, Vertex, VertexProperty, Path
@@ -98,6 +98,7 @@ class DataType(Enum):
     traversalmetrics = 0x2d
     merge = 0x2e
     dt = 0x2f
+    gtype = 0x30
     char = 0x80
     duration = 0x81
     inetaddress = 0x82            # todo
@@ -106,7 +107,7 @@ class DataType(Enum):
     localdatetime = 0x85          # todo
     localtime = 0x86              # todo
     monthday = 0x87               # todo
-    offsetdatetime = 0x88         # todo
+    offsetdatetime = 0x88
     offsettime = 0x89             # todo
     period = 0x8a                 # todo
     year = 0x8b                   # todo
@@ -342,6 +343,44 @@ class DateIO(_GraphBinaryTypeIO):
                            lambda b, r: datetime.datetime.utcfromtimestamp(int64_unpack(b.read(8)) / 1000.0),
                            nullable)
 
+
+class OffsetDateTimeIO(_GraphBinaryTypeIO):
+
+    python_type = datetime.datetime
+    graphbinary_type = DataType.offsetdatetime
+
+    @classmethod
+    def dictify(cls, obj, writer, to_extend, as_value=False, nullable=True):
+        if obj.tzinfo is None:
+            return DateIO.dictify(obj, writer, to_extend, as_value, nullable)
+        cls.prefix_bytes(cls.graphbinary_type, as_value, nullable, to_extend)
+        IntIO.dictify(obj.year, writer, to_extend, True, False)
+        ByteIO.dictify(obj.month, writer, to_extend, True, False)
+        ByteIO.dictify(obj.day, writer, to_extend, True, False)
+        # construct time of day in nanoseconds
+        h = obj.time().hour
+        m = obj.time().minute
+        s = obj.time().second
+        ms = obj.time().microsecond
+        ns = round((h*60*60*1e9) + (m*60*1e9) + (s*1e9) + (ms*1e3))
+        LongIO.dictify(ns, writer, to_extend, True, False)
+        os = round(obj.utcoffset().total_seconds())
+        IntIO.dictify(os, writer, to_extend, True, False)
+        return to_extend
+
+    @classmethod
+    def objectify(cls, buff, reader, nullable=True):
+        return cls.is_null(buff, reader, cls._read_dt, nullable)
+
+    @classmethod
+    def _read_dt(cls, b, r):
+        year = r.to_object(b, DataType.int, False)
+        month = r.to_object(b, DataType.byte, False)
+        day = r.to_object(b, DataType.byte, False)
+        ns = r.to_object(b, DataType.long, False)
+        offset = r.to_object(b, DataType.int, False)
+        tz = datetime.timezone(timedelta(seconds=offset))
+        return datetime.datetime(year, month, day, tzinfo=tz) + timedelta(microseconds=ns/1000)
 
 # Based on current implementation, this class must always be declared before FloatIO.
 # Seems pretty fragile for future maintainers. Maybe look into this.
@@ -947,6 +986,11 @@ class ScopeIO(_EnumIO):
 class TIO(_EnumIO):
     graphbinary_type = DataType.t
     python_type = T
+
+
+class GTYPEIO(_EnumIO):
+    graphbinary_type = DataType.gtype
+    python_type = GType
 
 
 class TraverserIO(_GraphBinaryTypeIO):

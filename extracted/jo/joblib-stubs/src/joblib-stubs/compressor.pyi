@@ -12,14 +12,6 @@ from typing_extensions import TypeVar
 _BufferedIOBaseT = TypeVar("_BufferedIOBaseT", bound=BufferedIOBase)
 
 LZ4_NOT_INSTALLED_ERROR: str
-_COMPRESSORS: dict[str, CompressorWrapper[Any]]
-_ZFILE_PREFIX: bytes
-_ZLIB_PREFIX: bytes
-_GZIP_PREFIX: bytes
-_BZ2_PREFIX: bytes
-_XZ_PREFIX: bytes
-_LZMA_PREFIX: bytes
-_LZ4_PREFIX: bytes
 
 def register_compressor(
     compressor_name: str, compressor: CompressorWrapper[Any], force: bool = ...
@@ -35,16 +27,16 @@ class CompressorWrapper(Generic[_BufferedIOBaseT]):
     ) -> _BufferedIOBaseT: ...
     def decompressor_file(self, fileobj: Any) -> _BufferedIOBaseT: ...
 
-class BZ2CompressorWrapper(CompressorWrapper[bz2.BZ2File]): ...
-class LZMACompressorWrapper(CompressorWrapper[lzma.LZMAFile]): ...
-class XZCompressorWrapper(LZMACompressorWrapper): ...
-class LZ4CompressorWrapper(CompressorWrapper[LZ4FrameFile]): ...
+class BZ2CompressorWrapper(CompressorWrapper[bz2.BZ2File]):
+    def __init__(self) -> None: ...
 
-_MODE_CLOSED: Literal[0]
-_MODE_READ: Literal[1]
-_MODE_READ_EOF: Literal[2]
-_MODE_WRITE: Literal[3]
-_BUFFER_SIZE: Literal[8192]
+class LZMACompressorWrapper(CompressorWrapper[lzma.LZMAFile]):
+    def __init__(self) -> None: ...
+
+class XZCompressorWrapper(LZMACompressorWrapper): ...
+
+class LZ4CompressorWrapper(CompressorWrapper[LZ4FrameFile]):
+    def __init__(self) -> None: ...
 
 class BinaryZlibFile(io.BufferedIOBase):
     wbits: ClassVar[int]

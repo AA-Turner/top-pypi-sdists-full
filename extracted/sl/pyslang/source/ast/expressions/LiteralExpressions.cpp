@@ -10,6 +10,7 @@
 #include "slang/ast/ASTSerializer.h"
 #include "slang/ast/Compilation.h"
 #include "slang/ast/EvalContext.h"
+#include "slang/ast/TypeProvider.h"
 #include "slang/ast/types/Type.h"
 #include "slang/diagnostics/ExpressionsDiags.h"
 #include "slang/diagnostics/TypesDiags.h"
@@ -73,12 +74,13 @@ Expression& IntegerLiteral::fromSyntax(Compilation& compilation,
                                                 syntax.sourceRange());
 }
 
-Expression& IntegerLiteral::fromConstant(Compilation& compilation, const SVInt& value) {
+Expression& IntegerLiteral::fromConstant(const TypeProvider& typeProvider, const SVInt& value) {
     SVInt val = value.resize(32);
     val.setSigned(true);
 
-    return *compilation.emplace<IntegerLiteral>(compilation, compilation.getIntType(),
-                                                std::move(val), true, SourceRange::NoLocation);
+    auto& alloc = typeProvider.alloc;
+    return *alloc.emplace<IntegerLiteral>(alloc, typeProvider.getIntType(), std::move(val), true,
+                                          SourceRange::NoLocation);
 }
 
 ConstantValue IntegerLiteral::evalImpl(EvalContext&) const {
@@ -108,6 +110,10 @@ Expression::EffectiveSign IntegerLiteral::getEffectiveSignImpl(bool isForConvers
     return EffectiveSign::Either;
 }
 
+bool IntegerLiteral::isEquivalentImpl(const IntegerLiteral& rhs) const {
+    return isDeclaredUnsized == rhs.isDeclaredUnsized && exactlyEqual(getValue(), rhs.getValue());
+}
+
 void IntegerLiteral::serializeTo(ASTSerializer& serializer) const {
     serializer.write("value", getValue());
 }
@@ -122,6 +128,10 @@ Expression& RealLiteral::fromSyntax(Compilation& compilation,
 
 ConstantValue RealLiteral::evalImpl(EvalContext&) const {
     return real_t(value);
+}
+
+bool RealLiteral::isEquivalentImpl(const RealLiteral& rhs) const {
+    return getValue() == rhs.getValue();
 }
 
 void RealLiteral::serializeTo(ASTSerializer& serializer) const {
@@ -140,12 +150,16 @@ Expression& TimeLiteral::fromSyntax(const ASTContext& context,
     value = scale.apply(value, unit, /* roundToPrecision */ false);
 
     auto& comp = context.getCompilation();
-    return *comp.emplace<TimeLiteral>(comp.getType(SyntaxKind::RealTimeType), value,
+    return *comp.emplace<TimeLiteral>(comp.getType(SyntaxKind::RealTimeType), value, scale,
                                       syntax.sourceRange());
 }
 
 ConstantValue TimeLiteral::evalImpl(EvalContext&) const {
     return real_t(value);
+}
+
+bool TimeLiteral::isEquivalentImpl(const TimeLiteral& rhs) const {
+    return getValue() == rhs.getValue() && getScale() == rhs.getScale();
 }
 
 void TimeLiteral::serializeTo(ASTSerializer& serializer) const {
@@ -208,6 +222,10 @@ Expression::EffectiveSign UnbasedUnsizedIntegerLiteral::getEffectiveSignImpl(boo
     // logic signed [1:0] k = '1;
     // ...so we'll just say this could always be either.
     return EffectiveSign::Either;
+}
+
+bool UnbasedUnsizedIntegerLiteral::isEquivalentImpl(const UnbasedUnsizedIntegerLiteral& rhs) const {
+    return exactlyEqual(getLiteralValue(), rhs.getLiteralValue());
 }
 
 void UnbasedUnsizedIntegerLiteral::serializeTo(ASTSerializer& serializer) const {
@@ -300,6 +318,10 @@ const ConstantValue& StringLiteral::getIntValue() const {
 
 ConstantValue StringLiteral::evalImpl(EvalContext&) const {
     return *intStorage;
+}
+
+bool StringLiteral::isEquivalentImpl(const StringLiteral& rhs) const {
+    return getValue() == rhs.getValue();
 }
 
 void StringLiteral::serializeTo(ASTSerializer& serializer) const {

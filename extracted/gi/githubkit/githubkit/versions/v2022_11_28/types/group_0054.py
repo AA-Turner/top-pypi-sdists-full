@@ -9,120 +9,82 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Union
-from typing_extensions import NotRequired, TypeAlias, TypedDict
+import datetime as _dt
+from typing import Union
+from typing_extensions import NotRequired, TypedDict
 
-from .group_0003 import SimpleUserType
-from .group_0053 import GistHistoryType, GistSimplePropForkOfType
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
+from .group_0047 import ReactionRollupType, ReactionRollupTypeForResponse
+from .group_0053 import ReleaseAssetType, ReleaseAssetTypeForResponse
 
 
-class GistSimpleType(TypedDict):
-    """Gist Simple
+class ReleaseType(TypedDict):
+    """Release
 
-    Gist Simple
+    A release.
     """
 
-    forks: NotRequired[Union[list[GistSimplePropForksItemsType], None]]
-    history: NotRequired[Union[list[GistHistoryType], None]]
-    fork_of: NotRequired[Union[GistSimplePropForkOfType, None]]
-    url: NotRequired[str]
-    forks_url: NotRequired[str]
-    commits_url: NotRequired[str]
-    id: NotRequired[str]
-    node_id: NotRequired[str]
-    git_pull_url: NotRequired[str]
-    git_push_url: NotRequired[str]
-    html_url: NotRequired[str]
-    files: NotRequired[GistSimplePropFilesType]
-    public: NotRequired[bool]
-    created_at: NotRequired[str]
-    updated_at: NotRequired[str]
-    description: NotRequired[Union[str, None]]
-    comments: NotRequired[int]
-    comments_enabled: NotRequired[bool]
-    user: NotRequired[Union[str, None]]
-    comments_url: NotRequired[str]
-    owner: NotRequired[SimpleUserType]
-    truncated: NotRequired[bool]
-
-
-GistSimplePropFilesType: TypeAlias = dict[str, Any]
-"""GistSimplePropFiles
-"""
-
-
-class GistSimplePropForksItemsType(TypedDict):
-    """GistSimplePropForksItems"""
-
-    id: NotRequired[str]
-    url: NotRequired[str]
-    user: NotRequired[PublicUserType]
-    created_at: NotRequired[datetime]
-    updated_at: NotRequired[datetime]
-
-
-class PublicUserType(TypedDict):
-    """Public User
-
-    Public User
-    """
-
-    login: str
-    id: int
-    user_view_type: NotRequired[str]
-    node_id: str
-    avatar_url: str
-    gravatar_id: Union[str, None]
     url: str
     html_url: str
-    followers_url: str
-    following_url: str
-    gists_url: str
-    starred_url: str
-    subscriptions_url: str
-    organizations_url: str
-    repos_url: str
-    events_url: str
-    received_events_url: str
-    type: str
-    site_admin: bool
+    assets_url: str
+    upload_url: str
+    tarball_url: Union[str, None]
+    zipball_url: Union[str, None]
+    id: int
+    node_id: str
+    tag_name: str
+    target_commitish: str
     name: Union[str, None]
-    company: Union[str, None]
-    blog: Union[str, None]
-    location: Union[str, None]
-    email: Union[str, None]
-    notification_email: NotRequired[Union[str, None]]
-    hireable: Union[bool, None]
-    bio: Union[str, None]
-    twitter_username: NotRequired[Union[str, None]]
-    public_repos: int
-    public_gists: int
-    followers: int
-    following: int
-    created_at: datetime
-    updated_at: datetime
-    plan: NotRequired[PublicUserPropPlanType]
-    private_gists: NotRequired[int]
-    total_private_repos: NotRequired[int]
-    owned_private_repos: NotRequired[int]
-    disk_usage: NotRequired[int]
-    collaborators: NotRequired[int]
+    body: NotRequired[Union[str, None]]
+    draft: bool
+    prerelease: bool
+    immutable: NotRequired[bool]
+    created_at: _dt.datetime
+    published_at: Union[_dt.datetime, None]
+    updated_at: NotRequired[Union[_dt.datetime, None]]
+    author: SimpleUserType
+    assets: list[ReleaseAssetType]
+    body_html: NotRequired[Union[str, None]]
+    body_text: NotRequired[Union[str, None]]
+    mentions_count: NotRequired[int]
+    discussion_url: NotRequired[str]
+    reactions: NotRequired[ReactionRollupType]
 
 
-class PublicUserPropPlanType(TypedDict):
-    """PublicUserPropPlan"""
+class ReleaseTypeForResponse(TypedDict):
+    """Release
 
-    collaborators: int
-    name: str
-    space: int
-    private_repos: int
+    A release.
+    """
+
+    url: str
+    html_url: str
+    assets_url: str
+    upload_url: str
+    tarball_url: Union[str, None]
+    zipball_url: Union[str, None]
+    id: int
+    node_id: str
+    tag_name: str
+    target_commitish: str
+    name: Union[str, None]
+    body: NotRequired[Union[str, None]]
+    draft: bool
+    prerelease: bool
+    immutable: NotRequired[bool]
+    created_at: str
+    published_at: Union[str, None]
+    updated_at: NotRequired[Union[str, None]]
+    author: SimpleUserTypeForResponse
+    assets: list[ReleaseAssetTypeForResponse]
+    body_html: NotRequired[Union[str, None]]
+    body_text: NotRequired[Union[str, None]]
+    mentions_count: NotRequired[int]
+    discussion_url: NotRequired[str]
+    reactions: NotRequired[ReactionRollupTypeForResponse]
 
 
 __all__ = (
-    "GistSimplePropFilesType",
-    "GistSimplePropForksItemsType",
-    "GistSimpleType",
-    "PublicUserPropPlanType",
-    "PublicUserType",
+    "ReleaseType",
+    "ReleaseTypeForResponse",
 )

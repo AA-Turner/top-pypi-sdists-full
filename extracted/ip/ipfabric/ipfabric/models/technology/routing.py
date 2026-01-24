@@ -102,6 +102,11 @@ class Routing(BaseModel):
 
     @computed_field
     @property
+    def bgp_routes_ipv6(self) -> Table:
+        return Table(client=self.client, endpoint="tables/routing/protocols/bgp/routesIpv6", sn=self.sn)
+
+    @computed_field
+    @property
     def eigrp_neighbors(self) -> Table:
         return Table(client=self.client, endpoint="tables/routing/protocols/eigrp/neighbors", sn=self.sn)
 

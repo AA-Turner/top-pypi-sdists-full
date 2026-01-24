@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional, Union
 import mlx.core as mx
 import mlx.nn as nn
 
+from .activations import swiglu
 from .base import BaseModelArgs, create_attention_mask, scaled_dot_product_attention
 from .cache import ConcatenateKVCache, KVCache
 from .rope_utils import initialize_rope
@@ -50,7 +51,7 @@ class FusedLoRALinear(nn.Module):
         ]
         self.lora_b = [mx.zeros((r, od)) for od in output_dims]
 
-    def fuse(self, de_quantize: bool = False):
+    def fuse(self, dequantize: bool = False):
         linear = self.linear
         weight = linear.weight
         is_quantized = isinstance(linear, FusedQuantizedLinear)
@@ -79,7 +80,7 @@ class FusedLoRALinear(nn.Module):
         delta = mx.concatenate(deltas, axis=0)
         fused_linear.weight = weight + delta
 
-        if is_quantized and not de_quantize:
+        if is_quantized and not dequantize:
             fused_linear = fused_linear.to_quantized(linear.group_size, linear.bits)
 
         return fused_linear
@@ -262,11 +263,6 @@ class KVReuseAttention(nn.Module):
         return self.out_proj(output)
 
 
-@partial(mx.compile, shapeless=True)
-def _swiglu(g, x):
-    return nn.silu(g) * x
-
-
 class MLP(nn.Module):
     def __init__(self, args: ModelArgs):
         super().__init__()
@@ -281,7 +277,7 @@ class MLP(nn.Module):
     def __call__(self, x) -> mx.array:
         g = self.gate_proj(x)
         x = self.up_proj(x)
-        return self.down_proj(_swiglu(g, x))
+        return self.down_proj(swiglu(g, x))
 
 
 class TransformerBlock(nn.Module):

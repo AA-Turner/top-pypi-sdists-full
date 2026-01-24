@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -59,12 +60,6 @@ from .literals import (
     VolumeStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -242,7 +237,7 @@ class AssociateSourceNetworkStackRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -367,7 +362,7 @@ class RecoverySnapshotTypeDef(TypedDict):
     expectedTimestamp: str
     snapshotID: str
     sourceServerID: str
-    ebsSnapshots: NotRequired[List[str]]
+    ebsSnapshots: NotRequired[list[str]]
     timestamp: NotRequired[str]
 
 
@@ -472,7 +467,7 @@ class ListExtensibleSourceServersRequestTypeDef(TypedDict):
 class StagingSourceServerTypeDef(TypedDict):
     arn: NotRequired[str]
     hostname: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class ListStagingAccountsRequestTypeDef(TypedDict):
@@ -485,7 +480,7 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 
 
 class NetworkInterfaceTypeDef(TypedDict):
-    ips: NotRequired[List[str]]
+    ips: NotRequired[list[str]]
     isPrimary: NotRequired[bool]
     macAddress: NotRequired[str]
 
@@ -655,13 +650,13 @@ class GetFailbackReplicationConfigurationResponseTypeDef(TypedDict):
 
 
 class ListStagingAccountsResponseTypeDef(TypedDict):
-    accounts: List[AccountTypeDef]
+    accounts: list[AccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -674,9 +669,9 @@ class ConversionPropertiesTypeDef(TypedDict):
     dataTimestamp: NotRequired[str]
     forceUefi: NotRequired[bool]
     rootVolumeName: NotRequired[str]
-    volumeToConversionMap: NotRequired[Dict[str, Dict[str, str]]]
-    volumeToProductCodes: NotRequired[Dict[str, List[ProductCodeTypeDef]]]
-    volumeToVolumeSize: NotRequired[Dict[str, int]]
+    volumeToConversionMap: NotRequired[dict[str, dict[str, str]]]
+    volumeToProductCodes: NotRequired[dict[str, list[ProductCodeTypeDef]]]
+    volumeToVolumeSize: NotRequired[dict[str, int]]
 
 
 class CreateLaunchConfigurationTemplateRequestTypeDef(TypedDict):
@@ -701,7 +696,7 @@ class LaunchConfigurationTemplateTypeDef(TypedDict):
     launchIntoSourceInstance: NotRequired[bool]
     licensing: NotRequired[LicensingTypeDef]
     postLaunchEnabled: NotRequired[bool]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     targetInstanceTypeRightSizingMethod: NotRequired[TargetInstanceTypeRightSizingMethodType]
 
 
@@ -745,13 +740,13 @@ class ReplicationConfigurationTemplateResponseTypeDef(TypedDict):
     defaultLargeStagingDiskType: ReplicationConfigurationDefaultLargeStagingDiskTypeType
     ebsEncryption: ReplicationConfigurationEbsEncryptionType
     ebsEncryptionKeyArn: str
-    pitPolicy: List[PITPolicyRuleTypeDef]
+    pitPolicy: list[PITPolicyRuleTypeDef]
     replicationConfigurationTemplateID: str
     replicationServerInstanceType: str
-    replicationServersSecurityGroupsIDs: List[str]
+    replicationServersSecurityGroupsIDs: list[str]
     stagingAreaSubnetId: str
-    stagingAreaTags: Dict[str, str]
-    tags: Dict[str, str]
+    stagingAreaTags: dict[str, str]
+    tags: dict[str, str]
     useDedicatedReplicationServer: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -769,12 +764,12 @@ class ReplicationConfigurationTemplateTypeDef(TypedDict):
     ]
     ebsEncryption: NotRequired[ReplicationConfigurationEbsEncryptionType]
     ebsEncryptionKeyArn: NotRequired[str]
-    pitPolicy: NotRequired[List[PITPolicyRuleTypeDef]]
+    pitPolicy: NotRequired[list[PITPolicyRuleTypeDef]]
     replicationServerInstanceType: NotRequired[str]
-    replicationServersSecurityGroupsIDs: NotRequired[List[str]]
+    replicationServersSecurityGroupsIDs: NotRequired[list[str]]
     stagingAreaSubnetId: NotRequired[str]
-    stagingAreaTags: NotRequired[Dict[str, str]]
-    tags: NotRequired[Dict[str, str]]
+    stagingAreaTags: NotRequired[dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     useDedicatedReplicationServer: NotRequired[bool]
 
 
@@ -802,7 +797,7 @@ class UpdateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
 class DataReplicationInitiationTypeDef(TypedDict):
     nextAttemptDateTime: NotRequired[str]
     startDateTime: NotRequired[str]
-    steps: NotRequired[List[DataReplicationInitiationStepTypeDef]]
+    steps: NotRequired[list[DataReplicationInitiationStepTypeDef]]
 
 
 class DescribeJobLogItemsRequestPaginateTypeDef(TypedDict):
@@ -867,7 +862,7 @@ class DescribeRecoverySnapshotsRequestTypeDef(TypedDict):
 
 
 class DescribeRecoverySnapshotsResponseTypeDef(TypedDict):
-    items: List[RecoverySnapshotTypeDef]
+    items: list[RecoverySnapshotTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -910,7 +905,7 @@ LaunchActionTypeDef = TypedDict(
         "name": NotRequired[str],
         "optional": NotRequired[bool],
         "order": NotRequired[int],
-        "parameters": NotRequired[Dict[str, LaunchActionParameterTypeDef]],
+        "parameters": NotRequired[dict[str, LaunchActionParameterTypeDef]],
         "type": NotRequired[LaunchActionTypeType],
     },
 )
@@ -942,7 +937,7 @@ PutLaunchActionResponseTypeDef = TypedDict(
         "name": str,
         "optional": bool,
         "order": int,
-        "parameters": Dict[str, LaunchActionParameterTypeDef],
+        "parameters": dict[str, LaunchActionParameterTypeDef],
         "resourceId": str,
         "type": LaunchActionTypeType,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -995,17 +990,17 @@ class LifeCycleLastLaunchTypeDef(TypedDict):
 
 
 class ListExtensibleSourceServersResponseTypeDef(TypedDict):
-    items: List[StagingSourceServerTypeDef]
+    items: list[StagingSourceServerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class SourcePropertiesTypeDef(TypedDict):
-    cpus: NotRequired[List[CPUTypeDef]]
-    disks: NotRequired[List[DiskTypeDef]]
+    cpus: NotRequired[list[CPUTypeDef]]
+    disks: NotRequired[list[DiskTypeDef]]
     identificationHints: NotRequired[IdentificationHintsTypeDef]
     lastUpdatedDateTime: NotRequired[str]
-    networkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
     os: NotRequired[OSTypeDef]
     ramBytes: NotRequired[int]
     recommendedInstanceType: NotRequired[str]
@@ -1019,15 +1014,15 @@ class ParticipatingResourceTypeDef(TypedDict):
 
 class RecoveryInstanceDataReplicationInitiationTypeDef(TypedDict):
     startDateTime: NotRequired[str]
-    steps: NotRequired[List[RecoveryInstanceDataReplicationInitiationStepTypeDef]]
+    steps: NotRequired[list[RecoveryInstanceDataReplicationInitiationStepTypeDef]]
 
 
 class RecoveryInstancePropertiesTypeDef(TypedDict):
-    cpus: NotRequired[List[CPUTypeDef]]
-    disks: NotRequired[List[RecoveryInstanceDiskTypeDef]]
+    cpus: NotRequired[list[CPUTypeDef]]
+    disks: NotRequired[list[RecoveryInstanceDiskTypeDef]]
     identificationHints: NotRequired[IdentificationHintsTypeDef]
     lastUpdatedDateTime: NotRequired[str]
-    networkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
     os: NotRequired[OSTypeDef]
     ramBytes: NotRequired[int]
 
@@ -1043,7 +1038,7 @@ class SourceNetworkTypeDef(TypedDict):
     sourceNetworkID: NotRequired[str]
     sourceRegion: NotRequired[str]
     sourceVpcID: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class ReplicationConfigurationTypeDef(TypedDict):
@@ -1056,13 +1051,13 @@ class ReplicationConfigurationTypeDef(TypedDict):
     ebsEncryption: ReplicationConfigurationEbsEncryptionType
     ebsEncryptionKeyArn: str
     name: str
-    pitPolicy: List[PITPolicyRuleTypeDef]
-    replicatedDisks: List[ReplicationConfigurationReplicatedDiskTypeDef]
+    pitPolicy: list[PITPolicyRuleTypeDef]
+    replicatedDisks: list[ReplicationConfigurationReplicatedDiskTypeDef]
     replicationServerInstanceType: str
-    replicationServersSecurityGroupsIDs: List[str]
+    replicationServersSecurityGroupsIDs: list[str]
     sourceServerID: str
     stagingAreaSubnetId: str
-    stagingAreaTags: Dict[str, str]
+    stagingAreaTags: dict[str, str]
     useDedicatedReplicationServer: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1107,7 +1102,7 @@ class CreateLaunchConfigurationTemplateResponseTypeDef(TypedDict):
 
 
 class DescribeLaunchConfigurationTemplatesResponseTypeDef(TypedDict):
-    items: List[LaunchConfigurationTemplateTypeDef]
+    items: list[LaunchConfigurationTemplateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1118,7 +1113,7 @@ class UpdateLaunchConfigurationTemplateResponseTypeDef(TypedDict):
 
 
 class DescribeReplicationConfigurationTemplatesResponseTypeDef(TypedDict):
-    items: List[ReplicationConfigurationTemplateTypeDef]
+    items: list[ReplicationConfigurationTemplateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1129,7 +1124,7 @@ class DataReplicationInfoTypeDef(TypedDict):
     dataReplicationState: NotRequired[DataReplicationStateType]
     etaDateTime: NotRequired[str]
     lagDuration: NotRequired[str]
-    replicatedDisks: NotRequired[List[DataReplicationInfoReplicatedDiskTypeDef]]
+    replicatedDisks: NotRequired[list[DataReplicationInfoReplicatedDiskTypeDef]]
     stagingAvailabilityZone: NotRequired[str]
     stagingOutpostArn: NotRequired[str]
 
@@ -1151,7 +1146,7 @@ class LaunchActionRunTypeDef(TypedDict):
 
 
 class ListLaunchActionsResponseTypeDef(TypedDict):
-    items: List[LaunchActionTypeDef]
+    items: list[LaunchActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1170,13 +1165,13 @@ class RecoveryInstanceDataReplicationInfoTypeDef(TypedDict):
     dataReplicationState: NotRequired[RecoveryInstanceDataReplicationStateType]
     etaDateTime: NotRequired[str]
     lagDuration: NotRequired[str]
-    replicatedDisks: NotRequired[List[RecoveryInstanceDataReplicationInfoReplicatedDiskTypeDef]]
+    replicatedDisks: NotRequired[list[RecoveryInstanceDataReplicationInfoReplicatedDiskTypeDef]]
     stagingAvailabilityZone: NotRequired[str]
     stagingOutpostArn: NotRequired[str]
 
 
 class DescribeSourceNetworksResponseTypeDef(TypedDict):
-    items: List[SourceNetworkTypeDef]
+    items: list[SourceNetworkTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1198,7 +1193,7 @@ class JobLogTypeDef(TypedDict):
 
 
 class LaunchActionsStatusTypeDef(TypedDict):
-    runs: NotRequired[List[LaunchActionRunTypeDef]]
+    runs: NotRequired[list[LaunchActionRunTypeDef]]
     ssmAgentDiscoveryDatetime: NotRequired[str]
 
 
@@ -1216,7 +1211,7 @@ class SourceServerResponseTypeDef(TypedDict):
     sourceProperties: SourcePropertiesTypeDef
     sourceServerID: str
     stagingArea: StagingAreaTypeDef
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1234,7 +1229,7 @@ class SourceServerTypeDef(TypedDict):
     sourceProperties: NotRequired[SourcePropertiesTypeDef]
     sourceServerID: NotRequired[str]
     stagingArea: NotRequired[StagingAreaTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class RecoveryInstanceTypeDef(TypedDict):
@@ -1253,11 +1248,11 @@ class RecoveryInstanceTypeDef(TypedDict):
     recoveryInstanceProperties: NotRequired[RecoveryInstancePropertiesTypeDef]
     sourceOutpostArn: NotRequired[str]
     sourceServerID: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class DescribeJobLogItemsResponseTypeDef(TypedDict):
-    items: List[JobLogTypeDef]
+    items: list[JobLogTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1275,7 +1270,7 @@ class CreateExtendedSourceServerResponseTypeDef(TypedDict):
 
 
 class DescribeSourceServersResponseTypeDef(TypedDict):
-    items: List[SourceServerTypeDef]
+    items: list[SourceServerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1291,7 +1286,7 @@ class StopReplicationResponseTypeDef(TypedDict):
 
 
 class DescribeRecoveryInstancesResponseTypeDef(TypedDict):
-    items: List[RecoveryInstanceTypeDef]
+    items: list[RecoveryInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1304,10 +1299,10 @@ JobTypeDef = TypedDict(
         "creationDateTime": NotRequired[str],
         "endDateTime": NotRequired[str],
         "initiatedBy": NotRequired[InitiatedByType],
-        "participatingResources": NotRequired[List[ParticipatingResourceTypeDef]],
-        "participatingServers": NotRequired[List[ParticipatingServerTypeDef]],
+        "participatingResources": NotRequired[list[ParticipatingResourceTypeDef]],
+        "participatingServers": NotRequired[list[ParticipatingServerTypeDef]],
         "status": NotRequired[JobStatusType],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "type": NotRequired[JobTypeType],
     },
 )
@@ -1319,7 +1314,7 @@ class AssociateSourceNetworkStackResponseTypeDef(TypedDict):
 
 
 class DescribeJobsResponseTypeDef(TypedDict):
-    items: List[JobTypeDef]
+    items: list[JobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

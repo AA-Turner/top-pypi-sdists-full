@@ -4,25 +4,16 @@ import socket
 from datetime import datetime
 
 import requests
-from qwak.inner.di_configuration.account import UserAccountConfiguration
-from qwak.inner.tool.auth import Auth0ClientBase, FrogMLAuthClient
-from qwak.inner.const import QwakConstants
+from qwak.inner.tool.auth import Auth0ClientBase
 
 
 def _get_authorization():
-    user_account_configuration = UserAccountConfiguration()
-    if issubclass(user_account_configuration._auth_client, Auth0ClientBase):
-        auth_client = Auth0ClientBase()
-        tenant_id = None
-    else:
-        auth_client = FrogMLAuthClient()
-        tenant_id = auth_client.get_tenant_id()
-
+    auth_client = Auth0ClientBase()
     token = auth_client.get_token()
     token_split = token.split(".")
     decoded_token = json.loads(_base64url_decode(token_split[1]).decode("utf-8"))
     token_expiration = datetime.fromtimestamp(decoded_token["exp"])
-    return f"Bearer {token}", token_expiration, tenant_id
+    return f"Bearer {token}", token_expiration
 
 
 def _base64url_decode(input):
@@ -77,8 +68,5 @@ class RestSession(requests.Session):
         return super().prepare_request(request)
 
     def prepare_request_token(self):
-        auth_token, self.jwt_expiration, tenant_id = _get_authorization()
+        auth_token, self.jwt_expiration = _get_authorization()
         self.headers["Authorization"] = auth_token
-
-        if tenant_id:
-            self.headers[QwakConstants.JFROG_TENANT_HEADER_KEY] = tenant_id

@@ -5,11 +5,10 @@ import tempfile
 import uuid
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
-from typing import Any, Literal, Optional, Union, cast
+from typing import Any, Literal, cast
 
 import pytest
 from langchain_core.embeddings import Embeddings
-
 from langgraph.store.base import (
     GetOp,
     Item,
@@ -18,6 +17,7 @@ from langgraph.store.base import (
     PutOp,
     SearchOp,
 )
+
 from langgraph.store.sqlite import SqliteStore
 from langgraph.store.sqlite.base import SqliteIndexConfig
 
@@ -110,7 +110,7 @@ VECTOR_TYPES = ["cosine"]  # SQLite only supports cosine similarity
 @contextmanager
 def create_vector_store(
     fake_embeddings: CharacterEmbeddings,
-    text_fields: Optional[list[str]] = None,
+    text_fields: list[str] | None = None,
     distance_type: str = "cosine",
     conn_type: Literal["memory", "file"] = "memory",
 ) -> Generator[SqliteStore, None, None]:
@@ -153,7 +153,7 @@ def test_batch_order(store: SqliteStore) -> None:
     ]
 
     results = store.batch(
-        cast(Iterable[Union[GetOp, PutOp, SearchOp, ListNamespacesOp]], ops)
+        cast(Iterable[GetOp | PutOp | SearchOp | ListNamespacesOp], ops)
     )
     assert len(results) == 5
     assert isinstance(results[0], Item)
@@ -182,7 +182,7 @@ def test_batch_order(store: SqliteStore) -> None:
     ]
 
     results_reordered = store.batch(
-        cast(Iterable[Union[GetOp, PutOp, SearchOp, ListNamespacesOp]], ops_reordered)
+        cast(Iterable[GetOp | PutOp | SearchOp | ListNamespacesOp], ops_reordered)
     )
     assert len(results_reordered) == 5
     assert isinstance(results_reordered[0], list)
@@ -301,7 +301,7 @@ def test_batch_list_namespaces_ops(store: SqliteStore) -> None:
     ]
 
     results = store.batch(
-        cast(Iterable[Union[GetOp, PutOp, SearchOp, ListNamespacesOp]], ops)
+        cast(Iterable[GetOp | PutOp | SearchOp | ListNamespacesOp], ops)
     )
     assert len(results) == 3
 
@@ -778,7 +778,7 @@ def _cosine_similarity(X: list[float], Y: list[list[float]]) -> list[float]:
 
     similarities = []
     for y in Y:
-        dot_product = sum(a * b for a, b in zip(X, y))
+        dot_product = sum(a * b for a, b in zip(X, y, strict=False))
         norm1 = sum(a * a for a in X) ** 0.5
         norm2 = sum(a * a for a in y) ** 0.5
         similarity = dot_product / (norm1 * norm2) if norm1 > 0 and norm2 > 0 else 0.0
@@ -1011,7 +1011,7 @@ def test_search_items(
         fake_embeddings, text_fields=["key0", "key1", "key3"]
     ) as store:
         # Insert test data
-        for ns, item in zip(test_namespaces, test_items):
+        for ns, item in zip(test_namespaces, test_items, strict=False):
             key = f"item_{ns[-1]}"
             store.put(ns, key, item)
 
@@ -1067,3 +1067,166 @@ def test_sql_injection_vulnerability(store: SqliteStore) -> None:
 
     with pytest.raises(ValueError, match="Invalid filter key"):
         store.search(("docs",), filter={malicious_key: "dummy"})
+
+
+def test_sql_injection_filter_values(store: SqliteStore) -> None:
+    """Test that SQL injection via malicious filter values is properly escaped."""
+    # Setup: Create documents with different access levels
+    store.put(("docs",), "doc1", {"access": "public", "title": "Public Document"})
+    store.put(("docs",), "doc2", {"access": "private", "title": "Private Document"})
+    store.put(("docs",), "doc3", {"access": "secret", "title": "Secret Document"})
+
+    # Test 1: Basic SQL injection attempt with single quote
+    malicious_value = "public' OR '1'='1"
+    results = store.search(("docs",), filter={"access": malicious_value})
+    # Should return 0 results because the malicious value is escaped and won't match anything
+    assert len(results) == 0, "SQL injection via string value should be blocked"
+
+    # Test 2: SQL injection with comment
+    malicious_value = "public'; --"
+    results = store.search(("docs",), filter={"access": malicious_value})
+    assert len(results) == 0, "SQL comment injection should be blocked"
+
+    # Test 3: UNION injection attempt
+    malicious_value = "public' UNION SELECT * FROM store --"
+    results = store.search(("docs",), filter={"access": malicious_value})
+    assert len(results) == 0, "UNION injection should be blocked"
+
+    # Test 4: Parameterized queries handle strings with null bytes and SQL injection attempts safely
+    malicious_value = "public\x00' OR '1'='1"
+    results = store.search(("docs",), filter={"access": malicious_value})
+    assert len(results) == 0, (
+        "Parameterized queries treat injection attempts as literal strings"
+    )
+
+    # Test 5: Multiple single quotes
+    malicious_value = "''''"
+    results = store.search(("docs",), filter={"access": malicious_value})
+    assert len(results) == 0, "Multiple quotes should be handled safely"
+
+    # Test 6: Legitimate value with single quote should work
+    store.put(("docs",), "doc4", {"title": "O'Brien's Document", "access": "public"})
+    results = store.search(("docs",), filter={"title": "O'Brien's Document"})
+    assert len(results) == 1, "Legitimate single quotes should work"
+    assert results[0].value["title"] == "O'Brien's Document"
+
+    # Test 7: Unicode characters with injection attempt
+    malicious_value = "public' OR 'א'='א"
+    results = store.search(("docs",), filter={"access": malicious_value})
+    assert len(results) == 0, "Unicode-based injection should be blocked"
+
+
+def test_numeric_filter_safety(store: SqliteStore) -> None:
+    """Test that numeric filter values are handled safely."""
+    # Setup: Create documents with numeric fields
+    store.put(("items",), "item1", {"price": 10, "quantity": 5})
+    store.put(("items",), "item2", {"price": 20, "quantity": 3})
+    store.put(("items",), "item3", {"price": 30, "quantity": 1})
+
+    # Test 1: Normal numeric comparison
+    results = store.search(("items",), filter={"price": {"$gt": 15}})
+    assert len(results) == 2
+    assert all(r.value["price"] > 15 for r in results)
+
+    # Test 2: Special float values (infinity)
+    results = store.search(("items",), filter={"price": {"$lt": float("inf")}})
+    assert len(results) == 3, "All finite values should be less than infinity"
+
+    # Test 3: Special float values (negative infinity)
+    results = store.search(("items",), filter={"price": {"$gt": float("-inf")}})
+    assert len(results) == 3, (
+        "All finite values should be greater than negative infinity"
+    )
+
+    # Test 4: NaN handling - NaN comparisons should not cause errors
+    try:
+        results = store.search(("items",), filter={"price": {"$eq": float("nan")}})
+        # NaN never equals anything, including itself, so should return 0 results
+        assert len(results) == 0
+    except Exception as e:
+        pytest.fail(f"NaN handling should not raise exception: {e}")
+
+    # Test 5: Very large numbers
+    results = store.search(("items",), filter={"price": {"$lt": 10**100}})
+    assert len(results) == 3, "Very large numbers should be handled safely"
+
+    # Test 6: Negative numbers
+    store.put(("items",), "item4", {"price": -10, "quantity": 0})
+    results = store.search(("items",), filter={"price": {"$lt": 0}})
+    assert len(results) == 1
+    assert results[0].key == "item4"
+
+
+def test_boolean_filter_safety(store: SqliteStore) -> None:
+    """Test that boolean filter values are handled safely."""
+    store.put(("flags",), "flag1", {"active": True, "name": "Feature A"})
+    store.put(("flags",), "flag2", {"active": False, "name": "Feature B"})
+    store.put(("flags",), "flag3", {"active": True, "name": "Feature C"})
+
+    # Test boolean filters
+    results = store.search(("flags",), filter={"active": True})
+    assert len(results) == 2
+    assert all(r.value["active"] is True for r in results)
+
+    results = store.search(("flags",), filter={"active": False})
+    assert len(results) == 1
+    assert results[0].value["active"] is False
+
+
+def test_filter_keys_with_hyphens_and_digits(store: SqliteStore) -> None:
+    """Keys with hyphens or leading digits should be queryable via filters.
+
+    Current unquoted JSON path construction (e.g., '$.access-level' or '$.123abc')
+    is not valid JSON1 syntax, so this test will catch regressions in path handling.
+    """
+    # Documents with top-level and nested keys requiring bracket-quoted JSON paths
+    store.put(
+        ("docs",),
+        "hyphen",
+        {"access-level": "public", "user": {"access-level": "nested"}},
+    )
+    store.put(("docs",), "digit", {"123abc": "ok", "user": {"123abc": "ok2"}})
+
+    # Top-level hyphenated key
+    results = store.search(("docs",), filter={"access-level": "public"})
+    assert [r.key for r in results] == ["hyphen"]
+
+    # Nested hyphenated key via dotted path
+    results = store.search(("docs",), filter={"user.access-level": "nested"})
+    assert [r.key for r in results] == ["hyphen"]
+
+    # Top-level digit-starting key
+    results = store.search(("docs",), filter={"123abc": "ok"})
+    assert [r.key for r in results] == ["digit"]
+
+    # Nested digit-starting key via dotted path
+    results = store.search(("docs",), filter={"user.123abc": "ok2"})
+    assert [r.key for r in results] == ["digit"]
+
+
+@pytest.mark.parametrize("distance_type", VECTOR_TYPES)
+def test_non_ascii(
+    fake_embeddings: CharacterEmbeddings,
+    distance_type: str,
+) -> None:
+    """Test support for non-ascii characters"""
+    with create_vector_store(fake_embeddings, distance_type=distance_type) as store:
+        store.put(("user_123", "memories"), "1", {"text": "这是中文"})  # Chinese
+        store.put(
+            ("user_123", "memories"), "2", {"text": "これは日本語です"}
+        )  # Japanese
+        store.put(("user_123", "memories"), "3", {"text": "이건 한국어야"})  # Korean
+        store.put(("user_123", "memories"), "4", {"text": "Это русский"})  # Russian
+        store.put(("user_123", "memories"), "5", {"text": "यह रूसी है"})  # Hindi
+
+        result1 = store.search(("user_123", "memories"), query="这是中文")
+        result2 = store.search(("user_123", "memories"), query="これは日本語です")
+        result3 = store.search(("user_123", "memories"), query="이건 한국어야")
+        result4 = store.search(("user_123", "memories"), query="Это русский")
+        result5 = store.search(("user_123", "memories"), query="यह रूसी है")
+
+        assert result1[0].key == "1"
+        assert result2[0].key == "2"
+        assert result3[0].key == "3"
+        assert result4[0].key == "4"
+        assert result5[0].key == "5"

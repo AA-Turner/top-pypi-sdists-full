@@ -1,16 +1,15 @@
-from typing import Iterator, Literal, Tuple, Type
+from collections.abc import Iterator
+from typing import Literal
 
 from strands import Agent
-from strands.experimental.hooks import (
-    AfterModelInvocationEvent,
-    AfterToolInvocationEvent,
-    BeforeModelInvocationEvent,
-    BeforeToolInvocationEvent,
-)
 from strands.hooks import (
     AfterInvocationEvent,
+    AfterModelCallEvent,
+    AfterToolCallEvent,
     AgentInitializedEvent,
     BeforeInvocationEvent,
+    BeforeModelCallEvent,
+    BeforeToolCallEvent,
     HookEvent,
     HookProvider,
     HookRegistry,
@@ -19,16 +18,16 @@ from strands.hooks import (
 
 
 class MockHookProvider(HookProvider):
-    def __init__(self, event_types: list[Type] | Literal["all"]):
+    def __init__(self, event_types: list[type] | Literal["all"]):
         if event_types == "all":
             event_types = [
                 AgentInitializedEvent,
                 BeforeInvocationEvent,
                 AfterInvocationEvent,
-                AfterToolInvocationEvent,
-                BeforeToolInvocationEvent,
-                BeforeModelInvocationEvent,
-                AfterModelInvocationEvent,
+                BeforeToolCallEvent,
+                AfterToolCallEvent,
+                BeforeModelCallEvent,
+                AfterModelCallEvent,
                 MessageAddedEvent,
             ]
 
@@ -39,7 +38,7 @@ class MockHookProvider(HookProvider):
     def event_types_received(self):
         return [type(event) for event in self.events_received]
 
-    def get_events(self) -> Tuple[int, Iterator[HookEvent]]:
+    def get_events(self) -> tuple[int, Iterator[HookEvent]]:
         return len(self.events_received), iter(self.events_received)
 
     def register_hooks(self, registry: HookRegistry) -> None:

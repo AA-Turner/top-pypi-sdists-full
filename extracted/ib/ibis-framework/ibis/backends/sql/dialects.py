@@ -218,6 +218,8 @@ class Flink(Hive):
     REGEXP_EXTRACT_DEFAULT_GROUP = 0
 
     class Generator(Hive.Generator):
+        WITH_PROPERTIES_PREFIX = "WITH"
+
         UNNEST_WITH_ORDINALITY = False
 
         TYPE_MAPPING = Hive.Generator.TYPE_MAPPING.copy() | {
@@ -349,6 +351,7 @@ class Impala(Hive):
             sge.Interval: lambda self, e: _interval(self, e, quote_arg=False),
             sge.CurrentDate: rename_func("current_date"),
             sge.TableSample: tablesample_percent_to_int,
+            sge.CurrentTimestamp: lambda *_: "NOW()",
         }
 
 

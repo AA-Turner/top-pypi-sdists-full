@@ -7,14 +7,17 @@ import pytest
 from ddtrace._trace.pin import Pin
 from ddtrace.appsec._iast import enable_iast_propagation
 from ddtrace.appsec._iast import load_iast
+from ddtrace.appsec._iast import oce
+from ddtrace.appsec._iast._taint_tracking._context import debug_context_array_free_slots_number
 from ddtrace.appsec._iast.main import patch_iast
 from ddtrace.contrib.internal.django.patch import patch as django_patch
+from ddtrace.contrib.internal.psycopg.patch import patch as psycopg_patch
 from ddtrace.contrib.internal.requests.patch import patch as requests_patch
+from ddtrace.contrib.internal.sqlite3.patch import patch as sqlite3_patch
 from ddtrace.internal import core
-from tests.appsec.iast.iast_utils import _end_iast_context_and_oce
-from tests.appsec.iast.iast_utils import _start_iast_context_and_oce
 from tests.utils import DummyTracer
 from tests.utils import TracerSpanContainer
+from tests.utils import override_config
 from tests.utils import override_env
 from tests.utils import override_global_config
 
@@ -24,17 +27,22 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tests.appsec.integrations.djang
 
 # `pytest` automatically calls this function once when tests are run.
 def pytest_configure():
-    with override_global_config(
-        dict(
-            _iast_enabled=True,
-            _iast_deduplication_enabled=False,
-            _iast_request_sampling=100.0,
-        )
-    ), override_env(dict(_DD_IAST_PATCH_MODULES="tests.appsec.integrations")):
+    with (
+        override_global_config(
+            dict(
+                _iast_enabled=True,
+                _iast_deduplication_enabled=False,
+                _iast_request_sampling=100.0,
+            )
+        ),
+        override_env(dict(_DD_IAST_PATCH_MODULES="tests.appsec.integrations")),
+    ):
         settings.DEBUG = False
         patch_iast()
         load_iast()
+        psycopg_patch()
         requests_patch()
+        sqlite3_patch()
         django_patch()
         enable_iast_propagation()
         django.setup()
@@ -60,7 +68,8 @@ def tracer():
 
     # Yield to our test
     core.tracer = tracer
-    yield tracer
+    with override_config("django", dict(_tracer=tracer)):
+        yield tracer
     tracer.pop()
     core.tracer = original_tracer
     # Reset the tracer pinned to Django and unpatch
@@ -86,10 +95,25 @@ def iast_span(tracer):
             _iast_request_sampling=100.0,
         )
     ):
+        oce.reconfigure()
         container = TracerSpanContainer(tracer)
-        _start_iast_context_and_oce()
+        assert debug_context_array_free_slots_number() > 0
         yield container
-        _end_iast_context_and_oce()
+        container.reset()
+
+
+@pytest.fixture
+def iast_span_disabled(tracer):
+    with override_global_config(
+        dict(
+            _iast_enabled=False,
+            _iast_deduplication_enabled=False,
+            _iast_request_sampling=100.0,
+        )
+    ):
+        oce.reconfigure()
+        container = TracerSpanContainer(tracer)
+        yield container
         container.reset()
 
 
@@ -103,10 +127,9 @@ def test_spans_2_vuln_per_request_deduplication(tracer):
             _iast_request_sampling=100.0,
         )
     ):
+        oce.reconfigure()
         container = TracerSpanContainer(tracer)
-        _start_iast_context_and_oce()
         yield container
-        _end_iast_context_and_oce()
         container.reset()
 
 
@@ -134,8 +157,7 @@ def iast_spans_with_zero_sampling(tracer):
             _iast_request_sampling=0.0,
         )
     ):
+        oce.reconfigure()
         container = TracerSpanContainer(tracer)
-        _start_iast_context_and_oce()
         yield container
-        _end_iast_context_and_oce()
         container.reset()

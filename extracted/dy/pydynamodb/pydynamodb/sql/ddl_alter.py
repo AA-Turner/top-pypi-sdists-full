@@ -109,6 +109,7 @@ SSESpecification.SSEType KMS
 SSESpecification.KMSMasterKeyId $$$$$$$$
 TableClass STANDARD_INFREQUENT_ACCESS
 """
+
 import logging
 from .ddl_sql import DdlBase
 from .common import KeyWords, Tokens
@@ -212,12 +213,12 @@ class DdlAlter(DdlBase):
         if self.root_parse_results is None:
             raise ValueError("Statement was not parsed yet")
 
-        request = dict()
+        request = {}
         attr_def_ = None
 
         for attr in self.root_parse_results["attributes"]:
             if attr_def_ is None:
-                attr_def_ = list()
+                attr_def_ = []
             attr_name = attr["attribute_name"]
             data_type = attr["data_type"]
             attr_def_.append(self._construct_attr_def(attr_name, data_type))
@@ -237,7 +238,7 @@ class DdlAlter(DdlBase):
 
                 if index_type == "GLOBAL":
                     if gsis_ is None:
-                        gsis_ = list()
+                        gsis_ = []
 
                     if alter_ops == "CREATE" or alter_ops == "UPDATE":
                         gsis_.append(
@@ -266,7 +267,7 @@ class DdlAlter(DdlBase):
         if replicas is not None:
             for replica in replicas:
                 if replicas_ is None:
-                    replicas_ = list()
+                    replicas_ = []
                 alter_ops = replica["alter_ops"]
 
                 if alter_ops == "CREATE" or alter_ops == "UPDATE":
@@ -311,7 +312,7 @@ class DdlAlter(DdlBase):
             raise LookupError("Alter operation is invalid")
 
     def _construct_replica(self, replica: ParseResults) -> Dict[str, Any]:
-        replicas_ = dict()
+        replicas_ = {}
 
         region_name = replica["region_name"]
         replicas_.update({"RegionName": region_name})
@@ -323,7 +324,7 @@ class DdlAlter(DdlBase):
         if replica_options is not None:
             for replica_option in replica_options:
                 if replica_options_ is None:
-                    replica_options_ = list()
+                    replica_options_ = []
 
                 if replica_option.get_name() == "replica_gsi_option":
                     replica_gsi_option_ = replica_option
@@ -358,7 +359,7 @@ class DdlAlter(DdlBase):
 
                 if len(gsi) == 3:
                     if gsis_ is None:
-                        gsis_ = list()
+                        gsis_ = []
 
                     option_path_name = gsi[1]
                     option_value = gsi[2]

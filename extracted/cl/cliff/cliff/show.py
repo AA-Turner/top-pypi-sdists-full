@@ -18,9 +18,13 @@ import collections.abc
 import typing as ty
 
 from cliff import display
+from cliff.formatters import base as base_formatters
 
 
-class ShowOne(display.DisplayCommandBase, metaclass=abc.ABCMeta):
+class ShowOne(
+    display.DisplayCommandBase[base_formatters.SingleFormatter],
+    metaclass=abc.ABCMeta,
+):
     """Command base class for displaying data about a single object."""
 
     @property
@@ -34,18 +38,22 @@ class ShowOne(display.DisplayCommandBase, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def take_action(
         self, parsed_args: argparse.Namespace
-    ) -> tuple[tuple[str, ...], tuple[ty.Any, ...]]:
-        """Return a two-part tuple with a tuple of column names
-        and a tuple of values.
+    ) -> tuple[
+        collections.abc.Sequence[str], collections.abc.Iterable[ty.Any]
+    ]:
+        """Run command.
+
+        Return a tuple containing the column names and an iterable containing
+        the data to be listed.
         """
 
     def produce_output(
         self,
         parsed_args: argparse.Namespace,
         column_names: collections.abc.Sequence[str],
-        data: collections.abc.Iterable[collections.abc.Sequence[ty.Any]],
+        data: collections.abc.Sequence[ty.Any],
     ) -> int:
-        (columns_to_include, selector) = self._generate_columns_and_selector(
+        columns_to_include, selector = self._generate_columns_and_selector(
             parsed_args, column_names
         )
         if selector:

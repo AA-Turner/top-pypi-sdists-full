@@ -4,11 +4,24 @@ This module provides various tools that can be used within LangGraph agents.
 """
 
 from .sandbox import PyodideSandboxTool, StatefulPyodideSandboxTool, create_sandbox_tool
-from .echo import EchoTool
+from .lazy_tools import (
+    ToolRegistry,
+    create_meta_tools,
+    ListToolkitsTool,
+    GetToolkitToolsTool,
+    InvokeToolTool,
+    estimate_token_savings,
+)
 
 __all__ = [
     "PyodideSandboxTool",
-    "StatefulPyodideSandboxTool", 
+    "StatefulPyodideSandboxTool",
     "create_sandbox_tool",
-    "EchoTool"
+    # Lazy tools
+    "ToolRegistry",
+    "create_meta_tools",
+    "ListToolkitsTool",
+    "GetToolkitToolsTool",
+    "InvokeToolTool",
+    "estimate_token_savings",
 ]

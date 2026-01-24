@@ -34,9 +34,10 @@ struct CubicPts {
     SkDPoint fPts[kPointCount];
 };
 
-void CubicPathToQuads(const SkPath& cubicPath, SkPath* quadPath);
-void CubicPathToSimple(const SkPath& cubicPath, SkPath* simplePath);
-void CubicToQuads(const SkDCubic& cubic, double precision, SkTArray<SkDQuad, true>& quads);
+SkPath CubicPathToQuads(const SkPath& cubicPath);
+SkPath CubicPathToSimple(const SkPath& cubicPath);
+void CubicToQuads(
+        const SkDCubic& cubic, double precision, skia_private::TArray<SkDQuad, true>& quads);
 bool ValidBounds(const SkPathOpsBounds& );
 bool ValidConic(const SkDConic& cubic);
 bool ValidCubic(const SkDCubic& cubic);

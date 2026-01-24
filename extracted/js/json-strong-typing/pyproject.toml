@@ -25,6 +25,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: File Formats :: JSON",
     "Topic :: File Formats :: JSON :: JSON Schema",
@@ -32,15 +33,16 @@ classifiers = [
     "Typing :: Typed"
 ]
 dependencies = [
-    "jsonschema >= 4.24",
+    "jsonschema >= 4.25",
     "typing_extensions >= 4.14; python_version < '3.11'"
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
 dev = [
-    "mypy >= 1.16",
-    "ruff >= 0.12"
+    "build >= 1.3",
+    "mypy >= 1.18",
+    "ruff >= 0.14"
 ]
 
 [project.urls]

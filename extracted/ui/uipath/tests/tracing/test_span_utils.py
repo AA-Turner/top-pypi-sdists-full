@@ -1,4 +1,3 @@
-import inspect
 import json
 import os
 import uuid
@@ -109,7 +108,12 @@ class TestSpanUtils:
         assert uipath_span.span_type == "CustomSpanType"
 
         # Verify attributes
-        attributes = json.loads(uipath_span.attributes)
+        attributes_value = uipath_span.attributes
+        attributes = (
+            json.loads(attributes_value)
+            if isinstance(attributes_value, str)
+            else attributes_value
+        )
         assert attributes["key1"] == "value1"
         assert attributes["key2"] == 123
 
@@ -118,6 +122,62 @@ class TestSpanUtils:
         mock_span.status.status_code = StatusCode.ERROR
         uipath_span = _SpanUtils.otel_span_to_uipath_span(mock_span)
         assert uipath_span.status == 2  # Error
+
+    @patch.dict(
+        os.environ,
+        {
+            "UIPATH_ORGANIZATION_ID": "test-org",
+            "UIPATH_TENANT_ID": "test-tenant",
+        },
+    )
+    def test_otel_span_to_uipath_span_optimized_path(self):
+        """Test the optimized path where attributes are kept as dict."""
+        # Create a mock OTel span
+        mock_span = Mock(spec=OTelSpan)
+
+        # Set span context
+        trace_id = 0x123456789ABCDEF0123456789ABCDEF0
+        span_id = 0x0123456789ABCDEF
+        mock_context = SpanContext(trace_id=trace_id, span_id=span_id, is_remote=False)
+        mock_span.get_span_context.return_value = mock_context
+
+        # Set span properties
+        mock_span.name = "test-span"
+        mock_span.parent = None
+        mock_span.status.status_code = StatusCode.OK
+        mock_span.attributes = {
+            "key1": "value1",
+            "key2": 123,
+        }
+        mock_span.events = []
+        mock_span.links = []
+
+        # Set times
+        current_time_ns = int(datetime.now().timestamp() * 1e9)
+        mock_span.start_time = current_time_ns
+        mock_span.end_time = current_time_ns + 1000000
+
+        # Test optimized path: serialize_attributes=False
+        uipath_span = _SpanUtils.otel_span_to_uipath_span(
+            mock_span, serialize_attributes=False
+        )
+
+        # Verify attributes is a dict (not JSON string)
+        assert isinstance(uipath_span.attributes, dict)
+        assert uipath_span.attributes["key1"] == "value1"
+        assert uipath_span.attributes["key2"] == 123
+
+        # Test to_dict with serialize_attributes=False
+        span_dict = uipath_span.to_dict(serialize_attributes=False)
+        assert isinstance(span_dict["Attributes"], dict)
+        assert span_dict["Attributes"]["key1"] == "value1"
+
+        # Test to_dict with serialize_attributes=True
+        span_dict_serialized = uipath_span.to_dict(serialize_attributes=True)
+        assert isinstance(span_dict_serialized["Attributes"], str)
+        attrs = json.loads(span_dict_serialized["Attributes"])
+        assert attrs["key1"] == "value1"
+        assert attrs["key2"] == 123
 
     @patch.dict(os.environ, {"UIPATH_TRACE_ID": "00000000-0000-4000-8000-000000000000"})
     def test_otel_span_to_uipath_span_with_env_trace_id(self):
@@ -153,53 +213,110 @@ class TestSpanUtils:
         # Verify the trace ID is taken from environment
         assert str(uipath_span.trace_id) == "00000000-0000-4000-8000-000000000000"
 
-    def test_format_args_for_trace(self):
-        # Simple function signature
-        def func1(a, b, c=3):
-            pass
+    @patch.dict(os.environ, {"UIPATH_ORGANIZATION_ID": "test-org"})
+    def test_uipath_span_includes_execution_type(self):
+        """Test that executionType from attributes becomes top-level ExecutionType."""
+        mock_span = Mock(spec=OTelSpan)
 
-        sig = inspect.signature(func1)
-        result = _SpanUtils.format_args_for_trace(sig, 1, 2)
-        assert result == {"a": 1, "b": 2, "c": 3}
+        trace_id = 0x123456789ABCDEF0123456789ABCDEF0
+        span_id = 0x0123456789ABCDEF
+        mock_context = SpanContext(trace_id=trace_id, span_id=span_id, is_remote=False)
+        mock_span.get_span_context.return_value = mock_context
 
-        # Test with kwargs
-        result = _SpanUtils.format_args_for_trace(sig, 1, c=4, b=5)
-        assert result == {"a": 1, "b": 5, "c": 4}
+        mock_span.name = "test-span"
+        mock_span.parent = None
+        mock_span.status.status_code = StatusCode.OK
+        mock_span.attributes = {"executionType": 0}
+        mock_span.events = []
+        mock_span.links = []
 
-        # Function with self parameter
-        class TestClass:
-            def method(self, x, y):
-                pass
+        current_time_ns = int(datetime.now().timestamp() * 1e9)
+        mock_span.start_time = current_time_ns
+        mock_span.end_time = current_time_ns + 1000000
 
-        sig = inspect.signature(TestClass.method)
-        result = _SpanUtils.format_args_for_trace(sig, TestClass(), 10, 20)
-        assert result == {"x": 10, "y": 20}
+        uipath_span = _SpanUtils.otel_span_to_uipath_span(mock_span)
+        span_dict = uipath_span.to_dict()
 
-        # Function with **kwargs
-        def func2(a, **kwargs):
-            pass
+        assert span_dict["ExecutionType"] == 0
+        assert uipath_span.execution_type == 0
 
-        sig = inspect.signature(func2)
-        result = _SpanUtils.format_args_for_trace(sig, 1, b=2, c=3)
-        assert result == {"a": 1, "b": 2, "c": 3}
+    @patch.dict(os.environ, {"UIPATH_ORGANIZATION_ID": "test-org"})
+    def test_uipath_span_includes_agent_version(self):
+        """Test that agentVersion from attributes becomes top-level AgentVersion."""
+        mock_span = Mock(spec=OTelSpan)
 
-    def test_format_args_for_trace_json(self):
-        def sample_func(a, b=None):
-            pass
+        trace_id = 0x123456789ABCDEF0123456789ABCDEF0
+        span_id = 0x0123456789ABCDEF
+        mock_context = SpanContext(trace_id=trace_id, span_id=span_id, is_remote=False)
+        mock_span.get_span_context.return_value = mock_context
 
-        sig = inspect.signature(sample_func)
+        mock_span.name = "test-span"
+        mock_span.parent = None
+        mock_span.status.status_code = StatusCode.OK
+        mock_span.attributes = {"agentVersion": "2.0.0"}
+        mock_span.events = []
+        mock_span.links = []
 
-        # Test with simple args
-        json_result = _SpanUtils.format_args_for_trace_json(sig, 1, b="test")
-        parsed = json.loads(json_result)
-        assert parsed == {"a": 1, "b": "test"}
+        current_time_ns = int(datetime.now().timestamp() * 1e9)
+        mock_span.start_time = current_time_ns
+        mock_span.end_time = current_time_ns + 1000000
 
-        # Test with non-serializable object
-        class NonSerializable:
-            pass
+        uipath_span = _SpanUtils.otel_span_to_uipath_span(mock_span)
+        span_dict = uipath_span.to_dict()
 
-        json_result = _SpanUtils.format_args_for_trace_json(sig, 1, b=NonSerializable())
-        # Should not raise exception
-        parsed = json.loads(json_result)
-        assert parsed["a"] == 1
-        assert "b" in parsed  # The value will be a string representation
+        assert span_dict["AgentVersion"] == "2.0.0"
+        assert uipath_span.agent_version == "2.0.0"
+
+    @patch.dict(os.environ, {"UIPATH_ORGANIZATION_ID": "test-org"})
+    def test_uipath_span_execution_type_and_agent_version_both(self):
+        """Test that both executionType and agentVersion are extracted together."""
+        mock_span = Mock(spec=OTelSpan)
+
+        trace_id = 0x123456789ABCDEF0123456789ABCDEF0
+        span_id = 0x0123456789ABCDEF
+        mock_context = SpanContext(trace_id=trace_id, span_id=span_id, is_remote=False)
+        mock_span.get_span_context.return_value = mock_context
+
+        mock_span.name = "Agent run - Agent"
+        mock_span.parent = None
+        mock_span.status.status_code = StatusCode.OK
+        mock_span.attributes = {"executionType": 1, "agentVersion": "1.0.0"}
+        mock_span.events = []
+        mock_span.links = []
+
+        current_time_ns = int(datetime.now().timestamp() * 1e9)
+        mock_span.start_time = current_time_ns
+        mock_span.end_time = current_time_ns + 1000000
+
+        uipath_span = _SpanUtils.otel_span_to_uipath_span(mock_span)
+        span_dict = uipath_span.to_dict()
+
+        assert span_dict["ExecutionType"] == 1
+        assert span_dict["AgentVersion"] == "1.0.0"
+
+    @patch.dict(os.environ, {"UIPATH_ORGANIZATION_ID": "test-org"})
+    def test_uipath_span_missing_execution_type_and_agent_version(self):
+        """Test that missing executionType and agentVersion default to None."""
+        mock_span = Mock(spec=OTelSpan)
+
+        trace_id = 0x123456789ABCDEF0123456789ABCDEF0
+        span_id = 0x0123456789ABCDEF
+        mock_context = SpanContext(trace_id=trace_id, span_id=span_id, is_remote=False)
+        mock_span.get_span_context.return_value = mock_context
+
+        mock_span.name = "test-span"
+        mock_span.parent = None
+        mock_span.status.status_code = StatusCode.OK
+        mock_span.attributes = {"someOtherAttr": "value"}
+        mock_span.events = []
+        mock_span.links = []
+
+        current_time_ns = int(datetime.now().timestamp() * 1e9)
+        mock_span.start_time = current_time_ns
+        mock_span.end_time = current_time_ns + 1000000
+
+        uipath_span = _SpanUtils.otel_span_to_uipath_span(mock_span)
+        span_dict = uipath_span.to_dict()
+
+        assert span_dict["ExecutionType"] is None
+        assert span_dict["AgentVersion"] is None

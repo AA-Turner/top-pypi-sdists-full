@@ -60,13 +60,6 @@
       when:
         - connector_name == 'pymysql'
 
-    - name: Assert that result is success for mysqlclient
-      ansible.builtin.assert:
-        that:
-          - result is succeeded
-      when:
-        - connector_name != 'pymysql'
-
     - name: attempt connection with newly created user ignoring hostname
       community.mysql.mysql_variables:
         variable: '{{ set_name }}'

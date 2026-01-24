@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "LCPDelta"
+version = "2.1.24"
+authors = [
+  { name="LCP Delta", email="enact.helpdesk@lcp.uk.com" },
+]
+description = "LCPDelta Python Package"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["LCPDelta", "Enact", "Flextrack", "Storetrack"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    'License :: Other/Proprietary License',
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "requests",
+    "signalrcore==0.9.5",
+    "matplotlib",
+    "httpx",
+    "tenacity"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "ruff",
+    "pytest",
+    "pytest-mock",
+    "pytest-asyncio",
+    "python-dotenv",
+    "jupyter",
+    "nbval",
+    "pandas",
+    "numpy",
+    "signalrcore==0.9.5",
+]
+
+[project.urls]
+"Homepage" = "https://portal.lcpdelta.com/"
+
+[tool.ruff]
+src = ["lcpdelta_python_package/src"]
+line-length = 120
+target-version = "2.1.24"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"__init__.py" = ["E402", "F401"]
+
+[tool.ruff.lint]
+select = ["FBT003", "RET504"]
+
+[tool.setuptools.packages.find]
+where = ["lcpdelta_python_package/src"]

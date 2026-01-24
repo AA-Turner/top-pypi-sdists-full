@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alt-profanity-check
-Version: 1.7.2
+Version: 1.8.0
 Summary: A fast, robust library to check for offensive language in strings. Dropdown replacement of "profanity-check".
 Home-page: https://github.com/dimitrismistriotis/alt-profanity-check
 Author: Victor Zhou (original author), Menelaos Kotoglou, Dimitrios Mistriotis
@@ -10,11 +10,11 @@ Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: scikit-learn==1.7.2
-Requires-Dist: joblib==1.5.1
+Requires-Dist: scikit-learn==1.8.0
+Requires-Dist: joblib==1.5.3
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -111,6 +111,10 @@ See the How section below for more details on the dataset used for these results
 ```shell
 pip install alt-profanity-check
 ```
+
+#### Python 3.10
+
+Scikit Learn 1.8 requires Python >= 3.11, last version supporting Python 3.10 is **1.7.2**.
 
 #### Python 3.9
 

@@ -9,34 +9,36 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal
+import datetime as _dt
+from typing import Union
 from typing_extensions import NotRequired, TypedDict
 
 
-class BypassResponseType(TypedDict):
-    """Bypass response
-
-    A response made by a delegated bypasser to a bypass request.
-    """
+class GetAuditLogStreamConfigsItemsType(TypedDict):
+    """GetAuditLogStreamConfigsItems"""
 
     id: NotRequired[int]
-    reviewer: NotRequired[BypassResponsePropReviewerType]
-    status: NotRequired[Literal["approved", "denied", "dismissed"]]
-    created_at: NotRequired[datetime]
+    stream_type: NotRequired[str]
+    stream_details: NotRequired[str]
+    enabled: NotRequired[bool]
+    created_at: NotRequired[_dt.datetime]
+    updated_at: NotRequired[_dt.datetime]
+    paused_at: NotRequired[Union[_dt.datetime, None]]
 
 
-class BypassResponsePropReviewerType(TypedDict):
-    """BypassResponsePropReviewer
+class GetAuditLogStreamConfigsItemsTypeForResponse(TypedDict):
+    """GetAuditLogStreamConfigsItems"""
 
-    The user who reviewed the bypass request.
-    """
-
-    actor_id: NotRequired[int]
-    actor_name: NotRequired[str]
+    id: NotRequired[int]
+    stream_type: NotRequired[str]
+    stream_details: NotRequired[str]
+    enabled: NotRequired[bool]
+    created_at: NotRequired[str]
+    updated_at: NotRequired[str]
+    paused_at: NotRequired[Union[str, None]]
 
 
 __all__ = (
-    "BypassResponsePropReviewerType",
-    "BypassResponseType",
+    "GetAuditLogStreamConfigsItemsType",
+    "GetAuditLogStreamConfigsItemsTypeForResponse",
 )

@@ -1,3 +1,5 @@
+from contextlib import suppress
+
 from django.utils.translation import gettext as _
 
 from wbcore.contrib.icons import WBIcon
@@ -17,12 +19,10 @@ class EntryPreviewConfig(PreviewViewConfig):
             ["primary_telephone"],
             ["primary_manager_name"],
         ]
-        try:
+        with suppress(Exception):
             entry = self.view.get_object()
             if entry.profile_image:
                 fields.insert(0, "profile_image")
-        except Exception:
-            pass
 
         return create_simple_display(fields)
 

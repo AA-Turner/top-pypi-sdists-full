@@ -1,37 +1,36 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: mistralai
-Version: 1.9.10
+Version: 1.10.1
 Summary: Python Client SDK for the Mistral AI API.
-Author: Mistral
-Requires-Python: >=3.9
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Provides-Extra: agents
-Provides-Extra: gcp
-Requires-Dist: authlib (>=1.5.2,<2.0) ; extra == "agents"
-Requires-Dist: eval-type-backport (>=0.2.0)
-Requires-Dist: google-auth (>=2.27.0) ; extra == "gcp"
-Requires-Dist: griffe (>=1.7.3,<2.0) ; extra == "agents"
-Requires-Dist: httpx (>=0.28.1)
-Requires-Dist: invoke (>=2.2.0,<3.0.0)
-Requires-Dist: mcp (>=1.0,<2.0) ; (python_version >= "3.10") and (extra == "agents")
-Requires-Dist: pydantic (>=2.10.3)
-Requires-Dist: python-dateutil (>=2.8.2)
-Requires-Dist: pyyaml (>=6.0.2,<7.0.0)
-Requires-Dist: requests (>=2.32.3) ; extra == "gcp"
-Requires-Dist: typing-inspection (>=0.4.0)
 Project-URL: Repository, https://github.com/mistralai/client-python.git
+Author: Mistral
+License-File: LICENSE
+Requires-Python: >=3.10
+Requires-Dist: eval-type-backport>=0.2.0
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: invoke<3.0.0,>=2.2.0
+Requires-Dist: opentelemetry-api<2.0.0,>=1.33.1
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.37.0
+Requires-Dist: opentelemetry-sdk<2.0.0,>=1.33.1
+Requires-Dist: opentelemetry-semantic-conventions<0.60,>=0.59b0
+Requires-Dist: pydantic>=2.10.3
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: pyyaml<7.0.0,>=6.0.2
+Requires-Dist: typing-inspection>=0.4.0
+Provides-Extra: agents
+Requires-Dist: authlib<2.0,>=1.5.2; extra == 'agents'
+Requires-Dist: griffe<2.0,>=1.7.3; extra == 'agents'
+Requires-Dist: mcp<2.0,>=1.0; extra == 'agents'
+Provides-Extra: gcp
+Requires-Dist: google-auth>=2.27.0; extra == 'gcp'
+Requires-Dist: requests>=2.32.3; extra == 'gcp'
 Description-Content-Type: text/markdown
 
 # Mistral Python Client
 
 ## Migration warning
  
-This documentation is for Mistral AI SDK v1. You can find more details on how to migrate from v0 to v1 [here](https://github.com/mistralai/client-python/blob/master/MIGRATION.md)
+This documentation is for Mistral AI SDK v1. You can find more details on how to migrate from v0 to v1 [here](MIGRATION.md)
 
 ## API Key Setup
 
@@ -57,25 +56,25 @@ Mistral AI API: Our Chat Completion and Embeddings APIs specification. Create yo
 <!-- Start Table of Contents [toc] -->
 ## Table of Contents
 <!-- $toc-max-depth=2 -->
-* [Mistral Python Client](https://github.com/mistralai/client-python/blob/master/#mistral-python-client)
-  * [Migration warning](https://github.com/mistralai/client-python/blob/master/#migration-warning)
-  * [API Key Setup](https://github.com/mistralai/client-python/blob/master/#api-key-setup)
-  * [SDK Installation](https://github.com/mistralai/client-python/blob/master/#sdk-installation)
-  * [SDK Example Usage](https://github.com/mistralai/client-python/blob/master/#sdk-example-usage)
-  * [Providers' SDKs Example Usage](https://github.com/mistralai/client-python/blob/master/#providers-sdks-example-usage)
-  * [Available Resources and Operations](https://github.com/mistralai/client-python/blob/master/#available-resources-and-operations)
-  * [Server-sent event streaming](https://github.com/mistralai/client-python/blob/master/#server-sent-event-streaming)
-  * [File uploads](https://github.com/mistralai/client-python/blob/master/#file-uploads)
-  * [Retries](https://github.com/mistralai/client-python/blob/master/#retries)
-  * [Error Handling](https://github.com/mistralai/client-python/blob/master/#error-handling)
-  * [Server Selection](https://github.com/mistralai/client-python/blob/master/#server-selection)
-  * [Custom HTTP Client](https://github.com/mistralai/client-python/blob/master/#custom-http-client)
-  * [Authentication](https://github.com/mistralai/client-python/blob/master/#authentication)
-  * [Resource Management](https://github.com/mistralai/client-python/blob/master/#resource-management)
-  * [Debugging](https://github.com/mistralai/client-python/blob/master/#debugging)
-  * [IDE Support](https://github.com/mistralai/client-python/blob/master/#ide-support)
-* [Development](https://github.com/mistralai/client-python/blob/master/#development)
-  * [Contributions](https://github.com/mistralai/client-python/blob/master/#contributions)
+* [Mistral Python Client](#mistral-python-client)
+  * [Migration warning](#migration-warning)
+  * [API Key Setup](#api-key-setup)
+  * [SDK Installation](#sdk-installation)
+  * [SDK Example Usage](#sdk-example-usage)
+  * [Providers' SDKs Example Usage](#providers-sdks-example-usage)
+  * [Available Resources and Operations](#available-resources-and-operations)
+  * [Server-sent event streaming](#server-sent-event-streaming)
+  * [File uploads](#file-uploads)
+  * [Retries](#retries)
+  * [Error Handling](#error-handling)
+  * [Server Selection](#server-selection)
+  * [Custom HTTP Client](#custom-http-client)
+  * [Authentication](#authentication)
+  * [Resource Management](#resource-management)
+  * [Debugging](#debugging)
+  * [IDE Support](#ide-support)
+* [Development](#development)
+  * [Contributions](#contributions)
 
 <!-- End Table of Contents [toc] -->
 
@@ -87,7 +86,15 @@ Mistral AI API: Our Chat Completion and Embeddings APIs specification. Create yo
 >
 > Once a Python version reaches its [official end of life date](https://devguide.python.org/versions/), a 3-month grace period is provided for users to upgrade. Following this grace period, the minimum python version supported in the SDK will be updated.
 
-The SDK can be installed with either *pip* or *poetry* package managers.
+The SDK can be installed with *uv*, *pip*, or *poetry* package managers.
+
+### uv
+
+*uv* is a fast Python package installer and resolver, designed as a drop-in replacement for pip and pip-tools. It's recommended for its speed and modern Python tooling capabilities.
+
+```bash
+uv add mistralai
+```
 
 ### PIP
 
@@ -146,8 +153,7 @@ installing the package:
 pip install "mistralai[agents]"
 ```
 
-> Note: Because of some of our dependencies, these features are only available for python version higher or equal to 
-> 3.10.
+> Note: These features require Python 3.10+ (the SDK minimum).
 
 <!-- Start SDK Example Usage [usage] -->
 ## SDK Example Usage
@@ -166,12 +172,14 @@ with Mistral(
     api_key=os.getenv("MISTRAL_API_KEY", ""),
 ) as mistral:
 
-    res = mistral.chat.complete(model="mistral-small-latest", messages=[
+    res = mistral.chat.complete(model="mistral-large-latest", messages=[
         {
             "content": "Who is the best French painter? Answer in one short sentence.",
             "role": "user",
         },
-    ], stream=False)
+    ], stream=False, response_format={
+        "type": "text",
+    })
 
     # Handle response
     print(res)
@@ -179,7 +187,7 @@ with Mistral(
 
 </br>
 
-The same SDK client can also be used to make asychronous requests by importing asyncio.
+The same SDK client can also be used to make asynchronous requests by importing asyncio.
 ```python
 # Asynchronous Example
 import asyncio
@@ -192,12 +200,14 @@ async def main():
         api_key=os.getenv("MISTRAL_API_KEY", ""),
     ) as mistral:
 
-        res = await mistral.chat.complete_async(model="mistral-small-latest", messages=[
+        res = await mistral.chat.complete_async(model="mistral-large-latest", messages=[
             {
                 "content": "Who is the best French painter? Answer in one short sentence.",
                 "role": "user",
             },
-        ], stream=False)
+        ], stream=False, response_format={
+            "type": "text",
+        })
 
         # Handle response
         print(res)
@@ -230,7 +240,7 @@ with Mistral(
 
 </br>
 
-The same SDK client can also be used to make asychronous requests by importing asyncio.
+The same SDK client can also be used to make asynchronous requests by importing asyncio.
 ```python
 # Asynchronous Example
 import asyncio
@@ -273,7 +283,9 @@ with Mistral(
             "content": "Who is the best French painter? Answer in one short sentence.",
             "role": "user",
         },
-    ], agent_id="<id>", stream=False)
+    ], agent_id="<id>", stream=False, response_format={
+        "type": "text",
+    })
 
     # Handle response
     print(res)
@@ -281,7 +293,7 @@ with Mistral(
 
 </br>
 
-The same SDK client can also be used to make asychronous requests by importing asyncio.
+The same SDK client can also be used to make asynchronous requests by importing asyncio.
 ```python
 # Asynchronous Example
 import asyncio
@@ -299,7 +311,9 @@ async def main():
                 "content": "Who is the best French painter? Answer in one short sentence.",
                 "role": "user",
             },
-        ], agent_id="<id>", stream=False)
+        ], agent_id="<id>", stream=False, response_format={
+            "type": "text",
+        })
 
         # Handle response
         print(res)
@@ -332,7 +346,7 @@ with Mistral(
 
 </br>
 
-The same SDK client can also be used to make asychronous requests by importing asyncio.
+The same SDK client can also be used to make asynchronous requests by importing asyncio.
 ```python
 # Asynchronous Example
 import asyncio
@@ -360,7 +374,7 @@ asyncio.run(main())
 
 ### More examples
 
-You can run the examples in the `examples/` directory using `poetry run` or by entering the virtual environment using `poetry shell`.
+You can run the examples in the `examples/` directory using `uv run`.
 
 
 ## Providers' SDKs Example Usage
@@ -372,7 +386,7 @@ You can run the examples in the `examples/` directory using `poetry run` or by e
 Before you begin, ensure you have `AZUREAI_ENDPOINT` and an `AZURE_API_KEY`. To obtain these, you will need to deploy Mistral on Azure AI.
 See [instructions for deploying Mistral on Azure AI here](https://docs.mistral.ai/deployment/cloud/azure/).
 
-Here's a basic example to get you started. You can also run [the example in the `examples` directory](https://github.com/mistralai/client-python/blob/master//examples/azure).
+Here's a basic example to get you started. You can also run [the example in the `examples` directory](/examples/azure).
 
 ```python
 import asyncio
@@ -400,7 +414,7 @@ async def main() -> None:
 
 asyncio.run(main())
 ```
-The documentation for the Azure SDK is available [here](https://github.com/mistralai/client-python/blob/master/packages/mistralai_azure/README.md).
+The documentation for the Azure SDK is available [here](packages/mistralai_azure/README.md).
 
 ### Google Cloud
 
@@ -449,7 +463,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-The documentation for the GCP SDK is available [here](https://github.com/mistralai/client-python/blob/master/packages/mistralai_gcp/README.md).
+The documentation for the GCP SDK is available [here](packages/mistralai_gcp/README.md).
 
 
 <!-- Start Available Resources and Operations [operations] -->
@@ -458,134 +472,136 @@ The documentation for the GCP SDK is available [here](https://github.com/mistral
 <details open>
 <summary>Available methods</summary>
 
-### [agents](https://github.com/mistralai/client-python/blob/master/docs/sdks/agents/README.md)
+### [agents](docs/sdks/agents/README.md)
 
-* [complete](https://github.com/mistralai/client-python/blob/master/docs/sdks/agents/README.md#complete) - Agents Completion
-* [stream](https://github.com/mistralai/client-python/blob/master/docs/sdks/agents/README.md#stream) - Stream Agents completion
+* [complete](docs/sdks/agents/README.md#complete) - Agents Completion
+* [stream](docs/sdks/agents/README.md#stream) - Stream Agents completion
 
-### [audio](https://github.com/mistralai/client-python/blob/master/docs/sdks/audio/README.md)
-
-
-#### [audio.transcriptions](https://github.com/mistralai/client-python/blob/master/docs/sdks/transcriptions/README.md)
-
-* [complete](https://github.com/mistralai/client-python/blob/master/docs/sdks/transcriptions/README.md#complete) - Create Transcription
-* [stream](https://github.com/mistralai/client-python/blob/master/docs/sdks/transcriptions/README.md#stream) - Create streaming transcription (SSE)
-
-### [batch](https://github.com/mistralai/client-python/blob/master/docs/sdks/batch/README.md)
+### [audio](docs/sdks/audio/README.md)
 
 
-#### [batch.jobs](https://github.com/mistralai/client-python/blob/master/docs/sdks/mistraljobs/README.md)
+#### [audio.transcriptions](docs/sdks/transcriptions/README.md)
 
-* [list](https://github.com/mistralai/client-python/blob/master/docs/sdks/mistraljobs/README.md#list) - Get Batch Jobs
-* [create](https://github.com/mistralai/client-python/blob/master/docs/sdks/mistraljobs/README.md#create) - Create Batch Job
-* [get](https://github.com/mistralai/client-python/blob/master/docs/sdks/mistraljobs/README.md#get) - Get Batch Job
-* [cancel](https://github.com/mistralai/client-python/blob/master/docs/sdks/mistraljobs/README.md#cancel) - Cancel Batch Job
+* [complete](docs/sdks/transcriptions/README.md#complete) - Create Transcription
+* [stream](docs/sdks/transcriptions/README.md#stream) - Create Streaming Transcription (SSE)
 
-### [beta](https://github.com/mistralai/client-python/blob/master/docs/sdks/beta/README.md)
+### [batch](docs/sdks/batch/README.md)
 
 
-#### [beta.agents](https://github.com/mistralai/client-python/blob/master/docs/sdks/mistralagents/README.md)
+#### [batch.jobs](docs/sdks/mistraljobs/README.md)
 
-* [create](https://github.com/mistralai/client-python/blob/master/docs/sdks/mistralagents/README.md#create) - Create a agent that can be used within a conversation.
-* [list](https://github.com/mistralai/client-python/blob/master/docs/sdks/mistralagents/README.md#list) - List agent entities.
-* [get](https://github.com/mistralai/client-python/blob/master/docs/sdks/mistralagents/README.md#get) - Retrieve an agent entity.
-* [update](https://github.com/mistralai/client-python/blob/master/docs/sdks/mistralagents/README.md#update) - Update an agent entity.
-* [update_version](https://github.com/mistralai/client-python/blob/master/docs/sdks/mistralagents/README.md#update_version) - Update an agent version.
+* [list](docs/sdks/mistraljobs/README.md#list) - Get Batch Jobs
+* [create](docs/sdks/mistraljobs/README.md#create) - Create Batch Job
+* [get](docs/sdks/mistraljobs/README.md#get) - Get Batch Job
+* [cancel](docs/sdks/mistraljobs/README.md#cancel) - Cancel Batch Job
 
-#### [beta.conversations](https://github.com/mistralai/client-python/blob/master/docs/sdks/conversations/README.md)
-
-* [start](https://github.com/mistralai/client-python/blob/master/docs/sdks/conversations/README.md#start) - Create a conversation and append entries to it.
-* [list](https://github.com/mistralai/client-python/blob/master/docs/sdks/conversations/README.md#list) - List all created conversations.
-* [get](https://github.com/mistralai/client-python/blob/master/docs/sdks/conversations/README.md#get) - Retrieve a conversation information.
-* [append](https://github.com/mistralai/client-python/blob/master/docs/sdks/conversations/README.md#append) - Append new entries to an existing conversation.
-* [get_history](https://github.com/mistralai/client-python/blob/master/docs/sdks/conversations/README.md#get_history) - Retrieve all entries in a conversation.
-* [get_messages](https://github.com/mistralai/client-python/blob/master/docs/sdks/conversations/README.md#get_messages) - Retrieve all messages in a conversation.
-* [restart](https://github.com/mistralai/client-python/blob/master/docs/sdks/conversations/README.md#restart) - Restart a conversation starting from a given entry.
-* [start_stream](https://github.com/mistralai/client-python/blob/master/docs/sdks/conversations/README.md#start_stream) - Create a conversation and append entries to it.
-* [append_stream](https://github.com/mistralai/client-python/blob/master/docs/sdks/conversations/README.md#append_stream) - Append new entries to an existing conversation.
-* [restart_stream](https://github.com/mistralai/client-python/blob/master/docs/sdks/conversations/README.md#restart_stream) - Restart a conversation starting from a given entry.
-
-#### [beta.libraries](https://github.com/mistralai/client-python/blob/master/docs/sdks/libraries/README.md)
-
-* [list](https://github.com/mistralai/client-python/blob/master/docs/sdks/libraries/README.md#list) - List all libraries you have access to.
-* [create](https://github.com/mistralai/client-python/blob/master/docs/sdks/libraries/README.md#create) - Create a new Library.
-* [get](https://github.com/mistralai/client-python/blob/master/docs/sdks/libraries/README.md#get) - Detailed information about a specific Library.
-* [delete](https://github.com/mistralai/client-python/blob/master/docs/sdks/libraries/README.md#delete) - Delete a library and all of it's document.
-* [update](https://github.com/mistralai/client-python/blob/master/docs/sdks/libraries/README.md#update) - Update a library.
-
-#### [beta.libraries.accesses](https://github.com/mistralai/client-python/blob/master/docs/sdks/accesses/README.md)
-
-* [list](https://github.com/mistralai/client-python/blob/master/docs/sdks/accesses/README.md#list) - List all of the access to this library.
-* [update_or_create](https://github.com/mistralai/client-python/blob/master/docs/sdks/accesses/README.md#update_or_create) - Create or update an access level.
-* [delete](https://github.com/mistralai/client-python/blob/master/docs/sdks/accesses/README.md#delete) - Delete an access level.
-
-#### [beta.libraries.documents](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md)
-
-* [list](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#list) - List document in a given library.
-* [upload](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#upload) - Upload a new document.
-* [get](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#get) - Retrieve the metadata of a specific document.
-* [update](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#update) - Update the metadata of a specific document.
-* [delete](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#delete) - Delete a document.
-* [text_content](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#text_content) - Retrieve the text content of a specific document.
-* [status](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#status) - Retrieve the processing status of a specific document.
-* [get_signed_url](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#get_signed_url) - Retrieve the signed URL of a specific document.
-* [extracted_text_signed_url](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#extracted_text_signed_url) - Retrieve the signed URL of text extracted from a given document.
-* [reprocess](https://github.com/mistralai/client-python/blob/master/docs/sdks/documents/README.md#reprocess) - Reprocess a document.
-
-### [chat](https://github.com/mistralai/client-python/blob/master/docs/sdks/chat/README.md)
-
-* [complete](https://github.com/mistralai/client-python/blob/master/docs/sdks/chat/README.md#complete) - Chat Completion
-* [stream](https://github.com/mistralai/client-python/blob/master/docs/sdks/chat/README.md#stream) - Stream chat completion
-
-### [classifiers](https://github.com/mistralai/client-python/blob/master/docs/sdks/classifiers/README.md)
-
-* [moderate](https://github.com/mistralai/client-python/blob/master/docs/sdks/classifiers/README.md#moderate) - Moderations
-* [moderate_chat](https://github.com/mistralai/client-python/blob/master/docs/sdks/classifiers/README.md#moderate_chat) - Chat Moderations
-* [classify](https://github.com/mistralai/client-python/blob/master/docs/sdks/classifiers/README.md#classify) - Classifications
-* [classify_chat](https://github.com/mistralai/client-python/blob/master/docs/sdks/classifiers/README.md#classify_chat) - Chat Classifications
-
-### [embeddings](https://github.com/mistralai/client-python/blob/master/docs/sdks/embeddings/README.md)
-
-* [create](https://github.com/mistralai/client-python/blob/master/docs/sdks/embeddings/README.md#create) - Embeddings
-
-### [files](https://github.com/mistralai/client-python/blob/master/docs/sdks/files/README.md)
-
-* [upload](https://github.com/mistralai/client-python/blob/master/docs/sdks/files/README.md#upload) - Upload File
-* [list](https://github.com/mistralai/client-python/blob/master/docs/sdks/files/README.md#list) - List Files
-* [retrieve](https://github.com/mistralai/client-python/blob/master/docs/sdks/files/README.md#retrieve) - Retrieve File
-* [delete](https://github.com/mistralai/client-python/blob/master/docs/sdks/files/README.md#delete) - Delete File
-* [download](https://github.com/mistralai/client-python/blob/master/docs/sdks/files/README.md#download) - Download File
-* [get_signed_url](https://github.com/mistralai/client-python/blob/master/docs/sdks/files/README.md#get_signed_url) - Get Signed Url
-
-### [fim](https://github.com/mistralai/client-python/blob/master/docs/sdks/fim/README.md)
-
-* [complete](https://github.com/mistralai/client-python/blob/master/docs/sdks/fim/README.md#complete) - Fim Completion
-* [stream](https://github.com/mistralai/client-python/blob/master/docs/sdks/fim/README.md#stream) - Stream fim completion
-
-### [fine_tuning](https://github.com/mistralai/client-python/blob/master/docs/sdks/finetuning/README.md)
+### [beta](docs/sdks/beta/README.md)
 
 
-#### [fine_tuning.jobs](https://github.com/mistralai/client-python/blob/master/docs/sdks/jobs/README.md)
+#### [beta.agents](docs/sdks/mistralagents/README.md)
 
-* [list](https://github.com/mistralai/client-python/blob/master/docs/sdks/jobs/README.md#list) - Get Fine Tuning Jobs
-* [create](https://github.com/mistralai/client-python/blob/master/docs/sdks/jobs/README.md#create) - Create Fine Tuning Job
-* [get](https://github.com/mistralai/client-python/blob/master/docs/sdks/jobs/README.md#get) - Get Fine Tuning Job
-* [cancel](https://github.com/mistralai/client-python/blob/master/docs/sdks/jobs/README.md#cancel) - Cancel Fine Tuning Job
-* [start](https://github.com/mistralai/client-python/blob/master/docs/sdks/jobs/README.md#start) - Start Fine Tuning Job
+* [create](docs/sdks/mistralagents/README.md#create) - Create a agent that can be used within a conversation.
+* [list](docs/sdks/mistralagents/README.md#list) - List agent entities.
+* [get](docs/sdks/mistralagents/README.md#get) - Retrieve an agent entity.
+* [update](docs/sdks/mistralagents/README.md#update) - Update an agent entity.
+* [delete](docs/sdks/mistralagents/README.md#delete) - Delete an agent entity.
+* [update_version](docs/sdks/mistralagents/README.md#update_version) - Update an agent version.
+
+#### [beta.conversations](docs/sdks/conversations/README.md)
+
+* [start](docs/sdks/conversations/README.md#start) - Create a conversation and append entries to it.
+* [list](docs/sdks/conversations/README.md#list) - List all created conversations.
+* [get](docs/sdks/conversations/README.md#get) - Retrieve a conversation information.
+* [delete](docs/sdks/conversations/README.md#delete) - Delete a conversation.
+* [append](docs/sdks/conversations/README.md#append) - Append new entries to an existing conversation.
+* [get_history](docs/sdks/conversations/README.md#get_history) - Retrieve all entries in a conversation.
+* [get_messages](docs/sdks/conversations/README.md#get_messages) - Retrieve all messages in a conversation.
+* [restart](docs/sdks/conversations/README.md#restart) - Restart a conversation starting from a given entry.
+* [start_stream](docs/sdks/conversations/README.md#start_stream) - Create a conversation and append entries to it.
+* [append_stream](docs/sdks/conversations/README.md#append_stream) - Append new entries to an existing conversation.
+* [restart_stream](docs/sdks/conversations/README.md#restart_stream) - Restart a conversation starting from a given entry.
+
+#### [beta.libraries](docs/sdks/libraries/README.md)
+
+* [list](docs/sdks/libraries/README.md#list) - List all libraries you have access to.
+* [create](docs/sdks/libraries/README.md#create) - Create a new Library.
+* [get](docs/sdks/libraries/README.md#get) - Detailed information about a specific Library.
+* [delete](docs/sdks/libraries/README.md#delete) - Delete a library and all of it's document.
+* [update](docs/sdks/libraries/README.md#update) - Update a library.
+
+#### [beta.libraries.accesses](docs/sdks/accesses/README.md)
+
+* [list](docs/sdks/accesses/README.md#list) - List all of the access to this library.
+* [update_or_create](docs/sdks/accesses/README.md#update_or_create) - Create or update an access level.
+* [delete](docs/sdks/accesses/README.md#delete) - Delete an access level.
+
+#### [beta.libraries.documents](docs/sdks/documents/README.md)
+
+* [list](docs/sdks/documents/README.md#list) - List documents in a given library.
+* [upload](docs/sdks/documents/README.md#upload) - Upload a new document.
+* [get](docs/sdks/documents/README.md#get) - Retrieve the metadata of a specific document.
+* [update](docs/sdks/documents/README.md#update) - Update the metadata of a specific document.
+* [delete](docs/sdks/documents/README.md#delete) - Delete a document.
+* [text_content](docs/sdks/documents/README.md#text_content) - Retrieve the text content of a specific document.
+* [status](docs/sdks/documents/README.md#status) - Retrieve the processing status of a specific document.
+* [get_signed_url](docs/sdks/documents/README.md#get_signed_url) - Retrieve the signed URL of a specific document.
+* [extracted_text_signed_url](docs/sdks/documents/README.md#extracted_text_signed_url) - Retrieve the signed URL of text extracted from a given document.
+* [reprocess](docs/sdks/documents/README.md#reprocess) - Reprocess a document.
+
+### [chat](docs/sdks/chat/README.md)
+
+* [complete](docs/sdks/chat/README.md#complete) - Chat Completion
+* [stream](docs/sdks/chat/README.md#stream) - Stream chat completion
+
+### [classifiers](docs/sdks/classifiers/README.md)
+
+* [moderate](docs/sdks/classifiers/README.md#moderate) - Moderations
+* [moderate_chat](docs/sdks/classifiers/README.md#moderate_chat) - Chat Moderations
+* [classify](docs/sdks/classifiers/README.md#classify) - Classifications
+* [classify_chat](docs/sdks/classifiers/README.md#classify_chat) - Chat Classifications
+
+### [embeddings](docs/sdks/embeddings/README.md)
+
+* [create](docs/sdks/embeddings/README.md#create) - Embeddings
+
+### [files](docs/sdks/files/README.md)
+
+* [upload](docs/sdks/files/README.md#upload) - Upload File
+* [list](docs/sdks/files/README.md#list) - List Files
+* [retrieve](docs/sdks/files/README.md#retrieve) - Retrieve File
+* [delete](docs/sdks/files/README.md#delete) - Delete File
+* [download](docs/sdks/files/README.md#download) - Download File
+* [get_signed_url](docs/sdks/files/README.md#get_signed_url) - Get Signed Url
+
+### [fim](docs/sdks/fim/README.md)
+
+* [complete](docs/sdks/fim/README.md#complete) - Fim Completion
+* [stream](docs/sdks/fim/README.md#stream) - Stream fim completion
+
+### [fine_tuning](docs/sdks/finetuning/README.md)
 
 
-### [models](https://github.com/mistralai/client-python/blob/master/docs/sdks/models/README.md)
+#### [fine_tuning.jobs](docs/sdks/jobs/README.md)
 
-* [list](https://github.com/mistralai/client-python/blob/master/docs/sdks/models/README.md#list) - List Models
-* [retrieve](https://github.com/mistralai/client-python/blob/master/docs/sdks/models/README.md#retrieve) - Retrieve Model
-* [delete](https://github.com/mistralai/client-python/blob/master/docs/sdks/models/README.md#delete) - Delete Model
-* [update](https://github.com/mistralai/client-python/blob/master/docs/sdks/models/README.md#update) - Update Fine Tuned Model
-* [archive](https://github.com/mistralai/client-python/blob/master/docs/sdks/models/README.md#archive) - Archive Fine Tuned Model
-* [unarchive](https://github.com/mistralai/client-python/blob/master/docs/sdks/models/README.md#unarchive) - Unarchive Fine Tuned Model
+* [list](docs/sdks/jobs/README.md#list) - Get Fine Tuning Jobs
+* [create](docs/sdks/jobs/README.md#create) - Create Fine Tuning Job
+* [get](docs/sdks/jobs/README.md#get) - Get Fine Tuning Job
+* [cancel](docs/sdks/jobs/README.md#cancel) - Cancel Fine Tuning Job
+* [start](docs/sdks/jobs/README.md#start) - Start Fine Tuning Job
 
-### [ocr](https://github.com/mistralai/client-python/blob/master/docs/sdks/ocr/README.md)
 
-* [process](https://github.com/mistralai/client-python/blob/master/docs/sdks/ocr/README.md#process) - OCR
+### [models](docs/sdks/models/README.md)
+
+* [list](docs/sdks/models/README.md#list) - List Models
+* [retrieve](docs/sdks/models/README.md#retrieve) - Retrieve Model
+* [delete](docs/sdks/models/README.md#delete) - Delete Model
+* [update](docs/sdks/models/README.md#update) - Update Fine Tuned Model
+* [archive](docs/sdks/models/README.md#archive) - Archive Fine Tuned Model
+* [unarchive](docs/sdks/models/README.md#unarchive) - Unarchive Fine Tuned Model
+
+### [ocr](docs/sdks/ocr/README.md)
+
+* [process](docs/sdks/ocr/README.md#process) - OCR
 
 </details>
 <!-- End Available Resources and Operations [operations] -->
@@ -618,7 +634,11 @@ with Mistral(
             "tool_call_id": "<id>",
             "result": "<value>",
         },
-    ], stream=True)
+    ], stream=True, completion_args={
+        "response_format": {
+            "type": "text",
+        },
+    })
 
     with res as event_stream:
         for event in event_stream:
@@ -709,27 +729,20 @@ with Mistral(
 <!-- Start Error Handling [errors] -->
 ## Error Handling
 
-Handling errors in this SDK should largely match your expectations. All operations return a response object or raise an exception.
+[`MistralError`](./src/mistralai/models/mistralerror.py) is the base class for all HTTP error responses. It has the following properties:
 
-By default, an API error will raise a models.SDKError exception, which has the following properties:
-
-| Property        | Type             | Description           |
-|-----------------|------------------|-----------------------|
-| `.status_code`  | *int*            | The HTTP status code  |
-| `.message`      | *str*            | The error message     |
-| `.raw_response` | *httpx.Response* | The raw HTTP response |
-| `.body`         | *str*            | The response content  |
-
-When custom error responses are specified for an operation, the SDK may also raise their associated exceptions. You can refer to respective *Errors* tables in SDK docs for more details on possible exception types for each operation. For example, the `list_async` method may raise the following exceptions:
-
-| Error Type                 | Status Code | Content Type     |
-| -------------------------- | ----------- | ---------------- |
-| models.HTTPValidationError | 422         | application/json |
-| models.SDKError            | 4XX, 5XX    | \*/\*            |
+| Property           | Type             | Description                                                                             |
+| ------------------ | ---------------- | --------------------------------------------------------------------------------------- |
+| `err.message`      | `str`            | Error message                                                                           |
+| `err.status_code`  | `int`            | HTTP response status code eg `404`                                                      |
+| `err.headers`      | `httpx.Headers`  | HTTP response headers                                                                   |
+| `err.body`         | `str`            | HTTP body. Can be empty string if no body is returned.                                  |
+| `err.raw_response` | `httpx.Response` | Raw HTTP response                                                                       |
+| `err.data`         |                  | Optional. Some errors may contain structured data. [See Error Classes](#error-classes). |
 
 ### Example
-
 ```python
+import mistralai
 from mistralai import Mistral, models
 import os
 
@@ -740,18 +753,46 @@ with Mistral(
     res = None
     try:
 
-        res = mistral.models.list()
+        res = mistral.models.retrieve(model_id="ft:open-mistral-7b:587a6b29:20240514:7e773925")
 
         # Handle response
         print(res)
 
-    except models.HTTPValidationError as e:
-        # handle e.data: models.HTTPValidationErrorData
-        raise(e)
-    except models.SDKError as e:
-        # handle exception
-        raise(e)
+
+    except models.MistralError as e:
+        # The base class for HTTP error responses
+        print(e.message)
+        print(e.status_code)
+        print(e.body)
+        print(e.headers)
+        print(e.raw_response)
+
+        # Depending on the method different errors may be thrown
+        if isinstance(e, models.HTTPValidationError):
+            print(e.data.detail)  # Optional[List[mistralai.ValidationError]]
 ```
+
+### Error Classes
+**Primary error:**
+* [`MistralError`](./src/mistralai/models/mistralerror.py): The base class for HTTP error responses.
+
+<details><summary>Less common errors (6)</summary>
+
+<br />
+
+**Network errors:**
+* [`httpx.RequestError`](https://www.python-httpx.org/exceptions/#httpx.RequestError): Base class for request errors.
+    * [`httpx.ConnectError`](https://www.python-httpx.org/exceptions/#httpx.ConnectError): HTTP client was unable to make a request to a server.
+    * [`httpx.TimeoutException`](https://www.python-httpx.org/exceptions/#httpx.TimeoutException): HTTP request timed out.
+
+
+**Inherit from [`MistralError`](./src/mistralai/models/mistralerror.py)**:
+* [`HTTPValidationError`](./src/mistralai/models/httpvalidationerror.py): Validation Error. Status code `422`. Applicable to 48 of 70 methods.*
+* [`ResponseValidationError`](./src/mistralai/models/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
+
+</details>
+
+\* Check [the method documentation](#available-resources-and-operations) to see if the error is applicable.
 <!-- End Error Handling [errors] -->
 
 <!-- Start Server Selection [server] -->

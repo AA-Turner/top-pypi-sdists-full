@@ -1,4 +1,4 @@
-use std::{borrow::Cow, env, str};
+use std::{borrow::Cow, env, ffi::CString, str};
 
 use crate::constants::{BT_WALLET_HOTKEY, BT_WALLET_NAME, BT_WALLET_PATH};
 use crate::errors::{ConfigurationError, KeyFileError, PasswordError, WalletError};
@@ -266,9 +266,10 @@ impl PyKeypair {
     }
 
     #[pyo3(signature = (data))]
-    fn sign(&self, data: PyObject, py: Python) -> PyResult<Cow<[u8]>> {
+    fn sign(&self, data: Py<PyAny>, py: Python) -> PyResult<Cow<[u8]>> {
         // Convert data to bytes (data can be a string, hex, or bytes)
-        let data_bytes = if let Ok(s) = data.extract::<String>(py) {
+        let data_bound = data.bind(py);
+        let data_bytes = if let Ok(s) = data_bound.extract::<String>() {
             if s.starts_with("0x") {
                 hex::decode(s.trim_start_matches("0x")).map_err(|e| {
                     PyErr::new::<PyConfigurationError, _>(format!("Invalid hex string: {}", e))
@@ -276,13 +277,11 @@ impl PyKeypair {
             } else {
                 s.into_bytes()
             }
-        } else if let Ok(bytes) = data.extract::<Vec<u8>>(py) {
+        } else if let Ok(bytes) = data_bound.extract::<Vec<u8>>() {
             bytes
-        } else if let Ok(py_scale_bytes) = data.extract::<&PyAny>(py) {
-            let scale_data: &PyAny = py_scale_bytes.getattr("data")?;
+        } else if let Ok(scale_data) = data_bound.getattr("data") {
             let scale_data_bytes: Vec<u8> = scale_data.extract()?;
-
-            scale_data_bytes.to_vec()
+            scale_data_bytes
         } else {
             return Err(PyErr::new::<PyConfigurationError, _>(
                 "Keypair::sign: Unsupported data format. Expected str or bytes.",
@@ -296,9 +295,10 @@ impl PyKeypair {
     }
 
     #[pyo3(signature = (data, signature))]
-    fn verify(&self, data: PyObject, signature: PyObject, py: Python) -> PyResult<bool> {
+    fn verify(&self, data: Py<PyAny>, signature: Py<PyAny>, py: Python) -> PyResult<bool> {
         // Convert data to bytes (data can be a string, hex, or bytes)
-        let data_bytes = if let Ok(s) = data.extract::<String>(py) {
+        let data_bound = data.bind(py);
+        let data_bytes = if let Ok(s) = data_bound.extract::<String>() {
             if s.starts_with("0x") {
                 hex::decode(s.trim_start_matches("0x")).map_err(|e| {
                     PyErr::new::<PyValueError, _>(format!("Invalid hex string: {:?}", e))
@@ -306,13 +306,11 @@ impl PyKeypair {
             } else {
                 s.into_bytes()
             }
-        } else if let Ok(bytes) = data.extract::<Vec<u8>>(py) {
+        } else if let Ok(bytes) = data_bound.extract::<Vec<u8>>() {
             bytes
-        } else if let Ok(py_scale_bytes) = data.extract::<&PyAny>(py) {
-            let scale_data: &PyAny = py_scale_bytes.getattr("data")?;
+        } else if let Ok(scale_data) = data_bound.getattr("data") {
             let scale_data_bytes: Vec<u8> = scale_data.extract()?;
-
-            scale_data_bytes.to_vec()
+            scale_data_bytes
         } else {
             return Err(PyErr::new::<PyConfigurationError, _>(
                 "Keypair::verify: Unsupported data format. Expected str or bytes.",
@@ -320,7 +318,8 @@ impl PyKeypair {
         };
 
         // Convert signature to bytes
-        let signature_bytes = if let Ok(s) = signature.extract::<String>(py) {
+        let signature_bound = signature.bind(py);
+        let signature_bytes = if let Ok(s) = signature_bound.extract::<String>() {
             if s.starts_with("0x") {
                 hex::decode(s.trim_start_matches("0x")).map_err(|e| {
                     PyErr::new::<PyValueError, _>(format!("Invalid hex string: {:?}", e))
@@ -330,7 +329,7 @@ impl PyKeypair {
                     "Invalid signature format. Expected hex string.",
                 ));
             }
-        } else if let Ok(bytes) = signature.extract::<Vec<u8>>(py) {
+        } else if let Ok(bytes) = signature_bound.extract::<Vec<u8>>() {
             bytes
         } else {
             return Err(PyErr::new::<PyValueError, _>(
@@ -393,11 +392,13 @@ impl PyKeyFileError {
     }
 }
 
-impl IntoPy<PyObject> for KeyFileError {
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        Py::new(py, PyKeyFileError { inner: self })
-            .unwrap()
-            .into_any()
+impl<'py> IntoPyObject<'py> for KeyFileError {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        Ok(Bound::new(py, PyKeyFileError { inner: self })?.into_any())
     }
 }
 
@@ -461,11 +462,13 @@ impl PyWalletError {
     }
 }
 
-impl IntoPy<PyObject> for WalletError {
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        Py::new(py, PyWalletError { inner: self })
-            .unwrap()
-            .into_any()
+impl<'py> IntoPyObject<'py> for WalletError {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        Ok(Bound::new(py, PyWalletError { inner: self })?.into_any())
     }
 }
 
@@ -494,13 +497,13 @@ fn bittensor_wallet(module: Bound<'_, PyModule>) -> PyResult<()> {
 
 // Define the submodule registration functions
 fn register_config_module(main_module: &Bound<'_, PyModule>) -> PyResult<()> {
-    let config_module = PyModule::new_bound(main_module.py(), "config")?;
+    let config_module = PyModule::new(main_module.py(), "config")?;
     config_module.add_class::<Config>()?;
     main_module.add_submodule(&config_module)
 }
 
 fn register_errors_module(main_module: &Bound<'_, PyModule>) -> PyResult<()> {
-    let errors_module = PyModule::new_bound(main_module.py(), "errors")?;
+    let errors_module = PyModule::new(main_module.py(), "errors")?;
     // Register the WalletError exception
     errors_module.add_class::<PyWalletError>()?;
     errors_module.add_class::<PyConfigurationError>()?;
@@ -511,9 +514,9 @@ fn register_errors_module(main_module: &Bound<'_, PyModule>) -> PyResult<()> {
 
 #[pyfunction(name = "serialized_keypair_to_keyfile_data")]
 #[pyo3(signature = (keypair))]
-fn py_serialized_keypair_to_keyfile_data(py: Python, keypair: &PyKeypair) -> PyResult<PyObject> {
+fn py_serialized_keypair_to_keyfile_data(py: Python, keypair: &PyKeypair) -> PyResult<Py<PyAny>> {
     keyfile::serialized_keypair_to_keyfile_data(&keypair.inner)
-        .map(|bytes| PyBytes::new_bound(py, &bytes).into_py(py))
+        .map(|bytes| PyBytes::new(py, &bytes).unbind().into_any())
         .map_err(|e| PyErr::new::<PyKeyFileError, _>(e))
 }
 
@@ -572,7 +575,7 @@ fn py_decrypt_keyfile_data(
 
 // keyfile module with functions
 fn register_keyfile_module(main_module: &Bound<'_, PyModule>) -> PyResult<()> {
-    let keyfile_module = PyModule::new_bound(main_module.py(), "keyfile")?;
+    let keyfile_module = PyModule::new(main_module.py(), "keyfile")?;
     keyfile_module.add_function(wrap_pyfunction!(
         py_serialized_keypair_to_keyfile_data,
         &keyfile_module
@@ -618,7 +621,7 @@ fn register_keyfile_module(main_module: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 fn register_keypair_module(main_module: &Bound<'_, PyModule>) -> PyResult<()> {
-    let keypair_module = PyModule::new_bound(main_module.py(), "keypair")?;
+    let keypair_module = PyModule::new(main_module.py(), "keypair")?;
     keypair_module.add_class::<PyKeypair>()?;
     main_module.add_submodule(&keypair_module)
 }
@@ -630,7 +633,7 @@ fn py_get_ss58_format(ss58_address: &str) -> PyResult<u16> {
 
 #[pyfunction(name = "is_valid_ed25519_pubkey")]
 fn py_is_valid_ed25519_pubkey(public_key: &Bound<'_, PyAny>) -> PyResult<bool> {
-    Python::with_gil(|_py| {
+    Python::attach(|_py| {
         if public_key.is_instance_of::<PyString>() {
             Ok(crate::utils::is_string_valid_ed25519_pubkey(
                 public_key.extract()?,
@@ -649,7 +652,7 @@ fn py_is_valid_ed25519_pubkey(public_key: &Bound<'_, PyAny>) -> PyResult<bool> {
 
 #[pyfunction(name = "is_valid_bittensor_address_or_public_key")]
 fn py_is_valid_bittensor_address_or_public_key(address: &Bound<'_, PyAny>) -> bool {
-    Python::with_gil(|_py| {
+    Python::attach(|_py| {
         if address.is_instance_of::<PyString>() {
             let Ok(address_str) = address.extract() else {
                 return false;
@@ -670,7 +673,7 @@ fn py_is_valid_bittensor_address_or_public_key(address: &Bound<'_, PyAny>) -> bo
 }
 
 fn register_utils_module(main_module: &Bound<'_, PyModule>) -> PyResult<()> {
-    let utils_module = PyModule::new_bound(main_module.py(), "utils")?;
+    let utils_module = PyModule::new(main_module.py(), "utils")?;
     utils_module.add_function(wrap_pyfunction!(
         crate::utils::is_valid_ss58_address,
         &utils_module
@@ -691,7 +694,7 @@ fn register_utils_module(main_module: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 fn register_wallet_module(main_module: &Bound<'_, PyModule>) -> PyResult<()> {
-    let wallet_module = PyModule::new_bound(main_module.py(), "wallet")?;
+    let wallet_module = PyModule::new(main_module.py(), "wallet")?;
     wallet_module.add_function(wrap_pyfunction!(
         crate::wallet::display_mnemonic_msg,
         &wallet_module
@@ -739,7 +742,7 @@ impl Wallet {
         name: Option<String>,
         hotkey: Option<String>,
         path: Option<String>,
-        config: Option<PyObject>,
+        config: Option<Py<PyAny>>,
         py: Python,
     ) -> PyResult<Self> {
         // parse python config object if passed
@@ -790,7 +793,7 @@ impl Wallet {
         parser: &Bound<'_, PyAny>,
         prefix: Option<String>,
         py: Python,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let default_name =
             env::var("BT_WALLET_NAME").unwrap_or_else(|_| BT_WALLET_NAME.to_string());
         let default_hotkey =
@@ -833,12 +836,14 @@ except argparse.ArgumentError:
     pass"#,
         );
 
-        py.run_bound(
-            &code,
-            Some(&[("parser", parser)].into_py_dict_bound(py)),
+        let code_cstr = CString::new(code).map_err(|e| PyErr::new::<PyValueError, _>(e.to_string()))?;
+        let dict = [("parser", parser.as_any())].into_py_dict(py)?;
+        py.run(
+            &code_cstr,
+            Some(&dict),
             None,
         )?;
-        Ok(parser.to_object(py))
+        Ok(parser.clone().unbind())
     }
 
     // Wallet methods

@@ -1,20 +1,27 @@
 Metadata-Version: 2.4
 Name: healpy
-Version: 1.18.1
+Version: 1.19.0
 Summary: Healpix tools package for Python
 Author: A. Zonca
 Author-email: "C. Rosset" <cyrille.rosset@apc.univ-paris-diderot.fr>
 License: GPL-2.0-only
-Project-URL: homepage, http://github.com/healpy
+Project-URL: homepage, https://github.com/healpy/healpy
+Project-URL: source, https://github.com/healpy/healpy
+Project-URL: download, https://pypi.org/project/healpy/#files
+Project-URL: changelog, https://github.com/healpy/healpy/blob/main/CHANGELOG.rst
+Project-URL: releasenotes, https://github.com/healpy/healpy/releases
+Project-URL: documentation, https://healpy.readthedocs.io
+Project-URL: issues, https://github.com/healpy/healpy/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: C++
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Astronomy
 Classifier: Topic :: Scientific/Engineering :: Visualization
 Requires-Python: >=3.10
@@ -38,6 +45,7 @@ Requires-Dist: ipykernel; extra == "doc"
 Requires-Dist: matplotlib; extra == "doc"
 Requires-Dist: nbsphinx; extra == "doc"
 Requires-Dist: numpydoc; extra == "doc"
+Requires-Dist: sphinx<9,>=6; extra == "doc"
 Requires-Dist: scipy; extra == "doc"
 Dynamic: license-file
 
@@ -103,11 +111,11 @@ https://healpy.readthedocs.io/en/latest/tutorial.html, or execute it on `mybinde
 Requirements
 ------------
 
-* `Python <http://www.python.org>`_ 3.10, 3.11, or 3.12
+* `Python <http://www.python.org>`_ 3.10, 3.11, 3.12, 3.13, or 3.14
 
 * `Numpy <http://numpy.scipy.org/>`_ (tested with version >=1.19)
 
-* `Matplotlib <http://matplotlib.sourceforge.net/>`_
+* `Matplotlib <https://matplotlib.org/>`_
 
 * Python development package is required for some distribution (e.g.,
   python-dev package for Ubuntu)

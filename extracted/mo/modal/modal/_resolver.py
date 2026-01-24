@@ -8,16 +8,14 @@ from asyncio import Future
 from collections.abc import Hashable
 from typing import TYPE_CHECKING, Optional
 
-from modal._traceback import suppress_tb_frames
+import modal._object
+from modal._traceback import suppress_tb_frame
 from modal_proto import api_pb2
 
-from ._utils.async_utils import TaskContext
-from .client import _Client
+from ._load_context import LoadContext
 
 if TYPE_CHECKING:
     from rich.tree import Tree
-
-    import modal._object
 
 
 class StatusRow:
@@ -36,7 +34,7 @@ class StatusRow:
 
     def warning(self, warning: api_pb2.Warning):
         if self._step_node is not None:
-            self._step_node.add(f"[yellow]:warning:[/yellow] {warning.message}")
+            self._step_node.add(f"⚠️ {warning.message}")
 
     def finish(self, message):
         if self._step_node is not None and self._spinner is not None:
@@ -48,19 +46,10 @@ class StatusRow:
 
 class Resolver:
     _local_uuid_to_future: dict[str, Future]
-    _environment_name: Optional[str]
-    _app_id: Optional[str]
     _deduplication_cache: dict[Hashable, Future]
-    _client: _Client
     _build_start: float
 
-    def __init__(
-        self,
-        client: _Client,
-        *,
-        environment_name: Optional[str] = None,
-        app_id: Optional[str] = None,
-    ):
+    def __init__(self):
         try:
             # TODO(michael) If we don't clean this up more thoroughly, it would probably
             # be good to have a single source of truth for "rich is installed" rather than
@@ -75,9 +64,6 @@ class Resolver:
 
         self._local_uuid_to_future = {}
         self._tree = tree
-        self._client = client
-        self._app_id = app_id
-        self._environment_name = environment_name
         self._deduplication_cache = {}
 
         with tempfile.TemporaryFile() as temp_file:
@@ -86,26 +72,23 @@ class Resolver:
             self._build_start = os.fstat(temp_file.fileno()).st_mtime
 
     @property
-    def app_id(self) -> Optional[str]:
-        return self._app_id
-
-    @property
-    def client(self):
-        return self._client
-
-    @property
-    def environment_name(self):
-        return self._environment_name
-
-    @property
     def build_start(self) -> float:
         return self._build_start
 
-    async def preload(self, obj, existing_object_id: Optional[str]):
+    async def preload(
+        self, obj: "modal._object._Object", parent_load_context: "LoadContext", existing_object_id: Optional[str]
+    ):
         if obj._preload is not None:
-            await obj._preload(obj, self, existing_object_id)
+            load_context = obj._load_context_overrides.merged_with(parent_load_context)
+            await obj._preload(obj, self, load_context, existing_object_id)
 
-    async def load(self, obj: "modal._object._Object", existing_object_id: Optional[str] = None):
+    async def load(
+        self,
+        obj: "modal._object._Object",
+        parent_load_context: "LoadContext",
+        *,
+        existing_object_id: Optional[str] = None,
+    ):
         if obj._is_hydrated and obj._is_another_app:
             # No need to reload this, it won't typically change
             if obj.local_uuid not in self._local_uuid_to_future:
@@ -129,42 +112,48 @@ class Resolver:
             cached_future = self._deduplication_cache.get(deduplication_key)
             if cached_future:
                 hydrated_object = await cached_future
-                obj._hydrate(hydrated_object.object_id, self._client, hydrated_object._get_metadata())
+                # Use the client from the already-hydrated object
+                obj._hydrate(hydrated_object.object_id, hydrated_object.client, hydrated_object._get_metadata())
                 return obj
 
         if not cached_future:
             # don't run any awaits within this if-block to prevent race conditions
             async def loader():
-                # Wait for all its dependencies
-                # TODO(erikbern): do we need existing_object_id for those?
-                await TaskContext.gather(*[self.load(dep) for dep in obj.deps()])
+                with suppress_tb_frame():
+                    load_context = await obj._load_context_overrides.merged_with(parent_load_context).apply_defaults()
 
-                # Load the object itself
-                if not obj._load:
-                    raise Exception(f"Object {obj} has no loader function")
+                    # Use asyncio.gather here (not TaskContext.gather) - the shared TaskContext
+                    # in load_context handles cancellation at the top level, preventing premature
+                    # cancellation of shared dependencies when sibling tasks fail.
+                    await asyncio.gather(*[self.load(dep, load_context) for dep in obj.deps()])
 
-                await obj._load(obj, self, existing_object_id)
+                    # Load the object itself
+                    if not obj._load:
+                        raise Exception(f"Object {obj} has no loader function")
 
-                # Check that the id of functions didn't change
-                # Persisted refs are ignored because their life cycle is managed independently.
-                if (
-                    not obj._is_another_app
-                    and existing_object_id is not None
-                    and existing_object_id.startswith("fu-")
-                    and obj.object_id != existing_object_id
-                ):
-                    raise Exception(
-                        f"Tried creating an object using existing id {existing_object_id} but it has id {obj.object_id}"
-                    )
+                    await obj._load(obj, self, load_context, existing_object_id)
 
-                return obj
+                    # Check that the id of functions didn't change
+                    # Persisted refs are ignored because their life cycle is managed independently.
+                    if (
+                        not obj._is_another_app
+                        and existing_object_id is not None
+                        and existing_object_id.startswith("fu-")
+                        and obj.object_id != existing_object_id
+                    ):
+                        raise Exception(
+                            f"Tried creating an object using existing id {existing_object_id} "
+                            f"but it has id {obj.object_id}"
+                        )
 
-            cached_future = asyncio.create_task(loader())
+                    return obj
+
+            # use task_context from load_context to make sure tasks are cleaned up eventually
+            cached_future = parent_load_context.task_context.create_task(loader())
             self._local_uuid_to_future[obj.local_uuid] = cached_future
             if deduplication_key is not None:
                 self._deduplication_cache[deduplication_key] = cached_future
-        with suppress_tb_frames(2):
-            # skip current frame + `loader()` closure frame from above
+        with suppress_tb_frame():
             return await cached_future
 
     def objects(self) -> list["modal._object._Object"]:

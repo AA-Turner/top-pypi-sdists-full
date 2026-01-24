@@ -10,8 +10,8 @@ use self::increment::IncrementMetricArgs;
 use self::set::SetMetricArgs;
 use super::derive_parser::{SentryCLI, SentryCLICommand};
 use anyhow::Result;
-use clap::{command, Args, Subcommand};
 use clap::{ArgMatches, Command, Parser as _};
+use clap::{Args, Subcommand};
 
 const DEPRECATION_MESSAGE: &str = "DEPRECATION NOTICE: \
     The send-metric commands are deprecated and will be \
@@ -59,12 +59,10 @@ pub(super) fn make_command(command: Command) -> Command {
 }
 
 pub(super) fn execute(_: &ArgMatches) -> Result<()> {
-    // When adding a new subcommand to the derive_parser SentryCLI, replace the line below with the following:
-    // let subcommand = match SentryCLI::parse().command {
-    //     SentryCLICommand::SendMetric(SendMetricArgs { subcommand }) => subcommand,
-    //     _ => panic!("expected send-metric subcommand"),
-    // };
-    let SentryCLICommand::SendMetric(SendMetricArgs { subcommand }) = SentryCLI::parse().command;
+    let subcommand = match SentryCLI::parse().command {
+        SentryCLICommand::SendMetric(SendMetricArgs { subcommand }) => subcommand,
+        _ => unreachable!("expected send-metric subcommand"),
+    };
 
     log::warn!("{DEPRECATION_MESSAGE}");
 

@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Annotated, Any, AsyncGenerator, Dict, List, Literal, Tuple, TypeVar
+from typing import Annotated, Any, AsyncGenerator, Dict, List, Literal, Optional, Tuple, TypeVar
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -450,11 +450,27 @@ async def test_openai_chat_completion_client_count_tokens(monkeypatch: pytest.Mo
     def tool2(test1: int, test2: List[int]) -> str:
         return str(test1) + str(test2)
 
-    tools = [FunctionTool(tool1, description="example tool 1"), FunctionTool(tool2, description="example tool 2")]
+    def tool3(test1: Annotated[Optional[str], "example"] = None, test2: Literal["1", "2"] = "2") -> str:
+        return str(test1) + str(test2)
+
+    tools = [
+        FunctionTool(tool1, description="example tool 1"),
+        FunctionTool(tool2, description="example tool 2"),
+        FunctionTool(tool3, description="example tool 3"),
+    ]
 
     mockcalculate_vision_tokens = MagicMock()
     monkeypatch.setattr("autogen_ext.models.openai._openai_client.calculate_vision_tokens", mockcalculate_vision_tokens)
 
+    # Test count_tokens without tools
+    num_tokens = client.count_tokens(messages)
+    assert num_tokens
+
+    # Check that calculate_vision_tokens was called
+    mockcalculate_vision_tokens.assert_called_once()
+    mockcalculate_vision_tokens.reset_mock()
+
+    # Test count_tokens with tools
     num_tokens = client.count_tokens(messages, tools=tools)
     assert num_tokens
 
@@ -3253,3 +3269,112 @@ async def test_openai_tool_choice_validation_error_integration() -> None:
 
 
 # TODO: add integration tests for Azure OpenAI using AAD token.
+
+
+@pytest.mark.asyncio
+async def test_reasoning_effort_parameter() -> None:
+    """Test that reasoning_effort parameter is properly handled in client configuration."""
+
+    # Test OpenAI client with reasoning_effort
+    openai_client = OpenAIChatCompletionClient(
+        model="gpt-5",
+        api_key="fake_key",
+        reasoning_effort="low",
+    )
+    assert openai_client._create_args["reasoning_effort"] == "low"  # pyright: ignore[reportPrivateUsage]
+
+    # Test Azure OpenAI client with reasoning_effort
+    azure_client = AzureOpenAIChatCompletionClient(
+        model="gpt-5",
+        azure_endpoint="fake_endpoint",
+        azure_deployment="gpt-5-2025-08-07",
+        api_version="2025-02-01-preview",
+        api_key="fake_key",
+        reasoning_effort="medium",
+    )
+    assert azure_client._create_args["reasoning_effort"] == "medium"  # pyright: ignore[reportPrivateUsage]
+
+    # Test load_component with reasoning_effort for OpenAI
+    from autogen_core.models import ChatCompletionClient
+
+    openai_config = {
+        "provider": "OpenAIChatCompletionClient",
+        "config": {
+            "model": "gpt-5",
+            "api_key": "fake_key",
+            "reasoning_effort": "high",
+        },
+    }
+
+    loaded_openai_client = ChatCompletionClient.load_component(openai_config)
+    assert loaded_openai_client._create_args["reasoning_effort"] == "high"  # type: ignore[attr-defined] # pyright: ignore[reportPrivateUsage, reportUnknownMemberType, reportAttributeAccessIssue]
+    assert loaded_openai_client._raw_config["reasoning_effort"] == "high"  # type: ignore[attr-defined] # pyright: ignore[reportPrivateUsage, reportUnknownMemberType, reportAttributeAccessIssue]
+
+    # Test load_component with reasoning_effort for Azure OpenAI
+    azure_config = {
+        "provider": "AzureOpenAIChatCompletionClient",
+        "config": {
+            "model": "gpt-5",
+            "azure_endpoint": "fake_endpoint",
+            "azure_deployment": "gpt-5-2025-08-07",
+            "api_version": "2025-02-01-preview",
+            "api_key": "fake_key",
+            "reasoning_effort": "low",
+        },
+    }
+
+    loaded_azure_client = ChatCompletionClient.load_component(azure_config)
+    assert loaded_azure_client._create_args["reasoning_effort"] == "low"  # type: ignore[attr-defined] # pyright: ignore[reportPrivateUsage, reportUnknownMemberType, reportAttributeAccessIssue]
+    assert loaded_azure_client._raw_config["reasoning_effort"] == "low"  # type: ignore[attr-defined] # pyright: ignore[reportPrivateUsage, reportUnknownMemberType, reportAttributeAccessIssue]
+
+    # Test serialization and deserialization
+    config_dict = openai_client.dump_component()
+    reloaded_client = OpenAIChatCompletionClient.load_component(config_dict)
+    assert reloaded_client._create_args["reasoning_effort"] == "low"  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.asyncio
+async def test_reasoning_effort_validation() -> None:
+    """Test reasoning_effort parameter validation."""
+
+    # Test valid values
+    for valid_value in ["low", "medium", "high"]:
+        client = OpenAIChatCompletionClient(
+            model="gpt-5",
+            api_key="fake_key",
+            reasoning_effort=valid_value,  # type: ignore[arg-type] # pyright: ignore[reportArgumentType]
+        )
+        assert client._create_args["reasoning_effort"] == valid_value  # pyright: ignore[reportPrivateUsage]
+
+    # Test None value (should be included if explicitly set)
+    client_with_none = OpenAIChatCompletionClient(
+        model="gpt-5",
+        api_key="fake_key",
+        reasoning_effort=None,
+    )
+    # When explicitly set to None, it will be included in create_args
+    assert client_with_none._create_args["reasoning_effort"] is None  # pyright: ignore[reportPrivateUsage]
+
+    # Test not providing reasoning_effort (should not be in create_args)
+    client_without_reasoning = OpenAIChatCompletionClient(
+        model="gpt-5",
+        api_key="fake_key",
+    )
+    assert "reasoning_effort" not in client_without_reasoning._create_args  # pyright: ignore[reportPrivateUsage]
+
+    # Test invalid value via load_component (Pydantic validation)
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):  # Should raise ValidationError
+        from autogen_core.models import ChatCompletionClient
+
+        config = {
+            "provider": "OpenAIChatCompletionClient",
+            "config": {
+                "model": "gpt-5",
+                "api_key": "fake_key",
+                "reasoning_effort": "invalid_value",
+            },
+        }
+
+        ChatCompletionClient.load_component(config)

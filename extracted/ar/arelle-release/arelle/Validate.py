@@ -13,7 +13,9 @@ from collections import defaultdict, OrderedDict
 from arelle import (FileSource, ModelXbrl, ModelDocument, ModelVersReport, XbrlConst,
                ValidateXbrl, ValidateVersReport,
                ValidateInfoset, ViewFileRenderedLayout, UrlUtil)
+from arelle.CompareInstance import compareInstance
 from arelle.PythonUtil import isLegacyAbs
+from arelle.ValidateFileSource import ValidateFileSource
 from arelle.formula import ValidateFormula
 from arelle.ModelDocument import Type, ModelDocumentReference, load as modelDocumentLoad
 from arelle.ModelDtsObject import ModelResource
@@ -24,7 +26,6 @@ from arelle.ModelTestcaseObject import testcaseVariationsByTarget, ModelTestcase
 from arelle.ModelValue import (qname, QName)
 from arelle.PluginManager import pluginClassMethods
 from arelle.packages.report.DetectReportPackage import isReportPackageExtension
-from arelle.packages.report.ReportPackageValidator import ReportPackageValidator
 from arelle.rendering import RenderingEvaluator
 from arelle.utils.EntryPointDetection import filesourceEntrypointFiles
 from arelle.XmlUtil import collapseWhitespace, xmlstring
@@ -126,10 +127,6 @@ class Validate:
         elif self.modelXbrl.modelDocument.type == Type.RSSFEED:
             self.validateRssFeed()
         else:
-            if self.modelXbrl.fileSource.isReportPackage or self.modelXbrl.modelManager.validateAllFilesAsReportPackages:
-                rpValidator = ReportPackageValidator(self.modelXbrl.fileSource)
-                for val in rpValidator.validate():
-                    self.modelXbrl.log(level=val.level.name, codes=val.codes, msg=val.msg, modelXbrl=self.modelXbrl, **val.args)
             try:
                 self.instValidator.validate(self.modelXbrl, self.modelXbrl.modelManager.formulaOptions.typedParameters(self.modelXbrl.prefixedNamespaces))
                 self.instValidator.close()
@@ -137,9 +134,10 @@ class Validate:
                 self.modelXbrl.error("exception:" + type(err).__name__,
                     _("Instance validation exception: %(error)s, instance: %(instance)s"),
                     modelXbrl=self.modelXbrl,
-                    instance=self.modelXbrl.modelDocument.basename, error=err,
+                    instance=self.modelXbrl.modelDocument.basename if hasattr(self.modelXbrl, "modelDocument") and hasattr(self.modelXbrl.modelDocument, "basename") else "(closed)",
+                    error=err,
                     # traceback=traceback.format_tb(sys.exc_info()[2]),
-                    exc_info=(type(err) is not AssertionError))
+                    exc_info=True)
         self.close()
 
     def validateRssFeed(self):
@@ -222,6 +220,9 @@ class Validate:
                     self.modelXbrl.info("info", "Skipped testcase variation %(variationId)s.",
                                         modelObject=testcaseVariation,
                                         variationId=testcaseVariation.id)
+
+            # Clear errors added to the controller during testcase loading.
+            self.modelXbrl.modelManager.cntlr.errorManager.clear()
             for modelTestcaseVariation in testcaseVariations:
                 self._validateTestcaseVariation(testcase, modelTestcaseVariation)
 
@@ -388,10 +389,15 @@ class Validate:
                     pluginXbrlMethod(self, _rptPkgIxdsOptions)
                 reportPackageErrors = False
                 if (filesource.isReportPackage or self.modelXbrl.modelManager.validateAllFilesAsReportPackages) and not _rptPkgIxdsOptions:
-                    rpValidator = ReportPackageValidator(filesource)
-                    for val in rpValidator.validate():
+                    preLoadingErrorsCount = len(preLoadingErrors)
+                    fileSourceValidator = ValidateFileSource(self.modelXbrl.modelManager.cntlr, filesource)
+                    fileSourceValidator.validate(
+                        self.modelXbrl.modelManager.validateAllFilesAsReportPackages,
+                        self.modelXbrl.modelManager.validateAllFilesAsTaxonomyPackages or expectTaxonomyPackage,
+                        errors=preLoadingErrors
+                    )
+                    if len(preLoadingErrors) > preLoadingErrorsCount:
                         reportPackageErrors = True
-                        preLoadingErrors.append(val.codes)
                 if filesource and not filesource.selection and filesource.isArchive:
                     try:
                         if filesource.isTaxonomyPackage or expectTaxonomyPackage:
@@ -399,8 +405,12 @@ class Validate:
                             filesource.select(None) # must select loadable reports (not the taxonomy package itself)
                         elif not filesource.isReportPackage:
                             entrypoints = filesourceEntrypointFiles(filesource)
-                            for pluginXbrlMethod in pluginClassMethods("Validate.FileSource"):
-                                pluginXbrlMethod(self.modelXbrl.modelManager.cntlr, filesource, entrypoints)
+                            fileSourceValidator = ValidateFileSource(self.modelXbrl.modelManager.cntlr, filesource)
+                            fileSourceValidator.validate(
+                                self.modelXbrl.modelManager.validateAllFilesAsReportPackages,
+                                self.modelXbrl.modelManager.validateAllFilesAsTaxonomyPackages,
+                                errors=preLoadingErrors
+                            )
                             if entrypoints:
                                 # resolve an IXDS in entrypoints
                                 for pluginXbrlMethod in pluginClassMethods("ModelTestcaseVariation.ArchiveIxds"):
@@ -424,8 +434,12 @@ class Validate:
                     if not reportPackageErrors:
                         assert isinstance(filesource.basefile, str)
                         if entrypoints := filesourceEntrypointFiles(filesource):
-                            for pluginXbrlMethod in pluginClassMethods("Validate.FileSource"):
-                                pluginXbrlMethod(self.modelXbrl.modelManager.cntlr, filesource, entrypoints)
+                            fileSourceValidator = ValidateFileSource(self.modelXbrl.modelManager.cntlr, filesource)
+                            fileSourceValidator.validate(
+                                self.modelXbrl.modelManager.validateAllFilesAsReportPackages,
+                                self.modelXbrl.modelManager.validateAllFilesAsTaxonomyPackages,
+                                errors=preLoadingErrors
+                            )
                             for pluginXbrlMethod in pluginClassMethods("ModelTestcaseVariation.ArchiveIxds"):
                                 pluginXbrlMethod(self, filesource, entrypoints)
                             for entrypoint in entrypoints:
@@ -491,15 +505,11 @@ class Validate:
                 except Exception as err:
                     model.error("exception:" + type(err).__name__,
                         _("Testcase variation validation exception: %(error)s, instance: %(instance)s"),
-                        modelXbrl=model, instance=model.modelDocument.basename, error=err, exc_info=(type(err) is not AssertionError))
+                        modelXbrl=model, instance=model.modelDocument.basename, error=err, exc_info=True)
                 model.hasFormulae = _hasFormulae
         for pluginXbrlMethod in pluginClassMethods("Validate.Complete"):
             pluginXbrlMethod(self.modelXbrl.modelManager.cntlr, filesource)
         errors = [error for model in loadedModels for error in model.errors]
-        for err in preLoadingErrors:
-            if err not in errors:
-                # include errors from models which failed to load.
-                errors.append(err)
         reportModelCount = len([
             model for model in loadedModels
             if model.modelDocument is not None and (model.fileSource.isReportPackage or not model.fileSource.isTaxonomyPackage)
@@ -577,7 +587,7 @@ class Validate:
             except Exception as err:
                 modelXbrl.error("exception:" + type(err).__name__,
                     _("Testcase formula variation validation exception: %(error)s, instance: %(instance)s"),
-                    modelXbrl=modelXbrl, instance=modelXbrl.modelDocument.basename, error=err, exc_info=(type(err) is not AssertionError))
+                    modelXbrl=modelXbrl, instance=modelXbrl.modelDocument.basename, error=err, exc_info=True)
         if modelTestcaseVariation.resultIsInfoset and self.modelXbrl.modelManager.validateInfoset:
             for pluginXbrlMethod in pluginClassMethods("Validate.Infoset"):
                 pluginXbrlMethod(modelXbrl, modelTestcaseVariation.resultInfosetUri)
@@ -625,96 +635,25 @@ class Validate:
                                     modelTestcaseVariation.resultXbrlInstanceUri is not None)
         if compareIxResultInstance:
             formulaOutputInstance = modelXbrl # compare modelXbrl to generated output instance
-            errMsgPrefix = "ix"
         else: # delete input instances before formula output comparision
             for inputDTSlist in inputDTSes.values():
                 for inputDTS in inputDTSlist:
                     inputDTS.close()
             del inputDTSes # dereference
-            errMsgPrefix = "formula"
         if resultIsXbrlInstance and formulaOutputInstance and formulaOutputInstance.modelDocument:
-            _matchExpectedResultIDs = not modelXbrlHasFormulae # formula restuls have inconsistent IDs
-            expectedInstance = ModelXbrl.load(self.modelXbrl.modelManager,
-                                        modelTestcaseVariation.resultXbrlInstanceUri,
-                                        _("loading expected result XBRL instance"),
-                                        base=baseForElement,
-                                        useFileSource=self.useFileSource,
-                                        errorCaptureLevel=errorCaptureLevel)
-            if expectedInstance.modelDocument is None:
-                self.modelXbrl.error("{}:expectedResultNotLoaded".format(errMsgPrefix),
-                    _("Testcase \"%(name)s\" %(id)s expected result instance not loaded: %(file)s"),
-                    modelXbrl=testcase, id=modelTestcaseVariation.id, name=modelTestcaseVariation.name,
-                    file=os.path.basename(modelTestcaseVariation.resultXbrlInstanceUri),
-                    messageCodes=("formula:expectedResultNotLoaded","ix:expectedResultNotLoaded"))
-                modelTestcaseVariation.status = "result not loadable"
-            else:   # compare facts
-                for pluginXbrlMethod in pluginClassMethods("TestcaseVariation.ExpectedInstance.Loaded"):
-                    pluginXbrlMethod(expectedInstance, formulaOutputInstance)
-                if len(expectedInstance.facts) != len(formulaOutputInstance.facts):
-                    formulaOutputInstance.error("{}:resultFactCounts".format(errMsgPrefix),
-                        _("Formula output %(countFacts)s facts, expected %(expectedFacts)s facts"),
-                        modelXbrl=modelXbrl, countFacts=len(formulaOutputInstance.facts),
-                        expectedFacts=len(expectedInstance.facts),
-                        messageCodes=("formula:resultFactCounts","ix:resultFactCounts"))
-                else:
-                    formulaOutputFootnotesRelSet = ModelRelationshipSet(formulaOutputInstance, "XBRL-footnotes")
-                    expectedFootnotesRelSet = ModelRelationshipSet(expectedInstance, "XBRL-footnotes")
-                    def factFootnotes(fact, footnotesRelSet):
-                        footnotes = {}
-                        footnoteRels = footnotesRelSet.fromModelObject(fact)
-                        if footnoteRels:
-                            # most process rels in same order between two instances, use labels to sort
-                            for i, footnoteRel in enumerate(sorted(footnoteRels,
-                                                                    key=lambda r: (r.fromLabel,r.toLabel))):
-                                modelObject = footnoteRel.toModelObject
-                                if isinstance(modelObject, ModelResource):
-                                    xml = collapseWhitespace(modelObject.viewText().strip())
-                                    footnotes["Footnote {}".format(i+1)] = xml #re.sub(r'\s+', ' ', collapseWhitespace(modelObject.stringValue))
-                                elif isinstance(modelObject, ModelFact):
-                                    footnotes["Footnoted fact {}".format(i+1)] = \
-                                        "{} context: {} value: {}".format(
-                                        modelObject.qname,
-                                        modelObject.contextID,
-                                        collapseWhitespace(modelObject.value))
-                        return footnotes
-                    for expectedInstanceFact in expectedInstance.facts:
-                        unmatchedFactsStack = []
-                        formulaOutputFact = formulaOutputInstance.matchFact(expectedInstanceFact, unmatchedFactsStack, deemP0inf=True, matchId=_matchExpectedResultIDs, matchLang=False)
-                        #formulaOutputFact = formulaOutputInstance.matchFact(expectedInstanceFact, unmatchedFactsStack, deemP0inf=True, matchId=True, matchLang=True)
-                        if formulaOutputFact is None:
-                            if unmatchedFactsStack: # get missing nested tuple fact, if possible
-                                missingFact = unmatchedFactsStack[-1]
-                            else:
-                                missingFact = expectedInstanceFact
-                            # is it possible to show value mismatches?
-                            expectedFacts = formulaOutputInstance.factsByQname.get(missingFact.qname)
-                            if expectedFacts and len(expectedFacts) == 1:
-                                formulaOutputInstance.error("{}:expectedFactMissing".format(errMsgPrefix),
-                                    _("Output missing expected fact %(fact)s, extracted value \"%(value1)s\", expected value  \"%(value2)s\""),
-                                    modelXbrl=missingFact, fact=missingFact.qname, value1=missingFact.xValue, value2=next(iter(expectedFacts)).xValue,
-                                    messageCodes=("formula:expectedFactMissing","ix:expectedFactMissing"))
-                            else:
-                                formulaOutputInstance.error("{}:expectedFactMissing".format(errMsgPrefix),
-                                    _("Output missing expected fact %(fact)s"),
-                                    modelXbrl=missingFact, fact=missingFact.qname,
-                                    messageCodes=("formula:expectedFactMissing","ix:expectedFactMissing"))
-                        else: # compare footnotes
-                            expectedInstanceFactFootnotes = factFootnotes(expectedInstanceFact, expectedFootnotesRelSet)
-                            formulaOutputFactFootnotes = factFootnotes(formulaOutputFact, formulaOutputFootnotesRelSet)
-                            if (len(expectedInstanceFactFootnotes) != len(formulaOutputFactFootnotes) or
-                                set(expectedInstanceFactFootnotes.values()) != set(formulaOutputFactFootnotes.values())):
-                                formulaOutputInstance.error("{}:expectedFactFootnoteDifference".format(errMsgPrefix),
-                                    _("Output expected fact %(fact)s expected footnotes %(footnotes1)s produced footnotes %(footnotes2)s"),
-                                    modelXbrl=(formulaOutputFact,expectedInstanceFact), fact=expectedInstanceFact.qname, footnotes1=sorted(expectedInstanceFactFootnotes.items()), footnotes2=sorted(formulaOutputFactFootnotes.items()),
-                                    messageCodes=("formula:expectedFactFootnoteDifference","ix:expectedFactFootnoteDifference"))
-
-                # for debugging uncomment next line to save generated instance document
-                # formulaOutputInstance.saveInstance(r"c:\temp\test-out-inst.xml")
-            expectedInstance.close()
-            del expectedInstance # dereference
-            self.determineTestStatus(modelTestcaseVariation, formulaOutputInstance.errors)
+            compareErrors = compareInstance(
+                modelManager=self.modelXbrl.modelManager,
+                originalInstance=modelXbrl,
+                targetInstance=formulaOutputInstance,
+                expectedInstanceUri=self.modelXbrl.modelManager.cntlr.webCache.normalizeUrl(
+                    modelTestcaseVariation.resultXbrlInstanceUri,
+                    baseForElement
+                ),
+                errorCaptureLevel=errorCaptureLevel,
+                matchById=not modelXbrlHasFormulae
+            )
             formulaOutputInstance.close()
-            del formulaOutputInstance
+            self.determineTestStatus(modelTestcaseVariation, compareErrors)
         if compareIxResultInstance:
             for inputDTSlist in inputDTSes.values():
                 for inputDTS in inputDTSlist:
@@ -743,23 +682,15 @@ class Validate:
         hasAssertionResult = any(isinstance(e,dict) for e in _errors)
         expected = modelTestcaseVariation.expected
         expectedCount = modelTestcaseVariation.expectedCount
-        indexPath = modelTestcaseVariation.document.filepath
-        if self.useFileSource is not None and self.useFileSource.isZip:
-            baseZipFile = self.useFileSource.basefile
-            if indexPath.startswith(baseZipFile):
-                indexPath = indexPath[len(baseZipFile) + 1:]
-            indexPath = indexPath.replace("\\", "/")
-        variationIdPath = f'{indexPath}:{modelTestcaseVariation.id}'
-        userExpectedErrors = []
-        for userPattern, userErrors in testcaseExpectedErrors.items():
-            if fnmatch.fnmatch(variationIdPath, userPattern):
-                userExpectedErrors.extend(userErrors)
+        userExpectedErrors = modelTestcaseVariation.setUserExpectedErrors(testcaseExpectedErrors, self.useFileSource).copy()
         if userExpectedErrors:
             if expected is None:
                 expected = []
-            if isinstance(expected, str):
+            elif isinstance(expected, str):
                 assert expected in {"valid", "invalid"}, f"unhandled expected value string '{expected}'"
                 expected = []
+            elif isinstance(expected, list):
+                expected = expected.copy()
             expected.extend(userExpectedErrors)
             if expectedCount is not None:
                 expectedCount += len(userExpectedErrors)
@@ -794,7 +725,9 @@ class Validate:
                 expected = [expected]
             for testErr in _errors:
                 if isinstance(testErr, str) and testErr.startswith(("ESEF.", "NL.NL-KVK")): # compared as list of strings to QName localname
-                    testErr = testErr.rpartition(".")[2]
+                    testErrSuffix = testErr.rpartition(".")[2]
+                    if not testErrSuffix.isdigit():
+                        testErr = testErrSuffix
                 for _exp in _expectedList:
                     _expMatched = False
                     if isinstance(_exp,QName) and isinstance(testErr,str):

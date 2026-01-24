@@ -1,8 +1,8 @@
 import os
 
-from pony.orm import Database, BindingError, DatabaseError, TransactionError
+from pony.orm import BindingError, Database, DatabaseError, TransactionError
 
-from y._db.config import SQLITE_PATH
+from y import ENVIRONMENT_VARIABLES as ENVS
 
 
 def bind_db(db: Database, **connection_settings) -> None:
@@ -81,4 +81,4 @@ def delete_sqlite() -> None:
     Example:
         >>> delete_sqlite()
     """
-    os.remove(SQLITE_PATH)
+    os.remove(str(ENVS.SQLITE_PATH))

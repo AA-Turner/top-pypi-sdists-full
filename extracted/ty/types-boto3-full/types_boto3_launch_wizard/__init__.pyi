@@ -3,7 +3,7 @@ Main interface for launch-wizard service.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_launch_wizard/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -13,6 +13,7 @@ Usage::
         Client,
         LaunchWizardClient,
         ListDeploymentEventsPaginator,
+        ListDeploymentPatternVersionsPaginator,
         ListDeploymentsPaginator,
         ListWorkloadDeploymentPatternsPaginator,
         ListWorkloadsPaginator,
@@ -22,6 +23,7 @@ Usage::
     client: LaunchWizardClient = session.client("launch-wizard")
 
     list_deployment_events_paginator: ListDeploymentEventsPaginator = client.get_paginator("list_deployment_events")
+    list_deployment_pattern_versions_paginator: ListDeploymentPatternVersionsPaginator = client.get_paginator("list_deployment_pattern_versions")
     list_deployments_paginator: ListDeploymentsPaginator = client.get_paginator("list_deployments")
     list_workload_deployment_patterns_paginator: ListWorkloadDeploymentPatternsPaginator = client.get_paginator("list_workload_deployment_patterns")
     list_workloads_paginator: ListWorkloadsPaginator = client.get_paginator("list_workloads")
@@ -31,6 +33,7 @@ Usage::
 from .client import LaunchWizardClient
 from .paginator import (
     ListDeploymentEventsPaginator,
+    ListDeploymentPatternVersionsPaginator,
     ListDeploymentsPaginator,
     ListWorkloadDeploymentPatternsPaginator,
     ListWorkloadsPaginator,
@@ -42,6 +45,7 @@ __all__ = (
     "Client",
     "LaunchWizardClient",
     "ListDeploymentEventsPaginator",
+    "ListDeploymentPatternVersionsPaginator",
     "ListDeploymentsPaginator",
     "ListWorkloadDeploymentPatternsPaginator",
     "ListWorkloadsPaginator",

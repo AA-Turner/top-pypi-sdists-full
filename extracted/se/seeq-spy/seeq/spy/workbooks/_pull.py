@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import logging
 from dataclasses import dataclass
 from typing import Callable, Dict, Generator, List, Optional, Set, Union
 
@@ -110,22 +111,24 @@ def pull(workbooks_df: Union[pd.DataFrame, str], *, include_referenced_workbooks
         Seeq servers at the same time or with different credentials.
 
     """
-    _common.validate_argument_types([
-        (workbooks_df, 'workbooks_df', (pd.DataFrame, str)),
-        (include_referenced_workbooks, 'include_referenced_workbooks', bool),
-        (include_inventory, 'include_inventory', bool),
-        (include_annotations, 'include_annotations', bool),
-        (include_images, 'include_images', bool),
-        (include_rendered_content, 'include_rendered_content', bool),
-        (include_access_control, 'include_access_control', bool),
-        (include_archived, 'include_archived', bool),
-        (specific_worksheet_ids, 'specific_worksheet_ids', list),
-        (as_template_with_label, 'as_template_with_label', str),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
+    function_name = 'spy.workbooks.pull'
+    Status.function_prologue(
+        session, status, function_name, [
+            (workbooks_df, 'workbooks_df', (pd.DataFrame, str)),
+            (include_referenced_workbooks, 'include_referenced_workbooks', bool),
+            (include_inventory, 'include_inventory', bool),
+            (include_annotations, 'include_annotations', bool),
+            (include_images, 'include_images', bool),
+            (include_rendered_content, 'include_rendered_content', bool),
+            (include_access_control, 'include_access_control', bool),
+            (include_archived, 'include_archived', bool),
+            (specific_worksheet_ids, 'specific_worksheet_ids', list),
+            (as_template_with_label, 'as_template_with_label', str),
+            (errors, 'errors', str),
+            (quiet, 'quiet', bool),
+            (status, 'status', Status),
+            (session, 'session', Session)
+        ])
 
     _login.validate_login(session, status)
 
@@ -183,7 +186,7 @@ def do_pull(workbooks: Union[pd.DataFrame, str], *, status: Status, session: Ses
         if required_column not in workbooks_df.columns:
             raise SPyValueError('"%s" column must be included in workbooks_df' % required_column)
 
-    supported_workbook_types = ['Topic', 'Analysis']  # the order matters, see comment below
+    supported_workbook_types = ['Topic', 'Analysis', 'Vantage']  # the order matters, see comment below
     supported_workbook_filter = (
             (workbooks_df['Type'] == 'Workbook') &
             (workbooks_df['Workbook Type'].isin(supported_workbook_types))
@@ -307,10 +310,12 @@ def do_pull(workbooks: Union[pd.DataFrame, str], *, status: Status, session: Ses
                     if len(workbook.pull_errors) > 0:
                         success_message += f', but with errors:\n{workbook.pull_errors_str}'
                         status.put('Result', success_message)
+                        status.log(f'{workbook}: {success_message}', level=logging.ERROR)
                         if status.errors == 'raise':
                             raise SPyRuntimeError(workbook.pull_errors_str)
                     else:
                         status.put('Result', success_message)
+                        status.log(f'{workbook}: {success_message}')
 
                 except ApiException as e:
                     raise SPyRuntimeError(_common.format_exception(e)) from e
@@ -321,6 +326,9 @@ def do_pull(workbooks: Union[pd.DataFrame, str], *, status: Status, session: Ses
     max_errors = status.df['Errors'].max()
     if max_errors > 0:
         status.update('Errors encountered, look at Result column in returned DataFrame', Status.FAILURE)
+        if status.log_file is not None:
+            status.log(f'Open a terminal and execute the following command to see the errors:\n'
+                       f'{status.get_grep_errors_command()}')
     else:
         status.update('Pull successful', Status.SUCCESS)
 

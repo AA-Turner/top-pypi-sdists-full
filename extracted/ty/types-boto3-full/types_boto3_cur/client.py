@@ -3,7 +3,7 @@ Type annotations for cur service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cur/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -39,12 +40,6 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -55,12 +50,12 @@ __all__ = ("CostandUsageReportServiceClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    DuplicateReportNameException: Type[BotocoreClientError]
-    InternalErrorException: Type[BotocoreClientError]
-    ReportLimitReachedException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DuplicateReportNameException: type[BotocoreClientError]
+    InternalErrorException: type[BotocoreClientError]
+    ReportLimitReachedException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class CostandUsageReportServiceClient(BaseClient):
@@ -130,7 +125,7 @@ class CostandUsageReportServiceClient(BaseClient):
 
     def modify_report_definition(
         self, **kwargs: Unpack[ModifyReportDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Allows you to programmatically update your report preferences.
 
@@ -140,7 +135,7 @@ class CostandUsageReportServiceClient(BaseClient):
 
     def put_report_definition(
         self, **kwargs: Unpack[PutReportDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a new report using the description that you provide.
 
@@ -148,7 +143,7 @@ class CostandUsageReportServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cur/client/#put_report_definition)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates a set of tags with a report definition.
 
@@ -156,7 +151,7 @@ class CostandUsageReportServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cur/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Disassociates a set of tags from a report definition.
 

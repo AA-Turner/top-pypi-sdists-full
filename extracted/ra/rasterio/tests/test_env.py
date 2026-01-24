@@ -120,7 +120,10 @@ def test_ensure_env_decorator_sets_gdal_data(gdalenv, monkeypatch):
 
 
 @mock.patch("rasterio._env.GDALDataFinder.find_file")
-def test_ensure_env_decorator_sets_gdal_data_prefix(find_file, gdalenv, monkeypatch, tmpdir):
+@mock.patch("rasterio._env.GDALDataFinder.search_wheel")
+def test_ensure_env_decorator_sets_gdal_data_prefix(
+    find_file, search_wheel, gdalenv, monkeypatch, tmpdir
+):
     """ensure_env finds GDAL data under a prefix"""
 
     @ensure_env
@@ -128,6 +131,8 @@ def test_ensure_env_decorator_sets_gdal_data_prefix(find_file, gdalenv, monkeypa
         return getenv()['GDAL_DATA']
 
     find_file.return_value = None
+    # Neutralize search_wheel because we want to find GDAL data in the prefix
+    search_wheel.return_value = None
 
     tmpdir.ensure("share/gdal/gdalvrt.xsd")
     monkeypatch.delenv('GDAL_DATA', raising=False)
@@ -633,15 +638,25 @@ def test_gdal_cachemax():
         set_gdal_config('GDAL_CACHEMAX', int(original_cachemax / 1000000))
 
 
-def test_gdalversion_class_parse():
-    v = GDALVersion.parse('1.9.0')
-    assert v.major == 1 and v.minor == 9
+@pytest.mark.parametrize("version", [
+    (1, 9, 1),
+    (1, 9),
+    '1.9.1',
+    '1.9',
+    '1.9a'
+])
+def test_gdalversion_class_parse(version):
+    v = GDALVersion.parse(version)
+    assert v.major == 1 and v.minor == 9 and v.patch == 0
 
-    v = GDALVersion.parse('1.9')
-    assert v.major == 1 and v.minor == 9
 
-    v = GDALVersion.parse('1.9a')
-    assert v.major == 1 and v.minor == 9
+@pytest.mark.parametrize("version", [
+    (1, 9, 1),
+    '1.9.1',
+])
+def test_gdalversion_class_parse__include_patch(version):
+    v = GDALVersion.parse(version, include_patch=True)
+    assert v.major == 1 and v.minor == 9 and v.patch == 1
 
 
 def test_gdalversion_class_parse_err():
@@ -654,7 +669,18 @@ def test_gdalversion_class_parse_err():
 
 def test_gdalversion_class_runtime():
     """Test the version of GDAL from this runtime"""
-    assert GDALVersion.runtime().major >= 3
+    version = GDALVersion.runtime()
+    assert version.major >= 3
+    assert version.patch == 0
+
+
+def test_gdalversion_class_runtime__patch():
+    """Test the version of GDAL from this runtime"""
+    with mock.patch("rasterio.env.gdal_version", return_value='3.12.1'):
+        version = GDALVersion.runtime(include_patch=True)
+    assert version.major == 3
+    assert version.minor == 12
+    assert version.patch == 1
 
 
 def test_gdalversion_class_cmp():
@@ -669,13 +695,16 @@ def test_gdalversion_class_cmp():
     assert GDALVersion.parse('1.9') < GDALVersion.parse('2.2.0')
     assert GDALVersion.parse('2.0.0') > GDALVersion(1, 9)
 
+def test_gdalversion_class_cmp__include_patch():
+    assert GDALVersion.parse('3.12.1', include_patch=True) > GDALVersion.parse('3.12', include_patch=True)
+
 
 def test_gdalversion_class_repr():
-    assert (GDALVersion(2, 1)).__repr__() == 'GDALVersion(major=2, minor=1)'
+    assert (GDALVersion(2, 1)).__repr__() == 'GDALVersion(major=2, minor=1, patch=0)'
 
 
 def test_gdalversion_class_str():
-    assert str(GDALVersion(2, 1)) == '2.1'
+    assert str(GDALVersion(2, 1)) == '2.1.0'
 
 
 def test_gdalversion_class_at_least():
@@ -686,6 +715,11 @@ def test_gdalversion_class_at_least():
     assert not GDALVersion(2, 1).at_least(GDALVersion(2, 2))
     assert not GDALVersion(2, 1).at_least((2, 2))
     assert not GDALVersion(2, 1).at_least('2.2')
+
+
+def test_gdalversion_class_at_least__include_patch():
+    assert not GDALVersion(3, 12).at_least("3.12.1", include_patch=True)
+    assert GDALVersion(3, 12, 1).at_least("3.12.1", include_patch=True)
 
 
 def test_gdalversion_class_at_least_invalid_type():

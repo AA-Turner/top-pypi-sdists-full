@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: magic-wormhole
-Version: 0.20.0
+Version: 0.22.0
 Summary: Securely transfer data between computers
 Home-page: https://github.com/warner/magic-wormhole
 Author: Brian Warner
@@ -24,7 +24,7 @@ Requires-Dist: spake2==0.9
 Requires-Dist: pynacl
 Requires-Dist: attrs>=19.2.0
 Requires-Dist: twisted[tls]>=17.5.0
-Requires-Dist: autobahn[twisted]>=0.14.1
+Requires-Dist: autobahn[twisted]!=25.10.1,!=25.10.2,!=25.11.1,!=25.12.1,!=25.9.1,>=0.14.1
 Requires-Dist: automat
 Requires-Dist: cryptography
 Requires-Dist: tqdm>=4.13.0
@@ -42,13 +42,14 @@ Requires-Dist: magic-wormhole-transit-relay; extra == "dev"
 Requires-Dist: magic-wormhole-mailbox-server; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest_twisted; extra == "dev"
+Requires-Dist: hypothesis; extra == "dev"
 Provides-Extra: dilate
 Requires-Dist: noiseprotocol; extra == "dilate"
 Provides-Extra: build
 Requires-Dist: twine; extra == "build"
 Requires-Dist: dulwich; extra == "build"
 Requires-Dist: readme_renderer; extra == "build"
-Requires-Dist: gpg; extra == "build"
+Requires-Dist: pysequoia; extra == "build"
 Requires-Dist: wheel; extra == "build"
 Dynamic: author
 Dynamic: author-email

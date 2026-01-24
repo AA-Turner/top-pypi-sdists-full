@@ -1,7 +1,7 @@
 r'''
 # `data_aws_lb_listener_rule`
 
-Refer to the Terraform Registry for docs: [`data_aws_lb_listener_rule`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule).
+Refer to the Terraform Registry for docs: [`data_aws_lb_listener_rule`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsLbListenerRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule aws_lb_listener_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule aws_lb_listener_rule}.'''
 
     def __init__(
         self,
@@ -57,6 +57,7 @@ class DataAwsLbListenerRule(
         listener_arn: typing.Optional[builtins.str] = None,
         priority: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
+        transform: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleTransform", typing.Dict[builtins.str, typing.Any]]]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -65,16 +66,17 @@ class DataAwsLbListenerRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule aws_lb_listener_rule} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule aws_lb_listener_rule} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#action DataAwsLbListenerRule#action}
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#arn DataAwsLbListenerRule#arn}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#condition DataAwsLbListenerRule#condition}
-        :param listener_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#listener_arn DataAwsLbListenerRule#listener_arn}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#priority DataAwsLbListenerRule#priority}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#region DataAwsLbListenerRule#region}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#action DataAwsLbListenerRule#action}
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#arn DataAwsLbListenerRule#arn}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#condition DataAwsLbListenerRule#condition}
+        :param listener_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#listener_arn DataAwsLbListenerRule#listener_arn}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#priority DataAwsLbListenerRule#priority}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#region DataAwsLbListenerRule#region}
+        :param transform: transform block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#transform DataAwsLbListenerRule#transform}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -94,6 +96,7 @@ class DataAwsLbListenerRule(
             listener_arn=listener_arn,
             priority=priority,
             region=region,
+            transform=transform,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -118,7 +121,7 @@ class DataAwsLbListenerRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsLbListenerRule to import.
-        :param import_from_id: The id of the existing DataAwsLbListenerRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsLbListenerRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsLbListenerRule to import is found.
         '''
         if __debug__:
@@ -155,6 +158,19 @@ class DataAwsLbListenerRule(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "putCondition", [value]))
 
+    @jsii.member(jsii_name="putTransform")
+    def put_transform(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleTransform", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a18041277e76a1b5d7c72361c2c0955a7c935bf7d1ea821e86bd1d5d967d3fba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putTransform", [value]))
+
     @jsii.member(jsii_name="resetAction")
     def reset_action(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAction", []))
@@ -178,6 +194,10 @@ class DataAwsLbListenerRule(
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRegion", []))
+
+    @jsii.member(jsii_name="resetTransform")
+    def reset_transform(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTransform", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -206,6 +226,11 @@ class DataAwsLbListenerRule(
     @jsii.member(jsii_name="tags")
     def tags(self) -> _cdktf_9a9027ec.StringMap:
         return typing.cast(_cdktf_9a9027ec.StringMap, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="transform")
+    def transform(self) -> "DataAwsLbListenerRuleTransformList":
+        return typing.cast("DataAwsLbListenerRuleTransformList", jsii.get(self, "transform"))
 
     @builtins.property
     @jsii.member(jsii_name="actionInput")
@@ -240,6 +265,13 @@ class DataAwsLbListenerRule(
     @jsii.member(jsii_name="regionInput")
     def region_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="transformInput")
+    def transform_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransform"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransform"]]], jsii.get(self, "transformInput"))
 
     @builtins.property
     @jsii.member(jsii_name="arn")
@@ -298,6 +330,7 @@ class DataAwsLbListenerRule(
         "authenticate_oidc": "authenticateOidc",
         "fixed_response": "fixedResponse",
         "forward": "forward",
+        "jwt_validation": "jwtValidation",
         "redirect": "redirect",
     },
 )
@@ -309,14 +342,16 @@ class DataAwsLbListenerRuleAction:
         authenticate_oidc: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleActionAuthenticateOidc", typing.Dict[builtins.str, typing.Any]]]]] = None,
         fixed_response: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleActionFixedResponse", typing.Dict[builtins.str, typing.Any]]]]] = None,
         forward: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleActionForward", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        jwt_validation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleActionJwtValidation", typing.Dict[builtins.str, typing.Any]]]]] = None,
         redirect: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleActionRedirect", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param authenticate_cognito: authenticate_cognito block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#authenticate_cognito DataAwsLbListenerRule#authenticate_cognito}
-        :param authenticate_oidc: authenticate_oidc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#authenticate_oidc DataAwsLbListenerRule#authenticate_oidc}
-        :param fixed_response: fixed_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#fixed_response DataAwsLbListenerRule#fixed_response}
-        :param forward: forward block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#forward DataAwsLbListenerRule#forward}
-        :param redirect: redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#redirect DataAwsLbListenerRule#redirect}
+        :param authenticate_cognito: authenticate_cognito block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#authenticate_cognito DataAwsLbListenerRule#authenticate_cognito}
+        :param authenticate_oidc: authenticate_oidc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#authenticate_oidc DataAwsLbListenerRule#authenticate_oidc}
+        :param fixed_response: fixed_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#fixed_response DataAwsLbListenerRule#fixed_response}
+        :param forward: forward block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#forward DataAwsLbListenerRule#forward}
+        :param jwt_validation: jwt_validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#jwt_validation DataAwsLbListenerRule#jwt_validation}
+        :param redirect: redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#redirect DataAwsLbListenerRule#redirect}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d5bd934618b504d053530320ef1192d578123115a234e28e342beb0037e73e2)
@@ -324,6 +359,7 @@ class DataAwsLbListenerRuleAction:
             check_type(argname="argument authenticate_oidc", value=authenticate_oidc, expected_type=type_hints["authenticate_oidc"])
             check_type(argname="argument fixed_response", value=fixed_response, expected_type=type_hints["fixed_response"])
             check_type(argname="argument forward", value=forward, expected_type=type_hints["forward"])
+            check_type(argname="argument jwt_validation", value=jwt_validation, expected_type=type_hints["jwt_validation"])
             check_type(argname="argument redirect", value=redirect, expected_type=type_hints["redirect"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if authenticate_cognito is not None:
@@ -334,6 +370,8 @@ class DataAwsLbListenerRuleAction:
             self._values["fixed_response"] = fixed_response
         if forward is not None:
             self._values["forward"] = forward
+        if jwt_validation is not None:
+            self._values["jwt_validation"] = jwt_validation
         if redirect is not None:
             self._values["redirect"] = redirect
 
@@ -343,7 +381,7 @@ class DataAwsLbListenerRuleAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionAuthenticateCognito"]]]:
         '''authenticate_cognito block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#authenticate_cognito DataAwsLbListenerRule#authenticate_cognito}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#authenticate_cognito DataAwsLbListenerRule#authenticate_cognito}
         '''
         result = self._values.get("authenticate_cognito")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionAuthenticateCognito"]]], result)
@@ -354,7 +392,7 @@ class DataAwsLbListenerRuleAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionAuthenticateOidc"]]]:
         '''authenticate_oidc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#authenticate_oidc DataAwsLbListenerRule#authenticate_oidc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#authenticate_oidc DataAwsLbListenerRule#authenticate_oidc}
         '''
         result = self._values.get("authenticate_oidc")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionAuthenticateOidc"]]], result)
@@ -365,7 +403,7 @@ class DataAwsLbListenerRuleAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionFixedResponse"]]]:
         '''fixed_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#fixed_response DataAwsLbListenerRule#fixed_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#fixed_response DataAwsLbListenerRule#fixed_response}
         '''
         result = self._values.get("fixed_response")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionFixedResponse"]]], result)
@@ -376,10 +414,21 @@ class DataAwsLbListenerRuleAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionForward"]]]:
         '''forward block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#forward DataAwsLbListenerRule#forward}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#forward DataAwsLbListenerRule#forward}
         '''
         result = self._values.get("forward")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionForward"]]], result)
+
+    @builtins.property
+    def jwt_validation(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionJwtValidation"]]]:
+        '''jwt_validation block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#jwt_validation DataAwsLbListenerRule#jwt_validation}
+        '''
+        result = self._values.get("jwt_validation")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionJwtValidation"]]], result)
 
     @builtins.property
     def redirect(
@@ -387,7 +436,7 @@ class DataAwsLbListenerRuleAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionRedirect"]]]:
         '''redirect block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#redirect DataAwsLbListenerRule#redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#redirect DataAwsLbListenerRule#redirect}
         '''
         result = self._values.get("redirect")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionRedirect"]]], result)
@@ -996,8 +1045,8 @@ class DataAwsLbListenerRuleActionForward:
         target_group: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleActionForwardTargetGroup", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param stickiness: stickiness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#stickiness DataAwsLbListenerRule#stickiness}
-        :param target_group: target_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#target_group DataAwsLbListenerRule#target_group}
+        :param stickiness: stickiness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#stickiness DataAwsLbListenerRule#stickiness}
+        :param target_group: target_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#target_group DataAwsLbListenerRule#target_group}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3cb72efdf76122c44ec5abcd641e330128d0d09708f962e128257e20714b48d6)
@@ -1015,7 +1064,7 @@ class DataAwsLbListenerRuleActionForward:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionForwardStickiness"]]]:
         '''stickiness block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#stickiness DataAwsLbListenerRule#stickiness}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#stickiness DataAwsLbListenerRule#stickiness}
         '''
         result = self._values.get("stickiness")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionForwardStickiness"]]], result)
@@ -1026,7 +1075,7 @@ class DataAwsLbListenerRuleActionForward:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionForwardTargetGroup"]]]:
         '''target_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#target_group DataAwsLbListenerRule#target_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#target_group DataAwsLbListenerRule#target_group}
         '''
         result = self._values.get("target_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionForwardTargetGroup"]]], result)
@@ -1574,6 +1623,401 @@ class DataAwsLbListenerRuleActionForwardTargetGroupOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleActionJwtValidation",
+    jsii_struct_bases=[],
+    name_mapping={"additional_claim": "additionalClaim"},
+)
+class DataAwsLbListenerRuleActionJwtValidation:
+    def __init__(
+        self,
+        *,
+        additional_claim: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleActionJwtValidationAdditionalClaim", typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param additional_claim: additional_claim block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#additional_claim DataAwsLbListenerRule#additional_claim}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b8ab3cab371dbe237b5bb06fcf7d665880dec6eea0c71caa7f337532143e3ec7)
+            check_type(argname="argument additional_claim", value=additional_claim, expected_type=type_hints["additional_claim"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if additional_claim is not None:
+            self._values["additional_claim"] = additional_claim
+
+    @builtins.property
+    def additional_claim(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionJwtValidationAdditionalClaim"]]]:
+        '''additional_claim block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#additional_claim DataAwsLbListenerRule#additional_claim}
+        '''
+        result = self._values.get("additional_claim")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionJwtValidationAdditionalClaim"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAwsLbListenerRuleActionJwtValidation(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleActionJwtValidationAdditionalClaim",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataAwsLbListenerRuleActionJwtValidationAdditionalClaim:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAwsLbListenerRuleActionJwtValidationAdditionalClaim(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataAwsLbListenerRuleActionJwtValidationAdditionalClaimList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleActionJwtValidationAdditionalClaimList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a03bf404b1f086973f77740783e571e853b708cf7f8594f3a29a795f29690994)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAwsLbListenerRuleActionJwtValidationAdditionalClaimOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec678020cdc745707ca00dcd230ba181dcf02b065b8c67bf2fad3ece4c455f42)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAwsLbListenerRuleActionJwtValidationAdditionalClaimOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d849649fa4f851373a16dba4ae16ad03c93f7e98ab483454cd32ba697c078a6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__939e2931e81e42823af28857ec8f7e9d267da0c829089c3a650287fa6df179be)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2bcc6622bf8945d42ed2b60ba7c12e8f0939dc83c4a354803577ce3533a0c457)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionJwtValidationAdditionalClaim]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionJwtValidationAdditionalClaim]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionJwtValidationAdditionalClaim]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__73cc51795e9e5e7b90c3a89a5717d25bcd1e4ef4b85008faa6aa104e8817fc98)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsLbListenerRuleActionJwtValidationAdditionalClaimOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleActionJwtValidationAdditionalClaimOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__354d155908e7fa0ea990c15c52f63791dbaa9abb1d2edc00cc18bc1fa2103156)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="format")
+    def format(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "format"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="values")
+    def values(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "values"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleActionJwtValidationAdditionalClaim]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleActionJwtValidationAdditionalClaim]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleActionJwtValidationAdditionalClaim]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0ccc3aa1f70711340752ebebb40bb92ea3ba077bd527596416f72b30a512dc35)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsLbListenerRuleActionJwtValidationList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleActionJwtValidationList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__29ad491a5aa3514170827b5f68b34df364a8ab50ac9e439ecd20f5823c80d727)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAwsLbListenerRuleActionJwtValidationOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__95c4d15f14af4a6a3be0d4bff20dc471ae836740dbaae0fa0adf1c37553c5941)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAwsLbListenerRuleActionJwtValidationOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__88dd194899ced7b254ef3f5531d09b8a49d508f1a632e9a0c22f382c60adbfbc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__efc6b214407fbb356100ebf2c797d362b72e31d9a4e1958b9b5b9b0533ba4c29)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3299d73971fd940bded4a7926706d459fb76be6c576744d3ac49b09b336bebd3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionJwtValidation]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionJwtValidation]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionJwtValidation]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94864cd459425b3b5249504e2bf6a252194ab6987dbd7efd59c0cccf0568a75f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsLbListenerRuleActionJwtValidationOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleActionJwtValidationOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__09bbb8313588c2013690d5c579e2c159a5bba5dc2581424e6595e3a272e1d5d7)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="putAdditionalClaim")
+    def put_additional_claim(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleActionJwtValidationAdditionalClaim, typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__616a9a6a33d33eb0b7c307ee0d5297ff2457a79646796bd79f7cd87bafbae346)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putAdditionalClaim", [value]))
+
+    @jsii.member(jsii_name="resetAdditionalClaim")
+    def reset_additional_claim(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAdditionalClaim", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="additionalClaim")
+    def additional_claim(
+        self,
+    ) -> DataAwsLbListenerRuleActionJwtValidationAdditionalClaimList:
+        return typing.cast(DataAwsLbListenerRuleActionJwtValidationAdditionalClaimList, jsii.get(self, "additionalClaim"))
+
+    @builtins.property
+    @jsii.member(jsii_name="issuer")
+    def issuer(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "issuer"))
+
+    @builtins.property
+    @jsii.member(jsii_name="jwksEndpoint")
+    def jwks_endpoint(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "jwksEndpoint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="additionalClaimInput")
+    def additional_claim_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionJwtValidationAdditionalClaim]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionJwtValidationAdditionalClaim]]], jsii.get(self, "additionalClaimInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleActionJwtValidation]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleActionJwtValidation]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleActionJwtValidation]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3240708b2ae66553cc58b156c9abeb459887900afaf21332f2e922e8a5bb96b0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 class DataAwsLbListenerRuleActionList(
     _cdktf_9a9027ec.ComplexList,
     metaclass=jsii.JSIIMeta,
@@ -1742,6 +2186,19 @@ class DataAwsLbListenerRuleActionOutputReference(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "putForward", [value]))
 
+    @jsii.member(jsii_name="putJwtValidation")
+    def put_jwt_validation(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleActionJwtValidation, typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59132fecc20dd282f7b0611409a438aa7b4c67ce4af96fb10f1520aeaf451759)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putJwtValidation", [value]))
+
     @jsii.member(jsii_name="putRedirect")
     def put_redirect(
         self,
@@ -1771,6 +2228,10 @@ class DataAwsLbListenerRuleActionOutputReference(
     def reset_forward(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetForward", []))
 
+    @jsii.member(jsii_name="resetJwtValidation")
+    def reset_jwt_validation(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetJwtValidation", []))
+
     @jsii.member(jsii_name="resetRedirect")
     def reset_redirect(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRedirect", []))
@@ -1796,6 +2257,11 @@ class DataAwsLbListenerRuleActionOutputReference(
     @jsii.member(jsii_name="forward")
     def forward(self) -> DataAwsLbListenerRuleActionForwardList:
         return typing.cast(DataAwsLbListenerRuleActionForwardList, jsii.get(self, "forward"))
+
+    @builtins.property
+    @jsii.member(jsii_name="jwtValidation")
+    def jwt_validation(self) -> DataAwsLbListenerRuleActionJwtValidationList:
+        return typing.cast(DataAwsLbListenerRuleActionJwtValidationList, jsii.get(self, "jwtValidation"))
 
     @builtins.property
     @jsii.member(jsii_name="order")
@@ -1839,6 +2305,13 @@ class DataAwsLbListenerRuleActionOutputReference(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionForward]]]:
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionForward]]], jsii.get(self, "forwardInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="jwtValidationInput")
+    def jwt_validation_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionJwtValidation]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionJwtValidation]]], jsii.get(self, "jwtValidationInput"))
 
     @builtins.property
     @jsii.member(jsii_name="redirectInput")
@@ -2077,12 +2550,12 @@ class DataAwsLbListenerRuleCondition:
         source_ip: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleConditionSourceIp", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param host_header: host_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#host_header DataAwsLbListenerRule#host_header}
-        :param http_header: http_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#http_header DataAwsLbListenerRule#http_header}
-        :param http_request_method: http_request_method block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#http_request_method DataAwsLbListenerRule#http_request_method}
-        :param path_pattern: path_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#path_pattern DataAwsLbListenerRule#path_pattern}
-        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#query_string DataAwsLbListenerRule#query_string}
-        :param source_ip: source_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#source_ip DataAwsLbListenerRule#source_ip}
+        :param host_header: host_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#host_header DataAwsLbListenerRule#host_header}
+        :param http_header: http_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#http_header DataAwsLbListenerRule#http_header}
+        :param http_request_method: http_request_method block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#http_request_method DataAwsLbListenerRule#http_request_method}
+        :param path_pattern: path_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#path_pattern DataAwsLbListenerRule#path_pattern}
+        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#query_string DataAwsLbListenerRule#query_string}
+        :param source_ip: source_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#source_ip DataAwsLbListenerRule#source_ip}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb4e7981d96ff977cc8e09b31c9f28d623a31aa373bcc3b51f7bbe697f6fbcf5)
@@ -2112,7 +2585,7 @@ class DataAwsLbListenerRuleCondition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionHostHeader"]]]:
         '''host_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#host_header DataAwsLbListenerRule#host_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#host_header DataAwsLbListenerRule#host_header}
         '''
         result = self._values.get("host_header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionHostHeader"]]], result)
@@ -2123,7 +2596,7 @@ class DataAwsLbListenerRuleCondition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionHttpHeader"]]]:
         '''http_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#http_header DataAwsLbListenerRule#http_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#http_header DataAwsLbListenerRule#http_header}
         '''
         result = self._values.get("http_header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionHttpHeader"]]], result)
@@ -2134,7 +2607,7 @@ class DataAwsLbListenerRuleCondition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionHttpRequestMethod"]]]:
         '''http_request_method block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#http_request_method DataAwsLbListenerRule#http_request_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#http_request_method DataAwsLbListenerRule#http_request_method}
         '''
         result = self._values.get("http_request_method")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionHttpRequestMethod"]]], result)
@@ -2145,7 +2618,7 @@ class DataAwsLbListenerRuleCondition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionPathPattern"]]]:
         '''path_pattern block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#path_pattern DataAwsLbListenerRule#path_pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#path_pattern DataAwsLbListenerRule#path_pattern}
         '''
         result = self._values.get("path_pattern")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionPathPattern"]]], result)
@@ -2156,7 +2629,7 @@ class DataAwsLbListenerRuleCondition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionQueryString"]]]:
         '''query_string block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#query_string DataAwsLbListenerRule#query_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#query_string DataAwsLbListenerRule#query_string}
         '''
         result = self._values.get("query_string")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionQueryString"]]], result)
@@ -2167,7 +2640,7 @@ class DataAwsLbListenerRuleCondition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionSourceIp"]]]:
         '''source_ip block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#source_ip DataAwsLbListenerRule#source_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#source_ip DataAwsLbListenerRule#source_ip}
         '''
         result = self._values.get("source_ip")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionSourceIp"]]], result)
@@ -2323,6 +2796,11 @@ class DataAwsLbListenerRuleConditionHostHeaderOutputReference(
             check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
             check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="regexValues")
+    def regex_values(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "regexValues"))
 
     @builtins.property
     @jsii.member(jsii_name="values")
@@ -2491,6 +2969,11 @@ class DataAwsLbListenerRuleConditionHttpHeaderOutputReference(
     @jsii.member(jsii_name="httpHeaderName")
     def http_header_name(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "httpHeaderName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regexValues")
+    def regex_values(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "regexValues"))
 
     @builtins.property
     @jsii.member(jsii_name="values")
@@ -3132,6 +3615,11 @@ class DataAwsLbListenerRuleConditionPathPatternOutputReference(
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
     @builtins.property
+    @jsii.member(jsii_name="regexValues")
+    def regex_values(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "regexValues"))
+
+    @builtins.property
     @jsii.member(jsii_name="values")
     def values(self) -> typing.List[builtins.str]:
         return typing.cast(typing.List[builtins.str], jsii.get(self, "values"))
@@ -3166,7 +3654,7 @@ class DataAwsLbListenerRuleConditionQueryString:
         values: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleConditionQueryStringValues", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#values DataAwsLbListenerRule#values}
+        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#values DataAwsLbListenerRule#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77653c92d30f7b4a120964ceb0772018237cf316057183b239075abd38d4ba65)
@@ -3181,7 +3669,7 @@ class DataAwsLbListenerRuleConditionQueryString:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionQueryStringValues"]]]:
         '''values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#values DataAwsLbListenerRule#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#values DataAwsLbListenerRule#values}
         '''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionQueryStringValues"]]], result)
@@ -3712,6 +4200,7 @@ class DataAwsLbListenerRuleConditionSourceIpOutputReference(
         "listener_arn": "listenerArn",
         "priority": "priority",
         "region": "region",
+        "transform": "transform",
     },
 )
 class DataAwsLbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -3731,6 +4220,7 @@ class DataAwsLbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         listener_arn: typing.Optional[builtins.str] = None,
         priority: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
+        transform: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleTransform", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
         :param connection: 
@@ -3740,12 +4230,13 @@ class DataAwsLbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#action DataAwsLbListenerRule#action}
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#arn DataAwsLbListenerRule#arn}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#condition DataAwsLbListenerRule#condition}
-        :param listener_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#listener_arn DataAwsLbListenerRule#listener_arn}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#priority DataAwsLbListenerRule#priority}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#region DataAwsLbListenerRule#region}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#action DataAwsLbListenerRule#action}
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#arn DataAwsLbListenerRule#arn}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#condition DataAwsLbListenerRule#condition}
+        :param listener_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#listener_arn DataAwsLbListenerRule#listener_arn}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#priority DataAwsLbListenerRule#priority}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#region DataAwsLbListenerRule#region}
+        :param transform: transform block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#transform DataAwsLbListenerRule#transform}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -3764,6 +4255,7 @@ class DataAwsLbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument listener_arn", value=listener_arn, expected_type=type_hints["listener_arn"])
             check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            check_type(argname="argument transform", value=transform, expected_type=type_hints["transform"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection is not None:
             self._values["connection"] = connection
@@ -3791,6 +4283,8 @@ class DataAwsLbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["priority"] = priority
         if region is not None:
             self._values["region"] = region
+        if transform is not None:
+            self._values["transform"] = transform
 
     @builtins.property
     def connection(
@@ -3862,14 +4356,14 @@ class DataAwsLbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleAction]]]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#action DataAwsLbListenerRule#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#action DataAwsLbListenerRule#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleAction]]], result)
 
     @builtins.property
     def arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#arn DataAwsLbListenerRule#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#arn DataAwsLbListenerRule#arn}.'''
         result = self._values.get("arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3879,20 +4373,20 @@ class DataAwsLbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleCondition]]]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#condition DataAwsLbListenerRule#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#condition DataAwsLbListenerRule#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleCondition]]], result)
 
     @builtins.property
     def listener_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#listener_arn DataAwsLbListenerRule#listener_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#listener_arn DataAwsLbListenerRule#listener_arn}.'''
         result = self._values.get("listener_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#priority DataAwsLbListenerRule#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#priority DataAwsLbListenerRule#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3900,10 +4394,21 @@ class DataAwsLbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lb_listener_rule#region DataAwsLbListenerRule#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#region DataAwsLbListenerRule#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def transform(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransform"]]]:
+        '''transform block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#transform DataAwsLbListenerRule#transform}
+        '''
+        result = self._values.get("transform")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransform"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3915,6 +4420,1031 @@ class DataAwsLbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return "DataAwsLbListenerRuleConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransform",
+    jsii_struct_bases=[],
+    name_mapping={
+        "host_header_rewrite_config": "hostHeaderRewriteConfig",
+        "url_rewrite_config": "urlRewriteConfig",
+    },
+)
+class DataAwsLbListenerRuleTransform:
+    def __init__(
+        self,
+        *,
+        host_header_rewrite_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleTransformHostHeaderRewriteConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        url_rewrite_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleTransformUrlRewriteConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param host_header_rewrite_config: host_header_rewrite_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#host_header_rewrite_config DataAwsLbListenerRule#host_header_rewrite_config}
+        :param url_rewrite_config: url_rewrite_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#url_rewrite_config DataAwsLbListenerRule#url_rewrite_config}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97cd359d81f1f0c2e2f6ecbee02fb707459a58ded4d0b1857ef51f094675fbb9)
+            check_type(argname="argument host_header_rewrite_config", value=host_header_rewrite_config, expected_type=type_hints["host_header_rewrite_config"])
+            check_type(argname="argument url_rewrite_config", value=url_rewrite_config, expected_type=type_hints["url_rewrite_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if host_header_rewrite_config is not None:
+            self._values["host_header_rewrite_config"] = host_header_rewrite_config
+        if url_rewrite_config is not None:
+            self._values["url_rewrite_config"] = url_rewrite_config
+
+    @builtins.property
+    def host_header_rewrite_config(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformHostHeaderRewriteConfig"]]]:
+        '''host_header_rewrite_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#host_header_rewrite_config DataAwsLbListenerRule#host_header_rewrite_config}
+        '''
+        result = self._values.get("host_header_rewrite_config")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformHostHeaderRewriteConfig"]]], result)
+
+    @builtins.property
+    def url_rewrite_config(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformUrlRewriteConfig"]]]:
+        '''url_rewrite_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#url_rewrite_config DataAwsLbListenerRule#url_rewrite_config}
+        '''
+        result = self._values.get("url_rewrite_config")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformUrlRewriteConfig"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAwsLbListenerRuleTransform(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformHostHeaderRewriteConfig",
+    jsii_struct_bases=[],
+    name_mapping={"rewrite": "rewrite"},
+)
+class DataAwsLbListenerRuleTransformHostHeaderRewriteConfig:
+    def __init__(
+        self,
+        *,
+        rewrite: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite", typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#rewrite DataAwsLbListenerRule#rewrite}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__28d2892a42ebe7105595504327555c093c03fe359ed096bb862c2473e4bfdb2f)
+            check_type(argname="argument rewrite", value=rewrite, expected_type=type_hints["rewrite"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if rewrite is not None:
+            self._values["rewrite"] = rewrite
+
+    @builtins.property
+    def rewrite(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite"]]]:
+        '''rewrite block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#rewrite DataAwsLbListenerRule#rewrite}
+        '''
+        result = self._values.get("rewrite")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAwsLbListenerRuleTransformHostHeaderRewriteConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataAwsLbListenerRuleTransformHostHeaderRewriteConfigList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformHostHeaderRewriteConfigList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1929073328890737f30a459af79d52b67acad6b068c04da6c87ecd0972688f99)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAwsLbListenerRuleTransformHostHeaderRewriteConfigOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3df4105f11718acd86e54fb7e011dda968e825e62fcf57e7d8ed5431cc9dbcc7)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAwsLbListenerRuleTransformHostHeaderRewriteConfigOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a2dbd00164af1519ab520b51d3a176e5d6c9741eba6110a01535dc9558b742e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__caf8d59dbf61ec32e2963d6556891bc4f31bcb35fed1531a5bf5f9fdc1aaa598)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d34f9738445677600e3442c2f044de2d6e8d50c2ff580df3dbe7fdca73b94fd3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformHostHeaderRewriteConfig]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformHostHeaderRewriteConfig]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformHostHeaderRewriteConfig]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__837fbf69efd487273b5dce22dd528f6a526ce070be77775c25a46decfe7961f7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsLbListenerRuleTransformHostHeaderRewriteConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformHostHeaderRewriteConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd1e988ed78064d9410635193fd67eb6a84166251f9099d0da48d586884d2009)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="putRewrite")
+    def put_rewrite(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__591c72eae254004473906c7bb894c408125aef4bb98ab1a493a3ed4e555f4975)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putRewrite", [value]))
+
+    @jsii.member(jsii_name="resetRewrite")
+    def reset_rewrite(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRewrite", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="rewrite")
+    def rewrite(
+        self,
+    ) -> "DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewriteList":
+        return typing.cast("DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewriteList", jsii.get(self, "rewrite"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rewriteInput")
+    def rewrite_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite"]]], jsii.get(self, "rewriteInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformHostHeaderRewriteConfig]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformHostHeaderRewriteConfig]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformHostHeaderRewriteConfig]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b3eb775d4acf81d67baf4bf6664329f62bb7220484802db0102d377e3571f55)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewriteList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewriteList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__857bc068775bb069e9c0f0eaa3b732182aca30906c7f86cbd561695a269fc8ed)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewriteOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__df48d419ae21835fbbd95240f2a66035fc1a97effc102e088aafa513d0a0ca42)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewriteOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__74ab25ad04b6ed011f597bd2235161cc55e3cd02db1c723d545d5abe4a87cf45)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65b6b8c5e788fd76428d1acb5825d865f74dd13cdfe451c5682398174f4a42fe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ab193c98128835a6d47bc432ae3e93c5c7eaf4fcfe96ac9d8dc696ea28d897ea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9bf8f42756bb311d7d7900575f19a854b3fa6761c957db8764c06d1e6a041960)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewriteOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewriteOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__675a0135925ed88038758fd25f33e04fe9514b49f0d82e9b73763dfe6fbf005e)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="regex")
+    def regex(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "regex"))
+
+    @builtins.property
+    @jsii.member(jsii_name="replace")
+    def replace(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "replace"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__33a8fa48d6153716a58ae7b522d5410fba09927d9fee23ad9932e56039993c86)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsLbListenerRuleTransformList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06ab6331276d3107fbd29512490bf6bb54bd5be61375aed0ef9c0da707974bb9)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAwsLbListenerRuleTransformOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__efabf4cd390a4e1c0bcae5c6d8a42db26eedd69272e26a37995c418c10c1da90)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAwsLbListenerRuleTransformOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c09bb8b439b5e590262f4d81e5af960df92634efd4885aa125345efa06a0ce11)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b256678472c6a75b51be239c5c85dd04a17627cff9502b247477ada4e8bc9a5d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a0f7a9d9666ad9a32ac30452a9f6adb163962dc53271529d51e578f8f4818547)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransform]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransform]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransform]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f588e7e195b7e1d5cbae03d829787a955b5f8bb13147dc42eb8959dc2c1a740b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsLbListenerRuleTransformOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bb89451ea7be4654486d453298a168084ba21183b32b58e3b9b30b4260cdc377)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="putHostHeaderRewriteConfig")
+    def put_host_header_rewrite_config(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleTransformHostHeaderRewriteConfig, typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3e6f3e43497ad1222743bbfc141665d543f57665856e5d938cf42d3a2d37dfae)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putHostHeaderRewriteConfig", [value]))
+
+    @jsii.member(jsii_name="putUrlRewriteConfig")
+    def put_url_rewrite_config(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleTransformUrlRewriteConfig", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7502c75bbe7c602db09fee966fb63efc1dbe560ba10f84143bdf05016385925c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putUrlRewriteConfig", [value]))
+
+    @jsii.member(jsii_name="resetHostHeaderRewriteConfig")
+    def reset_host_header_rewrite_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetHostHeaderRewriteConfig", []))
+
+    @jsii.member(jsii_name="resetUrlRewriteConfig")
+    def reset_url_rewrite_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetUrlRewriteConfig", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="hostHeaderRewriteConfig")
+    def host_header_rewrite_config(
+        self,
+    ) -> DataAwsLbListenerRuleTransformHostHeaderRewriteConfigList:
+        return typing.cast(DataAwsLbListenerRuleTransformHostHeaderRewriteConfigList, jsii.get(self, "hostHeaderRewriteConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @builtins.property
+    @jsii.member(jsii_name="urlRewriteConfig")
+    def url_rewrite_config(
+        self,
+    ) -> "DataAwsLbListenerRuleTransformUrlRewriteConfigList":
+        return typing.cast("DataAwsLbListenerRuleTransformUrlRewriteConfigList", jsii.get(self, "urlRewriteConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hostHeaderRewriteConfigInput")
+    def host_header_rewrite_config_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformHostHeaderRewriteConfig]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformHostHeaderRewriteConfig]]], jsii.get(self, "hostHeaderRewriteConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="urlRewriteConfigInput")
+    def url_rewrite_config_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformUrlRewriteConfig"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformUrlRewriteConfig"]]], jsii.get(self, "urlRewriteConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransform]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransform]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransform]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d2c23c0ad549ab31f7a58e0519b1e1414bf3fc09c84a835e9e1a5321ec750911)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformUrlRewriteConfig",
+    jsii_struct_bases=[],
+    name_mapping={"rewrite": "rewrite"},
+)
+class DataAwsLbListenerRuleTransformUrlRewriteConfig:
+    def __init__(
+        self,
+        *,
+        rewrite: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite", typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#rewrite DataAwsLbListenerRule#rewrite}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ddf6d085a553d8ed5eefab3fa3f1fbd32296f8ed7c14496ea67d71a50c4ab490)
+            check_type(argname="argument rewrite", value=rewrite, expected_type=type_hints["rewrite"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if rewrite is not None:
+            self._values["rewrite"] = rewrite
+
+    @builtins.property
+    def rewrite(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite"]]]:
+        '''rewrite block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lb_listener_rule#rewrite DataAwsLbListenerRule#rewrite}
+        '''
+        result = self._values.get("rewrite")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAwsLbListenerRuleTransformUrlRewriteConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataAwsLbListenerRuleTransformUrlRewriteConfigList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformUrlRewriteConfigList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd9648298ca5637ec95e112f133cb8d9b7918a6bc7bdab9c2ec724b83b0ad2a2)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAwsLbListenerRuleTransformUrlRewriteConfigOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b92677be9a2eac48c809da524a33a9dfcac543dce459a49229411689e037a505)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAwsLbListenerRuleTransformUrlRewriteConfigOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9152b3d54108d0b548a0daf5789fd18ed235590a696ae7096d7c36d0559df94e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6854009cb1b460d0023e7b0fc0582c8476f433d509cdc04ea749c20b3c364de7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__315a719c7cec32e799b35196e08b9dc0cd1f0b7d836b55eaef5bc5b9048e5bbd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformUrlRewriteConfig]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformUrlRewriteConfig]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformUrlRewriteConfig]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19e4d1d8e6ea17dd0ca3c17b764ebd6650ae442660dc9f1bcdd8a7f26617385b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsLbListenerRuleTransformUrlRewriteConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformUrlRewriteConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f8fea054568a54950a7e7f3a390aca752d407c098a4d56a9208cd2f7bfccfbc2)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="putRewrite")
+    def put_rewrite(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b335f306fe4aaf2e8f19b1379fc940014cbd94e08e26318b683108631fe591c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putRewrite", [value]))
+
+    @jsii.member(jsii_name="resetRewrite")
+    def reset_rewrite(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRewrite", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="rewrite")
+    def rewrite(self) -> "DataAwsLbListenerRuleTransformUrlRewriteConfigRewriteList":
+        return typing.cast("DataAwsLbListenerRuleTransformUrlRewriteConfigRewriteList", jsii.get(self, "rewrite"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rewriteInput")
+    def rewrite_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite"]]], jsii.get(self, "rewriteInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformUrlRewriteConfig]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformUrlRewriteConfig]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformUrlRewriteConfig]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__062ee8db252df08c889a5255c56358cbadcd3ca937605b1e44e8b6a55c946644)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataAwsLbListenerRuleTransformUrlRewriteConfigRewriteList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformUrlRewriteConfigRewriteList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7a31fc8eec45882a778cb830e18522e8d9834af6c06b97dde677ba6e94067b43)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAwsLbListenerRuleTransformUrlRewriteConfigRewriteOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4040785fb5b7c30f0322e0ffea6bd3660c4794acec48c7dae5364cea1fd9595)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAwsLbListenerRuleTransformUrlRewriteConfigRewriteOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e2f8da7caf00d844004e37cf6e32034104f8ab2f664008f9d64d076bb7b08397)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d7849474cb50f3eb7553364bc47b914955560f7979136361d110e1d332a8c40)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6bde96721c3f24fd565d569e010e141bb1ba18da7f0fc1ec802dce6d35078dea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e1707e4df4e2f3551f11edd75ecac4fe22f0aa93c1ac3e63e98d54f11c08851)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsLbListenerRuleTransformUrlRewriteConfigRewriteOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRuleTransformUrlRewriteConfigRewriteOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f477fb2d97909945483e1a1dc777fd99493d51c0efed503767d0ef7d200c4024)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="regex")
+    def regex(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "regex"))
+
+    @builtins.property
+    @jsii.member(jsii_name="replace")
+    def replace(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "replace"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a29f4e76a9027fc9bf68dce889dcabcf62b0ecf81b02ee2cbee386e4d5d66aa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 __all__ = [
@@ -3938,6 +5468,12 @@ __all__ = [
     "DataAwsLbListenerRuleActionForwardTargetGroup",
     "DataAwsLbListenerRuleActionForwardTargetGroupList",
     "DataAwsLbListenerRuleActionForwardTargetGroupOutputReference",
+    "DataAwsLbListenerRuleActionJwtValidation",
+    "DataAwsLbListenerRuleActionJwtValidationAdditionalClaim",
+    "DataAwsLbListenerRuleActionJwtValidationAdditionalClaimList",
+    "DataAwsLbListenerRuleActionJwtValidationAdditionalClaimOutputReference",
+    "DataAwsLbListenerRuleActionJwtValidationList",
+    "DataAwsLbListenerRuleActionJwtValidationOutputReference",
     "DataAwsLbListenerRuleActionList",
     "DataAwsLbListenerRuleActionOutputReference",
     "DataAwsLbListenerRuleActionRedirect",
@@ -3968,6 +5504,21 @@ __all__ = [
     "DataAwsLbListenerRuleConditionSourceIpList",
     "DataAwsLbListenerRuleConditionSourceIpOutputReference",
     "DataAwsLbListenerRuleConfig",
+    "DataAwsLbListenerRuleTransform",
+    "DataAwsLbListenerRuleTransformHostHeaderRewriteConfig",
+    "DataAwsLbListenerRuleTransformHostHeaderRewriteConfigList",
+    "DataAwsLbListenerRuleTransformHostHeaderRewriteConfigOutputReference",
+    "DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite",
+    "DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewriteList",
+    "DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewriteOutputReference",
+    "DataAwsLbListenerRuleTransformList",
+    "DataAwsLbListenerRuleTransformOutputReference",
+    "DataAwsLbListenerRuleTransformUrlRewriteConfig",
+    "DataAwsLbListenerRuleTransformUrlRewriteConfigList",
+    "DataAwsLbListenerRuleTransformUrlRewriteConfigOutputReference",
+    "DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite",
+    "DataAwsLbListenerRuleTransformUrlRewriteConfigRewriteList",
+    "DataAwsLbListenerRuleTransformUrlRewriteConfigRewriteOutputReference",
 ]
 
 publication.publish()
@@ -3982,6 +5533,7 @@ def _typecheckingstub__b1ea7c3c50edfa1978ba082879eb09bfde3f7f4f25aab810d9c224297
     listener_arn: typing.Optional[builtins.str] = None,
     priority: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,
+    transform: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleTransform, typing.Dict[builtins.str, typing.Any]]]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -4010,6 +5562,12 @@ def _typecheckingstub__1620a72befdc35fad2d0647df417ec04ddc4f1ece6a01f42c1f2fd6bc
 
 def _typecheckingstub__72fa21c5bcf03eb80ac6e72c0ac66800326c113b5dc20b4a6e19b69a8a9853f9(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleCondition, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a18041277e76a1b5d7c72361c2c0955a7c935bf7d1ea821e86bd1d5d967d3fba(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleTransform, typing.Dict[builtins.str, typing.Any]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4044,6 +5602,7 @@ def _typecheckingstub__0d5bd934618b504d053530320ef1192d578123115a234e28e342beb00
     authenticate_oidc: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleActionAuthenticateOidc, typing.Dict[builtins.str, typing.Any]]]]] = None,
     fixed_response: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleActionFixedResponse, typing.Dict[builtins.str, typing.Any]]]]] = None,
     forward: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleActionForward, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    jwt_validation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleActionJwtValidation, typing.Dict[builtins.str, typing.Any]]]]] = None,
     redirect: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleActionRedirect, typing.Dict[builtins.str, typing.Any]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4387,6 +5946,125 @@ def _typecheckingstub__7497915e3ca66f422089ca7674ccf9f624a8a528a9690eb4b7f66f610
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b8ab3cab371dbe237b5bb06fcf7d665880dec6eea0c71caa7f337532143e3ec7(
+    *,
+    additional_claim: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleActionJwtValidationAdditionalClaim, typing.Dict[builtins.str, typing.Any]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a03bf404b1f086973f77740783e571e853b708cf7f8594f3a29a795f29690994(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec678020cdc745707ca00dcd230ba181dcf02b065b8c67bf2fad3ece4c455f42(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d849649fa4f851373a16dba4ae16ad03c93f7e98ab483454cd32ba697c078a6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__939e2931e81e42823af28857ec8f7e9d267da0c829089c3a650287fa6df179be(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2bcc6622bf8945d42ed2b60ba7c12e8f0939dc83c4a354803577ce3533a0c457(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73cc51795e9e5e7b90c3a89a5717d25bcd1e4ef4b85008faa6aa104e8817fc98(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionJwtValidationAdditionalClaim]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__354d155908e7fa0ea990c15c52f63791dbaa9abb1d2edc00cc18bc1fa2103156(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ccc3aa1f70711340752ebebb40bb92ea3ba077bd527596416f72b30a512dc35(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleActionJwtValidationAdditionalClaim]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__29ad491a5aa3514170827b5f68b34df364a8ab50ac9e439ecd20f5823c80d727(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95c4d15f14af4a6a3be0d4bff20dc471ae836740dbaae0fa0adf1c37553c5941(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88dd194899ced7b254ef3f5531d09b8a49d508f1a632e9a0c22f382c60adbfbc(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__efc6b214407fbb356100ebf2c797d362b72e31d9a4e1958b9b5b9b0533ba4c29(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3299d73971fd940bded4a7926706d459fb76be6c576744d3ac49b09b336bebd3(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94864cd459425b3b5249504e2bf6a252194ab6987dbd7efd59c0cccf0568a75f(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleActionJwtValidation]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09bbb8313588c2013690d5c579e2c159a5bba5dc2581424e6595e3a272e1d5d7(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__616a9a6a33d33eb0b7c307ee0d5297ff2457a79646796bd79f7cd87bafbae346(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleActionJwtValidationAdditionalClaim, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3240708b2ae66553cc58b156c9abeb459887900afaf21332f2e922e8a5bb96b0(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleActionJwtValidation]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8af30cf3a235a0775f15dffaf999485169514c5c39d60465f6df15f10a152f19(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -4454,6 +6132,12 @@ def _typecheckingstub__dfd88e8a494f106c48ab222e03d1106fa0f42a488d6a03aca7896ebbd
 
 def _typecheckingstub__d4c7871d3ff77e8c0cae69dbfefc1d5f826010f4d0d562bc23d0e50e2d767167(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleActionForward, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59132fecc20dd282f7b0611409a438aa7b4c67ce4af96fb10f1520aeaf451759(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleActionJwtValidation, typing.Dict[builtins.str, typing.Any]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5023,6 +6707,318 @@ def _typecheckingstub__e3188202d6fad3ac49fc047674fb7f24a68e0fb3cc614416bef957d3c
     listener_arn: typing.Optional[builtins.str] = None,
     priority: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,
+    transform: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleTransform, typing.Dict[builtins.str, typing.Any]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97cd359d81f1f0c2e2f6ecbee02fb707459a58ded4d0b1857ef51f094675fbb9(
+    *,
+    host_header_rewrite_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleTransformHostHeaderRewriteConfig, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    url_rewrite_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleTransformUrlRewriteConfig, typing.Dict[builtins.str, typing.Any]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__28d2892a42ebe7105595504327555c093c03fe359ed096bb862c2473e4bfdb2f(
+    *,
+    rewrite: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite, typing.Dict[builtins.str, typing.Any]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1929073328890737f30a459af79d52b67acad6b068c04da6c87ecd0972688f99(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3df4105f11718acd86e54fb7e011dda968e825e62fcf57e7d8ed5431cc9dbcc7(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a2dbd00164af1519ab520b51d3a176e5d6c9741eba6110a01535dc9558b742e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__caf8d59dbf61ec32e2963d6556891bc4f31bcb35fed1531a5bf5f9fdc1aaa598(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d34f9738445677600e3442c2f044de2d6e8d50c2ff580df3dbe7fdca73b94fd3(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__837fbf69efd487273b5dce22dd528f6a526ce070be77775c25a46decfe7961f7(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformHostHeaderRewriteConfig]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd1e988ed78064d9410635193fd67eb6a84166251f9099d0da48d586884d2009(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__591c72eae254004473906c7bb894c408125aef4bb98ab1a493a3ed4e555f4975(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b3eb775d4acf81d67baf4bf6664329f62bb7220484802db0102d377e3571f55(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformHostHeaderRewriteConfig]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__857bc068775bb069e9c0f0eaa3b732182aca30906c7f86cbd561695a269fc8ed(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df48d419ae21835fbbd95240f2a66035fc1a97effc102e088aafa513d0a0ca42(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74ab25ad04b6ed011f597bd2235161cc55e3cd02db1c723d545d5abe4a87cf45(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65b6b8c5e788fd76428d1acb5825d865f74dd13cdfe451c5682398174f4a42fe(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab193c98128835a6d47bc432ae3e93c5c7eaf4fcfe96ac9d8dc696ea28d897ea(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bf8f42756bb311d7d7900575f19a854b3fa6761c957db8764c06d1e6a041960(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__675a0135925ed88038758fd25f33e04fe9514b49f0d82e9b73763dfe6fbf005e(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__33a8fa48d6153716a58ae7b522d5410fba09927d9fee23ad9932e56039993c86(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformHostHeaderRewriteConfigRewrite]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06ab6331276d3107fbd29512490bf6bb54bd5be61375aed0ef9c0da707974bb9(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__efabf4cd390a4e1c0bcae5c6d8a42db26eedd69272e26a37995c418c10c1da90(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c09bb8b439b5e590262f4d81e5af960df92634efd4885aa125345efa06a0ce11(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b256678472c6a75b51be239c5c85dd04a17627cff9502b247477ada4e8bc9a5d(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0f7a9d9666ad9a32ac30452a9f6adb163962dc53271529d51e578f8f4818547(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f588e7e195b7e1d5cbae03d829787a955b5f8bb13147dc42eb8959dc2c1a740b(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransform]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb89451ea7be4654486d453298a168084ba21183b32b58e3b9b30b4260cdc377(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e6f3e43497ad1222743bbfc141665d543f57665856e5d938cf42d3a2d37dfae(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleTransformHostHeaderRewriteConfig, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7502c75bbe7c602db09fee966fb63efc1dbe560ba10f84143bdf05016385925c(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleTransformUrlRewriteConfig, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2c23c0ad549ab31f7a58e0519b1e1414bf3fc09c84a835e9e1a5321ec750911(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransform]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ddf6d085a553d8ed5eefab3fa3f1fbd32296f8ed7c14496ea67d71a50c4ab490(
+    *,
+    rewrite: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite, typing.Dict[builtins.str, typing.Any]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd9648298ca5637ec95e112f133cb8d9b7918a6bc7bdab9c2ec724b83b0ad2a2(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b92677be9a2eac48c809da524a33a9dfcac543dce459a49229411689e037a505(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9152b3d54108d0b548a0daf5789fd18ed235590a696ae7096d7c36d0559df94e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6854009cb1b460d0023e7b0fc0582c8476f433d509cdc04ea749c20b3c364de7(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__315a719c7cec32e799b35196e08b9dc0cd1f0b7d836b55eaef5bc5b9048e5bbd(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19e4d1d8e6ea17dd0ca3c17b764ebd6650ae442660dc9f1bcdd8a7f26617385b(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformUrlRewriteConfig]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8fea054568a54950a7e7f3a390aca752d407c098a4d56a9208cd2f7bfccfbc2(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b335f306fe4aaf2e8f19b1379fc940014cbd94e08e26318b683108631fe591c(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__062ee8db252df08c889a5255c56358cbadcd3ca937605b1e44e8b6a55c946644(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformUrlRewriteConfig]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a31fc8eec45882a778cb830e18522e8d9834af6c06b97dde677ba6e94067b43(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4040785fb5b7c30f0322e0ffea6bd3660c4794acec48c7dae5364cea1fd9595(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2f8da7caf00d844004e37cf6e32034104f8ab2f664008f9d64d076bb7b08397(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d7849474cb50f3eb7553364bc47b914955560f7979136361d110e1d332a8c40(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6bde96721c3f24fd565d569e010e141bb1ba18da7f0fc1ec802dce6d35078dea(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e1707e4df4e2f3551f11edd75ecac4fe22f0aa93c1ac3e63e98d54f11c08851(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f477fb2d97909945483e1a1dc777fd99493d51c0efed503767d0ef7d200c4024(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a29f4e76a9027fc9bf68dce889dcabcf62b0ecf81b02ee2cbee386e4d5d66aa(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsLbListenerRuleTransformUrlRewriteConfigRewrite]],
 ) -> None:
     """Type checking stubs"""
     pass

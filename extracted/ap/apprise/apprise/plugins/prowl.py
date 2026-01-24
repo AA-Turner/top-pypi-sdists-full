@@ -92,7 +92,7 @@ class NotifyProwl(NotifyBase):
     secure_protocol = "prowl"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_prowl"
+    setup_url = "https://appriseit.com/services/prowl/"
 
     # Prowl uses the http protocol with JSON requests
     notify_url = "https://api.prowlapp.com/publicapi/add"
@@ -241,7 +241,8 @@ class NotifyProwl(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Return; we're done
                 return False

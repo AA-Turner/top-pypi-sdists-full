@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tox
-Version: 4.30.2
+Version: 4.34.1
 Summary: tox is a generic virtualenv management and test command line tool
 Project-URL: Documentation, https://tox.wiki
 Project-URL: Homepage, http://tox.readthedocs.org
@@ -20,7 +20,6 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -29,18 +28,18 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
-Requires-Dist: cachetools>=6.1
+Requires-Python: >=3.10
+Requires-Dist: cachetools>=6.2.4
 Requires-Dist: chardet>=5.2
 Requires-Dist: colorama>=0.4.6
-Requires-Dist: filelock>=3.18
+Requires-Dist: filelock>=3.20.2
 Requires-Dist: packaging>=25
-Requires-Dist: platformdirs>=4.3.8
+Requires-Dist: platformdirs>=4.5.1
 Requires-Dist: pluggy>=1.6
-Requires-Dist: pyproject-api>=1.9.1
-Requires-Dist: tomli>=2.2.1; python_version < '3.11'
-Requires-Dist: typing-extensions>=4.14.1; python_version < '3.11'
-Requires-Dist: virtualenv>=20.31.2
+Requires-Dist: pyproject-api>=1.10
+Requires-Dist: tomli>=2.3; python_version < '3.11'
+Requires-Dist: typing-extensions>=4.15; python_version < '3.11'
+Requires-Dist: virtualenv>=20.35.4
 Description-Content-Type: text/markdown
 
 # tox

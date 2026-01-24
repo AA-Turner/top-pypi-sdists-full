@@ -114,8 +114,19 @@ class Chat(Object):
         last_name (``str``, *optional*):
             Last name of the other party in a private chat, for private chats.
 
+        personal_photo (:obj:`~pyrogram.types.ChatPhoto`, *optional*):
+            Chat profile photo set by the current user for the contact.
+            This photo isn't returned in the list of chat photos.
+            Suitable for downloads only.
+
         photo (:obj:`~pyrogram.types.ChatPhoto`, *optional*):
-            Chat photo. Suitable for downloads only.
+            Chat photo.
+            Suitable for downloads only.
+
+        public_photo (:obj:`~pyrogram.types.ChatPhoto`, *optional*):
+            Chat profile photo visible if the main photo is hidden by privacy settings.
+            This photo isn't returned in the list of chat photos.
+            Suitable for downloads only.
 
         stories (List of :obj:`~pyrogram.types.Story`, *optional*):
             The list of chat's stories if available.
@@ -336,11 +347,11 @@ class Chat(Object):
             The number of boosts the current user has applied to the current supergroup.
             Returned only in :meth:`~pyrogram.Client.get_chat`
 
-        channel_admin_rights (:obj:`~pyrogram.types.ChatPrivileges`, *optional*):
+        channel_admin_rights (:obj:`~pyrogram.types.ChatAdministratorRights`, *optional*):
             A suggested set of administrator rights for the bot, to be shown when adding the bot as admin to a channel.
             Returned only in :meth:`~pyrogram.Client.get_chat`
 
-        chat_admin_rights (:obj:`~pyrogram.types.ChatPrivileges`, *optional*):
+        chat_admin_rights (:obj:`~pyrogram.types.ChatAdministratorRights`, *optional*):
             A suggested set of administrator rights for the bot, to be shown when adding the bot as admin to a group.
             Returned only in :meth:`~pyrogram.Client.get_chat`
 
@@ -471,8 +482,8 @@ class Chat(Object):
             The DC ID where the stats are stored.
             Returned only in :meth:`~pyrogram.Client.get_chat`
 
-        theme_emoji (``str``, *optional*):
-            Emoji representing a specific chat theme.
+        theme (:obj:`~pyrogram.types.ChatTheme`, *optional*):
+            Theme set for the chat.
             Returned only in :meth:`~pyrogram.Client.get_chat`
 
         unread_count (``int``, *optional*):
@@ -499,6 +510,10 @@ class Chat(Object):
 
         accepted_gift_types (:obj:`~pyrogram.types.AcceptedGiftTypes`, *optional*):
             Information about gifts that can be received by the user.
+            Returned only in :meth:`~pyrogram.Client.get_chat`
+
+        note (:obj:`~pyrogram.types.FormattedText`, *optional*):
+            Note added to the user's contact.
             Returned only in :meth:`~pyrogram.Client.get_chat`
 
         raw (:obj:`~pyrogram.raw.types.UserFull` | :obj:`~pyrogram.raw.types.ChatFull` | :obj:`~pyrogram.raw.types.ChannelFull`, *optional*):
@@ -538,7 +553,9 @@ class Chat(Object):
         usernames: Optional[List["types.Username"]] = None,
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
+        personal_photo: Optional["types.ChatPhoto"] = None,
         photo: Optional["types.ChatPhoto"] = None,
+        public_photo: Optional["types.ChatPhoto"] = None,
         stories: Optional[List["types.Story"]] = None,
         chat_background: Optional["types.ChatBackground"] = None,
         bio: Optional[str] = None,
@@ -602,8 +619,8 @@ class Chat(Object):
         banned_count: Optional[int] = None,
         available_min_id: Optional[int] = None,
         boosts_applied: Optional[int] = None,
-        channel_admin_rights: Optional["types.ChatPrivileges"] = None,
-        chat_admin_rights: Optional["types.ChatPrivileges"] = None,
+        channel_admin_rights: Optional["types.ChatAdministratorRights"] = None,
+        chat_admin_rights: Optional["types.ChatAdministratorRights"] = None,
         bot_can_manage_emoji_status: Optional[bool] = None,
         can_delete_channel: Optional[bool] = None,
         can_pin_message: Optional[bool] = None,
@@ -635,13 +652,14 @@ class Chat(Object):
         read_outbox_max_id: Optional[int] = None,
         is_ads_restricted: Optional[bool] = None,
         stats_dc_id: Optional[int] = None,
-        theme_emoji: Optional[str] = None,
+        theme: Optional[str] = None,
         unread_count: Optional[int] = None,
         view_forum_as_messages: Optional[bool] = None,
         paid_message_star_count: Optional[int] = None,
         is_paid_messages_available: Optional[bool] = None,
         display_gifts_button: Optional[bool] = None,
         accepted_gift_types: Optional["types.AcceptedGiftTypes"] = None,
+        note: Optional["types.FormattedText"] = None,
         raw: Optional[Union["raw.types.UserFull", "raw.types.ChatFull", "raw.types.ChannelFull"]] = None
     ):
         super().__init__(client)
@@ -673,7 +691,9 @@ class Chat(Object):
         self.usernames = usernames
         self.first_name = first_name
         self.last_name = last_name
+        self.personal_photo = personal_photo
         self.photo = photo
+        self.public_photo = public_photo
         self.stories = stories
         self.chat_background = chat_background
         self.bio = bio
@@ -770,13 +790,14 @@ class Chat(Object):
         self.read_outbox_max_id = read_outbox_max_id
         self.is_ads_restricted = is_ads_restricted
         self.stats_dc_id = stats_dc_id
-        self.theme_emoji = theme_emoji
+        self.theme = theme
         self.unread_count = unread_count
         self.view_forum_as_messages = view_forum_as_messages
         self.paid_message_star_count = paid_message_star_count
         self.is_paid_messages_available = is_paid_messages_available
         self.display_gifts_button = display_gifts_button
         self.accepted_gift_types = accepted_gift_types
+        self.note = note
         self.raw = raw
 
     # region Deprecated
@@ -997,26 +1018,21 @@ class Chat(Object):
         parsed_chat.can_view_revenue = user.can_view_revenue
         parsed_chat.bot_can_manage_emoji_status = user.bot_can_manage_emoji_status
         parsed_chat.bio = user.about or None
-        # parsed_chat.personal_photo
-        # parsed_chat.profile_photo
-        # parsed_chat.fallback_photo
-        # parsed_chat.bot_info
+        parsed_chat.personal_photo = types.ChatPhoto._parse(client, user.personal_photo, users[user.id].id, users[user.id].access_hash)
+        # parsed_chat.photo = types.ChatPhoto._parse(client, user.profile_photo, users[user.id].id, users[user.id].access_hash)
+        parsed_chat.public_photo = types.ChatPhoto._parse(client, user.fallback_photo, users[user.id].id, users[user.id].access_hash)
+        # parsed_chat.bot_info = user.bot_info
 
         if user.pinned_msg_id:
             parsed_chat.pinned_message = await client.get_messages(chat_id=parsed_chat.id, pinned=True)
 
         parsed_chat.folder_id = user.folder_id
         parsed_chat.message_auto_delete_time = user.ttl_period
-
-        if isinstance(user.theme, raw.types.ChatTheme):
-            parsed_chat.theme_emoji = user.theme.emoticon
-
+        parsed_chat.theme = await types.ChatTheme._parse(client, user.theme)
         parsed_chat.private_forward_name = user.private_forward_name
-        parsed_chat.chat_admin_rights = types.ChatPrivileges._parse(user.bot_group_admin_rights)
-        parsed_chat.channel_admin_rights = types.ChatPrivileges._parse(user.bot_broadcast_admin_rights)
-        # parsed_chat.premium_gifts
+        parsed_chat.chat_admin_rights = types.ChatAdministratorRights._parse(user.bot_group_admin_rights)
+        parsed_chat.channel_admin_rights = types.ChatAdministratorRights._parse(user.bot_broadcast_admin_rights)
         parsed_chat.chat_background = types.ChatBackground._parse(client, user.wallpaper)
-
 
         if user.stories:
             parsed_chat.stories = types.List(
@@ -1029,7 +1045,7 @@ class Chat(Object):
             ) or None
 
         parsed_chat.business_work_hours = types.BusinessWorkingHours._parse(user.business_work_hours)
-        parsed_chat.business_location = types.Location._parse(client, user.business_location)
+        parsed_chat.business_location = types.Location._parse_business(user.business_location)
         parsed_chat.business_greeting_message = types.BusinessMessage._parse(client, user.business_greeting_message, users)
         parsed_chat.business_away_message = types.BusinessMessage._parse(client, user.business_away_message, users)
         parsed_chat.business_intro = await types.BusinessIntro._parse(client, user.business_intro)
@@ -1072,6 +1088,7 @@ class Chat(Object):
         parsed_chat.paid_message_star_count = user.send_paid_messages_stars
         parsed_chat.display_gifts_button = user.display_gifts_button
         parsed_chat.accepted_gift_types = types.AcceptedGiftTypes._parse(user.disallowed_gifts)
+        parsed_chat.note = types.FormattedText._parse(client, user.note)
 
         return parsed_chat
 
@@ -1107,7 +1124,7 @@ class Chat(Object):
         # parsed_chat.call
         parsed_chat.message_auto_delete_time = chat.ttl_period
         # parsed_chat.groupcall_default_join_as
-        parsed_chat.theme_emoji = chat.theme_emoticon
+        parsed_chat.theme = chat.theme_emoticon
         parsed_chat.join_requests_count = chat.requests_pending
         # parsed_chat.recent_requesters
         parsed_chat.available_reactions = types.ChatReactions._parse(client, chat.available_reactions)
@@ -1190,7 +1207,7 @@ class Chat(Object):
         parsed_chat.message_auto_delete_time = channel.ttl_period
         # parsed_chat.pending_suggestions
         # parsed_chat.groupcall_default_join_as
-        parsed_chat.theme_emoji = channel.theme_emoticon
+        parsed_chat.theme = channel.theme_emoticon
         parsed_chat.join_requests_count = channel.requests_pending
         # parsed_chat.recent_requesters
 
@@ -1620,11 +1637,11 @@ class Chat(Object):
         )
 
     # Set None as privileges default due to issues with partially initialized module, because at the time Chat
-    # is being initialized, ChatPrivileges would be required here, but was not initialized yet.
+    # is being initialized, ChatAdministratorRights would be required here, but was not initialized yet.
     async def promote_member(
         self,
         user_id: Union[int, str],
-        privileges: "types.ChatPrivileges" = None
+        privileges: "types.ChatAdministratorRights" = None
     ) -> bool:
         """Bound method *promote_member* of :obj:`~pyrogram.types.Chat`.
 
@@ -1648,7 +1665,7 @@ class Chat(Object):
                 Unique identifier (int) or username (str) of the target user.
                 For a contact that exists in your Telegram address book you can use his phone number (str).
 
-            privileges (:obj:`~pyrogram.types.ChatPrivileges`, *optional*):
+            privileges (:obj:`~pyrogram.types.ChatAdministratorRights`, *optional*):
                 New user privileges.
 
         Returns:

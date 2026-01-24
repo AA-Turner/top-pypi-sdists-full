@@ -131,6 +131,8 @@ __all__ = [
     "JobsHealthRules",
     "JobsHealthRulesDict",
     "JobsHealthRulesParam",
+    "Kind",
+    "KindParam",
     "Library",
     "LibraryDict",
     "LibraryParam",
@@ -146,6 +148,14 @@ __all__ = [
     "MavenLibrary",
     "MavenLibraryDict",
     "MavenLibraryParam",
+    "ModelTriggerConfiguration",
+    "ModelTriggerConfigurationCondition",
+    "ModelTriggerConfigurationConditionParam",
+    "ModelTriggerConfigurationDict",
+    "ModelTriggerConfigurationParam",
+    "NodeTypeFlexibility",
+    "NodeTypeFlexibilityDict",
+    "NodeTypeFlexibilityParam",
     "NotebookTask",
     "NotebookTaskDict",
     "NotebookTaskParam",
@@ -484,6 +494,7 @@ from databricks.bundles.jobs._models.jobs_health_rules import (
     JobsHealthRulesDict,
     JobsHealthRulesParam,
 )
+from databricks.bundles.jobs._models.kind import Kind, KindParam
 from databricks.bundles.jobs._models.library import Library, LibraryDict, LibraryParam
 from databricks.bundles.jobs._models.lifecycle import (
     Lifecycle,
@@ -504,6 +515,20 @@ from databricks.bundles.jobs._models.maven_library import (
     MavenLibrary,
     MavenLibraryDict,
     MavenLibraryParam,
+)
+from databricks.bundles.jobs._models.model_trigger_configuration import (
+    ModelTriggerConfiguration,
+    ModelTriggerConfigurationDict,
+    ModelTriggerConfigurationParam,
+)
+from databricks.bundles.jobs._models.model_trigger_configuration_condition import (
+    ModelTriggerConfigurationCondition,
+    ModelTriggerConfigurationConditionParam,
+)
+from databricks.bundles.jobs._models.node_type_flexibility import (
+    NodeTypeFlexibility,
+    NodeTypeFlexibilityDict,
+    NodeTypeFlexibilityParam,
 )
 from databricks.bundles.jobs._models.notebook_task import (
     NotebookTask,

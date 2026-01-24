@@ -19,8 +19,6 @@ from rich.tree import Tree
 
 from pdm import termui
 from pdm.exceptions import PdmArgumentError, ProjectError
-from pdm.models.markers import EnvSpec
-from pdm.models.requirements import Requirement, filter_requirements_with_extras, strip_extras
 from pdm.models.specifiers import PySpecSet, get_specifier
 from pdm.utils import comparable_version, is_path_relative_to, normalize_name, url_to_path
 
@@ -33,6 +31,8 @@ if TYPE_CHECKING:
     from pdm.compat import Distribution
     from pdm.compat import importlib_metadata as im
     from pdm.models.candidates import Candidate
+    from pdm.models.markers import EnvSpec
+    from pdm.models.requirements import Requirement
     from pdm.project import Project
 
 
@@ -124,7 +124,10 @@ class ArgumentParser(argparse.ArgumentParser):
     """A standard argument parser but with title-cased help."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        kwargs["formatter_class"] = PdmFormatter
+        if sys.version_info >= (3, 14):
+            kwargs["formatter_class"] = argparse.RawDescriptionHelpFormatter
+        else:
+            kwargs["formatter_class"] = PdmFormatter
         kwargs["add_help"] = False
         super().__init__(*args, **kwargs)
         self.add_argument(
@@ -201,6 +204,8 @@ def build_dependency_graph(
     node_with_extras: set[str] = set()
 
     def add_package(key: str, dist: Distribution | None) -> PackageNode:
+        from pdm.models.requirements import filter_requirements_with_extras, strip_extras
+
         name, extras = strip_extras(key)
         extras = extras or ()
         reqs: dict[str, Requirement] = {}

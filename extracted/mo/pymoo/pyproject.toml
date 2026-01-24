@@ -10,11 +10,11 @@ classifiers = [
     'Operating System :: OS Independent',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
     'Topic :: Scientific/Engineering',
     'Topic :: Scientific/Engineering :: Artificial Intelligence',
     'Topic :: Scientific/Engineering :: Mathematics',
@@ -22,15 +22,15 @@ classifiers = [
 keywords = ["optimization"]
 dynamic = ["version"]
 urls = { homepage = "https://pymoo.org" }
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 dependencies = [
     "numpy>=1.19.3",
     "scipy>=1.1",
-    "matplotlib>=3",
+    "moocore>=0.1.7",
     "autograd>=1.4",
     "cma>=3.2.2",
-    "alive-progress",
-    "dill",
+    "matplotlib>=3",
+    "alive_progress",
     "Deprecated",
 ]
 
@@ -45,7 +45,7 @@ version = { attr = "pymoo.version.__version__" }
 where = ["."]
 include = ["pymoo*"]
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "numba",
     "pytest",
@@ -57,3 +57,20 @@ dev = [
     "ipython",
     "ipykernel",
 ]
+parallelization = [
+    "joblib",
+    "dask[distributed]",
+    "ray[default]",
+]
+others = [
+    "optuna",
+]
+full = [
+    "numba",
+    "scikit-learn",
+    "pandas",
+    "pymoo[parallelization]",
+    "pymoo[others]",
+]
+
+

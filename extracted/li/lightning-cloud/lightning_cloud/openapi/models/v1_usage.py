@@ -48,6 +48,7 @@ class V1Usage(object):
         'deleted_at': 'datetime',
         'free': 'bool',
         'id': 'str',
+        'instance_type': 'str',
         'name': 'str',
         'project_id': 'str',
         'resource_type': 'str',
@@ -55,6 +56,9 @@ class V1Usage(object):
         'session_ended_at': 'datetime',
         'session_started_at': 'datetime',
         'spot': 'bool',
+        'total_completion_tokens': 'str',
+        'total_num_messages': 'str',
+        'total_prompt_tokens': 'str',
         'user_id': 'str'
     }
 
@@ -66,6 +70,7 @@ class V1Usage(object):
         'deleted_at': 'deletedAt',
         'free': 'free',
         'id': 'id',
+        'instance_type': 'instanceType',
         'name': 'name',
         'project_id': 'projectId',
         'resource_type': 'resourceType',
@@ -73,10 +78,13 @@ class V1Usage(object):
         'session_ended_at': 'sessionEndedAt',
         'session_started_at': 'sessionStartedAt',
         'spot': 'spot',
+        'total_completion_tokens': 'totalCompletionTokens',
+        'total_num_messages': 'totalNumMessages',
+        'total_prompt_tokens': 'totalPromptTokens',
         'user_id': 'userId'
     }
 
-    def __init__(self, billed_time_seconds: 'str' =None, cluster_id: 'str' =None, cost: 'float' =None, created_at: 'datetime' =None, deleted_at: 'datetime' =None, free: 'bool' =None, id: 'str' =None, name: 'str' =None, project_id: 'str' =None, resource_type: 'str' =None, saved_cost: 'float' =None, session_ended_at: 'datetime' =None, session_started_at: 'datetime' =None, spot: 'bool' =None, user_id: 'str' =None):  # noqa: E501
+    def __init__(self, billed_time_seconds: 'str' =None, cluster_id: 'str' =None, cost: 'float' =None, created_at: 'datetime' =None, deleted_at: 'datetime' =None, free: 'bool' =None, id: 'str' =None, instance_type: 'str' =None, name: 'str' =None, project_id: 'str' =None, resource_type: 'str' =None, saved_cost: 'float' =None, session_ended_at: 'datetime' =None, session_started_at: 'datetime' =None, spot: 'bool' =None, total_completion_tokens: 'str' =None, total_num_messages: 'str' =None, total_prompt_tokens: 'str' =None, user_id: 'str' =None):  # noqa: E501
         """V1Usage - a model defined in Swagger"""  # noqa: E501
         self._billed_time_seconds = None
         self._cluster_id = None
@@ -85,6 +93,7 @@ class V1Usage(object):
         self._deleted_at = None
         self._free = None
         self._id = None
+        self._instance_type = None
         self._name = None
         self._project_id = None
         self._resource_type = None
@@ -92,6 +101,9 @@ class V1Usage(object):
         self._session_ended_at = None
         self._session_started_at = None
         self._spot = None
+        self._total_completion_tokens = None
+        self._total_num_messages = None
+        self._total_prompt_tokens = None
         self._user_id = None
         self.discriminator = None
         if billed_time_seconds is not None:
@@ -108,6 +120,8 @@ class V1Usage(object):
             self.free = free
         if id is not None:
             self.id = id
+        if instance_type is not None:
+            self.instance_type = instance_type
         if name is not None:
             self.name = name
         if project_id is not None:
@@ -122,6 +136,12 @@ class V1Usage(object):
             self.session_started_at = session_started_at
         if spot is not None:
             self.spot = spot
+        if total_completion_tokens is not None:
+            self.total_completion_tokens = total_completion_tokens
+        if total_num_messages is not None:
+            self.total_num_messages = total_num_messages
+        if total_prompt_tokens is not None:
+            self.total_prompt_tokens = total_prompt_tokens
         if user_id is not None:
             self.user_id = user_id
 
@@ -273,6 +293,27 @@ class V1Usage(object):
         self._id = id
 
     @property
+    def instance_type(self) -> 'str':
+        """Gets the instance_type of this V1Usage.  # noqa: E501
+
+
+        :return: The instance_type of this V1Usage.  # noqa: E501
+        :rtype: str
+        """
+        return self._instance_type
+
+    @instance_type.setter
+    def instance_type(self, instance_type: 'str'):
+        """Sets the instance_type of this V1Usage.
+
+
+        :param instance_type: The instance_type of this V1Usage.  # noqa: E501
+        :type: str
+        """
+
+        self._instance_type = instance_type
+
+    @property
     def name(self) -> 'str':
         """Gets the name of this V1Usage.  # noqa: E501
 
@@ -418,6 +459,69 @@ class V1Usage(object):
         """
 
         self._spot = spot
+
+    @property
+    def total_completion_tokens(self) -> 'str':
+        """Gets the total_completion_tokens of this V1Usage.  # noqa: E501
+
+
+        :return: The total_completion_tokens of this V1Usage.  # noqa: E501
+        :rtype: str
+        """
+        return self._total_completion_tokens
+
+    @total_completion_tokens.setter
+    def total_completion_tokens(self, total_completion_tokens: 'str'):
+        """Sets the total_completion_tokens of this V1Usage.
+
+
+        :param total_completion_tokens: The total_completion_tokens of this V1Usage.  # noqa: E501
+        :type: str
+        """
+
+        self._total_completion_tokens = total_completion_tokens
+
+    @property
+    def total_num_messages(self) -> 'str':
+        """Gets the total_num_messages of this V1Usage.  # noqa: E501
+
+
+        :return: The total_num_messages of this V1Usage.  # noqa: E501
+        :rtype: str
+        """
+        return self._total_num_messages
+
+    @total_num_messages.setter
+    def total_num_messages(self, total_num_messages: 'str'):
+        """Sets the total_num_messages of this V1Usage.
+
+
+        :param total_num_messages: The total_num_messages of this V1Usage.  # noqa: E501
+        :type: str
+        """
+
+        self._total_num_messages = total_num_messages
+
+    @property
+    def total_prompt_tokens(self) -> 'str':
+        """Gets the total_prompt_tokens of this V1Usage.  # noqa: E501
+
+
+        :return: The total_prompt_tokens of this V1Usage.  # noqa: E501
+        :rtype: str
+        """
+        return self._total_prompt_tokens
+
+    @total_prompt_tokens.setter
+    def total_prompt_tokens(self, total_prompt_tokens: 'str'):
+        """Sets the total_prompt_tokens of this V1Usage.
+
+
+        :param total_prompt_tokens: The total_prompt_tokens of this V1Usage.  # noqa: E501
+        :type: str
+        """
+
+        self._total_prompt_tokens = total_prompt_tokens
 
     @property
     def user_id(self) -> 'str':

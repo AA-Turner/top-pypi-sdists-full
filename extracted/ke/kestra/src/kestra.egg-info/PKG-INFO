@@ -1,11 +1,13 @@
 Metadata-Version: 2.4
 Name: kestra
-Version: 1.0.0
+Version: 1.2.0
 Summary: Kestra is an infinitely scalable orchestration and scheduling platform, creating, running, scheduling, and monitoring millions of complex pipelines.
 Home-page: https://kestra.io
 Author: Kestra
 Author-email: hello@kestra.io
 License: Apache License 2.0
+Project-URL: Source, https://github.com/kestra-io/libs
+Project-URL: Tracker, https://github.com/kestra-io/libs/issues
 Platform: any
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
@@ -31,6 +33,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
 Dynamic: platform
+Dynamic: project-url
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
@@ -199,6 +202,14 @@ The `Kestra` class provides a method to send timer metrics to the Kestra server.
 
 ```python
 Kestra.timer("my_timer", 1)
+```
+
+### Gauges
+
+The `Kestra` class provides a method to send gauge metrics to the Kestra server.
+
+```python
+Kestra.gauge("my_gauge", 42.5)
 ```
 
 ## Kestra Ion

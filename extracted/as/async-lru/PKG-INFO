@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: async-lru
-Version: 2.0.5
+Version: 2.1.0
 Summary: Simple LRU cache for asyncio
 Home-page: https://github.com/aio-libs/async-lru
 Maintainer: aiohttp team <team@aiohttp.org>
@@ -16,17 +16,18 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: typing_extensions>=4.0.0; python_version < "3.11"
+Dynamic: license-file
 
 async-lru
 =========
@@ -121,6 +122,32 @@ The library supports explicit invalidation for specific function call by
 
 The method returns `True` if corresponding arguments set was cached already, `False`
 otherwise.
+
+Benchmarks
+----------
+
+async-lru uses `CodSpeed <https://codspeed.io/>`_ for performance regression testing.
+
+To run the benchmarks locally:
+
+.. code-block:: shell
+
+    pip install -r requirements-dev.txt
+    pytest --codspeed benchmark.py
+
+The benchmark suite covers both bounded (with maxsize) and unbounded (no maxsize) cache configurations. Scenarios include:
+
+- Cache hit
+- Cache miss
+- Cache fill/eviction (cycling through more keys than maxsize)
+- Cache clear
+- TTL expiry
+- Cache invalidation
+- Cache info retrieval
+- Concurrent cache hits
+- Baseline (uncached async function)
+
+On CI, benchmarks are run automatically via GitHub Actions on Python 3.13, and results are uploaded to CodSpeed (if a `CODSPEED_TOKEN` is configured). You can view performance history and detect regressions on the CodSpeed dashboard.
 
 Thanks
 ------

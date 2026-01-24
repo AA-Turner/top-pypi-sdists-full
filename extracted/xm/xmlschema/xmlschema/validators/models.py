@@ -1,5 +1,5 @@
 #
-# Copyright (c), 2016-2024, SISSA (International School for Advanced Studies).
+# Copyright (c), 2016-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -21,7 +21,7 @@ from xmlschema.aliases import ModelGroupType, ModelParticleType, SchemaElementTy
     OccursCounterType
 from xmlschema.exceptions import XMLSchemaRuntimeError, XMLSchemaTypeError, XMLSchemaValueError
 from xmlschema.translation import gettext as _
-from xmlschema import limits
+from xmlschema import _limits
 
 from .exceptions import XMLSchemaModelError, XMLSchemaModelDepthError
 from .wildcards import XsdAnyElement, Xsd11AnyElement
@@ -116,7 +116,7 @@ def check_model(group: ModelGroupType) -> None:
                     current_path.append(item)
                     iterators.append(particles)
                     particles = iter(item)
-                    if len(iterators) > limits.MAX_MODEL_DEPTH:
+                    if len(iterators) > _limits.MAX_MODEL_DEPTH:
                         raise XMLSchemaModelDepthError(group)
                     break
                 else:
@@ -130,6 +130,7 @@ def check_model(group: ModelGroupType) -> None:
 
     paths: Any = {}
     current_path: list[ModelParticleType] = [group]
+
     try:
         any_element = group.parent.open_content.any_element  # type: ignore[union-attr]
     except AttributeError:
@@ -260,16 +261,8 @@ class ModelVisitor:
             raise XMLSchemaValueError(f"can't match the tag, {self!r} is ended!")
         elif self.element.max_occurs == 0:
             return None
-        elif self.element.name is None:
-            return self.element.match(tag, group=self.root, occurs=self.occurs)
-        elif tag == self.element.name:
-            return self.element
         else:
-            for xsd_element in self.element.iter_substitutes():
-                if tag == xsd_element.name:
-                    return xsd_element
-            else:
-                return None
+            return self.element.match(tag, group=self.root, occurs=self.occurs)
 
     def advance(self, match: bool = False) -> Iterator[AdvanceYieldedType]:
         """
@@ -440,7 +433,7 @@ class ModelVisitor:
                     stack.append((group, particles))
                     group = item
                     particles = iter(item.content)
-                    if len(stack) > limits.MAX_MODEL_DEPTH:
+                    if len(stack) > _limits.MAX_MODEL_DEPTH:
                         raise XMLSchemaModelDepthError(self.group)
                     break
 
@@ -769,7 +762,7 @@ class InterleavedModelVisitor(ModelVisitor):
         elif not self.wildcard.is_matching(tag, group=self.root, occurs=self.occurs):
             return None
 
-        for xsd_element in self.group.iter_elements():
+        for xsd_element in self.group.elements:
             if xsd_element.is_matching(tag, group=self.root, occurs=self.occurs):
                 if not xsd_element.is_over(self.occurs):
                     return None

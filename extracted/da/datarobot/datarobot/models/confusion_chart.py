@@ -22,35 +22,29 @@ from datarobot.models.api_object import APIObject
 
 _PercentageFloat = t.Float(gte=0, lte=1)  # 0.0 <= x <= 1.0
 
-_ClassPercentage = t.Dict(
-    {t.Key("other_class_name"): String, t.Key("percentage"): _PercentageFloat}
-).ignore_extra("*")
+_ClassPercentage = t.Dict({t.Key("other_class_name"): String, t.Key("percentage"): _PercentageFloat}).ignore_extra("*")
 
-_ClassMetrics = t.Dict(
-    {
-        t.Key("class_name"): String,
-        # blue bars on the axis
-        t.Key("actual_count"): Int,
-        t.Key("predicted_count"): Int,
-        # one vs all metrics
-        t.Key("f1"): _PercentageFloat,
-        t.Key("recall"): _PercentageFloat,
-        t.Key("precision"): _PercentageFloat,
-        t.Key("confusion_matrix_one_vs_all"): t.List(t.List(Int)),
-        t.Key("was_actual_percentages"): t.List(_ClassPercentage),
-        t.Key("was_predicted_percentages"): t.List(_ClassPercentage),
-    }
-).ignore_extra("*")
+_ClassMetrics = t.Dict({
+    t.Key("class_name"): String,
+    # blue bars on the axis
+    t.Key("actual_count"): Int,
+    t.Key("predicted_count"): Int,
+    # one vs all metrics
+    t.Key("f1"): _PercentageFloat,
+    t.Key("recall"): _PercentageFloat,
+    t.Key("precision"): _PercentageFloat,
+    t.Key("confusion_matrix_one_vs_all"): t.List(t.List(Int)),
+    t.Key("was_actual_percentages"): t.List(_ClassPercentage),
+    t.Key("was_predicted_percentages"): t.List(_ClassPercentage),
+}).ignore_extra("*")
 
-ConfusionChartTrafaret = t.Dict(
-    {
-        # available classes
-        t.Key("classes"): t.List(String),
-        # NxN confusion matrix
-        t.Key("confusion_matrix"): t.List(t.List(Int)),
-        t.Key("class_metrics"): t.List(_ClassMetrics),
-    }
-).ignore_extra("*")
+ConfusionChartTrafaret = t.Dict({
+    # available classes
+    t.Key("classes"): t.List(String),
+    # NxN confusion matrix
+    t.Key("confusion_matrix"): t.List(t.List(Int)),
+    t.Key("class_metrics"): t.List(_ClassMetrics),
+}).ignore_extra("*")
 
 
 class ClassPercentage(TypedDict):
@@ -124,19 +118,15 @@ class ConfusionChart(APIObject):
 
     """
 
-    ConfusionChartWrapper = t.Dict(
-        {
-            t.Key("data"): ConfusionChartTrafaret,
-            t.Key("source"): String,
-            t.Key("source_model_id"): String,
-        }
-    ).ignore_extra("*")
+    ConfusionChartWrapper = t.Dict({
+        t.Key("data"): ConfusionChartTrafaret,
+        t.Key("source"): String,
+        t.Key("source_model_id"): String,
+    }).ignore_extra("*")
 
     _converter = ConfusionChartWrapper
 
-    def __init__(
-        self, source: CHART_DATA_SOURCE, data: ConfusionChartRawData, source_model_id: str
-    ):
+    def __init__(self, source: CHART_DATA_SOURCE, data: ConfusionChartRawData, source_model_id: str):
         self.source = source
         self.raw_data = data
         self.class_metrics = data["class_metrics"]

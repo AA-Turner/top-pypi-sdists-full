@@ -3,7 +3,7 @@ Type annotations for mediapackagev2 service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediapackagev2/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -89,12 +90,6 @@ from .type_defs import (
 )
 from .waiter import HarvestJobFinishedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -105,14 +100,14 @@ __all__ = ("Mediapackagev2Client",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class Mediapackagev2Client(AioBaseClient):
@@ -152,7 +147,7 @@ class Mediapackagev2Client(AioBaseClient):
 
     async def cancel_harvest_job(
         self, **kwargs: Unpack[CancelHarvestJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels an in-progress harvest job.
 
@@ -202,7 +197,7 @@ class Mediapackagev2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediapackagev2/client/#create_origin_endpoint)
         """
 
-    async def delete_channel(self, **kwargs: Unpack[DeleteChannelRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_channel(self, **kwargs: Unpack[DeleteChannelRequestTypeDef]) -> dict[str, Any]:
         """
         Delete a channel to stop AWS Elemental MediaPackage from receiving further
         content.
@@ -213,7 +208,7 @@ class Mediapackagev2Client(AioBaseClient):
 
     async def delete_channel_group(
         self, **kwargs: Unpack[DeleteChannelGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a channel group.
 
@@ -223,7 +218,7 @@ class Mediapackagev2Client(AioBaseClient):
 
     async def delete_channel_policy(
         self, **kwargs: Unpack[DeleteChannelPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a channel policy.
 
@@ -233,7 +228,7 @@ class Mediapackagev2Client(AioBaseClient):
 
     async def delete_origin_endpoint(
         self, **kwargs: Unpack[DeleteOriginEndpointRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Origin endpoints can serve content until they're deleted.
 
@@ -243,7 +238,7 @@ class Mediapackagev2Client(AioBaseClient):
 
     async def delete_origin_endpoint_policy(
         self, **kwargs: Unpack[DeleteOriginEndpointPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete an origin endpoint policy.
 
@@ -370,7 +365,7 @@ class Mediapackagev2Client(AioBaseClient):
 
     async def put_channel_policy(
         self, **kwargs: Unpack[PutChannelPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attaches an IAM policy to the specified channel.
 
@@ -380,7 +375,7 @@ class Mediapackagev2Client(AioBaseClient):
 
     async def put_origin_endpoint_policy(
         self, **kwargs: Unpack[PutOriginEndpointPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attaches an IAM policy to the specified origin endpoint.
 
@@ -523,7 +518,7 @@ class Mediapackagev2Client(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

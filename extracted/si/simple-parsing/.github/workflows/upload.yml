@@ -1,0 +1,35 @@
+name: Upload the benchmark results
+on:
+  push:
+    branches:
+      - master
+      - temp_master
+  workflow_dispatch: {}
+
+jobs:
+  upload_benchmark_results:
+    runs-on: ubuntu-latest
+    name: Test out the action in this repository
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install poetry
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+          cache: poetry
+
+      - name: Install dependencies
+        run: poetry install --all-extras
+
+      - name: Run the benchmark
+        run: poetry run pytest --benchmark-only --benchmark-json=benchmark_results.json
+
+      - name: Upload the file
+        uses: actions/upload-artifact@v2
+        with:
+          name: benchmark_results
+          path: benchmark_results.json

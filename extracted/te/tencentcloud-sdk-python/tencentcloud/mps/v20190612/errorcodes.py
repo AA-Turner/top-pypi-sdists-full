@@ -35,6 +35,9 @@ FAILEDOPERATION_INVALIDMPSUSER = 'FailedOperation.InvalidMpsUser'
 # 操作失败：无效用户。
 FAILEDOPERATION_INVALIDUSER = 'FailedOperation.InvalidUser'
 
+# 操作失败：网络错误。
+FAILEDOPERATION_NETWORKERROR = 'FailedOperation.NetWorkError'
+
 # 操作失败：设置源通知错误。
 FAILEDOPERATION_SETSOURCENOTIFY = 'FailedOperation.SetSourceNotify'
 
@@ -49,6 +52,9 @@ INTERNALERROR_ACCESSDBERROR = 'InternalError.AccessDBError'
 
 # 内部错误：生成模板 ID 失败。
 INTERNALERROR_GENDEFINITION = 'InternalError.GenDefinition'
+
+# 识别出错
+INTERNALERROR_RECOGNITIONERROR = 'InternalError.RecognitionError'
 
 # 内部错误：上传水印图片失败。
 INTERNALERROR_UPLOADWATERMARKERROR = 'InternalError.UploadWatermarkError'
@@ -143,8 +149,20 @@ INVALIDPARAMETERVALUE_AUDIOCHANNEL = 'InvalidParameterValue.AudioChannel'
 # 参数错误：音频流编码格式。
 INVALIDPARAMETERVALUE_AUDIOCODEC = 'InvalidParameterValue.AudioCodec'
 
+# 音频数据不合法
+INVALIDPARAMETERVALUE_AUDIODATA = 'InvalidParameterValue.AudioData'
+
+# 音频数据过长
+INVALIDPARAMETERVALUE_AUDIODATATOOLONG = 'InvalidParameterValue.AudioDataTooLong'
+
+# 音频数据格式不支持
+INVALIDPARAMETERVALUE_AUDIOFORMAT = 'InvalidParameterValue.AudioFormat'
+
 # 参数错误：音频流采样率。
 INVALIDPARAMETERVALUE_AUDIOSAMPLERATE = 'InvalidParameterValue.AudioSampleRate'
+
+# 擦除模板自动区域错误
+INVALIDPARAMETERVALUE_AUTOAREAS = 'InvalidParameterValue.AutoAreas'
 
 # 无效的音频/视频码率。
 INVALIDPARAMETERVALUE_BITRATE = 'InvalidParameterValue.Bitrate'
@@ -176,6 +194,9 @@ INVALIDPARAMETERVALUE_COORDINATEORIGIN = 'InvalidParameterValue.CoordinateOrigin
 # 参数值错误：智能封面控制字段参数错误。
 INVALIDPARAMETERVALUE_COVERCONFIGURE = 'InvalidParameterValue.CoverConfigure'
 
+# 擦除模板指定区域错误
+INVALIDPARAMETERVALUE_CUSTOMAREAS = 'InvalidParameterValue.CustomAreas'
+
 # 参数值错误：人脸默认库过滤标签非法。
 INVALIDPARAMETERVALUE_DEFAULTLIBRARYLABELSET = 'InvalidParameterValue.DefaultLibraryLabelSet'
 
@@ -197,8 +218,23 @@ INVALIDPARAMETERVALUE_DISABLEHIGHERVIDEOBITRATE = 'InvalidParameterValue.Disable
 # 无效的禁止分辨率低转高开关值。
 INVALIDPARAMETERVALUE_DISABLEHIGHERVIDEORESOLUTION = 'InvalidParameterValue.DisableHigherVideoResolution'
 
+# 水印文本重复
+INVALIDPARAMETERVALUE_DUPLICATEDTEXTCONTENT = 'InvalidParameterValue.DuplicatedTextContent'
+
 # 模板开启的检测项为空。
 INVALIDPARAMETERVALUE_EMPTYDETECTITEM = 'InvalidParameterValue.EmptyDetectItem'
+
+# 擦除模板隐私保护配置错误
+INVALIDPARAMETERVALUE_ERASEPRIVACYCONFIG = 'InvalidParameterValue.ErasePrivacyConfig'
+
+# 擦除模板字幕擦除配置错误
+INVALIDPARAMETERVALUE_ERASESUBTITLECONFIG = 'InvalidParameterValue.EraseSubtitleConfig'
+
+# 擦除模板擦除类型错误
+INVALIDPARAMETERVALUE_ERASETYPE = 'InvalidParameterValue.EraseType'
+
+# 擦除模板水印擦除配置错误
+INVALIDPARAMETERVALUE_ERASEWATERMARKCONFIG = 'InvalidParameterValue.EraseWatermarkConfig'
 
 # 参数值错误：人脸重复。
 INVALIDPARAMETERVALUE_FACEDUPLICATE = 'InvalidParameterValue.FaceDuplicate'
@@ -278,8 +314,17 @@ INVALIDPARAMETERVALUE_NOTPROCESSINGTASK = 'InvalidParameterValue.NotProcessingTa
 # 参数值错误：物体库参数非法。
 INVALIDPARAMETERVALUE_OBJECTLIBRARY = 'InvalidParameterValue.ObjectLibrary'
 
+# 参数值错误：OcrSwitch 参数取值非法。
+INVALIDPARAMETERVALUE_OCRSWITCH = 'InvalidParameterValue.OcrSwitch'
+
 # 参数值错误：人脸图片格式错误。
 INVALIDPARAMETERVALUE_PICFORMATERROR = 'InvalidParameterValue.PicFormatError'
+
+# 擦除模板隐私保护模型错误
+INVALIDPARAMETERVALUE_PRIVACYMODEL = 'InvalidParameterValue.PrivacyModel'
+
+# 擦除模板隐私保护目标错误
+INVALIDPARAMETERVALUE_PRIVACYTARGETS = 'InvalidParameterValue.PrivacyTargets'
 
 # 参数值错误：Quality。
 INVALIDPARAMETERVALUE_QUALITY = 'InvalidParameterValue.Quality'
@@ -314,6 +359,9 @@ INVALIDPARAMETERVALUE_SAMPLERATE = 'InvalidParameterValue.SampleRate'
 # 参数值错误：SampleType。
 INVALIDPARAMETERVALUE_SAMPLETYPE = 'InvalidParameterValue.SampleType'
 
+# Service参数值错误
+INVALIDPARAMETERVALUE_SERVICE = 'InvalidParameterValue.Service'
+
 # SessionContext 过长。
 INVALIDPARAMETERVALUE_SESSIONCONTEXTTOOLONG = 'InvalidParameterValue.SessionContextTooLong'
 
@@ -329,11 +377,23 @@ INVALIDPARAMETERVALUE_SOUNDSYSTEM = 'InvalidParameterValue.SoundSystem'
 # SourceLanguage参数错误
 INVALIDPARAMETERVALUE_SOURCELANGUAGE = 'InvalidParameterValue.SourceLanguage'
 
+# SourceText参数错误
+INVALIDPARAMETERVALUE_SOURCETEXT = 'InvalidParameterValue.SourceText'
+
 # 源文件错误。
 INVALIDPARAMETERVALUE_SRCFILE = 'InvalidParameterValue.SrcFile'
 
+# 擦除模板字幕擦除方式错误
+INVALIDPARAMETERVALUE_SUBTITLEERASEMETHOD = 'InvalidParameterValue.SubtitleEraseMethod'
+
 # 参数值错误：SubtitleFormat 参数非法。
 INVALIDPARAMETERVALUE_SUBTITLEFORMAT = 'InvalidParameterValue.SubtitleFormat'
+
+# 擦除模板字幕擦除语种错误
+INVALIDPARAMETERVALUE_SUBTITLELANG = 'InvalidParameterValue.SubtitleLang'
+
+# 擦除模板字幕擦除模型错误
+INVALIDPARAMETERVALUE_SUBTITLEMODEL = 'InvalidParameterValue.SubtitleModel'
 
 # 参数值错误：字幕语言类型
 INVALIDPARAMETERVALUE_SUBTITLETYPE = 'InvalidParameterValue.SubtitleType'
@@ -362,8 +422,17 @@ INVALIDPARAMETERVALUE_TASKID = 'InvalidParameterValue.TaskId'
 # 参数错误：文字透明度。
 INVALIDPARAMETERVALUE_TEXTALPHA = 'InvalidParameterValue.TextAlpha'
 
+# TextContent参数值错误
+INVALIDPARAMETERVALUE_TEXTCONTENT = 'InvalidParameterValue.TextContent'
+
 # 参数错误：文字模板。
 INVALIDPARAMETERVALUE_TEXTTEMPLATE = 'InvalidParameterValue.TextTemplate'
+
+# 擦除模板字幕擦除翻译目标语种错误
+INVALIDPARAMETERVALUE_TRANSDSTLANG = 'InvalidParameterValue.TransDstLang'
+
+# 参数值错误：TransSwitch 参数取值非法。
+INVALIDPARAMETERVALUE_TRANSSWITCH = 'InvalidParameterValue.TransSwitch'
 
 # 参数值错误：翻译目标语言
 INVALIDPARAMETERVALUE_TRANSLATEDSTLANGUAGE = 'InvalidParameterValue.TranslateDstLanguage'
@@ -388,6 +457,12 @@ INVALIDPARAMETERVALUE_VIDEOCODEC = 'InvalidParameterValue.VideoCodec'
 
 # 参数值错误：视频源语言错误
 INVALIDPARAMETERVALUE_VIDEOSRCLANGUAGE = 'InvalidParameterValue.VideoSrcLanguage'
+
+# 擦除模板去水印擦除方式错误
+INVALIDPARAMETERVALUE_WATERMARKERASEMETHOD = 'InvalidParameterValue.WatermarkEraseMethod'
+
+# 擦除模板去水印擦除模型错误
+INVALIDPARAMETERVALUE_WATERMARKMODEL = 'InvalidParameterValue.WatermarkModel'
 
 # 参数错误：宽度。
 INVALIDPARAMETERVALUE_WIDTH = 'InvalidParameterValue.Width'
@@ -422,8 +497,14 @@ RESOURCENOTFOUND_PERSON = 'ResourceNotFound.Person'
 # 资源不存在：模板不存在。
 RESOURCENOTFOUND_TEMPLATENOTEXIST = 'ResourceNotFound.TemplateNotExist'
 
+# 用户未注册。
+RESOURCENOTFOUND_USERUNREGISTER = 'ResourceNotFound.UserUnregister'
+
 # 资源不存在：关键词。
 RESOURCENOTFOUND_WORD = 'ResourceNotFound.Word'
 
 # 未授权操作。
 UNAUTHORIZEDOPERATION = 'UnauthorizedOperation'
+
+# 单次请求text超过长度限制
+UNSUPPORTEDOPERATION_TEXTTOOLONG = 'UnsupportedOperation.TextTooLong'

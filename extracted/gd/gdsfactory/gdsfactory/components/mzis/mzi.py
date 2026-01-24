@@ -1,5 +1,18 @@
 from __future__ import annotations
 
+__all__ = [
+    "mzi",
+    "mzi1x2",
+    "mzi1x2_2x2",
+    "mzi2x2_2x2",
+    "mzi2x2_2x2_phase_shifter",
+    "mzi_coupler",
+    "mzi_phase_shifter",
+    "mzi_phase_shifter_top_heater_metal",
+    "mzi_pin",
+    "mzm",
+]
+
 from functools import partial
 
 import gdsfactory as gf
@@ -34,6 +47,7 @@ def mzi(
     add_optical_ports_arms: bool = False,
     min_length: float = 10e-3,
     auto_rename_ports: bool = True,
+    auto_detect_port_names: bool = False,
 ) -> Component:
     """Mzi.
 
@@ -61,9 +75,10 @@ def mzi(
         cross_section_x_bot: optional bottom cross_section (defaults to cross_section).
         mirror_bot: if true, mirrors the bottom arm.
         add_optical_ports_arms: add all other optical ports in the arms
-            with top_ and bot_ prefix.
+            with top\\_ and bot\\_ prefix.
         min_length: minimum length for the straight.
         auto_rename_ports: if True, renames ports.
+        auto_detect_port_names: whether to auto detect ports names. Ignores port_e* arguments if True.
 
     .. code::
 
@@ -82,6 +97,28 @@ def mzi(
                      b6__sxbot__b7
                           Lx
     """
+    if auto_detect_port_names:
+        splitter_instance = gf.get_component(splitter)
+        combiner_instance = gf.get_component(combiner or splitter)
+        splitter_ports = splitter_instance.get_ports_list(
+            port_type="optical", orientation=0
+        )
+        combiner_ports = combiner_instance.get_ports_list(
+            port_type="optical", orientation=0
+        )
+        _name1 = splitter_ports[0].name
+        _name2 = splitter_ports[1].name
+        _name3 = combiner_ports[0].name
+        _name4 = combiner_ports[1].name
+        assert _name1 is not None, "splitter port 1 must have a name"
+        assert _name2 is not None, "splitter port 2 must have a name"
+        assert _name3 is not None, "combiner port 1 must have a name"
+        assert _name4 is not None, "combiner port 2 must have a name"
+        port_e1_splitter = _name1
+        port_e0_splitter = _name2
+        port_e1_combiner = _name3
+        port_e0_combiner = _name4
+
     combiner = combiner or splitter
 
     straight_x_top = straight_x_top or straight
@@ -204,13 +241,12 @@ def mzi(
     else:
         c.add_port(port1, port=b1.ports[port1])
         c.add_port(port2, port=b5.ports[port1])
+
     c.add_ports(cp2_reference.ports.filter(orientation=0), prefix="ou_")
     c.add_ports(sxt.ports.filter(port_type="electrical"), prefix="top_")
     c.add_ports(sxb.ports.filter(port_type="electrical"), prefix="bot_")
     c.add_ports(sxt.ports.filter(port_type="placement"), prefix="top_")
     c.add_ports(sxb.ports.filter(port_type="placement"), prefix="bot_")
-
-    # c.auto_rename_ports(port_type="optical", prefix="o")
 
     if add_optical_ports_arms:
         c.add_ports(sxt.ports.filter(port_type="optical"), prefix="top_")

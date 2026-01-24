@@ -1,4 +1,16 @@
-#![warn(
+#![deny(
+    warnings,
+    deprecated_safe,
+    future_incompatible,
+    keyword_idents,
+    let_underscore,
+    nonstandard_style,
+    refining_impl_trait,
+    rust_2018_compatibility,
+    rust_2018_idioms,
+    rust_2021_compatibility,
+    rust_2024_compatibility,
+    unused,
     clippy::all,
     clippy::pedantic,
     clippy::restriction,
@@ -16,6 +28,7 @@
     clippy::else_if_without_else,
     clippy::float_arithmetic,
     clippy::implicit_return,
+    clippy::integer_division_remainder_used,
     clippy::iter_over_hash_type,
     clippy::min_ident_chars,
     clippy::missing_docs_in_private_items,
@@ -39,7 +52,7 @@ mod common;
 mod function_api;
 use pyo3::prelude::*;
 
-#[pymodule]
+#[pymodule(gil_used = false)]
 fn _pyromark(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add_function(wrap_pyfunction!(crate::function_api::events, m)?)?;

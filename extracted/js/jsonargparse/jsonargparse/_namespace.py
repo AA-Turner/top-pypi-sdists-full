@@ -2,25 +2,16 @@
 
 import argparse
 from collections import OrderedDict
+from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import (
     Any,
     Callable,
-    Dict,
-    Iterator,
-    List,
     Optional,
-    Set,
-    Tuple,
     Union,
-    overload,
 )
 
-__all__ = [
-    "Namespace",
-    "dict_to_namespace",
-    "strip_meta",
-]
+__all__ = ["Namespace"]
 
 
 meta_keys = {"__default_config__", "__path__", "__orig__"}
@@ -31,15 +22,15 @@ class NSKeyError(KeyError):
         return str(self.args[0])
 
 
-def split_key(key: str) -> List[str]:
+def split_key(key: str) -> list[str]:
     return key.split(".")
 
 
-def split_key_root(key: str) -> List[str]:
+def split_key_root(key: str) -> list[str]:
     return key.split(".", 1)
 
 
-def split_key_leaf(key: str) -> List[str]:
+def split_key_leaf(key: str) -> list[str]:
     return key.rsplit(".", 1)
 
 
@@ -48,23 +39,7 @@ def is_meta_key(key: str) -> bool:
     return leaf_key in meta_keys
 
 
-@overload
-def strip_meta(cfg: "Namespace") -> "Namespace": ...  # pragma: no cover
-
-
-@overload
-def strip_meta(cfg: Dict[str, Any]) -> Dict[str, Any]: ...  # pragma: no cover
-
-
-def strip_meta(cfg):
-    """Removes all metadata keys from a configuration object.
-
-    Args:
-        cfg: The configuration object to strip.
-
-    Returns:
-        A copy of the configuration object excluding all metadata keys.
-    """
+def remove_meta(cfg: Union["Namespace", dict]):
     if cfg:
         cfg = recreate_branches(cfg, skip_keys=meta_keys)
     return cfg
@@ -111,7 +86,7 @@ class Namespace(argparse.Namespace):
             for key, val in args[0].items() if isinstance(args[0], dict) else vars(args[0]).items():
                 self[key] = val
 
-    def _parse_key(self, key: str) -> Tuple[str, Optional["Namespace"], str]:
+    def _parse_key(self, key: str) -> tuple[str, Optional["Namespace"], str]:
         """Parses a key for the nested namespace.
 
         Args:
@@ -126,6 +101,8 @@ class Namespace(argparse.Namespace):
         Raises:
             KeyError: When given invalid key.
         """
+        if not isinstance(key, str):
+            raise NSKeyError(f"Key must be a string, got: {key!r}.")
         if " " in key:
             raise NSKeyError(f'Spaces not allowed in keys: "{key}".')
         key_split = split_key(key)
@@ -146,7 +123,7 @@ class Namespace(argparse.Namespace):
                     return leaf_key, None, parent_key
         return leaf_key, parent_ns, parent_key
 
-    def _parse_required_key(self, key: str) -> Tuple[str, "Namespace", str]:
+    def _parse_required_key(self, key: str) -> tuple[str, "Namespace", str]:
         """Same as _parse_key but raises KeyError if key not found."""
         leaf_key, parent_ns, parent_key = self._parse_key(key)
         if parent_ns is None or not hasattr(parent_ns, leaf_key):
@@ -211,7 +188,7 @@ class Namespace(argparse.Namespace):
         """Returns False if namespace is empty, otherwise True."""
         return bool(self.__dict__)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         """Converts the nested namespaces into nested dictionaries."""
         dic = {}
         for key, val in vars(self).items():
@@ -231,21 +208,23 @@ class Namespace(argparse.Namespace):
             setattr(flat, key, val)
         return flat
 
-    def items(self, branches: bool = False) -> Iterator[Tuple[str, Any]]:
+    def items(self, branches: bool = False, nested: bool = True) -> Iterator[tuple[str, Any]]:
         """Returns a generator of all leaf (key, value) items, optionally including branches."""
         for key, val in vars(self).items():
             key = del_clash_mark(key)
             if isinstance(val, Namespace):
                 if branches:
                     yield key, val
+                if not nested:
+                    continue
                 for subkey, subval in val.items(branches):
                     yield key + "." + del_clash_mark(subkey), subval
             else:
                 yield key, val
 
-    def keys(self, branches: bool = False) -> Iterator[str]:
+    def keys(self, branches: bool = False, nested: bool = True) -> Iterator[str]:
         """Returns a generator of all leaf keys, optionally including branches."""
-        for key, _ in self.items(branches):
+        for key, _ in self.items(branches=branches, nested=nested):
             yield key
 
     def values(self, branches: bool = False) -> Iterator[Any]:
@@ -253,7 +232,7 @@ class Namespace(argparse.Namespace):
         for _, val in self.items(branches):
             yield val
 
-    def get_sorted_keys(self, branches: bool = True, key_filter: Callable = is_meta_key) -> List[str]:
+    def get_sorted_keys(self, branches: bool = True, key_filter: Callable = is_meta_key) -> list[str]:
         """Returns a list of keys sorted by descending depth.
 
         Args:
@@ -271,9 +250,13 @@ class Namespace(argparse.Namespace):
         keys.sort(key=lambda x: -len(split_key(x)))
         return keys
 
-    def clone(self) -> "Namespace":
-        """Creates an new identical nested namespace."""
-        return recreate_branches(self)
+    def clone(self, with_meta: bool = True) -> "Namespace":
+        """Creates an new copy of the nested namespace.
+
+        Args:
+            with_meta: Whether to include metadata keys in the copy.
+        """
+        return recreate_branches(self, skip_keys=None if with_meta else meta_keys)
 
     def update(
         self, value: Union["Namespace", Any], key: Optional[str] = None, only_unset: bool = False
@@ -291,10 +274,12 @@ class Namespace(argparse.Namespace):
             if not only_unset or key not in self:
                 self[key] = value
         else:
+            if key and not isinstance(self.get(key), Namespace):
+                self[key] = Namespace()
             prefix = key + "." if key else ""
-            for key, val in value.items():
-                if not only_unset or prefix + key not in self:
-                    self[prefix + key] = val
+            for subkey, subval in value.items():
+                if not only_unset or prefix + subkey not in self:
+                    self[prefix + subkey] = subval
         return self
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -303,7 +288,7 @@ class Namespace(argparse.Namespace):
         except (KeyError, TypeError):
             return default
 
-    def get_value_and_parent(self, key: str) -> Tuple[Any, "Namespace", str]:
+    def get_value_and_parent(self, key: str) -> tuple[Any, "Namespace", str]:
         leaf_key, parent_ns, _ = self._parse_required_key(key)
         return parent_ns[leaf_key], parent_ns, leaf_key
 
@@ -314,7 +299,7 @@ class Namespace(argparse.Namespace):
         return parent_ns.__dict__.pop(leaf_key, default)
 
 
-clash_names: Set[str] = set(dir(Namespace))
+clash_names: set[str] = set(dir(Namespace))
 clash_mark = "\u200b"
 
 
@@ -330,27 +315,20 @@ def del_clash_mark(key: str) -> str:
     return key
 
 
-def expand_dict(cfg):
-    for k, v in cfg.items():
+def expand_dict(data: dict) -> Namespace:
+    for k, v in data.items():
         if isinstance(v, dict) and all(isinstance(k, str) for k in v):
-            cfg[k] = expand_dict(v)
+            data[k] = expand_dict(v)
         elif isinstance(v, list):
             for nn, vv in enumerate(v):
                 if isinstance(vv, dict) and all(isinstance(k, str) for k in vv):
-                    cfg[k][nn] = expand_dict(vv)
-    return Namespace(**cfg)
+                    data[k][nn] = expand_dict(vv)
+    return Namespace(**data)
 
 
-def dict_to_namespace(cfg_dict: Union[Dict[str, Any], Namespace]) -> Namespace:
-    """Converts a nested dictionary into a nested namespace.
-
-    Note: Using this function is generally discouraged because it may not
-          produce the same results as a parser would. However, it remains part
-          of the public API to support valid use cases and ensure backward
-          compatibility.
-    """
-    cfg_dict = recreate_branches(cfg_dict)
-    return expand_dict(cfg_dict)
+def dict_to_namespace(data: dict[str, Any]) -> Namespace:
+    data = recreate_branches(data)
+    return expand_dict(data)
 
 
 # Temporal to provide backward compatibility in pytorch-lightning

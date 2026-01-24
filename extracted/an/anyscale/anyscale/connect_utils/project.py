@@ -155,10 +155,9 @@ class ProjectBlock:
         else:
             # Get organization default cloud or last used cloud
             default_cloud_name = get_organization_default_cloud(self.api_client)
-            if default_cloud_name:
-                cloud_name = default_cloud_name
-            else:
-                cloud_name = get_last_used_cloud(None, self.anyscale_api_client)
+            cloud_name = default_cloud_name or get_last_used_cloud(
+                None, self.anyscale_api_client
+            )
             parent_cloud_id, _ = get_cloud_id_and_name(
                 self.api_client, cloud_id=None, cloud_name=cloud_name
             )

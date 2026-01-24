@@ -19,8 +19,8 @@ from beartype._check.metadata.hint.hintsane import (
     HINT_SANE_IGNORABLE,
     HintSane,
 )
-from beartype._data.hint.datahintpep import Hint
-from beartype._data.hint.pep.datapeprepr import (
+from beartype._data.typing.datatypingport import Hint
+from beartype._data.hint.datahintrepr import (
     HINTS_PEP484_REPR_PREFIX_DEPRECATED)
 from beartype._util.error.utilerrwarn import issue_warning
 
@@ -71,7 +71,7 @@ def reduce_hint_pep484_deprecated(
     #
     # Note that the str.partition() method has been profiled to be the optimally
     # efficient means of parsing trivial prefixes.
-    hint_repr_bare, _, _ = hint_repr.partition('[')
+    hint_repr_bare = hint_repr.partition('[')[0]
 
     # If this hint is a PEP 484-compliant type hint originating from an origin
     # type (e.g., "typing.List[int]"), this hint has been deprecated by the

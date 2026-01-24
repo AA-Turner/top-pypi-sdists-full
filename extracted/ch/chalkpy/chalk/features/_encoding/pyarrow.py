@@ -8,12 +8,28 @@ import ipaddress
 import typing
 import uuid
 from datetime import date, datetime, time, timedelta
-from typing import TYPE_CHECKING, Any, Dict, FrozenSet, List, Mapping, Set, Tuple, Type, cast
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Dict,
+    FrozenSet,
+    List,
+    Literal,
+    Mapping,
+    Set,
+    Tuple,
+    Type,
+    TypeGuard,
+    cast,
+    get_args,
+    get_origin,
+    is_typeddict,
+)
 
 import attrs
 import google.protobuf.message
 import pyarrow as pa
-from typing_extensions import Annotated, Literal, TypeGuard, get_args, get_origin, is_typeddict
 
 from chalk.features._encoding.http import HttpResponse, get_http_response_as_pyarrow
 from chalk.features._encoding.primitive import ChalkStructType, TPrimitive
@@ -24,7 +40,7 @@ from chalk.utils.collections import is_namedtuple, is_optional, unwrap_optional_
 from chalk.utils.enum import get_enum_value_type
 from chalk.utils.json import JSON, is_pyarrow_json_type
 from chalk.utils.missing_dependency import missing_dependency_exception
-from chalk.utils.pl_helpers import is_new_polars
+from chalk.utils.pl_helpers import is_new_polars, pl_array
 from chalk.utils.pydanticutil.pydantic_compat import is_pydantic_basemodel
 
 if TYPE_CHECKING:
@@ -418,7 +434,7 @@ def pyarrow_to_polars(
         underlying = pa_type.value_type
         if is_new_polars and use_fixed_size_list:
             # pl.Array is only available in polars >=0.18
-            return pl.Array(inner=pyarrow_to_polars(underlying, name=f"{name}[]"), width=pa_type.list_size)
+            return pl_array(inner=pyarrow_to_polars(underlying, name=f"{name}[]"), size=pa_type.list_size)
         else:
             return pl.List(pyarrow_to_polars(underlying, name=f"{name}[]"))
     if pa.types.is_struct(pa_type):

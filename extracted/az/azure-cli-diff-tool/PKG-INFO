@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: azure-cli-diff-tool
-Version: 0.1.0
+Version: 0.1.1
 Summary: A tool for cli metadata management
 Author: Microsoft Corporation
 Author-email: azpycli@microsoft.com
 License: MIT
-Requires-Dist: deepdiff==6.3.0
+Requires-Dist: deepdiff~=8.6.1
 Requires-Dist: requests~=2.32.3
 Dynamic: author
 Dynamic: author-email
@@ -104,6 +104,10 @@ License
 
 Release History
 ===============
+0.1.1
+++++++
+* Bump `deepDiff` to 8.6.1
+
 0.1.0
 ++++++
 * Enable meta-diff with `module_name` excluded

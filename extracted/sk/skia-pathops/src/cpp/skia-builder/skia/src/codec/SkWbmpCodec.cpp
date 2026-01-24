@@ -9,8 +9,11 @@
 
 #include "include/codec/SkCodec.h"
 #include "include/codec/SkEncodedImageFormat.h"
+#include "include/codec/SkWbmpDecoder.h"
 #include "include/core/SkColorType.h"
+#include "include/core/SkData.h"
 #include "include/core/SkImageInfo.h"
+#include "include/core/SkRefCnt.h"
 #include "include/core/SkSize.h"
 #include "include/core/SkStream.h"
 #include "include/private/SkEncodedInfo.h"
@@ -94,6 +97,9 @@ static bool read_header(SkStream* stream, SkISize* size) {
 }
 
 bool SkWbmpCodec::onRewind() {
+    if (!this->rewindStream()) {
+        return false;
+    }
     return read_header(this->stream(), nullptr);
 }
 
@@ -115,7 +121,7 @@ SkEncodedImageFormat SkWbmpCodec::onGetEncodedFormat() const {
 
 bool SkWbmpCodec::conversionSupported(const SkImageInfo& dst, bool srcIsOpaque,
                                       bool /*needsColorXform*/) {
-    return valid_color_type(dst) && valid_alpha(dst.alphaType(), srcIsOpaque);
+    return valid_color_type(dst) && SkCodecPriv::ValidAlpha(dst.alphaType(), srcIsOpaque);
 }
 
 SkCodec::Result SkWbmpCodec::onGetPixels(const SkImageInfo& info,
@@ -155,6 +161,11 @@ bool SkWbmpCodec::IsWbmp(const void* buffer, size_t bytesRead) {
 
 std::unique_ptr<SkCodec> SkWbmpCodec::MakeFromStream(std::unique_ptr<SkStream> stream,
                                                      Result* result) {
+    SkASSERT(result);
+    if (!stream) {
+        *result = SkCodec::kInvalidInput;
+        return nullptr;
+    }
     SkISize size;
     if (!read_header(stream.get(), &size)) {
         // This already succeeded in IsWbmp, so this stream was corrupted in/
@@ -199,3 +210,31 @@ SkCodec::Result SkWbmpCodec::onStartScanlineDecode(const SkImageInfo& dstInfo,
 
     return kSuccess;
 }
+
+namespace SkWbmpDecoder {
+bool IsWbmp(const void* data, size_t len) {
+    return SkWbmpCodec::IsWbmp(data, len);
+}
+
+std::unique_ptr<SkCodec> Decode(std::unique_ptr<SkStream> stream,
+                                SkCodec::Result* outResult,
+                                SkCodecs::DecodeContext) {
+    SkCodec::Result resultStorage;
+    if (!outResult) {
+        outResult = &resultStorage;
+    }
+    return SkWbmpCodec::MakeFromStream(std::move(stream), outResult);
+}
+
+std::unique_ptr<SkCodec> Decode(sk_sp<SkData> data,
+                                SkCodec::Result* outResult,
+                                SkCodecs::DecodeContext) {
+    if (!data) {
+        if (outResult) {
+            *outResult = SkCodec::kInvalidInput;
+        }
+        return nullptr;
+    }
+    return Decode(SkMemoryStream::Make(std::move(data)), outResult, nullptr);
+}
+}  // namespace SkWbmpDecoder

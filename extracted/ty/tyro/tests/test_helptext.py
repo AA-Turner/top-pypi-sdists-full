@@ -1,14 +1,18 @@
+import contextlib
 import dataclasses
 import enum
+import io
 import json
 import os
 import pathlib
 from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar, Union, cast
 
+import pytest
 from helptext_utils import get_helptext_with_checks
 from typing_extensions import Annotated, Literal, NotRequired, TypedDict
 
 import tyro
+import tyro._strings
 
 
 def test_helptext() -> None:
@@ -231,6 +235,19 @@ def test_helptext_defaults() -> None:
     assert "(default: %)" in helptext
 
 
+def test_helptext_upath_defaults() -> None:
+    """Test UPath helptext with metavar and default rendering."""
+    from upath import UPath
+
+    @dataclasses.dataclass
+    class HelptextWithUPath:
+        x: UPath = UPath("s3://bucket/path")
+
+    helptext = get_helptext_with_checks(HelptextWithUPath)
+    assert "--x UPATH" in helptext
+    assert "(default: s3://bucket/path)" in helptext
+
+
 def test_multiline_helptext() -> None:
     @dataclasses.dataclass
     class HelptextMultiline:
@@ -447,21 +464,30 @@ def test_multiple_subparsers_helptext() -> None:
 
     assert "2% milk." in helptext
     assert "Field a description." in helptext
-    assert "Field b description." not in helptext
-    assert "Field c description." not in helptext
+    # With tyro backend, all subparser groups in the frontier are shown.
+    # With argparse backend, only the first subparser group is shown.
+
+    if tyro._experimental_options["backend"] == "tyro":
+        assert "Field b description." in helptext
+        assert "Field c description." in helptext
+    else:
+        assert "Field b description." not in helptext
+        assert "Field c description." not in helptext
 
     # Not enough args for usage shortening to kick in.
     assert "[OPTIONS]" not in helptext
     assert "[B:SUBCOMMAND2 OPTIONS]" not in helptext
 
     helptext = get_helptext_with_checks(
-        MultipleSubparsers, args=["a:subcommand1", "b:subcommand1", "--help"]
+        MultipleSubparsers,
+        args=["a:subcommand1", "b:subcommand1", "--help"],
     )
 
     assert "2% milk." in helptext
     assert "Field a description." not in helptext
     assert "Field b description." not in helptext
     assert "Field c description." in helptext
+    assert "--no-d" not in helptext
     assert "(default: c:subcommand3)" in helptext
 
     # Not enough args for usage shortening to kick in.
@@ -469,25 +495,32 @@ def test_multiple_subparsers_helptext() -> None:
     assert "[B:SUBCOMMAND1 OPTIONS]" not in helptext
     assert "[B:SUBCOMMAND2 OPTIONS]" not in helptext
 
+    # Argument should be pushed to the leaf.
+    assert "--d, --no-d" in get_helptext_with_checks(
+        MultipleSubparsers,
+        args=["a:subcommand1", "b:subcommand1", "c:subcommand2", "--help"],
+        config=(tyro.conf.CascadeSubcommandArgs,),
+    )
+
 
 def test_multiple_subparsers_helptext_shortened_usage() -> None:
     @dataclasses.dataclass
     class Subcommand1:
         """2% milk."""  # % symbol is prone to bugs in argparse.
 
-        a: int = 0
-        b: int = 0
-        c: int = 0
-        d: int = 0
-        e: int = 0
+        aaaaaaa: int = 0
+        bbbbbbb: int = 0
+        ccccccc: int = 0
+        ddddddd: int = 0
+        eeeeeee: int = 0
 
     @dataclasses.dataclass
     class Subcommand2:
-        a: int = 0
-        b: int = 0
-        c: int = 0
-        d: int = 0
-        e: int = 0
+        aaaaaaa: int = 0
+        bbbbbbb: int = 0
+        ccccccc: int = 0
+        ddddddd: int = 0
+        eeeeeee: int = 0
 
     @dataclasses.dataclass
     class Subcommand3:
@@ -508,18 +541,25 @@ def test_multiple_subparsers_helptext_shortened_usage() -> None:
             default_factory=Subcommand3
         )
 
-        d: bool = False
-        f: bool = False
-        g: bool = False
-        h: bool = False
-        i: bool = False
+        ddddddd: bool = False
+        fffffff: bool = False
+        ggggggg: bool = False
+        hhhhhhh: bool = False
+        iiiiiii: bool = False
 
     helptext = get_helptext_with_checks(MultipleSubparsers)
 
     assert "2% milk." in helptext
     assert "Field a description." in helptext
-    assert "Field b description." not in helptext
-    assert "Field c description." not in helptext
+    # With tyro backend, all subparser groups in the frontier are shown.
+    # With argparse backend, only the first subparser group is shown.
+
+    if tyro._experimental_options["backend"] == "tyro":
+        assert "Field b description." in helptext
+        assert "Field c description." in helptext
+    else:
+        assert "Field b description." not in helptext
+        assert "Field c description." not in helptext
 
     assert "[OPTIONS]" in helptext
     assert "[B:SUBCOMMAND2 OPTIONS]" not in helptext
@@ -644,6 +684,20 @@ def test_metavar_6() -> None:
     )
 
 
+def test_empty_metavar() -> None:
+    """Test that empty metavar doesn't add trailing space."""
+
+    @dataclasses.dataclass
+    class Args:
+        verbose: Annotated[int, tyro.conf.arg(metavar="", aliases=("-v",))] = 0
+
+    helptext = get_helptext_with_checks(Args)
+    # Should have no space after comma: "-v, --verbose".
+    # Not: "-v , --verbose".
+    assert "-v, --verbose" in helptext
+    assert "-v , --verbose" not in helptext
+
+
 def test_comment_in_subclass_list() -> None:
     @dataclasses.dataclass
     class Something(
@@ -711,8 +765,15 @@ def test_multiple_subparsers_helptext_hyphens() -> None:
 
     assert "2% milk." in helptext
     assert "Field a description." in helptext
-    assert "Field b description." not in helptext
-    assert "Field c description." not in helptext
+    # With tyro backend, all subparser groups in the frontier are shown.
+    # With argparse backend, only the first subparser group is shown.
+
+    if tyro._experimental_options["backend"] == "tyro":
+        assert "Field b description." in helptext
+        assert "Field c description." in helptext
+    else:
+        assert "Field b description." not in helptext
+        assert "Field c description." not in helptext
 
     helptext = get_helptext_with_checks(
         MultipleSubparsers, args=["a:subcommand-one", "b:subcommand-one", "--help"]
@@ -759,8 +820,15 @@ def test_multiple_subparsers_helptext_underscores() -> None:
 
     assert "2% milk." in helptext
     assert "Field a description." in helptext
-    assert "Field b description." not in helptext
-    assert "Field c description." not in helptext
+    # With tyro backend, all subparser groups in the frontier are shown.
+    # With argparse backend, only the first subparser group is shown.
+
+    if tyro._experimental_options["backend"] == "tyro":
+        assert "Field b description." in helptext
+        assert "Field c description." in helptext
+    else:
+        assert "Field b description." not in helptext
+        assert "Field c description." not in helptext
 
     helptext = get_helptext_with_checks(
         MultipleSubparsers,
@@ -792,7 +860,9 @@ def test_subparsers_wrapping() -> None:
         y: int
 
     help = get_helptext_with_checks(Union[A, CheckoutCompletion])  # type: ignore
-    assert help.count("checkout-completion") == 3
+    # Both backends use full metavar when there's a single subparser group.
+    # Appears 3 times: usage line + subcommand list.
+    assert help.count("checkout-completion") == 2
 
 
 def test_subparsers_wrapping1() -> None:
@@ -809,7 +879,8 @@ def test_subparsers_wrapping1() -> None:
         y: int
 
     help = get_helptext_with_checks(Union[A, CheckoutCompletio])  # type: ignore
-    assert help.count("checkout-completio") == 3
+    # Both backends use full metavar when there's a single subparser group.
+    assert help.count("checkout-completio") == 2
 
 
 def test_subparsers_wrapping2() -> None:
@@ -826,7 +897,8 @@ def test_subparsers_wrapping2() -> None:
         y: int
 
     help = get_helptext_with_checks(Union[A, CheckoutCompletionn])  # type: ignore
-    assert help.count("checkout-completionn") == 3
+    # Both backends use full metavar when there's a single subparser group.
+    assert help.count("checkout-completionn") == 2
 
 
 def test_subparsers_wrapping3() -> None:
@@ -843,7 +915,8 @@ def test_subparsers_wrapping3() -> None:
         y: int
 
     help = get_helptext_with_checks(Union[A, CmdCheckout012])  # type: ignore
-    assert help.count("cmd-checkout012") == 3
+    # Both backends use full metavar when there's a single subparser group.
+    assert help.count("cmd-checkout012") == 2
 
 
 def test_tuple_default() -> None:
@@ -1067,3 +1140,482 @@ def test_bool_help_edge_cases() -> None:
     # Test bool case - should show {True,False}|{{True,False} {True,False}}
     helptext_bool = get_helptext_with_checks(main_bool)
     assert "--x-bool {True,False}|{{True,False} {True,False}}" in helptext_bool
+
+
+def test_set_accent_color() -> None:
+    """Test that set_accent_color runs without error."""
+    tyro.extras.set_accent_color("blue")
+
+
+def test_help_with_required_subcommands_consolidated() -> None:
+    """Test that --help shows help text for required subcommands in consolidated mode.
+
+    This is a regression test for an issue where --help would raise a 'Missing subcommand'
+    error instead of showing the help text when using CascadeSubcommandArgs with
+    required subcommands (no default).
+    """
+    import pytest
+
+    @dataclasses.dataclass
+    class ConfigA:
+        a: int = 1
+
+    @dataclasses.dataclass
+    class ConfigB:
+        b: int = 2
+
+    def main(config: Union[ConfigA, ConfigB]) -> None:
+        """Test function with required union subcommand.
+
+        Args:
+            config: Configuration to use.
+        """
+        pass
+
+    # This should show help text and exit, not raise a "Missing subcommand" error.
+    with pytest.raises(SystemExit):
+        tyro.cli(main, args=["--help"], config=(tyro.conf.CascadeSubcommandArgs,))
+
+
+def test_implicit_arguments_show_required() -> None:
+    """Test that default subcommand options show '(required)' indicator for required args."""
+
+    @dataclasses.dataclass
+    class SubcommandWithRequiredArg:
+        """Subcommand with a required argument."""
+
+        required_arg: int  # Required: no default value.
+        optional_arg: str = "default"  # Optional: has default value.
+
+    @dataclasses.dataclass
+    class SubcommandAllOptional:
+        """Another subcommand with all optional args."""
+
+        x: int = 0
+
+    def main(
+        subcommand: Union[SubcommandWithRequiredArg, SubcommandAllOptional] = (
+            SubcommandWithRequiredArg(required_arg=tyro.MISSING)  # type: ignore
+        ),
+    ) -> None:
+        """Test function with default subcommand containing required arg.
+
+        Args:
+            subcommand: Subcommand choice with default.
+        """
+        pass
+
+    # Get help text with CascadeSubcommandArgs enabled.
+    # The default subcommand's arguments should appear as "implicit arguments".
+    helptext = get_helptext_with_checks(
+        main,
+        args=["--help"],
+        config=(tyro.conf.CascadeSubcommandArgs,),
+    )
+
+    # Implicit arguments only appear with tyro backend.
+    if tyro._experimental_options["backend"] != "tyro":
+        return
+
+    # Check that default subcommand options section exists.
+    assert "default subcommand options" in helptext
+
+    # Check that required arg has "(required)" indicator.
+    assert "--subcommand.required-arg" in helptext
+    required_arg_pos = helptext.find("--subcommand.required-arg")
+    assert required_arg_pos != -1
+    # Look for "(required)" within a reasonable distance after the arg name.
+    helptext_after_required = helptext[required_arg_pos : required_arg_pos + 150]
+    assert "(required)" in helptext_after_required
+
+    # Check that optional arg does NOT have "(required)" indicator.
+    assert "--subcommand.optional-arg" in helptext
+    # Find the line with the optional arg and verify it doesn't have "(required)".
+    lines = helptext.split("\n")
+    for line in lines:
+        if "--subcommand.optional-arg" in line:
+            assert "(required)" not in line
+            break
+
+
+def test_multiple_default_subcommands_with_required() -> None:
+    """Test multiple default subcommands showing required indicators.
+
+    This mirrors the pattern from examples/03_subcommands/03_multiple_subcommands.py
+    where dataset and optimizer are both default subcommands with required fields.
+    """
+
+    @dataclasses.dataclass
+    class Mnist:
+        """MNIST dataset configuration."""
+
+        binary: bool  # Required: no default value, like the example.
+
+    @dataclasses.dataclass
+    class ImageNet:
+        """ImageNet dataset configuration."""
+
+        subset: int = 1000
+
+    @dataclasses.dataclass
+    class Adam:
+        """Adam optimizer configuration."""
+
+        learning_rate: float = 1e-3
+
+    @dataclasses.dataclass
+    class Sgd:
+        """SGD optimizer configuration."""
+
+        learning_rate: float = 3e-4
+
+    def train(
+        dataset: Union[Mnist, ImageNet] = Mnist(tyro.MISSING),  # type: ignore
+        optimizer: Union[Adam, Sgd] = Adam(),
+    ) -> None:
+        """Example training script.
+
+        Args:
+            dataset: Dataset to train on.
+            optimizer: Optimizer to train with.
+        """
+        pass
+
+    # Get help text with CascadeSubcommandArgs enabled.
+    helptext = get_helptext_with_checks(
+        train,
+        args=["--help"],
+        config=(tyro.conf.CascadeSubcommandArgs,),
+    )
+
+    # Implicit arguments only appear with tyro backend.
+    if tyro._experimental_options["backend"] != "tyro":
+        return
+
+    # Check that default subcommand options section exists.
+    assert "default subcommand options" in helptext
+
+    # Check that the required boolean field from dataset (Mnist.binary) shows "(required)".
+    assert "--dataset.binary" in helptext
+    binary_pos = helptext.find("--dataset.binary")
+    assert binary_pos != -1
+    helptext_after_binary = helptext[binary_pos : binary_pos + 150]
+    assert "(required)" in helptext_after_binary
+
+    # Check that the optional optimizer field shows up but is NOT required.
+    assert "--optimizer.learning-rate" in helptext
+    lines = helptext.split("\n")
+    for line in lines:
+        if "--optimizer.learning-rate" in line:
+            assert "(required)" not in line
+            break
+
+
+def test_compact_help_short_text() -> None:
+    """Test compact mode with short argument text that fits on one line."""
+    # Skip this test for argparse backend - compact_help only supported with tyro.
+    if tyro._experimental_options["backend"] != "tyro":
+        return
+
+    @dataclasses.dataclass
+    class ShortArgs:
+        """Test program with short arguments."""
+
+        x: int = 5
+        """Short description."""
+
+        y: str = "hello"
+        """Another short one."""
+
+    # Test compact mode.
+    compact_helptext = get_helptext_with_checks(ShortArgs, compact_help=True)
+    assert "--help-verbose" in compact_helptext
+    assert "--x INT" in compact_helptext
+    assert "--y STR" in compact_helptext
+    # In compact mode, primary help text is omitted, only defaults shown.
+    assert "Short description" not in compact_helptext
+    assert "(default: 5)" in compact_helptext
+    assert "(default: hello)" in compact_helptext
+
+
+def test_compact_help_long_text() -> None:
+    """Test compact mode with very long argument names and behavior hints."""
+    # Skip this test for argparse backend - compact_help only supported with tyro.
+    if tyro._experimental_options["backend"] != "tyro":
+        return
+
+    @dataclasses.dataclass
+    class LongArgs:
+        """Test program with very long argument names."""
+
+        very_long_argument_name_that_takes_up_a_lot_of_terminal_space: int = 5
+        """This is an extremely long description that will definitely exceed the terminal width when combined with the argument name. It contains many words and should trigger the line-splitting behavior in compact mode."""
+
+    # Test compact mode.
+    compact_helptext = get_helptext_with_checks(LongArgs, compact_help=True)
+    assert (
+        "--very-long-argument-name-that-takes-up-a-lot-of-terminal-space"
+        in compact_helptext
+    )
+    # In compact mode, primary descriptions are omitted.
+    assert "extremely long description" not in compact_helptext
+    # But default values are still shown.
+    assert "(default: 5)" in compact_helptext
+
+
+def test_verbose_help_short_invocation() -> None:
+    """Test verbose mode with short invocation names."""
+    # Skip this test for argparse backend - compact_help only supported with tyro.
+    if tyro._experimental_options["backend"] != "tyro":
+        return
+
+    @dataclasses.dataclass
+    class VerboseArgs:
+        """Test program for verbose mode."""
+
+        x: int = 5
+        """This is a longer description that will appear in verbose mode. It provides detailed information about what the x parameter does and how it should be used."""
+
+        y: str = "test"
+        """Another detailed description for the y parameter."""
+
+    # Test verbose mode (default behavior).
+    verbose_helptext = get_helptext_with_checks(VerboseArgs, compact_help=False)
+    assert "--help-verbose" not in verbose_helptext
+    assert "--x INT" in verbose_helptext
+    assert "--y STR" in verbose_helptext
+    assert "longer description" in verbose_helptext
+    assert "Another detailed description" in verbose_helptext
+
+
+def test_verbose_help_long_invocation() -> None:
+    """Test verbose mode with very long invocation names that exceed max width."""
+    # Skip this test for argparse backend - compact_help only supported with tyro.
+    if tyro._experimental_options["backend"] != "tyro":
+        return
+
+    @dataclasses.dataclass
+    class VeryLongInvocationArgs:
+        """Test program with very long argument names."""
+
+        extremely_long_argument_name_that_exceeds_maximum_width_threshold: int = 5
+        """Description for the long argument."""
+
+        another_incredibly_long_argument_name_for_testing_purposes: str = "test"
+        """Another description."""
+
+    # Test verbose mode with long invocations.
+    verbose_helptext = get_helptext_with_checks(
+        VeryLongInvocationArgs, compact_help=False
+    )
+    assert (
+        "--extremely-long-argument-name-that-exceeds-maximum-width-threshold"
+        in verbose_helptext
+    )
+    assert (
+        "--another-incredibly-long-argument-name-for-testing-purposes"
+        in verbose_helptext
+    )
+    assert "Description for the long argument" in verbose_helptext
+
+
+def test_compact_vs_verbose_help() -> None:
+    """Test that compact and verbose modes produce different output."""
+    # Skip this test for argparse backend - compact_help only supported with tyro.
+    if tyro._experimental_options["backend"] != "tyro":
+        return
+
+    @dataclasses.dataclass
+    class CompareArgs:
+        """Test comparing compact vs verbose."""
+
+        x: int = 5
+        """A description for parameter x."""
+
+    compact = get_helptext_with_checks(CompareArgs, compact_help=True)
+    verbose = get_helptext_with_checks(CompareArgs, compact_help=False)
+
+    # Compact should have --help-verbose.
+    assert "--help-verbose" in compact
+    assert "--help-verbose" not in verbose
+
+    # Both should have the basic argument.
+    assert "--x INT" in compact
+    assert "--x INT" in verbose
+
+
+def test_no_duplicate_description() -> None:
+    """Test that description passed via description= kwarg only appears once.
+
+    Regression test for issue where description would appear both after usage line
+    and inside the options box, causing duplication.
+    """
+
+    def main(x: int) -> None:
+        pass
+
+    # Test with description passed as keyword argument.
+    target = io.StringIO()
+    with pytest.raises(SystemExit), contextlib.redirect_stdout(target):
+        tyro.cli(
+            main, args=["--help"], description="This helptext should only appear once."
+        )
+
+    helptext = tyro._strings.strip_ansi_sequences(target.getvalue())
+    # The description should appear in the helptext.
+    assert "This helptext should only appear once." in helptext
+    # But it should only appear once, not twice.
+    assert helptext.count("This helptext should only appear once.") == 1
+
+
+def test_literal_invalid_choice_error_message() -> None:
+    """Test that invalid choice error for Literal types shows clean argument name.
+
+    Regression test for issue where internal implementation detail
+    '__tyro-dummy-inner__' was exposed in error messages.
+    """
+
+    # When using a Literal type as the main CLI type, invalid choice errors
+    # should show a clean argument name, not internal implementation details.
+    # This will also be caught by the assertion in helptext_utils, but we test
+    # it explicitly here for error messages.
+    # Capture stderr to check the error message.
+    stderr = io.StringIO()
+    with pytest.raises(SystemExit):
+        with contextlib.redirect_stderr(stderr):
+            tyro.cli(Literal["a", "b"], args=["c"], return_unknown_args=True)  # type: ignore
+
+    # Check the error message.
+    error_message = stderr.getvalue()
+    # The error message should mention the invalid choice 'c'.
+    assert "invalid choice" in error_message.lower() or "c" in error_message
+    # But it should NOT expose internal implementation details.
+    assert "__tyro-dummy-inner__" not in error_message
+
+
+def test_optional_union_subparser_helptext() -> None:
+    """Test that optional union subparsers are marked as optional in help text."""
+
+    @dataclasses.dataclass
+    class StructA:
+        """First option."""
+
+        a: int = 1
+
+    @dataclasses.dataclass
+    class StructB:
+        """Second option."""
+
+        b: int = 2
+
+    # Optional union (total=False).
+    class OptionalConfig(TypedDict, total=False):
+        """Config with optional union field."""
+
+        choice: Union[StructA, StructB]
+        other: int
+
+    helptext_optional = get_helptext_with_checks(OptionalConfig)
+
+    # Check that "(required)" is NOT shown for optional subparser.
+    lines = helptext_optional.split("\n")
+    in_subcommands_section = False
+    for line in lines:
+        if "subcommands" in line.lower():
+            in_subcommands_section = True
+        if in_subcommands_section and "choice:struct-a" in line:
+            # The section header before the subcommand list should not say "(required)".
+            assert (
+                "(required)"
+                not in helptext_optional.split("choice:struct-a")[0].split(
+                    "subcommands"
+                )[-1]
+            )
+            break
+
+    # For tyro backend, check usage line shows optional subparser in brackets.
+    # For argparse backend, the brackets may not show up in the usage line due to
+    # argparse limitations, but "optional" should appear in the section title.
+    if "[{choice:struct-a,choice:struct-b}]" not in helptext_optional:
+        # Argparse backend - check for "optional" in section title.
+        assert (
+            "optional" in helptext_optional.lower()
+            or "choice subcommands" in helptext_optional
+        )
+
+    # Required union (total=True by default).
+    class RequiredConfig(TypedDict):
+        """Config with required union field."""
+
+        choice: Union[StructA, StructB]
+        other: int
+
+    helptext_required = get_helptext_with_checks(RequiredConfig)
+
+    # Check usage line shows required subparser.
+    assert "{choice:struct-a,choice:struct-b}" in helptext_required
+
+    # Check that "(required)" IS shown for required subparser (tyro backend).
+    # Argparse backend doesn't show "(required)" but doesn't mark subcommands as optional.
+    if "(required)" not in helptext_required:
+        # Argparse backend - ensure "optional subcommands" is NOT in the help text.
+        # (The word "optional" may appear elsewhere, like in field descriptions)
+        assert "optional subcommands" not in helptext_required.lower()
+
+
+def test_subcommand_help_with_required_parent_args() -> None:
+    """Test that subcommand --help works without satisfying parent required args.
+
+    This is a regression test for https://github.com/brentyi/tyro/issues/403
+    where using `python script.py sub:a --help` would fail with "Missing required
+    argument: --x" instead of showing the subcommand help.
+    """
+
+    @dataclasses.dataclass
+    class A:
+        a: int
+
+    @dataclasses.dataclass
+    class B:
+        b: int
+
+    def main(x: int, sub: Union[A, B]) -> None:
+        pass
+
+    # This should show help text for the subcommand without requiring --x.
+    with pytest.raises(SystemExit) as exc_info:
+        tyro.cli(main, args=["sub:a", "--help"])
+    assert exc_info.value.code == 0
+
+    # Verify the help text is actually shown (not an error).
+    captured = io.StringIO()
+    with contextlib.redirect_stdout(captured):
+        with pytest.raises(SystemExit):
+            tyro.cli(main, args=["sub:a", "--help"])
+    helptext = captured.getvalue()
+    assert "sub:a" in helptext or "--sub.a" in helptext
+
+    # Also test with -h flag.
+    with pytest.raises(SystemExit) as exc_info:
+        tyro.cli(main, args=["sub:a", "-h"])
+    assert exc_info.value.code == 0
+
+    # -H and --help-verbose are tyro-backend-only features, and only work
+    # when compact_help=True.
+    if tyro._experimental_options["backend"] == "tyro":
+        # Test with compact_help=True: all help flags should work.
+        with pytest.raises(SystemExit) as exc_info:
+            tyro.cli(main, args=["sub:a", "--help"], compact_help=True)
+        assert exc_info.value.code == 0
+
+        with pytest.raises(SystemExit) as exc_info:
+            tyro.cli(main, args=["sub:a", "-h"], compact_help=True)
+        assert exc_info.value.code == 0
+
+        with pytest.raises(SystemExit) as exc_info:
+            tyro.cli(main, args=["sub:a", "-H"], compact_help=True)
+        assert exc_info.value.code == 0
+
+        with pytest.raises(SystemExit) as exc_info:
+            tyro.cli(main, args=["sub:a", "--help-verbose"], compact_help=True)
+        assert exc_info.value.code == 0

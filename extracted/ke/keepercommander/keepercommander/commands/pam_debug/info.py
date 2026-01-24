@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 class PAMDebugInfoCommand(PAMGatewayActionDiscoverCommandBase):
-    parser = argparse.ArgumentParser(prog='pam-action-debug-info')
+    parser = argparse.ArgumentParser(prog='pam action debug info')
 
     type_name_map = {
         PAM_USER: "PAM User",
@@ -176,9 +176,9 @@ class PAMDebugInfoCommand(PAMGatewayActionDiscoverCommandBase):
                         acl_content = acl_edge.content_as_object(UserAcl)  # type: UserAcl
                         print(f"    * ACL to {self._n(parent_record.record_type)}; {parent_record.title}; "
                               f"{record_parent_vertex.uid}")
-                        if acl_content.is_admin is True:
+                        if acl_content.is_admin:
                             print(f"      . Is {self._gr('Admin')}")
-                        if acl_content.belongs_to is True:
+                        if acl_content.belongs_to:
                             print(f"      . Belongs")
                         else:
                             print(f"      . Is {self._bl('Remote user')}")
@@ -233,9 +233,9 @@ class PAMDebugInfoCommand(PAMGatewayActionDiscoverCommandBase):
                         acl_content = acl_edge.content_as_object(UserAcl)
                         print(f"    * ACL from {self._n(child_record.record_type)}; {child_record.title}; "
                               f"{record_child_vertex.uid}")
-                        if acl_content.is_admin is True:
+                        if acl_content.is_admin:
                             print(f"      . Is {self._gr('Admin')}")
-                        if acl_content.belongs_to is True:
+                        if acl_content.belongs_to:
                             print(f"      . Belongs")
                         else:
                             print(f"      . Is {self._bl('Remote user')}")
@@ -472,6 +472,13 @@ class PAMDebugInfoCommand(PAMGatewayActionDiscoverCommandBase):
                                 print(f"    * {task.name} = {task.user}")
                         else:
                             print("    Machines has no schedules tasks that are using non-builtin users.")
+
+                        print(f"  {self._b('IIS Pools')} (Non Builtin Users)")
+                        if len(content.item.facts.iis_pools) > 0:
+                            for iis_pool in content.item.facts.iis_pools:
+                                print(f"    * {iis_pool.name} = {iis_pool.user}")
+                        else:
+                            print("    Machines has no IIS Pools that are using non-builtin users.")
                     else:
                         print(f"{bcolors.FAIL}    Machine facts are not set. Discover inside may not have been "
                               f"performed.{bcolors.ENDC}")

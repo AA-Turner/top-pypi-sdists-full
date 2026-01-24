@@ -3,7 +3,7 @@ Type annotations for network-firewall service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -39,22 +39,30 @@ __all__ = (
     "ListFirewallsPaginatorName",
     "ListFlowOperationResultsPaginatorName",
     "ListFlowOperationsPaginatorName",
+    "ListProxiesPaginatorName",
+    "ListProxyConfigurationsPaginatorName",
+    "ListProxyRuleGroupsPaginatorName",
     "ListRuleGroupsPaginatorName",
     "ListTLSInspectionConfigurationsPaginatorName",
     "ListTagsForResourcePaginatorName",
     "ListVpcEndpointAssociationsPaginatorName",
+    "ListenerPropertyTypeType",
     "LogDestinationTypeType",
     "LogTypeType",
     "NetworkFirewallServiceName",
     "OverrideActionType",
     "PaginatorName",
     "PerObjectSyncStatusType",
+    "ProxyModifyStateType",
+    "ProxyRulePhaseActionType",
+    "ProxyStateType",
     "RegionName",
     "ResourceManagedStatusType",
     "ResourceManagedTypeType",
     "ResourceServiceName",
     "ResourceStatusType",
     "RevocationCheckActionType",
+    "RuleGroupRequestPhaseType",
     "RuleGroupTypeType",
     "RuleOrderType",
     "ServiceName",
@@ -62,9 +70,11 @@ __all__ = (
     "StatefulRuleDirectionType",
     "StatefulRuleProtocolType",
     "StreamExceptionPolicyType",
+    "SubscriptionStatusType",
     "SummaryRuleOptionType",
     "TCPFlagType",
     "TargetTypeType",
+    "TlsInterceptModeType",
     "TransitGatewayAttachmentStatusType",
 )
 
@@ -76,7 +86,7 @@ EncryptionTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"]
 FirewallStatusValueType = Literal["DELETING", "PROVISIONING", "READY"]
 FlowOperationStatusType = Literal["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "IN_PROGRESS"]
 FlowOperationTypeType = Literal["FLOW_CAPTURE", "FLOW_FLUSH"]
-GeneratedRulesTypeType = Literal["ALLOWLIST", "DENYLIST"]
+GeneratedRulesTypeType = Literal["ALERTLIST", "ALLOWLIST", "DENYLIST", "REJECTLIST"]
 GetAnalysisReportResultsPaginatorName = Literal["get_analysis_report_results"]
 IPAddressTypeType = Literal["DUALSTACK", "IPV4", "IPV6"]
 IdentifiedTypeType = Literal[
@@ -87,20 +97,35 @@ ListFirewallPoliciesPaginatorName = Literal["list_firewall_policies"]
 ListFirewallsPaginatorName = Literal["list_firewalls"]
 ListFlowOperationResultsPaginatorName = Literal["list_flow_operation_results"]
 ListFlowOperationsPaginatorName = Literal["list_flow_operations"]
+ListProxiesPaginatorName = Literal["list_proxies"]
+ListProxyConfigurationsPaginatorName = Literal["list_proxy_configurations"]
+ListProxyRuleGroupsPaginatorName = Literal["list_proxy_rule_groups"]
 ListRuleGroupsPaginatorName = Literal["list_rule_groups"]
 ListTLSInspectionConfigurationsPaginatorName = Literal["list_tls_inspection_configurations"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
 ListVpcEndpointAssociationsPaginatorName = Literal["list_vpc_endpoint_associations"]
+ListenerPropertyTypeType = Literal["HTTP", "HTTPS"]
 LogDestinationTypeType = Literal["CloudWatchLogs", "KinesisDataFirehose", "S3"]
 LogTypeType = Literal["ALERT", "FLOW", "TLS"]
 OverrideActionType = Literal["DROP_TO_ALERT"]
-PerObjectSyncStatusType = Literal["CAPACITY_CONSTRAINED", "IN_SYNC", "PENDING"]
+PerObjectSyncStatusType = Literal[
+    "CAPACITY_CONSTRAINED", "DEPRECATED", "IN_SYNC", "NOT_SUBSCRIBED", "PENDING"
+]
+ProxyModifyStateType = Literal["COMPLETED", "FAILED", "MODIFYING"]
+ProxyRulePhaseActionType = Literal["ALERT", "ALLOW", "DENY"]
+ProxyStateType = Literal[
+    "ATTACHED", "ATTACHING", "ATTACH_FAILED", "DETACHED", "DETACHING", "DETACH_FAILED"
+]
 ResourceManagedStatusType = Literal["ACCOUNT", "MANAGED"]
 ResourceManagedTypeType = Literal[
-    "ACTIVE_THREAT_DEFENSE", "AWS_MANAGED_DOMAIN_LISTS", "AWS_MANAGED_THREAT_SIGNATURES"
+    "ACTIVE_THREAT_DEFENSE",
+    "AWS_MANAGED_DOMAIN_LISTS",
+    "AWS_MANAGED_THREAT_SIGNATURES",
+    "PARTNER_MANAGED",
 ]
 ResourceStatusType = Literal["ACTIVE", "DELETING", "ERROR"]
 RevocationCheckActionType = Literal["DROP", "PASS", "REJECT"]
+RuleGroupRequestPhaseType = Literal["POST_RES", "PRE_DNS", "PRE_REQ"]
 RuleGroupTypeType = Literal["STATEFUL", "STATELESS"]
 RuleOrderType = Literal["DEFAULT_ACTION_ORDER", "STRICT_ORDER"]
 StatefulActionType = Literal["ALERT", "DROP", "PASS", "REJECT"]
@@ -129,9 +154,11 @@ StatefulRuleProtocolType = Literal[
     "UDP",
 ]
 StreamExceptionPolicyType = Literal["CONTINUE", "DROP", "REJECT"]
+SubscriptionStatusType = Literal["NOT_SUBSCRIBED", "SUBSCRIBED"]
 SummaryRuleOptionType = Literal["METADATA", "MSG", "SID"]
 TCPFlagType = Literal["ACK", "CWR", "ECE", "FIN", "PSH", "RST", "SYN", "URG"]
 TargetTypeType = Literal["HTTP_HOST", "TLS_SNI"]
+TlsInterceptModeType = Literal["DISABLED", "ENABLED"]
 TransitGatewayAttachmentStatusType = Literal[
     "CREATING",
     "DELETED",
@@ -170,7 +197,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -240,6 +266,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -285,7 +312,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -338,7 +364,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -377,8 +402,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -413,6 +436,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -422,6 +446,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -432,6 +457,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -453,8 +481,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -469,15 +495,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -508,6 +535,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -548,6 +576,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -568,6 +597,9 @@ PaginatorName = Literal[
     "list_firewalls",
     "list_flow_operation_results",
     "list_flow_operations",
+    "list_proxies",
+    "list_proxy_configurations",
+    "list_proxy_rule_groups",
     "list_rule_groups",
     "list_tags_for_resource",
     "list_tls_inspection_configurations",
@@ -587,6 +619,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

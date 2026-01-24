@@ -232,6 +232,8 @@ void UpdateColumnFamilyOptions(const MutableCFOptions& moptions,
   cf_opts->block_protection_bytes_per_key =
       moptions.block_protection_bytes_per_key;
   cf_opts->paranoid_memory_checks = moptions.paranoid_memory_checks;
+  cf_opts->memtable_veirfy_per_key_checksum_on_seek =
+      moptions.memtable_veirfy_per_key_checksum_on_seek;
   cf_opts->bottommost_file_compaction_delay =
       moptions.bottommost_file_compaction_delay;
 
@@ -339,6 +341,7 @@ void UpdateColumnFamilyOptions(const ImmutableCFOptions& ioptions,
   cf_opts->persist_user_defined_timestamps =
       ioptions.persist_user_defined_timestamps;
   cf_opts->default_temperature = ioptions.default_temperature;
+  cf_opts->cf_allow_ingest_behind = ioptions.cf_allow_ingest_behind;
 
   // TODO(yhchiang): find some way to handle the following derived options
   // * max_file_size
@@ -364,10 +367,9 @@ std::map<CompactionStopStyle, std::string>
         {kCompactionStopStyleTotalSize, "kCompactionStopStyleTotalSize"}};
 
 std::map<Temperature, std::string> OptionsHelper::temperature_to_string = {
-    {Temperature::kUnknown, "kUnknown"},
-    {Temperature::kHot, "kHot"},
-    {Temperature::kWarm, "kWarm"},
-    {Temperature::kCold, "kCold"}};
+    {Temperature::kUnknown, "kUnknown"}, {Temperature::kHot, "kHot"},
+    {Temperature::kWarm, "kWarm"},       {Temperature::kCool, "kCool"},
+    {Temperature::kCold, "kCold"},       {Temperature::kIce, "kIce"}};
 
 std::unordered_map<std::string, ChecksumType>
     OptionsHelper::checksum_type_string_map = {{"kNoChecksum", kNoChecksum},
@@ -962,10 +964,9 @@ std::unordered_map<std::string, CompactionStopStyle>
 
 std::unordered_map<std::string, Temperature>
     OptionsHelper::temperature_string_map = {
-        {"kUnknown", Temperature::kUnknown},
-        {"kHot", Temperature::kHot},
-        {"kWarm", Temperature::kWarm},
-        {"kCold", Temperature::kCold}};
+        {"kUnknown", Temperature::kUnknown}, {"kHot", Temperature::kHot},
+        {"kWarm", Temperature::kWarm},       {"kCool", Temperature::kCool},
+        {"kCold", Temperature::kCold},       {"kIce", Temperature::kIce}};
 
 std::unordered_map<std::string, PrepopulateBlobCache>
     OptionsHelper::prepopulate_blob_cache_string_map = {

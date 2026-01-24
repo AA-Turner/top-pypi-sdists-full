@@ -51,14 +51,16 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/serialization/serialization.h"
-#include "tensorstore/serialization/std_optional.h"
-#include "tensorstore/serialization/std_variant.h"
-#include "tensorstore/serialization/std_vector.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
+
+// specializations
+#include "tensorstore/serialization/std_optional.h"
+#include "tensorstore/serialization/std_variant.h"
+#include "tensorstore/serialization/std_vector.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -386,6 +388,7 @@ Operations
 
 void DefineDimExpressionAttributes(ClsDimExpression& cls) {
   using Self = PythonDimExpression;
+
   DefineNumpyIndexingMethods(
       &cls,
       /*doc_strings=*/
@@ -838,8 +841,8 @@ Group:
     return self.Extend(std::forward<decltype(op)>(op));
   };
 
-  DefineTranslateToOp<Self>(cls, apply_op,
-                            R"(
+  DefineTranslateToOp</*WithLocking=*/false, Self>(cls, apply_op,
+                                                   R"(
 Translates the domains of the selected input dimensions to the specified
 origins without affecting the output range.
 
@@ -902,8 +905,8 @@ Group:
   Operations
 )");
 
-  DefineTranslateByOp<Self>(cls, apply_op,
-                            R"(
+  DefineTranslateByOp</*WithLocking=*/false, Self>(cls, apply_op,
+                                                   R"(
 Translates (shifts) the domains of the selected input dimensions by the
 specified offsets, without affecting the output range.
 
@@ -966,8 +969,8 @@ Group:
 
 )");
 
-  DefineTranslateBackwardByOp<Self>(cls, apply_op,
-                                    R"(
+  DefineTranslateBackwardByOp</*WithLocking=*/false, Self>(cls, apply_op,
+                                                           R"(
 Translates (shifts) the domains of the selected input dimensions backward by the
 specified offsets, without affecting the output range.
 
@@ -1195,8 +1198,8 @@ Group:
 )",
           py::arg("target"));
 
-  DefineLabelOp<Self>(cls, apply_op,
-                      R"(
+  DefineLabelOp</*WithLocking=*/false, Self>(cls, apply_op,
+                                             R"(
 Sets (or changes) the :ref:`labels<dimension-labels>` of the selected dimensions.
 
 Examples:
@@ -1329,8 +1332,8 @@ Group:
 
 )");
 
-  DefineMarkBoundsImplicitOp<Self>(cls, apply_op,
-                                   R"(
+  DefineMarkBoundsImplicitOp</*WithLocking=*/false, Self>(cls, apply_op,
+                                                          R"(
 Marks the lower/upper bounds of the selected dimensions as
 :ref:`implicit/explicit<implicit-bounds>`.
 
@@ -1432,13 +1435,11 @@ Group:
   cls.def("__repr__", &PythonDimExpression::repr);
 
   cls.def("__eq__", [](const Self& a, const Self& b) { return a == b; });
-
-  cls.attr("__iter__") = py::none();
-  EnablePicklingFromSerialization(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/false>(cls);
 }
 
 ClsDimensionSelection MakeDimensionSelectionClass(py::module m) {
-  return ClsDimensionSelection(m, "d",
+  return ClsDimensionSelection(m, "DimSelection",
                                R"(
 Specifies a dimension selection, for starting a :ref:`dimension expression<python-dim-expressions>`.
 
@@ -1449,24 +1450,7 @@ A dimension selection specifies a sequence of dimensions, either by index or
 :ref:`dimension expression<python-dim-expression-construction>` to specify the
 dimensions to which an indexing operation applies.
 
-Group:
-  Indexing
-
-Constructors
-============
-
-Operations
-==========
-
-)");
-}
-
-void DefineDimensionSelectionAttributes(ClsDimensionSelection& cls) {
-  cls.def_static(
-      "__class_getitem__",
-      [](DimensionSelectionLike selection) { return selection.value; },
-      R"(
-Constructs from a sequence of dimension indices, ranges, and/or labels.
+A `DimSelection` may be constructed by subscripting `tensorstore.d`:
 
 Examples:
 
@@ -1479,17 +1463,66 @@ Examples:
    >>> ts.d[[0, 1], ts.d[2, 3]]
    d[0,1,2,3]
 
-)",
-      py::arg("selection"));
+Group:
+  Indexing
 
+Operations
+==========
+
+)");
+}
+
+void DefineDimensionSelectionAttributes(ClsDimensionSelection& cls) {
   cls.def(
       "__eq__",
       [](const DimensionSelection& a, const DimensionSelection& b) {
         return a.dims() == b.dims();
       },
       py::arg("other"));
+  cls.attr("__iter__") = py::none();
+  EnablePicklingFromSerialization</*WithLocking=*/false>(cls);
+}
 
-  EnablePicklingFromSerialization(cls);
+struct DimensionSelectionSubscriptHelper {};
+
+using ClsDimensionSelectionSubscriptHelper =
+    py::class_<DimensionSelectionSubscriptHelper>;
+
+ClsDimensionSelectionSubscriptHelper MakeDimensionSelectionSubscriptHelperClass(
+    py::module m) {
+  using Self = DimensionSelectionSubscriptHelper;
+  ClsDimensionSelectionSubscriptHelper cls(m, "_DimSelection");
+  m.attr("d") = Self{};
+  return cls;
+}
+
+void DefineDimensionSelectionSubscriptHelperAttributes(
+    ClsDimensionSelectionSubscriptHelper& cls) {
+  cls.def_static(
+      "__getitem__",
+      [](DimensionSelectionLike selection) {
+        return std::move(selection.value);
+      },
+      R"(
+Constructs a `DimSelection` from a sequence of dimension indices, ranges, and/or labels.
+
+Examples:
+
+   >>> ts.d[0, 1, 2]
+   d[0,1,2]
+   >>> ts.d[0:1, 2, "x"]
+   d[0:1,2,'x']
+   >>> ts.d[[0, 1], [2]]
+   d[0,1,2]
+   >>> ts.d[[0, 1], ts.d[2, 3]]
+   d[0,1,2,3]
+
+Group:
+  Indexing
+)",
+      py::arg("selection"));
+  cls.attr("__iter__") = py::none();
+  EnablePicklingFromSerialization</*WithLocking=*/false>(cls);
 }
 
 void RegisterDimExpressionBindings(pybind11::module m, Executor defer) {
@@ -1499,6 +1532,10 @@ void RegisterDimExpressionBindings(pybind11::module m, Executor defer) {
 
   defer([cls = MakeDimensionSelectionClass(m)]() mutable {
     DefineDimensionSelectionAttributes(cls);
+  });
+
+  defer([cls = MakeDimensionSelectionSubscriptHelperClass(m)]() mutable {
+    DefineDimensionSelectionSubscriptHelperAttributes(cls);
   });
 
   m.attr("newaxis") = py::none();

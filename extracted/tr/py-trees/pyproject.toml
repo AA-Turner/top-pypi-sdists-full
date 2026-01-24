@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "py_trees"
-version = "2.3.0"
+version = "2.4.0"
 description = "pythonic implementation of behaviour trees"
 authors = ["Daniel Stonier", "Naveed Usmani", "Michal Staniaszek"]
 maintainers = ["Daniel Stonier <d.stonier@gmail.com>", "Sebastian Castro <sebas.a.castro@gmail.com>"]
@@ -25,7 +25,6 @@ keywords=["py_trees", "py-trees", "behaviour-trees"]
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
 pydot = ">=1.4"
-py = "^1.11.0"
 
 [tool.poetry.group.dev.dependencies]
 tox = ">=3.26"

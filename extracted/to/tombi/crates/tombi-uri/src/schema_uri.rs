@@ -1,4 +1,4 @@
-#[derive(Clone, PartialEq, Eq, Hash, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct SchemaUri(crate::Uri);
 
 impl SchemaUri {
@@ -47,7 +47,7 @@ impl From<url::Url> for SchemaUri {
 
 impl From<SchemaUri> for url::Url {
     fn from(uri: SchemaUri) -> Self {
-        uri.0 .0
+        uri.0.0
     }
 }
 

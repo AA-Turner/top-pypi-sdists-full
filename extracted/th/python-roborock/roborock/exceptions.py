@@ -77,3 +77,19 @@ class RoborockTooManyRequest(RoborockException):
 
 class RoborockRateLimit(RoborockException):
     """Class for our rate limits exceptions."""
+
+
+class RoborockNoResponseFromBaseURL(RoborockException):
+    """We could not find an url that had a record of the given account."""
+
+
+class RoborockDeviceBusy(RoborockException):
+    """Class for Roborock device busy exceptions."""
+
+
+class RoborockInvalidStatus(RoborockException):
+    """Class for Roborock invalid status exceptions (device action locked)."""
+
+
+class RoborockUnsupportedFeature(RoborockException):
+    """Class for Roborock unsupported feature exceptions."""

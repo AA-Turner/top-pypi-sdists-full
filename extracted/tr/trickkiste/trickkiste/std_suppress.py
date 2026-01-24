@@ -23,6 +23,7 @@
 # sources needed to train it.
 
 """Runs a process but suppress output if it returns successfully before a given amount of time"""
+# ruff: ASYNC109 - Async function definition with a `timeout` parameter
 
 import signal
 import sys

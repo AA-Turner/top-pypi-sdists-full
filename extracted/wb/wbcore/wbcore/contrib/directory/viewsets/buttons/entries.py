@@ -11,16 +11,6 @@ from wbcore.metadata.configs.buttons.view_config import ButtonViewConfig
 class EntryModelButtonConfig(ButtonViewConfig):
     CRM_BUTTONS = ()
 
-    CONTACT_BUTTONS = (
-        bt.WidgetButton(key="relationships", label=gettext_lazy("Relationships"), icon=WBIcon.GROUPS.icon),
-        bt.WidgetButton(key="emails", label=gettext_lazy("Emails"), icon=WBIcon.MAIL.icon),
-        bt.WidgetButton(key="telephones", label=gettext_lazy("Telephones"), icon=WBIcon.PHONE.icon),
-        bt.WidgetButton(key="addresses", label=gettext_lazy("Addresses"), icon=WBIcon.LOCATION.icon),
-        bt.WidgetButton(key="websites", label=gettext_lazy("Websites"), icon=WBIcon.PUBLIC.icon),
-        bt.WidgetButton(key="bankings", label=gettext_lazy("Bankings"), icon=WBIcon.BANK.icon),
-        bt.WidgetButton(key="social_media", label=gettext_lazy("Social Media"), icon=WBIcon.NEWSPAPER.icon),
-    )
-
     def get_custom_list_instance_buttons(self):
         return {
             bt.DropDownButton(
@@ -40,9 +30,6 @@ class EntryModelButtonConfig(ButtonViewConfig):
         return {
             bt.WidgetButton(key="employees", label=_("Employees"), icon=WBIcon.PEOPLE.icon, weight=2),
             bt.WidgetButton(key="manager", label=_("Relationship Managers"), icon=WBIcon.SUPERVISE.icon, weight=3),
-            bt.DropDownButton(
-                label=_("More Information"), icon=WBIcon.UNFOLD.icon, buttons=self.CONTACT_BUTTONS, weight=4
-            ),
         }
 
 
@@ -58,9 +45,6 @@ class PersonModelButtonConfig(EntryModelButtonConfig):
         return {
             bt.WidgetButton(key="employers", label=_("Employers"), icon=WBIcon.WORK.icon, weight=2),
             bt.DropDownButton(label=_("Client/Manager"), icon=WBIcon.UNFOLD.icon, buttons=self.CRM_BUTTONS, weight=3),
-            bt.DropDownButton(
-                label=_("More Information"), icon=WBIcon.UNFOLD.icon, buttons=self.CONTACT_BUTTONS, weight=4
-            ),
         }
 
 

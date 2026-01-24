@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pgcli
-Version: 4.3.0
+Version: 4.4.0
 Summary: CLI for Postgres Database. With auto-completion and syntax highlighting.
 Author-email: Pgcli Core Team <pgcli-dev@googlegroups.com>
 License: BSD
@@ -25,7 +25,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: AUTHORS
 Requires-Dist: pgspecial>=2.0.0
-Requires-Dist: click>=4.1
+Requires-Dist: click<8.1.8,>=4.1
 Requires-Dist: Pygments>=2.0
 Requires-Dist: prompt_toolkit<4.0.0,>=2.0.6
 Requires-Dist: psycopg>=3.0.14; sys_platform != "win32"
@@ -39,6 +39,17 @@ Provides-Extra: keyring
 Requires-Dist: keyring>=12.2.0; extra == "keyring"
 Provides-Extra: sshtunnel
 Requires-Dist: sshtunnel>=0.4.0; extra == "sshtunnel"
+Provides-Extra: dev
+Requires-Dist: behave>=1.2.4; extra == "dev"
+Requires-Dist: coverage>=7.2.7; extra == "dev"
+Requires-Dist: docutils>=0.13.1; extra == "dev"
+Requires-Dist: keyrings.alt>=3.1; extra == "dev"
+Requires-Dist: pexpect>=4.9.0; platform_system != "Windows" and extra == "dev"
+Requires-Dist: pytest>=7.4.4; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: ruff>=0.11.7; extra == "dev"
+Requires-Dist: sshtunnel>=0.4.0; extra == "dev"
+Requires-Dist: tox>=1.9.2; extra == "dev"
 Dynamic: license-file
 
 We stand with Ukraine
@@ -198,9 +209,10 @@ If you're interested in contributing to this project, first of all I would like
 to extend my heartfelt gratitude. I've written a small doc to describe how to
 get this running in a development setup.
 
-https://github.com/dbcli/pgcli/blob/master/DEVELOP.rst
+https://github.com/dbcli/pgcli/blob/main/CONTRIBUTING.rst
 
 Please feel free to reach out to us if you need help.
+
 * Amjith, pgcli author: amjith.r@gmail.com, Twitter: `@amjithr <http://twitter.com/amjithr>`_
 * Irina, pgcli maintainer: i.chernyavska@gmail.com, Twitter: `@irinatruong <http://twitter.com/irinatruong>`_
 
@@ -252,43 +264,27 @@ If pip is not installed check if easy_install is available on the system.
 Linux:
 ======
 
-In depth getting started guide for ``pip`` - https://pip.pypa.io/en/latest/installation/
+Many distributions have ``pgcli`` packages.
+Refer to https://repology.org/project/pgcli/versions or your distribution to check the available versions.
 
-Check if pip is already available in your system.
+Alternatively, you can use tools such as `pipx`_ or `uvx`_ to install the latest published package to an isolated virtual environment.
 
-::
+.. _pipx: https://pipx.pypa.io/
+.. _uvx: https://docs.astral.sh/uv/guides/tools/
 
-    $ which pip
-
-If it doesn't exist, use your linux package manager to install `pip`. This
-might look something like:
-
-::
-
-    $ sudo apt-get install python-pip   # Debian, Ubuntu, Mint etc
-
-    or
-
-    $ sudo yum install python-pip  # RHEL, Centos, Fedora etc
-
-``pgcli`` requires python-dev, libpq-dev and libevent-dev packages. You can
-install these via your operating system package manager.
-
+Run:
 
 ::
 
-    $ sudo apt-get install python-dev libpq-dev libevent-dev
+    $ pipx install pgcli
 
-    or
-
-    $ sudo yum install python-devel postgresql-devel
-
-Then you can install pgcli:
+to install ``pgcli`` with ``pipx``, or run:
 
 ::
 
-    $ sudo pip install pgcli
+    $ uvx pgcli
 
+to run ``pgcli`` by installing on the fly with ``uvx``.
 
 Docker
 ======
@@ -421,12 +417,12 @@ Thanks to all the beta testers and contributors for your time and patience. :)
 .. |Build Status| image:: https://github.com/dbcli/pgcli/actions/workflows/ci.yml/badge.svg?branch=main
     :target: https://github.com/dbcli/pgcli/actions/workflows/ci.yml
 
-.. |CodeCov| image:: https://codecov.io/gh/dbcli/pgcli/branch/master/graph/badge.svg
+.. |CodeCov| image:: https://codecov.io/gh/dbcli/pgcli/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/dbcli/pgcli
    :alt: Code coverage report
 
-.. |Landscape| image:: https://landscape.io/github/dbcli/pgcli/master/landscape.svg?style=flat
-   :target: https://landscape.io/github/dbcli/pgcli/master
+.. |Landscape| image:: https://landscape.io/github/dbcli/pgcli/main/landscape.svg?style=flat
+   :target: https://landscape.io/github/dbcli/pgcli/main
    :alt: Code Health
 
 .. |PyPI| image:: https://img.shields.io/pypi/v/pgcli.svg

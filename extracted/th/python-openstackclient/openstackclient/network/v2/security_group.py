@@ -14,13 +14,14 @@
 """Security Group action implementations"""
 
 import argparse
+import typing as ty
 
 from cliff import columns as cliff_columns
-from osc_lib.command import command
 from osc_lib import utils
 from osc_lib.utils import tags as _tag
 
 from openstackclient.api import compute_v2
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -65,12 +66,12 @@ def _format_compute_security_group_rules(sg_rules):
     return utils.format_list(rules, separator='\n')
 
 
-class NetworkSecurityGroupRulesColumn(cliff_columns.FormattableColumn):
+class NetworkSecurityGroupRulesColumn(cliff_columns.FormattableColumn[ty.Any]):
     def human_readable(self):
         return _format_network_security_group_rules(self._value)
 
 
-class ComputeSecurityGroupRulesColumn(cliff_columns.FormattableColumn):
+class ComputeSecurityGroupRulesColumn(cliff_columns.FormattableColumn[ty.Any]):
     def human_readable(self):
         return _format_compute_security_group_rules(self._value)
 
@@ -246,7 +247,10 @@ class ListSecurityGroup(common.NetworkAndComputeLister):
             '--project',
             metavar='<project>',
             help=self.enhance_help_neutron(
-                _("List security groups according to the project (name or ID)")
+                _(
+                    "List only security groups with the specified project "
+                    "(name or ID)"
+                )
             ),
         )
         identity_common.add_project_domain_option_to_parser(
@@ -259,14 +263,14 @@ class ListSecurityGroup(common.NetworkAndComputeLister):
             action='store_true',
             dest='shared',
             default=None,
-            help=_("List security groups shared between projects"),
+            help=_("List only security groups shared between projects"),
         )
         shared_group.add_argument(
             '--no-share',
             action='store_false',
             dest='shared',
             default=None,
-            help=_("List security groups not shared between projects"),
+            help=_("List only security groups not shared between projects"),
         )
 
         _tag.add_tag_filtering_option_to_parser(

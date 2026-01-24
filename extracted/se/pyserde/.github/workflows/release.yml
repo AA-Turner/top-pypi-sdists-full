@@ -1,0 +1,68 @@
+name: Release to PyPI
+
+on:
+  release:
+    types: [released]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Build artifacts
+        run: uv build
+      - name: Publish to PyPI
+        run: uv publish --token ${{ secrets.PYPI_API_TOKEN }}
+  release-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          uv sync
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          source $HOME/.cargo/env
+          cargo install mdbook
+      - name: Get PR number
+        uses: jwalton/gh-find-current-pr@v1
+        id: findPr
+        with:
+          state: all
+      - name: Set commit message
+        run: |
+          if [ -z "$PR" ]
+          then
+            echo "COMMIT_MESSAGE=:octocat: Update docs" >> $GITHUB_ENV
+          else
+            echo "COMMIT_MESSAGE=:octocat: Update docs for #$PR" >> $GITHUB_ENV
+          fi
+        env:
+          PR: ${{ steps.findPr.outputs.pr }}
+      - name: Build docs
+        run: make docs
+      - name: Deploy on gh-pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: out
+          commit-message: ${{ env.COMMIT_MESSAGE }}
+          clean: true
+          git-config-name: github-actions
+          git-config-email: github-actions@github.com

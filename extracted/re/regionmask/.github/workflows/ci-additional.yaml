@@ -1,0 +1,24 @@
+name: CI Additional
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  min-version-policy:
+    name: Minimum Version Policy
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: xarray-contrib/minimum-dependency-versions@7fefa63f6a9030d5aa87ae08c258c1d21aaa9874
+        with:
+          environment-paths: |
+            ci/requirements/min-all-deps.yml

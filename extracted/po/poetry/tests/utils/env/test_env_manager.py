@@ -13,6 +13,8 @@ import tomlkit
 
 from poetry.core.constraints.version import Version
 
+from poetry.config.config import Config
+from poetry.console.exceptions import PoetryConsoleError
 from poetry.toml.file import TOMLFile
 from poetry.utils.env import GET_BASE_PREFIX
 from poetry.utils.env import GET_PYTHON_VERSION_ONELINER
@@ -989,14 +991,16 @@ def test_create_venv_fails_if_no_compatible_python_version_could_be_found(
     assert m.call_count == 0
 
 
+@pytest.mark.parametrize("use_poetry_python", [True, False])
 def test_create_venv_does_not_try_to_find_compatible_versions_with_executable(
     manager: EnvManager,
     poetry: Poetry,
     config: Config,
     mocker: MockerFixture,
     mocked_python_register: MockedPythonRegister,
+    use_poetry_python: bool,
 ) -> None:
-    config.config["virtualenvs"]["use-poetry-python"] = True
+    config.config["virtualenvs"]["use-poetry-python"] = use_poetry_python
     if "VIRTUAL_ENV" in os.environ:
         del os.environ["VIRTUAL_ENV"]
 
@@ -1302,3 +1306,30 @@ def test_generate_env_name_uses_real_path(
     venv_name1 = EnvManager.generate_env_name("simple-project", "the_real_dir")
     venv_name2 = EnvManager.generate_env_name("simple-project", "linked_dir")
     assert venv_name1 == venv_name2
+
+
+def test_create_venv_invalid_prompt_template_variable(
+    manager: EnvManager, poetry: Poetry, config: Config
+) -> None:
+    config.merge({"virtualenvs": {"prompt": "{project_name}-{invalid_var}"}})
+
+    with pytest.raises(PoetryConsoleError) as exc_info:
+        manager.create_venv()
+
+    assert "Invalid template variable 'invalid_var'" in str(exc_info.value)
+    assert "Valid variables are: {project_name}, {python_version}" in str(
+        exc_info.value
+    )
+
+
+def test_create_venv_malformed_prompt_template(
+    manager: EnvManager, poetry: Poetry, config: Config
+) -> None:
+    config.merge({"virtualenvs": {"prompt": "{project_name"}})  # Missing closing brace
+
+    with pytest.raises(PoetryConsoleError) as exc_info:
+        manager.create_venv()
+
+    assert "Invalid template string in 'virtualenvs.prompt' setting" in str(
+        exc_info.value
+    )

@@ -1,5 +1,6 @@
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from . import metrics as _metrics
+from .logger_pb import options as _options_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -13,6 +14,7 @@ class AudioCodec(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DEFAULT_AC: _ClassVar[AudioCodec]
     OPUS: _ClassVar[AudioCodec]
     AAC: _ClassVar[AudioCodec]
+    AC_MP3: _ClassVar[AudioCodec]
 
 class VideoCodec(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -46,6 +48,11 @@ class TrackSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     MICROPHONE: _ClassVar[TrackSource]
     SCREEN_SHARE: _ClassVar[TrackSource]
     SCREEN_SHARE_AUDIO: _ClassVar[TrackSource]
+
+class DataTrackExtensionID(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DTEI_INVALID: _ClassVar[DataTrackExtensionID]
+    DTEI_PARTICIPANT_SID: _ClassVar[DataTrackExtensionID]
 
 class VideoQuality(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -112,6 +119,7 @@ class AudioTrackFeature(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
 DEFAULT_AC: AudioCodec
 OPUS: AudioCodec
 AAC: AudioCodec
+AC_MP3: AudioCodec
 DEFAULT_VC: VideoCodec
 H264_BASELINE: VideoCodec
 H264_MAIN: VideoCodec
@@ -130,6 +138,8 @@ CAMERA: TrackSource
 MICROPHONE: TrackSource
 SCREEN_SHARE: TrackSource
 SCREEN_SHARE_AUDIO: TrackSource
+DTEI_INVALID: DataTrackExtensionID
+DTEI_PARTICIPANT_SID: DataTrackExtensionID
 LOW: VideoQuality
 MEDIUM: VideoQuality
 HIGH: VideoQuality
@@ -188,15 +198,16 @@ class TokenPagination(_message.Message):
     def __init__(self, token: _Optional[str] = ...) -> None: ...
 
 class ListUpdate(_message.Message):
-    __slots__ = ("set", "add", "clear")
+    __slots__ = ("set", "add", "remove", "clear")
     SET_FIELD_NUMBER: _ClassVar[int]
     ADD_FIELD_NUMBER: _ClassVar[int]
-    DEL_FIELD_NUMBER: _ClassVar[int]
+    REMOVE_FIELD_NUMBER: _ClassVar[int]
     CLEAR_FIELD_NUMBER: _ClassVar[int]
     set: _containers.RepeatedScalarFieldContainer[str]
     add: _containers.RepeatedScalarFieldContainer[str]
+    remove: _containers.RepeatedScalarFieldContainer[str]
     clear: bool
-    def __init__(self, set: _Optional[_Iterable[str]] = ..., add: _Optional[_Iterable[str]] = ..., clear: bool = ..., **kwargs) -> None: ...
+    def __init__(self, set: _Optional[_Iterable[str]] = ..., add: _Optional[_Iterable[str]] = ..., remove: _Optional[_Iterable[str]] = ..., clear: bool = ...) -> None: ...
 
 class Room(_message.Message):
     __slots__ = ("sid", "name", "empty_timeout", "departure_timeout", "max_participants", "creation_time", "creation_time_ms", "turn_password", "enabled_codecs", "metadata", "num_participants", "num_publishers", "active_recording", "version")
@@ -271,7 +282,7 @@ class ParticipantPermission(_message.Message):
     def __init__(self, can_subscribe: bool = ..., can_publish: bool = ..., can_publish_data: bool = ..., can_publish_sources: _Optional[_Iterable[_Union[TrackSource, str]]] = ..., hidden: bool = ..., recorder: bool = ..., can_update_metadata: bool = ..., agent: bool = ..., can_subscribe_metrics: bool = ...) -> None: ...
 
 class ParticipantInfo(_message.Message):
-    __slots__ = ("sid", "identity", "state", "tracks", "metadata", "joined_at", "joined_at_ms", "name", "version", "permission", "region", "is_publisher", "kind", "attributes", "disconnect_reason", "kind_details")
+    __slots__ = ("sid", "identity", "state", "tracks", "metadata", "joined_at", "joined_at_ms", "name", "version", "permission", "region", "is_publisher", "kind", "attributes", "disconnect_reason", "kind_details", "data_tracks")
     class State(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         JOINING: _ClassVar[ParticipantInfo.State]
@@ -289,17 +300,27 @@ class ParticipantInfo(_message.Message):
         EGRESS: _ClassVar[ParticipantInfo.Kind]
         SIP: _ClassVar[ParticipantInfo.Kind]
         AGENT: _ClassVar[ParticipantInfo.Kind]
+        CONNECTOR: _ClassVar[ParticipantInfo.Kind]
+        BRIDGE: _ClassVar[ParticipantInfo.Kind]
     STANDARD: ParticipantInfo.Kind
     INGRESS: ParticipantInfo.Kind
     EGRESS: ParticipantInfo.Kind
     SIP: ParticipantInfo.Kind
     AGENT: ParticipantInfo.Kind
+    CONNECTOR: ParticipantInfo.Kind
+    BRIDGE: ParticipantInfo.Kind
     class KindDetail(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         CLOUD_AGENT: _ClassVar[ParticipantInfo.KindDetail]
         FORWARDED: _ClassVar[ParticipantInfo.KindDetail]
+        CONNECTOR_WHATSAPP: _ClassVar[ParticipantInfo.KindDetail]
+        CONNECTOR_TWILIO: _ClassVar[ParticipantInfo.KindDetail]
+        BRIDGE_RTSP: _ClassVar[ParticipantInfo.KindDetail]
     CLOUD_AGENT: ParticipantInfo.KindDetail
     FORWARDED: ParticipantInfo.KindDetail
+    CONNECTOR_WHATSAPP: ParticipantInfo.KindDetail
+    CONNECTOR_TWILIO: ParticipantInfo.KindDetail
+    BRIDGE_RTSP: ParticipantInfo.KindDetail
     class AttributesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -323,6 +344,7 @@ class ParticipantInfo(_message.Message):
     ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
     DISCONNECT_REASON_FIELD_NUMBER: _ClassVar[int]
     KIND_DETAILS_FIELD_NUMBER: _ClassVar[int]
+    DATA_TRACKS_FIELD_NUMBER: _ClassVar[int]
     sid: str
     identity: str
     state: ParticipantInfo.State
@@ -339,7 +361,8 @@ class ParticipantInfo(_message.Message):
     attributes: _containers.ScalarMap[str, str]
     disconnect_reason: DisconnectReason
     kind_details: _containers.RepeatedScalarFieldContainer[ParticipantInfo.KindDetail]
-    def __init__(self, sid: _Optional[str] = ..., identity: _Optional[str] = ..., state: _Optional[_Union[ParticipantInfo.State, str]] = ..., tracks: _Optional[_Iterable[_Union[TrackInfo, _Mapping]]] = ..., metadata: _Optional[str] = ..., joined_at: _Optional[int] = ..., joined_at_ms: _Optional[int] = ..., name: _Optional[str] = ..., version: _Optional[int] = ..., permission: _Optional[_Union[ParticipantPermission, _Mapping]] = ..., region: _Optional[str] = ..., is_publisher: bool = ..., kind: _Optional[_Union[ParticipantInfo.Kind, str]] = ..., attributes: _Optional[_Mapping[str, str]] = ..., disconnect_reason: _Optional[_Union[DisconnectReason, str]] = ..., kind_details: _Optional[_Iterable[_Union[ParticipantInfo.KindDetail, str]]] = ...) -> None: ...
+    data_tracks: _containers.RepeatedCompositeFieldContainer[DataTrackInfo]
+    def __init__(self, sid: _Optional[str] = ..., identity: _Optional[str] = ..., state: _Optional[_Union[ParticipantInfo.State, str]] = ..., tracks: _Optional[_Iterable[_Union[TrackInfo, _Mapping]]] = ..., metadata: _Optional[str] = ..., joined_at: _Optional[int] = ..., joined_at_ms: _Optional[int] = ..., name: _Optional[str] = ..., version: _Optional[int] = ..., permission: _Optional[_Union[ParticipantPermission, _Mapping]] = ..., region: _Optional[str] = ..., is_publisher: bool = ..., kind: _Optional[_Union[ParticipantInfo.Kind, str]] = ..., attributes: _Optional[_Mapping[str, str]] = ..., disconnect_reason: _Optional[_Union[DisconnectReason, str]] = ..., kind_details: _Optional[_Iterable[_Union[ParticipantInfo.KindDetail, str]]] = ..., data_tracks: _Optional[_Iterable[_Union[DataTrackInfo, _Mapping]]] = ...) -> None: ...
 
 class Encryption(_message.Message):
     __slots__ = ()
@@ -413,16 +436,44 @@ class TrackInfo(_message.Message):
     backup_codec_policy: BackupCodecPolicy
     def __init__(self, sid: _Optional[str] = ..., type: _Optional[_Union[TrackType, str]] = ..., name: _Optional[str] = ..., muted: bool = ..., width: _Optional[int] = ..., height: _Optional[int] = ..., simulcast: bool = ..., disable_dtx: bool = ..., source: _Optional[_Union[TrackSource, str]] = ..., layers: _Optional[_Iterable[_Union[VideoLayer, _Mapping]]] = ..., mime_type: _Optional[str] = ..., mid: _Optional[str] = ..., codecs: _Optional[_Iterable[_Union[SimulcastCodecInfo, _Mapping]]] = ..., stereo: bool = ..., disable_red: bool = ..., encryption: _Optional[_Union[Encryption.Type, str]] = ..., stream: _Optional[str] = ..., version: _Optional[_Union[TimedVersion, _Mapping]] = ..., audio_features: _Optional[_Iterable[_Union[AudioTrackFeature, str]]] = ..., backup_codec_policy: _Optional[_Union[BackupCodecPolicy, str]] = ...) -> None: ...
 
+class DataTrackInfo(_message.Message):
+    __slots__ = ("pub_handle", "sid", "name", "encryption")
+    PUB_HANDLE_FIELD_NUMBER: _ClassVar[int]
+    SID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ENCRYPTION_FIELD_NUMBER: _ClassVar[int]
+    pub_handle: int
+    sid: str
+    name: str
+    encryption: Encryption.Type
+    def __init__(self, pub_handle: _Optional[int] = ..., sid: _Optional[str] = ..., name: _Optional[str] = ..., encryption: _Optional[_Union[Encryption.Type, str]] = ...) -> None: ...
+
+class DataTrackExtensionParticipantSid(_message.Message):
+    __slots__ = ("id", "participant_sid")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    PARTICIPANT_SID_FIELD_NUMBER: _ClassVar[int]
+    id: DataTrackExtensionID
+    participant_sid: str
+    def __init__(self, id: _Optional[_Union[DataTrackExtensionID, str]] = ..., participant_sid: _Optional[str] = ...) -> None: ...
+
+class DataTrackSubscriptionOptions(_message.Message):
+    __slots__ = ("target_fps",)
+    TARGET_FPS_FIELD_NUMBER: _ClassVar[int]
+    target_fps: int
+    def __init__(self, target_fps: _Optional[int] = ...) -> None: ...
+
 class VideoLayer(_message.Message):
-    __slots__ = ("quality", "width", "height", "bitrate", "ssrc", "spatial_layer", "rid")
+    __slots__ = ("quality", "width", "height", "bitrate", "ssrc", "spatial_layer", "rid", "repair_ssrc")
     class Mode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         MODE_UNUSED: _ClassVar[VideoLayer.Mode]
         ONE_SPATIAL_LAYER_PER_STREAM: _ClassVar[VideoLayer.Mode]
         MULTIPLE_SPATIAL_LAYERS_PER_STREAM: _ClassVar[VideoLayer.Mode]
+        ONE_SPATIAL_LAYER_PER_STREAM_INCOMPLETE_RTCP_SR: _ClassVar[VideoLayer.Mode]
     MODE_UNUSED: VideoLayer.Mode
     ONE_SPATIAL_LAYER_PER_STREAM: VideoLayer.Mode
     MULTIPLE_SPATIAL_LAYERS_PER_STREAM: VideoLayer.Mode
+    ONE_SPATIAL_LAYER_PER_STREAM_INCOMPLETE_RTCP_SR: VideoLayer.Mode
     QUALITY_FIELD_NUMBER: _ClassVar[int]
     WIDTH_FIELD_NUMBER: _ClassVar[int]
     HEIGHT_FIELD_NUMBER: _ClassVar[int]
@@ -430,6 +481,7 @@ class VideoLayer(_message.Message):
     SSRC_FIELD_NUMBER: _ClassVar[int]
     SPATIAL_LAYER_FIELD_NUMBER: _ClassVar[int]
     RID_FIELD_NUMBER: _ClassVar[int]
+    REPAIR_SSRC_FIELD_NUMBER: _ClassVar[int]
     quality: VideoQuality
     width: int
     height: int
@@ -437,7 +489,8 @@ class VideoLayer(_message.Message):
     ssrc: int
     spatial_layer: int
     rid: str
-    def __init__(self, quality: _Optional[_Union[VideoQuality, str]] = ..., width: _Optional[int] = ..., height: _Optional[int] = ..., bitrate: _Optional[int] = ..., ssrc: _Optional[int] = ..., spatial_layer: _Optional[int] = ..., rid: _Optional[str] = ...) -> None: ...
+    repair_ssrc: int
+    def __init__(self, quality: _Optional[_Union[VideoQuality, str]] = ..., width: _Optional[int] = ..., height: _Optional[int] = ..., bitrate: _Optional[int] = ..., ssrc: _Optional[int] = ..., spatial_layer: _Optional[int] = ..., rid: _Optional[str] = ..., repair_ssrc: _Optional[int] = ...) -> None: ...
 
 class DataPacket(_message.Message):
     __slots__ = ("kind", "participant_identity", "destination_identities", "user", "speaker", "sip_dtmf", "transcription", "metrics", "chat_message", "rpc_request", "rpc_ack", "rpc_response", "stream_header", "stream_chunk", "stream_trailer", "encrypted_packet", "sequence", "participant_sid")
@@ -1057,10 +1110,28 @@ class DataStream(_message.Message):
         def __init__(self, stream_id: _Optional[str] = ..., reason: _Optional[str] = ..., attributes: _Optional[_Mapping[str, str]] = ...) -> None: ...
     def __init__(self) -> None: ...
 
+class FilterParams(_message.Message):
+    __slots__ = ("include_events", "exclude_events")
+    INCLUDE_EVENTS_FIELD_NUMBER: _ClassVar[int]
+    EXCLUDE_EVENTS_FIELD_NUMBER: _ClassVar[int]
+    include_events: _containers.RepeatedScalarFieldContainer[str]
+    exclude_events: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, include_events: _Optional[_Iterable[str]] = ..., exclude_events: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class WebhookConfig(_message.Message):
-    __slots__ = ("url", "signing_key")
+    __slots__ = ("url", "signing_key", "filter_params")
     URL_FIELD_NUMBER: _ClassVar[int]
     SIGNING_KEY_FIELD_NUMBER: _ClassVar[int]
+    FILTER_PARAMS_FIELD_NUMBER: _ClassVar[int]
     url: str
     signing_key: str
-    def __init__(self, url: _Optional[str] = ..., signing_key: _Optional[str] = ...) -> None: ...
+    filter_params: FilterParams
+    def __init__(self, url: _Optional[str] = ..., signing_key: _Optional[str] = ..., filter_params: _Optional[_Union[FilterParams, _Mapping]] = ...) -> None: ...
+
+class SubscribedAudioCodec(_message.Message):
+    __slots__ = ("codec", "enabled")
+    CODEC_FIELD_NUMBER: _ClassVar[int]
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    codec: str
+    enabled: bool
+    def __init__(self, codec: _Optional[str] = ..., enabled: bool = ...) -> None: ...

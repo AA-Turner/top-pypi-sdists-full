@@ -1,22 +1,17 @@
 Metadata-Version: 2.4
 Name: qutip
-Version: 5.2.1
+Version: 5.2.2
 Summary: QuTiP: The Quantum Toolbox in Python
-Home-page: https://qutip.org
-Author: Alexander Pitchford, Paul D. Nation, Robert J. Johansson, Chris Granade, Arne Grimsmo, Nathan Shammah, Shahnawaz Ahmed, Neill Lambert, Eric Giguere, Boxi Li, Jake Lishman, Simon Cross
+Author: Alexander Pitchford, Paul D. Nation, Robert J. Johansson, Chris Granade, Arne Grimsmo, Nathan Shammah, Shahnawaz Ahmed, Neill Lambert, Eric Giguère, Boxi Li, Jake Lishman, Simon Cross
 Author-email: qutip-admin@googlegroups.com
-License: BSD 3-Clause License
-Project-URL: Bug Tracker, https://github.com/qutip/qutip/issues
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://qutip.org
+Project-URL: Issues, https://github.com/qutip/qutip/issues
 Project-URL: Documentation, https://qutip.readthedocs.io/en/stable/
 Project-URL: Source Code, https://github.com/qutip/qutip
 Keywords: quantum,physics,dynamics
-Platform: Linux
-Platform: Mac OSX
-Platform: Unix
-Platform: Windows
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering
@@ -25,7 +20,7 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: Microsoft :: Windows
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown; variant=GFM
+Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: numpy>=1.22
 Requires-Dist: scipy!=1.16.0,>=1.9
@@ -33,7 +28,7 @@ Requires-Dist: packaging
 Provides-Extra: graphics
 Requires-Dist: matplotlib>=3.5; extra == "graphics"
 Provides-Extra: runtime-compilation
-Requires-Dist: cython>=0.29.20; python_version >= "3.10" and extra == "runtime-compilation"
+Requires-Dist: cython>=0.29.20; extra == "runtime-compilation"
 Requires-Dist: filelock; extra == "runtime-compilation"
 Requires-Dist: setuptools; extra == "runtime-compilation"
 Provides-Extra: semidefinite
@@ -52,19 +47,7 @@ Requires-Dist: mpmath; extra == "extras"
 Provides-Extra: mpi
 Requires-Dist: mpi4py; extra == "mpi"
 Provides-Extra: full
-Requires-Dist: matplotlib>=3.5; extra == "full"
-Requires-Dist: cython>=0.29.20; python_version >= "3.10" and extra == "full"
-Requires-Dist: filelock; extra == "full"
-Requires-Dist: setuptools; extra == "full"
-Requires-Dist: cvxpy>=1.0; extra == "full"
-Requires-Dist: cvxopt; extra == "full"
-Requires-Dist: pytest>=5.2; extra == "full"
-Requires-Dist: pytest-rerunfailures; extra == "full"
-Requires-Dist: ipython; extra == "full"
-Requires-Dist: loky; python_version >= "3.11" and extra == "full"
-Requires-Dist: loky!=3.5.0; python_version <= "3.10" and extra == "full"
-Requires-Dist: tqdm; extra == "full"
-Requires-Dist: mpmath; extra == "full"
+Requires-Dist: qutip[extras,graphics,ipython,runtime_compilation,semidefinite,tests]; extra == "full"
 Dynamic: license-file
 
 QuTiP: Quantum Toolbox in Python

@@ -21,13 +21,15 @@ from orso.tools import random_string
 from orso.types import OrsoTypes
 from pyarrow import parquet
 
+import opteryx.rugo.parquet as parquet_meta
+from opteryx.compiled.structures.memory_view_stream import MemoryViewStream
 from opteryx.connectors.capabilities import PredicatePushable
 from opteryx.exceptions import UnsupportedFileTypeError
 from opteryx.managers.expression import NodeType
 from opteryx.managers.expression import get_all_nodes_of_type
 from opteryx.models import RelationStatistics
+from opteryx.rugo.converters.orso import rugo_to_orso_schema
 from opteryx.utils.arrow import post_read_projector
-from opteryx.utils.memory_view_stream import MemoryViewStream
 
 
 class ExtentionType(str, Enum):
@@ -170,19 +172,14 @@ def zstd_decoder(
     if just_statistics:
         return None
 
-    import zstandard
+    from opteryx.third_party.facebook import zstd
 
-    if isinstance(buffer, memoryview):
-        stream = MemoryViewStream(buffer)
-    elif isinstance(buffer, bytes):
-        stream: BinaryIO = io.BytesIO(buffer)
-    else:
-        stream = buffer
-
-    with zstandard.open(stream, "rb") as file:
-        return jsonl_decoder(
-            file, projection=projection, selection=selection, just_schema=just_schema
-        )
+    return jsonl_decoder(
+        zstd.decompress(buffer),
+        projection=projection,
+        selection=selection,
+        just_schema=just_schema,
+    )
 
 
 def lzma_decoder(
@@ -202,16 +199,19 @@ def lzma_decoder(
 
     import lzma
 
-    if isinstance(buffer, memoryview):
-        stream = MemoryViewStream(buffer)
-    elif isinstance(buffer, bytes):
-        stream: BinaryIO = io.BytesIO(buffer)
-    else:
-        stream = buffer
+    # similar to zstd path: read bytes and pass decompressed data as memoryview
+    # zstandard.open expects a file-like
+    if not isinstance(buffer, memoryview):
+        buffer = memoryview(buffer)
+    buffer = MemoryViewStream(buffer)
 
-    with lzma.open(stream, "rb") as file:
+    with lzma.open(buffer, "rb") as file:
+        decompressed = file.read()
         return jsonl_decoder(
-            file, projection=projection, selection=selection, just_schema=just_schema
+            memoryview(decompressed),
+            projection=projection,
+            selection=selection,
+            just_schema=just_schema,
         )
 
 
@@ -223,7 +223,7 @@ def parquet_decoder(
     just_schema: bool = False,
     just_statistics: bool = False,
     force_read: bool = False,
-    use_threads: bool = False,
+    use_threads: bool = True,
     statistics: Optional[RelationStatistics] = None,
 ) -> Tuple[int, int, pyarrow.Table]:
     """
@@ -243,52 +243,99 @@ def parquet_decoder(
     Returns:
         Tuple containing number of rows, number of columns, and the table or schema.
     """
-    # Open the parquet file only once
-    if type(buffer) is memoryview:
-        stream = MemoryViewStream(buffer)
-    elif type(buffer) is bytes:
-        stream = pyarrow.BufferReader(buffer)
-    else:
-        stream = pyarrow.input_stream(buffer)
 
-    parquet_file = parquet.ParquetFile(stream)
-
-    # Return just the schema if that's all that's needed
-    if just_schema:
-        return convert_arrow_schema_to_orso_schema(
-            parquet_file.schema_arrow, parquet_file.metadata.num_rows
+    # If it's COUNT(*), we don't need to create a full dataset
+    # We have a handler later to sum up the $COUNT(*) column
+    # We can use rugo's metadata reader which is faster than pyarrow's
+    if projection == [] and selection == []:
+        if isinstance(buffer, memoryview):
+            metadata = parquet_meta.read_metadata_from_memoryview(
+                buffer, include_statistics=False, max_row_groups=1
+            )
+        else:
+            metadata = parquet_meta.read_metadata_from_memoryview(
+                memoryview(buffer), include_statistics=False, max_row_groups=1
+            )
+        num_rows = metadata["num_rows"]
+        num_columns = len(metadata["row_groups"][0]["columns"])
+        num_bytes = sum(x["total_byte_size"] for x in metadata["row_groups"])
+        table = pyarrow.Table.from_arrays([[num_rows]], names=["$COUNT(*)"])
+        return (
+            num_rows,
+            num_columns,
+            num_bytes,
+            table,
         )
 
+    # Return just the schema if that's all that's needed
+    # We can use rugo's metadata reader which is faster than pyarrow's
+    if just_schema:
+        if isinstance(buffer, memoryview):
+            metadata = parquet_meta.read_metadata_from_memoryview(
+                buffer, schema_only=True, max_row_groups=1, include_statistics=False
+            )
+        else:
+            metadata = parquet_meta.read_metadata_from_memoryview(
+                memoryview(buffer), schema_only=True, max_row_groups=1, include_statistics=False
+            )
+        return rugo_to_orso_schema(metadata, "parquet")
+
+    # Gather statistics if that's all that's needed
+    # We can use rugo's metadata reader which is faster than pyarrow's
     if just_statistics:
         if statistics is None:
             statistics = RelationStatistics()
 
-        metadata = parquet_file.metadata
-        schema = parquet_file.schema_arrow
-        num_row_groups = metadata.num_row_groups
-        statistics.record_count += metadata.num_rows
+        if isinstance(buffer, memoryview):
+            metadata = parquet_meta.read_metadata_from_memoryview(buffer, include_statistics=True)
+        else:
+            metadata = parquet_meta.read_metadata_from_memoryview(
+                memoryview(buffer), include_statistics=True
+            )
 
-        for column in schema.names:
-            column_index = schema.get_field_index(column)
+        num_rows = metadata["num_rows"]
+        statistics.record_count += num_rows
 
-            for rg_index in range(num_row_groups):
-                column_chunk = metadata.row_group(rg_index).column(column_index)
+        for row_group in metadata["row_groups"]:
+            for column in row_group["columns"]:
+                column_name = column["name"]
 
-                stats = column_chunk.statistics
-                if stats is not None:
-                    min_value = stats.min
-                    if min_value is not None:
-                        statistics.update_lower(column, min_value)
+                min_value = column.get("min")
+                if min_value is not None:
+                    statistics.update_lower(column_name, min_value)
 
-                    max_value = stats.max
-                    if max_value is not None:
-                        statistics.update_upper(column, max_value)
+                max_value = column.get("max")
+                if max_value is not None:
+                    statistics.update_upper(column_name, max_value)
 
-                    null_count = stats.null_count
-                    if null_count:
-                        statistics.add_null(column, null_count)
+                null_count = column.get("null_count")
+                if null_count:
+                    statistics.add_null(column_name, null_count)
 
         return statistics
+
+    # Use rugo's lightweight metadata reader first (faster than pyarrow)
+    if isinstance(buffer, memoryview):
+        rmeta = parquet_meta.read_metadata_from_memoryview(buffer)
+    else:
+        rmeta = parquet_meta.read_metadata_from_memoryview(memoryview(buffer))
+
+    # Build the pieces we need from the rugo metadata
+    # schema names (parquet has same columns across row groups usually)
+    if rmeta.get("row_groups"):
+        schema_names = [c["name"] for c in rmeta["row_groups"][0]["columns"]]
+    else:
+        schema_names = []
+
+    num_rows = rmeta.get("num_rows")
+    # number of columns - try to derive, fallback to length of schema_names
+    num_columns = rmeta.get("num_columns") or len(schema_names)
+
+    # total uncompressed size (rugo uses total_byte_size)
+    uncompressed_size = sum(
+        sum(col.get("total_byte_size", 0) for col in rg.get("columns", []))
+        for rg in rmeta.get("row_groups", [])
+    )
 
     # we need to work out if we have a selection which may force us
     # fetching columns just for filtering
@@ -301,36 +348,36 @@ def parquet_decoder(
     filter_columns = {
         c.value for c in get_all_nodes_of_type(processed_selection, (NodeType.IDENTIFIER,))
     }
-    selected_columns = list(
-        projection_set.union(filter_columns).intersection(parquet_file.schema_arrow.names)
-    )
+    selected_columns = list(projection_set.union(filter_columns).intersection(schema_names))
 
     # Read all columns if none are selected, unless force_read is set
     if not selected_columns and not force_read:
         selected_columns = []
 
-    # If it's COUNT(*), we don't need to create a full dataset
-    # We have a handler later to sum up the $COUNT(*) column
-    if projection == [] and selection == []:
-        table = pyarrow.Table.from_arrays([[parquet_file.metadata.num_rows]], names=["$COUNT(*)"])
-        return (parquet_file.metadata.num_rows, parquet_file.metadata.num_columns, table)
+    # Open the parquet file only once. Fake a file-like object around the buffer
+    if isinstance(buffer, memoryview):
+        buffer = MemoryViewStream(buffer)
 
     # Read the parquet table with the optimized column list and selection filters
     table = parquet.read_table(
-        stream,
+        buffer,
         columns=selected_columns,
-        pre_buffer=False,
+        pre_buffer=True,
         filters=dnf_filter,
         use_threads=use_threads,
         use_pandas_metadata=False,
-        schema=parquet_file.schema_arrow,
     )
 
     # Any filters we couldn't push to PyArrow to read we run here
     if processed_selection:
         table = filter_records(processed_selection, table)
 
-    return (parquet_file.metadata.num_rows, parquet_file.metadata.num_columns, table)
+    return (
+        num_rows,
+        num_columns,
+        uncompressed_size,
+        table,
+    )
 
 
 def orc_decoder(
@@ -351,7 +398,8 @@ def orc_decoder(
     import pyarrow.orc as orc
 
     if isinstance(buffer, memoryview):
-        stream = pyarrow.BufferReader(buffer.obj)
+        # Convert memoryview to bytes for PyArrow BufferReader
+        stream = pyarrow.BufferReader(buffer.tobytes())
     elif isinstance(buffer, bytes):
         stream: BinaryIO = io.BytesIO(buffer)
     else:
@@ -369,7 +417,7 @@ def orc_decoder(
         table = filter_records(selection, table)
     if projection:
         table = post_read_projector(table, projection)
-    return *full_shape, table
+    return *full_shape, 0, table
 
 
 def jsonl_decoder(
@@ -381,81 +429,76 @@ def jsonl_decoder(
     just_statistics: bool = False,
     **kwargs,
 ) -> Tuple[int, int, pyarrow.Table]:
+    # rugo is our own library for fast jsonl reading
+    from orso.schema import convert_orso_schema_to_arrow_schema
+
+    import opteryx.rugo.jsonl as rj
+    from opteryx.rugo.converters.orso import jsonl_to_orso_schema
+    from opteryx.utils import count_instances
+
     if just_statistics:
         return None
 
-    from opteryx.third_party.tktech import csimdjson as simdjson
+    if not isinstance(buffer, memoryview):
+        buffer = memoryview(buffer)
 
-    if isinstance(buffer, memoryview):
-        # If it's a memoryview, we need to convert it to bytes
-        buffer = buffer.tobytes()
-    if not isinstance(buffer, bytes):
-        buffer = buffer.read()
+    # count newline occurrences in the provided buffer to get the number of rows
+    num_rows = count_instances(buffer)
 
     # If it's COUNT(*), we don't need to create a full dataset
     # We have a handler later to sum up the $COUNT(*) column
     if projection == [] and selection == [] and not just_schema and not just_statistics:
-        num_rows = buffer.count(b"\n")
+        # Try to use the SIMD-optimized counter from the cython module if available
         table = pyarrow.Table.from_arrays([[num_rows]], names=["$COUNT(*)"])
-        return (num_rows, 0, table)
+        return (num_rows, 0, len(buffer), table)
 
-    parser = simdjson.Parser()
-
-    # preallocate and reuse dicts
-    rows = []
-    keys_union = set()
-
-    if projection:
-        # If projection is specified, we only need to ensure we keep the projected keys
-        keys_union = {c.value for c in projection}
-
-    start = 0
-    end = len(buffer)
-
-    while start < end:
-        newline = buffer.find(b"\n", start)
-        if newline == -1:
-            newline = end
-        line = buffer[start:newline]
-        start = newline + 1
-
-        if not line:
-            continue
-
-        record = parser.parse(line)
-
-        # convert nested objects to string
-        row = record.as_dict()
-        # keep track of all keys for schema padding
-        if not projection:
-            keys_union.update(row.keys())
-
-        for key in keys_union:
-            if isinstance(row.get(key), dict):
-                row[key] = record[key].mini
-        rows.append(row)
-        record = None
-
-    # ensure all dicts have all keys to fix Arrow schema issue
-    missing_keys = keys_union - set(rows[0].keys())  # may still be missing from first row
-    if missing_keys:
-        for row in rows:
-            for key in missing_keys:
-                row.setdefault(key, None)
-
-    table = pyarrow.Table.from_pylist(rows)
+    orso_schema = jsonl_to_orso_schema(rj.get_jsonl_schema(buffer))
 
     if just_schema:
-        return convert_arrow_schema_to_orso_schema(table.schema)
+        return orso_schema
 
-    full_shape = table.shape
+    # Determine the columns needed for projection and filtering
+    projection_set = set(p.source_column for p in projection or [])
+    filter_columns = {c.value for c in get_all_nodes_of_type(selection, (NodeType.IDENTIFIER,))}
+    selected_columns = list(
+        projection_set.union(filter_columns).intersection(orso_schema.column_names)
+    )
+
+    table = rj.read_jsonl(
+        buffer,
+        columns=selected_columns,
+        parse_objects=False,
+    )
+
+    # Convert the returned columns into PyArrow arrays using the Arrow schema
+    # derived from the Orso schema. Doing this per-field ensures that Python
+    # lists (JSON arrays) are converted into Arrow ListArray types and that
+    # bytes/strings/etc. are coerced to the expected Arrow types. If a direct
+    arrow_schema = convert_orso_schema_to_arrow_schema(orso_schema)
+
+    arrays = []
+    final_fields = []
+
+    for idx, name in enumerate(table["column_names"]):
+        field = arrow_schema.field(name)
+        column = table["columns"][idx]
+        if hasattr(column, "to_arrow"):
+            # rugo returns draken vectors; convert to pyarrow arrays
+            arrays.append(column.to_arrow())
+        else:
+            # fallback: convert using pyarrow array constructor
+            arrays.append(pyarrow.array(column, type=field.type))
+        final_fields.append(field)
+
+    final_schema = pyarrow.schema(final_fields)
+    arrow_table = pyarrow.Table.from_arrays(arrays, schema=final_schema)
 
     if selection:
-        table = filter_records(selection, table)
+        arrow_table = filter_records(selection, arrow_table)
     if projection:
-        table = post_read_projector(table, projection)
+        arrow_table = post_read_projector(arrow_table, projection)
 
-    return *full_shape, table
+    return num_rows, len(table["column_names"]), len(buffer), arrow_table
 
 
 def csv_decoder(
@@ -493,7 +536,7 @@ def csv_decoder(
     if projection:
         table = post_read_projector(table, projection)
 
-    return *full_shape, table
+    return *full_shape, 0, table
 
 
 def tsv_decoder(
@@ -566,7 +609,7 @@ def arrow_decoder(
     if projection:
         table = post_read_projector(table, projection)
 
-    return *full_shape, table
+    return *full_shape, 0, table
 
 
 def avro_decoder(
@@ -628,7 +671,7 @@ def avro_decoder(
         # We can't push filters in Fast Avro, so filter here
         table = filter_records(selection, table)
 
-    return *full_shape, table
+    return *full_shape, 0, table
 
 
 def ipc_decoder(
@@ -672,7 +715,7 @@ def ipc_decoder(
     if projection:
         table = post_read_projector(table, projection)
 
-    return *full_shape, table
+    return *full_shape, 0, table
 
 
 def excel_decoder(
@@ -702,8 +745,16 @@ def excel_decoder(
 
     import pandas
 
+    # Convert buffer to appropriate format for pandas
+    if isinstance(buffer, memoryview):
+        stream = MemoryViewStream(buffer)
+    elif isinstance(buffer, bytes):
+        stream: BinaryIO = io.BytesIO(buffer)
+    else:
+        stream = buffer
+
     # Read Excel file using pandas
-    df = pandas.read_excel(buffer.read())
+    df = pandas.read_excel(stream)
 
     # Convert the pandas DataFrame to a PyArrow Table
     table = pyarrow.Table.from_pandas(df)
@@ -718,7 +769,7 @@ def excel_decoder(
     if projection:
         table = post_read_projector(table, projection)
 
-    return *shape, table
+    return *shape, 0, table
 
 
 def convert_string_view(field: pyarrow.Field) -> pyarrow.Field:
@@ -770,8 +821,16 @@ def vortex_decoder(
 
     # Current version of vortex appears to not be able to read streams
     # this is painfully slow, don't do this.
+    # Convert buffer to bytes if needed
+    if isinstance(buffer, memoryview):
+        buffer_bytes = buffer.tobytes()
+    elif isinstance(buffer, bytes):
+        buffer_bytes = buffer
+    else:
+        buffer_bytes = buffer.read()
+
     with tempfile.NamedTemporaryFile(suffix=".vortex", delete=False) as f:
-        f.write(buffer)
+        f.write(buffer_bytes)
         f.flush()
         tmp_name = f.name
     try:
@@ -789,9 +848,10 @@ def vortex_decoder(
     if projection == [] and selection == [] and not just_schema and not just_statistics:
         num_rows = len(table)
         table = pyarrow.Table.from_arrays([[num_rows]], names=["$COUNT(*)"])
-        return (num_rows, 0, table)
+        return (num_rows, 0, 0, table)
 
-    # we currently aren't pushing filters into vortex so we need to read the columns we're filtering by
+    # we currently aren't pushing filters into vortex so we need to read
+    # the columns we're filtering by
     projection_set = set(p.source_column for p in projection or [])
     filter_columns = {c.value for c in get_all_nodes_of_type(selection, (NodeType.IDENTIFIER,))}
     selected_columns = list(projection_set.union(filter_columns))
@@ -809,7 +869,7 @@ def vortex_decoder(
     if projection:
         table = post_read_projector(table, projection)
 
-    return *shape, table
+    return *shape, 0, table
 
 
 # for types we know about, set up how we handle them

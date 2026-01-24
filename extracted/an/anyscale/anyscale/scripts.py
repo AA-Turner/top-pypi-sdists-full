@@ -16,14 +16,12 @@ from anyscale.commands.cluster_commands import cluster_cli
 from anyscale.commands.cluster_env_commands import cluster_env_cli
 from anyscale.commands.compute_config_commands import compute_config_cli
 from anyscale.commands.config_commands import config_cli
-from anyscale.commands.exec_commands import anyscale_exec
 from anyscale.commands.experimental_integrations_commands import (
     experimental_integrations_cli,
 )
 from anyscale.commands.image_commands import image_cli
 from anyscale.commands.job_commands import job_cli
 from anyscale.commands.job_queue_commands import job_queue_cli
-from anyscale.commands.list_commands import list_cli
 from anyscale.commands.login_commands import anyscale_login, anyscale_logout
 from anyscale.commands.logs_commands import log_cli
 from anyscale.commands.machine_commands import machine_cli
@@ -32,14 +30,16 @@ from anyscale.commands.migrate_commands import migrate_cli
 from anyscale.commands.organization_invitation_commands import (
     organization_invitation_cli,
 )
-from anyscale.commands.project_commands import anyscale_init, project_cli
+from anyscale.commands.policy_commands import policy_cli
+from anyscale.commands.project_commands import project_cli
 from anyscale.commands.resource_quota_commands import resource_quota_cli
 from anyscale.commands.schedule_commands import schedule_cli
+from anyscale.commands.scim_commands import scim_cli
 from anyscale.commands.service_account_commands import service_account_cli
 from anyscale.commands.service_commands import service_cli
 from anyscale.commands.session_commands_hidden import session_cli
 from anyscale.commands.user_commands import user_cli
-from anyscale.commands.workspace_commands import workspace_cli
+from anyscale.commands.user_group_commands import user_group_cli
 from anyscale.commands.workspace_commands_v2 import workspace_cli as workspace_cli_v2
 import anyscale.conf
 import anyscale.telemetry  # IMPORTANT: auto-patches click instrumentation on import
@@ -118,20 +118,16 @@ cli.add_command(config_cli)
 cli.add_command(migrate_cli)
 cli.add_command(project_cli)
 cli.add_command(version_cli)
-cli.add_command(list_cli)
 cli.add_command(cluster_env_cli)
 cli.add_command(job_cli)
 cli.add_command(job_queue_cli)
 cli.add_command(schedule_cli)
 cli.add_command(service_cli)
 cli.add_command(cluster_cli)
-cli.add_command(workspace_cli)
 cli.add_command(workspace_cli_v2)
 cli.add_command(experimental_integrations_cli)
 cli.add_command(auth_cli)
 
-cli.add_command(anyscale_init)
-cli.add_command(anyscale_exec)
 cli.add_command(anyscale_help)
 cli.add_command(compute_config_cli)
 cli.add_command(image_cli)
@@ -149,6 +145,9 @@ cli.add_command(resource_quota_cli)
 cli.add_command(aggregated_instance_usage_cli)
 cli.add_command(user_cli)
 cli.add_command(organization_invitation_cli)
+cli.add_command(user_group_cli)
+cli.add_command(scim_cli)
+cli.add_command(policy_cli)
 
 ALIASES = {
     "h": anyscale_help,

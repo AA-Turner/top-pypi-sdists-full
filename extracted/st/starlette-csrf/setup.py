@@ -1,0 +1,30 @@
+# -*- coding: utf-8 -*-
+from setuptools import setup
+
+setup(
+    name='starlette-csrf',
+    version='3.0.0',
+    description='Starlette middleware implementing Double Submit Cookie technique to mitigate CSRF',
+    long_description='# Starlette CSRF Middleware\n\nStarlette middleware implementing Double Submit Cookie technique to mitigate CSRF.\n\n[![build](https://github.com/frankie567/starlette-csrf/workflows/Build/badge.svg)](https://github.com/frankie567/starlette-csrf/actions)\n[![codecov](https://codecov.io/gh/frankie567/starlette-csrf/branch/main/graph/badge.svg?token=fL49kIvrj6)](https://codecov.io/gh/frankie567/starlette-csrf)\n[![PyPI version](https://badge.fury.io/py/starlette-csrf.svg)](https://badge.fury.io/py/starlette-csrf)\n[![Downloads](https://pepy.tech/badge/starlette-csrf)](https://pepy.tech/project/starlette-csrf)\n\n<p align="center">\n<a href="https://github.com/sponsors/frankie567"><img src="https://md-buttons.francoisvoron.com/button.svg?text=Buy%20me%20a%20coffee%20%E2%98%95%EF%B8%8F&bg=ef4444&w=200&h=50"></a>\n</p>\n\n## How it works?\n\n1. The user makes a first request with a method considered safe (by default `GET`, `HEAD`, `OPTIONS`, `TRACE`).\n2. It receives in response a cookie (named by default `csrftoken`) which contains a secret value.\n3. When the user wants to make an unsafe request, the server expects them to send the same secret value in a header (named by default `x-csrftoken`).\n4. The middleware will then compare the secret value provided in the cookie and the header.\n   * If they match, the request is processed.\n   * Otherwise, a `403 Forbidden` error response is given.\n\nThis mechanism is necessary if you rely on cookie authentication in a browser. You can have more information about CSRF and Double Submit Cookie in the [OWASP Cheat Sheet Series](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html).\n\n## Installation\n\n```bash\npip install starlette-csrf\n```\n\n## Usage with Starlette\n\n```py\nfrom starlette.applications import Starlette\nfrom starlette.middleware import Middleware\nfrom starlette_csrf import CSRFMiddleware\n\nroutes = ...\n\nmiddleware = [\n    Middleware(CSRFMiddleware, secret="__CHANGE_ME__")\n]\n\napp = Starlette(routes=routes, middleware=middleware)\n```\n\n## Usage with FastAPI\n\n```py\nfrom fastapi import FastAPI\nfrom starlette_csrf import CSRFMiddleware\n\napp = FastAPI()\n\napp.add_middleware(CSRFMiddleware, secret="__CHANGE_ME__")\n```\n\n## Arguments\n\n* `secret` (`str`): Secret to sign the CSRF token value. **Be sure to choose a strong passphrase and keep it SECRET**.\n* `required_urls` (`Optional[List[re.Pattern]]` - `None`): List of URL regexes that the CSRF check should **always** be enforced, no matter the method or the cookies present.\n* `exempt_urls` (`Optional[List[re.Pattern]]` - `None`): List of URL regexes that the CSRF check should be skipped on. Useful if you have any APIs that you know do not need CSRF protection.\n* `sensitive_cookies` (`Set[str]` - `None`): Set of cookie names that should trigger the CSRF check if they are present in the request. Useful if you have other authentication methods that don\'t rely on cookies and don\'t need CSRF enforcement. If this parameter is `None`, the default, CSRF is **always** enforced.\n* `safe_methods` (`Set[str]` - `{"GET", "HEAD", "OPTIONS", "TRACE"}`): HTTP methods considered safe which don\'t need CSRF protection.\n* `cookie_name` (`str` - `csrftoken`): Name of the cookie.\n* `cookie_path` `str` - `/`): Cookie path.\n* `cookie_domain` (`Optional[str]` - `None`): Cookie domain. If your frontend and API lives in different sub-domains, be sure to set this argument with your root domain to allow your frontend sub-domain to read the cookie on the JavaScript side.\n* `cookie_secure` (`bool` - `False`): Whether to only send the cookie to the server via SSL request.\n* `cookie_samesite` (`str` - `lax`): Samesite strategy of the cookie.\n* `header_name` (`str` - `x-csrftoken`): Name of the header where you should set the CSRF token.\n\n## Customize error response\n\nBy default, a plain text response with the status code 403 is returned when the CSRF verification is failing. You can customize it by overloading the middleware class and implementing the `_get_error_response` method. It accepts in argument the original `Request` object and expects a `Response`. For example:\n\n```py\nfrom starlette.requests import Request\nfrom starlette.responses import JSONResponse, Response\nfrom starlette_csrf import CSRFMiddleware\n\nclass CustomResponseCSRFMiddleware(CSRFMiddleware):\n    def _get_error_response(self, request: Request) -> Response:\n        return JSONResponse(\n            content={"code": "CSRF_ERROR"}, status_code=403\n        )\n```\n\n## Development\n\n### Setup environment\n\nWe use [Hatch](https://hatch.pypa.io/latest/install/) to manage the development environment and production build. Ensure it\'s installed on your system.\n\n### Run unit tests\n\nYou can run all the tests with:\n\n```bash\nhatch run test\n```\n\n### Format the code\n\nExecute the following command to apply linting and check typing:\n\n```bash\nhatch run lint\n```\n\n## License\n\nThis project is licensed under the terms of the MIT license.\n',
+    author_email='François Voron <fvoron@gmail.com>',
+    classifiers=[
+        'Development Status :: 5 - Production/Stable',
+        'Framework :: AsyncIO',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Topic :: Internet :: WWW/HTTP :: Session',
+    ],
+    install_requires=[
+        'itsdangerous<3.0.0,>=2.0.1',
+        'starlette>=0.14.2',
+    ],
+    packages=[
+        'starlette_csrf',
+        'tests',
+    ],
+)

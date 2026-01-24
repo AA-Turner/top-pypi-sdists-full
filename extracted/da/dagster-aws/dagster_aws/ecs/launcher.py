@@ -5,7 +5,7 @@ import uuid
 import warnings
 from collections import namedtuple
 from collections.abc import Mapping, Sequence
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import boto3
 from botocore.exceptions import ClientError
@@ -30,11 +30,12 @@ from dagster._core.launcher.base import (
     WorkerStatus,
 )
 from dagster._core.storage.dagster_run import DagsterRun
-from dagster._core.storage.tags import RUN_WORKER_ID_TAG
+from dagster._core.storage.tags import HIDDEN_TAG_PREFIX, RUN_WORKER_ID_TAG
 from dagster._grpc.types import ExecuteRunArgs
 from dagster._serdes import ConfigurableClass
 from dagster._serdes.config_class import ConfigurableClassData
 from dagster._utils.backoff import backoff
+from dagster._utils.tags import get_boolean_tag_value
 from typing_extensions import Self
 
 from dagster_aws.ecs.container_context import (
@@ -81,6 +82,9 @@ TAGS_TO_EXCLUDE_FROM_PROPAGATION = {"dagster/op_selection", "dagster/solid_selec
 DEFAULT_REGISTER_TASK_DEFINITION_RETRIES = 5
 DEFAULT_RUN_TASK_RETRIES = 5
 
+if TYPE_CHECKING:
+    from botocore.config import Config
+
 
 class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
     """RunLauncher that starts a task in ECS for each Dagster job run.
@@ -119,10 +123,13 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
         task_definition_prefix: str = "run",
     ):
         self._inst_data = inst_data
-        self.ecs = boto3.client("ecs")
+
+        boto_client_config = self.get_boto_client_config()
+
+        self.ecs = boto3.client("ecs", config=boto_client_config)
         self.ec2 = boto3.resource("ec2")
-        self.secrets_manager = boto3.client("secretsmanager")
-        self.logs = boto3.client("logs")
+        self.secrets_manager = boto3.client("secretsmanager", config=boto_client_config)
+        self.logs = boto3.client("logs", config=boto_client_config)
 
         self._task_definition_prefix = task_definition_prefix
 
@@ -235,6 +242,9 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
 
         self._current_task_metadata = None
         self._current_task = None
+
+    def get_boto_client_config(self) -> Optional["Config"]:
+        return None
 
     @property
     def inst_data(self):
@@ -512,6 +522,7 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
         cpu_and_memory_overrides = self.get_cpu_and_memory_overrides(container_context, run)
 
         task_overrides = self._get_task_overrides(container_context, run)
+        run_container_overrides = self._get_container_overrides(run)
 
         container_overrides: list[dict[str, Any]] = [
             {
@@ -519,6 +530,7 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
                 "command": command,
                 # containerOverrides expects cpu/memory as integers
                 **{k: int(v) for k, v in cpu_and_memory_overrides.items()},
+                **run_container_overrides,
             }
         ]
 
@@ -615,6 +627,14 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
             overrides["ephemeralStorage"] = {"sizeInGiB": int(ephemeral_storage)}
 
         return overrides
+
+    def _get_container_overrides(self, run: DagsterRun) -> Mapping[str, Any]:
+        tag_overrides = run.tags.get("ecs/container_overrides")
+
+        if tag_overrides:
+            return json.loads(tag_overrides)
+
+        return {}
 
     def _get_run_task_kwargs_from_run(self, run: DagsterRun) -> Mapping[str, Any]:
         run_task_kwargs = run.tags.get("ecs/run_task_kwargs")
@@ -855,6 +875,28 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
             task.get("stoppedReason", "")
         )
 
+    def _add_eni_id_tags(self, run: DagsterRun, task: dict[str, Any]):
+        attachments = task.get("attachments", [])
+        eni_ids = {}
+        eni_count = 0
+        for attachment in attachments:
+            if attachment.get("type") == "ElasticNetworkInterface":
+                details = {d["name"]: d["value"] for d in attachment.get("details", [])}
+
+                if "networkInterfaceId" in details:
+                    if eni_count == 0:
+                        eni_ids[f"{HIDDEN_TAG_PREFIX}eni_id"] = details["networkInterfaceId"]
+                    else:
+                        eni_ids[f"{HIDDEN_TAG_PREFIX}eni_id_{eni_count}"] = details[
+                            "networkInterfaceId"
+                        ]
+                    eni_count += 1
+        self._instance.add_run_tags(run.run_id, eni_ids)
+        if eni_count > 0:
+            logging.info(f"Added {eni_count} ENI ID tags for run {run.run_id}: {eni_ids}")
+        else:
+            logging.warning(f"No ENI IDs found for run {run.run_id}")
+
     def check_run_worker_health(self, run: DagsterRun):
         run_worker_id = run.tags.get(RUN_WORKER_ID_TAG)
 
@@ -869,6 +911,14 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
             return CheckRunHealthResult(WorkerStatus.UNKNOWN, "", run_worker_id=run_worker_id)
 
         t = tasks[0]
+
+        if get_boolean_tag_value(os.getenv("DAGSTER_AWS_ENI_TAGGING_ENABLED")) and not run.tags.get(
+            f"{HIDDEN_TAG_PREFIX}eni_id"
+        ):
+            try:
+                self._add_eni_id_tags(run, t)
+            except Exception:
+                logging.exception(f"Error adding ENI ID tags for run {run.run_id}")
 
         if t.get("lastStatus") in RUNNING_STATUSES:
             return CheckRunHealthResult(WorkerStatus.RUNNING, run_worker_id=run_worker_id)

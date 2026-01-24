@@ -8,11 +8,8 @@ import json
 import logging
 import os
 import typing as t
-import warnings
 from dataclasses import dataclass, field
 from time import time
-
-from singer_sdk.helpers._compat import SingerSDKDeprecationWarning
 
 if t.TYPE_CHECKING:
     import sys
@@ -28,7 +25,6 @@ if t.TYPE_CHECKING:
 
 DEFAULT_LOG_INTERVAL = 60.0
 METRICS_LOGGER_NAME = __name__
-METRICS_LOG_LEVEL_SETTING = "metrics_log_level"
 
 _TVal = t.TypeVar("_TVal")
 
@@ -86,6 +82,14 @@ class Point(t.Generic[_TVal]):
             "tags": self.tags,
         }
 
+    def __str__(self) -> str:
+        """Convert this measure to a string.
+
+        Returns:
+            A string.
+        """
+        return json.dumps(self.to_dict(), default=str, separators=(",", ":"))
+
 
 def _to_json(point: dict) -> str:
     """Convert this measure to a JSON string.
@@ -93,39 +97,7 @@ def _to_json(point: dict) -> str:
     Returns:
         A JSON string.
     """
-    return json.dumps(point, default=str)
-
-
-class SingerMetricsFormatter(logging.Formatter):
-    """Logging formatter that adds a ``metric_json`` field to the log record."""
-
-    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
-        """Initialize a formatter.
-
-        Args:
-            *args: Positional arguments.
-            **kwargs: Keyword arguments.
-        """
-        warnings.warn(
-            "SingerMetricsFormatter is deprecated and will be removed by September "
-            "2025. Use a different formatter.",
-            SingerSDKDeprecationWarning,
-            stacklevel=2,
-        )
-        super().__init__(*args, **kwargs)
-
-    def format(self, record: logging.LogRecord) -> str:
-        """Format a log record.
-
-        Args:
-            record: A log record.
-
-        Returns:
-            A formatted log record.
-        """
-        point = record.__dict__.get("point")
-        record.__dict__["metric_json"] = _to_json(point) if point else ""
-        return super().format(record)
+    return json.dumps(point, default=str, separators=(",", ":"))
 
 
 class MetricExclusionFilter(logging.Filter):
@@ -149,11 +121,11 @@ class MetricExclusionFilter(logging.Filter):
         self.types = types or []
         self.tags = tags or {}
 
-    def _exclude_point(self, **kwargs: t.Any) -> bool:
+    def _exclude_point(self, point: Point) -> bool:
         """Filter a point.
 
         Args:
-            **kwargs: The point dictionary.
+            point: The point.
 
         A metric record is excluded if any of the following are true:
         - The metric name matches one in the metrics list
@@ -164,12 +136,9 @@ class MetricExclusionFilter(logging.Filter):
             True if the point should be excluded.
         """
         return (
-            (kwargs.get("metric") in self.metrics)
-            or (kwargs.get("type") in self.types)
-            or any(
-                kwargs.get("tags", {}).get(tag) == value
-                for tag, value in self.tags.items()
-            )
+            (point.metric.value in self.metrics)
+            or (point.metric_type in self.types)
+            or any(point.tags.get(tag) == value for tag, value in self.tags.items())
         )
 
     def filter(self, record: logging.LogRecord) -> bool:
@@ -182,9 +151,11 @@ class MetricExclusionFilter(logging.Filter):
             True if the record should be logged.
         """
         return not (
-            (point := record.__dict__.get("point"))
-            and isinstance(point, dict)
-            and self._exclude_point(**point)
+            record.args
+            and isinstance(record.args, tuple)
+            and (point := record.args[0])
+            and isinstance(point, Point)
+            and self._exclude_point(point)
         )
 
 
@@ -195,8 +166,7 @@ def log(logger: logging.Logger, point: Point) -> None:
         logger: An logger instance.
         point: A measurement.
     """
-    point_dict = point.to_dict()
-    logger.info("METRIC: %s", _to_json(point_dict), extra={"point": point_dict})
+    logger.info("METRIC: %s", point)
 
 
 class Meter(metaclass=abc.ABCMeta):
@@ -225,6 +195,14 @@ class Meter(metaclass=abc.ABCMeta):
 
     @context.setter
     def context(self, value: types.Context | None) -> None:
+        """Set the context for this meter.
+
+        Args:
+            value: A context dictionary.
+        """
+        self.with_context(value)
+
+    def with_context(self, value: types.Context | None) -> None:
         """Set the context for this meter.
 
         Args:

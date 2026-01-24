@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, BinaryIO, Dict, Iterator, List, Optional
 
-from ._internal import _enum, _from_dict, _repeated_dict
+from databricks.sdk.service import compute
+from databricks.sdk.service._internal import _enum, _from_dict, _repeated_dict
 
 _LOG = logging.getLogger("databricks.sdk")
 
-
-from databricks.sdk.service import compute
 
 # all definitions in this file are in alphabetical order
 
@@ -1068,9 +1068,6 @@ class LogDeliveryConfiguration:
     [Configuring audit logs]: https://docs.databricks.com/administration-guide/account-settings/audit-logs.html
     [View billable usage]: https://docs.databricks.com/administration-guide/account-settings/usage.html"""
 
-    account_id: str
-    """Databricks account ID."""
-
     credentials_id: str
     """The ID for a method:credentials/create that represents the AWS IAM role with policy and trust
     relationship as described in the main billable usage documentation page. See [Configure billable
@@ -1083,6 +1080,9 @@ class LogDeliveryConfiguration:
     in the main billable usage documentation page. See [Configure billable usage delivery].
     
     [Configure billable usage delivery]: https://docs.databricks.com/administration-guide/account-settings/billable-usage-delivery.html"""
+
+    account_id: Optional[str] = None
+    """Databricks account ID."""
 
     config_id: Optional[str] = None
     """The unique UUID of log delivery configuration"""
@@ -1428,6 +1428,12 @@ class UpdateBudgetConfigurationResponse:
         return cls(budget=_from_dict(d, "budget", BudgetConfiguration))
 
 
+class UsageDashboardMajorVersion(Enum):
+
+    USAGE_DASHBOARD_MAJOR_VERSION_1 = "USAGE_DASHBOARD_MAJOR_VERSION_1"
+    USAGE_DASHBOARD_MAJOR_VERSION_2 = "USAGE_DASHBOARD_MAJOR_VERSION_2"
+
+
 class UsageDashboardType(Enum):
 
     USAGE_DASHBOARD_TYPE_GLOBAL = "USAGE_DASHBOARD_TYPE_GLOBAL"
@@ -1566,6 +1572,9 @@ class BudgetPolicyAPI:
 
         :returns: :class:`BudgetPolicy`
         """
+
+        if request_id is None or request_id == "":
+            request_id = str(uuid.uuid4())
         body = {}
         if policy is not None:
             body["policy"] = policy.as_dict()
@@ -1680,6 +1689,7 @@ class BudgetPolicyAPI:
 
         :returns: :class:`BudgetPolicy`
         """
+
         body = policy.as_dict()
         query = {}
         if limit_config is not None:
@@ -1716,6 +1726,7 @@ class BudgetsAPI:
 
         :returns: :class:`CreateBudgetConfigurationResponse`
         """
+
         body = {}
         if budget is not None:
             body["budget"] = budget.as_dict()
@@ -1798,6 +1809,7 @@ class BudgetsAPI:
 
         :returns: :class:`UpdateBudgetConfigurationResponse`
         """
+
         body = {}
         if budget is not None:
             body["budget"] = budget.as_dict()
@@ -1896,6 +1908,7 @@ class LogDeliveryAPI:
 
         :returns: :class:`WrappedLogDeliveryConfiguration`
         """
+
         body = {}
         if log_delivery_configuration is not None:
             body["log_delivery_configuration"] = log_delivery_configuration.as_dict()
@@ -1990,6 +2003,7 @@ class LogDeliveryAPI:
 
 
         """
+
         body = {}
         if status is not None:
             body["status"] = status.value
@@ -2015,21 +2029,30 @@ class UsageDashboardsAPI:
         self._api = api_client
 
     def create(
-        self, *, dashboard_type: Optional[UsageDashboardType] = None, workspace_id: Optional[int] = None
+        self,
+        *,
+        dashboard_type: Optional[UsageDashboardType] = None,
+        major_version: Optional[UsageDashboardMajorVersion] = None,
+        workspace_id: Optional[int] = None,
     ) -> CreateBillingUsageDashboardResponse:
         """Create a usage dashboard specified by workspaceId, accountId, and dashboard type.
 
         :param dashboard_type: :class:`UsageDashboardType` (optional)
           Workspace level usage dashboard shows usage data for the specified workspace ID. Global level usage
           dashboard shows usage data for all workspaces in the account.
+        :param major_version: :class:`UsageDashboardMajorVersion` (optional)
+          The major version of the usage dashboard template to use. Defaults to VERSION_1.
         :param workspace_id: int (optional)
           The workspace ID of the workspace in which the usage dashboard is created.
 
         :returns: :class:`CreateBillingUsageDashboardResponse`
         """
+
         body = {}
         if dashboard_type is not None:
             body["dashboard_type"] = dashboard_type.value
+        if major_version is not None:
+            body["major_version"] = major_version.value
         if workspace_id is not None:
             body["workspace_id"] = workspace_id
         headers = {

@@ -482,10 +482,22 @@ def test_echo_writing_to_standard_error(capfd, monkeypatch):
     assert err == ""
 
     emulate_input("asdlkj\n")
+    click.prompt("Prompt to stdin with no suffix", prompt_suffix="")
+    out, err = capfd.readouterr()
+    assert out == "Prompt to stdin with no suffix"
+    assert err == ""
+
+    emulate_input("asdlkj\n")
     click.prompt("Prompt to stderr", err=True)
     out, err = capfd.readouterr()
     assert out == " "
     assert err == "Prompt to stderr:"
+
+    emulate_input("asdlkj\n")
+    click.prompt("Prompt to stderr with no suffix", prompt_suffix="", err=True)
+    out, err = capfd.readouterr()
+    assert out == "x"
+    assert err == "Prompt to stderr with no suffi"
 
     emulate_input("y\n")
     click.confirm("Prompt to stdin")
@@ -494,10 +506,22 @@ def test_echo_writing_to_standard_error(capfd, monkeypatch):
     assert err == ""
 
     emulate_input("y\n")
+    click.confirm("Prompt to stdin with no suffix", prompt_suffix="")
+    out, err = capfd.readouterr()
+    assert out == "Prompt to stdin with no suffix [y/N]"
+    assert err == ""
+
+    emulate_input("y\n")
     click.confirm("Prompt to stderr", err=True)
     out, err = capfd.readouterr()
     assert out == " "
     assert err == "Prompt to stderr [y/N]:"
+
+    emulate_input("y\n")
+    click.confirm("Prompt to stderr with no suffix", prompt_suffix="", err=True)
+    out, err = capfd.readouterr()
+    assert out == "]"
+    assert err == "Prompt to stderr with no suffix [y/N"
 
     monkeypatch.setattr(click.termui, "isatty", lambda x: True)
     monkeypatch.setattr(click.termui, "getchar", lambda: " ")
@@ -680,7 +704,9 @@ def test_expand_args(monkeypatch):
     monkeypatch.setenv("CLICK_TEST", "hello")
     assert "hello" in click.utils._expand_args(["$CLICK_TEST"])
     assert "pyproject.toml" in click.utils._expand_args(["*.toml"])
-    assert os.path.join("docs", "conf.py") in click.utils._expand_args(["**/conf.py"])
+    assert os.path.join("tests", "conftest.py") in click.utils._expand_args(
+        ["**/conftest.py"]
+    )
     assert "*.not-found" in click.utils._expand_args(["*.not-found"])
     # a bad glob pattern, such as a pytest identifier, should return itself
     assert click.utils._expand_args(["test.py::test_bad"])[0] == "test.py::test_bad"

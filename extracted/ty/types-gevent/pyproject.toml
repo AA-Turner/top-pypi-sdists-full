@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-gevent"
-version = "25.4.0.20250915"
+version = "25.9.0.20251228"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for gevent"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`gevent`](https://github.com/gevent/gevent) package. It can be used by type checkers
 to check code that uses `gevent`. This version of
 `types-gevent` aims to provide accurate annotations for
-`gevent==25.4.*`.
+`gevent==25.9.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,18 +25,18 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.405
+* [mypy](https://github.com/python/mypy/) 1.18.2
+* [pyright](https://github.com/microsoft/pyright) 1.1.407
 
 It was generated from typeshed commit
-[`703f7d074ccd3776f20c77eaeb4563a197948ed9`](https://github.com/python/typeshed/commit/703f7d074ccd3776f20c77eaeb4563a197948ed9).
+[`6b4691d04491dc3800fef9598c526f49c7fa4bd7`](https://github.com/python/typeshed/commit/6b4691d04491dc3800fef9598c526f49c7fa4bd7).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
 requires-python = ">=3.9"
-dependencies = ['types-greenlet', 'types-psutil']
+dependencies = ['types-greenlet', 'types-psutil>=7.2.0']
 
 [project.urls]
 "Homepage" = "https://github.com/python/typeshed"

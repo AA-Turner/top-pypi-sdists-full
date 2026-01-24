@@ -1,4 +1,4 @@
-import sys, sqlite3, re, os, random
+import sys, sqlite3, re, os, random, ast
 
 # This module uses sqlite3 databases with multiple tables.
 # The path to the database file is specified at the module level.
@@ -36,7 +36,9 @@ def get_core_tables(ManifoldTable):
     class OrientableCuspedCensus(ManifoldTable):
         """
         Iterator for all orientable cusped hyperbolic manifolds that
-        can be triangulated with at most 9 ideal tetrahedra.
+        can be triangulated with at most 10 ideal tetrahedra.  See
+        `[Li] <https://arXiv.org/abs/2512.02142>`_ for background on
+        these manifolds.
 
         >>> for M in OrientableCuspedCensus[3:6]: print(M, M.volume()) # doctest: +NUMERIC6
         ...
@@ -45,9 +47,9 @@ def get_core_tables(ManifoldTable):
         m010(0,0) 2.66674478
         >>> for M in OrientableCuspedCensus[-9:-6]: print(M, M.volume()) # doctest: +NUMERIC6
         ...
-        o9_44241(0,0) 8.96323909
-        o9_44242(0,0) 8.96736842
-        o9_44243(0,0) 8.96736842
+        o10_150721(0,0)(0,0)(0,0) 10.1494160640965
+        o10_150722(0,0)(0,0)(0,0) 10.1494160640965
+        o10_150723(0,0)(0,0) 10.1494160640965
         >>> for M in OrientableCuspedCensus[4.10:4.11]: print(M, M.volume()) # doctest: +NUMERIC6
         ...
         m217(0,0) 4.10795310
@@ -65,7 +67,7 @@ def get_core_tables(ManifoldTable):
         5^2_1(0,0)(0,0)
         """
 
-        _regex = re.compile(r'([msvt])([0-9]+)$|o9_\d\d\d\d\d$')
+        _regex = re.compile(r'([msvt])([0-9]+)$|o9_\d\d\d\d\d$|o10_\d\d\d\d\d\d$')
 
         def __init__(self, **kwargs):
            return ManifoldTable.__init__(self, table='orientable_cusped_view',
@@ -261,8 +263,9 @@ def get_core_tables(ManifoldTable):
         """
         Iterator for all of the knot exteriors in the SnapPea Census,
         as tabulated by Callahan, Dean, Weeks, Champanerkar, Kofman,
-        Patterson, and Dunfield.  These are the knot exteriors which
-        can be triangulated by at most 9 ideal tetrahedra.
+        Patterson, Dunfield, and Li.  These are the knot exteriors
+        which can be triangulated by at most 10 ideal tetrahedra.  See
+        `[Li] <https://arXiv.org/abs/2512.02142>`_ for more.
 
         >>> for M in CensusKnots[3.4:3.5]: # doctest: +NUMERIC6
         ...   print(M, M.volume(), LinkExteriors.identify(M))
@@ -273,12 +276,12 @@ def get_core_tables(ManifoldTable):
         K5_3(0,0) 3.48666015 9_2(0,0)
 
         >>> len(CensusKnots)
-        1267
+        3116
         >>> CensusKnots[-1].num_tetrahedra()
-        9
+        10
         """
 
-        _regex = re.compile(r'[kK][2-9]_([0-9]+)$')
+        _regex = re.compile(r'[kK]([0-9]+)_([0-9]+)$')
 
         def __init__(self, **kwargs):
            return ManifoldTable.__init__(self,
@@ -372,7 +375,6 @@ def get_platonic_tables(ManifoldTable):
         >>> TetrahedralOrientableCuspedCensus.identify(Manifold("m004"))
         otet02_00001(0,0)
 
-
         """
 
         _regex = re.compile(r'otet\d+_\d+')
@@ -393,7 +395,6 @@ def get_platonic_tables(ManifoldTable):
         25194
         >>> list(TetrahedralNonorientableCuspedCensus[:1.3])
         [ntet01_00000(0,0)]
-
         """
 
         _regex = re.compile(r'ntet\d+_\d+')
@@ -433,7 +434,6 @@ def get_platonic_tables(ManifoldTable):
          ooct02_00003(0,0)(0,0)(0,0) DT[icebbGIAfhcEdB]
          ooct02_00005(0,0)(0,0)(0,0) DT[hcdbbFHegbDAc]
          ooct04_00027(0,0)(0,0)(0,0)(0,0) DT[zdpecbBujVtiWzsLQpxYREadhOKCmFgN]
-
 
         """
 
@@ -716,7 +716,7 @@ def get_ribbon_tables(ManifoldTable):
     class RibbonLinks(ManifoldTable):
         """
         The database of ribbon links from Section 2.5 of `[Dunfield
-        and Gong] <https://arXiv.org/abs/FILLIN>`_.  Each link
+        and Gong] <https://arXiv.org/abs/2512.21825>`_.  Each link
         includes a certificate describing the ribbon disks:
 
         >>> len(RibbonLinks(cusps=2))

@@ -1,4 +1,15 @@
-from typing import Any, Callable, Generic, Mapping, Protocol, overload
+from collections.abc import (
+    Callable,
+    Mapping,
+)
+from typing import (
+    Any,
+    Generic,
+    Protocol,
+    overload,
+    type_check_only,
+)
+from typing_extensions import disjoint_base
 
 from ._types import (
     _ET_co,
@@ -14,6 +25,7 @@ from .etree import CDATA, _Element
 # with anything
 _TypeMapArg = Mapping[Any, Callable[[_Element, Any], None]]
 
+@type_check_only
 class _EMakerCallProtocol(Protocol[_ET_co]):
     def __call__(
         self,
@@ -49,6 +61,7 @@ class _EMakerCallProtocol(Protocol[_ET_co]):
 # makeelement. However all element creation attempt
 # would fail, as 'nsmap' keyword argument is expected
 # to be usable in the makeelement function call.
+@disjoint_base
 class ElementMaker(Generic[_ET_co]):
     @overload  # makeelement is keyword
     def __new__(

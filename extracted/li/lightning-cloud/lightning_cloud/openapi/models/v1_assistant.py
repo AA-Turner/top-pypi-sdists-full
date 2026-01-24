@@ -42,20 +42,28 @@ class V1Assistant(object):
     """
     swagger_types = {
         'cloudspace_id': 'str',
+        'cloudy_compatible': 'bool',
         'cluster_id': 'str',
         'created_at': 'datetime',
+        'deployment_details': 'V1DeploymentDetails',
         'description': 'str',
         'endpoint_id': 'str',
+        'expected_cold_start_time': 'str',
+        'file_uploads_enabled': 'bool',
         'id': 'str',
         'internal_assistant_name': 'str',
         'knowledge': 'str',
+        'knowledge_configuration': 'V1KnowledgeConfiguration',
+        'managed_endpoint_id': 'str',
         'model': 'str',
+        'model_provider': 'str',
         'name': 'str',
         'org_id': 'str',
         'project_id': 'str',
         'prompt_suggestions': 'list[V1PromptSuggestion]',
         'prompt_template': 'str',
         'publish_status': 'str',
+        'status': 'V1AssistantModelStatus',
         'thumbnail_url': 'str',
         'updated_at': 'datetime',
         'user_id': 'str'
@@ -63,64 +71,94 @@ class V1Assistant(object):
 
     attribute_map = {
         'cloudspace_id': 'cloudspaceId',
+        'cloudy_compatible': 'cloudyCompatible',
         'cluster_id': 'clusterId',
         'created_at': 'createdAt',
+        'deployment_details': 'deploymentDetails',
         'description': 'description',
         'endpoint_id': 'endpointId',
+        'expected_cold_start_time': 'expectedColdStartTime',
+        'file_uploads_enabled': 'fileUploadsEnabled',
         'id': 'id',
         'internal_assistant_name': 'internalAssistantName',
         'knowledge': 'knowledge',
+        'knowledge_configuration': 'knowledgeConfiguration',
+        'managed_endpoint_id': 'managedEndpointId',
         'model': 'model',
+        'model_provider': 'modelProvider',
         'name': 'name',
         'org_id': 'orgId',
         'project_id': 'projectId',
         'prompt_suggestions': 'promptSuggestions',
         'prompt_template': 'promptTemplate',
         'publish_status': 'publishStatus',
+        'status': 'status',
         'thumbnail_url': 'thumbnailUrl',
         'updated_at': 'updatedAt',
         'user_id': 'userId'
     }
 
-    def __init__(self, cloudspace_id: 'str' =None, cluster_id: 'str' =None, created_at: 'datetime' =None, description: 'str' =None, endpoint_id: 'str' =None, id: 'str' =None, internal_assistant_name: 'str' =None, knowledge: 'str' =None, model: 'str' =None, name: 'str' =None, org_id: 'str' =None, project_id: 'str' =None, prompt_suggestions: 'list[V1PromptSuggestion]' =None, prompt_template: 'str' =None, publish_status: 'str' =None, thumbnail_url: 'str' =None, updated_at: 'datetime' =None, user_id: 'str' =None):  # noqa: E501
+    def __init__(self, cloudspace_id: 'str' =None, cloudy_compatible: 'bool' =None, cluster_id: 'str' =None, created_at: 'datetime' =None, deployment_details: 'V1DeploymentDetails' =None, description: 'str' =None, endpoint_id: 'str' =None, expected_cold_start_time: 'str' =None, file_uploads_enabled: 'bool' =None, id: 'str' =None, internal_assistant_name: 'str' =None, knowledge: 'str' =None, knowledge_configuration: 'V1KnowledgeConfiguration' =None, managed_endpoint_id: 'str' =None, model: 'str' =None, model_provider: 'str' =None, name: 'str' =None, org_id: 'str' =None, project_id: 'str' =None, prompt_suggestions: 'list[V1PromptSuggestion]' =None, prompt_template: 'str' =None, publish_status: 'str' =None, status: 'V1AssistantModelStatus' =None, thumbnail_url: 'str' =None, updated_at: 'datetime' =None, user_id: 'str' =None):  # noqa: E501
         """V1Assistant - a model defined in Swagger"""  # noqa: E501
         self._cloudspace_id = None
+        self._cloudy_compatible = None
         self._cluster_id = None
         self._created_at = None
+        self._deployment_details = None
         self._description = None
         self._endpoint_id = None
+        self._expected_cold_start_time = None
+        self._file_uploads_enabled = None
         self._id = None
         self._internal_assistant_name = None
         self._knowledge = None
+        self._knowledge_configuration = None
+        self._managed_endpoint_id = None
         self._model = None
+        self._model_provider = None
         self._name = None
         self._org_id = None
         self._project_id = None
         self._prompt_suggestions = None
         self._prompt_template = None
         self._publish_status = None
+        self._status = None
         self._thumbnail_url = None
         self._updated_at = None
         self._user_id = None
         self.discriminator = None
         if cloudspace_id is not None:
             self.cloudspace_id = cloudspace_id
+        if cloudy_compatible is not None:
+            self.cloudy_compatible = cloudy_compatible
         if cluster_id is not None:
             self.cluster_id = cluster_id
         if created_at is not None:
             self.created_at = created_at
+        if deployment_details is not None:
+            self.deployment_details = deployment_details
         if description is not None:
             self.description = description
         if endpoint_id is not None:
             self.endpoint_id = endpoint_id
+        if expected_cold_start_time is not None:
+            self.expected_cold_start_time = expected_cold_start_time
+        if file_uploads_enabled is not None:
+            self.file_uploads_enabled = file_uploads_enabled
         if id is not None:
             self.id = id
         if internal_assistant_name is not None:
             self.internal_assistant_name = internal_assistant_name
         if knowledge is not None:
             self.knowledge = knowledge
+        if knowledge_configuration is not None:
+            self.knowledge_configuration = knowledge_configuration
+        if managed_endpoint_id is not None:
+            self.managed_endpoint_id = managed_endpoint_id
         if model is not None:
             self.model = model
+        if model_provider is not None:
+            self.model_provider = model_provider
         if name is not None:
             self.name = name
         if org_id is not None:
@@ -133,6 +171,8 @@ class V1Assistant(object):
             self.prompt_template = prompt_template
         if publish_status is not None:
             self.publish_status = publish_status
+        if status is not None:
+            self.status = status
         if thumbnail_url is not None:
             self.thumbnail_url = thumbnail_url
         if updated_at is not None:
@@ -160,6 +200,27 @@ class V1Assistant(object):
         """
 
         self._cloudspace_id = cloudspace_id
+
+    @property
+    def cloudy_compatible(self) -> 'bool':
+        """Gets the cloudy_compatible of this V1Assistant.  # noqa: E501
+
+
+        :return: The cloudy_compatible of this V1Assistant.  # noqa: E501
+        :rtype: bool
+        """
+        return self._cloudy_compatible
+
+    @cloudy_compatible.setter
+    def cloudy_compatible(self, cloudy_compatible: 'bool'):
+        """Sets the cloudy_compatible of this V1Assistant.
+
+
+        :param cloudy_compatible: The cloudy_compatible of this V1Assistant.  # noqa: E501
+        :type: bool
+        """
+
+        self._cloudy_compatible = cloudy_compatible
 
     @property
     def cluster_id(self) -> 'str':
@@ -204,6 +265,27 @@ class V1Assistant(object):
         self._created_at = created_at
 
     @property
+    def deployment_details(self) -> 'V1DeploymentDetails':
+        """Gets the deployment_details of this V1Assistant.  # noqa: E501
+
+
+        :return: The deployment_details of this V1Assistant.  # noqa: E501
+        :rtype: V1DeploymentDetails
+        """
+        return self._deployment_details
+
+    @deployment_details.setter
+    def deployment_details(self, deployment_details: 'V1DeploymentDetails'):
+        """Sets the deployment_details of this V1Assistant.
+
+
+        :param deployment_details: The deployment_details of this V1Assistant.  # noqa: E501
+        :type: V1DeploymentDetails
+        """
+
+        self._deployment_details = deployment_details
+
+    @property
     def description(self) -> 'str':
         """Gets the description of this V1Assistant.  # noqa: E501
 
@@ -244,6 +326,48 @@ class V1Assistant(object):
         """
 
         self._endpoint_id = endpoint_id
+
+    @property
+    def expected_cold_start_time(self) -> 'str':
+        """Gets the expected_cold_start_time of this V1Assistant.  # noqa: E501
+
+
+        :return: The expected_cold_start_time of this V1Assistant.  # noqa: E501
+        :rtype: str
+        """
+        return self._expected_cold_start_time
+
+    @expected_cold_start_time.setter
+    def expected_cold_start_time(self, expected_cold_start_time: 'str'):
+        """Sets the expected_cold_start_time of this V1Assistant.
+
+
+        :param expected_cold_start_time: The expected_cold_start_time of this V1Assistant.  # noqa: E501
+        :type: str
+        """
+
+        self._expected_cold_start_time = expected_cold_start_time
+
+    @property
+    def file_uploads_enabled(self) -> 'bool':
+        """Gets the file_uploads_enabled of this V1Assistant.  # noqa: E501
+
+
+        :return: The file_uploads_enabled of this V1Assistant.  # noqa: E501
+        :rtype: bool
+        """
+        return self._file_uploads_enabled
+
+    @file_uploads_enabled.setter
+    def file_uploads_enabled(self, file_uploads_enabled: 'bool'):
+        """Sets the file_uploads_enabled of this V1Assistant.
+
+
+        :param file_uploads_enabled: The file_uploads_enabled of this V1Assistant.  # noqa: E501
+        :type: bool
+        """
+
+        self._file_uploads_enabled = file_uploads_enabled
 
     @property
     def id(self) -> 'str':
@@ -309,6 +433,48 @@ class V1Assistant(object):
         self._knowledge = knowledge
 
     @property
+    def knowledge_configuration(self) -> 'V1KnowledgeConfiguration':
+        """Gets the knowledge_configuration of this V1Assistant.  # noqa: E501
+
+
+        :return: The knowledge_configuration of this V1Assistant.  # noqa: E501
+        :rtype: V1KnowledgeConfiguration
+        """
+        return self._knowledge_configuration
+
+    @knowledge_configuration.setter
+    def knowledge_configuration(self, knowledge_configuration: 'V1KnowledgeConfiguration'):
+        """Sets the knowledge_configuration of this V1Assistant.
+
+
+        :param knowledge_configuration: The knowledge_configuration of this V1Assistant.  # noqa: E501
+        :type: V1KnowledgeConfiguration
+        """
+
+        self._knowledge_configuration = knowledge_configuration
+
+    @property
+    def managed_endpoint_id(self) -> 'str':
+        """Gets the managed_endpoint_id of this V1Assistant.  # noqa: E501
+
+
+        :return: The managed_endpoint_id of this V1Assistant.  # noqa: E501
+        :rtype: str
+        """
+        return self._managed_endpoint_id
+
+    @managed_endpoint_id.setter
+    def managed_endpoint_id(self, managed_endpoint_id: 'str'):
+        """Sets the managed_endpoint_id of this V1Assistant.
+
+
+        :param managed_endpoint_id: The managed_endpoint_id of this V1Assistant.  # noqa: E501
+        :type: str
+        """
+
+        self._managed_endpoint_id = managed_endpoint_id
+
+    @property
     def model(self) -> 'str':
         """Gets the model of this V1Assistant.  # noqa: E501
 
@@ -328,6 +494,27 @@ class V1Assistant(object):
         """
 
         self._model = model
+
+    @property
+    def model_provider(self) -> 'str':
+        """Gets the model_provider of this V1Assistant.  # noqa: E501
+
+
+        :return: The model_provider of this V1Assistant.  # noqa: E501
+        :rtype: str
+        """
+        return self._model_provider
+
+    @model_provider.setter
+    def model_provider(self, model_provider: 'str'):
+        """Sets the model_provider of this V1Assistant.
+
+
+        :param model_provider: The model_provider of this V1Assistant.  # noqa: E501
+        :type: str
+        """
+
+        self._model_provider = model_provider
 
     @property
     def name(self) -> 'str':
@@ -454,6 +641,27 @@ class V1Assistant(object):
         """
 
         self._publish_status = publish_status
+
+    @property
+    def status(self) -> 'V1AssistantModelStatus':
+        """Gets the status of this V1Assistant.  # noqa: E501
+
+
+        :return: The status of this V1Assistant.  # noqa: E501
+        :rtype: V1AssistantModelStatus
+        """
+        return self._status
+
+    @status.setter
+    def status(self, status: 'V1AssistantModelStatus'):
+        """Sets the status of this V1Assistant.
+
+
+        :param status: The status of this V1Assistant.  # noqa: E501
+        :type: V1AssistantModelStatus
+        """
+
+        self._status = status
 
     @property
     def thumbnail_url(self) -> 'str':

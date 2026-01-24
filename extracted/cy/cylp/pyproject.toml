@@ -1,6 +1,6 @@
 [project]
 name = "cylp"
-version = "0.93.1"
+version = "0.94.0"
 description="A Python interface for CLP, CBC, and CGL"
 readme="README.rst"
 authors=[
@@ -21,7 +21,7 @@ Documentation="https://coin-or.github.io/CyLP"
 [build-system]
 requires = [
   'setuptools',
-  'Cython == 3.0.10',
+  'Cython>=3.0.10, <3.3',
   'numpy>=2.0.0rc1',
 ]
 build-backend = "setuptools.build_meta"

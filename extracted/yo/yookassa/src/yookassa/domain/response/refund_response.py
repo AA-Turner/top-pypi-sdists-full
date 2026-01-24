@@ -51,6 +51,9 @@ class RefundResponse(ResponseObject):
     __refund_authorization_details = None
     """Данные об авторизации возврата. Присутствуют только для возвратов платежей, совершенных этими способами оплаты: банковская карта, Mir Pay."""
 
+    __metadata = None
+    """Любые дополнительные данные, которые нужны вам для работы (например, ваш внутренний идентификатор заказа). Передаются в виде набора пар «ключ-значение» и возвращаются в ответе от ЮKassa. Ограничения: максимум 16 ключей, имя ключа не больше 32 символов, значение ключа не больше 512 символов, тип данных — строка в формате UTF-8. """  # noqa: E501
+
     @property
     def id(self):
         """
@@ -293,3 +296,21 @@ class RefundResponse(ResponseObject):
         :type value: RefundAuthorizationDetails
         """
         self.__refund_authorization_details = RefundAuthorizationDetails(value)
+
+    @property
+    def metadata(self):
+        """Возвращает metadata модели Refund.
+
+        :return: metadata модели Refund.
+        :rtype: dict[str, str]
+        """
+        return self.__metadata
+
+    @metadata.setter
+    def metadata(self, value):
+        """Устанавливает metadata модели Refund.
+
+        :param value: metadata модели Refund.
+        :type value: dict[str, str]
+        """
+        self.__metadata = value

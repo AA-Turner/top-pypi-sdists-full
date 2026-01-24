@@ -11,6 +11,7 @@ class RealTime:
             schema_line: str,
             record_line: str,
             logger: Logger,
+            input_path: Optional[str] = None,
         ):
         self.command = command
         self.config = config
@@ -20,11 +21,14 @@ class RealTime:
         self.logger = logger
         self.id = str(uuid.uuid4())
         self.config_file_path = f"/tmp/{self.id}.config.json"
-        self.singer_file_path = f"/tmp/{self.id}.data.singer"
+        self.singer_file_path = f"/tmp/{self.id}.data.singer" if not input_path else input_path
         self.state_file_path = f"/tmp/{self.id}.state.json"
         os.makedirs("/tmp", exist_ok=True)
 
     def _create_singer_file(self):
+        if os.path.exists(self.singer_file_path):
+            return
+
         with open(self.singer_file_path, "w") as f:
             f.writelines([
                 self.schema_line + "\n",
@@ -83,6 +87,7 @@ def real_time_handler(
     schema_line: str,
     record_line: str,
     logger: Logger,
+    input_path: Optional[str] = None,
     cli_cmd: Optional[str] = None,
 ):
     cli_cmd = cli_cmd or os.environ.get("CLI_CMD")
@@ -99,6 +104,7 @@ def real_time_handler(
         schema_line,
         record_line,
         logger,
+        input_path,
     )
     logger.info(f"Preparing files...")
     real_time.prepare()

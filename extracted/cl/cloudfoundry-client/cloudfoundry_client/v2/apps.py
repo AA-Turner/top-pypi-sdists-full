@@ -3,7 +3,7 @@ import logging
 import os
 from http import HTTPStatus
 from time import sleep
-from typing import Optional, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from cloudfoundry_client.doppler.client import EnvelopeStream
 from cloudfoundry_client.errors import InvalidStatusCode
@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 
 class Application(Entity):
-    def instances(self) -> Dict[str, JsonObject]:
+    def instances(self) -> dict[str, JsonObject]:
         return self.client.v2.apps.get_instances(self["metadata"]["guid"])
 
     def start(self) -> "Application":
@@ -29,10 +29,10 @@ class Application(Entity):
     def restart_instance(self, instance_id: int):
         return self.client.v2.apps.restart_instance(self["metadata"]["guid"], instance_id)
 
-    def stats(self) -> Dict[str, JsonObject]:
+    def stats(self) -> dict[str, JsonObject]:
         return self.client.v2.apps.get_stats(self["metadata"]["guid"])
 
-    def env(self) -> Dict[str, JsonObject]:
+    def env(self) -> dict[str, JsonObject]:
         return self.client.v2.apps.get_env(self["metadata"]["guid"])
 
     def summary(self) -> JsonObject:
@@ -76,17 +76,17 @@ class AppManager(EntityManager):
     ]
 
     def __init__(self, target_endpoint: str, client: "CloudFoundryClient"):
-        super(AppManager, self).__init__(
+        super().__init__(
             target_endpoint, client, "/v2/apps", lambda pairs: Application(target_endpoint, client, pairs)
         )
 
-    def get_stats(self, application_guid: str) -> Dict[str, JsonObject]:
+    def get_stats(self, application_guid: str) -> dict[str, JsonObject]:
         return self._get("%s/%s/stats" % (self.entity_uri, application_guid), JsonObject)
 
-    def get_instances(self, application_guid: str) -> Dict[str, JsonObject]:
+    def get_instances(self, application_guid: str) -> dict[str, JsonObject]:
         return self._get("%s/%s/instances" % (self.entity_uri, application_guid), JsonObject)
 
-    def get_env(self, application_guid: str) -> Dict[str, JsonObject]:
+    def get_env(self, application_guid: str) -> dict[str, JsonObject]:
         return self._get("%s/%s/env" % (self.entity_uri, application_guid), JsonObject)
 
     def get_summary(self, application_guid: str) -> JsonObject:
@@ -107,11 +107,11 @@ class AppManager(EntityManager):
     def start(
         self,
         application_guid: str,
-        check_time: Optional[float] = 0.5,
-        timeout: Optional[float] = 300.0,
-        asynchronous: Optional[bool] = False,
+        check_time: float | None = 0.5,
+        timeout: float | None = 300.0,
+        asynchronous: bool | None = False,
     ) -> Application:
-        result = super(AppManager, self)._update(application_guid, dict(state="STARTED"))
+        result = super()._update(application_guid, dict(state="STARTED"))
         if asynchronous:
             return result
         else:
@@ -122,11 +122,11 @@ class AppManager(EntityManager):
     def stop(
         self,
         application_guid: str,
-        check_time: Optional[float] = 0.5,
-        timeout: Optional[float] = 500.0,
-        asynchronous: Optional[bool] = False,
+        check_time: float | None = 0.5,
+        timeout: float | None = 500.0,
+        asynchronous: bool | None = False,
     ) -> Application:
-        result = super(AppManager, self)._update(application_guid, dict(state="STOPPED"))
+        result = super()._update(application_guid, dict(state="STOPPED"))
         if asynchronous:
             return result
         else:
@@ -143,16 +143,16 @@ class AppManager(EntityManager):
         if kwargs.get("name") is None or kwargs.get("space_guid") is None:
             raise AssertionError("Please provide a name and a space_guid")
         request = AppManager._generate_application_update_request(**kwargs)
-        return super(AppManager, self)._create(request)
+        return super()._create(request)
 
     def update(self, application_guid: str, **kwargs) -> Application:
         request = AppManager._generate_application_update_request(**kwargs)
-        return super(AppManager, self)._update(application_guid, request)
+        return super()._update(application_guid, request)
 
     def remove(self, application_guid: str):
-        super(AppManager, self)._remove(application_guid)
+        super()._remove(application_guid)
 
-    def upload(self, application_guid: str, resources, application: str, asynchronous: Optional[bool] = False):
+    def upload(self, application_guid: str, resources, application: str, asynchronous: bool | None = False):
         application_size = os.path.getsize(application)
         with open(application, "rb") as binary_file:
             return self.client.put(
@@ -195,7 +195,7 @@ class AppManager(EntityManager):
                 sleep(check_time)
                 sum_waiting += check_time
 
-    def _safe_get_instances(self, application_guid: str) -> Dict[str, JsonObject]:
+    def _safe_get_instances(self, application_guid: str) -> dict[str, JsonObject]:
         try:
             return self.get_instances(application_guid)
         except InvalidStatusCode as ex:

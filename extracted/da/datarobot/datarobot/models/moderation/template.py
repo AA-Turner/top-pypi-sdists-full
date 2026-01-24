@@ -46,23 +46,21 @@ class ModerationTemplate(APIObject):
 
     _path = "guardTemplates/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("name"): String(),
-            t.Key("description"): String(),
-            t.Key("type"): t.Enum(*[e.value for e in GuardType]),
-            t.Key("ootb_type", optional=True): t.Enum(*[e.value for e in ModerationGuardOotbType]),
-            t.Key("llm_type", optional=True): t.Enum(*[e.value for e in ModerationGuardLlmType]),
-            t.Key("allowed_stages"): t.List(t.Enum(*[e.value for e in ModerationGuardStage])),
-            t.Key("created_at", optional=True): t.Or(parse_time, t.Null),
-            t.Key("creator_id", optional=True): String(allow_blank=True),
-            t.Key("org_id", optional=True): String(allow_blank=True),
-            t.Key("intervention", optional=True): GuardInterventionForTemplate.schema,
-            t.Key("model_info", optional=True): GuardModelInfo.schema,
-            t.Key("nemo_info", optional=True): GuardNemoInfo.schema,
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("name"): String(),
+        t.Key("description"): String(),
+        t.Key("type"): t.Enum(*[e.value for e in GuardType]),
+        t.Key("ootb_type", optional=True): t.Enum(*[e.value for e in ModerationGuardOotbType]),
+        t.Key("llm_type", optional=True): t.Enum(*[e.value for e in ModerationGuardLlmType]),
+        t.Key("allowed_stages"): t.List(t.Enum(*[e.value for e in ModerationGuardStage])),
+        t.Key("created_at", optional=True): t.Or(parse_time, t.Null),
+        t.Key("creator_id", optional=True): String(allow_blank=True),
+        t.Key("org_id", optional=True): String(allow_blank=True),
+        t.Key("intervention", optional=True): GuardInterventionForTemplate.schema,
+        t.Key("model_info", optional=True): GuardModelInfo.schema,
+        t.Key("nemo_info", optional=True): GuardNemoInfo.schema,
+    }).ignore_extra("*")
 
     schema = _converter
 

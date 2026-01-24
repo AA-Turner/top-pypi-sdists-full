@@ -1,7 +1,7 @@
 cbuffer _UniformBuffer : register(b0, space0)
 {
-    float4 _10_src : packoffset(c0);
-    float4 _10_dst : packoffset(c1);
+    float4 _11_src : packoffset(c0);
+    float4 _11_dst : packoffset(c1);
 };
 
 
@@ -14,7 +14,7 @@ struct SPIRV_Cross_Output
 
 void frag_main()
 {
-    sk_FragColor = float4(((_10_dst.xyz * (1.0f - _10_src.w)) + (_10_src.xyz * (1.0f - _10_dst.w))) + (_10_src.xyz * _10_dst.xyz), _10_src.w + ((1.0f - _10_src.w) * _10_dst.w));
+    sk_FragColor = float4(((_11_dst.xyz * (1.0f - _11_src.w)) + (_11_src.xyz * (1.0f - _11_dst.w))) + (_11_src.xyz * _11_dst.xyz), _11_src.w + ((1.0f - _11_src.w) * _11_dst.w));
 }
 
 SPIRV_Cross_Output main()

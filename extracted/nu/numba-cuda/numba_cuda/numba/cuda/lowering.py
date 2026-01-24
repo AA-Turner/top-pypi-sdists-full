@@ -8,21 +8,19 @@ from functools import partial
 
 from llvmlite import ir as llvm_ir
 
-from numba.core import (
-    typing,
-    utils,
-    types,
-    ir,
-    debuginfo,
-    funcdesc,
-    generators,
-    config,
-    cgutils,
-    removerefctpass,
+from numba.cuda import HAS_NUMBA
+from numba.cuda.core import ir
+from numba.cuda import debuginfo, cgutils, utils, typing, types
+from numba.cuda.core import (
+    ir_utils,
     targetconfig,
+    funcdesc,
+    config,
+    generators,
+    removerefctpass,
 )
-from numba.cuda.core import ir_utils
-from numba.core.errors import (
+
+from numba.cuda.core.errors import (
     LoweringError,
     new_error_context,
     TypingError,
@@ -30,16 +28,11 @@ from numba.core.errors import (
     UnsupportedError,
     NumbaDebugInfoWarning,
 )
-from numba.core.funcdesc import default_mangler
-from numba.core.environment import Environment
-from numba.core.analysis import compute_use_defs, must_use_alloca
-from numba.misc.firstlinefinder import get_func_body_first_lineno
-from numba import version_info
-
-numba_version = version_info.short
-del version_info
-if numba_version > (0, 60):
-    from numba.misc.coverage_support import get_registered_loc_notify
+from numba.cuda.core.funcdesc import default_mangler
+from numba.cuda.core.environment import Environment
+from numba.cuda.core.analysis import compute_use_defs, must_use_alloca
+from numba.cuda.misc.firstlinefinder import get_func_body_first_lineno
+from numba.cuda.misc.coverage_support import get_registered_loc_notify
 
 
 _VarArgItem = namedtuple("_VarArgItem", ("vararg", "index"))
@@ -53,7 +46,7 @@ class BaseLower(object):
     def __init__(self, context, library, fndesc, func_ir, metadata=None):
         self.library = library
         self.fndesc = fndesc
-        self.blocks = utils.SortedMap(func_ir.blocks.items())
+        self.blocks = dict(sorted(func_ir.blocks.items()))
         self.func_ir = func_ir
         self.generator_info = func_ir.generator_info
         self.metadata = metadata
@@ -98,9 +91,8 @@ class BaseLower(object):
             directives_only=directives_only,
         )
 
-        if numba_version > (0, 60):
-            # Loc notify objects
-            self._loc_notify_registry = get_registered_loc_notify()
+        # Loc notify objects
+        self._loc_notify_registry = get_registered_loc_notify()
 
         # Subclass initialization
         self.init()
@@ -176,9 +168,8 @@ class BaseLower(object):
         Called after all blocks are lowered
         """
         self.debuginfo.finalize()
-        if numba_version > (0, 60):
-            for notify in self._loc_notify_registry:
-                notify.close()
+        for notify in self._loc_notify_registry:
+            notify.close()
 
     def pre_block(self, block):
         """
@@ -297,7 +288,7 @@ class BaseLower(object):
         )
 
         # Lower all blocks
-        for offset, block in sorted(self.blocks.items()):
+        for offset, block in self.blocks.items():
             bb = self.blkmap[offset]
             self.builder.position_at_end(bb)
             self.debug_print(f"# lower block: {offset}")
@@ -371,11 +362,8 @@ class BaseLower(object):
         """Called when a new instruction with the given `loc` is about to be
         lowered.
         """
-        if numba_version > (0, 60):
-            for notify_obj in self._loc_notify_registry:
-                notify_obj.notify(loc)
-        else:
-            pass
+        for notify_obj in self._loc_notify_registry:
+            notify_obj.notify(loc)
 
     def debug_print(self, msg):
         if config.DEBUG_JIT:
@@ -453,7 +441,9 @@ class Lower(BaseLower):
                         # Ensure that the variable is not defined multiple times
                         # in the block
                         [defblk] = var_assign_map[var]
-                        assign_stmts = self.blocks[defblk].find_insts(ir.Assign)
+                        assign_stmts = self.blocks[defblk].find_insts(
+                            ir.assign_types
+                        )
                         assigns = [
                             stmt
                             for stmt in assign_stmts
@@ -466,7 +456,7 @@ class Lower(BaseLower):
         self._blk_local_varmap = {}
 
     def pre_block(self, block):
-        from numba.core.unsafe import eh
+        from numba.cuda.core.unsafe import eh
 
         super(Lower, self).pre_block(block)
         self._cur_ir_block = block
@@ -480,7 +470,7 @@ class Lower(BaseLower):
             self.builder.position_at_end(bb)
             all_names = set()
             for block in self.blocks.values():
-                for x in block.find_insts(ir.Del):
+                for x in block.find_insts(ir.del_types):
                     if x.value not in all_names:
                         all_names.add(x.value)
             for name in all_names:
@@ -495,9 +485,9 @@ class Lower(BaseLower):
                 self.func_ir,
                 call.func,
             )
-            if defn is not None and isinstance(defn, ir.Global):
+            if defn is not None and isinstance(defn, ir.global_types):
                 if defn.value is eh.exception_check:
-                    if isinstance(block.terminator, ir.Branch):
+                    if isinstance(block.terminator, ir.branch_types):
                         targetblk = self.blkmap[block.terminator.truebr]
                         # NOTE: This hacks in an attribute for call_conv to
                         #       pick up. This hack is no longer needed when
@@ -517,19 +507,19 @@ class Lower(BaseLower):
         self.debuginfo.mark_location(self.builder, self.loc.line)
         self.notify_loc(self.loc)
         self.debug_print(str(inst))
-        if isinstance(inst, ir.Assign):
+        if isinstance(inst, ir.assign_types):
             ty = self.typeof(inst.target.name)
             val = self.lower_assign(ty, inst)
             argidx = None
             # If this is a store from an arg, like x = arg.x then tell debuginfo
             # that this is the arg
-            if isinstance(inst.value, ir.Arg):
+            if isinstance(inst.value, ir.arg_types):
                 # NOTE: debug location is the `def <func>` line
                 self.debuginfo.mark_location(self.builder, self.defn_loc.line)
                 argidx = inst.value.index + 1  # args start at 1
             self.storevar(val, inst.target.name, argidx=argidx)
 
-        elif isinstance(inst, ir.Branch):
+        elif isinstance(inst, ir.branch_types):
             cond = self.loadvar(inst.cond.name)
             tr = self.blkmap[inst.truebr]
             fl = self.blkmap[inst.falsebr]
@@ -541,11 +531,11 @@ class Lower(BaseLower):
             )
             self.builder.cbranch(pred, tr, fl)
 
-        elif isinstance(inst, ir.Jump):
+        elif isinstance(inst, ir.jump_types):
             target = self.blkmap[inst.target]
             self.builder.branch(target)
 
-        elif isinstance(inst, ir.Return):
+        elif isinstance(inst, ir.return_types):
             if self.generator_info:
                 # StopIteration
                 self.genlower.return_from_generator(self)
@@ -563,10 +553,10 @@ class Lower(BaseLower):
             retval = self.context.get_return_value(self.builder, ty, val)
             self.call_conv.return_value(self.builder, retval)
 
-        elif isinstance(inst, ir.PopBlock):
+        elif isinstance(inst, ir.popblock_types):
             pass  # this is just a marker
 
-        elif isinstance(inst, ir.StaticSetItem):
+        elif isinstance(inst, ir.staticsetitem_types):
             signature = self.fndesc.calltypes[inst]
             assert signature is not None
             try:
@@ -584,22 +574,22 @@ class Lower(BaseLower):
                 )
                 return impl(self.builder, (target, inst.index, value))
 
-        elif isinstance(inst, ir.Print):
+        elif isinstance(inst, ir.print_types):
             self.lower_print(inst)
 
-        elif isinstance(inst, ir.SetItem):
+        elif isinstance(inst, ir.setitem_types):
             signature = self.fndesc.calltypes[inst]
             assert signature is not None
             return self.lower_setitem(
                 inst.target, inst.index, inst.value, signature
             )
 
-        elif isinstance(inst, ir.StoreMap):
+        elif isinstance(inst, ir.storemap_types):
             signature = self.fndesc.calltypes[inst]
             assert signature is not None
             return self.lower_setitem(inst.dct, inst.key, inst.value, signature)
 
-        elif isinstance(inst, ir.DelItem):
+        elif isinstance(inst, ir.delitem_types):
             target = self.loadvar(inst.target.name)
             index = self.loadvar(inst.index.name)
 
@@ -625,10 +615,10 @@ class Lower(BaseLower):
 
             return impl(self.builder, (target, index))
 
-        elif isinstance(inst, ir.Del):
+        elif isinstance(inst, ir.del_types):
             self.delvar(inst.value)
 
-        elif isinstance(inst, ir.SetAttr):
+        elif isinstance(inst, ir.setattr_types):
             target = self.loadvar(inst.target.name)
             value = self.loadvar(inst.value.name)
             signature = self.fndesc.calltypes[inst]
@@ -646,16 +636,16 @@ class Lower(BaseLower):
 
             return impl(self.builder, (target, value))
 
-        elif isinstance(inst, ir.DynamicRaise):
+        elif isinstance(inst, ir.dynamicraise_types):
             self.lower_dynamic_raise(inst)
 
-        elif isinstance(inst, ir.DynamicTryRaise):
+        elif isinstance(inst, ir.dynamictryraise_types):
             self.lower_try_dynamic_raise(inst)
 
-        elif isinstance(inst, ir.StaticRaise):
+        elif isinstance(inst, ir.staticraise_types):
             self.lower_static_raise(inst)
 
-        elif isinstance(inst, ir.StaticTryRaise):
+        elif isinstance(inst, ir.statictryraise_types):
             self.lower_static_try_raise(inst)
 
         else:
@@ -707,7 +697,7 @@ class Lower(BaseLower):
         args = []
         nb_types = []
         for exc_arg in exc_args:
-            if isinstance(exc_arg, ir.Var):
+            if isinstance(exc_arg, ir.var_types):
                 # dynamic values
                 typ = self.typeof(exc_arg.name)
                 val = self.loadvar(exc_arg.name)
@@ -739,24 +729,28 @@ class Lower(BaseLower):
     def lower_assign(self, ty, inst):
         value = inst.value
         # In nopython mode, closure vars are frozen like globals
-        if isinstance(value, (ir.Const, ir.Global, ir.FreeVar)):
+        if (
+            isinstance(value, ir.const_types)
+            or isinstance(value, ir.global_types)
+            or isinstance(value, ir.freevar_types)
+        ):
             res = self.context.get_constant_generic(
                 self.builder, ty, value.value
             )
             self.incref(ty, res)
             return res
 
-        elif isinstance(value, ir.Expr):
+        elif isinstance(value, ir.expr_types):
             return self.lower_expr(ty, value)
 
-        elif isinstance(value, ir.Var):
+        elif isinstance(value, ir.var_types):
             val = self.loadvar(value.name)
             oty = self.typeof(value.name)
             res = self.context.cast(self.builder, val, oty, ty)
             self.incref(ty, res)
             return res
 
-        elif isinstance(value, ir.Arg):
+        elif isinstance(value, ir.arg_types):
             # Suspend debug info else all the arg repacking ends up being
             # associated with some line or other and it's actually just a detail
             # of Numba's CC.
@@ -782,7 +776,7 @@ class Lower(BaseLower):
                 self.incref(ty, res)
                 return res
 
-        elif isinstance(value, ir.Yield):
+        elif isinstance(value, ir.yield_types):
             res = self.lower_yield(ty, value)
             self.incref(ty, res)
             return res
@@ -1029,9 +1023,6 @@ class Lower(BaseLower):
         elif isinstance(fnty, types.RecursiveCall):
             res = self._lower_call_RecursiveCall(fnty, expr, signature)
 
-        elif isinstance(fnty, types.FunctionType):
-            res = self._lower_call_FunctionType(fnty, expr, signature)
-
         else:
             res = self._lower_call_normal(fnty, expr, signature)
 
@@ -1052,7 +1043,7 @@ class Lower(BaseLower):
         )
 
     def _lower_call_ObjModeDispatcher(self, fnty, expr, signature):
-        from numba.core.pythonapi import ObjModeUtils
+        from numba.cuda.core.pythonapi import ObjModeUtils
 
         self.init_pyapi()
         # Acquire the GIL
@@ -1229,136 +1220,6 @@ class Lower(BaseLower):
             )
         return res
 
-    def _lower_call_FunctionType(self, fnty, expr, signature):
-        self.debug_print("# calling first-class function type")
-        sig = types.unliteral(signature)
-        if not fnty.check_signature(signature):
-            # value dependent polymorphism?
-            raise UnsupportedError(
-                f"mismatch of function types:"
-                f" expected {fnty} but got {types.FunctionType(sig)}"
-            )
-        argvals = self.fold_call_args(
-            fnty,
-            sig,
-            expr.args,
-            expr.vararg,
-            expr.kws,
-        )
-        return self.__call_first_class_function_pointer(
-            fnty.ftype,
-            expr.func.name,
-            sig,
-            argvals,
-        )
-
-    def __call_first_class_function_pointer(self, ftype, fname, sig, argvals):
-        """
-        Calls a first-class function pointer.
-
-        This function is responsible for calling a first-class function pointer,
-        which can either be a JIT-compiled function or a Python function. It
-        determines if a JIT address is available, and if so, calls the function
-        using the JIT address. Otherwise, it calls the function using a function
-        pointer obtained from the `__get_first_class_function_pointer` method.
-
-        Args:
-            ftype: The type of the function.
-            fname: The name of the function.
-            sig: The signature of the function.
-            argvals: The argument values to pass to the function.
-
-        Returns:
-            The result of calling the function.
-        """
-        context = self.context
-        builder = self.builder
-        # Determine if jit address is available
-        fstruct = self.loadvar(fname)
-        struct = cgutils.create_struct_proxy(self.typeof(fname))(
-            context, builder, value=fstruct
-        )
-        jit_addr = struct.jit_addr
-        jit_addr.name = f"jit_addr_of_{fname}"
-
-        ctx = context
-        res_slot = cgutils.alloca_once(
-            builder, ctx.get_value_type(sig.return_type)
-        )
-
-        if_jit_addr_is_null = builder.if_else(
-            cgutils.is_null(builder, jit_addr), likely=False
-        )
-        with if_jit_addr_is_null as (then, orelse):
-            with then:
-                func_ptr = self.__get_first_class_function_pointer(
-                    ftype, fname, sig
-                )
-                res = builder.call(func_ptr, argvals)
-                builder.store(res, res_slot)
-
-            with orelse:
-                llty = ctx.call_conv.get_function_type(
-                    sig.return_type, sig.args
-                ).as_pointer()
-                func_ptr = builder.bitcast(jit_addr, llty)
-                # call
-                status, res = ctx.call_conv.call_function(
-                    builder, func_ptr, sig.return_type, sig.args, argvals
-                )
-                with cgutils.if_unlikely(builder, status.is_error):
-                    context.call_conv.return_status_propagate(builder, status)
-                builder.store(res, res_slot)
-        return builder.load(res_slot)
-
-    def __get_first_class_function_pointer(self, ftype, fname, sig):
-        from numba.experimental.function_type import lower_get_wrapper_address
-
-        llty = self.context.get_value_type(ftype)
-        fstruct = self.loadvar(fname)
-        addr = self.builder.extract_value(
-            fstruct, 0, name="addr_of_%s" % (fname)
-        )
-
-        fptr = cgutils.alloca_once(
-            self.builder, llty, name="fptr_of_%s" % (fname)
-        )
-        with self.builder.if_else(
-            cgutils.is_null(self.builder, addr), likely=False
-        ) as (then, orelse):
-            with then:
-                self.init_pyapi()
-                # Acquire the GIL
-                gil_state = self.pyapi.gil_ensure()
-                pyaddr = self.builder.extract_value(
-                    fstruct, 1, name="pyaddr_of_%s" % (fname)
-                )
-                # try to recover the function address, see
-                # test_zero_address BadToGood example in
-                # test_function_type.py
-                addr1 = lower_get_wrapper_address(
-                    self.context,
-                    self.builder,
-                    pyaddr,
-                    sig,
-                    failure_mode="ignore",
-                )
-                with self.builder.if_then(
-                    cgutils.is_null(self.builder, addr1), likely=False
-                ):
-                    self.return_exception(
-                        RuntimeError,
-                        exc_args=(f"{ftype} function address is null",),
-                        loc=self.loc,
-                    )
-                addr2 = self.pyapi.long_as_voidptr(addr1)
-                self.builder.store(self.builder.bitcast(addr2, llty), fptr)
-                self.pyapi.decref(addr1)
-                self.pyapi.gil_release(gil_state)
-            with orelse:
-                self.builder.store(self.builder.bitcast(addr, llty), fptr)
-        return self.builder.load(fptr)
-
     def _lower_call_normal(self, fnty, expr, signature):
         # Normal function resolution
         self.debug_print("# calling normal function: {0}".format(fnty))
@@ -1375,10 +1236,9 @@ class Lower(BaseLower):
             )
         tname = expr.target
         if tname is not None:
-            from numba.core.target_extension import resolve_dispatcher_from_str
+            from numba.cuda.descriptor import cuda_target
 
-            disp = resolve_dispatcher_from_str(tname)
-            hw_ctx = disp.targetdescr.target_context
+            hw_ctx = cuda_target.target_context
             impl = hw_ctx.get_function(fnty, signature)
         else:
             impl = self.context.get_function(fnty, signature)
@@ -1827,6 +1687,51 @@ class CUDALower(Lower):
         """
         Store the value into the given variable.
         """
+        # Handle polymorphic variables with CUDA_DEBUG_POLY enabled
+        if config.CUDA_DEBUG_POLY:
+            src_name = name.split(".")[0]
+            if src_name in self.poly_var_typ_map:
+                # Ensure allocation happens first (if needed)
+                fetype = self.typeof(name)
+                self._alloca_var(name, fetype)
+                # Discriminant and data are located in the same union
+                ptr = self.poly_var_loc_map[src_name]
+                # Firstly write discriminant to the beginning of union as i8
+                dtype = types.UnionType(self.poly_var_typ_map[src_name])
+                # Compute discriminant = index of type in sorted union
+                if isinstance(fetype, types.Literal):
+                    lookup_type = fetype.literal_type
+                else:
+                    lookup_type = fetype
+                discriminant_val = list(dtype.types).index(lookup_type)
+                # Bitcast union pointer directly to i8* and write
+                # discriminant at offset 0
+                discriminant_ptr = self.builder.bitcast(
+                    ptr, llvm_ir.PointerType(llvm_ir.IntType(8))
+                )
+                discriminant_i8 = llvm_ir.Constant(
+                    llvm_ir.IntType(8), discriminant_val
+                )
+                self.builder.store(discriminant_i8, discriminant_ptr)
+                # Secondly write data at offset = sizeof(fetype) in bytes
+                lltype = self.context.get_value_type(fetype)
+                sizeof_bytes = self.context.get_abi_sizeof(lltype)
+                # Bitcast to i8* and use byte-level GEP
+                byte_ptr = self.builder.bitcast(
+                    ptr, llvm_ir.PointerType(llvm_ir.IntType(8))
+                )
+                data_byte_ptr = self.builder.gep(
+                    byte_ptr,
+                    [llvm_ir.Constant(llvm_ir.IntType(64), sizeof_bytes)],
+                )
+                # Cast to the correct type pointer
+                castptr = self.builder.bitcast(
+                    data_byte_ptr, llvm_ir.PointerType(lltype)
+                )
+                self.builder.store(value, castptr)
+                return
+
+        # For non-polymorphic variables, use parent implementation
         super().storevar(value, name, argidx)
 
         # Emit llvm.dbg.value instead of llvm.dbg.declare for local scalar
@@ -1835,33 +1740,71 @@ class CUDALower(Lower):
             self.context.enable_debuginfo
             # Conditions used to elide stores in parent method
             and self.store_var_needed(name)
-            # No emission of debuginfo for internal names
-            and not name.startswith("$")
         ):
-            # Emit debug value for user variable
             fetype = self.typeof(name)
             lltype = self.context.get_value_type(fetype)
             int_type = (llvm_ir.IntType,)
             real_type = llvm_ir.FloatType, llvm_ir.DoubleType
             if isinstance(lltype, int_type + real_type):
-                src_name = name.split(".")[0]
-                if src_name in self.poly_var_typ_map:
-                    # Do not emit debug value on polymorphic type var
-                    return
-                # Emit debug value for scalar variable
                 sizeof = self.context.get_abi_sizeof(lltype)
                 datamodel = self.context.data_model_manager[fetype]
                 line = self.loc.line if argidx is None else self.defn_loc.line
-                self.debuginfo.update_variable(
-                    self.builder,
-                    value,
-                    name,
-                    lltype,
-                    sizeof,
-                    line,
-                    datamodel,
-                    argidx,
-                )
+                if not name.startswith("$"):
+                    # Emit debug value for user variable
+                    src_name = name.split(".")[0]
+                    if src_name not in self.poly_var_typ_map:
+                        # Insert the llvm.dbg.value intrinsic call
+                        self.debuginfo.update_variable(
+                            self.builder,
+                            value,
+                            src_name,
+                            lltype,
+                            sizeof,
+                            line,
+                            datamodel,
+                            argidx,
+                        )
+                elif isinstance(value, llvm_ir.LoadInstr):
+                    # Emit debug value for user variable that falls out of the
+                    # coverage of dbg.value range per basic block
+                    ld_name = value.operands[0].name
+                    if not ld_name.startswith(("$", ".")):
+                        src_name = ld_name.split(".")[0]
+                        if (
+                            src_name not in self.poly_var_typ_map
+                            # Not yet covered by the dbg.value range
+                            and src_name not in self.dbg_val_names
+                        ):
+                            for index, item in enumerate(self.fnargs):
+                                if item.name == src_name:
+                                    argidx = index + 1
+                                    break
+                            # Insert the llvm.dbg.value intrinsic call
+                            self.debuginfo.update_variable(
+                                self.builder,
+                                value,
+                                src_name,
+                                lltype,
+                                sizeof,
+                                line,
+                                datamodel,
+                                argidx,
+                            )
+
+    def pre_block(self, block):
+        super().pre_block(block)
+
+        # dbg.value range covered names
+        self.dbg_val_names = set()
+
+        if self.context.enable_debuginfo and self._disable_sroa_like_opt:
+            for x in block.find_insts(ir.assign_types):
+                if x.target.name.startswith("$"):
+                    continue
+                ssa_name = x.target.name
+                src_name = ssa_name.split(".")[0]
+                if src_name not in self.dbg_val_names:
+                    self.dbg_val_names.add(src_name)
 
     def pre_lower(self):
         """
@@ -1869,6 +1812,7 @@ class CUDALower(Lower):
         """
         super().pre_lower()
 
+        # Track polymorphic variables for debug info
         self.poly_var_typ_map = {}
         self.poly_var_loc_map = {}
         self.poly_var_set = set()
@@ -1881,7 +1825,7 @@ class CUDALower(Lower):
             poly_map = {}
             # pre-scan all blocks
             for block in self.blocks.values():
-                for x in block.find_insts(ir.Assign):
+                for x in block.find_insts(ir.assign_types):
                     if x.target.name.startswith("$"):
                         continue
                     ssa_name = x.target.name
@@ -1914,8 +1858,13 @@ class CUDALower(Lower):
                     datamodel = self.context.data_model_manager[dtype]
                     # UnionType has sorted set of types, max at last index
                     maxsizetype = dtype.types[-1]
-                    # Create a single element aggregate type
-                    aggr_type = types.UniTuple(maxsizetype, 1)
+                    if config.CUDA_DEBUG_POLY:
+                        # allocate double the max element size to house
+                        # [discriminant + data]
+                        aggr_type = types.UniTuple(maxsizetype, 2)
+                    else:
+                        # allocate single element for data only
+                        aggr_type = types.UniTuple(maxsizetype, 1)
                     lltype = self.context.get_value_type(aggr_type)
                     ptr = self.alloca_lltype(src_name, lltype, datamodel)
                     # save the location of the union type for polymorphic var
@@ -1966,9 +1915,27 @@ class CUDALower(Lower):
             src_name = name.split(".")[0]
             fetype = self.typeof(name)
             lltype = self.context.get_value_type(fetype)
-            castptr = self.builder.bitcast(
-                self.poly_var_loc_map[src_name], llvm_ir.PointerType(lltype)
-            )
+            ptr = self.poly_var_loc_map[src_name]
+
+            if config.CUDA_DEBUG_POLY:
+                # With CUDA_DEBUG_POLY enabled, read value at
+                # offset = sizeof(fetype) in bytes
+                sizeof_bytes = self.context.get_abi_sizeof(lltype)
+                # Bitcast to i8* and use byte-level GEP
+                byte_ptr = self.builder.bitcast(
+                    ptr, llvm_ir.PointerType(llvm_ir.IntType(8))
+                )
+                value_byte_ptr = self.builder.gep(
+                    byte_ptr,
+                    [llvm_ir.Constant(llvm_ir.IntType(64), sizeof_bytes)],
+                )
+                # Cast to the correct type pointer
+                castptr = self.builder.bitcast(
+                    value_byte_ptr, llvm_ir.PointerType(lltype)
+                )
+            else:
+                # Otherwise, just bitcast to the correct type
+                castptr = self.builder.bitcast(ptr, llvm_ir.PointerType(lltype))
             return castptr
         else:
             return super().getvar(name)
@@ -1978,7 +1945,14 @@ def _lit_or_omitted(value):
     """Returns a Literal instance if the type of value is supported;
     otherwise, return `Omitted(value)`.
     """
+    typing_errors = LiteralTypingError
+    if HAS_NUMBA:
+        from numba.core.errors import (
+            LiteralTypingError as CoreLiteralTypingError,
+        )
+
+        typing_errors = (LiteralTypingError, CoreLiteralTypingError)
     try:
         return types.literal(value)
-    except LiteralTypingError:
+    except typing_errors:
         return types.Omitted(value)

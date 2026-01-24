@@ -16,9 +16,9 @@
 #include "include/core/SkSurfaceProps.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrRecordingContext.h"
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/core/SkPathPriv.h"
 #include "src/gpu/SkBackingFit.h"
@@ -44,13 +44,13 @@
 struct GrContextOptions;
 
 static SkPath create_concave_path() {
-    SkPath path;
-    path.moveTo(100, 0);
-    path.lineTo(200, 200);
-    path.lineTo(100, 150);
-    path.lineTo(0, 200);
-    path.close();
-    return path;
+    return SkPathBuilder()
+           .moveTo(100, 0)
+           .lineTo(200, 200)
+           .lineTo(100, 150)
+           .lineTo(0, 200)
+           .close()
+           .detach();
 }
 
 static void draw_path(GrRecordingContext* rContext,
@@ -96,8 +96,8 @@ static bool cache_non_scratch_resources_equals(GrResourceCache* cache, int expec
 
 static void test_path(
         skiatest::Reporter* reporter,
-        std::function<SkPath(void)> createPath,
-        std::function<skgpu::ganesh::PathRenderer*(GrRecordingContext*)> makePathRenderer,
+        const std::function<SkPath(void)>& createPath,
+        const std::function<skgpu::ganesh::PathRenderer*(GrRecordingContext*)>& makePathRenderer,
         int expected,
         bool checkListeners,
         GrAAType aaType = GrAAType::kNone,
@@ -114,8 +114,8 @@ static void test_path(
                                                        {800, 800},
                                                        SkSurfaceProps(),
                                                        /*label=*/{},
-                                                       1,
-                                                       GrMipmapped::kNo,
+                                                       /* sampleCnt= */ 1,
+                                                       skgpu::Mipmapped::kNo,
                                                        GrProtected::kNo,
                                                        kTopLeft_GrSurfaceOrigin);
     if (!sdc) {
@@ -156,7 +156,7 @@ static void test_path(
     }
     dContext->flushAndSubmit();
     REPORTER_ASSERT(reporter, SkPathPriv::GenIDChangeListenersCount(path) == 20);
-    cache->purgeUnlockedResources();
+    cache->purgeUnlockedResources(GrPurgeResourceOptions::kAllResources);
     // The listeners don't actually purge until we try to add another one.
     draw_path(dContext.get(), sdc.get(), path, pathRenderer.get(), aaType, style);
     REPORTER_ASSERT(reporter, SkPathPriv::GenIDChangeListenersCount(path) == 1);
@@ -185,7 +185,7 @@ DEF_GANESH_TEST(TriangulatingPathRendererCacheTest,
     paint.setStrokeWidth(1);
     GrStyle style(paint);
     test_path(reporter, create_concave_path, createPR, kExpectedResources, false, GrAAType::kNone,
-              style);
+              std::move(style));
 }
 #endif
 
@@ -212,5 +212,5 @@ DEF_GANESH_TEST(SoftwarePathRendererCacheTest,
     paint.setStrokeWidth(1);
     GrStyle style(paint);
     test_path(reporter, create_concave_path, createPR, kExpectedResources, true,
-              GrAAType::kCoverage, style);
+              GrAAType::kCoverage, std::move(style));
 }

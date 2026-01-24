@@ -1,10 +1,11 @@
 [package]
 name = "lintrunner"
-version = "0.12.7"
+version = "0.12.11"
 authors = ["Michael Suo <suo@fb.com>"]
 edition = "2021"
 description = "A lint running tool and framework."
 license = "BSD-3-Clause"
+readme = "README.md"
 
 [dependencies]
 clap = { version = "3.2.25", features = ["derive"] }
@@ -18,7 +19,7 @@ similar = { version = "2.4.0", features = ["inline"] }
 console = "0.15.8"
 toml = "0.5.11"
 log = "0.4.20"
-indicatif = "0.16.2"
+indicatif = "0.17"
 regex = "1.10.3"
 itertools = "0.10.5"
 directories = "4.0.1"

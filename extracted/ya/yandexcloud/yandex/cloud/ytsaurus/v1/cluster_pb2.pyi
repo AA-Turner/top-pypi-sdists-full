@@ -32,6 +32,7 @@ class Cluster(google.protobuf.message.Message):
     class _StatusEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Cluster._Status.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         STATUS_UNKNOWN: Cluster._Status.ValueType  # 0
+        """Unknown status."""
         CREATING: Cluster._Status.ValueType  # 1
         """Cluster is being created."""
         RUNNING: Cluster._Status.ValueType  # 2
@@ -51,6 +52,7 @@ class Cluster(google.protobuf.message.Message):
 
     class Status(_Status, metaclass=_StatusEnumTypeWrapper): ...
     STATUS_UNKNOWN: Cluster.Status.ValueType  # 0
+    """Unknown status."""
     CREATING: Cluster.Status.ValueType  # 1
     """Cluster is being created."""
     RUNNING: Cluster.Status.ValueType  # 2
@@ -75,6 +77,7 @@ class Cluster(google.protobuf.message.Message):
     class _HealthEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Cluster._Health.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         HEALTH_UNKNOWN: Cluster._Health.ValueType  # 0
+        """Unknown health."""
         ALIVE: Cluster._Health.ValueType  # 1
         """Cluster is alive."""
         DEAD: Cluster._Health.ValueType  # 2
@@ -84,6 +87,7 @@ class Cluster(google.protobuf.message.Message):
 
     class Health(_Health, metaclass=_HealthEnumTypeWrapper): ...
     HEALTH_UNKNOWN: Cluster.Health.ValueType  # 0
+    """Unknown health."""
     ALIVE: Cluster.Health.ValueType  # 1
     """Cluster is alive."""
     DEAD: Cluster.Health.ValueType  # 2
@@ -116,9 +120,9 @@ class Cluster(google.protobuf.message.Message):
         INTERNAL_HTTP_PROXY_ALIAS_FIELD_NUMBER: builtins.int
         INTERNAL_RPC_PROXY_ALIAS_FIELD_NUMBER: builtins.int
         ui: builtins.str
-        """https://CID.ui.ytsaurus.yandexcloud.net"""
+        """https://CID.ytsaurus.yandexcloud.net"""
         external_http_proxy_balancer: builtins.str
-        """https://CID.proxy.ytsaurus.yandexcloud.net"""
+        """https://proxy.CID.ytsaurus.yandexcloud.net"""
         internal_http_proxy_alias: builtins.str
         """https://hp.CID.ytsaurus.mdb.yandexcloud.net:PORT"""
         internal_rpc_proxy_alias: builtins.str
@@ -149,6 +153,7 @@ class Cluster(google.protobuf.message.Message):
     STATUS_FIELD_NUMBER: builtins.int
     HEALTH_FIELD_NUMBER: builtins.int
     ENDPOINTS_FIELD_NUMBER: builtins.int
+    CIDR_BLOCKS_WHITELIST_FIELD_NUMBER: builtins.int
     id: builtins.str
     """ID of the cluster. Generated at creation time."""
     folder_id: builtins.str
@@ -195,6 +200,10 @@ class Cluster(google.protobuf.message.Message):
     def endpoints(self) -> global___Cluster.Endpoints:
         """Endpoints of the cluster."""
 
+    @property
+    def cidr_blocks_whitelist(self) -> global___CidrBlocks:
+        """CIDRs whitelist."""
+
     def __init__(
         self,
         *,
@@ -214,11 +223,30 @@ class Cluster(google.protobuf.message.Message):
         status: global___Cluster.Status.ValueType = ...,
         health: global___Cluster.Health.ValueType = ...,
         endpoints: global___Cluster.Endpoints | None = ...,
+        cidr_blocks_whitelist: global___CidrBlocks | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["created_at", b"created_at", "endpoints", b"endpoints", "spec", b"spec", "updated_at", b"updated_at"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["created_at", b"created_at", "created_by", b"created_by", "description", b"description", "endpoints", b"endpoints", "folder_id", b"folder_id", "health", b"health", "id", b"id", "labels", b"labels", "name", b"name", "security_group_ids", b"security_group_ids", "spec", b"spec", "status", b"status", "subnet_id", b"subnet_id", "updated_at", b"updated_at", "updated_by", b"updated_by", "zone_id", b"zone_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["cidr_blocks_whitelist", b"cidr_blocks_whitelist", "created_at", b"created_at", "endpoints", b"endpoints", "spec", b"spec", "updated_at", b"updated_at"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["cidr_blocks_whitelist", b"cidr_blocks_whitelist", "created_at", b"created_at", "created_by", b"created_by", "description", b"description", "endpoints", b"endpoints", "folder_id", b"folder_id", "health", b"health", "id", b"id", "labels", b"labels", "name", b"name", "security_group_ids", b"security_group_ids", "spec", b"spec", "status", b"status", "subnet_id", b"subnet_id", "updated_at", b"updated_at", "updated_by", b"updated_by", "zone_id", b"zone_id"]) -> None: ...
 
 global___Cluster = Cluster
+
+@typing.final
+class CidrBlocks(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    V4_CIDR_BLOCKS_FIELD_NUMBER: builtins.int
+    @property
+    def v4_cidr_blocks(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """IPv4 CIDR blocks."""
+
+    def __init__(
+        self,
+        *,
+        v4_cidr_blocks: collections.abc.Iterable[builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["v4_cidr_blocks", b"v4_cidr_blocks"]) -> None: ...
+
+global___CidrBlocks = CidrBlocks
 
 @typing.final
 class StorageSpec(google.protobuf.message.Message):
@@ -231,7 +259,9 @@ class StorageSpec(google.protobuf.message.Message):
         SIZE_GB_FIELD_NUMBER: builtins.int
         COUNT_FIELD_NUMBER: builtins.int
         size_gb: builtins.int
+        """Size of a single HDD disk in GB."""
         count: builtins.int
+        """Total amount of HDD disks."""
         def __init__(
             self,
             *,
@@ -244,27 +274,55 @@ class StorageSpec(google.protobuf.message.Message):
     class SsdSpec(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+        @typing.final
+        class Changelogs(google.protobuf.message.Message):
+            DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+            SIZE_GB_FIELD_NUMBER: builtins.int
+            size_gb: builtins.int
+            """Size of changelogs disk in GB."""
+            def __init__(
+                self,
+                *,
+                size_gb: builtins.int = ...,
+            ) -> None: ...
+            def ClearField(self, field_name: typing.Literal["size_gb", b"size_gb"]) -> None: ...
+
         SIZE_GB_FIELD_NUMBER: builtins.int
         TYPE_FIELD_NUMBER: builtins.int
         COUNT_FIELD_NUMBER: builtins.int
+        CHANGELOGS_FIELD_NUMBER: builtins.int
         size_gb: builtins.int
+        """Size of a single SSD disk in GB."""
         type: builtins.str
+        """Type of a SSD disk."""
         count: builtins.int
+        """Total amount of SSD disks."""
+        @property
+        def changelogs(self) -> global___StorageSpec.SsdSpec.Changelogs:
+            """Configuration of dynamic table changelogs."""
+
         def __init__(
             self,
             *,
             size_gb: builtins.int = ...,
             type: builtins.str = ...,
             count: builtins.int = ...,
+            changelogs: global___StorageSpec.SsdSpec.Changelogs | None = ...,
         ) -> None: ...
-        def ClearField(self, field_name: typing.Literal["count", b"count", "size_gb", b"size_gb", "type", b"type"]) -> None: ...
+        def HasField(self, field_name: typing.Literal["changelogs", b"changelogs"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["changelogs", b"changelogs", "count", b"count", "size_gb", b"size_gb", "type", b"type"]) -> None: ...
 
     HDD_FIELD_NUMBER: builtins.int
     SSD_FIELD_NUMBER: builtins.int
     @property
-    def hdd(self) -> global___StorageSpec.HddSpec: ...
+    def hdd(self) -> global___StorageSpec.HddSpec:
+        """Configuration of cluster HDD strorage."""
+
     @property
-    def ssd(self) -> global___StorageSpec.SsdSpec: ...
+    def ssd(self) -> global___StorageSpec.SsdSpec:
+        """Configuration of cluster SSD strorage"""
+
     def __init__(
         self,
         *,
@@ -288,9 +346,13 @@ class ComputeSpec(google.protobuf.message.Message):
         SIZE_GB_FIELD_NUMBER: builtins.int
         LOCATIONS_FIELD_NUMBER: builtins.int
         type: builtins.str
+        """Type of a disk."""
         size_gb: builtins.int
+        """Size of a single disk in GB."""
         @property
-        def locations(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
+        def locations(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+            """Locations on a disk."""
+
         def __init__(
             self,
             *,
@@ -310,6 +372,7 @@ class ComputeSpec(google.protobuf.message.Message):
 
             SIZE_FIELD_NUMBER: builtins.int
             size: builtins.int
+            """Amount of exec nodes."""
             def __init__(
                 self,
                 *,
@@ -324,7 +387,9 @@ class ComputeSpec(google.protobuf.message.Message):
             MIN_SIZE_FIELD_NUMBER: builtins.int
             MAX_SIZE_FIELD_NUMBER: builtins.int
             min_size: builtins.int
+            """Minimal amount of exec nodes."""
             max_size: builtins.int
+            """Maximum amount of exec nodes."""
             def __init__(
                 self,
                 *,
@@ -336,9 +401,13 @@ class ComputeSpec(google.protobuf.message.Message):
         FIXED_FIELD_NUMBER: builtins.int
         AUTO_FIELD_NUMBER: builtins.int
         @property
-        def fixed(self) -> global___ComputeSpec.ScalePolicy.FixedScale: ...
+        def fixed(self) -> global___ComputeSpec.ScalePolicy.FixedScale:
+            """Scale policy that doesn't change number of running exec nodes over time."""
+
         @property
-        def auto(self) -> global___ComputeSpec.ScalePolicy.AutoScale: ...
+        def auto(self) -> global___ComputeSpec.ScalePolicy.AutoScale:
+            """Scale policy that can adjust number of running exec nodes within specified range based on some criteria."""
+
         def __init__(
             self,
             *,
@@ -354,12 +423,17 @@ class ComputeSpec(google.protobuf.message.Message):
     SCALE_POLICY_FIELD_NUMBER: builtins.int
     NAME_FIELD_NUMBER: builtins.int
     preset: builtins.str
+    """VM configuration preset name."""
     name: builtins.str
     """Name for exec pool."""
     @property
-    def disks(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ComputeSpec.DiskSpec]: ...
+    def disks(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ComputeSpec.DiskSpec]:
+        """Configuration of exec node strorage."""
+
     @property
-    def scale_policy(self) -> global___ComputeSpec.ScalePolicy: ...
+    def scale_policy(self) -> global___ComputeSpec.ScalePolicy:
+        """Exec nodes scaling policy."""
+
     def __init__(
         self,
         *,
@@ -379,6 +453,7 @@ class HttpProxySpec(google.protobuf.message.Message):
 
     COUNT_FIELD_NUMBER: builtins.int
     count: builtins.int
+    """Total amount of HTTP proxies."""
     def __init__(
         self,
         *,
@@ -394,6 +469,7 @@ class RpcProxySpec(google.protobuf.message.Message):
 
     COUNT_FIELD_NUMBER: builtins.int
     count: builtins.int
+    """Total amount of RPC proxies."""
     def __init__(
         self,
         *,
@@ -410,7 +486,9 @@ class TabletSpec(google.protobuf.message.Message):
     PRESET_FIELD_NUMBER: builtins.int
     COUNT_FIELD_NUMBER: builtins.int
     preset: builtins.str
+    """VM configuration preset name."""
     count: builtins.int
+    """Total amount of tablet nodes."""
     def __init__(
         self,
         *,
@@ -428,9 +506,13 @@ class ProxySpec(google.protobuf.message.Message):
     HTTP_FIELD_NUMBER: builtins.int
     RPC_FIELD_NUMBER: builtins.int
     @property
-    def http(self) -> global___HttpProxySpec: ...
+    def http(self) -> global___HttpProxySpec:
+        """Configuration of HTTP proxies."""
+
     @property
-    def rpc(self) -> global___RpcProxySpec: ...
+    def rpc(self) -> global___RpcProxySpec:
+        """Configuration of rpc proxies."""
+
     def __init__(
         self,
         *,
@@ -448,7 +530,9 @@ class OdinSpec(google.protobuf.message.Message):
 
     CHECKS_TTL_FIELD_NUMBER: builtins.int
     @property
-    def checks_ttl(self) -> google.protobuf.duration_pb2.Duration: ...
+    def checks_ttl(self) -> google.protobuf.duration_pb2.Duration:
+        """TTL of Odin check samples."""
+
     def __init__(
         self,
         *,
@@ -460,24 +544,144 @@ class OdinSpec(google.protobuf.message.Message):
 global___OdinSpec = OdinSpec
 
 @typing.final
+class ClearTmpCronSpec(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    INTERVAL_FIELD_NUMBER: builtins.int
+    ACCOUNT_USAGE_RATIO_SAVE_TOTAL_FIELD_NUMBER: builtins.int
+    ACCOUNT_USAGE_RATIO_SAVE_PER_OWNER_FIELD_NUMBER: builtins.int
+    MAX_DIR_NODE_COUNT_FIELD_NUMBER: builtins.int
+    account_usage_ratio_save_total: builtins.float
+    """Total max space usage ratio."""
+    account_usage_ratio_save_per_owner: builtins.float
+    """Per account max space usage ratio."""
+    max_dir_node_count: builtins.int
+    """Max nodes in every directory."""
+    @property
+    def interval(self) -> google.protobuf.duration_pb2.Duration:
+        """Script starting interval."""
+
+    def __init__(
+        self,
+        *,
+        interval: google.protobuf.duration_pb2.Duration | None = ...,
+        account_usage_ratio_save_total: builtins.float = ...,
+        account_usage_ratio_save_per_owner: builtins.float = ...,
+        max_dir_node_count: builtins.int = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["interval", b"interval"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["account_usage_ratio_save_per_owner", b"account_usage_ratio_save_per_owner", "account_usage_ratio_save_total", b"account_usage_ratio_save_total", "interval", b"interval", "max_dir_node_count", b"max_dir_node_count"]) -> None: ...
+
+global___ClearTmpCronSpec = ClearTmpCronSpec
+
+@typing.final
+class CronSpec(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CLEAR_TMP_FIELD_NUMBER: builtins.int
+    @property
+    def clear_tmp(self) -> global___ClearTmpCronSpec:
+        """Cluster regular tmp-account cleaning settings."""
+
+    def __init__(
+        self,
+        *,
+        clear_tmp: global___ClearTmpCronSpec | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["clear_tmp", b"clear_tmp"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["clear_tmp", b"clear_tmp"]) -> None: ...
+
+global___CronSpec = CronSpec
+
+@typing.final
+class ClientLogging(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SERVICE_ACCOUNT_ID_FIELD_NUMBER: builtins.int
+    LOG_GROUP_ID_FIELD_NUMBER: builtins.int
+    FOLDER_ID_FIELD_NUMBER: builtins.int
+    AUDIT_LOGS_ENABLED_FIELD_NUMBER: builtins.int
+    service_account_id: builtins.str
+    """ID of Service account used for write logs."""
+    log_group_id: builtins.str
+    """ID of cloud logging group."""
+    folder_id: builtins.str
+    """ID of cloud logging folder. Used default loging group."""
+    audit_logs_enabled: builtins.bool
+    """Enable audit logs."""
+    def __init__(
+        self,
+        *,
+        service_account_id: builtins.str = ...,
+        log_group_id: builtins.str = ...,
+        folder_id: builtins.str = ...,
+        audit_logs_enabled: builtins.bool = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["destination", b"destination", "folder_id", b"folder_id", "log_group_id", b"log_group_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["audit_logs_enabled", b"audit_logs_enabled", "destination", b"destination", "folder_id", b"folder_id", "log_group_id", b"log_group_id", "service_account_id", b"service_account_id"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["destination", b"destination"]) -> typing.Literal["log_group_id", "folder_id"] | None: ...
+
+global___ClientLogging = ClientLogging
+
+@typing.final
 class ClusterSpec(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    class _Flavor:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _FlavorEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[ClusterSpec._Flavor.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        FLAVOR_UNSPECIFIED: ClusterSpec._Flavor.ValueType  # 0
+        """Unspecified flavor."""
+        DEMO: ClusterSpec._Flavor.ValueType  # 1
+        """Demo cluster configuration with minimal system resources. Not fault-tolerant, not for production use."""
+
+    class Flavor(_Flavor, metaclass=_FlavorEnumTypeWrapper): ...
+    FLAVOR_UNSPECIFIED: ClusterSpec.Flavor.ValueType  # 0
+    """Unspecified flavor."""
+    DEMO: ClusterSpec.Flavor.ValueType  # 1
+    """Demo cluster configuration with minimal system resources. Not fault-tolerant, not for production use."""
 
     STORAGE_FIELD_NUMBER: builtins.int
     COMPUTE_FIELD_NUMBER: builtins.int
     TABLET_FIELD_NUMBER: builtins.int
     PROXY_FIELD_NUMBER: builtins.int
     ODIN_FIELD_NUMBER: builtins.int
+    FLAVOR_FIELD_NUMBER: builtins.int
+    CRON_FIELD_NUMBER: builtins.int
+    CLIENT_LOGGING_FIELD_NUMBER: builtins.int
+    flavor: global___ClusterSpec.Flavor.ValueType
+    """Cluster flavor (type)."""
     @property
-    def storage(self) -> global___StorageSpec: ...
+    def storage(self) -> global___StorageSpec:
+        """Cluster storage configuration."""
+
     @property
-    def compute(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ComputeSpec]: ...
+    def compute(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ComputeSpec]:
+        """Cluster exec nodes configuration."""
+
     @property
-    def tablet(self) -> global___TabletSpec: ...
+    def tablet(self) -> global___TabletSpec:
+        """Cluster tablet nodes configuration."""
+
     @property
-    def proxy(self) -> global___ProxySpec: ...
+    def proxy(self) -> global___ProxySpec:
+        """Cluster proxies configuration."""
+
     @property
-    def odin(self) -> global___OdinSpec: ...
+    def odin(self) -> global___OdinSpec:
+        """Odin configuration."""
+
+    @property
+    def cron(self) -> global___CronSpec:
+        """Cluster regular processing settings."""
+
+    @property
+    def client_logging(self) -> global___ClientLogging:
+        """Client Cloud logging configuration."""
+
     def __init__(
         self,
         *,
@@ -486,8 +690,11 @@ class ClusterSpec(google.protobuf.message.Message):
         tablet: global___TabletSpec | None = ...,
         proxy: global___ProxySpec | None = ...,
         odin: global___OdinSpec | None = ...,
+        flavor: global___ClusterSpec.Flavor.ValueType = ...,
+        cron: global___CronSpec | None = ...,
+        client_logging: global___ClientLogging | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["odin", b"odin", "proxy", b"proxy", "storage", b"storage", "tablet", b"tablet"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["compute", b"compute", "odin", b"odin", "proxy", b"proxy", "storage", b"storage", "tablet", b"tablet"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["client_logging", b"client_logging", "cron", b"cron", "odin", b"odin", "proxy", b"proxy", "storage", b"storage", "tablet", b"tablet"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["client_logging", b"client_logging", "compute", b"compute", "cron", b"cron", "flavor", b"flavor", "odin", b"odin", "proxy", b"proxy", "storage", b"storage", "tablet", b"tablet"]) -> None: ...
 
 global___ClusterSpec = ClusterSpec

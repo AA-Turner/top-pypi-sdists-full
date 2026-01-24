@@ -93,6 +93,9 @@ class Edalizer:
             except ModuleNotFoundError:
                 raise RuntimeError(f"Could not find EDAM filter '{f}'")
             except Exception as e:
+                import traceback
+
+                traceback.print_exc()
                 raise RuntimeError(f"Filter error: {str(e)}")
             except SystemExit as e:
                 raise RuntimeError(f"Filter exited with error code {str(e)}")
@@ -229,6 +232,7 @@ class Edalizer:
                 str(core.name): {
                     "core_file": os.path.relpath(core.core_file, self.work_root),
                     "dependencies": core.direct_deps,
+                    "license": core.get_license(),
                 }
             }
 
@@ -255,9 +259,14 @@ class Edalizer:
             for file in core.get_files(_flags):
 
                 # Reparent file path
-                file["name"] = str(
-                    file.get("copyto", os.path.join(rel_root, file["name"]))
-                )
+                if "copyto" in file:
+                    _cpt = pathlib.Path(file["copyto"])
+                    if (self.work_root / _cpt).is_dir():
+                        file["name"] = str(_cpt / pathlib.Path(file["name"]).name)
+                    else:
+                        file["name"] = file["copyto"]
+                else:
+                    file["name"] = str(os.path.join(rel_root, file["name"]))
 
                 # Set owning core
                 file["core"] = str(core.name)

@@ -251,6 +251,38 @@ class TestUDF(unittest.TestCase):
 
     def test_numerics(self):
         #
+        # Bools
+        #
+        def foo(x: bool) -> None: ...
+        assert to_sql(foo) == '`foo`(`x` BOOL NOT NULL) RETURNS TINYINT NULL'
+
+        def foo(x: np.bool_) -> None: ...
+        assert to_sql(foo) == '`foo`(`x` BOOL NOT NULL) RETURNS TINYINT NULL'
+
+        def foo(x: Optional[bool]) -> None: ...
+        assert to_sql(foo) == '`foo`(`x` BOOL NULL) RETURNS TINYINT NULL'
+
+        def foo(x: Optional[np.bool_]) -> None: ...
+        assert to_sql(foo) == '`foo`(`x` BOOL NULL) RETURNS TINYINT NULL'
+
+        # Bool return types
+        def foo() -> bool: ...
+        assert to_sql(foo) == '`foo`() RETURNS BOOL NOT NULL'
+
+        def foo() -> np.bool_: ...
+        assert to_sql(foo) == '`foo`() RETURNS BOOL NOT NULL'
+
+        def foo() -> Optional[bool]: ...
+        assert to_sql(foo) == '`foo`() RETURNS BOOL NULL'
+
+        # Vector bool (List)
+        def foo(x: List[bool]) -> List[bool]: ...
+        assert to_sql(foo) == '`foo`(`x` BOOL NOT NULL) RETURNS BOOL NOT NULL'
+
+        def foo(x: List[np.bool_]) -> List[np.bool_]: ...
+        assert to_sql(foo) == '`foo`(`x` BOOL NOT NULL) RETURNS BOOL NOT NULL'
+
+        #
         # Ints
         #
         def foo(x: int) -> None: ...
@@ -289,11 +321,26 @@ class TestUDF(unittest.TestCase):
         def foo(x: float) -> None: ...
         assert to_sql(foo) == '`foo`(`x` DOUBLE NOT NULL) RETURNS TINYINT NULL'
 
+        def foo(x: np.float16) -> None: ...
+        assert to_sql(foo) == '`foo`(`x` FLOAT NOT NULL) RETURNS TINYINT NULL'
+
         def foo(x: np.float32) -> None: ...
         assert to_sql(foo) == '`foo`(`x` FLOAT NOT NULL) RETURNS TINYINT NULL'
 
         def foo(x: np.float64) -> None: ...
         assert to_sql(foo) == '`foo`(`x` DOUBLE NOT NULL) RETURNS TINYINT NULL'
+
+        # Vector float16 (List)
+        def foo(x: List[np.float16]) -> List[np.float16]: ...
+        assert to_sql(foo) == '`foo`(`x` FLOAT NOT NULL) RETURNS FLOAT NOT NULL'
+
+        # Vector float32 (List)
+        def foo(x: List[np.float32]) -> List[np.float32]: ...
+        assert to_sql(foo) == '`foo`(`x` FLOAT NOT NULL) RETURNS FLOAT NOT NULL'
+
+        # Vector float64 (List)
+        def foo(x: List[np.float64]) -> List[np.float64]: ...
+        assert to_sql(foo) == '`foo`(`x` DOUBLE NOT NULL) RETURNS DOUBLE NOT NULL'
 
         #
         # Type collapsing

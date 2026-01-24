@@ -1,55 +1,191 @@
-//! python `reqwest` based `fetch` implementation
+//! ry `reqwest` based global `fetch` and `fetch_sync` functions
+use crate::RyBlockingResponse;
+use ryo3_http::HttpMethod as PyHttpMethod;
 
+#[cfg(feature = "experimental-async")]
+use crate::RyClient;
+#[cfg(not(feature = "experimental-async"))]
 use crate::RyHttpClient;
-use crate::default_client::default_client;
-use pyo3::IntoPyObjectExt;
+#[cfg(feature = "experimental-async")]
+use crate::response::RyAsyncResponse;
 use pyo3::prelude::*;
-use ryo3_http::{HttpVersion, PyHeadersLike};
+use std::sync::OnceLock;
 
-// global fetch
-#[pyfunction(
-    signature = (
-        url,
-        *,
-        client = None,
-        method = None,
-        body = None,
-        headers = None,
-        query = None,
-        json = None,
-        form = None,
-        multipart = None,
-        timeout = None,
-        version = None,
-    )
-)]
-#[expect(clippy::too_many_arguments)]
-pub(crate) fn fetch<'py>(
-    py: Python<'py>,
-    url: &Bound<'py, PyAny>,
-    client: Option<&RyHttpClient>,
-    method: Option<ryo3_http::HttpMethod>,
-    body: Option<ryo3_bytes::PyBytes>,
-    headers: Option<PyHeadersLike>,
-    query: Option<&Bound<'py, PyAny>>,
-    json: Option<&Bound<'py, PyAny>>,
-    form: Option<&Bound<'py, PyAny>>,
-    multipart: Option<&Bound<'py, PyAny>>,
-    timeout: Option<&ryo3_std::time::PyDuration>,
-    version: Option<HttpVersion>,
-) -> PyResult<Py<PyAny>> {
-    let default_client_mut_guard;
-    let client_ref: &RyHttpClient = if let Some(c) = client {
-        c
-    } else {
-        let guard = default_client().lock();
-        default_client_mut_guard = guard; // "stayin-alive" (ah ah ah ah, stayin-alive)
-        &default_client_mut_guard
-    };
+#[cfg(not(feature = "experimental-async"))]
+static FETCH_CLIENT: OnceLock<RyHttpClient> = OnceLock::new();
+#[cfg(feature = "experimental-async")]
+static FETCH_CLIENT: OnceLock<RyClient> = OnceLock::new();
 
-    client_ref
-        .fetch(
-            py, url, method, body, headers, query, json, multipart, form, timeout, version,
-        )
-        .map(|x| x.into_py_any(py))?
+#[cfg(not(feature = "experimental-async"))]
+pub(crate) fn fetch_client() -> &'static RyHttpClient {
+    FETCH_CLIENT.get_or_init(|| {
+        RyHttpClient::new(None).expect("Failed to create fetch client. This should never happen.")
+    })
 }
+
+#[cfg(feature = "experimental-async")]
+pub(crate) fn fetch_client() -> &'static RyClient {
+    FETCH_CLIENT.get_or_init(|| {
+        RyClient::new(None).expect("Failed to create fetch client. This should never happen.")
+    })
+}
+
+#[cfg(not(feature = "experimental-async"))]
+#[pyfunction(
+    signature = (url, *, method = PyHttpMethod::GET, **kwargs),
+    text_signature = "(url, *, method=\"GET\", body=None, headers=None, query=None, json=None, form=None, multipart=None, timeout=None, basic_auth=None, bearer_auth=None, version=None)"
+)]
+pub(crate) fn fetch(
+    py: Python<'_>,
+    url: ryo3_url::UrlLike,
+    method: PyHttpMethod,
+    kwargs: Option<crate::client::ReqwestKwargs>,
+) -> PyResult<Bound<'_, PyAny>> {
+    fetch_client().fetch(py, url, method, kwargs)
+}
+
+#[cfg(feature = "experimental-async")]
+#[pyfunction(
+    signature = (url, *, method = PyHttpMethod::GET, **kwargs),
+    text_signature = "(url, *, method=\"GET\", body=None, headers=None, query=None, json=None, form=None, multipart=None, timeout=None, basic_auth=None, bearer_auth=None, version=None)"
+)]
+pub(crate) async fn fetch(
+    url: ryo3_url::UrlLike,
+    method: PyHttpMethod,
+    kwargs: Option<crate::client::ReqwestKwargs>,
+) -> PyResult<RyAsyncResponse> {
+    fetch_client().fetch(url, method, kwargs).await
+}
+
+#[pyfunction(
+    signature = (url, *, method = PyHttpMethod::GET, **kwargs),
+    text_signature = "(url, *, method=\"GET\", body=None, headers=None, query=None, json=None, form=None, multipart=None, timeout=None, basic_auth=None, bearer_auth=None, version=None)"
+)]
+pub(crate) fn fetch_sync(
+    py: Python<'_>,
+    url: ryo3_url::UrlLike,
+    method: PyHttpMethod,
+    kwargs: Option<crate::client::ReqwestKwargs<true>>,
+) -> PyResult<RyBlockingResponse> {
+    fetch_client().fetch_sync(py, url, method, kwargs)
+}
+
+// =========================================================================
+// LEGACY FETCHING FUNCTIONS - TO BE REMOVED SOON - STILL HERE FOR REFERENCE
+// =========================================================================
+
+// // global fetch
+// #[cfg(not(feature = "experimental-async"))]
+// #[pyfunction(
+//     signature = (
+//         url,
+//         *,
+//         method = PyHttpMethod::GET,
+//         body = None,
+//         headers = None,
+//         query = None,
+//         json = None,
+//         form = None,
+//         multipart = None,
+//         timeout = None,
+//         basic_auth = None,
+//         bearer_auth = None,
+//         version = None,
+//     ),
+//     text_signature = "(url, *, method=\"GET\", body=None, headers=None, query=None, json=None, form=None, multipart=None, timeout=None, basic_auth=None, bearer_auth=None, version=None)"
+// )]
+// #[expect(clippy::too_many_arguments)]
+// pub(crate) fn fetch<'py>(
+//     py: Python<'py>,
+//     url: &Bound<'py, PyAny>,
+//     method: PyHttpMethod,
+//     body: Option<&Bound<'py, PyAny>>,
+//     headers: Option<ryo3_http::PyHeadersLike>,
+//     query: Option<&Bound<'py, PyAny>>,
+//     json: Option<&Bound<'py, PyAny>>,
+//     form: Option<&Bound<'py, PyAny>>,
+//     multipart: Option<&Bound<'py, PyAny>>,
+//     timeout: Option<&ryo3_std::time::PyDuration>,
+//     basic_auth: Option<(
+//         pyo3::pybacked::PyBackedStr,
+//         Option<pyo3::pybacked::PyBackedStr>,
+//     )>,
+//     bearer_auth: Option<pyo3::pybacked::PyBackedStr>,
+//     version: Option<ryo3_http::HttpVersion>,
+// ) -> PyResult<Bound<'py, PyAny>> {
+//     let obj: Py<PyAny> = {
+//         let guard = fetch_client();
+//         let bound = guard.fetch(
+//             py,
+//             url,
+//             method,
+//             body,
+//             headers,
+//             query,
+//             json,
+//             form,
+//             multipart,
+//             timeout,
+//             basic_auth,
+//             bearer_auth,
+//             version,
+//         )?;
+//         bound.unbind()
+//     };
+//     Ok(obj.into_bound(py))
+// }
+
+// #[cfg(not(feature = "experimental-async"))]
+// #[pyfunction(
+//     signature = (
+//         url,
+//         *,
+//         method = PyHttpMethod::GET,
+//         body = None,
+//         headers = None,
+//         query = None,
+//         json = None,
+//         form = None,
+//         multipart = None,
+//         timeout = None,
+//         basic_auth = None,
+//         bearer_auth = None,
+//         version = None,
+//     ),
+//     text_signature = "(url, *, method=\"GET\", body=None, headers=None, query=None, json=None, form=None, multipart=None, timeout=None, basic_auth=None, bearer_auth=None, version=None)"
+// )]
+// #[expect(clippy::too_many_arguments)]
+// pub(crate) fn fetch_sync<'py>(
+//     py: Python<'py>,
+//     url: &Bound<'py, PyAny>,
+//     method: PyHttpMethod,
+//     body: Option<&Bound<'py, PyAny>>,
+//     headers: Option<ryo3_http::PyHeadersLike>,
+//     query: Option<&Bound<'py, PyAny>>,
+//     json: Option<&Bound<'py, PyAny>>,
+//     form: Option<&Bound<'py, PyAny>>,
+//     multipart: Option<&Bound<'py, PyAny>>,
+//     timeout: Option<&ryo3_std::time::PyDuration>,
+//     basic_auth: Option<(
+//         pyo3::pybacked::PyBackedStr,
+//         Option<pyo3::pybacked::PyBackedStr>,
+//     )>,
+//     bearer_auth: Option<pyo3::pybacked::PyBackedStr>,
+//     version: Option<ryo3_http::HttpVersion>,
+// ) -> PyResult<RyBlockingResponse> {
+//     fetch_client().fetch_sync(
+//         py,
+//         url,
+//         method,
+//         body,
+//         headers,
+//         query,
+//         json,
+//         form,
+//         multipart,
+//         timeout,
+//         basic_auth,
+//         bearer_auth,
+//         version,
+//     )
+// }

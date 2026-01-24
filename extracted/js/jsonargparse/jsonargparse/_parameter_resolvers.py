@@ -11,13 +11,12 @@ from copy import deepcopy
 from functools import partial
 from importlib import import_module
 from types import MethodType
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Callable, Optional, Union
 
 from ._common import (
     LoggerProperty,
     get_generic_origin,
     get_unaliased_type,
-    is_dataclass_like,
     is_generic_class,
     is_subclass,
     is_unpack_typehint,
@@ -42,15 +41,15 @@ class ParamData:
     default: Any = inspect._empty
     kind: Optional[inspect._ParameterKind] = None
     doc: Optional[str] = None
-    component: Optional[Union[Callable, Type, Tuple]] = None
-    parent: Optional[Union[Type, Tuple]] = None
-    origin: Optional[Union[str, Tuple]] = None
+    component: Optional[Union[Callable, type, tuple]] = None
+    parent: Optional[Union[type, tuple]] = None
+    origin: Optional[Union[str, tuple]] = None
 
 
-ParamList = List[ParamData]
-parameter_attributes = [s[1:] for s in inspect.Parameter.__slots__]  # type: ignore[attr-defined]
+ParamList = list[ParamData]
+parameter_attributes = [s[1:] for s in inspect.Parameter.__slots__]
 kinds = inspect._ParameterKind
-ast_assign_type: Tuple[Type[ast.AST], ...] = (ast.AnnAssign, ast.Assign)
+ast_assign_type: tuple[type[ast.AST], ...] = (ast.AnnAssign, ast.Assign)
 param_kwargs_pop_or_get = "**.pop|get():"
 
 ignore_params = {
@@ -184,7 +183,7 @@ def ast_get_constant_value(node):
     return getattr(node, ast_constant_attr[node.__class__])
 
 
-def ast_get_name_and_attrs(node) -> List[str]:
+def ast_get_name_and_attrs(node) -> list[str]:
     names = []
     while isinstance(node, ast.Attribute):
         names.append(node.attr)
@@ -348,7 +347,7 @@ def unpack_typed_dict_kwargs(params: ParamList, kwargs_idx: int) -> int:
     return kwargs_idx
 
 
-def add_stub_types(stubs: Optional[Dict[str, Any]], params: ParamList, component) -> None:
+def add_stub_types(stubs: Optional[dict[str, Any]], params: ParamList, component) -> None:
     if not stubs:
         return
     for param in params:
@@ -372,8 +371,6 @@ ast_literals = {ast.dump(ast.parse(v, mode="eval").body): partial(ast.literal_ev
 
 
 def is_param_subclass_instance_default(param: ParamData) -> bool:
-    if is_dataclass_like(type(param.default)):
-        return False
     from ._typehints import ActionTypeHint, get_optional_arg, get_subclass_types
 
     annotation = get_optional_arg(param.annotation)
@@ -389,7 +386,7 @@ def is_param_subclass_instance_default(param: ParamData) -> bool:
     )
 
 
-def split_args_and_kwargs(params: ParamList) -> Tuple[ParamList, ParamList]:
+def split_args_and_kwargs(params: ParamList) -> tuple[ParamList, ParamList]:
     args = [p for p in params if p.kind == kinds.POSITIONAL_ONLY]
     kwargs = [p for p in params if p.kind in {kinds.KEYWORD_ONLY, kinds.POSITIONAL_OR_KEYWORD}]
     return args, kwargs
@@ -409,7 +406,7 @@ def replace_args_and_kwargs(params: ParamList, args: ParamList, kwargs: ParamLis
     return params
 
 
-def group_parameters(params_list: List[ParamList]) -> ParamList:
+def group_parameters(params_list: list[ParamList]) -> ParamList:
     if len(params_list) == 1:
         for param in params_list[0]:
             if not isinstance(param.origin, tuple):
@@ -484,7 +481,7 @@ def get_mro_parameters(method_name, get_parameters_fn, logger):
 
 
 def get_component_and_parent(
-    function_or_class: Union[Callable, Type],
+    function_or_class: Union[Callable, type],
     method_or_property: Optional[Union[str, Callable]] = None,
 ):
     if is_subclass(function_or_class, ClassFromFunctionBase) and method_or_property in {None, "__init__"}:
@@ -530,7 +527,7 @@ def get_component_and_parent(
 class ParametersVisitor(LoggerProperty, ast.NodeVisitor):
     def __init__(
         self,
-        function_or_class: Union[Callable, Type],
+        function_or_class: Union[Callable, type],
         method_or_property: Optional[Union[str, Callable]] = None,
         **kwargs,
     ):
@@ -642,7 +639,7 @@ class ParametersVisitor(LoggerProperty, ast.NodeVisitor):
                 self.logger.debug(f"Failed to get '{name}' from '{ast_str(source)}'", exc_info=ex)
         return aliases.get(name)
 
-    def get_node_component(self, node, source) -> Optional[Tuple[Type, Optional[str]]]:
+    def get_node_component(self, node, source) -> Optional[tuple[type, Optional[str]]]:
         function_or_class = method_or_property = None
         module = inspect.getmodule(self.component)
         if isinstance(node.func, ast.Name):
@@ -691,7 +688,7 @@ class ParametersVisitor(LoggerProperty, ast.NodeVisitor):
             params = remove_given_parameters(node, params)
         return params
 
-    def replace_param_default_subclass_specs(self, params: List[ParamData]) -> None:
+    def replace_param_default_subclass_specs(self, params: list[ParamData]) -> None:
         params = [p for p in params if is_param_subclass_instance_default(p)]
         if params:
             self.parse_source_tree()
@@ -710,19 +707,19 @@ class ParametersVisitor(LoggerProperty, ast.NodeVisitor):
                 subclass_types = get_subclass_types(param.annotation, callable_return=True)
                 if not (class_type and subclass_types and is_subclass(class_type, subclass_types)):
                     continue
-                subclass_spec: dict = {"class_path": get_import_path(class_type), "init_args": {}}
+                default: dict = {"class_path": get_import_path(class_type), "init_args": {}}
                 for kwarg in node.keywords:
                     if kwarg.arg and ast_is_constant(kwarg.value):
-                        subclass_spec["init_args"][kwarg.arg] = ast_get_constant_value(kwarg.value)
+                        default["init_args"][kwarg.arg] = ast_get_constant_value(kwarg.value)
                     else:
-                        subclass_spec.clear()
+                        default.clear()
                         break
-                if not subclass_spec or len(node.args) - num_positionals > 0:
+                if not default or len(node.args) - num_positionals > 0:
                     self.log_debug(f"unsupported class instance default: {ast_str(default_node)}")
-                elif subclass_spec:
-                    if not subclass_spec["init_args"]:
-                        del subclass_spec["init_args"]
-                    param.default = subclass_spec
+                elif default:
+                    if not default["init_args"]:
+                        del default["init_args"]
+                    param.default = default
 
     def get_call_class_type(self, node) -> Optional[type]:
         names = ast_get_name_and_attrs(getattr(node, "func", None))
@@ -760,7 +757,7 @@ class ParametersVisitor(LoggerProperty, ast.NodeVisitor):
             origin=param_kwargs_pop_or_get + self.get_node_origin(node),
         )
 
-    def get_parameters_args_and_kwargs(self) -> Tuple[ParamList, ParamList]:
+    def get_parameters_args_and_kwargs(self) -> tuple[ParamList, ParamList]:
         self.parse_source_tree()
         args_name = getattr(self.component_node.args.vararg, "arg", None)
         kwargs_name = getattr(self.component_node.args.kwarg, "arg", None)
@@ -775,7 +772,7 @@ class ParametersVisitor(LoggerProperty, ast.NodeVisitor):
             return [], []
 
         params_list = []
-        removed_params: Set[str] = set()
+        removed_params: set[str] = set()
         kwargs_value = kwargs_name and values_to_find[kwargs_name]
         kwargs_value_dump = kwargs_value and ast.dump(kwargs_value)
         for node, source in [(v, s) for k, v, s in values_found if k == kwargs_name]:
@@ -972,7 +969,7 @@ def is_init_field_attrs(field) -> bool:
 
 
 def get_parameters_from_pydantic_or_attrs(
-    function_or_class: Union[Callable, Type],
+    function_or_class: Union[Callable, type],
     method_or_property: Optional[str],
     logger: logging.Logger,
 ) -> Optional[ParamList]:
@@ -1028,7 +1025,7 @@ def get_parameters_from_pydantic_or_attrs(
 
 
 def get_parameters_from_ast(
-    function_or_class: Union[Callable, Type],
+    function_or_class: Union[Callable, type],
     method_or_property: Optional[str],
     logger: logging.Logger,
 ) -> Optional[ParamList]:
@@ -1037,7 +1034,7 @@ def get_parameters_from_ast(
 
 
 def get_parameters_from_stubs(
-    function_or_class: Union[Callable, Type],
+    function_or_class: Union[Callable, type],
     method_or_property: Optional[str],
     logger: logging.Logger,
 ) -> Optional[ParamList]:
@@ -1077,7 +1074,7 @@ def get_parameters_from_stubs(
 
 
 def get_parameters_by_assumptions(
-    function_or_class: Union[Callable, Type],
+    function_or_class: Union[Callable, type],
     method_name: Optional[str],
     logger: logging.Logger,
 ) -> ParamList:
@@ -1097,7 +1094,7 @@ def get_parameters_by_assumptions(
 
 
 def get_signature_parameters(
-    function_or_class: Union[Callable, Type],
+    function_or_class: Union[Callable, type],
     method_or_property: Optional[str] = None,
     logger: Union[bool, str, dict, logging.Logger] = True,
 ) -> ParamList:

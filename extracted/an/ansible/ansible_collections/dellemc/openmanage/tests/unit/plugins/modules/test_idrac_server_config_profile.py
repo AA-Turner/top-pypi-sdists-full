@@ -2,8 +2,8 @@
 
 #
 # Dell OpenManage Ansible Modules
-# Version 9.4.0
-# Copyright (C) 2020-2023 Dell Inc. or its subsidiaries. All Rights Reserved.
+# Version 10.0.1
+# Copyright (C) 2020-2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 #
@@ -102,6 +102,7 @@ class TestServerConfigProfile(FakeAnsibleModule):
         idrac_default_args.update({"share_user": "sharename", "command": "export",
                                    "export_use": "Default", "include_in_export": "default"})
         idrac_default_args.update(params['mparams'])
+        mocker.patch(MODULE_PATH_COMP + "_get_server_version", return_value=16)
         mocker.patch(OPEN_KEY, mocker.mock_open())
         idrac_redfish_job_tracking_mock.status_code = 202
         idrac_redfish_job_tracking_mock.success = True
@@ -160,6 +161,7 @@ class TestServerConfigProfile(FakeAnsibleModule):
         idrac_default_args.update({"command": "import"})
         idrac_default_args.update(params['mparams'])
         mocker.patch(OPEN_KEY, mocker.mock_open())
+        mocker.patch(MODULE_PATH_COMP + "_get_server_version", return_value=16)
         if params.get('check_mode'):
             mocker.patch(MODULE_PATH + 'idrac_server_config_profile.preview_scp_redfish',
                          return_value=params['json_data'])
@@ -168,6 +170,77 @@ class TestServerConfigProfile(FakeAnsibleModule):
                          return_value=(False, False, {"Status": "Completed"}, {}))
         else:
             idrac_scp_redfish_mock.import_scp.return_value = params['json_data']
+        result = self._run_module(idrac_default_args, check_mode=params.get('check_mode', False))
+        assert params['message'] in result['msg']
+
+    @pytest.mark.parametrize("params", [
+        {"message": CHANGES_FOUND,
+         "json_data": {"Id": "JID_932024672685", "Message": SUCCESS_MSG.format("import"), "@Message.ExtendedInfo": [{"MessageId": "SYS081"}],
+                       "PercentComplete": 100, "file": "https://{SCP SHARE PATH}/{SCP FILE NAME}.json"},
+         "check_mode": True,
+         "mparams": {"share_name": "{SCP SHARE IP}:/nfsshare", "share_user": "sharename",
+                     "job_wait": False, "scp_components": "IDRAC",
+                     "scp_file": "scp_file1.xml", "end_host_power_state": "On",
+                     "shutdown_type": "Graceful"}},
+        {"message": NO_CHANGES_FOUND,
+         "json_data": {"Id": "JID_932024672685", "Message": SUCCESS_MSG.format("import"), "@Message.ExtendedInfo": [{"MessageId": "SYS069"}],
+                       "PercentComplete": 100, "file": "https://{SCP SHARE PATH}/{SCP FILE NAME}.json"},
+         "check_mode": True,
+         "mparams": {"share_name": "\\{SCP SHARE IP}\\share", "share_user": "sharename",
+                     "job_wait": False, "scp_components": "IDRAC",
+                     "scp_file": "scp_file1.xml", "end_host_power_state": "On",
+                     "shutdown_type": "Graceful"}},
+        {"message": SUCCESS_MSG.format("import"),
+         "json_data": {"Id": "JID_932024672685", "Message": NO_CHANGES_FOUND, "@Message.ExtendedInfo": [{"MessageId": "SYS043"}],
+                       "PercentComplete": 100, "file": "https://{SCP SHARE PATH}/{SCP FILE NAME}.json"},
+         "mparams": {"command": "import",
+                     "job_wait": True, "scp_components": "IDRAC",
+                     "import_buffer": "SystemConfiguration><Component FQDD='iDRAC.Embedded.1'><Attribute Name='IPMILan.1#Enable'> \
+                     <Value>Disabled</Value></Attribute></Component><Component FQDD='iDRAC.Embedded.1'>"}},
+    ])
+    @mock.patch(MODULE_PATH + "idrac_server_config_profile.exists", return_value=True)
+    def test_run_import_scp_gen(self, mock_exists, params, idrac_scp_redfish_mock, idrac_redfish_job_tracking_mock, idrac_default_args, mocker):
+        idrac_default_args.update({"command": "import"})
+        idrac_default_args.update(params['mparams'])
+        mocker.patch(OPEN_KEY, mocker.mock_open())
+        mocker.patch(MODULE_PATH_COMP + "_get_server_version", return_value=17)
+        if params.get('check_mode'):
+            mocker.patch(MODULE_PATH + 'idrac_server_config_profile.preview_scp_redfish',
+                         return_value=params['json_data'])
+        elif params['mparams']['job_wait']:
+            mocker.patch(MODULE_PATH + REDFISH_JOB_TRACKING,
+                         return_value=(False, False, {"Status": "Completed"}, {}))
+        else:
+            idrac_scp_redfish_mock.import_scp.return_value = params['json_data']
+        result = self._run_module(idrac_default_args, check_mode=params.get('check_mode', False))
+        assert params['message'] in result['msg']
+
+    @pytest.mark.parametrize("params", [
+        {"message": SUCCESS_MSG.format("import"),
+         "json_data": {"Id": "JID_932024672685", "Message": "No changes were applied",
+                       "@Message.ExtendedInfo": [{"Message": "No changes were applied", "MessageId": "SYS069"}],
+                       "PercentComplete": 100, "file": "https://{SCP SHARE PATH}/{SCP FILE NAME}.json"},
+         "mparams": {"command": "import",
+                     "job_wait": True, "scp_components": "IDRAC",
+                     "import_buffer": "SystemConfiguration><Component FQDD='iDRAC.Embedded.1'><Attribute Name='IPMILan.1#Enable'> \
+                     <Value>Disabled</Value></Attribute></Component><Component FQDD='iDRAC.Embedded.1'>"}},
+        {"message": SUCCESS_MSG.format("import"),
+         "json_data": {"Id": "JID_932024672685", "Message": "No changes were applied",
+                       "@Message.ExtendedInfo": [{"Message": "No changes were applied", "MessageId": "SYS043"}],
+                       "PercentComplete": 100, "file": "https://{SCP SHARE PATH}/{SCP FILE NAME}.json"},
+         "mparams": {"command": "import",
+                     "job_wait": True, "scp_components": "IDRAC",
+                     "import_buffer": "SystemConfiguration><Component FQDD='iDRAC.Embedded.1'><Attribute Name='IPMILan.1#Enable'> \
+                     <Value>Disabled</Value></Attribute></Component><Component FQDD='iDRAC.Embedded.1'>"}},
+    ])
+    @mock.patch(MODULE_PATH + "idrac_server_config_profile.exists", return_value=True)
+    def test_run_import_scp_gen2222(self, mock_exists, params, idrac_scp_redfish_mock, idrac_redfish_job_tracking_mock, idrac_default_args, mocker):
+        idrac_default_args.update({"command": "import"})
+        idrac_default_args.update(params['mparams'])
+        mocker.patch(OPEN_KEY, mocker.mock_open())
+        mocker.patch(MODULE_PATH_COMP + "_get_server_version", return_value=17)
+        mocker.patch(MODULE_PATH + 'idrac_server_config_profile.import_scp_redfish',
+                     return_value=params['json_data'])
         result = self._run_module(idrac_default_args, check_mode=params.get('check_mode', False))
         assert params['message'] in result['msg']
 
@@ -185,6 +258,7 @@ class TestServerConfigProfile(FakeAnsibleModule):
     def test_preview_scp(self, params, idrac_scp_redfish_mock, idrac_redfish_job_tracking_mock, idrac_default_args, mocker):
         idrac_default_args.update({"command": "preview"})
         idrac_default_args.update(params['mparams'])
+        mocker.patch(MODULE_PATH_COMP + "_get_server_version", return_value=16)
         mocker.patch(MODULE_PATH + REDFISH_JOB_TRACKING,
                      return_value=(False, False, {"Status": "Completed"}, {}))
         result = self._run_module(idrac_default_args, check_mode=params.get('check_mode', False))
@@ -197,6 +271,21 @@ class TestServerConfigProfile(FakeAnsibleModule):
         idrac_redfish_job_tracking_mock.headers = {"Location": "/redfish/v1/Managers/iDRAC.Embedded.1/JID_123456789"}
         mocker.patch(MODULE_PATH + 'idrac_server_config_profile.idrac_redfish_job_tracking',
                      return_value=(True, False, {"Status": "Failed"}, {}))
+        result = self._run_module(idrac_default_args)
+        assert result['failed']
+
+    def test_preview_scp_redfish_throws_ex_gen(self, idrac_scp_redfish_mock, idrac_redfish_job_tracking_mock, idrac_default_args, mocker):
+        idrac_default_args.update({"share_name": "{SCP SHARE IP}:/nfsshare", "share_user": "sharename",
+                                   "command": "preview", "job_wait": True,
+                                   "scp_components": "IDRAC", "scp_file": "scp_file5.xml"})
+        mocker.patch(MODULE_PATH_COMP + "_get_server_version", return_value=17)
+        idrac_redfish_job_tracking_mock.headers = {"Location": "/redfish/v1/Managers/iDRAC.Embedded.1/JID_123456789"}
+        mocker.patch(MODULE_PATH + 'idrac_server_config_profile.idrac_redfish_job_tracking',
+                     return_value=(False, False, {"Status": "Completed", "MessageId": "SYS043"}, {}))
+        result = self._run_module(idrac_default_args)
+        assert "Successfully previewed the Server Configuration Profile." in result['msg']
+        mocker.patch(MODULE_PATH + 'idrac_server_config_profile.idrac_redfish_job_tracking',
+                     return_value=(True, False, {"Status": "Completed", "MessageId": "SYS043"}, {}))
         result = self._run_module(idrac_default_args)
         assert result['failed']
 
@@ -285,13 +374,14 @@ class TestServerConfigProfile(FakeAnsibleModule):
         res = self.module.idrac_custom_option(idrac_scp_redfish_mock)
         assert res is None
 
-    @pytest.mark.parametrize("firmware_version, expected_result", [
-        ("7.00.00", True),
-        ("6.99.99", False),
-        ("5.99.99", False),
+    @pytest.mark.parametrize("firmware_version, expected_result, generation", [
+        ("7.00.00", True, 16),
+        ("6.99.99", False, 16),
+        ("5.99.99", False, 16),
+        ("7.00.00", True, 17),
     ])
-    def test_is_check_idrac_latest(self, firmware_version, expected_result):
-        assert idrac_server_config_profile.is_check_idrac_latest(firmware_version) == expected_result
+    def test_is_check_idrac_latest(self, firmware_version, expected_result, generation):
+        assert idrac_server_config_profile.is_check_idrac_latest(firmware_version, generation) == expected_result
 
     @pytest.mark.parametrize("exc_type",
                              [URLError, HTTPError, SSLValidationError, ConnectionError, TypeError, ValueError])
@@ -390,7 +480,7 @@ class TestImportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_PATH_COMP + CHECK_IDRAC_VERSION, return_value=False)
         idrac_default_args.update({})
         f_module = self.get_module_mock(params=idrac_default_args)
-        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         with pytest.raises(Exception) as exc:
             scp_obj.execute()
         assert exc.value.args[0] == "import_custom_defaults is not supported on this firmware version of iDRAC. Enter the valid values and retry the operation."
@@ -400,7 +490,7 @@ class TestImportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_UTILS_PATH + GET_FIRMWARE_VERSION, return_value="7.00.00")
         mocker.patch(MODULE_PATH_COMP + CHECK_IDRAC_VERSION, return_value=True)
         f_module = self.get_module_mock(params=idrac_default_args)
-        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         with pytest.raises(Exception) as exc:
             scp_obj.execute()
         assert exc.value.args[0] == "Share name is required. Enter the valid Share name and retry the operation."
@@ -414,7 +504,7 @@ class TestImportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_PATH_COMP + CHECK_IDRAC_VERSION, return_value=True)
         mocker.patch(MODULE_PATH_COMP + "validate_share_name", return_value=None)
         f_module = self.get_module_mock(params=idrac_default_args)
-        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         with pytest.raises(Exception) as exc:
             scp_obj.execute()
         assert exc.value.args[0] == "import_buffer is mutually exclusive with share_name."
@@ -429,7 +519,7 @@ class TestImportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_UTILS_PATH + GET_FIRMWARE_VERSION, return_value="7.00.00")
         mocker.patch(MODULE_PATH_COMP + CHECK_IDRAC_VERSION, return_value=True)
         f_module = self.get_module_mock(params=idrac_default_args, check_mode=True)
-        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         with pytest.raises(Exception) as exc:
             scp_obj.execute()
         assert exc.value.args[0] == "import_buffer is mutually exclusive with scp_file."
@@ -446,7 +536,7 @@ class TestImportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_PATH_COMP + "validate_customdefault_input", return_value=None)
         mocker.patch(MODULE_PATH_COMP + "compare_custom_default_configs", return_value=False)
         f_module = self.get_module_mock(params=idrac_default_args, check_mode=True)
-        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         with pytest.raises(Exception) as exc:
             scp_obj.execute()
         assert exc.value.args[0] == NO_CHANGES_FOUND
@@ -463,7 +553,7 @@ class TestImportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_PATH_COMP + "validate_customdefault_input", return_value=None)
         mocker.patch(MODULE_PATH_COMP + "compare_custom_default_configs", return_value=True)
         f_module = self.get_module_mock(params=idrac_default_args, check_mode=True)
-        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         with pytest.raises(Exception) as exc:
             scp_obj.execute()
         assert exc.value.args[0] == CHANGES_FOUND
@@ -486,7 +576,7 @@ class TestImportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_PATH_COMP + "get_buffer_text", return_value=self.custom_default_content)
         mocker.patch(MODULE_PATH_COMP + "compare_custom_default_configs", return_value=False)
         f_module = self.get_module_mock(params=idrac_default_args)
-        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         with pytest.raises(Exception) as exc:
             scp_obj.execute()
         assert exc.value.args[0] == NO_CHANGES_FOUND
@@ -506,7 +596,7 @@ class TestImportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_PATH_COMP + "idrac_custom_option", return_value=obj)
         mocker.patch(MODULE_PATH_COMP + "get_buffer_text", return_value={'key': 'value'})
         f_module = self.get_module_mock(params=idrac_default_args)
-        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         with pytest.raises(Exception) as exc:
             scp_obj.execute()
         assert exc.value.args[0] == INVALID_XML_CONTENT
@@ -533,7 +623,7 @@ class TestImportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_PATH_COMP + "exists", return_value=True)
         mocker.patch(OPEN_KEY, mocker.mock_open(read_data=self.custom_default_content))
         f_module = self.get_module_mock(params=idrac_default_args)
-        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         msg_resp, resp = scp_obj.execute()
         assert msg_resp == self.res_msg
 
@@ -560,7 +650,7 @@ class TestImportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_PATH_COMP + "exists", return_value=True)
         mocker.patch(OPEN_KEY, mocker.mock_open(read_data=self.custom_default_content))
         f_module = self.get_module_mock(params=idrac_default_args)
-        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         msg_resp, resp = scp_obj.execute()
         assert msg_resp == self.res_with_job_wait
         assert msg_resp['Message'] == "The Custom Defaults file is successfully uploaded to iDRAC."
@@ -576,7 +666,7 @@ class TestImportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_UTILS_PATH + GET_FIRMWARE_VERSION, return_value="7.00.00")
         mocker.patch(MODULE_PATH_COMP + CHECK_IDRAC_VERSION, return_value=True)
         f_module = self.get_module_mock(params=idrac_default_args)
-        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ImportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         with pytest.raises(Exception) as exc:
             scp_obj.execute()
         assert exc.value.args[0] == INVALID_SHARE_NAME.format(command="import_custom_defaults")
@@ -638,7 +728,7 @@ class TestExportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_UTILS_PATH + GET_FIRMWARE_VERSION, return_value="2.81.81")
         mocker.patch(MODULE_PATH_COMP + CHECK_IDRAC_VERSION, return_value=False)
         f_module = self.get_module_mock(params=idrac_default_args)
-        scp_obj = self.module.ExportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ExportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         with pytest.raises(Exception) as exc:
             scp_obj.execute()
         assert exc.value.args[0] == "export_custom_defaults is not supported on this firmware version of iDRAC. Enter the valid values and retry the operation."
@@ -652,7 +742,7 @@ class TestExportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_UTILS_PATH + GET_FIRMWARE_VERSION, return_value="7.00.00")
         mocker.patch(MODULE_PATH_COMP + CHECK_IDRAC_VERSION, return_value=True)
         f_module = self.get_module_mock(params=idrac_default_args)
-        scp_obj = self.module.ExportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ExportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         with pytest.raises(Exception) as exc:
             scp_obj.execute()
         assert exc.value.args[0] == "An invalid export format is selected. File format '.xml' is supported. Select a valid file format and retry the operation."
@@ -675,7 +765,7 @@ class TestExportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_PATH_COMP + "idrac_custom_option", return_value=obj)
         mocker.patch(OPEN_KEY, mocker.mock_open())
         f_module = self.get_module_mock(params=idrac_default_args)
-        scp_obj = self.module.ExportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ExportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         msg_resp, resp = scp_obj.execute()
         assert msg_resp == {'file': 'share//scp_file.xml'}
 
@@ -689,7 +779,7 @@ class TestExportCustomDefaultCommand(FakeAnsibleModule):
         mocker.patch(MODULE_PATH_COMP + "idrac_custom_option", return_value=None)
         mocker.patch(OPEN_KEY, mocker.mock_open())
         f_module = self.get_module_mock(params=idrac_default_args)
-        scp_obj = self.module.ExportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module)
+        scp_obj = self.module.ExportCustomDefaultCommand(idrac_connection_server_config_profile_mock, f_module, generation=16)
         with pytest.raises(Exception) as exc:
             scp_obj.execute()
         assert exc.value.args[0] == "Custom defaults is not available on the iDRAC."

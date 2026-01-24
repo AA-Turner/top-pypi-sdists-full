@@ -33,7 +33,7 @@ def plot_returns(
     title = "Cumulative Returns" if compound else "Returns"
     if benchmark is not None:
         if isinstance(benchmark, str):
-            title += " vs %s" % benchmark.upper()
+            title += f" vs {benchmark.upper()}"
         else:
             title += " vs Benchmark"
         if match_volatility:
@@ -76,7 +76,7 @@ def plot_log_returns(
     title = "Cumulative Returns" if compound else "Returns"
     if benchmark is not None:
         if isinstance(benchmark, str):
-            title += " vs %s (Log Scaled" % benchmark.upper()
+            title += f" vs {benchmark.upper()} (Log Scaled"
         else:
             title += " vs Benchmark (Log Scaled"
         if match_volatility:
@@ -270,7 +270,7 @@ def plot_histogram(
         benchmark,
         resample=resample,
         grayscale=grayscale,
-        title="Distribution of %sReturns" % title,
+        title=f"Distribution of {title}Returns",
         figsize=figsize,
         ylabel=ylabel,
         subtitle=subtitle,
@@ -380,18 +380,29 @@ def plot_rolling_beta(
     )
 
 
-def plot_rolling_net_exposure(
+def plot_rolling_exposure(
     weights: pd.DataFrame,
     period: int = 5,
     period_label: str = "1 Week",
     lw: float = 1.5,
     grayscale: bool = False,
     figsize: tuple[int, int] = (10, 3),
-    ylabel: str = "Rolling Net Exposure",
+    ylabel: str = "Rolling Exposure",
     subtitle: bool = True,
     savefig: dict | None = None,
     cutoff: pd.Timestamp | None = None,
+    net_or_gross: Literal["net", "gross"] = "net",
+    reference_line: float = 0.0,
 ) -> Figure:
+    assert net_or_gross in ["net", "gross"], (
+        "net_or_gross must be either 'net' or 'gross'"
+    )
+    if net_or_gross == "gross":
+        weights = weights.abs()
+        ylabel = "Rolling Gross Exposure"
+    else:
+        ylabel = "Rolling Net Exposure"
+
     rolling_weights = weights.sum(axis="columns").rolling(period).mean()
 
     return _core.plot_rolling_stats(
@@ -399,13 +410,14 @@ def plot_rolling_net_exposure(
         hline=weights.sum(axis="columns").mean(),
         hlw=1.5,
         ylabel=ylabel,
-        title="Rolling Net Exposure (%s)" % period_label,
+        title=f"{ylabel} ({period_label})",
         grayscale=grayscale,
         lw=lw,
         figsize=figsize,
         subtitle=subtitle,
         savefig=savefig,
         cutoff=cutoff,
+        reference_line=reference_line,
     )
 
 
@@ -434,7 +446,7 @@ def plot_rolling_volatility(
         hline=returns.mean(),
         hlw=1.5,
         ylabel=ylabel,
-        title="Rolling Volatility (%s)" % period_label,
+        title=f"Rolling Volatility ({period_label})",
         grayscale=grayscale,
         lw=lw,
         figsize=figsize,
@@ -476,7 +488,7 @@ def plot_rolling_sharpe(
         hline=returns.mean(),
         hlw=1.5,
         ylabel=ylabel,
-        title="Rolling Sharpe (%s)" % period_label,
+        title=f"Rolling Sharpe ({period_label})",
         grayscale=grayscale,
         lw=lw,
         figsize=figsize,

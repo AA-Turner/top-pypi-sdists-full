@@ -25,9 +25,10 @@ def test_streamlit_flow(
             "app_1", snowflake_session
         )
 
+        stage_root = f"snow://streamlit/{snowflake_session.database}.{snowflake_session.schema}.app_1/versions/live/"
+
         _streamlit_test_steps.assert_that_only_those_files_were_uploaded(
-            ["app_1_stage/app_1/app_1.py", "app_1_stage/app_1/streamlit_app.py"],
-            f"{database}.public.app_1_stage",
+            ["app_1.py", "streamlit_app.py"], stage_root, uploaded_to_live_version=True
         )
         _streamlit_test_steps.assert_that_only_those_entities_are_listed(
             [f"{database}.PUBLIC.APP_1"], "APP_1"
@@ -45,8 +46,7 @@ def test_streamlit_flow(
         )
 
         _streamlit_test_steps.assert_that_only_those_files_were_uploaded(
-            ["app_1_stage/app_1/app_1.py", "app_1_stage/app_1/streamlit_app.py"],
-            f"{database}.public.app_1_stage",
+            ["app_1.py", "streamlit_app.py"], stage_root, uploaded_to_live_version=True
         )
 
         _streamlit_test_steps.streamlit_describe_should_show_proper_streamlit(
@@ -77,7 +77,7 @@ def test_streamlit_experimental_flow(
         _streamlit_test_steps.deploy_should_result_in_error_as_there_are_multiple_entities_in_project_file()
 
         _streamlit_test_steps.deploy_with_entity_id_specified_should_succeed(
-            "app_1", snowflake_session, experimental=True
+            "app_1", snowflake_session
         )
 
         stage_root = f"snow://streamlit/{snowflake_session.database}.{snowflake_session.schema}.app_1/versions/live/"
@@ -93,7 +93,7 @@ def test_streamlit_experimental_flow(
             "app_1", snowflake_session
         )
         _streamlit_test_steps.another_deploy_with_replace_flag_should_succeed(
-            "app_1", snowflake_session, experimental=True
+            "app_1", snowflake_session
         )
 
         _streamlit_test_steps.assert_that_only_those_entities_are_listed(
@@ -132,3 +132,57 @@ def _test_setup(
 @pytest.fixture
 def _streamlit_test_steps(_test_setup):
     return StreamlitTestSteps(_test_setup)
+
+
+@pytest.mark.integration
+def test_streamlit_grants_flow(
+    _streamlit_test_steps,
+    project_directory,
+    snowflake_session,
+    alter_snowflake_yml,
+):
+    """Test that streamlit grants are properly applied during deployment."""
+    test_role = snowflake_session.role
+    entity_id = "app_1"
+
+    with project_directory("streamlit_v2"):
+        alter_snowflake_yml(
+            "snowflake.yml",
+            "entities.app_1.grants",
+            [{"privilege": "USAGE", "role": test_role}],
+        )
+
+        _streamlit_test_steps.deploy_with_entity_id_specified_should_succeed(
+            entity_id, snowflake_session, experimental=False
+        )
+
+        _streamlit_test_steps.verify_grants_applied(entity_id, test_role)
+
+        _streamlit_test_steps.drop_should_succeed(entity_id, snowflake_session)
+
+
+@pytest.mark.integration
+def test_streamlit_grants_experimental_flow(
+    _streamlit_test_steps,
+    project_directory,
+    snowflake_session,
+    alter_snowflake_yml,
+):
+    """Test that streamlit grants are properly applied during experimental deployment."""
+    test_role = snowflake_session.role
+    entity_id = "app_1"
+
+    with project_directory("streamlit_v2"):
+        alter_snowflake_yml(
+            "snowflake.yml",
+            "entities.app_1.grants",
+            [{"privilege": "USAGE", "role": test_role}],
+        )
+
+        _streamlit_test_steps.deploy_with_entity_id_specified_should_succeed(
+            entity_id, snowflake_session
+        )
+
+        _streamlit_test_steps.verify_grants_applied(entity_id, test_role)
+
+        _streamlit_test_steps.drop_should_succeed(entity_id, snowflake_session)

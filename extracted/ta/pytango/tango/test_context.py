@@ -32,7 +32,7 @@ from tango.utils import (
     _set_test_context_tango_host_fqtrl,
 )
 from tango.green import switch_existing_global_executors_to_thread
-from tango import DeviceProxy, Database, DevFailed, Util
+from tango import Database, DevFailed, DeviceProxy, EnsureOmniThread, Util
 
 __all__ = (
     "MultiDeviceTestContext",
@@ -96,9 +96,9 @@ def get_server_port_via_pid(pid, host, retries=400, delay=0.03):
     :param pid: operating system process identifier
     :type pid: int
     :param host: hostname/IP that device server is listening on.  E.g., 127.0.0.1,
-    IP address of a non-loopback network interface, etc.  Note that starting a device
-    server on "localhost" may fail if OmniORB creates an IPv6-only socket.
-    :type pid: str
+                 IP address of a non-loopback network interface, etc.  Note that starting a device
+                 server on "localhost" may fail if OmniORB creates an IPv6-only socket.
+    :type host: str
     :param retries: number of times to retry attempts, optional
     :type retries: int
     :param delay: time to wait (seconds) between retries, optional
@@ -508,24 +508,25 @@ class MultiDeviceTestContext:
         self.thread.daemon = daemon
 
     def target(self, runserver, process=False):
-        threading.current_thread().name += " TestContext DS launcher"
-        try:
-            runserver(
-                pre_init_callback=self.pre_init,
-                post_init_callback=self.post_init,
-                raises=True,
-            )
-        except Exception as exc:
-            self._startup_exception_queue.put(exc)
-            self._discovered_port_queue.put(-1)  # don't block queue reader
-        finally:
-            # Put something in the queue just in case
-            exc = RuntimeError("The server failed to report anything")
-            self._startup_exception_queue.put(exc)
-            # Make sure the process has enough time to send the items
-            # because it might segfault while cleaning up the tango resources
-            if process:
-                time.sleep(0.1)
+        with EnsureOmniThread():
+            threading.current_thread().name += " TestContext DS launcher"
+            try:
+                runserver(
+                    pre_init_callback=self.pre_init,
+                    post_init_callback=self.post_init,
+                    raises=True,
+                )
+            except Exception as exc:
+                self._startup_exception_queue.put(exc)
+                self._discovered_port_queue.put(-1)  # don't block queue reader
+            finally:
+                # Put something in the queue just in case
+                exc = RuntimeError("The server failed to report anything")
+                self._startup_exception_queue.put(exc)
+                # Make sure the process has enough time to send the items
+                # because it might segfault while cleaning up the tango resources
+                if process:
+                    time.sleep(0.1)
 
     def pre_init(self):
         try:
@@ -643,8 +644,15 @@ class MultiDeviceTestContext:
         return self._devices[device_name]
 
     def start(self):
-        """Run the server."""
+        """Run the server.
+
+        This method is automatically called when the context handler is entered.
+
+        :raises RuntimeError: If device server does not start
+        """
         self._set_up_environment_variables()
+        if not self._process:
+            self.thread.daemon = True
         self.thread.start()
         self.connect()
         return self
@@ -692,24 +700,60 @@ class MultiDeviceTestContext:
             )
 
     def stop(self):
-        """Kill the server."""
+        """Kill the server.
+
+        This method is automatically called when the context handler is exited.
+
+        :raises RuntimeError: If device server does not stop cleanly
+
+        .. versionchanged:: 10.1.0
+            Can raise :class:`RuntimeError` on shutdown.
+        """
         try:
             if self.server:
                 self.server.command_inout("Kill")
             self.join(self.timeout)
+            self._ensure_device_server_exited()
         finally:
             _clear_test_context_tango_host_fqtrl()
             self.delete_db()
             self._restore_environment_variables()
+
+    def _ensure_device_server_exited(self):
+        if not self.thread.is_alive():
+            return
+        if self._process:
+            self.thread.kill()
+            t_start = time.monotonic()
+            while self.thread.is_alive() and time.monotonic() - t_start < self.timeout:
+                time.sleep(0.1)
+            raise RuntimeError(
+                f"Device server failed to exit cleanly (stuck in shutdown?). "
+                f"Tried to kill subprocess. "
+                f"Still alive: {self.thread.is_alive()}."
+            )
+        else:
+            raise RuntimeError(
+                "Device server failed to exit cleanly (stuck in shutdown?)"
+            )
 
     def join(self, timeout=None):
         self.thread.join(timeout)
 
     def _set_up_environment_variables(self):
         self._saved_environ = dict(os.environ)
-        # Patch bug #819
         if self._process:
-            os.environ["ORBscanGranularity"] = "0"
+            # This variable is used by omniORB to tell it how often
+            # to check for idle connections (which can be closed).
+            # See: https://omniorb.net/omni43/omniORB/omniORB006.html#sec103
+            # It is also used for various timeouts when shutting down.
+            # We are interested in the shutdown case.
+            # The default is 5 seconds, so we reduce it to get faster
+            # process shutdown (especially noticeable on Windows)
+            # We can't use 0 seconds because omniORB forces it to 5 seconds.
+            # See: src/lib/omniORB/orbcore/giopServer.cc giopServer::deactivate()
+            # See also: https://sourceforge.net/p/tango-cs/bugs/819/
+            os.environ["ORBscanGranularity"] = "1"
 
     def _restore_environment_variables(self):
         modified_environ = dict(os.environ)
@@ -723,20 +767,28 @@ class MultiDeviceTestContext:
                 os.environ.pop(key)  # unset environment var
 
     def __enter__(self) -> "MultiDeviceTestContext":
-        """Enter method for context support.
+        """Enter method for context handler support.
 
         :return:
           Instance of this test context.  Use `get_device` to get proxy
           access to any of the devices started by this context.
         :rtype:
           :class:`~tango.test_context.MultiDeviceTestContext`
+
+        :raises RuntimeError: If device server does not start
         """
         if not self.thread.is_alive():
             self.start()
         return self
 
     def __exit__(self, exc_type, exception, trace):
-        """Exit method for context support."""
+        """Exit method for context handler support.
+
+        :raises RuntimeError: If device server does not stop cleanly
+
+        .. versionchanged:: 10.1.0
+            Can raise :class:`RuntimeError` on shutdown.
+        """
         self.stop()
         return False
 
@@ -874,7 +926,7 @@ class DeviceTestContext(MultiDeviceTestContext):
         self.device.ping()
 
     def __enter__(self) -> DeviceProxy:
-        """Enter method for context support.
+        """Enter method for context handler support.
 
         :return:
           A device proxy to the device started by this context.

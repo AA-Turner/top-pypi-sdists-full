@@ -444,7 +444,7 @@ class ConditionParser:
     def get_class_conditions(self, cls: type) -> ClassConditions:
         raise NotImplementedError
 
-    def class_can_have_conditions(sel, cls: type) -> bool:
+    def class_can_have_conditions(self, cls: type) -> bool:
         raise NotImplementedError
 
 
@@ -465,7 +465,7 @@ class ConcreteConditionParser(ConditionParser):
         """
         raise NotImplementedError
 
-    def class_can_have_conditions(sel, cls: type) -> bool:
+    def class_can_have_conditions(self, cls: type) -> bool:
         # We can't get conditions/line numbers for classes written in C.
         return is_pure_python(cls)
 
@@ -520,6 +520,7 @@ class ConcreteConditionParser(ConditionParser):
                 "__delattr__",
                 "__replace__",  # Will raise an exception with most arbitrary **kwargs.
                 "__annotate__",  # a staticmethod, but not isinstance(staticmethod)
+                "__annotate_func__",
             ):
                 pass
             elif method_name == "__del__":
@@ -1194,7 +1195,7 @@ class RegisteredContractsParser(ConcreteConditionParser):
             fn_syntax_messages=[],
         )
 
-    def class_can_have_conditions(sel, cls: type) -> bool:
+    def class_can_have_conditions(self, cls: type) -> bool:
         # We might have registered contracts for classes written in C, so we don't want
         # to skip evaluating conditions on the class methods.
         return True

@@ -16,14 +16,13 @@ __all__ = ["NewFloatingPackageWithAllocationPrice", "PackageWithAllocationConfig
 
 
 class PackageWithAllocationConfig(BaseModel):
+    """Configuration for package_with_allocation pricing"""
+
     allocation: str
-    """Usage allocation"""
 
     package_amount: str
-    """Price per package"""
 
     package_size: str
-    """Package size"""
 
 
 ConversionRateConfig: TypeAlias = Annotated[

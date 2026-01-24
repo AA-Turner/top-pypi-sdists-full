@@ -1,12 +1,14 @@
 """Various ipywidgets that can be added to a map."""
 
+from collections.abc import Callable
 import enum
 import functools
+import importlib.resources
 import json
 import os
 import pathlib
 import re
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import IPython
 from IPython.display import HTML, display
@@ -15,6 +17,9 @@ import anywidget
 import ee
 import ipyleaflet
 import ipywidgets
+import matplotlib
+from matplotlib import pyplot
+import numpy
 import traitlets
 
 from . import common
@@ -33,11 +38,12 @@ def _set_css_in_cell_output(info: Any) -> None:
     """Sets CSS styles in the cell output for different themes.
 
     Args:
-        info (Any): Information passed to the function (unused).
+        info: Information passed to the function (unused).
 
     Returns:
         None
     """
+    del info  # Unused.
     display(
         HTML(
             """
@@ -83,17 +89,17 @@ class Theme:
         """Applies the theme to the given class.
 
         Args:
-            cls (Any): The class to which the theme will be applied.
+            cls: The class to which the theme will be applied.
 
         Returns:
-            Any: The class with the applied theme.
+            The class with the applied theme.
         """
         original_init = cls.__init__
 
         @functools.wraps(cls.__init__)
         def wrapper(self, *args, **kwargs):
             original_init(self, *args, **kwargs)
-            self.add_class("geemap-{}".format(Theme.current_theme))
+            self.add_class(f"geemap-{Theme.current_theme}")
 
         cls.__init__ = wrapper
         return cls
@@ -105,39 +111,35 @@ class Colorbar(ipywidgets.Output):
 
     def __init__(
         self,
-        vis_params: Optional[Union[Dict[str, Any], list, tuple]] = None,
+        vis_params: dict[str, Any] | list | tuple | None = None,
         cmap: str = "gray",
         discrete: bool = False,
-        label: Optional[str] = None,
+        label: str | None = None,
         orientation: str = "horizontal",
         transparent_bg: bool = False,
         font_size: int = 9,
         axis_off: bool = False,
-        max_width: Optional[str] = None,
-        **kwargs: Any,
+        max_width: str | None = None,
+        **kwargs,
     ):
         """Add a matplotlib colorbar to the map.
 
         Args:
-            vis_params (dict): Visualization parameters as a dictionary. See
+            vis_params: Visualization parameters as a dictionary. See
                 https://developers.google.com/earth-engine/guides/image_visualization # noqa
                 for options.
-            cmap (str, optional): Matplotlib colormap. Defaults to "gray". See
+            cmap: Matplotlib colormap. Defaults to "gray". See
                 https://matplotlib.org/3.3.4/tutorials/colors/colormaps.html#sphx-glr-tutorials-colors-colormaps-py # noqa
                 for options.
-            discrete (bool, optional): Whether to create a discrete colorbar.
+            discrete: Whether to create a discrete colorbar.
                 Defaults to False.
-            label (str, optional): Label for the colorbar. Defaults to None.
-            orientation (str, optional): Orientation of the colorbar, such as
-                "vertical" and "horizontal". Defaults to "horizontal".
-            transparent_bg (bool, optional): Whether to use transparent
-                background. Defaults to False.
-            font_size (int, optional): Font size for the colorbar. Defaults
-                to 9.
-            axis_off (bool, optional): Whether to turn off the axis. Defaults
-                to False.
-            max_width (str, optional): Maximum width of the colorbar in pixels.
-                Defaults to None.
+            label: Label for the colorbar. Defaults to None.
+            orientation: Orientation of the colorbar, such as "vertical" and
+                "horizontal". Defaults to "horizontal".
+            transparent_bg: Whether to use transparent background. Defaults to False.
+            font_size: Font size for the colorbar. Defaults to 9.
+            axis_off: Whether to turn off the axis. Defaults to False.
+            max_width: Maximum width of the colorbar in pixels.  Defaults to None.
 
         Raises:
             TypeError: If the vis_params is not a dictionary.
@@ -147,10 +149,6 @@ class Colorbar(ipywidgets.Output):
             ValueError: If the provided opacity value is not convertible to float.
             ValueError: If cmap or palette is not provided.
         """
-
-        import matplotlib  # pylint: disable=import-outside-toplevel
-        import numpy  # pylint: disable=import-outside-toplevel
-
         if max_width is None:
             if orientation == "horizontal":
                 max_width = "270px"
@@ -237,16 +235,16 @@ class Colorbar(ipywidgets.Output):
             matplotlib.pyplot.show()
 
     def _get_dimensions(
-        self, orientation: str, kwargs: Dict[str, Any]
-    ) -> Tuple[float, float]:
+        self, orientation: str, kwargs: dict[str, Any]
+    ) -> tuple[float, float]:
         """Get the dimensions of the colorbar based on orientation.
 
         Args:
-            orientation (str): Orientation of the colorbar.
-            kwargs (Dict[str, Any]): Additional keyword arguments.
+            orientation: Orientation of the colorbar.
+            kwargs: Additional keyword arguments.
 
         Returns:
-            Tuple[float, float]: Width and height of the colorbar.
+            Width and height of the colorbar.
 
         Raises:
             ValueError: If the orientation is not either horizontal or vertical.
@@ -285,32 +283,28 @@ class Legend(anywidget.AnyWidget):
     def __init__(
         self,
         title: str = "Legend",
-        legend_dict: Optional[Dict[str, str]] = None,
-        keys: Optional[List[str]] = None,
-        colors: Optional[List[Union[str, tuple]]] = None,
+        legend_dict: dict[str, str] | None = None,
+        keys: list[str] | None = None,
+        colors: list[str | tuple] | None = None,
         position: str = "bottomright",
-        builtin_legend: Optional[str] = None,
+        builtin_legend: str | None = None,
         add_header: bool = True,
-        widget_args: Optional[Dict[str, Any]] = None,
+        widget_args: dict[str, Any] | None = None,
         **kwargs: Any,
     ):
         """Adds a customized legend to the map.
 
          Args:
-            title (str, optional): Title of the legend. Defaults to 'Legend'.
-            legend_dict (dict, optional): A dictionary containing legend items
-                as keys and color as values. If provided, keys and colors will
-                be ignored. Defaults to None.
-            keys (list, optional): A list of legend keys. Defaults to None.
-            colors (list, optional): A list of legend colors. Defaults to None.
-            position (str, optional): Position of the legend. Defaults to
-                'bottomright'.
-            builtin_legend (str, optional): Name of the builtin legend to add
-                to the map. Defaults to None.
-            add_header (bool, optional): Whether the legend can be closed or
-                not. Defaults to True.
-            widget_args (dict, optional): Additional arguments. Only
-                "show_close_button" is supported.
+            title: Title of the legend. Defaults to 'Legend'.
+            legend_dict: A dictionary containing legend items as keys and color as
+                values. If provided, keys and colors will be ignored. Defaults to None.
+            keys: A list of legend keys. Defaults to None.
+            colors: A list of legend colors. Defaults to None.
+            position: Position of the legend. Defaults to 'bottomright'.
+            builtin_legend: Name of the builtin legend to add to the map. Defaults to
+                None.
+            add_header: Whether the legend can be closed or not. Defaults to True.
+            widget_args: Additional arguments. Only "show_close_button" is supported.
 
         Raises:
             TypeError: If the keys are not a list.
@@ -320,7 +314,6 @@ class Legend(anywidget.AnyWidget):
             ValueError: If the keys and colors are not the same length.
             ValueError: If the builtin_legend is not allowed.
             ValueError: If the position is not allowed.
-
         """
         super().__init__()
 
@@ -362,7 +355,7 @@ class Legend(anywidget.AnyWidget):
         if builtin_legend is not None:
             builtin_legend_allowed = self._check_if_allowed(
                 builtin_legend, "builtin legend", allowed_builtin_legends
-            )
+            )  # pytype: disable=wrong-arg-types
             if builtin_legend_allowed:
                 legend_dict = builtin_legends[builtin_legend]
                 self.legend_keys = list(legend_dict.keys())
@@ -382,7 +375,7 @@ class Legend(anywidget.AnyWidget):
         self.on_msg(self._handle_message_event)
 
     def _handle_message_event(
-        self, widget: ipywidgets.Widget, content: Dict[str, Any], buffers: List[Any]
+        self, widget: ipywidgets.Widget, content: dict[str, Any], buffers: list[Any]
     ) -> None:
         del widget, buffers  # Unused
         if content.get("type") == "click":
@@ -395,17 +388,17 @@ class Legend(anywidget.AnyWidget):
             self.host_map.remove(self)
 
     def _check_if_allowed(
-        self, value: str, value_name: str, allowed_list: List[str]
+        self, value: str, value_name: str, allowed_list: list[str]
     ) -> bool:
         """Checks if a value is allowed.
 
         Args:
-            value (str): The value to check.
-            value_name (str): The name of the value.
-            allowed_list (List[str]): The list of allowed values.
+            value: The value to check.
+            value_name: The name of the value.
+            allowed_list: The list of allowed values.
 
         Returns:
-            bool: True if the value is allowed, otherwise raises a ValueError.
+            True if the value is allowed, otherwise raises a ValueError.
 
         Raises:
             ValueError: If the value is not allowed.
@@ -418,7 +411,7 @@ class Legend(anywidget.AnyWidget):
             )
         return True
 
-    def _normalize_color_to_hex(self, color: Union[str, tuple]) -> str:
+    def _normalize_color_to_hex(self, color: str | tuple) -> str:
         """Converts a list of RGB colors to hex."""
         if isinstance(color, tuple):
             try:
@@ -451,7 +444,7 @@ class Inspector(anywidget.AnyWidget):
     def __init__(
         self,
         host_map: "geemap.Map",
-        names: Optional[Union[str, List[str]]] = None,
+        names: str | list[str] | None = None,
         visible: bool = True,
         decimals: int = 2,
         opened: bool = True,
@@ -460,17 +453,12 @@ class Inspector(anywidget.AnyWidget):
         """Creates an Inspector widget for Earth Engine data.
 
         Args:
-            host_map (geemap.Map): The map to add the inspector widget to.
-            names (list, optional): The list of layer names to be inspected.
-                Defaults to None.
-            visible (bool, optional): Whether to inspect visible layers only.
-                Defaults to True.
-            decimals (int, optional): The number of decimal places to round the
-                values. Defaults to 2.
-            opened (bool, optional): Whether the inspector is opened. Defaults
-                to True.
-            show_close_button (bool, optional): Whether to show the close
-                button. Defaults to True.
+            host_map: The map to add the inspector widget to.
+            names: The list of layer names to be inspected.  Defaults to None.
+            visible: Whether to inspect visible layers only.  Defaults to True.
+            decimals: The number of decimal places to round the values. Defaults to 2.
+            opened: Whether the inspector is opened. Defaults to True.
+            show_close_button: Whether to show the close button. Defaults to True.
         """
         super().__init__()
 
@@ -499,27 +487,27 @@ class Inspector(anywidget.AnyWidget):
             self.on_close()
 
     def _handle_message_event(
-        self, widget: ipywidgets.Widget, content: Dict[str, Any], buffers: List[Any]
+        self, widget: ipywidgets.Widget, content: dict[str, Any], buffers: list[Any]
     ) -> None:
         del widget, buffers  # Unused
         if content.get("type") == "click" and content.get("id") == "close":
             self._on_close_btn_click()
 
-    def _on_map_interaction(self, **kwargs: Any) -> None:
+    def _on_map_interaction(self, **kwargs) -> None:
         """Handles map interaction events.
 
         Args:
-            **kwargs (Any): The interaction event arguments.
+            **kwargs: The interaction event arguments.
         """
         latlon = kwargs.get("coordinates", [])
         if kwargs.get("type") == "click":
             self._on_map_click(latlon)
 
-    def _on_map_click(self, latlon: List[float]) -> None:
+    def _on_map_click(self, latlon: list[float]) -> None:
         """Handles map click events.
 
         Args:
-            latlon (List[float]): The latitude and longitude of the click event.
+            latlon: The latitude and longitude of the click event.
         """
         if not latlon or len(latlon) < 2:
             return
@@ -543,15 +531,21 @@ class Inspector(anywidget.AnyWidget):
         """Handles close button click events."""
         self.cleanup()
 
-    def _get_visible_map_layers(self) -> Dict[str, Any]:
+    def _get_visible_map_layers(self) -> dict[str, Any]:
         """Gets the visible map layers.
 
         Returns:
-            Dict[str, Any]: A dictionary of visible map layers.
+            A dictionary of visible map layers.
         """
         layers = {}
         if self._names is not None:
-            names = [names] if isinstance(names, str) else self._names
+            names = (
+                # pytype: disable=name-error
+                [names]
+                if isinstance(names, str)
+                else self._names
+                # pytype: enable=name-error
+            )
             for name in names:
                 if name in self._host_map.ee_layers:
                     layers[name] = self._host_map.ee_layers[name]
@@ -559,14 +553,14 @@ class Inspector(anywidget.AnyWidget):
             layers = self._host_map.ee_layers
         return {k: v for k, v in layers.items() if v["ee_layer"].visible}
 
-    def _point_info(self, latlon: List[float]) -> Dict[str, Any]:
+    def _point_info(self, latlon: list[float]) -> dict[str, Any]:
         """Gets information about a point.
 
         Args:
-            latlon (List[float]): The latitude and longitude of the point.
+            latlon: The latitude and longitude of the point.
 
         Returns:
-            Dict[str, Any]: The node containing the point information.
+            The node containing the point information.
         """
         scale = self._host_map.get_scale()
         label = (
@@ -586,16 +580,16 @@ class Inspector(anywidget.AnyWidget):
         )
 
     def _query_point(
-        self, latlon: List[float], ee_object: ee.ComputedObject
-    ) -> Optional[Dict[str, Any]]:
+        self, latlon: list[float], ee_object: ee.ComputedObject
+    ) -> dict[str, Any] | None:
         """Queries a point on the map.
 
         Args:
-            latlon (List[float]): The latitude and longitude of the point.
-            ee_object (ee.ComputedObject): The Earth Engine object to query.
+            latlon: The latitude and longitude of the point.
+            ee_object: The Earth Engine object to query.
 
         Returns:
-            Optional[Dict[str, Any]]: The query result.
+            The query result.
         """
         point = ee.Geometry.Point(latlon[::-1])
         scale = self._host_map.get_scale()
@@ -605,14 +599,14 @@ class Inspector(anywidget.AnyWidget):
             return ee_object.reduceRegion(ee.Reducer.first(), point, scale).getInfo()
         return None
 
-    def _pixel_info(self, latlon: List[float]) -> Dict[str, Any]:
+    def _pixel_info(self, latlon: list[float]) -> dict[str, Any]:
         """Gets information about pixels at a point.
 
         Args:
-            latlon (List[float]): The latitude and longitude of the point.
+            latlon: The latitude and longitude of the point.
 
         Returns:
-            Dict[str, Any]: The node containing the pixels information.
+            The node containing the pixels information.
         """
 
         root = coreutils.new_tree_node("Pixels", expanded=True, top_level=True)
@@ -641,24 +635,26 @@ class Inspector(anywidget.AnyWidget):
 
         return root
 
-    def _get_bbox(self, latlon: List[float]) -> ee.Geometry.BBox:
+    def _get_bbox(
+        self, latlon: list[float]
+    ) -> ee.Geometry.BBox:  # pytype: disable=invalid-annotation
         """Gets a bounding box around a point.
 
         Args:
-            latlon (List[float]): The latitude and longitude of the point.
+            latlon: The latitude and longitude of the point.
 
         Returns:
-            ee.Geometry.BBox: The bounding box around the point.
+            The bounding box around the point.
         """
         lat, lon = latlon
         delta = 0.005
         return ee.Geometry.BBox(lon - delta, lat - delta, lon + delta, lat + delta)
 
-    def _object_info(self, latlon: List[float]) -> Dict[str, Any]:
+    def _object_info(self, latlon: list[float]) -> dict[str, Any]:
         """Gets information about objects at a point.
 
         Args:
-            latlon (List[float]): The latitude and longitude of the point.
+            latlon: The latitude and longitude of the point.
 
         Returns:
             ipytree.Node: The node containing the objects information.
@@ -710,8 +706,10 @@ class LayerManagerRow(anywidget.AnyWidget):
         self.visible = self._get_layer_visibility()
         self.opacity = self._get_layer_opacity()
 
-        self.opacity_link: Optional[ipywidgets.widget_link.Link] = None
-        self.visibility_link: Optional[ipywidgets.widget_link.Link] = None
+        # pytype: disable=invalid-annotation
+        self.opacity_link: ipywidgets.widget_link.Link | None = None
+        self.visibility_link: ipywidgets.widget_link.Link | None = None
+        # pytype: enable=invalid-annotation
         self._setup_event_listeners()
 
     def _can_set_up_jslink(self, obj: Any, trait: str) -> bool:
@@ -734,18 +732,18 @@ class LayerManagerRow(anywidget.AnyWidget):
         if self._can_set_up_jslink(self.layer, "visible"):
             self.visibility_link = link_func((self.layer, "visible"), (self, "visible"))
 
-    def _on_layer_loading_changed(self, change: Dict[str, Any]) -> None:
+    def _on_layer_loading_changed(self, change: dict[str, Any]) -> None:
         self.is_loading = change.get("new", False)
 
     def _handle_message_event(
-        self, widget: ipywidgets.Widget, content: Dict[str, Any], buffers: List[Any]
+        self, widget: ipywidgets.Widget, content: dict[str, Any], buffers: list[Any]
     ) -> None:
         del widget, buffers  # Unused
         if content.get("type") == "click":
             self._handle_button_click(content.get("id", ""))
 
     @traitlets.observe("opacity")
-    def _on_opacity_change(self, change: Dict[str, Any]) -> None:
+    def _on_opacity_change(self, change: dict[str, Any]) -> None:
         if self._can_set_up_jslink(self.layer, "opacity"):
             return  # Return if the opacity is handled by a jslink.
         if opacity := change.get("new"):
@@ -814,7 +812,7 @@ class LayerManager(anywidget.AnyWidget):
         return LayerManagerRow(self.host_map, layer)
 
     @traitlets.observe("visible")
-    def _observe_visible(self, change: Dict[str, Any]) -> None:
+    def _observe_visible(self, change: dict[str, Any]) -> None:
         # When the `visible` property changes, propagate that change to all children.
         if (visible := change.get("new")) is not None:
             for child in self.children:
@@ -834,12 +832,12 @@ class BasemapSelector(anywidget.AnyWidget):
     provider = traitlets.Unicode("").tag(sync=True)
     resource = traitlets.Unicode("").tag(sync=True)
 
-    def __init__(self, basemaps: List[str], value: str):
+    def __init__(self, basemaps: list[str], value: str):
         """Creates a widget for selecting a basemap.
 
         Args:
-            basemaps (list): The list of basemap names to make available for selection.
-            value (str): The default value from basemaps to select.
+            basemaps: The list of basemap names to make available for selection.
+            value: The default value from basemaps to select.
         """
         super().__init__()
         self.on_close = None
@@ -850,13 +848,13 @@ class BasemapSelector(anywidget.AnyWidget):
         self.resource = resource
         self._setup_event_listeners()
 
-    def _parse_basemap_name(self, name: str) -> Tuple[str, str]:
+    def _parse_basemap_name(self, name: str) -> tuple[str, str]:
         components = name.split(".")
         resource = ".".join(components[1:]) if len(components) > 1 else ""
         return components[0], resource
 
-    def _get_basemap_dictionary(self, basemaps: List[str]) -> Dict[str, List[str]]:
-        basemaps_dict: Dict[str, List[str]] = {}
+    def _get_basemap_dictionary(self, basemaps: list[str]) -> dict[str, list[str]]:
+        basemaps_dict: dict[str, list[str]] = {}
         for basemap in basemaps:
             provider, resource = self._parse_basemap_name(basemap)
             provider_map = basemaps_dict.setdefault(provider, [])
@@ -868,7 +866,7 @@ class BasemapSelector(anywidget.AnyWidget):
         self.on_msg(self._handle_message_event)
 
     def _handle_message_event(
-        self, widget: ipywidgets.Widget, content: Dict[str, Any], buffers: List[Any]
+        self, widget: ipywidgets.Widget, content: dict[str, Any], buffers: list[Any]
     ) -> None:
         del widget, buffers  # Unused
         if content.get("type") == "click":
@@ -919,12 +917,12 @@ class LayerEditor(anywidget.AnyWidget):
         help="List of widget children",
     ).tag(sync=True, **ipywidgets.widget_serialization)
 
-    def __init__(self, host_map: "geemap.Map", layer_dict: Optional[Dict[str, Any]]):
+    def __init__(self, host_map: "geemap.Map", layer_dict: dict[str, Any] | None):
         """Initializes a layer editor widget.
 
         Args:
-            host_map (geemap.Map): The geemap.Map object.
-            layer_dict (Optional[Dict[str, Any]]): The layer object to edit.
+            host_map: The geemap.Map object.
+            layer_dict: The layer object to edit.
         """
         super().__init__()
 
@@ -959,7 +957,7 @@ class LayerEditor(anywidget.AnyWidget):
             self.on_close()
 
     def _handle_message_event(
-        self, widget: ipywidgets.Widget, content: Dict[str, Any], buffers: List[Any]
+        self, widget: ipywidgets.Widget, content: dict[str, Any], buffers: list[Any]
     ) -> None:
         del widget, buffers  # Unused
 
@@ -992,9 +990,7 @@ class LayerEditor(anywidget.AnyWidget):
             if response:
                 self.send({"type": msg_type, "id": msg_id, "response": response})
 
-    def _calculate_band_stats(
-        self, message: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+    def _calculate_band_stats(self, message: dict[str, Any]) -> dict[str, Any] | None:
         (s, w), (n, e) = self._host_map.bounds
         map_bbox = ee.Geometry.BBox(west=w, south=s, east=e, north=n)
 
@@ -1005,7 +1001,11 @@ class LayerEditor(anywidget.AnyWidget):
             return None
 
         stretch_params = {}
-        stretch_value = int(re.search(r"\d+", stretch).group())
+        stretch_value = int(
+            # pytype: disable=attribute-error
+            re.search(r"\d+", stretch).group()
+            # pytype: enable=attribute-error
+        )
         if stretch.startswith("percent"):
             stretch_params["percent"] = stretch_value / 100.0
         elif stretch.startswith("sigma"):
@@ -1017,15 +1017,11 @@ class LayerEditor(anywidget.AnyWidget):
         return {"stretch": stretch, "min": min_val, "max": max_val}
 
     def _render_colorbar(
-        self, colors: List[str], band_min: float, band_max: float
+        self, colors: list[str], band_min: float, band_max: float
     ) -> None:
         if len(colors) < 2:
             self.children = []
             return
-
-        import matplotlib  # pylint: disable=import-outside-toplevel
-        from matplotlib import pyplot  # pylint: disable=import-outside-toplevel
-        import numpy  # pylint: disable=import-outside-toplevel
 
         _, ax = pyplot.subplots(figsize=(5, 0.3))
         cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
@@ -1044,10 +1040,7 @@ class LayerEditor(anywidget.AnyWidget):
             pyplot.show()
         self.children = [colorbar_output]
 
-    def _calculate_palette(self, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        import matplotlib  # pylint: disable=import-outside-toplevel
-        from matplotlib import pyplot  # pylint: disable=import-outside-toplevel
-
+    def _calculate_palette(self, message: dict[str, Any]) -> dict[str, Any] | None:
         colormap = message.get("colormap", "")
         classes = message.get("classes", "")
         palette = message.get("palette", "")
@@ -1067,7 +1060,7 @@ class LayerEditor(anywidget.AnyWidget):
         self._render_colorbar(colors, band_min, band_max)
         return {"palette": ", ".join(colors)}
 
-    def _calculate_fields(self) -> Dict[str, Any]:
+    def _calculate_fields(self) -> dict[str, Any]:
         available_fields = ee.Feature(self._ee_object.first()).propertyNames().getInfo()
         if available_fields:
             field = available_fields[0]
@@ -1075,7 +1068,7 @@ class LayerEditor(anywidget.AnyWidget):
             return {"fields": available_fields, "field-values": values}
         return {"fields": [], "field-values": []}
 
-    def _calculate_field_values(self, message: Dict[str, Any]) -> Dict[str, Any]:
+    def _calculate_field_values(self, message: dict[str, Any]) -> dict[str, Any]:
         field = message.get("field")
         options = self._ee_object.aggregate_array(field).getInfo()
         if options:
@@ -1083,10 +1076,8 @@ class LayerEditor(anywidget.AnyWidget):
             options.sort()
         return {"field-values": options or []}
 
-    def _get_colormaps(self) -> List[str]:
+    def _get_colormaps(self) -> list[str]:
         """Gets the list of available colormaps."""
-        from matplotlib import pyplot  # pylint: disable=import-outside-toplevel
-
         colormap_options = pyplot.colormaps()
         colormap_options.sort()
         return ["Custom"] + colormap_options
@@ -1095,13 +1086,13 @@ class LayerEditor(anywidget.AnyWidget):
         """Adds opacity to a hex string (e.g. #000000 to #000000FF)."""
         return base_color[1:] + str(hex(int(opacity * 255)))[2:].zfill(2)
 
-    def _on_import_click_vector(self, state: Dict[str, Any]) -> None:
+    def _on_import_click_vector(self, state: dict[str, Any]) -> None:
         """Handles the import button click event for vector layers."""
         vis_options = self._get_vis_params(state)
         coreutils.create_code_cell(f"style = {str(vis_options)}")
         print(f"style = {str(vis_options)}")
 
-    def _get_vis_params(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    def _get_vis_params(self, state: dict[str, Any]) -> dict[str, Any]:
         color = self._hex_with_opacity(
             state.get("color", ""), state.get("opacity", 1.0)
         )
@@ -1122,7 +1113,7 @@ class LayerEditor(anywidget.AnyWidget):
             vis_options["pointShape"] = point_shape
         return vis_options
 
-    def _on_apply_click_vector(self, state: Dict[str, Any]) -> None:
+    def _on_apply_click_vector(self, state: dict[str, Any]) -> None:
         """Handles the apply button click event from a vector layer."""
         if self.layer_name in self._host_map.ee_layers:
             self._host_map.remove(self._ee_layer)
@@ -1165,13 +1156,13 @@ class LayerEditor(anywidget.AnyWidget):
         if legend := state.get("legend"):
             self._apply_legend(legend, state.get("palette"), 0.0, 1.0)
 
-    def _on_import_click_raster(self, vis_params: Dict[str, Any]) -> None:
+    def _on_import_click_raster(self, vis_params: dict[str, Any]) -> None:
         """Handles the import button click event for raster layers."""
         vis_params.pop("opacity", None)
         coreutils.create_code_cell(f"vis_params = {str(vis_params)}")
         print(f"vis_params = {str(vis_params)}")
 
-    def _on_apply_click_raster(self, vis_params: Dict[str, Any]) -> None:
+    def _on_apply_click_raster(self, vis_params: dict[str, Any]) -> None:
         """Handles the apply button click event from a raster layer."""
         opacity = vis_params.pop("opacity", 1.0)
         legend = vis_params.pop("legend", {})
@@ -1189,10 +1180,10 @@ class LayerEditor(anywidget.AnyWidget):
 
     def _apply_legend(
         self,
-        legend: Dict[str, Any],
-        palette: Optional[str],
-        min_value: Optional[float],
-        max_value: Optional[float],
+        legend: dict[str, Any],
+        palette: str | None,
+        min_value: float | None,
+        max_value: float | None,
     ) -> None:
         if legend.get("type") == "linear":
             if hasattr(self._host_map, "_add_colorbar"):
@@ -1262,7 +1253,7 @@ class SearchBar(anywidget.AnyWidget):
         self.on_msg(self.handle_message_event)
 
     def handle_message_event(
-        self, widget: ipywidgets.Widget, content: Dict[str, Any], buffers: List[Any]
+        self, widget: ipywidgets.Widget, content: dict[str, Any], buffers: list[Any]
     ) -> None:
         del widget, buffers  # Unused
         if content.get("type") == "click":
@@ -1278,7 +1269,7 @@ class SearchBar(anywidget.AnyWidget):
             self.on_close()
 
     @traitlets.observe("location_model")
-    def _observe_location_model(self, change: Dict[str, Any]) -> None:
+    def _observe_location_model(self, change: dict[str, Any]) -> None:
         old = json.loads(change.get("old"))
         new = json.loads(change.get("new"))
         if new["search"] != old["search"]:
@@ -1304,7 +1295,7 @@ class SearchBar(anywidget.AnyWidget):
             self._set_selected_location(new["selected"])
 
     @traitlets.observe("dataset_model")
-    def _observe_dataset_model(self, change: Dict[str, Any]) -> None:
+    def _observe_dataset_model(self, change: dict[str, Any]) -> None:
         old = json.loads(change.get("old"))
         new = json.loads(change.get("new"))
         if new["search"] != old["search"]:
@@ -1436,10 +1427,12 @@ class SearchBar(anywidget.AnyWidget):
 
     def get_ee_example(self, asset_id):
         try:
-            import importlib.resources
-
             pkg_dir = str(
-                importlib.resources.files("geemap").joinpath("geemap.py").parent
+                # pytype: disable=attribute-error
+                importlib.resources.files("geemap")
+                .joinpath("geemap.py")
+                .parent
+                # pytype: enable=attribute-error
             )
             with open(os.path.join(pkg_dir, "data/gee_f.json"), encoding="utf-8") as f:
                 functions = json.load(f)
@@ -1462,7 +1455,6 @@ class SearchBar(anywidget.AnyWidget):
 
         except Exception as e:
             pass
-        return
 
     def import_button_clicked(self):
         dataset_model = json.loads(self.dataset_model)
@@ -1488,7 +1480,7 @@ class SearchBar(anywidget.AnyWidget):
                 }
                 datatype = translate[dataset["type"]]
                 id_ = dataset["id"]
-                line1 = "{} = ee.{}('{}')".format(dataset_uid, datatype, id_)
+                line1 = f"{dataset_uid} = ee.{datatype}('{id_}')"
                 action = {
                     "image_collection": f"\n{self.host_map._var_name}.addLayer({dataset_uid}, {{}}, '{id_}')",
                     "image": f"\n{self.host_map._var_name}.addLayer({dataset_uid}, {{}}, '{id_}')",
@@ -1499,7 +1491,7 @@ class SearchBar(anywidget.AnyWidget):
                 code = [line1, line2]
 
             contents = "".join(code).strip()
-            # create_code_cell(contents)
+            # coreutils.create_code_cell(contents)
             copy_success = False
             try:
                 import pyperclip

@@ -3,7 +3,7 @@ Type annotations for backupsearch service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backupsearch/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -29,12 +30,6 @@ from .literals import (
     TimeConditionOperatorType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -149,7 +144,7 @@ class GetSearchJobInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -220,11 +215,11 @@ class UntagResourceRequestTypeDef(TypedDict):
     TagKeys: Sequence[str]
 
 class SearchScopeOutputTypeDef(TypedDict):
-    BackupResourceTypes: List[ResourceTypeType]
+    BackupResourceTypes: list[ResourceTypeType]
     BackupResourceCreationTime: NotRequired[BackupCreationTimeFilterOutputTypeDef]
-    SourceResourceArns: NotRequired[List[str]]
-    BackupResourceArns: NotRequired[List[str]]
-    BackupResourceTags: NotRequired[Dict[str, str]]
+    SourceResourceArns: NotRequired[list[str]]
+    BackupResourceArns: NotRequired[list[str]]
+    BackupResourceTags: NotRequired[dict[str, str]]
 
 class BackupCreationTimeFilterTypeDef(TypedDict):
     CreatedAfter: NotRequired[TimestampTypeDef]
@@ -235,28 +230,28 @@ class TimeConditionTypeDef(TypedDict):
     Operator: NotRequired[TimeConditionOperatorType]
 
 class EBSItemFilterOutputTypeDef(TypedDict):
-    FilePaths: NotRequired[List[StringConditionTypeDef]]
-    Sizes: NotRequired[List[LongConditionTypeDef]]
-    CreationTimes: NotRequired[List[TimeConditionOutputTypeDef]]
-    LastModificationTimes: NotRequired[List[TimeConditionOutputTypeDef]]
+    FilePaths: NotRequired[list[StringConditionTypeDef]]
+    Sizes: NotRequired[list[LongConditionTypeDef]]
+    CreationTimes: NotRequired[list[TimeConditionOutputTypeDef]]
+    LastModificationTimes: NotRequired[list[TimeConditionOutputTypeDef]]
 
 class S3ItemFilterOutputTypeDef(TypedDict):
-    ObjectKeys: NotRequired[List[StringConditionTypeDef]]
-    Sizes: NotRequired[List[LongConditionTypeDef]]
-    CreationTimes: NotRequired[List[TimeConditionOutputTypeDef]]
-    VersionIds: NotRequired[List[StringConditionTypeDef]]
-    ETags: NotRequired[List[StringConditionTypeDef]]
+    ObjectKeys: NotRequired[list[StringConditionTypeDef]]
+    Sizes: NotRequired[list[LongConditionTypeDef]]
+    CreationTimes: NotRequired[list[TimeConditionOutputTypeDef]]
+    VersionIds: NotRequired[list[StringConditionTypeDef]]
+    ETags: NotRequired[list[StringConditionTypeDef]]
 
 class ExportSpecificationTypeDef(TypedDict):
     s3ExportSpecification: NotRequired[S3ExportSpecificationTypeDef]
 
 class ListSearchResultExportJobsOutputTypeDef(TypedDict):
-    ExportJobs: List[ExportJobSummaryTypeDef]
+    ExportJobs: list[ExportJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartSearchJobOutputTypeDef(TypedDict):
@@ -298,7 +293,7 @@ class ListSearchResultExportJobsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListSearchJobBackupsOutputTypeDef(TypedDict):
-    Results: List[SearchJobBackupsResultTypeDef]
+    Results: list[SearchJobBackupsResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -327,8 +322,8 @@ class S3ItemFilterTypeDef(TypedDict):
     ETags: NotRequired[Sequence[StringConditionTypeDef]]
 
 class ItemFiltersOutputTypeDef(TypedDict):
-    S3ItemFilters: NotRequired[List[S3ItemFilterOutputTypeDef]]
-    EBSItemFilters: NotRequired[List[EBSItemFilterOutputTypeDef]]
+    S3ItemFilters: NotRequired[list[S3ItemFilterOutputTypeDef]]
+    EBSItemFilters: NotRequired[list[EBSItemFilterOutputTypeDef]]
 
 class GetSearchResultExportJobOutputTypeDef(TypedDict):
     ExportJobIdentifier: str
@@ -349,12 +344,12 @@ class StartSearchResultExportJobInputTypeDef(TypedDict):
     RoleArn: NotRequired[str]
 
 class ListSearchJobsOutputTypeDef(TypedDict):
-    SearchJobs: List[SearchJobSummaryTypeDef]
+    SearchJobs: list[SearchJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListSearchJobResultsOutputTypeDef(TypedDict):
-    Results: List[ResultItemTypeDef]
+    Results: list[ResultItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

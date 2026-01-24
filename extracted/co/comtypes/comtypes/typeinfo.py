@@ -6,6 +6,7 @@
 import ctypes
 import sys
 import weakref
+from collections.abc import Callable, Sequence
 from ctypes import (
     HRESULT,
     POINTER,
@@ -30,18 +31,7 @@ from ctypes.wintypes import (
     WCHAR,
     WORD,
 )
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    TypeVar,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, overload
 from typing import Union as _UnionT
 
 from comtypes import BSTR, COMMETHOD, GUID, IID, STDMETHOD, IUnknown, _CData
@@ -258,7 +248,7 @@ class ITypeLib(IUnknown):
 
         def GetDocumentation(
             self, index: int
-        ) -> Tuple[str, Optional[str], int, Optional[str]]:
+        ) -> tuple[str, Optional[str], int, Optional[str]]:
             """Return documentation for a type description."""
             ...
 
@@ -288,7 +278,7 @@ class ITypeLib(IUnknown):
 
     def FindName(
         self, name: str, lHashVal: int = 0
-    ) -> Optional[Tuple[int, "ITypeInfo"]]:
+    ) -> Optional[tuple[int, "ITypeInfo"]]:
         # Hm...
         # Could search for more than one name - should we support this?
         found = ctypes.c_ushort(1)
@@ -343,7 +333,7 @@ class ITypeInfo(IUnknown):
         # ),
         def GetDllEntry(
             self, memid: int, invkind: int
-        ) -> Tuple[Optional[str], Optional[str], int]:
+        ) -> tuple[Optional[str], Optional[str], int]:
             """Return the dll name, function name, and ordinal for a function
             and invkind.
             """
@@ -357,7 +347,7 @@ class ITypeInfo(IUnknown):
             """Get marshalling opcodes (whatever that is...)"""
             ...
 
-        def GetContainingTypeLib(self) -> Tuple[ITypeLib, int]:
+        def GetContainingTypeLib(self) -> tuple[ITypeLib, int]:
             """Return index into and the containing type lib itself"""
             ...
 
@@ -382,7 +372,7 @@ class ITypeInfo(IUnknown):
 
     def GetDocumentation(
         self, memid: int
-    ) -> Tuple[str, Optional[str], int, Optional[str]]:
+    ) -> tuple[str, Optional[str], int, Optional[str]]:
         """Return name, docstring, helpcontext, and helpfile for 'memid'."""
         name, doc, helpctx, helpfile = self._GetDocumentation(memid)  # type: ignore
         return fix_name(name), fix_name(doc), helpctx, fix_name(helpfile)
@@ -401,32 +391,30 @@ class ITypeInfo(IUnknown):
             self.ReleaseVarDesc,
         )
 
-    def GetNames(self, memid: int, count: int = 1) -> List[str]:
+    def GetNames(self, memid: int, count: int = 1) -> list[str]:
         """Return names for memid"""
         names = (BSTR * count)()
         cnames = ctypes.c_uint()
         self.__com_GetNames(memid, names, count, byref(cnames))  # type: ignore
         return names[: cnames.value]
 
-    def GetIDsOfNames(self, *names: str) -> List[int]:
+    def GetIDsOfNames(self, *names: str) -> list[int]:
         """Maps function and argument names to identifiers"""
         rgsznames = (c_wchar_p * len(names))(*names)
         ids = (MEMBERID * len(names))()
         self.__com_GetIDsOfNames(rgsznames, len(names), ids)  # type: ignore
         return ids[:]
 
-    def AddressOfMember(self, memid, invkind):
+    def AddressOfMember(self, memid: int, invkind: int) -> int:
         """Get the address of a function in a dll"""
-        raise RuntimeError("Check Me")
         p = c_void_p()
-        self.__com_AddressOfMember(memid, invkind, byref(p))
-        # XXX Would the default impl return the value of p?
-        return p.value
+        self.__com_AddressOfMember(memid, invkind, byref(p))  # type: ignore
+        return p.value  # type: ignore
 
     def CreateInstance(
         self,
-        punkouter: Optional[Type["_Pointer[IUnknown]"]] = None,
-        interface: Type[_T_IUnknown] = IUnknown,
+        punkouter: Optional[type["_Pointer[IUnknown]"]] = None,
+        interface: type[_T_IUnknown] = IUnknown,
         iid: Optional[GUID] = None,
     ) -> _T_IUnknown:
         if iid is None:
@@ -442,7 +430,12 @@ class ITypeComp(IUnknown):
 
     def Bind(
         self, name: str, flags: int = 0, lHashVal: int = 0
-    ) -> Optional[Tuple[str, _UnionT["FUNCDESC", "VARDESC", "ITypeComp"]]]:
+    ) -> _UnionT[
+        tuple[Literal["function"], "FUNCDESC"],
+        tuple[Literal["variable"], "VARDESC"],
+        tuple[Literal["type"], "ITypeComp"],
+        None,
+    ]:
         """Bind to a name"""
         bindptr = BINDPTR()
         desckind = DESCKIND()
@@ -466,11 +459,18 @@ class ITypeComp(IUnknown):
         elif kind == DESCKIND_TYPECOMP:
             return "type", bindptr.lptcomp
         elif kind == DESCKIND_IMPLICITAPPOBJ:
+            # `DESCKIND_IMPLICITAPPOBJ` is rare; mainly for Office Application.
+            # It indicates a global application object (`TYPEFLAG_FAPPOBJECT`).
+            # Few other COM components use this highly specialized flag.
+            # Thus, this path is unlikely to be hit in common scenarios.
             raise NotImplementedError
         elif kind == DESCKIND_NONE:
             raise NameError("Name %s not found" % name)
+        # `DESCKIND_MAX` is an end-of-enumeration marker, not a valid return
+        # from `ITypeComp::Bind` in COM. If returned, it implies a malformed
+        # type library. The current implementation implicitly returns `None`.
 
-    def BindType(self, name: str, lHashVal: int = 0) -> Tuple[ITypeInfo, "ITypeComp"]:
+    def BindType(self, name: str, lHashVal: int = 0) -> tuple[ITypeInfo, "ITypeComp"]:
         """Bind a type, and return both the typeinfo and typecomp for it."""
         ti = POINTER(ITypeInfo)()
         tc = POINTER(ITypeComp)()
@@ -505,7 +505,7 @@ class IRecordInfo(IUnknown):
     # C:/vc98/include/OAIDL.H 5974
     _iid_ = GUID("{0000002F-0000-0000-C000-000000000046}")
 
-    def GetFieldNames(self, *args: Any) -> List[Optional[str]]:
+    def GetFieldNames(self, *args: Any) -> list[Optional[str]]:
         count = ctypes.c_ulong()
         self.__com_GetFieldNames(count, None)  # type: ignore
         array = (BSTR * count.value)()
@@ -765,9 +765,13 @@ def GetModuleFileName(handle: Optional[int], maxsize: int) -> str:
     """Returns the fullpath of the loaded module specified by the handle.
     If the handle is NULL, returns the executable file path of the current process.
 
-    https://learn.microsoft.com/ja-jp/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryw
+    https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamew
     """
     buf = create_unicode_buffer(maxsize)
+    # In a Python virtual environment on Windows, the Windows API
+    # `GetModuleFileNameW(NULL, ..., ...)` returns the path to the base
+    # `python.exe` (located within `sys.base_prefix`, not same as
+    # `sys.executable`).
     length = _GetModuleFileNameW(handle, buf, maxsize)
     if not length:
         raise ctypes.WinError()

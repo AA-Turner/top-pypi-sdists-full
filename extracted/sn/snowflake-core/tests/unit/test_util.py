@@ -1,6 +1,9 @@
+from decimal import Decimal
+
 import pytest
 
-from snowflake.core._utils import fix_hostname, replace_function_name_in_name_with_args
+from snowflake.core._utils import fix_hostname, map_result, replace_function_name_in_name_with_args
+from snowflake.core.procedure import Procedure, ReturnDataType, SQLFunction
 
 
 def test_replace_function_name_in_name_with_args():
@@ -56,3 +59,17 @@ def test_replace_function_name_in_name_with_args():
 )
 def test_hostname_fixes(hostname, expected_hostname):
     assert (fix_hostname(hostname)) == expected_hostname
+
+
+@pytest.mark.parametrize(
+    ("raw_result", "expected_result"), (("1", Decimal(1)), ("1.23", Decimal("1.23")), ("-1.23e40", Decimal("-1.23e40")))
+)
+def test_map_result(raw_result, expected_result):
+    procedure = Procedure(
+        name="test_proc",
+        return_type=ReturnDataType(datatype="DECFLOAT"),
+        arguments=[],
+        language_config=SQLFunction(),
+        body="",
+    )
+    assert map_result(procedure, [{"test_proc": raw_result}], extract=True) == expected_result

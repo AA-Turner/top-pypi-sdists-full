@@ -13,14 +13,12 @@ class AddonPreferences:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AssetShelf:
@@ -31,14 +29,12 @@ class AssetShelf:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class _GenericBone:
@@ -78,14 +74,12 @@ class BoneCollection:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class Collection(bpy.types.ID):
@@ -98,14 +92,12 @@ class Collection(bpy.types.ID):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class Context:
@@ -116,36 +108,31 @@ class Context:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def copy(self) -> dict[str, typing.Any]:
         """Get context members as a dictionary.
 
         :return:
-        :rtype: dict[str, typing.Any]
         """
 
     def path_resolve(self, path: str, coerce: bool = True) -> None:
         """Returns the property from the path, raise an exception when not found.
 
         :param path: patch which this property resolves.
-        :type path: str
         :param coerce: optional argument, when True, the property will be converted into its Python representation.
-        :type coerce: bool
         """
 
-    def temp_override(self) -> None:
+    def temp_override(self) -> bpy.types.ContextTempOverride:
         """Context manager to temporarily override members in the context.
 
-        :return: The context manager .
+        :return: The context manager.
         """
 
 class FileHandler:
@@ -156,14 +143,12 @@ class FileHandler:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class Gizmo:
@@ -174,14 +159,12 @@ class Gizmo:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw_custom_shape(
@@ -196,12 +179,9 @@ class Gizmo:
         """Draw a shape created form `Gizmo.draw_custom_shape`.
 
                 :param shape: The cached shape to draw.
-                :type shape: typing.Any
                 :param matrix: 4x4 matrix, when not given `Gizmo.matrix_world` is used.
-                :type matrix: collections.abc.Sequence[collections.abc.Sequence[float]] | mathutils.Matrix | None
                 :param select_id: The selection id.
         Only use when drawing within `Gizmo.draw_select`.
-                :type select_id: int | None
         """
 
     @staticmethod
@@ -211,11 +191,8 @@ class Gizmo:
         """Create a new shape that can be passed to `Gizmo.draw_custom_shape`.
 
         :param type: The type of shape to create in (POINTS, LINES, TRIS, LINE_STRIP).
-        :type type: str
         :param verts: Sequence of 2D or 3D coordinates.
-        :type verts: collections.abc.Sequence[collections.abc.Sequence[float]]
         :return: The newly created shape (the return type make change).
-        :rtype: typing.Any
         """
 
 class GizmoGroup:
@@ -226,14 +203,12 @@ class GizmoGroup:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class GreasePencilDrawing:
@@ -245,14 +220,12 @@ class GreasePencilDrawing:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class _GenericUI:
@@ -289,14 +262,12 @@ class RenderEngine:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class KeyingSetInfo:
@@ -307,14 +278,12 @@ class KeyingSetInfo:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class Library(bpy.types.ID):
@@ -326,14 +295,12 @@ class Library(bpy.types.ID):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class Light(bpy.types.ID):
@@ -344,14 +311,12 @@ class Light(bpy.types.ID):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def cycles(self, *args, **kwargs) -> None:
@@ -376,14 +341,12 @@ class Macro:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     @classmethod
@@ -391,9 +354,7 @@ class Macro:
         """Append an operator to a registered macro class.
 
         :param operator: Identifier of the operator. This does not have to be defined when this function is called.
-        :type operator: str
         :return: The operator macro for property access.
-        :rtype: bpy.types.OperatorMacro
         """
 
 class Material(bpy.types.ID):
@@ -404,14 +365,12 @@ class Material(bpy.types.ID):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def cycles(self, *args, **kwargs) -> None:
@@ -440,14 +399,12 @@ class Mesh(bpy.types.ID):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def cycles(self, *args, **kwargs) -> None:
@@ -471,15 +428,12 @@ class Mesh(bpy.types.ID):
 
                 :param vertices: float triplets each representing (X, Y, Z)
         eg: [(0.0, 1.0, 0.5), ...].
-                :type vertices: collections.abc.Iterable[collections.abc.Sequence[float]]
                 :param edges: int pairs, each pair contains two indices to the
         vertices argument. eg: [(1, 2), ...]
 
         When an empty iterable is passed in, the edges are inferred from the polygons.
-                :type edges: collections.abc.Iterable[collections.abc.Sequence[int]]
                 :param faces: iterator of faces, each faces contains three or more indices to
         the vertices argument. eg: [(5, 6, 8, 9), (1, 2, 3), ...]
-                :type faces: collections.abc.Iterable[collections.abc.Sequence[int]]
                 :param shade_flat:
         """
 
@@ -509,14 +463,12 @@ class MeshEdge:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class MeshLoopTriangle:
@@ -529,14 +481,12 @@ class MeshLoopTriangle:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class MeshPolygon:
@@ -549,14 +499,12 @@ class MeshPolygon:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class Node:
@@ -567,14 +515,12 @@ class Node:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def is_registered_node_type(self, *args, **kwargs) -> None:
@@ -601,14 +547,12 @@ class NodeSocket:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class NodeTree(bpy.types.ID):
@@ -619,14 +563,12 @@ class NodeTree(bpy.types.ID):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class NodeTreeInterfaceItem:
@@ -637,14 +579,12 @@ class NodeTreeInterfaceItem:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class Object(bpy.types.ID):
@@ -666,14 +606,12 @@ class Object(bpy.types.ID):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def cycles(self, *args, **kwargs) -> None:
@@ -711,14 +649,12 @@ class Operator:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class PropertyGroup:
@@ -729,14 +665,12 @@ class PropertyGroup:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class Sound(bpy.types.ID):
@@ -748,14 +682,12 @@ class Sound(bpy.types.ID):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class Text(bpy.types.ID):
@@ -767,21 +699,18 @@ class Text(bpy.types.ID):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def region_as_string(self) -> str:
         """
 
         :return: The specified region as a string.
-        :rtype: str
         """
 
     def region_from_string(self) -> None: ...
@@ -796,14 +725,12 @@ class Texture(bpy.types.ID):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class USDHook:
@@ -814,14 +741,12 @@ class USDHook:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class WindowManager(bpy.types.ID):
@@ -868,14 +793,12 @@ class WindowManager(bpy.types.ID):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     @classmethod
@@ -885,12 +808,18 @@ class WindowManager(bpy.types.ID):
         Note: All arguments are positional only for now.
 
                 :return: Handler that can be removed later on.
-                :rtype: typing.Any
         """
 
     @classmethod
     def draw_cursor_remove(cls) -> None:
         """Remove a draw cursor handler that was added previously."""
+
+    def extension_repo_filter(self, *args, **kwargs) -> None:
+        """Intermediate storage for properties before registration.
+
+        :param args:
+        :param kwargs:
+        """
 
     def extension_search(self, *args, **kwargs) -> None:
         """Intermediate storage for properties before registration.
@@ -921,6 +850,13 @@ class WindowManager(bpy.types.ID):
         """
 
     def extension_type(self, *args, **kwargs) -> None:
+        """Intermediate storage for properties before registration.
+
+        :param args:
+        :param kwargs:
+        """
+
+    def extension_use_filter(self, *args, **kwargs) -> None:
         """Intermediate storage for properties before registration.
 
         :param args:
@@ -1120,14 +1056,12 @@ class WorkSpace(bpy.types.ID):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def status_text_set(self, text) -> None:
@@ -1153,14 +1087,12 @@ class World(bpy.types.ID):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def cycles(self, *args, **kwargs) -> None:
@@ -1224,14 +1156,12 @@ class Bone(_GenericBone):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class EditBone(_GenericBone):
@@ -1263,14 +1193,12 @@ class EditBone(_GenericBone):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def transform(
@@ -1285,12 +1213,9 @@ class EditBone(_GenericBone):
         (when the matrix has a scale component).
 
                 :param matrix: 3x3 or 4x4 transformation matrix.
-                :type matrix: collections.abc.Sequence[collections.abc.Sequence[float]] | mathutils.Matrix
                 :param scale: Scale the bone envelope by the matrix.
-                :type scale: bool
                 :param roll: Correct the roll to point in the same relative
         direction to the head and tail.
-                :type roll: bool
         """
 
 class PoseBone(_GenericBone):
@@ -1315,14 +1240,12 @@ class PoseBone(_GenericBone):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class Header(_GenericUI):
@@ -1333,14 +1256,12 @@ class Header(_GenericUI):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class Menu(_GenericUI):
@@ -1351,14 +1272,12 @@ class Menu(_GenericUI):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     @classmethod
@@ -1392,26 +1311,22 @@ class Menu(_GenericUI):
         display_name: collections.abc.Callable[str, str] | None = None,
         add_operator=None,
         add_operator_props=None,
+        translate=True,
     ) -> None:
         """Populate a menu from a list of paths.
 
                 :param searchpaths: Paths to scan.
-                :type searchpaths: collections.abc.Sequence[str]
                 :param operator: The operator id to use with each file.
-                :type operator: str
                 :param props_default: Properties to assign to each operator.
-                :type props_default: dict[str, typing.Any] | None
                 :param prop_filepath: Optional operator filepath property (defaults to "filepath").
-                :type prop_filepath: str
                 :param filter_ext: Optional callback that takes the file extensions.
 
         Returning false excludes the file from the list.
-                :type filter_ext: None | collections.abc.Callable[str, bool] | None
                 :param filter_path:
                 :param display_name: Optional callback that takes the full path, returns the name to display.
-                :type display_name: collections.abc.Callable[str, str] | None
                 :param add_operator:
                 :param add_operator_props:
+                :param translate:
         """
 
 class Panel(_GenericUI):
@@ -1422,14 +1337,12 @@ class Panel(_GenericUI):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class UIList(_GenericUI):
@@ -1440,14 +1353,12 @@ class UIList(_GenericUI):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class HydraRenderEngine(RenderEngine):
@@ -1460,14 +1371,12 @@ class HydraRenderEngine(RenderEngine):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def get_render_settings(self, engine_type) -> None:
@@ -1511,14 +1420,12 @@ class NodeInternal(Node):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def is_registered_node_type(self, *args, **kwargs) -> None:
@@ -1545,14 +1452,12 @@ class NodeTreeInterfaceSocket(NodeTreeInterfaceItem):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class _RNAMetaPropGroup(_RNAMeta):
@@ -1566,14 +1471,12 @@ class CompositorNode(NodeInternal):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def is_registered_node_type(self, *args, **kwargs) -> None:
@@ -1592,8 +1495,6 @@ class CompositorNode(NodeInternal):
                 :param ntree:
         """
 
-    def update(self) -> None: ...
-
 class GeometryNode(NodeInternal):
     bl_rna: typing.Any
     id_data: typing.Any
@@ -1602,14 +1503,12 @@ class GeometryNode(NodeInternal):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def is_registered_node_type(self, *args, **kwargs) -> None:
@@ -1636,14 +1535,12 @@ class ShaderNode(NodeInternal):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def is_registered_node_type(self, *args, **kwargs) -> None:
@@ -1670,14 +1567,12 @@ class TextureNode(NodeInternal):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def is_registered_node_type(self, *args, **kwargs) -> None:

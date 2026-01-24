@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: appdirs-stubs
-Version: 0.1.0
+Version: 0.2.0
 Summary: Type stubs for appdirs
 Author-email: Dominic Davis-Foster <dominic@davis-foster.co.uk>
 License: MIT
@@ -14,9 +14,9 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.6
+Requires-Python: >=3.9
 Requires-Dist: appdirs>=1.4.4
 Description-Content-Type: text/x-rst
 
@@ -70,8 +70,8 @@ Based on the work by Sebastian Meßmer in https://github.com/ActiveState/appdirs
 	:target: https://github.com/repo-helper/appdirs-stubs/actions?query=workflow%3A%22mypy%22
 	:alt: mypy status
 
-.. |requires| image:: https://requires.io/github/repo-helper/appdirs-stubs/requirements.svg?branch=master
-	:target: https://requires.io/github/repo-helper/appdirs-stubs/requirements/?branch=master
+.. |requires| image:: https://dependency-dash.repo-helper.uk/github/repo-helper/appdirs-stubs/badge.svg
+	:target: https://dependency-dash.repo-helper.uk/github/repo-helper/appdirs-stubs/
 	:alt: Requirements Status
 
 .. |codefactor| image:: https://img.shields.io/codefactor/grade/github/repo-helper/appdirs-stubs?logo=codefactor
@@ -101,7 +101,7 @@ Based on the work by Sebastian Meßmer in https://github.com/ActiveState/appdirs
 .. |language| image:: https://img.shields.io/github/languages/top/repo-helper/appdirs-stubs
 	:alt: GitHub top language
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/repo-helper/appdirs-stubs/v0.1.0
+.. |commits-since| image:: https://img.shields.io/github/commits-since/repo-helper/appdirs-stubs/v0.2.0
 	:target: https://github.com/repo-helper/appdirs-stubs/pulse
 	:alt: GitHub commits since tagged version
 
@@ -109,11 +109,11 @@ Based on the work by Sebastian Meßmer in https://github.com/ActiveState/appdirs
 	:target: https://github.com/repo-helper/appdirs-stubs/commit/master
 	:alt: GitHub last commit
 
-.. |maintained| image:: https://img.shields.io/maintenance/yes/2021
+.. |maintained| image:: https://img.shields.io/maintenance/yes/2026
 	:alt: Maintenance
 
 .. |pypi-downloads| image:: https://img.shields.io/pypi/dm/appdirs-stubs
-	:target: https://pypi.org/project/appdirs-stubs/
+	:target: https://pypistats.org/packages/appdirs-stubs
 	:alt: PyPI - Downloads
 
 .. end shields

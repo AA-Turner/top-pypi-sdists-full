@@ -9,81 +9,264 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Union
 from typing_extensions import NotRequired, TypedDict
 
+from .group_0343 import (
+    BranchRestrictionPolicyType,
+    BranchRestrictionPolicyTypeForResponse,
+)
+from .group_0353 import (
+    ProtectedBranchPropRequiredPullRequestReviewsType,
+    ProtectedBranchPropRequiredPullRequestReviewsTypeForResponse,
+)
 
-class DependencyGraphSpdxSbomType(TypedDict):
-    """Dependency Graph SPDX SBOM
 
-    A schema for the SPDX JSON format returned by the Dependency Graph.
+class ProtectedBranchType(TypedDict):
+    """Protected Branch
+
+    Branch protections protect branches
     """
 
-    sbom: DependencyGraphSpdxSbomPropSbomType
-
-
-class DependencyGraphSpdxSbomPropSbomType(TypedDict):
-    """DependencyGraphSpdxSbomPropSbom"""
-
-    spdxid: str
-    spdx_version: str
-    comment: NotRequired[str]
-    creation_info: DependencyGraphSpdxSbomPropSbomPropCreationInfoType
-    name: str
-    data_license: str
-    document_namespace: str
-    packages: list[DependencyGraphSpdxSbomPropSbomPropPackagesItemsType]
-    relationships: NotRequired[
-        list[DependencyGraphSpdxSbomPropSbomPropRelationshipsItemsType]
+    url: str
+    required_status_checks: NotRequired[StatusCheckPolicyType]
+    required_pull_request_reviews: NotRequired[
+        ProtectedBranchPropRequiredPullRequestReviewsType
     ]
-
-
-class DependencyGraphSpdxSbomPropSbomPropCreationInfoType(TypedDict):
-    """DependencyGraphSpdxSbomPropSbomPropCreationInfo"""
-
-    created: str
-    creators: list[str]
-
-
-class DependencyGraphSpdxSbomPropSbomPropRelationshipsItemsType(TypedDict):
-    """DependencyGraphSpdxSbomPropSbomPropRelationshipsItems"""
-
-    relationship_type: NotRequired[str]
-    spdx_element_id: NotRequired[str]
-    related_spdx_element: NotRequired[str]
-
-
-class DependencyGraphSpdxSbomPropSbomPropPackagesItemsType(TypedDict):
-    """DependencyGraphSpdxSbomPropSbomPropPackagesItems"""
-
-    spdxid: NotRequired[str]
-    name: NotRequired[str]
-    version_info: NotRequired[str]
-    download_location: NotRequired[str]
-    files_analyzed: NotRequired[bool]
-    license_concluded: NotRequired[str]
-    license_declared: NotRequired[str]
-    supplier: NotRequired[str]
-    copyright_text: NotRequired[str]
-    external_refs: NotRequired[
-        list[DependencyGraphSpdxSbomPropSbomPropPackagesItemsPropExternalRefsItemsType]
+    required_signatures: NotRequired[ProtectedBranchPropRequiredSignaturesType]
+    enforce_admins: NotRequired[ProtectedBranchPropEnforceAdminsType]
+    required_linear_history: NotRequired[ProtectedBranchPropRequiredLinearHistoryType]
+    allow_force_pushes: NotRequired[ProtectedBranchPropAllowForcePushesType]
+    allow_deletions: NotRequired[ProtectedBranchPropAllowDeletionsType]
+    restrictions: NotRequired[BranchRestrictionPolicyType]
+    required_conversation_resolution: NotRequired[
+        ProtectedBranchPropRequiredConversationResolutionType
     ]
+    block_creations: NotRequired[ProtectedBranchPropBlockCreationsType]
+    lock_branch: NotRequired[ProtectedBranchPropLockBranchType]
+    allow_fork_syncing: NotRequired[ProtectedBranchPropAllowForkSyncingType]
 
 
-class DependencyGraphSpdxSbomPropSbomPropPackagesItemsPropExternalRefsItemsType(
-    TypedDict
-):
-    """DependencyGraphSpdxSbomPropSbomPropPackagesItemsPropExternalRefsItems"""
+class ProtectedBranchTypeForResponse(TypedDict):
+    """Protected Branch
 
-    reference_category: str
-    reference_locator: str
-    reference_type: str
+    Branch protections protect branches
+    """
+
+    url: str
+    required_status_checks: NotRequired[StatusCheckPolicyTypeForResponse]
+    required_pull_request_reviews: NotRequired[
+        ProtectedBranchPropRequiredPullRequestReviewsTypeForResponse
+    ]
+    required_signatures: NotRequired[
+        ProtectedBranchPropRequiredSignaturesTypeForResponse
+    ]
+    enforce_admins: NotRequired[ProtectedBranchPropEnforceAdminsTypeForResponse]
+    required_linear_history: NotRequired[
+        ProtectedBranchPropRequiredLinearHistoryTypeForResponse
+    ]
+    allow_force_pushes: NotRequired[ProtectedBranchPropAllowForcePushesTypeForResponse]
+    allow_deletions: NotRequired[ProtectedBranchPropAllowDeletionsTypeForResponse]
+    restrictions: NotRequired[BranchRestrictionPolicyTypeForResponse]
+    required_conversation_resolution: NotRequired[
+        ProtectedBranchPropRequiredConversationResolutionTypeForResponse
+    ]
+    block_creations: NotRequired[ProtectedBranchPropBlockCreationsTypeForResponse]
+    lock_branch: NotRequired[ProtectedBranchPropLockBranchTypeForResponse]
+    allow_fork_syncing: NotRequired[ProtectedBranchPropAllowForkSyncingTypeForResponse]
+
+
+class ProtectedBranchPropRequiredSignaturesType(TypedDict):
+    """ProtectedBranchPropRequiredSignatures"""
+
+    url: str
+    enabled: bool
+
+
+class ProtectedBranchPropRequiredSignaturesTypeForResponse(TypedDict):
+    """ProtectedBranchPropRequiredSignatures"""
+
+    url: str
+    enabled: bool
+
+
+class ProtectedBranchPropEnforceAdminsType(TypedDict):
+    """ProtectedBranchPropEnforceAdmins"""
+
+    url: str
+    enabled: bool
+
+
+class ProtectedBranchPropEnforceAdminsTypeForResponse(TypedDict):
+    """ProtectedBranchPropEnforceAdmins"""
+
+    url: str
+    enabled: bool
+
+
+class ProtectedBranchPropRequiredLinearHistoryType(TypedDict):
+    """ProtectedBranchPropRequiredLinearHistory"""
+
+    enabled: bool
+
+
+class ProtectedBranchPropRequiredLinearHistoryTypeForResponse(TypedDict):
+    """ProtectedBranchPropRequiredLinearHistory"""
+
+    enabled: bool
+
+
+class ProtectedBranchPropAllowForcePushesType(TypedDict):
+    """ProtectedBranchPropAllowForcePushes"""
+
+    enabled: bool
+
+
+class ProtectedBranchPropAllowForcePushesTypeForResponse(TypedDict):
+    """ProtectedBranchPropAllowForcePushes"""
+
+    enabled: bool
+
+
+class ProtectedBranchPropAllowDeletionsType(TypedDict):
+    """ProtectedBranchPropAllowDeletions"""
+
+    enabled: bool
+
+
+class ProtectedBranchPropAllowDeletionsTypeForResponse(TypedDict):
+    """ProtectedBranchPropAllowDeletions"""
+
+    enabled: bool
+
+
+class ProtectedBranchPropRequiredConversationResolutionType(TypedDict):
+    """ProtectedBranchPropRequiredConversationResolution"""
+
+    enabled: NotRequired[bool]
+
+
+class ProtectedBranchPropRequiredConversationResolutionTypeForResponse(TypedDict):
+    """ProtectedBranchPropRequiredConversationResolution"""
+
+    enabled: NotRequired[bool]
+
+
+class ProtectedBranchPropBlockCreationsType(TypedDict):
+    """ProtectedBranchPropBlockCreations"""
+
+    enabled: bool
+
+
+class ProtectedBranchPropBlockCreationsTypeForResponse(TypedDict):
+    """ProtectedBranchPropBlockCreations"""
+
+    enabled: bool
+
+
+class ProtectedBranchPropLockBranchType(TypedDict):
+    """ProtectedBranchPropLockBranch
+
+    Whether to set the branch as read-only. If this is true, users will not be able
+    to push to the branch.
+    """
+
+    enabled: NotRequired[bool]
+
+
+class ProtectedBranchPropLockBranchTypeForResponse(TypedDict):
+    """ProtectedBranchPropLockBranch
+
+    Whether to set the branch as read-only. If this is true, users will not be able
+    to push to the branch.
+    """
+
+    enabled: NotRequired[bool]
+
+
+class ProtectedBranchPropAllowForkSyncingType(TypedDict):
+    """ProtectedBranchPropAllowForkSyncing
+
+    Whether users can pull changes from upstream when the branch is locked. Set to
+    `true` to allow fork syncing. Set to `false` to prevent fork syncing.
+    """
+
+    enabled: NotRequired[bool]
+
+
+class ProtectedBranchPropAllowForkSyncingTypeForResponse(TypedDict):
+    """ProtectedBranchPropAllowForkSyncing
+
+    Whether users can pull changes from upstream when the branch is locked. Set to
+    `true` to allow fork syncing. Set to `false` to prevent fork syncing.
+    """
+
+    enabled: NotRequired[bool]
+
+
+class StatusCheckPolicyType(TypedDict):
+    """Status Check Policy
+
+    Status Check Policy
+    """
+
+    url: str
+    strict: bool
+    contexts: list[str]
+    checks: list[StatusCheckPolicyPropChecksItemsType]
+    contexts_url: str
+
+
+class StatusCheckPolicyTypeForResponse(TypedDict):
+    """Status Check Policy
+
+    Status Check Policy
+    """
+
+    url: str
+    strict: bool
+    contexts: list[str]
+    checks: list[StatusCheckPolicyPropChecksItemsTypeForResponse]
+    contexts_url: str
+
+
+class StatusCheckPolicyPropChecksItemsType(TypedDict):
+    """StatusCheckPolicyPropChecksItems"""
+
+    context: str
+    app_id: Union[int, None]
+
+
+class StatusCheckPolicyPropChecksItemsTypeForResponse(TypedDict):
+    """StatusCheckPolicyPropChecksItems"""
+
+    context: str
+    app_id: Union[int, None]
 
 
 __all__ = (
-    "DependencyGraphSpdxSbomPropSbomPropCreationInfoType",
-    "DependencyGraphSpdxSbomPropSbomPropPackagesItemsPropExternalRefsItemsType",
-    "DependencyGraphSpdxSbomPropSbomPropPackagesItemsType",
-    "DependencyGraphSpdxSbomPropSbomPropRelationshipsItemsType",
-    "DependencyGraphSpdxSbomPropSbomType",
-    "DependencyGraphSpdxSbomType",
+    "ProtectedBranchPropAllowDeletionsType",
+    "ProtectedBranchPropAllowDeletionsTypeForResponse",
+    "ProtectedBranchPropAllowForcePushesType",
+    "ProtectedBranchPropAllowForcePushesTypeForResponse",
+    "ProtectedBranchPropAllowForkSyncingType",
+    "ProtectedBranchPropAllowForkSyncingTypeForResponse",
+    "ProtectedBranchPropBlockCreationsType",
+    "ProtectedBranchPropBlockCreationsTypeForResponse",
+    "ProtectedBranchPropEnforceAdminsType",
+    "ProtectedBranchPropEnforceAdminsTypeForResponse",
+    "ProtectedBranchPropLockBranchType",
+    "ProtectedBranchPropLockBranchTypeForResponse",
+    "ProtectedBranchPropRequiredConversationResolutionType",
+    "ProtectedBranchPropRequiredConversationResolutionTypeForResponse",
+    "ProtectedBranchPropRequiredLinearHistoryType",
+    "ProtectedBranchPropRequiredLinearHistoryTypeForResponse",
+    "ProtectedBranchPropRequiredSignaturesType",
+    "ProtectedBranchPropRequiredSignaturesTypeForResponse",
+    "ProtectedBranchType",
+    "ProtectedBranchTypeForResponse",
+    "StatusCheckPolicyPropChecksItemsType",
+    "StatusCheckPolicyPropChecksItemsTypeForResponse",
+    "StatusCheckPolicyType",
+    "StatusCheckPolicyTypeForResponse",
 )

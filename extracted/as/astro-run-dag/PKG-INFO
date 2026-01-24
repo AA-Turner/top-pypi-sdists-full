@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: astro-run-dag
-Version: 0.2.9
+Version: 0.2.10
 Summary: Run Airflow DAGs with just python
 License: Apache-2.0
 Keywords: python,DAG,airflow,astronomer

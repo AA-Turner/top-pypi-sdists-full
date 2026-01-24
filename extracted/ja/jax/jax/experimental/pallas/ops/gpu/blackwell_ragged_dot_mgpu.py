@@ -22,6 +22,7 @@ from jax._src import test_util as jtu  # noqa: F401
 from jax.experimental.mosaic.gpu import profiler
 import jax.experimental.pallas as pl
 import jax.experimental.pallas.mosaic_gpu as plgpu
+from jax.experimental.pallas.ops.gpu import blackwell_matmul_mgpu
 from jax.experimental.pallas.ops.gpu import ragged_dot_mgpu
 import jax.numpy as jnp
 import numpy as np
@@ -35,7 +36,8 @@ class TuningConfig:
   tile_k: int
   max_concurrent_steps: int
   collective: bool
-  grid_tile_n: int = 1
+  grid_tile_width: int
+  grid_minor_dim: blackwell_matmul_mgpu.MatmulDimension
   epilogue_tile_n: int = 64
 
   def __str__(self):
@@ -49,7 +51,7 @@ def do_matmul(a_gmem,
               grid_indices: Sequence[jax.Array],
               wg_axis: str,
               collective_axes: tuple[str, ...],
-              wave_step: jax.Array,
+              local_index: jax.Array,
               config: TuningConfig,
               group_info: ragged_dot_mgpu.GroupInfo,
               a_smem, b_smem, acc_tmem, acc_smem,
@@ -89,7 +91,7 @@ def do_matmul(a_gmem,
   block_slice_m = pl.ds(block_m_index * block_tile_m, block_tile_m)
   slice_m = pl.ds(m_index * tile_m, tile_m)
   slice_n = pl.ds(n_index * tile_n, tile_n)
-  acc_slot = lax.rem(wave_step, jnp.int32(2))
+  acc_slot = lax.rem(local_index, jnp.int32(2))
   regs_layout = plgpu.Layout.TCGEN05
 
   @pl.when(wg_idx == COMPUTE_WG)
@@ -104,7 +106,7 @@ def do_matmul(a_gmem,
           slice_k = pl.ds(ki * tile_k, tile_k)
           slot = lax.rem(ki, max_concurrent_steps)
           @pl.when(jnp.logical_or(ki >= max_concurrent_steps,
-                                  wave_step > 0))
+                                  local_index > 0))
           def _():
             plgpu.barrier_wait(consumed_barrier.at[slot])
           plgpu.copy_gmem_to_smem(
@@ -123,7 +125,7 @@ def do_matmul(a_gmem,
           )
         lax.fori_loop(0, k_iters, _loop_body, None)
 
-      @pl.when(jnp.logical_and(warp_id == MMA_WARP, wave_step > 1))
+      @pl.when(jnp.logical_and(warp_id == MMA_WARP, local_index > 1))
       def _wait_store():
         plgpu.barrier_wait(store_done_barrier.at[acc_slot])
       @pl.when(jnp.logical_and(warp_id == MMA_WARP, is_lead_block))
@@ -157,8 +159,6 @@ def do_matmul(a_gmem,
   def _():
     plgpu.barrier_wait(mma_done_barrier.at[acc_slot])
     acc_tmem_slot = acc_tmem.at[:, pl.ds(acc_slot * tile_n, tile_n)]
-    acc_regs_slot = plgpu.async_load_tmem(acc_tmem_slot,
-                                          layout=regs_layout).astype(dtype)
     step_out_gmem = out_gmem.at[block_slice_m, slice_n]
     # group_info contains start/size info relative to the logical
     # tiling (tile_m) but because for collective matmuls we use 2 CTAs per
@@ -190,8 +190,9 @@ def do_matmul(a_gmem,
       group_info.actual_size - block0_copy_size
     )
     for ni in range(tile_n // epilogue_tile_n):
-      acc_smem[...] = acc_regs_slot[
-          :, ni * epilogue_tile_n: (ni + 1) * epilogue_tile_n]
+      acc_smem[...] = plgpu.async_load_tmem(
+          acc_tmem_slot.at[:, pl.ds(ni * epilogue_tile_n, epilogue_tile_n)],
+          layout=regs_layout).astype(dtype)
       plgpu.commit_smem()
       cur_smem_idx = smem_start
       remaining_rows = min(block_tile_m, m)
@@ -258,18 +259,9 @@ def ragged_dot_kernel(a, b, group_sizes, config: TuningConfig):
   )
 
   def kernel(a_gmem, b_gmem, group_sizes_gmem, out_gmem):
-    if collective:
-      grid = (m_iters + num_groups - 1, n_iters, 2)
-      grid_axes = ("sm", "x")
-    else:
-      grid = (m_iters + num_groups - 1, n_iters)
-      grid_axes = ("sm")
-    if config.grid_tile_n is not None:
-      grid_tiling = (m_iters + num_groups - 1, config.grid_tile_n)
-      if collective:
-        grid_tiling += (2,)
-    else:
-      grid_tiling = None
+    linear_grid = (m_iters + num_groups - 1) * n_iters
+    group_sizes_regs = [group_sizes_gmem[i] for i in range(num_groups)]
+    cluster_idx = lax.axis_index("x")
 
     @functools.partial(pl.run_scoped,
         a_smem=plgpu.SMEM(
@@ -304,24 +296,29 @@ def ragged_dot_kernel(a, b, group_sizes, config: TuningConfig):
         collective_axes=("wg",)
     )
     def _scoped(**ref_kwargs):
-      @plgpu.nd_loop(grid,
-                    tiling=grid_tiling,
-                    collective_axes=grid_axes,
-                    include_wave_step=True)
-      def mn_loop(idx, wave_step):  # pylint: disable=unused-variable
-        m_index = idx[0]
+      @plgpu.nd_loop(grid=(linear_grid,),
+                     collective_axes="sm")
+      def mn_loop(loop_info: plgpu.NDLoopInfo):  # pylint: disable=unused-variable
+        linear_idx, = loop_info.index
+        local_index = loop_info.local_index  # type: ignore
+        m_index, n_index = plgpu.planar_snake(
+          linear_idx,
+          (m_iters + num_groups - 1, n_iters),
+          config.grid_minor_dim,
+          config.grid_tile_width,
+        )
         with jax.named_scope("create_group_info"):
           group_info = ragged_dot_mgpu.GroupInfo.create(
-              group_sizes_gmem, tile_m, m_index
+              group_sizes_regs, tile_m, m_index
           )
         do_matmul(
             a_gmem,
             b_gmem.at[group_info.group_id],
             out_gmem,
-            (group_info.block,) + idx[1:],
+            grid_indices=(group_info.block, n_index, cluster_idx),
             wg_axis="wg",
             collective_axes=("x",) if collective else (),
-            wave_step=wave_step,
+            local_index=local_index,  # type: ignore
             config=config,
             group_info=group_info,
             **ref_kwargs
@@ -389,17 +386,19 @@ def main(_) -> None:
       (128,),  # tile_m
       (128,),  # tile_n
       (64,),  # tile_k
-      (1, 8, 16),  # grid_tile_n
+      (1, 8, 12, 16),  # grid_tile_width
+      blackwell_matmul_mgpu.MatmulDimension,  # grid_minor_dim
       (4, 6)  # max_concurrent_steps
   )
   best_util = -float("inf")
-  for (tile_m, tile_n, tile_k, grid_tile_n,
+  for (tile_m, tile_n, tile_k, grid_tile_width, grid_minor_dim,
         max_concurrent_steps,) in tuning_it:
     config = TuningConfig(
       tile_m=tile_m,
       tile_n=tile_n,
       tile_k=tile_k,
-      grid_tile_n=grid_tile_n,
+      grid_tile_width=grid_tile_width,
+      grid_minor_dim=grid_minor_dim,
       max_concurrent_steps=max_concurrent_steps,
       collective=True,
     )
@@ -424,7 +423,7 @@ def main(_) -> None:
     if achieved_tc_util > best_util:
       best_util = achieved_tc_util
     print(
-        f"{tile_m=} {tile_n=} {tile_k=} {grid_tile_n=} {max_concurrent_steps=} "
+        f"{tile_m=} {tile_n=} {tile_k=} {grid_tile_width=} {grid_minor_dim=} {max_concurrent_steps=} "
         f"{runtime_us:<7.1f}us"
         f" = {achieved_tc_util:4.1f}% TC utilization"
     )

@@ -4,23 +4,25 @@ import logging
 from collections import defaultdict
 from enum import Enum
 from functools import cached_property
-from typing import Iterable, Mapping, Sequence
+from typing import Iterable, Mapping, Optional, Sequence
 
 from dbt_semantic_interfaces.protocols import Metric, SemanticManifest, SemanticModel
-from dbt_semantic_interfaces.type_enums import TimeGranularity
+from dbt_semantic_interfaces.type_enums import MetricType, TimeGranularity
+from more_itertools import peekable
 from typing_extensions import override
 
-from metricflow_semantics.collection_helpers.mf_type_aliases import AnyLengthTuple, T
+from metricflow_semantics.collection_helpers.mf_type_aliases import AnyLengthTuple, Pair, T
 from metricflow_semantics.collection_helpers.syntactic_sugar import mf_first_item, mf_flatten
-from metricflow_semantics.experimental.dsi.measure_model_object_lookup import MeasureContainingModelObjectLookup
 from metricflow_semantics.experimental.dsi.model_object_lookup import (
     ModelObjectLookup,
 )
-from metricflow_semantics.experimental.metricflow_exception import InvalidManifestException
+from metricflow_semantics.experimental.dsi.simple_metric_model_object_lookup import SimpleMetricModelObjectLookup
+from metricflow_semantics.experimental.metricflow_exception import MetricFlowInternalError
 from metricflow_semantics.experimental.ordered_set import FrozenOrderedSet, MutableOrderedSet, OrderedSet
 from metricflow_semantics.experimental.semantic_graph.model_id import SemanticModelId
 from metricflow_semantics.mf_logging.attribute_pretty_format import AttributeMapping, AttributePrettyFormattable
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
+from metricflow_semantics.model.semantics.simple_metric_input import SimpleMetricInput
 from metricflow_semantics.time.granularity import ExpandedTimeGranularity
 from metricflow_semantics.time.time_spine_source import TimeSpineSource
 
@@ -57,31 +59,67 @@ class ManifestObjectLookup(AttributePrettyFormattable):
         return self._semantic_manifest.semantic_models
 
     @cached_property
-    def measure_containing_model_lookups(self) -> AnyLengthTuple[MeasureContainingModelObjectLookup]:
-        """Returns lookups corresponding to semantic models that contain measures."""
+    def _semantic_model_and_simple_metrics_pairs(self) -> Sequence[Pair[SemanticModel, Sequence[Metric]]]:
+        model_name_to_simple_metrics: defaultdict[str, list[Metric]] = defaultdict(list)
+
+        for metric in self._semantic_manifest.metrics:
+            metric_type = metric.type
+            if metric_type is MetricType.SIMPLE:
+                metric_aggregation_params = metric.type_params.metric_aggregation_params
+                if metric_aggregation_params is None:
+                    raise MetricFlowInternalError(
+                        LazyFormat("A simple metric is missing `metric_aggregation_params`", metric=metric)
+                    )
+                model_name_to_simple_metrics[metric_aggregation_params.semantic_model].append(metric)
+
+        semantic_model_and_simple_metrics_pairs: list[Pair[SemanticModel, Sequence[Metric]]] = []
+        for semantic_model in self._semantic_manifest.semantic_models:
+            semantic_model_and_simple_metrics_pairs.append(
+                (semantic_model, model_name_to_simple_metrics.get(semantic_model.name) or ())
+            )
+        return semantic_model_and_simple_metrics_pairs
+
+    @cached_property
+    def simple_metric_model_lookups(self) -> AnyLengthTuple[SimpleMetricModelObjectLookup]:
+        """Returns lookups corresponding to semantic models that are associated with simple metrics."""
         return tuple(
-            MeasureContainingModelObjectLookup(semantic_model)
-            for semantic_model in self.semantic_models
-            if len(semantic_model.measures) > 0
+            SimpleMetricModelObjectLookup(semantic_model, simple_metrics=simple_metrics)
+            for semantic_model, simple_metrics in self._semantic_model_and_simple_metrics_pairs
+            if len(simple_metrics) > 0
         )
 
     @cached_property
-    def measure_exclusive_model_lookups(self) -> AnyLengthTuple[ModelObjectLookup]:
-        """Returns lookups corresponding to semantic models that do not contain measures."""
+    def simple_metric_exclusive_model_lookups(self) -> AnyLengthTuple[ModelObjectLookup]:
+        """Returns lookups corresponding to semantic models that are not associated with simple metrics."""
         return tuple(
             ModelObjectLookup(semantic_model)
-            for semantic_model in self.semantic_models
-            if len(semantic_model.measures) == 0
+            for semantic_model, simple_metrics in self._semantic_model_and_simple_metrics_pairs
+            if len(simple_metrics) == 0
         )
 
     @cached_property
     def model_object_lookups(self) -> AnyLengthTuple[ModelObjectLookup]:
         """Return lookups for all semantic models."""
-        return self.measure_containing_model_lookups + self.measure_exclusive_model_lookups
+        return self.simple_metric_model_lookups + self.simple_metric_exclusive_model_lookups
 
     @cached_property
     def model_id_to_lookup(self) -> Mapping[SemanticModelId, ModelObjectLookup]:  # noqa: D102
         return {lookup.model_id: lookup for lookup in self.model_object_lookups}
+
+    @cached_property
+    def model_id_to_simple_metric_model_lookup(  # noqa: D102
+        self,
+    ) -> Mapping[SemanticModelId, SimpleMetricModelObjectLookup]:
+        return {lookup.model_id: lookup for lookup in self.simple_metric_model_lookups}
+
+    @cached_property
+    def simple_metric_name_to_input(self) -> Mapping[str, SimpleMetricInput]:  # noqa: D102
+        return {
+            simple_metric_input.name: simple_metric_input
+            for lookup in self.simple_metric_model_lookups
+            for simple_metric_inputs in lookup.aggregation_configuration_to_simple_metric_inputs.values()
+            for simple_metric_input in simple_metric_inputs
+        }
 
     @cached_property
     def entity_name_to_model_lookups(self) -> Mapping[str, OrderedSet[ModelObjectLookup]]:
@@ -110,37 +148,25 @@ class ManifestObjectLookup(AttributePrettyFormattable):
     def get_metrics(self) -> Iterable[Metric]:  # noqa: D102
         return self._metric_name_to_metric.values()
 
-    def get_model_id_for_measure(self, measure_name: str) -> SemanticModelId:  # noqa: D102
-        return self._lookup_object(
-            value_type=_ValueType.MODEL_ID,
-            name=measure_name,
-            name_to_object_mapping=self._measure_name_to_model_id,
-        )
-
     @cached_property
     def min_time_grain_in_time_spine(self) -> TimeGranularity:
         """Return the smallest time grain as configured in the time spine."""
         return mf_first_item(sorted(self._time_spine_sources.keys()))
 
     @cached_property
-    def min_time_grain_used_in_models(self) -> TimeGranularity:
+    def min_time_grain_used_in_models(self) -> Optional[TimeGranularity]:
         """Return the smallest time grain that's used to define a time dimension."""
-        min_time_grain = min(
-            mf_flatten(
-                model_object_lookup.time_dimension_name_to_grain.values()
-                for model_object_lookup in self.model_object_lookups
-            )
+        time_grains = mf_flatten(
+            model_object_lookup.time_dimension_name_to_grain.values()
+            for model_object_lookup in self.model_object_lookups
         )
+        peekable_grains = peekable(time_grains)
+        try:
+            peekable_grains.peek()
+        except StopIteration:
+            return None
 
-        if min_time_grain is None:
-            raise InvalidManifestException(
-                LazyFormat(
-                    "Did not find any time dimensions in the manifest",
-                    min_time_grain=min_time_grain,
-                    semantic_model_count=len(self._semantic_manifest.semantic_models),
-                )
-            )
-        return min_time_grain
+        return min(peekable_grains)
 
     @cached_property
     def expanded_time_grains(self) -> AnyLengthTuple[ExpandedTimeGranularity]:
@@ -160,15 +186,6 @@ class ManifestObjectLookup(AttributePrettyFormattable):
                     known_names=list(name_to_object_mapping.keys()),
                 )
             ) from e
-
-    @cached_property
-    def _measure_name_to_model_id(self) -> Mapping[str, SemanticModelId]:
-        """Mapping from the name of the measure to the associated semantic-model ID."""
-        return {
-            measure.name: SemanticModelId.get_instance(semantic_model.name)
-            for semantic_model in self.semantic_models
-            for measure in semantic_model.measures
-        }
 
     @cached_property
     def _metric_name_to_metric(self) -> Mapping[str, Metric]:
@@ -199,6 +216,5 @@ class _ValueType(Enum):
     """Different types of objects stored as values in lookup dictionaries."""
 
     ENTITY = "entity"
-    MEASURE = "measure"
     METRIC = "metric"
     MODEL_ID = "model_id"

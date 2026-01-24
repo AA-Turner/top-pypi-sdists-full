@@ -465,29 +465,34 @@ class Workflow(pulumi.CustomResource):
             action: LaunchInstance
             onFailure: Abort
             inputs:
-              waitFor: "ssmAgent"
+              waitFor: \\"ssmAgent\\"
 
           - name: TerminateTestInstance
             action: TerminateInstance
             onFailure: Continue
             inputs:
-              instanceId.$: "$.stepOutputs.LaunchTestInstance.instanceId"
+              instanceId.$: \\"$.stepOutputs.LaunchTestInstance.instanceId\\"
 
           - name: WaitForActionAtEnd
             action: WaitForAction
             if:
               booleanEquals: true
-              value: "$.parameters.waitForActionAtEnd"
+              value: \\"$.parameters.waitForActionAtEnd\\"
         \"\"\")
         ```
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) Amazon Resource Name (ARN) of the Image Builder workflow.
+
         Using `pulumi import`, import EC2 Image Builder Workflow using the `arn`. For example:
 
-        ```sh
-        $ pulumi import aws:imagebuilder/workflow:Workflow example arn:aws:imagebuilder:us-east-1:aws:workflow/test/example/1.0.1/1
-        ```
+        % pulumi import aws_imagebuilder_workflow.example arn:aws:imagebuilder:us-east-1:aws:workflow/test/example/1.0.1/1
+
         Certain resource arguments, such as `uri`, cannot be read via the API and imported into Terraform. Terraform will display a difference for these arguments the first run after import if declared in the Terraform configuration for an imported resource.
 
         :param str resource_name: The name of the resource.
@@ -541,29 +546,34 @@ class Workflow(pulumi.CustomResource):
             action: LaunchInstance
             onFailure: Abort
             inputs:
-              waitFor: "ssmAgent"
+              waitFor: \\"ssmAgent\\"
 
           - name: TerminateTestInstance
             action: TerminateInstance
             onFailure: Continue
             inputs:
-              instanceId.$: "$.stepOutputs.LaunchTestInstance.instanceId"
+              instanceId.$: \\"$.stepOutputs.LaunchTestInstance.instanceId\\"
 
           - name: WaitForActionAtEnd
             action: WaitForAction
             if:
               booleanEquals: true
-              value: "$.parameters.waitForActionAtEnd"
+              value: \\"$.parameters.waitForActionAtEnd\\"
         \"\"\")
         ```
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) Amazon Resource Name (ARN) of the Image Builder workflow.
+
         Using `pulumi import`, import EC2 Image Builder Workflow using the `arn`. For example:
 
-        ```sh
-        $ pulumi import aws:imagebuilder/workflow:Workflow example arn:aws:imagebuilder:us-east-1:aws:workflow/test/example/1.0.1/1
-        ```
+        % pulumi import aws_imagebuilder_workflow.example arn:aws:imagebuilder:us-east-1:aws:workflow/test/example/1.0.1/1
+
         Certain resource arguments, such as `uri`, cannot be read via the API and imported into Terraform. Terraform will display a difference for these arguments the first run after import if declared in the Terraform configuration for an imported resource.
 
         :param str resource_name: The name of the resource.

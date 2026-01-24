@@ -11,13 +11,17 @@ import sys
 from importlib.metadata import Distribution
 from pathlib import Path
 from types import ModuleType
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from huggingface_hub import file_exists, snapshot_download
 from packaging.version import parse
 
+from kernels._system import glibc_version
 from kernels._versions import select_revision_or_version
+from kernels.deps import validate_dependencies
 from kernels.lockfile import KernelLock, VariantLock
+
+ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
 
 
 def _get_cache_dir() -> Optional[str]:
@@ -35,6 +39,31 @@ def _get_cache_dir() -> Optional[str]:
 CACHE_DIR: Optional[str] = _get_cache_dir()
 
 
+def _get_privateuse_backend_name() -> Optional[str]:
+    import torch
+
+    if hasattr(torch._C, "_get_privateuse1_backend_name"):
+        return torch._C._get_privateuse1_backend_name()
+    return None
+
+
+def backend() -> str:
+    import torch
+
+    if torch.version.cuda is not None:
+        return "cuda"
+    elif torch.version.hip is not None:
+        return "hip"
+    elif torch.backends.mps.is_available():
+        return "metal"
+    elif hasattr(torch.version, "xpu") and torch.version.xpu is not None:
+        return "xpu"
+    elif _get_privateuse_backend_name() == "npu":
+        return "cann"
+    else:
+        return "cpu"
+
+
 def build_variant() -> str:
     import torch
 
@@ -46,13 +75,16 @@ def build_variant() -> str:
         compute_framework = f"rocm{rocm_version.major}{rocm_version.minor}"
     elif torch.backends.mps.is_available():
         compute_framework = "metal"
-    elif torch.version.xpu is not None:
+    elif hasattr(torch.version, "xpu") and torch.version.xpu is not None:
         version = torch.version.xpu
         compute_framework = f"xpu{version[0:4]}{version[5:6]}"
+    elif _get_privateuse_backend_name() == "npu":
+        from torch_npu.utils.collect_env import get_cann_version  # type: ignore[import-not-found]
+
+        cann_major, cann_minor = get_cann_version()[0], get_cann_version()[2]
+        compute_framework = f"cann{cann_major}{cann_minor}"
     else:
-        raise AssertionError(
-            "Torch was not compiled with CUDA, Metal, XPU, or ROCm enabled."
-        )
+        compute_framework = "cpu"
 
     torch_version = parse(torch.__version__)
     cpu = platform.machine()
@@ -61,18 +93,53 @@ def build_variant() -> str:
     if os == "darwin":
         cpu = "aarch64" if cpu == "arm64" else cpu
         return f"torch{torch_version.major}{torch_version.minor}-{compute_framework}-{cpu}-{os}"
+    elif os == "windows":
+        cpu = "x86_64" if cpu == "AMD64" else cpu
+        return f"torch{torch_version.major}{torch_version.minor}-{compute_framework}-{cpu}-{os}"
 
     cxxabi = "cxx11" if torch.compiled_with_cxx11_abi() else "cxx98"
-
     return f"torch{torch_version.major}{torch_version.minor}-{cxxabi}-{compute_framework}-{cpu}-{os}"
 
 
-def universal_build_variant() -> str:
+def build_variant_noarch() -> str:
+    import torch
+
+    if torch.version.cuda is not None:
+        return "torch-cuda"
+    elif torch.version.hip is not None:
+        return "torch-rocm"
+    elif torch.backends.mps.is_available():
+        return "torch-metal"
+    elif hasattr(torch.version, "xpu") and torch.version.xpu is not None:
+        return "torch-xpu"
+    elif _get_privateuse_backend_name() == "npu":
+        return "torch-npu"
+    else:
+        return "torch-cpu"
+
+
+def build_variant_universal() -> str:
     # Once we support other frameworks, detection goes here.
     return "torch-universal"
 
 
-def import_from_path(module_name: str, file_path: Path) -> ModuleType:
+def build_variants() -> List[str]:
+    """Return compatible build variants in preferred order."""
+    return [build_variant(), build_variant_noarch(), build_variant_universal()]
+
+
+def _import_from_path(module_name: str, variant_path: Path) -> ModuleType:
+    metadata_path = variant_path / "metadata.json"
+    if metadata_path.exists():
+        with open(metadata_path, "r") as f:
+            metadata = json.load(f)
+            deps = metadata.get("python-depends", [])
+            validate_dependencies(deps, backend())
+
+    file_path = variant_path / "__init__.py"
+    if not file_path.exists():
+        file_path = variant_path / module_name / "__init__.py"
+
     # We cannot use the module name as-is, after adding it to `sys.modules`,
     # it would also be used for other imports. So, we make a module name that
     # depends on the path for it to be unique using the hex-encoded hash of
@@ -95,6 +162,7 @@ def install_kernel(
     revision: str,
     local_files_only: bool = False,
     variant_locks: Optional[Dict[str, VariantLock]] = None,
+    user_agent: Optional[Union[str, dict]] = None,
 ) -> Tuple[str, Path]:
     """
     Download a kernel for the current environment to the cache.
@@ -110,47 +178,54 @@ def install_kernel(
             Whether to only use local files and not download from the Hub.
         variant_locks (`Dict[str, VariantLock]`, *optional*):
             Optional dictionary of variant locks for validation.
+        user_agent (`Union[str, dict]`, *optional*):
+            The `user_agent` info to pass to `snapshot_download()` for internal telemetry.
 
     Returns:
         `Tuple[str, Path]`: A tuple containing the package name and the path to the variant directory.
     """
     package_name = package_name_from_repo_id(repo_id)
-    variant = build_variant()
-    universal_variant = universal_build_variant()
+    allow_patterns = [f"build/{variant}/*" for variant in build_variants()]
+    user_agent = _get_user_agent(user_agent=user_agent)
     repo_path = Path(
         snapshot_download(
             repo_id,
-            allow_patterns=[f"build/{variant}/*", f"build/{universal_variant}/*"],
+            allow_patterns=allow_patterns,
             cache_dir=CACHE_DIR,
             revision=revision,
             local_files_only=local_files_only,
+            user_agent=user_agent,
         )
     )
 
     try:
-        return _load_kernel_from_path(repo_path, package_name, variant_locks)
+        return _find_kernel_in_repo_path(repo_path, package_name, variant_locks)
     except FileNotFoundError:
-        # Redo with more specific error message.
         raise FileNotFoundError(
-            f"Kernel `{repo_id}` at revision {revision} does not have build: {variant}"
+            f"Cannot install kernel from repo {repo_id} (revision: {revision})"
         )
 
 
-def _load_kernel_from_path(
+def _find_kernel_in_repo_path(
     repo_path: Path,
     package_name: str,
     variant_locks: Optional[Dict[str, VariantLock]] = None,
 ) -> Tuple[str, Path]:
-    variant = build_variant()
-    universal_variant = universal_build_variant()
+    variants = build_variants()
+    variant = None
+    variant_path = None
+    for candidate_variant in variants:
+        variant_path = repo_path / "build" / candidate_variant
+        if variant_path.exists():
+            variant = candidate_variant
+            break
 
-    variant_path = repo_path / "build" / variant
-    universal_variant_path = repo_path / "build" / universal_variant
+    if variant is None:
+        raise FileNotFoundError(
+            f"Kernel at path `{repo_path}` does not have one of build variants: {', '.join(variants)}"
+        )
 
-    if not variant_path.exists() and universal_variant_path.exists():
-        # Fall back to universal variant.
-        variant = universal_variant
-        variant_path = universal_variant_path
+    assert variant_path is not None
 
     if variant_locks is not None:
         variant_lock = variant_locks.get(variant)
@@ -158,12 +233,13 @@ def _load_kernel_from_path(
             raise ValueError(f"No lock found for build variant: {variant}")
         validate_kernel(repo_path=repo_path, variant=variant, hash=variant_lock.hash)
 
-    module_init_path = variant_path / package_name / "__init__.py"
+    module_init_path = variant_path / "__init__.py"
+    if not os.path.exists(module_init_path):
+        # Compatibility with older kernels.
+        module_init_path = variant_path / package_name / "__init__.py"
 
     if not os.path.exists(module_init_path):
-        raise FileNotFoundError(
-            f"Kernel at path `{repo_path}` does not have build: {variant}"
-        )
+        raise FileNotFoundError(f"No kernel module found at: `{variant_path}`")
 
     return package_name, variant_path
 
@@ -200,7 +276,10 @@ def install_kernel_all_variants(
 
 
 def get_kernel(
-    repo_id: str, revision: Optional[str] = None, version: Optional[str] = None
+    repo_id: str,
+    revision: Optional[str] = None,
+    version: Optional[str] = None,
+    user_agent: Optional[Union[str, dict]] = None,
 ) -> ModuleType:
     """
     Load a kernel from the kernel hub.
@@ -216,6 +295,8 @@ def get_kernel(
         version (`str`, *optional*):
             The kernel version to download. This can be a Python version specifier, such as `">=1.0.0,<2.0.0"`.
             Cannot be used together with `revision`.
+        user_agent (`Union[str, dict]`, *optional*):
+            The `user_agent` info to pass to `snapshot_download()` for internal telemetry.
 
     Returns:
         `ModuleType`: The imported kernel module.
@@ -232,8 +313,10 @@ def get_kernel(
         ```
     """
     revision = select_revision_or_version(repo_id, revision, version)
-    package_name, package_path = install_kernel(repo_id, revision=revision)
-    return import_from_path(package_name, package_path / package_name / "__init__.py")
+    package_name, variant_path = install_kernel(
+        repo_id, revision=revision, user_agent=user_agent
+    )
+    return _import_from_path(package_name, variant_path)
 
 
 def get_local_kernel(repo_path: Path, package_name: str) -> ModuleType:
@@ -249,22 +332,18 @@ def get_local_kernel(repo_path: Path, package_name: str) -> ModuleType:
     Returns:
         `ModuleType`: The imported kernel module.
     """
-    variant = build_variant()
-    universal_variant = universal_build_variant()
-
     # Presume we were given the top level path of the kernel repository.
     for base_path in [repo_path, repo_path / "build"]:
-        # Prefer the universal variant if it exists.
-        for v in [universal_variant, variant]:
-            package_path = base_path / v / package_name / "__init__.py"
-            if package_path.exists():
-                return import_from_path(package_name, package_path)
+        for v in build_variants():
+            variant_path = base_path / v
+            if variant_path.exists():
+                return _import_from_path(package_name, variant_path)
 
     # If we didn't find the package in the repo we may have a explicit
     # package path.
-    package_path = repo_path / package_name / "__init__.py"
-    if package_path.exists():
-        return import_from_path(package_name, package_path)
+    variant_path = repo_path
+    if variant_path.exists():
+        return _import_from_path(package_name, variant_path)
 
     raise FileNotFoundError(f"Could not find package '{package_name}' in {repo_path}")
 
@@ -291,20 +370,17 @@ def has_kernel(
 
     package_name = package_name_from_repo_id(repo_id)
     variant = build_variant()
-    universal_variant = universal_build_variant()
 
-    if file_exists(
-        repo_id,
-        revision=revision,
-        filename=f"build/{universal_variant}/{package_name}/__init__.py",
-    ):
-        return True
+    for variant in build_variants():
+        for init_file in ["__init__.py", f"{package_name}/__init__.py"]:
+            if file_exists(
+                repo_id,
+                revision=revision,
+                filename=f"build/{variant}/{init_file}",
+            ):
+                return True
 
-    return file_exists(
-        repo_id,
-        revision=revision,
-        filename=f"build/{variant}/{package_name}/__init__.py",
-    )
+    return False
 
 
 def load_kernel(repo_id: str, *, lockfile: Optional[Path] = None) -> ModuleType:
@@ -335,33 +411,26 @@ def load_kernel(repo_id: str, *, lockfile: Optional[Path] = None) -> ModuleType:
 
     package_name = package_name_from_repo_id(repo_id)
 
-    variant = build_variant()
-    universal_variant = universal_build_variant()
-
+    allow_patterns = [f"build/{variant}/*" for variant in build_variants()]
     repo_path = Path(
         snapshot_download(
             repo_id,
-            allow_patterns=[f"build/{variant}/*", f"build/{universal_variant}/*"],
+            allow_patterns=allow_patterns,
             cache_dir=CACHE_DIR,
             revision=locked_sha,
             local_files_only=True,
         )
     )
 
-    variant_path = repo_path / "build" / variant
-    universal_variant_path = repo_path / "build" / universal_variant
-    if not variant_path.exists() and universal_variant_path.exists():
-        # Fall back to universal variant.
-        variant = universal_variant
-        variant_path = universal_variant_path
-
-    module_init_path = variant_path / package_name / "__init__.py"
-    if not os.path.exists(module_init_path):
-        raise FileNotFoundError(
-            f"Locked kernel `{repo_id}` does not have build `{variant}` or was not downloaded with `kernels download <project>`"
+    try:
+        package_name, variant_path = _find_kernel_in_repo_path(
+            repo_path, package_name, variant_locks=None
         )
-
-    return import_from_path(package_name, variant_path / package_name / "__init__.py")
+        return _import_from_path(package_name, variant_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"Locked kernel `{repo_id}` does not have applicable variant or was not downloaded with `kernels download <project>`"
+        )
 
 
 def get_locked_kernel(repo_id: str, local_files_only: bool = False) -> ModuleType:
@@ -382,11 +451,11 @@ def get_locked_kernel(repo_id: str, local_files_only: bool = False) -> ModuleTyp
     if locked_sha is None:
         raise ValueError(f"Kernel `{repo_id}` is not locked")
 
-    package_name, package_path = install_kernel(
+    package_name, variant_path = install_kernel(
         repo_id, locked_sha, local_files_only=local_files_only
     )
 
-    return import_from_path(package_name, package_path / package_name / "__init__.py")
+    return _import_from_path(package_name, variant_path)
 
 
 def _get_caller_locked_kernel(repo_id: str) -> Optional[str]:
@@ -488,3 +557,40 @@ def git_hash_object(data: bytes, object_type: str = "blob"):
 
 def package_name_from_repo_id(repo_id: str) -> str:
     return repo_id.split("/")[-1].replace("-", "_")
+
+
+def _get_user_agent(
+    user_agent: Optional[Union[dict, str]] = None,
+) -> Union[None, dict, str]:
+    import torch
+
+    from . import __version__
+
+    if os.getenv("DISABLE_TELEMETRY", "false").upper() in ENV_VARS_TRUE_VALUES:
+        return None
+
+    glibc = glibc_version()
+    python = ".".join(platform.python_version_tuple()[:2])
+
+    if user_agent is None:
+        user_agent = {}
+
+    if isinstance(user_agent, dict):
+        user_agent.update(
+            {
+                "kernels": __version__,
+                "python": python,
+                "torch": torch.__version__,
+                "build_variant": build_variant(),
+                "file_type": "kernel",
+            }
+        )
+        if glibc is not None:
+            user_agent["glibc"] = glibc
+
+    elif isinstance(user_agent, str):
+        user_agent += f"; kernels/{__version__}; python/{python}; torch/{torch.__version__}; build_variant/{build_variant()}; file_type/kernel"
+        if glibc is not None:
+            user_agent += f"; glibc/{glibc}"
+
+    return user_agent

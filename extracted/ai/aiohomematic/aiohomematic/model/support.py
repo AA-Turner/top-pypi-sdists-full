@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """Support for data points used within aiohomematic."""
 
 from __future__ import annotations
@@ -11,9 +11,14 @@ from functools import lru_cache
 import logging
 from typing import Any, Final
 
-from aiohomematic import central as hmcu
+from slugify import slugify
+
 from aiohomematic.const import (
     ADDRESS_SEPARATOR,
+    HUB_ADDRESS,
+    HUB_SET_PATH_ROOT,
+    HUB_STATE_PATH_ROOT,
+    INSTALL_MODE_ADDRESS,
     PROGRAM_ADDRESS,
     PROGRAM_SET_PATH_ROOT,
     PROGRAM_STATE_PATH_ROOT,
@@ -31,14 +36,14 @@ from aiohomematic.const import (
     ParameterData,
     ParameterType,
 )
-from aiohomematic.model import device as hmd
-from aiohomematic.model.custom import definition as hmed
+from aiohomematic.interfaces import ChannelProtocol, ConfigProviderProtocol
+from aiohomematic.property_decorators import DelegatedProperty
 from aiohomematic.support import to_bool
 
 __all__ = [
     "ChannelNameData",
     "DataPointNameData",
-    "GenericParameterType",
+    "HubPathData",
     "check_channel_is_the_only_primary_channel",
     "convert_value",
     "generate_channel_unique_id",
@@ -52,9 +57,9 @@ __all__ = [
     "get_value_from_value_list",
     "is_binary_sensor",
 ]
-_LOGGER: Final = logging.getLogger(__name__)
 
-type GenericParameterType = bool | int | float | str | None
+
+_LOGGER: Final = logging.getLogger(__name__)
 
 # dict with binary_sensor relevant value lists and the corresponding TRUE value
 _BINARY_SENSOR_TRUE_VALUE_DICT_FOR_VALUE_LIST: Final[Mapping[tuple[str, ...], str]] = {
@@ -74,20 +79,15 @@ class ChannelNameData:
         "sub_device_name",
     )
 
-    def __init__(self, device_name: str, channel_name: str) -> None:
-        """Init the DataPointNameData class."""
+    def __init__(self, *, device_name: str, channel_name: str) -> None:
+        """Initialize the DataPointNameData class."""
         self.device_name: Final = device_name
         self.channel_name: Final = self._get_channel_name(device_name=device_name, channel_name=channel_name)
         self.full_name = f"{device_name} {self.channel_name}".strip() if self.channel_name else device_name
         self.sub_device_name = channel_name if channel_name else device_name
 
     @staticmethod
-    def empty() -> ChannelNameData:
-        """Return an empty DataPointNameData."""
-        return ChannelNameData(device_name="", channel_name="")
-
-    @staticmethod
-    def _get_channel_name(device_name: str, channel_name: str) -> str:
+    def _get_channel_name(*, device_name: str, channel_name: str) -> str:
         """Return the channel_name of the data_point only name."""
         if device_name and channel_name and channel_name.startswith(device_name):
             c_name = channel_name.replace(device_name, "").strip()
@@ -95,6 +95,11 @@ class ChannelNameData:
                 c_name = c_name[1:]
             return c_name
         return channel_name.strip()
+
+    @staticmethod
+    def empty() -> ChannelNameData:
+        """Return an empty DataPointNameData."""
+        return ChannelNameData(device_name="", channel_name="")
 
 
 class DataPointNameData(ChannelNameData):
@@ -105,8 +110,8 @@ class DataPointNameData(ChannelNameData):
         "parameter_name",
     )
 
-    def __init__(self, device_name: str, channel_name: str, parameter_name: str | None = None) -> None:
-        """Init the DataPointNameData class."""
+    def __init__(self, *, device_name: str, channel_name: str, parameter_name: str | None = None) -> None:
+        """Initialize the DataPointNameData class."""
         super().__init__(device_name=device_name, channel_name=channel_name)
 
         self.name: Final = self._get_data_point_name(
@@ -116,18 +121,18 @@ class DataPointNameData(ChannelNameData):
         self.parameter_name = parameter_name
 
     @staticmethod
-    def empty() -> DataPointNameData:
-        """Return an empty DataPointNameData."""
-        return DataPointNameData(device_name="", channel_name="")
-
-    @staticmethod
-    def _get_channel_parameter_name(channel_name: str, parameter_name: str | None) -> str:
+    def _get_channel_parameter_name(*, channel_name: str, parameter_name: str | None) -> str:
         """Return the channel parameter name of the data_point."""
         if channel_name and parameter_name:
             return f"{channel_name} {parameter_name}".strip()
         return channel_name.strip()
 
-    def _get_data_point_name(self, device_name: str, channel_name: str, parameter_name: str | None) -> str:
+    @staticmethod
+    def empty() -> DataPointNameData:
+        """Return an empty DataPointNameData."""
+        return DataPointNameData(device_name="", channel_name="")
+
+    def _get_data_point_name(self, *, device_name: str, channel_name: str, parameter_name: str | None) -> str:
         """Return the name of the data_point only name."""
         channel_parameter_name = self._get_channel_parameter_name(
             channel_name=channel_name, parameter_name=parameter_name
@@ -145,8 +150,8 @@ class HubNameData:
         "name",
     )
 
-    def __init__(self, name: str, central_name: str | None = None, channel_name: str | None = None) -> None:
-        """Init the DataPointNameData class."""
+    def __init__(self, *, name: str, central_name: str | None = None, channel_name: str | None = None) -> None:
+        """Initialize the DataPointNameData class."""
         self.name: Final = name
         self.full_name = (
             f"{channel_name} {self.name}".strip() if channel_name else f"{central_name} {self.name}".strip()
@@ -158,36 +163,41 @@ class HubNameData:
         return HubNameData(name="")
 
 
-def check_length_and_log(name: str | None, value: Any) -> Any:
-    """Check the length of a datapoint and log if too long."""
+def generate_translation_key(*, name: str) -> str:
+    """Generate a translation key from a name."""
+    return slugify(name).replace(".", "_").replace("-", "_")
+
+
+def check_length_and_log(*, name: str | None, value: Any) -> Any:
+    """Check the length of a data point and log if too long."""
     if isinstance(value, str) and len(value) > 255:
         _LOGGER.debug(
-            "Value of datapoint %s exceedes maximum allowed length of 255 chars. Value will be limited to 255 chars",
+            "Value of data point %s exceedes maximum allowed length of 255 chars. Value will be limited to 255 chars",
             name,
         )
         return value[0:255:1]
     return value
 
 
-def get_device_name(central: hmcu.CentralUnit, device_address: str, model: str) -> str:
+def get_device_name(*, device_details_provider: Any, device_address: str, model: str) -> str:
     """Return the cached name for a device, or an auto-generated."""
-    if name := central.device_details.get_name(address=device_address):
-        return name
+    if name := device_details_provider.get_name(address=device_address):
+        return name  # type: ignore[no-any-return]
 
     _LOGGER.debug(
         "GET_DEVICE_NAME: Using auto-generated name for %s %s",
         model,
         device_address,
     )
-    return _get_generic_name(address=device_address, model=model)
+    return _get_generic_name(address=device_address, model=model)  # Already using keyword args
 
 
-def _get_generic_name(address: str, model: str) -> str:
+def _get_generic_name(*, address: str, model: str) -> str:
     """Return auto-generated device/channel name."""
     return f"{model}_{address}"
 
 
-def get_channel_name_data(channel: hmd.Channel) -> ChannelNameData:
+def get_channel_name_data(*, channel: ChannelProtocol) -> ChannelNameData:
     """Get name for data_point."""
     if channel_base_name := _get_base_name_from_channel_or_device(channel=channel):
         return ChannelNameData(
@@ -227,13 +237,14 @@ class DataPointPathData(PathData):
 
     def __init__(
         self,
+        *,
         interface: Interface | None,
         address: str,
         channel_no: int | None,
         kind: str,
         name: str | None = None,
     ):
-        """Init the path data."""
+        """Initialize the path data."""
         path_item: Final = f"{address.upper()}/{channel_no}/{kind.upper()}"
         self._set_path: Final = (
             f"{VIRTDEV_SET_PATH_ROOT if interface == Interface.CCU_JACK else SET_PATH_ROOT}/{path_item}"
@@ -242,15 +253,8 @@ class DataPointPathData(PathData):
             f"{VIRTDEV_STATE_PATH_ROOT if interface == Interface.CCU_JACK else STATE_PATH_ROOT}/{path_item}"
         )
 
-    @property
-    def set_path(self) -> str:
-        """Return the base set path of the data_point."""
-        return self._set_path
-
-    @property
-    def state_path(self) -> str:
-        """Return the base state path of the data_point."""
-        return self._state_path
+    set_path: Final = DelegatedProperty[str](path="_set_path")
+    state_path: Final = DelegatedProperty[str](path="_state_path")
 
 
 class ProgramPathData(PathData):
@@ -261,20 +265,13 @@ class ProgramPathData(PathData):
         "_state_path",
     )
 
-    def __init__(self, pid: str):
-        """Init the path data."""
+    def __init__(self, *, pid: str):
+        """Initialize the path data."""
         self._set_path: Final = f"{PROGRAM_SET_PATH_ROOT}/{pid}"
         self._state_path: Final = f"{PROGRAM_STATE_PATH_ROOT}/{pid}"
 
-    @property
-    def set_path(self) -> str:
-        """Return the base set path of the program."""
-        return self._set_path
-
-    @property
-    def state_path(self) -> str:
-        """Return the base state path of the program."""
-        return self._state_path
+    set_path: Final = DelegatedProperty[str](path="_set_path")
+    state_path: Final = DelegatedProperty[str](path="_state_path")
 
 
 class SysvarPathData(PathData):
@@ -285,24 +282,35 @@ class SysvarPathData(PathData):
         "_state_path",
     )
 
-    def __init__(self, vid: str):
-        """Init the path data."""
+    def __init__(self, *, vid: str):
+        """Initialize the path data."""
         self._set_path: Final = f"{SYSVAR_SET_PATH_ROOT}/{vid}"
         self._state_path: Final = f"{SYSVAR_STATE_PATH_ROOT}/{vid}"
 
-    @property
-    def set_path(self) -> str:
-        """Return the base set path of the sysvar."""
-        return self._set_path
+    set_path: Final = DelegatedProperty[str](path="_set_path")
+    state_path: Final = DelegatedProperty[str](path="_state_path")
 
-    @property
-    def state_path(self) -> str:
-        """Return the base state path of the sysvar."""
-        return self._state_path
+
+class HubPathData(PathData):
+    """The hub path data."""
+
+    __slots__ = (
+        "_set_path",
+        "_state_path",
+    )
+
+    def __init__(self, *, name: str):
+        """Initialize the path data."""
+        self._set_path: Final = f"{HUB_SET_PATH_ROOT}/{name}"
+        self._state_path: Final = f"{HUB_STATE_PATH_ROOT}/{name}"
+
+    set_path: Final = DelegatedProperty[str](path="_set_path")
+    state_path: Final = DelegatedProperty[str](path="_state_path")
 
 
 def get_data_point_name_data(
-    channel: hmd.Channel,
+    *,
+    channel: ChannelProtocol,
     parameter: str,
 ) -> DataPointNameData:
     """Get name for data_point."""
@@ -312,7 +320,7 @@ def get_data_point_name_data(
         if _check_channel_name_with_channel_no(name=channel_name):
             c_name = channel_name.split(ADDRESS_SEPARATOR)[0]
             c_postfix = ""
-            if channel.central.paramset_descriptions.is_in_multiple_channels(
+            if channel.device.paramset_description_provider.is_in_multiple_channels(
                 channel_address=channel.address, parameter=parameter
             ):
                 c_postfix = "" if channel.no in (0, None) else f" ch{channel.no}"
@@ -339,7 +347,8 @@ def get_data_point_name_data(
 
 
 def get_hub_data_point_name_data(
-    channel: hmd.Channel | None,
+    *,
+    channel: ChannelProtocol | None,
     legacy_name: str,
     central_name: str,
 ) -> HubNameData:
@@ -353,8 +362,8 @@ def get_hub_data_point_name_data(
         p_name = (
             legacy_name.replace("_", " ")
             .replace(channel.address, "")
-            .replace(channel.id, "")
-            .replace(channel.device.id, "")
+            .replace(str(channel.rega_id), "")
+            .replace(str(channel.device.rega_id), "")
             .strip()
         )
 
@@ -373,7 +382,8 @@ def get_hub_data_point_name_data(
 
 
 def get_event_name(
-    channel: hmd.Channel,
+    *,
+    channel: ChannelProtocol,
     parameter: str,
 ) -> DataPointNameData:
     """Get name for event."""
@@ -404,7 +414,8 @@ def get_event_name(
 
 
 def get_custom_data_point_name(
-    channel: hmd.Channel,
+    *,
+    channel: ChannelProtocol,
     is_only_primary_channel: bool,
     ignore_multiple_channels_for_name: bool,
     usage: DataPointUsage,
@@ -438,7 +449,8 @@ def get_custom_data_point_name(
 
 
 def generate_unique_id(
-    central: hmcu.CentralUnit,
+    *,
+    config_provider: ConfigProviderProtocol,
     address: str,
     parameter: str | None = None,
     prefix: str | None = None,
@@ -456,35 +468,37 @@ def generate_unique_id(
     if prefix:
         unique_id = f"{prefix}_{unique_id}"
     if (
-        address in (PROGRAM_ADDRESS, SYSVAR_ADDRESS)
+        address in (HUB_ADDRESS, INSTALL_MODE_ADDRESS, PROGRAM_ADDRESS, SYSVAR_ADDRESS)
         or address.startswith("INT000")
         or address.split(ADDRESS_SEPARATOR)[0] in VIRTUAL_REMOTE_ADDRESSES
     ):
-        return f"{central.config.central_id}_{unique_id}".lower()
+        return f"{config_provider.config.central_id}_{unique_id}".lower()
     return f"{unique_id}".lower()
 
 
 def generate_channel_unique_id(
-    central: hmcu.CentralUnit,
+    *,
+    config_provider: ConfigProviderProtocol,
     address: str,
 ) -> str:
     """Build unique identifier for a channel from address."""
     unique_id = address.replace(ADDRESS_SEPARATOR, "_").replace("-", "_")
     if address.split(ADDRESS_SEPARATOR)[0] in VIRTUAL_REMOTE_ADDRESSES:
-        return f"{central.config.central_id}_{unique_id}".lower()
+        return f"{config_provider.config.central_id}_{unique_id}".lower()
     return unique_id.lower()
 
 
-def _get_base_name_from_channel_or_device(channel: hmd.Channel) -> str | None:
+def _get_base_name_from_channel_or_device(*, channel: ChannelProtocol) -> str | None:
     """Get the name from channel if it's not default, otherwise from device."""
     default_channel_name = f"{channel.device.model} {channel.address}"
-    name = channel.central.device_details.get_name(address=channel.address)
+    # Access device details provider through channel's device
+    name = channel.device.device_details_provider.get_name(address=channel.address)
     if name is None or name == default_channel_name:
         return channel.device.name if channel.no is None else f"{channel.device.name}:{channel.no}"
     return name
 
 
-def _check_channel_name_with_channel_no(name: str) -> bool:
+def _check_channel_name_with_channel_no(*, name: str) -> bool:
     """Check if name contains channel and this is an int."""
     if name.count(ADDRESS_SEPARATOR) == 1:
         channel_part = name.split(ADDRESS_SEPARATOR)[1]
@@ -496,7 +510,7 @@ def _check_channel_name_with_channel_no(name: str) -> bool:
     return False
 
 
-def convert_value(value: Any, target_type: ParameterType, value_list: tuple[str, ...] | None) -> Any:
+def convert_value(*, value: Any, target_type: ParameterType, value_list: tuple[str, ...] | None) -> Any:
     """
     Convert a value to target_type with safe memoization.
 
@@ -508,18 +522,18 @@ def convert_value(value: Any, target_type: ParameterType, value_list: tuple[str,
     norm_value_list: tuple[str, ...] | None = tuple(value_list) if isinstance(value_list, list) else value_list
     try:
         # This will be cached if all arguments are hashable
-        return _convert_value_cached(value, target_type, norm_value_list)
+        return _convert_value_cached(value=value, target_type=target_type, value_list=norm_value_list)
     except TypeError:
         # Fallback non-cached path if any argument is unhashable
-        return _convert_value_noncached(value, target_type, norm_value_list)
+        return _convert_value_noncached(value=value, target_type=target_type, value_list=norm_value_list)
 
 
 @lru_cache(maxsize=2048)
-def _convert_value_cached(value: Any, target_type: ParameterType, value_list: tuple[str, ...] | None) -> Any:
-    return _convert_value_noncached(value, target_type, value_list)
+def _convert_value_cached(*, value: Any, target_type: ParameterType, value_list: tuple[str, ...] | None) -> Any:
+    return _convert_value_noncached(value=value, target_type=target_type, value_list=value_list)
 
 
-def _convert_value_noncached(value: Any, target_type: ParameterType, value_list: tuple[str, ...] | None) -> Any:
+def _convert_value_noncached(*, value: Any, target_type: ParameterType, value_list: tuple[str, ...] | None) -> Any:
     if value is None:
         return None
     if target_type == ParameterType.BOOL:
@@ -527,7 +541,7 @@ def _convert_value_noncached(value: Any, target_type: ParameterType, value_list:
             # relevant for ENUMs retyped to a BOOL
             return _get_binary_sensor_value(value=value, value_list=value_list)
         if isinstance(value, str):
-            return to_bool(value)
+            return to_bool(value=value)
         return bool(value)
     if target_type == ParameterType.FLOAT:
         return float(value)
@@ -538,7 +552,7 @@ def _convert_value_noncached(value: Any, target_type: ParameterType, value_list:
     return value
 
 
-def is_binary_sensor(parameter_data: ParameterData) -> bool:
+def is_binary_sensor(*, parameter_data: ParameterData) -> bool:
     """Check, if the sensor is a binary_sensor."""
     if parameter_data["TYPE"] == ParameterType.BOOL:
         return True
@@ -547,7 +561,7 @@ def is_binary_sensor(parameter_data: ParameterData) -> bool:
     return False
 
 
-def _get_binary_sensor_value(value: int, value_list: tuple[str, ...]) -> bool:
+def _get_binary_sensor_value(*, value: int, value_list: tuple[str, ...]) -> bool:
     """Return, the value of a binary_sensor."""
     try:
         str_value = value_list[value]
@@ -559,16 +573,16 @@ def _get_binary_sensor_value(value: int, value_list: tuple[str, ...]) -> bool:
 
 
 def check_channel_is_the_only_primary_channel(
+    *,
     current_channel_no: int | None,
-    device_def: Mapping[str, Any],
+    primary_channel: int | None,
     device_has_multiple_channels: bool,
 ) -> bool:
     """Check if this channel is the only primary channel."""
-    primary_channel: int = device_def[hmed.CDPD.PRIMARY_CHANNEL]
     return bool(primary_channel == current_channel_no and device_has_multiple_channels is False)
 
 
-def get_value_from_value_list(value: SYSVAR_TYPE, value_list: tuple[str, ...] | list[str] | None) -> str | None:
+def get_value_from_value_list(*, value: SYSVAR_TYPE, value_list: tuple[str, ...] | list[str] | None) -> str | None:
     """Check if value is in value list."""
     if value is not None and isinstance(value, int) and value_list is not None and value < len(value_list):
         return value_list[int(value)]
@@ -576,7 +590,7 @@ def get_value_from_value_list(value: SYSVAR_TYPE, value_list: tuple[str, ...] | 
 
 
 def get_index_of_value_from_value_list(
-    value: SYSVAR_TYPE, value_list: tuple[str, ...] | list[str] | None
+    *, value: SYSVAR_TYPE, value_list: tuple[str, ...] | list[str] | None
 ) -> int | None:
     """Check if value is in value list."""
     if value is not None and isinstance(value, str | StrEnum) and value_list is not None and value in value_list:

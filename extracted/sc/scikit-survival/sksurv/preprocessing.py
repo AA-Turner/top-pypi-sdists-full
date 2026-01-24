@@ -10,6 +10,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import pandas as pd
+from pandas.api.types import CategoricalDtype, is_string_dtype
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import _check_feature_names, _check_feature_names_in, _check_n_features, check_is_fitted
 
@@ -127,12 +129,24 @@ class OneHotEncoder(BaseEstimator, TransformerMixin):
         """
         _check_feature_names(self, X, reset=True)
         _check_n_features(self, X, reset=True)
-        columns_to_encode = X.select_dtypes(include=["object", "category"]).columns
+
+        def is_string_or_categorical_dtype(dtype):
+            return is_string_dtype(dtype) or isinstance(dtype, CategoricalDtype)
+
+        columns_to_encode = pd.Index(
+            [name for name, dtype in X.dtypes.items() if is_string_or_categorical_dtype(dtype)]
+        )
         x_dummy = self._encode(X, columns_to_encode)
 
         self.feature_names_ = columns_to_encode
-        self.categories_ = {k: X[k].cat.categories for k in columns_to_encode}
-        self.encoded_columns_ = x_dummy.columns
+        cat_cols = {}
+        for col_name in columns_to_encode:
+            col = X[col_name]
+            if not isinstance(col.dtype, CategoricalDtype):
+                col = col.astype("category")
+            cat_cols[col_name] = col.cat.categories
+        self.categories_ = cat_cols
+        self.encoded_columns_ = x_dummy.columns.copy()
         return x_dummy
 
     def transform(self, X):
@@ -152,9 +166,7 @@ class OneHotEncoder(BaseEstimator, TransformerMixin):
         _check_n_features(self, X, reset=False)
         check_columns_exist(X.columns, self.feature_names_)
 
-        Xt = X.copy()
-        for col, cat in self.categories_.items():
-            Xt[col] = Xt[col].cat.set_categories(cat)
+        Xt = X.astype({col: CategoricalDtype(cat) for col, cat in self.categories_.items()})
 
         new_data = self._encode(Xt, self.feature_names_)
         return new_data.loc[:, self.encoded_columns_]
@@ -180,4 +192,4 @@ class OneHotEncoder(BaseEstimator, TransformerMixin):
         check_is_fitted(self, "encoded_columns_")
         input_features = _check_feature_names_in(self, input_features)
 
-        return self.encoded_columns_.values.copy()
+        return self.encoded_columns_.to_numpy(copy=True)

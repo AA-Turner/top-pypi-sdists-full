@@ -14,8 +14,10 @@ import asyncio
 import collections
 import contextlib
 import json
+import logging
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from datetime import datetime
@@ -61,7 +63,9 @@ from semgrep.rule import Rule
 from semgrep.rule_match import OrderedRuleMatchList
 from semgrep.rule_match import RuleMatchMap
 from semgrep.semgrep_types import Language
-from semgrep.state import DesignTreatment
+from semgrep.simple_profiling import enabled_simple_profiling
+from semgrep.simple_profiling import import_simple_profiling
+from semgrep.simple_profiling import simple_profiling
 from semgrep.state import get_state
 from semgrep.target_manager import TargetManager
 from semgrep.target_mode import TargetModeConfig
@@ -91,6 +95,13 @@ if not IS_WINDOWS:
     import resource
 
 
+def parse_core_output_json(output_json: Any) -> out.CoreOutput:
+    """Convert JSON tree into CoreOutput and import profiling data"""
+    res = out.CoreOutput.from_json(output_json)
+    import_simple_profiling(res.profiling_results)
+    return res
+
+
 def setrlimits_preexec_fn() -> None:
     """
     Sets stack limit of current running process to the maximum possible
@@ -107,6 +118,13 @@ def setrlimits_preexec_fn() -> None:
     # which have their own output requirements so that CLI can parse its stdout,
     # we use a different logger than the usual "semgrep" one
     core_logger = getLogger("semgrep_core")
+
+    handler = logging.StreamHandler(stream=sys.stderr)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    handler.setLevel(logging.WARNING)
+    core_logger.addHandler(handler)
+    core_logger.propagate = False
+
     if IS_WINDOWS:
         core_logger.info("Skipping setting stack limits on Windows")
         return
@@ -250,6 +268,7 @@ class StreamingSemgrepCore:
         """
         stdout_lines: List[bytes] = []
         num_total_targets: int = self._total
+        completed_targets: int = 0
 
         # Progress indicator bytes that we see from semgrep-core stdout
         progress_bytes = b".\r\n" if IS_WINDOWS else b".\n"
@@ -331,6 +350,7 @@ class StreamingSemgrepCore:
                 # So a dot counts as 1 progress if running Pro, but 3 progress if
                 # running the OSS engine.
                 advanced_targets = 1 if self._engine_type.is_interfile else 3
+                completed_targets += advanced_targets
 
                 if self._progress_bar and self._progress_bar_task_id is not None:
                     self._progress_bar.update(
@@ -351,6 +371,33 @@ class StreamingSemgrepCore:
                 # so increase the buffer read size.
                 reading_json = True
                 get_input = lambda s: s.read(n=LARGE_READ_SIZE)
+
+        # Check to make sure all targets were reported by semgrep-core as completed. See
+        # SAF-2079 for a discussion of when they haven't all been.
+        #
+        # NOTE: If you change this error message, please also change the message in
+        # test_progress_report_when_errors in
+        # e2e/test_semgrep_core_parse_error.py. (Should there instead be a shared
+        # constant?)
+        if completed_targets < num_total_targets:
+            logger.debug(
+                "Not all targets were reported by semgrep-core as completed, only %d/%d",
+                completed_targets,
+                num_total_targets,
+            )
+            # It's hard to get progress reporting totally correct, but we're all done now,
+            # so force the progress bar to 100%.
+            if self._progress_bar and self._progress_bar_task_id is not None:
+                self._progress_bar.update(
+                    self._progress_bar_task_id,
+                    advance=num_total_targets - completed_targets,
+                )
+        elif completed_targets > num_total_targets:
+            logger.debug(
+                "More targets were reported by semgrep-core as completed than total registered, %d/%d",
+                completed_targets,
+                num_total_targets,
+            )
 
     async def _core_stderr_processor(
         self, stream: Optional[asyncio.StreamReader]
@@ -532,6 +579,7 @@ class CoreRunner:
         interfile_timeout: int,
         trace: bool,
         trace_endpoint: Optional[str],
+        profile: bool,
         capture_stderr: bool,
         optimizations: str,
         allow_untrusted_validators: bool,
@@ -551,6 +599,7 @@ class CoreRunner:
         self._interfile_timeout = interfile_timeout
         self._trace = trace
         self._trace_endpoint = trace_endpoint
+        self._profile = profile
         self._optimizations = optimizations
         self._allow_untrusted_validators = allow_untrusted_validators
         self._path_sensitive = path_sensitive
@@ -582,7 +631,7 @@ class CoreRunner:
             )
 
             if "errors" in output_json:
-                parsed_output = out.CoreOutput.from_json(output_json)
+                parsed_output = parse_core_output_json(output_json)
                 errors = parsed_output.errors
                 fail_msg = (
                     "non-zero exit status with one or more errors in json response"
@@ -730,6 +779,106 @@ class CoreRunner:
             f"Error while matching: {reason}\n{details}" f"{PLEASE_FILE_ISSUE_TEXT}"
         )
 
+    def _check_ddprof_preconditions(self) -> bool:
+        """
+        Checks if ddprof can be used for SMS profiling.
+        Returns True if ddprof can be used, False otherwise.
+
+        We want to add these checks because ddprof gives really weird errors
+        (e.g. exit code 2, sometimes even presents itself as other errors)
+        when it is ran without a proper setup.
+
+        The setup that ddprof needs is:
+        - We are running inside SMS
+        - DDPROF_ON, DD_ENV, DD_AGENT_HOST, and DD_SERVICE are set
+        - CAP_PERFMON is set
+        - trace is enabled
+        """
+        if not os.environ.get("SEMGREP_MANAGED_SCAN"):
+            return False
+
+        trace_enabled = self._trace
+        ddprof_on_path = shutil.which("ddprof")
+        ddprof_env_vars_set = (
+            os.environ.get("DDPROF_ON", "") != ""
+            and os.environ.get("DD_ENV", "") != ""
+            and os.environ.get("DD_AGENT_HOST", "") != ""
+            and os.environ.get("DD_SERVICE", "") != ""
+        )
+        ddprof_cap_set = False
+        # run ddprof -U 0:0 git --version and check for exitcode to make sure CAP_PERFMON is set.
+        #
+        # note: we are doing -U 0:0 because it ensures that the data of this dummy call is not sent anywhere.
+        try:
+            result = subprocess.run(
+                ["ddprof", "-U", "0:0", "git", "--version"], capture_output=True
+            )
+            if result.stdout and len(result.stdout.splitlines()) == 1:
+                ddprof_cap_set = True
+        except Exception as e:
+            logger.debug(f"Failed to check ddprof CAP_PERFMON: {e}")
+
+        ddprof = (
+            (ddprof_on_path is not None)
+            and trace_enabled
+            and ddprof_env_vars_set
+            and ddprof_cap_set
+        )
+
+        # debug message for ddprof
+        if not ddprof:
+            reasons = []
+            if ddprof_on_path is None:
+                reasons.append("ddprof is not in PATH")
+            if not trace_enabled:
+                reasons.append("trace is not enabled")
+            if not ddprof_env_vars_set:
+                reasons.append(
+                    "DDPROF_ON, DD_ENV, DD_AGENT_HOST, and DD_SERVICE are not set"
+                )
+            if not ddprof_cap_set:
+                reasons.append("CAP_PERFMON is not set")
+            if reasons:
+                logger.debug(
+                    "ddprof will not be used for SMS profiling. Reason(s): "
+                    + "; ".join(reasons)
+                    + "."
+                )
+        return ddprof
+
+    def _check_pyro_caml_preconditions(self) -> bool:
+        """
+        Checks if pyro-caml can be used for profiling.
+        Returns True if pyro-caml can be used, False otherwise.
+
+        We want to add these checks since pyro-caml will fail otherwise
+
+        What we need are:
+        - PYRO_CAML_SERVER_ADDRESS is set
+        - pyro-caml is installed
+        """
+
+        pyro_caml_on_path = shutil.which("pyro-caml")
+
+        profile_env_set = os.environ.get("SEMGREP_PROFILE", "") != ""
+        pyro_caml_requested = self._profile or (profile_env_set)
+        pyro_caml = (pyro_caml_on_path is not None) and pyro_caml_requested
+
+        # debug message for pyro-caml
+        if not pyro_caml:
+            reasons = []
+            if pyro_caml_on_path is None:
+                reasons.append("pyro-caml is not in PATH")
+            if not (self._profile or profile_env_set):
+                reasons.append("profile is not enabled")
+            if reasons:
+                logger.debug(
+                    "pyro-caml will not be used for profiling. Reason(s): "
+                    + "; ".join(reasons)
+                    + "."
+                )
+        return pyro_caml
+
     @staticmethod
     def plan_core_run(
         rules: List[Rule],
@@ -751,9 +900,8 @@ class CoreRunner:
         Note: this is a list because a target can appear twice (e.g. Java + Generic)
         """
         # The range of target_info is (index into rules x product as json)
-        # Using product as JSON because we want structural equality of products instead of object equality.
         target_info: Dict[
-            Tuple[Target, Language], Tuple[List[int], Set[str]]
+            Tuple[Target, Language], Tuple[List[int], Set[out.Product]]
         ] = collections.defaultdict(lambda: (list(), set()))
 
         unused_rules = []
@@ -774,7 +922,7 @@ class CoreRunner:
                 for target in targets:
                     rules_nums, products = target_info[target, language]
                     rules_nums.append(rule_num)
-                    products.add(rule.product.to_json_string())
+                    products.add(rule.product)
 
             if not some_target:
                 unused_rules.append(rule)
@@ -784,7 +932,7 @@ class CoreRunner:
                 Task(
                     path=target,
                     analyzer=language,
-                    products=tuple(out.Product.from_json_string(x) for x in products),
+                    products=tuple(products),
                     # tuple conversion makes rule_nums hashable, so usable as cache key
                     rule_nums=tuple(rule_nums),
                 )
@@ -810,7 +958,7 @@ class CoreRunner:
         disable_secrets_validation: bool,
         target_mode_config: TargetModeConfig,
         all_subprojects: List[Union[out.ResolvedSubproject, out.UnresolvedSubproject]],
-        x_eio: bool,
+        x_parmap: bool,
     ) -> Tuple[RuleMatchMap, List[SemgrepError], OutputExtra,]:
         state = get_state()
         logger.debug(f"Passing whole rules directly to semgrep_core")
@@ -864,27 +1012,16 @@ Could not find the semgrep-core executable. Your Semgrep install is likely corru
                     )
                 sys.exit(2)
 
-            # check if ddprof is in PATH, if the trace flag is set, and if DDPROF_OFF is not "1".
-            # if yes, then we wrap the call to semgrep with ddprof for SMS profiling.
-            ddprof = shutil.which("ddprof") and self._trace
-
-            ddprof_on = (
-                os.environ.get("DDPROF_ON") and os.environ.get("DDPROF_ON") != ""
-            )
-
-            if ddprof and not ddprof_on:
-                logger.debug(
-                    "DDPROF_ON is not set, so ddprof will not be used for SMS profiling."
-                )
-                ddprof = False
-
+            use_ddprof = self._check_ddprof_preconditions()
+            use_pyro_caml = self._check_pyro_caml_preconditions()
             cmd = [
                 # bugfix: self._binary_path is an Optional[Path]. The
                 # recommended way to convert a Path to a string is to use the
                 # str function. However, mypy allows the use of str to convert
                 # Optional values to strings. Make sure to check against None
                 # even though mypy won't warn you.
-                *(["ddprof"] if ddprof else []),
+                *(["pyro-caml", "-vv"] if use_pyro_caml else []),
+                *(["ddprof"] if use_ddprof else []),
                 str(self._binary_path),
                 "-json",
             ]
@@ -897,10 +1034,14 @@ Could not find the semgrep-core executable. Your Semgrep install is likely corru
             rule_file.flush()
             cmd.extend(["-rules", rule_file.name])
 
+            # Turn on simple profiling. See Profiling.ml and simple_profiling.py
+            if enabled_simple_profiling:
+                cmd.extend(["-simple_profiling"])
+
             # adding multi-core option
             # rely on the domains/thread-based impl instead of Parmap
-            if x_eio:
-                cmd.extend(["-use_eio"])
+            if x_parmap:
+                cmd.extend(["-use_parmap"])
 
             if self._jobs is not None:
                 cmd.extend(["-j", str(self._jobs)])
@@ -1026,10 +1167,8 @@ Could not find the semgrep-core executable. Your Semgrep install is likely corru
             if state.terminal.is_debug:
                 cmd += ["-debug"]
 
-            show_progress = state.get_cli_ux_flavor() != DesignTreatment.MINIMAL
-            total = (
-                plan.num_targets * 3 if show_progress else 0
-            )  # Multiply by 3 for Pro Engine
+            # Multiply by 3 for Pro Engine
+            total = plan.num_targets * 3
 
             logger.debug("Running Semgrep engine with command:")
             logger.debug(" ".join(cmd))
@@ -1060,7 +1199,7 @@ Could not find the semgrep-core executable. Your Semgrep install is likely corru
                 runner.stdout,
                 runner.stderr,
             )
-            core_output = out.CoreOutput.from_json(output_json)
+            core_output = parse_core_output_json(output_json)
             if core_output.paths.skipped:
                 for skip in core_output.paths.skipped:
                     if skip.rule_id:
@@ -1125,8 +1264,8 @@ Could not find the semgrep-core executable. Your Semgrep install is likely corru
         disable_secrets_validation: bool,
         target_mode_config: TargetModeConfig,
         all_subprojects: List[Union[out.ResolvedSubproject, out.UnresolvedSubproject]],
-        x_eio: bool,
-    ) -> Tuple[RuleMatchMap, List[SemgrepError], OutputExtra,]:
+        x_parmap: bool,
+    ) -> Tuple[RuleMatchMap, List[SemgrepError], OutputExtra]:
         """
         Sometimes we may run into synchronicity issues with the latest DeepSemgrep binary.
         These issues may possibly cause a failure if a user, for instance, updates their
@@ -1148,7 +1287,7 @@ Could not find the semgrep-core executable. Your Semgrep install is likely corru
                 disable_secrets_validation,
                 target_mode_config,
                 all_subprojects,
-                x_eio=x_eio,
+                x_parmap=x_parmap,
             )
         except SemgrepError as e:
             # Handle Semgrep errors normally
@@ -1176,6 +1315,7 @@ Exception raised: `{e}`
 
     # end _run_rules_direct_to_semgrep_core
 
+    @simple_profiling
     def invoke_semgrep_core(
         self,
         target_manager: TargetManager,
@@ -1189,7 +1329,7 @@ Exception raised: `{e}`
         disable_secrets_validation: bool,
         target_mode_config: TargetModeConfig,
         all_subprojects: List[Union[out.ResolvedSubproject, out.UnresolvedSubproject]],
-        x_eio: bool,
+        x_parmap: bool,
     ) -> Tuple[RuleMatchMap, List[SemgrepError], OutputExtra,]:
         """
         Takes in rules and targets and returns object with findings
@@ -1212,7 +1352,7 @@ Exception raised: `{e}`
             disable_secrets_validation,
             target_mode_config,
             all_subprojects,
-            x_eio,
+            x_parmap,
         )
 
         logger.debug(
@@ -1262,9 +1402,9 @@ Exception raised: `{e}`
                 *configs,
             ]
 
-            # only scanning combined rules
-            show_progress = get_state().get_cli_ux_flavor() != DesignTreatment.MINIMAL
-            total = 1 if show_progress else 0
+            # only scanning combined rules. Only 1 target, but total is 3 to account for
+            # Pro Engine
+            total = 3
 
             runner = StreamingSemgrepCore(
                 cmd, total=total, engine_type=self._engine_type, capture_stderr=True
@@ -1275,7 +1415,7 @@ Exception raised: `{e}`
             output_json = self._extract_core_output(
                 metachecks, returncode, " ".join(cmd), runner.stdout, runner.stderr
             )
-            core_output = out.CoreOutput.from_json(output_json)
+            core_output = parse_core_output_json(output_json)
 
             parsed_errors += [
                 core_error_to_semgrep_error(e) for e in core_output.errors

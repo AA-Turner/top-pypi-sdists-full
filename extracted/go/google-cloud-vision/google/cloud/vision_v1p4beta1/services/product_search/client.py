@@ -116,23 +116,22 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
     """Manages Products and ProductSets of reference images for use in
     product search. It uses the following resource model:
 
-    -  The API has a collection of
-       [ProductSet][google.cloud.vision.v1p4beta1.ProductSet] resources,
-       named ``projects/*/locations/*/productSets/*``, which acts as a
-       way to put different products into groups to limit
-       identification.
+    - The API has a collection of
+      [ProductSet][google.cloud.vision.v1p4beta1.ProductSet] resources,
+      named ``projects/*/locations/*/productSets/*``, which acts as a
+      way to put different products into groups to limit identification.
 
     In parallel,
 
-    -  The API has a collection of
-       [Product][google.cloud.vision.v1p4beta1.Product] resources, named
-       ``projects/*/locations/*/products/*``
+    - The API has a collection of
+      [Product][google.cloud.vision.v1p4beta1.Product] resources, named
+      ``projects/*/locations/*/products/*``
 
-    -  Each [Product][google.cloud.vision.v1p4beta1.Product] has a
-       collection of
-       [ReferenceImage][google.cloud.vision.v1p4beta1.ReferenceImage]
-       resources, named
-       ``projects/*/locations/*/products/*/referenceImages/*``
+    - Each [Product][google.cloud.vision.v1p4beta1.Product] has a
+      collection of
+      [ReferenceImage][google.cloud.vision.v1p4beta1.ReferenceImage]
+      resources, named
+      ``projects/*/locations/*/products/*/referenceImages/*``
     """
 
     @staticmethod
@@ -173,6 +172,34 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "vision.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -409,12 +436,8 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = ProductSearchClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -422,7 +445,7 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -454,20 +477,14 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = ProductSearchClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -800,8 +817,8 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         Possible errors:
 
-        -  Returns INVALID_ARGUMENT if display_name is missing, or is
-           longer than 4096 characters.
+        - Returns INVALID_ARGUMENT if display_name is missing, or is
+          longer than 4096 characters.
 
         .. code-block:: python
 
@@ -938,8 +955,8 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         Possible errors:
 
-        -  Returns INVALID_ARGUMENT if page_size is greater than 100, or
-           less than 1.
+        - Returns INVALID_ARGUMENT if page_size is greater than 100, or
+          less than 1.
 
         .. code-block:: python
 
@@ -1068,7 +1085,7 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the ProductSet does not exist.
+        - Returns NOT_FOUND if the ProductSet does not exist.
 
         .. code-block:: python
 
@@ -1188,10 +1205,10 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the ProductSet does not exist.
-        -  Returns INVALID_ARGUMENT if display_name is present in
-           update_mask but missing from the request or longer than 4096
-           characters.
+        - Returns NOT_FOUND if the ProductSet does not exist.
+        - Returns INVALID_ARGUMENT if display_name is present in
+          update_mask but missing from the request or longer than 4096
+          characters.
 
         .. code-block:: python
 
@@ -1424,12 +1441,12 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         Possible errors:
 
-        -  Returns INVALID_ARGUMENT if display_name is missing or longer
-           than 4096 characters.
-        -  Returns INVALID_ARGUMENT if description is longer than 4096
-           characters.
-        -  Returns INVALID_ARGUMENT if product_category is missing or
-           invalid.
+        - Returns INVALID_ARGUMENT if display_name is missing or longer
+          than 4096 characters.
+        - Returns INVALID_ARGUMENT if description is longer than 4096
+          characters.
+        - Returns INVALID_ARGUMENT if product_category is missing or
+          invalid.
 
         .. code-block:: python
 
@@ -1561,8 +1578,8 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         Possible errors:
 
-        -  Returns INVALID_ARGUMENT if page_size is greater than 100 or
-           less than 1.
+        - Returns INVALID_ARGUMENT if page_size is greater than 100 or
+          less than 1.
 
         .. code-block:: python
 
@@ -1689,7 +1706,7 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the Product does not exist.
+        - Returns NOT_FOUND if the Product does not exist.
 
         .. code-block:: python
 
@@ -1807,14 +1824,14 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the Product does not exist.
-        -  Returns INVALID_ARGUMENT if display_name is present in
-           update_mask but is missing from the request or longer than
-           4096 characters.
-        -  Returns INVALID_ARGUMENT if description is present in
-           update_mask but is longer than 4096 characters.
-        -  Returns INVALID_ARGUMENT if product_category is present in
-           update_mask.
+        - Returns NOT_FOUND if the Product does not exist.
+        - Returns INVALID_ARGUMENT if display_name is present in
+          update_mask but is missing from the request or longer than
+          4096 characters.
+        - Returns INVALID_ARGUMENT if description is present in
+          update_mask but is longer than 4096 characters.
+        - Returns INVALID_ARGUMENT if product_category is present in
+          update_mask.
 
         .. code-block:: python
 
@@ -2055,14 +2072,14 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         Possible errors:
 
-        -  Returns INVALID_ARGUMENT if the image_uri is missing or
-           longer than 4096 characters.
-        -  Returns INVALID_ARGUMENT if the product does not exist.
-        -  Returns INVALID_ARGUMENT if bounding_poly is not provided,
-           and nothing compatible with the parent product's
-           product_category is detected.
-        -  Returns INVALID_ARGUMENT if bounding_poly contains more than
-           10 polygons.
+        - Returns INVALID_ARGUMENT if the image_uri is missing or longer
+          than 4096 characters.
+        - Returns INVALID_ARGUMENT if the product does not exist.
+        - Returns INVALID_ARGUMENT if bounding_poly is not provided, and
+          nothing compatible with the parent product's product_category
+          is detected.
+        - Returns INVALID_ARGUMENT if bounding_poly contains more than
+          10 polygons.
 
         .. code-block:: python
 
@@ -2312,9 +2329,9 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the parent product does not exist.
-        -  Returns INVALID_ARGUMENT if the page_size is greater than
-           100, or less than 1.
+        - Returns NOT_FOUND if the parent product does not exist.
+        - Returns INVALID_ARGUMENT if the page_size is greater than 100,
+          or less than 1.
 
         .. code-block:: python
 
@@ -2444,7 +2461,7 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the specified image does not exist.
+        - Returns NOT_FOUND if the specified image does not exist.
 
         .. code-block:: python
 
@@ -2565,8 +2582,8 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the Product or the ProductSet doesn't
-           exist.
+        - Returns NOT_FOUND if the Product or the ProductSet doesn't
+          exist.
 
         .. code-block:: python
 
@@ -2809,8 +2826,8 @@ class ProductSearchClient(metaclass=ProductSearchClientMeta):
 
         Possible errors:
 
-        -  Returns INVALID_ARGUMENT if page_size is greater than 100 or
-           less than 1.
+        - Returns INVALID_ARGUMENT if page_size is greater than 100 or
+          less than 1.
 
         .. code-block:: python
 

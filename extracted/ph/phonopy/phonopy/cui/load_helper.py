@@ -37,13 +37,14 @@
 from __future__ import annotations
 
 import dataclasses
-import io
 import os
 import pathlib
+import typing
+from collections.abc import Sequence
 from typing import Literal
 
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 
 from phonopy import Phonopy
 from phonopy.exception import (
@@ -71,13 +72,16 @@ from phonopy.interface.pypolymlp import (
     parse_mlp_params,
 )
 from phonopy.structure.atoms import PhonopyAtoms
-from phonopy.structure.cells import Primitive, get_primitive_matrix
+from phonopy.structure.cells import get_primitive_matrix
 from phonopy.structure.dataset import forces_in_dataset
 
 
 def get_cell_settings(
-    supercell_matrix: ArrayLike | None = None,
-    primitive_matrix: ArrayLike | str | None = None,
+    supercell_matrix: Sequence[int] | Sequence[Sequence[int]] | NDArray | None = None,
+    primitive_matrix: Sequence[Sequence[float]]
+    | Literal["P", "F", "I", "A", "C", "R", "auto"]
+    | NDArray
+    | None = None,
     unitcell: PhonopyAtoms | None = None,
     supercell: PhonopyAtoms | None = None,
     unitcell_filename: str | os.PathLike | None = None,
@@ -85,7 +89,11 @@ def get_cell_settings(
     calculator: str | None = None,
     symprec: float = 1e-5,
     log_level: int = 0,
-) -> tuple[PhonopyAtoms, ArrayLike | None, str | NDArray | None]:
+) -> tuple[
+    PhonopyAtoms | None,
+    Sequence[int] | Sequence[Sequence[int]] | NDArray | None,
+    Literal["auto"] | NDArray | None,
+]:
     """Return crystal structures."""
     optional_structure_info = None
     if primitive_matrix is None or (
@@ -93,7 +101,7 @@ def get_cell_settings(
     ):
         pmat = "auto"
     else:
-        pmat = primitive_matrix
+        pmat = get_primitive_matrix(primitive_matrix, symprec=symprec)
 
     if unitcell_filename is not None:
         cell, optional_structure_info = _read_crystal_structure(
@@ -127,13 +135,11 @@ def get_cell_settings(
         msg = "'%s' could not be found." % filename
         raise FileNotFoundError(msg)
 
-    pmat = get_primitive_matrix(pmat, symprec=symprec)
-
     return cell, smat, pmat
 
 
 def get_nac_params(
-    primitive: Primitive | None = None,
+    primitive: PhonopyAtoms | None = None,
     nac_params: dict | None = None,
     born_filename: str | os.PathLike | None = None,
     is_nac: bool = True,
@@ -144,7 +150,7 @@ def get_nac_params(
 
     Parameters
     ----------
-    primitive : Primitive
+    primitive : PhonopyAtoms
         Primitive cell.
     nac_params : dict
         NAC parameters.
@@ -199,7 +205,7 @@ def get_nac_params(
 
 def read_force_constants_from_hdf5(
     filename: str | os.PathLike = "force_constants.hdf5",
-    p2s_map: ArrayLike | None = None,
+    p2s_map: NDArray | None = None,
     calculator: str | None = None,
 ) -> NDArray:
     """Convert force constants physical unit.
@@ -227,7 +233,7 @@ def read_force_constants_from_hdf5(
 def select_and_load_dataset(
     nsatom: int,
     dataset: dict | None = None,
-    phonopy_yaml_filename: str | os.PathLike | io.IOBase | None = None,
+    phonopy_yaml_filename: str | os.PathLike | typing.IO | None = None,
     force_sets_filename: str | os.PathLike | None = None,
     log_level: int = 0,
 ) -> dict | None:
@@ -518,7 +524,9 @@ def _read_force_constants_file(phonon: Phonopy, force_constants_filename) -> NDA
     return _fc
 
 
-def _read_crystal_structure(filename=None, interface_mode=None):
+def _read_crystal_structure(
+    filename: str | os.PathLike | None = None, interface_mode: str | None = None
+) -> tuple[PhonopyAtoms | None, tuple]:
     try:
         return read_crystal_structure(filename=filename, interface_mode=interface_mode)
     except FileNotFoundError:

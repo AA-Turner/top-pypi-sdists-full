@@ -51,7 +51,7 @@ class TernaryParamType(click.types.BoolParamType):
         info_dict["choices"] = self.CHOICES
         return info_dict
 
-    def get_metavar(self, param) -> str:
+    def get_metavar(self, param, ctx) -> str:
         return self.CHOICES
 
 

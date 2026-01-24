@@ -376,7 +376,8 @@ def _upload_package_blob(ctx, package_file, url):
     """Upload the location file to storage url provided by autostorage"""
     BlobClient = get_sdk(ctx, ResourceType.DATA_STORAGE_BLOB, '_blob_client#BlobClient')
     blob_client = BlobClient.from_blob_url(url)
-    blob_client.upload_blob(package_file)
+    with open(package_file, "rb") as file:
+        blob_client.upload_blob(data=file.read(), overwrite=True)
 
 
 @transfer_doc(ApplicationPackageOperations.create)
@@ -474,7 +475,7 @@ def resize_pool(client, pool_id, target_dedicated_nodes=None, target_low_priorit
 
 def replace_pool(client,
                  pool_id, json_file=None, application_package_references=None,
-                 metadata=None, target_node_communication_mode=None, start_task_command_line=None,
+                 metadata=None, start_task_command_line=None,
                  start_task_environment_settings=None, start_task_max_task_retry_count=None,
                  start_task_resource_files=None, start_task_wait_for_success=None):
     if json_file:
@@ -500,8 +501,7 @@ def replace_pool(client,
             application_package_references = []
         param = BatchPoolReplaceContent(
             application_package_references=application_package_references,
-            metadata=metadata,
-            target_node_communication_mode=target_node_communication_mode)
+            metadata=metadata)
 
         if start_task_command_line:
             param.start_task = BatchStartTask(command_line=start_task_command_line,

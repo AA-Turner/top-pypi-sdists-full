@@ -18,7 +18,7 @@ use rumdl_lib::rules::{
 
 #[test]
 fn test_md001_edge_cases() {
-    let rule = MD001HeadingIncrement;
+    let rule = MD001HeadingIncrement::default();
 
     // Test 1: Empty headings
     let content = "\
@@ -26,7 +26,7 @@ fn test_md001_edge_cases() {
 ##
 ###
 ####";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Empty headings should be valid for MD001");
 
@@ -35,7 +35,7 @@ fn test_md001_edge_cases() {
 ### Starting at level 3
 #### Next level
 ##### Another level";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Starting at any level is valid for MD001");
 
@@ -43,7 +43,7 @@ fn test_md001_edge_cases() {
     let content = "\
 # Level 1
 ##### Level 5 jump";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1, "Should detect large heading jump");
     assert!(result[0].message.contains("5"));
@@ -55,7 +55,7 @@ fn test_md001_edge_cases() {
 ### Subsection
 # New Title
 ## New Section";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Heading resets to level 1 should be valid");
 
@@ -65,7 +65,7 @@ fn test_md001_edge_cases() {
 Setext Level 2
 --------------
 ### ATX Level 3";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Mixed heading styles should work for MD001");
 
@@ -74,25 +74,32 @@ Setext Level 2
 Setext Level 1
 ==============
 #### ATX Level 4";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1, "Should detect skip from Setext h1 to ATX h4");
 
-    // Test 7: Indented headings (should be ignored as they're not valid headings)
+    // Test 7: Indented headings (should be ignored as they're code blocks)
+    // Per CommonMark, 4-space indented line is a code block, not a heading
+    // So we have h1 -> (code block, not h2) -> h3, which is a skip
+    // Verified with: npx markdownlint-cli (flags MD001 on line 3)
     let content = "\
 # Normal heading
     ## This is indented 4 spaces (code block)
 ### Next heading";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    assert!(result.is_empty(), "Indented headings should be ignored");
+    assert_eq!(
+        result.len(),
+        1,
+        "Should detect h1 to h3 skip (h2 is a code block, not a heading)"
+    );
 
     // Test 8: Unicode in headings
     let content = "\
 # 标题一 🚀
 ## Título Dos 🎯
 ### शीर्षक तीन 🌟";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Unicode headings should work correctly");
 }
@@ -105,7 +112,7 @@ fn test_md003_edge_cases() {
 ## First heading is ATX
 Another heading
 ===============";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1, "Setext after ATX should be flagged in consistent mode");
 
@@ -116,7 +123,7 @@ Heading 1
 Heading 2
 ---------
 ### Heading 3";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let rule = MD003HeadingStyle::new(HeadingStyle::Setext1);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Level 3+ must be ATX even in Setext mode");
@@ -127,7 +134,7 @@ Heading 2
 # Heading 1 #
 ## Heading 2 ###
 ### Heading 3 #";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Any number of closing hashes is valid");
 
@@ -140,7 +147,7 @@ Heading 2
 ---------
 ### Heading 3
 #### Heading 4";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(
         result.is_empty(),
@@ -153,7 +160,7 @@ Heading 2
 #
 ##
 ###";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Empty ATX headings should be valid");
 
@@ -164,7 +171,7 @@ title: Document
 ---
 # First heading after front matter
 ## Second heading";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let rule = MD003HeadingStyle::new(HeadingStyle::Consistent);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Should handle YAML front matter correctly");
@@ -174,7 +181,7 @@ title: Document
 # **Bold** Heading
 ## *Italic* Heading
 ### `Code` Heading";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let rule = MD003HeadingStyle::new(HeadingStyle::Atx);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Inline formatting in headings should work");
@@ -189,7 +196,7 @@ fn test_md022_edge_cases() {
 # First heading
 
 Content";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "First heading with blank line after should pass");
 
@@ -199,7 +206,7 @@ Content";
 ```rust
 code
 ```";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Code fence after heading doesn't need blank line");
 
@@ -208,13 +215,13 @@ code
 # Heading
 - List item
 - Another item";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "List after heading doesn't need blank line");
 
     // Test 4: Document boundaries
     let content = "# Only heading";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Heading at document end should be valid");
 
@@ -223,7 +230,7 @@ code
 # Heading 1
 ## Heading 2
 ### Heading 3";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(
         result.len(),
@@ -232,37 +239,54 @@ code
     );
 
     // Test 6: Setext heading spacing
+    // Verified with markdownlint-cli: setext headings DO require blank lines
     let content = "\
 Content before
 Setext Heading
 ==============
 Content after";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    // Note: MD022 doesn't require blanks around Setext headings the same way as ATX
+    // markdownlint warns: line 1 needs blank below (before setext heading)
+    // and setext heading needs blank below (before "Content after")
     assert!(
-        result.is_empty(),
-        "MD022 doesn't enforce blank lines around Setext headings"
+        !result.is_empty(),
+        "MD022 should enforce blank lines around Setext headings"
+    );
+
+    // Setext with proper blank lines - should NOT warn
+    let content_ok = "\
+Content before
+
+Setext Heading
+==============
+
+Content after";
+    let ctx_ok = LintContext::new(content_ok, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result_ok = rule.check(&ctx_ok).unwrap();
+    assert!(
+        result_ok.is_empty(),
+        "Setext heading with proper blank lines should not warn"
     );
 
     // Test 7: Front matter handling
+    // Frontmatter is transparent for MD022 - heading can appear immediately after
+    // Verified with markdownlint: no MD022 warning for heading after frontmatter
     let content = "\
 ---
 title: Test
 ---
 # First heading";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    // MD022 requires a blank line after front matter
-    assert_eq!(
-        result.len(),
-        1,
-        "MD022 requires blank line after front matter before heading"
+    assert!(
+        result.is_empty(),
+        "Frontmatter is transparent - heading can appear immediately after"
     );
 
     // Test 8: CRLF line endings
     let content = "Content\r\n# Heading\r\nMore content";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 2, "Should handle CRLF line endings correctly");
 }
@@ -272,25 +296,35 @@ fn test_md023_edge_cases() {
     let rule = MD023HeadingStartLeft;
 
     // Test 1: Various indentation levels
+    // Per CommonMark spec, 4-space indented lines are code blocks, not headings
+    // markdownlint correctly skips this line, verified with:
+    // cat > /tmp/t.md << 'EOF'
+    // # No indent
+    //  # One space
+    //   ## Two spaces
+    //    ### Three spaces
+    //     #### Four spaces (code block)
+    // EOF
+    // npx markdownlint-cli /tmp/t.md
     let content = "\
 # No indent
  # One space
   ## Two spaces
    ### Three spaces
     #### Four spaces (code block)";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(
         result.len(),
-        4,
-        "Should flag all indented headings (MD023 checks headings regardless of code block context)"
+        3,
+        "Should flag 3 indented headings (4-space line is a code block per CommonMark)"
     );
 
     // Test 2: Setext headings with indented underline
     let content = "\
 Setext Heading
   ==============";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     // Note: MD023 doesn't flag indented Setext underlines if the text itself isn't indented
     assert!(
@@ -299,39 +333,43 @@ Setext Heading
     );
 
     // Test 3: Mixed indentation
+    // 4-space indented line is a code block per CommonMark, not a heading
+    // Verified with: npx markdownlint-cli (only flags line 2)
     let content = "\
 # Correct
   ## Indented
 ### Correct again
     #### Code block (ignored)
 ##### Correct";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(
         result.len(),
-        2,
-        "Should flag both indented headings (2 spaces and 4 spaces)"
+        1,
+        "Should flag 1 indented heading (4-space line is a code block)"
     );
 
     // Test 4: Empty document
     let content = "";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Empty document should have no issues");
 
     // Test 5: Tab indentation
+    // Per markdownlint-cli, tabs are handled by MD010, not MD023.
+    // A tab before a heading does not trigger MD023.
     let content = "\
 # Normal
 \t# Tab indented";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    assert_eq!(result.len(), 1, "Should flag tab-indented heading");
+    assert!(result.is_empty(), "Tab before heading is MD010's domain, not MD023");
 
     // Test 6: Setext with only text indented
     let content = "\
   Indented text
 ==============";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     // Note: The indented Setext text might not be recognized as a heading by LintContext
     // When we ran the actual CLI test, it did detect it, so this might be a test environment issue
@@ -352,7 +390,7 @@ fn test_md024_edge_cases() {
 # Title
 ## title
 ### TITLE";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Different cases should be allowed by default");
 
@@ -362,7 +400,7 @@ fn test_md024_edge_cases() {
 ## *Italic Title*
 ### `Code Title`
 #### [Link Title](url)";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Different formatting should make headings unique");
 
@@ -372,7 +410,7 @@ fn test_md024_edge_cases() {
 ## Title!
 ### Title?
 #### Title.";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Different punctuation should make headings unique");
 
@@ -381,17 +419,18 @@ fn test_md024_edge_cases() {
 #
 ##
 #";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "MD024 doesn't flag empty headings as duplicates");
 
     // Test 5: Unicode and special characters
+    let rule = MD024NoDuplicateHeading::new(false, false); // siblings_only=false to check all duplicates
     let content = "\
 # 标题 🚀
 ## 标题 🎯
 ### Título
 #### Título";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1, "Should detect duplicate Unicode headings");
 
@@ -401,24 +440,25 @@ fn test_md024_edge_cases() {
 # Title
 ## Title
 ### Title";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Same text at different levels should be allowed");
 
     // Test 7: HTML entities
+    let rule = MD024NoDuplicateHeading::new(false, false); // siblings_only=false to check all duplicates
     let content = "\
 # Title &amp; More
 ## Title & More
 ### Title &amp; More";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
-    let rule = MD024NoDuplicateHeading::default();
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1, "Should detect duplicate with HTML entities");
 
     // Test 8: Very long headings
+    let rule = MD024NoDuplicateHeading::new(false, false); // siblings_only=false to check all duplicates
     let long_text = "a".repeat(200);
     let content = format!("# {long_text}\n## {long_text}");
-    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1, "Should handle very long duplicate headings");
 
@@ -426,7 +466,7 @@ fn test_md024_edge_cases() {
     let content = "\
 # Title  With  Spaces
 ## Title With Spaces";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Different whitespace should make headings unique");
 }
@@ -443,7 +483,7 @@ fn test_md025_edge_cases() {
 # Appendix
 ## More content
 # References";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule_with_sections.check(&ctx).unwrap();
     assert!(result.is_empty(), "Document sections should be allowed");
 
@@ -454,7 +494,7 @@ title: YAML Title
 ---
 # Markdown Title
 ## Content";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Single H1 after front matter should be valid");
 
@@ -468,7 +508,7 @@ title: YAML Title
 
 # Second Title
 ## More content";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule_with_separators.check(&ctx).unwrap();
     assert!(result.is_empty(), "H1s with separators should be allowed");
 
@@ -481,7 +521,7 @@ ___
 # Title 3
 - - -
 # Title 4";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule_with_separators.check(&ctx).unwrap();
     assert!(result.is_empty(), "All HR styles should work as separators");
 
@@ -490,7 +530,7 @@ ___
 #
 ## Content
 #";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1, "Should detect multiple empty H1s");
 
@@ -501,7 +541,7 @@ ___
 ## First H2
 ### Content
 ## Second H2";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule_h2.check(&ctx).unwrap();
     assert_eq!(result.len(), 1, "Should detect multiple H2s when configured");
 
@@ -512,7 +552,7 @@ Main Title
 ## Content
 Another Title
 =============";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1, "Should detect multiple Setext H1s");
 
@@ -523,7 +563,7 @@ Another Title
 # This is in a code block
 ```
 ## Content";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Should ignore headings in code blocks");
 
@@ -532,7 +572,7 @@ Another Title
 #
 ## Content
 # A";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1, "Should handle single-character headings");
 }
@@ -554,10 +594,10 @@ fn test_heading_rules_with_code_blocks() {
 
 ## Real Heading 2";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // MD001 - Heading increment
-    let md001 = MD001HeadingIncrement;
+    let md001 = MD001HeadingIncrement::default();
     let result = md001.check(&ctx).unwrap();
     assert!(result.is_empty(), "MD001 should ignore headings in code blocks");
 
@@ -598,12 +638,12 @@ fn test_heading_rules_performance() {
         content.push_str("Some content between headings.\n\n");
     }
 
-    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Test performance of each rule
     let start = std::time::Instant::now();
 
-    let md001 = MD001HeadingIncrement;
+    let md001 = MD001HeadingIncrement::default();
     let _ = md001.check(&ctx).unwrap();
     let md001_time = start.elapsed();
 
@@ -648,14 +688,14 @@ fn test_heading_rules_fix_generation() {
 
     // MD001 - Test fix for heading increment
     let content = "# Level 1\n### Level 3";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
-    let md001 = MD001HeadingIncrement;
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let md001 = MD001HeadingIncrement::default();
     let fixed = md001.fix(&ctx).unwrap();
     assert_eq!(fixed, "# Level 1\n## Level 3", "MD001 should fix heading level");
 
     // MD003 - Test fix for heading style
     let content = "# ATX\n\nSetext\n------";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let md003 = MD003HeadingStyle::new(HeadingStyle::Atx);
     let fixed = md003.fix(&ctx).unwrap();
     assert_eq!(
@@ -665,21 +705,21 @@ fn test_heading_rules_fix_generation() {
 
     // MD022 - Test fix for blanks around headings
     let content = "text\n# Heading\nmore text";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let md022 = MD022BlanksAroundHeadings::default();
     let fixed = md022.fix(&ctx).unwrap();
     assert_eq!(fixed, "text\n\n# Heading\n\nmore text", "MD022 should add blank lines");
 
     // MD023 - Test fix for heading start left
     let content = "  # Indented";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let md023 = MD023HeadingStartLeft;
     let fixed = md023.fix(&ctx).unwrap();
     assert_eq!(fixed, "# Indented", "MD023 should remove indentation");
 
     // MD025 - Test fix for single title
     let content = "# Title 1\n## Content\n# Title 2";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let md025 = MD025SingleTitle::strict();
     let fixed = md025.fix(&ctx).unwrap();
     assert_eq!(
@@ -708,7 +748,7 @@ Code example:
 ### More Details
 # Conclusion";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     let md023 = MD023HeadingStartLeft;
     let result = md023.check(&ctx).unwrap();
@@ -745,9 +785,9 @@ Code example:
 ### Orders
 #### GET /orders";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
-    let md001 = MD001HeadingIncrement;
+    let md001 = MD001HeadingIncrement::default();
     let result = md001.check(&ctx).unwrap();
     assert!(result.is_empty(), "Proper increment should pass");
 
@@ -769,7 +809,7 @@ fn test_heading_rules_unicode_edge_cases() {
 
 # 🚀 Welcome مرحبا 歡迎";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // MD024 should detect the duplicate with emojis and mixed scripts
     let md024 = MD024NoDuplicateHeading::default();
@@ -777,7 +817,7 @@ fn test_heading_rules_unicode_edge_cases() {
     assert_eq!(result.len(), 1, "Should detect duplicate Unicode headings");
 
     // MD001 should handle Unicode correctly
-    let md001 = MD001HeadingIncrement;
+    let md001 = MD001HeadingIncrement::default();
     let result = md001.check(&ctx).unwrap();
     assert!(result.is_empty(), "Unicode shouldn't affect heading increment");
 
@@ -785,7 +825,7 @@ fn test_heading_rules_unicode_edge_cases() {
     let content = "\
 # Title\u{200B}with\u{200B}zero\u{200B}width
 ## Title\u{200C}with\u{200C}zero\u{200C}width";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = md024.check(&ctx).unwrap();
     assert!(
         result.is_empty(),
@@ -799,9 +839,9 @@ fn test_heading_rules_boundary_conditions() {
 
     // Empty document
     let content = "";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
-    let md001 = MD001HeadingIncrement;
+    let md001 = MD001HeadingIncrement::default();
     assert!(md001.check(&ctx).unwrap().is_empty());
 
     let md003 = MD003HeadingStyle::new(HeadingStyle::Atx);
@@ -821,15 +861,129 @@ fn test_heading_rules_boundary_conditions() {
 
     // Single character document
     let content = "#";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     let result = md001.check(&ctx).unwrap();
     assert!(result.is_empty(), "Single # should be valid");
 
     // Document with only whitespace
     let content = "   \n\n   \t\n   ";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     let result = md025.check(&ctx).unwrap();
     assert!(result.is_empty(), "Whitespace-only document should have no headings");
+}
+
+/// Tests for issue #254: List items should not be detected as setext headings
+/// Per CommonMark spec 4.3, setext heading content cannot be a list item
+#[test]
+fn test_list_items_not_setext_headings() {
+    // CommonMark spec Example 99: list item followed by dashes should NOT be setext heading
+    let content = r#"- foo
+-----"#;
+
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+
+    let rule = MD022BlanksAroundHeadings::default();
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(
+        result.len(),
+        0,
+        "List item should not be treated as setext heading (CommonMark Example 99)"
+    );
+
+    // Test all unordered list markers: -, *, +
+    let test_cases = vec![
+        "- Item\n---",
+        "* Item\n---",
+        "+ Item\n---",
+        "- Item\n===",
+        "* Item\n===",
+        "+ Item\n===",
+    ];
+
+    for content in test_cases {
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let rule = MD022BlanksAroundHeadings::default();
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(
+            result.len(),
+            0,
+            "List item should not be treated as setext heading: {content}"
+        );
+    }
+
+    // Test numbered lists
+    let test_cases = vec!["1. Item\n---", "2. Item\n===", "10. Item\n---"];
+
+    for content in test_cases {
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let rule = MD022BlanksAroundHeadings::default();
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(
+            result.len(),
+            0,
+            "Numbered list should not be treated as setext heading: {content}"
+        );
+    }
+
+    // Incomplete list item (the exact case from issue #254)
+    let content = r#"- Apple
+- Orange
+-"#;
+
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let rule = MD022BlanksAroundHeadings::default();
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(
+        result.len(),
+        0,
+        "Incomplete list item should not trigger heading detection"
+    );
+
+    // Valid paragraph should still work as setext heading
+    let content = r#"Regular paragraph text
+----------------------"#;
+
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let heading_count = ctx.valid_headings().count();
+    assert_eq!(heading_count, 1, "Valid paragraph setext heading should be detected");
+
+    // Blockquote should not be setext content
+    let content = r#"> Quote
+---"#;
+
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let rule = MD022BlanksAroundHeadings::default();
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(result.len(), 0, "Blockquote should not be setext heading content");
+
+    // Code fence should not be setext content
+    let content = r#"```rust
+---"#;
+
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let rule = MD022BlanksAroundHeadings::default();
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(result.len(), 0, "Code fence should not be setext heading content");
+
+    // HTML block should not be setext content
+    let content = r#"<div>
+---"#;
+
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let rule = MD022BlanksAroundHeadings::default();
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(result.len(), 0, "HTML block should not be setext heading content");
+
+    // Mixed lists and valid headings
+    let content = r#"- List item
+- Another item
+
+Valid Heading
+============="#;
+
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let heading_count = ctx.valid_headings().count();
+    assert_eq!(heading_count, 1, "Should detect exactly 1 heading in mixed content");
 }

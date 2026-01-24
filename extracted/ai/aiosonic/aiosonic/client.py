@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import re
 import sys
 from asyncio import wait_for
@@ -35,7 +36,7 @@ from aiosonic.exceptions import (
     RequestTimeout,
     TimeoutException,
 )
-from aiosonic.multipart import MultipartForm
+from aiosonic.multipart import MultipartFile, MultipartForm
 from aiosonic.proxy import Proxy
 from aiosonic.resolver import get_loop
 from aiosonic.timeout import Timeouts
@@ -205,7 +206,6 @@ class HttpResponse:
 
     async def json(self, json_decoder=loads) -> dict:
         """Read response body."""
-        assert "application/json" in self.headers["content-type"].lower()
         body = await self.content()
         return json_decoder(body)
 
@@ -359,56 +359,94 @@ async def _send_chunks(connection: Connection, body: BodyType):
 
 
 async def _send_multipart(
-    data: Dict[str, str],
+    data: Dict[str, Union[str, IOBase, MultipartFile]],
     boundary: str,
     headers: HeadersType,
     chunk_size: int = _CHUNK_SIZE,
-) -> bytes:
-    """Send multipart data by streaming."""
-    # TODO: precalculate body size and stream request
-    # precalculate file sizes by os.path.getsize
+) -> AsyncIterator[bytes]:
+    """Asynchronous iterator that streams multipart content.
 
-    to_send = b""
+    This function precalculates the total size, sets the Content-Length
+    header and returns an async iterator (async generator) that yields the
+    multipart body in chunks without building it entirely in memory.
+    """
+    total_size = 0
     for key, val in data.items():
-        # write --boundary + field
-        to_send += (f"--{boundary}{CRLF}").encode()
+        total_size += len((f"--{boundary}{CRLF}").encode())
 
-        if isinstance(val, IOBase):
-            # TODO: Utility to accept files with multipart metadata
-            # (Content-Type, custom filename, ...),
+        if isinstance(val, MultipartFile):
+            filename = val.filename
+            content_type = val.content_type
+            file_size = val.size
+        elif isinstance(val, IOBase):
+            file_obj = val
+            filename = basename(val.name) if hasattr(val, "name") else "file"
+            content_type = None
+            try:
+                file_size = os.path.getsize(file_obj.name)
+            except (OSError, AttributeError):
+                current_pos = file_obj.tell()
+                file_obj.seek(0, 2)
+                file_size = file_obj.tell()
+                file_obj.seek(current_pos)
+        else:
+            disp = f'Content-Disposition: form-data; name="{key}"{CRLF}{CRLF}'
+            total_size += len(disp.encode()) + len(val.encode()) + len(CRLF.encode())
+            continue
 
-            # write Contet-Disposition
-            to_write = (
-                "Content-Disposition: form-data; "
-                + 'name="%s"; filename="%s"%s%s'
-                % (
-                    key,
-                    basename(val.name),
-                    CRLF,
-                    CRLF,
-                )
-            )
-            to_send += to_write.encode()
+        to_write = (
+            f'Content-Disposition: form-data; name="{key}"; filename="{filename}"{CRLF}'
+        )
+        if content_type:
+            to_write += f"Content-Type: {content_type}{CRLF}"
+        to_write += CRLF
+        total_size += len(to_write.encode())
 
-            # read and write chunks
+        total_size += file_size
+
+    # final boundary
+    total_size += len((f"--{boundary}--").encode())
+
+    # Add Content-Length header
+    http_parser.add_header(headers, "Content-Length", str(total_size))
+
+    async def _gen():
+        for key, val in data.items():
+            yield (f"--{boundary}{CRLF}").encode()
+
+            if isinstance(val, IOBase):
+                file_obj = val
+                filename = basename(getattr(file_obj, "name", "file"))
+                content_type = None
+            elif isinstance(val, MultipartFile):
+                file_obj = val.file_obj
+                filename = val.filename
+                content_type = val.content_type
+            else:
+                yield (
+                    f'Content-Disposition: form-data; name="{key}"{CRLF}{CRLF}'
+                ).encode()
+                yield val.encode() + CRLF.encode()
+                continue
+
+            to_write = f'Content-Disposition: form-data; name="{key}"; filename="{filename}"{CRLF}'
+            if content_type:
+                to_write += f"Content-Type: {content_type}{CRLF}"
+            to_write += CRLF
+            yield to_write.encode()
+
             loop = get_loop()
             while True:
-                data = await loop.run_in_executor(None, val.read, chunk_size)
-                if not data:
+                chunk = await loop.run_in_executor(None, file_obj.read, chunk_size)
+                if not chunk:
                     break
-                to_send += data
-            val.close()
+                yield chunk
+            file_obj.close()
 
-        else:
-            to_send += (
-                f'Content-Disposition: form-data; name="{key}"{CRLF}{CRLF}'
-            ).encode()
-            to_send += val.encode() + CRLF.encode()
+        # final boundary
+        yield (f"--{boundary}--").encode()
 
-    # write --boundary-- for finish
-    to_send += (f"--{boundary}--").encode()
-    http_parser.add_header(headers, "Content-Length", str(len(to_send)))
-    return to_send
+    return _gen()
 
 
 async def _do_request(
@@ -434,7 +472,6 @@ async def _do_request(
 
     args = url_connect, verify, connect_ssl, timeouts, http2
     async with await connector.acquire(*args) as connection:
-
         if proxy and urlparsed.scheme == "https" and not connection.proxy_connected:
             await _proxy_connect(
                 connection, proxy, urlparsed, ssl or get_default_ssl_context()
@@ -443,7 +480,9 @@ async def _do_request(
         to_send = headers_data(connection=connection)
 
         if connection.h2conn:
-            return await connection.http2_request(to_send, body)
+            response = await connection.http2_request(to_send, body)
+            connection.keep_alive()
+            return response
 
         if not connection.writer or not connection.reader:
             raise ConnectionError("Not connection writer or reader")
@@ -469,7 +508,7 @@ async def _do_request(
             if not line:
                 raise HttpParsingError(f"response line parsing error: {line}")
             response._set_response_initial(line)
-        except asyncio.IncompleteReadError as exc:
+        except asyncio.IncompleteReadError:
             connection.keep = False
             raise ConnectionDisconnected()
             # raise HttpParsingError(f"response line parsing error: {exc.partial}")
@@ -716,7 +755,7 @@ class HTTPClient:
             * **headers**: headers to add in request
             * **params**: query params to add in request if not manually added
             * **data**: Data to be sent, this param is ignored for get
-            * **json**: If provided, encodes the provided json structure and appends the corresponding header.
+            * **json**: If provided, encodes json and appends header.
             * **json_serializer**: Use provided json serializer, default: json.dumps
             * **multipart**: Tell aiosonic if request is multipart
             * **verify**: parameter to indicate whether to verify ssl
@@ -754,6 +793,7 @@ class HTTPClient:
                 raise ValueError("data should be dict")
             boundary = "boundary-%d" % randint(*RANDOM_RANGE)
             body = await _send_multipart(data, boundary, headers)
+            transfer_chunked = False
         elif data:
             body = http_parser.setup_body_request(data, headers)
 

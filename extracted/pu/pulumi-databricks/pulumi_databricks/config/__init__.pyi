@@ -54,6 +54,10 @@ debugHeaders: Optional[bool]
 
 debugTruncateBytes: Optional[int]
 
+disableOauthRefreshToken: Optional[bool]
+
+experimentalIsUnifiedHost: Optional[bool]
+
 googleCredentials: Optional[str]
 
 googleServiceAccount: Optional[str]
@@ -85,4 +89,6 @@ token: Optional[str]
 username: Optional[str]
 
 warehouseId: Optional[str]
+
+workspaceId: Optional[str]
 

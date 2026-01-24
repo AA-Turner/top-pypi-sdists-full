@@ -16,7 +16,6 @@ short_description: Rule.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.1.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -133,8 +135,8 @@ EXAMPLES = '''
     - name: Rule.
       fortinet.fortimanager.fmgr_router_accesslist6_rule:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -204,6 +206,7 @@ def main():
         'adom': {'required': True, 'type': 'str'},
         'access-list6': {'type': 'str', 'api_name': 'access_list6'},
         'access_list6': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'router_accesslist6_rule': {
             'type': 'dict',
             'v_range': [['7.0.2', '']],

@@ -108,7 +108,7 @@ impl DateDelta {
     }
 }
 
-impl PyWrapped for DateDelta {}
+impl PySimpleAlloc for DateDelta {}
 
 impl Neg for DateDelta {
     type Output = Self;
@@ -177,21 +177,21 @@ where
     handle_kwargs(fname, kwargs, |key, value, eq| {
         if eq(key, str_days) {
             days = value
-                .cast::<PyInt>()
+                .cast_allow_subclass::<PyInt>()
                 .ok_or_type_err("days must be an integer")?
                 .to_long()?
                 .checked_add(days)
                 .ok_or_value_err("days out of range")?;
         } else if eq(key, str_months) {
             months = value
-                .cast::<PyInt>()
+                .cast_allow_subclass::<PyInt>()
                 .ok_or_type_err("months must be an integer")?
                 .to_long()?
                 .checked_add(months)
                 .ok_or_value_err("months out of range")?;
         } else if eq(key, str_years) {
             months = value
-                .cast::<PyInt>()
+                .cast_allow_subclass::<PyInt>()
                 .ok_or_type_err("years must be an integer")?
                 .to_long()?
                 .checked_mul(12)
@@ -199,7 +199,7 @@ where
                 .ok_or_value_err("years out of range")?;
         } else if eq(key, str_weeks) {
             days = value
-                .cast::<PyInt>()
+                .cast_allow_subclass::<PyInt>()
                 .ok_or_type_err("weeks must be an integer")?
                 .to_long()?
                 .checked_mul(7)
@@ -217,8 +217,16 @@ where
 }
 
 fn __new__(cls: HeapType<DateDelta>, args: PyTuple, kwargs: Option<PyDict>) -> PyReturn {
-    if args.len() != 0 {
-        return raise_type_err("DateDelta() takes no positional arguments");
+    match args.len() {
+        0 => {}
+        1 if kwargs.map_or(0, |s| s.len()) == 0 => {
+            return parse_iso(cls, args.iter().next().unwrap());
+        }
+        _ => {
+            return raise_type_err(
+                "DateDelta() takes at either 1 positional argument or only keyword arguments",
+            );
+        }
     }
     let &State {
         str_years,
@@ -246,7 +254,7 @@ fn __new__(cls: HeapType<DateDelta>, args: PyTuple, kwargs: Option<PyDict>) -> P
 
 pub(crate) fn years(state: &State, amount: PyObj) -> PyReturn {
     amount
-        .cast::<PyInt>()
+        .cast_allow_subclass::<PyInt>()
         .ok_or_type_err("argument must be int")?
         .to_long()?
         .checked_mul(12)
@@ -259,7 +267,7 @@ pub(crate) fn years(state: &State, amount: PyObj) -> PyReturn {
 pub(crate) fn months(state: &State, amount: PyObj) -> PyReturn {
     DeltaMonths::from_long(
         amount
-            .cast::<PyInt>()
+            .cast_allow_subclass::<PyInt>()
             .ok_or_type_err("argument must be int")?
             .to_long()?,
     )
@@ -270,7 +278,7 @@ pub(crate) fn months(state: &State, amount: PyObj) -> PyReturn {
 
 pub(crate) fn weeks(state: &State, amount: PyObj) -> PyReturn {
     amount
-        .cast::<PyInt>()
+        .cast_allow_subclass::<PyInt>()
         .ok_or_type_err("argument must be int")?
         .to_long()?
         .checked_mul(7)
@@ -283,7 +291,7 @@ pub(crate) fn weeks(state: &State, amount: PyObj) -> PyReturn {
 pub(crate) fn days(state: &State, amount: PyObj) -> PyReturn {
     DeltaDays::from_long(
         amount
-            .cast::<PyInt>()
+            .cast_allow_subclass::<PyInt>()
             .ok_or_type_err("argument must be int")?
             .to_long()?,
     )
@@ -309,7 +317,7 @@ fn __neg__(cls: HeapType<DateDelta>, d: DateDelta) -> PyReturn {
 }
 
 fn __repr__(_: PyType, d: DateDelta) -> PyReturn {
-    format!("DateDelta({d})").to_py()
+    format!("DateDelta(\"{d}\")").to_py()
 }
 
 fn __str__(_: PyType, d: DateDelta) -> PyReturn {
@@ -318,9 +326,9 @@ fn __str__(_: PyType, d: DateDelta) -> PyReturn {
 
 fn __mul__(a: PyObj, b: PyObj) -> PyReturn {
     // These checks are needed because the args could be reversed!
-    let (delta_obj, factor) = if let Some(i) = b.cast::<PyInt>() {
+    let (delta_obj, factor) = if let Some(i) = b.cast_allow_subclass::<PyInt>() {
         (a, i.to_long()?)
-    } else if let Some(i) = a.cast::<PyInt>() {
+    } else if let Some(i) = a.cast_allow_subclass::<PyInt>() {
         (b, i.to_long()?)
     } else {
         return not_implemented();
@@ -470,8 +478,81 @@ static mut SLOTS: &[PyType_Slot] = &[
     },
 ];
 
-fn format_common_iso(_: PyType, slf: DateDelta) -> PyReturn {
+fn format_iso(_: PyType, slf: DateDelta) -> PyReturn {
     slf.fmt_iso().to_py()
+}
+
+fn parse_iso(cls: HeapType<DateDelta>, arg: PyObj) -> PyReturn {
+    let py_str = arg
+        .cast_allow_subclass::<PyStr>()
+        // NOTE: this exception message also needs to make sense when
+        // called through the constructor
+        .ok_or_type_err("When parsing from ISO format, the argument must be str")?;
+    let s = &mut py_str.as_utf8()?;
+    let err = || format!("Invalid format: {arg}");
+    if s.len() < 3 {
+        // at least `P0D`
+        raise_value_err(err())?
+    }
+    let mut months = 0;
+    let mut days = 0;
+    let mut prev_unit: Option<Unit> = None;
+
+    let negated = parse_prefix(s).ok_or_else_value_err(err)?;
+
+    while !s.is_empty() {
+        let (value, unit) = parse_component(s).ok_or_else_value_err(err)?;
+        match (unit, prev_unit.replace(unit)) {
+            // NOTE: overflows are prevented by limiting the number
+            // of digits that are parsed.
+            (Unit::Years, None) => {
+                months += value * 12;
+            }
+            (Unit::Months, None | Some(Unit::Years)) => {
+                months += value;
+            }
+            (Unit::Weeks, None | Some(Unit::Years | Unit::Months)) => {
+                days += value * 7;
+            }
+            (Unit::Days, _) => {
+                days += value;
+                if s.is_empty() {
+                    break;
+                }
+                // i.e. there's more after the days component
+                raise_value_err(err())?;
+            }
+            _ => {
+                // i.e. the order of the components is wrong
+                raise_value_err(err())?;
+            }
+        }
+    }
+
+    // i.e. there must be at least one component (`P` alone is invalid)
+    if prev_unit.is_none() {
+        raise_value_err(err())?;
+    }
+
+    if negated {
+        months = -months;
+        days = -days;
+    }
+    DeltaMonths::new(months)
+        .zip(DeltaDays::new(days))
+        .map(|(months, days)| DateDelta { months, days })
+        .ok_or_value_err("DateDelta out of range")?
+        .to_obj(cls)
+}
+
+fn format_common_iso(cls: PyType, slf: DateDelta) -> PyReturn {
+    deprecation_warn(c"format_common_iso() has been renamed to format_iso()")?;
+    format_iso(cls, slf)
+}
+
+fn parse_common_iso(cls: HeapType<DateDelta>, arg: PyObj) -> PyReturn {
+    deprecation_warn(c"parse_common_iso() has been renamed to parse_iso()")?;
+    parse_iso(cls, arg)
 }
 
 // parse the prefix of an ISO8601 duration, e.g. `P`, `-P`, `+P`,
@@ -543,65 +624,6 @@ pub(crate) fn parse_component(s: &mut &[u8]) -> Option<(i32, Unit)> {
     }
 }
 
-fn parse_common_iso(cls: HeapType<DateDelta>, arg: PyObj) -> PyReturn {
-    let py_str = arg.cast::<PyStr>().ok_or_type_err("argument must be str")?;
-    let s = &mut py_str.as_utf8()?;
-    let err = || format!("Invalid format: {arg}");
-    if s.len() < 3 {
-        // at least `P0D`
-        raise_value_err(err())?
-    }
-    let mut months = 0;
-    let mut days = 0;
-    let mut prev_unit: Option<Unit> = None;
-
-    let negated = parse_prefix(s).ok_or_else_value_err(err)?;
-
-    while !s.is_empty() {
-        let (value, unit) = parse_component(s).ok_or_else_value_err(err)?;
-        match (unit, prev_unit.replace(unit)) {
-            // NOTE: overflows are prevented by limiting the number
-            // of digits that are parsed.
-            (Unit::Years, None) => {
-                months += value * 12;
-            }
-            (Unit::Months, None | Some(Unit::Years)) => {
-                months += value;
-            }
-            (Unit::Weeks, None | Some(Unit::Years | Unit::Months)) => {
-                days += value * 7;
-            }
-            (Unit::Days, _) => {
-                days += value;
-                if s.is_empty() {
-                    break;
-                }
-                // i.e. there's more after the days component
-                raise_value_err(err())?;
-            }
-            _ => {
-                // i.e. the order of the components is wrong
-                raise_value_err(err())?;
-            }
-        }
-    }
-
-    // i.e. there must be at least one component (`P` alone is invalid)
-    if prev_unit.is_none() {
-        raise_value_err(err())?;
-    }
-
-    if negated {
-        months = -months;
-        days = -days;
-    }
-    DeltaMonths::new(months)
-        .zip(DeltaDays::new(days))
-        .map(|(months, days)| DateDelta { months, days })
-        .ok_or_value_err("DateDelta out of range")?
-        .to_obj(cls)
-}
-
 fn in_months_days(_: PyType, DateDelta { months, days }: DateDelta) -> PyResult<Owned<PyTuple>> {
     (months.get().to_py()?, days.get().to_py()?).into_pytuple()
 }
@@ -632,13 +654,13 @@ pub(crate) fn unpickle(state: &State, args: &[PyObj]) -> PyReturn {
         &[months_obj, days_obj] => {
             let months = DeltaMonths::new_unchecked(
                 months_obj
-                    .cast::<PyInt>()
+                    .cast_exact::<PyInt>()
                     .ok_or_type_err("Invalid pickle data")?
                     .to_long()? as _,
             );
             let days = DeltaDays::new_unchecked(
                 days_obj
-                    .cast::<PyInt>()
+                    .cast_exact::<PyInt>()
                     .ok_or_type_err("Invalid pickle data")?
                     .to_long()? as _,
             );
@@ -653,12 +675,10 @@ pub(crate) fn unpickle(state: &State, args: &[PyObj]) -> PyReturn {
 static mut METHODS: &[PyMethodDef] = &[
     method0!(DateDelta, __copy__, c""),
     method1!(DateDelta, __deepcopy__, c""),
-    method0!(
-        DateDelta,
-        format_common_iso,
-        doc::DATEDELTA_FORMAT_COMMON_ISO
-    ),
-    classmethod1!(DateDelta, parse_common_iso, doc::DATEDELTA_PARSE_COMMON_ISO),
+    method0!(DateDelta, format_iso, doc::DATEDELTA_FORMAT_ISO),
+    method0!(DateDelta, format_common_iso, c""), // deprecated alias
+    classmethod1!(DateDelta, parse_iso, doc::DATEDELTA_PARSE_ISO),
+    classmethod1!(DateDelta, parse_common_iso, c""), // deprecated alias
     method0!(DateDelta, in_months_days, doc::DATEDELTA_IN_MONTHS_DAYS),
     method0!(
         DateDelta,

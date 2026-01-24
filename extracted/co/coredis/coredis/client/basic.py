@@ -10,7 +10,7 @@ from collections import defaultdict
 from ssl import SSLContext
 from typing import TYPE_CHECKING, Any, cast, overload
 
-from deprecated.sphinx import versionadded
+from deprecated.sphinx import deprecated, versionadded
 from packaging import version
 from packaging.version import InvalidVersion, Version
 
@@ -34,10 +34,12 @@ from coredis.connection import (
 from coredis.credentials import AbstractCredentialProvider
 from coredis.exceptions import (
     AuthenticationError,
+    AuthorizationError,
     ConnectionError,
     PersistenceError,
     RedisError,
     ReplicationError,
+    ResponseError,
     TimeoutError,
     UnknownCommandError,
     WatchError,
@@ -192,6 +194,8 @@ class Client(
             2,
             3,
         }, "Protocol version can only be one of {2,3}"
+        if connection_protocol_version == 2:
+            warnings.warn("Support for RESP2 will be removed in version 6.x", DeprecationWarning)
         self.protocol_version = connection_protocol_version
         self.server_version: Version | None = None
         self.verify_version = verify_version
@@ -339,7 +343,13 @@ class Client(
                 ver, minor = divmod(ver, 100)
                 ver, major = divmod(ver, 100)
                 self._module_info[name] = version.Version(f"{major}.{minor}.{patch}")
-        except (UnknownCommandError, AuthenticationError):
+        except (UnknownCommandError, AuthenticationError, AuthorizationError):
+            self._module_info = {}
+        except ResponseError as err:
+            warnings.warn(
+                "Unable to determine module support due to response error from "
+                f"`MODULE LIST`: {err}."
+            )
             self._module_info = {}
 
     async def initialize(self: ClientT) -> ClientT:
@@ -996,10 +1006,11 @@ class Redis(Client[AnyStr]):
     ) -> R:
         pool = self.connection_pool
         quick_release = self.should_quick_release(command)
+        should_block = not quick_release or self.requires_wait or self.requires_waitaof
+        released = False
         connection = await pool.get_connection(
             command.name,
             *command.arguments,
-            acquire=not quick_release or self.requires_wait or self.requires_waitaof,
         )
         try:
             keys = KeySpec.extract_keys(command.name, *command.arguments)
@@ -1043,6 +1054,9 @@ class Redis(Client[AnyStr]):
                     decode=options.get("decode", self._decodecontext.get()),
                     encoding=self._encodingcontext.get(),
                 )
+                if not should_block:
+                    released = True
+                    pool.release(connection)
                 maybe_wait = [
                     await self._ensure_wait(command, connection),
                     await self._ensure_persistence(command, connection),
@@ -1071,7 +1085,7 @@ class Redis(Client[AnyStr]):
             raise
         finally:
             self._ensure_server_version(connection.server_version)
-            if not quick_release or self.requires_wait or self.requires_waitaof:
+            if not released:
                 pool.release(connection)
 
     @overload
@@ -1117,6 +1131,7 @@ class Redis(Client[AnyStr]):
             self._decodecontext.set(prev_decode)
             self._encodingcontext.set(prev_encoding)
 
+    @deprecated("The implementation of a monitor will be removed in 6.0", version="5.2.0")
     def monitor(
         self,
         response_handler: Callable[[MonitorResult], None] | None = None,

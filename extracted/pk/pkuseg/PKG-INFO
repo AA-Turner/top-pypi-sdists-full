@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: pkuseg
+Version: 0.0.25
+Summary: A small package for Chinese word segmentation
+Home-page: https://github.com/lancopku/pkuseg-python
+Author: Lanco
+Author-email: luoruixuan97@pku.edu.cn
+License: UNKNOWN
+Description: pkuseg-python
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: Other/Proprietary License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown

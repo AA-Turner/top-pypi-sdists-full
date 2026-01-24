@@ -29,8 +29,10 @@ class UsageSummaryResponse(ModelNormal):
             "agent_host_top99p_sum": (int,),
             "apm_azure_app_service_host_top99p_sum": (int,),
             "apm_devsecops_host_top99p_sum": (int,),
+            "apm_enterprise_standalone_hosts_top99p_sum": (int,),
             "apm_fargate_count_avg_sum": (int,),
             "apm_host_top99p_sum": (int,),
+            "apm_pro_standalone_hosts_top99p_sum": (int,),
             "appsec_fargate_count_avg_sum": (int,),
             "asm_serverless_agg_sum": (int,),
             "audit_logs_lines_indexed_agg_sum": (int,),
@@ -42,6 +44,7 @@ class UsageSummaryResponse(ModelNormal):
             "azure_app_service_top99p_sum": (int,),
             "azure_host_top99p_sum": (int,),
             "billable_ingested_bytes_agg_sum": (int,),
+            "bits_ai_investigations_agg_sum": (int,),
             "browser_rum_lite_session_count_agg_sum": (int,),
             "browser_rum_replay_session_count_agg_sum": (int,),
             "browser_rum_units_agg_sum": (int,),
@@ -54,6 +57,7 @@ class UsageSummaryResponse(ModelNormal):
             "cloud_cost_management_azure_host_count_avg_sum": (int,),
             "cloud_cost_management_gcp_host_count_avg_sum": (int,),
             "cloud_cost_management_host_count_avg_sum": (int,),
+            "cloud_cost_management_oci_host_count_avg_sum": (int,),
             "cloud_siem_events_agg_sum": (int,),
             "code_analysis_sa_committers_hwm_sum": (int,),
             "code_analysis_sca_committers_hwm_sum": (int,),
@@ -101,6 +105,7 @@ class UsageSummaryResponse(ModelNormal):
             "eph_infra_host_opentelemetry_apm_agg_sum": (int,),
             "eph_infra_host_pro_agg_sum": (int,),
             "eph_infra_host_proplus_agg_sum": (int,),
+            "eph_infra_host_proxmox_agg_sum": (int,),
             "error_tracking_apm_error_events_agg_sum": (int,),
             "error_tracking_error_events_agg_sum": (int,),
             "error_tracking_events_agg_sum": (int,),
@@ -125,6 +130,7 @@ class UsageSummaryResponse(ModelNormal):
             "gcp_host_top99p_sum": (int,),
             "heroku_host_top99p_sum": (int,),
             "incident_management_monthly_active_users_hwm_sum": (int,),
+            "incident_management_seats_hwm_sum": (int,),
             "indexed_events_count_agg_sum": (int,),
             "infra_host_top99p_sum": (int,),
             "ingested_events_bytes_agg_sum": (int,),
@@ -151,6 +157,7 @@ class UsageSummaryResponse(ModelNormal):
             "observability_pipelines_bytes_processed_agg_sum": (int,),
             "oci_host_agg_sum": (int,),
             "oci_host_top99p_sum": (int,),
+            "on_call_seat_hwm_sum": (int,),
             "online_archive_events_count_agg_sum": (int,),
             "opentelemetry_apm_host_top99p_sum": (int,),
             "opentelemetry_host_top99p_sum": (int,),
@@ -158,6 +165,8 @@ class UsageSummaryResponse(ModelNormal):
             "profiling_aas_count_top99p_sum": (int,),
             "profiling_container_agent_count_avg": (int,),
             "profiling_host_count_top99p_sum": (int,),
+            "proxmox_host_agg_sum": (int,),
+            "proxmox_host_top99p_sum": (int,),
             "published_app_hwm_sum": (int,),
             "rehydrated_indexed_events_agg_sum": (int,),
             "rehydrated_ingested_bytes_agg_sum": (int,),
@@ -196,7 +205,33 @@ class UsageSummaryResponse(ModelNormal):
             "sds_logs_scanned_bytes_sum": (int,),
             "sds_rum_scanned_bytes_sum": (int,),
             "sds_total_scanned_bytes_sum": (int,),
+            "serverless_apps_apm_apm_azure_appservice_instances_avg_sum": (int,),
+            "serverless_apps_apm_apm_azure_azurefunction_instances_avg_sum": (int,),
+            "serverless_apps_apm_apm_azure_containerapp_instances_avg_sum": (int,),
+            "serverless_apps_apm_apm_fargate_ecs_tasks_avg_sum": (int,),
+            "serverless_apps_apm_apm_gcp_cloudfunction_instances_avg_sum": (int,),
+            "serverless_apps_apm_apm_gcp_cloudrun_instances_avg_sum": (int,),
+            "serverless_apps_apm_avg_sum": (int,),
+            "serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg_sum": (int,),
+            "serverless_apps_apm_excl_fargate_apm_azure_azurefunction_instances_avg_sum": (int,),
+            "serverless_apps_apm_excl_fargate_apm_azure_containerapp_instances_avg_sum": (int,),
+            "serverless_apps_apm_excl_fargate_apm_gcp_cloudfunction_instances_avg_sum": (int,),
+            "serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg_sum": (int,),
+            "serverless_apps_apm_excl_fargate_avg_sum": (int,),
+            "serverless_apps_azure_container_app_instances_avg_sum": (int,),
             "serverless_apps_azure_count_avg_sum": (int,),
+            "serverless_apps_azure_function_app_instances_avg_sum": (int,),
+            "serverless_apps_azure_web_app_instances_avg_sum": (int,),
+            "serverless_apps_ecs_avg_sum": (int,),
+            "serverless_apps_eks_avg_sum": (int,),
+            "serverless_apps_excl_fargate_avg_sum": (int,),
+            "serverless_apps_excl_fargate_azure_container_app_instances_avg_sum": (int,),
+            "serverless_apps_excl_fargate_azure_function_app_instances_avg_sum": (int,),
+            "serverless_apps_excl_fargate_azure_web_app_instances_avg_sum": (int,),
+            "serverless_apps_excl_fargate_google_cloud_functions_instances_avg_sum": (int,),
+            "serverless_apps_excl_fargate_google_cloud_run_instances_avg_sum": (int,),
+            "serverless_apps_google_cloud_functions_instances_avg_sum": (int,),
+            "serverless_apps_google_cloud_run_instances_avg_sum": (int,),
             "serverless_apps_google_count_avg_sum": (int,),
             "serverless_apps_total_count_avg_sum": (int,),
             "siem_analyzed_logs_add_on_count_agg_sum": (int,),
@@ -218,8 +253,10 @@ class UsageSummaryResponse(ModelNormal):
         "agent_host_top99p_sum": "agent_host_top99p_sum",
         "apm_azure_app_service_host_top99p_sum": "apm_azure_app_service_host_top99p_sum",
         "apm_devsecops_host_top99p_sum": "apm_devsecops_host_top99p_sum",
+        "apm_enterprise_standalone_hosts_top99p_sum": "apm_enterprise_standalone_hosts_top99p_sum",
         "apm_fargate_count_avg_sum": "apm_fargate_count_avg_sum",
         "apm_host_top99p_sum": "apm_host_top99p_sum",
+        "apm_pro_standalone_hosts_top99p_sum": "apm_pro_standalone_hosts_top99p_sum",
         "appsec_fargate_count_avg_sum": "appsec_fargate_count_avg_sum",
         "asm_serverless_agg_sum": "asm_serverless_agg_sum",
         "audit_logs_lines_indexed_agg_sum": "audit_logs_lines_indexed_agg_sum",
@@ -231,6 +268,7 @@ class UsageSummaryResponse(ModelNormal):
         "azure_app_service_top99p_sum": "azure_app_service_top99p_sum",
         "azure_host_top99p_sum": "azure_host_top99p_sum",
         "billable_ingested_bytes_agg_sum": "billable_ingested_bytes_agg_sum",
+        "bits_ai_investigations_agg_sum": "bits_ai_investigations_agg_sum",
         "browser_rum_lite_session_count_agg_sum": "browser_rum_lite_session_count_agg_sum",
         "browser_rum_replay_session_count_agg_sum": "browser_rum_replay_session_count_agg_sum",
         "browser_rum_units_agg_sum": "browser_rum_units_agg_sum",
@@ -243,6 +281,7 @@ class UsageSummaryResponse(ModelNormal):
         "cloud_cost_management_azure_host_count_avg_sum": "cloud_cost_management_azure_host_count_avg_sum",
         "cloud_cost_management_gcp_host_count_avg_sum": "cloud_cost_management_gcp_host_count_avg_sum",
         "cloud_cost_management_host_count_avg_sum": "cloud_cost_management_host_count_avg_sum",
+        "cloud_cost_management_oci_host_count_avg_sum": "cloud_cost_management_oci_host_count_avg_sum",
         "cloud_siem_events_agg_sum": "cloud_siem_events_agg_sum",
         "code_analysis_sa_committers_hwm_sum": "code_analysis_sa_committers_hwm_sum",
         "code_analysis_sca_committers_hwm_sum": "code_analysis_sca_committers_hwm_sum",
@@ -290,6 +329,7 @@ class UsageSummaryResponse(ModelNormal):
         "eph_infra_host_opentelemetry_apm_agg_sum": "eph_infra_host_opentelemetry_apm_agg_sum",
         "eph_infra_host_pro_agg_sum": "eph_infra_host_pro_agg_sum",
         "eph_infra_host_proplus_agg_sum": "eph_infra_host_proplus_agg_sum",
+        "eph_infra_host_proxmox_agg_sum": "eph_infra_host_proxmox_agg_sum",
         "error_tracking_apm_error_events_agg_sum": "error_tracking_apm_error_events_agg_sum",
         "error_tracking_error_events_agg_sum": "error_tracking_error_events_agg_sum",
         "error_tracking_events_agg_sum": "error_tracking_events_agg_sum",
@@ -314,6 +354,7 @@ class UsageSummaryResponse(ModelNormal):
         "gcp_host_top99p_sum": "gcp_host_top99p_sum",
         "heroku_host_top99p_sum": "heroku_host_top99p_sum",
         "incident_management_monthly_active_users_hwm_sum": "incident_management_monthly_active_users_hwm_sum",
+        "incident_management_seats_hwm_sum": "incident_management_seats_hwm_sum",
         "indexed_events_count_agg_sum": "indexed_events_count_agg_sum",
         "infra_host_top99p_sum": "infra_host_top99p_sum",
         "ingested_events_bytes_agg_sum": "ingested_events_bytes_agg_sum",
@@ -340,6 +381,7 @@ class UsageSummaryResponse(ModelNormal):
         "observability_pipelines_bytes_processed_agg_sum": "observability_pipelines_bytes_processed_agg_sum",
         "oci_host_agg_sum": "oci_host_agg_sum",
         "oci_host_top99p_sum": "oci_host_top99p_sum",
+        "on_call_seat_hwm_sum": "on_call_seat_hwm_sum",
         "online_archive_events_count_agg_sum": "online_archive_events_count_agg_sum",
         "opentelemetry_apm_host_top99p_sum": "opentelemetry_apm_host_top99p_sum",
         "opentelemetry_host_top99p_sum": "opentelemetry_host_top99p_sum",
@@ -347,6 +389,8 @@ class UsageSummaryResponse(ModelNormal):
         "profiling_aas_count_top99p_sum": "profiling_aas_count_top99p_sum",
         "profiling_container_agent_count_avg": "profiling_container_agent_count_avg",
         "profiling_host_count_top99p_sum": "profiling_host_count_top99p_sum",
+        "proxmox_host_agg_sum": "proxmox_host_agg_sum",
+        "proxmox_host_top99p_sum": "proxmox_host_top99p_sum",
         "published_app_hwm_sum": "published_app_hwm_sum",
         "rehydrated_indexed_events_agg_sum": "rehydrated_indexed_events_agg_sum",
         "rehydrated_ingested_bytes_agg_sum": "rehydrated_ingested_bytes_agg_sum",
@@ -385,7 +429,33 @@ class UsageSummaryResponse(ModelNormal):
         "sds_logs_scanned_bytes_sum": "sds_logs_scanned_bytes_sum",
         "sds_rum_scanned_bytes_sum": "sds_rum_scanned_bytes_sum",
         "sds_total_scanned_bytes_sum": "sds_total_scanned_bytes_sum",
+        "serverless_apps_apm_apm_azure_appservice_instances_avg_sum": "serverless_apps_apm_apm_azure_appservice_instances_avg_sum",
+        "serverless_apps_apm_apm_azure_azurefunction_instances_avg_sum": "serverless_apps_apm_apm_azure_azurefunction_instances_avg_sum",
+        "serverless_apps_apm_apm_azure_containerapp_instances_avg_sum": "serverless_apps_apm_apm_azure_containerapp_instances_avg_sum",
+        "serverless_apps_apm_apm_fargate_ecs_tasks_avg_sum": "serverless_apps_apm_apm_fargate_ecs_tasks_avg_sum",
+        "serverless_apps_apm_apm_gcp_cloudfunction_instances_avg_sum": "serverless_apps_apm_apm_gcp_cloudfunction_instances_avg_sum",
+        "serverless_apps_apm_apm_gcp_cloudrun_instances_avg_sum": "serverless_apps_apm_apm_gcp_cloudrun_instances_avg_sum",
+        "serverless_apps_apm_avg_sum": "serverless_apps_apm_avg_sum",
+        "serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg_sum": "serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg_sum",
+        "serverless_apps_apm_excl_fargate_apm_azure_azurefunction_instances_avg_sum": "serverless_apps_apm_excl_fargate_apm_azure_azurefunction_instances_avg_sum",
+        "serverless_apps_apm_excl_fargate_apm_azure_containerapp_instances_avg_sum": "serverless_apps_apm_excl_fargate_apm_azure_containerapp_instances_avg_sum",
+        "serverless_apps_apm_excl_fargate_apm_gcp_cloudfunction_instances_avg_sum": "serverless_apps_apm_excl_fargate_apm_gcp_cloudfunction_instances_avg_sum",
+        "serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg_sum": "serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg_sum",
+        "serverless_apps_apm_excl_fargate_avg_sum": "serverless_apps_apm_excl_fargate_avg_sum",
+        "serverless_apps_azure_container_app_instances_avg_sum": "serverless_apps_azure_container_app_instances_avg_sum",
         "serverless_apps_azure_count_avg_sum": "serverless_apps_azure_count_avg_sum",
+        "serverless_apps_azure_function_app_instances_avg_sum": "serverless_apps_azure_function_app_instances_avg_sum",
+        "serverless_apps_azure_web_app_instances_avg_sum": "serverless_apps_azure_web_app_instances_avg_sum",
+        "serverless_apps_ecs_avg_sum": "serverless_apps_ecs_avg_sum",
+        "serverless_apps_eks_avg_sum": "serverless_apps_eks_avg_sum",
+        "serverless_apps_excl_fargate_avg_sum": "serverless_apps_excl_fargate_avg_sum",
+        "serverless_apps_excl_fargate_azure_container_app_instances_avg_sum": "serverless_apps_excl_fargate_azure_container_app_instances_avg_sum",
+        "serverless_apps_excl_fargate_azure_function_app_instances_avg_sum": "serverless_apps_excl_fargate_azure_function_app_instances_avg_sum",
+        "serverless_apps_excl_fargate_azure_web_app_instances_avg_sum": "serverless_apps_excl_fargate_azure_web_app_instances_avg_sum",
+        "serverless_apps_excl_fargate_google_cloud_functions_instances_avg_sum": "serverless_apps_excl_fargate_google_cloud_functions_instances_avg_sum",
+        "serverless_apps_excl_fargate_google_cloud_run_instances_avg_sum": "serverless_apps_excl_fargate_google_cloud_run_instances_avg_sum",
+        "serverless_apps_google_cloud_functions_instances_avg_sum": "serverless_apps_google_cloud_functions_instances_avg_sum",
+        "serverless_apps_google_cloud_run_instances_avg_sum": "serverless_apps_google_cloud_run_instances_avg_sum",
         "serverless_apps_google_count_avg_sum": "serverless_apps_google_count_avg_sum",
         "serverless_apps_total_count_avg_sum": "serverless_apps_total_count_avg_sum",
         "siem_analyzed_logs_add_on_count_agg_sum": "siem_analyzed_logs_add_on_count_agg_sum",
@@ -408,8 +478,10 @@ class UsageSummaryResponse(ModelNormal):
         agent_host_top99p_sum: Union[int, UnsetType] = unset,
         apm_azure_app_service_host_top99p_sum: Union[int, UnsetType] = unset,
         apm_devsecops_host_top99p_sum: Union[int, UnsetType] = unset,
+        apm_enterprise_standalone_hosts_top99p_sum: Union[int, UnsetType] = unset,
         apm_fargate_count_avg_sum: Union[int, UnsetType] = unset,
         apm_host_top99p_sum: Union[int, UnsetType] = unset,
+        apm_pro_standalone_hosts_top99p_sum: Union[int, UnsetType] = unset,
         appsec_fargate_count_avg_sum: Union[int, UnsetType] = unset,
         asm_serverless_agg_sum: Union[int, UnsetType] = unset,
         audit_logs_lines_indexed_agg_sum: Union[int, UnsetType] = unset,
@@ -421,6 +493,7 @@ class UsageSummaryResponse(ModelNormal):
         azure_app_service_top99p_sum: Union[int, UnsetType] = unset,
         azure_host_top99p_sum: Union[int, UnsetType] = unset,
         billable_ingested_bytes_agg_sum: Union[int, UnsetType] = unset,
+        bits_ai_investigations_agg_sum: Union[int, UnsetType] = unset,
         browser_rum_lite_session_count_agg_sum: Union[int, UnsetType] = unset,
         browser_rum_replay_session_count_agg_sum: Union[int, UnsetType] = unset,
         browser_rum_units_agg_sum: Union[int, UnsetType] = unset,
@@ -433,6 +506,7 @@ class UsageSummaryResponse(ModelNormal):
         cloud_cost_management_azure_host_count_avg_sum: Union[int, UnsetType] = unset,
         cloud_cost_management_gcp_host_count_avg_sum: Union[int, UnsetType] = unset,
         cloud_cost_management_host_count_avg_sum: Union[int, UnsetType] = unset,
+        cloud_cost_management_oci_host_count_avg_sum: Union[int, UnsetType] = unset,
         cloud_siem_events_agg_sum: Union[int, UnsetType] = unset,
         code_analysis_sa_committers_hwm_sum: Union[int, UnsetType] = unset,
         code_analysis_sca_committers_hwm_sum: Union[int, UnsetType] = unset,
@@ -480,6 +554,7 @@ class UsageSummaryResponse(ModelNormal):
         eph_infra_host_opentelemetry_apm_agg_sum: Union[int, UnsetType] = unset,
         eph_infra_host_pro_agg_sum: Union[int, UnsetType] = unset,
         eph_infra_host_proplus_agg_sum: Union[int, UnsetType] = unset,
+        eph_infra_host_proxmox_agg_sum: Union[int, UnsetType] = unset,
         error_tracking_apm_error_events_agg_sum: Union[int, UnsetType] = unset,
         error_tracking_error_events_agg_sum: Union[int, UnsetType] = unset,
         error_tracking_events_agg_sum: Union[int, UnsetType] = unset,
@@ -504,6 +579,7 @@ class UsageSummaryResponse(ModelNormal):
         gcp_host_top99p_sum: Union[int, UnsetType] = unset,
         heroku_host_top99p_sum: Union[int, UnsetType] = unset,
         incident_management_monthly_active_users_hwm_sum: Union[int, UnsetType] = unset,
+        incident_management_seats_hwm_sum: Union[int, UnsetType] = unset,
         indexed_events_count_agg_sum: Union[int, UnsetType] = unset,
         infra_host_top99p_sum: Union[int, UnsetType] = unset,
         ingested_events_bytes_agg_sum: Union[int, UnsetType] = unset,
@@ -530,6 +606,7 @@ class UsageSummaryResponse(ModelNormal):
         observability_pipelines_bytes_processed_agg_sum: Union[int, UnsetType] = unset,
         oci_host_agg_sum: Union[int, UnsetType] = unset,
         oci_host_top99p_sum: Union[int, UnsetType] = unset,
+        on_call_seat_hwm_sum: Union[int, UnsetType] = unset,
         online_archive_events_count_agg_sum: Union[int, UnsetType] = unset,
         opentelemetry_apm_host_top99p_sum: Union[int, UnsetType] = unset,
         opentelemetry_host_top99p_sum: Union[int, UnsetType] = unset,
@@ -537,6 +614,8 @@ class UsageSummaryResponse(ModelNormal):
         profiling_aas_count_top99p_sum: Union[int, UnsetType] = unset,
         profiling_container_agent_count_avg: Union[int, UnsetType] = unset,
         profiling_host_count_top99p_sum: Union[int, UnsetType] = unset,
+        proxmox_host_agg_sum: Union[int, UnsetType] = unset,
+        proxmox_host_top99p_sum: Union[int, UnsetType] = unset,
         published_app_hwm_sum: Union[int, UnsetType] = unset,
         rehydrated_indexed_events_agg_sum: Union[int, UnsetType] = unset,
         rehydrated_ingested_bytes_agg_sum: Union[int, UnsetType] = unset,
@@ -575,7 +654,33 @@ class UsageSummaryResponse(ModelNormal):
         sds_logs_scanned_bytes_sum: Union[int, UnsetType] = unset,
         sds_rum_scanned_bytes_sum: Union[int, UnsetType] = unset,
         sds_total_scanned_bytes_sum: Union[int, UnsetType] = unset,
+        serverless_apps_apm_apm_azure_appservice_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_apm_apm_azure_azurefunction_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_apm_apm_azure_containerapp_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_apm_apm_fargate_ecs_tasks_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_apm_apm_gcp_cloudfunction_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_apm_apm_gcp_cloudrun_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_apm_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_apm_excl_fargate_apm_azure_azurefunction_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_apm_excl_fargate_apm_azure_containerapp_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_apm_excl_fargate_apm_gcp_cloudfunction_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_apm_excl_fargate_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_azure_container_app_instances_avg_sum: Union[int, UnsetType] = unset,
         serverless_apps_azure_count_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_azure_function_app_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_azure_web_app_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_ecs_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_eks_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_excl_fargate_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_excl_fargate_azure_container_app_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_excl_fargate_azure_function_app_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_excl_fargate_azure_web_app_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_excl_fargate_google_cloud_functions_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_excl_fargate_google_cloud_run_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_google_cloud_functions_instances_avg_sum: Union[int, UnsetType] = unset,
+        serverless_apps_google_cloud_run_instances_avg_sum: Union[int, UnsetType] = unset,
         serverless_apps_google_count_avg_sum: Union[int, UnsetType] = unset,
         serverless_apps_total_count_avg_sum: Union[int, UnsetType] = unset,
         siem_analyzed_logs_add_on_count_agg_sum: Union[int, UnsetType] = unset,
@@ -605,11 +710,17 @@ class UsageSummaryResponse(ModelNormal):
         :param apm_devsecops_host_top99p_sum: Shows the 99th percentile of all APM DevSecOps hosts over all hours in the current month for all organizations.
         :type apm_devsecops_host_top99p_sum: int, optional
 
+        :param apm_enterprise_standalone_hosts_top99p_sum: Shows the sum of the 99th percentile of all distinct standalone Enterprise hosts over all hours in the current month for all organizations.
+        :type apm_enterprise_standalone_hosts_top99p_sum: int, optional
+
         :param apm_fargate_count_avg_sum: Shows the average of all APM ECS Fargate tasks over all hours in the current month for all organizations.
         :type apm_fargate_count_avg_sum: int, optional
 
         :param apm_host_top99p_sum: Shows the 99th percentile of all distinct APM hosts over all hours in the current month for all organizations.
         :type apm_host_top99p_sum: int, optional
+
+        :param apm_pro_standalone_hosts_top99p_sum: Shows the sum of the 99th percentile of all distinct standalone Pro hosts over all hours in the current month for all organizations.
+        :type apm_pro_standalone_hosts_top99p_sum: int, optional
 
         :param appsec_fargate_count_avg_sum: Shows the average of all Application Security Monitoring ECS Fargate tasks over all hours in the current month for all organizations.
         :type appsec_fargate_count_avg_sum: int, optional
@@ -643,6 +754,9 @@ class UsageSummaryResponse(ModelNormal):
 
         :param billable_ingested_bytes_agg_sum: Shows the sum of all log bytes ingested over all hours in the current month for all organizations.
         :type billable_ingested_bytes_agg_sum: int, optional
+
+        :param bits_ai_investigations_agg_sum: Shows the sum of all Bits AI Investigations over all hours in the current month for all organizations.
+        :type bits_ai_investigations_agg_sum: int, optional
 
         :param browser_rum_lite_session_count_agg_sum: Shows the sum of all browser lite sessions over all hours in the current month for all organizations (To be deprecated on October 1st, 2024). **Deprecated**.
         :type browser_rum_lite_session_count_agg_sum: int, optional
@@ -679,6 +793,9 @@ class UsageSummaryResponse(ModelNormal):
 
         :param cloud_cost_management_host_count_avg_sum: Sum of the host count average for Cloud Cost Management for all cloud providers.
         :type cloud_cost_management_host_count_avg_sum: int, optional
+
+        :param cloud_cost_management_oci_host_count_avg_sum: Sum of the average host counts for Cloud Cost Management on OCI.
+        :type cloud_cost_management_oci_host_count_avg_sum: int, optional
 
         :param cloud_siem_events_agg_sum: Shows the sum of all Cloud Security Information and Event Management events over all hours in the current month for all organizations.
         :type cloud_siem_events_agg_sum: int, optional
@@ -821,6 +938,9 @@ class UsageSummaryResponse(ModelNormal):
         :param eph_infra_host_proplus_agg_sum: Shows the sum of all ephemeral infrastructure hosts for Pro Plus over all hours in the current month for all organizations.
         :type eph_infra_host_proplus_agg_sum: int, optional
 
+        :param eph_infra_host_proxmox_agg_sum: Sum of all ephemeral infrastructure hosts for Proxmox over all hours in the current month for all organizations.
+        :type eph_infra_host_proxmox_agg_sum: int, optional
+
         :param error_tracking_apm_error_events_agg_sum: Shows the sum of all Error Tracking APM error events over all hours in the current month for all organizations.
         :type error_tracking_apm_error_events_agg_sum: int, optional
 
@@ -892,6 +1012,9 @@ class UsageSummaryResponse(ModelNormal):
 
         :param incident_management_monthly_active_users_hwm_sum: Shows sum of the high-water marks of incident management monthly active users in the current month for all organizations.
         :type incident_management_monthly_active_users_hwm_sum: int, optional
+
+        :param incident_management_seats_hwm_sum: Shows the sum of the high-water marks of Incident Management seats over all hours in the current month for all organizations.
+        :type incident_management_seats_hwm_sum: int, optional
 
         :param indexed_events_count_agg_sum: Shows the sum of all log events indexed over all hours in the current month for all organizations (To be deprecated on October 1st, 2024). **Deprecated**.
         :type indexed_events_count_agg_sum: int, optional
@@ -971,6 +1094,9 @@ class UsageSummaryResponse(ModelNormal):
         :param oci_host_top99p_sum: Shows the 99th percentile of Oracle Cloud Infrastructure hosts over all hours in the current months for all organizations
         :type oci_host_top99p_sum: int, optional
 
+        :param on_call_seat_hwm_sum: Shows the sum of the high-water marks of On-Call seats over all hours in the current month for all organizations.
+        :type on_call_seat_hwm_sum: int, optional
+
         :param online_archive_events_count_agg_sum: Sum of all online archived events over all hours in the current month for all organizations.
         :type online_archive_events_count_agg_sum: int, optional
 
@@ -991,6 +1117,12 @@ class UsageSummaryResponse(ModelNormal):
 
         :param profiling_host_count_top99p_sum: Shows the 99th percentile of all profiled hosts over all hours in the current month for all organizations.
         :type profiling_host_count_top99p_sum: int, optional
+
+        :param proxmox_host_agg_sum: Sum of all Proxmox hosts over all hours in the current month for all organizations.
+        :type proxmox_host_agg_sum: int, optional
+
+        :param proxmox_host_top99p_sum: Sum of the 99th percentile of all Proxmox hosts over all hours in the current month for all organizations.
+        :type proxmox_host_top99p_sum: int, optional
 
         :param published_app_hwm_sum: Shows the high-water mark of all published applications over all hours in the current month for all organizations.
         :type published_app_hwm_sum: int, optional
@@ -1106,8 +1238,86 @@ class UsageSummaryResponse(ModelNormal):
         :param sds_total_scanned_bytes_sum: Shows the sum of all bytes scanned across all usage types by the Sensitive Data Scanner over all hours in the current month for all organizations.
         :type sds_total_scanned_bytes_sum: int, optional
 
+        :param serverless_apps_apm_apm_azure_appservice_instances_avg_sum: Sum of the average number of Serverless Apps with Application Performance Monitoring for Azure App Service instances in the current month for all organizations.
+        :type serverless_apps_apm_apm_azure_appservice_instances_avg_sum: int, optional
+
+        :param serverless_apps_apm_apm_azure_azurefunction_instances_avg_sum: Sum of the average number of Serverless Apps with Application Performance Monitoring for Azure Function instances in the current month for all organizations.
+        :type serverless_apps_apm_apm_azure_azurefunction_instances_avg_sum: int, optional
+
+        :param serverless_apps_apm_apm_azure_containerapp_instances_avg_sum: Sum of the average number of Serverless Apps with Application Performance Monitoring for Azure Container App instances in the current month for all organizations.
+        :type serverless_apps_apm_apm_azure_containerapp_instances_avg_sum: int, optional
+
+        :param serverless_apps_apm_apm_fargate_ecs_tasks_avg_sum: Sum of the average number of Serverless Apps with Application Performance Monitoring for Fargate Elastic Container Service tasks in the current month for all organizations.
+        :type serverless_apps_apm_apm_fargate_ecs_tasks_avg_sum: int, optional
+
+        :param serverless_apps_apm_apm_gcp_cloudfunction_instances_avg_sum: Sum of the average number of Serverless Apps with Application Performance Monitoring for Google Cloud Platform Cloud Function instances in the current month for all organizations.
+        :type serverless_apps_apm_apm_gcp_cloudfunction_instances_avg_sum: int, optional
+
+        :param serverless_apps_apm_apm_gcp_cloudrun_instances_avg_sum: Sum of the average number of Serverless Apps with Application Performance Monitoring for Google Cloud Platform Cloud Run instances in the current month for all organizations.
+        :type serverless_apps_apm_apm_gcp_cloudrun_instances_avg_sum: int, optional
+
+        :param serverless_apps_apm_avg_sum: Sum of the average number of Serverless Apps with Application Performance Monitoring in the current month for all organizations.
+        :type serverless_apps_apm_avg_sum: int, optional
+
+        :param serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg_sum: Sum of the average number of Serverless Apps with Application Performance Monitoring excluding Fargate for Azure App Service instances in the current month for all organizations.
+        :type serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg_sum: int, optional
+
+        :param serverless_apps_apm_excl_fargate_apm_azure_azurefunction_instances_avg_sum: Sum of the average number of Serverless Apps with Application Performance Monitoring excluding Fargate for Azure Function instances in the current month for all organizations.
+        :type serverless_apps_apm_excl_fargate_apm_azure_azurefunction_instances_avg_sum: int, optional
+
+        :param serverless_apps_apm_excl_fargate_apm_azure_containerapp_instances_avg_sum: Sum of the average number of Serverless Apps with Application Performance Monitoring excluding Fargate for Azure Container App instances in the current month for all organizations.
+        :type serverless_apps_apm_excl_fargate_apm_azure_containerapp_instances_avg_sum: int, optional
+
+        :param serverless_apps_apm_excl_fargate_apm_gcp_cloudfunction_instances_avg_sum: Sum of the average number of Serverless Apps with Application Performance Monitoring excluding Fargate for Google Cloud Platform Cloud Function instances in the current month for all organizations.
+        :type serverless_apps_apm_excl_fargate_apm_gcp_cloudfunction_instances_avg_sum: int, optional
+
+        :param serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg_sum: Sum of the average number of Serverless Apps with Application Performance Monitoring excluding Fargate for Google Cloud Platform Cloud Run instances in the current month for all organizations.
+        :type serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg_sum: int, optional
+
+        :param serverless_apps_apm_excl_fargate_avg_sum: Sum of the average number of Serverless Apps with Application Performance Monitoring excluding Fargate in the current month for all organizations.
+        :type serverless_apps_apm_excl_fargate_avg_sum: int, optional
+
+        :param serverless_apps_azure_container_app_instances_avg_sum: Sum of the average number of Serverless Apps for Azure Container App instances in the current month for all organizations.
+        :type serverless_apps_azure_container_app_instances_avg_sum: int, optional
+
         :param serverless_apps_azure_count_avg_sum: Sum of the average number of Serverless Apps for Azure in the current month for all organizations.
         :type serverless_apps_azure_count_avg_sum: int, optional
+
+        :param serverless_apps_azure_function_app_instances_avg_sum: Sum of the average number of Serverless Apps for Azure Function App instances in the current month for all organizations.
+        :type serverless_apps_azure_function_app_instances_avg_sum: int, optional
+
+        :param serverless_apps_azure_web_app_instances_avg_sum: Sum of the average number of Serverless Apps for Azure Web App instances in the current month for all organizations.
+        :type serverless_apps_azure_web_app_instances_avg_sum: int, optional
+
+        :param serverless_apps_ecs_avg_sum: Sum of the average number of Serverless Apps for Elastic Container Service in the current month for all organizations.
+        :type serverless_apps_ecs_avg_sum: int, optional
+
+        :param serverless_apps_eks_avg_sum: Sum of the average number of Serverless Apps for Elastic Kubernetes Service in the current month for all organizations.
+        :type serverless_apps_eks_avg_sum: int, optional
+
+        :param serverless_apps_excl_fargate_avg_sum: Sum of the average number of Serverless Apps excluding Fargate in the current month for all organizations.
+        :type serverless_apps_excl_fargate_avg_sum: int, optional
+
+        :param serverless_apps_excl_fargate_azure_container_app_instances_avg_sum: Sum of the average number of Serverless Apps excluding Fargate for Azure Container App instances in the current month for all organizations.
+        :type serverless_apps_excl_fargate_azure_container_app_instances_avg_sum: int, optional
+
+        :param serverless_apps_excl_fargate_azure_function_app_instances_avg_sum: Sum of the average number of Serverless Apps excluding Fargate for Azure Function App instances in the current month for all organizations.
+        :type serverless_apps_excl_fargate_azure_function_app_instances_avg_sum: int, optional
+
+        :param serverless_apps_excl_fargate_azure_web_app_instances_avg_sum: Sum of the average number of Serverless Apps excluding Fargate for Azure Web App instances in the current month for all organizations.
+        :type serverless_apps_excl_fargate_azure_web_app_instances_avg_sum: int, optional
+
+        :param serverless_apps_excl_fargate_google_cloud_functions_instances_avg_sum: Sum of the average number of Serverless Apps excluding Fargate for Google Cloud Platform Cloud Functions instances in the current month for all organizations.
+        :type serverless_apps_excl_fargate_google_cloud_functions_instances_avg_sum: int, optional
+
+        :param serverless_apps_excl_fargate_google_cloud_run_instances_avg_sum: Sum of the average number of Serverless Apps excluding Fargate for Google Cloud Platform Cloud Run instances in the current month for all organizations.
+        :type serverless_apps_excl_fargate_google_cloud_run_instances_avg_sum: int, optional
+
+        :param serverless_apps_google_cloud_functions_instances_avg_sum: Sum of the average number of Serverless Apps for Google Cloud Platform Cloud Functions instances in the current month for all organizations.
+        :type serverless_apps_google_cloud_functions_instances_avg_sum: int, optional
+
+        :param serverless_apps_google_cloud_run_instances_avg_sum: Sum of the average number of Serverless Apps for Google Cloud Platform Cloud Run instances in the current month for all organizations.
+        :type serverless_apps_google_cloud_run_instances_avg_sum: int, optional
 
         :param serverless_apps_google_count_avg_sum: Sum of the average number of Serverless Apps for Google Cloud in the current month for all organizations.
         :type serverless_apps_google_count_avg_sum: int, optional
@@ -1160,10 +1370,14 @@ class UsageSummaryResponse(ModelNormal):
             kwargs["apm_azure_app_service_host_top99p_sum"] = apm_azure_app_service_host_top99p_sum
         if apm_devsecops_host_top99p_sum is not unset:
             kwargs["apm_devsecops_host_top99p_sum"] = apm_devsecops_host_top99p_sum
+        if apm_enterprise_standalone_hosts_top99p_sum is not unset:
+            kwargs["apm_enterprise_standalone_hosts_top99p_sum"] = apm_enterprise_standalone_hosts_top99p_sum
         if apm_fargate_count_avg_sum is not unset:
             kwargs["apm_fargate_count_avg_sum"] = apm_fargate_count_avg_sum
         if apm_host_top99p_sum is not unset:
             kwargs["apm_host_top99p_sum"] = apm_host_top99p_sum
+        if apm_pro_standalone_hosts_top99p_sum is not unset:
+            kwargs["apm_pro_standalone_hosts_top99p_sum"] = apm_pro_standalone_hosts_top99p_sum
         if appsec_fargate_count_avg_sum is not unset:
             kwargs["appsec_fargate_count_avg_sum"] = appsec_fargate_count_avg_sum
         if asm_serverless_agg_sum is not unset:
@@ -1186,6 +1400,8 @@ class UsageSummaryResponse(ModelNormal):
             kwargs["azure_host_top99p_sum"] = azure_host_top99p_sum
         if billable_ingested_bytes_agg_sum is not unset:
             kwargs["billable_ingested_bytes_agg_sum"] = billable_ingested_bytes_agg_sum
+        if bits_ai_investigations_agg_sum is not unset:
+            kwargs["bits_ai_investigations_agg_sum"] = bits_ai_investigations_agg_sum
         if browser_rum_lite_session_count_agg_sum is not unset:
             kwargs["browser_rum_lite_session_count_agg_sum"] = browser_rum_lite_session_count_agg_sum
         if browser_rum_replay_session_count_agg_sum is not unset:
@@ -1210,6 +1426,8 @@ class UsageSummaryResponse(ModelNormal):
             kwargs["cloud_cost_management_gcp_host_count_avg_sum"] = cloud_cost_management_gcp_host_count_avg_sum
         if cloud_cost_management_host_count_avg_sum is not unset:
             kwargs["cloud_cost_management_host_count_avg_sum"] = cloud_cost_management_host_count_avg_sum
+        if cloud_cost_management_oci_host_count_avg_sum is not unset:
+            kwargs["cloud_cost_management_oci_host_count_avg_sum"] = cloud_cost_management_oci_host_count_avg_sum
         if cloud_siem_events_agg_sum is not unset:
             kwargs["cloud_siem_events_agg_sum"] = cloud_siem_events_agg_sum
         if code_analysis_sa_committers_hwm_sum is not unset:
@@ -1308,6 +1526,8 @@ class UsageSummaryResponse(ModelNormal):
             kwargs["eph_infra_host_pro_agg_sum"] = eph_infra_host_pro_agg_sum
         if eph_infra_host_proplus_agg_sum is not unset:
             kwargs["eph_infra_host_proplus_agg_sum"] = eph_infra_host_proplus_agg_sum
+        if eph_infra_host_proxmox_agg_sum is not unset:
+            kwargs["eph_infra_host_proxmox_agg_sum"] = eph_infra_host_proxmox_agg_sum
         if error_tracking_apm_error_events_agg_sum is not unset:
             kwargs["error_tracking_apm_error_events_agg_sum"] = error_tracking_apm_error_events_agg_sum
         if error_tracking_error_events_agg_sum is not unset:
@@ -1368,6 +1588,8 @@ class UsageSummaryResponse(ModelNormal):
             kwargs[
                 "incident_management_monthly_active_users_hwm_sum"
             ] = incident_management_monthly_active_users_hwm_sum
+        if incident_management_seats_hwm_sum is not unset:
+            kwargs["incident_management_seats_hwm_sum"] = incident_management_seats_hwm_sum
         if indexed_events_count_agg_sum is not unset:
             kwargs["indexed_events_count_agg_sum"] = indexed_events_count_agg_sum
         if infra_host_top99p_sum is not unset:
@@ -1420,6 +1642,8 @@ class UsageSummaryResponse(ModelNormal):
             kwargs["oci_host_agg_sum"] = oci_host_agg_sum
         if oci_host_top99p_sum is not unset:
             kwargs["oci_host_top99p_sum"] = oci_host_top99p_sum
+        if on_call_seat_hwm_sum is not unset:
+            kwargs["on_call_seat_hwm_sum"] = on_call_seat_hwm_sum
         if online_archive_events_count_agg_sum is not unset:
             kwargs["online_archive_events_count_agg_sum"] = online_archive_events_count_agg_sum
         if opentelemetry_apm_host_top99p_sum is not unset:
@@ -1434,6 +1658,10 @@ class UsageSummaryResponse(ModelNormal):
             kwargs["profiling_container_agent_count_avg"] = profiling_container_agent_count_avg
         if profiling_host_count_top99p_sum is not unset:
             kwargs["profiling_host_count_top99p_sum"] = profiling_host_count_top99p_sum
+        if proxmox_host_agg_sum is not unset:
+            kwargs["proxmox_host_agg_sum"] = proxmox_host_agg_sum
+        if proxmox_host_top99p_sum is not unset:
+            kwargs["proxmox_host_top99p_sum"] = proxmox_host_top99p_sum
         if published_app_hwm_sum is not unset:
             kwargs["published_app_hwm_sum"] = published_app_hwm_sum
         if rehydrated_indexed_events_agg_sum is not unset:
@@ -1520,8 +1748,100 @@ class UsageSummaryResponse(ModelNormal):
             kwargs["sds_rum_scanned_bytes_sum"] = sds_rum_scanned_bytes_sum
         if sds_total_scanned_bytes_sum is not unset:
             kwargs["sds_total_scanned_bytes_sum"] = sds_total_scanned_bytes_sum
+        if serverless_apps_apm_apm_azure_appservice_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_apm_apm_azure_appservice_instances_avg_sum"
+            ] = serverless_apps_apm_apm_azure_appservice_instances_avg_sum
+        if serverless_apps_apm_apm_azure_azurefunction_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_apm_apm_azure_azurefunction_instances_avg_sum"
+            ] = serverless_apps_apm_apm_azure_azurefunction_instances_avg_sum
+        if serverless_apps_apm_apm_azure_containerapp_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_apm_apm_azure_containerapp_instances_avg_sum"
+            ] = serverless_apps_apm_apm_azure_containerapp_instances_avg_sum
+        if serverless_apps_apm_apm_fargate_ecs_tasks_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_apm_apm_fargate_ecs_tasks_avg_sum"
+            ] = serverless_apps_apm_apm_fargate_ecs_tasks_avg_sum
+        if serverless_apps_apm_apm_gcp_cloudfunction_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_apm_apm_gcp_cloudfunction_instances_avg_sum"
+            ] = serverless_apps_apm_apm_gcp_cloudfunction_instances_avg_sum
+        if serverless_apps_apm_apm_gcp_cloudrun_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_apm_apm_gcp_cloudrun_instances_avg_sum"
+            ] = serverless_apps_apm_apm_gcp_cloudrun_instances_avg_sum
+        if serverless_apps_apm_avg_sum is not unset:
+            kwargs["serverless_apps_apm_avg_sum"] = serverless_apps_apm_avg_sum
+        if serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg_sum"
+            ] = serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg_sum
+        if serverless_apps_apm_excl_fargate_apm_azure_azurefunction_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_apm_excl_fargate_apm_azure_azurefunction_instances_avg_sum"
+            ] = serverless_apps_apm_excl_fargate_apm_azure_azurefunction_instances_avg_sum
+        if serverless_apps_apm_excl_fargate_apm_azure_containerapp_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_apm_excl_fargate_apm_azure_containerapp_instances_avg_sum"
+            ] = serverless_apps_apm_excl_fargate_apm_azure_containerapp_instances_avg_sum
+        if serverless_apps_apm_excl_fargate_apm_gcp_cloudfunction_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_apm_excl_fargate_apm_gcp_cloudfunction_instances_avg_sum"
+            ] = serverless_apps_apm_excl_fargate_apm_gcp_cloudfunction_instances_avg_sum
+        if serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg_sum"
+            ] = serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg_sum
+        if serverless_apps_apm_excl_fargate_avg_sum is not unset:
+            kwargs["serverless_apps_apm_excl_fargate_avg_sum"] = serverless_apps_apm_excl_fargate_avg_sum
+        if serverless_apps_azure_container_app_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_azure_container_app_instances_avg_sum"
+            ] = serverless_apps_azure_container_app_instances_avg_sum
         if serverless_apps_azure_count_avg_sum is not unset:
             kwargs["serverless_apps_azure_count_avg_sum"] = serverless_apps_azure_count_avg_sum
+        if serverless_apps_azure_function_app_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_azure_function_app_instances_avg_sum"
+            ] = serverless_apps_azure_function_app_instances_avg_sum
+        if serverless_apps_azure_web_app_instances_avg_sum is not unset:
+            kwargs["serverless_apps_azure_web_app_instances_avg_sum"] = serverless_apps_azure_web_app_instances_avg_sum
+        if serverless_apps_ecs_avg_sum is not unset:
+            kwargs["serverless_apps_ecs_avg_sum"] = serverless_apps_ecs_avg_sum
+        if serverless_apps_eks_avg_sum is not unset:
+            kwargs["serverless_apps_eks_avg_sum"] = serverless_apps_eks_avg_sum
+        if serverless_apps_excl_fargate_avg_sum is not unset:
+            kwargs["serverless_apps_excl_fargate_avg_sum"] = serverless_apps_excl_fargate_avg_sum
+        if serverless_apps_excl_fargate_azure_container_app_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_excl_fargate_azure_container_app_instances_avg_sum"
+            ] = serverless_apps_excl_fargate_azure_container_app_instances_avg_sum
+        if serverless_apps_excl_fargate_azure_function_app_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_excl_fargate_azure_function_app_instances_avg_sum"
+            ] = serverless_apps_excl_fargate_azure_function_app_instances_avg_sum
+        if serverless_apps_excl_fargate_azure_web_app_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_excl_fargate_azure_web_app_instances_avg_sum"
+            ] = serverless_apps_excl_fargate_azure_web_app_instances_avg_sum
+        if serverless_apps_excl_fargate_google_cloud_functions_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_excl_fargate_google_cloud_functions_instances_avg_sum"
+            ] = serverless_apps_excl_fargate_google_cloud_functions_instances_avg_sum
+        if serverless_apps_excl_fargate_google_cloud_run_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_excl_fargate_google_cloud_run_instances_avg_sum"
+            ] = serverless_apps_excl_fargate_google_cloud_run_instances_avg_sum
+        if serverless_apps_google_cloud_functions_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_google_cloud_functions_instances_avg_sum"
+            ] = serverless_apps_google_cloud_functions_instances_avg_sum
+        if serverless_apps_google_cloud_run_instances_avg_sum is not unset:
+            kwargs[
+                "serverless_apps_google_cloud_run_instances_avg_sum"
+            ] = serverless_apps_google_cloud_run_instances_avg_sum
         if serverless_apps_google_count_avg_sum is not unset:
             kwargs["serverless_apps_google_count_avg_sum"] = serverless_apps_google_count_avg_sum
         if serverless_apps_total_count_avg_sum is not unset:

@@ -253,7 +253,7 @@ pub mod user_agent {
     /// Borrowed extracted value, borrows the content of the original
     /// parser or the content of the user agent string, unless a
     /// replacement is performed. (which is only possible for the )
-    #[derive(PartialEq, Eq, Default, Debug)]
+    #[derive(PartialEq, Eq, Default, Debug, Clone)]
     pub struct ValueRef<'a> {
         ///
         pub family: Cow<'a, str>,
@@ -284,7 +284,7 @@ pub mod user_agent {
 
     /// Owned extracted value, identical to [`ValueRef`] but not
     /// linked to either the UA string or the extractor.
-    #[derive(PartialEq, Eq, Default, Debug)]
+    #[derive(PartialEq, Eq, Default, Debug, Clone)]
     pub struct Value {
         ///
         pub family: String,
@@ -417,7 +417,7 @@ pub mod os {
     }
 
     /// An OS extraction result.
-    #[derive(PartialEq, Eq, Default, Debug)]
+    #[derive(PartialEq, Eq, Default, Debug, Clone)]
     pub struct ValueRef<'a> {
         ///
         pub os: Cow<'a, str>,
@@ -447,7 +447,7 @@ pub mod os {
     }
 
     /// Owned version of [`ValueRef`].
-    #[derive(PartialEq, Eq, Default, Debug)]
+    #[derive(PartialEq, Eq, Default, Debug, Clone)]
     pub struct Value {
         ///
         pub os: String,
@@ -581,7 +581,7 @@ pub mod device {
 
     /// Extracted device content, may borrow from one of the
     /// [`Parser`] or from the user agent string.
-    #[derive(PartialEq, Eq, Default, Debug)]
+    #[derive(PartialEq, Eq, Default, Debug, Clone)]
     pub struct ValueRef<'a> {
         ///
         pub device: Cow<'a, str>,
@@ -606,7 +606,7 @@ pub mod device {
     }
 
     /// Owned version of [`ValueRef`].
-    #[derive(PartialEq, Eq, Default, Debug)]
+    #[derive(PartialEq, Eq, Default, Debug, Clone)]
     pub struct Value {
         ///
         pub device: String,
@@ -737,7 +737,9 @@ mod test_rewrite_regex {
             "; {0,2}(T-(?:07|[^0][0-9])[^;/]+?)(?: Build|\\) AppleWebKit)",
         );
         assert_eq!(
-            rewrite("; {0,2}(SH\\-?[0-9][0-9][^;/]{1,100}|SBM[0-9][^;/]{1,100}?)(?: Build|\\) AppleWebKit)"),
+            rewrite(
+                "; {0,2}(SH\\-?[0-9][0-9][^;/]{1,100}|SBM[0-9][^;/]{1,100}?)(?: Build|\\) AppleWebKit)"
+            ),
             "; {0,2}(SH\\-?[0-9][0-9][^;/]+|SBM[0-9][^;/]+?)(?: Build|\\) AppleWebKit)",
         )
     }

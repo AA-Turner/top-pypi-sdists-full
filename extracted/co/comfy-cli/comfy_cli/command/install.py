@@ -2,7 +2,7 @@ import os
 import platform
 import subprocess
 import sys
-from typing import Optional, TypedDict
+from typing import TypedDict
 from urllib.parse import urlparse
 
 import requests
@@ -13,7 +13,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm
 
-from comfy_cli import constants, ui, utils
+from comfy_cli import constants, ui
 from comfy_cli.command.custom_nodes.command import update_node_id_cache
 from comfy_cli.command.github.pr_info import PRInfo
 from comfy_cli.constants import GPU_OPTION
@@ -72,7 +72,12 @@ def pip_install_comfyui_dependencies(
                 "torchaudio",
             ]
 
-            if plat == constants.OS.WINDOWS and cuda_version == constants.CUDAVersion.v12_6:
+            if plat == constants.OS.WINDOWS and cuda_version == constants.CUDAVersion.v12_9:
+                base_command += [
+                    "--extra-index-url",
+                    "https://download.pytorch.org/whl/cu129",
+                ]
+            elif plat == constants.OS.WINDOWS and cuda_version == constants.CUDAVersion.v12_6:
                 base_command += [
                     "--extra-index-url",
                     "https://download.pytorch.org/whl/cu126",
@@ -96,32 +101,49 @@ def pip_install_comfyui_dependencies(
                 base_command,
                 check=False,
             )
-        # Beta support for intel arch based on this PR: https://github.com/comfyanonymous/ComfyUI/pull/3439
+        # Update installation to use upstream torch xpu. ipex is no longer needed for Intel Arc GPUs
+        # https://github.com/comfyanonymous/ComfyUI/pull/7767
         if gpu == GPU_OPTION.INTEL_ARC:
             pip_url = [
                 "--extra-index-url",
-                "https://pytorch-extension.intel.com/release-whl/stable/xpu/us/",
+                "https://download.pytorch.org/whl/xpu",
             ]
-            utils.install_conda_package("libuv")
+
             # TODO: wrap pip install in a function
-            subprocess.run(
-                [sys.executable, "-m", "pip", "install", "mkl", "mkl-dpcpp"],
-                check=True,
-            )
             result = subprocess.run(
                 [
                     sys.executable,
                     "-m",
                     "pip",
                     "install",
-                    "torch==2.1.0.post2",
-                    "torchvision==0.16.0.post2",
-                    "torchaudio==2.1.0.post2",
-                    "intel-extension-for-pytorch==2.1.30",
+                    "torch",
+                    "torchvision",
+                    "torchaudio",
                 ]
                 + pip_url,
                 check=False,
             )
+
+        # install torch for CPU
+        if gpu is None:  # Currently, when install for CPU, gpu is None
+            pip_url = [
+                "--extra-index-url",
+                "https://download.pytorch.org/whl/cpu",
+            ]
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "torch",
+                    "torchvision",
+                    "torchaudio",
+                ]
+                + pip_url,
+                check=False,
+            )
+
         if result and result.returncode != 0:
             rprint("Failed to install PyTorch dependencies. Please check your environment (`comfy env`) and try again")
             sys.exit(1)
@@ -170,15 +192,15 @@ def execute(
     restore: bool,
     skip_manager: bool,
     version: str,
-    commit: Optional[str] = None,
-    manager_commit: Optional[str] = None,
+    commit: str | None = None,
+    manager_commit: str | None = None,
     gpu: constants.GPU_OPTION = None,
     cuda_version: constants.CUDAVersion = constants.CUDAVersion.v12_6,
     plat: constants.OS = None,
     skip_torch_or_directml: bool = False,
     skip_requirement: bool = False,
     fast_deps: bool = False,
-    pr: Optional[str] = None,
+    pr: str | None = None,
     *args,
     **kwargs,
 ):
@@ -341,7 +363,7 @@ def handle_pr_checkout(pr_ref: str, comfy_path: str) -> str:
     return pr_info.base_repo_url
 
 
-def validate_version(version: str) -> Optional[str]:
+def validate_version(version: str) -> str | None:
     """
     Validates the version string as 'latest', 'nightly', or a semantically version number.
 
@@ -390,27 +412,6 @@ def handle_github_rate_limit(response):
         raise GitHubRateLimitError(message)
 
 
-def fetch_github_releases(repo_owner: str, repo_name: str) -> list[dict[str, str]]:
-    """
-    Fetch the list of releases from the GitHub API.
-    Handles rate limiting by logging the wait time.
-    """
-    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/releases"
-
-    headers = {}
-    if github_token := os.getenv("GITHUB_TOKEN"):
-        headers["Authorization"] = f"Bearer {github_token}"
-
-    response = requests.get(url, headers=headers, timeout=5)
-
-    # Handle rate limiting
-    if response.status_code in (403, 429):
-        handle_github_rate_limit(response)
-
-    response.raise_for_status()
-    return response.json()
-
-
 class GithubRelease(TypedDict):
     """
     A dictionary representing a GitHub release.
@@ -421,44 +422,9 @@ class GithubRelease(TypedDict):
     - download_url: The URL to download the release.
     """
 
-    version: Optional[semver.VersionInfo]
+    version: semver.VersionInfo | None
     tag: str
     download_url: str
-
-
-def parse_releases(releases: list[dict[str, str]]) -> list[GithubRelease]:
-    """
-    Parse the list of releases fetched from the GitHub API into a list of GithubRelease objects.
-    """
-    parsed_releases: list[GithubRelease] = []
-    for release in releases:
-        tag = release["tag_name"]
-        if tag.lower() in ["latest", "nightly"]:
-            parsed_releases.append({"version": None, "download_url": release["zipball_url"], "tag": tag})
-        else:
-            version = semver.VersionInfo.parse(tag.lstrip("v"))
-            parsed_releases.append({"version": version, "download_url": release["zipball_url"], "tag": tag})
-
-    return parsed_releases
-
-
-def select_version(releases: list[GithubRelease], version: str) -> Optional[GithubRelease]:
-    """
-    Given a list of Github releases, select the release that matches the specified version.
-    """
-    if version.lower() == "latest":
-        return next((r for r in releases if r["tag"].lower() == version.lower()), None)
-
-    version = version.lstrip("v")
-
-    try:
-        requested_version = semver.VersionInfo.parse(version)
-        return next(
-            (r for r in releases if isinstance(r["version"], semver.VersionInfo) and r["version"] == requested_version),
-            None,
-        )
-    except ValueError:
-        return None
 
 
 def clone_comfyui(url: str, repo_dir: str):
@@ -478,22 +444,19 @@ def checkout_stable_comfyui(version: str, repo_dir: str):
     Supports installing stable releases of Comfy (semantic versioning) or the 'latest' version.
     """
     rprint(f"Looking for ComfyUI version '{version}'...")
-    selected_release = None
     if version == "latest":
         selected_release = get_latest_release("comfyanonymous", "ComfyUI")
+        if selected_release is None:
+            rprint(f"Error: No release found for version '{version}'.")
+            sys.exit(1)
+        tag = str(selected_release["tag"])
     else:
-        releases = fetch_github_releases("comfyanonymous", "ComfyUI")
-        parsed_releases = parse_releases(releases)
-        selected_release = select_version(parsed_releases, version)
+        # For specific versions, directly construct the tag (add 'v' prefix if needed)
+        tag = f"v{version}" if not version.startswith("v") else version
 
-    if selected_release is None:
-        rprint(f"Error: No release found for version '{version}'.")
-        sys.exit(1)
-
-    tag = str(selected_release["tag"])
     console.print(
         Panel(
-            f"Checking out ComfyUI version: [bold cyan]{selected_release['tag']}[/bold cyan]",
+            f"Checking out ComfyUI version: [bold cyan]{tag}[/bold cyan]",
             title="[yellow]ComfyUI Checkout[/yellow]",
             border_style="green",
             expand=False,
@@ -503,11 +466,12 @@ def checkout_stable_comfyui(version: str, repo_dir: str):
     with console.status("[bold green]Checking out tag...", spinner="dots"):
         success = git_checkout_tag(repo_dir, tag)
         if not success:
-            console.print("\n[bold red]Failed to checkout tag![/bold red]")
+            console.print(f"\n[bold red]Failed to checkout tag '{tag}'![/bold red]")
+            console.print("[yellow]The version may not exist. Please check available versions.[/yellow]")
             sys.exit(1)
 
 
-def get_latest_release(repo_owner: str, repo_name: str) -> Optional[GithubRelease]:
+def get_latest_release(repo_owner: str, repo_name: str) -> GithubRelease | None:
     """
     Fetch the latest release information from GitHub API.
 
@@ -534,7 +498,7 @@ def get_latest_release(repo_owner: str, repo_name: str) -> Optional[GithubReleas
         return None
 
 
-def parse_pr_reference(pr_ref: str) -> tuple[str, str, Optional[int]]:
+def parse_pr_reference(pr_ref: str) -> tuple[str, str, int | None]:
     """
     support formats：
     - username:branch-name
@@ -602,7 +566,7 @@ def fetch_pr_info(repo_owner: str, repo_name: str, pr_number: int) -> PRInfo:
         raise Exception(f"Failed to fetch PR #{pr_number}: {e}")
 
 
-def find_pr_by_branch(repo_owner: str, repo_name: str, username: str, branch: str) -> Optional[PRInfo]:
+def find_pr_by_branch(repo_owner: str, repo_name: str, username: str, branch: str) -> PRInfo | None:
     url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/pulls"
     params = {"head": f"{username}:{branch}", "state": "open"}
 
@@ -637,78 +601,104 @@ def find_pr_by_branch(repo_owner: str, repo_name: str, username: str, branch: st
 def verify_node_tools() -> bool:
     """Verify that Node.js, npm, and pnpm are available for frontend building"""
     try:
-        # Check Node.js
         node_result = subprocess.run(["node", "--version"], capture_output=True, text=True, check=False)
-        if node_result.returncode != 0:
-            rprint("[bold red]Node.js is not installed.[/bold red]")
-            rprint("[yellow]To use --frontend-pr, please install Node.js first:[/yellow]")
-            rprint("  • Download from: https://nodejs.org/")
-            rprint("  • Or use a package manager:")
-            rprint("    - macOS: brew install node")
-            rprint("    - Ubuntu/Debian: sudo apt install nodejs npm")
-            rprint("    - Windows: winget install OpenJS.NodeJS")
-            return False
-
-        node_version = node_result.stdout.strip()
-        rprint(f"[green]Found Node.js {node_version}[/green]")
-
-        # Check npm (needed for pnpm installation)
-        npm_result = subprocess.run(["npm", "--version"], capture_output=True, text=True, check=False)
-        if npm_result.returncode != 0:
-            rprint("[bold red]npm is not installed.[/bold red]")
-            rprint("[yellow]npm usually comes with Node.js. Try reinstalling Node.js.[/yellow]")
-            return False
-
-        npm_version = npm_result.stdout.strip()
-        rprint(f"[green]Found npm {npm_version}[/green]")
-
-        # Check pnpm (required for modern frontend)
-        pnpm_result = subprocess.run(["pnpm", "--version"], capture_output=True, text=True, check=False)
-        if pnpm_result.returncode != 0:
-            rprint("[yellow]pnpm is not installed but is required for the modern frontend.[/yellow]")
-
-            # Ask user permission to install pnpm
-            install_pnpm = Confirm.ask(
-                "[bold yellow]Install pnpm automatically using npm?[/bold yellow] (This will run: npm install -g pnpm)"
-            )
-
-            if not install_pnpm:
-                rprint("[bold red]Cannot build frontend without pnpm.[/bold red]")
-                rprint("[yellow]To install manually:[/yellow]")
-                rprint("  npm install -g pnpm")
-                return False
-
-            # Install pnpm
-            rprint("[yellow]Installing pnpm...[/yellow]")
-            install_result = subprocess.run(
-                ["npm", "install", "-g", "pnpm"], capture_output=True, text=True, check=False
-            )
-
-            if install_result.returncode != 0:
-                rprint("[bold red]Failed to install pnpm automatically.[/bold red]")
-                rprint(f"[red]Error: {install_result.stderr}[/red]")
-                rprint("[yellow]Please install manually: npm install -g pnpm[/yellow]")
-                return False
-
-            # Verify pnpm installation
-            verify_result = subprocess.run(["pnpm", "--version"], capture_output=True, text=True, check=False)
-            if verify_result.returncode != 0:
-                rprint("[bold red]pnpm installation failed to verify.[/bold red]")
-                return False
-
-            pnpm_version = verify_result.stdout.strip()
-            rprint(f"[green]Successfully installed pnpm {pnpm_version}[/green]")
-        else:
-            pnpm_version = pnpm_result.stdout.strip()
-            rprint(f"[green]Found pnpm {pnpm_version}[/green]")
-
-        return True
-    except FileNotFoundError as e:
-        rprint(f"[bold red]Error checking frontend tools: {e}[/bold red]")
+    except FileNotFoundError:
+        rprint("[bold red]Node.js is not installed or not found in PATH.[/bold red]")
+        rprint("[yellow]To use --frontend-pr, please install Node.js first:[/yellow]")
+        rprint("  • Download from: https://nodejs.org/")
+        rprint("  • Or use a package manager:")
+        rprint("    - macOS: brew install node")
+        rprint("    - Ubuntu/Debian: sudo apt install nodejs npm")
+        rprint("    - Windows: winget install OpenJS.NodeJS")
         return False
 
+    if node_result.returncode != 0:
+        rprint("[bold red]Node.js is not installed or not working correctly.[/bold red]")
+        rprint("[yellow]To use --frontend-pr, please install Node.js first:[/yellow]")
+        rprint("  • Download from: https://nodejs.org/")
+        rprint("  • Or use a package manager:")
+        rprint("    - macOS: brew install node")
+        rprint("    - Ubuntu/Debian: sudo apt install nodejs npm")
+        rprint("    - Windows: winget install OpenJS.NodeJS")
+        return False
 
-def handle_temporary_frontend_pr(frontend_pr: str) -> Optional[str]:
+    node_version = (node_result.stdout or node_result.stderr or "").strip()
+    if node_version:
+        rprint(f"[green]Found Node.js {node_version}[/green]")
+    else:
+        rprint("[green]Found Node.js[/green]")
+
+    try:
+        npm_result = subprocess.run(["npm", "--version"], capture_output=True, text=True, check=False)
+    except FileNotFoundError:
+        rprint("[bold red]npm is not installed or not found in PATH.[/bold red]")
+        rprint("[yellow]npm usually comes with Node.js. Try reinstalling Node.js.[/yellow]")
+        return False
+
+    if npm_result.returncode != 0:
+        rprint("[bold red]npm is not installed or not working correctly.[/bold red]")
+        rprint("[yellow]npm usually comes with Node.js. Try reinstalling Node.js.[/yellow]")
+        return False
+
+    npm_version = npm_result.stdout.strip()
+    if npm_version:
+        rprint(f"[green]Found npm {npm_version}[/green]")
+    else:
+        rprint("[green]Found npm[/green]")
+
+    try:
+        pnpm_result = subprocess.run(["pnpm", "--version"], capture_output=True, text=True, check=False)
+        if pnpm_result.returncode == 0:
+            pnpm_version = pnpm_result.stdout.strip()
+            if pnpm_version:
+                rprint(f"[green]Found pnpm {pnpm_version}[/green]")
+            else:
+                rprint("[green]Found pnpm[/green]")
+            return True
+    except FileNotFoundError:
+        pass
+
+    rprint("[yellow]pnpm is not installed but is required for the modern frontend.[/yellow]")
+
+    install_pnpm = Confirm.ask(
+        "[bold yellow]Install pnpm automatically using npm?[/bold yellow] (This will run: npm install -g pnpm)"
+    )
+    if not install_pnpm:
+        rprint("[bold red]Cannot build frontend without pnpm.[/bold red]")
+        rprint("[yellow]To install manually:[/yellow]")
+        rprint("  npm install -g pnpm")
+        return False
+
+    rprint("[yellow]Installing pnpm...[/yellow]")
+    install_result = subprocess.run(["npm", "install", "-g", "pnpm"], capture_output=True, text=True, check=False)
+
+    if install_result.returncode != 0:
+        rprint("[bold red]Failed to install pnpm automatically.[/bold red]")
+        rprint(f"[red]Error: {install_result.stderr}[/red]")
+        rprint("[yellow]Please install manually: npm install -g pnpm[/yellow]")
+        return False
+
+    try:
+        verify_result = subprocess.run(["pnpm", "--version"], capture_output=True, text=True, check=False)
+    except FileNotFoundError:
+        rprint("[bold red]pnpm installation succeeded but pnpm was not found on PATH.[/bold red]")
+        rprint(
+            "[yellow]Try restarting your shell or add npm global bin to PATH, then verify with: pnpm --version[/yellow]"
+        )
+        return False
+
+    if verify_result.returncode != 0:
+        rprint("[bold red]pnpm installation failed to verify.[/bold red]")
+        if verify_result.stderr:
+            rprint(f"[red]{verify_result.stderr.strip()}[/red]")
+        return False
+
+    pnpm_version = verify_result.stdout.strip()
+    rprint(f"[green]Successfully installed pnpm {pnpm_version}[/green]")
+    return True
+
+
+def handle_temporary_frontend_pr(frontend_pr: str) -> str | None:
     """Handle temporary frontend PR for launch - returns path to built frontend"""
     from comfy_cli.pr_cache import PRCache
 
@@ -815,7 +805,7 @@ def handle_temporary_frontend_pr(frontend_pr: str) -> Optional[str]:
         os.chdir(original_dir)
 
 
-def parse_frontend_pr_reference(pr_ref: str) -> tuple[str, str, Optional[int]]:
+def parse_frontend_pr_reference(pr_ref: str) -> tuple[str, str, int | None]:
     """
     Parse frontend PR reference. Similar to parse_pr_reference but defaults to Comfy-Org/ComfyUI_frontend
     """

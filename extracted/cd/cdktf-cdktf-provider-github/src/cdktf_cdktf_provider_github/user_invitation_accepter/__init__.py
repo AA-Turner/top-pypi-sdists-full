@@ -1,7 +1,7 @@
 r'''
 # `github_user_invitation_accepter`
 
-Refer to the Terraform Registry for docs: [`github_user_invitation_accepter`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/user_invitation_accepter).
+Refer to the Terraform Registry for docs: [`github_user_invitation_accepter`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/user_invitation_accepter).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class UserInvitationAccepter(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.userInvitationAccepter.UserInvitationAccepter",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/user_invitation_accepter github_user_invitation_accepter}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/user_invitation_accepter github_user_invitation_accepter}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class UserInvitationAccepter(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/user_invitation_accepter github_user_invitation_accepter} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/user_invitation_accepter github_user_invitation_accepter} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param allow_empty_id: Allow the ID to be unset. This will result in the resource being skipped when the ID is not set instead of returning an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/user_invitation_accepter#allow_empty_id UserInvitationAccepter#allow_empty_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/user_invitation_accepter#id UserInvitationAccepter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param invitation_id: ID of the invitation to accept. Must be set when 'allow_empty_id' is 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/user_invitation_accepter#invitation_id UserInvitationAccepter#invitation_id}
+        :param allow_empty_id: Allow the ID to be unset. This will result in the resource being skipped when the ID is not set instead of returning an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/user_invitation_accepter#allow_empty_id UserInvitationAccepter#allow_empty_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/user_invitation_accepter#id UserInvitationAccepter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param invitation_id: ID of the invitation to accept. Must be set when 'allow_empty_id' is 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/user_invitation_accepter#invitation_id UserInvitationAccepter#invitation_id}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class UserInvitationAccepter(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the UserInvitationAccepter to import.
-        :param import_from_id: The id of the existing UserInvitationAccepter that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/user_invitation_accepter#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing UserInvitationAccepter that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/user_invitation_accepter#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the UserInvitationAccepter to import is found.
         '''
         if __debug__:
@@ -243,9 +243,9 @@ class UserInvitationAccepterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param allow_empty_id: Allow the ID to be unset. This will result in the resource being skipped when the ID is not set instead of returning an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/user_invitation_accepter#allow_empty_id UserInvitationAccepter#allow_empty_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/user_invitation_accepter#id UserInvitationAccepter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param invitation_id: ID of the invitation to accept. Must be set when 'allow_empty_id' is 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/user_invitation_accepter#invitation_id UserInvitationAccepter#invitation_id}
+        :param allow_empty_id: Allow the ID to be unset. This will result in the resource being skipped when the ID is not set instead of returning an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/user_invitation_accepter#allow_empty_id UserInvitationAccepter#allow_empty_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/user_invitation_accepter#id UserInvitationAccepter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param invitation_id: ID of the invitation to accept. Must be set when 'allow_empty_id' is 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/user_invitation_accepter#invitation_id UserInvitationAccepter#invitation_id}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -355,14 +355,14 @@ class UserInvitationAccepterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This will result in the resource being skipped when the ID is not set instead of returning an error.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/user_invitation_accepter#allow_empty_id UserInvitationAccepter#allow_empty_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/user_invitation_accepter#allow_empty_id UserInvitationAccepter#allow_empty_id}
         '''
         result = self._values.get("allow_empty_id")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/user_invitation_accepter#id UserInvitationAccepter#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/user_invitation_accepter#id UserInvitationAccepter#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -374,7 +374,7 @@ class UserInvitationAccepterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def invitation_id(self) -> typing.Optional[builtins.str]:
         '''ID of the invitation to accept. Must be set when 'allow_empty_id' is 'false'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/user_invitation_accepter#invitation_id UserInvitationAccepter#invitation_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/user_invitation_accepter#invitation_id UserInvitationAccepter#invitation_id}
         '''
         result = self._values.get("invitation_id")
         return typing.cast(typing.Optional[builtins.str], result)

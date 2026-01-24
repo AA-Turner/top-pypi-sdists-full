@@ -11,11 +11,12 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from union.internal.common import identifier_pb2 as common_dot_identifier__pb2
 from union.internal.imagebuilder import definition_pb2 as imagebuilder_dot_definition__pb2
 from union.internal.validate.validate import validate_pb2 as validate_dot_validate__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aimagebuilder/payload.proto\x12\x15\x63loudidl.imagebuilder\x1a\x1dimagebuilder/definition.proto\x1a\x17validate/validate.proto\"w\n\x0fGetImageRequest\x12@\n\x02id\x18\x01 \x01(\x0b\x32&.cloudidl.imagebuilder.ImageIdentifierB\x08\xfa\x42\x05\x8a\x01\x02\x10\x01R\x02id\x12\"\n\x0corganization\x18\x02 \x01(\tR\x0corganization\"F\n\x10GetImageResponse\x12\x32\n\x05image\x18\x01 \x01(\x0b\x32\x1c.cloudidl.imagebuilder.ImageR\x05imageB\xd1\x01\n\x19\x63om.cloudidl.imagebuilderB\x0cPayloadProtoH\x02P\x01Z/github.com/unionai/cloud/gen/pb-go/imagebuilder\xa2\x02\x03\x43IX\xaa\x02\x15\x43loudidl.Imagebuilder\xca\x02\x15\x43loudidl\\Imagebuilder\xe2\x02!Cloudidl\\Imagebuilder\\GPBMetadata\xea\x02\x16\x43loudidl::Imagebuilderb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aimagebuilder/payload.proto\x12\x15\x63loudidl.imagebuilder\x1a\x17\x63ommon/identifier.proto\x1a\x1dimagebuilder/definition.proto\x1a\x17validate/validate.proto\"\xba\x01\n\x0fGetImageRequest\x12@\n\x02id\x18\x01 \x01(\x0b\x32&.cloudidl.imagebuilder.ImageIdentifierB\x08\xfa\x42\x05\x8a\x01\x02\x10\x01R\x02id\x12\"\n\x0corganization\x18\x02 \x01(\tR\x0corganization\x12\x41\n\nproject_id\x18\x03 \x01(\x0b\x32\".cloudidl.common.ProjectIdentifierR\tprojectId\"F\n\x10GetImageResponse\x12\x32\n\x05image\x18\x01 \x01(\x0b\x32\x1c.cloudidl.imagebuilder.ImageR\x05imageB\xd1\x01\n\x19\x63om.cloudidl.imagebuilderB\x0cPayloadProtoH\x02P\x01Z/github.com/unionai/cloud/gen/pb-go/imagebuilder\xa2\x02\x03\x43IX\xaa\x02\x15\x43loudidl.Imagebuilder\xca\x02\x15\x43loudidl\\Imagebuilder\xe2\x02!Cloudidl\\Imagebuilder\\GPBMetadata\xea\x02\x16\x43loudidl::Imagebuilderb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -25,8 +26,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._serialized_options = b'\n\031com.cloudidl.imagebuilderB\014PayloadProtoH\002P\001Z/github.com/unionai/cloud/gen/pb-go/imagebuilder\242\002\003CIX\252\002\025Cloudidl.Imagebuilder\312\002\025Cloudidl\\Imagebuilder\342\002!Cloudidl\\Imagebuilder\\GPBMetadata\352\002\026Cloudidl::Imagebuilder'
   _GETIMAGEREQUEST.fields_by_name['id']._options = None
   _GETIMAGEREQUEST.fields_by_name['id']._serialized_options = b'\372B\005\212\001\002\020\001'
-  _globals['_GETIMAGEREQUEST']._serialized_start=109
-  _globals['_GETIMAGEREQUEST']._serialized_end=228
-  _globals['_GETIMAGERESPONSE']._serialized_start=230
-  _globals['_GETIMAGERESPONSE']._serialized_end=300
+  _globals['_GETIMAGEREQUEST']._serialized_start=135
+  _globals['_GETIMAGEREQUEST']._serialized_end=321
+  _globals['_GETIMAGERESPONSE']._serialized_start=323
+  _globals['_GETIMAGERESPONSE']._serialized_end=393
 # @@protoc_insertion_point(module_scope)

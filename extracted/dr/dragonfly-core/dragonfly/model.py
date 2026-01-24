@@ -10,6 +10,7 @@ import datetime
 import tempfile
 import uuid
 import zipfile
+from collections import OrderedDict
 try:  # check if we are in IronPython
     import cPickle as pickle
 except ImportError:  # wea re in cPython
@@ -96,6 +97,7 @@ class Model(_BaseGeometry):
         * floor_area
         * exterior_wall_area
         * exterior_aperture_area
+        * sub_face_area
         * volume
         * min
         * max
@@ -138,11 +140,16 @@ class Model(_BaseGeometry):
         self._properties = ModelProperties(self)
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data, cleanup_irrational=False):
         """Initialize a Model from a dictionary.
 
         Args:
             data: A dictionary representation of a Model object.
+            cleanup_irrational: Boolean to note whether common types of irrational
+                objects should be cleaned or removed from the dictionary before
+                serializing the model to Python. Typical cases that are removed
+                this way include Face3Ds with fewer than 3 vertices, Stories that
+                have no Room2D geometry, etc. (Default: False).
         """
         # check the type of dictionary
         assert data['type'] == 'Model', 'Expected Model dictionary. ' \
@@ -158,6 +165,10 @@ class Model(_BaseGeometry):
         ref_vec = None if 'reference_vector' not in data or \
             data['reference_vector'] is None else \
             Vector3D.from_array(data['reference_vector'])
+
+        # clean the irrational objects out if requested
+        if cleanup_irrational:
+            cls.clean_irrational_geometry(data)
 
         # import all of the geometry
         buildings = None  # import buildings
@@ -176,7 +187,7 @@ class Model(_BaseGeometry):
                     if 'roof' in bldg and bldg['roof'] is not None \
                             and 'geometry' in bldg['roof'] \
                             and len(bldg['roof']['geometry']) > 0:
-                        roof = RoofSpecification.from_dict(bldg['roof'])
+                        roof = RoofSpecification.from_dict(bldg['roof'], tol)
                         building_roofs.append(roof.geometry)
                         bldg['roof'] = None
                     else:
@@ -213,7 +224,7 @@ class Model(_BaseGeometry):
         return model
 
     @classmethod
-    def from_file(cls, df_file):
+    def from_file(cls, df_file, cleanup_irrational=False):
         """Initialize a Model from a DFJSON or DFpkl file, auto-sensing the type.
 
         This will also sense if the input is a Honeybee Model and, if so,
@@ -222,11 +233,16 @@ class Model(_BaseGeometry):
         Args:
             df_file: Path to either a DFJSON or DFpkl file. This can also be a
                 HBJSON or a HBpkl from which a Dragonfly model should be derived.
+            cleanup_irrational: Boolean to note whether common types of irrational
+                objects should be cleaned or removed from the dictionary before
+                serializing the model to Python. Typical cases that are removed
+                this way include Face3Ds with fewer than 3 vertices, Stories that
+                have no Room2D geometry, etc. (Default: False).
         """
         assert os.path.isfile(df_file), 'Failed to find %s' % df_file
         # sense the file type by first checking it it's a zip file
         if zipfile.is_zipfile(df_file):
-            return cls.from_pomf(df_file)
+            return cls.from_pomf(df_file, cleanup_irrational)
         # check the first character to avoid maxing memory with JSON
         with io.open(df_file, encoding='utf-8') as inf:
             first_char = inf.read(1)
@@ -234,16 +250,21 @@ class Model(_BaseGeometry):
         is_json = True if first_char == '{' or second_char == '{' else False
         # load the file using either DFJSON pathway or DFpkl
         if is_json:
-            return cls.from_dfjson(df_file)
-        return cls.from_dfpkl(df_file)
+            return cls.from_dfjson(df_file, cleanup_irrational)
+        return cls.from_dfpkl(df_file, cleanup_irrational)
 
     @classmethod
-    def from_dfjson(cls, dfjson_file):
+    def from_dfjson(cls, dfjson_file, cleanup_irrational=False):
         """Initialize a Model from a DFJSON file.
 
         Args:
             dfjson_file: Path to DFJSON file. This can also be a HBJSON from which
                 a Dragonfly model should be derived.
+            cleanup_irrational: Boolean to note whether common types of irrational
+                objects should be cleaned or removed from the dictionary before
+                serializing the model to Python. Typical cases that are removed
+                this way include Face3Ds with fewer than 3 vertices, Stories that
+                have no Room2D geometry, etc. (Default: False).
         """
         assert os.path.isfile(dfjson_file), 'Failed to find %s' % dfjson_file
         with io.open(dfjson_file, encoding='utf-8') as inf:
@@ -254,34 +275,44 @@ class Model(_BaseGeometry):
                 inf.read(1)
             data = json.load(inf)
         if 'buildings' in data or 'context_shades' in data:
-            return cls.from_dict(data)
+            return cls.from_dict(data, cleanup_irrational)
         else:  # assume that it's a Honeybee Model to translate
-            hb_model = HBModel.from_dict(data)
+            hb_model = HBModel.from_dict(data, cleanup_irrational)
             return cls.from_honeybee(hb_model)
 
     @classmethod
-    def from_dfpkl(cls, dfpkl_file):
+    def from_dfpkl(cls, dfpkl_file, cleanup_irrational=False):
         """Initialize a Model from a DFpkl file.
 
         Args:
             dfpkl_file: Path to DFpkl file. This can also be a HBpkl from which
                 a Dragonfly model should be derived.
+            cleanup_irrational: Boolean to note whether common types of irrational
+                objects should be cleaned or removed from the dictionary before
+                serializing the model to Python. Typical cases that are removed
+                this way include Face3Ds with fewer than 3 vertices, Stories that
+                have no Room2D geometry, etc. (Default: False).
         """
         assert os.path.isfile(dfpkl_file), 'Failed to find %s' % dfpkl_file
         with open(dfpkl_file, 'rb') as inf:
             data = pickle.load(inf)
         if 'buildings' in data or 'context_shades' in data:
-            return cls.from_dict(data)
+            return cls.from_dict(data, cleanup_irrational)
         else:  # assume that it's a Honeybee Model to translate
-            hb_model = HBModel.from_dict(data)
+            hb_model = HBModel.from_dict(data, cleanup_irrational)
             return cls.from_honeybee(hb_model)
 
     @classmethod
-    def from_pomf(cls, pomf_file):
+    def from_pomf(cls, pomf_file, cleanup_irrational=False):
         """Initialize a Model from a Pollination Model File (POMF).
 
         Args:
             pomf_file: Path to POMF file containing a dragonfly Model.
+            cleanup_irrational: Boolean to note whether common types of irrational
+                objects should be cleaned or removed from the dictionary before
+                serializing the model to Python. Typical cases that are removed
+                this way include Face3Ds with fewer than 3 vertices, Stories that
+                have no Room2D geometry, etc. (Default: False).
         """
         folder_name = str(uuid.uuid4())[:6]
         temp_dir = tempfile.gettempdir()
@@ -289,7 +320,7 @@ class Model(_BaseGeometry):
         os.mkdir(folder_path)
         unzip_file(pomf_file, folder_path)
         df_file = os.path.join(folder_path, 'model.json')
-        return cls.from_dfjson(df_file)
+        return cls.from_dfjson(df_file, cleanup_irrational)
 
     @classmethod
     def from_honeybee(cls, model, conversion_method='AllRoom2D'):
@@ -612,6 +643,12 @@ class Model(_BaseGeometry):
         """Get a number for the total exterior aperture area for all Buildings.
         """
         return sum([bldg.exterior_aperture_area for bldg in self._buildings])
+
+    @property
+    def sub_face_area(self):
+        """Get a number for the total sub-face area for all Buildings.
+        """
+        return sum([bldg.sub_face_area for bldg in self._buildings])
 
     @property
     def volume(self):
@@ -1755,10 +1792,12 @@ class Model(_BaseGeometry):
             return dummy_model.check_all(raise_exception, detailed)
         return [] if detailed else ''
 
-    def to_honeybee(self, object_per_model='Building', shade_distance=None,
-                    use_multiplier=True, exclude_plenums=False, cap=False,
-                    solve_ceiling_adjacencies=False, tolerance=None,
-                    enforce_adj=True, enforce_solid=True):
+    def to_honeybee(
+        self, object_per_model='Building', shade_distance=None,
+        use_multiplier=True, exclude_plenums=False, cap=False,
+        solve_ceiling_adjacencies=False, merge_method=None,
+        tolerance=None, enforce_adj=True, enforce_solid=True
+    ):
         """Convert Dragonfly Model to an array of Honeybee Models.
 
         Args:
@@ -1805,6 +1844,22 @@ class Model(_BaseGeometry):
                 geometries are coplanar. This ensures that Surface boundary
                 conditions are used instead of Adiabatic ones. Note that this input
                 has no effect when the object_per_model is Story. (Default: False).
+            merge_method: An optional text string to describe how the Room2Ds should
+                be merged into individual Rooms during the translation. Specifying a
+                value here can be an effective way to reduce the number of Room
+                volumes in the resulting 3D Honeybee Model and, ultimately, yield
+                a faster simulation time in the destination engine with fewer results
+                to manage. Note that Room2Ds will only be merged if they form a
+                continuous volume. Otherwise, there will be multiple Rooms per
+                zone or story, each with an integer added at the end of their
+                identifiers. Choose from the following options:
+
+                * None - No merging of Room2Ds will occur
+                * Zones - Room2Ds in the same zone will be merged
+                * PlenumZones - Only plenums in the same zone will be merged
+                * Stories - Rooms in the same story will be merged
+                * PlenumStories - Only plenums in the same story will be merged
+
             tolerance: The minimum distance in z values of floor_height and
                 floor_to_ceiling_height at which adjacent Faces will be split.
                 This is also used in the generation of Windows. This must be a
@@ -1830,6 +1885,9 @@ class Model(_BaseGeometry):
         tolerance = self.tolerance if tolerance is None else tolerance
         assert tolerance != 0, \
             'Model tolerance must be non-zero to use Model.to_honeybee.'
+
+        # create a map of rooms to merge if the merge_method is not None
+        merge_map = self._extract_merge_map(merge_method, exclude_plenums, tolerance)
 
         # create the model objects
         opm = object_per_model.title()
@@ -1904,6 +1962,11 @@ class Model(_BaseGeometry):
         # transfer Model extension attributes to the honeybee models
         for h_model in models:
             h_model._properties = self.properties.to_honeybee(h_model)
+
+        # merge rooms in the models together if there is a merge_map
+        if merge_map is not None:
+            for model in models:
+                self._apply_merge_map(model, merge_map, tolerance)
 
         return models
 
@@ -2408,6 +2471,281 @@ class Model(_BaseGeometry):
                         new_shades.append(cs_dict)
                 filtered_model['context_shades'] = new_shades
         return filtered_model
+
+    @staticmethod
+    def clean_irrational_geometry(model_dict):
+        """Remove irrational geometry objects from a dragonfly Model dictionary.
+
+        This can be useful to run prior to serializing the Model object from a
+        dictionary if it was produced from a source other than the Python
+        core libraries, in which case the dictionary is necessarily rational
+        and serializable. This is because not all dragonfly-schema bindings
+        enforce fundamental definitions of geometry types upon initialization
+        of the geometry objects, leading to exceptions when an attempt is made
+        to serialize them to Python. Furthermore, it is possible that the dragonfly
+        Model dictionary did not originate from any schema bindings at all, in
+        which case it is highly recommended that this method be run.
+
+        Typical irrational geometry cases that are removed by this method include.
+
+            * Room2Ds with less than 3 vertices or holes with less than 3 vertices.
+            * RoofSpecification Face3Ds with less than 3 vertices.
+            * DetailedWindow polygons with less than 3 vertices.
+            * Stories that have no Room2D geometry.
+            * Buildings that have no Room2D or 3D Room geometry.
+            * ContextShade Face3Ds with less than 3 vertices.
+            * ContextShade Mesh3Ds with no faces or faces with less than 3 vertices.
+        """
+        # clean all of the building geometry in the model dictionary
+        if 'buildings' in model_dict and model_dict['buildings'] is not None:
+            for bi in range(len(model_dict['buildings']) - 1, -1, -1):
+                b_dict = model_dict['buildings'][bi]
+                bldg_geo_found = False
+                # clean all of the story geometry
+                if 'unique_stories' in b_dict and \
+                        b_dict['unique_stories'] is not None:
+                    for si in range(len(b_dict['unique_stories']) - 1, -1, -1):
+                        s_dict = b_dict['unique_stories'][si]
+                        # clean all of the Room2D geometry
+                        for ri in range(len(s_dict['room_2ds']) - 1, -1, -1):
+                            r_dict = s_dict['room_2ds'][ri]
+                            if len(r_dict['floor_boundary']) < 3:
+                                s_dict['room_2ds'].pop(ri)
+                                continue
+                            elif 'floor_holes' in r_dict:
+                                r_dict['floor_holes'] = \
+                                    [h for h in r_dict['floor_holes'] if len(h) >= 3]
+                            # clean all of the window geometry
+                            if 'window_parameters' in r_dict and \
+                                    r_dict['window_parameters'] is not None:
+                                wps = r_dict['window_parameters']
+                                for wi in range(len(wps) - 1, -1, -1):
+                                    wp = wps[wi]
+                                    if wp is not None and wp['type'] == 'DetailedWindows':
+                                        for pi in range(len(wp['polygons']) - 1, -1, -1):
+                                            if len(wp['polygons'][pi]) < 3:
+                                                wp['polygons'].pop(pi)
+                                        if len(wp['polygons']) == 0:
+                                            wps[wi] = None  # all polygons are irrational
+                        # clean all of the RoofSpecification geometry
+                        if 'roof' in s_dict and s_dict['roof'] is not None:
+                            rf_geo = s_dict['roof']['geometry']
+                            for fi in range(len(rf_geo) - 1, -1, -1):
+                                face_3d = rf_geo[fi]
+                                if len(face_3d['boundary']) < 3:
+                                    rf_geo.pop(fi)
+                                elif 'holes' in face_3d:
+                                    face_3d['holes'] = \
+                                        [h for h in face_3d['holes'] if len(h) >= 3]
+                            if len(rf_geo) == 0:  # the entire roof is irrational
+                                s_dict['roof'] = None
+                        # check to be sure the Story is still rational
+                        if len(s_dict['room_2ds']) == 0:  # remove the whole story
+                            b_dict['unique_stories'].pop(si)
+                        else:  # there are Room2Ds in the Building
+                            bldg_geo_found = True
+                # clean all of the 3D Room geometry
+                if 'room_3ds' in b_dict and b_dict['room_3ds'] is not None:
+                    units = 'Meters' if 'units' not in model_dict or \
+                        model_dict['units'] is None else model_dict['units']
+                    tol = UNITS_TOLERANCES[units] if 'tolerance' not in model_dict or \
+                        model_dict['tolerance'] is None else model_dict['tolerance']
+                    angle_tol = 1.0 if 'angle_tolerance' not in model_dict or \
+                        model_dict['angle_tolerance'] is None else \
+                        model_dict['angle_tolerance']
+                    hb_model_dict = {
+                        'type': 'Model',
+                        'identifier': model_dict['identifier'],
+                        'units': units,
+                        'tolerance': tol,
+                        'angle_tolerance': angle_tol,
+                        'rooms': b_dict['room_3ds']
+                    }
+                    HBModel.clean_irrational_geometry(hb_model_dict)
+                    # check to be sure the 3D Rooms are is still rational
+                    if len(hb_model_dict['rooms']) == 0:  # remove all 3D Rooms
+                        b_dict['room_3ds'] = None
+                    else:  # there are 3D Rooms in the Building
+                        b_dict['room_3ds'] = hb_model_dict['rooms']
+                        bldg_geo_found = True
+                # check to be sure the Building is still rational
+                if not bldg_geo_found:  # remove the whole Building
+                    model_dict['buildings'].pop(bi)
+
+        # clean all of the context shade geometry in the model dictionary
+        if 'context_shades' in model_dict and model_dict['context_shades'] is not None:
+            for ci in range(len(model_dict['context_shades']) - 1, -1, -1):
+                c_dict = model_dict['context_shades'][ci]
+                # clean all of the Face3D and Mesh3D geometry
+                for gi in range(len(c_dict['geometry']) - 1, -1, -1):
+                    geo_dict = c_dict['geometry'][gi]
+                    if geo_dict['type'] == 'Face3D':
+                        if len(geo_dict['boundary']) < 3:
+                            c_dict['geometry'].pop(gi)
+                        elif 'holes' in geo_dict:
+                            geo_dict['holes'] = \
+                                [h for h in geo_dict['holes'] if len(h) >= 3]
+                    elif geo_dict['type'] == 'Mesh3D':
+                        for mfi in range(len(geo_dict['faces']) - 1, -1, -1):
+                            mf = geo_dict['faces'][mfi]
+                            if len(mf) not in (3, 4):
+                                geo_dict['faces'].pop(mfi)
+                            else:
+                                for ind in mf:
+                                    try:
+                                        geo_dict['vertices'][ind]
+                                    except IndexError:
+                                        geo_dict['faces'].pop(mfi)
+                                        break
+                        if len(geo_dict['faces']) == 0:
+                            c_dict['geometry'].pop(gi)
+                    else:  # unrecognized geometry type
+                        c_dict['geometry'].pop(gi)
+                        continue
+                if len(c_dict['geometry']) == 0:  # the entire ContextShade is irrational
+                    model_dict['context_shades'].pop(ci)
+
+    def _extract_merge_map(
+        self, merge_method=None, exclude_plenums=False, tolerance=None
+    ):
+        """Extract dictionaries mapping Honeybee Rooms to be merged.
+
+        Args:
+            merge_method: An optional text string to describe how the Room2Ds should
+                be merged into individual Rooms during the translation. Specifying a
+                value here can be an effective way to reduce the number of Room
+                volumes in the resulting 3D Honeybee Model and, ultimately, yield
+                a faster simulation time in the destination engine with fewer results
+                to manage. Note that Room2Ds will only be merged if they form a
+                continuous volume. Otherwise, there will be multiple Rooms per
+                zone or story, each with an integer added at the end of their
+                identifiers and names. Choose from the following options:
+
+                * None - No merging of Room2Ds will occur
+                * Zones - Room2Ds in the same zone will be merged
+                * PlenumZones - Only plenums in the same zone will be merged
+                * Stories - Rooms in the same story will be merged
+                * PlenumStories - Only plenums in the same story will be merged
+
+            exclude_plenums: Boolean to note whether plenums are being excluded
+                in the result. (Default: False).
+            tolerance: The minimum distance between objects that is considered
+                meaningful. If None, the Model's tolerance will be used. (Default: None).
+        """
+        # set up variables to be used to evaluate the mapping
+        tolerance = self.tolerance if tolerance is None else tolerance
+        room_merge_map = None
+        merge_method = str(merge_method).lower()
+        acceptable_methods = ('zones', 'plenumzones', 'stories', 'plenumstories')
+
+        # set up the mapping given the merge_method
+        if merge_method in acceptable_methods:
+            room_merge_map = {}
+            if merge_method == 'zones':
+                for room in self.room_2ds:
+                    room_merge_map[room.identifier] = room.zone
+            if not exclude_plenums and merge_method in ('zones', 'plenumzones'):
+                for room in self.room_2ds:
+                    if room.ceiling_plenum_depth > tolerance:
+                        room_id = '{}_Ceiling_Plenum'.format(room.identifier)
+                        zone_id = room_id if room._zone is None else \
+                            '{} Ceiling Plenum'.format(room.zone)
+                        room_merge_map[room_id] = zone_id
+                    if room.floor_plenum_depth > tolerance:
+                        room_id = '{}_Floor_Plenum'.format(room.identifier)
+                        zone_id = room_id if room._zone is None else \
+                            '{} Floor Plenum'.format(room.zone)
+                        room_merge_map[room_id] = zone_id
+            if merge_method == 'stories':
+                for room in self.room_2ds:
+                    room_merge_map[room.identifier] = room.parent.display_name
+            if not exclude_plenums and merge_method in ('stories', 'plenumstories'):
+                for room in self.room_2ds:
+                    if room.ceiling_plenum_depth > tolerance:
+                        room_id = '{}_Ceiling_Plenum'.format(room.identifier)
+                        story_id = '{}_CeilingPlenum'.format(room.parent.identifier) \
+                            if room.parent._display_name is None else \
+                            '{} Plenum'.format(room.parent.display_name)
+                        room_merge_map[room_id] = story_id
+                    if room.floor_plenum_depth > tolerance:
+                        room_id = '{}_Floor_Plenum'.format(room.identifier)
+                        story_id = '{}_FloorPlenum'.format(room.parent.identifier) \
+                            if room.parent._display_name is None else \
+                            '{} Plenum'.format(room.parent.display_name)
+                        room_merge_map[room_id] = story_id
+        return room_merge_map
+
+    @staticmethod
+    def _apply_merge_map(model, merge_map, tolerance):
+        """Merge Rooms of a Honeybee Model together using a merge_map dictionary.
+
+        Args:
+            model: A Honeybee Model for which Rooms will be merged.
+            merge_map: A dictionary with Honeybee Room
+            tolerance: The minimum distance between that is considered meaningful.
+        """
+        # use the merge map to gather the Room objects to be merged
+        merge_groups, remove_i = OrderedDict(), set()
+        insert_i, insert_count = [], 0
+        for i, room in enumerate(model.rooms):
+            try:
+                merge_name = merge_map[room.identifier]
+                try:
+                    merge_groups[merge_name].append(room)
+                except KeyError:  # first item in the group
+                    merge_groups[merge_name] = [room]
+                    insert_i.append(insert_count)
+                remove_i.add(i)
+            except KeyError:  # not a room to be merged
+                insert_count += 1
+
+        # create the new rooms and assign them to the model
+        new_rooms = [r for i, r in enumerate(model.rooms) if i not in remove_i]
+        group_ids, final_merge_map = {}, {}
+        zip_obj = zip(reversed(insert_i), reversed(merge_groups.items()))
+        for ins_i, (group_name, room_group) in zip_obj:
+            merged_rooms = HBRoom.join_adjacent_rooms(room_group, tolerance)
+            for room in merged_rooms:
+                room.identifier = clean_and_number_string(group_name, group_ids)
+                room.display_name = group_name
+                new_rooms.insert(ins_i, room)
+            # build up a final map of old room IDs to the new merged IDs
+            if len(merged_rooms) == 1:
+                merged_id = merged_rooms[0].identifier
+                for rm in room_group:
+                    final_merge_map[rm.identifier] = merged_id
+            else:
+                for rm in room_group:
+                    room_mapped = False
+                    for merge_rm in merged_rooms:
+                        if room_mapped:
+                            break
+                        for old_face in rm.faces:
+                            if room_mapped:
+                                break
+                            for new_face in merge_rm.faces:
+                                if old_face.identifier == new_face.identifier:
+                                    final_merge_map[rm.identifier] = merge_rm.identifier
+                                    room_mapped = True
+                                    break
+        model.rooms = new_rooms
+
+        # update any Surface boundary conditions with the new room IDs
+        for room in model.rooms:
+            for face in room.faces:
+                face_bc = face.boundary_condition
+                if isinstance(face_bc, Surface):
+                    bc_face, bc_room = face_bc.boundary_condition_objects
+                    try:
+                        new_bc_room = final_merge_map[bc_room]
+                        face.boundary_condition = Surface((bc_face, new_bc_room))
+                        for sf in face.sub_faces:
+                            sf_bc = sf.boundary_condition
+                            bc_sf, bc_face, bc_room = sf_bc.boundary_condition_objects
+                            new_bc_objs = (bc_sf, bc_face, new_bc_room)
+                            sf.boundary_condition = Surface(new_bc_objs, sub_face=True)
+                    except KeyError:  # not adjacent to a merged room
+                        insert_count += 1
 
     @staticmethod
     def _solve_ceil_adj(rooms, story_rel_types, has_floor_ceil,

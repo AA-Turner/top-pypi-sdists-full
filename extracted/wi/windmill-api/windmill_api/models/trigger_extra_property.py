@@ -5,6 +5,8 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.trigger_extra_property_mode import TriggerExtraPropertyMode
+
 if TYPE_CHECKING:
     from ..models.trigger_extra_property_extra_perms import TriggerExtraPropertyExtraPerms
 
@@ -24,6 +26,7 @@ class TriggerExtraProperty:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (TriggerExtraPropertyMode): job trigger mode
     """
 
     path: str
@@ -34,6 +37,7 @@ class TriggerExtraProperty:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: TriggerExtraPropertyMode
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -47,6 +51,7 @@ class TriggerExtraProperty:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -60,6 +65,7 @@ class TriggerExtraProperty:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
 
@@ -86,6 +92,8 @@ class TriggerExtraProperty:
 
         is_flow = d.pop("is_flow")
 
+        mode = TriggerExtraPropertyMode(d.pop("mode"))
+
         trigger_extra_property = cls(
             path=path,
             script_path=script_path,
@@ -95,6 +103,7 @@ class TriggerExtraProperty:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
         )
 
         trigger_extra_property.additional_properties = d

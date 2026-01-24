@@ -20,6 +20,7 @@ from qtpy.QtGui import QKeySequence
 from qtpy.QtWidgets import QAction, QShortcut
 
 # Local imports
+from spyder.api.plugin_registration.registry import PLUGIN_REGISTRY
 from spyder.api.plugins import Plugins, SpyderPluginV2
 from spyder.api.plugin_registration.decorators import (
     on_plugin_available, on_plugin_teardown
@@ -82,7 +83,7 @@ class Shortcuts(SpyderPluginV2, SpyderShortcutsMixin):
         self._shortcut_sequences = set({})
         self.create_action(
             ShortcutActions.ShortcutSummaryAction,
-            text=_("Shortcuts Summary"),
+            text=_("Shortcuts summary"),
             triggered=self.show_summary,
             register_shortcut=True,
             context=Qt.ApplicationShortcut,
@@ -104,7 +105,7 @@ class Shortcuts(SpyderPluginV2, SpyderShortcutsMixin):
             shortcuts_action,
             menu_id=ApplicationMenus.Help,
             section=HelpMenuSections.Documentation,
-            before_section=HelpMenuSections.Support
+            before_section=HelpMenuSections.ExternalDocumentation,
         )
 
     @on_plugin_teardown(plugin=Plugins.Preferences)
@@ -224,10 +225,12 @@ class Shortcuts(SpyderPluginV2, SpyderShortcutsMixin):
             # Do not register shortcuts for the toggle view action.
             # The shortcut will be displayed only on the menus and handled by
             # about to show/hide signals.
-            if (
-                data.name.startswith('switch to')
-                and isinstance(data.qobject, SpyderAction)
-            ):
+            if any(
+                [
+                    data.name.startswith(f"switch to {plugin}")
+                    for plugin in PLUGIN_REGISTRY.enabled_plugins
+                ]
+            ) and isinstance(data.qobject, SpyderAction):
                 keyseq = QKeySequence()
 
             # Register shortcut for the associated qobject

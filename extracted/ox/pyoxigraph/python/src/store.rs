@@ -125,7 +125,7 @@ impl PyStore {
     fn extend(&self, quads: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<()> {
         let quads = quads
             .try_iter()?
-            .map(|q| q?.extract())
+            .map(|q| Ok(q?.extract()?))
             .collect::<PyResult<Vec<PyQuad>>>()?;
         py.detach(|| {
             self.inner.extend(quads).map_err(map_storage_error)?;
@@ -150,7 +150,7 @@ impl PyStore {
     fn bulk_extend(&self, quads: &Bound<'_, PyAny>) -> PyResult<()> {
         let mut loader = self.inner.bulk_loader();
         loader.load_ok_quads::<PyErr, PythonOrStorageError>(
-            quads.try_iter()?.map(|q| q?.extract::<PyQuad>()),
+            quads.try_iter()?.map(|q| Ok(q?.extract::<PyQuad>()?)),
         )?;
         loader.commit().map_err(map_storage_error)?;
         Ok(())
@@ -293,8 +293,8 @@ impl PyStore {
         )?
         .on_store(&self.inner);
         if let Some(substitutions) = substitutions {
-            for (k, v) in substitutions {
-                evaluator = evaluator.substitute_variable(k, v);
+            for (variable, term) in substitutions {
+                evaluator = evaluator.substitute_variable(variable, term);
             }
         }
         let results = py

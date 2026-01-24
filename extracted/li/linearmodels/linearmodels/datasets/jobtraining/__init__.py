@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 from pandas import DataFrame
+
+from linearmodels import datasets
 
 DESCR = """
 H. Holzer, R. Block, M. Cheatham, and J. Knott (1993), "Are Training Subsidies
@@ -41,6 +41,5 @@ lhrsemp                 lhrsemp - lhrsemp[t-1]
 
 
 def load() -> DataFrame:
-    from linearmodels import datasets
 
     return datasets.load(__file__, "jobtraining.csv.bz2")

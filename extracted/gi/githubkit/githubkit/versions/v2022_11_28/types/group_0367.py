@@ -9,18 +9,55 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing import Literal, Union
+from typing_extensions import NotRequired, TypedDict
+
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
+from .group_0010 import IntegrationType, IntegrationTypeForResponse
+from .group_0120 import TeamType, TeamTypeForResponse
 
 
-class PullRequestMergeResultType(TypedDict):
-    """Pull Request Merge Result
+class ReviewRequestedIssueEventType(TypedDict):
+    """Review Requested Issue Event
 
-    Pull Request Merge Result
+    Review Requested Issue Event
     """
 
-    sha: str
-    merged: bool
-    message: str
+    id: int
+    node_id: str
+    url: str
+    actor: SimpleUserType
+    event: Literal["review_requested"]
+    commit_id: Union[str, None]
+    commit_url: Union[str, None]
+    created_at: str
+    performed_via_github_app: Union[None, IntegrationType, None]
+    review_requester: SimpleUserType
+    requested_team: NotRequired[TeamType]
+    requested_reviewer: NotRequired[SimpleUserType]
 
 
-__all__ = ("PullRequestMergeResultType",)
+class ReviewRequestedIssueEventTypeForResponse(TypedDict):
+    """Review Requested Issue Event
+
+    Review Requested Issue Event
+    """
+
+    id: int
+    node_id: str
+    url: str
+    actor: SimpleUserTypeForResponse
+    event: Literal["review_requested"]
+    commit_id: Union[str, None]
+    commit_url: Union[str, None]
+    created_at: str
+    performed_via_github_app: Union[None, IntegrationTypeForResponse, None]
+    review_requester: SimpleUserTypeForResponse
+    requested_team: NotRequired[TeamTypeForResponse]
+    requested_reviewer: NotRequired[SimpleUserTypeForResponse]
+
+
+__all__ = (
+    "ReviewRequestedIssueEventType",
+    "ReviewRequestedIssueEventTypeForResponse",
+)

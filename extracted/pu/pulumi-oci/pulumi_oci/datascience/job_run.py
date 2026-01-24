@@ -644,10 +644,6 @@ class JobRun(pulumi.CustomResource):
                  project_id: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        This resource provides the Job Run resource in Oracle Cloud Infrastructure Data Science service.
-
-        Creates a job run.
-
         ## Example Usage
 
         ```python
@@ -748,6 +744,16 @@ class JobRun(pulumi.CustomResource):
                 "maximum_runtime_in_minutes": job_run_job_node_configuration_override_details_maximum_runtime_in_minutes,
                 "startup_order": job_run_job_node_configuration_override_details_startup_order,
             },
+            job_storage_mount_configuration_override_details_list=[{
+                "destinationDirectoryName": job_run_job_storage_mount_configuration_override_details_list_destination_directory_name,
+                "storageType": job_run_job_storage_mount_configuration_override_details_list_storage_type,
+                "bucket": job_run_job_storage_mount_configuration_override_details_list_bucket,
+                "destinationPath": job_run_job_storage_mount_configuration_override_details_list_destination_path,
+                "exportId": test_export["id"],
+                "mountTargetId": test_mount_target["id"],
+                "namespace": job_run_job_storage_mount_configuration_override_details_list_namespace,
+                "prefix": job_run_job_storage_mount_configuration_override_details_list_prefix,
+            }],
             opc_parent_rpt_url=job_run_opc_parent_rpt_url)
         ```
 
@@ -786,10 +792,6 @@ class JobRun(pulumi.CustomResource):
                  args: JobRunArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Job Run resource in Oracle Cloud Infrastructure Data Science service.
-
-        Creates a job run.
-
         ## Example Usage
 
         ```python
@@ -890,6 +892,16 @@ class JobRun(pulumi.CustomResource):
                 "maximum_runtime_in_minutes": job_run_job_node_configuration_override_details_maximum_runtime_in_minutes,
                 "startup_order": job_run_job_node_configuration_override_details_startup_order,
             },
+            job_storage_mount_configuration_override_details_list=[{
+                "destinationDirectoryName": job_run_job_storage_mount_configuration_override_details_list_destination_directory_name,
+                "storageType": job_run_job_storage_mount_configuration_override_details_list_storage_type,
+                "bucket": job_run_job_storage_mount_configuration_override_details_list_bucket,
+                "destinationPath": job_run_job_storage_mount_configuration_override_details_list_destination_path,
+                "exportId": test_export["id"],
+                "mountTargetId": test_mount_target["id"],
+                "namespace": job_run_job_storage_mount_configuration_override_details_list_namespace,
+                "prefix": job_run_job_storage_mount_configuration_override_details_list_prefix,
+            }],
             opc_parent_rpt_url=job_run_opc_parent_rpt_url)
         ```
 

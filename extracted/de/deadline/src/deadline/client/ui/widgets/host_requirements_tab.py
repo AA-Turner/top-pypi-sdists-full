@@ -4,12 +4,15 @@
 UI widgets for the host requirements tab.
 """
 
+from __future__ import annotations
+
 import re
 from logging import getLogger
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
 from qtpy.QtCore import Qt  # type: ignore
+from .._utils import tr
 from qtpy.QtGui import (  # type: ignore
     QBrush,
     QDoubleValidator,
@@ -103,7 +106,9 @@ class HostRequirementsWidget(QWidget):  # pylint: disable=too-few-public-methods
         parent: The parent Qt Widget.
     """
 
-    def __init__(self, requirements: Optional[HostRequirements] = None, parent=None):
+    def __init__(
+        self, requirements: Optional[HostRequirements] = None, parent: Optional[QWidget] = None
+    ):
         super().__init__(parent)
         layout = QVBoxLayout(self)
 
@@ -189,22 +194,22 @@ class OverrideRequirementsWidget(QGroupBox):  # pylint: disable=too-few-public-m
         parent: The parent Qt Widget.
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__("", parent)
         self.layout = QVBoxLayout(self)
         self._build_ui()
 
     def _build_ui(self):
         # Use Fleet Default button
-        self.use_default_button = QRadioButton("Run on all available worker hosts")
+        self.use_default_button = QRadioButton(tr("Run on all available worker hosts"))
         self.use_default_button.setChecked(True)
 
         # Use customized settings button + tip
         self.use_custom_button = QRadioButton(
-            "Run on worker hosts that meet the following requirements"
+            tr("Run on worker hosts that meet the following requirements")
         )
         self.use_custom_button_tip = QHBoxLayout()
-        self.custom_button_tip_text = QLabel("All fields below are optional")
+        self.custom_button_tip_text = QLabel(tr("All fields below are optional"))
         custom_button_label_font = self.custom_button_tip_text.font()
         custom_button_label_font.setPointSize(10)
         custom_button_label_font.setItalic(True)
@@ -236,14 +241,14 @@ class OSRequirementsWidget(QGroupBox):
     OS_ROW_OPTIONS = ["linux", "macos", "windows"]
     CPU_ROW_OPTIONS = ["x86_64", "arm64"]
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__("", parent=parent)
         self.layout = QVBoxLayout(self)
         self._build_ui()
 
     def _build_ui(self):
-        self.os_row = OSRequirementRowWidget("Operating system", self.OS_ROW_OPTIONS)
-        self.cpu_row = OSRequirementRowWidget("CPU architecture", self.CPU_ROW_OPTIONS)
+        self.os_row = OSRequirementRowWidget(tr("Operating system"), self.OS_ROW_OPTIONS)
+        self.cpu_row = OSRequirementRowWidget(tr("CPU architecture"), self.CPU_ROW_OPTIONS)
 
         self.layout.addWidget(self.os_row)
         self.layout.addWidget(self.cpu_row)
@@ -289,18 +294,18 @@ class HardwareRequirementsWidget(QGroupBox):  # pylint: disable=too-few-public-m
         parent: The parent Qt Widget.
     """
 
-    def __init__(self, parent=None):
-        super().__init__("Hardware requirements", parent)
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(tr("Hardware requirements"), parent)
         self.layout = QVBoxLayout(self)
         self._build_ui()
 
     def _build_ui(self):
         # Build a custom row widget for each selectable option
         self.cpu_row = HardwareRequirementsRowWidget("vCPUs", self)
-        self.memory_row = HardwareRequirementsRowWidget("Memory (GiB)", self)
-        self.gpu_row = HardwareRequirementsRowWidget("GPUs", self)
-        self.gpu_memory_row = HardwareRequirementsRowWidget("GPU memory (GiB)", self)
-        self.scratch_space_row = HardwareRequirementsRowWidget("Scratch space", self)
+        self.memory_row = HardwareRequirementsRowWidget(tr("Memory (GiB)"), self)
+        self.gpu_row = HardwareRequirementsRowWidget(tr("GPUs"), self)
+        self.gpu_memory_row = HardwareRequirementsRowWidget(tr("GPU memory (GiB)"), self)
+        self.scratch_space_row = HardwareRequirementsRowWidget(tr("Scratch space"), self)
 
         # Add all rows to layout
         self.layout.addWidget(self.cpu_row)
@@ -363,11 +368,11 @@ class CustomRequirementsWidget(QGroupBox):
         parent: The parent Qt Widget.
     """
 
-    def __init__(self, parent=None):
-        super().__init__("Custom host requirements", parent)
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(tr("Custom host requirements"), parent)
         self.layout = QVBoxLayout(self)
-        self.attribute_index_numbers = set()
-        self.amount_index_numbers = set()
+        self.attribute_index_numbers: set[int] = set()
+        self.amount_index_numbers: set[int] = set()
         self._build_ui()
 
     def _build_ui(self):
@@ -399,10 +404,10 @@ class CustomRequirementsWidget(QGroupBox):
         self.resize_list_to_fit()
 
         # Add a row with Add Amount and Add Attribute buttons
-        self.add_amount_button = QPushButton("Add amount")
+        self.add_amount_button = QPushButton(tr("Add amount"))
         self.add_amount_button.setFixedWidth(BUTTON_FIXED_WIDTH)
 
-        self.add_attr_button = QPushButton("Add attribute")
+        self.add_attr_button = QPushButton(tr("Add attribute"))
         self.add_attr_button.setFixedWidth(BUTTON_FIXED_WIDTH)
 
         self.buttons_row = QHBoxLayout()
@@ -536,7 +541,7 @@ class CustomCapabilityWidget(QGroupBox):
         self.title_label = QLabel(f"{capability_type} {item_number}")
         self.title_label.setStyleSheet("font-weight: bold")
 
-        self.delete_button = QPushButton("Delete")
+        self.delete_button = QPushButton(tr("Delete"))
         self.delete_button.clicked.connect(self._delete)
 
         self.title_row = QHBoxLayout()
@@ -557,13 +562,17 @@ class CustomAmountWidget(CustomCapabilityWidget):
     UI element to hold a single custom attribute.
     """
 
-    def __init__(self, list_item: QListWidgetItem, item_number: int, parent=None):
+    def __init__(
+        self, list_item: QListWidgetItem, item_number: int, parent: Optional[QWidget] = None
+    ):
+        if not parent or not isinstance(parent, CustomRequirementsWidget):
+            raise TypeError("CustomAmountWidget parent must be a CustomRequirementsWidget")
         super().__init__(AMOUNT, list_item, item_number, parent)
         self._build_ui()
 
     def _build_ui(self):
         # Name / Value
-        self.name_label = QLabel("Amount name")
+        self.name_label = QLabel(tr("Amount name"))
         self.name_label.setFixedWidth(LABEL_FIXED_WIDTH)
         self.name_line_edit = QLineEdit()
         self.name_line_edit.setFixedWidth(LABEL_FIXED_WIDTH)
@@ -572,9 +581,9 @@ class CustomAmountWidget(CustomCapabilityWidget):
         self.name_line_edit.setMaxLength(100 - len(AMOUNT_CAPABILITY_PREFIX))
 
         # Create layout with min/max spinbox
-        self.min_label = QLabel("Min")
+        self.min_label = QLabel(tr("Min"))
         self.min_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.max_label = QLabel("Max")
+        self.max_label = QLabel(tr("Max"))
         self.max_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.min_spin_box = OptionalDoubleSpinBox(
             min=0, max=MAX_INT_VALUE, decimal=DECIMAL_VALUE, parent=self
@@ -654,7 +663,7 @@ class CustomAmountWidget(CustomCapabilityWidget):
             minimum = self.minimum
             maximum = self.maximum
 
-            if minimum and maximum:
+            if minimum is not None and maximum is not None:
                 requirement["min"] = minimum
                 requirement["max"] = maximum
 
@@ -662,9 +671,9 @@ class CustomAmountWidget(CustomCapabilityWidget):
                     raise NonValidInputError(
                         "Please make sure that the custom amounts in the custom host requirement options have valid min/max ranges!"
                     )
-            elif minimum:
+            elif minimum is not None:
                 requirement["min"] = minimum
-            elif maximum:
+            elif maximum is not None:
                 requirement["max"] = maximum
 
             parsed_name_match = re.match(AMOUNT_CAPABILITY_NAME_REGEX, self.name)
@@ -697,12 +706,12 @@ class CustomAttributeWidget(CustomCapabilityWidget):
 
     def _build_ui(self):
         # Name / Value / All / Any
-        self.name_label = QLabel("Attribute name")
+        self.name_label = QLabel(tr("Attribute name"))
         self.name_label.setFixedWidth(LABEL_FIXED_WIDTH)
-        self.value_label = QLabel("Value(s)")
-        self.all_of_button = QRadioButton("All")
+        self.value_label = QLabel(tr("Value(s)"))
+        self.all_of_button = QRadioButton(tr("All"))
         self.all_of_button.setChecked(True)
-        self.any_of_button = QRadioButton("Any")
+        self.any_of_button = QRadioButton(tr("Any"))
         self.name_line_edit = QLineEdit()
         self.name_line_edit.setFixedWidth(LABEL_FIXED_WIDTH)
         assert (100 - len(ATTRIBUTE_CAPABILITY_PREFIX)) > 0
@@ -792,7 +801,7 @@ class CustomAttributeWidget(CustomCapabilityWidget):
             self.add_value_button.setParent(None)
 
         else:
-            self.add_value_button = QPushButton("Add")
+            self.add_value_button = QPushButton(tr("Add"))
             self.add_value_button.setStyleSheet("border-width: 0px")
             self.add_value_button.setToolTip(
                 "Add a new value to evaluate against for this attribute"
@@ -940,7 +949,7 @@ class CustomAttributeValueWidget(QWidget):
         self.line_edit.setMaxLength(100)
         self.line_edit.setValidator(QRegularExpressionValidator(ATTRIBUTE_CAPABILITY_VALUE_REGEX))
 
-        self.remove_button = QPushButton("Remove")
+        self.remove_button = QPushButton(tr("Remove"))
         self.remove_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.remove_button.clicked.connect(self._remove)
 
@@ -967,7 +976,7 @@ class OSRequirementRowWidget(QWidget):
         parent: The parent Qt Widget
     """
 
-    def __init__(self, label: str, items: List[str], parent=None):
+    def __init__(self, label: str, items: List[str], parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.layout = QHBoxLayout(self)
         # remove default spaces around BoxLayout
@@ -991,7 +1000,7 @@ class HardwareRequirementsRowWidget(QWidget):
         parent: The parent Qt Widget
     """
 
-    def __init__(self, label: str, parent=None):
+    def __init__(self, label: str, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.layout = QHBoxLayout(self)
         # remove default spaces around BoxLayout
@@ -1073,7 +1082,7 @@ class OptionalComboBox(QComboBox):
     A custom QComboBox that always have a grayed out placeholder option.
     """
 
-    def __init__(self, items: List[str], parent=None):
+    def __init__(self, items: List[str], parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.addItem(PLACEHOLDER_TEXT)
         self.setItemData(0, QBrush(Qt.gray), Qt.TextColorRole)
@@ -1088,7 +1097,7 @@ class OptionalMultiSelectComboBox(QComboBox):
     A custom QComboBox that always have a grayed out placeholder option and supports multiselect.
     """
 
-    def __init__(self, items: List[str], parent=None):
+    def __init__(self, items: List[str], parent: Optional[QWidget] = None):
         super().__init__(parent=parent)
         self.model().itemChanged.connect(self.handleModelChanged)
         self.setPlaceholderText("-")
@@ -1130,7 +1139,9 @@ class OptionalSpinBox(QSpinBox):
     A custom QSpinBox that set min - 1 value as "-" to represent value not set.
     """
 
-    def __init__(self, min: int = MIN_INT_VALUE, max: int = MAX_INT_VALUE, parent=None) -> None:
+    def __init__(
+        self, min: int = MIN_INT_VALUE, max: int = MAX_INT_VALUE, parent: Optional[QWidget] = None
+    ) -> None:
         super().__init__(parent)
         self.min = min
         self.max = max
@@ -1211,7 +1222,7 @@ class OptionalDoubleSpinBox(QDoubleSpinBox):
         min: int = MIN_INT_VALUE,
         max: int = MAX_INT_VALUE,
         decimal: int = DECIMAL_VALUE,
-        parent=None,
+        parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
         self.min = min

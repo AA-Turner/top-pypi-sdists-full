@@ -3,9 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
-from typing import Literal, Optional, Union
-
-from typing_extensions import TypeAlias
+from typing import Literal, Optional, TypeAlias, Union
 
 
 class DayOfWeek(int, Enum):

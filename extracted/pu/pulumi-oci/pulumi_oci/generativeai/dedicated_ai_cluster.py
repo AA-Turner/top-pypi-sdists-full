@@ -53,6 +53,43 @@ class DedicatedAiClusterArgs:
                * LARGE_GENERIC_4
                * SMALL_GENERIC_V2
                * LARGE_GENERIC_2
+               * SMALL_GENERIC_V1
+               * MEDIUM_GENERIC_V1
+               * LARGE_GENERIC_V1
+               * A10_X1
+               * A10_X2
+               * A10_X4
+               * A100_40G_X1
+               * A100_40G_X2
+               * A100_40G_X4
+               * A100_40G_X8
+               * A100_80G_X1
+               * A100_80G_X2
+               * A100_80G_X4
+               * A100_80G_X8
+               * H100_X1
+               * H100_X2
+               * H100_X4
+               * H100_X8
+               * H200_X1
+               * H200_X2
+               * H200_X4
+               * H200_X8
+               * OAI_A10_X2
+               * OAI_H100_X1
+               * OAI_H100_X2
+               * OAI_H200_X1
+               * OAI_A100_80G_X1
+               * OAI_A100_80G_X2
+               * OAI_A100_40G_X1
+               * OAI_A100_40G_X4
+               
+               The following shapes can only be used to deploy imported models:
+               * A10_X1, A10_X2, A10_X4
+               * A100_40G_X1, A100_40G_X2, A100_40G_X4, A100_40G_X8
+               * A100_80G_X1, A100_80G_X2, A100_80G_X4, A100_80G_X8
+               * H100_X1, H100_X2, H100_X4, H100_X8
+               * H200_X1, H200_X2, H200_X4, H200_X8
                
                
                ** IMPORTANT **
@@ -134,6 +171,43 @@ class DedicatedAiClusterArgs:
         * LARGE_GENERIC_4
         * SMALL_GENERIC_V2
         * LARGE_GENERIC_2
+        * SMALL_GENERIC_V1
+        * MEDIUM_GENERIC_V1
+        * LARGE_GENERIC_V1
+        * A10_X1
+        * A10_X2
+        * A10_X4
+        * A100_40G_X1
+        * A100_40G_X2
+        * A100_40G_X4
+        * A100_40G_X8
+        * A100_80G_X1
+        * A100_80G_X2
+        * A100_80G_X4
+        * A100_80G_X8
+        * H100_X1
+        * H100_X2
+        * H100_X4
+        * H100_X8
+        * H200_X1
+        * H200_X2
+        * H200_X4
+        * H200_X8
+        * OAI_A10_X2
+        * OAI_H100_X1
+        * OAI_H100_X2
+        * OAI_H200_X1
+        * OAI_A100_80G_X1
+        * OAI_A100_80G_X2
+        * OAI_A100_40G_X1
+        * OAI_A100_40G_X4
+
+        The following shapes can only be used to deploy imported models:
+        * A10_X1, A10_X2, A10_X4
+        * A100_40G_X1, A100_40G_X2, A100_40G_X4, A100_40G_X8
+        * A100_80G_X1, A100_80G_X2, A100_80G_X4, A100_80G_X8
+        * H100_X1, H100_X2, H100_X4, H100_X8
+        * H200_X1, H200_X2, H200_X4, H200_X8
 
 
         ** IMPORTANT **
@@ -245,6 +319,43 @@ class _DedicatedAiClusterState:
                * LARGE_GENERIC_4
                * SMALL_GENERIC_V2
                * LARGE_GENERIC_2
+               * SMALL_GENERIC_V1
+               * MEDIUM_GENERIC_V1
+               * LARGE_GENERIC_V1
+               * A10_X1
+               * A10_X2
+               * A10_X4
+               * A100_40G_X1
+               * A100_40G_X2
+               * A100_40G_X4
+               * A100_40G_X8
+               * A100_80G_X1
+               * A100_80G_X2
+               * A100_80G_X4
+               * A100_80G_X8
+               * H100_X1
+               * H100_X2
+               * H100_X4
+               * H100_X8
+               * H200_X1
+               * H200_X2
+               * H200_X4
+               * H200_X8
+               * OAI_A10_X2
+               * OAI_H100_X1
+               * OAI_H100_X2
+               * OAI_H200_X1
+               * OAI_A100_80G_X1
+               * OAI_A100_80G_X2
+               * OAI_A100_40G_X1
+               * OAI_A100_40G_X4
+               
+               The following shapes can only be used to deploy imported models:
+               * A10_X1, A10_X2, A10_X4
+               * A100_40G_X1, A100_40G_X2, A100_40G_X4, A100_40G_X8
+               * A100_80G_X1, A100_80G_X2, A100_80G_X4, A100_80G_X8
+               * H100_X1, H100_X2, H100_X4, H100_X8
+               * H200_X1, H200_X2, H200_X4, H200_X8
                
                
                ** IMPORTANT **
@@ -458,6 +569,43 @@ class _DedicatedAiClusterState:
         * LARGE_GENERIC_4
         * SMALL_GENERIC_V2
         * LARGE_GENERIC_2
+        * SMALL_GENERIC_V1
+        * MEDIUM_GENERIC_V1
+        * LARGE_GENERIC_V1
+        * A10_X1
+        * A10_X2
+        * A10_X4
+        * A100_40G_X1
+        * A100_40G_X2
+        * A100_40G_X4
+        * A100_40G_X8
+        * A100_80G_X1
+        * A100_80G_X2
+        * A100_80G_X4
+        * A100_80G_X8
+        * H100_X1
+        * H100_X2
+        * H100_X4
+        * H100_X8
+        * H200_X1
+        * H200_X2
+        * H200_X4
+        * H200_X8
+        * OAI_A10_X2
+        * OAI_H100_X1
+        * OAI_H100_X2
+        * OAI_H200_X1
+        * OAI_A100_80G_X1
+        * OAI_A100_80G_X2
+        * OAI_A100_40G_X1
+        * OAI_A100_40G_X4
+
+        The following shapes can only be used to deploy imported models:
+        * A10_X1, A10_X2, A10_X4
+        * A100_40G_X1, A100_40G_X2, A100_40G_X4, A100_40G_X8
+        * A100_80G_X1, A100_80G_X2, A100_80G_X4, A100_80G_X8
+        * H100_X1, H100_X2, H100_X4, H100_X8
+        * H200_X1, H200_X2, H200_X4, H200_X8
 
 
         ** IMPORTANT **
@@ -486,10 +634,6 @@ class DedicatedAiCluster(pulumi.CustomResource):
                  unit_shape: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        This resource provides the Dedicated Ai Cluster resource in Oracle Cloud Infrastructure Generative AI service.
-
-        Creates a dedicated AI cluster.
-
         ## Example Usage
 
         ```python
@@ -547,6 +691,43 @@ class DedicatedAiCluster(pulumi.CustomResource):
                * LARGE_GENERIC_4
                * SMALL_GENERIC_V2
                * LARGE_GENERIC_2
+               * SMALL_GENERIC_V1
+               * MEDIUM_GENERIC_V1
+               * LARGE_GENERIC_V1
+               * A10_X1
+               * A10_X2
+               * A10_X4
+               * A100_40G_X1
+               * A100_40G_X2
+               * A100_40G_X4
+               * A100_40G_X8
+               * A100_80G_X1
+               * A100_80G_X2
+               * A100_80G_X4
+               * A100_80G_X8
+               * H100_X1
+               * H100_X2
+               * H100_X4
+               * H100_X8
+               * H200_X1
+               * H200_X2
+               * H200_X4
+               * H200_X8
+               * OAI_A10_X2
+               * OAI_H100_X1
+               * OAI_H100_X2
+               * OAI_H200_X1
+               * OAI_A100_80G_X1
+               * OAI_A100_80G_X2
+               * OAI_A100_40G_X1
+               * OAI_A100_40G_X4
+               
+               The following shapes can only be used to deploy imported models:
+               * A10_X1, A10_X2, A10_X4
+               * A100_40G_X1, A100_40G_X2, A100_40G_X4, A100_40G_X8
+               * A100_80G_X1, A100_80G_X2, A100_80G_X4, A100_80G_X8
+               * H100_X1, H100_X2, H100_X4, H100_X8
+               * H200_X1, H200_X2, H200_X4, H200_X8
                
                
                ** IMPORTANT **
@@ -559,10 +740,6 @@ class DedicatedAiCluster(pulumi.CustomResource):
                  args: DedicatedAiClusterArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Dedicated Ai Cluster resource in Oracle Cloud Infrastructure Generative AI service.
-
-        Creates a dedicated AI cluster.
-
         ## Example Usage
 
         ```python
@@ -709,6 +886,43 @@ class DedicatedAiCluster(pulumi.CustomResource):
                * LARGE_GENERIC_4
                * SMALL_GENERIC_V2
                * LARGE_GENERIC_2
+               * SMALL_GENERIC_V1
+               * MEDIUM_GENERIC_V1
+               * LARGE_GENERIC_V1
+               * A10_X1
+               * A10_X2
+               * A10_X4
+               * A100_40G_X1
+               * A100_40G_X2
+               * A100_40G_X4
+               * A100_40G_X8
+               * A100_80G_X1
+               * A100_80G_X2
+               * A100_80G_X4
+               * A100_80G_X8
+               * H100_X1
+               * H100_X2
+               * H100_X4
+               * H100_X8
+               * H200_X1
+               * H200_X2
+               * H200_X4
+               * H200_X8
+               * OAI_A10_X2
+               * OAI_H100_X1
+               * OAI_H100_X2
+               * OAI_H200_X1
+               * OAI_A100_80G_X1
+               * OAI_A100_80G_X2
+               * OAI_A100_40G_X1
+               * OAI_A100_40G_X4
+               
+               The following shapes can only be used to deploy imported models:
+               * A10_X1, A10_X2, A10_X4
+               * A100_40G_X1, A100_40G_X2, A100_40G_X4, A100_40G_X8
+               * A100_80G_X1, A100_80G_X2, A100_80G_X4, A100_80G_X8
+               * H100_X1, H100_X2, H100_X4, H100_X8
+               * H200_X1, H200_X2, H200_X4, H200_X8
                
                
                ** IMPORTANT **
@@ -861,6 +1075,43 @@ class DedicatedAiCluster(pulumi.CustomResource):
         * LARGE_GENERIC_4
         * SMALL_GENERIC_V2
         * LARGE_GENERIC_2
+        * SMALL_GENERIC_V1
+        * MEDIUM_GENERIC_V1
+        * LARGE_GENERIC_V1
+        * A10_X1
+        * A10_X2
+        * A10_X4
+        * A100_40G_X1
+        * A100_40G_X2
+        * A100_40G_X4
+        * A100_40G_X8
+        * A100_80G_X1
+        * A100_80G_X2
+        * A100_80G_X4
+        * A100_80G_X8
+        * H100_X1
+        * H100_X2
+        * H100_X4
+        * H100_X8
+        * H200_X1
+        * H200_X2
+        * H200_X4
+        * H200_X8
+        * OAI_A10_X2
+        * OAI_H100_X1
+        * OAI_H100_X2
+        * OAI_H200_X1
+        * OAI_A100_80G_X1
+        * OAI_A100_80G_X2
+        * OAI_A100_40G_X1
+        * OAI_A100_40G_X4
+
+        The following shapes can only be used to deploy imported models:
+        * A10_X1, A10_X2, A10_X4
+        * A100_40G_X1, A100_40G_X2, A100_40G_X4, A100_40G_X8
+        * A100_80G_X1, A100_80G_X2, A100_80G_X4, A100_80G_X8
+        * H100_X1, H100_X2, H100_X4, H100_X8
+        * H200_X1, H200_X2, H200_X4, H200_X8
 
 
         ** IMPORTANT **

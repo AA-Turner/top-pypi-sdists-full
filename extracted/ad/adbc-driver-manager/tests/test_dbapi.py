@@ -18,21 +18,12 @@
 import pathlib
 
 import pandas
-import polars
-import polars.testing
 import pyarrow
 import pyarrow.dataset
 import pytest
 from pandas.testing import assert_frame_equal
 
 from adbc_driver_manager import dbapi
-
-
-@pytest.fixture
-def sqlite():
-    """Dynamically load the SQLite driver."""
-    with dbapi.connect(driver="adbc_driver_sqlite") as conn:
-        yield conn
 
 
 def test_type_objects():
@@ -71,6 +62,7 @@ def test_attrs(sqlite):
 def test_info(sqlite):
     info = sqlite.adbc_get_info()
     assert set(info.keys()) == {
+        "driver_adbc_version",
         "driver_arrow_version",
         "driver_name",
         "driver_version",
@@ -253,6 +245,30 @@ def test_query_fetch_arrow(sqlite):
 
 
 @pytest.mark.sqlite
+def test_query_fetch_arrow_3543(sqlite):
+    # Regression test for https://github.com/apache/arrow-adbc/issues/3543
+    with sqlite.cursor() as cur:
+        cur.execute("SELECT 1, 'foo' AS foo, 2.0")
+
+        # This should not consume the result
+        assert cur.description == [
+            ("1", dbapi.NUMBER, None, None, None, None, None),
+            ("foo", dbapi.STRING, None, None, None, None, None),
+            ("2.0", dbapi.NUMBER, None, None, None, None, None),
+        ]
+
+        capsule = cur.fetch_arrow().__arrow_c_stream__()
+        reader = pyarrow.RecordBatchReader._import_from_c_capsule(capsule)
+        assert reader.read_all() == pyarrow.table(
+            {
+                "1": [1],
+                "foo": ["foo"],
+                "2.0": [2.0],
+            }
+        )
+
+
+@pytest.mark.sqlite
 def test_query_fetch_arrow_table(sqlite):
     with sqlite.cursor() as cur:
         cur.execute("SELECT 1, 'foo' AS foo, 2.0")
@@ -272,22 +288,6 @@ def test_query_fetch_df(sqlite):
         assert_frame_equal(
             cur.fetch_df(),
             pandas.DataFrame(
-                {
-                    "1": [1],
-                    "foo": ["foo"],
-                    "2.0": [2.0],
-                }
-            ),
-        )
-
-
-@pytest.mark.sqlite
-def test_query_fetch_polars(sqlite):
-    with sqlite.cursor() as cur:
-        cur.execute("SELECT 1, 'foo' AS foo, 2.0")
-        polars.testing.assert_frame_equal(
-            cur.fetch_polars(),
-            polars.DataFrame(
                 {
                     "1": [1],
                     "foo": ["foo"],
@@ -554,4 +554,196 @@ def test_driver_path():
         match="(dlopen|LoadLibraryExW).*failed:",
     ):
         with dbapi.connect(driver=pathlib.Path("/tmp/thisdriverdoesnotexist")):
+            pass
+
+
+@pytest.mark.sqlite
+def test_dbapi_extensions(sqlite):
+    with sqlite.execute("SELECT ?", (1,)) as cur:
+        assert cur.fetchone() == (1,)
+        assert cur.fetchone() is None
+
+        assert cur.execute("SELECT 2").fetchall() == [(2,)]
+
+    with sqlite.cursor() as cur:
+        assert cur.execute("SELECT 1").fetchall() == [(1,)]
+        assert cur.execute("SELECT 42").fetchall() == [(42,)]
+
+
+@pytest.mark.sqlite
+def test_close_connection_with_open_cursor():
+    """
+    Regression test for https://github.com/apache/arrow-adbc/issues/3713
+
+    Closing a connection should automatically close any open cursors
+    without raising RuntimeError about open AdbcStatement.
+
+    This test intentionally avoids context managers because the bug only
+    manifests when users manually call close() without first closing cursors.
+    """
+    conn = dbapi.connect(driver="adbc_driver_sqlite")
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1")
+    # Fetch the result to ensure the cursor is "active"
+    cursor.fetch_arrow_table()
+
+    # This should NOT raise:
+    # RuntimeError: Cannot close AdbcConnection with open AdbcStatement
+    conn.close()
+
+    # Verify cursor is also closed
+    assert cursor._closed
+
+
+@pytest.mark.sqlite
+def test_close_connection_with_multiple_open_cursors():
+    """
+    Test that closing a connection closes all open cursors.
+
+    This test intentionally avoids context managers because the bug only
+    manifests when users manually call close() without first closing cursors.
+    """
+    conn = dbapi.connect(driver="adbc_driver_sqlite")
+    cursor1 = conn.cursor()
+    cursor2 = conn.cursor()
+    cursor3 = conn.cursor()
+
+    cursor1.execute("SELECT 1")
+    cursor2.execute("SELECT 2")
+    # cursor3 is not executed
+
+    # This should close all cursors
+    conn.close()
+
+    assert cursor1._closed
+    assert cursor2._closed
+    assert cursor3._closed
+
+
+@pytest.mark.sqlite
+def test_close_connection_cursor_already_closed():
+    """
+    Test that closing a connection works even if some cursors are already closed.
+
+    This test intentionally avoids context managers because the bug only
+    manifests when users manually call close() without first closing cursors.
+    """
+    conn = dbapi.connect(driver="adbc_driver_sqlite")
+    cursor1 = conn.cursor()
+    cursor2 = conn.cursor()
+
+    cursor1.execute("SELECT 1")
+    cursor1.close()  # Manually close cursor1
+
+    cursor2.execute("SELECT 2")
+    # cursor2 is still open
+
+    # This should work without issues
+    conn.close()
+
+    assert cursor1._closed
+    assert cursor2._closed
+
+
+@pytest.mark.sqlite
+def test_close_connection_via_context_manager_with_open_cursors():
+    """
+    Test that exiting a connection context manager closes open cursors.
+
+    This test uses a context manager for the connection but intentionally
+    avoids context managers for cursors to verify that Connection.__exit__
+    properly closes any open cursors.
+    """
+    with dbapi.connect(driver="adbc_driver_sqlite") as conn:
+        cursor1 = conn.cursor()
+        cursor2 = conn.cursor()
+
+        cursor1.execute("SELECT 1")
+        cursor2.execute("SELECT 2")
+
+        # Cursors are open at this point
+        assert not cursor1._closed
+        assert not cursor2._closed
+
+    # After exiting the context manager, cursors should be closed
+    assert cursor1._closed
+    assert cursor2._closed
+
+
+@pytest.mark.sqlite
+def test_close_connection_suppresses_cursor_close_error():
+    """
+    Test that closing a connection suppresses exceptions from cursor.close().
+
+    When a cursor's close() method raises an exception, the connection should
+    still close successfully without propagating the error, but should emit
+    a ResourceWarning.
+    """
+    from unittest.mock import MagicMock
+
+    conn = dbapi.connect(driver="adbc_driver_sqlite")
+    # Create a real cursor so we have something legitimate in _cursors
+    real_cursor = conn.cursor()
+    real_cursor.execute("SELECT 1")
+
+    # Create a mock cursor that raises on close
+    mock_cursor = MagicMock()
+    mock_cursor.close.side_effect = RuntimeError("Simulated cursor close failure")
+
+    # Add the mock cursor to the connection's cursor set
+    conn._cursors.add(mock_cursor)
+
+    # This should NOT raise despite the mock cursor raising on close,
+    # but should emit a ResourceWarning
+    with pytest.warns(ResourceWarning, match="Failed to close cursor"):
+        conn.close()
+
+    # Verify the connection is closed
+    assert conn._closed
+
+    # Verify the mock cursor's close was called
+    mock_cursor.close.assert_called_once()
+
+    # Verify the real cursor is also closed
+    assert real_cursor._closed
+
+
+@pytest.mark.sqlite
+def test_connect(tmp_path: pathlib.Path, monkeypatch) -> None:
+    with dbapi.connect(driver="adbc_driver_sqlite") as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1")
+            assert cur.fetchone() == (1,)
+
+    # https://github.com/apache/arrow-adbc/issues/3517: allow positional
+    # argument
+    with dbapi.connect("adbc_driver_sqlite") as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1")
+            assert cur.fetchone() == (1,)
+
+    # https://github.com/apache/arrow-adbc/issues/3517: allow URI argument
+    db = tmp_path / "test.db"
+    with dbapi.connect("adbc_driver_sqlite", db.as_uri()) as conn:
+        with conn.cursor() as cur:
+            cur.execute("CREATE TABLE foo (a)")
+            cur.execute("INSERT INTO foo VALUES (1)")
+        conn.commit()
+
+    with dbapi.connect(driver="adbc_driver_sqlite", uri=db.as_uri()) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM foo")
+            assert cur.fetchone() == (1,)
+
+    monkeypatch.setenv("ADBC_DRIVER_PATH", tmp_path)
+    with (tmp_path / "foobar.toml").open("w") as f:
+        f.write(
+            """
+[Driver]
+shared = "adbc_driver_foobar"
+        """
+        )
+    # Just check that the driver gets detected and loaded (should fail)
+    with pytest.raises(dbapi.ProgrammingError, match="NOT_FOUND"):
+        with dbapi.connect("foobar://localhost:5439"):
             pass

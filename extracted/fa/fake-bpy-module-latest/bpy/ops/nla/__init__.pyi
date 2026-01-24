@@ -14,10 +14,7 @@ def action_pushdown(
 ) -> None:
     """Push action down onto the top of the NLA stack as a new strip
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param track_index: Track Index, Index of NLA action track to perform pushdown operation on
-    :type track_index: int | None
     """
 
 def action_sync_length(
@@ -29,10 +26,7 @@ def action_sync_length(
 ) -> None:
     """Synchronize the length of the referenced Action with the length used in the strip
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param active: Active Strip Only, Only sync the active length for the active strip
-    :type active: bool | None
     """
 
 def action_unlink(
@@ -44,10 +38,7 @@ def action_unlink(
 ) -> None:
     """Unlink this action from the active action slot (and/or exit Tweak Mode)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param force_delete: Force Delete, Clear Fake User and remove copy stashed in this data-blocks NLA stack
-    :type force_delete: bool | None
     """
 
 def actionclip_add(
@@ -59,10 +50,7 @@ def actionclip_add(
 ) -> None:
     """Add an Action-Clip strip (i.e. an NLA Strip referencing an Action) to the active track
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param action: Action
-    :type action: str | None
     """
 
 def apply_scale(
@@ -70,11 +58,7 @@ def apply_scale(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Apply scaling of selected strips to their referenced Actions
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Apply scaling of selected strips to their referenced Actions"""
 
 def bake(
     execution_context: int | str | None = None,
@@ -98,26 +82,15 @@ def bake(
 ) -> None:
     """Bake all selected objects location/scale/rotation animation to an action
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param frame_start: Start Frame, Start frame for baking
-        :type frame_start: int | None
         :param frame_end: End Frame, End frame for baking
-        :type frame_end: int | None
         :param step: Frame Step, Number of frames to skip forward while baking each frame
-        :type step: int | None
         :param only_selected: Only Selected Bones, Only key selected bones (Pose baking only)
-        :type only_selected: bool | None
         :param visual_keying: Visual Keying, Keyframe from the final transformations (with constraints applied)
-        :type visual_keying: bool | None
-        :param clear_constraints: Clear Constraints, Remove all constraints from keyed object/bones. To get a correct bake with this setting Visual Keying should be enabled
-        :type clear_constraints: bool | None
+        :param clear_constraints: Clear Local Constraints, Remove all constraints from keyed object/bones. To get a correct bake with this setting Visual Keying should be enabled
         :param clear_parents: Clear Parents, Bake animation onto the object then clear parents (objects only)
-        :type clear_parents: bool | None
         :param use_current_action: Overwrite Current Action, Bake animation into current action, instead of creating a new one (useful for baking only part of bones in an armature)
-        :type use_current_action: bool | None
         :param clean_curves: Clean Curves, After baking curves, remove redundant keys
-        :type clean_curves: bool | None
         :param bake_types: Bake Data, Which datas transformations to bake
 
     POSE
@@ -125,7 +98,6 @@ def bake(
 
     OBJECT
     Object -- Bake object transformations.
-        :type bake_types: set[typing.Literal['POSE','OBJECT']] | None
         :param channel_types: Channels, Which channels to bake
 
     LOCATION
@@ -142,7 +114,6 @@ def bake(
 
     PROPS
     Custom Properties -- Bake custom properties.
-        :type channel_types: set[typing.Literal['LOCATION','ROTATION','SCALE','BBONE','PROPS']] | None
     """
 
 def channels_click(
@@ -154,10 +125,7 @@ def channels_click(
 ) -> None:
     """Handle clicks to select NLA tracks
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend Select
-    :type extend: bool | None
     """
 
 def clear_scale(
@@ -165,11 +133,7 @@ def clear_scale(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reset scaling of selected strips
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reset scaling of selected strips"""
 
 def click_select(
     execution_context: int | str | None = None,
@@ -177,6 +141,7 @@ def click_select(
     /,
     *,
     wait_to_deselect_others: bool | None = False,
+    use_select_on_click: bool | None = False,
     mouse_x: int | None = 0,
     mouse_y: int | None = 0,
     extend: bool | None = False,
@@ -184,18 +149,12 @@ def click_select(
 ) -> None:
     """Handle clicks to select NLA Strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param wait_to_deselect_others: Wait to Deselect Others
-    :type wait_to_deselect_others: bool | None
+    :param use_select_on_click: Act on Click, Instead of selecting on mouse press, wait to see if theres drag event. Otherwise select on mouse release
     :param mouse_x: Mouse X
-    :type mouse_x: int | None
     :param mouse_y: Mouse Y
-    :type mouse_y: int | None
     :param extend: Extend Select
-    :type extend: bool | None
     :param deselect_all: Deselect On Nothing, Deselect all when nothing under the cursor
-    :type deselect_all: bool | None
     """
 
 def delete(
@@ -203,11 +162,7 @@ def delete(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete selected strips
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete selected strips"""
 
 def duplicate(
     execution_context: int | str | None = None,
@@ -218,10 +173,7 @@ def duplicate(
 ) -> None:
     """Duplicate selected NLA-Strips, adding the new strips to new track(s)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param linked: Linked, When duplicating strips, assign new copies of the actions they use
-    :type linked: bool | None
     """
 
 def duplicate_linked_move(
@@ -234,12 +186,8 @@ def duplicate_linked_move(
 ) -> None:
     """Duplicate Linked selected NLA-Strips, adding the new strips to new track(s)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param NLA_OT_duplicate: Duplicate Strips, Duplicate selected NLA-Strips, adding the new strips to new track(s)
-    :type NLA_OT_duplicate: duplicate | None
     :param TRANSFORM_OT_translate: Move, Move selected items
-    :type TRANSFORM_OT_translate: bpy.ops.transform.translate | None
     """
 
 def duplicate_move(
@@ -252,12 +200,8 @@ def duplicate_move(
 ) -> None:
     """Duplicate selected NLA-Strips, adding the new strips to new track(s)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param NLA_OT_duplicate: Duplicate Strips, Duplicate selected NLA-Strips, adding the new strips to new track(s)
-    :type NLA_OT_duplicate: duplicate | None
     :param TRANSFORM_OT_translate: Move, Move selected items
-    :type TRANSFORM_OT_translate: bpy.ops.transform.translate | None
     """
 
 def fmodifier_add(
@@ -270,12 +214,8 @@ def fmodifier_add(
 ) -> None:
     """Add F-Modifier to the active/selected NLA-Strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.FmodifierTypeItems | None
     :param only_active: Only Active, Only add a F-Modifier of the specified type to the active strip
-    :type only_active: bool | None
     """
 
 def fmodifier_copy(
@@ -283,11 +223,7 @@ def fmodifier_copy(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the F-Modifier(s) of the active NLA-Strip
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the F-Modifier(s) of the active NLA-Strip"""
 
 def fmodifier_paste(
     execution_context: int | str | None = None,
@@ -299,12 +235,8 @@ def fmodifier_paste(
 ) -> None:
     """Add copied F-Modifiers to the selected NLA-Strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param only_active: Only Active, Only paste F-Modifiers on active strip
-    :type only_active: bool | None
     :param replace: Replace Existing, Replace existing F-Modifiers, instead of just appending to the end of the existing list
-    :type replace: bool | None
     """
 
 def make_single_user(
@@ -316,10 +248,7 @@ def make_single_user(
 ) -> None:
     """Make linked action local to each strip
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param confirm: Confirm, Prompt for confirmation
-    :type confirm: bool | None
     """
 
 def meta_add(
@@ -327,66 +256,42 @@ def meta_add(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add new meta-strips incorporating the selected strips
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add new meta-strips incorporating the selected strips"""
 
 def meta_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Separate out the strips held by the selected meta-strips
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Separate out the strips held by the selected meta-strips"""
 
 def move_down(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move selected strips down a track if theres room
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move selected strips down a track if theres room"""
 
 def move_up(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move selected strips up a track if theres room
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move selected strips up a track if theres room"""
 
 def mute_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Mute or un-mute selected strips
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Mute or un-mute selected strips"""
 
 def previewrange_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set Preview Range based on extends of selected strips
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set Preview Range based on extends of selected strips"""
 
 def select_all(
     execution_context: int | str | None = None,
@@ -397,8 +302,6 @@ def select_all(
 ) -> None:
     """Select or deselect all NLA-Strips
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -412,7 +315,6 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def select_box(
@@ -431,22 +333,13 @@ def select_box(
 ) -> None:
     """Use box selection to grab NLA-Strips
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param axis_range: Axis Range
-        :type axis_range: bool | None
         :param tweak: Tweak, Operator has been activated using a click-drag event
-        :type tweak: bool | None
         :param xmin: X Min
-        :type xmin: int | None
         :param xmax: X Max
-        :type xmax: int | None
         :param ymin: Y Min
-        :type ymin: int | None
         :param ymax: Y Max
-        :type ymax: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param mode: Mode
 
     SET
@@ -457,7 +350,6 @@ def select_box(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
     """
 
 def select_leftright(
@@ -470,12 +362,8 @@ def select_leftright(
 ) -> None:
     """Select strips to the left or the right of the current frame
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mode: Mode
-    :type mode: typing.Literal['CHECK','LEFT','RIGHT'] | None
     :param extend: Extend Select
-    :type extend: bool | None
     """
 
 def selected_objects_add(
@@ -483,11 +371,7 @@ def selected_objects_add(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Make selected objects appear in NLA Editor by adding Animation Data
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Make selected objects appear in NLA Editor by adding Animation Data"""
 
 def snap(
     execution_context: int | str | None = None,
@@ -499,10 +383,7 @@ def snap(
 ) -> None:
     """Move start of strips to specified time
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: typing.Literal['CFRA','NEAREST_FRAME','NEAREST_SECOND','NEAREST_MARKER'] | None
     """
 
 def soundclip_add(
@@ -510,33 +391,21 @@ def soundclip_add(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a strip for controlling when speaker plays its sound clip
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a strip for controlling when speaker plays its sound clip"""
 
 def split(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Split selected strips at their midpoints
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Split selected strips at their midpoints"""
 
 def swap(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Swap order of selected strips within tracks
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Swap order of selected strips within tracks"""
 
 def tracks_add(
     execution_context: int | str | None = None,
@@ -547,10 +416,7 @@ def tracks_add(
 ) -> None:
     """Add NLA-Tracks above/after the selected tracks
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param above_selected: Above Selected, Add a new NLA Track above every existing selected one
-    :type above_selected: bool | None
     """
 
 def tracks_delete(
@@ -558,22 +424,14 @@ def tracks_delete(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete selected NLA-Tracks and the strips they contain
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete selected NLA-Tracks and the strips they contain"""
 
 def transition_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a transition strip between two adjacent selected strips
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a transition strip between two adjacent selected strips"""
 
 def tweakmode_enter(
     execution_context: int | str | None = None,
@@ -585,12 +443,8 @@ def tweakmode_enter(
 ) -> None:
     """Enter tweaking mode for the action referenced by the active strip to edit its keyframes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param isolate_action: Isolate Action, Enable solo on the NLA Track containing the active strip, to edit it without seeing the effects of the NLA stack
-    :type isolate_action: bool | None
     :param use_upper_stack_evaluation: Evaluate Upper Stack, In tweak mode, display the effects of the tracks above the tweak strip
-    :type use_upper_stack_evaluation: bool | None
     """
 
 def tweakmode_exit(
@@ -602,10 +456,7 @@ def tweakmode_exit(
 ) -> None:
     """Exit tweaking mode for the action referenced by the active strip
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param isolate_action: Isolate Action, Disable solo on any of the NLA Tracks after exiting tweak mode to get things back to normal
-    :type isolate_action: bool | None
     """
 
 def view_all(
@@ -613,30 +464,18 @@ def view_all(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reset viewable area to show full strips range
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reset viewable area to show full strips range"""
 
 def view_frame(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move the view to the current frame
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move the view to the current frame"""
 
 def view_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reset viewable area to show selected strips range
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reset viewable area to show selected strips range"""

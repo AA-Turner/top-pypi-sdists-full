@@ -3,7 +3,7 @@ Main HTML parser implementation.
 """
 
 import time
-from typing import List, Union
+from typing import List, Optional, Union
 
 import lxml.html
 from lxml import etree
@@ -18,20 +18,21 @@ from edgar.documents.processors.preprocessor import HTMLPreprocessor
 from edgar.documents.strategies.document_builder import DocumentBuilder
 from edgar.documents.types import XBRLFact
 from edgar.documents.utils import get_cache_manager
+from edgar.documents.utils.html_utils import create_lxml_parser, remove_xml_declaration
 
 
 class HTMLParser:
     """
     Main HTML parser class.
-
+    
     Orchestrates the parsing pipeline with configurable strategies
     and processors.
     """
 
-    def __init__(self, config: ParserConfig = None):
+    def __init__(self, config: Optional[ParserConfig] = None):
         """
         Initialize parser with configuration.
-
+        
         Args:
             config: Parser configuration
         """
@@ -79,18 +80,25 @@ class HTMLParser:
     def parse(self, html: Union[str, bytes]) -> Document:
         """
         Parse HTML into Document.
-
+        
         Args:
             html: HTML content as string or bytes
-
+            
         Returns:
             Parsed Document object
-
+            
         Raises:
             DocumentTooLargeError: If document exceeds size limit
             HTMLParsingError: If parsing fails
         """
         start_time = time.time()
+
+        # Validate input type
+        if html is None:
+            raise TypeError("HTML input cannot be None")
+
+        if not isinstance(html, (str, bytes)):
+            raise TypeError(f"HTML must be string or bytes, got {type(html).__name__}")
 
         # Convert bytes to string if needed
         if isinstance(html, bytes):
@@ -117,6 +125,9 @@ class HTMLParser:
             return self._parse_streaming(html)
 
         try:
+            # Store original HTML BEFORE preprocessing (needed for TOC analysis)
+            original_html = html
+
             # Extract XBRL data BEFORE preprocessing (to preserve ix:hidden content)
             xbrl_facts = []
             if self.config.extract_xbrl:
@@ -132,12 +143,19 @@ class HTMLParser:
             metadata = self._extract_metadata(tree, html)
             metadata.preserve_whitespace = self.config.preserve_whitespace
 
+            # Store ORIGINAL unmodified HTML for section extraction (TOC analysis)
+            # Must be the raw HTML before preprocessing
+            metadata.original_html = original_html
+
             # Add XBRL facts to metadata if found
             if xbrl_facts:
                 metadata.xbrl_data = {'facts': xbrl_facts}
 
             # Build document
             document = self._build_document(tree, metadata)
+
+            # Store config reference for section extraction
+            document._config = self.config
 
             # Postprocessing
             document = self.postprocessor.process(document)
@@ -160,12 +178,9 @@ class HTMLParser:
         """Parse HTML with lxml."""
         try:
             # Remove XML declaration if present
-            if html.strip().startswith('<?xml'):
-                end_of_decl = html.find('?>')
-                if end_of_decl != -1:
-                    html = html[end_of_decl + 2:].lstrip()
+            html = remove_xml_declaration(html)
 
-            parser = lxml.html.HTMLParser(
+            parser = create_lxml_parser(
                 remove_blank_text=not self.config.preserve_whitespace,
                 remove_comments=True,
                 recover=True,
@@ -195,6 +210,10 @@ class HTMLParser:
         """Extract metadata from HTML tree."""
         metadata = DocumentMetadata()
 
+        # Use filing type from config if provided (avoids expensive detection)
+        if self.config.form:
+            metadata.form = self.config.form
+
         # Try to extract from meta tags
         for meta in tree.xpath('//meta'):
             name = meta.get('name', '').lower()
@@ -203,7 +222,7 @@ class HTMLParser:
             if name == 'company':
                 metadata.company = content
             elif name == 'filing-type':
-                metadata.filing_type = content
+                metadata.form = content
             elif name == 'cik':
                 metadata.cik = content
             elif name == 'filing-date':
@@ -221,16 +240,16 @@ class HTMLParser:
             if len(parts) >= 2:
                 if not metadata.company:
                     metadata.company = parts[0].strip()
-                if not metadata.filing_type:
-                    metadata.filing_type = parts[1].strip()
+                if not metadata.form:
+                    metadata.form = parts[1].strip()
 
         # Try to extract from document content
-        if not metadata.filing_type:
+        if not metadata.form:
             # Look for form type in first 1000 chars
             text_start = html[:1000].upper()
             for form_type in ['10-K', '10-Q', '8-K', 'DEF 14A', 'S-1']:
                 if form_type in text_start:
-                    metadata.filing_type = form_type
+                    metadata.form = form_type
                     break
 
         return metadata
@@ -262,7 +281,7 @@ class HTMLParser:
         """
         try:
             # Parse HTML without preprocessing to preserve all XBRL content
-            parser = lxml.html.HTMLParser(
+            parser = create_lxml_parser(
                 remove_blank_text=False,
                 remove_comments=False,
                 recover=True,
@@ -270,10 +289,7 @@ class HTMLParser:
             )
 
             # Remove XML declaration if present
-            if html.strip().startswith('<?xml'):
-                end_of_decl = html.find('?>')
-                if end_of_decl != -1:
-                    html = html[end_of_decl + 2:].lstrip()
+            html = remove_xml_declaration(html)
 
             tree = lxml.html.fromstring(html, parser=parser)
 
@@ -309,16 +325,16 @@ class HTMLParser:
         except Exception as e:
             # Log error but don't fail parsing
             import logging
-            logging.warning("Failed to extract XBRL data: %s", e)
+            logging.warning(f"Failed to extract XBRL data: {e}")
             return []
 
     def parse_file(self, file_path: str) -> Document:
         """
         Parse HTML from file.
-
+        
         Args:
             file_path: Path to HTML file
-
+            
         Returns:
             Parsed Document object
         """
@@ -333,10 +349,10 @@ class HTMLParser:
     def parse_url(self, url: str) -> Document:
         """
         Parse HTML from URL.
-
+        
         Args:
             url: URL to fetch and parse
-
+            
         Returns:
             Parsed Document object
         """

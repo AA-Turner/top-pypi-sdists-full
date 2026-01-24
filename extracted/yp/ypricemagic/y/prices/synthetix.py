@@ -1,10 +1,12 @@
 import logging
-from typing import Callable, List, Optional
+from typing import Final, final
 
 import a_sync
 from a_sync import cgather
 from a_sync.a_sync import HiddenMethodDescriptor
+from brownie import ZERO_ADDRESS
 from eth_typing import ChecksumAddress, HexStr
+from faster_eth_abi import encode
 from multicall import Call
 from typing_extensions import Self
 
@@ -16,23 +18,19 @@ from y.exceptions import UnsupportedNetwork, call_reverted
 from y.networks import Network
 from y.utils import a_sync_ttl_cache
 
-try:
-    from eth_abi import encode
+logger: Final = logging.getLogger(__name__)
 
-    encode_bytes: Callable[[str], bytes] = lambda s: encode(["bytes32"], [s.encode()])
-except ImportError:
-    from eth_abi import encode_single
-
-    encode_bytes: Callable[[str], bytes] = lambda s: encode_single("bytes32", s.encode())
-
-logger = logging.getLogger(__name__)
-
-addresses = {
+addresses: Final = {
     Network.Mainnet: "0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83",
     Network.Optimism: "0x95A6a3f44a70172E7d50a9e28c85Dfd712756B8C",
 }
 
 
+def encode_bytes(s: str) -> bytes:
+    return encode(["bytes32"], [s.encode()])
+
+
+@final
 class Synthetix(a_sync.ASyncGenericSingleton):
     """A class to interact with the Synthetix protocol.
 
@@ -71,8 +69,8 @@ class Synthetix(a_sync.ASyncGenericSingleton):
 
     __address_resolver__: HiddenMethodDescriptor[Self, Contract]
 
-    @a_sync.a_sync(ram_cache_maxsize=256)
-    async def get_address(self, name: str, block: Block = None) -> Contract:
+    @a_sync.a_sync(ram_cache_maxsize=512)
+    async def get_address(self, name: str, block: Block = None) -> Contract | None:
         """Get contract from Synthetix registry.
 
         Args:
@@ -95,15 +93,17 @@ class Synthetix(a_sync.ASyncGenericSingleton):
         address = await address_resolver.getAddress.coroutine(
             encode_bytes(name), block_identifier=block
         )
+        if address == ZERO_ADDRESS:
+            return None
         proxy = await Contract.coroutine(address)
-        return (
-            await Contract.coroutine(await proxy.target.coroutine(block_identifier=block))
-            if hasattr(proxy, "target")
-            else proxy
-        )
+        target_contract_meth = getattr(proxy, "target", None)
+        if target_contract_meth is None:
+            return proxy
+        target = await target_contract_meth.coroutine(block_identifier=block)
+        return await Contract.coroutine(target)
 
     @a_sync.aka.cached_property
-    async def synths(self) -> List[ChecksumAddress]:
+    async def synths(self) -> list[ChecksumAddress]:
         """Get target addresses of all synths.
 
         Returns:
@@ -161,7 +161,7 @@ class Synthetix(a_sync.ASyncGenericSingleton):
             raise
 
     @a_sync_ttl_cache
-    async def get_currency_key(self, token: AnyAddressType) -> Optional[HexStr]:
+    async def get_currency_key(self, token: AnyAddressType) -> HexStr | None:
         """Get the currency key for a given token.
 
         Args:
@@ -186,9 +186,7 @@ class Synthetix(a_sync.ASyncGenericSingleton):
             else None
         )
 
-    async def get_price(
-        self, token: AnyAddressType, block: Optional[Block] = None
-    ) -> Optional[UsdPrice]:
+    async def get_price(self, token: AnyAddressType, block: Block | None = None) -> UsdPrice | None:
         """Get the price of a synth in dollars.
 
         Args:
@@ -214,7 +212,7 @@ class Synthetix(a_sync.ASyncGenericSingleton):
             self.get_address("ExchangeRates", block=block, sync=False),
             self.get_currency_key(token, sync=False),
         )
-        if await rates.rateIsStale.coroutine(key, block_identifier=block):
+        if rates is None or await rates.rateIsStale.coroutine(key, block_identifier=block):
             return None
         try:
             return UsdPrice(

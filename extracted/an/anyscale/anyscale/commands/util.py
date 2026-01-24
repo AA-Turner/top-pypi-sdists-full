@@ -1,10 +1,11 @@
 from copy import deepcopy
 from datetime import date, datetime
 import sys
-from typing import Dict, Optional, Tuple, TypeVar
+from typing import Dict, Iterable, List, Optional, Tuple, TypeVar
 
 import click
 import colorama
+from rich.table import Table
 
 from anyscale._private.workload import WorkloadConfig
 from anyscale.cli_logger import BlockLogger
@@ -83,10 +84,11 @@ class OptionPromptNull(click.Option):
                 default = super().get_default(ctx, **kwargs)
             else:
                 arg = ctx.params.get(self.default_option)
-                if arg is not None:
-                    default = self.type_cast_value(ctx, self.default(arg))
-                else:
-                    default = None
+                default = (
+                    self.type_cast_value(ctx, self.default(arg))
+                    if arg is not None
+                    else None
+                )
             setattr(self, self._value_key, default)
         return getattr(self, self._value_key)
 
@@ -158,6 +160,108 @@ def override_env_vars(config: T, overrides: Dict[str, str]) -> T:
     final_env_vars = deepcopy(config.env_vars) if config.env_vars else {}
     final_env_vars.update(overrides)
     return config.options(env_vars=final_env_vars)
+
+
+def parse_repeatable_tags_to_dict(strings: Iterable[str]) -> Dict[str, List[str]]:
+    """Parse repeatable --tag args into dict[key] -> list[values].
+
+    Accepts both "key:value" and "key=value". Ignores malformed entries.
+    Values for the same key are ORed; different keys are ANDed by the backend.
+    """
+    result: Dict[str, List[str]] = {}
+    for raw in strings or []:
+        if ":" in raw:
+            key, value = raw.split(":", 1)
+        elif "=" in raw:
+            key, value = raw.split("=", 1)
+        else:
+            continue
+        key = key.strip()
+        value = value.strip()
+        if not key or not value:
+            continue
+        result.setdefault(key, []).append(value)
+    return result
+
+
+def normalize_tags_to_api_list(strings: Iterable[str]) -> List[str]:
+    """Normalize repeatable --tag args into API wire format list[str] "key:value".
+
+    Accepts both "key:value" and "key=value". Ignores malformed entries.
+    """
+    flattened: List[str] = []
+    for raw in strings or []:
+        if ":" in raw:
+            key, value = raw.split(":", 1)
+        elif "=" in raw:
+            key, value = raw.split("=", 1)
+        else:
+            continue
+        key = key.strip()
+        value = value.strip()
+        if not key or not value:
+            continue
+        flattened.append(f"{key}:{value}")
+    return flattened
+
+
+def flatten_tag_dict_to_api_list(
+    tags: Optional[Dict[str, List[str]]]
+) -> Optional[List[str]]:
+    """Flatten dict[key] -> list[values] into list[str] "key:value" for API.
+
+    Returns None if input is None or empty after normalization.
+    """
+    if not tags:
+        return None
+    out: List[str] = []
+    for key, values in tags.items():
+        if not key:
+            continue
+        for value in values or []:
+            if value:
+                out.append(f"{key}:{value}")
+    return out if out else None
+
+
+def parse_tags_kv_to_str_map(pairs: Iterable[str]) -> Dict[str, str]:
+    """Parse repeatable key=value (or key:value) into a simple {key: value} map.
+
+    Last occurrence wins for duplicate keys. Malformed entries are ignored.
+    """
+    result: Dict[str, str] = {}
+    for raw in pairs or []:
+        if ":" in raw:
+            key, value = raw.split(":", 1)
+        elif "=" in raw:
+            key, value = raw.split("=", 1)
+        else:
+            continue
+        key = key.strip()
+        value = value.strip()
+        if not key or not value:
+            continue
+        result[key] = value
+    return result
+
+
+def build_kv_table(
+    pairs: Iterable[Tuple[str, str]], *, title: Optional[str] = None
+) -> Table:
+    """Build a Rich table for key/value pairs.
+
+    - Sorts rows by key then value for stable output
+    - Columns wrap to fit smaller terminals
+    """
+    table = Table(show_header=True, header_style="bold", expand=False, title=title)
+    table.add_column("KEY", overflow="fold")
+    table.add_column("VALUE", overflow="fold")
+    sorted_pairs = sorted(
+        [(str(k), str(v)) for k, v in (pairs or [])], key=lambda kv: (kv[0], kv[1])
+    )
+    for key, value in sorted_pairs:
+        table.add_row(key, value)
+    return table
 
 
 class DeprecatedAnyscaleCommand(click.Command):

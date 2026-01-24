@@ -308,6 +308,7 @@ If you're passing a replication bucket created in a different stack,
 like this:
 
 ```python
+from aws_cdk import Environment
 # Passing a replication bucket created in a different stack.
 app = App()
 replication_stack = Stack(app, "ReplicationStack",
@@ -339,6 +340,7 @@ and so you can't reference them across environments.
 In this case, you need to use an alias in place of the key when creating the bucket:
 
 ```python
+from aws_cdk import Environment
 # Passing an encrypted replication bucket created in a different stack.
 app = App()
 replication_stack = Stack(app, "ReplicationStack",
@@ -969,7 +971,6 @@ from ..aws_codestarnotifications import (
 )
 from ..aws_events import (
     EventPattern as _EventPattern_fe557901,
-    IEventBus as _IEventBus_88d13111,
     IRuleTarget as _IRuleTarget_7a91f454,
     OnEventOptions as _OnEventOptions_8711b8b3,
     Rule as _Rule_334ed2b5,
@@ -978,11 +979,20 @@ from ..aws_events import (
 )
 from ..aws_iam import (
     IRole as _IRole_235f5d8e,
-    IRoleRef as _IRoleRef_613dafc2,
     PolicyStatement as _PolicyStatement_0fe33853,
     Role as _Role_e8c6e11f,
 )
 from ..aws_s3 import IBucket as _IBucket_42e086fd, Location as _Location_0948fa7f
+from ..interfaces.aws_codepipeline import (
+    CustomActionTypeReference as _CustomActionTypeReference_33108ea2,
+    ICustomActionTypeRef as _ICustomActionTypeRef_b8510027,
+    IPipelineRef as _IPipelineRef_fb1b56f9,
+    IWebhookRef as _IWebhookRef_f412ea52,
+    PipelineReference as _PipelineReference_0706267b,
+    WebhookReference as _WebhookReference_96b0d16f,
+)
+from ..interfaces.aws_events import IEventBusRef as _IEventBusRef_aa86e9b4
+from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
 
 
 @jsii.data_type(
@@ -1084,7 +1094,7 @@ class ActionArtifactBounds:
     name_mapping={"bucket": "bucket", "role": "role"},
 )
 class ActionBindOptions:
-    def __init__(self, *, bucket: _IBucket_42e086fd, role: _IRole_235f5d8e) -> None:
+    def __init__(self, *, bucket: "_IBucket_42e086fd", role: "_IRole_235f5d8e") -> None:
         '''
         :param bucket: 
         :param role: 
@@ -1117,16 +1127,16 @@ class ActionBindOptions:
         }
 
     @builtins.property
-    def bucket(self) -> _IBucket_42e086fd:
+    def bucket(self) -> "_IBucket_42e086fd":
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(_IBucket_42e086fd, result)
+        return typing.cast("_IBucket_42e086fd", result)
 
     @builtins.property
-    def role(self) -> _IRole_235f5d8e:
+    def role(self) -> "_IRole_235f5d8e":
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_IRole_235f5d8e, result)
+        return typing.cast("_IRole_235f5d8e", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1244,8 +1254,8 @@ class ActionProperties:
         self,
         *,
         action_name: builtins.str,
-        artifact_bounds: typing.Union[ActionArtifactBounds, typing.Dict[builtins.str, typing.Any]],
-        category: ActionCategory,
+        artifact_bounds: typing.Union["ActionArtifactBounds", typing.Dict[builtins.str, typing.Any]],
+        category: "ActionCategory",
         provider: builtins.str,
         account: typing.Optional[builtins.str] = None,
         commands: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1254,10 +1264,10 @@ class ActionProperties:
         output_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
         owner: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
-        resource: typing.Optional[_IResource_c80c4260] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        resource: typing.Optional["_IResource_c80c4260"] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
         run_order: typing.Optional[jsii.Number] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
         variables_namespace: typing.Optional[builtins.str] = None,
         version: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -1382,13 +1392,13 @@ class ActionProperties:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def artifact_bounds(self) -> ActionArtifactBounds:
+    def artifact_bounds(self) -> "ActionArtifactBounds":
         result = self._values.get("artifact_bounds")
         assert result is not None, "Required property 'artifact_bounds' is missing"
-        return typing.cast(ActionArtifactBounds, result)
+        return typing.cast("ActionArtifactBounds", result)
 
     @builtins.property
-    def category(self) -> ActionCategory:
+    def category(self) -> "ActionCategory":
         '''The category of the action.
 
         The category defines which action type the owner
@@ -1396,7 +1406,7 @@ class ActionProperties:
         '''
         result = self._values.get("category")
         assert result is not None, "Required property 'category' is missing"
-        return typing.cast(ActionCategory, result)
+        return typing.cast("ActionCategory", result)
 
     @builtins.property
     def provider(self) -> builtins.str:
@@ -1467,19 +1477,19 @@ class ActionProperties:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def resource(self) -> typing.Optional[_IResource_c80c4260]:
+    def resource(self) -> typing.Optional["_IResource_c80c4260"]:
         '''The optional resource that is backing this Action.
 
         This is used for automatically handling Actions backed by
         resources from a different account and/or region.
         '''
         result = self._values.get("resource")
-        return typing.cast(typing.Optional[_IResource_c80c4260], result)
+        return typing.cast(typing.Optional["_IResource_c80c4260"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
     def run_order(self) -> typing.Optional[jsii.Number]:
@@ -1491,7 +1501,7 @@ class ActionProperties:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''A timeout duration that can be applied against the ActionType’s default timeout value specified in Quotas for AWS CodePipeline.
 
         This attribute is available only to the ``ManualApprovalAction``.
@@ -1503,7 +1513,7 @@ class ActionProperties:
         :see: https://docs.aws.amazon.com/codepipeline/latest/userguide/limits.html
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def variables_namespace(self) -> typing.Optional[builtins.str]:
@@ -1689,9 +1699,9 @@ class Artifact(
 
     @builtins.property
     @jsii.member(jsii_name="s3Location")
-    def s3_location(self) -> _Location_0948fa7f:
+    def s3_location(self) -> "_Location_0948fa7f":
         '''Returns the location of the .zip file in S3 that this Artifact represents. Used by Lambda's ``CfnParametersCode`` when being deployed in a CodePipeline.'''
-        return typing.cast(_Location_0948fa7f, jsii.get(self, "s3Location"))
+        return typing.cast("_Location_0948fa7f", jsii.get(self, "s3Location"))
 
     @builtins.property
     @jsii.member(jsii_name="url")
@@ -1778,7 +1788,7 @@ class ArtifactPath(
         )
     '''
 
-    def __init__(self, artifact: Artifact, file_name: builtins.str) -> None:
+    def __init__(self, artifact: "Artifact", file_name: builtins.str) -> None:
         '''
         :param artifact: -
         :param file_name: -
@@ -1808,8 +1818,8 @@ class ArtifactPath(
 
     @builtins.property
     @jsii.member(jsii_name="artifact")
-    def artifact(self) -> Artifact:
-        return typing.cast(Artifact, jsii.get(self, "artifact"))
+    def artifact(self) -> "Artifact":
+        return typing.cast("Artifact", jsii.get(self, "artifact"))
 
     @builtins.property
     @jsii.member(jsii_name="fileName")
@@ -1820,6 +1830,654 @@ class ArtifactPath(
     @jsii.member(jsii_name="location")
     def location(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "location"))
+
+
+@jsii.implements(_IInspectable_c2943556, _ICustomActionTypeRef_b8510027, _ITaggable_36806126)
+class CfnCustomActionType(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_codepipeline.CfnCustomActionType",
+):
+    '''The ``AWS::CodePipeline::CustomActionType`` resource creates a custom action for activities that aren't included in the CodePipeline default actions, such as running an internally developed build process or a test suite.
+
+    You can use these custom actions in the stage of a pipeline. For more information, see `Create and Add a Custom Action in AWS CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/how-to-create-custom-action.html>`_ in the *AWS CodePipeline User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-customactiontype.html
+    :cloudformationResource: AWS::CodePipeline::CustomActionType
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_codepipeline as codepipeline
+        
+        cfn_custom_action_type = codepipeline.CfnCustomActionType(self, "MyCfnCustomActionType",
+            category="category",
+            input_artifact_details=codepipeline.CfnCustomActionType.ArtifactDetailsProperty(
+                maximum_count=123,
+                minimum_count=123
+            ),
+            output_artifact_details=codepipeline.CfnCustomActionType.ArtifactDetailsProperty(
+                maximum_count=123,
+                minimum_count=123
+            ),
+            provider="provider",
+            version="version",
+        
+            # the properties below are optional
+            configuration_properties=[codepipeline.CfnCustomActionType.ConfigurationPropertiesProperty(
+                key=False,
+                name="name",
+                required=False,
+                secret=False,
+        
+                # the properties below are optional
+                description="description",
+                queryable=False,
+                type="type"
+            )],
+            settings=codepipeline.CfnCustomActionType.SettingsProperty(
+                entity_url_template="entityUrlTemplate",
+                execution_url_template="executionUrlTemplate",
+                revision_url_template="revisionUrlTemplate",
+                third_party_configuration_url="thirdPartyConfigurationUrl"
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        category: builtins.str,
+        input_artifact_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomActionType.ArtifactDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+        output_artifact_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomActionType.ArtifactDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+        provider: builtins.str,
+        version: builtins.str,
+        configuration_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomActionType.ConfigurationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomActionType.SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CodePipeline::CustomActionType``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param category: The category of the custom action, such as a build action or a test action.
+        :param input_artifact_details: The details of the input artifact for the action, such as its commit ID.
+        :param output_artifact_details: The details of the output artifact of the action, such as its commit ID.
+        :param provider: The provider of the service used in the custom action, such as CodeDeploy.
+        :param version: The version identifier of the custom action.
+        :param configuration_properties: The configuration properties for the custom action. .. epigraph:: You can refer to a name in the configuration properties of the custom action within the URL templates by following the format of {Config:name}, as long as the configuration property is both required and not secret. For more information, see `Create a Custom Action for a Pipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/how-to-create-custom-action.html>`_ .
+        :param settings: URLs that provide users information about this custom action.
+        :param tags: The tags for the custom action.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1222433d0c00f2bd3c869fd7ac02200368b464dad55538571e0b4945ee4beb7b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCustomActionTypeProps(
+            category=category,
+            input_artifact_details=input_artifact_details,
+            output_artifact_details=output_artifact_details,
+            provider=provider,
+            version=version,
+            configuration_properties=configuration_properties,
+            settings=settings,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnCustomActionType")
+    @builtins.classmethod
+    def is_cfn_custom_action_type(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCustomActionType.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__962f5bd2e0959135d0f78df0a16e95f4856fe3eb19bccba7b1f9611f6444bfe5)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCustomActionType", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__69e9069011e8a6cedea17da3c45b9615a5a7a928187a2291c73982d0a584e4cc)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__241cf27eb89ed2c1ca3810bd1e261831b1e838e380f8f36a1c1cc648f6214e6a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="customActionTypeRef")
+    def custom_action_type_ref(self) -> "_CustomActionTypeReference_33108ea2":
+        '''A reference to a CustomActionType resource.'''
+        return typing.cast("_CustomActionTypeReference_33108ea2", jsii.get(self, "customActionTypeRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="category")
+    def category(self) -> builtins.str:
+        '''The category of the custom action, such as a build action or a test action.'''
+        return typing.cast(builtins.str, jsii.get(self, "category"))
+
+    @category.setter
+    def category(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90b872b4221966012d71407e4539c8f5d1b76d40c3244d52deee8e0e2d346b28)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "category", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="inputArtifactDetails")
+    def input_artifact_details(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ArtifactDetailsProperty"]:
+        '''The details of the input artifact for the action, such as its commit ID.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ArtifactDetailsProperty"], jsii.get(self, "inputArtifactDetails"))
+
+    @input_artifact_details.setter
+    def input_artifact_details(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ArtifactDetailsProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5abbefb7711c6ac8fee86970355cf39da61cfdbeeff9fcdd31187c0ea8cd135a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "inputArtifactDetails", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="outputArtifactDetails")
+    def output_artifact_details(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ArtifactDetailsProperty"]:
+        '''The details of the output artifact of the action, such as its commit ID.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ArtifactDetailsProperty"], jsii.get(self, "outputArtifactDetails"))
+
+    @output_artifact_details.setter
+    def output_artifact_details(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ArtifactDetailsProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ca94c06f2447ab8f300404012ca985842a1c924d39b95d7000e4e6100e8920fc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "outputArtifactDetails", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provider")
+    def provider(self) -> builtins.str:
+        '''The provider of the service used in the custom action, such as CodeDeploy.'''
+        return typing.cast(builtins.str, jsii.get(self, "provider"))
+
+    @provider.setter
+    def provider(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bacd6cf860e2e79e88cd36986df73487339ed024f9c1550758af9c93007f597e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provider", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="version")
+    def version(self) -> builtins.str:
+        '''The version identifier of the custom action.'''
+        return typing.cast(builtins.str, jsii.get(self, "version"))
+
+    @version.setter
+    def version(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dbd41efc4927307c169c3fcea1f05c3addc57a3b816167fbb33318f66765352b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "version", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationProperties")
+    def configuration_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ConfigurationPropertiesProperty"]]]]:
+        '''The configuration properties for the custom action.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ConfigurationPropertiesProperty"]]]], jsii.get(self, "configurationProperties"))
+
+    @configuration_properties.setter
+    def configuration_properties(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ConfigurationPropertiesProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__95897f720bf78acfdcb4029f33ba76d388ddec5448f67fcb680d96e2d4077286)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configurationProperties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="settings")
+    def settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.SettingsProperty"]]:
+        '''URLs that provide users information about this custom action.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.SettingsProperty"]], jsii.get(self, "settings"))
+
+    @settings.setter
+    def settings(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.SettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__800b508e1c17e495d8907c9ede304fd8a7a38490bdc0c4d110dc4b23d97cd524)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "settings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags for the custom action.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a74116a4f73e121e1bb171b9327fc820e06cb39239a52bc2d3ebe44fda9fbbf2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnCustomActionType.ArtifactDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "maximum_count": "maximumCount",
+            "minimum_count": "minimumCount",
+        },
+    )
+    class ArtifactDetailsProperty:
+        def __init__(
+            self,
+            *,
+            maximum_count: jsii.Number,
+            minimum_count: jsii.Number,
+        ) -> None:
+            '''Returns information about the details of an artifact.
+
+            :param maximum_count: The maximum number of artifacts allowed for the action type.
+            :param minimum_count: The minimum number of artifacts allowed for the action type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-artifactdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                artifact_details_property = codepipeline.CfnCustomActionType.ArtifactDetailsProperty(
+                    maximum_count=123,
+                    minimum_count=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6612f80ce8bb05131e635475a5db9099fe1398e673fa6c98087e38bcd4cd0609)
+                check_type(argname="argument maximum_count", value=maximum_count, expected_type=type_hints["maximum_count"])
+                check_type(argname="argument minimum_count", value=minimum_count, expected_type=type_hints["minimum_count"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "maximum_count": maximum_count,
+                "minimum_count": minimum_count,
+            }
+
+        @builtins.property
+        def maximum_count(self) -> jsii.Number:
+            '''The maximum number of artifacts allowed for the action type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-artifactdetails.html#cfn-codepipeline-customactiontype-artifactdetails-maximumcount
+            '''
+            result = self._values.get("maximum_count")
+            assert result is not None, "Required property 'maximum_count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def minimum_count(self) -> jsii.Number:
+            '''The minimum number of artifacts allowed for the action type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-artifactdetails.html#cfn-codepipeline-customactiontype-artifactdetails-minimumcount
+            '''
+            result = self._values.get("minimum_count")
+            assert result is not None, "Required property 'minimum_count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ArtifactDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnCustomActionType.ConfigurationPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "key": "key",
+            "name": "name",
+            "required": "required",
+            "secret": "secret",
+            "description": "description",
+            "queryable": "queryable",
+            "type": "type",
+        },
+    )
+    class ConfigurationPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            key: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            name: builtins.str,
+            required: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            secret: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            description: typing.Optional[builtins.str] = None,
+            queryable: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration properties for the custom action.
+
+            .. epigraph::
+
+               You can refer to a name in the configuration properties of the custom action within the URL templates by following the format of {Config:name}, as long as the configuration property is both required and not secret. For more information, see `Create a Custom Action for a Pipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/how-to-create-custom-action.html>`_ .
+
+            :param key: Whether the configuration property is a key.
+            :param name: The name of the action configuration property.
+            :param required: Whether the configuration property is a required value.
+            :param secret: Whether the configuration property is secret. Secrets are hidden from all calls except for ``GetJobDetails`` , ``GetThirdPartyJobDetails`` , ``PollForJobs`` , and ``PollForThirdPartyJobs`` . When updating a pipeline, passing * * * * * without changing any other values of the action preserves the previous value of the secret.
+            :param description: The description of the action configuration property that is displayed to users.
+            :param queryable: Indicates that the property is used with ``PollForJobs`` . When creating a custom action, an action can have up to one queryable property. If it has one, that property must be both required and not secret. If you create a pipeline with a custom action type, and that custom action contains a queryable property, the value for that configuration property is subject to other restrictions. The value must be less than or equal to twenty (20) characters. The value can contain only alphanumeric characters, underscores, and hyphens.
+            :param type: The type of the configuration property.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                configuration_properties_property = codepipeline.CfnCustomActionType.ConfigurationPropertiesProperty(
+                    key=False,
+                    name="name",
+                    required=False,
+                    secret=False,
+                
+                    # the properties below are optional
+                    description="description",
+                    queryable=False,
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__040598e9d2dd413d26f1ddedf4e21536266fa7deadfb456a5e8e77655754dd33)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument required", value=required, expected_type=type_hints["required"])
+                check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument queryable", value=queryable, expected_type=type_hints["queryable"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "name": name,
+                "required": required,
+                "secret": secret,
+            }
+            if description is not None:
+                self._values["description"] = description
+            if queryable is not None:
+                self._values["queryable"] = queryable
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def key(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''Whether the configuration property is a key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the action configuration property.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def required(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''Whether the configuration property is a required value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-required
+            '''
+            result = self._values.get("required")
+            assert result is not None, "Required property 'required' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def secret(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''Whether the configuration property is secret.
+
+            Secrets are hidden from all calls except for ``GetJobDetails`` , ``GetThirdPartyJobDetails`` , ``PollForJobs`` , and ``PollForThirdPartyJobs`` .
+
+            When updating a pipeline, passing * * * * * without changing any other values of the action preserves the previous value of the secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-secret
+            '''
+            result = self._values.get("secret")
+            assert result is not None, "Required property 'secret' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''The description of the action configuration property that is displayed to users.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def queryable(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Indicates that the property is used with ``PollForJobs`` .
+
+            When creating a custom action, an action can have up to one queryable property. If it has one, that property must be both required and not secret.
+
+            If you create a pipeline with a custom action type, and that custom action contains a queryable property, the value for that configuration property is subject to other restrictions. The value must be less than or equal to twenty (20) characters. The value can contain only alphanumeric characters, underscores, and hyphens.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-queryable
+            '''
+            result = self._values.get("queryable")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''The type of the configuration property.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConfigurationPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnCustomActionType.SettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "entity_url_template": "entityUrlTemplate",
+            "execution_url_template": "executionUrlTemplate",
+            "revision_url_template": "revisionUrlTemplate",
+            "third_party_configuration_url": "thirdPartyConfigurationUrl",
+        },
+    )
+    class SettingsProperty:
+        def __init__(
+            self,
+            *,
+            entity_url_template: typing.Optional[builtins.str] = None,
+            execution_url_template: typing.Optional[builtins.str] = None,
+            revision_url_template: typing.Optional[builtins.str] = None,
+            third_party_configuration_url: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''``Settings`` is a property of the ``AWS::CodePipeline::CustomActionType`` resource that provides URLs that users can access to view information about the CodePipeline custom action.
+
+            :param entity_url_template: The URL returned to the CodePipeline console that provides a deep link to the resources of the external system, such as the configuration page for a CodeDeploy deployment group. This link is provided as part of the action display in the pipeline.
+            :param execution_url_template: The URL returned to the CodePipeline console that contains a link to the top-level landing page for the external system, such as the console page for CodeDeploy. This link is shown on the pipeline view page in the CodePipeline console and provides a link to the execution entity of the external action.
+            :param revision_url_template: The URL returned to the CodePipeline console that contains a link to the page where customers can update or change the configuration of the external action.
+            :param third_party_configuration_url: The URL of a sign-up page where users can sign up for an external service and perform initial configuration of the action provided by that service.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-settings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                settings_property = codepipeline.CfnCustomActionType.SettingsProperty(
+                    entity_url_template="entityUrlTemplate",
+                    execution_url_template="executionUrlTemplate",
+                    revision_url_template="revisionUrlTemplate",
+                    third_party_configuration_url="thirdPartyConfigurationUrl"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c1beb274a3eb3d700c7b40f1a3f3114c41d3388020db594741a7dbe9eeb50b9a)
+                check_type(argname="argument entity_url_template", value=entity_url_template, expected_type=type_hints["entity_url_template"])
+                check_type(argname="argument execution_url_template", value=execution_url_template, expected_type=type_hints["execution_url_template"])
+                check_type(argname="argument revision_url_template", value=revision_url_template, expected_type=type_hints["revision_url_template"])
+                check_type(argname="argument third_party_configuration_url", value=third_party_configuration_url, expected_type=type_hints["third_party_configuration_url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if entity_url_template is not None:
+                self._values["entity_url_template"] = entity_url_template
+            if execution_url_template is not None:
+                self._values["execution_url_template"] = execution_url_template
+            if revision_url_template is not None:
+                self._values["revision_url_template"] = revision_url_template
+            if third_party_configuration_url is not None:
+                self._values["third_party_configuration_url"] = third_party_configuration_url
+
+        @builtins.property
+        def entity_url_template(self) -> typing.Optional[builtins.str]:
+            '''The URL returned to the CodePipeline console that provides a deep link to the resources of the external system, such as the configuration page for a CodeDeploy deployment group.
+
+            This link is provided as part of the action display in the pipeline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-settings.html#cfn-codepipeline-customactiontype-settings-entityurltemplate
+            '''
+            result = self._values.get("entity_url_template")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def execution_url_template(self) -> typing.Optional[builtins.str]:
+            '''The URL returned to the CodePipeline console that contains a link to the top-level landing page for the external system, such as the console page for CodeDeploy.
+
+            This link is shown on the pipeline view page in the CodePipeline console and provides a link to the execution entity of the external action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-settings.html#cfn-codepipeline-customactiontype-settings-executionurltemplate
+            '''
+            result = self._values.get("execution_url_template")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def revision_url_template(self) -> typing.Optional[builtins.str]:
+            '''The URL returned to the CodePipeline console that contains a link to the page where customers can update or change the configuration of the external action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-settings.html#cfn-codepipeline-customactiontype-settings-revisionurltemplate
+            '''
+            result = self._values.get("revision_url_template")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def third_party_configuration_url(self) -> typing.Optional[builtins.str]:
+            '''The URL of a sign-up page where users can sign up for an external service and perform initial configuration of the action provided by that service.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-settings.html#cfn-codepipeline-customactiontype-settings-thirdpartyconfigurationurl
+            '''
+            result = self._values.get("third_party_configuration_url")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.data_type(
@@ -1841,13 +2499,13 @@ class CfnCustomActionTypeProps:
         self,
         *,
         category: builtins.str,
-        input_artifact_details: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCustomActionType.ArtifactDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
-        output_artifact_details: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCustomActionType.ArtifactDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+        input_artifact_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomActionType.ArtifactDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+        output_artifact_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomActionType.ArtifactDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         provider: builtins.str,
         version: builtins.str,
-        configuration_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCustomActionType.ConfigurationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCustomActionType.SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        configuration_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomActionType.ConfigurationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomActionType.SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCustomActionType``.
 
@@ -1865,6 +2523,7 @@ class CfnCustomActionTypeProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_codepipeline as codepipeline
@@ -1943,26 +2602,26 @@ class CfnCustomActionTypeProps:
     @builtins.property
     def input_artifact_details(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ArtifactDetailsProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ArtifactDetailsProperty"]:
         '''The details of the input artifact for the action, such as its commit ID.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-customactiontype.html#cfn-codepipeline-customactiontype-inputartifactdetails
         '''
         result = self._values.get("input_artifact_details")
         assert result is not None, "Required property 'input_artifact_details' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ArtifactDetailsProperty"], result)
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ArtifactDetailsProperty"], result)
 
     @builtins.property
     def output_artifact_details(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ArtifactDetailsProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ArtifactDetailsProperty"]:
         '''The details of the output artifact of the action, such as its commit ID.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-customactiontype.html#cfn-codepipeline-customactiontype-outputartifactdetails
         '''
         result = self._values.get("output_artifact_details")
         assert result is not None, "Required property 'output_artifact_details' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ArtifactDetailsProperty"], result)
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ArtifactDetailsProperty"], result)
 
     @builtins.property
     def provider(self) -> builtins.str:
@@ -1987,7 +2646,7 @@ class CfnCustomActionTypeProps:
     @builtins.property
     def configuration_properties(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ConfigurationPropertiesProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ConfigurationPropertiesProperty"]]]]:
         '''The configuration properties for the custom action.
 
         .. epigraph::
@@ -1997,27 +2656,27 @@ class CfnCustomActionTypeProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-customactiontype.html#cfn-codepipeline-customactiontype-configurationproperties
         '''
         result = self._values.get("configuration_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ConfigurationPropertiesProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.ConfigurationPropertiesProperty"]]]], result)
 
     @builtins.property
     def settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.SettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.SettingsProperty"]]:
         '''URLs that provide users information about this custom action.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-customactiontype.html#cfn-codepipeline-customactiontype-settings
         '''
         result = self._values.get("settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.SettingsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCustomActionType.SettingsProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags for the custom action.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-customactiontype.html#cfn-codepipeline-customactiontype-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2029,6 +2688,3352 @@ class CfnCustomActionTypeProps:
         return "CfnCustomActionTypeProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPipelineRef_fb1b56f9, _ITaggable_36806126)
+class CfnPipeline(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline",
+):
+    '''The ``AWS::CodePipeline::Pipeline`` resource creates a CodePipeline pipeline that describes how software changes go through a release process.
+
+    For more information, see `What Is CodePipeline? <https://docs.aws.amazon.com/codepipeline/latest/userguide/welcome.html>`_ in the *CodePipeline User Guide* .
+
+    For an example in YAML and JSON that contains the parameters in this reference, see `Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html#aws-resource-codepipeline-pipeline--examples>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html
+    :cloudformationResource: AWS::CodePipeline::Pipeline
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_codepipeline as codepipeline
+        
+        # configuration: Any
+        
+        cfn_pipeline = codepipeline.CfnPipeline(self, "MyCfnPipeline",
+            role_arn="roleArn",
+            stages=[codepipeline.CfnPipeline.StageDeclarationProperty(
+                actions=[codepipeline.CfnPipeline.ActionDeclarationProperty(
+                    action_type_id=codepipeline.CfnPipeline.ActionTypeIdProperty(
+                        category="category",
+                        owner="owner",
+                        provider="provider",
+                        version="version"
+                    ),
+                    name="name",
+        
+                    # the properties below are optional
+                    commands=["commands"],
+                    configuration=configuration,
+                    environment_variables=[codepipeline.CfnPipeline.EnvironmentVariableProperty(
+                        name="name",
+                        value="value",
+        
+                        # the properties below are optional
+                        type="type"
+                    )],
+                    input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                        name="name"
+                    )],
+                    namespace="namespace",
+                    output_artifacts=[codepipeline.CfnPipeline.OutputArtifactProperty(
+                        name="name",
+        
+                        # the properties below are optional
+                        files=["files"]
+                    )],
+                    output_variables=["outputVariables"],
+                    region="region",
+                    role_arn="roleArn",
+                    run_order=123,
+                    timeout_in_minutes=123
+                )],
+                name="name",
+        
+                # the properties below are optional
+                before_entry=codepipeline.CfnPipeline.BeforeEntryConditionsProperty(
+                    conditions=[codepipeline.CfnPipeline.ConditionProperty(
+                        result="result",
+                        rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
+                            commands=["commands"],
+                            configuration=configuration,
+                            input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                                name="name"
+                            )],
+                            name="name",
+                            region="region",
+                            role_arn="roleArn",
+                            rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
+                                category="category",
+                                owner="owner",
+                                provider="provider",
+                                version="version"
+                            )
+                        )]
+                    )]
+                ),
+                blockers=[codepipeline.CfnPipeline.BlockerDeclarationProperty(
+                    name="name",
+                    type="type"
+                )],
+                on_failure=codepipeline.CfnPipeline.FailureConditionsProperty(
+                    conditions=[codepipeline.CfnPipeline.ConditionProperty(
+                        result="result",
+                        rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
+                            commands=["commands"],
+                            configuration=configuration,
+                            input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                                name="name"
+                            )],
+                            name="name",
+                            region="region",
+                            role_arn="roleArn",
+                            rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
+                                category="category",
+                                owner="owner",
+                                provider="provider",
+                                version="version"
+                            )
+                        )]
+                    )],
+                    result="result",
+                    retry_configuration=codepipeline.CfnPipeline.RetryConfigurationProperty(
+                        retry_mode="retryMode"
+                    )
+                ),
+                on_success=codepipeline.CfnPipeline.SuccessConditionsProperty(
+                    conditions=[codepipeline.CfnPipeline.ConditionProperty(
+                        result="result",
+                        rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
+                            commands=["commands"],
+                            configuration=configuration,
+                            input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                                name="name"
+                            )],
+                            name="name",
+                            region="region",
+                            role_arn="roleArn",
+                            rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
+                                category="category",
+                                owner="owner",
+                                provider="provider",
+                                version="version"
+                            )
+                        )]
+                    )]
+                )
+            )],
+        
+            # the properties below are optional
+            artifact_store=codepipeline.CfnPipeline.ArtifactStoreProperty(
+                location="location",
+                type="type",
+        
+                # the properties below are optional
+                encryption_key=codepipeline.CfnPipeline.EncryptionKeyProperty(
+                    id="id",
+                    type="type"
+                )
+            ),
+            artifact_stores=[codepipeline.CfnPipeline.ArtifactStoreMapProperty(
+                artifact_store=codepipeline.CfnPipeline.ArtifactStoreProperty(
+                    location="location",
+                    type="type",
+        
+                    # the properties below are optional
+                    encryption_key=codepipeline.CfnPipeline.EncryptionKeyProperty(
+                        id="id",
+                        type="type"
+                    )
+                ),
+                region="region"
+            )],
+            disable_inbound_stage_transitions=[codepipeline.CfnPipeline.StageTransitionProperty(
+                reason="reason",
+                stage_name="stageName"
+            )],
+            execution_mode="executionMode",
+            name="name",
+            pipeline_type="pipelineType",
+            restart_execution_on_update=False,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            triggers=[codepipeline.CfnPipeline.PipelineTriggerDeclarationProperty(
+                provider_type="providerType",
+        
+                # the properties below are optional
+                git_configuration=codepipeline.CfnPipeline.GitConfigurationProperty(
+                    source_action_name="sourceActionName",
+        
+                    # the properties below are optional
+                    pull_request=[codepipeline.CfnPipeline.GitPullRequestFilterProperty(
+                        branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
+                            excludes=["excludes"],
+                            includes=["includes"]
+                        ),
+                        events=["events"],
+                        file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
+                            excludes=["excludes"],
+                            includes=["includes"]
+                        )
+                    )],
+                    push=[codepipeline.CfnPipeline.GitPushFilterProperty(
+                        branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
+                            excludes=["excludes"],
+                            includes=["includes"]
+                        ),
+                        file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
+                            excludes=["excludes"],
+                            includes=["includes"]
+                        ),
+                        tags=codepipeline.CfnPipeline.GitTagFilterCriteriaProperty(
+                            excludes=["excludes"],
+                            includes=["includes"]
+                        )
+                    )]
+                )
+            )],
+            variables=[codepipeline.CfnPipeline.VariableDeclarationProperty(
+                name="name",
+        
+                # the properties below are optional
+                default_value="defaultValue",
+                description="description"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        stages: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.StageDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        artifact_store: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.ArtifactStoreProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        artifact_stores: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.ArtifactStoreMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        disable_inbound_stage_transitions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.StageTransitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        execution_mode: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        pipeline_type: typing.Optional[builtins.str] = None,
+        restart_execution_on_update: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        triggers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.PipelineTriggerDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.VariableDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CodePipeline::Pipeline``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param role_arn: The Amazon Resource Name (ARN) for CodePipeline to use to either perform actions with no ``actionRoleArn`` , or to use to assume roles for actions with an ``actionRoleArn`` .
+        :param stages: Represents information about a stage and its definition.
+        :param artifact_store: The S3 bucket where artifacts for the pipeline are stored. .. epigraph:: You must include either ``artifactStore`` or ``artifactStores`` in your pipeline, but you cannot use both. If you create a cross-region action in your pipeline, you must use ``artifactStores`` .
+        :param artifact_stores: A mapping of ``artifactStore`` objects and their corresponding AWS Regions. There must be an artifact store for the pipeline Region and for each cross-region action in the pipeline. .. epigraph:: You must include either ``artifactStore`` or ``artifactStores`` in your pipeline, but you cannot use both. If you create a cross-region action in your pipeline, you must use ``artifactStores`` .
+        :param disable_inbound_stage_transitions: Represents the input of a ``DisableStageTransition`` action.
+        :param execution_mode: The method that the pipeline will use to handle multiple executions. The default mode is SUPERSEDED. Default: - "SUPERSEDED"
+        :param name: The name of the pipeline.
+        :param pipeline_type: CodePipeline provides the following pipeline types, which differ in characteristics and price, so that you can tailor your pipeline features and cost to the needs of your applications. - V1 type pipelines have a JSON structure that contains standard pipeline, stage, and action-level parameters. - V2 type pipelines have the same structure as a V1 type, along with additional parameters for release safety and trigger configuration. .. epigraph:: Including V2 parameters, such as triggers on Git tags, in the pipeline JSON when creating or updating a pipeline will result in the pipeline having the V2 type of pipeline and the associated costs. For information about pricing for CodePipeline, see `Pricing <https://docs.aws.amazon.com/codepipeline/pricing/>`_ . For information about which type of pipeline to choose, see `What type of pipeline is right for me? <https://docs.aws.amazon.com/codepipeline/latest/userguide/pipeline-types-planning.html>`_ .
+        :param restart_execution_on_update: Indicates whether to rerun the CodePipeline pipeline after you update it.
+        :param tags: Specifies the tags applied to the pipeline.
+        :param triggers: The trigger configuration specifying a type of event, such as Git tags, that starts the pipeline. .. epigraph:: When a trigger configuration is specified, default change detection for repository and branch commits is disabled.
+        :param variables: A list that defines the pipeline variables for a pipeline resource. Variable names can have alphanumeric and underscore characters, and the values must match ``[A-Za-z0-9@\\-_]+`` .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43ae22b404f50a75462f3d5423718be3ca300d4e4e15354489d856039eb30278)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPipelineProps(
+            role_arn=role_arn,
+            stages=stages,
+            artifact_store=artifact_store,
+            artifact_stores=artifact_stores,
+            disable_inbound_stage_transitions=disable_inbound_stage_transitions,
+            execution_mode=execution_mode,
+            name=name,
+            pipeline_type=pipeline_type,
+            restart_execution_on_update=restart_execution_on_update,
+            tags=tags,
+            triggers=triggers,
+            variables=variables,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForPipeline")
+    @builtins.classmethod
+    def arn_for_pipeline(cls, resource: "_IPipelineRef_fb1b56f9") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4fc25ed904d0a79f666ba857a0abf2a4a93935a974a7f2ed28c0fdda44387994)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPipeline", [resource]))
+
+    @jsii.member(jsii_name="fromPipelineName")
+    @builtins.classmethod
+    def from_pipeline_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        pipeline_name: builtins.str,
+    ) -> "_IPipelineRef_fb1b56f9":
+        '''Creates a new IPipelineRef from a pipelineName.
+
+        :param scope: -
+        :param id: -
+        :param pipeline_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8b7e4f900fbf2e97e88978589afa9a0082e5bf79ff031c9c02abbf943633dc8c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument pipeline_name", value=pipeline_name, expected_type=type_hints["pipeline_name"])
+        return typing.cast("_IPipelineRef_fb1b56f9", jsii.sinvoke(cls, "fromPipelineName", [scope, id, pipeline_name]))
+
+    @jsii.member(jsii_name="isCfnPipeline")
+    @builtins.classmethod
+    def is_cfn_pipeline(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPipeline.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__11ac99ea3d226c54c839862f55fe17a0581e5be73c7e0668371da54ae07800e2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPipeline", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a8445e803e7c15623ffb8dcc675aa06dfc425ea5e189039b3f014c5d95a6671)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__46ca39f1604e1187fd1fb10b24c2b762814be348f23c4da67d6c1a647fbb4115)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersion")
+    def attr_version(self) -> builtins.str:
+        '''The version of the pipeline.
+
+        .. epigraph::
+
+           A new pipeline is always assigned a version number of 1. This number increments when a pipeline is updated.
+
+        :cloudformationAttribute: Version
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineRef")
+    def pipeline_ref(self) -> "_PipelineReference_0706267b":
+        '''A reference to a Pipeline resource.'''
+        return typing.cast("_PipelineReference_0706267b", jsii.get(self, "pipelineRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for CodePipeline to use to either perform actions with no ``actionRoleArn`` , or to use to assume roles for actions with an ``actionRoleArn`` .'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__576c198950ee7b66fbc1eb05685e77cc0e29d34915d1d1e40bd0c8ef0c6d7e0a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="stages")
+    def stages(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.StageDeclarationProperty"]]]:
+        '''Represents information about a stage and its definition.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.StageDeclarationProperty"]]], jsii.get(self, "stages"))
+
+    @stages.setter
+    def stages(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.StageDeclarationProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dfacf0cf69a83fd53ad3a2cce0dd68dd31658b398f54c29f16f9b44d46023b29)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stages", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactStore")
+    def artifact_store(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ArtifactStoreProperty"]]:
+        '''The S3 bucket where artifacts for the pipeline are stored.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ArtifactStoreProperty"]], jsii.get(self, "artifactStore"))
+
+    @artifact_store.setter
+    def artifact_store(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ArtifactStoreProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a40501189eaeb23c9f45754903055f441f62a809b824fce94b0b934a72b33ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "artifactStore", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactStores")
+    def artifact_stores(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ArtifactStoreMapProperty"]]]]:
+        '''A mapping of ``artifactStore`` objects and their corresponding AWS Regions.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ArtifactStoreMapProperty"]]]], jsii.get(self, "artifactStores"))
+
+    @artifact_stores.setter
+    def artifact_stores(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ArtifactStoreMapProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13b2091bcabe548515f4fe0527fdc7e055ac3c68d5fc3b939d5bb97614bf0f94)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "artifactStores", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="disableInboundStageTransitions")
+    def disable_inbound_stage_transitions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.StageTransitionProperty"]]]]:
+        '''Represents the input of a ``DisableStageTransition`` action.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.StageTransitionProperty"]]]], jsii.get(self, "disableInboundStageTransitions"))
+
+    @disable_inbound_stage_transitions.setter
+    def disable_inbound_stage_transitions(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.StageTransitionProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a8171e6979490d73c864965d74418184aa66850b94084357d00f5bac7460f803)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "disableInboundStageTransitions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="executionMode")
+    def execution_mode(self) -> typing.Optional[builtins.str]:
+        '''The method that the pipeline will use to handle multiple executions.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionMode"))
+
+    @execution_mode.setter
+    def execution_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__472d85ae1c4eb5d13c62e60f6347b15da6be45b950e9ce0ab0c5a3d67951fda0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the pipeline.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b2610baf2075574499b5c3a30d307e832f359e9aa154becdcd51b0b886e97cf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineType")
+    def pipeline_type(self) -> typing.Optional[builtins.str]:
+        '''CodePipeline provides the following pipeline types, which differ in characteristics and price, so that you can tailor your pipeline features and cost to the needs of your applications.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "pipelineType"))
+
+    @pipeline_type.setter
+    def pipeline_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49ec8a511d5cf2162b110bf0ae56ad416154165d52ebcd418648a11da360772a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pipelineType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="restartExecutionOnUpdate")
+    def restart_execution_on_update(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether to rerun the CodePipeline pipeline after you update it.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "restartExecutionOnUpdate"))
+
+    @restart_execution_on_update.setter
+    def restart_execution_on_update(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__88de08f19f736e80065bcd761beb1e65914ff94f8a626526298e8aceab054efa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "restartExecutionOnUpdate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies the tags applied to the pipeline.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__049b30e49190b4a0c262bbc2b2b86e08c2d0b80ed4870924cfa18bba87f06fbf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="triggers")
+    def triggers(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.PipelineTriggerDeclarationProperty"]]]]:
+        '''The trigger configuration specifying a type of event, such as Git tags, that starts the pipeline.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.PipelineTriggerDeclarationProperty"]]]], jsii.get(self, "triggers"))
+
+    @triggers.setter
+    def triggers(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.PipelineTriggerDeclarationProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec229be1df5c233edfda39851430510bc5b05e1c924f9c4f280d35e90a7a273e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "triggers", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="variables")
+    def variables(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.VariableDeclarationProperty"]]]]:
+        '''A list that defines the pipeline variables for a pipeline resource.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.VariableDeclarationProperty"]]]], jsii.get(self, "variables"))
+
+    @variables.setter
+    def variables(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.VariableDeclarationProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__750515260661993ecfa4350c79274cb5f97f27ed37abd879c232ab4d1d581b16)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "variables", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.ActionDeclarationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "action_type_id": "actionTypeId",
+            "name": "name",
+            "commands": "commands",
+            "configuration": "configuration",
+            "environment_variables": "environmentVariables",
+            "input_artifacts": "inputArtifacts",
+            "namespace": "namespace",
+            "output_artifacts": "outputArtifacts",
+            "output_variables": "outputVariables",
+            "region": "region",
+            "role_arn": "roleArn",
+            "run_order": "runOrder",
+            "timeout_in_minutes": "timeoutInMinutes",
+        },
+    )
+    class ActionDeclarationProperty:
+        def __init__(
+            self,
+            *,
+            action_type_id: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.ActionTypeIdProperty", typing.Dict[builtins.str, typing.Any]]],
+            name: builtins.str,
+            commands: typing.Optional[typing.Sequence[builtins.str]] = None,
+            configuration: typing.Any = None,
+            environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            input_artifacts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.InputArtifactProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            namespace: typing.Optional[builtins.str] = None,
+            output_artifacts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.OutputArtifactProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            output_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+            region: typing.Optional[builtins.str] = None,
+            role_arn: typing.Optional[builtins.str] = None,
+            run_order: typing.Optional[jsii.Number] = None,
+            timeout_in_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Represents information about an action declaration.
+
+            :param action_type_id: Specifies the action type and the provider of the action.
+            :param name: The action declaration's name.
+            :param commands: The shell commands to run with your compute action in CodePipeline. All commands are supported except multi-line formats. While CodeBuild logs and permissions are used, you do not need to create any resources in CodeBuild. .. epigraph:: Using compute time for this action will incur separate charges in AWS CodeBuild .
+            :param configuration: The action's configuration. These are key-value pairs that specify input values for an action. For more information, see `Action Structure Requirements in CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#action-requirements>`_ . For the list of configuration properties for the AWS CloudFormation action type in CodePipeline, see `Configuration Properties Reference <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-action-reference.html>`_ in the *AWS CloudFormation User Guide* . For template snippets with examples, see `Using Parameter Override Functions with CodePipeline Pipelines <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-parameter-override-functions.html>`_ in the *AWS CloudFormation User Guide* . The values can be represented in either JSON or YAML format. For example, the JSON configuration item format is as follows: *JSON:* ``"Configuration" : { Key : Value },``
+            :param environment_variables: The environment variables for the action.
+            :param input_artifacts: The name or ID of the artifact consumed by the action, such as a test or build artifact. While the field is not a required parameter, most actions have an action configuration that requires a specified quantity of input artifacts. To refer to the action configuration specification by action provider, see the `Action structure reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference.html>`_ in the *AWS CodePipeline User Guide* . .. epigraph:: For a CodeBuild action with multiple input artifacts, one of your input sources must be designated the PrimarySource. For more information, see the `CodeBuild action reference page <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodeBuild.html>`_ in the *AWS CodePipeline User Guide* .
+            :param namespace: The variable namespace associated with the action. All variables produced as output by this action fall under this namespace.
+            :param output_artifacts: The name or ID of the result of the action declaration, such as a test or build artifact. While the field is not a required parameter, most actions have an action configuration that requires a specified quantity of output artifacts. To refer to the action configuration specification by action provider, see the `Action structure reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference.html>`_ in the *AWS CodePipeline User Guide* .
+            :param output_variables: The list of variables that are to be exported from the compute action. This is specifically CodeBuild environment variables as used for that action.
+            :param region: The action declaration's AWS Region, such as us-east-1.
+            :param role_arn: The ARN of the IAM service role that performs the declared action. This is assumed through the roleArn for the pipeline.
+            :param run_order: The order in which actions are run.
+            :param timeout_in_minutes: A timeout duration in minutes that can be applied against the ActionType’s default timeout value specified in `Quotas for AWS CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/limits.html>`_ . This attribute is available only to the manual approval ActionType.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                # configuration: Any
+                
+                action_declaration_property = codepipeline.CfnPipeline.ActionDeclarationProperty(
+                    action_type_id=codepipeline.CfnPipeline.ActionTypeIdProperty(
+                        category="category",
+                        owner="owner",
+                        provider="provider",
+                        version="version"
+                    ),
+                    name="name",
+                
+                    # the properties below are optional
+                    commands=["commands"],
+                    configuration=configuration,
+                    environment_variables=[codepipeline.CfnPipeline.EnvironmentVariableProperty(
+                        name="name",
+                        value="value",
+                
+                        # the properties below are optional
+                        type="type"
+                    )],
+                    input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                        name="name"
+                    )],
+                    namespace="namespace",
+                    output_artifacts=[codepipeline.CfnPipeline.OutputArtifactProperty(
+                        name="name",
+                
+                        # the properties below are optional
+                        files=["files"]
+                    )],
+                    output_variables=["outputVariables"],
+                    region="region",
+                    role_arn="roleArn",
+                    run_order=123,
+                    timeout_in_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__490d89c9ac665593d791c6e187fcf0e47ca3ec8684f1c7a502e1711bcbec64ec)
+                check_type(argname="argument action_type_id", value=action_type_id, expected_type=type_hints["action_type_id"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument commands", value=commands, expected_type=type_hints["commands"])
+                check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+                check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+                check_type(argname="argument input_artifacts", value=input_artifacts, expected_type=type_hints["input_artifacts"])
+                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+                check_type(argname="argument output_artifacts", value=output_artifacts, expected_type=type_hints["output_artifacts"])
+                check_type(argname="argument output_variables", value=output_variables, expected_type=type_hints["output_variables"])
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument run_order", value=run_order, expected_type=type_hints["run_order"])
+                check_type(argname="argument timeout_in_minutes", value=timeout_in_minutes, expected_type=type_hints["timeout_in_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "action_type_id": action_type_id,
+                "name": name,
+            }
+            if commands is not None:
+                self._values["commands"] = commands
+            if configuration is not None:
+                self._values["configuration"] = configuration
+            if environment_variables is not None:
+                self._values["environment_variables"] = environment_variables
+            if input_artifacts is not None:
+                self._values["input_artifacts"] = input_artifacts
+            if namespace is not None:
+                self._values["namespace"] = namespace
+            if output_artifacts is not None:
+                self._values["output_artifacts"] = output_artifacts
+            if output_variables is not None:
+                self._values["output_variables"] = output_variables
+            if region is not None:
+                self._values["region"] = region
+            if role_arn is not None:
+                self._values["role_arn"] = role_arn
+            if run_order is not None:
+                self._values["run_order"] = run_order
+            if timeout_in_minutes is not None:
+                self._values["timeout_in_minutes"] = timeout_in_minutes
+
+        @builtins.property
+        def action_type_id(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnPipeline.ActionTypeIdProperty"]:
+            '''Specifies the action type and the provider of the action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-actiontypeid
+            '''
+            result = self._values.get("action_type_id")
+            assert result is not None, "Required property 'action_type_id' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPipeline.ActionTypeIdProperty"], result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The action declaration's name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def commands(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The shell commands to run with your compute action in CodePipeline.
+
+            All commands are supported except multi-line formats. While CodeBuild logs and permissions are used, you do not need to create any resources in CodeBuild.
+            .. epigraph::
+
+               Using compute time for this action will incur separate charges in AWS CodeBuild .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-commands
+            '''
+            result = self._values.get("commands")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def configuration(self) -> typing.Any:
+            '''The action's configuration.
+
+            These are key-value pairs that specify input values for an action. For more information, see `Action Structure Requirements in CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#action-requirements>`_ . For the list of configuration properties for the AWS CloudFormation action type in CodePipeline, see `Configuration Properties Reference <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-action-reference.html>`_ in the *AWS CloudFormation User Guide* . For template snippets with examples, see `Using Parameter Override Functions with CodePipeline Pipelines <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-parameter-override-functions.html>`_ in the *AWS CloudFormation User Guide* .
+
+            The values can be represented in either JSON or YAML format. For example, the JSON configuration item format is as follows:
+
+            *JSON:*
+
+            ``"Configuration" : { Key : Value },``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-configuration
+            '''
+            result = self._values.get("configuration")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def environment_variables(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.EnvironmentVariableProperty"]]]]:
+            '''The environment variables for the action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-environmentvariables
+            '''
+            result = self._values.get("environment_variables")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.EnvironmentVariableProperty"]]]], result)
+
+        @builtins.property
+        def input_artifacts(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.InputArtifactProperty"]]]]:
+            '''The name or ID of the artifact consumed by the action, such as a test or build artifact.
+
+            While the field is not a required parameter, most actions have an action configuration that requires a specified quantity of input artifacts. To refer to the action configuration specification by action provider, see the `Action structure reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference.html>`_ in the *AWS CodePipeline User Guide* .
+            .. epigraph::
+
+               For a CodeBuild action with multiple input artifacts, one of your input sources must be designated the PrimarySource. For more information, see the `CodeBuild action reference page <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodeBuild.html>`_ in the *AWS CodePipeline User Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-inputartifacts
+            '''
+            result = self._values.get("input_artifacts")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.InputArtifactProperty"]]]], result)
+
+        @builtins.property
+        def namespace(self) -> typing.Optional[builtins.str]:
+            '''The variable namespace associated with the action.
+
+            All variables produced as output by this action fall under this namespace.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-namespace
+            '''
+            result = self._values.get("namespace")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def output_artifacts(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.OutputArtifactProperty"]]]]:
+            '''The name or ID of the result of the action declaration, such as a test or build artifact.
+
+            While the field is not a required parameter, most actions have an action configuration that requires a specified quantity of output artifacts. To refer to the action configuration specification by action provider, see the `Action structure reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference.html>`_ in the *AWS CodePipeline User Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-outputartifacts
+            '''
+            result = self._values.get("output_artifacts")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.OutputArtifactProperty"]]]], result)
+
+        @builtins.property
+        def output_variables(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The list of variables that are to be exported from the compute action.
+
+            This is specifically CodeBuild environment variables as used for that action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-outputvariables
+            '''
+            result = self._values.get("output_variables")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def region(self) -> typing.Optional[builtins.str]:
+            '''The action declaration's AWS Region, such as us-east-1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-region
+            '''
+            result = self._values.get("region")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def role_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the IAM service role that performs the declared action.
+
+            This is assumed through the roleArn for the pipeline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-rolearn
+            '''
+            result = self._values.get("role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def run_order(self) -> typing.Optional[jsii.Number]:
+            '''The order in which actions are run.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-runorder
+            '''
+            result = self._values.get("run_order")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
+            '''A timeout duration in minutes that can be applied against the ActionType’s default timeout value specified in `Quotas for AWS CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/limits.html>`_ . This attribute is available only to the manual approval ActionType.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-timeoutinminutes
+            '''
+            result = self._values.get("timeout_in_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ActionDeclarationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.ActionTypeIdProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "category": "category",
+            "owner": "owner",
+            "provider": "provider",
+            "version": "version",
+        },
+    )
+    class ActionTypeIdProperty:
+        def __init__(
+            self,
+            *,
+            category: builtins.str,
+            owner: builtins.str,
+            provider: builtins.str,
+            version: builtins.str,
+        ) -> None:
+            '''Represents information about an action type.
+
+            :param category: A category defines what kind of action can be taken in the stage, and constrains the provider type for the action. Valid categories are limited to one of the values below. - ``Source`` - ``Build`` - ``Test`` - ``Deploy`` - ``Invoke`` - ``Approval`` - ``Compute``
+            :param owner: The creator of the action being called. There are three valid values for the ``Owner`` field in the action category section within your pipeline structure: ``AWS`` , ``ThirdParty`` , and ``Custom`` . For more information, see `Valid Action Types and Providers in CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#actions-valid-providers>`_ .
+            :param provider: The provider of the service being called by the action. Valid providers are determined by the action category. For example, an action in the Deploy category type might have a provider of CodeDeploy, which would be specified as ``CodeDeploy`` . For more information, see `Valid Action Types and Providers in CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#actions-valid-providers>`_ .
+            :param version: A string that describes the action version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiontypeid.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                action_type_id_property = codepipeline.CfnPipeline.ActionTypeIdProperty(
+                    category="category",
+                    owner="owner",
+                    provider="provider",
+                    version="version"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__791bd0faf58952d423a60cbf0397f6130fbc0f49254ff79dcbb6550bafb9ff2a)
+                check_type(argname="argument category", value=category, expected_type=type_hints["category"])
+                check_type(argname="argument owner", value=owner, expected_type=type_hints["owner"])
+                check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
+                check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "category": category,
+                "owner": owner,
+                "provider": provider,
+                "version": version,
+            }
+
+        @builtins.property
+        def category(self) -> builtins.str:
+            '''A category defines what kind of action can be taken in the stage, and constrains the provider type for the action.
+
+            Valid categories are limited to one of the values below.
+
+            - ``Source``
+            - ``Build``
+            - ``Test``
+            - ``Deploy``
+            - ``Invoke``
+            - ``Approval``
+            - ``Compute``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiontypeid.html#cfn-codepipeline-pipeline-actiontypeid-category
+            '''
+            result = self._values.get("category")
+            assert result is not None, "Required property 'category' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def owner(self) -> builtins.str:
+            '''The creator of the action being called.
+
+            There are three valid values for the ``Owner`` field in the action category section within your pipeline structure: ``AWS`` , ``ThirdParty`` , and ``Custom`` . For more information, see `Valid Action Types and Providers in CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#actions-valid-providers>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiontypeid.html#cfn-codepipeline-pipeline-actiontypeid-owner
+            '''
+            result = self._values.get("owner")
+            assert result is not None, "Required property 'owner' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def provider(self) -> builtins.str:
+            '''The provider of the service being called by the action.
+
+            Valid providers are determined by the action category. For example, an action in the Deploy category type might have a provider of CodeDeploy, which would be specified as ``CodeDeploy`` . For more information, see `Valid Action Types and Providers in CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#actions-valid-providers>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiontypeid.html#cfn-codepipeline-pipeline-actiontypeid-provider
+            '''
+            result = self._values.get("provider")
+            assert result is not None, "Required property 'provider' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def version(self) -> builtins.str:
+            '''A string that describes the action version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiontypeid.html#cfn-codepipeline-pipeline-actiontypeid-version
+            '''
+            result = self._values.get("version")
+            assert result is not None, "Required property 'version' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ActionTypeIdProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.ArtifactStoreMapProperty",
+        jsii_struct_bases=[],
+        name_mapping={"artifact_store": "artifactStore", "region": "region"},
+    )
+    class ArtifactStoreMapProperty:
+        def __init__(
+            self,
+            *,
+            artifact_store: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.ArtifactStoreProperty", typing.Dict[builtins.str, typing.Any]]],
+            region: builtins.str,
+        ) -> None:
+            '''A mapping of ``artifactStore`` objects and their corresponding AWS Regions.
+
+            There must be an artifact store for the pipeline Region and for each cross-region action in the pipeline.
+            .. epigraph::
+
+               You must include either ``artifactStore`` or ``artifactStores`` in your pipeline, but you cannot use both. If you create a cross-region action in your pipeline, you must use ``artifactStores`` .
+
+            :param artifact_store: Represents information about the S3 bucket where artifacts are stored for the pipeline. .. epigraph:: You must include either ``artifactStore`` or ``artifactStores`` in your pipeline, but you cannot use both. If you create a cross-region action in your pipeline, you must use ``artifactStores`` .
+            :param region: The action declaration's AWS Region, such as us-east-1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstoremap.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                artifact_store_map_property = codepipeline.CfnPipeline.ArtifactStoreMapProperty(
+                    artifact_store=codepipeline.CfnPipeline.ArtifactStoreProperty(
+                        location="location",
+                        type="type",
+                
+                        # the properties below are optional
+                        encryption_key=codepipeline.CfnPipeline.EncryptionKeyProperty(
+                            id="id",
+                            type="type"
+                        )
+                    ),
+                    region="region"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__177faa178bbd06a9b19e856be74d2b58e9b15943f83fcb2cd16a4205ee1800bc)
+                check_type(argname="argument artifact_store", value=artifact_store, expected_type=type_hints["artifact_store"])
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "artifact_store": artifact_store,
+                "region": region,
+            }
+
+        @builtins.property
+        def artifact_store(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnPipeline.ArtifactStoreProperty"]:
+            '''Represents information about the S3 bucket where artifacts are stored for the pipeline.
+
+            .. epigraph::
+
+               You must include either ``artifactStore`` or ``artifactStores`` in your pipeline, but you cannot use both. If you create a cross-region action in your pipeline, you must use ``artifactStores`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstoremap.html#cfn-codepipeline-pipeline-artifactstoremap-artifactstore
+            '''
+            result = self._values.get("artifact_store")
+            assert result is not None, "Required property 'artifact_store' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPipeline.ArtifactStoreProperty"], result)
+
+        @builtins.property
+        def region(self) -> builtins.str:
+            '''The action declaration's AWS Region, such as us-east-1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstoremap.html#cfn-codepipeline-pipeline-artifactstoremap-region
+            '''
+            result = self._values.get("region")
+            assert result is not None, "Required property 'region' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ArtifactStoreMapProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.ArtifactStoreProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "location": "location",
+            "type": "type",
+            "encryption_key": "encryptionKey",
+        },
+    )
+    class ArtifactStoreProperty:
+        def __init__(
+            self,
+            *,
+            location: builtins.str,
+            type: builtins.str,
+            encryption_key: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.EncryptionKeyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The S3 bucket where artifacts for the pipeline are stored.
+
+            .. epigraph::
+
+               You must include either ``artifactStore`` or ``artifactStores`` in your pipeline, but you cannot use both. If you create a cross-region action in your pipeline, you must use ``artifactStores`` .
+
+            :param location: The S3 bucket used for storing the artifacts for a pipeline. You can specify the name of an S3 bucket but not a folder in the bucket. A folder to contain the pipeline artifacts is created for you based on the name of the pipeline. You can use any S3 bucket in the same AWS Region as the pipeline to store your pipeline artifacts.
+            :param type: The type of the artifact store, such as S3.
+            :param encryption_key: The encryption key used to encrypt the data in the artifact store, such as an AWS Key Management Service ( AWS KMS) key. If this is undefined, the default key for Amazon S3 is used. To see an example artifact store encryption key field, see the example structure here: `AWS::CodePipeline::Pipeline <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstore.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                artifact_store_property = codepipeline.CfnPipeline.ArtifactStoreProperty(
+                    location="location",
+                    type="type",
+                
+                    # the properties below are optional
+                    encryption_key=codepipeline.CfnPipeline.EncryptionKeyProperty(
+                        id="id",
+                        type="type"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__91b233fc5287d89d9af5271a9055e0654e118daed6dd1005de3625fd618ab3a6)
+                check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "location": location,
+                "type": type,
+            }
+            if encryption_key is not None:
+                self._values["encryption_key"] = encryption_key
+
+        @builtins.property
+        def location(self) -> builtins.str:
+            '''The S3 bucket used for storing the artifacts for a pipeline.
+
+            You can specify the name of an S3 bucket but not a folder in the bucket. A folder to contain the pipeline artifacts is created for you based on the name of the pipeline. You can use any S3 bucket in the same AWS Region as the pipeline to store your pipeline artifacts.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstore.html#cfn-codepipeline-pipeline-artifactstore-location
+            '''
+            result = self._values.get("location")
+            assert result is not None, "Required property 'location' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of the artifact store, such as S3.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstore.html#cfn-codepipeline-pipeline-artifactstore-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def encryption_key(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.EncryptionKeyProperty"]]:
+            '''The encryption key used to encrypt the data in the artifact store, such as an AWS Key Management Service ( AWS KMS) key.
+
+            If this is undefined, the default key for Amazon S3 is used. To see an example artifact store encryption key field, see the example structure here: `AWS::CodePipeline::Pipeline <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstore.html#cfn-codepipeline-pipeline-artifactstore-encryptionkey
+            '''
+            result = self._values.get("encryption_key")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.EncryptionKeyProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ArtifactStoreProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.BeforeEntryConditionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"conditions": "conditions"},
+    )
+    class BeforeEntryConditionsProperty:
+        def __init__(
+            self,
+            *,
+            conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''The conditions for making checks for entry to a stage.
+
+            For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ .
+
+            :param conditions: The conditions that are configured as entry conditions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-beforeentryconditions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                # configuration: Any
+                
+                before_entry_conditions_property = codepipeline.CfnPipeline.BeforeEntryConditionsProperty(
+                    conditions=[codepipeline.CfnPipeline.ConditionProperty(
+                        result="result",
+                        rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
+                            commands=["commands"],
+                            configuration=configuration,
+                            input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                                name="name"
+                            )],
+                            name="name",
+                            region="region",
+                            role_arn="roleArn",
+                            rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
+                                category="category",
+                                owner="owner",
+                                provider="provider",
+                                version="version"
+                            )
+                        )]
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ff44830aee4e51ecc46b42bb0b414bcd05d75b800ddc37363d32c748295262f5)
+                check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if conditions is not None:
+                self._values["conditions"] = conditions
+
+        @builtins.property
+        def conditions(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ConditionProperty"]]]]:
+            '''The conditions that are configured as entry conditions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-beforeentryconditions.html#cfn-codepipeline-pipeline-beforeentryconditions-conditions
+            '''
+            result = self._values.get("conditions")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ConditionProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BeforeEntryConditionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.BlockerDeclarationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "type": "type"},
+    )
+    class BlockerDeclarationProperty:
+        def __init__(self, *, name: builtins.str, type: builtins.str) -> None:
+            '''Reserved for future use.
+
+            :param name: Reserved for future use.
+            :param type: Reserved for future use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-blockerdeclaration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                blocker_declaration_property = codepipeline.CfnPipeline.BlockerDeclarationProperty(
+                    name="name",
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__aea6445095fe3aacd420516908167baa59e112aac5061ae6965dcfdf065d8fad)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "type": type,
+            }
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''Reserved for future use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-blockerdeclaration.html#cfn-codepipeline-pipeline-blockerdeclaration-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''Reserved for future use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-blockerdeclaration.html#cfn-codepipeline-pipeline-blockerdeclaration-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BlockerDeclarationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.ConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"result": "result", "rules": "rules"},
+    )
+    class ConditionProperty:
+        def __init__(
+            self,
+            *,
+            result: typing.Optional[builtins.str] = None,
+            rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.RuleDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''The condition for the stage.
+
+            A condition is made up of the rules and the result for the condition. For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ .. For more information about rules, see the `AWS CodePipeline rule reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/rule-reference.html>`_ .
+
+            :param result: The action to be done when the condition is met. For example, rolling back an execution for a failure condition.
+            :param rules: The rules that make up the condition.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-condition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                # configuration: Any
+                
+                condition_property = codepipeline.CfnPipeline.ConditionProperty(
+                    result="result",
+                    rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
+                        commands=["commands"],
+                        configuration=configuration,
+                        input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                            name="name"
+                        )],
+                        name="name",
+                        region="region",
+                        role_arn="roleArn",
+                        rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
+                            category="category",
+                            owner="owner",
+                            provider="provider",
+                            version="version"
+                        )
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__655a27184b132924897ce867140bc56b49b1cd145d4fad9f8f52918c99d0778d)
+                check_type(argname="argument result", value=result, expected_type=type_hints["result"])
+                check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if result is not None:
+                self._values["result"] = result
+            if rules is not None:
+                self._values["rules"] = rules
+
+        @builtins.property
+        def result(self) -> typing.Optional[builtins.str]:
+            '''The action to be done when the condition is met.
+
+            For example, rolling back an execution for a failure condition.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-condition.html#cfn-codepipeline-pipeline-condition-result
+            '''
+            result = self._values.get("result")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def rules(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.RuleDeclarationProperty"]]]]:
+            '''The rules that make up the condition.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-condition.html#cfn-codepipeline-pipeline-condition-rules
+            '''
+            result = self._values.get("rules")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.RuleDeclarationProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConditionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.EncryptionKeyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"id": "id", "type": "type"},
+    )
+    class EncryptionKeyProperty:
+        def __init__(self, *, id: builtins.str, type: builtins.str) -> None:
+            '''Represents information about the key used to encrypt data in the artifact store, such as an AWS Key Management Service ( AWS KMS) key.
+
+            ``EncryptionKey`` is a property of the `ArtifactStore <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstore.html>`_ property type.
+
+            :param id: The ID used to identify the key. For an AWS KMS key, you can use the key ID, the key ARN, or the alias ARN. .. epigraph:: Aliases are recognized only in the account that created the AWS key. For cross-account actions, you can only use the key ID or key ARN to identify the key. Cross-account actions involve using the role from the other account (AccountB), so specifying the key ID will use the key from the other account (AccountB).
+            :param type: The type of encryption key, such as an AWS KMS key. When creating or updating a pipeline, the value must be set to 'KMS'.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-encryptionkey.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                encryption_key_property = codepipeline.CfnPipeline.EncryptionKeyProperty(
+                    id="id",
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__947de613103ce26163068b14d3b93b5c2d7f86d29fa6fc5cbd1509b11ffb231a)
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "id": id,
+                "type": type,
+            }
+
+        @builtins.property
+        def id(self) -> builtins.str:
+            '''The ID used to identify the key.
+
+            For an AWS KMS key, you can use the key ID, the key ARN, or the alias ARN.
+            .. epigraph::
+
+               Aliases are recognized only in the account that created the AWS  key. For cross-account actions, you can only use the key ID or key ARN to identify the key. Cross-account actions involve using the role from the other account (AccountB), so specifying the key ID will use the key from the other account (AccountB).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-encryptionkey.html#cfn-codepipeline-pipeline-encryptionkey-id
+            '''
+            result = self._values.get("id")
+            assert result is not None, "Required property 'id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of encryption key, such as an AWS KMS key.
+
+            When creating or updating a pipeline, the value must be set to 'KMS'.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-encryptionkey.html#cfn-codepipeline-pipeline-encryptionkey-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionKeyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.EnvironmentVariableProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "value": "value", "type": "type"},
+    )
+    class EnvironmentVariableProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            value: builtins.str,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The environment variables for the action.
+
+            :param name: The environment variable name in the key-value pair.
+            :param value: The environment variable value in the key-value pair.
+            :param type: Specifies the type of use for the environment variable value. The value can be either ``PLAINTEXT`` or ``SECRETS_MANAGER`` . If the value is ``SECRETS_MANAGER`` , provide the Secrets reference in the EnvironmentVariable value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-environmentvariable.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                environment_variable_property = codepipeline.CfnPipeline.EnvironmentVariableProperty(
+                    name="name",
+                    value="value",
+                
+                    # the properties below are optional
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f259d9da088fb308ad8abebb0fb3aca04739c87fd2ed5561a20074f8e2458d5a)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "value": value,
+            }
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The environment variable name in the key-value pair.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-environmentvariable.html#cfn-codepipeline-pipeline-environmentvariable-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The environment variable value in the key-value pair.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-environmentvariable.html#cfn-codepipeline-pipeline-environmentvariable-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''Specifies the type of use for the environment variable value.
+
+            The value can be either ``PLAINTEXT`` or ``SECRETS_MANAGER`` . If the value is ``SECRETS_MANAGER`` , provide the Secrets reference in the EnvironmentVariable value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-environmentvariable.html#cfn-codepipeline-pipeline-environmentvariable-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EnvironmentVariableProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.FailureConditionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "conditions": "conditions",
+            "result": "result",
+            "retry_configuration": "retryConfiguration",
+        },
+    )
+    class FailureConditionsProperty:
+        def __init__(
+            self,
+            *,
+            conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            result: typing.Optional[builtins.str] = None,
+            retry_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.RetryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration that specifies the result, such as rollback, to occur upon stage failure.
+
+            For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ .
+
+            :param conditions: The conditions that are configured as failure conditions. For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ .
+            :param result: The specified result for when the failure conditions are met, such as rolling back the stage.
+            :param retry_configuration: The retry configuration specifies automatic retry for a failed stage, along with the configured retry mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-failureconditions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                # configuration: Any
+                
+                failure_conditions_property = codepipeline.CfnPipeline.FailureConditionsProperty(
+                    conditions=[codepipeline.CfnPipeline.ConditionProperty(
+                        result="result",
+                        rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
+                            commands=["commands"],
+                            configuration=configuration,
+                            input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                                name="name"
+                            )],
+                            name="name",
+                            region="region",
+                            role_arn="roleArn",
+                            rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
+                                category="category",
+                                owner="owner",
+                                provider="provider",
+                                version="version"
+                            )
+                        )]
+                    )],
+                    result="result",
+                    retry_configuration=codepipeline.CfnPipeline.RetryConfigurationProperty(
+                        retry_mode="retryMode"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__24827e49ed35c3622e48ed5d5a7874646b28153667949aaac3a40638392631b8)
+                check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
+                check_type(argname="argument result", value=result, expected_type=type_hints["result"])
+                check_type(argname="argument retry_configuration", value=retry_configuration, expected_type=type_hints["retry_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if conditions is not None:
+                self._values["conditions"] = conditions
+            if result is not None:
+                self._values["result"] = result
+            if retry_configuration is not None:
+                self._values["retry_configuration"] = retry_configuration
+
+        @builtins.property
+        def conditions(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ConditionProperty"]]]]:
+            '''The conditions that are configured as failure conditions.
+
+            For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-failureconditions.html#cfn-codepipeline-pipeline-failureconditions-conditions
+            '''
+            result = self._values.get("conditions")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ConditionProperty"]]]], result)
+
+        @builtins.property
+        def result(self) -> typing.Optional[builtins.str]:
+            '''The specified result for when the failure conditions are met, such as rolling back the stage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-failureconditions.html#cfn-codepipeline-pipeline-failureconditions-result
+            '''
+            result = self._values.get("result")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def retry_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.RetryConfigurationProperty"]]:
+            '''The retry configuration specifies automatic retry for a failed stage, along with the configured retry mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-failureconditions.html#cfn-codepipeline-pipeline-failureconditions-retryconfiguration
+            '''
+            result = self._values.get("retry_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.RetryConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FailureConditionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={"excludes": "excludes", "includes": "includes"},
+    )
+    class GitBranchFilterCriteriaProperty:
+        def __init__(
+            self,
+            *,
+            excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
+            includes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The Git repository branches specified as filter criteria to start the pipeline.
+
+            :param excludes: The list of patterns of Git branches that, when a commit is pushed, are to be excluded from starting the pipeline.
+            :param includes: The list of patterns of Git branches that, when a commit is pushed, are to be included as criteria that starts the pipeline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitbranchfiltercriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                git_branch_filter_criteria_property = codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
+                    excludes=["excludes"],
+                    includes=["includes"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1d236727cda322520f3a703d9e848a434f71ca107e953aec5359ac063333d29b)
+                check_type(argname="argument excludes", value=excludes, expected_type=type_hints["excludes"])
+                check_type(argname="argument includes", value=includes, expected_type=type_hints["includes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if excludes is not None:
+                self._values["excludes"] = excludes
+            if includes is not None:
+                self._values["includes"] = includes
+
+        @builtins.property
+        def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The list of patterns of Git branches that, when a commit is pushed, are to be excluded from starting the pipeline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitbranchfiltercriteria.html#cfn-codepipeline-pipeline-gitbranchfiltercriteria-excludes
+            '''
+            result = self._values.get("excludes")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def includes(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The list of patterns of Git branches that, when a commit is pushed, are to be included as criteria that starts the pipeline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitbranchfiltercriteria.html#cfn-codepipeline-pipeline-gitbranchfiltercriteria-includes
+            '''
+            result = self._values.get("includes")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GitBranchFilterCriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.GitConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "source_action_name": "sourceActionName",
+            "pull_request": "pullRequest",
+            "push": "push",
+        },
+    )
+    class GitConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            source_action_name: builtins.str,
+            pull_request: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.GitPullRequestFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            push: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.GitPushFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''A type of trigger configuration for Git-based source actions.
+
+            .. epigraph::
+
+               You can specify the Git configuration trigger type for all third-party Git-based source actions that are supported by the ``CodeStarSourceConnection`` action type.
+
+            :param source_action_name: The name of the pipeline source action where the trigger configuration, such as Git tags, is specified. The trigger configuration will start the pipeline upon the specified change only. .. epigraph:: You can only specify one trigger configuration per source action.
+            :param pull_request: The field where the repository event that will start the pipeline is specified as pull requests.
+            :param push: The field where the repository event that will start the pipeline, such as pushing Git tags, is specified with details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                git_configuration_property = codepipeline.CfnPipeline.GitConfigurationProperty(
+                    source_action_name="sourceActionName",
+                
+                    # the properties below are optional
+                    pull_request=[codepipeline.CfnPipeline.GitPullRequestFilterProperty(
+                        branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
+                            excludes=["excludes"],
+                            includes=["includes"]
+                        ),
+                        events=["events"],
+                        file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
+                            excludes=["excludes"],
+                            includes=["includes"]
+                        )
+                    )],
+                    push=[codepipeline.CfnPipeline.GitPushFilterProperty(
+                        branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
+                            excludes=["excludes"],
+                            includes=["includes"]
+                        ),
+                        file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
+                            excludes=["excludes"],
+                            includes=["includes"]
+                        ),
+                        tags=codepipeline.CfnPipeline.GitTagFilterCriteriaProperty(
+                            excludes=["excludes"],
+                            includes=["includes"]
+                        )
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__76ac16c602eb78041b136170e0877a83865ceb0c0c451b7e61c00366edce50a8)
+                check_type(argname="argument source_action_name", value=source_action_name, expected_type=type_hints["source_action_name"])
+                check_type(argname="argument pull_request", value=pull_request, expected_type=type_hints["pull_request"])
+                check_type(argname="argument push", value=push, expected_type=type_hints["push"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source_action_name": source_action_name,
+            }
+            if pull_request is not None:
+                self._values["pull_request"] = pull_request
+            if push is not None:
+                self._values["push"] = push
+
+        @builtins.property
+        def source_action_name(self) -> builtins.str:
+            '''The name of the pipeline source action where the trigger configuration, such as Git tags, is specified.
+
+            The trigger configuration will start the pipeline upon the specified change only.
+            .. epigraph::
+
+               You can only specify one trigger configuration per source action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitconfiguration.html#cfn-codepipeline-pipeline-gitconfiguration-sourceactionname
+            '''
+            result = self._values.get("source_action_name")
+            assert result is not None, "Required property 'source_action_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def pull_request(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitPullRequestFilterProperty"]]]]:
+            '''The field where the repository event that will start the pipeline is specified as pull requests.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitconfiguration.html#cfn-codepipeline-pipeline-gitconfiguration-pullrequest
+            '''
+            result = self._values.get("pull_request")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitPullRequestFilterProperty"]]]], result)
+
+        @builtins.property
+        def push(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitPushFilterProperty"]]]]:
+            '''The field where the repository event that will start the pipeline, such as pushing Git tags, is specified with details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitconfiguration.html#cfn-codepipeline-pipeline-gitconfiguration-push
+            '''
+            result = self._values.get("push")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitPushFilterProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GitConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={"excludes": "excludes", "includes": "includes"},
+    )
+    class GitFilePathFilterCriteriaProperty:
+        def __init__(
+            self,
+            *,
+            excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
+            includes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The Git repository file paths specified as filter criteria to start the pipeline.
+
+            :param excludes: The list of patterns of Git repository file paths that, when a commit is pushed, are to be excluded from starting the pipeline.
+            :param includes: The list of patterns of Git repository file paths that, when a commit is pushed, are to be included as criteria that starts the pipeline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitfilepathfiltercriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                git_file_path_filter_criteria_property = codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
+                    excludes=["excludes"],
+                    includes=["includes"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6e825f3cafba918e1c84a158f90d3bcbd543fab5a2e3990e2677d0de4ad794df)
+                check_type(argname="argument excludes", value=excludes, expected_type=type_hints["excludes"])
+                check_type(argname="argument includes", value=includes, expected_type=type_hints["includes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if excludes is not None:
+                self._values["excludes"] = excludes
+            if includes is not None:
+                self._values["includes"] = includes
+
+        @builtins.property
+        def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The list of patterns of Git repository file paths that, when a commit is pushed, are to be excluded from starting the pipeline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitfilepathfiltercriteria.html#cfn-codepipeline-pipeline-gitfilepathfiltercriteria-excludes
+            '''
+            result = self._values.get("excludes")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def includes(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The list of patterns of Git repository file paths that, when a commit is pushed, are to be included as criteria that starts the pipeline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitfilepathfiltercriteria.html#cfn-codepipeline-pipeline-gitfilepathfiltercriteria-includes
+            '''
+            result = self._values.get("includes")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GitFilePathFilterCriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.GitPullRequestFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "branches": "branches",
+            "events": "events",
+            "file_paths": "filePaths",
+        },
+    )
+    class GitPullRequestFilterProperty:
+        def __init__(
+            self,
+            *,
+            branches: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.GitBranchFilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            events: typing.Optional[typing.Sequence[builtins.str]] = None,
+            file_paths: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.GitFilePathFilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The event criteria for the pull request trigger configuration, such as the lists of branches or file paths to include and exclude.
+
+            The following are valid values for the events for this filter:
+
+            - CLOSED
+            - OPEN
+            - UPDATED
+
+            :param branches: The field that specifies to filter on branches for the pull request trigger configuration.
+            :param events: The field that specifies which pull request events to filter on (OPEN, UPDATED, CLOSED) for the trigger configuration.
+            :param file_paths: The field that specifies to filter on file paths for the pull request trigger configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpullrequestfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                git_pull_request_filter_property = codepipeline.CfnPipeline.GitPullRequestFilterProperty(
+                    branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
+                        excludes=["excludes"],
+                        includes=["includes"]
+                    ),
+                    events=["events"],
+                    file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
+                        excludes=["excludes"],
+                        includes=["includes"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__bd17e19e4fde95da653023de121d5f908ce71830fcd4cd84611c860dd5585932)
+                check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
+                check_type(argname="argument events", value=events, expected_type=type_hints["events"])
+                check_type(argname="argument file_paths", value=file_paths, expected_type=type_hints["file_paths"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if branches is not None:
+                self._values["branches"] = branches
+            if events is not None:
+                self._values["events"] = events
+            if file_paths is not None:
+                self._values["file_paths"] = file_paths
+
+        @builtins.property
+        def branches(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitBranchFilterCriteriaProperty"]]:
+            '''The field that specifies to filter on branches for the pull request trigger configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpullrequestfilter.html#cfn-codepipeline-pipeline-gitpullrequestfilter-branches
+            '''
+            result = self._values.get("branches")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitBranchFilterCriteriaProperty"]], result)
+
+        @builtins.property
+        def events(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The field that specifies which pull request events to filter on (OPEN, UPDATED, CLOSED) for the trigger configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpullrequestfilter.html#cfn-codepipeline-pipeline-gitpullrequestfilter-events
+            '''
+            result = self._values.get("events")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def file_paths(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitFilePathFilterCriteriaProperty"]]:
+            '''The field that specifies to filter on file paths for the pull request trigger configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpullrequestfilter.html#cfn-codepipeline-pipeline-gitpullrequestfilter-filepaths
+            '''
+            result = self._values.get("file_paths")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitFilePathFilterCriteriaProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GitPullRequestFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.GitPushFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "branches": "branches",
+            "file_paths": "filePaths",
+            "tags": "tags",
+        },
+    )
+    class GitPushFilterProperty:
+        def __init__(
+            self,
+            *,
+            branches: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.GitBranchFilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            file_paths: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.GitFilePathFilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tags: typing.Optional[typing.Union["CfnPipeline.GitTagFilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        ) -> None:
+            '''The event criteria that specify when a specified repository event will start the pipeline for the specified trigger configuration, such as the lists of Git tags to include and exclude.
+
+            :param branches: The field that specifies to filter on branches for the push trigger configuration.
+            :param file_paths: The field that specifies to filter on file paths for the push trigger configuration.
+            :param tags: The field that contains the details for the Git tags trigger configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                git_push_filter_property = codepipeline.CfnPipeline.GitPushFilterProperty(
+                    branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
+                        excludes=["excludes"],
+                        includes=["includes"]
+                    ),
+                    file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
+                        excludes=["excludes"],
+                        includes=["includes"]
+                    ),
+                    tags=codepipeline.CfnPipeline.GitTagFilterCriteriaProperty(
+                        excludes=["excludes"],
+                        includes=["includes"]
+                    )
+                )
+            '''
+            if isinstance(tags, dict):
+                tags = CfnPipeline.GitTagFilterCriteriaProperty(**tags)
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__aace18192e6436301eeae21b4cd59bd8cb01b53eb17f6fcb74599b2f74f9ebd0)
+                check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
+                check_type(argname="argument file_paths", value=file_paths, expected_type=type_hints["file_paths"])
+                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if branches is not None:
+                self._values["branches"] = branches
+            if file_paths is not None:
+                self._values["file_paths"] = file_paths
+            if tags is not None:
+                self._values["tags"] = tags
+
+        @builtins.property
+        def branches(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitBranchFilterCriteriaProperty"]]:
+            '''The field that specifies to filter on branches for the push trigger configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html#cfn-codepipeline-pipeline-gitpushfilter-branches
+            '''
+            result = self._values.get("branches")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitBranchFilterCriteriaProperty"]], result)
+
+        @builtins.property
+        def file_paths(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitFilePathFilterCriteriaProperty"]]:
+            '''The field that specifies to filter on file paths for the push trigger configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html#cfn-codepipeline-pipeline-gitpushfilter-filepaths
+            '''
+            result = self._values.get("file_paths")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitFilePathFilterCriteriaProperty"]], result)
+
+        @builtins.property
+        def tags(self) -> typing.Optional["CfnPipeline.GitTagFilterCriteriaProperty"]:
+            '''The field that contains the details for the Git tags trigger configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html#cfn-codepipeline-pipeline-gitpushfilter-tags
+            '''
+            result = self._values.get("tags")
+            return typing.cast(typing.Optional["CfnPipeline.GitTagFilterCriteriaProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GitPushFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.GitTagFilterCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={"excludes": "excludes", "includes": "includes"},
+    )
+    class GitTagFilterCriteriaProperty:
+        def __init__(
+            self,
+            *,
+            excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
+            includes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The Git tags specified as filter criteria for whether a Git tag repository event will start the pipeline.
+
+            :param excludes: The list of patterns of Git tags that, when pushed, are to be excluded from starting the pipeline.
+            :param includes: The list of patterns of Git tags that, when pushed, are to be included as criteria that starts the pipeline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gittagfiltercriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                git_tag_filter_criteria_property = codepipeline.CfnPipeline.GitTagFilterCriteriaProperty(
+                    excludes=["excludes"],
+                    includes=["includes"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0011c01a814174b9712d97ce1aa7e9a05579a8de4bb3a1cdb0910216a0f71485)
+                check_type(argname="argument excludes", value=excludes, expected_type=type_hints["excludes"])
+                check_type(argname="argument includes", value=includes, expected_type=type_hints["includes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if excludes is not None:
+                self._values["excludes"] = excludes
+            if includes is not None:
+                self._values["includes"] = includes
+
+        @builtins.property
+        def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The list of patterns of Git tags that, when pushed, are to be excluded from starting the pipeline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gittagfiltercriteria.html#cfn-codepipeline-pipeline-gittagfiltercriteria-excludes
+            '''
+            result = self._values.get("excludes")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def includes(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The list of patterns of Git tags that, when pushed, are to be included as criteria that starts the pipeline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gittagfiltercriteria.html#cfn-codepipeline-pipeline-gittagfiltercriteria-includes
+            '''
+            result = self._values.get("includes")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GitTagFilterCriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.InputArtifactProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name"},
+    )
+    class InputArtifactProperty:
+        def __init__(self, *, name: builtins.str) -> None:
+            '''Represents information about an artifact to be worked on, such as a test or build artifact.
+
+            :param name: The name of the artifact to be worked on (for example, "My App"). Artifacts are the files that are worked on by actions in the pipeline. See the action configuration for each action for details about artifact parameters. For example, the S3 source action input artifact is a file name (or file path), and the files are generally provided as a ZIP file. Example artifact name: SampleApp_Windows.zip The input artifact of an action must exactly match the output artifact declared in a preceding action, but the input artifact does not have to be the next action in strict sequence from the action that provided the output artifact. Actions in parallel can declare different output artifacts, which are in turn consumed by different following actions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-inputartifact.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                input_artifact_property = codepipeline.CfnPipeline.InputArtifactProperty(
+                    name="name"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ae97b53479ee01238ac6a596c3a1922670350a44e3d91518b64b0a6869f9e25b)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+            }
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the artifact to be worked on (for example, "My App").
+
+            Artifacts are the files that are worked on by actions in the pipeline. See the action configuration for each action for details about artifact parameters. For example, the S3 source action input artifact is a file name (or file path), and the files are generally provided as a ZIP file. Example artifact name: SampleApp_Windows.zip
+
+            The input artifact of an action must exactly match the output artifact declared in a preceding action, but the input artifact does not have to be the next action in strict sequence from the action that provided the output artifact. Actions in parallel can declare different output artifacts, which are in turn consumed by different following actions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-inputartifact.html#cfn-codepipeline-pipeline-inputartifact-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InputArtifactProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.OutputArtifactProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "files": "files"},
+    )
+    class OutputArtifactProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            files: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Represents information about the output of an action.
+
+            :param name: The name of the output of an artifact, such as "My App". The output artifact name must exactly match the input artifact declared for a downstream action. However, the downstream action's input artifact does not have to be the next action in strict sequence from the action that provided the output artifact. Actions in parallel can declare different output artifacts, which are in turn consumed by different following actions. Output artifact names must be unique within a pipeline.
+            :param files: The files that you want to associate with the output artifact that will be exported from the compute action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-outputartifact.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                output_artifact_property = codepipeline.CfnPipeline.OutputArtifactProperty(
+                    name="name",
+                
+                    # the properties below are optional
+                    files=["files"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ce1321d2f1592577a646df78457487ddcd0924a3b3b3af432b5a7d9ceebc6d8e)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument files", value=files, expected_type=type_hints["files"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+            }
+            if files is not None:
+                self._values["files"] = files
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the output of an artifact, such as "My App".
+
+            The output artifact name must exactly match the input artifact declared for a downstream action. However, the downstream action's input artifact does not have to be the next action in strict sequence from the action that provided the output artifact. Actions in parallel can declare different output artifacts, which are in turn consumed by different following actions.
+
+            Output artifact names must be unique within a pipeline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-outputartifact.html#cfn-codepipeline-pipeline-outputartifact-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def files(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The files that you want to associate with the output artifact that will be exported from the compute action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-outputartifact.html#cfn-codepipeline-pipeline-outputartifact-files
+            '''
+            result = self._values.get("files")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OutputArtifactProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.PipelineTriggerDeclarationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "provider_type": "providerType",
+            "git_configuration": "gitConfiguration",
+        },
+    )
+    class PipelineTriggerDeclarationProperty:
+        def __init__(
+            self,
+            *,
+            provider_type: builtins.str,
+            git_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.GitConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Represents information about the specified trigger configuration, such as the filter criteria and the source stage for the action that contains the trigger.
+
+            .. epigraph::
+
+               This is only supported for the ``CodeStarSourceConnection`` action type. > When a trigger configuration is specified, default change detection for repository and branch commits is disabled.
+
+            :param provider_type: The source provider for the event, such as connections configured for a repository with Git tags, for the specified trigger configuration.
+            :param git_configuration: Provides the filter criteria and the source stage for the repository event that starts the pipeline, such as Git tags.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-pipelinetriggerdeclaration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                pipeline_trigger_declaration_property = codepipeline.CfnPipeline.PipelineTriggerDeclarationProperty(
+                    provider_type="providerType",
+                
+                    # the properties below are optional
+                    git_configuration=codepipeline.CfnPipeline.GitConfigurationProperty(
+                        source_action_name="sourceActionName",
+                
+                        # the properties below are optional
+                        pull_request=[codepipeline.CfnPipeline.GitPullRequestFilterProperty(
+                            branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
+                                excludes=["excludes"],
+                                includes=["includes"]
+                            ),
+                            events=["events"],
+                            file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
+                                excludes=["excludes"],
+                                includes=["includes"]
+                            )
+                        )],
+                        push=[codepipeline.CfnPipeline.GitPushFilterProperty(
+                            branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
+                                excludes=["excludes"],
+                                includes=["includes"]
+                            ),
+                            file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
+                                excludes=["excludes"],
+                                includes=["includes"]
+                            ),
+                            tags=codepipeline.CfnPipeline.GitTagFilterCriteriaProperty(
+                                excludes=["excludes"],
+                                includes=["includes"]
+                            )
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4824b4ebe4c9c0ddbf15b9dd3cf1a2ffc31a1e5dfc394ba57c68b45d7e5d473c)
+                check_type(argname="argument provider_type", value=provider_type, expected_type=type_hints["provider_type"])
+                check_type(argname="argument git_configuration", value=git_configuration, expected_type=type_hints["git_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "provider_type": provider_type,
+            }
+            if git_configuration is not None:
+                self._values["git_configuration"] = git_configuration
+
+        @builtins.property
+        def provider_type(self) -> builtins.str:
+            '''The source provider for the event, such as connections configured for a repository with Git tags, for the specified trigger configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-pipelinetriggerdeclaration.html#cfn-codepipeline-pipeline-pipelinetriggerdeclaration-providertype
+            '''
+            result = self._values.get("provider_type")
+            assert result is not None, "Required property 'provider_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def git_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitConfigurationProperty"]]:
+            '''Provides the filter criteria and the source stage for the repository event that starts the pipeline, such as Git tags.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-pipelinetriggerdeclaration.html#cfn-codepipeline-pipeline-pipelinetriggerdeclaration-gitconfiguration
+            '''
+            result = self._values.get("git_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.GitConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PipelineTriggerDeclarationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.RetryConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"retry_mode": "retryMode"},
+    )
+    class RetryConfigurationProperty:
+        def __init__(self, *, retry_mode: typing.Optional[builtins.str] = None) -> None:
+            '''The retry configuration specifies automatic retry for a failed stage, along with the configured retry mode.
+
+            :param retry_mode: The method that you want to configure for automatic stage retry on stage failure. You can specify to retry only failed action in the stage or all actions in the stage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-retryconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                retry_configuration_property = codepipeline.CfnPipeline.RetryConfigurationProperty(
+                    retry_mode="retryMode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ffc8deb7765afd70d3fe572ffa86634cd8936e44aafd092f3182c532d39fd363)
+                check_type(argname="argument retry_mode", value=retry_mode, expected_type=type_hints["retry_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if retry_mode is not None:
+                self._values["retry_mode"] = retry_mode
+
+        @builtins.property
+        def retry_mode(self) -> typing.Optional[builtins.str]:
+            '''The method that you want to configure for automatic stage retry on stage failure.
+
+            You can specify to retry only failed action in the stage or all actions in the stage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-retryconfiguration.html#cfn-codepipeline-pipeline-retryconfiguration-retrymode
+            '''
+            result = self._values.get("retry_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RetryConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.RuleDeclarationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "commands": "commands",
+            "configuration": "configuration",
+            "input_artifacts": "inputArtifacts",
+            "name": "name",
+            "region": "region",
+            "role_arn": "roleArn",
+            "rule_type_id": "ruleTypeId",
+        },
+    )
+    class RuleDeclarationProperty:
+        def __init__(
+            self,
+            *,
+            commands: typing.Optional[typing.Sequence[builtins.str]] = None,
+            configuration: typing.Any = None,
+            input_artifacts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.InputArtifactProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            name: typing.Optional[builtins.str] = None,
+            region: typing.Optional[builtins.str] = None,
+            role_arn: typing.Optional[builtins.str] = None,
+            rule_type_id: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.RuleTypeIdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Represents information about the rule to be created for an associated condition.
+
+            An example would be creating a new rule for an entry condition, such as a rule that checks for a test result before allowing the run to enter the deployment stage. For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ . For more information about rules, see the `AWS CodePipeline rule reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/rule-reference.html>`_ .
+
+            :param commands: The shell commands to run with your commands rule in CodePipeline. All commands are supported except multi-line formats. While CodeBuild logs and permissions are used, you do not need to create any resources in CodeBuild. .. epigraph:: Using compute time for this action will incur separate charges in AWS CodeBuild .
+            :param configuration: The action configuration fields for the rule.
+            :param input_artifacts: The input artifacts fields for the rule, such as specifying an input file for the rule.
+            :param name: The name of the rule that is created for the condition, such as ``VariableCheck`` .
+            :param region: The Region for the condition associated with the rule.
+            :param role_arn: The pipeline role ARN associated with the rule.
+            :param rule_type_id: The ID for the rule type, which is made up of the combined values for category, owner, provider, and version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                # configuration: Any
+                
+                rule_declaration_property = codepipeline.CfnPipeline.RuleDeclarationProperty(
+                    commands=["commands"],
+                    configuration=configuration,
+                    input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                        name="name"
+                    )],
+                    name="name",
+                    region="region",
+                    role_arn="roleArn",
+                    rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
+                        category="category",
+                        owner="owner",
+                        provider="provider",
+                        version="version"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8b4c62f005bd4f9080fa5e8c7f7671821e7ac1c9314d5d3b1130fbf53e40fa51)
+                check_type(argname="argument commands", value=commands, expected_type=type_hints["commands"])
+                check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+                check_type(argname="argument input_artifacts", value=input_artifacts, expected_type=type_hints["input_artifacts"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument rule_type_id", value=rule_type_id, expected_type=type_hints["rule_type_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if commands is not None:
+                self._values["commands"] = commands
+            if configuration is not None:
+                self._values["configuration"] = configuration
+            if input_artifacts is not None:
+                self._values["input_artifacts"] = input_artifacts
+            if name is not None:
+                self._values["name"] = name
+            if region is not None:
+                self._values["region"] = region
+            if role_arn is not None:
+                self._values["role_arn"] = role_arn
+            if rule_type_id is not None:
+                self._values["rule_type_id"] = rule_type_id
+
+        @builtins.property
+        def commands(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The shell commands to run with your commands rule in CodePipeline.
+
+            All commands are supported except multi-line formats. While CodeBuild logs and permissions are used, you do not need to create any resources in CodeBuild.
+            .. epigraph::
+
+               Using compute time for this action will incur separate charges in AWS CodeBuild .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-commands
+            '''
+            result = self._values.get("commands")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def configuration(self) -> typing.Any:
+            '''The action configuration fields for the rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-configuration
+            '''
+            result = self._values.get("configuration")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def input_artifacts(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.InputArtifactProperty"]]]]:
+            '''The input artifacts fields for the rule, such as specifying an input file for the rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-inputartifacts
+            '''
+            result = self._values.get("input_artifacts")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.InputArtifactProperty"]]]], result)
+
+        @builtins.property
+        def name(self) -> typing.Optional[builtins.str]:
+            '''The name of the rule that is created for the condition, such as ``VariableCheck`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-name
+            '''
+            result = self._values.get("name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def region(self) -> typing.Optional[builtins.str]:
+            '''The Region for the condition associated with the rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-region
+            '''
+            result = self._values.get("region")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def role_arn(self) -> typing.Optional[builtins.str]:
+            '''The pipeline role ARN associated with the rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-rolearn
+            '''
+            result = self._values.get("role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def rule_type_id(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.RuleTypeIdProperty"]]:
+            '''The ID for the rule type, which is made up of the combined values for category, owner, provider, and version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-ruletypeid
+            '''
+            result = self._values.get("rule_type_id")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.RuleTypeIdProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RuleDeclarationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.RuleTypeIdProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "category": "category",
+            "owner": "owner",
+            "provider": "provider",
+            "version": "version",
+        },
+    )
+    class RuleTypeIdProperty:
+        def __init__(
+            self,
+            *,
+            category: typing.Optional[builtins.str] = None,
+            owner: typing.Optional[builtins.str] = None,
+            provider: typing.Optional[builtins.str] = None,
+            version: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The ID for the rule type, which is made up of the combined values for category, owner, provider, and version.
+
+            For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ . For more information about rules, see the `AWS CodePipeline rule reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/rule-reference.html>`_ .
+
+            :param category: A category defines what kind of rule can be run in the stage, and constrains the provider type for the rule. The valid category is ``Rule`` .
+            :param owner: The creator of the rule being called. The valid value for the ``Owner`` field in the rule category is ``AWS`` .
+            :param provider: The rule provider, such as the ``DeploymentWindow`` rule. For a list of rule provider names, see the rules listed in the `AWS CodePipeline rule reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/rule-reference.html>`_ .
+            :param version: A string that describes the rule version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruletypeid.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                rule_type_id_property = codepipeline.CfnPipeline.RuleTypeIdProperty(
+                    category="category",
+                    owner="owner",
+                    provider="provider",
+                    version="version"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__23e156541c561ae2d7b906b9cbe6720faebd9cc87aa106465379f19bc0980c56)
+                check_type(argname="argument category", value=category, expected_type=type_hints["category"])
+                check_type(argname="argument owner", value=owner, expected_type=type_hints["owner"])
+                check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
+                check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if category is not None:
+                self._values["category"] = category
+            if owner is not None:
+                self._values["owner"] = owner
+            if provider is not None:
+                self._values["provider"] = provider
+            if version is not None:
+                self._values["version"] = version
+
+        @builtins.property
+        def category(self) -> typing.Optional[builtins.str]:
+            '''A category defines what kind of rule can be run in the stage, and constrains the provider type for the rule.
+
+            The valid category is ``Rule`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruletypeid.html#cfn-codepipeline-pipeline-ruletypeid-category
+            '''
+            result = self._values.get("category")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def owner(self) -> typing.Optional[builtins.str]:
+            '''The creator of the rule being called.
+
+            The valid value for the ``Owner`` field in the rule category is ``AWS`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruletypeid.html#cfn-codepipeline-pipeline-ruletypeid-owner
+            '''
+            result = self._values.get("owner")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def provider(self) -> typing.Optional[builtins.str]:
+            '''The rule provider, such as the ``DeploymentWindow`` rule.
+
+            For a list of rule provider names, see the rules listed in the `AWS CodePipeline rule reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/rule-reference.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruletypeid.html#cfn-codepipeline-pipeline-ruletypeid-provider
+            '''
+            result = self._values.get("provider")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def version(self) -> typing.Optional[builtins.str]:
+            '''A string that describes the rule version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruletypeid.html#cfn-codepipeline-pipeline-ruletypeid-version
+            '''
+            result = self._values.get("version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RuleTypeIdProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.StageDeclarationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "actions": "actions",
+            "name": "name",
+            "before_entry": "beforeEntry",
+            "blockers": "blockers",
+            "on_failure": "onFailure",
+            "on_success": "onSuccess",
+        },
+    )
+    class StageDeclarationProperty:
+        def __init__(
+            self,
+            *,
+            actions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.ActionDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            name: builtins.str,
+            before_entry: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.BeforeEntryConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            blockers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.BlockerDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            on_failure: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.FailureConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            on_success: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.SuccessConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Represents information about a stage and its definition.
+
+            :param actions: The actions included in a stage.
+            :param name: The name of the stage.
+            :param before_entry: The method to use when a stage allows entry. For example, configuring this field for conditions will allow entry to the stage when the conditions are met.
+            :param blockers: Reserved for future use.
+            :param on_failure: The method to use when a stage has not completed successfully. For example, configuring this field for rollback will roll back a failed stage automatically to the last successful pipeline execution in the stage.
+            :param on_success: The method to use when a stage has succeeded. For example, configuring this field for conditions will allow the stage to succeed when the conditions are met.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                # configuration: Any
+                
+                stage_declaration_property = codepipeline.CfnPipeline.StageDeclarationProperty(
+                    actions=[codepipeline.CfnPipeline.ActionDeclarationProperty(
+                        action_type_id=codepipeline.CfnPipeline.ActionTypeIdProperty(
+                            category="category",
+                            owner="owner",
+                            provider="provider",
+                            version="version"
+                        ),
+                        name="name",
+                
+                        # the properties below are optional
+                        commands=["commands"],
+                        configuration=configuration,
+                        environment_variables=[codepipeline.CfnPipeline.EnvironmentVariableProperty(
+                            name="name",
+                            value="value",
+                
+                            # the properties below are optional
+                            type="type"
+                        )],
+                        input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                            name="name"
+                        )],
+                        namespace="namespace",
+                        output_artifacts=[codepipeline.CfnPipeline.OutputArtifactProperty(
+                            name="name",
+                
+                            # the properties below are optional
+                            files=["files"]
+                        )],
+                        output_variables=["outputVariables"],
+                        region="region",
+                        role_arn="roleArn",
+                        run_order=123,
+                        timeout_in_minutes=123
+                    )],
+                    name="name",
+                
+                    # the properties below are optional
+                    before_entry=codepipeline.CfnPipeline.BeforeEntryConditionsProperty(
+                        conditions=[codepipeline.CfnPipeline.ConditionProperty(
+                            result="result",
+                            rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
+                                commands=["commands"],
+                                configuration=configuration,
+                                input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                                    name="name"
+                                )],
+                                name="name",
+                                region="region",
+                                role_arn="roleArn",
+                                rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
+                                    category="category",
+                                    owner="owner",
+                                    provider="provider",
+                                    version="version"
+                                )
+                            )]
+                        )]
+                    ),
+                    blockers=[codepipeline.CfnPipeline.BlockerDeclarationProperty(
+                        name="name",
+                        type="type"
+                    )],
+                    on_failure=codepipeline.CfnPipeline.FailureConditionsProperty(
+                        conditions=[codepipeline.CfnPipeline.ConditionProperty(
+                            result="result",
+                            rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
+                                commands=["commands"],
+                                configuration=configuration,
+                                input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                                    name="name"
+                                )],
+                                name="name",
+                                region="region",
+                                role_arn="roleArn",
+                                rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
+                                    category="category",
+                                    owner="owner",
+                                    provider="provider",
+                                    version="version"
+                                )
+                            )]
+                        )],
+                        result="result",
+                        retry_configuration=codepipeline.CfnPipeline.RetryConfigurationProperty(
+                            retry_mode="retryMode"
+                        )
+                    ),
+                    on_success=codepipeline.CfnPipeline.SuccessConditionsProperty(
+                        conditions=[codepipeline.CfnPipeline.ConditionProperty(
+                            result="result",
+                            rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
+                                commands=["commands"],
+                                configuration=configuration,
+                                input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                                    name="name"
+                                )],
+                                name="name",
+                                region="region",
+                                role_arn="roleArn",
+                                rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
+                                    category="category",
+                                    owner="owner",
+                                    provider="provider",
+                                    version="version"
+                                )
+                            )]
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6d7aa29ffac3603e5ca76edf19c1467363376322d9bc527c818c0d2c87a67c65)
+                check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument before_entry", value=before_entry, expected_type=type_hints["before_entry"])
+                check_type(argname="argument blockers", value=blockers, expected_type=type_hints["blockers"])
+                check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
+                check_type(argname="argument on_success", value=on_success, expected_type=type_hints["on_success"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "actions": actions,
+                "name": name,
+            }
+            if before_entry is not None:
+                self._values["before_entry"] = before_entry
+            if blockers is not None:
+                self._values["blockers"] = blockers
+            if on_failure is not None:
+                self._values["on_failure"] = on_failure
+            if on_success is not None:
+                self._values["on_success"] = on_success
+
+        @builtins.property
+        def actions(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ActionDeclarationProperty"]]]:
+            '''The actions included in a stage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html#cfn-codepipeline-pipeline-stagedeclaration-actions
+            '''
+            result = self._values.get("actions")
+            assert result is not None, "Required property 'actions' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ActionDeclarationProperty"]]], result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the stage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html#cfn-codepipeline-pipeline-stagedeclaration-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def before_entry(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.BeforeEntryConditionsProperty"]]:
+            '''The method to use when a stage allows entry.
+
+            For example, configuring this field for conditions will allow entry to the stage when the conditions are met.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html#cfn-codepipeline-pipeline-stagedeclaration-beforeentry
+            '''
+            result = self._values.get("before_entry")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.BeforeEntryConditionsProperty"]], result)
+
+        @builtins.property
+        def blockers(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.BlockerDeclarationProperty"]]]]:
+            '''Reserved for future use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html#cfn-codepipeline-pipeline-stagedeclaration-blockers
+            '''
+            result = self._values.get("blockers")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.BlockerDeclarationProperty"]]]], result)
+
+        @builtins.property
+        def on_failure(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.FailureConditionsProperty"]]:
+            '''The method to use when a stage has not completed successfully.
+
+            For example, configuring this field for rollback will roll back a failed stage automatically to the last successful pipeline execution in the stage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html#cfn-codepipeline-pipeline-stagedeclaration-onfailure
+            '''
+            result = self._values.get("on_failure")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.FailureConditionsProperty"]], result)
+
+        @builtins.property
+        def on_success(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.SuccessConditionsProperty"]]:
+            '''The method to use when a stage has succeeded.
+
+            For example, configuring this field for conditions will allow the stage to succeed when the conditions are met.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html#cfn-codepipeline-pipeline-stagedeclaration-onsuccess
+            '''
+            result = self._values.get("on_success")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.SuccessConditionsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StageDeclarationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.StageTransitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"reason": "reason", "stage_name": "stageName"},
+    )
+    class StageTransitionProperty:
+        def __init__(self, *, reason: builtins.str, stage_name: builtins.str) -> None:
+            '''The name of the pipeline in which you want to disable the flow of artifacts from one stage to another.
+
+            :param reason: The reason given to the user that a stage is disabled, such as waiting for manual approval or manual tests. This message is displayed in the pipeline console UI.
+            :param stage_name: The name of the stage where you want to disable the inbound or outbound transition of artifacts.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagetransition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                stage_transition_property = codepipeline.CfnPipeline.StageTransitionProperty(
+                    reason="reason",
+                    stage_name="stageName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cb571d221ca422b88898c034c3ecd725aa8056ceb7b00c4c4faba2b7c9ba03c5)
+                check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
+                check_type(argname="argument stage_name", value=stage_name, expected_type=type_hints["stage_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "reason": reason,
+                "stage_name": stage_name,
+            }
+
+        @builtins.property
+        def reason(self) -> builtins.str:
+            '''The reason given to the user that a stage is disabled, such as waiting for manual approval or manual tests.
+
+            This message is displayed in the pipeline console UI.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagetransition.html#cfn-codepipeline-pipeline-stagetransition-reason
+            '''
+            result = self._values.get("reason")
+            assert result is not None, "Required property 'reason' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def stage_name(self) -> builtins.str:
+            '''The name of the stage where you want to disable the inbound or outbound transition of artifacts.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagetransition.html#cfn-codepipeline-pipeline-stagetransition-stagename
+            '''
+            result = self._values.get("stage_name")
+            assert result is not None, "Required property 'stage_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StageTransitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.SuccessConditionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"conditions": "conditions"},
+    )
+    class SuccessConditionsProperty:
+        def __init__(
+            self,
+            *,
+            conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''The conditions for making checks that, if met, succeed a stage.
+
+            For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ .
+
+            :param conditions: The conditions that are success conditions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-successconditions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                # configuration: Any
+                
+                success_conditions_property = codepipeline.CfnPipeline.SuccessConditionsProperty(
+                    conditions=[codepipeline.CfnPipeline.ConditionProperty(
+                        result="result",
+                        rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
+                            commands=["commands"],
+                            configuration=configuration,
+                            input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
+                                name="name"
+                            )],
+                            name="name",
+                            region="region",
+                            role_arn="roleArn",
+                            rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
+                                category="category",
+                                owner="owner",
+                                provider="provider",
+                                version="version"
+                            )
+                        )]
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__bad81fbd255bde02e908e1897791765381a8955c3d02012570513080a2c49891)
+                check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if conditions is not None:
+                self._values["conditions"] = conditions
+
+        @builtins.property
+        def conditions(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ConditionProperty"]]]]:
+            '''The conditions that are success conditions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-successconditions.html#cfn-codepipeline-pipeline-successconditions-conditions
+            '''
+            result = self._values.get("conditions")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ConditionProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SuccessConditionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.VariableDeclarationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "default_value": "defaultValue",
+            "description": "description",
+        },
+    )
+    class VariableDeclarationProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            default_value: typing.Optional[builtins.str] = None,
+            description: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A variable declared at the pipeline level.
+
+            :param name: The name of a pipeline-level variable.
+            :param default_value: The value of a pipeline-level variable.
+            :param description: The description of a pipeline-level variable. It's used to add additional context about the variable, and not being used at time when pipeline executes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-variabledeclaration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                variable_declaration_property = codepipeline.CfnPipeline.VariableDeclarationProperty(
+                    name="name",
+                
+                    # the properties below are optional
+                    default_value="defaultValue",
+                    description="description"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c1db744a2dce48273e96d1e41fe3217fb05516aae94ff61ffe871290cbc49ca0)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+            }
+            if default_value is not None:
+                self._values["default_value"] = default_value
+            if description is not None:
+                self._values["description"] = description
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of a pipeline-level variable.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-variabledeclaration.html#cfn-codepipeline-pipeline-variabledeclaration-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def default_value(self) -> typing.Optional[builtins.str]:
+            '''The value of a pipeline-level variable.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-variabledeclaration.html#cfn-codepipeline-pipeline-variabledeclaration-defaultvalue
+            '''
+            result = self._values.get("default_value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''The description of a pipeline-level variable.
+
+            It's used to add additional context about the variable, and not being used at time when pipeline executes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-variabledeclaration.html#cfn-codepipeline-pipeline-variabledeclaration-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VariableDeclarationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.data_type(
@@ -2053,18 +6058,18 @@ class CfnPipelineProps:
     def __init__(
         self,
         *,
-        role_arn: builtins.str,
-        stages: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.StageDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        artifact_store: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.ArtifactStoreProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        artifact_stores: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.ArtifactStoreMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        disable_inbound_stage_transitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.StageTransitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        stages: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.StageDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        artifact_store: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.ArtifactStoreProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        artifact_stores: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.ArtifactStoreMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        disable_inbound_stage_transitions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.StageTransitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         execution_mode: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         pipeline_type: typing.Optional[builtins.str] = None,
-        restart_execution_on_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.PipelineTriggerDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.VariableDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        restart_execution_on_update: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        triggers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.PipelineTriggerDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipeline.VariableDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPipeline``.
 
@@ -2086,6 +6091,7 @@ class CfnPipelineProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_codepipeline as codepipeline
@@ -2326,31 +6332,31 @@ class CfnPipelineProps:
             self._values["variables"] = variables
 
     @builtins.property
-    def role_arn(self) -> builtins.str:
+    def role_arn(self) -> typing.Union[builtins.str, "_IRoleRef_8400221f"]:
         '''The Amazon Resource Name (ARN) for CodePipeline to use to either perform actions with no ``actionRoleArn`` , or to use to assume roles for actions with an ``actionRoleArn`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html#cfn-codepipeline-pipeline-rolearn
         '''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
+        return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
 
     @builtins.property
     def stages(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.StageDeclarationProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.StageDeclarationProperty"]]]:
         '''Represents information about a stage and its definition.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html#cfn-codepipeline-pipeline-stages
         '''
         result = self._values.get("stages")
         assert result is not None, "Required property 'stages' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.StageDeclarationProperty"]]], result)
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.StageDeclarationProperty"]]], result)
 
     @builtins.property
     def artifact_store(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ArtifactStoreProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ArtifactStoreProperty"]]:
         '''The S3 bucket where artifacts for the pipeline are stored.
 
         .. epigraph::
@@ -2360,12 +6366,12 @@ class CfnPipelineProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html#cfn-codepipeline-pipeline-artifactstore
         '''
         result = self._values.get("artifact_store")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ArtifactStoreProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ArtifactStoreProperty"]], result)
 
     @builtins.property
     def artifact_stores(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ArtifactStoreMapProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ArtifactStoreMapProperty"]]]]:
         '''A mapping of ``artifactStore`` objects and their corresponding AWS Regions.
 
         There must be an artifact store for the pipeline Region and for each cross-region action in the pipeline.
@@ -2376,18 +6382,18 @@ class CfnPipelineProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html#cfn-codepipeline-pipeline-artifactstores
         '''
         result = self._values.get("artifact_stores")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ArtifactStoreMapProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.ArtifactStoreMapProperty"]]]], result)
 
     @builtins.property
     def disable_inbound_stage_transitions(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.StageTransitionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.StageTransitionProperty"]]]]:
         '''Represents the input of a ``DisableStageTransition`` action.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html#cfn-codepipeline-pipeline-disableinboundstagetransitions
         '''
         result = self._values.get("disable_inbound_stage_transitions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.StageTransitionProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.StageTransitionProperty"]]]], result)
 
     @builtins.property
     def execution_mode(self) -> typing.Optional[builtins.str]:
@@ -2434,27 +6440,27 @@ class CfnPipelineProps:
     @builtins.property
     def restart_execution_on_update(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Indicates whether to rerun the CodePipeline pipeline after you update it.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html#cfn-codepipeline-pipeline-restartexecutiononupdate
         '''
         result = self._values.get("restart_execution_on_update")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies the tags applied to the pipeline.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html#cfn-codepipeline-pipeline-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
     def triggers(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.PipelineTriggerDeclarationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.PipelineTriggerDeclarationProperty"]]]]:
         '''The trigger configuration specifying a type of event, such as Git tags, that starts the pipeline.
 
         .. epigraph::
@@ -2464,12 +6470,12 @@ class CfnPipelineProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html#cfn-codepipeline-pipeline-triggers
         '''
         result = self._values.get("triggers")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.PipelineTriggerDeclarationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.PipelineTriggerDeclarationProperty"]]]], result)
 
     @builtins.property
     def variables(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.VariableDeclarationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.VariableDeclarationProperty"]]]]:
         '''A list that defines the pipeline variables for a pipeline resource.
 
         Variable names can have alphanumeric and underscore characters, and the values must match ``[A-Za-z0-9@\\-_]+`` .
@@ -2477,7 +6483,7 @@ class CfnPipelineProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html#cfn-codepipeline-pipeline-variables
         '''
         result = self._values.get("variables")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.VariableDeclarationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipeline.VariableDeclarationProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2489,6 +6495,476 @@ class CfnPipelineProps:
         return "CfnPipelineProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IWebhookRef_f412ea52)
+class CfnWebhook(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_codepipeline.CfnWebhook",
+):
+    '''The ``AWS::CodePipeline::Webhook`` resource creates and registers your webhook.
+
+    After the webhook is created and registered, it triggers your pipeline to start every time an external event occurs. For more information, see `Migrate polling pipelines to use event-based change detection <https://docs.aws.amazon.com/codepipeline/latest/userguide/update-change-detection.html>`_ in the *AWS CodePipeline User Guide* .
+
+    We strongly recommend that you use AWS Secrets Manager to store your credentials. If you use Secrets Manager, you must have already configured and stored your secret parameters in Secrets Manager. For more information, see `Using Dynamic References to Specify Template Values <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html#dynamic-references-secretsmanager>`_ .
+    .. epigraph::
+
+       When passing secret parameters, do not enter the value directly into the template. The value is rendered as plaintext and is therefore readable. For security reasons, do not use plaintext in your AWS CloudFormation template to store your credentials.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-webhook.html
+    :cloudformationResource: AWS::CodePipeline::Webhook
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_codepipeline as codepipeline
+        
+        cfn_webhook = codepipeline.CfnWebhook(self, "MyCfnWebhook",
+            authentication="authentication",
+            authentication_configuration=codepipeline.CfnWebhook.WebhookAuthConfigurationProperty(
+                allowed_ip_range="allowedIpRange",
+                secret_token="secretToken"
+            ),
+            filters=[codepipeline.CfnWebhook.WebhookFilterRuleProperty(
+                json_path="jsonPath",
+        
+                # the properties below are optional
+                match_equals="matchEquals"
+            )],
+            target_action="targetAction",
+            target_pipeline="targetPipeline",
+        
+            # the properties below are optional
+            name="name",
+            register_with_third_party=False,
+            target_pipeline_version=123
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        authentication: builtins.str,
+        authentication_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebhook.WebhookAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        filters: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebhook.WebhookFilterRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        target_action: builtins.str,
+        target_pipeline: builtins.str,
+        name: typing.Optional[builtins.str] = None,
+        register_with_third_party: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        target_pipeline_version: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Create a new ``AWS::CodePipeline::Webhook``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param authentication: Supported options are GITHUB_HMAC, IP, and UNAUTHENTICATED. .. epigraph:: When creating CodePipeline webhooks, do not use your own credentials or reuse the same secret token across multiple webhooks. For optimal security, generate a unique secret token for each webhook you create. The secret token is an arbitrary string that you provide, which GitHub uses to compute and sign the webhook payloads sent to CodePipeline, for protecting the integrity and authenticity of the webhook payloads. Using your own credentials or reusing the same token across multiple webhooks can lead to security vulnerabilities. > If a secret token was provided, it will be redacted in the response. - For information about the authentication scheme implemented by GITHUB_HMAC, see `Securing your webhooks <https://docs.aws.amazon.com/https://developer.github.com/webhooks/securing/>`_ on the GitHub Developer website. - IP rejects webhooks trigger requests unless they originate from an IP address in the IP range whitelisted in the authentication configuration. - UNAUTHENTICATED accepts all webhook trigger requests regardless of origin.
+        :param authentication_configuration: Properties that configure the authentication applied to incoming webhook trigger requests. The required properties depend on the authentication type. For GITHUB_HMAC, only the ``SecretToken`` property must be set. For IP, only the ``AllowedIPRange`` property must be set to a valid CIDR range. For UNAUTHENTICATED, no properties can be set.
+        :param filters: A list of rules applied to the body/payload sent in the POST request to a webhook URL. All defined rules must pass for the request to be accepted and the pipeline started.
+        :param target_action: The name of the action in a pipeline you want to connect to the webhook. The action must be from the source (first) stage of the pipeline.
+        :param target_pipeline: The name of the pipeline you want to connect to the webhook.
+        :param name: The name of the webhook.
+        :param register_with_third_party: Configures a connection between the webhook that was created and the external tool with events to be detected.
+        :param target_pipeline_version: The version number of the pipeline to be connected to the trigger request. Required: Yes Type: Integer Update requires: `No interruption <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt>`_
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bf02f564438140d92570cd41d3abeeb991e242929571b6de0035b8a8b4ecff55)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnWebhookProps(
+            authentication=authentication,
+            authentication_configuration=authentication_configuration,
+            filters=filters,
+            target_action=target_action,
+            target_pipeline=target_pipeline,
+            name=name,
+            register_with_third_party=register_with_third_party,
+            target_pipeline_version=target_pipeline_version,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForWebhook")
+    @builtins.classmethod
+    def arn_for_webhook(cls, resource: "_IWebhookRef_f412ea52") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3069d1bcc981497c2b2db473beb5a2c2af27ada3beb0d2ffd3c9127721d2a112)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWebhook", [resource]))
+
+    @jsii.member(jsii_name="fromWebhookName")
+    @builtins.classmethod
+    def from_webhook_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        webhook_name: builtins.str,
+    ) -> "_IWebhookRef_f412ea52":
+        '''Creates a new IWebhookRef from a webhookName.
+
+        :param scope: -
+        :param id: -
+        :param webhook_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fffe594b262b1c0cd439ebf5d2982d28067163f9ea73338b1446797e57fc82fe)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument webhook_name", value=webhook_name, expected_type=type_hints["webhook_name"])
+        return typing.cast("_IWebhookRef_f412ea52", jsii.sinvoke(cls, "fromWebhookName", [scope, id, webhook_name]))
+
+    @jsii.member(jsii_name="isCfnWebhook")
+    @builtins.classmethod
+    def is_cfn_webhook(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWebhook.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb28ffcaeb105a337c95c239efe93696bd64240329f3fb9a2e7197af2ae8012a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWebhook", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__227d30f46442bec095e9f300f856b2b86b94483b1abf3f7f7428ecca8fafdfe8)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9af71d26442bb7c7f0f5a8a7f86584efcd70b8a3ff115bdc89a2003734fbfa25)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''logical id of the webhook.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUrl")
+    def attr_url(self) -> builtins.str:
+        '''The webhook URL generated by AWS CodePipeline , such as ``https://eu-central-1.webhooks.aws/trigger123456`` .
+
+        :cloudformationAttribute: Url
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webhookRef")
+    def webhook_ref(self) -> "_WebhookReference_96b0d16f":
+        '''A reference to a Webhook resource.'''
+        return typing.cast("_WebhookReference_96b0d16f", jsii.get(self, "webhookRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="authentication")
+    def authentication(self) -> builtins.str:
+        '''Supported options are GITHUB_HMAC, IP, and UNAUTHENTICATED.'''
+        return typing.cast(builtins.str, jsii.get(self, "authentication"))
+
+    @authentication.setter
+    def authentication(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e676ed166ded3f8e83006fde318144fc317bdf1d026e6626ec6456c9af43e75f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "authentication", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="authenticationConfiguration")
+    def authentication_configuration(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnWebhook.WebhookAuthConfigurationProperty"]:
+        '''Properties that configure the authentication applied to incoming webhook trigger requests.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebhook.WebhookAuthConfigurationProperty"], jsii.get(self, "authenticationConfiguration"))
+
+    @authentication_configuration.setter
+    def authentication_configuration(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnWebhook.WebhookAuthConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__661e78f47928057e34eff18cc959796c1aeaac5a2037fd1c3cc43d77914ebef7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "authenticationConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="filters")
+    def filters(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebhook.WebhookFilterRuleProperty"]]]:
+        '''A list of rules applied to the body/payload sent in the POST request to a webhook URL.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebhook.WebhookFilterRuleProperty"]]], jsii.get(self, "filters"))
+
+    @filters.setter
+    def filters(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebhook.WebhookFilterRuleProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2850ab1aedf159b1372121953fbc6d536f0960551cfbef5e9d4c28853a4a21d2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "filters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetAction")
+    def target_action(self) -> builtins.str:
+        '''The name of the action in a pipeline you want to connect to the webhook.'''
+        return typing.cast(builtins.str, jsii.get(self, "targetAction"))
+
+    @target_action.setter
+    def target_action(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__587b4858c30fdff155d12e1a9d56e04f9e188232da10143ade48f277f0f2c87c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetAction", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetPipeline")
+    def target_pipeline(self) -> builtins.str:
+        '''The name of the pipeline you want to connect to the webhook.'''
+        return typing.cast(builtins.str, jsii.get(self, "targetPipeline"))
+
+    @target_pipeline.setter
+    def target_pipeline(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7689c33ff229cf9ddb20032bde1e437145c826878f8c3c870467422b263504ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetPipeline", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the webhook.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02d5d087cd1b518d8897dbfb653d0edc5b158629e5fb93ddfa71e79b970371d6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="registerWithThirdParty")
+    def register_with_third_party(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Configures a connection between the webhook that was created and the external tool with events to be detected.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "registerWithThirdParty"))
+
+    @register_with_third_party.setter
+    def register_with_third_party(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bece180dca3b968274dbd53d569afb60e6d46b7d744e84c8607ca6bebd23d1be)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "registerWithThirdParty", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetPipelineVersion")
+    def target_pipeline_version(self) -> typing.Optional[jsii.Number]:
+        '''The version number of the pipeline to be connected to the trigger request.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "targetPipelineVersion"))
+
+    @target_pipeline_version.setter
+    def target_pipeline_version(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b5cd8d4c4d8034c3ab1dd1b987c191aa6f08532707cff99ad05b96198aff585)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetPipelineVersion", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnWebhook.WebhookAuthConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "allowed_ip_range": "allowedIpRange",
+            "secret_token": "secretToken",
+        },
+    )
+    class WebhookAuthConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            allowed_ip_range: typing.Optional[builtins.str] = None,
+            secret_token: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The authentication applied to incoming webhook trigger requests.
+
+            :param allowed_ip_range: The property used to configure acceptance of webhooks in an IP address range. For IP, only the ``AllowedIPRange`` property must be set. This property must be set to a valid CIDR range.
+            :param secret_token: The property used to configure GitHub authentication. For GITHUB_HMAC, only the ``SecretToken`` property must be set. .. epigraph:: When creating CodePipeline webhooks, do not use your own credentials or reuse the same secret token across multiple webhooks. For optimal security, generate a unique secret token for each webhook you create. The secret token is an arbitrary string that you provide, which GitHub uses to compute and sign the webhook payloads sent to CodePipeline, for protecting the integrity and authenticity of the webhook payloads. Using your own credentials or reusing the same token across multiple webhooks can lead to security vulnerabilities. > If a secret token was provided, it will be redacted in the response.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-webhook-webhookauthconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                webhook_auth_configuration_property = codepipeline.CfnWebhook.WebhookAuthConfigurationProperty(
+                    allowed_ip_range="allowedIpRange",
+                    secret_token="secretToken"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a1f94b3e315b456165a38ed09c4221466ed997fe963ce16cae9474a0dfbfc787)
+                check_type(argname="argument allowed_ip_range", value=allowed_ip_range, expected_type=type_hints["allowed_ip_range"])
+                check_type(argname="argument secret_token", value=secret_token, expected_type=type_hints["secret_token"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if allowed_ip_range is not None:
+                self._values["allowed_ip_range"] = allowed_ip_range
+            if secret_token is not None:
+                self._values["secret_token"] = secret_token
+
+        @builtins.property
+        def allowed_ip_range(self) -> typing.Optional[builtins.str]:
+            '''The property used to configure acceptance of webhooks in an IP address range.
+
+            For IP, only the ``AllowedIPRange`` property must be set. This property must be set to a valid CIDR range.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-webhook-webhookauthconfiguration.html#cfn-codepipeline-webhook-webhookauthconfiguration-allowediprange
+            '''
+            result = self._values.get("allowed_ip_range")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def secret_token(self) -> typing.Optional[builtins.str]:
+            '''The property used to configure GitHub authentication. For GITHUB_HMAC, only the ``SecretToken`` property must be set.
+
+            .. epigraph::
+
+               When creating CodePipeline webhooks, do not use your own credentials or reuse the same secret token across multiple webhooks. For optimal security, generate a unique secret token for each webhook you create. The secret token is an arbitrary string that you provide, which GitHub uses to compute and sign the webhook payloads sent to CodePipeline, for protecting the integrity and authenticity of the webhook payloads. Using your own credentials or reusing the same token across multiple webhooks can lead to security vulnerabilities. > If a secret token was provided, it will be redacted in the response.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-webhook-webhookauthconfiguration.html#cfn-codepipeline-webhook-webhookauthconfiguration-secrettoken
+            '''
+            result = self._values.get("secret_token")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WebhookAuthConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnWebhook.WebhookFilterRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"json_path": "jsonPath", "match_equals": "matchEquals"},
+    )
+    class WebhookFilterRuleProperty:
+        def __init__(
+            self,
+            *,
+            json_path: builtins.str,
+            match_equals: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The event criteria that specify when a webhook notification is sent to your URL.
+
+            :param json_path: A JsonPath expression that is applied to the body/payload of the webhook. The value selected by the JsonPath expression must match the value specified in the ``MatchEquals`` field. Otherwise, the request is ignored. For more information, see `Java JsonPath implementation <https://docs.aws.amazon.com/https://github.com/json-path/JsonPath>`_ in GitHub.
+            :param match_equals: The value selected by the ``JsonPath`` expression must match what is supplied in the ``MatchEquals`` field. Otherwise, the request is ignored. Properties from the target action configuration can be included as placeholders in this value by surrounding the action configuration key with curly brackets. For example, if the value supplied here is "refs/heads/{Branch}" and the target action has an action configuration property called "Branch" with a value of "main", the ``MatchEquals`` value is evaluated as "refs/heads/main". For a list of action configuration properties for built-in action types, see `Pipeline Structure Reference Action Requirements <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#action-requirements>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-webhook-webhookfilterrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                webhook_filter_rule_property = codepipeline.CfnWebhook.WebhookFilterRuleProperty(
+                    json_path="jsonPath",
+                
+                    # the properties below are optional
+                    match_equals="matchEquals"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8df4160ff8ffad45b342e229c142723b01ac593a0b6f444e63ae192a0e8626b4)
+                check_type(argname="argument json_path", value=json_path, expected_type=type_hints["json_path"])
+                check_type(argname="argument match_equals", value=match_equals, expected_type=type_hints["match_equals"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "json_path": json_path,
+            }
+            if match_equals is not None:
+                self._values["match_equals"] = match_equals
+
+        @builtins.property
+        def json_path(self) -> builtins.str:
+            '''A JsonPath expression that is applied to the body/payload of the webhook.
+
+            The value selected by the JsonPath expression must match the value specified in the ``MatchEquals`` field. Otherwise, the request is ignored. For more information, see `Java JsonPath implementation <https://docs.aws.amazon.com/https://github.com/json-path/JsonPath>`_ in GitHub.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-webhook-webhookfilterrule.html#cfn-codepipeline-webhook-webhookfilterrule-jsonpath
+            '''
+            result = self._values.get("json_path")
+            assert result is not None, "Required property 'json_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def match_equals(self) -> typing.Optional[builtins.str]:
+            '''The value selected by the ``JsonPath`` expression must match what is supplied in the ``MatchEquals`` field.
+
+            Otherwise, the request is ignored. Properties from the target action configuration can be included as placeholders in this value by surrounding the action configuration key with curly brackets. For example, if the value supplied here is "refs/heads/{Branch}" and the target action has an action configuration property called "Branch" with a value of "main", the ``MatchEquals`` value is evaluated as "refs/heads/main". For a list of action configuration properties for built-in action types, see `Pipeline Structure Reference Action Requirements <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#action-requirements>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-webhook-webhookfilterrule.html#cfn-codepipeline-webhook-webhookfilterrule-matchequals
+            '''
+            result = self._values.get("match_equals")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WebhookFilterRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.data_type(
@@ -2510,12 +6986,12 @@ class CfnWebhookProps:
         self,
         *,
         authentication: builtins.str,
-        authentication_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebhook.WebhookAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        filters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebhook.WebhookFilterRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        authentication_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebhook.WebhookAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        filters: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebhook.WebhookFilterRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         target_action: builtins.str,
         target_pipeline: builtins.str,
         name: typing.Optional[builtins.str] = None,
-        register_with_third_party: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        register_with_third_party: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         target_pipeline_version: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Properties for defining a ``CfnWebhook``.
@@ -2604,7 +7080,7 @@ class CfnWebhookProps:
     @builtins.property
     def authentication_configuration(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnWebhook.WebhookAuthConfigurationProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnWebhook.WebhookAuthConfigurationProperty"]:
         '''Properties that configure the authentication applied to incoming webhook trigger requests.
 
         The required properties depend on the authentication type. For GITHUB_HMAC, only the ``SecretToken`` property must be set. For IP, only the ``AllowedIPRange`` property must be set to a valid CIDR range. For UNAUTHENTICATED, no properties can be set.
@@ -2613,12 +7089,12 @@ class CfnWebhookProps:
         '''
         result = self._values.get("authentication_configuration")
         assert result is not None, "Required property 'authentication_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebhook.WebhookAuthConfigurationProperty"], result)
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebhook.WebhookAuthConfigurationProperty"], result)
 
     @builtins.property
     def filters(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebhook.WebhookFilterRuleProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebhook.WebhookFilterRuleProperty"]]]:
         '''A list of rules applied to the body/payload sent in the POST request to a webhook URL.
 
         All defined rules must pass for the request to be accepted and the pipeline started.
@@ -2627,7 +7103,7 @@ class CfnWebhookProps:
         '''
         result = self._values.get("filters")
         assert result is not None, "Required property 'filters' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebhook.WebhookFilterRuleProperty"]]], result)
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebhook.WebhookFilterRuleProperty"]]], result)
 
     @builtins.property
     def target_action(self) -> builtins.str:
@@ -2663,13 +7139,13 @@ class CfnWebhookProps:
     @builtins.property
     def register_with_third_party(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Configures a connection between the webhook that was created and the external tool with events to be detected.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-webhook.html#cfn-codepipeline-webhook-registerwiththirdparty
         '''
         result = self._values.get("register_with_third_party")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def target_pipeline_version(self) -> typing.Optional[jsii.Number]:
@@ -2815,7 +7291,7 @@ class CommonAwsActionProps(CommonActionProps):
         action_name: builtins.str,
         run_order: typing.Optional[jsii.Number] = None,
         variables_namespace: typing.Optional[builtins.str] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''Common properties shared by all Actions whose ``ActionProperties.owner`` field is 'AWS' (or unset, as 'AWS' is the default).
 
@@ -2897,7 +7373,7 @@ class CommonAwsActionProps(CommonActionProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The Role in which context's this Action will be executing in.
 
         The Pipeline's Role will assume this Role
@@ -2909,7 +7385,7 @@ class CommonAwsActionProps(CommonActionProps):
         :default: a new Role will be generated
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3006,7 +7482,7 @@ class Conditions:
     def __init__(
         self,
         *,
-        conditions: typing.Optional[typing.Sequence[typing.Union[Condition, typing.Dict[builtins.str, typing.Any]]]] = None,
+        conditions: typing.Optional[typing.Sequence[typing.Union["Condition", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''The conditions for making checks for the stage.
 
@@ -3086,13 +7562,13 @@ class Conditions:
             self._values["conditions"] = conditions
 
     @builtins.property
-    def conditions(self) -> typing.Optional[typing.List[Condition]]:
+    def conditions(self) -> typing.Optional[typing.List["Condition"]]:
         '''The conditions that are configured as entry conditions, making check to succeed the stage, or fail the stage.
 
         :default: - No conditions are configured
         '''
         result = self._values.get("conditions")
-        return typing.cast(typing.Optional[typing.List[Condition]], result)
+        return typing.cast(typing.Optional[typing.List["Condition"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3115,8 +7591,8 @@ class CrossRegionSupport:
     def __init__(
         self,
         *,
-        replication_bucket: _IBucket_42e086fd,
-        stack: _Stack_2866e57f,
+        replication_bucket: "_IBucket_42e086fd",
+        stack: "_Stack_2866e57f",
     ) -> None:
         '''An interface representing resources generated in order to support the cross-region capabilities of CodePipeline.
 
@@ -3153,21 +7629,21 @@ class CrossRegionSupport:
         }
 
     @builtins.property
-    def replication_bucket(self) -> _IBucket_42e086fd:
+    def replication_bucket(self) -> "_IBucket_42e086fd":
         '''The replication Bucket used by CodePipeline to operate in this region.
 
         Belongs to ``stack``.
         '''
         result = self._values.get("replication_bucket")
         assert result is not None, "Required property 'replication_bucket' is missing"
-        return typing.cast(_IBucket_42e086fd, result)
+        return typing.cast("_IBucket_42e086fd", result)
 
     @builtins.property
-    def stack(self) -> _Stack_2866e57f:
+    def stack(self) -> "_Stack_2866e57f":
         '''The Stack that has been created to house the replication Bucket required for this  region.'''
         result = self._values.get("stack")
         assert result is not None, "Required property 'stack' is missing"
-        return typing.cast(_Stack_2866e57f, result)
+        return typing.cast("_Stack_2866e57f", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3387,13 +7863,13 @@ class CustomActionRegistration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        artifact_bounds: typing.Union[ActionArtifactBounds, typing.Dict[builtins.str, typing.Any]],
-        category: ActionCategory,
+        artifact_bounds: typing.Union["ActionArtifactBounds", typing.Dict[builtins.str, typing.Any]],
+        category: "ActionCategory",
         provider: builtins.str,
-        action_properties: typing.Optional[typing.Sequence[typing.Union[CustomActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        action_properties: typing.Optional[typing.Sequence[typing.Union["CustomActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         entity_url: typing.Optional[builtins.str] = None,
         execution_url: typing.Optional[builtins.str] = None,
         version: typing.Optional[builtins.str] = None,
@@ -3443,10 +7919,10 @@ class CustomActionRegistrationProps:
     def __init__(
         self,
         *,
-        artifact_bounds: typing.Union[ActionArtifactBounds, typing.Dict[builtins.str, typing.Any]],
-        category: ActionCategory,
+        artifact_bounds: typing.Union["ActionArtifactBounds", typing.Dict[builtins.str, typing.Any]],
+        category: "ActionCategory",
         provider: builtins.str,
-        action_properties: typing.Optional[typing.Sequence[typing.Union[CustomActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        action_properties: typing.Optional[typing.Sequence[typing.Union["CustomActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         entity_url: typing.Optional[builtins.str] = None,
         execution_url: typing.Optional[builtins.str] = None,
         version: typing.Optional[builtins.str] = None,
@@ -3519,18 +7995,18 @@ class CustomActionRegistrationProps:
             self._values["version"] = version
 
     @builtins.property
-    def artifact_bounds(self) -> ActionArtifactBounds:
+    def artifact_bounds(self) -> "ActionArtifactBounds":
         '''The artifact bounds of the Action.'''
         result = self._values.get("artifact_bounds")
         assert result is not None, "Required property 'artifact_bounds' is missing"
-        return typing.cast(ActionArtifactBounds, result)
+        return typing.cast("ActionArtifactBounds", result)
 
     @builtins.property
-    def category(self) -> ActionCategory:
+    def category(self) -> "ActionCategory":
         '''The category of the Action.'''
         result = self._values.get("category")
         assert result is not None, "Required property 'category' is missing"
-        return typing.cast(ActionCategory, result)
+        return typing.cast("ActionCategory", result)
 
     @builtins.property
     def provider(self) -> builtins.str:
@@ -3543,13 +8019,13 @@ class CustomActionRegistrationProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def action_properties(self) -> typing.Optional[typing.List[CustomActionProperty]]:
+    def action_properties(self) -> typing.Optional[typing.List["CustomActionProperty"]]:
         '''The properties used for customizing the instance of your Action.
 
         :default: []
         '''
         result = self._values.get("action_properties")
-        return typing.cast(typing.Optional[typing.List[CustomActionProperty]], result)
+        return typing.cast(typing.Optional[typing.List["CustomActionProperty"]], result)
 
     @builtins.property
     def entity_url(self) -> typing.Optional[builtins.str]:
@@ -3586,87 +8062,6 @@ class CustomActionRegistrationProps:
 
     def __repr__(self) -> str:
         return "CustomActionRegistrationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_codepipeline.CustomActionTypeReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "category": "category",
-        "provider": "provider",
-        "version": "version",
-    },
-)
-class CustomActionTypeReference:
-    def __init__(
-        self,
-        *,
-        category: builtins.str,
-        provider: builtins.str,
-        version: builtins.str,
-    ) -> None:
-        '''A reference to a CustomActionType resource.
-
-        :param category: The Category of the CustomActionType resource.
-        :param provider: The Provider of the CustomActionType resource.
-        :param version: The Version of the CustomActionType resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_codepipeline as codepipeline
-            
-            custom_action_type_reference = codepipeline.CustomActionTypeReference(
-                category="category",
-                provider="provider",
-                version="version"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d3b6b7af14a54893153389618d9bd18fbf389bae779bbd6d81a0fe7f0fa8aeb)
-            check_type(argname="argument category", value=category, expected_type=type_hints["category"])
-            check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "category": category,
-            "provider": provider,
-            "version": version,
-        }
-
-    @builtins.property
-    def category(self) -> builtins.str:
-        '''The Category of the CustomActionType resource.'''
-        result = self._values.get("category")
-        assert result is not None, "Required property 'category' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def provider(self) -> builtins.str:
-        '''The Provider of the CustomActionType resource.'''
-        result = self._values.get("provider")
-        assert result is not None, "Required property 'provider' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def version(self) -> builtins.str:
-        '''The Version of the CustomActionType resource.'''
-        result = self._values.get("version")
-        assert result is not None, "Required property 'version' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CustomActionTypeReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -3723,7 +8118,7 @@ class FailureConditions(Conditions):
     def __init__(
         self,
         *,
-        conditions: typing.Optional[typing.Sequence[typing.Union[Condition, typing.Dict[builtins.str, typing.Any]]]] = None,
+        conditions: typing.Optional[typing.Sequence[typing.Union["Condition", typing.Dict[builtins.str, typing.Any]]]] = None,
         result: typing.Optional["Result"] = None,
         retry_mode: typing.Optional["RetryMode"] = None,
     ) -> None:
@@ -3813,13 +8208,13 @@ class FailureConditions(Conditions):
             self._values["retry_mode"] = retry_mode
 
     @builtins.property
-    def conditions(self) -> typing.Optional[typing.List[Condition]]:
+    def conditions(self) -> typing.Optional[typing.List["Condition"]]:
         '''The conditions that are configured as entry conditions, making check to succeed the stage, or fail the stage.
 
         :default: - No conditions are configured
         '''
         result = self._values.get("conditions")
-        return typing.cast(typing.Optional[typing.List[Condition]], result)
+        return typing.cast(typing.Optional[typing.List["Condition"]], result)
 
     @builtins.property
     def result(self) -> typing.Optional["Result"]:
@@ -4031,7 +8426,7 @@ class GitPullRequestFilter:
         *,
         branches_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         branches_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        events: typing.Optional[typing.Sequence[GitPullRequestEvent]] = None,
+        events: typing.Optional[typing.Sequence["GitPullRequestEvent"]] = None,
         file_paths_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         file_paths_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -4107,13 +8502,13 @@ class GitPullRequestFilter:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def events(self) -> typing.Optional[typing.List[GitPullRequestEvent]]:
+    def events(self) -> typing.Optional[typing.List["GitPullRequestEvent"]]:
         '''The field that specifies which pull request events to filter on (opened, updated, closed) for the trigger configuration.
 
         :default: - all events.
         '''
         result = self._values.get("events")
-        return typing.cast(typing.Optional[typing.List[GitPullRequestEvent]], result)
+        return typing.cast(typing.Optional[typing.List["GitPullRequestEvent"]], result)
 
     @builtins.property
     def file_paths_excludes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4364,7 +8759,7 @@ class IAction(typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="actionProperties")
-    def action_properties(self) -> ActionProperties:
+    def action_properties(self) -> "ActionProperties":
         '''The simple properties of the Action, like its Owner, name, etc.
 
         Note that this accessor will be called before the ``bind`` callback.
@@ -4374,12 +8769,12 @@ class IAction(typing_extensions.Protocol):
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         stage: "IStage",
         *,
-        bucket: _IBucket_42e086fd,
-        role: _IRole_235f5d8e,
-    ) -> ActionConfig:
+        bucket: "_IBucket_42e086fd",
+        role: "_IRole_235f5d8e",
+    ) -> "ActionConfig":
         '''The callback invoked when this Action is added to a Pipeline.
 
         :param scope: the Construct tree scope the Action can use if it needs to create any resources.
@@ -4393,18 +8788,18 @@ class IAction(typing_extensions.Protocol):
     def on_state_change(
         self,
         name: builtins.str,
-        target: typing.Optional[_IRuleTarget_7a91f454] = None,
+        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
         *,
         enabled: typing.Optional[builtins.bool] = None,
-        event_bus: typing.Optional[_IEventBus_88d13111] = None,
-        role: typing.Optional[_IRoleRef_613dafc2] = None,
-        schedule: typing.Optional[_Schedule_c151d01f] = None,
-        targets: typing.Optional[typing.Sequence[_IRuleTarget_7a91f454]] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        event_bus: typing.Optional["_IEventBusRef_aa86e9b4"] = None,
+        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        schedule: typing.Optional["_Schedule_c151d01f"] = None,
+        targets: typing.Optional[typing.Sequence["_IRuleTarget_7a91f454"]] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _Rule_334ed2b5:
+    ) -> "_Rule_334ed2b5":
         '''Creates an Event that will be triggered whenever the state of this Action changes.
 
         :param name: the name to use for the new Event.
@@ -4434,22 +8829,22 @@ class _IActionProxy:
 
     @builtins.property
     @jsii.member(jsii_name="actionProperties")
-    def action_properties(self) -> ActionProperties:
+    def action_properties(self) -> "ActionProperties":
         '''The simple properties of the Action, like its Owner, name, etc.
 
         Note that this accessor will be called before the ``bind`` callback.
         '''
-        return typing.cast(ActionProperties, jsii.get(self, "actionProperties"))
+        return typing.cast("ActionProperties", jsii.get(self, "actionProperties"))
 
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         stage: "IStage",
         *,
-        bucket: _IBucket_42e086fd,
-        role: _IRole_235f5d8e,
-    ) -> ActionConfig:
+        bucket: "_IBucket_42e086fd",
+        role: "_IRole_235f5d8e",
+    ) -> "ActionConfig":
         '''The callback invoked when this Action is added to a Pipeline.
 
         :param scope: the Construct tree scope the Action can use if it needs to create any resources.
@@ -4463,24 +8858,24 @@ class _IActionProxy:
             check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
         options = ActionBindOptions(bucket=bucket, role=role)
 
-        return typing.cast(ActionConfig, jsii.invoke(self, "bind", [scope, stage, options]))
+        return typing.cast("ActionConfig", jsii.invoke(self, "bind", [scope, stage, options]))
 
     @jsii.member(jsii_name="onStateChange")
     def on_state_change(
         self,
         name: builtins.str,
-        target: typing.Optional[_IRuleTarget_7a91f454] = None,
+        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
         *,
         enabled: typing.Optional[builtins.bool] = None,
-        event_bus: typing.Optional[_IEventBus_88d13111] = None,
-        role: typing.Optional[_IRoleRef_613dafc2] = None,
-        schedule: typing.Optional[_Schedule_c151d01f] = None,
-        targets: typing.Optional[typing.Sequence[_IRuleTarget_7a91f454]] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        event_bus: typing.Optional["_IEventBusRef_aa86e9b4"] = None,
+        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        schedule: typing.Optional["_Schedule_c151d01f"] = None,
+        targets: typing.Optional[typing.Sequence["_IRuleTarget_7a91f454"]] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _Rule_334ed2b5:
+    ) -> "_Rule_334ed2b5":
         '''Creates an Event that will be triggered whenever the state of this Action changes.
 
         :param name: the name to use for the new Event.
@@ -4511,55 +8906,16 @@ class _IActionProxy:
             rule_name=rule_name,
         )
 
-        return typing.cast(_Rule_334ed2b5, jsii.invoke(self, "onStateChange", [name, target, options]))
+        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onStateChange", [name, target, options]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAction).__jsii_proxy_class__ = lambda : _IActionProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_codepipeline.ICustomActionTypeRef")
-class ICustomActionTypeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a CustomActionType.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="customActionTypeRef")
-    def custom_action_type_ref(self) -> CustomActionTypeReference:
-        '''(experimental) A reference to a CustomActionType resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICustomActionTypeRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a CustomActionType.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_codepipeline.ICustomActionTypeRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="customActionTypeRef")
-    def custom_action_type_ref(self) -> CustomActionTypeReference:
-        '''(experimental) A reference to a CustomActionType resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CustomActionTypeReference, jsii.get(self, "customActionTypeRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICustomActionTypeRef).__jsii_proxy_class__ = lambda : _ICustomActionTypeRefProxy
-
-
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codepipeline.IPipeline")
 class IPipeline(
     _IResource_c80c4260,
+    _IPipelineRef_fb1b56f9,
     _INotificationRuleSource_10482823,
     typing_extensions.Protocol,
 ):
@@ -4591,14 +8947,14 @@ class IPipeline(
     def notify_on(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         events: typing.Sequence["PipelineNotificationEvents"],
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Defines a CodeStar notification rule triggered when the pipeline events emitted by you specified, it very similar to ``onEvent`` API.
 
         You can also use the methods ``notifyOnExecutionStateChange``, ``notifyOnAnyStageStateChange``,
@@ -4621,13 +8977,13 @@ class IPipeline(
     def notify_on_any_action_state_change(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Define an notification rule triggered by the set of the "Action execution" events emitted from this pipeline.
 
         :param id: Identifier for this notification handler.
@@ -4645,13 +9001,13 @@ class IPipeline(
     def notify_on_any_manual_approval_state_change(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Define an notification rule triggered by the set of the "Manual approval" events emitted from this pipeline.
 
         :param id: Identifier for this notification handler.
@@ -4669,13 +9025,13 @@ class IPipeline(
     def notify_on_any_stage_state_change(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Define an notification rule triggered by the set of the "Stage execution" events emitted from this pipeline.
 
         :param id: Identifier for this notification handler.
@@ -4693,13 +9049,13 @@ class IPipeline(
     def notify_on_execution_state_change(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Define an notification rule triggered by the set of the "Pipeline execution" events emitted from this pipeline.
 
         :param id: Identifier for this notification handler.
@@ -4718,12 +9074,12 @@ class IPipeline(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_IRuleTarget_7a91f454] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _Rule_334ed2b5:
+    ) -> "_Rule_334ed2b5":
         '''Define an event rule triggered by this CodePipeline.
 
         :param id: Identifier for this event handler.
@@ -4740,12 +9096,12 @@ class IPipeline(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_IRuleTarget_7a91f454] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _Rule_334ed2b5:
+    ) -> "_Rule_334ed2b5":
         '''Define an event rule triggered by the "CodePipeline Pipeline Execution State Change" event emitted from this pipeline.
 
         :param id: Identifier for this event handler.
@@ -4760,6 +9116,7 @@ class IPipeline(
 
 class _IPipelineProxy(
     jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_IPipelineRef_fb1b56f9), # type: ignore[misc]
     jsii.proxy_for(_INotificationRuleSource_10482823), # type: ignore[misc]
 ):
     '''The abstract view of an AWS CodePipeline as required and used by Actions.
@@ -4792,14 +9149,14 @@ class _IPipelineProxy(
     def notify_on(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         events: typing.Sequence["PipelineNotificationEvents"],
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Defines a CodeStar notification rule triggered when the pipeline events emitted by you specified, it very similar to ``onEvent`` API.
 
         You can also use the methods ``notifyOnExecutionStateChange``, ``notifyOnAnyStageStateChange``,
@@ -4828,19 +9185,19 @@ class _IPipelineProxy(
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast(_INotificationRule_71939426, jsii.invoke(self, "notifyOn", [id, target, options]))
+        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOn", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnAnyActionStateChange")
     def notify_on_any_action_state_change(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Define an notification rule triggered by the set of the "Action execution" events emitted from this pipeline.
 
         :param id: Identifier for this notification handler.
@@ -4863,19 +9220,19 @@ class _IPipelineProxy(
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast(_INotificationRule_71939426, jsii.invoke(self, "notifyOnAnyActionStateChange", [id, target, options]))
+        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnAnyActionStateChange", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnAnyManualApprovalStateChange")
     def notify_on_any_manual_approval_state_change(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Define an notification rule triggered by the set of the "Manual approval" events emitted from this pipeline.
 
         :param id: Identifier for this notification handler.
@@ -4898,19 +9255,19 @@ class _IPipelineProxy(
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast(_INotificationRule_71939426, jsii.invoke(self, "notifyOnAnyManualApprovalStateChange", [id, target, options]))
+        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnAnyManualApprovalStateChange", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnAnyStageStateChange")
     def notify_on_any_stage_state_change(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Define an notification rule triggered by the set of the "Stage execution" events emitted from this pipeline.
 
         :param id: Identifier for this notification handler.
@@ -4933,19 +9290,19 @@ class _IPipelineProxy(
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast(_INotificationRule_71939426, jsii.invoke(self, "notifyOnAnyStageStateChange", [id, target, options]))
+        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnAnyStageStateChange", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnExecutionStateChange")
     def notify_on_execution_state_change(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Define an notification rule triggered by the set of the "Pipeline execution" events emitted from this pipeline.
 
         :param id: Identifier for this notification handler.
@@ -4968,19 +9325,19 @@ class _IPipelineProxy(
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast(_INotificationRule_71939426, jsii.invoke(self, "notifyOnExecutionStateChange", [id, target, options]))
+        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnExecutionStateChange", [id, target, options]))
 
     @jsii.member(jsii_name="onEvent")
     def on_event(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_IRuleTarget_7a91f454] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _Rule_334ed2b5:
+    ) -> "_Rule_334ed2b5":
         '''Define an event rule triggered by this CodePipeline.
 
         :param id: Identifier for this event handler.
@@ -5001,19 +9358,19 @@ class _IPipelineProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast(_Rule_334ed2b5, jsii.invoke(self, "onEvent", [id, options]))
+        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onEvent", [id, options]))
 
     @jsii.member(jsii_name="onStateChange")
     def on_state_change(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_IRuleTarget_7a91f454] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _Rule_334ed2b5:
+    ) -> "_Rule_334ed2b5":
         '''Define an event rule triggered by the "CodePipeline Pipeline Execution State Change" event emitted from this pipeline.
 
         :param id: Identifier for this event handler.
@@ -5034,50 +9391,10 @@ class _IPipelineProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast(_Rule_334ed2b5, jsii.invoke(self, "onStateChange", [id, options]))
+        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onStateChange", [id, options]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IPipeline).__jsii_proxy_class__ = lambda : _IPipelineProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_codepipeline.IPipelineRef")
-class IPipelineRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Pipeline.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="pipelineRef")
-    def pipeline_ref(self) -> "PipelineReference":
-        '''(experimental) A reference to a Pipeline resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IPipelineRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Pipeline.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_codepipeline.IPipelineRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="pipelineRef")
-    def pipeline_ref(self) -> "PipelineReference":
-        '''(experimental) A reference to a Pipeline resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("PipelineReference", jsii.get(self, "pipelineRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IPipelineRef).__jsii_proxy_class__ = lambda : _IPipelineRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codepipeline.IStage")
@@ -5086,13 +9403,13 @@ class IStage(typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="actions")
-    def actions(self) -> typing.List[IAction]:
+    def actions(self) -> typing.List["IAction"]:
         '''The actions belonging to this stage.'''
         ...
 
     @builtins.property
     @jsii.member(jsii_name="pipeline")
-    def pipeline(self) -> IPipeline:
+    def pipeline(self) -> "IPipeline":
         ...
 
     @builtins.property
@@ -5102,7 +9419,7 @@ class IStage(typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="addAction")
-    def add_action(self, action: IAction) -> None:
+    def add_action(self, action: "IAction") -> None:
         '''
         :param action: -
         '''
@@ -5112,18 +9429,18 @@ class IStage(typing_extensions.Protocol):
     def on_state_change(
         self,
         name: builtins.str,
-        target: typing.Optional[_IRuleTarget_7a91f454] = None,
+        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
         *,
         enabled: typing.Optional[builtins.bool] = None,
-        event_bus: typing.Optional[_IEventBus_88d13111] = None,
-        role: typing.Optional[_IRoleRef_613dafc2] = None,
-        schedule: typing.Optional[_Schedule_c151d01f] = None,
-        targets: typing.Optional[typing.Sequence[_IRuleTarget_7a91f454]] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        event_bus: typing.Optional["_IEventBusRef_aa86e9b4"] = None,
+        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        schedule: typing.Optional["_Schedule_c151d01f"] = None,
+        targets: typing.Optional[typing.Sequence["_IRuleTarget_7a91f454"]] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _Rule_334ed2b5:
+    ) -> "_Rule_334ed2b5":
         '''
         :param name: -
         :param target: -
@@ -5147,14 +9464,14 @@ class _IStageProxy:
 
     @builtins.property
     @jsii.member(jsii_name="actions")
-    def actions(self) -> typing.List[IAction]:
+    def actions(self) -> typing.List["IAction"]:
         '''The actions belonging to this stage.'''
-        return typing.cast(typing.List[IAction], jsii.get(self, "actions"))
+        return typing.cast(typing.List["IAction"], jsii.get(self, "actions"))
 
     @builtins.property
     @jsii.member(jsii_name="pipeline")
-    def pipeline(self) -> IPipeline:
-        return typing.cast(IPipeline, jsii.get(self, "pipeline"))
+    def pipeline(self) -> "IPipeline":
+        return typing.cast("IPipeline", jsii.get(self, "pipeline"))
 
     @builtins.property
     @jsii.member(jsii_name="stageName")
@@ -5163,7 +9480,7 @@ class _IStageProxy:
         return typing.cast(builtins.str, jsii.get(self, "stageName"))
 
     @jsii.member(jsii_name="addAction")
-    def add_action(self, action: IAction) -> None:
+    def add_action(self, action: "IAction") -> None:
         '''
         :param action: -
         '''
@@ -5176,18 +9493,18 @@ class _IStageProxy:
     def on_state_change(
         self,
         name: builtins.str,
-        target: typing.Optional[_IRuleTarget_7a91f454] = None,
+        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
         *,
         enabled: typing.Optional[builtins.bool] = None,
-        event_bus: typing.Optional[_IEventBus_88d13111] = None,
-        role: typing.Optional[_IRoleRef_613dafc2] = None,
-        schedule: typing.Optional[_Schedule_c151d01f] = None,
-        targets: typing.Optional[typing.Sequence[_IRuleTarget_7a91f454]] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        event_bus: typing.Optional["_IEventBusRef_aa86e9b4"] = None,
+        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        schedule: typing.Optional["_Schedule_c151d01f"] = None,
+        targets: typing.Optional[typing.Sequence["_IRuleTarget_7a91f454"]] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _Rule_334ed2b5:
+    ) -> "_Rule_334ed2b5":
         '''
         :param name: -
         :param target: -
@@ -5217,50 +9534,10 @@ class _IStageProxy:
             rule_name=rule_name,
         )
 
-        return typing.cast(_Rule_334ed2b5, jsii.invoke(self, "onStateChange", [name, target, options]))
+        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onStateChange", [name, target, options]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IStage).__jsii_proxy_class__ = lambda : _IStageProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_codepipeline.IWebhookRef")
-class IWebhookRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Webhook.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="webhookRef")
-    def webhook_ref(self) -> "WebhookReference":
-        '''(experimental) A reference to a Webhook resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IWebhookRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Webhook.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_codepipeline.IWebhookRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="webhookRef")
-    def webhook_ref(self) -> "WebhookReference":
-        '''(experimental) A reference to a Webhook resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("WebhookReference", jsii.get(self, "webhookRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IWebhookRef).__jsii_proxy_class__ = lambda : _IWebhookRefProxy
 
 
 @jsii.implements(IPipeline)
@@ -5294,19 +9571,19 @@ class Pipeline(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        artifact_bucket: typing.Optional[_IBucket_42e086fd] = None,
+        artifact_bucket: typing.Optional["_IBucket_42e086fd"] = None,
         cross_account_keys: typing.Optional[builtins.bool] = None,
-        cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, _IBucket_42e086fd]] = None,
+        cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, "_IBucket_42e086fd"]] = None,
         enable_key_rotation: typing.Optional[builtins.bool] = None,
-        execution_mode: typing.Optional[ExecutionMode] = None,
+        execution_mode: typing.Optional["ExecutionMode"] = None,
         pipeline_name: typing.Optional[builtins.str] = None,
         pipeline_type: typing.Optional["PipelineType"] = None,
         restart_execution_on_update: typing.Optional[builtins.bool] = None,
         reuse_cross_region_support_stacks: typing.Optional[builtins.bool] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
         stages: typing.Optional[typing.Sequence[typing.Union["StageProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         triggers: typing.Optional[typing.Sequence[typing.Union["TriggerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         use_pipeline_role_for_actions: typing.Optional[builtins.bool] = None,
@@ -5357,10 +9634,10 @@ class Pipeline(
     @builtins.classmethod
     def from_pipeline_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         pipeline_arn: builtins.str,
-    ) -> IPipeline:
+    ) -> "IPipeline":
         '''Import a pipeline into this app.
 
         :param scope: the scope into which to import this pipeline.
@@ -5372,7 +9649,7 @@ class Pipeline(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument pipeline_arn", value=pipeline_arn, expected_type=type_hints["pipeline_arn"])
-        return typing.cast(IPipeline, jsii.sinvoke(cls, "fromPipelineArn", [scope, id, pipeline_arn]))
+        return typing.cast("IPipeline", jsii.sinvoke(cls, "fromPipelineArn", [scope, id, pipeline_arn]))
 
     @jsii.member(jsii_name="addStage")
     def add_stage(
@@ -5380,13 +9657,13 @@ class Pipeline(
         *,
         placement: typing.Optional[typing.Union["StagePlacement", typing.Dict[builtins.str, typing.Any]]] = None,
         stage_name: builtins.str,
-        actions: typing.Optional[typing.Sequence[IAction]] = None,
-        before_entry: typing.Optional[typing.Union[Conditions, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[typing.Union[FailureConditions, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_success: typing.Optional[typing.Union[Conditions, typing.Dict[builtins.str, typing.Any]]] = None,
+        actions: typing.Optional[typing.Sequence["IAction"]] = None,
+        before_entry: typing.Optional[typing.Union["Conditions", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_failure: typing.Optional[typing.Union["FailureConditions", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_success: typing.Optional[typing.Union["Conditions", typing.Dict[builtins.str, typing.Any]]] = None,
         transition_disabled_reason: typing.Optional[builtins.str] = None,
         transition_to_enabled: typing.Optional[builtins.bool] = None,
-    ) -> IStage:
+    ) -> "IStage":
         '''Creates a new Stage, and adds it to this Pipeline.
 
         :param placement: 
@@ -5411,10 +9688,10 @@ class Pipeline(
             transition_to_enabled=transition_to_enabled,
         )
 
-        return typing.cast(IStage, jsii.invoke(self, "addStage", [props]))
+        return typing.cast("IStage", jsii.invoke(self, "addStage", [props]))
 
     @jsii.member(jsii_name="addToRolePolicy")
-    def add_to_role_policy(self, statement: _PolicyStatement_0fe33853) -> None:
+    def add_to_role_policy(self, statement: "_PolicyStatement_0fe33853") -> None:
         '''Adds a statement to the pipeline role.
 
         :param statement: -
@@ -5429,7 +9706,7 @@ class Pipeline(
         self,
         *,
         provider_type: "ProviderType",
-        git_configuration: typing.Optional[typing.Union[GitConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_configuration: typing.Optional[typing.Union["GitConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "Trigger":
         '''Adds a new Trigger to this Pipeline.
 
@@ -5460,8 +9737,8 @@ class Pipeline(
     @jsii.member(jsii_name="bindAsNotificationRuleSource")
     def bind_as_notification_rule_source(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
-    ) -> _NotificationRuleSourceConfig_20189a3e:
+        _scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_NotificationRuleSourceConfig_20189a3e":
         '''Returns a source configuration for notification rule.
 
         :param _scope: -
@@ -5469,20 +9746,20 @@ class Pipeline(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__426062ddd10eb07a3be4ad55dd0fe3c2b81732bcdb5a244b2ec7d40db4605efc)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
-        return typing.cast(_NotificationRuleSourceConfig_20189a3e, jsii.invoke(self, "bindAsNotificationRuleSource", [_scope]))
+        return typing.cast("_NotificationRuleSourceConfig_20189a3e", jsii.invoke(self, "bindAsNotificationRuleSource", [_scope]))
 
     @jsii.member(jsii_name="notifyOn")
     def notify_on(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         events: typing.Sequence["PipelineNotificationEvents"],
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Defines a CodeStar notification rule triggered when the pipeline events emitted by you specified, it very similar to ``onEvent`` API.
 
         You can also use the methods ``notifyOnExecutionStateChange``, ``notifyOnAnyStageStateChange``,
@@ -5509,19 +9786,19 @@ class Pipeline(
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast(_INotificationRule_71939426, jsii.invoke(self, "notifyOn", [id, target, options]))
+        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOn", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnAnyActionStateChange")
     def notify_on_any_action_state_change(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Define an notification rule triggered by the set of the "Action execution" events emitted from this pipeline.
 
         :param id: -
@@ -5542,19 +9819,19 @@ class Pipeline(
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast(_INotificationRule_71939426, jsii.invoke(self, "notifyOnAnyActionStateChange", [id, target, options]))
+        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnAnyActionStateChange", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnAnyManualApprovalStateChange")
     def notify_on_any_manual_approval_state_change(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Define an notification rule triggered by the set of the "Manual approval" events emitted from this pipeline.
 
         :param id: -
@@ -5575,19 +9852,19 @@ class Pipeline(
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast(_INotificationRule_71939426, jsii.invoke(self, "notifyOnAnyManualApprovalStateChange", [id, target, options]))
+        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnAnyManualApprovalStateChange", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnAnyStageStateChange")
     def notify_on_any_stage_state_change(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Define an notification rule triggered by the set of the "Stage execution" events emitted from this pipeline.
 
         :param id: -
@@ -5608,19 +9885,19 @@ class Pipeline(
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast(_INotificationRule_71939426, jsii.invoke(self, "notifyOnAnyStageStateChange", [id, target, options]))
+        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnAnyStageStateChange", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnExecutionStateChange")
     def notify_on_execution_state_change(
         self,
         id: builtins.str,
-        target: _INotificationRuleTarget_faa3b79b,
+        target: "_INotificationRuleTarget_faa3b79b",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> _INotificationRule_71939426:
+    ) -> "_INotificationRule_71939426":
         '''Define an notification rule triggered by the set of the "Pipeline execution" events emitted from this pipeline.
 
         :param id: -
@@ -5641,19 +9918,19 @@ class Pipeline(
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast(_INotificationRule_71939426, jsii.invoke(self, "notifyOnExecutionStateChange", [id, target, options]))
+        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnExecutionStateChange", [id, target, options]))
 
     @jsii.member(jsii_name="onEvent")
     def on_event(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_IRuleTarget_7a91f454] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _Rule_334ed2b5:
+    ) -> "_Rule_334ed2b5":
         '''Defines an event rule triggered by this CodePipeline.
 
         :param id: Identifier for this event handler.
@@ -5674,19 +9951,19 @@ class Pipeline(
             rule_name=rule_name,
         )
 
-        return typing.cast(_Rule_334ed2b5, jsii.invoke(self, "onEvent", [id, options]))
+        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onEvent", [id, options]))
 
     @jsii.member(jsii_name="onStateChange")
     def on_state_change(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_IRuleTarget_7a91f454] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _Rule_334ed2b5:
+    ) -> "_Rule_334ed2b5":
         '''Defines an event rule triggered by the "CodePipeline Pipeline Execution State Change" event emitted from this pipeline.
 
         :param id: Identifier for this event handler.
@@ -5707,10 +9984,10 @@ class Pipeline(
             rule_name=rule_name,
         )
 
-        return typing.cast(_Rule_334ed2b5, jsii.invoke(self, "onStateChange", [id, options]))
+        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onStateChange", [id, options]))
 
     @jsii.member(jsii_name="stage")
-    def stage(self, stage_name: builtins.str) -> IStage:
+    def stage(self, stage_name: builtins.str) -> "IStage":
         '''Access one of the pipeline's stages by stage name.
 
         :param stage_name: -
@@ -5718,7 +9995,7 @@ class Pipeline(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe3129dc544ee80782ab12928d846fc8298b3a84c6755877b473b38e9022fca4)
             check_type(argname="argument stage_name", value=stage_name, expected_type=type_hints["stage_name"])
-        return typing.cast(IStage, jsii.invoke(self, "stage", [stage_name]))
+        return typing.cast("IStage", jsii.invoke(self, "stage", [stage_name]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -5728,15 +10005,17 @@ class Pipeline(
 
     @builtins.property
     @jsii.member(jsii_name="artifactBucket")
-    def artifact_bucket(self) -> _IBucket_42e086fd:
+    def artifact_bucket(self) -> "_IBucket_42e086fd":
         '''Bucket used to store output artifacts.'''
-        return typing.cast(_IBucket_42e086fd, jsii.get(self, "artifactBucket"))
+        return typing.cast("_IBucket_42e086fd", jsii.get(self, "artifactBucket"))
 
     @builtins.property
     @jsii.member(jsii_name="crossRegionSupport")
-    def cross_region_support(self) -> typing.Mapping[builtins.str, CrossRegionSupport]:
+    def cross_region_support(
+        self,
+    ) -> typing.Mapping[builtins.str, "CrossRegionSupport"]:
         '''Returns all of the ``CrossRegionSupportStack``s that were generated automatically when dealing with Actions that reside in a different region than the Pipeline itself.'''
-        return typing.cast(typing.Mapping[builtins.str, CrossRegionSupport], jsii.get(self, "crossRegionSupport"))
+        return typing.cast(typing.Mapping[builtins.str, "CrossRegionSupport"], jsii.get(self, "crossRegionSupport"))
 
     @builtins.property
     @jsii.member(jsii_name="pipelineArn")
@@ -5751,6 +10030,12 @@ class Pipeline(
         return typing.cast(builtins.str, jsii.get(self, "pipelineName"))
 
     @builtins.property
+    @jsii.member(jsii_name="pipelineRef")
+    def pipeline_ref(self) -> "_PipelineReference_0706267b":
+        '''A reference to a Pipeline resource.'''
+        return typing.cast("_PipelineReference_0706267b", jsii.get(self, "pipelineRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="pipelineVersion")
     def pipeline_version(self) -> builtins.str:
         '''The version of the pipeline.
@@ -5761,9 +10046,9 @@ class Pipeline(
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> _IRole_235f5d8e:
+    def role(self) -> "_IRole_235f5d8e":
         '''The IAM role AWS CodePipeline will use to perform actions or assume roles for actions with a more specific IAM role.'''
-        return typing.cast(_IRole_235f5d8e, jsii.get(self, "role"))
+        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
 
     @builtins.property
     @jsii.member(jsii_name="stageCount")
@@ -5773,7 +10058,7 @@ class Pipeline(
 
     @builtins.property
     @jsii.member(jsii_name="stages")
-    def stages(self) -> typing.List[IStage]:
+    def stages(self) -> typing.List["IStage"]:
         '''Returns the stages that comprise the pipeline.
 
         **Note**: the returned array is a defensive copy,
@@ -5781,7 +10066,7 @@ class Pipeline(
         Instead, use the ``addStage`` method if you want to add more stages
         to the pipeline.
         '''
-        return typing.cast(typing.List[IStage], jsii.get(self, "stages"))
+        return typing.cast(typing.List["IStage"], jsii.get(self, "stages"))
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_codepipeline.PipelineNotificationEvents")
@@ -5845,10 +10130,10 @@ class PipelineNotifyOnOptions(_NotificationRuleOptions_dff73281):
         self,
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-        events: typing.Sequence[PipelineNotificationEvents],
+        events: typing.Sequence["PipelineNotificationEvents"],
     ) -> None:
         '''Additional options to pass to the notification rule.
 
@@ -5908,7 +10193,7 @@ class PipelineNotifyOnOptions(_NotificationRuleOptions_dff73281):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def detail_type(self) -> typing.Optional[_DetailType_cf8135e7]:
+    def detail_type(self) -> typing.Optional["_DetailType_cf8135e7"]:
         '''The level of detail to include in the notifications for this resource.
 
         BASIC will include only the contents of the event as it would appear in AWS CloudWatch.
@@ -5917,7 +10202,7 @@ class PipelineNotifyOnOptions(_NotificationRuleOptions_dff73281):
         :default: DetailType.FULL
         '''
         result = self._values.get("detail_type")
-        return typing.cast(typing.Optional[_DetailType_cf8135e7], result)
+        return typing.cast(typing.Optional["_DetailType_cf8135e7"], result)
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
@@ -5942,7 +10227,7 @@ class PipelineNotifyOnOptions(_NotificationRuleOptions_dff73281):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def events(self) -> typing.List[PipelineNotificationEvents]:
+    def events(self) -> typing.List["PipelineNotificationEvents"]:
         '''A list of event types associated with this notification rule for CodePipeline Pipeline.
 
         For a complete list of event types and IDs, see Notification concepts in the Developer Tools Console User Guide.
@@ -5951,7 +10236,7 @@ class PipelineNotifyOnOptions(_NotificationRuleOptions_dff73281):
         '''
         result = self._values.get("events")
         assert result is not None, "Required property 'events' is missing"
-        return typing.cast(typing.List[PipelineNotificationEvents], result)
+        return typing.cast(typing.List["PipelineNotificationEvents"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5989,16 +10274,16 @@ class PipelineProps:
     def __init__(
         self,
         *,
-        artifact_bucket: typing.Optional[_IBucket_42e086fd] = None,
+        artifact_bucket: typing.Optional["_IBucket_42e086fd"] = None,
         cross_account_keys: typing.Optional[builtins.bool] = None,
-        cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, _IBucket_42e086fd]] = None,
+        cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, "_IBucket_42e086fd"]] = None,
         enable_key_rotation: typing.Optional[builtins.bool] = None,
-        execution_mode: typing.Optional[ExecutionMode] = None,
+        execution_mode: typing.Optional["ExecutionMode"] = None,
         pipeline_name: typing.Optional[builtins.str] = None,
         pipeline_type: typing.Optional["PipelineType"] = None,
         restart_execution_on_update: typing.Optional[builtins.bool] = None,
         reuse_cross_region_support_stacks: typing.Optional[builtins.bool] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
         stages: typing.Optional[typing.Sequence[typing.Union["StageProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         triggers: typing.Optional[typing.Sequence[typing.Union["TriggerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         use_pipeline_role_for_actions: typing.Optional[builtins.bool] = None,
@@ -6104,13 +10389,13 @@ class PipelineProps:
             self._values["variables"] = variables
 
     @builtins.property
-    def artifact_bucket(self) -> typing.Optional[_IBucket_42e086fd]:
+    def artifact_bucket(self) -> typing.Optional["_IBucket_42e086fd"]:
         '''The S3 bucket used by this Pipeline to store artifacts.
 
         :default: - A new S3 bucket will be created.
         '''
         result = self._values.get("artifact_bucket")
-        return typing.cast(typing.Optional[_IBucket_42e086fd], result)
+        return typing.cast(typing.Optional["_IBucket_42e086fd"], result)
 
     @builtins.property
     def cross_account_keys(self) -> typing.Optional[builtins.bool]:
@@ -6137,7 +10422,7 @@ class PipelineProps:
     @builtins.property
     def cross_region_replication_buckets(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, _IBucket_42e086fd]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_IBucket_42e086fd"]]:
         '''A map of region to S3 bucket name used for cross-region CodePipeline.
 
         For every Action that you specify targeting a different region than the Pipeline itself,
@@ -6147,7 +10432,7 @@ class PipelineProps:
         :default: - None.
         '''
         result = self._values.get("cross_region_replication_buckets")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, _IBucket_42e086fd]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_IBucket_42e086fd"]], result)
 
     @builtins.property
     def enable_key_rotation(self) -> typing.Optional[builtins.bool]:
@@ -6162,13 +10447,13 @@ class PipelineProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def execution_mode(self) -> typing.Optional[ExecutionMode]:
+    def execution_mode(self) -> typing.Optional["ExecutionMode"]:
         '''The method that the pipeline will use to handle multiple executions.
 
         :default: - ExecutionMode.SUPERSEDED
         '''
         result = self._values.get("execution_mode")
-        return typing.cast(typing.Optional[ExecutionMode], result)
+        return typing.cast(typing.Optional["ExecutionMode"], result)
 
     @builtins.property
     def pipeline_name(self) -> typing.Optional[builtins.str]:
@@ -6212,13 +10497,13 @@ class PipelineProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The IAM role to be assumed by this Pipeline.
 
         :default: a new IAM role will be created.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
     def stages(self) -> typing.Optional[typing.List["StageProps"]]:
@@ -6275,55 +10560,6 @@ class PipelineProps:
 
     def __repr__(self) -> str:
         return "PipelineProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_codepipeline.PipelineReference",
-    jsii_struct_bases=[],
-    name_mapping={"pipeline_name": "pipelineName"},
-)
-class PipelineReference:
-    def __init__(self, *, pipeline_name: builtins.str) -> None:
-        '''A reference to a Pipeline resource.
-
-        :param pipeline_name: The Name of the Pipeline resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_codepipeline as codepipeline
-            
-            pipeline_reference = codepipeline.PipelineReference(
-                pipeline_name="pipelineName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd06885306ad6351b4ad05447186af42db69a1706af0ede4e5e8d00944219dda)
-            check_type(argname="argument pipeline_name", value=pipeline_name, expected_type=type_hints["pipeline_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "pipeline_name": pipeline_name,
-        }
-
-    @builtins.property
-    def pipeline_name(self) -> builtins.str:
-        '''The Name of the Pipeline resource.'''
-        result = self._values.get("pipeline_name")
-        assert result is not None, "Required property 'pipeline_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "PipelineReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -6581,7 +10817,7 @@ class Rule(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_codepipeline.Rule
         name: typing.Optional[builtins.str] = None,
         provider: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
-        role: typing.Optional[_Role_e8c6e11f] = None,
+        role: typing.Optional["_Role_e8c6e11f"] = None,
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Creates a new Rule instance.
@@ -6649,7 +10885,7 @@ class RuleProps:
         name: typing.Optional[builtins.str] = None,
         provider: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
-        role: typing.Optional[_Role_e8c6e11f] = None,
+        role: typing.Optional["_Role_e8c6e11f"] = None,
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a CodePipeline Rule.
@@ -6835,7 +11071,7 @@ class RuleProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_Role_e8c6e11f]:
+    def role(self) -> typing.Optional["_Role_e8c6e11f"]:
         '''The IAM role that the rule will use to execute its actions.
 
         The role must have sufficient permissions to perform the rule's tasks.
@@ -6843,7 +11079,7 @@ class RuleProps:
         :default: - A new role will be created
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_Role_e8c6e11f], result)
+        return typing.cast(typing.Optional["_Role_e8c6e11f"], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
@@ -6877,8 +11113,8 @@ class StagePlacement:
     def __init__(
         self,
         *,
-        just_after: typing.Optional[IStage] = None,
-        right_before: typing.Optional[IStage] = None,
+        just_after: typing.Optional["IStage"] = None,
+        right_before: typing.Optional["IStage"] = None,
     ) -> None:
         '''Allows you to control where to place a new Stage when it's added to the Pipeline.
 
@@ -6919,16 +11155,16 @@ class StagePlacement:
             self._values["right_before"] = right_before
 
     @builtins.property
-    def just_after(self) -> typing.Optional[IStage]:
+    def just_after(self) -> typing.Optional["IStage"]:
         '''Inserts the new Stage as a child of the given Stage (changing its current child Stage, if it had one).'''
         result = self._values.get("just_after")
-        return typing.cast(typing.Optional[IStage], result)
+        return typing.cast(typing.Optional["IStage"], result)
 
     @builtins.property
-    def right_before(self) -> typing.Optional[IStage]:
+    def right_before(self) -> typing.Optional["IStage"]:
         '''Inserts the new Stage as a parent of the given Stage (changing its current parent Stage, if it had one).'''
         result = self._values.get("right_before")
-        return typing.cast(typing.Optional[IStage], result)
+        return typing.cast(typing.Optional["IStage"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6960,10 +11196,10 @@ class StageProps:
         self,
         *,
         stage_name: builtins.str,
-        actions: typing.Optional[typing.Sequence[IAction]] = None,
-        before_entry: typing.Optional[typing.Union[Conditions, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[typing.Union[FailureConditions, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_success: typing.Optional[typing.Union[Conditions, typing.Dict[builtins.str, typing.Any]]] = None,
+        actions: typing.Optional[typing.Sequence["IAction"]] = None,
+        before_entry: typing.Optional[typing.Union["Conditions", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_failure: typing.Optional[typing.Union["FailureConditions", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_success: typing.Optional[typing.Union["Conditions", typing.Dict[builtins.str, typing.Any]]] = None,
         transition_disabled_reason: typing.Optional[builtins.str] = None,
         transition_to_enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -7056,40 +11292,40 @@ class StageProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def actions(self) -> typing.Optional[typing.List[IAction]]:
+    def actions(self) -> typing.Optional[typing.List["IAction"]]:
         '''The list of Actions to create this Stage with.
 
         You can always add more Actions later by calling ``IStage#addAction``.
         '''
         result = self._values.get("actions")
-        return typing.cast(typing.Optional[typing.List[IAction]], result)
+        return typing.cast(typing.Optional[typing.List["IAction"]], result)
 
     @builtins.property
-    def before_entry(self) -> typing.Optional[Conditions]:
+    def before_entry(self) -> typing.Optional["Conditions"]:
         '''The method to use when a stage allows entry.
 
         :default: - No conditions are applied before stage entry
         '''
         result = self._values.get("before_entry")
-        return typing.cast(typing.Optional[Conditions], result)
+        return typing.cast(typing.Optional["Conditions"], result)
 
     @builtins.property
-    def on_failure(self) -> typing.Optional[FailureConditions]:
+    def on_failure(self) -> typing.Optional["FailureConditions"]:
         '''The method to use when a stage has not completed successfully.
 
         :default: - No failure conditions are applied
         '''
         result = self._values.get("on_failure")
-        return typing.cast(typing.Optional[FailureConditions], result)
+        return typing.cast(typing.Optional["FailureConditions"], result)
 
     @builtins.property
-    def on_success(self) -> typing.Optional[Conditions]:
+    def on_success(self) -> typing.Optional["Conditions"]:
         '''The method to use when a stage has succeeded.
 
         :default: - No success conditions are applied
         '''
         result = self._values.get("on_success")
-        return typing.cast(typing.Optional[Conditions], result)
+        return typing.cast(typing.Optional["Conditions"], result)
 
     @builtins.property
     def transition_disabled_reason(self) -> typing.Optional[builtins.str]:
@@ -7170,8 +11406,8 @@ class Trigger(
     def __init__(
         self,
         *,
-        provider_type: ProviderType,
-        git_configuration: typing.Optional[typing.Union[GitConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        provider_type: "ProviderType",
+        git_configuration: typing.Optional[typing.Union["GitConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param provider_type: The source provider for the event, such as connections configured for a repository with Git tags, for the specified trigger configuration.
@@ -7185,9 +11421,9 @@ class Trigger(
 
     @builtins.property
     @jsii.member(jsii_name="sourceAction")
-    def source_action(self) -> typing.Optional[IAction]:
+    def source_action(self) -> typing.Optional["IAction"]:
         '''The pipeline source action where the trigger configuration.'''
-        return typing.cast(typing.Optional[IAction], jsii.get(self, "sourceAction"))
+        return typing.cast(typing.Optional["IAction"], jsii.get(self, "sourceAction"))
 
 
 @jsii.data_type(
@@ -7202,8 +11438,8 @@ class TriggerProps:
     def __init__(
         self,
         *,
-        provider_type: ProviderType,
-        git_configuration: typing.Optional[typing.Union[GitConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        provider_type: "ProviderType",
+        git_configuration: typing.Optional[typing.Union["GitConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Properties of trigger.
 
@@ -7242,20 +11478,20 @@ class TriggerProps:
             self._values["git_configuration"] = git_configuration
 
     @builtins.property
-    def provider_type(self) -> ProviderType:
+    def provider_type(self) -> "ProviderType":
         '''The source provider for the event, such as connections configured for a repository with Git tags, for the specified trigger configuration.'''
         result = self._values.get("provider_type")
         assert result is not None, "Required property 'provider_type' is missing"
-        return typing.cast(ProviderType, result)
+        return typing.cast("ProviderType", result)
 
     @builtins.property
-    def git_configuration(self) -> typing.Optional[GitConfiguration]:
+    def git_configuration(self) -> typing.Optional["GitConfiguration"]:
         '''Provides the filter criteria and the source stage for the repository event that starts the pipeline, such as Git tags.
 
         :default: - no configuration.
         '''
         result = self._values.get("git_configuration")
-        return typing.cast(typing.Optional[GitConfiguration], result)
+        return typing.cast(typing.Optional["GitConfiguration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7461,55 +11697,6 @@ class VariableProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_codepipeline.WebhookReference",
-    jsii_struct_bases=[],
-    name_mapping={"webhook_id": "webhookId"},
-)
-class WebhookReference:
-    def __init__(self, *, webhook_id: builtins.str) -> None:
-        '''A reference to a Webhook resource.
-
-        :param webhook_id: The Id of the Webhook resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_codepipeline as codepipeline
-            
-            webhook_reference = codepipeline.WebhookReference(
-                webhook_id="webhookId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__180acc40b2d137eee4715850aa0457d1aa84da7c100e397f9a770889dda763aa)
-            check_type(argname="argument webhook_id", value=webhook_id, expected_type=type_hints["webhook_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "webhook_id": webhook_id,
-        }
-
-    @builtins.property
-    def webhook_id(self) -> builtins.str:
-        '''The Id of the Webhook resource.'''
-        result = self._values.get("webhook_id")
-        assert result is not None, "Required property 'webhook_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "WebhookReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.implements(IAction)
 class Action(
     metaclass=jsii.JSIIAbstractClass,
@@ -7528,12 +11715,12 @@ class Action(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        stage: IStage,
+        scope: "_constructs_77d1e7e8.Construct",
+        stage: "IStage",
         *,
-        bucket: _IBucket_42e086fd,
-        role: _IRole_235f5d8e,
-    ) -> ActionConfig:
+        bucket: "_IBucket_42e086fd",
+        role: "_IRole_235f5d8e",
+    ) -> "ActionConfig":
         '''The callback invoked when this Action is added to a Pipeline.
 
         :param scope: -
@@ -7547,18 +11734,18 @@ class Action(
             check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
         options = ActionBindOptions(bucket=bucket, role=role)
 
-        return typing.cast(ActionConfig, jsii.invoke(self, "bind", [scope, stage, options]))
+        return typing.cast("ActionConfig", jsii.invoke(self, "bind", [scope, stage, options]))
 
     @jsii.member(jsii_name="bound")
     @abc.abstractmethod
     def _bound(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        stage: IStage,
+        scope: "_constructs_77d1e7e8.Construct",
+        stage: "IStage",
         *,
-        bucket: _IBucket_42e086fd,
-        role: _IRole_235f5d8e,
-    ) -> ActionConfig:
+        bucket: "_IBucket_42e086fd",
+        role: "_IRole_235f5d8e",
+    ) -> "ActionConfig":
         '''This is a renamed version of the ``IAction.bind`` method.
 
         :param scope: -
@@ -7572,18 +11759,18 @@ class Action(
     def on_state_change(
         self,
         name: builtins.str,
-        target: typing.Optional[_IRuleTarget_7a91f454] = None,
+        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
         *,
         enabled: typing.Optional[builtins.bool] = None,
-        event_bus: typing.Optional[_IEventBus_88d13111] = None,
-        role: typing.Optional[_IRoleRef_613dafc2] = None,
-        schedule: typing.Optional[_Schedule_c151d01f] = None,
-        targets: typing.Optional[typing.Sequence[_IRuleTarget_7a91f454]] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        event_bus: typing.Optional["_IEventBusRef_aa86e9b4"] = None,
+        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        schedule: typing.Optional["_Schedule_c151d01f"] = None,
+        targets: typing.Optional[typing.Sequence["_IRuleTarget_7a91f454"]] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _Rule_334ed2b5:
+    ) -> "_Rule_334ed2b5":
         '''Creates an Event that will be triggered whenever the state of this Action changes.
 
         :param name: -
@@ -7614,7 +11801,7 @@ class Action(
             rule_name=rule_name,
         )
 
-        return typing.cast(_Rule_334ed2b5, jsii.invoke(self, "onStateChange", [name, target, options]))
+        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onStateChange", [name, target, options]))
 
     @jsii.member(jsii_name="variableExpression")
     def _variable_expression(self, variable_name: builtins.str) -> builtins.str:
@@ -7628,17 +11815,17 @@ class Action(
 
     @builtins.property
     @jsii.member(jsii_name="actionProperties")
-    def action_properties(self) -> ActionProperties:
+    def action_properties(self) -> "ActionProperties":
         '''The simple properties of the Action, like its Owner, name, etc.
 
         Note that this accessor will be called before the ``bind`` callback.
         '''
-        return typing.cast(ActionProperties, jsii.get(self, "actionProperties"))
+        return typing.cast("ActionProperties", jsii.get(self, "actionProperties"))
 
     @builtins.property
     @jsii.member(jsii_name="providedActionProperties")
     @abc.abstractmethod
-    def _provided_action_properties(self) -> ActionProperties:
+    def _provided_action_properties(self) -> "ActionProperties":
         '''This is a renamed version of the ``IAction.actionProperties`` property.'''
         ...
 
@@ -7647,12 +11834,12 @@ class _ActionProxy(Action):
     @jsii.member(jsii_name="bound")
     def _bound(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        stage: IStage,
+        scope: "_constructs_77d1e7e8.Construct",
+        stage: "IStage",
         *,
-        bucket: _IBucket_42e086fd,
-        role: _IRole_235f5d8e,
-    ) -> ActionConfig:
+        bucket: "_IBucket_42e086fd",
+        role: "_IRole_235f5d8e",
+    ) -> "ActionConfig":
         '''This is a renamed version of the ``IAction.bind`` method.
 
         :param scope: -
@@ -7666,4375 +11853,16 @@ class _ActionProxy(Action):
             check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
         options = ActionBindOptions(bucket=bucket, role=role)
 
-        return typing.cast(ActionConfig, jsii.invoke(self, "bound", [scope, stage, options]))
+        return typing.cast("ActionConfig", jsii.invoke(self, "bound", [scope, stage, options]))
 
     @builtins.property
     @jsii.member(jsii_name="providedActionProperties")
-    def _provided_action_properties(self) -> ActionProperties:
+    def _provided_action_properties(self) -> "ActionProperties":
         '''This is a renamed version of the ``IAction.actionProperties`` property.'''
-        return typing.cast(ActionProperties, jsii.get(self, "providedActionProperties"))
+        return typing.cast("ActionProperties", jsii.get(self, "providedActionProperties"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, Action).__jsii_proxy_class__ = lambda : _ActionProxy
-
-
-@jsii.implements(_IInspectable_c2943556, ICustomActionTypeRef, _ITaggable_36806126)
-class CfnCustomActionType(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_codepipeline.CfnCustomActionType",
-):
-    '''The ``AWS::CodePipeline::CustomActionType`` resource creates a custom action for activities that aren't included in the CodePipeline default actions, such as running an internally developed build process or a test suite.
-
-    You can use these custom actions in the stage of a pipeline. For more information, see `Create and Add a Custom Action in AWS CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/how-to-create-custom-action.html>`_ in the *AWS CodePipeline User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-customactiontype.html
-    :cloudformationResource: AWS::CodePipeline::CustomActionType
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_codepipeline as codepipeline
-        
-        cfn_custom_action_type = codepipeline.CfnCustomActionType(self, "MyCfnCustomActionType",
-            category="category",
-            input_artifact_details=codepipeline.CfnCustomActionType.ArtifactDetailsProperty(
-                maximum_count=123,
-                minimum_count=123
-            ),
-            output_artifact_details=codepipeline.CfnCustomActionType.ArtifactDetailsProperty(
-                maximum_count=123,
-                minimum_count=123
-            ),
-            provider="provider",
-            version="version",
-        
-            # the properties below are optional
-            configuration_properties=[codepipeline.CfnCustomActionType.ConfigurationPropertiesProperty(
-                key=False,
-                name="name",
-                required=False,
-                secret=False,
-        
-                # the properties below are optional
-                description="description",
-                queryable=False,
-                type="type"
-            )],
-            settings=codepipeline.CfnCustomActionType.SettingsProperty(
-                entity_url_template="entityUrlTemplate",
-                execution_url_template="executionUrlTemplate",
-                revision_url_template="revisionUrlTemplate",
-                third_party_configuration_url="thirdPartyConfigurationUrl"
-            ),
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        category: builtins.str,
-        input_artifact_details: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCustomActionType.ArtifactDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
-        output_artifact_details: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCustomActionType.ArtifactDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
-        provider: builtins.str,
-        version: builtins.str,
-        configuration_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCustomActionType.ConfigurationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCustomActionType.SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param category: The category of the custom action, such as a build action or a test action.
-        :param input_artifact_details: The details of the input artifact for the action, such as its commit ID.
-        :param output_artifact_details: The details of the output artifact of the action, such as its commit ID.
-        :param provider: The provider of the service used in the custom action, such as CodeDeploy.
-        :param version: The version identifier of the custom action.
-        :param configuration_properties: The configuration properties for the custom action. .. epigraph:: You can refer to a name in the configuration properties of the custom action within the URL templates by following the format of {Config:name}, as long as the configuration property is both required and not secret. For more information, see `Create a Custom Action for a Pipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/how-to-create-custom-action.html>`_ .
-        :param settings: URLs that provide users information about this custom action.
-        :param tags: The tags for the custom action.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1222433d0c00f2bd3c869fd7ac02200368b464dad55538571e0b4945ee4beb7b)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnCustomActionTypeProps(
-            category=category,
-            input_artifact_details=input_artifact_details,
-            output_artifact_details=output_artifact_details,
-            provider=provider,
-            version=version,
-            configuration_properties=configuration_properties,
-            settings=settings,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69e9069011e8a6cedea17da3c45b9615a5a7a928187a2291c73982d0a584e4cc)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__241cf27eb89ed2c1ca3810bd1e261831b1e838e380f8f36a1c1cc648f6214e6a)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="customActionTypeRef")
-    def custom_action_type_ref(self) -> CustomActionTypeReference:
-        '''A reference to a CustomActionType resource.'''
-        return typing.cast(CustomActionTypeReference, jsii.get(self, "customActionTypeRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="category")
-    def category(self) -> builtins.str:
-        '''The category of the custom action, such as a build action or a test action.'''
-        return typing.cast(builtins.str, jsii.get(self, "category"))
-
-    @category.setter
-    def category(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90b872b4221966012d71407e4539c8f5d1b76d40c3244d52deee8e0e2d346b28)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "category", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="inputArtifactDetails")
-    def input_artifact_details(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ArtifactDetailsProperty"]:
-        '''The details of the input artifact for the action, such as its commit ID.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ArtifactDetailsProperty"], jsii.get(self, "inputArtifactDetails"))
-
-    @input_artifact_details.setter
-    def input_artifact_details(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ArtifactDetailsProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5abbefb7711c6ac8fee86970355cf39da61cfdbeeff9fcdd31187c0ea8cd135a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "inputArtifactDetails", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="outputArtifactDetails")
-    def output_artifact_details(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ArtifactDetailsProperty"]:
-        '''The details of the output artifact of the action, such as its commit ID.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ArtifactDetailsProperty"], jsii.get(self, "outputArtifactDetails"))
-
-    @output_artifact_details.setter
-    def output_artifact_details(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ArtifactDetailsProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca94c06f2447ab8f300404012ca985842a1c924d39b95d7000e4e6100e8920fc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "outputArtifactDetails", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="provider")
-    def provider(self) -> builtins.str:
-        '''The provider of the service used in the custom action, such as CodeDeploy.'''
-        return typing.cast(builtins.str, jsii.get(self, "provider"))
-
-    @provider.setter
-    def provider(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bacd6cf860e2e79e88cd36986df73487339ed024f9c1550758af9c93007f597e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provider", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="version")
-    def version(self) -> builtins.str:
-        '''The version identifier of the custom action.'''
-        return typing.cast(builtins.str, jsii.get(self, "version"))
-
-    @version.setter
-    def version(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbd41efc4927307c169c3fcea1f05c3addc57a3b816167fbb33318f66765352b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "version", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="configurationProperties")
-    def configuration_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ConfigurationPropertiesProperty"]]]]:
-        '''The configuration properties for the custom action.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ConfigurationPropertiesProperty"]]]], jsii.get(self, "configurationProperties"))
-
-    @configuration_properties.setter
-    def configuration_properties(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.ConfigurationPropertiesProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95897f720bf78acfdcb4029f33ba76d388ddec5448f67fcb680d96e2d4077286)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configurationProperties", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="settings")
-    def settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.SettingsProperty"]]:
-        '''URLs that provide users information about this custom action.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.SettingsProperty"]], jsii.get(self, "settings"))
-
-    @settings.setter
-    def settings(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCustomActionType.SettingsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__800b508e1c17e495d8907c9ede304fd8a7a38490bdc0c4d110dc4b23d97cd524)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "settings", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags for the custom action.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a74116a4f73e121e1bb171b9327fc820e06cb39239a52bc2d3ebe44fda9fbbf2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnCustomActionType.ArtifactDetailsProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "maximum_count": "maximumCount",
-            "minimum_count": "minimumCount",
-        },
-    )
-    class ArtifactDetailsProperty:
-        def __init__(
-            self,
-            *,
-            maximum_count: jsii.Number,
-            minimum_count: jsii.Number,
-        ) -> None:
-            '''Returns information about the details of an artifact.
-
-            :param maximum_count: The maximum number of artifacts allowed for the action type.
-            :param minimum_count: The minimum number of artifacts allowed for the action type.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-artifactdetails.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                artifact_details_property = codepipeline.CfnCustomActionType.ArtifactDetailsProperty(
-                    maximum_count=123,
-                    minimum_count=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6612f80ce8bb05131e635475a5db9099fe1398e673fa6c98087e38bcd4cd0609)
-                check_type(argname="argument maximum_count", value=maximum_count, expected_type=type_hints["maximum_count"])
-                check_type(argname="argument minimum_count", value=minimum_count, expected_type=type_hints["minimum_count"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "maximum_count": maximum_count,
-                "minimum_count": minimum_count,
-            }
-
-        @builtins.property
-        def maximum_count(self) -> jsii.Number:
-            '''The maximum number of artifacts allowed for the action type.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-artifactdetails.html#cfn-codepipeline-customactiontype-artifactdetails-maximumcount
-            '''
-            result = self._values.get("maximum_count")
-            assert result is not None, "Required property 'maximum_count' is missing"
-            return typing.cast(jsii.Number, result)
-
-        @builtins.property
-        def minimum_count(self) -> jsii.Number:
-            '''The minimum number of artifacts allowed for the action type.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-artifactdetails.html#cfn-codepipeline-customactiontype-artifactdetails-minimumcount
-            '''
-            result = self._values.get("minimum_count")
-            assert result is not None, "Required property 'minimum_count' is missing"
-            return typing.cast(jsii.Number, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ArtifactDetailsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnCustomActionType.ConfigurationPropertiesProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "key": "key",
-            "name": "name",
-            "required": "required",
-            "secret": "secret",
-            "description": "description",
-            "queryable": "queryable",
-            "type": "type",
-        },
-    )
-    class ConfigurationPropertiesProperty:
-        def __init__(
-            self,
-            *,
-            key: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            name: builtins.str,
-            required: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            secret: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            description: typing.Optional[builtins.str] = None,
-            queryable: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            type: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The configuration properties for the custom action.
-
-            .. epigraph::
-
-               You can refer to a name in the configuration properties of the custom action within the URL templates by following the format of {Config:name}, as long as the configuration property is both required and not secret. For more information, see `Create a Custom Action for a Pipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/how-to-create-custom-action.html>`_ .
-
-            :param key: Whether the configuration property is a key.
-            :param name: The name of the action configuration property.
-            :param required: Whether the configuration property is a required value.
-            :param secret: Whether the configuration property is secret. Secrets are hidden from all calls except for ``GetJobDetails`` , ``GetThirdPartyJobDetails`` , ``PollForJobs`` , and ``PollForThirdPartyJobs`` . When updating a pipeline, passing * * * * * without changing any other values of the action preserves the previous value of the secret.
-            :param description: The description of the action configuration property that is displayed to users.
-            :param queryable: Indicates that the property is used with ``PollForJobs`` . When creating a custom action, an action can have up to one queryable property. If it has one, that property must be both required and not secret. If you create a pipeline with a custom action type, and that custom action contains a queryable property, the value for that configuration property is subject to other restrictions. The value must be less than or equal to twenty (20) characters. The value can contain only alphanumeric characters, underscores, and hyphens.
-            :param type: The type of the configuration property.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                configuration_properties_property = codepipeline.CfnCustomActionType.ConfigurationPropertiesProperty(
-                    key=False,
-                    name="name",
-                    required=False,
-                    secret=False,
-                
-                    # the properties below are optional
-                    description="description",
-                    queryable=False,
-                    type="type"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__040598e9d2dd413d26f1ddedf4e21536266fa7deadfb456a5e8e77655754dd33)
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-                check_type(argname="argument required", value=required, expected_type=type_hints["required"])
-                check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
-                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-                check_type(argname="argument queryable", value=queryable, expected_type=type_hints["queryable"])
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "key": key,
-                "name": name,
-                "required": required,
-                "secret": secret,
-            }
-            if description is not None:
-                self._values["description"] = description
-            if queryable is not None:
-                self._values["queryable"] = queryable
-            if type is not None:
-                self._values["type"] = type
-
-        @builtins.property
-        def key(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-            '''Whether the configuration property is a key.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-key
-            '''
-            result = self._values.get("key")
-            assert result is not None, "Required property 'key' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The name of the action configuration property.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def required(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-            '''Whether the configuration property is a required value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-required
-            '''
-            result = self._values.get("required")
-            assert result is not None, "Required property 'required' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-        @builtins.property
-        def secret(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-            '''Whether the configuration property is secret.
-
-            Secrets are hidden from all calls except for ``GetJobDetails`` , ``GetThirdPartyJobDetails`` , ``PollForJobs`` , and ``PollForThirdPartyJobs`` .
-
-            When updating a pipeline, passing * * * * * without changing any other values of the action preserves the previous value of the secret.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-secret
-            '''
-            result = self._values.get("secret")
-            assert result is not None, "Required property 'secret' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-        @builtins.property
-        def description(self) -> typing.Optional[builtins.str]:
-            '''The description of the action configuration property that is displayed to users.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-description
-            '''
-            result = self._values.get("description")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def queryable(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Indicates that the property is used with ``PollForJobs`` .
-
-            When creating a custom action, an action can have up to one queryable property. If it has one, that property must be both required and not secret.
-
-            If you create a pipeline with a custom action type, and that custom action contains a queryable property, the value for that configuration property is subject to other restrictions. The value must be less than or equal to twenty (20) characters. The value can contain only alphanumeric characters, underscores, and hyphens.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-queryable
-            '''
-            result = self._values.get("queryable")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def type(self) -> typing.Optional[builtins.str]:
-            '''The type of the configuration property.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-configurationproperties.html#cfn-codepipeline-customactiontype-configurationproperties-type
-            '''
-            result = self._values.get("type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ConfigurationPropertiesProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnCustomActionType.SettingsProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "entity_url_template": "entityUrlTemplate",
-            "execution_url_template": "executionUrlTemplate",
-            "revision_url_template": "revisionUrlTemplate",
-            "third_party_configuration_url": "thirdPartyConfigurationUrl",
-        },
-    )
-    class SettingsProperty:
-        def __init__(
-            self,
-            *,
-            entity_url_template: typing.Optional[builtins.str] = None,
-            execution_url_template: typing.Optional[builtins.str] = None,
-            revision_url_template: typing.Optional[builtins.str] = None,
-            third_party_configuration_url: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''``Settings`` is a property of the ``AWS::CodePipeline::CustomActionType`` resource that provides URLs that users can access to view information about the CodePipeline custom action.
-
-            :param entity_url_template: The URL returned to the CodePipeline console that provides a deep link to the resources of the external system, such as the configuration page for a CodeDeploy deployment group. This link is provided as part of the action display in the pipeline.
-            :param execution_url_template: The URL returned to the CodePipeline console that contains a link to the top-level landing page for the external system, such as the console page for CodeDeploy. This link is shown on the pipeline view page in the CodePipeline console and provides a link to the execution entity of the external action.
-            :param revision_url_template: The URL returned to the CodePipeline console that contains a link to the page where customers can update or change the configuration of the external action.
-            :param third_party_configuration_url: The URL of a sign-up page where users can sign up for an external service and perform initial configuration of the action provided by that service.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-settings.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                settings_property = codepipeline.CfnCustomActionType.SettingsProperty(
-                    entity_url_template="entityUrlTemplate",
-                    execution_url_template="executionUrlTemplate",
-                    revision_url_template="revisionUrlTemplate",
-                    third_party_configuration_url="thirdPartyConfigurationUrl"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c1beb274a3eb3d700c7b40f1a3f3114c41d3388020db594741a7dbe9eeb50b9a)
-                check_type(argname="argument entity_url_template", value=entity_url_template, expected_type=type_hints["entity_url_template"])
-                check_type(argname="argument execution_url_template", value=execution_url_template, expected_type=type_hints["execution_url_template"])
-                check_type(argname="argument revision_url_template", value=revision_url_template, expected_type=type_hints["revision_url_template"])
-                check_type(argname="argument third_party_configuration_url", value=third_party_configuration_url, expected_type=type_hints["third_party_configuration_url"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if entity_url_template is not None:
-                self._values["entity_url_template"] = entity_url_template
-            if execution_url_template is not None:
-                self._values["execution_url_template"] = execution_url_template
-            if revision_url_template is not None:
-                self._values["revision_url_template"] = revision_url_template
-            if third_party_configuration_url is not None:
-                self._values["third_party_configuration_url"] = third_party_configuration_url
-
-        @builtins.property
-        def entity_url_template(self) -> typing.Optional[builtins.str]:
-            '''The URL returned to the CodePipeline console that provides a deep link to the resources of the external system, such as the configuration page for a CodeDeploy deployment group.
-
-            This link is provided as part of the action display in the pipeline.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-settings.html#cfn-codepipeline-customactiontype-settings-entityurltemplate
-            '''
-            result = self._values.get("entity_url_template")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def execution_url_template(self) -> typing.Optional[builtins.str]:
-            '''The URL returned to the CodePipeline console that contains a link to the top-level landing page for the external system, such as the console page for CodeDeploy.
-
-            This link is shown on the pipeline view page in the CodePipeline console and provides a link to the execution entity of the external action.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-settings.html#cfn-codepipeline-customactiontype-settings-executionurltemplate
-            '''
-            result = self._values.get("execution_url_template")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def revision_url_template(self) -> typing.Optional[builtins.str]:
-            '''The URL returned to the CodePipeline console that contains a link to the page where customers can update or change the configuration of the external action.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-settings.html#cfn-codepipeline-customactiontype-settings-revisionurltemplate
-            '''
-            result = self._values.get("revision_url_template")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def third_party_configuration_url(self) -> typing.Optional[builtins.str]:
-            '''The URL of a sign-up page where users can sign up for an external service and perform initial configuration of the action provided by that service.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-customactiontype-settings.html#cfn-codepipeline-customactiontype-settings-thirdpartyconfigurationurl
-            '''
-            result = self._values.get("third_party_configuration_url")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "SettingsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, IPipelineRef, _ITaggable_36806126)
-class CfnPipeline(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline",
-):
-    '''The ``AWS::CodePipeline::Pipeline`` resource creates a CodePipeline pipeline that describes how software changes go through a release process.
-
-    For more information, see `What Is CodePipeline? <https://docs.aws.amazon.com/codepipeline/latest/userguide/welcome.html>`_ in the *CodePipeline User Guide* .
-
-    For an example in YAML and JSON that contains the parameters in this reference, see `Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html#aws-resource-codepipeline-pipeline--examples>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html
-    :cloudformationResource: AWS::CodePipeline::Pipeline
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_codepipeline as codepipeline
-        
-        # configuration: Any
-        
-        cfn_pipeline = codepipeline.CfnPipeline(self, "MyCfnPipeline",
-            role_arn="roleArn",
-            stages=[codepipeline.CfnPipeline.StageDeclarationProperty(
-                actions=[codepipeline.CfnPipeline.ActionDeclarationProperty(
-                    action_type_id=codepipeline.CfnPipeline.ActionTypeIdProperty(
-                        category="category",
-                        owner="owner",
-                        provider="provider",
-                        version="version"
-                    ),
-                    name="name",
-        
-                    # the properties below are optional
-                    commands=["commands"],
-                    configuration=configuration,
-                    environment_variables=[codepipeline.CfnPipeline.EnvironmentVariableProperty(
-                        name="name",
-                        value="value",
-        
-                        # the properties below are optional
-                        type="type"
-                    )],
-                    input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                        name="name"
-                    )],
-                    namespace="namespace",
-                    output_artifacts=[codepipeline.CfnPipeline.OutputArtifactProperty(
-                        name="name",
-        
-                        # the properties below are optional
-                        files=["files"]
-                    )],
-                    output_variables=["outputVariables"],
-                    region="region",
-                    role_arn="roleArn",
-                    run_order=123,
-                    timeout_in_minutes=123
-                )],
-                name="name",
-        
-                # the properties below are optional
-                before_entry=codepipeline.CfnPipeline.BeforeEntryConditionsProperty(
-                    conditions=[codepipeline.CfnPipeline.ConditionProperty(
-                        result="result",
-                        rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
-                            commands=["commands"],
-                            configuration=configuration,
-                            input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                                name="name"
-                            )],
-                            name="name",
-                            region="region",
-                            role_arn="roleArn",
-                            rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
-                                category="category",
-                                owner="owner",
-                                provider="provider",
-                                version="version"
-                            )
-                        )]
-                    )]
-                ),
-                blockers=[codepipeline.CfnPipeline.BlockerDeclarationProperty(
-                    name="name",
-                    type="type"
-                )],
-                on_failure=codepipeline.CfnPipeline.FailureConditionsProperty(
-                    conditions=[codepipeline.CfnPipeline.ConditionProperty(
-                        result="result",
-                        rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
-                            commands=["commands"],
-                            configuration=configuration,
-                            input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                                name="name"
-                            )],
-                            name="name",
-                            region="region",
-                            role_arn="roleArn",
-                            rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
-                                category="category",
-                                owner="owner",
-                                provider="provider",
-                                version="version"
-                            )
-                        )]
-                    )],
-                    result="result",
-                    retry_configuration=codepipeline.CfnPipeline.RetryConfigurationProperty(
-                        retry_mode="retryMode"
-                    )
-                ),
-                on_success=codepipeline.CfnPipeline.SuccessConditionsProperty(
-                    conditions=[codepipeline.CfnPipeline.ConditionProperty(
-                        result="result",
-                        rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
-                            commands=["commands"],
-                            configuration=configuration,
-                            input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                                name="name"
-                            )],
-                            name="name",
-                            region="region",
-                            role_arn="roleArn",
-                            rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
-                                category="category",
-                                owner="owner",
-                                provider="provider",
-                                version="version"
-                            )
-                        )]
-                    )]
-                )
-            )],
-        
-            # the properties below are optional
-            artifact_store=codepipeline.CfnPipeline.ArtifactStoreProperty(
-                location="location",
-                type="type",
-        
-                # the properties below are optional
-                encryption_key=codepipeline.CfnPipeline.EncryptionKeyProperty(
-                    id="id",
-                    type="type"
-                )
-            ),
-            artifact_stores=[codepipeline.CfnPipeline.ArtifactStoreMapProperty(
-                artifact_store=codepipeline.CfnPipeline.ArtifactStoreProperty(
-                    location="location",
-                    type="type",
-        
-                    # the properties below are optional
-                    encryption_key=codepipeline.CfnPipeline.EncryptionKeyProperty(
-                        id="id",
-                        type="type"
-                    )
-                ),
-                region="region"
-            )],
-            disable_inbound_stage_transitions=[codepipeline.CfnPipeline.StageTransitionProperty(
-                reason="reason",
-                stage_name="stageName"
-            )],
-            execution_mode="executionMode",
-            name="name",
-            pipeline_type="pipelineType",
-            restart_execution_on_update=False,
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            triggers=[codepipeline.CfnPipeline.PipelineTriggerDeclarationProperty(
-                provider_type="providerType",
-        
-                # the properties below are optional
-                git_configuration=codepipeline.CfnPipeline.GitConfigurationProperty(
-                    source_action_name="sourceActionName",
-        
-                    # the properties below are optional
-                    pull_request=[codepipeline.CfnPipeline.GitPullRequestFilterProperty(
-                        branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
-                            excludes=["excludes"],
-                            includes=["includes"]
-                        ),
-                        events=["events"],
-                        file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
-                            excludes=["excludes"],
-                            includes=["includes"]
-                        )
-                    )],
-                    push=[codepipeline.CfnPipeline.GitPushFilterProperty(
-                        branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
-                            excludes=["excludes"],
-                            includes=["includes"]
-                        ),
-                        file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
-                            excludes=["excludes"],
-                            includes=["includes"]
-                        ),
-                        tags=codepipeline.CfnPipeline.GitTagFilterCriteriaProperty(
-                            excludes=["excludes"],
-                            includes=["includes"]
-                        )
-                    )]
-                )
-            )],
-            variables=[codepipeline.CfnPipeline.VariableDeclarationProperty(
-                name="name",
-        
-                # the properties below are optional
-                default_value="defaultValue",
-                description="description"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        role_arn: builtins.str,
-        stages: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.StageDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        artifact_store: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.ArtifactStoreProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        artifact_stores: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.ArtifactStoreMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        disable_inbound_stage_transitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.StageTransitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        execution_mode: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        pipeline_type: typing.Optional[builtins.str] = None,
-        restart_execution_on_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.PipelineTriggerDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.VariableDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param role_arn: The Amazon Resource Name (ARN) for CodePipeline to use to either perform actions with no ``actionRoleArn`` , or to use to assume roles for actions with an ``actionRoleArn`` .
-        :param stages: Represents information about a stage and its definition.
-        :param artifact_store: The S3 bucket where artifacts for the pipeline are stored. .. epigraph:: You must include either ``artifactStore`` or ``artifactStores`` in your pipeline, but you cannot use both. If you create a cross-region action in your pipeline, you must use ``artifactStores`` .
-        :param artifact_stores: A mapping of ``artifactStore`` objects and their corresponding AWS Regions. There must be an artifact store for the pipeline Region and for each cross-region action in the pipeline. .. epigraph:: You must include either ``artifactStore`` or ``artifactStores`` in your pipeline, but you cannot use both. If you create a cross-region action in your pipeline, you must use ``artifactStores`` .
-        :param disable_inbound_stage_transitions: Represents the input of a ``DisableStageTransition`` action.
-        :param execution_mode: The method that the pipeline will use to handle multiple executions. The default mode is SUPERSEDED. Default: - "SUPERSEDED"
-        :param name: The name of the pipeline.
-        :param pipeline_type: CodePipeline provides the following pipeline types, which differ in characteristics and price, so that you can tailor your pipeline features and cost to the needs of your applications. - V1 type pipelines have a JSON structure that contains standard pipeline, stage, and action-level parameters. - V2 type pipelines have the same structure as a V1 type, along with additional parameters for release safety and trigger configuration. .. epigraph:: Including V2 parameters, such as triggers on Git tags, in the pipeline JSON when creating or updating a pipeline will result in the pipeline having the V2 type of pipeline and the associated costs. For information about pricing for CodePipeline, see `Pricing <https://docs.aws.amazon.com/codepipeline/pricing/>`_ . For information about which type of pipeline to choose, see `What type of pipeline is right for me? <https://docs.aws.amazon.com/codepipeline/latest/userguide/pipeline-types-planning.html>`_ .
-        :param restart_execution_on_update: Indicates whether to rerun the CodePipeline pipeline after you update it.
-        :param tags: Specifies the tags applied to the pipeline.
-        :param triggers: The trigger configuration specifying a type of event, such as Git tags, that starts the pipeline. .. epigraph:: When a trigger configuration is specified, default change detection for repository and branch commits is disabled.
-        :param variables: A list that defines the pipeline variables for a pipeline resource. Variable names can have alphanumeric and underscore characters, and the values must match ``[A-Za-z0-9@\\-_]+`` .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43ae22b404f50a75462f3d5423718be3ca300d4e4e15354489d856039eb30278)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnPipelineProps(
-            role_arn=role_arn,
-            stages=stages,
-            artifact_store=artifact_store,
-            artifact_stores=artifact_stores,
-            disable_inbound_stage_transitions=disable_inbound_stage_transitions,
-            execution_mode=execution_mode,
-            name=name,
-            pipeline_type=pipeline_type,
-            restart_execution_on_update=restart_execution_on_update,
-            tags=tags,
-            triggers=triggers,
-            variables=variables,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a8445e803e7c15623ffb8dcc675aa06dfc425ea5e189039b3f014c5d95a6671)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46ca39f1604e1187fd1fb10b24c2b762814be348f23c4da67d6c1a647fbb4115)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrVersion")
-    def attr_version(self) -> builtins.str:
-        '''The version of the pipeline.
-
-        .. epigraph::
-
-           A new pipeline is always assigned a version number of 1. This number increments when a pipeline is updated.
-
-        :cloudformationAttribute: Version
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrVersion"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="pipelineRef")
-    def pipeline_ref(self) -> PipelineReference:
-        '''A reference to a Pipeline resource.'''
-        return typing.cast(PipelineReference, jsii.get(self, "pipelineRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="roleArn")
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) for CodePipeline to use to either perform actions with no ``actionRoleArn`` , or to use to assume roles for actions with an ``actionRoleArn`` .'''
-        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
-
-    @role_arn.setter
-    def role_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__576c198950ee7b66fbc1eb05685e77cc0e29d34915d1d1e40bd0c8ef0c6d7e0a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="stages")
-    def stages(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.StageDeclarationProperty"]]]:
-        '''Represents information about a stage and its definition.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.StageDeclarationProperty"]]], jsii.get(self, "stages"))
-
-    @stages.setter
-    def stages(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.StageDeclarationProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfacf0cf69a83fd53ad3a2cce0dd68dd31658b398f54c29f16f9b44d46023b29)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stages", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="artifactStore")
-    def artifact_store(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ArtifactStoreProperty"]]:
-        '''The S3 bucket where artifacts for the pipeline are stored.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ArtifactStoreProperty"]], jsii.get(self, "artifactStore"))
-
-    @artifact_store.setter
-    def artifact_store(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ArtifactStoreProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a40501189eaeb23c9f45754903055f441f62a809b824fce94b0b934a72b33ad)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "artifactStore", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="artifactStores")
-    def artifact_stores(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ArtifactStoreMapProperty"]]]]:
-        '''A mapping of ``artifactStore`` objects and their corresponding AWS Regions.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ArtifactStoreMapProperty"]]]], jsii.get(self, "artifactStores"))
-
-    @artifact_stores.setter
-    def artifact_stores(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ArtifactStoreMapProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13b2091bcabe548515f4fe0527fdc7e055ac3c68d5fc3b939d5bb97614bf0f94)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "artifactStores", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="disableInboundStageTransitions")
-    def disable_inbound_stage_transitions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.StageTransitionProperty"]]]]:
-        '''Represents the input of a ``DisableStageTransition`` action.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.StageTransitionProperty"]]]], jsii.get(self, "disableInboundStageTransitions"))
-
-    @disable_inbound_stage_transitions.setter
-    def disable_inbound_stage_transitions(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.StageTransitionProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8171e6979490d73c864965d74418184aa66850b94084357d00f5bac7460f803)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "disableInboundStageTransitions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="executionMode")
-    def execution_mode(self) -> typing.Optional[builtins.str]:
-        '''The method that the pipeline will use to handle multiple executions.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionMode"))
-
-    @execution_mode.setter
-    def execution_mode(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__472d85ae1c4eb5d13c62e60f6347b15da6be45b950e9ce0ab0c5a3d67951fda0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionMode", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the pipeline.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b2610baf2075574499b5c3a30d307e832f359e9aa154becdcd51b0b886e97cf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="pipelineType")
-    def pipeline_type(self) -> typing.Optional[builtins.str]:
-        '''CodePipeline provides the following pipeline types, which differ in characteristics and price, so that you can tailor your pipeline features and cost to the needs of your applications.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "pipelineType"))
-
-    @pipeline_type.setter
-    def pipeline_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49ec8a511d5cf2162b110bf0ae56ad416154165d52ebcd418648a11da360772a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pipelineType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="restartExecutionOnUpdate")
-    def restart_execution_on_update(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether to rerun the CodePipeline pipeline after you update it.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "restartExecutionOnUpdate"))
-
-    @restart_execution_on_update.setter
-    def restart_execution_on_update(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88de08f19f736e80065bcd761beb1e65914ff94f8a626526298e8aceab054efa)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "restartExecutionOnUpdate", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies the tags applied to the pipeline.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__049b30e49190b4a0c262bbc2b2b86e08c2d0b80ed4870924cfa18bba87f06fbf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="triggers")
-    def triggers(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.PipelineTriggerDeclarationProperty"]]]]:
-        '''The trigger configuration specifying a type of event, such as Git tags, that starts the pipeline.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.PipelineTriggerDeclarationProperty"]]]], jsii.get(self, "triggers"))
-
-    @triggers.setter
-    def triggers(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.PipelineTriggerDeclarationProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec229be1df5c233edfda39851430510bc5b05e1c924f9c4f280d35e90a7a273e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "triggers", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="variables")
-    def variables(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.VariableDeclarationProperty"]]]]:
-        '''A list that defines the pipeline variables for a pipeline resource.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.VariableDeclarationProperty"]]]], jsii.get(self, "variables"))
-
-    @variables.setter
-    def variables(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.VariableDeclarationProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__750515260661993ecfa4350c79274cb5f97f27ed37abd879c232ab4d1d581b16)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "variables", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.ActionDeclarationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "action_type_id": "actionTypeId",
-            "name": "name",
-            "commands": "commands",
-            "configuration": "configuration",
-            "environment_variables": "environmentVariables",
-            "input_artifacts": "inputArtifacts",
-            "namespace": "namespace",
-            "output_artifacts": "outputArtifacts",
-            "output_variables": "outputVariables",
-            "region": "region",
-            "role_arn": "roleArn",
-            "run_order": "runOrder",
-            "timeout_in_minutes": "timeoutInMinutes",
-        },
-    )
-    class ActionDeclarationProperty:
-        def __init__(
-            self,
-            *,
-            action_type_id: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.ActionTypeIdProperty", typing.Dict[builtins.str, typing.Any]]],
-            name: builtins.str,
-            commands: typing.Optional[typing.Sequence[builtins.str]] = None,
-            configuration: typing.Any = None,
-            environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            input_artifacts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.InputArtifactProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            namespace: typing.Optional[builtins.str] = None,
-            output_artifacts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.OutputArtifactProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            output_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
-            region: typing.Optional[builtins.str] = None,
-            role_arn: typing.Optional[builtins.str] = None,
-            run_order: typing.Optional[jsii.Number] = None,
-            timeout_in_minutes: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Represents information about an action declaration.
-
-            :param action_type_id: Specifies the action type and the provider of the action.
-            :param name: The action declaration's name.
-            :param commands: The shell commands to run with your compute action in CodePipeline. All commands are supported except multi-line formats. While CodeBuild logs and permissions are used, you do not need to create any resources in CodeBuild. .. epigraph:: Using compute time for this action will incur separate charges in AWS CodeBuild .
-            :param configuration: The action's configuration. These are key-value pairs that specify input values for an action. For more information, see `Action Structure Requirements in CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#action-requirements>`_ . For the list of configuration properties for the AWS CloudFormation action type in CodePipeline, see `Configuration Properties Reference <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-action-reference.html>`_ in the *AWS CloudFormation User Guide* . For template snippets with examples, see `Using Parameter Override Functions with CodePipeline Pipelines <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-parameter-override-functions.html>`_ in the *AWS CloudFormation User Guide* . The values can be represented in either JSON or YAML format. For example, the JSON configuration item format is as follows: *JSON:* ``"Configuration" : { Key : Value },``
-            :param environment_variables: The environment variables for the action.
-            :param input_artifacts: The name or ID of the artifact consumed by the action, such as a test or build artifact. While the field is not a required parameter, most actions have an action configuration that requires a specified quantity of input artifacts. To refer to the action configuration specification by action provider, see the `Action structure reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference.html>`_ in the *AWS CodePipeline User Guide* . .. epigraph:: For a CodeBuild action with multiple input artifacts, one of your input sources must be designated the PrimarySource. For more information, see the `CodeBuild action reference page <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodeBuild.html>`_ in the *AWS CodePipeline User Guide* .
-            :param namespace: The variable namespace associated with the action. All variables produced as output by this action fall under this namespace.
-            :param output_artifacts: The name or ID of the result of the action declaration, such as a test or build artifact. While the field is not a required parameter, most actions have an action configuration that requires a specified quantity of output artifacts. To refer to the action configuration specification by action provider, see the `Action structure reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference.html>`_ in the *AWS CodePipeline User Guide* .
-            :param output_variables: The list of variables that are to be exported from the compute action. This is specifically CodeBuild environment variables as used for that action.
-            :param region: The action declaration's AWS Region, such as us-east-1.
-            :param role_arn: The ARN of the IAM service role that performs the declared action. This is assumed through the roleArn for the pipeline.
-            :param run_order: The order in which actions are run.
-            :param timeout_in_minutes: A timeout duration in minutes that can be applied against the ActionType’s default timeout value specified in `Quotas for AWS CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/limits.html>`_ . This attribute is available only to the manual approval ActionType.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                # configuration: Any
-                
-                action_declaration_property = codepipeline.CfnPipeline.ActionDeclarationProperty(
-                    action_type_id=codepipeline.CfnPipeline.ActionTypeIdProperty(
-                        category="category",
-                        owner="owner",
-                        provider="provider",
-                        version="version"
-                    ),
-                    name="name",
-                
-                    # the properties below are optional
-                    commands=["commands"],
-                    configuration=configuration,
-                    environment_variables=[codepipeline.CfnPipeline.EnvironmentVariableProperty(
-                        name="name",
-                        value="value",
-                
-                        # the properties below are optional
-                        type="type"
-                    )],
-                    input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                        name="name"
-                    )],
-                    namespace="namespace",
-                    output_artifacts=[codepipeline.CfnPipeline.OutputArtifactProperty(
-                        name="name",
-                
-                        # the properties below are optional
-                        files=["files"]
-                    )],
-                    output_variables=["outputVariables"],
-                    region="region",
-                    role_arn="roleArn",
-                    run_order=123,
-                    timeout_in_minutes=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__490d89c9ac665593d791c6e187fcf0e47ca3ec8684f1c7a502e1711bcbec64ec)
-                check_type(argname="argument action_type_id", value=action_type_id, expected_type=type_hints["action_type_id"])
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-                check_type(argname="argument commands", value=commands, expected_type=type_hints["commands"])
-                check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
-                check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
-                check_type(argname="argument input_artifacts", value=input_artifacts, expected_type=type_hints["input_artifacts"])
-                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
-                check_type(argname="argument output_artifacts", value=output_artifacts, expected_type=type_hints["output_artifacts"])
-                check_type(argname="argument output_variables", value=output_variables, expected_type=type_hints["output_variables"])
-                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
-                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-                check_type(argname="argument run_order", value=run_order, expected_type=type_hints["run_order"])
-                check_type(argname="argument timeout_in_minutes", value=timeout_in_minutes, expected_type=type_hints["timeout_in_minutes"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "action_type_id": action_type_id,
-                "name": name,
-            }
-            if commands is not None:
-                self._values["commands"] = commands
-            if configuration is not None:
-                self._values["configuration"] = configuration
-            if environment_variables is not None:
-                self._values["environment_variables"] = environment_variables
-            if input_artifacts is not None:
-                self._values["input_artifacts"] = input_artifacts
-            if namespace is not None:
-                self._values["namespace"] = namespace
-            if output_artifacts is not None:
-                self._values["output_artifacts"] = output_artifacts
-            if output_variables is not None:
-                self._values["output_variables"] = output_variables
-            if region is not None:
-                self._values["region"] = region
-            if role_arn is not None:
-                self._values["role_arn"] = role_arn
-            if run_order is not None:
-                self._values["run_order"] = run_order
-            if timeout_in_minutes is not None:
-                self._values["timeout_in_minutes"] = timeout_in_minutes
-
-        @builtins.property
-        def action_type_id(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnPipeline.ActionTypeIdProperty"]:
-            '''Specifies the action type and the provider of the action.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-actiontypeid
-            '''
-            result = self._values.get("action_type_id")
-            assert result is not None, "Required property 'action_type_id' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPipeline.ActionTypeIdProperty"], result)
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The action declaration's name.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def commands(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The shell commands to run with your compute action in CodePipeline.
-
-            All commands are supported except multi-line formats. While CodeBuild logs and permissions are used, you do not need to create any resources in CodeBuild.
-            .. epigraph::
-
-               Using compute time for this action will incur separate charges in AWS CodeBuild .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-commands
-            '''
-            result = self._values.get("commands")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def configuration(self) -> typing.Any:
-            '''The action's configuration.
-
-            These are key-value pairs that specify input values for an action. For more information, see `Action Structure Requirements in CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#action-requirements>`_ . For the list of configuration properties for the AWS CloudFormation action type in CodePipeline, see `Configuration Properties Reference <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-action-reference.html>`_ in the *AWS CloudFormation User Guide* . For template snippets with examples, see `Using Parameter Override Functions with CodePipeline Pipelines <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-parameter-override-functions.html>`_ in the *AWS CloudFormation User Guide* .
-
-            The values can be represented in either JSON or YAML format. For example, the JSON configuration item format is as follows:
-
-            *JSON:*
-
-            ``"Configuration" : { Key : Value },``
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-configuration
-            '''
-            result = self._values.get("configuration")
-            return typing.cast(typing.Any, result)
-
-        @builtins.property
-        def environment_variables(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.EnvironmentVariableProperty"]]]]:
-            '''The environment variables for the action.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-environmentvariables
-            '''
-            result = self._values.get("environment_variables")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.EnvironmentVariableProperty"]]]], result)
-
-        @builtins.property
-        def input_artifacts(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.InputArtifactProperty"]]]]:
-            '''The name or ID of the artifact consumed by the action, such as a test or build artifact.
-
-            While the field is not a required parameter, most actions have an action configuration that requires a specified quantity of input artifacts. To refer to the action configuration specification by action provider, see the `Action structure reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference.html>`_ in the *AWS CodePipeline User Guide* .
-            .. epigraph::
-
-               For a CodeBuild action with multiple input artifacts, one of your input sources must be designated the PrimarySource. For more information, see the `CodeBuild action reference page <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodeBuild.html>`_ in the *AWS CodePipeline User Guide* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-inputartifacts
-            '''
-            result = self._values.get("input_artifacts")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.InputArtifactProperty"]]]], result)
-
-        @builtins.property
-        def namespace(self) -> typing.Optional[builtins.str]:
-            '''The variable namespace associated with the action.
-
-            All variables produced as output by this action fall under this namespace.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-namespace
-            '''
-            result = self._values.get("namespace")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def output_artifacts(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.OutputArtifactProperty"]]]]:
-            '''The name or ID of the result of the action declaration, such as a test or build artifact.
-
-            While the field is not a required parameter, most actions have an action configuration that requires a specified quantity of output artifacts. To refer to the action configuration specification by action provider, see the `Action structure reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference.html>`_ in the *AWS CodePipeline User Guide* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-outputartifacts
-            '''
-            result = self._values.get("output_artifacts")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.OutputArtifactProperty"]]]], result)
-
-        @builtins.property
-        def output_variables(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The list of variables that are to be exported from the compute action.
-
-            This is specifically CodeBuild environment variables as used for that action.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-outputvariables
-            '''
-            result = self._values.get("output_variables")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def region(self) -> typing.Optional[builtins.str]:
-            '''The action declaration's AWS Region, such as us-east-1.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-region
-            '''
-            result = self._values.get("region")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def role_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the IAM service role that performs the declared action.
-
-            This is assumed through the roleArn for the pipeline.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-rolearn
-            '''
-            result = self._values.get("role_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def run_order(self) -> typing.Optional[jsii.Number]:
-            '''The order in which actions are run.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-runorder
-            '''
-            result = self._values.get("run_order")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-            '''A timeout duration in minutes that can be applied against the ActionType’s default timeout value specified in `Quotas for AWS CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/limits.html>`_ . This attribute is available only to the manual approval ActionType.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-timeoutinminutes
-            '''
-            result = self._values.get("timeout_in_minutes")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ActionDeclarationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.ActionTypeIdProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "category": "category",
-            "owner": "owner",
-            "provider": "provider",
-            "version": "version",
-        },
-    )
-    class ActionTypeIdProperty:
-        def __init__(
-            self,
-            *,
-            category: builtins.str,
-            owner: builtins.str,
-            provider: builtins.str,
-            version: builtins.str,
-        ) -> None:
-            '''Represents information about an action type.
-
-            :param category: A category defines what kind of action can be taken in the stage, and constrains the provider type for the action. Valid categories are limited to one of the values below. - ``Source`` - ``Build`` - ``Test`` - ``Deploy`` - ``Invoke`` - ``Approval`` - ``Compute``
-            :param owner: The creator of the action being called. There are three valid values for the ``Owner`` field in the action category section within your pipeline structure: ``AWS`` , ``ThirdParty`` , and ``Custom`` . For more information, see `Valid Action Types and Providers in CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#actions-valid-providers>`_ .
-            :param provider: The provider of the service being called by the action. Valid providers are determined by the action category. For example, an action in the Deploy category type might have a provider of CodeDeploy, which would be specified as ``CodeDeploy`` . For more information, see `Valid Action Types and Providers in CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#actions-valid-providers>`_ .
-            :param version: A string that describes the action version.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiontypeid.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                action_type_id_property = codepipeline.CfnPipeline.ActionTypeIdProperty(
-                    category="category",
-                    owner="owner",
-                    provider="provider",
-                    version="version"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__791bd0faf58952d423a60cbf0397f6130fbc0f49254ff79dcbb6550bafb9ff2a)
-                check_type(argname="argument category", value=category, expected_type=type_hints["category"])
-                check_type(argname="argument owner", value=owner, expected_type=type_hints["owner"])
-                check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
-                check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "category": category,
-                "owner": owner,
-                "provider": provider,
-                "version": version,
-            }
-
-        @builtins.property
-        def category(self) -> builtins.str:
-            '''A category defines what kind of action can be taken in the stage, and constrains the provider type for the action.
-
-            Valid categories are limited to one of the values below.
-
-            - ``Source``
-            - ``Build``
-            - ``Test``
-            - ``Deploy``
-            - ``Invoke``
-            - ``Approval``
-            - ``Compute``
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiontypeid.html#cfn-codepipeline-pipeline-actiontypeid-category
-            '''
-            result = self._values.get("category")
-            assert result is not None, "Required property 'category' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def owner(self) -> builtins.str:
-            '''The creator of the action being called.
-
-            There are three valid values for the ``Owner`` field in the action category section within your pipeline structure: ``AWS`` , ``ThirdParty`` , and ``Custom`` . For more information, see `Valid Action Types and Providers in CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#actions-valid-providers>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiontypeid.html#cfn-codepipeline-pipeline-actiontypeid-owner
-            '''
-            result = self._values.get("owner")
-            assert result is not None, "Required property 'owner' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def provider(self) -> builtins.str:
-            '''The provider of the service being called by the action.
-
-            Valid providers are determined by the action category. For example, an action in the Deploy category type might have a provider of CodeDeploy, which would be specified as ``CodeDeploy`` . For more information, see `Valid Action Types and Providers in CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#actions-valid-providers>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiontypeid.html#cfn-codepipeline-pipeline-actiontypeid-provider
-            '''
-            result = self._values.get("provider")
-            assert result is not None, "Required property 'provider' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def version(self) -> builtins.str:
-            '''A string that describes the action version.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiontypeid.html#cfn-codepipeline-pipeline-actiontypeid-version
-            '''
-            result = self._values.get("version")
-            assert result is not None, "Required property 'version' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ActionTypeIdProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.ArtifactStoreMapProperty",
-        jsii_struct_bases=[],
-        name_mapping={"artifact_store": "artifactStore", "region": "region"},
-    )
-    class ArtifactStoreMapProperty:
-        def __init__(
-            self,
-            *,
-            artifact_store: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.ArtifactStoreProperty", typing.Dict[builtins.str, typing.Any]]],
-            region: builtins.str,
-        ) -> None:
-            '''A mapping of ``artifactStore`` objects and their corresponding AWS Regions.
-
-            There must be an artifact store for the pipeline Region and for each cross-region action in the pipeline.
-            .. epigraph::
-
-               You must include either ``artifactStore`` or ``artifactStores`` in your pipeline, but you cannot use both. If you create a cross-region action in your pipeline, you must use ``artifactStores`` .
-
-            :param artifact_store: Represents information about the S3 bucket where artifacts are stored for the pipeline. .. epigraph:: You must include either ``artifactStore`` or ``artifactStores`` in your pipeline, but you cannot use both. If you create a cross-region action in your pipeline, you must use ``artifactStores`` .
-            :param region: The action declaration's AWS Region, such as us-east-1.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstoremap.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                artifact_store_map_property = codepipeline.CfnPipeline.ArtifactStoreMapProperty(
-                    artifact_store=codepipeline.CfnPipeline.ArtifactStoreProperty(
-                        location="location",
-                        type="type",
-                
-                        # the properties below are optional
-                        encryption_key=codepipeline.CfnPipeline.EncryptionKeyProperty(
-                            id="id",
-                            type="type"
-                        )
-                    ),
-                    region="region"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__177faa178bbd06a9b19e856be74d2b58e9b15943f83fcb2cd16a4205ee1800bc)
-                check_type(argname="argument artifact_store", value=artifact_store, expected_type=type_hints["artifact_store"])
-                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "artifact_store": artifact_store,
-                "region": region,
-            }
-
-        @builtins.property
-        def artifact_store(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnPipeline.ArtifactStoreProperty"]:
-            '''Represents information about the S3 bucket where artifacts are stored for the pipeline.
-
-            .. epigraph::
-
-               You must include either ``artifactStore`` or ``artifactStores`` in your pipeline, but you cannot use both. If you create a cross-region action in your pipeline, you must use ``artifactStores`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstoremap.html#cfn-codepipeline-pipeline-artifactstoremap-artifactstore
-            '''
-            result = self._values.get("artifact_store")
-            assert result is not None, "Required property 'artifact_store' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPipeline.ArtifactStoreProperty"], result)
-
-        @builtins.property
-        def region(self) -> builtins.str:
-            '''The action declaration's AWS Region, such as us-east-1.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstoremap.html#cfn-codepipeline-pipeline-artifactstoremap-region
-            '''
-            result = self._values.get("region")
-            assert result is not None, "Required property 'region' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ArtifactStoreMapProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.ArtifactStoreProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "location": "location",
-            "type": "type",
-            "encryption_key": "encryptionKey",
-        },
-    )
-    class ArtifactStoreProperty:
-        def __init__(
-            self,
-            *,
-            location: builtins.str,
-            type: builtins.str,
-            encryption_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.EncryptionKeyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''The S3 bucket where artifacts for the pipeline are stored.
-
-            .. epigraph::
-
-               You must include either ``artifactStore`` or ``artifactStores`` in your pipeline, but you cannot use both. If you create a cross-region action in your pipeline, you must use ``artifactStores`` .
-
-            :param location: The S3 bucket used for storing the artifacts for a pipeline. You can specify the name of an S3 bucket but not a folder in the bucket. A folder to contain the pipeline artifacts is created for you based on the name of the pipeline. You can use any S3 bucket in the same AWS Region as the pipeline to store your pipeline artifacts.
-            :param type: The type of the artifact store, such as S3.
-            :param encryption_key: The encryption key used to encrypt the data in the artifact store, such as an AWS Key Management Service ( AWS KMS) key. If this is undefined, the default key for Amazon S3 is used. To see an example artifact store encryption key field, see the example structure here: `AWS::CodePipeline::Pipeline <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstore.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                artifact_store_property = codepipeline.CfnPipeline.ArtifactStoreProperty(
-                    location="location",
-                    type="type",
-                
-                    # the properties below are optional
-                    encryption_key=codepipeline.CfnPipeline.EncryptionKeyProperty(
-                        id="id",
-                        type="type"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__91b233fc5287d89d9af5271a9055e0654e118daed6dd1005de3625fd618ab3a6)
-                check_type(argname="argument location", value=location, expected_type=type_hints["location"])
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-                check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "location": location,
-                "type": type,
-            }
-            if encryption_key is not None:
-                self._values["encryption_key"] = encryption_key
-
-        @builtins.property
-        def location(self) -> builtins.str:
-            '''The S3 bucket used for storing the artifacts for a pipeline.
-
-            You can specify the name of an S3 bucket but not a folder in the bucket. A folder to contain the pipeline artifacts is created for you based on the name of the pipeline. You can use any S3 bucket in the same AWS Region as the pipeline to store your pipeline artifacts.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstore.html#cfn-codepipeline-pipeline-artifactstore-location
-            '''
-            result = self._values.get("location")
-            assert result is not None, "Required property 'location' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def type(self) -> builtins.str:
-            '''The type of the artifact store, such as S3.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstore.html#cfn-codepipeline-pipeline-artifactstore-type
-            '''
-            result = self._values.get("type")
-            assert result is not None, "Required property 'type' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def encryption_key(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.EncryptionKeyProperty"]]:
-            '''The encryption key used to encrypt the data in the artifact store, such as an AWS Key Management Service ( AWS KMS) key.
-
-            If this is undefined, the default key for Amazon S3 is used. To see an example artifact store encryption key field, see the example structure here: `AWS::CodePipeline::Pipeline <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstore.html#cfn-codepipeline-pipeline-artifactstore-encryptionkey
-            '''
-            result = self._values.get("encryption_key")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.EncryptionKeyProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ArtifactStoreProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.BeforeEntryConditionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"conditions": "conditions"},
-    )
-    class BeforeEntryConditionsProperty:
-        def __init__(
-            self,
-            *,
-            conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ) -> None:
-            '''The conditions for making checks for entry to a stage.
-
-            For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ .
-
-            :param conditions: The conditions that are configured as entry conditions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-beforeentryconditions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                # configuration: Any
-                
-                before_entry_conditions_property = codepipeline.CfnPipeline.BeforeEntryConditionsProperty(
-                    conditions=[codepipeline.CfnPipeline.ConditionProperty(
-                        result="result",
-                        rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
-                            commands=["commands"],
-                            configuration=configuration,
-                            input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                                name="name"
-                            )],
-                            name="name",
-                            region="region",
-                            role_arn="roleArn",
-                            rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
-                                category="category",
-                                owner="owner",
-                                provider="provider",
-                                version="version"
-                            )
-                        )]
-                    )]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ff44830aee4e51ecc46b42bb0b414bcd05d75b800ddc37363d32c748295262f5)
-                check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if conditions is not None:
-                self._values["conditions"] = conditions
-
-        @builtins.property
-        def conditions(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ConditionProperty"]]]]:
-            '''The conditions that are configured as entry conditions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-beforeentryconditions.html#cfn-codepipeline-pipeline-beforeentryconditions-conditions
-            '''
-            result = self._values.get("conditions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ConditionProperty"]]]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "BeforeEntryConditionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.BlockerDeclarationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"name": "name", "type": "type"},
-    )
-    class BlockerDeclarationProperty:
-        def __init__(self, *, name: builtins.str, type: builtins.str) -> None:
-            '''Reserved for future use.
-
-            :param name: Reserved for future use.
-            :param type: Reserved for future use.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-blockerdeclaration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                blocker_declaration_property = codepipeline.CfnPipeline.BlockerDeclarationProperty(
-                    name="name",
-                    type="type"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aea6445095fe3aacd420516908167baa59e112aac5061ae6965dcfdf065d8fad)
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "name": name,
-                "type": type,
-            }
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''Reserved for future use.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-blockerdeclaration.html#cfn-codepipeline-pipeline-blockerdeclaration-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def type(self) -> builtins.str:
-            '''Reserved for future use.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-blockerdeclaration.html#cfn-codepipeline-pipeline-blockerdeclaration-type
-            '''
-            result = self._values.get("type")
-            assert result is not None, "Required property 'type' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "BlockerDeclarationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.ConditionProperty",
-        jsii_struct_bases=[],
-        name_mapping={"result": "result", "rules": "rules"},
-    )
-    class ConditionProperty:
-        def __init__(
-            self,
-            *,
-            result: typing.Optional[builtins.str] = None,
-            rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.RuleDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ) -> None:
-            '''The condition for the stage.
-
-            A condition is made up of the rules and the result for the condition. For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ .. For more information about rules, see the `AWS CodePipeline rule reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/rule-reference.html>`_ .
-
-            :param result: The action to be done when the condition is met. For example, rolling back an execution for a failure condition.
-            :param rules: The rules that make up the condition.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-condition.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                # configuration: Any
-                
-                condition_property = codepipeline.CfnPipeline.ConditionProperty(
-                    result="result",
-                    rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
-                        commands=["commands"],
-                        configuration=configuration,
-                        input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                            name="name"
-                        )],
-                        name="name",
-                        region="region",
-                        role_arn="roleArn",
-                        rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
-                            category="category",
-                            owner="owner",
-                            provider="provider",
-                            version="version"
-                        )
-                    )]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__655a27184b132924897ce867140bc56b49b1cd145d4fad9f8f52918c99d0778d)
-                check_type(argname="argument result", value=result, expected_type=type_hints["result"])
-                check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if result is not None:
-                self._values["result"] = result
-            if rules is not None:
-                self._values["rules"] = rules
-
-        @builtins.property
-        def result(self) -> typing.Optional[builtins.str]:
-            '''The action to be done when the condition is met.
-
-            For example, rolling back an execution for a failure condition.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-condition.html#cfn-codepipeline-pipeline-condition-result
-            '''
-            result = self._values.get("result")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def rules(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.RuleDeclarationProperty"]]]]:
-            '''The rules that make up the condition.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-condition.html#cfn-codepipeline-pipeline-condition-rules
-            '''
-            result = self._values.get("rules")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.RuleDeclarationProperty"]]]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ConditionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.EncryptionKeyProperty",
-        jsii_struct_bases=[],
-        name_mapping={"id": "id", "type": "type"},
-    )
-    class EncryptionKeyProperty:
-        def __init__(self, *, id: builtins.str, type: builtins.str) -> None:
-            '''Represents information about the key used to encrypt data in the artifact store, such as an AWS Key Management Service ( AWS KMS) key.
-
-            ``EncryptionKey`` is a property of the `ArtifactStore <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-artifactstore.html>`_ property type.
-
-            :param id: The ID used to identify the key. For an AWS KMS key, you can use the key ID, the key ARN, or the alias ARN. .. epigraph:: Aliases are recognized only in the account that created the AWS KMS key. For cross-account actions, you can only use the key ID or key ARN to identify the key. Cross-account actions involve using the role from the other account (AccountB), so specifying the key ID will use the key from the other account (AccountB).
-            :param type: The type of encryption key, such as an AWS KMS key. When creating or updating a pipeline, the value must be set to 'KMS'.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-encryptionkey.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                encryption_key_property = codepipeline.CfnPipeline.EncryptionKeyProperty(
-                    id="id",
-                    type="type"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__947de613103ce26163068b14d3b93b5c2d7f86d29fa6fc5cbd1509b11ffb231a)
-                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "id": id,
-                "type": type,
-            }
-
-        @builtins.property
-        def id(self) -> builtins.str:
-            '''The ID used to identify the key.
-
-            For an AWS KMS key, you can use the key ID, the key ARN, or the alias ARN.
-            .. epigraph::
-
-               Aliases are recognized only in the account that created the AWS KMS key. For cross-account actions, you can only use the key ID or key ARN to identify the key. Cross-account actions involve using the role from the other account (AccountB), so specifying the key ID will use the key from the other account (AccountB).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-encryptionkey.html#cfn-codepipeline-pipeline-encryptionkey-id
-            '''
-            result = self._values.get("id")
-            assert result is not None, "Required property 'id' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def type(self) -> builtins.str:
-            '''The type of encryption key, such as an AWS KMS key.
-
-            When creating or updating a pipeline, the value must be set to 'KMS'.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-encryptionkey.html#cfn-codepipeline-pipeline-encryptionkey-type
-            '''
-            result = self._values.get("type")
-            assert result is not None, "Required property 'type' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "EncryptionKeyProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.EnvironmentVariableProperty",
-        jsii_struct_bases=[],
-        name_mapping={"name": "name", "value": "value", "type": "type"},
-    )
-    class EnvironmentVariableProperty:
-        def __init__(
-            self,
-            *,
-            name: builtins.str,
-            value: builtins.str,
-            type: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The environment variables for the action.
-
-            :param name: The environment variable name in the key-value pair.
-            :param value: The environment variable value in the key-value pair.
-            :param type: Specifies the type of use for the environment variable value. The value can be either ``PLAINTEXT`` or ``SECRETS_MANAGER`` . If the value is ``SECRETS_MANAGER`` , provide the Secrets reference in the EnvironmentVariable value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-environmentvariable.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                environment_variable_property = codepipeline.CfnPipeline.EnvironmentVariableProperty(
-                    name="name",
-                    value="value",
-                
-                    # the properties below are optional
-                    type="type"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f259d9da088fb308ad8abebb0fb3aca04739c87fd2ed5561a20074f8e2458d5a)
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "name": name,
-                "value": value,
-            }
-            if type is not None:
-                self._values["type"] = type
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The environment variable name in the key-value pair.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-environmentvariable.html#cfn-codepipeline-pipeline-environmentvariable-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def value(self) -> builtins.str:
-            '''The environment variable value in the key-value pair.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-environmentvariable.html#cfn-codepipeline-pipeline-environmentvariable-value
-            '''
-            result = self._values.get("value")
-            assert result is not None, "Required property 'value' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def type(self) -> typing.Optional[builtins.str]:
-            '''Specifies the type of use for the environment variable value.
-
-            The value can be either ``PLAINTEXT`` or ``SECRETS_MANAGER`` . If the value is ``SECRETS_MANAGER`` , provide the Secrets reference in the EnvironmentVariable value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-environmentvariable.html#cfn-codepipeline-pipeline-environmentvariable-type
-            '''
-            result = self._values.get("type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "EnvironmentVariableProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.FailureConditionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "conditions": "conditions",
-            "result": "result",
-            "retry_configuration": "retryConfiguration",
-        },
-    )
-    class FailureConditionsProperty:
-        def __init__(
-            self,
-            *,
-            conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            result: typing.Optional[builtins.str] = None,
-            retry_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.RetryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''The configuration that specifies the result, such as rollback, to occur upon stage failure.
-
-            For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ .
-
-            :param conditions: The conditions that are configured as failure conditions. For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ .
-            :param result: The specified result for when the failure conditions are met, such as rolling back the stage.
-            :param retry_configuration: The retry configuration specifies automatic retry for a failed stage, along with the configured retry mode.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-failureconditions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                # configuration: Any
-                
-                failure_conditions_property = codepipeline.CfnPipeline.FailureConditionsProperty(
-                    conditions=[codepipeline.CfnPipeline.ConditionProperty(
-                        result="result",
-                        rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
-                            commands=["commands"],
-                            configuration=configuration,
-                            input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                                name="name"
-                            )],
-                            name="name",
-                            region="region",
-                            role_arn="roleArn",
-                            rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
-                                category="category",
-                                owner="owner",
-                                provider="provider",
-                                version="version"
-                            )
-                        )]
-                    )],
-                    result="result",
-                    retry_configuration=codepipeline.CfnPipeline.RetryConfigurationProperty(
-                        retry_mode="retryMode"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__24827e49ed35c3622e48ed5d5a7874646b28153667949aaac3a40638392631b8)
-                check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
-                check_type(argname="argument result", value=result, expected_type=type_hints["result"])
-                check_type(argname="argument retry_configuration", value=retry_configuration, expected_type=type_hints["retry_configuration"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if conditions is not None:
-                self._values["conditions"] = conditions
-            if result is not None:
-                self._values["result"] = result
-            if retry_configuration is not None:
-                self._values["retry_configuration"] = retry_configuration
-
-        @builtins.property
-        def conditions(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ConditionProperty"]]]]:
-            '''The conditions that are configured as failure conditions.
-
-            For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-failureconditions.html#cfn-codepipeline-pipeline-failureconditions-conditions
-            '''
-            result = self._values.get("conditions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ConditionProperty"]]]], result)
-
-        @builtins.property
-        def result(self) -> typing.Optional[builtins.str]:
-            '''The specified result for when the failure conditions are met, such as rolling back the stage.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-failureconditions.html#cfn-codepipeline-pipeline-failureconditions-result
-            '''
-            result = self._values.get("result")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def retry_configuration(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.RetryConfigurationProperty"]]:
-            '''The retry configuration specifies automatic retry for a failed stage, along with the configured retry mode.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-failureconditions.html#cfn-codepipeline-pipeline-failureconditions-retryconfiguration
-            '''
-            result = self._values.get("retry_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.RetryConfigurationProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "FailureConditionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty",
-        jsii_struct_bases=[],
-        name_mapping={"excludes": "excludes", "includes": "includes"},
-    )
-    class GitBranchFilterCriteriaProperty:
-        def __init__(
-            self,
-            *,
-            excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
-            includes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''The Git repository branches specified as filter criteria to start the pipeline.
-
-            :param excludes: The list of patterns of Git branches that, when a commit is pushed, are to be excluded from starting the pipeline.
-            :param includes: The list of patterns of Git branches that, when a commit is pushed, are to be included as criteria that starts the pipeline.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitbranchfiltercriteria.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                git_branch_filter_criteria_property = codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
-                    excludes=["excludes"],
-                    includes=["includes"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1d236727cda322520f3a703d9e848a434f71ca107e953aec5359ac063333d29b)
-                check_type(argname="argument excludes", value=excludes, expected_type=type_hints["excludes"])
-                check_type(argname="argument includes", value=includes, expected_type=type_hints["includes"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if excludes is not None:
-                self._values["excludes"] = excludes
-            if includes is not None:
-                self._values["includes"] = includes
-
-        @builtins.property
-        def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The list of patterns of Git branches that, when a commit is pushed, are to be excluded from starting the pipeline.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitbranchfiltercriteria.html#cfn-codepipeline-pipeline-gitbranchfiltercriteria-excludes
-            '''
-            result = self._values.get("excludes")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def includes(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The list of patterns of Git branches that, when a commit is pushed, are to be included as criteria that starts the pipeline.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitbranchfiltercriteria.html#cfn-codepipeline-pipeline-gitbranchfiltercriteria-includes
-            '''
-            result = self._values.get("includes")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "GitBranchFilterCriteriaProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.GitConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "source_action_name": "sourceActionName",
-            "pull_request": "pullRequest",
-            "push": "push",
-        },
-    )
-    class GitConfigurationProperty:
-        def __init__(
-            self,
-            *,
-            source_action_name: builtins.str,
-            pull_request: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.GitPullRequestFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            push: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.GitPushFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ) -> None:
-            '''A type of trigger configuration for Git-based source actions.
-
-            .. epigraph::
-
-               You can specify the Git configuration trigger type for all third-party Git-based source actions that are supported by the ``CodeStarSourceConnection`` action type.
-
-            :param source_action_name: The name of the pipeline source action where the trigger configuration, such as Git tags, is specified. The trigger configuration will start the pipeline upon the specified change only. .. epigraph:: You can only specify one trigger configuration per source action.
-            :param pull_request: The field where the repository event that will start the pipeline is specified as pull requests.
-            :param push: The field where the repository event that will start the pipeline, such as pushing Git tags, is specified with details.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitconfiguration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                git_configuration_property = codepipeline.CfnPipeline.GitConfigurationProperty(
-                    source_action_name="sourceActionName",
-                
-                    # the properties below are optional
-                    pull_request=[codepipeline.CfnPipeline.GitPullRequestFilterProperty(
-                        branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
-                            excludes=["excludes"],
-                            includes=["includes"]
-                        ),
-                        events=["events"],
-                        file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
-                            excludes=["excludes"],
-                            includes=["includes"]
-                        )
-                    )],
-                    push=[codepipeline.CfnPipeline.GitPushFilterProperty(
-                        branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
-                            excludes=["excludes"],
-                            includes=["includes"]
-                        ),
-                        file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
-                            excludes=["excludes"],
-                            includes=["includes"]
-                        ),
-                        tags=codepipeline.CfnPipeline.GitTagFilterCriteriaProperty(
-                            excludes=["excludes"],
-                            includes=["includes"]
-                        )
-                    )]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__76ac16c602eb78041b136170e0877a83865ceb0c0c451b7e61c00366edce50a8)
-                check_type(argname="argument source_action_name", value=source_action_name, expected_type=type_hints["source_action_name"])
-                check_type(argname="argument pull_request", value=pull_request, expected_type=type_hints["pull_request"])
-                check_type(argname="argument push", value=push, expected_type=type_hints["push"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "source_action_name": source_action_name,
-            }
-            if pull_request is not None:
-                self._values["pull_request"] = pull_request
-            if push is not None:
-                self._values["push"] = push
-
-        @builtins.property
-        def source_action_name(self) -> builtins.str:
-            '''The name of the pipeline source action where the trigger configuration, such as Git tags, is specified.
-
-            The trigger configuration will start the pipeline upon the specified change only.
-            .. epigraph::
-
-               You can only specify one trigger configuration per source action.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitconfiguration.html#cfn-codepipeline-pipeline-gitconfiguration-sourceactionname
-            '''
-            result = self._values.get("source_action_name")
-            assert result is not None, "Required property 'source_action_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def pull_request(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitPullRequestFilterProperty"]]]]:
-            '''The field where the repository event that will start the pipeline is specified as pull requests.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitconfiguration.html#cfn-codepipeline-pipeline-gitconfiguration-pullrequest
-            '''
-            result = self._values.get("pull_request")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitPullRequestFilterProperty"]]]], result)
-
-        @builtins.property
-        def push(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitPushFilterProperty"]]]]:
-            '''The field where the repository event that will start the pipeline, such as pushing Git tags, is specified with details.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitconfiguration.html#cfn-codepipeline-pipeline-gitconfiguration-push
-            '''
-            result = self._values.get("push")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitPushFilterProperty"]]]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "GitConfigurationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty",
-        jsii_struct_bases=[],
-        name_mapping={"excludes": "excludes", "includes": "includes"},
-    )
-    class GitFilePathFilterCriteriaProperty:
-        def __init__(
-            self,
-            *,
-            excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
-            includes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''The Git repository file paths specified as filter criteria to start the pipeline.
-
-            :param excludes: The list of patterns of Git repository file paths that, when a commit is pushed, are to be excluded from starting the pipeline.
-            :param includes: The list of patterns of Git repository file paths that, when a commit is pushed, are to be included as criteria that starts the pipeline.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitfilepathfiltercriteria.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                git_file_path_filter_criteria_property = codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
-                    excludes=["excludes"],
-                    includes=["includes"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6e825f3cafba918e1c84a158f90d3bcbd543fab5a2e3990e2677d0de4ad794df)
-                check_type(argname="argument excludes", value=excludes, expected_type=type_hints["excludes"])
-                check_type(argname="argument includes", value=includes, expected_type=type_hints["includes"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if excludes is not None:
-                self._values["excludes"] = excludes
-            if includes is not None:
-                self._values["includes"] = includes
-
-        @builtins.property
-        def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The list of patterns of Git repository file paths that, when a commit is pushed, are to be excluded from starting the pipeline.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitfilepathfiltercriteria.html#cfn-codepipeline-pipeline-gitfilepathfiltercriteria-excludes
-            '''
-            result = self._values.get("excludes")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def includes(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The list of patterns of Git repository file paths that, when a commit is pushed, are to be included as criteria that starts the pipeline.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitfilepathfiltercriteria.html#cfn-codepipeline-pipeline-gitfilepathfiltercriteria-includes
-            '''
-            result = self._values.get("includes")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "GitFilePathFilterCriteriaProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.GitPullRequestFilterProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "branches": "branches",
-            "events": "events",
-            "file_paths": "filePaths",
-        },
-    )
-    class GitPullRequestFilterProperty:
-        def __init__(
-            self,
-            *,
-            branches: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.GitBranchFilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            events: typing.Optional[typing.Sequence[builtins.str]] = None,
-            file_paths: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.GitFilePathFilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''The event criteria for the pull request trigger configuration, such as the lists of branches or file paths to include and exclude.
-
-            The following are valid values for the events for this filter:
-
-            - CLOSED
-            - OPEN
-            - UPDATED
-
-            :param branches: The field that specifies to filter on branches for the pull request trigger configuration.
-            :param events: The field that specifies which pull request events to filter on (OPEN, UPDATED, CLOSED) for the trigger configuration.
-            :param file_paths: The field that specifies to filter on file paths for the pull request trigger configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpullrequestfilter.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                git_pull_request_filter_property = codepipeline.CfnPipeline.GitPullRequestFilterProperty(
-                    branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
-                        excludes=["excludes"],
-                        includes=["includes"]
-                    ),
-                    events=["events"],
-                    file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
-                        excludes=["excludes"],
-                        includes=["includes"]
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bd17e19e4fde95da653023de121d5f908ce71830fcd4cd84611c860dd5585932)
-                check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
-                check_type(argname="argument events", value=events, expected_type=type_hints["events"])
-                check_type(argname="argument file_paths", value=file_paths, expected_type=type_hints["file_paths"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if branches is not None:
-                self._values["branches"] = branches
-            if events is not None:
-                self._values["events"] = events
-            if file_paths is not None:
-                self._values["file_paths"] = file_paths
-
-        @builtins.property
-        def branches(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitBranchFilterCriteriaProperty"]]:
-            '''The field that specifies to filter on branches for the pull request trigger configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpullrequestfilter.html#cfn-codepipeline-pipeline-gitpullrequestfilter-branches
-            '''
-            result = self._values.get("branches")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitBranchFilterCriteriaProperty"]], result)
-
-        @builtins.property
-        def events(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The field that specifies which pull request events to filter on (OPEN, UPDATED, CLOSED) for the trigger configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpullrequestfilter.html#cfn-codepipeline-pipeline-gitpullrequestfilter-events
-            '''
-            result = self._values.get("events")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def file_paths(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitFilePathFilterCriteriaProperty"]]:
-            '''The field that specifies to filter on file paths for the pull request trigger configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpullrequestfilter.html#cfn-codepipeline-pipeline-gitpullrequestfilter-filepaths
-            '''
-            result = self._values.get("file_paths")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitFilePathFilterCriteriaProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "GitPullRequestFilterProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.GitPushFilterProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "branches": "branches",
-            "file_paths": "filePaths",
-            "tags": "tags",
-        },
-    )
-    class GitPushFilterProperty:
-        def __init__(
-            self,
-            *,
-            branches: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.GitBranchFilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            file_paths: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.GitFilePathFilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            tags: typing.Optional[typing.Union["CfnPipeline.GitTagFilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]] = None,
-        ) -> None:
-            '''The event criteria that specify when a specified repository event will start the pipeline for the specified trigger configuration, such as the lists of Git tags to include and exclude.
-
-            :param branches: The field that specifies to filter on branches for the push trigger configuration.
-            :param file_paths: The field that specifies to filter on file paths for the push trigger configuration.
-            :param tags: The field that contains the details for the Git tags trigger configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                git_push_filter_property = codepipeline.CfnPipeline.GitPushFilterProperty(
-                    branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
-                        excludes=["excludes"],
-                        includes=["includes"]
-                    ),
-                    file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
-                        excludes=["excludes"],
-                        includes=["includes"]
-                    ),
-                    tags=codepipeline.CfnPipeline.GitTagFilterCriteriaProperty(
-                        excludes=["excludes"],
-                        includes=["includes"]
-                    )
-                )
-            '''
-            if isinstance(tags, dict):
-                tags = CfnPipeline.GitTagFilterCriteriaProperty(**tags)
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aace18192e6436301eeae21b4cd59bd8cb01b53eb17f6fcb74599b2f74f9ebd0)
-                check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
-                check_type(argname="argument file_paths", value=file_paths, expected_type=type_hints["file_paths"])
-                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if branches is not None:
-                self._values["branches"] = branches
-            if file_paths is not None:
-                self._values["file_paths"] = file_paths
-            if tags is not None:
-                self._values["tags"] = tags
-
-        @builtins.property
-        def branches(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitBranchFilterCriteriaProperty"]]:
-            '''The field that specifies to filter on branches for the push trigger configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html#cfn-codepipeline-pipeline-gitpushfilter-branches
-            '''
-            result = self._values.get("branches")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitBranchFilterCriteriaProperty"]], result)
-
-        @builtins.property
-        def file_paths(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitFilePathFilterCriteriaProperty"]]:
-            '''The field that specifies to filter on file paths for the push trigger configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html#cfn-codepipeline-pipeline-gitpushfilter-filepaths
-            '''
-            result = self._values.get("file_paths")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitFilePathFilterCriteriaProperty"]], result)
-
-        @builtins.property
-        def tags(self) -> typing.Optional["CfnPipeline.GitTagFilterCriteriaProperty"]:
-            '''The field that contains the details for the Git tags trigger configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html#cfn-codepipeline-pipeline-gitpushfilter-tags
-            '''
-            result = self._values.get("tags")
-            return typing.cast(typing.Optional["CfnPipeline.GitTagFilterCriteriaProperty"], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "GitPushFilterProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.GitTagFilterCriteriaProperty",
-        jsii_struct_bases=[],
-        name_mapping={"excludes": "excludes", "includes": "includes"},
-    )
-    class GitTagFilterCriteriaProperty:
-        def __init__(
-            self,
-            *,
-            excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
-            includes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''The Git tags specified as filter criteria for whether a Git tag repository event will start the pipeline.
-
-            :param excludes: The list of patterns of Git tags that, when pushed, are to be excluded from starting the pipeline.
-            :param includes: The list of patterns of Git tags that, when pushed, are to be included as criteria that starts the pipeline.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gittagfiltercriteria.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                git_tag_filter_criteria_property = codepipeline.CfnPipeline.GitTagFilterCriteriaProperty(
-                    excludes=["excludes"],
-                    includes=["includes"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0011c01a814174b9712d97ce1aa7e9a05579a8de4bb3a1cdb0910216a0f71485)
-                check_type(argname="argument excludes", value=excludes, expected_type=type_hints["excludes"])
-                check_type(argname="argument includes", value=includes, expected_type=type_hints["includes"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if excludes is not None:
-                self._values["excludes"] = excludes
-            if includes is not None:
-                self._values["includes"] = includes
-
-        @builtins.property
-        def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The list of patterns of Git tags that, when pushed, are to be excluded from starting the pipeline.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gittagfiltercriteria.html#cfn-codepipeline-pipeline-gittagfiltercriteria-excludes
-            '''
-            result = self._values.get("excludes")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def includes(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The list of patterns of Git tags that, when pushed, are to be included as criteria that starts the pipeline.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gittagfiltercriteria.html#cfn-codepipeline-pipeline-gittagfiltercriteria-includes
-            '''
-            result = self._values.get("includes")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "GitTagFilterCriteriaProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.InputArtifactProperty",
-        jsii_struct_bases=[],
-        name_mapping={"name": "name"},
-    )
-    class InputArtifactProperty:
-        def __init__(self, *, name: builtins.str) -> None:
-            '''Represents information about an artifact to be worked on, such as a test or build artifact.
-
-            :param name: The name of the artifact to be worked on (for example, "My App"). Artifacts are the files that are worked on by actions in the pipeline. See the action configuration for each action for details about artifact parameters. For example, the S3 source action input artifact is a file name (or file path), and the files are generally provided as a ZIP file. Example artifact name: SampleApp_Windows.zip The input artifact of an action must exactly match the output artifact declared in a preceding action, but the input artifact does not have to be the next action in strict sequence from the action that provided the output artifact. Actions in parallel can declare different output artifacts, which are in turn consumed by different following actions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-inputartifact.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                input_artifact_property = codepipeline.CfnPipeline.InputArtifactProperty(
-                    name="name"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ae97b53479ee01238ac6a596c3a1922670350a44e3d91518b64b0a6869f9e25b)
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "name": name,
-            }
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The name of the artifact to be worked on (for example, "My App").
-
-            Artifacts are the files that are worked on by actions in the pipeline. See the action configuration for each action for details about artifact parameters. For example, the S3 source action input artifact is a file name (or file path), and the files are generally provided as a ZIP file. Example artifact name: SampleApp_Windows.zip
-
-            The input artifact of an action must exactly match the output artifact declared in a preceding action, but the input artifact does not have to be the next action in strict sequence from the action that provided the output artifact. Actions in parallel can declare different output artifacts, which are in turn consumed by different following actions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-inputartifact.html#cfn-codepipeline-pipeline-inputartifact-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "InputArtifactProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.OutputArtifactProperty",
-        jsii_struct_bases=[],
-        name_mapping={"name": "name", "files": "files"},
-    )
-    class OutputArtifactProperty:
-        def __init__(
-            self,
-            *,
-            name: builtins.str,
-            files: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''Represents information about the output of an action.
-
-            :param name: The name of the output of an artifact, such as "My App". The output artifact name must exactly match the input artifact declared for a downstream action. However, the downstream action's input artifact does not have to be the next action in strict sequence from the action that provided the output artifact. Actions in parallel can declare different output artifacts, which are in turn consumed by different following actions. Output artifact names must be unique within a pipeline.
-            :param files: The files that you want to associate with the output artifact that will be exported from the compute action.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-outputartifact.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                output_artifact_property = codepipeline.CfnPipeline.OutputArtifactProperty(
-                    name="name",
-                
-                    # the properties below are optional
-                    files=["files"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ce1321d2f1592577a646df78457487ddcd0924a3b3b3af432b5a7d9ceebc6d8e)
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-                check_type(argname="argument files", value=files, expected_type=type_hints["files"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "name": name,
-            }
-            if files is not None:
-                self._values["files"] = files
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The name of the output of an artifact, such as "My App".
-
-            The output artifact name must exactly match the input artifact declared for a downstream action. However, the downstream action's input artifact does not have to be the next action in strict sequence from the action that provided the output artifact. Actions in parallel can declare different output artifacts, which are in turn consumed by different following actions.
-
-            Output artifact names must be unique within a pipeline.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-outputartifact.html#cfn-codepipeline-pipeline-outputartifact-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def files(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The files that you want to associate with the output artifact that will be exported from the compute action.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-outputartifact.html#cfn-codepipeline-pipeline-outputartifact-files
-            '''
-            result = self._values.get("files")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "OutputArtifactProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.PipelineTriggerDeclarationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "provider_type": "providerType",
-            "git_configuration": "gitConfiguration",
-        },
-    )
-    class PipelineTriggerDeclarationProperty:
-        def __init__(
-            self,
-            *,
-            provider_type: builtins.str,
-            git_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.GitConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Represents information about the specified trigger configuration, such as the filter criteria and the source stage for the action that contains the trigger.
-
-            .. epigraph::
-
-               This is only supported for the ``CodeStarSourceConnection`` action type. > When a trigger configuration is specified, default change detection for repository and branch commits is disabled.
-
-            :param provider_type: The source provider for the event, such as connections configured for a repository with Git tags, for the specified trigger configuration.
-            :param git_configuration: Provides the filter criteria and the source stage for the repository event that starts the pipeline, such as Git tags.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-pipelinetriggerdeclaration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                pipeline_trigger_declaration_property = codepipeline.CfnPipeline.PipelineTriggerDeclarationProperty(
-                    provider_type="providerType",
-                
-                    # the properties below are optional
-                    git_configuration=codepipeline.CfnPipeline.GitConfigurationProperty(
-                        source_action_name="sourceActionName",
-                
-                        # the properties below are optional
-                        pull_request=[codepipeline.CfnPipeline.GitPullRequestFilterProperty(
-                            branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
-                                excludes=["excludes"],
-                                includes=["includes"]
-                            ),
-                            events=["events"],
-                            file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
-                                excludes=["excludes"],
-                                includes=["includes"]
-                            )
-                        )],
-                        push=[codepipeline.CfnPipeline.GitPushFilterProperty(
-                            branches=codepipeline.CfnPipeline.GitBranchFilterCriteriaProperty(
-                                excludes=["excludes"],
-                                includes=["includes"]
-                            ),
-                            file_paths=codepipeline.CfnPipeline.GitFilePathFilterCriteriaProperty(
-                                excludes=["excludes"],
-                                includes=["includes"]
-                            ),
-                            tags=codepipeline.CfnPipeline.GitTagFilterCriteriaProperty(
-                                excludes=["excludes"],
-                                includes=["includes"]
-                            )
-                        )]
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4824b4ebe4c9c0ddbf15b9dd3cf1a2ffc31a1e5dfc394ba57c68b45d7e5d473c)
-                check_type(argname="argument provider_type", value=provider_type, expected_type=type_hints["provider_type"])
-                check_type(argname="argument git_configuration", value=git_configuration, expected_type=type_hints["git_configuration"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "provider_type": provider_type,
-            }
-            if git_configuration is not None:
-                self._values["git_configuration"] = git_configuration
-
-        @builtins.property
-        def provider_type(self) -> builtins.str:
-            '''The source provider for the event, such as connections configured for a repository with Git tags, for the specified trigger configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-pipelinetriggerdeclaration.html#cfn-codepipeline-pipeline-pipelinetriggerdeclaration-providertype
-            '''
-            result = self._values.get("provider_type")
-            assert result is not None, "Required property 'provider_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def git_configuration(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitConfigurationProperty"]]:
-            '''Provides the filter criteria and the source stage for the repository event that starts the pipeline, such as Git tags.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-pipelinetriggerdeclaration.html#cfn-codepipeline-pipeline-pipelinetriggerdeclaration-gitconfiguration
-            '''
-            result = self._values.get("git_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.GitConfigurationProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "PipelineTriggerDeclarationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.RetryConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"retry_mode": "retryMode"},
-    )
-    class RetryConfigurationProperty:
-        def __init__(self, *, retry_mode: typing.Optional[builtins.str] = None) -> None:
-            '''The retry configuration specifies automatic retry for a failed stage, along with the configured retry mode.
-
-            :param retry_mode: The method that you want to configure for automatic stage retry on stage failure. You can specify to retry only failed action in the stage or all actions in the stage.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-retryconfiguration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                retry_configuration_property = codepipeline.CfnPipeline.RetryConfigurationProperty(
-                    retry_mode="retryMode"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ffc8deb7765afd70d3fe572ffa86634cd8936e44aafd092f3182c532d39fd363)
-                check_type(argname="argument retry_mode", value=retry_mode, expected_type=type_hints["retry_mode"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if retry_mode is not None:
-                self._values["retry_mode"] = retry_mode
-
-        @builtins.property
-        def retry_mode(self) -> typing.Optional[builtins.str]:
-            '''The method that you want to configure for automatic stage retry on stage failure.
-
-            You can specify to retry only failed action in the stage or all actions in the stage.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-retryconfiguration.html#cfn-codepipeline-pipeline-retryconfiguration-retrymode
-            '''
-            result = self._values.get("retry_mode")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RetryConfigurationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.RuleDeclarationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "commands": "commands",
-            "configuration": "configuration",
-            "input_artifacts": "inputArtifacts",
-            "name": "name",
-            "region": "region",
-            "role_arn": "roleArn",
-            "rule_type_id": "ruleTypeId",
-        },
-    )
-    class RuleDeclarationProperty:
-        def __init__(
-            self,
-            *,
-            commands: typing.Optional[typing.Sequence[builtins.str]] = None,
-            configuration: typing.Any = None,
-            input_artifacts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.InputArtifactProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            name: typing.Optional[builtins.str] = None,
-            region: typing.Optional[builtins.str] = None,
-            role_arn: typing.Optional[builtins.str] = None,
-            rule_type_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.RuleTypeIdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Represents information about the rule to be created for an associated condition.
-
-            An example would be creating a new rule for an entry condition, such as a rule that checks for a test result before allowing the run to enter the deployment stage. For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ . For more information about rules, see the `AWS CodePipeline rule reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/rule-reference.html>`_ .
-
-            :param commands: The shell commands to run with your commands rule in CodePipeline. All commands are supported except multi-line formats. While CodeBuild logs and permissions are used, you do not need to create any resources in CodeBuild. .. epigraph:: Using compute time for this action will incur separate charges in AWS CodeBuild .
-            :param configuration: The action configuration fields for the rule.
-            :param input_artifacts: The input artifacts fields for the rule, such as specifying an input file for the rule.
-            :param name: The name of the rule that is created for the condition, such as ``VariableCheck`` .
-            :param region: The Region for the condition associated with the rule.
-            :param role_arn: The pipeline role ARN associated with the rule.
-            :param rule_type_id: The ID for the rule type, which is made up of the combined values for category, owner, provider, and version.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                # configuration: Any
-                
-                rule_declaration_property = codepipeline.CfnPipeline.RuleDeclarationProperty(
-                    commands=["commands"],
-                    configuration=configuration,
-                    input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                        name="name"
-                    )],
-                    name="name",
-                    region="region",
-                    role_arn="roleArn",
-                    rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
-                        category="category",
-                        owner="owner",
-                        provider="provider",
-                        version="version"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8b4c62f005bd4f9080fa5e8c7f7671821e7ac1c9314d5d3b1130fbf53e40fa51)
-                check_type(argname="argument commands", value=commands, expected_type=type_hints["commands"])
-                check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
-                check_type(argname="argument input_artifacts", value=input_artifacts, expected_type=type_hints["input_artifacts"])
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
-                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-                check_type(argname="argument rule_type_id", value=rule_type_id, expected_type=type_hints["rule_type_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if commands is not None:
-                self._values["commands"] = commands
-            if configuration is not None:
-                self._values["configuration"] = configuration
-            if input_artifacts is not None:
-                self._values["input_artifacts"] = input_artifacts
-            if name is not None:
-                self._values["name"] = name
-            if region is not None:
-                self._values["region"] = region
-            if role_arn is not None:
-                self._values["role_arn"] = role_arn
-            if rule_type_id is not None:
-                self._values["rule_type_id"] = rule_type_id
-
-        @builtins.property
-        def commands(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The shell commands to run with your commands rule in CodePipeline.
-
-            All commands are supported except multi-line formats. While CodeBuild logs and permissions are used, you do not need to create any resources in CodeBuild.
-            .. epigraph::
-
-               Using compute time for this action will incur separate charges in AWS CodeBuild .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-commands
-            '''
-            result = self._values.get("commands")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def configuration(self) -> typing.Any:
-            '''The action configuration fields for the rule.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-configuration
-            '''
-            result = self._values.get("configuration")
-            return typing.cast(typing.Any, result)
-
-        @builtins.property
-        def input_artifacts(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.InputArtifactProperty"]]]]:
-            '''The input artifacts fields for the rule, such as specifying an input file for the rule.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-inputartifacts
-            '''
-            result = self._values.get("input_artifacts")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.InputArtifactProperty"]]]], result)
-
-        @builtins.property
-        def name(self) -> typing.Optional[builtins.str]:
-            '''The name of the rule that is created for the condition, such as ``VariableCheck`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-name
-            '''
-            result = self._values.get("name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def region(self) -> typing.Optional[builtins.str]:
-            '''The Region for the condition associated with the rule.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-region
-            '''
-            result = self._values.get("region")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def role_arn(self) -> typing.Optional[builtins.str]:
-            '''The pipeline role ARN associated with the rule.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-rolearn
-            '''
-            result = self._values.get("role_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def rule_type_id(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.RuleTypeIdProperty"]]:
-            '''The ID for the rule type, which is made up of the combined values for category, owner, provider, and version.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruledeclaration.html#cfn-codepipeline-pipeline-ruledeclaration-ruletypeid
-            '''
-            result = self._values.get("rule_type_id")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.RuleTypeIdProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RuleDeclarationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.RuleTypeIdProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "category": "category",
-            "owner": "owner",
-            "provider": "provider",
-            "version": "version",
-        },
-    )
-    class RuleTypeIdProperty:
-        def __init__(
-            self,
-            *,
-            category: typing.Optional[builtins.str] = None,
-            owner: typing.Optional[builtins.str] = None,
-            provider: typing.Optional[builtins.str] = None,
-            version: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The ID for the rule type, which is made up of the combined values for category, owner, provider, and version.
-
-            For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ . For more information about rules, see the `AWS CodePipeline rule reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/rule-reference.html>`_ .
-
-            :param category: A category defines what kind of rule can be run in the stage, and constrains the provider type for the rule. The valid category is ``Rule`` .
-            :param owner: The creator of the rule being called. The valid value for the ``Owner`` field in the rule category is ``AWS`` .
-            :param provider: The rule provider, such as the ``DeploymentWindow`` rule. For a list of rule provider names, see the rules listed in the `AWS CodePipeline rule reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/rule-reference.html>`_ .
-            :param version: A string that describes the rule version.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruletypeid.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                rule_type_id_property = codepipeline.CfnPipeline.RuleTypeIdProperty(
-                    category="category",
-                    owner="owner",
-                    provider="provider",
-                    version="version"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__23e156541c561ae2d7b906b9cbe6720faebd9cc87aa106465379f19bc0980c56)
-                check_type(argname="argument category", value=category, expected_type=type_hints["category"])
-                check_type(argname="argument owner", value=owner, expected_type=type_hints["owner"])
-                check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
-                check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if category is not None:
-                self._values["category"] = category
-            if owner is not None:
-                self._values["owner"] = owner
-            if provider is not None:
-                self._values["provider"] = provider
-            if version is not None:
-                self._values["version"] = version
-
-        @builtins.property
-        def category(self) -> typing.Optional[builtins.str]:
-            '''A category defines what kind of rule can be run in the stage, and constrains the provider type for the rule.
-
-            The valid category is ``Rule`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruletypeid.html#cfn-codepipeline-pipeline-ruletypeid-category
-            '''
-            result = self._values.get("category")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def owner(self) -> typing.Optional[builtins.str]:
-            '''The creator of the rule being called.
-
-            The valid value for the ``Owner`` field in the rule category is ``AWS`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruletypeid.html#cfn-codepipeline-pipeline-ruletypeid-owner
-            '''
-            result = self._values.get("owner")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def provider(self) -> typing.Optional[builtins.str]:
-            '''The rule provider, such as the ``DeploymentWindow`` rule.
-
-            For a list of rule provider names, see the rules listed in the `AWS CodePipeline rule reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/rule-reference.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruletypeid.html#cfn-codepipeline-pipeline-ruletypeid-provider
-            '''
-            result = self._values.get("provider")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def version(self) -> typing.Optional[builtins.str]:
-            '''A string that describes the rule version.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-ruletypeid.html#cfn-codepipeline-pipeline-ruletypeid-version
-            '''
-            result = self._values.get("version")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RuleTypeIdProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.StageDeclarationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "actions": "actions",
-            "name": "name",
-            "before_entry": "beforeEntry",
-            "blockers": "blockers",
-            "on_failure": "onFailure",
-            "on_success": "onSuccess",
-        },
-    )
-    class StageDeclarationProperty:
-        def __init__(
-            self,
-            *,
-            actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.ActionDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            name: builtins.str,
-            before_entry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.BeforeEntryConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            blockers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.BlockerDeclarationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            on_failure: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.FailureConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            on_success: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.SuccessConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Represents information about a stage and its definition.
-
-            :param actions: The actions included in a stage.
-            :param name: The name of the stage.
-            :param before_entry: The method to use when a stage allows entry. For example, configuring this field for conditions will allow entry to the stage when the conditions are met.
-            :param blockers: Reserved for future use.
-            :param on_failure: The method to use when a stage has not completed successfully. For example, configuring this field for rollback will roll back a failed stage automatically to the last successful pipeline execution in the stage.
-            :param on_success: The method to use when a stage has succeeded. For example, configuring this field for conditions will allow the stage to succeed when the conditions are met.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                # configuration: Any
-                
-                stage_declaration_property = codepipeline.CfnPipeline.StageDeclarationProperty(
-                    actions=[codepipeline.CfnPipeline.ActionDeclarationProperty(
-                        action_type_id=codepipeline.CfnPipeline.ActionTypeIdProperty(
-                            category="category",
-                            owner="owner",
-                            provider="provider",
-                            version="version"
-                        ),
-                        name="name",
-                
-                        # the properties below are optional
-                        commands=["commands"],
-                        configuration=configuration,
-                        environment_variables=[codepipeline.CfnPipeline.EnvironmentVariableProperty(
-                            name="name",
-                            value="value",
-                
-                            # the properties below are optional
-                            type="type"
-                        )],
-                        input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                            name="name"
-                        )],
-                        namespace="namespace",
-                        output_artifacts=[codepipeline.CfnPipeline.OutputArtifactProperty(
-                            name="name",
-                
-                            # the properties below are optional
-                            files=["files"]
-                        )],
-                        output_variables=["outputVariables"],
-                        region="region",
-                        role_arn="roleArn",
-                        run_order=123,
-                        timeout_in_minutes=123
-                    )],
-                    name="name",
-                
-                    # the properties below are optional
-                    before_entry=codepipeline.CfnPipeline.BeforeEntryConditionsProperty(
-                        conditions=[codepipeline.CfnPipeline.ConditionProperty(
-                            result="result",
-                            rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
-                                commands=["commands"],
-                                configuration=configuration,
-                                input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                                    name="name"
-                                )],
-                                name="name",
-                                region="region",
-                                role_arn="roleArn",
-                                rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
-                                    category="category",
-                                    owner="owner",
-                                    provider="provider",
-                                    version="version"
-                                )
-                            )]
-                        )]
-                    ),
-                    blockers=[codepipeline.CfnPipeline.BlockerDeclarationProperty(
-                        name="name",
-                        type="type"
-                    )],
-                    on_failure=codepipeline.CfnPipeline.FailureConditionsProperty(
-                        conditions=[codepipeline.CfnPipeline.ConditionProperty(
-                            result="result",
-                            rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
-                                commands=["commands"],
-                                configuration=configuration,
-                                input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                                    name="name"
-                                )],
-                                name="name",
-                                region="region",
-                                role_arn="roleArn",
-                                rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
-                                    category="category",
-                                    owner="owner",
-                                    provider="provider",
-                                    version="version"
-                                )
-                            )]
-                        )],
-                        result="result",
-                        retry_configuration=codepipeline.CfnPipeline.RetryConfigurationProperty(
-                            retry_mode="retryMode"
-                        )
-                    ),
-                    on_success=codepipeline.CfnPipeline.SuccessConditionsProperty(
-                        conditions=[codepipeline.CfnPipeline.ConditionProperty(
-                            result="result",
-                            rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
-                                commands=["commands"],
-                                configuration=configuration,
-                                input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                                    name="name"
-                                )],
-                                name="name",
-                                region="region",
-                                role_arn="roleArn",
-                                rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
-                                    category="category",
-                                    owner="owner",
-                                    provider="provider",
-                                    version="version"
-                                )
-                            )]
-                        )]
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6d7aa29ffac3603e5ca76edf19c1467363376322d9bc527c818c0d2c87a67c65)
-                check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-                check_type(argname="argument before_entry", value=before_entry, expected_type=type_hints["before_entry"])
-                check_type(argname="argument blockers", value=blockers, expected_type=type_hints["blockers"])
-                check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
-                check_type(argname="argument on_success", value=on_success, expected_type=type_hints["on_success"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "actions": actions,
-                "name": name,
-            }
-            if before_entry is not None:
-                self._values["before_entry"] = before_entry
-            if blockers is not None:
-                self._values["blockers"] = blockers
-            if on_failure is not None:
-                self._values["on_failure"] = on_failure
-            if on_success is not None:
-                self._values["on_success"] = on_success
-
-        @builtins.property
-        def actions(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ActionDeclarationProperty"]]]:
-            '''The actions included in a stage.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html#cfn-codepipeline-pipeline-stagedeclaration-actions
-            '''
-            result = self._values.get("actions")
-            assert result is not None, "Required property 'actions' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ActionDeclarationProperty"]]], result)
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The name of the stage.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html#cfn-codepipeline-pipeline-stagedeclaration-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def before_entry(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.BeforeEntryConditionsProperty"]]:
-            '''The method to use when a stage allows entry.
-
-            For example, configuring this field for conditions will allow entry to the stage when the conditions are met.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html#cfn-codepipeline-pipeline-stagedeclaration-beforeentry
-            '''
-            result = self._values.get("before_entry")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.BeforeEntryConditionsProperty"]], result)
-
-        @builtins.property
-        def blockers(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.BlockerDeclarationProperty"]]]]:
-            '''Reserved for future use.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html#cfn-codepipeline-pipeline-stagedeclaration-blockers
-            '''
-            result = self._values.get("blockers")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.BlockerDeclarationProperty"]]]], result)
-
-        @builtins.property
-        def on_failure(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.FailureConditionsProperty"]]:
-            '''The method to use when a stage has not completed successfully.
-
-            For example, configuring this field for rollback will roll back a failed stage automatically to the last successful pipeline execution in the stage.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html#cfn-codepipeline-pipeline-stagedeclaration-onfailure
-            '''
-            result = self._values.get("on_failure")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.FailureConditionsProperty"]], result)
-
-        @builtins.property
-        def on_success(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.SuccessConditionsProperty"]]:
-            '''The method to use when a stage has succeeded.
-
-            For example, configuring this field for conditions will allow the stage to succeed when the conditions are met.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagedeclaration.html#cfn-codepipeline-pipeline-stagedeclaration-onsuccess
-            '''
-            result = self._values.get("on_success")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipeline.SuccessConditionsProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "StageDeclarationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.StageTransitionProperty",
-        jsii_struct_bases=[],
-        name_mapping={"reason": "reason", "stage_name": "stageName"},
-    )
-    class StageTransitionProperty:
-        def __init__(self, *, reason: builtins.str, stage_name: builtins.str) -> None:
-            '''The name of the pipeline in which you want to disable the flow of artifacts from one stage to another.
-
-            :param reason: The reason given to the user that a stage is disabled, such as waiting for manual approval or manual tests. This message is displayed in the pipeline console UI.
-            :param stage_name: The name of the stage where you want to disable the inbound or outbound transition of artifacts.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagetransition.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                stage_transition_property = codepipeline.CfnPipeline.StageTransitionProperty(
-                    reason="reason",
-                    stage_name="stageName"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cb571d221ca422b88898c034c3ecd725aa8056ceb7b00c4c4faba2b7c9ba03c5)
-                check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
-                check_type(argname="argument stage_name", value=stage_name, expected_type=type_hints["stage_name"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "reason": reason,
-                "stage_name": stage_name,
-            }
-
-        @builtins.property
-        def reason(self) -> builtins.str:
-            '''The reason given to the user that a stage is disabled, such as waiting for manual approval or manual tests.
-
-            This message is displayed in the pipeline console UI.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagetransition.html#cfn-codepipeline-pipeline-stagetransition-reason
-            '''
-            result = self._values.get("reason")
-            assert result is not None, "Required property 'reason' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def stage_name(self) -> builtins.str:
-            '''The name of the stage where you want to disable the inbound or outbound transition of artifacts.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stagetransition.html#cfn-codepipeline-pipeline-stagetransition-stagename
-            '''
-            result = self._values.get("stage_name")
-            assert result is not None, "Required property 'stage_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "StageTransitionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.SuccessConditionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"conditions": "conditions"},
-    )
-    class SuccessConditionsProperty:
-        def __init__(
-            self,
-            *,
-            conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ) -> None:
-            '''The conditions for making checks that, if met, succeed a stage.
-
-            For more information about conditions, see `Stage conditions <https://docs.aws.amazon.com/codepipeline/latest/userguide/stage-conditions.html>`_ and `How do stage conditions work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`_ .
-
-            :param conditions: The conditions that are success conditions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-successconditions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                # configuration: Any
-                
-                success_conditions_property = codepipeline.CfnPipeline.SuccessConditionsProperty(
-                    conditions=[codepipeline.CfnPipeline.ConditionProperty(
-                        result="result",
-                        rules=[codepipeline.CfnPipeline.RuleDeclarationProperty(
-                            commands=["commands"],
-                            configuration=configuration,
-                            input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
-                                name="name"
-                            )],
-                            name="name",
-                            region="region",
-                            role_arn="roleArn",
-                            rule_type_id=codepipeline.CfnPipeline.RuleTypeIdProperty(
-                                category="category",
-                                owner="owner",
-                                provider="provider",
-                                version="version"
-                            )
-                        )]
-                    )]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bad81fbd255bde02e908e1897791765381a8955c3d02012570513080a2c49891)
-                check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if conditions is not None:
-                self._values["conditions"] = conditions
-
-        @builtins.property
-        def conditions(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ConditionProperty"]]]]:
-            '''The conditions that are success conditions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-successconditions.html#cfn-codepipeline-pipeline-successconditions-conditions
-            '''
-            result = self._values.get("conditions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ConditionProperty"]]]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "SuccessConditionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.VariableDeclarationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "name": "name",
-            "default_value": "defaultValue",
-            "description": "description",
-        },
-    )
-    class VariableDeclarationProperty:
-        def __init__(
-            self,
-            *,
-            name: builtins.str,
-            default_value: typing.Optional[builtins.str] = None,
-            description: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''A variable declared at the pipeline level.
-
-            :param name: The name of a pipeline-level variable.
-            :param default_value: The value of a pipeline-level variable.
-            :param description: The description of a pipeline-level variable. It's used to add additional context about the variable, and not being used at time when pipeline executes.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-variabledeclaration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                variable_declaration_property = codepipeline.CfnPipeline.VariableDeclarationProperty(
-                    name="name",
-                
-                    # the properties below are optional
-                    default_value="defaultValue",
-                    description="description"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c1db744a2dce48273e96d1e41fe3217fb05516aae94ff61ffe871290cbc49ca0)
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-                check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
-                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "name": name,
-            }
-            if default_value is not None:
-                self._values["default_value"] = default_value
-            if description is not None:
-                self._values["description"] = description
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The name of a pipeline-level variable.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-variabledeclaration.html#cfn-codepipeline-pipeline-variabledeclaration-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def default_value(self) -> typing.Optional[builtins.str]:
-            '''The value of a pipeline-level variable.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-variabledeclaration.html#cfn-codepipeline-pipeline-variabledeclaration-defaultvalue
-            '''
-            result = self._values.get("default_value")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def description(self) -> typing.Optional[builtins.str]:
-            '''The description of a pipeline-level variable.
-
-            It's used to add additional context about the variable, and not being used at time when pipeline executes.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-variabledeclaration.html#cfn-codepipeline-pipeline-variabledeclaration-description
-            '''
-            result = self._values.get("description")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "VariableDeclarationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, IWebhookRef)
-class CfnWebhook(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_codepipeline.CfnWebhook",
-):
-    '''The ``AWS::CodePipeline::Webhook`` resource creates and registers your webhook.
-
-    After the webhook is created and registered, it triggers your pipeline to start every time an external event occurs. For more information, see `Migrate polling pipelines to use event-based change detection <https://docs.aws.amazon.com/codepipeline/latest/userguide/update-change-detection.html>`_ in the *AWS CodePipeline User Guide* .
-
-    We strongly recommend that you use AWS Secrets Manager to store your credentials. If you use Secrets Manager, you must have already configured and stored your secret parameters in Secrets Manager. For more information, see `Using Dynamic References to Specify Template Values <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html#dynamic-references-secretsmanager>`_ .
-    .. epigraph::
-
-       When passing secret parameters, do not enter the value directly into the template. The value is rendered as plaintext and is therefore readable. For security reasons, do not use plaintext in your AWS CloudFormation template to store your credentials.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-webhook.html
-    :cloudformationResource: AWS::CodePipeline::Webhook
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_codepipeline as codepipeline
-        
-        cfn_webhook = codepipeline.CfnWebhook(self, "MyCfnWebhook",
-            authentication="authentication",
-            authentication_configuration=codepipeline.CfnWebhook.WebhookAuthConfigurationProperty(
-                allowed_ip_range="allowedIpRange",
-                secret_token="secretToken"
-            ),
-            filters=[codepipeline.CfnWebhook.WebhookFilterRuleProperty(
-                json_path="jsonPath",
-        
-                # the properties below are optional
-                match_equals="matchEquals"
-            )],
-            target_action="targetAction",
-            target_pipeline="targetPipeline",
-        
-            # the properties below are optional
-            name="name",
-            register_with_third_party=False,
-            target_pipeline_version=123
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        authentication: builtins.str,
-        authentication_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebhook.WebhookAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        filters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebhook.WebhookFilterRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        target_action: builtins.str,
-        target_pipeline: builtins.str,
-        name: typing.Optional[builtins.str] = None,
-        register_with_third_party: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        target_pipeline_version: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param authentication: Supported options are GITHUB_HMAC, IP, and UNAUTHENTICATED. .. epigraph:: When creating CodePipeline webhooks, do not use your own credentials or reuse the same secret token across multiple webhooks. For optimal security, generate a unique secret token for each webhook you create. The secret token is an arbitrary string that you provide, which GitHub uses to compute and sign the webhook payloads sent to CodePipeline, for protecting the integrity and authenticity of the webhook payloads. Using your own credentials or reusing the same token across multiple webhooks can lead to security vulnerabilities. > If a secret token was provided, it will be redacted in the response. - For information about the authentication scheme implemented by GITHUB_HMAC, see `Securing your webhooks <https://docs.aws.amazon.com/https://developer.github.com/webhooks/securing/>`_ on the GitHub Developer website. - IP rejects webhooks trigger requests unless they originate from an IP address in the IP range whitelisted in the authentication configuration. - UNAUTHENTICATED accepts all webhook trigger requests regardless of origin.
-        :param authentication_configuration: Properties that configure the authentication applied to incoming webhook trigger requests. The required properties depend on the authentication type. For GITHUB_HMAC, only the ``SecretToken`` property must be set. For IP, only the ``AllowedIPRange`` property must be set to a valid CIDR range. For UNAUTHENTICATED, no properties can be set.
-        :param filters: A list of rules applied to the body/payload sent in the POST request to a webhook URL. All defined rules must pass for the request to be accepted and the pipeline started.
-        :param target_action: The name of the action in a pipeline you want to connect to the webhook. The action must be from the source (first) stage of the pipeline.
-        :param target_pipeline: The name of the pipeline you want to connect to the webhook.
-        :param name: The name of the webhook.
-        :param register_with_third_party: Configures a connection between the webhook that was created and the external tool with events to be detected.
-        :param target_pipeline_version: The version number of the pipeline to be connected to the trigger request. Required: Yes Type: Integer Update requires: `No interruption <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt>`_
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf02f564438140d92570cd41d3abeeb991e242929571b6de0035b8a8b4ecff55)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnWebhookProps(
-            authentication=authentication,
-            authentication_configuration=authentication_configuration,
-            filters=filters,
-            target_action=target_action,
-            target_pipeline=target_pipeline,
-            name=name,
-            register_with_third_party=register_with_third_party,
-            target_pipeline_version=target_pipeline_version,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__227d30f46442bec095e9f300f856b2b86b94483b1abf3f7f7428ecca8fafdfe8)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9af71d26442bb7c7f0f5a8a7f86584efcd70b8a3ff115bdc89a2003734fbfa25)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''logical id of the webhook.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrUrl")
-    def attr_url(self) -> builtins.str:
-        '''The webhook URL generated by AWS CodePipeline , such as ``https://eu-central-1.webhooks.aws/trigger123456`` .
-
-        :cloudformationAttribute: Url
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrUrl"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="webhookRef")
-    def webhook_ref(self) -> WebhookReference:
-        '''A reference to a Webhook resource.'''
-        return typing.cast(WebhookReference, jsii.get(self, "webhookRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="authentication")
-    def authentication(self) -> builtins.str:
-        '''Supported options are GITHUB_HMAC, IP, and UNAUTHENTICATED.'''
-        return typing.cast(builtins.str, jsii.get(self, "authentication"))
-
-    @authentication.setter
-    def authentication(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e676ed166ded3f8e83006fde318144fc317bdf1d026e6626ec6456c9af43e75f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "authentication", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="authenticationConfiguration")
-    def authentication_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnWebhook.WebhookAuthConfigurationProperty"]:
-        '''Properties that configure the authentication applied to incoming webhook trigger requests.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebhook.WebhookAuthConfigurationProperty"], jsii.get(self, "authenticationConfiguration"))
-
-    @authentication_configuration.setter
-    def authentication_configuration(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnWebhook.WebhookAuthConfigurationProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__661e78f47928057e34eff18cc959796c1aeaac5a2037fd1c3cc43d77914ebef7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "authenticationConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="filters")
-    def filters(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebhook.WebhookFilterRuleProperty"]]]:
-        '''A list of rules applied to the body/payload sent in the POST request to a webhook URL.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebhook.WebhookFilterRuleProperty"]]], jsii.get(self, "filters"))
-
-    @filters.setter
-    def filters(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebhook.WebhookFilterRuleProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2850ab1aedf159b1372121953fbc6d536f0960551cfbef5e9d4c28853a4a21d2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "filters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="targetAction")
-    def target_action(self) -> builtins.str:
-        '''The name of the action in a pipeline you want to connect to the webhook.'''
-        return typing.cast(builtins.str, jsii.get(self, "targetAction"))
-
-    @target_action.setter
-    def target_action(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__587b4858c30fdff155d12e1a9d56e04f9e188232da10143ade48f277f0f2c87c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetAction", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="targetPipeline")
-    def target_pipeline(self) -> builtins.str:
-        '''The name of the pipeline you want to connect to the webhook.'''
-        return typing.cast(builtins.str, jsii.get(self, "targetPipeline"))
-
-    @target_pipeline.setter
-    def target_pipeline(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7689c33ff229cf9ddb20032bde1e437145c826878f8c3c870467422b263504ad)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetPipeline", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the webhook.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02d5d087cd1b518d8897dbfb653d0edc5b158629e5fb93ddfa71e79b970371d6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="registerWithThirdParty")
-    def register_with_third_party(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Configures a connection between the webhook that was created and the external tool with events to be detected.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "registerWithThirdParty"))
-
-    @register_with_third_party.setter
-    def register_with_third_party(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bece180dca3b968274dbd53d569afb60e6d46b7d744e84c8607ca6bebd23d1be)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "registerWithThirdParty", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="targetPipelineVersion")
-    def target_pipeline_version(self) -> typing.Optional[jsii.Number]:
-        '''The version number of the pipeline to be connected to the trigger request.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "targetPipelineVersion"))
-
-    @target_pipeline_version.setter
-    def target_pipeline_version(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b5cd8d4c4d8034c3ab1dd1b987c191aa6f08532707cff99ad05b96198aff585)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetPipelineVersion", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnWebhook.WebhookAuthConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "allowed_ip_range": "allowedIpRange",
-            "secret_token": "secretToken",
-        },
-    )
-    class WebhookAuthConfigurationProperty:
-        def __init__(
-            self,
-            *,
-            allowed_ip_range: typing.Optional[builtins.str] = None,
-            secret_token: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The authentication applied to incoming webhook trigger requests.
-
-            :param allowed_ip_range: The property used to configure acceptance of webhooks in an IP address range. For IP, only the ``AllowedIPRange`` property must be set. This property must be set to a valid CIDR range.
-            :param secret_token: The property used to configure GitHub authentication. For GITHUB_HMAC, only the ``SecretToken`` property must be set. .. epigraph:: When creating CodePipeline webhooks, do not use your own credentials or reuse the same secret token across multiple webhooks. For optimal security, generate a unique secret token for each webhook you create. The secret token is an arbitrary string that you provide, which GitHub uses to compute and sign the webhook payloads sent to CodePipeline, for protecting the integrity and authenticity of the webhook payloads. Using your own credentials or reusing the same token across multiple webhooks can lead to security vulnerabilities. > If a secret token was provided, it will be redacted in the response.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-webhook-webhookauthconfiguration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                webhook_auth_configuration_property = codepipeline.CfnWebhook.WebhookAuthConfigurationProperty(
-                    allowed_ip_range="allowedIpRange",
-                    secret_token="secretToken"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a1f94b3e315b456165a38ed09c4221466ed997fe963ce16cae9474a0dfbfc787)
-                check_type(argname="argument allowed_ip_range", value=allowed_ip_range, expected_type=type_hints["allowed_ip_range"])
-                check_type(argname="argument secret_token", value=secret_token, expected_type=type_hints["secret_token"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if allowed_ip_range is not None:
-                self._values["allowed_ip_range"] = allowed_ip_range
-            if secret_token is not None:
-                self._values["secret_token"] = secret_token
-
-        @builtins.property
-        def allowed_ip_range(self) -> typing.Optional[builtins.str]:
-            '''The property used to configure acceptance of webhooks in an IP address range.
-
-            For IP, only the ``AllowedIPRange`` property must be set. This property must be set to a valid CIDR range.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-webhook-webhookauthconfiguration.html#cfn-codepipeline-webhook-webhookauthconfiguration-allowediprange
-            '''
-            result = self._values.get("allowed_ip_range")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def secret_token(self) -> typing.Optional[builtins.str]:
-            '''The property used to configure GitHub authentication. For GITHUB_HMAC, only the ``SecretToken`` property must be set.
-
-            .. epigraph::
-
-               When creating CodePipeline webhooks, do not use your own credentials or reuse the same secret token across multiple webhooks. For optimal security, generate a unique secret token for each webhook you create. The secret token is an arbitrary string that you provide, which GitHub uses to compute and sign the webhook payloads sent to CodePipeline, for protecting the integrity and authenticity of the webhook payloads. Using your own credentials or reusing the same token across multiple webhooks can lead to security vulnerabilities. > If a secret token was provided, it will be redacted in the response.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-webhook-webhookauthconfiguration.html#cfn-codepipeline-webhook-webhookauthconfiguration-secrettoken
-            '''
-            result = self._values.get("secret_token")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "WebhookAuthConfigurationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codepipeline.CfnWebhook.WebhookFilterRuleProperty",
-        jsii_struct_bases=[],
-        name_mapping={"json_path": "jsonPath", "match_equals": "matchEquals"},
-    )
-    class WebhookFilterRuleProperty:
-        def __init__(
-            self,
-            *,
-            json_path: builtins.str,
-            match_equals: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The event criteria that specify when a webhook notification is sent to your URL.
-
-            :param json_path: A JsonPath expression that is applied to the body/payload of the webhook. The value selected by the JsonPath expression must match the value specified in the ``MatchEquals`` field. Otherwise, the request is ignored. For more information, see `Java JsonPath implementation <https://docs.aws.amazon.com/https://github.com/json-path/JsonPath>`_ in GitHub.
-            :param match_equals: The value selected by the ``JsonPath`` expression must match what is supplied in the ``MatchEquals`` field. Otherwise, the request is ignored. Properties from the target action configuration can be included as placeholders in this value by surrounding the action configuration key with curly brackets. For example, if the value supplied here is "refs/heads/{Branch}" and the target action has an action configuration property called "Branch" with a value of "main", the ``MatchEquals`` value is evaluated as "refs/heads/main". For a list of action configuration properties for built-in action types, see `Pipeline Structure Reference Action Requirements <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#action-requirements>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-webhook-webhookfilterrule.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codepipeline as codepipeline
-                
-                webhook_filter_rule_property = codepipeline.CfnWebhook.WebhookFilterRuleProperty(
-                    json_path="jsonPath",
-                
-                    # the properties below are optional
-                    match_equals="matchEquals"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8df4160ff8ffad45b342e229c142723b01ac593a0b6f444e63ae192a0e8626b4)
-                check_type(argname="argument json_path", value=json_path, expected_type=type_hints["json_path"])
-                check_type(argname="argument match_equals", value=match_equals, expected_type=type_hints["match_equals"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "json_path": json_path,
-            }
-            if match_equals is not None:
-                self._values["match_equals"] = match_equals
-
-        @builtins.property
-        def json_path(self) -> builtins.str:
-            '''A JsonPath expression that is applied to the body/payload of the webhook.
-
-            The value selected by the JsonPath expression must match the value specified in the ``MatchEquals`` field. Otherwise, the request is ignored. For more information, see `Java JsonPath implementation <https://docs.aws.amazon.com/https://github.com/json-path/JsonPath>`_ in GitHub.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-webhook-webhookfilterrule.html#cfn-codepipeline-webhook-webhookfilterrule-jsonpath
-            '''
-            result = self._values.get("json_path")
-            assert result is not None, "Required property 'json_path' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def match_equals(self) -> typing.Optional[builtins.str]:
-            '''The value selected by the ``JsonPath`` expression must match what is supplied in the ``MatchEquals`` field.
-
-            Otherwise, the request is ignored. Properties from the target action configuration can be included as placeholders in this value by surrounding the action configuration key with curly brackets. For example, if the value supplied here is "refs/heads/{Branch}" and the target action has an action configuration property called "Branch" with a value of "main", the ``MatchEquals`` value is evaluated as "refs/heads/main". For a list of action configuration properties for built-in action types, see `Pipeline Structure Reference Action Requirements <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#action-requirements>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-webhook-webhookfilterrule.html#cfn-codepipeline-webhook-webhookfilterrule-matchequals
-            '''
-            result = self._values.get("match_equals")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "WebhookFilterRuleProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
 
 
 @jsii.data_type(
@@ -12056,13 +11884,13 @@ class StageOptions(StageProps):
         self,
         *,
         stage_name: builtins.str,
-        actions: typing.Optional[typing.Sequence[IAction]] = None,
-        before_entry: typing.Optional[typing.Union[Conditions, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[typing.Union[FailureConditions, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_success: typing.Optional[typing.Union[Conditions, typing.Dict[builtins.str, typing.Any]]] = None,
+        actions: typing.Optional[typing.Sequence["IAction"]] = None,
+        before_entry: typing.Optional[typing.Union["Conditions", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_failure: typing.Optional[typing.Union["FailureConditions", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_success: typing.Optional[typing.Union["Conditions", typing.Dict[builtins.str, typing.Any]]] = None,
         transition_disabled_reason: typing.Optional[builtins.str] = None,
         transition_to_enabled: typing.Optional[builtins.bool] = None,
-        placement: typing.Optional[typing.Union[StagePlacement, typing.Dict[builtins.str, typing.Any]]] = None,
+        placement: typing.Optional[typing.Union["StagePlacement", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param stage_name: The physical, human-readable name to assign to this Pipeline Stage.
@@ -12139,40 +11967,40 @@ class StageOptions(StageProps):
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def actions(self) -> typing.Optional[typing.List[IAction]]:
+    def actions(self) -> typing.Optional[typing.List["IAction"]]:
         '''The list of Actions to create this Stage with.
 
         You can always add more Actions later by calling ``IStage#addAction``.
         '''
         result = self._values.get("actions")
-        return typing.cast(typing.Optional[typing.List[IAction]], result)
+        return typing.cast(typing.Optional[typing.List["IAction"]], result)
 
     @builtins.property
-    def before_entry(self) -> typing.Optional[Conditions]:
+    def before_entry(self) -> typing.Optional["Conditions"]:
         '''The method to use when a stage allows entry.
 
         :default: - No conditions are applied before stage entry
         '''
         result = self._values.get("before_entry")
-        return typing.cast(typing.Optional[Conditions], result)
+        return typing.cast(typing.Optional["Conditions"], result)
 
     @builtins.property
-    def on_failure(self) -> typing.Optional[FailureConditions]:
+    def on_failure(self) -> typing.Optional["FailureConditions"]:
         '''The method to use when a stage has not completed successfully.
 
         :default: - No failure conditions are applied
         '''
         result = self._values.get("on_failure")
-        return typing.cast(typing.Optional[FailureConditions], result)
+        return typing.cast(typing.Optional["FailureConditions"], result)
 
     @builtins.property
-    def on_success(self) -> typing.Optional[Conditions]:
+    def on_success(self) -> typing.Optional["Conditions"]:
         '''The method to use when a stage has succeeded.
 
         :default: - No success conditions are applied
         '''
         result = self._values.get("on_success")
-        return typing.cast(typing.Optional[Conditions], result)
+        return typing.cast(typing.Optional["Conditions"], result)
 
     @builtins.property
     def transition_disabled_reason(self) -> typing.Optional[builtins.str]:
@@ -12196,9 +12024,9 @@ class StageOptions(StageProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def placement(self) -> typing.Optional[StagePlacement]:
+    def placement(self) -> typing.Optional["StagePlacement"]:
         result = self._values.get("placement")
-        return typing.cast(typing.Optional[StagePlacement], result)
+        return typing.cast(typing.Optional["StagePlacement"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12235,7 +12063,6 @@ __all__ = [
     "CustomActionProperty",
     "CustomActionRegistration",
     "CustomActionRegistrationProps",
-    "CustomActionTypeReference",
     "ExecutionMode",
     "FailureConditions",
     "GitConfiguration",
@@ -12244,16 +12071,12 @@ __all__ = [
     "GitPushFilter",
     "GlobalVariables",
     "IAction",
-    "ICustomActionTypeRef",
     "IPipeline",
-    "IPipelineRef",
     "IStage",
-    "IWebhookRef",
     "Pipeline",
     "PipelineNotificationEvents",
     "PipelineNotifyOnOptions",
     "PipelineProps",
-    "PipelineReference",
     "PipelineType",
     "ProviderType",
     "Result",
@@ -12267,7 +12090,6 @@ __all__ = [
     "TriggerProps",
     "Variable",
     "VariableProps",
-    "WebhookReference",
 ]
 
 publication.publish()
@@ -12374,599 +12196,6 @@ def _typecheckingstub__115b1cae0962172379db2ea0c46d89f1499e1fe81a15f16ab5cdc9e0a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__80cf799a55bc6800768c5d3d84413549a05e5ce903095bf6faca6537ab864169(
-    *,
-    category: builtins.str,
-    input_artifact_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomActionType.ArtifactDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
-    output_artifact_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomActionType.ArtifactDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
-    provider: builtins.str,
-    version: builtins.str,
-    configuration_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomActionType.ConfigurationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomActionType.SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__34b7cf6aaa1cc98db41892b9b8499f74092bf6b5f7f4050d1bd7642f7df7be5c(
-    *,
-    role_arn: builtins.str,
-    stages: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.StageDeclarationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    artifact_store: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.ArtifactStoreProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    artifact_stores: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.ArtifactStoreMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    disable_inbound_stage_transitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.StageTransitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    execution_mode: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    pipeline_type: typing.Optional[builtins.str] = None,
-    restart_execution_on_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.PipelineTriggerDeclarationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.VariableDeclarationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f28117e3c74b6a7a1058236385a59385f8137a16e17eeab89a327270a962c1c0(
-    *,
-    authentication: builtins.str,
-    authentication_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebhook.WebhookAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    filters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebhook.WebhookFilterRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    target_action: builtins.str,
-    target_pipeline: builtins.str,
-    name: typing.Optional[builtins.str] = None,
-    register_with_third_party: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    target_pipeline_version: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7942eb739db372f4263ddd3c7148e8268bd4537a32132825d029a7fa12cb9f35(
-    *,
-    action_name: builtins.str,
-    run_order: typing.Optional[jsii.Number] = None,
-    variables_namespace: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b783a63e8d6c7172676968c2e23c558eb0d0f2b7f7bcc22e469d596ee0d25b4c(
-    *,
-    action_name: builtins.str,
-    run_order: typing.Optional[jsii.Number] = None,
-    variables_namespace: typing.Optional[builtins.str] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f9d3d585d6146668bf50fd9ef4e444521a4def40f934c6c42bb219a9816ffc01(
-    *,
-    result: typing.Optional[Result] = None,
-    rules: typing.Optional[typing.Sequence[Rule]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b1d234052e60461c20b06295a40d2efb73b7297f0a204252511a0083c29daef9(
-    *,
-    conditions: typing.Optional[typing.Sequence[typing.Union[Condition, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d001dfd3e83aa31d0adf70e4d5aba4e4d34063bfb876bb5ad39b788c9e458e0c(
-    *,
-    replication_bucket: _IBucket_42e086fd,
-    stack: _Stack_2866e57f,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fdda3a4596223c8673fb71a5c885ba333a42043f1ad9229b020eda6b21f978cf(
-    *,
-    name: builtins.str,
-    required: builtins.bool,
-    description: typing.Optional[builtins.str] = None,
-    key: typing.Optional[builtins.bool] = None,
-    queryable: typing.Optional[builtins.bool] = None,
-    secret: typing.Optional[builtins.bool] = None,
-    type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__84ba94a616df9956d037944f0dd7c3c1b3d24af463159beacf6906c87232953b(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    artifact_bounds: typing.Union[ActionArtifactBounds, typing.Dict[builtins.str, typing.Any]],
-    category: ActionCategory,
-    provider: builtins.str,
-    action_properties: typing.Optional[typing.Sequence[typing.Union[CustomActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    entity_url: typing.Optional[builtins.str] = None,
-    execution_url: typing.Optional[builtins.str] = None,
-    version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__65e227e2024e22ec4a8340ba1d5e7057772fcde85f4031d00361f79aab2cebb6(
-    *,
-    artifact_bounds: typing.Union[ActionArtifactBounds, typing.Dict[builtins.str, typing.Any]],
-    category: ActionCategory,
-    provider: builtins.str,
-    action_properties: typing.Optional[typing.Sequence[typing.Union[CustomActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    entity_url: typing.Optional[builtins.str] = None,
-    execution_url: typing.Optional[builtins.str] = None,
-    version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3d3b6b7af14a54893153389618d9bd18fbf389bae779bbd6d81a0fe7f0fa8aeb(
-    *,
-    category: builtins.str,
-    provider: builtins.str,
-    version: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5c4e44cde413d4a9db86d96fc9c455622d0585f9fb8a399e230a3e6f73163569(
-    *,
-    conditions: typing.Optional[typing.Sequence[typing.Union[Condition, typing.Dict[builtins.str, typing.Any]]]] = None,
-    result: typing.Optional[Result] = None,
-    retry_mode: typing.Optional[RetryMode] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9bf0379bb3fa72f7dc00a45de6a383d19d18294c73d73dabcbdb7240e76832bf(
-    *,
-    source_action: IAction,
-    pull_request_filter: typing.Optional[typing.Sequence[typing.Union[GitPullRequestFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
-    push_filter: typing.Optional[typing.Sequence[typing.Union[GitPushFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cd84a4c10c68eec597c7c17a163a758ee28d398b585c996c44eba7fd956ee279(
-    *,
-    branches_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    branches_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    events: typing.Optional[typing.Sequence[GitPullRequestEvent]] = None,
-    file_paths_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    file_paths_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d2e5e6ae139c810aa752b8a8c7cd3040d883f9f3a67c8d3693f9ab842351804e(
-    *,
-    branches_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    branches_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    file_paths_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    file_paths_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5ac49c0e0a6597fa486597c011a67a04f9a1915fcc8f997bb6e6c4b0af2ee57d(
-    scope: _constructs_77d1e7e8.Construct,
-    stage: IStage,
-    *,
-    bucket: _IBucket_42e086fd,
-    role: _IRole_235f5d8e,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__eade87f30c22d51a2286b3ee64e16e90fb0a8ea80f7298a87d888c798e6d0314(
-    name: builtins.str,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
-    *,
-    enabled: typing.Optional[builtins.bool] = None,
-    event_bus: typing.Optional[_IEventBus_88d13111] = None,
-    role: typing.Optional[_IRoleRef_613dafc2] = None,
-    schedule: typing.Optional[_Schedule_c151d01f] = None,
-    targets: typing.Optional[typing.Sequence[_IRuleTarget_7a91f454]] = None,
-    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
-    rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f09c09792f06a97dbac5dff8f76d8dd7f1ab355a7c30ba51c9c2cf46ea7d5361(
-    id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
-    *,
-    events: typing.Sequence[PipelineNotificationEvents],
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b20e6cd8fdba6ef348c66323c52adec352f6a8b95201297bf91a2c35c85f266b(
-    id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
-    *,
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d57a9d69535ea91dd4c2c94686f783ea1cf000a92ee0213244da5b27ad96aad5(
-    id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
-    *,
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__51c8030bf8e0480af476639a6664a3065539aa4d289f7ffaf2c4268171aaddce(
-    id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
-    *,
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__72d02301c81a04f8c5d06524c59659c7761dc330c3498f18ab5378071ef6dbcb(
-    id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
-    *,
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__236dee13eb9ca6df98a2d1dcfb9c10c2e87434788f2163b1aca04c303cd1295c(
-    id: builtins.str,
-    *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
-    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
-    rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__aa6995419bd1d60c29979726b3e7b128d988a3e556f437f4578111337309b099(
-    id: builtins.str,
-    *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
-    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
-    rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e08bc94ea07b0b476a313a3ae8088dd9e607ee8e40a0f42b93f5c85823768441(
-    action: IAction,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0ba37766e87b23b98a0021d06208be5996c1efd9e28f67b66f737bdc26278bbe(
-    name: builtins.str,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
-    *,
-    enabled: typing.Optional[builtins.bool] = None,
-    event_bus: typing.Optional[_IEventBus_88d13111] = None,
-    role: typing.Optional[_IRoleRef_613dafc2] = None,
-    schedule: typing.Optional[_Schedule_c151d01f] = None,
-    targets: typing.Optional[typing.Sequence[_IRuleTarget_7a91f454]] = None,
-    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
-    rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dccc82ea9bcac61a3fb8c34055734a04a1bee7f59ee6675fdade2d8b59a1477e(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    artifact_bucket: typing.Optional[_IBucket_42e086fd] = None,
-    cross_account_keys: typing.Optional[builtins.bool] = None,
-    cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, _IBucket_42e086fd]] = None,
-    enable_key_rotation: typing.Optional[builtins.bool] = None,
-    execution_mode: typing.Optional[ExecutionMode] = None,
-    pipeline_name: typing.Optional[builtins.str] = None,
-    pipeline_type: typing.Optional[PipelineType] = None,
-    restart_execution_on_update: typing.Optional[builtins.bool] = None,
-    reuse_cross_region_support_stacks: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    stages: typing.Optional[typing.Sequence[typing.Union[StageProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    triggers: typing.Optional[typing.Sequence[typing.Union[TriggerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    use_pipeline_role_for_actions: typing.Optional[builtins.bool] = None,
-    variables: typing.Optional[typing.Sequence[Variable]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e8ea3a1adb685cac610ffae2a8547c09e99318a0b0ec47d9607839a20da1654f(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    pipeline_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7e85fb888993feed0e311ee7eff01c41ae2b8d2c859471c3e8abd51dd0ce0924(
-    statement: _PolicyStatement_0fe33853,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c66f0602ec2236194290f47b7ed526e674bccbeaddc91834fa37bdbea2e9dce2(
-    variable: Variable,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__426062ddd10eb07a3be4ad55dd0fe3c2b81732bcdb5a244b2ec7d40db4605efc(
-    _scope: _constructs_77d1e7e8.Construct,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__329d2ba2d275cc24a9e2ec07ab49bf9070ef024e64f5fd30155962cf2fb7ab29(
-    id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
-    *,
-    events: typing.Sequence[PipelineNotificationEvents],
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d659aeae80910f54072ec321264783f2fac350957c516a6af5d6b9fe41830062(
-    id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
-    *,
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f5c95fc1b94e0fad6401328efbc9089340d3d26e0e64c2e12599dd3720d6c33a(
-    id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
-    *,
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ac574684d5415374758bc8e4ceb7aeb63a9418ea5450dbff0df55af0db728252(
-    id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
-    *,
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8048d5dc87187734332fb4d3c0177bc9729eb9ec7aaaf84fc3dc254e7a21ed21(
-    id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
-    *,
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d14b9d274244ed17d116624fb8892e51266e16ef4a672741acd101d142b919c7(
-    id: builtins.str,
-    *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
-    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
-    rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b98beee600f069820405657967cc59c423184ed0ce6dc91db9936de7e7179a28(
-    id: builtins.str,
-    *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
-    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
-    rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fe3129dc544ee80782ab12928d846fc8298b3a84c6755877b473b38e9022fca4(
-    stage_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__693d1283d2d74eee6f02dcd6e1ffa263f5eb44bb8ef097838bbcc9e9377d23fb(
-    *,
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-    events: typing.Sequence[PipelineNotificationEvents],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__22f00fc379808105702c3f59369205afd36025a51e45bcaf5d1cec0a306534f7(
-    *,
-    artifact_bucket: typing.Optional[_IBucket_42e086fd] = None,
-    cross_account_keys: typing.Optional[builtins.bool] = None,
-    cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, _IBucket_42e086fd]] = None,
-    enable_key_rotation: typing.Optional[builtins.bool] = None,
-    execution_mode: typing.Optional[ExecutionMode] = None,
-    pipeline_name: typing.Optional[builtins.str] = None,
-    pipeline_type: typing.Optional[PipelineType] = None,
-    restart_execution_on_update: typing.Optional[builtins.bool] = None,
-    reuse_cross_region_support_stacks: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    stages: typing.Optional[typing.Sequence[typing.Union[StageProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    triggers: typing.Optional[typing.Sequence[typing.Union[TriggerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    use_pipeline_role_for_actions: typing.Optional[builtins.bool] = None,
-    variables: typing.Optional[typing.Sequence[Variable]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dd06885306ad6351b4ad05447186af42db69a1706af0ede4e5e8d00944219dda(
-    *,
-    pipeline_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__04d67752f5c1682591306a9c0ca45eff53409b418ee518ef81598208bfeca4a0(
-    *,
-    commands: typing.Optional[typing.Sequence[builtins.str]] = None,
-    configuration: typing.Optional[typing.Mapping[typing.Any, typing.Any]] = None,
-    input_artifacts: typing.Optional[typing.Sequence[builtins.str]] = None,
-    name: typing.Optional[builtins.str] = None,
-    provider: typing.Optional[builtins.str] = None,
-    region: typing.Optional[builtins.str] = None,
-    role: typing.Optional[_Role_e8c6e11f] = None,
-    version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c178aee5c43b367dd6efb72d92b210fe5967b9817ff84698c049986838c0cf39(
-    *,
-    just_after: typing.Optional[IStage] = None,
-    right_before: typing.Optional[IStage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6abc7556098f83ba3d73e92b8d6098aeb43f50e6fc7a58af7d194bb4ffc1f646(
-    *,
-    stage_name: builtins.str,
-    actions: typing.Optional[typing.Sequence[IAction]] = None,
-    before_entry: typing.Optional[typing.Union[Conditions, typing.Dict[builtins.str, typing.Any]]] = None,
-    on_failure: typing.Optional[typing.Union[FailureConditions, typing.Dict[builtins.str, typing.Any]]] = None,
-    on_success: typing.Optional[typing.Union[Conditions, typing.Dict[builtins.str, typing.Any]]] = None,
-    transition_disabled_reason: typing.Optional[builtins.str] = None,
-    transition_to_enabled: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0e77c8b9601fdd47bfd2d43819e8d9a90e923d90d1d79bc31317a9a7e0dee535(
-    *,
-    provider_type: ProviderType,
-    git_configuration: typing.Optional[typing.Union[GitConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a98b171eab4c5eaadb5c59d8cb50bc5cfedba458e43c6e91a962ebcc7aa7cdb6(
-    *,
-    variable_name: builtins.str,
-    default_value: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__180acc40b2d137eee4715850aa0457d1aa84da7c100e397f9a770889dda763aa(
-    *,
-    webhook_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__74f62b0d88fd176d196b7a472610f641266a6df9a34453a50f26d3e0e2424260(
-    scope: _constructs_77d1e7e8.Construct,
-    stage: IStage,
-    *,
-    bucket: _IBucket_42e086fd,
-    role: _IRole_235f5d8e,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8c29cd3253c1a51c9fbbe36fbb102b2f0cef595e0d8fa41e7ec1e9e0361902a0(
-    name: builtins.str,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
-    *,
-    enabled: typing.Optional[builtins.bool] = None,
-    event_bus: typing.Optional[_IEventBus_88d13111] = None,
-    role: typing.Optional[_IRoleRef_613dafc2] = None,
-    schedule: typing.Optional[_Schedule_c151d01f] = None,
-    targets: typing.Optional[typing.Sequence[_IRuleTarget_7a91f454]] = None,
-    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
-    rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__139002ef48b7d121d7cb20cb6a8df7634b213cea870d7e996addb48cebd53828(
-    variable_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3586589e4f527cf6ebc5fcd17ba511beb74cbc38dc94b7b9e716cf6121a8b5d4(
-    scope: _constructs_77d1e7e8.Construct,
-    stage: IStage,
-    *,
-    bucket: _IBucket_42e086fd,
-    role: _IRole_235f5d8e,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__1222433d0c00f2bd3c869fd7ac02200368b464dad55538571e0b4945ee4beb7b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12979,6 +12208,12 @@ def _typecheckingstub__1222433d0c00f2bd3c869fd7ac02200368b464dad55538571e0b4945e
     configuration_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomActionType.ConfigurationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomActionType.SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__962f5bd2e0959135d0f78df0a16e95f4856fe3eb19bccba7b1f9611f6444bfe5(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13074,11 +12309,25 @@ def _typecheckingstub__c1beb274a3eb3d700c7b40f1a3f3114c41d3388020db594741a7dbe9e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__80cf799a55bc6800768c5d3d84413549a05e5ce903095bf6faca6537ab864169(
+    *,
+    category: builtins.str,
+    input_artifact_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomActionType.ArtifactDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    output_artifact_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomActionType.ArtifactDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    provider: builtins.str,
+    version: builtins.str,
+    configuration_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomActionType.ConfigurationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomActionType.SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__43ae22b404f50a75462f3d5423718be3ca300d4e4e15354489d856039eb30278(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    role_arn: builtins.str,
+    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
     stages: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.StageDeclarationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     artifact_store: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.ArtifactStoreProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     artifact_stores: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.ArtifactStoreMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -13090,6 +12339,26 @@ def _typecheckingstub__43ae22b404f50a75462f3d5423718be3ca300d4e4e15354489d856039
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.PipelineTriggerDeclarationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.VariableDeclarationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4fc25ed904d0a79f666ba857a0abf2a4a93935a974a7f2ed28c0fdda44387994(
+    resource: _IPipelineRef_fb1b56f9,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b7e4f900fbf2e97e88978589afa9a0082e5bf79ff031c9c02abbf943633dc8c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    pipeline_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11ac99ea3d226c54c839862f55fe17a0581e5be73c7e0668371da54ae07800e2(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13413,6 +12682,24 @@ def _typecheckingstub__c1db744a2dce48273e96d1e41fe3217fb05516aae94ff61ffe871290c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__34b7cf6aaa1cc98db41892b9b8499f74092bf6b5f7f4050d1bd7642f7df7be5c(
+    *,
+    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    stages: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.StageDeclarationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    artifact_store: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.ArtifactStoreProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    artifact_stores: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.ArtifactStoreMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    disable_inbound_stage_transitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.StageTransitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    execution_mode: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    pipeline_type: typing.Optional[builtins.str] = None,
+    restart_execution_on_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.PipelineTriggerDeclarationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.VariableDeclarationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bf02f564438140d92570cd41d3abeeb991e242929571b6de0035b8a8b4ecff55(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -13425,6 +12712,26 @@ def _typecheckingstub__bf02f564438140d92570cd41d3abeeb991e242929571b6de0035b8a8b
     name: typing.Optional[builtins.str] = None,
     register_with_third_party: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     target_pipeline_version: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3069d1bcc981497c2b2db473beb5a2c2af27ada3beb0d2ffd3c9127721d2a112(
+    resource: _IWebhookRef_f412ea52,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fffe594b262b1c0cd439ebf5d2982d28067163f9ea73338b1446797e57fc82fe(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    webhook_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb28ffcaeb105a337c95c239efe93696bd64240329f3fb9a2e7197af2ae8012a(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13505,6 +12812,544 @@ def _typecheckingstub__8df4160ff8ffad45b342e229c142723b01ac593a0b6f444e63ae192a0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f28117e3c74b6a7a1058236385a59385f8137a16e17eeab89a327270a962c1c0(
+    *,
+    authentication: builtins.str,
+    authentication_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebhook.WebhookAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    filters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebhook.WebhookFilterRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    target_action: builtins.str,
+    target_pipeline: builtins.str,
+    name: typing.Optional[builtins.str] = None,
+    register_with_third_party: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    target_pipeline_version: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7942eb739db372f4263ddd3c7148e8268bd4537a32132825d029a7fa12cb9f35(
+    *,
+    action_name: builtins.str,
+    run_order: typing.Optional[jsii.Number] = None,
+    variables_namespace: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b783a63e8d6c7172676968c2e23c558eb0d0f2b7f7bcc22e469d596ee0d25b4c(
+    *,
+    action_name: builtins.str,
+    run_order: typing.Optional[jsii.Number] = None,
+    variables_namespace: typing.Optional[builtins.str] = None,
+    role: typing.Optional[_IRole_235f5d8e] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9d3d585d6146668bf50fd9ef4e444521a4def40f934c6c42bb219a9816ffc01(
+    *,
+    result: typing.Optional[Result] = None,
+    rules: typing.Optional[typing.Sequence[Rule]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1d234052e60461c20b06295a40d2efb73b7297f0a204252511a0083c29daef9(
+    *,
+    conditions: typing.Optional[typing.Sequence[typing.Union[Condition, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d001dfd3e83aa31d0adf70e4d5aba4e4d34063bfb876bb5ad39b788c9e458e0c(
+    *,
+    replication_bucket: _IBucket_42e086fd,
+    stack: _Stack_2866e57f,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fdda3a4596223c8673fb71a5c885ba333a42043f1ad9229b020eda6b21f978cf(
+    *,
+    name: builtins.str,
+    required: builtins.bool,
+    description: typing.Optional[builtins.str] = None,
+    key: typing.Optional[builtins.bool] = None,
+    queryable: typing.Optional[builtins.bool] = None,
+    secret: typing.Optional[builtins.bool] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84ba94a616df9956d037944f0dd7c3c1b3d24af463159beacf6906c87232953b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    artifact_bounds: typing.Union[ActionArtifactBounds, typing.Dict[builtins.str, typing.Any]],
+    category: ActionCategory,
+    provider: builtins.str,
+    action_properties: typing.Optional[typing.Sequence[typing.Union[CustomActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    entity_url: typing.Optional[builtins.str] = None,
+    execution_url: typing.Optional[builtins.str] = None,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65e227e2024e22ec4a8340ba1d5e7057772fcde85f4031d00361f79aab2cebb6(
+    *,
+    artifact_bounds: typing.Union[ActionArtifactBounds, typing.Dict[builtins.str, typing.Any]],
+    category: ActionCategory,
+    provider: builtins.str,
+    action_properties: typing.Optional[typing.Sequence[typing.Union[CustomActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    entity_url: typing.Optional[builtins.str] = None,
+    execution_url: typing.Optional[builtins.str] = None,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c4e44cde413d4a9db86d96fc9c455622d0585f9fb8a399e230a3e6f73163569(
+    *,
+    conditions: typing.Optional[typing.Sequence[typing.Union[Condition, typing.Dict[builtins.str, typing.Any]]]] = None,
+    result: typing.Optional[Result] = None,
+    retry_mode: typing.Optional[RetryMode] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bf0379bb3fa72f7dc00a45de6a383d19d18294c73d73dabcbdb7240e76832bf(
+    *,
+    source_action: IAction,
+    pull_request_filter: typing.Optional[typing.Sequence[typing.Union[GitPullRequestFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+    push_filter: typing.Optional[typing.Sequence[typing.Union[GitPushFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd84a4c10c68eec597c7c17a163a758ee28d398b585c996c44eba7fd956ee279(
+    *,
+    branches_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    branches_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    events: typing.Optional[typing.Sequence[GitPullRequestEvent]] = None,
+    file_paths_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    file_paths_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2e5e6ae139c810aa752b8a8c7cd3040d883f9f3a67c8d3693f9ab842351804e(
+    *,
+    branches_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    branches_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    file_paths_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    file_paths_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ac49c0e0a6597fa486597c011a67a04f9a1915fcc8f997bb6e6c4b0af2ee57d(
+    scope: _constructs_77d1e7e8.Construct,
+    stage: IStage,
+    *,
+    bucket: _IBucket_42e086fd,
+    role: _IRole_235f5d8e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eade87f30c22d51a2286b3ee64e16e90fb0a8ea80f7298a87d888c798e6d0314(
+    name: builtins.str,
+    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
+    event_bus: typing.Optional[_IEventBusRef_aa86e9b4] = None,
+    role: typing.Optional[_IRoleRef_8400221f] = None,
+    schedule: typing.Optional[_Schedule_c151d01f] = None,
+    targets: typing.Optional[typing.Sequence[_IRuleTarget_7a91f454]] = None,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f09c09792f06a97dbac5dff8f76d8dd7f1ab355a7c30ba51c9c2cf46ea7d5361(
+    id: builtins.str,
+    target: _INotificationRuleTarget_faa3b79b,
+    *,
+    events: typing.Sequence[PipelineNotificationEvents],
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b20e6cd8fdba6ef348c66323c52adec352f6a8b95201297bf91a2c35c85f266b(
+    id: builtins.str,
+    target: _INotificationRuleTarget_faa3b79b,
+    *,
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d57a9d69535ea91dd4c2c94686f783ea1cf000a92ee0213244da5b27ad96aad5(
+    id: builtins.str,
+    target: _INotificationRuleTarget_faa3b79b,
+    *,
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51c8030bf8e0480af476639a6664a3065539aa4d289f7ffaf2c4268171aaddce(
+    id: builtins.str,
+    target: _INotificationRuleTarget_faa3b79b,
+    *,
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72d02301c81a04f8c5d06524c59659c7761dc330c3498f18ab5378071ef6dbcb(
+    id: builtins.str,
+    target: _INotificationRuleTarget_faa3b79b,
+    *,
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__236dee13eb9ca6df98a2d1dcfb9c10c2e87434788f2163b1aca04c303cd1295c(
+    id: builtins.str,
+    *,
+    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa6995419bd1d60c29979726b3e7b128d988a3e556f437f4578111337309b099(
+    id: builtins.str,
+    *,
+    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e08bc94ea07b0b476a313a3ae8088dd9e607ee8e40a0f42b93f5c85823768441(
+    action: IAction,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ba37766e87b23b98a0021d06208be5996c1efd9e28f67b66f737bdc26278bbe(
+    name: builtins.str,
+    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
+    event_bus: typing.Optional[_IEventBusRef_aa86e9b4] = None,
+    role: typing.Optional[_IRoleRef_8400221f] = None,
+    schedule: typing.Optional[_Schedule_c151d01f] = None,
+    targets: typing.Optional[typing.Sequence[_IRuleTarget_7a91f454]] = None,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dccc82ea9bcac61a3fb8c34055734a04a1bee7f59ee6675fdade2d8b59a1477e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    artifact_bucket: typing.Optional[_IBucket_42e086fd] = None,
+    cross_account_keys: typing.Optional[builtins.bool] = None,
+    cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, _IBucket_42e086fd]] = None,
+    enable_key_rotation: typing.Optional[builtins.bool] = None,
+    execution_mode: typing.Optional[ExecutionMode] = None,
+    pipeline_name: typing.Optional[builtins.str] = None,
+    pipeline_type: typing.Optional[PipelineType] = None,
+    restart_execution_on_update: typing.Optional[builtins.bool] = None,
+    reuse_cross_region_support_stacks: typing.Optional[builtins.bool] = None,
+    role: typing.Optional[_IRole_235f5d8e] = None,
+    stages: typing.Optional[typing.Sequence[typing.Union[StageProps, typing.Dict[builtins.str, typing.Any]]]] = None,
+    triggers: typing.Optional[typing.Sequence[typing.Union[TriggerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_pipeline_role_for_actions: typing.Optional[builtins.bool] = None,
+    variables: typing.Optional[typing.Sequence[Variable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8ea3a1adb685cac610ffae2a8547c09e99318a0b0ec47d9607839a20da1654f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    pipeline_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e85fb888993feed0e311ee7eff01c41ae2b8d2c859471c3e8abd51dd0ce0924(
+    statement: _PolicyStatement_0fe33853,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c66f0602ec2236194290f47b7ed526e674bccbeaddc91834fa37bdbea2e9dce2(
+    variable: Variable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__426062ddd10eb07a3be4ad55dd0fe3c2b81732bcdb5a244b2ec7d40db4605efc(
+    _scope: _constructs_77d1e7e8.Construct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__329d2ba2d275cc24a9e2ec07ab49bf9070ef024e64f5fd30155962cf2fb7ab29(
+    id: builtins.str,
+    target: _INotificationRuleTarget_faa3b79b,
+    *,
+    events: typing.Sequence[PipelineNotificationEvents],
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d659aeae80910f54072ec321264783f2fac350957c516a6af5d6b9fe41830062(
+    id: builtins.str,
+    target: _INotificationRuleTarget_faa3b79b,
+    *,
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f5c95fc1b94e0fad6401328efbc9089340d3d26e0e64c2e12599dd3720d6c33a(
+    id: builtins.str,
+    target: _INotificationRuleTarget_faa3b79b,
+    *,
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac574684d5415374758bc8e4ceb7aeb63a9418ea5450dbff0df55af0db728252(
+    id: builtins.str,
+    target: _INotificationRuleTarget_faa3b79b,
+    *,
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8048d5dc87187734332fb4d3c0177bc9729eb9ec7aaaf84fc3dc254e7a21ed21(
+    id: builtins.str,
+    target: _INotificationRuleTarget_faa3b79b,
+    *,
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d14b9d274244ed17d116624fb8892e51266e16ef4a672741acd101d142b919c7(
+    id: builtins.str,
+    *,
+    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b98beee600f069820405657967cc59c423184ed0ce6dc91db9936de7e7179a28(
+    id: builtins.str,
+    *,
+    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe3129dc544ee80782ab12928d846fc8298b3a84c6755877b473b38e9022fca4(
+    stage_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__693d1283d2d74eee6f02dcd6e1ffa263f5eb44bb8ef097838bbcc9e9377d23fb(
+    *,
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+    events: typing.Sequence[PipelineNotificationEvents],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22f00fc379808105702c3f59369205afd36025a51e45bcaf5d1cec0a306534f7(
+    *,
+    artifact_bucket: typing.Optional[_IBucket_42e086fd] = None,
+    cross_account_keys: typing.Optional[builtins.bool] = None,
+    cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, _IBucket_42e086fd]] = None,
+    enable_key_rotation: typing.Optional[builtins.bool] = None,
+    execution_mode: typing.Optional[ExecutionMode] = None,
+    pipeline_name: typing.Optional[builtins.str] = None,
+    pipeline_type: typing.Optional[PipelineType] = None,
+    restart_execution_on_update: typing.Optional[builtins.bool] = None,
+    reuse_cross_region_support_stacks: typing.Optional[builtins.bool] = None,
+    role: typing.Optional[_IRole_235f5d8e] = None,
+    stages: typing.Optional[typing.Sequence[typing.Union[StageProps, typing.Dict[builtins.str, typing.Any]]]] = None,
+    triggers: typing.Optional[typing.Sequence[typing.Union[TriggerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_pipeline_role_for_actions: typing.Optional[builtins.bool] = None,
+    variables: typing.Optional[typing.Sequence[Variable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04d67752f5c1682591306a9c0ca45eff53409b418ee518ef81598208bfeca4a0(
+    *,
+    commands: typing.Optional[typing.Sequence[builtins.str]] = None,
+    configuration: typing.Optional[typing.Mapping[typing.Any, typing.Any]] = None,
+    input_artifacts: typing.Optional[typing.Sequence[builtins.str]] = None,
+    name: typing.Optional[builtins.str] = None,
+    provider: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+    role: typing.Optional[_Role_e8c6e11f] = None,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c178aee5c43b367dd6efb72d92b210fe5967b9817ff84698c049986838c0cf39(
+    *,
+    just_after: typing.Optional[IStage] = None,
+    right_before: typing.Optional[IStage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6abc7556098f83ba3d73e92b8d6098aeb43f50e6fc7a58af7d194bb4ffc1f646(
+    *,
+    stage_name: builtins.str,
+    actions: typing.Optional[typing.Sequence[IAction]] = None,
+    before_entry: typing.Optional[typing.Union[Conditions, typing.Dict[builtins.str, typing.Any]]] = None,
+    on_failure: typing.Optional[typing.Union[FailureConditions, typing.Dict[builtins.str, typing.Any]]] = None,
+    on_success: typing.Optional[typing.Union[Conditions, typing.Dict[builtins.str, typing.Any]]] = None,
+    transition_disabled_reason: typing.Optional[builtins.str] = None,
+    transition_to_enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e77c8b9601fdd47bfd2d43819e8d9a90e923d90d1d79bc31317a9a7e0dee535(
+    *,
+    provider_type: ProviderType,
+    git_configuration: typing.Optional[typing.Union[GitConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a98b171eab4c5eaadb5c59d8cb50bc5cfedba458e43c6e91a962ebcc7aa7cdb6(
+    *,
+    variable_name: builtins.str,
+    default_value: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74f62b0d88fd176d196b7a472610f641266a6df9a34453a50f26d3e0e2424260(
+    scope: _constructs_77d1e7e8.Construct,
+    stage: IStage,
+    *,
+    bucket: _IBucket_42e086fd,
+    role: _IRole_235f5d8e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c29cd3253c1a51c9fbbe36fbb102b2f0cef595e0d8fa41e7ec1e9e0361902a0(
+    name: builtins.str,
+    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
+    event_bus: typing.Optional[_IEventBusRef_aa86e9b4] = None,
+    role: typing.Optional[_IRoleRef_8400221f] = None,
+    schedule: typing.Optional[_Schedule_c151d01f] = None,
+    targets: typing.Optional[typing.Sequence[_IRuleTarget_7a91f454]] = None,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__139002ef48b7d121d7cb20cb6a8df7634b213cea870d7e996addb48cebd53828(
+    variable_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3586589e4f527cf6ebc5fcd17ba511beb74cbc38dc94b7b9e716cf6121a8b5d4(
+    scope: _constructs_77d1e7e8.Construct,
+    stage: IStage,
+    *,
+    bucket: _IBucket_42e086fd,
+    role: _IRole_235f5d8e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__92727a684e79c716bbbda8d093b76a8cb689c53237b1b129e655150ce80272df(
     *,
     stage_name: builtins.str,
@@ -13518,3 +13363,6 @@ def _typecheckingstub__92727a684e79c716bbbda8d093b76a8cb689c53237b1b129e655150ce
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IAction, IPipeline, IStage]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

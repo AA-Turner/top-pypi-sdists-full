@@ -40,6 +40,7 @@ class WorkloadStateInfo(object):
         'workload_project': 'str',
         'workload_creator': 'str',
         'url': 'str',
+        'tags': 'list[TagKeyValue]',
         'workload_machine_info': 'list[WorkloadMachineInfo]'
     }
 
@@ -51,10 +52,11 @@ class WorkloadStateInfo(object):
         'workload_project': 'workload_project',
         'workload_creator': 'workload_creator',
         'url': 'url',
+        'tags': 'tags',
         'workload_machine_info': 'workload_machine_info'
     }
 
-    def __init__(self, workload_name=None, workload_type=None, workload_start_time=None, workload_cloud=None, workload_project='', workload_creator='', url='', workload_machine_info=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, workload_name=None, workload_type=None, workload_start_time=None, workload_cloud=None, workload_project='', workload_creator='', url='', tags=None, workload_machine_info=None, local_vars_configuration=None):  # noqa: E501
         """WorkloadStateInfo - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -67,6 +69,7 @@ class WorkloadStateInfo(object):
         self._workload_project = None
         self._workload_creator = None
         self._url = None
+        self._tags = None
         self._workload_machine_info = None
         self.discriminator = None
 
@@ -80,6 +83,8 @@ class WorkloadStateInfo(object):
             self.workload_creator = workload_creator
         if url is not None:
             self.url = url
+        if tags is not None:
+            self.tags = tags
         self.workload_machine_info = workload_machine_info
 
     @property
@@ -250,6 +255,29 @@ class WorkloadStateInfo(object):
         """
 
         self._url = url
+
+    @property
+    def tags(self):
+        """Gets the tags of this WorkloadStateInfo.  # noqa: E501
+
+        User Managed tags associated with this workload.  # noqa: E501
+
+        :return: The tags of this WorkloadStateInfo.  # noqa: E501
+        :rtype: list[TagKeyValue]
+        """
+        return self._tags
+
+    @tags.setter
+    def tags(self, tags):
+        """Sets the tags of this WorkloadStateInfo.
+
+        User Managed tags associated with this workload.  # noqa: E501
+
+        :param tags: The tags of this WorkloadStateInfo.  # noqa: E501
+        :type: list[TagKeyValue]
+        """
+
+        self._tags = tags
 
     @property
     def workload_machine_info(self):

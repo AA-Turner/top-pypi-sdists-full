@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ class TranscriptionManager:
       invocation_context: The current invocation context.
       transcription: The transcription data from user input.
     """
-    await self._create_and_save_transcription_event(
+    return await self._create_and_save_transcription_event(
         invocation_context=invocation_context,
         transcription=transcription,
         author='user',
@@ -60,7 +60,7 @@ class TranscriptionManager:
       invocation_context: The current invocation context.
       transcription: The transcription data from model output.
     """
-    await self._create_and_save_transcription_event(
+    return await self._create_and_save_transcription_event(
         invocation_context=invocation_context,
         transcription=transcription,
         author=invocation_context.agent.name,
@@ -93,9 +93,6 @@ class TranscriptionManager:
       )
 
       # Save transcription event to session
-      await invocation_context.session_service.append_event(
-          invocation_context.session, transcription_event
-      )
 
       logger.debug(
           'Saved %s transcription event for %s: %s',
@@ -106,6 +103,7 @@ class TranscriptionManager:
           else 'audio transcription',
       )
 
+      return transcription_event
     except Exception as e:
       logger.error(
           'Failed to save %s transcription event: %s',

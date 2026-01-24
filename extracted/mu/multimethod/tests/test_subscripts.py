@@ -31,11 +31,14 @@ def test_literals():
         func(0.0)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="Union syntax added in 3.10")
 def test_union():
     assert issubclass(int, subtype(int | float))
     assert issubclass(subtype(int | float), subtype(int | float | None))
     assert subtype(Iterable | Mapping | Sequence) is Iterable
+
+    # Test nested subtype with UnionType base
+    tp = subtype(int | float)
+    assert subtype(tp) is tp
 
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="Type aliases added in 3.12")

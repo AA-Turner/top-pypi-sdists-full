@@ -2,17 +2,17 @@ import json
 import shutil
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from crewai.cli.config import (
-    Settings,
-    USER_SETTINGS_KEYS,
     CLI_SETTINGS_KEYS,
     DEFAULT_CLI_SETTINGS,
+    USER_SETTINGS_KEYS,
+    Settings,
 )
 from crewai.cli.shared.token_manager import TokenManager
-from datetime import datetime, timedelta
 
 
 class TestSettings(unittest.TestCase):
@@ -72,7 +72,8 @@ class TestSettings(unittest.TestCase):
     @patch("crewai.cli.config.TokenManager")
     def test_reset_settings(self, mock_token_manager):
         user_settings = {key: f"value_for_{key}" for key in USER_SETTINGS_KEYS}
-        cli_settings = {key: f"value_for_{key}" for key in CLI_SETTINGS_KEYS}
+        cli_settings = {key: f"value_for_{key}" for key in CLI_SETTINGS_KEYS if key != "oauth2_extra"}
+        cli_settings["oauth2_extra"] = {"scope": "xxx", "other": "yyy"}
 
         settings = Settings(
             config_path=self.config_path, **user_settings, **cli_settings

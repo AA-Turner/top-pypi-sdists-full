@@ -5,7 +5,7 @@ import os
 import pickle
 from random import shuffle
 import sys
-from typing import IO, Optional, cast
+from typing import IO, cast
 
 import colorama
 from joblib import Parallel, delayed
@@ -15,7 +15,7 @@ import pandas as pd
 from phillips_ouliaris import QUANTILES, ROOT, SAMPLE_SIZES, TRENDS
 import psutil
 
-from arch.typing import Float64Array, Literal, UnitRootTrend
+from arch._typing import Float64Array, Literal, UnitRootTrend
 from arch.utility.timeseries import add_trend
 
 GREEN = colorama.Fore.GREEN
@@ -55,7 +55,7 @@ def demean(w: Float64Array) -> Float64Array:
     return w - w.mean(1).reshape((w.shape[0], 1, w.shape[2]))
 
 
-def inner_prod(a: Float64Array, b: Optional[Float64Array] = None) -> Float64Array:
+def inner_prod(a: Float64Array, b: Float64Array | None = None) -> Float64Array:
     if b is None:
         b = a
     return a.transpose((0, 2, 1)) @ b
@@ -114,7 +114,7 @@ def z_tests(z: Float64Array, lag: int, trend: UnitRootTrend) -> tuple[float, flo
     one_sided_strict = 0.0
     for i in range(1, lag + 1):
         w = 1 - i / (lag + 1)
-        one_sided_strict += 1 / nobs * w * k[i:].T @ k[:-i]
+        one_sided_strict += 1 / nobs * w * float(k[i:].T @ k[:-i])
     u2 = float(u[:-1].T @ u[:-1])
 
     z_ = (alpha - 1) - nobs * one_sided_strict / u2
@@ -158,7 +158,7 @@ def p_tests_vec(
     for i in range(1, lag + 1):
         w = 1 - i / (lag + 1)
         gamma = inner_prod(xi[:, i:], xi[:, :-i]) / nobs
-        omega += w * (gamma + cast(np.ndarray, gamma).transpose((0, 2, 1)))
+        omega += w * (gamma + cast("np.ndarray", gamma).transpose((0, 2, 1)))
     omega21 = omega[:, :1, 1:]
     omega22 = omega[:, 1:, 1:]
     omega112 = omega[:, :1, :1] - omega21 @ inv(omega22) @ omega21.transpose((0, 2, 1))
@@ -192,7 +192,7 @@ def p_tests(z: Float64Array, lag: int, trend: UnitRootTrend) -> tuple[float, flo
     omega21 = omega[0, 1:]
     omega22 = omega[1:, 1:]
     omega112 = float(omega[0, 0] - np.squeeze(omega21.T @ inv(omega22) @ omega21))
-    denom = u.T @ u / nobs
+    denom = float(u.T @ u / nobs)
     p_u = nobs * omega112 / denom
 
     tr = add_trend(nobs=z.shape[0], trend=trend)
@@ -201,7 +201,7 @@ def p_tests(z: Float64Array, lag: int, trend: UnitRootTrend) -> tuple[float, flo
     else:
         z = z - z[:1]  # Recenter on first
     m_zz = z.T @ z / nobs
-    p_z = nobs * float((omega @ inv(m_zz)).trace())
+    p_z = float(nobs * (omega @ inv(m_zz)).trace())
     return p_u, p_z
 
 
@@ -251,7 +251,7 @@ def save_partial(
     temp_file = temp_file_name(full_path)
     info = {"results": results, "remaining": remaining, "gen": gen}
     with gzip.open(temp_file, "wb", 4) as pkl:
-        pickle.dump(info, cast(IO[bytes], pkl))
+        pickle.dump(info, cast("IO[bytes]", pkl))
 
 
 def load_partial(
@@ -261,7 +261,7 @@ def load_partial(
     if os.path.exists(temp_file):
         try:
             with gzip.open(temp_file, "rb") as pkl:
-                info = pickle.load(cast(IO[bytes], pkl))
+                info = pickle.load(cast("IO[bytes]", pkl))
             gen = info["gen"]
             results = info["results"]
             remaining = info["remaining"]
@@ -366,7 +366,7 @@ if __name__ == "__main__":
         gen = np.random.Generator(np.random.PCG64(child))
         filename = (
             "phillips-ouliaris-results-statistic-"
-            + f"{statistic}-trend-{trend}-{idx:04d}.hdf"
+            f"{statistic}-trend-{trend}-{idx:04d}.hdf"
         )
 
         full_file = os.path.join(ROOT, filename)
@@ -375,8 +375,8 @@ if __name__ == "__main__":
         jobs.append(
             (
                 gen,
-                cast(Literal["z", "p"], statistic),
-                cast(UnitRootTrend, trend),
+                cast("Literal['z', 'p']", statistic),
+                cast("UnitRootTrend", trend),
                 idx,
                 full_file,
             )

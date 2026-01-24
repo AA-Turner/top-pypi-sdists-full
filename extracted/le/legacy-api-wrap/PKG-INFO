@@ -1,27 +1,29 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: legacy-api-wrap
-Version: 1.4.1
-Dynamic: Summary
+Version: 1.5
+Summary: Legacy API wrapper.
 Project-URL: Source, https://github.com/flying-sheep/legacy-api-wrap
 Author-email: "Philipp A." <flying-sheep@web.de>
-License: MPL-2.0
+License-Expression: MPL-2.0
+License-File: LICENSE.rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Provides-Extra: test
 Requires-Dist: anyconfig[toml]>=0.14; extra == 'test'
 Requires-Dist: coverage; extra == 'test'
 Requires-Dist: coverage-rich; extra == 'test'
 Requires-Dist: pytest; extra == 'test'
+Requires-Dist: typer<0.14; extra == 'test'
 Description-Content-Type: text/x-rst
 
 Legacy API Wrapper |b-pypi| |b-codecov|

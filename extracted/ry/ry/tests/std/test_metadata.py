@@ -11,12 +11,11 @@ def test_metadata() -> None:
     assert isinstance(md, ry.Metadata)
     d = md.to_py()
     assert "file_type" in d
-    assert isinstance(d["file_type"], dict)
-    assert isinstance(d["file_type"]["is_dir"], bool)
-    assert isinstance(d["file_type"]["is_file"], bool)
-    assert isinstance(d["file_type"]["is_symlink"], bool)
+    assert isinstance(d["file_type"], str)
+    assert d["file_type"] in ("file", "directory", "symlink")
     assert isinstance(d["len"], int)
     assert isinstance(d["readonly"], bool)
     assert isinstance(d["accessed"], pydt.datetime)
-    assert isinstance(d["created"], pydt.datetime)
+    if "created" in d:  # created may not be available on all platforms
+        assert isinstance(d["created"], pydt.datetime)
     assert isinstance(d["modified"], pydt.datetime)

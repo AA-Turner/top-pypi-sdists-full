@@ -3,7 +3,7 @@ Type annotations for marketplacecommerceanalytics service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplacecommerceanalytics/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,16 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Union
 
 from .literals import DataSetTypeType, SupportDataSetTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -48,7 +44,7 @@ TimestampTypeDef = Union[datetime, str]
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 

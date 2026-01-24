@@ -1,11 +1,10 @@
 from adam.commands.command import Command
-from adam.k8s_utils.pods import Pods
-from .reaper_session import ReaperSession
+from adam.commands.reaper.utils_reaper import Reapers
+from adam.utils_k8s.pods import Pods
 from adam.repl_state import ReplState, RequiredState
 
 class ReaperRestart(Command):
     COMMAND = 'reaper restart'
-    reaper_login = None
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):
@@ -26,22 +25,16 @@ class ReaperRestart(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state):
+        with self.validate(args, state) as (args, state):
+            if not (pod := Reapers.pod_name(state)):
+                return state
+
+            Pods.delete(pod, state.namespace)
+
             return state
-
-        if not(reaper := ReaperSession.create(state)):
-            return state
-
-        Pods.delete(reaper.pod, state.namespace)
-
-        return state
 
     def completion(self, state: ReplState):
-        if state.sts:
-            return super().completion(state)
+        return super().completion(state)
 
-        return {}
-
-    def help(self, _: ReplState):
-        return f'{ReaperRestart.COMMAND}\t restart reaper'
+    def help(self, state: ReplState):
+        return super().help(state, 'restart reaper')

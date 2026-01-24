@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -28,12 +29,6 @@ from .literals import (
     SyncActionType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -139,8 +134,8 @@ ApplicationTypeDef = TypedDict(
         "description": NotRequired[str],
         "creationTime": NotRequired[datetime],
         "lastUpdateTime": NotRequired[datetime],
-        "tags": NotRequired[Dict[str, str]],
-        "applicationTag": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
+        "applicationTag": NotRequired[dict[str, str]],
     },
 )
 
@@ -151,7 +146,7 @@ class AssociateAttributeGroupRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -191,7 +186,7 @@ AttributeGroupTypeDef = TypedDict(
         "description": NotRequired[str],
         "creationTime": NotRequired[datetime],
         "lastUpdateTime": NotRequired[datetime],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 
@@ -305,7 +300,7 @@ class AppRegistryConfigurationTypeDef(TypedDict):
 class ApplicationTagResultTypeDef(TypedDict):
     applicationTagStatus: NotRequired[ApplicationTagStatusType]
     errorMessage: NotRequired[str]
-    resources: NotRequired[List[ResourcesListItemTypeDef]]
+    resources: NotRequired[list[ResourcesListItemTypeDef]]
     nextToken: NotRequired[str]
 
 class AssociateAttributeGroupResponseTypeDef(TypedDict):
@@ -316,7 +311,7 @@ class AssociateAttributeGroupResponseTypeDef(TypedDict):
 class AssociateResourceResponseTypeDef(TypedDict):
     applicationArn: str
     resourceArn: str
-    options: List[AssociationOptionType]
+    options: list[AssociationOptionType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateApplicationResponseTypeDef(TypedDict):
@@ -350,24 +345,24 @@ GetAttributeGroupResponseTypeDef = TypedDict(
         "attributes": str,
         "creationTime": datetime,
         "lastUpdateTime": datetime,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "createdBy": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
 
 class ListApplicationsResponseTypeDef(TypedDict):
-    applications: List[ApplicationSummaryTypeDef]
+    applications: list[ApplicationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAssociatedAttributeGroupsResponseTypeDef(TypedDict):
-    attributeGroups: List[str]
+    attributeGroups: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SyncResourceResponseTypeDef(TypedDict):
@@ -381,7 +376,7 @@ class UpdateApplicationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAttributeGroupsForApplicationResponseTypeDef(TypedDict):
-    attributeGroupsDetails: List[AttributeGroupDetailsTypeDef]
+    attributeGroupsDetails: list[AttributeGroupDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -390,7 +385,7 @@ class DeleteAttributeGroupResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAttributeGroupsResponseTypeDef(TypedDict):
-    attributeGroups: List[AttributeGroupSummaryTypeDef]
+    attributeGroups: list[AttributeGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -432,7 +427,7 @@ class ResourceInfoTypeDef(TypedDict):
     arn: NotRequired[str]
     resourceType: NotRequired[ResourceTypeType]
     resourceDetails: NotRequired[ResourceDetailsTypeDef]
-    options: NotRequired[List[AssociationOptionType]]
+    options: NotRequired[list[AssociationOptionType]]
 
 class GetConfigurationResponseTypeDef(TypedDict):
     configuration: AppRegistryConfigurationTypeDef
@@ -451,9 +446,9 @@ GetApplicationResponseTypeDef = TypedDict(
         "creationTime": datetime,
         "lastUpdateTime": datetime,
         "associatedResourceCount": int,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "integrations": IntegrationsTypeDef,
-        "applicationTag": Dict[str, str],
+        "applicationTag": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -465,12 +460,12 @@ class ResourceTypeDef(TypedDict):
     integrations: NotRequired[ResourceIntegrationsTypeDef]
 
 class ListAssociatedResourcesResponseTypeDef(TypedDict):
-    resources: List[ResourceInfoTypeDef]
+    resources: list[ResourceInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetAssociatedResourceResponseTypeDef(TypedDict):
     resource: ResourceTypeDef
-    options: List[AssociationOptionType]
+    options: list[AssociationOptionType]
     applicationTagResult: ApplicationTagResultTypeDef
     ResponseMetadata: ResponseMetadataTypeDef

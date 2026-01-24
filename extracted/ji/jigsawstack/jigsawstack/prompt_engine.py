@@ -48,6 +48,7 @@ class PromptEngineRunResponse(TypedDict):
 
 
 class PromptEngineCreateParams(TypedDict):
+    name: NotRequired[str]
     prompt: str
     inputs: NotRequired[List[object]]
     return_prompt: Union[str, List[object], Dict[str, str]]

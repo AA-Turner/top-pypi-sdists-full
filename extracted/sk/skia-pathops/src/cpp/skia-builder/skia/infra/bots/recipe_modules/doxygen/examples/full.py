@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-PYTHON_VERSION_COMPATIBILITY = "PY3"
 
 DEPS = [
   'doxygen',
@@ -14,7 +13,7 @@ DEPS = [
 
 def RunSteps(api):
   api.vars.setup()
-  api.doxygen.generate_and_upload(api.path['start_dir'])
+  api.doxygen.generate_and_upload(api.path.start_dir)
 
 
 def GenTests(api):

@@ -1,17 +1,14 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: tox-gh-actions
-Version: 3.3.0
+Version: 3.5.0
 Summary: Seamless integration of tox into GitHub Actions
-Home-page: https://github.com/ymyzk/tox-gh-actions
-Author: Yusuke Miyazaki
-Author-email: miyazaki.dev@gmail.com
-Maintainer: Yusuke Miyazaki
-Maintainer-email: miyazaki.dev@gmail.com
+Author-email: Yusuke Miyazaki <miyazaki.dev@gmail.com>
+Maintainer-email: Yusuke Miyazaki <miyazaki.dev@gmail.com>
 License: MIT
-Project-URL: Source, https://github.com/ymyzk/tox-gh-actions
-Project-URL: Tracker, https://github.com/ymyzk/tox-gh-actions/issues
-Keywords: virtual,environments,isolated,testing
-Platform: any
+Project-URL: Homepage, https://github.com/ymyzk/tox-gh-actions
+Project-URL: Issue, https://github.com/ymyzk/tox-gh-actions/issues
+Project-URL: Sponsor, https://github.com/sponsors/ymyzk
+Keywords: tox,github,github-actions,ci,testing
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: tox
 Classifier: Intended Audience :: Developers
@@ -28,8 +25,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: >=3.7
@@ -37,14 +34,14 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: tox<5,>=4
 Provides-Extra: testing
-Requires-Dist: black; platform_python_implementation == "CPython" and extra == "testing"
 Requires-Dist: devpi-process; extra == "testing"
-Requires-Dist: flake8<7,>=6; python_version >= "3.8" and extra == "testing"
 Requires-Dist: mypy; platform_python_implementation == "CPython" and extra == "testing"
+Requires-Dist: pre-commit; extra == "testing"
 Requires-Dist: pytest>=7; extra == "testing"
 Requires-Dist: pytest-cov>=4; extra == "testing"
 Requires-Dist: pytest-mock>=3; extra == "testing"
 Requires-Dist: pytest-randomly>=3; extra == "testing"
+Dynamic: license-file
 
 # tox-gh-actions <!-- omit in toc -->
 
@@ -56,14 +53,6 @@ Requires-Dist: pytest-randomly>=3; extra == "testing"
 **tox-gh-actions** is a tox plugin which helps running tox on GitHub Actions
 with multiple different Python versions on multiple workers in parallel.
 This project is inspired by [tox-travis](https://github.com/tox-dev/tox-travis).
-
-## Versions and Compatibility
-Currently, tox-gh-actions supports both tox 3 and 4, but users need to install the appropriate version by following the table below.
-
-| tox | tox-gh-actions | Supported by tox-gh-actions | Branch                                                    |
-|-----|----------------|-----------------------------|-----------------------------------------------------------|
-| 4.x | 3.x            | Yes (stable)                | [master](https://github.com/ymyzk/tox-gh-actions)         |
-| 3.x | 2.x            | Yes (stable)                | [tox3](https://github.com/ymyzk/tox-gh-actions/tree/tox3) |
 
 - [Features](#features)
 - [Usage](#usage)
@@ -77,6 +66,7 @@ Currently, tox-gh-actions supports both tox 3 and 4, but users need to install t
     - [tox requires](#tox-requires)
   - [Overriding Environments to Run](#overriding-environments-to-run)
 - [Versioning](#versioning)
+- [Versions and Compatibility](#versions-and-compatibility)
 - [Understanding Behavior of tox-gh-actions](#understanding-behavior-of-tox-gh-actions)
   - [How tox-gh-actions Works](#how-tox-gh-actions-works)
   - [Logging](#logging)
@@ -94,11 +84,10 @@ When running tox on GitHub Actions, tox-gh-actions
 
 ## Examples
 ### Basic Example
-The following configuration will create 4 jobs when running the workflow on GitHub Actions.
-- On Python 3.7 job, tox runs `py37` environment
-- On Python 3.8 job, tox runs `py38` environment
-- On Python 3.9 job, tox runs `py39` environment
-- On Python 3.10 job, tox runs `py310` and `mypy` environments
+The following configuration will create 3 jobs when running the workflow on GitHub Actions.
+- On Python 3.10 job, tox runs `py310` environment
+- On Python 3.12 job, tox runs `py312` environment
+- On Python 3.14 job, tox runs `py314` and `mypy` environments
 
 #### tox-gh-actions Configuration
 Add `[gh-actions]` section to the same file as tox's configuration.
@@ -106,14 +95,13 @@ Add `[gh-actions]` section to the same file as tox's configuration.
 If you're using `tox.ini`:
 ```ini
 [tox]
-envlist = py37, py38, py39, py310, mypy
+envlist = py310, py312, py314, mypy
 
 [gh-actions]
 python =
-    3.7: py37
-    3.8: py38
-    3.9: py39
-    3.10: py310, mypy
+    3.10: py310
+    3.12: py312
+    3.14: py314, mypy
 
 [testenv]
 ...
@@ -122,14 +110,13 @@ python =
 If you're using `setup.cfg`:
 ```ini
 [tox:tox]
-envlist = py37, py38, py39, py310, mypy
+envlist = py310, py312, py314, mypy
 
 [gh-actions]
 python =
-    3.7: py37
-    3.8: py38
-    3.9: py39
-    3.10: py310, mypy
+    3.10: py310
+    3.12: py312
+    3.14: py314, mypy
 
 [testenv]
 ...
@@ -140,14 +127,13 @@ If you're using `pyproject.toml`:
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py37, py38, py39, py310, mypy
+envlist = py310, py312, py314, mypy
 
 [gh-actions]
 python =
-    3.7: py37
-    3.8: py38
-    3.9: py39
-    3.10: py310, mypy
+    3.10: py310
+    3.12: py312
+    3.14: py314, mypy
 
 [testenv]
 """
@@ -167,12 +153,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.7', '3.8', '3.9', '3.10']
+        python-version: ['3.10', '3.12', '3.14']
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
@@ -186,18 +172,18 @@ jobs:
 ### Advanced Examples
 #### Factor-Conditional Settings: Python Version
 The following configuration will create 2 jobs when running the workflow on GitHub Actions.
-- On Python 3.7 job, tox runs `py37-django22` and `py37-django32` environments
-- On Python 3.8 job, tox runs `py38-django32` environment
+- On Python 3.12 job, tox runs `py12-django42` environment
+- On Python 3.13 job, tox runs `py313-django42`  and `py313-django52` environments
 
 `tox.ini`:
 ```ini
 [tox]
-envlist = py37-django{22,32}, py38-django32
+envlist = py312-django42, py313-django{42,52}
 
 [gh-actions]
 python =
-    3.7: py37
-    3.8: py38
+    3.12: py312
+    3.13: py313
 
 [testenv]
 ...
@@ -212,7 +198,7 @@ jobs:
   build:
     strategy:
       matrix:
-        python-version: [3.9, 3.10.0-beta.3]
+        python-version: [3.14, 3.15.0-beta.3]
 ...
 ```
 
@@ -223,11 +209,27 @@ envlist = py39, py310
 
 [gh-actions]
 python =
-    3.9: py39
-    3.10: py310
+    3.14: py314
+    3.15: py315
     # The following won't work
-    # 3.10-beta.3: py310
-    # 3.10-dev: py310
+    # 3.15-beta.3: py315
+    # 3.15-dev: py315
+
+[testenv]
+...
+```
+
+_Added in 3.5.0_: To use a free-threaded Python build, add the `t` suffix.
+
+ `tox.ini`:
+```ini
+[tox]
+envlist = py314, py314t
+
+[gh-actions]
+python =
+    3.14: py314
+    3.14t: py314t
 
 [testenv]
 ...
@@ -239,13 +241,13 @@ Support of Pyston is experimental and not tested by our CI.
  `tox.ini`:
 ```ini
 [tox]
-envlist = py37, py38, pypy3, pyston38
+envlist = py313, py314, pypy3, pyston38
 
 [gh-actions]
 python =
-    3.7: py37
-    3.8: py38, mypy
-    pypy-3.7: pypy3
+    3.13: py313
+    3.14: py314, mypy
+    pypy-3.11: pypy3
     pyston-3.8: pyston38
 
 [testenv]
@@ -272,8 +274,8 @@ python =
 ```
 
 If there are multiple matching Python versions in the configuration, only the most precise one is used.
-For example, if you are running CPython 3.8 and `gh-actions.python` has both `3` and `3.8`,
-tox-gh-actions gets factors only from the key `3.8`.
+For example, if you are running CPython 3.14 and `gh-actions.python` has both `3` and `3.14`,
+tox-gh-actions gets factors only from the key `3.14`.
 
 _Changed in 3.0_: `pypy3` is not supported in the configuration anymore. Please use `pypy-3` instead.
 
@@ -281,8 +283,8 @@ _Changed in 3.0_: `pypy3` is not supported in the configuration anymore. Please 
 You can also use environment variable to decide which environment to run.
 The following is an example to install different dependency based on platform.
 It will create 9 jobs when running the workflow on GitHub Actions.
-- On Python 3.8/ubuntu-latest job, tox runs `py38-linux` environment
-- On Python 3.9/ubuntu-latest job, tox runs `py39-linux` environment
+- On Python 3.10/ubuntu-latest job, tox runs `py310-linux` environment
+- On Python 3.12/ubuntu-latest job, tox runs `py312-linux` environment
 - and so on.
 
 `.github/workflows/<workflow>.yml`:
@@ -299,12 +301,12 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ['3.8', '3.9', '3.10']
+        python-version: ['3.10', '3.12', '3.14']
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
@@ -320,13 +322,13 @@ jobs:
 `tox.ini`:
 ```ini
 [tox]
-envlist = py{38,39,310}-{linux,macos,windows}
+envlist = py{310,312,314}-{linux,macos,windows}
 
 [gh-actions]
 python =
-    3.8: py38
-    3.9: py39
     3.10: py310
+    3.12: py312
+    3.14: py3114
 
 [gh-actions:env]
 PLATFORM =
@@ -374,6 +376,16 @@ This project tries not to introduce backward incompatibles changes as much as po
 update their project's configuration too frequently.
 
 tox-gh-actions 3.x may drop support of unsupported Python 3.y versions in the future without bumping its major version.
+
+## Versions and Compatibility
+We recommend to use the latest version of tox 4.x and tox-gh-actions 3.x.
+To use tox-gh-actions with tox 3.x, please install tox-gh-actions 2.x.
+The following table shows compatibility between tox and tox-gh-actions.
+
+| tox | tox-gh-actions | Supported by tox-gh-actions  | Branch                                                    |
+|-----|----------------|------------------------------|-----------------------------------------------------------|
+| 4.x | 3.x            | Yes (stable)                 | [master](https://github.com/ymyzk/tox-gh-actions)         |
+| 3.x | 2.x            | Only security fixes (stable) | [tox3](https://github.com/ymyzk/tox-gh-actions/tree/tox3) |
 
 ## Understanding Behavior of tox-gh-actions
 ### How tox-gh-actions Works

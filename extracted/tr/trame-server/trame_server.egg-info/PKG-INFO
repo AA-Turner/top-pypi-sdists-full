@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trame-server
-Version: 3.6.1
+Version: 3.10.0
 Summary: Internal server side implementation of trame
 Author: Kitware Inc.
 License: Apache License 2.0
@@ -16,7 +16,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: wslink<3,>=2.2.2
+Requires-Dist: wslink<3,>=2.5
 Requires-Dist: more-itertools
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
@@ -85,6 +85,9 @@ and are prefixed with ``on_*``.
 * **on_client_connected** : Connection established to server
 * **on_client_exited**    : Linked to browser "beforeunload" event
 * **on_server_exited**    : Trame is exiting its event loop
+
+* **on_error**            : JS error forwarded (msg:str) on the python
+* **on_exception**        : Server exception occurred when interacting with the UI. The exception instance is provided as arg.
 
 * **on_server_reload**    : If callback registered it can be use to hot_reload methods like the UI.
 

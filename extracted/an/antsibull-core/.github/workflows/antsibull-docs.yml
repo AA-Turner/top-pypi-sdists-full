@@ -26,40 +26,46 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out antsibull-core
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: antsibull-core
+          persist-credentials: false
 
       - name: Checkout antsibull-docs-parser main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ansible-community/antsibull-docs-parser
           ref: main
           path: antsibull-docs-parser
+          persist-credentials: false
 
       - name: Check out dependent project antsibull-fileutils
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ansible-community/antsibull-fileutils
           path: antsibull-fileutils
+          persist-credentials: false
 
       # nb: this is the first version of antsibull-docs that declares support
       # for antsibull-core v3.
       - name: Check out antsibull-docs main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ansible-community/antsibull-docs
           ref: 2.9.0
           path: antsibull-docs
+          persist-credentials: false
 
-      - name: Patch antsibull-docs noxfile.py
+      - name: Patch antsibull-docs noxfile.py and pyproject.toml
         run: |
           sed -i noxfile.py -e 's/args = ("antsibull-core", "antsibull-docs-parser")/args = ("antsibull-core", "antsibull-docs-parser", "antsibull-fileutils")/g'
+          sed -i pyproject.toml -e 's/    "mypy",/    "mypy<1.16.0",/g'
         working-directory: antsibull-docs
 
+      # TODO: use Python 3.14 once using a more modern antsibull-docs version!
       - name: Set up Python 3.13
         id: python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
 

@@ -14,23 +14,28 @@ from parse import (
     TypeAnnotation,
 )
 
+import re
+
+from urllib.parse import urlparse
+
+ESCAPED_UNION_DELIMITER = " &#124; " # &#124; is the HTML entity for | to escape the pipe character when rendering to markdown table
 
 def format_type_annotation_str(
-    type_annotation: TypeAnnotation, with_links: bool = True
+    type_annotation: TypeAnnotation, with_links: bool = True, union_delimiter: str = " | "
 ) -> str:
     """Format a TypeAnnotation to a string."""
     if type_annotation.is_generic:
         if type_annotation.generic_args:
             if type_annotation.name == "Union":
                 # Format union types as A | B instead of Union[A, B]
-                args_str = " | ".join(
-                    format_type_annotation_str(arg, with_links)
+                args_str = union_delimiter.join(
+                    format_type_annotation_str(arg, with_links, union_delimiter)
                     for arg in type_annotation.generic_args
                 )
                 return args_str
             else:
                 args_str = ", ".join(
-                    format_type_annotation_str(arg, with_links)
+                    format_type_annotation_str(arg, with_links, union_delimiter)
                     for arg in type_annotation.generic_args
                 )
                 base = f"{type_annotation.name}[{args_str}]"
@@ -84,7 +89,10 @@ def should_link_type(type_str: str) -> bool:
         return True
 
     # Link shortened module references (data., query., schema., error.)
-    if any(type_str.startswith(prefix) for prefix in ["data.", "query.", "schema.", "error."]):
+    if any(
+        type_str.startswith(prefix)
+        for prefix in ["data.", "query.", "schema.", "error."]
+    ):
         return True
 
     # Only link if it looks like a class name (starts with capital letter)
@@ -180,12 +188,14 @@ def render_data_class_properties(properties: List[Property]):
     """Render data class properties as a table."""
     print("**Properties**")
     print()
-    print("| Property | Type |")
-    print("| -------- | ---- |")
+    print("| Property | Type |             |")
+    print("| -------- | ---- | ----------- |")
     for prop in properties:
-        type_str = format_type_annotation_str(prop.type_annotation, with_links=True)
-        print(f"| `{prop.name}` | {type_str} |")
+        type_str = format_type_annotation_str(prop.type_annotation, with_links=True, union_delimiter=ESCAPED_UNION_DELIMITER)
+        docstring_str = transform_docstring(prop.docstring or "")
+        print(f"| `{prop.name}` | {type_str} | {docstring_str} |")
 
+    print()
 
 def render_constructor(method: Method, class_name: str):
     """Render constructor method."""
@@ -197,14 +207,19 @@ def render_constructor(method: Method, class_name: str):
     print("```")
     print()
     if method.docstring:
-        print(method.docstring)
+        print(transform_docstring(method.docstring))
         print()
 
+    # Add Parameters section
+    if method.parameters and not (
+        len(method.parameters) == 1 and method.parameters[0].name == "self"
+    ):
+        render_parameters(method.parameters)
 
 def render_method(method: Method):
     """Render a regular method."""
 
-    escaped_name = method.name.replace('_', r'\_')
+    escaped_name = method.name.replace("_", r"\_")
     print(f"#### {escaped_name}()")
     print()
 
@@ -215,28 +230,14 @@ def render_method(method: Method):
     print()
 
     if method.docstring:
-        print(method.docstring)
+        print(transform_docstring(method.docstring))
         print()
-
 
     # Add Parameters section
     if method.parameters and not (
         len(method.parameters) == 1 and method.parameters[0].name == "self"
     ):
-        print("**Parameters**")
-        print()
-        print("| Parameter | Type |")
-        print("| --------- | ---- |")
-        for param in method.parameters:
-            if param.name == "self":
-                continue
-            type_str = (
-                format_type_annotation_str(param.type_annotation, with_links=True)
-                if param.type_annotation
-                else "Any"
-            )
-            print(f"| `{param.name}` | {type_str} |")
-        print()
+        render_parameters(method.parameters)
 
     # Add Returns section
     if method.return_type:
@@ -251,16 +252,30 @@ def render_method(method: Method):
     print("***")
     print()
 
+def render_parameters(parameters: List[Parameter]):
+    """Render parameters as a table."""
+    print("**Parameters**")
+    print()
+    print("| Parameter | Type |")
+    print("| --------- | ---- |")
+    for param in parameters:
+        if param.name == "self":
+            continue
+        type_str = (
+            format_type_annotation_str(param.type_annotation, with_links=True, union_delimiter=ESCAPED_UNION_DELIMITER)
+            if param.type_annotation
+            else "Any"
+        )
+        print(f"| `{param.name}` | {type_str} |")
+    print()
+
 
 def render_class_methods(methods: List[Method], class_name: str):
     """Render all methods in a class."""
     print("**Methods**")
     print()
-    for method in methods:
-        # Skip __new__ methods for data classes
-        if method.name == "__new__" and len(methods) == 1:
-            continue
 
+    for method in methods:
         if method.is_constructor:
             render_constructor(method, class_name)
         else:
@@ -273,14 +288,16 @@ def render_class(cls: Class, file_path):
     print()
 
     if cls.docstring:
-        print(cls.docstring)
+        print(transform_docstring(cls.docstring))
         print()
 
     if cls.is_enum and cls.enum_values:
         render_enum_values(cls.enum_values)
-    elif cls.is_data_class and cls.properties:
+
+    if cls.properties:
         render_data_class_properties(cls.properties)
-    elif cls.methods:
+
+    if cls.methods:
         render_class_methods(cls.methods, cls.name)
 
 
@@ -303,7 +320,7 @@ def render_function(func: Function, file_path):
     print()
 
     if func.docstring:
-        print(func.docstring)
+        print(transform_docstring(func.docstring))
         print()
 
     # Add Parameters section
@@ -314,7 +331,7 @@ def render_function(func: Function, file_path):
         print("| --------- | ---- |")
         for param in func.parameters:
             type_str = (
-                format_type_annotation_str(param.type_annotation, with_links=True)
+                format_type_annotation_str(param.type_annotation, with_links=True, union_delimiter=ESCAPED_UNION_DELIMITER)
                 if param.type_annotation
                 else "Any"
             )
@@ -339,7 +356,7 @@ def render_type_alias(type_alias: TypeAlias, file_path):
     print()
 
     if type_alias.docstring:
-        print(type_alias.docstring)
+        print(transform_docstring(type_alias.docstring))
         print()
 
     print("```python")
@@ -350,7 +367,9 @@ def render_type_alias(type_alias: TypeAlias, file_path):
 
     print("**Type**")
     print()
-    type_str_with_links = format_type_annotation_str(type_alias.type_annotation, with_links=True)
+    type_str_with_links = format_type_annotation_str(
+        type_alias.type_annotation, with_links=True
+    )
     print(type_str_with_links)
     print()
 
@@ -363,7 +382,7 @@ def render_module(module: Module):
     print("---")
 
     if module.file_path.parent.name == "topk_sdk":
-        print(f"title: topk_sdk")
+        print("title: topk_sdk")
     else:
         print(f"title: topk_sdk.{module.file_path.parent.name}")
 
@@ -376,16 +395,59 @@ def render_module(module: Module):
     for cls in module.classes:
         render_class(cls, module.file_path)
 
-    if (module.functions.__len__() > 0):
+    if module.functions.__len__() > 0:
         print("## Functions")
         print()
 
         for func in module.functions:
             render_function(func, module.file_path)
 
-    if (module.type_aliases and module.type_aliases.__len__() > 0):
+    if module.type_aliases and module.type_aliases.__len__() > 0:
         print("## Type Aliases")
         print()
 
         for type_alias in module.type_aliases:
             render_type_alias(type_alias, module.file_path)
+
+def transform_docstring(docstring: str) -> str:
+    return rewrite_doc_links(docstring)
+
+def rewrite_doc_links(docstring: str, base_domain: str = "docs.topk.io") -> str:
+    """
+    Rewrites full URLs pointing to the given base domain into relative Markdown links.
+
+    Example:
+        Input:  "See https://docs.topk.io/regions for details."
+        Output: "See [regions](/regions) for details."
+
+    Args:
+        text: The input docstring or text.
+        base_domain: The domain to match (default: 'docs.topk.io').
+
+    Returns:
+        The text with rewritten links.
+    """
+    def replace_link(match: re.Match[str]) -> str:
+        url = match.group(0)
+
+        parsed = urlparse(url)
+        if parsed.netloc != base_domain:
+            return url  # leave other domains untouched
+
+        # Check if the URL is already inside parentheses (part of a markdown link)
+        start_pos = match.start()
+        if start_pos > 0 and docstring[start_pos - 1] == '(':
+            # For links inside parentheses, just return the relative path with fragment
+            path = parsed.path.rstrip('/')
+            if parsed.fragment:
+                path += f"#{parsed.fragment}"
+            return path
+
+        # Extract just the path (e.g., "/regions") and use the last segment as link text
+        path = parsed.path.rstrip('/')
+        if parsed.fragment:
+            path += f"#{parsed.fragment}"
+        link_text = path.split('/')[-1].split('#')[0] or path
+        return f"[{link_text}]({path})"
+
+    return re.sub(r"https?://[^\s)]+", replace_link, docstring)

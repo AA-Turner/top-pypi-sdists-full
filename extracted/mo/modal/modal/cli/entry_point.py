@@ -8,7 +8,7 @@ from rich.rule import Rule
 from modal._output import make_console
 from modal._utils.async_utils import synchronizer
 
-from . import run
+from . import run, shell as shell_module
 from .app import app_cli
 from .cluster import cluster_cli
 from .config import config_cli
@@ -36,6 +36,7 @@ entrypoint_cli_typer = typer.Typer(
     no_args_is_help=False,
     add_completion=False,
     rich_markup_mode="markdown",
+    context_settings={"help_option_names": ["-h", "--help"]},
     help="""
     Modal is the fastest way to run code in the cloud.
 
@@ -86,6 +87,29 @@ def check_path():
 async def setup(profile: Optional[str] = None):
     check_path()
 
+    art = """
+           #############        #############
+          ####         ##      ####         ##
+         ##  ##         ##    ##  ##         ##
+        ##    ##         ##  ##    ##         ##
+       ##      ##         ####      ##         ##
+      ##        #############        ##         ##
+     ##        ##         ####        ##         ##
+    ##        ##         ##  ##        ##         ##
+   ##        ##         ##    ##        ##         ##
+  ##        ##         ##      ##        ##         ##
+ ##        ##         ##        ##        ##         ##
+##        ##         ##          ##        #############
+ ##      ##         ##            ##      ##         ##
+  ##    ##         ##              ##    ##         ##
+   ##  ##         ##                ##  ##         ##
+    ####         ##                  ####         ##
+     #############                    #############
+"""
+
+    console = make_console()
+    console.print(art, style="green")
+
     # Fetch a new token (same as `modal token new` but redirect to /home once finishes)
     await _new_token(profile=profile, next_url="/home")
 
@@ -93,7 +117,7 @@ async def setup(profile: Optional[str] = None):
 # Commands
 entrypoint_cli_typer.command("deploy", no_args_is_help=True)(run.deploy)
 entrypoint_cli_typer.command("serve", no_args_is_help=True)(run.serve)
-entrypoint_cli_typer.command("shell")(run.shell)
+entrypoint_cli_typer.command("shell")(shell_module.shell)
 entrypoint_cli_typer.add_typer(launch_cli)
 
 # Deployments

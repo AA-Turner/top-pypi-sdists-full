@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 from pathlib import Path
@@ -30,6 +30,22 @@ def read_pyproject_marimo_config(
     return marimo_tool_config
 
 
+def sanitize_pyproject_dict(
+    pyproject_dict: dict[str, Any], keys: tuple[tuple[str, ...], ...]
+) -> dict[str, Any]:
+    """Sanitize the pyproject.toml dictionary by removing specified keys."""
+    for key_path in keys:
+        current_level = pyproject_dict
+        for key in key_path[:-1]:
+            if key in current_level and isinstance(current_level[key], dict):
+                current_level = current_level[key]
+            else:
+                return pyproject_dict
+        if current_level and key_path[-1] in current_level:
+            del current_level[key_path[-1]]
+    return pyproject_dict
+
+
 def get_marimo_config_from_pyproject_dict(
     pyproject_dict: dict[str, Any],
 ) -> Optional[PartialMarimoConfig]:
@@ -52,10 +68,13 @@ def find_nearest_pyproject_toml(
     """Find the nearest pyproject.toml file."""
     path = Path(start_path)
     root = path.anchor
-    while not path.joinpath("pyproject.toml").exists():
-        if str(path) == root:
-            return None
-        if path.parent == path:
-            return None
-        path = path.parent
+    try:
+        while not path.joinpath("pyproject.toml").exists():
+            if str(path) == root:
+                return None
+            if path.parent == path:
+                return None
+            path = path.parent
+    except OSError:
+        return None
     return path.joinpath("pyproject.toml")

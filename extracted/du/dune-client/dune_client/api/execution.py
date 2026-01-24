@@ -6,25 +6,28 @@ Further Documentation:
     get results: https://docs.dune.com/api-reference/executions/endpoint/get-execution-result
 """
 
+from __future__ import annotations
+
 from io import BytesIO
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from deprecated import deprecated
 
 from dune_client.api.base import (
-    BaseRouter,
-    DUNE_CSV_NEXT_URI_HEADER,
     DUNE_CSV_NEXT_OFFSET_HEADER,
+    DUNE_CSV_NEXT_URI_HEADER,
+    BaseRouter,
 )
 from dune_client.models import (
-    ExecutionResponse,
-    ExecutionStatusResponse,
-    ResultsResponse,
-    ExecutionResultCSV,
     DuneError,
+    ExecutionResponse,
+    ExecutionResultCSV,
     ExecutionState,
+    ExecutionStatusResponse,
+    PipelineExecutionResponse,
+    ResultsResponse,
 )
-from dune_client.query import QueryBase
+from dune_client.query import QueryBase  # noqa: TC001
 
 
 class ExecutionAPI(BaseRouter):
@@ -32,19 +35,67 @@ class ExecutionAPI(BaseRouter):
     Query execution and result fetching functions.
     """
 
-    def execute_query(
-        self, query: QueryBase, performance: Optional[str] = None
-    ) -> ExecutionResponse:
+    def execute_query(self, query: QueryBase, performance: str | None = None) -> ExecutionResponse:
         """Post's to Dune API for execute `query`"""
         params = query.request_format()
         params["performance"] = performance or self.performance
 
-        self.logger.info(
-            f"executing {query.query_id} on {performance or self.performance} cluster"
-        )
+        self.logger.info(f"executing {query.query_id} on {performance or self.performance} cluster")
         response_json = self._post(
             route=f"/query/{query.query_id}/execute",
             params=params,
+        )
+        try:
+            return ExecutionResponse.from_dict(response_json)
+        except KeyError as err:
+            raise DuneError(response_json, "ExecutionResponse", err) from err
+
+    def execute_query_pipeline(
+        self, query_id: int, performance: str | None = None
+    ) -> PipelineExecutionResponse:
+        """Post's to Dune API for execute query pipeline"""
+        params: dict[str, str] = {}
+        if performance is not None:
+            params["performance"] = performance
+
+        self.logger.info(f"executing pipeline for query {query_id}")
+        response_json = self._post(
+            route=f"/query/{query_id}/pipeline/execute",
+            params=params,
+        )
+        try:
+            return PipelineExecutionResponse.from_dict(response_json)
+        except KeyError as err:
+            raise DuneError(response_json, "PipelineExecutionResponse", err) from err
+
+    def execute_sql(
+        self,
+        query_sql: str,
+        performance: str | None = None,
+    ) -> ExecutionResponse:
+        """
+        Execute arbitrary SQL directly via the API without creating a saved query.
+        https://docs.dune.com/api-reference/executions/endpoint/execute-sql
+
+        Note: This endpoint does not support parameterized queries. If you need
+        parameters, use the regular execute_query() with a saved query.
+
+        Args:
+            query_sql: The SQL query string to execute
+            performance: Optional performance tier ("medium" or "large")
+
+        Returns:
+            ExecutionResponse with execution_id and state
+        """
+        payload: dict[str, str] = {
+            "sql": query_sql,
+            "performance": performance or self.performance,
+        }
+
+        self.logger.info(f"executing SQL on {performance or self.performance} cluster")
+        response_json = self._post(
+            route="/sql/execute",
+            params=payload,
         )
         try:
             return ExecutionResponse.from_dict(response_json)
@@ -60,9 +111,10 @@ class ExecutionAPI(BaseRouter):
         try:
             # No need to make a dataclass for this since it's just a boolean.
             success: bool = response_json["success"]
-            return success
         except KeyError as err:
             raise DuneError(response_json, "CancellationResponse", err) from err
+        else:
+            return success
 
     def get_execution_status(self, job_id: str) -> ExecutionStatusResponse:
         """GET status from Dune API for `job_id` (aka `execution_id`)"""
@@ -75,12 +127,12 @@ class ExecutionAPI(BaseRouter):
     def get_execution_results(
         self,
         job_id: str,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
-        columns: Optional[List[str]] = None,
-        sample_count: Optional[int] = None,
-        filters: Optional[str] = None,
-        sort_by: Optional[List[str]] = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        columns: list[str] | None = None,
+        sample_count: int | None = None,
+        filters: str | None = None,
+        sort_by: list[str] | None = None,
         allow_partial_results: str = "true",
     ) -> ResultsResponse:
         """GET results from Dune API for `job_id` (aka `execution_id`)"""
@@ -101,12 +153,12 @@ class ExecutionAPI(BaseRouter):
     def get_execution_results_csv(
         self,
         job_id: str,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
-        columns: Optional[List[str]] = None,
-        filters: Optional[str] = None,
-        sample_count: Optional[int] = None,
-        sort_by: Optional[List[str]] = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        columns: list[str] | None = None,
+        filters: str | None = None,
+        sample_count: int | None = None,
+        sort_by: list[str] | None = None,
     ) -> ExecutionResultCSV:
         """
         GET results in CSV format from Dune API for `job_id` (aka `execution_id`)
@@ -129,7 +181,7 @@ class ExecutionAPI(BaseRouter):
         return self._get_execution_results_csv_by_url(url=url, params=params)
 
     def _get_execution_results_by_url(
-        self, url: str, params: Optional[Dict[str, Any]] = None
+        self, url: str, params: dict[str, Any] | None = None
     ) -> ResultsResponse:
         """
         GET results from Dune API with a given URL. This is particularly useful for pagination.
@@ -144,14 +196,15 @@ class ExecutionAPI(BaseRouter):
                     f"execution {result.execution_id} resulted in a partial "
                     f"result set (i.e. results too large)."
                 )
-            return result
         except KeyError as err:
             raise DuneError(response_json, "ResultsResponse", err) from err
+        else:
+            return result
 
     def _get_execution_results_csv_by_url(
         self,
         url: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ) -> ExecutionResultCSV:
         """
         GET results in CSV format from Dune API with a given URL. This is particularly
@@ -177,9 +230,7 @@ class ExecutionAPI(BaseRouter):
     # Deprecated Functions:
     #######################
     @deprecated(version="1.2.1", reason="Please use execute_query")
-    def execute(
-        self, query: QueryBase, performance: Optional[str] = None
-    ) -> ExecutionResponse:
+    def execute(self, query: QueryBase, performance: str | None = None) -> ExecutionResponse:
         """Post's to Dune API for execute `query`"""
         return self.execute_query(query, performance)
 

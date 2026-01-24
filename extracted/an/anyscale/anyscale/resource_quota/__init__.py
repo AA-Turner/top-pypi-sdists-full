@@ -16,11 +16,11 @@ from anyscale.resource_quota.commands import (
     _ENABLE_EXAMPLE,
     _LIST_DOCSTRINGS,
     _LIST_EXAMPLE,
-    create,
-    delete,
-    disable,
-    enable,
-    list,
+    create as create,
+    delete as delete,
+    disable as disable,
+    enable as enable,
+    list as list,  # noqa: A004 - claude_comment("claude-opus-4-5", "SDK public API re-export")
 )
 from anyscale.resource_quota.models import CreateResourceQuota, ResourceQuota
 

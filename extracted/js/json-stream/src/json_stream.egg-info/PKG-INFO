@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: json-stream
-Version: 2.3.3
+Version: 2.4.1
 Summary: Streaming JSON encoder and decoder
 Author-email: Jamie Cockburn <jamie_cockburn@hotmail.co.uk>
 License: Copyright (c) 2020 Jamie Cockburn
@@ -39,6 +39,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <4,>=3.5
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
@@ -47,10 +48,12 @@ Provides-Extra: requests
 Requires-Dist: requests; extra == "requests"
 Provides-Extra: httpx
 Requires-Dist: httpx; extra == "httpx"
+Dynamic: license-file
 
 # json-stream
 
 [![Tests](https://github.com/daggaz/json-stream/actions/workflows/tests.yml/badge.svg)](https://github.com/daggaz/json-stream/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/daggaz/json-stream/graph/badge.svg?token=SWWYF2KHMC)](https://codecov.io/gh/daggaz/json-stream)
 [![PyPI package and version badge](https://img.shields.io/pypi/v/json-stream)](https://pypi.org/project/json-stream)
 [![Supported Python versions badge](https://img.shields.io/pypi/pyversions/json-stream)](https://pypi.org/project/json-stream/)
 [![Donate](https://img.shields.io/badge/buy%20me%20a%20coffee-donate-blue.svg)](https://www.buymeacoffee.com/daggaz)
@@ -59,8 +62,8 @@ Simple streaming JSON parser and encoder.
 
 When [reading](#reading) JSON data, `json-stream` can decode JSON data in 
 a streaming manner, providing a pythonic dict/list-like interface, or a
-[visitor-based interfeace](#visitor). Can stream from files, [URLs](#urls) 
-or [iterators](#iterators).
+[visitor-based interface](#visitor). It can stream from files, [URLs](#urls) 
+or [iterators](#iterators). It can process [multiple JSON documents](#multiple) in a single stream.
 
 When [writing](#writing) JSON data, `json-stream` can stream JSON objects 
 as you generate them.
@@ -276,6 +279,65 @@ z at path ('xxxx', 3)
 [] at path ('xxxx', 5)
 ```
 
+### <a id="multiple"></a> Multiple JSON documents: `load_many()` and `visit_many()`
+
+Sometimes JSON data arrives as a sequence of top‑level JSON texts rather than a single array/object. json-stream supports this pattern with:
+- `json_stream.load_many(...)`: yields each top-level JSON value as it is parsed.
+- `json_stream.visit_many(...)`: visits each top-level JSON value and yields control after each one.
+
+These functions are useful for common streaming formats:
+- NDJSON (Newline-Delimited JSON, also known as JSON Lines, content-type often application/x-ndjson): one JSON value per line, separated by a single "\n".
+- Concatenated or sequential JSON documents: complete JSON texts written back-to-back without delimiters.
+
+Note about concatenated JSON without explicit delimiters:
+
+When multiple top‑level JSON documents are simply concatenated with 
+no delimiters (no newlines or no spaces), json-stream can unambiguously 
+detect the document boundaries for the following top-level values:
+- objects: `{ ... }`
+- arrays: `[ ... ]`
+- literals: `true`, `false`, `null`
+
+However, numbers and strings require a delimiter between consecutive
+documents so the tokenizer can tell where one ends and the next begins.
+A delimiter can be as simple as a single whitespace or a newline. 
+
+Examples:
+- Valid without delimiters (will parse as 2 docs):
+  - `{"a":1}{"b":2}` → `{...}`, `{...}`
+  - `[1][2]` → `[1]`, `[2]`
+  - `truefalse` → `true`, `false`
+  - `null[]` → `null`, `[]`
+- These will error without a delimiter between documents (e.g. a space or newline):
+  - `3true`
+  - `0"x"`
+  - `"hi""there"
+
+#### Examples
+
+Read many from a file containing NDJSON or concatenated JSON:
+```python
+import json_stream
+
+with open("events.ndjson", "rb") as f:  # NDJSON: one JSON object per line
+    for item in json_stream.load_many(f):
+        # each item is the top-level item in each JSON text
+        handle(item)
+```
+
+Visit many values in many documents:
+```python
+import json_stream
+
+def visitor(value, path):
+    # called depth-first for each value within the current top-level JSON text
+    ...
+
+for _ in json_stream.visit_many(open("events.ndjson", "rb"), visitor):
+    # loop advances one top-level JSON text at a time
+    pass
+```
+
 ### <a id="urls"></a> Stream a URL
 
 `json_stream` knows how to stream directly from a URL using a variety of packages.
@@ -382,8 +444,7 @@ with httpx.Client() as client, client.stream('GET', 'http://example.com/data.jso
 
 ### <a id="iterators"></a> Stream an iterable
 
-`json-stream`'s parsing functions can take any iterable object that produces encoded JSON as
-`byte` objects.
+`json-stream`'s parsing functions can take any iterable that produces encoded JSON chunks. The chunks can be `byte`s or `str`s.
 
 ```python
 import json_stream

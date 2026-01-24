@@ -3,7 +3,7 @@ pub mod proto;
 pub mod error;
 pub use error::Error;
 
-mod client;
+pub mod client;
 pub use client::Client;
 pub use client::ClientConfig;
 pub use client::CollectionClient;
@@ -52,6 +52,14 @@ pub mod query {
 
         pub fn vector_distance(field: impl Into<String>, query: impl Into<Value>) -> FunctionExpr {
             FunctionExpr::vector_distance(field, query, false)
+        }
+
+        pub fn multi_vector_distance(
+            field: impl Into<String>,
+            query: impl Into<Value>,
+            candidates: Option<u32>,
+        ) -> FunctionExpr {
+            FunctionExpr::multi_vector_distance(field, query, candidates)
         }
 
         pub fn semantic_similarity(

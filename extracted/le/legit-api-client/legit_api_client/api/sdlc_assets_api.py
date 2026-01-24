@@ -658,6 +658,8 @@ class SDLCAssetsApi:
     def api_v10_sdlc_assets_graph_get(
         self,
         show_only_integrated: Optional[StrictBool] = None,
+        product_ids: Optional[List[StrictStr]] = None,
+        integration_ids: Optional[List[StrictStr]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -673,10 +675,14 @@ class SDLCAssetsApi:
     ) -> SdlcAssetGraphDto:
         """Get SDLC asset graph
 
-        Each node in the graph is returned as an object in the `Assets` array. It is uniquely identified by the attributes `Id` and `Type`.  The edges are represented by the `Links` array. The source of each link is `SourceId` and `SourceType`. The target of each link is `TargetId` and `TargetType`.  The `IntegrationId` is not enough to identify a node, because it may apply to several nodes on the graph is some cases. For example is GitHub is used both as SCM and CI (GitHub Actions).  The Graph returned by this endpoint is more detailed than the Discovery Graph on the Legit Platform. When viewing the graph on the Legit Platform some nodes are aggregated into a single node (for example - all Amazon ECRs are displayed as a single node on the Legit Platform).
+        Each node in the graph is returned as an object in the `Assets` array. It is uniquely identified by the attributes `Id` and `Type`.  The edges are represented by the `Links` array. The source of each link is `SourceId` and `SourceType`. The target of each link is `TargetId` and `TargetType`.  The `IntegrationId` is not enough to identify a node, because it may apply to several nodes on the graph is some cases. For example is GitHub is used both as SCM and CI (GitHub Actions).  To view the SDLC graph in the context of a Product Unit, use the `ProductIds` filter. The response will include only integrations associated with those Product Units - determined by the products’ assets (e.g., repositories, containers) - and will return the induced subgraphs for those integrations. This reveals the full SDLC graph a Product Unit is exposed to, including nodes not directly owned by its assets but connected through other assets within the same integration.  To view the SDLC graph in the context of specific integrations, use the `IntegrationIds` filter. The response will include only those specified integrations and their associated nodes and edges.  The Graph returned by this endpoint is more detailed than the Discovery Graph on the Legit Platform. When viewing the graph on the Legit Platform some nodes are aggregated into a single node (for example - all Amazon ECRs are displayed as a single node on the Legit Platform).
 
         :param show_only_integrated:
         :type show_only_integrated: bool
+        :param product_ids:
+        :type product_ids: List[str]
+        :param integration_ids:
+        :type integration_ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -701,6 +707,8 @@ class SDLCAssetsApi:
 
         _param = self._api_v10_sdlc_assets_graph_get_serialize(
             show_only_integrated=show_only_integrated,
+            product_ids=product_ids,
+            integration_ids=integration_ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -726,6 +734,8 @@ class SDLCAssetsApi:
     def api_v10_sdlc_assets_graph_get_with_http_info(
         self,
         show_only_integrated: Optional[StrictBool] = None,
+        product_ids: Optional[List[StrictStr]] = None,
+        integration_ids: Optional[List[StrictStr]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -741,10 +751,14 @@ class SDLCAssetsApi:
     ) -> ApiResponse[SdlcAssetGraphDto]:
         """Get SDLC asset graph
 
-        Each node in the graph is returned as an object in the `Assets` array. It is uniquely identified by the attributes `Id` and `Type`.  The edges are represented by the `Links` array. The source of each link is `SourceId` and `SourceType`. The target of each link is `TargetId` and `TargetType`.  The `IntegrationId` is not enough to identify a node, because it may apply to several nodes on the graph is some cases. For example is GitHub is used both as SCM and CI (GitHub Actions).  The Graph returned by this endpoint is more detailed than the Discovery Graph on the Legit Platform. When viewing the graph on the Legit Platform some nodes are aggregated into a single node (for example - all Amazon ECRs are displayed as a single node on the Legit Platform).
+        Each node in the graph is returned as an object in the `Assets` array. It is uniquely identified by the attributes `Id` and `Type`.  The edges are represented by the `Links` array. The source of each link is `SourceId` and `SourceType`. The target of each link is `TargetId` and `TargetType`.  The `IntegrationId` is not enough to identify a node, because it may apply to several nodes on the graph is some cases. For example is GitHub is used both as SCM and CI (GitHub Actions).  To view the SDLC graph in the context of a Product Unit, use the `ProductIds` filter. The response will include only integrations associated with those Product Units - determined by the products’ assets (e.g., repositories, containers) - and will return the induced subgraphs for those integrations. This reveals the full SDLC graph a Product Unit is exposed to, including nodes not directly owned by its assets but connected through other assets within the same integration.  To view the SDLC graph in the context of specific integrations, use the `IntegrationIds` filter. The response will include only those specified integrations and their associated nodes and edges.  The Graph returned by this endpoint is more detailed than the Discovery Graph on the Legit Platform. When viewing the graph on the Legit Platform some nodes are aggregated into a single node (for example - all Amazon ECRs are displayed as a single node on the Legit Platform).
 
         :param show_only_integrated:
         :type show_only_integrated: bool
+        :param product_ids:
+        :type product_ids: List[str]
+        :param integration_ids:
+        :type integration_ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -769,6 +783,8 @@ class SDLCAssetsApi:
 
         _param = self._api_v10_sdlc_assets_graph_get_serialize(
             show_only_integrated=show_only_integrated,
+            product_ids=product_ids,
+            integration_ids=integration_ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -794,6 +810,8 @@ class SDLCAssetsApi:
     def api_v10_sdlc_assets_graph_get_without_preload_content(
         self,
         show_only_integrated: Optional[StrictBool] = None,
+        product_ids: Optional[List[StrictStr]] = None,
+        integration_ids: Optional[List[StrictStr]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -809,10 +827,14 @@ class SDLCAssetsApi:
     ) -> RESTResponseType:
         """Get SDLC asset graph
 
-        Each node in the graph is returned as an object in the `Assets` array. It is uniquely identified by the attributes `Id` and `Type`.  The edges are represented by the `Links` array. The source of each link is `SourceId` and `SourceType`. The target of each link is `TargetId` and `TargetType`.  The `IntegrationId` is not enough to identify a node, because it may apply to several nodes on the graph is some cases. For example is GitHub is used both as SCM and CI (GitHub Actions).  The Graph returned by this endpoint is more detailed than the Discovery Graph on the Legit Platform. When viewing the graph on the Legit Platform some nodes are aggregated into a single node (for example - all Amazon ECRs are displayed as a single node on the Legit Platform).
+        Each node in the graph is returned as an object in the `Assets` array. It is uniquely identified by the attributes `Id` and `Type`.  The edges are represented by the `Links` array. The source of each link is `SourceId` and `SourceType`. The target of each link is `TargetId` and `TargetType`.  The `IntegrationId` is not enough to identify a node, because it may apply to several nodes on the graph is some cases. For example is GitHub is used both as SCM and CI (GitHub Actions).  To view the SDLC graph in the context of a Product Unit, use the `ProductIds` filter. The response will include only integrations associated with those Product Units - determined by the products’ assets (e.g., repositories, containers) - and will return the induced subgraphs for those integrations. This reveals the full SDLC graph a Product Unit is exposed to, including nodes not directly owned by its assets but connected through other assets within the same integration.  To view the SDLC graph in the context of specific integrations, use the `IntegrationIds` filter. The response will include only those specified integrations and their associated nodes and edges.  The Graph returned by this endpoint is more detailed than the Discovery Graph on the Legit Platform. When viewing the graph on the Legit Platform some nodes are aggregated into a single node (for example - all Amazon ECRs are displayed as a single node on the Legit Platform).
 
         :param show_only_integrated:
         :type show_only_integrated: bool
+        :param product_ids:
+        :type product_ids: List[str]
+        :param integration_ids:
+        :type integration_ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -837,6 +859,8 @@ class SDLCAssetsApi:
 
         _param = self._api_v10_sdlc_assets_graph_get_serialize(
             show_only_integrated=show_only_integrated,
+            product_ids=product_ids,
+            integration_ids=integration_ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -857,6 +881,8 @@ class SDLCAssetsApi:
     def _api_v10_sdlc_assets_graph_get_serialize(
         self,
         show_only_integrated,
+        product_ids,
+        integration_ids,
         _request_auth,
         _content_type,
         _headers,
@@ -866,6 +892,8 @@ class SDLCAssetsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'productIds': 'multi',
+            'integrationIds': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -882,6 +910,14 @@ class SDLCAssetsApi:
         if show_only_integrated is not None:
             
             _query_params.append(('showOnlyIntegrated', show_only_integrated))
+            
+        if product_ids is not None:
+            
+            _query_params.append(('productIds', product_ids))
+            
+        if integration_ids is not None:
+            
+            _query_params.append(('integrationIds', integration_ids))
             
         # process the header parameters
         # process the form parameters

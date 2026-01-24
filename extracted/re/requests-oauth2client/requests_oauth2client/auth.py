@@ -8,6 +8,7 @@ import requests
 from attrs import define, field, setters
 from typing_extensions import override
 
+from .device_authorization import DeviceAuthorizationPollingJob
 from .tokens import BearerToken
 
 if TYPE_CHECKING:
@@ -364,16 +365,14 @@ class OAuth2DeviceCodeAuth(OAuth2AccessTokenAuth):  # type: ignore[override]
         This will poll the Token Endpoint until the user finishes the authorization process.
 
         """
-        from .device_authorization import DeviceAuthorizationPoolingJob
-
         if self.device_code:  # pragma: no branch
-            pooling_job = DeviceAuthorizationPoolingJob(
+            polling_job = DeviceAuthorizationPollingJob(
                 client=self.client,
                 device_code=self.device_code,
                 interval=self.interval,
             )
             token = None
             while token is None:
-                token = pooling_job()
+                token = polling_job()
             self.token = token
             self.device_code = None

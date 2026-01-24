@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any
 
-from pydantic import StrictStr
+from pydantic import ConfigDict, StrictStr
 
 from snowflake.core.catalog_integration._generated.models.catalog import Catalog
 from snowflake.core.catalog_integration._generated.models.rest_authentication import (
@@ -50,9 +50,10 @@ class Polaris(Catalog):
 
     __properties = ["catalog_source"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -77,7 +78,7 @@ class Polaris(Catalog):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of rest_config
         if self.rest_config:
@@ -102,9 +103,9 @@ class Polaris(Catalog):
             return None
 
         if type(obj) is not dict:
-            return Polaris.parse_obj(obj)
+            return Polaris.model_validate(obj)
 
-        _obj = Polaris.parse_obj(
+        _obj = Polaris.model_validate(
             {
                 "catalog_namespace": obj.get("catalog_namespace"),
                 "rest_config": RestConfig.from_dict(obj.get("rest_config"))

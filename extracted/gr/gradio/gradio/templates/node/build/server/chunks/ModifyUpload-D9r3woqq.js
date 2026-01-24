@@ -1,0 +1,11 @@
+import './async-Mo2Ia14K.js';
+import { e as y, l as w, z as o } from './2-B89dC7Mi.js';
+import { u } from './DownloadLink-CHK0Lliu.js';
+import { l } from './Download-CXUtRxuu.js';
+import { r } from './Edit-CJCte_uE.js';
+import { r as r$1 } from './Undo-TMAmuanl.js';
+
+function z(a,m){a.component(u$1=>{let{editable:c=false,undoable:n=false,download:s=null,i18n:l$1,onedit:h,onclear:f,onundo:I,children:t}=m;y(u$1,{children:o$1=>{c?(o$1.push("<!--[-->"),w(o$1,{Icon:r,label:l$1("common.edit"),onclick:()=>h?.()})):o$1.push("<!--[!-->"),o$1.push("<!--]--> "),n?(o$1.push("<!--[-->"),w(o$1,{Icon:r$1,label:l$1("common.undo"),onclick:()=>I?.()})):o$1.push("<!--[!-->"),o$1.push("<!--]--> "),s?(o$1.push("<!--[-->"),u(o$1,{href:s,download:true,children:i=>{w(i,{Icon:l,label:l$1("common.download")});},$$slots:{default:true}})):o$1.push("<!--[!-->"),o$1.push("<!--]--> "),t?(o$1.push("<!--[-->"),t(o$1),o$1.push("<!---->")):o$1.push("<!--[!-->"),o$1.push("<!--]--> "),w(o$1,{Icon:o,label:l$1("common.clear"),onclick:i=>{f?.(),i.stopPropagation();}}),o$1.push("<!---->");}});});}
+
+export { z };
+//# sourceMappingURL=ModifyUpload-D9r3woqq.js.map

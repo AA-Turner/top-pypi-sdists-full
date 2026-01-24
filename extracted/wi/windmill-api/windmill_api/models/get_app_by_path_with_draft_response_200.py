@@ -34,7 +34,9 @@ class GetAppByPathWithDraftResponse200:
         policy (GetAppByPathWithDraftResponse200Policy):
         execution_mode (GetAppByPathWithDraftResponse200ExecutionMode):
         extra_perms (GetAppByPathWithDraftResponse200ExtraPerms):
+        raw_app (bool):
         custom_path (Union[Unset, str]):
+        bundle_secret (Union[Unset, str]):
         draft_only (Union[Unset, bool]):
         draft (Union[Unset, Any]):
     """
@@ -50,7 +52,9 @@ class GetAppByPathWithDraftResponse200:
     policy: "GetAppByPathWithDraftResponse200Policy"
     execution_mode: GetAppByPathWithDraftResponse200ExecutionMode
     extra_perms: "GetAppByPathWithDraftResponse200ExtraPerms"
+    raw_app: bool
     custom_path: Union[Unset, str] = UNSET
+    bundle_secret: Union[Unset, str] = UNSET
     draft_only: Union[Unset, bool] = UNSET
     draft: Union[Unset, Any] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -73,7 +77,9 @@ class GetAppByPathWithDraftResponse200:
 
         extra_perms = self.extra_perms.to_dict()
 
+        raw_app = self.raw_app
         custom_path = self.custom_path
+        bundle_secret = self.bundle_secret
         draft_only = self.draft_only
         draft = self.draft
 
@@ -92,10 +98,13 @@ class GetAppByPathWithDraftResponse200:
                 "policy": policy,
                 "execution_mode": execution_mode,
                 "extra_perms": extra_perms,
+                "raw_app": raw_app,
             }
         )
         if custom_path is not UNSET:
             field_dict["custom_path"] = custom_path
+        if bundle_secret is not UNSET:
+            field_dict["bundle_secret"] = bundle_secret
         if draft_only is not UNSET:
             field_dict["draft_only"] = draft_only
         if draft is not UNSET:
@@ -134,7 +143,11 @@ class GetAppByPathWithDraftResponse200:
 
         extra_perms = GetAppByPathWithDraftResponse200ExtraPerms.from_dict(d.pop("extra_perms"))
 
+        raw_app = d.pop("raw_app")
+
         custom_path = d.pop("custom_path", UNSET)
+
+        bundle_secret = d.pop("bundle_secret", UNSET)
 
         draft_only = d.pop("draft_only", UNSET)
 
@@ -152,7 +165,9 @@ class GetAppByPathWithDraftResponse200:
             policy=policy,
             execution_mode=execution_mode,
             extra_perms=extra_perms,
+            raw_app=raw_app,
             custom_path=custom_path,
+            bundle_secret=bundle_secret,
             draft_only=draft_only,
             draft=draft,
         )

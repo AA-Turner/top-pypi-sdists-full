@@ -282,7 +282,7 @@ Keyword arguments:
 
 - withIcon (boolean; optional):
     Determines whether the icon should be displayed."""
-    _children_props = ['icon', 'completedIcon', 'progressIcon', 'label', 'description']
+    _children_props: typing.List[str] = ['icon', 'completedIcon', 'progressIcon', 'label', 'description']
     _base_nodes = ['icon', 'completedIcon', 'progressIcon', 'label', 'description', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'StepperStep'

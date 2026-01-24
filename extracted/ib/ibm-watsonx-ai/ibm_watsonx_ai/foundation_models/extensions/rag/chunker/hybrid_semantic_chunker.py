@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 import re
@@ -500,7 +500,7 @@ class HybridSemanticChunker(BaseChunker[Document]):
         :param text: text to split
         :type text: str
 
-        :return: text splitted on sentences.
+        :return: text split on sentences.
         :rtype: list[str]
         """
         placeholder = "__DOT__"

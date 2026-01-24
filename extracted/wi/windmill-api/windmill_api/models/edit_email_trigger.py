@@ -24,7 +24,7 @@ class EditEmailTrigger:
         workspaced_local_part (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, EditEmailTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
-        retry (Union[Unset, EditEmailTriggerRetry]):
+        retry (Union[Unset, EditEmailTriggerRetry]): Retry configuration for failed module executions
     """
 
     path: str

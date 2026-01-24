@@ -7,7 +7,7 @@ import ray.data as rd
 from packaging import version
 from pyarrow import csv as pacsv
 from pyarrow import json as pajson
-from ray.data.datasource import FileExtensionFilter
+
 from triad.collections import Schema
 from triad.collections.dict import ParamDict
 from triad.utils.assertion import assert_or_throw
@@ -20,6 +20,27 @@ from fugue.dataframe import DataFrame
 from fugue_ray.dataframe import RayDataFrame
 
 from .._constants import RAY_VERSION
+
+try:
+    from ray.data.datasource import FileExtensionFilter
+
+    class _FileFiler(FileExtensionFilter):  # pragma: no cover
+        def __init__(
+            self, file_extensions: Union[str, List[str]], exclude: Iterable[str]
+        ):
+            super().__init__(file_extensions, allow_if_no_extension=True)
+            self._exclude = set(exclude)
+
+        def _is_valid(self, path: str) -> bool:
+            return pathlib.Path(
+                path
+            ).name not in self._exclude and self._file_has_extension(path)
+
+        def __call__(self, paths: List[str]) -> List[str]:
+            return [path for path in paths if self._is_valid(path)]
+
+except ImportError:  # pragma: no cover
+    pass  # ray >=2.10
 
 
 class RayIO(object):
@@ -53,7 +74,7 @@ class RayIO(object):
             len(fmts) == 1, NotImplementedError("can't support multiple formats")
         )
         fmt = fmts[0]
-        files = [f.path for f in fp]
+        files = [f.as_dir_path() if f.is_dir else f.path for f in fp]
         return self._loads[fmt](files, columns, **kwargs)
 
     def save_df(
@@ -132,6 +153,10 @@ class RayIO(object):
     def _load_parquet(
         self, p: List[str], columns: Any = None, **kwargs: Any
     ) -> DataFrame:
+        # in 2.52.0 the default changes to ["parquet"]
+        if "file_extensions" not in kwargs:
+            kwargs = kwargs.copy()
+            kwargs["file_extensions"] = None
         sdf = rd.read_parquet(p, ray_remote_args=self._remote_args(), **kwargs)
         if columns is None:
             return RayDataFrame(sdf)
@@ -248,17 +273,3 @@ class RayIO(object):
 
     def _remote_args(self) -> Dict[str, Any]:
         return {"num_cpus": 1}
-
-
-class _FileFiler(FileExtensionFilter):  # pragma: no cover
-    def __init__(self, file_extensions: Union[str, List[str]], exclude: Iterable[str]):
-        super().__init__(file_extensions, allow_if_no_extension=True)
-        self._exclude = set(exclude)
-
-    def _is_valid(self, path: str) -> bool:
-        return pathlib.Path(
-            path
-        ).name not in self._exclude and self._file_has_extension(path)
-
-    def __call__(self, paths: List[str]) -> List[str]:
-        return [path for path in paths if self._is_valid(path)]

@@ -1,19 +1,18 @@
 import enum
 import inspect
 import logging
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import fields, is_dataclass
 from typing import (
     Any,
-    Callable,
     ClassVar,
     TypeVar,
-    Union,
     get_type_hints,
 )
+from urllib.parse import urlparse
 
 import click
-from click import Command
+from click import Command, Context, Parameter
 
 from xsdata.codegen.writer import CodeWriter
 from xsdata.utils import text
@@ -144,7 +143,7 @@ class LogFormatter(logging.Formatter):
 class LogHandler(logging.Handler):
     """Custom click log handler to record warnings."""
 
-    def __init__(self, level: Union[int, str] = logging.NOTSET):
+    def __init__(self, level: int | str = logging.NOTSET):
         """Initialize the log handler."""
         super().__init__(level)
         self.warnings: list[str] = []
@@ -169,3 +168,33 @@ class LogHandler(logging.Handler):
                 click.echo(msg, err=True)
 
             self.warnings.clear()
+
+
+class URL(click.ParamType):
+    """Click parameter type for validating HTTP/HTTPS URLs.
+
+    This ensures that only remote HTTP or HTTPS URLs are accepted,
+    rejecting local file paths or file:// URIs.
+    """
+
+    name = "url"
+
+    def convert(self, value: str, param: Parameter | None, ctx: Context | None) -> str:
+        """Validate that the value is an HTTP or HTTPS URL.
+
+        Args:
+            value: The parameter value to validate
+            param: The parameter object
+            ctx: The click context
+
+        Returns:
+            The validated URL string
+
+        Raises:
+            click.BadParameter: If the URL scheme is not http or https
+        """
+        parsed = urlparse(value)
+        if parsed.scheme not in ("http", "https"):
+            self.fail(f"Source must be an HTTP URL, got: {value}\n", param, ctx)
+
+        return value

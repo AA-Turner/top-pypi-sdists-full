@@ -2,7 +2,48 @@ import pytest
 
 from schemathesis.core.transforms import transform
 from schemathesis.specs.openapi import converter
-from schemathesis.specs.openapi.converter import forbid_properties, is_read_only, is_write_only, rewrite_properties
+from schemathesis.specs.openapi.converter import is_read_only, is_write_only, rewrite_properties
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        pytest.param(
+            {"type": "array", "prefixItems": [{"type": "string"}, {"type": "integer"}]},
+            {"type": "array", "items": [{"type": "string"}, {"type": "integer"}]},
+            id="prefixItems_only",
+        ),
+        pytest.param(
+            {"type": "array", "prefixItems": [{"type": "string"}], "items": {"type": "number"}},
+            {"type": "array", "items": [{"type": "string"}], "additionalItems": {"type": "number"}},
+            id="prefixItems_with_items_schema",
+        ),
+        pytest.param(
+            {"type": "array", "prefixItems": [{"type": "string"}], "items": False},
+            {"type": "array", "items": [{"type": "string"}], "additionalItems": False},
+            id="prefixItems_with_items_false",
+        ),
+        pytest.param(
+            {
+                "type": "object",
+                "properties": {"data": {"type": "array", "prefixItems": [{"type": "string"}]}},
+            },
+            {
+                "type": "object",
+                "properties": {"data": {"type": "array", "items": [{"type": "string"}]}},
+            },
+            id="prefixItems_nested_in_properties",
+        ),
+        pytest.param(
+            {"type": "array", "prefixItems": [{"type": "string"}, {"$ref": "#/$defs/MyType"}]},
+            {"type": "array", "items": [{"type": "string"}, {"$ref": "#/$defs/MyType"}]},
+            id="prefixItems_with_ref",
+        ),
+    ],
+)
+def test_prefix_items_to_items_array(schema, expected):
+    result = transform(schema, converter.to_json_schema, nullable_keyword="x-nullable")
+    assert result == expected
 
 
 @pytest.mark.parametrize(
@@ -69,30 +110,32 @@ from schemathesis.specs.openapi.converter import forbid_properties, is_read_only
     ],
 )
 def test_to_jsonschema_recursive(schema, expected):
-    assert transform(schema, converter.to_json_schema, nullable_name="x-nullable") == expected
-
-
-@pytest.mark.parametrize(
-    ("schema", "forbidden", "expected"),
-    [
-        ({}, ["foo"], {"not": {"required": {"foo"}}}),
-        ({"not": {"type": "array"}}, ["foo"], {"not": {"required": {"foo"}, "type": "array"}}),
-        ({"not": {"required": ["bar"]}}, ["foo"], {"not": {"required": {"bar", "foo"}}}),
-        ({"not": {"required": ["foo"]}}, ["foo"], {"not": {"required": {"foo"}}}),
-        ({"not": {"required": ["bar", "foo"]}}, ["foo"], {"not": {"required": {"bar", "foo"}}}),
-    ],
-)
-def test_forbid_properties(schema, forbidden, expected):
-    forbid_properties(schema, forbidden)
-    schema["not"]["required"] = set(schema["not"]["required"])
-    assert schema == expected
+    assert transform(schema, converter.to_json_schema, nullable_keyword="x-nullable") == expected
 
 
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
-        ({"properties": {"a": {"readOnly": True}}}, {"not": {"required": ["a"]}}),
-        ({"properties": {"a": {"readOnly": True}}, "required": ["a"]}, {"not": {"required": ["a"]}}),
+        (
+            {"properties": {"a": {"readOnly": True}}},
+            {
+                "properties": {
+                    "a": {
+                        "not": {},
+                    }
+                }
+            },
+        ),
+        (
+            {"properties": {"a": {"readOnly": True}}, "required": ["a"]},
+            {
+                "properties": {
+                    "a": {
+                        "not": {},
+                    }
+                }
+            },
+        ),
     ],
 )
 def test_rewrite_read_only(schema, expected):
@@ -103,10 +146,63 @@ def test_rewrite_read_only(schema, expected):
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
-        ({"properties": {"a": {"writeOnly": True}}}, {"not": {"required": ["a"]}}),
-        ({"properties": {"a": {"writeOnly": True}}, "required": ["a"]}, {"not": {"required": ["a"]}}),
+        (
+            {"properties": {"a": {"writeOnly": True}}},
+            {
+                "properties": {
+                    "a": {
+                        "not": {},
+                    }
+                }
+            },
+        ),
+        (
+            {"properties": {"a": {"writeOnly": True}}, "required": ["a"]},
+            {
+                "properties": {
+                    "a": {
+                        "not": {},
+                    }
+                }
+            },
+        ),
     ],
 )
 def test_rewrite_write_only(schema, expected):
     rewrite_properties(schema, is_write_only)
     assert schema == expected
+
+
+def test_pattern_translation_success():
+    # When a schema contains a PCRE pattern that can be translated to Python regex
+    schema = {"type": "string", "pattern": r"\p{L}+"}
+    result = transform(schema, converter.to_json_schema, nullable_keyword="x-nullable")
+    # Then the pattern should be translated
+    assert result == {"type": "string", "pattern": r"[a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]+"}
+
+
+def test_pattern_translation_invalid_result():
+    # When a PCRE pattern translates to an invalid Python regex
+    # `\p{L}` gets translated but the `[` at the end makes the result invalid
+    schema = {"type": "string", "pattern": r"\p{L}["}
+    result = transform(schema, converter.to_json_schema, nullable_keyword="x-nullable")
+    # Then the pattern should be removed (translation failed validation)
+    assert result == {"type": "string"}
+
+
+def test_nested_object_required_array_not_duplicated():
+    # GH-3460: Nested `required` arrays should not cause duplicates in parent's `required`
+    schema = {
+        "type": "object",
+        "properties": {
+            "propOne": {
+                "type": "object",
+                "properties": {"innerPropOne": {"type": "integer"}},
+                "required": ["innerPropOne"],
+            },
+        },
+        "required": ["propOne"],
+    }
+    result = transform(schema, converter.to_json_schema, nullable_keyword="nullable")
+    assert result["required"] == ["propOne"]
+    assert result["properties"]["propOne"]["required"] == ["innerPropOne"]

@@ -1,8 +1,6 @@
-from gehomesdk.erd.values import ErdWaterHeaterMode
-
+from ...values import ErdWaterHeaterMode
 from ..abstract import ErdReadWriteConverter
 from ..primitives import *
-
 
 class ErdWaterHeaterModeConverter(ErdReadWriteConverter[ErdWaterHeaterMode]):
     def erd_decode(self, value) -> ErdWaterHeaterMode:
@@ -12,4 +10,4 @@ class ErdWaterHeaterModeConverter(ErdReadWriteConverter[ErdWaterHeaterMode]):
             return ErdWaterHeaterMode.UNKNOWN
 
     def erd_encode(self, value: ErdWaterHeaterMode) -> str:
-        return value.value
+        return erd_encode_int(value.value, length = 1)

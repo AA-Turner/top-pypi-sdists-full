@@ -42,6 +42,7 @@ class RegionBackendServiceArgs:
                  log_config: Optional[pulumi.Input['RegionBackendServiceLogConfigArgs']] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  network: Optional[pulumi.Input[_builtins.str]] = None,
+                 network_pass_through_lb_traffic_policy: Optional[pulumi.Input['RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgs']] = None,
                  outlier_detection: Optional[pulumi.Input['RegionBackendServiceOutlierDetectionArgs']] = None,
                  params: Optional[pulumi.Input['RegionBackendServiceParamsArgs']] = None,
                  port_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -52,7 +53,8 @@ class RegionBackendServiceArgs:
                  session_affinity: Optional[pulumi.Input[_builtins.str]] = None,
                  strong_session_affinity_cookie: Optional[pulumi.Input['RegionBackendServiceStrongSessionAffinityCookieArgs']] = None,
                  subsetting: Optional[pulumi.Input['RegionBackendServiceSubsettingArgs']] = None,
-                 timeout_sec: Optional[pulumi.Input[_builtins.int]] = None):
+                 timeout_sec: Optional[pulumi.Input[_builtins.int]] = None,
+                 tls_settings: Optional[pulumi.Input['RegionBackendServiceTlsSettingsArgs']] = None):
         """
         The set of arguments for constructing a RegionBackendService resource.
         :param pulumi.Input[_builtins.int] affinity_cookie_ttl_sec: Lifetime of cookies in seconds if session_affinity is
@@ -178,7 +180,11 @@ class RegionBackendServiceArgs:
                characters must be a dash, lowercase letter, or digit, except the last
                character, which cannot be a dash.
         :param pulumi.Input[_builtins.str] network: The URL of the network to which this backend service belongs.
-               This field can only be specified when the load balancing scheme is set to INTERNAL.
+               This field must be set for Internal Passthrough Network Load Balancers when the haPolicy is enabled, and for External Passthrough Network Load Balancers when the haPolicy fastIpMove is enabled.
+               This field can only be specified when the load balancing scheme is set to INTERNAL, or when the load balancing scheme is set to EXTERNAL and haPolicy fastIpMove is enabled.
+               Changes to this field force recreation of the resource.
+        :param pulumi.Input['RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgs'] network_pass_through_lb_traffic_policy: Configures traffic steering properties of internal passthrough Network Load Balancers.
+               Structure is documented below.
         :param pulumi.Input['RegionBackendServiceOutlierDetectionArgs'] outlier_detection: Settings controlling eviction of unhealthy hosts from the load balancing pool.
                This field is applicable only when the `load_balancing_scheme` is set
                to INTERNAL_MANAGED and the `protocol` is set to HTTP, HTTPS, HTTP2 or H2C.
@@ -213,6 +219,8 @@ class RegionBackendServiceArgs:
                For more information see, [Backend service settings](https://cloud.google.com/compute/docs/reference/rest/v1/backendServices).
                The default is 30 seconds.
                The full range of timeout values allowed goes from 1 through 2,147,483,647 seconds.
+        :param pulumi.Input['RegionBackendServiceTlsSettingsArgs'] tls_settings: Configuration for Backend Authenticated TLS and mTLS. May only be specified when the backend protocol is SSL, HTTPS or HTTP2.
+               Structure is documented below.
         """
         if affinity_cookie_ttl_sec is not None:
             pulumi.set(__self__, "affinity_cookie_ttl_sec", affinity_cookie_ttl_sec)
@@ -256,6 +264,8 @@ class RegionBackendServiceArgs:
             pulumi.set(__self__, "name", name)
         if network is not None:
             pulumi.set(__self__, "network", network)
+        if network_pass_through_lb_traffic_policy is not None:
+            pulumi.set(__self__, "network_pass_through_lb_traffic_policy", network_pass_through_lb_traffic_policy)
         if outlier_detection is not None:
             pulumi.set(__self__, "outlier_detection", outlier_detection)
         if params is not None:
@@ -278,6 +288,8 @@ class RegionBackendServiceArgs:
             pulumi.set(__self__, "subsetting", subsetting)
         if timeout_sec is not None:
             pulumi.set(__self__, "timeout_sec", timeout_sec)
+        if tls_settings is not None:
+            pulumi.set(__self__, "tls_settings", tls_settings)
 
     @_builtins.property
     @pulumi.getter(name="affinityCookieTtlSec")
@@ -626,13 +638,28 @@ class RegionBackendServiceArgs:
     def network(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         The URL of the network to which this backend service belongs.
-        This field can only be specified when the load balancing scheme is set to INTERNAL.
+        This field must be set for Internal Passthrough Network Load Balancers when the haPolicy is enabled, and for External Passthrough Network Load Balancers when the haPolicy fastIpMove is enabled.
+        This field can only be specified when the load balancing scheme is set to INTERNAL, or when the load balancing scheme is set to EXTERNAL and haPolicy fastIpMove is enabled.
+        Changes to this field force recreation of the resource.
         """
         return pulumi.get(self, "network")
 
     @network.setter
     def network(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "network", value)
+
+    @_builtins.property
+    @pulumi.getter(name="networkPassThroughLbTrafficPolicy")
+    def network_pass_through_lb_traffic_policy(self) -> Optional[pulumi.Input['RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgs']]:
+        """
+        Configures traffic steering properties of internal passthrough Network Load Balancers.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "network_pass_through_lb_traffic_policy")
+
+    @network_pass_through_lb_traffic_policy.setter
+    def network_pass_through_lb_traffic_policy(self, value: Optional[pulumi.Input['RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgs']]):
+        pulumi.set(self, "network_pass_through_lb_traffic_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="outlierDetection")
@@ -789,6 +816,19 @@ class RegionBackendServiceArgs:
     def timeout_sec(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "timeout_sec", value)
 
+    @_builtins.property
+    @pulumi.getter(name="tlsSettings")
+    def tls_settings(self) -> Optional[pulumi.Input['RegionBackendServiceTlsSettingsArgs']]:
+        """
+        Configuration for Backend Authenticated TLS and mTLS. May only be specified when the backend protocol is SSL, HTTPS or HTTP2.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "tls_settings")
+
+    @tls_settings.setter
+    def tls_settings(self, value: Optional[pulumi.Input['RegionBackendServiceTlsSettingsArgs']]):
+        pulumi.set(self, "tls_settings", value)
+
 
 @pulumi.input_type
 class _RegionBackendServiceState:
@@ -817,6 +857,7 @@ class _RegionBackendServiceState:
                  log_config: Optional[pulumi.Input['RegionBackendServiceLogConfigArgs']] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  network: Optional[pulumi.Input[_builtins.str]] = None,
+                 network_pass_through_lb_traffic_policy: Optional[pulumi.Input['RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgs']] = None,
                  outlier_detection: Optional[pulumi.Input['RegionBackendServiceOutlierDetectionArgs']] = None,
                  params: Optional[pulumi.Input['RegionBackendServiceParamsArgs']] = None,
                  port_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -828,7 +869,8 @@ class _RegionBackendServiceState:
                  session_affinity: Optional[pulumi.Input[_builtins.str]] = None,
                  strong_session_affinity_cookie: Optional[pulumi.Input['RegionBackendServiceStrongSessionAffinityCookieArgs']] = None,
                  subsetting: Optional[pulumi.Input['RegionBackendServiceSubsettingArgs']] = None,
-                 timeout_sec: Optional[pulumi.Input[_builtins.int]] = None):
+                 timeout_sec: Optional[pulumi.Input[_builtins.int]] = None,
+                 tls_settings: Optional[pulumi.Input['RegionBackendServiceTlsSettingsArgs']] = None):
         """
         Input properties used for looking up and filtering RegionBackendService resources.
         :param pulumi.Input[_builtins.int] affinity_cookie_ttl_sec: Lifetime of cookies in seconds if session_affinity is
@@ -958,7 +1000,11 @@ class _RegionBackendServiceState:
                characters must be a dash, lowercase letter, or digit, except the last
                character, which cannot be a dash.
         :param pulumi.Input[_builtins.str] network: The URL of the network to which this backend service belongs.
-               This field can only be specified when the load balancing scheme is set to INTERNAL.
+               This field must be set for Internal Passthrough Network Load Balancers when the haPolicy is enabled, and for External Passthrough Network Load Balancers when the haPolicy fastIpMove is enabled.
+               This field can only be specified when the load balancing scheme is set to INTERNAL, or when the load balancing scheme is set to EXTERNAL and haPolicy fastIpMove is enabled.
+               Changes to this field force recreation of the resource.
+        :param pulumi.Input['RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgs'] network_pass_through_lb_traffic_policy: Configures traffic steering properties of internal passthrough Network Load Balancers.
+               Structure is documented below.
         :param pulumi.Input['RegionBackendServiceOutlierDetectionArgs'] outlier_detection: Settings controlling eviction of unhealthy hosts from the load balancing pool.
                This field is applicable only when the `load_balancing_scheme` is set
                to INTERNAL_MANAGED and the `protocol` is set to HTTP, HTTPS, HTTP2 or H2C.
@@ -994,6 +1040,8 @@ class _RegionBackendServiceState:
                For more information see, [Backend service settings](https://cloud.google.com/compute/docs/reference/rest/v1/backendServices).
                The default is 30 seconds.
                The full range of timeout values allowed goes from 1 through 2,147,483,647 seconds.
+        :param pulumi.Input['RegionBackendServiceTlsSettingsArgs'] tls_settings: Configuration for Backend Authenticated TLS and mTLS. May only be specified when the backend protocol is SSL, HTTPS or HTTP2.
+               Structure is documented below.
         """
         if affinity_cookie_ttl_sec is not None:
             pulumi.set(__self__, "affinity_cookie_ttl_sec", affinity_cookie_ttl_sec)
@@ -1043,6 +1091,8 @@ class _RegionBackendServiceState:
             pulumi.set(__self__, "name", name)
         if network is not None:
             pulumi.set(__self__, "network", network)
+        if network_pass_through_lb_traffic_policy is not None:
+            pulumi.set(__self__, "network_pass_through_lb_traffic_policy", network_pass_through_lb_traffic_policy)
         if outlier_detection is not None:
             pulumi.set(__self__, "outlier_detection", outlier_detection)
         if params is not None:
@@ -1067,6 +1117,8 @@ class _RegionBackendServiceState:
             pulumi.set(__self__, "subsetting", subsetting)
         if timeout_sec is not None:
             pulumi.set(__self__, "timeout_sec", timeout_sec)
+        if tls_settings is not None:
+            pulumi.set(__self__, "tls_settings", tls_settings)
 
     @_builtins.property
     @pulumi.getter(name="affinityCookieTtlSec")
@@ -1452,13 +1504,28 @@ class _RegionBackendServiceState:
     def network(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         The URL of the network to which this backend service belongs.
-        This field can only be specified when the load balancing scheme is set to INTERNAL.
+        This field must be set for Internal Passthrough Network Load Balancers when the haPolicy is enabled, and for External Passthrough Network Load Balancers when the haPolicy fastIpMove is enabled.
+        This field can only be specified when the load balancing scheme is set to INTERNAL, or when the load balancing scheme is set to EXTERNAL and haPolicy fastIpMove is enabled.
+        Changes to this field force recreation of the resource.
         """
         return pulumi.get(self, "network")
 
     @network.setter
     def network(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "network", value)
+
+    @_builtins.property
+    @pulumi.getter(name="networkPassThroughLbTrafficPolicy")
+    def network_pass_through_lb_traffic_policy(self) -> Optional[pulumi.Input['RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgs']]:
+        """
+        Configures traffic steering properties of internal passthrough Network Load Balancers.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "network_pass_through_lb_traffic_policy")
+
+    @network_pass_through_lb_traffic_policy.setter
+    def network_pass_through_lb_traffic_policy(self, value: Optional[pulumi.Input['RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgs']]):
+        pulumi.set(self, "network_pass_through_lb_traffic_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="outlierDetection")
@@ -1627,6 +1694,19 @@ class _RegionBackendServiceState:
     def timeout_sec(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "timeout_sec", value)
 
+    @_builtins.property
+    @pulumi.getter(name="tlsSettings")
+    def tls_settings(self) -> Optional[pulumi.Input['RegionBackendServiceTlsSettingsArgs']]:
+        """
+        Configuration for Backend Authenticated TLS and mTLS. May only be specified when the backend protocol is SSL, HTTPS or HTTP2.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "tls_settings")
+
+    @tls_settings.setter
+    def tls_settings(self, value: Optional[pulumi.Input['RegionBackendServiceTlsSettingsArgs']]):
+        pulumi.set(self, "tls_settings", value)
+
 
 @pulumi.type_token("gcp:compute/regionBackendService:RegionBackendService")
 class RegionBackendService(pulumi.CustomResource):
@@ -1655,6 +1735,7 @@ class RegionBackendService(pulumi.CustomResource):
                  log_config: Optional[pulumi.Input[Union['RegionBackendServiceLogConfigArgs', 'RegionBackendServiceLogConfigArgsDict']]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  network: Optional[pulumi.Input[_builtins.str]] = None,
+                 network_pass_through_lb_traffic_policy: Optional[pulumi.Input[Union['RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgs', 'RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgsDict']]] = None,
                  outlier_detection: Optional[pulumi.Input[Union['RegionBackendServiceOutlierDetectionArgs', 'RegionBackendServiceOutlierDetectionArgsDict']]] = None,
                  params: Optional[pulumi.Input[Union['RegionBackendServiceParamsArgs', 'RegionBackendServiceParamsArgsDict']]] = None,
                  port_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1666,6 +1747,7 @@ class RegionBackendService(pulumi.CustomResource):
                  strong_session_affinity_cookie: Optional[pulumi.Input[Union['RegionBackendServiceStrongSessionAffinityCookieArgs', 'RegionBackendServiceStrongSessionAffinityCookieArgsDict']]] = None,
                  subsetting: Optional[pulumi.Input[Union['RegionBackendServiceSubsettingArgs', 'RegionBackendServiceSubsettingArgsDict']]] = None,
                  timeout_sec: Optional[pulumi.Input[_builtins.int]] = None,
+                 tls_settings: Optional[pulumi.Input[Union['RegionBackendServiceTlsSettingsArgs', 'RegionBackendServiceTlsSettingsArgsDict']]] = None,
                  __props__=None):
         """
         A Region Backend Service defines a regionally-scoped group of virtual
@@ -2113,6 +2195,41 @@ class RegionBackendService(pulumi.CustomResource):
             },
             connection_draining_timeout_sec=0)
         ```
+        ### Region Backend Service Tls Settings
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        default_region_health_check = gcp.compute.RegionHealthCheck("default",
+            name="health-check",
+            region="europe-north1",
+            http_health_check={
+                "port": 80,
+            })
+        default_backend_authentication_config = gcp.networksecurity.BackendAuthenticationConfig("default",
+            name="authentication",
+            location="europe-north1",
+            well_known_roots="PUBLIC_ROOTS")
+        default = gcp.compute.RegionBackendService("default",
+            region="europe-north1",
+            name="region-service",
+            health_checks=default_region_health_check.id,
+            load_balancing_scheme="EXTERNAL_MANAGED",
+            protocol="HTTPS",
+            tls_settings={
+                "sni": "example.com",
+                "subject_alt_names": [
+                    {
+                        "dns_name": "example.com",
+                    },
+                    {
+                        "uniform_resource_identifier": "https://example.com",
+                    },
+                ],
+                "authentication_config": default_backend_authentication_config.id.apply(lambda id: f"//networksecurity.googleapis.com/{id}"),
+            })
+        ```
 
         ## Import
 
@@ -2269,7 +2386,11 @@ class RegionBackendService(pulumi.CustomResource):
                characters must be a dash, lowercase letter, or digit, except the last
                character, which cannot be a dash.
         :param pulumi.Input[_builtins.str] network: The URL of the network to which this backend service belongs.
-               This field can only be specified when the load balancing scheme is set to INTERNAL.
+               This field must be set for Internal Passthrough Network Load Balancers when the haPolicy is enabled, and for External Passthrough Network Load Balancers when the haPolicy fastIpMove is enabled.
+               This field can only be specified when the load balancing scheme is set to INTERNAL, or when the load balancing scheme is set to EXTERNAL and haPolicy fastIpMove is enabled.
+               Changes to this field force recreation of the resource.
+        :param pulumi.Input[Union['RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgs', 'RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgsDict']] network_pass_through_lb_traffic_policy: Configures traffic steering properties of internal passthrough Network Load Balancers.
+               Structure is documented below.
         :param pulumi.Input[Union['RegionBackendServiceOutlierDetectionArgs', 'RegionBackendServiceOutlierDetectionArgsDict']] outlier_detection: Settings controlling eviction of unhealthy hosts from the load balancing pool.
                This field is applicable only when the `load_balancing_scheme` is set
                to INTERNAL_MANAGED and the `protocol` is set to HTTP, HTTPS, HTTP2 or H2C.
@@ -2304,6 +2425,8 @@ class RegionBackendService(pulumi.CustomResource):
                For more information see, [Backend service settings](https://cloud.google.com/compute/docs/reference/rest/v1/backendServices).
                The default is 30 seconds.
                The full range of timeout values allowed goes from 1 through 2,147,483,647 seconds.
+        :param pulumi.Input[Union['RegionBackendServiceTlsSettingsArgs', 'RegionBackendServiceTlsSettingsArgsDict']] tls_settings: Configuration for Backend Authenticated TLS and mTLS. May only be specified when the backend protocol is SSL, HTTPS or HTTP2.
+               Structure is documented below.
         """
         ...
     @overload
@@ -2757,6 +2880,41 @@ class RegionBackendService(pulumi.CustomResource):
             },
             connection_draining_timeout_sec=0)
         ```
+        ### Region Backend Service Tls Settings
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        default_region_health_check = gcp.compute.RegionHealthCheck("default",
+            name="health-check",
+            region="europe-north1",
+            http_health_check={
+                "port": 80,
+            })
+        default_backend_authentication_config = gcp.networksecurity.BackendAuthenticationConfig("default",
+            name="authentication",
+            location="europe-north1",
+            well_known_roots="PUBLIC_ROOTS")
+        default = gcp.compute.RegionBackendService("default",
+            region="europe-north1",
+            name="region-service",
+            health_checks=default_region_health_check.id,
+            load_balancing_scheme="EXTERNAL_MANAGED",
+            protocol="HTTPS",
+            tls_settings={
+                "sni": "example.com",
+                "subject_alt_names": [
+                    {
+                        "dns_name": "example.com",
+                    },
+                    {
+                        "uniform_resource_identifier": "https://example.com",
+                    },
+                ],
+                "authentication_config": default_backend_authentication_config.id.apply(lambda id: f"//networksecurity.googleapis.com/{id}"),
+            })
+        ```
 
         ## Import
 
@@ -2824,6 +2982,7 @@ class RegionBackendService(pulumi.CustomResource):
                  log_config: Optional[pulumi.Input[Union['RegionBackendServiceLogConfigArgs', 'RegionBackendServiceLogConfigArgsDict']]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  network: Optional[pulumi.Input[_builtins.str]] = None,
+                 network_pass_through_lb_traffic_policy: Optional[pulumi.Input[Union['RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgs', 'RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgsDict']]] = None,
                  outlier_detection: Optional[pulumi.Input[Union['RegionBackendServiceOutlierDetectionArgs', 'RegionBackendServiceOutlierDetectionArgsDict']]] = None,
                  params: Optional[pulumi.Input[Union['RegionBackendServiceParamsArgs', 'RegionBackendServiceParamsArgsDict']]] = None,
                  port_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -2835,6 +2994,7 @@ class RegionBackendService(pulumi.CustomResource):
                  strong_session_affinity_cookie: Optional[pulumi.Input[Union['RegionBackendServiceStrongSessionAffinityCookieArgs', 'RegionBackendServiceStrongSessionAffinityCookieArgsDict']]] = None,
                  subsetting: Optional[pulumi.Input[Union['RegionBackendServiceSubsettingArgs', 'RegionBackendServiceSubsettingArgsDict']]] = None,
                  timeout_sec: Optional[pulumi.Input[_builtins.int]] = None,
+                 tls_settings: Optional[pulumi.Input[Union['RegionBackendServiceTlsSettingsArgs', 'RegionBackendServiceTlsSettingsArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -2865,6 +3025,7 @@ class RegionBackendService(pulumi.CustomResource):
             __props__.__dict__["log_config"] = log_config
             __props__.__dict__["name"] = name
             __props__.__dict__["network"] = network
+            __props__.__dict__["network_pass_through_lb_traffic_policy"] = network_pass_through_lb_traffic_policy
             __props__.__dict__["outlier_detection"] = outlier_detection
             __props__.__dict__["params"] = params
             __props__.__dict__["port_name"] = port_name
@@ -2876,6 +3037,7 @@ class RegionBackendService(pulumi.CustomResource):
             __props__.__dict__["strong_session_affinity_cookie"] = strong_session_affinity_cookie
             __props__.__dict__["subsetting"] = subsetting
             __props__.__dict__["timeout_sec"] = timeout_sec
+            __props__.__dict__["tls_settings"] = tls_settings
             __props__.__dict__["creation_timestamp"] = None
             __props__.__dict__["fingerprint"] = None
             __props__.__dict__["generated_id"] = None
@@ -2914,6 +3076,7 @@ class RegionBackendService(pulumi.CustomResource):
             log_config: Optional[pulumi.Input[Union['RegionBackendServiceLogConfigArgs', 'RegionBackendServiceLogConfigArgsDict']]] = None,
             name: Optional[pulumi.Input[_builtins.str]] = None,
             network: Optional[pulumi.Input[_builtins.str]] = None,
+            network_pass_through_lb_traffic_policy: Optional[pulumi.Input[Union['RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgs', 'RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgsDict']]] = None,
             outlier_detection: Optional[pulumi.Input[Union['RegionBackendServiceOutlierDetectionArgs', 'RegionBackendServiceOutlierDetectionArgsDict']]] = None,
             params: Optional[pulumi.Input[Union['RegionBackendServiceParamsArgs', 'RegionBackendServiceParamsArgsDict']]] = None,
             port_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -2925,7 +3088,8 @@ class RegionBackendService(pulumi.CustomResource):
             session_affinity: Optional[pulumi.Input[_builtins.str]] = None,
             strong_session_affinity_cookie: Optional[pulumi.Input[Union['RegionBackendServiceStrongSessionAffinityCookieArgs', 'RegionBackendServiceStrongSessionAffinityCookieArgsDict']]] = None,
             subsetting: Optional[pulumi.Input[Union['RegionBackendServiceSubsettingArgs', 'RegionBackendServiceSubsettingArgsDict']]] = None,
-            timeout_sec: Optional[pulumi.Input[_builtins.int]] = None) -> 'RegionBackendService':
+            timeout_sec: Optional[pulumi.Input[_builtins.int]] = None,
+            tls_settings: Optional[pulumi.Input[Union['RegionBackendServiceTlsSettingsArgs', 'RegionBackendServiceTlsSettingsArgsDict']]] = None) -> 'RegionBackendService':
         """
         Get an existing RegionBackendService resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -3060,7 +3224,11 @@ class RegionBackendService(pulumi.CustomResource):
                characters must be a dash, lowercase letter, or digit, except the last
                character, which cannot be a dash.
         :param pulumi.Input[_builtins.str] network: The URL of the network to which this backend service belongs.
-               This field can only be specified when the load balancing scheme is set to INTERNAL.
+               This field must be set for Internal Passthrough Network Load Balancers when the haPolicy is enabled, and for External Passthrough Network Load Balancers when the haPolicy fastIpMove is enabled.
+               This field can only be specified when the load balancing scheme is set to INTERNAL, or when the load balancing scheme is set to EXTERNAL and haPolicy fastIpMove is enabled.
+               Changes to this field force recreation of the resource.
+        :param pulumi.Input[Union['RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgs', 'RegionBackendServiceNetworkPassThroughLbTrafficPolicyArgsDict']] network_pass_through_lb_traffic_policy: Configures traffic steering properties of internal passthrough Network Load Balancers.
+               Structure is documented below.
         :param pulumi.Input[Union['RegionBackendServiceOutlierDetectionArgs', 'RegionBackendServiceOutlierDetectionArgsDict']] outlier_detection: Settings controlling eviction of unhealthy hosts from the load balancing pool.
                This field is applicable only when the `load_balancing_scheme` is set
                to INTERNAL_MANAGED and the `protocol` is set to HTTP, HTTPS, HTTP2 or H2C.
@@ -3096,6 +3264,8 @@ class RegionBackendService(pulumi.CustomResource):
                For more information see, [Backend service settings](https://cloud.google.com/compute/docs/reference/rest/v1/backendServices).
                The default is 30 seconds.
                The full range of timeout values allowed goes from 1 through 2,147,483,647 seconds.
+        :param pulumi.Input[Union['RegionBackendServiceTlsSettingsArgs', 'RegionBackendServiceTlsSettingsArgsDict']] tls_settings: Configuration for Backend Authenticated TLS and mTLS. May only be specified when the backend protocol is SSL, HTTPS or HTTP2.
+               Structure is documented below.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -3125,6 +3295,7 @@ class RegionBackendService(pulumi.CustomResource):
         __props__.__dict__["log_config"] = log_config
         __props__.__dict__["name"] = name
         __props__.__dict__["network"] = network
+        __props__.__dict__["network_pass_through_lb_traffic_policy"] = network_pass_through_lb_traffic_policy
         __props__.__dict__["outlier_detection"] = outlier_detection
         __props__.__dict__["params"] = params
         __props__.__dict__["port_name"] = port_name
@@ -3137,6 +3308,7 @@ class RegionBackendService(pulumi.CustomResource):
         __props__.__dict__["strong_session_affinity_cookie"] = strong_session_affinity_cookie
         __props__.__dict__["subsetting"] = subsetting
         __props__.__dict__["timeout_sec"] = timeout_sec
+        __props__.__dict__["tls_settings"] = tls_settings
         return RegionBackendService(resource_name, opts=opts, __props__=__props__)
 
     @_builtins.property
@@ -3431,9 +3603,20 @@ class RegionBackendService(pulumi.CustomResource):
     def network(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
         The URL of the network to which this backend service belongs.
-        This field can only be specified when the load balancing scheme is set to INTERNAL.
+        This field must be set for Internal Passthrough Network Load Balancers when the haPolicy is enabled, and for External Passthrough Network Load Balancers when the haPolicy fastIpMove is enabled.
+        This field can only be specified when the load balancing scheme is set to INTERNAL, or when the load balancing scheme is set to EXTERNAL and haPolicy fastIpMove is enabled.
+        Changes to this field force recreation of the resource.
         """
         return pulumi.get(self, "network")
+
+    @_builtins.property
+    @pulumi.getter(name="networkPassThroughLbTrafficPolicy")
+    def network_pass_through_lb_traffic_policy(self) -> pulumi.Output[Optional['outputs.RegionBackendServiceNetworkPassThroughLbTrafficPolicy']]:
+        """
+        Configures traffic steering properties of internal passthrough Network Load Balancers.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "network_pass_through_lb_traffic_policy")
 
     @_builtins.property
     @pulumi.getter(name="outlierDetection")
@@ -3553,4 +3736,13 @@ class RegionBackendService(pulumi.CustomResource):
         The full range of timeout values allowed goes from 1 through 2,147,483,647 seconds.
         """
         return pulumi.get(self, "timeout_sec")
+
+    @_builtins.property
+    @pulumi.getter(name="tlsSettings")
+    def tls_settings(self) -> pulumi.Output[Optional['outputs.RegionBackendServiceTlsSettings']]:
+        """
+        Configuration for Backend Authenticated TLS and mTLS. May only be specified when the backend protocol is SSL, HTTPS or HTTP2.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "tls_settings")
 

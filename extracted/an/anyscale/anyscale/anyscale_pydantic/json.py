@@ -70,9 +70,12 @@ ENCODERS_BY_TYPE: Dict[Type[Any], Callable[[Any], Any]] = {
 
 
 def pydantic_encoder(obj: Any) -> Any:
-    from dataclasses import asdict, is_dataclass
+    from dataclasses import (  # noqa: PLC0415 - codex_reason("gpt5.2", "avoid import cost unless encoding dataclasses")
+        asdict,
+        is_dataclass,
+    )
 
-    from .main import BaseModel
+    from .main import BaseModel  # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular import at module load")
 
     if isinstance(obj, BaseModel):
         return obj.dict()

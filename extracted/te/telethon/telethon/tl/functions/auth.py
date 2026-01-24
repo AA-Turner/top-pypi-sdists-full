@@ -111,6 +111,42 @@ class CancelCodeRequest(TLRequest):
         return cls(phone_number=_phone_number, phone_code_hash=_phone_code_hash)
 
 
+class CheckPaidAuthRequest(TLRequest):
+    CONSTRUCTOR_ID = 0x56e59f9c
+    SUBCLASS_OF_ID = 0x6ce87081
+
+    def __init__(self, phone_number: str, phone_code_hash: str, form_id: int):
+        """
+        :returns auth.SentCode: Instance of either SentCode, SentCodeSuccess, SentCodePaymentRequired.
+        """
+        self.phone_number = phone_number
+        self.phone_code_hash = phone_code_hash
+        self.form_id = form_id
+
+    def to_dict(self):
+        return {
+            '_': 'CheckPaidAuthRequest',
+            'phone_number': self.phone_number,
+            'phone_code_hash': self.phone_code_hash,
+            'form_id': self.form_id
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\x9c\x9f\xe5V',
+            self.serialize_bytes(self.phone_number),
+            self.serialize_bytes(self.phone_code_hash),
+            struct.pack('<q', self.form_id),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _phone_number = reader.tgread_string()
+        _phone_code_hash = reader.tgread_string()
+        _form_id = reader.read_long()
+        return cls(phone_number=_phone_number, phone_code_hash=_phone_code_hash, form_id=_form_id)
+
+
 class CheckPasswordRequest(TLRequest):
     CONSTRUCTOR_ID = 0xd18b4d16
     SUBCLASS_OF_ID = 0xb9e04e39

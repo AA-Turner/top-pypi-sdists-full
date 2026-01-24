@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime
 from enum import Enum, EnumMeta
 from typing import (
@@ -24,7 +25,14 @@ try:
 
     pydantic_v2 = True
 except ImportError:
-    # pydantic v1 import
+    # Python 3.14+ requires Pydantic V2
+    if sys.version_info >= (3, 14):
+        raise ImportError(
+            "Python 3.14 or greater requires Pydantic V2 and pydantic-settings. "
+            "Please install with: pip install 'pydantic>=2.0' 'pydantic-settings>=2.0'"
+        ) from None
+
+    # pydantic v1 import (fallback for Python < 3.14)
     from pydantic.v1 import UUID4, BaseModel, BaseSettings, ConfigDict, Field, validator
 
     pydantic_v2 = False
@@ -163,6 +171,9 @@ class LanguageCode(str, Enum, metaclass=DeprecatedLanguageCodeMeta):
 
     de = "de"
     "German"
+
+    de_ch = "de_ch"
+    "Swiss German"
 
     en = "en"
     "Global English"
@@ -499,6 +510,183 @@ class LanguageDetectionOptions(BaseModel):
         None,
         description="The language to fallback to in case the language detection does not predict any of the expected ones.",
     )
+    code_switching: Optional[bool] = Field(
+        None,
+        description="Enable code switching detection for multilingual transcription.",
+    )
+    code_switching_confidence_threshold: Optional[float] = Field(
+        None,
+        description="The confidence threshold for code switching detection. Valid values are in the range [0,1] inclusive.",
+    )
+    on_low_language_confidence: Optional[str] = Field(
+        None,
+        description='Controls behavior when language confidence is below threshold. Either "error" (default) or "fallback".',
+    )
+    swiss_german: Optional[bool] = Field(
+        None,
+        description="If True, route German language requests as Swiss German audio. Only applies when language_detection is enabled and German is detected.",
+    )
+
+
+class CodeSwitchingLanguage(BaseModel):
+    """Code switching language detection result"""
+
+    language_code: str
+    "The language code detected"
+
+    confidence: float
+    "The confidence score for this language detection, between 0.0 and 1.0"
+
+
+class LanguageDetectionResults(BaseModel):
+    """Language detection results including code switching languages"""
+
+    code_switching_languages: Optional[List[CodeSwitchingLanguage]] = None
+    "List of detected languages with confidence scores when code switching is enabled"
+
+
+class SpeakerType(str, Enum):
+    """
+    Speaker identification type for speech understanding
+    """
+
+    role = "role"
+    "Identify speakers by their role"
+
+    name = "name"
+    "Identify speakers by their name"
+
+
+class SpeakerIdentificationRequest(BaseModel):
+    """
+    Speaker identification configuration for speech understanding
+    """
+
+    speaker_type: SpeakerType
+    "The type of speaker identification to perform"
+
+    known_values: Optional[List[str]] = None
+    "Known speaker values (required when speaker_type is 'role')"
+
+
+class TranslationRequest(BaseModel):
+    """
+    Translation configuration for speech understanding
+    """
+
+    target_languages: List[str]
+    "List of target language codes to translate the transcript into"
+
+    formal: Optional[bool] = False
+    "Whether to use formal language in translations (default: False)"
+
+    match_original_utterance: Optional[bool] = False
+    "Whether to match the original utterance structure in translations (default: False)"
+
+
+class CustomFormattingRequest(BaseModel):
+    """
+    Custom formatting configuration for speech understanding
+    """
+
+    date: Optional[str] = None
+    "Custom date format pattern (e.g., 'mm/dd/yyyy')"
+
+    phone_number: Optional[str] = None
+    "Custom phone number format pattern (e.g., '(xxx)xxx-xxxx')"
+
+    email: Optional[str] = None
+    "Custom email format pattern (e.g., 'username@domain.com')"
+
+
+class SpeechUnderstandingFeatureRequests(BaseModel):
+    """
+    Speech understanding feature requests
+    """
+
+    speaker_identification: Optional[SpeakerIdentificationRequest] = None
+    "Speaker identification configuration"
+
+    translation: Optional[TranslationRequest] = None
+    "Translation configuration"
+
+    custom_formatting: Optional[CustomFormattingRequest] = None
+    "Custom formatting configuration"
+
+
+class SpeechUnderstandingRequest(BaseModel):
+    """
+    Speech understanding request configuration for LLM Gateway features
+    """
+
+    request: Optional[SpeechUnderstandingFeatureRequests] = None
+    "The speech understanding feature requests"
+
+
+class SpeakerIdentificationResponse(BaseModel):
+    """
+    Speaker identification response containing status and mapping
+    """
+
+    status: str
+    "Status of the speaker identification feature (e.g., 'success')"
+
+    mapping: Optional[Dict[str, str]] = None
+    "Mapping of original speaker labels to identified speaker labels"
+
+
+class CustomFormattingResponse(BaseModel):
+    """
+    Custom formatting response containing mapping and formatted texts
+    """
+
+    mapping: Optional[Dict[str, str]] = None
+    "Mapping of original entities to formatted entities"
+
+    formatted_text: Optional[str] = None
+    "Full transcript text with formatted entities"
+
+    formatted_utterances: Optional[List[Dict[str, Any]]] = None
+    "List of utterances with formatted text"
+
+    status: str
+    "Status of the custom formatting feature"
+
+
+class TranslationResponse(BaseModel):
+    """
+    Translation response containing status
+    """
+
+    status: str
+    "Status of the translation feature"
+
+
+class SpeechUnderstandingFeatureResponses(BaseModel):
+    """
+    Speech understanding feature responses grouped together
+    """
+
+    speaker_identification: Optional[SpeakerIdentificationResponse] = None
+    "Speaker identification results including status and mapping"
+
+    translation: Optional[TranslationResponse] = None
+    "Translation results"
+
+    custom_formatting: Optional[CustomFormattingResponse] = None
+    "Custom formatting results"
+
+
+class SpeechUnderstandingResponse(BaseModel):
+    """
+    Speech understanding response containing both request and response
+    """
+
+    request: Optional[SpeechUnderstandingFeatureRequests] = None
+    "The original speech understanding request"
+
+    response: Optional[SpeechUnderstandingFeatureResponses] = None
+    "The speech understanding feature responses"
 
 
 class SpeakerOptions(BaseModel):
@@ -511,6 +699,10 @@ class SpeakerOptions(BaseModel):
     )
     max_speakers_expected: Optional[int] = Field(
         None, ge=1, description="Maximum number of speakers expected in the audio"
+    )
+    use_two_stage_clustering: Optional[bool] = Field(
+        None,
+        description="Enable or disable two-stage clustering for speaker diarization",
     )
 
     if pydantic_v2:
@@ -657,11 +849,25 @@ class RawTranscriptionConfig(BaseModel):
     The speech model to use for the transcription.
     """
 
+    speech_models: Optional[List[str]] = None
+    """
+    The list of speech models to use for the transcription in priority order.
+    """
+
     prompt: Optional[str] = None
     "The prompt used to generate the transcript with the Slam-1 speech model. Can't be used together with `keyterms_prompt`."
 
     keyterms_prompt: Optional[List[str]] = None
     "The list of key terms used to generate the transcript with the Slam-1 speech model. Can't be used together with `prompt`."
+
+    language_codes: Optional[List[Union[str, LanguageCode]]] = None
+    "List of language codes detected in the audio file when language detection is enabled"
+
+    language_detection_results: Optional[LanguageDetectionResults] = None
+    "Language detection results including code switching languages"
+
+    speech_understanding: Optional[SpeechUnderstandingRequest] = None
+    "Speech understanding configuration for LLM Gateway features"
 
     model_config = ConfigDict(extra="allow")
 
@@ -708,8 +914,10 @@ class TranscriptionConfig:
         speech_threshold: Optional[float] = None,
         raw_transcription_config: Optional[RawTranscriptionConfig] = None,
         speech_model: Optional[SpeechModel] = None,
+        speech_models: Optional[List[str]] = None,
         prompt: Optional[str] = None,
         keyterms_prompt: Optional[List[str]] = None,
+        speech_understanding: Optional[SpeechUnderstandingRequest] = None,
     ) -> None:
         """
         Args:
@@ -751,6 +959,7 @@ class TranscriptionConfig:
             language_detection_options: Options for controlling the behavior or Automatic Language Detection.
             speech_threshold: Reject audio files that contain less than this fraction of speech. Valid values are in the range [0,1] inclusive.
             raw_transcription_config: Create the config from a `RawTranscriptionConfig`
+            speech_understanding: Speech understanding configuration for LLM Gateway features (speaker identification, translation, custom formatting)
         """
         self._raw_transcription_config = (
             raw_transcription_config
@@ -801,8 +1010,10 @@ class TranscriptionConfig:
         self.language_detection_options = language_detection_options
         self.speech_threshold = speech_threshold
         self.speech_model = speech_model
+        self.speech_models = speech_models
         self.prompt = prompt
         self.keyterms_prompt = keyterms_prompt
+        self.speech_understanding = speech_understanding
 
     @property
     def raw(self) -> RawTranscriptionConfig:
@@ -832,6 +1043,16 @@ class TranscriptionConfig:
         self._raw_transcription_config.speech_model = speech_model
 
     @property
+    def speech_models(self) -> Optional[List[str]]:
+        "The list of speech models to use for the transcription in priority order."
+        return self._raw_transcription_config.speech_models
+
+    @speech_models.setter
+    def speech_models(self, speech_models: Optional[List[str]]) -> None:
+        "Sets the list of speech models to use for the transcription in priority order."
+        self._raw_transcription_config.speech_models = speech_models
+
+    @property
     def prompt(self) -> Optional[str]:
         "The prompt to use for the transcription."
         return self._raw_transcription_config.prompt
@@ -850,6 +1071,18 @@ class TranscriptionConfig:
     def keyterms_prompt(self, keyterms_prompt: Optional[List[str]]) -> None:
         "Sets the prompt to use for the transcription."
         self._raw_transcription_config.keyterms_prompt = keyterms_prompt
+
+    @property
+    def speech_understanding(self) -> Optional[SpeechUnderstandingRequest]:
+        "The speech understanding configuration for LLM Gateway features."
+        return self._raw_transcription_config.speech_understanding
+
+    @speech_understanding.setter
+    def speech_understanding(
+        self, speech_understanding: Optional[SpeechUnderstandingRequest]
+    ) -> None:
+        "Sets the speech understanding configuration for LLM Gateway features."
+        self._raw_transcription_config.speech_understanding = speech_understanding
 
     @property
     def punctuate(self) -> Optional[bool]:
@@ -1220,6 +1453,18 @@ class TranscriptionConfig:
 
         self._raw_transcription_config.speech_threshold = threshold
 
+    @property
+    def language_codes(self) -> Optional[List[Union[str, LanguageCode]]]:
+        "Returns the list of language codes detected in the audio file when language detection is enabled."
+
+        return self._raw_transcription_config.language_codes
+
+    @property
+    def language_detection_results(self) -> Optional[LanguageDetectionResults]:
+        "Returns the language detection results including code switching languages."
+
+        return self._raw_transcription_config.language_detection_results
+
     # endregion
 
     # region: Convenience (helper) methods
@@ -1480,6 +1725,7 @@ class TranscriptionConfig:
         confidence_threshold: Optional[float] = None,
         expected_languages: Optional[List[str]] = None,
         fallback_language: Optional[str] = None,
+        on_low_language_confidence: Optional[str] = None,
     ) -> Self:
         """
         Enable Automatic Language Detection with optional configuration.
@@ -1489,6 +1735,7 @@ class TranscriptionConfig:
             confidence_threshold: The confidence threshold that must be reached.
             expected_languages: A list of languages that the audio could be expected to be.
             fallback_language: The language to fallback to if detection fails.
+            on_low_language_confidence: Controls behavior when language confidence is below threshold. Either "error" (default) or "fallback".
         """
 
         if not enable:
@@ -1502,11 +1749,12 @@ class TranscriptionConfig:
             confidence_threshold
         )
 
-        if expected_languages or fallback_language:
+        if expected_languages or fallback_language or on_low_language_confidence:
             self._raw_transcription_config.language_detection_options = (
                 LanguageDetectionOptions(
                     expected_languages=expected_languages,
                     fallback_language=fallback_language,
+                    on_low_language_confidence=on_low_language_confidence,
                 )
             )
 
@@ -1623,6 +1871,8 @@ class UtteranceWord(Word):
 
 class Utterance(UtteranceWord):
     words: List[UtteranceWord]
+    translated_texts: Optional[Dict[str, str]] = None
+    "Translations of the utterance text when translation is enabled"
 
 
 class Chapter(BaseModel):
@@ -1896,17 +2146,29 @@ class BaseTranscript(BaseModel):
     language_confidence: Optional[float] = None
     "The confidence score for the detected language, between 0.0 (low confidence) and 1.0 (high confidence)."
 
+    language_codes: Optional[List[Union[str, LanguageCode]]] = None
+    "List of language codes detected in the audio file when language detection is enabled"
+
+    language_detection_results: Optional[LanguageDetectionResults] = None
+    "Language detection results including code switching languages"
+
     speech_threshold: Optional[float] = None
     "Reject audio files that contain less than this fraction of speech. Valid values are in the range [0,1] inclusive"
 
     speech_model: Optional[SpeechModel] = None
     "The speech model to use for the transcription."
 
+    speech_models: Optional[List[str]] = None
+    "The list of speech models to use for the transcription in priority order."
+
     prompt: Optional[str] = None
     "The prompt used to generate the transcript with the Slam-1 speech model. Can't be used together with `keyterms_prompt`."
 
     keyterms_prompt: Optional[List[str]] = None
     "The list of key terms used to generate the transcript with the Slam-1 speech model. Can't be used together with `prompt`."
+
+    speech_understanding: Optional[SpeechUnderstandingRequest] = None
+    "Speech understanding configuration for LLM Gateway features"
 
 
 class TranscriptRequest(BaseTranscript):
@@ -1973,11 +2235,20 @@ class TranscriptResponse(BaseTranscript):
     speech_model: Optional[SpeechModel] = None
     "The speech model used for the transcription"
 
+    speech_model_used: Optional[str] = None
+    "The actual speech model that was used for the transcription"
+
     prompt: Optional[str] = None
     "When Slam-1 is enabled, the prompt used to generate the transcript"
 
     keyterms_prompt: Optional[List[str]] = None
     "When Slam-1 is enabled, the list of key terms used to generate the transcript"
+
+    speech_understanding: Optional[SpeechUnderstandingResponse] = None
+    "Speech understanding response when enabled"
+
+    translated_texts: Optional[Dict[str, str]] = None
+    "Translations of the full transcript text when translation is enabled"
 
     def __init__(self, **data: Any):
         # cleanup the response before creating the object

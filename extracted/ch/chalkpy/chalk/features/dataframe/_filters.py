@@ -4,16 +4,17 @@ import collections.abc
 import datetime
 import enum
 import functools
-from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Protocol, Sequence, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Protocol, Sequence, TypeGuard, TypeVar, Union, cast
 
 import pyarrow as pa
-from typing_extensions import Self, TypeGuard
+from typing_extensions import Self
 
 from chalk.features._encoding.converter import pyarrow_to_polars
 from chalk.features.feature_field import Feature
 from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
 from chalk.features.filter import Filter, TimeDelta, get_filter_now
 from chalk.utils.collections import ensure_tuple
+from chalk.utils.pl_helpers import polars_lazy_frame_collect_schema
 
 if TYPE_CHECKING:
     import polars as pl
@@ -442,7 +443,7 @@ class _PolarsStructAdapter(StructAdapter["pl.Expr"]):
 
 def filter_data_frame(
     item: Any,
-    underlying: Union[pl.DataFrame, pl.LazyFrame],
+    underlying: pl.LazyFrame,
     namespace: Optional[str],
 ) -> Union[pl.DataFrame, pl.LazyFrame]:
 
@@ -463,7 +464,10 @@ def filter_data_frame(
             )
     now = get_filter_now()
     if len(projections) > 0:
-        key_error_or_none = dataframe_missing_key_error(projections, underlying.columns)
+        key_error_or_none = dataframe_missing_key_error(
+            projections,
+            (underlying.collect_schema().names() if polars_lazy_frame_collect_schema else underlying.columns),
+        )
         if key_error_or_none is not None:
             raise key_error_or_none
     # now = datetime.datetime.now(tz=datetime.timezone.utc)
@@ -472,7 +476,12 @@ def filter_data_frame(
     timestamp_feature = (
         None if namespace is None else CURRENT_FEATURE_REGISTRY.get().get_feature_sets()[namespace].__chalk_ts__
     )
-    pl_expr = convert_filters_to_pl_expr(filters, underlying.schema, timestamp_feature, now)
+    pl_expr = convert_filters_to_pl_expr(
+        filters,
+        (underlying.collect_schema() if polars_lazy_frame_collect_schema else underlying.schema),
+        timestamp_feature,
+        now,
+    )
     df = underlying
     if pl_expr is not None:
         df = df.filter(pl_expr)

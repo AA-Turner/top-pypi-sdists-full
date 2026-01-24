@@ -476,22 +476,22 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
             table_id="example_feature_view",
             schema=\"\"\"  [
           {
-            "name": "entity_id",
-            "mode": "NULLABLE",
-            "type": "STRING",
-            "description": "Test default entity_id"
+            \\"name\\": \\"entity_id\\",
+            \\"mode\\": \\"NULLABLE\\",
+            \\"type\\": \\"STRING\\",
+            \\"description\\": \\"Test default entity_id\\"
           },
             {
-            "name": "test_entity_column",
-            "mode": "NULLABLE",
-            "type": "STRING",
-            "description": "test secondary entity column"
+            \\"name\\": \\"test_entity_column\\",
+            \\"mode\\": \\"NULLABLE\\",
+            \\"type\\": \\"STRING\\",
+            \\"description\\": \\"test secondary entity column\\"
           },
           {
-            "name": "feature_timestamp",
-            "mode": "NULLABLE",
-            "type": "TIMESTAMP",
-            "description": "Default timestamp value"
+            \\"name\\": \\"feature_timestamp\\",
+            \\"mode\\": \\"NULLABLE\\",
+            \\"type\\": \\"TIMESTAMP\\",
+            \\"description\\": \\"Default timestamp value\\"
           }
         ]
         \"\"\")
@@ -543,19 +543,19 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
             table_id="example_feature_view_feature_registry",
             schema=\"\"\"[
             {
-                "name": "feature_id",
-                "type": "STRING",
-                "mode": "NULLABLE"
+                \\"name\\": \\"feature_id\\",
+                \\"type\\": \\"STRING\\",
+                \\"mode\\": \\"NULLABLE\\"
             },
             {
-                "name": "example_feature_view_feature_registry",
-                "type": "STRING",
-                "mode": "NULLABLE"
+                \\"name\\": \\"example_feature_view_feature_registry\\",
+                \\"type\\": \\"STRING\\",
+                \\"mode\\": \\"NULLABLE\\"
             },
             {
-                "name": "feature_timestamp",
-                "type": "TIMESTAMP",
-                "mode": "NULLABLE"
+                \\"name\\": \\"feature_timestamp\\",
+                \\"type\\": \\"TIMESTAMP\\",
+                \\"mode\\": \\"NULLABLE\\"
             }
         ]
         \"\"\")
@@ -604,16 +604,16 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
         ```python
         import pulumi
         import pulumi_gcp as gcp
-        import pulumi_time as time
+        import pulumiverse_time as time
 
         test_project = gcp.organizations.get_project()
         project = gcp.organizations.Project("project",
-            project_id="tf-test_92130",
-            name="tf-test_16199",
+            project_id="tf-test_9723",
+            name="tf-test_22061",
             org_id="123456789",
             billing_account="000000-0000000-0000000-000000",
             deletion_policy="DELETE")
-        wait60_seconds = time.index.Sleep("wait_60_seconds", create_duration=60s,
+        wait60_seconds = time.Sleep("wait_60_seconds", create_duration="60s",
         opts = pulumi.ResourceOptions(depends_on=[project]))
         vertexai = gcp.projects.Service("vertexai",
             service="aiplatform.googleapis.com",
@@ -645,7 +645,7 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
             role="roles/bigquery.dataViewer",
             member=project.number.apply(lambda number: f"serviceAccount:service-{number}@gcp-sa-aiplatform.iam.gserviceaccount.com"),
             opts = pulumi.ResourceOptions(depends_on=[featureonlinestore]))
-        wait30_seconds = time.index.Sleep("wait_30_seconds", create_duration=30s,
+        wait30_seconds = time.Sleep("wait_30_seconds", create_duration="30s",
         opts = pulumi.ResourceOptions(depends_on=[viewer]))
         sample_table = gcp.bigquery.Table("sample_table",
             deletion_protection=False,
@@ -653,19 +653,19 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
             table_id="example_cross_project_featureview",
             schema=\"\"\"[
             {
-                "name": "feature_id",
-                "type": "STRING",
-                "mode": "NULLABLE"
+                \\"name\\": \\"feature_id\\",
+                \\"type\\": \\"STRING\\",
+                \\"mode\\": \\"NULLABLE\\"
             },
             {
-                "name": "example_cross_project_featureview",
-                "type": "STRING",
-                "mode": "NULLABLE"
+                \\"name\\": \\"example_cross_project_featureview\\",
+                \\"type\\": \\"STRING\\",
+                \\"mode\\": \\"NULLABLE\\"
             },
             {
-                "name": "feature_timestamp",
-                "type": "TIMESTAMP",
-                "mode": "NULLABLE"
+                \\"name\\": \\"feature_timestamp\\",
+                \\"type\\": \\"TIMESTAMP\\",
+                \\"mode\\": \\"NULLABLE\\"
             }
         ]
         \"\"\")
@@ -701,7 +701,7 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
             region="us-central1",
             feature_online_store=featureonlinestore.name,
             sync_config={
-                "cron": "0 0 * * *",
+                "continuous": True,
             },
             feature_registry_source={
                 "feature_groups": [{
@@ -742,46 +742,46 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
             table_id="example_feature_view_vector_search",
             schema=\"\"\"[
         {
-          "name": "test_primary_id",
-          "mode": "NULLABLE",
-          "type": "STRING",
-          "description": "primary test id"
+          \\"name\\": \\"test_primary_id\\",
+          \\"mode\\": \\"NULLABLE\\",
+          \\"type\\": \\"STRING\\",
+          \\"description\\": \\"primary test id\\"
         },
         {
-          "name": "embedding",
-          "mode": "REPEATED",
-          "type": "FLOAT",
-          "description": "embedding column for primary_id column"
+          \\"name\\": \\"embedding\\",
+          \\"mode\\": \\"REPEATED\\",
+          \\"type\\": \\"FLOAT\\",
+          \\"description\\": \\"embedding column for primary_id column\\"
         },
         {
-          "name": "country",
-          "mode": "NULLABLE",
-          "type": "STRING",
-          "description": "country"
+          \\"name\\": \\"country\\",
+          \\"mode\\": \\"NULLABLE\\",
+          \\"type\\": \\"STRING\\",
+          \\"description\\": \\"country\\"
         },
         {
-          "name": "test_crowding_column",
-          "mode": "NULLABLE",
-          "type": "INTEGER",
-          "description": "test crowding column"
+          \\"name\\": \\"test_crowding_column\\",
+          \\"mode\\": \\"NULLABLE\\",
+          \\"type\\": \\"INTEGER\\",
+          \\"description\\": \\"test crowding column\\"
         },
         {
-          "name": "entity_id",
-          "mode": "NULLABLE",
-          "type": "STRING",
-          "description": "Test default entity_id"
+          \\"name\\": \\"entity_id\\",
+          \\"mode\\": \\"NULLABLE\\",
+          \\"type\\": \\"STRING\\",
+          \\"description\\": \\"Test default entity_id\\"
         },
         {
-          "name": "test_entity_column",
-          "mode": "NULLABLE",
-          "type": "STRING",
-          "description": "test secondary entity column"
+          \\"name\\": \\"test_entity_column\\",
+          \\"mode\\": \\"NULLABLE\\",
+          \\"type\\": \\"STRING\\",
+          \\"description\\": \\"test secondary entity column\\"
         },
         {
-          "name": "feature_timestamp",
-          "mode": "NULLABLE",
-          "type": "TIMESTAMP",
-          "description": "Default timestamp value"
+          \\"name\\": \\"feature_timestamp\\",
+          \\"mode\\": \\"NULLABLE\\",
+          \\"type\\": \\"TIMESTAMP\\",
+          \\"description\\": \\"Default timestamp value\\"
         }
         ]
         \"\"\")
@@ -911,22 +911,22 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
             table_id="example_feature_view",
             schema=\"\"\"  [
           {
-            "name": "entity_id",
-            "mode": "NULLABLE",
-            "type": "STRING",
-            "description": "Test default entity_id"
+            \\"name\\": \\"entity_id\\",
+            \\"mode\\": \\"NULLABLE\\",
+            \\"type\\": \\"STRING\\",
+            \\"description\\": \\"Test default entity_id\\"
           },
             {
-            "name": "test_entity_column",
-            "mode": "NULLABLE",
-            "type": "STRING",
-            "description": "test secondary entity column"
+            \\"name\\": \\"test_entity_column\\",
+            \\"mode\\": \\"NULLABLE\\",
+            \\"type\\": \\"STRING\\",
+            \\"description\\": \\"test secondary entity column\\"
           },
           {
-            "name": "feature_timestamp",
-            "mode": "NULLABLE",
-            "type": "TIMESTAMP",
-            "description": "Default timestamp value"
+            \\"name\\": \\"feature_timestamp\\",
+            \\"mode\\": \\"NULLABLE\\",
+            \\"type\\": \\"TIMESTAMP\\",
+            \\"description\\": \\"Default timestamp value\\"
           }
         ]
         \"\"\")
@@ -978,19 +978,19 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
             table_id="example_feature_view_feature_registry",
             schema=\"\"\"[
             {
-                "name": "feature_id",
-                "type": "STRING",
-                "mode": "NULLABLE"
+                \\"name\\": \\"feature_id\\",
+                \\"type\\": \\"STRING\\",
+                \\"mode\\": \\"NULLABLE\\"
             },
             {
-                "name": "example_feature_view_feature_registry",
-                "type": "STRING",
-                "mode": "NULLABLE"
+                \\"name\\": \\"example_feature_view_feature_registry\\",
+                \\"type\\": \\"STRING\\",
+                \\"mode\\": \\"NULLABLE\\"
             },
             {
-                "name": "feature_timestamp",
-                "type": "TIMESTAMP",
-                "mode": "NULLABLE"
+                \\"name\\": \\"feature_timestamp\\",
+                \\"type\\": \\"TIMESTAMP\\",
+                \\"mode\\": \\"NULLABLE\\"
             }
         ]
         \"\"\")
@@ -1039,16 +1039,16 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
         ```python
         import pulumi
         import pulumi_gcp as gcp
-        import pulumi_time as time
+        import pulumiverse_time as time
 
         test_project = gcp.organizations.get_project()
         project = gcp.organizations.Project("project",
-            project_id="tf-test_92130",
-            name="tf-test_16199",
+            project_id="tf-test_9723",
+            name="tf-test_22061",
             org_id="123456789",
             billing_account="000000-0000000-0000000-000000",
             deletion_policy="DELETE")
-        wait60_seconds = time.index.Sleep("wait_60_seconds", create_duration=60s,
+        wait60_seconds = time.Sleep("wait_60_seconds", create_duration="60s",
         opts = pulumi.ResourceOptions(depends_on=[project]))
         vertexai = gcp.projects.Service("vertexai",
             service="aiplatform.googleapis.com",
@@ -1080,7 +1080,7 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
             role="roles/bigquery.dataViewer",
             member=project.number.apply(lambda number: f"serviceAccount:service-{number}@gcp-sa-aiplatform.iam.gserviceaccount.com"),
             opts = pulumi.ResourceOptions(depends_on=[featureonlinestore]))
-        wait30_seconds = time.index.Sleep("wait_30_seconds", create_duration=30s,
+        wait30_seconds = time.Sleep("wait_30_seconds", create_duration="30s",
         opts = pulumi.ResourceOptions(depends_on=[viewer]))
         sample_table = gcp.bigquery.Table("sample_table",
             deletion_protection=False,
@@ -1088,19 +1088,19 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
             table_id="example_cross_project_featureview",
             schema=\"\"\"[
             {
-                "name": "feature_id",
-                "type": "STRING",
-                "mode": "NULLABLE"
+                \\"name\\": \\"feature_id\\",
+                \\"type\\": \\"STRING\\",
+                \\"mode\\": \\"NULLABLE\\"
             },
             {
-                "name": "example_cross_project_featureview",
-                "type": "STRING",
-                "mode": "NULLABLE"
+                \\"name\\": \\"example_cross_project_featureview\\",
+                \\"type\\": \\"STRING\\",
+                \\"mode\\": \\"NULLABLE\\"
             },
             {
-                "name": "feature_timestamp",
-                "type": "TIMESTAMP",
-                "mode": "NULLABLE"
+                \\"name\\": \\"feature_timestamp\\",
+                \\"type\\": \\"TIMESTAMP\\",
+                \\"mode\\": \\"NULLABLE\\"
             }
         ]
         \"\"\")
@@ -1136,7 +1136,7 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
             region="us-central1",
             feature_online_store=featureonlinestore.name,
             sync_config={
-                "cron": "0 0 * * *",
+                "continuous": True,
             },
             feature_registry_source={
                 "feature_groups": [{
@@ -1177,46 +1177,46 @@ class AiFeatureOnlineStoreFeatureview(pulumi.CustomResource):
             table_id="example_feature_view_vector_search",
             schema=\"\"\"[
         {
-          "name": "test_primary_id",
-          "mode": "NULLABLE",
-          "type": "STRING",
-          "description": "primary test id"
+          \\"name\\": \\"test_primary_id\\",
+          \\"mode\\": \\"NULLABLE\\",
+          \\"type\\": \\"STRING\\",
+          \\"description\\": \\"primary test id\\"
         },
         {
-          "name": "embedding",
-          "mode": "REPEATED",
-          "type": "FLOAT",
-          "description": "embedding column for primary_id column"
+          \\"name\\": \\"embedding\\",
+          \\"mode\\": \\"REPEATED\\",
+          \\"type\\": \\"FLOAT\\",
+          \\"description\\": \\"embedding column for primary_id column\\"
         },
         {
-          "name": "country",
-          "mode": "NULLABLE",
-          "type": "STRING",
-          "description": "country"
+          \\"name\\": \\"country\\",
+          \\"mode\\": \\"NULLABLE\\",
+          \\"type\\": \\"STRING\\",
+          \\"description\\": \\"country\\"
         },
         {
-          "name": "test_crowding_column",
-          "mode": "NULLABLE",
-          "type": "INTEGER",
-          "description": "test crowding column"
+          \\"name\\": \\"test_crowding_column\\",
+          \\"mode\\": \\"NULLABLE\\",
+          \\"type\\": \\"INTEGER\\",
+          \\"description\\": \\"test crowding column\\"
         },
         {
-          "name": "entity_id",
-          "mode": "NULLABLE",
-          "type": "STRING",
-          "description": "Test default entity_id"
+          \\"name\\": \\"entity_id\\",
+          \\"mode\\": \\"NULLABLE\\",
+          \\"type\\": \\"STRING\\",
+          \\"description\\": \\"Test default entity_id\\"
         },
         {
-          "name": "test_entity_column",
-          "mode": "NULLABLE",
-          "type": "STRING",
-          "description": "test secondary entity column"
+          \\"name\\": \\"test_entity_column\\",
+          \\"mode\\": \\"NULLABLE\\",
+          \\"type\\": \\"STRING\\",
+          \\"description\\": \\"test secondary entity column\\"
         },
         {
-          "name": "feature_timestamp",
-          "mode": "NULLABLE",
-          "type": "TIMESTAMP",
-          "description": "Default timestamp value"
+          \\"name\\": \\"feature_timestamp\\",
+          \\"mode\\": \\"NULLABLE\\",
+          \\"type\\": \\"TIMESTAMP\\",
+          \\"description\\": \\"Default timestamp value\\"
         }
         ]
         \"\"\")

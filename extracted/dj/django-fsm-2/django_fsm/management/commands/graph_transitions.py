@@ -16,18 +16,19 @@ def all_fsm_fields_data(model):
     return [(field, model) for field in model._meta.get_fields() if isinstance(field, FSMFieldMixin)]
 
 
-def node_name(field, state):
+def node_name(field, state) -> str:
     opts = field.model._meta
     return "{}.{}.{}.{}".format(opts.app_label, opts.verbose_name.replace(" ", "_"), field.name, state)
 
 
-def node_label(field, state):
-    if isinstance(state, int) or (isinstance(state, bool) and hasattr(field, "choices")):
-        return force_str(dict(field.choices).get(state))
-    return state
+def node_label(field, state: str | None) -> str:
+    if isinstance(state, (int, bool)) and hasattr(field, "choices") and field.choices:
+        state = dict(field.choices).get(state)
+    return force_str(state)
 
 
-def generate_dot(fields_data):  # noqa: C901
+def generate_dot(fields_data, ignore_transitions: list[str] | None = None):  # noqa: C901, PLR0912
+    ignore_transitions = ignore_transitions or []
     result = graphviz.Digraph()
 
     for field, model in fields_data:
@@ -35,27 +36,31 @@ def generate_dot(fields_data):  # noqa: C901
 
         # dump nodes and edges
         for transition in field.get_all_transitions(model):
-            if transition.source == "*":
-                any_targets.add((transition.target, transition.name))
-            elif transition.source == "+":
-                any_except_targets.add((transition.target, transition.name))
-            else:
-                _targets = (
-                    (state for state in transition.target.allowed_states)
-                    if isinstance(transition.target, (GET_STATE, RETURN_VALUE))
-                    else (transition.target,)
-                )
-                source_name_pair = (
-                    ((state, node_name(field, state)) for state in transition.source.allowed_states)
-                    if isinstance(transition.source, (GET_STATE, RETURN_VALUE))
-                    else ((transition.source, node_name(field, transition.source)),)
-                )
-                for source, source_name in source_name_pair:
-                    if transition.on_error:
-                        on_error_name = node_name(field, transition.on_error)
-                        targets.add((on_error_name, node_label(field, transition.on_error)))
-                        edges.add((source_name, on_error_name, (("style", "dotted"),)))
-                    for target in _targets:
+            if transition.name in ignore_transitions:
+                continue
+
+            _targets = list(
+                (state for state in transition.target.allowed_states)
+                if isinstance(transition.target, (GET_STATE, RETURN_VALUE))
+                else (transition.target,)
+            )
+            source_name_pair = (
+                ((state, node_name(field, state)) for state in transition.source.allowed_states)
+                if isinstance(transition.source, (GET_STATE, RETURN_VALUE))
+                else ((transition.source, node_name(field, transition.source)),)
+            )
+            for source, source_name in source_name_pair:
+                if transition.on_error:
+                    on_error_name = node_name(field, transition.on_error)
+                    targets.add((on_error_name, node_label(field, transition.on_error)))
+                    edges.add((source_name, on_error_name, (("style", "dotted"),)))
+
+                for target in _targets:
+                    if transition.source == "*":
+                        any_targets.add((target, transition.name))
+                    elif transition.source == "+":
+                        any_except_targets.add((target, transition.name))
+                    else:
                         add_transition(source, target, transition.name, source_name, field, sources, targets, edges)
 
         targets.update(
@@ -88,11 +93,11 @@ def generate_dot(fields_data):  # noqa: C901
             subgraph.node(name, label=label, shape="doublecircle")
         for name, label in (sources | targets) - final_states:
             subgraph.node(name, label=label, shape="circle")
-            if field.default:  # Adding initial state notation
-                if label == field.default:
-                    initial_name = node_name(field, "_initial")
-                    subgraph.node(name=initial_name, label="", shape="point")
-                    subgraph.edge(initial_name, name)
+            # Adding initial state notation
+            if field.default and label == field.default:
+                initial_name = node_name(field, "_initial")
+                subgraph.node(name=initial_name, label="", shape="point")
+                subgraph.edge(initial_name, name)
         for source_name, target_name, attrs in edges:
             subgraph.edge(source_name, target_name, **dict(attrs))
 
@@ -111,10 +116,10 @@ def add_transition(transition_source, transition_target, transition_name, source
 def get_graphviz_layouts():
     try:
         import graphviz
-
-        return graphviz.backend.ENGINES
-    except Exception:
+    except ModuleNotFoundError:
         return {"sfdp", "circo", "twopi", "dot", "neato", "fdp", "osage", "patchwork"}
+    else:
+        return graphviz.ENGINES
 
 
 class Command(BaseCommand):
@@ -126,7 +131,7 @@ class Command(BaseCommand):
             "-o",
             action="store",
             dest="outputfile",
-            help=("Render output file. Type of output dependent on file extensions. " "Use png or jpg to render graph to image."),
+            help="Render output file. Type of output dependent on file extensions. Use png or jpg to render graph to image.",
         )
         parser.add_argument(
             "--layout",
@@ -136,13 +141,21 @@ class Command(BaseCommand):
             default="dot",
             help=f"Layout to be used by GraphViz for visualization. Layouts: {get_graphviz_layouts()}.",
         )
+        parser.add_argument(
+            "--exclude",
+            "-e",
+            action="store",
+            dest="exclude",
+            default="",
+            help="Ignore transitions with this name.",
+        )
         parser.add_argument("args", nargs="*", help=("[appname[.model[.field]]]"))
 
     def render_output(self, graph, **options):
-        filename, format = options["outputfile"].rsplit(".", 1)
+        filename, graph_format = options["outputfile"].rsplit(".", 1)
 
         graph.engine = options["layout"]
-        graph.format = format
+        graph.format = graph_format
         graph.render(filename)
 
     def handle(self, *args, **options):
@@ -152,22 +165,22 @@ class Command(BaseCommand):
                 field_spec = arg.split(".")
 
                 if len(field_spec) == 1:
-                    app = apps.get_app(field_spec[0])
-                    models = apps.get_models(app)
-                    for model in models:
+                    app = apps.get_app_config(field_spec[0])
+                    for model in apps.get_models(app):
                         fields_data += all_fsm_fields_data(model)
-                elif len(field_spec) == 2:
+                if len(field_spec) == 2:  # noqa: PLR2004
                     model = apps.get_model(field_spec[0], field_spec[1])
                     fields_data += all_fsm_fields_data(model)
-                elif len(field_spec) == 3:
+                if len(field_spec) == 3:  # noqa: PLR2004
                     model = apps.get_model(field_spec[0], field_spec[1])
                     fields_data += all_fsm_fields_data(model)
         else:
             for model in apps.get_models():
                 fields_data += all_fsm_fields_data(model)
-        dotdata = generate_dot(fields_data)
+
+        dotdata = generate_dot(fields_data, ignore_transitions=options["exclude"].split(","))
 
         if options["outputfile"]:
             self.render_output(dotdata, **options)
         else:
-            print(dotdata)
+            print(dotdata)  # noqa: T201

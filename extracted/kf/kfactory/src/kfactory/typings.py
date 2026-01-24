@@ -16,13 +16,18 @@ from klayout import lay
 from typing_extensions import TypeAliasType
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
+    from cachetools import Cache
+
+    from .conf import CheckInstances
+    from .decorators import PortsDefinition, WrappedKCellFunc, WrappedVKCellFunc
     from .instance import ProtoInstance, ProtoTInstance
     from .kcell import BaseKCell, ProtoKCell, ProtoTKCell, VKCell
     from .layer import LayerEnum
     from .pin import ProtoPin
     from .port import ProtoPort
+    from .schematic import TSchematic
 
 T = TypeVar("T")
 K = TypeVar("K", bound="ProtoKCell[Any, Any]")
@@ -45,6 +50,16 @@ TInstance_co = TypeVar("TInstance_co", bound="ProtoInstance[Any]", covariant=Tru
 TTInstance_co = TypeVar("TTInstance_co", bound="ProtoTInstance[Any]", covariant=True)
 TBaseCell_co = TypeVar("TBaseCell_co", bound="BaseKCell", covariant=True)
 KCellParams = ParamSpec("KCellParams")
+SchematicParams = ParamSpec("SchematicParams")
+F = TypeVar(
+    "F",
+    bound="WrappedKCellFunc[Any, Any] | WrappedVKCellFunc[Any, Any]",
+)
+F_co = TypeVar(
+    "F_co",
+    bound="WrappedKCellFunc[Any, Any] | WrappedVKCellFunc[Any, Any]",
+    covariant=True,
+)
 P = ParamSpec("P")
 
 
@@ -54,11 +69,12 @@ JSONSerializable = TypeAliasType(
 )
 
 
-class KCellSpecDict(TypedDict):
+class KCellSpecDict(TypedDict, total=True):
     """Specification for a KCell."""
 
     component: str
     settings: NotRequired[dict[str, Any]]
+    kcl: NotRequired[str]
 
 
 AnyTrans = TypeVar(
@@ -144,3 +160,27 @@ Angle: TypeAlias = int
 KCellSpec: TypeAlias = (
     "int | str | KCellSpecDict | ProtoTKCell[Any] | Callable[..., ProtoTKCell[Any]]"
 )
+AnyCellSpec: TypeAlias = "int | str | KCellSpecDict | ProtoTKCell[Any] | VKCell | Callable[..., ProtoTKCell[Any]] | Callable[..., VKCell]"  # noqa: E501
+
+
+class CellKwargs(TypedDict, total=False):
+    set_settings: bool
+    set_name: bool
+    check_ports: bool
+    check_pins: bool
+    check_instances: CheckInstances
+    snap_ports: bool
+    add_port_layers: bool
+    cache: Cache[int, Any] | dict[int, Any]
+    basename: str
+    drop_params: list[str]
+    register_factory: bool
+    overwrite_existing: bool
+    layout_cache: bool
+    info: dict[str, MetaData]
+    post_process: Iterable[Callable[[ProtoTKCell[Any]], None]]
+    debug_names: bool
+    tags: list[str]
+    lvs_equivalent_ports: list[list[str]]
+    ports: PortsDefinition
+    schematic_function: Callable[..., TSchematic[Any]]

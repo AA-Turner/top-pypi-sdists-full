@@ -63,7 +63,11 @@ def _calculate_applicable_binary_names(
             for implementation in (
                 (interpreter_constraint.implementation,)
                 if interpreter_constraint.implementation
-                else InterpreterImplementation.values()
+                else tuple(
+                    implementation
+                    for implementation in InterpreterImplementation.values()
+                    if implementation.applies(version)
+                )
             )
         )
     # If we get targets from ICs, we only want explicitly specified local interpreter targets;
@@ -87,10 +91,14 @@ def _calculate_applicable_binary_names(
     # more sophisticated detection and re-direction from these during its own bootstrap. When doing
     # so, select these interpreters from newest to oldest since it more likely any given machine
     # will have Python 3 at this point than it will Python 2.
-    pex_requires_python = SpecifierSet(">=2.7")
-    dist = dist_metadata.find_distribution("pex")  # type: Optional[Distribution]
-    if dist and dist.metadata.version == Version(__version__):
-        pex_requires_python = dist.metadata.requires_python
+    pex_requires_python_override = os.environ.get("_PEX_REQUIRES_PYTHON", None)
+    if pex_requires_python_override:
+        pex_requires_python = SpecifierSet(pex_requires_python_override)
+    else:
+        pex_requires_python = SpecifierSet(">=2.7")
+        dist = dist_metadata.find_distribution("pex")  # type: Optional[Distribution]
+        if dist and dist.metadata.version == Version(__version__):
+            pex_requires_python = dist.metadata.requires_python
     pex_supported_python_versions = tuple(
         reversed(list(iter_compatible_versions(requires_python=[pex_requires_python])))
     )
@@ -100,12 +108,18 @@ def _calculate_applicable_binary_names(
     # for CPython end targets and for PyPy it need not be quite as fast since it inherently asks you
     # to trade startup latency for longer term jit performance.
     names.update(
-        PythonBinaryName(implementation=InterpreterImplementation.CPYTHON, version=version)
+        PythonBinaryName(implementation=implementation, version=version)
         for version in pex_supported_python_versions
+        for implementation in (
+            InterpreterImplementation.CPYTHON,
+            InterpreterImplementation.CPYTHON_FREE_THREADED,
+        )
+        if implementation.applies(version)
     )
     names.update(
         PythonBinaryName(implementation=InterpreterImplementation.PYPY, version=version)
         for version in pex_supported_python_versions
+        if InterpreterImplementation.PYPY.applies(version)
     )
 
     # Favor more specific interpreter names since these should need re-direction less often.
@@ -180,6 +194,43 @@ def create_sh_boot_script(
             pex_info.raw_pex_root, pex_hash, expand_pex_root=False
         )
 
+    # There's a fast-path that execs the entrypoint directly within a venv if one exists (i.e. the
+    # PEX_ROOT cache is warm), but it is only possible in cases where we can be reasonably sure:
+    #
+    # - the venv is configured correctly for the current execution (if not, executing with a cold
+    #   cache may behave differently)
+    # - we do not need to execute any pex code (the venv has no such code)
+    #
+    # NB. we do not consider the contents of rc files, which can set any of these options.
+    #
+    # This should be kept in sync with env vars read (or not) by the venv_pex.py code, for which
+    # warnings are silenced.
+    vars_for_no_fast_path = [
+        # This is used when loading ENV (Variables()):
+        "PEX_IGNORE_RCFILES",
+        # And ENV is used to control the venv (e.g. whether to use a venv at all, which Python
+        # interpreter, any extra PEXes to include):
+        "PEX_VENV",
+        # (Determining the correct path when these are set would require reproducing (in highly
+        # portable shell) the hashing logic from `venv_dir` in `pex.variables`.)
+        "PEX_PYTHON",
+        "PEX_PYTHON_PATH",
+        "PEX_PATH",
+        # PEX_TOOLS requires executing PEX code, but the in-venv code is PEX-free and doesn't inspect
+        # `PEX_TOOLS=1`.
+        #
+        # (NB. unlike the ones above, this doesn't influence the venv contents.)
+        "PEX_TOOLS",
+        # Other variables that are used during bootstrap / not read by venv_pex.py, but don't result
+        # in behaviour differences between a cold or warm cache:
+        #
+        # "PEX_ROOT",
+        # "PEX_VERBOSE",
+        # "PEX_EMIT_WARNINGS",
+        # "PEX_MAX_INSTALL_JOBS",
+        # "PEX_DISABLE_VARIABLES",
+    ]
+
     return dedent(
         """\
         # N.B.: This script should stick to syntax defined for POSIX `sh` and avoid non-builtins.
@@ -198,11 +249,11 @@ def create_sh_boot_script(
         PEX_ROOT="${{PEX_ROOT:-${{DEFAULT_PEX_ROOT}}}}"
         INSTALLED_PEX="${{PEX_ROOT}}/{pex_installed_relpath}"
 
-        if [ -n "${{VENV}}" -a -x "${{INSTALLED_PEX}}" -a -z "${{PEX_TOOLS:-}}" ]; then
+        if [ -n "${{VENV}}" -a -x "${{INSTALLED_PEX}}" -a {check_no_fast_path} ]; then
             # We're a --venv execution mode PEX installed under the PEX_ROOT and the venv
             # interpreter to use is embedded in the shebang of our venv pex script; so just
-            # execute that script directly... except if we're needing to execute PEX code, in
-            # the form of the tools.
+            # execute that script directly... except if we're executing in a non-default manner,
+            # where we'll likely need to execute PEX code.
             export PEX="{pex}"
             exec "${{INSTALLED_PEX}}/bin/python" ${{VENV_PYTHON_ARGS}} "${{INSTALLED_PEX}}" \\
                 "$@"
@@ -266,4 +317,7 @@ def create_sh_boot_script(
             shlex_quote(venv_python_arg) for venv_python_arg in venv_python_args
         ),
         pex="$0" if layout is Layout.ZIPAPP else '$(dirname "$0")',
+        check_no_fast_path=" -a ".join(
+            '-z "${{{env_var_name}:-}}"'.format(env_var_name=name) for name in vars_for_no_fast_path
+        ),
     )

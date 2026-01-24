@@ -3,7 +3,7 @@ Type annotations for inspector2 service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -185,12 +186,6 @@ from .type_defs import (
     UpdateOrgEc2DeepInspectionConfigurationRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -201,15 +196,15 @@ __all__ = ("Inspector2Client",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class Inspector2Client(AioBaseClient):
@@ -825,7 +820,7 @@ class Inspector2Client(AioBaseClient):
 
     async def reset_encryption_key(
         self, **kwargs: Unpack[ResetEncryptionKeyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Resets an encryption key.
 
@@ -845,7 +840,7 @@ class Inspector2Client(AioBaseClient):
 
     async def send_cis_session_health(
         self, **kwargs: Unpack[SendCisSessionHealthRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sends a CIS session health.
 
@@ -855,7 +850,7 @@ class Inspector2Client(AioBaseClient):
 
     async def send_cis_session_telemetry(
         self, **kwargs: Unpack[SendCisSessionTelemetryRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sends a CIS session telemetry.
 
@@ -865,7 +860,7 @@ class Inspector2Client(AioBaseClient):
 
     async def start_cis_session(
         self, **kwargs: Unpack[StartCisSessionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts a CIS session.
 
@@ -885,7 +880,7 @@ class Inspector2Client(AioBaseClient):
 
     async def stop_cis_session(
         self, **kwargs: Unpack[StopCisSessionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops a CIS session.
 
@@ -893,7 +888,7 @@ class Inspector2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#stop_cis_session)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds tags to a resource.
 
@@ -901,7 +896,7 @@ class Inspector2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from a resource.
 
@@ -941,7 +936,7 @@ class Inspector2Client(AioBaseClient):
 
     async def update_configuration(
         self, **kwargs: Unpack[UpdateConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates setting configurations for your Amazon Inspector account.
 
@@ -962,7 +957,7 @@ class Inspector2Client(AioBaseClient):
 
     async def update_encryption_key(
         self, **kwargs: Unpack[UpdateEncryptionKeyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an encryption key.
 
@@ -983,7 +978,7 @@ class Inspector2Client(AioBaseClient):
 
     async def update_org_ec2_deep_inspection_configuration(
         self, **kwargs: Unpack[UpdateOrgEc2DeepInspectionConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the Amazon Inspector deep inspection custom paths for your organization.
 
@@ -1185,7 +1180,7 @@ class Inspector2Client(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

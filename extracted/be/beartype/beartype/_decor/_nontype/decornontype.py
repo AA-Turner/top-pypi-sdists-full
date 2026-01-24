@@ -27,13 +27,14 @@ from beartype._check.metadata.metadecor import (
 )
 from beartype._conf.confmain import BeartypeConf
 from beartype._conf.confenum import BeartypeStrategy
-from beartype._data.decor.datadecornontype import (
+from beartype._decor._nontype._decornontypemap import (
     MODULE_TO_TYPE_NAME_TO_BEARTYPE_DECORATOR_get,
     MODULE_TO_SUPERTYPE_NAME_TO_BEARTYPE_DECORATOR_get,
 )
-from beartype._data.hint.datahinttyping import BeartypeableT
-from beartype._decor.wrap.wrapmain import generate_code
-from beartype._util.api.utilbeartype import (
+from beartype._data.typing.datatyping import BeartypeableT
+from beartype._decor._nontype._wrap.wrapmain import generate_code
+from beartype._util.bear.utilbearblack import is_object_blacklisted
+from beartype._util.bear.utilbearfunc import (
     is_func_unbeartypeable,
     set_func_beartyped,
 )
@@ -50,6 +51,7 @@ from beartype._util.func.utilfunctest import (
 )
 from beartype._util.func.utilfuncwrap import unwrap_func_once
 from beartype._util.module.utilmodget import get_object_module_name_or_none
+from beartype._util.text.utiltextrepr import represent_object
 from collections.abc import Callable
 
 # ....................{ DECORATORS                         }....................
@@ -223,10 +225,20 @@ def beartype_nontype(obj: BeartypeableT, **kwargs) -> BeartypeableT:
     # the type of this callable and thus *CANNOT* be integrated into the
     # efficient mapping-based O(1) dispatch employed above.
 
+    # If this object is beartype-blacklisted (i.e., defined in a third-party
+    # package or module that is hostile to runtime type-checking), silently
+    # reduce to a noop and preserve this object as is -- even if this object is
+    # uncallable. Of course, this is hardly ideal. But...
+    #
+    # Beartype didn't break it. Beartype can't fix it. Beartype ignores it!
+    if is_object_blacklisted(obj):
+        return obj
+    # Else, this object is *NOT* beartype-blacklisted.
+    #
     # If this object is uncallable, raise an exception.
-    if not callable(obj):
+    elif not callable(obj):
         raise BeartypeDecorWrappeeException(
-            f'Uncallable {repr(obj)} not decoratable by @beartype.')
+            f'Uncallable {represent_object(obj)} not decoratable by @beartype.')
     # Else, this object is callable.
     #
     # If this object is *NOT* a pure-Python function, this object is a
@@ -293,9 +305,9 @@ def beartype_nontype(obj: BeartypeableT, **kwargs) -> BeartypeableT:
     if func_contextmanager is not None:
         return _beartype_func_contextlib_contextmanager(  # type: ignore[return-value]
             func=obj, func_contextmanager=func_contextmanager, **kwargs)
-    # Else, that function is *NOT* a "contextlib"-based isomorphic
-    # decorator closure. By elimination, that function *MUST* be a standard
-    # pure-Python function.
+    # Else, that function is *NOT* a "contextlib"-based isomorphic decorator
+    # closure. By elimination, that function *MUST* be a standard pure-Python
+    # function.
 
     # Decorate that pure-Python function with runtime type-checking.
     return beartype_func(obj, **kwargs)  # type: ignore[return-value]
@@ -352,9 +364,9 @@ def beartype_func(
     # Else, the caller passed a callable to be unwrapped. Preserve it up!
 
     # Validate all explicitly passed parameters.
-    assert isinstance(conf, BeartypeConf), f'{repr(conf)} not configuration.'
     assert callable(func), f'{repr(func)} uncallable.'
     assert callable(wrapper), f'{repr(wrapper)} uncallable.'
+    assert isinstance(conf, BeartypeConf), f'{repr(conf)} not configuration.'
 
     #FIXME: Uncomment to display all annotations in "pytest" tracebacks.
     # func_hints = func.__annotations__
@@ -374,7 +386,8 @@ def beartype_func(
     # should preserve that callable as is rather than wrap that callable with
     # type-checking), silently reduce to the identity decorator.
     #
-    # Note that this conditional implicitly handles the prior conditional! :O
+    # Note that this conditional implicitly handles the prior conditional! Ergo,
+    # this conditional intentionally appears *AFTER* the prior conditional. :O
     if is_func_unbeartypeable(wrapper):  # type: ignore[arg-type]
         # print(f'Ignoring unbeartypeable callable {repr(func)}...')
         return func  # type: ignore[return-value]
@@ -395,6 +408,15 @@ def beartype_func(
         return func  # type: ignore[return-value]
     # Else, that callable requires type-checking. Let's *REALLY* do this, fam.
 
+    # If the type hint dictionary associated with the decorated callable is
+    # dirty (i.e., changed from the original "__annotations__" dunder dictionary
+    # annotating that callable), register these changes in a manner compliant
+    # with both PEP 649 and Python >= 3.14 *BEFORE* calling the make_func()
+    # factory function below, which internally propagates these changes from the
+    # "decor_meta.func_wrapper" callable into the created type-checking wrapper
+    # function returned by the @beartype decorator. Look. It's complicated.
+    decor_meta.set_func_annotations_if_dirty()
+
     # Function wrapping that callable with type-checking to be returned.
     #
     # For efficiency, this wrapper accesses *ONLY* local rather than global
@@ -406,7 +428,7 @@ def beartype_func(
         func_name=decor_meta.func_wrapper_name,
         func_code=func_wrapper_code,
         func_locals=decor_meta.func_wrapper_scope,
-        func_wrapped=func,  # pyright: ignore
+        func_wrapped=decor_meta.func_wrapper,  # pyright: ignore
         func_labeller=decor_meta.label_func_wrapper,
         is_debug=conf.is_debug,
         exception_cls=BeartypeDecorWrapperException,

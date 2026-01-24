@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -168,6 +168,7 @@ class Dimension(StrEnum):
     AZ = "AZ"
     INSTANCE_TYPE = "INSTANCE_TYPE"
     LINKED_ACCOUNT = "LINKED_ACCOUNT"
+    PAYER_ACCOUNT = "PAYER_ACCOUNT"
     LINKED_ACCOUNT_NAME = "LINKED_ACCOUNT_NAME"
     OPERATION = "OPERATION"
     PURCHASE_TYPE = "PURCHASE_TYPE"
@@ -275,6 +276,9 @@ class Metric(StrEnum):
 
 class MonitorDimension(StrEnum):
     SERVICE = "SERVICE"
+    LINKED_ACCOUNT = "LINKED_ACCOUNT"
+    TAG = "TAG"
+    COST_CATEGORY = "COST_CATEGORY"
 
 
 class MonitorType(StrEnum):
@@ -349,6 +353,7 @@ class SupportedSavingsPlansType(StrEnum):
     COMPUTE_SP = "COMPUTE_SP"
     EC2_INSTANCE_SP = "EC2_INSTANCE_SP"
     SAGEMAKER_SP = "SAGEMAKER_SP"
+    DATABASE_SP = "DATABASE_SP"
 
 
 class TermInYears(StrEnum):
@@ -378,6 +383,16 @@ class BillExpirationException(ServiceException):
     """The requested report expired. Update the date interval and try again."""
 
     code: str = "BillExpirationException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class BillingViewHealthStatusException(ServiceException):
+    """The billing view status must be ``HEALTHY`` to perform this action. Try
+    again when the status is ``HEALTHY``.
+    """
+
+    code: str = "BillingViewHealthStatusException"
     sender_fault: bool = False
     status_code: int = 400
 
@@ -432,7 +447,7 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    ResourceName: Optional[Arn]
+    ResourceName: Arn | None
 
 
 class ServiceQuotaExceededException(ServiceException):
@@ -453,7 +468,7 @@ class TooManyTagsException(ServiceException):
     code: str = "TooManyTagsException"
     sender_fault: bool = False
     status_code: int = 400
-    ResourceName: Optional[Arn]
+    ResourceName: Arn | None
 
 
 class UnknownMonitorException(ServiceException):
@@ -488,50 +503,50 @@ class RecommendationDetailHourlyMetrics(TypedDict, total=False):
     lookback period.
     """
 
-    StartTime: Optional[ZonedDateTime]
-    EstimatedOnDemandCost: Optional[GenericString]
-    CurrentCoverage: Optional[GenericString]
-    EstimatedCoverage: Optional[GenericString]
-    EstimatedNewCommitmentUtilization: Optional[GenericString]
+    StartTime: ZonedDateTime | None
+    EstimatedOnDemandCost: GenericString | None
+    CurrentCoverage: GenericString | None
+    EstimatedCoverage: GenericString | None
+    EstimatedNewCommitmentUtilization: GenericString | None
 
 
-MetricsOverLookbackPeriod = List[RecommendationDetailHourlyMetrics]
+MetricsOverLookbackPeriod = list[RecommendationDetailHourlyMetrics]
 
 
 class SavingsPlansPurchaseAnalysisDetails(TypedDict, total=False):
     """Details about the Savings Plans purchase analysis."""
 
-    CurrencyCode: Optional[GenericString]
-    LookbackPeriodInHours: Optional[GenericString]
-    CurrentAverageCoverage: Optional[GenericString]
-    CurrentAverageHourlyOnDemandSpend: Optional[GenericString]
-    CurrentMaximumHourlyOnDemandSpend: Optional[GenericString]
-    CurrentMinimumHourlyOnDemandSpend: Optional[GenericString]
-    CurrentOnDemandSpend: Optional[GenericString]
-    ExistingHourlyCommitment: Optional[GenericString]
-    HourlyCommitmentToPurchase: Optional[GenericString]
-    EstimatedAverageCoverage: Optional[GenericString]
-    EstimatedAverageUtilization: Optional[GenericString]
-    EstimatedMonthlySavingsAmount: Optional[GenericString]
-    EstimatedOnDemandCost: Optional[GenericString]
-    EstimatedOnDemandCostWithCurrentCommitment: Optional[GenericString]
-    EstimatedROI: Optional[GenericString]
-    EstimatedSavingsAmount: Optional[GenericString]
-    EstimatedSavingsPercentage: Optional[GenericString]
-    EstimatedCommitmentCost: Optional[GenericString]
-    LatestUsageTimestamp: Optional[GenericString]
-    UpfrontCost: Optional[GenericString]
-    AdditionalMetadata: Optional[GenericString]
-    MetricsOverLookbackPeriod: Optional[MetricsOverLookbackPeriod]
+    CurrencyCode: GenericString | None
+    LookbackPeriodInHours: GenericString | None
+    CurrentAverageCoverage: GenericString | None
+    CurrentAverageHourlyOnDemandSpend: GenericString | None
+    CurrentMaximumHourlyOnDemandSpend: GenericString | None
+    CurrentMinimumHourlyOnDemandSpend: GenericString | None
+    CurrentOnDemandSpend: GenericString | None
+    ExistingHourlyCommitment: GenericString | None
+    HourlyCommitmentToPurchase: GenericString | None
+    EstimatedAverageCoverage: GenericString | None
+    EstimatedAverageUtilization: GenericString | None
+    EstimatedMonthlySavingsAmount: GenericString | None
+    EstimatedOnDemandCost: GenericString | None
+    EstimatedOnDemandCostWithCurrentCommitment: GenericString | None
+    EstimatedROI: GenericString | None
+    EstimatedSavingsAmount: GenericString | None
+    EstimatedSavingsPercentage: GenericString | None
+    EstimatedCommitmentCost: GenericString | None
+    LatestUsageTimestamp: GenericString | None
+    UpfrontCost: GenericString | None
+    AdditionalMetadata: GenericString | None
+    MetricsOverLookbackPeriod: MetricsOverLookbackPeriod | None
 
 
 class AnalysisDetails(TypedDict, total=False):
     """Details about the analysis."""
 
-    SavingsPlansPurchaseAnalysisDetails: Optional[SavingsPlansPurchaseAnalysisDetails]
+    SavingsPlansPurchaseAnalysisDetails: SavingsPlansPurchaseAnalysisDetails | None
 
 
-AnalysisIds = List[AnalysisId]
+AnalysisIds = list[AnalysisId]
 
 
 class DateInterval(TypedDict, total=False):
@@ -541,64 +556,64 @@ class DateInterval(TypedDict, total=False):
     End: YearMonthDay
 
 
-SavingsPlansToExclude = List[SavingsPlansId]
+SavingsPlansToExclude = list[SavingsPlansId]
 
 
 class SavingsPlans(TypedDict, total=False):
     """The Savings Plans commitment details."""
 
-    PaymentOption: Optional[PaymentOption]
-    SavingsPlansType: Optional[SupportedSavingsPlansType]
-    Region: Optional[GenericString]
-    InstanceFamily: Optional[GenericString]
-    TermInYears: Optional[TermInYears]
-    SavingsPlansCommitment: Optional[SavingsPlansCommitment]
-    OfferingId: Optional[GenericString]
+    PaymentOption: PaymentOption | None
+    SavingsPlansType: SupportedSavingsPlansType | None
+    Region: GenericString | None
+    InstanceFamily: GenericString | None
+    TermInYears: TermInYears | None
+    SavingsPlansCommitment: SavingsPlansCommitment | None
+    OfferingId: GenericString | None
 
 
-SavingsPlansToAdd = List[SavingsPlans]
+SavingsPlansToAdd = list[SavingsPlans]
 
 
 class SavingsPlansPurchaseAnalysisConfiguration(TypedDict, total=False):
     """The configuration for the Savings Plans purchase analysis."""
 
-    AccountScope: Optional[AccountScope]
-    AccountId: Optional[AccountId]
+    AccountScope: AccountScope | None
+    AccountId: AccountId | None
     AnalysisType: AnalysisType
     SavingsPlansToAdd: SavingsPlansToAdd
-    SavingsPlansToExclude: Optional[SavingsPlansToExclude]
+    SavingsPlansToExclude: SavingsPlansToExclude | None
     LookBackTimePeriod: DateInterval
 
 
 class CommitmentPurchaseAnalysisConfiguration(TypedDict, total=False):
     """The configuration for the commitment purchase analysis."""
 
-    SavingsPlansPurchaseAnalysisConfiguration: Optional[SavingsPlansPurchaseAnalysisConfiguration]
+    SavingsPlansPurchaseAnalysisConfiguration: SavingsPlansPurchaseAnalysisConfiguration | None
 
 
 class AnalysisSummary(TypedDict, total=False):
     """A summary of the analysis."""
 
-    EstimatedCompletionTime: Optional[ZonedDateTime]
-    AnalysisCompletionTime: Optional[ZonedDateTime]
-    AnalysisStartedTime: Optional[ZonedDateTime]
-    AnalysisStatus: Optional[AnalysisStatus]
-    ErrorCode: Optional[ErrorCode]
-    AnalysisId: Optional[AnalysisId]
-    CommitmentPurchaseAnalysisConfiguration: Optional[CommitmentPurchaseAnalysisConfiguration]
+    EstimatedCompletionTime: ZonedDateTime | None
+    AnalysisCompletionTime: ZonedDateTime | None
+    AnalysisStartedTime: ZonedDateTime | None
+    AnalysisStatus: AnalysisStatus | None
+    ErrorCode: ErrorCode | None
+    AnalysisId: AnalysisId | None
+    CommitmentPurchaseAnalysisConfiguration: CommitmentPurchaseAnalysisConfiguration | None
 
 
-AnalysisSummaryList = List[AnalysisSummary]
+AnalysisSummaryList = list[AnalysisSummary]
 
 
 class Impact(TypedDict, total=False):
     """The dollar value of the anomaly."""
 
     MaxImpact: GenericDouble
-    TotalImpact: Optional[GenericDouble]
-    TotalActualSpend: Optional[NullableNonNegativeDouble]
-    TotalExpectedSpend: Optional[NullableNonNegativeDouble]
-    TotalImpactPercentage: Optional[NullableNonNegativeDouble]
+    TotalImpact: GenericDouble | None
+    TotalActualSpend: NullableNonNegativeDouble | None
+    TotalExpectedSpend: NullableNonNegativeDouble | None
+    TotalImpactPercentage: NullableNonNegativeDouble | None
 
 
 class AnomalyScore(TypedDict, total=False):
@@ -622,15 +637,15 @@ class RootCause(TypedDict, total=False):
     identified.
     """
 
-    Service: Optional[GenericString]
-    Region: Optional[GenericString]
-    LinkedAccount: Optional[GenericString]
-    LinkedAccountName: Optional[GenericString]
-    UsageType: Optional[GenericString]
-    Impact: Optional[RootCauseImpact]
+    Service: GenericString | None
+    Region: GenericString | None
+    LinkedAccount: GenericString | None
+    LinkedAccountName: GenericString | None
+    UsageType: GenericString | None
+    Impact: RootCauseImpact | None
 
 
-RootCauses = List[RootCause]
+RootCauses = list[RootCause]
 
 
 class Anomaly(TypedDict, total=False):
@@ -639,28 +654,28 @@ class Anomaly(TypedDict, total=False):
     """
 
     AnomalyId: GenericString
-    AnomalyStartDate: Optional[YearMonthDay]
-    AnomalyEndDate: Optional[YearMonthDay]
-    DimensionValue: Optional[GenericString]
-    RootCauses: Optional[RootCauses]
+    AnomalyStartDate: YearMonthDay | None
+    AnomalyEndDate: YearMonthDay | None
+    DimensionValue: GenericString | None
+    RootCauses: RootCauses | None
     AnomalyScore: AnomalyScore
     Impact: Impact
     MonitorArn: GenericString
-    Feedback: Optional[AnomalyFeedbackType]
+    Feedback: AnomalyFeedbackType | None
 
 
-Anomalies = List[Anomaly]
+Anomalies = list[Anomaly]
 
 
 class AnomalyDateInterval(TypedDict, total=False):
     """The time period for an anomaly."""
 
     StartDate: YearMonthDay
-    EndDate: Optional[YearMonthDay]
+    EndDate: YearMonthDay | None
 
 
-MatchOptions = List[MatchOption]
-Values = List[Value]
+MatchOptions = list[MatchOption]
+Values = list[Value]
 
 
 class CostCategoryValues(TypedDict, total=False):
@@ -675,9 +690,9 @@ class CostCategoryValues(TypedDict, total=False):
     it filters on resources without the given Cost Categories key.
     """
 
-    Key: Optional[CostCategoryName]
-    Values: Optional[Values]
-    MatchOptions: Optional[MatchOptions]
+    Key: CostCategoryName | None
+    Values: Values | None
+    MatchOptions: MatchOptions | None
 
 
 class TagValues(TypedDict, total=False):
@@ -692,9 +707,9 @@ class TagValues(TypedDict, total=False):
     filtered on resources without the given tag key.
     """
 
-    Key: Optional[TagKey]
-    Values: Optional[Values]
-    MatchOptions: Optional[MatchOptions]
+    Key: TagKey | None
+    Values: Values | None
+    MatchOptions: MatchOptions | None
 
 
 class DimensionValues(TypedDict, total=False):
@@ -702,9 +717,9 @@ class DimensionValues(TypedDict, total=False):
     use ``GetDimensionValues`` to find specific values.
     """
 
-    Key: Optional[Dimension]
-    Values: Optional[Values]
-    MatchOptions: Optional[MatchOptions]
+    Key: Dimension | None
+    Values: Values | None
+    MatchOptions: MatchOptions | None
 
 
 class Expression(TypedDict, total=False):
@@ -788,15 +803,15 @@ class Expression(TypedDict, total=False):
     ``LINKED_ACCOUNT``.
     """
 
-    Or: Optional["Expressions"]
-    And: Optional["Expressions"]
-    Not: Optional["Expression"]
-    Dimensions: Optional["DimensionValues"]
-    Tags: Optional["TagValues"]
-    CostCategories: Optional["CostCategoryValues"]
+    Or: "Expressions | None"
+    And: "Expressions | None"
+    Not: "Expression | None"
+    Dimensions: "DimensionValues | None"
+    Tags: "TagValues | None"
+    CostCategories: "CostCategoryValues | None"
 
 
-Expressions = List[Expression]
+Expressions = list[Expression]
 
 
 class AnomalyMonitor(TypedDict, total=False):
@@ -806,30 +821,30 @@ class AnomalyMonitor(TypedDict, total=False):
     monitor object.
     """
 
-    MonitorArn: Optional[GenericString]
+    MonitorArn: GenericString | None
     MonitorName: GenericString
-    CreationDate: Optional[YearMonthDay]
-    LastUpdatedDate: Optional[YearMonthDay]
-    LastEvaluatedDate: Optional[YearMonthDay]
+    CreationDate: YearMonthDay | None
+    LastUpdatedDate: YearMonthDay | None
+    LastEvaluatedDate: YearMonthDay | None
     MonitorType: MonitorType
-    MonitorDimension: Optional[MonitorDimension]
-    MonitorSpecification: Optional[Expression]
-    DimensionalValueCount: Optional[NonNegativeInteger]
+    MonitorDimension: MonitorDimension | None
+    MonitorSpecification: Expression | None
+    DimensionalValueCount: NonNegativeInteger | None
 
 
-AnomalyMonitors = List[AnomalyMonitor]
+AnomalyMonitors = list[AnomalyMonitor]
 
 
 class Subscriber(TypedDict, total=False):
     """The recipient of ``AnomalySubscription`` notifications."""
 
-    Address: Optional[SubscriberAddress]
-    Type: Optional[SubscriberType]
-    Status: Optional[SubscriberStatus]
+    Address: SubscriberAddress | None
+    Type: SubscriberType | None
+    Status: SubscriberStatus | None
 
 
-Subscribers = List[Subscriber]
-MonitorArnList = List[Arn]
+Subscribers = list[Subscriber]
+MonitorArnList = list[Arn]
 
 
 class AnomalySubscription(TypedDict, total=False):
@@ -853,20 +868,20 @@ class AnomalySubscription(TypedDict, total=False):
     API.
     """
 
-    SubscriptionArn: Optional[GenericString]
-    AccountId: Optional[GenericString]
+    SubscriptionArn: GenericString | None
+    AccountId: GenericString | None
     MonitorArnList: MonitorArnList
     Subscribers: Subscribers
-    Threshold: Optional[NullableNonNegativeDouble]
+    Threshold: NullableNonNegativeDouble | None
     Frequency: AnomalySubscriptionFrequency
     SubscriptionName: GenericString
-    ThresholdExpression: Optional[Expression]
+    ThresholdExpression: Expression | None
 
 
-AnomalySubscriptions = List[AnomalySubscription]
+AnomalySubscriptions = list[AnomalySubscription]
 NonNegativeLong = int
-ApproximateUsageRecordsPerService = Dict[GenericString, NonNegativeLong]
-Attributes = Dict[AttributeType, AttributeValue]
+ApproximateUsageRecordsPerService = dict[GenericString, NonNegativeLong]
+Attributes = dict[AttributeType, AttributeValue]
 
 
 class ComparisonMetricValue(TypedDict, total=False):
@@ -875,13 +890,13 @@ class ComparisonMetricValue(TypedDict, total=False):
     periods, their difference, and the unit of measurement.
     """
 
-    BaselineTimePeriodAmount: Optional[GenericString]
-    ComparisonTimePeriodAmount: Optional[GenericString]
-    Difference: Optional[GenericString]
-    Unit: Optional[GenericString]
+    BaselineTimePeriodAmount: GenericString | None
+    ComparisonTimePeriodAmount: GenericString | None
+    Difference: GenericString | None
+    Unit: GenericString | None
 
 
-ComparisonMetrics = Dict[MetricName, ComparisonMetricValue]
+ComparisonMetrics = dict[MetricName, ComparisonMetricValue]
 
 
 class CostAllocationTag(TypedDict, total=False):
@@ -892,8 +907,8 @@ class CostAllocationTag(TypedDict, total=False):
     TagKey: TagKey
     Type: CostAllocationTagType
     Status: CostAllocationTagStatus
-    LastUpdatedDate: Optional[ZonedDateTime]
-    LastUsedDate: Optional[ZonedDateTime]
+    LastUpdatedDate: ZonedDateTime | None
+    LastUsedDate: ZonedDateTime | None
 
 
 class CostAllocationTagBackfillRequest(TypedDict, total=False):
@@ -901,16 +916,16 @@ class CostAllocationTagBackfillRequest(TypedDict, total=False):
     metadata and details of a certain backfill.
     """
 
-    BackfillFrom: Optional[ZonedDateTime]
-    RequestedAt: Optional[ZonedDateTime]
-    CompletedAt: Optional[ZonedDateTime]
-    BackfillStatus: Optional[CostAllocationTagBackfillStatus]
-    LastUpdatedAt: Optional[ZonedDateTime]
+    BackfillFrom: ZonedDateTime | None
+    RequestedAt: ZonedDateTime | None
+    CompletedAt: ZonedDateTime | None
+    BackfillStatus: CostAllocationTagBackfillStatus | None
+    LastUpdatedAt: ZonedDateTime | None
 
 
-CostAllocationTagBackfillRequestList = List[CostAllocationTagBackfillRequest]
-CostAllocationTagKeyList = List[TagKey]
-CostAllocationTagList = List[CostAllocationTag]
+CostAllocationTagBackfillRequestList = list[CostAllocationTagBackfillRequest]
+CostAllocationTagKeyList = list[TagKey]
+CostAllocationTagList = list[CostAllocationTag]
 
 
 class CostAllocationTagStatusEntry(TypedDict, total=False):
@@ -922,7 +937,7 @@ class CostAllocationTagStatusEntry(TypedDict, total=False):
     Status: CostAllocationTagStatus
 
 
-CostAllocationTagStatusList = List[CostAllocationTagStatusEntry]
+CostAllocationTagStatusList = list[CostAllocationTagStatusEntry]
 
 
 class CostAndUsageComparison(TypedDict, total=False):
@@ -930,11 +945,11 @@ class CostAndUsageComparison(TypedDict, total=False):
     periods.
     """
 
-    CostAndUsageSelector: Optional[Expression]
-    Metrics: Optional[ComparisonMetrics]
+    CostAndUsageSelector: Expression | None
+    Metrics: ComparisonMetrics | None
 
 
-CostAndUsageComparisons = List[CostAndUsageComparison]
+CostAndUsageComparisons = list[CostAndUsageComparison]
 
 
 class CostCategoryProcessingStatus(TypedDict, total=False):
@@ -942,12 +957,12 @@ class CostCategoryProcessingStatus(TypedDict, total=False):
     specific cost category.
     """
 
-    Component: Optional[CostCategoryStatusComponent]
-    Status: Optional[CostCategoryStatus]
+    Component: CostCategoryStatusComponent | None
+    Status: CostCategoryStatus | None
 
 
-CostCategoryProcessingStatusList = List[CostCategoryProcessingStatus]
-CostCategorySplitChargeRuleParameterValuesList = List[GenericString]
+CostCategoryProcessingStatusList = list[CostCategoryProcessingStatus]
+CostCategorySplitChargeRuleParameterValuesList = list[GenericString]
 
 
 class CostCategorySplitChargeRuleParameter(TypedDict, total=False):
@@ -957,8 +972,8 @@ class CostCategorySplitChargeRuleParameter(TypedDict, total=False):
     Values: CostCategorySplitChargeRuleParameterValuesList
 
 
-CostCategorySplitChargeRuleParametersList = List[CostCategorySplitChargeRuleParameter]
-CostCategorySplitChargeRuleTargetsList = List[GenericString]
+CostCategorySplitChargeRuleParametersList = list[CostCategorySplitChargeRuleParameter]
+CostCategorySplitChargeRuleTargetsList = list[GenericString]
 
 
 class CostCategorySplitChargeRule(TypedDict, total=False):
@@ -969,10 +984,10 @@ class CostCategorySplitChargeRule(TypedDict, total=False):
     Source: GenericString
     Targets: CostCategorySplitChargeRuleTargetsList
     Method: CostCategorySplitChargeMethod
-    Parameters: Optional[CostCategorySplitChargeRuleParametersList]
+    Parameters: CostCategorySplitChargeRuleParametersList | None
 
 
-CostCategorySplitChargeRulesList = List[CostCategorySplitChargeRule]
+CostCategorySplitChargeRulesList = list[CostCategorySplitChargeRule]
 
 
 class CostCategoryInheritedValueDimension(TypedDict, total=False):
@@ -986,8 +1001,8 @@ class CostCategoryInheritedValueDimension(TypedDict, total=False):
     choose the tag dimension and specify the tag key to use.
     """
 
-    DimensionName: Optional[CostCategoryInheritedValueDimensionName]
-    DimensionKey: Optional[GenericString]
+    DimensionName: CostCategoryInheritedValueDimensionName | None
+    DimensionKey: GenericString | None
 
 
 class CostCategoryRule(TypedDict, total=False):
@@ -996,13 +1011,13 @@ class CostCategoryRule(TypedDict, total=False):
     Category value.
     """
 
-    Value: Optional[CostCategoryValue]
-    Rule: Optional[Expression]
-    InheritedValue: Optional[CostCategoryInheritedValueDimension]
-    Type: Optional[CostCategoryRuleType]
+    Value: CostCategoryValue | None
+    Rule: Expression | None
+    InheritedValue: CostCategoryInheritedValueDimension | None
+    Type: CostCategoryRuleType | None
 
 
-CostCategoryRulesList = List[CostCategoryRule]
+CostCategoryRulesList = list[CostCategoryRule]
 
 
 class CostCategory(TypedDict, total=False):
@@ -1012,17 +1027,17 @@ class CostCategory(TypedDict, total=False):
 
     CostCategoryArn: Arn
     EffectiveStart: ZonedDateTime
-    EffectiveEnd: Optional[ZonedDateTime]
+    EffectiveEnd: ZonedDateTime | None
     Name: CostCategoryName
     RuleVersion: CostCategoryRuleVersion
     Rules: CostCategoryRulesList
-    SplitChargeRules: Optional[CostCategorySplitChargeRulesList]
-    ProcessingStatus: Optional[CostCategoryProcessingStatusList]
-    DefaultValue: Optional[CostCategoryValue]
+    SplitChargeRules: CostCategorySplitChargeRulesList | None
+    ProcessingStatus: CostCategoryProcessingStatusList | None
+    DefaultValue: CostCategoryValue | None
 
 
-CostCategoryNamesList = List[CostCategoryName]
-CostCategoryValuesList = List[CostCategoryValue]
+CostCategoryNamesList = list[CostCategoryName]
+CostCategoryValuesList = list[CostCategoryValue]
 
 
 class CostCategoryReference(TypedDict, total=False):
@@ -1033,17 +1048,17 @@ class CostCategoryReference(TypedDict, total=False):
     information using ``DescribeCostCategory``.
     """
 
-    CostCategoryArn: Optional[Arn]
-    Name: Optional[CostCategoryName]
-    EffectiveStart: Optional[ZonedDateTime]
-    EffectiveEnd: Optional[ZonedDateTime]
-    NumberOfRules: Optional[NonNegativeInteger]
-    ProcessingStatus: Optional[CostCategoryProcessingStatusList]
-    Values: Optional[CostCategoryValuesList]
-    DefaultValue: Optional[CostCategoryValue]
+    CostCategoryArn: Arn | None
+    Name: CostCategoryName | None
+    EffectiveStart: ZonedDateTime | None
+    EffectiveEnd: ZonedDateTime | None
+    NumberOfRules: NonNegativeInteger | None
+    ProcessingStatus: CostCategoryProcessingStatusList | None
+    Values: CostCategoryValuesList | None
+    DefaultValue: CostCategoryValue | None
 
 
-CostCategoryReferencesList = List[CostCategoryReference]
+CostCategoryReferencesList = list[CostCategoryReference]
 
 
 class CostDriver(TypedDict, total=False):
@@ -1052,12 +1067,12 @@ class CostDriver(TypedDict, total=False):
     identifier of the driver, and associated metrics.
     """
 
-    Type: Optional[GenericString]
-    Name: Optional[GenericString]
-    Metrics: Optional[ComparisonMetrics]
+    Type: GenericString | None
+    Name: GenericString | None
+    Metrics: ComparisonMetrics | None
 
 
-CostDrivers = List[CostDriver]
+CostDrivers = list[CostDriver]
 
 
 class CostComparisonDriver(TypedDict, total=False):
@@ -1065,18 +1080,18 @@ class CostComparisonDriver(TypedDict, total=False):
     cost comparison analysis.
     """
 
-    CostSelector: Optional[Expression]
-    Metrics: Optional[ComparisonMetrics]
-    CostDrivers: Optional[CostDrivers]
+    CostSelector: Expression | None
+    Metrics: ComparisonMetrics | None
+    CostDrivers: CostDrivers | None
 
 
-CostComparisonDrivers = List[CostComparisonDriver]
+CostComparisonDrivers = list[CostComparisonDriver]
 
 
 class CoverageCost(TypedDict, total=False):
     """How much it costs to run an instance."""
 
-    OnDemandCost: Optional[OnDemandCost]
+    OnDemandCost: OnDemandCost | None
 
 
 class CoverageNormalizedUnits(TypedDict, total=False):
@@ -1095,48 +1110,48 @@ class CoverageNormalizedUnits(TypedDict, total=False):
     in the *Amazon Elastic Compute Cloud User Guide for Linux Instances*.
     """
 
-    OnDemandNormalizedUnits: Optional[OnDemandNormalizedUnits]
-    ReservedNormalizedUnits: Optional[ReservedNormalizedUnits]
-    TotalRunningNormalizedUnits: Optional[TotalRunningNormalizedUnits]
-    CoverageNormalizedUnitsPercentage: Optional[CoverageNormalizedUnitsPercentage]
+    OnDemandNormalizedUnits: OnDemandNormalizedUnits | None
+    ReservedNormalizedUnits: ReservedNormalizedUnits | None
+    TotalRunningNormalizedUnits: TotalRunningNormalizedUnits | None
+    CoverageNormalizedUnitsPercentage: CoverageNormalizedUnitsPercentage | None
 
 
 class CoverageHours(TypedDict, total=False):
     """How long a running instance either used a reservation or was On-Demand."""
 
-    OnDemandHours: Optional[OnDemandHours]
-    ReservedHours: Optional[ReservedHours]
-    TotalRunningHours: Optional[TotalRunningHours]
-    CoverageHoursPercentage: Optional[CoverageHoursPercentage]
+    OnDemandHours: OnDemandHours | None
+    ReservedHours: ReservedHours | None
+    TotalRunningHours: TotalRunningHours | None
+    CoverageHoursPercentage: CoverageHoursPercentage | None
 
 
 class Coverage(TypedDict, total=False):
     """The amount of instance usage that a reservation covered."""
 
-    CoverageHours: Optional[CoverageHours]
-    CoverageNormalizedUnits: Optional[CoverageNormalizedUnits]
-    CoverageCost: Optional[CoverageCost]
+    CoverageHours: CoverageHours | None
+    CoverageNormalizedUnits: CoverageNormalizedUnits | None
+    CoverageCost: CoverageCost | None
 
 
 class ReservationCoverageGroup(TypedDict, total=False):
     """A group of reservations that share a set of attributes."""
 
-    Attributes: Optional[Attributes]
-    Coverage: Optional[Coverage]
+    Attributes: Attributes | None
+    Coverage: Coverage | None
 
 
-ReservationCoverageGroups = List[ReservationCoverageGroup]
+ReservationCoverageGroups = list[ReservationCoverageGroup]
 
 
 class CoverageByTime(TypedDict, total=False):
     """Reservation coverage for a specified period, in hours."""
 
-    TimePeriod: Optional[DateInterval]
-    Groups: Optional[ReservationCoverageGroups]
-    Total: Optional[Coverage]
+    TimePeriod: DateInterval | None
+    Groups: ReservationCoverageGroups | None
+    Total: Coverage | None
 
 
-CoveragesByTime = List[CoverageByTime]
+CoveragesByTime = list[CoverageByTime]
 
 
 class ResourceTag(TypedDict, total=False):
@@ -1156,12 +1171,12 @@ class ResourceTag(TypedDict, total=False):
     Value: ResourceTagValue
 
 
-ResourceTagList = List[ResourceTag]
+ResourceTagList = list[ResourceTag]
 
 
 class CreateAnomalyMonitorRequest(ServiceRequest):
     AnomalyMonitor: AnomalyMonitor
-    ResourceTags: Optional[ResourceTagList]
+    ResourceTags: ResourceTagList | None
 
 
 class CreateAnomalyMonitorResponse(TypedDict, total=False):
@@ -1170,7 +1185,7 @@ class CreateAnomalyMonitorResponse(TypedDict, total=False):
 
 class CreateAnomalySubscriptionRequest(ServiceRequest):
     AnomalySubscription: AnomalySubscription
-    ResourceTags: Optional[ResourceTagList]
+    ResourceTags: ResourceTagList | None
 
 
 class CreateAnomalySubscriptionResponse(TypedDict, total=False):
@@ -1179,17 +1194,17 @@ class CreateAnomalySubscriptionResponse(TypedDict, total=False):
 
 class CreateCostCategoryDefinitionRequest(ServiceRequest):
     Name: CostCategoryName
-    EffectiveStart: Optional[ZonedDateTime]
+    EffectiveStart: ZonedDateTime | None
     RuleVersion: CostCategoryRuleVersion
     Rules: CostCategoryRulesList
-    DefaultValue: Optional[CostCategoryValue]
-    SplitChargeRules: Optional[CostCategorySplitChargeRulesList]
-    ResourceTags: Optional[ResourceTagList]
+    DefaultValue: CostCategoryValue | None
+    SplitChargeRules: CostCategorySplitChargeRulesList | None
+    ResourceTags: ResourceTagList | None
 
 
 class CreateCostCategoryDefinitionResponse(TypedDict, total=False):
-    CostCategoryArn: Optional[Arn]
-    EffectiveStart: Optional[ZonedDateTime]
+    CostCategoryArn: Arn | None
+    EffectiveStart: ZonedDateTime | None
 
 
 class NetworkResourceUtilization(TypedDict, total=False):
@@ -1197,10 +1212,10 @@ class NetworkResourceUtilization(TypedDict, total=False):
     associated with the current instance.
     """
 
-    NetworkInBytesPerSecond: Optional[GenericString]
-    NetworkOutBytesPerSecond: Optional[GenericString]
-    NetworkPacketsInPerSecond: Optional[GenericString]
-    NetworkPacketsOutPerSecond: Optional[GenericString]
+    NetworkInBytesPerSecond: GenericString | None
+    NetworkOutBytesPerSecond: GenericString | None
+    NetworkPacketsInPerSecond: GenericString | None
+    NetworkPacketsOutPerSecond: GenericString | None
 
 
 class DiskResourceUtilization(TypedDict, total=False):
@@ -1208,10 +1223,10 @@ class DiskResourceUtilization(TypedDict, total=False):
     associated with the current instance.
     """
 
-    DiskReadOpsPerSecond: Optional[GenericString]
-    DiskWriteOpsPerSecond: Optional[GenericString]
-    DiskReadBytesPerSecond: Optional[GenericString]
-    DiskWriteBytesPerSecond: Optional[GenericString]
+    DiskReadOpsPerSecond: GenericString | None
+    DiskWriteOpsPerSecond: GenericString | None
+    DiskReadBytesPerSecond: GenericString | None
+    DiskWriteBytesPerSecond: GenericString | None
 
 
 class EBSResourceUtilization(TypedDict, total=False):
@@ -1219,66 +1234,66 @@ class EBSResourceUtilization(TypedDict, total=False):
     with the current instance.
     """
 
-    EbsReadOpsPerSecond: Optional[GenericString]
-    EbsWriteOpsPerSecond: Optional[GenericString]
-    EbsReadBytesPerSecond: Optional[GenericString]
-    EbsWriteBytesPerSecond: Optional[GenericString]
+    EbsReadOpsPerSecond: GenericString | None
+    EbsWriteOpsPerSecond: GenericString | None
+    EbsReadBytesPerSecond: GenericString | None
+    EbsWriteBytesPerSecond: GenericString | None
 
 
 class EC2ResourceUtilization(TypedDict, total=False):
     """Utilization metrics for the instance."""
 
-    MaxCpuUtilizationPercentage: Optional[GenericString]
-    MaxMemoryUtilizationPercentage: Optional[GenericString]
-    MaxStorageUtilizationPercentage: Optional[GenericString]
-    EBSResourceUtilization: Optional[EBSResourceUtilization]
-    DiskResourceUtilization: Optional[DiskResourceUtilization]
-    NetworkResourceUtilization: Optional[NetworkResourceUtilization]
+    MaxCpuUtilizationPercentage: GenericString | None
+    MaxMemoryUtilizationPercentage: GenericString | None
+    MaxStorageUtilizationPercentage: GenericString | None
+    EBSResourceUtilization: EBSResourceUtilization | None
+    DiskResourceUtilization: DiskResourceUtilization | None
+    NetworkResourceUtilization: NetworkResourceUtilization | None
 
 
 class ResourceUtilization(TypedDict, total=False):
     """Resource utilization of current resource."""
 
-    EC2ResourceUtilization: Optional[EC2ResourceUtilization]
+    EC2ResourceUtilization: EC2ResourceUtilization | None
 
 
 class EC2ResourceDetails(TypedDict, total=False):
     """Details on the Amazon EC2 Resource."""
 
-    HourlyOnDemandRate: Optional[GenericString]
-    InstanceType: Optional[GenericString]
-    Platform: Optional[GenericString]
-    Region: Optional[GenericString]
-    Sku: Optional[GenericString]
-    Memory: Optional[GenericString]
-    NetworkPerformance: Optional[GenericString]
-    Storage: Optional[GenericString]
-    Vcpu: Optional[GenericString]
+    HourlyOnDemandRate: GenericString | None
+    InstanceType: GenericString | None
+    Platform: GenericString | None
+    Region: GenericString | None
+    Sku: GenericString | None
+    Memory: GenericString | None
+    NetworkPerformance: GenericString | None
+    Storage: GenericString | None
+    Vcpu: GenericString | None
 
 
 class ResourceDetails(TypedDict, total=False):
     """Details for the resource."""
 
-    EC2ResourceDetails: Optional[EC2ResourceDetails]
+    EC2ResourceDetails: EC2ResourceDetails | None
 
 
-TagValuesList = List[TagValues]
+TagValuesList = list[TagValues]
 
 
 class CurrentInstance(TypedDict, total=False):
     """Context about the current instance."""
 
-    ResourceId: Optional[GenericString]
-    InstanceName: Optional[GenericString]
-    Tags: Optional[TagValuesList]
-    ResourceDetails: Optional[ResourceDetails]
-    ResourceUtilization: Optional[ResourceUtilization]
-    ReservationCoveredHoursInLookbackPeriod: Optional[GenericString]
-    SavingsPlansCoveredHoursInLookbackPeriod: Optional[GenericString]
-    OnDemandHoursInLookbackPeriod: Optional[GenericString]
-    TotalRunningHoursInLookbackPeriod: Optional[GenericString]
-    MonthlyCost: Optional[GenericString]
-    CurrencyCode: Optional[GenericString]
+    ResourceId: GenericString | None
+    InstanceName: GenericString | None
+    Tags: TagValuesList | None
+    ResourceDetails: ResourceDetails | None
+    ResourceUtilization: ResourceUtilization | None
+    ReservationCoveredHoursInLookbackPeriod: GenericString | None
+    SavingsPlansCoveredHoursInLookbackPeriod: GenericString | None
+    OnDemandHoursInLookbackPeriod: GenericString | None
+    TotalRunningHoursInLookbackPeriod: GenericString | None
+    MonthlyCost: GenericString | None
+    CurrencyCode: GenericString | None
 
 
 class DeleteAnomalyMonitorRequest(ServiceRequest):
@@ -1302,17 +1317,17 @@ class DeleteCostCategoryDefinitionRequest(ServiceRequest):
 
 
 class DeleteCostCategoryDefinitionResponse(TypedDict, total=False):
-    CostCategoryArn: Optional[Arn]
-    EffectiveEnd: Optional[ZonedDateTime]
+    CostCategoryArn: Arn | None
+    EffectiveEnd: ZonedDateTime | None
 
 
 class DescribeCostCategoryDefinitionRequest(ServiceRequest):
     CostCategoryArn: Arn
-    EffectiveOn: Optional[ZonedDateTime]
+    EffectiveOn: ZonedDateTime | None
 
 
 class DescribeCostCategoryDefinitionResponse(TypedDict, total=False):
-    CostCategory: Optional[CostCategory]
+    CostCategory: CostCategory | None
 
 
 class DimensionValuesWithAttributes(TypedDict, total=False):
@@ -1321,11 +1336,11 @@ class DimensionValuesWithAttributes(TypedDict, total=False):
     values.
     """
 
-    Value: Optional[Value]
-    Attributes: Optional[Attributes]
+    Value: Value | None
+    Attributes: Attributes | None
 
 
-DimensionValuesWithAttributesList = List[DimensionValuesWithAttributes]
+DimensionValuesWithAttributesList = list[DimensionValuesWithAttributes]
 
 
 class DynamoDBCapacityDetails(TypedDict, total=False):
@@ -1333,8 +1348,8 @@ class DynamoDBCapacityDetails(TypedDict, total=False):
     purchase.
     """
 
-    CapacityUnits: Optional[GenericString]
-    Region: Optional[GenericString]
+    CapacityUnits: GenericString | None
+    Region: GenericString | None
 
 
 class EC2InstanceDetails(TypedDict, total=False):
@@ -1342,14 +1357,14 @@ class EC2InstanceDetails(TypedDict, total=False):
     recommends that you purchase.
     """
 
-    Family: Optional[GenericString]
-    InstanceType: Optional[GenericString]
-    Region: Optional[GenericString]
-    AvailabilityZone: Optional[GenericString]
-    Platform: Optional[GenericString]
-    Tenancy: Optional[GenericString]
-    CurrentGeneration: Optional[GenericBoolean]
-    SizeFlexEligible: Optional[GenericBoolean]
+    Family: GenericString | None
+    InstanceType: GenericString | None
+    Region: GenericString | None
+    AvailabilityZone: GenericString | None
+    Platform: GenericString | None
+    Tenancy: GenericString | None
+    CurrentGeneration: GenericBoolean | None
+    SizeFlexEligible: GenericBoolean | None
 
 
 class EC2Specification(TypedDict, total=False):
@@ -1357,7 +1372,7 @@ class EC2Specification(TypedDict, total=False):
     to provide recommendations for.
     """
 
-    OfferingClass: Optional[OfferingClass]
+    OfferingClass: OfferingClass | None
 
 
 class ESInstanceDetails(TypedDict, total=False):
@@ -1365,11 +1380,11 @@ class ESInstanceDetails(TypedDict, total=False):
     Services recommends that you purchase.
     """
 
-    InstanceClass: Optional[GenericString]
-    InstanceSize: Optional[GenericString]
-    Region: Optional[GenericString]
-    CurrentGeneration: Optional[GenericBoolean]
-    SizeFlexEligible: Optional[GenericBoolean]
+    InstanceClass: GenericString | None
+    InstanceSize: GenericString | None
+    Region: GenericString | None
+    CurrentGeneration: GenericBoolean | None
+    SizeFlexEligible: GenericBoolean | None
 
 
 class ElastiCacheInstanceDetails(TypedDict, total=False):
@@ -1377,40 +1392,40 @@ class ElastiCacheInstanceDetails(TypedDict, total=False):
     Services recommends that you purchase.
     """
 
-    Family: Optional[GenericString]
-    NodeType: Optional[GenericString]
-    Region: Optional[GenericString]
-    ProductDescription: Optional[GenericString]
-    CurrentGeneration: Optional[GenericBoolean]
-    SizeFlexEligible: Optional[GenericBoolean]
+    Family: GenericString | None
+    NodeType: GenericString | None
+    Region: GenericString | None
+    ProductDescription: GenericString | None
+    CurrentGeneration: GenericBoolean | None
+    SizeFlexEligible: GenericBoolean | None
 
 
-FindingReasonCodes = List[FindingReasonCode]
+FindingReasonCodes = list[FindingReasonCode]
 
 
 class ForecastResult(TypedDict, total=False):
     """The forecast that's created for your query."""
 
-    TimePeriod: Optional[DateInterval]
-    MeanValue: Optional[GenericString]
-    PredictionIntervalLowerBound: Optional[GenericString]
-    PredictionIntervalUpperBound: Optional[GenericString]
+    TimePeriod: DateInterval | None
+    MeanValue: GenericString | None
+    PredictionIntervalLowerBound: GenericString | None
+    PredictionIntervalUpperBound: GenericString | None
 
 
-ForecastResultsByTime = List[ForecastResult]
+ForecastResultsByTime = list[ForecastResult]
 
 
 class GenerationSummary(TypedDict, total=False):
     """The summary of the Savings Plans recommendation generation."""
 
-    RecommendationId: Optional[RecommendationId]
-    GenerationStatus: Optional[GenerationStatus]
-    GenerationStartedTime: Optional[ZonedDateTime]
-    GenerationCompletionTime: Optional[ZonedDateTime]
-    EstimatedCompletionTime: Optional[ZonedDateTime]
+    RecommendationId: RecommendationId | None
+    GenerationStatus: GenerationStatus | None
+    GenerationStartedTime: ZonedDateTime | None
+    GenerationCompletionTime: ZonedDateTime | None
+    EstimatedCompletionTime: ZonedDateTime | None
 
 
-GenerationSummaryList = List[GenerationSummary]
+GenerationSummaryList = list[GenerationSummary]
 
 
 class TotalImpactFilter(TypedDict, total=False):
@@ -1418,59 +1433,59 @@ class TotalImpactFilter(TypedDict, total=False):
 
     NumericOperator: NumericOperator
     StartValue: GenericDouble
-    EndValue: Optional[GenericDouble]
+    EndValue: GenericDouble | None
 
 
 class GetAnomaliesRequest(ServiceRequest):
-    MonitorArn: Optional[GenericString]
+    MonitorArn: GenericString | None
     DateInterval: AnomalyDateInterval
-    Feedback: Optional[AnomalyFeedbackType]
-    TotalImpact: Optional[TotalImpactFilter]
-    NextPageToken: Optional[NextPageToken]
-    MaxResults: Optional[PageSize]
+    Feedback: AnomalyFeedbackType | None
+    TotalImpact: TotalImpactFilter | None
+    NextPageToken: NextPageToken | None
+    MaxResults: PageSize | None
 
 
 class GetAnomaliesResponse(TypedDict, total=False):
     Anomalies: Anomalies
-    NextPageToken: Optional[NextPageToken]
+    NextPageToken: NextPageToken | None
 
 
 class GetAnomalyMonitorsRequest(ServiceRequest):
-    MonitorArnList: Optional[Values]
-    NextPageToken: Optional[NextPageToken]
-    MaxResults: Optional[PageSize]
+    MonitorArnList: Values | None
+    NextPageToken: NextPageToken | None
+    MaxResults: PageSize | None
 
 
 class GetAnomalyMonitorsResponse(TypedDict, total=False):
     AnomalyMonitors: AnomalyMonitors
-    NextPageToken: Optional[NextPageToken]
+    NextPageToken: NextPageToken | None
 
 
 class GetAnomalySubscriptionsRequest(ServiceRequest):
-    SubscriptionArnList: Optional[Values]
-    MonitorArn: Optional[GenericString]
-    NextPageToken: Optional[NextPageToken]
-    MaxResults: Optional[PageSize]
+    SubscriptionArnList: Values | None
+    MonitorArn: GenericString | None
+    NextPageToken: NextPageToken | None
+    MaxResults: PageSize | None
 
 
 class GetAnomalySubscriptionsResponse(TypedDict, total=False):
     AnomalySubscriptions: AnomalySubscriptions
-    NextPageToken: Optional[NextPageToken]
+    NextPageToken: NextPageToken | None
 
 
-UsageServices = List[GenericString]
+UsageServices = list[GenericString]
 
 
 class GetApproximateUsageRecordsRequest(ServiceRequest):
     Granularity: Granularity
-    Services: Optional[UsageServices]
+    Services: UsageServices | None
     ApproximationDimension: ApproximationDimension
 
 
 class GetApproximateUsageRecordsResponse(TypedDict, total=False):
-    Services: Optional[ApproximateUsageRecordsPerService]
-    TotalRecords: Optional[NonNegativeLong]
-    LookbackPeriod: Optional[DateInterval]
+    Services: ApproximateUsageRecordsPerService | None
+    TotalRecords: NonNegativeLong | None
+    LookbackPeriod: DateInterval | None
 
 
 class GetCommitmentPurchaseAnalysisRequest(ServiceRequest):
@@ -1479,12 +1494,12 @@ class GetCommitmentPurchaseAnalysisRequest(ServiceRequest):
 
 class GetCommitmentPurchaseAnalysisResponse(TypedDict, total=False):
     EstimatedCompletionTime: ZonedDateTime
-    AnalysisCompletionTime: Optional[ZonedDateTime]
+    AnalysisCompletionTime: ZonedDateTime | None
     AnalysisStartedTime: ZonedDateTime
     AnalysisId: AnalysisId
     AnalysisStatus: AnalysisStatus
-    ErrorCode: Optional[ErrorCode]
-    AnalysisDetails: Optional[AnalysisDetails]
+    ErrorCode: ErrorCode | None
+    AnalysisDetails: AnalysisDetails | None
     CommitmentPurchaseAnalysisConfiguration: CommitmentPurchaseAnalysisConfiguration
 
 
@@ -1493,176 +1508,176 @@ class GroupDefinition(TypedDict, total=False):
     response to a query with a specific grouping.
     """
 
-    Type: Optional[GroupDefinitionType]
-    Key: Optional[GroupDefinitionKey]
+    Type: GroupDefinitionType | None
+    Key: GroupDefinitionKey | None
 
 
-GroupDefinitions = List[GroupDefinition]
+GroupDefinitions = list[GroupDefinition]
 
 
 class GetCostAndUsageComparisonsRequest(ServiceRequest):
-    BillingViewArn: Optional[BillingViewArn]
+    BillingViewArn: BillingViewArn | None
     BaselineTimePeriod: DateInterval
     ComparisonTimePeriod: DateInterval
     MetricForComparison: MetricName
-    Filter: Optional[Expression]
-    GroupBy: Optional[GroupDefinitions]
-    MaxResults: Optional[CostAndUsageComparisonsMaxResults]
-    NextPageToken: Optional[NextPageToken]
+    Filter: Expression | None
+    GroupBy: GroupDefinitions | None
+    MaxResults: CostAndUsageComparisonsMaxResults | None
+    NextPageToken: NextPageToken | None
 
 
 class GetCostAndUsageComparisonsResponse(TypedDict, total=False):
-    CostAndUsageComparisons: Optional[CostAndUsageComparisons]
-    TotalCostAndUsage: Optional[ComparisonMetrics]
-    NextPageToken: Optional[NextPageToken]
+    CostAndUsageComparisons: CostAndUsageComparisons | None
+    TotalCostAndUsage: ComparisonMetrics | None
+    NextPageToken: NextPageToken | None
 
 
-MetricNames = List[MetricName]
+MetricNames = list[MetricName]
 
 
 class GetCostAndUsageRequest(ServiceRequest):
     TimePeriod: DateInterval
     Granularity: Granularity
-    Filter: Optional[Expression]
+    Filter: Expression | None
     Metrics: MetricNames
-    GroupBy: Optional[GroupDefinitions]
-    BillingViewArn: Optional[BillingViewArn]
-    NextPageToken: Optional[NextPageToken]
+    GroupBy: GroupDefinitions | None
+    BillingViewArn: BillingViewArn | None
+    NextPageToken: NextPageToken | None
 
 
 class MetricValue(TypedDict, total=False):
     """The aggregated value for a metric."""
 
-    Amount: Optional[MetricAmount]
-    Unit: Optional[MetricUnit]
+    Amount: MetricAmount | None
+    Unit: MetricUnit | None
 
 
-Metrics = Dict[MetricName, MetricValue]
-Keys = List[Key]
+Metrics = dict[MetricName, MetricValue]
+Keys = list[Key]
 
 
 class Group(TypedDict, total=False):
     """One level of grouped data in the results."""
 
-    Keys: Optional[Keys]
-    Metrics: Optional[Metrics]
+    Keys: Keys | None
+    Metrics: Metrics | None
 
 
-Groups = List[Group]
+Groups = list[Group]
 
 
 class ResultByTime(TypedDict, total=False):
     """The result that's associated with a time period."""
 
-    TimePeriod: Optional[DateInterval]
-    Total: Optional[Metrics]
-    Groups: Optional[Groups]
-    Estimated: Optional[Estimated]
+    TimePeriod: DateInterval | None
+    Total: Metrics | None
+    Groups: Groups | None
+    Estimated: Estimated | None
 
 
-ResultsByTime = List[ResultByTime]
+ResultsByTime = list[ResultByTime]
 
 
 class GetCostAndUsageResponse(TypedDict, total=False):
-    NextPageToken: Optional[NextPageToken]
-    GroupDefinitions: Optional[GroupDefinitions]
-    ResultsByTime: Optional[ResultsByTime]
-    DimensionValueAttributes: Optional[DimensionValuesWithAttributesList]
+    NextPageToken: NextPageToken | None
+    GroupDefinitions: GroupDefinitions | None
+    ResultsByTime: ResultsByTime | None
+    DimensionValueAttributes: DimensionValuesWithAttributesList | None
 
 
 class GetCostAndUsageWithResourcesRequest(ServiceRequest):
     TimePeriod: DateInterval
     Granularity: Granularity
     Filter: Expression
-    Metrics: Optional[MetricNames]
-    GroupBy: Optional[GroupDefinitions]
-    BillingViewArn: Optional[BillingViewArn]
-    NextPageToken: Optional[NextPageToken]
+    Metrics: MetricNames | None
+    GroupBy: GroupDefinitions | None
+    BillingViewArn: BillingViewArn | None
+    NextPageToken: NextPageToken | None
 
 
 class GetCostAndUsageWithResourcesResponse(TypedDict, total=False):
-    NextPageToken: Optional[NextPageToken]
-    GroupDefinitions: Optional[GroupDefinitions]
-    ResultsByTime: Optional[ResultsByTime]
-    DimensionValueAttributes: Optional[DimensionValuesWithAttributesList]
+    NextPageToken: NextPageToken | None
+    GroupDefinitions: GroupDefinitions | None
+    ResultsByTime: ResultsByTime | None
+    DimensionValueAttributes: DimensionValuesWithAttributesList | None
 
 
 class SortDefinition(TypedDict, total=False):
     """The details for how to sort the data."""
 
     Key: SortDefinitionKey
-    SortOrder: Optional[SortOrder]
+    SortOrder: SortOrder | None
 
 
-SortDefinitions = List[SortDefinition]
+SortDefinitions = list[SortDefinition]
 
 
 class GetCostCategoriesRequest(ServiceRequest):
-    SearchString: Optional[SearchString]
+    SearchString: SearchString | None
     TimePeriod: DateInterval
-    CostCategoryName: Optional[CostCategoryName]
-    Filter: Optional[Expression]
-    SortBy: Optional[SortDefinitions]
-    BillingViewArn: Optional[BillingViewArn]
-    MaxResults: Optional[MaxResults]
-    NextPageToken: Optional[NextPageToken]
+    CostCategoryName: CostCategoryName | None
+    Filter: Expression | None
+    SortBy: SortDefinitions | None
+    BillingViewArn: BillingViewArn | None
+    MaxResults: MaxResults | None
+    NextPageToken: NextPageToken | None
 
 
 class GetCostCategoriesResponse(TypedDict, total=False):
-    NextPageToken: Optional[NextPageToken]
-    CostCategoryNames: Optional[CostCategoryNamesList]
-    CostCategoryValues: Optional[CostCategoryValuesList]
+    NextPageToken: NextPageToken | None
+    CostCategoryNames: CostCategoryNamesList | None
+    CostCategoryValues: CostCategoryValuesList | None
     ReturnSize: PageSize
     TotalSize: PageSize
 
 
 class GetCostComparisonDriversRequest(ServiceRequest):
-    BillingViewArn: Optional[BillingViewArn]
+    BillingViewArn: BillingViewArn | None
     BaselineTimePeriod: DateInterval
     ComparisonTimePeriod: DateInterval
     MetricForComparison: MetricName
-    Filter: Optional[Expression]
-    GroupBy: Optional[GroupDefinitions]
-    MaxResults: Optional[CostComparisonDriversMaxResults]
-    NextPageToken: Optional[NextPageToken]
+    Filter: Expression | None
+    GroupBy: GroupDefinitions | None
+    MaxResults: CostComparisonDriversMaxResults | None
+    NextPageToken: NextPageToken | None
 
 
 class GetCostComparisonDriversResponse(TypedDict, total=False):
-    CostComparisonDrivers: Optional[CostComparisonDrivers]
-    NextPageToken: Optional[NextPageToken]
+    CostComparisonDrivers: CostComparisonDrivers | None
+    NextPageToken: NextPageToken | None
 
 
 class GetCostForecastRequest(ServiceRequest):
     TimePeriod: DateInterval
     Metric: Metric
     Granularity: Granularity
-    Filter: Optional[Expression]
-    BillingViewArn: Optional[BillingViewArn]
-    PredictionIntervalLevel: Optional[PredictionIntervalLevel]
+    Filter: Expression | None
+    BillingViewArn: BillingViewArn | None
+    PredictionIntervalLevel: PredictionIntervalLevel | None
 
 
 class GetCostForecastResponse(TypedDict, total=False):
-    Total: Optional[MetricValue]
-    ForecastResultsByTime: Optional[ForecastResultsByTime]
+    Total: MetricValue | None
+    ForecastResultsByTime: ForecastResultsByTime | None
 
 
 class GetDimensionValuesRequest(ServiceRequest):
-    SearchString: Optional[SearchString]
+    SearchString: SearchString | None
     TimePeriod: DateInterval
     Dimension: Dimension
-    Context: Optional[Context]
-    Filter: Optional[Expression]
-    SortBy: Optional[SortDefinitions]
-    BillingViewArn: Optional[BillingViewArn]
-    MaxResults: Optional[MaxResults]
-    NextPageToken: Optional[NextPageToken]
+    Context: Context | None
+    Filter: Expression | None
+    SortBy: SortDefinitions | None
+    BillingViewArn: BillingViewArn | None
+    MaxResults: MaxResults | None
+    NextPageToken: NextPageToken | None
 
 
 class GetDimensionValuesResponse(TypedDict, total=False):
     DimensionValues: DimensionValuesWithAttributesList
     ReturnSize: PageSize
     TotalSize: PageSize
-    NextPageToken: Optional[NextPageToken]
+    NextPageToken: NextPageToken | None
 
 
 class GetReservationCoverageRequest(ServiceRequest):
@@ -1671,19 +1686,19 @@ class GetReservationCoverageRequest(ServiceRequest):
     """
 
     TimePeriod: DateInterval
-    GroupBy: Optional[GroupDefinitions]
-    Granularity: Optional[Granularity]
-    Filter: Optional[Expression]
-    Metrics: Optional[MetricNames]
-    NextPageToken: Optional[NextPageToken]
-    SortBy: Optional[SortDefinition]
-    MaxResults: Optional[MaxResults]
+    GroupBy: GroupDefinitions | None
+    Granularity: Granularity | None
+    Filter: Expression | None
+    Metrics: MetricNames | None
+    NextPageToken: NextPageToken | None
+    SortBy: SortDefinition | None
+    MaxResults: MaxResults | None
 
 
 class GetReservationCoverageResponse(TypedDict, total=False):
     CoveragesByTime: CoveragesByTime
-    Total: Optional[Coverage]
-    NextPageToken: Optional[NextPageToken]
+    Total: Coverage | None
+    NextPageToken: NextPageToken | None
 
 
 class ServiceSpecification(TypedDict, total=False):
@@ -1691,20 +1706,20 @@ class ServiceSpecification(TypedDict, total=False):
     for.
     """
 
-    EC2Specification: Optional[EC2Specification]
+    EC2Specification: EC2Specification | None
 
 
 class GetReservationPurchaseRecommendationRequest(ServiceRequest):
-    AccountId: Optional[GenericString]
+    AccountId: GenericString | None
     Service: GenericString
-    Filter: Optional[Expression]
-    AccountScope: Optional[AccountScope]
-    LookbackPeriodInDays: Optional[LookbackPeriodInDays]
-    TermInYears: Optional[TermInYears]
-    PaymentOption: Optional[PaymentOption]
-    ServiceSpecification: Optional[ServiceSpecification]
-    PageSize: Optional[NonNegativeInteger]
-    NextPageToken: Optional[NextPageToken]
+    Filter: Expression | None
+    AccountScope: AccountScope | None
+    LookbackPeriodInDays: LookbackPeriodInDays | None
+    TermInYears: TermInYears | None
+    PaymentOption: PaymentOption | None
+    ServiceSpecification: ServiceSpecification | None
+    PageSize: NonNegativeInteger | None
+    NextPageToken: NextPageToken | None
 
 
 class ReservationPurchaseRecommendationSummary(TypedDict, total=False):
@@ -1713,9 +1728,9 @@ class ReservationPurchaseRecommendationSummary(TypedDict, total=False):
     total amount of reservation to purchase.
     """
 
-    TotalEstimatedMonthlySavingsAmount: Optional[GenericString]
-    TotalEstimatedMonthlySavingsPercentage: Optional[GenericString]
-    CurrencyCode: Optional[GenericString]
+    TotalEstimatedMonthlySavingsAmount: GenericString | None
+    TotalEstimatedMonthlySavingsPercentage: GenericString | None
+    CurrencyCode: GenericString | None
 
 
 class ReservedCapacityDetails(TypedDict, total=False):
@@ -1723,7 +1738,7 @@ class ReservedCapacityDetails(TypedDict, total=False):
     you purchase.
     """
 
-    DynamoDBCapacityDetails: Optional[DynamoDBCapacityDetails]
+    DynamoDBCapacityDetails: DynamoDBCapacityDetails | None
 
 
 class MemoryDBInstanceDetails(TypedDict, total=False):
@@ -1731,11 +1746,11 @@ class MemoryDBInstanceDetails(TypedDict, total=False):
     recommends that you purchase.
     """
 
-    Family: Optional[GenericString]
-    NodeType: Optional[GenericString]
-    Region: Optional[GenericString]
-    CurrentGeneration: Optional[GenericBoolean]
-    SizeFlexEligible: Optional[GenericBoolean]
+    Family: GenericString | None
+    NodeType: GenericString | None
+    Region: GenericString | None
+    CurrentGeneration: GenericBoolean | None
+    SizeFlexEligible: GenericBoolean | None
 
 
 class RedshiftInstanceDetails(TypedDict, total=False):
@@ -1743,11 +1758,11 @@ class RedshiftInstanceDetails(TypedDict, total=False):
     recommends that you purchase.
     """
 
-    Family: Optional[GenericString]
-    NodeType: Optional[GenericString]
-    Region: Optional[GenericString]
-    CurrentGeneration: Optional[GenericBoolean]
-    SizeFlexEligible: Optional[GenericBoolean]
+    Family: GenericString | None
+    NodeType: GenericString | None
+    Region: GenericString | None
+    CurrentGeneration: GenericBoolean | None
+    SizeFlexEligible: GenericBoolean | None
 
 
 class RDSInstanceDetails(TypedDict, total=False):
@@ -1755,15 +1770,15 @@ class RDSInstanceDetails(TypedDict, total=False):
     recommends that you purchase.
     """
 
-    Family: Optional[GenericString]
-    InstanceType: Optional[GenericString]
-    Region: Optional[GenericString]
-    DatabaseEngine: Optional[GenericString]
-    DatabaseEdition: Optional[GenericString]
-    DeploymentOption: Optional[GenericString]
-    LicenseModel: Optional[GenericString]
-    CurrentGeneration: Optional[GenericBoolean]
-    SizeFlexEligible: Optional[GenericBoolean]
+    Family: GenericString | None
+    InstanceType: GenericString | None
+    Region: GenericString | None
+    DatabaseEngine: GenericString | None
+    DatabaseEdition: GenericString | None
+    DeploymentOption: GenericString | None
+    LicenseModel: GenericString | None
+    CurrentGeneration: GenericBoolean | None
+    SizeFlexEligible: GenericBoolean | None
 
 
 class InstanceDetails(TypedDict, total=False):
@@ -1771,59 +1786,59 @@ class InstanceDetails(TypedDict, total=False):
     you purchase.
     """
 
-    EC2InstanceDetails: Optional[EC2InstanceDetails]
-    RDSInstanceDetails: Optional[RDSInstanceDetails]
-    RedshiftInstanceDetails: Optional[RedshiftInstanceDetails]
-    ElastiCacheInstanceDetails: Optional[ElastiCacheInstanceDetails]
-    ESInstanceDetails: Optional[ESInstanceDetails]
-    MemoryDBInstanceDetails: Optional[MemoryDBInstanceDetails]
+    EC2InstanceDetails: EC2InstanceDetails | None
+    RDSInstanceDetails: RDSInstanceDetails | None
+    RedshiftInstanceDetails: RedshiftInstanceDetails | None
+    ElastiCacheInstanceDetails: ElastiCacheInstanceDetails | None
+    ESInstanceDetails: ESInstanceDetails | None
+    MemoryDBInstanceDetails: MemoryDBInstanceDetails | None
 
 
 class ReservationPurchaseRecommendationDetail(TypedDict, total=False):
     """Details about your recommended reservation purchase."""
 
-    AccountId: Optional[GenericString]
-    InstanceDetails: Optional[InstanceDetails]
-    RecommendedNumberOfInstancesToPurchase: Optional[GenericString]
-    RecommendedNormalizedUnitsToPurchase: Optional[GenericString]
-    MinimumNumberOfInstancesUsedPerHour: Optional[GenericString]
-    MinimumNormalizedUnitsUsedPerHour: Optional[GenericString]
-    MaximumNumberOfInstancesUsedPerHour: Optional[GenericString]
-    MaximumNormalizedUnitsUsedPerHour: Optional[GenericString]
-    AverageNumberOfInstancesUsedPerHour: Optional[GenericString]
-    AverageNormalizedUnitsUsedPerHour: Optional[GenericString]
-    AverageUtilization: Optional[GenericString]
-    EstimatedBreakEvenInMonths: Optional[GenericString]
-    CurrencyCode: Optional[GenericString]
-    EstimatedMonthlySavingsAmount: Optional[GenericString]
-    EstimatedMonthlySavingsPercentage: Optional[GenericString]
-    EstimatedMonthlyOnDemandCost: Optional[GenericString]
-    EstimatedReservationCostForLookbackPeriod: Optional[GenericString]
-    UpfrontCost: Optional[GenericString]
-    RecurringStandardMonthlyCost: Optional[GenericString]
-    ReservedCapacityDetails: Optional[ReservedCapacityDetails]
-    RecommendedNumberOfCapacityUnitsToPurchase: Optional[GenericString]
-    MinimumNumberOfCapacityUnitsUsedPerHour: Optional[GenericString]
-    MaximumNumberOfCapacityUnitsUsedPerHour: Optional[GenericString]
-    AverageNumberOfCapacityUnitsUsedPerHour: Optional[GenericString]
+    AccountId: GenericString | None
+    InstanceDetails: InstanceDetails | None
+    RecommendedNumberOfInstancesToPurchase: GenericString | None
+    RecommendedNormalizedUnitsToPurchase: GenericString | None
+    MinimumNumberOfInstancesUsedPerHour: GenericString | None
+    MinimumNormalizedUnitsUsedPerHour: GenericString | None
+    MaximumNumberOfInstancesUsedPerHour: GenericString | None
+    MaximumNormalizedUnitsUsedPerHour: GenericString | None
+    AverageNumberOfInstancesUsedPerHour: GenericString | None
+    AverageNormalizedUnitsUsedPerHour: GenericString | None
+    AverageUtilization: GenericString | None
+    EstimatedBreakEvenInMonths: GenericString | None
+    CurrencyCode: GenericString | None
+    EstimatedMonthlySavingsAmount: GenericString | None
+    EstimatedMonthlySavingsPercentage: GenericString | None
+    EstimatedMonthlyOnDemandCost: GenericString | None
+    EstimatedReservationCostForLookbackPeriod: GenericString | None
+    UpfrontCost: GenericString | None
+    RecurringStandardMonthlyCost: GenericString | None
+    ReservedCapacityDetails: ReservedCapacityDetails | None
+    RecommendedNumberOfCapacityUnitsToPurchase: GenericString | None
+    MinimumNumberOfCapacityUnitsUsedPerHour: GenericString | None
+    MaximumNumberOfCapacityUnitsUsedPerHour: GenericString | None
+    AverageNumberOfCapacityUnitsUsedPerHour: GenericString | None
 
 
-ReservationPurchaseRecommendationDetails = List[ReservationPurchaseRecommendationDetail]
+ReservationPurchaseRecommendationDetails = list[ReservationPurchaseRecommendationDetail]
 
 
 class ReservationPurchaseRecommendation(TypedDict, total=False):
     """A specific reservation that Amazon Web Services recommends for purchase."""
 
-    AccountScope: Optional[AccountScope]
-    LookbackPeriodInDays: Optional[LookbackPeriodInDays]
-    TermInYears: Optional[TermInYears]
-    PaymentOption: Optional[PaymentOption]
-    ServiceSpecification: Optional[ServiceSpecification]
-    RecommendationDetails: Optional[ReservationPurchaseRecommendationDetails]
-    RecommendationSummary: Optional[ReservationPurchaseRecommendationSummary]
+    AccountScope: AccountScope | None
+    LookbackPeriodInDays: LookbackPeriodInDays | None
+    TermInYears: TermInYears | None
+    PaymentOption: PaymentOption | None
+    ServiceSpecification: ServiceSpecification | None
+    RecommendationDetails: ReservationPurchaseRecommendationDetails | None
+    RecommendationSummary: ReservationPurchaseRecommendationSummary | None
 
 
-ReservationPurchaseRecommendations = List[ReservationPurchaseRecommendation]
+ReservationPurchaseRecommendations = list[ReservationPurchaseRecommendation]
 
 
 class ReservationPurchaseRecommendationMetadata(TypedDict, total=False):
@@ -1831,76 +1846,76 @@ class ReservationPurchaseRecommendationMetadata(TypedDict, total=False):
     Amazon Web Services made a specific recommendation.
     """
 
-    RecommendationId: Optional[GenericString]
-    GenerationTimestamp: Optional[GenericString]
-    AdditionalMetadata: Optional[GenericString]
+    RecommendationId: GenericString | None
+    GenerationTimestamp: GenericString | None
+    AdditionalMetadata: GenericString | None
 
 
 class GetReservationPurchaseRecommendationResponse(TypedDict, total=False):
-    Metadata: Optional[ReservationPurchaseRecommendationMetadata]
-    Recommendations: Optional[ReservationPurchaseRecommendations]
-    NextPageToken: Optional[NextPageToken]
+    Metadata: ReservationPurchaseRecommendationMetadata | None
+    Recommendations: ReservationPurchaseRecommendations | None
+    NextPageToken: NextPageToken | None
 
 
 class GetReservationUtilizationRequest(ServiceRequest):
     TimePeriod: DateInterval
-    GroupBy: Optional[GroupDefinitions]
-    Granularity: Optional[Granularity]
-    Filter: Optional[Expression]
-    SortBy: Optional[SortDefinition]
-    NextPageToken: Optional[NextPageToken]
-    MaxResults: Optional[MaxResults]
+    GroupBy: GroupDefinitions | None
+    Granularity: Granularity | None
+    Filter: Expression | None
+    SortBy: SortDefinition | None
+    NextPageToken: NextPageToken | None
+    MaxResults: MaxResults | None
 
 
 class ReservationAggregates(TypedDict, total=False):
     """The aggregated numbers for your reservation usage."""
 
-    UtilizationPercentage: Optional[UtilizationPercentage]
-    UtilizationPercentageInUnits: Optional[UtilizationPercentageInUnits]
-    PurchasedHours: Optional[PurchasedHours]
-    PurchasedUnits: Optional[PurchasedUnits]
-    TotalActualHours: Optional[TotalActualHours]
-    TotalActualUnits: Optional[TotalActualUnits]
-    UnusedHours: Optional[UnusedHours]
-    UnusedUnits: Optional[UnusedUnits]
-    OnDemandCostOfRIHoursUsed: Optional[OnDemandCostOfRIHoursUsed]
-    NetRISavings: Optional[NetRISavings]
-    TotalPotentialRISavings: Optional[TotalPotentialRISavings]
-    AmortizedUpfrontFee: Optional[AmortizedUpfrontFee]
-    AmortizedRecurringFee: Optional[AmortizedRecurringFee]
-    TotalAmortizedFee: Optional[TotalAmortizedFee]
-    RICostForUnusedHours: Optional[RICostForUnusedHours]
-    RealizedSavings: Optional[RealizedSavings]
-    UnrealizedSavings: Optional[UnrealizedSavings]
+    UtilizationPercentage: UtilizationPercentage | None
+    UtilizationPercentageInUnits: UtilizationPercentageInUnits | None
+    PurchasedHours: PurchasedHours | None
+    PurchasedUnits: PurchasedUnits | None
+    TotalActualHours: TotalActualHours | None
+    TotalActualUnits: TotalActualUnits | None
+    UnusedHours: UnusedHours | None
+    UnusedUnits: UnusedUnits | None
+    OnDemandCostOfRIHoursUsed: OnDemandCostOfRIHoursUsed | None
+    NetRISavings: NetRISavings | None
+    TotalPotentialRISavings: TotalPotentialRISavings | None
+    AmortizedUpfrontFee: AmortizedUpfrontFee | None
+    AmortizedRecurringFee: AmortizedRecurringFee | None
+    TotalAmortizedFee: TotalAmortizedFee | None
+    RICostForUnusedHours: RICostForUnusedHours | None
+    RealizedSavings: RealizedSavings | None
+    UnrealizedSavings: UnrealizedSavings | None
 
 
 class ReservationUtilizationGroup(TypedDict, total=False):
     """A group of reservations that share a set of attributes."""
 
-    Key: Optional[ReservationGroupKey]
-    Value: Optional[ReservationGroupValue]
-    Attributes: Optional[Attributes]
-    Utilization: Optional[ReservationAggregates]
+    Key: ReservationGroupKey | None
+    Value: ReservationGroupValue | None
+    Attributes: Attributes | None
+    Utilization: ReservationAggregates | None
 
 
-ReservationUtilizationGroups = List[ReservationUtilizationGroup]
+ReservationUtilizationGroups = list[ReservationUtilizationGroup]
 
 
 class UtilizationByTime(TypedDict, total=False):
     """The amount of utilization, in hours."""
 
-    TimePeriod: Optional[DateInterval]
-    Groups: Optional[ReservationUtilizationGroups]
-    Total: Optional[ReservationAggregates]
+    TimePeriod: DateInterval | None
+    Groups: ReservationUtilizationGroups | None
+    Total: ReservationAggregates | None
 
 
-UtilizationsByTime = List[UtilizationByTime]
+UtilizationsByTime = list[UtilizationByTime]
 
 
 class GetReservationUtilizationResponse(TypedDict, total=False):
     UtilizationsByTime: UtilizationsByTime
-    Total: Optional[ReservationAggregates]
-    NextPageToken: Optional[NextPageToken]
+    Total: ReservationAggregates | None
+    NextPageToken: NextPageToken | None
 
 
 class RightsizingRecommendationConfiguration(TypedDict, total=False):
@@ -1918,82 +1933,82 @@ class RightsizingRecommendationConfiguration(TypedDict, total=False):
 
 
 class GetRightsizingRecommendationRequest(ServiceRequest):
-    Filter: Optional[Expression]
-    Configuration: Optional[RightsizingRecommendationConfiguration]
+    Filter: Expression | None
+    Configuration: RightsizingRecommendationConfiguration | None
     Service: GenericString
-    PageSize: Optional[NonNegativeInteger]
-    NextPageToken: Optional[NextPageToken]
+    PageSize: NonNegativeInteger | None
+    NextPageToken: NextPageToken | None
 
 
 class TerminateRecommendationDetail(TypedDict, total=False):
     """Details on termination recommendation."""
 
-    EstimatedMonthlySavings: Optional[GenericString]
-    CurrencyCode: Optional[GenericString]
+    EstimatedMonthlySavings: GenericString | None
+    CurrencyCode: GenericString | None
 
 
-PlatformDifferences = List[PlatformDifference]
+PlatformDifferences = list[PlatformDifference]
 
 
 class TargetInstance(TypedDict, total=False):
     """Details on recommended instance."""
 
-    EstimatedMonthlyCost: Optional[GenericString]
-    EstimatedMonthlySavings: Optional[GenericString]
-    CurrencyCode: Optional[GenericString]
-    DefaultTargetInstance: Optional[GenericBoolean]
-    ResourceDetails: Optional[ResourceDetails]
-    ExpectedResourceUtilization: Optional[ResourceUtilization]
-    PlatformDifferences: Optional[PlatformDifferences]
+    EstimatedMonthlyCost: GenericString | None
+    EstimatedMonthlySavings: GenericString | None
+    CurrencyCode: GenericString | None
+    DefaultTargetInstance: GenericBoolean | None
+    ResourceDetails: ResourceDetails | None
+    ExpectedResourceUtilization: ResourceUtilization | None
+    PlatformDifferences: PlatformDifferences | None
 
 
-TargetInstancesList = List[TargetInstance]
+TargetInstancesList = list[TargetInstance]
 
 
 class ModifyRecommendationDetail(TypedDict, total=False):
     """Details for the modification recommendation."""
 
-    TargetInstances: Optional[TargetInstancesList]
+    TargetInstances: TargetInstancesList | None
 
 
 class RightsizingRecommendation(TypedDict, total=False):
     """Recommendations to rightsize resources."""
 
-    AccountId: Optional[GenericString]
-    CurrentInstance: Optional[CurrentInstance]
-    RightsizingType: Optional[RightsizingType]
-    ModifyRecommendationDetail: Optional[ModifyRecommendationDetail]
-    TerminateRecommendationDetail: Optional[TerminateRecommendationDetail]
-    FindingReasonCodes: Optional[FindingReasonCodes]
+    AccountId: GenericString | None
+    CurrentInstance: CurrentInstance | None
+    RightsizingType: RightsizingType | None
+    ModifyRecommendationDetail: ModifyRecommendationDetail | None
+    TerminateRecommendationDetail: TerminateRecommendationDetail | None
+    FindingReasonCodes: FindingReasonCodes | None
 
 
-RightsizingRecommendationList = List[RightsizingRecommendation]
+RightsizingRecommendationList = list[RightsizingRecommendation]
 
 
 class RightsizingRecommendationSummary(TypedDict, total=False):
     """The summary of rightsizing recommendations"""
 
-    TotalRecommendationCount: Optional[GenericString]
-    EstimatedTotalMonthlySavingsAmount: Optional[GenericString]
-    SavingsCurrencyCode: Optional[GenericString]
-    SavingsPercentage: Optional[GenericString]
+    TotalRecommendationCount: GenericString | None
+    EstimatedTotalMonthlySavingsAmount: GenericString | None
+    SavingsCurrencyCode: GenericString | None
+    SavingsPercentage: GenericString | None
 
 
 class RightsizingRecommendationMetadata(TypedDict, total=False):
     """Metadata for a recommendation set."""
 
-    RecommendationId: Optional[GenericString]
-    GenerationTimestamp: Optional[GenericString]
-    LookbackPeriodInDays: Optional[LookbackPeriodInDays]
-    AdditionalMetadata: Optional[GenericString]
+    RecommendationId: GenericString | None
+    GenerationTimestamp: GenericString | None
+    LookbackPeriodInDays: LookbackPeriodInDays | None
+    AdditionalMetadata: GenericString | None
 
 
 class GetRightsizingRecommendationResponse(TypedDict, total=False):
-    Metadata: Optional[RightsizingRecommendationMetadata]
-    Summary: Optional[RightsizingRecommendationSummary]
-    RightsizingRecommendations: Optional[RightsizingRecommendationList]
-    NextPageToken: Optional[NextPageToken]
-    Configuration: Optional[RightsizingRecommendationConfiguration]
+    Metadata: RightsizingRecommendationMetadata | None
+    Summary: RightsizingRecommendationSummary | None
+    RightsizingRecommendations: RightsizingRecommendationList | None
+    NextPageToken: NextPageToken | None
+    Configuration: RightsizingRecommendationConfiguration | None
 
 
 class GetSavingsPlanPurchaseRecommendationDetailsRequest(ServiceRequest):
@@ -2003,51 +2018,51 @@ class GetSavingsPlanPurchaseRecommendationDetailsRequest(ServiceRequest):
 class RecommendationDetailData(TypedDict, total=False):
     """The details and metrics for the given recommendation."""
 
-    AccountScope: Optional[AccountScope]
-    LookbackPeriodInDays: Optional[LookbackPeriodInDays]
-    SavingsPlansType: Optional[SupportedSavingsPlansType]
-    TermInYears: Optional[TermInYears]
-    PaymentOption: Optional[PaymentOption]
-    AccountId: Optional[GenericString]
-    CurrencyCode: Optional[GenericString]
-    InstanceFamily: Optional[GenericString]
-    Region: Optional[GenericString]
-    OfferingId: Optional[GenericString]
-    GenerationTimestamp: Optional[ZonedDateTime]
-    LatestUsageTimestamp: Optional[ZonedDateTime]
-    CurrentAverageHourlyOnDemandSpend: Optional[GenericString]
-    CurrentMaximumHourlyOnDemandSpend: Optional[GenericString]
-    CurrentMinimumHourlyOnDemandSpend: Optional[GenericString]
-    EstimatedAverageUtilization: Optional[GenericString]
-    EstimatedMonthlySavingsAmount: Optional[GenericString]
-    EstimatedOnDemandCost: Optional[GenericString]
-    EstimatedOnDemandCostWithCurrentCommitment: Optional[GenericString]
-    EstimatedROI: Optional[GenericString]
-    EstimatedSPCost: Optional[GenericString]
-    EstimatedSavingsAmount: Optional[GenericString]
-    EstimatedSavingsPercentage: Optional[GenericString]
-    ExistingHourlyCommitment: Optional[GenericString]
-    HourlyCommitmentToPurchase: Optional[GenericString]
-    UpfrontCost: Optional[GenericString]
-    CurrentAverageCoverage: Optional[GenericString]
-    EstimatedAverageCoverage: Optional[GenericString]
-    MetricsOverLookbackPeriod: Optional[MetricsOverLookbackPeriod]
+    AccountScope: AccountScope | None
+    LookbackPeriodInDays: LookbackPeriodInDays | None
+    SavingsPlansType: SupportedSavingsPlansType | None
+    TermInYears: TermInYears | None
+    PaymentOption: PaymentOption | None
+    AccountId: GenericString | None
+    CurrencyCode: GenericString | None
+    InstanceFamily: GenericString | None
+    Region: GenericString | None
+    OfferingId: GenericString | None
+    GenerationTimestamp: ZonedDateTime | None
+    LatestUsageTimestamp: ZonedDateTime | None
+    CurrentAverageHourlyOnDemandSpend: GenericString | None
+    CurrentMaximumHourlyOnDemandSpend: GenericString | None
+    CurrentMinimumHourlyOnDemandSpend: GenericString | None
+    EstimatedAverageUtilization: GenericString | None
+    EstimatedMonthlySavingsAmount: GenericString | None
+    EstimatedOnDemandCost: GenericString | None
+    EstimatedOnDemandCostWithCurrentCommitment: GenericString | None
+    EstimatedROI: GenericString | None
+    EstimatedSPCost: GenericString | None
+    EstimatedSavingsAmount: GenericString | None
+    EstimatedSavingsPercentage: GenericString | None
+    ExistingHourlyCommitment: GenericString | None
+    HourlyCommitmentToPurchase: GenericString | None
+    UpfrontCost: GenericString | None
+    CurrentAverageCoverage: GenericString | None
+    EstimatedAverageCoverage: GenericString | None
+    MetricsOverLookbackPeriod: MetricsOverLookbackPeriod | None
 
 
 class GetSavingsPlanPurchaseRecommendationDetailsResponse(TypedDict, total=False):
-    RecommendationDetailId: Optional[RecommendationDetailId]
-    RecommendationDetailData: Optional[RecommendationDetailData]
+    RecommendationDetailId: RecommendationDetailId | None
+    RecommendationDetailData: RecommendationDetailData | None
 
 
 class GetSavingsPlansCoverageRequest(ServiceRequest):
     TimePeriod: DateInterval
-    GroupBy: Optional[GroupDefinitions]
-    Granularity: Optional[Granularity]
-    Filter: Optional[Expression]
-    Metrics: Optional[MetricNames]
-    NextToken: Optional[NextPageToken]
-    MaxResults: Optional[MaxResults]
-    SortBy: Optional[SortDefinition]
+    GroupBy: GroupDefinitions | None
+    Granularity: Granularity | None
+    Filter: Expression | None
+    Metrics: MetricNames | None
+    NextToken: NextPageToken | None
+    MaxResults: MaxResults | None
+    SortBy: SortDefinition | None
 
 
 class SavingsPlansCoverageData(TypedDict, total=False):
@@ -2055,10 +2070,10 @@ class SavingsPlansCoverageData(TypedDict, total=False):
     Savings Plans, and total Savings Plans costs for an account.
     """
 
-    SpendCoveredBySavingsPlans: Optional[GenericString]
-    OnDemandCost: Optional[GenericString]
-    TotalCost: Optional[GenericString]
-    CoveragePercentage: Optional[GenericString]
+    SpendCoveredBySavingsPlans: GenericString | None
+    OnDemandCost: GenericString | None
+    TotalCost: GenericString | None
+    CoveragePercentage: GenericString | None
 
 
 class SavingsPlansCoverage(TypedDict, total=False):
@@ -2067,77 +2082,77 @@ class SavingsPlansCoverage(TypedDict, total=False):
     Savings Plans usage.
     """
 
-    Attributes: Optional[Attributes]
-    Coverage: Optional[SavingsPlansCoverageData]
-    TimePeriod: Optional[DateInterval]
+    Attributes: Attributes | None
+    Coverage: SavingsPlansCoverageData | None
+    TimePeriod: DateInterval | None
 
 
-SavingsPlansCoverages = List[SavingsPlansCoverage]
+SavingsPlansCoverages = list[SavingsPlansCoverage]
 
 
 class GetSavingsPlansCoverageResponse(TypedDict, total=False):
     SavingsPlansCoverages: SavingsPlansCoverages
-    NextToken: Optional[NextPageToken]
+    NextToken: NextPageToken | None
 
 
 class GetSavingsPlansPurchaseRecommendationRequest(ServiceRequest):
     SavingsPlansType: SupportedSavingsPlansType
     TermInYears: TermInYears
     PaymentOption: PaymentOption
-    AccountScope: Optional[AccountScope]
-    NextPageToken: Optional[NextPageToken]
-    PageSize: Optional[NonNegativeInteger]
+    AccountScope: AccountScope | None
+    NextPageToken: NextPageToken | None
+    PageSize: NonNegativeInteger | None
     LookbackPeriodInDays: LookbackPeriodInDays
-    Filter: Optional[Expression]
+    Filter: Expression | None
 
 
 class SavingsPlansPurchaseRecommendationSummary(TypedDict, total=False):
     """Summary metrics for your Savings Plans Purchase Recommendations."""
 
-    EstimatedROI: Optional[GenericString]
-    CurrencyCode: Optional[GenericString]
-    EstimatedTotalCost: Optional[GenericString]
-    CurrentOnDemandSpend: Optional[GenericString]
-    EstimatedSavingsAmount: Optional[GenericString]
-    TotalRecommendationCount: Optional[GenericString]
-    DailyCommitmentToPurchase: Optional[GenericString]
-    HourlyCommitmentToPurchase: Optional[GenericString]
-    EstimatedSavingsPercentage: Optional[GenericString]
-    EstimatedMonthlySavingsAmount: Optional[GenericString]
-    EstimatedOnDemandCostWithCurrentCommitment: Optional[GenericString]
+    EstimatedROI: GenericString | None
+    CurrencyCode: GenericString | None
+    EstimatedTotalCost: GenericString | None
+    CurrentOnDemandSpend: GenericString | None
+    EstimatedSavingsAmount: GenericString | None
+    TotalRecommendationCount: GenericString | None
+    DailyCommitmentToPurchase: GenericString | None
+    HourlyCommitmentToPurchase: GenericString | None
+    EstimatedSavingsPercentage: GenericString | None
+    EstimatedMonthlySavingsAmount: GenericString | None
+    EstimatedOnDemandCostWithCurrentCommitment: GenericString | None
 
 
 class SavingsPlansDetails(TypedDict, total=False):
     """The attribute details on a specific Savings Plan."""
 
-    Region: Optional[GenericString]
-    InstanceFamily: Optional[GenericString]
-    OfferingId: Optional[GenericString]
+    Region: GenericString | None
+    InstanceFamily: GenericString | None
+    OfferingId: GenericString | None
 
 
 class SavingsPlansPurchaseRecommendationDetail(TypedDict, total=False):
     """Details for your recommended Savings Plans."""
 
-    SavingsPlansDetails: Optional[SavingsPlansDetails]
-    AccountId: Optional[GenericString]
-    UpfrontCost: Optional[GenericString]
-    EstimatedROI: Optional[GenericString]
-    CurrencyCode: Optional[GenericString]
-    EstimatedSPCost: Optional[GenericString]
-    EstimatedOnDemandCost: Optional[GenericString]
-    EstimatedOnDemandCostWithCurrentCommitment: Optional[GenericString]
-    EstimatedSavingsAmount: Optional[GenericString]
-    EstimatedSavingsPercentage: Optional[GenericString]
-    HourlyCommitmentToPurchase: Optional[GenericString]
-    EstimatedAverageUtilization: Optional[GenericString]
-    EstimatedMonthlySavingsAmount: Optional[GenericString]
-    CurrentMinimumHourlyOnDemandSpend: Optional[GenericString]
-    CurrentMaximumHourlyOnDemandSpend: Optional[GenericString]
-    CurrentAverageHourlyOnDemandSpend: Optional[GenericString]
-    RecommendationDetailId: Optional[RecommendationDetailId]
+    SavingsPlansDetails: SavingsPlansDetails | None
+    AccountId: GenericString | None
+    UpfrontCost: GenericString | None
+    EstimatedROI: GenericString | None
+    CurrencyCode: GenericString | None
+    EstimatedSPCost: GenericString | None
+    EstimatedOnDemandCost: GenericString | None
+    EstimatedOnDemandCostWithCurrentCommitment: GenericString | None
+    EstimatedSavingsAmount: GenericString | None
+    EstimatedSavingsPercentage: GenericString | None
+    HourlyCommitmentToPurchase: GenericString | None
+    EstimatedAverageUtilization: GenericString | None
+    EstimatedMonthlySavingsAmount: GenericString | None
+    CurrentMinimumHourlyOnDemandSpend: GenericString | None
+    CurrentMaximumHourlyOnDemandSpend: GenericString | None
+    CurrentAverageHourlyOnDemandSpend: GenericString | None
+    RecommendationDetailId: RecommendationDetailId | None
 
 
-SavingsPlansPurchaseRecommendationDetailList = List[SavingsPlansPurchaseRecommendationDetail]
+SavingsPlansPurchaseRecommendationDetailList = list[SavingsPlansPurchaseRecommendationDetail]
 
 
 class SavingsPlansPurchaseRecommendation(TypedDict, total=False):
@@ -2145,41 +2160,39 @@ class SavingsPlansPurchaseRecommendation(TypedDict, total=False):
     and Details.
     """
 
-    AccountScope: Optional[AccountScope]
-    SavingsPlansType: Optional[SupportedSavingsPlansType]
-    TermInYears: Optional[TermInYears]
-    PaymentOption: Optional[PaymentOption]
-    LookbackPeriodInDays: Optional[LookbackPeriodInDays]
-    SavingsPlansPurchaseRecommendationDetails: Optional[
-        SavingsPlansPurchaseRecommendationDetailList
-    ]
-    SavingsPlansPurchaseRecommendationSummary: Optional[SavingsPlansPurchaseRecommendationSummary]
+    AccountScope: AccountScope | None
+    SavingsPlansType: SupportedSavingsPlansType | None
+    TermInYears: TermInYears | None
+    PaymentOption: PaymentOption | None
+    LookbackPeriodInDays: LookbackPeriodInDays | None
+    SavingsPlansPurchaseRecommendationDetails: SavingsPlansPurchaseRecommendationDetailList | None
+    SavingsPlansPurchaseRecommendationSummary: SavingsPlansPurchaseRecommendationSummary | None
 
 
 class SavingsPlansPurchaseRecommendationMetadata(TypedDict, total=False):
     """Metadata about your Savings Plans Purchase Recommendations."""
 
-    RecommendationId: Optional[GenericString]
-    GenerationTimestamp: Optional[GenericString]
-    AdditionalMetadata: Optional[GenericString]
+    RecommendationId: GenericString | None
+    GenerationTimestamp: GenericString | None
+    AdditionalMetadata: GenericString | None
 
 
 class GetSavingsPlansPurchaseRecommendationResponse(TypedDict, total=False):
-    Metadata: Optional[SavingsPlansPurchaseRecommendationMetadata]
-    SavingsPlansPurchaseRecommendation: Optional[SavingsPlansPurchaseRecommendation]
-    NextPageToken: Optional[NextPageToken]
+    Metadata: SavingsPlansPurchaseRecommendationMetadata | None
+    SavingsPlansPurchaseRecommendation: SavingsPlansPurchaseRecommendation | None
+    NextPageToken: NextPageToken | None
 
 
-SavingsPlansDataTypes = List[SavingsPlansDataType]
+SavingsPlansDataTypes = list[SavingsPlansDataType]
 
 
 class GetSavingsPlansUtilizationDetailsRequest(ServiceRequest):
     TimePeriod: DateInterval
-    Filter: Optional[Expression]
-    DataType: Optional[SavingsPlansDataTypes]
-    NextToken: Optional[NextPageToken]
-    MaxResults: Optional[MaxResults]
-    SortBy: Optional[SortDefinition]
+    Filter: Expression | None
+    DataType: SavingsPlansDataTypes | None
+    NextToken: NextPageToken | None
+    MaxResults: MaxResults | None
+    SortBy: SortDefinition | None
 
 
 class SavingsPlansAmortizedCommitment(TypedDict, total=False):
@@ -2187,9 +2200,9 @@ class SavingsPlansAmortizedCommitment(TypedDict, total=False):
     during a specific time interval.
     """
 
-    AmortizedRecurringCommitment: Optional[GenericString]
-    AmortizedUpfrontCommitment: Optional[GenericString]
-    TotalAmortizedCommitment: Optional[GenericString]
+    AmortizedRecurringCommitment: GenericString | None
+    AmortizedUpfrontCommitment: GenericString | None
+    TotalAmortizedCommitment: GenericString | None
 
 
 class SavingsPlansSavings(TypedDict, total=False):
@@ -2197,25 +2210,25 @@ class SavingsPlansSavings(TypedDict, total=False):
     On-Demand rate of the usage accrued in an account.
     """
 
-    NetSavings: Optional[GenericString]
-    OnDemandCostEquivalent: Optional[GenericString]
+    NetSavings: GenericString | None
+    OnDemandCostEquivalent: GenericString | None
 
 
 class SavingsPlansUtilization(TypedDict, total=False):
     """The measurement of how well you're using your existing Savings Plans."""
 
-    TotalCommitment: Optional[GenericString]
-    UsedCommitment: Optional[GenericString]
-    UnusedCommitment: Optional[GenericString]
-    UtilizationPercentage: Optional[GenericString]
+    TotalCommitment: GenericString | None
+    UsedCommitment: GenericString | None
+    UnusedCommitment: GenericString | None
+    UtilizationPercentage: GenericString | None
 
 
 class SavingsPlansUtilizationAggregates(TypedDict, total=False):
     """The aggregated utilization metrics for your Savings Plans usage."""
 
     Utilization: SavingsPlansUtilization
-    Savings: Optional[SavingsPlansSavings]
-    AmortizedCommitment: Optional[SavingsPlansAmortizedCommitment]
+    Savings: SavingsPlansSavings | None
+    AmortizedCommitment: SavingsPlansAmortizedCommitment | None
 
 
 class SavingsPlansUtilizationDetail(TypedDict, total=False):
@@ -2225,28 +2238,28 @@ class SavingsPlansUtilizationDetail(TypedDict, total=False):
     possible dimension values.
     """
 
-    SavingsPlanArn: Optional[SavingsPlanArn]
-    Attributes: Optional[Attributes]
-    Utilization: Optional[SavingsPlansUtilization]
-    Savings: Optional[SavingsPlansSavings]
-    AmortizedCommitment: Optional[SavingsPlansAmortizedCommitment]
+    SavingsPlanArn: SavingsPlanArn | None
+    Attributes: Attributes | None
+    Utilization: SavingsPlansUtilization | None
+    Savings: SavingsPlansSavings | None
+    AmortizedCommitment: SavingsPlansAmortizedCommitment | None
 
 
-SavingsPlansUtilizationDetails = List[SavingsPlansUtilizationDetail]
+SavingsPlansUtilizationDetails = list[SavingsPlansUtilizationDetail]
 
 
 class GetSavingsPlansUtilizationDetailsResponse(TypedDict, total=False):
     SavingsPlansUtilizationDetails: SavingsPlansUtilizationDetails
-    Total: Optional[SavingsPlansUtilizationAggregates]
+    Total: SavingsPlansUtilizationAggregates | None
     TimePeriod: DateInterval
-    NextToken: Optional[NextPageToken]
+    NextToken: NextPageToken | None
 
 
 class GetSavingsPlansUtilizationRequest(ServiceRequest):
     TimePeriod: DateInterval
-    Granularity: Optional[Granularity]
-    Filter: Optional[Expression]
-    SortBy: Optional[SortDefinition]
+    Granularity: Granularity | None
+    Filter: Expression | None
+    SortBy: SortDefinition | None
 
 
 class SavingsPlansUtilizationByTime(TypedDict, total=False):
@@ -2254,34 +2267,34 @@ class SavingsPlansUtilizationByTime(TypedDict, total=False):
 
     TimePeriod: DateInterval
     Utilization: SavingsPlansUtilization
-    Savings: Optional[SavingsPlansSavings]
-    AmortizedCommitment: Optional[SavingsPlansAmortizedCommitment]
+    Savings: SavingsPlansSavings | None
+    AmortizedCommitment: SavingsPlansAmortizedCommitment | None
 
 
-SavingsPlansUtilizationsByTime = List[SavingsPlansUtilizationByTime]
+SavingsPlansUtilizationsByTime = list[SavingsPlansUtilizationByTime]
 
 
 class GetSavingsPlansUtilizationResponse(TypedDict, total=False):
-    SavingsPlansUtilizationsByTime: Optional[SavingsPlansUtilizationsByTime]
+    SavingsPlansUtilizationsByTime: SavingsPlansUtilizationsByTime | None
     Total: SavingsPlansUtilizationAggregates
 
 
 class GetTagsRequest(ServiceRequest):
-    SearchString: Optional[SearchString]
+    SearchString: SearchString | None
     TimePeriod: DateInterval
-    TagKey: Optional[TagKey]
-    Filter: Optional[Expression]
-    SortBy: Optional[SortDefinitions]
-    BillingViewArn: Optional[BillingViewArn]
-    MaxResults: Optional[MaxResults]
-    NextPageToken: Optional[NextPageToken]
+    TagKey: TagKey | None
+    Filter: Expression | None
+    SortBy: SortDefinitions | None
+    BillingViewArn: BillingViewArn | None
+    MaxResults: MaxResults | None
+    NextPageToken: NextPageToken | None
 
 
-TagList = List[Entity]
+TagList = list[Entity]
 
 
 class GetTagsResponse(TypedDict, total=False):
-    NextPageToken: Optional[NextPageToken]
+    NextPageToken: NextPageToken | None
     Tags: TagList
     ReturnSize: PageSize
     TotalSize: PageSize
@@ -2291,75 +2304,75 @@ class GetUsageForecastRequest(ServiceRequest):
     TimePeriod: DateInterval
     Metric: Metric
     Granularity: Granularity
-    Filter: Optional[Expression]
-    BillingViewArn: Optional[BillingViewArn]
-    PredictionIntervalLevel: Optional[PredictionIntervalLevel]
+    Filter: Expression | None
+    BillingViewArn: BillingViewArn | None
+    PredictionIntervalLevel: PredictionIntervalLevel | None
 
 
 class GetUsageForecastResponse(TypedDict, total=False):
-    Total: Optional[MetricValue]
-    ForecastResultsByTime: Optional[ForecastResultsByTime]
+    Total: MetricValue | None
+    ForecastResultsByTime: ForecastResultsByTime | None
 
 
 class ListCommitmentPurchaseAnalysesRequest(ServiceRequest):
-    AnalysisStatus: Optional[AnalysisStatus]
-    NextPageToken: Optional[NextPageToken]
-    PageSize: Optional[NonNegativeInteger]
-    AnalysisIds: Optional[AnalysisIds]
+    AnalysisStatus: AnalysisStatus | None
+    NextPageToken: NextPageToken | None
+    PageSize: NonNegativeInteger | None
+    AnalysisIds: AnalysisIds | None
 
 
 class ListCommitmentPurchaseAnalysesResponse(TypedDict, total=False):
-    AnalysisSummaryList: Optional[AnalysisSummaryList]
-    NextPageToken: Optional[NextPageToken]
+    AnalysisSummaryList: AnalysisSummaryList | None
+    NextPageToken: NextPageToken | None
 
 
 class ListCostAllocationTagBackfillHistoryRequest(ServiceRequest):
-    NextToken: Optional[NextPageToken]
-    MaxResults: Optional[CostAllocationTagsMaxResults]
+    NextToken: NextPageToken | None
+    MaxResults: CostAllocationTagsMaxResults | None
 
 
 class ListCostAllocationTagBackfillHistoryResponse(TypedDict, total=False):
-    BackfillRequests: Optional[CostAllocationTagBackfillRequestList]
-    NextToken: Optional[NextPageToken]
+    BackfillRequests: CostAllocationTagBackfillRequestList | None
+    NextToken: NextPageToken | None
 
 
 class ListCostAllocationTagsRequest(ServiceRequest):
-    Status: Optional[CostAllocationTagStatus]
-    TagKeys: Optional[CostAllocationTagKeyList]
-    Type: Optional[CostAllocationTagType]
-    NextToken: Optional[NextPageToken]
-    MaxResults: Optional[CostAllocationTagsMaxResults]
+    Status: CostAllocationTagStatus | None
+    TagKeys: CostAllocationTagKeyList | None
+    Type: CostAllocationTagType | None
+    NextToken: NextPageToken | None
+    MaxResults: CostAllocationTagsMaxResults | None
 
 
 class ListCostAllocationTagsResponse(TypedDict, total=False):
-    CostAllocationTags: Optional[CostAllocationTagList]
-    NextToken: Optional[NextPageToken]
+    CostAllocationTags: CostAllocationTagList | None
+    NextToken: NextPageToken | None
 
 
 class ListCostCategoryDefinitionsRequest(ServiceRequest):
-    EffectiveOn: Optional[ZonedDateTime]
-    NextToken: Optional[NextPageToken]
-    MaxResults: Optional[CostCategoryMaxResults]
+    EffectiveOn: ZonedDateTime | None
+    NextToken: NextPageToken | None
+    MaxResults: CostCategoryMaxResults | None
 
 
 class ListCostCategoryDefinitionsResponse(TypedDict, total=False):
-    CostCategoryReferences: Optional[CostCategoryReferencesList]
-    NextToken: Optional[NextPageToken]
+    CostCategoryReferences: CostCategoryReferencesList | None
+    NextToken: NextPageToken | None
 
 
-RecommendationIdList = List[RecommendationId]
+RecommendationIdList = list[RecommendationId]
 
 
 class ListSavingsPlansPurchaseRecommendationGenerationRequest(ServiceRequest):
-    GenerationStatus: Optional[GenerationStatus]
-    RecommendationIds: Optional[RecommendationIdList]
-    PageSize: Optional[NonNegativeInteger]
-    NextPageToken: Optional[NextPageToken]
+    GenerationStatus: GenerationStatus | None
+    RecommendationIds: RecommendationIdList | None
+    PageSize: NonNegativeInteger | None
+    NextPageToken: NextPageToken | None
 
 
 class ListSavingsPlansPurchaseRecommendationGenerationResponse(TypedDict, total=False):
-    GenerationSummaryList: Optional[GenerationSummaryList]
-    NextPageToken: Optional[NextPageToken]
+    GenerationSummaryList: GenerationSummaryList | None
+    NextPageToken: NextPageToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -2367,7 +2380,7 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    ResourceTags: Optional[ResourceTagList]
+    ResourceTags: ResourceTagList | None
 
 
 class ProvideAnomalyFeedbackRequest(ServiceRequest):
@@ -2379,7 +2392,7 @@ class ProvideAnomalyFeedbackResponse(TypedDict, total=False):
     AnomalyId: GenericString
 
 
-ResourceTagKeyList = List[ResourceTagKey]
+ResourceTagKeyList = list[ResourceTagKey]
 
 
 class StartCommitmentPurchaseAnalysisRequest(ServiceRequest):
@@ -2397,7 +2410,7 @@ class StartCostAllocationTagBackfillRequest(ServiceRequest):
 
 
 class StartCostAllocationTagBackfillResponse(TypedDict, total=False):
-    BackfillRequest: Optional[CostAllocationTagBackfillRequest]
+    BackfillRequest: CostAllocationTagBackfillRequest | None
 
 
 class StartSavingsPlansPurchaseRecommendationGenerationRequest(ServiceRequest):
@@ -2405,9 +2418,9 @@ class StartSavingsPlansPurchaseRecommendationGenerationRequest(ServiceRequest):
 
 
 class StartSavingsPlansPurchaseRecommendationGenerationResponse(TypedDict, total=False):
-    RecommendationId: Optional[RecommendationId]
-    GenerationStartedTime: Optional[ZonedDateTime]
-    EstimatedCompletionTime: Optional[ZonedDateTime]
+    RecommendationId: RecommendationId | None
+    GenerationStartedTime: ZonedDateTime | None
+    EstimatedCompletionTime: ZonedDateTime | None
 
 
 class TagResourceRequest(ServiceRequest):
@@ -2430,7 +2443,7 @@ class UntagResourceResponse(TypedDict, total=False):
 
 class UpdateAnomalyMonitorRequest(ServiceRequest):
     MonitorArn: GenericString
-    MonitorName: Optional[GenericString]
+    MonitorName: GenericString | None
 
 
 class UpdateAnomalyMonitorResponse(TypedDict, total=False):
@@ -2439,12 +2452,12 @@ class UpdateAnomalyMonitorResponse(TypedDict, total=False):
 
 class UpdateAnomalySubscriptionRequest(ServiceRequest):
     SubscriptionArn: GenericString
-    Threshold: Optional[NullableNonNegativeDouble]
-    Frequency: Optional[AnomalySubscriptionFrequency]
-    MonitorArnList: Optional[MonitorArnList]
-    Subscribers: Optional[Subscribers]
-    SubscriptionName: Optional[GenericString]
-    ThresholdExpression: Optional[Expression]
+    Threshold: NullableNonNegativeDouble | None
+    Frequency: AnomalySubscriptionFrequency | None
+    MonitorArnList: MonitorArnList | None
+    Subscribers: Subscribers | None
+    SubscriptionName: GenericString | None
+    ThresholdExpression: Expression | None
 
 
 class UpdateAnomalySubscriptionResponse(TypedDict, total=False):
@@ -2456,12 +2469,12 @@ class UpdateCostAllocationTagsStatusError(TypedDict, total=False):
     cost allocation tag entry in the request.
     """
 
-    TagKey: Optional[TagKey]
-    Code: Optional[GenericString]
-    Message: Optional[ErrorMessage]
+    TagKey: TagKey | None
+    Code: GenericString | None
+    Message: ErrorMessage | None
 
 
-UpdateCostAllocationTagsStatusErrors = List[UpdateCostAllocationTagsStatusError]
+UpdateCostAllocationTagsStatusErrors = list[UpdateCostAllocationTagsStatusError]
 
 
 class UpdateCostAllocationTagsStatusRequest(ServiceRequest):
@@ -2469,26 +2482,26 @@ class UpdateCostAllocationTagsStatusRequest(ServiceRequest):
 
 
 class UpdateCostAllocationTagsStatusResponse(TypedDict, total=False):
-    Errors: Optional[UpdateCostAllocationTagsStatusErrors]
+    Errors: UpdateCostAllocationTagsStatusErrors | None
 
 
 class UpdateCostCategoryDefinitionRequest(ServiceRequest):
     CostCategoryArn: Arn
-    EffectiveStart: Optional[ZonedDateTime]
+    EffectiveStart: ZonedDateTime | None
     RuleVersion: CostCategoryRuleVersion
     Rules: CostCategoryRulesList
-    DefaultValue: Optional[CostCategoryValue]
-    SplitChargeRules: Optional[CostCategorySplitChargeRulesList]
+    DefaultValue: CostCategoryValue | None
+    SplitChargeRules: CostCategorySplitChargeRulesList | None
 
 
 class UpdateCostCategoryDefinitionResponse(TypedDict, total=False):
-    CostCategoryArn: Optional[Arn]
-    EffectiveStart: Optional[ZonedDateTime]
+    CostCategoryArn: Arn | None
+    EffectiveStart: ZonedDateTime | None
 
 
 class CeApi:
-    service = "ce"
-    version = "2017-10-25"
+    service: str = "ce"
+    version: str = "2017-10-25"
 
     @handler("CreateAnomalyMonitor")
     def create_anomaly_monitor(
@@ -2787,6 +2800,7 @@ class CeApi:
         :raises InvalidNextTokenException:
         :raises RequestChangedException:
         :raises ResourceNotFoundException:
+        :raises BillingViewHealthStatusException:
         """
         raise NotImplementedError
 
@@ -2823,6 +2837,7 @@ class CeApi:
         :raises InvalidNextTokenException:
         :raises LimitExceededException:
         :raises ResourceNotFoundException:
+        :raises BillingViewHealthStatusException:
         """
         raise NotImplementedError
 
@@ -2876,6 +2891,7 @@ class CeApi:
         :raises InvalidNextTokenException:
         :raises RequestChangedException:
         :raises ResourceNotFoundException:
+        :raises BillingViewHealthStatusException:
         """
         raise NotImplementedError
 
@@ -2917,6 +2933,7 @@ class CeApi:
         :raises InvalidNextTokenException:
         :raises RequestChangedException:
         :raises ResourceNotFoundException:
+        :raises BillingViewHealthStatusException:
         """
         raise NotImplementedError
 
@@ -2954,6 +2971,7 @@ class CeApi:
         :raises InvalidNextTokenException:
         :raises LimitExceededException:
         :raises ResourceNotFoundException:
+        :raises BillingViewHealthStatusException:
         """
         raise NotImplementedError
 
@@ -2984,6 +3002,7 @@ class CeApi:
         :raises LimitExceededException:
         :raises DataUnavailableException:
         :raises ResourceNotFoundException:
+        :raises BillingViewHealthStatusException:
         """
         raise NotImplementedError
 
@@ -3012,6 +3031,7 @@ class CeApi:
         :raises InvalidNextTokenException:
         :raises RequestChangedException:
         :raises ResourceNotFoundException:
+        :raises BillingViewHealthStatusException:
         """
         raise NotImplementedError
 
@@ -3436,6 +3456,7 @@ class CeApi:
         :raises InvalidNextTokenException:
         :raises RequestChangedException:
         :raises ResourceNotFoundException:
+        :raises BillingViewHealthStatusException:
         """
         raise NotImplementedError
 
@@ -3469,6 +3490,7 @@ class CeApi:
         :raises DataUnavailableException:
         :raises UnresolvableUsageUnitException:
         :raises ResourceNotFoundException:
+        :raises BillingViewHealthStatusException:
         """
         raise NotImplementedError
 

@@ -37,6 +37,11 @@ from databricks.bundles.jobs._models.init_script_info import (
     InitScriptInfo,
     InitScriptInfoParam,
 )
+from databricks.bundles.jobs._models.kind import Kind, KindParam
+from databricks.bundles.jobs._models.node_type_flexibility import (
+    NodeTypeFlexibility,
+    NodeTypeFlexibilityParam,
+)
 from databricks.bundles.jobs._models.runtime_engine import (
     RuntimeEngine,
     RuntimeEngineParam,
@@ -124,6 +129,11 @@ class ClusterSpec:
     assigned.
     """
 
+    driver_node_type_flexibility: VariableOrOptional[NodeTypeFlexibility] = None
+    """
+    Flexible node type configuration for the driver node.
+    """
+
     driver_node_type_id: VariableOrOptional[str] = None
     """
     The node type of the Spark driver.
@@ -137,8 +147,7 @@ class ClusterSpec:
     enable_elastic_disk: VariableOrOptional[bool] = None
     """
     Autoscaling Local Storage: when enabled, this cluster will dynamically acquire additional disk
-    space when its Spark workers are running low on disk space. This feature requires specific AWS
-    permissions to function correctly - refer to the User Guide for more details.
+    space when its Spark workers are running low on disk space.
     """
 
     enable_local_disk_encryption: VariableOrOptional[bool] = None
@@ -170,6 +179,8 @@ class ClusterSpec:
     
     When set to true, Databricks will automatically set single node related `custom_tags`, `spark_conf`, and `num_workers`
     """
+
+    kind: VariableOrOptional[Kind] = None
 
     node_type_id: VariableOrOptional[str] = None
     """
@@ -256,6 +267,11 @@ class ClusterSpec:
     `effective_spark_version` is determined by `spark_version` (DBR release), this field `use_ml_runtime`, and whether `node_type_id` is gpu node or not.
     """
 
+    worker_node_type_flexibility: VariableOrOptional[NodeTypeFlexibility] = None
+    """
+    Flexible node type configuration for worker nodes.
+    """
+
     workload_type: VariableOrOptional[WorkloadType] = None
 
     @classmethod
@@ -337,6 +353,11 @@ class ClusterSpecDict(TypedDict, total=False):
     assigned.
     """
 
+    driver_node_type_flexibility: VariableOrOptional[NodeTypeFlexibilityParam]
+    """
+    Flexible node type configuration for the driver node.
+    """
+
     driver_node_type_id: VariableOrOptional[str]
     """
     The node type of the Spark driver.
@@ -350,8 +371,7 @@ class ClusterSpecDict(TypedDict, total=False):
     enable_elastic_disk: VariableOrOptional[bool]
     """
     Autoscaling Local Storage: when enabled, this cluster will dynamically acquire additional disk
-    space when its Spark workers are running low on disk space. This feature requires specific AWS
-    permissions to function correctly - refer to the User Guide for more details.
+    space when its Spark workers are running low on disk space.
     """
 
     enable_local_disk_encryption: VariableOrOptional[bool]
@@ -383,6 +403,8 @@ class ClusterSpecDict(TypedDict, total=False):
     
     When set to true, Databricks will automatically set single node related `custom_tags`, `spark_conf`, and `num_workers`
     """
+
+    kind: VariableOrOptional[KindParam]
 
     node_type_id: VariableOrOptional[str]
     """
@@ -467,6 +489,11 @@ class ClusterSpecDict(TypedDict, total=False):
     This field can only be used when `kind = CLASSIC_PREVIEW`.
     
     `effective_spark_version` is determined by `spark_version` (DBR release), this field `use_ml_runtime`, and whether `node_type_id` is gpu node or not.
+    """
+
+    worker_node_type_flexibility: VariableOrOptional[NodeTypeFlexibilityParam]
+    """
+    Flexible node type configuration for worker nodes.
     """
 
     workload_type: VariableOrOptional[WorkloadTypeParam]

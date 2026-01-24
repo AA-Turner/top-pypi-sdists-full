@@ -1,6 +1,9 @@
 """Collect and write time series data to InfluxDB Cloud or InfluxDB OSS."""
 
 # coding: utf-8
+# TODO Remove after this program no longer supports Python 3.8.*
+from __future__ import annotations
+
 import logging
 import os
 import warnings
@@ -25,6 +28,22 @@ from influxdb_client_3.write_client.domain import WritePrecision
 from influxdb_client_3.write_client.rest import _UTF_8_encoding
 
 DEFAULT_WRITE_NO_SYNC = False
+DEFAULT_WRITE_TIMEOUT = 10_000
+
+# Kwargs consumed during serialization that should not be passed to _post_write
+SERIALIZER_KWARGS = {
+    # DataFrame-specific kwargs
+    'data_frame_measurement_name',
+    'data_frame_tag_columns',
+    'data_frame_timestamp_column',
+    'data_frame_timestamp_timezone',
+    # Record-specific kwargs (dict, NamedTuple, dataclass)
+    'record_measurement_key',
+    'record_measurement_name',
+    'record_time_key',
+    'record_tag_keys',
+    'record_field_keys',
+}
 
 logger = logging.getLogger('influxdb_client_3.write_client.client.write_api')
 
@@ -45,6 +64,7 @@ class DefaultWriteOptions(Enum):
     write_type = WriteType.synchronous
     write_precision = DEFAULT_WRITE_PRECISION
     no_sync = DEFAULT_WRITE_NO_SYNC
+    timeout = DEFAULT_WRITE_TIMEOUT
 
 
 class WriteOptions(object):
@@ -61,6 +81,7 @@ class WriteOptions(object):
                  max_close_wait=300_000,
                  write_precision=DEFAULT_WRITE_PRECISION,
                  no_sync=DEFAULT_WRITE_NO_SYNC,
+                 timeout=DEFAULT_WRITE_TIMEOUT,
                  write_scheduler=ThreadPoolScheduler(max_workers=1)) -> None:
         """
         Create write api configuration.
@@ -79,6 +100,7 @@ class WriteOptions(object):
         :param max_close_wait: the maximum time to wait for writes to be flushed if close() is called
         :param write_precision: precision to use when writing points to InfluxDB
         :param no_sync: skip waiting for WAL persistence on write
+        :param timeout: timeout to use when writing to the database in milliseconds. Default is 10_000
         :param write_scheduler:
         """
         self.write_type = write_type
@@ -93,6 +115,7 @@ class WriteOptions(object):
         self.write_scheduler = write_scheduler
         self.max_close_wait = max_close_wait
         self.write_precision = write_precision
+        self.timeout = timeout
         self.no_sync = no_sync
 
     def to_retry_strategy(self, **kwargs):
@@ -159,10 +182,11 @@ class PointSettings(object):
 
 
 class _BatchItemKey(object):
-    def __init__(self, bucket, org, precision=DEFAULT_WRITE_PRECISION) -> None:
+    def __init__(self, bucket, org, precision=DEFAULT_WRITE_PRECISION, **kwargs) -> None:
         self.bucket = bucket
         self.org = org
         self.precision = precision
+        self.kwargs = kwargs
         pass
 
     def __hash__(self) -> int:
@@ -173,8 +197,8 @@ class _BatchItemKey(object):
             and self.bucket == o.bucket and self.org == o.org and self.precision == o.precision
 
     def __str__(self) -> str:
-        return '_BatchItemKey[bucket:\'{}\', org:\'{}\', precision:\'{}\']' \
-            .format(str(self.bucket), str(self.org), str(self.precision))
+        return '_BatchItemKey[bucket:\'{}\', org:\'{}\', precision:\'{}\', kwargs: \'{}\']' \
+            .format(str(self.bucket), str(self.org), str(self.precision), str(self.kwargs))
 
 
 class _BatchItem(object):
@@ -260,36 +284,15 @@ class WriteApi(_BaseWriteApi):
         """
         super().__init__(influxdb_client=influxdb_client, point_settings=point_settings)
         self._write_options = write_options
+        # TODO - callbacks seem to be used with batching type only - could they be used with sync or async?
         self._success_callback = kwargs.get('success_callback', None)
         self._error_callback = kwargs.get('error_callback', None)
         self._retry_callback = kwargs.get('retry_callback', None)
 
         if self._write_options.write_type is WriteType.batching:
-            # Define Subject that listen incoming data and produces writes into InfluxDB
-            self._subject = Subject()
-
-            self._disposable = self._subject.pipe(
-                # Split incoming data to windows by batch_size or flush_interval
-                ops.window_with_time_or_count(count=write_options.batch_size,
-                                              timespan=timedelta(milliseconds=write_options.flush_interval)),
-                # Map  window into groups defined by 'organization', 'bucket' and 'precision'
-                ops.flat_map(lambda window: window.pipe(
-                    # Group window by 'organization', 'bucket' and 'precision'
-                    ops.group_by(lambda batch_item: batch_item.key),
-                    # Create batch (concatenation line protocols by \n)
-                    ops.map(lambda group: group.pipe(
-                        ops.to_iterable(),
-                        ops.map(lambda xs: _BatchItem(key=group.key, data=_body_reduce(xs), size=len(xs))))),
-                    ops.merge_all())),
-                # Write data into InfluxDB (possibility to retry if its fail)
-                ops.filter(lambda batch: batch.size > 0),
-                ops.map(mapper=lambda batch: self._to_response(data=batch, delay=self._jitter_delay())),
-                ops.merge_all()) \
-                .subscribe(self._on_next, self._on_error, self._on_complete)
-
+            self._subject, self._disposable = self._create_batching_pipeline()
         else:
-            self._subject = None
-            self._disposable = None
+            self._subject, self._disposable = None, None
 
         if self._write_options.write_type is WriteType.asynchronous:
             message = """The 'WriteType.asynchronous' is deprecated and will be removed in future major version.
@@ -297,6 +300,7 @@ class WriteApi(_BaseWriteApi):
 You can use native asynchronous version of the client:
 - https://influxdb-client.readthedocs.io/en/stable/usage.html#how-to-use-asyncio
         """
+            # TODO above message has link to Influxdb2 API __NOT__ Influxdb3 API !!! - illustrates different API
             warnings.warn(message, DeprecationWarning)
 
     def write(self, bucket: str, org: str = None,
@@ -389,9 +393,12 @@ You can use native asynchronous version of the client:
 
         _async_req = True if self._write_options.write_type == WriteType.asynchronous else False
 
+        # Filter out serializer-specific kwargs before passing to _post_write
+        http_kwargs = {k: v for k, v in kwargs.items() if k not in SERIALIZER_KWARGS}
+
         def write_payload(payload):
             final_string = b'\n'.join(payload[1])
-            return self._post_write(_async_req, bucket, org, final_string, payload[0], no_sync)
+            return self._post_write(_async_req, bucket, org, final_string, payload[0], no_sync, **http_kwargs)
 
         results = list(map(write_payload, payloads.items()))
         if not _async_req:
@@ -400,14 +407,89 @@ You can use native asynchronous version of the client:
             return results[0]
         return results
 
+    def _create_batching_pipeline(self) -> tuple[Subject[Any], rx.abc.DisposableBase]:
+        """Create the batching pipeline for collecting and writing data."""
+        # Define Subject that listen incoming data and produces writes into InfluxDB
+        subject = Subject()
+
+        disposable = subject.pipe(
+            # Split incoming data to windows by batch_size or flush_interval
+            ops.window_with_time_or_count(count=self._write_options.batch_size,
+                                          timespan=timedelta(milliseconds=self._write_options.flush_interval)),
+            # Map  window into groups defined by 'organization', 'bucket' and 'precision'
+            ops.flat_map(lambda window: window.pipe(    # type: ignore
+                # Group window by 'organization', 'bucket' and 'precision'
+                ops.group_by(lambda batch_item: batch_item.key),    # type: ignore
+                # Create batch (concatenation line protocols by \n)
+                ops.map(lambda group: group.pipe(   # type: ignore
+                    ops.to_iterable(),
+                    ops.map(lambda xs: _BatchItem(key=group.key, data=_body_reduce(xs), size=len(xs))))),
+                # type: ignore
+                ops.merge_all())),
+            # Write data into InfluxDB (possibility to retry if its fail)
+            ops.filter(lambda batch: batch.size > 0),
+            ops.map(mapper=lambda batch: self._to_response(data=batch, delay=self._jitter_delay())),
+            ops.merge_all()) \
+            .subscribe(self._on_next, self._on_error, self._on_complete)
+
+        return subject, disposable
+
     def flush(self):
-        """Flush data."""
-        # TODO
-        pass
+        """
+        Flush any buffered writes to InfluxDB without closing the client.
+
+        This method immediately sends all buffered data points to the server
+        when using batching write mode. After flushing, the client remains
+        open and ready for more writes.
+
+        For synchronous or asynchronous write modes, this is a no-op since
+        data is written immediately.
+        """
+        if self._write_options.write_type is not WriteType.batching:
+            return  # Nothing to flush for synchronous/asynchronous writes
+
+        self.close()  # Close existing batching pipeline
+
+        # Recreate the batching pipeline for continued use
+        self._subject, self._disposable = self._create_batching_pipeline()
 
     def close(self):
         """Flush data and dispose a batching buffer."""
-        self.__del__()
+        if self._subject is None:
+            return  # Already closed
+
+        self._subject.on_completed()
+        self._subject.dispose()
+        self._subject = None
+
+        """
+        We impose a maximum wait time to ensure that we do not cause a deadlock if the
+        background thread has exited abnormally
+
+        Each iteration waits 100ms, but sleep expects the unit to be seconds so convert
+        the maximum wait time to seconds.
+
+        We keep a counter of how long we've waited
+        """
+        max_wait_time = self._write_options.max_close_wait / 1000
+        waited = 0
+        sleep_period = 0.1
+
+        # Wait for writing to finish
+        while not self._disposable.is_disposed:
+            sleep(sleep_period)
+            waited += sleep_period
+
+            # Have we reached the upper limit?
+            if waited >= max_wait_time:
+                logger.warning(
+                    "Reached max_close_wait (%s seconds) waiting for batches to finish writing. Force closing",
+                    max_wait_time
+                )
+                break
+
+        if self._disposable:
+            self._disposable = None
 
     def __enter__(self):
         """
@@ -426,40 +508,7 @@ You can use native asynchronous version of the client:
 
     def __del__(self):
         """Close WriteApi."""
-        if self._subject:
-            self._subject.on_completed()
-            self._subject.dispose()
-            self._subject = None
-
-            """
-            We impose a maximum wait time to ensure that we do not cause a deadlock if the
-            background thread has exited abnormally
-
-            Each iteration waits 100ms, but sleep expects the unit to be seconds so convert
-            the maximum wait time to seconds.
-
-            We keep a counter of how long we've waited
-            """
-            max_wait_time = self._write_options.max_close_wait / 1000
-            waited = 0
-            sleep_period = 0.1
-
-            # Wait for writing to finish
-            while not self._disposable.is_disposed:
-                sleep(sleep_period)
-                waited += sleep_period
-
-                # Have we reached the upper limit?
-                if waited >= max_wait_time:
-                    logger.warning(
-                        "Reached max_close_wait (%s seconds) waiting for batches to finish writing. Force closing",
-                        max_wait_time
-                    )
-                    break
-
-        if self._disposable:
-            self._disposable = None
-        pass
+        self.close()
 
     def _write_batching(self, bucket, org, data,
                         precision=None,
@@ -468,7 +517,7 @@ You can use native asynchronous version of the client:
             precision = self._write_options.write_precision
 
         if isinstance(data, bytes):
-            _key = _BatchItemKey(bucket, org, precision)
+            _key = _BatchItemKey(bucket, org, precision, **kwargs)
             self._subject.on_next(_BatchItem(key=_key, data=data))
 
         elif isinstance(data, str):
@@ -518,8 +567,7 @@ You can use native asynchronous version of the client:
 
         return None
 
-    def _http(self, batch_item: _BatchItem):
-
+    def _http(self, batch_item: _BatchItem, **kwargs):
         logger.debug("Write time series data into InfluxDB: %s", batch_item)
 
         if self._retry_callback:
@@ -533,14 +581,13 @@ You can use native asynchronous version of the client:
         retry = self._write_options.to_retry_strategy(retry_callback=_retry_callback_delegate)
 
         self._post_write(False, batch_item.key.bucket, batch_item.key.org, batch_item.data,
-                         batch_item.key.precision, no_sync, urlopen_kw={'retries': retry})
+                         batch_item.key.precision, no_sync, urlopen_kw={'retries': retry}, **kwargs)
 
         logger.debug("Write request finished %s", batch_item)
 
         return _BatchResponse(data=batch_item)
 
     def _post_write(self, _async_req, bucket, org, body, precision, no_sync, **kwargs):
-
         return self._write_service.post_write(org=org, bucket=bucket, body=body, precision=precision,
                                               no_sync=no_sync,
                                               async_req=_async_req,
@@ -554,7 +601,7 @@ You can use native asynchronous version of the client:
             # use delay if its specified
             ops.delay(duetime=delay, scheduler=self._write_options.write_scheduler),
             # invoke http call
-            ops.map(lambda x: self._http(x)),
+            ops.map(lambda x: self._http(x, **x.key.kwargs)),
             # catch exception to fail batch response
             ops.catch(handler=lambda exception, source: rx.just(_BatchResponse(exception=exception, data=data))),
         )

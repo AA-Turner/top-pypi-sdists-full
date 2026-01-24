@@ -1,7 +1,7 @@
 use crate::{Error, GTElement, PublicKey, Result, SecretKey};
 use blst::*;
 use chia_sha2::Sha256;
-use chia_traits::{read_bytes, Streamable};
+use chia_traits::{Streamable, read_bytes};
 #[cfg(feature = "py-bindings")]
 use pyo3::exceptions::PyNotImplementedError;
 #[cfg(feature = "py-bindings")]
@@ -75,7 +75,7 @@ impl Signature {
     pub fn to_bytes(&self) -> [u8; 96] {
         unsafe {
             let mut bytes = MaybeUninit::<[u8; 96]>::uninit();
-            blst_p2_compress(bytes.as_mut_ptr().cast::<u8>(), &self.0);
+            blst_p2_compress(bytes.as_mut_ptr().cast::<u8>(), &raw const self.0);
             bytes.assume_init()
         }
     }
@@ -86,19 +86,19 @@ impl Signature {
 
     pub fn aggregate(&mut self, sig: &Signature) {
         unsafe {
-            blst_p2_add_or_double(&mut self.0, &self.0, &sig.0);
+            blst_p2_add_or_double(&raw mut self.0, &raw const self.0, &raw const sig.0);
         }
     }
 
     pub fn is_valid(&self) -> bool {
         // Infinity was considered a valid G2Element in older Relic versions
         // For historical compatibililty this behavior is maintained.
-        unsafe { blst_p2_is_inf(&self.0) || blst_p2_in_g2(&self.0) }
+        unsafe { blst_p2_is_inf(&raw const self.0) || blst_p2_in_g2(&raw const self.0) }
     }
 
     pub fn negate(&mut self) {
         unsafe {
-            blst_p2_cneg(&mut self.0, true);
+            blst_p2_cneg(&raw mut self.0, true);
         }
     }
 
@@ -106,7 +106,12 @@ impl Signature {
         unsafe {
             let mut scalar = MaybeUninit::<blst_scalar>::uninit();
             blst_scalar_from_be_bytes(scalar.as_mut_ptr(), int_bytes.as_ptr(), int_bytes.len());
-            blst_p2_mult(&mut self.0, &self.0, scalar.as_ptr().cast::<u8>(), 256);
+            blst_p2_mult(
+                &raw mut self.0,
+                &raw const self.0,
+                scalar.as_ptr().cast::<u8>(),
+                256,
+            );
         }
     }
 
@@ -116,8 +121,8 @@ impl Signature {
             let mut aff1 = MaybeUninit::<blst_p1_affine>::uninit();
             let mut aff2 = MaybeUninit::<blst_p2_affine>::uninit();
 
-            blst_p1_to_affine(aff1.as_mut_ptr(), &other.0);
-            blst_p2_to_affine(aff2.as_mut_ptr(), &self.0);
+            blst_p1_to_affine(aff1.as_mut_ptr(), &raw const other.0);
+            blst_p2_to_affine(aff2.as_mut_ptr(), &raw const self.0);
 
             blst_miller_loop(ans.as_mut_ptr(), &aff2.assume_init(), &aff1.assume_init());
             blst_final_exp(ans.as_mut_ptr(), ans.as_ptr());
@@ -151,7 +156,7 @@ impl Streamable for Signature {
 
 impl PartialEq for Signature {
     fn eq(&self, other: &Self) -> bool {
-        unsafe { blst_p2_is_equal(&self.0, &other.0) }
+        unsafe { blst_p2_is_equal(&raw const self.0, &raw const other.0) }
     }
 }
 impl Eq for Signature {}
@@ -174,7 +179,7 @@ impl fmt::Debug for Signature {
 impl AddAssign<&Signature> for Signature {
     fn add_assign(&mut self, rhs: &Signature) {
         unsafe {
-            blst_p2_add_or_double(&mut self.0, &self.0, &rhs.0);
+            blst_p2_add_or_double(&raw mut self.0, &raw const self.0, &raw const rhs.0);
         }
     }
 }
@@ -200,8 +205,8 @@ impl SubAssign<&Signature> for Signature {
     fn sub_assign(&mut self, rhs: &Signature) {
         unsafe {
             let mut neg = rhs.clone();
-            blst_p2_cneg(&mut neg.0, true);
-            blst_p2_add_or_double(&mut self.0, &self.0, &neg.0);
+            blst_p2_cneg(&raw mut neg.0, true);
+            blst_p2_add_or_double(&raw mut self.0, &raw const self.0, &raw const neg.0);
         }
     }
 }
@@ -210,7 +215,7 @@ impl Add<&Signature> for Signature {
     type Output = Signature;
     fn add(mut self, rhs: &Signature) -> Signature {
         unsafe {
-            blst_p2_add_or_double(&mut self.0, &self.0, &rhs.0);
+            blst_p2_add_or_double(&raw mut self.0, &raw const self.0, &raw const rhs.0);
             self
         }
     }
@@ -221,7 +226,7 @@ impl Add<&Signature> for &Signature {
     fn add(self, rhs: &Signature) -> Signature {
         let p1 = unsafe {
             let mut ret = MaybeUninit::<blst_p2>::uninit();
-            blst_p2_add_or_double(ret.as_mut_ptr(), &self.0, &rhs.0);
+            blst_p2_add_or_double(ret.as_mut_ptr(), &raw const self.0, &raw const rhs.0);
             ret.assume_init()
         };
         Signature(p1)
@@ -284,18 +289,18 @@ where
 
         let g1_affine = unsafe {
             let mut g1_affine = MaybeUninit::<blst_p1_affine>::uninit();
-            blst_p1_to_affine(g1_affine.as_mut_ptr(), &g1.borrow().0);
+            blst_p1_to_affine(g1_affine.as_mut_ptr(), &raw const g1.borrow().0);
             g1_affine.assume_init()
         };
 
         let g2_affine = unsafe {
             let mut g2_affine = MaybeUninit::<blst_p2_affine>::uninit();
-            blst_p2_to_affine(g2_affine.as_mut_ptr(), &g2.borrow().0);
+            blst_p2_to_affine(g2_affine.as_mut_ptr(), &raw const g2.borrow().0);
             g2_affine.assume_init()
         };
 
         unsafe {
-            blst_pairing_raw_aggregate(ctx, &g2_affine, &g1_affine);
+            blst_pairing_raw_aggregate(ctx, &raw const g2_affine, &raw const g1_affine);
         }
     }
 
@@ -347,8 +352,8 @@ pub fn verify<Msg: AsRef<[u8]>>(sig: &Signature, key: &PublicKey, msg: Msg) -> b
         let mut pubkey_affine = MaybeUninit::<blst_p1_affine>::uninit();
         let mut sig_affine = MaybeUninit::<blst_p2_affine>::uninit();
 
-        blst_p1_to_affine(pubkey_affine.as_mut_ptr(), &key.0);
-        blst_p2_to_affine(sig_affine.as_mut_ptr(), &sig.0);
+        blst_p1_to_affine(pubkey_affine.as_mut_ptr(), &raw const key.0);
+        blst_p2_to_affine(sig_affine.as_mut_ptr(), &raw const sig.0);
 
         let mut augmented_msg = key.to_bytes().to_vec();
         augmented_msg.extend_from_slice(msg.as_ref());
@@ -391,7 +396,7 @@ where
     let sig_gt = unsafe {
         let mut sig_affine = MaybeUninit::<blst_p2_affine>::uninit();
         let mut sig_gt = MaybeUninit::<blst_fp12>::uninit();
-        blst_p2_to_affine(sig_affine.as_mut_ptr(), &sig.0);
+        blst_p2_to_affine(sig_affine.as_mut_ptr(), &raw const sig.0);
         blst_aggregated_in_g2(sig_gt.as_mut_ptr(), sig_affine.as_ptr());
         sig_gt.assume_init()
     };
@@ -416,7 +421,7 @@ where
 
         let pk_affine = unsafe {
             let mut pk_affine = MaybeUninit::<blst_p1_affine>::uninit();
-            blst_p1_to_affine(pk_affine.as_mut_ptr(), &pk.borrow().0);
+            blst_p1_to_affine(pk_affine.as_mut_ptr(), &raw const pk.borrow().0);
             pk_affine.assume_init()
         };
 
@@ -427,7 +432,7 @@ where
         let err = unsafe {
             blst_pairing_aggregate_pk_in_g1(
                 ctx,
-                &pk_affine,
+                &raw const pk_affine,
                 std::ptr::null(),
                 aug_msg.as_ptr(),
                 aug_msg.len(),
@@ -443,7 +448,7 @@ where
 
     unsafe {
         blst_pairing_commit(ctx);
-        blst_pairing_finalverify(ctx, &sig_gt)
+        blst_pairing_finalverify(ctx, &raw const sig_gt)
     }
 }
 
@@ -487,7 +492,7 @@ pub fn sign_raw<Msg: AsRef<[u8]>>(sk: &SecretKey, msg: Msg) -> Signature {
             std::ptr::null(),
             0,
         );
-        blst_sign_pk_in_g1(p2.as_mut_ptr(), p2.as_ptr(), &sk.0);
+        blst_sign_pk_in_g1(p2.as_mut_ptr(), p2.as_ptr(), &raw const sk.0);
         p2.assume_init()
     };
     Signature(p2)
@@ -514,7 +519,7 @@ impl Signature {
 
     #[classmethod]
     #[pyo3(name = "from_parent")]
-    pub fn from_parent(_cls: &Bound<'_, PyType>, _instance: &Self) -> PyResult<PyObject> {
+    pub fn from_parent(_cls: &Bound<'_, PyType>, _instance: &Self) -> PyResult<Py<PyAny>> {
         Err(PyNotImplementedError::new_err(
             "Signature does not support from_parent().",
         ))
@@ -554,7 +559,7 @@ mod pybindings {
     use chia_traits::{FromJsonDict, ToJsonDict};
 
     impl ToJsonDict for Signature {
-        fn to_json_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
+        fn to_json_dict(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
             let bytes = self.to_bytes();
             Ok(("0x".to_string() + &hex::encode(bytes))
                 .into_pyobject(py)?
@@ -592,11 +597,13 @@ mod tests {
             // just any random bytes are not a valid signature and should fail
             match Signature::from_bytes(&data) {
                 Err(Error::InvalidSignature(err)) => {
-                    assert!([
-                        BLST_ERROR::BLST_BAD_ENCODING,
-                        BLST_ERROR::BLST_POINT_NOT_ON_CURVE
-                    ]
-                    .contains(&err));
+                    assert!(
+                        [
+                            BLST_ERROR::BLST_BAD_ENCODING,
+                            BLST_ERROR::BLST_POINT_NOT_ON_CURVE
+                        ]
+                        .contains(&err)
+                    );
                 }
                 Err(e) => {
                     panic!("unexpected error from_bytes(): {e}");
@@ -1152,16 +1159,25 @@ mod tests {
     #[test]
     fn test_generator() {
         assert_eq!(
-        hex::encode(Signature::generator().to_bytes()),
-        "93e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8"
+            hex::encode(Signature::generator().to_bytes()),
+            "93e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8"
         );
     }
 
     // test cases from zksnark test in chia_rs
     #[rstest]
-    #[case("0a7ecb9c6d6f0af8d922c9b348d686f7f827c5f5d7a53036e5dd6c4cfe088806375d730251df57c03b0eaa41ca2a9cc51817cfd6118c065e9b337e42a6b66621e2ffa79f576ae57dcb4916459b0131d42383b790a4f60c5aeb339b61a78d85a808b73e0701084dc16b5d7aa8c2f5385f83a217bc29934d0d02c51365410232e3c0288438e3110aa6e8cdef7bd32c46d60d0104952aaa0f0545cbe1548b70eed8b543ce19ede34cc51a387d092221417db0253f4651666b17303e225eac706107", "8a7ecb9c6d6f0af8d922c9b348d686f7f827c5f5d7a53036e5dd6c4cfe088806375d730251df57c03b0eaa41ca2a9cc51817cfd6118c065e9b337e42a6b66621e2ffa79f576ae57dcb4916459b0131d42383b790a4f60c5aeb339b61a78d85a8")]
-    #[case("13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb80606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be0ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801", "93e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8")]
-    #[case("140acf170629d78244fb753f05fb79578add9217add53996d5de7c3005880c0dea903f851d6be749ebfb81c9721871370ef60428444d76f4ff81515628a4eb63e72c3cd7651a23c4eca109d1d88fec5a53626b36c76407926f308366b5ded1b219a481d87c6f87a4021fa8aa32851874f01b3eb011f6ed69c7884717fb0f5239bdc7310c2bc287659cd4a93976deaac20f4a21f0b004c767be4a21f36861616a5399b3e27431dc8133f325603230eaf1debdce8077105ab46baafa4836842305", "b40acf170629d78244fb753f05fb79578add9217add53996d5de7c3005880c0dea903f851d6be749ebfb81c9721871370ef60428444d76f4ff81515628a4eb63e72c3cd7651a23c4eca109d1d88fec5a53626b36c76407926f308366b5ded1b2")]
+    #[case(
+        "0a7ecb9c6d6f0af8d922c9b348d686f7f827c5f5d7a53036e5dd6c4cfe088806375d730251df57c03b0eaa41ca2a9cc51817cfd6118c065e9b337e42a6b66621e2ffa79f576ae57dcb4916459b0131d42383b790a4f60c5aeb339b61a78d85a808b73e0701084dc16b5d7aa8c2f5385f83a217bc29934d0d02c51365410232e3c0288438e3110aa6e8cdef7bd32c46d60d0104952aaa0f0545cbe1548b70eed8b543ce19ede34cc51a387d092221417db0253f4651666b17303e225eac706107",
+        "8a7ecb9c6d6f0af8d922c9b348d686f7f827c5f5d7a53036e5dd6c4cfe088806375d730251df57c03b0eaa41ca2a9cc51817cfd6118c065e9b337e42a6b66621e2ffa79f576ae57dcb4916459b0131d42383b790a4f60c5aeb339b61a78d85a8"
+    )]
+    #[case(
+        "13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb80606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be0ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801",
+        "93e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8"
+    )]
+    #[case(
+        "140acf170629d78244fb753f05fb79578add9217add53996d5de7c3005880c0dea903f851d6be749ebfb81c9721871370ef60428444d76f4ff81515628a4eb63e72c3cd7651a23c4eca109d1d88fec5a53626b36c76407926f308366b5ded1b219a481d87c6f87a4021fa8aa32851874f01b3eb011f6ed69c7884717fb0f5239bdc7310c2bc287659cd4a93976deaac20f4a21f0b004c767be4a21f36861616a5399b3e27431dc8133f325603230eaf1debdce8077105ab46baafa4836842305",
+        "b40acf170629d78244fb753f05fb79578add9217add53996d5de7c3005880c0dea903f851d6be749ebfb81c9721871370ef60428444d76f4ff81515628a4eb63e72c3cd7651a23c4eca109d1d88fec5a53626b36c76407926f308366b5ded1b2"
+    )]
     fn test_from_uncompressed(#[case] input: &str, #[case] expect: &str) {
         let input = hex::decode(input).unwrap();
         let g2 = Signature::from_uncompressed(input.as_slice().try_into().unwrap()).unwrap();
@@ -1256,7 +1272,10 @@ mod tests {
 
     // test cases from clvm_rs
     #[rstest]
-    #[case("abcdef0123456789", "92596412844e12c4733b5a6bfc5727cde4c20b345665d2de99de163266f3ba6a944c6c0fdd9d9fe57b9a4acb769bf3780456f8aab4cd41a70836dba57a5278a85fbd18eb96a2b56cfbda853186c9d190c43e63bc3e6a181aed692e97bbdb1944")]
+    #[case(
+        "abcdef0123456789",
+        "92596412844e12c4733b5a6bfc5727cde4c20b345665d2de99de163266f3ba6a944c6c0fdd9d9fe57b9a4acb769bf3780456f8aab4cd41a70836dba57a5278a85fbd18eb96a2b56cfbda853186c9d190c43e63bc3e6a181aed692e97bbdb1944"
+    )]
     fn test_hash_to_g2(#[case] input: &str, #[case] expect: &str) {
         let g2 = hash_to_g2(input.as_bytes());
         assert_eq!(hex::encode(g2.to_bytes()), expect);
@@ -1264,8 +1283,16 @@ mod tests {
 
     // test cases from clvm_rs
     #[rstest]
-    #[case("abcdef0123456789", "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_", "8ee1ff66094b8975401c86ad424076d97fed9c2025db5f9dfde6ed455c7bff34b55e96379c1f9ee3c173633587f425e50aed3e807c6c7cd7bed35d40542eee99891955b2ea5321ebde37172e2c01155138494c2d725b03c02765828679bf011e")]
-    #[case("abcdef0123456789", "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_AUG_", "92596412844e12c4733b5a6bfc5727cde4c20b345665d2de99de163266f3ba6a944c6c0fdd9d9fe57b9a4acb769bf3780456f8aab4cd41a70836dba57a5278a85fbd18eb96a2b56cfbda853186c9d190c43e63bc3e6a181aed692e97bbdb1944")]
+    #[case(
+        "abcdef0123456789",
+        "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_",
+        "8ee1ff66094b8975401c86ad424076d97fed9c2025db5f9dfde6ed455c7bff34b55e96379c1f9ee3c173633587f425e50aed3e807c6c7cd7bed35d40542eee99891955b2ea5321ebde37172e2c01155138494c2d725b03c02765828679bf011e"
+    )]
+    #[case(
+        "abcdef0123456789",
+        "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_AUG_",
+        "92596412844e12c4733b5a6bfc5727cde4c20b345665d2de99de163266f3ba6a944c6c0fdd9d9fe57b9a4acb769bf3780456f8aab4cd41a70836dba57a5278a85fbd18eb96a2b56cfbda853186c9d190c43e63bc3e6a181aed692e97bbdb1944"
+    )]
     fn test_hash_to_g2_with_dst(#[case] input: &str, #[case] dst: &str, #[case] expect: &str) {
         let g2 = hash_to_g2_with_dst(input.as_bytes(), dst.as_bytes());
         assert_eq!(hex::encode(g2.to_bytes()), expect);
@@ -1284,7 +1311,7 @@ mod pytests {
 
     #[test]
     fn test_json_dict_roundtrip() {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
         let mut rng = StdRng::seed_from_u64(1337);
         let mut data = [0u8; 32];
         let mut msg = [0u8; 10];
@@ -1293,7 +1320,7 @@ mod pytests {
             rng.fill(msg.as_mut_slice());
             let sk = SecretKey::from_seed(&data);
             let sig = sign(&sk, msg);
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let string = sig.to_json_dict(py).expect("to_json_dict");
                 let py_class = py.get_type::<Signature>();
                 let sig2 = Signature::from_json_dict(&py_class, py, string.bind(py))
@@ -1306,14 +1333,29 @@ mod pytests {
     }
 
     #[rstest]
-    #[case("0x000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0ff000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e", "Signature, invalid length 95 expected 96")]
-    #[case("0x000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0ff000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f00", "Signature, invalid length 97 expected 96")]
-    #[case("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0ff000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e", "Signature, invalid length 95 expected 96")]
-    #[case("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0ff000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f00", "Signature, invalid length 97 expected 96")]
-    #[case("00r102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0ff000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f", "invalid hex")]
+    #[case(
+        "0x000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0ff000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e",
+        "Signature, invalid length 95 expected 96"
+    )]
+    #[case(
+        "0x000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0ff000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f00",
+        "Signature, invalid length 97 expected 96"
+    )]
+    #[case(
+        "000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0ff000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e",
+        "Signature, invalid length 95 expected 96"
+    )]
+    #[case(
+        "000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0ff000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f00",
+        "Signature, invalid length 97 expected 96"
+    )]
+    #[case(
+        "00r102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0ff000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f",
+        "invalid hex"
+    )]
     fn test_json_dict(#[case] input: &str, #[case] msg: &str) {
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             let py_class = py.get_type::<Signature>();
             let err = Signature::from_json_dict(
                 &py_class,

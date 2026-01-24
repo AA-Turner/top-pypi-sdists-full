@@ -16,7 +16,6 @@ short_description: workflow approval matrix.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -125,7 +124,7 @@ EXAMPLES = '''
         bypass_validation: false
         state: present
         system_workflow_approvalmatrix:
-          adom-name: ansible
+          adom_name: ansible
           notify: ansible-notify
 
 - name: Gathering fortimanager facts
@@ -142,7 +141,7 @@ EXAMPLES = '''
         facts:
           selector: "system_workflow_approvalmatrix"
           params:
-            approval-matrix: "your_value"
+            approval_matrix: "your_value"
 '''
 
 RETURN = '''

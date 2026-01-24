@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from django import apps
 from django.db.models import signals
@@ -16,7 +17,7 @@ class ViewConfig(apps.AppConfig):
     name = "django_pgviews"
     verbose_name = "Django Postgres Views"
 
-    def sync_pgviews(self, sender, app_config, using, **kwargs):
+    def sync_pgviews(self, sender: Any, app_config: apps.AppConfig, using: str, **kwargs: Any) -> None:
         """
         Forcibly sync the views.
         """
@@ -35,16 +36,18 @@ class ViewConfig(apps.AppConfig):
             vs.run(
                 force=True,
                 update=True,
-                materialized_views_check_sql_changed=getattr(settings, "MATERIALIZED_VIEWS_CHECK_SQL_CHANGED", False),
+                materialized_views_check_sql_changed=getattr(settings, "MATERIALIZED_VIEWS_CHECK_SQL_CHANGED", True),
                 using=using,
             )
             self.counter = 0
 
-    def ready(self):
+    def ready(self) -> None:
         """
         Find and setup the apps to set the post_migrate hooks for.
         """
         from django.conf import settings
+
+        from .checks import validate_has_pgviews_autodetector  # noqa
 
         sync_enabled = getattr(settings, "MATERIALIZED_VIEWS_DISABLE_SYNC_ON_MIGRATE", False) is False
 

@@ -13,7 +13,7 @@ import yaml
 from PIL import Image, ImageDraw
 from pycocotools.coco import COCO
 from pydantic import BaseModel
-from matrice.session import Session
+from matrice_common.session import Session
 
 
 class SplitMetricStruct(BaseModel):

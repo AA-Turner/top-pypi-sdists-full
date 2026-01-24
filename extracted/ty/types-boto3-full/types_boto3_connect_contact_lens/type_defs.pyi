@@ -3,7 +3,7 @@ Type annotations for connect-contact-lens service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect_contact_lens/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -24,11 +24,6 @@ from .literals import (
     SentimentValueType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -65,7 +60,7 @@ class ListRealtimeContactAnalysisSegmentsRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -75,14 +70,14 @@ class PostContactSummaryTypeDef(TypedDict):
     FailureCode: NotRequired[PostContactSummaryFailureCodeType]
 
 class CategoryDetailsTypeDef(TypedDict):
-    PointsOfInterest: List[PointOfInterestTypeDef]
+    PointsOfInterest: list[PointOfInterestTypeDef]
 
 class IssueDetectedTypeDef(TypedDict):
     CharacterOffsets: CharacterOffsetsTypeDef
 
 class CategoriesTypeDef(TypedDict):
-    MatchedCategories: List[str]
-    MatchedDetails: Dict[str, CategoryDetailsTypeDef]
+    MatchedCategories: list[str]
+    MatchedDetails: dict[str, CategoryDetailsTypeDef]
 
 class TranscriptTypeDef(TypedDict):
     Id: str
@@ -92,7 +87,7 @@ class TranscriptTypeDef(TypedDict):
     BeginOffsetMillis: int
     EndOffsetMillis: int
     Sentiment: NotRequired[SentimentValueType]
-    IssuesDetected: NotRequired[List[IssueDetectedTypeDef]]
+    IssuesDetected: NotRequired[list[IssueDetectedTypeDef]]
 
 class RealtimeContactAnalysisSegmentTypeDef(TypedDict):
     Transcript: NotRequired[TranscriptTypeDef]
@@ -100,6 +95,6 @@ class RealtimeContactAnalysisSegmentTypeDef(TypedDict):
     PostContactSummary: NotRequired[PostContactSummaryTypeDef]
 
 class ListRealtimeContactAnalysisSegmentsResponseTypeDef(TypedDict):
-    Segments: List[RealtimeContactAnalysisSegmentTypeDef]
+    Segments: list[RealtimeContactAnalysisSegmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

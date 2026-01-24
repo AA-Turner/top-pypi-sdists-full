@@ -39,7 +39,8 @@ class ColorGradient(models.Model):
         if color:
             color_rgb = _hex2rgb(color)
             nearest_color = min(
-                self.colors, key=lambda subject: sum((s - q) ** 2 for s, q in zip(_hex2rgb(subject), color_rgb))
+                self.colors,
+                key=lambda subject: sum((s - q) ** 2 for s, q in zip(_hex2rgb(subject), color_rgb, strict=False)),
             )
 
             index = self.colors.index(nearest_color)

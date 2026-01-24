@@ -4,8 +4,9 @@
 # ------------------------------------------------------
 
 from .accordion import accordion
+from .dialog import dialog
 from .drawer import drawer
 from .form import form
 from .progress import progress
 
-__all__ = ["accordion", "drawer", "form", "progress"]
+__all__ = ["accordion", "dialog", "drawer", "form", "progress"]

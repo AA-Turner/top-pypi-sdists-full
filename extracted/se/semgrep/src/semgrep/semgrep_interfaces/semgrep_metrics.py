@@ -265,7 +265,8 @@ from dataclasses import field
 
 @dataclass
 class SupplyChainConfig:
-    """Original type: supply_chain_config = { ... }"""
+    """Original type: supply_chain_config = { ... }
+    """
 
     _rfu: Optional[int] = None
 
@@ -294,7 +295,8 @@ class SupplyChainConfig:
 
 @dataclass
 class Any_:
-    """Original type: secrets_origin = [ ... | Any | ... ]"""
+    """Original type: secrets_origin = [ ... | Any | ... ]
+    """
 
     @property
     def kind(self) -> str:
@@ -311,7 +313,8 @@ class Any_:
 
 @dataclass
 class Semgrep:
-    """Original type: secrets_origin = [ ... | Semgrep | ... ]"""
+    """Original type: secrets_origin = [ ... | Semgrep | ... ]
+    """
 
     @property
     def kind(self) -> str:
@@ -328,7 +331,8 @@ class Semgrep:
 
 @dataclass
 class NoCommunity:
-    """Original type: secrets_origin = [ ... | NoCommunity | ... ]"""
+    """Original type: secrets_origin = [ ... | NoCommunity | ... ]
+    """
 
     @property
     def kind(self) -> str:
@@ -345,7 +349,8 @@ class NoCommunity:
 
 @dataclass
 class SecretsOrigin:
-    """Original type: secrets_origin = [ ... ]"""
+    """Original type: secrets_origin = [ ... ]
+    """
 
     value: Union[Any_, Semgrep, NoCommunity]
 
@@ -379,7 +384,8 @@ class SecretsOrigin:
 
 @dataclass
 class SecretsConfig:
-    """Original type: secrets_config = { ... }"""
+    """Original type: secrets_config = { ... }
+    """
 
     permitted_origins: SecretsOrigin
 
@@ -407,7 +413,8 @@ class SecretsConfig:
 
 @dataclass
 class ProFeatures:
-    """Original type: pro_features = { ... }"""
+    """Original type: pro_features = { ... }
+    """
 
     diffDepth: Optional[int] = None
     numInterfileDiffScanned: Optional[List[Tuple[str, int]]] = None
@@ -440,7 +447,8 @@ class ProFeatures:
 
 @dataclass
 class CodeConfig:
-    """Original type: code_config = { ... }"""
+    """Original type: code_config = { ... }
+    """
 
     _rfu: Optional[int] = None
 
@@ -469,7 +477,8 @@ class CodeConfig:
 
 @dataclass
 class Intraprocedural:
-    """Original type: analysis_type = [ ... | Intraprocedural | ... ]"""
+    """Original type: analysis_type = [ ... | Intraprocedural | ... ]
+    """
 
     @property
     def kind(self) -> str:
@@ -486,7 +495,8 @@ class Intraprocedural:
 
 @dataclass
 class Interprocedural:
-    """Original type: analysis_type = [ ... | Interprocedural | ... ]"""
+    """Original type: analysis_type = [ ... | Interprocedural | ... ]
+    """
 
     @property
     def kind(self) -> str:
@@ -503,7 +513,8 @@ class Interprocedural:
 
 @dataclass
 class Interfile:
-    """Original type: analysis_type = [ ... | Interfile | ... ]"""
+    """Original type: analysis_type = [ ... | Interfile | ... ]
+    """
 
     @property
     def kind(self) -> str:
@@ -520,7 +531,8 @@ class Interfile:
 
 @dataclass
 class AnalysisType:
-    """Original type: analysis_type = [ ... ]"""
+    """Original type: analysis_type = [ ... ]
+    """
 
     value: Union[Intraprocedural, Interprocedural, Interfile]
 
@@ -554,7 +566,8 @@ class AnalysisType:
 
 @dataclass
 class EngineConfig:
-    """Original type: engine_config = { ... }"""
+    """Original type: engine_config = { ... }
+    """
 
     analysis_type: AnalysisType
     pro_langs: bool
@@ -597,7 +610,8 @@ class EngineConfig:
 
 @dataclass
 class Value:
-    """Original type: value = { ... }"""
+    """Original type: value = { ... }
+    """
 
     features: List[str]
     proFeatures: Optional[ProFeatures] = None
@@ -656,7 +670,8 @@ class Value:
 
 @dataclass
 class Uuid:
-    """Original type: uuid"""
+    """Original type: uuid
+    """
 
     value: str
 
@@ -677,7 +692,8 @@ class Uuid:
 
 @dataclass
 class Sha256:
-    """Original type: sha256"""
+    """Original type: sha256
+    """
 
     value: str
 
@@ -698,7 +714,8 @@ class Sha256:
 
 @dataclass
 class RuleStats:
-    """Original type: rule_stats = { ... }"""
+    """Original type: rule_stats = { ... }
+    """
 
     ruleHash: str
     bytesScanned: int
@@ -733,7 +750,8 @@ class RuleStats:
 
 @dataclass
 class FileStats:
-    """Original type: file_stats = { ... }"""
+    """Original type: file_stats = { ... }
+    """
 
     size: int
     numTimesScanned: int
@@ -776,7 +794,8 @@ class FileStats:
 
 @dataclass
 class Performance:
-    """Original type: performance = { ... }"""
+    """Original type: performance = { ... }
+    """
 
     numRules: Optional[int] = None
     numTargets: Optional[int] = None
@@ -829,7 +848,8 @@ class Performance:
 
 @dataclass
 class ParseStat:
-    """Original type: parse_stat = { ... }"""
+    """Original type: parse_stat = { ... }
+    """
 
     targets_parsed: int
     num_targets: int
@@ -866,7 +886,8 @@ class ParseStat:
 
 @dataclass
 class Finding:
-    """Original type: finding = { ... }"""
+    """Original type: finding = { ... }
+    """
 
     path: str
     line: int
@@ -906,8 +927,10 @@ class Finding:
 
 @dataclass
 class Mcp:
-    """Original type: mcp = { ... }"""
+    """Original type: mcp = { ... }
+    """
 
+    deployment_name: Optional[str] = None
     session_id: Optional[str] = None
     num_skipped_rules: Optional[int] = None
     rules: Optional[List[str]] = None
@@ -916,11 +939,22 @@ class Mcp:
     findings: Optional[List[Tuple[str, Finding]]] = None
     errors: Optional[List[str]] = None
     num_lines: Optional[int] = None
+    git_username: Optional[str] = None
+    git_repo: Optional[str] = None
+    git_branch: Optional[str] = None
+    tool_name: Optional[str] = None
+    num_tps: Optional[int] = None
+    tps: Optional[List[Tuple[str, Finding]]] = None
+    num_fps: Optional[int] = None
+    fps: Optional[List[Tuple[str, Finding]]] = None
+    num_skips: Optional[int] = None
+    skips: Optional[List[Tuple[str, Finding]]] = None
 
     @classmethod
     def from_json(cls, x: Any) -> 'Mcp':
         if isinstance(x, dict):
             return cls(
+                deployment_name=_atd_read_string(x['deployment_name']) if 'deployment_name' in x else None,
                 session_id=_atd_read_string(x['session_id']) if 'session_id' in x else None,
                 num_skipped_rules=_atd_read_int(x['num_skipped_rules']) if 'num_skipped_rules' in x else None,
                 rules=_atd_read_list(_atd_read_string)(x['rules']) if 'rules' in x else None,
@@ -929,12 +963,24 @@ class Mcp:
                 findings=_atd_read_assoc_object_into_list(Finding.from_json)(x['findings']) if 'findings' in x else None,
                 errors=_atd_read_list(_atd_read_string)(x['errors']) if 'errors' in x else None,
                 num_lines=_atd_read_int(x['num_lines']) if 'num_lines' in x else None,
+                git_username=_atd_read_string(x['git_username']) if 'git_username' in x else None,
+                git_repo=_atd_read_string(x['git_repo']) if 'git_repo' in x else None,
+                git_branch=_atd_read_string(x['git_branch']) if 'git_branch' in x else None,
+                tool_name=_atd_read_string(x['tool_name']) if 'tool_name' in x else None,
+                num_tps=_atd_read_int(x['num_tps']) if 'num_tps' in x else None,
+                tps=_atd_read_assoc_object_into_list(Finding.from_json)(x['tps']) if 'tps' in x else None,
+                num_fps=_atd_read_int(x['num_fps']) if 'num_fps' in x else None,
+                fps=_atd_read_assoc_object_into_list(Finding.from_json)(x['fps']) if 'fps' in x else None,
+                num_skips=_atd_read_int(x['num_skips']) if 'num_skips' in x else None,
+                skips=_atd_read_assoc_object_into_list(Finding.from_json)(x['skips']) if 'skips' in x else None,
             )
         else:
             _atd_bad_json('Mcp', x)
 
     def to_json(self) -> Any:
         res: Dict[str, Any] = {}
+        if self.deployment_name is not None:
+            res['deployment_name'] = _atd_write_string(self.deployment_name)
         if self.session_id is not None:
             res['session_id'] = _atd_write_string(self.session_id)
         if self.num_skipped_rules is not None:
@@ -951,6 +997,26 @@ class Mcp:
             res['errors'] = _atd_write_list(_atd_write_string)(self.errors)
         if self.num_lines is not None:
             res['num_lines'] = _atd_write_int(self.num_lines)
+        if self.git_username is not None:
+            res['git_username'] = _atd_write_string(self.git_username)
+        if self.git_repo is not None:
+            res['git_repo'] = _atd_write_string(self.git_repo)
+        if self.git_branch is not None:
+            res['git_branch'] = _atd_write_string(self.git_branch)
+        if self.tool_name is not None:
+            res['tool_name'] = _atd_write_string(self.tool_name)
+        if self.num_tps is not None:
+            res['num_tps'] = _atd_write_int(self.num_tps)
+        if self.tps is not None:
+            res['tps'] = _atd_write_assoc_list_to_object((lambda x: x.to_json()))(self.tps)
+        if self.num_fps is not None:
+            res['num_fps'] = _atd_write_int(self.num_fps)
+        if self.fps is not None:
+            res['fps'] = _atd_write_assoc_list_to_object((lambda x: x.to_json()))(self.fps)
+        if self.num_skips is not None:
+            res['num_skips'] = _atd_write_int(self.num_skips)
+        if self.skips is not None:
+            res['skips'] = _atd_write_assoc_list_to_object((lambda x: x.to_json()))(self.skips)
         return res
 
     @classmethod
@@ -963,7 +1029,8 @@ class Mcp:
 
 @dataclass
 class Extension:
-    """Original type: extension = { ... }"""
+    """Original type: extension = { ... }
+    """
 
     machineId: Optional[str] = None
     isNewAppInstall: Optional[bool] = None
@@ -1016,7 +1083,8 @@ class Extension:
 
 @dataclass
 class Error:
-    """Original type: error"""
+    """Original type: error
+    """
 
     value: str
 
@@ -1037,7 +1105,8 @@ class Error:
 
 @dataclass
 class Errors:
-    """Original type: errors = { ... }"""
+    """Original type: errors = { ... }
+    """
 
     returnCode: Optional[int] = None
     errors: Optional[List[Error]] = None
@@ -1070,7 +1139,8 @@ class Errors:
 
 @dataclass
 class Environment:
-    """Original type: environment = { ... }"""
+    """Original type: environment = { ... }
+    """
 
     version: str
     os: str
@@ -1131,7 +1201,8 @@ class Environment:
 
 @dataclass
 class Datetime:
-    """Original type: datetime"""
+    """Original type: datetime
+    """
 
     value: str
 
@@ -1152,7 +1223,8 @@ class Datetime:
 
 @dataclass
 class Payload:
-    """Original type: payload = { ... }"""
+    """Original type: payload = { ... }
+    """
 
     event_id: Uuid
     started_at: Datetime
@@ -1210,7 +1282,8 @@ class Payload:
 
 @dataclass
 class Lang:
-    """Original type: lang"""
+    """Original type: lang
+    """
 
     value: str
 

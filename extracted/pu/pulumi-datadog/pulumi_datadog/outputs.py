@@ -35,6 +35,9 @@ __all__ = [
     'AppsecWafExclusionFilterRulesTarget',
     'AppsecWafExclusionFilterRulesTargetTags',
     'AppsecWafExclusionFilterScope',
+    'AwsCurConfigAccountFilters',
+    'AzureUcConfigActualBillConfig',
+    'AzureUcConfigAmortizedBillConfig',
     'ChildOrganizationApiKey',
     'ChildOrganizationApplicationKey',
     'ChildOrganizationSetting',
@@ -44,6 +47,9 @@ __all__ = [
     'ChildOrganizationSettingSamlStrictMode',
     'ChildOrganizationUser',
     'CloudConfigurationRuleFilter',
+    'CloudInventorySyncConfigAws',
+    'CloudInventorySyncConfigAzure',
+    'CloudInventorySyncConfigGcp',
     'ComplianceCustomFrameworkRequirement',
     'ComplianceCustomFrameworkRequirementControl',
     'CostBudgetEntry',
@@ -51,6 +57,14 @@ __all__ = [
     'CsmThreatsAgentRuleAction',
     'CsmThreatsAgentRuleActionHash',
     'CsmThreatsAgentRuleActionSet',
+    'CustomAllocationRuleCostsToAllocate',
+    'CustomAllocationRuleStrategy',
+    'CustomAllocationRuleStrategyAllocatedBy',
+    'CustomAllocationRuleStrategyAllocatedByAllocatedTag',
+    'CustomAllocationRuleStrategyAllocatedByFilter',
+    'CustomAllocationRuleStrategyBasedOnCost',
+    'CustomAllocationRuleStrategyBasedOnTimeseries',
+    'CustomAllocationRuleStrategyEvaluateGroupedByFilter',
     'DashboardListDashItem',
     'DashboardTemplateVariable',
     'DashboardTemplateVariablePreset',
@@ -447,6 +461,8 @@ __all__ = [
     'DashboardWidgetTreemapDefinitionRequestQuerySloQuery',
     'DashboardWidgetWidgetLayout',
     'DatasetProductFilter',
+    'DeploymentGateRule',
+    'DeploymentGateRuleOptions',
     'DowntimeRecurrence',
     'DowntimeScheduleMonitorIdentifier',
     'DowntimeScheduleOneTimeSchedule',
@@ -504,6 +520,15 @@ __all__ = [
     'LogsCustomPipelineProcessorPipelineProcessorLookupProcessor',
     'LogsCustomPipelineProcessorPipelineProcessorMessageRemapper',
     'LogsCustomPipelineProcessorPipelineProcessorReferenceTableLookupProcessor',
+    'LogsCustomPipelineProcessorPipelineProcessorSchemaProcessor',
+    'LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapper',
+    'LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapper',
+    'LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategory',
+    'LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategoryFilter',
+    'LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperFallback',
+    'LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperTargets',
+    'LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaRemapper',
+    'LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorSchema',
     'LogsCustomPipelineProcessorPipelineProcessorServiceRemapper',
     'LogsCustomPipelineProcessorPipelineProcessorSpanIdRemapper',
     'LogsCustomPipelineProcessorPipelineProcessorStatusRemapper',
@@ -512,6 +537,15 @@ __all__ = [
     'LogsCustomPipelineProcessorPipelineProcessorUrlParser',
     'LogsCustomPipelineProcessorPipelineProcessorUserAgentParser',
     'LogsCustomPipelineProcessorReferenceTableLookupProcessor',
+    'LogsCustomPipelineProcessorSchemaProcessor',
+    'LogsCustomPipelineProcessorSchemaProcessorMapper',
+    'LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapper',
+    'LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategory',
+    'LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategoryFilter',
+    'LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperFallback',
+    'LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperTargets',
+    'LogsCustomPipelineProcessorSchemaProcessorMapperSchemaRemapper',
+    'LogsCustomPipelineProcessorSchemaProcessorSchema',
     'LogsCustomPipelineProcessorServiceRemapper',
     'LogsCustomPipelineProcessorSpanIdRemapper',
     'LogsCustomPipelineProcessorStatusRemapper',
@@ -527,9 +561,12 @@ __all__ = [
     'LogsMetricFilter',
     'LogsMetricGroupBy',
     'MetricTagConfigurationAggregation',
+    'MonitorAsset',
     'MonitorConfigPolicyTagPolicy',
     'MonitorMonitorThresholdWindows',
     'MonitorMonitorThresholds',
+    'MonitorNotificationRuleConditionalRecipients',
+    'MonitorNotificationRuleConditionalRecipientsCondition',
     'MonitorNotificationRuleFilter',
     'MonitorSchedulingOption',
     'MonitorSchedulingOptionCustomSchedule',
@@ -543,130 +580,153 @@ __all__ = [
     'MonitorVariablesEventQueryGroupBySort',
     'MonitorVariablesEventQuerySearch',
     'ObservabilityPipelineConfig',
-    'ObservabilityPipelineConfigDestinations',
-    'ObservabilityPipelineConfigDestinationsAmazonOpensearch',
-    'ObservabilityPipelineConfigDestinationsAmazonOpensearchAuth',
-    'ObservabilityPipelineConfigDestinationsAmazonS3',
-    'ObservabilityPipelineConfigDestinationsAmazonS3Auth',
-    'ObservabilityPipelineConfigDestinationsAmazonSecurityLake',
-    'ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth',
-    'ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls',
-    'ObservabilityPipelineConfigDestinationsAzureStorage',
-    'ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiem',
-    'ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemCompression',
-    'ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls',
-    'ObservabilityPipelineConfigDestinationsDatadogLog',
-    'ObservabilityPipelineConfigDestinationsElasticsearch',
-    'ObservabilityPipelineConfigDestinationsGoogleChronicle',
-    'ObservabilityPipelineConfigDestinationsGoogleChronicleAuth',
-    'ObservabilityPipelineConfigDestinationsGoogleCloudStorage',
-    'ObservabilityPipelineConfigDestinationsGoogleCloudStorageAuth',
-    'ObservabilityPipelineConfigDestinationsGoogleCloudStorageMetadata',
-    'ObservabilityPipelineConfigDestinationsMicrosoftSentinel',
-    'ObservabilityPipelineConfigDestinationsNewRelic',
-    'ObservabilityPipelineConfigDestinationsOpensearch',
-    'ObservabilityPipelineConfigDestinationsRsyslog',
-    'ObservabilityPipelineConfigDestinationsRsyslogTls',
-    'ObservabilityPipelineConfigDestinationsSentinelOne',
-    'ObservabilityPipelineConfigDestinationsSocket',
-    'ObservabilityPipelineConfigDestinationsSocketFraming',
-    'ObservabilityPipelineConfigDestinationsSocketFramingCharacterDelimited',
-    'ObservabilityPipelineConfigDestinationsSocketTls',
-    'ObservabilityPipelineConfigDestinationsSplunkHec',
-    'ObservabilityPipelineConfigDestinationsSumoLogic',
-    'ObservabilityPipelineConfigDestinationsSumoLogicHeaderCustomField',
-    'ObservabilityPipelineConfigDestinationsSyslogNg',
-    'ObservabilityPipelineConfigDestinationsSyslogNgTls',
-    'ObservabilityPipelineConfigProcessors',
-    'ObservabilityPipelineConfigProcessorsAddEnvVar',
-    'ObservabilityPipelineConfigProcessorsAddEnvVarVariable',
-    'ObservabilityPipelineConfigProcessorsAddField',
-    'ObservabilityPipelineConfigProcessorsAddFieldField',
-    'ObservabilityPipelineConfigProcessorsCustomProcessor',
-    'ObservabilityPipelineConfigProcessorsCustomProcessorRemap',
-    'ObservabilityPipelineConfigProcessorsDatadogTag',
-    'ObservabilityPipelineConfigProcessorsDedupe',
-    'ObservabilityPipelineConfigProcessorsEnrichmentTable',
-    'ObservabilityPipelineConfigProcessorsEnrichmentTableFile',
-    'ObservabilityPipelineConfigProcessorsEnrichmentTableFileEncoding',
-    'ObservabilityPipelineConfigProcessorsEnrichmentTableFileKey',
-    'ObservabilityPipelineConfigProcessorsEnrichmentTableFileSchema',
-    'ObservabilityPipelineConfigProcessorsEnrichmentTableGeoip',
-    'ObservabilityPipelineConfigProcessorsFilter',
-    'ObservabilityPipelineConfigProcessorsGenerateDatadogMetric',
-    'ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetric',
-    'ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetricValue',
-    'ObservabilityPipelineConfigProcessorsOcsfMapper',
-    'ObservabilityPipelineConfigProcessorsOcsfMapperMapping',
-    'ObservabilityPipelineConfigProcessorsParseGrok',
-    'ObservabilityPipelineConfigProcessorsParseGrokRule',
-    'ObservabilityPipelineConfigProcessorsParseGrokRuleMatchRule',
-    'ObservabilityPipelineConfigProcessorsParseGrokRuleSupportRule',
-    'ObservabilityPipelineConfigProcessorsParseJson',
-    'ObservabilityPipelineConfigProcessorsQuota',
-    'ObservabilityPipelineConfigProcessorsQuotaLimit',
-    'ObservabilityPipelineConfigProcessorsQuotaOverride',
-    'ObservabilityPipelineConfigProcessorsQuotaOverrideField',
-    'ObservabilityPipelineConfigProcessorsQuotaOverrideLimit',
-    'ObservabilityPipelineConfigProcessorsReduce',
-    'ObservabilityPipelineConfigProcessorsReduceMergeStrategy',
-    'ObservabilityPipelineConfigProcessorsRemoveField',
-    'ObservabilityPipelineConfigProcessorsRenameField',
-    'ObservabilityPipelineConfigProcessorsRenameFieldField',
-    'ObservabilityPipelineConfigProcessorsSample',
-    'ObservabilityPipelineConfigProcessorsSensitiveDataScanner',
-    'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRule',
-    'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleKeywordOptions',
-    'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatch',
-    'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchHash',
-    'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchPartialRedact',
-    'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchRedact',
-    'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePattern',
-    'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternCustom',
-    'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternLibrary',
-    'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScope',
-    'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScopeExclude',
-    'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScopeInclude',
-    'ObservabilityPipelineConfigProcessorsThrottle',
-    'ObservabilityPipelineConfigSources',
-    'ObservabilityPipelineConfigSourcesAmazonDataFirehose',
-    'ObservabilityPipelineConfigSourcesAmazonDataFirehoseAuth',
-    'ObservabilityPipelineConfigSourcesAmazonDataFirehoseTls',
-    'ObservabilityPipelineConfigSourcesAmazonS3',
-    'ObservabilityPipelineConfigSourcesAmazonS3Auth',
-    'ObservabilityPipelineConfigSourcesAmazonS3Tls',
-    'ObservabilityPipelineConfigSourcesDatadogAgent',
-    'ObservabilityPipelineConfigSourcesDatadogAgentTls',
-    'ObservabilityPipelineConfigSourcesFluentBit',
-    'ObservabilityPipelineConfigSourcesFluentBitTls',
-    'ObservabilityPipelineConfigSourcesFluentd',
-    'ObservabilityPipelineConfigSourcesFluentdTls',
-    'ObservabilityPipelineConfigSourcesGooglePubsub',
-    'ObservabilityPipelineConfigSourcesGooglePubsubAuth',
-    'ObservabilityPipelineConfigSourcesGooglePubsubTls',
-    'ObservabilityPipelineConfigSourcesHttpClient',
-    'ObservabilityPipelineConfigSourcesHttpClientTls',
-    'ObservabilityPipelineConfigSourcesHttpServer',
-    'ObservabilityPipelineConfigSourcesHttpServerTls',
-    'ObservabilityPipelineConfigSourcesKafka',
-    'ObservabilityPipelineConfigSourcesKafkaLibrdkafkaOption',
-    'ObservabilityPipelineConfigSourcesKafkaSasl',
-    'ObservabilityPipelineConfigSourcesKafkaTls',
-    'ObservabilityPipelineConfigSourcesLogstash',
-    'ObservabilityPipelineConfigSourcesLogstashTls',
-    'ObservabilityPipelineConfigSourcesRsyslog',
-    'ObservabilityPipelineConfigSourcesRsyslogTls',
-    'ObservabilityPipelineConfigSourcesSocket',
-    'ObservabilityPipelineConfigSourcesSocketFraming',
-    'ObservabilityPipelineConfigSourcesSocketFramingCharacterDelimited',
-    'ObservabilityPipelineConfigSourcesSocketTls',
-    'ObservabilityPipelineConfigSourcesSplunkHec',
-    'ObservabilityPipelineConfigSourcesSplunkHecTls',
-    'ObservabilityPipelineConfigSourcesSplunkTcp',
-    'ObservabilityPipelineConfigSourcesSplunkTcpTls',
-    'ObservabilityPipelineConfigSourcesSumoLogic',
-    'ObservabilityPipelineConfigSourcesSyslogNg',
-    'ObservabilityPipelineConfigSourcesSyslogNgTls',
+    'ObservabilityPipelineConfigDestination',
+    'ObservabilityPipelineConfigDestinationAmazonOpensearch',
+    'ObservabilityPipelineConfigDestinationAmazonOpensearchAuth',
+    'ObservabilityPipelineConfigDestinationAmazonS3',
+    'ObservabilityPipelineConfigDestinationAmazonS3Auth',
+    'ObservabilityPipelineConfigDestinationAmazonSecurityLake',
+    'ObservabilityPipelineConfigDestinationAmazonSecurityLakeAuth',
+    'ObservabilityPipelineConfigDestinationAmazonSecurityLakeTls',
+    'ObservabilityPipelineConfigDestinationAzureStorage',
+    'ObservabilityPipelineConfigDestinationCloudPrem',
+    'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiem',
+    'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemCompression',
+    'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls',
+    'ObservabilityPipelineConfigDestinationDatadogLog',
+    'ObservabilityPipelineConfigDestinationDatadogMetric',
+    'ObservabilityPipelineConfigDestinationElasticsearch',
+    'ObservabilityPipelineConfigDestinationElasticsearchDataStream',
+    'ObservabilityPipelineConfigDestinationGoogleChronicle',
+    'ObservabilityPipelineConfigDestinationGoogleChronicleAuth',
+    'ObservabilityPipelineConfigDestinationGoogleCloudStorage',
+    'ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth',
+    'ObservabilityPipelineConfigDestinationGoogleCloudStorageMetadata',
+    'ObservabilityPipelineConfigDestinationGooglePubsub',
+    'ObservabilityPipelineConfigDestinationGooglePubsubAuth',
+    'ObservabilityPipelineConfigDestinationGooglePubsubTls',
+    'ObservabilityPipelineConfigDestinationHttpClient',
+    'ObservabilityPipelineConfigDestinationHttpClientCompression',
+    'ObservabilityPipelineConfigDestinationHttpClientTls',
+    'ObservabilityPipelineConfigDestinationKafka',
+    'ObservabilityPipelineConfigDestinationKafkaLibrdkafkaOption',
+    'ObservabilityPipelineConfigDestinationKafkaSasl',
+    'ObservabilityPipelineConfigDestinationKafkaTls',
+    'ObservabilityPipelineConfigDestinationMicrosoftSentinel',
+    'ObservabilityPipelineConfigDestinationNewRelic',
+    'ObservabilityPipelineConfigDestinationOpensearch',
+    'ObservabilityPipelineConfigDestinationRsyslog',
+    'ObservabilityPipelineConfigDestinationRsyslogTls',
+    'ObservabilityPipelineConfigDestinationSentinelOne',
+    'ObservabilityPipelineConfigDestinationSocket',
+    'ObservabilityPipelineConfigDestinationSocketFraming',
+    'ObservabilityPipelineConfigDestinationSocketFramingCharacterDelimited',
+    'ObservabilityPipelineConfigDestinationSocketTls',
+    'ObservabilityPipelineConfigDestinationSplunkHec',
+    'ObservabilityPipelineConfigDestinationSumoLogic',
+    'ObservabilityPipelineConfigDestinationSumoLogicHeaderCustomField',
+    'ObservabilityPipelineConfigDestinationSyslogNg',
+    'ObservabilityPipelineConfigDestinationSyslogNgTls',
+    'ObservabilityPipelineConfigProcessorGroup',
+    'ObservabilityPipelineConfigProcessorGroupProcessor',
+    'ObservabilityPipelineConfigProcessorGroupProcessorAddEnvVars',
+    'ObservabilityPipelineConfigProcessorGroupProcessorAddEnvVarsVariable',
+    'ObservabilityPipelineConfigProcessorGroupProcessorAddFields',
+    'ObservabilityPipelineConfigProcessorGroupProcessorAddFieldsField',
+    'ObservabilityPipelineConfigProcessorGroupProcessorAddHostname',
+    'ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessor',
+    'ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorRemap',
+    'ObservabilityPipelineConfigProcessorGroupProcessorDatadogTags',
+    'ObservabilityPipelineConfigProcessorGroupProcessorDedupe',
+    'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTable',
+    'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFile',
+    'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileEncoding',
+    'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileKey',
+    'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileSchema',
+    'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableGeoip',
+    'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableReferenceTable',
+    'ObservabilityPipelineConfigProcessorGroupProcessorFilter',
+    'ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetrics',
+    'ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetric',
+    'ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetricValue',
+    'ObservabilityPipelineConfigProcessorGroupProcessorMetricTags',
+    'ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsRule',
+    'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapper',
+    'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMapping',
+    'ObservabilityPipelineConfigProcessorGroupProcessorParseGrok',
+    'ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule',
+    'ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleMatchRule',
+    'ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleSupportRule',
+    'ObservabilityPipelineConfigProcessorGroupProcessorParseJson',
+    'ObservabilityPipelineConfigProcessorGroupProcessorParseXml',
+    'ObservabilityPipelineConfigProcessorGroupProcessorQuota',
+    'ObservabilityPipelineConfigProcessorGroupProcessorQuotaLimit',
+    'ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverride',
+    'ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideField',
+    'ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideLimit',
+    'ObservabilityPipelineConfigProcessorGroupProcessorReduce',
+    'ObservabilityPipelineConfigProcessorGroupProcessorReduceMergeStrategy',
+    'ObservabilityPipelineConfigProcessorGroupProcessorRemoveFields',
+    'ObservabilityPipelineConfigProcessorGroupProcessorRenameFields',
+    'ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsField',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSample',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScanner',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRule',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleKeywordOptions',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatch',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchHash',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchPartialRedact',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchRedact',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePattern',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternCustom',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternLibrary',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScope',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScopeExclude',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScopeInclude',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSplitArray',
+    'ObservabilityPipelineConfigProcessorGroupProcessorSplitArrayArray',
+    'ObservabilityPipelineConfigProcessorGroupProcessorThrottle',
+    'ObservabilityPipelineConfigSource',
+    'ObservabilityPipelineConfigSourceAmazonDataFirehose',
+    'ObservabilityPipelineConfigSourceAmazonDataFirehoseAuth',
+    'ObservabilityPipelineConfigSourceAmazonDataFirehoseTls',
+    'ObservabilityPipelineConfigSourceAmazonS3',
+    'ObservabilityPipelineConfigSourceAmazonS3Auth',
+    'ObservabilityPipelineConfigSourceAmazonS3Tls',
+    'ObservabilityPipelineConfigSourceDatadogAgent',
+    'ObservabilityPipelineConfigSourceDatadogAgentTls',
+    'ObservabilityPipelineConfigSourceFluentBit',
+    'ObservabilityPipelineConfigSourceFluentBitTls',
+    'ObservabilityPipelineConfigSourceFluentd',
+    'ObservabilityPipelineConfigSourceFluentdTls',
+    'ObservabilityPipelineConfigSourceGooglePubsub',
+    'ObservabilityPipelineConfigSourceGooglePubsubAuth',
+    'ObservabilityPipelineConfigSourceGooglePubsubTls',
+    'ObservabilityPipelineConfigSourceHttpClient',
+    'ObservabilityPipelineConfigSourceHttpClientTls',
+    'ObservabilityPipelineConfigSourceHttpServer',
+    'ObservabilityPipelineConfigSourceHttpServerTls',
+    'ObservabilityPipelineConfigSourceKafka',
+    'ObservabilityPipelineConfigSourceKafkaLibrdkafkaOption',
+    'ObservabilityPipelineConfigSourceKafkaSasl',
+    'ObservabilityPipelineConfigSourceKafkaTls',
+    'ObservabilityPipelineConfigSourceLogstash',
+    'ObservabilityPipelineConfigSourceLogstashTls',
+    'ObservabilityPipelineConfigSourceOpentelemetry',
+    'ObservabilityPipelineConfigSourceOpentelemetryTls',
+    'ObservabilityPipelineConfigSourceRsyslog',
+    'ObservabilityPipelineConfigSourceRsyslogTls',
+    'ObservabilityPipelineConfigSourceSocket',
+    'ObservabilityPipelineConfigSourceSocketFraming',
+    'ObservabilityPipelineConfigSourceSocketFramingCharacterDelimited',
+    'ObservabilityPipelineConfigSourceSocketTls',
+    'ObservabilityPipelineConfigSourceSplunkHec',
+    'ObservabilityPipelineConfigSourceSplunkHecTls',
+    'ObservabilityPipelineConfigSourceSplunkTcp',
+    'ObservabilityPipelineConfigSourceSplunkTcpTls',
+    'ObservabilityPipelineConfigSourceSumoLogic',
+    'ObservabilityPipelineConfigSourceSyslogNg',
+    'ObservabilityPipelineConfigSourceSyslogNgTls',
     'OnCallEscalationPolicyStep',
     'OnCallEscalationPolicyStepTarget',
     'OnCallScheduleLayer',
@@ -678,6 +738,9 @@ __all__ = [
     'OnCallTeamRoutingRulesRuleActionSendTeamsMessage',
     'OnCallTeamRoutingRulesRuleTimeRestrictions',
     'OnCallTeamRoutingRulesRuleTimeRestrictionsRestriction',
+    'OnCallUserNotificationChannelEmail',
+    'OnCallUserNotificationChannelPhone',
+    'OnCallUserNotificationRulePhone',
     'OrganizationSettingsSettings',
     'OrganizationSettingsSettingsSaml',
     'OrganizationSettingsSettingsSamlAutocreateUsersDomains',
@@ -1291,6 +1354,13 @@ __all__ = [
     'PowerpackWidgetTreemapDefinitionRequestQueryProcessQuery',
     'PowerpackWidgetTreemapDefinitionRequestQuerySloQuery',
     'PowerpackWidgetWidgetLayout',
+    'ReferenceTableFileMetadata',
+    'ReferenceTableFileMetadataAccessDetails',
+    'ReferenceTableFileMetadataAccessDetailsAwsDetail',
+    'ReferenceTableFileMetadataAccessDetailsAzureDetail',
+    'ReferenceTableFileMetadataAccessDetailsGcpDetail',
+    'ReferenceTableSchema',
+    'ReferenceTableSchemaField',
     'RestrictionPolicyBinding',
     'RolePermission',
     'RumMetricCompute',
@@ -1309,8 +1379,12 @@ __all__ = [
     'SecurityMonitoringRuleCaseActionOptions',
     'SecurityMonitoringRuleFilter',
     'SecurityMonitoringRuleOptions',
+    'SecurityMonitoringRuleOptionsAnomalyDetectionOptions',
     'SecurityMonitoringRuleOptionsImpossibleTravelOptions',
     'SecurityMonitoringRuleOptionsNewValueOptions',
+    'SecurityMonitoringRuleOptionsSequenceDetectionOptions',
+    'SecurityMonitoringRuleOptionsSequenceDetectionOptionsStep',
+    'SecurityMonitoringRuleOptionsSequenceDetectionOptionsStepTransition',
     'SecurityMonitoringRuleOptionsThirdPartyRuleOptions',
     'SecurityMonitoringRuleOptionsThirdPartyRuleOptionsRootQuery',
     'SecurityMonitoringRuleQuery',
@@ -1397,6 +1471,16 @@ __all__ = [
     'SyntheticsTestRequestDefinition',
     'SyntheticsTestRequestFile',
     'SyntheticsTestRequestProxy',
+    'TagPipelineRulesetRule',
+    'TagPipelineRulesetRuleMapping',
+    'TagPipelineRulesetRuleQuery',
+    'TagPipelineRulesetRuleQueryAddition',
+    'TagPipelineRulesetRuleReferenceTable',
+    'TagPipelineRulesetRuleReferenceTableFieldPair',
+    'TeamNotificationRuleEmail',
+    'TeamNotificationRuleMsTeams',
+    'TeamNotificationRulePagerduty',
+    'TeamNotificationRuleSlack',
     'GetActionConnectionAwsResult',
     'GetActionConnectionAwsAssumeRoleResult',
     'GetActionConnectionHttpResult',
@@ -1405,6 +1489,9 @@ __all__ = [
     'GetActionConnectionHttpTokenAuthHeaderResult',
     'GetActionConnectionHttpTokenAuthTokenResult',
     'GetActionConnectionHttpTokenAuthUrlParameterResult',
+    'GetAwsCurConfigAccountFiltersResult',
+    'GetAzureUcConfigActualBillConfigResult',
+    'GetAzureUcConfigAmortizedBillConfigResult',
     'GetCloudWorkloadSecurityAgentRulesAgentRuleResult',
     'GetCostBudgetEntryResult',
     'GetCostBudgetEntryTagFilterResult',
@@ -1413,6 +1500,14 @@ __all__ = [
     'GetCsmThreatsAgentRulesAgentRuleActionHashResult',
     'GetCsmThreatsAgentRulesAgentRuleActionSetResult',
     'GetCsmThreatsPoliciesPolicyResult',
+    'GetCustomAllocationRuleCostsToAllocateResult',
+    'GetCustomAllocationRuleStrategyResult',
+    'GetCustomAllocationRuleStrategyAllocatedByResult',
+    'GetCustomAllocationRuleStrategyAllocatedByAllocatedTagResult',
+    'GetCustomAllocationRuleStrategyAllocatedByFilterResult',
+    'GetCustomAllocationRuleStrategyBasedOnCostResult',
+    'GetCustomAllocationRuleStrategyBasedOnTimeseriesResult',
+    'GetCustomAllocationRuleStrategyEvaluateGroupedByFilterResult',
     'GetHostsHostListResult',
     'GetHostsHostListMetaResult',
     'GetHostsHostListMetricsResult',
@@ -1434,6 +1529,19 @@ __all__ = [
     'GetMonitorSchedulingOptionCustomScheduleRecurrenceResult',
     'GetMonitorSchedulingOptionEvaluationWindowResult',
     'GetMonitorsMonitorResult',
+    'GetOrganizationSettingsSettingResult',
+    'GetOrganizationSettingsSettingSamlResult',
+    'GetOrganizationSettingsSettingSamlAutocreateUsersDomainResult',
+    'GetOrganizationSettingsSettingSamlIdpInitiatedLoginResult',
+    'GetOrganizationSettingsSettingSamlStrictModeResult',
+    'GetReferenceTableFileMetadataResult',
+    'GetReferenceTableFileMetadataAccessDetailsResult',
+    'GetReferenceTableFileMetadataAccessDetailsAwsDetailResult',
+    'GetReferenceTableFileMetadataAccessDetailsAzureDetailResult',
+    'GetReferenceTableFileMetadataAccessDetailsGcpDetailResult',
+    'GetReferenceTableRowsRowResult',
+    'GetReferenceTableSchemaResult',
+    'GetReferenceTableSchemaFieldResult',
     'GetRoleUsersRoleUserResult',
     'GetRolesRoleResult',
     'GetRumRetentionFiltersRetentionFilterResult',
@@ -1446,8 +1554,12 @@ __all__ = [
     'GetSecurityMonitoringRulesRuleCaseActionOptionsResult',
     'GetSecurityMonitoringRulesRuleFilterResult',
     'GetSecurityMonitoringRulesRuleOptionsResult',
+    'GetSecurityMonitoringRulesRuleOptionsAnomalyDetectionOptionsResult',
     'GetSecurityMonitoringRulesRuleOptionsImpossibleTravelOptionsResult',
     'GetSecurityMonitoringRulesRuleOptionsNewValueOptionsResult',
+    'GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsResult',
+    'GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsStepResult',
+    'GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsStepTransitionResult',
     'GetSecurityMonitoringRulesRuleOptionsThirdPartyRuleOptionsResult',
     'GetSecurityMonitoringRulesRuleOptionsThirdPartyRuleOptionsRootQueryResult',
     'GetSecurityMonitoringRulesRuleQueryResult',
@@ -1460,7 +1572,22 @@ __all__ = [
     'GetServiceLevelObjectiveQueryResult',
     'GetServiceLevelObjectivesSloResult',
     'GetSoftwareCatalogEntityResult',
+    'GetTagPipelineRulesetRuleResult',
+    'GetTagPipelineRulesetRuleMappingResult',
+    'GetTagPipelineRulesetRuleQueryResult',
+    'GetTagPipelineRulesetRuleQueryAdditionResult',
+    'GetTagPipelineRulesetRuleReferenceTableResult',
+    'GetTagPipelineRulesetRuleReferenceTableFieldPairResult',
     'GetTeamMembershipsTeamMembershipResult',
+    'GetTeamNotificationRuleEmailResult',
+    'GetTeamNotificationRuleMsTeamsResult',
+    'GetTeamNotificationRulePagerdutyResult',
+    'GetTeamNotificationRuleSlackResult',
+    'GetTeamNotificationRulesNotificationRuleResult',
+    'GetTeamNotificationRulesNotificationRuleEmailResult',
+    'GetTeamNotificationRulesNotificationRuleMsTeamsResult',
+    'GetTeamNotificationRulesNotificationRulePagerdutyResult',
+    'GetTeamNotificationRulesNotificationRuleSlackResult',
     'GetTeamsTeamResult',
     'GetUsersUserResult',
 ]
@@ -2280,6 +2407,218 @@ class AppsecWafExclusionFilterScope(dict):
 
 
 @pulumi.output_type
+class AwsCurConfigAccountFilters(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "excludedAccounts":
+            suggest = "excluded_accounts"
+        elif key == "includeNewAccounts":
+            suggest = "include_new_accounts"
+        elif key == "includedAccounts":
+            suggest = "included_accounts"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AwsCurConfigAccountFilters. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AwsCurConfigAccountFilters.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AwsCurConfigAccountFilters.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 excluded_accounts: Optional[Sequence[_builtins.str]] = None,
+                 include_new_accounts: Optional[_builtins.bool] = None,
+                 included_accounts: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] excluded_accounts: List of AWS account IDs to exclude from cost analysis. Only used when `include_new_accounts` is `true`. Cannot be used together with `included_accounts`.
+        :param _builtins.bool include_new_accounts: Whether to automatically include new member accounts in your cost analysis. When `true`, use `excluded_accounts` to specify accounts to exclude. When `false`, use `included_accounts` to specify only the accounts to include.
+        :param Sequence[_builtins.str] included_accounts: List of AWS account IDs to include in cost analysis. Only used when `include_new_accounts` is `false`. Cannot be used together with `excluded_accounts`.
+        """
+        if excluded_accounts is not None:
+            pulumi.set(__self__, "excluded_accounts", excluded_accounts)
+        if include_new_accounts is not None:
+            pulumi.set(__self__, "include_new_accounts", include_new_accounts)
+        if included_accounts is not None:
+            pulumi.set(__self__, "included_accounts", included_accounts)
+
+    @_builtins.property
+    @pulumi.getter(name="excludedAccounts")
+    def excluded_accounts(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of AWS account IDs to exclude from cost analysis. Only used when `include_new_accounts` is `true`. Cannot be used together with `included_accounts`.
+        """
+        return pulumi.get(self, "excluded_accounts")
+
+    @_builtins.property
+    @pulumi.getter(name="includeNewAccounts")
+    def include_new_accounts(self) -> Optional[_builtins.bool]:
+        """
+        Whether to automatically include new member accounts in your cost analysis. When `true`, use `excluded_accounts` to specify accounts to exclude. When `false`, use `included_accounts` to specify only the accounts to include.
+        """
+        return pulumi.get(self, "include_new_accounts")
+
+    @_builtins.property
+    @pulumi.getter(name="includedAccounts")
+    def included_accounts(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of AWS account IDs to include in cost analysis. Only used when `include_new_accounts` is `false`. Cannot be used together with `excluded_accounts`.
+        """
+        return pulumi.get(self, "included_accounts")
+
+
+@pulumi.output_type
+class AzureUcConfigActualBillConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "exportName":
+            suggest = "export_name"
+        elif key == "exportPath":
+            suggest = "export_path"
+        elif key == "storageAccount":
+            suggest = "storage_account"
+        elif key == "storageContainer":
+            suggest = "storage_container"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AzureUcConfigActualBillConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AzureUcConfigActualBillConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AzureUcConfigActualBillConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 export_name: _builtins.str,
+                 export_path: _builtins.str,
+                 storage_account: _builtins.str,
+                 storage_container: _builtins.str):
+        """
+        :param _builtins.str export_name: The name of the configured Azure Export.
+        :param _builtins.str export_path: The path where the Azure Export is saved.
+        :param _builtins.str storage_account: The name of the storage account where the Azure Export is saved.
+        :param _builtins.str storage_container: The name of the storage container where the Azure Export is saved.
+        """
+        pulumi.set(__self__, "export_name", export_name)
+        pulumi.set(__self__, "export_path", export_path)
+        pulumi.set(__self__, "storage_account", storage_account)
+        pulumi.set(__self__, "storage_container", storage_container)
+
+    @_builtins.property
+    @pulumi.getter(name="exportName")
+    def export_name(self) -> _builtins.str:
+        """
+        The name of the configured Azure Export.
+        """
+        return pulumi.get(self, "export_name")
+
+    @_builtins.property
+    @pulumi.getter(name="exportPath")
+    def export_path(self) -> _builtins.str:
+        """
+        The path where the Azure Export is saved.
+        """
+        return pulumi.get(self, "export_path")
+
+    @_builtins.property
+    @pulumi.getter(name="storageAccount")
+    def storage_account(self) -> _builtins.str:
+        """
+        The name of the storage account where the Azure Export is saved.
+        """
+        return pulumi.get(self, "storage_account")
+
+    @_builtins.property
+    @pulumi.getter(name="storageContainer")
+    def storage_container(self) -> _builtins.str:
+        """
+        The name of the storage container where the Azure Export is saved.
+        """
+        return pulumi.get(self, "storage_container")
+
+
+@pulumi.output_type
+class AzureUcConfigAmortizedBillConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "exportName":
+            suggest = "export_name"
+        elif key == "exportPath":
+            suggest = "export_path"
+        elif key == "storageAccount":
+            suggest = "storage_account"
+        elif key == "storageContainer":
+            suggest = "storage_container"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AzureUcConfigAmortizedBillConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AzureUcConfigAmortizedBillConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AzureUcConfigAmortizedBillConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 export_name: _builtins.str,
+                 export_path: _builtins.str,
+                 storage_account: _builtins.str,
+                 storage_container: _builtins.str):
+        """
+        :param _builtins.str export_name: The name of the configured Azure Export.
+        :param _builtins.str export_path: The path where the Azure Export is saved.
+        :param _builtins.str storage_account: The name of the storage account where the Azure Export is saved.
+        :param _builtins.str storage_container: The name of the storage container where the Azure Export is saved.
+        """
+        pulumi.set(__self__, "export_name", export_name)
+        pulumi.set(__self__, "export_path", export_path)
+        pulumi.set(__self__, "storage_account", storage_account)
+        pulumi.set(__self__, "storage_container", storage_container)
+
+    @_builtins.property
+    @pulumi.getter(name="exportName")
+    def export_name(self) -> _builtins.str:
+        """
+        The name of the configured Azure Export.
+        """
+        return pulumi.get(self, "export_name")
+
+    @_builtins.property
+    @pulumi.getter(name="exportPath")
+    def export_path(self) -> _builtins.str:
+        """
+        The path where the Azure Export is saved.
+        """
+        return pulumi.get(self, "export_path")
+
+    @_builtins.property
+    @pulumi.getter(name="storageAccount")
+    def storage_account(self) -> _builtins.str:
+        """
+        The name of the storage account where the Azure Export is saved.
+        """
+        return pulumi.get(self, "storage_account")
+
+    @_builtins.property
+    @pulumi.getter(name="storageContainer")
+    def storage_container(self) -> _builtins.str:
+        """
+        The name of the storage container where the Azure Export is saved.
+        """
+        return pulumi.get(self, "storage_container")
+
+
+@pulumi.output_type
 class ChildOrganizationApiKey(dict):
     def __init__(__self__, *,
                  key: Optional[_builtins.str] = None,
@@ -2691,6 +3030,266 @@ class CloudConfigurationRuleFilter(dict):
 
 
 @pulumi.output_type
+class CloudInventorySyncConfigAws(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "awsAccountId":
+            suggest = "aws_account_id"
+        elif key == "destinationBucketName":
+            suggest = "destination_bucket_name"
+        elif key == "destinationBucketRegion":
+            suggest = "destination_bucket_region"
+        elif key == "destinationPrefix":
+            suggest = "destination_prefix"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CloudInventorySyncConfigAws. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CloudInventorySyncConfigAws.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CloudInventorySyncConfigAws.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 aws_account_id: Optional[_builtins.str] = None,
+                 destination_bucket_name: Optional[_builtins.str] = None,
+                 destination_bucket_region: Optional[_builtins.str] = None,
+                 destination_prefix: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aws_account_id: AWS Account ID of the account holding the bucket.
+        :param _builtins.str destination_bucket_name: Name of the S3 bucket holding the inventory files.
+        :param _builtins.str destination_bucket_region: AWS Region of the bucket holding the inventory files.
+        :param _builtins.str destination_prefix: Prefix path within the bucket for inventory files.
+        """
+        if aws_account_id is not None:
+            pulumi.set(__self__, "aws_account_id", aws_account_id)
+        if destination_bucket_name is not None:
+            pulumi.set(__self__, "destination_bucket_name", destination_bucket_name)
+        if destination_bucket_region is not None:
+            pulumi.set(__self__, "destination_bucket_region", destination_bucket_region)
+        if destination_prefix is not None:
+            pulumi.set(__self__, "destination_prefix", destination_prefix)
+
+    @_builtins.property
+    @pulumi.getter(name="awsAccountId")
+    def aws_account_id(self) -> Optional[_builtins.str]:
+        """
+        AWS Account ID of the account holding the bucket.
+        """
+        return pulumi.get(self, "aws_account_id")
+
+    @_builtins.property
+    @pulumi.getter(name="destinationBucketName")
+    def destination_bucket_name(self) -> Optional[_builtins.str]:
+        """
+        Name of the S3 bucket holding the inventory files.
+        """
+        return pulumi.get(self, "destination_bucket_name")
+
+    @_builtins.property
+    @pulumi.getter(name="destinationBucketRegion")
+    def destination_bucket_region(self) -> Optional[_builtins.str]:
+        """
+        AWS Region of the bucket holding the inventory files.
+        """
+        return pulumi.get(self, "destination_bucket_region")
+
+    @_builtins.property
+    @pulumi.getter(name="destinationPrefix")
+    def destination_prefix(self) -> Optional[_builtins.str]:
+        """
+        Prefix path within the bucket for inventory files.
+        """
+        return pulumi.get(self, "destination_prefix")
+
+
+@pulumi.output_type
+class CloudInventorySyncConfigAzure(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "clientId":
+            suggest = "client_id"
+        elif key == "resourceGroup":
+            suggest = "resource_group"
+        elif key == "storageAccount":
+            suggest = "storage_account"
+        elif key == "subscriptionId":
+            suggest = "subscription_id"
+        elif key == "tenantId":
+            suggest = "tenant_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CloudInventorySyncConfigAzure. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CloudInventorySyncConfigAzure.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CloudInventorySyncConfigAzure.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 client_id: Optional[_builtins.str] = None,
+                 container: Optional[_builtins.str] = None,
+                 resource_group: Optional[_builtins.str] = None,
+                 storage_account: Optional[_builtins.str] = None,
+                 subscription_id: Optional[_builtins.str] = None,
+                 tenant_id: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str client_id: Azure Client ID.
+        :param _builtins.str container: Azure Storage Container name.
+        :param _builtins.str resource_group: Azure Resource Group name.
+        :param _builtins.str storage_account: Azure Storage Account name.
+        :param _builtins.str subscription_id: Azure Subscription ID.
+        :param _builtins.str tenant_id: Azure Tenant ID.
+        """
+        if client_id is not None:
+            pulumi.set(__self__, "client_id", client_id)
+        if container is not None:
+            pulumi.set(__self__, "container", container)
+        if resource_group is not None:
+            pulumi.set(__self__, "resource_group", resource_group)
+        if storage_account is not None:
+            pulumi.set(__self__, "storage_account", storage_account)
+        if subscription_id is not None:
+            pulumi.set(__self__, "subscription_id", subscription_id)
+        if tenant_id is not None:
+            pulumi.set(__self__, "tenant_id", tenant_id)
+
+    @_builtins.property
+    @pulumi.getter(name="clientId")
+    def client_id(self) -> Optional[_builtins.str]:
+        """
+        Azure Client ID.
+        """
+        return pulumi.get(self, "client_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def container(self) -> Optional[_builtins.str]:
+        """
+        Azure Storage Container name.
+        """
+        return pulumi.get(self, "container")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceGroup")
+    def resource_group(self) -> Optional[_builtins.str]:
+        """
+        Azure Resource Group name.
+        """
+        return pulumi.get(self, "resource_group")
+
+    @_builtins.property
+    @pulumi.getter(name="storageAccount")
+    def storage_account(self) -> Optional[_builtins.str]:
+        """
+        Azure Storage Account name.
+        """
+        return pulumi.get(self, "storage_account")
+
+    @_builtins.property
+    @pulumi.getter(name="subscriptionId")
+    def subscription_id(self) -> Optional[_builtins.str]:
+        """
+        Azure Subscription ID.
+        """
+        return pulumi.get(self, "subscription_id")
+
+    @_builtins.property
+    @pulumi.getter(name="tenantId")
+    def tenant_id(self) -> Optional[_builtins.str]:
+        """
+        Azure Tenant ID.
+        """
+        return pulumi.get(self, "tenant_id")
+
+
+@pulumi.output_type
+class CloudInventorySyncConfigGcp(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "destinationBucketName":
+            suggest = "destination_bucket_name"
+        elif key == "projectId":
+            suggest = "project_id"
+        elif key == "serviceAccountEmail":
+            suggest = "service_account_email"
+        elif key == "sourceBucketName":
+            suggest = "source_bucket_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CloudInventorySyncConfigGcp. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CloudInventorySyncConfigGcp.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CloudInventorySyncConfigGcp.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 destination_bucket_name: Optional[_builtins.str] = None,
+                 project_id: Optional[_builtins.str] = None,
+                 service_account_email: Optional[_builtins.str] = None,
+                 source_bucket_name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str destination_bucket_name: Name of the GCS bucket holding the inventory files.
+        :param _builtins.str project_id: GCP Project ID of the project holding the bucket.
+        :param _builtins.str service_account_email: Service account email used for reading the bucket.
+        :param _builtins.str source_bucket_name: Name of the source bucket the inventory report is generated for.
+        """
+        if destination_bucket_name is not None:
+            pulumi.set(__self__, "destination_bucket_name", destination_bucket_name)
+        if project_id is not None:
+            pulumi.set(__self__, "project_id", project_id)
+        if service_account_email is not None:
+            pulumi.set(__self__, "service_account_email", service_account_email)
+        if source_bucket_name is not None:
+            pulumi.set(__self__, "source_bucket_name", source_bucket_name)
+
+    @_builtins.property
+    @pulumi.getter(name="destinationBucketName")
+    def destination_bucket_name(self) -> Optional[_builtins.str]:
+        """
+        Name of the GCS bucket holding the inventory files.
+        """
+        return pulumi.get(self, "destination_bucket_name")
+
+    @_builtins.property
+    @pulumi.getter(name="projectId")
+    def project_id(self) -> Optional[_builtins.str]:
+        """
+        GCP Project ID of the project holding the bucket.
+        """
+        return pulumi.get(self, "project_id")
+
+    @_builtins.property
+    @pulumi.getter(name="serviceAccountEmail")
+    def service_account_email(self) -> Optional[_builtins.str]:
+        """
+        Service account email used for reading the bucket.
+        """
+        return pulumi.get(self, "service_account_email")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceBucketName")
+    def source_bucket_name(self) -> Optional[_builtins.str]:
+        """
+        Name of the source bucket the inventory report is generated for.
+        """
+        return pulumi.get(self, "source_bucket_name")
+
+
+@pulumi.output_type
 class ComplianceCustomFrameworkRequirement(dict):
     def __init__(__self__, *,
                  name: _builtins.str,
@@ -2834,12 +3433,18 @@ class CostBudgetEntryTagFilter(dict):
     def __init__(__self__, *,
                  tag_key: _builtins.str,
                  tag_value: _builtins.str):
+        """
+        :param _builtins.str tag_key: **Note:** Must be one of the tags from the `metrics_query`.
+        """
         pulumi.set(__self__, "tag_key", tag_key)
         pulumi.set(__self__, "tag_value", tag_value)
 
     @_builtins.property
     @pulumi.getter(name="tagKey")
     def tag_key(self) -> _builtins.str:
+        """
+        **Note:** Must be one of the tags from the `metrics_query`.
+        """
         return pulumi.get(self, "tag_key")
 
     @_builtins.property
@@ -2881,34 +3486,77 @@ class CsmThreatsAgentRuleAction(dict):
 
 @pulumi.output_type
 class CsmThreatsAgentRuleActionHash(dict):
-    def __init__(__self__):
-        pass
+    def __init__(__self__, *,
+                 field: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str field: The field to hash
+        """
+        if field is not None:
+            pulumi.set(__self__, "field", field)
+
+    @_builtins.property
+    @pulumi.getter
+    def field(self) -> Optional[_builtins.str]:
+        """
+        The field to hash
+        """
+        return pulumi.get(self, "field")
 
 
 @pulumi.output_type
 class CsmThreatsAgentRuleActionSet(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "defaultValue":
+            suggest = "default_value"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CsmThreatsAgentRuleActionSet. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CsmThreatsAgentRuleActionSet.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CsmThreatsAgentRuleActionSet.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 name: _builtins.str,
                  append: Optional[_builtins.bool] = None,
+                 default_value: Optional[_builtins.str] = None,
+                 expression: Optional[_builtins.str] = None,
                  field: Optional[_builtins.str] = None,
+                 inherited: Optional[_builtins.bool] = None,
+                 name: Optional[_builtins.str] = None,
                  scope: Optional[_builtins.str] = None,
                  size: Optional[_builtins.int] = None,
                  ttl: Optional[_builtins.int] = None,
                  value: Optional[_builtins.str] = None):
         """
-        :param _builtins.str name: The name of the set action
         :param _builtins.bool append: Whether to append to the set
+        :param _builtins.str default_value: The default value to set
+        :param _builtins.str expression: The expression to use for the set action
         :param _builtins.str field: The field to get the value from
+        :param _builtins.bool inherited: Whether the set action is inherited
+        :param _builtins.str name: The name of the set action
         :param _builtins.str scope: The scope of the set action (process, container, cgroup, or empty)
         :param _builtins.int size: The maximum size of the set
         :param _builtins.int ttl: The time to live for the set in nanoseconds
         :param _builtins.str value: The value to set
         """
-        pulumi.set(__self__, "name", name)
         if append is not None:
             pulumi.set(__self__, "append", append)
+        if default_value is not None:
+            pulumi.set(__self__, "default_value", default_value)
+        if expression is not None:
+            pulumi.set(__self__, "expression", expression)
         if field is not None:
             pulumi.set(__self__, "field", field)
+        if inherited is not None:
+            pulumi.set(__self__, "inherited", inherited)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
         if scope is not None:
             pulumi.set(__self__, "scope", scope)
         if size is not None:
@@ -2920,19 +3568,27 @@ class CsmThreatsAgentRuleActionSet(dict):
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> _builtins.str:
-        """
-        The name of the set action
-        """
-        return pulumi.get(self, "name")
-
-    @_builtins.property
-    @pulumi.getter
     def append(self) -> Optional[_builtins.bool]:
         """
         Whether to append to the set
         """
         return pulumi.get(self, "append")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultValue")
+    def default_value(self) -> Optional[_builtins.str]:
+        """
+        The default value to set
+        """
+        return pulumi.get(self, "default_value")
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> Optional[_builtins.str]:
+        """
+        The expression to use for the set action
+        """
+        return pulumi.get(self, "expression")
 
     @_builtins.property
     @pulumi.getter
@@ -2941,6 +3597,22 @@ class CsmThreatsAgentRuleActionSet(dict):
         The field to get the value from
         """
         return pulumi.get(self, "field")
+
+    @_builtins.property
+    @pulumi.getter
+    def inherited(self) -> Optional[_builtins.bool]:
+        """
+        Whether the set action is inherited
+        """
+        return pulumi.get(self, "inherited")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        The name of the set action
+        """
+        return pulumi.get(self, "name")
 
     @_builtins.property
     @pulumi.getter
@@ -2973,6 +3645,431 @@ class CsmThreatsAgentRuleActionSet(dict):
         The value to set
         """
         return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class CustomAllocationRuleCostsToAllocate(dict):
+    def __init__(__self__, *,
+                 condition: Optional[_builtins.str] = None,
+                 tag: Optional[_builtins.str] = None,
+                 value: Optional[_builtins.str] = None,
+                 values: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str condition: The condition to match. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        :param _builtins.str tag: The tag key to filter on (e.g., `aws_product`, `team`, `environment`).
+        :param _builtins.str value: The single tag value to match. Use this field for conditions like `=`, `!=`, `is`, `is not`, `like`. Do not use with `in` or `not in` conditions.
+        :param Sequence[_builtins.str] values: A list of tag values to match. Use this field for `in` or `not in` conditions only. Do not use with single-value conditions.
+        """
+        if condition is not None:
+            pulumi.set(__self__, "condition", condition)
+        if tag is not None:
+            pulumi.set(__self__, "tag", tag)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+        if values is not None:
+            pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def condition(self) -> Optional[_builtins.str]:
+        """
+        The condition to match. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        """
+        return pulumi.get(self, "condition")
+
+    @_builtins.property
+    @pulumi.getter
+    def tag(self) -> Optional[_builtins.str]:
+        """
+        The tag key to filter on (e.g., `aws_product`, `team`, `environment`).
+        """
+        return pulumi.get(self, "tag")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        The single tag value to match. Use this field for conditions like `=`, `!=`, `is`, `is not`, `like`. Do not use with `in` or `not in` conditions.
+        """
+        return pulumi.get(self, "value")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        A list of tag values to match. Use this field for `in` or `not in` conditions only. Do not use with single-value conditions.
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
+class CustomAllocationRuleStrategy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allocatedBies":
+            suggest = "allocated_bies"
+        elif key == "allocatedByFilters":
+            suggest = "allocated_by_filters"
+        elif key == "allocatedByTagKeys":
+            suggest = "allocated_by_tag_keys"
+        elif key == "basedOnCosts":
+            suggest = "based_on_costs"
+        elif key == "basedOnTimeseries":
+            suggest = "based_on_timeseries"
+        elif key == "evaluateGroupedByFilters":
+            suggest = "evaluate_grouped_by_filters"
+        elif key == "evaluateGroupedByTagKeys":
+            suggest = "evaluate_grouped_by_tag_keys"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CustomAllocationRuleStrategy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CustomAllocationRuleStrategy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CustomAllocationRuleStrategy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 allocated_bies: Optional[Sequence['outputs.CustomAllocationRuleStrategyAllocatedBy']] = None,
+                 allocated_by_filters: Optional[Sequence['outputs.CustomAllocationRuleStrategyAllocatedByFilter']] = None,
+                 allocated_by_tag_keys: Optional[Sequence[_builtins.str]] = None,
+                 based_on_costs: Optional[Sequence['outputs.CustomAllocationRuleStrategyBasedOnCost']] = None,
+                 based_on_timeseries: Optional['outputs.CustomAllocationRuleStrategyBasedOnTimeseries'] = None,
+                 evaluate_grouped_by_filters: Optional[Sequence['outputs.CustomAllocationRuleStrategyEvaluateGroupedByFilter']] = None,
+                 evaluate_grouped_by_tag_keys: Optional[Sequence[_builtins.str]] = None,
+                 granularity: Optional[_builtins.str] = None,
+                 method: Optional[_builtins.str] = None):
+        """
+        :param Sequence[_builtins.str] allocated_by_tag_keys: List of tag keys used to allocate costs (e.g., `["team", "project"]`). Costs will be distributed across unique values of these tags.
+        :param Sequence[_builtins.str] evaluate_grouped_by_tag_keys: List of tag keys used to group costs before allocation. Costs are grouped by these tag values before applying the allocation strategy.
+        :param _builtins.str granularity: The granularity level for cost allocation. Valid values are `daily` or `monthly`.
+        :param _builtins.str method: The allocation method. Valid values are `even`, `proportional`, `proportional_timeseries`, or `percent`.
+        """
+        if allocated_bies is not None:
+            pulumi.set(__self__, "allocated_bies", allocated_bies)
+        if allocated_by_filters is not None:
+            pulumi.set(__self__, "allocated_by_filters", allocated_by_filters)
+        if allocated_by_tag_keys is not None:
+            pulumi.set(__self__, "allocated_by_tag_keys", allocated_by_tag_keys)
+        if based_on_costs is not None:
+            pulumi.set(__self__, "based_on_costs", based_on_costs)
+        if based_on_timeseries is not None:
+            pulumi.set(__self__, "based_on_timeseries", based_on_timeseries)
+        if evaluate_grouped_by_filters is not None:
+            pulumi.set(__self__, "evaluate_grouped_by_filters", evaluate_grouped_by_filters)
+        if evaluate_grouped_by_tag_keys is not None:
+            pulumi.set(__self__, "evaluate_grouped_by_tag_keys", evaluate_grouped_by_tag_keys)
+        if granularity is not None:
+            pulumi.set(__self__, "granularity", granularity)
+        if method is not None:
+            pulumi.set(__self__, "method", method)
+
+    @_builtins.property
+    @pulumi.getter(name="allocatedBies")
+    def allocated_bies(self) -> Optional[Sequence['outputs.CustomAllocationRuleStrategyAllocatedBy']]:
+        return pulumi.get(self, "allocated_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="allocatedByFilters")
+    def allocated_by_filters(self) -> Optional[Sequence['outputs.CustomAllocationRuleStrategyAllocatedByFilter']]:
+        return pulumi.get(self, "allocated_by_filters")
+
+    @_builtins.property
+    @pulumi.getter(name="allocatedByTagKeys")
+    def allocated_by_tag_keys(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of tag keys used to allocate costs (e.g., `["team", "project"]`). Costs will be distributed across unique values of these tags.
+        """
+        return pulumi.get(self, "allocated_by_tag_keys")
+
+    @_builtins.property
+    @pulumi.getter(name="basedOnCosts")
+    def based_on_costs(self) -> Optional[Sequence['outputs.CustomAllocationRuleStrategyBasedOnCost']]:
+        return pulumi.get(self, "based_on_costs")
+
+    @_builtins.property
+    @pulumi.getter(name="basedOnTimeseries")
+    def based_on_timeseries(self) -> Optional['outputs.CustomAllocationRuleStrategyBasedOnTimeseries']:
+        return pulumi.get(self, "based_on_timeseries")
+
+    @_builtins.property
+    @pulumi.getter(name="evaluateGroupedByFilters")
+    def evaluate_grouped_by_filters(self) -> Optional[Sequence['outputs.CustomAllocationRuleStrategyEvaluateGroupedByFilter']]:
+        return pulumi.get(self, "evaluate_grouped_by_filters")
+
+    @_builtins.property
+    @pulumi.getter(name="evaluateGroupedByTagKeys")
+    def evaluate_grouped_by_tag_keys(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of tag keys used to group costs before allocation. Costs are grouped by these tag values before applying the allocation strategy.
+        """
+        return pulumi.get(self, "evaluate_grouped_by_tag_keys")
+
+    @_builtins.property
+    @pulumi.getter
+    def granularity(self) -> Optional[_builtins.str]:
+        """
+        The granularity level for cost allocation. Valid values are `daily` or `monthly`.
+        """
+        return pulumi.get(self, "granularity")
+
+    @_builtins.property
+    @pulumi.getter
+    def method(self) -> Optional[_builtins.str]:
+        """
+        The allocation method. Valid values are `even`, `proportional`, `proportional_timeseries`, or `percent`.
+        """
+        return pulumi.get(self, "method")
+
+
+@pulumi.output_type
+class CustomAllocationRuleStrategyAllocatedBy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allocatedTags":
+            suggest = "allocated_tags"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CustomAllocationRuleStrategyAllocatedBy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CustomAllocationRuleStrategyAllocatedBy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CustomAllocationRuleStrategyAllocatedBy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 allocated_tags: Optional[Sequence['outputs.CustomAllocationRuleStrategyAllocatedByAllocatedTag']] = None,
+                 percentage: Optional[_builtins.float] = None):
+        """
+        :param _builtins.float percentage: The percentage of costs to allocate to this target as a decimal (e.g., 0.33 for 33%). Used when `method` is `percent`.
+        """
+        if allocated_tags is not None:
+            pulumi.set(__self__, "allocated_tags", allocated_tags)
+        if percentage is not None:
+            pulumi.set(__self__, "percentage", percentage)
+
+    @_builtins.property
+    @pulumi.getter(name="allocatedTags")
+    def allocated_tags(self) -> Optional[Sequence['outputs.CustomAllocationRuleStrategyAllocatedByAllocatedTag']]:
+        return pulumi.get(self, "allocated_tags")
+
+    @_builtins.property
+    @pulumi.getter
+    def percentage(self) -> Optional[_builtins.float]:
+        """
+        The percentage of costs to allocate to this target as a decimal (e.g., 0.33 for 33%). Used when `method` is `percent`.
+        """
+        return pulumi.get(self, "percentage")
+
+
+@pulumi.output_type
+class CustomAllocationRuleStrategyAllocatedByAllocatedTag(dict):
+    def __init__(__self__, *,
+                 key: Optional[_builtins.str] = None,
+                 value: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str key: The tag key to allocate costs to (e.g., `team`, `environment`).
+        :param _builtins.str value: The tag value to allocate costs to (e.g., `backend`, `production`).
+        """
+        if key is not None:
+            pulumi.set(__self__, "key", key)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> Optional[_builtins.str]:
+        """
+        The tag key to allocate costs to (e.g., `team`, `environment`).
+        """
+        return pulumi.get(self, "key")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        The tag value to allocate costs to (e.g., `backend`, `production`).
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class CustomAllocationRuleStrategyAllocatedByFilter(dict):
+    def __init__(__self__, *,
+                 condition: Optional[_builtins.str] = None,
+                 tag: Optional[_builtins.str] = None,
+                 value: Optional[_builtins.str] = None,
+                 values: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str condition: The condition to match. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        :param _builtins.str tag: The tag key to filter on for allocation targets.
+        :param _builtins.str value: The single tag value to match for allocation. Use with conditions like `=`, `!=`, `is`, `is not`, `like`.
+        :param Sequence[_builtins.str] values: A list of tag values to match for allocation. Use with `in` or `not in` conditions.
+        """
+        if condition is not None:
+            pulumi.set(__self__, "condition", condition)
+        if tag is not None:
+            pulumi.set(__self__, "tag", tag)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+        if values is not None:
+            pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def condition(self) -> Optional[_builtins.str]:
+        """
+        The condition to match. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        """
+        return pulumi.get(self, "condition")
+
+    @_builtins.property
+    @pulumi.getter
+    def tag(self) -> Optional[_builtins.str]:
+        """
+        The tag key to filter on for allocation targets.
+        """
+        return pulumi.get(self, "tag")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        The single tag value to match for allocation. Use with conditions like `=`, `!=`, `is`, `is not`, `like`.
+        """
+        return pulumi.get(self, "value")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        A list of tag values to match for allocation. Use with `in` or `not in` conditions.
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
+class CustomAllocationRuleStrategyBasedOnCost(dict):
+    def __init__(__self__, *,
+                 condition: Optional[_builtins.str] = None,
+                 tag: Optional[_builtins.str] = None,
+                 value: Optional[_builtins.str] = None,
+                 values: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str condition: The condition to match. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        :param _builtins.str tag: The tag key to use as the basis for cost allocation calculations.
+        :param _builtins.str value: The single tag value to use for cost calculations. Use with conditions like `=`, `!=`, `is`, `is not`, `like`.
+        :param Sequence[_builtins.str] values: A list of tag values to use for cost calculations. Use with `in` or `not in` conditions.
+        """
+        if condition is not None:
+            pulumi.set(__self__, "condition", condition)
+        if tag is not None:
+            pulumi.set(__self__, "tag", tag)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+        if values is not None:
+            pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def condition(self) -> Optional[_builtins.str]:
+        """
+        The condition to match. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        """
+        return pulumi.get(self, "condition")
+
+    @_builtins.property
+    @pulumi.getter
+    def tag(self) -> Optional[_builtins.str]:
+        """
+        The tag key to use as the basis for cost allocation calculations.
+        """
+        return pulumi.get(self, "tag")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        The single tag value to use for cost calculations. Use with conditions like `=`, `!=`, `is`, `is not`, `like`.
+        """
+        return pulumi.get(self, "value")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        A list of tag values to use for cost calculations. Use with `in` or `not in` conditions.
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
+class CustomAllocationRuleStrategyBasedOnTimeseries(dict):
+    def __init__(__self__):
+        pass
+
+
+@pulumi.output_type
+class CustomAllocationRuleStrategyEvaluateGroupedByFilter(dict):
+    def __init__(__self__, *,
+                 condition: Optional[_builtins.str] = None,
+                 tag: Optional[_builtins.str] = None,
+                 value: Optional[_builtins.str] = None,
+                 values: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str condition: The condition to match. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        :param _builtins.str tag: The tag key to filter on when grouping costs for evaluation.
+        :param _builtins.str value: The single tag value to match when grouping. Use with conditions like `=`, `!=`, `is`, `is not`, `like`.
+        :param Sequence[_builtins.str] values: A list of tag values to match when grouping. Use with `in` or `not in` conditions.
+        """
+        if condition is not None:
+            pulumi.set(__self__, "condition", condition)
+        if tag is not None:
+            pulumi.set(__self__, "tag", tag)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+        if values is not None:
+            pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def condition(self) -> Optional[_builtins.str]:
+        """
+        The condition to match. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        """
+        return pulumi.get(self, "condition")
+
+    @_builtins.property
+    @pulumi.getter
+    def tag(self) -> Optional[_builtins.str]:
+        """
+        The tag key to filter on when grouping costs for evaluation.
+        """
+        return pulumi.get(self, "tag")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        The single tag value to match when grouping. Use with conditions like `=`, `!=`, `is`, `is not`, `like`.
+        """
+        return pulumi.get(self, "value")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        A list of tag values to match when grouping. Use with `in` or `not in` conditions.
+        """
+        return pulumi.get(self, "values")
 
 
 @pulumi.output_type
@@ -3716,6 +4813,8 @@ class DashboardWidgetAlertGraphDefinition(dict):
             suggest = "alert_id"
         elif key == "vizType":
             suggest = "viz_type"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -3737,6 +4836,7 @@ class DashboardWidgetAlertGraphDefinition(dict):
     def __init__(__self__, *,
                  alert_id: _builtins.str,
                  viz_type: _builtins.str,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  title: Optional[_builtins.str] = None,
                  title_align: Optional[_builtins.str] = None,
@@ -3744,6 +4844,7 @@ class DashboardWidgetAlertGraphDefinition(dict):
         """
         :param _builtins.str alert_id: The ID of the monitor used by the widget.
         :param _builtins.str viz_type: Type of visualization to use when displaying the widget. Valid values are `timeseries`, `toplist`.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.str title: The title of the widget.
         :param _builtins.str title_align: The alignment of the widget's title. Valid values are `center`, `left`, `right`.
@@ -3751,6 +4852,8 @@ class DashboardWidgetAlertGraphDefinition(dict):
         """
         pulumi.set(__self__, "alert_id", alert_id)
         pulumi.set(__self__, "viz_type", viz_type)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if title is not None:
@@ -3775,6 +4878,14 @@ class DashboardWidgetAlertGraphDefinition(dict):
         Type of visualization to use when displaying the widget. Valid values are `timeseries`, `toplist`.
         """
         return pulumi.get(self, "viz_type")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -4203,6 +5314,8 @@ class DashboardWidgetChangeDefinition(dict):
         suggest = None
         if key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -4223,6 +5336,7 @@ class DashboardWidgetChangeDefinition(dict):
 
     def __init__(__self__, *,
                  custom_links: Optional[Sequence['outputs.DashboardWidgetChangeDefinitionCustomLink']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  requests: Optional[Sequence['outputs.DashboardWidgetChangeDefinitionRequest']] = None,
                  title: Optional[_builtins.str] = None,
@@ -4230,6 +5344,7 @@ class DashboardWidgetChangeDefinition(dict):
                  title_size: Optional[_builtins.str] = None):
         """
         :param Sequence['DashboardWidgetChangeDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence['DashboardWidgetChangeDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple request blocks are allowed using the structure below (exactly one of `q`, `apm_query`, `log_query`, `rum_query`, `security_query` or `process_query` is required within the request block).
         :param _builtins.str title: The title of the widget.
@@ -4238,6 +5353,8 @@ class DashboardWidgetChangeDefinition(dict):
         """
         if custom_links is not None:
             pulumi.set(__self__, "custom_links", custom_links)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if requests is not None:
@@ -4256,6 +5373,14 @@ class DashboardWidgetChangeDefinition(dict):
         A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "custom_links")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -5707,7 +6832,7 @@ class DashboardWidgetChangeDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['DashboardWidgetChangeDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -5741,7 +6866,7 @@ class DashboardWidgetChangeDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -5947,6 +7072,8 @@ class DashboardWidgetChangeDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetChangeDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -5964,13 +7091,15 @@ class DashboardWidgetChangeDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -5980,6 +7109,8 @@ class DashboardWidgetChangeDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -6020,6 +7151,14 @@ class DashboardWidgetChangeDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -6305,6 +7444,8 @@ class DashboardWidgetCheckStatusDefinition(dict):
         suggest = None
         if key == "groupBies":
             suggest = "group_bies"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -6328,6 +7469,7 @@ class DashboardWidgetCheckStatusDefinition(dict):
                  grouping: _builtins.str,
                  group: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence[_builtins.str]] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  tags: Optional[Sequence[_builtins.str]] = None,
                  title: Optional[_builtins.str] = None,
@@ -6338,6 +7480,7 @@ class DashboardWidgetCheckStatusDefinition(dict):
         :param _builtins.str grouping: The kind of grouping to use. Valid values are `check`, `cluster`.
         :param _builtins.str group: The check group to use in the widget.
         :param Sequence[_builtins.str] group_bies: When `grouping = "cluster"`, indicates a list of tags to use for grouping.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence[_builtins.str] tags: A list of tags to use in the widget.
         :param _builtins.str title: The title of the widget.
@@ -6350,6 +7493,8 @@ class DashboardWidgetCheckStatusDefinition(dict):
             pulumi.set(__self__, "group", group)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if tags is not None:
@@ -6392,6 +7537,14 @@ class DashboardWidgetCheckStatusDefinition(dict):
         When `grouping = "cluster"`, indicates a list of tags to use for grouping.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -6439,7 +7592,9 @@ class DashboardWidgetDistributionDefinition(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "legendSize":
+        if key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
+        elif key == "legendSize":
             suggest = "legend_size"
         elif key == "liveSpan":
             suggest = "live_span"
@@ -6462,6 +7617,7 @@ class DashboardWidgetDistributionDefinition(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  legend_size: Optional[_builtins.str] = None,
                  live_span: Optional[_builtins.str] = None,
                  requests: Optional[Sequence['outputs.DashboardWidgetDistributionDefinitionRequest']] = None,
@@ -6472,6 +7628,7 @@ class DashboardWidgetDistributionDefinition(dict):
                  xaxis: Optional['outputs.DashboardWidgetDistributionDefinitionXaxis'] = None,
                  yaxis: Optional['outputs.DashboardWidgetDistributionDefinitionYaxis'] = None):
         """
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str legend_size: The size of the legend displayed in the widget.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence['DashboardWidgetDistributionDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple request blocks are allowed using the structure below (exactly one of `q`, `apm_query`, `log_query`, `rum_query`, `security_query` or `process_query` is required within the request block).
@@ -6482,6 +7639,8 @@ class DashboardWidgetDistributionDefinition(dict):
         :param 'DashboardWidgetDistributionDefinitionXaxisArgs' xaxis: A nested block describing the X-Axis Controls. Exactly one nested block is allowed using the structure below.
         :param 'DashboardWidgetDistributionDefinitionYaxisArgs' yaxis: A nested block describing the Y-Axis Controls. Exactly one nested block is allowed using the structure below.
         """
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if legend_size is not None:
             pulumi.set(__self__, "legend_size", legend_size)
         if live_span is not None:
@@ -6500,6 +7659,14 @@ class DashboardWidgetDistributionDefinition(dict):
             pulumi.set(__self__, "xaxis", xaxis)
         if yaxis is not None:
             pulumi.set(__self__, "yaxis", yaxis)
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="legendSize")
@@ -7131,6 +8298,8 @@ class DashboardWidgetEventStreamDefinition(dict):
         suggest = None
         if key == "eventSize":
             suggest = "event_size"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "tagsExecution":
@@ -7154,6 +8323,7 @@ class DashboardWidgetEventStreamDefinition(dict):
     def __init__(__self__, *,
                  query: _builtins.str,
                  event_size: Optional[_builtins.str] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  tags_execution: Optional[_builtins.str] = None,
                  title: Optional[_builtins.str] = None,
@@ -7162,6 +8332,7 @@ class DashboardWidgetEventStreamDefinition(dict):
         """
         :param _builtins.str query: The query to use in the widget.
         :param _builtins.str event_size: The size to use to display an event. Valid values are `s`, `l`.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.str tags_execution: The execution method for multi-value filters, options: `and` or `or`.
         :param _builtins.str title: The title of the widget.
@@ -7171,6 +8342,8 @@ class DashboardWidgetEventStreamDefinition(dict):
         pulumi.set(__self__, "query", query)
         if event_size is not None:
             pulumi.set(__self__, "event_size", event_size)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if tags_execution is not None:
@@ -7197,6 +8370,14 @@ class DashboardWidgetEventStreamDefinition(dict):
         The size to use to display an event. Valid values are `s`, `l`.
         """
         return pulumi.get(self, "event_size")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -7244,7 +8425,9 @@ class DashboardWidgetEventTimelineDefinition(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "liveSpan":
+        if key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
+        elif key == "liveSpan":
             suggest = "live_span"
         elif key == "tagsExecution":
             suggest = "tags_execution"
@@ -7266,6 +8449,7 @@ class DashboardWidgetEventTimelineDefinition(dict):
 
     def __init__(__self__, *,
                  query: _builtins.str,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  tags_execution: Optional[_builtins.str] = None,
                  title: Optional[_builtins.str] = None,
@@ -7273,6 +8457,7 @@ class DashboardWidgetEventTimelineDefinition(dict):
                  title_size: Optional[_builtins.str] = None):
         """
         :param _builtins.str query: The query to use in the widget.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.str tags_execution: The execution method for multi-value filters, options: `and` or `or`.
         :param _builtins.str title: The title of the widget.
@@ -7280,6 +8465,8 @@ class DashboardWidgetEventTimelineDefinition(dict):
         :param _builtins.str title_size: The size of the widget's title (defaults to 16).
         """
         pulumi.set(__self__, "query", query)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if tags_execution is not None:
@@ -7298,6 +8485,14 @@ class DashboardWidgetEventTimelineDefinition(dict):
         The query to use in the widget.
         """
         return pulumi.get(self, "query")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -7420,6 +8615,8 @@ class DashboardWidgetGeomapDefinition(dict):
         suggest = None
         if key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -7441,6 +8638,7 @@ class DashboardWidgetGeomapDefinition(dict):
     def __init__(__self__, *,
                  view: 'outputs.DashboardWidgetGeomapDefinitionView',
                  custom_links: Optional[Sequence['outputs.DashboardWidgetGeomapDefinitionCustomLink']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  requests: Optional[Sequence['outputs.DashboardWidgetGeomapDefinitionRequest']] = None,
                  style: Optional['outputs.DashboardWidgetGeomapDefinitionStyle'] = None,
@@ -7450,6 +8648,7 @@ class DashboardWidgetGeomapDefinition(dict):
         """
         :param 'DashboardWidgetGeomapDefinitionViewArgs' view: The view of the world that the map should render.
         :param Sequence['DashboardWidgetGeomapDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence['DashboardWidgetGeomapDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple `request` blocks are allowed using the structure below (exactly one of `q`, `log_query` or `rum_query` is required within the `request` block).
         :param 'DashboardWidgetGeomapDefinitionStyleArgs' style: The style of the widget graph. One nested block is allowed using the structure below.
@@ -7460,6 +8659,8 @@ class DashboardWidgetGeomapDefinition(dict):
         pulumi.set(__self__, "view", view)
         if custom_links is not None:
             pulumi.set(__self__, "custom_links", custom_links)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if requests is not None:
@@ -7488,6 +8689,14 @@ class DashboardWidgetGeomapDefinition(dict):
         A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "custom_links")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -8748,7 +9957,7 @@ class DashboardWidgetGeomapDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['DashboardWidgetGeomapDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -8782,7 +9991,7 @@ class DashboardWidgetGeomapDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -8988,6 +10197,8 @@ class DashboardWidgetGeomapDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetGeomapDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -9005,13 +10216,15 @@ class DashboardWidgetGeomapDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -9021,6 +10234,8 @@ class DashboardWidgetGeomapDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -9061,6 +10276,14 @@ class DashboardWidgetGeomapDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -10087,6 +11310,8 @@ class DashboardWidgetHeatmapDefinition(dict):
         suggest = None
         if key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "legendSize":
             suggest = "legend_size"
         elif key == "liveSpan":
@@ -10112,6 +11337,7 @@ class DashboardWidgetHeatmapDefinition(dict):
     def __init__(__self__, *,
                  custom_links: Optional[Sequence['outputs.DashboardWidgetHeatmapDefinitionCustomLink']] = None,
                  events: Optional[Sequence['outputs.DashboardWidgetHeatmapDefinitionEvent']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  legend_size: Optional[_builtins.str] = None,
                  live_span: Optional[_builtins.str] = None,
                  requests: Optional[Sequence['outputs.DashboardWidgetHeatmapDefinitionRequest']] = None,
@@ -10123,6 +11349,7 @@ class DashboardWidgetHeatmapDefinition(dict):
         """
         :param Sequence['DashboardWidgetHeatmapDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         :param Sequence['DashboardWidgetHeatmapDefinitionEventArgs'] events: The definition of the event to overlay on the graph. Multiple `event` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str legend_size: The size of the legend displayed in the widget.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence['DashboardWidgetHeatmapDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple `request` blocks are allowed using the structure below (exactly one of `q`, `apm_query`, `log_query`, `rum_query`, `security_query` or `process_query` is required within the request block).
@@ -10136,6 +11363,8 @@ class DashboardWidgetHeatmapDefinition(dict):
             pulumi.set(__self__, "custom_links", custom_links)
         if events is not None:
             pulumi.set(__self__, "events", events)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if legend_size is not None:
             pulumi.set(__self__, "legend_size", legend_size)
         if live_span is not None:
@@ -10168,6 +11397,14 @@ class DashboardWidgetHeatmapDefinition(dict):
         The definition of the event to overlay on the graph. Multiple `event` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "events")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="legendSize")
@@ -11618,7 +12855,7 @@ class DashboardWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['DashboardWidgetHeatmapDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -11652,7 +12889,7 @@ class DashboardWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -11858,6 +13095,8 @@ class DashboardWidgetHeatmapDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetHeatmapDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -11875,13 +13114,15 @@ class DashboardWidgetHeatmapDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -11891,6 +13132,8 @@ class DashboardWidgetHeatmapDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -11931,6 +13174,14 @@ class DashboardWidgetHeatmapDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -13772,7 +15023,9 @@ class DashboardWidgetLogStreamDefinition(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "liveSpan":
+        if key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
+        elif key == "liveSpan":
             suggest = "live_span"
         elif key == "messageDisplay":
             suggest = "message_display"
@@ -13798,6 +15051,7 @@ class DashboardWidgetLogStreamDefinition(dict):
 
     def __init__(__self__, *,
                  columns: Optional[Sequence[_builtins.str]] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  live_span: Optional[_builtins.str] = None,
                  message_display: Optional[_builtins.str] = None,
@@ -13810,6 +15064,7 @@ class DashboardWidgetLogStreamDefinition(dict):
                  title_size: Optional[_builtins.str] = None):
         """
         :param Sequence[_builtins.str] columns: Stringified list of columns to use, for example: `["column1","column2","column3"]`.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.str message_display: The number of log lines to display. Valid values are `inline`, `expanded-md`, `expanded-lg`.
@@ -13823,6 +15078,8 @@ class DashboardWidgetLogStreamDefinition(dict):
         """
         if columns is not None:
             pulumi.set(__self__, "columns", columns)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if live_span is not None:
@@ -13851,6 +15108,14 @@ class DashboardWidgetLogStreamDefinition(dict):
         Stringified list of columns to use, for example: `["column1","column2","column3"]`.
         """
         return pulumi.get(self, "columns")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter
@@ -14520,6 +15785,8 @@ class DashboardWidgetQueryTableDefinition(dict):
             suggest = "custom_links"
         elif key == "hasSearchBar":
             suggest = "has_search_bar"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -14541,6 +15808,7 @@ class DashboardWidgetQueryTableDefinition(dict):
     def __init__(__self__, *,
                  custom_links: Optional[Sequence['outputs.DashboardWidgetQueryTableDefinitionCustomLink']] = None,
                  has_search_bar: Optional[_builtins.str] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  requests: Optional[Sequence['outputs.DashboardWidgetQueryTableDefinitionRequest']] = None,
                  title: Optional[_builtins.str] = None,
@@ -14549,6 +15817,7 @@ class DashboardWidgetQueryTableDefinition(dict):
         """
         :param Sequence['DashboardWidgetQueryTableDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         :param _builtins.str has_search_bar: Controls the display of the search bar. Valid values are `always`, `never`, `auto`.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence['DashboardWidgetQueryTableDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple `request` blocks are allowed using the structure below (exactly one of `q`, `apm_query`, `log_query`, `rum_query`, `security_query`, `apm_stats_query` or `process_query` is required within the `request` block).
         :param _builtins.str title: The title of the widget.
@@ -14559,6 +15828,8 @@ class DashboardWidgetQueryTableDefinition(dict):
             pulumi.set(__self__, "custom_links", custom_links)
         if has_search_bar is not None:
             pulumi.set(__self__, "has_search_bar", has_search_bar)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if requests is not None:
@@ -14585,6 +15856,14 @@ class DashboardWidgetQueryTableDefinition(dict):
         Controls the display of the search bar. Valid values are `always`, `never`, `auto`.
         """
         return pulumi.get(self, "has_search_bar")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -16427,7 +17706,7 @@ class DashboardWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['DashboardWidgetQueryTableDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -16461,7 +17740,7 @@ class DashboardWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -16667,6 +17946,8 @@ class DashboardWidgetQueryTableDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetQueryTableDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -16684,13 +17965,15 @@ class DashboardWidgetQueryTableDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -16700,6 +17983,8 @@ class DashboardWidgetQueryTableDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -16740,6 +18025,14 @@ class DashboardWidgetQueryTableDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -17235,6 +18528,8 @@ class DashboardWidgetQueryValueDefinition(dict):
             suggest = "custom_links"
         elif key == "customUnit":
             suggest = "custom_unit"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "textAlign":
@@ -17261,6 +18556,7 @@ class DashboardWidgetQueryValueDefinition(dict):
                  autoscale: Optional[_builtins.bool] = None,
                  custom_links: Optional[Sequence['outputs.DashboardWidgetQueryValueDefinitionCustomLink']] = None,
                  custom_unit: Optional[_builtins.str] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  precision: Optional[_builtins.int] = None,
                  requests: Optional[Sequence['outputs.DashboardWidgetQueryValueDefinitionRequest']] = None,
@@ -17273,6 +18569,7 @@ class DashboardWidgetQueryValueDefinition(dict):
         :param _builtins.bool autoscale: A Boolean indicating whether to automatically scale the tile.
         :param Sequence['DashboardWidgetQueryValueDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         :param _builtins.str custom_unit: The unit for the value displayed in the widget.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.int precision: The precision to use when displaying the tile.
         :param Sequence['DashboardWidgetQueryValueDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple `request` blocks are allowed using the structure below (exactly one of `q`, `apm_query`, `log_query`, `rum_query`, `security_query` or `process_query` is required within the `request` block).
@@ -17288,6 +18585,8 @@ class DashboardWidgetQueryValueDefinition(dict):
             pulumi.set(__self__, "custom_links", custom_links)
         if custom_unit is not None:
             pulumi.set(__self__, "custom_unit", custom_unit)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if precision is not None:
@@ -17328,6 +18627,14 @@ class DashboardWidgetQueryValueDefinition(dict):
         The unit for the value displayed in the widget.
         """
         return pulumi.get(self, "custom_unit")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -19168,7 +20475,7 @@ class DashboardWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['DashboardWidgetQueryValueDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -19202,7 +20509,7 @@ class DashboardWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -19408,6 +20715,8 @@ class DashboardWidgetQueryValueDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetQueryValueDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -19425,13 +20734,15 @@ class DashboardWidgetQueryValueDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -19441,6 +20752,8 @@ class DashboardWidgetQueryValueDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -19481,6 +20794,14 @@ class DashboardWidgetQueryValueDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -20156,6 +21477,8 @@ class DashboardWidgetRunWorkflowDefinition(dict):
             suggest = "workflow_id"
         elif key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -20177,6 +21500,7 @@ class DashboardWidgetRunWorkflowDefinition(dict):
     def __init__(__self__, *,
                  workflow_id: _builtins.str,
                  custom_links: Optional[Sequence['outputs.DashboardWidgetRunWorkflowDefinitionCustomLink']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  inputs: Optional[Sequence['outputs.DashboardWidgetRunWorkflowDefinitionInput']] = None,
                  live_span: Optional[_builtins.str] = None,
                  title: Optional[_builtins.str] = None,
@@ -20185,6 +21509,7 @@ class DashboardWidgetRunWorkflowDefinition(dict):
         """
         :param _builtins.str workflow_id: Workflow ID
         :param Sequence['DashboardWidgetRunWorkflowDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param Sequence['DashboardWidgetRunWorkflowDefinitionInputArgs'] inputs: Array of workflow inputs to map to dashboard template variables.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.str title: The title of the widget.
@@ -20194,6 +21519,8 @@ class DashboardWidgetRunWorkflowDefinition(dict):
         pulumi.set(__self__, "workflow_id", workflow_id)
         if custom_links is not None:
             pulumi.set(__self__, "custom_links", custom_links)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if inputs is not None:
             pulumi.set(__self__, "inputs", inputs)
         if live_span is not None:
@@ -20220,6 +21547,14 @@ class DashboardWidgetRunWorkflowDefinition(dict):
         A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "custom_links")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter
@@ -20374,6 +21709,8 @@ class DashboardWidgetScatterplotDefinition(dict):
             suggest = "color_by_groups"
         elif key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -20395,6 +21732,7 @@ class DashboardWidgetScatterplotDefinition(dict):
     def __init__(__self__, *,
                  color_by_groups: Optional[Sequence[_builtins.str]] = None,
                  custom_links: Optional[Sequence['outputs.DashboardWidgetScatterplotDefinitionCustomLink']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  request: Optional['outputs.DashboardWidgetScatterplotDefinitionRequest'] = None,
                  title: Optional[_builtins.str] = None,
@@ -20405,6 +21743,7 @@ class DashboardWidgetScatterplotDefinition(dict):
         """
         :param Sequence[_builtins.str] color_by_groups: List of groups used for colors.
         :param Sequence['DashboardWidgetScatterplotDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param 'DashboardWidgetScatterplotDefinitionRequestArgs' request: A nested block describing the request to use when displaying the widget. Exactly one `request` block is allowed using the structure below.
         :param _builtins.str title: The title of the widget.
@@ -20417,6 +21756,8 @@ class DashboardWidgetScatterplotDefinition(dict):
             pulumi.set(__self__, "color_by_groups", color_by_groups)
         if custom_links is not None:
             pulumi.set(__self__, "custom_links", custom_links)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if request is not None:
@@ -20447,6 +21788,14 @@ class DashboardWidgetScatterplotDefinition(dict):
         A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "custom_links")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -21279,7 +22628,7 @@ class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -21313,7 +22662,7 @@ class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -21519,6 +22868,8 @@ class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryMetricQuer
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -21536,13 +22887,15 @@ class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryMetricQuer
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -21552,6 +22905,8 @@ class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryMetricQuer
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -21592,6 +22947,14 @@ class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryMetricQuer
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -23236,6 +24599,8 @@ class DashboardWidgetSplitGraphDefinition(dict):
             suggest = "split_config"
         elif key == "hasUniformYAxes":
             suggest = "has_uniform_y_axes"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
 
@@ -23255,6 +24620,7 @@ class DashboardWidgetSplitGraphDefinition(dict):
                  source_widget_definition: 'outputs.DashboardWidgetSplitGraphDefinitionSourceWidgetDefinition',
                  split_config: 'outputs.DashboardWidgetSplitGraphDefinitionSplitConfig',
                  has_uniform_y_axes: Optional[_builtins.bool] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  title: Optional[_builtins.str] = None):
         """
@@ -23262,6 +24628,7 @@ class DashboardWidgetSplitGraphDefinition(dict):
         :param 'DashboardWidgetSplitGraphDefinitionSourceWidgetDefinitionArgs' source_widget_definition: The original widget we are splitting on.
         :param 'DashboardWidgetSplitGraphDefinitionSplitConfigArgs' split_config: Encapsulates all user choices about how to split a graph.
         :param _builtins.bool has_uniform_y_axes: Normalize y axes across graphs.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.str title: The title of the widget.
         """
@@ -23270,6 +24637,8 @@ class DashboardWidgetSplitGraphDefinition(dict):
         pulumi.set(__self__, "split_config", split_config)
         if has_uniform_y_axes is not None:
             pulumi.set(__self__, "has_uniform_y_axes", has_uniform_y_axes)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if title is not None:
@@ -23306,6 +24675,14 @@ class DashboardWidgetSplitGraphDefinition(dict):
         Normalize y axes across graphs.
         """
         return pulumi.get(self, "has_uniform_y_axes")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -23719,6 +25096,8 @@ class DashboardWidgetSunburstDefinition(dict):
         suggest = None
         if key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "hideTotal":
             suggest = "hide_total"
         elif key == "legendInline":
@@ -23745,6 +25124,7 @@ class DashboardWidgetSunburstDefinition(dict):
 
     def __init__(__self__, *,
                  custom_links: Optional[Sequence['outputs.DashboardWidgetSunburstDefinitionCustomLink']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  hide_total: Optional[_builtins.bool] = None,
                  legend_inline: Optional['outputs.DashboardWidgetSunburstDefinitionLegendInline'] = None,
                  legend_table: Optional['outputs.DashboardWidgetSunburstDefinitionLegendTable'] = None,
@@ -23755,6 +25135,7 @@ class DashboardWidgetSunburstDefinition(dict):
                  title_size: Optional[_builtins.str] = None):
         """
         :param Sequence['DashboardWidgetSunburstDefinitionCustomLinkArgs'] custom_links: Nested block describing a custom link. Multiple `custom_link` blocks are allowed with the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.bool hide_total: Whether or not to show the total value in the widget.
         :param 'DashboardWidgetSunburstDefinitionLegendInlineArgs' legend_inline: Used to configure the inline legend. Cannot be used in conjunction with legend*table.
         :param 'DashboardWidgetSunburstDefinitionLegendTableArgs' legend_table: Used to configure the table legend. Cannot be used in conjunction with legend*inline.
@@ -23766,6 +25147,8 @@ class DashboardWidgetSunburstDefinition(dict):
         """
         if custom_links is not None:
             pulumi.set(__self__, "custom_links", custom_links)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if hide_total is not None:
             pulumi.set(__self__, "hide_total", hide_total)
         if legend_inline is not None:
@@ -23790,6 +25173,14 @@ class DashboardWidgetSunburstDefinition(dict):
         Nested block describing a custom link. Multiple `custom_link` blocks are allowed with the structure below.
         """
         return pulumi.get(self, "custom_links")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="hideTotal")
@@ -25848,7 +27239,7 @@ class DashboardWidgetSunburstDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['DashboardWidgetSunburstDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -25882,7 +27273,7 @@ class DashboardWidgetSunburstDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -26088,6 +27479,8 @@ class DashboardWidgetSunburstDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetSunburstDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -26105,13 +27498,15 @@ class DashboardWidgetSunburstDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -26121,6 +27516,8 @@ class DashboardWidgetSunburstDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -26161,6 +27558,14 @@ class DashboardWidgetSunburstDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -26465,6 +27870,8 @@ class DashboardWidgetTimeseriesDefinition(dict):
         suggest = None
         if key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "legendColumns":
             suggest = "legend_columns"
         elif key == "legendLayout":
@@ -26496,6 +27903,7 @@ class DashboardWidgetTimeseriesDefinition(dict):
     def __init__(__self__, *,
                  custom_links: Optional[Sequence['outputs.DashboardWidgetTimeseriesDefinitionCustomLink']] = None,
                  events: Optional[Sequence['outputs.DashboardWidgetTimeseriesDefinitionEvent']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  legend_columns: Optional[Sequence[_builtins.str]] = None,
                  legend_layout: Optional[_builtins.str] = None,
                  legend_size: Optional[_builtins.str] = None,
@@ -26511,6 +27919,7 @@ class DashboardWidgetTimeseriesDefinition(dict):
         """
         :param Sequence['DashboardWidgetTimeseriesDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         :param Sequence['DashboardWidgetTimeseriesDefinitionEventArgs'] events: The definition of the event to overlay on the graph. Multiple `event` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param Sequence[_builtins.str] legend_columns: A list of columns to display in the legend. Valid values are `value`, `avg`, `sum`, `min`, `max`.
         :param _builtins.str legend_layout: The layout of the legend displayed in the widget. Valid values are `auto`, `horizontal`, `vertical`.
         :param _builtins.str legend_size: The size of the legend displayed in the widget.
@@ -26528,6 +27937,8 @@ class DashboardWidgetTimeseriesDefinition(dict):
             pulumi.set(__self__, "custom_links", custom_links)
         if events is not None:
             pulumi.set(__self__, "events", events)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if legend_columns is not None:
             pulumi.set(__self__, "legend_columns", legend_columns)
         if legend_layout is not None:
@@ -26568,6 +27979,14 @@ class DashboardWidgetTimeseriesDefinition(dict):
         The definition of the event to overlay on the graph. Multiple `event` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "events")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="legendColumns")
@@ -28772,7 +30191,7 @@ class DashboardWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -28806,7 +30225,7 @@ class DashboardWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -29012,6 +30431,8 @@ class DashboardWidgetTimeseriesDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetTimeseriesDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -29029,13 +30450,15 @@ class DashboardWidgetTimeseriesDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -29045,6 +30468,8 @@ class DashboardWidgetTimeseriesDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -29085,6 +30510,14 @@ class DashboardWidgetTimeseriesDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -29600,6 +31033,8 @@ class DashboardWidgetToplistDefinition(dict):
         suggest = None
         if key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -29620,6 +31055,7 @@ class DashboardWidgetToplistDefinition(dict):
 
     def __init__(__self__, *,
                  custom_links: Optional[Sequence['outputs.DashboardWidgetToplistDefinitionCustomLink']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  requests: Optional[Sequence['outputs.DashboardWidgetToplistDefinitionRequest']] = None,
                  styles: Optional[Sequence['outputs.DashboardWidgetToplistDefinitionStyle']] = None,
@@ -29628,6 +31064,7 @@ class DashboardWidgetToplistDefinition(dict):
                  title_size: Optional[_builtins.str] = None):
         """
         :param Sequence['DashboardWidgetToplistDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence['DashboardWidgetToplistDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple `request` blocks are allowed using the structure below (exactly one of `q`, `apm_query`, `log_query`, `rum_query`, `security_query` or `process_query` is required within the `request` block).
         :param Sequence['DashboardWidgetToplistDefinitionStyleArgs'] styles: The style of the widget
@@ -29637,6 +31074,8 @@ class DashboardWidgetToplistDefinition(dict):
         """
         if custom_links is not None:
             pulumi.set(__self__, "custom_links", custom_links)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if requests is not None:
@@ -29657,6 +31096,14 @@ class DashboardWidgetToplistDefinition(dict):
         A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "custom_links")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -31481,7 +32928,7 @@ class DashboardWidgetToplistDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['DashboardWidgetToplistDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -31515,7 +32962,7 @@ class DashboardWidgetToplistDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -31721,6 +33168,8 @@ class DashboardWidgetToplistDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetToplistDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -31738,13 +33187,15 @@ class DashboardWidgetToplistDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -31754,6 +33205,8 @@ class DashboardWidgetToplistDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -31794,6 +33247,14 @@ class DashboardWidgetToplistDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -32426,6 +33887,8 @@ class DashboardWidgetTraceServiceDefinition(dict):
             suggest = "span_name"
         elif key == "displayFormat":
             suggest = "display_format"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "showBreakdown":
@@ -32463,6 +33926,7 @@ class DashboardWidgetTraceServiceDefinition(dict):
                  service: _builtins.str,
                  span_name: _builtins.str,
                  display_format: Optional[_builtins.str] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  show_breakdown: Optional[_builtins.bool] = None,
                  show_distribution: Optional[_builtins.bool] = None,
@@ -32479,6 +33943,7 @@ class DashboardWidgetTraceServiceDefinition(dict):
         :param _builtins.str service: APM service.
         :param _builtins.str span_name: APM span name
         :param _builtins.str display_format: The number of columns to display. Valid values are `one_column`, `two_column`, `three_column`.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.bool show_breakdown: Whether to show the latency breakdown or not.
         :param _builtins.bool show_distribution: Whether to show the latency distribution or not.
@@ -32496,6 +33961,8 @@ class DashboardWidgetTraceServiceDefinition(dict):
         pulumi.set(__self__, "span_name", span_name)
         if display_format is not None:
             pulumi.set(__self__, "display_format", display_format)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if show_breakdown is not None:
@@ -32550,6 +34017,14 @@ class DashboardWidgetTraceServiceDefinition(dict):
         The number of columns to display. Valid values are `one_column`, `two_column`, `three_column`.
         """
         return pulumi.get(self, "display_format")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -33853,7 +35328,7 @@ class DashboardWidgetTreemapDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['DashboardWidgetTreemapDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -33887,7 +35362,7 @@ class DashboardWidgetTreemapDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -34093,6 +35568,8 @@ class DashboardWidgetTreemapDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetTreemapDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -34110,13 +35587,15 @@ class DashboardWidgetTreemapDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -34126,6 +35605,8 @@ class DashboardWidgetTreemapDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -34166,6 +35647,14 @@ class DashboardWidgetTreemapDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -34551,6 +36040,148 @@ class DatasetProductFilter(dict):
         The product type of the dataset. Supported types: `apm`, `rum`, `synthetics`, `metrics`, `logs`, `sd_repoinfo`, `error_tracking`, `cloud_cost`, and `ml_obs`.
         """
         return pulumi.get(self, "product")
+
+
+@pulumi.output_type
+class DeploymentGateRule(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "dryRun":
+            suggest = "dry_run"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DeploymentGateRule. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DeploymentGateRule.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DeploymentGateRule.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 type: _builtins.str,
+                 dry_run: Optional[_builtins.bool] = None,
+                 id: Optional[_builtins.str] = None,
+                 options: Optional['outputs.DeploymentGateRuleOptions'] = None):
+        """
+        :param _builtins.str name: The rule name. Must be unique within the deployment gate.
+        :param _builtins.str type: The rule type (e.g., 'faulty*deployment*detection', 'monitor').
+        :param _builtins.bool dry_run: Whether the rule is in dry run mode.
+        :param _builtins.str id: The rule ID.
+        :param 'DeploymentGateRuleOptionsArgs' options: Options for the deployment rule.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "type", type)
+        if dry_run is not None:
+            pulumi.set(__self__, "dry_run", dry_run)
+        if id is not None:
+            pulumi.set(__self__, "id", id)
+        if options is not None:
+            pulumi.set(__self__, "options", options)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The rule name. Must be unique within the deployment gate.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        The rule type (e.g., 'faulty*deployment*detection', 'monitor').
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter(name="dryRun")
+    def dry_run(self) -> Optional[_builtins.bool]:
+        """
+        Whether the rule is in dry run mode.
+        """
+        return pulumi.get(self, "dry_run")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> Optional[_builtins.str]:
+        """
+        The rule ID.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def options(self) -> Optional['outputs.DeploymentGateRuleOptions']:
+        """
+        Options for the deployment rule.
+        """
+        return pulumi.get(self, "options")
+
+
+@pulumi.output_type
+class DeploymentGateRuleOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "excludedResources":
+            suggest = "excluded_resources"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DeploymentGateRuleOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DeploymentGateRuleOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DeploymentGateRuleOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 duration: Optional[_builtins.int] = None,
+                 excluded_resources: Optional[Sequence[_builtins.str]] = None,
+                 query: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int duration: The duration for the rule.
+        :param Sequence[_builtins.str] excluded_resources: Resources to exclude from faulty deployment detection.
+        :param _builtins.str query: The query for monitor rules.
+        """
+        if duration is not None:
+            pulumi.set(__self__, "duration", duration)
+        if excluded_resources is not None:
+            pulumi.set(__self__, "excluded_resources", excluded_resources)
+        if query is not None:
+            pulumi.set(__self__, "query", query)
+
+    @_builtins.property
+    @pulumi.getter
+    def duration(self) -> Optional[_builtins.int]:
+        """
+        The duration for the rule.
+        """
+        return pulumi.get(self, "duration")
+
+    @_builtins.property
+    @pulumi.getter(name="excludedResources")
+    def excluded_resources(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Resources to exclude from faulty deployment detection.
+        """
+        return pulumi.get(self, "excluded_resources")
+
+    @_builtins.property
+    @pulumi.getter
+    def query(self) -> Optional[_builtins.str]:
+        """
+        The query for monitor rules.
+        """
+        return pulumi.get(self, "query")
 
 
 @pulumi.output_type
@@ -35580,6 +37211,8 @@ class LogsCustomPipelineProcessor(dict):
             suggest = "message_remapper"
         elif key == "referenceTableLookupProcessor":
             suggest = "reference_table_lookup_processor"
+        elif key == "schemaProcessor":
+            suggest = "schema_processor"
         elif key == "serviceRemapper":
             suggest = "service_remapper"
         elif key == "spanIdRemapper":
@@ -35619,6 +37252,7 @@ class LogsCustomPipelineProcessor(dict):
                  message_remapper: Optional['outputs.LogsCustomPipelineProcessorMessageRemapper'] = None,
                  pipeline: Optional['outputs.LogsCustomPipelineProcessorPipeline'] = None,
                  reference_table_lookup_processor: Optional['outputs.LogsCustomPipelineProcessorReferenceTableLookupProcessor'] = None,
+                 schema_processor: Optional['outputs.LogsCustomPipelineProcessorSchemaProcessor'] = None,
                  service_remapper: Optional['outputs.LogsCustomPipelineProcessorServiceRemapper'] = None,
                  span_id_remapper: Optional['outputs.LogsCustomPipelineProcessorSpanIdRemapper'] = None,
                  status_remapper: Optional['outputs.LogsCustomPipelineProcessorStatusRemapper'] = None,
@@ -35638,6 +37272,7 @@ class LogsCustomPipelineProcessor(dict):
         :param 'LogsCustomPipelineProcessorLookupProcessorArgs' lookup_processor: Lookup Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#lookup-processor)
         :param 'LogsCustomPipelineProcessorMessageRemapperArgs' message_remapper: Message Remapper Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#log-message-remapper)
         :param 'LogsCustomPipelineProcessorReferenceTableLookupProcessorArgs' reference_table_lookup_processor: Reference Table Lookup Processor. Reference Tables are in public beta. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#lookup-processor)
+        :param 'LogsCustomPipelineProcessorSchemaProcessorArgs' schema_processor: Schema Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#schema-processor)
         :param 'LogsCustomPipelineProcessorServiceRemapperArgs' service_remapper: Service Remapper Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#service-remapper)
         :param 'LogsCustomPipelineProcessorSpanIdRemapperArgs' span_id_remapper: Span ID Remapper Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/log_configuration/processors/?tab=ui#span-remapper)
         :param 'LogsCustomPipelineProcessorStatusRemapperArgs' status_remapper: Status Remapper Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#log-status-remapper)
@@ -35670,6 +37305,8 @@ class LogsCustomPipelineProcessor(dict):
             pulumi.set(__self__, "pipeline", pipeline)
         if reference_table_lookup_processor is not None:
             pulumi.set(__self__, "reference_table_lookup_processor", reference_table_lookup_processor)
+        if schema_processor is not None:
+            pulumi.set(__self__, "schema_processor", schema_processor)
         if service_remapper is not None:
             pulumi.set(__self__, "service_remapper", service_remapper)
         if span_id_remapper is not None:
@@ -35777,6 +37414,14 @@ class LogsCustomPipelineProcessor(dict):
         Reference Table Lookup Processor. Reference Tables are in public beta. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#lookup-processor)
         """
         return pulumi.get(self, "reference_table_lookup_processor")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaProcessor")
+    def schema_processor(self) -> Optional['outputs.LogsCustomPipelineProcessorSchemaProcessor']:
+        """
+        Schema Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#schema-processor)
+        """
+        return pulumi.get(self, "schema_processor")
 
     @_builtins.property
     @pulumi.getter(name="serviceRemapper")
@@ -37041,6 +38686,8 @@ class LogsCustomPipelineProcessorPipelineProcessor(dict):
             suggest = "message_remapper"
         elif key == "referenceTableLookupProcessor":
             suggest = "reference_table_lookup_processor"
+        elif key == "schemaProcessor":
+            suggest = "schema_processor"
         elif key == "serviceRemapper":
             suggest = "service_remapper"
         elif key == "spanIdRemapper":
@@ -37079,6 +38726,7 @@ class LogsCustomPipelineProcessorPipelineProcessor(dict):
                  lookup_processor: Optional['outputs.LogsCustomPipelineProcessorPipelineProcessorLookupProcessor'] = None,
                  message_remapper: Optional['outputs.LogsCustomPipelineProcessorPipelineProcessorMessageRemapper'] = None,
                  reference_table_lookup_processor: Optional['outputs.LogsCustomPipelineProcessorPipelineProcessorReferenceTableLookupProcessor'] = None,
+                 schema_processor: Optional['outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessor'] = None,
                  service_remapper: Optional['outputs.LogsCustomPipelineProcessorPipelineProcessorServiceRemapper'] = None,
                  span_id_remapper: Optional['outputs.LogsCustomPipelineProcessorPipelineProcessorSpanIdRemapper'] = None,
                  status_remapper: Optional['outputs.LogsCustomPipelineProcessorPipelineProcessorStatusRemapper'] = None,
@@ -37098,6 +38746,7 @@ class LogsCustomPipelineProcessorPipelineProcessor(dict):
         :param 'LogsCustomPipelineProcessorPipelineProcessorLookupProcessorArgs' lookup_processor: Lookup Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#lookup-processor)
         :param 'LogsCustomPipelineProcessorPipelineProcessorMessageRemapperArgs' message_remapper: Message Remapper Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#log-message-remapper)
         :param 'LogsCustomPipelineProcessorPipelineProcessorReferenceTableLookupProcessorArgs' reference_table_lookup_processor: Reference Table Lookup Processor. Reference Tables are in public beta. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#lookup-processor)
+        :param 'LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorArgs' schema_processor: Schema Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#schema-processor)
         :param 'LogsCustomPipelineProcessorPipelineProcessorServiceRemapperArgs' service_remapper: Service Remapper Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#service-remapper)
         :param 'LogsCustomPipelineProcessorPipelineProcessorSpanIdRemapperArgs' span_id_remapper: Span ID Remapper Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/log_configuration/processors/?tab=ui#span-remapper)
         :param 'LogsCustomPipelineProcessorPipelineProcessorStatusRemapperArgs' status_remapper: Status Remapper Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#log-status-remapper)
@@ -37128,6 +38777,8 @@ class LogsCustomPipelineProcessorPipelineProcessor(dict):
             pulumi.set(__self__, "message_remapper", message_remapper)
         if reference_table_lookup_processor is not None:
             pulumi.set(__self__, "reference_table_lookup_processor", reference_table_lookup_processor)
+        if schema_processor is not None:
+            pulumi.set(__self__, "schema_processor", schema_processor)
         if service_remapper is not None:
             pulumi.set(__self__, "service_remapper", service_remapper)
         if span_id_remapper is not None:
@@ -37230,6 +38881,14 @@ class LogsCustomPipelineProcessorPipelineProcessor(dict):
         Reference Table Lookup Processor. Reference Tables are in public beta. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#lookup-processor)
         """
         return pulumi.get(self, "reference_table_lookup_processor")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaProcessor")
+    def schema_processor(self) -> Optional['outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessor']:
+        """
+        Schema Processor. More information can be found in the [official docs](https://docs.datadoghq.com/logs/processing/processors/?tab=ui#schema-processor)
+        """
+        return pulumi.get(self, "schema_processor")
 
     @_builtins.property
     @pulumi.getter(name="serviceRemapper")
@@ -38465,6 +40124,487 @@ class LogsCustomPipelineProcessorPipelineProcessorReferenceTableLookupProcessor(
 
 
 @pulumi.output_type
+class LogsCustomPipelineProcessorPipelineProcessorSchemaProcessor(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "isEnabled":
+            suggest = "is_enabled"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LogsCustomPipelineProcessorPipelineProcessorSchemaProcessor. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LogsCustomPipelineProcessorPipelineProcessorSchemaProcessor.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LogsCustomPipelineProcessorPipelineProcessorSchemaProcessor.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 mappers: Sequence['outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapper'],
+                 schema: 'outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorSchema',
+                 is_enabled: Optional[_builtins.bool] = None,
+                 name: Optional[_builtins.str] = None):
+        """
+        :param Sequence['LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperArgs'] mappers: Array of mappers for the schema processor.
+        :param 'LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorSchemaArgs' schema: Configuration of the schema data to use.
+        :param _builtins.bool is_enabled: If the processor is enabled or not.
+        :param _builtins.str name: The name of the processor.
+        """
+        pulumi.set(__self__, "mappers", mappers)
+        pulumi.set(__self__, "schema", schema)
+        if is_enabled is not None:
+            pulumi.set(__self__, "is_enabled", is_enabled)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def mappers(self) -> Sequence['outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapper']:
+        """
+        Array of mappers for the schema processor.
+        """
+        return pulumi.get(self, "mappers")
+
+    @_builtins.property
+    @pulumi.getter
+    def schema(self) -> 'outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorSchema':
+        """
+        Configuration of the schema data to use.
+        """
+        return pulumi.get(self, "schema")
+
+    @_builtins.property
+    @pulumi.getter(name="isEnabled")
+    def is_enabled(self) -> Optional[_builtins.bool]:
+        """
+        If the processor is enabled or not.
+        """
+        return pulumi.get(self, "is_enabled")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        The name of the processor.
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapper(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "schemaCategoryMappers":
+            suggest = "schema_category_mappers"
+        elif key == "schemaRemappers":
+            suggest = "schema_remappers"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapper. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapper.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapper.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 schema_category_mappers: Optional[Sequence['outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapper']] = None,
+                 schema_remappers: Optional[Sequence['outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaRemapper']] = None):
+        """
+        :param Sequence['LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperArgs'] schema_category_mappers: Mapper that categorizes log events into enum fields. In the case of OCSF, they can be used to map sibling fields which are composed of an ID and a name.
+        :param Sequence['LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaRemapperArgs'] schema_remappers: Mapper that maps source log fields to their correct fields.
+        """
+        if schema_category_mappers is not None:
+            pulumi.set(__self__, "schema_category_mappers", schema_category_mappers)
+        if schema_remappers is not None:
+            pulumi.set(__self__, "schema_remappers", schema_remappers)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaCategoryMappers")
+    def schema_category_mappers(self) -> Optional[Sequence['outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapper']]:
+        """
+        Mapper that categorizes log events into enum fields. In the case of OCSF, they can be used to map sibling fields which are composed of an ID and a name.
+        """
+        return pulumi.get(self, "schema_category_mappers")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaRemappers")
+    def schema_remappers(self) -> Optional[Sequence['outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaRemapper']]:
+        """
+        Mapper that maps source log fields to their correct fields.
+        """
+        return pulumi.get(self, "schema_remappers")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapper(dict):
+    def __init__(__self__, *,
+                 categories: Sequence['outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategory'],
+                 name: _builtins.str,
+                 targets: 'outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperTargets',
+                 fallback: Optional['outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperFallback'] = None):
+        """
+        :param Sequence['LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategoryArgs'] categories: Object describing the logs filter with corresponding category ID.
+        :param _builtins.str name: Name of the logs schema category mapper.
+        :param 'LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperTargetsArgs' targets: Name of the target attributes which value is defined by the matching.
+        :param 'LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperFallbackArgs' fallback: Used to override hardcoded category values with a value pulled from a source attribute on the log.
+        """
+        pulumi.set(__self__, "categories", categories)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "targets", targets)
+        if fallback is not None:
+            pulumi.set(__self__, "fallback", fallback)
+
+    @_builtins.property
+    @pulumi.getter
+    def categories(self) -> Sequence['outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategory']:
+        """
+        Object describing the logs filter with corresponding category ID.
+        """
+        return pulumi.get(self, "categories")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Name of the logs schema category mapper.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def targets(self) -> 'outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperTargets':
+        """
+        Name of the target attributes which value is defined by the matching.
+        """
+        return pulumi.get(self, "targets")
+
+    @_builtins.property
+    @pulumi.getter
+    def fallback(self) -> Optional['outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperFallback']:
+        """
+        Used to override hardcoded category values with a value pulled from a source attribute on the log.
+        """
+        return pulumi.get(self, "fallback")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategory(dict):
+    def __init__(__self__, *,
+                 filter: 'outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategoryFilter',
+                 id: _builtins.int,
+                 name: _builtins.str):
+        """
+        :param _builtins.int id: ID to inject into the category.
+        :param _builtins.str name: Value to assign to target schema field.
+        """
+        pulumi.set(__self__, "filter", filter)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def filter(self) -> 'outputs.LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategoryFilter':
+        return pulumi.get(self, "filter")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.int:
+        """
+        ID to inject into the category.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Value to assign to target schema field.
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategoryFilter(dict):
+    def __init__(__self__, *,
+                 query: _builtins.str):
+        """
+        :param _builtins.str query: Filter criteria of the category.
+        """
+        pulumi.set(__self__, "query", query)
+
+    @_builtins.property
+    @pulumi.getter
+    def query(self) -> _builtins.str:
+        """
+        Filter criteria of the category.
+        """
+        return pulumi.get(self, "query")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperFallback(dict):
+    def __init__(__self__, *,
+                 sources: Optional[Mapping[str, _builtins.str]] = None,
+                 values: Optional[Mapping[str, _builtins.str]] = None):
+        """
+        :param Mapping[str, _builtins.str] sources: Fallback sources used to populate value of field.
+        :param Mapping[str, _builtins.str] values: Values that define when the fallback is used.
+        """
+        if sources is not None:
+            pulumi.set(__self__, "sources", sources)
+        if values is not None:
+            pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def sources(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Fallback sources used to populate value of field.
+        """
+        return pulumi.get(self, "sources")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Values that define when the fallback is used.
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperTargets(dict):
+    def __init__(__self__, *,
+                 id: Optional[_builtins.str] = None,
+                 name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str id: ID of the field to map log attributes to
+        :param _builtins.str name: Name of the field to map log attributes to.
+        """
+        if id is not None:
+            pulumi.set(__self__, "id", id)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> Optional[_builtins.str]:
+        """
+        ID of the field to map log attributes to
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        Name of the field to map log attributes to.
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaRemapper(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "overrideOnConflict":
+            suggest = "override_on_conflict"
+        elif key == "preserveSource":
+            suggest = "preserve_source"
+        elif key == "targetFormat":
+            suggest = "target_format"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaRemapper. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaRemapper.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorMapperSchemaRemapper.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 sources: Sequence[_builtins.str],
+                 target: _builtins.str,
+                 override_on_conflict: Optional[_builtins.bool] = None,
+                 preserve_source: Optional[_builtins.bool] = None,
+                 target_format: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str name: Name of the logs schema remapper.
+        :param Sequence[_builtins.str] sources: Array of source attributes.
+        :param _builtins.str target: Target field to map log source field to
+        :param _builtins.bool override_on_conflict: Override or not the target element if already set.
+        :param _builtins.bool preserve_source: Remove or preserve the remapped source element.
+        :param _builtins.str target_format: If the `target_type` of the remapper is `attribute`, try to cast the value to a new specific type. If the cast is not possible, the original type is kept. `string`, `integer`, or `double` are the possible types. If the `target_type` is `tag`, this parameter may not be specified.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "sources", sources)
+        pulumi.set(__self__, "target", target)
+        if override_on_conflict is not None:
+            pulumi.set(__self__, "override_on_conflict", override_on_conflict)
+        if preserve_source is not None:
+            pulumi.set(__self__, "preserve_source", preserve_source)
+        if target_format is not None:
+            pulumi.set(__self__, "target_format", target_format)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Name of the logs schema remapper.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def sources(self) -> Sequence[_builtins.str]:
+        """
+        Array of source attributes.
+        """
+        return pulumi.get(self, "sources")
+
+    @_builtins.property
+    @pulumi.getter
+    def target(self) -> _builtins.str:
+        """
+        Target field to map log source field to
+        """
+        return pulumi.get(self, "target")
+
+    @_builtins.property
+    @pulumi.getter(name="overrideOnConflict")
+    def override_on_conflict(self) -> Optional[_builtins.bool]:
+        """
+        Override or not the target element if already set.
+        """
+        return pulumi.get(self, "override_on_conflict")
+
+    @_builtins.property
+    @pulumi.getter(name="preserveSource")
+    def preserve_source(self) -> Optional[_builtins.bool]:
+        """
+        Remove or preserve the remapped source element.
+        """
+        return pulumi.get(self, "preserve_source")
+
+    @_builtins.property
+    @pulumi.getter(name="targetFormat")
+    def target_format(self) -> Optional[_builtins.str]:
+        """
+        If the `target_type` of the remapper is `attribute`, try to cast the value to a new specific type. If the cast is not possible, the original type is kept. `string`, `integer`, or `double` are the possible types. If the `target_type` is `tag`, this parameter may not be specified.
+        """
+        return pulumi.get(self, "target_format")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorSchema(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "className":
+            suggest = "class_name"
+        elif key == "classUid":
+            suggest = "class_uid"
+        elif key == "schemaType":
+            suggest = "schema_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorSchema. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorSchema.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LogsCustomPipelineProcessorPipelineProcessorSchemaProcessorSchema.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 class_name: _builtins.str,
+                 class_uid: _builtins.int,
+                 schema_type: _builtins.str,
+                 version: _builtins.str,
+                 extensions: Optional[Sequence[_builtins.str]] = None,
+                 profiles: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str class_name: Class name of the schema to use.
+        :param _builtins.int class_uid: Class UID of the schema to use.
+        :param _builtins.str schema_type: Type of schema to use.
+        :param _builtins.str version: Version of the schema to use.
+        :param Sequence[_builtins.str] extensions: Optional list of extensions to modify the schema.
+        :param Sequence[_builtins.str] profiles: Optional list of profiles to modify the schema.
+        """
+        pulumi.set(__self__, "class_name", class_name)
+        pulumi.set(__self__, "class_uid", class_uid)
+        pulumi.set(__self__, "schema_type", schema_type)
+        pulumi.set(__self__, "version", version)
+        if extensions is not None:
+            pulumi.set(__self__, "extensions", extensions)
+        if profiles is not None:
+            pulumi.set(__self__, "profiles", profiles)
+
+    @_builtins.property
+    @pulumi.getter(name="className")
+    def class_name(self) -> _builtins.str:
+        """
+        Class name of the schema to use.
+        """
+        return pulumi.get(self, "class_name")
+
+    @_builtins.property
+    @pulumi.getter(name="classUid")
+    def class_uid(self) -> _builtins.int:
+        """
+        Class UID of the schema to use.
+        """
+        return pulumi.get(self, "class_uid")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaType")
+    def schema_type(self) -> _builtins.str:
+        """
+        Type of schema to use.
+        """
+        return pulumi.get(self, "schema_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def version(self) -> _builtins.str:
+        """
+        Version of the schema to use.
+        """
+        return pulumi.get(self, "version")
+
+    @_builtins.property
+    @pulumi.getter
+    def extensions(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Optional list of extensions to modify the schema.
+        """
+        return pulumi.get(self, "extensions")
+
+    @_builtins.property
+    @pulumi.getter
+    def profiles(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Optional list of profiles to modify the schema.
+        """
+        return pulumi.get(self, "profiles")
+
+
+@pulumi.output_type
 class LogsCustomPipelineProcessorPipelineProcessorServiceRemapper(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -39033,6 +41173,487 @@ class LogsCustomPipelineProcessorReferenceTableLookupProcessor(dict):
         Name of the processor
         """
         return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorSchemaProcessor(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "isEnabled":
+            suggest = "is_enabled"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LogsCustomPipelineProcessorSchemaProcessor. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LogsCustomPipelineProcessorSchemaProcessor.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LogsCustomPipelineProcessorSchemaProcessor.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 mappers: Sequence['outputs.LogsCustomPipelineProcessorSchemaProcessorMapper'],
+                 schema: 'outputs.LogsCustomPipelineProcessorSchemaProcessorSchema',
+                 is_enabled: Optional[_builtins.bool] = None,
+                 name: Optional[_builtins.str] = None):
+        """
+        :param Sequence['LogsCustomPipelineProcessorSchemaProcessorMapperArgs'] mappers: Array of mappers for the schema processor.
+        :param 'LogsCustomPipelineProcessorSchemaProcessorSchemaArgs' schema: Configuration of the schema data to use.
+        :param _builtins.bool is_enabled: If the processor is enabled or not.
+        :param _builtins.str name: The name of the processor.
+        """
+        pulumi.set(__self__, "mappers", mappers)
+        pulumi.set(__self__, "schema", schema)
+        if is_enabled is not None:
+            pulumi.set(__self__, "is_enabled", is_enabled)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def mappers(self) -> Sequence['outputs.LogsCustomPipelineProcessorSchemaProcessorMapper']:
+        """
+        Array of mappers for the schema processor.
+        """
+        return pulumi.get(self, "mappers")
+
+    @_builtins.property
+    @pulumi.getter
+    def schema(self) -> 'outputs.LogsCustomPipelineProcessorSchemaProcessorSchema':
+        """
+        Configuration of the schema data to use.
+        """
+        return pulumi.get(self, "schema")
+
+    @_builtins.property
+    @pulumi.getter(name="isEnabled")
+    def is_enabled(self) -> Optional[_builtins.bool]:
+        """
+        If the processor is enabled or not.
+        """
+        return pulumi.get(self, "is_enabled")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        The name of the processor.
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorSchemaProcessorMapper(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "schemaCategoryMappers":
+            suggest = "schema_category_mappers"
+        elif key == "schemaRemappers":
+            suggest = "schema_remappers"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LogsCustomPipelineProcessorSchemaProcessorMapper. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LogsCustomPipelineProcessorSchemaProcessorMapper.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LogsCustomPipelineProcessorSchemaProcessorMapper.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 schema_category_mappers: Optional[Sequence['outputs.LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapper']] = None,
+                 schema_remappers: Optional[Sequence['outputs.LogsCustomPipelineProcessorSchemaProcessorMapperSchemaRemapper']] = None):
+        """
+        :param Sequence['LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperArgs'] schema_category_mappers: Mapper that categorizes log events into enum fields. In the case of OCSF, they can be used to map sibling fields which are composed of an ID and a name.
+        :param Sequence['LogsCustomPipelineProcessorSchemaProcessorMapperSchemaRemapperArgs'] schema_remappers: Mapper that maps source log fields to their correct fields.
+        """
+        if schema_category_mappers is not None:
+            pulumi.set(__self__, "schema_category_mappers", schema_category_mappers)
+        if schema_remappers is not None:
+            pulumi.set(__self__, "schema_remappers", schema_remappers)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaCategoryMappers")
+    def schema_category_mappers(self) -> Optional[Sequence['outputs.LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapper']]:
+        """
+        Mapper that categorizes log events into enum fields. In the case of OCSF, they can be used to map sibling fields which are composed of an ID and a name.
+        """
+        return pulumi.get(self, "schema_category_mappers")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaRemappers")
+    def schema_remappers(self) -> Optional[Sequence['outputs.LogsCustomPipelineProcessorSchemaProcessorMapperSchemaRemapper']]:
+        """
+        Mapper that maps source log fields to their correct fields.
+        """
+        return pulumi.get(self, "schema_remappers")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapper(dict):
+    def __init__(__self__, *,
+                 categories: Sequence['outputs.LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategory'],
+                 name: _builtins.str,
+                 targets: 'outputs.LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperTargets',
+                 fallback: Optional['outputs.LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperFallback'] = None):
+        """
+        :param Sequence['LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategoryArgs'] categories: Object describing the logs filter with corresponding category ID.
+        :param _builtins.str name: Name of the logs schema category mapper.
+        :param 'LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperTargetsArgs' targets: Name of the target attributes which value is defined by the matching.
+        :param 'LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperFallbackArgs' fallback: Used to override hardcoded category values with a value pulled from a source attribute on the log.
+        """
+        pulumi.set(__self__, "categories", categories)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "targets", targets)
+        if fallback is not None:
+            pulumi.set(__self__, "fallback", fallback)
+
+    @_builtins.property
+    @pulumi.getter
+    def categories(self) -> Sequence['outputs.LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategory']:
+        """
+        Object describing the logs filter with corresponding category ID.
+        """
+        return pulumi.get(self, "categories")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Name of the logs schema category mapper.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def targets(self) -> 'outputs.LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperTargets':
+        """
+        Name of the target attributes which value is defined by the matching.
+        """
+        return pulumi.get(self, "targets")
+
+    @_builtins.property
+    @pulumi.getter
+    def fallback(self) -> Optional['outputs.LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperFallback']:
+        """
+        Used to override hardcoded category values with a value pulled from a source attribute on the log.
+        """
+        return pulumi.get(self, "fallback")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategory(dict):
+    def __init__(__self__, *,
+                 filter: 'outputs.LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategoryFilter',
+                 id: _builtins.int,
+                 name: _builtins.str):
+        """
+        :param _builtins.int id: ID to inject into the category.
+        :param _builtins.str name: Value to assign to target schema field.
+        """
+        pulumi.set(__self__, "filter", filter)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def filter(self) -> 'outputs.LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategoryFilter':
+        return pulumi.get(self, "filter")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.int:
+        """
+        ID to inject into the category.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Value to assign to target schema field.
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperCategoryFilter(dict):
+    def __init__(__self__, *,
+                 query: _builtins.str):
+        """
+        :param _builtins.str query: Filter criteria of the category.
+        """
+        pulumi.set(__self__, "query", query)
+
+    @_builtins.property
+    @pulumi.getter
+    def query(self) -> _builtins.str:
+        """
+        Filter criteria of the category.
+        """
+        return pulumi.get(self, "query")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperFallback(dict):
+    def __init__(__self__, *,
+                 sources: Optional[Mapping[str, _builtins.str]] = None,
+                 values: Optional[Mapping[str, _builtins.str]] = None):
+        """
+        :param Mapping[str, _builtins.str] sources: Fallback sources used to populate value of field.
+        :param Mapping[str, _builtins.str] values: Values that define when the fallback is used.
+        """
+        if sources is not None:
+            pulumi.set(__self__, "sources", sources)
+        if values is not None:
+            pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def sources(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Fallback sources used to populate value of field.
+        """
+        return pulumi.get(self, "sources")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Values that define when the fallback is used.
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorSchemaProcessorMapperSchemaCategoryMapperTargets(dict):
+    def __init__(__self__, *,
+                 id: Optional[_builtins.str] = None,
+                 name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str id: ID of the field to map log attributes to
+        :param _builtins.str name: Name of the field to map log attributes to.
+        """
+        if id is not None:
+            pulumi.set(__self__, "id", id)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> Optional[_builtins.str]:
+        """
+        ID of the field to map log attributes to
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        Name of the field to map log attributes to.
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorSchemaProcessorMapperSchemaRemapper(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "overrideOnConflict":
+            suggest = "override_on_conflict"
+        elif key == "preserveSource":
+            suggest = "preserve_source"
+        elif key == "targetFormat":
+            suggest = "target_format"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LogsCustomPipelineProcessorSchemaProcessorMapperSchemaRemapper. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LogsCustomPipelineProcessorSchemaProcessorMapperSchemaRemapper.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LogsCustomPipelineProcessorSchemaProcessorMapperSchemaRemapper.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 sources: Sequence[_builtins.str],
+                 target: _builtins.str,
+                 override_on_conflict: Optional[_builtins.bool] = None,
+                 preserve_source: Optional[_builtins.bool] = None,
+                 target_format: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str name: Name of the logs schema remapper.
+        :param Sequence[_builtins.str] sources: Array of source attributes.
+        :param _builtins.str target: Target field to map log source field to
+        :param _builtins.bool override_on_conflict: Override or not the target element if already set.
+        :param _builtins.bool preserve_source: Remove or preserve the remapped source element.
+        :param _builtins.str target_format: If the `target_type` of the remapper is `attribute`, try to cast the value to a new specific type. If the cast is not possible, the original type is kept. `string`, `integer`, or `double` are the possible types. If the `target_type` is `tag`, this parameter may not be specified.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "sources", sources)
+        pulumi.set(__self__, "target", target)
+        if override_on_conflict is not None:
+            pulumi.set(__self__, "override_on_conflict", override_on_conflict)
+        if preserve_source is not None:
+            pulumi.set(__self__, "preserve_source", preserve_source)
+        if target_format is not None:
+            pulumi.set(__self__, "target_format", target_format)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Name of the logs schema remapper.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def sources(self) -> Sequence[_builtins.str]:
+        """
+        Array of source attributes.
+        """
+        return pulumi.get(self, "sources")
+
+    @_builtins.property
+    @pulumi.getter
+    def target(self) -> _builtins.str:
+        """
+        Target field to map log source field to
+        """
+        return pulumi.get(self, "target")
+
+    @_builtins.property
+    @pulumi.getter(name="overrideOnConflict")
+    def override_on_conflict(self) -> Optional[_builtins.bool]:
+        """
+        Override or not the target element if already set.
+        """
+        return pulumi.get(self, "override_on_conflict")
+
+    @_builtins.property
+    @pulumi.getter(name="preserveSource")
+    def preserve_source(self) -> Optional[_builtins.bool]:
+        """
+        Remove or preserve the remapped source element.
+        """
+        return pulumi.get(self, "preserve_source")
+
+    @_builtins.property
+    @pulumi.getter(name="targetFormat")
+    def target_format(self) -> Optional[_builtins.str]:
+        """
+        If the `target_type` of the remapper is `attribute`, try to cast the value to a new specific type. If the cast is not possible, the original type is kept. `string`, `integer`, or `double` are the possible types. If the `target_type` is `tag`, this parameter may not be specified.
+        """
+        return pulumi.get(self, "target_format")
+
+
+@pulumi.output_type
+class LogsCustomPipelineProcessorSchemaProcessorSchema(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "className":
+            suggest = "class_name"
+        elif key == "classUid":
+            suggest = "class_uid"
+        elif key == "schemaType":
+            suggest = "schema_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LogsCustomPipelineProcessorSchemaProcessorSchema. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LogsCustomPipelineProcessorSchemaProcessorSchema.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LogsCustomPipelineProcessorSchemaProcessorSchema.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 class_name: _builtins.str,
+                 class_uid: _builtins.int,
+                 schema_type: _builtins.str,
+                 version: _builtins.str,
+                 extensions: Optional[Sequence[_builtins.str]] = None,
+                 profiles: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str class_name: Class name of the schema to use.
+        :param _builtins.int class_uid: Class UID of the schema to use.
+        :param _builtins.str schema_type: Type of schema to use.
+        :param _builtins.str version: Version of the schema to use.
+        :param Sequence[_builtins.str] extensions: Optional list of extensions to modify the schema.
+        :param Sequence[_builtins.str] profiles: Optional list of profiles to modify the schema.
+        """
+        pulumi.set(__self__, "class_name", class_name)
+        pulumi.set(__self__, "class_uid", class_uid)
+        pulumi.set(__self__, "schema_type", schema_type)
+        pulumi.set(__self__, "version", version)
+        if extensions is not None:
+            pulumi.set(__self__, "extensions", extensions)
+        if profiles is not None:
+            pulumi.set(__self__, "profiles", profiles)
+
+    @_builtins.property
+    @pulumi.getter(name="className")
+    def class_name(self) -> _builtins.str:
+        """
+        Class name of the schema to use.
+        """
+        return pulumi.get(self, "class_name")
+
+    @_builtins.property
+    @pulumi.getter(name="classUid")
+    def class_uid(self) -> _builtins.int:
+        """
+        Class UID of the schema to use.
+        """
+        return pulumi.get(self, "class_uid")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaType")
+    def schema_type(self) -> _builtins.str:
+        """
+        Type of schema to use.
+        """
+        return pulumi.get(self, "schema_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def version(self) -> _builtins.str:
+        """
+        Version of the schema to use.
+        """
+        return pulumi.get(self, "version")
+
+    @_builtins.property
+    @pulumi.getter
+    def extensions(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Optional list of extensions to modify the schema.
+        """
+        return pulumi.get(self, "extensions")
+
+    @_builtins.property
+    @pulumi.getter
+    def profiles(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Optional list of profiles to modify the schema.
+        """
+        return pulumi.get(self, "profiles")
 
 
 @pulumi.output_type
@@ -39848,6 +42469,89 @@ class MetricTagConfigurationAggregation(dict):
 
 
 @pulumi.output_type
+class MonitorAsset(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "resourceKey":
+            suggest = "resource_key"
+        elif key == "resourceType":
+            suggest = "resource_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MonitorAsset. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MonitorAsset.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MonitorAsset.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 category: _builtins.str,
+                 name: _builtins.str,
+                 url: _builtins.str,
+                 resource_key: Optional[_builtins.str] = None,
+                 resource_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str category: Type of asset the entity represents on a monitor. Valid values are `runbook`.
+        :param _builtins.str name: Name for the monitor asset.
+        :param _builtins.str url: URL for the asset.
+        :param _builtins.str resource_key: Identifier of the internal Datadog resource that this asset represents.
+        :param _builtins.str resource_type: Type of internal Datadog resource associated with a monitor asset. Valid values are `notebook`.
+        """
+        pulumi.set(__self__, "category", category)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "url", url)
+        if resource_key is not None:
+            pulumi.set(__self__, "resource_key", resource_key)
+        if resource_type is not None:
+            pulumi.set(__self__, "resource_type", resource_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def category(self) -> _builtins.str:
+        """
+        Type of asset the entity represents on a monitor. Valid values are `runbook`.
+        """
+        return pulumi.get(self, "category")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Name for the monitor asset.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def url(self) -> _builtins.str:
+        """
+        URL for the asset.
+        """
+        return pulumi.get(self, "url")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceKey")
+    def resource_key(self) -> Optional[_builtins.str]:
+        """
+        Identifier of the internal Datadog resource that this asset represents.
+        """
+        return pulumi.get(self, "resource_key")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceType")
+    def resource_type(self) -> Optional[_builtins.str]:
+        """
+        Type of internal Datadog resource associated with a monitor asset. Valid values are `notebook`.
+        """
+        return pulumi.get(self, "resource_type")
+
+
+@pulumi.output_type
 class MonitorConfigPolicyTagPolicy(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -40057,17 +42761,107 @@ class MonitorMonitorThresholds(dict):
 
 
 @pulumi.output_type
-class MonitorNotificationRuleFilter(dict):
+class MonitorNotificationRuleConditionalRecipients(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "fallbackRecipients":
+            suggest = "fallback_recipients"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MonitorNotificationRuleConditionalRecipients. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MonitorNotificationRuleConditionalRecipients.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MonitorNotificationRuleConditionalRecipients.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 tags: Sequence[_builtins.str]):
+                 conditions: Optional[Sequence['outputs.MonitorNotificationRuleConditionalRecipientsCondition']] = None,
+                 fallback_recipients: Optional[Sequence[_builtins.str]] = None):
         """
-        :param Sequence[_builtins.str] tags: All tags that target monitors must match.
+        :param Sequence['MonitorNotificationRuleConditionalRecipientsConditionArgs'] conditions: Conditions of the notification rule.
+        :param Sequence[_builtins.str] fallback_recipients: If none of the `conditions` applied, `fallback_recipients` will get notified.
         """
-        pulumi.set(__self__, "tags", tags)
+        if conditions is not None:
+            pulumi.set(__self__, "conditions", conditions)
+        if fallback_recipients is not None:
+            pulumi.set(__self__, "fallback_recipients", fallback_recipients)
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> Sequence[_builtins.str]:
+    def conditions(self) -> Optional[Sequence['outputs.MonitorNotificationRuleConditionalRecipientsCondition']]:
+        """
+        Conditions of the notification rule.
+        """
+        return pulumi.get(self, "conditions")
+
+    @_builtins.property
+    @pulumi.getter(name="fallbackRecipients")
+    def fallback_recipients(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        If none of the `conditions` applied, `fallback_recipients` will get notified.
+        """
+        return pulumi.get(self, "fallback_recipients")
+
+
+@pulumi.output_type
+class MonitorNotificationRuleConditionalRecipientsCondition(dict):
+    def __init__(__self__, *,
+                 recipients: Sequence[_builtins.str],
+                 scope: _builtins.str):
+        """
+        :param Sequence[_builtins.str] recipients: List of recipients to notify.
+        :param _builtins.str scope: The scope to which the monitor applied.
+        """
+        pulumi.set(__self__, "recipients", recipients)
+        pulumi.set(__self__, "scope", scope)
+
+    @_builtins.property
+    @pulumi.getter
+    def recipients(self) -> Sequence[_builtins.str]:
+        """
+        List of recipients to notify.
+        """
+        return pulumi.get(self, "recipients")
+
+    @_builtins.property
+    @pulumi.getter
+    def scope(self) -> _builtins.str:
+        """
+        The scope to which the monitor applied.
+        """
+        return pulumi.get(self, "scope")
+
+
+@pulumi.output_type
+class MonitorNotificationRuleFilter(dict):
+    def __init__(__self__, *,
+                 scope: Optional[_builtins.str] = None,
+                 tags: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope: The scope to which the monitor applied.
+        :param Sequence[_builtins.str] tags: All tags that target monitors must match.
+        """
+        if scope is not None:
+            pulumi.set(__self__, "scope", scope)
+        if tags is not None:
+            pulumi.set(__self__, "tags", tags)
+
+    @_builtins.property
+    @pulumi.getter
+    def scope(self) -> Optional[_builtins.str]:
+        """
+        The scope to which the monitor applied.
+        """
+        return pulumi.get(self, "scope")
+
+    @_builtins.property
+    @pulumi.getter
+    def tags(self) -> Optional[Sequence[_builtins.str]]:
         """
         All tags that target monitors must match.
         """
@@ -40317,21 +43111,28 @@ class MonitorVariablesCloudCostQuery(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 aggregator: _builtins.str,
                  data_source: _builtins.str,
                  name: _builtins.str,
-                 query: _builtins.str,
-                 aggregator: Optional[_builtins.str] = None):
+                 query: _builtins.str):
         """
+        :param _builtins.str aggregator: The aggregation methods available for cloud cost queries. Valid values are `avg`, `sum`, `max`, `min`, `last`, `area`, `l2norm`, `percentile`, `stddev`.
         :param _builtins.str data_source: The data source for cloud cost queries. Valid values are `metrics`, `cloud_cost`, `datadog_usage`.
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The cloud cost query definition.
-        :param _builtins.str aggregator: The aggregation methods available for cloud cost queries. Valid values are `avg`, `sum`, `max`, `min`, `last`, `area`, `l2norm`, `percentile`, `stddev`.
         """
+        pulumi.set(__self__, "aggregator", aggregator)
         pulumi.set(__self__, "data_source", data_source)
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
-        if aggregator is not None:
-            pulumi.set(__self__, "aggregator", aggregator)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregator(self) -> _builtins.str:
+        """
+        The aggregation methods available for cloud cost queries. Valid values are `avg`, `sum`, `max`, `min`, `last`, `area`, `l2norm`, `percentile`, `stddev`.
+        """
+        return pulumi.get(self, "aggregator")
 
     @_builtins.property
     @pulumi.getter(name="dataSource")
@@ -40356,14 +43157,6 @@ class MonitorVariablesCloudCostQuery(dict):
         The cloud cost query definition.
         """
         return pulumi.get(self, "query")
-
-    @_builtins.property
-    @pulumi.getter
-    def aggregator(self) -> Optional[_builtins.str]:
-        """
-        The aggregation methods available for cloud cost queries. Valid values are `avg`, `sum`, `max`, `min`, `last`, `area`, `l2norm`, `percentile`, `stddev`.
-        """
-        return pulumi.get(self, "aggregator")
 
 
 @pulumi.output_type
@@ -40606,41 +43399,72 @@ class MonitorVariablesEventQuerySearch(dict):
 
 @pulumi.output_type
 class ObservabilityPipelineConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "pipelineType":
+            suggest = "pipeline_type"
+        elif key == "processorGroups":
+            suggest = "processor_groups"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfig.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 destinations: Optional['outputs.ObservabilityPipelineConfigDestinations'] = None,
-                 processors: Optional['outputs.ObservabilityPipelineConfigProcessors'] = None,
-                 sources: Optional['outputs.ObservabilityPipelineConfigSources'] = None):
+                 destinations: Optional[Sequence['outputs.ObservabilityPipelineConfigDestination']] = None,
+                 pipeline_type: Optional[_builtins.str] = None,
+                 processor_groups: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroup']] = None,
+                 sources: Optional[Sequence['outputs.ObservabilityPipelineConfigSource']] = None):
         """
-        :param 'ObservabilityPipelineConfigDestinationsArgs' destinations: List of destinations.
-        :param 'ObservabilityPipelineConfigProcessorsArgs' processors: List of processors.
-        :param 'ObservabilityPipelineConfigSourcesArgs' sources: List of sources.
+        :param Sequence['ObservabilityPipelineConfigDestinationArgs'] destinations: List of destinations.
+        :param _builtins.str pipeline_type: The type of data being ingested. Defaults to `logs` if not specified. Valid values are `logs`, `metrics`.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupArgs'] processor_groups: A processor group containing common configuration and nested processors.
+        :param Sequence['ObservabilityPipelineConfigSourceArgs'] sources: List of sources.
         """
         if destinations is not None:
             pulumi.set(__self__, "destinations", destinations)
-        if processors is not None:
-            pulumi.set(__self__, "processors", processors)
+        if pipeline_type is not None:
+            pulumi.set(__self__, "pipeline_type", pipeline_type)
+        if processor_groups is not None:
+            pulumi.set(__self__, "processor_groups", processor_groups)
         if sources is not None:
             pulumi.set(__self__, "sources", sources)
 
     @_builtins.property
     @pulumi.getter
-    def destinations(self) -> Optional['outputs.ObservabilityPipelineConfigDestinations']:
+    def destinations(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestination']]:
         """
         List of destinations.
         """
         return pulumi.get(self, "destinations")
 
     @_builtins.property
-    @pulumi.getter
-    def processors(self) -> Optional['outputs.ObservabilityPipelineConfigProcessors']:
+    @pulumi.getter(name="pipelineType")
+    def pipeline_type(self) -> Optional[_builtins.str]:
         """
-        List of processors.
+        The type of data being ingested. Defaults to `logs` if not specified. Valid values are `logs`, `metrics`.
         """
-        return pulumi.get(self, "processors")
+        return pulumi.get(self, "pipeline_type")
+
+    @_builtins.property
+    @pulumi.getter(name="processorGroups")
+    def processor_groups(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroup']]:
+        """
+        A processor group containing common configuration and nested processors.
+        """
+        return pulumi.get(self, "processor_groups")
 
     @_builtins.property
     @pulumi.getter
-    def sources(self) -> Optional['outputs.ObservabilityPipelineConfigSources']:
+    def sources(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSource']]:
         """
         List of sources.
         """
@@ -40648,7 +43472,7 @@ class ObservabilityPipelineConfig(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinations(dict):
+class ObservabilityPipelineConfigDestination(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -40660,14 +43484,22 @@ class ObservabilityPipelineConfigDestinations(dict):
             suggest = "amazon_security_lakes"
         elif key == "azureStorages":
             suggest = "azure_storages"
+        elif key == "cloudPrem":
+            suggest = "cloud_prem"
         elif key == "crowdstrikeNextGenSiems":
             suggest = "crowdstrike_next_gen_siems"
         elif key == "datadogLogs":
             suggest = "datadog_logs"
+        elif key == "datadogMetrics":
+            suggest = "datadog_metrics"
         elif key == "googleChronicles":
             suggest = "google_chronicles"
         elif key == "googleCloudStorages":
             suggest = "google_cloud_storages"
+        elif key == "googlePubsubs":
+            suggest = "google_pubsubs"
+        elif key == "httpClients":
+            suggest = "http_clients"
         elif key == "microsoftSentinels":
             suggest = "microsoft_sentinels"
         elif key == "newRelics":
@@ -40682,55 +43514,71 @@ class ObservabilityPipelineConfigDestinations(dict):
             suggest = "syslog_ngs"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinations. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestination. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinations.__key_warning(key)
+        ObservabilityPipelineConfigDestination.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinations.__key_warning(key)
+        ObservabilityPipelineConfigDestination.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 amazon_opensearches: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAmazonOpensearch']] = None,
-                 amazon_s3s: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAmazonS3']] = None,
-                 amazon_security_lakes: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAmazonSecurityLake']] = None,
-                 azure_storages: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAzureStorage']] = None,
-                 crowdstrike_next_gen_siems: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiem']] = None,
-                 datadog_logs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsDatadogLog']] = None,
-                 elasticsearches: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsElasticsearch']] = None,
-                 google_chronicles: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsGoogleChronicle']] = None,
-                 google_cloud_storages: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsGoogleCloudStorage']] = None,
-                 microsoft_sentinels: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsMicrosoftSentinel']] = None,
-                 new_relics: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsNewRelic']] = None,
-                 opensearches: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsOpensearch']] = None,
-                 rsyslogs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsRsyslog']] = None,
-                 sentinel_ones: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSentinelOne']] = None,
-                 sockets: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSocket']] = None,
-                 splunk_hecs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSplunkHec']] = None,
-                 sumo_logics: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSumoLogic']] = None,
-                 syslog_ngs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSyslogNg']] = None):
+                 id: _builtins.str,
+                 inputs: Sequence[_builtins.str],
+                 amazon_opensearches: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationAmazonOpensearch']] = None,
+                 amazon_s3s: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationAmazonS3']] = None,
+                 amazon_security_lakes: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLake']] = None,
+                 azure_storages: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationAzureStorage']] = None,
+                 cloud_prem: Optional['outputs.ObservabilityPipelineConfigDestinationCloudPrem'] = None,
+                 crowdstrike_next_gen_siems: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiem']] = None,
+                 datadog_logs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationDatadogLog']] = None,
+                 datadog_metrics: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationDatadogMetric']] = None,
+                 elasticsearches: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationElasticsearch']] = None,
+                 google_chronicles: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGoogleChronicle']] = None,
+                 google_cloud_storages: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorage']] = None,
+                 google_pubsubs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGooglePubsub']] = None,
+                 http_clients: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationHttpClient']] = None,
+                 kafka: Optional['outputs.ObservabilityPipelineConfigDestinationKafka'] = None,
+                 microsoft_sentinels: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationMicrosoftSentinel']] = None,
+                 new_relics: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationNewRelic']] = None,
+                 opensearches: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationOpensearch']] = None,
+                 rsyslogs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationRsyslog']] = None,
+                 sentinel_ones: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSentinelOne']] = None,
+                 sockets: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSocket']] = None,
+                 splunk_hecs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSplunkHec']] = None,
+                 sumo_logics: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSumoLogic']] = None,
+                 syslog_ngs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSyslogNg']] = None):
         """
-        :param Sequence['ObservabilityPipelineConfigDestinationsAmazonOpensearchArgs'] amazon_opensearches: The `amazon_opensearch` destination writes logs to Amazon OpenSearch.
-        :param Sequence['ObservabilityPipelineConfigDestinationsAmazonS3Args'] amazon_s3s: The `amazon_s3` destination sends your logs in Datadog-rehydratable format to an Amazon S3 bucket for archiving.
-        :param Sequence['ObservabilityPipelineConfigDestinationsAmazonSecurityLakeArgs'] amazon_security_lakes: The `amazon_security_lake` destination sends your logs to Amazon Security Lake.
-        :param Sequence['ObservabilityPipelineConfigDestinationsAzureStorageArgs'] azure_storages: The `azure_storage` destination forwards logs to an Azure Blob Storage container.
-        :param Sequence['ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemArgs'] crowdstrike_next_gen_siems: The `crowdstrike_next_gen_siem` destination forwards logs to CrowdStrike Next Gen SIEM.
-        :param Sequence['ObservabilityPipelineConfigDestinationsDatadogLogArgs'] datadog_logs: The `datadog_logs` destination forwards logs to Datadog Log Management.
-        :param Sequence['ObservabilityPipelineConfigDestinationsElasticsearchArgs'] elasticsearches: The `elasticsearch` destination writes logs to an Elasticsearch cluster.
-        :param Sequence['ObservabilityPipelineConfigDestinationsGoogleChronicleArgs'] google_chronicles: The `google_chronicle` destination sends logs to Google Chronicle.
-        :param Sequence['ObservabilityPipelineConfigDestinationsGoogleCloudStorageArgs'] google_cloud_storages: The `google_cloud_storage` destination stores logs in a Google Cloud Storage (GCS) bucket.
-        :param Sequence['ObservabilityPipelineConfigDestinationsMicrosoftSentinelArgs'] microsoft_sentinels: The `microsoft_sentinel` destination forwards logs to Microsoft Sentinel.
-        :param Sequence['ObservabilityPipelineConfigDestinationsNewRelicArgs'] new_relics: The `new_relic` destination sends logs to the New Relic platform.
-        :param Sequence['ObservabilityPipelineConfigDestinationsOpensearchArgs'] opensearches: The `opensearch` destination writes logs to an OpenSearch cluster.
-        :param Sequence['ObservabilityPipelineConfigDestinationsRsyslogArgs'] rsyslogs: The `rsyslog` destination forwards logs to an external `rsyslog` server over TCP or UDP using the syslog protocol.
-        :param Sequence['ObservabilityPipelineConfigDestinationsSentinelOneArgs'] sentinel_ones: The `sentinel_one` destination sends logs to SentinelOne.
-        :param Sequence['ObservabilityPipelineConfigDestinationsSocketArgs'] sockets: The `socket` destination sends logs over TCP or UDP to a remote server.
-        :param Sequence['ObservabilityPipelineConfigDestinationsSplunkHecArgs'] splunk_hecs: The `splunk_hec` destination forwards logs to Splunk using the HTTP Event Collector (HEC).
-        :param Sequence['ObservabilityPipelineConfigDestinationsSumoLogicArgs'] sumo_logics: The `sumo_logic` destination forwards logs to Sumo Logic.
-        :param Sequence['ObservabilityPipelineConfigDestinationsSyslogNgArgs'] syslog_ngs: The `syslog_ng` destination forwards logs to an external `syslog-ng` server over TCP or UDP using the syslog protocol.
+        :param _builtins.str id: The unique identifier for this destination.
+        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
+        :param Sequence['ObservabilityPipelineConfigDestinationAmazonOpensearchArgs'] amazon_opensearches: The `amazon_opensearch` destination writes logs to Amazon OpenSearch.
+        :param Sequence['ObservabilityPipelineConfigDestinationAmazonS3Args'] amazon_s3s: The `amazon_s3` destination sends your logs in Datadog-rehydratable format to an Amazon S3 bucket for archiving.
+        :param Sequence['ObservabilityPipelineConfigDestinationAmazonSecurityLakeArgs'] amazon_security_lakes: The `amazon_security_lake` destination sends your logs to Amazon Security Lake.
+        :param Sequence['ObservabilityPipelineConfigDestinationAzureStorageArgs'] azure_storages: The `azure_storage` destination forwards logs to an Azure Blob Storage container.
+        :param 'ObservabilityPipelineConfigDestinationCloudPremArgs' cloud_prem: The `cloud_prem` destination sends logs to Datadog CloudPrem.
+        :param Sequence['ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemArgs'] crowdstrike_next_gen_siems: The `crowdstrike_next_gen_siem` destination forwards logs to CrowdStrike Next Gen SIEM.
+        :param Sequence['ObservabilityPipelineConfigDestinationDatadogLogArgs'] datadog_logs: The `datadog_logs` destination forwards logs to Datadog Log Management.
+        :param Sequence['ObservabilityPipelineConfigDestinationDatadogMetricArgs'] datadog_metrics: The `get_metrics` destination forwards metrics to Datadog.
+        :param Sequence['ObservabilityPipelineConfigDestinationElasticsearchArgs'] elasticsearches: The `elasticsearch` destination writes logs to an Elasticsearch cluster.
+        :param Sequence['ObservabilityPipelineConfigDestinationGoogleChronicleArgs'] google_chronicles: The `google_chronicle` destination sends logs to Google Chronicle.
+        :param Sequence['ObservabilityPipelineConfigDestinationGoogleCloudStorageArgs'] google_cloud_storages: The `google_cloud_storage` destination stores logs in a Google Cloud Storage (GCS) bucket.
+        :param Sequence['ObservabilityPipelineConfigDestinationGooglePubsubArgs'] google_pubsubs: The `google_pubsub` destination publishes logs to a Google Cloud Pub/Sub topic.
+        :param Sequence['ObservabilityPipelineConfigDestinationHttpClientArgs'] http_clients: The `http_client` destination sends data to an HTTP endpoint.
+        :param 'ObservabilityPipelineConfigDestinationKafkaArgs' kafka: The `kafka` destination sends logs to Apache Kafka topics.
+        :param Sequence['ObservabilityPipelineConfigDestinationMicrosoftSentinelArgs'] microsoft_sentinels: The `microsoft_sentinel` destination forwards logs to Microsoft Sentinel.
+        :param Sequence['ObservabilityPipelineConfigDestinationNewRelicArgs'] new_relics: The `new_relic` destination sends logs to the New Relic platform.
+        :param Sequence['ObservabilityPipelineConfigDestinationOpensearchArgs'] opensearches: The `opensearch` destination writes logs to an OpenSearch cluster.
+        :param Sequence['ObservabilityPipelineConfigDestinationRsyslogArgs'] rsyslogs: The `rsyslog` destination forwards logs to an external `rsyslog` server over TCP or UDP using the syslog protocol.
+        :param Sequence['ObservabilityPipelineConfigDestinationSentinelOneArgs'] sentinel_ones: The `sentinel_one` destination sends logs to SentinelOne.
+        :param Sequence['ObservabilityPipelineConfigDestinationSocketArgs'] sockets: The `socket` destination sends logs over TCP or UDP to a remote server.
+        :param Sequence['ObservabilityPipelineConfigDestinationSplunkHecArgs'] splunk_hecs: The `splunk_hec` destination forwards logs to Splunk using the HTTP Event Collector (HEC).
+        :param Sequence['ObservabilityPipelineConfigDestinationSumoLogicArgs'] sumo_logics: The `sumo_logic` destination forwards logs to Sumo Logic.
+        :param Sequence['ObservabilityPipelineConfigDestinationSyslogNgArgs'] syslog_ngs: The `syslog_ng` destination forwards logs to an external `syslog-ng` server over TCP or UDP using the syslog protocol.
         """
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "inputs", inputs)
         if amazon_opensearches is not None:
             pulumi.set(__self__, "amazon_opensearches", amazon_opensearches)
         if amazon_s3s is not None:
@@ -40739,16 +43587,26 @@ class ObservabilityPipelineConfigDestinations(dict):
             pulumi.set(__self__, "amazon_security_lakes", amazon_security_lakes)
         if azure_storages is not None:
             pulumi.set(__self__, "azure_storages", azure_storages)
+        if cloud_prem is not None:
+            pulumi.set(__self__, "cloud_prem", cloud_prem)
         if crowdstrike_next_gen_siems is not None:
             pulumi.set(__self__, "crowdstrike_next_gen_siems", crowdstrike_next_gen_siems)
         if datadog_logs is not None:
             pulumi.set(__self__, "datadog_logs", datadog_logs)
+        if datadog_metrics is not None:
+            pulumi.set(__self__, "datadog_metrics", datadog_metrics)
         if elasticsearches is not None:
             pulumi.set(__self__, "elasticsearches", elasticsearches)
         if google_chronicles is not None:
             pulumi.set(__self__, "google_chronicles", google_chronicles)
         if google_cloud_storages is not None:
             pulumi.set(__self__, "google_cloud_storages", google_cloud_storages)
+        if google_pubsubs is not None:
+            pulumi.set(__self__, "google_pubsubs", google_pubsubs)
+        if http_clients is not None:
+            pulumi.set(__self__, "http_clients", http_clients)
+        if kafka is not None:
+            pulumi.set(__self__, "kafka", kafka)
         if microsoft_sentinels is not None:
             pulumi.set(__self__, "microsoft_sentinels", microsoft_sentinels)
         if new_relics is not None:
@@ -40769,191 +43627,10 @@ class ObservabilityPipelineConfigDestinations(dict):
             pulumi.set(__self__, "syslog_ngs", syslog_ngs)
 
     @_builtins.property
-    @pulumi.getter(name="amazonOpensearches")
-    def amazon_opensearches(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAmazonOpensearch']]:
-        """
-        The `amazon_opensearch` destination writes logs to Amazon OpenSearch.
-        """
-        return pulumi.get(self, "amazon_opensearches")
-
-    @_builtins.property
-    @pulumi.getter(name="amazonS3s")
-    def amazon_s3s(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAmazonS3']]:
-        """
-        The `amazon_s3` destination sends your logs in Datadog-rehydratable format to an Amazon S3 bucket for archiving.
-        """
-        return pulumi.get(self, "amazon_s3s")
-
-    @_builtins.property
-    @pulumi.getter(name="amazonSecurityLakes")
-    def amazon_security_lakes(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAmazonSecurityLake']]:
-        """
-        The `amazon_security_lake` destination sends your logs to Amazon Security Lake.
-        """
-        return pulumi.get(self, "amazon_security_lakes")
-
-    @_builtins.property
-    @pulumi.getter(name="azureStorages")
-    def azure_storages(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAzureStorage']]:
-        """
-        The `azure_storage` destination forwards logs to an Azure Blob Storage container.
-        """
-        return pulumi.get(self, "azure_storages")
-
-    @_builtins.property
-    @pulumi.getter(name="crowdstrikeNextGenSiems")
-    def crowdstrike_next_gen_siems(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiem']]:
-        """
-        The `crowdstrike_next_gen_siem` destination forwards logs to CrowdStrike Next Gen SIEM.
-        """
-        return pulumi.get(self, "crowdstrike_next_gen_siems")
-
-    @_builtins.property
-    @pulumi.getter(name="datadogLogs")
-    def datadog_logs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsDatadogLog']]:
-        """
-        The `datadog_logs` destination forwards logs to Datadog Log Management.
-        """
-        return pulumi.get(self, "datadog_logs")
-
-    @_builtins.property
-    @pulumi.getter
-    def elasticsearches(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsElasticsearch']]:
-        """
-        The `elasticsearch` destination writes logs to an Elasticsearch cluster.
-        """
-        return pulumi.get(self, "elasticsearches")
-
-    @_builtins.property
-    @pulumi.getter(name="googleChronicles")
-    def google_chronicles(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsGoogleChronicle']]:
-        """
-        The `google_chronicle` destination sends logs to Google Chronicle.
-        """
-        return pulumi.get(self, "google_chronicles")
-
-    @_builtins.property
-    @pulumi.getter(name="googleCloudStorages")
-    def google_cloud_storages(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsGoogleCloudStorage']]:
-        """
-        The `google_cloud_storage` destination stores logs in a Google Cloud Storage (GCS) bucket.
-        """
-        return pulumi.get(self, "google_cloud_storages")
-
-    @_builtins.property
-    @pulumi.getter(name="microsoftSentinels")
-    def microsoft_sentinels(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsMicrosoftSentinel']]:
-        """
-        The `microsoft_sentinel` destination forwards logs to Microsoft Sentinel.
-        """
-        return pulumi.get(self, "microsoft_sentinels")
-
-    @_builtins.property
-    @pulumi.getter(name="newRelics")
-    def new_relics(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsNewRelic']]:
-        """
-        The `new_relic` destination sends logs to the New Relic platform.
-        """
-        return pulumi.get(self, "new_relics")
-
-    @_builtins.property
-    @pulumi.getter
-    def opensearches(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsOpensearch']]:
-        """
-        The `opensearch` destination writes logs to an OpenSearch cluster.
-        """
-        return pulumi.get(self, "opensearches")
-
-    @_builtins.property
-    @pulumi.getter
-    def rsyslogs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsRsyslog']]:
-        """
-        The `rsyslog` destination forwards logs to an external `rsyslog` server over TCP or UDP using the syslog protocol.
-        """
-        return pulumi.get(self, "rsyslogs")
-
-    @_builtins.property
-    @pulumi.getter(name="sentinelOnes")
-    def sentinel_ones(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSentinelOne']]:
-        """
-        The `sentinel_one` destination sends logs to SentinelOne.
-        """
-        return pulumi.get(self, "sentinel_ones")
-
-    @_builtins.property
-    @pulumi.getter
-    def sockets(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSocket']]:
-        """
-        The `socket` destination sends logs over TCP or UDP to a remote server.
-        """
-        return pulumi.get(self, "sockets")
-
-    @_builtins.property
-    @pulumi.getter(name="splunkHecs")
-    def splunk_hecs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSplunkHec']]:
-        """
-        The `splunk_hec` destination forwards logs to Splunk using the HTTP Event Collector (HEC).
-        """
-        return pulumi.get(self, "splunk_hecs")
-
-    @_builtins.property
-    @pulumi.getter(name="sumoLogics")
-    def sumo_logics(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSumoLogic']]:
-        """
-        The `sumo_logic` destination forwards logs to Sumo Logic.
-        """
-        return pulumi.get(self, "sumo_logics")
-
-    @_builtins.property
-    @pulumi.getter(name="syslogNgs")
-    def syslog_ngs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSyslogNg']]:
-        """
-        The `syslog_ng` destination forwards logs to an external `syslog-ng` server over TCP or UDP using the syslog protocol.
-        """
-        return pulumi.get(self, "syslog_ngs")
-
-
-@pulumi.output_type
-class ObservabilityPipelineConfigDestinationsAmazonOpensearch(dict):
-    @staticmethod
-    def __key_warning(key: str):
-        suggest = None
-        if key == "bulkIndex":
-            suggest = "bulk_index"
-
-        if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsAmazonOpensearch. Access the value via the '{suggest}' property getter instead.")
-
-    def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonOpensearch.__key_warning(key)
-        return super().__getitem__(key)
-
-    def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonOpensearch.__key_warning(key)
-        return super().get(key, default)
-
-    def __init__(__self__, *,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
-                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonOpensearchAuth'] = None,
-                 bulk_index: Optional[_builtins.str] = None):
-        """
-        :param _builtins.str id: The unique identifier for this component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the input for this component.
-        :param _builtins.str bulk_index: The index or datastream to write logs to.
-        """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
-        if auth is not None:
-            pulumi.set(__self__, "auth", auth)
-        if bulk_index is not None:
-            pulumi.set(__self__, "bulk_index", bulk_index)
-
-    @_builtins.property
     @pulumi.getter
     def id(self) -> _builtins.str:
         """
-        The unique identifier for this component.
+        The unique identifier for this destination.
         """
         return pulumi.get(self, "id")
 
@@ -40961,13 +43638,228 @@ class ObservabilityPipelineConfigDestinationsAmazonOpensearch(dict):
     @pulumi.getter
     def inputs(self) -> Sequence[_builtins.str]:
         """
-        A list of component IDs whose output is used as the input for this component.
+        A list of component IDs whose output is used as the `input` for this component.
         """
         return pulumi.get(self, "inputs")
 
     @_builtins.property
+    @pulumi.getter(name="amazonOpensearches")
+    def amazon_opensearches(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationAmazonOpensearch']]:
+        """
+        The `amazon_opensearch` destination writes logs to Amazon OpenSearch.
+        """
+        return pulumi.get(self, "amazon_opensearches")
+
+    @_builtins.property
+    @pulumi.getter(name="amazonS3s")
+    def amazon_s3s(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationAmazonS3']]:
+        """
+        The `amazon_s3` destination sends your logs in Datadog-rehydratable format to an Amazon S3 bucket for archiving.
+        """
+        return pulumi.get(self, "amazon_s3s")
+
+    @_builtins.property
+    @pulumi.getter(name="amazonSecurityLakes")
+    def amazon_security_lakes(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLake']]:
+        """
+        The `amazon_security_lake` destination sends your logs to Amazon Security Lake.
+        """
+        return pulumi.get(self, "amazon_security_lakes")
+
+    @_builtins.property
+    @pulumi.getter(name="azureStorages")
+    def azure_storages(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationAzureStorage']]:
+        """
+        The `azure_storage` destination forwards logs to an Azure Blob Storage container.
+        """
+        return pulumi.get(self, "azure_storages")
+
+    @_builtins.property
+    @pulumi.getter(name="cloudPrem")
+    def cloud_prem(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationCloudPrem']:
+        """
+        The `cloud_prem` destination sends logs to Datadog CloudPrem.
+        """
+        return pulumi.get(self, "cloud_prem")
+
+    @_builtins.property
+    @pulumi.getter(name="crowdstrikeNextGenSiems")
+    def crowdstrike_next_gen_siems(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiem']]:
+        """
+        The `crowdstrike_next_gen_siem` destination forwards logs to CrowdStrike Next Gen SIEM.
+        """
+        return pulumi.get(self, "crowdstrike_next_gen_siems")
+
+    @_builtins.property
+    @pulumi.getter(name="datadogLogs")
+    def datadog_logs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationDatadogLog']]:
+        """
+        The `datadog_logs` destination forwards logs to Datadog Log Management.
+        """
+        return pulumi.get(self, "datadog_logs")
+
+    @_builtins.property
+    @pulumi.getter(name="datadogMetrics")
+    def datadog_metrics(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationDatadogMetric']]:
+        """
+        The `get_metrics` destination forwards metrics to Datadog.
+        """
+        return pulumi.get(self, "datadog_metrics")
+
+    @_builtins.property
     @pulumi.getter
-    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonOpensearchAuth']:
+    def elasticsearches(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationElasticsearch']]:
+        """
+        The `elasticsearch` destination writes logs to an Elasticsearch cluster.
+        """
+        return pulumi.get(self, "elasticsearches")
+
+    @_builtins.property
+    @pulumi.getter(name="googleChronicles")
+    def google_chronicles(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGoogleChronicle']]:
+        """
+        The `google_chronicle` destination sends logs to Google Chronicle.
+        """
+        return pulumi.get(self, "google_chronicles")
+
+    @_builtins.property
+    @pulumi.getter(name="googleCloudStorages")
+    def google_cloud_storages(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorage']]:
+        """
+        The `google_cloud_storage` destination stores logs in a Google Cloud Storage (GCS) bucket.
+        """
+        return pulumi.get(self, "google_cloud_storages")
+
+    @_builtins.property
+    @pulumi.getter(name="googlePubsubs")
+    def google_pubsubs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGooglePubsub']]:
+        """
+        The `google_pubsub` destination publishes logs to a Google Cloud Pub/Sub topic.
+        """
+        return pulumi.get(self, "google_pubsubs")
+
+    @_builtins.property
+    @pulumi.getter(name="httpClients")
+    def http_clients(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationHttpClient']]:
+        """
+        The `http_client` destination sends data to an HTTP endpoint.
+        """
+        return pulumi.get(self, "http_clients")
+
+    @_builtins.property
+    @pulumi.getter
+    def kafka(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationKafka']:
+        """
+        The `kafka` destination sends logs to Apache Kafka topics.
+        """
+        return pulumi.get(self, "kafka")
+
+    @_builtins.property
+    @pulumi.getter(name="microsoftSentinels")
+    def microsoft_sentinels(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationMicrosoftSentinel']]:
+        """
+        The `microsoft_sentinel` destination forwards logs to Microsoft Sentinel.
+        """
+        return pulumi.get(self, "microsoft_sentinels")
+
+    @_builtins.property
+    @pulumi.getter(name="newRelics")
+    def new_relics(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationNewRelic']]:
+        """
+        The `new_relic` destination sends logs to the New Relic platform.
+        """
+        return pulumi.get(self, "new_relics")
+
+    @_builtins.property
+    @pulumi.getter
+    def opensearches(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationOpensearch']]:
+        """
+        The `opensearch` destination writes logs to an OpenSearch cluster.
+        """
+        return pulumi.get(self, "opensearches")
+
+    @_builtins.property
+    @pulumi.getter
+    def rsyslogs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationRsyslog']]:
+        """
+        The `rsyslog` destination forwards logs to an external `rsyslog` server over TCP or UDP using the syslog protocol.
+        """
+        return pulumi.get(self, "rsyslogs")
+
+    @_builtins.property
+    @pulumi.getter(name="sentinelOnes")
+    def sentinel_ones(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSentinelOne']]:
+        """
+        The `sentinel_one` destination sends logs to SentinelOne.
+        """
+        return pulumi.get(self, "sentinel_ones")
+
+    @_builtins.property
+    @pulumi.getter
+    def sockets(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSocket']]:
+        """
+        The `socket` destination sends logs over TCP or UDP to a remote server.
+        """
+        return pulumi.get(self, "sockets")
+
+    @_builtins.property
+    @pulumi.getter(name="splunkHecs")
+    def splunk_hecs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSplunkHec']]:
+        """
+        The `splunk_hec` destination forwards logs to Splunk using the HTTP Event Collector (HEC).
+        """
+        return pulumi.get(self, "splunk_hecs")
+
+    @_builtins.property
+    @pulumi.getter(name="sumoLogics")
+    def sumo_logics(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSumoLogic']]:
+        """
+        The `sumo_logic` destination forwards logs to Sumo Logic.
+        """
+        return pulumi.get(self, "sumo_logics")
+
+    @_builtins.property
+    @pulumi.getter(name="syslogNgs")
+    def syslog_ngs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSyslogNg']]:
+        """
+        The `syslog_ng` destination forwards logs to an external `syslog-ng` server over TCP or UDP using the syslog protocol.
+        """
+        return pulumi.get(self, "syslog_ngs")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonOpensearch(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "bulkIndex":
+            suggest = "bulk_index"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonOpensearch. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonOpensearch.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonOpensearch.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchAuth'] = None,
+                 bulk_index: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str bulk_index: The index or datastream to write logs to.
+        """
+        if auth is not None:
+            pulumi.set(__self__, "auth", auth)
+        if bulk_index is not None:
+            pulumi.set(__self__, "bulk_index", bulk_index)
+
+    @_builtins.property
+    @pulumi.getter
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchAuth']:
         return pulumi.get(self, "auth")
 
     @_builtins.property
@@ -40980,7 +43872,7 @@ class ObservabilityPipelineConfigDestinationsAmazonOpensearch(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsAmazonOpensearchAuth(dict):
+class ObservabilityPipelineConfigDestinationAmazonOpensearchAuth(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -40994,14 +43886,14 @@ class ObservabilityPipelineConfigDestinationsAmazonOpensearchAuth(dict):
             suggest = "session_name"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsAmazonOpensearchAuth. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonOpensearchAuth. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonOpensearchAuth.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAmazonOpensearchAuth.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonOpensearchAuth.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAmazonOpensearchAuth.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -41069,7 +43961,7 @@ class ObservabilityPipelineConfigDestinationsAmazonOpensearchAuth(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsAmazonS3(dict):
+class ObservabilityPipelineConfigDestinationAmazonS3(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -41079,36 +43971,30 @@ class ObservabilityPipelineConfigDestinationsAmazonS3(dict):
             suggest = "storage_class"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsAmazonS3. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonS3. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonS3.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAmazonS3.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonS3.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAmazonS3.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
                  bucket: _builtins.str,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  key_prefix: _builtins.str,
                  region: _builtins.str,
                  storage_class: _builtins.str,
-                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonS3Auth'] = None):
+                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3Auth'] = None):
         """
         :param _builtins.str bucket: S3 bucket name.
-        :param _builtins.str id: Unique identifier for the destination component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
         :param _builtins.str key_prefix: Prefix for object keys.
         :param _builtins.str region: AWS region of the S3 bucket.
         :param _builtins.str storage_class: S3 storage class. Valid values are `STANDARD`, `REDUCED_REDUNDANCY`, `INTELLIGENT_TIERING`, `STANDARD_IA`, `EXPRESS_ONEZONE`, `ONEZONE_IA`, `GLACIER`, `GLACIER_IR`, `DEEP_ARCHIVE`.
-        :param 'ObservabilityPipelineConfigDestinationsAmazonS3AuthArgs' auth: AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        :param 'ObservabilityPipelineConfigDestinationAmazonS3AuthArgs' auth: AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
         """
         pulumi.set(__self__, "bucket", bucket)
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         pulumi.set(__self__, "key_prefix", key_prefix)
         pulumi.set(__self__, "region", region)
         pulumi.set(__self__, "storage_class", storage_class)
@@ -41122,22 +44008,6 @@ class ObservabilityPipelineConfigDestinationsAmazonS3(dict):
         S3 bucket name.
         """
         return pulumi.get(self, "bucket")
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        Unique identifier for the destination component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
 
     @_builtins.property
     @pulumi.getter(name="keyPrefix")
@@ -41165,7 +44035,7 @@ class ObservabilityPipelineConfigDestinationsAmazonS3(dict):
 
     @_builtins.property
     @pulumi.getter
-    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonS3Auth']:
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3Auth']:
         """
         AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
         """
@@ -41173,7 +44043,7 @@ class ObservabilityPipelineConfigDestinationsAmazonS3(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsAmazonS3Auth(dict):
+class ObservabilityPipelineConfigDestinationAmazonS3Auth(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -41185,14 +44055,14 @@ class ObservabilityPipelineConfigDestinationsAmazonS3Auth(dict):
             suggest = "session_name"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsAmazonS3Auth. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonS3Auth. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonS3Auth.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAmazonS3Auth.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonS3Auth.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAmazonS3Auth.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -41237,7 +44107,7 @@ class ObservabilityPipelineConfigDestinationsAmazonS3Auth(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsAmazonSecurityLake(dict):
+class ObservabilityPipelineConfigDestinationAmazonSecurityLake(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -41245,37 +44115,31 @@ class ObservabilityPipelineConfigDestinationsAmazonSecurityLake(dict):
             suggest = "custom_source_name"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsAmazonSecurityLake. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonSecurityLake. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonSecurityLake.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAmazonSecurityLake.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonSecurityLake.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAmazonSecurityLake.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
                  bucket: _builtins.str,
                  custom_source_name: _builtins.str,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  region: _builtins.str,
-                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth'] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls'] = None):
+                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLakeAuth'] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLakeTls'] = None):
         """
         :param _builtins.str bucket: Name of the Amazon S3 bucket in Security Lake (3-63 characters).
         :param _builtins.str custom_source_name: Custom source name for the logs in Security Lake.
-        :param _builtins.str id: Unique identifier for the destination component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
         :param _builtins.str region: AWS region of the Security Lake bucket.
-        :param 'ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuthArgs' auth: AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
-        :param 'ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigDestinationAmazonSecurityLakeAuthArgs' auth: AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        :param 'ObservabilityPipelineConfigDestinationAmazonSecurityLakeTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "bucket", bucket)
         pulumi.set(__self__, "custom_source_name", custom_source_name)
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         pulumi.set(__self__, "region", region)
         if auth is not None:
             pulumi.set(__self__, "auth", auth)
@@ -41300,22 +44164,6 @@ class ObservabilityPipelineConfigDestinationsAmazonSecurityLake(dict):
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        Unique identifier for the destination component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter
     def region(self) -> _builtins.str:
         """
         AWS region of the Security Lake bucket.
@@ -41324,7 +44172,7 @@ class ObservabilityPipelineConfigDestinationsAmazonSecurityLake(dict):
 
     @_builtins.property
     @pulumi.getter
-    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth']:
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLakeAuth']:
         """
         AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
         """
@@ -41332,7 +44180,7 @@ class ObservabilityPipelineConfigDestinationsAmazonSecurityLake(dict):
 
     @_builtins.property
     @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLakeTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -41340,7 +44188,7 @@ class ObservabilityPipelineConfigDestinationsAmazonSecurityLake(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth(dict):
+class ObservabilityPipelineConfigDestinationAmazonSecurityLakeAuth(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -41352,14 +44200,14 @@ class ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth(dict):
             suggest = "session_name"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonSecurityLakeAuth. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAmazonSecurityLakeAuth.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAmazonSecurityLakeAuth.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -41404,43 +44252,50 @@ class ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls(dict):
+class ObservabilityPipelineConfigDestinationAmazonSecurityLakeTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonSecurityLakeTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAmazonSecurityLakeTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAmazonSecurityLakeTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -41449,14 +44304,6 @@ class ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -41468,7 +44315,7 @@ class ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsAzureStorage(dict):
+class ObservabilityPipelineConfigDestinationAzureStorage(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -41478,30 +44325,24 @@ class ObservabilityPipelineConfigDestinationsAzureStorage(dict):
             suggest = "blob_prefix"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsAzureStorage. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAzureStorage. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsAzureStorage.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAzureStorage.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsAzureStorage.__key_warning(key)
+        ObservabilityPipelineConfigDestinationAzureStorage.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
                  container_name: _builtins.str,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  blob_prefix: Optional[_builtins.str] = None):
         """
         :param _builtins.str container_name: The name of the Azure Blob Storage container to store logs in.
-        :param _builtins.str id: The unique identifier for this component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
         :param _builtins.str blob_prefix: Optional prefix for blobs written to the container.
         """
         pulumi.set(__self__, "container_name", container_name)
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         if blob_prefix is not None:
             pulumi.set(__self__, "blob_prefix", blob_prefix)
 
@@ -41514,22 +44355,6 @@ class ObservabilityPipelineConfigDestinationsAzureStorage(dict):
         return pulumi.get(self, "container_name")
 
     @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
     @pulumi.getter(name="blobPrefix")
     def blob_prefix(self) -> Optional[_builtins.str]:
         """
@@ -41539,23 +44364,23 @@ class ObservabilityPipelineConfigDestinationsAzureStorage(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiem(dict):
+class ObservabilityPipelineConfigDestinationCloudPrem(dict):
+    def __init__(__self__):
+        pass
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiem(dict):
     def __init__(__self__, *,
                  encoding: _builtins.str,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
-                 compression: Optional['outputs.ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemCompression'] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls'] = None):
+                 compression: Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemCompression'] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls'] = None):
         """
         :param _builtins.str encoding: Encoding format for log events. Valid values are `json`, `raw_message`.
-        :param _builtins.str id: Unique identifier for the destination component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
-        :param 'ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemCompressionArgs' compression: Compression configuration for log events.
-        :param 'ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemCompressionArgs' compression: Compression configuration for log events.
+        :param 'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "encoding", encoding)
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         if compression is not None:
             pulumi.set(__self__, "compression", compression)
         if tls is not None:
@@ -41571,23 +44396,7 @@ class ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiem(dict):
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        Unique identifier for the destination component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter
-    def compression(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemCompression']:
+    def compression(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemCompression']:
         """
         Compression configuration for log events.
         """
@@ -41595,7 +44404,7 @@ class ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiem(dict):
 
     @_builtins.property
     @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -41603,22 +44412,21 @@ class ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiem(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemCompression(dict):
+class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemCompression(dict):
     def __init__(__self__, *,
-                 algorithm: Optional[_builtins.str] = None,
+                 algorithm: _builtins.str,
                  level: Optional[_builtins.int] = None):
         """
         :param _builtins.str algorithm: Compression algorithm for log events.
         :param _builtins.int level: Compression level.
         """
-        if algorithm is not None:
-            pulumi.set(__self__, "algorithm", algorithm)
+        pulumi.set(__self__, "algorithm", algorithm)
         if level is not None:
             pulumi.set(__self__, "level", level)
 
     @_builtins.property
     @pulumi.getter
-    def algorithm(self) -> Optional[_builtins.str]:
+    def algorithm(self) -> _builtins.str:
         """
         Compression algorithm for log events.
         """
@@ -41634,43 +44442,50 @@ class ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemCompression(d
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls(dict):
+class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls.__key_warning(key)
+        ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls.__key_warning(key)
+        ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -41679,14 +44494,6 @@ class ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -41698,36 +44505,19 @@ class ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsDatadogLog(dict):
-    def __init__(__self__, *,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str]):
-        """
-        :param _builtins.str id: The unique ID of the destination.
-        :param Sequence[_builtins.str] inputs: The inputs for the destination.
-        """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique ID of the destination.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        The inputs for the destination.
-        """
-        return pulumi.get(self, "inputs")
+class ObservabilityPipelineConfigDestinationDatadogLog(dict):
+    def __init__(__self__):
+        pass
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsElasticsearch(dict):
+class ObservabilityPipelineConfigDestinationDatadogMetric(dict):
+    def __init__(__self__):
+        pass
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationElasticsearch(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -41735,51 +44525,35 @@ class ObservabilityPipelineConfigDestinationsElasticsearch(dict):
             suggest = "api_version"
         elif key == "bulkIndex":
             suggest = "bulk_index"
+        elif key == "dataStream":
+            suggest = "data_stream"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsElasticsearch. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationElasticsearch. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsElasticsearch.__key_warning(key)
+        ObservabilityPipelineConfigDestinationElasticsearch.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsElasticsearch.__key_warning(key)
+        ObservabilityPipelineConfigDestinationElasticsearch.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  api_version: Optional[_builtins.str] = None,
-                 bulk_index: Optional[_builtins.str] = None):
+                 bulk_index: Optional[_builtins.str] = None,
+                 data_stream: Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchDataStream'] = None):
         """
-        :param _builtins.str id: The unique identifier for this component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
         :param _builtins.str api_version: The Elasticsearch API version to use. Set to `auto` to auto-detect.
         :param _builtins.str bulk_index: The index or datastream to write logs to in Elasticsearch.
+        :param 'ObservabilityPipelineConfigDestinationElasticsearchDataStreamArgs' data_stream: Configuration options for writing to Elasticsearch Data Streams instead of a fixed index.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         if api_version is not None:
             pulumi.set(__self__, "api_version", api_version)
         if bulk_index is not None:
             pulumi.set(__self__, "bulk_index", bulk_index)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
+        if data_stream is not None:
+            pulumi.set(__self__, "data_stream", data_stream)
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
@@ -41797,9 +44571,60 @@ class ObservabilityPipelineConfigDestinationsElasticsearch(dict):
         """
         return pulumi.get(self, "bulk_index")
 
+    @_builtins.property
+    @pulumi.getter(name="dataStream")
+    def data_stream(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchDataStream']:
+        """
+        Configuration options for writing to Elasticsearch Data Streams instead of a fixed index.
+        """
+        return pulumi.get(self, "data_stream")
+
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsGoogleChronicle(dict):
+class ObservabilityPipelineConfigDestinationElasticsearchDataStream(dict):
+    def __init__(__self__, *,
+                 dataset: Optional[_builtins.str] = None,
+                 dtype: Optional[_builtins.str] = None,
+                 namespace: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str dataset: The data stream dataset for your logs. This groups logs by their source or application.
+        :param _builtins.str dtype: The data stream type for your logs. This determines how logs are categorized within the data stream.
+        :param _builtins.str namespace: The data stream namespace for your logs. This separates logs into different environments or domains.
+        """
+        if dataset is not None:
+            pulumi.set(__self__, "dataset", dataset)
+        if dtype is not None:
+            pulumi.set(__self__, "dtype", dtype)
+        if namespace is not None:
+            pulumi.set(__self__, "namespace", namespace)
+
+    @_builtins.property
+    @pulumi.getter
+    def dataset(self) -> Optional[_builtins.str]:
+        """
+        The data stream dataset for your logs. This groups logs by their source or application.
+        """
+        return pulumi.get(self, "dataset")
+
+    @_builtins.property
+    @pulumi.getter
+    def dtype(self) -> Optional[_builtins.str]:
+        """
+        The data stream type for your logs. This determines how logs are categorized within the data stream.
+        """
+        return pulumi.get(self, "dtype")
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> Optional[_builtins.str]:
+        """
+        The data stream namespace for your logs. This separates logs into different environments or domains.
+        """
+        return pulumi.get(self, "namespace")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGoogleChronicle(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -41809,33 +44634,27 @@ class ObservabilityPipelineConfigDestinationsGoogleChronicle(dict):
             suggest = "log_type"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsGoogleChronicle. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGoogleChronicle. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsGoogleChronicle.__key_warning(key)
+        ObservabilityPipelineConfigDestinationGoogleChronicle.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsGoogleChronicle.__key_warning(key)
+        ObservabilityPipelineConfigDestinationGoogleChronicle.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
-                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationsGoogleChronicleAuth'] = None,
+                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleChronicleAuth'] = None,
                  customer_id: Optional[_builtins.str] = None,
                  encoding: Optional[_builtins.str] = None,
                  log_type: Optional[_builtins.str] = None):
         """
-        :param _builtins.str id: The unique identifier for this component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
-        :param 'ObservabilityPipelineConfigDestinationsGoogleChronicleAuthArgs' auth: GCP credentials used to authenticate with Google Cloud Storage.
+        :param 'ObservabilityPipelineConfigDestinationGoogleChronicleAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
         :param _builtins.str customer_id: The Google Chronicle customer ID.
         :param _builtins.str encoding: The encoding format for the logs sent to Chronicle.
         :param _builtins.str log_type: The log type metadata associated with the Chronicle destination.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         if auth is not None:
             pulumi.set(__self__, "auth", auth)
         if customer_id is not None:
@@ -41847,25 +44666,9 @@ class ObservabilityPipelineConfigDestinationsGoogleChronicle(dict):
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGoogleChronicleAuth']:
         """
-        The unique identifier for this component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter
-    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsGoogleChronicleAuth']:
-        """
-        GCP credentials used to authenticate with Google Cloud Storage.
+        GCP credentials used to authenticate with Google Cloud services.
         """
         return pulumi.get(self, "auth")
 
@@ -41895,7 +44698,7 @@ class ObservabilityPipelineConfigDestinationsGoogleChronicle(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsGoogleChronicleAuth(dict):
+class ObservabilityPipelineConfigDestinationGoogleChronicleAuth(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -41903,167 +44706,14 @@ class ObservabilityPipelineConfigDestinationsGoogleChronicleAuth(dict):
             suggest = "credentials_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsGoogleChronicleAuth. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGoogleChronicleAuth. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsGoogleChronicleAuth.__key_warning(key)
+        ObservabilityPipelineConfigDestinationGoogleChronicleAuth.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsGoogleChronicleAuth.__key_warning(key)
-        return super().get(key, default)
-
-    def __init__(__self__, *,
-                 credentials_file: Optional[_builtins.str] = None):
-        """
-        :param _builtins.str credentials_file: Path to the GCP service account key file.
-        """
-        if credentials_file is not None:
-            pulumi.set(__self__, "credentials_file", credentials_file)
-
-    @_builtins.property
-    @pulumi.getter(name="credentialsFile")
-    def credentials_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the GCP service account key file.
-        """
-        return pulumi.get(self, "credentials_file")
-
-
-@pulumi.output_type
-class ObservabilityPipelineConfigDestinationsGoogleCloudStorage(dict):
-    @staticmethod
-    def __key_warning(key: str):
-        suggest = None
-        if key == "storageClass":
-            suggest = "storage_class"
-        elif key == "keyPrefix":
-            suggest = "key_prefix"
-
-        if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsGoogleCloudStorage. Access the value via the '{suggest}' property getter instead.")
-
-    def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsGoogleCloudStorage.__key_warning(key)
-        return super().__getitem__(key)
-
-    def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsGoogleCloudStorage.__key_warning(key)
-        return super().get(key, default)
-
-    def __init__(__self__, *,
-                 acl: _builtins.str,
-                 bucket: _builtins.str,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
-                 storage_class: _builtins.str,
-                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationsGoogleCloudStorageAuth'] = None,
-                 key_prefix: Optional[_builtins.str] = None,
-                 metadatas: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsGoogleCloudStorageMetadata']] = None):
-        """
-        :param _builtins.str acl: Access control list setting for objects written to the bucket.
-        :param _builtins.str bucket: Name of the GCS bucket.
-        :param _builtins.str id: Unique identifier for the destination component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
-        :param _builtins.str storage_class: Storage class used for objects stored in GCS.
-        :param 'ObservabilityPipelineConfigDestinationsGoogleCloudStorageAuthArgs' auth: GCP credentials used to authenticate with Google Cloud Storage.
-        :param _builtins.str key_prefix: Optional prefix for object keys within the GCS bucket.
-        :param Sequence['ObservabilityPipelineConfigDestinationsGoogleCloudStorageMetadataArgs'] metadatas: Custom metadata key-value pairs added to each object.
-        """
-        pulumi.set(__self__, "acl", acl)
-        pulumi.set(__self__, "bucket", bucket)
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
-        pulumi.set(__self__, "storage_class", storage_class)
-        if auth is not None:
-            pulumi.set(__self__, "auth", auth)
-        if key_prefix is not None:
-            pulumi.set(__self__, "key_prefix", key_prefix)
-        if metadatas is not None:
-            pulumi.set(__self__, "metadatas", metadatas)
-
-    @_builtins.property
-    @pulumi.getter
-    def acl(self) -> _builtins.str:
-        """
-        Access control list setting for objects written to the bucket.
-        """
-        return pulumi.get(self, "acl")
-
-    @_builtins.property
-    @pulumi.getter
-    def bucket(self) -> _builtins.str:
-        """
-        Name of the GCS bucket.
-        """
-        return pulumi.get(self, "bucket")
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        Unique identifier for the destination component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter(name="storageClass")
-    def storage_class(self) -> _builtins.str:
-        """
-        Storage class used for objects stored in GCS.
-        """
-        return pulumi.get(self, "storage_class")
-
-    @_builtins.property
-    @pulumi.getter
-    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsGoogleCloudStorageAuth']:
-        """
-        GCP credentials used to authenticate with Google Cloud Storage.
-        """
-        return pulumi.get(self, "auth")
-
-    @_builtins.property
-    @pulumi.getter(name="keyPrefix")
-    def key_prefix(self) -> Optional[_builtins.str]:
-        """
-        Optional prefix for object keys within the GCS bucket.
-        """
-        return pulumi.get(self, "key_prefix")
-
-    @_builtins.property
-    @pulumi.getter
-    def metadatas(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsGoogleCloudStorageMetadata']]:
-        """
-        Custom metadata key-value pairs added to each object.
-        """
-        return pulumi.get(self, "metadatas")
-
-
-@pulumi.output_type
-class ObservabilityPipelineConfigDestinationsGoogleCloudStorageAuth(dict):
-    @staticmethod
-    def __key_warning(key: str):
-        suggest = None
-        if key == "credentialsFile":
-            suggest = "credentials_file"
-
-        if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsGoogleCloudStorageAuth. Access the value via the '{suggest}' property getter instead.")
-
-    def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsGoogleCloudStorageAuth.__key_warning(key)
-        return super().__getitem__(key)
-
-    def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsGoogleCloudStorageAuth.__key_warning(key)
+        ObservabilityPipelineConfigDestinationGoogleChronicleAuth.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -42083,7 +44733,138 @@ class ObservabilityPipelineConfigDestinationsGoogleCloudStorageAuth(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsGoogleCloudStorageMetadata(dict):
+class ObservabilityPipelineConfigDestinationGoogleCloudStorage(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "storageClass":
+            suggest = "storage_class"
+        elif key == "keyPrefix":
+            suggest = "key_prefix"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGoogleCloudStorage. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleCloudStorage.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleCloudStorage.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 bucket: _builtins.str,
+                 storage_class: _builtins.str,
+                 acl: Optional[_builtins.str] = None,
+                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth'] = None,
+                 key_prefix: Optional[_builtins.str] = None,
+                 metadatas: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorageMetadata']] = None):
+        """
+        :param _builtins.str bucket: Name of the GCS bucket.
+        :param _builtins.str storage_class: Storage class used for objects stored in GCS.
+        :param _builtins.str acl: Access control list setting for objects written to the bucket.
+        :param 'ObservabilityPipelineConfigDestinationGoogleCloudStorageAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
+        :param _builtins.str key_prefix: Optional prefix for object keys within the GCS bucket.
+        :param Sequence['ObservabilityPipelineConfigDestinationGoogleCloudStorageMetadataArgs'] metadatas: Custom metadata key-value pairs added to each object.
+        """
+        pulumi.set(__self__, "bucket", bucket)
+        pulumi.set(__self__, "storage_class", storage_class)
+        if acl is not None:
+            pulumi.set(__self__, "acl", acl)
+        if auth is not None:
+            pulumi.set(__self__, "auth", auth)
+        if key_prefix is not None:
+            pulumi.set(__self__, "key_prefix", key_prefix)
+        if metadatas is not None:
+            pulumi.set(__self__, "metadatas", metadatas)
+
+    @_builtins.property
+    @pulumi.getter
+    def bucket(self) -> _builtins.str:
+        """
+        Name of the GCS bucket.
+        """
+        return pulumi.get(self, "bucket")
+
+    @_builtins.property
+    @pulumi.getter(name="storageClass")
+    def storage_class(self) -> _builtins.str:
+        """
+        Storage class used for objects stored in GCS.
+        """
+        return pulumi.get(self, "storage_class")
+
+    @_builtins.property
+    @pulumi.getter
+    def acl(self) -> Optional[_builtins.str]:
+        """
+        Access control list setting for objects written to the bucket.
+        """
+        return pulumi.get(self, "acl")
+
+    @_builtins.property
+    @pulumi.getter
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth']:
+        """
+        GCP credentials used to authenticate with Google Cloud services.
+        """
+        return pulumi.get(self, "auth")
+
+    @_builtins.property
+    @pulumi.getter(name="keyPrefix")
+    def key_prefix(self) -> Optional[_builtins.str]:
+        """
+        Optional prefix for object keys within the GCS bucket.
+        """
+        return pulumi.get(self, "key_prefix")
+
+    @_builtins.property
+    @pulumi.getter
+    def metadatas(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorageMetadata']]:
+        """
+        Custom metadata key-value pairs added to each object.
+        """
+        return pulumi.get(self, "metadatas")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "credentialsFile":
+            suggest = "credentials_file"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 credentials_file: _builtins.str):
+        """
+        :param _builtins.str credentials_file: Path to the GCP service account key file.
+        """
+        pulumi.set(__self__, "credentials_file", credentials_file)
+
+    @_builtins.property
+    @pulumi.getter(name="credentialsFile")
+    def credentials_file(self) -> _builtins.str:
+        """
+        Path to the GCP service account key file.
+        """
+        return pulumi.get(self, "credentials_file")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGoogleCloudStorageMetadata(dict):
     def __init__(__self__, *,
                  name: _builtins.str,
                  value: _builtins.str):
@@ -42112,7 +44893,610 @@ class ObservabilityPipelineConfigDestinationsGoogleCloudStorageMetadata(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsMicrosoftSentinel(dict):
+class ObservabilityPipelineConfigDestinationGooglePubsub(dict):
+    def __init__(__self__, *,
+                 project: _builtins.str,
+                 topic: _builtins.str,
+                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubAuth'] = None,
+                 encoding: Optional[_builtins.str] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubTls'] = None):
+        """
+        :param _builtins.str project: The GCP project ID that owns the Pub/Sub topic.
+        :param _builtins.str topic: The Pub/Sub topic name to publish logs to.
+        :param 'ObservabilityPipelineConfigDestinationGooglePubsubAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
+        :param _builtins.str encoding: Encoding format for log events. Valid values: `json`, `raw_message`.
+        :param 'ObservabilityPipelineConfigDestinationGooglePubsubTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        pulumi.set(__self__, "project", project)
+        pulumi.set(__self__, "topic", topic)
+        if auth is not None:
+            pulumi.set(__self__, "auth", auth)
+        if encoding is not None:
+            pulumi.set(__self__, "encoding", encoding)
+        if tls is not None:
+            pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter
+    def project(self) -> _builtins.str:
+        """
+        The GCP project ID that owns the Pub/Sub topic.
+        """
+        return pulumi.get(self, "project")
+
+    @_builtins.property
+    @pulumi.getter
+    def topic(self) -> _builtins.str:
+        """
+        The Pub/Sub topic name to publish logs to.
+        """
+        return pulumi.get(self, "topic")
+
+    @_builtins.property
+    @pulumi.getter
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubAuth']:
+        """
+        GCP credentials used to authenticate with Google Cloud services.
+        """
+        return pulumi.get(self, "auth")
+
+    @_builtins.property
+    @pulumi.getter
+    def encoding(self) -> Optional[_builtins.str]:
+        """
+        Encoding format for log events. Valid values: `json`, `raw_message`.
+        """
+        return pulumi.get(self, "encoding")
+
+    @_builtins.property
+    @pulumi.getter
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubTls']:
+        """
+        Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        return pulumi.get(self, "tls")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGooglePubsubAuth(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "credentialsFile":
+            suggest = "credentials_file"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGooglePubsubAuth. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationGooglePubsubAuth.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationGooglePubsubAuth.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 credentials_file: _builtins.str):
+        """
+        :param _builtins.str credentials_file: Path to the GCP service account key file.
+        """
+        pulumi.set(__self__, "credentials_file", credentials_file)
+
+    @_builtins.property
+    @pulumi.getter(name="credentialsFile")
+    def credentials_file(self) -> _builtins.str:
+        """
+        Path to the GCP service account key file.
+        """
+        return pulumi.get(self, "credentials_file")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGooglePubsubTls(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "crtFile":
+            suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
+        elif key == "keyFile":
+            suggest = "key_file"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGooglePubsubTls. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationGooglePubsubTls.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationGooglePubsubTls.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 crt_file: _builtins.str,
+                 ca_file: Optional[_builtins.str] = None,
+                 key_file: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        pulumi.set(__self__, "crt_file", crt_file)
+        if ca_file is not None:
+            pulumi.set(__self__, "ca_file", ca_file)
+        if key_file is not None:
+            pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
+
+    @_builtins.property
+    @pulumi.getter(name="caFile")
+    def ca_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        """
+        return pulumi.get(self, "ca_file")
+
+    @_builtins.property
+    @pulumi.getter(name="keyFile")
+    def key_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        return pulumi.get(self, "key_file")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationHttpClient(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "authStrategy":
+            suggest = "auth_strategy"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationHttpClient. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationHttpClient.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationHttpClient.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 encoding: _builtins.str,
+                 auth_strategy: Optional[_builtins.str] = None,
+                 compression: Optional['outputs.ObservabilityPipelineConfigDestinationHttpClientCompression'] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationHttpClientTls'] = None):
+        """
+        :param _builtins.str encoding: Encoding format for events. Valid values are `json`.
+        :param _builtins.str auth_strategy: HTTP authentication strategy. Valid values are `none`, `basic`, `bearer`.
+        :param 'ObservabilityPipelineConfigDestinationHttpClientCompressionArgs' compression: Compression configuration for HTTP requests.
+        :param 'ObservabilityPipelineConfigDestinationHttpClientTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        pulumi.set(__self__, "encoding", encoding)
+        if auth_strategy is not None:
+            pulumi.set(__self__, "auth_strategy", auth_strategy)
+        if compression is not None:
+            pulumi.set(__self__, "compression", compression)
+        if tls is not None:
+            pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter
+    def encoding(self) -> _builtins.str:
+        """
+        Encoding format for events. Valid values are `json`.
+        """
+        return pulumi.get(self, "encoding")
+
+    @_builtins.property
+    @pulumi.getter(name="authStrategy")
+    def auth_strategy(self) -> Optional[_builtins.str]:
+        """
+        HTTP authentication strategy. Valid values are `none`, `basic`, `bearer`.
+        """
+        return pulumi.get(self, "auth_strategy")
+
+    @_builtins.property
+    @pulumi.getter
+    def compression(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationHttpClientCompression']:
+        """
+        Compression configuration for HTTP requests.
+        """
+        return pulumi.get(self, "compression")
+
+    @_builtins.property
+    @pulumi.getter
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationHttpClientTls']:
+        """
+        Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        return pulumi.get(self, "tls")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationHttpClientCompression(dict):
+    def __init__(__self__, *,
+                 algorithm: _builtins.str):
+        """
+        :param _builtins.str algorithm: Compression algorithm. Valid values are `gzip`.
+        """
+        pulumi.set(__self__, "algorithm", algorithm)
+
+    @_builtins.property
+    @pulumi.getter
+    def algorithm(self) -> _builtins.str:
+        """
+        Compression algorithm. Valid values are `gzip`.
+        """
+        return pulumi.get(self, "algorithm")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationHttpClientTls(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "crtFile":
+            suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
+        elif key == "keyFile":
+            suggest = "key_file"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationHttpClientTls. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationHttpClientTls.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationHttpClientTls.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 crt_file: _builtins.str,
+                 ca_file: Optional[_builtins.str] = None,
+                 key_file: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        pulumi.set(__self__, "crt_file", crt_file)
+        if ca_file is not None:
+            pulumi.set(__self__, "ca_file", ca_file)
+        if key_file is not None:
+            pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
+
+    @_builtins.property
+    @pulumi.getter(name="caFile")
+    def ca_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        """
+        return pulumi.get(self, "ca_file")
+
+    @_builtins.property
+    @pulumi.getter(name="keyFile")
+    def key_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        return pulumi.get(self, "key_file")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationKafka(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "headersKey":
+            suggest = "headers_key"
+        elif key == "keyField":
+            suggest = "key_field"
+        elif key == "librdkafkaOptions":
+            suggest = "librdkafka_options"
+        elif key == "messageTimeoutMs":
+            suggest = "message_timeout_ms"
+        elif key == "rateLimitDurationSecs":
+            suggest = "rate_limit_duration_secs"
+        elif key == "rateLimitNum":
+            suggest = "rate_limit_num"
+        elif key == "socketTimeoutMs":
+            suggest = "socket_timeout_ms"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationKafka. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationKafka.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationKafka.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 encoding: _builtins.str,
+                 topic: _builtins.str,
+                 compression: Optional[_builtins.str] = None,
+                 headers_key: Optional[_builtins.str] = None,
+                 key_field: Optional[_builtins.str] = None,
+                 librdkafka_options: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationKafkaLibrdkafkaOption']] = None,
+                 message_timeout_ms: Optional[_builtins.int] = None,
+                 rate_limit_duration_secs: Optional[_builtins.int] = None,
+                 rate_limit_num: Optional[_builtins.int] = None,
+                 sasl: Optional['outputs.ObservabilityPipelineConfigDestinationKafkaSasl'] = None,
+                 socket_timeout_ms: Optional[_builtins.int] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationKafkaTls'] = None):
+        """
+        :param _builtins.str encoding: Encoding format for log events. Valid values are `json`, `raw_message`.
+        :param _builtins.str topic: The Kafka topic name to publish logs to.
+        :param _builtins.str compression: Compression codec for Kafka messages. Valid values are `none`, `gzip`, `snappy`, `lz4`, `zstd`.
+        :param _builtins.str headers_key: The field name to use for Kafka message headers.
+        :param _builtins.str key_field: The field name to use as the Kafka message key.
+        :param Sequence['ObservabilityPipelineConfigDestinationKafkaLibrdkafkaOptionArgs'] librdkafka_options: Optional list of advanced Kafka producer configuration options, defined as key-value pairs.
+        :param _builtins.int message_timeout_ms: Maximum time in milliseconds to wait for message delivery confirmation.
+        :param _builtins.int rate_limit_duration_secs: Duration in seconds for the rate limit window.
+        :param _builtins.int rate_limit_num: Maximum number of messages allowed per rate limit duration.
+        :param 'ObservabilityPipelineConfigDestinationKafkaSaslArgs' sasl: Specifies the SASL mechanism for authenticating with a Kafka cluster.
+        :param _builtins.int socket_timeout_ms: Socket timeout in milliseconds for network requests.
+        :param 'ObservabilityPipelineConfigDestinationKafkaTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        pulumi.set(__self__, "encoding", encoding)
+        pulumi.set(__self__, "topic", topic)
+        if compression is not None:
+            pulumi.set(__self__, "compression", compression)
+        if headers_key is not None:
+            pulumi.set(__self__, "headers_key", headers_key)
+        if key_field is not None:
+            pulumi.set(__self__, "key_field", key_field)
+        if librdkafka_options is not None:
+            pulumi.set(__self__, "librdkafka_options", librdkafka_options)
+        if message_timeout_ms is not None:
+            pulumi.set(__self__, "message_timeout_ms", message_timeout_ms)
+        if rate_limit_duration_secs is not None:
+            pulumi.set(__self__, "rate_limit_duration_secs", rate_limit_duration_secs)
+        if rate_limit_num is not None:
+            pulumi.set(__self__, "rate_limit_num", rate_limit_num)
+        if sasl is not None:
+            pulumi.set(__self__, "sasl", sasl)
+        if socket_timeout_ms is not None:
+            pulumi.set(__self__, "socket_timeout_ms", socket_timeout_ms)
+        if tls is not None:
+            pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter
+    def encoding(self) -> _builtins.str:
+        """
+        Encoding format for log events. Valid values are `json`, `raw_message`.
+        """
+        return pulumi.get(self, "encoding")
+
+    @_builtins.property
+    @pulumi.getter
+    def topic(self) -> _builtins.str:
+        """
+        The Kafka topic name to publish logs to.
+        """
+        return pulumi.get(self, "topic")
+
+    @_builtins.property
+    @pulumi.getter
+    def compression(self) -> Optional[_builtins.str]:
+        """
+        Compression codec for Kafka messages. Valid values are `none`, `gzip`, `snappy`, `lz4`, `zstd`.
+        """
+        return pulumi.get(self, "compression")
+
+    @_builtins.property
+    @pulumi.getter(name="headersKey")
+    def headers_key(self) -> Optional[_builtins.str]:
+        """
+        The field name to use for Kafka message headers.
+        """
+        return pulumi.get(self, "headers_key")
+
+    @_builtins.property
+    @pulumi.getter(name="keyField")
+    def key_field(self) -> Optional[_builtins.str]:
+        """
+        The field name to use as the Kafka message key.
+        """
+        return pulumi.get(self, "key_field")
+
+    @_builtins.property
+    @pulumi.getter(name="librdkafkaOptions")
+    def librdkafka_options(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationKafkaLibrdkafkaOption']]:
+        """
+        Optional list of advanced Kafka producer configuration options, defined as key-value pairs.
+        """
+        return pulumi.get(self, "librdkafka_options")
+
+    @_builtins.property
+    @pulumi.getter(name="messageTimeoutMs")
+    def message_timeout_ms(self) -> Optional[_builtins.int]:
+        """
+        Maximum time in milliseconds to wait for message delivery confirmation.
+        """
+        return pulumi.get(self, "message_timeout_ms")
+
+    @_builtins.property
+    @pulumi.getter(name="rateLimitDurationSecs")
+    def rate_limit_duration_secs(self) -> Optional[_builtins.int]:
+        """
+        Duration in seconds for the rate limit window.
+        """
+        return pulumi.get(self, "rate_limit_duration_secs")
+
+    @_builtins.property
+    @pulumi.getter(name="rateLimitNum")
+    def rate_limit_num(self) -> Optional[_builtins.int]:
+        """
+        Maximum number of messages allowed per rate limit duration.
+        """
+        return pulumi.get(self, "rate_limit_num")
+
+    @_builtins.property
+    @pulumi.getter
+    def sasl(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationKafkaSasl']:
+        """
+        Specifies the SASL mechanism for authenticating with a Kafka cluster.
+        """
+        return pulumi.get(self, "sasl")
+
+    @_builtins.property
+    @pulumi.getter(name="socketTimeoutMs")
+    def socket_timeout_ms(self) -> Optional[_builtins.int]:
+        """
+        Socket timeout in milliseconds for network requests.
+        """
+        return pulumi.get(self, "socket_timeout_ms")
+
+    @_builtins.property
+    @pulumi.getter
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationKafkaTls']:
+        """
+        Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        return pulumi.get(self, "tls")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationKafkaLibrdkafkaOption(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str name: The name of the librdkafka configuration option.
+        :param _builtins.str value: The value of the librdkafka configuration option.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the librdkafka configuration option.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        The value of the librdkafka configuration option.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationKafkaSasl(dict):
+    def __init__(__self__, *,
+                 mechanism: _builtins.str):
+        """
+        :param _builtins.str mechanism: SASL authentication mechanism. Valid values are `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`.
+        """
+        pulumi.set(__self__, "mechanism", mechanism)
+
+    @_builtins.property
+    @pulumi.getter
+    def mechanism(self) -> _builtins.str:
+        """
+        SASL authentication mechanism. Valid values are `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`.
+        """
+        return pulumi.get(self, "mechanism")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationKafkaTls(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "crtFile":
+            suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
+        elif key == "keyFile":
+            suggest = "key_file"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationKafkaTls. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationKafkaTls.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationKafkaTls.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 crt_file: _builtins.str,
+                 ca_file: Optional[_builtins.str] = None,
+                 key_file: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        pulumi.set(__self__, "crt_file", crt_file)
+        if ca_file is not None:
+            pulumi.set(__self__, "ca_file", ca_file)
+        if key_file is not None:
+            pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
+
+    @_builtins.property
+    @pulumi.getter(name="caFile")
+    def ca_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        """
+        return pulumi.get(self, "ca_file")
+
+    @_builtins.property
+    @pulumi.getter(name="keyFile")
+    def key_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        return pulumi.get(self, "key_file")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationMicrosoftSentinel(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -42124,35 +45508,29 @@ class ObservabilityPipelineConfigDestinationsMicrosoftSentinel(dict):
             suggest = "tenant_id"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsMicrosoftSentinel. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationMicrosoftSentinel. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsMicrosoftSentinel.__key_warning(key)
+        ObservabilityPipelineConfigDestinationMicrosoftSentinel.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsMicrosoftSentinel.__key_warning(key)
+        ObservabilityPipelineConfigDestinationMicrosoftSentinel.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
                  client_id: _builtins.str,
                  dcr_immutable_id: _builtins.str,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  table: _builtins.str,
                  tenant_id: _builtins.str):
         """
         :param _builtins.str client_id: Azure AD client ID used for authentication.
         :param _builtins.str dcr_immutable_id: The immutable ID of the Data Collection Rule (DCR).
-        :param _builtins.str id: The unique identifier for this component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
         :param _builtins.str table: The name of the Log Analytics table where logs will be sent.
         :param _builtins.str tenant_id: Azure AD tenant ID.
         """
         pulumi.set(__self__, "client_id", client_id)
         pulumi.set(__self__, "dcr_immutable_id", dcr_immutable_id)
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         pulumi.set(__self__, "table", table)
         pulumi.set(__self__, "tenant_id", tenant_id)
 
@@ -42174,22 +45552,6 @@ class ObservabilityPipelineConfigDestinationsMicrosoftSentinel(dict):
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter
     def table(self) -> _builtins.str:
         """
         The name of the Log Analytics table where logs will be sent.
@@ -42206,35 +45568,13 @@ class ObservabilityPipelineConfigDestinationsMicrosoftSentinel(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsNewRelic(dict):
+class ObservabilityPipelineConfigDestinationNewRelic(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  region: _builtins.str):
         """
-        :param _builtins.str id: The unique identifier for this component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
         :param _builtins.str region: The New Relic region.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         pulumi.set(__self__, "region", region)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
 
     @_builtins.property
     @pulumi.getter
@@ -42246,7 +45586,7 @@ class ObservabilityPipelineConfigDestinationsNewRelic(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsOpensearch(dict):
+class ObservabilityPipelineConfigDestinationOpensearch(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -42254,45 +45594,23 @@ class ObservabilityPipelineConfigDestinationsOpensearch(dict):
             suggest = "bulk_index"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsOpensearch. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationOpensearch. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsOpensearch.__key_warning(key)
+        ObservabilityPipelineConfigDestinationOpensearch.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsOpensearch.__key_warning(key)
+        ObservabilityPipelineConfigDestinationOpensearch.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  bulk_index: Optional[_builtins.str] = None):
         """
-        :param _builtins.str id: The unique identifier for this component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as input.
         :param _builtins.str bulk_index: The index or datastream to write logs to.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         if bulk_index is not None:
             pulumi.set(__self__, "bulk_index", bulk_index)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as input.
-        """
-        return pulumi.get(self, "inputs")
 
     @_builtins.property
     @pulumi.getter(name="bulkIndex")
@@ -42304,40 +45622,18 @@ class ObservabilityPipelineConfigDestinationsOpensearch(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsRsyslog(dict):
+class ObservabilityPipelineConfigDestinationRsyslog(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  keepalive: Optional[_builtins.int] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationsRsyslogTls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationRsyslogTls'] = None):
         """
-        :param _builtins.str id: The unique identifier for this component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
         :param _builtins.int keepalive: Optional socket keepalive duration in milliseconds.
-        :param 'ObservabilityPipelineConfigDestinationsRsyslogTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigDestinationRsyslogTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         if keepalive is not None:
             pulumi.set(__self__, "keepalive", keepalive)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
 
     @_builtins.property
     @pulumi.getter
@@ -42349,7 +45645,7 @@ class ObservabilityPipelineConfigDestinationsRsyslog(dict):
 
     @_builtins.property
     @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsRsyslogTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationRsyslogTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -42357,43 +45653,50 @@ class ObservabilityPipelineConfigDestinationsRsyslog(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsRsyslogTls(dict):
+class ObservabilityPipelineConfigDestinationRsyslogTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsRsyslogTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationRsyslogTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsRsyslogTls.__key_warning(key)
+        ObservabilityPipelineConfigDestinationRsyslogTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsRsyslogTls.__key_warning(key)
+        ObservabilityPipelineConfigDestinationRsyslogTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -42402,14 +45705,6 @@ class ObservabilityPipelineConfigDestinationsRsyslogTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -42421,35 +45716,13 @@ class ObservabilityPipelineConfigDestinationsRsyslogTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsSentinelOne(dict):
+class ObservabilityPipelineConfigDestinationSentinelOne(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  region: _builtins.str):
         """
-        :param _builtins.str id: The unique identifier for this component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
         :param _builtins.str region: The SentinelOne region to send logs to.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         pulumi.set(__self__, "region", region)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
 
     @_builtins.property
     @pulumi.getter
@@ -42461,25 +45734,19 @@ class ObservabilityPipelineConfigDestinationsSentinelOne(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsSocket(dict):
+class ObservabilityPipelineConfigDestinationSocket(dict):
     def __init__(__self__, *,
                  encoding: _builtins.str,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  mode: _builtins.str,
-                 framing: Optional['outputs.ObservabilityPipelineConfigDestinationsSocketFraming'] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationsSocketTls'] = None):
+                 framing: Optional['outputs.ObservabilityPipelineConfigDestinationSocketFraming'] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationSocketTls'] = None):
         """
         :param _builtins.str encoding: Encoding format for log events. Valid values are `json`, `raw_message`.
-        :param _builtins.str id: The unique identifier for this destination.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this destination.
         :param _builtins.str mode: The protocol used to send logs. Valid values are `tcp`, `udp`.
-        :param 'ObservabilityPipelineConfigDestinationsSocketFramingArgs' framing: Defines the framing method for outgoing messages.
-        :param 'ObservabilityPipelineConfigDestinationsSocketTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigDestinationSocketFramingArgs' framing: Defines the framing method for outgoing messages.
+        :param 'ObservabilityPipelineConfigDestinationSocketTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "encoding", encoding)
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         pulumi.set(__self__, "mode", mode)
         if framing is not None:
             pulumi.set(__self__, "framing", framing)
@@ -42496,22 +45763,6 @@ class ObservabilityPipelineConfigDestinationsSocket(dict):
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this destination.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this destination.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter
     def mode(self) -> _builtins.str:
         """
         The protocol used to send logs. Valid values are `tcp`, `udp`.
@@ -42520,7 +45771,7 @@ class ObservabilityPipelineConfigDestinationsSocket(dict):
 
     @_builtins.property
     @pulumi.getter
-    def framing(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsSocketFraming']:
+    def framing(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSocketFraming']:
         """
         Defines the framing method for outgoing messages.
         """
@@ -42528,7 +45779,7 @@ class ObservabilityPipelineConfigDestinationsSocket(dict):
 
     @_builtins.property
     @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsSocketTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSocketTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -42536,7 +45787,7 @@ class ObservabilityPipelineConfigDestinationsSocket(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsSocketFraming(dict):
+class ObservabilityPipelineConfigDestinationSocketFraming(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -42544,22 +45795,22 @@ class ObservabilityPipelineConfigDestinationsSocketFraming(dict):
             suggest = "character_delimited"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsSocketFraming. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSocketFraming. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsSocketFraming.__key_warning(key)
+        ObservabilityPipelineConfigDestinationSocketFraming.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsSocketFraming.__key_warning(key)
+        ObservabilityPipelineConfigDestinationSocketFraming.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
                  method: _builtins.str,
-                 character_delimited: Optional['outputs.ObservabilityPipelineConfigDestinationsSocketFramingCharacterDelimited'] = None):
+                 character_delimited: Optional['outputs.ObservabilityPipelineConfigDestinationSocketFramingCharacterDelimited'] = None):
         """
         :param _builtins.str method: The framing method. Valid values are `newline_delimited`, `bytes`, `character_delimited`.
-        :param 'ObservabilityPipelineConfigDestinationsSocketFramingCharacterDelimitedArgs' character_delimited: Used when `method` is `character_delimited`. Specifies the delimiter character.
+        :param 'ObservabilityPipelineConfigDestinationSocketFramingCharacterDelimitedArgs' character_delimited: Used when `method` is `character_delimited`. Specifies the delimiter character.
         """
         pulumi.set(__self__, "method", method)
         if character_delimited is not None:
@@ -42575,7 +45826,7 @@ class ObservabilityPipelineConfigDestinationsSocketFraming(dict):
 
     @_builtins.property
     @pulumi.getter(name="characterDelimited")
-    def character_delimited(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsSocketFramingCharacterDelimited']:
+    def character_delimited(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSocketFramingCharacterDelimited']:
         """
         Used when `method` is `character_delimited`. Specifies the delimiter character.
         """
@@ -42583,18 +45834,17 @@ class ObservabilityPipelineConfigDestinationsSocketFraming(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsSocketFramingCharacterDelimited(dict):
+class ObservabilityPipelineConfigDestinationSocketFramingCharacterDelimited(dict):
     def __init__(__self__, *,
-                 delimiter: Optional[_builtins.str] = None):
+                 delimiter: _builtins.str):
         """
         :param _builtins.str delimiter: A single ASCII character used as a delimiter.
         """
-        if delimiter is not None:
-            pulumi.set(__self__, "delimiter", delimiter)
+        pulumi.set(__self__, "delimiter", delimiter)
 
     @_builtins.property
     @pulumi.getter
-    def delimiter(self) -> Optional[_builtins.str]:
+    def delimiter(self) -> _builtins.str:
         """
         A single ASCII character used as a delimiter.
         """
@@ -42602,43 +45852,50 @@ class ObservabilityPipelineConfigDestinationsSocketFramingCharacterDelimited(dic
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsSocketTls(dict):
+class ObservabilityPipelineConfigDestinationSocketTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsSocketTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSocketTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsSocketTls.__key_warning(key)
+        ObservabilityPipelineConfigDestinationSocketTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsSocketTls.__key_warning(key)
+        ObservabilityPipelineConfigDestinationSocketTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -42647,14 +45904,6 @@ class ObservabilityPipelineConfigDestinationsSocketTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -42666,7 +45915,7 @@ class ObservabilityPipelineConfigDestinationsSocketTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsSplunkHec(dict):
+class ObservabilityPipelineConfigDestinationSplunkHec(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -42674,37 +45923,30 @@ class ObservabilityPipelineConfigDestinationsSplunkHec(dict):
             suggest = "auto_extract_timestamp"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsSplunkHec. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSplunkHec. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsSplunkHec.__key_warning(key)
+        ObservabilityPipelineConfigDestinationSplunkHec.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsSplunkHec.__key_warning(key)
+        ObservabilityPipelineConfigDestinationSplunkHec.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
+                 encoding: _builtins.str,
                  auto_extract_timestamp: Optional[_builtins.bool] = None,
-                 encoding: Optional[_builtins.str] = None,
                  index: Optional[_builtins.str] = None,
                  sourcetype: Optional[_builtins.str] = None):
         """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
-        :param _builtins.bool auto_extract_timestamp: If `true`, Splunk tries to extract timestamps from incoming log events.
         :param _builtins.str encoding: Encoding format for log events. Valid values: `json`, `raw_message`.
+        :param _builtins.bool auto_extract_timestamp: If `true`, Splunk tries to extract timestamps from incoming log events.
         :param _builtins.str index: Optional name of the Splunk index where logs are written.
         :param _builtins.str sourcetype: The Splunk sourcetype to assign to log events.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
+        pulumi.set(__self__, "encoding", encoding)
         if auto_extract_timestamp is not None:
             pulumi.set(__self__, "auto_extract_timestamp", auto_extract_timestamp)
-        if encoding is not None:
-            pulumi.set(__self__, "encoding", encoding)
         if index is not None:
             pulumi.set(__self__, "index", index)
         if sourcetype is not None:
@@ -42712,19 +45954,11 @@ class ObservabilityPipelineConfigDestinationsSplunkHec(dict):
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
+    def encoding(self) -> _builtins.str:
         """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
+        Encoding format for log events. Valid values: `json`, `raw_message`.
         """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
+        return pulumi.get(self, "encoding")
 
     @_builtins.property
     @pulumi.getter(name="autoExtractTimestamp")
@@ -42733,14 +45967,6 @@ class ObservabilityPipelineConfigDestinationsSplunkHec(dict):
         If `true`, Splunk tries to extract timestamps from incoming log events.
         """
         return pulumi.get(self, "auto_extract_timestamp")
-
-    @_builtins.property
-    @pulumi.getter
-    def encoding(self) -> Optional[_builtins.str]:
-        """
-        Encoding format for log events. Valid values: `json`, `raw_message`.
-        """
-        return pulumi.get(self, "encoding")
 
     @_builtins.property
     @pulumi.getter
@@ -42760,7 +45986,7 @@ class ObservabilityPipelineConfigDestinationsSplunkHec(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsSumoLogic(dict):
+class ObservabilityPipelineConfigDestinationSumoLogic(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -42774,35 +46000,29 @@ class ObservabilityPipelineConfigDestinationsSumoLogic(dict):
             suggest = "header_source_name"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsSumoLogic. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSumoLogic. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsSumoLogic.__key_warning(key)
+        ObservabilityPipelineConfigDestinationSumoLogic.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsSumoLogic.__key_warning(key)
+        ObservabilityPipelineConfigDestinationSumoLogic.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  encoding: Optional[_builtins.str] = None,
-                 header_custom_fields: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSumoLogicHeaderCustomField']] = None,
+                 header_custom_fields: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSumoLogicHeaderCustomField']] = None,
                  header_host_name: Optional[_builtins.str] = None,
                  header_source_category: Optional[_builtins.str] = None,
                  header_source_name: Optional[_builtins.str] = None):
         """
-        :param _builtins.str id: The unique identifier for this component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
         :param _builtins.str encoding: The output encoding format.
-        :param Sequence['ObservabilityPipelineConfigDestinationsSumoLogicHeaderCustomFieldArgs'] header_custom_fields: A list of custom headers to include in the request to Sumo Logic.
+        :param Sequence['ObservabilityPipelineConfigDestinationSumoLogicHeaderCustomFieldArgs'] header_custom_fields: A list of custom headers to include in the request to Sumo Logic.
         :param _builtins.str header_host_name: Optional override for the host name header.
         :param _builtins.str header_source_category: Optional override for the source category header.
         :param _builtins.str header_source_name: Optional override for the source name header.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         if encoding is not None:
             pulumi.set(__self__, "encoding", encoding)
         if header_custom_fields is not None:
@@ -42816,22 +46036,6 @@ class ObservabilityPipelineConfigDestinationsSumoLogic(dict):
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter
     def encoding(self) -> Optional[_builtins.str]:
         """
         The output encoding format.
@@ -42840,7 +46044,7 @@ class ObservabilityPipelineConfigDestinationsSumoLogic(dict):
 
     @_builtins.property
     @pulumi.getter(name="headerCustomFields")
-    def header_custom_fields(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSumoLogicHeaderCustomField']]:
+    def header_custom_fields(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSumoLogicHeaderCustomField']]:
         """
         A list of custom headers to include in the request to Sumo Logic.
         """
@@ -42872,7 +46076,7 @@ class ObservabilityPipelineConfigDestinationsSumoLogic(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsSumoLogicHeaderCustomField(dict):
+class ObservabilityPipelineConfigDestinationSumoLogicHeaderCustomField(dict):
     def __init__(__self__, *,
                  name: Optional[_builtins.str] = None,
                  value: Optional[_builtins.str] = None):
@@ -42903,40 +46107,18 @@ class ObservabilityPipelineConfigDestinationsSumoLogicHeaderCustomField(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsSyslogNg(dict):
+class ObservabilityPipelineConfigDestinationSyslogNg(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  keepalive: Optional[_builtins.int] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationsSyslogNgTls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationSyslogNgTls'] = None):
         """
-        :param _builtins.str id: The unique identifier for this component.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
         :param _builtins.int keepalive: Optional socket keepalive duration in milliseconds.
-        :param 'ObservabilityPipelineConfigDestinationsSyslogNgTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigDestinationSyslogNgTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         if keepalive is not None:
             pulumi.set(__self__, "keepalive", keepalive)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
 
     @_builtins.property
     @pulumi.getter
@@ -42948,7 +46130,7 @@ class ObservabilityPipelineConfigDestinationsSyslogNg(dict):
 
     @_builtins.property
     @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsSyslogNgTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSyslogNgTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -42956,43 +46138,50 @@ class ObservabilityPipelineConfigDestinationsSyslogNg(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigDestinationsSyslogNgTls(dict):
+class ObservabilityPipelineConfigDestinationSyslogNgTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsSyslogNgTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSyslogNgTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationsSyslogNgTls.__key_warning(key)
+        ObservabilityPipelineConfigDestinationSyslogNgTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationsSyslogNgTls.__key_warning(key)
+        ObservabilityPipelineConfigDestinationSyslogNgTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -43001,14 +46190,6 @@ class ObservabilityPipelineConfigDestinationsSyslogNgTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -43020,7 +46201,99 @@ class ObservabilityPipelineConfigDestinationsSyslogNgTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessors(dict):
+class ObservabilityPipelineConfigProcessorGroup(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "displayName":
+            suggest = "display_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroup. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigProcessorGroup.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigProcessorGroup.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 enabled: _builtins.bool,
+                 id: _builtins.str,
+                 include: _builtins.str,
+                 inputs: Sequence[_builtins.str],
+                 display_name: Optional[_builtins.str] = None,
+                 processors: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessor']] = None):
+        """
+        :param _builtins.bool enabled: Whether this processor group is enabled.
+        :param _builtins.str id: The unique ID of the processor group.
+        :param _builtins.str include: A Datadog search query used to determine which logs this processor group targets.
+        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the input for this processor group.
+        :param _builtins.str display_name: A human-friendly name of the processor group.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorArgs'] processors: The processor contained in this group.
+        """
+        pulumi.set(__self__, "enabled", enabled)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "include", include)
+        pulumi.set(__self__, "inputs", inputs)
+        if display_name is not None:
+            pulumi.set(__self__, "display_name", display_name)
+        if processors is not None:
+            pulumi.set(__self__, "processors", processors)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        Whether this processor group is enabled.
+        """
+        return pulumi.get(self, "enabled")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The unique ID of the processor group.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def include(self) -> _builtins.str:
+        """
+        A Datadog search query used to determine which logs this processor group targets.
+        """
+        return pulumi.get(self, "include")
+
+    @_builtins.property
+    @pulumi.getter
+    def inputs(self) -> Sequence[_builtins.str]:
+        """
+        A list of component IDs whose output is used as the input for this processor group.
+        """
+        return pulumi.get(self, "inputs")
+
+    @_builtins.property
+    @pulumi.getter(name="displayName")
+    def display_name(self) -> Optional[_builtins.str]:
+        """
+        A human-friendly name of the processor group.
+        """
+        return pulumi.get(self, "display_name")
+
+    @_builtins.property
+    @pulumi.getter
+    def processors(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessor']]:
+        """
+        The processor contained in this group.
+        """
+        return pulumi.get(self, "processors")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessor(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -43028,279 +46301,165 @@ class ObservabilityPipelineConfigProcessors(dict):
             suggest = "add_env_vars"
         elif key == "addFields":
             suggest = "add_fields"
-        elif key == "customProcessors":
-            suggest = "custom_processors"
+        elif key == "addHostname":
+            suggest = "add_hostname"
+        elif key == "customProcessor":
+            suggest = "custom_processor"
         elif key == "datadogTags":
             suggest = "datadog_tags"
-        elif key == "enrichmentTables":
-            suggest = "enrichment_tables"
+        elif key == "displayName":
+            suggest = "display_name"
+        elif key == "enrichmentTable":
+            suggest = "enrichment_table"
         elif key == "generateDatadogMetrics":
             suggest = "generate_datadog_metrics"
-        elif key == "ocsfMappers":
-            suggest = "ocsf_mappers"
-        elif key == "parseGroks":
-            suggest = "parse_groks"
-        elif key == "parseJsons":
-            suggest = "parse_jsons"
+        elif key == "metricTags":
+            suggest = "metric_tags"
+        elif key == "ocsfMapper":
+            suggest = "ocsf_mapper"
+        elif key == "parseGrok":
+            suggest = "parse_grok"
+        elif key == "parseJson":
+            suggest = "parse_json"
+        elif key == "parseXml":
+            suggest = "parse_xml"
         elif key == "removeFields":
             suggest = "remove_fields"
         elif key == "renameFields":
             suggest = "rename_fields"
-        elif key == "sensitiveDataScanners":
-            suggest = "sensitive_data_scanners"
+        elif key == "sensitiveDataScanner":
+            suggest = "sensitive_data_scanner"
+        elif key == "splitArray":
+            suggest = "split_array"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessors. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessor. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessors.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessor.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessors.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessor.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 add_env_vars: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsAddEnvVar']] = None,
-                 add_fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsAddField']] = None,
-                 custom_processors: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsCustomProcessor']] = None,
-                 datadog_tags: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsDatadogTag']] = None,
-                 dedupes: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsDedupe']] = None,
-                 enrichment_tables: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsEnrichmentTable']] = None,
-                 filters: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsFilter']] = None,
-                 generate_datadog_metrics: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsGenerateDatadogMetric']] = None,
-                 ocsf_mappers: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsOcsfMapper']] = None,
-                 parse_groks: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsParseGrok']] = None,
-                 parse_jsons: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsParseJson']] = None,
-                 quotas: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsQuota']] = None,
-                 reduces: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsReduce']] = None,
-                 remove_fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsRemoveField']] = None,
-                 rename_fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsRenameField']] = None,
-                 samples: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsSample']] = None,
-                 sensitive_data_scanners: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScanner']] = None,
-                 throttles: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsThrottle']] = None):
+                 enabled: _builtins.bool,
+                 id: _builtins.str,
+                 include: _builtins.str,
+                 add_env_vars: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddEnvVars'] = None,
+                 add_fields: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddFields'] = None,
+                 add_hostname: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddHostname'] = None,
+                 custom_processor: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessor'] = None,
+                 datadog_tags: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorDatadogTags'] = None,
+                 dedupe: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorDedupe'] = None,
+                 display_name: Optional[_builtins.str] = None,
+                 enrichment_table: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTable'] = None,
+                 filter: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorFilter'] = None,
+                 generate_datadog_metrics: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetrics'] = None,
+                 metric_tags: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorMetricTags'] = None,
+                 ocsf_mapper: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapper'] = None,
+                 parse_grok: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrok'] = None,
+                 parse_json: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseJson'] = None,
+                 parse_xml: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseXml'] = None,
+                 quota: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuota'] = None,
+                 reduce: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorReduce'] = None,
+                 remove_fields: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorRemoveFields'] = None,
+                 rename_fields: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorRenameFields'] = None,
+                 sample: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSample'] = None,
+                 sensitive_data_scanner: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScanner'] = None,
+                 split_array: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSplitArray'] = None,
+                 throttle: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorThrottle'] = None):
         """
-        :param Sequence['ObservabilityPipelineConfigProcessorsAddEnvVarArgs'] add_env_vars: The `add_env_vars` processor adds environment variable values to log events.
-        :param Sequence['ObservabilityPipelineConfigProcessorsAddFieldArgs'] add_fields: The `add_fields` processor adds static key-value fields to logs.
-        :param Sequence['ObservabilityPipelineConfigProcessorsCustomProcessorArgs'] custom_processors: The `custom_processor` processor transforms events using Vector Remap Language (VRL) scripts with advanced filtering capabilities.
-        :param Sequence['ObservabilityPipelineConfigProcessorsDedupeArgs'] dedupes: The `dedupe` processor removes duplicate fields in log events.
-        :param Sequence['ObservabilityPipelineConfigProcessorsEnrichmentTableArgs'] enrichment_tables: The `enrichment_table` processor enriches logs using a static CSV file or GeoIP database.
-        :param Sequence['ObservabilityPipelineConfigProcessorsFilterArgs'] filters: The `filter` processor allows conditional processing of logs based on a Datadog search query. Logs that match the `include` query are passed through; others are discarded.
-        :param Sequence['ObservabilityPipelineConfigProcessorsGenerateDatadogMetricArgs'] generate_datadog_metrics: The `generate_datadog_metrics` processor creates custom metrics from logs. Metrics can be counters, gauges, or distributions and optionally grouped by log fields.
-        :param Sequence['ObservabilityPipelineConfigProcessorsOcsfMapperArgs'] ocsf_mappers: The `ocsf_mapper` processor transforms logs into the OCSF schema using predefined library mappings.
-        :param Sequence['ObservabilityPipelineConfigProcessorsParseGrokArgs'] parse_groks: The `parse_grok` processor extracts structured fields from unstructured log messages using Grok patterns.
-        :param Sequence['ObservabilityPipelineConfigProcessorsParseJsonArgs'] parse_jsons: The `parse_json` processor extracts JSON from a specified field and flattens it into the event. This is useful when logs contain embedded JSON as a string.
-        :param Sequence['ObservabilityPipelineConfigProcessorsQuotaArgs'] quotas: The `quota` measures logging traffic for logs that match a specified filter. When the configured daily quota is met, the processor can drop or alert.
-        :param Sequence['ObservabilityPipelineConfigProcessorsReduceArgs'] reduces: The `reduce` processor aggregates and merges logs based on matching keys and merge strategies.
-        :param Sequence['ObservabilityPipelineConfigProcessorsRemoveFieldArgs'] remove_fields: The `remove_fields` processor deletes specified fields from logs.
-        :param Sequence['ObservabilityPipelineConfigProcessorsRenameFieldArgs'] rename_fields: The `rename_fields` processor changes field names.
-        :param Sequence['ObservabilityPipelineConfigProcessorsSampleArgs'] samples: The `sample` processor allows probabilistic sampling of logs at a fixed rate.
-        :param Sequence['ObservabilityPipelineConfigProcessorsSensitiveDataScannerArgs'] sensitive_data_scanners: The `sensitive_data_scanner` processor detects and optionally redacts sensitive data in log events.
-        :param Sequence['ObservabilityPipelineConfigProcessorsThrottleArgs'] throttles: The `throttle` processor limits the number of events that pass through over a given time window.
+        :param _builtins.bool enabled: Whether this processor is enabled.
+        :param _builtins.str id: The unique identifier for this processor.
+        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorAddEnvVarsArgs' add_env_vars: The `add_env_vars` processor adds environment variable values to log events.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorAddFieldsArgs' add_fields: The `add_fields` processor adds static key-value fields to logs.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorAddHostnameArgs' add_hostname: The `add_hostname` processor adds the hostname to log events.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorArgs' custom_processor: The `custom_processor` processor transforms events using Vector Remap Language (VRL) scripts with advanced filtering capabilities.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorDedupeArgs' dedupe: The `dedupe` processor removes duplicate fields in log events.
+        :param _builtins.str display_name: A human-friendly name for this processor.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableArgs' enrichment_table: The `enrichment_table` processor enriches logs using a static CSV file or GeoIP database.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorFilterArgs' filter: The `filter` processor allows conditional processing of logs based on a Datadog search query. Logs that match the `include` query are passed through; others are discarded.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsArgs' generate_datadog_metrics: The `generate_datadog_metrics` processor creates custom metrics from logs. Metrics can be counters, gauges, or distributions and optionally grouped by log fields.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsArgs' metric_tags: The `metric_tags` processor filters metrics based on their tags using Datadog tag key patterns.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperArgs' ocsf_mapper: The `ocsf_mapper` processor transforms logs into the OCSF schema using predefined library mappings.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorParseGrokArgs' parse_grok: The `parse_grok` processor extracts structured fields from unstructured log messages using Grok patterns.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorParseJsonArgs' parse_json: The `parse_json` processor extracts JSON from a specified field and flattens it into the event. This is useful when logs contain embedded JSON as a string.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorParseXmlArgs' parse_xml: The `parse_xml` processor parses XML from a specified field and extracts it into the event.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorQuotaArgs' quota: The `quota` processor measures logging traffic for logs that match a specified filter. When the configured daily quota is met, the processor can drop or alert.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorReduceArgs' reduce: The `reduce` processor aggregates and merges logs based on matching keys and merge strategies.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorRemoveFieldsArgs' remove_fields: The `remove_fields` processor deletes specified fields from logs.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsArgs' rename_fields: The `rename_fields` processor changes field names.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSampleArgs' sample: The `sample` processor allows probabilistic sampling of logs at a fixed rate.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerArgs' sensitive_data_scanner: The `sensitive_data_scanner` processor detects and optionally redacts sensitive data in log events.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSplitArrayArgs' split_array: The `split_array` processor splits array fields into separate events based on configured rules.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorThrottleArgs' throttle: The `throttle` processor limits the number of events that pass through over a given time window.
         """
+        pulumi.set(__self__, "enabled", enabled)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "include", include)
         if add_env_vars is not None:
             pulumi.set(__self__, "add_env_vars", add_env_vars)
         if add_fields is not None:
             pulumi.set(__self__, "add_fields", add_fields)
-        if custom_processors is not None:
-            pulumi.set(__self__, "custom_processors", custom_processors)
+        if add_hostname is not None:
+            pulumi.set(__self__, "add_hostname", add_hostname)
+        if custom_processor is not None:
+            pulumi.set(__self__, "custom_processor", custom_processor)
         if datadog_tags is not None:
             pulumi.set(__self__, "datadog_tags", datadog_tags)
-        if dedupes is not None:
-            pulumi.set(__self__, "dedupes", dedupes)
-        if enrichment_tables is not None:
-            pulumi.set(__self__, "enrichment_tables", enrichment_tables)
-        if filters is not None:
-            pulumi.set(__self__, "filters", filters)
+        if dedupe is not None:
+            pulumi.set(__self__, "dedupe", dedupe)
+        if display_name is not None:
+            pulumi.set(__self__, "display_name", display_name)
+        if enrichment_table is not None:
+            pulumi.set(__self__, "enrichment_table", enrichment_table)
+        if filter is not None:
+            pulumi.set(__self__, "filter", filter)
         if generate_datadog_metrics is not None:
             pulumi.set(__self__, "generate_datadog_metrics", generate_datadog_metrics)
-        if ocsf_mappers is not None:
-            pulumi.set(__self__, "ocsf_mappers", ocsf_mappers)
-        if parse_groks is not None:
-            pulumi.set(__self__, "parse_groks", parse_groks)
-        if parse_jsons is not None:
-            pulumi.set(__self__, "parse_jsons", parse_jsons)
-        if quotas is not None:
-            pulumi.set(__self__, "quotas", quotas)
-        if reduces is not None:
-            pulumi.set(__self__, "reduces", reduces)
+        if metric_tags is not None:
+            pulumi.set(__self__, "metric_tags", metric_tags)
+        if ocsf_mapper is not None:
+            pulumi.set(__self__, "ocsf_mapper", ocsf_mapper)
+        if parse_grok is not None:
+            pulumi.set(__self__, "parse_grok", parse_grok)
+        if parse_json is not None:
+            pulumi.set(__self__, "parse_json", parse_json)
+        if parse_xml is not None:
+            pulumi.set(__self__, "parse_xml", parse_xml)
+        if quota is not None:
+            pulumi.set(__self__, "quota", quota)
+        if reduce is not None:
+            pulumi.set(__self__, "reduce", reduce)
         if remove_fields is not None:
             pulumi.set(__self__, "remove_fields", remove_fields)
         if rename_fields is not None:
             pulumi.set(__self__, "rename_fields", rename_fields)
-        if samples is not None:
-            pulumi.set(__self__, "samples", samples)
-        if sensitive_data_scanners is not None:
-            pulumi.set(__self__, "sensitive_data_scanners", sensitive_data_scanners)
-        if throttles is not None:
-            pulumi.set(__self__, "throttles", throttles)
-
-    @_builtins.property
-    @pulumi.getter(name="addEnvVars")
-    def add_env_vars(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsAddEnvVar']]:
-        """
-        The `add_env_vars` processor adds environment variable values to log events.
-        """
-        return pulumi.get(self, "add_env_vars")
-
-    @_builtins.property
-    @pulumi.getter(name="addFields")
-    def add_fields(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsAddField']]:
-        """
-        The `add_fields` processor adds static key-value fields to logs.
-        """
-        return pulumi.get(self, "add_fields")
-
-    @_builtins.property
-    @pulumi.getter(name="customProcessors")
-    def custom_processors(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsCustomProcessor']]:
-        """
-        The `custom_processor` processor transforms events using Vector Remap Language (VRL) scripts with advanced filtering capabilities.
-        """
-        return pulumi.get(self, "custom_processors")
-
-    @_builtins.property
-    @pulumi.getter(name="datadogTags")
-    def datadog_tags(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsDatadogTag']]:
-        return pulumi.get(self, "datadog_tags")
+        if sample is not None:
+            pulumi.set(__self__, "sample", sample)
+        if sensitive_data_scanner is not None:
+            pulumi.set(__self__, "sensitive_data_scanner", sensitive_data_scanner)
+        if split_array is not None:
+            pulumi.set(__self__, "split_array", split_array)
+        if throttle is not None:
+            pulumi.set(__self__, "throttle", throttle)
 
     @_builtins.property
     @pulumi.getter
-    def dedupes(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsDedupe']]:
+    def enabled(self) -> _builtins.bool:
         """
-        The `dedupe` processor removes duplicate fields in log events.
+        Whether this processor is enabled.
         """
-        return pulumi.get(self, "dedupes")
-
-    @_builtins.property
-    @pulumi.getter(name="enrichmentTables")
-    def enrichment_tables(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsEnrichmentTable']]:
-        """
-        The `enrichment_table` processor enriches logs using a static CSV file or GeoIP database.
-        """
-        return pulumi.get(self, "enrichment_tables")
-
-    @_builtins.property
-    @pulumi.getter
-    def filters(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsFilter']]:
-        """
-        The `filter` processor allows conditional processing of logs based on a Datadog search query. Logs that match the `include` query are passed through; others are discarded.
-        """
-        return pulumi.get(self, "filters")
-
-    @_builtins.property
-    @pulumi.getter(name="generateDatadogMetrics")
-    def generate_datadog_metrics(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsGenerateDatadogMetric']]:
-        """
-        The `generate_datadog_metrics` processor creates custom metrics from logs. Metrics can be counters, gauges, or distributions and optionally grouped by log fields.
-        """
-        return pulumi.get(self, "generate_datadog_metrics")
-
-    @_builtins.property
-    @pulumi.getter(name="ocsfMappers")
-    def ocsf_mappers(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsOcsfMapper']]:
-        """
-        The `ocsf_mapper` processor transforms logs into the OCSF schema using predefined library mappings.
-        """
-        return pulumi.get(self, "ocsf_mappers")
-
-    @_builtins.property
-    @pulumi.getter(name="parseGroks")
-    def parse_groks(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsParseGrok']]:
-        """
-        The `parse_grok` processor extracts structured fields from unstructured log messages using Grok patterns.
-        """
-        return pulumi.get(self, "parse_groks")
-
-    @_builtins.property
-    @pulumi.getter(name="parseJsons")
-    def parse_jsons(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsParseJson']]:
-        """
-        The `parse_json` processor extracts JSON from a specified field and flattens it into the event. This is useful when logs contain embedded JSON as a string.
-        """
-        return pulumi.get(self, "parse_jsons")
-
-    @_builtins.property
-    @pulumi.getter
-    def quotas(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsQuota']]:
-        """
-        The `quota` measures logging traffic for logs that match a specified filter. When the configured daily quota is met, the processor can drop or alert.
-        """
-        return pulumi.get(self, "quotas")
-
-    @_builtins.property
-    @pulumi.getter
-    def reduces(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsReduce']]:
-        """
-        The `reduce` processor aggregates and merges logs based on matching keys and merge strategies.
-        """
-        return pulumi.get(self, "reduces")
-
-    @_builtins.property
-    @pulumi.getter(name="removeFields")
-    def remove_fields(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsRemoveField']]:
-        """
-        The `remove_fields` processor deletes specified fields from logs.
-        """
-        return pulumi.get(self, "remove_fields")
-
-    @_builtins.property
-    @pulumi.getter(name="renameFields")
-    def rename_fields(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsRenameField']]:
-        """
-        The `rename_fields` processor changes field names.
-        """
-        return pulumi.get(self, "rename_fields")
-
-    @_builtins.property
-    @pulumi.getter
-    def samples(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsSample']]:
-        """
-        The `sample` processor allows probabilistic sampling of logs at a fixed rate.
-        """
-        return pulumi.get(self, "samples")
-
-    @_builtins.property
-    @pulumi.getter(name="sensitiveDataScanners")
-    def sensitive_data_scanners(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScanner']]:
-        """
-        The `sensitive_data_scanner` processor detects and optionally redacts sensitive data in log events.
-        """
-        return pulumi.get(self, "sensitive_data_scanners")
-
-    @_builtins.property
-    @pulumi.getter
-    def throttles(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsThrottle']]:
-        """
-        The `throttle` processor limits the number of events that pass through over a given time window.
-        """
-        return pulumi.get(self, "throttles")
-
-
-@pulumi.output_type
-class ObservabilityPipelineConfigProcessorsAddEnvVar(dict):
-    def __init__(__self__, *,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
-                 variables: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsAddEnvVarVariable']] = None):
-        """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this processor in the pipeline.
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the input for this processor.
-        :param Sequence['ObservabilityPipelineConfigProcessorsAddEnvVarVariableArgs'] variables: A list of environment variable mappings to apply to log fields.
-        """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
-        if variables is not None:
-            pulumi.set(__self__, "variables", variables)
+        return pulumi.get(self, "enabled")
 
     @_builtins.property
     @pulumi.getter
     def id(self) -> _builtins.str:
         """
-        The unique identifier for this component. Used to reference this processor in the pipeline.
+        The unique identifier for this processor.
         """
         return pulumi.get(self, "id")
 
@@ -43313,16 +46472,200 @@ class ObservabilityPipelineConfigProcessorsAddEnvVar(dict):
         return pulumi.get(self, "include")
 
     @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
+    @pulumi.getter(name="addEnvVars")
+    def add_env_vars(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddEnvVars']:
         """
-        A list of component IDs whose output is used as the input for this processor.
+        The `add_env_vars` processor adds environment variable values to log events.
         """
-        return pulumi.get(self, "inputs")
+        return pulumi.get(self, "add_env_vars")
+
+    @_builtins.property
+    @pulumi.getter(name="addFields")
+    def add_fields(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddFields']:
+        """
+        The `add_fields` processor adds static key-value fields to logs.
+        """
+        return pulumi.get(self, "add_fields")
+
+    @_builtins.property
+    @pulumi.getter(name="addHostname")
+    def add_hostname(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddHostname']:
+        """
+        The `add_hostname` processor adds the hostname to log events.
+        """
+        return pulumi.get(self, "add_hostname")
+
+    @_builtins.property
+    @pulumi.getter(name="customProcessor")
+    def custom_processor(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessor']:
+        """
+        The `custom_processor` processor transforms events using Vector Remap Language (VRL) scripts with advanced filtering capabilities.
+        """
+        return pulumi.get(self, "custom_processor")
+
+    @_builtins.property
+    @pulumi.getter(name="datadogTags")
+    def datadog_tags(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorDatadogTags']:
+        return pulumi.get(self, "datadog_tags")
 
     @_builtins.property
     @pulumi.getter
-    def variables(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsAddEnvVarVariable']]:
+    def dedupe(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorDedupe']:
+        """
+        The `dedupe` processor removes duplicate fields in log events.
+        """
+        return pulumi.get(self, "dedupe")
+
+    @_builtins.property
+    @pulumi.getter(name="displayName")
+    def display_name(self) -> Optional[_builtins.str]:
+        """
+        A human-friendly name for this processor.
+        """
+        return pulumi.get(self, "display_name")
+
+    @_builtins.property
+    @pulumi.getter(name="enrichmentTable")
+    def enrichment_table(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTable']:
+        """
+        The `enrichment_table` processor enriches logs using a static CSV file or GeoIP database.
+        """
+        return pulumi.get(self, "enrichment_table")
+
+    @_builtins.property
+    @pulumi.getter
+    def filter(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorFilter']:
+        """
+        The `filter` processor allows conditional processing of logs based on a Datadog search query. Logs that match the `include` query are passed through; others are discarded.
+        """
+        return pulumi.get(self, "filter")
+
+    @_builtins.property
+    @pulumi.getter(name="generateDatadogMetrics")
+    def generate_datadog_metrics(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetrics']:
+        """
+        The `generate_datadog_metrics` processor creates custom metrics from logs. Metrics can be counters, gauges, or distributions and optionally grouped by log fields.
+        """
+        return pulumi.get(self, "generate_datadog_metrics")
+
+    @_builtins.property
+    @pulumi.getter(name="metricTags")
+    def metric_tags(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorMetricTags']:
+        """
+        The `metric_tags` processor filters metrics based on their tags using Datadog tag key patterns.
+        """
+        return pulumi.get(self, "metric_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="ocsfMapper")
+    def ocsf_mapper(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapper']:
+        """
+        The `ocsf_mapper` processor transforms logs into the OCSF schema using predefined library mappings.
+        """
+        return pulumi.get(self, "ocsf_mapper")
+
+    @_builtins.property
+    @pulumi.getter(name="parseGrok")
+    def parse_grok(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrok']:
+        """
+        The `parse_grok` processor extracts structured fields from unstructured log messages using Grok patterns.
+        """
+        return pulumi.get(self, "parse_grok")
+
+    @_builtins.property
+    @pulumi.getter(name="parseJson")
+    def parse_json(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseJson']:
+        """
+        The `parse_json` processor extracts JSON from a specified field and flattens it into the event. This is useful when logs contain embedded JSON as a string.
+        """
+        return pulumi.get(self, "parse_json")
+
+    @_builtins.property
+    @pulumi.getter(name="parseXml")
+    def parse_xml(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseXml']:
+        """
+        The `parse_xml` processor parses XML from a specified field and extracts it into the event.
+        """
+        return pulumi.get(self, "parse_xml")
+
+    @_builtins.property
+    @pulumi.getter
+    def quota(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuota']:
+        """
+        The `quota` processor measures logging traffic for logs that match a specified filter. When the configured daily quota is met, the processor can drop or alert.
+        """
+        return pulumi.get(self, "quota")
+
+    @_builtins.property
+    @pulumi.getter
+    def reduce(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorReduce']:
+        """
+        The `reduce` processor aggregates and merges logs based on matching keys and merge strategies.
+        """
+        return pulumi.get(self, "reduce")
+
+    @_builtins.property
+    @pulumi.getter(name="removeFields")
+    def remove_fields(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorRemoveFields']:
+        """
+        The `remove_fields` processor deletes specified fields from logs.
+        """
+        return pulumi.get(self, "remove_fields")
+
+    @_builtins.property
+    @pulumi.getter(name="renameFields")
+    def rename_fields(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorRenameFields']:
+        """
+        The `rename_fields` processor changes field names.
+        """
+        return pulumi.get(self, "rename_fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def sample(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSample']:
+        """
+        The `sample` processor allows probabilistic sampling of logs at a fixed rate.
+        """
+        return pulumi.get(self, "sample")
+
+    @_builtins.property
+    @pulumi.getter(name="sensitiveDataScanner")
+    def sensitive_data_scanner(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScanner']:
+        """
+        The `sensitive_data_scanner` processor detects and optionally redacts sensitive data in log events.
+        """
+        return pulumi.get(self, "sensitive_data_scanner")
+
+    @_builtins.property
+    @pulumi.getter(name="splitArray")
+    def split_array(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSplitArray']:
+        """
+        The `split_array` processor splits array fields into separate events based on configured rules.
+        """
+        return pulumi.get(self, "split_array")
+
+    @_builtins.property
+    @pulumi.getter
+    def throttle(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorThrottle']:
+        """
+        The `throttle` processor limits the number of events that pass through over a given time window.
+        """
+        return pulumi.get(self, "throttle")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessorAddEnvVars(dict):
+    def __init__(__self__, *,
+                 variables: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddEnvVarsVariable']] = None):
+        """
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorAddEnvVarsVariableArgs'] variables: A list of environment variable mappings to apply to log fields.
+        """
+        if variables is not None:
+            pulumi.set(__self__, "variables", variables)
+
+    @_builtins.property
+    @pulumi.getter
+    def variables(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddEnvVarsVariable']]:
         """
         A list of environment variable mappings to apply to log fields.
         """
@@ -43330,7 +46673,7 @@ class ObservabilityPipelineConfigProcessorsAddEnvVar(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsAddEnvVarVariable(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorAddEnvVarsVariable(dict):
     def __init__(__self__, *,
                  field: _builtins.str,
                  name: _builtins.str):
@@ -43359,51 +46702,18 @@ class ObservabilityPipelineConfigProcessorsAddEnvVarVariable(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsAddField(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorAddFields(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
-                 fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsAddFieldField']] = None):
+                 fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddFieldsField']] = None):
         """
-        :param _builtins.str id: The unique ID of the processor.
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: The inputs for the processor.
-        :param Sequence['ObservabilityPipelineConfigProcessorsAddFieldFieldArgs'] fields: A list of static fields (key-value pairs) that is added to each log event processed by this component.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorAddFieldsFieldArgs'] fields: A list of static fields (key-value pairs) that is added to each log event processed by this component.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
         if fields is not None:
             pulumi.set(__self__, "fields", fields)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique ID of the processor.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        """
-        A Datadog search query used to determine which logs this processor targets.
-        """
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        The inputs for the processor.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter
-    def fields(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsAddFieldField']]:
+    def fields(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddFieldsField']]:
         """
         A list of static fields (key-value pairs) that is added to each log event processed by this component.
         """
@@ -43411,7 +46721,7 @@ class ObservabilityPipelineConfigProcessorsAddField(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsAddFieldField(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorAddFieldsField(dict):
     def __init__(__self__, *,
                  name: _builtins.str,
                  value: _builtins.str):
@@ -43440,40 +46750,24 @@ class ObservabilityPipelineConfigProcessorsAddFieldField(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsCustomProcessor(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorAddHostname(dict):
+    def __init__(__self__):
+        pass
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessor(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 inputs: Sequence[_builtins.str],
-                 remaps: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsCustomProcessorRemap']] = None):
+                 remaps: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorRemap']] = None):
         """
-        :param _builtins.str id: The unique identifier for this processor.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the input for this processor.
-        :param Sequence['ObservabilityPipelineConfigProcessorsCustomProcessorRemapArgs'] remaps: Array of VRL remap configurations. Each remap defines a transformation rule with its own filter and VRL script.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorRemapArgs'] remaps: Array of VRL remap configurations. Each remap defines a transformation rule with its own filter and VRL script.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "inputs", inputs)
         if remaps is not None:
             pulumi.set(__self__, "remaps", remaps)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this processor.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the input for this processor.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter
-    def remaps(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsCustomProcessorRemap']]:
+    def remaps(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorRemap']]:
         """
         Array of VRL remap configurations. Each remap defines a transformation rule with its own filter and VRL script.
         """
@@ -43481,7 +46775,7 @@ class ObservabilityPipelineConfigProcessorsCustomProcessor(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsCustomProcessorRemap(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorRemap(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -43489,14 +46783,14 @@ class ObservabilityPipelineConfigProcessorsCustomProcessorRemap(dict):
             suggest = "drop_on_error"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsCustomProcessorRemap. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorRemap. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsCustomProcessorRemap.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorRemap.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsCustomProcessorRemap.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorRemap.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -43560,12 +46854,9 @@ class ObservabilityPipelineConfigProcessorsCustomProcessorRemap(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsDatadogTag(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorDatadogTags(dict):
     def __init__(__self__, *,
                  action: _builtins.str,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  keys: Sequence[_builtins.str],
                  mode: _builtins.str):
         """
@@ -43573,9 +46864,6 @@ class ObservabilityPipelineConfigProcessorsDatadogTag(dict):
         :param _builtins.str mode: Valid values are `filter`.
         """
         pulumi.set(__self__, "action", action)
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
         pulumi.set(__self__, "keys", keys)
         pulumi.set(__self__, "mode", mode)
 
@@ -43586,21 +46874,6 @@ class ObservabilityPipelineConfigProcessorsDatadogTag(dict):
         Valid values are `include`, `exclude`.
         """
         return pulumi.get(self, "action")
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        return pulumi.get(self, "inputs")
 
     @_builtins.property
     @pulumi.getter
@@ -43617,24 +46890,15 @@ class ObservabilityPipelineConfigProcessorsDatadogTag(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsDedupe(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorDedupe(dict):
     def __init__(__self__, *,
                  fields: Sequence[_builtins.str],
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  mode: _builtins.str):
         """
         :param Sequence[_builtins.str] fields: A list of log field paths to check for duplicates.
-        :param _builtins.str id: The unique identifier for this processor.
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the input for this processor.
         :param _builtins.str mode: The deduplication mode to apply to the fields.
         """
         pulumi.set(__self__, "fields", fields)
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
         pulumi.set(__self__, "mode", mode)
 
     @_builtins.property
@@ -43647,30 +46911,6 @@ class ObservabilityPipelineConfigProcessorsDedupe(dict):
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this processor.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        """
-        A Datadog search query used to determine which logs this processor targets.
-        """
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the input for this processor.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter
     def mode(self) -> _builtins.str:
         """
         The deduplication mode to apply to the fields.
@@ -43679,54 +46919,42 @@ class ObservabilityPipelineConfigProcessorsDedupe(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsEnrichmentTable(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTable(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "referenceTable":
+            suggest = "reference_table"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTable. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTable.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTable.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  target: _builtins.str,
-                 file: Optional['outputs.ObservabilityPipelineConfigProcessorsEnrichmentTableFile'] = None,
-                 geoip: Optional['outputs.ObservabilityPipelineConfigProcessorsEnrichmentTableGeoip'] = None):
+                 file: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFile'] = None,
+                 geoip: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableGeoip'] = None,
+                 reference_table: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableReferenceTable'] = None):
         """
-        :param _builtins.str id: The unique identifier for this processor.
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the input for this processor.
         :param _builtins.str target: Path where enrichment results should be stored in the log.
-        :param 'ObservabilityPipelineConfigProcessorsEnrichmentTableFileArgs' file: Defines a static enrichment table loaded from a CSV file.
-        :param 'ObservabilityPipelineConfigProcessorsEnrichmentTableGeoipArgs' geoip: Uses a GeoIP database to enrich logs based on an IP field.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileArgs' file: Defines a static enrichment table loaded from a CSV file.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableGeoipArgs' geoip: Uses a GeoIP database to enrich logs based on an IP field.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableReferenceTableArgs' reference_table: Uses a Datadog reference table to enrich logs.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
         pulumi.set(__self__, "target", target)
         if file is not None:
             pulumi.set(__self__, "file", file)
         if geoip is not None:
             pulumi.set(__self__, "geoip", geoip)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this processor.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        """
-        A Datadog search query used to determine which logs this processor targets.
-        """
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the input for this processor.
-        """
-        return pulumi.get(self, "inputs")
+        if reference_table is not None:
+            pulumi.set(__self__, "reference_table", reference_table)
 
     @_builtins.property
     @pulumi.getter
@@ -43738,7 +46966,7 @@ class ObservabilityPipelineConfigProcessorsEnrichmentTable(dict):
 
     @_builtins.property
     @pulumi.getter
-    def file(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsEnrichmentTableFile']:
+    def file(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFile']:
         """
         Defines a static enrichment table loaded from a CSV file.
         """
@@ -43746,24 +46974,32 @@ class ObservabilityPipelineConfigProcessorsEnrichmentTable(dict):
 
     @_builtins.property
     @pulumi.getter
-    def geoip(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsEnrichmentTableGeoip']:
+    def geoip(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableGeoip']:
         """
         Uses a GeoIP database to enrich logs based on an IP field.
         """
         return pulumi.get(self, "geoip")
 
+    @_builtins.property
+    @pulumi.getter(name="referenceTable")
+    def reference_table(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableReferenceTable']:
+        """
+        Uses a Datadog reference table to enrich logs.
+        """
+        return pulumi.get(self, "reference_table")
+
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsEnrichmentTableFile(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFile(dict):
     def __init__(__self__, *,
-                 encoding: Optional['outputs.ObservabilityPipelineConfigProcessorsEnrichmentTableFileEncoding'] = None,
-                 keys: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsEnrichmentTableFileKey']] = None,
+                 encoding: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileEncoding'] = None,
+                 keys: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileKey']] = None,
                  path: Optional[_builtins.str] = None,
-                 schemas: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsEnrichmentTableFileSchema']] = None):
+                 schemas: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileSchema']] = None):
         """
-        :param Sequence['ObservabilityPipelineConfigProcessorsEnrichmentTableFileKeyArgs'] keys: Key fields used to look up enrichment values.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileKeyArgs'] keys: Key fields used to look up enrichment values.
         :param _builtins.str path: Path to the CSV file.
-        :param Sequence['ObservabilityPipelineConfigProcessorsEnrichmentTableFileSchemaArgs'] schemas: Schema defining column names and their types.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileSchemaArgs'] schemas: Schema defining column names and their types.
         """
         if encoding is not None:
             pulumi.set(__self__, "encoding", encoding)
@@ -43776,12 +47012,12 @@ class ObservabilityPipelineConfigProcessorsEnrichmentTableFile(dict):
 
     @_builtins.property
     @pulumi.getter
-    def encoding(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsEnrichmentTableFileEncoding']:
+    def encoding(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileEncoding']:
         return pulumi.get(self, "encoding")
 
     @_builtins.property
     @pulumi.getter
-    def keys(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsEnrichmentTableFileKey']]:
+    def keys(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileKey']]:
         """
         Key fields used to look up enrichment values.
         """
@@ -43797,7 +47033,7 @@ class ObservabilityPipelineConfigProcessorsEnrichmentTableFile(dict):
 
     @_builtins.property
     @pulumi.getter
-    def schemas(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsEnrichmentTableFileSchema']]:
+    def schemas(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileSchema']]:
         """
         Schema defining column names and their types.
         """
@@ -43805,7 +47041,7 @@ class ObservabilityPipelineConfigProcessorsEnrichmentTableFile(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsEnrichmentTableFileEncoding(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileEncoding(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -43813,39 +47049,45 @@ class ObservabilityPipelineConfigProcessorsEnrichmentTableFileEncoding(dict):
             suggest = "includes_headers"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsEnrichmentTableFileEncoding. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileEncoding. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsEnrichmentTableFileEncoding.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileEncoding.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsEnrichmentTableFileEncoding.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileEncoding.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 delimiter: Optional[_builtins.str] = None,
-                 includes_headers: Optional[_builtins.bool] = None,
-                 type: Optional[_builtins.str] = None):
+                 delimiter: _builtins.str,
+                 type: _builtins.str,
+                 includes_headers: Optional[_builtins.bool] = None):
         """
         :param _builtins.str delimiter: The `encoding` `delimiter`.
-        :param _builtins.bool includes_headers: The `encoding` `includes_headers`.
         :param _builtins.str type: File encoding format.
+        :param _builtins.bool includes_headers: The `encoding` `includes_headers`.
         """
-        if delimiter is not None:
-            pulumi.set(__self__, "delimiter", delimiter)
+        pulumi.set(__self__, "delimiter", delimiter)
+        pulumi.set(__self__, "type", type)
         if includes_headers is not None:
             pulumi.set(__self__, "includes_headers", includes_headers)
-        if type is not None:
-            pulumi.set(__self__, "type", type)
 
     @_builtins.property
     @pulumi.getter
-    def delimiter(self) -> Optional[_builtins.str]:
+    def delimiter(self) -> _builtins.str:
         """
         The `encoding` `delimiter`.
         """
         return pulumi.get(self, "delimiter")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        File encoding format.
+        """
+        return pulumi.get(self, "type")
 
     @_builtins.property
     @pulumi.getter(name="includesHeaders")
@@ -43855,17 +47097,9 @@ class ObservabilityPipelineConfigProcessorsEnrichmentTableFileEncoding(dict):
         """
         return pulumi.get(self, "includes_headers")
 
-    @_builtins.property
-    @pulumi.getter
-    def type(self) -> Optional[_builtins.str]:
-        """
-        File encoding format.
-        """
-        return pulumi.get(self, "type")
-
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsEnrichmentTableFileKey(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileKey(dict):
     def __init__(__self__, *,
                  column: Optional[_builtins.str] = None,
                  comparison: Optional[_builtins.str] = None,
@@ -43908,7 +47142,7 @@ class ObservabilityPipelineConfigProcessorsEnrichmentTableFileKey(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsEnrichmentTableFileSchema(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileSchema(dict):
     def __init__(__self__, *,
                  column: Optional[_builtins.str] = None,
                  type: Optional[_builtins.str] = None):
@@ -43939,7 +47173,7 @@ class ObservabilityPipelineConfigProcessorsEnrichmentTableFileSchema(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsEnrichmentTableGeoip(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableGeoip(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -43947,14 +47181,14 @@ class ObservabilityPipelineConfigProcessorsEnrichmentTableGeoip(dict):
             suggest = "key_field"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsEnrichmentTableGeoip. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableGeoip. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsEnrichmentTableGeoip.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableGeoip.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsEnrichmentTableGeoip.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableGeoip.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -43999,91 +47233,84 @@ class ObservabilityPipelineConfigProcessorsEnrichmentTableGeoip(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsFilter(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableReferenceTable(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "keyField":
+            suggest = "key_field"
+        elif key == "tableId":
+            suggest = "table_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableReferenceTable. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableReferenceTable.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableReferenceTable.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str]):
+                 key_field: _builtins.str,
+                 table_id: _builtins.str,
+                 columns: Optional[Sequence[_builtins.str]] = None):
         """
-        :param _builtins.str id: The unique ID of the processor.
-        :param _builtins.str include: A Datadog search query used to determine which logs should pass through the filter. Logs that match this query continue to downstream components; others are dropped.
-        :param Sequence[_builtins.str] inputs: The inputs for the processor.
+        :param _builtins.str key_field: Path to the field in the log event to match against the reference table.
+        :param _builtins.str table_id: The unique identifier of the reference table.
+        :param Sequence[_builtins.str] columns: List of column names to include from the reference table. If not provided, all columns are included.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
+        pulumi.set(__self__, "key_field", key_field)
+        pulumi.set(__self__, "table_id", table_id)
+        if columns is not None:
+            pulumi.set(__self__, "columns", columns)
+
+    @_builtins.property
+    @pulumi.getter(name="keyField")
+    def key_field(self) -> _builtins.str:
+        """
+        Path to the field in the log event to match against the reference table.
+        """
+        return pulumi.get(self, "key_field")
+
+    @_builtins.property
+    @pulumi.getter(name="tableId")
+    def table_id(self) -> _builtins.str:
+        """
+        The unique identifier of the reference table.
+        """
+        return pulumi.get(self, "table_id")
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
+    def columns(self) -> Optional[Sequence[_builtins.str]]:
         """
-        The unique ID of the processor.
+        List of column names to include from the reference table. If not provided, all columns are included.
         """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        """
-        A Datadog search query used to determine which logs should pass through the filter. Logs that match this query continue to downstream components; others are dropped.
-        """
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        The inputs for the processor.
-        """
-        return pulumi.get(self, "inputs")
+        return pulumi.get(self, "columns")
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsGenerateDatadogMetric(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorFilter(dict):
+    def __init__(__self__):
+        pass
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetrics(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
-                 metrics: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetric']] = None):
+                 metrics: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetric']] = None):
         """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline.
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this processor.
-        :param Sequence['ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetricArgs'] metrics: Configuration for generating individual metrics.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetricArgs'] metrics: Configuration for generating individual metrics.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
         if metrics is not None:
             pulumi.set(__self__, "metrics", metrics)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        """
-        A Datadog search query used to determine which logs this processor targets.
-        """
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this processor.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter
-    def metrics(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetric']]:
+    def metrics(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetric']]:
         """
         Configuration for generating individual metrics.
         """
@@ -44091,7 +47318,7 @@ class ObservabilityPipelineConfigProcessorsGenerateDatadogMetric(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetric(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetric(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -44101,14 +47328,14 @@ class ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetric(dict):
             suggest = "group_bies"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetric. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetric. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetric.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetric.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetric.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetric.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -44116,13 +47343,13 @@ class ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetric(dict):
                  metric_type: _builtins.str,
                  name: _builtins.str,
                  group_bies: Optional[Sequence[_builtins.str]] = None,
-                 value: Optional['outputs.ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetricValue'] = None):
+                 value: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetricValue'] = None):
         """
         :param _builtins.str include: Datadog filter query to match logs for metric generation.
         :param _builtins.str metric_type: Type of metric to create.
         :param _builtins.str name: Name of the custom metric to be created.
         :param Sequence[_builtins.str] group_bies: Optional fields used to group the metric series.
-        :param 'ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetricValueArgs' value: Specifies how the value of the generated metric is computed.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetricValueArgs' value: Specifies how the value of the generated metric is computed.
         """
         pulumi.set(__self__, "include", include)
         pulumi.set(__self__, "metric_type", metric_type)
@@ -44166,7 +47393,7 @@ class ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetric(dict):
 
     @_builtins.property
     @pulumi.getter
-    def value(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetricValue']:
+    def value(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetricValue']:
         """
         Specifies how the value of the generated metric is computed.
         """
@@ -44174,7 +47401,7 @@ class ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetric(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetricValue(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetricValue(dict):
     def __init__(__self__, *,
                  strategy: _builtins.str,
                  field: Optional[_builtins.str] = None):
@@ -44204,51 +47431,88 @@ class ObservabilityPipelineConfigProcessorsGenerateDatadogMetricMetricValue(dict
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsOcsfMapper(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorMetricTags(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
-                 mappings: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsOcsfMapperMapping']] = None):
+                 rules: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsRule']] = None):
         """
-        :param _builtins.str id: The unique identifier for this component.
-        :param _builtins.str include: Search query to select logs.
-        :param Sequence[_builtins.str] inputs: List of component IDs whose output is used as input.
-        :param Sequence['ObservabilityPipelineConfigProcessorsOcsfMapperMappingArgs'] mappings: List of OCSF mapping entries using library mapping.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsRuleArgs'] rules: A list of rules for filtering metric tags.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
-        if mappings is not None:
-            pulumi.set(__self__, "mappings", mappings)
+        if rules is not None:
+            pulumi.set(__self__, "rules", rules)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
+    def rules(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsRule']]:
         """
-        The unique identifier for this component.
+        A list of rules for filtering metric tags.
         """
-        return pulumi.get(self, "id")
+        return pulumi.get(self, "rules")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsRule(dict):
+    def __init__(__self__, *,
+                 action: _builtins.str,
+                 include: _builtins.str,
+                 keys: Sequence[_builtins.str],
+                 mode: _builtins.str):
+        """
+        :param _builtins.str action: The action to take on tags with matching keys. Valid values are `include`, `exclude`.
+        :param _builtins.str include: A Datadog search query used to determine which metrics this rule targets.
+        :param Sequence[_builtins.str] keys: A list of tag keys to include or exclude.
+        :param _builtins.str mode: The processing mode for tag filtering. Valid values are `filter`.
+        """
+        pulumi.set(__self__, "action", action)
+        pulumi.set(__self__, "include", include)
+        pulumi.set(__self__, "keys", keys)
+        pulumi.set(__self__, "mode", mode)
+
+    @_builtins.property
+    @pulumi.getter
+    def action(self) -> _builtins.str:
+        """
+        The action to take on tags with matching keys. Valid values are `include`, `exclude`.
+        """
+        return pulumi.get(self, "action")
 
     @_builtins.property
     @pulumi.getter
     def include(self) -> _builtins.str:
         """
-        Search query to select logs.
+        A Datadog search query used to determine which metrics this rule targets.
         """
         return pulumi.get(self, "include")
 
     @_builtins.property
     @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
+    def keys(self) -> Sequence[_builtins.str]:
         """
-        List of component IDs whose output is used as input.
+        A list of tag keys to include or exclude.
         """
-        return pulumi.get(self, "inputs")
+        return pulumi.get(self, "keys")
 
     @_builtins.property
     @pulumi.getter
-    def mappings(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsOcsfMapperMapping']]:
+    def mode(self) -> _builtins.str:
+        """
+        The processing mode for tag filtering. Valid values are `filter`.
+        """
+        return pulumi.get(self, "mode")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapper(dict):
+    def __init__(__self__, *,
+                 mappings: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMapping']] = None):
+        """
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingArgs'] mappings: List of OCSF mapping entries using library mapping.
+        """
+        if mappings is not None:
+            pulumi.set(__self__, "mappings", mappings)
+
+    @_builtins.property
+    @pulumi.getter
+    def mappings(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMapping']]:
         """
         List of OCSF mapping entries using library mapping.
         """
@@ -44256,7 +47520,7 @@ class ObservabilityPipelineConfigProcessorsOcsfMapper(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsOcsfMapperMapping(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMapping(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -44264,14 +47528,14 @@ class ObservabilityPipelineConfigProcessorsOcsfMapperMapping(dict):
             suggest = "library_mapping"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsOcsfMapperMapping. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMapping. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsOcsfMapperMapping.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMapping.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsOcsfMapperMapping.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMapping.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -44302,7 +47566,7 @@ class ObservabilityPipelineConfigProcessorsOcsfMapperMapping(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsParseGrok(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorParseGrok(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -44310,60 +47574,27 @@ class ObservabilityPipelineConfigProcessorsParseGrok(dict):
             suggest = "disable_library_rules"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsParseGrok. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorParseGrok. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsParseGrok.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorParseGrok.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsParseGrok.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorParseGrok.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  disable_library_rules: Optional[_builtins.bool] = None,
-                 rules: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsParseGrokRule']] = None):
+                 rules: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule']] = None):
         """
-        :param _builtins.str id: A unique identifier for this processor.
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
         :param _builtins.bool disable_library_rules: If set to `true`, disables the default Grok rules provided by Datadog.
-        :param Sequence['ObservabilityPipelineConfigProcessorsParseGrokRuleArgs'] rules: The list of Grok parsing rules. If multiple parsing rules are provided, they are evaluated in order. The first successful match is applied.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleArgs'] rules: The list of Grok parsing rules. If multiple parsing rules are provided, they are evaluated in order. The first successful match is applied.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
         if disable_library_rules is not None:
             pulumi.set(__self__, "disable_library_rules", disable_library_rules)
         if rules is not None:
             pulumi.set(__self__, "rules", rules)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        A unique identifier for this processor.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        """
-        A Datadog search query used to determine which logs this processor targets.
-        """
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
 
     @_builtins.property
     @pulumi.getter(name="disableLibraryRules")
@@ -44375,7 +47606,7 @@ class ObservabilityPipelineConfigProcessorsParseGrok(dict):
 
     @_builtins.property
     @pulumi.getter
-    def rules(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsParseGrokRule']]:
+    def rules(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule']]:
         """
         The list of Grok parsing rules. If multiple parsing rules are provided, they are evaluated in order. The first successful match is applied.
         """
@@ -44383,7 +47614,7 @@ class ObservabilityPipelineConfigProcessorsParseGrok(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsParseGrokRule(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -44393,24 +47624,24 @@ class ObservabilityPipelineConfigProcessorsParseGrokRule(dict):
             suggest = "support_rules"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsParseGrokRule. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsParseGrokRule.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsParseGrokRule.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
                  source: _builtins.str,
-                 match_rules: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsParseGrokRuleMatchRule']] = None,
-                 support_rules: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsParseGrokRuleSupportRule']] = None):
+                 match_rules: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleMatchRule']] = None,
+                 support_rules: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleSupportRule']] = None):
         """
         :param _builtins.str source: The name of the field in the log event to apply the Grok rules to.
-        :param Sequence['ObservabilityPipelineConfigProcessorsParseGrokRuleMatchRuleArgs'] match_rules: A list of Grok parsing rules that define how to extract fields from the source field. Each rule must contain a name and a valid Grok pattern.
-        :param Sequence['ObservabilityPipelineConfigProcessorsParseGrokRuleSupportRuleArgs'] support_rules: A list of helper Grok rules that can be referenced by the parsing rules.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleMatchRuleArgs'] match_rules: A list of Grok parsing rules that define how to extract fields from the source field. Each rule must contain a name and a valid Grok pattern.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleSupportRuleArgs'] support_rules: A list of helper Grok rules that can be referenced by the parsing rules.
         """
         pulumi.set(__self__, "source", source)
         if match_rules is not None:
@@ -44428,7 +47659,7 @@ class ObservabilityPipelineConfigProcessorsParseGrokRule(dict):
 
     @_builtins.property
     @pulumi.getter(name="matchRules")
-    def match_rules(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsParseGrokRuleMatchRule']]:
+    def match_rules(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleMatchRule']]:
         """
         A list of Grok parsing rules that define how to extract fields from the source field. Each rule must contain a name and a valid Grok pattern.
         """
@@ -44436,7 +47667,7 @@ class ObservabilityPipelineConfigProcessorsParseGrokRule(dict):
 
     @_builtins.property
     @pulumi.getter(name="supportRules")
-    def support_rules(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsParseGrokRuleSupportRule']]:
+    def support_rules(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleSupportRule']]:
         """
         A list of helper Grok rules that can be referenced by the parsing rules.
         """
@@ -44444,7 +47675,7 @@ class ObservabilityPipelineConfigProcessorsParseGrokRule(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsParseGrokRuleMatchRule(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleMatchRule(dict):
     def __init__(__self__, *,
                  name: _builtins.str,
                  rule: _builtins.str):
@@ -44473,7 +47704,7 @@ class ObservabilityPipelineConfigProcessorsParseGrokRuleMatchRule(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsParseGrokRuleSupportRule(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleSupportRule(dict):
     def __init__(__self__, *,
                  name: _builtins.str,
                  rule: _builtins.str):
@@ -44502,22 +47733,13 @@ class ObservabilityPipelineConfigProcessorsParseGrokRuleSupportRule(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsParseJson(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorParseJson(dict):
     def __init__(__self__, *,
-                 field: _builtins.str,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str]):
+                 field: _builtins.str):
         """
         :param _builtins.str field: The field to parse.
-        :param _builtins.str id: The unique ID of the processor.
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: The inputs for the processor.
         """
         pulumi.set(__self__, "field", field)
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
 
     @_builtins.property
     @pulumi.getter
@@ -44527,33 +47749,140 @@ class ObservabilityPipelineConfigProcessorsParseJson(dict):
         """
         return pulumi.get(self, "field")
 
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessorParseXml(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "alwaysUseTextKey":
+            suggest = "always_use_text_key"
+        elif key == "attrPrefix":
+            suggest = "attr_prefix"
+        elif key == "includeAttr":
+            suggest = "include_attr"
+        elif key == "parseBool":
+            suggest = "parse_bool"
+        elif key == "parseNull":
+            suggest = "parse_null"
+        elif key == "parseNumber":
+            suggest = "parse_number"
+        elif key == "textKey":
+            suggest = "text_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorParseXml. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorParseXml.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorParseXml.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 field: _builtins.str,
+                 always_use_text_key: Optional[_builtins.bool] = None,
+                 attr_prefix: Optional[_builtins.str] = None,
+                 include_attr: Optional[_builtins.bool] = None,
+                 parse_bool: Optional[_builtins.bool] = None,
+                 parse_null: Optional[_builtins.bool] = None,
+                 parse_number: Optional[_builtins.bool] = None,
+                 text_key: Optional[_builtins.str] = None):
         """
-        The unique ID of the processor.
+        :param _builtins.str field: The path to the log field on which you want to parse XML.
+        :param _builtins.bool always_use_text_key: Whether to always store text inside an object using the text key even when no attributes exist.
+        :param _builtins.str attr_prefix: The prefix to use for XML attributes in the parsed output. If the field is left empty, the original attribute key is used.
+        :param _builtins.bool include_attr: Whether to include XML attributes in the parsed output.
+        :param _builtins.bool parse_bool: Whether to parse boolean values from strings.
+        :param _builtins.bool parse_null: Whether to parse null values.
+        :param _builtins.bool parse_number: Whether to parse numeric values from strings.
+        :param _builtins.str text_key: The key name to use for the text node when XML attributes are appended.
         """
-        return pulumi.get(self, "id")
+        pulumi.set(__self__, "field", field)
+        if always_use_text_key is not None:
+            pulumi.set(__self__, "always_use_text_key", always_use_text_key)
+        if attr_prefix is not None:
+            pulumi.set(__self__, "attr_prefix", attr_prefix)
+        if include_attr is not None:
+            pulumi.set(__self__, "include_attr", include_attr)
+        if parse_bool is not None:
+            pulumi.set(__self__, "parse_bool", parse_bool)
+        if parse_null is not None:
+            pulumi.set(__self__, "parse_null", parse_null)
+        if parse_number is not None:
+            pulumi.set(__self__, "parse_number", parse_number)
+        if text_key is not None:
+            pulumi.set(__self__, "text_key", text_key)
 
     @_builtins.property
     @pulumi.getter
-    def include(self) -> _builtins.str:
+    def field(self) -> _builtins.str:
         """
-        A Datadog search query used to determine which logs this processor targets.
+        The path to the log field on which you want to parse XML.
         """
-        return pulumi.get(self, "include")
+        return pulumi.get(self, "field")
 
     @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
+    @pulumi.getter(name="alwaysUseTextKey")
+    def always_use_text_key(self) -> Optional[_builtins.bool]:
         """
-        The inputs for the processor.
+        Whether to always store text inside an object using the text key even when no attributes exist.
         """
-        return pulumi.get(self, "inputs")
+        return pulumi.get(self, "always_use_text_key")
+
+    @_builtins.property
+    @pulumi.getter(name="attrPrefix")
+    def attr_prefix(self) -> Optional[_builtins.str]:
+        """
+        The prefix to use for XML attributes in the parsed output. If the field is left empty, the original attribute key is used.
+        """
+        return pulumi.get(self, "attr_prefix")
+
+    @_builtins.property
+    @pulumi.getter(name="includeAttr")
+    def include_attr(self) -> Optional[_builtins.bool]:
+        """
+        Whether to include XML attributes in the parsed output.
+        """
+        return pulumi.get(self, "include_attr")
+
+    @_builtins.property
+    @pulumi.getter(name="parseBool")
+    def parse_bool(self) -> Optional[_builtins.bool]:
+        """
+        Whether to parse boolean values from strings.
+        """
+        return pulumi.get(self, "parse_bool")
+
+    @_builtins.property
+    @pulumi.getter(name="parseNull")
+    def parse_null(self) -> Optional[_builtins.bool]:
+        """
+        Whether to parse null values.
+        """
+        return pulumi.get(self, "parse_null")
+
+    @_builtins.property
+    @pulumi.getter(name="parseNumber")
+    def parse_number(self) -> Optional[_builtins.bool]:
+        """
+        Whether to parse numeric values from strings.
+        """
+        return pulumi.get(self, "parse_number")
+
+    @_builtins.property
+    @pulumi.getter(name="textKey")
+    def text_key(self) -> Optional[_builtins.str]:
+        """
+        The key name to use for the text node when XML attributes are appended.
+        """
+        return pulumi.get(self, "text_key")
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsQuota(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorQuota(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -44565,45 +47894,41 @@ class ObservabilityPipelineConfigProcessorsQuota(dict):
             suggest = "overflow_action"
         elif key == "partitionFields":
             suggest = "partition_fields"
+        elif key == "tooManyBucketsAction":
+            suggest = "too_many_buckets_action"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsQuota. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorQuota. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsQuota.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorQuota.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsQuota.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorQuota.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 drop_events: _builtins.bool,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  name: _builtins.str,
+                 drop_events: Optional[_builtins.bool] = None,
                  ignore_when_missing_partitions: Optional[_builtins.bool] = None,
-                 limit: Optional['outputs.ObservabilityPipelineConfigProcessorsQuotaLimit'] = None,
+                 limit: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaLimit'] = None,
                  overflow_action: Optional[_builtins.str] = None,
-                 overrides: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsQuotaOverride']] = None,
-                 partition_fields: Optional[Sequence[_builtins.str]] = None):
+                 overrides: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverride']] = None,
+                 partition_fields: Optional[Sequence[_builtins.str]] = None,
+                 too_many_buckets_action: Optional[_builtins.str] = None):
         """
-        :param _builtins.bool drop_events: Whether to drop events exceeding the limit.
-        :param _builtins.str id: The unique ID of the processor.
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: The inputs for the processor.
         :param _builtins.str name: The name of the quota.
+        :param _builtins.bool drop_events: Whether to drop events exceeding the limit.
         :param _builtins.bool ignore_when_missing_partitions: Whether to ignore when partition fields are missing.
         :param _builtins.str overflow_action: The action to take when the quota is exceeded: `drop`, `no_action`, or `overflow_routing`.
-        :param Sequence['ObservabilityPipelineConfigProcessorsQuotaOverrideArgs'] overrides: The overrides for field-specific quotas.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideArgs'] overrides: The overrides for field-specific quotas.
         :param Sequence[_builtins.str] partition_fields: List of partition fields.
+        :param _builtins.str too_many_buckets_action: The action to take when the max number of buckets is exceeded: `drop`, `no_action`, or `overflow_routing`.
         """
-        pulumi.set(__self__, "drop_events", drop_events)
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
         pulumi.set(__self__, "name", name)
+        if drop_events is not None:
+            pulumi.set(__self__, "drop_events", drop_events)
         if ignore_when_missing_partitions is not None:
             pulumi.set(__self__, "ignore_when_missing_partitions", ignore_when_missing_partitions)
         if limit is not None:
@@ -44614,38 +47939,8 @@ class ObservabilityPipelineConfigProcessorsQuota(dict):
             pulumi.set(__self__, "overrides", overrides)
         if partition_fields is not None:
             pulumi.set(__self__, "partition_fields", partition_fields)
-
-    @_builtins.property
-    @pulumi.getter(name="dropEvents")
-    def drop_events(self) -> _builtins.bool:
-        """
-        Whether to drop events exceeding the limit.
-        """
-        return pulumi.get(self, "drop_events")
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique ID of the processor.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        """
-        A Datadog search query used to determine which logs this processor targets.
-        """
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        The inputs for the processor.
-        """
-        return pulumi.get(self, "inputs")
+        if too_many_buckets_action is not None:
+            pulumi.set(__self__, "too_many_buckets_action", too_many_buckets_action)
 
     @_builtins.property
     @pulumi.getter
@@ -44654,6 +47949,14 @@ class ObservabilityPipelineConfigProcessorsQuota(dict):
         The name of the quota.
         """
         return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="dropEvents")
+    def drop_events(self) -> Optional[_builtins.bool]:
+        """
+        Whether to drop events exceeding the limit.
+        """
+        return pulumi.get(self, "drop_events")
 
     @_builtins.property
     @pulumi.getter(name="ignoreWhenMissingPartitions")
@@ -44665,7 +47968,7 @@ class ObservabilityPipelineConfigProcessorsQuota(dict):
 
     @_builtins.property
     @pulumi.getter
-    def limit(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsQuotaLimit']:
+    def limit(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaLimit']:
         return pulumi.get(self, "limit")
 
     @_builtins.property
@@ -44678,7 +47981,7 @@ class ObservabilityPipelineConfigProcessorsQuota(dict):
 
     @_builtins.property
     @pulumi.getter
-    def overrides(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsQuotaOverride']]:
+    def overrides(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverride']]:
         """
         The overrides for field-specific quotas.
         """
@@ -44692,9 +47995,17 @@ class ObservabilityPipelineConfigProcessorsQuota(dict):
         """
         return pulumi.get(self, "partition_fields")
 
+    @_builtins.property
+    @pulumi.getter(name="tooManyBucketsAction")
+    def too_many_buckets_action(self) -> Optional[_builtins.str]:
+        """
+        The action to take when the max number of buckets is exceeded: `drop`, `no_action`, or `overflow_routing`.
+        """
+        return pulumi.get(self, "too_many_buckets_action")
+
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsQuotaLimit(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorQuotaLimit(dict):
     def __init__(__self__, *,
                  enforce: _builtins.str,
                  limit: _builtins.int):
@@ -44723,12 +48034,12 @@ class ObservabilityPipelineConfigProcessorsQuotaLimit(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsQuotaOverride(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverride(dict):
     def __init__(__self__, *,
-                 fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsQuotaOverrideField']] = None,
-                 limit: Optional['outputs.ObservabilityPipelineConfigProcessorsQuotaOverrideLimit'] = None):
+                 fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideField']] = None,
+                 limit: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideLimit'] = None):
         """
-        :param Sequence['ObservabilityPipelineConfigProcessorsQuotaOverrideFieldArgs'] fields: Fields that trigger this override.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideFieldArgs'] fields: Fields that trigger this override.
         """
         if fields is not None:
             pulumi.set(__self__, "fields", fields)
@@ -44737,7 +48048,7 @@ class ObservabilityPipelineConfigProcessorsQuotaOverride(dict):
 
     @_builtins.property
     @pulumi.getter
-    def fields(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsQuotaOverrideField']]:
+    def fields(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideField']]:
         """
         Fields that trigger this override.
         """
@@ -44745,12 +48056,12 @@ class ObservabilityPipelineConfigProcessorsQuotaOverride(dict):
 
     @_builtins.property
     @pulumi.getter
-    def limit(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsQuotaOverrideLimit']:
+    def limit(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideLimit']:
         return pulumi.get(self, "limit")
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsQuotaOverrideField(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideField(dict):
     def __init__(__self__, *,
                  name: _builtins.str,
                  value: _builtins.str):
@@ -44779,7 +48090,7 @@ class ObservabilityPipelineConfigProcessorsQuotaOverrideField(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsQuotaOverrideLimit(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideLimit(dict):
     def __init__(__self__, *,
                  enforce: _builtins.str,
                  limit: _builtins.int):
@@ -44808,7 +48119,7 @@ class ObservabilityPipelineConfigProcessorsQuotaOverrideLimit(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsReduce(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorReduce(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -44818,33 +48129,24 @@ class ObservabilityPipelineConfigProcessorsReduce(dict):
             suggest = "merge_strategies"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsReduce. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorReduce. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsReduce.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorReduce.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsReduce.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorReduce.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
                  group_bies: Sequence[_builtins.str],
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
-                 merge_strategies: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsReduceMergeStrategy']] = None):
+                 merge_strategies: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorReduceMergeStrategy']] = None):
         """
         :param Sequence[_builtins.str] group_bies: A list of fields used to group log events for merging.
-        :param _builtins.str id: The unique identifier for this processor.
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the input for this processor.
-        :param Sequence['ObservabilityPipelineConfigProcessorsReduceMergeStrategyArgs'] merge_strategies: List of merge strategies defining how values from grouped events should be combined.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorReduceMergeStrategyArgs'] merge_strategies: List of merge strategies defining how values from grouped events should be combined.
         """
         pulumi.set(__self__, "group_bies", group_bies)
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
         if merge_strategies is not None:
             pulumi.set(__self__, "merge_strategies", merge_strategies)
 
@@ -44857,32 +48159,8 @@ class ObservabilityPipelineConfigProcessorsReduce(dict):
         return pulumi.get(self, "group_bies")
 
     @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this processor.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        """
-        A Datadog search query used to determine which logs this processor targets.
-        """
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the input for this processor.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
     @pulumi.getter(name="mergeStrategies")
-    def merge_strategies(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsReduceMergeStrategy']]:
+    def merge_strategies(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorReduceMergeStrategy']]:
         """
         List of merge strategies defining how values from grouped events should be combined.
         """
@@ -44890,7 +48168,7 @@ class ObservabilityPipelineConfigProcessorsReduce(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsReduceMergeStrategy(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorReduceMergeStrategy(dict):
     def __init__(__self__, *,
                  path: _builtins.str,
                  strategy: _builtins.str):
@@ -44919,22 +48197,13 @@ class ObservabilityPipelineConfigProcessorsReduceMergeStrategy(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsRemoveField(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorRemoveFields(dict):
     def __init__(__self__, *,
-                 fields: Sequence[_builtins.str],
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str]):
+                 fields: Sequence[_builtins.str]):
         """
         :param Sequence[_builtins.str] fields: List of fields to remove from the events.
-        :param _builtins.str id: The unique ID of the processor.
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: The inputs for the processor.
         """
         pulumi.set(__self__, "fields", fields)
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
 
     @_builtins.property
     @pulumi.getter
@@ -44944,77 +48213,20 @@ class ObservabilityPipelineConfigProcessorsRemoveField(dict):
         """
         return pulumi.get(self, "fields")
 
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique ID of the processor.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        """
-        A Datadog search query used to determine which logs this processor targets.
-        """
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        The inputs for the processor.
-        """
-        return pulumi.get(self, "inputs")
-
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsRenameField(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorRenameFields(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
-                 fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsRenameFieldField']] = None):
+                 fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsField']] = None):
         """
-        :param _builtins.str id: The unique ID of the processor.
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: The inputs for the processor.
-        :param Sequence['ObservabilityPipelineConfigProcessorsRenameFieldFieldArgs'] fields: List of fields to rename.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsFieldArgs'] fields: List of fields to rename.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
         if fields is not None:
             pulumi.set(__self__, "fields", fields)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique ID of the processor.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        """
-        A Datadog search query used to determine which logs this processor targets.
-        """
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        The inputs for the processor.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter
-    def fields(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsRenameFieldField']]:
+    def fields(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsField']]:
         """
         List of fields to rename.
         """
@@ -45022,7 +48234,7 @@ class ObservabilityPipelineConfigProcessorsRenameField(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsRenameFieldField(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsField(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -45030,14 +48242,14 @@ class ObservabilityPipelineConfigProcessorsRenameFieldField(dict):
             suggest = "preserve_source"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsRenameFieldField. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsField. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsRenameFieldField.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsField.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsRenameFieldField.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsField.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -45079,115 +48291,65 @@ class ObservabilityPipelineConfigProcessorsRenameFieldField(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSample(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSample(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "groupBies":
+            suggest = "group_bies"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorSample. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorSample.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorSample.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
-                 percentage: Optional[_builtins.float] = None,
-                 rate: Optional[_builtins.int] = None):
+                 percentage: _builtins.float,
+                 group_bies: Optional[Sequence[_builtins.str]] = None):
         """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (for example, as the `input` to downstream components).
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
         :param _builtins.float percentage: The percentage of logs to sample.
-        :param _builtins.int rate: Number of events to sample (1 in N).
+        :param Sequence[_builtins.str] group_bies: Optional list of fields to group events by. Each group is sampled independently.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
-        if percentage is not None:
-            pulumi.set(__self__, "percentage", percentage)
-        if rate is not None:
-            pulumi.set(__self__, "rate", rate)
+        pulumi.set(__self__, "percentage", percentage)
+        if group_bies is not None:
+            pulumi.set(__self__, "group_bies", group_bies)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (for example, as the `input` to downstream components).
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        """
-        A Datadog search query used to determine which logs this processor targets.
-        """
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter
-    def percentage(self) -> Optional[_builtins.float]:
+    def percentage(self) -> _builtins.float:
         """
         The percentage of logs to sample.
         """
         return pulumi.get(self, "percentage")
 
     @_builtins.property
-    @pulumi.getter
-    def rate(self) -> Optional[_builtins.int]:
+    @pulumi.getter(name="groupBies")
+    def group_bies(self) -> Optional[Sequence[_builtins.str]]:
         """
-        Number of events to sample (1 in N).
+        Optional list of fields to group events by. Each group is sampled independently.
         """
-        return pulumi.get(self, "rate")
+        return pulumi.get(self, "group_bies")
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSensitiveDataScanner(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScanner(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
-                 rules: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRule']] = None):
+                 rules: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRule']] = None):
         """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
-        :param Sequence['ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleArgs'] rules: A list of rules for identifying and acting on sensitive data patterns.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleArgs'] rules: A list of rules for identifying and acting on sensitive data patterns.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
         if rules is not None:
             pulumi.set(__self__, "rules", rules)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        """
-        A Datadog search query used to determine which logs this processor targets.
-        """
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the `input` for this component.
-        """
-        return pulumi.get(self, "inputs")
-
-    @_builtins.property
-    @pulumi.getter
-    def rules(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRule']]:
+    def rules(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRule']]:
         """
         A list of rules for identifying and acting on sensitive data patterns.
         """
@@ -45195,7 +48357,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScanner(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRule(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRule(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -45205,63 +48367,69 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRule(dict):
             suggest = "on_match"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsSensitiveDataScannerRule. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRule. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsSensitiveDataScannerRule.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRule.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsSensitiveDataScannerRule.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRule.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 keyword_options: Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleKeywordOptions'] = None,
-                 name: Optional[_builtins.str] = None,
-                 on_match: Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatch'] = None,
-                 pattern: Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePattern'] = None,
-                 scope: Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScope'] = None,
-                 tags: Optional[Sequence[_builtins.str]] = None):
+                 name: _builtins.str,
+                 tags: Sequence[_builtins.str],
+                 keyword_options: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleKeywordOptions'] = None,
+                 on_match: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatch'] = None,
+                 pattern: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePattern'] = None,
+                 scope: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScope'] = None):
         """
-        :param 'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleKeywordOptionsArgs' keyword_options: Keyword-based proximity matching for sensitive data.
         :param _builtins.str name: A name identifying the rule.
-        :param 'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchArgs' on_match: The action to take when a sensitive value is found.
-        :param 'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternArgs' pattern: Pattern detection configuration for identifying sensitive data using either a custom regex or a library reference.
-        :param 'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScopeArgs' scope: Field-level targeting options that determine where the scanner should operate.
         :param Sequence[_builtins.str] tags: Tags assigned to this rule for filtering and classification.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleKeywordOptionsArgs' keyword_options: Keyword-based proximity matching for sensitive data.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchArgs' on_match: The action to take when a sensitive value is found.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternArgs' pattern: Pattern detection configuration for identifying sensitive data using either a custom regex or a library reference.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScopeArgs' scope: Field-level targeting options that determine where the scanner should operate.
         """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "tags", tags)
         if keyword_options is not None:
             pulumi.set(__self__, "keyword_options", keyword_options)
-        if name is not None:
-            pulumi.set(__self__, "name", name)
         if on_match is not None:
             pulumi.set(__self__, "on_match", on_match)
         if pattern is not None:
             pulumi.set(__self__, "pattern", pattern)
         if scope is not None:
             pulumi.set(__self__, "scope", scope)
-        if tags is not None:
-            pulumi.set(__self__, "tags", tags)
-
-    @_builtins.property
-    @pulumi.getter(name="keywordOptions")
-    def keyword_options(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleKeywordOptions']:
-        """
-        Keyword-based proximity matching for sensitive data.
-        """
-        return pulumi.get(self, "keyword_options")
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[_builtins.str]:
+    def name(self) -> _builtins.str:
         """
         A name identifying the rule.
         """
         return pulumi.get(self, "name")
 
     @_builtins.property
+    @pulumi.getter
+    def tags(self) -> Sequence[_builtins.str]:
+        """
+        Tags assigned to this rule for filtering and classification.
+        """
+        return pulumi.get(self, "tags")
+
+    @_builtins.property
+    @pulumi.getter(name="keywordOptions")
+    def keyword_options(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleKeywordOptions']:
+        """
+        Keyword-based proximity matching for sensitive data.
+        """
+        return pulumi.get(self, "keyword_options")
+
+    @_builtins.property
     @pulumi.getter(name="onMatch")
-    def on_match(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatch']:
+    def on_match(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatch']:
         """
         The action to take when a sensitive value is found.
         """
@@ -45269,7 +48437,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRule(dict):
 
     @_builtins.property
     @pulumi.getter
-    def pattern(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePattern']:
+    def pattern(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePattern']:
         """
         Pattern detection configuration for identifying sensitive data using either a custom regex or a library reference.
         """
@@ -45277,23 +48445,15 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRule(dict):
 
     @_builtins.property
     @pulumi.getter
-    def scope(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScope']:
+    def scope(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScope']:
         """
         Field-level targeting options that determine where the scanner should operate.
         """
         return pulumi.get(self, "scope")
 
-    @_builtins.property
-    @pulumi.getter
-    def tags(self) -> Optional[Sequence[_builtins.str]]:
-        """
-        Tags assigned to this rule for filtering and classification.
-        """
-        return pulumi.get(self, "tags")
-
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleKeywordOptions(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleKeywordOptions(dict):
     def __init__(__self__, *,
                  keywords: Optional[Sequence[_builtins.str]] = None,
                  proximity: Optional[_builtins.int] = None):
@@ -45324,7 +48484,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleKeywordOption
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatch(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatch(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -45332,24 +48492,24 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatch(dict)
             suggest = "partial_redact"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatch. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatch. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatch.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatch.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatch.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatch.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 hash: Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchHash'] = None,
-                 partial_redact: Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchPartialRedact'] = None,
-                 redact: Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchRedact'] = None):
+                 hash: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchHash'] = None,
+                 partial_redact: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchPartialRedact'] = None,
+                 redact: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchRedact'] = None):
         """
-        :param 'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchHashArgs' hash: Hashes the matched value.
-        :param 'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchPartialRedactArgs' partial_redact: Redacts part of the matched value (e.g., keep last 4 characters).
-        :param 'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchRedactArgs' redact: Redacts the matched value.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchHashArgs' hash: Hashes the matched value.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchPartialRedactArgs' partial_redact: Redacts part of the matched value (e.g., keep last 4 characters).
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchRedactArgs' redact: Redacts the matched value.
         """
         if hash is not None:
             pulumi.set(__self__, "hash", hash)
@@ -45360,7 +48520,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatch(dict)
 
     @_builtins.property
     @pulumi.getter
-    def hash(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchHash']:
+    def hash(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchHash']:
         """
         Hashes the matched value.
         """
@@ -45368,7 +48528,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatch(dict)
 
     @_builtins.property
     @pulumi.getter(name="partialRedact")
-    def partial_redact(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchPartialRedact']:
+    def partial_redact(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchPartialRedact']:
         """
         Redacts part of the matched value (e.g., keep last 4 characters).
         """
@@ -45376,7 +48536,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatch(dict)
 
     @_builtins.property
     @pulumi.getter
-    def redact(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchRedact']:
+    def redact(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchRedact']:
         """
         Redacts the matched value.
         """
@@ -45384,13 +48544,13 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatch(dict)
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchHash(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchHash(dict):
     def __init__(__self__):
         pass
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchPartialRedact(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchPartialRedact(dict):
     def __init__(__self__, *,
                  characters: Optional[_builtins.int] = None,
                  direction: Optional[_builtins.str] = None):
@@ -45421,7 +48581,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchPartia
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchRedact(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleOnMatchRedact(dict):
     def __init__(__self__, *,
                  replace: Optional[_builtins.str] = None):
         """
@@ -45440,13 +48600,13 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleOnMatchRedact
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePattern(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePattern(dict):
     def __init__(__self__, *,
-                 custom: Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternCustom'] = None,
-                 library: Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternLibrary'] = None):
+                 custom: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternCustom'] = None,
+                 library: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternLibrary'] = None):
         """
-        :param 'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternCustomArgs' custom: Pattern detection using a custom regular expression.
-        :param 'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternLibraryArgs' library: Pattern detection using a predefined pattern from the sensitive data scanner pattern library.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternCustomArgs' custom: Pattern detection using a custom regular expression.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternLibraryArgs' library: Pattern detection using a predefined pattern from the sensitive data scanner pattern library.
         """
         if custom is not None:
             pulumi.set(__self__, "custom", custom)
@@ -45455,7 +48615,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePattern(dict)
 
     @_builtins.property
     @pulumi.getter
-    def custom(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternCustom']:
+    def custom(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternCustom']:
         """
         Pattern detection using a custom regular expression.
         """
@@ -45463,7 +48623,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePattern(dict)
 
     @_builtins.property
     @pulumi.getter
-    def library(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternLibrary']:
+    def library(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternLibrary']:
         """
         Pattern detection using a predefined pattern from the sensitive data scanner pattern library.
         """
@@ -45471,14 +48631,26 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePattern(dict)
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternCustom(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternCustom(dict):
     def __init__(__self__, *,
+                 description: Optional[_builtins.str] = None,
                  rule: Optional[_builtins.str] = None):
         """
+        :param _builtins.str description: Human-readable description providing context about a sensitive data scanner rule.
         :param _builtins.str rule: A regular expression used to detect sensitive values. Must be a valid regex.
         """
+        if description is not None:
+            pulumi.set(__self__, "description", description)
         if rule is not None:
             pulumi.set(__self__, "rule", rule)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        """
+        Human-readable description providing context about a sensitive data scanner rule.
+        """
+        return pulumi.get(self, "description")
 
     @_builtins.property
     @pulumi.getter
@@ -45490,7 +48662,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternCustom
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternLibrary(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternLibrary(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -45498,27 +48670,39 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternLibrar
             suggest = "use_recommended_keywords"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternLibrary. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternLibrary. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternLibrary.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternLibrary.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternLibrary.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRulePatternLibrary.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 description: Optional[_builtins.str] = None,
                  id: Optional[_builtins.str] = None,
                  use_recommended_keywords: Optional[_builtins.bool] = None):
         """
+        :param _builtins.str description: Human-readable description providing context about a sensitive data scanner rule.
         :param _builtins.str id: Identifier for a predefined pattern from the sensitive data scanner pattern library.
         :param _builtins.bool use_recommended_keywords: Whether to augment the pattern with recommended keywords (optional).
         """
+        if description is not None:
+            pulumi.set(__self__, "description", description)
         if id is not None:
             pulumi.set(__self__, "id", id)
         if use_recommended_keywords is not None:
             pulumi.set(__self__, "use_recommended_keywords", use_recommended_keywords)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        """
+        Human-readable description providing context about a sensitive data scanner rule.
+        """
+        return pulumi.get(self, "description")
 
     @_builtins.property
     @pulumi.getter
@@ -45538,15 +48722,15 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRulePatternLibrar
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScope(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScope(dict):
     def __init__(__self__, *,
                  all: Optional[_builtins.bool] = None,
-                 exclude: Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScopeExclude'] = None,
-                 include: Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScopeInclude'] = None):
+                 exclude: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScopeExclude'] = None,
+                 include: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScopeInclude'] = None):
         """
         :param _builtins.bool all: Scan all fields.
-        :param 'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScopeExcludeArgs' exclude: Explicitly exclude these fields from scanning.
-        :param 'ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScopeIncludeArgs' include: Explicitly include these fields for scanning.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScopeExcludeArgs' exclude: Explicitly exclude these fields from scanning.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScopeIncludeArgs' include: Explicitly include these fields for scanning.
         """
         if all is not None:
             pulumi.set(__self__, "all", all)
@@ -45565,7 +48749,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScope(dict):
 
     @_builtins.property
     @pulumi.getter
-    def exclude(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScopeExclude']:
+    def exclude(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScopeExclude']:
         """
         Explicitly exclude these fields from scanning.
         """
@@ -45573,7 +48757,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScope(dict):
 
     @_builtins.property
     @pulumi.getter
-    def include(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScopeInclude']:
+    def include(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScopeInclude']:
         """
         Explicitly include these fields for scanning.
         """
@@ -45581,7 +48765,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScope(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScopeExclude(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScopeExclude(dict):
     def __init__(__self__, *,
                  fields: Optional[Sequence[_builtins.str]] = None):
         """
@@ -45600,7 +48784,7 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScopeExclude(
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScopeInclude(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRuleScopeInclude(dict):
     def __init__(__self__, *,
                  fields: Optional[Sequence[_builtins.str]] = None):
         """
@@ -45619,7 +48803,55 @@ class ObservabilityPipelineConfigProcessorsSensitiveDataScannerRuleScopeInclude(
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigProcessorsThrottle(dict):
+class ObservabilityPipelineConfigProcessorGroupProcessorSplitArray(dict):
+    def __init__(__self__, *,
+                 arrays: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSplitArrayArray']] = None):
+        """
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorSplitArrayArrayArgs'] arrays: A list of array split configurations.
+        """
+        if arrays is not None:
+            pulumi.set(__self__, "arrays", arrays)
+
+    @_builtins.property
+    @pulumi.getter
+    def arrays(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSplitArrayArray']]:
+        """
+        A list of array split configurations.
+        """
+        return pulumi.get(self, "arrays")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessorSplitArrayArray(dict):
+    def __init__(__self__, *,
+                 field: _builtins.str,
+                 include: _builtins.str):
+        """
+        :param _builtins.str field: The path to the array field to split.
+        :param _builtins.str include: A Datadog search query used to determine which logs this array split operation targets.
+        """
+        pulumi.set(__self__, "field", field)
+        pulumi.set(__self__, "include", include)
+
+    @_builtins.property
+    @pulumi.getter
+    def field(self) -> _builtins.str:
+        """
+        The path to the array field to split.
+        """
+        return pulumi.get(self, "field")
+
+    @_builtins.property
+    @pulumi.getter
+    def include(self) -> _builtins.str:
+        """
+        A Datadog search query used to determine which logs this array split operation targets.
+        """
+        return pulumi.get(self, "include")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessorThrottle(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -45627,62 +48859,29 @@ class ObservabilityPipelineConfigProcessorsThrottle(dict):
             suggest = "group_bies"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsThrottle. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorThrottle. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigProcessorsThrottle.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorThrottle.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigProcessorsThrottle.__key_warning(key)
+        ObservabilityPipelineConfigProcessorGroupProcessorThrottle.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 include: _builtins.str,
-                 inputs: Sequence[_builtins.str],
                  threshold: _builtins.int,
                  window: _builtins.float,
                  group_bies: Optional[Sequence[_builtins.str]] = None):
         """
-        :param _builtins.str id: The unique identifier for this processor.
-        :param _builtins.str include: A Datadog search query used to determine which logs this processor targets.
-        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the input for this processor.
         :param _builtins.int threshold: The number of events to allow before throttling is applied.
         :param _builtins.float window: The time window in seconds over which the threshold applies.
         :param Sequence[_builtins.str] group_bies: Optional list of fields used to group events before applying throttling.
         """
-        pulumi.set(__self__, "id", id)
-        pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "inputs", inputs)
         pulumi.set(__self__, "threshold", threshold)
         pulumi.set(__self__, "window", window)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this processor.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def include(self) -> _builtins.str:
-        """
-        A Datadog search query used to determine which logs this processor targets.
-        """
-        return pulumi.get(self, "include")
-
-    @_builtins.property
-    @pulumi.getter
-    def inputs(self) -> Sequence[_builtins.str]:
-        """
-        A list of component IDs whose output is used as the input for this processor.
-        """
-        return pulumi.get(self, "inputs")
 
     @_builtins.property
     @pulumi.getter
@@ -45710,7 +48909,7 @@ class ObservabilityPipelineConfigProcessorsThrottle(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSources(dict):
+class ObservabilityPipelineConfigSource(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -45738,51 +48937,56 @@ class ObservabilityPipelineConfigSources(dict):
             suggest = "syslog_ngs"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSources. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSource. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSources.__key_warning(key)
+        ObservabilityPipelineConfigSource.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSources.__key_warning(key)
+        ObservabilityPipelineConfigSource.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 amazon_data_firehoses: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesAmazonDataFirehose']] = None,
-                 amazon_s3s: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesAmazonS3']] = None,
-                 datadog_agents: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesDatadogAgent']] = None,
-                 fluent_bits: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesFluentBit']] = None,
-                 fluentds: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesFluentd']] = None,
-                 google_pubsubs: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesGooglePubsub']] = None,
-                 http_clients: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesHttpClient']] = None,
-                 http_servers: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesHttpServer']] = None,
-                 kafkas: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesKafka']] = None,
-                 logstashes: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesLogstash']] = None,
-                 rsyslogs: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesRsyslog']] = None,
-                 sockets: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSocket']] = None,
-                 splunk_hecs: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSplunkHec']] = None,
-                 splunk_tcps: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSplunkTcp']] = None,
-                 sumo_logics: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSumoLogic']] = None,
-                 syslog_ngs: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSyslogNg']] = None):
+                 id: _builtins.str,
+                 amazon_data_firehoses: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceAmazonDataFirehose']] = None,
+                 amazon_s3s: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceAmazonS3']] = None,
+                 datadog_agents: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceDatadogAgent']] = None,
+                 fluent_bits: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceFluentBit']] = None,
+                 fluentds: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceFluentd']] = None,
+                 google_pubsubs: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceGooglePubsub']] = None,
+                 http_clients: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceHttpClient']] = None,
+                 http_servers: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceHttpServer']] = None,
+                 kafkas: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceKafka']] = None,
+                 logstashes: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceLogstash']] = None,
+                 opentelemetry: Optional['outputs.ObservabilityPipelineConfigSourceOpentelemetry'] = None,
+                 rsyslogs: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceRsyslog']] = None,
+                 sockets: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceSocket']] = None,
+                 splunk_hecs: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceSplunkHec']] = None,
+                 splunk_tcps: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceSplunkTcp']] = None,
+                 sumo_logics: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceSumoLogic']] = None,
+                 syslog_ngs: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceSyslogNg']] = None):
         """
-        :param Sequence['ObservabilityPipelineConfigSourcesAmazonDataFirehoseArgs'] amazon_data_firehoses: The `amazon_data_firehose` source ingests logs from AWS Data Firehose.
-        :param Sequence['ObservabilityPipelineConfigSourcesAmazonS3Args'] amazon_s3s: The `amazon_s3` source ingests logs from an Amazon S3 bucket. It supports AWS authentication and TLS encryption.
-        :param Sequence['ObservabilityPipelineConfigSourcesDatadogAgentArgs'] datadog_agents: The `datadog_agent` source collects logs from the Datadog Agent.
-        :param Sequence['ObservabilityPipelineConfigSourcesFluentBitArgs'] fluent_bits: The `fluent` source ingests logs from Fluent Bit.
-        :param Sequence['ObservabilityPipelineConfigSourcesFluentdArgs'] fluentds: The `fluent` source ingests logs from a Fluentd-compatible service.
-        :param Sequence['ObservabilityPipelineConfigSourcesGooglePubsubArgs'] google_pubsubs: The `google_pubsub` source ingests logs from a Google Cloud Pub/Sub subscription.
-        :param Sequence['ObservabilityPipelineConfigSourcesHttpClientArgs'] http_clients: The `http_client` source scrapes logs from HTTP endpoints at regular intervals.
-        :param Sequence['ObservabilityPipelineConfigSourcesHttpServerArgs'] http_servers: The `http_server` source collects logs over HTTP POST from external services.
-        :param Sequence['ObservabilityPipelineConfigSourcesKafkaArgs'] kafkas: The `kafka` source ingests data from Apache Kafka topics.
-        :param Sequence['ObservabilityPipelineConfigSourcesLogstashArgs'] logstashes: The `logstash` source ingests logs from a Logstash forwarder.
-        :param Sequence['ObservabilityPipelineConfigSourcesRsyslogArgs'] rsyslogs: The `rsyslog` source listens for logs over TCP or UDP from an `rsyslog` server using the syslog protocol.
-        :param Sequence['ObservabilityPipelineConfigSourcesSocketArgs'] sockets: The `socket` source ingests logs over TCP or UDP.
-        :param Sequence['ObservabilityPipelineConfigSourcesSplunkHecArgs'] splunk_hecs: The `splunk_hec` source implements the Splunk HTTP Event Collector (HEC) API.
-        :param Sequence['ObservabilityPipelineConfigSourcesSplunkTcpArgs'] splunk_tcps: The `splunk_tcp` source receives logs from a Splunk Universal Forwarder over TCP. TLS is supported for secure transmission.
-        :param Sequence['ObservabilityPipelineConfigSourcesSumoLogicArgs'] sumo_logics: The `sumo_logic` source receives logs from Sumo Logic collectors.
-        :param Sequence['ObservabilityPipelineConfigSourcesSyslogNgArgs'] syslog_ngs: The `syslog_ng` source listens for logs over TCP or UDP from a `syslog-ng` server using the syslog protocol.
+        :param _builtins.str id: The unique identifier for this source.
+        :param Sequence['ObservabilityPipelineConfigSourceAmazonDataFirehoseArgs'] amazon_data_firehoses: The `amazon_data_firehose` source ingests logs from AWS Data Firehose.
+        :param Sequence['ObservabilityPipelineConfigSourceAmazonS3Args'] amazon_s3s: The `amazon_s3` source ingests logs from an Amazon S3 bucket. It supports AWS authentication and TLS encryption.
+        :param Sequence['ObservabilityPipelineConfigSourceDatadogAgentArgs'] datadog_agents: The `datadog_agent` source collects logs from the Datadog Agent.
+        :param Sequence['ObservabilityPipelineConfigSourceFluentBitArgs'] fluent_bits: The `fluent_bit` source ingests logs from Fluent Bit.
+        :param Sequence['ObservabilityPipelineConfigSourceFluentdArgs'] fluentds: The `fluentd source ingests logs from a Fluentd-compatible service.
+        :param Sequence['ObservabilityPipelineConfigSourceGooglePubsubArgs'] google_pubsubs: The `google_pubsub` source ingests logs from a Google Cloud Pub/Sub subscription.
+        :param Sequence['ObservabilityPipelineConfigSourceHttpClientArgs'] http_clients: The `http_client` source scrapes logs from HTTP endpoints at regular intervals.
+        :param Sequence['ObservabilityPipelineConfigSourceHttpServerArgs'] http_servers: The `http_server` source collects logs over HTTP POST from external services.
+        :param Sequence['ObservabilityPipelineConfigSourceKafkaArgs'] kafkas: The `kafka` source ingests data from Apache Kafka topics.
+        :param Sequence['ObservabilityPipelineConfigSourceLogstashArgs'] logstashes: The `logstash` source ingests logs from a Logstash forwarder.
+        :param 'ObservabilityPipelineConfigSourceOpentelemetryArgs' opentelemetry: The `opentelemetry` source receives telemetry data using the OpenTelemetry Protocol (OTLP) over gRPC and HTTP.
+        :param Sequence['ObservabilityPipelineConfigSourceRsyslogArgs'] rsyslogs: The `rsyslog` source listens for logs over TCP or UDP from an `rsyslog` server using the syslog protocol.
+        :param Sequence['ObservabilityPipelineConfigSourceSocketArgs'] sockets: The `socket` source ingests logs over TCP or UDP.
+        :param Sequence['ObservabilityPipelineConfigSourceSplunkHecArgs'] splunk_hecs: The `splunk_hec` source implements the Splunk HTTP Event Collector (HEC) API.
+        :param Sequence['ObservabilityPipelineConfigSourceSplunkTcpArgs'] splunk_tcps: The `splunk_tcp` source receives logs from a Splunk Universal Forwarder over TCP. TLS is supported for secure transmission.
+        :param Sequence['ObservabilityPipelineConfigSourceSumoLogicArgs'] sumo_logics: The `sumo_logic` source receives logs from Sumo Logic collectors.
+        :param Sequence['ObservabilityPipelineConfigSourceSyslogNgArgs'] syslog_ngs: The `syslog_ng` source listens for logs over TCP or UDP from a `syslog-ng` server using the syslog protocol.
         """
+        pulumi.set(__self__, "id", id)
         if amazon_data_firehoses is not None:
             pulumi.set(__self__, "amazon_data_firehoses", amazon_data_firehoses)
         if amazon_s3s is not None:
@@ -45803,6 +49007,8 @@ class ObservabilityPipelineConfigSources(dict):
             pulumi.set(__self__, "kafkas", kafkas)
         if logstashes is not None:
             pulumi.set(__self__, "logstashes", logstashes)
+        if opentelemetry is not None:
+            pulumi.set(__self__, "opentelemetry", opentelemetry)
         if rsyslogs is not None:
             pulumi.set(__self__, "rsyslogs", rsyslogs)
         if sockets is not None:
@@ -45817,8 +49023,16 @@ class ObservabilityPipelineConfigSources(dict):
             pulumi.set(__self__, "syslog_ngs", syslog_ngs)
 
     @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The unique identifier for this source.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
     @pulumi.getter(name="amazonDataFirehoses")
-    def amazon_data_firehoses(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesAmazonDataFirehose']]:
+    def amazon_data_firehoses(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceAmazonDataFirehose']]:
         """
         The `amazon_data_firehose` source ingests logs from AWS Data Firehose.
         """
@@ -45826,7 +49040,7 @@ class ObservabilityPipelineConfigSources(dict):
 
     @_builtins.property
     @pulumi.getter(name="amazonS3s")
-    def amazon_s3s(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesAmazonS3']]:
+    def amazon_s3s(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceAmazonS3']]:
         """
         The `amazon_s3` source ingests logs from an Amazon S3 bucket. It supports AWS authentication and TLS encryption.
         """
@@ -45834,7 +49048,7 @@ class ObservabilityPipelineConfigSources(dict):
 
     @_builtins.property
     @pulumi.getter(name="datadogAgents")
-    def datadog_agents(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesDatadogAgent']]:
+    def datadog_agents(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceDatadogAgent']]:
         """
         The `datadog_agent` source collects logs from the Datadog Agent.
         """
@@ -45842,23 +49056,23 @@ class ObservabilityPipelineConfigSources(dict):
 
     @_builtins.property
     @pulumi.getter(name="fluentBits")
-    def fluent_bits(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesFluentBit']]:
+    def fluent_bits(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceFluentBit']]:
         """
-        The `fluent` source ingests logs from Fluent Bit.
+        The `fluent_bit` source ingests logs from Fluent Bit.
         """
         return pulumi.get(self, "fluent_bits")
 
     @_builtins.property
     @pulumi.getter
-    def fluentds(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesFluentd']]:
+    def fluentds(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceFluentd']]:
         """
-        The `fluent` source ingests logs from a Fluentd-compatible service.
+        The `fluentd source ingests logs from a Fluentd-compatible service.
         """
         return pulumi.get(self, "fluentds")
 
     @_builtins.property
     @pulumi.getter(name="googlePubsubs")
-    def google_pubsubs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesGooglePubsub']]:
+    def google_pubsubs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceGooglePubsub']]:
         """
         The `google_pubsub` source ingests logs from a Google Cloud Pub/Sub subscription.
         """
@@ -45866,7 +49080,7 @@ class ObservabilityPipelineConfigSources(dict):
 
     @_builtins.property
     @pulumi.getter(name="httpClients")
-    def http_clients(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesHttpClient']]:
+    def http_clients(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceHttpClient']]:
         """
         The `http_client` source scrapes logs from HTTP endpoints at regular intervals.
         """
@@ -45874,7 +49088,7 @@ class ObservabilityPipelineConfigSources(dict):
 
     @_builtins.property
     @pulumi.getter(name="httpServers")
-    def http_servers(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesHttpServer']]:
+    def http_servers(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceHttpServer']]:
         """
         The `http_server` source collects logs over HTTP POST from external services.
         """
@@ -45882,7 +49096,7 @@ class ObservabilityPipelineConfigSources(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kafkas(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesKafka']]:
+    def kafkas(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceKafka']]:
         """
         The `kafka` source ingests data from Apache Kafka topics.
         """
@@ -45890,7 +49104,7 @@ class ObservabilityPipelineConfigSources(dict):
 
     @_builtins.property
     @pulumi.getter
-    def logstashes(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesLogstash']]:
+    def logstashes(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceLogstash']]:
         """
         The `logstash` source ingests logs from a Logstash forwarder.
         """
@@ -45898,7 +49112,15 @@ class ObservabilityPipelineConfigSources(dict):
 
     @_builtins.property
     @pulumi.getter
-    def rsyslogs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesRsyslog']]:
+    def opentelemetry(self) -> Optional['outputs.ObservabilityPipelineConfigSourceOpentelemetry']:
+        """
+        The `opentelemetry` source receives telemetry data using the OpenTelemetry Protocol (OTLP) over gRPC and HTTP.
+        """
+        return pulumi.get(self, "opentelemetry")
+
+    @_builtins.property
+    @pulumi.getter
+    def rsyslogs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceRsyslog']]:
         """
         The `rsyslog` source listens for logs over TCP or UDP from an `rsyslog` server using the syslog protocol.
         """
@@ -45906,7 +49128,7 @@ class ObservabilityPipelineConfigSources(dict):
 
     @_builtins.property
     @pulumi.getter
-    def sockets(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSocket']]:
+    def sockets(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceSocket']]:
         """
         The `socket` source ingests logs over TCP or UDP.
         """
@@ -45914,7 +49136,7 @@ class ObservabilityPipelineConfigSources(dict):
 
     @_builtins.property
     @pulumi.getter(name="splunkHecs")
-    def splunk_hecs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSplunkHec']]:
+    def splunk_hecs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceSplunkHec']]:
         """
         The `splunk_hec` source implements the Splunk HTTP Event Collector (HEC) API.
         """
@@ -45922,7 +49144,7 @@ class ObservabilityPipelineConfigSources(dict):
 
     @_builtins.property
     @pulumi.getter(name="splunkTcps")
-    def splunk_tcps(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSplunkTcp']]:
+    def splunk_tcps(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceSplunkTcp']]:
         """
         The `splunk_tcp` source receives logs from a Splunk Universal Forwarder over TCP. TLS is supported for secure transmission.
         """
@@ -45930,7 +49152,7 @@ class ObservabilityPipelineConfigSources(dict):
 
     @_builtins.property
     @pulumi.getter(name="sumoLogics")
-    def sumo_logics(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSumoLogic']]:
+    def sumo_logics(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceSumoLogic']]:
         """
         The `sumo_logic` source receives logs from Sumo Logic collectors.
         """
@@ -45938,7 +49160,7 @@ class ObservabilityPipelineConfigSources(dict):
 
     @_builtins.property
     @pulumi.getter(name="syslogNgs")
-    def syslog_ngs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSyslogNg']]:
+    def syslog_ngs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceSyslogNg']]:
         """
         The `syslog_ng` source listens for logs over TCP or UDP from a `syslog-ng` server using the syslog protocol.
         """
@@ -45946,17 +49168,14 @@ class ObservabilityPipelineConfigSources(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesAmazonDataFirehose(dict):
+class ObservabilityPipelineConfigSourceAmazonDataFirehose(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 auth: Optional['outputs.ObservabilityPipelineConfigSourcesAmazonDataFirehoseAuth'] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesAmazonDataFirehoseTls'] = None):
+                 auth: Optional['outputs.ObservabilityPipelineConfigSourceAmazonDataFirehoseAuth'] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceAmazonDataFirehoseTls'] = None):
         """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        :param 'ObservabilityPipelineConfigSourcesAmazonDataFirehoseAuthArgs' auth: AWS authentication credentials used for accessing AWS services such as S3. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
-        :param 'ObservabilityPipelineConfigSourcesAmazonDataFirehoseTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceAmazonDataFirehoseAuthArgs' auth: AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        :param 'ObservabilityPipelineConfigSourceAmazonDataFirehoseTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        pulumi.set(__self__, "id", id)
         if auth is not None:
             pulumi.set(__self__, "auth", auth)
         if tls is not None:
@@ -45964,23 +49183,15 @@ class ObservabilityPipelineConfigSourcesAmazonDataFirehose(dict):
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigSourceAmazonDataFirehoseAuth']:
         """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesAmazonDataFirehoseAuth']:
-        """
-        AWS authentication credentials used for accessing AWS services such as S3. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
         """
         return pulumi.get(self, "auth")
 
     @_builtins.property
     @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesAmazonDataFirehoseTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceAmazonDataFirehoseTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -45988,7 +49199,7 @@ class ObservabilityPipelineConfigSourcesAmazonDataFirehose(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesAmazonDataFirehoseAuth(dict):
+class ObservabilityPipelineConfigSourceAmazonDataFirehoseAuth(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -46000,14 +49211,14 @@ class ObservabilityPipelineConfigSourcesAmazonDataFirehoseAuth(dict):
             suggest = "session_name"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesAmazonDataFirehoseAuth. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceAmazonDataFirehoseAuth. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesAmazonDataFirehoseAuth.__key_warning(key)
+        ObservabilityPipelineConfigSourceAmazonDataFirehoseAuth.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesAmazonDataFirehoseAuth.__key_warning(key)
+        ObservabilityPipelineConfigSourceAmazonDataFirehoseAuth.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -46052,43 +49263,50 @@ class ObservabilityPipelineConfigSourcesAmazonDataFirehoseAuth(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesAmazonDataFirehoseTls(dict):
+class ObservabilityPipelineConfigSourceAmazonDataFirehoseTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesAmazonDataFirehoseTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceAmazonDataFirehoseTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesAmazonDataFirehoseTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceAmazonDataFirehoseTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesAmazonDataFirehoseTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceAmazonDataFirehoseTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -46097,14 +49315,6 @@ class ObservabilityPipelineConfigSourcesAmazonDataFirehoseTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -46116,32 +49326,21 @@ class ObservabilityPipelineConfigSourcesAmazonDataFirehoseTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesAmazonS3(dict):
+class ObservabilityPipelineConfigSourceAmazonS3(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
                  region: _builtins.str,
-                 auth: Optional['outputs.ObservabilityPipelineConfigSourcesAmazonS3Auth'] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesAmazonS3Tls'] = None):
+                 auth: Optional['outputs.ObservabilityPipelineConfigSourceAmazonS3Auth'] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceAmazonS3Tls'] = None):
         """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
         :param _builtins.str region: AWS region where the S3 bucket resides.
-        :param 'ObservabilityPipelineConfigSourcesAmazonS3AuthArgs' auth: AWS authentication credentials used for accessing AWS services such as S3. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
-        :param 'ObservabilityPipelineConfigSourcesAmazonS3TlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceAmazonS3AuthArgs' auth: AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        :param 'ObservabilityPipelineConfigSourceAmazonS3TlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "region", region)
         if auth is not None:
             pulumi.set(__self__, "auth", auth)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        """
-        return pulumi.get(self, "id")
 
     @_builtins.property
     @pulumi.getter
@@ -46153,15 +49352,15 @@ class ObservabilityPipelineConfigSourcesAmazonS3(dict):
 
     @_builtins.property
     @pulumi.getter
-    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesAmazonS3Auth']:
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigSourceAmazonS3Auth']:
         """
-        AWS authentication credentials used for accessing AWS services such as S3. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
         """
         return pulumi.get(self, "auth")
 
     @_builtins.property
     @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesAmazonS3Tls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceAmazonS3Tls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -46169,7 +49368,7 @@ class ObservabilityPipelineConfigSourcesAmazonS3(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesAmazonS3Auth(dict):
+class ObservabilityPipelineConfigSourceAmazonS3Auth(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -46181,14 +49380,14 @@ class ObservabilityPipelineConfigSourcesAmazonS3Auth(dict):
             suggest = "session_name"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesAmazonS3Auth. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceAmazonS3Auth. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesAmazonS3Auth.__key_warning(key)
+        ObservabilityPipelineConfigSourceAmazonS3Auth.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesAmazonS3Auth.__key_warning(key)
+        ObservabilityPipelineConfigSourceAmazonS3Auth.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -46233,43 +49432,50 @@ class ObservabilityPipelineConfigSourcesAmazonS3Auth(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesAmazonS3Tls(dict):
+class ObservabilityPipelineConfigSourceAmazonS3Tls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesAmazonS3Tls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceAmazonS3Tls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesAmazonS3Tls.__key_warning(key)
+        ObservabilityPipelineConfigSourceAmazonS3Tls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesAmazonS3Tls.__key_warning(key)
+        ObservabilityPipelineConfigSourceAmazonS3Tls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -46278,14 +49484,6 @@ class ObservabilityPipelineConfigSourcesAmazonS3Tls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -46297,29 +49495,18 @@ class ObservabilityPipelineConfigSourcesAmazonS3Tls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesDatadogAgent(dict):
+class ObservabilityPipelineConfigSourceDatadogAgent(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesDatadogAgentTls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceDatadogAgentTls'] = None):
         """
-        :param _builtins.str id: The unique ID of the source.
-        :param 'ObservabilityPipelineConfigSourcesDatadogAgentTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceDatadogAgentTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        pulumi.set(__self__, "id", id)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique ID of the source.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesDatadogAgentTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceDatadogAgentTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -46327,43 +49514,50 @@ class ObservabilityPipelineConfigSourcesDatadogAgent(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesDatadogAgentTls(dict):
+class ObservabilityPipelineConfigSourceDatadogAgentTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesDatadogAgentTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceDatadogAgentTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesDatadogAgentTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceDatadogAgentTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesDatadogAgentTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceDatadogAgentTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -46372,14 +49566,6 @@ class ObservabilityPipelineConfigSourcesDatadogAgentTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -46391,29 +49577,18 @@ class ObservabilityPipelineConfigSourcesDatadogAgentTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesFluentBit(dict):
+class ObservabilityPipelineConfigSourceFluentBit(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesFluentBitTls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceFluentBitTls'] = None):
         """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (for example, as the `input` to downstream components).
-        :param 'ObservabilityPipelineConfigSourcesFluentBitTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceFluentBitTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        pulumi.set(__self__, "id", id)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (for example, as the `input` to downstream components).
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesFluentBitTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceFluentBitTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -46421,43 +49596,50 @@ class ObservabilityPipelineConfigSourcesFluentBit(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesFluentBitTls(dict):
+class ObservabilityPipelineConfigSourceFluentBitTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesFluentBitTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceFluentBitTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesFluentBitTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceFluentBitTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesFluentBitTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceFluentBitTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -46466,14 +49648,6 @@ class ObservabilityPipelineConfigSourcesFluentBitTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -46485,29 +49659,18 @@ class ObservabilityPipelineConfigSourcesFluentBitTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesFluentd(dict):
+class ObservabilityPipelineConfigSourceFluentd(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesFluentdTls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceFluentdTls'] = None):
         """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (for example, as the `input` to downstream components).
-        :param 'ObservabilityPipelineConfigSourcesFluentdTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceFluentdTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        pulumi.set(__self__, "id", id)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (for example, as the `input` to downstream components).
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesFluentdTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceFluentdTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -46515,43 +49678,50 @@ class ObservabilityPipelineConfigSourcesFluentd(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesFluentdTls(dict):
+class ObservabilityPipelineConfigSourceFluentdTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesFluentdTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceFluentdTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesFluentdTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceFluentdTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesFluentdTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceFluentdTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -46560,14 +49730,6 @@ class ObservabilityPipelineConfigSourcesFluentdTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -46579,24 +49741,21 @@ class ObservabilityPipelineConfigSourcesFluentdTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesGooglePubsub(dict):
+class ObservabilityPipelineConfigSourceGooglePubsub(dict):
     def __init__(__self__, *,
                  decoding: _builtins.str,
-                 id: _builtins.str,
                  project: _builtins.str,
                  subscription: _builtins.str,
-                 auth: Optional['outputs.ObservabilityPipelineConfigSourcesGooglePubsubAuth'] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesGooglePubsubTls'] = None):
+                 auth: Optional['outputs.ObservabilityPipelineConfigSourceGooglePubsubAuth'] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceGooglePubsubTls'] = None):
         """
         :param _builtins.str decoding: The decoding format used to interpret incoming logs.
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
         :param _builtins.str project: The GCP project ID that owns the Pub/Sub subscription.
         :param _builtins.str subscription: The Pub/Sub subscription name from which messages are consumed.
-        :param 'ObservabilityPipelineConfigSourcesGooglePubsubAuthArgs' auth: GCP credentials used to authenticate with Google Cloud Storage.
-        :param 'ObservabilityPipelineConfigSourcesGooglePubsubTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceGooglePubsubAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
+        :param 'ObservabilityPipelineConfigSourceGooglePubsubTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "decoding", decoding)
-        pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "project", project)
         pulumi.set(__self__, "subscription", subscription)
         if auth is not None:
@@ -46611,14 +49770,6 @@ class ObservabilityPipelineConfigSourcesGooglePubsub(dict):
         The decoding format used to interpret incoming logs.
         """
         return pulumi.get(self, "decoding")
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        """
-        return pulumi.get(self, "id")
 
     @_builtins.property
     @pulumi.getter
@@ -46638,15 +49789,15 @@ class ObservabilityPipelineConfigSourcesGooglePubsub(dict):
 
     @_builtins.property
     @pulumi.getter
-    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesGooglePubsubAuth']:
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigSourceGooglePubsubAuth']:
         """
-        GCP credentials used to authenticate with Google Cloud Storage.
+        GCP credentials used to authenticate with Google Cloud services.
         """
         return pulumi.get(self, "auth")
 
     @_builtins.property
     @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesGooglePubsubTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceGooglePubsubTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -46654,7 +49805,7 @@ class ObservabilityPipelineConfigSourcesGooglePubsub(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesGooglePubsubAuth(dict):
+class ObservabilityPipelineConfigSourceGooglePubsubAuth(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -46662,14 +49813,14 @@ class ObservabilityPipelineConfigSourcesGooglePubsubAuth(dict):
             suggest = "credentials_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesGooglePubsubAuth. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceGooglePubsubAuth. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesGooglePubsubAuth.__key_warning(key)
+        ObservabilityPipelineConfigSourceGooglePubsubAuth.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesGooglePubsubAuth.__key_warning(key)
+        ObservabilityPipelineConfigSourceGooglePubsubAuth.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -46689,43 +49840,50 @@ class ObservabilityPipelineConfigSourcesGooglePubsubAuth(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesGooglePubsubTls(dict):
+class ObservabilityPipelineConfigSourceGooglePubsubTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesGooglePubsubTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceGooglePubsubTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesGooglePubsubTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceGooglePubsubTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesGooglePubsubTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceGooglePubsubTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -46734,14 +49892,6 @@ class ObservabilityPipelineConfigSourcesGooglePubsubTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -46753,7 +49903,7 @@ class ObservabilityPipelineConfigSourcesGooglePubsubTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesHttpClient(dict):
+class ObservabilityPipelineConfigSourceHttpClient(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -46765,33 +49915,30 @@ class ObservabilityPipelineConfigSourcesHttpClient(dict):
             suggest = "scrape_timeout_secs"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesHttpClient. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceHttpClient. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesHttpClient.__key_warning(key)
+        ObservabilityPipelineConfigSourceHttpClient.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesHttpClient.__key_warning(key)
+        ObservabilityPipelineConfigSourceHttpClient.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
                  decoding: _builtins.str,
-                 id: _builtins.str,
                  auth_strategy: Optional[_builtins.str] = None,
                  scrape_interval_secs: Optional[_builtins.int] = None,
                  scrape_timeout_secs: Optional[_builtins.int] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesHttpClientTls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceHttpClientTls'] = None):
         """
         :param _builtins.str decoding: The decoding format used to interpret incoming logs.
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        :param _builtins.str auth_strategy: Optional authentication strategy for HTTP requests.
+        :param _builtins.str auth_strategy: Optional authentication strategy for HTTP requests. Valid values are `none`, `basic`, `bearer`.
         :param _builtins.int scrape_interval_secs: The interval (in seconds) between HTTP scrape requests.
         :param _builtins.int scrape_timeout_secs: The timeout (in seconds) for each scrape request.
-        :param 'ObservabilityPipelineConfigSourcesHttpClientTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceHttpClientTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "decoding", decoding)
-        pulumi.set(__self__, "id", id)
         if auth_strategy is not None:
             pulumi.set(__self__, "auth_strategy", auth_strategy)
         if scrape_interval_secs is not None:
@@ -46810,18 +49957,10 @@ class ObservabilityPipelineConfigSourcesHttpClient(dict):
         return pulumi.get(self, "decoding")
 
     @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
     @pulumi.getter(name="authStrategy")
     def auth_strategy(self) -> Optional[_builtins.str]:
         """
-        Optional authentication strategy for HTTP requests.
+        Optional authentication strategy for HTTP requests. Valid values are `none`, `basic`, `bearer`.
         """
         return pulumi.get(self, "auth_strategy")
 
@@ -46843,7 +49982,7 @@ class ObservabilityPipelineConfigSourcesHttpClient(dict):
 
     @_builtins.property
     @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesHttpClientTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceHttpClientTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -46851,43 +49990,50 @@ class ObservabilityPipelineConfigSourcesHttpClient(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesHttpClientTls(dict):
+class ObservabilityPipelineConfigSourceHttpClientTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesHttpClientTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceHttpClientTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesHttpClientTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceHttpClientTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesHttpClientTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceHttpClientTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -46896,14 +50042,6 @@ class ObservabilityPipelineConfigSourcesHttpClientTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -46915,7 +50053,7 @@ class ObservabilityPipelineConfigSourcesHttpClientTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesHttpServer(dict):
+class ObservabilityPipelineConfigSourceHttpServer(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -46923,30 +50061,27 @@ class ObservabilityPipelineConfigSourcesHttpServer(dict):
             suggest = "auth_strategy"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesHttpServer. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceHttpServer. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesHttpServer.__key_warning(key)
+        ObservabilityPipelineConfigSourceHttpServer.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesHttpServer.__key_warning(key)
+        ObservabilityPipelineConfigSourceHttpServer.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
                  auth_strategy: _builtins.str,
                  decoding: _builtins.str,
-                 id: _builtins.str,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesHttpServerTls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceHttpServerTls'] = None):
         """
         :param _builtins.str auth_strategy: HTTP authentication method. Valid values are `none`, `plain`.
         :param _builtins.str decoding: The decoding format used to interpret incoming logs. Valid values are `json`, `gelf`, `syslog`, `bytes`.
-        :param _builtins.str id: Unique ID for the HTTP server source.
-        :param 'ObservabilityPipelineConfigSourcesHttpServerTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceHttpServerTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "auth_strategy", auth_strategy)
         pulumi.set(__self__, "decoding", decoding)
-        pulumi.set(__self__, "id", id)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
@@ -46968,15 +50103,7 @@ class ObservabilityPipelineConfigSourcesHttpServer(dict):
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        Unique ID for the HTTP server source.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesHttpServerTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceHttpServerTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -46984,43 +50111,50 @@ class ObservabilityPipelineConfigSourcesHttpServer(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesHttpServerTls(dict):
+class ObservabilityPipelineConfigSourceHttpServerTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesHttpServerTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceHttpServerTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesHttpServerTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceHttpServerTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesHttpServerTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceHttpServerTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -47029,14 +50163,6 @@ class ObservabilityPipelineConfigSourcesHttpServerTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -47048,7 +50174,7 @@ class ObservabilityPipelineConfigSourcesHttpServerTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesKafka(dict):
+class ObservabilityPipelineConfigSourceKafka(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -47058,33 +50184,30 @@ class ObservabilityPipelineConfigSourcesKafka(dict):
             suggest = "librdkafka_options"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesKafka. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceKafka. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesKafka.__key_warning(key)
+        ObservabilityPipelineConfigSourceKafka.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesKafka.__key_warning(key)
+        ObservabilityPipelineConfigSourceKafka.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
                  group_id: _builtins.str,
-                 id: _builtins.str,
                  topics: Sequence[_builtins.str],
-                 librdkafka_options: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesKafkaLibrdkafkaOption']] = None,
-                 sasl: Optional['outputs.ObservabilityPipelineConfigSourcesKafkaSasl'] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesKafkaTls'] = None):
+                 librdkafka_options: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceKafkaLibrdkafkaOption']] = None,
+                 sasl: Optional['outputs.ObservabilityPipelineConfigSourceKafkaSasl'] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceKafkaTls'] = None):
         """
         :param _builtins.str group_id: The Kafka consumer group ID.
-        :param _builtins.str id: The unique ID of the source.
         :param Sequence[_builtins.str] topics: A list of Kafka topic names to subscribe to. The source ingests messages from each topic specified.
-        :param Sequence['ObservabilityPipelineConfigSourcesKafkaLibrdkafkaOptionArgs'] librdkafka_options: Advanced librdkafka client configuration options.
-        :param 'ObservabilityPipelineConfigSourcesKafkaSaslArgs' sasl: SASL authentication settings.
-        :param 'ObservabilityPipelineConfigSourcesKafkaTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param Sequence['ObservabilityPipelineConfigSourceKafkaLibrdkafkaOptionArgs'] librdkafka_options: Advanced librdkafka client configuration options.
+        :param 'ObservabilityPipelineConfigSourceKafkaSaslArgs' sasl: SASL authentication settings.
+        :param 'ObservabilityPipelineConfigSourceKafkaTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "group_id", group_id)
-        pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "topics", topics)
         if librdkafka_options is not None:
             pulumi.set(__self__, "librdkafka_options", librdkafka_options)
@@ -47103,14 +50226,6 @@ class ObservabilityPipelineConfigSourcesKafka(dict):
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique ID of the source.
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
     def topics(self) -> Sequence[_builtins.str]:
         """
         A list of Kafka topic names to subscribe to. The source ingests messages from each topic specified.
@@ -47119,7 +50234,7 @@ class ObservabilityPipelineConfigSourcesKafka(dict):
 
     @_builtins.property
     @pulumi.getter(name="librdkafkaOptions")
-    def librdkafka_options(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesKafkaLibrdkafkaOption']]:
+    def librdkafka_options(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceKafkaLibrdkafkaOption']]:
         """
         Advanced librdkafka client configuration options.
         """
@@ -47127,7 +50242,7 @@ class ObservabilityPipelineConfigSourcesKafka(dict):
 
     @_builtins.property
     @pulumi.getter
-    def sasl(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesKafkaSasl']:
+    def sasl(self) -> Optional['outputs.ObservabilityPipelineConfigSourceKafkaSasl']:
         """
         SASL authentication settings.
         """
@@ -47135,7 +50250,7 @@ class ObservabilityPipelineConfigSourcesKafka(dict):
 
     @_builtins.property
     @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesKafkaTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceKafkaTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -47143,7 +50258,7 @@ class ObservabilityPipelineConfigSourcesKafka(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesKafkaLibrdkafkaOption(dict):
+class ObservabilityPipelineConfigSourceKafkaLibrdkafkaOption(dict):
     def __init__(__self__, *,
                  name: _builtins.str,
                  value: _builtins.str):
@@ -47172,18 +50287,17 @@ class ObservabilityPipelineConfigSourcesKafkaLibrdkafkaOption(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesKafkaSasl(dict):
+class ObservabilityPipelineConfigSourceKafkaSasl(dict):
     def __init__(__self__, *,
-                 mechanism: Optional[_builtins.str] = None):
+                 mechanism: _builtins.str):
         """
         :param _builtins.str mechanism: SASL mechanism to use (e.g., PLAIN, SCRAM-SHA-256, SCRAM-SHA-512). Valid values are `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`.
         """
-        if mechanism is not None:
-            pulumi.set(__self__, "mechanism", mechanism)
+        pulumi.set(__self__, "mechanism", mechanism)
 
     @_builtins.property
     @pulumi.getter
-    def mechanism(self) -> Optional[_builtins.str]:
+    def mechanism(self) -> _builtins.str:
         """
         SASL mechanism to use (e.g., PLAIN, SCRAM-SHA-256, SCRAM-SHA-512). Valid values are `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`.
         """
@@ -47191,43 +50305,50 @@ class ObservabilityPipelineConfigSourcesKafkaSasl(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesKafkaTls(dict):
+class ObservabilityPipelineConfigSourceKafkaTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesKafkaTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceKafkaTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesKafkaTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceKafkaTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesKafkaTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceKafkaTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -47236,14 +50357,6 @@ class ObservabilityPipelineConfigSourcesKafkaTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -47255,29 +50368,18 @@ class ObservabilityPipelineConfigSourcesKafkaTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesLogstash(dict):
+class ObservabilityPipelineConfigSourceLogstash(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesLogstashTls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceLogstashTls'] = None):
         """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        :param 'ObservabilityPipelineConfigSourcesLogstashTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceLogstashTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        pulumi.set(__self__, "id", id)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesLogstashTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceLogstashTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -47285,43 +50387,50 @@ class ObservabilityPipelineConfigSourcesLogstash(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesLogstashTls(dict):
+class ObservabilityPipelineConfigSourceLogstashTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesLogstashTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceLogstashTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesLogstashTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceLogstashTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesLogstashTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceLogstashTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -47330,14 +50439,6 @@ class ObservabilityPipelineConfigSourcesLogstashTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -47349,29 +50450,100 @@ class ObservabilityPipelineConfigSourcesLogstashTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesRsyslog(dict):
+class ObservabilityPipelineConfigSourceOpentelemetry(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 mode: Optional[_builtins.str] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesRsyslogTls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceOpentelemetryTls'] = None):
         """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        :param _builtins.str mode: Protocol used by the syslog source to receive messages.
-        :param 'ObservabilityPipelineConfigSourcesRsyslogTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceOpentelemetryTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        pulumi.set(__self__, "id", id)
-        if mode is not None:
-            pulumi.set(__self__, "mode", mode)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceOpentelemetryTls']:
         """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
+        Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        return pulumi.get(self, "id")
+        return pulumi.get(self, "tls")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigSourceOpentelemetryTls(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "crtFile":
+            suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
+        elif key == "keyFile":
+            suggest = "key_file"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceOpentelemetryTls. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceOpentelemetryTls.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceOpentelemetryTls.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 crt_file: _builtins.str,
+                 ca_file: Optional[_builtins.str] = None,
+                 key_file: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        pulumi.set(__self__, "crt_file", crt_file)
+        if ca_file is not None:
+            pulumi.set(__self__, "ca_file", ca_file)
+        if key_file is not None:
+            pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
+
+    @_builtins.property
+    @pulumi.getter(name="caFile")
+    def ca_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        """
+        return pulumi.get(self, "ca_file")
+
+    @_builtins.property
+    @pulumi.getter(name="keyFile")
+    def key_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        return pulumi.get(self, "key_file")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigSourceRsyslog(dict):
+    def __init__(__self__, *,
+                 mode: Optional[_builtins.str] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceRsyslogTls'] = None):
+        """
+        :param _builtins.str mode: Protocol used by the syslog source to receive messages.
+        :param 'ObservabilityPipelineConfigSourceRsyslogTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        if mode is not None:
+            pulumi.set(__self__, "mode", mode)
+        if tls is not None:
+            pulumi.set(__self__, "tls", tls)
 
     @_builtins.property
     @pulumi.getter
@@ -47383,7 +50555,7 @@ class ObservabilityPipelineConfigSourcesRsyslog(dict):
 
     @_builtins.property
     @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesRsyslogTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceRsyslogTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -47391,43 +50563,50 @@ class ObservabilityPipelineConfigSourcesRsyslog(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesRsyslogTls(dict):
+class ObservabilityPipelineConfigSourceRsyslogTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesRsyslogTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceRsyslogTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesRsyslogTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceRsyslogTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesRsyslogTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceRsyslogTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -47436,14 +50615,6 @@ class ObservabilityPipelineConfigSourcesRsyslogTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -47455,32 +50626,21 @@ class ObservabilityPipelineConfigSourcesRsyslogTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesSocket(dict):
+class ObservabilityPipelineConfigSourceSocket(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
                  mode: _builtins.str,
-                 framing: Optional['outputs.ObservabilityPipelineConfigSourcesSocketFraming'] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesSocketTls'] = None):
+                 framing: Optional['outputs.ObservabilityPipelineConfigSourceSocketFraming'] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceSocketTls'] = None):
         """
-        :param _builtins.str id: The unique identifier for this component.
         :param _builtins.str mode: The protocol used to receive logs. Valid values are `tcp`, `udp`.
-        :param 'ObservabilityPipelineConfigSourcesSocketFramingArgs' framing: Defines the framing method for incoming messages.
-        :param 'ObservabilityPipelineConfigSourcesSocketTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceSocketFramingArgs' framing: Defines the framing method for incoming messages.
+        :param 'ObservabilityPipelineConfigSourceSocketTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "mode", mode)
         if framing is not None:
             pulumi.set(__self__, "framing", framing)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component.
-        """
-        return pulumi.get(self, "id")
 
     @_builtins.property
     @pulumi.getter
@@ -47492,7 +50652,7 @@ class ObservabilityPipelineConfigSourcesSocket(dict):
 
     @_builtins.property
     @pulumi.getter
-    def framing(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesSocketFraming']:
+    def framing(self) -> Optional['outputs.ObservabilityPipelineConfigSourceSocketFraming']:
         """
         Defines the framing method for incoming messages.
         """
@@ -47500,7 +50660,7 @@ class ObservabilityPipelineConfigSourcesSocket(dict):
 
     @_builtins.property
     @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesSocketTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceSocketTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -47508,7 +50668,7 @@ class ObservabilityPipelineConfigSourcesSocket(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesSocketFraming(dict):
+class ObservabilityPipelineConfigSourceSocketFraming(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -47516,58 +50676,56 @@ class ObservabilityPipelineConfigSourcesSocketFraming(dict):
             suggest = "character_delimited"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesSocketFraming. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSocketFraming. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesSocketFraming.__key_warning(key)
+        ObservabilityPipelineConfigSourceSocketFraming.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesSocketFraming.__key_warning(key)
+        ObservabilityPipelineConfigSourceSocketFraming.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 character_delimited: Optional['outputs.ObservabilityPipelineConfigSourcesSocketFramingCharacterDelimited'] = None,
-                 method: Optional[_builtins.str] = None):
+                 method: _builtins.str,
+                 character_delimited: Optional['outputs.ObservabilityPipelineConfigSourceSocketFramingCharacterDelimited'] = None):
         """
-        :param 'ObservabilityPipelineConfigSourcesSocketFramingCharacterDelimitedArgs' character_delimited: Used when `method` is `character_delimited`. Specifies the delimiter character.
         :param _builtins.str method: The framing method. Valid values are `newline_delimited`, `bytes`, `character_delimited`, `octet_counting`, `chunked_gelf`.
+        :param 'ObservabilityPipelineConfigSourceSocketFramingCharacterDelimitedArgs' character_delimited: Used when `method` is `character_delimited`. Specifies the delimiter character.
         """
+        pulumi.set(__self__, "method", method)
         if character_delimited is not None:
             pulumi.set(__self__, "character_delimited", character_delimited)
-        if method is not None:
-            pulumi.set(__self__, "method", method)
-
-    @_builtins.property
-    @pulumi.getter(name="characterDelimited")
-    def character_delimited(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesSocketFramingCharacterDelimited']:
-        """
-        Used when `method` is `character_delimited`. Specifies the delimiter character.
-        """
-        return pulumi.get(self, "character_delimited")
 
     @_builtins.property
     @pulumi.getter
-    def method(self) -> Optional[_builtins.str]:
+    def method(self) -> _builtins.str:
         """
         The framing method. Valid values are `newline_delimited`, `bytes`, `character_delimited`, `octet_counting`, `chunked_gelf`.
         """
         return pulumi.get(self, "method")
 
+    @_builtins.property
+    @pulumi.getter(name="characterDelimited")
+    def character_delimited(self) -> Optional['outputs.ObservabilityPipelineConfigSourceSocketFramingCharacterDelimited']:
+        """
+        Used when `method` is `character_delimited`. Specifies the delimiter character.
+        """
+        return pulumi.get(self, "character_delimited")
+
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesSocketFramingCharacterDelimited(dict):
+class ObservabilityPipelineConfigSourceSocketFramingCharacterDelimited(dict):
     def __init__(__self__, *,
-                 delimiter: Optional[_builtins.str] = None):
+                 delimiter: _builtins.str):
         """
         :param _builtins.str delimiter: A single ASCII character used as a delimiter.
         """
-        if delimiter is not None:
-            pulumi.set(__self__, "delimiter", delimiter)
+        pulumi.set(__self__, "delimiter", delimiter)
 
     @_builtins.property
     @pulumi.getter
-    def delimiter(self) -> Optional[_builtins.str]:
+    def delimiter(self) -> _builtins.str:
         """
         A single ASCII character used as a delimiter.
         """
@@ -47575,43 +50733,50 @@ class ObservabilityPipelineConfigSourcesSocketFramingCharacterDelimited(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesSocketTls(dict):
+class ObservabilityPipelineConfigSourceSocketTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesSocketTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSocketTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesSocketTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceSocketTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesSocketTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceSocketTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -47620,14 +50785,6 @@ class ObservabilityPipelineConfigSourcesSocketTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -47639,29 +50796,18 @@ class ObservabilityPipelineConfigSourcesSocketTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesSplunkHec(dict):
+class ObservabilityPipelineConfigSourceSplunkHec(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesSplunkHecTls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceSplunkHecTls'] = None):
         """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        :param 'ObservabilityPipelineConfigSourcesSplunkHecTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceSplunkHecTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        pulumi.set(__self__, "id", id)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesSplunkHecTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceSplunkHecTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -47669,43 +50815,50 @@ class ObservabilityPipelineConfigSourcesSplunkHec(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesSplunkHecTls(dict):
+class ObservabilityPipelineConfigSourceSplunkHecTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesSplunkHecTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSplunkHecTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesSplunkHecTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceSplunkHecTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesSplunkHecTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceSplunkHecTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -47714,14 +50867,6 @@ class ObservabilityPipelineConfigSourcesSplunkHecTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -47733,29 +50878,18 @@ class ObservabilityPipelineConfigSourcesSplunkHecTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesSplunkTcp(dict):
+class ObservabilityPipelineConfigSourceSplunkTcp(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesSplunkTcpTls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceSplunkTcpTls'] = None):
         """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        :param 'ObservabilityPipelineConfigSourcesSplunkTcpTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceSplunkTcpTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        pulumi.set(__self__, "id", id)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
     @_builtins.property
     @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        """
-        return pulumi.get(self, "id")
-
-    @_builtins.property
-    @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesSplunkTcpTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceSplunkTcpTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -47763,43 +50897,50 @@ class ObservabilityPipelineConfigSourcesSplunkTcp(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesSplunkTcpTls(dict):
+class ObservabilityPipelineConfigSourceSplunkTcpTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesSplunkTcpTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSplunkTcpTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesSplunkTcpTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceSplunkTcpTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesSplunkTcpTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceSplunkTcpTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -47808,14 +50949,6 @@ class ObservabilityPipelineConfigSourcesSplunkTcpTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -47827,47 +50960,24 @@ class ObservabilityPipelineConfigSourcesSplunkTcpTls(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesSumoLogic(dict):
-    def __init__(__self__, *,
-                 id: _builtins.str):
-        """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        """
-        pulumi.set(__self__, "id", id)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        """
-        return pulumi.get(self, "id")
+class ObservabilityPipelineConfigSourceSumoLogic(dict):
+    def __init__(__self__):
+        pass
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesSyslogNg(dict):
+class ObservabilityPipelineConfigSourceSyslogNg(dict):
     def __init__(__self__, *,
-                 id: _builtins.str,
                  mode: Optional[_builtins.str] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesSyslogNgTls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceSyslogNgTls'] = None):
         """
-        :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
         :param _builtins.str mode: Protocol used by the syslog source to receive messages.
-        :param 'ObservabilityPipelineConfigSourcesSyslogNgTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param 'ObservabilityPipelineConfigSourceSyslogNgTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
-        pulumi.set(__self__, "id", id)
         if mode is not None:
             pulumi.set(__self__, "mode", mode)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        """
-        return pulumi.get(self, "id")
 
     @_builtins.property
     @pulumi.getter
@@ -47879,7 +50989,7 @@ class ObservabilityPipelineConfigSourcesSyslogNg(dict):
 
     @_builtins.property
     @pulumi.getter
-    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesSyslogNgTls']:
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceSyslogNgTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
@@ -47887,43 +50997,50 @@ class ObservabilityPipelineConfigSourcesSyslogNg(dict):
 
 
 @pulumi.output_type
-class ObservabilityPipelineConfigSourcesSyslogNgTls(dict):
+class ObservabilityPipelineConfigSourceSyslogNgTls(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "caFile":
-            suggest = "ca_file"
-        elif key == "crtFile":
+        if key == "crtFile":
             suggest = "crt_file"
+        elif key == "caFile":
+            suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesSyslogNgTls. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSyslogNgTls. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigSourcesSyslogNgTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceSyslogNgTls.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigSourcesSyslogNgTls.__key_warning(key)
+        ObservabilityPipelineConfigSourceSyslogNgTls.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
+        pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
-        if crt_file is not None:
-            pulumi.set(__self__, "crt_file", crt_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> _builtins.str:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="caFile")
@@ -47932,14 +51049,6 @@ class ObservabilityPipelineConfigSourcesSyslogNgTls(dict):
         Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
-
-    @_builtins.property
-    @pulumi.getter(name="crtFile")
-    def crt_file(self) -> Optional[_builtins.str]:
-        """
-        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
-        """
-        return pulumi.get(self, "crt_file")
 
     @_builtins.property
     @pulumi.getter(name="keyFile")
@@ -48023,20 +51132,32 @@ class OnCallEscalationPolicyStep(dict):
 @pulumi.output_type
 class OnCallEscalationPolicyStepTarget(dict):
     def __init__(__self__, *,
+                 position: Optional[_builtins.str] = None,
                  schedule: Optional[_builtins.str] = None,
                  team: Optional[_builtins.str] = None,
                  user: Optional[_builtins.str] = None):
         """
+        :param _builtins.str position: For schedule targets, specifies which on-call user to page. Valid values: `current` (default), `previous`, `next`. Valid values are `current`, `previous`, `next`.
         :param _builtins.str schedule: Targeted schedule ID.
         :param _builtins.str team: Targeted team ID.
         :param _builtins.str user: Targeted user ID.
         """
+        if position is not None:
+            pulumi.set(__self__, "position", position)
         if schedule is not None:
             pulumi.set(__self__, "schedule", schedule)
         if team is not None:
             pulumi.set(__self__, "team", team)
         if user is not None:
             pulumi.set(__self__, "user", user)
+
+    @_builtins.property
+    @pulumi.getter
+    def position(self) -> Optional[_builtins.str]:
+        """
+        For schedule targets, specifies which on-call user to page. Valid values: `current` (default), `previous`, `next`. Valid values are `current`, `previous`, `next`.
+        """
+        return pulumi.get(self, "position")
 
     @_builtins.property
     @pulumi.getter
@@ -48074,6 +51195,8 @@ class OnCallScheduleLayer(dict):
             suggest = "rotation_start"
         elif key == "endDate":
             suggest = "end_date"
+        elif key == "timeZone":
+            suggest = "time_zone"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in OnCallScheduleLayer. Access the value via the '{suggest}' property getter instead.")
@@ -48094,7 +51217,8 @@ class OnCallScheduleLayer(dict):
                  end_date: Optional[_builtins.str] = None,
                  id: Optional[_builtins.str] = None,
                  interval: Optional['outputs.OnCallScheduleLayerInterval'] = None,
-                 restrictions: Optional[Sequence['outputs.OnCallScheduleLayerRestriction']] = None):
+                 restrictions: Optional[Sequence['outputs.OnCallScheduleLayerRestriction']] = None,
+                 time_zone: Optional[_builtins.str] = None):
         """
         :param _builtins.str effective_date: The date/time when this layer should become active (in ISO 8601).
         :param _builtins.str name: The name of this layer. Should be unique within the schedule.
@@ -48104,6 +51228,7 @@ class OnCallScheduleLayer(dict):
         :param _builtins.str id: The ID of this layer.
         :param 'OnCallScheduleLayerIntervalArgs' interval: Rotation interval for this layer.
         :param Sequence['OnCallScheduleLayerRestrictionArgs'] restrictions: List of restrictions for the layer.
+        :param _builtins.str time_zone: The time zone for this layer. If not specified, the layer inherits the schedule's time zone.
         """
         pulumi.set(__self__, "effective_date", effective_date)
         pulumi.set(__self__, "name", name)
@@ -48117,6 +51242,8 @@ class OnCallScheduleLayer(dict):
             pulumi.set(__self__, "interval", interval)
         if restrictions is not None:
             pulumi.set(__self__, "restrictions", restrictions)
+        if time_zone is not None:
+            pulumi.set(__self__, "time_zone", time_zone)
 
     @_builtins.property
     @pulumi.getter(name="effectiveDate")
@@ -48181,6 +51308,14 @@ class OnCallScheduleLayer(dict):
         List of restrictions for the layer.
         """
         return pulumi.get(self, "restrictions")
+
+    @_builtins.property
+    @pulumi.getter(name="timeZone")
+    def time_zone(self) -> Optional[_builtins.str]:
+        """
+        The time zone for this layer. If not specified, the layer inherits the schedule's time zone.
+        """
+        return pulumi.get(self, "time_zone")
 
 
 @pulumi.output_type
@@ -48624,6 +51759,75 @@ class OnCallTeamRoutingRulesRuleTimeRestrictionsRestriction(dict):
         The time of day when the restriction begins (hh:mm:ss).
         """
         return pulumi.get(self, "start_time")
+
+
+@pulumi.output_type
+class OnCallUserNotificationChannelEmail(dict):
+    def __init__(__self__, *,
+                 address: Optional[_builtins.str] = None,
+                 formats: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str address: The e-mail address to be notified
+        :param Sequence[_builtins.str] formats: Preferred content formats for notifications
+        """
+        if address is not None:
+            pulumi.set(__self__, "address", address)
+        if formats is not None:
+            pulumi.set(__self__, "formats", formats)
+
+    @_builtins.property
+    @pulumi.getter
+    def address(self) -> Optional[_builtins.str]:
+        """
+        The e-mail address to be notified
+        """
+        return pulumi.get(self, "address")
+
+    @_builtins.property
+    @pulumi.getter
+    def formats(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Preferred content formats for notifications
+        """
+        return pulumi.get(self, "formats")
+
+
+@pulumi.output_type
+class OnCallUserNotificationChannelPhone(dict):
+    def __init__(__self__, *,
+                 number: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str number: The E-164 formatted phone number (e.g. +3371234567)
+        """
+        if number is not None:
+            pulumi.set(__self__, "number", number)
+
+    @_builtins.property
+    @pulumi.getter
+    def number(self) -> Optional[_builtins.str]:
+        """
+        The E-164 formatted phone number (e.g. +3371234567)
+        """
+        return pulumi.get(self, "number")
+
+
+@pulumi.output_type
+class OnCallUserNotificationRulePhone(dict):
+    def __init__(__self__, *,
+                 method: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str method: Specifies the method in which a phone is used in a notification rule. Valid values are `sms`, `voice`.
+        """
+        if method is not None:
+            pulumi.set(__self__, "method", method)
+
+    @_builtins.property
+    @pulumi.getter
+    def method(self) -> Optional[_builtins.str]:
+        """
+        Specifies the method in which a phone is used in a notification rule. Valid values are `sms`, `voice`.
+        """
+        return pulumi.get(self, "method")
 
 
 @pulumi.output_type
@@ -49432,6 +52636,8 @@ class PowerpackWidgetAlertGraphDefinition(dict):
             suggest = "alert_id"
         elif key == "vizType":
             suggest = "viz_type"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -49453,6 +52659,7 @@ class PowerpackWidgetAlertGraphDefinition(dict):
     def __init__(__self__, *,
                  alert_id: _builtins.str,
                  viz_type: _builtins.str,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  title: Optional[_builtins.str] = None,
                  title_align: Optional[_builtins.str] = None,
@@ -49460,6 +52667,7 @@ class PowerpackWidgetAlertGraphDefinition(dict):
         """
         :param _builtins.str alert_id: The ID of the monitor used by the widget.
         :param _builtins.str viz_type: Type of visualization to use when displaying the widget. Valid values are `timeseries`, `toplist`.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.str title: The title of the widget.
         :param _builtins.str title_align: The alignment of the widget's title. Valid values are `center`, `left`, `right`.
@@ -49467,6 +52675,8 @@ class PowerpackWidgetAlertGraphDefinition(dict):
         """
         pulumi.set(__self__, "alert_id", alert_id)
         pulumi.set(__self__, "viz_type", viz_type)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if title is not None:
@@ -49491,6 +52701,14 @@ class PowerpackWidgetAlertGraphDefinition(dict):
         Type of visualization to use when displaying the widget. Valid values are `timeseries`, `toplist`.
         """
         return pulumi.get(self, "viz_type")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -49645,6 +52863,8 @@ class PowerpackWidgetChangeDefinition(dict):
         suggest = None
         if key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -49665,6 +52885,7 @@ class PowerpackWidgetChangeDefinition(dict):
 
     def __init__(__self__, *,
                  custom_links: Optional[Sequence['outputs.PowerpackWidgetChangeDefinitionCustomLink']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  requests: Optional[Sequence['outputs.PowerpackWidgetChangeDefinitionRequest']] = None,
                  title: Optional[_builtins.str] = None,
@@ -49672,6 +52893,7 @@ class PowerpackWidgetChangeDefinition(dict):
                  title_size: Optional[_builtins.str] = None):
         """
         :param Sequence['PowerpackWidgetChangeDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence['PowerpackWidgetChangeDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple request blocks are allowed using the structure below (exactly one of `q`, `apm_query`, `log_query`, `rum_query`, `security_query` or `process_query` is required within the request block).
         :param _builtins.str title: The title of the widget.
@@ -49680,6 +52902,8 @@ class PowerpackWidgetChangeDefinition(dict):
         """
         if custom_links is not None:
             pulumi.set(__self__, "custom_links", custom_links)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if requests is not None:
@@ -49698,6 +52922,14 @@ class PowerpackWidgetChangeDefinition(dict):
         A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "custom_links")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -51697,7 +54929,7 @@ class PowerpackWidgetChangeDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['PowerpackWidgetChangeDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -51731,7 +54963,7 @@ class PowerpackWidgetChangeDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -51937,6 +55169,8 @@ class PowerpackWidgetChangeDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetChangeDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -51954,13 +55188,15 @@ class PowerpackWidgetChangeDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -51970,6 +55206,8 @@ class PowerpackWidgetChangeDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -52010,6 +55248,14 @@ class PowerpackWidgetChangeDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -52843,6 +56089,8 @@ class PowerpackWidgetCheckStatusDefinition(dict):
         suggest = None
         if key == "groupBies":
             suggest = "group_bies"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -52866,6 +56114,7 @@ class PowerpackWidgetCheckStatusDefinition(dict):
                  grouping: _builtins.str,
                  group: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence[_builtins.str]] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  tags: Optional[Sequence[_builtins.str]] = None,
                  title: Optional[_builtins.str] = None,
@@ -52876,6 +56125,7 @@ class PowerpackWidgetCheckStatusDefinition(dict):
         :param _builtins.str grouping: The kind of grouping to use. Valid values are `check`, `cluster`.
         :param _builtins.str group: The check group to use in the widget.
         :param Sequence[_builtins.str] group_bies: When `grouping = "cluster"`, indicates a list of tags to use for grouping.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence[_builtins.str] tags: A list of tags to use in the widget.
         :param _builtins.str title: The title of the widget.
@@ -52888,6 +56138,8 @@ class PowerpackWidgetCheckStatusDefinition(dict):
             pulumi.set(__self__, "group", group)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if tags is not None:
@@ -52930,6 +56182,14 @@ class PowerpackWidgetCheckStatusDefinition(dict):
         When `grouping = "cluster"`, indicates a list of tags to use for grouping.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -52977,7 +56237,9 @@ class PowerpackWidgetDistributionDefinition(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "legendSize":
+        if key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
+        elif key == "legendSize":
             suggest = "legend_size"
         elif key == "liveSpan":
             suggest = "live_span"
@@ -53000,6 +56262,7 @@ class PowerpackWidgetDistributionDefinition(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  legend_size: Optional[_builtins.str] = None,
                  live_span: Optional[_builtins.str] = None,
                  requests: Optional[Sequence['outputs.PowerpackWidgetDistributionDefinitionRequest']] = None,
@@ -53010,6 +56273,7 @@ class PowerpackWidgetDistributionDefinition(dict):
                  xaxis: Optional['outputs.PowerpackWidgetDistributionDefinitionXaxis'] = None,
                  yaxis: Optional['outputs.PowerpackWidgetDistributionDefinitionYaxis'] = None):
         """
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str legend_size: The size of the legend displayed in the widget.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence['PowerpackWidgetDistributionDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple request blocks are allowed using the structure below (exactly one of `q`, `apm_query`, `log_query`, `rum_query`, `security_query` or `process_query` is required within the request block).
@@ -53020,6 +56284,8 @@ class PowerpackWidgetDistributionDefinition(dict):
         :param 'PowerpackWidgetDistributionDefinitionXaxisArgs' xaxis: A nested block describing the X-Axis Controls. Exactly one nested block is allowed using the structure below.
         :param 'PowerpackWidgetDistributionDefinitionYaxisArgs' yaxis: A nested block describing the Y-Axis Controls. Exactly one nested block is allowed using the structure below.
         """
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if legend_size is not None:
             pulumi.set(__self__, "legend_size", legend_size)
         if live_span is not None:
@@ -53038,6 +56304,14 @@ class PowerpackWidgetDistributionDefinition(dict):
             pulumi.set(__self__, "xaxis", xaxis)
         if yaxis is not None:
             pulumi.set(__self__, "yaxis", yaxis)
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="legendSize")
@@ -54765,6 +58039,8 @@ class PowerpackWidgetEventStreamDefinition(dict):
         suggest = None
         if key == "eventSize":
             suggest = "event_size"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "tagsExecution":
@@ -54788,6 +58064,7 @@ class PowerpackWidgetEventStreamDefinition(dict):
     def __init__(__self__, *,
                  query: _builtins.str,
                  event_size: Optional[_builtins.str] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  tags_execution: Optional[_builtins.str] = None,
                  title: Optional[_builtins.str] = None,
@@ -54796,6 +58073,7 @@ class PowerpackWidgetEventStreamDefinition(dict):
         """
         :param _builtins.str query: The query to use in the widget.
         :param _builtins.str event_size: The size to use to display an event. Valid values are `s`, `l`.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.str tags_execution: The execution method for multi-value filters, options: `and` or `or`.
         :param _builtins.str title: The title of the widget.
@@ -54805,6 +58083,8 @@ class PowerpackWidgetEventStreamDefinition(dict):
         pulumi.set(__self__, "query", query)
         if event_size is not None:
             pulumi.set(__self__, "event_size", event_size)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if tags_execution is not None:
@@ -54831,6 +58111,14 @@ class PowerpackWidgetEventStreamDefinition(dict):
         The size to use to display an event. Valid values are `s`, `l`.
         """
         return pulumi.get(self, "event_size")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -54878,7 +58166,9 @@ class PowerpackWidgetEventTimelineDefinition(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "liveSpan":
+        if key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
+        elif key == "liveSpan":
             suggest = "live_span"
         elif key == "tagsExecution":
             suggest = "tags_execution"
@@ -54900,6 +58190,7 @@ class PowerpackWidgetEventTimelineDefinition(dict):
 
     def __init__(__self__, *,
                  query: _builtins.str,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  tags_execution: Optional[_builtins.str] = None,
                  title: Optional[_builtins.str] = None,
@@ -54907,6 +58198,7 @@ class PowerpackWidgetEventTimelineDefinition(dict):
                  title_size: Optional[_builtins.str] = None):
         """
         :param _builtins.str query: The query to use in the widget.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.str tags_execution: The execution method for multi-value filters, options: `and` or `or`.
         :param _builtins.str title: The title of the widget.
@@ -54914,6 +58206,8 @@ class PowerpackWidgetEventTimelineDefinition(dict):
         :param _builtins.str title_size: The size of the widget's title (defaults to 16).
         """
         pulumi.set(__self__, "query", query)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if tags_execution is not None:
@@ -54932,6 +58226,14 @@ class PowerpackWidgetEventTimelineDefinition(dict):
         The query to use in the widget.
         """
         return pulumi.get(self, "query")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -55054,6 +58356,8 @@ class PowerpackWidgetGeomapDefinition(dict):
         suggest = None
         if key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -55075,6 +58379,7 @@ class PowerpackWidgetGeomapDefinition(dict):
     def __init__(__self__, *,
                  view: 'outputs.PowerpackWidgetGeomapDefinitionView',
                  custom_links: Optional[Sequence['outputs.PowerpackWidgetGeomapDefinitionCustomLink']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  requests: Optional[Sequence['outputs.PowerpackWidgetGeomapDefinitionRequest']] = None,
                  style: Optional['outputs.PowerpackWidgetGeomapDefinitionStyle'] = None,
@@ -55084,6 +58389,7 @@ class PowerpackWidgetGeomapDefinition(dict):
         """
         :param 'PowerpackWidgetGeomapDefinitionViewArgs' view: The view of the world that the map should render.
         :param Sequence['PowerpackWidgetGeomapDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence['PowerpackWidgetGeomapDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple `request` blocks are allowed using the structure below (exactly one of `q`, `log_query` or `rum_query` is required within the `request` block).
         :param 'PowerpackWidgetGeomapDefinitionStyleArgs' style: The style of the widget graph. One nested block is allowed using the structure below.
@@ -55094,6 +58400,8 @@ class PowerpackWidgetGeomapDefinition(dict):
         pulumi.set(__self__, "view", view)
         if custom_links is not None:
             pulumi.set(__self__, "custom_links", custom_links)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if requests is not None:
@@ -55122,6 +58430,14 @@ class PowerpackWidgetGeomapDefinition(dict):
         A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "custom_links")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -56656,7 +59972,7 @@ class PowerpackWidgetGeomapDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['PowerpackWidgetGeomapDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -56690,7 +60006,7 @@ class PowerpackWidgetGeomapDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -56896,6 +60212,8 @@ class PowerpackWidgetGeomapDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetGeomapDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -56913,13 +60231,15 @@ class PowerpackWidgetGeomapDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -56929,6 +60249,8 @@ class PowerpackWidgetGeomapDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -56969,6 +60291,14 @@ class PowerpackWidgetGeomapDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -57592,6 +60922,8 @@ class PowerpackWidgetHeatmapDefinition(dict):
         suggest = None
         if key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "legendSize":
             suggest = "legend_size"
         elif key == "liveSpan":
@@ -57617,6 +60949,7 @@ class PowerpackWidgetHeatmapDefinition(dict):
     def __init__(__self__, *,
                  custom_links: Optional[Sequence['outputs.PowerpackWidgetHeatmapDefinitionCustomLink']] = None,
                  events: Optional[Sequence['outputs.PowerpackWidgetHeatmapDefinitionEvent']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  legend_size: Optional[_builtins.str] = None,
                  live_span: Optional[_builtins.str] = None,
                  requests: Optional[Sequence['outputs.PowerpackWidgetHeatmapDefinitionRequest']] = None,
@@ -57628,6 +60961,7 @@ class PowerpackWidgetHeatmapDefinition(dict):
         """
         :param Sequence['PowerpackWidgetHeatmapDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         :param Sequence['PowerpackWidgetHeatmapDefinitionEventArgs'] events: The definition of the event to overlay on the graph. Multiple `event` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str legend_size: The size of the legend displayed in the widget.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence['PowerpackWidgetHeatmapDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple `request` blocks are allowed using the structure below (exactly one of `q`, `apm_query`, `log_query`, `rum_query`, `security_query` or `process_query` is required within the request block).
@@ -57641,6 +60975,8 @@ class PowerpackWidgetHeatmapDefinition(dict):
             pulumi.set(__self__, "custom_links", custom_links)
         if events is not None:
             pulumi.set(__self__, "events", events)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if legend_size is not None:
             pulumi.set(__self__, "legend_size", legend_size)
         if live_span is not None:
@@ -57673,6 +61009,14 @@ class PowerpackWidgetHeatmapDefinition(dict):
         The definition of the event to overlay on the graph. Multiple `event` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "events")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="legendSize")
@@ -59671,7 +63015,7 @@ class PowerpackWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -59705,7 +63049,7 @@ class PowerpackWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -59911,6 +63255,8 @@ class PowerpackWidgetHeatmapDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetHeatmapDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -59928,13 +63274,15 @@ class PowerpackWidgetHeatmapDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -59944,6 +63292,8 @@ class PowerpackWidgetHeatmapDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -59984,6 +63334,14 @@ class PowerpackWidgetHeatmapDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -64291,7 +67649,9 @@ class PowerpackWidgetLogStreamDefinition(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "liveSpan":
+        if key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
+        elif key == "liveSpan":
             suggest = "live_span"
         elif key == "messageDisplay":
             suggest = "message_display"
@@ -64317,6 +67677,7 @@ class PowerpackWidgetLogStreamDefinition(dict):
 
     def __init__(__self__, *,
                  columns: Optional[Sequence[_builtins.str]] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  live_span: Optional[_builtins.str] = None,
                  message_display: Optional[_builtins.str] = None,
@@ -64329,6 +67690,7 @@ class PowerpackWidgetLogStreamDefinition(dict):
                  title_size: Optional[_builtins.str] = None):
         """
         :param Sequence[_builtins.str] columns: Stringified list of columns to use, for example: `["column1","column2","column3"]`.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.str message_display: The number of log lines to display. Valid values are `inline`, `expanded-md`, `expanded-lg`.
@@ -64342,6 +67704,8 @@ class PowerpackWidgetLogStreamDefinition(dict):
         """
         if columns is not None:
             pulumi.set(__self__, "columns", columns)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if live_span is not None:
@@ -64370,6 +67734,14 @@ class PowerpackWidgetLogStreamDefinition(dict):
         Stringified list of columns to use, for example: `["column1","column2","column3"]`.
         """
         return pulumi.get(self, "columns")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter
@@ -64804,6 +68176,8 @@ class PowerpackWidgetQueryTableDefinition(dict):
             suggest = "custom_links"
         elif key == "hasSearchBar":
             suggest = "has_search_bar"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -64825,6 +68199,7 @@ class PowerpackWidgetQueryTableDefinition(dict):
     def __init__(__self__, *,
                  custom_links: Optional[Sequence['outputs.PowerpackWidgetQueryTableDefinitionCustomLink']] = None,
                  has_search_bar: Optional[_builtins.str] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  requests: Optional[Sequence['outputs.PowerpackWidgetQueryTableDefinitionRequest']] = None,
                  title: Optional[_builtins.str] = None,
@@ -64833,6 +68208,7 @@ class PowerpackWidgetQueryTableDefinition(dict):
         """
         :param Sequence['PowerpackWidgetQueryTableDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         :param _builtins.str has_search_bar: Controls the display of the search bar. Valid values are `always`, `never`, `auto`.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence['PowerpackWidgetQueryTableDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple `request` blocks are allowed using the structure below (exactly one of `q`, `apm_query`, `log_query`, `rum_query`, `security_query`, `apm_stats_query` or `process_query` is required within the `request` block).
         :param _builtins.str title: The title of the widget.
@@ -64843,6 +68219,8 @@ class PowerpackWidgetQueryTableDefinition(dict):
             pulumi.set(__self__, "custom_links", custom_links)
         if has_search_bar is not None:
             pulumi.set(__self__, "has_search_bar", has_search_bar)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if requests is not None:
@@ -64869,6 +68247,14 @@ class PowerpackWidgetQueryTableDefinition(dict):
         Controls the display of the search bar. Valid values are `always`, `never`, `auto`.
         """
         return pulumi.get(self, "has_search_bar")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -67259,7 +70645,7 @@ class PowerpackWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -67293,7 +70679,7 @@ class PowerpackWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -67499,6 +70885,8 @@ class PowerpackWidgetQueryTableDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetQueryTableDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -67516,13 +70904,15 @@ class PowerpackWidgetQueryTableDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -67532,6 +70922,8 @@ class PowerpackWidgetQueryTableDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -67572,6 +70964,14 @@ class PowerpackWidgetQueryTableDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -68615,6 +72015,8 @@ class PowerpackWidgetQueryValueDefinition(dict):
             suggest = "custom_links"
         elif key == "customUnit":
             suggest = "custom_unit"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "textAlign":
@@ -68641,6 +72043,7 @@ class PowerpackWidgetQueryValueDefinition(dict):
                  autoscale: Optional[_builtins.bool] = None,
                  custom_links: Optional[Sequence['outputs.PowerpackWidgetQueryValueDefinitionCustomLink']] = None,
                  custom_unit: Optional[_builtins.str] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  precision: Optional[_builtins.int] = None,
                  requests: Optional[Sequence['outputs.PowerpackWidgetQueryValueDefinitionRequest']] = None,
@@ -68653,6 +72056,7 @@ class PowerpackWidgetQueryValueDefinition(dict):
         :param _builtins.bool autoscale: A Boolean indicating whether to automatically scale the tile.
         :param Sequence['PowerpackWidgetQueryValueDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         :param _builtins.str custom_unit: The unit for the value displayed in the widget.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.int precision: The precision to use when displaying the tile.
         :param Sequence['PowerpackWidgetQueryValueDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple `request` blocks are allowed using the structure below (exactly one of `q`, `apm_query`, `log_query`, `rum_query`, `security_query` or `process_query` is required within the `request` block).
@@ -68668,6 +72072,8 @@ class PowerpackWidgetQueryValueDefinition(dict):
             pulumi.set(__self__, "custom_links", custom_links)
         if custom_unit is not None:
             pulumi.set(__self__, "custom_unit", custom_unit)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if precision is not None:
@@ -68708,6 +72114,14 @@ class PowerpackWidgetQueryValueDefinition(dict):
         The unit for the value displayed in the widget.
         """
         return pulumi.get(self, "custom_unit")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -71096,7 +74510,7 @@ class PowerpackWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -71130,7 +74544,7 @@ class PowerpackWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -71336,6 +74750,8 @@ class PowerpackWidgetQueryValueDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetQueryValueDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -71353,13 +74769,15 @@ class PowerpackWidgetQueryValueDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -71369,6 +74787,8 @@ class PowerpackWidgetQueryValueDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -71409,6 +74829,14 @@ class PowerpackWidgetQueryValueDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -72358,6 +75786,8 @@ class PowerpackWidgetRunWorkflowDefinition(dict):
             suggest = "workflow_id"
         elif key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -72379,6 +75809,7 @@ class PowerpackWidgetRunWorkflowDefinition(dict):
     def __init__(__self__, *,
                  workflow_id: _builtins.str,
                  custom_links: Optional[Sequence['outputs.PowerpackWidgetRunWorkflowDefinitionCustomLink']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  inputs: Optional[Sequence['outputs.PowerpackWidgetRunWorkflowDefinitionInput']] = None,
                  live_span: Optional[_builtins.str] = None,
                  title: Optional[_builtins.str] = None,
@@ -72387,6 +75818,7 @@ class PowerpackWidgetRunWorkflowDefinition(dict):
         """
         :param _builtins.str workflow_id: Workflow ID
         :param Sequence['PowerpackWidgetRunWorkflowDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param Sequence['PowerpackWidgetRunWorkflowDefinitionInputArgs'] inputs: Array of workflow inputs to map to dashboard template variables.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.str title: The title of the widget.
@@ -72396,6 +75828,8 @@ class PowerpackWidgetRunWorkflowDefinition(dict):
         pulumi.set(__self__, "workflow_id", workflow_id)
         if custom_links is not None:
             pulumi.set(__self__, "custom_links", custom_links)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if inputs is not None:
             pulumi.set(__self__, "inputs", inputs)
         if live_span is not None:
@@ -72422,6 +75856,14 @@ class PowerpackWidgetRunWorkflowDefinition(dict):
         A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "custom_links")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter
@@ -72576,6 +76018,8 @@ class PowerpackWidgetScatterplotDefinition(dict):
             suggest = "color_by_groups"
         elif key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -72597,6 +76041,7 @@ class PowerpackWidgetScatterplotDefinition(dict):
     def __init__(__self__, *,
                  color_by_groups: Optional[Sequence[_builtins.str]] = None,
                  custom_links: Optional[Sequence['outputs.PowerpackWidgetScatterplotDefinitionCustomLink']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  request: Optional['outputs.PowerpackWidgetScatterplotDefinitionRequest'] = None,
                  title: Optional[_builtins.str] = None,
@@ -72607,6 +76052,7 @@ class PowerpackWidgetScatterplotDefinition(dict):
         """
         :param Sequence[_builtins.str] color_by_groups: List of groups used for colors.
         :param Sequence['PowerpackWidgetScatterplotDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param 'PowerpackWidgetScatterplotDefinitionRequestArgs' request: A nested block describing the request to use when displaying the widget. Exactly one `request` block is allowed using the structure below.
         :param _builtins.str title: The title of the widget.
@@ -72619,6 +76065,8 @@ class PowerpackWidgetScatterplotDefinition(dict):
             pulumi.set(__self__, "color_by_groups", color_by_groups)
         if custom_links is not None:
             pulumi.set(__self__, "custom_links", custom_links)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if request is not None:
@@ -72649,6 +76097,14 @@ class PowerpackWidgetScatterplotDefinition(dict):
         A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "custom_links")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -73481,7 +76937,7 @@ class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -73515,7 +76971,7 @@ class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -73721,6 +77177,8 @@ class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryMetricQuer
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -73738,13 +77196,15 @@ class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryMetricQuer
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -73754,6 +77214,8 @@ class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryMetricQuer
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -73794,6 +77256,14 @@ class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryMetricQuer
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -77352,6 +80822,8 @@ class PowerpackWidgetSunburstDefinition(dict):
         suggest = None
         if key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "hideTotal":
             suggest = "hide_total"
         elif key == "legendInline":
@@ -77378,6 +80850,7 @@ class PowerpackWidgetSunburstDefinition(dict):
 
     def __init__(__self__, *,
                  custom_links: Optional[Sequence['outputs.PowerpackWidgetSunburstDefinitionCustomLink']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  hide_total: Optional[_builtins.bool] = None,
                  legend_inline: Optional['outputs.PowerpackWidgetSunburstDefinitionLegendInline'] = None,
                  legend_table: Optional['outputs.PowerpackWidgetSunburstDefinitionLegendTable'] = None,
@@ -77388,6 +80861,7 @@ class PowerpackWidgetSunburstDefinition(dict):
                  title_size: Optional[_builtins.str] = None):
         """
         :param Sequence['PowerpackWidgetSunburstDefinitionCustomLinkArgs'] custom_links: Nested block describing a custom link. Multiple `custom_link` blocks are allowed with the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.bool hide_total: Whether or not to show the total value in the widget.
         :param 'PowerpackWidgetSunburstDefinitionLegendInlineArgs' legend_inline: Used to configure the inline legend. Cannot be used in conjunction with legend*table.
         :param 'PowerpackWidgetSunburstDefinitionLegendTableArgs' legend_table: Used to configure the table legend. Cannot be used in conjunction with legend*inline.
@@ -77399,6 +80873,8 @@ class PowerpackWidgetSunburstDefinition(dict):
         """
         if custom_links is not None:
             pulumi.set(__self__, "custom_links", custom_links)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if hide_total is not None:
             pulumi.set(__self__, "hide_total", hide_total)
         if legend_inline is not None:
@@ -77423,6 +80899,14 @@ class PowerpackWidgetSunburstDefinition(dict):
         Nested block describing a custom link. Multiple `custom_link` blocks are allowed with the structure below.
         """
         return pulumi.get(self, "custom_links")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="hideTotal")
@@ -80029,7 +83513,7 @@ class PowerpackWidgetSunburstDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['PowerpackWidgetSunburstDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -80063,7 +83547,7 @@ class PowerpackWidgetSunburstDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -80269,6 +83753,8 @@ class PowerpackWidgetSunburstDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetSunburstDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -80286,13 +83772,15 @@ class PowerpackWidgetSunburstDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -80302,6 +83790,8 @@ class PowerpackWidgetSunburstDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -80342,6 +83832,14 @@ class PowerpackWidgetSunburstDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -81194,6 +84692,8 @@ class PowerpackWidgetTimeseriesDefinition(dict):
         suggest = None
         if key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "legendColumns":
             suggest = "legend_columns"
         elif key == "legendLayout":
@@ -81225,6 +84725,7 @@ class PowerpackWidgetTimeseriesDefinition(dict):
     def __init__(__self__, *,
                  custom_links: Optional[Sequence['outputs.PowerpackWidgetTimeseriesDefinitionCustomLink']] = None,
                  events: Optional[Sequence['outputs.PowerpackWidgetTimeseriesDefinitionEvent']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  legend_columns: Optional[Sequence[_builtins.str]] = None,
                  legend_layout: Optional[_builtins.str] = None,
                  legend_size: Optional[_builtins.str] = None,
@@ -81240,6 +84741,7 @@ class PowerpackWidgetTimeseriesDefinition(dict):
         """
         :param Sequence['PowerpackWidgetTimeseriesDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         :param Sequence['PowerpackWidgetTimeseriesDefinitionEventArgs'] events: The definition of the event to overlay on the graph. Multiple `event` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param Sequence[_builtins.str] legend_columns: A list of columns to display in the legend. Valid values are `value`, `avg`, `sum`, `min`, `max`.
         :param _builtins.str legend_layout: The layout of the legend displayed in the widget. Valid values are `auto`, `horizontal`, `vertical`.
         :param _builtins.str legend_size: The size of the legend displayed in the widget.
@@ -81257,6 +84759,8 @@ class PowerpackWidgetTimeseriesDefinition(dict):
             pulumi.set(__self__, "custom_links", custom_links)
         if events is not None:
             pulumi.set(__self__, "events", events)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if legend_columns is not None:
             pulumi.set(__self__, "legend_columns", legend_columns)
         if legend_layout is not None:
@@ -81297,6 +84801,14 @@ class PowerpackWidgetTimeseriesDefinition(dict):
         The definition of the event to overlay on the graph. Multiple `event` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "events")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="legendColumns")
@@ -84049,7 +87561,7 @@ class PowerpackWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -84083,7 +87595,7 @@ class PowerpackWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -84289,6 +87801,8 @@ class PowerpackWidgetTimeseriesDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetTimeseriesDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -84306,13 +87820,15 @@ class PowerpackWidgetTimeseriesDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -84322,6 +87838,8 @@ class PowerpackWidgetTimeseriesDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -84362,6 +87880,14 @@ class PowerpackWidgetTimeseriesDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -85425,6 +88951,8 @@ class PowerpackWidgetToplistDefinition(dict):
         suggest = None
         if key == "customLinks":
             suggest = "custom_links"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "titleAlign":
@@ -85445,6 +88973,7 @@ class PowerpackWidgetToplistDefinition(dict):
 
     def __init__(__self__, *,
                  custom_links: Optional[Sequence['outputs.PowerpackWidgetToplistDefinitionCustomLink']] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  requests: Optional[Sequence['outputs.PowerpackWidgetToplistDefinitionRequest']] = None,
                  styles: Optional[Sequence['outputs.PowerpackWidgetToplistDefinitionStyle']] = None,
@@ -85453,6 +88982,7 @@ class PowerpackWidgetToplistDefinition(dict):
                  title_size: Optional[_builtins.str] = None):
         """
         :param Sequence['PowerpackWidgetToplistDefinitionCustomLinkArgs'] custom_links: A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param Sequence['PowerpackWidgetToplistDefinitionRequestArgs'] requests: A nested block describing the request to use when displaying the widget. Multiple `request` blocks are allowed using the structure below (exactly one of `q`, `apm_query`, `log_query`, `rum_query`, `security_query` or `process_query` is required within the `request` block).
         :param Sequence['PowerpackWidgetToplistDefinitionStyleArgs'] styles: The style of the widget
@@ -85462,6 +88992,8 @@ class PowerpackWidgetToplistDefinition(dict):
         """
         if custom_links is not None:
             pulumi.set(__self__, "custom_links", custom_links)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if requests is not None:
@@ -85482,6 +89014,14 @@ class PowerpackWidgetToplistDefinition(dict):
         A nested block describing a custom link. Multiple `custom_link` blocks are allowed using the structure below.
         """
         return pulumi.get(self, "custom_links")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -87854,7 +91394,7 @@ class PowerpackWidgetToplistDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['PowerpackWidgetToplistDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -87888,7 +91428,7 @@ class PowerpackWidgetToplistDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -88094,6 +91634,8 @@ class PowerpackWidgetToplistDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetToplistDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -88111,13 +91653,15 @@ class PowerpackWidgetToplistDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -88127,6 +91671,8 @@ class PowerpackWidgetToplistDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -88167,6 +91713,14 @@ class PowerpackWidgetToplistDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -89347,6 +92901,8 @@ class PowerpackWidgetTraceServiceDefinition(dict):
             suggest = "span_name"
         elif key == "displayFormat":
             suggest = "display_format"
+        elif key == "hideIncompleteCostData":
+            suggest = "hide_incomplete_cost_data"
         elif key == "liveSpan":
             suggest = "live_span"
         elif key == "showBreakdown":
@@ -89384,6 +92940,7 @@ class PowerpackWidgetTraceServiceDefinition(dict):
                  service: _builtins.str,
                  span_name: _builtins.str,
                  display_format: Optional[_builtins.str] = None,
+                 hide_incomplete_cost_data: Optional[_builtins.bool] = None,
                  live_span: Optional[_builtins.str] = None,
                  show_breakdown: Optional[_builtins.bool] = None,
                  show_distribution: Optional[_builtins.bool] = None,
@@ -89400,6 +92957,7 @@ class PowerpackWidgetTraceServiceDefinition(dict):
         :param _builtins.str service: APM service.
         :param _builtins.str span_name: APM span name
         :param _builtins.str display_format: The number of columns to display. Valid values are `one_column`, `two_column`, `three_column`.
+        :param _builtins.bool hide_incomplete_cost_data: Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
         :param _builtins.str live_span: The timeframe to use when displaying the widget. Valid values are `1m`, `5m`, `10m`, `15m`, `30m`, `1h`, `4h`, `1d`, `2d`, `1w`, `1mo`, `3mo`, `6mo`, `week_to_date`, `month_to_date`, `1y`, `alert`.
         :param _builtins.bool show_breakdown: Whether to show the latency breakdown or not.
         :param _builtins.bool show_distribution: Whether to show the latency distribution or not.
@@ -89417,6 +92975,8 @@ class PowerpackWidgetTraceServiceDefinition(dict):
         pulumi.set(__self__, "span_name", span_name)
         if display_format is not None:
             pulumi.set(__self__, "display_format", display_format)
+        if hide_incomplete_cost_data is not None:
+            pulumi.set(__self__, "hide_incomplete_cost_data", hide_incomplete_cost_data)
         if live_span is not None:
             pulumi.set(__self__, "live_span", live_span)
         if show_breakdown is not None:
@@ -89471,6 +93031,14 @@ class PowerpackWidgetTraceServiceDefinition(dict):
         The number of columns to display. Valid values are `one_column`, `two_column`, `three_column`.
         """
         return pulumi.get(self, "display_format")
+
+    @_builtins.property
+    @pulumi.getter(name="hideIncompleteCostData")
+    def hide_incomplete_cost_data(self) -> Optional[_builtins.bool]:
+        """
+        Hide any portion of the widget's timeframe that is incomplete due to cost data not being available.
+        """
+        return pulumi.get(self, "hide_incomplete_cost_data")
 
     @_builtins.property
     @pulumi.getter(name="liveSpan")
@@ -90774,7 +94342,7 @@ class PowerpackWidgetTreemapDefinitionRequestQueryEventQuery(dict):
                  storage: Optional[_builtins.str] = None):
         """
         :param Sequence['PowerpackWidgetTreemapDefinitionRequestQueryEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
@@ -90808,7 +94376,7 @@ class PowerpackWidgetTreemapDefinitionRequestQueryEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`.
+        The data source for event platform-based queries. Valid values are `logs`, `spans`, `network`, `rum`, `security_signals`, `profiles`, `audit`, `events`, `ci_tests`, `ci_pipelines`, `incident_analytics`, `product_analytics`, `on_call_events`.
         """
         return pulumi.get(self, "data_source")
 
@@ -91014,6 +94582,8 @@ class PowerpackWidgetTreemapDefinitionRequestQueryMetricQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "dataSource":
             suggest = "data_source"
+        elif key == "semanticMode":
+            suggest = "semantic_mode"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetTreemapDefinitionRequestQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
@@ -91031,13 +94601,15 @@ class PowerpackWidgetTreemapDefinitionRequestQueryMetricQuery(dict):
                  query: _builtins.str,
                  aggregator: Optional[_builtins.str] = None,
                  cross_org_uuids: Optional[_builtins.str] = None,
-                 data_source: Optional[_builtins.str] = None):
+                 data_source: Optional[_builtins.str] = None,
+                 semantic_mode: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name of the query for use in formulas.
         :param _builtins.str query: The metrics query definition.
         :param _builtins.str aggregator: The aggregation methods available for metrics queries. Valid values are `avg`, `min`, `max`, `sum`, `last`, `area`, `l2norm`, `percentile`.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        :param _builtins.str semantic_mode: Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "query", query)
@@ -91047,6 +94619,8 @@ class PowerpackWidgetTreemapDefinitionRequestQueryMetricQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if data_source is not None:
             pulumi.set(__self__, "data_source", data_source)
+        if semantic_mode is not None:
+            pulumi.set(__self__, "semantic_mode", semantic_mode)
 
     @_builtins.property
     @pulumi.getter
@@ -91087,6 +94661,14 @@ class PowerpackWidgetTreemapDefinitionRequestQueryMetricQuery(dict):
         The data source for metrics queries. Defaults to `"metrics"`.
         """
         return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter(name="semanticMode")
+    def semantic_mode(self) -> Optional[_builtins.str]:
+        """
+        Semantic mode for metrics queries. This determines how metrics from different sources are combined or displayed. Valid values are `combined`, `native`.
+        """
+        return pulumi.get(self, "semantic_mode")
 
 
 @pulumi.output_type
@@ -91443,6 +95025,474 @@ class PowerpackWidgetWidgetLayout(dict):
         Whether the widget should be the first one on the second column in high density or not. Only one widget in the dashboard should have this property set to `true`.
         """
         return pulumi.get(self, "is_column_break")
+
+
+@pulumi.output_type
+class ReferenceTableFileMetadata(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "syncEnabled":
+            suggest = "sync_enabled"
+        elif key == "accessDetails":
+            suggest = "access_details"
+        elif key == "errorMessage":
+            suggest = "error_message"
+        elif key == "errorRowCount":
+            suggest = "error_row_count"
+        elif key == "errorType":
+            suggest = "error_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReferenceTableFileMetadata. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReferenceTableFileMetadata.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReferenceTableFileMetadata.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 sync_enabled: _builtins.bool,
+                 access_details: Optional['outputs.ReferenceTableFileMetadataAccessDetails'] = None,
+                 error_message: Optional[_builtins.str] = None,
+                 error_row_count: Optional[_builtins.int] = None,
+                 error_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.bool sync_enabled: Whether this table should automatically sync with the cloud storage source.
+        :param 'ReferenceTableFileMetadataAccessDetailsArgs' access_details: Cloud storage access configuration. Exactly one of aws*detail, gcp*detail, or azure*detail must be specified.
+        :param _builtins.str error_message: Error message from the last sync attempt, if any.
+        :param _builtins.int error_row_count: The number of rows that failed to sync.
+        :param _builtins.str error_type: The type of error that occurred during file processing.
+        """
+        pulumi.set(__self__, "sync_enabled", sync_enabled)
+        if access_details is not None:
+            pulumi.set(__self__, "access_details", access_details)
+        if error_message is not None:
+            pulumi.set(__self__, "error_message", error_message)
+        if error_row_count is not None:
+            pulumi.set(__self__, "error_row_count", error_row_count)
+        if error_type is not None:
+            pulumi.set(__self__, "error_type", error_type)
+
+    @_builtins.property
+    @pulumi.getter(name="syncEnabled")
+    def sync_enabled(self) -> _builtins.bool:
+        """
+        Whether this table should automatically sync with the cloud storage source.
+        """
+        return pulumi.get(self, "sync_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="accessDetails")
+    def access_details(self) -> Optional['outputs.ReferenceTableFileMetadataAccessDetails']:
+        """
+        Cloud storage access configuration. Exactly one of aws*detail, gcp*detail, or azure*detail must be specified.
+        """
+        return pulumi.get(self, "access_details")
+
+    @_builtins.property
+    @pulumi.getter(name="errorMessage")
+    def error_message(self) -> Optional[_builtins.str]:
+        """
+        Error message from the last sync attempt, if any.
+        """
+        return pulumi.get(self, "error_message")
+
+    @_builtins.property
+    @pulumi.getter(name="errorRowCount")
+    def error_row_count(self) -> Optional[_builtins.int]:
+        """
+        The number of rows that failed to sync.
+        """
+        return pulumi.get(self, "error_row_count")
+
+    @_builtins.property
+    @pulumi.getter(name="errorType")
+    def error_type(self) -> Optional[_builtins.str]:
+        """
+        The type of error that occurred during file processing.
+        """
+        return pulumi.get(self, "error_type")
+
+
+@pulumi.output_type
+class ReferenceTableFileMetadataAccessDetails(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "awsDetail":
+            suggest = "aws_detail"
+        elif key == "azureDetail":
+            suggest = "azure_detail"
+        elif key == "gcpDetail":
+            suggest = "gcp_detail"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReferenceTableFileMetadataAccessDetails. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReferenceTableFileMetadataAccessDetails.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReferenceTableFileMetadataAccessDetails.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 aws_detail: Optional['outputs.ReferenceTableFileMetadataAccessDetailsAwsDetail'] = None,
+                 azure_detail: Optional['outputs.ReferenceTableFileMetadataAccessDetailsAzureDetail'] = None,
+                 gcp_detail: Optional['outputs.ReferenceTableFileMetadataAccessDetailsGcpDetail'] = None):
+        """
+        :param 'ReferenceTableFileMetadataAccessDetailsAwsDetailArgs' aws_detail: AWS S3 access configuration. Required when source is S3.
+        :param 'ReferenceTableFileMetadataAccessDetailsAzureDetailArgs' azure_detail: Azure Blob Storage access configuration. Required when source is AZURE.
+        :param 'ReferenceTableFileMetadataAccessDetailsGcpDetailArgs' gcp_detail: Google Cloud Storage access configuration. Required when source is GCS.
+        """
+        if aws_detail is not None:
+            pulumi.set(__self__, "aws_detail", aws_detail)
+        if azure_detail is not None:
+            pulumi.set(__self__, "azure_detail", azure_detail)
+        if gcp_detail is not None:
+            pulumi.set(__self__, "gcp_detail", gcp_detail)
+
+    @_builtins.property
+    @pulumi.getter(name="awsDetail")
+    def aws_detail(self) -> Optional['outputs.ReferenceTableFileMetadataAccessDetailsAwsDetail']:
+        """
+        AWS S3 access configuration. Required when source is S3.
+        """
+        return pulumi.get(self, "aws_detail")
+
+    @_builtins.property
+    @pulumi.getter(name="azureDetail")
+    def azure_detail(self) -> Optional['outputs.ReferenceTableFileMetadataAccessDetailsAzureDetail']:
+        """
+        Azure Blob Storage access configuration. Required when source is AZURE.
+        """
+        return pulumi.get(self, "azure_detail")
+
+    @_builtins.property
+    @pulumi.getter(name="gcpDetail")
+    def gcp_detail(self) -> Optional['outputs.ReferenceTableFileMetadataAccessDetailsGcpDetail']:
+        """
+        Google Cloud Storage access configuration. Required when source is GCS.
+        """
+        return pulumi.get(self, "gcp_detail")
+
+
+@pulumi.output_type
+class ReferenceTableFileMetadataAccessDetailsAwsDetail(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "awsAccountId":
+            suggest = "aws_account_id"
+        elif key == "awsBucketName":
+            suggest = "aws_bucket_name"
+        elif key == "filePath":
+            suggest = "file_path"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReferenceTableFileMetadataAccessDetailsAwsDetail. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReferenceTableFileMetadataAccessDetailsAwsDetail.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReferenceTableFileMetadataAccessDetailsAwsDetail.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 aws_account_id: Optional[_builtins.str] = None,
+                 aws_bucket_name: Optional[_builtins.str] = None,
+                 file_path: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aws_account_id: The ID of the AWS account.
+        :param _builtins.str aws_bucket_name: The name of the AWS S3 bucket.
+        :param _builtins.str file_path: The relative file path from the AWS S3 bucket root to the CSV file.
+        """
+        if aws_account_id is not None:
+            pulumi.set(__self__, "aws_account_id", aws_account_id)
+        if aws_bucket_name is not None:
+            pulumi.set(__self__, "aws_bucket_name", aws_bucket_name)
+        if file_path is not None:
+            pulumi.set(__self__, "file_path", file_path)
+
+    @_builtins.property
+    @pulumi.getter(name="awsAccountId")
+    def aws_account_id(self) -> Optional[_builtins.str]:
+        """
+        The ID of the AWS account.
+        """
+        return pulumi.get(self, "aws_account_id")
+
+    @_builtins.property
+    @pulumi.getter(name="awsBucketName")
+    def aws_bucket_name(self) -> Optional[_builtins.str]:
+        """
+        The name of the AWS S3 bucket.
+        """
+        return pulumi.get(self, "aws_bucket_name")
+
+    @_builtins.property
+    @pulumi.getter(name="filePath")
+    def file_path(self) -> Optional[_builtins.str]:
+        """
+        The relative file path from the AWS S3 bucket root to the CSV file.
+        """
+        return pulumi.get(self, "file_path")
+
+
+@pulumi.output_type
+class ReferenceTableFileMetadataAccessDetailsAzureDetail(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "azureClientId":
+            suggest = "azure_client_id"
+        elif key == "azureContainerName":
+            suggest = "azure_container_name"
+        elif key == "azureStorageAccountName":
+            suggest = "azure_storage_account_name"
+        elif key == "azureTenantId":
+            suggest = "azure_tenant_id"
+        elif key == "filePath":
+            suggest = "file_path"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReferenceTableFileMetadataAccessDetailsAzureDetail. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReferenceTableFileMetadataAccessDetailsAzureDetail.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReferenceTableFileMetadataAccessDetailsAzureDetail.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 azure_client_id: Optional[_builtins.str] = None,
+                 azure_container_name: Optional[_builtins.str] = None,
+                 azure_storage_account_name: Optional[_builtins.str] = None,
+                 azure_tenant_id: Optional[_builtins.str] = None,
+                 file_path: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str azure_client_id: The Azure client ID (application ID).
+        :param _builtins.str azure_container_name: The name of the Azure container.
+        :param _builtins.str azure_storage_account_name: The name of the Azure storage account.
+        :param _builtins.str azure_tenant_id: The ID of the Azure tenant.
+        :param _builtins.str file_path: The relative file path from the Azure container root to the CSV file.
+        """
+        if azure_client_id is not None:
+            pulumi.set(__self__, "azure_client_id", azure_client_id)
+        if azure_container_name is not None:
+            pulumi.set(__self__, "azure_container_name", azure_container_name)
+        if azure_storage_account_name is not None:
+            pulumi.set(__self__, "azure_storage_account_name", azure_storage_account_name)
+        if azure_tenant_id is not None:
+            pulumi.set(__self__, "azure_tenant_id", azure_tenant_id)
+        if file_path is not None:
+            pulumi.set(__self__, "file_path", file_path)
+
+    @_builtins.property
+    @pulumi.getter(name="azureClientId")
+    def azure_client_id(self) -> Optional[_builtins.str]:
+        """
+        The Azure client ID (application ID).
+        """
+        return pulumi.get(self, "azure_client_id")
+
+    @_builtins.property
+    @pulumi.getter(name="azureContainerName")
+    def azure_container_name(self) -> Optional[_builtins.str]:
+        """
+        The name of the Azure container.
+        """
+        return pulumi.get(self, "azure_container_name")
+
+    @_builtins.property
+    @pulumi.getter(name="azureStorageAccountName")
+    def azure_storage_account_name(self) -> Optional[_builtins.str]:
+        """
+        The name of the Azure storage account.
+        """
+        return pulumi.get(self, "azure_storage_account_name")
+
+    @_builtins.property
+    @pulumi.getter(name="azureTenantId")
+    def azure_tenant_id(self) -> Optional[_builtins.str]:
+        """
+        The ID of the Azure tenant.
+        """
+        return pulumi.get(self, "azure_tenant_id")
+
+    @_builtins.property
+    @pulumi.getter(name="filePath")
+    def file_path(self) -> Optional[_builtins.str]:
+        """
+        The relative file path from the Azure container root to the CSV file.
+        """
+        return pulumi.get(self, "file_path")
+
+
+@pulumi.output_type
+class ReferenceTableFileMetadataAccessDetailsGcpDetail(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "filePath":
+            suggest = "file_path"
+        elif key == "gcpBucketName":
+            suggest = "gcp_bucket_name"
+        elif key == "gcpProjectId":
+            suggest = "gcp_project_id"
+        elif key == "gcpServiceAccountEmail":
+            suggest = "gcp_service_account_email"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReferenceTableFileMetadataAccessDetailsGcpDetail. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReferenceTableFileMetadataAccessDetailsGcpDetail.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReferenceTableFileMetadataAccessDetailsGcpDetail.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 file_path: Optional[_builtins.str] = None,
+                 gcp_bucket_name: Optional[_builtins.str] = None,
+                 gcp_project_id: Optional[_builtins.str] = None,
+                 gcp_service_account_email: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str file_path: The relative file path from the GCS bucket root to the CSV file.
+        :param _builtins.str gcp_bucket_name: The name of the GCP bucket.
+        :param _builtins.str gcp_project_id: The ID of the GCP project.
+        :param _builtins.str gcp_service_account_email: The email of the GCP service account used to access the bucket.
+        """
+        if file_path is not None:
+            pulumi.set(__self__, "file_path", file_path)
+        if gcp_bucket_name is not None:
+            pulumi.set(__self__, "gcp_bucket_name", gcp_bucket_name)
+        if gcp_project_id is not None:
+            pulumi.set(__self__, "gcp_project_id", gcp_project_id)
+        if gcp_service_account_email is not None:
+            pulumi.set(__self__, "gcp_service_account_email", gcp_service_account_email)
+
+    @_builtins.property
+    @pulumi.getter(name="filePath")
+    def file_path(self) -> Optional[_builtins.str]:
+        """
+        The relative file path from the GCS bucket root to the CSV file.
+        """
+        return pulumi.get(self, "file_path")
+
+    @_builtins.property
+    @pulumi.getter(name="gcpBucketName")
+    def gcp_bucket_name(self) -> Optional[_builtins.str]:
+        """
+        The name of the GCP bucket.
+        """
+        return pulumi.get(self, "gcp_bucket_name")
+
+    @_builtins.property
+    @pulumi.getter(name="gcpProjectId")
+    def gcp_project_id(self) -> Optional[_builtins.str]:
+        """
+        The ID of the GCP project.
+        """
+        return pulumi.get(self, "gcp_project_id")
+
+    @_builtins.property
+    @pulumi.getter(name="gcpServiceAccountEmail")
+    def gcp_service_account_email(self) -> Optional[_builtins.str]:
+        """
+        The email of the GCP service account used to access the bucket.
+        """
+        return pulumi.get(self, "gcp_service_account_email")
+
+
+@pulumi.output_type
+class ReferenceTableSchema(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "primaryKeys":
+            suggest = "primary_keys"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReferenceTableSchema. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReferenceTableSchema.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReferenceTableSchema.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 fields: Optional[Sequence['outputs.ReferenceTableSchemaField']] = None,
+                 primary_keys: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence['ReferenceTableSchemaFieldArgs'] fields: List of fields in the table schema. Must include at least one field. Schema is only set on create.
+        :param Sequence[_builtins.str] primary_keys: List of field names that serve as primary keys for the table. Currently only one primary key is supported.
+        """
+        if fields is not None:
+            pulumi.set(__self__, "fields", fields)
+        if primary_keys is not None:
+            pulumi.set(__self__, "primary_keys", primary_keys)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Optional[Sequence['outputs.ReferenceTableSchemaField']]:
+        """
+        List of fields in the table schema. Must include at least one field. Schema is only set on create.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter(name="primaryKeys")
+    def primary_keys(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of field names that serve as primary keys for the table. Currently only one primary key is supported.
+        """
+        return pulumi.get(self, "primary_keys")
+
+
+@pulumi.output_type
+class ReferenceTableSchemaField(dict):
+    def __init__(__self__, *,
+                 name: Optional[_builtins.str] = None,
+                 type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str name: The name of the field.
+        :param _builtins.str type: The data type of the field. Must be one of: STRING, INT32. Valid values are `STRING`, `INT32`.
+        """
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        The name of the field.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[_builtins.str]:
+        """
+        The data type of the field. Must be one of: STRING, INT32. Valid values are `STRING`, `INT32`.
+        """
+        return pulumi.get(self, "type")
 
 
 @pulumi.output_type
@@ -92196,7 +96246,9 @@ class SecurityMonitoringRuleOptions(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "decreaseCriticalityBasedOnEnv":
+        if key == "anomalyDetectionOptions":
+            suggest = "anomaly_detection_options"
+        elif key == "decreaseCriticalityBasedOnEnv":
             suggest = "decrease_criticality_based_on_env"
         elif key == "detectionMethod":
             suggest = "detection_method"
@@ -92210,6 +96262,8 @@ class SecurityMonitoringRuleOptions(dict):
             suggest = "max_signal_duration"
         elif key == "newValueOptions":
             suggest = "new_value_options"
+        elif key == "sequenceDetectionOptions":
+            suggest = "sequence_detection_options"
         elif key == "thirdPartyRuleOptions":
             suggest = "third_party_rule_options"
 
@@ -92225,6 +96279,7 @@ class SecurityMonitoringRuleOptions(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 anomaly_detection_options: Optional['outputs.SecurityMonitoringRuleOptionsAnomalyDetectionOptions'] = None,
                  decrease_criticality_based_on_env: Optional[_builtins.bool] = None,
                  detection_method: Optional[_builtins.str] = None,
                  evaluation_window: Optional[_builtins.int] = None,
@@ -92232,17 +96287,22 @@ class SecurityMonitoringRuleOptions(dict):
                  keep_alive: Optional[_builtins.int] = None,
                  max_signal_duration: Optional[_builtins.int] = None,
                  new_value_options: Optional['outputs.SecurityMonitoringRuleOptionsNewValueOptions'] = None,
+                 sequence_detection_options: Optional['outputs.SecurityMonitoringRuleOptionsSequenceDetectionOptions'] = None,
                  third_party_rule_options: Optional['outputs.SecurityMonitoringRuleOptionsThirdPartyRuleOptions'] = None):
         """
+        :param 'SecurityMonitoringRuleOptionsAnomalyDetectionOptionsArgs' anomaly_detection_options: Options for rules using the anomaly detection method.
         :param _builtins.bool decrease_criticality_based_on_env: If true, signals in non-production environments have a lower severity than what is defined by the rule case, which can reduce noise. The decrement is applied when the environment tag of the signal starts with `staging`, `test`, or `dev`. Only available when the rule type is `log_detection`. Defaults to `false`.
-        :param _builtins.str detection_method: The detection method. Valid values are `threshold`, `new_value`, `anomaly_detection`, `impossible_travel`, `hardcoded`, `third_party`, `anomaly_threshold`. Defaults to `"threshold"`.
+        :param _builtins.str detection_method: The detection method. Valid values are `threshold`, `new_value`, `anomaly_detection`, `impossible_travel`, `hardcoded`, `third_party`, `anomaly_threshold`, `sequence_detection`. Defaults to `"threshold"`.
         :param _builtins.int evaluation_window: A time window is specified to match when at least one of the cases matches true. This is a sliding window and evaluates in real time. Valid values are `0`, `60`, `300`, `600`, `900`, `1800`, `3600`, `7200`, `10800`, `21600`, `43200`, `86400`.
         :param 'SecurityMonitoringRuleOptionsImpossibleTravelOptionsArgs' impossible_travel_options: Options for rules using the impossible travel detection method.
         :param _builtins.int keep_alive: Once a signal is generated, the signal will remain “open” if a case is matched at least once within this keep alive window (in seconds). Valid values are `0`, `60`, `300`, `600`, `900`, `1800`, `3600`, `7200`, `10800`, `21600`, `43200`, `86400`.
         :param _builtins.int max_signal_duration: A signal will “close” regardless of the query being matched once the time exceeds the maximum duration (in seconds). This time is calculated from the first seen timestamp. Valid values are `0`, `60`, `300`, `600`, `900`, `1800`, `3600`, `7200`, `10800`, `21600`, `43200`, `86400`.
         :param 'SecurityMonitoringRuleOptionsNewValueOptionsArgs' new_value_options: New value rules specific options.
+        :param 'SecurityMonitoringRuleOptionsSequenceDetectionOptionsArgs' sequence_detection_options: Options for rules using the sequence detection method.
         :param 'SecurityMonitoringRuleOptionsThirdPartyRuleOptionsArgs' third_party_rule_options: Options for rules using the third-party detection method.
         """
+        if anomaly_detection_options is not None:
+            pulumi.set(__self__, "anomaly_detection_options", anomaly_detection_options)
         if decrease_criticality_based_on_env is not None:
             pulumi.set(__self__, "decrease_criticality_based_on_env", decrease_criticality_based_on_env)
         if detection_method is not None:
@@ -92257,8 +96317,18 @@ class SecurityMonitoringRuleOptions(dict):
             pulumi.set(__self__, "max_signal_duration", max_signal_duration)
         if new_value_options is not None:
             pulumi.set(__self__, "new_value_options", new_value_options)
+        if sequence_detection_options is not None:
+            pulumi.set(__self__, "sequence_detection_options", sequence_detection_options)
         if third_party_rule_options is not None:
             pulumi.set(__self__, "third_party_rule_options", third_party_rule_options)
+
+    @_builtins.property
+    @pulumi.getter(name="anomalyDetectionOptions")
+    def anomaly_detection_options(self) -> Optional['outputs.SecurityMonitoringRuleOptionsAnomalyDetectionOptions']:
+        """
+        Options for rules using the anomaly detection method.
+        """
+        return pulumi.get(self, "anomaly_detection_options")
 
     @_builtins.property
     @pulumi.getter(name="decreaseCriticalityBasedOnEnv")
@@ -92272,7 +96342,7 @@ class SecurityMonitoringRuleOptions(dict):
     @pulumi.getter(name="detectionMethod")
     def detection_method(self) -> Optional[_builtins.str]:
         """
-        The detection method. Valid values are `threshold`, `new_value`, `anomaly_detection`, `impossible_travel`, `hardcoded`, `third_party`, `anomaly_threshold`. Defaults to `"threshold"`.
+        The detection method. Valid values are `threshold`, `new_value`, `anomaly_detection`, `impossible_travel`, `hardcoded`, `third_party`, `anomaly_threshold`, `sequence_detection`. Defaults to `"threshold"`.
         """
         return pulumi.get(self, "detection_method")
 
@@ -92317,12 +96387,98 @@ class SecurityMonitoringRuleOptions(dict):
         return pulumi.get(self, "new_value_options")
 
     @_builtins.property
+    @pulumi.getter(name="sequenceDetectionOptions")
+    def sequence_detection_options(self) -> Optional['outputs.SecurityMonitoringRuleOptionsSequenceDetectionOptions']:
+        """
+        Options for rules using the sequence detection method.
+        """
+        return pulumi.get(self, "sequence_detection_options")
+
+    @_builtins.property
     @pulumi.getter(name="thirdPartyRuleOptions")
     def third_party_rule_options(self) -> Optional['outputs.SecurityMonitoringRuleOptionsThirdPartyRuleOptions']:
         """
         Options for rules using the third-party detection method.
         """
         return pulumi.get(self, "third_party_rule_options")
+
+
+@pulumi.output_type
+class SecurityMonitoringRuleOptionsAnomalyDetectionOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "bucketDuration":
+            suggest = "bucket_duration"
+        elif key == "detectionTolerance":
+            suggest = "detection_tolerance"
+        elif key == "learningDuration":
+            suggest = "learning_duration"
+        elif key == "learningPeriodBaseline":
+            suggest = "learning_period_baseline"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SecurityMonitoringRuleOptionsAnomalyDetectionOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SecurityMonitoringRuleOptionsAnomalyDetectionOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SecurityMonitoringRuleOptionsAnomalyDetectionOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 bucket_duration: Optional[_builtins.int] = None,
+                 detection_tolerance: Optional[_builtins.int] = None,
+                 learning_duration: Optional[_builtins.int] = None,
+                 learning_period_baseline: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int bucket_duration: Duration in seconds of the time buckets used to aggregate events matched by the rule. Valid values are 300, 600, 900, 1800, 3600, 10800. Valid values are `300`, `600`, `900`, `1800`, `3600`, `10800`.
+        :param _builtins.int detection_tolerance: An optional parameter that sets how permissive anomaly detection is. Higher values require higher deviations before triggering a signal. Valid values are 1, 2, 3, 4, 5. Valid values are `1`, `2`, `3`, `4`, `5`.
+        :param _builtins.int learning_duration: Learning duration in hours. Anomaly detection waits for at least this amount of historical data before it starts evaluating. Valid values are 1, 6, 12, 24, 48, 168, 336. Valid values are `1`, `6`, `12`, `24`, `48`, `168`, `336`.
+        :param _builtins.int learning_period_baseline: An optional override baseline to apply while the rule is in the learning period. Must be greater than or equal to 0.
+        """
+        if bucket_duration is not None:
+            pulumi.set(__self__, "bucket_duration", bucket_duration)
+        if detection_tolerance is not None:
+            pulumi.set(__self__, "detection_tolerance", detection_tolerance)
+        if learning_duration is not None:
+            pulumi.set(__self__, "learning_duration", learning_duration)
+        if learning_period_baseline is not None:
+            pulumi.set(__self__, "learning_period_baseline", learning_period_baseline)
+
+    @_builtins.property
+    @pulumi.getter(name="bucketDuration")
+    def bucket_duration(self) -> Optional[_builtins.int]:
+        """
+        Duration in seconds of the time buckets used to aggregate events matched by the rule. Valid values are 300, 600, 900, 1800, 3600, 10800. Valid values are `300`, `600`, `900`, `1800`, `3600`, `10800`.
+        """
+        return pulumi.get(self, "bucket_duration")
+
+    @_builtins.property
+    @pulumi.getter(name="detectionTolerance")
+    def detection_tolerance(self) -> Optional[_builtins.int]:
+        """
+        An optional parameter that sets how permissive anomaly detection is. Higher values require higher deviations before triggering a signal. Valid values are 1, 2, 3, 4, 5. Valid values are `1`, `2`, `3`, `4`, `5`.
+        """
+        return pulumi.get(self, "detection_tolerance")
+
+    @_builtins.property
+    @pulumi.getter(name="learningDuration")
+    def learning_duration(self) -> Optional[_builtins.int]:
+        """
+        Learning duration in hours. Anomaly detection waits for at least this amount of historical data before it starts evaluating. Valid values are 1, 6, 12, 24, 48, 168, 336. Valid values are `1`, `6`, `12`, `24`, `48`, `168`, `336`.
+        """
+        return pulumi.get(self, "learning_duration")
+
+    @_builtins.property
+    @pulumi.getter(name="learningPeriodBaseline")
+    def learning_period_baseline(self) -> Optional[_builtins.int]:
+        """
+        An optional override baseline to apply while the rule is in the learning period. Must be greater than or equal to 0.
+        """
+        return pulumi.get(self, "learning_period_baseline")
 
 
 @pulumi.output_type
@@ -92368,6 +96524,8 @@ class SecurityMonitoringRuleOptionsNewValueOptions(dict):
         suggest = None
         if key == "forgetAfter":
             suggest = "forget_after"
+        elif key == "instantaneousBaseline":
+            suggest = "instantaneous_baseline"
         elif key == "learningDuration":
             suggest = "learning_duration"
         elif key == "learningMethod":
@@ -92388,16 +96546,20 @@ class SecurityMonitoringRuleOptionsNewValueOptions(dict):
 
     def __init__(__self__, *,
                  forget_after: _builtins.int,
+                 instantaneous_baseline: Optional[_builtins.bool] = None,
                  learning_duration: Optional[_builtins.int] = None,
                  learning_method: Optional[_builtins.str] = None,
                  learning_threshold: Optional[_builtins.int] = None):
         """
         :param _builtins.int forget_after: The duration in days after which a learned value is forgotten. Valid values are `1`, `2`, `7`, `14`, `21`, `28`.
+        :param _builtins.bool instantaneous_baseline: When set to true, Datadog uses previous values that fall within the defined learning window to construct the baseline, enabling the system to establish an accurate baseline more rapidly rather than relying solely on gradual learning over time. Defaults to `false`.
         :param _builtins.int learning_duration: The duration in days during which values are learned, and after which signals will be generated for values that weren't learned. If set to 0, a signal will be generated for all new values after the first value is learned. Valid values are `0`, `1`, `7`. Defaults to `1`.
         :param _builtins.str learning_method: The learning method used to determine when signals should be generated for values that weren't learned. Valid values are `duration`, `threshold`. Defaults to `"duration"`.
         :param _builtins.int learning_threshold: A number of occurrences after which signals are generated for values that weren't learned. Valid values are `0`, `1`. Defaults to `0`.
         """
         pulumi.set(__self__, "forget_after", forget_after)
+        if instantaneous_baseline is not None:
+            pulumi.set(__self__, "instantaneous_baseline", instantaneous_baseline)
         if learning_duration is not None:
             pulumi.set(__self__, "learning_duration", learning_duration)
         if learning_method is not None:
@@ -92412,6 +96574,14 @@ class SecurityMonitoringRuleOptionsNewValueOptions(dict):
         The duration in days after which a learned value is forgotten. Valid values are `1`, `2`, `7`, `14`, `21`, `28`.
         """
         return pulumi.get(self, "forget_after")
+
+    @_builtins.property
+    @pulumi.getter(name="instantaneousBaseline")
+    def instantaneous_baseline(self) -> Optional[_builtins.bool]:
+        """
+        When set to true, Datadog uses previous values that fall within the defined learning window to construct the baseline, enabling the system to establish an accurate baseline more rapidly rather than relying solely on gradual learning over time. Defaults to `false`.
+        """
+        return pulumi.get(self, "instantaneous_baseline")
 
     @_builtins.property
     @pulumi.getter(name="learningDuration")
@@ -92436,6 +96606,170 @@ class SecurityMonitoringRuleOptionsNewValueOptions(dict):
         A number of occurrences after which signals are generated for values that weren't learned. Valid values are `0`, `1`. Defaults to `0`.
         """
         return pulumi.get(self, "learning_threshold")
+
+
+@pulumi.output_type
+class SecurityMonitoringRuleOptionsSequenceDetectionOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "stepTransitions":
+            suggest = "step_transitions"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SecurityMonitoringRuleOptionsSequenceDetectionOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SecurityMonitoringRuleOptionsSequenceDetectionOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SecurityMonitoringRuleOptionsSequenceDetectionOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 step_transitions: Optional[Sequence['outputs.SecurityMonitoringRuleOptionsSequenceDetectionOptionsStepTransition']] = None,
+                 steps: Optional[Sequence['outputs.SecurityMonitoringRuleOptionsSequenceDetectionOptionsStep']] = None):
+        """
+        :param Sequence['SecurityMonitoringRuleOptionsSequenceDetectionOptionsStepTransitionArgs'] step_transitions: Edges of the step graph.
+        :param Sequence['SecurityMonitoringRuleOptionsSequenceDetectionOptionsStepArgs'] steps: Sequence steps.
+        """
+        if step_transitions is not None:
+            pulumi.set(__self__, "step_transitions", step_transitions)
+        if steps is not None:
+            pulumi.set(__self__, "steps", steps)
+
+    @_builtins.property
+    @pulumi.getter(name="stepTransitions")
+    def step_transitions(self) -> Optional[Sequence['outputs.SecurityMonitoringRuleOptionsSequenceDetectionOptionsStepTransition']]:
+        """
+        Edges of the step graph.
+        """
+        return pulumi.get(self, "step_transitions")
+
+    @_builtins.property
+    @pulumi.getter
+    def steps(self) -> Optional[Sequence['outputs.SecurityMonitoringRuleOptionsSequenceDetectionOptionsStep']]:
+        """
+        Sequence steps.
+        """
+        return pulumi.get(self, "steps")
+
+
+@pulumi.output_type
+class SecurityMonitoringRuleOptionsSequenceDetectionOptionsStep(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "evaluationWindow":
+            suggest = "evaluation_window"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SecurityMonitoringRuleOptionsSequenceDetectionOptionsStep. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SecurityMonitoringRuleOptionsSequenceDetectionOptionsStep.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SecurityMonitoringRuleOptionsSequenceDetectionOptionsStep.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 condition: _builtins.str,
+                 name: _builtins.str,
+                 evaluation_window: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str condition: Condition for the step to match.
+        :param _builtins.str name: Unique name of the step.
+        :param _builtins.int evaluation_window: Evaluation window for the step. Valid values are `0`, `60`, `300`, `600`, `900`, `1800`, `3600`, `7200`, `10800`, `21600`, `43200`, `86400`.
+        """
+        pulumi.set(__self__, "condition", condition)
+        pulumi.set(__self__, "name", name)
+        if evaluation_window is not None:
+            pulumi.set(__self__, "evaluation_window", evaluation_window)
+
+    @_builtins.property
+    @pulumi.getter
+    def condition(self) -> _builtins.str:
+        """
+        Condition for the step to match.
+        """
+        return pulumi.get(self, "condition")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Unique name of the step.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="evaluationWindow")
+    def evaluation_window(self) -> Optional[_builtins.int]:
+        """
+        Evaluation window for the step. Valid values are `0`, `60`, `300`, `600`, `900`, `1800`, `3600`, `7200`, `10800`, `21600`, `43200`, `86400`.
+        """
+        return pulumi.get(self, "evaluation_window")
+
+
+@pulumi.output_type
+class SecurityMonitoringRuleOptionsSequenceDetectionOptionsStepTransition(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "evaluationWindow":
+            suggest = "evaluation_window"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SecurityMonitoringRuleOptionsSequenceDetectionOptionsStepTransition. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SecurityMonitoringRuleOptionsSequenceDetectionOptionsStepTransition.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SecurityMonitoringRuleOptionsSequenceDetectionOptionsStepTransition.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 child: _builtins.str,
+                 parent: _builtins.str,
+                 evaluation_window: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str child: Child step name.
+        :param _builtins.str parent: Parent step name.
+        :param _builtins.int evaluation_window: Maximum time allowed to transition from parent to child. Valid values are `0`, `60`, `300`, `600`, `900`, `1800`, `3600`, `7200`, `10800`, `21600`, `43200`, `86400`.
+        """
+        pulumi.set(__self__, "child", child)
+        pulumi.set(__self__, "parent", parent)
+        if evaluation_window is not None:
+            pulumi.set(__self__, "evaluation_window", evaluation_window)
+
+    @_builtins.property
+    @pulumi.getter
+    def child(self) -> _builtins.str:
+        """
+        Child step name.
+        """
+        return pulumi.get(self, "child")
+
+    @_builtins.property
+    @pulumi.getter
+    def parent(self) -> _builtins.str:
+        """
+        Parent step name.
+        """
+        return pulumi.get(self, "parent")
+
+    @_builtins.property
+    @pulumi.getter(name="evaluationWindow")
+    def evaluation_window(self) -> Optional[_builtins.int]:
+        """
+        Maximum time allowed to transition from parent to child. Valid values are `0`, `60`, `300`, `600`, `900`, `1800`, `3600`, `7200`, `10800`, `21600`, `43200`, `86400`.
+        """
+        return pulumi.get(self, "evaluation_window")
 
 
 @pulumi.output_type
@@ -94043,6 +98377,8 @@ class SyntheticsTestApiStep(dict):
             suggest = "request_proxy"
         elif key == "requestQuery":
             suggest = "request_query"
+        elif key == "subtestPublicId":
+            suggest = "subtest_public_id"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in SyntheticsTestApiStep. Access the value via the '{suggest}' property getter instead.")
@@ -94073,6 +98409,7 @@ class SyntheticsTestApiStep(dict):
                  request_proxy: Optional['outputs.SyntheticsTestApiStepRequestProxy'] = None,
                  request_query: Optional[Mapping[str, _builtins.str]] = None,
                  retry: Optional['outputs.SyntheticsTestApiStepRetry'] = None,
+                 subtest_public_id: Optional[_builtins.str] = None,
                  subtype: Optional[_builtins.str] = None,
                  value: Optional[_builtins.int] = None):
         """
@@ -94092,7 +98429,8 @@ class SyntheticsTestApiStep(dict):
         :param Mapping[str, _builtins.str] request_metadata: Metadata to include when performing the gRPC request.
         :param 'SyntheticsTestApiStepRequestProxyArgs' request_proxy: The proxy to perform the test.
         :param Mapping[str, _builtins.str] request_query: Query arguments name and value map.
-        :param _builtins.str subtype: The subtype of the Synthetic multistep API test step. Valid values are `http`, `grpc`, `ssl`, `dns`, `tcp`, `udp`, `icmp`, `websocket`, `wait`. Defaults to `"http"`.
+        :param _builtins.str subtest_public_id: Public ID of the test to be played as part of a `playSubTest` step type.
+        :param _builtins.str subtype: The subtype of the Synthetic multistep API test step. Valid values are `http`, `grpc`, `ssl`, `dns`, `tcp`, `udp`, `icmp`, `websocket`, `wait`, `playSubTest`. Defaults to `"http"`.
         :param _builtins.int value: The time to wait in seconds. Minimum value: 0. Maximum value: 180.
         """
         pulumi.set(__self__, "name", name)
@@ -94128,6 +98466,8 @@ class SyntheticsTestApiStep(dict):
             pulumi.set(__self__, "request_query", request_query)
         if retry is not None:
             pulumi.set(__self__, "retry", retry)
+        if subtest_public_id is not None:
+            pulumi.set(__self__, "subtest_public_id", subtest_public_id)
         if subtype is not None:
             pulumi.set(__self__, "subtype", subtype)
         if value is not None:
@@ -94267,10 +98607,18 @@ class SyntheticsTestApiStep(dict):
         return pulumi.get(self, "retry")
 
     @_builtins.property
+    @pulumi.getter(name="subtestPublicId")
+    def subtest_public_id(self) -> Optional[_builtins.str]:
+        """
+        Public ID of the test to be played as part of a `playSubTest` step type.
+        """
+        return pulumi.get(self, "subtest_public_id")
+
+    @_builtins.property
     @pulumi.getter
     def subtype(self) -> Optional[_builtins.str]:
         """
-        The subtype of the Synthetic multistep API test step. Valid values are `http`, `grpc`, `ssl`, `dns`, `tcp`, `udp`, `icmp`, `websocket`, `wait`. Defaults to `"http"`.
+        The subtype of the Synthetic multistep API test step. Valid values are `http`, `grpc`, `ssl`, `dns`, `tcp`, `udp`, `icmp`, `websocket`, `wait`, `playSubTest`. Defaults to `"http"`.
         """
         return pulumi.get(self, "subtype")
 
@@ -97233,7 +101581,7 @@ class SyntheticsTestMobileStepParams(dict):
         :param _builtins.str check: Check type to use for an assertion step. Valid values are `equals`, `notEquals`, `contains`, `notContains`, `startsWith`, `notStartsWith`, `greater`, `lower`, `greaterEquals`, `lowerEquals`, `matchRegex`, `between`, `isEmpty`, `notIsEmpty`.
         :param _builtins.int delay: Delay between each key stroke for a "type test" step.
         :param _builtins.str direction: Valid values are `up`, `down`, `left`, `right`.
-        :param 'SyntheticsTestMobileStepParamsElementArgs' element: Element to use for the step, JSON encoded string.
+        :param 'SyntheticsTestMobileStepParamsElementArgs' element: Element to use for the step
         :param _builtins.str subtest_public_id: ID of the Synthetics test to use as subtest.
         :param _builtins.str value: Value of the step.
         :param 'SyntheticsTestMobileStepParamsVariableArgs' variable: Details of the variable to extract.
@@ -97295,7 +101643,7 @@ class SyntheticsTestMobileStepParams(dict):
     @pulumi.getter
     def element(self) -> Optional['outputs.SyntheticsTestMobileStepParamsElement']:
         """
-        Element to use for the step, JSON encoded string.
+        Element to use for the step
         """
         return pulumi.get(self, "element")
 
@@ -97612,6 +101960,8 @@ class SyntheticsTestOptionsList(dict):
             suggest = "accept_self_signed"
         elif key == "allowInsecure":
             suggest = "allow_insecure"
+        elif key == "blockedRequestPatterns":
+            suggest = "blocked_request_patterns"
         elif key == "checkCertificateRevocation":
             suggest = "check_certificate_revocation"
         elif key == "disableAiaIntermediateFetching":
@@ -97660,6 +102010,7 @@ class SyntheticsTestOptionsList(dict):
                  tick_every: _builtins.int,
                  accept_self_signed: Optional[_builtins.bool] = None,
                  allow_insecure: Optional[_builtins.bool] = None,
+                 blocked_request_patterns: Optional[Sequence[_builtins.str]] = None,
                  check_certificate_revocation: Optional[_builtins.bool] = None,
                  ci: Optional['outputs.SyntheticsTestOptionsListCi'] = None,
                  disable_aia_intermediate_fetching: Optional[_builtins.bool] = None,
@@ -97683,6 +102034,7 @@ class SyntheticsTestOptionsList(dict):
         :param _builtins.int tick_every: How often the test should run (in seconds). Valid range is `30-604800` for API tests and `60-604800` for browser tests.
         :param _builtins.bool accept_self_signed: For SSL tests, whether or not the test should allow self signed certificates.
         :param _builtins.bool allow_insecure: Allows loading insecure content for a request in an API test or in a multistep API test step.
+        :param Sequence[_builtins.str] blocked_request_patterns: Blocked URL patterns. Requests made to URLs matching any of the patterns listed here will be blocked.
         :param _builtins.bool check_certificate_revocation: For SSL tests, whether or not the test should fail on revoked certificate in stapled OCSP.
         :param 'SyntheticsTestOptionsListCiArgs' ci: CI/CD options for a Synthetic test.
         :param _builtins.bool disable_aia_intermediate_fetching: For SSL tests, whether or not the test should disable fetching intermediate certificates from AIA
@@ -97705,6 +102057,8 @@ class SyntheticsTestOptionsList(dict):
             pulumi.set(__self__, "accept_self_signed", accept_self_signed)
         if allow_insecure is not None:
             pulumi.set(__self__, "allow_insecure", allow_insecure)
+        if blocked_request_patterns is not None:
+            pulumi.set(__self__, "blocked_request_patterns", blocked_request_patterns)
         if check_certificate_revocation is not None:
             pulumi.set(__self__, "check_certificate_revocation", check_certificate_revocation)
         if ci is not None:
@@ -97767,6 +102121,14 @@ class SyntheticsTestOptionsList(dict):
         Allows loading insecure content for a request in an API test or in a multistep API test step.
         """
         return pulumi.get(self, "allow_insecure")
+
+    @_builtins.property
+    @pulumi.getter(name="blockedRequestPatterns")
+    def blocked_request_patterns(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Blocked URL patterns. Requests made to URLs matching any of the patterns listed here will be blocked.
+        """
+        return pulumi.get(self, "blocked_request_patterns")
 
     @_builtins.property
     @pulumi.getter(name="checkCertificateRevocation")
@@ -98982,6 +103344,533 @@ class SyntheticsTestRequestProxy(dict):
 
 
 @pulumi.output_type
+class TagPipelineRulesetRule(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "referenceTable":
+            suggest = "reference_table"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TagPipelineRulesetRule. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TagPipelineRulesetRule.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TagPipelineRulesetRule.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 enabled: _builtins.bool,
+                 name: _builtins.str,
+                 mapping: Optional['outputs.TagPipelineRulesetRuleMapping'] = None,
+                 metadata: Optional[Mapping[str, _builtins.str]] = None,
+                 query: Optional['outputs.TagPipelineRulesetRuleQuery'] = None,
+                 reference_table: Optional['outputs.TagPipelineRulesetRuleReferenceTable'] = None):
+        """
+        :param _builtins.bool enabled: Whether the rule is enabled.
+        :param _builtins.str name: The name of the rule.
+        :param 'TagPipelineRulesetRuleMappingArgs' mapping: The mapping configuration for the rule.
+        :param Mapping[str, _builtins.str] metadata: Rule metadata key-value pairs.
+        :param 'TagPipelineRulesetRuleQueryArgs' query: The query configuration for the rule.
+        :param 'TagPipelineRulesetRuleReferenceTableArgs' reference_table: The reference table configuration for the rule.
+        """
+        pulumi.set(__self__, "enabled", enabled)
+        pulumi.set(__self__, "name", name)
+        if mapping is not None:
+            pulumi.set(__self__, "mapping", mapping)
+        if metadata is not None:
+            pulumi.set(__self__, "metadata", metadata)
+        if query is not None:
+            pulumi.set(__self__, "query", query)
+        if reference_table is not None:
+            pulumi.set(__self__, "reference_table", reference_table)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        Whether the rule is enabled.
+        """
+        return pulumi.get(self, "enabled")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the rule.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def mapping(self) -> Optional['outputs.TagPipelineRulesetRuleMapping']:
+        """
+        The mapping configuration for the rule.
+        """
+        return pulumi.get(self, "mapping")
+
+    @_builtins.property
+    @pulumi.getter
+    def metadata(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Rule metadata key-value pairs.
+        """
+        return pulumi.get(self, "metadata")
+
+    @_builtins.property
+    @pulumi.getter
+    def query(self) -> Optional['outputs.TagPipelineRulesetRuleQuery']:
+        """
+        The query configuration for the rule.
+        """
+        return pulumi.get(self, "query")
+
+    @_builtins.property
+    @pulumi.getter(name="referenceTable")
+    def reference_table(self) -> Optional['outputs.TagPipelineRulesetRuleReferenceTable']:
+        """
+        The reference table configuration for the rule.
+        """
+        return pulumi.get(self, "reference_table")
+
+
+@pulumi.output_type
+class TagPipelineRulesetRuleMapping(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "destinationKey":
+            suggest = "destination_key"
+        elif key == "ifNotExists":
+            suggest = "if_not_exists"
+        elif key == "sourceKeys":
+            suggest = "source_keys"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TagPipelineRulesetRuleMapping. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TagPipelineRulesetRuleMapping.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TagPipelineRulesetRuleMapping.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 destination_key: Optional[_builtins.str] = None,
+                 if_not_exists: Optional[_builtins.bool] = None,
+                 source_keys: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str destination_key: The destination key for the mapping.
+        :param _builtins.bool if_not_exists: Whether to apply the mapping only if the destination key doesn't exist.
+        :param Sequence[_builtins.str] source_keys: The source keys for the mapping.
+        """
+        if destination_key is not None:
+            pulumi.set(__self__, "destination_key", destination_key)
+        if if_not_exists is not None:
+            pulumi.set(__self__, "if_not_exists", if_not_exists)
+        if source_keys is not None:
+            pulumi.set(__self__, "source_keys", source_keys)
+
+    @_builtins.property
+    @pulumi.getter(name="destinationKey")
+    def destination_key(self) -> Optional[_builtins.str]:
+        """
+        The destination key for the mapping.
+        """
+        return pulumi.get(self, "destination_key")
+
+    @_builtins.property
+    @pulumi.getter(name="ifNotExists")
+    def if_not_exists(self) -> Optional[_builtins.bool]:
+        """
+        Whether to apply the mapping only if the destination key doesn't exist.
+        """
+        return pulumi.get(self, "if_not_exists")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceKeys")
+    def source_keys(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        The source keys for the mapping.
+        """
+        return pulumi.get(self, "source_keys")
+
+
+@pulumi.output_type
+class TagPipelineRulesetRuleQuery(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "caseInsensitivity":
+            suggest = "case_insensitivity"
+        elif key == "ifNotExists":
+            suggest = "if_not_exists"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TagPipelineRulesetRuleQuery. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TagPipelineRulesetRuleQuery.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TagPipelineRulesetRuleQuery.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 addition: Optional['outputs.TagPipelineRulesetRuleQueryAddition'] = None,
+                 case_insensitivity: Optional[_builtins.bool] = None,
+                 if_not_exists: Optional[_builtins.bool] = None,
+                 query: Optional[_builtins.str] = None):
+        """
+        :param 'TagPipelineRulesetRuleQueryAdditionArgs' addition: The addition configuration for the query.
+        :param _builtins.bool case_insensitivity: Whether the query matching is case insensitive.
+        :param _builtins.bool if_not_exists: Whether to apply the query only if the key doesn't exist.
+        :param _builtins.str query: The query string.
+        """
+        if addition is not None:
+            pulumi.set(__self__, "addition", addition)
+        if case_insensitivity is not None:
+            pulumi.set(__self__, "case_insensitivity", case_insensitivity)
+        if if_not_exists is not None:
+            pulumi.set(__self__, "if_not_exists", if_not_exists)
+        if query is not None:
+            pulumi.set(__self__, "query", query)
+
+    @_builtins.property
+    @pulumi.getter
+    def addition(self) -> Optional['outputs.TagPipelineRulesetRuleQueryAddition']:
+        """
+        The addition configuration for the query.
+        """
+        return pulumi.get(self, "addition")
+
+    @_builtins.property
+    @pulumi.getter(name="caseInsensitivity")
+    def case_insensitivity(self) -> Optional[_builtins.bool]:
+        """
+        Whether the query matching is case insensitive.
+        """
+        return pulumi.get(self, "case_insensitivity")
+
+    @_builtins.property
+    @pulumi.getter(name="ifNotExists")
+    def if_not_exists(self) -> Optional[_builtins.bool]:
+        """
+        Whether to apply the query only if the key doesn't exist.
+        """
+        return pulumi.get(self, "if_not_exists")
+
+    @_builtins.property
+    @pulumi.getter
+    def query(self) -> Optional[_builtins.str]:
+        """
+        The query string.
+        """
+        return pulumi.get(self, "query")
+
+
+@pulumi.output_type
+class TagPipelineRulesetRuleQueryAddition(dict):
+    def __init__(__self__, *,
+                 key: Optional[_builtins.str] = None,
+                 value: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str key: The key to add.
+        :param _builtins.str value: The value to add.
+        """
+        if key is not None:
+            pulumi.set(__self__, "key", key)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> Optional[_builtins.str]:
+        """
+        The key to add.
+        """
+        return pulumi.get(self, "key")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        The value to add.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class TagPipelineRulesetRuleReferenceTable(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "caseInsensitivity":
+            suggest = "case_insensitivity"
+        elif key == "fieldPairs":
+            suggest = "field_pairs"
+        elif key == "ifNotExists":
+            suggest = "if_not_exists"
+        elif key == "sourceKeys":
+            suggest = "source_keys"
+        elif key == "tableName":
+            suggest = "table_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TagPipelineRulesetRuleReferenceTable. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TagPipelineRulesetRuleReferenceTable.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TagPipelineRulesetRuleReferenceTable.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 case_insensitivity: Optional[_builtins.bool] = None,
+                 field_pairs: Optional[Sequence['outputs.TagPipelineRulesetRuleReferenceTableFieldPair']] = None,
+                 if_not_exists: Optional[_builtins.bool] = None,
+                 source_keys: Optional[Sequence[_builtins.str]] = None,
+                 table_name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.bool case_insensitivity: Whether the reference table lookup is case insensitive.
+        :param Sequence['TagPipelineRulesetRuleReferenceTableFieldPairArgs'] field_pairs: The field pairs for the reference table.
+        :param _builtins.bool if_not_exists: Whether to apply the reference table only if the key doesn't exist.
+        :param Sequence[_builtins.str] source_keys: The source keys for the reference table lookup.
+        :param _builtins.str table_name: The name of the reference table.
+        """
+        if case_insensitivity is not None:
+            pulumi.set(__self__, "case_insensitivity", case_insensitivity)
+        if field_pairs is not None:
+            pulumi.set(__self__, "field_pairs", field_pairs)
+        if if_not_exists is not None:
+            pulumi.set(__self__, "if_not_exists", if_not_exists)
+        if source_keys is not None:
+            pulumi.set(__self__, "source_keys", source_keys)
+        if table_name is not None:
+            pulumi.set(__self__, "table_name", table_name)
+
+    @_builtins.property
+    @pulumi.getter(name="caseInsensitivity")
+    def case_insensitivity(self) -> Optional[_builtins.bool]:
+        """
+        Whether the reference table lookup is case insensitive.
+        """
+        return pulumi.get(self, "case_insensitivity")
+
+    @_builtins.property
+    @pulumi.getter(name="fieldPairs")
+    def field_pairs(self) -> Optional[Sequence['outputs.TagPipelineRulesetRuleReferenceTableFieldPair']]:
+        """
+        The field pairs for the reference table.
+        """
+        return pulumi.get(self, "field_pairs")
+
+    @_builtins.property
+    @pulumi.getter(name="ifNotExists")
+    def if_not_exists(self) -> Optional[_builtins.bool]:
+        """
+        Whether to apply the reference table only if the key doesn't exist.
+        """
+        return pulumi.get(self, "if_not_exists")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceKeys")
+    def source_keys(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        The source keys for the reference table lookup.
+        """
+        return pulumi.get(self, "source_keys")
+
+    @_builtins.property
+    @pulumi.getter(name="tableName")
+    def table_name(self) -> Optional[_builtins.str]:
+        """
+        The name of the reference table.
+        """
+        return pulumi.get(self, "table_name")
+
+
+@pulumi.output_type
+class TagPipelineRulesetRuleReferenceTableFieldPair(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "inputColumn":
+            suggest = "input_column"
+        elif key == "outputKey":
+            suggest = "output_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TagPipelineRulesetRuleReferenceTableFieldPair. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TagPipelineRulesetRuleReferenceTableFieldPair.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TagPipelineRulesetRuleReferenceTableFieldPair.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 input_column: Optional[_builtins.str] = None,
+                 output_key: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str input_column: The input column name.
+        :param _builtins.str output_key: The output key name.
+        """
+        if input_column is not None:
+            pulumi.set(__self__, "input_column", input_column)
+        if output_key is not None:
+            pulumi.set(__self__, "output_key", output_key)
+
+    @_builtins.property
+    @pulumi.getter(name="inputColumn")
+    def input_column(self) -> Optional[_builtins.str]:
+        """
+        The input column name.
+        """
+        return pulumi.get(self, "input_column")
+
+    @_builtins.property
+    @pulumi.getter(name="outputKey")
+    def output_key(self) -> Optional[_builtins.str]:
+        """
+        The output key name.
+        """
+        return pulumi.get(self, "output_key")
+
+
+@pulumi.output_type
+class TeamNotificationRuleEmail(dict):
+    def __init__(__self__, *,
+                 enabled: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool enabled: Whether to send email notifications to team members when alerts are triggered.
+        """
+        if enabled is not None:
+            pulumi.set(__self__, "enabled", enabled)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> Optional[_builtins.bool]:
+        """
+        Whether to send email notifications to team members when alerts are triggered.
+        """
+        return pulumi.get(self, "enabled")
+
+
+@pulumi.output_type
+class TeamNotificationRuleMsTeams(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "connectorName":
+            suggest = "connector_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TeamNotificationRuleMsTeams. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TeamNotificationRuleMsTeams.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TeamNotificationRuleMsTeams.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 connector_name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str connector_name: MS Teams connector name used to route notifications to the appropriate channel.
+        """
+        if connector_name is not None:
+            pulumi.set(__self__, "connector_name", connector_name)
+
+    @_builtins.property
+    @pulumi.getter(name="connectorName")
+    def connector_name(self) -> Optional[_builtins.str]:
+        """
+        MS Teams connector name used to route notifications to the appropriate channel.
+        """
+        return pulumi.get(self, "connector_name")
+
+
+@pulumi.output_type
+class TeamNotificationRulePagerduty(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "serviceName":
+            suggest = "service_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TeamNotificationRulePagerduty. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TeamNotificationRulePagerduty.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TeamNotificationRulePagerduty.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 service_name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str service_name: PagerDuty service name to send incident notifications to. The service name can be found in your PagerDuty service settings.
+        """
+        if service_name is not None:
+            pulumi.set(__self__, "service_name", service_name)
+
+    @_builtins.property
+    @pulumi.getter(name="serviceName")
+    def service_name(self) -> Optional[_builtins.str]:
+        """
+        PagerDuty service name to send incident notifications to. The service name can be found in your PagerDuty service settings.
+        """
+        return pulumi.get(self, "service_name")
+
+
+@pulumi.output_type
+class TeamNotificationRuleSlack(dict):
+    def __init__(__self__, *,
+                 channel: Optional[_builtins.str] = None,
+                 workspace: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str channel: Slack channel name for notifications (for example, #alerts or #team-notifications).
+        :param _builtins.str workspace: Slack workspace name where the channel is located.
+        """
+        if channel is not None:
+            pulumi.set(__self__, "channel", channel)
+        if workspace is not None:
+            pulumi.set(__self__, "workspace", workspace)
+
+    @_builtins.property
+    @pulumi.getter
+    def channel(self) -> Optional[_builtins.str]:
+        """
+        Slack channel name for notifications (for example, #alerts or #team-notifications).
+        """
+        return pulumi.get(self, "channel")
+
+    @_builtins.property
+    @pulumi.getter
+    def workspace(self) -> Optional[_builtins.str]:
+        """
+        Slack workspace name where the channel is located.
+        """
+        return pulumi.get(self, "workspace")
+
+
+@pulumi.output_type
 class GetActionConnectionAwsResult(dict):
     def __init__(__self__, *,
                  assume_role: Optional['outputs.GetActionConnectionAwsAssumeRoleResult'] = None):
@@ -99260,6 +104149,148 @@ class GetActionConnectionHttpTokenAuthUrlParameterResult(dict):
 
 
 @pulumi.output_type
+class GetAwsCurConfigAccountFiltersResult(dict):
+    def __init__(__self__, *,
+                 excluded_accounts: Sequence[_builtins.str],
+                 include_new_accounts: _builtins.bool,
+                 included_accounts: Sequence[_builtins.str]):
+        """
+        :param Sequence[_builtins.str] excluded_accounts: List of AWS account IDs excluded from cost analysis.
+        :param _builtins.bool include_new_accounts: Whether new member accounts are automatically included in cost analysis.
+        :param Sequence[_builtins.str] included_accounts: List of AWS account IDs included in cost analysis.
+        """
+        pulumi.set(__self__, "excluded_accounts", excluded_accounts)
+        pulumi.set(__self__, "include_new_accounts", include_new_accounts)
+        pulumi.set(__self__, "included_accounts", included_accounts)
+
+    @_builtins.property
+    @pulumi.getter(name="excludedAccounts")
+    def excluded_accounts(self) -> Sequence[_builtins.str]:
+        """
+        List of AWS account IDs excluded from cost analysis.
+        """
+        return pulumi.get(self, "excluded_accounts")
+
+    @_builtins.property
+    @pulumi.getter(name="includeNewAccounts")
+    def include_new_accounts(self) -> _builtins.bool:
+        """
+        Whether new member accounts are automatically included in cost analysis.
+        """
+        return pulumi.get(self, "include_new_accounts")
+
+    @_builtins.property
+    @pulumi.getter(name="includedAccounts")
+    def included_accounts(self) -> Sequence[_builtins.str]:
+        """
+        List of AWS account IDs included in cost analysis.
+        """
+        return pulumi.get(self, "included_accounts")
+
+
+@pulumi.output_type
+class GetAzureUcConfigActualBillConfigResult(dict):
+    def __init__(__self__, *,
+                 export_name: _builtins.str,
+                 export_path: _builtins.str,
+                 storage_account: _builtins.str,
+                 storage_container: _builtins.str):
+        """
+        :param _builtins.str export_name: The name of the configured Azure Export.
+        :param _builtins.str export_path: The path where the Azure Export is saved.
+        :param _builtins.str storage_account: The name of the storage account where the Azure Export is saved.
+        :param _builtins.str storage_container: The name of the storage container where the Azure Export is saved.
+        """
+        pulumi.set(__self__, "export_name", export_name)
+        pulumi.set(__self__, "export_path", export_path)
+        pulumi.set(__self__, "storage_account", storage_account)
+        pulumi.set(__self__, "storage_container", storage_container)
+
+    @_builtins.property
+    @pulumi.getter(name="exportName")
+    def export_name(self) -> _builtins.str:
+        """
+        The name of the configured Azure Export.
+        """
+        return pulumi.get(self, "export_name")
+
+    @_builtins.property
+    @pulumi.getter(name="exportPath")
+    def export_path(self) -> _builtins.str:
+        """
+        The path where the Azure Export is saved.
+        """
+        return pulumi.get(self, "export_path")
+
+    @_builtins.property
+    @pulumi.getter(name="storageAccount")
+    def storage_account(self) -> _builtins.str:
+        """
+        The name of the storage account where the Azure Export is saved.
+        """
+        return pulumi.get(self, "storage_account")
+
+    @_builtins.property
+    @pulumi.getter(name="storageContainer")
+    def storage_container(self) -> _builtins.str:
+        """
+        The name of the storage container where the Azure Export is saved.
+        """
+        return pulumi.get(self, "storage_container")
+
+
+@pulumi.output_type
+class GetAzureUcConfigAmortizedBillConfigResult(dict):
+    def __init__(__self__, *,
+                 export_name: _builtins.str,
+                 export_path: _builtins.str,
+                 storage_account: _builtins.str,
+                 storage_container: _builtins.str):
+        """
+        :param _builtins.str export_name: The name of the configured Azure Export.
+        :param _builtins.str export_path: The path where the Azure Export is saved.
+        :param _builtins.str storage_account: The name of the storage account where the Azure Export is saved.
+        :param _builtins.str storage_container: The name of the storage container where the Azure Export is saved.
+        """
+        pulumi.set(__self__, "export_name", export_name)
+        pulumi.set(__self__, "export_path", export_path)
+        pulumi.set(__self__, "storage_account", storage_account)
+        pulumi.set(__self__, "storage_container", storage_container)
+
+    @_builtins.property
+    @pulumi.getter(name="exportName")
+    def export_name(self) -> _builtins.str:
+        """
+        The name of the configured Azure Export.
+        """
+        return pulumi.get(self, "export_name")
+
+    @_builtins.property
+    @pulumi.getter(name="exportPath")
+    def export_path(self) -> _builtins.str:
+        """
+        The path where the Azure Export is saved.
+        """
+        return pulumi.get(self, "export_path")
+
+    @_builtins.property
+    @pulumi.getter(name="storageAccount")
+    def storage_account(self) -> _builtins.str:
+        """
+        The name of the storage account where the Azure Export is saved.
+        """
+        return pulumi.get(self, "storage_account")
+
+    @_builtins.property
+    @pulumi.getter(name="storageContainer")
+    def storage_container(self) -> _builtins.str:
+        """
+        The name of the storage container where the Azure Export is saved.
+        """
+        return pulumi.get(self, "storage_container")
+
+
+@pulumi.output_type
 class GetCloudWorkloadSecurityAgentRulesAgentRuleResult(dict):
     def __init__(__self__, *,
                  description: _builtins.str,
@@ -99442,22 +104473,34 @@ class GetCsmThreatsAgentRulesAgentRuleActionResult(dict):
 
 @pulumi.output_type
 class GetCsmThreatsAgentRulesAgentRuleActionHashResult(dict):
-    def __init__(__self__):
-        pass
+    def __init__(__self__, *,
+                 field: _builtins.str):
+        pulumi.set(__self__, "field", field)
+
+    @_builtins.property
+    @pulumi.getter
+    def field(self) -> _builtins.str:
+        return pulumi.get(self, "field")
 
 
 @pulumi.output_type
 class GetCsmThreatsAgentRulesAgentRuleActionSetResult(dict):
     def __init__(__self__, *,
                  append: _builtins.bool,
+                 default_value: _builtins.str,
+                 expression: _builtins.str,
                  field: _builtins.str,
+                 inherited: _builtins.bool,
                  name: _builtins.str,
                  scope: _builtins.str,
                  size: _builtins.int,
                  ttl: _builtins.int,
                  value: _builtins.str):
         pulumi.set(__self__, "append", append)
+        pulumi.set(__self__, "default_value", default_value)
+        pulumi.set(__self__, "expression", expression)
         pulumi.set(__self__, "field", field)
+        pulumi.set(__self__, "inherited", inherited)
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "scope", scope)
         pulumi.set(__self__, "size", size)
@@ -99470,9 +104513,24 @@ class GetCsmThreatsAgentRulesAgentRuleActionSetResult(dict):
         return pulumi.get(self, "append")
 
     @_builtins.property
+    @pulumi.getter(name="defaultValue")
+    def default_value(self) -> _builtins.str:
+        return pulumi.get(self, "default_value")
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        return pulumi.get(self, "expression")
+
+    @_builtins.property
     @pulumi.getter
     def field(self) -> _builtins.str:
         return pulumi.get(self, "field")
+
+    @_builtins.property
+    @pulumi.getter
+    def inherited(self) -> _builtins.bool:
+        return pulumi.get(self, "inherited")
 
     @_builtins.property
     @pulumi.getter
@@ -99545,6 +104603,362 @@ class GetCsmThreatsPoliciesPolicyResult(dict):
     @pulumi.getter
     def tags(self) -> Sequence[_builtins.str]:
         return pulumi.get(self, "tags")
+
+
+@pulumi.output_type
+class GetCustomAllocationRuleCostsToAllocateResult(dict):
+    def __init__(__self__, *,
+                 condition: _builtins.str,
+                 tag: _builtins.str,
+                 value: _builtins.str,
+                 values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str condition: The condition used to match tags. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        :param _builtins.str tag: The tag key used in the filter.
+        :param _builtins.str value: The tag value used in the filter (for single-value conditions).
+        :param Sequence[_builtins.str] values: The list of tag values used in the filter (for multi-value conditions like `in` or `not_in`).
+        """
+        pulumi.set(__self__, "condition", condition)
+        pulumi.set(__self__, "tag", tag)
+        pulumi.set(__self__, "value", value)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def condition(self) -> _builtins.str:
+        """
+        The condition used to match tags. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        """
+        return pulumi.get(self, "condition")
+
+    @_builtins.property
+    @pulumi.getter
+    def tag(self) -> _builtins.str:
+        """
+        The tag key used in the filter.
+        """
+        return pulumi.get(self, "tag")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        The tag value used in the filter (for single-value conditions).
+        """
+        return pulumi.get(self, "value")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        """
+        The list of tag values used in the filter (for multi-value conditions like `in` or `not_in`).
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
+class GetCustomAllocationRuleStrategyResult(dict):
+    def __init__(__self__, *,
+                 allocated_by_tag_keys: Sequence[_builtins.str],
+                 evaluate_grouped_by_tag_keys: Sequence[_builtins.str],
+                 granularity: _builtins.str,
+                 method: _builtins.str,
+                 allocated_bies: Optional[Sequence['outputs.GetCustomAllocationRuleStrategyAllocatedByResult']] = None,
+                 allocated_by_filters: Optional[Sequence['outputs.GetCustomAllocationRuleStrategyAllocatedByFilterResult']] = None,
+                 based_on_costs: Optional[Sequence['outputs.GetCustomAllocationRuleStrategyBasedOnCostResult']] = None,
+                 based_on_timeseries: Optional['outputs.GetCustomAllocationRuleStrategyBasedOnTimeseriesResult'] = None,
+                 evaluate_grouped_by_filters: Optional[Sequence['outputs.GetCustomAllocationRuleStrategyEvaluateGroupedByFilterResult']] = None):
+        """
+        :param Sequence[_builtins.str] allocated_by_tag_keys: List of tag keys used to allocate costs.
+        :param Sequence[_builtins.str] evaluate_grouped_by_tag_keys: List of tag keys used to group costs before allocation.
+        :param _builtins.str granularity: The granularity level for cost allocation (`daily` or `monthly`).
+        :param _builtins.str method: The allocation method. Valid values are `even`, `proportional`, `proportional_timeseries`, or `percent`.
+        """
+        pulumi.set(__self__, "allocated_by_tag_keys", allocated_by_tag_keys)
+        pulumi.set(__self__, "evaluate_grouped_by_tag_keys", evaluate_grouped_by_tag_keys)
+        pulumi.set(__self__, "granularity", granularity)
+        pulumi.set(__self__, "method", method)
+        if allocated_bies is not None:
+            pulumi.set(__self__, "allocated_bies", allocated_bies)
+        if allocated_by_filters is not None:
+            pulumi.set(__self__, "allocated_by_filters", allocated_by_filters)
+        if based_on_costs is not None:
+            pulumi.set(__self__, "based_on_costs", based_on_costs)
+        if based_on_timeseries is not None:
+            pulumi.set(__self__, "based_on_timeseries", based_on_timeseries)
+        if evaluate_grouped_by_filters is not None:
+            pulumi.set(__self__, "evaluate_grouped_by_filters", evaluate_grouped_by_filters)
+
+    @_builtins.property
+    @pulumi.getter(name="allocatedByTagKeys")
+    def allocated_by_tag_keys(self) -> Sequence[_builtins.str]:
+        """
+        List of tag keys used to allocate costs.
+        """
+        return pulumi.get(self, "allocated_by_tag_keys")
+
+    @_builtins.property
+    @pulumi.getter(name="evaluateGroupedByTagKeys")
+    def evaluate_grouped_by_tag_keys(self) -> Sequence[_builtins.str]:
+        """
+        List of tag keys used to group costs before allocation.
+        """
+        return pulumi.get(self, "evaluate_grouped_by_tag_keys")
+
+    @_builtins.property
+    @pulumi.getter
+    def granularity(self) -> _builtins.str:
+        """
+        The granularity level for cost allocation (`daily` or `monthly`).
+        """
+        return pulumi.get(self, "granularity")
+
+    @_builtins.property
+    @pulumi.getter
+    def method(self) -> _builtins.str:
+        """
+        The allocation method. Valid values are `even`, `proportional`, `proportional_timeseries`, or `percent`.
+        """
+        return pulumi.get(self, "method")
+
+    @_builtins.property
+    @pulumi.getter(name="allocatedBies")
+    def allocated_bies(self) -> Optional[Sequence['outputs.GetCustomAllocationRuleStrategyAllocatedByResult']]:
+        return pulumi.get(self, "allocated_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="allocatedByFilters")
+    def allocated_by_filters(self) -> Optional[Sequence['outputs.GetCustomAllocationRuleStrategyAllocatedByFilterResult']]:
+        return pulumi.get(self, "allocated_by_filters")
+
+    @_builtins.property
+    @pulumi.getter(name="basedOnCosts")
+    def based_on_costs(self) -> Optional[Sequence['outputs.GetCustomAllocationRuleStrategyBasedOnCostResult']]:
+        return pulumi.get(self, "based_on_costs")
+
+    @_builtins.property
+    @pulumi.getter(name="basedOnTimeseries")
+    def based_on_timeseries(self) -> Optional['outputs.GetCustomAllocationRuleStrategyBasedOnTimeseriesResult']:
+        return pulumi.get(self, "based_on_timeseries")
+
+    @_builtins.property
+    @pulumi.getter(name="evaluateGroupedByFilters")
+    def evaluate_grouped_by_filters(self) -> Optional[Sequence['outputs.GetCustomAllocationRuleStrategyEvaluateGroupedByFilterResult']]:
+        return pulumi.get(self, "evaluate_grouped_by_filters")
+
+
+@pulumi.output_type
+class GetCustomAllocationRuleStrategyAllocatedByResult(dict):
+    def __init__(__self__, *,
+                 percentage: _builtins.float,
+                 allocated_tags: Optional[Sequence['outputs.GetCustomAllocationRuleStrategyAllocatedByAllocatedTagResult']] = None):
+        """
+        :param _builtins.float percentage: The percentage of costs allocated to this target as a decimal (e.g., 0.33 for 33%).
+        """
+        pulumi.set(__self__, "percentage", percentage)
+        if allocated_tags is not None:
+            pulumi.set(__self__, "allocated_tags", allocated_tags)
+
+    @_builtins.property
+    @pulumi.getter
+    def percentage(self) -> _builtins.float:
+        """
+        The percentage of costs allocated to this target as a decimal (e.g., 0.33 for 33%).
+        """
+        return pulumi.get(self, "percentage")
+
+    @_builtins.property
+    @pulumi.getter(name="allocatedTags")
+    def allocated_tags(self) -> Optional[Sequence['outputs.GetCustomAllocationRuleStrategyAllocatedByAllocatedTagResult']]:
+        return pulumi.get(self, "allocated_tags")
+
+
+@pulumi.output_type
+class GetCustomAllocationRuleStrategyAllocatedByAllocatedTagResult(dict):
+    def __init__(__self__, *,
+                 key: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str key: The tag key for cost allocation.
+        :param _builtins.str value: The tag value used in the filter (for single-value conditions).
+        """
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> _builtins.str:
+        """
+        The tag key for cost allocation.
+        """
+        return pulumi.get(self, "key")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        The tag value used in the filter (for single-value conditions).
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class GetCustomAllocationRuleStrategyAllocatedByFilterResult(dict):
+    def __init__(__self__, *,
+                 condition: _builtins.str,
+                 tag: _builtins.str,
+                 value: _builtins.str,
+                 values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str condition: The condition used to match tags. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        :param _builtins.str tag: The tag key used in the filter.
+        :param _builtins.str value: The tag value used in the filter (for single-value conditions).
+        :param Sequence[_builtins.str] values: The list of tag values used in the filter (for multi-value conditions like `in` or `not_in`).
+        """
+        pulumi.set(__self__, "condition", condition)
+        pulumi.set(__self__, "tag", tag)
+        pulumi.set(__self__, "value", value)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def condition(self) -> _builtins.str:
+        """
+        The condition used to match tags. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        """
+        return pulumi.get(self, "condition")
+
+    @_builtins.property
+    @pulumi.getter
+    def tag(self) -> _builtins.str:
+        """
+        The tag key used in the filter.
+        """
+        return pulumi.get(self, "tag")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        The tag value used in the filter (for single-value conditions).
+        """
+        return pulumi.get(self, "value")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        """
+        The list of tag values used in the filter (for multi-value conditions like `in` or `not_in`).
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
+class GetCustomAllocationRuleStrategyBasedOnCostResult(dict):
+    def __init__(__self__, *,
+                 condition: _builtins.str,
+                 tag: _builtins.str,
+                 value: _builtins.str,
+                 values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str condition: The condition used to match tags. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        :param _builtins.str tag: The tag key used in the filter.
+        :param _builtins.str value: The tag value used in the filter (for single-value conditions).
+        :param Sequence[_builtins.str] values: The list of tag values used in the filter (for multi-value conditions like `in` or `not_in`).
+        """
+        pulumi.set(__self__, "condition", condition)
+        pulumi.set(__self__, "tag", tag)
+        pulumi.set(__self__, "value", value)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def condition(self) -> _builtins.str:
+        """
+        The condition used to match tags. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        """
+        return pulumi.get(self, "condition")
+
+    @_builtins.property
+    @pulumi.getter
+    def tag(self) -> _builtins.str:
+        """
+        The tag key used in the filter.
+        """
+        return pulumi.get(self, "tag")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        The tag value used in the filter (for single-value conditions).
+        """
+        return pulumi.get(self, "value")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        """
+        The list of tag values used in the filter (for multi-value conditions like `in` or `not_in`).
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
+class GetCustomAllocationRuleStrategyBasedOnTimeseriesResult(dict):
+    def __init__(__self__):
+        pass
+
+
+@pulumi.output_type
+class GetCustomAllocationRuleStrategyEvaluateGroupedByFilterResult(dict):
+    def __init__(__self__, *,
+                 condition: _builtins.str,
+                 tag: _builtins.str,
+                 value: _builtins.str,
+                 values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str condition: The condition used to match tags. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        :param _builtins.str tag: The tag key used in the filter.
+        :param _builtins.str value: The tag value used in the filter (for single-value conditions).
+        :param Sequence[_builtins.str] values: The list of tag values used in the filter (for multi-value conditions like `in` or `not_in`).
+        """
+        pulumi.set(__self__, "condition", condition)
+        pulumi.set(__self__, "tag", tag)
+        pulumi.set(__self__, "value", value)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def condition(self) -> _builtins.str:
+        """
+        The condition used to match tags. Valid values are `=`, `!=`, `is`, `is not`, `like`, `in`, `not in`.
+        """
+        return pulumi.get(self, "condition")
+
+    @_builtins.property
+    @pulumi.getter
+    def tag(self) -> _builtins.str:
+        """
+        The tag key used in the filter.
+        """
+        return pulumi.get(self, "tag")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        The tag value used in the filter (for single-value conditions).
+        """
+        return pulumi.get(self, "value")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        """
+        The list of tag values used in the filter (for multi-value conditions like `in` or `not_in`).
+        """
+        return pulumi.get(self, "values")
 
 
 @pulumi.output_type
@@ -100427,6 +105841,557 @@ class GetMonitorsMonitorResult(dict):
 
 
 @pulumi.output_type
+class GetOrganizationSettingsSettingResult(dict):
+    def __init__(__self__, *,
+                 private_widget_share: _builtins.bool,
+                 saml_autocreate_access_role: _builtins.str,
+                 saml_can_be_enabled: _builtins.bool,
+                 saml_idp_endpoint: _builtins.str,
+                 saml_idp_metadata_uploaded: _builtins.bool,
+                 saml_login_url: _builtins.str,
+                 saml_autocreate_users_domains: Optional[Sequence['outputs.GetOrganizationSettingsSettingSamlAutocreateUsersDomainResult']] = None,
+                 saml_idp_initiated_logins: Optional[Sequence['outputs.GetOrganizationSettingsSettingSamlIdpInitiatedLoginResult']] = None,
+                 saml_strict_modes: Optional[Sequence['outputs.GetOrganizationSettingsSettingSamlStrictModeResult']] = None,
+                 samls: Optional[Sequence['outputs.GetOrganizationSettingsSettingSamlResult']] = None):
+        """
+        :param _builtins.bool private_widget_share: Whether or not the organization users can share widgets outside of Datadog.
+        :param _builtins.str saml_autocreate_access_role: The access role of the user. Options are `st` (standard user), `adm` (admin user), or `ro` (read-only user). Allowed enum values: `st`, `adm`, `ro`, `ERROR`.
+        :param _builtins.bool saml_can_be_enabled: Whether or not SAML can be enabled for this organization.
+        :param _builtins.str saml_idp_endpoint: Identity provider endpoint for SAML authentication.
+        :param _builtins.bool saml_idp_metadata_uploaded: Whether or not a SAML identity provider metadata file was provided to the Datadog organization.
+        :param _builtins.str saml_login_url: URL for SAML logging.
+        :param Sequence['GetOrganizationSettingsSettingSamlAutocreateUsersDomainArgs'] saml_autocreate_users_domains: List of domains where the SAML automated user creation is enabled.
+        :param Sequence['GetOrganizationSettingsSettingSamlIdpInitiatedLoginArgs'] saml_idp_initiated_logins: Whether or not a SAML identity provider metadata file was provided to the Datadog organization.
+        :param Sequence['GetOrganizationSettingsSettingSamlStrictModeArgs'] saml_strict_modes: Whether or not the SAML strict mode is enabled. If true, all users must log in with SAML.
+        :param Sequence['GetOrganizationSettingsSettingSamlArgs'] samls: SAML properties.
+        """
+        pulumi.set(__self__, "private_widget_share", private_widget_share)
+        pulumi.set(__self__, "saml_autocreate_access_role", saml_autocreate_access_role)
+        pulumi.set(__self__, "saml_can_be_enabled", saml_can_be_enabled)
+        pulumi.set(__self__, "saml_idp_endpoint", saml_idp_endpoint)
+        pulumi.set(__self__, "saml_idp_metadata_uploaded", saml_idp_metadata_uploaded)
+        pulumi.set(__self__, "saml_login_url", saml_login_url)
+        if saml_autocreate_users_domains is not None:
+            pulumi.set(__self__, "saml_autocreate_users_domains", saml_autocreate_users_domains)
+        if saml_idp_initiated_logins is not None:
+            pulumi.set(__self__, "saml_idp_initiated_logins", saml_idp_initiated_logins)
+        if saml_strict_modes is not None:
+            pulumi.set(__self__, "saml_strict_modes", saml_strict_modes)
+        if samls is not None:
+            pulumi.set(__self__, "samls", samls)
+
+    @_builtins.property
+    @pulumi.getter(name="privateWidgetShare")
+    def private_widget_share(self) -> _builtins.bool:
+        """
+        Whether or not the organization users can share widgets outside of Datadog.
+        """
+        return pulumi.get(self, "private_widget_share")
+
+    @_builtins.property
+    @pulumi.getter(name="samlAutocreateAccessRole")
+    def saml_autocreate_access_role(self) -> _builtins.str:
+        """
+        The access role of the user. Options are `st` (standard user), `adm` (admin user), or `ro` (read-only user). Allowed enum values: `st`, `adm`, `ro`, `ERROR`.
+        """
+        return pulumi.get(self, "saml_autocreate_access_role")
+
+    @_builtins.property
+    @pulumi.getter(name="samlCanBeEnabled")
+    def saml_can_be_enabled(self) -> _builtins.bool:
+        """
+        Whether or not SAML can be enabled for this organization.
+        """
+        return pulumi.get(self, "saml_can_be_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="samlIdpEndpoint")
+    def saml_idp_endpoint(self) -> _builtins.str:
+        """
+        Identity provider endpoint for SAML authentication.
+        """
+        return pulumi.get(self, "saml_idp_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="samlIdpMetadataUploaded")
+    def saml_idp_metadata_uploaded(self) -> _builtins.bool:
+        """
+        Whether or not a SAML identity provider metadata file was provided to the Datadog organization.
+        """
+        return pulumi.get(self, "saml_idp_metadata_uploaded")
+
+    @_builtins.property
+    @pulumi.getter(name="samlLoginUrl")
+    def saml_login_url(self) -> _builtins.str:
+        """
+        URL for SAML logging.
+        """
+        return pulumi.get(self, "saml_login_url")
+
+    @_builtins.property
+    @pulumi.getter(name="samlAutocreateUsersDomains")
+    def saml_autocreate_users_domains(self) -> Optional[Sequence['outputs.GetOrganizationSettingsSettingSamlAutocreateUsersDomainResult']]:
+        """
+        List of domains where the SAML automated user creation is enabled.
+        """
+        return pulumi.get(self, "saml_autocreate_users_domains")
+
+    @_builtins.property
+    @pulumi.getter(name="samlIdpInitiatedLogins")
+    def saml_idp_initiated_logins(self) -> Optional[Sequence['outputs.GetOrganizationSettingsSettingSamlIdpInitiatedLoginResult']]:
+        """
+        Whether or not a SAML identity provider metadata file was provided to the Datadog organization.
+        """
+        return pulumi.get(self, "saml_idp_initiated_logins")
+
+    @_builtins.property
+    @pulumi.getter(name="samlStrictModes")
+    def saml_strict_modes(self) -> Optional[Sequence['outputs.GetOrganizationSettingsSettingSamlStrictModeResult']]:
+        """
+        Whether or not the SAML strict mode is enabled. If true, all users must log in with SAML.
+        """
+        return pulumi.get(self, "saml_strict_modes")
+
+    @_builtins.property
+    @pulumi.getter
+    def samls(self) -> Optional[Sequence['outputs.GetOrganizationSettingsSettingSamlResult']]:
+        """
+        SAML properties.
+        """
+        return pulumi.get(self, "samls")
+
+
+@pulumi.output_type
+class GetOrganizationSettingsSettingSamlResult(dict):
+    def __init__(__self__, *,
+                 enabled: _builtins.bool):
+        """
+        :param _builtins.bool enabled: Whether or not SAML is enabled for this organization.
+        """
+        pulumi.set(__self__, "enabled", enabled)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        Whether or not SAML is enabled for this organization.
+        """
+        return pulumi.get(self, "enabled")
+
+
+@pulumi.output_type
+class GetOrganizationSettingsSettingSamlAutocreateUsersDomainResult(dict):
+    def __init__(__self__, *,
+                 domains: Sequence[_builtins.str],
+                 enabled: _builtins.bool):
+        """
+        :param Sequence[_builtins.str] domains: List of domains where the SAML automated user creation is enabled.
+        :param _builtins.bool enabled: Whether or not the automated user creation based on SAML domain is enabled.
+        """
+        pulumi.set(__self__, "domains", domains)
+        pulumi.set(__self__, "enabled", enabled)
+
+    @_builtins.property
+    @pulumi.getter
+    def domains(self) -> Sequence[_builtins.str]:
+        """
+        List of domains where the SAML automated user creation is enabled.
+        """
+        return pulumi.get(self, "domains")
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        Whether or not the automated user creation based on SAML domain is enabled.
+        """
+        return pulumi.get(self, "enabled")
+
+
+@pulumi.output_type
+class GetOrganizationSettingsSettingSamlIdpInitiatedLoginResult(dict):
+    def __init__(__self__, *,
+                 enabled: _builtins.bool):
+        """
+        :param _builtins.bool enabled: Whether or not a SAML identity provider metadata file was provided to the Datadog organization.
+        """
+        pulumi.set(__self__, "enabled", enabled)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        Whether or not a SAML identity provider metadata file was provided to the Datadog organization.
+        """
+        return pulumi.get(self, "enabled")
+
+
+@pulumi.output_type
+class GetOrganizationSettingsSettingSamlStrictModeResult(dict):
+    def __init__(__self__, *,
+                 enabled: _builtins.bool):
+        """
+        :param _builtins.bool enabled: Whether or not the SAML strict mode is enabled. If true, all users must log in with SAML.
+        """
+        pulumi.set(__self__, "enabled", enabled)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        Whether or not the SAML strict mode is enabled. If true, all users must log in with SAML.
+        """
+        return pulumi.get(self, "enabled")
+
+
+@pulumi.output_type
+class GetReferenceTableFileMetadataResult(dict):
+    def __init__(__self__, *,
+                 error_message: _builtins.str,
+                 error_row_count: _builtins.int,
+                 error_type: _builtins.str,
+                 sync_enabled: _builtins.bool,
+                 access_details: Optional['outputs.GetReferenceTableFileMetadataAccessDetailsResult'] = None):
+        """
+        :param _builtins.str error_message: Error message from the last sync attempt, if any.
+        :param _builtins.int error_row_count: The number of rows that failed to sync.
+        :param _builtins.str error_type: The type of error that occurred during file processing. Only present for cloud storage sources.
+        :param _builtins.bool sync_enabled: Whether automatic sync is enabled for this table. Only present for cloud storage sources (S3, GCS, Azure).
+        :param 'GetReferenceTableFileMetadataAccessDetailsArgs' access_details: Cloud storage access configuration. Only present for cloud storage sources (S3, GCS, Azure).
+        """
+        pulumi.set(__self__, "error_message", error_message)
+        pulumi.set(__self__, "error_row_count", error_row_count)
+        pulumi.set(__self__, "error_type", error_type)
+        pulumi.set(__self__, "sync_enabled", sync_enabled)
+        if access_details is not None:
+            pulumi.set(__self__, "access_details", access_details)
+
+    @_builtins.property
+    @pulumi.getter(name="errorMessage")
+    def error_message(self) -> _builtins.str:
+        """
+        Error message from the last sync attempt, if any.
+        """
+        return pulumi.get(self, "error_message")
+
+    @_builtins.property
+    @pulumi.getter(name="errorRowCount")
+    def error_row_count(self) -> _builtins.int:
+        """
+        The number of rows that failed to sync.
+        """
+        return pulumi.get(self, "error_row_count")
+
+    @_builtins.property
+    @pulumi.getter(name="errorType")
+    def error_type(self) -> _builtins.str:
+        """
+        The type of error that occurred during file processing. Only present for cloud storage sources.
+        """
+        return pulumi.get(self, "error_type")
+
+    @_builtins.property
+    @pulumi.getter(name="syncEnabled")
+    def sync_enabled(self) -> _builtins.bool:
+        """
+        Whether automatic sync is enabled for this table. Only present for cloud storage sources (S3, GCS, Azure).
+        """
+        return pulumi.get(self, "sync_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="accessDetails")
+    def access_details(self) -> Optional['outputs.GetReferenceTableFileMetadataAccessDetailsResult']:
+        """
+        Cloud storage access configuration. Only present for cloud storage sources (S3, GCS, Azure).
+        """
+        return pulumi.get(self, "access_details")
+
+
+@pulumi.output_type
+class GetReferenceTableFileMetadataAccessDetailsResult(dict):
+    def __init__(__self__, *,
+                 aws_detail: Optional['outputs.GetReferenceTableFileMetadataAccessDetailsAwsDetailResult'] = None,
+                 azure_detail: Optional['outputs.GetReferenceTableFileMetadataAccessDetailsAzureDetailResult'] = None,
+                 gcp_detail: Optional['outputs.GetReferenceTableFileMetadataAccessDetailsGcpDetailResult'] = None):
+        """
+        :param 'GetReferenceTableFileMetadataAccessDetailsAwsDetailArgs' aws_detail: AWS S3 access configuration.
+        :param 'GetReferenceTableFileMetadataAccessDetailsAzureDetailArgs' azure_detail: Azure Blob Storage access configuration.
+        :param 'GetReferenceTableFileMetadataAccessDetailsGcpDetailArgs' gcp_detail: Google Cloud Storage access configuration.
+        """
+        if aws_detail is not None:
+            pulumi.set(__self__, "aws_detail", aws_detail)
+        if azure_detail is not None:
+            pulumi.set(__self__, "azure_detail", azure_detail)
+        if gcp_detail is not None:
+            pulumi.set(__self__, "gcp_detail", gcp_detail)
+
+    @_builtins.property
+    @pulumi.getter(name="awsDetail")
+    def aws_detail(self) -> Optional['outputs.GetReferenceTableFileMetadataAccessDetailsAwsDetailResult']:
+        """
+        AWS S3 access configuration.
+        """
+        return pulumi.get(self, "aws_detail")
+
+    @_builtins.property
+    @pulumi.getter(name="azureDetail")
+    def azure_detail(self) -> Optional['outputs.GetReferenceTableFileMetadataAccessDetailsAzureDetailResult']:
+        """
+        Azure Blob Storage access configuration.
+        """
+        return pulumi.get(self, "azure_detail")
+
+    @_builtins.property
+    @pulumi.getter(name="gcpDetail")
+    def gcp_detail(self) -> Optional['outputs.GetReferenceTableFileMetadataAccessDetailsGcpDetailResult']:
+        """
+        Google Cloud Storage access configuration.
+        """
+        return pulumi.get(self, "gcp_detail")
+
+
+@pulumi.output_type
+class GetReferenceTableFileMetadataAccessDetailsAwsDetailResult(dict):
+    def __init__(__self__, *,
+                 aws_account_id: _builtins.str,
+                 aws_bucket_name: _builtins.str,
+                 file_path: _builtins.str):
+        """
+        :param _builtins.str aws_account_id: The ID of the AWS account.
+        :param _builtins.str aws_bucket_name: The name of the AWS S3 bucket.
+        :param _builtins.str file_path: The relative file path from the AWS S3 bucket root to the CSV file.
+        """
+        pulumi.set(__self__, "aws_account_id", aws_account_id)
+        pulumi.set(__self__, "aws_bucket_name", aws_bucket_name)
+        pulumi.set(__self__, "file_path", file_path)
+
+    @_builtins.property
+    @pulumi.getter(name="awsAccountId")
+    def aws_account_id(self) -> _builtins.str:
+        """
+        The ID of the AWS account.
+        """
+        return pulumi.get(self, "aws_account_id")
+
+    @_builtins.property
+    @pulumi.getter(name="awsBucketName")
+    def aws_bucket_name(self) -> _builtins.str:
+        """
+        The name of the AWS S3 bucket.
+        """
+        return pulumi.get(self, "aws_bucket_name")
+
+    @_builtins.property
+    @pulumi.getter(name="filePath")
+    def file_path(self) -> _builtins.str:
+        """
+        The relative file path from the AWS S3 bucket root to the CSV file.
+        """
+        return pulumi.get(self, "file_path")
+
+
+@pulumi.output_type
+class GetReferenceTableFileMetadataAccessDetailsAzureDetailResult(dict):
+    def __init__(__self__, *,
+                 azure_client_id: _builtins.str,
+                 azure_container_name: _builtins.str,
+                 azure_storage_account_name: _builtins.str,
+                 azure_tenant_id: _builtins.str,
+                 file_path: _builtins.str):
+        """
+        :param _builtins.str azure_client_id: The Azure client ID (application ID).
+        :param _builtins.str azure_container_name: The name of the Azure container.
+        :param _builtins.str azure_storage_account_name: The name of the Azure storage account.
+        :param _builtins.str azure_tenant_id: The ID of the Azure tenant.
+        :param _builtins.str file_path: The relative file path from the Azure container root to the CSV file.
+        """
+        pulumi.set(__self__, "azure_client_id", azure_client_id)
+        pulumi.set(__self__, "azure_container_name", azure_container_name)
+        pulumi.set(__self__, "azure_storage_account_name", azure_storage_account_name)
+        pulumi.set(__self__, "azure_tenant_id", azure_tenant_id)
+        pulumi.set(__self__, "file_path", file_path)
+
+    @_builtins.property
+    @pulumi.getter(name="azureClientId")
+    def azure_client_id(self) -> _builtins.str:
+        """
+        The Azure client ID (application ID).
+        """
+        return pulumi.get(self, "azure_client_id")
+
+    @_builtins.property
+    @pulumi.getter(name="azureContainerName")
+    def azure_container_name(self) -> _builtins.str:
+        """
+        The name of the Azure container.
+        """
+        return pulumi.get(self, "azure_container_name")
+
+    @_builtins.property
+    @pulumi.getter(name="azureStorageAccountName")
+    def azure_storage_account_name(self) -> _builtins.str:
+        """
+        The name of the Azure storage account.
+        """
+        return pulumi.get(self, "azure_storage_account_name")
+
+    @_builtins.property
+    @pulumi.getter(name="azureTenantId")
+    def azure_tenant_id(self) -> _builtins.str:
+        """
+        The ID of the Azure tenant.
+        """
+        return pulumi.get(self, "azure_tenant_id")
+
+    @_builtins.property
+    @pulumi.getter(name="filePath")
+    def file_path(self) -> _builtins.str:
+        """
+        The relative file path from the Azure container root to the CSV file.
+        """
+        return pulumi.get(self, "file_path")
+
+
+@pulumi.output_type
+class GetReferenceTableFileMetadataAccessDetailsGcpDetailResult(dict):
+    def __init__(__self__, *,
+                 file_path: _builtins.str,
+                 gcp_bucket_name: _builtins.str,
+                 gcp_project_id: _builtins.str,
+                 gcp_service_account_email: _builtins.str):
+        """
+        :param _builtins.str file_path: The relative file path from the GCS bucket root to the CSV file.
+        :param _builtins.str gcp_bucket_name: The name of the GCP bucket.
+        :param _builtins.str gcp_project_id: The ID of the GCP project.
+        :param _builtins.str gcp_service_account_email: The email of the GCP service account used to access the bucket.
+        """
+        pulumi.set(__self__, "file_path", file_path)
+        pulumi.set(__self__, "gcp_bucket_name", gcp_bucket_name)
+        pulumi.set(__self__, "gcp_project_id", gcp_project_id)
+        pulumi.set(__self__, "gcp_service_account_email", gcp_service_account_email)
+
+    @_builtins.property
+    @pulumi.getter(name="filePath")
+    def file_path(self) -> _builtins.str:
+        """
+        The relative file path from the GCS bucket root to the CSV file.
+        """
+        return pulumi.get(self, "file_path")
+
+    @_builtins.property
+    @pulumi.getter(name="gcpBucketName")
+    def gcp_bucket_name(self) -> _builtins.str:
+        """
+        The name of the GCP bucket.
+        """
+        return pulumi.get(self, "gcp_bucket_name")
+
+    @_builtins.property
+    @pulumi.getter(name="gcpProjectId")
+    def gcp_project_id(self) -> _builtins.str:
+        """
+        The ID of the GCP project.
+        """
+        return pulumi.get(self, "gcp_project_id")
+
+    @_builtins.property
+    @pulumi.getter(name="gcpServiceAccountEmail")
+    def gcp_service_account_email(self) -> _builtins.str:
+        """
+        The email of the GCP service account used to access the bucket.
+        """
+        return pulumi.get(self, "gcp_service_account_email")
+
+
+@pulumi.output_type
+class GetReferenceTableRowsRowResult(dict):
+    def __init__(__self__, *,
+                 id: _builtins.str,
+                 values: Mapping[str, _builtins.str]):
+        """
+        :param _builtins.str id: The primary key value of the row.
+        :param Mapping[str, _builtins.str] values: Map of field names to values for this row. All values are returned as strings.
+        """
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The primary key value of the row.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Mapping[str, _builtins.str]:
+        """
+        Map of field names to values for this row. All values are returned as strings.
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
+class GetReferenceTableSchemaResult(dict):
+    def __init__(__self__, *,
+                 primary_keys: Sequence[_builtins.str],
+                 fields: Optional[Sequence['outputs.GetReferenceTableSchemaFieldResult']] = None):
+        """
+        :param Sequence[_builtins.str] primary_keys: List of field names that serve as primary keys for the table.
+        :param Sequence['GetReferenceTableSchemaFieldArgs'] fields: List of fields in the table schema.
+        """
+        pulumi.set(__self__, "primary_keys", primary_keys)
+        if fields is not None:
+            pulumi.set(__self__, "fields", fields)
+
+    @_builtins.property
+    @pulumi.getter(name="primaryKeys")
+    def primary_keys(self) -> Sequence[_builtins.str]:
+        """
+        List of field names that serve as primary keys for the table.
+        """
+        return pulumi.get(self, "primary_keys")
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Optional[Sequence['outputs.GetReferenceTableSchemaFieldResult']]:
+        """
+        List of fields in the table schema.
+        """
+        return pulumi.get(self, "fields")
+
+
+@pulumi.output_type
+class GetReferenceTableSchemaFieldResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 type: _builtins.str):
+        """
+        :param _builtins.str name: The name of the field.
+        :param _builtins.str type: The data type of the field (e.g., STRING, INT32).
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the field.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        The data type of the field (e.g., STRING, INT32).
+        """
+        return pulumi.get(self, "type")
+
+
+@pulumi.output_type
 class GetRoleUsersRoleUserResult(dict):
     def __init__(__self__, *,
                  role_id: _builtins.str,
@@ -101008,6 +106973,7 @@ class GetSecurityMonitoringRulesRuleFilterResult(dict):
 @pulumi.output_type
 class GetSecurityMonitoringRulesRuleOptionsResult(dict):
     def __init__(__self__, *,
+                 anomaly_detection_options: Optional['outputs.GetSecurityMonitoringRulesRuleOptionsAnomalyDetectionOptionsResult'] = None,
                  decrease_criticality_based_on_env: Optional[_builtins.bool] = None,
                  detection_method: Optional[_builtins.str] = None,
                  evaluation_window: Optional[_builtins.int] = None,
@@ -101015,8 +106981,10 @@ class GetSecurityMonitoringRulesRuleOptionsResult(dict):
                  keep_alive: Optional[_builtins.int] = None,
                  max_signal_duration: Optional[_builtins.int] = None,
                  new_value_options: Optional['outputs.GetSecurityMonitoringRulesRuleOptionsNewValueOptionsResult'] = None,
+                 sequence_detection_options: Optional['outputs.GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsResult'] = None,
                  third_party_rule_options: Optional['outputs.GetSecurityMonitoringRulesRuleOptionsThirdPartyRuleOptionsResult'] = None):
         """
+        :param 'GetSecurityMonitoringRulesRuleOptionsAnomalyDetectionOptionsArgs' anomaly_detection_options: Options for rules using the anomaly detection method.
         :param _builtins.bool decrease_criticality_based_on_env: If true, signals in non-production environments have a lower severity than what is defined by the rule case, which can reduce noise. The decrement is applied when the environment tag of the signal starts with `staging`, `test`, or `dev`. Only available when the rule type is `log_detection`.
         :param _builtins.str detection_method: The detection method.
         :param _builtins.int evaluation_window: A time window is specified to match when at least one of the cases matches true. This is a sliding window and evaluates in real time.
@@ -101024,8 +106992,11 @@ class GetSecurityMonitoringRulesRuleOptionsResult(dict):
         :param _builtins.int keep_alive: Once a signal is generated, the signal will remain “open” if a case is matched at least once within this keep alive window (in seconds).
         :param _builtins.int max_signal_duration: A signal will “close” regardless of the query being matched once the time exceeds the maximum duration (in seconds). This time is calculated from the first seen timestamp.
         :param 'GetSecurityMonitoringRulesRuleOptionsNewValueOptionsArgs' new_value_options: New value rules specific options.
+        :param 'GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsArgs' sequence_detection_options: Options for rules using the sequence detection method.
         :param 'GetSecurityMonitoringRulesRuleOptionsThirdPartyRuleOptionsArgs' third_party_rule_options: Options for rules using the third-party detection method.
         """
+        if anomaly_detection_options is not None:
+            pulumi.set(__self__, "anomaly_detection_options", anomaly_detection_options)
         if decrease_criticality_based_on_env is not None:
             pulumi.set(__self__, "decrease_criticality_based_on_env", decrease_criticality_based_on_env)
         if detection_method is not None:
@@ -101040,8 +107011,18 @@ class GetSecurityMonitoringRulesRuleOptionsResult(dict):
             pulumi.set(__self__, "max_signal_duration", max_signal_duration)
         if new_value_options is not None:
             pulumi.set(__self__, "new_value_options", new_value_options)
+        if sequence_detection_options is not None:
+            pulumi.set(__self__, "sequence_detection_options", sequence_detection_options)
         if third_party_rule_options is not None:
             pulumi.set(__self__, "third_party_rule_options", third_party_rule_options)
+
+    @_builtins.property
+    @pulumi.getter(name="anomalyDetectionOptions")
+    def anomaly_detection_options(self) -> Optional['outputs.GetSecurityMonitoringRulesRuleOptionsAnomalyDetectionOptionsResult']:
+        """
+        Options for rules using the anomaly detection method.
+        """
+        return pulumi.get(self, "anomaly_detection_options")
 
     @_builtins.property
     @pulumi.getter(name="decreaseCriticalityBasedOnEnv")
@@ -101100,12 +107081,75 @@ class GetSecurityMonitoringRulesRuleOptionsResult(dict):
         return pulumi.get(self, "new_value_options")
 
     @_builtins.property
+    @pulumi.getter(name="sequenceDetectionOptions")
+    def sequence_detection_options(self) -> Optional['outputs.GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsResult']:
+        """
+        Options for rules using the sequence detection method.
+        """
+        return pulumi.get(self, "sequence_detection_options")
+
+    @_builtins.property
     @pulumi.getter(name="thirdPartyRuleOptions")
     def third_party_rule_options(self) -> Optional['outputs.GetSecurityMonitoringRulesRuleOptionsThirdPartyRuleOptionsResult']:
         """
         Options for rules using the third-party detection method.
         """
         return pulumi.get(self, "third_party_rule_options")
+
+
+@pulumi.output_type
+class GetSecurityMonitoringRulesRuleOptionsAnomalyDetectionOptionsResult(dict):
+    def __init__(__self__, *,
+                 bucket_duration: Optional[_builtins.int] = None,
+                 detection_tolerance: Optional[_builtins.int] = None,
+                 learning_duration: Optional[_builtins.int] = None,
+                 learning_period_baseline: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int bucket_duration: Duration in seconds of the time buckets used to aggregate events matched by the rule. Valid values are 300, 600, 900, 1800, 3600, 10800.
+        :param _builtins.int detection_tolerance: An optional parameter that sets how permissive anomaly detection is. Higher values require higher deviations before triggering a signal. Valid values are 1, 2, 3, 4, 5.
+        :param _builtins.int learning_duration: Learning duration in hours. Anomaly detection waits for at least this amount of historical data before it starts evaluating. Valid values are 1, 6, 12, 24, 48, 168, 336.
+        :param _builtins.int learning_period_baseline: An optional override baseline to apply while the rule is in the learning period. Must be greater than or equal to 0.
+        """
+        if bucket_duration is not None:
+            pulumi.set(__self__, "bucket_duration", bucket_duration)
+        if detection_tolerance is not None:
+            pulumi.set(__self__, "detection_tolerance", detection_tolerance)
+        if learning_duration is not None:
+            pulumi.set(__self__, "learning_duration", learning_duration)
+        if learning_period_baseline is not None:
+            pulumi.set(__self__, "learning_period_baseline", learning_period_baseline)
+
+    @_builtins.property
+    @pulumi.getter(name="bucketDuration")
+    def bucket_duration(self) -> Optional[_builtins.int]:
+        """
+        Duration in seconds of the time buckets used to aggregate events matched by the rule. Valid values are 300, 600, 900, 1800, 3600, 10800.
+        """
+        return pulumi.get(self, "bucket_duration")
+
+    @_builtins.property
+    @pulumi.getter(name="detectionTolerance")
+    def detection_tolerance(self) -> Optional[_builtins.int]:
+        """
+        An optional parameter that sets how permissive anomaly detection is. Higher values require higher deviations before triggering a signal. Valid values are 1, 2, 3, 4, 5.
+        """
+        return pulumi.get(self, "detection_tolerance")
+
+    @_builtins.property
+    @pulumi.getter(name="learningDuration")
+    def learning_duration(self) -> Optional[_builtins.int]:
+        """
+        Learning duration in hours. Anomaly detection waits for at least this amount of historical data before it starts evaluating. Valid values are 1, 6, 12, 24, 48, 168, 336.
+        """
+        return pulumi.get(self, "learning_duration")
+
+    @_builtins.property
+    @pulumi.getter(name="learningPeriodBaseline")
+    def learning_period_baseline(self) -> Optional[_builtins.int]:
+        """
+        An optional override baseline to apply while the rule is in the learning period. Must be greater than or equal to 0.
+        """
+        return pulumi.get(self, "learning_period_baseline")
 
 
 @pulumi.output_type
@@ -101131,16 +107175,20 @@ class GetSecurityMonitoringRulesRuleOptionsImpossibleTravelOptionsResult(dict):
 class GetSecurityMonitoringRulesRuleOptionsNewValueOptionsResult(dict):
     def __init__(__self__, *,
                  forget_after: _builtins.int,
+                 instantaneous_baseline: Optional[_builtins.bool] = None,
                  learning_duration: Optional[_builtins.int] = None,
                  learning_method: Optional[_builtins.str] = None,
                  learning_threshold: Optional[_builtins.int] = None):
         """
         :param _builtins.int forget_after: The duration in days after which a learned value is forgotten.
+        :param _builtins.bool instantaneous_baseline: When set to true, Datadog uses previous values that fall within the defined learning window to construct the baseline, enabling the system to establish an accurate baseline more rapidly rather than relying solely on gradual learning over time.
         :param _builtins.int learning_duration: The duration in days during which values are learned, and after which signals will be generated for values that weren't learned. If set to 0, a signal will be generated for all new values after the first value is learned.
         :param _builtins.str learning_method: The learning method used to determine when signals should be generated for values that weren't learned.
         :param _builtins.int learning_threshold: A number of occurrences after which signals are generated for values that weren't learned.
         """
         pulumi.set(__self__, "forget_after", forget_after)
+        if instantaneous_baseline is not None:
+            pulumi.set(__self__, "instantaneous_baseline", instantaneous_baseline)
         if learning_duration is not None:
             pulumi.set(__self__, "learning_duration", learning_duration)
         if learning_method is not None:
@@ -101155,6 +107203,14 @@ class GetSecurityMonitoringRulesRuleOptionsNewValueOptionsResult(dict):
         The duration in days after which a learned value is forgotten.
         """
         return pulumi.get(self, "forget_after")
+
+    @_builtins.property
+    @pulumi.getter(name="instantaneousBaseline")
+    def instantaneous_baseline(self) -> Optional[_builtins.bool]:
+        """
+        When set to true, Datadog uses previous values that fall within the defined learning window to construct the baseline, enabling the system to establish an accurate baseline more rapidly rather than relying solely on gradual learning over time.
+        """
+        return pulumi.get(self, "instantaneous_baseline")
 
     @_builtins.property
     @pulumi.getter(name="learningDuration")
@@ -101179,6 +107235,119 @@ class GetSecurityMonitoringRulesRuleOptionsNewValueOptionsResult(dict):
         A number of occurrences after which signals are generated for values that weren't learned.
         """
         return pulumi.get(self, "learning_threshold")
+
+
+@pulumi.output_type
+class GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsResult(dict):
+    def __init__(__self__, *,
+                 step_transitions: Optional[Sequence['outputs.GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsStepTransitionResult']] = None,
+                 steps: Optional[Sequence['outputs.GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsStepResult']] = None):
+        """
+        :param Sequence['GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsStepTransitionArgs'] step_transitions: Edges of the step graph.
+        :param Sequence['GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsStepArgs'] steps: Sequence steps.
+        """
+        if step_transitions is not None:
+            pulumi.set(__self__, "step_transitions", step_transitions)
+        if steps is not None:
+            pulumi.set(__self__, "steps", steps)
+
+    @_builtins.property
+    @pulumi.getter(name="stepTransitions")
+    def step_transitions(self) -> Optional[Sequence['outputs.GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsStepTransitionResult']]:
+        """
+        Edges of the step graph.
+        """
+        return pulumi.get(self, "step_transitions")
+
+    @_builtins.property
+    @pulumi.getter
+    def steps(self) -> Optional[Sequence['outputs.GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsStepResult']]:
+        """
+        Sequence steps.
+        """
+        return pulumi.get(self, "steps")
+
+
+@pulumi.output_type
+class GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsStepResult(dict):
+    def __init__(__self__, *,
+                 condition: _builtins.str,
+                 name: _builtins.str,
+                 evaluation_window: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str condition: Condition for the step to match.
+        :param _builtins.str name: Unique name of the step.
+        :param _builtins.int evaluation_window: Evaluation window for the step.
+        """
+        pulumi.set(__self__, "condition", condition)
+        pulumi.set(__self__, "name", name)
+        if evaluation_window is not None:
+            pulumi.set(__self__, "evaluation_window", evaluation_window)
+
+    @_builtins.property
+    @pulumi.getter
+    def condition(self) -> _builtins.str:
+        """
+        Condition for the step to match.
+        """
+        return pulumi.get(self, "condition")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Unique name of the step.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="evaluationWindow")
+    def evaluation_window(self) -> Optional[_builtins.int]:
+        """
+        Evaluation window for the step.
+        """
+        return pulumi.get(self, "evaluation_window")
+
+
+@pulumi.output_type
+class GetSecurityMonitoringRulesRuleOptionsSequenceDetectionOptionsStepTransitionResult(dict):
+    def __init__(__self__, *,
+                 child: _builtins.str,
+                 parent: _builtins.str,
+                 evaluation_window: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str child: Child step name.
+        :param _builtins.str parent: Parent step name.
+        :param _builtins.int evaluation_window: Maximum time allowed to transition from parent to child.
+        """
+        pulumi.set(__self__, "child", child)
+        pulumi.set(__self__, "parent", parent)
+        if evaluation_window is not None:
+            pulumi.set(__self__, "evaluation_window", evaluation_window)
+
+    @_builtins.property
+    @pulumi.getter
+    def child(self) -> _builtins.str:
+        """
+        Child step name.
+        """
+        return pulumi.get(self, "child")
+
+    @_builtins.property
+    @pulumi.getter
+    def parent(self) -> _builtins.str:
+        """
+        Parent step name.
+        """
+        return pulumi.get(self, "parent")
+
+    @_builtins.property
+    @pulumi.getter(name="evaluationWindow")
+    def evaluation_window(self) -> Optional[_builtins.int]:
+        """
+        Maximum time allowed to transition from parent to child.
+        """
+        return pulumi.get(self, "evaluation_window")
 
 
 @pulumi.output_type
@@ -101677,7 +107846,8 @@ class GetSecurityMonitoringSuppressionsSuppressionResult(dict):
                  name: _builtins.str,
                  rule_query: _builtins.str,
                  start_date: _builtins.str,
-                 suppression_query: _builtins.str):
+                 suppression_query: _builtins.str,
+                 tags: Sequence[_builtins.str]):
         pulumi.set(__self__, "data_exclusion_query", data_exclusion_query)
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "enabled", enabled)
@@ -101687,6 +107857,7 @@ class GetSecurityMonitoringSuppressionsSuppressionResult(dict):
         pulumi.set(__self__, "rule_query", rule_query)
         pulumi.set(__self__, "start_date", start_date)
         pulumi.set(__self__, "suppression_query", suppression_query)
+        pulumi.set(__self__, "tags", tags)
 
     @_builtins.property
     @pulumi.getter(name="dataExclusionQuery")
@@ -101732,6 +107903,11 @@ class GetSecurityMonitoringSuppressionsSuppressionResult(dict):
     @pulumi.getter(name="suppressionQuery")
     def suppression_query(self) -> _builtins.str:
         return pulumi.get(self, "suppression_query")
+
+    @_builtins.property
+    @pulumi.getter
+    def tags(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "tags")
 
 
 @pulumi.output_type
@@ -101858,6 +108034,295 @@ class GetSoftwareCatalogEntityResult(dict):
 
 
 @pulumi.output_type
+class GetTagPipelineRulesetRuleResult(dict):
+    def __init__(__self__, *,
+                 enabled: _builtins.bool,
+                 metadata: Mapping[str, _builtins.str],
+                 name: _builtins.str,
+                 mapping: Optional['outputs.GetTagPipelineRulesetRuleMappingResult'] = None,
+                 query: Optional['outputs.GetTagPipelineRulesetRuleQueryResult'] = None,
+                 reference_table: Optional['outputs.GetTagPipelineRulesetRuleReferenceTableResult'] = None):
+        """
+        :param _builtins.bool enabled: Whether the rule is enabled.
+        :param Mapping[str, _builtins.str] metadata: Rule metadata key-value pairs.
+        :param _builtins.str name: The name of the rule.
+        :param 'GetTagPipelineRulesetRuleMappingArgs' mapping: The mapping configuration for the rule.
+        :param 'GetTagPipelineRulesetRuleQueryArgs' query: The query configuration for the rule.
+        :param 'GetTagPipelineRulesetRuleReferenceTableArgs' reference_table: The reference table configuration for the rule.
+        """
+        pulumi.set(__self__, "enabled", enabled)
+        pulumi.set(__self__, "metadata", metadata)
+        pulumi.set(__self__, "name", name)
+        if mapping is not None:
+            pulumi.set(__self__, "mapping", mapping)
+        if query is not None:
+            pulumi.set(__self__, "query", query)
+        if reference_table is not None:
+            pulumi.set(__self__, "reference_table", reference_table)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        Whether the rule is enabled.
+        """
+        return pulumi.get(self, "enabled")
+
+    @_builtins.property
+    @pulumi.getter
+    def metadata(self) -> Mapping[str, _builtins.str]:
+        """
+        Rule metadata key-value pairs.
+        """
+        return pulumi.get(self, "metadata")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the rule.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def mapping(self) -> Optional['outputs.GetTagPipelineRulesetRuleMappingResult']:
+        """
+        The mapping configuration for the rule.
+        """
+        return pulumi.get(self, "mapping")
+
+    @_builtins.property
+    @pulumi.getter
+    def query(self) -> Optional['outputs.GetTagPipelineRulesetRuleQueryResult']:
+        """
+        The query configuration for the rule.
+        """
+        return pulumi.get(self, "query")
+
+    @_builtins.property
+    @pulumi.getter(name="referenceTable")
+    def reference_table(self) -> Optional['outputs.GetTagPipelineRulesetRuleReferenceTableResult']:
+        """
+        The reference table configuration for the rule.
+        """
+        return pulumi.get(self, "reference_table")
+
+
+@pulumi.output_type
+class GetTagPipelineRulesetRuleMappingResult(dict):
+    def __init__(__self__, *,
+                 destination_key: _builtins.str,
+                 if_not_exists: _builtins.bool,
+                 source_keys: Sequence[_builtins.str]):
+        """
+        :param _builtins.str destination_key: The destination key for the mapping.
+        :param _builtins.bool if_not_exists: Whether to apply the mapping only if the destination key doesn't exist.
+        :param Sequence[_builtins.str] source_keys: The source keys for the mapping.
+        """
+        pulumi.set(__self__, "destination_key", destination_key)
+        pulumi.set(__self__, "if_not_exists", if_not_exists)
+        pulumi.set(__self__, "source_keys", source_keys)
+
+    @_builtins.property
+    @pulumi.getter(name="destinationKey")
+    def destination_key(self) -> _builtins.str:
+        """
+        The destination key for the mapping.
+        """
+        return pulumi.get(self, "destination_key")
+
+    @_builtins.property
+    @pulumi.getter(name="ifNotExists")
+    def if_not_exists(self) -> _builtins.bool:
+        """
+        Whether to apply the mapping only if the destination key doesn't exist.
+        """
+        return pulumi.get(self, "if_not_exists")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceKeys")
+    def source_keys(self) -> Sequence[_builtins.str]:
+        """
+        The source keys for the mapping.
+        """
+        return pulumi.get(self, "source_keys")
+
+
+@pulumi.output_type
+class GetTagPipelineRulesetRuleQueryResult(dict):
+    def __init__(__self__, *,
+                 case_insensitivity: _builtins.bool,
+                 if_not_exists: _builtins.bool,
+                 query: _builtins.str,
+                 addition: Optional['outputs.GetTagPipelineRulesetRuleQueryAdditionResult'] = None):
+        """
+        :param _builtins.bool case_insensitivity: Whether the query matching is case insensitive.
+        :param _builtins.bool if_not_exists: Whether to apply the query only if the key doesn't exist.
+        :param _builtins.str query: The query string.
+        :param 'GetTagPipelineRulesetRuleQueryAdditionArgs' addition: The addition configuration for the query.
+        """
+        pulumi.set(__self__, "case_insensitivity", case_insensitivity)
+        pulumi.set(__self__, "if_not_exists", if_not_exists)
+        pulumi.set(__self__, "query", query)
+        if addition is not None:
+            pulumi.set(__self__, "addition", addition)
+
+    @_builtins.property
+    @pulumi.getter(name="caseInsensitivity")
+    def case_insensitivity(self) -> _builtins.bool:
+        """
+        Whether the query matching is case insensitive.
+        """
+        return pulumi.get(self, "case_insensitivity")
+
+    @_builtins.property
+    @pulumi.getter(name="ifNotExists")
+    def if_not_exists(self) -> _builtins.bool:
+        """
+        Whether to apply the query only if the key doesn't exist.
+        """
+        return pulumi.get(self, "if_not_exists")
+
+    @_builtins.property
+    @pulumi.getter
+    def query(self) -> _builtins.str:
+        """
+        The query string.
+        """
+        return pulumi.get(self, "query")
+
+    @_builtins.property
+    @pulumi.getter
+    def addition(self) -> Optional['outputs.GetTagPipelineRulesetRuleQueryAdditionResult']:
+        """
+        The addition configuration for the query.
+        """
+        return pulumi.get(self, "addition")
+
+
+@pulumi.output_type
+class GetTagPipelineRulesetRuleQueryAdditionResult(dict):
+    def __init__(__self__, *,
+                 key: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str key: The key to add.
+        :param _builtins.str value: The value to add.
+        """
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> _builtins.str:
+        """
+        The key to add.
+        """
+        return pulumi.get(self, "key")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        The value to add.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class GetTagPipelineRulesetRuleReferenceTableResult(dict):
+    def __init__(__self__, *,
+                 case_insensitivity: _builtins.bool,
+                 if_not_exists: _builtins.bool,
+                 source_keys: Sequence[_builtins.str],
+                 table_name: _builtins.str,
+                 field_pairs: Optional[Sequence['outputs.GetTagPipelineRulesetRuleReferenceTableFieldPairResult']] = None):
+        """
+        :param _builtins.bool case_insensitivity: Whether the reference table lookup is case insensitive.
+        :param _builtins.bool if_not_exists: Whether to apply the reference table only if the key doesn't exist.
+        :param Sequence[_builtins.str] source_keys: The source keys for the reference table lookup.
+        :param _builtins.str table_name: The name of the reference table.
+        :param Sequence['GetTagPipelineRulesetRuleReferenceTableFieldPairArgs'] field_pairs: The field pairs for the reference table.
+        """
+        pulumi.set(__self__, "case_insensitivity", case_insensitivity)
+        pulumi.set(__self__, "if_not_exists", if_not_exists)
+        pulumi.set(__self__, "source_keys", source_keys)
+        pulumi.set(__self__, "table_name", table_name)
+        if field_pairs is not None:
+            pulumi.set(__self__, "field_pairs", field_pairs)
+
+    @_builtins.property
+    @pulumi.getter(name="caseInsensitivity")
+    def case_insensitivity(self) -> _builtins.bool:
+        """
+        Whether the reference table lookup is case insensitive.
+        """
+        return pulumi.get(self, "case_insensitivity")
+
+    @_builtins.property
+    @pulumi.getter(name="ifNotExists")
+    def if_not_exists(self) -> _builtins.bool:
+        """
+        Whether to apply the reference table only if the key doesn't exist.
+        """
+        return pulumi.get(self, "if_not_exists")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceKeys")
+    def source_keys(self) -> Sequence[_builtins.str]:
+        """
+        The source keys for the reference table lookup.
+        """
+        return pulumi.get(self, "source_keys")
+
+    @_builtins.property
+    @pulumi.getter(name="tableName")
+    def table_name(self) -> _builtins.str:
+        """
+        The name of the reference table.
+        """
+        return pulumi.get(self, "table_name")
+
+    @_builtins.property
+    @pulumi.getter(name="fieldPairs")
+    def field_pairs(self) -> Optional[Sequence['outputs.GetTagPipelineRulesetRuleReferenceTableFieldPairResult']]:
+        """
+        The field pairs for the reference table.
+        """
+        return pulumi.get(self, "field_pairs")
+
+
+@pulumi.output_type
+class GetTagPipelineRulesetRuleReferenceTableFieldPairResult(dict):
+    def __init__(__self__, *,
+                 input_column: _builtins.str,
+                 output_key: _builtins.str):
+        """
+        :param _builtins.str input_column: The input column name.
+        :param _builtins.str output_key: The output key name.
+        """
+        pulumi.set(__self__, "input_column", input_column)
+        pulumi.set(__self__, "output_key", output_key)
+
+    @_builtins.property
+    @pulumi.getter(name="inputColumn")
+    def input_column(self) -> _builtins.str:
+        """
+        The input column name.
+        """
+        return pulumi.get(self, "input_column")
+
+    @_builtins.property
+    @pulumi.getter(name="outputKey")
+    def output_key(self) -> _builtins.str:
+        """
+        The output key name.
+        """
+        return pulumi.get(self, "output_key")
+
+
+@pulumi.output_type
 class GetTeamMembershipsTeamMembershipResult(dict):
     def __init__(__self__, *,
                  id: _builtins.str,
@@ -101888,6 +108353,238 @@ class GetTeamMembershipsTeamMembershipResult(dict):
     @pulumi.getter(name="userId")
     def user_id(self) -> _builtins.str:
         return pulumi.get(self, "user_id")
+
+
+@pulumi.output_type
+class GetTeamNotificationRuleEmailResult(dict):
+    def __init__(__self__, *,
+                 enabled: _builtins.bool):
+        """
+        :param _builtins.bool enabled: Flag indicating whether email notifications should be sent
+        """
+        pulumi.set(__self__, "enabled", enabled)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        Flag indicating whether email notifications should be sent
+        """
+        return pulumi.get(self, "enabled")
+
+
+@pulumi.output_type
+class GetTeamNotificationRuleMsTeamsResult(dict):
+    def __init__(__self__, *,
+                 connector_name: _builtins.str):
+        """
+        :param _builtins.str connector_name: MS Teams connector name
+        """
+        pulumi.set(__self__, "connector_name", connector_name)
+
+    @_builtins.property
+    @pulumi.getter(name="connectorName")
+    def connector_name(self) -> _builtins.str:
+        """
+        MS Teams connector name
+        """
+        return pulumi.get(self, "connector_name")
+
+
+@pulumi.output_type
+class GetTeamNotificationRulePagerdutyResult(dict):
+    def __init__(__self__, *,
+                 service_name: _builtins.str):
+        """
+        :param _builtins.str service_name: PagerDuty service name
+        """
+        pulumi.set(__self__, "service_name", service_name)
+
+    @_builtins.property
+    @pulumi.getter(name="serviceName")
+    def service_name(self) -> _builtins.str:
+        """
+        PagerDuty service name
+        """
+        return pulumi.get(self, "service_name")
+
+
+@pulumi.output_type
+class GetTeamNotificationRuleSlackResult(dict):
+    def __init__(__self__, *,
+                 channel: _builtins.str,
+                 workspace: _builtins.str):
+        """
+        :param _builtins.str channel: Slack channel for notifications
+        :param _builtins.str workspace: Slack workspace for notifications
+        """
+        pulumi.set(__self__, "channel", channel)
+        pulumi.set(__self__, "workspace", workspace)
+
+    @_builtins.property
+    @pulumi.getter
+    def channel(self) -> _builtins.str:
+        """
+        Slack channel for notifications
+        """
+        return pulumi.get(self, "channel")
+
+    @_builtins.property
+    @pulumi.getter
+    def workspace(self) -> _builtins.str:
+        """
+        Slack workspace for notifications
+        """
+        return pulumi.get(self, "workspace")
+
+
+@pulumi.output_type
+class GetTeamNotificationRulesNotificationRuleResult(dict):
+    def __init__(__self__, *,
+                 id: _builtins.str,
+                 email: Optional['outputs.GetTeamNotificationRulesNotificationRuleEmailResult'] = None,
+                 ms_teams: Optional['outputs.GetTeamNotificationRulesNotificationRuleMsTeamsResult'] = None,
+                 pagerduty: Optional['outputs.GetTeamNotificationRulesNotificationRulePagerdutyResult'] = None,
+                 slack: Optional['outputs.GetTeamNotificationRulesNotificationRuleSlackResult'] = None):
+        """
+        :param _builtins.str id: The ID of the notification rule.
+        :param 'GetTeamNotificationRulesNotificationRuleEmailArgs' email: The email notification settings.
+        :param 'GetTeamNotificationRulesNotificationRuleMsTeamsArgs' ms_teams: The MS Teams notification settings.
+        :param 'GetTeamNotificationRulesNotificationRulePagerdutyArgs' pagerduty: The PagerDuty notification settings.
+        :param 'GetTeamNotificationRulesNotificationRuleSlackArgs' slack: The Slack notification settings.
+        """
+        pulumi.set(__self__, "id", id)
+        if email is not None:
+            pulumi.set(__self__, "email", email)
+        if ms_teams is not None:
+            pulumi.set(__self__, "ms_teams", ms_teams)
+        if pagerduty is not None:
+            pulumi.set(__self__, "pagerduty", pagerduty)
+        if slack is not None:
+            pulumi.set(__self__, "slack", slack)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The ID of the notification rule.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def email(self) -> Optional['outputs.GetTeamNotificationRulesNotificationRuleEmailResult']:
+        """
+        The email notification settings.
+        """
+        return pulumi.get(self, "email")
+
+    @_builtins.property
+    @pulumi.getter(name="msTeams")
+    def ms_teams(self) -> Optional['outputs.GetTeamNotificationRulesNotificationRuleMsTeamsResult']:
+        """
+        The MS Teams notification settings.
+        """
+        return pulumi.get(self, "ms_teams")
+
+    @_builtins.property
+    @pulumi.getter
+    def pagerduty(self) -> Optional['outputs.GetTeamNotificationRulesNotificationRulePagerdutyResult']:
+        """
+        The PagerDuty notification settings.
+        """
+        return pulumi.get(self, "pagerduty")
+
+    @_builtins.property
+    @pulumi.getter
+    def slack(self) -> Optional['outputs.GetTeamNotificationRulesNotificationRuleSlackResult']:
+        """
+        The Slack notification settings.
+        """
+        return pulumi.get(self, "slack")
+
+
+@pulumi.output_type
+class GetTeamNotificationRulesNotificationRuleEmailResult(dict):
+    def __init__(__self__, *,
+                 enabled: _builtins.bool):
+        """
+        :param _builtins.bool enabled: Flag indicating whether email notifications should be sent.
+        """
+        pulumi.set(__self__, "enabled", enabled)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        Flag indicating whether email notifications should be sent.
+        """
+        return pulumi.get(self, "enabled")
+
+
+@pulumi.output_type
+class GetTeamNotificationRulesNotificationRuleMsTeamsResult(dict):
+    def __init__(__self__, *,
+                 connector_name: _builtins.str):
+        """
+        :param _builtins.str connector_name: MS Teams connector name.
+        """
+        pulumi.set(__self__, "connector_name", connector_name)
+
+    @_builtins.property
+    @pulumi.getter(name="connectorName")
+    def connector_name(self) -> _builtins.str:
+        """
+        MS Teams connector name.
+        """
+        return pulumi.get(self, "connector_name")
+
+
+@pulumi.output_type
+class GetTeamNotificationRulesNotificationRulePagerdutyResult(dict):
+    def __init__(__self__, *,
+                 service_name: _builtins.str):
+        """
+        :param _builtins.str service_name: PagerDuty service name.
+        """
+        pulumi.set(__self__, "service_name", service_name)
+
+    @_builtins.property
+    @pulumi.getter(name="serviceName")
+    def service_name(self) -> _builtins.str:
+        """
+        PagerDuty service name.
+        """
+        return pulumi.get(self, "service_name")
+
+
+@pulumi.output_type
+class GetTeamNotificationRulesNotificationRuleSlackResult(dict):
+    def __init__(__self__, *,
+                 channel: _builtins.str,
+                 workspace: _builtins.str):
+        """
+        :param _builtins.str channel: Slack channel for notifications.
+        :param _builtins.str workspace: Slack workspace for notifications.
+        """
+        pulumi.set(__self__, "channel", channel)
+        pulumi.set(__self__, "workspace", workspace)
+
+    @_builtins.property
+    @pulumi.getter
+    def channel(self) -> _builtins.str:
+        """
+        Slack channel for notifications.
+        """
+        return pulumi.get(self, "channel")
+
+    @_builtins.property
+    @pulumi.getter
+    def workspace(self) -> _builtins.str:
+        """
+        Slack workspace for notifications.
+        """
+        return pulumi.get(self, "workspace")
 
 
 @pulumi.output_type

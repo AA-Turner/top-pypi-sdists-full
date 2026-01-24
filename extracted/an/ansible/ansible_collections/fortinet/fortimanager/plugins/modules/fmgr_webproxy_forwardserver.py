@@ -16,7 +16,6 @@ short_description: Configure forward-server addresses.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -159,6 +161,27 @@ options:
                 aliases: ['vrf-select']
                 type: int
                 description: VRF ID used for connection to server.
+            ippool:
+                type: raw
+                description: (list) Ippool.
+            protocol:
+                type: list
+                elements: str
+                description: Protocol.
+                choices:
+                    - 'http'
+                    - 'ftp'
+                    - 'socks'
+            authentication:
+                type: str
+                description: Authentication type.
+                choices:
+                    - 'disabled'
+                    - 'immediately'
+                    - 'upon-challenge'
+            user:
+                type: str
+                description: User name of basic proxy authentication.
 '''
 
 EXAMPLES = '''
@@ -174,8 +197,8 @@ EXAMPLES = '''
     - name: Configure forward-server addresses.
       fortinet.fortimanager.fmgr_webproxy_forwardserver:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -197,6 +220,13 @@ EXAMPLES = '''
           # interface: <list or string>
           # interface_select_method: <value in [auto, sdwan, specify]>
           # vrf_select: <integer>
+          # ippool: <list or string>
+          # protocol:
+          #   - "http"
+          #   - "ftp"
+          #   - "socks"
+          # authentication: <value in [disabled, immediately, upon-challenge]>
+          # user: <string>
 '''
 
 RETURN = '''
@@ -253,6 +283,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'webproxy_forwardserver': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -272,7 +303,11 @@ def main():
                 'masquerade': {'v_range': [['7.4.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'interface': {'v_range': [['7.6.2', '']], 'type': 'raw'},
                 'interface-select-method': {'v_range': [['7.6.2', '']], 'choices': ['auto', 'sdwan', 'specify'], 'type': 'str'},
-                'vrf-select': {'v_range': [['7.6.2', '']], 'type': 'int'}
+                'vrf-select': {'v_range': [['7.6.2', '']], 'type': 'int'},
+                'ippool': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'type': 'raw'},
+                'protocol': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'type': 'list', 'choices': ['http', 'ftp', 'socks'], 'elements': 'str'},
+                'authentication': {'v_range': [['7.4.8', '7.4.8']], 'choices': ['disabled', 'immediately', 'upon-challenge'], 'type': 'str'},
+                'user': {'v_range': [['7.4.8', '7.4.8']], 'type': 'str'}
             }
         }
     }

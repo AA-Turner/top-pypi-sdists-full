@@ -17,6 +17,7 @@ from ..registry import (
     check_crit_header,
     check_supported_header,
 )
+from .._keys import KeySet
 
 __all__ = [
     "JWSRegistry",
@@ -101,21 +102,21 @@ class JWSRegistry:
 
     def validate_header_size(self, header: bytes) -> None:
         if header and len(header) > self.max_header_length:
-            raise ExceededSizeError(f"Header size of '{header!r}' exceeds {self.max_header_length} bytes.")
+            raise ExceededSizeError(f"Header size exceeds {self.max_header_length} bytes.")
 
     def validate_payload_size(self, payload: bytes) -> None:
         if payload and len(payload) > self.max_payload_length:
-            raise ExceededSizeError(f"Payload size of '{payload!r}' exceeds {self.max_payload_length} bytes.")
+            raise ExceededSizeError(f"Payload size exceeds {self.max_payload_length} bytes.")
 
     def validate_signature_size(self, signature: bytes) -> None:
         if len(signature) > self.max_signature_length:
-            raise ExceededSizeError(f"Signature of '{signature!r}' exceeds {self.max_signature_length} bytes.")
+            raise ExceededSizeError(f"Signature of exceeds {self.max_signature_length} bytes.")
 
     @classmethod
-    def guess_alg(cls, key: Any, strategy: Strategy) -> str | None:
+    def guess_algorithm(cls, key: Any, strategy: Strategy) -> JWSAlgModel | None:
         """Guess the JWS algorithm for a given key.
 
-        :param key: key instance
+        :param key: key instance or a KeySet
         :param strategy: the strategy for guessing the JWS algorithm
         """
         if strategy == cls.Strategy.RECOMMENDED:
@@ -129,18 +130,35 @@ class JWSRegistry:
             raise NotImplementedError(f"Unknown algorithm strategy '{strategy}'")
 
         if algorithms:
-            return algorithms[0].name
+            return algorithms[0]
         else:
             return None
 
     @classmethod
-    def filter_algorithms(cls, key: Any, names: list[str]) -> list[JWSAlgModel]:
+    def guess_alg(cls, key: Any, strategy: Strategy) -> str | None:  # pragma: no cover
+        warnings.warn("Please use guess_algorithm(key, strategy)", DeprecationWarning)
+        alg = cls.guess_algorithm(key, strategy)
+        if alg:
+            return alg.name
+        return None
+
+    @classmethod
+    def filter_algorithms(cls, key: Any, names: list[str] | None = None) -> list[JWSAlgModel]:
         """Filter JWS algorithms based on the given algorithm names.
 
-        :param key: key instance
+        :param key: a key instance or a KeySet
         :param names: list of algorithm names
         """
+        if names is None:
+            names = list(cls.algorithms.keys())
         rv: list[JWSAlgModel] = []
+        if isinstance(key, KeySet):
+            for k in key.keys:
+                for alg in cls.filter_algorithms(k, names):
+                    if alg not in rv:
+                        rv.append(alg)
+            return rv
+
         for name in names:
             alg = cls.algorithms[name]
             try:

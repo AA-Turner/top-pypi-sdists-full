@@ -1,5 +1,7 @@
 from typing import Literal
 
+from typing_extensions import override
+
 PRECEDENCE: list[str | None]
 
 #: Hash lookup of PRECEDENCE to index
@@ -9,9 +11,13 @@ NONE_PRECEDENCE: int
 def precedence(state: object) -> int: ...
 
 class state(str):
+    @override
     def __gt__(self, other: object) -> bool: ...
+    @override
     def __ge__(self, other: object) -> bool: ...
+    @override
     def __lt__(self, other: object) -> bool: ...
+    @override
     def __le__(self, other: object) -> bool: ...
 
 PENDING: Literal["PENDING"]
@@ -32,18 +38,18 @@ PROPAGATE_STATES: frozenset[str]
 ALL_STATES: frozenset[str]
 
 __all__ = [
+    "EXCEPTION_STATES",
+    "FAILURE",
+    "IGNORED",
     "PENDING",
+    "PROPAGATE_STATES",
+    "READY_STATES",
     "RECEIVED",
+    "RETRY",
+    "REVOKED",
     "STARTED",
     "SUCCESS",
-    "FAILURE",
-    "REVOKED",
-    "RETRY",
-    "IGNORED",
-    "READY_STATES",
     "UNREADY_STATES",
-    "EXCEPTION_STATES",
-    "PROPAGATE_STATES",
     "precedence",
     "state",
 ]

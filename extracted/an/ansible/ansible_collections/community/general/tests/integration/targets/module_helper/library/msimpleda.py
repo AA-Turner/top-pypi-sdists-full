@@ -1,14 +1,12 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021, Alexei Znamensky <russoz@gmail.com>
 #
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from __future__ import absolute_import, division, print_function
-__metaclass__ = type
+from __future__ import annotations
 
-DOCUMENTATION = '''
+DOCUMENTATION = """
 module: msimpleda
 author: "Alexei Znamensky (@russoz)"
 short_description: Simple module for testing DeprecationAttrsMixin
@@ -18,7 +16,7 @@ options:
   a:
     description: aaaa
     type: int
-'''
+"""
 
 EXAMPLES = ""
 
@@ -26,15 +24,15 @@ RETURN = ""
 
 from ansible_collections.community.general.plugins.module_utils.module_helper import ModuleHelper
 from ansible_collections.community.general.plugins.module_utils.mh.mixins.deprecate_attrs import (  # noqa: F401, pylint: disable=unused-import
-    DeprecateAttrsMixin
+    DeprecateAttrsMixin,
 )
 
 
 class MSimpleDA(ModuleHelper):
-    output_params = ('a',)
+    output_params = ("a",)
     module = dict(
         argument_spec=dict(
-            a=dict(type='int'),
+            a=dict(type="int"),
         ),
     )
 
@@ -62,5 +60,5 @@ def main():
     MSimpleDA.execute()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

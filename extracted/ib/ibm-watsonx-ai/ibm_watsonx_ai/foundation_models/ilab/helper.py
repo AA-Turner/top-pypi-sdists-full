@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -11,6 +11,7 @@ import pandas as pd
 
 from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.utils import StatusLogger, print_text_header_h1
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 
@@ -80,7 +81,7 @@ class BaseRuns(WMLResource):
             if {"entity", "metadata"}.issubset(run.keys()):
                 timestamp = run["metadata"].get("modified_at")
                 run_id = run["metadata"].get("id", run["metadata"].get("guid"))
-                state = run["entity"].get("status", {}).get("state")
+                state = get_from_json(run, ["entity", "status", "state"])
                 tuning_name = run["metadata"].get("name", "Unknown")
 
                 record = [timestamp, run_id, state, tuning_name]

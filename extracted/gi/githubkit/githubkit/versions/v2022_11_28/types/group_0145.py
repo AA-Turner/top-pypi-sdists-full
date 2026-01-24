@@ -13,17 +13,39 @@ from typing import Literal, Union
 from typing_extensions import NotRequired, TypedDict
 
 
-class RepositoryRulesetBypassActorType(TypedDict):
-    """Repository Ruleset Bypass Actor
+class OrganizationUpdateIssueTypeType(TypedDict):
+    """OrganizationUpdateIssueType"""
 
-    An actor that can bypass rules in a ruleset
-    """
-
-    actor_id: NotRequired[Union[int, None]]
-    actor_type: Literal[
-        "Integration", "OrganizationAdmin", "RepositoryRole", "Team", "DeployKey"
+    name: str
+    is_enabled: bool
+    description: NotRequired[Union[str, None]]
+    color: NotRequired[
+        Union[
+            None,
+            Literal[
+                "gray", "blue", "green", "yellow", "orange", "red", "pink", "purple"
+            ],
+        ]
     ]
-    bypass_mode: NotRequired[Literal["always", "pull_request", "exempt"]]
 
 
-__all__ = ("RepositoryRulesetBypassActorType",)
+class OrganizationUpdateIssueTypeTypeForResponse(TypedDict):
+    """OrganizationUpdateIssueType"""
+
+    name: str
+    is_enabled: bool
+    description: NotRequired[Union[str, None]]
+    color: NotRequired[
+        Union[
+            None,
+            Literal[
+                "gray", "blue", "green", "yellow", "orange", "red", "pink", "purple"
+            ],
+        ]
+    ]
+
+
+__all__ = (
+    "OrganizationUpdateIssueTypeType",
+    "OrganizationUpdateIssueTypeTypeForResponse",
+)

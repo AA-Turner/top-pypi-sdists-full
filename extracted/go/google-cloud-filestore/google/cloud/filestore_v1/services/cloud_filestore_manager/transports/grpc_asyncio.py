@@ -125,22 +125,22 @@ class CloudFilestoreManagerGrpcAsyncIOTransport(CloudFilestoreManagerTransport):
     The ``file.googleapis.com`` service implements the Filestore API and
     defines the following resource model for managing instances:
 
-    -  The service works with a collection of cloud projects, named:
-       ``/projects/*``
-    -  Each project has a collection of available locations, named:
-       ``/locations/*``
-    -  Each location has a collection of instances and backups, named:
-       ``/instances/*`` and ``/backups/*`` respectively.
-    -  As such, Filestore instances are resources of the form:
-       ``/projects/{project_number}/locations/{location_id}/instances/{instance_id}``
-       and backups are resources of the form:
-       ``/projects/{project_number}/locations/{location_id}/backup/{backup_id}``
+    - The service works with a collection of cloud projects, named:
+      ``/projects/*``
+    - Each project has a collection of available locations, named:
+      ``/locations/*``
+    - Each location has a collection of instances and backups, named:
+      ``/instances/*`` and ``/backups/*`` respectively.
+    - As such, Filestore instances are resources of the form:
+      ``/projects/{project_number}/locations/{location_id}/instances/{instance_id}``
+      and backups are resources of the form:
+      ``/projects/{project_number}/locations/{location_id}/backup/{backup_id}``
 
     Note that location_id must be a Google Cloud ``zone`` for instances,
     but a Google Cloud ``region`` for backups; for example:
 
-    -  ``projects/12345/locations/us-central1-c/instances/my-filestore``
-    -  ``projects/12345/locations/us-central1/backups/my-backup``
+    - ``projects/12345/locations/us-central1-c/instances/my-filestore``
+    - ``projects/12345/locations/us-central1/backups/my-backup``
 
     This class defines the same methods as the primary client, so the
     primary client can load the underlying transport implementation
@@ -171,8 +171,9 @@ class CloudFilestoreManagerGrpcAsyncIOTransport(CloudFilestoreManagerTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -223,9 +224,10 @@ class CloudFilestoreManagerGrpcAsyncIOTransport(CloudFilestoreManagerTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.

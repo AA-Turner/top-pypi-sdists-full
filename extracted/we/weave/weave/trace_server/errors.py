@@ -1,7 +1,11 @@
 import datetime
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+
+import httpx
+from gql.transport.exceptions import TransportQueryError, TransportServerError
 
 
 class Error(Exception):
@@ -31,6 +35,18 @@ class QueryMemoryLimitExceededError(Error):
 
 class QueryNoCommonTypeError(Error):
     """Raised when a query has no common type."""
+
+    pass
+
+
+class QueryIllegalTypeofArgumentError(Error):
+    """Raised when a query has an illegal type of argument."""
+
+    pass
+
+
+class BadQueryParameterError(Error):
+    """Raised when a query parameter is invalid."""
 
     pass
 
@@ -88,8 +104,16 @@ class ProjectNotFound(Error):
     pass
 
 
+class InvalidIdFormat(Exception):
+    pass
+
+
+class RunNotFound(Exception):
+    pass
+
+
 def _format_error_to_json_with_extra(
-    exc: Exception, extra_fields: Optional[dict[str, Any]] = None
+    exc: Exception, extra_fields: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     """Helper to format exception as JSON or fallback to reason, always adding extra fields."""
     exc_str = str(exc)
@@ -104,22 +128,28 @@ def _format_error_to_json_with_extra(
     return result
 
 
-@dataclass
+@dataclass(frozen=True)
 class ErrorWithStatus:
-    """Base class for errors with a status code."""
+    """Immutable container for an error with its HTTP status code."""
 
     status_code: int
     message: dict[str, Any]
 
 
 # Error Registry System
-@dataclass
+@dataclass(frozen=True)
 class ErrorDefinition:
-    """Represents a single error handler definition."""
+    """Immutable error handler definition."""
 
     exception_class: type
-    status_code: int
+    status_code: int | Callable[[Exception], int]
     formatter: Callable[[Exception], dict[str, Any]]
+
+    def get_status_code(self, exc: Exception) -> int:
+        """Get the status code for an exception, resolving callable if needed."""
+        if callable(self.status_code):
+            return self.status_code(exc)
+        return self.status_code
 
 
 # Global registry instance
@@ -136,17 +166,24 @@ class ErrorRegistry:
     def register(
         self,
         exception_class: type,
-        status_code: int,
+        status_code: int | Callable[[Exception], int],
         formatter: Callable[
             [Exception], dict[str, Any]
         ] = _format_error_to_json_with_extra,
     ) -> None:
-        """Register an exception with its handling definition."""
+        """Register an exception with its handling definition.
+
+        Args:
+            exception_class: The exception type to register.
+            status_code: Either a fixed HTTP status code or a callable that
+                takes the exception and returns a status code (for dynamic codes).
+            formatter: A callable that formats the exception into a dict for the response.
+        """
         self._definitions[exception_class] = ErrorDefinition(
             exception_class, status_code, formatter
         )
 
-    def get_definition(self, exception_class: type) -> Optional[ErrorDefinition]:
+    def get_definition(self, exception_class: type) -> ErrorDefinition | None:
         """Get error definition for an exception class."""
         return self._definitions.get(exception_class)
 
@@ -162,7 +199,7 @@ class ErrorRegistry:
         if definition:
             error_content = definition.formatter(exc)
             return ErrorWithStatus(
-                status_code=definition.status_code, message=error_content
+                status_code=definition.get_status_code(exc), message=error_content
             )
 
         return ErrorWithStatus(
@@ -172,36 +209,48 @@ class ErrorRegistry:
     def _setup_common_errors(self) -> None:
         """Register common/standard library errors that don't depend on domain-specific modules."""
         # Our own error types
+        # 400
         self.register(InvalidRequest, 400)
         self.register(InvalidExternalRef, 400)
         self.register(QueryNoCommonTypeError, 400)
         self.register(MissingLLMApiKeyError, 400, _format_missing_llm_api_key)
+        self.register(InvalidIdFormat, 400)
+
+        # 403
         self.register(InvalidFieldError, 403)
+        self.register(QueryIllegalTypeofArgumentError, 403)
+        self.register(BadQueryParameterError, 403)
+
+        # 404
         self.register(NotFoundError, 404)
         self.register(ProjectNotFound, 404)
+        self.register(RunNotFound, 404)
         self.register(ObjectDeletedError, 404, _format_object_deleted_error)
+
+        # 413
         self.register(InsertTooLarge, 413)
         self.register(RequestTooLarge, 413, lambda exc: {"reason": "Request too large"})
+
+        # 502
         self.register(QueryMemoryLimitExceededError, 502)
+
+        # 504
         self.register(QueryTimeoutExceededError, 504)
 
         # Standard library exceptions
         self.register(ValueError, 400)
         self.register(KeyError, 500, lambda exc: {"reason": "Internal backend error"})
 
-        # Requests specific errors
-        import requests
-
+        # HTTP client errors
+        self.register(httpx.ReadTimeout, 504, lambda exc: {"reason": "Read timeout"})
         self.register(
-            requests.exceptions.ReadTimeout, 504, lambda exc: {"reason": "Read timeout"}
-        )
-        self.register(
-            requests.exceptions.ConnectTimeout,
+            httpx.ConnectTimeout,
             504,
             lambda exc: {"reason": "Connection timeout"},
         )
 
         # ClickHouse errors
+        # It's unfortunate we have to defer imports here because the client also imports from this file.
         from clickhouse_connect.driver.exceptions import (
             DatabaseError as CHDatabaseError,
         )
@@ -217,9 +266,12 @@ class ErrorRegistry:
         )
 
         # GraphQL transport errors
-        from gql.transport.exceptions import TransportQueryError
-
         self.register(TransportQueryError, 403, lambda exc: {"reason": "Forbidden"})
+        self.register(
+            TransportServerError,
+            _get_transport_server_error_status_code,
+            _get_transport_server_error_message,
+        )
 
 
 def _get_error_registry() -> ErrorRegistry:
@@ -265,6 +317,10 @@ def handle_clickhouse_query_error(e: Exception) -> None:
         raise QueryMemoryLimitExceededError(
             "Query memory limit exceeded. " + limit_scope_message
         ) from e
+    if "TIMEOUT_EXCEEDED" in error_str:
+        raise QueryTimeoutExceededError(
+            "Query timeout exceeded. " + limit_scope_message
+        ) from e
     if "NO_COMMON_TYPE" in error_str:
         raise QueryNoCommonTypeError(
             "No common type between data types in query. "
@@ -272,9 +328,19 @@ def handle_clickhouse_query_error(e: Exception) -> None:
             "Example: filtering calls by inputs.integer_value = 1 without using $convert -> "
             "Correct: {$expr: {$eq: [{$convert: {input: {$getField: 'inputs.integer_value'}, to: 'double'}}, {$literal: 1}]}}"
         ) from e
-    if "TIMEOUT_EXCEEDED" in error_str:
-        raise QueryTimeoutExceededError(
-            "Query timeout exceeded. " + limit_scope_message
+    if "ILLEGAL_TYPE_OF_ARGUMENT" in error_str:
+        raise QueryIllegalTypeofArgumentError(
+            "Illegal type of argument in query. "
+            "This can occur when using a numeric literal in a query. "
+            "Example: filtering calls by inputs.integer_value = 1 without using $convert -> "
+            "Correct: {$expr: {$eq: [{$convert: {input: {$getField: 'inputs.integer_value'}, to: 'double'}}, {$literal: 1}]}}"
+        ) from e
+    if "BAD_QUERY_PARAMETER" in error_str:
+        raise BadQueryParameterError(
+            "Bad query parameter. "
+            "Example: A query like inputs.integer_value = -10000000000, when the parameter "
+            "expects a UInt64, will fail: Value -10000000000 cannot be parsed as UInt64. "
+            "To resolve, ensure all query parameters are of the correct type and within valid ranges."
         ) from e
 
     # Re-raise the original exception if no known pattern matches
@@ -295,3 +361,26 @@ def _format_object_deleted_error(exc: Exception) -> dict[str, Any]:
     if isinstance(exc, ObjectDeletedError):
         extra["deleted_at"] = exc.deleted_at.isoformat()
     return _format_error_to_json_with_extra(exc, extra)
+
+
+def _get_transport_server_error_status_code(exc: Exception) -> int:
+    """Get status code for TransportServerError, preserving 4xx codes, defaulting to 500.
+
+    Args:
+        exc: The exception to get status code for.
+
+    Returns:
+        int: The HTTP status code. Returns the exception's code if it's a
+            TransportServerError with a 4xx status code, otherwise returns 500.
+    """
+    if not isinstance(exc, TransportServerError):
+        return 500
+    if not exc.code:
+        return 500
+    if 400 <= exc.code < 500:
+        return exc.code
+    return 500
+
+
+def _get_transport_server_error_message(exc: TransportServerError) -> dict[str, Any]:
+    return {"reason": f"{exc.code} Error"}

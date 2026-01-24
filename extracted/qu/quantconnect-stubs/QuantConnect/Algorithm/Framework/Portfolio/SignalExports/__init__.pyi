@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import datetime
 import typing
@@ -44,7 +44,8 @@ class BaseSignalExport(System.Object, QuantConnect.Interfaces.ISignalExportTarge
         """
         The name of this signal export
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -53,7 +54,8 @@ class BaseSignalExport(System.Object, QuantConnect.Interfaces.ISignalExportTarge
         """
         Property to access a HttpClient
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -62,7 +64,8 @@ class BaseSignalExport(System.Object, QuantConnect.Interfaces.ISignalExportTarge
         """
         Default hashset of allowed Security types
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -80,71 +83,10 @@ class BaseSignalExport(System.Object, QuantConnect.Interfaces.ISignalExportTarge
         ...
 
 
-class CrunchDAOSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
+class VBaseSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
     """
-    Exports signals of the desired positions to CrunchDAO API.
-    Accepts signals in percentage i.e ticker:"SPY", date: "2020-10-04", signal:0.54
-    """
-
-    @property
-    def name(self) -> str:
-        """
-        The name of this signal export
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def allowed_security_types(self) -> System.Collections.Generic.HashSet[QuantConnect.SecurityType]:
-        """
-        HashSet property of allowed SecurityTypes for CrunchDAO
-        
-        This property is protected.
-        """
-        ...
-
-    def __init__(self, api_key: str, model: str, submission_name: str = ..., comment: str = ...) -> None:
-        """
-        CrunchDAOSignalExport constructor. It obtains the required information for CrunchDAO API requests.
-        See (https://colab.research.google.com/drive/1YW1xtHrIZ8ZHW69JvNANWowmxPcnkNu0?authuser=1#scrollTo=aPyWNxtuDc-X)
-        
-        :param api_key: API key provided by CrunchDAO
-        :param model: Model ID or Name
-        :param submission_name: Submission Name (Optional)
-        :param comment: Comment (Optional)
-        """
-        ...
-
-    def convert_to_csv_format(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters, positions: typing.Optional[str]) -> typing.Tuple[bool, str]:
-        """
-        Converts the list of holdings into a CSV format string
-        
-        This method is protected.
-        
-        :param parameters: A list of holdings from the portfolio, expected to be sent to CrunchDAO API and the algorithm being ran
-        :param positions: A CSV format string of the given holdings with the required features(ticker, date, signal)
-        :returns: True if a string message with the positions could be obtained, false otherwise.
-        """
-        ...
-
-    def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
-        """
-        Verifies every holding is a stock, creates a message with the desired positions
-        using the expected CrunchDAO API format, verifies there is an open round and then
-        sends the positions with the other required body features. If another signal was
-        submitted before, it deletes the last signal and sends the new one
-        
-        :param parameters: A list of holdings from the portfolio, expected to be sent to CrunchDAO API and the algorithm being ran
-        :returns: True if the positions were sent to CrunchDAO succesfully and errors were returned, false otherwise.
-        """
-        ...
-
-
-class NumeraiSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
-    """
-    Exports signals of the desired positions to Numerai API.
-    Accepts signals in percentage i.e numerai_ticker:"IBM US", signal:0.234
+    Exports signals of desired positions to vBase stamping API using JSON and HTTPS.
+    Accepts signals in quantity(number of shares) i.e symbol:"SPY", quant:40
     """
 
     @property
@@ -152,49 +94,42 @@ class NumeraiSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExpor
         """
         The name of this signal export
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
-    @property
-    def allowed_security_types(self) -> System.Collections.Generic.HashSet[QuantConnect.SecurityType]:
+    def __init__(self, api_key: str, collection_name: str, store_stamped_file: bool = True, idempotent: bool = False) -> None:
         """
-        Hashset property of Numerai allowed SecurityTypes
+        Initializes a new instance of the VBaseSignalExport class.
         
-        This property is protected.
+        :param api_key: The API key for vBase authentication.
+        :param collection_name: The target collection name.
+        :param store_stamped_file: Whether to store the stamped file (default true).
+        :param idempotent: A boolean indicating whether to make the request idempotent.
+        If the request is idempotent, only the first stamp for a given portfolio will be made.
+        If the request is not idempotent, a new stamp will be made for each request.
         """
         ...
 
-    def __init__(self, public_id: str, secret_id: str, model_id: str, file_name: str = "predictions.csv") -> None:
+    def build_csv(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> str:
         """
-        NumeraiSignalExport Constructor. It obtains the required information for Numerai API requests
+        Builds a CSV (sym,wt) for the given targets converting percent holdings into absolute quantity using PortfolioTarget.Percent
         
-        :param public_id: PUBLIC_ID provided by Numerai
-        :param secret_id: SECRET_ID provided by Numerai
-        :param model_id: ID of the Numerai Model being used
-        :param file_name: Signal file's name
-        """
-        ...
-
-    def convert_targets_to_numerai(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters, positions: typing.Optional[str]) -> typing.Tuple[bool, str]:
-        """
-        Verifies each holding's signal is between 0 and 1 (exclusive)
         
-        This method is protected.
+        This codeEntityType is protected.
         
-        :param parameters: A list of portfolio holdings expected to be sent to Numerai API
-        :param positions: A message with the desired positions in the expected Numerai API format
-        :returns: True if a string message with the positions could be obtained, false otherwise.
+        :param parameters: Signal export parameters
+        :returns: Resulting CSV string.
         """
         ...
 
     def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
         """
-        Verifies all the given holdings are accepted by Numerai, creates a message with those holdings in the expected
-        Numerai API format and sends them to Numerai API
+        Converts targets to CSV and posts them to vBase stamping endpoint
         
-        :param parameters: A list of portfolio holdings expected to be sent to Numerai API and the algorithm being ran
-        :returns: True if the positions were sent to Numerai API correctly and no errors were returned, false otherwise.
+        :param parameters: Signal export parameters (targets + algorithm)
+        :returns: True if request succeeded.
         """
         ...
 
@@ -210,7 +145,8 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         Stores position's needed information to be serialized in JSON format
         and then sent to Collective2 API
         
-        This class is protected.
+        
+        This codeEntityType is protected.
         """
 
         @property
@@ -238,7 +174,8 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         """
         The Collective2 symbol
         
-        This class is protected.
+        
+        This codeEntityType is protected.
         """
 
         @property
@@ -322,7 +259,8 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         """
         The name of this signal export
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -341,9 +279,11 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         """
         Converts a list of targets to a list of Collective2 positions
         
-        This method is protected.
         
-        :param parameters: A list of targets from the portfolio expected to be sent to Collective2 API and the algorithm being ran
+        This codeEntityType is protected.
+        
+        :param parameters: A list of targets from the portfolio
+        expected to be sent to Collective2 API and the algorithm being ran
         :param positions: A list of Collective2 positions
         :returns: True if the given targets could be converted to a Collective2Position list, false otherwise.
         """
@@ -353,7 +293,8 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         """
         Converts a given percentage of a position into the number of shares of it
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param algorithm: Algorithm being ran
         :param target: Desired position to be sent to the Collective2 API
@@ -365,7 +306,8 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         """
         Serializes the list of desired positions with the needed credentials in JSON format
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param positions: List of Collective2 positions to be sent to Collective2 API
         :returns: A JSON request string of the desired positions to be sent by a POST request to Collective2 API.
@@ -377,8 +319,136 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         Creates a JSON message with the desired positions using the expected
         Collective2 API format and then sends it
         
-        :param parameters: A list of holdings from the portfolio expected to be sent to Collective2 API and the algorithm being ran
+        :param parameters: A list of holdings from the portfolio
+        expected to be sent to Collective2 API and the algorithm being ran
         :returns: True if the positions were sent correctly and Collective2 sent no errors, false otherwise.
+        """
+        ...
+
+
+class CrunchDAOSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
+    """
+    Exports signals of the desired positions to CrunchDAO API.
+    Accepts signals in percentage i.e ticker:"SPY", date: "2020-10-04", signal:0.54
+    """
+
+    @property
+    def name(self) -> str:
+        """
+        The name of this signal export
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    @property
+    def allowed_security_types(self) -> System.Collections.Generic.HashSet[QuantConnect.SecurityType]:
+        """
+        HashSet property of allowed SecurityTypes for CrunchDAO
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    def __init__(self, api_key: str, model: str, submission_name: str = ..., comment: str = ...) -> None:
+        """
+        CrunchDAOSignalExport constructor. It obtains the required information for CrunchDAO API requests.
+        See (https://colab.research.google.com/drive/1YW1xtHrIZ8ZHW69JvNANWowmxPcnkNu0?authuser=1#scrollTo=aPyWNxtuDc-X)
+        
+        :param api_key: API key provided by CrunchDAO
+        :param model: Model ID or Name
+        :param submission_name: Submission Name (Optional)
+        :param comment: Comment (Optional)
+        """
+        ...
+
+    def convert_to_csv_format(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters, positions: typing.Optional[str]) -> typing.Tuple[bool, str]:
+        """
+        Converts the list of holdings into a CSV format string
+        
+        
+        This codeEntityType is protected.
+        
+        :param parameters: A list of holdings from the portfolio,
+        expected to be sent to CrunchDAO API and the algorithm being ran
+        :param positions: A CSV format string of the given holdings with the required features(ticker, date, signal)
+        :returns: True if a string message with the positions could be obtained, false otherwise.
+        """
+        ...
+
+    def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
+        """
+        Verifies every holding is a stock, creates a message with the desired positions
+        using the expected CrunchDAO API format, verifies there is an open round and then
+        sends the positions with the other required body features. If another signal was
+        submitted before, it deletes the last signal and sends the new one
+        
+        :param parameters: A list of holdings from the portfolio,
+        expected to be sent to CrunchDAO API and the algorithm being ran
+        :returns: True if the positions were sent to CrunchDAO succesfully and errors were returned, false otherwise.
+        """
+        ...
+
+
+class NumeraiSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
+    """
+    Exports signals of the desired positions to Numerai API.
+    Accepts signals in percentage i.e numerai_ticker:"IBM US", signal:0.234
+    """
+
+    @property
+    def name(self) -> str:
+        """
+        The name of this signal export
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    @property
+    def allowed_security_types(self) -> System.Collections.Generic.HashSet[QuantConnect.SecurityType]:
+        """
+        Hashset property of Numerai allowed SecurityTypes
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    def __init__(self, public_id: str, secret_id: str, model_id: str, file_name: str = "predictions.csv") -> None:
+        """
+        NumeraiSignalExport Constructor. It obtains the required information for Numerai API requests
+        
+        :param public_id: PUBLIC_ID provided by Numerai
+        :param secret_id: SECRET_ID provided by Numerai
+        :param model_id: ID of the Numerai Model being used
+        :param file_name: Signal file's name
+        """
+        ...
+
+    def convert_targets_to_numerai(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters, positions: typing.Optional[str]) -> typing.Tuple[bool, str]:
+        """
+        Verifies each holding's signal is between 0 and 1 (exclusive)
+        
+        
+        This codeEntityType is protected.
+        
+        :param parameters: A list of portfolio holdings expected to be sent to Numerai API
+        :param positions: A message with the desired positions in the expected Numerai API format
+        :returns: True if a string message with the positions could be obtained, false otherwise.
+        """
+        ...
+
+    def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
+        """
+        Verifies all the given holdings are accepted by Numerai, creates a message with those holdings in the expected
+        Numerai API format and sends them to Numerai API
+        
+        :param parameters: A list of portfolio holdings expected to be sent to Numerai API and the algorithm being ran
+        :returns: True if the positions were sent to Numerai API correctly and no errors were returned, false otherwise.
         """
         ...
 
@@ -457,10 +527,11 @@ class SignalExportManager(System.Object):
     def get_portfolio_targets(self, targets: typing.Optional[typing.List[QuantConnect.Algorithm.Framework.Portfolio.PortfolioTarget]]) -> typing.Tuple[bool, typing.List[QuantConnect.Algorithm.Framework.Portfolio.PortfolioTarget]]:
         """
         Obtains an array of portfolio targets from algorithm's Portfolio and returns them.
-        See  PortfolioTarget.Percent(IAlgorithm, Symbol, decimal, bool, string) for more
+        See  PortfolioTarget.percent(IAlgorithm, Symbol, decimal, bool, string) for more
         information about how each symbol quantity was calculated
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param targets: An array of portfolio targets from the algorithm's Portfolio
         :returns: True if TotalPortfolioValue was bigger than zero, false otherwise.
@@ -490,7 +561,8 @@ class SignalExportManager(System.Object):
         Sets the portfolio targets from the algorihtm's Portfolio and sends them with the
         algorithm being ran to the signal exports providers already set
         
-        :returns: True if the target list could be obtained from the algorithm's Portfolio and they were successfully sent to the signal export providers.
+        :returns: True if the target list could be obtained from the algorithm's Portfolio and they
+        were successfully sent to the signal export providers.
         """
         ...
 

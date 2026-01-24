@@ -1,3 +1,5 @@
+"""General utility functions."""
+
 from pathlib import Path
 import time
 import re

@@ -3,7 +3,7 @@ Type annotations for shield service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_shield/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -34,12 +35,6 @@ from .literals import (
     UnitType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -128,8 +123,8 @@ __all__ = (
 
 
 class ResponseActionOutputTypeDef(TypedDict):
-    Block: NotRequired[Dict[str, Any]]
-    Count: NotRequired[Dict[str, Any]]
+    Block: NotRequired[dict[str, Any]]
+    Count: NotRequired[dict[str, Any]]
 
 
 class AssociateDRTLogBucketRequestTypeDef(TypedDict):
@@ -185,7 +180,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -217,7 +212,7 @@ ProtectionGroupTypeDef = TypedDict(
         "ProtectionGroupId": str,
         "Aggregation": ProtectionGroupAggregationType,
         "Pattern": ProtectionGroupPatternType,
-        "Members": List[str],
+        "Members": list[str],
         "ResourceType": NotRequired[ProtectedResourceTypeType],
         "ProtectionGroupArn": NotRequired[str],
     },
@@ -328,13 +323,13 @@ class UpdateEmergencyContactSettingsRequestTypeDef(TypedDict):
 
 class SummarizedAttackVectorTypeDef(TypedDict):
     VectorType: str
-    VectorCounters: NotRequired[List[SummarizedCounterTypeDef]]
+    VectorCounters: NotRequired[list[SummarizedCounterTypeDef]]
 
 
 class AttackPropertyTypeDef(TypedDict):
     AttackLayer: NotRequired[AttackLayerType]
     AttackPropertyIdentifier: NotRequired[AttackPropertyIdentifierType]
-    TopContributors: NotRequired[List[ContributorTypeDef]]
+    TopContributors: NotRequired[list[ContributorTypeDef]]
     Unit: NotRequired[UnitType]
     Total: NotRequired[int]
 
@@ -344,7 +339,7 @@ class AttackSummaryTypeDef(TypedDict):
     ResourceArn: NotRequired[str]
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
-    AttackVectors: NotRequired[List[AttackVectorDescriptionTypeDef]]
+    AttackVectors: NotRequired[list[AttackVectorDescriptionTypeDef]]
 
 
 class AttackVolumeTypeDef(TypedDict):
@@ -384,12 +379,12 @@ class CreateProtectionResponseTypeDef(TypedDict):
 
 class DescribeDRTAccessResponseTypeDef(TypedDict):
     RoleArn: str
-    LogBucketList: List[str]
+    LogBucketList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeEmergencyContactSettingsResponseTypeDef(TypedDict):
-    EmergencyContactList: List[EmergencyContactTypeDef]
+    EmergencyContactList: list[EmergencyContactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -399,13 +394,13 @@ class GetSubscriptionStateResponseTypeDef(TypedDict):
 
 
 class ListResourcesInProtectionGroupResponseTypeDef(TypedDict):
-    ResourceArns: List[str]
+    ResourceArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -415,7 +410,7 @@ class DescribeProtectionGroupResponseTypeDef(TypedDict):
 
 
 class ListProtectionGroupsResponseTypeDef(TypedDict):
-    ProtectionGroups: List[ProtectionGroupTypeDef]
+    ProtectionGroups: list[ProtectionGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -433,7 +428,7 @@ class ListProtectionGroupsRequestTypeDef(TypedDict):
 
 
 class ProtectionLimitsTypeDef(TypedDict):
-    ProtectedResourceTypeLimits: List[LimitTypeDef]
+    ProtectedResourceTypeLimits: list[LimitTypeDef]
 
 
 class ListProtectionsRequestPaginateTypeDef(TypedDict):
@@ -457,7 +452,7 @@ class ProtectionTypeDef(TypedDict):
     Id: NotRequired[str]
     Name: NotRequired[str]
     ResourceArn: NotRequired[str]
-    HealthCheckIds: NotRequired[List[str]]
+    HealthCheckIds: NotRequired[list[str]]
     ProtectionArn: NotRequired[str]
     ApplicationLayerAutomaticResponseConfiguration: NotRequired[
         ApplicationLayerAutomaticResponseConfigurationTypeDef
@@ -469,14 +464,14 @@ SubResourceSummaryTypeDef = TypedDict(
     {
         "Type": NotRequired[SubResourceTypeType],
         "Id": NotRequired[str],
-        "AttackVectors": NotRequired[List[SummarizedAttackVectorTypeDef]],
-        "Counters": NotRequired[List[SummarizedCounterTypeDef]],
+        "AttackVectors": NotRequired[list[SummarizedAttackVectorTypeDef]],
+        "Counters": NotRequired[list[SummarizedCounterTypeDef]],
     },
 )
 
 
 class ListAttacksResponseTypeDef(TypedDict):
-    AttackSummaries: List[AttackSummaryTypeDef]
+    AttackSummaries: list[AttackSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -510,7 +505,7 @@ class DescribeProtectionResponseTypeDef(TypedDict):
 
 
 class ListProtectionsResponseTypeDef(TypedDict):
-    Protections: List[ProtectionTypeDef]
+    Protections: list[ProtectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -518,17 +513,17 @@ class ListProtectionsResponseTypeDef(TypedDict):
 class AttackDetailTypeDef(TypedDict):
     AttackId: NotRequired[str]
     ResourceArn: NotRequired[str]
-    SubResources: NotRequired[List[SubResourceSummaryTypeDef]]
+    SubResources: NotRequired[list[SubResourceSummaryTypeDef]]
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
-    AttackCounters: NotRequired[List[SummarizedCounterTypeDef]]
-    AttackProperties: NotRequired[List[AttackPropertyTypeDef]]
-    Mitigations: NotRequired[List[MitigationTypeDef]]
+    AttackCounters: NotRequired[list[SummarizedCounterTypeDef]]
+    AttackProperties: NotRequired[list[AttackPropertyTypeDef]]
+    Mitigations: NotRequired[list[MitigationTypeDef]]
 
 
 class DescribeAttackStatisticsResponseTypeDef(TypedDict):
     TimeRange: TimeRangeOutputTypeDef
-    DataItems: List[AttackStatisticsDataItemTypeDef]
+    DataItems: list[AttackStatisticsDataItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -563,7 +558,7 @@ class SubscriptionTypeDef(TypedDict):
     EndTime: NotRequired[datetime]
     TimeCommitmentInSeconds: NotRequired[int]
     AutoRenew: NotRequired[AutoRenewType]
-    Limits: NotRequired[List[LimitTypeDef]]
+    Limits: NotRequired[list[LimitTypeDef]]
     ProactiveEngagementStatus: NotRequired[ProactiveEngagementStatusType]
     SubscriptionArn: NotRequired[str]
 

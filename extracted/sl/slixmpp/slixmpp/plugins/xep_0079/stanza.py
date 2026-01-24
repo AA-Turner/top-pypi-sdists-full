@@ -3,7 +3,6 @@
 # Copyright (C) 2013 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-from __future__ import unicode_literals
 
 from slixmpp import JID
 from slixmpp.xmlstream import ElementBase, register_stanza_plugin

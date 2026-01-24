@@ -43,6 +43,9 @@ class CliTestCase(unittest.TestCase):
         if not hasattr(self, 'test_files_dir'):
             self.test_files_dir = self.get_test_files_dir()
 
+        # not to use cached configuration between tests
+        responses.reset()
+
         responses.add(
             responses.POST,
             "{}/intake/organizations/{}/workspaces/{}/builds/{}/test_sessions".format(
@@ -193,6 +196,14 @@ class CliTestCase(unittest.TestCase):
                 self.organization,
                 self.workspace),
             json={'isFailFastMode': False, 'isPtsV2Enabled': False},
+            status=200)
+        responses.add(
+            responses.GET,
+            "{}/intake/organizations/{}/workspaces/{}/model-metadata".format(
+                get_base_url(),
+                self.organization,
+                self.workspace),
+            json={'training_cutoff_test_session_id': 256},
             status=200)
 
     def get_test_files_dir(self):

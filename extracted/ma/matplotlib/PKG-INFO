@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: matplotlib
-Version: 3.10.6
+Version: 3.10.8
 Summary: Python plotting package
 Author: John D. Hunter, Michael Droettboom
 Author-Email: Unknown <matplotlib-users@python.org>
@@ -114,6 +114,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Visualization
 Project-URL: Homepage, https://matplotlib.org
 Project-URL: Download, https://matplotlib.org/stable/install/index.html
@@ -130,7 +131,7 @@ Requires-Dist: kiwisolver>=1.3.1
 Requires-Dist: numpy>=1.23
 Requires-Dist: packaging>=20.0
 Requires-Dist: pillow>=8
-Requires-Dist: pyparsing>=2.3.1
+Requires-Dist: pyparsing>=3
 Requires-Dist: python-dateutil>=2.7
 Provides-Extra: dev
 Requires-Dist: meson-python<0.17.0,>=0.13.1; extra == "dev"

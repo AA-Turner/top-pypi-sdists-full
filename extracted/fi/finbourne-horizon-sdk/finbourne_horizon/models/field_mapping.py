@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.vendor_field import VendorField
 
 class FieldMapping(BaseModel):
@@ -28,11 +30,11 @@ class FieldMapping(BaseModel):
     """
     field_name:  StrictStr = Field(...,alias="fieldName", description="The LUSID core entity field") 
     default_value:  Optional[StrictStr] = Field(None,alias="defaultValue", description="Default value if needed") 
-    vendor_fields: conlist(VendorField) = Field(..., alias="vendorFields", description="Fields that will be used to map to this field")
+    vendor_fields: List[VendorField] = Field(description="Fields that will be used to map to this field", alias="vendorFields")
     transformation_description:  Optional[StrictStr] = Field(None,alias="transformationDescription", description="The transformation, if required, to map from VendorFields to the LUSID Property") 
     entity_type:  StrictStr = Field(...,alias="entityType", description="The LUSID Entity this is valid for") 
     entity_sub_type:  Optional[StrictStr] = Field(None,alias="entitySubType", description="The LUSID Entity sub type this is valid for") 
-    versions: conlist(StrictStr) = Field(..., description="The versions of the Vendor integration this mapping is valid for")
+    versions: List[StrictStr] = Field(description="The versions of the Vendor integration this mapping is valid for")
     __properties = ["fieldName", "defaultValue", "vendorFields", "transformationDescription", "entityType", "entitySubType", "versions"]
 
     class Config:
@@ -110,3 +112,5 @@ class FieldMapping(BaseModel):
             "versions": obj.get("versions")
         })
         return _obj
+
+FieldMapping.update_forward_refs()

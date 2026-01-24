@@ -1,0 +1,130 @@
+[build-system]
+requires = [
+    "setuptools==80.9.0",
+    "setuptools_scm==9.2.2",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+dynamic = ["version"]
+name = "pytest-tldr"
+description = "A pytest plugin that limits the output to just the things you need."
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+readme = "README.rst"
+requires-python = ">= 3.10"
+authors = [
+    {name="Russell Keith-Magee", email="russell@keith-magee.com"},
+]
+maintainers = [
+    {name="Russell Keith-Magee", email="russell@keith-magee.com"},
+]
+keywords = [
+    "pytest"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Testing",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pytest >= 7.0.0"
+]
+
+[project.entry-points."pytest11"]
+tldr = "pytest_tldr"
+
+[project.urls]
+Funding = "https://beeware.org/contributing/membership/"
+# Documentation = "https://pytest-tldr.readthedocs.io/"
+Tracker = "https://github.com/freakboy3742/pytest-tldr/issues"
+Source = "https://github.com/freakboy3742/pytest-tldr"
+
+[dependency-groups]
+# Extras used by developers *of* briefcase are pinned to specific versions to
+# ensure environment consistency.
+pre-commit = [
+    "pre-commit == 4.3.0",
+]
+
+setuptools-scm = [
+    "setuptools_scm == 9.2.2",
+]
+
+towncrier = [
+    "towncrier==25.8.0",
+]
+
+tox-uv = [
+    "tox-uv == 1.29.0",
+]
+
+dev = [
+    "pytest == 9.0.0",
+    {include-group = "pre-commit"},
+    {include-group = "setuptools-scm"},
+    {include-group = "tox-uv"},
+]
+[tool.ruff.lint]
+# In addition to the default rules, these additional rules will be used:
+extend-select = [
+    "E",      # pycodestyle
+    "W",      # pycodestyle
+    "F",      # pyflakes
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "YTT",    # flake8-2020
+    "ASYNC",  # flake8-async
+    "C4",     # flake8-comprehensions
+    "I",      # isort
+    "RUF",    # ruff-specific rules
+    "PT",     # flake8-pytest-style
+    "FURB",   # refurb
+    "ISC",    # flake8-implicit-str-concat
+    "PGH",    # pygrep-hooks
+    "T20",    # flake8-print
+    "PIE",    # flake8-pie
+    "SIM",    # flake8-simplify
+]
+# Below is a list of ignored rules.  Many (if not all) of these have been disabled
+# to facilitate a smooth transition from tools like black and isort to ruff, where
+# instances of these errors were caught.  Many if not all of these are candidates
+# for future fixes throughout the project.
+ignore = [
+    "SIM105",  # use `contextlib.suppress` (too opinionated)
+    "SIM108",  # replace if-else with ternary operator (too opinionated)
+]
+
+[tool.setuptools]
+py-modules = ["pytest_tldr"]
+
+[tool.setuptools.dynamic]
+version = {attr="pytest_tldr.__version__"}
+
+[tool.towncrier]
+directory = "changes"
+package = "pytest_tldr"
+filename = "CHANGELOG.rst"
+title_format = "{version} ({project_date})"
+template = "changes/template.rst"
+issue_format = "`#{issue} <https://github.com/beeware/briefcase/issues/{issue}>`__"
+type = [
+    { directory = "feature", name = "Features", showcontent = true },
+    { directory = "bugfix", name = "Bugfixes", showcontent = true },
+    { directory = "removal", name = "Backward Incompatible Changes", showcontent = true },
+    { directory = "doc", name = "Documentation", showcontent = true },
+    { directory = "misc", name = "Misc", showcontent = false },
+]

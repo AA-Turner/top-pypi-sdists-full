@@ -24,16 +24,21 @@ class EmailSMSTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[List[models.Template]]:
+    ) -> List[models.Template]:
         r"""List all templates
 
         Returns a list of all templates.
         The templates are returned sorted by position.
 
         :param template_type: The type of templates to list (email or SMS)
-        :param paginated: Whether to paginate the results. If true, the results will be paginated. If false, the results will not be paginated.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param paginated: Whether to paginate the results.
+            If true, the results will be paginated.
+            If false, the results will not be paginated.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -69,6 +74,7 @@ class EmailSMSTemplates(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -89,7 +95,7 @@ class EmailSMSTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetTemplateList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -99,7 +105,7 @@ class EmailSMSTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[List[models.Template]], http_res)
+            return unmarshal_json_response(List[models.Template], http_res)
         if utils.match_response(http_res, ["400", "401", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -126,16 +132,21 @@ class EmailSMSTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[List[models.Template]]:
+    ) -> List[models.Template]:
         r"""List all templates
 
         Returns a list of all templates.
         The templates are returned sorted by position.
 
         :param template_type: The type of templates to list (email or SMS)
-        :param paginated: Whether to paginate the results. If true, the results will be paginated. If false, the results will not be paginated.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param paginated: Whether to paginate the results.
+            If true, the results will be paginated.
+            If false, the results will not be paginated.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -171,6 +182,7 @@ class EmailSMSTemplates(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -191,7 +203,7 @@ class EmailSMSTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetTemplateList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -201,7 +213,7 @@ class EmailSMSTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[List[models.Template]], http_res)
+            return unmarshal_json_response(List[models.Template], http_res)
         if utils.match_response(http_res, ["400", "401", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -226,7 +238,7 @@ class EmailSMSTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Template]:
+    ) -> models.Template:
         r"""Retrieve a template
 
         Returns the details of a template
@@ -266,6 +278,7 @@ class EmailSMSTemplates(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -286,7 +299,7 @@ class EmailSMSTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -296,7 +309,7 @@ class EmailSMSTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Template], http_res)
+            return unmarshal_json_response(models.Template, http_res)
         if utils.match_response(http_res, ["400", "401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -321,7 +334,7 @@ class EmailSMSTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Template]:
+    ) -> models.Template:
         r"""Retrieve a template
 
         Returns the details of a template
@@ -361,6 +374,7 @@ class EmailSMSTemplates(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -381,7 +395,7 @@ class EmailSMSTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -391,7 +405,7 @@ class EmailSMSTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Template], http_res)
+            return unmarshal_json_response(models.Template, http_res)
         if utils.match_response(http_res, ["400", "401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -416,7 +430,7 @@ class EmailSMSTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Template]:
+    ) -> models.Template:
         r"""Revert a template
 
         Reverts an updated template to its default state
@@ -456,6 +470,7 @@ class EmailSMSTemplates(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -476,7 +491,7 @@ class EmailSMSTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RevertTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -486,7 +501,7 @@ class EmailSMSTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Template], http_res)
+            return unmarshal_json_response(models.Template, http_res)
         if utils.match_response(
             http_res, ["400", "401", "402", "404"], "application/json"
         ):
@@ -513,7 +528,7 @@ class EmailSMSTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Template]:
+    ) -> models.Template:
         r"""Revert a template
 
         Reverts an updated template to its default state
@@ -553,6 +568,7 @@ class EmailSMSTemplates(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -573,7 +589,7 @@ class EmailSMSTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RevertTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -583,7 +599,7 @@ class EmailSMSTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Template], http_res)
+            return unmarshal_json_response(models.Template, http_res)
         if utils.match_response(
             http_res, ["400", "401", "402", "404"], "application/json"
         ):
@@ -611,7 +627,7 @@ class EmailSMSTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Template]:
+    ) -> models.Template:
         r"""Toggle the delivery by Clerk for a template of a given type and slug
 
         Toggles the delivery by Clerk for a template of a given type and slug.
@@ -664,6 +680,7 @@ class EmailSMSTemplates(BaseSDK):
                 "json",
                 Optional[models.ToggleTemplateDeliveryRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -684,7 +701,7 @@ class EmailSMSTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ToggleTemplateDelivery",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -694,7 +711,7 @@ class EmailSMSTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Template], http_res)
+            return unmarshal_json_response(models.Template, http_res)
         if utils.match_response(http_res, ["400", "401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -720,7 +737,7 @@ class EmailSMSTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Template]:
+    ) -> models.Template:
         r"""Toggle the delivery by Clerk for a template of a given type and slug
 
         Toggles the delivery by Clerk for a template of a given type and slug.
@@ -773,6 +790,7 @@ class EmailSMSTemplates(BaseSDK):
                 "json",
                 Optional[models.ToggleTemplateDeliveryRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -793,7 +811,7 @@ class EmailSMSTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ToggleTemplateDelivery",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -803,7 +821,7 @@ class EmailSMSTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Template], http_res)
+            return unmarshal_json_response(models.Template, http_res)
         if utils.match_response(http_res, ["400", "401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)

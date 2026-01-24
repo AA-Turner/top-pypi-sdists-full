@@ -13,7 +13,7 @@ import pytest
 from pytest import MonkeyPatch
 
 from sanic import Sanic
-from sanic.config import DEFAULT_CONFIG, Config
+from sanic.config import DEFAULT_CONFIG, Config, DetailedConverter
 from sanic.constants import LocalCertCreator
 from sanic.exceptions import PyFileError
 
@@ -146,6 +146,71 @@ def test_add_converter_multiple_times(caplog):
 
     assert ("sanic.error", logging.WARNING, message) in caplog.record_tuples
     assert len(config._converters) == 5
+
+
+class MockDetailedConverter(DetailedConverter):
+    """Mock converter that returns a dict with all passed parameters."""
+
+    def __call__(
+        self, full_key: str, config_key: str, value: str, defaults: dict
+    ):
+        return {
+            "full_key": full_key,
+            "config_key": config_key,
+            "value": value,
+            "has_default": config_key in defaults,
+            "default_value": defaults.get(config_key, None),
+        }
+
+
+def test_detailed_converter_basic_functionality():
+    """Test that DetailedConverter receives all expected parameters."""
+    environ["SANIC_TEST_DETAILED"] = "test_value"
+
+    config = Config(converters=[MockDetailedConverter()])
+
+    result = config.TEST_DETAILED
+    assert isinstance(result, dict)
+    assert result["full_key"] == "SANIC_TEST_DETAILED"
+    assert result["config_key"] == "TEST_DETAILED"
+    assert result["value"] == "test_value"
+    assert result["has_default"] is False
+    assert result["default_value"] is None
+
+    del environ["SANIC_TEST_DETAILED"]
+
+
+def test_detailed_converter_with_defaults():
+    """Test DetailedConverter with custom defaults."""
+    environ["SANIC_CUSTOM_VALUE"] = "42"
+
+    defaults = {"CUSTOM_VALUE": 100}
+    config = Config(defaults=defaults, converters=[MockDetailedConverter()])
+
+    result = config.CUSTOM_VALUE
+    assert isinstance(result, dict)
+    assert result["full_key"] == "SANIC_CUSTOM_VALUE"
+    assert result["config_key"] == "CUSTOM_VALUE"
+    assert result["value"] == "42"
+    assert result["has_default"] is True
+    assert result["default_value"] == 100
+
+    del environ["SANIC_CUSTOM_VALUE"]
+
+
+def test_detailed_converter_with_custom_prefix():
+    """Test DetailedConverter with custom environment prefix."""
+    environ["MYAPP_TEST_VALUE"] = "custom_test"
+
+    config = Config(env_prefix="MYAPP_", converters=[MockDetailedConverter()])
+
+    result = config.TEST_VALUE
+    assert isinstance(result, dict)
+    assert result["full_key"] == "MYAPP_TEST_VALUE"
+    assert result["config_key"] == "TEST_VALUE"
+    assert result["value"] == "custom_test"
+
+    del environ["MYAPP_TEST_VALUE"]
 
 
 def test_load_from_file(app: Sanic):
@@ -290,14 +355,14 @@ def test_config_custom_defaults_with_env():
 
 
 @pytest.mark.parametrize("access_log", (True, False))
-def test_config_access_log_passing_in_run(app: Sanic, access_log):
+def test_config_access_log_passing_in_run(app: Sanic, port, access_log):
     assert app.config.ACCESS_LOG is False
 
     @app.listener("after_server_start")
     async def _request(sanic, loop):
         app.stop()
 
-    app.run(port=1340, access_log=access_log, single_process=True)
+    app.run(port=port, access_log=access_log, single_process=True)
     assert app.config.ACCESS_LOG is access_log
 
 

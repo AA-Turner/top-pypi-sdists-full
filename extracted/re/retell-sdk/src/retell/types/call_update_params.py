@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict, Union, Optional
 from typing_extensions import Literal, TypedDict
 
 __all__ = ["CallUpdateParams"]
 
 
 class CallUpdateParams(TypedDict, total=False):
+    custom_attributes: Dict[str, Union[str, float, bool]]
+    """Custom attributes for the call"""
+
     data_storage_setting: Literal["everything", "everything_except_pii", "basic_attributes_only"]
     """Data storage setting for this call.
 
@@ -31,5 +34,6 @@ class CallUpdateParams(TypedDict, total=False):
 
     Setting this will override or add the dynamic variables set in the agent during
     the call. Only need to set the delta where you want to override, no need to set
-    the entire dynamic variables object.
+    the entire dynamic variables object. Setting this to null will remove any
+    existing override.
     """

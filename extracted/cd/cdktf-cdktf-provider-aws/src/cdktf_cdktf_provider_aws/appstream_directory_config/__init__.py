@@ -1,7 +1,7 @@
 r'''
 # `aws_appstream_directory_config`
 
-Refer to the Terraform Registry for docs: [`aws_appstream_directory_config`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config).
+Refer to the Terraform Registry for docs: [`aws_appstream_directory_config`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppstreamDirectoryConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appstreamDirectoryConfig.AppstreamDirectoryConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config aws_appstream_directory_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config aws_appstream_directory_config}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class AppstreamDirectoryConfig(
         directory_name: builtins.str,
         organizational_unit_distinguished_names: typing.Sequence[builtins.str],
         service_account_credentials: typing.Union["AppstreamDirectoryConfigServiceAccountCredentials", typing.Dict[builtins.str, typing.Any]],
+        certificate_based_auth_properties: typing.Optional[typing.Union["AppstreamDirectoryConfigCertificateBasedAuthProperties", typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -64,15 +65,16 @@ class AppstreamDirectoryConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config aws_appstream_directory_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config aws_appstream_directory_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param directory_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#directory_name AppstreamDirectoryConfig#directory_name}.
-        :param organizational_unit_distinguished_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#organizational_unit_distinguished_names AppstreamDirectoryConfig#organizational_unit_distinguished_names}.
-        :param service_account_credentials: service_account_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#service_account_credentials AppstreamDirectoryConfig#service_account_credentials}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#id AppstreamDirectoryConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#region AppstreamDirectoryConfig#region}
+        :param directory_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#directory_name AppstreamDirectoryConfig#directory_name}.
+        :param organizational_unit_distinguished_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#organizational_unit_distinguished_names AppstreamDirectoryConfig#organizational_unit_distinguished_names}.
+        :param service_account_credentials: service_account_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#service_account_credentials AppstreamDirectoryConfig#service_account_credentials}
+        :param certificate_based_auth_properties: certificate_based_auth_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#certificate_based_auth_properties AppstreamDirectoryConfig#certificate_based_auth_properties}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#id AppstreamDirectoryConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#region AppstreamDirectoryConfig#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -89,6 +91,7 @@ class AppstreamDirectoryConfig(
             directory_name=directory_name,
             organizational_unit_distinguished_names=organizational_unit_distinguished_names,
             service_account_credentials=service_account_credentials,
+            certificate_based_auth_properties=certificate_based_auth_properties,
             id=id,
             region=region,
             connection=connection,
@@ -115,7 +118,7 @@ class AppstreamDirectoryConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppstreamDirectoryConfig to import.
-        :param import_from_id: The id of the existing AppstreamDirectoryConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppstreamDirectoryConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppstreamDirectoryConfig to import is found.
         '''
         if __debug__:
@@ -126,6 +129,23 @@ class AppstreamDirectoryConfig(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
+    @jsii.member(jsii_name="putCertificateBasedAuthProperties")
+    def put_certificate_based_auth_properties(
+        self,
+        *,
+        certificate_authority_arn: typing.Optional[builtins.str] = None,
+        status: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param certificate_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#certificate_authority_arn AppstreamDirectoryConfig#certificate_authority_arn}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#status AppstreamDirectoryConfig#status}.
+        '''
+        value = AppstreamDirectoryConfigCertificateBasedAuthProperties(
+            certificate_authority_arn=certificate_authority_arn, status=status
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putCertificateBasedAuthProperties", [value]))
+
     @jsii.member(jsii_name="putServiceAccountCredentials")
     def put_service_account_credentials(
         self,
@@ -134,14 +154,18 @@ class AppstreamDirectoryConfig(
         account_password: builtins.str,
     ) -> None:
         '''
-        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#account_name AppstreamDirectoryConfig#account_name}.
-        :param account_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#account_password AppstreamDirectoryConfig#account_password}.
+        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#account_name AppstreamDirectoryConfig#account_name}.
+        :param account_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#account_password AppstreamDirectoryConfig#account_password}.
         '''
         value = AppstreamDirectoryConfigServiceAccountCredentials(
             account_name=account_name, account_password=account_password
         )
 
         return typing.cast(None, jsii.invoke(self, "putServiceAccountCredentials", [value]))
+
+    @jsii.member(jsii_name="resetCertificateBasedAuthProperties")
+    def reset_certificate_based_auth_properties(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetCertificateBasedAuthProperties", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -165,6 +189,13 @@ class AppstreamDirectoryConfig(
         return typing.cast(builtins.str, jsii.sget(cls, "tfResourceType"))
 
     @builtins.property
+    @jsii.member(jsii_name="certificateBasedAuthProperties")
+    def certificate_based_auth_properties(
+        self,
+    ) -> "AppstreamDirectoryConfigCertificateBasedAuthPropertiesOutputReference":
+        return typing.cast("AppstreamDirectoryConfigCertificateBasedAuthPropertiesOutputReference", jsii.get(self, "certificateBasedAuthProperties"))
+
+    @builtins.property
     @jsii.member(jsii_name="createdTime")
     def created_time(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "createdTime"))
@@ -175,6 +206,13 @@ class AppstreamDirectoryConfig(
         self,
     ) -> "AppstreamDirectoryConfigServiceAccountCredentialsOutputReference":
         return typing.cast("AppstreamDirectoryConfigServiceAccountCredentialsOutputReference", jsii.get(self, "serviceAccountCredentials"))
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateBasedAuthPropertiesInput")
+    def certificate_based_auth_properties_input(
+        self,
+    ) -> typing.Optional["AppstreamDirectoryConfigCertificateBasedAuthProperties"]:
+        return typing.cast(typing.Optional["AppstreamDirectoryConfigCertificateBasedAuthProperties"], jsii.get(self, "certificateBasedAuthPropertiesInput"))
 
     @builtins.property
     @jsii.member(jsii_name="directoryNameInput")
@@ -258,6 +296,139 @@ class AppstreamDirectoryConfig(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-aws.appstreamDirectoryConfig.AppstreamDirectoryConfigCertificateBasedAuthProperties",
+    jsii_struct_bases=[],
+    name_mapping={
+        "certificate_authority_arn": "certificateAuthorityArn",
+        "status": "status",
+    },
+)
+class AppstreamDirectoryConfigCertificateBasedAuthProperties:
+    def __init__(
+        self,
+        *,
+        certificate_authority_arn: typing.Optional[builtins.str] = None,
+        status: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param certificate_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#certificate_authority_arn AppstreamDirectoryConfig#certificate_authority_arn}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#status AppstreamDirectoryConfig#status}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__007c142ba2711ae263afaa69cac372f7b5945c27e9fcdc0158f2be6d71766ce6)
+            check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if certificate_authority_arn is not None:
+            self._values["certificate_authority_arn"] = certificate_authority_arn
+        if status is not None:
+            self._values["status"] = status
+
+    @builtins.property
+    def certificate_authority_arn(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#certificate_authority_arn AppstreamDirectoryConfig#certificate_authority_arn}.'''
+        result = self._values.get("certificate_authority_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#status AppstreamDirectoryConfig#status}.'''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppstreamDirectoryConfigCertificateBasedAuthProperties(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AppstreamDirectoryConfigCertificateBasedAuthPropertiesOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.appstreamDirectoryConfig.AppstreamDirectoryConfigCertificateBasedAuthPropertiesOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7c468cd331b684e56fe5436efd189a5bcc97edfdc04b155e30042055362dd54a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetCertificateAuthorityArn")
+    def reset_certificate_authority_arn(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetCertificateAuthorityArn", []))
+
+    @jsii.member(jsii_name="resetStatus")
+    def reset_status(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetStatus", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateAuthorityArnInput")
+    def certificate_authority_arn_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificateAuthorityArnInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="statusInput")
+    def status_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "statusInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateAuthorityArn")
+    def certificate_authority_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "certificateAuthorityArn"))
+
+    @certificate_authority_arn.setter
+    def certificate_authority_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7fcb576e6953a7e36a0597baa187a38baf083225c04713370a8579d3a1406d5a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificateAuthorityArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7cbfe86fb83b5ea4bdcdd79f81a5c11bc2fea9b6a97b24001329c5ea456ca5d8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[AppstreamDirectoryConfigCertificateBasedAuthProperties]:
+        return typing.cast(typing.Optional[AppstreamDirectoryConfigCertificateBasedAuthProperties], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[AppstreamDirectoryConfigCertificateBasedAuthProperties],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8050ecec3595a9988d76fe31771a2cac41ae75ec901f77032fa2fecac1eaa553)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-aws.appstreamDirectoryConfig.AppstreamDirectoryConfigConfig",
     jsii_struct_bases=[_cdktf_9a9027ec.TerraformMetaArguments],
     name_mapping={
@@ -271,6 +442,7 @@ class AppstreamDirectoryConfig(
         "directory_name": "directoryName",
         "organizational_unit_distinguished_names": "organizationalUnitDistinguishedNames",
         "service_account_credentials": "serviceAccountCredentials",
+        "certificate_based_auth_properties": "certificateBasedAuthProperties",
         "id": "id",
         "region": "region",
     },
@@ -289,6 +461,7 @@ class AppstreamDirectoryConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         directory_name: builtins.str,
         organizational_unit_distinguished_names: typing.Sequence[builtins.str],
         service_account_credentials: typing.Union["AppstreamDirectoryConfigServiceAccountCredentials", typing.Dict[builtins.str, typing.Any]],
+        certificate_based_auth_properties: typing.Optional[typing.Union[AppstreamDirectoryConfigCertificateBasedAuthProperties, typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -300,16 +473,19 @@ class AppstreamDirectoryConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param directory_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#directory_name AppstreamDirectoryConfig#directory_name}.
-        :param organizational_unit_distinguished_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#organizational_unit_distinguished_names AppstreamDirectoryConfig#organizational_unit_distinguished_names}.
-        :param service_account_credentials: service_account_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#service_account_credentials AppstreamDirectoryConfig#service_account_credentials}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#id AppstreamDirectoryConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#region AppstreamDirectoryConfig#region}
+        :param directory_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#directory_name AppstreamDirectoryConfig#directory_name}.
+        :param organizational_unit_distinguished_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#organizational_unit_distinguished_names AppstreamDirectoryConfig#organizational_unit_distinguished_names}.
+        :param service_account_credentials: service_account_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#service_account_credentials AppstreamDirectoryConfig#service_account_credentials}
+        :param certificate_based_auth_properties: certificate_based_auth_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#certificate_based_auth_properties AppstreamDirectoryConfig#certificate_based_auth_properties}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#id AppstreamDirectoryConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#region AppstreamDirectoryConfig#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
         if isinstance(service_account_credentials, dict):
             service_account_credentials = AppstreamDirectoryConfigServiceAccountCredentials(**service_account_credentials)
+        if isinstance(certificate_based_auth_properties, dict):
+            certificate_based_auth_properties = AppstreamDirectoryConfigCertificateBasedAuthProperties(**certificate_based_auth_properties)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e11d01f65ac032628774f15a342c150d81b2fecd1a3bed02909487f52f95f66d)
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
@@ -322,6 +498,7 @@ class AppstreamDirectoryConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument directory_name", value=directory_name, expected_type=type_hints["directory_name"])
             check_type(argname="argument organizational_unit_distinguished_names", value=organizational_unit_distinguished_names, expected_type=type_hints["organizational_unit_distinguished_names"])
             check_type(argname="argument service_account_credentials", value=service_account_credentials, expected_type=type_hints["service_account_credentials"])
+            check_type(argname="argument certificate_based_auth_properties", value=certificate_based_auth_properties, expected_type=type_hints["certificate_based_auth_properties"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -343,6 +520,8 @@ class AppstreamDirectoryConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if certificate_based_auth_properties is not None:
+            self._values["certificate_based_auth_properties"] = certificate_based_auth_properties
         if id is not None:
             self._values["id"] = id
         if region is not None:
@@ -414,14 +593,14 @@ class AppstreamDirectoryConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def directory_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#directory_name AppstreamDirectoryConfig#directory_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#directory_name AppstreamDirectoryConfig#directory_name}.'''
         result = self._values.get("directory_name")
         assert result is not None, "Required property 'directory_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def organizational_unit_distinguished_names(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#organizational_unit_distinguished_names AppstreamDirectoryConfig#organizational_unit_distinguished_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#organizational_unit_distinguished_names AppstreamDirectoryConfig#organizational_unit_distinguished_names}.'''
         result = self._values.get("organizational_unit_distinguished_names")
         assert result is not None, "Required property 'organizational_unit_distinguished_names' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -432,15 +611,26 @@ class AppstreamDirectoryConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> "AppstreamDirectoryConfigServiceAccountCredentials":
         '''service_account_credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#service_account_credentials AppstreamDirectoryConfig#service_account_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#service_account_credentials AppstreamDirectoryConfig#service_account_credentials}
         '''
         result = self._values.get("service_account_credentials")
         assert result is not None, "Required property 'service_account_credentials' is missing"
         return typing.cast("AppstreamDirectoryConfigServiceAccountCredentials", result)
 
     @builtins.property
+    def certificate_based_auth_properties(
+        self,
+    ) -> typing.Optional[AppstreamDirectoryConfigCertificateBasedAuthProperties]:
+        '''certificate_based_auth_properties block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#certificate_based_auth_properties AppstreamDirectoryConfig#certificate_based_auth_properties}
+        '''
+        result = self._values.get("certificate_based_auth_properties")
+        return typing.cast(typing.Optional[AppstreamDirectoryConfigCertificateBasedAuthProperties], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#id AppstreamDirectoryConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#id AppstreamDirectoryConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -452,7 +642,7 @@ class AppstreamDirectoryConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#region AppstreamDirectoryConfig#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#region AppstreamDirectoryConfig#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -485,8 +675,8 @@ class AppstreamDirectoryConfigServiceAccountCredentials:
         account_password: builtins.str,
     ) -> None:
         '''
-        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#account_name AppstreamDirectoryConfig#account_name}.
-        :param account_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#account_password AppstreamDirectoryConfig#account_password}.
+        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#account_name AppstreamDirectoryConfig#account_name}.
+        :param account_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#account_password AppstreamDirectoryConfig#account_password}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66c9b7cd12c1e48da5a6f4e1aad55ee9ff99b5069de208cde1d202fad06f361a)
@@ -499,14 +689,14 @@ class AppstreamDirectoryConfigServiceAccountCredentials:
 
     @builtins.property
     def account_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#account_name AppstreamDirectoryConfig#account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#account_name AppstreamDirectoryConfig#account_name}.'''
         result = self._values.get("account_name")
         assert result is not None, "Required property 'account_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def account_password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/appstream_directory_config#account_password AppstreamDirectoryConfig#account_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/appstream_directory_config#account_password AppstreamDirectoryConfig#account_password}.'''
         result = self._values.get("account_password")
         assert result is not None, "Required property 'account_password' is missing"
         return typing.cast(builtins.str, result)
@@ -597,6 +787,8 @@ class AppstreamDirectoryConfigServiceAccountCredentialsOutputReference(
 
 __all__ = [
     "AppstreamDirectoryConfig",
+    "AppstreamDirectoryConfigCertificateBasedAuthProperties",
+    "AppstreamDirectoryConfigCertificateBasedAuthPropertiesOutputReference",
     "AppstreamDirectoryConfigConfig",
     "AppstreamDirectoryConfigServiceAccountCredentials",
     "AppstreamDirectoryConfigServiceAccountCredentialsOutputReference",
@@ -611,6 +803,7 @@ def _typecheckingstub__513f116bf0ddf96885bf5e65e8bcdec57fcc3e7083e73c5655fe6c659
     directory_name: builtins.str,
     organizational_unit_distinguished_names: typing.Sequence[builtins.str],
     service_account_credentials: typing.Union[AppstreamDirectoryConfigServiceAccountCredentials, typing.Dict[builtins.str, typing.Any]],
+    certificate_based_auth_properties: typing.Optional[typing.Union[AppstreamDirectoryConfigCertificateBasedAuthProperties, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -657,6 +850,39 @@ def _typecheckingstub__3c5724ebe578a12371cd94918750a18197f80e6f2fc62b8baf4ed4932
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__007c142ba2711ae263afaa69cac372f7b5945c27e9fcdc0158f2be6d71766ce6(
+    *,
+    certificate_authority_arn: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c468cd331b684e56fe5436efd189a5bcc97edfdc04b155e30042055362dd54a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7fcb576e6953a7e36a0597baa187a38baf083225c04713370a8579d3a1406d5a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7cbfe86fb83b5ea4bdcdd79f81a5c11bc2fea9b6a97b24001329c5ea456ca5d8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8050ecec3595a9988d76fe31771a2cac41ae75ec901f77032fa2fecac1eaa553(
+    value: typing.Optional[AppstreamDirectoryConfigCertificateBasedAuthProperties],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e11d01f65ac032628774f15a342c150d81b2fecd1a3bed02909487f52f95f66d(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -669,6 +895,7 @@ def _typecheckingstub__e11d01f65ac032628774f15a342c150d81b2fecd1a3bed02909487f52
     directory_name: builtins.str,
     organizational_unit_distinguished_names: typing.Sequence[builtins.str],
     service_account_credentials: typing.Union[AppstreamDirectoryConfigServiceAccountCredentials, typing.Dict[builtins.str, typing.Any]],
+    certificate_based_auth_properties: typing.Optional[typing.Union[AppstreamDirectoryConfigCertificateBasedAuthProperties, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
 ) -> None:

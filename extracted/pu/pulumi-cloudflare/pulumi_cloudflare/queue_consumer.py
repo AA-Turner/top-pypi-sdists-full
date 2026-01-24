@@ -23,7 +23,6 @@ class QueueConsumerInitArgs:
     def __init__(__self__, *,
                  account_id: pulumi.Input[_builtins.str],
                  queue_id: pulumi.Input[_builtins.str],
-                 consumer_id: Optional[pulumi.Input[_builtins.str]] = None,
                  dead_letter_queue: Optional[pulumi.Input[_builtins.str]] = None,
                  script_name: Optional[pulumi.Input[_builtins.str]] = None,
                  settings: Optional[pulumi.Input['QueueConsumerSettingsArgs']] = None,
@@ -32,14 +31,11 @@ class QueueConsumerInitArgs:
         The set of arguments for constructing a QueueConsumer resource.
         :param pulumi.Input[_builtins.str] account_id: A Resource identifier.
         :param pulumi.Input[_builtins.str] queue_id: A Resource identifier.
-        :param pulumi.Input[_builtins.str] consumer_id: A Resource identifier.
         :param pulumi.Input[_builtins.str] script_name: Name of a Worker
         :param pulumi.Input[_builtins.str] type: Available values: "worker", "http_pull".
         """
         pulumi.set(__self__, "account_id", account_id)
         pulumi.set(__self__, "queue_id", queue_id)
-        if consumer_id is not None:
-            pulumi.set(__self__, "consumer_id", consumer_id)
         if dead_letter_queue is not None:
             pulumi.set(__self__, "dead_letter_queue", dead_letter_queue)
         if script_name is not None:
@@ -72,18 +68,6 @@ class QueueConsumerInitArgs:
     @queue_id.setter
     def queue_id(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "queue_id", value)
-
-    @_builtins.property
-    @pulumi.getter(name="consumerId")
-    def consumer_id(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        A Resource identifier.
-        """
-        return pulumi.get(self, "consumer_id")
-
-    @consumer_id.setter
-    def consumer_id(self, value: Optional[pulumi.Input[_builtins.str]]):
-        pulumi.set(self, "consumer_id", value)
 
     @_builtins.property
     @pulumi.getter(name="deadLetterQueue")
@@ -275,7 +259,6 @@ class QueueConsumer(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 consumer_id: Optional[pulumi.Input[_builtins.str]] = None,
                  dead_letter_queue: Optional[pulumi.Input[_builtins.str]] = None,
                  queue_id: Optional[pulumi.Input[_builtins.str]] = None,
                  script_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -285,10 +268,32 @@ class QueueConsumer(pulumi.CustomResource):
         """
         ## Example Usage
 
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_queue_consumer = cloudflare.QueueConsumer("example_queue_consumer",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            queue_id="023e105f4ecef8ad9ca31a8372d0c353",
+            dead_letter_queue="example-queue",
+            script_name="my-consumer-worker",
+            settings={
+                "batch_size": 50,
+                "max_concurrency": 10,
+                "max_retries": 3,
+                "max_wait_time_ms": 5000,
+                "retry_delay": 10,
+            },
+            type="worker")
+        ```
+
+        ## Import
+
+        ~> This resource does not currently support `pulumi import`.
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] account_id: A Resource identifier.
-        :param pulumi.Input[_builtins.str] consumer_id: A Resource identifier.
         :param pulumi.Input[_builtins.str] queue_id: A Resource identifier.
         :param pulumi.Input[_builtins.str] script_name: Name of a Worker
         :param pulumi.Input[_builtins.str] type: Available values: "worker", "http_pull".
@@ -301,6 +306,29 @@ class QueueConsumer(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_queue_consumer = cloudflare.QueueConsumer("example_queue_consumer",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            queue_id="023e105f4ecef8ad9ca31a8372d0c353",
+            dead_letter_queue="example-queue",
+            script_name="my-consumer-worker",
+            settings={
+                "batch_size": 50,
+                "max_concurrency": 10,
+                "max_retries": 3,
+                "max_wait_time_ms": 5000,
+                "retry_delay": 10,
+            },
+            type="worker")
+        ```
+
+        ## Import
+
+        ~> This resource does not currently support `pulumi import`.
 
         :param str resource_name: The name of the resource.
         :param QueueConsumerInitArgs args: The arguments to use to populate this resource's properties.
@@ -318,7 +346,6 @@ class QueueConsumer(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 consumer_id: Optional[pulumi.Input[_builtins.str]] = None,
                  dead_letter_queue: Optional[pulumi.Input[_builtins.str]] = None,
                  queue_id: Optional[pulumi.Input[_builtins.str]] = None,
                  script_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -336,7 +363,6 @@ class QueueConsumer(pulumi.CustomResource):
             if account_id is None and not opts.urn:
                 raise TypeError("Missing required property 'account_id'")
             __props__.__dict__["account_id"] = account_id
-            __props__.__dict__["consumer_id"] = consumer_id
             __props__.__dict__["dead_letter_queue"] = dead_letter_queue
             if queue_id is None and not opts.urn:
                 raise TypeError("Missing required property 'queue_id'")
@@ -344,6 +370,7 @@ class QueueConsumer(pulumi.CustomResource):
             __props__.__dict__["script_name"] = script_name
             __props__.__dict__["settings"] = settings
             __props__.__dict__["type"] = type
+            __props__.__dict__["consumer_id"] = None
             __props__.__dict__["created_on"] = None
             __props__.__dict__["script"] = None
         super(QueueConsumer, __self__).__init__(
@@ -404,7 +431,7 @@ class QueueConsumer(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="consumerId")
-    def consumer_id(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def consumer_id(self) -> pulumi.Output[_builtins.str]:
         """
         A Resource identifier.
         """

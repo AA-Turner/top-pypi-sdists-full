@@ -313,7 +313,7 @@ Keyword arguments:
 
     `wrapperProps` is a dict with keys:
 """
-    _children_props = ['label', 'description', 'error', 'icon', 'indeterminateIcon']
+    _children_props: typing.List[str] = ['label', 'description', 'error', 'icon', 'indeterminateIcon']
     _base_nodes = ['label', 'description', 'error', 'icon', 'indeterminateIcon', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Checkbox'

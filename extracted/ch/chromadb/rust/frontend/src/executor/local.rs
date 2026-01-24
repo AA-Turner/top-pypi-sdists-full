@@ -15,7 +15,7 @@ use chroma_types::{
         Limit, Projection, ProjectionRecord, RecordMeasure, SearchResult,
     },
     plan::{Count, Get, Knn, Search},
-    CollectionAndSegments, CollectionUuid, ExecutorError, HnswSpace, SegmentType,
+    CollectionAndSegments, CollectionUuid, ExecutorError, SegmentType, Space,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -204,22 +204,26 @@ impl LocalExecutor {
             allowed_offset_ids.push(offset_id);
         }
 
-        let distance_function = match collection_and_segments
+        let hnsw_config = collection_and_segments
             .collection
-            .config
-            .get_hnsw_config_with_legacy_fallback(&plan.scan.collection_and_segments.vector_segment)
-        {
-            Ok(Some(config)) => config.space,
-            Ok(None) => return Err(ExecutorError::CollectionMissingHnswConfiguration),
-            Err(err) => {
-                return Err(ExecutorError::Internal(Box::new(err)));
-            }
-        };
+            .schema
+            .as_ref()
+            .map(|schema| {
+                schema.get_internal_hnsw_config_with_legacy_fallback(
+                    &plan.scan.collection_and_segments.vector_segment,
+                )
+            })
+            .transpose()
+            .map_err(|err| ExecutorError::Internal(Box::new(err)))?
+            .flatten()
+            .ok_or(ExecutorError::CollectionMissingHnswConfiguration)?;
+
+        let distance_function = hnsw_config.space;
 
         let mut results = Vec::new();
         let mut returned_user_ids = Vec::new();
         for embedding in plan.knn.embeddings {
-            let query_embedding = if let HnswSpace::Cosine = distance_function {
+            let query_embedding = if let Space::Cosine = distance_function {
                 normalize(&embedding)
             } else {
                 embedding
@@ -371,6 +375,7 @@ mod tests {
                     "test".to_string(),
                     None,
                     None,
+                    None,
                     false,
                 )
                 .unwrap(),
@@ -396,8 +401,8 @@ mod tests {
             .unwrap();
 
         // Knn should work
-        let result = frontend
-            .query(
+        let result = Box::pin(
+            frontend.query(
                 QueryRequest::try_new(
                     "default_tenant".to_string(),
                     "default_database".to_string(),
@@ -409,14 +414,15 @@ mod tests {
                     IncludeList::default_query(),
                 )
                 .unwrap(),
-            )
-            .await
-            .unwrap();
+            ),
+        )
+        .await
+        .unwrap();
         assert_eq!(result.ids[0], vec!["id2".to_string(), "id1".to_string()]);
 
         // An empty list of IDs should return no results
-        let result = frontend
-            .query(
+        let result = Box::pin(
+            frontend.query(
                 QueryRequest::try_new(
                     "default_tenant".to_string(),
                     "default_database".to_string(),
@@ -428,9 +434,10 @@ mod tests {
                     IncludeList::default_query(),
                 )
                 .unwrap(),
-            )
-            .await
-            .unwrap();
+            ),
+        )
+        .await
+        .unwrap();
         assert_eq!(result.ids[0].len(), 0);
     }
 }

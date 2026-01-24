@@ -38,6 +38,7 @@ if t.TYPE_CHECKING:
     from singer_sdk.mapper import PluginMapper
     from singer_sdk.singerlib.encoding.base import GenericSingerReader
     from singer_sdk.sinks import Sink
+    from singer_sdk.sql import SQLTarget  # noqa: F401
 
 _MAX_PARALLELISM = 8
 
@@ -66,6 +67,7 @@ class Target(BaseSingerReader, metaclass=abc.ABCMeta):
         PluginCapabilities.ABOUT,
         PluginCapabilities.STREAM_MAPS,
         PluginCapabilities.FLATTENING,
+        PluginCapabilities.STRUCTURED_LOGGING,
         TargetCapabilities.VALIDATE_RECORDS,
     ]
 
@@ -245,7 +247,7 @@ class Target(BaseSingerReader, metaclass=abc.ABCMeta):
         Returns:
             A new sink for the stream.
         """
-        self.logger.debug("Initializing '%s' target sink...", self.name)
+        self.logger.debug("Initializing target sink '%s'...", self.name)
         sink_class = self.get_sink_class(stream_name=stream_name)
         sink = sink_class(
             target=self,
@@ -257,7 +259,7 @@ class Target(BaseSingerReader, metaclass=abc.ABCMeta):
         try:
             sink.setup()
         except Exception:  # pragma: no cover
-            self.logger.error("Error initializing '%s' target sink", self.name)  # noqa: TRY400
+            self.logger.error("Error initializing target sink '%s'", self.name)  # noqa: TRY400
             raise
 
         self._sinks_active[stream_name] = sink

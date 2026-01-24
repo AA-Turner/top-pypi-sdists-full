@@ -3,12 +3,16 @@ import operator
 import re
 import time
 from dataclasses import replace
-from typing import Annotated, Any, Literal, Optional, Union, cast
+from typing import Annotated, Any, Literal, cast
 
 import pytest
 from langchain_core.messages import AIMessage, AnyMessage, ToolCall
 from langchain_core.runnables import RunnableConfig, RunnableMap, RunnablePick
 from langchain_core.tools import tool
+from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.prebuilt.chat_agent_executor import create_react_agent
+from langgraph.prebuilt.tool_node import ToolNode
 from pytest_mock import MockerFixture
 from syrupy import SnapshotAssertion
 from typing_extensions import TypedDict
@@ -16,13 +20,9 @@ from typing_extensions import TypedDict
 from langgraph._internal._constants import PULL, PUSH
 from langgraph.channels.last_value import LastValue
 from langgraph.channels.untracked_value import UntrackedValue
-from langgraph.checkpoint.base import BaseCheckpointSaver
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.constants import END, START
 from langgraph.graph import StateGraph
 from langgraph.graph.message import MessagesState, add_messages
-from langgraph.prebuilt.chat_agent_executor import create_react_agent
-from langgraph.prebuilt.tool_node import ToolNode
 from langgraph.pregel import NodeBuilder, Pregel
 from langgraph.types import (
     Command,
@@ -489,11 +489,11 @@ def test_conditional_state_graph(
 
     class AgentState(TypedDict, total=False):
         input: Annotated[str, UntrackedValue]
-        agent_outcome: Optional[Union[AgentAction, AgentFinish]]
+        agent_outcome: AgentAction | AgentFinish | None
         intermediate_steps: Annotated[list[tuple[AgentAction, str]], operator.add]
 
     class ToolState(TypedDict, total=False):
-        agent_outcome: Union[AgentAction, AgentFinish]
+        agent_outcome: AgentAction | AgentFinish
 
     # Assemble the tools
     @tool()
@@ -514,7 +514,7 @@ def test_conditional_state_graph(
         ]
     )
 
-    def agent_parser(input: str) -> dict[str, Union[AgentAction, AgentFinish]]:
+    def agent_parser(input: str) -> dict[str, AgentAction | AgentFinish]:
         if input.startswith("finish"):
             _, answer = input.split(":")
             return {
@@ -1387,6 +1387,7 @@ def test_prebuilt_tool_chat(snapshot: SnapshotAssertion) -> None:
                         "type": "tool_call_chunk",
                     }
                 ],
+                chunk_position="last",
             ),
             {
                 "langgraph_step": 1,
@@ -1446,6 +1447,7 @@ def test_prebuilt_tool_chat(snapshot: SnapshotAssertion) -> None:
                         "type": "tool_call_chunk",
                     },
                 ],
+                chunk_position="last",
             ),
             {
                 "langgraph_step": 3,
@@ -1494,6 +1496,7 @@ def test_prebuilt_tool_chat(snapshot: SnapshotAssertion) -> None:
         (
             _AnyIdAIMessageChunk(
                 content="answer",
+                chunk_position="last",
             ),
             {
                 "langgraph_step": 5,
@@ -2385,8 +2388,8 @@ def test_message_graph(
         def _generate(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> ChatResult:
             response = deepcopy(self.responses[self.i])
@@ -3035,7 +3038,7 @@ def test_message_graph(
     # add an extra message as if it came from "tools" node
     app_w_interrupt.update_state(config, ("ai", "an extra message"), as_node="tools")
 
-    # extra message is coerced BaseMessge and appended
+    # extra message is coerced BaseMessage and appended
     # now the next node is "agent" per the graph edges
     assert app_w_interrupt.get_state(config) == StateSnapshot(
         values=[
@@ -3108,8 +3111,8 @@ def test_root_graph(
         def _generate(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> ChatResult:
             response = deepcopy(self.responses[self.i])
@@ -3268,7 +3271,7 @@ def test_root_graph(
                     content="result for query",
                     name="search_api",
                     tool_call_id="tool_call123",
-                    id="00000000-0000-4000-8000-000000000024",
+                    id="00000000-0000-4000-8000-000000000004",
                 )
             ]
         },
@@ -3291,7 +3294,7 @@ def test_root_graph(
                     content="result for another",
                     name="search_api",
                     tool_call_id="tool_call456",
-                    id="00000000-0000-4000-8000-000000000030",
+                    id="00000000-0000-4000-8000-000000000005",
                 )
             ]
         },
@@ -3759,7 +3762,7 @@ def test_root_graph(
     # add an extra message as if it came from "tools" node
     app_w_interrupt.update_state(config, ("ai", "an extra message"), as_node="tools")
 
-    # extra message is coerced BaseMessge and appended
+    # extra message is coerced BaseMessage and appended
     # now the next node is "agent" per the graph edges
     assert app_w_interrupt.get_state(config) == StateSnapshot(
         values=[
@@ -3895,7 +3898,7 @@ def test_root_graph(
         "__root__": [
             HumanMessage(
                 content="what is weather in sf",
-                id="00000000-0000-4000-8000-000000000051",
+                id="00000000-0000-4000-8000-000000000008",
             ),
             AIMessage(
                 content="",
@@ -3915,7 +3918,7 @@ def test_root_graph(
             ),
             AIMessage(content="answer", id="ai2"),
             AIMessage(
-                content="an extra message", id="00000000-0000-4000-8000-000000000066"
+                content="an extra message", id="00000000-0000-4000-8000-000000000010"
             ),
             HumanMessage(content="what is weather in la"),
         ],
@@ -4023,7 +4026,9 @@ def test_in_one_fan_out_out_one_graph_state() -> None:
                 "payload": {
                     "id": AnyStr(),
                     "name": "rewrite_query",
-                    "result": [("query", "query: what is weather in sf")],
+                    "result": {
+                        "query": "query: what is weather in sf",
+                    },
                     "error": None,
                     "interrupts": [],
                 },
@@ -4071,7 +4076,9 @@ def test_in_one_fan_out_out_one_graph_state() -> None:
                 "payload": {
                     "id": AnyStr(),
                     "name": "retriever_two",
-                    "result": [("docs", ["doc3", "doc4"])],
+                    "result": {
+                        "docs": ["doc3", "doc4"],
+                    },
                     "error": None,
                     "interrupts": [],
                 },
@@ -4090,7 +4097,9 @@ def test_in_one_fan_out_out_one_graph_state() -> None:
                 "payload": {
                     "id": AnyStr(),
                     "name": "retriever_one",
-                    "result": [("docs", ["doc1", "doc2"])],
+                    "result": {
+                        "docs": ["doc1", "doc2"],
+                    },
                     "error": None,
                     "interrupts": [],
                 },
@@ -4130,7 +4139,9 @@ def test_in_one_fan_out_out_one_graph_state() -> None:
                 "payload": {
                     "id": AnyStr(),
                     "name": "qa",
-                    "result": [("answer", "doc1,doc2,doc3,doc4")],
+                    "result": {
+                        "answer": "doc1,doc2,doc3,doc4",
+                    },
                     "error": None,
                     "interrupts": [],
                 },
@@ -4315,7 +4326,7 @@ def test_partial_pending_checkpoint(sync_checkpointer: BaseCheckpointSaver) -> N
             answer = " all good"
         return {"my_key": answer}
 
-    def start(state: State) -> list[Union[Send, str]]:
+    def start(state: State) -> list[Send | str]:
         return ["tool_two", Send("tool_one", state)]
 
     tool_two_graph = StateGraph(State)

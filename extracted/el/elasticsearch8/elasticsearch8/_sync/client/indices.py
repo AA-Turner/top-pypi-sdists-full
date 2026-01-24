@@ -23,9 +23,9 @@ from ._base import NamespacedClient
 from .utils import (
     SKIP_IN_PATH,
     Stability,
+    _availability_warning,
     _quote,
     _rewrite_parameters,
-    _stability_warning,
 )
 
 
@@ -232,11 +232,7 @@ class IndicesClient(NamespacedClient):
                 __body["text"] = text
             if tokenizer is not None:
                 __body["tokenizer"] = tokenizer
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -248,7 +244,7 @@ class IndicesClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     def cancel_migrate_reindex(
         self,
         *,
@@ -774,7 +770,7 @@ class IndicesClient(NamespacedClient):
     @_rewrite_parameters(
         body_name="create_from",
     )
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     def create_from(
         self,
         *,
@@ -804,11 +800,7 @@ class IndicesClient(NamespacedClient):
             raise ValueError("Empty value passed for parameter 'source'")
         if dest in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'dest'")
-        if create_from is None and body is None:
-            raise ValueError(
-                "Empty value passed for parameters 'create_from' and 'body', one of them should be set."
-            )
-        elif create_from is not None and body is not None:
+        if create_from is not None and body is not None:
             raise ValueError("Cannot set both 'create_from' and 'body'")
         __path_parts: t.Dict[str, str] = {
             "source": _quote(source),
@@ -825,7 +817,11 @@ class IndicesClient(NamespacedClient):
         if pretty is not None:
             __query["pretty"] = pretty
         __body = create_from if create_from is not None else body
-        __headers = {"accept": "application/json", "content-type": "application/json"}
+        if not __body:
+            __body = None
+        __headers = {"accept": "application/json"}
+        if __body is not None:
+            __headers["content-type"] = "application/json"
         return self.perform_request(  # type: ignore[return-value]
             "PUT",
             __path,
@@ -1075,11 +1071,11 @@ class IndicesClient(NamespacedClient):
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/data-streams-delete-lifecycle.html>`_
 
         :param name: A comma-separated list of data streams of which the data stream
-            lifecycle will be deleted; use `*` to get all data streams
+            lifecycle will be deleted. Use `*` to get all data streams
         :param expand_wildcards: Whether wildcard expressions should get expanded to
             open or closed indices (default: open)
-        :param master_timeout: Specify timeout for connection to master
-        :param timeout: Explicit timestamp for the document
+        :param master_timeout: The period to wait for a connection to the master node.
+        :param timeout: The period to wait for a response.
         """
         if name in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'name'")
@@ -1170,6 +1166,71 @@ class IndicesClient(NamespacedClient):
             params=__query,
             headers=__headers,
             endpoint_id="indices.delete_data_stream",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters()
+    def delete_data_stream_options(
+        self,
+        *,
+        name: t.Union[str, t.Sequence[str]],
+        error_trace: t.Optional[bool] = None,
+        expand_wildcards: t.Optional[
+            t.Union[
+                t.Sequence[
+                    t.Union[str, t.Literal["all", "closed", "hidden", "none", "open"]]
+                ],
+                t.Union[str, t.Literal["all", "closed", "hidden", "none", "open"]],
+            ]
+        ] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        pretty: t.Optional[bool] = None,
+        timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Delete data stream options.</p>
+          <p>Removes the data stream options from a data stream.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v8/operation/operation-indices-delete-data-stream-options>`_
+
+        :param name: A comma-separated list of data streams of which the data stream
+            options will be deleted. Use `*` to get all data streams
+        :param expand_wildcards: Whether wildcard expressions should get expanded to
+            open or closed indices
+        :param master_timeout: The period to wait for a connection to the master node.
+        :param timeout: The period to wait for a response.
+        """
+        if name in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'name'")
+        __path_parts: t.Dict[str, str] = {"name": _quote(name)}
+        __path = f'/_data_stream/{__path_parts["name"]}/_options'
+        __query: t.Dict[str, t.Any] = {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if expand_wildcards is not None:
+            __query["expand_wildcards"] = expand_wildcards
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if master_timeout is not None:
+            __query["master_timeout"] = master_timeout
+        if pretty is not None:
+            __query["pretty"] = pretty
+        if timeout is not None:
+            __query["timeout"] = timeout
+        __headers = {"accept": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "DELETE",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="indices.delete_data_stream_options",
             path_parts=__path_parts,
         )
 
@@ -1288,7 +1349,7 @@ class IndicesClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     def disk_usage(
         self,
         *,
@@ -1380,7 +1441,7 @@ class IndicesClient(NamespacedClient):
     @_rewrite_parameters(
         body_name="config",
     )
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     def downsample(
         self,
         *,
@@ -1758,10 +1819,10 @@ class IndicesClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/data-streams-explain-lifecycle.html>`_
 
-        :param index: The name of the index to explain
-        :param include_defaults: indicates if the API should return the default values
+        :param index: Comma-separated list of index names to explain
+        :param include_defaults: Indicates if the API should return the default values
             the system uses for the index's lifecycle
-        :param master_timeout: Specify timeout for connection to master
+        :param master_timeout: The period to wait for a connection to the master node.
         """
         if index in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'index'")
@@ -1791,7 +1852,7 @@ class IndicesClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     def field_usage_stats(
         self,
         *,
@@ -2043,15 +2104,15 @@ class IndicesClient(NamespacedClient):
         :param expand_wildcards: Whether to expand wildcard expression to concrete indices
             that are open, closed or both.
         :param flush: Specify whether the index should be flushed after performing the
-            operation (default: true)
+            operation
         :param ignore_unavailable: Whether specified concrete indices should be ignored
             when unavailable (missing or closed)
         :param max_num_segments: The number of segments the index should be merged into
-            (default: dynamic)
+            (defayult: dynamic)
         :param only_expunge_deletes: Specify whether the operation should only expunge
             deleted documents
         :param wait_for_completion: Should the request wait until the force merge is
-            completed.
+            completed
         """
         __path_parts: t.Dict[str, str]
         if index not in SKIP_IN_PATH:
@@ -2468,6 +2529,122 @@ class IndicesClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
+    def get_data_stream_options(
+        self,
+        *,
+        name: t.Union[str, t.Sequence[str]],
+        error_trace: t.Optional[bool] = None,
+        expand_wildcards: t.Optional[
+            t.Union[
+                t.Sequence[
+                    t.Union[str, t.Literal["all", "closed", "hidden", "none", "open"]]
+                ],
+                t.Union[str, t.Literal["all", "closed", "hidden", "none", "open"]],
+            ]
+        ] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        pretty: t.Optional[bool] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Get data stream options.</p>
+          <p>Get the data stream options configuration of one or more data streams.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v8/operation/operation-indices-get-data-stream-options>`_
+
+        :param name: Comma-separated list of data streams to limit the request. Supports
+            wildcards (`*`). To target all data streams, omit this parameter or use `*`
+            or `_all`.
+        :param expand_wildcards: Type of data stream that wildcard patterns can match.
+            Supports comma-separated values, such as `open,hidden`. Valid values are:
+            `all`, `open`, `closed`, `hidden`, `none`.
+        :param master_timeout: Period to wait for a connection to the master node. If
+            no response is received before the timeout expires, the request fails and
+            returns an error.
+        """
+        if name in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'name'")
+        __path_parts: t.Dict[str, str] = {"name": _quote(name)}
+        __path = f'/_data_stream/{__path_parts["name"]}/_options'
+        __query: t.Dict[str, t.Any] = {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if expand_wildcards is not None:
+            __query["expand_wildcards"] = expand_wildcards
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if master_timeout is not None:
+            __query["master_timeout"] = master_timeout
+        if pretty is not None:
+            __query["pretty"] = pretty
+        __headers = {"accept": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "GET",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="indices.get_data_stream_options",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters()
+    def get_data_stream_settings(
+        self,
+        *,
+        name: t.Union[str, t.Sequence[str]],
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        pretty: t.Optional[bool] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Get data stream settings.</p>
+          <p>Get setting information for one or more data streams.</p>
+
+
+        `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/indices-get-data-stream-settings.html>`_
+
+        :param name: A comma-separated list of data streams or data stream patterns.
+            Supports wildcards (`*`).
+        :param master_timeout: The period to wait for a connection to the master node.
+            If no response is received before the timeout expires, the request fails
+            and returns an error.
+        """
+        if name in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'name'")
+        __path_parts: t.Dict[str, str] = {"name": _quote(name)}
+        __path = f'/_data_stream/{__path_parts["name"]}/_settings'
+        __query: t.Dict[str, t.Any] = {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if master_timeout is not None:
+            __query["master_timeout"] = master_timeout
+        if pretty is not None:
+            __query["pretty"] = pretty
+        __headers = {"accept": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "GET",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="indices.get_data_stream_settings",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters()
     def get_field_mapping(
         self,
         *,
@@ -2582,8 +2759,8 @@ class IndicesClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/indices-get-template.html>`_
 
-        :param name: Comma-separated list of index template names used to limit the request.
-            Wildcard (*) expressions are supported.
+        :param name: Name of index template to retrieve. Wildcard (*) expressions are
+            supported.
         :param flat_settings: If true, returns settings in flat format.
         :param include_defaults: If true, returns all relevant default configurations
             for the index template.
@@ -2714,7 +2891,7 @@ class IndicesClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     def get_migrate_reindex_status(
         self,
         *,
@@ -2930,7 +3107,7 @@ class IndicesClient(NamespacedClient):
     @_rewrite_parameters(
         body_name="reindex",
     )
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     def migrate_reindex(
         self,
         *,
@@ -3234,7 +3411,7 @@ class IndicesClient(NamespacedClient):
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/v8/operation/operation-indices-promote-data-stream>`_
 
-        :param name: The name of the data stream
+        :param name: The name of the data stream to promote
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
@@ -3380,7 +3557,7 @@ class IndicesClient(NamespacedClient):
         *,
         name: t.Union[str, t.Sequence[str]],
         data_retention: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
-        downsampling: t.Optional[t.Mapping[str, t.Any]] = None,
+        downsampling: t.Optional[t.Sequence[t.Mapping[str, t.Any]]] = None,
         enabled: t.Optional[bool] = None,
         error_trace: t.Optional[bool] = None,
         expand_wildcards: t.Optional[
@@ -3453,11 +3630,7 @@ class IndicesClient(NamespacedClient):
                 __body["downsampling"] = downsampling
             if enabled is not None:
                 __body["enabled"] = enabled
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "PUT",
             __path,
@@ -3465,6 +3638,164 @@ class IndicesClient(NamespacedClient):
             headers=__headers,
             body=__body,
             endpoint_id="indices.put_data_lifecycle",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters(
+        body_fields=("failure_store",),
+    )
+    def put_data_stream_options(
+        self,
+        *,
+        name: t.Union[str, t.Sequence[str]],
+        error_trace: t.Optional[bool] = None,
+        expand_wildcards: t.Optional[
+            t.Union[
+                t.Sequence[
+                    t.Union[str, t.Literal["all", "closed", "hidden", "none", "open"]]
+                ],
+                t.Union[str, t.Literal["all", "closed", "hidden", "none", "open"]],
+            ]
+        ] = None,
+        failure_store: t.Optional[t.Mapping[str, t.Any]] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        pretty: t.Optional[bool] = None,
+        timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        body: t.Optional[t.Dict[str, t.Any]] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Update data stream options.</p>
+          <p>Update the data stream options of the specified data streams.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v8/operation/operation-indices-update-data-stream-options>`_
+
+        :param name: Comma-separated list of data streams used to limit the request.
+            Supports wildcards (`*`). To target all data streams use `*` or `_all`.
+        :param expand_wildcards: Type of data stream that wildcard patterns can match.
+            Supports comma-separated values, such as `open,hidden`. Valid values are:
+            `all`, `hidden`, `open`, `closed`, `none`.
+        :param failure_store: If defined, it will update the failure store configuration
+            of every data stream resolved by the name expression.
+        :param master_timeout: Period to wait for a connection to the master node. If
+            no response is received before the timeout expires, the request fails and
+            returns an error.
+        :param timeout: Period to wait for a response. If no response is received before
+            the timeout expires, the request fails and returns an error.
+        """
+        if name in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'name'")
+        __path_parts: t.Dict[str, str] = {"name": _quote(name)}
+        __path = f'/_data_stream/{__path_parts["name"]}/_options'
+        __query: t.Dict[str, t.Any] = {}
+        __body: t.Dict[str, t.Any] = body if body is not None else {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if expand_wildcards is not None:
+            __query["expand_wildcards"] = expand_wildcards
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if master_timeout is not None:
+            __query["master_timeout"] = master_timeout
+        if pretty is not None:
+            __query["pretty"] = pretty
+        if timeout is not None:
+            __query["timeout"] = timeout
+        if not __body:
+            if failure_store is not None:
+                __body["failure_store"] = failure_store
+        __headers = {"accept": "application/json", "content-type": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "PUT",
+            __path,
+            params=__query,
+            headers=__headers,
+            body=__body,
+            endpoint_id="indices.put_data_stream_options",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters(
+        body_name="settings",
+    )
+    def put_data_stream_settings(
+        self,
+        *,
+        name: t.Union[str, t.Sequence[str]],
+        settings: t.Optional[t.Mapping[str, t.Any]] = None,
+        body: t.Optional[t.Mapping[str, t.Any]] = None,
+        dry_run: t.Optional[bool] = None,
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        pretty: t.Optional[bool] = None,
+        timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Update data stream settings.</p>
+          <p>This API can be used to override settings on specific data streams. These overrides will take precedence over what
+          is specified in the template that the data stream matches. To prevent your data stream from getting into an invalid state,
+          only certain settings are allowed. If possible, the setting change is applied to all
+          backing indices. Otherwise, it will be applied when the data stream is next rolled over.</p>
+
+
+        `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/indices-put-data-stream-settings.html>`_
+
+        :param name: A comma-separated list of data streams or data stream patterns.
+        :param settings:
+        :param dry_run: If `true`, the request does not actually change the settings
+            on any data streams or indices. Instead, it simulates changing the settings
+            and reports back to the user what would have happened had these settings
+            actually been applied.
+        :param master_timeout: The period to wait for a connection to the master node.
+            If no response is received before the timeout expires, the request fails
+            and returns an error.
+        :param timeout: The period to wait for a response. If no response is received
+            before the timeout expires, the request fails and returns an error.
+        """
+        if name in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'name'")
+        if settings is None and body is None:
+            raise ValueError(
+                "Empty value passed for parameters 'settings' and 'body', one of them should be set."
+            )
+        elif settings is not None and body is not None:
+            raise ValueError("Cannot set both 'settings' and 'body'")
+        __path_parts: t.Dict[str, str] = {"name": _quote(name)}
+        __path = f'/_data_stream/{__path_parts["name"]}/_settings'
+        __query: t.Dict[str, t.Any] = {}
+        if dry_run is not None:
+            __query["dry_run"] = dry_run
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if master_timeout is not None:
+            __query["master_timeout"] = master_timeout
+        if pretty is not None:
+            __query["pretty"] = pretty
+        if timeout is not None:
+            __query["timeout"] = timeout
+        __body = settings if settings is not None else body
+        __headers = {"accept": "application/json", "content-type": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "PUT",
+            __path,
+            params=__query,
+            headers=__headers,
+            body=__body,
+            endpoint_id="indices.put_data_stream_settings",
             path_parts=__path_parts,
         )
 
@@ -3541,7 +3872,7 @@ class IndicesClient(NamespacedClient):
             via `actions.auto_create_index`. If set to `false`, then indices or data
             streams matching the template must always be explicitly created, and may
             never be automatically created.
-        :param cause: User defined reason for creating/updating the index template
+        :param cause: User defined reason for creating or updating the index template
         :param composed_of: An ordered list of component template names. Component templates
             are merged in the order specified, meaning that the last component template
             specified has the highest precedence.
@@ -3718,7 +4049,7 @@ class IndicesClient(NamespacedClient):
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/indices-put-mapping.html>`_
 
         :param index: A comma-separated list of index names the mapping should be added
-            to (supports wildcards); use `_all` or omit to add the mapping on all indices.
+            to (supports wildcards). Use `_all` or omit to add the mapping on all indices.
         :param allow_no_indices: If `false`, the request returns an error if any wildcard
             expression, index alias, or `_all` value targets only missing or closed indices.
             This behavior applies even if the request targets other open indices.
@@ -4017,7 +4348,7 @@ class IndicesClient(NamespacedClient):
 
         :param name: The name of the template
         :param aliases: Aliases for the index.
-        :param cause: User defined reason for creating/updating the index template
+        :param cause: User defined reason for creating or updating the index template
         :param create: If true, this request cannot replace or update existing index
             templates.
         :param index_patterns: Array of wildcard expressions used to match the names
@@ -4207,6 +4538,7 @@ class IndicesClient(NamespacedClient):
           For data streams, the API runs the refresh operation on the stream’s backing indices.</p>
           <p>By default, Elasticsearch periodically refreshes indices every second, but only on indices that have received one search request or more in the last 30 seconds.
           You can change this default interval with the <code>index.refresh_interval</code> setting.</p>
+          <p>In Elastic Cloud Serverless, the default refresh interval is 5 seconds across all indices.</p>
           <p>Refresh requests are synchronous and do not return a response until the refresh operation completes.</p>
           <p>Refreshes are resource-intensive.
           To ensure good cluster performance, it's recommended to wait for Elasticsearch's periodic refresh rather than performing an explicit refresh when possible.</p>
@@ -4962,11 +5294,7 @@ class IndicesClient(NamespacedClient):
                 __body["aliases"] = aliases
             if settings is not None:
                 __body["settings"] = settings
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "PUT",
             __path,
@@ -4977,7 +5305,9 @@ class IndicesClient(NamespacedClient):
             path_parts=__path_parts,
         )
 
-    @_rewrite_parameters()
+    @_rewrite_parameters(
+        body_name="index_template",
+    )
     def simulate_index_template(
         self,
         *,
@@ -4988,6 +5318,8 @@ class IndicesClient(NamespacedClient):
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
         include_defaults: t.Optional[bool] = None,
+        index_template: t.Optional[t.Mapping[str, t.Any]] = None,
+        body: t.Optional[t.Mapping[str, t.Any]] = None,
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
     ) -> ObjectApiResponse[t.Any]:
@@ -5007,12 +5339,15 @@ class IndicesClient(NamespacedClient):
             only be dry-run added if new or can also replace an existing one
         :param include_defaults: If true, returns all relevant default configurations
             for the index template.
+        :param index_template:
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
         """
         if name in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'name'")
+        if index_template is not None and body is not None:
+            raise ValueError("Cannot set both 'index_template' and 'body'")
         __path_parts: t.Dict[str, str] = {"name": _quote(name)}
         __path = f'/_index_template/_simulate_index/{__path_parts["name"]}'
         __query: t.Dict[str, t.Any] = {}
@@ -5032,12 +5367,18 @@ class IndicesClient(NamespacedClient):
             __query["master_timeout"] = master_timeout
         if pretty is not None:
             __query["pretty"] = pretty
+        __body = index_template if index_template is not None else body
+        if not __body:
+            __body = None
         __headers = {"accept": "application/json"}
+        if __body is not None:
+            __headers["content-type"] = "application/json"
         return self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
             params=__query,
             headers=__headers,
+            body=__body,
             endpoint_id="indices.simulate_index_template",
             path_parts=__path_parts,
         )
@@ -5305,11 +5646,7 @@ class IndicesClient(NamespacedClient):
                 __body["aliases"] = aliases
             if settings is not None:
                 __body["settings"] = settings
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "PUT",
             __path,
@@ -5366,7 +5703,7 @@ class IndicesClient(NamespacedClient):
 
         :param index: A comma-separated list of index names; use `_all` or empty string
             to perform the operation on all indices
-        :param metric: Limit the information returned the specific metrics.
+        :param metric: Limit the information returned the specific metrics
         :param completion_fields: Comma-separated list or wildcard expressions of fields
             to include in fielddata and suggest statistics.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
@@ -5386,8 +5723,8 @@ class IndicesClient(NamespacedClient):
             are requested).
         :param include_unloaded_segments: If true, the response includes information
             from segments that are not loaded into memory.
-        :param level: Indicates whether statistics are aggregated at the cluster, index,
-            or shard level.
+        :param level: Indicates whether statistics are aggregated at the cluster, indices,
+            or shards level.
         """
         __path_parts: t.Dict[str, str]
         if index not in SKIP_IN_PATH and metric not in SKIP_IN_PATH:
@@ -5639,8 +5976,8 @@ class IndicesClient(NamespacedClient):
         :param analyze_wildcard: If `true`, wildcard and prefix queries are analyzed.
         :param analyzer: Analyzer to use for the query string. This parameter can only
             be used when the `q` query string parameter is specified.
-        :param default_operator: The default operator for query string query: `AND` or
-            `OR`.
+        :param default_operator: The default operator for query string query: `and` or
+            `or`.
         :param df: Field to use as default where no field prefix is given in the query
             string. This parameter can only be used when the `q` query string parameter
             is specified.

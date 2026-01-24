@@ -1,7 +1,7 @@
 [project]
 name = "patool"
-version = "4.0.1"
-requires-python = ">=3.11"
+version = "4.0.4"
+requires-python = ">=3.12"
 dependencies = []
 # these values are set by setup.py
 dynamic = ["scripts", "authors", "keywords", "classifiers", "urls", "license", "readme", "description"]
@@ -17,37 +17,43 @@ license-files = []
 [project.optional-dependencies]
 # optional features
 argcompletion = [
-  'argcomplete==3.6.2',
+  'argcomplete==3.6.3',
 ]
 
 # these modules are only needed for development
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
   # for using setuptools.setup() in setup.py
-  "setuptools==80.1.0",
+  "setuptools==80.9.0",
 
   # for testing
-  "pytest==8.3.5",
+  "pytest==9.0.2",
   # plugin to run tests in parallel
-  "pytest-xdist[psutil]==3.6.1",
+  "pytest-xdist[psutil]==3.8.0",
   # plugin to run tests in random order
-  "pytest-randomly==3.16.0",
+  "pytest-randomly==4.0.1",
 
   # for python code linting
-  "ruff==0.11.8",
+  "ruff==0.14.13",
 
   # for python type checking
-  "pytype==2024.10.11",
+  "ty==0.0.12",
 
   # for generating a Python .whl file
   "wheel==0.45.1",
 
   # for generating the web page
-  "sphinx==8.2.3",
-  "myst-parser==4.0.1",
+  "sphinx==9.1.0",
+  "myst-parser==5.0.0",
 
   # for upgrading the version number
   "bump2version==1.0.1",
+
+  # for auditing github actions
+  "zizmor==1.22.0",
+
+  # for auditing python packages
+  "pip-audit==2.10.0",
 
   # test optional functionality
   "patool[argcompletion]",
@@ -55,5 +61,12 @@ dev-dependencies = [
 
 [tool.patool]
 # pin versions of Python and uv for development
-python_version_dev = "3.12.10"
-uv_version_dev = "0.7.2"
+python_version_dev = "3.14.2"
+uv_version_dev = "0.9.26"
+
+[tool.ty.environment]
+# patool uses some imports and attributes that are only available on windows
+# so set the type check platform to windows
+python-platform = "win32"
+# patool tries to import modules that are only available on Python >= 3.14
+python-version = "3.14"

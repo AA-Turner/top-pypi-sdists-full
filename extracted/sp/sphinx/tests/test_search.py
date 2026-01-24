@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import warnings
 from io import BytesIO
 from typing import TYPE_CHECKING
 
@@ -44,7 +43,7 @@ class DummyEnvironment:
         self.version = version
         self.domains = domains
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         if name.startswith('_search_index_'):
             setattr(self, name, {})
         return getattr(self, name, {})
@@ -107,7 +106,7 @@ def test_meta_keys_are_handled_for_language_en(app: SphinxTestApp) -> None:
     searchindex = load_searchindex(app.outdir / 'searchindex.js')
     assert not is_registered_term(searchindex, 'thisnoteith')
     assert is_registered_term(searchindex, 'thisonetoo')
-    assert is_registered_term(searchindex, 'findthiskei')
+    assert is_registered_term(searchindex, 'findthiskey')
     assert is_registered_term(searchindex, 'thistoo')
     assert not is_registered_term(searchindex, 'onlygerman')
     assert is_registered_term(searchindex, 'notgerman')
@@ -125,7 +124,7 @@ def test_meta_keys_are_handled_for_language_de(app: SphinxTestApp) -> None:
     searchindex = load_searchindex(app.outdir / 'searchindex.js')
     assert not is_registered_term(searchindex, 'thisnoteith')
     assert is_registered_term(searchindex, 'thisonetoo')
-    assert not is_registered_term(searchindex, 'findthiskei')
+    assert not is_registered_term(searchindex, 'findthiskey')
     assert not is_registered_term(searchindex, 'thistoo')
     assert is_registered_term(searchindex, 'onlygerman')
     assert not is_registered_term(searchindex, 'notgerman')
@@ -144,7 +143,7 @@ def test_stemmer(app: SphinxTestApp) -> None:
     app.build(force_all=True)
     searchindex = load_searchindex(app.outdir / 'searchindex.js')
     print(searchindex)
-    assert is_registered_term(searchindex, 'findthisstemmedkei')
+    assert is_registered_term(searchindex, 'findthisstemmedkey')
     assert is_registered_term(searchindex, 'intern')
 
 
@@ -155,8 +154,17 @@ def test_term_in_heading_and_section(app: SphinxTestApp) -> None:
     # if search term is in the title of one doc and in the text of another
     # both documents should be a hit in the search index as a title,
     # respectively text hit
-    assert '"textinhead":2' in searchindex
-    assert '"textinhead":0' in searchindex
+    assert '"textinhead":3' in searchindex
+    assert '"textinhead":1' in searchindex
+
+
+@pytest.mark.sphinx('html', testroot='search')
+def test_escaped_title(app: SphinxTestApp) -> None:
+    app.build(force_all=True)
+    searchindex = load_searchindex(app.outdir / 'searchindex.js')
+    print(searchindex)
+    assert 'escapedtitle' in searchindex['docnames']
+    assert 'escaped title with < and > in it' in searchindex['titles']
 
 
 @pytest.mark.sphinx('html', testroot='search')
@@ -169,12 +177,7 @@ def test_term_in_raw_directive(app: SphinxTestApp) -> None:
 
 
 def test_IndexBuilder():
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', category=DeprecationWarning)
-        # DeprecationWarning: The frontend.OptionParser class will be replaced
-        # by a subclass of argparse.ArgumentParser in Docutils 0.21 or later.
-        optparser = frontend.OptionParser(components=(rst.Parser,))
-    settings = optparser.get_default_values()
+    settings = frontend.get_default_settings(rst.Parser)
     parser = rst.Parser()
 
     domain1 = DummyDomain(
@@ -219,7 +222,6 @@ def test_IndexBuilder():
     # dictionaries below may be iterated in arbitrary order by Python at
     # runtime.
     assert index._mapping == {
-        'ar': {'docname1_1', 'docname1_2', 'docname2_1', 'docname2_2'},
         'fermion': {'docname1_1', 'docname1_2', 'docname2_1', 'docname2_2'},
         'comment': {'docname1_1', 'docname1_2', 'docname2_1', 'docname2_2'},
         'non': {'docname1_1', 'docname1_2', 'docname2_1', 'docname2_2'},
@@ -250,7 +252,6 @@ def test_IndexBuilder():
         },
         'objtypes': {0: 'dummy1:objtype1', 1: 'dummy2:objtype1'},
         'terms': {
-            'ar': [0, 1, 2, 3],
             'comment': [0, 1, 2, 3],
             'fermion': [0, 1, 2, 3],
             'index': [0, 1, 2, 3],
@@ -309,7 +310,6 @@ def test_IndexBuilder():
         'docname2_2': 'filename2_2',
     }
     assert index._mapping == {
-        'ar': {'docname1_2', 'docname2_2'},
         'fermion': {'docname1_2', 'docname2_2'},
         'comment': {'docname1_2', 'docname2_2'},
         'non': {'docname1_2', 'docname2_2'},
@@ -338,7 +338,6 @@ def test_IndexBuilder():
         },
         'objtypes': {0: 'dummy1:objtype1', 1: 'dummy2:objtype1'},
         'terms': {
-            'ar': [0, 1],
             'comment': [0, 1],
             'fermion': [0, 1],
             'index': [0, 1],
@@ -398,7 +397,7 @@ def test_search_index_gen_zh(app: SphinxTestApp) -> None:
 def test_nosearch(app: SphinxTestApp) -> None:
     app.build()
     index = load_searchindex(app.outdir / 'searchindex.js')
-    assert index['docnames'] == ['index', 'nosearch', 'tocitem']
+    assert index['docnames'] == ['escapedtitle', 'index', 'nosearch', 'tocitem']
     # latex is in 'nosearch.rst', and nowhere else
     assert 'latex' not in index['terms']
     # cat is in 'index.rst' but is marked with the 'no-search' class
@@ -406,7 +405,7 @@ def test_nosearch(app: SphinxTestApp) -> None:
     # bat is indexed from 'index.rst' and 'tocitem.rst' (document IDs 0, 2), and
     # not from 'nosearch.rst' (document ID 1)
     assert 'bat' in index['terms']
-    assert index['terms']['bat'] == [0, 2]
+    assert index['terms']['bat'] == [1, 3]
 
 
 @pytest.mark.sphinx(
@@ -418,7 +417,7 @@ def test_nosearch(app: SphinxTestApp) -> None:
 def test_parallel(app: SphinxTestApp) -> None:
     app.build()
     index = load_searchindex(app.outdir / 'searchindex.js')
-    assert index['docnames'] == ['index', 'nosearch', 'tocitem']
+    assert index['docnames'] == ['escapedtitle', 'index', 'nosearch', 'tocitem']
 
 
 @pytest.mark.sphinx('html', testroot='search')
@@ -466,7 +465,7 @@ def assert_is_sorted(
             assert_is_sorted(child, f'{path}[{i}]')
 
 
-@pytest.mark.parametrize('directory', JAVASCRIPT_TEST_ROOTS)
+@pytest.mark.parametrize('directory', JAVASCRIPT_TEST_ROOTS, ids=lambda p: p.name)
 def test_check_js_search_indexes(make_app, sphinx_test_tempdir, directory):
     app = make_app(
         'html',

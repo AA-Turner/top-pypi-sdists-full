@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from .license_processing_state import LicenseProcessingState
     from .onenote import Onenote
     from .on_premises_provisioning_error import OnPremisesProvisioningError
+    from .on_premises_sync_behavior import OnPremisesSyncBehavior
     from .planner_group import PlannerGroup
     from .profile_photo import ProfilePhoto
     from .resource_specific_permission_grant import ResourceSpecificPermissionGrant
@@ -123,6 +124,8 @@ class Group(DirectoryObject, Parsable):
     on_premises_sam_account_name: Optional[str] = None
     # Contains the on-premises security identifier (SID) for the group synchronized from on-premises to the cloud. Read-only. Returned by default. Supports $filter (eq including on null values).
     on_premises_security_identifier: Optional[str] = None
+    # The onPremisesSyncBehavior property
+    on_premises_sync_behavior: Optional[OnPremisesSyncBehavior] = None
     # true if this group is synced from an on-premises directory; false if this group was originally synced from an on-premises directory but is no longer synced; null if this object has never synced from an on-premises directory (default). Returned by default. Read-only. Supports $filter (eq, ne, not, in, and eq on null values).
     on_premises_sync_enabled: Optional[bool] = None
     # The onenote property
@@ -171,7 +174,7 @@ class Group(DirectoryObject, Parsable):
     unique_name: Optional[str] = None
     # Count of conversations that received new posts since the signed-in user last visited the group. Returned only on $select. Supported only on the Get group API (GET /groups/{ID}).
     unseen_count: Optional[int] = None
-    # Specifies the group join policy and group content visibility for groups. Possible values are: Private, Public, or HiddenMembership. HiddenMembership can be set only for Microsoft 365 groups when the groups are created. It can't be updated later. Other values of visibility can be updated after group creation. If visibility value isn't specified during group creation on Microsoft Graph, a security group is created as Private by default, and the Microsoft 365 group is Public. Groups assignable to roles are always Private. To learn more, see group visibility options. Returned by default. Nullable.
+    # Specifies the group join policy and group content visibility for groups. The possible values are: Private, Public, or HiddenMembership. HiddenMembership can be set only for Microsoft 365 groups when the groups are created. It can't be updated later. Other values of visibility can be updated after group creation. If visibility value isn't specified during group creation on Microsoft Graph, a security group is created as Private by default, and the Microsoft 365 group is Public. Groups assignable to roles are always Private. To learn more, see group visibility options. Returned by default. Nullable.
     visibility: Optional[str] = None
     
     @staticmethod
@@ -205,6 +208,7 @@ class Group(DirectoryObject, Parsable):
         from .license_processing_state import LicenseProcessingState
         from .onenote import Onenote
         from .on_premises_provisioning_error import OnPremisesProvisioningError
+        from .on_premises_sync_behavior import OnPremisesSyncBehavior
         from .planner_group import PlannerGroup
         from .profile_photo import ProfilePhoto
         from .resource_specific_permission_grant import ResourceSpecificPermissionGrant
@@ -227,6 +231,7 @@ class Group(DirectoryObject, Parsable):
         from .license_processing_state import LicenseProcessingState
         from .onenote import Onenote
         from .on_premises_provisioning_error import OnPremisesProvisioningError
+        from .on_premises_sync_behavior import OnPremisesSyncBehavior
         from .planner_group import PlannerGroup
         from .profile_photo import ProfilePhoto
         from .resource_specific_permission_grant import ResourceSpecificPermissionGrant
@@ -278,6 +283,7 @@ class Group(DirectoryObject, Parsable):
             "onPremisesProvisioningErrors": lambda n : setattr(self, 'on_premises_provisioning_errors', n.get_collection_of_object_values(OnPremisesProvisioningError)),
             "onPremisesSamAccountName": lambda n : setattr(self, 'on_premises_sam_account_name', n.get_str_value()),
             "onPremisesSecurityIdentifier": lambda n : setattr(self, 'on_premises_security_identifier', n.get_str_value()),
+            "onPremisesSyncBehavior": lambda n : setattr(self, 'on_premises_sync_behavior', n.get_object_value(OnPremisesSyncBehavior)),
             "onPremisesSyncEnabled": lambda n : setattr(self, 'on_premises_sync_enabled', n.get_bool_value()),
             "onenote": lambda n : setattr(self, 'onenote', n.get_object_value(Onenote)),
             "owners": lambda n : setattr(self, 'owners', n.get_collection_of_object_values(DirectoryObject)),
@@ -360,6 +366,7 @@ class Group(DirectoryObject, Parsable):
         writer.write_collection_of_object_values("onPremisesProvisioningErrors", self.on_premises_provisioning_errors)
         writer.write_str_value("onPremisesSamAccountName", self.on_premises_sam_account_name)
         writer.write_str_value("onPremisesSecurityIdentifier", self.on_premises_security_identifier)
+        writer.write_object_value("onPremisesSyncBehavior", self.on_premises_sync_behavior)
         writer.write_bool_value("onPremisesSyncEnabled", self.on_premises_sync_enabled)
         writer.write_object_value("onenote", self.onenote)
         writer.write_collection_of_object_values("owners", self.owners)

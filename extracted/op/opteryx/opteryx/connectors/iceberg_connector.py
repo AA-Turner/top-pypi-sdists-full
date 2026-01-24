@@ -20,13 +20,15 @@ from orso.schema import RelationSchema
 from orso.tools import single_item_cache
 from orso.types import OrsoTypes
 
-from opteryx.connectors import DiskConnector
 from opteryx.connectors.base.base_connector import BaseConnector
+from opteryx.connectors.capabilities import Diachronic
 from opteryx.connectors.capabilities import LimitPushable
 from opteryx.connectors.capabilities import PredicatePushable
 from opteryx.connectors.capabilities import Statistics
 from opteryx.exceptions import DatasetNotFoundError
+from opteryx.exceptions import DatasetReadError
 from opteryx.exceptions import NotSupportedError
+from opteryx.exceptions import UnsupportedSyntaxError
 from opteryx.managers.expression import NodeType
 from opteryx.managers.expression import get_all_nodes_of_type
 from opteryx.models import RelationStatistics
@@ -117,7 +119,7 @@ def to_iceberg_filter(root):
     return iceberg_filter if iceberg_filter else "True", unsupported
 
 
-class IcebergConnector(BaseConnector, LimitPushable, Statistics, PredicatePushable):
+class IcebergConnector(BaseConnector, Diachronic, LimitPushable, Statistics, PredicatePushable):
     __mode__ = "Blob"
     __type__ = "ICEBERG"
 
@@ -140,23 +142,75 @@ class IcebergConnector(BaseConnector, LimitPushable, Statistics, PredicatePushab
         OrsoTypes.DATE,
     }
 
-    def __init__(self, *args, catalog=None, io=DiskConnector, **kwargs):
+    def __init__(self, *args, catalog=None, **kwargs):
         BaseConnector.__init__(self, **kwargs)
         LimitPushable.__init__(self, **kwargs)
+        Diachronic.__init__(self, **kwargs)
         Statistics.__init__(self, **kwargs)
         PredicatePushable.__init__(self, **kwargs)
 
         import pyiceberg
 
-        self.dataset = self.dataset.lower()
         try:
             self.table = catalog.load_table(self.dataset)
-            self.io_connector = io(**kwargs)
+            self.snapshot = self.table.current_snapshot()
+            # If the table exists but has no snapshots, we don't raise here —
+            # we allow non-time-travel reads to return an empty result set with
+            # a valid schema. For time-travel (start_date specified), we will
+            # still raise DatasetReadError in get_dataset_schema.
+            self.snapshot_id = None if self.snapshot is None else self.snapshot.snapshot_id
         except pyiceberg.exceptions.NoSuchTableError:
-            raise DatasetNotFoundError(dataset=self.dataset)
+            raise DatasetNotFoundError(dataset=self.dataset, connector=self.__type__) from None
 
     def get_dataset_schema(self) -> RelationSchema:
-        iceberg_schema = self.table.schema()
+        if self.start_date != self.end_date:
+            if self.start_date.date() != self.end_date.date():
+                raise UnsupportedSyntaxError("This table only supports point in time reads.")
+            raise UnsupportedSyntaxError(
+                "This table only supports point in time reads. Are you missing the time component from your FOR clause?"
+            )
+
+        if self.start_date is not None:
+            snapshots = self.table.inspect.snapshots().sort_by("committed_at")
+            snapshot_rows = snapshots.to_pylist()
+
+            if not snapshot_rows:
+                raise DatasetReadError("No data available for the specified date.")
+
+            # Honor dates before the first snapshot by rejecting them, but treat
+            # dates after the latest snapshot as selecting the latest snapshot
+            first_committed = snapshot_rows[0]["committed_at"]
+            last_committed = snapshot_rows[-1]["committed_at"]
+
+            if self.start_date < first_committed:
+                # Point-in-time read is before our first snapshot — no data available then
+                raise DatasetReadError("No data available for the specified date.")
+            elif self.start_date > last_committed:
+                # Point-in-time read after the latest snapshot — return current data
+                selected = snapshot_rows[-1]
+                # ensure we store the commit time for statistics/context
+                self.statistics.dataset_committed_at = selected["committed_at"].isoformat()
+            else:
+                selected = snapshot_rows[0]
+                for candidate in snapshot_rows:
+                    if candidate["committed_at"] <= self.start_date:
+                        self.statistics.dataset_committed_at = candidate["committed_at"].isoformat()
+                        selected = candidate
+                    else:
+                        break
+
+            self.snapshot_id = selected["snapshot_id"]
+            self.snapshot = self.table.snapshot_by_id(self.snapshot_id)
+
+        # If the table has no snapshot and the read is not time-travel, use
+        # the table's declared schema (from metadata) and return an empty result set.
+        if self.snapshot is None:
+            iceberg_schema = self.table.schema()
+        else:
+            iceberg_schema = self.table.schemas()[self.snapshot.schema_id]
+            self.statistics.dataset_committed_at = datetime.datetime.fromtimestamp(
+                self.snapshot.timestamp_ms / 1000.0
+            ).isoformat()
         arrow_schema = iceberg_schema.as_arrow()
 
         self.schema = RelationSchema(
@@ -170,7 +224,13 @@ class IcebergConnector(BaseConnector, LimitPushable, Statistics, PredicatePushab
         column_names = {col.field_id: col.name for col in iceberg_schema.columns}
         column_types = {col.field_id: col.field_type for col in iceberg_schema.columns}
 
-        files = self.table.inspect.files()
+        files = self.table.inspect.files(snapshot_id=self.snapshot_id)
+
+        # No files = empty table, no stats
+        if len(files.column("file_path")) == 0:
+            self.relation_statistics = relation_statistics
+            return self.schema
+
         relation_statistics.record_count = pyarrow.compute.sum(files.column("record_count")).as_py()
 
         if "distinct_counts" in files.columns:
@@ -219,9 +279,37 @@ class IcebergConnector(BaseConnector, LimitPushable, Statistics, PredicatePushab
             )
         )
 
+        # Short-cut COUNT(*) handling
+        if selected_columns == [] and not predicates:
+            table = pyarrow.Table.from_arrays(
+                [[self.relation_statistics.record_count]], names=["$COUNT(*)"]
+            )
+            yield table
+            return
+
         reader = self.table.scan(
-            row_filter=pushed_filters, selected_fields=selected_columns, limit=limit
+            row_filter=pushed_filters,
+            selected_fields=selected_columns,
+            limit=limit,
+            snapshot_id=self.snapshot_id,
         ).to_arrow_batch_reader()
+
+        # If there are no snapshots (snapshot_id is None), return an empty morsel
+        if self.snapshot_id is None:
+            from orso.schema import RelationSchema
+            from orso.schema import convert_orso_schema_to_arrow_schema
+
+            orso_schema = RelationSchema(
+                name="Relation", columns=[c.schema_column for c in columns]
+            )
+            arrow_shema = convert_orso_schema_to_arrow_schema(orso_schema, use_identities=True)
+
+            morsel = pyarrow.Table.from_arrays(
+                [pyarrow.array([]) for _ in columns],
+                schema=arrow_shema,
+            )
+            yield morsel
+            return
 
         batch = None
         for batch in reader:
@@ -279,7 +367,7 @@ class IcebergConnector(BaseConnector, LimitPushable, Statistics, PredicatePushab
         elif data_type_class == pyiceberg.types.DoubleType:
             # IEEE 754 encoded floats are typically decoded directly
             return struct.unpack("<d", value)[0]  # 8-byte IEEE 754 double
-        elif data_type_class == pyiceberg.types.TimestampType:
+        elif data_type_class in (pyiceberg.types.TimestampType, pyiceberg.types.TimestamptzType):
             # Iceberg stores timestamps as microseconds since epoch
             interval = int.from_bytes(value, "little", signed=True)
             if interval < 0:
@@ -301,5 +389,5 @@ class IcebergConnector(BaseConnector, LimitPushable, Statistics, PredicatePushab
             return Decimal(int_value) / (10**data_type.scale)
         elif data_type_class == pyiceberg.types.BooleanType:
             return bool(value)
-        else:
-            raise ValueError(f"Unsupported data type: {data_type}, {str(data_type)}")
+
+        ValueError(f"Unsupported data type: {data_type}, {str(data_type)}")

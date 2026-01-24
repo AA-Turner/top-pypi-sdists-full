@@ -43,6 +43,16 @@ DEFAULT_INCLUDE_ATTRIBUTES = [
 	'minlength',
 	'maxlength',
 	'step',
+	'accept',  # File input types (e.g., accept="image/*" or accept=".pdf")
+	'multiple',  # Whether multiple files/selections are allowed
+	'inputmode',  # Virtual keyboard hint (numeric, tel, email, url, etc.)
+	'autocomplete',  # Autocomplete behavior hint
+	'data-mask',  # Input mask format (e.g., phone numbers, credit cards)
+	'data-inputmask',  # Alternative input mask attribute
+	'data-datepicker',  # jQuery datepicker indicator
+	'format',  # Synthetic attribute for date/time input format (e.g., MM/dd/yyyy)
+	'expected_format',  # Synthetic attribute for explicit expected format (e.g., AngularJS datepickers)
+	'contenteditable',  # Rich text editor detection
 	# Webkit shadow DOM identifiers
 	'pseudo',
 	# Accessibility properties from ax_node (ordered by importance for automation)
@@ -90,6 +100,7 @@ STATIC_ATTRIBUTES = {
 	'checked',
 	'selected',
 	'multiple',
+	'accept',
 	'href',
 	'target',
 	'rel',
@@ -119,6 +130,54 @@ STATIC_ATTRIBUTES = {
 	'aria-valuenow',
 	'aria-placeholder',
 }
+
+# Class patterns that indicate dynamic/transient UI state - excluded from stable hash
+DYNAMIC_CLASS_PATTERNS = frozenset(
+	{
+		'focus',
+		'hover',
+		'active',
+		'selected',
+		'disabled',
+		'animation',
+		'transition',
+		'loading',
+		'open',
+		'closed',
+		'expanded',
+		'collapsed',
+		'visible',
+		'hidden',
+		'pressed',
+		'checked',
+		'highlighted',
+		'current',
+		'entering',
+		'leaving',
+	}
+)
+
+
+class MatchLevel(Enum):
+	"""Element matching strictness levels for history replay."""
+
+	EXACT = 1  # Full hash with all attributes (current behavior)
+	STABLE = 2  # Hash with dynamic classes filtered out
+	XPATH = 3  # XPath string comparison
+	AX_NAME = 4  # Accessible name (ax_name) from accessibility tree
+	ATTRIBUTE = 5  # Unique attribute match (name, id, aria-label)
+
+
+def filter_dynamic_classes(class_str: str | None) -> str:
+	"""
+	Remove dynamic state classes, keep semantic/identifying ones.
+	Returns sorted classes for deterministic hashing.
+	"""
+	if not class_str:
+		return ''
+	classes = class_str.split()
+	stable = [c for c in classes if not any(pattern in c.lower() for pattern in DYNAMIC_CLASS_PATTERNS)]
+	return ' '.join(sorted(stable))
 
 
 @dataclass
@@ -156,7 +215,7 @@ class SimplifiedNode:
 	original_node: 'EnhancedDOMTreeNode'
 	children: list['SimplifiedNode']
 	should_display: bool = True
-	interactive_index: int | None = None
+	is_interactive: bool = False  # True if element is in selector_map
 
 	is_new: bool = False
 
@@ -185,7 +244,7 @@ class SimplifiedNode:
 		cleaned_original_node_json = self._clean_original_node_json(original_node_json)
 		return {
 			'should_display': self.should_display,
-			'interactive_index': self.interactive_index,
+			'is_interactive': self.is_interactive,
 			'ignored_by_paint_order': self.ignored_by_paint_order,
 			'excluded_by_parent': self.excluded_by_parent,
 			'original_node': cleaned_original_node_json,
@@ -375,9 +434,6 @@ class EnhancedDOMTreeNode:
 
 	# endregion - Snapshot Node data
 
-	# Interactive element index
-	element_index: int | None = None
-
 	# Compound control child components information
 	_compound_children: list[dict[str, Any]] = field(default_factory=list)
 
@@ -396,7 +452,8 @@ class EnhancedDOMTreeNode:
 		"""
 		Returns all children nodes, including shadow roots
 		"""
-		children = self.children_nodes or []
+		# IMPORTANT: Make a copy to avoid mutating the original children_nodes list!
+		children = list(self.children_nodes) if self.children_nodes else []
 		if self.shadow_roots:
 			children.extend(self.shadow_roots)
 		return children
@@ -744,12 +801,42 @@ class EnhancedDOMTreeNode:
 	def element_hash(self) -> int:
 		return hash(self)
 
+	def compute_stable_hash(self) -> int:
+		"""
+		Compute hash with dynamic classes filtered out.
+		More stable across sessions than element_hash since it excludes
+		transient CSS state classes like focus, hover, animation, etc.
+		"""
+		parent_branch_path = self._get_parent_branch_path()
+		parent_branch_path_string = '/'.join(parent_branch_path)
+
+		# Filter dynamic classes before building attributes string
+		filtered_attrs: dict[str, str] = {}
+		for k, v in self.attributes.items():
+			if k not in STATIC_ATTRIBUTES:
+				continue
+			if k == 'class':
+				v = filter_dynamic_classes(v)
+				if not v:  # Skip empty class after filtering
+					continue
+			filtered_attrs[k] = v
+
+		attributes_string = ''.join(f'{k}={v}' for k, v in sorted(filtered_attrs.items()))
+
+		ax_name = ''
+		if self.ax_node and self.ax_node.name:
+			ax_name = f'|ax_name={self.ax_node.name}'
+
+		combined_string = f'{parent_branch_path_string}|{attributes_string}{ax_name}'
+		hash_hex = hashlib.sha256(combined_string.encode()).hexdigest()
+		return int(hash_hex[:16], 16)
+
 	def __str__(self) -> str:
-		return f'[<{self.tag_name}>#{self.frame_id[-4:] if self.frame_id else "?"}:{self.element_index}]'
+		return f'[<{self.tag_name}>#{self.frame_id[-4:] if self.frame_id else "?"}:{self.backend_node_id}]'
 
 	def __hash__(self) -> int:
 		"""
-		Hash the element based on its parent branch path and attributes.
+		Hash the element based on its parent branch path, attributes, and accessibility name.
 
 		TODO: migrate this to use only backendNodeId + current SessionId
 		"""
@@ -762,8 +849,14 @@ class EnhancedDOMTreeNode:
 			f'{k}={v}' for k, v in sorted((k, v) for k, v in self.attributes.items() if k in STATIC_ATTRIBUTES)
 		)
 
-		# Combine both for final hash
-		combined_string = f'{parent_branch_path_string}|{attributes_string}'
+		# Include accessibility name (ax_name) if available - this helps distinguish
+		# elements that have identical structure and attributes but different visible text
+		ax_name = ''
+		if self.ax_node and self.ax_node.name:
+			ax_name = f'|ax_name={self.ax_node.name}'
+
+		# Combine all for final hash
+		combined_string = f'{parent_branch_path_string}|{attributes_string}{ax_name}'
 		element_hash = hashlib.sha256(combined_string.encode()).hexdigest()
 
 		# Convert to int for __hash__ return type - use first 16 chars and convert from hex to int
@@ -818,6 +911,29 @@ class SerializedDOMState:
 
 		return DOMTreeSerializer.serialize_tree(self._root, include_attributes)
 
+	@observe_debug(ignore_input=True, ignore_output=True, name='eval_representation')
+	def eval_representation(
+		self,
+		include_attributes: list[str] | None = None,
+	) -> str:
+		"""
+		Evaluation-focused DOM representation without interactive indexes.
+
+		This serializer is designed for evaluation/judge contexts where:
+		- No interactive indexes are needed (we're not clicking)
+		- Full HTML structure should be preserved for context
+		- More attribute information is helpful
+		- Text content is important for understanding page structure
+		"""
+		from browser_use.dom.serializer.eval_serializer import DOMEvalSerializer
+
+		if not self._root:
+			return 'Empty DOM tree (you might have to wait for the page to load)'
+
+		include_attributes = include_attributes or DEFAULT_INCLUDE_ATTRIBUTES
+
+		return DOMEvalSerializer.serialize_tree(self._root, include_attributes)
+
 
 @dataclass
 class DOMInteractedElement:
@@ -843,6 +959,12 @@ class DOMInteractedElement:
 
 	element_hash: int
 
+	# Stable hash with dynamic classes filtered - computed at save time for consistent matching
+	stable_hash: int | None = None
+
+	# Accessibility name (visible text) - used for fallback matching when hash/xpath fail
+	ax_name: str | None = None
+
 	def to_dict(self) -> dict[str, Any]:
 		return {
 			'node_id': self.node_id,
@@ -854,11 +976,18 @@ class DOMInteractedElement:
 			'attributes': self.attributes,
 			'x_path': self.x_path,
 			'element_hash': self.element_hash,
+			'stable_hash': self.stable_hash,
 			'bounds': self.bounds.to_dict() if self.bounds else None,
+			'ax_name': self.ax_name,
 		}
 
 	@classmethod
 	def load_from_enhanced_dom_tree(cls, enhanced_dom_tree: EnhancedDOMTreeNode) -> 'DOMInteractedElement':
+		# Extract accessibility name if available
+		ax_name = None
+		if enhanced_dom_tree.ax_node and enhanced_dom_tree.ax_node.name:
+			ax_name = enhanced_dom_tree.ax_node.name
+
 		return cls(
 			node_id=enhanced_dom_tree.node_id,
 			backend_node_id=enhanced_dom_tree.backend_node_id,
@@ -870,4 +999,6 @@ class DOMInteractedElement:
 			bounds=enhanced_dom_tree.snapshot_node.bounds if enhanced_dom_tree.snapshot_node else None,
 			x_path=enhanced_dom_tree.xpath,
 			element_hash=hash(enhanced_dom_tree),
+			stable_hash=enhanced_dom_tree.compute_stable_hash(),  # Compute from source for single source of truth
+			ax_name=ax_name,
 		)

@@ -1,11 +1,14 @@
 //! Models and APIs for handling findings and their locations.
 
-use anyhow::{Result, anyhow};
+use anyhow::anyhow;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
 use self::location::{Location, SymbolicLocation};
-use crate::{InputKey, models::AsDocument, registry::input::Group};
+use crate::{
+    InputKey, audit::AuditError, finding::location::LocationKind, models::AsDocument,
+    registry::input::Group,
+};
 use yamlpatch::{self, Patch};
 
 pub(crate) mod location;
@@ -48,45 +51,15 @@ pub(crate) enum Persona {
     Regular,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Eq,
-    Hash,
-    Ord,
-    PartialOrd,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    ValueEnum,
-)]
+#[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub(crate) enum Confidence {
-    #[default]
-    Unknown,
     Low,
     Medium,
     High,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Eq,
-    Hash,
-    Ord,
-    PartialOrd,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    ValueEnum,
-)]
+#[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub(crate) enum Severity {
-    #[default]
-    Unknown,
     Informational,
     Low,
     Medium,
@@ -156,6 +129,8 @@ pub(crate) struct Finding<'doc> {
     /// and carries metadata about how an output layer might choose to
     /// present it.
     pub(crate) locations: Vec<Location<'doc>>,
+    /// A tip or recommendation associated with this finding.
+    pub(crate) tip: Option<String>,
     /// Whether this finding is ignored, either via inline comments or
     /// through a user's configuration.
     pub(crate) ignored: bool,
@@ -185,7 +160,7 @@ impl Finding<'_> {
         self.locations
             .iter()
             .find(|l| l.symbolic.is_primary())
-            .unwrap()
+            .expect("internal error: finding has no primary location")
     }
 
     /// Return the input group for this finding's primary location.
@@ -206,6 +181,7 @@ pub(crate) struct FindingBuilder<'doc> {
     persona: Persona,
     raw_locations: Vec<Location<'doc>>,
     locations: Vec<SymbolicLocation<'doc>>,
+    tip: Option<String>,
     fixes: Vec<Fix<'doc>>,
 }
 
@@ -215,11 +191,12 @@ impl<'doc> FindingBuilder<'doc> {
             ident,
             desc,
             url,
-            severity: Default::default(),
-            confidence: Default::default(),
+            severity: Severity::Low,
+            confidence: Confidence::Low,
             persona: Default::default(),
             raw_locations: vec![],
             locations: vec![],
+            tip: None,
             fixes: vec![],
         }
     }
@@ -249,6 +226,11 @@ impl<'doc> FindingBuilder<'doc> {
         self
     }
 
+    pub(crate) fn tip(mut self, tip: impl Into<String>) -> Self {
+        self.tip = Some(tip.into());
+        self
+    }
+
     pub(crate) fn fix(mut self, fix: Fix<'doc>) -> Self {
         self.fixes.push(fix);
         self
@@ -257,18 +239,25 @@ impl<'doc> FindingBuilder<'doc> {
     pub(crate) fn build<'a>(
         self,
         document: &'a impl AsDocument<'a, 'doc>,
-    ) -> Result<Finding<'doc>> {
+    ) -> Result<Finding<'doc>, AuditError> {
         let mut locations = self
             .locations
             .iter()
             .map(|l| l.clone().concretize(document.as_document()))
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<anyhow::Result<Vec<_>>>()
+            .map_err(|e| AuditError::new(self.ident, e))?;
 
         locations.extend(self.raw_locations);
 
-        if !locations.iter().any(|l| l.symbolic.is_primary()) {
-            return Err(anyhow!(
-                "API misuse: at least one location must be marked with primary()"
+        if locations.len() == 1
+            && let Some(location) = locations.get_mut(0)
+        {
+            // If there's only one location, then it's primary by definition.
+            location.symbolic.kind = LocationKind::Primary;
+        } else if !locations.iter().any(|l| l.symbolic.is_primary()) {
+            return Err(AuditError::new(
+                self.ident,
+                anyhow!("API misuse: at least one location must be marked with primary()"),
             ));
         }
 
@@ -284,6 +273,7 @@ impl<'doc> FindingBuilder<'doc> {
                 persona: self.persona,
             },
             locations,
+            tip: self.tip,
             ignored: should_ignore,
             fixes: self.fixes,
         })

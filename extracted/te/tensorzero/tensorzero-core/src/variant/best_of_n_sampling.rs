@@ -1,28 +1,33 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
+use std::future::Future;
+use std::sync::Arc;
 
-use backon::Retryable;
-use futures::future::join_all;
+use futures::future::{join_all, try_join_all};
 use lazy_static::lazy_static;
 use rand::Rng;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-use tokio::time::{timeout, Duration};
+use serde_json::{Value, json};
 
 use crate::config::{ErrorContext, PathWithContents, SchemaData};
 use crate::embeddings::EmbeddingModelTable;
 use crate::endpoints::inference::{InferenceClients, InferenceModels};
 use crate::error::ErrorDetails;
+use crate::inference::types::ContentBlockOutput;
+use crate::inference::types::chat_completion_inference_params::ChatCompletionInferenceParamsV2;
 use crate::inference::types::extra_body::FullExtraBodyConfig;
 use crate::inference::types::extra_headers::FullExtraHeadersConfig;
+use crate::inference::types::resolved_input::LazyResolvedInput;
 use crate::inference::types::{
-    batch::StartBatchModelInferenceWithMetadata, FunctionType, ModelInferenceRequest,
-    ModelInferenceResponseWithMetadata, RequestMessage, Role,
+    FunctionType, ModelInferenceRequest, ModelInferenceResponseWithMetadata, RequestMessage, Role,
+    System, batch::StartBatchModelInferenceWithMetadata,
 };
-use crate::inference::types::{ContentBlockOutput, ResolvedInput};
-use crate::jsonschema_util::StaticJSONSchema;
+use crate::jsonschema_util::JSONSchema;
 use crate::model::ModelTable;
-use crate::tool::{ImplicitToolConfig, ToolCallConfig, ToolChoice, ToolConfig};
+use crate::tool::create_json_mode_tool_call_config_with_allowed_tools;
+use crate::tool::{AllowedTools, AllowedToolsChoice, ToolCallConfig};
+use crate::utils::unbounded_recursion_wrapper;
 use crate::variant::mixture_of_n::stream_inference_from_non_stream;
 use crate::{
     endpoints::inference::InferenceParams,
@@ -30,48 +35,78 @@ use crate::{
     function::FunctionConfig,
     inference::types::{InferenceResult, InferenceResultStream},
     minijinja_util::TemplateConfig,
+    relay::TensorzeroRelay,
     variant::chat_completion::ChatCompletionConfig,
 };
 
 use super::chat_completion::UninitializedChatCompletionConfig;
 use super::{InferenceConfig, JsonMode, ModelUsedInfo, Variant};
 
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-#[cfg_attr(test, ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export))]
 pub struct BestOfNSamplingConfig {
-    pub weight: Option<f64>,
-    pub timeout_s: f64,
-    pub candidates: Vec<String>,
-    pub evaluator: BestOfNEvaluatorConfig,
+    weight: Option<f64>,
+    candidates: Vec<String>,
+    evaluator: BestOfNEvaluatorConfig,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, ts_rs::TS)]
-#[ts(export)]
+impl BestOfNSamplingConfig {
+    pub fn weight(&self) -> Option<f64> {
+        self.weight
+    }
+
+    pub fn set_weight(&mut self, weight: Option<f64>) {
+        self.weight = weight;
+    }
+
+    pub fn candidates(&self) -> &Vec<String> {
+        &self.candidates
+    }
+
+    pub fn evaluator(&self) -> &BestOfNEvaluatorConfig {
+        &self.evaluator
+    }
+
+    /// Converts this initialized config back to its uninitialized form.
+    #[expect(deprecated)]
+    pub fn as_uninitialized(self) -> UninitializedBestOfNSamplingConfig {
+        UninitializedBestOfNSamplingConfig {
+            weight: self.weight,
+            timeout_s: None,
+            candidates: self.candidates,
+            evaluator: UninitializedBestOfNEvaluatorConfig {
+                inner: self.evaluator.inner.as_uninitialized(),
+            },
+        }
+    }
+}
+
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 #[serde(deny_unknown_fields)]
 pub struct UninitializedBestOfNSamplingConfig {
     #[serde(default)]
     pub weight: Option<f64>,
-    #[serde(default = "default_timeout")]
-    pub timeout_s: f64,
+    #[deprecated(note = "Use `[timeouts]` on your candidate variants instead (#2480 / 2026.2+)")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_s: Option<f64>,
     pub candidates: Vec<String>,
     pub evaluator: UninitializedBestOfNEvaluatorConfig,
 }
 
-fn default_timeout() -> f64 {
-    300.0
-}
-
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-#[cfg_attr(test, ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 pub struct BestOfNEvaluatorConfig {
     #[serde(flatten)]
     pub inner: ChatCompletionConfig,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, ts_rs::TS)]
-#[ts(export)]
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 #[serde(deny_unknown_fields)]
 pub struct UninitializedBestOfNEvaluatorConfig {
     #[serde(flatten)]
@@ -86,7 +121,6 @@ impl UninitializedBestOfNSamplingConfig {
     ) -> Result<BestOfNSamplingConfig, Error> {
         Ok(BestOfNSamplingConfig {
             weight: self.weight,
-            timeout_s: self.timeout_s,
             candidates: self.candidates,
             evaluator: BestOfNEvaluatorConfig {
                 inner: self.evaluator.inner.load(
@@ -101,12 +135,20 @@ impl UninitializedBestOfNSamplingConfig {
             },
         })
     }
+
+    /// Returns the deprecated `timeout_s` value if set.
+    #[expect(deprecated)]
+    pub fn timeout_s(&self) -> Option<f64> {
+        self.timeout_s
+    }
 }
 
+const IMPLICIT_TOOL_NAME: &str = "respond";
+
 lazy_static! {
-    static ref EVALUATOR_OUTPUT_SCHEMA: StaticJSONSchema = {
+    static ref EVALUATOR_OUTPUT_SCHEMA: JSONSchema = {
         #[expect(clippy::expect_used)]
-        StaticJSONSchema::from_value(json!({
+        JSONSchema::from_value(json!({
             "type": "object",
             "properties": {
                 "thinking": { "type": "string" },
@@ -117,56 +159,75 @@ lazy_static! {
         }))
         .expect("Failed to create schema for evaluator output")
     };
-    static ref IMPLICIT_TOOL_CALL_CONFIG: ToolCallConfig = ToolCallConfig {
-        tools_available: vec![ToolConfig::Implicit(ImplicitToolConfig {
-            parameters: EVALUATOR_OUTPUT_SCHEMA.clone(),
-        })],
-        tool_choice: ToolChoice::Specific("respond".to_string()),
-        parallel_tool_calls: None,
+    static ref JSON_MODE_TOOL_CALL_CONFIG: ToolCallConfig = {
+        create_json_mode_tool_call_config_with_allowed_tools(
+            EVALUATOR_OUTPUT_SCHEMA.clone(),
+            AllowedTools {
+                tools: [IMPLICIT_TOOL_NAME.to_string()].into_iter().collect(),
+                choice: AllowedToolsChoice::FunctionDefault,
+            },
+        )
     };
 }
 
 impl Variant for BestOfNSamplingConfig {
-    async fn infer<'a: 'request, 'request>(
+    // The compiler gives us 'cycle detected when looking up the hidden types stored across await points in a coroutine'
+    // if we try to use 'async fn' here
+    #[expect(refining_impl_trait, clippy::manual_async_fn)]
+    fn infer(
         &self,
-        input: &ResolvedInput,
-        models: &'request InferenceModels<'a>,
-        function: &'a FunctionConfig,
-        inference_config: &'request InferenceConfig<'request>,
-        clients: &'request InferenceClients<'request>,
+        input: Arc<LazyResolvedInput>,
+        models: InferenceModels,
+        function: Arc<FunctionConfig>,
+        inference_config: Arc<InferenceConfig>,
+        clients: InferenceClients,
         _inference_params: InferenceParams,
-    ) -> Result<InferenceResult, Error> {
-        let candidate_inference_results = self
-            .infer_candidates(input, models, function, inference_config, clients)
-            .await?;
-        self.select_best_candidate(
-            input,
-            models.models,
-            inference_config,
-            clients,
-            candidate_inference_results,
-        )
-        .await
+    ) -> impl Future<Output = Result<InferenceResult, Error>> + Send {
+        async move {
+            let candidate_inference_results = self
+                .infer_candidates(
+                    &input,
+                    &models,
+                    &function,
+                    Arc::clone(&inference_config),
+                    &clients,
+                )
+                .await?;
+            self.select_best_candidate(
+                &input,
+                &models.models,
+                &inference_config,
+                &clients,
+                candidate_inference_results,
+            )
+            .await
+        }
     }
 
-    async fn infer_stream<'request>(
+    async fn infer_stream(
         &self,
-        input: &ResolvedInput,
-        models: &'request InferenceModels<'_>,
-        function: &FunctionConfig,
-        inference_config: &'request InferenceConfig<'request>,
-        clients: &'request InferenceClients<'request>,
+        input: Arc<LazyResolvedInput>,
+        models: InferenceModels,
+        function: Arc<FunctionConfig>,
+        inference_config: Arc<InferenceConfig>,
+        clients: InferenceClients,
         inference_params: InferenceParams,
     ) -> Result<(InferenceResultStream, ModelUsedInfo), Error> {
         let candidate_inference_results = self
-            .infer_candidates(input, models, function, inference_config, clients)
+            .infer_candidates(
+                &input,
+                &models,
+                &function,
+                Arc::clone(&inference_config),
+                &clients,
+            )
             .await?;
         let inference_result = self
             .select_best_candidate(
-                input,
-                models.models,
-                inference_config,
-                clients,
+                &input,
+                &models.models,
+                &inference_config,
+                &clients,
                 candidate_inference_results,
             )
             .await?;
@@ -179,12 +240,14 @@ impl Variant for BestOfNSamplingConfig {
 
     async fn validate(
         &self,
-        function: &FunctionConfig,
-        models: &mut ModelTable,
+        function: Arc<FunctionConfig>,
+        models: &ModelTable,
         embedding_models: &EmbeddingModelTable,
         templates: &TemplateConfig<'_>,
         function_name: &str,
         variant_name: &str,
+        global_outbound_http_timeout: &chrono::Duration,
+        relay: Option<&TensorzeroRelay>,
     ) -> Result<(), Error> {
         // Validate each candidate variant
         for candidate in &self.candidates {
@@ -194,12 +257,14 @@ impl Variant for BestOfNSamplingConfig {
                 })
             })?;
             Box::pin(variant.validate(
-                function,
+                Arc::clone(&function),
                 models,
                 embedding_models,
                 templates,
                 function_name,
                 candidate,
+                global_outbound_http_timeout,
+                relay,
             ))
             .await
             .map_err(|e| {
@@ -213,12 +278,14 @@ impl Variant for BestOfNSamplingConfig {
         self.evaluator
             .inner
             .validate(
-                function,
+                Arc::clone(&function),
                 models,
                 embedding_models,
                 templates,
                 function_name,
                 variant_name,
+                global_outbound_http_timeout,
+                relay,
             )
             .await?;
         Ok(())
@@ -239,11 +306,11 @@ impl Variant for BestOfNSamplingConfig {
 
     async fn start_batch_inference<'a>(
         &'a self,
-        _input: &[ResolvedInput],
-        _models: &'a InferenceModels<'a>,
+        _input: &[LazyResolvedInput],
+        _models: InferenceModels,
         _function: &'a FunctionConfig,
-        _inference_configs: &'a [InferenceConfig<'a>],
-        _clients: &'a InferenceClients<'a>,
+        _inference_configs: &'a [InferenceConfig],
+        _clients: InferenceClients,
         _inference_params: Vec<InferenceParams>,
     ) -> Result<StartBatchModelInferenceWithMetadata<'a>, Error> {
         Err(ErrorDetails::UnsupportedVariantForBatchInference { variant_name: None }.into())
@@ -252,13 +319,13 @@ impl Variant for BestOfNSamplingConfig {
 
 impl BestOfNSamplingConfig {
     /// Infer each candidate variant concurrently and return the results.
-    async fn infer_candidates<'a, 'request>(
+    async fn infer_candidates(
         &self,
-        input: &ResolvedInput,
-        models: &'request InferenceModels<'a>,
-        function: &'a FunctionConfig,
-        inference_config: &'request InferenceConfig<'request>,
-        clients: &'request InferenceClients<'request>,
+        input: &LazyResolvedInput,
+        models: &InferenceModels,
+        function: &Arc<FunctionConfig>,
+        inference_config: Arc<InferenceConfig>,
+        clients: &InferenceClients,
     ) -> Result<Vec<InferenceResult>, Error> {
         // Get all the variants we are going to infer
         let candidate_variants = self
@@ -285,29 +352,36 @@ impl BestOfNSamplingConfig {
                 // the sub-variant will make the same request (and have the same injected index)
                 // However, the 'A, C' and 'C, D' evaluations will all have distinct cache keys:
                 // (A, 2), (C, 3), (C, 2), (D, 4)
-                let mut config = inference_config.clone();
-                config.variant_name = candidate;
-                config.extra_cache_key = Some(format!("candidate_{i}"));
-                Ok((candidate.to_string(), variant, config))
+                let config = InferenceConfig {
+                    variant_name: Arc::from(candidate.as_str()),
+                    extra_cache_key: Some(format!("candidate_{i}")),
+                    ..inference_config.as_ref().clone()
+                };
+                Ok((candidate.to_string(), variant.clone(), Arc::new(config)))
             })
             .collect::<Result<Vec<_>, Error>>()?;
 
         // Start the inference tasks (we keep the names around for logging)
         let mut inference_futures = Vec::new();
-        for (candidate_name, candidate_variant, config) in &candidate_variants {
+        for (candidate_name, candidate_variant, config) in candidate_variants {
+            let models = models.clone();
+            let clients = clients.clone();
+            let function = Arc::clone(function);
+            let input = Arc::new(input.clone());
             inference_futures.push((
                 candidate_name.clone(),
-                timeout(
-                    Duration::from_secs_f64(self.timeout_s),
-                    candidate_variant.infer(
-                        input,
-                        models,
-                        function,
-                        config,
-                        clients,
-                        InferenceParams::default(),
-                    ),
-                ),
+                unbounded_recursion_wrapper(async move {
+                    candidate_variant
+                        .infer(
+                            input,
+                            models,
+                            function,
+                            config,
+                            clients,
+                            InferenceParams::default(),
+                        )
+                        .await
+                }),
             ));
         }
 
@@ -321,20 +395,9 @@ impl BestOfNSamplingConfig {
 
         // Collect the successful results
         let mut successful_results = Vec::new();
-        for (candidate_name, result) in inference_results {
-            match result {
-                Ok(inner_result) => {
-                    if let Ok(res) = inner_result {
-                        successful_results.push(res);
-                    }
-                }
-                Err(_timeout_error) => {
-                    // Map the Tokio timeout error to our own TimeoutError type
-                    // It logs on construction
-                    Error::new(ErrorDetails::InferenceTimeout {
-                        variant_name: candidate_name.clone(),
-                    });
-                }
+        for (_candidate_name, result) in inference_results {
+            if let Ok(res) = result {
+                successful_results.push(res);
             }
         }
 
@@ -344,12 +407,12 @@ impl BestOfNSamplingConfig {
     /// Gets the best candidate using the evaluator config.
     /// If at any point the evaluator fails to return a valid response,
     /// we randomly select one of the candidates.
-    async fn select_best_candidate<'request>(
+    async fn select_best_candidate(
         &self,
-        input: &ResolvedInput,
-        models: &ModelTable,
-        inference_config: &'request InferenceConfig<'request>,
-        clients: &'request InferenceClients<'request>,
+        input: &LazyResolvedInput,
+        models: &Arc<ModelTable>,
+        inference_config: &InferenceConfig,
+        clients: &InferenceClients,
         candidates: Vec<InferenceResult>,
     ) -> Result<InferenceResult, Error> {
         if candidates.is_empty() {
@@ -431,17 +494,18 @@ impl BestOfNSamplingConfig {
 ///  * Map the evaluator's index to the actual index in the original candidate list (prior to skipping any).
 ///  * Check if the index is out of bounds.
 ///  * Return the index and the model inference result.
-async fn inner_select_best_candidate<'a, 'request>(
+async fn inner_select_best_candidate<'a>(
     evaluator: &'a BestOfNEvaluatorConfig,
-    input: &'request ResolvedInput,
+    input: &LazyResolvedInput,
     models: &'a ModelTable,
-    inference_config: &'request InferenceConfig<'request>,
-    clients: &'request InferenceClients<'request>,
+    inference_config: &InferenceConfig,
+    clients: &InferenceClients,
     candidates: &[InferenceResult],
 ) -> Result<(Option<usize>, Option<ModelInferenceResponseWithMetadata>), Error> {
     let mut inference_params = InferenceParams::default();
-    let (inference_request, skipped_indices) =
-        evaluator.prepare_request(input, inference_config, candidates, &mut inference_params)?;
+    let (inference_request, skipped_indices) = evaluator
+        .prepare_evaluator_request(input, inference_config, candidates, &mut inference_params)
+        .await?;
     if skipped_indices.len() == candidates.len() {
         return Err(ErrorDetails::Inference {
             message: "No valid candidates available to prepare request.".to_string(),
@@ -460,21 +524,26 @@ async fn inner_select_best_candidate<'a, 'request>(
         // Return the selected index and None for the model inference result
         return Ok((Some(selected_index), None));
     }
-    let model_config = models.get(&evaluator.inner.model).await?.ok_or_else(|| {
-        Error::new(ErrorDetails::UnknownModel {
-            name: evaluator.inner.model.to_string(),
+    let model_config = models
+        .get(evaluator.inner.model(), clients.relay.as_ref())
+        .await?
+        .ok_or_else(|| {
+            Error::new(ErrorDetails::UnknownModel {
+                name: evaluator.inner.model().to_string(),
+            })
+        })?;
+    let model_inference_response = evaluator
+        .inner
+        .retries()
+        .retry(|| async {
+            model_config
+                .infer(&inference_request, clients, evaluator.inner.model())
+                .await
         })
-    })?;
-    let model_inference_response = (|| async {
-        model_config
-            .infer(&inference_request, clients, &evaluator.inner.model)
-            .await
-    })
-    .retry(evaluator.inner.retries.get_backoff())
-    .await?;
+        .await?;
     let model_inference_result = ModelInferenceResponseWithMetadata::new(
         model_inference_response,
-        evaluator.inner.model.clone(),
+        evaluator.inner.model().clone(),
     );
     let raw = match model_inference_result
         .output
@@ -482,7 +551,7 @@ async fn inner_select_best_candidate<'a, 'request>(
         .find_map(|block| match block {
             ContentBlockOutput::Text(text) => Some(&text.text),
             ContentBlockOutput::ToolCall(tool_call) => Some(&tool_call.arguments),
-            ContentBlockOutput::Thought(_) | ContentBlockOutput::Unknown { .. } => None,
+            ContentBlockOutput::Thought(_) | ContentBlockOutput::Unknown(_) => None,
         }) {
         Some(text) => text,
         None => {
@@ -546,7 +615,7 @@ impl BestOfNEvaluatorConfig {
     fn prepare_system_message(
         &self,
         templates: &TemplateConfig,
-        system: Option<&Value>,
+        system: Option<&System>,
         max_index: usize,
     ) -> Result<String, Error> {
         let inner_system_message = self.inner.prepare_system_message(templates, system)?;
@@ -644,16 +713,16 @@ impl BestOfNEvaluatorConfig {
     /// # Errors
     ///
     /// Returns an `Error` if any of the candidate outputs fail to serialize or if templating fails.
-    fn prepare_request<'a>(
+    async fn prepare_evaluator_request<'a>(
         &self,
-        input: &ResolvedInput,
-        inference_config: &InferenceConfig<'_>,
+        input: &LazyResolvedInput,
+        inference_config: &InferenceConfig,
         candidates: &[InferenceResult],
         inference_params: &mut InferenceParams,
     ) -> Result<(ModelInferenceRequest<'a>, Vec<usize>), Error> {
         // Do this before we prepare the system message so we can use the correct max index in the system message
         let (candidate_message, skipped_indices) =
-            Self::prepare_candidate_message(inference_config.templates, candidates)?;
+            Self::prepare_candidate_message(&inference_config.templates, candidates)?;
         // Need to subtract the skipped indices from the total number of candidates to get the correct max index
         let max_index = candidates
             .len()
@@ -665,37 +734,35 @@ impl BestOfNEvaluatorConfig {
                 })
             })?;
         let system = Some(self.prepare_system_message(
-            inference_config.templates,
+            &inference_config.templates,
             input.system.as_ref(),
             max_index,
         )?);
-        let messages = input
-            .messages
-            .iter()
-            .map(|message| {
-                self.inner
-                    .prepare_request_message(inference_config.templates, message)
-            })
-            .chain(std::iter::once(Ok(candidate_message)))
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut messages = try_join_all(input.messages.iter().map(|message| {
+            self.inner
+                .prepare_request_message(&inference_config.templates, message)
+        }))
+        .await?;
+        messages.push(candidate_message);
         inference_params
             .chat_completion
             .backfill_with_variant_params(
-                self.inner.temperature,
-                self.inner.max_tokens,
-                self.inner.seed,
-                self.inner.top_p,
-                self.inner.presence_penalty,
-                self.inner.frequency_penalty,
-                self.inner.stop_sequences.clone(),
+                self.inner.temperature(),
+                self.inner.max_tokens(),
+                self.inner.seed(),
+                self.inner.top_p(),
+                self.inner.presence_penalty(),
+                self.inner.frequency_penalty(),
+                self.inner.stop_sequences().cloned(),
+                self.inner.inference_params_v2.clone(),
             );
         let json_mode = inference_params
             .chat_completion
             .json_mode
-            .or(self.inner.json_mode)
+            .or_else(|| self.inner.json_mode().copied())
             .unwrap_or(JsonMode::Strict);
         let tool_config = match json_mode {
-            JsonMode::ImplicitTool => Some(Cow::Borrowed(&*IMPLICIT_TOOL_CALL_CONFIG)),
+            JsonMode::Tool => Some(Cow::Borrowed(&*JSON_MODE_TOOL_CALL_CONFIG)),
             JsonMode::Off | JsonMode::On | JsonMode::Strict => None,
         };
         if !inference_config.extra_body.is_empty() {
@@ -706,11 +773,11 @@ impl BestOfNEvaluatorConfig {
             .into());
         }
         let extra_body = FullExtraBodyConfig {
-            extra_body: self.inner.extra_body.clone(),
+            extra_body: self.inner.extra_body().cloned(),
             inference_extra_body: Default::default(),
         };
         let extra_headers = FullExtraHeadersConfig {
-            variant_extra_headers: self.inner.extra_headers.clone(),
+            variant_extra_headers: self.inner.extra_headers().cloned(),
             inference_extra_headers: Default::default(),
         };
         Ok((
@@ -733,10 +800,18 @@ impl BestOfNEvaluatorConfig {
                 stream: false,
                 json_mode: json_mode.into(),
                 function_type: FunctionType::Json,
+                fetch_and_encode_input_files_before_inference: inference_config
+                    .fetch_and_encode_input_files_before_inference,
                 output_schema: Some(&EVALUATOR_OUTPUT_SCHEMA.value),
                 extra_body,
                 extra_headers,
                 extra_cache_key: inference_config.extra_cache_key.clone(),
+                inference_params_v2: ChatCompletionInferenceParamsV2 {
+                    reasoning_effort: inference_params.chat_completion.reasoning_effort.clone(),
+                    service_tier: inference_params.chat_completion.service_tier.clone(),
+                    thinking_budget_tokens: inference_params.chat_completion.thinking_budget_tokens,
+                    verbosity: inference_params.chat_completion.verbosity.clone(),
+                },
             },
             skipped_indices,
         ))
@@ -764,44 +839,47 @@ fn map_evaluator_to_actual_index(evaluator_idx: usize, skipped_indices: &[usize]
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-
+    use std::sync::Arc;
     use uuid::Uuid;
 
+    use crate::rate_limiting::ScopeInfo;
     use crate::{
         cache::{CacheEnabledMode, CacheOptions},
-        config::UninitializedSchemas,
-        db::clickhouse::ClickHouseConnectionInfo,
+        config::{UninitializedSchemas, provider_types::ProviderTypesConfig},
+        db::{clickhouse::ClickHouseConnectionInfo, postgres::PostgresConnectionInfo},
         endpoints::inference::{InferenceCredentials, InferenceIds},
         http::TensorzeroHttpClient,
         inference::types::{
-            ChatInferenceResult, FinishReason, JsonInferenceResult, Latency,
+            Arguments, ChatInferenceResult, FinishReason, JsonInferenceResult, Latency,
             RequestMessagesOrBatch, Usage,
         },
         minijinja_util::tests::{
             get_system_filled_template, get_system_template, get_test_template_config,
         },
         model::{ModelConfig, ModelProvider, ProviderConfig},
+        model_table::ProviderTypeDefaultCredentials,
         providers::dummy::DummyProvider,
+        rate_limiting::RateLimitingManager,
     };
 
     use super::*;
 
-    #[test]
-    fn test_static_schema() {
+    #[tokio::test]
+    async fn test_static_schema() {
         // Also covers the fact that the lazy schema works
         let instance = json!({
             "thinking": "I am thinking",
             "answer_choice": 0
         });
-        let result = EVALUATOR_OUTPUT_SCHEMA.validate(&instance);
+        let result = EVALUATOR_OUTPUT_SCHEMA.validate(&instance).await;
         assert!(result.is_ok());
     }
 
-    #[test]
-    fn test_prepare_system_message() {
-        let templates = get_test_template_config();
+    #[tokio::test]
+    async fn test_prepare_system_message() {
+        let templates = get_test_template_config().await;
 
-        let system_schema = StaticJSONSchema::from_value(serde_json::json!({
+        let system_schema = JSONSchema::from_value(serde_json::json!({
             "type": "object",
             "properties": {
                 "assistant_name": {
@@ -822,7 +900,7 @@ mod tests {
             .load(&SchemaData::default(), &ErrorContext::new_test())
             .unwrap(),
         };
-        let input_message = Value::String("You are a helpful assistant.".to_string());
+        let input_message = System::Text("You are a helpful assistant.".to_string());
         let max_index = 2;
         let result =
             evaluator_config.prepare_system_message(&templates, Some(&input_message), max_index);
@@ -845,15 +923,24 @@ mod tests {
             .load(&SchemaData::default(), &ErrorContext::new_test())
             .unwrap(),
         };
-        let input_message = json!({"message": "You are a helpful assistant."});
+        let input_message = System::Template(Arguments(
+            json!({"message": "You are a helpful assistant."})
+                .as_object()
+                .unwrap()
+                .clone(),
+        ));
         let max_index = 3;
         let result =
             evaluator_config.prepare_system_message(&templates, Some(&input_message), max_index);
         assert!(result.is_err());
         let prepared_message = result.unwrap_err();
         assert_eq!(
-        prepared_message,
-        ErrorDetails::InvalidMessage { message: "System message content {\"message\":\"You are a helpful assistant.\"} is not a string but there is no variant template".to_string() }.into()
+            prepared_message,
+            ErrorDetails::InvalidMessage {
+                message: "System message content is a template but there is no variant template"
+                    .to_string()
+            }
+            .into()
         );
 
         // Test without templates, no message
@@ -908,7 +995,12 @@ mod tests {
         };
 
         let max_index = 6;
-        let input_message = serde_json::json!({"assistant_name": "ChatGPT"});
+        let input_message = System::Template(Arguments(
+            serde_json::json!({"assistant_name": "ChatGPT"})
+                .as_object()
+                .unwrap()
+                .clone(),
+        ));
         let result =
             evaluator_config.prepare_system_message(&templates, Some(&input_message), max_index);
         let prepared_message = result.unwrap();
@@ -969,13 +1061,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_prepare_candidate_message() {
-        let templates = get_test_template_config();
+        let templates = get_test_template_config().await;
 
         // Create an EvaluatorConfig
         // Prepare some candidate InferenceResults
         let model_inference_response = ModelInferenceResponseWithMetadata {
             id: Uuid::now_v7(),
-            created: 200u64,
             output: vec!["Candidate answer 1".to_string().into()],
             system: None,
             input_messages: RequestMessagesOrBatch::Message(vec![RequestMessage {
@@ -985,16 +1076,18 @@ mod tests {
             raw_request: "{\"prompt\": \"Example prompt\"}".to_string(),
             raw_response: "{\"response\": \"Example response\"}".to_string(),
             usage: Usage {
-                input_tokens: 50,
-                output_tokens: 100,
+                input_tokens: Some(50),
+                output_tokens: Some(100),
             },
             latency: Latency::NonStreaming {
-                response_time: Duration::from_millis(500),
+                response_time: std::time::Duration::from_millis(500),
             },
             model_provider_name: "ExampleProvider".into(),
             model_name: "ExampleModel".into(),
             finish_reason: Some(FinishReason::Stop),
             cached: false,
+            raw_usage: None,
+            relay_raw_response: None,
         };
 
         let candidate1 = InferenceResult::Chat(
@@ -1005,13 +1098,13 @@ mod tests {
                 None,
                 InferenceParams::default(),
                 None,
+                None,
             )
             .await,
         );
 
         let model_inference_response2 = ModelInferenceResponseWithMetadata {
             id: Uuid::now_v7(),
-            created: 201u64,
             output: vec!["Candidate answer 2".to_string().into()],
             system: Some("test_system".to_string()),
             input_messages: RequestMessagesOrBatch::Message(vec![RequestMessage {
@@ -1021,16 +1114,18 @@ mod tests {
             raw_request: "{\"prompt\": \"Example prompt 2\"}".to_string(),
             raw_response: "{\"response\": \"Example response 2\"}".to_string(),
             usage: Usage {
-                input_tokens: 15,
-                output_tokens: 25,
+                input_tokens: Some(15),
+                output_tokens: Some(25),
             },
             latency: Latency::NonStreaming {
-                response_time: Duration::from_millis(550),
+                response_time: std::time::Duration::from_millis(550),
             },
             model_provider_name: "ExampleProvider2".into(),
             model_name: "ExampleModel2".into(),
             finish_reason: Some(FinishReason::Stop),
             cached: false,
+            raw_usage: None,
+            relay_raw_response: None,
         };
 
         let candidate2 = InferenceResult::Chat(
@@ -1040,6 +1135,7 @@ mod tests {
                 vec![model_inference_response2],
                 None,
                 InferenceParams::default(),
+                None,
                 None,
             )
             .await,
@@ -1061,12 +1157,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_prepare_candidate_message_json() {
-        let templates = get_test_template_config();
+        let templates = get_test_template_config().await;
 
         // Prepare some candidate InferenceResults - some valid, some malformed
         let model_inference_response_valid = ModelInferenceResponseWithMetadata {
             id: Uuid::now_v7(),
-            created: 200u64,
             output: vec!["{\"response\": \"Valid JSON response\"}".to_string().into()],
             system: Some("test_system".to_string()),
             input_messages: RequestMessagesOrBatch::Message(vec![RequestMessage {
@@ -1076,16 +1171,18 @@ mod tests {
             raw_request: "{\"prompt\": \"Example prompt\"}".to_string(),
             raw_response: "{\"response\": \"Valid JSON response\"}".to_string(),
             usage: Usage {
-                input_tokens: 50,
-                output_tokens: 100,
+                input_tokens: Some(50),
+                output_tokens: Some(100),
             },
             latency: Latency::NonStreaming {
-                response_time: Duration::from_millis(500),
+                response_time: std::time::Duration::from_millis(500),
             },
             model_provider_name: "ExampleProvider".into(),
             model_name: "ExampleModel".into(),
             finish_reason: Some(FinishReason::Stop),
             cached: false,
+            raw_usage: None,
+            relay_raw_response: None,
         };
 
         let candidate1 = InferenceResult::Json(JsonInferenceResult::new(
@@ -1102,10 +1199,11 @@ mod tests {
 
         let model_inference_response_malformed = ModelInferenceResponseWithMetadata {
             id: Uuid::now_v7(),
-            created: 201u64,
-            output: vec!["{\"response\": \"Malformed JSON response\""
-                .to_string()
-                .into()], // missing closing brace
+            output: vec![
+                "{\"response\": \"Malformed JSON response\""
+                    .to_string()
+                    .into(),
+            ], // missing closing brace
             system: Some("test_system".to_string()),
             input_messages: RequestMessagesOrBatch::Message(vec![RequestMessage {
                 role: Role::Assistant,
@@ -1114,16 +1212,18 @@ mod tests {
             raw_request: "{\"prompt\": \"Example prompt 2\"}".to_string(),
             raw_response: "{\"response\": \"Malformed JSON response\"".to_string(), // malformed
             usage: Usage {
-                input_tokens: 15,
-                output_tokens: 25,
+                input_tokens: Some(15),
+                output_tokens: Some(25),
             },
             latency: Latency::NonStreaming {
-                response_time: Duration::from_millis(550),
+                response_time: std::time::Duration::from_millis(550),
             },
             model_provider_name: "ExampleProvider2".into(),
             model_name: "ExampleModel2".into(),
             finish_reason: Some(FinishReason::ToolCall),
             cached: false,
+            raw_usage: None,
+            relay_raw_response: None,
         };
 
         let candidate2 = InferenceResult::Json(JsonInferenceResult::new(
@@ -1168,16 +1268,14 @@ mod tests {
         };
         let best_of_n_variant = BestOfNSamplingConfig {
             weight: Some(1.0),
-            timeout_s: 10.0,
             candidates: vec![],
             evaluator: evaluator_config,
         };
 
-        let templates = get_test_template_config();
+        let templates = get_test_template_config().await;
         // Prepare some candidate InferenceResults
         let model_inference_response0 = ModelInferenceResponseWithMetadata {
             id: Uuid::now_v7(),
-            created: 200u64,
             output: vec!["Candidate answer 0".to_string().into()],
             raw_request: "{\"prompt\": \"Example prompt\"}".to_string(),
             raw_response: "{\"response\": \"Example response\"}".to_string(),
@@ -1187,16 +1285,18 @@ mod tests {
                 content: vec!["test_assistant".to_string().into()],
             }]),
             usage: Usage {
-                input_tokens: 50,
-                output_tokens: 100,
+                input_tokens: Some(50),
+                output_tokens: Some(100),
             },
             latency: Latency::NonStreaming {
-                response_time: Duration::from_millis(500),
+                response_time: std::time::Duration::from_millis(500),
             },
             model_provider_name: "ExampleProvider".into(),
             model_name: "ExampleModel".into(),
             finish_reason: Some(FinishReason::Stop),
             cached: false,
+            raw_usage: None,
+            relay_raw_response: None,
         };
         let inference_id0 = Uuid::now_v7();
         let candidate0 = InferenceResult::Chat(
@@ -1207,13 +1307,13 @@ mod tests {
                 None,
                 InferenceParams::default(),
                 None,
+                None,
             )
             .await,
         );
 
         let model_inference_response1 = ModelInferenceResponseWithMetadata {
             id: Uuid::now_v7(),
-            created: 201u64,
             output: vec!["Candidate answer 1".to_string().into()],
             system: Some("test_system".to_string()),
             input_messages: RequestMessagesOrBatch::Message(vec![RequestMessage {
@@ -1223,16 +1323,18 @@ mod tests {
             raw_request: "{\"prompt\": \"Example prompt 1\"}".to_string(),
             raw_response: "{\"response\": \"Example response 1\"}".to_string(),
             usage: Usage {
-                input_tokens: 15,
-                output_tokens: 25,
+                input_tokens: Some(15),
+                output_tokens: Some(25),
             },
             latency: Latency::NonStreaming {
-                response_time: Duration::from_millis(550),
+                response_time: std::time::Duration::from_millis(550),
             },
             model_provider_name: "ExampleProvider1".into(),
             model_name: "ExampleModel1".into(),
             finish_reason: Some(FinishReason::Stop),
             cached: false,
+            raw_usage: None,
+            relay_raw_response: None,
         };
         let inference_id1 = Uuid::now_v7();
         let candidate1 = InferenceResult::Chat(
@@ -1243,45 +1345,64 @@ mod tests {
                 None,
                 InferenceParams::default(),
                 None,
+                None,
             )
             .await,
         );
         let candidates = vec![candidate0, candidate1];
-        let models = ModelTable::try_from(HashMap::from([(
-            "best_of_n_1".into(),
-            ModelConfig {
-                routing: vec!["best_of_n_1".into()],
-                providers: HashMap::from([(
-                    "best_of_n_1".into(),
-                    ModelProvider {
-                        name: "best_of_n_1".into(),
-                        config: ProviderConfig::Dummy(DummyProvider {
-                            model_name: "best_of_n_1".into(),
-                            ..Default::default()
-                        }),
-                        extra_body: Default::default(),
-                        extra_headers: Default::default(),
-                        timeouts: Default::default(),
-                        discard_unknown_chunks: false,
-                    },
-                )]),
-                timeouts: Default::default(),
-            },
-        )]))
+        let provider_types = ProviderTypesConfig::default();
+        let models = ModelTable::new(
+            HashMap::from([(
+                "best_of_n_1".into(),
+                ModelConfig {
+                    routing: vec!["best_of_n_1".into()],
+                    providers: HashMap::from([(
+                        "best_of_n_1".into(),
+                        ModelProvider {
+                            name: "best_of_n_1".into(),
+                            config: ProviderConfig::Dummy(DummyProvider {
+                                model_name: "best_of_n_1".into(),
+                                ..Default::default()
+                            }),
+                            extra_body: Default::default(),
+                            extra_headers: Default::default(),
+                            timeouts: Default::default(),
+                            discard_unknown_chunks: false,
+                        },
+                    )]),
+                    timeouts: Default::default(),
+                    skip_relay: false,
+                },
+            )]),
+            ProviderTypeDefaultCredentials::new(&provider_types).into(),
+            chrono::Duration::seconds(120),
+        )
         .expect("Failed to create model table");
-        let client = TensorzeroHttpClient::new().unwrap();
-        let clickhouse_connection_info = ClickHouseConnectionInfo::Disabled;
+        let client = TensorzeroHttpClient::new_testing().unwrap();
+        let clickhouse_connection_info = ClickHouseConnectionInfo::new_disabled();
         let api_keys = InferenceCredentials::default();
         let inference_clients = InferenceClients {
-            http_client: &client,
-            clickhouse_connection_info: &clickhouse_connection_info,
-            credentials: &api_keys,
-            cache_options: &CacheOptions {
+            http_client: client.clone(),
+            clickhouse_connection_info: clickhouse_connection_info.clone(),
+            postgres_connection_info: PostgresConnectionInfo::Disabled,
+            credentials: Arc::new(api_keys),
+            cache_options: CacheOptions {
                 max_age_s: None,
                 enabled: CacheEnabledMode::WriteOnly,
             },
+            tags: Arc::new(Default::default()),
+            rate_limiting_manager: Arc::new(RateLimitingManager::new_dummy()),
+            otlp_config: Default::default(),
+            deferred_tasks: tokio_util::task::TaskTracker::new(),
+            scope_info: ScopeInfo {
+                tags: Arc::new(HashMap::new()),
+                api_key_public_id: None,
+            },
+            relay: None,
+            include_raw_usage: false,
+            include_raw_response: false,
         };
-        let input = ResolvedInput {
+        let input = LazyResolvedInput {
             system: None,
             messages: vec![],
         };
@@ -1290,11 +1411,12 @@ mod tests {
                 inference_id: Uuid::now_v7(),
                 episode_id: Uuid::now_v7(),
             },
-            templates: &templates,
+            templates: Arc::new(templates),
             tool_config: None,
             dynamic_output_schema: None,
-            function_name: "",
-            variant_name: "",
+            function_name: "".into(),
+            variant_name: "".into(),
+            fetch_and_encode_input_files_before_inference: false,
             extra_body: Default::default(),
             extra_headers: Default::default(),
             extra_cache_key: None,
@@ -1303,7 +1425,7 @@ mod tests {
         let selected = best_of_n_variant
             .select_best_candidate(
                 &input,
-                &models,
+                &Arc::new(models),
                 &inference_config,
                 &inference_clients,
                 candidates.clone(),
@@ -1315,8 +1437,8 @@ mod tests {
         // based on "answer": 1 in best_of_n_1
         let expected_id = inference_id1;
         let expected_usage = Usage {
-            input_tokens: 75,
-            output_tokens: 126,
+            input_tokens: Some(75),
+            output_tokens: Some(126),
         };
         let expected_content = vec!["Candidate answer 1".to_string().into()];
         assert_eq!(selected.usage_considering_cached(), expected_usage);
@@ -1342,7 +1464,6 @@ mod tests {
         };
         let best_of_n_variant = BestOfNSamplingConfig {
             weight: Some(1.0),
-            timeout_s: 10.0,
             candidates: vec![],
             evaluator: evaluator_config,
         };
@@ -1368,11 +1489,18 @@ mod tests {
                         },
                     )]),
                     timeouts: Default::default(),
+                    skip_relay: false,
                 },
             );
-            ModelTable::try_from(map).expect("Failed to create model table")
+            let provider_types = ProviderTypesConfig::default();
+            ModelTable::new(
+                map,
+                ProviderTypeDefaultCredentials::new(&provider_types).into(),
+                chrono::Duration::seconds(120),
+            )
+            .expect("Failed to create model table")
         };
-        let input = ResolvedInput {
+        let input = LazyResolvedInput {
             system: None,
             messages: vec![],
         };
@@ -1380,7 +1508,7 @@ mod tests {
         let result = best_of_n_variant
             .select_best_candidate(
                 &input,
-                &models,
+                &Arc::new(models),
                 &inference_config,
                 &inference_clients,
                 candidates.clone(),
@@ -1411,7 +1539,6 @@ mod tests {
         };
         let best_of_n_variant = BestOfNSamplingConfig {
             weight: Some(1.0),
-            timeout_s: 10.0,
             candidates: vec![],
             evaluator: evaluator_config,
         };
@@ -1437,19 +1564,27 @@ mod tests {
                         },
                     )]),
                     timeouts: Default::default(),
+                    skip_relay: false,
                 },
             );
-            ModelTable::try_from(map).expect("Failed to create model table")
+            let provider_types = ProviderTypesConfig::default();
+            ModelTable::new(
+                map,
+                ProviderTypeDefaultCredentials::new(&provider_types).into(),
+                crate::http::DEFAULT_HTTP_CLIENT_TIMEOUT,
+            )
+            .expect("Failed to create model table")
         };
-        let input = ResolvedInput {
+        let input = LazyResolvedInput {
             system: None,
             messages: vec![],
         };
 
+        let models_arc = Arc::new(models);
         let result = best_of_n_variant
             .select_best_candidate(
                 &input,
-                &models,
+                &models_arc,
                 &inference_config,
                 &inference_clients,
                 candidates.clone(),
@@ -1472,7 +1607,7 @@ mod tests {
         let result = best_of_n_variant
             .select_best_candidate(
                 &input,
-                &models,
+                &models_arc,
                 &inference_config,
                 &inference_clients,
                 empty_candidates.clone(),
@@ -1490,7 +1625,6 @@ mod tests {
         // Test case: Index returned too large (should return an error)
         let best_of_n_big_variant = BestOfNSamplingConfig {
             weight: Some(1.0),
-            timeout_s: 10.0,
             candidates: vec![],
             evaluator: BestOfNEvaluatorConfig {
                 inner: UninitializedChatCompletionConfig {
@@ -1523,14 +1657,21 @@ mod tests {
                     },
                 )]),
                 timeouts: Default::default(),
+                skip_relay: false,
             },
         );
-        let big_models = ModelTable::try_from(big_models).expect("Failed to create model table");
+        let provider_types = ProviderTypesConfig::default();
+        let big_models = ModelTable::new(
+            big_models,
+            ProviderTypeDefaultCredentials::new(&provider_types).into(),
+            crate::http::DEFAULT_HTTP_CLIENT_TIMEOUT,
+        )
+        .expect("Failed to create model table");
 
         let result_big = best_of_n_big_variant
             .select_best_candidate(
                 &input,
-                &big_models,
+                &Arc::new(big_models),
                 &inference_config,
                 &inference_clients,
                 candidates.clone(),
@@ -1567,5 +1708,136 @@ mod tests {
         // Case 5: Skipped indices out of range
         let skipped = vec![10, 20];
         assert_eq!(map_evaluator_to_actual_index(5, &skipped), 5);
+    }
+
+    #[test]
+    #[expect(deprecated)]
+    fn test_as_uninitialized_preserves_basic_fields() {
+        let uninitialized = UninitializedBestOfNSamplingConfig {
+            weight: Some(1.0),
+            timeout_s: Some(60.0), // deprecated, will be None in exported
+            candidates: vec!["variant1".to_string(), "variant2".to_string()],
+            evaluator: UninitializedBestOfNEvaluatorConfig {
+                inner: UninitializedChatCompletionConfig {
+                    model: "gpt-4".into(),
+                    temperature: Some(0.3),
+                    ..Default::default()
+                },
+            },
+        };
+
+        let config = uninitialized
+            .load(&SchemaData::default(), &ErrorContext::new_test())
+            .unwrap();
+
+        let exported = config.as_uninitialized();
+
+        assert_eq!(exported.weight, Some(1.0));
+        // timeout_s is deprecated and not stored in initialized config, so it's None in exported
+        assert_eq!(
+            exported.timeout_s, None,
+            "timeout_s should be None in exported config"
+        );
+        assert_eq!(
+            exported.candidates,
+            vec!["variant1".to_string(), "variant2".to_string()]
+        );
+        assert_eq!(exported.evaluator.inner.model, Arc::<str>::from("gpt-4"));
+        assert_eq!(exported.evaluator.inner.temperature, Some(0.3));
+    }
+
+    #[test]
+    #[expect(deprecated)]
+    fn test_as_uninitialized_preserves_nested_evaluator() {
+        let uninitialized = UninitializedBestOfNSamplingConfig {
+            weight: None,
+            timeout_s: None,
+            candidates: vec!["v1".to_string()],
+            evaluator: UninitializedBestOfNEvaluatorConfig {
+                inner: UninitializedChatCompletionConfig {
+                    model: "judge-model".into(),
+                    temperature: Some(0.1),
+                    max_tokens: Some(50),
+                    seed: Some(99),
+                    ..Default::default()
+                },
+            },
+        };
+
+        let config = uninitialized
+            .load(&SchemaData::default(), &ErrorContext::new_test())
+            .unwrap();
+
+        let exported = config.as_uninitialized();
+
+        assert_eq!(
+            exported.evaluator.inner.model,
+            Arc::<str>::from("judge-model")
+        );
+        assert_eq!(exported.evaluator.inner.temperature, Some(0.1));
+        assert_eq!(exported.evaluator.inner.max_tokens, Some(50));
+        assert_eq!(exported.evaluator.inner.seed, Some(99));
+    }
+
+    #[test]
+    #[expect(deprecated)]
+    fn test_as_uninitialized_with_empty_candidates() {
+        let uninitialized = UninitializedBestOfNSamplingConfig {
+            weight: None,
+            timeout_s: None,
+            candidates: vec![],
+            evaluator: UninitializedBestOfNEvaluatorConfig {
+                inner: UninitializedChatCompletionConfig {
+                    model: "gpt-4".into(),
+                    ..Default::default()
+                },
+            },
+        };
+
+        let config = uninitialized
+            .load(&SchemaData::default(), &ErrorContext::new_test())
+            .unwrap();
+
+        let exported = config.as_uninitialized();
+
+        assert!(exported.candidates.is_empty());
+    }
+
+    #[test]
+    #[expect(deprecated)]
+    fn test_as_uninitialized_serialization_round_trip() {
+        let original = UninitializedBestOfNSamplingConfig {
+            weight: Some(0.7),
+            timeout_s: None, // deprecated field
+            candidates: vec!["a".to_string(), "b".to_string()],
+            evaluator: UninitializedBestOfNEvaluatorConfig {
+                inner: UninitializedChatCompletionConfig {
+                    model: "gpt-3.5-turbo".into(),
+                    ..Default::default()
+                },
+            },
+        };
+
+        let config = original
+            .clone()
+            .load(&SchemaData::default(), &ErrorContext::new_test())
+            .unwrap();
+
+        let exported = config.as_uninitialized();
+
+        // Serialize and deserialize
+        let json = serde_json::to_string(&exported).unwrap();
+        let deserialized: UninitializedBestOfNSamplingConfig = serde_json::from_str(&json).unwrap();
+
+        // Should be able to load again
+        let reloaded = deserialized
+            .load(&SchemaData::default(), &ErrorContext::new_test())
+            .unwrap();
+
+        assert_eq!(reloaded.weight(), Some(0.7));
+        assert_eq!(
+            reloaded.candidates(),
+            &vec!["a".to_string(), "b".to_string()]
+        );
     }
 }

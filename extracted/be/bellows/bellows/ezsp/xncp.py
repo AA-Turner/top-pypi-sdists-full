@@ -1,13 +1,13 @@
 """Custom EZSP commands."""
 from __future__ import annotations
 
+from collections.abc import Callable
 import dataclasses
 import logging
-from typing import Callable
 
 import zigpy.types as t
 
-from bellows.types import EmberStatus, EzspMfgTokenId
+from bellows.types import EmberStatus, EzspMfgTokenId, RouteRecordStatus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +40,9 @@ class XncpCommandId(t.enum16):
     GET_BUILD_STRING_REQ = 0x0003
     GET_FLOW_CONTROL_TYPE_REQ = 0x0004
     GET_CHIP_INFO_REQ = 0x0005
+    SET_ROUTE_TABLE_ENTRY_REQ = 0x0006
+    GET_ROUTE_TABLE_ENTRY_REQ = 0x0007
+    GET_TX_POWER_INFO_REQ = 0x0008
 
     GET_SUPPORTED_FEATURES_RSP = GET_SUPPORTED_FEATURES_REQ | 0x8000
     SET_SOURCE_ROUTE_RSP = SET_SOURCE_ROUTE_REQ | 0x8000
@@ -47,6 +50,9 @@ class XncpCommandId(t.enum16):
     GET_BUILD_STRING_RSP = GET_BUILD_STRING_REQ | 0x8000
     GET_FLOW_CONTROL_TYPE_RSP = GET_FLOW_CONTROL_TYPE_REQ | 0x8000
     GET_CHIP_INFO_RSP = GET_CHIP_INFO_REQ | 0x8000
+    SET_ROUTE_TABLE_ENTRY_RSP = SET_ROUTE_TABLE_ENTRY_REQ | 0x8000
+    GET_ROUTE_TABLE_ENTRY_RSP = GET_ROUTE_TABLE_ENTRY_REQ | 0x8000
+    GET_TX_POWER_INFO_RSP = GET_TX_POWER_INFO_REQ | 0x8000
 
     UNKNOWN = 0xFFFF
 
@@ -110,6 +116,12 @@ class FirmwareFeatures(t.bitmap32):
 
     # Chip info (e.g. name, RAM size) can be read
     CHIP_INFO = 1 << 5
+
+    # Route table entries can be set
+    RESTORE_ROUTE_TABLE = 1 << 6
+
+    # Recommended and maximum TX power can be queried by country code
+    TX_POWER_INFO = 1 << 7
 
 
 class XncpCommandPayload(t.Struct):
@@ -181,6 +193,44 @@ class GetChipInfoReq(XncpCommandPayload):
 class GetChipInfoRsp(XncpCommandPayload):
     ram_size: t.uint32_t
     part_number: t.CharacterString
+
+
+@register_command(XncpCommandId.SET_ROUTE_TABLE_ENTRY_REQ)
+class SetRouteTableEntryReq(XncpCommandPayload):
+    index: t.uint8_t
+    destination: t.NWK
+    next_hop: t.NWK
+    status: RouteRecordStatus
+    cost: t.uint8_t
+
+
+@register_command(XncpCommandId.SET_ROUTE_TABLE_ENTRY_RSP)
+class SetRouteTableEntryRsp(XncpCommandPayload):
+    pass
+
+
+@register_command(XncpCommandId.GET_ROUTE_TABLE_ENTRY_REQ)
+class GetRouteTableEntryReq(XncpCommandPayload):
+    index: t.uint8_t
+
+
+@register_command(XncpCommandId.GET_ROUTE_TABLE_ENTRY_RSP)
+class GetRouteTableEntryRsp(XncpCommandPayload):
+    destination: t.NWK
+    next_hop: t.NWK
+    status: RouteRecordStatus
+    cost: t.uint8_t
+
+
+@register_command(XncpCommandId.GET_TX_POWER_INFO_REQ)
+class GetTxPowerInfoReq(XncpCommandPayload):
+    country_code: Bytes
+
+
+@register_command(XncpCommandId.GET_TX_POWER_INFO_RSP)
+class GetTxPowerInfoRsp(XncpCommandPayload):
+    recommended_power_dbm: t.int8s
+    max_power_dbm: t.int8s
 
 
 @register_command(XncpCommandId.UNKNOWN)

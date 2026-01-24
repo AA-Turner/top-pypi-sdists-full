@@ -303,7 +303,8 @@ def EnergyOnlyDataStatisticsManager(
         # other `EMALightningModule` arguments
 
         model:
-          _target_: nequip.model.NequIPGNNEnergyModel
+          _target_: nequip.model.NequIPGNNModel
+          do_derivatives: false
 
           # other model hyperparameters
           avg_num_neighbors: ${training_data_stats:num_neighbors_mean}

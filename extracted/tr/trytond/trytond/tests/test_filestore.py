@@ -5,7 +5,7 @@ import shutil
 import tempfile
 from unittest.mock import patch
 
-from trytond.config import config
+import trytond.config as config
 from trytond.filestore import filestore
 from trytond.tests.test_tryton import TestCase
 

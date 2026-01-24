@@ -9,27 +9,46 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Literal
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
 
-class WebhooksLabel(GitHubModel):
-    """Label"""
+class Group(GitHubModel):
+    """Group"""
 
-    color: str = Field(
-        description="6-character hex code, without the leading #, identifying the color"
+    schemas: list[Literal["urn:ietf:params:scim:schemas:core:2.0:Group"]] = Field(
+        description="The URIs that are used to indicate the namespaces of the SCIM schemas."
     )
-    default: bool = Field()
-    description: Union[str, None] = Field()
-    id: int = Field()
-    name: str = Field(description="The name of the label.")
-    node_id: str = Field()
-    url: str = Field(description="URL for the label")
+    external_id: str = Field(
+        alias="externalId",
+        description="A unique identifier for the resource as defined by the provisioning client.",
+    )
+    display_name: str = Field(
+        alias="displayName", description="A human-readable name for a security group."
+    )
+    members: Missing[list[GroupPropMembersItems]] = Field(
+        default=UNSET, description="The group members."
+    )
 
 
-model_rebuild(WebhooksLabel)
+class GroupPropMembersItems(GitHubModel):
+    """GroupPropMembersItems"""
 
-__all__ = ("WebhooksLabel",)
+    value: str = Field(description="The local unique identifier for the member")
+    display_name: str = Field(
+        alias="displayName", description="The display name associated with the member"
+    )
+
+
+model_rebuild(Group)
+model_rebuild(GroupPropMembersItems)
+
+__all__ = (
+    "Group",
+    "GroupPropMembersItems",
+)

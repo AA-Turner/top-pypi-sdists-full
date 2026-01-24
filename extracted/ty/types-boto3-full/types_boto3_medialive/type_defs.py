@@ -3,7 +3,7 @@ Type annotations for medialive service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_medialive/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -52,6 +53,8 @@ from .literals import (
     Av1LookAheadRateControlType,
     Av1RateControlModeType,
     Av1SceneChangeDetectType,
+    Av1SpatialAqType,
+    Av1TemporalAqType,
     AvailBlankingStateType,
     BandwidthReductionFilterStrengthType,
     BandwidthReductionPostFilterSharpeningType,
@@ -65,6 +68,7 @@ from .literals import (
     BurnInShadowColorType,
     BurnInTeletextGridControlType,
     CdiInputResolutionType,
+    ChannelAlertStateType,
     ChannelClassType,
     ChannelPipelineIdToRestartType,
     ChannelPlacementGroupStateType,
@@ -73,6 +77,7 @@ from .literals import (
     CloudWatchAlarmTemplateStatisticType,
     CloudWatchAlarmTemplateTargetResourceTypeType,
     CloudWatchAlarmTemplateTreatMissingDataType,
+    ClusterAlertStateType,
     ClusterStateType,
     CmafId3BehaviorType,
     CmafIngestSegmentLengthUnitsType,
@@ -234,6 +239,7 @@ from .literals import (
     InputTimecodeSourceType,
     InputTypeType,
     LastFrameClippingBehaviorType,
+    LinkedChannelTypeType,
     LogLevelType,
     M2tsAbsentInputAudioBehaviorType,
     M2tsAribCaptionsPidControlType,
@@ -271,6 +277,7 @@ from .literals import (
     Mpeg2SubGopLengthType,
     Mpeg2TimecodeInsertionBehaviorType,
     MsSmoothH265PackagingTypeType,
+    MultiplexAlertStateType,
     MultiplexStateType,
     NetworkInputServerValidationType,
     NetworkInterfaceModeType,
@@ -283,6 +290,7 @@ from .literals import (
     NodeRoleType,
     NodeStateType,
     PipelineIdType,
+    PipelineLockingMethodType,
     PreferredChannelPipelineType,
     RebootInputDeviceForceType,
     ReservationAutomaticRenewalType,
@@ -294,6 +302,7 @@ from .literals import (
     ReservationSpecialFeatureType,
     ReservationStateType,
     ReservationVideoQualityType,
+    RouterEncryptionTypeType,
     RtmpCacheFullBehaviorType,
     RtmpCaptionDataType,
     RtmpOutputCertificateModeType,
@@ -345,12 +354,6 @@ from .literals import (
     WebvttDestinationStyleControlType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -437,6 +440,7 @@ __all__ = (
     "CaptionSelectorTypeDef",
     "CaptionSelectorUnionTypeDef",
     "CdiInputSpecificationTypeDef",
+    "ChannelAlertTypeDef",
     "ChannelEgressEndpointTypeDef",
     "ChannelEngineVersionRequestTypeDef",
     "ChannelEngineVersionResponseTypeDef",
@@ -445,6 +449,7 @@ __all__ = (
     "ClaimDeviceRequestTypeDef",
     "CloudWatchAlarmTemplateGroupSummaryTypeDef",
     "CloudWatchAlarmTemplateSummaryTypeDef",
+    "ClusterAlertTypeDef",
     "ClusterNetworkSettingsCreateRequestTypeDef",
     "ClusterNetworkSettingsTypeDef",
     "ClusterNetworkSettingsUpdateRequestTypeDef",
@@ -536,6 +541,7 @@ __all__ = (
     "DescribeClusterRequestWaitTypeDef",
     "DescribeClusterResponseTypeDef",
     "DescribeClusterSummaryTypeDef",
+    "DescribeFollowerChannelSettingsTypeDef",
     "DescribeInputDeviceRequestTypeDef",
     "DescribeInputDeviceResponseTypeDef",
     "DescribeInputDeviceThumbnailRequestTypeDef",
@@ -547,6 +553,7 @@ __all__ = (
     "DescribeInputResponseTypeDef",
     "DescribeInputSecurityGroupRequestTypeDef",
     "DescribeInputSecurityGroupResponseTypeDef",
+    "DescribeLinkedChannelSettingsTypeDef",
     "DescribeMultiplexProgramRequestTypeDef",
     "DescribeMultiplexProgramResponseTypeDef",
     "DescribeMultiplexRequestTypeDef",
@@ -565,6 +572,7 @@ __all__ = (
     "DescribeNodeSummaryTypeDef",
     "DescribeOfferingRequestTypeDef",
     "DescribeOfferingResponseTypeDef",
+    "DescribePrimaryChannelSettingsTypeDef",
     "DescribeReservationRequestTypeDef",
     "DescribeReservationResponseTypeDef",
     "DescribeScheduleRequestPaginateTypeDef",
@@ -600,6 +608,7 @@ __all__ = (
     "FixedModeScheduleActionStartSettingsTypeDef",
     "Fmp4HlsSettingsTypeDef",
     "FollowModeScheduleActionStartSettingsTypeDef",
+    "FollowerChannelSettingsTypeDef",
     "FrameCaptureCdnSettingsTypeDef",
     "FrameCaptureGroupSettingsTypeDef",
     "FrameCaptureOutputSettingsTypeDef",
@@ -619,7 +628,6 @@ __all__ = (
     "GetSignalMapRequestWaitExtraTypeDef",
     "GetSignalMapRequestWaitTypeDef",
     "GetSignalMapResponseTypeDef",
-    "GlobalConfigurationOutputTypeDef",
     "GlobalConfigurationTypeDef",
     "H264ColorSpaceSettingsOutputTypeDef",
     "H264ColorSpaceSettingsTypeDef",
@@ -697,6 +705,10 @@ __all__ = (
     "IpPoolTypeDef",
     "IpPoolUpdateRequestTypeDef",
     "KeyProviderSettingsTypeDef",
+    "LinkedChannelSettingsTypeDef",
+    "ListAlertsRequestPaginateTypeDef",
+    "ListAlertsRequestTypeDef",
+    "ListAlertsResponseTypeDef",
     "ListChannelPlacementGroupsRequestPaginateTypeDef",
     "ListChannelPlacementGroupsRequestTypeDef",
     "ListChannelPlacementGroupsResponseTypeDef",
@@ -709,6 +721,9 @@ __all__ = (
     "ListCloudWatchAlarmTemplatesRequestPaginateTypeDef",
     "ListCloudWatchAlarmTemplatesRequestTypeDef",
     "ListCloudWatchAlarmTemplatesResponseTypeDef",
+    "ListClusterAlertsRequestPaginateTypeDef",
+    "ListClusterAlertsRequestTypeDef",
+    "ListClusterAlertsResponseTypeDef",
     "ListClustersRequestPaginateTypeDef",
     "ListClustersRequestTypeDef",
     "ListClustersResponseTypeDef",
@@ -730,6 +745,9 @@ __all__ = (
     "ListInputsRequestPaginateTypeDef",
     "ListInputsRequestTypeDef",
     "ListInputsResponseTypeDef",
+    "ListMultiplexAlertsRequestPaginateTypeDef",
+    "ListMultiplexAlertsRequestTypeDef",
+    "ListMultiplexAlertsResponseTypeDef",
     "ListMultiplexProgramsRequestPaginateTypeDef",
     "ListMultiplexProgramsRequestTypeDef",
     "ListMultiplexProgramsResponseTypeDef",
@@ -764,6 +782,7 @@ __all__ = (
     "MaintenanceUpdateSettingsTypeDef",
     "MediaConnectFlowRequestTypeDef",
     "MediaConnectFlowTypeDef",
+    "MediaPackageAdditionalDestinationsTypeDef",
     "MediaPackageGroupSettingsOutputTypeDef",
     "MediaPackageGroupSettingsTypeDef",
     "MediaPackageOutputDestinationSettingsTypeDef",
@@ -791,6 +810,7 @@ __all__ = (
     "MulticastSourceCreateRequestTypeDef",
     "MulticastSourceTypeDef",
     "MulticastSourceUpdateRequestTypeDef",
+    "MultiplexAlertTypeDef",
     "MultiplexContainerSettingsTypeDef",
     "MultiplexM2tsSettingsTypeDef",
     "MultiplexMediaConnectOutputDestinationSettingsTypeDef",
@@ -828,7 +848,6 @@ __all__ = (
     "OutputGroupSettingsTypeDef",
     "OutputGroupTypeDef",
     "OutputLocationRefTypeDef",
-    "OutputLockingSettingsOutputTypeDef",
     "OutputLockingSettingsTypeDef",
     "OutputSettingsOutputTypeDef",
     "OutputSettingsTypeDef",
@@ -838,7 +857,9 @@ __all__ = (
     "PauseStateScheduleActionSettingsTypeDef",
     "PauseStateScheduleActionSettingsUnionTypeDef",
     "PipelineDetailTypeDef",
+    "PipelineLockingSettingsTypeDef",
     "PipelinePauseStateSettingsTypeDef",
+    "PrimaryChannelSettingsTypeDef",
     "PurchaseOfferingRequestTypeDef",
     "PurchaseOfferingResponseTypeDef",
     "RebootInputDeviceRequestTypeDef",
@@ -854,6 +875,10 @@ __all__ = (
     "RouteCreateRequestTypeDef",
     "RouteTypeDef",
     "RouteUpdateRequestTypeDef",
+    "RouterDestinationSettingsTypeDef",
+    "RouterDestinationTypeDef",
+    "RouterInputSettingsTypeDef",
+    "RouterSettingsTypeDef",
     "RtmpGroupSettingsOutputTypeDef",
     "RtmpGroupSettingsTypeDef",
     "RtmpOutputSettingsTypeDef",
@@ -892,6 +917,7 @@ __all__ = (
     "Smpte2110ReceiverGroupSettingsTypeDef",
     "Smpte2110ReceiverGroupSettingsUnionTypeDef",
     "Smpte2110ReceiverGroupTypeDef",
+    "SpecialRouterSettingsTypeDef",
     "SrtCallerDecryptionRequestTypeDef",
     "SrtCallerDecryptionTypeDef",
     "SrtCallerSourceRequestTypeDef",
@@ -1198,7 +1224,7 @@ class BatchSuccessfulResultModelTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -1277,6 +1303,16 @@ class CdiInputSpecificationTypeDef(TypedDict):
     Resolution: NotRequired[CdiInputResolutionType]
 
 
+class ChannelAlertTypeDef(TypedDict):
+    AlertType: NotRequired[str]
+    ClearedTimestamp: NotRequired[datetime]
+    Id: NotRequired[str]
+    Message: NotRequired[str]
+    PipelineId: NotRequired[str]
+    SetTimestamp: NotRequired[datetime]
+    State: NotRequired[ChannelAlertStateType]
+
+
 class ChannelEgressEndpointTypeDef(TypedDict):
     SourceIp: NotRequired[str]
 
@@ -1309,10 +1345,10 @@ class MaintenanceStatusTypeDef(TypedDict):
 
 
 class VpcOutputSettingsDescriptionTypeDef(TypedDict):
-    AvailabilityZones: NotRequired[List[str]]
-    NetworkInterfaceIds: NotRequired[List[str]]
-    SecurityGroupIds: NotRequired[List[str]]
-    SubnetIds: NotRequired[List[str]]
+    AvailabilityZones: NotRequired[list[str]]
+    NetworkInterfaceIds: NotRequired[list[str]]
+    SecurityGroupIds: NotRequired[list[str]]
+    SubnetIds: NotRequired[list[str]]
 
 
 class ClaimDeviceRequestTypeDef(TypedDict):
@@ -1327,7 +1363,7 @@ class CloudWatchAlarmTemplateGroupSummaryTypeDef(TypedDict):
     TemplateCount: int
     Description: NotRequired[str]
     ModifiedAt: NotRequired[datetime]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class CloudWatchAlarmTemplateSummaryTypeDef(TypedDict):
@@ -1347,7 +1383,18 @@ class CloudWatchAlarmTemplateSummaryTypeDef(TypedDict):
     DatapointsToAlarm: NotRequired[int]
     Description: NotRequired[str]
     ModifiedAt: NotRequired[datetime]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
+
+
+class ClusterAlertTypeDef(TypedDict):
+    AlertType: NotRequired[str]
+    ChannelId: NotRequired[str]
+    ClearedTimestamp: NotRequired[datetime]
+    Id: NotRequired[str]
+    Message: NotRequired[str]
+    NodeId: NotRequired[str]
+    SetTimestamp: NotRequired[datetime]
+    State: NotRequired[ClusterAlertStateType]
 
 
 class InterfaceMappingCreateRequestTypeDef(TypedDict):
@@ -1521,7 +1568,7 @@ SdiSourceTypeDef = TypedDict(
     {
         "Arn": NotRequired[str],
         "Id": NotRequired[str],
-        "Inputs": NotRequired[List[str]],
+        "Inputs": NotRequired[list[str]],
         "Mode": NotRequired[SdiSourceModeType],
         "Name": NotRequired[str],
         "State": NotRequired[SdiSourceStateType],
@@ -1599,21 +1646,21 @@ class DeleteMultiplexProgramRequestTypeDef(TypedDict):
 
 
 class MultiplexProgramPacketIdentifiersMapOutputTypeDef(TypedDict):
-    AudioPids: NotRequired[List[int]]
-    DvbSubPids: NotRequired[List[int]]
+    AudioPids: NotRequired[list[int]]
+    DvbSubPids: NotRequired[list[int]]
     DvbTeletextPid: NotRequired[int]
     EtvPlatformPid: NotRequired[int]
     EtvSignalPid: NotRequired[int]
-    KlvDataPids: NotRequired[List[int]]
+    KlvDataPids: NotRequired[list[int]]
     PcrPid: NotRequired[int]
     PmtPid: NotRequired[int]
     PrivateMetadataPid: NotRequired[int]
-    Scte27Pids: NotRequired[List[int]]
+    Scte27Pids: NotRequired[list[int]]
     Scte35Pid: NotRequired[int]
     TimedMetadataPid: NotRequired[int]
     VideoPid: NotRequired[int]
     AribCaptionsPid: NotRequired[int]
-    DvbTeletextPids: NotRequired[List[int]]
+    DvbTeletextPids: NotRequired[list[int]]
     EcmPid: NotRequired[int]
     Smpte2038Pid: NotRequired[int]
 
@@ -1685,11 +1732,11 @@ class WaiterConfigTypeDef(TypedDict):
 
 class DescribeChannelPlacementGroupSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
-    Channels: NotRequired[List[str]]
+    Channels: NotRequired[list[str]]
     ClusterId: NotRequired[str]
     Id: NotRequired[str]
     Name: NotRequired[str]
-    Nodes: NotRequired[List[str]]
+    Nodes: NotRequired[list[str]]
     State: NotRequired[ChannelPlacementGroupStateType]
 
 
@@ -1699,6 +1746,11 @@ class DescribeChannelRequestTypeDef(TypedDict):
 
 class DescribeClusterRequestTypeDef(TypedDict):
     ClusterId: str
+
+
+class DescribeFollowerChannelSettingsTypeDef(TypedDict):
+    LinkedChannelType: NotRequired[LinkedChannelTypeType]
+    PrimaryChannelArn: NotRequired[str]
 
 
 class DescribeInputDeviceRequestTypeDef(TypedDict):
@@ -1718,7 +1770,7 @@ class InputDeviceHdSettingsTypeDef(TypedDict):
 
 
 class InputDeviceNetworkSettingsTypeDef(TypedDict):
-    DnsAddresses: NotRequired[List[str]]
+    DnsAddresses: NotRequired[list[str]]
     Gateway: NotRequired[str]
     IpAddress: NotRequired[str]
     IpScheme: NotRequired[InputDeviceIpSchemeType]
@@ -1750,6 +1802,11 @@ class DescribeInputSecurityGroupRequestTypeDef(TypedDict):
 
 class InputWhitelistRuleTypeDef(TypedDict):
     Cidr: NotRequired[str]
+
+
+class DescribePrimaryChannelSettingsTypeDef(TypedDict):
+    FollowingChannelArns: NotRequired[list[str]]
+    LinkedChannelType: NotRequired[LinkedChannelTypeType]
 
 
 class DescribeMultiplexProgramRequestTypeDef(TypedDict):
@@ -1855,7 +1912,7 @@ class EventBridgeRuleTemplateGroupSummaryTypeDef(TypedDict):
     TemplateCount: int
     Description: NotRequired[str]
     ModifiedAt: NotRequired[datetime]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class EventBridgeRuleTemplateSummaryTypeDef(TypedDict):
@@ -1868,7 +1925,7 @@ class EventBridgeRuleTemplateSummaryTypeDef(TypedDict):
     Name: str
     Description: NotRequired[str]
     ModifiedAt: NotRequired[datetime]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class InputLossFailoverSettingsTypeDef(TypedDict):
@@ -1901,6 +1958,11 @@ class FollowModeScheduleActionStartSettingsTypeDef(TypedDict):
     ReferenceActionName: str
 
 
+class FollowerChannelSettingsTypeDef(TypedDict):
+    LinkedChannelType: NotRequired[LinkedChannelTypeType]
+    PrimaryChannelArn: NotRequired[str]
+
+
 class FrameCaptureS3SettingsTypeDef(TypedDict):
     CannedAcl: NotRequired[S3CannedAclType]
 
@@ -1930,9 +1992,9 @@ class GetSignalMapRequestTypeDef(TypedDict):
 
 
 class H264ColorSpaceSettingsOutputTypeDef(TypedDict):
-    ColorSpacePassthroughSettings: NotRequired[Dict[str, Any]]
-    Rec601Settings: NotRequired[Dict[str, Any]]
-    Rec709Settings: NotRequired[Dict[str, Any]]
+    ColorSpacePassthroughSettings: NotRequired[dict[str, Any]]
+    Rec601Settings: NotRequired[dict[str, Any]]
+    Rec709Settings: NotRequired[dict[str, Any]]
 
 
 class H264ColorSpaceSettingsTypeDef(TypedDict):
@@ -2066,6 +2128,17 @@ class IpPoolUpdateRequestTypeDef(TypedDict):
     Cidr: NotRequired[str]
 
 
+class PrimaryChannelSettingsTypeDef(TypedDict):
+    LinkedChannelType: NotRequired[LinkedChannelTypeType]
+
+
+class ListAlertsRequestTypeDef(TypedDict):
+    ChannelId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    StateFilter: NotRequired[str]
+
+
 class ListChannelPlacementGroupsRequestTypeDef(TypedDict):
     ClusterId: str
     MaxResults: NotRequired[int]
@@ -2090,6 +2163,13 @@ class ListCloudWatchAlarmTemplatesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     Scope: NotRequired[str]
     SignalMapIdentifier: NotRequired[str]
+
+
+class ListClusterAlertsRequestTypeDef(TypedDict):
+    ClusterId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    StateFilter: NotRequired[str]
 
 
 class ListClustersRequestTypeDef(TypedDict):
@@ -2136,6 +2216,23 @@ class ListInputSecurityGroupsRequestTypeDef(TypedDict):
 class ListInputsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+
+class ListMultiplexAlertsRequestTypeDef(TypedDict):
+    MultiplexId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    StateFilter: NotRequired[str]
+
+
+class MultiplexAlertTypeDef(TypedDict):
+    AlertType: NotRequired[str]
+    ClearedTimestamp: NotRequired[datetime]
+    Id: NotRequired[str]
+    Message: NotRequired[str]
+    PipelineId: NotRequired[str]
+    SetTimestamp: NotRequired[datetime]
+    State: NotRequired[MultiplexAlertStateType]
 
 
 class ListMultiplexProgramsRequestTypeDef(TypedDict):
@@ -2203,7 +2300,7 @@ SdiSourceSummaryTypeDef = TypedDict(
     {
         "Arn": NotRequired[str],
         "Id": NotRequired[str],
-        "Inputs": NotRequired[List[str]],
+        "Inputs": NotRequired[list[str]],
         "Mode": NotRequired[SdiSourceModeType],
         "Name": NotRequired[str],
         "State": NotRequired[SdiSourceStateType],
@@ -2228,7 +2325,7 @@ class SignalMapSummaryTypeDef(TypedDict):
     Status: SignalMapStatusType
     Description: NotRequired[str]
     ModifiedAt: NotRequired[datetime]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -2267,6 +2364,8 @@ class MediaPackageOutputDestinationSettingsTypeDef(TypedDict):
     ChannelId: NotRequired[str]
     ChannelGroup: NotRequired[str]
     ChannelName: NotRequired[str]
+    ChannelEndpointId: NotRequired[str]
+    MediaPackageRegionName: NotRequired[str]
 
 
 class MediaPackageV2DestinationSettingsTypeDef(TypedDict):
@@ -2289,7 +2388,7 @@ class MotionGraphicsActivateScheduleActionSettingsTypeDef(TypedDict):
 
 
 class MotionGraphicsSettingsOutputTypeDef(TypedDict):
-    HtmlMotionGraphicsSettings: NotRequired[Dict[str, Any]]
+    HtmlMotionGraphicsSettings: NotRequired[dict[str, Any]]
 
 
 class MotionGraphicsSettingsTypeDef(TypedDict):
@@ -2411,7 +2510,7 @@ class SrtOutputDestinationSettingsTypeDef(TypedDict):
 
 
 class RtmpGroupSettingsOutputTypeDef(TypedDict):
-    AdMarkers: NotRequired[List[Literal["ON_CUE_POINT_SCTE35"]]]
+    AdMarkers: NotRequired[list[Literal["ON_CUE_POINT_SCTE35"]]]
     AuthenticationScheme: NotRequired[AuthenticationSchemeType]
     CacheFullBehavior: NotRequired[RtmpCacheFullBehaviorType]
     CacheLength: NotRequired[int]
@@ -2442,6 +2541,10 @@ class RtmpGroupSettingsTypeDef(TypedDict):
     IncludeFillerNalUnits: NotRequired[IncludeFillerNalUnitsType]
 
 
+class PipelineLockingSettingsTypeDef(TypedDict):
+    PipelineLockingMethod: NotRequired[PipelineLockingMethodType]
+
+
 class PipelinePauseStateSettingsTypeDef(TypedDict):
     PipelineId: PipelineIdType
 
@@ -2465,6 +2568,15 @@ class RouteUpdateRequestTypeDef(TypedDict):
     Gateway: NotRequired[str]
 
 
+class RouterDestinationSettingsTypeDef(TypedDict):
+    AvailabilityZoneName: str
+
+
+class RouterDestinationTypeDef(TypedDict):
+    AvailabilityZoneName: NotRequired[str]
+    RouterOutputArn: NotRequired[str]
+
+
 class Scte35InputScheduleActionSettingsTypeDef(TypedDict):
     Mode: Scte35InputModeType
     InputAttachmentNameReference: NotRequired[str]
@@ -2485,7 +2597,7 @@ class StaticImageDeactivateScheduleActionSettingsTypeDef(TypedDict):
 
 
 class StaticImageOutputDeactivateScheduleActionSettingsOutputTypeDef(TypedDict):
-    OutputNames: List[str]
+    OutputNames: list[str]
     FadeOut: NotRequired[int]
     Layer: NotRequired[int]
 
@@ -2505,6 +2617,10 @@ class SdiSourceMappingUpdateRequestTypeDef(TypedDict):
     CardNumber: NotRequired[int]
     ChannelNumber: NotRequired[int]
     SdiSource: NotRequired[str]
+
+
+class SpecialRouterSettingsTypeDef(TypedDict):
+    RouterArn: NotRequired[str]
 
 
 class SrtCallerDecryptionRequestTypeDef(TypedDict):
@@ -2650,6 +2766,10 @@ class AdditionalDestinationsTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
 
 
+class MediaPackageAdditionalDestinationsTypeDef(TypedDict):
+    Destination: OutputLocationRefTypeDef
+
+
 class MsSmoothGroupSettingsTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
     AcquisitionPointId: NotRequired[str]
@@ -2684,7 +2804,7 @@ class ArchiveCdnSettingsTypeDef(TypedDict):
 
 
 class AudioChannelMappingOutputTypeDef(TypedDict):
-    InputChannelLevels: List[InputChannelLevelTypeDef]
+    InputChannelLevels: list[InputChannelLevelTypeDef]
     OutputChannel: int
 
 
@@ -2699,7 +2819,7 @@ class AudioCodecSettingsOutputTypeDef(TypedDict):
     Eac3AtmosSettings: NotRequired[Eac3AtmosSettingsTypeDef]
     Eac3Settings: NotRequired[Eac3SettingsTypeDef]
     Mp2Settings: NotRequired[Mp2SettingsTypeDef]
-    PassThroughSettings: NotRequired[Dict[str, Any]]
+    PassThroughSettings: NotRequired[dict[str, Any]]
     WavSettings: NotRequired[WavSettingsTypeDef]
 
 
@@ -2798,7 +2918,7 @@ class StaticImageActivateScheduleActionSettingsTypeDef(TypedDict):
 
 class StaticImageOutputActivateScheduleActionSettingsOutputTypeDef(TypedDict):
     Image: InputLocationTypeDef
-    OutputNames: List[str]
+    OutputNames: list[str]
     Duration: NotRequired[int]
     FadeIn: NotRequired[int]
     FadeOut: NotRequired[int]
@@ -2830,7 +2950,7 @@ class StaticKeySettingsTypeDef(TypedDict):
 
 
 class AudioTrackSelectionOutputTypeDef(TypedDict):
-    Tracks: List[AudioTrackTypeDef]
+    Tracks: list[AudioTrackTypeDef]
     DolbyEDecode: NotRequired[AudioDolbyEDecodeTypeDef]
 
 
@@ -2840,10 +2960,10 @@ class AudioTrackSelectionTypeDef(TypedDict):
 
 
 class Av1ColorSpaceSettingsOutputTypeDef(TypedDict):
-    ColorSpacePassthroughSettings: NotRequired[Dict[str, Any]]
+    ColorSpacePassthroughSettings: NotRequired[dict[str, Any]]
     Hdr10Settings: NotRequired[Hdr10SettingsTypeDef]
-    Rec601Settings: NotRequired[Dict[str, Any]]
-    Rec709Settings: NotRequired[Dict[str, Any]]
+    Rec601Settings: NotRequired[dict[str, Any]]
+    Rec709Settings: NotRequired[dict[str, Any]]
 
 
 class Av1ColorSpaceSettingsTypeDef(TypedDict):
@@ -2854,11 +2974,12 @@ class Av1ColorSpaceSettingsTypeDef(TypedDict):
 
 
 class H265ColorSpaceSettingsOutputTypeDef(TypedDict):
-    ColorSpacePassthroughSettings: NotRequired[Dict[str, Any]]
-    DolbyVision81Settings: NotRequired[Dict[str, Any]]
+    ColorSpacePassthroughSettings: NotRequired[dict[str, Any]]
+    DolbyVision81Settings: NotRequired[dict[str, Any]]
     Hdr10Settings: NotRequired[Hdr10SettingsTypeDef]
-    Rec601Settings: NotRequired[Dict[str, Any]]
-    Rec709Settings: NotRequired[Dict[str, Any]]
+    Rec601Settings: NotRequired[dict[str, Any]]
+    Rec709Settings: NotRequired[dict[str, Any]]
+    Hlg2020Settings: NotRequired[dict[str, Any]]
 
 
 class H265ColorSpaceSettingsTypeDef(TypedDict):
@@ -2867,6 +2988,7 @@ class H265ColorSpaceSettingsTypeDef(TypedDict):
     Hdr10Settings: NotRequired[Hdr10SettingsTypeDef]
     Rec601Settings: NotRequired[Mapping[str, Any]]
     Rec709Settings: NotRequired[Mapping[str, Any]]
+    Hlg2020Settings: NotRequired[Mapping[str, Any]]
 
 
 class VideoSelectorColorSpaceSettingsTypeDef(TypedDict):
@@ -2886,30 +3008,30 @@ class AvailSettingsTypeDef(TypedDict):
 
 
 class BatchDeleteResponseTypeDef(TypedDict):
-    Failed: List[BatchFailedResultModelTypeDef]
-    Successful: List[BatchSuccessfulResultModelTypeDef]
+    Failed: list[BatchFailedResultModelTypeDef]
+    Successful: list[BatchSuccessfulResultModelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchStartResponseTypeDef(TypedDict):
-    Failed: List[BatchFailedResultModelTypeDef]
-    Successful: List[BatchSuccessfulResultModelTypeDef]
+    Failed: list[BatchFailedResultModelTypeDef]
+    Successful: list[BatchSuccessfulResultModelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchStopResponseTypeDef(TypedDict):
-    Failed: List[BatchFailedResultModelTypeDef]
-    Successful: List[BatchSuccessfulResultModelTypeDef]
+    Failed: list[BatchFailedResultModelTypeDef]
+    Successful: list[BatchSuccessfulResultModelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateChannelPlacementGroupResponseTypeDef(TypedDict):
     Arn: str
-    Channels: List[str]
+    Channels: list[str]
     ClusterId: str
     Id: str
     Name: str
-    Nodes: List[str]
+    Nodes: list[str]
     State: ChannelPlacementGroupStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2921,7 +3043,7 @@ class CreateCloudWatchAlarmTemplateGroupResponseTypeDef(TypedDict):
     Id: str
     ModifiedAt: datetime
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2939,7 +3061,7 @@ class CreateCloudWatchAlarmTemplateResponseTypeDef(TypedDict):
     Name: str
     Period: int
     Statistic: CloudWatchAlarmTemplateStatisticType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     TargetResourceType: CloudWatchAlarmTemplateTargetResourceTypeType
     Threshold: float
     TreatMissingData: CloudWatchAlarmTemplateTreatMissingDataType
@@ -2953,7 +3075,7 @@ class CreateEventBridgeRuleTemplateGroupResponseTypeDef(TypedDict):
     Id: str
     ModifiedAt: datetime
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2964,11 +3086,11 @@ class CreateNodeRegistrationScriptResponseTypeDef(TypedDict):
 
 class DeleteChannelPlacementGroupResponseTypeDef(TypedDict):
     Arn: str
-    Channels: List[str]
+    Channels: list[str]
     ClusterId: str
     Id: str
     Name: str
-    Nodes: List[str]
+    Nodes: list[str]
     State: ChannelPlacementGroupStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2980,11 +3102,11 @@ class DescribeAccountConfigurationResponseTypeDef(TypedDict):
 
 class DescribeChannelPlacementGroupResponseTypeDef(TypedDict):
     Arn: str
-    Channels: List[str]
+    Channels: list[str]
     ClusterId: str
     Id: str
     Name: str
-    Nodes: List[str]
+    Nodes: list[str]
     State: ChannelPlacementGroupStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3009,7 +3131,7 @@ class GetCloudWatchAlarmTemplateGroupResponseTypeDef(TypedDict):
     Id: str
     ModifiedAt: datetime
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3027,7 +3149,7 @@ class GetCloudWatchAlarmTemplateResponseTypeDef(TypedDict):
     Name: str
     Period: int
     Statistic: CloudWatchAlarmTemplateStatisticType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     TargetResourceType: CloudWatchAlarmTemplateTargetResourceTypeType
     Threshold: float
     TreatMissingData: CloudWatchAlarmTemplateTreatMissingDataType
@@ -3041,12 +3163,12 @@ class GetEventBridgeRuleTemplateGroupResponseTypeDef(TypedDict):
     Id: str
     ModifiedAt: datetime
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3057,11 +3179,11 @@ class UpdateAccountConfigurationResponseTypeDef(TypedDict):
 
 class UpdateChannelPlacementGroupResponseTypeDef(TypedDict):
     Arn: str
-    Channels: List[str]
+    Channels: list[str]
     ClusterId: str
     Id: str
     Name: str
-    Nodes: List[str]
+    Nodes: list[str]
     State: ChannelPlacementGroupStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3073,7 +3195,7 @@ class UpdateCloudWatchAlarmTemplateGroupResponseTypeDef(TypedDict):
     Id: str
     ModifiedAt: datetime
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3091,7 +3213,7 @@ class UpdateCloudWatchAlarmTemplateResponseTypeDef(TypedDict):
     Name: str
     Period: int
     Statistic: CloudWatchAlarmTemplateStatisticType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     TargetResourceType: CloudWatchAlarmTemplateTargetResourceTypeType
     Threshold: float
     TreatMissingData: CloudWatchAlarmTemplateTreatMissingDataType
@@ -3105,16 +3227,8 @@ class UpdateEventBridgeRuleTemplateGroupResponseTypeDef(TypedDict):
     Id: str
     ModifiedAt: datetime
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class MediaPackageV2GroupSettingsOutputTypeDef(TypedDict):
-    CaptionLanguageMappings: NotRequired[List[CaptionLanguageMappingTypeDef]]
-
-
-class MediaPackageV2GroupSettingsTypeDef(TypedDict):
-    CaptionLanguageMappings: NotRequired[Sequence[CaptionLanguageMappingTypeDef]]
 
 
 class TeletextSourceSettingsTypeDef(TypedDict):
@@ -3122,8 +3236,14 @@ class TeletextSourceSettingsTypeDef(TypedDict):
     PageNumber: NotRequired[str]
 
 
+class ListAlertsResponseTypeDef(TypedDict):
+    Alerts: list[ChannelAlertTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListVersionsResponseTypeDef(TypedDict):
-    Versions: List[ChannelEngineVersionResponseTypeDef]
+    Versions: list[ChannelEngineVersionResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3137,13 +3257,19 @@ class PipelineDetailTypeDef(TypedDict):
 
 
 class ListCloudWatchAlarmTemplateGroupsResponseTypeDef(TypedDict):
-    CloudWatchAlarmTemplateGroups: List[CloudWatchAlarmTemplateGroupSummaryTypeDef]
+    CloudWatchAlarmTemplateGroups: list[CloudWatchAlarmTemplateGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListCloudWatchAlarmTemplatesResponseTypeDef(TypedDict):
-    CloudWatchAlarmTemplates: List[CloudWatchAlarmTemplateSummaryTypeDef]
+    CloudWatchAlarmTemplates: list[CloudWatchAlarmTemplateSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListClusterAlertsResponseTypeDef(TypedDict):
+    Alerts: list[ClusterAlertTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3155,7 +3281,7 @@ class ClusterNetworkSettingsCreateRequestTypeDef(TypedDict):
 
 class ClusterNetworkSettingsTypeDef(TypedDict):
     DefaultRoute: NotRequired[str]
-    InterfaceMappings: NotRequired[List[InterfaceMappingTypeDef]]
+    InterfaceMappings: NotRequired[list[InterfaceMappingTypeDef]]
 
 
 class ClusterNetworkSettingsUpdateRequestTypeDef(TypedDict):
@@ -3164,7 +3290,7 @@ class ClusterNetworkSettingsUpdateRequestTypeDef(TypedDict):
 
 
 class ColorCorrectionSettingsOutputTypeDef(TypedDict):
-    GlobalColorCorrections: List[ColorCorrectionTypeDef]
+    GlobalColorCorrections: list[ColorCorrectionTypeDef]
 
 
 class ColorCorrectionSettingsTypeDef(TypedDict):
@@ -3185,13 +3311,13 @@ class CreateEventBridgeRuleTemplateResponseTypeDef(TypedDict):
     Arn: str
     CreatedAt: datetime
     Description: str
-    EventTargets: List[EventBridgeRuleTemplateTargetTypeDef]
+    EventTargets: list[EventBridgeRuleTemplateTargetTypeDef]
     EventType: EventBridgeRuleTemplateEventTypeType
     GroupId: str
     Id: str
     ModifiedAt: datetime
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3199,13 +3325,13 @@ class GetEventBridgeRuleTemplateResponseTypeDef(TypedDict):
     Arn: str
     CreatedAt: datetime
     Description: str
-    EventTargets: List[EventBridgeRuleTemplateTargetTypeDef]
+    EventTargets: list[EventBridgeRuleTemplateTargetTypeDef]
     EventType: EventBridgeRuleTemplateEventTypeType
     GroupId: str
     Id: str
     ModifiedAt: datetime
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3222,13 +3348,13 @@ class UpdateEventBridgeRuleTemplateResponseTypeDef(TypedDict):
     Arn: str
     CreatedAt: datetime
     Description: str
-    EventTargets: List[EventBridgeRuleTemplateTargetTypeDef]
+    EventTargets: list[EventBridgeRuleTemplateTargetTypeDef]
     EventType: EventBridgeRuleTemplateEventTypeType
     GroupId: str
     Id: str
     ModifiedAt: datetime
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3261,54 +3387,54 @@ class CreateNetworkRequestTypeDef(TypedDict):
 
 class CreateNetworkResponseTypeDef(TypedDict):
     Arn: str
-    AssociatedClusterIds: List[str]
+    AssociatedClusterIds: list[str]
     Id: str
-    IpPools: List[IpPoolTypeDef]
+    IpPools: list[IpPoolTypeDef]
     Name: str
-    Routes: List[RouteTypeDef]
+    Routes: list[RouteTypeDef]
     State: NetworkStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DeleteNetworkResponseTypeDef(TypedDict):
     Arn: str
-    AssociatedClusterIds: List[str]
+    AssociatedClusterIds: list[str]
     Id: str
-    IpPools: List[IpPoolTypeDef]
+    IpPools: list[IpPoolTypeDef]
     Name: str
-    Routes: List[RouteTypeDef]
+    Routes: list[RouteTypeDef]
     State: NetworkStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeNetworkResponseTypeDef(TypedDict):
     Arn: str
-    AssociatedClusterIds: List[str]
+    AssociatedClusterIds: list[str]
     Id: str
-    IpPools: List[IpPoolTypeDef]
+    IpPools: list[IpPoolTypeDef]
     Name: str
-    Routes: List[RouteTypeDef]
+    Routes: list[RouteTypeDef]
     State: NetworkStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeNetworkSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
-    AssociatedClusterIds: NotRequired[List[str]]
+    AssociatedClusterIds: NotRequired[list[str]]
     Id: NotRequired[str]
-    IpPools: NotRequired[List[IpPoolTypeDef]]
+    IpPools: NotRequired[list[IpPoolTypeDef]]
     Name: NotRequired[str]
-    Routes: NotRequired[List[RouteTypeDef]]
+    Routes: NotRequired[list[RouteTypeDef]]
     State: NotRequired[NetworkStateType]
 
 
 class UpdateNetworkResponseTypeDef(TypedDict):
     Arn: str
-    AssociatedClusterIds: List[str]
+    AssociatedClusterIds: list[str]
     Id: str
-    IpPools: List[IpPoolTypeDef]
+    IpPools: list[IpPoolTypeDef]
     Name: str
-    Routes: List[RouteTypeDef]
+    Routes: list[RouteTypeDef]
     State: NetworkStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3333,91 +3459,91 @@ class CreateNodeRequestTypeDef(TypedDict):
 
 class CreateNodeResponseTypeDef(TypedDict):
     Arn: str
-    ChannelPlacementGroups: List[str]
+    ChannelPlacementGroups: list[str]
     ClusterId: str
     ConnectionState: NodeConnectionStateType
     Id: str
     InstanceArn: str
     Name: str
-    NodeInterfaceMappings: List[NodeInterfaceMappingTypeDef]
+    NodeInterfaceMappings: list[NodeInterfaceMappingTypeDef]
     Role: NodeRoleType
     State: NodeStateType
-    SdiSourceMappings: List[SdiSourceMappingTypeDef]
+    SdiSourceMappings: list[SdiSourceMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DeleteNodeResponseTypeDef(TypedDict):
     Arn: str
-    ChannelPlacementGroups: List[str]
+    ChannelPlacementGroups: list[str]
     ClusterId: str
     ConnectionState: NodeConnectionStateType
     Id: str
     InstanceArn: str
     Name: str
-    NodeInterfaceMappings: List[NodeInterfaceMappingTypeDef]
+    NodeInterfaceMappings: list[NodeInterfaceMappingTypeDef]
     Role: NodeRoleType
     State: NodeStateType
-    SdiSourceMappings: List[SdiSourceMappingTypeDef]
+    SdiSourceMappings: list[SdiSourceMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeNodeResponseTypeDef(TypedDict):
     Arn: str
-    ChannelPlacementGroups: List[str]
+    ChannelPlacementGroups: list[str]
     ClusterId: str
     ConnectionState: NodeConnectionStateType
     Id: str
     InstanceArn: str
     Name: str
-    NodeInterfaceMappings: List[NodeInterfaceMappingTypeDef]
+    NodeInterfaceMappings: list[NodeInterfaceMappingTypeDef]
     Role: NodeRoleType
     State: NodeStateType
-    SdiSourceMappings: List[SdiSourceMappingTypeDef]
+    SdiSourceMappings: list[SdiSourceMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeNodeSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
-    ChannelPlacementGroups: NotRequired[List[str]]
+    ChannelPlacementGroups: NotRequired[list[str]]
     ClusterId: NotRequired[str]
     ConnectionState: NotRequired[NodeConnectionStateType]
     Id: NotRequired[str]
     InstanceArn: NotRequired[str]
     ManagedInstanceId: NotRequired[str]
     Name: NotRequired[str]
-    NodeInterfaceMappings: NotRequired[List[NodeInterfaceMappingTypeDef]]
+    NodeInterfaceMappings: NotRequired[list[NodeInterfaceMappingTypeDef]]
     Role: NotRequired[NodeRoleType]
     State: NotRequired[NodeStateType]
-    SdiSourceMappings: NotRequired[List[SdiSourceMappingTypeDef]]
+    SdiSourceMappings: NotRequired[list[SdiSourceMappingTypeDef]]
 
 
 class UpdateNodeResponseTypeDef(TypedDict):
     Arn: str
-    ChannelPlacementGroups: List[str]
+    ChannelPlacementGroups: list[str]
     ClusterId: str
     ConnectionState: NodeConnectionStateType
     Id: str
     InstanceArn: str
     Name: str
-    NodeInterfaceMappings: List[NodeInterfaceMappingTypeDef]
+    NodeInterfaceMappings: list[NodeInterfaceMappingTypeDef]
     Role: NodeRoleType
     State: NodeStateType
-    SdiSourceMappings: List[SdiSourceMappingTypeDef]
+    SdiSourceMappings: list[SdiSourceMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateNodeStateResponseTypeDef(TypedDict):
     Arn: str
-    ChannelPlacementGroups: List[str]
+    ChannelPlacementGroups: list[str]
     ClusterId: str
     ConnectionState: NodeConnectionStateType
     Id: str
     InstanceArn: str
     Name: str
-    NodeInterfaceMappings: List[NodeInterfaceMappingTypeDef]
+    NodeInterfaceMappings: list[NodeInterfaceMappingTypeDef]
     Role: NodeRoleType
     State: NodeStateType
-    SdiSourceMappings: List[SdiSourceMappingTypeDef]
+    SdiSourceMappings: list[SdiSourceMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3475,7 +3601,7 @@ class DeleteReservationResponseTypeDef(TypedDict):
     ResourceSpecification: ReservationResourceSpecificationTypeDef
     Start: str
     State: ReservationStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     UsagePrice: float
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3513,7 +3639,7 @@ class DescribeReservationResponseTypeDef(TypedDict):
     ResourceSpecification: ReservationResourceSpecificationTypeDef
     Start: str
     State: ReservationStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     UsagePrice: float
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3550,7 +3676,7 @@ class ReservationTypeDef(TypedDict):
     ResourceSpecification: NotRequired[ReservationResourceSpecificationTypeDef]
     Start: NotRequired[str]
     State: NotRequired[ReservationStateType]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     UsagePrice: NotRequired[float]
 
 
@@ -3670,7 +3796,7 @@ class GetSignalMapRequestWaitTypeDef(TypedDict):
 
 
 class ListChannelPlacementGroupsResponseTypeDef(TypedDict):
-    ChannelPlacementGroups: List[DescribeChannelPlacementGroupSummaryTypeDef]
+    ChannelPlacementGroups: list[DescribeChannelPlacementGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3678,24 +3804,35 @@ class ListChannelPlacementGroupsResponseTypeDef(TypedDict):
 class DescribeInputSecurityGroupResponseTypeDef(TypedDict):
     Arn: str
     Id: str
-    Inputs: List[str]
+    Inputs: list[str]
     State: InputSecurityGroupStateType
-    Tags: Dict[str, str]
-    WhitelistRules: List[InputWhitelistRuleTypeDef]
+    Tags: dict[str, str]
+    WhitelistRules: list[InputWhitelistRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class InputSecurityGroupTypeDef(TypedDict):
     Arn: NotRequired[str]
     Id: NotRequired[str]
-    Inputs: NotRequired[List[str]]
+    Inputs: NotRequired[list[str]]
     State: NotRequired[InputSecurityGroupStateType]
-    Tags: NotRequired[Dict[str, str]]
-    WhitelistRules: NotRequired[List[InputWhitelistRuleTypeDef]]
+    Tags: NotRequired[dict[str, str]]
+    WhitelistRules: NotRequired[list[InputWhitelistRuleTypeDef]]
+
+
+class DescribeLinkedChannelSettingsTypeDef(TypedDict):
+    FollowerChannelSettings: NotRequired[DescribeFollowerChannelSettingsTypeDef]
+    PrimaryChannelSettings: NotRequired[DescribePrimaryChannelSettingsTypeDef]
 
 
 class DescribeScheduleRequestPaginateTypeDef(TypedDict):
     ChannelId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAlertsRequestPaginateTypeDef(TypedDict):
+    ChannelId: str
+    StateFilter: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -3718,6 +3855,12 @@ class ListCloudWatchAlarmTemplatesRequestPaginateTypeDef(TypedDict):
     GroupIdentifier: NotRequired[str]
     Scope: NotRequired[str]
     SignalMapIdentifier: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListClusterAlertsRequestPaginateTypeDef(TypedDict):
+    ClusterId: str
+    StateFilter: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -3750,6 +3893,12 @@ class ListInputSecurityGroupsRequestPaginateTypeDef(TypedDict):
 
 
 class ListInputsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListMultiplexAlertsRequestPaginateTypeDef(TypedDict):
+    MultiplexId: str
+    StateFilter: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -3858,24 +4007,14 @@ class M2tsSettingsTypeDef(TypedDict):
     Scte35PrerollPullupMilliseconds: NotRequired[float]
 
 
-class OutputLockingSettingsOutputTypeDef(TypedDict):
-    EpochLockingSettings: NotRequired[EpochLockingSettingsTypeDef]
-    PipelineLockingSettings: NotRequired[Dict[str, Any]]
-
-
-class OutputLockingSettingsTypeDef(TypedDict):
-    EpochLockingSettings: NotRequired[EpochLockingSettingsTypeDef]
-    PipelineLockingSettings: NotRequired[Mapping[str, Any]]
-
-
 class ListEventBridgeRuleTemplateGroupsResponseTypeDef(TypedDict):
-    EventBridgeRuleTemplateGroups: List[EventBridgeRuleTemplateGroupSummaryTypeDef]
+    EventBridgeRuleTemplateGroups: list[EventBridgeRuleTemplateGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListEventBridgeRuleTemplatesResponseTypeDef(TypedDict):
-    EventBridgeRuleTemplates: List[EventBridgeRuleTemplateSummaryTypeDef]
+    EventBridgeRuleTemplates: list[EventBridgeRuleTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3889,7 +4028,7 @@ class FailoverConditionSettingsTypeDef(TypedDict):
 class ScheduleActionStartSettingsOutputTypeDef(TypedDict):
     FixedModeScheduleActionStartSettings: NotRequired[FixedModeScheduleActionStartSettingsTypeDef]
     FollowModeScheduleActionStartSettings: NotRequired[FollowModeScheduleActionStartSettingsTypeDef]
-    ImmediateModeScheduleActionStartSettings: NotRequired[Dict[str, Any]]
+    ImmediateModeScheduleActionStartSettings: NotRequired[dict[str, Any]]
 
 
 class ScheduleActionStartSettingsTypeDef(TypedDict):
@@ -3943,7 +4082,7 @@ class InputDestinationTypeDef(TypedDict):
     Url: NotRequired[str]
     Vpc: NotRequired[InputDestinationVpcTypeDef]
     Network: NotRequired[str]
-    NetworkRoutes: NotRequired[List[InputDestinationRouteTypeDef]]
+    NetworkRoutes: NotRequired[list[InputDestinationRouteTypeDef]]
 
 
 class InputDeviceConfigurableSettingsTypeDef(TypedDict):
@@ -3968,13 +4107,13 @@ class InputDeviceUhdSettingsTypeDef(TypedDict):
     LatencyMs: NotRequired[int]
     Codec: NotRequired[InputDeviceCodecType]
     MediaconnectSettings: NotRequired[InputDeviceMediaConnectSettingsTypeDef]
-    AudioChannelPairs: NotRequired[List[InputDeviceUhdAudioChannelPairConfigTypeDef]]
+    AudioChannelPairs: NotRequired[list[InputDeviceUhdAudioChannelPairConfigTypeDef]]
     InputResolution: NotRequired[str]
 
 
 class Smpte2110ReceiverGroupSdpSettingsOutputTypeDef(TypedDict):
-    AncillarySdps: NotRequired[List[InputSdpLocationTypeDef]]
-    AudioSdps: NotRequired[List[InputSdpLocationTypeDef]]
+    AncillarySdps: NotRequired[list[InputSdpLocationTypeDef]]
+    AudioSdps: NotRequired[list[InputSdpLocationTypeDef]]
     VideoSdp: NotRequired[InputSdpLocationTypeDef]
 
 
@@ -3984,26 +4123,37 @@ class Smpte2110ReceiverGroupSdpSettingsTypeDef(TypedDict):
     VideoSdp: NotRequired[InputSdpLocationTypeDef]
 
 
+class LinkedChannelSettingsTypeDef(TypedDict):
+    FollowerChannelSettings: NotRequired[FollowerChannelSettingsTypeDef]
+    PrimaryChannelSettings: NotRequired[PrimaryChannelSettingsTypeDef]
+
+
 class ListInputDeviceTransfersResponseTypeDef(TypedDict):
-    InputDeviceTransfers: List[TransferringInputDeviceSummaryTypeDef]
+    InputDeviceTransfers: list[TransferringInputDeviceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListMultiplexAlertsResponseTypeDef(TypedDict):
+    Alerts: list[MultiplexAlertTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListMultiplexProgramsResponseTypeDef(TypedDict):
-    MultiplexPrograms: List[MultiplexProgramSummaryTypeDef]
+    MultiplexPrograms: list[MultiplexProgramSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSdiSourcesResponseTypeDef(TypedDict):
-    SdiSources: List[SdiSourceSummaryTypeDef]
+    SdiSources: list[SdiSourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSignalMapsResponseTypeDef(TypedDict):
-    SignalMaps: List[SignalMapSummaryTypeDef]
+    SignalMaps: list[SignalMapSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -4018,9 +4168,9 @@ class MediaPackageOutputSettingsTypeDef(TypedDict):
 
 
 class MediaResourceTypeDef(TypedDict):
-    Destinations: NotRequired[List[MediaResourceNeighborTypeDef]]
+    Destinations: NotRequired[list[MediaResourceNeighborTypeDef]]
     Name: NotRequired[str]
-    Sources: NotRequired[List[MediaResourceNeighborTypeDef]]
+    Sources: NotRequired[list[MediaResourceNeighborTypeDef]]
 
 
 class MotionGraphicsConfigurationOutputTypeDef(TypedDict):
@@ -4044,7 +4194,7 @@ class MulticastSettingsCreateRequestTypeDef(TypedDict):
 
 
 class MulticastSettingsTypeDef(TypedDict):
-    Sources: NotRequired[List[MulticastSourceTypeDef]]
+    Sources: NotRequired[list[MulticastSourceTypeDef]]
 
 
 class MulticastSettingsUpdateRequestTypeDef(TypedDict):
@@ -4066,14 +4216,14 @@ MultiplexProgramPacketIdentifiersMapUnionTypeDef = Union[
 
 class MultiplexSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
-    AvailabilityZones: NotRequired[List[str]]
+    AvailabilityZones: NotRequired[list[str]]
     Id: NotRequired[str]
     MultiplexSettings: NotRequired[MultiplexSettingsSummaryTypeDef]
     Name: NotRequired[str]
     PipelinesRunningCount: NotRequired[int]
     ProgramCount: NotRequired[int]
     State: NotRequired[MultiplexStateType]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class MultiplexVideoSettingsTypeDef(TypedDict):
@@ -4089,11 +4239,11 @@ class NielsenWatermarksSettingsTypeDef(TypedDict):
 
 class OutputDestinationOutputTypeDef(TypedDict):
     Id: NotRequired[str]
-    MediaPackageSettings: NotRequired[List[MediaPackageOutputDestinationSettingsTypeDef]]
+    MediaPackageSettings: NotRequired[list[MediaPackageOutputDestinationSettingsTypeDef]]
     MultiplexSettings: NotRequired[MultiplexProgramChannelDestinationSettingsTypeDef]
-    Settings: NotRequired[List[OutputDestinationSettingsTypeDef]]
-    SrtSettings: NotRequired[List[SrtOutputDestinationSettingsTypeDef]]
-    LogicalInterfaceNames: NotRequired[List[str]]
+    Settings: NotRequired[list[OutputDestinationSettingsTypeDef]]
+    SrtSettings: NotRequired[list[SrtOutputDestinationSettingsTypeDef]]
+    LogicalInterfaceNames: NotRequired[list[str]]
 
 
 class OutputDestinationTypeDef(TypedDict):
@@ -4105,8 +4255,13 @@ class OutputDestinationTypeDef(TypedDict):
     LogicalInterfaceNames: NotRequired[Sequence[str]]
 
 
+class OutputLockingSettingsTypeDef(TypedDict):
+    EpochLockingSettings: NotRequired[EpochLockingSettingsTypeDef]
+    PipelineLockingSettings: NotRequired[PipelineLockingSettingsTypeDef]
+
+
 class PauseStateScheduleActionSettingsOutputTypeDef(TypedDict):
-    Pipelines: NotRequired[List[PipelinePauseStateSettingsTypeDef]]
+    Pipelines: NotRequired[list[PipelinePauseStateSettingsTypeDef]]
 
 
 class PauseStateScheduleActionSettingsTypeDef(TypedDict):
@@ -4118,6 +4273,18 @@ class UpdateNetworkRequestTypeDef(TypedDict):
     IpPools: NotRequired[Sequence[IpPoolUpdateRequestTypeDef]]
     Name: NotRequired[str]
     Routes: NotRequired[Sequence[RouteUpdateRequestTypeDef]]
+
+
+class RouterSettingsTypeDef(TypedDict):
+    Destinations: NotRequired[Sequence[RouterDestinationSettingsTypeDef]]
+    EncryptionType: NotRequired[RouterEncryptionTypeType]
+    SecretArn: NotRequired[str]
+
+
+class RouterInputSettingsTypeDef(TypedDict):
+    Destinations: NotRequired[list[RouterDestinationTypeDef]]
+    EncryptionType: NotRequired[RouterEncryptionTypeType]
+    SecretArn: NotRequired[str]
 
 
 class Scte35SegmentationDescriptorTypeDef(TypedDict):
@@ -4166,7 +4333,7 @@ StaticImageOutputDeactivateScheduleActionSettingsUnionTypeDef = Union[
 
 class ThumbnailDetailTypeDef(TypedDict):
     PipelineId: NotRequired[str]
-    Thumbnails: NotRequired[List[ThumbnailTypeDef]]
+    Thumbnails: NotRequired[list[ThumbnailTypeDef]]
 
 
 class VideoSelectorSettingsTypeDef(TypedDict):
@@ -4187,11 +4354,11 @@ class CmafIngestGroupSettingsOutputTypeDef(TypedDict):
     Scte35NameModifier: NotRequired[str]
     Id3Behavior: NotRequired[CmafId3BehaviorType]
     Id3NameModifier: NotRequired[str]
-    CaptionLanguageMappings: NotRequired[List[CmafIngestCaptionLanguageMappingTypeDef]]
+    CaptionLanguageMappings: NotRequired[list[CmafIngestCaptionLanguageMappingTypeDef]]
     TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
     TimedMetadataId3Period: NotRequired[int]
     TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
-    AdditionalDestinations: NotRequired[List[AdditionalDestinationsTypeDef]]
+    AdditionalDestinations: NotRequired[list[AdditionalDestinationsTypeDef]]
 
 
 class CmafIngestGroupSettingsTypeDef(TypedDict):
@@ -4214,6 +4381,34 @@ class CmafIngestGroupSettingsTypeDef(TypedDict):
     AdditionalDestinations: NotRequired[Sequence[AdditionalDestinationsTypeDef]]
 
 
+class MediaPackageV2GroupSettingsOutputTypeDef(TypedDict):
+    CaptionLanguageMappings: NotRequired[list[CaptionLanguageMappingTypeDef]]
+    Id3Behavior: NotRequired[CmafId3BehaviorType]
+    KlvBehavior: NotRequired[CmafKLVBehaviorType]
+    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
+    Scte35Type: NotRequired[Scte35TypeType]
+    SegmentLength: NotRequired[int]
+    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
+    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
+    TimedMetadataId3Period: NotRequired[int]
+    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
+    AdditionalDestinations: NotRequired[list[MediaPackageAdditionalDestinationsTypeDef]]
+
+
+class MediaPackageV2GroupSettingsTypeDef(TypedDict):
+    CaptionLanguageMappings: NotRequired[Sequence[CaptionLanguageMappingTypeDef]]
+    Id3Behavior: NotRequired[CmafId3BehaviorType]
+    KlvBehavior: NotRequired[CmafKLVBehaviorType]
+    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
+    Scte35Type: NotRequired[Scte35TypeType]
+    SegmentLength: NotRequired[int]
+    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
+    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
+    TimedMetadataId3Period: NotRequired[int]
+    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
+    AdditionalDestinations: NotRequired[Sequence[MediaPackageAdditionalDestinationsTypeDef]]
+
+
 class ArchiveGroupSettingsTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
     ArchiveCdnSettings: NotRequired[ArchiveCdnSettingsTypeDef]
@@ -4221,7 +4416,7 @@ class ArchiveGroupSettingsTypeDef(TypedDict):
 
 
 class RemixSettingsOutputTypeDef(TypedDict):
-    ChannelMappings: List[AudioChannelMappingOutputTypeDef]
+    ChannelMappings: list[AudioChannelMappingOutputTypeDef]
     ChannelsIn: NotRequired[int]
     ChannelsOut: NotRequired[int]
 
@@ -4233,17 +4428,17 @@ class RemixSettingsTypeDef(TypedDict):
 
 
 class CaptionDestinationSettingsOutputTypeDef(TypedDict):
-    AribDestinationSettings: NotRequired[Dict[str, Any]]
+    AribDestinationSettings: NotRequired[dict[str, Any]]
     BurnInDestinationSettings: NotRequired[BurnInDestinationSettingsTypeDef]
     DvbSubDestinationSettings: NotRequired[DvbSubDestinationSettingsTypeDef]
     EbuTtDDestinationSettings: NotRequired[EbuTtDDestinationSettingsTypeDef]
-    EmbeddedDestinationSettings: NotRequired[Dict[str, Any]]
-    EmbeddedPlusScte20DestinationSettings: NotRequired[Dict[str, Any]]
-    RtmpCaptionInfoDestinationSettings: NotRequired[Dict[str, Any]]
-    Scte20PlusEmbeddedDestinationSettings: NotRequired[Dict[str, Any]]
-    Scte27DestinationSettings: NotRequired[Dict[str, Any]]
-    SmpteTtDestinationSettings: NotRequired[Dict[str, Any]]
-    TeletextDestinationSettings: NotRequired[Dict[str, Any]]
+    EmbeddedDestinationSettings: NotRequired[dict[str, Any]]
+    EmbeddedPlusScte20DestinationSettings: NotRequired[dict[str, Any]]
+    RtmpCaptionInfoDestinationSettings: NotRequired[dict[str, Any]]
+    Scte20PlusEmbeddedDestinationSettings: NotRequired[dict[str, Any]]
+    Scte27DestinationSettings: NotRequired[dict[str, Any]]
+    SmpteTtDestinationSettings: NotRequired[dict[str, Any]]
+    TeletextDestinationSettings: NotRequired[dict[str, Any]]
     TtmlDestinationSettings: NotRequired[TtmlDestinationSettingsTypeDef]
     WebvttDestinationSettings: NotRequired[WebvttDestinationSettingsTypeDef]
 
@@ -4307,6 +4502,8 @@ class Av1SettingsOutputTypeDef(TypedDict):
     Bitrate: NotRequired[int]
     RateControlMode: NotRequired[Av1RateControlModeType]
     MinBitrate: NotRequired[int]
+    SpatialAq: NotRequired[Av1SpatialAqType]
+    TemporalAq: NotRequired[Av1TemporalAqType]
 
 
 class Av1SettingsTypeDef(TypedDict):
@@ -4330,6 +4527,8 @@ class Av1SettingsTypeDef(TypedDict):
     Bitrate: NotRequired[int]
     RateControlMode: NotRequired[Av1RateControlModeType]
     MinBitrate: NotRequired[int]
+    SpatialAq: NotRequired[Av1SpatialAqType]
+    TemporalAq: NotRequired[Av1TemporalAqType]
 
 
 class AvailConfigurationTypeDef(TypedDict):
@@ -4337,19 +4536,9 @@ class AvailConfigurationTypeDef(TypedDict):
     Scte35SegmentationScope: NotRequired[Scte35SegmentationScopeType]
 
 
-class MediaPackageGroupSettingsOutputTypeDef(TypedDict):
-    Destination: OutputLocationRefTypeDef
-    MediapackageV2GroupSettings: NotRequired[MediaPackageV2GroupSettingsOutputTypeDef]
-
-
-class MediaPackageGroupSettingsTypeDef(TypedDict):
-    Destination: OutputLocationRefTypeDef
-    MediapackageV2GroupSettings: NotRequired[MediaPackageV2GroupSettingsTypeDef]
-
-
 class CaptionSelectorSettingsOutputTypeDef(TypedDict):
     AncillarySourceSettings: NotRequired[AncillarySourceSettingsTypeDef]
-    AribSourceSettings: NotRequired[Dict[str, Any]]
+    AribSourceSettings: NotRequired[dict[str, Any]]
     DvbSubSourceSettings: NotRequired[DvbSubSourceSettingsTypeDef]
     EmbeddedSourceSettings: NotRequired[EmbeddedSourceSettingsTypeDef]
     Scte20SourceSettings: NotRequired[Scte20SourceSettingsTypeDef]
@@ -4378,7 +4567,7 @@ class CreateClusterRequestTypeDef(TypedDict):
 
 class CreateClusterResponseTypeDef(TypedDict):
     Arn: str
-    ChannelIds: List[str]
+    ChannelIds: list[str]
     ClusterType: Literal["ON_PREMISES"]
     Id: str
     InstanceRoleArn: str
@@ -4390,7 +4579,7 @@ class CreateClusterResponseTypeDef(TypedDict):
 
 class DeleteClusterResponseTypeDef(TypedDict):
     Arn: str
-    ChannelIds: List[str]
+    ChannelIds: list[str]
     ClusterType: Literal["ON_PREMISES"]
     Id: str
     InstanceRoleArn: str
@@ -4402,7 +4591,7 @@ class DeleteClusterResponseTypeDef(TypedDict):
 
 class DescribeClusterResponseTypeDef(TypedDict):
     Arn: str
-    ChannelIds: List[str]
+    ChannelIds: list[str]
     ClusterType: Literal["ON_PREMISES"]
     Id: str
     InstanceRoleArn: str
@@ -4414,7 +4603,7 @@ class DescribeClusterResponseTypeDef(TypedDict):
 
 class DescribeClusterSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
-    ChannelIds: NotRequired[List[str]]
+    ChannelIds: NotRequired[list[str]]
     ClusterType: NotRequired[Literal["ON_PREMISES"]]
     Id: NotRequired[str]
     InstanceRoleArn: NotRequired[str]
@@ -4425,7 +4614,7 @@ class DescribeClusterSummaryTypeDef(TypedDict):
 
 class UpdateClusterResponseTypeDef(TypedDict):
     Arn: str
-    ChannelIds: List[str]
+    ChannelIds: list[str]
     ClusterType: Literal["ON_PREMISES"]
     Id: str
     Name: str
@@ -4441,25 +4630,25 @@ class UpdateClusterRequestTypeDef(TypedDict):
 
 
 class ListNetworksResponseTypeDef(TypedDict):
-    Networks: List[DescribeNetworkSummaryTypeDef]
+    Networks: list[DescribeNetworkSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListNodesResponseTypeDef(TypedDict):
-    Nodes: List[DescribeNodeSummaryTypeDef]
+    Nodes: list[DescribeNodeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListOfferingsResponseTypeDef(TypedDict):
-    Offerings: List[OfferingTypeDef]
+    Offerings: list[OfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListReservationsResponseTypeDef(TypedDict):
-    Reservations: List[ReservationTypeDef]
+    Reservations: list[ReservationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -4480,7 +4669,7 @@ class CreateInputSecurityGroupResponseTypeDef(TypedDict):
 
 
 class ListInputSecurityGroupsResponseTypeDef(TypedDict):
-    InputSecurityGroups: List[InputSecurityGroupTypeDef]
+    InputSecurityGroups: list[InputSecurityGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -4492,7 +4681,7 @@ class UpdateInputSecurityGroupResponseTypeDef(TypedDict):
 
 class ArchiveContainerSettingsOutputTypeDef(TypedDict):
     M2tsSettings: NotRequired[M2tsSettingsTypeDef]
-    RawSettings: NotRequired[Dict[str, Any]]
+    RawSettings: NotRequired[dict[str, Any]]
 
 
 class ArchiveContainerSettingsTypeDef(TypedDict):
@@ -4502,26 +4691,6 @@ class ArchiveContainerSettingsTypeDef(TypedDict):
 
 class UdpContainerSettingsTypeDef(TypedDict):
     M2tsSettings: NotRequired[M2tsSettingsTypeDef]
-
-
-class GlobalConfigurationOutputTypeDef(TypedDict):
-    InitialAudioGain: NotRequired[int]
-    InputEndAction: NotRequired[GlobalConfigurationInputEndActionType]
-    InputLossBehavior: NotRequired[InputLossBehaviorTypeDef]
-    OutputLockingMode: NotRequired[GlobalConfigurationOutputLockingModeType]
-    OutputTimingSource: NotRequired[GlobalConfigurationOutputTimingSourceType]
-    SupportLowFramerateInputs: NotRequired[GlobalConfigurationLowFramerateInputsType]
-    OutputLockingSettings: NotRequired[OutputLockingSettingsOutputTypeDef]
-
-
-class GlobalConfigurationTypeDef(TypedDict):
-    InitialAudioGain: NotRequired[int]
-    InputEndAction: NotRequired[GlobalConfigurationInputEndActionType]
-    InputLossBehavior: NotRequired[InputLossBehaviorTypeDef]
-    OutputLockingMode: NotRequired[GlobalConfigurationOutputLockingModeType]
-    OutputTimingSource: NotRequired[GlobalConfigurationOutputTimingSourceType]
-    SupportLowFramerateInputs: NotRequired[GlobalConfigurationLowFramerateInputsType]
-    OutputLockingSettings: NotRequired[OutputLockingSettingsTypeDef]
 
 
 class FailoverConditionTypeDef(TypedDict):
@@ -4745,7 +4914,7 @@ class Mpeg2SettingsTypeDef(TypedDict):
 class InputPrepareScheduleActionSettingsOutputTypeDef(TypedDict):
     InputAttachmentNameReference: NotRequired[str]
     InputClippingSettings: NotRequired[InputClippingSettingsTypeDef]
-    UrlPath: NotRequired[List[str]]
+    UrlPath: NotRequired[list[str]]
 
 
 class InputPrepareScheduleActionSettingsTypeDef(TypedDict):
@@ -4757,7 +4926,7 @@ class InputPrepareScheduleActionSettingsTypeDef(TypedDict):
 class InputSwitchScheduleActionSettingsOutputTypeDef(TypedDict):
     InputAttachmentNameReference: str
     InputClippingSettings: NotRequired[InputClippingSettingsTypeDef]
-    UrlPath: NotRequired[List[str]]
+    UrlPath: NotRequired[list[str]]
 
 
 class InputSwitchScheduleActionSettingsTypeDef(TypedDict):
@@ -4789,9 +4958,9 @@ DescribeInputDeviceResponseTypeDef = TypedDict(
         "SerialNumber": str,
         "Type": InputDeviceTypeType,
         "UhdDeviceSettings": InputDeviceUhdSettingsTypeDef,
-        "Tags": Dict[str, str],
+        "Tags": dict[str, str],
         "AvailabilityZone": str,
-        "MedialiveInputArns": List[str],
+        "MedialiveInputArns": list[str],
         "OutputType": InputDeviceOutputTypeType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -4811,9 +4980,9 @@ InputDeviceSummaryTypeDef = TypedDict(
         "SerialNumber": NotRequired[str],
         "Type": NotRequired[InputDeviceTypeType],
         "UhdDeviceSettings": NotRequired[InputDeviceUhdSettingsTypeDef],
-        "Tags": NotRequired[Dict[str, str]],
+        "Tags": NotRequired[dict[str, str]],
         "AvailabilityZone": NotRequired[str],
-        "MedialiveInputArns": NotRequired[List[str]],
+        "MedialiveInputArns": NotRequired[list[str]],
         "OutputType": NotRequired[InputDeviceOutputTypeType],
     },
 )
@@ -4832,9 +5001,9 @@ UpdateInputDeviceResponseTypeDef = TypedDict(
         "SerialNumber": str,
         "Type": InputDeviceTypeType,
         "UhdDeviceSettings": InputDeviceUhdSettingsTypeDef,
-        "Tags": Dict[str, str],
+        "Tags": dict[str, str],
         "AvailabilityZone": str,
-        "MedialiveInputArns": List[str],
+        "MedialiveInputArns": list[str],
         "OutputType": InputDeviceOutputTypeType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -4852,7 +5021,7 @@ class Smpte2110ReceiverGroupTypeDef(TypedDict):
 class HlsSettingsOutputTypeDef(TypedDict):
     AudioOnlyHlsSettings: NotRequired[AudioOnlyHlsSettingsTypeDef]
     Fmp4HlsSettings: NotRequired[Fmp4HlsSettingsTypeDef]
-    FrameCaptureHlsSettings: NotRequired[Dict[str, Any]]
+    FrameCaptureHlsSettings: NotRequired[dict[str, Any]]
     StandardHlsSettings: NotRequired[StandardHlsSettingsTypeDef]
 
 
@@ -4865,111 +5034,111 @@ class HlsSettingsTypeDef(TypedDict):
 
 class CreateSignalMapResponseTypeDef(TypedDict):
     Arn: str
-    CloudWatchAlarmTemplateGroupIds: List[str]
+    CloudWatchAlarmTemplateGroupIds: list[str]
     CreatedAt: datetime
     Description: str
     DiscoveryEntryPointArn: str
     ErrorMessage: str
-    EventBridgeRuleTemplateGroupIds: List[str]
-    FailedMediaResourceMap: Dict[str, MediaResourceTypeDef]
+    EventBridgeRuleTemplateGroupIds: list[str]
+    FailedMediaResourceMap: dict[str, MediaResourceTypeDef]
     Id: str
     LastDiscoveredAt: datetime
     LastSuccessfulMonitorDeployment: SuccessfulMonitorDeploymentTypeDef
-    MediaResourceMap: Dict[str, MediaResourceTypeDef]
+    MediaResourceMap: dict[str, MediaResourceTypeDef]
     ModifiedAt: datetime
     MonitorChangesPendingDeployment: bool
     MonitorDeployment: MonitorDeploymentTypeDef
     Name: str
     Status: SignalMapStatusType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetSignalMapResponseTypeDef(TypedDict):
     Arn: str
-    CloudWatchAlarmTemplateGroupIds: List[str]
+    CloudWatchAlarmTemplateGroupIds: list[str]
     CreatedAt: datetime
     Description: str
     DiscoveryEntryPointArn: str
     ErrorMessage: str
-    EventBridgeRuleTemplateGroupIds: List[str]
-    FailedMediaResourceMap: Dict[str, MediaResourceTypeDef]
+    EventBridgeRuleTemplateGroupIds: list[str]
+    FailedMediaResourceMap: dict[str, MediaResourceTypeDef]
     Id: str
     LastDiscoveredAt: datetime
     LastSuccessfulMonitorDeployment: SuccessfulMonitorDeploymentTypeDef
-    MediaResourceMap: Dict[str, MediaResourceTypeDef]
+    MediaResourceMap: dict[str, MediaResourceTypeDef]
     ModifiedAt: datetime
     MonitorChangesPendingDeployment: bool
     MonitorDeployment: MonitorDeploymentTypeDef
     Name: str
     Status: SignalMapStatusType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class StartDeleteMonitorDeploymentResponseTypeDef(TypedDict):
     Arn: str
-    CloudWatchAlarmTemplateGroupIds: List[str]
+    CloudWatchAlarmTemplateGroupIds: list[str]
     CreatedAt: datetime
     Description: str
     DiscoveryEntryPointArn: str
     ErrorMessage: str
-    EventBridgeRuleTemplateGroupIds: List[str]
-    FailedMediaResourceMap: Dict[str, MediaResourceTypeDef]
+    EventBridgeRuleTemplateGroupIds: list[str]
+    FailedMediaResourceMap: dict[str, MediaResourceTypeDef]
     Id: str
     LastDiscoveredAt: datetime
     LastSuccessfulMonitorDeployment: SuccessfulMonitorDeploymentTypeDef
-    MediaResourceMap: Dict[str, MediaResourceTypeDef]
+    MediaResourceMap: dict[str, MediaResourceTypeDef]
     ModifiedAt: datetime
     MonitorChangesPendingDeployment: bool
     MonitorDeployment: MonitorDeploymentTypeDef
     Name: str
     Status: SignalMapStatusType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class StartMonitorDeploymentResponseTypeDef(TypedDict):
     Arn: str
-    CloudWatchAlarmTemplateGroupIds: List[str]
+    CloudWatchAlarmTemplateGroupIds: list[str]
     CreatedAt: datetime
     Description: str
     DiscoveryEntryPointArn: str
     ErrorMessage: str
-    EventBridgeRuleTemplateGroupIds: List[str]
-    FailedMediaResourceMap: Dict[str, MediaResourceTypeDef]
+    EventBridgeRuleTemplateGroupIds: list[str]
+    FailedMediaResourceMap: dict[str, MediaResourceTypeDef]
     Id: str
     LastDiscoveredAt: datetime
     LastSuccessfulMonitorDeployment: SuccessfulMonitorDeploymentTypeDef
-    MediaResourceMap: Dict[str, MediaResourceTypeDef]
+    MediaResourceMap: dict[str, MediaResourceTypeDef]
     ModifiedAt: datetime
     MonitorChangesPendingDeployment: bool
     MonitorDeployment: MonitorDeploymentTypeDef
     Name: str
     Status: SignalMapStatusType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class StartUpdateSignalMapResponseTypeDef(TypedDict):
     Arn: str
-    CloudWatchAlarmTemplateGroupIds: List[str]
+    CloudWatchAlarmTemplateGroupIds: list[str]
     CreatedAt: datetime
     Description: str
     DiscoveryEntryPointArn: str
     ErrorMessage: str
-    EventBridgeRuleTemplateGroupIds: List[str]
-    FailedMediaResourceMap: Dict[str, MediaResourceTypeDef]
+    EventBridgeRuleTemplateGroupIds: list[str]
+    FailedMediaResourceMap: dict[str, MediaResourceTypeDef]
     Id: str
     LastDiscoveredAt: datetime
     LastSuccessfulMonitorDeployment: SuccessfulMonitorDeploymentTypeDef
-    MediaResourceMap: Dict[str, MediaResourceTypeDef]
+    MediaResourceMap: dict[str, MediaResourceTypeDef]
     ModifiedAt: datetime
     MonitorChangesPendingDeployment: bool
     MonitorDeployment: MonitorDeploymentTypeDef
     Name: str
     Status: SignalMapStatusType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -4980,70 +5149,70 @@ class MultiplexOutputSettingsTypeDef(TypedDict):
 
 class DeleteMultiplexResponseTypeDef(TypedDict):
     Arn: str
-    AvailabilityZones: List[str]
-    Destinations: List[MultiplexOutputDestinationTypeDef]
+    AvailabilityZones: list[str]
+    Destinations: list[MultiplexOutputDestinationTypeDef]
     Id: str
     MultiplexSettings: MultiplexSettingsTypeDef
     Name: str
     PipelinesRunningCount: int
     ProgramCount: int
     State: MultiplexStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeMultiplexResponseTypeDef(TypedDict):
     Arn: str
-    AvailabilityZones: List[str]
-    Destinations: List[MultiplexOutputDestinationTypeDef]
+    AvailabilityZones: list[str]
+    Destinations: list[MultiplexOutputDestinationTypeDef]
     Id: str
     MultiplexSettings: MultiplexSettingsTypeDef
     Name: str
     PipelinesRunningCount: int
     ProgramCount: int
     State: MultiplexStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class MultiplexTypeDef(TypedDict):
     Arn: NotRequired[str]
-    AvailabilityZones: NotRequired[List[str]]
-    Destinations: NotRequired[List[MultiplexOutputDestinationTypeDef]]
+    AvailabilityZones: NotRequired[list[str]]
+    Destinations: NotRequired[list[MultiplexOutputDestinationTypeDef]]
     Id: NotRequired[str]
     MultiplexSettings: NotRequired[MultiplexSettingsTypeDef]
     Name: NotRequired[str]
     PipelinesRunningCount: NotRequired[int]
     ProgramCount: NotRequired[int]
     State: NotRequired[MultiplexStateType]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class StartMultiplexResponseTypeDef(TypedDict):
     Arn: str
-    AvailabilityZones: List[str]
-    Destinations: List[MultiplexOutputDestinationTypeDef]
+    AvailabilityZones: list[str]
+    Destinations: list[MultiplexOutputDestinationTypeDef]
     Id: str
     MultiplexSettings: MultiplexSettingsTypeDef
     Name: str
     PipelinesRunningCount: int
     ProgramCount: int
     State: MultiplexStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class StopMultiplexResponseTypeDef(TypedDict):
     Arn: str
-    AvailabilityZones: List[str]
-    Destinations: List[MultiplexOutputDestinationTypeDef]
+    AvailabilityZones: list[str]
+    Destinations: list[MultiplexOutputDestinationTypeDef]
     Id: str
     MultiplexSettings: MultiplexSettingsTypeDef
     Name: str
     PipelinesRunningCount: int
     ProgramCount: int
     State: MultiplexStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5057,7 +5226,7 @@ class UpdateMultiplexRequestTypeDef(TypedDict):
 
 
 class ListMultiplexesResponseTypeDef(TypedDict):
-    Multiplexes: List[MultiplexSummaryTypeDef]
+    Multiplexes: list[MultiplexSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -5074,6 +5243,18 @@ class AudioWatermarkSettingsTypeDef(TypedDict):
 
 
 OutputDestinationUnionTypeDef = Union[OutputDestinationTypeDef, OutputDestinationOutputTypeDef]
+
+
+class GlobalConfigurationTypeDef(TypedDict):
+    InitialAudioGain: NotRequired[int]
+    InputEndAction: NotRequired[GlobalConfigurationInputEndActionType]
+    InputLossBehavior: NotRequired[InputLossBehaviorTypeDef]
+    OutputLockingMode: NotRequired[GlobalConfigurationOutputLockingModeType]
+    OutputTimingSource: NotRequired[GlobalConfigurationOutputTimingSourceType]
+    SupportLowFramerateInputs: NotRequired[GlobalConfigurationLowFramerateInputsType]
+    OutputLockingSettings: NotRequired[OutputLockingSettingsTypeDef]
+
+
 PauseStateScheduleActionSettingsUnionTypeDef = Union[
     PauseStateScheduleActionSettingsTypeDef, PauseStateScheduleActionSettingsOutputTypeDef
 ]
@@ -5088,11 +5269,11 @@ class SrtSettingsRequestTypeDef(TypedDict):
 
 
 class SrtSettingsTypeDef(TypedDict):
-    SrtCallerSources: NotRequired[List[SrtCallerSourceTypeDef]]
+    SrtCallerSources: NotRequired[list[SrtCallerSourceTypeDef]]
 
 
 class DescribeThumbnailsResponseTypeDef(TypedDict):
-    ThumbnailDetails: List[ThumbnailDetailTypeDef]
+    ThumbnailDetails: list[ThumbnailDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5103,6 +5284,16 @@ class VideoSelectorTypeDef(TypedDict):
     SelectorSettings: NotRequired[VideoSelectorSettingsTypeDef]
 
 
+class MediaPackageGroupSettingsOutputTypeDef(TypedDict):
+    Destination: OutputLocationRefTypeDef
+    MediapackageV2GroupSettings: NotRequired[MediaPackageV2GroupSettingsOutputTypeDef]
+
+
+class MediaPackageGroupSettingsTypeDef(TypedDict):
+    Destination: OutputLocationRefTypeDef
+    MediapackageV2GroupSettings: NotRequired[MediaPackageV2GroupSettingsTypeDef]
+
+
 class CaptionDescriptionOutputTypeDef(TypedDict):
     CaptionSelectorName: str
     Name: str
@@ -5110,7 +5301,7 @@ class CaptionDescriptionOutputTypeDef(TypedDict):
     DestinationSettings: NotRequired[CaptionDestinationSettingsOutputTypeDef]
     LanguageCode: NotRequired[str]
     LanguageDescription: NotRequired[str]
-    CaptionDashRoles: NotRequired[List[DashRoleCaptionType]]
+    CaptionDashRoles: NotRequired[list[DashRoleCaptionType]]
     DvbDashAccessibility: NotRequired[DvbDashAccessibilityType]
 
 
@@ -5127,12 +5318,12 @@ class CaptionDescriptionTypeDef(TypedDict):
 
 class HlsGroupSettingsOutputTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
-    AdMarkers: NotRequired[List[HlsAdMarkersType]]
+    AdMarkers: NotRequired[list[HlsAdMarkersType]]
     BaseUrlContent: NotRequired[str]
     BaseUrlContent1: NotRequired[str]
     BaseUrlManifest: NotRequired[str]
     BaseUrlManifest1: NotRequired[str]
-    CaptionLanguageMappings: NotRequired[List[CaptionLanguageMappingTypeDef]]
+    CaptionLanguageMappings: NotRequired[list[CaptionLanguageMappingTypeDef]]
     CaptionLanguageSetting: NotRequired[HlsCaptionLanguageSettingType]
     ClientCache: NotRequired[HlsClientCacheType]
     CodecSpecification: NotRequired[HlsCodecSpecificationType]
@@ -5241,7 +5432,7 @@ CaptionSelectorSettingsUnionTypeDef = Union[
 
 
 class ListClustersResponseTypeDef(TypedDict):
-    Clusters: List[DescribeClusterSummaryTypeDef]
+    Clusters: list[DescribeClusterSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -5276,7 +5467,7 @@ class UdpOutputSettingsTypeDef(TypedDict):
 class AutomaticInputFailoverSettingsOutputTypeDef(TypedDict):
     SecondaryInputId: str
     ErrorClearTimeMsec: NotRequired[int]
-    FailoverConditions: NotRequired[List[FailoverConditionTypeDef]]
+    FailoverConditions: NotRequired[list[FailoverConditionTypeDef]]
     InputPreference: NotRequired[InputPreferenceType]
 
 
@@ -5312,13 +5503,13 @@ InputSwitchScheduleActionSettingsUnionTypeDef = Union[
 
 
 class ListInputDevicesResponseTypeDef(TypedDict):
-    InputDevices: List[InputDeviceSummaryTypeDef]
+    InputDevices: list[InputDeviceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class Smpte2110ReceiverGroupSettingsOutputTypeDef(TypedDict):
-    Smpte2110ReceiverGroups: NotRequired[List[Smpte2110ReceiverGroupOutputTypeDef]]
+    Smpte2110ReceiverGroups: NotRequired[list[Smpte2110ReceiverGroupOutputTypeDef]]
 
 
 class Smpte2110ReceiverGroupSettingsTypeDef(TypedDict):
@@ -5360,7 +5551,7 @@ class DeleteMultiplexProgramResponseTypeDef(TypedDict):
     ChannelId: str
     MultiplexProgramSettings: MultiplexProgramSettingsTypeDef
     PacketIdentifiersMap: MultiplexProgramPacketIdentifiersMapOutputTypeDef
-    PipelineDetails: List[MultiplexProgramPipelineDetailTypeDef]
+    PipelineDetails: list[MultiplexProgramPipelineDetailTypeDef]
     ProgramName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -5369,7 +5560,7 @@ class DescribeMultiplexProgramResponseTypeDef(TypedDict):
     ChannelId: str
     MultiplexProgramSettings: MultiplexProgramSettingsTypeDef
     PacketIdentifiersMap: MultiplexProgramPacketIdentifiersMapOutputTypeDef
-    PipelineDetails: List[MultiplexProgramPipelineDetailTypeDef]
+    PipelineDetails: list[MultiplexProgramPipelineDetailTypeDef]
     ProgramName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -5378,7 +5569,7 @@ class MultiplexProgramTypeDef(TypedDict):
     ChannelId: NotRequired[str]
     MultiplexProgramSettings: NotRequired[MultiplexProgramSettingsTypeDef]
     PacketIdentifiersMap: NotRequired[MultiplexProgramPacketIdentifiersMapOutputTypeDef]
-    PipelineDetails: NotRequired[List[MultiplexProgramPipelineDetailTypeDef]]
+    PipelineDetails: NotRequired[list[MultiplexProgramPipelineDetailTypeDef]]
     ProgramName: NotRequired[str]
 
 
@@ -5400,7 +5591,7 @@ class AudioDescriptionOutputTypeDef(TypedDict):
     LanguageCodeControl: NotRequired[AudioDescriptionLanguageCodeControlType]
     RemixSettings: NotRequired[RemixSettingsOutputTypeDef]
     StreamName: NotRequired[str]
-    AudioDashRoles: NotRequired[List[DashRoleAudioType]]
+    AudioDashRoles: NotRequired[list[DashRoleAudioType]]
     DvbDashAccessibility: NotRequired[DvbDashAccessibilityType]
 
 
@@ -5436,7 +5627,7 @@ class OutputGroupSettingsOutputTypeDef(TypedDict):
     HlsGroupSettings: NotRequired[HlsGroupSettingsOutputTypeDef]
     MediaPackageGroupSettings: NotRequired[MediaPackageGroupSettingsOutputTypeDef]
     MsSmoothGroupSettings: NotRequired[MsSmoothGroupSettingsTypeDef]
-    MultiplexGroupSettings: NotRequired[Dict[str, Any]]
+    MultiplexGroupSettings: NotRequired[dict[str, Any]]
     RtmpGroupSettings: NotRequired[RtmpGroupSettingsOutputTypeDef]
     UdpGroupSettings: NotRequired[UdpGroupSettingsTypeDef]
     CmafIngestGroupSettings: NotRequired[CmafIngestGroupSettingsOutputTypeDef]
@@ -5462,8 +5653,8 @@ AudioSelectorSettingsUnionTypeDef = Union[
 
 
 class InputSettingsOutputTypeDef(TypedDict):
-    AudioSelectors: NotRequired[List[AudioSelectorOutputTypeDef]]
-    CaptionSelectors: NotRequired[List[CaptionSelectorOutputTypeDef]]
+    AudioSelectors: NotRequired[list[AudioSelectorOutputTypeDef]]
+    CaptionSelectors: NotRequired[list[CaptionSelectorOutputTypeDef]]
     DeblockFilter: NotRequired[InputDeblockFilterType]
     DenoiseFilter: NotRequired[InputDenoiseFilterType]
     FilterStrength: NotRequired[int]
@@ -5510,26 +5701,27 @@ DescribeInputResponseTypeDef = TypedDict(
     "DescribeInputResponseTypeDef",
     {
         "Arn": str,
-        "AttachedChannels": List[str],
-        "Destinations": List[InputDestinationTypeDef],
+        "AttachedChannels": list[str],
+        "Destinations": list[InputDestinationTypeDef],
         "Id": str,
         "InputClass": InputClassType,
-        "InputDevices": List[InputDeviceSettingsTypeDef],
-        "InputPartnerIds": List[str],
+        "InputDevices": list[InputDeviceSettingsTypeDef],
+        "InputPartnerIds": list[str],
         "InputSourceType": InputSourceTypeType,
-        "MediaConnectFlows": List[MediaConnectFlowTypeDef],
+        "MediaConnectFlows": list[MediaConnectFlowTypeDef],
         "Name": str,
         "RoleArn": str,
-        "SecurityGroups": List[str],
-        "Sources": List[InputSourceTypeDef],
+        "SecurityGroups": list[str],
+        "Sources": list[InputSourceTypeDef],
         "State": InputStateType,
-        "Tags": Dict[str, str],
+        "Tags": dict[str, str],
         "Type": InputTypeType,
         "SrtSettings": SrtSettingsTypeDef,
         "InputNetworkLocation": InputNetworkLocationType,
         "MulticastSettings": MulticastSettingsTypeDef,
         "Smpte2110ReceiverGroupSettings": Smpte2110ReceiverGroupSettingsOutputTypeDef,
-        "SdiSources": List[str],
+        "SdiSources": list[str],
+        "RouterSettings": RouterInputSettingsTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -5537,26 +5729,27 @@ InputTypeDef = TypedDict(
     "InputTypeDef",
     {
         "Arn": NotRequired[str],
-        "AttachedChannels": NotRequired[List[str]],
-        "Destinations": NotRequired[List[InputDestinationTypeDef]],
+        "AttachedChannels": NotRequired[list[str]],
+        "Destinations": NotRequired[list[InputDestinationTypeDef]],
         "Id": NotRequired[str],
         "InputClass": NotRequired[InputClassType],
-        "InputDevices": NotRequired[List[InputDeviceSettingsTypeDef]],
-        "InputPartnerIds": NotRequired[List[str]],
+        "InputDevices": NotRequired[list[InputDeviceSettingsTypeDef]],
+        "InputPartnerIds": NotRequired[list[str]],
         "InputSourceType": NotRequired[InputSourceTypeType],
-        "MediaConnectFlows": NotRequired[List[MediaConnectFlowTypeDef]],
+        "MediaConnectFlows": NotRequired[list[MediaConnectFlowTypeDef]],
         "Name": NotRequired[str],
         "RoleArn": NotRequired[str],
-        "SecurityGroups": NotRequired[List[str]],
-        "Sources": NotRequired[List[InputSourceTypeDef]],
+        "SecurityGroups": NotRequired[list[str]],
+        "Sources": NotRequired[list[InputSourceTypeDef]],
         "State": NotRequired[InputStateType],
-        "Tags": NotRequired[Dict[str, str]],
+        "Tags": NotRequired[dict[str, str]],
         "Type": NotRequired[InputTypeType],
         "SrtSettings": NotRequired[SrtSettingsTypeDef],
         "InputNetworkLocation": NotRequired[InputNetworkLocationType],
         "MulticastSettings": NotRequired[MulticastSettingsTypeDef],
         "Smpte2110ReceiverGroupSettings": NotRequired[Smpte2110ReceiverGroupSettingsOutputTypeDef],
-        "SdiSources": NotRequired[List[str]],
+        "SdiSources": NotRequired[list[str]],
+        "RouterSettings": NotRequired[RouterInputSettingsTypeDef],
     },
 )
 Smpte2110ReceiverGroupSettingsUnionTypeDef = Union[
@@ -5601,7 +5794,7 @@ class UpdateMultiplexProgramResponseTypeDef(TypedDict):
 
 
 class Scte35TimeSignalScheduleActionSettingsOutputTypeDef(TypedDict):
-    Scte35Descriptors: List[Scte35DescriptorTypeDef]
+    Scte35Descriptors: list[Scte35DescriptorTypeDef]
 
 
 class Scte35TimeSignalScheduleActionSettingsTypeDef(TypedDict):
@@ -5618,7 +5811,7 @@ class InputAttachmentOutputTypeDef(TypedDict):
     InputAttachmentName: NotRequired[str]
     InputId: NotRequired[str]
     InputSettings: NotRequired[InputSettingsOutputTypeDef]
-    LogicalInterfaceNames: NotRequired[List[str]]
+    LogicalInterfaceNames: NotRequired[list[str]]
 
 
 CaptionSelectorUnionTypeDef = Union[CaptionSelectorTypeDef, CaptionSelectorOutputTypeDef]
@@ -5635,7 +5828,7 @@ class CreatePartnerInputResponseTypeDef(TypedDict):
 
 
 class ListInputsResponseTypeDef(TypedDict):
-    Inputs: List[InputTypeDef]
+    Inputs: list[InputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -5664,6 +5857,7 @@ CreateInputRequestTypeDef = TypedDict(
         "MulticastSettings": NotRequired[MulticastSettingsCreateRequestTypeDef],
         "Smpte2110ReceiverGroupSettings": NotRequired[Smpte2110ReceiverGroupSettingsUnionTypeDef],
         "SdiSources": NotRequired[Sequence[str]],
+        "RouterSettings": NotRequired[RouterSettingsTypeDef],
     },
 )
 
@@ -5681,12 +5875,13 @@ class UpdateInputRequestTypeDef(TypedDict):
     MulticastSettings: NotRequired[MulticastSettingsUpdateRequestTypeDef]
     Smpte2110ReceiverGroupSettings: NotRequired[Smpte2110ReceiverGroupSettingsUnionTypeDef]
     SdiSources: NotRequired[Sequence[str]]
+    SpecialRouterSettings: NotRequired[SpecialRouterSettingsTypeDef]
 
 
 class ExtraTypeDef(TypedDict):
     OutputSettings: OutputSettingsOutputTypeDef
-    AudioDescriptionNames: NotRequired[List[str]]
-    CaptionDescriptionNames: NotRequired[List[str]]
+    AudioDescriptionNames: NotRequired[list[str]]
+    CaptionDescriptionNames: NotRequired[list[str]]
     OutputName: NotRequired[str]
     VideoDescriptionName: NotRequired[str]
 
@@ -5707,7 +5902,7 @@ class ScheduleActionSettingsOutputTypeDef(TypedDict):
     MotionGraphicsImageActivateSettings: NotRequired[
         MotionGraphicsActivateScheduleActionSettingsTypeDef
     ]
-    MotionGraphicsImageDeactivateSettings: NotRequired[Dict[str, Any]]
+    MotionGraphicsImageDeactivateSettings: NotRequired[dict[str, Any]]
     PauseStateSettings: NotRequired[PauseStateScheduleActionSettingsOutputTypeDef]
     Scte35InputSettings: NotRequired[Scte35InputScheduleActionSettingsTypeDef]
     Scte35ReturnToNetworkSettings: NotRequired[Scte35ReturnToNetworkScheduleActionSettingsTypeDef]
@@ -5736,10 +5931,10 @@ class ChannelSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
     CdiInputSpecification: NotRequired[CdiInputSpecificationTypeDef]
     ChannelClass: NotRequired[ChannelClassType]
-    Destinations: NotRequired[List[OutputDestinationOutputTypeDef]]
-    EgressEndpoints: NotRequired[List[ChannelEgressEndpointTypeDef]]
+    Destinations: NotRequired[list[OutputDestinationOutputTypeDef]]
+    EgressEndpoints: NotRequired[list[ChannelEgressEndpointTypeDef]]
     Id: NotRequired[str]
-    InputAttachments: NotRequired[List[InputAttachmentOutputTypeDef]]
+    InputAttachments: NotRequired[list[InputAttachmentOutputTypeDef]]
     InputSpecification: NotRequired[InputSpecificationTypeDef]
     LogLevel: NotRequired[LogLevelType]
     Maintenance: NotRequired[MaintenanceStatusTypeDef]
@@ -5747,16 +5942,17 @@ class ChannelSummaryTypeDef(TypedDict):
     PipelinesRunningCount: NotRequired[int]
     RoleArn: NotRequired[str]
     State: NotRequired[ChannelStateType]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     Vpc: NotRequired[VpcOutputSettingsDescriptionTypeDef]
     AnywhereSettings: NotRequired[DescribeAnywhereSettingsTypeDef]
     ChannelEngineVersion: NotRequired[ChannelEngineVersionResponseTypeDef]
-    UsedChannelEngineVersions: NotRequired[List[ChannelEngineVersionResponseTypeDef]]
+    UsedChannelEngineVersions: NotRequired[list[ChannelEngineVersionResponseTypeDef]]
+    LinkedChannelSettings: NotRequired[DescribeLinkedChannelSettingsTypeDef]
 
 
 class OutputGroupOutputTypeDef(TypedDict):
     OutputGroupSettings: OutputGroupSettingsOutputTypeDef
-    Outputs: List[ExtraTypeDef]
+    Outputs: list[ExtraTypeDef]
     Name: NotRequired[str]
 
 
@@ -5813,22 +6009,22 @@ class InputSettingsTypeDef(TypedDict):
 
 
 class ListChannelsResponseTypeDef(TypedDict):
-    Channels: List[ChannelSummaryTypeDef]
+    Channels: list[ChannelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class EncoderSettingsOutputTypeDef(TypedDict):
-    AudioDescriptions: List[AudioDescriptionOutputTypeDef]
-    OutputGroups: List[OutputGroupOutputTypeDef]
+    AudioDescriptions: list[AudioDescriptionOutputTypeDef]
+    OutputGroups: list[OutputGroupOutputTypeDef]
     TimecodeConfig: TimecodeConfigTypeDef
-    VideoDescriptions: List[VideoDescriptionOutputTypeDef]
+    VideoDescriptions: list[VideoDescriptionOutputTypeDef]
     AvailBlanking: NotRequired[AvailBlankingTypeDef]
     AvailConfiguration: NotRequired[AvailConfigurationTypeDef]
     BlackoutSlate: NotRequired[BlackoutSlateTypeDef]
-    CaptionDescriptions: NotRequired[List[CaptionDescriptionOutputTypeDef]]
+    CaptionDescriptions: NotRequired[list[CaptionDescriptionOutputTypeDef]]
     FeatureActivations: NotRequired[FeatureActivationsTypeDef]
-    GlobalConfiguration: NotRequired[GlobalConfigurationOutputTypeDef]
+    GlobalConfiguration: NotRequired[GlobalConfigurationTypeDef]
     MotionGraphicsConfiguration: NotRequired[MotionGraphicsConfigurationOutputTypeDef]
     NielsenConfiguration: NotRequired[NielsenConfigurationTypeDef]
     ThumbnailConfiguration: NotRequired[ThumbnailConfigurationTypeDef]
@@ -5853,15 +6049,15 @@ class EncoderSettingsTypeDef(TypedDict):
 
 
 class BatchScheduleActionCreateResultTypeDef(TypedDict):
-    ScheduleActions: List[ScheduleActionOutputTypeDef]
+    ScheduleActions: list[ScheduleActionOutputTypeDef]
 
 
 class BatchScheduleActionDeleteResultTypeDef(TypedDict):
-    ScheduleActions: List[ScheduleActionOutputTypeDef]
+    ScheduleActions: list[ScheduleActionOutputTypeDef]
 
 
 class DescribeScheduleResponseTypeDef(TypedDict):
-    ScheduleActions: List[ScheduleActionOutputTypeDef]
+    ScheduleActions: list[ScheduleActionOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -5876,46 +6072,48 @@ class ChannelTypeDef(TypedDict):
     Arn: NotRequired[str]
     CdiInputSpecification: NotRequired[CdiInputSpecificationTypeDef]
     ChannelClass: NotRequired[ChannelClassType]
-    Destinations: NotRequired[List[OutputDestinationOutputTypeDef]]
-    EgressEndpoints: NotRequired[List[ChannelEgressEndpointTypeDef]]
+    Destinations: NotRequired[list[OutputDestinationOutputTypeDef]]
+    EgressEndpoints: NotRequired[list[ChannelEgressEndpointTypeDef]]
     EncoderSettings: NotRequired[EncoderSettingsOutputTypeDef]
     Id: NotRequired[str]
-    InputAttachments: NotRequired[List[InputAttachmentOutputTypeDef]]
+    InputAttachments: NotRequired[list[InputAttachmentOutputTypeDef]]
     InputSpecification: NotRequired[InputSpecificationTypeDef]
     LogLevel: NotRequired[LogLevelType]
     Maintenance: NotRequired[MaintenanceStatusTypeDef]
     Name: NotRequired[str]
-    PipelineDetails: NotRequired[List[PipelineDetailTypeDef]]
+    PipelineDetails: NotRequired[list[PipelineDetailTypeDef]]
     PipelinesRunningCount: NotRequired[int]
     RoleArn: NotRequired[str]
     State: NotRequired[ChannelStateType]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     Vpc: NotRequired[VpcOutputSettingsDescriptionTypeDef]
     AnywhereSettings: NotRequired[DescribeAnywhereSettingsTypeDef]
     ChannelEngineVersion: NotRequired[ChannelEngineVersionResponseTypeDef]
+    LinkedChannelSettings: NotRequired[DescribeLinkedChannelSettingsTypeDef]
 
 
 class DeleteChannelResponseTypeDef(TypedDict):
     Arn: str
     CdiInputSpecification: CdiInputSpecificationTypeDef
     ChannelClass: ChannelClassType
-    Destinations: List[OutputDestinationOutputTypeDef]
-    EgressEndpoints: List[ChannelEgressEndpointTypeDef]
+    Destinations: list[OutputDestinationOutputTypeDef]
+    EgressEndpoints: list[ChannelEgressEndpointTypeDef]
     EncoderSettings: EncoderSettingsOutputTypeDef
     Id: str
-    InputAttachments: List[InputAttachmentOutputTypeDef]
+    InputAttachments: list[InputAttachmentOutputTypeDef]
     InputSpecification: InputSpecificationTypeDef
     LogLevel: LogLevelType
     Maintenance: MaintenanceStatusTypeDef
     Name: str
-    PipelineDetails: List[PipelineDetailTypeDef]
+    PipelineDetails: list[PipelineDetailTypeDef]
     PipelinesRunningCount: int
     RoleArn: str
     State: ChannelStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     Vpc: VpcOutputSettingsDescriptionTypeDef
     AnywhereSettings: DescribeAnywhereSettingsTypeDef
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
+    LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5923,23 +6121,24 @@ class DescribeChannelResponseTypeDef(TypedDict):
     Arn: str
     CdiInputSpecification: CdiInputSpecificationTypeDef
     ChannelClass: ChannelClassType
-    Destinations: List[OutputDestinationOutputTypeDef]
-    EgressEndpoints: List[ChannelEgressEndpointTypeDef]
+    Destinations: list[OutputDestinationOutputTypeDef]
+    EgressEndpoints: list[ChannelEgressEndpointTypeDef]
     EncoderSettings: EncoderSettingsOutputTypeDef
     Id: str
-    InputAttachments: List[InputAttachmentOutputTypeDef]
+    InputAttachments: list[InputAttachmentOutputTypeDef]
     InputSpecification: InputSpecificationTypeDef
     LogLevel: LogLevelType
     Maintenance: MaintenanceStatusTypeDef
     Name: str
-    PipelineDetails: List[PipelineDetailTypeDef]
+    PipelineDetails: list[PipelineDetailTypeDef]
     PipelinesRunningCount: int
     RoleArn: str
     State: ChannelStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     Vpc: VpcOutputSettingsDescriptionTypeDef
     AnywhereSettings: DescribeAnywhereSettingsTypeDef
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
+    LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5947,24 +6146,25 @@ class RestartChannelPipelinesResponseTypeDef(TypedDict):
     Arn: str
     CdiInputSpecification: CdiInputSpecificationTypeDef
     ChannelClass: ChannelClassType
-    Destinations: List[OutputDestinationOutputTypeDef]
-    EgressEndpoints: List[ChannelEgressEndpointTypeDef]
+    Destinations: list[OutputDestinationOutputTypeDef]
+    EgressEndpoints: list[ChannelEgressEndpointTypeDef]
     EncoderSettings: EncoderSettingsOutputTypeDef
     Id: str
-    InputAttachments: List[InputAttachmentOutputTypeDef]
+    InputAttachments: list[InputAttachmentOutputTypeDef]
     InputSpecification: InputSpecificationTypeDef
     LogLevel: LogLevelType
     Maintenance: MaintenanceStatusTypeDef
     MaintenanceStatus: str
     Name: str
-    PipelineDetails: List[PipelineDetailTypeDef]
+    PipelineDetails: list[PipelineDetailTypeDef]
     PipelinesRunningCount: int
     RoleArn: str
     State: ChannelStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     Vpc: VpcOutputSettingsDescriptionTypeDef
     AnywhereSettings: DescribeAnywhereSettingsTypeDef
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
+    LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5972,23 +6172,24 @@ class StartChannelResponseTypeDef(TypedDict):
     Arn: str
     CdiInputSpecification: CdiInputSpecificationTypeDef
     ChannelClass: ChannelClassType
-    Destinations: List[OutputDestinationOutputTypeDef]
-    EgressEndpoints: List[ChannelEgressEndpointTypeDef]
+    Destinations: list[OutputDestinationOutputTypeDef]
+    EgressEndpoints: list[ChannelEgressEndpointTypeDef]
     EncoderSettings: EncoderSettingsOutputTypeDef
     Id: str
-    InputAttachments: List[InputAttachmentOutputTypeDef]
+    InputAttachments: list[InputAttachmentOutputTypeDef]
     InputSpecification: InputSpecificationTypeDef
     LogLevel: LogLevelType
     Maintenance: MaintenanceStatusTypeDef
     Name: str
-    PipelineDetails: List[PipelineDetailTypeDef]
+    PipelineDetails: list[PipelineDetailTypeDef]
     PipelinesRunningCount: int
     RoleArn: str
     State: ChannelStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     Vpc: VpcOutputSettingsDescriptionTypeDef
     AnywhereSettings: DescribeAnywhereSettingsTypeDef
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
+    LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5996,23 +6197,24 @@ class StopChannelResponseTypeDef(TypedDict):
     Arn: str
     CdiInputSpecification: CdiInputSpecificationTypeDef
     ChannelClass: ChannelClassType
-    Destinations: List[OutputDestinationOutputTypeDef]
-    EgressEndpoints: List[ChannelEgressEndpointTypeDef]
+    Destinations: list[OutputDestinationOutputTypeDef]
+    EgressEndpoints: list[ChannelEgressEndpointTypeDef]
     EncoderSettings: EncoderSettingsOutputTypeDef
     Id: str
-    InputAttachments: List[InputAttachmentOutputTypeDef]
+    InputAttachments: list[InputAttachmentOutputTypeDef]
     InputSpecification: InputSpecificationTypeDef
     LogLevel: LogLevelType
     Maintenance: MaintenanceStatusTypeDef
     Name: str
-    PipelineDetails: List[PipelineDetailTypeDef]
+    PipelineDetails: list[PipelineDetailTypeDef]
     PipelinesRunningCount: int
     RoleArn: str
     State: ChannelStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     Vpc: VpcOutputSettingsDescriptionTypeDef
     AnywhereSettings: DescribeAnywhereSettingsTypeDef
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
+    LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6080,6 +6282,7 @@ class CreateChannelRequestTypeDef(TypedDict):
     AnywhereSettings: NotRequired[AnywhereSettingsTypeDef]
     ChannelEngineVersion: NotRequired[ChannelEngineVersionRequestTypeDef]
     DryRun: NotRequired[bool]
+    LinkedChannelSettings: NotRequired[LinkedChannelSettingsTypeDef]
 
 
 class UpdateChannelRequestTypeDef(TypedDict):
@@ -6096,6 +6299,7 @@ class UpdateChannelRequestTypeDef(TypedDict):
     ChannelEngineVersion: NotRequired[ChannelEngineVersionRequestTypeDef]
     DryRun: NotRequired[bool]
     AnywhereSettings: NotRequired[AnywhereSettingsTypeDef]
+    LinkedChannelSettings: NotRequired[LinkedChannelSettingsTypeDef]
 
 
 class BatchUpdateScheduleRequestTypeDef(TypedDict):

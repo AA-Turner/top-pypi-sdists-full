@@ -3,21 +3,22 @@ Core functionality for loading settings.
 """
 
 import logging
-import os
-from collections.abc import Generator, Iterable, Sequence
-from contextlib import contextmanager
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from types import MappingProxyType
 from typing import (
     Any,
     Generic,
-    Optional,
-    Union,
 )
 
 from . import cls_utils, dict_utils
-from .converters import Converter, default_converter
-from .exceptions import ConfigFileLoadError, InvalidSettingsError, InvalidValueError
+from .converters import (
+    Converter,
+    PathConverter,
+    default_converter,
+    get_path_converter_from,
+)
+from .exceptions import InvalidSettingsError, InvalidValueError
 from .loaders import EnvLoader, FileLoader, Loader, TomlFormat, _DefaultsLoader
 from .processors import Processor
 from .types import (
@@ -121,11 +122,11 @@ class SettingsState(Generic[ST]):
 
 def default_loaders(
     appname: str,
-    config_files: Iterable[Union[str, Path]] = (),
+    config_files: Iterable[str | Path] = (),
     *,
-    config_file_section: Union[str, _Auto] = AUTO,
-    config_files_var: Union[None, str, _Auto] = AUTO,
-    env_prefix: Union[None, str, _Auto] = AUTO,
+    config_file_section: None | str | _Auto = AUTO,
+    config_files_var: None | str | _Auto = AUTO,
+    env_prefix: None | str | _Auto = AUTO,
     env_nested_delimiter: str = "_",
 ) -> list[Loader]:
     """
@@ -205,11 +206,11 @@ def default_loaders(
 def load(
     cls: type[ST],
     appname: str,
-    config_files: Iterable[Union[str, Path]] = (),
+    config_files: Iterable[str | Path] = (),
     *,
-    config_file_section: Union[str, _Auto] = AUTO,
-    config_files_var: Union[None, str, _Auto] = AUTO,
-    env_prefix: Union[None, str, _Auto] = AUTO,
+    config_file_section: None | str | _Auto = AUTO,
+    config_files_var: None | str | _Auto = AUTO,
+    env_prefix: None | str | _Auto = AUTO,
     env_nested_delimiter: str = "_",
     base_dir: Path = Path(),
 ) -> ST:
@@ -309,7 +310,7 @@ def load_settings(
     loaders: Sequence[Loader],
     *,
     processors: Sequence[Processor] = (),
-    converter: Optional[Converter] = None,
+    converter: Converter | None = None,
     base_dir: Path = Path(),
 ) -> ST:
     """
@@ -374,10 +375,7 @@ def _load_settings(state: SettingsState) -> MergedSettings:
     return merged_settings
 
 
-def convert(
-    merged_settings: MergedSettings,
-    state: SettingsState[ST],
-) -> ST:
+def convert(merged_settings: MergedSettings, state: SettingsState[ST]) -> ST:
     """
     Create an instance of *cls* from the settings in *merged_settings*.
 
@@ -398,11 +396,16 @@ def convert(
     settings_dict: SettingsDict = {}
     errors: list[Exception] = []
     loaded_settings_paths: set[str] = set()
+
     oi_by_path = state.options_by_path
+    path_converter = get_path_converter_from(state.converter)
+
     for path, (value, meta) in merged_settings.items():
         oinfo = oi_by_path[path]
         try:
-            converted_value = convert_value(oinfo, value, meta, state.converter)
+            converted_value = convert_value(
+                oinfo, value, meta, state.converter, path_converter
+            )
         except Exception as e:
             msg = (
                 f"Could not convert value {value!r} for option "
@@ -410,6 +413,7 @@ def convert(
             )
             errors.append(InvalidValueError(msg).with_traceback(e.__traceback__))
             continue
+
         dict_utils.set_path(settings_dict, path, converted_value)
         loaded_settings_paths.add(path)
 
@@ -438,7 +442,11 @@ def convert(
 
 
 def convert_value(
-    oinfo: OptionInfo, value: Any, meta: LoaderMeta, converter: Converter
+    oinfo: OptionInfo,
+    value: Any,
+    meta: LoaderMeta,
+    converter: Converter,
+    path_converter: PathConverter,
 ) -> Any:
     """
     Convert the value for an option to the designated type.
@@ -448,6 +456,7 @@ def convert_value(
         value: The value to be converted.
         meta: Metadata for the loader that loaded *value*.
         converter: The converter to use.
+        path_converter: The structure hook for :class:`.Path` that *converter* uses.
 
     Return:
         The converted value.
@@ -456,7 +465,7 @@ def convert_value(
         Exception: If the value cannot be converted.
     """
     if oinfo.cls:
-        with _set_context(meta):
+        with path_converter.chdir(meta.base_dir):
             if oinfo.converter:
                 converted_value = oinfo.converter(value)
             else:
@@ -464,32 +473,3 @@ def convert_value(
     else:
         converted_value = value
     return converted_value
-
-
-@contextmanager
-def _set_context(meta: LoaderMeta) -> Generator[None, None, None]:
-    """
-    Set the context for converting option values from a given loader.
-
-    Currently only chagnes the cwd to :attr:`.LoaderMeta.cwd`.
-
-    Args:
-        meta: A loaders meta data
-
-    Return:
-        A context manager (that yields ``None``)
-    """
-    old_cwd = os.getcwd()
-    try:
-        os.chdir(meta.base_dir)
-    except OSError as e:
-        # This is a rare case where a config file can be read but were we are not
-        # allowed to chdir into its parent directory.
-        # See: https://gitlab.com/sscherfke/typed-settings/-/issues/71
-        raise ConfigFileLoadError(
-            f"Cannot chdir into '{meta.base_dir}': {e.strerror}"
-        ) from e
-    try:
-        yield
-    finally:
-        os.chdir(old_cwd)

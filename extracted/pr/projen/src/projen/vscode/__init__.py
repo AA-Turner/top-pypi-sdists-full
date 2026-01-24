@@ -140,11 +140,11 @@ class DevContainerOptions(_DevEnvironmentOptions_b10d89d1):
     def __init__(
         self,
         *,
-        docker_image: typing.Optional[_DevEnvironmentDockerImage_4a8d8ffd] = None,
+        docker_image: typing.Optional["_DevEnvironmentDockerImage_4a8d8ffd"] = None,
         ports: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tasks: typing.Optional[typing.Sequence[_Task_9fa875b6]] = None,
+        tasks: typing.Optional[typing.Sequence["_Task_9fa875b6"]] = None,
         vscode_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        features: typing.Optional[typing.Sequence[typing.Union[DevContainerFeature, typing.Dict[builtins.str, typing.Any]]]] = None,
+        features: typing.Optional[typing.Sequence[typing.Union["DevContainerFeature", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''(experimental) Constructor options for the DevContainer component.
 
@@ -179,13 +179,13 @@ class DevContainerOptions(_DevEnvironmentOptions_b10d89d1):
             self._values["features"] = features
 
     @builtins.property
-    def docker_image(self) -> typing.Optional[_DevEnvironmentDockerImage_4a8d8ffd]:
+    def docker_image(self) -> typing.Optional["_DevEnvironmentDockerImage_4a8d8ffd"]:
         '''(experimental) A Docker image or Dockerfile for the container.
 
         :stability: experimental
         '''
         result = self._values.get("docker_image")
-        return typing.cast(typing.Optional[_DevEnvironmentDockerImage_4a8d8ffd], result)
+        return typing.cast(typing.Optional["_DevEnvironmentDockerImage_4a8d8ffd"], result)
 
     @builtins.property
     def ports(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -197,13 +197,13 @@ class DevContainerOptions(_DevEnvironmentOptions_b10d89d1):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tasks(self) -> typing.Optional[typing.List[_Task_9fa875b6]]:
+    def tasks(self) -> typing.Optional[typing.List["_Task_9fa875b6"]]:
         '''(experimental) An array of tasks that should be run when the container starts.
 
         :stability: experimental
         '''
         result = self._values.get("tasks")
-        return typing.cast(typing.Optional[typing.List[_Task_9fa875b6]], result)
+        return typing.cast(typing.Optional[typing.List["_Task_9fa875b6"]], result)
 
     @builtins.property
     def vscode_extensions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -215,13 +215,13 @@ class DevContainerOptions(_DevEnvironmentOptions_b10d89d1):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def features(self) -> typing.Optional[typing.List[DevContainerFeature]]:
+    def features(self) -> typing.Optional[typing.List["DevContainerFeature"]]:
         '''(experimental) An array of VSCode features that specify the features that should be installed inside the container when it is created.
 
         :stability: experimental
         '''
         result = self._values.get("features")
-        return typing.cast(typing.Optional[typing.List[DevContainerFeature]], result)
+        return typing.cast(typing.Optional[typing.List["DevContainerFeature"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -242,7 +242,7 @@ class IDevContainerEnvironment(_IDevEnvironment_9a084622, typing_extensions.Prot
     '''
 
     @jsii.member(jsii_name="addFeatures")
-    def add_features(self, *features: DevContainerFeature) -> None:
+    def add_features(self, *features: "DevContainerFeature") -> None:
         '''(experimental) Adds a list of VSCode features that should be automatically installed in the container.
 
         :param features: featureName and version(optional default: latest).
@@ -262,7 +262,7 @@ class _IDevContainerEnvironmentProxy(
     __jsii_type__: typing.ClassVar[str] = "projen.vscode.IDevContainerEnvironment"
 
     @jsii.member(jsii_name="addFeatures")
-    def add_features(self, *features: DevContainerFeature) -> None:
+    def add_features(self, *features: "DevContainerFeature") -> None:
         '''(experimental) Adds a list of VSCode features that should be automatically installed in the container.
 
         :param features: featureName and version(optional default: latest).
@@ -450,7 +450,7 @@ class VsCode(
     :stability: experimental
     '''
 
-    def __init__(self, project: _Project_57d89203) -> None:
+    def __init__(self, project: "_Project_57d89203") -> None:
         '''
         :param project: -
 
@@ -496,7 +496,7 @@ class VsCodeLaunchConfig(
     :stability: experimental
     '''
 
-    def __init__(self, vscode: VsCode) -> None:
+    def __init__(self, vscode: "VsCode") -> None:
         '''
         :param vscode: -
 
@@ -537,21 +537,21 @@ class VsCodeLaunchConfig(
         request: builtins.str,
         type: builtins.str,
         args: typing.Optional[typing.Sequence[builtins.str]] = None,
-        console: typing.Optional[Console] = None,
+        console: typing.Optional["Console"] = None,
         cwd: typing.Optional[builtins.str] = None,
         debug_server: typing.Optional[jsii.Number] = None,
         disable_optimistic_b_ps: typing.Optional[builtins.bool] = None,
         env: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.bool]]] = None,
         env_file: typing.Optional[builtins.str] = None,
-        internal_console_options: typing.Optional[InternalConsoleOptions] = None,
+        internal_console_options: typing.Optional["InternalConsoleOptions"] = None,
         out_files: typing.Optional[typing.Sequence[builtins.str]] = None,
         port: typing.Optional[jsii.Number] = None,
         post_debug_task: typing.Optional[builtins.str] = None,
         pre_launch_task: typing.Optional[builtins.str] = None,
-        presentation: typing.Optional[typing.Union[Presentation, typing.Dict[builtins.str, typing.Any]]] = None,
+        presentation: typing.Optional[typing.Union["Presentation", typing.Dict[builtins.str, typing.Any]]] = None,
         program: typing.Optional[builtins.str] = None,
         runtime_args: typing.Optional[typing.Sequence[builtins.str]] = None,
-        server_ready_action: typing.Optional[typing.Union[ServerReadyAction, typing.Dict[builtins.str, typing.Any]]] = None,
+        server_ready_action: typing.Optional[typing.Union["ServerReadyAction", typing.Dict[builtins.str, typing.Any]]] = None,
         skip_files: typing.Optional[typing.Sequence[builtins.str]] = None,
         stop_on_entry: typing.Optional[builtins.bool] = None,
         url: typing.Optional[builtins.str] = None,
@@ -667,11 +667,11 @@ class VsCodeLaunchConfig(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> _JsonFile_fa8164db:
+    def file(self) -> "_JsonFile_fa8164db":
         '''
         :stability: experimental
         '''
-        return typing.cast(_JsonFile_fa8164db, jsii.get(self, "file"))
+        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "file"))
 
 
 @jsii.data_type(
@@ -711,21 +711,21 @@ class VsCodeLaunchConfigurationEntry:
         request: builtins.str,
         type: builtins.str,
         args: typing.Optional[typing.Sequence[builtins.str]] = None,
-        console: typing.Optional[Console] = None,
+        console: typing.Optional["Console"] = None,
         cwd: typing.Optional[builtins.str] = None,
         debug_server: typing.Optional[jsii.Number] = None,
         disable_optimistic_b_ps: typing.Optional[builtins.bool] = None,
         env: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.bool]]] = None,
         env_file: typing.Optional[builtins.str] = None,
-        internal_console_options: typing.Optional[InternalConsoleOptions] = None,
+        internal_console_options: typing.Optional["InternalConsoleOptions"] = None,
         out_files: typing.Optional[typing.Sequence[builtins.str]] = None,
         port: typing.Optional[jsii.Number] = None,
         post_debug_task: typing.Optional[builtins.str] = None,
         pre_launch_task: typing.Optional[builtins.str] = None,
-        presentation: typing.Optional[typing.Union[Presentation, typing.Dict[builtins.str, typing.Any]]] = None,
+        presentation: typing.Optional[typing.Union["Presentation", typing.Dict[builtins.str, typing.Any]]] = None,
         program: typing.Optional[builtins.str] = None,
         runtime_args: typing.Optional[typing.Sequence[builtins.str]] = None,
-        server_ready_action: typing.Optional[typing.Union[ServerReadyAction, typing.Dict[builtins.str, typing.Any]]] = None,
+        server_ready_action: typing.Optional[typing.Union["ServerReadyAction", typing.Dict[builtins.str, typing.Any]]] = None,
         skip_files: typing.Optional[typing.Sequence[builtins.str]] = None,
         stop_on_entry: typing.Optional[builtins.bool] = None,
         url: typing.Optional[builtins.str] = None,
@@ -870,12 +870,12 @@ class VsCodeLaunchConfigurationEntry:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def console(self) -> typing.Optional[Console]:
+    def console(self) -> typing.Optional["Console"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("console")
-        return typing.cast(typing.Optional[Console], result)
+        return typing.cast(typing.Optional["Console"], result)
 
     @builtins.property
     def cwd(self) -> typing.Optional[builtins.str]:
@@ -921,12 +921,12 @@ class VsCodeLaunchConfigurationEntry:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def internal_console_options(self) -> typing.Optional[InternalConsoleOptions]:
+    def internal_console_options(self) -> typing.Optional["InternalConsoleOptions"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("internal_console_options")
-        return typing.cast(typing.Optional[InternalConsoleOptions], result)
+        return typing.cast(typing.Optional["InternalConsoleOptions"], result)
 
     @builtins.property
     def out_files(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -961,12 +961,12 @@ class VsCodeLaunchConfigurationEntry:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def presentation(self) -> typing.Optional[Presentation]:
+    def presentation(self) -> typing.Optional["Presentation"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("presentation")
-        return typing.cast(typing.Optional[Presentation], result)
+        return typing.cast(typing.Optional["Presentation"], result)
 
     @builtins.property
     def program(self) -> typing.Optional[builtins.str]:
@@ -985,12 +985,12 @@ class VsCodeLaunchConfigurationEntry:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def server_ready_action(self) -> typing.Optional[ServerReadyAction]:
+    def server_ready_action(self) -> typing.Optional["ServerReadyAction"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("server_ready_action")
-        return typing.cast(typing.Optional[ServerReadyAction], result)
+        return typing.cast(typing.Optional["ServerReadyAction"], result)
 
     @builtins.property
     def skip_files(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1265,7 +1265,7 @@ class VsCodeRecommendedExtensions(
     :stability: experimental
     '''
 
-    def __init__(self, vscode: VsCode) -> None:
+    def __init__(self, vscode: "VsCode") -> None:
         '''
         :param vscode: -
 
@@ -1306,11 +1306,11 @@ class VsCodeRecommendedExtensions(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> _JsonFile_fa8164db:
+    def file(self) -> "_JsonFile_fa8164db":
         '''
         :stability: experimental
         '''
-        return typing.cast(_JsonFile_fa8164db, jsii.get(self, "file"))
+        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "file"))
 
 
 class VsCodeSettings(
@@ -1323,7 +1323,7 @@ class VsCodeSettings(
     :stability: experimental
     '''
 
-    def __init__(self, vscode: VsCode) -> None:
+    def __init__(self, vscode: "VsCode") -> None:
         '''
         :param vscode: -
 
@@ -1377,11 +1377,11 @@ class VsCodeSettings(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> _JsonFile_fa8164db:
+    def file(self) -> "_JsonFile_fa8164db":
         '''
         :stability: experimental
         '''
-        return typing.cast(_JsonFile_fa8164db, jsii.get(self, "file"))
+        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "file"))
 
 
 @jsii.implements(IDevContainerEnvironment)
@@ -1400,12 +1400,12 @@ class DevContainer(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
-        features: typing.Optional[typing.Sequence[typing.Union[DevContainerFeature, typing.Dict[builtins.str, typing.Any]]]] = None,
-        docker_image: typing.Optional[_DevEnvironmentDockerImage_4a8d8ffd] = None,
+        features: typing.Optional[typing.Sequence[typing.Union["DevContainerFeature", typing.Dict[builtins.str, typing.Any]]]] = None,
+        docker_image: typing.Optional["_DevEnvironmentDockerImage_4a8d8ffd"] = None,
         ports: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tasks: typing.Optional[typing.Sequence[_Task_9fa875b6]] = None,
+        tasks: typing.Optional[typing.Sequence["_Task_9fa875b6"]] = None,
         vscode_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
@@ -1432,7 +1432,7 @@ class DevContainer(
         jsii.create(self.__class__, self, [project, options])
 
     @jsii.member(jsii_name="addDockerImage")
-    def add_docker_image(self, image: _DevEnvironmentDockerImage_4a8d8ffd) -> None:
+    def add_docker_image(self, image: "_DevEnvironmentDockerImage_4a8d8ffd") -> None:
         '''(experimental) Add a custom Docker image or Dockerfile for the container.
 
         :param image: -
@@ -1445,7 +1445,7 @@ class DevContainer(
         return typing.cast(None, jsii.invoke(self, "addDockerImage", [image]))
 
     @jsii.member(jsii_name="addFeatures")
-    def add_features(self, *features: DevContainerFeature) -> None:
+    def add_features(self, *features: "DevContainerFeature") -> None:
         '''(experimental) Adds a list of VSCode features that should be automatically installed in the container.
 
         :param features: featureName and version(optional default: latest).
@@ -1471,7 +1471,7 @@ class DevContainer(
         return typing.cast(None, jsii.invoke(self, "addPorts", [*ports]))
 
     @jsii.member(jsii_name="addTasks")
-    def add_tasks(self, *tasks: _Task_9fa875b6) -> None:
+    def add_tasks(self, *tasks: "_Task_9fa875b6") -> None:
         '''(experimental) Adds tasks to run when the container starts.
 
         Tasks will be run in sequence.
@@ -1801,3 +1801,6 @@ def _typecheckingstub__3572ac292b4bd9b3dc808ba9caa4797adcb64703144da90f4ad010fde
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IDevContainerEnvironment]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -62,6 +62,10 @@ async def test_multiple_plugins_new_page_creation(server_url: URL) -> None:
         assert browser_pool.total_pages_count == 3
 
 
+@pytest.mark.flaky(
+    rerun=3,
+    reason='Test is flaky on Windows and MacOS, see https://github.com/apify/crawlee-python/issues/1660.',
+)
 async def test_new_page_with_each_plugin(server_url: URL) -> None:
     plugin_chromium = PlaywrightBrowserPlugin(browser_type='chromium')
     plugin_firefox = PlaywrightBrowserPlugin(browser_type='firefox')
@@ -107,7 +111,7 @@ async def test_with_default_plugin_constructor(server_url: URL) -> None:
 async def test_new_page_with_existing_id() -> None:
     async with BrowserPool() as browser_pool:
         page_1 = await browser_pool.new_page()
-        with pytest.raises(ValueError, match='Page with ID: .* already exists.'):
+        with pytest.raises(ValueError, match=r'Page with ID: .* already exists.'):
             await browser_pool.new_page(page_id=page_1.id)
 
 
@@ -115,7 +119,7 @@ async def test_new_page_with_invalid_plugin() -> None:
     plugin_1 = PlaywrightBrowserPlugin(browser_type='chromium')
     plugin_2 = PlaywrightBrowserPlugin(browser_type='firefox')
     async with BrowserPool([plugin_1]) as browser_pool:
-        with pytest.raises(ValueError, match='Provided browser_plugin is not one of the plugins used by BrowserPool.'):
+        with pytest.raises(ValueError, match=r'Provided browser_plugin is not one of the plugins used by BrowserPool.'):
             await browser_pool.new_page(browser_plugin=plugin_2)
 
 
@@ -139,13 +143,13 @@ async def test_methods_raise_error_when_not_active() -> None:
 
     assert browser_pool.active is False
 
-    with pytest.raises(RuntimeError, match='BrowserPool is not active.'):
+    with pytest.raises(RuntimeError, match=r'BrowserPool is not active.'):
         await browser_pool.new_page()
 
-    with pytest.raises(RuntimeError, match='BrowserPool is not active.'):
+    with pytest.raises(RuntimeError, match=r'BrowserPool is not active.'):
         await browser_pool.new_page_with_each_plugin()
 
-    with pytest.raises(RuntimeError, match='BrowserPool is already active.'):
+    with pytest.raises(RuntimeError, match=r'BrowserPool is already active.'):
         async with browser_pool, browser_pool:
             pass
 

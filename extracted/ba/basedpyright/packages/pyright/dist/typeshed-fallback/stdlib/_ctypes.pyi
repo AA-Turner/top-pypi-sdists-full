@@ -1,30 +1,31 @@
 """Create and manipulate C compatible data types in Python."""
 
 import _typeshed
+import builtins
 import sys
 from _typeshed import ReadableBuffer, StrOrBytesPath, WriteableBuffer
 from abc import abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from ctypes import CDLL, ArgumentError as ArgumentError, c_void_p
 from types import GenericAlias
-from typing import Any, ClassVar, Generic, TypeVar, final, overload, type_check_only
+from typing import Any, ClassVar, Final, Generic, Literal, TypeVar, final, overload, type_check_only
 from typing_extensions import Self, TypeAlias
 
 _T = TypeVar("_T")
 _CT = TypeVar("_CT", bound=_CData)
 
-FUNCFLAG_CDECL: int
-FUNCFLAG_PYTHONAPI: int
-FUNCFLAG_USE_ERRNO: int
-FUNCFLAG_USE_LASTERROR: int
-RTLD_GLOBAL: int
-RTLD_LOCAL: int
+FUNCFLAG_CDECL: Final = 0x1
+FUNCFLAG_PYTHONAPI: Final = 0x4
+FUNCFLAG_USE_ERRNO: Final = 0x8
+FUNCFLAG_USE_LASTERROR: Final = 0x10
+RTLD_GLOBAL: Final[int]
+RTLD_LOCAL: Final[int]
 
 if sys.version_info >= (3, 11):
-    CTYPES_MAX_ARGCOUNT: int
+    CTYPES_MAX_ARGCOUNT: Final[int]
 
 if sys.version_info >= (3, 12):
-    SIZEOF_TIME_T: int
+    SIZEOF_TIME_T: Final[int]
 
 if sys.platform == "win32":
     # Description, Source, HelpFile, HelpContext, scode
@@ -39,8 +40,8 @@ if sys.platform == "win32":
 
     def CopyComPointer(src: _PointerLike, dst: _PointerLike | _CArgObject) -> int: ...
 
-    FUNCFLAG_HRESULT: int
-    FUNCFLAG_STDCALL: int
+    FUNCFLAG_HRESULT: Final = 0x2
+    FUNCFLAG_STDCALL: Final = 0x0
 
     def FormatError(code: int = ...) -> str: ...
     def get_last_error() -> int: ...
@@ -154,38 +155,10 @@ class _Pointer(_PointerLike, _CData, Generic[_CT], metaclass=_PyCPointerType):
 
 if sys.version_info < (3, 14):
     @overload
-    def POINTER(type: None, /) -> type[c_void_p]:
-        """
-        Create and return a new ctypes pointer type.
-
-          type
-            A ctypes type.
-
-        Pointer types are cached and reused internally,
-        so calling this function repeatedly is cheap.
-        """
-        ...
+    def POINTER(type: None, /) -> type[c_void_p]: ...
     @overload
-    def POINTER(type: type[_CT], /) -> type[_Pointer[_CT]]:
-        """
-        Create and return a new ctypes pointer type.
-
-          type
-            A ctypes type.
-
-        Pointer types are cached and reused internally,
-        so calling this function repeatedly is cheap.
-        """
-        ...
-    def pointer(obj: _CT, /) -> _Pointer[_CT]:
-        """
-        Create a new pointer instance, pointing to 'obj'.
-
-        The returned object is of the type POINTER(type(obj)). Note that if you
-        just want to pass a pointer to an object to a foreign function call, you
-        should use byref(obj) which is much faster.
-        """
-        ...
+    def POINTER(type: type[_CT], /) -> type[_Pointer[_CT]]: ...
+    def pointer(obj: _CT, /) -> _Pointer[_CT]: ...
 
 # This class is not exposed. It calls itself _ctypes.CArgObject.
 @final
@@ -193,16 +166,12 @@ if sys.version_info < (3, 14):
 class _CArgObject: ...
 
 if sys.version_info >= (3, 14):
-    def byref(obj: _CData | _CDataType, offset: int = 0, /) -> _CArgObject: ...
+    def byref(obj: _CData | _CDataType, offset: int = 0, /) -> _CArgObject:
+        """Return a pointer lookalike to a C instance, only usable as function argument."""
+        ...
 
 else:
-    def byref(obj: _CData | _CDataType, offset: int = 0) -> _CArgObject:
-        """
-        byref(C instance[, offset=0]) -> byref-object
-        Return a pointer lookalike to a C instance, only usable
-        as function argument
-        """
-        ...
+    def byref(obj: _CData | _CDataType, offset: int = 0) -> _CArgObject: ...
 
 _ECT: TypeAlias = Callable[[_CData | _CDataType | None, CFuncPtr, tuple[_CData | _CDataType, ...]], _CDataType]
 _PF: TypeAlias = tuple[int] | tuple[int, str | None] | tuple[int, str | None, Any]
@@ -248,24 +217,52 @@ class CFuncPtr(_PointerLike, _CData, metaclass=_PyCFuncPtrType):
 _GetT = TypeVar("_GetT")
 _SetT = TypeVar("_SetT")
 
-# This class is not exposed. It calls itself _ctypes.CField.
-@final
-@type_check_only
-class _CField(Generic[_CT, _GetT, _SetT]):
-    offset: int
-    size: int
-    if sys.version_info >= (3, 10):
+if sys.version_info >= (3, 14):
+    @final
+    class CField(Generic[_CT, _GetT, _SetT]):
+        """Structure/Union member"""
+        offset: int
+        size: int
+        name: str
+        type: builtins.type[_CT]
+        byte_offset: int
+        byte_size: int
+        is_bitfield: bool
+        bit_offset: int
+        bit_size: int
+        is_anonymous: bool
         @overload
-        def __get__(self, instance: None, owner: type[Any] | None = None, /) -> Self: ...
+        def __get__(self, instance: None, owner: builtins.type[Any] | None = None, /) -> Self:
+            """Return an attribute of instance, which is of type owner."""
+            ...
         @overload
-        def __get__(self, instance: Any, owner: type[Any] | None = None, /) -> _GetT: ...
-    else:
-        @overload
-        def __get__(self, instance: None, owner: type[Any] | None, /) -> Self: ...
-        @overload
-        def __get__(self, instance: Any, owner: type[Any] | None, /) -> _GetT: ...
+        def __get__(self, instance: Any, owner: builtins.type[Any] | None = None, /) -> _GetT:
+            """Return an attribute of instance, which is of type owner."""
+            ...
+        def __set__(self, instance: Any, value: _SetT, /) -> None:
+            """Set an attribute of instance to value."""
+            ...
 
-    def __set__(self, instance: Any, value: _SetT, /) -> None: ...
+    _CField = CField
+
+else:
+    @final
+    @type_check_only
+    class _CField(Generic[_CT, _GetT, _SetT]):
+        offset: int
+        size: int
+        if sys.version_info >= (3, 10):
+            @overload
+            def __get__(self, instance: None, owner: type[Any] | None = None, /) -> Self: ...
+            @overload
+            def __get__(self, instance: Any, owner: type[Any] | None = None, /) -> _GetT: ...
+        else:
+            @overload
+            def __get__(self, instance: None, owner: type[Any] | None, /) -> Self: ...
+            @overload
+            def __get__(self, instance: Any, owner: type[Any] | None, /) -> _GetT: ...
+
+        def __set__(self, instance: Any, value: _SetT, /) -> None: ...
 
 # This class is not exposed. It calls itself _ctypes.UnionType.
 @type_check_only
@@ -322,6 +319,10 @@ class Structure(_CData, metaclass=_PyCStructType):
     _anonymous_: ClassVar[Sequence[str]]
     if sys.version_info >= (3, 13):
         _align_: ClassVar[int]
+
+    if sys.version_info >= (3, 14):
+        # _layout_ can be defined by the user, but is not always present.
+        _layout_: ClassVar[Literal["ms", "gcc-sysv"]]
 
     def __init__(self, *args: Any, **kw: Any) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
@@ -408,10 +409,7 @@ class Array(_CData, Generic[_CT], metaclass=_PyCArrayType):
         ...
 
 def addressof(obj: _CData | _CDataType, /) -> int:
-    """
-    addressof(C instance) -> integer
-    Return the address of the C instance internal buffer
-    """
+    """Return the address of the C instance internal buffer"""
     ...
 def alignment(obj_or_type: _CData | _CDataType | type[_CData | _CDataType], /) -> int:
     """
@@ -421,16 +419,10 @@ def alignment(obj_or_type: _CData | _CDataType | type[_CData | _CDataType], /) -
     """
     ...
 def get_errno() -> int: ...
-def resize(obj: _CData | _CDataType, size: int, /) -> None:
-    """Resize the memory buffer of a ctypes instance"""
-    ...
+def resize(obj: _CData | _CDataType, size: int, /) -> None: ...
 def set_errno(value: int, /) -> int: ...
 def sizeof(obj_or_type: _CData | _CDataType | type[_CData | _CDataType], /) -> int:
-    """
-    sizeof(C type) -> integer
-    sizeof(C instance) -> integer
-    Return the size in bytes of a C instance
-    """
+    """Return the size in bytes of a C instance."""
     ...
 def PyObj_FromPtr(address: int, /) -> Any: ...
 def Py_DECREF(o: _T, /) -> _T: ...

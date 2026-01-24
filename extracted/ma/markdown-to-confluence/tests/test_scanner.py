@@ -1,7 +1,7 @@
 """
 Publish Markdown files to Confluence wiki.
 
-Copyright 2022-2025, Levente Hunyadi
+Copyright 2022-2026, Levente Hunyadi
 
 :see: https://github.com/hunyadi/md2conf
 """
@@ -10,10 +10,11 @@ import logging
 import unittest
 from pathlib import Path
 
-from strong_typing.exception import JsonTypeError
+from cattrs import BaseValidationError
 
-from md2conf.extra import override
-from md2conf.scanner import MermaidScanner, Scanner
+from md2conf.compatibility import override
+from md2conf.mermaid.scanner import MermaidScanner
+from md2conf.scanner import Scanner
 from tests.utility import TypedTestCase
 
 logging.basicConfig(
@@ -46,36 +47,35 @@ flowchart LR
 
 
 class TestScanner(TypedTestCase):
-    sample_dir: Path
+    test_dir: Path
 
     @override
     def setUp(self) -> None:
         self.maxDiff = 1024
-
-        test_dir = Path(__file__).parent
-        parent_dir = test_dir.parent
-
-        self.sample_dir = parent_dir / "sample"
+        self.test_dir = Path(__file__).parent / "scanner"
 
     def test_tag(self) -> None:
-        document = Scanner().read(self.sample_dir / "index.md")
-        self.assertIsNotNone(document.page_id)
-        self.assertIsNone(document.space_key)
-        self.assertIsNone(document.title)
+        document = Scanner().read(self.test_dir / "id_only.md")
+        props = document.properties
+        self.assertEqual(props.page_id, "1234")
+        self.assertIsNone(props.space_key)
+        self.assertIsNone(props.title)
 
     def test_json_frontmatter(self) -> None:
-        document = Scanner().read(self.sample_dir / "parent" / "index.md")
-        self.assertEqual(document.page_id, "1966122")
-        self.assertEqual(document.space_key, "~hunyadi")
-        self.assertEqual(document.title, "🏠 Markdown parent page")
+        document = Scanner().read(self.test_dir / "id_space_title.md")
+        props = document.properties
+        self.assertEqual(props.page_id, "1234567")
+        self.assertEqual(props.space_key, "~hunyadi")
+        self.assertEqual(props.title, "🏠 árvíztűrő tükörfúrógép")
 
     def test_yaml_frontmatter(self) -> None:
-        document = Scanner().read(self.sample_dir / "sibling.md")
-        self.assertIsNotNone(document.page_id)
-        self.assertIsNone(document.space_key)
-        self.assertEqual(document.generated_by, "This page has been generated with md2conf.")
-        self.assertEqual(document.title, "Markdown example document")
-        self.assertEqual(document.tags, ["markdown", "confluence", "md", "wiki"])
+        document = Scanner().read(self.test_dir / "frontmatter.md")
+        props = document.properties
+        self.assertEqual(props.page_id, "19840101")
+        self.assertIsNone(props.space_key)
+        self.assertEqual(props.generated_by, "This page has been generated with md2conf.")
+        self.assertEqual(props.title, "Markdown example document")
+        self.assertEqual(props.tags, ["markdown", "confluence", "md", "wiki"])
 
     def test_mermaid_frontmatter(self) -> None:
         properties = MermaidScanner().read(mermaid_front_matter)
@@ -88,7 +88,7 @@ class TestScanner(TypedTestCase):
         self.assertIsNone(properties.config)
 
     def test_mermaid_malformed_frontmatter(self) -> None:
-        with self.assertRaises(JsonTypeError):
+        with self.assertRaises(BaseValidationError):
             MermaidScanner().read(mermaid_malformed_front_matter)
 
 

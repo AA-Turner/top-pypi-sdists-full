@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-PYTHON_VERSION_COMPATIBILITY = "PY3"
 
 DEPS = [
   'flavor',
@@ -54,8 +53,6 @@ def RunSteps(api):
 
     if 'Lottie' in builder:
       api.flavor.install(lotties=True)
-    elif 'Mskp' in builder:
-      api.flavor.install(mskps=True)
     elif all(v in builder for v in ['Perf', 'Android', 'CPU']):
       api.flavor.install(skps=True, images=True, svgs=True,
                          resources=True, texttraces=True)
@@ -81,13 +78,12 @@ def RunSteps(api):
 
 TEST_BUILDERS = [
   'Perf-Android-Clang-AndroidOne-GPU-Mali400MP2-arm-Release-All-Android_SkottieTracing',
-  'Perf-Android-Clang-GalaxyS7_G930FD-GPU-MaliT880-arm64-Debug-All-Android',
-  'Perf-Android-Clang-NVIDIA_Shield-CPU-TegraX1-arm64-Release-All-Android',
-  'Perf-Android-Clang-Nexus5x-GPU-Adreno418-arm64-Debug-All-Android',
-  'Perf-Android-Clang-Pixel2XL-GPU-Adreno540-arm64-Release-All-Android_Skpbench_Mskp',
   'Perf-Android-Clang-GalaxyS20-GPU-MaliG77-arm64-Release-All-Android_Vulkan',
+  'Perf-Android-Clang-GalaxyS7_G930FD-GPU-MaliT880-arm64-Debug-All-Android',
+  'Perf-Android-Clang-MokeyGo32-CPU-Cortex-arm-Release-All-Android',
+  'Perf-Android-Clang-MotoG73-GPU-BXM_8_256-arm64-Release-All-Android',
+  'Perf-Android-Clang-Nexus5x-GPU-Adreno418-arm64-Debug-All-Android',
   'Perf-Android-Clang-Pixel6-GPU-Adreno620-arm64-Release-All-Android',
-  'Perf-ChromeOS-Clang-SamsungChromebookPlus-GPU-MaliT860-arm-Release-All',
   'Perf-Debian10-Clang-GCE-CPU-AVX2-x86_64-Debug-All-MSAN',
   'Perf-Debian10-Clang-GCE-CPU-AVX2-x86_64-Release-All-ASAN',
   'Perf-Win2019-Clang-GCE-CPU-AVX2-x86_64-Debug-All-ASAN',
@@ -96,17 +92,18 @@ TEST_BUILDERS = [
   'Test-Android-Clang-Nexus5x-GPU-Adreno418-arm64-Debug-All-Android',
   'Test-Android-Clang-Nexus5x-GPU-Adreno418-arm64-Release-All-Android_ASAN',
   'Test-Android-Clang-Pixel3a-GPU-Adreno615-arm64-Debug-All-Android_Vulkan',
-  'Test-ChromeOS-Clang-SamsungChromebookPlus-GPU-MaliT860-arm-Release-All',
+  'Test-ChromeOS-Clang-Cherry-GPU-MaliG57-arm-Debug-All',
   'Test-Debian10-Clang-GCE-CPU-AVX2-x86_64-Debug-All-Coverage',
   'Test-Debian10-Clang-GCE-CPU-AVX2-x86_64-Release-All-Lottie',
   'Test-Debian10-Clang-GCE-CPU-AVX2-x86_64-Release-All-TSAN',
   'Test-Debian10-Clang-GCE-GPU-SwiftShader-x86_64-Debug-All-SwiftShader',
   'Test-Debian10-Clang-NUC7i5BNK-GPU-IntelIris640-x86_64-Debug-All-Vulkan',
+  'Test-iOS-Clang-iPhone8-GPU-AppleA11-arm64-Release-All',
+  'Test-iOS-Clang-iPhone8-GPU-AppleA11-arm64-Release-All-RPI',
   'Test-Mac10.13-Clang-MacBookPro11.5-CPU-AVX2-x86_64-Debug-All-ASAN',
-  ('Test-Ubuntu18-Clang-Golo-GPU-QuadroP400-x86_64-Release-All'
-   '-Valgrind_AbandonGpuContext_SK_CPU_LIMIT_SSE41'),
   'Test-Debian10-Clang-NUC7i5BNK-GPU-IntelIris640-x86_64-Debug-All-ASAN_Vulkan',
   'Test-Debian11-Clang-NUC11TZi5-GPU-IntelIrisXe-x86_64-Debug-All',
+  'Test-Win10-Clang-NUC5i7RYH-CPU-AVX2-x86_64-Debug-All-NativeFonts_DWriteCore',
 ]
 
 # Default properties used for TEST_BUILDERS.
@@ -127,6 +124,8 @@ def GenTests(api):
     )
     if 'Win' in buildername:
       test += api.platform('win', 64)
+    if 'iOS' in buildername and 'RPI' not in buildername:
+      test += api.platform('mac', 64)
     yield test
 
   builder = 'Test-Debian10-Clang-GCE-CPU-AVX2-x86_64-Release-All'
@@ -257,8 +256,17 @@ def GenTests(api):
                    path_config='kitchen',
                    swarm_out_dir='[SWARM_OUT_DIR]') +
     api.step_data('get swarming bot id',
-                  stdout=api.raw_io.output('build123-m2--device5')) +
+                  stdout=api.raw_io.output('lin-231-e505--device5')) +
     api.step_data('Scale CPU 4 to 0.600000', retcode=1)+
     api.step_data('Scale CPU 4 to 0.600000 (attempt 2)', retcode=1)+
     api.step_data('Scale CPU 4 to 0.600000 (attempt 3)', retcode=1)
+  )
+
+  internalBuilder = (
+      'Test-Android-Clang-InternalDevice-GPU-SomeGPU-arm-Release-All')
+  yield (
+    api.test('internal_hardware_label') +
+    api.properties(**(
+        defaultProps(internalBuilder) | {'internal_hardware_label': '6'}
+    ))
   )

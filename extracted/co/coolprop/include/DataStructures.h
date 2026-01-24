@@ -105,17 +105,23 @@ enum parameters
     iHmolar_residual,  ///< The residual molar enthalpy
     iSmolar_residual,  ///< The residual molar entropy (as a function of temperature and density)
     iGmolar_residual,  ///< The residual molar Gibbs energy
+    iHmolar_idealgas,  ///< The ideal gas molar enthalpy
+    iSmolar_idealgas,  ///< The ideal gas molar entropy
+    iUmolar_idealgas,  ///< The ideal gas molar internal energy
 
     // Mass specific thermodynamic properties
-    iDmass,          ///< Mass-based density
-    iHmass,          ///< Mass-based enthalpy
-    iSmass,          ///< Mass-based entropy
-    iCpmass,         ///< Mass-based constant-pressure specific heat
-    iCp0mass,        ///< Mass-based ideal-gas specific heat
-    iCvmass,         ///< Mass-based constant-volume specific heat
-    iUmass,          ///< Mass-based internal energy
-    iGmass,          ///< Mass-based Gibbs energy
-    iHelmholtzmass,  ///< Mass-based Helmholtz energy
+    iDmass,           ///< Mass-based density
+    iHmass,           ///< Mass-based enthalpy
+    iSmass,           ///< Mass-based entropy
+    iCpmass,          ///< Mass-based constant-pressure specific heat
+    iCp0mass,         ///< Mass-based ideal-gas specific heat
+    iCvmass,          ///< Mass-based constant-volume specific heat
+    iUmass,           ///< Mass-based internal energy
+    iGmass,           ///< Mass-based Gibbs energy
+    iHelmholtzmass,   ///< Mass-based Helmholtz energy
+    iHmass_idealgas,  ///< The ideal gas specific enthalpy
+    iSmass_idealgas,  ///< The ideal gas specific entropy
+    iUmass_idealgas,  ///< The ideal gas specific internal energy
 
     // Transport properties
     iviscosity,        ///< Viscosity
@@ -218,10 +224,10 @@ phases get_phase_index(const std::string& param_name);
 /// Return true if passed PC-SAFT association scheme name is valid, otherwise false
 /// @param scheme_name The association scheme string to be checked ("2B" for instance)
 /// @param iOutput Gets updated with the schemes enum value if scheme_name is found
-bool is_valid_scheme(const std::string &scheme_name, schemes &iOutput);
+bool is_valid_scheme(const std::string& scheme_name, schemes& iOutput);
 
 /// Return the enum key corresponding to the association scheme name ("2B" for instance)
-schemes get_scheme_index(const std::string &scheme_name);
+schemes get_scheme_index(const std::string& scheme_name);
 
 /// Returns true if the input is trivial (constants, critical parameters, etc.)
 bool is_trivial_parameter(int key);
@@ -427,6 +433,9 @@ const std::string& get_input_pair_long_desc(input_pairs pair);
 
 /// Split an input pair into parameters for the two parts that form the pair
 void split_input_pair(input_pairs pair, parameters& p1, parameters& p2);
+
+extern void apply_simple_mixing_rule(const std::string& identifier1, const std::string& identifier2, const std::string& rule);
+extern void set_interaction_parameters(const std::string& string_data);
 
 extern std::string get_mixture_binary_pair_data(const std::string& CAS1, const std::string& CAS2, const std::string& param);
 extern void set_mixture_binary_pair_data(const std::string& CAS1, const std::string& CAS2, const std::string& param, const double val);

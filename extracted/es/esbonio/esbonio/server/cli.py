@@ -2,13 +2,11 @@ import argparse
 import logging
 import sys
 import warnings
-from typing import Optional
-from typing import Sequence
+from collections.abc import Sequence
+from logging.handlers import MemoryHandler
 
 from pygls.protocol import default_converter
 
-from .log import LOG_NAMESPACE
-from .log import MemoryHandler
 from .server import EsbonioLanguageServer
 from .server import __version__
 from .setup import create_language_server
@@ -59,19 +57,26 @@ def build_parser() -> argparse.ArgumentParser:
     return cli
 
 
-def main(argv: Optional[Sequence[str]] = None):
-    """Standard main function for each of the default language servers."""
-
-    # Put these here to avoid circular import issues.
-
+def main(argv: Sequence[str] | None = None):
     cli = build_parser()
     args = cli.parse_args(argv)
 
     # Order matters!
     modules = [
+        "esbonio.server.features.log",
+        "esbonio.server.features.project_manager",
         "esbonio.server.features.sphinx_manager",
         "esbonio.server.features.preview_manager",
-        "esbonio.server.features.symbols",
+        "esbonio.server.features.directives",
+        "esbonio.server.features.roles",
+        "esbonio.server.features.rst.directives",
+        "esbonio.server.features.rst.roles",
+        "esbonio.server.features.myst.directives",
+        "esbonio.server.features.myst.roles",
+        "esbonio.server.features.sphinx_support.diagnostics",
+        "esbonio.server.features.sphinx_support.symbols",
+        "esbonio.server.features.sphinx_support.directives",
+        "esbonio.server.features.sphinx_support.roles",
     ]
 
     for mod in args.included_modules:
@@ -83,25 +88,21 @@ def main(argv: Optional[Sequence[str]] = None):
 
     # Ensure we can capture warnings.
     logging.captureWarnings(True)
-    warnlog = logging.getLogger("py.warnings")
 
     if not sys.warnoptions:
         warnings.simplefilter("default")  # Enable capture of DeprecationWarnings
 
     # Setup a temporary logging handler that can cache messages until the language server
     # is ready to forward them onto the client.
-    logger = logging.getLogger(LOG_NAMESPACE)
-    logger.setLevel(logging.DEBUG)
-
-    handler = MemoryHandler()
-    handler.setLevel(logging.DEBUG)
-    logger.addHandler(handler)
-    warnlog.addHandler(handler)
+    logging.basicConfig(
+        level=logging.DEBUG,
+        handlers=[MemoryHandler(999999, flushLevel=logging.CRITICAL)],
+    )
 
     server = create_language_server(
         EsbonioLanguageServer,
         modules,
-        logger=logger,
+        logger=logging.getLogger("esbonio"),
         converter_factory=default_converter,
     )
 

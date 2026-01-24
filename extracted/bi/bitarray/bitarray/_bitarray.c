@@ -16,9 +16,6 @@
 /* size used when reading / writing blocks from files (in bytes) */
 #define BLOCKSIZE  65536
 
-/* default bit-endianness */
-static int default_endian = ENDIAN_BIG;
-
 /* translation table - setup during module initialization */
 static char reverse_trans[256];
 
@@ -1323,9 +1320,8 @@ bitarray_invert(bitarrayobject *self, PyObject *args)
             return NULL;
         }
         self->ob_item[i / 8] ^= BITMASK(self, i);
-        Py_RETURN_NONE;
     }
-    if (PySlice_Check(arg)) {
+    else if (PySlice_Check(arg)) {
         Py_ssize_t start, stop, step, slicelength;
 
         if (PySlice_GetIndicesEx(arg, self->nbits,
@@ -1333,15 +1329,15 @@ bitarray_invert(bitarrayobject *self, PyObject *args)
             return NULL;
         adjust_step_positive(slicelength, &start, &stop, &step);
         invert_range(self, start, stop, step);
-        Py_RETURN_NONE;
     }
-    if (arg == Py_None) {
+    else if (arg == Py_None) {
         invert_span(self, 0, self->nbits);
-        Py_RETURN_NONE;
     }
-
-    return PyErr_Format(PyExc_TypeError, "index expect, not '%s' object",
-                        Py_TYPE(arg)->tp_name);
+    else {
+        return PyErr_Format(PyExc_TypeError, "index expect, not '%s' object",
+                            Py_TYPE(arg)->tp_name);
+    }
+    Py_RETURN_NONE;
 }
 
 PyDoc_STRVAR(invert_doc,
@@ -1577,7 +1573,8 @@ bitarray_tobytes(bitarrayobject *self)
 PyDoc_STRVAR(tobytes_doc,
 "tobytes() -> bytes\n\
 \n\
-Return the bitarray buffer (pad bits are set to zero).");
+Return the bitarray buffer (pad bits are set to zero).\n\
+`a.tobytes()` is equivalent to `bytes(a)`");
 
 
 /* Extend self with bytes from f.read(n).  Return number of bytes actually
@@ -3117,7 +3114,7 @@ decodetree_todict(decodetreeobject *self)
     if ((dict = PyDict_New()) == NULL)
         return NULL;
 
-    prefix = newbitarrayobject(&Bitarray_Type, 0, default_endian);
+    prefix = newbitarrayobject(&Bitarray_Type, 0, ENDIAN_DEFAULT);
     if (prefix == NULL)
         goto error;
 
@@ -3566,6 +3563,8 @@ static PyMethodDef bitarray_methods[] = {
      to01_doc},
     {"tobytes",      (PyCFunction) bitarray_tobytes,     METH_NOARGS,
      tobytes_doc},
+    {"__bytes__",    (PyCFunction) bitarray_tobytes,     METH_NOARGS,
+     tobytes_doc},
     {"tofile",       (PyCFunction) bitarray_tofile,      METH_O,
      tofile_doc},
     {"tolist",       (PyCFunction) bitarray_tolist,      METH_NOARGS,
@@ -3601,10 +3600,8 @@ static PyMethodDef bitarray_methods[] = {
 static int
 endian_from_string(const char *str)
 {
-    assert(default_endian == ENDIAN_LITTLE || default_endian == ENDIAN_BIG);
-
     if (str == NULL)
-        return default_endian;
+        return ENDIAN_DEFAULT;
 
     if (strcmp(str, "little") == 0)
         return ENDIAN_LITTLE;
@@ -3613,7 +3610,7 @@ endian_from_string(const char *str)
         return ENDIAN_BIG;
 
     PyErr_Format(PyExc_ValueError, "bit-endianness must be either "
-                                   "'little' or 'big', not '%s'", str);
+                 "'little' or 'big', not '%s'", str);
     return -1;
 }
 
@@ -4127,39 +4124,13 @@ reconstructor(PyObject *module, PyObject *args)
 static PyObject *
 get_default_endian(PyObject *module)
 {
-    return PyUnicode_FromString(ENDIAN_STR(default_endian));
+    return PyUnicode_FromString(ENDIAN_STR(ENDIAN_DEFAULT));
 }
 
 PyDoc_STRVAR(get_default_endian_doc,
 "get_default_endian() -> str\n\
 \n\
-Return the default bit-endianness for new bitarray objects being created.\n\
-Unless `_set_default_endian('little')` was called, the default\n\
-bit-endianness is `big`.");
-
-
-static PyObject *
-set_default_endian(PyObject *module, PyObject *args)
-{
-    char *endian_str;
-    int t;
-
-    if (!PyArg_ParseTuple(args, "s:_set_default_endian", &endian_str))
-        return NULL;
-
-    /* As endian_from_string() might return -1, we have to store its value
-       in a temporary variable before setting default_endian. */
-    if ((t = endian_from_string(endian_str)) < 0)
-        return NULL;
-    default_endian = t;
-
-    Py_RETURN_NONE;
-}
-
-PyDoc_STRVAR(set_default_endian_doc,
-"_set_default_endian(endian, /)\n\
-\n\
-Set the default bit-endianness for new bitarray objects being created.");
+Return the default bit-endianness for new bitarray objects being created.");
 
 
 static PyObject *
@@ -4182,6 +4153,11 @@ sysinfo(PyObject *module, PyObject *args)
     R("PY_LITTLE_ENDIAN", PY_LITTLE_ENDIAN);
     R("PY_BIG_ENDIAN", PY_BIG_ENDIAN);
     R("HAVE_BUILTIN_BSWAP64", HAVE_BUILTIN_BSWAP64);
+#ifdef Py_GIL_DISABLED   /* Python configured using --disable-gil */
+    R("Py_GIL_DISABLED", 1);
+#else
+    R("Py_GIL_DISABLED", 0);
+#endif
 #ifdef Py_DEBUG          /* Python configured using --with-pydebug  */
     R("Py_DEBUG", 1);
 #else
@@ -4193,7 +4169,8 @@ sysinfo(PyObject *module, PyObject *args)
     R("DEBUG", 0);
 #endif
 
-    return PyErr_Format(PyExc_KeyError, "%s", key);
+    PyErr_SetString(PyExc_KeyError, key);
+    return NULL;
 #undef R
 }
 
@@ -4211,8 +4188,6 @@ static PyMethodDef module_functions[] = {
      reduce_doc},
     {"get_default_endian",  (PyCFunction) get_default_endian, METH_NOARGS,
      get_default_endian_doc},
-    {"_set_default_endian", (PyCFunction) set_default_endian, METH_VARARGS,
-     set_default_endian_doc},
     {"_sysinfo",            (PyCFunction) sysinfo,            METH_VARARGS,
      sysinfo_doc},
     {NULL,                  NULL}  /* sentinel */
@@ -4260,6 +4235,10 @@ PyInit__bitarray(void)
     if ((m = PyModule_Create(&moduledef)) == NULL)
         return NULL;
 
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+#endif
+
     if (PyType_Ready(&Bitarray_Type) < 0)
         return NULL;
     Py_SET_TYPE(&Bitarray_Type, &PyType_Type);
@@ -4287,8 +4266,8 @@ PyInit__bitarray(void)
         return NULL;
     Py_SET_TYPE(&SearchIter_Type, &PyType_Type);
 
-    PyModule_AddObject(m, "__version__",
-                       PyUnicode_FromString(BITARRAY_VERSION));
+    if (PyModule_AddStringMacro(m, BITARRAY_VERSION) < 0)
+        return NULL;
 
     return m;
 }

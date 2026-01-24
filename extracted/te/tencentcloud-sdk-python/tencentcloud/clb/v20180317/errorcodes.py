@@ -26,6 +26,12 @@ DRYRUNOPERATION = 'DryRunOperation'
 # 操作失败。
 FAILEDOPERATION = 'FailedOperation'
 
+# 该实例绑定的EIP资源业务带宽超过防误操作检测阈值，执行操作可能存在风险，如仍想继续，请在EIP控制台关闭对应EIP的防误操作检测开关后重试。
+FAILEDOPERATION_EIPTRAFFICCHECKRISK = 'FailedOperation.EipTrafficCheckRisk'
+
+# 删除实例频次校验被判定为高风险，请检查业务或稍后重试。
+FAILEDOPERATION_FREQUENCYCHECKRISK = 'FailedOperation.FrequencyCheckRisk'
+
 # LB状态异常。
 FAILEDOPERATION_INVALIDLBSTATUS = 'FailedOperation.InvalidLBStatus'
 
@@ -37,6 +43,12 @@ FAILEDOPERATION_RESOURCEINCLONING = 'FailedOperation.ResourceInCloning'
 
 # 正在操作指定的资源，请稍后重试。
 FAILEDOPERATION_RESOURCEINOPERATING = 'FailedOperation.ResourceInOperating'
+
+# 删除实例规则数校验被判定为高风险，如需强行删除请传强制校验参数ForceDelete为true。
+FAILEDOPERATION_TARGETNUMCHECKRISK = 'FailedOperation.TargetNumCheckRisk'
+
+# 删除实例流量校验被判定为高风险，如需强行删除请传强制校验参数ForceDelete为true。
+FAILEDOPERATION_TRAFFICCHECKRISK = 'FailedOperation.TrafficCheckRisk'
 
 # 内部错误。
 INTERNALERROR = 'InternalError'

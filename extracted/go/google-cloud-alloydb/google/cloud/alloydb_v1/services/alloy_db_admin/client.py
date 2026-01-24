@@ -157,6 +157,34 @@ class AlloyDBAdminClient(metaclass=AlloyDBAdminClientMeta):
     _DEFAULT_ENDPOINT_TEMPLATE = "alloydb.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
 
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
+
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
         """Creates an instance of this client using the provided credentials
@@ -273,6 +301,30 @@ class AlloyDBAdminClient(metaclass=AlloyDBAdminClientMeta):
         return m.groupdict() if m else {}
 
     @staticmethod
+    def crypto_key_path(
+        project: str,
+        location: str,
+        key_ring: str,
+        crypto_key: str,
+    ) -> str:
+        """Returns a fully-qualified crypto_key string."""
+        return "projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{crypto_key}".format(
+            project=project,
+            location=location,
+            key_ring=key_ring,
+            crypto_key=crypto_key,
+        )
+
+    @staticmethod
+    def parse_crypto_key_path(path: str) -> Dict[str, str]:
+        """Parses a crypto_key path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/keyRings/(?P<key_ring>.+?)/cryptoKeys/(?P<crypto_key>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
     def crypto_key_version_path(
         project: str,
         location: str,
@@ -362,6 +414,28 @@ class AlloyDBAdminClient(metaclass=AlloyDBAdminClientMeta):
         """Parses a network path into its component segments."""
         m = re.match(
             r"^projects/(?P<project>.+?)/global/networks/(?P<network>.+?)$", path
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def service_attachment_path(
+        project: str,
+        region: str,
+        service_attachment: str,
+    ) -> str:
+        """Returns a fully-qualified service_attachment string."""
+        return "projects/{project}/regions/{region}/serviceAttachments/{service_attachment}".format(
+            project=project,
+            region=region,
+            service_attachment=service_attachment,
+        )
+
+    @staticmethod
+    def parse_service_attachment_path(path: str) -> Dict[str, str]:
+        """Parses a service_attachment path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/regions/(?P<region>.+?)/serviceAttachments/(?P<service_attachment>.+?)$",
+            path,
         )
         return m.groupdict() if m else {}
 
@@ -529,12 +603,8 @@ class AlloyDBAdminClient(metaclass=AlloyDBAdminClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = AlloyDBAdminClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -542,7 +612,7 @@ class AlloyDBAdminClient(metaclass=AlloyDBAdminClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -574,20 +644,14 @@ class AlloyDBAdminClient(metaclass=AlloyDBAdminClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = AlloyDBAdminClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -949,7 +1013,7 @@ class AlloyDBAdminClient(metaclass=AlloyDBAdminClientMeta):
                 operation by specifying a value with the following
                 format:
 
-                -  projects/{project}/locations/-
+                - projects/{project}/locations/-
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1808,7 +1872,7 @@ class AlloyDBAdminClient(metaclass=AlloyDBAdminClientMeta):
                 # Initialize request argument(s)
                 request = alloydb_v1.UpgradeClusterRequest(
                     name="name_value",
-                    version="POSTGRES_16",
+                    version="POSTGRES_17",
                 )
 
                 # Make the request
@@ -2611,8 +2675,8 @@ class AlloyDBAdminClient(metaclass=AlloyDBAdminClientMeta):
                 operation by specifying a value with one of the
                 following formats:
 
-                -  projects/{project}/locations/-/clusters/-
-                -  projects/{project}/locations/{region}/clusters/-
+                - projects/{project}/locations/-/clusters/-
+                - projects/{project}/locations/{region}/clusters/-
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -4708,7 +4772,7 @@ class AlloyDBAdminClient(metaclass=AlloyDBAdminClientMeta):
                 Required. The name of the parent resource. The required
                 format is:
 
-                -  projects/{project}/locations/{location}
+                - projects/{project}/locations/{location}
 
                 Regardless of the parent specified here, as long it is
                 contains a valid project and location, the service will
@@ -4846,7 +4910,7 @@ class AlloyDBAdminClient(metaclass=AlloyDBAdminClientMeta):
                 Required. The name of the parent resource. The required
                 format is:
 
-                -  projects/{project}/locations/{location}/clusters/{cluster}
+                - projects/{project}/locations/{location}/clusters/{cluster}
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -5627,8 +5691,7 @@ class AlloyDBAdminClient(metaclass=AlloyDBAdminClientMeta):
 
         Args:
             request (Union[google.cloud.alloydb_v1.types.ListDatabasesRequest, dict]):
-                The request object. Message for requesting list of
-                Databases.
+                The request object. Message for ListDatabases request.
             parent (str):
                 Required. Parent value for
                 ListDatabasesRequest.
@@ -5646,8 +5709,8 @@ class AlloyDBAdminClient(metaclass=AlloyDBAdminClientMeta):
 
         Returns:
             google.cloud.alloydb_v1.services.alloy_db_admin.pagers.ListDatabasesPager:
-                Message for response to listing
-                Databases.
+                Message for ListDatabases response.
+
                 Iterating over this object will yield
                 results and resolve additional pages
                 automatically.

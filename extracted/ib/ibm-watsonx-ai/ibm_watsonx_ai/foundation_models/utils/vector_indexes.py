@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -232,7 +232,9 @@ class VectorIndexes(WMLResource):
 
         .. code-block:: python
 
-            vector_indexes.update(index_id, name="new_name", description="new_description")
+            vector_indexes.update(
+                index_id, name="new_name", description="new_description"
+            )
 
         """
 
@@ -307,6 +309,7 @@ class VectorIndexes(WMLResource):
 
         :return: "SUCCESS" if delete successfully
         :rtype: str
+        :raises WMLClientError: if deletion failed
 
         **Example:**
 
@@ -379,7 +382,9 @@ class VectorIndexes(WMLResource):
 
         .. code-block:: python
 
-            vector_indexes.list(limit=5)    # list of 5 recently created vector index assets
+            vector_indexes.list(
+                limit=5
+            )  # list of 5 recently created vector index assets
 
         """
 

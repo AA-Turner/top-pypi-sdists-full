@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import functools
 import os
 from abc import ABC, abstractmethod
 from dataclasses import asdict, is_dataclass
@@ -10,10 +11,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 from airflow.exceptions import AirflowException
-from airflow.models.baseoperator import BaseOperator
 from airflow.models.xcom import XCOM_RETURN_KEY
+from airflow.providers.common.compat.sdk import BaseOperator
 
 from airflow_dbt_python.utils.enums import LogFormat
+from airflow_dbt_python.utils.version import AIRFLOW_V_3_0_PLUS
 
 if TYPE_CHECKING:
     from dbt.contracts.results import RunResult
@@ -344,10 +346,14 @@ class DbtBaseOperator(BaseOperator):
         serializable_result = self.make_run_results_serializable(
             dbt_results.run_results
         )
-        self.xcom_push(context, key=XCOM_RETURN_KEY, value=serializable_result)
+        if AIRFLOW_V_3_0_PLUS:
+            xcom_push = context["ti"].xcom_push
+        else:
+            xcom_push = functools.partial(self.xcom_push, context)  # type: ignore
 
+        xcom_push(key=XCOM_RETURN_KEY, value=serializable_result)
         for key, artifact in dbt_results.artifacts.items():
-            self.xcom_push(context, key=key, value=artifact)
+            xcom_push(key=key, value=artifact)
 
     def make_run_results_serializable(
         self, result: Optional[RunResult]

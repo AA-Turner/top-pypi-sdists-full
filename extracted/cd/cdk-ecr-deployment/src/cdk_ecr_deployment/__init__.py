@@ -153,17 +153,17 @@ class ECRDeployment(
 ):
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         dest: "IImageName",
         src: "IImageName",
         image_arch: typing.Optional[typing.Sequence[builtins.str]] = None,
         memory_limit: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.SecurityGroup]] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.SecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -197,15 +197,15 @@ class ECRDeployment(
     @jsii.member(jsii_name="addToPrincipalPolicy")
     def add_to_principal_policy(
         self,
-        statement: _aws_cdk_aws_iam_ceddda9d.PolicyStatement,
-    ) -> _aws_cdk_aws_iam_ceddda9d.AddToPrincipalPolicyResult:
+        statement: "_aws_cdk_aws_iam_ceddda9d.PolicyStatement",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.AddToPrincipalPolicyResult":
         '''
         :param statement: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__325690cb0a83adf6fab8d9967af566ee5c34ec280a23ccfb834cfb92b2023e9c)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.AddToPrincipalPolicyResult, jsii.invoke(self, "addToPrincipalPolicy", [statement]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
 
 @jsii.data_type(
@@ -230,10 +230,10 @@ class ECRDeploymentProps:
         src: "IImageName",
         image_arch: typing.Optional[typing.Sequence[builtins.str]] = None,
         memory_limit: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.SecurityGroup]] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.SecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param dest: The destination of the docker image.
@@ -316,18 +316,18 @@ class ECRDeploymentProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''Execution role associated with this function.
 
         :default: - A role is automatically created
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.SecurityGroup]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.SecurityGroup"]]:
         '''The list of security groups to associate with the Lambda's network interfaces.
 
         Only used if 'vpc' is supplied.
@@ -339,19 +339,21 @@ class ECRDeploymentProps:
         group will be created for this function.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.SecurityGroup]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.SecurityGroup"]], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         '''The VPC network to place the deployment lambda handler in.
 
         :default: - None
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
         '''Where in the VPC to place the deployment lambda handler.
 
         Only used if 'vpc' is supplied.
@@ -359,7 +361,7 @@ class ECRDeploymentProps:
         :default: - the Vpc default strategy if not specified
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -619,3 +621,6 @@ def _typecheckingstub__72af2920d9000bc2347ecd474276dc87af6bbfa4c1a44723c54438708
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IImageName]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

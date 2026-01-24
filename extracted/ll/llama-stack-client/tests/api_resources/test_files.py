@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
@@ -23,6 +29,18 @@ class TestFiles:
         file = client.files.create(
             file=b"raw file contents",
             purpose="assistants",
+        )
+        assert_matches_type(File, file, path=["response"])
+
+    @parametrize
+    def test_method_create_with_all_params(self, client: LlamaStackClient) -> None:
+        file = client.files.create(
+            file=b"raw file contents",
+            purpose="assistants",
+            expires_after={
+                "anchor": "created_at",
+                "seconds": 3600,
+            },
         )
         assert_matches_type(File, file, path=["response"])
 
@@ -212,6 +230,18 @@ class TestAsyncFiles:
         file = await async_client.files.create(
             file=b"raw file contents",
             purpose="assistants",
+        )
+        assert_matches_type(File, file, path=["response"])
+
+    @parametrize
+    async def test_method_create_with_all_params(self, async_client: AsyncLlamaStackClient) -> None:
+        file = await async_client.files.create(
+            file=b"raw file contents",
+            purpose="assistants",
+            expires_after={
+                "anchor": "created_at",
+                "seconds": 3600,
+            },
         )
         assert_matches_type(File, file, path=["response"])
 

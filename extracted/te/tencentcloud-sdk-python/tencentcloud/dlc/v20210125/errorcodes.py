@@ -53,9 +53,6 @@ FAILEDOPERATION_DELIVERGOODSFAILED = 'FailedOperation.DeliverGoodsFailed'
 # 重复的标签键。
 FAILEDOPERATION_DUPLICATETAGKEY = 'FailedOperation.DuplicateTagKey'
 
-# 当前已有资源组正在使用该配置项，无法一键删除（一键删除会导致引擎重启）您可前往资源组列表页点击详情删除
-FAILEDOPERATION_FAILEDOPERATIONCODE_NETWORKCONNECTIONINUSED = 'FailedOperation.FailedOperationCode_NetworkConnectionInUsed'
-
 # 扣费失败。
 FAILEDOPERATION_FEEDEDUCTIONFAILED = 'FailedOperation.FeeDeductionFailed'
 
@@ -104,6 +101,9 @@ FAILEDOPERATION_MODIFYINSTANCEFAILED = 'FailedOperation.ModifyInstanceFailed'
 # The  datasource vpc has been bound to the engine
 FAILEDOPERATION_NETWORKCONNECTIONEXIST = 'FailedOperation.NetworkConnectionExist'
 
+# 当前已有资源组正在使用该配置项，无法一键删除（一键删除会导致引擎重启）您可前往资源组列表页点击详情删除
+FAILEDOPERATION_NETWORKCONNECTIONINUSED = 'FailedOperation.NetworkConnectionInUsed'
+
 # 没有操作权限。
 FAILEDOPERATION_NOPERMISSION = 'FailedOperation.NoPermission'
 
@@ -143,6 +143,9 @@ FAILEDOPERATION_TAGNOTEXIST = 'FailedOperation.TagNotExist'
 # 标签值长度超过限制。
 FAILEDOPERATION_TAGVALUETOOLONG = 'FailedOperation.TagValueTooLong'
 
+# 获取结果超时
+FAILEDOPERATION_TASKOVERTIMEFETCHRESULT = 'FailedOperation.TaskOvertimeFetchResult'
+
 # 资源数量超出限制。
 FAILEDOPERATION_TOOMANYRESOURCES = 'FailedOperation.TooManyResources'
 
@@ -172,6 +175,9 @@ INVALIDPARAMETER_BATCHSQLFILTERSKEYTYPENOTMATH = 'InvalidParameter.BatchSQLFilte
 
 # 交互式SQL任务指定SortBy类型不匹配，当前仅支持: create-time/resource-usage
 INVALIDPARAMETER_BATCHSQLTASKSORTBYTYPENOTMATCH = 'InvalidParameter.BatchSQLTaskSortByTypeNotMatch'
+
+# 当前配置不被允许
+INVALIDPARAMETER_CONFIGKEYPROHIBITED = 'InvalidParameter.ConfigKeyProhibited'
 
 # 指定集群资源类型不匹配，当前仅支持: spark_cu（对应Spark集群）,presto_cu(对应Presto集群)
 INVALIDPARAMETER_DATAENGINECLUSTERTYPENOTMATCH = 'InvalidParameter.DataEngineClusterTypeNotMatch'
@@ -214,6 +220,9 @@ INVALIDPARAMETER_DESCRIBEDATAENGINESSORTBYTYPENOTMATCH = 'InvalidParameter.Descr
 
 # 重复的引擎名称。
 INVALIDPARAMETER_DUPLICATEDATAENGINENAME = 'InvalidParameter.DuplicateDataEngineName'
+
+# 数据源名称重复。
+INVALIDPARAMETER_DUPLICATEDATASOURCENAME = 'InvalidParameter.DuplicateDatasourceName'
 
 # 重复的工作组名称。
 INVALIDPARAMETER_DUPLICATEGROUPNAME = 'InvalidParameter.DuplicateGroupName'
@@ -262,6 +271,9 @@ INVALIDPARAMETER_INVALIDACCESSPOLICY = 'InvalidParameter.InvalidAccessPolicy'
 
 # 指定的Spark任务程序包文件格式不匹配，当前仅支持.jar或.py
 INVALIDPARAMETER_INVALIDAPPFILEFORMAT = 'InvalidParameter.InvalidAppFileFormat'
+
+# 指定的桶不存在
+INVALIDPARAMETER_INVALIDBUCKETNAME = 'InvalidParameter.InvalidBucketName'
 
 # 字段名称设置错误，字段名称必须小于等于128字节
 INVALIDPARAMETER_INVALIDCOLUMNNAMELENGTH = 'InvalidParameter.InvalidColumnNameLength'
@@ -350,6 +362,9 @@ INVALIDPARAMETER_INVALIDFILTERLENGTH = 'InvalidParameter.InvalidFilterLength'
 # 无效的工作组Id。
 INVALIDPARAMETER_INVALIDGROUPID = 'InvalidParameter.InvalidGroupId'
 
+# 不支持的Hive版本。
+INVALIDPARAMETER_INVALIDHIVEVERSION = 'InvalidParameter.InvalidHiveVersion'
+
 # 请求的消息类型无效。
 INVALIDPARAMETER_INVALIDINFOTYPE = 'InvalidParameter.InvalidInfoType'
 
@@ -364,6 +379,12 @@ INVALIDPARAMETER_INVALIDMINCLUSTERS = 'InvalidParameter.InvalidMinClusters'
 
 # 无效的Offset值。
 INVALIDPARAMETER_INVALIDOFFSET = 'InvalidParameter.InvalidOffset'
+
+# 列上执行的操作与该列的数据类型不兼容
+INVALIDPARAMETER_INVALIDPARAMETER_COLUMNTYPENOTCOMPATIBLE = 'InvalidParameter.InvalidParameter_ColumnTypeNotCompatible'
+
+# 排序列不合法
+INVALIDPARAMETER_INVALIDPARAMETER_SQLTASKANALYSISSORTBYTYPENOTMATCH = 'InvalidParameter.InvalidParameter_SQLTaskAnalysisSortByTypeNotMatch'
 
 # 无效的计费模式。
 INVALIDPARAMETER_INVALIDPAYMODE = 'InvalidParameter.InvalidPayMode'
@@ -382,6 +403,9 @@ INVALIDPARAMETER_INVALIDSQLNUM = 'InvalidParameter.InvalidSQLNum'
 
 # 单次获取SQL任务结果数量需大于0条，小于1000条
 INVALIDPARAMETER_INVALIDSQLTASKMAXRESULTS = 'InvalidParameter.InvalidSQLTaskMaxResults'
+
+# 指定的弹性范围不合规范
+INVALIDPARAMETER_INVALIDSCHEDULEDELASTICITYMINELASTICCLUSTERS = 'InvalidParameter.InvalidScheduledElasticityMinElasticClusters'
 
 # 当前Session仅支持: spark/pyspark/sparkr/sql类型
 INVALIDPARAMETER_INVALIDSESSIONKINDTYPE = 'InvalidParameter.InvalidSessionKindType'
@@ -476,6 +500,9 @@ INVALIDPARAMETER_SQLBASE64DECODEFAIL = 'InvalidParameter.SQLBase64DecodeFail'
 # SQL参数预处理失败
 INVALIDPARAMETER_SQLPARAMETERPREPROCESSINGFAILED = 'InvalidParameter.SQLParameterPreprocessingFailed'
 
+# 不支持的过滤类型或者参数不合法
+INVALIDPARAMETER_SQLTASKANALYSISFILTERSKEYTYPENOTMATH = 'InvalidParameter.SQLTaskAnalysisFiltersKeyTypeNotMath'
+
 # 指定的Filter.Key不匹配，当前仅支持: task-id/task-sql-keyword/task-kind/task-operator/batch-id/session-id/task-state
 INVALIDPARAMETER_SQLTASKFILTERSKEYTYPENOTMATH = 'InvalidParameter.SQLTaskFiltersKeyTypeNotMath'
 
@@ -509,8 +536,17 @@ INVALIDPARAMETER_SPARKJOBSORTBYTYPENOTMATCH = 'InvalidParameter.SparkJobSortByTy
 # 任务已经结束，不能取消。
 INVALIDPARAMETER_TASKALREADYFINISHED = 'InvalidParameter.TaskAlreadyFinished'
 
+# 过滤字段类型不匹配，当前仅支持： task-id/task-sql-keyword/task-kind/task-operator/batch-id/session-id/task-state/task-time-sum/stage-start-time/input-records-sum/output-records-sum/output-bytes-sum/output-files-num/output-small-files-num/shuffle-read-records-sum/shuffle-read-bytes-sum
+INVALIDPARAMETER_TASKLISTSORTBYTYPENOTMATCH = 'InvalidParameter.TaskListSortByTypeNotMatch'
+
+# 任务不存在。
+INVALIDPARAMETER_TASKNOTFOUND = 'InvalidParameter.TaskNotFound'
+
 # 指定的任务状态不匹配，当前仅支持: 0:初始化, 1:运行中, 2:成功, 3:数据写入中, 4:排队中, -1:失败, -3:删除
 INVALIDPARAMETER_TASKSTATETYPENOTMATH = 'InvalidParameter.TaskStateTypeNotMath'
+
+# Url格式错误。
+INVALIDPARAMETER_URLFORMATERROR = 'InvalidParameter.UrlFormatError'
 
 # Vpc cidr格式错误。
 INVALIDPARAMETER_VPCCIDRFORMATERROR = 'InvalidParameter.VpcCidrFormatError'
@@ -653,6 +689,9 @@ RESOURCEUNAVAILABLE = 'ResourceUnavailable'
 # 账号余额不足，无法执行SQL任务。
 RESOURCEUNAVAILABLE_BALANCEINSUFFICIENT = 'ResourceUnavailable.BalanceInsufficient'
 
+# 网关不处于运行中
+RESOURCEUNAVAILABLE_GATEWAYNOTRUNNING = 'ResourceUnavailable.GatewayNotRunning'
+
 # 网关未运行
 RESOURCEUNAVAILABLE_RESOURCEUNAVAILABLECODE_GATEWAYNOTRUNNING = 'ResourceUnavailable.ResourceUnavailableCode_GatewayNotRunning'
 
@@ -679,6 +718,9 @@ UNAUTHORIZEDOPERATION_ADDUSERSTOWORKGROUP = 'UnauthorizedOperation.AddUsersToWor
 
 # 子用户不是管理员，无权绑定工作组到用户。
 UNAUTHORIZEDOPERATION_BINDWORKGROUPSTOUSER = 'UnauthorizedOperation.BindWorkgroupsToUser'
+
+# 子用户无权创建联邦查询数据源。
+UNAUTHORIZEDOPERATION_CREATECATALOG = 'UnauthorizedOperation.CreateCatalog'
 
 # 子用户不是管理员，无权创建工作组。
 UNAUTHORIZEDOPERATION_CREATEWORKGROUP = 'UnauthorizedOperation.CreateWorkgroup'

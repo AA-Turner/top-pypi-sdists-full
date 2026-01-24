@@ -13,8 +13,9 @@ use github_actions_models::{
 
 use super::{Audit, AuditLoadError, AuditState, audit_meta};
 use crate::{
+    audit::AuditError,
     finding::{Confidence, Fix, FixDisposition, Severity, location::Locatable as _},
-    models::workflow::{JobExt, Workflow},
+    models::workflow::{JobCommon, Workflow},
     utils::{self, ExtractedExpr},
 };
 use subfeature::Subfeature;
@@ -24,6 +25,7 @@ pub(crate) struct BotConditions;
 
 audit_meta!(BotConditions, "bot-conditions", "spoofable bot actor check");
 
+#[allow(clippy::unwrap_used)]
 static SPOOFABLE_ACTOR_NAME_CONTEXTS: LazyLock<Vec<ContextPattern>> = LazyLock::new(|| {
     vec![
         ContextPattern::try_new("github.actor").unwrap(),
@@ -32,6 +34,7 @@ static SPOOFABLE_ACTOR_NAME_CONTEXTS: LazyLock<Vec<ContextPattern>> = LazyLock::
     ]
 });
 
+#[allow(clippy::unwrap_used)]
 static SPOOFABLE_ACTOR_ID_CONTEXTS: LazyLock<Vec<ContextPattern>> = LazyLock::new(|| {
     vec![
         ContextPattern::try_new("github.actor_id").unwrap(),
@@ -55,6 +58,7 @@ const BOT_ACTOR_IDS: &[&str] = &[
     "29139614", // renovate[bot]
 ];
 
+#[async_trait::async_trait]
 impl Audit for BotConditions {
     fn new(_state: &AuditState) -> Result<Self, AuditLoadError>
     where
@@ -63,11 +67,11 @@ impl Audit for BotConditions {
         Ok(Self)
     }
 
-    fn audit_normal_job<'doc>(
+    async fn audit_normal_job<'doc>(
         &self,
         job: &super::NormalJob<'doc>,
         _config: &crate::config::Config,
-    ) -> anyhow::Result<Vec<super::Finding<'doc>>> {
+    ) -> Result<Vec<super::Finding<'doc>>, AuditError> {
         let mut findings = vec![];
 
         // Track conditions with explicit categorization
@@ -77,7 +81,7 @@ impl Audit for BotConditions {
         if let Some(If::Expr(expr)) = &job.r#if {
             conds.push((
                 expr,
-                job.location_with_name(),
+                job.location_with_grip(),
                 job.location().with_keys(["if".into()]),
             ));
         }
@@ -87,7 +91,7 @@ impl Audit for BotConditions {
             if let Some(If::Expr(expr)) = &step.r#if {
                 conds.push((
                     expr,
-                    step.location_with_name(),
+                    step.location_with_grip(),
                     step.location().with_keys(["if".into()]),
                 ));
             }
@@ -417,11 +421,14 @@ mod tests {
     /// Macro for testing workflow audits with common boilerplate
     macro_rules! test_workflow_audit {
         ($audit_type:ty, $filename:expr, $workflow_content:expr, $test_fn:expr) => {{
-            let key = InputKey::local("fakegroup".into(), $filename, None::<&str>).unwrap();
+            let key = InputKey::local("fakegroup".into(), $filename, None::<&str>);
             let workflow = Workflow::from_string($workflow_content.to_string(), key).unwrap();
             let audit_state = AuditState::default();
             let audit = <$audit_type>::new(&audit_state).unwrap();
-            let findings = audit.audit_workflow(&workflow, &Config::default()).unwrap();
+            let findings = audit
+                .audit_workflow(&workflow, &Config::default())
+                .await
+                .unwrap();
 
             $test_fn(&workflow, findings)
         }};
@@ -496,8 +503,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_replace_actor_fix() {
+    #[tokio::test]
+    async fn test_replace_actor_fix() {
         let workflow_content = r#"
 name: Test Workflow
 on:
@@ -531,6 +538,7 @@ jobs:
                 }
 
                 insta::assert_snapshot!(document.source(), @r#"
+
                 name: Test Workflow
                 on:
                   pull_request_target:
@@ -548,8 +556,8 @@ jobs:
         );
     }
 
-    #[test]
-    fn test_all_fixes_together() {
+    #[tokio::test]
+    async fn test_all_fixes_together() {
         let workflow_content = r#"
 name: Test Workflow
 on:
@@ -581,6 +589,7 @@ jobs:
                     }
                 }
                 insta::assert_snapshot!(document.source(), @r#"
+
                 name: Test Workflow
                 on:
                   pull_request_target:
@@ -598,8 +607,8 @@ jobs:
         );
     }
 
-    #[test]
-    fn test_event_specific_contexts() {
+    #[tokio::test]
+    async fn test_event_specific_contexts() {
         // Test issue_comment event
         let issue_comment_workflow = r#"
 name: Test Issue Comment
@@ -634,6 +643,7 @@ jobs:
 
                 // Verify it suggests comment.user.login for issue_comment events
                 insta::assert_snapshot!(document.source(), @r#"
+
                 name: Test Issue Comment
                 on: issue_comment
 
@@ -683,6 +693,7 @@ jobs:
 
                 // Verify it suggests review.user.login for pull_request_review events
                 insta::assert_snapshot!(document.source(), @r#"
+
                 name: Test PR Review
                 on: pull_request_review
 
@@ -732,6 +743,7 @@ jobs:
 
                 // Verify it suggests issue.user.login for issues events
                 insta::assert_snapshot!(document.source(), @r#"
+
                 name: Test Issues
                 on: issues
 
@@ -781,6 +793,7 @@ jobs:
 
                 // Verify it suggests release.author.login for release events
                 insta::assert_snapshot!(document.source(), @r#"
+
                 name: Test Release
                 on: release
 
@@ -829,6 +842,7 @@ jobs:
                 }
 
                 insta::assert_snapshot!(document.source(), @r#"
+
                 name: Test Create
                 on: create
 
@@ -845,8 +859,8 @@ jobs:
         );
     }
 
-    #[test]
-    fn test_fix_with_complex_conditions() {
+    #[tokio::test]
+    async fn test_fix_with_complex_conditions() {
         let workflow_content = r#"
 name: Test Workflow
 on:
@@ -878,6 +892,7 @@ jobs:
                 }
 
                 insta::assert_snapshot!(document.source(), @r#"
+
                 name: Test Workflow
                 on:
                   pull_request_target:

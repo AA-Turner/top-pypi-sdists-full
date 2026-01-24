@@ -124,8 +124,8 @@ def test_stop_outside_of_state_machine_execution(engine_factory, mocker, stop_ev
 
 
 @pytest.mark.parametrize(
-    ["kwargs"],
-    [({},), ({"unique_inputs": True},)],
+    "kwargs",
+    [{}, {"unique_inputs": True}],
 )
 @pytest.mark.usefixtures("restore_checks")
 def test_internal_error_in_check(engine_factory, kwargs):
@@ -613,7 +613,11 @@ def test_negative_changing_to_positive(app_runner):
                 }
             },
             "schemas": {
-                "CustomerUpdate": {"required": ["name"]},
+                "CustomerUpdate": {
+                    "required": ["name"],
+                    "additionalProperties": False,
+                    "properties": {"name": {"type": "string"}},
+                },
                 "CustomerCreate": {"type": "object", "properties": {"name": {"type": "string"}}},
             },
         },
@@ -629,7 +633,7 @@ def test_negative_changing_to_positive(app_runner):
         if id not in CUSTOMERS:
             return "", 404
         data = request.get_json(force=True, silent=True)
-        if not data:
+        if not data or not isinstance(data, dict) or list(data) != ["name"] or not isinstance(data["name"], str):
             return jsonify({"error": ["Invalid JSON"]}), 400
         CUSTOMERS[id].update(data)
         return "", 204

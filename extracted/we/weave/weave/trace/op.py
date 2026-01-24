@@ -13,6 +13,7 @@ from collections import defaultdict
 from collections.abc import (
     AsyncGenerator,
     AsyncIterator,
+    Callable,
     Coroutine,
     Generator,
     Iterator,
@@ -24,7 +25,6 @@ from types import MethodType
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Generic,
     TypedDict,
     TypeVar,
@@ -32,7 +32,7 @@ from typing import (
     overload,
 )
 
-from typing_extensions import ParamSpec, TypeIs
+from typing_extensions import ParamSpec, TypeIs, Unpack
 
 from weave.trace import box, settings
 from weave.trace.context import call_context
@@ -50,6 +50,8 @@ from weave.trace.op_protocol import (
     OnInputHandlerType,
     OnOutputHandlerType,
     Op,
+    OpColor,
+    OpKind,
     PostprocessInputsFunc,
     PostprocessOutputFunc,
     ProcessedInputs,
@@ -59,27 +61,11 @@ from weave.trace.util import log_once
 if TYPE_CHECKING:
     from weave.trace.call import Call, CallsIter, NoOpCall
 
-
 S = TypeVar("S")
 V = TypeVar("V")
 
 P = ParamSpec("P")
 R = TypeVar("R")
-
-
-if sys.version_info < (3, 10):
-
-    def aiter(obj: AsyncIterator[V]) -> AsyncIterator[V]:
-        return obj.__aiter__()
-
-    async def anext(obj: AsyncIterator[V], default: V | None = None) -> V:
-        try:
-            return await obj.__anext__()
-        except StopAsyncIteration:
-            if default is not None:
-                return default
-            else:
-                raise
 
 
 logger = logging.getLogger(__name__)
@@ -92,6 +78,9 @@ UNINITIALIZED_MSG = "Warning: Traces will not be logged. Call weave.init to log 
 
 
 class DisplayNameFuncError(ValueError): ...
+
+
+class OpCallError(Exception): ...
 
 
 # Call, original function output, exception if occurred
@@ -110,6 +99,10 @@ class Sentinel:
 
 _sentinels_to_check = [
     Sentinel(package="openai", path="openai._types", name="NOT_GIVEN"),
+    Sentinel(package="openai", path="openai._types", name="omit"),
+    Sentinel(
+        package="openai", path="openai._types", name="Omit"
+    ),  # Class, not instance
     Sentinel(package="cohere", path="cohere.base_client", name="COHERE_NOT_GIVEN"),
     Sentinel(package="anthropic", path="anthropic._types", name="NOT_GIVEN"),
     Sentinel(package="cerebras", path="cerebras.cloud.sdk._types", name="NOT_GIVEN"),
@@ -154,8 +147,13 @@ def _value_is_sentinel(param: inspect.Parameter) -> bool:
 
     # Check cached sentinels first
     for sentinel in _SENTINEL_CACHE.values():
-        if sentinel is not None and param.default is sentinel:
-            return True
+        if sentinel is not None:
+            # Check for identity (singleton instances)
+            if param.default is sentinel:
+                return True
+            # Check for isinstance (e.g., openai.Omit class instances)
+            if isinstance(sentinel, type) and isinstance(param.default, sentinel):
+                return True
 
     for sentinel in _sentinels_to_check:
         if _check_param_is_sentinel(param, sentinel):
@@ -187,13 +185,41 @@ class WeaveKwargs(TypedDict):
     call_id: str | None
 
 
-def setup_dunder_weave_dict(d: WeaveKwargs | None = None) -> WeaveKwargs:
-    """Sets up a __weave dict used to pass WeaveKwargs to ops."""
+class OpKwargs(TypedDict, total=False):
+    """TypedDict for op() keyword arguments."""
+
+    name: str | None
+    call_display_name: str | CallDisplayNameFunc | None
+    postprocess_inputs: PostprocessInputsFunc | None
+    postprocess_output: PostprocessOutputFunc | None
+    tracing_sample_rate: float
+    enable_code_capture: bool
+    accumulator: Callable[[Any | None, Any], Any] | None
+    kind: OpKind | None
+    color: OpColor | None
+
+
+def setup_dunder_weave_dict(op: Op, d: WeaveKwargs | None = None) -> WeaveKwargs:
+    """Sets up a __weave dict used to pass WeaveKwargs to ops.
+
+    Args:
+        d: Optional existing WeaveKwargs dict to update.
+        op: Op to extract kind and color from.
+
+    Returns:
+        WeaveKwargs dict with attributes, display_name, and optionally kind/color set.
+    """
     res: dict[str, Any] = {}
     if d is not None:
         res = cast(dict[str, Any], d)
-    res.setdefault("attributes", defaultdict(dict))
+    weave_dict = res.setdefault("attributes", defaultdict(dict)).setdefault("weave", {})
     res.setdefault("display_name", None)
+
+    if op.kind:
+        weave_dict["kind"] = op.kind
+    if op.color:
+        weave_dict["color"] = op.color
+
     return cast(WeaveKwargs, res)
 
 
@@ -229,9 +255,6 @@ def _is_unbound_method(func: Callable) -> bool:
     is_method = params and params[0].name in {"self", "cls"}
 
     return bool(is_method)
-
-
-class OpCallError(Exception): ...
 
 
 def _default_on_input_handler(func: Op, args: tuple, kwargs: dict) -> ProcessedInputs:
@@ -289,8 +312,25 @@ def _default_on_input_handler(func: Op, args: tuple, kwargs: dict) -> ProcessedI
 
 
 def _create_call(
-    func: Op, *args: Any, __weave: WeaveKwargs | None = None, **kwargs: Any
+    func: Op,
+    *args: Any,
+    __weave: WeaveKwargs | None = None,
+    use_stack: bool = True,
+    **kwargs: Any,
 ) -> Call:
+    """Create a call object for the given op.
+
+    Args:
+        func: The op being called.
+        *args: Positional arguments to the op.
+        __weave: Optional weave configuration dict.
+        use_stack: Whether to push the call onto the call stack. Defaults to True.
+            For generators, this should be False since they push when iteration starts.
+        **kwargs: Keyword arguments to the op.
+
+    Returns:
+        The created Call object.
+    """
     client = weave_client_context.require_weave_client()
 
     pargs = None
@@ -326,6 +366,7 @@ def _create_call(
         # Very important for `call_time_display_name` to take precedence over `func.call_display_name`
         display_name=call_time_display_name or func.call_display_name,
         attributes=attributes,
+        use_stack=use_stack,
         _call_id_override=preferred_call_id,
     )
 
@@ -405,7 +446,7 @@ def _call_sync_func(
             call.output = res
             return res, call
 
-    __weave = setup_dunder_weave_dict(__weave)
+    __weave = setup_dunder_weave_dict(op, __weave)
     _set_python_function_type_on_weave_dict(__weave, "function")
 
     # Proceed with tracing. Note that we don't check the sample rate here.
@@ -550,7 +591,7 @@ async def _call_async_func(
             call.output = res
             return res, call
 
-    __weave = setup_dunder_weave_dict(__weave)
+    __weave = setup_dunder_weave_dict(op, __weave)
     _set_python_function_type_on_weave_dict(__weave, "async_function")
 
     # Proceed with tracing
@@ -681,12 +722,14 @@ def _call_sync_gen(
             call.output = gen
             return gen, call
 
-    __weave = setup_dunder_weave_dict(__weave)
+    __weave = setup_dunder_weave_dict(op, __weave)
     _set_python_function_type_on_weave_dict(__weave, "generator")
 
     # Proceed with tracing
     try:
-        call = _create_call(op, *args, __weave=__weave, **kwargs)
+        # For generators, use_stack=False because we push when iteration starts,
+        # not when the call is created. This avoids double-pushing.
+        call = _create_call(op, *args, __weave=__weave, use_stack=False, **kwargs)
     except OpCallError:
         raise
     except Exception:
@@ -891,12 +934,14 @@ async def _call_async_gen(
             call.output = gen
             return gen, call
 
-    __weave = setup_dunder_weave_dict(__weave)
+    __weave = setup_dunder_weave_dict(op, __weave)
     _set_python_function_type_on_weave_dict(__weave, "async_generator")
 
     # Proceed with tracing
     try:
-        call = _create_call(op, *args, __weave=__weave, **kwargs)
+        # For generators, use_stack=False because we push when iteration starts,
+        # not when the call is created. This avoids double-pushing.
+        call = _create_call(op, *args, __weave=__weave, use_stack=False, **kwargs)
     except OpCallError:
         raise
     except Exception:
@@ -1151,37 +1196,9 @@ def calls(op: Op) -> CallsIter:
 
 
 @overload
-def op(
-    func: Callable[P, R],
-    *,
-    name: str | None = None,
-    call_display_name: str | CallDisplayNameFunc | None = None,
-    postprocess_inputs: PostprocessInputsFunc | None = None,
-    postprocess_output: PostprocessOutputFunc | None = None,
-    accumulator: Callable[[Any | None, Any], Any] | None = None,
-) -> Op[P, R]: ...
-
-
+def op(func: Callable[P, R], **kwargs: Unpack[OpKwargs]) -> Op[P, R]: ...
 @overload
-def op(
-    *,
-    name: str | None = None,
-    call_display_name: str | CallDisplayNameFunc | None = None,
-    postprocess_inputs: PostprocessInputsFunc | None = None,
-    postprocess_output: PostprocessOutputFunc | None = None,
-    accumulator: Callable[[Any | None, Any], Any] | None = None,
-) -> Callable[[Callable[P, R]], Op[P, R]]: ...
-
-
-@overload
-def op(
-    *,
-    name: str | None = None,
-    enable_code_capture: bool = True,
-    accumulator: Callable[[Any | None, Any], Any] | None = None,
-) -> Callable[[Callable[P, R]], Op[P, R]]: ...
-
-
+def op(**kwargs: Unpack[OpKwargs]) -> Callable[[Callable[P, R]], Op[P, R]]: ...
 def op(
     func: Callable[P, R] | None = None,
     *,
@@ -1192,6 +1209,8 @@ def op(
     tracing_sample_rate: float = 1.0,
     enable_code_capture: bool = True,
     accumulator: Callable[[Any | None, Any], Any] | None = None,
+    kind: OpKind | None = None,
+    color: OpColor | None = None,
 ) -> Callable[[Callable[P, R]], Op[P, R]] | Op[P, R]:
     """A decorator to weave op-ify a function or method. Works for both sync and async.
     Automatically detects iterator functions and applies appropriate behavior.
@@ -1276,6 +1295,7 @@ def op(
 
             wrapper._set_on_finish_handler = partial(_set_on_finish_handler, wrapper)  # type: ignore
             wrapper._on_finish_handler = None  # type: ignore
+            wrapper._on_finish_post_processor = None  # type: ignore
 
             wrapper._tracing_enabled = True  # type: ignore
             wrapper.tracing_sample_rate = tracing_sample_rate  # type: ignore
@@ -1297,6 +1317,9 @@ def op(
             wrapper._is_async = is_async  # type: ignore
             wrapper._is_generator = is_sync_generator  # type: ignore
             wrapper._is_async_generator = is_async_generator  # type: ignore
+
+            wrapper.kind = kind  # type: ignore
+            wrapper.color = color  # type: ignore
 
             return cast(Op[P, R], wrapper)
 
@@ -1363,20 +1386,20 @@ def is_op(obj: Any) -> TypeIs[Op]:
 
 
 def as_op(fn: Callable[P, R]) -> Op[P, R]:
-    """Given a @weave.op() decorated function, return its Op.
+    """Given a @weave.op decorated function, return its Op.
 
-    @weave.op() decorated functions are instances of Op already, so this
+    @weave.op decorated functions are instances of Op already, so this
     function should be a no-op at runtime. But you can use it to satisfy type checkers
     if you need to access OpDef attributes in a typesafe way.
 
     Args:
-        fn: A weave.op() decorated function.
+        fn: A weave.op decorated function.
 
     Returns:
         The Op of the function.
     """
     if not is_op(fn):
-        raise ValueError("fn must be a weave.op() decorated function")
+        raise ValueError("fn must be a weave.op decorated function")
 
     # The unbinding is necessary for methods because `MethodType` is applied after the
     # func is decorated into an Op.
@@ -1611,7 +1634,7 @@ class _Accumulator(Generic[S, V]):
 
 
 def _build_iterator_from_accumulator_for_op(
-    value: Iterator[V],
+    value: Iterator[V] | AsyncIterator[V],
     accumulator: Callable,
     on_finish: FinishCallbackType,
     iterator_wrapper: type[_IteratorWrapper] = _IteratorWrapper,
@@ -1649,7 +1672,7 @@ def _add_accumulator(
     The intended usage is:
 
     ```
-    @weave.op()
+    @weave.op
     def fn():
         size = 10
         while size > 0:
@@ -1665,28 +1688,23 @@ def _add_accumulator(
     """
 
     def on_output(
-        value: Iterator[V], on_finish: FinishCallbackType, inputs: dict
-    ) -> Iterator:
-        def wrapped_on_finish(value: Any, e: BaseException | None = None) -> None:
-            if on_finish_post_processor is not None:
-                value = on_finish_post_processor(value)
-            on_finish(value, e)
-
+        value: Iterator[V] | AsyncIterator[V],
+        on_finish: FinishCallbackType,
+        inputs: dict,
+    ) -> Iterator | AsyncIterator:
         if should_accumulate is None or should_accumulate(inputs):
             # we build the accumulator here dependent on the inputs (optional)
             accumulator = make_accumulator(inputs)
             return _build_iterator_from_accumulator_for_op(
                 value,
                 accumulator,
-                wrapped_on_finish,
+                on_finish,
                 iterator_wrapper,
             )
         else:
-            wrapped_on_finish(value)
+            on_finish(value, None)
             return value
 
     op._set_on_output_handler(on_output)
+    op._on_finish_post_processor = on_finish_post_processor
     return op
-
-
-__docspec__ = [call, calls]

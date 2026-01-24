@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -28,14 +28,19 @@ class CPDVersion:
         if not version:
             print("CPD version is None")
 
-        version.cpd_version = '4.5'
+        version.cpd_version = "4.5"
 
         if version > 4:
             print("version greater than 4.0")
 
     """
 
-    supported_version_list = ["4.0", "4.5", "4.6", "4.7", "4.8", "5.0", "5.1", "5.2"]
+    supported_version_list = [
+        "5.0",
+        "5.1",
+        "5.2",
+        "5.3",
+    ]
 
     def __init__(self, version: str | None = None):
         self.cpd_version = version

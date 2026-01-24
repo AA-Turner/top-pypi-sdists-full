@@ -1,16 +1,17 @@
+# pylint:disable=too-many-boolean-expressions
 from __future__ import annotations
+
+import networkx
 
 from angr.ailment.block import Block
 from angr.ailment.statement import Assignment, Call, Return
 from angr.ailment.expression import VirtualVariable
-import networkx
-
 from angr.knowledge_plugins.functions import Function
 from angr.knowledge_plugins.key_definitions.constants import ObservationPointType
-from angr.code_location import CodeLocation, ExternalCodeLocation
+from angr.code_location import AILCodeLocation
 from angr.analyses import Analysis, register_analysis
 from angr.utils.ssa import get_vvar_uselocs, get_vvar_deflocs, get_tmp_deflocs, get_tmp_uselocs
-from angr.calling_conventions import default_cc
+from angr.calling_conventions import default_cc, SimRegArg
 from .s_rda_model import SRDAModel
 from .s_rda_view import SRDAView
 
@@ -26,6 +27,7 @@ class SReachingDefinitionsAnalysis(Analysis):
         func_addr: int | None = None,
         func_graph: networkx.DiGraph[Block] | None = None,
         func_args: set[VirtualVariable] | None = None,
+        use_callee_saved_regs_at_return: bool = False,
         track_tmps: bool = False,
     ):
         if isinstance(subject, Block):
@@ -43,6 +45,7 @@ class SReachingDefinitionsAnalysis(Analysis):
         self.func_addr = func_addr if func_addr is not None else self.func.addr if self.func is not None else None
         self.func_args = func_args
         self._track_tmps = track_tmps
+        self._use_callee_saved_regs_at_return = use_callee_saved_regs_at_return
 
         self._bp_as_gpr = False
         if self.func is not None:
@@ -73,7 +76,7 @@ class SReachingDefinitionsAnalysis(Analysis):
         if self.func_args:
             for vvar in self.func_args:
                 if vvar.varid not in vvar_deflocs:
-                    vvar_deflocs[vvar.varid] = vvar, ExternalCodeLocation()
+                    vvar_deflocs[vvar.varid] = vvar, AILCodeLocation.make_extern(vvar.varid)
             self.model.func_args = self.func_args
 
         # update model
@@ -94,13 +97,15 @@ class SReachingDefinitionsAnalysis(Analysis):
 
         if self.mode == "function":
 
+            assert self.func is not None
+
             # fix register definitions for arguments
             defined_vvarids = set(vvar_deflocs)
             undefined_vvarids = set(vvar_uselocs.keys()).difference(defined_vvarids)
             for vvar_id in undefined_vvarids:
                 used_vvar = next(iter(vvar_uselocs[vvar_id]))[0]
                 self.model.varid_to_vvar[vvar_id] = used_vvar
-                self.model.all_vvar_definitions[vvar_id] = ExternalCodeLocation()
+                self.model.all_vvar_definitions[vvar_id] = AILCodeLocation.make_extern(vvar_id)
                 if vvar_id in vvar_uselocs:
                     for vvar_useloc in vvar_uselocs[vvar_id]:
                         self.model.add_vvar_use(vvar_id, *vvar_useloc)
@@ -145,16 +150,64 @@ class SReachingDefinitionsAnalysis(Analysis):
                     assert cc_cls is not None
                     cc = cc_cls(self.project.arch)
 
-                codeloc = CodeLocation(block_addr, stmt_idx, block_idx=block_idx, ins_addr=stmt.ins_addr)
+                codeloc = AILCodeLocation(block_addr, block_idx, stmt_idx, stmt.tags.get("ins_addr"))
                 arg_locs = list(cc.ARG_REGS)
                 if cc.FP_ARG_REGS:
                     arg_locs += [r_name for r_name in cc.FP_ARG_REGS if r_name not in arg_locs]
 
                 for arg_reg_name in arg_locs:
-                    reg_offset = self.project.arch.registers[arg_reg_name][0]
+                    reg_offset, reg_size = self.project.arch.registers[arg_reg_name]
                     if reg_offset in reg_to_vvarids:
-                        vvarid = reg_to_vvarids[reg_offset]
-                        self.model.add_vvar_use(vvarid, None, codeloc)
+                        for vvar_size in reg_to_vvarids[reg_offset]:
+                            if vvar_size >= reg_size:
+                                vvarid = reg_to_vvarids[reg_offset][vvar_size]
+                                self.model.add_vvar_use(vvarid, None, codeloc)
+
+            if self._use_callee_saved_regs_at_return:
+                # handle callee-saved registers: add uses for these registers so that the restoration statements are not
+                # considered dead assignments.
+                cc = self.func.calling_convention
+                if cc is None:
+                    cc_cls = default_cc(
+                        self.project.arch.name,
+                        platform=self.project.simos.name if self.project.simos is not None else None,
+                    )
+                    assert cc_cls is not None
+                    cc = cc_cls(self.project.arch)
+
+                arch = self.project.arch
+                ob_points = []
+                endpoint_addrs = {end_point.addr for end_point in self.func.endpoints}
+                for block in blocks.values():
+                    if block.addr in endpoint_addrs:
+                        ob_points.append(("node", (block.addr, block.idx), ObservationPointType.OP_AFTER))
+                func_end_observations = srda_view.observe(ob_points)
+                ignore_reg_offsets = {arch.sp_offset, arch.ip_offset}
+                if not self._bp_as_gpr:
+                    ignore_reg_offsets.add(arch.bp_offset)
+                for key, reg_to_vvarids in func_end_observations.items():
+                    _, (block_addr, block_idx), _ = key
+                    block = blocks[(block_addr, block_idx)]
+                    if not block.statements:
+                        # totally unexpected
+                        continue
+                    stmt = block.statements[-1]
+                    codeloc = AILCodeLocation(
+                        block_addr, block_idx, len(block.statements) - 1, stmt.tags.get("ins_addr")
+                    )
+                    for reg in arch.register_list:
+                        if (
+                            reg.general_purpose
+                            and reg.name not in cc.CALLER_SAVED_REGS
+                            and reg.name not in cc.ARG_REGS
+                            and reg.vex_offset not in ignore_reg_offsets
+                            and (isinstance(cc.RETURN_VAL, SimRegArg) and reg.name != cc.RETURN_VAL.reg_name)
+                        ):
+                            reg_offset = self.project.arch.registers[reg.name][0]
+                            if reg_offset in reg_to_vvarids:
+                                max_vvar_size = max(reg_to_vvarids[reg_offset])
+                                vvarid = reg_to_vvarids[reg_offset][max_vvar_size]
+                                self.model.add_vvar_use(vvarid, None, codeloc)
 
         if self._track_tmps:
             # track tmps

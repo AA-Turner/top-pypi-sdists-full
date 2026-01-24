@@ -7,6 +7,7 @@ use std::{
 };
 
 use common_error::{DaftError, DaftResult};
+use common_runtime::JoinSet;
 use futures::FutureExt;
 use tokio_util::sync::CancellationToken;
 use tracing::instrument;
@@ -19,13 +20,10 @@ use crate::{
         task::{Task, TaskID},
         worker::{Worker, WorkerManager},
     },
-    statistics::{StatisticsEvent, StatisticsManagerRef},
-    utils::{
-        channel::{
-            OneshotReceiver, OneshotSender, UnboundedReceiver, UnboundedSender,
-            create_oneshot_channel, create_unbounded_channel,
-        },
-        joinset::JoinSet,
+    statistics::{StatisticsManagerRef, TaskEvent},
+    utils::channel::{
+        OneshotReceiver, OneshotSender, UnboundedReceiver, UnboundedSender, create_oneshot_channel,
+        create_unbounded_channel,
     },
 };
 
@@ -44,17 +42,16 @@ impl<W: Worker> SchedulerActor<W, DefaultScheduler<W::Task>> {
     fn default_scheduler(worker_manager: Arc<dyn WorkerManager<Worker = W>>) -> Self {
         Self {
             worker_manager,
-            scheduler: DefaultScheduler::new(),
+            scheduler: DefaultScheduler::default(),
         }
     }
 }
 
-#[allow(dead_code)]
 impl<W: Worker> SchedulerActor<W, LinearScheduler<W::Task>> {
     fn linear_scheduler(worker_manager: Arc<dyn WorkerManager<Worker = W>>) -> Self {
         Self {
             worker_manager,
-            scheduler: LinearScheduler::new(),
+            scheduler: LinearScheduler::default(),
         }
     }
 }
@@ -111,7 +108,7 @@ where
             // Register statistics for all tasks
             for task in &enqueueable_tasks {
                 let task_context = task.task_context();
-                statistics_manager.handle_event(StatisticsEvent::TaskSubmitted {
+                statistics_manager.handle_event(TaskEvent::Submitted {
                     context: task_context,
                     name: task.task.task_name().clone(),
                 })?;
@@ -160,7 +157,7 @@ where
                 // Report to statistics manager
                 for task in &scheduled_tasks {
                     let task_context = task.task().task_context();
-                    statistics_manager.handle_event(StatisticsEvent::TaskScheduled {
+                    statistics_manager.handle_event(TaskEvent::Scheduled {
                         context: task_context,
                     })?;
                 }
@@ -198,7 +195,23 @@ where
     }
 }
 
-pub(crate) fn spawn_default_scheduler_actor<W: Worker>(
+pub(crate) fn spawn_scheduler_actor<W: Worker>(
+    worker_manager: Arc<dyn WorkerManager<Worker = W>>,
+    joinset: &mut JoinSet<DaftResult<()>>,
+    statistics_manager: StatisticsManagerRef,
+) -> SchedulerHandle<W::Task> {
+    // Check for environment variable to use linear scheduler
+    if std::env::var("DAFT_SCHEDULER_LINEAR")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+    {
+        spawn_linear_scheduler_actor(worker_manager, joinset, statistics_manager)
+    } else {
+        spawn_default_scheduler_actor(worker_manager, joinset, statistics_manager)
+    }
+}
+
+fn spawn_default_scheduler_actor<W: Worker>(
     worker_manager: Arc<dyn WorkerManager<Worker = W>>,
     joinset: &mut JoinSet<DaftResult<()>>,
     statistics_manager: StatisticsManagerRef,
@@ -209,8 +222,7 @@ pub(crate) fn spawn_default_scheduler_actor<W: Worker>(
     SchedulerActor::spawn_scheduler_actor(scheduler, joinset, statistics_manager)
 }
 
-#[allow(dead_code)]
-pub(crate) fn spawn_linear_scheduler_actor<W: Worker>(
+fn spawn_linear_scheduler_actor<W: Worker>(
     worker_manager: Arc<dyn WorkerManager<Worker = W>>,
     joinset: &mut JoinSet<DaftResult<()>>,
     statistics_manager: StatisticsManagerRef,
@@ -277,28 +289,26 @@ pub(crate) struct SubmittableTask<T: Task> {
 }
 
 impl<T: Task> SubmittableTask<T> {
-    pub fn new(task: T) -> Self {
+    pub fn new(
+        task: T,
+        cancel_token: CancellationToken,
+        notify_tokens: Vec<OneshotSender<()>>,
+    ) -> Self {
+        Self {
+            task,
+            cancel_token,
+            notify_tokens,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn task_only(task: T) -> Self {
         let cancel_token = CancellationToken::new();
         Self {
             task,
             cancel_token,
             notify_tokens: vec![],
         }
-    }
-
-    pub fn task(&self) -> &T {
-        &self.task
-    }
-
-    pub fn add_notify_token(mut self) -> (Self, OneshotReceiver<()>) {
-        let (notify_token, notify_rx) = create_oneshot_channel();
-        self.notify_tokens.push(notify_token);
-        (self, notify_rx)
-    }
-
-    pub fn with_new_task(mut self, new_task: T) -> Self {
-        self.task = new_task;
-        self
     }
 
     pub fn submit(self, scheduler_handle: &SchedulerHandle<T>) -> DaftResult<SubmittedTask> {
@@ -429,7 +439,7 @@ mod tests {
         let partition_ref = create_mock_partition_ref(100, 1024);
         let task = MockTaskBuilder::new(partition_ref.clone()).build();
 
-        let submittable_task = SubmittableTask::new(task);
+        let submittable_task = SubmittableTask::task_only(task);
         let submitted_task = submittable_task.submit(&test_context.scheduler_handle_ref)?;
 
         let result = submitted_task.await?;
@@ -456,7 +466,7 @@ mod tests {
                 .with_task_id(i as u32)
                 .with_sleep_duration(task_duration)
                 .build();
-            let submittable_task = SubmittableTask::new(task);
+            let submittable_task = SubmittableTask::task_only(task);
             let submitted_task = submittable_task.submit(&test_context.scheduler_handle_ref)?;
             submitted_tasks.push(submitted_task);
         }
@@ -465,8 +475,8 @@ mod tests {
         for submitted_task in submitted_tasks {
             let result = submitted_task.await?;
             let partition = result.unwrap().partitions()[0].clone();
-            assert_eq!(partition.num_rows().unwrap(), 100 + counter);
-            assert_eq!(partition.size_bytes().unwrap(), Some(1024 + 1));
+            assert_eq!(partition.num_rows(), 100 + counter);
+            assert_eq!(partition.size_bytes(), 1024 + 1);
             counter += 1;
         }
         assert_eq!(counter, num_tasks);
@@ -505,7 +515,7 @@ mod tests {
                         .with_task_id(submitter_id * num_tasks_per_submitter + task_id)
                         .with_sleep_duration(task_duration)
                         .build();
-                    let submittable_task = SubmittableTask::new(task);
+                    let submittable_task = SubmittableTask::task_only(task);
                     let submitted_task = submittable_task.submit(&scheduler_handle)?;
                     submitted_task_tx
                         .send((submitted_task, num_rows, num_bytes))
@@ -520,8 +530,8 @@ mod tests {
         while let Some((submitted_task, num_rows, num_bytes)) = submitted_task_rx.recv().await {
             let result = submitted_task.await?;
             let partition = result.unwrap().partitions()[0].clone();
-            assert_eq!(partition.num_rows().unwrap(), num_rows);
-            assert_eq!(partition.size_bytes().unwrap(), Some(num_bytes));
+            assert_eq!(partition.num_rows(), num_rows);
+            assert_eq!(partition.size_bytes(), num_bytes);
         }
 
         test_context.cleanup().await?;
@@ -539,7 +549,7 @@ mod tests {
             .with_sleep_duration(std::time::Duration::from_millis(1000))
             .build();
 
-        let submittable_task = SubmittableTask::new(task);
+        let submittable_task = SubmittableTask::task_only(task);
         let submitted_task = submittable_task.submit(&test_context.scheduler_handle_ref)?;
         drop(submitted_task);
         cancel_receiver.await.unwrap();
@@ -583,7 +593,7 @@ mod tests {
                             .with_cancel_notifier(cancel_notifier)
                             .with_sleep_duration(task_duration);
                         let task = task.build();
-                        let submittable_task = SubmittableTask::new(task);
+                        let submittable_task = SubmittableTask::task_only(task);
                         let submitted_task = submittable_task.submit(&scheduler_handle)?;
                         submitted_task_tx
                             .send((submitted_task, num_rows, num_bytes, Some(cancel_receiver)))
@@ -594,7 +604,7 @@ mod tests {
                             std::time::Duration::from_millis(rand::thread_rng().gen_range(50..150));
                         let task = task.with_sleep_duration(task_duration);
                         let task = task.build();
-                        let submittable_task = SubmittableTask::new(task);
+                        let submittable_task = SubmittableTask::task_only(task);
                         let submitted_task = submittable_task.submit(&scheduler_handle)?;
                         submitted_task_tx
                             .send((submitted_task, num_rows, num_bytes, None))
@@ -616,8 +626,8 @@ mod tests {
             } else {
                 let result = submitted_task.await?;
                 let partition = result.unwrap().partitions()[0].clone();
-                assert_eq!(partition.num_rows().unwrap(), num_rows);
-                assert_eq!(partition.size_bytes().unwrap(), Some(num_bytes));
+                assert_eq!(partition.num_rows(), num_rows);
+                assert_eq!(partition.size_bytes(), num_bytes);
             }
         }
 
@@ -633,7 +643,7 @@ mod tests {
             .with_task_id(0)
             .with_failure(MockTaskFailure::Error("test error".to_string()))
             .build();
-        let submittable_task = SubmittableTask::new(task);
+        let submittable_task = SubmittableTask::task_only(task);
         let submitted_task = submittable_task.submit(&test_context.scheduler_handle_ref)?;
         let result = submitted_task.await;
         assert!(result.is_err());
@@ -654,7 +664,7 @@ mod tests {
             .with_task_id(0)
             .with_failure(MockTaskFailure::Panic("test panic".to_string()))
             .build();
-        let submittable_task = SubmittableTask::new(task);
+        let submittable_task = SubmittableTask::task_only(task);
         let submitted_task = submittable_task.submit(&test_context.scheduler_handle_ref)?;
         let result = submitted_task.await;
         assert!(result.is_err());
@@ -671,7 +681,7 @@ mod tests {
         let task = MockTaskBuilder::new(create_mock_partition_ref(100, 100))
             .with_task_id(0)
             .build();
-        let submittable_task = SubmittableTask::new(task);
+        let submittable_task = SubmittableTask::task_only(task);
         let submitted_task = submittable_task.submit(&test_context.scheduler_handle_ref)?;
         let result = submitted_task.await?;
         assert_eq!(result.unwrap().partitions().len(), 1);

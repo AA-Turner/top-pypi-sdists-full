@@ -9,7 +9,6 @@ import time
 import typing as t
 
 from libtmux._internal.query_list import ObjectDoesNotExist
-from libtmux.common import has_gte_version, has_lt_version
 from libtmux.pane import Pane
 from libtmux.server import Server
 from libtmux.session import Session
@@ -111,7 +110,7 @@ class WorkspaceBuilder:
 
     The normal phase of loading is:
 
-    1. Load JSON / YAML file via via :class:`pathlib.Path`::
+    1. Load JSON / YAML file via :class:`pathlib.Path`::
 
            from tmuxp._internal import config_reader
            session_config = config_reader.ConfigReader._load(raw_yaml)
@@ -240,9 +239,12 @@ class WorkspaceBuilder:
         """
         if not session:
             if not self.server:
-                raise exc.TmuxpException(
+                msg = (
                     "WorkspaceBuilder.build requires server to be passed "
-                    + "on initialization, or pass in session object to here.",
+                    "on initialization, or pass in session object to here."
+                )
+                raise exc.TmuxpException(
+                    msg,
                 )
             new_session_kwargs = {}
             if "start_directory" in self.session_config:
@@ -250,10 +252,7 @@ class WorkspaceBuilder:
                     "start_directory"
                 ]
 
-            if (
-                has_gte_version("2.6")
-                and os.getenv("TMUXP_DETECT_TERMINAL_SIZE", "1") == "1"
-            ):
+            if os.getenv("TMUXP_DETECT_TERMINAL_SIZE", "1") == "1":
                 terminal_size = shutil.get_terminal_size(
                     fallback=(get_default_columns(), get_default_rows()),
                 )
@@ -403,22 +402,6 @@ class WorkspaceBuilder:
                 pass
 
             environment = panes[0].get("environment", window_config.get("environment"))
-            if environment and has_lt_version("3.0"):
-                # Falling back to use the environment of the first pane for the window
-                # creation is nice but yields misleading error messages.
-                pane_env = panes[0].get("environment")
-                win_env = window_config.get("environment")
-                if pane_env and win_env:
-                    target = "panes and windows"
-                elif pane_env:
-                    target = "panes"
-                else:
-                    target = "windows"
-                logger.warning(
-                    f"Cannot set environment for new {target}. "
-                    "You need tmux 3.0 or newer for this.",
-                )
-                environment = None
 
             window = session.new_window(
                 window_name=window_name,
@@ -438,7 +421,7 @@ class WorkspaceBuilder:
                 dict,
             ):
                 for key, val in window_config["options"].items():
-                    window.set_window_option(key, val)
+                    window.set_option(key, val)
 
             if window_config.get("focus"):
                 window.select()
@@ -469,9 +452,8 @@ class WorkspaceBuilder:
         """
         assert isinstance(window, Window)
 
-        pane_base_index_str = window.show_window_option("pane-base-index", g=True)
-        assert pane_base_index_str is not None
-        pane_base_index = int(pane_base_index_str)
+        pane_base_index = window.show_option("pane-base-index", global_=True)
+        assert pane_base_index is not None
 
         pane = None
 
@@ -507,16 +489,6 @@ class WorkspaceBuilder:
                     "environment",
                     window_config.get("environment"),
                 )
-                if environment and has_lt_version("3.0"):
-                    # Just issue a warning when the environment comes from the pane
-                    # configuration as a warning for the window was already issued when
-                    # the window was created.
-                    if pane_config.get("environment"):
-                        logger.warning(
-                            "Cannot set environment for new panes. "
-                            "You need tmux 3.0 or newer for this.",
-                        )
-                    environment = None
 
                 assert pane is not None
 
@@ -590,7 +562,7 @@ class WorkspaceBuilder:
             dict,
         ):
             for key, val in window_config["options_after"].items():
-                window.set_window_option(key, val)
+                window.set_option(key, val)
 
     def find_current_attached_session(self) -> Session:
         """Return current attached session."""

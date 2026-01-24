@@ -16,7 +16,6 @@ short_description: FortiOS policy statistics settings.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.1.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -108,8 +107,8 @@ EXAMPLES = '''
     - name: FortiOS policy statistics settings.
       fortinet.fortimanager.fmgr_system_log_fospolicystats:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         system_log_fospolicystats:

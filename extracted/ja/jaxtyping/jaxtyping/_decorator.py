@@ -100,18 +100,17 @@ def jaxtyped(fn=_sentinel, *, typechecker=_sentinel):
     !!! Example
 
         ```python
-        # Import both the annotation and the `jaxtyped` decorator from `jaxtyping`
-        from jaxtyping import Array, Float, jaxtyped
-
+        from torch import Tensor
+        from jaxtyping import Float, jaxtyped
         # Use your favourite typechecker: usually one of the two lines below.
         from typeguard import typechecked as typechecker
         from beartype import beartype as typechecker
 
         # Type-check a function
         @jaxtyped(typechecker=typechecker)
-        def batch_outer_product(x: Float[Array, "b c1"],
-                                y: Float[Array, "b c2"]
-                              ) -> Float[Array, "b c1 c2"]:
+        def batch_outer_product(x: Float[Tensor, "b c1"],
+                                y: Float[Tensor, "b c2"]
+                              ) -> Float[Tensor, "b c1 c2"]:
             return x[:, :, None] * y[:, None, :]
 
         # Type-check a dataclass
@@ -121,7 +120,7 @@ def jaxtyped(fn=_sentinel, *, typechecker=_sentinel):
         @dataclass
         class MyDataclass:
             x: int
-            y: Float[Array, "b c"]
+            y: Float[Tensor, "b c"]
         ```
 
     **Arguments:**
@@ -155,7 +154,7 @@ def jaxtyped(fn=_sentinel, *, typechecker=_sentinel):
         ```python
         @jaxtyped(typechecker=None)
         def f(x):
-            assert isinstance(x, Float[Array, "batch channel"])
+            assert isinstance(x, Float[Tensor, "batch channel"])
         ```
 
     **Returns:**
@@ -166,7 +165,7 @@ def jaxtyped(fn=_sentinel, *, typechecker=_sentinel):
     If `fn` is a dataclass, then `fn` is returned directly, and additionally its
     `__init__` method is wrapped and modified in-place.
 
-    !!! Info "Old syntax"
+    ??? Info "Old syntax"
 
         jaxtyping previously (before v0.2.24) recommended using this double-decorator
         syntax:
@@ -184,7 +183,7 @@ def jaxtyped(fn=_sentinel, *, typechecker=_sentinel):
 
         **Dynamic contexts:**
 
-        Put precisely, the axis names in e.g. `Float[Array, "batch channels"]` and the
+        Put precisely, the axis names in e.g. `Float[Tensor, "batch channels"]` and the
         structure names in e.g. `PyTree[int, "T"]` are all scoped to the thread-local
         dynamic context of a `jaxtyped`-wrapped function. If from within that function
         we then call another `jaxtyped`-wrapped function, then a new context is pushed
@@ -196,7 +195,7 @@ def jaxtyped(fn=_sentinel, *, typechecker=_sentinel):
         **isinstance:**
 
         Binding of a value against a name is done with an `isinstance` check, for
-        example `isinstance(jnp.zeros((3, 4)), Float[Array, "dim1 dim2"])` will bind
+        example `isinstance(jnp.zeros((3, 4)), Float[Tensor, "dim1 dim2"])` will bind
         `dim1=3` and `dim2=4`. In practice these `isinstance` checks are usually done by
         the run-time typechecker `typechecker` that is supplied as an argument.
 
@@ -208,7 +207,7 @@ def jaxtyped(fn=_sentinel, *, typechecker=_sentinel):
 
         Only `isinstance` checks that pass will contribute to the store of values; those
         that fail will not. As such it is safe to write e.g.
-        `assert not isinstance(x, Float32[Array, "foo"])`.
+        `assert not isinstance(x, Float32[Tensor, "foo"])`.
 
         **Decoupling contexts from function calls:**
 
@@ -222,7 +221,7 @@ def jaxtyped(fn=_sentinel, *, typechecker=_sentinel):
         supports being used as a context manager, by passing it the string `"context"`:
         ```python
         with jaxtyped("context"):
-            assert isinstance(x, Float[Array, "batch channel"])
+            assert isinstance(x, Float[Tensor, "batch channel"])
         ```
         This is equivalent to placing this code inside a new function wrapped in
         `jaxtyped(typechecker=None)`. Usage like this is very rare; it's mostly only
@@ -391,28 +390,17 @@ def jaxtyped(fn=_sentinel, *, typechecker=_sentinel):
             # in which case we can do a better job reporting errors.
 
             full_signature = inspect.signature(fn)
-            try:
-                destring_annotations = get_type_hints(fn, include_extras=True)
-            except Exception:
-                # Best-effort attempt to destringify annotations.
-                # Not just `NameError` but also e.g. `ValueError` in case we have e.g.
-                # 'Float[Foo, "*foo *bar"]' and raise  from having multiple variadic
-                # arguments. Sometimes this can still be useful to use for human
-                # documentation purposes.
-                pass
-            else:
-                new_params = []
-                for p_name, p_value in full_signature.parameters.items():
-                    p_annotation = destring_annotations.get(p_name, p_value.annotation)
-                    p_value = p_value.replace(annotation=p_annotation)
-                    new_params.append(p_value)
-                return_annotation = destring_annotations.get(
-                    "return", full_signature.return_annotation
-                )
-                full_signature = full_signature.replace(
-                    parameters=new_params, return_annotation=return_annotation
-                )
-
+            new_params = []
+            for p_value in full_signature.parameters.values():
+                p_annotation = _destring_annotation(p_value.annotation, fn.__globals__)
+                p_value = p_value.replace(annotation=p_annotation)
+                new_params.append(p_value)
+            return_annotation = _destring_annotation(
+                full_signature.return_annotation, fn.__globals__
+            )
+            full_signature = full_signature.replace(
+                parameters=new_params, return_annotation=return_annotation
+            )
             param_signature = full_signature.replace(return_annotation=Any)
             name = getattr(fn, "__name__", "<no name found>")
             qualname = getattr(fn, "__qualname__", "<no qualname found>")
@@ -563,6 +551,23 @@ class _JaxtypingContext:
         pop_shape_memo()
 
 
+def _destring_annotation(ann, ns):
+    # Best-effort attempt to destringify annotations.
+    def fn(value: ann):
+        del value
+
+    try:
+        hints = get_type_hints(fn, ns, include_extras=True)
+    except Exception:
+        # Not just `NameError` but also e.g. `ValueError` in case we have e.g.
+        # 'Float[Foo, "*foo *bar"]' and raise  from having multiple variadic
+        # arguments. Sometimes this can still be useful to use for human
+        # documentation purposes.
+        return Any
+    else:
+        return hints["value"]
+
+
 def _make_fn_with_signature(
     name: str, qualname: str, module: str, signature: inspect.Signature, output: bool
 ):
@@ -633,14 +638,9 @@ def _make_fn_with_signature(
         annotation_name = _gensym(frozenset(scope.keys()) | param_names, prefix="T")
         name_to_annotation[p_name] = annotation_name
         if p_annotation is inspect.Signature.empty or isinstance(p_annotation, str):
-            # If we have a stringified annotation here it's because the get_type_hints
-            # lookup above failed. Typically this occurs when using a local variable as
-            # the annotation. In this case we really have no idea what the annotation
-            # refers to, so just set it to Any.
-            # This does mean that we don't handle partially-stringified local
-            # annotations, e.g. `type["Foo"]` for some local type `Foo`. Those will
-            # probably just error out. Nothing better we can do about that
-            # unfortunately.
+            # We don't handle partially-stringified local annotations, e.g.
+            # `type["Foo"]` for some local type `Foo`. There is no real way to detect
+            # those, and they will probably just error out for the user later.
             scope[annotation_name] = Any
         else:
             scope[annotation_name] = p_annotation

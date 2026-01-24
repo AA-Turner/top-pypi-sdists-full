@@ -318,6 +318,11 @@ declare namespace _ {
                 references: DocumentRange[];
             };
         }): void;
+        verifyFindAllImplementations(map: {
+            [marker: string]: {
+                implementations: DocumentRange[];
+            };
+        }): void;
         verifyShowCallHierarchyGetIncomingCalls(map: {
             [marker: string]: {
                 items: FourSlashCallHierarchyItem[];
@@ -353,7 +358,8 @@ declare namespace _ {
                     changes: FileEditAction[];
                 };
             },
-            isUntitled?: boolean
+            isUntitled?: boolean,
+            allowedMessages?: { error?: string[]; warning?: string[] }
         ): void;
         verifyTypeVerifierResults(
             packageName: string,

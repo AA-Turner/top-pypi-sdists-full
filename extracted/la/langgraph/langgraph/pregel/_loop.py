@@ -4,7 +4,7 @@ import asyncio
 import binascii
 import concurrent.futures
 from collections import defaultdict, deque
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import (
     AbstractAsyncContextManager,
     AbstractContextManager,
@@ -16,15 +16,24 @@ from inspect import signature
 from types import TracebackType
 from typing import (
     Any,
-    Callable,
     Literal,
-    Optional,
     TypeVar,
     cast,
 )
 
 from langchain_core.callbacks import AsyncParentRunManager, ParentRunManager
 from langchain_core.runnables import RunnableConfig
+from langgraph.cache.base import BaseCache
+from langgraph.checkpoint.base import (
+    WRITES_IDX_MAP,
+    BaseCheckpointSaver,
+    ChannelVersions,
+    Checkpoint,
+    CheckpointMetadata,
+    CheckpointTuple,
+    PendingWrite,
+)
+from langgraph.store.base import BaseStore
 from typing_extensions import ParamSpec, Self
 
 from langgraph._internal._config import patch_configurable
@@ -47,20 +56,12 @@ from langgraph._internal._constants import (
     NULL_TASK_ID,
     PUSH,
     RESUME,
+    TASKS,
 )
 from langgraph._internal._scratchpad import PregelScratchpad
 from langgraph._internal._typing import EMPTY_SEQ, MISSING
-from langgraph.cache.base import BaseCache
 from langgraph.channels.base import BaseChannel
-from langgraph.checkpoint.base import (
-    WRITES_IDX_MAP,
-    BaseCheckpointSaver,
-    ChannelVersions,
-    Checkpoint,
-    CheckpointMetadata,
-    CheckpointTuple,
-    PendingWrite,
-)
+from langgraph.channels.untracked_value import UntrackedValue
 from langgraph.constants import TAG_HIDDEN
 from langgraph.errors import (
     EmptyInputError,
@@ -79,6 +80,7 @@ from langgraph.pregel._algo import (
     increment,
     prepare_next_tasks,
     prepare_single_task,
+    sanitize_untracked_values_in_send,
     should_interrupt,
     task_path_str,
 )
@@ -108,7 +110,6 @@ from langgraph.pregel.debug import (
     map_debug_tasks,
 )
 from langgraph.pregel.protocol import StreamChunk, StreamProtocol
-from langgraph.store.base import BaseStore
 from langgraph.types import (
     All,
     CachePolicy,
@@ -116,6 +117,7 @@ from langgraph.types import (
     Durability,
     PregelExecutableTask,
     RetryPolicy,
+    Send,
     StreamMode,
 )
 
@@ -322,6 +324,24 @@ class PregelLoop:
                 w for w in self.checkpoint_pending_writes if w[0] != task_id
             ]
             writes_to_save = writes
+
+        # check if any writes are to an UntrackedValue channel
+        if any(
+            isinstance(channel, UntrackedValue) for channel in self.channels.values()
+        ):
+            # we do not persist untracked values in checkpoints
+            writes_to_save = [
+                # sanitize UntrackedValues that are nested within Send packets
+                (
+                    (c, sanitize_untracked_values_in_send(v, self.channels))
+                    if c == TASKS and isinstance(v, Send)
+                    else (c, v)
+                )
+                for c, v in writes_to_save
+                # dont persist UntrackedValue channel writes
+                if not isinstance(self.specs.get(c), UntrackedValue)
+            ]
+
         # save writes
         self.checkpoint_pending_writes.extend((task_id, c, v) for c, v in writes)
         if self.durability != "exit" and self.checkpointer_put_writes is not None:
@@ -404,7 +424,7 @@ class PregelLoop:
         checkpoint_id_bytes = binascii.unhexlify(self.checkpoint["id"].replace("-", ""))
         null_version = checkpoint_null_version(self.checkpoint)
         if pushed := cast(
-            Optional[PregelExecutableTask],
+            PregelExecutableTask | None,
             prepare_single_task(
                 (PUSH, task.path, write_idx, task.id, call),
                 None,
@@ -438,9 +458,6 @@ class PregelLoop:
 
     def tick(self) -> bool:
         """Execute a single iteration of the Pregel loop.
-
-        Args:
-            input_keys: The key(s) to read input from.
 
         Returns:
             True if more iterations are needed.
@@ -568,6 +585,36 @@ class PregelLoop:
             if task := tasks.get(tid):
                 task.writes.append((k, v))
 
+    def _pending_interrupts(self) -> set[str]:
+        """Return the set of interrupt ids that are pending without corresponding resume values."""
+        # mapping of task ids to interrupt ids
+        pending_interrupts: dict[str, str] = {}
+
+        # set of resume task ids
+        pending_resumes: set[str] = set()
+
+        for task_id, write_type, value in self.checkpoint_pending_writes:
+            if write_type == INTERRUPT:
+                # interrupts is always a list, but there should only be one element
+                pending_interrupts[task_id] = value[0].id
+            elif write_type == RESUME:
+                pending_resumes.add(task_id)
+
+        resumed_interrupt_ids = {
+            pending_interrupts[task_id]
+            for task_id in pending_resumes
+            if task_id in pending_interrupts
+        }
+
+        # Keep only interrupts whose interrupt_id is not resumed
+        hanging_interrupts: set[str] = {
+            interrupt_id
+            for interrupt_id in pending_interrupts.values()
+            if interrupt_id not in resumed_interrupt_ids
+        }
+
+        return hanging_interrupts
+
     def _first(
         self, *, input_keys: str | Sequence[str], updated_channels: set[str] | None
     ) -> set[str] | None:
@@ -590,16 +637,24 @@ class PregelLoop:
 
         # map command to writes
         if isinstance(self.input, Command):
-            if resume_is_map := (
-                (resume := self.input.resume) is not None
-                and isinstance(resume, dict)
-                and all(is_xxh3_128_hexdigest(k) for k in resume)
-            ):
-                self.config[CONF][CONFIG_KEY_RESUME_MAP] = self.input.resume
-            if resume is not None and not self.checkpointer:
-                raise RuntimeError(
-                    "Cannot use Command(resume=...) without checkpointer"
-                )
+            if (resume := self.input.resume) is not None:
+                if not self.checkpointer:
+                    raise RuntimeError(
+                        "Cannot use Command(resume=...) without checkpointer"
+                    )
+
+                if resume_is_map := (
+                    isinstance(resume, dict)
+                    and all(is_xxh3_128_hexdigest(k) for k in resume)
+                ):
+                    self.config[CONF][CONFIG_KEY_RESUME_MAP] = resume
+                else:
+                    if len(self._pending_interrupts()) > 1:
+                        raise RuntimeError(
+                            "When there are multiple pending interrupts, you must specify the interrupt id when resuming. "
+                            "Docs: https://docs.langchain.com/oss/python/langgraph/add-human-in-the-loop#resume-multiple-interrupts-with-one-invocation."
+                        )
+
             writes: defaultdict[str, list[tuple[str, Any]]] = defaultdict(list)
             # group writes by task ID
             for tid, c, v in map_command(cmd=self.input):
@@ -699,7 +754,19 @@ class PregelLoop:
             id=self.checkpoint["id"] if exiting else None,
             updated_channels=self.updated_channels,
         )
+        # sanitize TASK channel in the checkpoint before saving (durability=="exit")
+        if TASKS in self.checkpoint["channel_values"] and any(
+            isinstance(channel, UntrackedValue) for channel in self.channels.values()
+        ):
+            sanitized_tasks = [
+                sanitize_untracked_values_in_send(value, self.channels)
+                if isinstance(value, Send)
+                else value
+                for value in self.checkpoint["channel_values"][TASKS]
+            ]
+            self.checkpoint["channel_values"][TASKS] = sanitized_tasks
         # bail if no checkpointer
+
         if do_checkpoint and self._checkpointer_put_after_previous is not None:
             self.prev_checkpoint_config = (
                 self.checkpoint_config
@@ -866,7 +933,18 @@ class PregelLoop:
                         )
                     }
                 ]
-                self._emit("updates", lambda: iter(interrupts))
+                stream_modes = self.stream.modes if self.stream else []
+                if "updates" in stream_modes:
+                    self._emit("updates", lambda: iter(interrupts))
+                if "values" in stream_modes:
+                    current_values = read_channels(self.channels, self.output_keys)
+                    # self.output_keys is a sequence, stream chunk contains entire state and interrupts
+                    if isinstance(current_values, dict):
+                        current_values[INTERRUPT] = interrupts[0][INTERRUPT]
+                        self._emit("values", lambda: iter([current_values]))
+                    # self.output_keys is a string, stream chunk contains only interrupts
+                    else:
+                        self._emit("values", lambda: iter(interrupts))
             elif writes[0][0] != ERROR:
                 self._emit(
                     "updates",

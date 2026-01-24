@@ -17,8 +17,8 @@ from pytensor.compile.function.types import (
 )
 from pytensor.compile.io import In, Out, SymbolicInput, SymbolicOutput
 from pytensor.compile.mode import (
+    CVM,
     FAST_COMPILE,
-    FAST_RUN,
     JAX,
     NUMBA,
     OPT_FAST_COMPILE,
@@ -33,6 +33,7 @@ from pytensor.compile.mode import (
     PYTORCH,
     AddDestroyHandler,
     AddFeatureOptimizer,
+    C,
     Mode,
     PrintCurrentFunctionGraph,
     get_default_mode,
@@ -56,6 +57,7 @@ from pytensor.compile.ops import (
     register_deep_copy_op_c_code,
     register_view_op_c_code,
     view_op,
+    wrap_py,
 )
 from pytensor.compile.profiling import ProfileStats
 from pytensor.compile.sharedvalue import SharedVariable, shared, shared_constructor

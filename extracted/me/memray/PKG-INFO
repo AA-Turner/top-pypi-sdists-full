@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: memray
-Version: 1.18.0
+Version: 1.19.1
 Summary: A memory profiler for Python applications
 Home-page: https://github.com/bloomberg/memray
 Author: Pablo Galindo Salgado

@@ -9,27 +9,29 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+import datetime as _dt
 from typing import Literal, Union
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
-from .group_0612 import WebhookIssuesClosedPropIssueAllof0PropMilestonePropCreator
+from .group_0613 import (
+    WebhookIssueCommentCreatedPropIssueAllof0PropMilestonePropCreator,
+)
 
 
-class WebhookIssuesClosedPropIssueMergedMilestone(GitHubModel):
-    """WebhookIssuesClosedPropIssueMergedMilestone"""
+class WebhookIssueCommentCreatedPropIssueMergedMilestone(GitHubModel):
+    """WebhookIssueCommentCreatedPropIssueMergedMilestone"""
 
-    closed_at: Union[datetime, None] = Field()
+    closed_at: Union[_dt.datetime, None] = Field()
     closed_issues: int = Field()
-    created_at: datetime = Field()
-    creator: Union[WebhookIssuesClosedPropIssueAllof0PropMilestonePropCreator, None] = (
-        Field(title="User")
-    )
+    created_at: _dt.datetime = Field()
+    creator: Union[
+        WebhookIssueCommentCreatedPropIssueAllof0PropMilestonePropCreator, None
+    ] = Field(title="User")
     description: Union[str, None] = Field()
-    due_on: Union[datetime, None] = Field()
+    due_on: Union[_dt.datetime, None] = Field()
     html_url: str = Field()
     id: int = Field()
     labels_url: str = Field()
@@ -38,10 +40,10 @@ class WebhookIssuesClosedPropIssueMergedMilestone(GitHubModel):
     open_issues: int = Field()
     state: Literal["open", "closed"] = Field(description="The state of the milestone.")
     title: str = Field(description="The title of the milestone.")
-    updated_at: datetime = Field()
+    updated_at: _dt.datetime = Field()
     url: str = Field()
 
 
-model_rebuild(WebhookIssuesClosedPropIssueMergedMilestone)
+model_rebuild(WebhookIssueCommentCreatedPropIssueMergedMilestone)
 
-__all__ = ("WebhookIssuesClosedPropIssueMergedMilestone",)
+__all__ = ("WebhookIssueCommentCreatedPropIssueMergedMilestone",)

@@ -1,67 +1,29 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: convertbng
-Version: 0.7.5
+Version: 0.7.10
 Summary: Fast lon, lat to and from ETRS89 and BNG (OSGB36) using the OS OSTN15 transform via Rust FFI
-Author-email: Stephan Hügel <urschrei@gmail.com>
-License: # Blue Oak Model License
-        
-        Version 1.0.0
-        
-        ## Purpose
-        
-        This license gives everyone as much permission to work with this software as possible, while protecting contributors from liability.
-        
-        ## Acceptance
-        
-        In order to receive this license, you must agree to its rules. The rules of this license are both obligations under that agreement and conditions to your license. You must not do anything with this software that triggers a rule that you cannot or will not follow.
-        
-        ## Copyright
-        
-        Each contributor licenses you to do everything with this software that would otherwise infringe that contributor's copyright in it.
-        
-        ## Notices
-        
-        You must ensure that everyone who gets a copy of any part of this software from you, with or without changes, also gets the text of this license or a link to <https://blueoakcouncil.org/license/1.0.0>.
-        
-        ## Excuse
-        
-        If anyone notifies you in writing that you have not complied with [Notices](#notices), you can keep your license by taking all practical steps to comply within 30 days after the notice. If you do not do so, your license ends immediately.
-        
-        ## Patent
-        
-        Each contributor licenses you to do everything with this software that would otherwise infringe any patent claims they can license or become able to license.
-        
-        ## Reliability
-        
-        No contributor can revoke this license.
-        
-        ## No Liability
-        
-        ***As far as the law allows, this software comes as is, without any warranty or condition, and no contributor will be liable to anyone for any damages related to this software or this license, under any kind of legal claim.***
-        
-Project-URL: Repository, https://github.com/urschrei/convertbng
-Project-URL: Tracker, https://github.com/urschrei/convertbng/issues
 Keywords: Geo,OSTN02,OSTN15,BNG,OSGB36,GIS
+Author-Email: =?utf-8?q?Stephan_H=C3=BCgel?= <urschrei@gmail.com>
+License-Expression: BlueOak-1.0.0
+License-File: LICENSE.md
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Education
-Classifier: License :: OSI Approved :: Blue Oak Model License (BlueOak-1.0.0)
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
-License-File: LICENSE.md
+Project-URL: Repository, https://github.com/urschrei/convertbng
+Project-URL: Tracker, https://github.com/urschrei/convertbng/issues
+Requires-Python: >=3.10
 Requires-Dist: numpy>=2.0.0
-Provides-Extra: test
-Requires-Dist: pytest>=7.4.2; extra == "test"
+Description-Content-Type: text/markdown
 
 [![CI Status](https://github.com/urschrei/convertbng/actions/workflows/wheels.yml/badge.svg)](https://github.com/urschrei/convertbng/actions/workflows/wheels.yml) [![Coverage Status](https://coveralls.io/repos/github/urschrei/convertbng/badge.svg?branch=master)](https://coveralls.io/github/urschrei/convertbng?branch=master) [![PyPI Version](https://img.shields.io/pypi/v/convertbng.svg)](https://pypi.python.org/pypi/convertbng) [![Downloads](https://pepy.tech/badge/convertbng)](https://pepy.tech/project/convertbng)[![DOI](https://zenodo.org/badge/37950596.svg)](https://zenodo.org/badge/latestdoi/37950596)
 
@@ -71,8 +33,15 @@ A utility library for converting decimal [WGS84](http://spatialreference.org/ref
 Conversion is handled by a [Rust binary](https://github.com/urschrei/rust_bng) using FFI, and is quite fast. Some benchmarks can be found [here](https://github.com/urschrei/lonlat_bng#benchmark).
 
 # Installation
-`pip install convertbng`  
-Please use an up-to-date version of pip (`8.1.2` as of June 2016)
+- `uv add convertbng`
+- `pip install convertbng`
+
+## Installing for local development
+1. Ensure you have a copy of `liblonlat_bng` and `header.h` from https://github.com/urschrei/lonlat_bng/releases, and it's in the `src/convertbng` subdir
+2. run `uv sync --dev`
+3. run `pytest .`
+
+Changes in `pyx` and `pxd` files, and the Rust library and header will bust the cache, triggering a rebuild when `uv` commands are run.
 
 ### Supported Python Versions
 Simplification supports all [_currently_ supported Python versions](https://devguide.python.org/versions/).
@@ -122,6 +91,17 @@ lons_np = np.array(lons)
 lats_np = np.array(lats)
     res_list_np = convert_bng(lons_np, lats_np)
 ```
+
+# Accuracy
+The [Rust library](https://github.com/urschrei/lonlat_bng) produces the following results when round-tripping the 40 OSTN15 test points (only differences are shown)
+
+| Test Point | Input OSGB36 E (m) | Input OSGB36 N (m) | Lon diff (°) | Lat diff (°) | E diff (m) | N diff (m) |
+|:-----------|-------------------:|-------------------:|-------------:|-------------:|-----------:|-----------:|
+| TP27       | 319188.434         | 670947.534         | —            | —            | —          | +0.001     |
+| TP31       | 9587.909           | 899448.996         | +6×10⁻⁸      | -3×10⁻⁸      | +0.003     | -0.004     |
+| TP32       | 71713.132          | 938516.404         | +2×10⁻⁸      | -1×10⁻⁸      | +0.001     | -0.002     |
+| TP37       | 180862.461         | 1029604.114        | —            | —            | —          | -0.001     |
+| TP38       | 421300.525         | 1072147.239        | —            | —            | —          | -0.001     |
 
 # Cython Module
 If you're comfortable with restricting yourself to `NumPy f64` arrays, you may use the Cython functions instead. These are identical to those listed below, but performance on large datasets is better. They are selected by changing the import statement  

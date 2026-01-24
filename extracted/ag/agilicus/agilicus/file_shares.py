@@ -13,13 +13,17 @@ from .output.table import (
     format_table,
     metadata_column,
 )
-from .resource_helpers import map_resource_published
+from .pagination import normalize_page_args
+from .resource_helpers import map_resource_published, standard_page_fields
+
+page_fields = standard_page_fields
 
 
 def list_file_share_services(ctx, **kwargs):
     apiclient = context.get_apiclient_from_ctx(ctx)
     update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
     kwargs = strip_none(kwargs)
+    kwargs = normalize_page_args(kwargs)
     query_results = apiclient.app_services_api.list_file_share_services(**kwargs)
     return query_results.file_share_services
 

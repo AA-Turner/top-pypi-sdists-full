@@ -1,19 +1,19 @@
-# This file is part of parallel-ssh.
+#  This file is part of parallel-ssh.
+#  Copyright (C) 2014-2025 Panos Kittenis.
+#  Copyright (C) 2014-2025 parallel-ssh Contributors.
 #
-# Copyright (C) 2014-2022 Panos Kittenis and contributors.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation, version 2.1.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 #
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 import logging
 from gevent import sleep, spawn, Timeout as GTimeout, joinall
@@ -50,6 +50,7 @@ class SSHClient(BaseSSHClient):
                  gssapi_client_identity=None,
                  gssapi_delegate_credentials=False,
                  ipv6_only=False,
+                 compress=False,
                  _auth_thread_pool=True):
         """:param host: Host name or IP to connect to.
         :type host: str
@@ -107,6 +108,8 @@ class SSHClient(BaseSSHClient):
           for the host or raise NoIPv6AddressFoundError otherwise. Note this will
           disable connecting to an IPv4 address if an IP address is provided instead.
         :type ipv6_only: bool
+        :param compress: Enable/Disable compression on the client. Defaults to off.
+        :type compress: bool
 
         :raises: :py:class:`pssh.exceptions.PKeyFileError` on errors finding
           provided private key.
@@ -124,6 +127,7 @@ class SSHClient(BaseSSHClient):
             timeout=timeout,
             identity_auth=identity_auth,
             ipv6_only=ipv6_only,
+            compress=compress,
         )
 
     def _disconnect(self):
@@ -151,6 +155,8 @@ class SSHClient(BaseSSHClient):
         self.session = Session()
         self.session.options_set(options.USER, self.user)
         self.session.options_set(options.HOST, self.host)
+        if self.compress:
+            self.session.options_set(options.COMPRESSION, "yes")
         self.session.options_set_port(self.port)
         if self.gssapi_server_identity:
             self.session.options_set(

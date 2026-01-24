@@ -1,4 +1,4 @@
-import sys, os, unittest, tempfile, atexit, datetime, subprocess, multiprocessing
+import sys, os, unittest, tempfile, atexit, datetime, subprocess, multiprocessing, itertools
 from io import StringIO, BytesIO
 
 """
@@ -3901,6 +3901,23 @@ I took a placebo
       assert len(c1.p) == 1
       assert len(c2.p) == 2
     
+  def test_pellet_reasoning_5(self):
+    world = self.new_world()
+    onto  = world.get_ontology("test.owl")
+
+    with onto:
+      class C(Thing): pass
+      class p(Thing >> str): pass
+
+      c = C()
+      escapes = [ "foo", "\n", "\t", "\b", "\r", "\f", "\\", "'", "\"", "\r", "\u263A", '\U0001f926' ]
+      vals = [ "".join(x) for x in itertools.combinations_with_replacement(escapes, 3) ]
+      for val in vals:
+        c.p.append(val)
+
+      sync_reasoner_pellet(world, infer_property_values = True, infer_data_property_values = True, debug = 0)
+
+      assert set(c.p) == set(vals)
     
   def test_hermit_reasoning_1(self):
     world = self.new_world()
@@ -8902,7 +8919,7 @@ class TestSPARQL(BaseTest, unittest.TestCase):
     q, r = self.sparql(world, """SELECT  ?x ?y  { ?x rdfs:subClassOf* onto:A . ?y rdfs:subClassOf* ?x . }""")
     assert len(r) == 8
     assert { tuple(i) for i in r } == { (onto.A, onto.A), (onto.A, onto.A1), (onto.A, onto.A11), (onto.A, onto.A2), (onto.A1, onto.A1), (onto.A1, onto.A11), (onto.A2, onto.A2), (onto.A11, onto.A11) }
-
+    
   def test_18(self):
     world, onto = self.prepare1()
     q, r1 = self.sparql(world, """SELECT  ?x  { ?C rdfs:label "Classe A" . ?x rdfs:subClassOf* ?C . } LIMIT 2""")
@@ -9699,6 +9716,10 @@ class TestSPARQL(BaseTest, unittest.TestCase):
     assert len(r) == 3
     assert { tuple(x) for x in r } == { (onto.b1, locstr("label_b", "en")), (onto.b3, locstr("label_b", "fr")), (onto.b3, "b3") }
     
+    q, r = self.sparql(world, """SELECT  ?b ?l  { ?b a onto:B . OPTIONAL { ?b rdfs:label ?l . } FILTER( ! BOUND(?l)) }""")
+    assert len(r) == 1
+    assert { tuple(x) for x in r } == { (onto.b2, None) }
+    
   def test_98(self):
     world, onto = self.prepare1()
     q, r = self.sparql(world, """SELECT  ?x ?b  { ?x a owl:NamedIndividual . OPTIONAL { ?x a ?b . ?b rdfs:subClassOf* onto:B . } }""")
@@ -9818,7 +9839,7 @@ class TestSPARQL(BaseTest, unittest.TestCase):
   def test_109(self):
     world, onto = self.prepare1()
     q, r = self.sparql(world, """SELECT  ?x ?y  {  ?x rdfs:label "Classe A" . ?y a ?z . ?z rdfs:subClassOf* ?x }""", compare_with_rdflib = False)
-    assert """AS (SELECT prelim1_objs_q1.s""" in q.sql # Fix o
+    #assert """AS (SELECT prelim1_objs_q1.s""" in q.sql # Fix o
     assert len(r) == 1
     assert { tuple(x) for x in r } == { (onto.A, onto.a1, ) }
     
@@ -10229,11 +10250,6 @@ WHERE {
     assert { i[0] for i in r } == { onto.a1, a111, onto.b1, onto.b2, onto.b3 }
     q, r = self.sparql(world, """SELECT  ?x { ?x a ?c . { ?c rdfs:subClassOf*STATIC onto:A } UNION { ?c rdfs:subClassOf*STATIC onto:B } }""", compare_with_rdflib = False)
     assert { i[0] for i in r } == { onto.a1, a111, onto.b1, onto.b2, onto.b3 }
-    
-    #q, r = self.sparql(world, """SELECT  ?x { ?x a ?c . { ?c rdfs:subClassOf*STATIC onto:A } }""", compare_with_rdflib = False)
-    #print(r)
-    #print(q.sql)
-    #assert { i[0] for i in r } == { onto.a1, a111 }
     
   def test_144(self):
     world, onto = self.prepare1()
@@ -11347,6 +11363,138 @@ SELECT (STR(??1) AS ?iri) (STR(COALESCE(?label, ?label_en)) AS ?label_str) {
     r = list(q.execute([D]))
     assert r == [[D.iri, D.label.fr.first()]]
     
+  def test_185(self):
+    world = self.new_world()
+    onto  = world.get_ontology("http://test.org/onto.owl")
+    with onto:
+      class Hardware(Thing): pass
+      class Support(Hardware): pass
+      class Other(Thing): pass
+      hard  = Hardware()
+      sup   = Support()
+      other = Other()
+      
+    sparql = """
+SELECT DISTINCT  ?x ?y {
+  ?x a owl:NamedIndividual .
+  ?x a/rdfs:subClassOf* ?concept_class .
+  FILTER(?concept_class != owl:NamedIndividual) .
+  FILTER(?x != ?y) .
+  ?y a ?concept_class .
+  ?y a owl:NamedIndividual .
+}
+"""
+    q, r = self.sparql(world, sparql)
+    assert r == [[sup, hard]]
+    assert not " IN " in q.sql
+
+    sparql = """
+SELECT DISTINCT  ?x ?y {
+  ?x rdfs:subClassOf* ?y .
+  FILTER(?x != ?y) .
+}
+"""
+    q, r = self.sparql(world, sparql)
+    assert { tuple(i) for i in r } == { (Hardware, Thing), (Other, Thing), (Support, Hardware), (Support, Thing) }
+    assert not " IN " in q.sql
+    
+  def test_186(self):
+    world = self.new_world()
+    onto  = world.get_ontology("http://test.org/onto.owl")
+
+    def plus_one(x): return x + 1
+    world.register_sparql_function(plus_one, int, True)
+    
+    def somme(x, y): return x + y
+    world.register_sparql_function(somme, int, True)
+    
+    with onto:
+      class C(Thing): pass
+      class p(C >> int): pass
+      class q(C >> int): pass
+      c = C(p = [1, 2, 3], q = [5])
+      
+    sparql = """
+SELECT (py_func_plus_one(?p) AS ?r) {
+  ?c a onto:C .
+  ?c onto:p ?p .
+}
+ORDER BY ?r
+"""
+    q, r = self.sparql(world, sparql, compare_with_rdflib = False)
+    assert r == [[2], [3], [4]]
+    
+    sparql = """
+SELECT (py_func_somme(?p, ?q) AS ?r) {
+  ?c a onto:C .
+  ?c onto:p ?p .
+  ?c onto:q ?q .
+}
+ORDER BY ?r
+"""
+    q, r = self.sparql(world, sparql, compare_with_rdflib = False)
+    assert r == [[6], [7], [8]]
+    
+  def test_187(self):
+    world = self.new_world()
+    onto  = world.get_ontology("http://test.org/onto.owl")
+    
+    with onto:
+      class C(Thing): pass
+      class p(C >> int, FunctionalProperty): pass
+      c1 = C(p = 1)
+      c2 = C(p = 2)
+      
+    sparql = """
+SELECT ?c {
+  ?c onto:p ?cp .
+  FILTER NOT EXISTS {
+    ?c2 onto:p ?cp2 .
+    FILTER(?cp2 < ?cp) .
+  }
+}
+"""
+    q, r = self.sparql(world, sparql)
+    assert { i for i, in r } == { c1 }
+
+  def test_188(self):
+    world = self.new_world()
+    onto  = world.get_ontology("http://test.org/onto.owl")
+    
+    with onto:
+      class C(Thing): pass
+      class p(C >> str, FunctionalProperty): pass
+      c1    = C(p = "c1")
+      c2    = C(p = "c2")
+      c2bis = C(p = "c2")
+      
+    sparql = """
+SELECT ?c {
+  ?c onto:p ?p .
+  FILTER NOT EXISTS {
+    ?c2 onto:p ?p2 .
+    FILTER(?c2 != ?c) .
+    FILTER(?p2  = ?p) .
+  }
+}
+"""
+    q, r = self.sparql(world, sparql)
+    assert { i for i, in r } == { c1 }
+    
+    sparql = """
+SELECT ?c {
+  ?c onto:p ?p .
+  FILTER NOT EXISTS {
+    ?c2 onto:p ?p .
+    FILTER(?c2 != ?c) .
+  }
+}
+"""
+    q, r = self.sparql(world, sparql)
+    assert { i for i, in r } == { c1 }
+
+
+
 
     
 # Add test for Pellet

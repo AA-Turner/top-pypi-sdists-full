@@ -1,3 +1,4 @@
+import sys
 from datetime import time
 from itertools import chain
 
@@ -10,7 +11,7 @@ from pandas.tseries.holiday import (
     USThanksgivingDay,
     Holiday,
 )
-import sys 
+
 # check python versiOn aNd import accordingly
 if sys.version_info >= (3, 9):
     # For Python 3.9 and later, import directly
@@ -29,6 +30,9 @@ from pandas_market_calendars.holidays.us import (
     HurricaneSandyClosings,
     USNationalDaysofMourning,
     USJuneteenthAfter2022,
+    MonTuesThursBeforeIndependenceDay,
+    FridayAfterIndependenceDayPre2013,
+    WednesdayBeforeIndependenceDayPost2013,
 )
 from pandas_market_calendars.market_calendar import MarketCalendar
 
@@ -44,12 +48,8 @@ def good_friday_unless_christmas_nye_friday(dt):
         raise NotImplementedError()
 
     year = dt.year
-    christmas_weekday = Christmas.observance(
-        pd.Timestamp(year=year, month=12, day=25)
-    ).weekday()
-    nyd_weekday = USNewYearsDay.observance(
-        pd.Timestamp(year=year, month=1, day=1)
-    ).weekday()
+    christmas_weekday = Christmas.observance(pd.Timestamp(year=year, month=12, day=25)).weekday()
+    nyd_weekday = USNewYearsDay.observance(pd.Timestamp(year=year, month=1, day=1)).weekday()
     if christmas_weekday != 4 and nyd_weekday != 4:
         return GoodFriday.dates(
             pd.Timestamp(year=year, month=1, day=1),
@@ -122,6 +122,9 @@ class CFEExchangeCalendar(MarketCalendar):
                 time(12, 15),
                 AbstractHolidayCalendar(
                     rules=[
+                        MonTuesThursBeforeIndependenceDay,
+                        FridayAfterIndependenceDayPre2013,
+                        WednesdayBeforeIndependenceDayPost2013,
                         USBlackFridayInOrAfter1993,
                     ]
                 ),
@@ -145,6 +148,22 @@ class CBOEEquityOptionsExchangeCalendar(CFEExchangeCalendar):
         "market_open": ((None, time(8, 30)),),
         "market_close": ((None, time(15)),),
     }
+
+    @property
+    def special_closes(self):
+        return [
+            (
+                time(12),
+                AbstractHolidayCalendar(
+                    rules=[
+                        MonTuesThursBeforeIndependenceDay,
+                        FridayAfterIndependenceDayPre2013,
+                        WednesdayBeforeIndependenceDayPost2013,
+                        USBlackFridayInOrAfter1993,
+                    ]
+                ),
+            )
+        ]
 
 
 class CBOEIndexOptionsExchangeCalendar(CFEExchangeCalendar):

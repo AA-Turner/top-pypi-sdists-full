@@ -48,6 +48,29 @@ class ThemeRedirectView(View):
 
         return HttpResponseRedirect(request.GET.get("next", "/"))
 
+class MinimizeSidebarRedirectView(View):
+    SESSION_VAR = "MINIMIZE_SIDEBAR"
+
+    def post(self, request, *args, **kwargs):
+        request.session[self.SESSION_VAR] = not self.minimize_sidebar_state(request)
+        if not request.user.is_anonymous:
+            try:
+                request.user.profile.minimize_sidebar = request.session[self.SESSION_VAR]
+                request.user.profile.save()
+            except Exception as e:
+                logger.exception(e)
+
+        return HttpResponseRedirect(request.GET.get("next", "/"))
+
+    @classmethod
+    def minimize_sidebar_state(cls, request):
+        try:
+            return request.session.get(cls.SESSION_VAR, False)
+        except AttributeError:
+            # Session is middleware
+            # Sometimes request wont have a session attribute
+            return False
+
 
 # TODO: error views should be renamed to a proper function name when possible
 

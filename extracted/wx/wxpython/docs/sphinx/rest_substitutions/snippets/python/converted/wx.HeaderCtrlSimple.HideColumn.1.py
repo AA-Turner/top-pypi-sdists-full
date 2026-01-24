@@ -1,2 +1,0 @@
-
-        self.ShowColumn(idx, False)

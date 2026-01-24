@@ -1,5 +1,4 @@
 import functools
-import http.server
 import os
 import pathlib
 import shutil
@@ -13,8 +12,6 @@ import webbrowser
 from types import BuiltinFunctionType, FrameType, FunctionType, ModuleType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
-from jinja2 import Environment, FileSystemLoader
-
 from scalene.scalene_config import scalene_date, scalene_version
 from scalene.scalene_statistics import (
     Filename,
@@ -24,6 +21,20 @@ from scalene.scalene_statistics import (
     StackStats,
 )
 
+# Cache the main thread ID to avoid repeated calls to threading.main_thread()
+# This is safe because the main thread ID never changes during program execution.
+_main_thread_id: int = cast(int, threading.main_thread().ident)
+
+# Try to import the fast C implementation for frame collection.
+# The C extension collects frames from threads quickly using Python C API,
+# then Python does the should_trace filtering (which has complex logic).
+try:
+    from scalene import pywhere  # type: ignore
+
+    _has_fast_frames = hasattr(pywhere, "collect_frames_to_record")
+except ImportError:
+    _has_fast_frames = False
+
 
 def enter_function_meta(
     frame: FrameType,
@@ -32,7 +43,11 @@ def enter_function_meta(
 ) -> None:
     """Update tracking info so we can correctly report line number info later."""
     fname = Filename(frame.f_code.co_filename)
-    lineno = LineNumber(frame.f_lineno)
+    lineno = (
+        LineNumber(frame.f_lineno)
+        if frame.f_lineno is not None
+        else LineNumber(frame.f_code.co_firstlineno)
+    )
 
     f = frame
     try:
@@ -61,29 +76,39 @@ def compute_frames_to_record(
     Returns final frame (up to a line in a file we are profiling), the
     thread identifier, and the original frame.
     """
-    frames: List[Tuple[FrameType, int]] = [
-        (
-            cast(
-                FrameType,
-                sys._current_frames().get(cast(int, t.ident), None),
+    # Collect frames from all threads. Use C extension if available for speed,
+    # otherwise fall back to Python implementation.
+    frames: List[Tuple[FrameType, int]]
+    if _has_fast_frames:
+        # C extension returns (thread_id, frame) tuples, main thread first
+        raw_frames = pywhere.collect_frames_to_record()
+        frames = [(frame, tid) for tid, frame in raw_frames]
+    else:
+        # Pure Python implementation
+        all_frames = sys._current_frames()
+        # Build list of non-main thread frames
+        frames = [
+            (
+                cast(FrameType, all_frames.get(cast(int, t.ident), None)),
+                cast(int, t.ident),
+            )
+            for t in threading.enumerate()
+            if t.ident != _main_thread_id
+        ]
+        # Put the main thread in the front.
+        frames.insert(
+            0,
+            (
+                all_frames.get(_main_thread_id, cast(FrameType, None)),
+                _main_thread_id,
             ),
-            cast(int, t.ident),
         )
-        for t in threading.enumerate()
-        if t != threading.main_thread()
-    ]
-    # Put the main thread in the front.
-
-    tid = cast(int, threading.main_thread().ident)
-    frames.insert(
-        0,
-        (
-            sys._current_frames().get(tid, cast(FrameType, None)),
-            tid,
-        ),
-    )
     # Process all the frames to remove ones we aren't going to track.
     new_frames: List[Tuple[FrameType, int, FrameType]] = []
+    # On Windows, limit stack walking iterations to prevent blocking the
+    # background timer thread. The daemon thread can be killed if it takes
+    # too long, causing no samples to be recorded.
+    max_stack_depth = 100 if sys.platform != "win32" else 20
     for frame, tident in frames:
         orig_frame = frame
         if not frame:
@@ -98,7 +123,15 @@ def compute_frames_to_record(
             back = cast(FrameType, frame.f_back)
             fname = Filename(back.f_code.co_filename)
             func = back.f_code.co_name
+        iterations = 0
         while not should_trace(Filename(fname), func):
+            iterations += 1
+            if iterations > max_stack_depth:
+                # On Windows especially, we need to limit iterations
+                # to prevent blocking the timer thread too long.
+                # Set frame to None so we skip this frame entirely.
+                frame = cast(FrameType, None)
+                break
             # Walk the stack backwards until we hit a frame that
             # IS one we should trace (if there is one).  i.e., if
             # it's in the code being profiled, and it is just
@@ -134,7 +167,11 @@ def add_stack(
                 StackFrame(
                     filename=str(f.f_code.co_filename),
                     function_name=str(get_fully_qualified_name(f)),
-                    line_number=int(f.f_lineno),
+                    line_number=(
+                        int(f.f_lineno)
+                        if f.f_lineno is not None
+                        else int(f.f_code.co_firstlineno)
+                    ),
                 ),
             )
         f = f.f_back
@@ -205,24 +242,26 @@ def flamegraph_format(stacks: Dict[Tuple[StackFrame], StackStats]) -> str:
     return output
 
 
-def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
-    """Apply a template to generate a single HTML payload containing the current profile."""
+def generate_html(
+    profile_fname: Filename, output_fname: Filename, standalone: bool = False
+) -> None:
+    """Apply a template to generate a single HTML payload containing the current profile.
+
+    Args:
+        profile_fname: Path to the JSON profile file
+        output_fname: Path to write the HTML output
+        standalone: If True, embed all assets (JS, CSS, images) for a self-contained file
+    """
+    import base64
 
     def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
         file_path = os.path.join(directory, subdirectory, filename)
-        file_content = ""
-        try:
-            file_content = pathlib.Path(file_path).read_text(encoding="utf-8")
-        except UnicodeDecodeError as e:
-            # Create a new error with just the custom message
-            raise UnicodeDecodeError(
-                "utf-8",
-                b"",
-                0,
-                0,
-                f"Failed to decode file {file_path}. Ensure the file is UTF-8 encoded.",
-            ) from e
-        return file_content
+        return pathlib.Path(file_path).read_text(encoding="utf-8")
+
+    def read_binary_as_base64(directory: str, subdirectory: str, filename: str) -> str:
+        file_path = os.path.join(directory, subdirectory, filename)
+        with open(file_path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
 
     try:
         # Load the profile
@@ -241,31 +280,65 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
             ) from e
 
     except FileNotFoundError:
-        assert profile_fname == "demo"
+        # If the profile file doesn't exist, this is okay for demo mode
+        # or when we're generating HTML before the JSON profile exists.
         profile = ""
-        # return
 
-    # Load the GUI JavaScript file.
     scalene_dir = os.path.dirname(__file__)
 
-    file_contents = {
-        "scalene_gui_js_text": read_file_content(
-            scalene_dir, "scalene-gui", "scalene-gui-bundle.js"
-        ),
-        "prism_css_text": read_file_content(scalene_dir, "scalene-gui", "prism.css"),
+    # Read API keys from environment variables (if set)
+    api_keys = {
+        "openai_api_key": os.environ.get("OPENAI_API_KEY", ""),
+        "anthropic_api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
+        "gemini_api_key": os.environ.get("GEMINI_API_KEY", "")
+        or os.environ.get("GOOGLE_API_KEY", ""),
+        "azure_api_key": os.environ.get("AZURE_OPENAI_API_KEY", ""),
+        "azure_api_url": os.environ.get("AZURE_OPENAI_ENDPOINT", ""),
+        "aws_access_key": os.environ.get("AWS_ACCESS_KEY_ID", ""),
+        "aws_secret_key": os.environ.get("AWS_SECRET_ACCESS_KEY", ""),
+        "aws_region": os.environ.get("AWS_DEFAULT_REGION", "")
+        or os.environ.get("AWS_REGION", ""),
     }
 
+    # For standalone mode, embed all assets
+    embedded_assets: Dict[str, str] = {}
+    if standalone:
+        embedded_assets = {
+            "jquery_js": read_file_content(
+                scalene_dir, "scalene-gui", "jquery-3.6.0.slim.min.js"
+            ),
+            "bootstrap_css": read_file_content(
+                scalene_dir, "scalene-gui", "bootstrap.min.css"
+            ),
+            "bootstrap_js": read_file_content(
+                scalene_dir, "scalene-gui", "bootstrap.bundle.min.js"
+            ),
+            "prism_css": read_file_content(scalene_dir, "scalene-gui", "prism.css"),
+            "gui_js": read_file_content(
+                scalene_dir, "scalene-gui", "scalene-gui-bundle.js"
+            ),
+            "favicon_base64": read_binary_as_base64(
+                scalene_dir, "scalene-gui", "favicon.ico"
+            ),
+            "logo_base64": read_binary_as_base64(
+                scalene_dir, "scalene-gui", "scalene-image.png"
+            ),
+        }
+
     # Put the profile and everything else into the template.
+    from jinja2 import Environment, FileSystemLoader
+
     environment = Environment(
         loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
     )
     template = environment.get_template("index.html.template")
     rendered_content = template.render(
         profile=profile,
-        gui_js=file_contents["scalene_gui_js_text"],
-        prism_css=file_contents["prism_css_text"],
         scalene_version=scalene_version,
         scalene_date=scalene_date,
+        api_keys=api_keys,
+        standalone=standalone,
+        **embedded_assets,
     )
 
     # Write the rendered content to the specified output file.
@@ -277,6 +350,8 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
 
 
 def start_server(port: int, directory: str) -> None:
+    import http.server
+
     try:
         handler = http.server.SimpleHTTPRequestHandler
         with socketserver.TCPServer(("", port), handler) as httpd:
@@ -292,6 +367,21 @@ def show_browser(file_path: str, port: int, orig_python: str = "python3") -> Non
 
     # Copy file to the temporary directory
     shutil.copy(file_path, os.path.join(temp_dir, "index.html"))
+
+    # Copy vendored assets for offline support (issue #982)
+    scalene_gui_dir = os.path.join(os.path.dirname(__file__), "scalene-gui")
+    for asset in [
+        "favicon.ico",
+        "scalene-image.png",
+        "jquery-3.6.0.slim.min.js",
+        "bootstrap.min.css",
+        "bootstrap.bundle.min.js",
+        "prism.css",
+        "scalene-gui-bundle.js",
+    ]:
+        src = os.path.join(scalene_gui_dir, asset)
+        if os.path.exists(src):
+            shutil.copy(src, os.path.join(temp_dir, asset))
 
     # Open web browser in a new subprocess
     curr_dir = os.getcwd()

@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -212,12 +213,6 @@ from .type_defs import (
     UpdateThingRuntimeConfigurationRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -228,9 +223,9 @@ __all__ = ("GreengrassClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
 
 
 class GreengrassClient(BaseClient):
@@ -484,7 +479,7 @@ class GreengrassClient(BaseClient):
 
     def delete_connector_definition(
         self, **kwargs: Unpack[DeleteConnectorDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a connector definition.
 
@@ -494,7 +489,7 @@ class GreengrassClient(BaseClient):
 
     def delete_core_definition(
         self, **kwargs: Unpack[DeleteCoreDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a core definition.
 
@@ -504,7 +499,7 @@ class GreengrassClient(BaseClient):
 
     def delete_device_definition(
         self, **kwargs: Unpack[DeleteDeviceDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a device definition.
 
@@ -514,7 +509,7 @@ class GreengrassClient(BaseClient):
 
     def delete_function_definition(
         self, **kwargs: Unpack[DeleteFunctionDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Lambda function definition.
 
@@ -522,7 +517,7 @@ class GreengrassClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_greengrass/client/#delete_function_definition)
         """
 
-    def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> Dict[str, Any]:
+    def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a group.
 
@@ -532,7 +527,7 @@ class GreengrassClient(BaseClient):
 
     def delete_logger_definition(
         self, **kwargs: Unpack[DeleteLoggerDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a logger definition.
 
@@ -542,7 +537,7 @@ class GreengrassClient(BaseClient):
 
     def delete_resource_definition(
         self, **kwargs: Unpack[DeleteResourceDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a resource definition.
 
@@ -552,7 +547,7 @@ class GreengrassClient(BaseClient):
 
     def delete_subscription_definition(
         self, **kwargs: Unpack[DeleteSubscriptionDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a subscription definition.
 
@@ -1053,7 +1048,7 @@ class GreengrassClient(BaseClient):
 
     def stop_bulk_deployment(
         self, **kwargs: Unpack[StopBulkDeploymentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops the execution of a bulk deployment.
 
@@ -1093,7 +1088,7 @@ class GreengrassClient(BaseClient):
 
     def update_connector_definition(
         self, **kwargs: Unpack[UpdateConnectorDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a connector definition.
 
@@ -1103,7 +1098,7 @@ class GreengrassClient(BaseClient):
 
     def update_core_definition(
         self, **kwargs: Unpack[UpdateCoreDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a core definition.
 
@@ -1113,7 +1108,7 @@ class GreengrassClient(BaseClient):
 
     def update_device_definition(
         self, **kwargs: Unpack[UpdateDeviceDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a device definition.
 
@@ -1123,7 +1118,7 @@ class GreengrassClient(BaseClient):
 
     def update_function_definition(
         self, **kwargs: Unpack[UpdateFunctionDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a Lambda function definition.
 
@@ -1131,7 +1126,7 @@ class GreengrassClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_greengrass/client/#update_function_definition)
         """
 
-    def update_group(self, **kwargs: Unpack[UpdateGroupRequestTypeDef]) -> Dict[str, Any]:
+    def update_group(self, **kwargs: Unpack[UpdateGroupRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a group.
 
@@ -1151,7 +1146,7 @@ class GreengrassClient(BaseClient):
 
     def update_logger_definition(
         self, **kwargs: Unpack[UpdateLoggerDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a logger definition.
 
@@ -1161,7 +1156,7 @@ class GreengrassClient(BaseClient):
 
     def update_resource_definition(
         self, **kwargs: Unpack[UpdateResourceDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a resource definition.
 
@@ -1171,7 +1166,7 @@ class GreengrassClient(BaseClient):
 
     def update_subscription_definition(
         self, **kwargs: Unpack[UpdateSubscriptionDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a subscription definition.
 
@@ -1181,7 +1176,7 @@ class GreengrassClient(BaseClient):
 
     def update_thing_runtime_configuration(
         self, **kwargs: Unpack[UpdateThingRuntimeConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the runtime configuration of a thing.
 

@@ -2,8 +2,10 @@
 # This file is part of Tryton.  The COPYRIGHT file at the top level of
 # this repository contains the full copyright notices and license terms.
 import datetime
+import json
 from decimal import Decimal
 
+from trytond.model.exceptions import AccessError
 from trytond.pool import Pool
 from trytond.tests.test_tryton import (
     TestCase, activate_module, with_transaction)
@@ -322,6 +324,10 @@ class ExportDataTestCase(TestCase):
             ExportData.export_data([export1], ['many2one/name']),
             [['Target Test']])
 
+        self.assertEqual(
+            ExportData.export_data([export1], ['many2one']),
+            [['Target Test']])
+
         export2, = ExportData.create([{
                 'many2one': None,
                 }])
@@ -374,6 +380,10 @@ class ExportDataTestCase(TestCase):
                 ['id', 'many2many/name']),
             [[export1.id, 'Target 1'], ['', 'Target 2'], [export2.id, '']])
 
+        self.assertEqual(
+            ExportData.export_data([export1], ['id', 'many2many']),
+            [[export1.id, 'Target 1,Target 2']])
+
     @with_transaction()
     def test_one2many(self):
         'Test export_data one2many'
@@ -409,6 +419,10 @@ class ExportDataTestCase(TestCase):
                     'one2many/name']),
             [[export1.id, 'Target 1'], ['', 'Target 2'], [export2.id, '']])
 
+        self.assertEqual(
+            ExportData.export_data([export1], ['id', 'one2many']),
+            [[export1.id, 'Target 1,Target 2']])
+
     @with_transaction()
     def test_one2many_empty_value(self):
         "Test export_data one2many with first child with 0 value"
@@ -442,7 +456,7 @@ class ExportDataTestCase(TestCase):
                     }])
         self.assertEqual(
             ExportData.export_data([export1], ['reference']),
-            [[str(target1)]])
+            [['test.export_data.target,' + target1.rec_name]])
 
         export2, = ExportData.create([{
                     'reference': None,
@@ -453,7 +467,7 @@ class ExportDataTestCase(TestCase):
         self.assertEqual(
             ExportData.export_data([export1, export2],
                 ['reference']),
-            [[str(target1)], ['']])
+            [['test.export_data.target,' + target1.rec_name], ['']])
 
         self.assertEqual(
             ExportData.export_data([export1], ['reference/rec_name']),
@@ -528,3 +542,67 @@ class ExportDataTestCase(TestCase):
             ExportData.export_data_domain(
                 [('boolean', '=', True)], ['boolean'], header=True),
             [["Boolean"], [True]])
+
+    @with_transaction(context={'_check_access': True})
+    def test_model_access(self):
+        "Test export without model access"
+        pool = Pool()
+        ExportData = pool.get('test.export_data')
+        ModelAccess = pool.get('ir.model.access')
+
+        export, = ExportData.create([{
+                    'char': "Test",
+                    }])
+        ModelAccess.create([{
+                    'model': ExportData.__name__,
+                    'perm_read': False,
+                    }])
+
+        with self.assertRaises(AccessError):
+            ExportData.export_data([export], ['char'])
+
+    @with_transaction(context={'_check_access': True})
+    def test_field_access(self):
+        "Test export without field access"
+        pool = Pool()
+        ExportData = pool.get('test.export_data')
+        FieldAccess = pool.get('ir.model.field.access')
+
+        export, = ExportData.create([{
+                    'char': "Test",
+                    }])
+        FieldAccess.create([{
+                    'model': ExportData.__name__,
+                    'field': 'char',
+                    'perm_read': False,
+                    }])
+
+        with self.assertRaises(AccessError):
+            ExportData.export_data([export], ['char'])
+
+    @with_transaction(context={'_check_access': True})
+    def test_rule_access(self):
+        "Test export with rule access"
+        pool = Pool()
+        ExportData = pool.get('test.export_data')
+        RuleGroup = pool.get('ir.rule.group')
+
+        export1, export2 = ExportData.create([{
+                    'char': "foo",
+                    }, {
+                    'char': "bar",
+                    }])
+        RuleGroup.create([{
+                    'name': "Test",
+                    'model': ExportData.__name__,
+                    'global_p': True,
+                    'perm_read': True,
+                    'rules': [('create', [{
+                                    'domain': json.dumps(
+                                        [('char', '!=', 'bar')]),
+                                    }])],
+                    }])
+
+        ExportData.export_data([export1], ['char'])
+        with self.assertRaises(AccessError):
+            ExportData.export_data([export2], ['char'])

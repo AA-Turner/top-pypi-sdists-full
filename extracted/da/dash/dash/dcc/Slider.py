@@ -4,13 +4,10 @@ import typing  # noqa: F401
 from typing_extensions import TypedDict, NotRequired, Literal  # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
 
+ComponentSingleType = typing.Union[str, int, float, Component, None]
 ComponentType = typing.Union[
-    str,
-    int,
-    float,
-    Component,
-    None,
-    typing.Sequence[typing.Union[str, int, float, Component, None]],
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
 ]
 
 NumberType = typing.Union[
@@ -110,6 +107,9 @@ class Slider(Component):
     - verticalHeight (number; default 400):
         The height, in px, of the slider if it is vertical.
 
+    - reverse (boolean; default False):
+        If the value is True, it means the component is rendered reverse.
+
     - className (string; optional):
         Additional CSS class for the root DOM node.
 
@@ -137,7 +137,7 @@ class Slider(Component):
         kept after the browser quit. session: window.sessionStorage, data
         is cleared once the browser quit."""
 
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ["children"]
     _namespace = "dash_core_components"
     _type = "Slider"
@@ -182,6 +182,7 @@ class Slider(Component):
         updatemode: typing.Optional[Literal["mouseup", "drag"]] = None,
         vertical: typing.Optional[bool] = None,
         verticalHeight: typing.Optional[NumberType] = None,
+        reverse: typing.Optional[bool] = None,
         className: typing.Optional[str] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         persistence: typing.Optional[typing.Union[bool, str, NumberType]] = None,
@@ -203,6 +204,7 @@ class Slider(Component):
             "updatemode",
             "vertical",
             "verticalHeight",
+            "reverse",
             "className",
             "id",
             "persistence",
@@ -224,6 +226,7 @@ class Slider(Component):
             "updatemode",
             "vertical",
             "verticalHeight",
+            "reverse",
             "className",
             "id",
             "persistence",

@@ -15,7 +15,7 @@ DOC2DASH=0
 LINKCHECK=0
 CLEAN=0
 
-while getopts ":scjdl" OPTION; do
+while getopts ":cdl" OPTION; do
   case $OPTION in
   c)
     CLEAN=1
@@ -27,7 +27,11 @@ while getopts ":scjdl" OPTION; do
     LINKCHECK=1
     ;;
   \?)
-    echo "Usage: $0 [-sjd]"
+    echo "Usage: $0 [-cdl]"
+    echo ""
+    echo "-c: clean and force a full rebuild of the documentation"
+    echo "-d: generate Dash docset with doc2dash"
+    echo "-l: check the generated documentation for broken links"
     exit 1
     ;;
   esac
@@ -47,18 +51,21 @@ cd ${ROOT_FOLDER}
 
 # Create a virtual environment
 if [ ! -d ".venv" ]; then
+  echo "Creating virtualenv..."
   ${PYTHON:-python3} -m venv .venv
 
-  # Install sphinx, matplotlib, pandas, scipy, wheel and pydoctor into the venv.
+  # Install documentation dependencies into the venv.
   # doc2dash is optional; it will be installed when -d is given
-  .venv/bin/pip install -q -U pip wheel sphinx==7.4.7 matplotlib pandas scipy pydoctor sphinx-rtd-theme
+  .venv/bin/pip install -q -U pip wheel sphinx==7.4.7 matplotlib pandas scipy pydoctor sphinx-rtd-theme iplotx
 else
   # Upgrade pip in the virtualenv
+  echo "Upgrading pip in virtualenv..."
   .venv/bin/pip install -q -U pip wheel
 fi
 
-# Make sure that Sphinx, PyDoctor (and maybe doc2dash) are up-to-date in the virtualenv
-.venv/bin/pip install -q -U sphinx==7.4.7 pydoctor sphinx-gallery sphinxcontrib-jquery sphinx-rtd-theme
+# Make sure that documentation dependencies are up-to-date in the virtualenv
+echo "Making sure that all dependencies are up-to-date..."
+.venv/bin/pip install -q -U sphinx==7.4.7 pydoctor sphinx-gallery sphinxcontrib-jquery sphinx-rtd-theme iplotx
 if [ x$DOC2DASH = x1 ]; then
   .venv/bin/pip install -U doc2dash
 fi

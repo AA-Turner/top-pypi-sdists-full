@@ -3,7 +3,6 @@
 //! Provides reusable traits and functions for rule implementations and core linter logic.
 
 pub mod anchor_styles;
-pub mod ast_utils;
 pub mod code_block_utils;
 // DocumentStructure has been merged into LintContext
 // pub mod document_structure;
@@ -12,26 +11,34 @@ pub mod element_cache;
 pub mod emphasis_utils;
 pub mod fix_utils;
 pub mod header_id_utils;
+pub mod jinja_utils;
 pub mod kramdown_utils;
 pub mod line_ending;
 pub mod markdown_elements;
+pub mod mkdocs_abbreviations;
 pub mod mkdocs_admonitions;
+pub mod mkdocs_attr_list;
 pub mod mkdocs_common;
 pub mod mkdocs_critic;
+pub mod mkdocs_definition_lists;
+pub mod mkdocs_extensions;
 pub mod mkdocs_footnotes;
+pub mod mkdocs_icons;
 pub mod mkdocs_patterns;
 pub mod mkdocs_snippets;
 pub mod mkdocs_tabs;
 pub mod mkdocs_test_utils;
 pub mod mkdocstrings_refs;
+pub mod quarto_divs;
 pub mod range_utils;
 pub mod regex_cache;
+pub mod sentence_utils;
 pub mod skip_context;
 pub mod string_interner;
 pub mod table_utils;
 pub mod text_reflow;
+pub mod utf8_offsets;
 
-pub use ast_utils::AstCache;
 pub use code_block_utils::CodeBlockUtils;
 // pub use document_structure::DocumentStructure;
 pub use line_ending::{
@@ -40,6 +47,21 @@ pub use line_ending::{
 };
 pub use markdown_elements::{ElementQuality, ElementType, MarkdownElement, MarkdownElements};
 pub use range_utils::LineIndex;
+
+/// Check if a line is a definition list item (Extended Markdown)
+///
+/// Definition lists use the pattern:
+/// ```text
+/// Term
+/// : Definition
+/// ```
+///
+/// Supported by: PHP Markdown Extra, Kramdown, Pandoc, Hugo, and others
+pub fn is_definition_list_item(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    trimmed.starts_with(": ")
+        || (trimmed.starts_with(':') && trimmed.len() > 1 && trimmed.chars().nth(1).is_some_and(|c| c.is_whitespace()))
+}
 
 /// Trait for string-related extensions
 pub trait StrExt {

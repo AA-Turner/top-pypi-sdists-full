@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.workload import WorkloadSDK
@@ -11,6 +11,9 @@ from anyscale.client.openapi_client.models.job_queue_sort_directive import (
 )
 from anyscale.client.openapi_client.models.list_response_metadata import (
     ListResponseMetadata,
+)
+from anyscale.client.openapi_client.models.resource_tag_resource_type import (
+    ResourceTagResourceType,
 )
 from anyscale.client.openapi_client.models.session_state import SessionState
 from anyscale.job_queue.models import JobQueueStatus
@@ -28,6 +31,7 @@ class PrivateJobQueueSDK(WorkloadSDK):
         cloud: Optional[str] = None,
         project: Optional[str] = None,
         cluster_status: Optional[SessionState] = None,
+        tags_filter: Optional[Dict[str, List[str]]] = None,
         page_size: Optional[int] = None,
         max_items: Optional[int] = None,
         sorting_directives: Optional[List[JobQueueSortDirective]] = None,
@@ -57,7 +61,7 @@ class PrivateJobQueueSDK(WorkloadSDK):
 
             return ResultIterator(
                 page_token=None,
-                max_items=0,
+                max_items=1,  # Return the single fetched item
                 fetch_page=_fetch_single_page,
                 parse_fn=_parse_decorated_jq_to_status,
             )
@@ -69,6 +73,7 @@ class PrivateJobQueueSDK(WorkloadSDK):
                 cloud=cloud,
                 project=project,
                 cluster_status=cluster_status,
+                tags_filter=tags_filter,
                 count=page_size,
                 paging_token=token,
                 sorting_directives=sorting_directives,
@@ -112,6 +117,54 @@ class PrivateJobQueueSDK(WorkloadSDK):
 
         return _parse_decorated_jq_to_status(updated_jq)
 
+    def add_tags(
+        self,
+        *,
+        job_queue_id: Optional[str] = None,
+        name: Optional[str] = None,
+        tags: Dict[str, str],
+    ) -> None:
+        if not tags:
+            raise ValueError("At least one tag must be provided.")
+
+        if job_queue_id is not None:
+            resource_id = job_queue_id
+        else:
+            if name is None:
+                raise ValueError("Either 'job_queue_id' or 'name' must be provided.")
+            jq = self._resolve_to_job_queue_model(job_queue_id=None, name=name)
+            if jq.id is None:
+                raise RuntimeError(f"Job queue with name '{name}' has no ID.")
+            resource_id = jq.id
+
+        self.client.upsert_resource_tags(
+            ResourceTagResourceType.JOB_QUEUE, resource_id, tags
+        )
+
+    def remove_tags(
+        self,
+        *,
+        job_queue_id: Optional[str] = None,
+        name: Optional[str] = None,
+        keys: List[str],
+    ) -> None:
+        if not keys:
+            raise ValueError("At least one tag key must be provided.")
+
+        if job_queue_id is not None:
+            resource_id = job_queue_id
+        else:
+            if name is None:
+                raise ValueError("Either 'job_queue_id' or 'name' must be provided.")
+            jq = self._resolve_to_job_queue_model(job_queue_id=None, name=name)
+            if jq.id is None:
+                raise RuntimeError(f"Job queue with name '{name}' has no ID.")
+            resource_id = jq.id
+
+        self.client.delete_resource_tags(
+            ResourceTagResourceType.JOB_QUEUE, resource_id, keys
+        )
+
     def _resolve_to_job_queue_model(
         self, *, job_queue_id: Optional[str] = None, name: Optional[str] = None,
     ) -> DecoratedJobQueue:
@@ -126,10 +179,26 @@ class PrivateJobQueueSDK(WorkloadSDK):
                 raise ValueError(f"Job Queue with ID '{job_queue_id}' not found.")
             return job_queue
         else:
-            job_queues = self.client.list_job_queues(name=name, count=1)
-            if len(job_queues) == 0:
+            job_queues_response = self.client.list_job_queues(name=name, count=1)
+            if len(job_queues_response.results) == 0:
                 raise ValueError(f"Job Queue with name '{name}' not found.")
-            return job_queues[0]
+            return job_queues_response.results[0]
+
+    def list_tags(
+        self, *, job_queue_id: Optional[str] = None, name: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """List tags for a job queue as a key/value mapping."""
+        if job_queue_id is not None:
+            resource_id = job_queue_id
+        else:
+            jq = self._resolve_to_job_queue_model(job_queue_id=None, name=name)
+            if jq.id is None:
+                raise RuntimeError(f"Job queue with name '{name}' has no ID.")
+            resource_id = jq.id
+        records = self.client.list_resource_tags(
+            ResourceTagResourceType.JOB_QUEUE, resource_id
+        )
+        return {r.key: r.value for r in records if r and r.key is not None}
 
 
 def _parse_decorated_jq_to_status(decorated_jq: DecoratedJobQueue) -> JobQueueStatus:

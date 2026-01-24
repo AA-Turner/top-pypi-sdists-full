@@ -8,7 +8,16 @@ from numbers import Integral
 
 import numpy as np
 import scipy.sparse.linalg as spla
-from autoray import conj, dag, do, get_dtype_name, reshape, size, transpose
+from autoray import (
+    conj,
+    dag,
+    do,
+    get_dtype_name,
+    get_namespace,
+    reshape,
+    size,
+    transpose,
+)
 
 import quimb as qu
 
@@ -1971,7 +1980,7 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
     add_MPS_ = functools.partialmethod(add_MPS, inplace=True)
 
     def permute_arrays(self, shape="lrp"):
-        """Permute the indices of each tensor in this MPS to match ``shape``.
+        """Ensure the arrays are stored internally in the specified order.
         This doesn't change how the overall object interacts with other tensor
         networks but may be useful for extracting the underlying arrays
         consistently. This is an inplace operation.
@@ -1980,7 +1989,7 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         ----------
         shape : str, optional
             A permutation of ``'lrp'`` specifying the *desired* order of the
-            left, right, and physical indices respectively.
+            [l]eft, [r]ight, and [p]hysical indices respectively.
         """
         self.ensure_bonds_exist()
 
@@ -2297,8 +2306,12 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         where : sequence of int, optional
             The range of sites the MPO acts on, will be inferred from the
             support of the MPO if not given.
-        method : {'direct", 'dm', 'zipup', 'zipup-first', 'fit'}, optional
-            The compression method to use.
+        method : {"direct", "lazy", "fit", ...}, optional
+            The compression method to use. If "lazy", the MPO is simply added
+            to the MPS without any contraction or compression. Else `method`
+            is passed to
+            :func:`~quimb.tensor.tensor_1d_compress.tensor_network_1d_compress`
+            and controls how the compression of the subsection is performed.
         transpose : bool, optional
             Whether to transpose the MPO before applying it. By default the
             lower inds of the MPO are contracted with the MPS, if transposed
@@ -2326,10 +2339,12 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         # get the span of sites the sub-MPO acts on
         if where is None:
             where = tuple(submpo.gen_sites_present())
-        si, sf = min(where), max(where)
 
-        # make the psi canonical around the sub-MPO region
-        psi.canonicalize_((si, sf), info=info)
+        if method != "lazy":
+            si, sf = min(where), max(where)
+
+            # make the psi canonical around the sub-MPO region
+            psi.canonicalize_((si, sf), info=info)
 
         # lazily combine the sub-MPO with the MPS
         psi.gate_with_op_lazy_(
@@ -2337,6 +2352,10 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
             transpose=transpose,
             inplace_op=inplace_mpo,
         )
+
+        if method == "lazy":
+            # we just add the sub-MPO, no contraction or compression
+            return psi
 
         # split off the sub MPS-MPO TN section
         sub_site_tags = [psi.site_tag(s) for s in range(si, sf + 1)]
@@ -2462,8 +2481,12 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
             physical dimensions of the sites it acts on. Calculated if not
             supplied. If a single int, all sites are assumed to have this same
             dimension.
-        method : {'direct", 'dm', 'zipup', 'zipup-first', 'fit', ...}, optional
-            The compression method to use.
+        method : {"direct", "lazy", "fit", ...}, optional
+            The compression method to use. If "lazy", the MPO is simply added
+            to the MPS without any contraction or compression. Else `method`
+            is passed to
+            :func:`~quimb.tensor.tensor_1d_compress.tensor_network_1d_compress`
+            and controls how the compression of the subsection is performed.
         info : dict, optional
             If supplied, will be used to infer and store various extra
             information. Currently, the key "cur_orthog" is used to store the
@@ -3652,6 +3675,7 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         info=None,
         get=None,
         seed=None,
+        backend_random="numpy",
         inplace=False,
     ):
         r"""Measure this MPS at ``site``, including projecting the state.
@@ -3689,6 +3713,11 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
             projection.
         seed : None, int, or np.random.Generator, optional
             A random seed or generator to use.
+        backend_random : {'numpy', None, ...}, optional
+            The backend to use for random sampling. If ``None``, will be
+            inferred from the tensor data. By default numpy is used meaning the
+            probability distributions are always converted to numpy arrays, for
+            consistency.
         inplace : bool, optional
             Whether to perform the measurement in place or not.
 
@@ -3713,16 +3742,35 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         t = tn[site]
         ind = tn.site_ind(site)
 
+        # array namespace
+        xp = t.get_namespace()
+        # random namespace
+        if backend_random is None:
+            rxp = xp
+            convert = False
+        elif backend_random == "numpy":
+            rxp = get_namespace("numpy")
+            convert = xp is not rxp
+        else:
+            rxp = get_namespace(backend_random)
+            convert = False
+
         # diagonal of reduced density matrix = probs
         tii = t.contract(t.H, output_inds=(ind,))
-        pi = do("to_numpy", tii.data).real
-        pi /= pi.sum()
+        pi = xp.real(tii.data)
 
-        rng = np.random.default_rng(seed)
+        if convert:
+            pi = xp.to_numpy(pi)
+
+        pi = pi / rxp.sum(pi)
         if outcome is None:
             # sample an outcome
-            outcome = rng.choice(pi.size, p=pi)
-        outcome = int(outcome)
+            rng = rxp.random.default_rng(seed)
+            outcome = rng.choice(rxp.size(pi), p=pi)
+
+        if backend_random == "numpy":
+            # XXX: unnecessary? numpy always returns int for scalar size?
+            outcome = int(outcome)
 
         if get == "outcome":
             return outcome
@@ -3746,20 +3794,36 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
                 tn[i].retag_({tn.site_tag(i): tn.site_tag(i - 1)})
             tn._L = L - 1
         else:
-            # simply re-expand tensor dimensions (with zeros)
-            t.new_ind(ind, size=d, axis=-1)
+            # re-expand index, populating non-measured outcomes with zeros
+            zeros = xp.zeros_like(t.data)
+            arrays = [zeros] * d
+            arrays[outcome] = t.data
+            t.modify(
+                data=xp.stack(arrays, axis=-1),
+                inds=(*t.inds, ind)
+            )
 
         return outcome, tn
 
     measure_ = functools.partialmethod(measure, inplace=True)
 
-    def sample_configuration(self, seed=None, info=None):
+    def sample_configuration(
+        self,
+        seed=None,
+        backend_random="numpy",
+        info=None,
+    ):
         """Sample a configuration from this MPS.
 
         Parameters
         ----------
         seed : None, int, or np.random.Generator, optional
             A random seed or generator to use.
+        backend_random : {'numpy', None, ...}, optional
+            The backend to use for random sampling. If ``None``, will be
+            inferred from the tensor data. By default numpy is used meaning the
+            probability distributions are always converted to numpy arrays, for
+            consistency.
         info : dict, optional
             If given, will be used to infer and store various extra
             information. Currently the key "cur_orthog" is used to store the
@@ -3767,8 +3831,24 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         """
         import numpy as np
 
+        # array namespace
+        xp = self.get_namespace()
+        # random namespace
+        if backend_random is None:
+            # use array backend
+            rxp = xp
+            convert = False
+        elif backend_random == "numpy":
+            # use numpy to sample regardless of array backend
+            rxp = get_namespace("numpy")
+            convert = xp is not rxp
+        else:
+            # manual backend
+            rxp = get_namespace(backend_random)
+            convert = False
+
         # if seed is already a generator this simply returns it
-        rng = np.random.default_rng(seed)
+        rng = rxp.random.default_rng(seed)
 
         # right canonicalize
         psi = self.canonicalize(0, info=info)
@@ -3782,14 +3862,16 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
             ix = psi.site_ind(i)
             # contract diagonal to get probabilities
             pi = (ki & bi).contract(output_inds=[ix]).data
+            pi = xp.real(pi)
 
-            # sample outcome using numpy
-            pi = do("to_numpy", pi).real
-            pi /= pi.sum()
-            xi = rng.choice(pi.size, p=pi)
+            if convert:
+                pi = xp.to_numpy(pi)
+
+            pi = pi / rxp.sum(pi)
+            xi = rng.choice(rxp.size(pi), p=pi)
             config.append(xi)
             # track local probability
-            omega *= pi[xi]
+            omega = omega * pi[xi]
 
             # project outcome
             psi.isel_({ix: xi})
@@ -3799,7 +3881,7 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
 
         return config, omega
 
-    def sample(self, C, seed=None, info=None):
+    def sample(self, C, seed=None, backend_random="numpy", info=None):
         """Generate ``C`` samples rom this MPS, along with their probabilities.
 
         Parameters
@@ -3808,6 +3890,11 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
             The number of samples to generate.
         seed : None, int, or np.random.Generator, optional
             A random seed or generator to use.
+        backend_random : {'numpy', None, ...}, optional
+            The backend to use for random sampling. If ``None``, will be
+            inferred from the tensor data. By default numpy is used meaning the
+            probability distributions are always converted to numpy arrays, for
+            consistency.
         info : dict, optional
             If given, will be used to infer and store various extra
             information. Currently the key "cur_orthog" is used to store the
@@ -3827,9 +3914,23 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         # do right canonicalization once (supplying info avoids re-performing)
         psi0 = self.canonicalize(0, info=info)
 
-        rng = np.random.default_rng(seed)
+        if backend_random is None:
+            # use array backend
+            rxp = psi0.get_namespace()
+        elif backend_random == "numpy":
+            # use numpy to sample regardless of array backend
+            rxp = get_namespace("numpy")
+        else:
+            # manual backend
+            rxp = get_namespace(backend_random)
+
+        rng = rxp.random.default_rng(seed)
         for _ in range(C):
-            yield psi0.sample_configuration(seed=rng, info=info)
+            yield psi0.sample_configuration(
+                seed=rng,
+                info=info,
+                backend_random=backend_random,
+            )
 
 
 class MatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat):

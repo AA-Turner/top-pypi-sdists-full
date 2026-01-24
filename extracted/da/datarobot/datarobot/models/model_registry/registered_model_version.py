@@ -247,35 +247,33 @@ class RegisteredModelVersion(APIObject):
         The contents of the model package file.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String,
-            t.Key("registered_model_id"): t.String,
-            t.Key("registered_model_version"): t.Int,
-            t.Key("name"): t.String,
-            t.Key("model_id"): t.String,
-            t.Key("model_execution_type"): t.String,
-            t.Key("is_archived"): t.Bool,
-            t.Key("import_meta"): t.Dict().allow_extra("*"),
-            t.Key("source_meta"): t.Dict().allow_extra("*"),
-            t.Key("model_kind"): t.Dict().allow_extra("*"),
-            t.Key("target"): t.Dict().allow_extra("*"),
-            t.Key("model_description"): t.Dict().allow_extra("*"),
-            t.Key("datasets"): t.Dict().allow_extra("*"),
-            t.Key("timeseries"): t.Dict().allow_extra("*"),
-            t.Key("is_deprecated"): t.Bool,
-            t.Key("permissions"): t.List(t.String),
-            t.Key("active_deployment_count"): t.Int,
-            t.Key("bias_and_fairness", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
-            t.Key("build_status", optional=True): t.Or(t.String, t.Null),
-            t.Key("user_provided_id", optional=True): t.Or(t.String, t.Null),
-            t.Key("updated_at", optional=True): t.Or(t.String, t.Null),
-            t.Key("updated_by", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
-            t.Key("tags", optional=True): t.Or(t.List(t.Dict().allow_extra("*")), t.Null),
-            t.Key("mlpkg_file_contents", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
-            t.Key("geospatial_monitoring", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String,
+        t.Key("registered_model_id"): t.String,
+        t.Key("registered_model_version"): t.Int,
+        t.Key("name"): t.String,
+        t.Key("model_id"): t.String,
+        t.Key("model_execution_type"): t.String,
+        t.Key("is_archived"): t.Bool,
+        t.Key("import_meta"): t.Dict().allow_extra("*"),
+        t.Key("source_meta"): t.Dict().allow_extra("*"),
+        t.Key("model_kind"): t.Dict().allow_extra("*"),
+        t.Key("target"): t.Dict().allow_extra("*"),
+        t.Key("model_description"): t.Dict().allow_extra("*"),
+        t.Key("datasets"): t.Dict().allow_extra("*"),
+        t.Key("timeseries"): t.Dict().allow_extra("*"),
+        t.Key("is_deprecated"): t.Bool,
+        t.Key("permissions"): t.List(t.String),
+        t.Key("active_deployment_count"): t.Int,
+        t.Key("bias_and_fairness", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+        t.Key("build_status", optional=True): t.Or(t.String, t.Null),
+        t.Key("user_provided_id", optional=True): t.Or(t.String, t.Null),
+        t.Key("updated_at", optional=True): t.Or(t.String, t.Null),
+        t.Key("updated_by", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+        t.Key("tags", optional=True): t.Or(t.List(t.Dict().allow_extra("*")), t.Null),
+        t.Key("mlpkg_file_contents", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+        t.Key("geospatial_monitoring", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+    }).allow_extra("*")
 
     def __init__(
         self,

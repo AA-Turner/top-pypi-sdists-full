@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.gcp_trigger_data_delivery_type import GcpTriggerDataDeliveryType
+from ..models.gcp_trigger_data_mode import GcpTriggerDataMode
 from ..models.gcp_trigger_data_subscription_mode import GcpTriggerDataSubscriptionMode
 from ..types import UNSET, Unset
 
@@ -31,13 +32,13 @@ class GcpTriggerData:
         base_endpoint (Union[Unset, str]):
         delivery_type (Union[Unset, GcpTriggerDataDeliveryType]):
         delivery_config (Union[Unset, GcpTriggerDataDeliveryConfig]):
-        enabled (Union[Unset, bool]):
+        mode (Union[Unset, GcpTriggerDataMode]): job trigger mode
         auto_acknowledge_msg (Union[Unset, bool]):
         ack_deadline (Union[Unset, int]): Time in seconds within which the message must be acknowledged. If not
             provided, defaults to the subscription's acknowledgment deadline (600 seconds).
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, GcpTriggerDataErrorHandlerArgs]): The arguments to pass to the script or flow
-        retry (Union[Unset, GcpTriggerDataRetry]):
+        retry (Union[Unset, GcpTriggerDataRetry]): Retry configuration for failed module executions
     """
 
     gcp_resource_path: str
@@ -50,7 +51,7 @@ class GcpTriggerData:
     base_endpoint: Union[Unset, str] = UNSET
     delivery_type: Union[Unset, GcpTriggerDataDeliveryType] = UNSET
     delivery_config: Union[Unset, "GcpTriggerDataDeliveryConfig"] = UNSET
-    enabled: Union[Unset, bool] = UNSET
+    mode: Union[Unset, GcpTriggerDataMode] = UNSET
     auto_acknowledge_msg: Union[Unset, bool] = UNSET
     ack_deadline: Union[Unset, int] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
@@ -76,7 +77,10 @@ class GcpTriggerData:
         if not isinstance(self.delivery_config, Unset):
             delivery_config = self.delivery_config.to_dict()
 
-        enabled = self.enabled
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         auto_acknowledge_msg = self.auto_acknowledge_msg
         ack_deadline = self.ack_deadline
         error_handler_path = self.error_handler_path
@@ -108,8 +112,8 @@ class GcpTriggerData:
             field_dict["delivery_type"] = delivery_type
         if delivery_config is not UNSET:
             field_dict["delivery_config"] = delivery_config
-        if enabled is not UNSET:
-            field_dict["enabled"] = enabled
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if auto_acknowledge_msg is not UNSET:
             field_dict["auto_acknowledge_msg"] = auto_acknowledge_msg
         if ack_deadline is not UNSET:
@@ -160,7 +164,12 @@ class GcpTriggerData:
         else:
             delivery_config = GcpTriggerDataDeliveryConfig.from_dict(_delivery_config)
 
-        enabled = d.pop("enabled", UNSET)
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, GcpTriggerDataMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = GcpTriggerDataMode(_mode)
 
         auto_acknowledge_msg = d.pop("auto_acknowledge_msg", UNSET)
 
@@ -193,7 +202,7 @@ class GcpTriggerData:
             base_endpoint=base_endpoint,
             delivery_type=delivery_type,
             delivery_config=delivery_config,
-            enabled=enabled,
+            mode=mode,
             auto_acknowledge_msg=auto_acknowledge_msg,
             ack_deadline=ack_deadline,
             error_handler_path=error_handler_path,

@@ -21,15 +21,23 @@
 
 """Tests for dulwich.rebase."""
 
-import os
-import tempfile
+import importlib.util
 
 from dulwich.objects import Blob, Commit, Tree
-from dulwich.rebase import RebaseConflict, Rebaser, rebase
-from dulwich.repo import MemoryRepo, Repo
+from dulwich.rebase import (
+    RebaseConflict,
+    Rebaser,
+    RebaseTodo,
+    RebaseTodoCommand,
+    RebaseTodoEntry,
+    process_interactive_rebase,
+    rebase,
+    start_interactive,
+)
+from dulwich.repo import MemoryRepo
 from dulwich.tests.utils import make_commit
 
-from . import TestCase
+from . import DependencyMissing, TestCase
 
 
 class RebaserTestCase(TestCase):
@@ -39,6 +47,7 @@ class RebaserTestCase(TestCase):
         """Set up test repository."""
         super().setUp()
         self.repo = MemoryRepo()
+        self.addCleanup(self.repo.close)
 
     def _setup_initial_commit(self):
         """Set up initial commit for tests."""
@@ -50,16 +59,17 @@ class RebaserTestCase(TestCase):
         tree.add(b"file.txt", 0o100644, blob.id)
         self.repo.object_store.add_object(tree)
 
-        self.initial_commit = Commit()
-        self.initial_commit.tree = tree.id
-        self.initial_commit.parents = []
-        self.initial_commit.message = b"Initial commit"
-        self.initial_commit.committer = b"Test User <test@example.com>"
-        self.initial_commit.author = b"Test User <test@example.com>"
-        self.initial_commit.commit_time = 1000000
-        self.initial_commit.author_time = 1000000
-        self.initial_commit.commit_timezone = 0
-        self.initial_commit.author_timezone = 0
+        self.initial_commit = make_commit(
+            tree=tree.id,
+            parents=[],
+            message=b"Initial commit",
+            committer=b"Test User <test@example.com>",
+            author=b"Test User <test@example.com>",
+            commit_time=1000000,
+            author_time=1000000,
+            commit_timezone=0,
+            author_timezone=0,
+        )
         self.repo.object_store.add_object(self.initial_commit)
 
         # Set up branches
@@ -153,6 +163,10 @@ class RebaserTestCase(TestCase):
         self.assertIn(b"file.txt", new_tree)
 
     def test_rebase_with_conflicts(self):
+        # Check if merge3 module is available
+        if importlib.util.find_spec("merge3") is None:
+            raise DependencyMissing("merge3")
+
         """Test rebase with merge conflicts."""
         self._setup_initial_commit()
         # Create feature branch with conflicting change
@@ -372,85 +386,291 @@ class RebaserTestCase(TestCase):
         self.assertNotIn(b"a.txt", new_c_tree)
 
 
-class RebasePorcelainTestCase(TestCase):
-    """Tests for the porcelain rebase function."""
+class InteractiveRebaseTestCase(TestCase):
+    """Tests for interactive rebase functionality."""
 
     def setUp(self):
         """Set up test repository."""
         super().setUp()
-        self.test_dir = tempfile.mkdtemp()
-        self.repo = Repo.init(self.test_dir)
+        self.repo = MemoryRepo()
+        self.addCleanup(self.repo.close)
+        self._setup_initial_commit()
 
+    def _setup_initial_commit(self):
+        """Set up initial commit for tests."""
         # Create initial commit
-        with open(os.path.join(self.test_dir, "README.md"), "wb") as f:
-            f.write(b"# Test Repository\n")
+        blob = Blob.from_string(b"Initial content\n")
+        self.repo.object_store.add_object(blob)
 
-        self.repo.get_worktree().stage(["README.md"])
-        self.initial_commit = self.repo.get_worktree().commit(
+        tree = Tree()
+        tree.add(b"file.txt", 0o100644, blob.id)
+        self.repo.object_store.add_object(tree)
+
+        self.initial_commit = make_commit(
+            tree=tree.id,
+            parents=[],
             message=b"Initial commit",
             committer=b"Test User <test@example.com>",
             author=b"Test User <test@example.com>",
+            commit_time=1000000,
+            author_time=1000000,
+            commit_timezone=0,
+            author_timezone=0,
         )
+        self.repo.object_store.add_object(self.initial_commit)
 
-    def tearDown(self):
-        """Clean up test directory."""
-        import shutil
+        # Set up branches
+        self.repo.refs[b"refs/heads/master"] = self.initial_commit.id
+        self.repo.refs.set_symbolic_ref(b"HEAD", b"refs/heads/master")
 
-        shutil.rmtree(self.test_dir)
+    def _create_test_commits(self):
+        """Create a series of test commits for interactive rebase."""
+        commits = []
+        parent = self.initial_commit.id
 
-    def test_porcelain_rebase(self):
-        """Test rebase through porcelain interface."""
-        from dulwich import porcelain
+        for i in range(3):
+            blob = Blob.from_string(f"Content {i}\n".encode())
+            self.repo.object_store.add_object(blob)
 
-        # Create and checkout feature branch
-        self.repo.refs[b"refs/heads/feature"] = self.initial_commit
-        porcelain.checkout(self.repo, "feature")
+            tree = Tree()
+            tree.add(f"file{i}.txt".encode(), 0o100644, blob.id)
+            self.repo.object_store.add_object(tree)
 
-        # Add commit to feature branch
-        with open(os.path.join(self.test_dir, "feature.txt"), "wb") as f:
-            f.write(b"Feature file\n")
+            commit = Commit()
+            commit.tree = tree.id
+            commit.parents = [parent]
+            commit.message = f"Commit {i}".encode()
+            commit.committer = b"Test User <test@example.com>"
+            commit.author = b"Test User <test@example.com>"
+            commit.commit_time = 1000000 + i * 100
+            commit.author_time = 1000000 + i * 100
+            commit.commit_timezone = 0
+            commit.author_timezone = 0
+            self.repo.object_store.add_object(commit)
 
-        porcelain.add(self.repo, ["feature.txt"])
-        porcelain.commit(
+            commits.append(commit)
+            parent = commit.id
+
+        self.repo.refs[b"refs/heads/feature"] = commits[-1].id
+        return commits
+
+    def test_todo_parsing(self):
+        """Test parsing of todo file format."""
+        todo_content = """pick 1234567 First commit
+reword 2345678 Second commit
+edit 3456789 Third commit
+squash 4567890 Fourth commit
+fixup 5678901 Fifth commit
+drop 6789012 Sixth commit
+exec echo "Running test"
+break
+# This is a comment
+"""
+        todo = RebaseTodo.from_string(todo_content)
+
+        self.assertEqual(len(todo.entries), 8)
+
+        # Check first entry
+        self.assertEqual(todo.entries[0].command, RebaseTodoCommand.PICK)
+        self.assertEqual(todo.entries[0].commit_sha, b"1234567")
+        self.assertEqual(todo.entries[0].short_message, "First commit")
+
+        # Check reword
+        self.assertEqual(todo.entries[1].command, RebaseTodoCommand.REWORD)
+
+        # Check exec
+        self.assertEqual(todo.entries[6].command, RebaseTodoCommand.EXEC)
+        self.assertEqual(todo.entries[6].arguments, 'echo "Running test"')
+
+        # Check break
+        self.assertEqual(todo.entries[7].command, RebaseTodoCommand.BREAK)
+
+    def test_todo_generation(self):
+        """Test generation of todo list from commits."""
+        commits = self._create_test_commits()
+        todo = RebaseTodo.from_commits(commits)
+
+        # Should have one pick entry per commit
+        self.assertEqual(len(todo.entries), 3)
+
+        for i, entry in enumerate(todo.entries):
+            self.assertEqual(entry.command, RebaseTodoCommand.PICK)
+            # commit_sha stores the full hex SHA as bytes
+            self.assertEqual(entry.commit_sha, commits[i].id)
+            self.assertIn(f"Commit {i}", entry.short_message)
+
+    def test_todo_serialization(self):
+        """Test serialization of todo list."""
+        entries = [
+            RebaseTodoEntry(
+                command=RebaseTodoCommand.PICK,
+                commit_sha=b"1234567890abcdef",
+                short_message="First commit",
+            ),
+            RebaseTodoEntry(
+                command=RebaseTodoCommand.SQUASH,
+                commit_sha=b"fedcba0987654321",
+                short_message="Second commit",
+            ),
+            RebaseTodoEntry(command=RebaseTodoCommand.EXEC, arguments="make test"),
+        ]
+
+        todo = RebaseTodo(entries)
+        content = todo.to_string(include_comments=False)
+
+        lines = content.strip().split("\n")
+        self.assertEqual(len(lines), 3)
+        self.assertIn("pick 1234567", lines[0])
+        self.assertIn("squash fedcba0", lines[1])
+        self.assertIn("exec make test", lines[2])
+
+    def test_start_interactive_no_editor(self):
+        """Test starting interactive rebase without editor."""
+        self._create_test_commits()
+
+        # Start interactive rebase
+        todo = start_interactive(
             self.repo,
-            message="Add feature",
-            author="Test User <test@example.com>",
-            committer="Test User <test@example.com>",
+            b"refs/heads/master",
+            branch=b"refs/heads/feature",
+            editor_callback=None,
         )
 
-        # Switch to main and add different commit
-        porcelain.checkout(self.repo, "master")
+        # Should have generated todo list
+        self.assertEqual(len(todo.entries), 3)
+        for entry in todo.entries:
+            self.assertEqual(entry.command, RebaseTodoCommand.PICK)
 
-        with open(os.path.join(self.test_dir, "main.txt"), "wb") as f:
-            f.write(b"Main file\n")
+    def test_start_interactive_with_editor(self):
+        """Test starting interactive rebase with editor callback."""
+        self._create_test_commits()
 
-        porcelain.add(self.repo, ["main.txt"])
-        porcelain.commit(
+        def mock_editor(content):
+            # Simulate user changing pick to squash for second commit
+            lines = content.decode().splitlines()
+            new_lines = []
+            for i, line in enumerate(lines):
+                if i == 1 and line.startswith("pick"):
+                    new_lines.append(line.replace("pick", "squash"))
+                else:
+                    new_lines.append(line)
+            return "\n".join(new_lines).encode()
+
+        todo = start_interactive(
             self.repo,
-            message="Main update",
-            author="Test User <test@example.com>",
-            committer="Test User <test@example.com>",
+            b"refs/heads/master",
+            branch=b"refs/heads/feature",
+            editor_callback=mock_editor,
         )
 
-        # Switch back to feature and rebase
-        porcelain.checkout(self.repo, "feature")
+        # Second entry should be squash
+        self.assertEqual(todo.entries[0].command, RebaseTodoCommand.PICK)
+        self.assertEqual(todo.entries[1].command, RebaseTodoCommand.SQUASH)
+        self.assertEqual(todo.entries[2].command, RebaseTodoCommand.PICK)
 
-        # Perform rebase
-        new_shas = porcelain.rebase(self.repo, "master")
+    def test_process_drop_command(self):
+        """Test processing DROP command in interactive rebase."""
+        commits = self._create_test_commits()
 
-        # Should have rebased one commit
-        self.assertEqual(len(new_shas), 1)
+        # Create todo with drop command
+        entries = [
+            RebaseTodoEntry(
+                command=RebaseTodoCommand.PICK,
+                commit_sha=commits[0].id,
+                short_message="Commit 0",
+            ),
+            RebaseTodoEntry(
+                command=RebaseTodoCommand.DROP,
+                commit_sha=commits[1].id,
+                short_message="Commit 1",
+            ),
+            RebaseTodoEntry(
+                command=RebaseTodoCommand.PICK,
+                commit_sha=commits[2].id,
+                short_message="Commit 2",
+            ),
+        ]
 
-        # Check that the rebased commit has the correct parent and tree
-        feature_head = self.repo.refs[b"refs/heads/feature"]
-        feature_commit_obj = self.repo[feature_head]
+        todo = RebaseTodo(entries)
+        is_complete, pause_reason = process_interactive_rebase(self.repo, todo)
 
-        # Should have master as parent
-        master_head = self.repo.refs[b"refs/heads/master"]
-        self.assertEqual(feature_commit_obj.parents, [master_head])
+        # Should complete successfully
+        self.assertTrue(is_complete)
+        self.assertIsNone(pause_reason)
 
-        # Tree should have both files
-        tree = self.repo[feature_commit_obj.tree]
-        self.assertIn(b"feature.txt", tree)
-        self.assertIn(b"main.txt", tree)
-        self.assertIn(b"README.md", tree)
+        # Should have only picked 2 commits (dropped one)
+        # Note: _done list would contain the rebased commits
+
+    def test_process_break_command(self):
+        """Test processing BREAK command in interactive rebase."""
+        commits = self._create_test_commits()
+
+        entries = [
+            RebaseTodoEntry(
+                command=RebaseTodoCommand.PICK,
+                commit_sha=commits[0].id,
+                short_message="Commit 0",
+            ),
+            RebaseTodoEntry(command=RebaseTodoCommand.BREAK),
+            RebaseTodoEntry(
+                command=RebaseTodoCommand.PICK,
+                commit_sha=commits[1].id,
+                short_message="Commit 1",
+            ),
+        ]
+
+        todo = RebaseTodo(entries)
+        is_complete, pause_reason = process_interactive_rebase(self.repo, todo)
+
+        # Should pause at break
+        self.assertFalse(is_complete)
+        self.assertEqual(pause_reason, "break")
+
+        # Todo should be at position after break
+        self.assertEqual(todo.current_index, 2)
+
+    def test_process_edit_command(self):
+        """Test processing EDIT command in interactive rebase."""
+        commits = self._create_test_commits()
+
+        entries = [
+            RebaseTodoEntry(
+                command=RebaseTodoCommand.PICK,
+                commit_sha=commits[0].id,
+                short_message="Commit 0",
+            ),
+            RebaseTodoEntry(
+                command=RebaseTodoCommand.EDIT,
+                commit_sha=commits[1].id,
+                short_message="Commit 1",
+            ),
+        ]
+
+        todo = RebaseTodo(entries)
+        is_complete, pause_reason = process_interactive_rebase(self.repo, todo)
+
+        # Should pause for editing
+        self.assertFalse(is_complete)
+        self.assertEqual(pause_reason, "edit")
+
+    def test_abbreviations(self):
+        """Test parsing abbreviated commands."""
+        todo_content = """p 1234567 Pick
+r 2345678 Reword
+e 3456789 Edit
+s 4567890 Squash
+f 5678901 Fixup
+d 6789012 Drop
+x echo test
+b
+"""
+        todo = RebaseTodo.from_string(todo_content)
+
+        self.assertEqual(todo.entries[0].command, RebaseTodoCommand.PICK)
+        self.assertEqual(todo.entries[1].command, RebaseTodoCommand.REWORD)
+        self.assertEqual(todo.entries[2].command, RebaseTodoCommand.EDIT)
+        self.assertEqual(todo.entries[3].command, RebaseTodoCommand.SQUASH)
+        self.assertEqual(todo.entries[4].command, RebaseTodoCommand.FIXUP)
+        self.assertEqual(todo.entries[5].command, RebaseTodoCommand.DROP)
+        self.assertEqual(todo.entries[6].command, RebaseTodoCommand.EXEC)
+        self.assertEqual(todo.entries[7].command, RebaseTodoCommand.BREAK)

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2025 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,146 +15,336 @@
  */
 
 const ModelProperty = {
-	PAGE: "page",
-	PAGE_SIZE: "page_size",
-	ROW_COUNT: "row_count",
-	TABLE_HTML: "table_html",
+  ERROR_MESSAGE: 'error_message',
+  ORDERABLE_COLUMNS: 'orderable_columns',
+  PAGE: 'page',
+  PAGE_SIZE: 'page_size',
+  ROW_COUNT: 'row_count',
+  SORT_CONTEXT: 'sort_context',
+  TABLE_HTML: 'table_html',
+  MAX_COLUMNS: 'max_columns',
 };
 
 const Event = {
-	CHANGE: "change",
-	CHANGE_TABLE_HTML: `change:${ModelProperty.TABLE_HTML}`,
-	CLICK: "click",
+  CHANGE: 'change',
+  CHANGE_TABLE_HTML: 'change:table_html',
+  CLICK: 'click',
 };
 
 /**
  * Renders the interactive table widget.
- * @param {{
- * model: any,
- * el: HTMLElement
- * }} options
+ * @param {{ model: any, el: !HTMLElement }} props - The widget properties.
  */
 function render({ model, el }) {
-	// Main container with a unique class for CSS scoping
-	el.classList.add("bigframes-widget");
+  el.classList.add('bigframes-widget');
 
-	// Structure
-	const tableContainer = document.createElement("div");
-	const footer = document.createElement("div");
+  const errorContainer = document.createElement('div');
+  errorContainer.classList.add('error-message');
 
-	// Footer: Total rows label
-	const rowCountLabel = document.createElement("div");
+  const tableContainer = document.createElement('div');
+  tableContainer.classList.add('table-container');
+  const footer = document.createElement('footer');
+  footer.classList.add('footer');
 
-	// Footer: Pagination controls
-	const paginationContainer = document.createElement("div");
-	const prevPage = document.createElement("button");
-	const paginationLabel = document.createElement("span");
-	const nextPage = document.createElement("button");
+  /** Detects theme and applies necessary style overrides. */
+  function updateTheme() {
+    const body = document.body;
+    const isDark =
+      body.classList.contains('vscode-dark') ||
+      body.classList.contains('theme-dark') ||
+      body.dataset.theme === 'dark' ||
+      body.getAttribute('data-vscode-theme-kind') === 'vscode-dark';
 
-	// Footer: Page size controls
-	const pageSizeContainer = document.createElement("div");
-	const pageSizeLabel = document.createElement("label");
-	const pageSizeSelect = document.createElement("select");
+    if (isDark) {
+      el.classList.add('bigframes-dark-mode');
+    } else {
+      el.classList.remove('bigframes-dark-mode');
+    }
+  }
 
-	// Add CSS classes
-	tableContainer.classList.add("table-container");
-	footer.classList.add("footer");
-	paginationContainer.classList.add("pagination");
-	pageSizeContainer.classList.add("page-size");
+  updateTheme();
+  // Re-check after mount to ensure parent styling is applied.
+  setTimeout(updateTheme, 300);
 
-	// Configure pagination buttons
-	prevPage.type = "button";
-	nextPage.type = "button";
-	prevPage.textContent = "Prev";
-	nextPage.textContent = "Next";
+  const observer = new MutationObserver(updateTheme);
+  observer.observe(document.body, {
+    attributes: true,
+    attributeFilter: ['class', 'data-theme', 'data-vscode-theme-kind'],
+  });
 
-	// Configure page size selector
-	pageSizeLabel.textContent = "Page Size";
-	for (const size of [10, 25, 50, 100]) {
-		const option = document.createElement("option");
-		option.value = size;
-		option.textContent = size;
-		if (size === model.get(ModelProperty.PAGE_SIZE)) {
-			option.selected = true;
-		}
-		pageSizeSelect.appendChild(option);
-	}
+  // Settings controls container
+  const settingsContainer = document.createElement('div');
+  settingsContainer.classList.add('settings');
 
-	/** Updates the footer states and page label based on the model. */
-	function updateButtonStates() {
-		const rowCount = model.get(ModelProperty.ROW_COUNT);
-		const pageSize = model.get(ModelProperty.PAGE_SIZE);
-		const currentPage = model.get(ModelProperty.PAGE);
-		const totalPages = Math.ceil(rowCount / pageSize);
+  // Pagination controls
+  const paginationContainer = document.createElement('div');
+  paginationContainer.classList.add('pagination');
+  const prevPage = document.createElement('button');
+  const pageIndicator = document.createElement('span');
+  pageIndicator.classList.add('page-indicator');
+  const nextPage = document.createElement('button');
+  const rowCountLabel = document.createElement('span');
+  rowCountLabel.classList.add('row-count');
 
-		rowCountLabel.textContent = `${rowCount.toLocaleString()} total rows`;
-		paginationLabel.textContent = `Page ${(
-			currentPage + 1
-		).toLocaleString()} of ${(totalPages || 1).toLocaleString()}`;
-		prevPage.disabled = currentPage === 0;
-		nextPage.disabled = currentPage >= totalPages - 1;
-		pageSizeSelect.value = pageSize;
-	}
+  // Page size controls
+  const pageSizeContainer = document.createElement('div');
+  pageSizeContainer.classList.add('page-size');
+  const pageSizeLabel = document.createElement('label');
+  const pageSizeInput = document.createElement('select');
 
-	/**
-	 * Increments or decrements the page in the model.
-	 * @param {number} direction - `1` for next, `-1` for previous.
-	 */
-	function handlePageChange(direction) {
-		const current = model.get(ModelProperty.PAGE);
-		const next = current + direction;
-		model.set(ModelProperty.PAGE, next);
-		model.save_changes();
-	}
+  prevPage.textContent = '<';
+  nextPage.textContent = '>';
+  pageSizeLabel.textContent = 'Page size:';
 
-	/**
-	 * Handles changes to the page size from the dropdown.
-	 * @param {number} size - The new page size.
-	 */
-	function handlePageSizeChange(size) {
-		const currentSize = model.get(ModelProperty.PAGE_SIZE);
-		if (size !== currentSize) {
-			model.set(ModelProperty.PAGE_SIZE, size);
-			model.save_changes();
-		}
-	}
+  const pageSizes = [10, 25, 50, 100];
+  for (const size of pageSizes) {
+    const option = document.createElement('option');
+    option.value = size;
+    option.textContent = size;
+    if (size === model.get(ModelProperty.PAGE_SIZE)) {
+      option.selected = true;
+    }
+    pageSizeInput.appendChild(option);
+  }
 
-	/** Updates the HTML in the table container and refreshes button states. */
-	function handleTableHTMLChange() {
-		// Note: Using innerHTML is safe here because the content is generated
-		// by a trusted backend (DataFrame.to_html).
-		tableContainer.innerHTML = model.get(ModelProperty.TABLE_HTML);
-		updateButtonStates();
-	}
+  // Max columns controls
+  const maxColumnsContainer = document.createElement('div');
+  maxColumnsContainer.classList.add('max-columns');
+  const maxColumnsLabel = document.createElement('label');
+  const maxColumnsInput = document.createElement('select');
 
-	// Add event listeners
-	prevPage.addEventListener(Event.CLICK, () => handlePageChange(-1));
-	nextPage.addEventListener(Event.CLICK, () => handlePageChange(1));
-	pageSizeSelect.addEventListener(Event.CHANGE, (e) => {
-		const newSize = Number(e.target.value);
-		if (newSize) {
-			handlePageSizeChange(newSize);
-		}
-	});
-	model.on(Event.CHANGE_TABLE_HTML, handleTableHTMLChange);
+  maxColumnsLabel.textContent = 'Max columns:';
 
-	// Assemble the DOM
-	paginationContainer.appendChild(prevPage);
-	paginationContainer.appendChild(paginationLabel);
-	paginationContainer.appendChild(nextPage);
+  // 0 represents "All" (all columns)
+  const maxColumnOptions = [5, 10, 15, 20, 0];
+  for (const cols of maxColumnOptions) {
+    const option = document.createElement('option');
+    option.value = cols;
+    option.textContent = cols === 0 ? 'All' : cols;
 
-	pageSizeContainer.appendChild(pageSizeLabel);
-	pageSizeContainer.appendChild(pageSizeSelect);
+    const currentMax = model.get(ModelProperty.MAX_COLUMNS);
+    // Handle None/null from python as 0/All
+    const currentMaxVal =
+      currentMax === null || currentMax === undefined ? 0 : currentMax;
 
-	footer.appendChild(rowCountLabel);
-	footer.appendChild(paginationContainer);
-	footer.appendChild(pageSizeContainer);
+    if (cols === currentMaxVal) {
+      option.selected = true;
+    }
+    maxColumnsInput.appendChild(option);
+  }
 
-	el.appendChild(tableContainer);
-	el.appendChild(footer);
+  function updateButtonStates() {
+    const currentPage = model.get(ModelProperty.PAGE);
+    const pageSize = model.get(ModelProperty.PAGE_SIZE);
+    const rowCount = model.get(ModelProperty.ROW_COUNT);
 
-	// Initial render
-	handleTableHTMLChange();
+    if (rowCount === null) {
+      rowCountLabel.textContent = 'Total rows unknown';
+      pageIndicator.textContent = `Page ${(currentPage + 1).toLocaleString()} of many`;
+      prevPage.disabled = currentPage === 0;
+      nextPage.disabled = false;
+    } else if (rowCount === 0) {
+      rowCountLabel.textContent = '0 total rows';
+      pageIndicator.textContent = 'Page 1 of 1';
+      prevPage.disabled = true;
+      nextPage.disabled = true;
+    } else {
+      const totalPages = Math.ceil(rowCount / pageSize);
+      rowCountLabel.textContent = `${rowCount.toLocaleString()} total rows`;
+      pageIndicator.textContent = `Page ${(currentPage + 1).toLocaleString()} of ${totalPages.toLocaleString()}`;
+      prevPage.disabled = currentPage === 0;
+      nextPage.disabled = currentPage >= totalPages - 1;
+    }
+    pageSizeInput.value = pageSize;
+  }
+
+  function handlePageChange(direction) {
+    const currentPage = model.get(ModelProperty.PAGE);
+    model.set(ModelProperty.PAGE, currentPage + direction);
+    model.save_changes();
+  }
+
+  function handlePageSizeChange(newSize) {
+    model.set(ModelProperty.PAGE_SIZE, newSize);
+    model.set(ModelProperty.PAGE, 0);
+    model.save_changes();
+  }
+
+  let isHeightInitialized = false;
+
+  function handleTableHTMLChange() {
+    tableContainer.innerHTML = model.get(ModelProperty.TABLE_HTML);
+
+    // After the first render, dynamically set the container height to fit the
+    // initial page (usually 10 rows) and then lock it.
+    setTimeout(() => {
+      if (!isHeightInitialized) {
+        const table = tableContainer.querySelector('table');
+        if (table) {
+          const tableHeight = table.offsetHeight;
+          // Add a small buffer(e.g. 2px) for borders to avoid scrollbars.
+          if (tableHeight > 0) {
+            tableContainer.style.height = `${tableHeight + 2}px`;
+            isHeightInitialized = true;
+          }
+        }
+      }
+    }, 0);
+
+    const sortableColumns = model.get(ModelProperty.ORDERABLE_COLUMNS);
+    const currentSortContext = model.get(ModelProperty.SORT_CONTEXT) || [];
+
+    const getSortIndex = (colName) =>
+      currentSortContext.findIndex((item) => item.column === colName);
+
+    const headers = tableContainer.querySelectorAll('th');
+    headers.forEach((header) => {
+      const headerDiv = header.querySelector('div');
+      const columnName = headerDiv.textContent.trim();
+
+      if (columnName && sortableColumns.includes(columnName)) {
+        header.style.cursor = 'pointer';
+
+        const indicatorSpan = document.createElement('span');
+        indicatorSpan.classList.add('sort-indicator');
+        indicatorSpan.style.paddingLeft = '5px';
+
+        // Determine sort indicator and initial visibility
+        let indicator = '●'; // Default: unsorted (dot)
+        const sortIndex = getSortIndex(columnName);
+
+        if (sortIndex !== -1) {
+          const isAscending = currentSortContext[sortIndex].ascending;
+          indicator = isAscending ? '▲' : '▼';
+          indicatorSpan.style.visibility = 'visible'; // Sorted arrows always visible
+        } else {
+          indicatorSpan.style.visibility = 'hidden';
+        }
+        indicatorSpan.textContent = indicator;
+
+        const existingIndicator = headerDiv.querySelector('.sort-indicator');
+        if (existingIndicator) {
+          headerDiv.removeChild(existingIndicator);
+        }
+        headerDiv.appendChild(indicatorSpan);
+
+        header.addEventListener('mouseover', () => {
+          if (getSortIndex(columnName) === -1) {
+            indicatorSpan.style.visibility = 'visible';
+          }
+        });
+        header.addEventListener('mouseout', () => {
+          if (getSortIndex(columnName) === -1) {
+            indicatorSpan.style.visibility = 'hidden';
+          }
+        });
+
+        // Add click handler for three-state toggle
+        header.addEventListener(Event.CLICK, (event) => {
+          const sortIndex = getSortIndex(columnName);
+          let newContext = [...currentSortContext];
+
+          if (event.shiftKey) {
+            if (sortIndex !== -1) {
+              // Already sorted. Toggle or Remove.
+              if (newContext[sortIndex].ascending) {
+                // Asc -> Desc
+                // Clone object to avoid mutation issues
+                newContext[sortIndex] = {
+                  ...newContext[sortIndex],
+                  ascending: false,
+                };
+              } else {
+                // Desc -> Remove
+                newContext.splice(sortIndex, 1);
+              }
+            } else {
+              // Not sorted -> Append Asc
+              newContext.push({ column: columnName, ascending: true });
+            }
+          } else {
+            // No shift key. Single column mode.
+            if (sortIndex !== -1 && newContext.length === 1) {
+              // Already only this column. Toggle or Remove.
+              if (newContext[sortIndex].ascending) {
+                newContext[sortIndex] = {
+                  ...newContext[sortIndex],
+                  ascending: false,
+                };
+              } else {
+                newContext = [];
+              }
+            } else {
+              // Start fresh with this column
+              newContext = [{ column: columnName, ascending: true }];
+            }
+          }
+
+          model.set(ModelProperty.SORT_CONTEXT, newContext);
+          model.save_changes();
+        });
+      }
+    });
+
+    updateButtonStates();
+  }
+
+  function handleErrorMessageChange() {
+    const errorMsg = model.get(ModelProperty.ERROR_MESSAGE);
+    if (errorMsg) {
+      errorContainer.textContent = errorMsg;
+      errorContainer.style.display = 'block';
+    } else {
+      errorContainer.style.display = 'none';
+    }
+  }
+
+  prevPage.addEventListener(Event.CLICK, () => handlePageChange(-1));
+  nextPage.addEventListener(Event.CLICK, () => handlePageChange(1));
+  pageSizeInput.addEventListener(Event.CHANGE, (e) => {
+    const newSize = Number(e.target.value);
+    if (newSize) {
+      handlePageSizeChange(newSize);
+    }
+  });
+
+  maxColumnsInput.addEventListener(Event.CHANGE, (e) => {
+    const newVal = Number(e.target.value);
+    model.set(ModelProperty.MAX_COLUMNS, newVal);
+    model.save_changes();
+  });
+
+  model.on(Event.CHANGE_TABLE_HTML, handleTableHTMLChange);
+  model.on(`change:${ModelProperty.ROW_COUNT}`, updateButtonStates);
+  model.on(`change:${ModelProperty.ERROR_MESSAGE}`, handleErrorMessageChange);
+  model.on(`change:_initial_load_complete`, (val) => {
+    if (val) updateButtonStates();
+  });
+  model.on(`change:${ModelProperty.PAGE}`, updateButtonStates);
+
+  paginationContainer.appendChild(prevPage);
+  paginationContainer.appendChild(pageIndicator);
+  paginationContainer.appendChild(nextPage);
+
+  pageSizeContainer.appendChild(pageSizeLabel);
+  pageSizeContainer.appendChild(pageSizeInput);
+
+  maxColumnsContainer.appendChild(maxColumnsLabel);
+  maxColumnsContainer.appendChild(maxColumnsInput);
+
+  settingsContainer.appendChild(maxColumnsContainer);
+  settingsContainer.appendChild(pageSizeContainer);
+
+  footer.appendChild(rowCountLabel);
+  footer.appendChild(paginationContainer);
+  footer.appendChild(settingsContainer);
+
+  el.appendChild(errorContainer);
+  el.appendChild(tableContainer);
+  el.appendChild(footer);
+
+  handleTableHTMLChange();
+  handleErrorMessageChange();
 }
 
 export default { render };

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: eyeD3
-Version: 0.9.8
+Version: 0.9.9
 Summary: Python audio data toolkit (ID3 and MP3)
 Author-email: Travis Shirk <travis@pobox.com>
-Project-URL: homepage, https://eyeD3.nicfit.net/
+Project-URL: homepage, https://eyed3.readthedocs.io/
 Project-URL: repository, https://github.com/nicfit/eyeD3
 Keywords: id3,mp3,python
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
@@ -15,12 +15,12 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: POSIX
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <4.0,>=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <4.0,>=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst
@@ -29,9 +29,9 @@ Requires-Dist: deprecation>=2.1.0
 Provides-Extra: yaml-plugin
 Requires-Dist: PyYAML>=6.0.2; extra == "yaml-plugin"
 Provides-Extra: art-plugin
-Requires-Dist: Pillow>=11.2.1; extra == "art-plugin"
+Requires-Dist: Pillow>=11.3.0; extra == "art-plugin"
 Requires-Dist: pylast>=5.5.0; extra == "art-plugin"
-Requires-Dist: requests>=2.32.3; extra == "art-plugin"
+Requires-Dist: requests>=2.32.4; extra == "art-plugin"
 Provides-Extra: test
 Requires-Dist: pytest>=8.3.5; extra == "test"
 Requires-Dist: coverage>=7.8.0; extra == "test"
@@ -45,7 +45,7 @@ Requires-Dist: twine>=6.1.0; extra == "dev"
 Requires-Dist: Sphinx>=7.4.7; extra == "dev"
 Requires-Dist: sphinx-rtd-theme>=3.0.2; extra == "dev"
 Requires-Dist: sphinx-issues>=5.0.1; extra == "dev"
-Requires-Dist: cogapp>=3.4.1; extra == "dev"
+Requires-Dist: cogapp>=3.5; extra == "dev"
 Requires-Dist: Paver>=1.3.4; extra == "dev"
 Requires-Dist: nicfit-py[cookiecutter]>=0.8.7; extra == "dev"
 Requires-Dist: regarding>=0.2.0; extra == "dev"
@@ -62,9 +62,14 @@ Status
 .. image:: https://img.shields.io/pypi/pyversions/eyeD3.svg
    :target: https://pypi.python.org/pypi/eyeD3/
    :alt: Supported Python versions
-.. image:: https://img.shields.io/pypi/dm/eyeD3
+.. image:: https://img.shields.io/pypi/dm/eyeD3?style=plastic&label=PyPI%20Downloads
+   :target: https://pypi.org/project/eyeD3/
    :alt: PyPI - Downloads
-.. image:: https://img.shields.io/github/stars/nicfit/eyeD3
+.. image:: https://img.shields.io/github/downloads/nicfit/eyeD3/total?style=plastic&label=GitHub%20Downloads
+   :target: https://github.com/nicfit/eyeD3/releases
+   :alt: GitHub Downloads (all assets, all releases)
+.. image:: https://img.shields.io/github/stars/nicfit/eyeD3?style=plastic&label=GitHub%20Stars
+   :target: https://github.com/nicfit/eyeD3/stargazers
    :alt: GitHub Repo stars
 
 
@@ -140,19 +145,19 @@ Features
 Get Started
 -----------
 
-Python >= 3.9 is required.
+Python >= 3.10 is required.
 
 For `installation instructions`_ or more complete `documentation`_ see
-http://eyeD3.nicfit.net/
+https://eyed3.readthedocs.io/
 
 Please post feedback and/or defects on the `issue tracker`_, or `mailing list`_.
 
-.. _eyeD3: http://eyeD3.nicfit.net/
+.. _eyeD3: https://eyed3.readthedocs.io/
 .. _Travis Shirk: travis@pobox.com
 .. _issue tracker: https://github.com/nicfit/eyeD3/issues
 .. _mailing list: https://groups.google.com/forum/?fromgroups#!forum/eyed3-users
-.. _installation instructions: http://eyeD3.nicfit.net/index.html#installation
-.. _documentation: http://eyeD3.nicfit.net/index.html#documentation
+.. _installation instructions: https://eyed3.readthedocs.io/en/latest/installation.html
+.. _documentation: https://eyed3.readthedocs.io/
 .. _GPL: http://www.gnu.org/licenses/gpl-2.0.html
 .. _ID3: http://id3.org/
 

@@ -14,11 +14,11 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Quality Assurance",
@@ -26,7 +26,7 @@ classifiers = [
 ]
 authors = [{name = "Robert Collins", email = "robertc@robertcollins.net"}]
 license = {text = "Apache-2.0 or BSD"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dynamic = ["version"]
 
 [project.urls]
@@ -35,7 +35,7 @@ Homepage = "https://github.com/testing-cabal/fixtures"
 "Source Code" = "https://github.com/testing-cabal/fixtures"
 
 [project.optional-dependencies]
-"streams" = ["testools"]
+"streams" = ["testtools"]
 "test" = ["testtools"]
 "docs" = ["docutils"]
 
@@ -48,6 +48,7 @@ version-file = "fixtures/_version.py"
 [tool.hatch.build.targets.sdist]
 include = [
     "fixtures*",
+    "tests*",
     "Apache-2.0",
     "BSD",
     "COPYING",
@@ -57,6 +58,9 @@ include = [
     "NEWS",
     "tox.ini",
     ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["fixtures"]
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -74,8 +78,3 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
-
-# Disable strict checking for tests
-[[tool.mypy.overrides]]
-module = "fixtures.tests.*"
-ignore_errors = true

@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    If using Python 3.4 or newer, more-itertools is no longer pinned to the 5.x
-    release.

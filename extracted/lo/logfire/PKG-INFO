@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: logfire
-Version: 4.9.0
+Version: 4.19.0
 Summary: The best Python observability tool! 🪵🔥
 Project-URL: Homepage, https://logfire.pydantic.dev/
 Project-URL: Source, https://github.com/pydantic/logfire
@@ -19,7 +19,6 @@ Classifier: Framework :: OpenTelemetry :: Instrumentations
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
@@ -30,13 +29,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 Requires-Dist: executing>=2.0.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.38.0,>=1.35.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.40.0,>=1.39.0
 Requires-Dist: opentelemetry-instrumentation>=0.41b0
-Requires-Dist: opentelemetry-sdk<1.38.0,>=1.35.0
+Requires-Dist: opentelemetry-sdk<1.40.0,>=1.39.0
 Requires-Dist: protobuf>=4.23.4
 Requires-Dist: rich>=13.4.2
 Requires-Dist: tomli>=2.0.1; python_version < '3.11'
@@ -58,12 +58,14 @@ Requires-Dist: opentelemetry-instrumentation-celery>=0.42b0; extra == 'celery'
 Provides-Extra: django
 Requires-Dist: opentelemetry-instrumentation-asgi>=0.42b0; extra == 'django'
 Requires-Dist: opentelemetry-instrumentation-django>=0.42b0; extra == 'django'
+Provides-Extra: dspy
+Requires-Dist: openinference-instrumentation-dspy>=0; extra == 'dspy'
 Provides-Extra: fastapi
 Requires-Dist: opentelemetry-instrumentation-fastapi>=0.42b0; extra == 'fastapi'
 Provides-Extra: flask
 Requires-Dist: opentelemetry-instrumentation-flask>=0.42b0; extra == 'flask'
 Provides-Extra: google-genai
-Requires-Dist: opentelemetry-instrumentation-google-genai>=0; extra == 'google-genai'
+Requires-Dist: opentelemetry-instrumentation-google-genai>=0.4b0; extra == 'google-genai'
 Provides-Extra: httpx
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.42b0; extra == 'httpx'
 Provides-Extra: litellm

@@ -7,6 +7,7 @@ import sys
 import time
 from contextlib import suppress
 from seleniumbase import config as sb_config
+from seleniumbase.config import settings
 from seleniumbase.fixtures import constants
 
 
@@ -17,20 +18,79 @@ def pip_install(package, version=None):
     pip_install_lock = fasteners.InterProcessLock(
         constants.PipInstall.LOCKFILE
     )
+    upgrade_to_latest = False
+    if (
+        version
+        and ("U" in str(version).upper() or "L" in str(version).upper())
+    ):
+        # Upgrade to Latest when specified with "U" or "L"
+        upgrade_to_latest = True
     with pip_install_lock:
         if not version:
             subprocess.check_call(
                 [sys.executable, "-m", "pip", "install", package]
             )
-        else:
+        elif not upgrade_to_latest:
             package_and_version = package + "==" + str(version)
             subprocess.check_call(
                 [sys.executable, "-m", "pip", "install", package_and_version]
             )
+        else:
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "-U", package]
+            )
+
+
+def make_version_list(version_str):
+    return [int(i) for i in version_str.split(".") if i.isdigit()]
+
+
+def make_version_tuple(version_str):
+    return tuple(make_version_list(version_str))
+
+
+def get_mfa_code(totp_key=None):
+    """Returns a time-based one-time password based on the
+    Google Authenticator algorithm for multi-factor authentication.
+    If the "totp_key" is not specified, this method defaults
+    to using the one provided in [seleniumbase/config/settings.py].
+    Google Authenticator codes expire & change at 30-sec intervals.
+    If the fetched password expires in the next 1.2 seconds, waits
+    for a new one before returning it (may take up to 1.2 seconds).
+    See https://pyotp.readthedocs.io/en/latest/ for details."""
+    import pyotp
+
+    if not totp_key:
+        totp_key = settings.TOTP_KEY
+    epoch_interval = time.time() / 30.0
+    cycle_lifespan = float(epoch_interval) - int(epoch_interval)
+    if float(cycle_lifespan) > 0.96:
+        # Password expires in the next 1.2 seconds. Wait for a new one.
+        for i in range(30):
+            time.sleep(0.04)
+            epoch_interval = time.time() / 30.0
+            cycle_lifespan = float(epoch_interval) - int(epoch_interval)
+            if not float(cycle_lifespan) > 0.96:
+                # The new password cycle has begun
+                break
+    totp = pyotp.TOTP(totp_key)
+    return str(totp.now())
+
+
+def is_arm_linux():
+    """Returns True if machine is ARM Linux.
+    This will be useful once Google adds
+    support for ARM Linux ChromeDriver.
+    (Raspberry Pi uses ARM architecture.)"""
+    return (
+        platform.system() == "Linux"
+        and platform.machine() == "aarch64"
+    )
 
 
 def is_arm_mac():
-    """(M1 / M2 Macs use the ARM processor)"""
+    """Returns True if machine is ARM Mac.
+    (Eg. M1 / M2 Macs use ARM processors)"""
     return (
         "darwin" in sys.platform
         and (
@@ -87,8 +147,7 @@ def fix_url_as_needed(url):
 
 def reconnect_if_disconnected(driver):
     if (
-        hasattr(driver, "_is_using_uc")
-        and driver._is_using_uc
+        getattr(driver, "_is_using_uc", None)
         and hasattr(driver, "is_connected")
         and not driver.is_connected()
     ):
@@ -238,8 +297,7 @@ def __time_limit_exceeded(message):
 
 def check_if_time_limit_exceeded():
     if (
-        hasattr(sb_config, "time_limit")
-        and sb_config.time_limit
+        getattr(sb_config, "time_limit", None)
         and not sb_config.recorder_mode
     ):
         time_limit = sb_config.time_limit

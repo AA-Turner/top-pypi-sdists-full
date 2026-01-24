@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any, Callable
+from collections.abc import Callable, Iterable
+from typing import Any
 
 from jinja2 import nodes
 from jinja2.exceptions import UndefinedError
@@ -122,3 +122,6 @@ class YieldExtension(Extension):
             res = ""
 
         return res
+
+
+class UnsetError(UndefinedError): ...

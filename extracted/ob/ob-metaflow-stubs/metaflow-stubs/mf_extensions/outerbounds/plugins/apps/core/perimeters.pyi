@@ -1,13 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.724573                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.890712                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 
+from .utils import safe_requests_wrapper as safe_requests_wrapper
+from .exceptions import OuterboundsConfigurationException as OuterboundsConfigurationException
 
 class PerimeterExtractor(object, metaclass=type):
     @classmethod
@@ -24,7 +26,10 @@ class PerimeterExtractor(object, metaclass=type):
         """
         ...
     @classmethod
-    def during_metaflow_execution(cls) -> typing.Union[typing.Tuple[str, str], typing.Tuple[None, None]]:
+    def during_programmatic_access(cls) -> typing.Union[typing.Tuple[str, str], typing.Tuple[None, None]]:
+        ...
+    @classmethod
+    def config_during_programmatic_access(cls) -> dict:
         ...
     ...
 

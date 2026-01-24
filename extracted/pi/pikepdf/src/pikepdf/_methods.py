@@ -15,17 +15,22 @@ from __future__ import annotations
 import datetime
 import mimetypes
 import shutil
-from collections.abc import ItemsView, Iterator, KeysView, MutableMapping, ValuesView
+from collections.abc import (
+    Callable,
+    ItemsView,
+    Iterator,
+    KeysView,
+    MutableMapping,
+    ValuesView,
+)
 from contextlib import ExitStack, suppress
 from decimal import Decimal
-from io import BytesIO, RawIOBase
+from io import BytesIO
 from pathlib import Path
 from subprocess import run
 from tempfile import TemporaryDirectory
-from typing import BinaryIO, Callable, Literal, TypeVar
+from typing import BinaryIO, Literal, TypeVar
 from warnings import warn
-
-from deprecated import deprecated
 
 from pikepdf._augments import augment_override_cpp, augments
 from pikepdf._core import (
@@ -36,6 +41,7 @@ from pikepdf._core import (
     NameTree,
     NumberTree,
     ObjectStreamMode,
+    ObjectType,
     Page,
     Pdf,
     Rectangle,
@@ -55,6 +61,10 @@ from pikepdf.objects import Array, Dictionary, Name, Object, Stream
 __all__ = []
 
 Numeric = TypeVar('Numeric', int, float, Decimal)
+T = TypeVar('T')
+
+# Sentinel for distinguishing "no default provided" from "default=None"
+_MISSING = object()
 
 
 def _single_page_pdf(page: Page) -> bytes:
@@ -96,7 +106,7 @@ def _mudraw(buffer: bytes | memoryview, fmt: Literal["svg"]) -> bytes:
 @augments(Object)
 class Extend_Object:
     def _ipython_key_completions_(self):
-        if isinstance(self, (Dictionary, Stream)):
+        if isinstance(self, Dictionary | Stream):
             return self.keys()
         return None
 
@@ -165,6 +175,109 @@ class Extend_Object:
             filter, decode_parms = self._type_check_write(filter, decode_parms)
 
         self._write(data, filter=filter, decode_parms=decode_parms)
+
+    def as_int(self, default: T = _MISSING) -> int | T:
+        """Convert to int, or return default if not an integer.
+
+        In explicit conversion mode, this provides a safe way to convert
+        pikepdf.Integer to Python int with proper type hints.
+
+        Args:
+            default: Value to return if this object is not an integer.
+                If not provided and the object is not an integer,
+                raises TypeError.
+
+        Returns:
+            The integer value, or the default if provided and object is
+            not an integer.
+
+        Raises:
+            TypeError: If object is not an integer and no default was provided.
+
+        .. versionadded:: 10.1
+        """
+        if self._type_code != ObjectType.integer:
+            if default is _MISSING:
+                raise TypeError(f"Expected integer, got {self._type_name}")
+            return default
+        return int(self)
+
+    def as_bool(self, default: T = _MISSING) -> bool | T:
+        """Convert to bool, or return default if not a boolean.
+
+        In explicit conversion mode, this provides a safe way to convert
+        pikepdf.Boolean to Python bool with proper type hints.
+
+        Args:
+            default: Value to return if this object is not a boolean.
+                If not provided and the object is not a boolean,
+                raises TypeError.
+
+        Returns:
+            The boolean value, or the default if provided and object is
+            not a boolean.
+
+        Raises:
+            TypeError: If object is not a boolean and no default was provided.
+
+        .. versionadded:: 10.1
+        """
+        if self._type_code != ObjectType.boolean:
+            if default is _MISSING:
+                raise TypeError(f"Expected boolean, got {self._type_name}")
+            return default
+        return bool(self)
+
+    def as_float(self, default: T = _MISSING) -> float | T:
+        """Convert to float, or return default if not numeric.
+
+        Works for both Integer and Real objects.
+
+        Args:
+            default: Value to return if this object is not numeric.
+                If not provided and the object is not numeric,
+                raises TypeError.
+
+        Returns:
+            The float value, or the default if provided and object is
+            not numeric.
+
+        Raises:
+            TypeError: If object is not numeric and no default was provided.
+
+        .. versionadded:: 10.1
+        """
+        if self._type_code not in (ObjectType.integer, ObjectType.real):
+            if default is _MISSING:
+                raise TypeError(f"Expected numeric, got {self._type_name}")
+            return default
+        return float(self)
+
+    def as_decimal(self, default: T = _MISSING) -> Decimal | T:
+        """Convert to Decimal, or return default if not a Real.
+
+        Preferred over as_float() for PDF reals to preserve precision.
+        Only works for Real objects, not Integer.
+
+        Args:
+            default: Value to return if this object is not a Real.
+                If not provided and the object is not a Real,
+                raises TypeError.
+
+        Returns:
+            The Decimal value, or the default if provided and object is
+            not a Real.
+
+        Raises:
+            TypeError: If object is not a Real and no default was provided.
+
+        .. versionadded:: 10.1
+        """
+        if self._type_code != ObjectType.real:
+            if default is _MISSING:
+                raise TypeError(f"Expected real, got {self._type_name}")
+            return default
+        return Decimal(self._get_real_value())
 
 
 @augments(Pdf)
@@ -265,11 +378,9 @@ class Extend_Pdf:
     def encryption(self) -> EncryptionInfo:
         return EncryptionInfo(self._encryption_data)
 
-    @deprecated(version='9.10.0', reason="Use Pdf.check_pdf_syntax instead")
-    def check(self) -> list[str]:
-        return self.check_pdf_syntax()
-
-    def check_pdf_syntax(self) -> list[str]:
+    def check_pdf_syntax(
+        self, progress: Callable[[int], None] | None = None
+    ) -> list[str]:
         class DiscardingParser(StreamParser):
             def __init__(self):  # pylint: disable=useless-super-delegation
                 super().__init__()  # required for C++
@@ -282,7 +393,7 @@ class Extend_Pdf:
 
         problems: list[str] = []
 
-        self._decode_all_streams_and_discard()
+        self._decode_all_streams_and_discard(progress)
 
         discarding_parser = DiscardingParser()
         for page in self.pages:
@@ -308,7 +419,7 @@ class Extend_Pdf:
         normalize_content: bool = False,
         linearize: bool = False,
         qdf: bool = False,
-        progress: Callable[[int], None] = None,
+        progress: Callable[[int], None] | None = None,
         encryption: Encryption | bool | None = None,
         recompress_flate: bool = False,
         deterministic_id: bool = False,
@@ -329,7 +440,7 @@ class Extend_Pdf:
                 stream = filename_or_stream
                 check_stream_is_usable(filename_or_stream)
             else:
-                if not isinstance(filename_or_stream, (str, bytes, Path)):
+                if not isinstance(filename_or_stream, str | bytes | Path):
                     raise TypeError("expected str, bytes or os.PathLike object")
                 filename = Path(filename_or_stream)
                 if (
@@ -380,12 +491,12 @@ class Extend_Pdf:
                 "expects a filename or opened file-like object. Instead, please use "
                 "Pdf.open(BytesIO(data))."
             )
-        if isinstance(filename_or_stream, (int, float)):
+        if isinstance(filename_or_stream, int | float):
             # Attempted to open with integer file descriptor?
             # TODO improve error
             raise TypeError("expected str, bytes or os.PathLike object")
 
-        stream: RawIOBase | None = None
+        stream: BinaryIO | None = None
         closing_stream: bool = False
         original_filename: Path | None = None
 
@@ -440,7 +551,7 @@ class Extend_Pdf:
 
 @augments(_ObjectMapping)
 class Extend_ObjectMapping:
-    def get(self, key, default=None) -> Object:
+    def get(self, key, default: T | None = None) -> Object | T | None:
         try:
             return self[key]
         except KeyError:

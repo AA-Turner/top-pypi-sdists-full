@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edxval
-Version: 3.0.0
+Version: 3.2.0
 Summary: edx-val
 Home-page: http://github.com/openedx/edx-val
 Author: edX
@@ -18,16 +18,16 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: pysrt
-Requires-Dist: django-storages
+Requires-Dist: Django
 Requires-Dist: cachetools
 Requires-Dist: django-model-utils
-Requires-Dist: pillow
+Requires-Dist: django-storages
+Requires-Dist: edx-django-release-util
+Requires-Dist: edx-drf-extensions
 Requires-Dist: edx-toggles>=2.0.0
 Requires-Dist: lxml
-Requires-Dist: edx-drf-extensions
-Requires-Dist: Django
-Requires-Dist: edx-django-release-util
+Requires-Dist: pillow
+Requires-Dist: pysrt
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

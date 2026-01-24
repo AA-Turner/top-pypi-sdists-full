@@ -655,6 +655,12 @@ class GroupSparseCovariance(CacheMixin, BaseEstimator):
         del y
         check_params(self.__dict__)
 
+        verbose = self.verbose
+        if verbose:
+            verbose = 1
+        elif not verbose:
+            verbose = 0
+
         # casting single arrays to list mostly to help
         # with checking comlpliance with sklearn estimator guidelines
         if isinstance(subjects, np.ndarray):
@@ -677,21 +683,21 @@ class GroupSparseCovariance(CacheMixin, BaseEstimator):
 
         self._fit_cache()
 
-        logger.log("Computing covariance matrices", verbose=self.verbose)
+        logger.log("Computing covariance matrices", verbose=verbose)
         self.covariances_, n_samples = empirical_covariances(
             subjects, assume_centered=False
         )
 
         self.n_features_in_ = next(iter(s.shape[1] for s in subjects))
 
-        logger.log("Computing precision matrices", verbose=self.verbose)
+        logger.log("Computing precision matrices", verbose=verbose)
         ret = self._cache(_group_sparse_covariance)(
             self.covariances_,
             n_samples,
             self.alpha,
             tol=self.tol,
             max_iter=self.max_iter,
-            verbose=max(0, self.verbose - 1),
+            verbose=max(0, verbose - 1),
             debug=False,
         )
 
@@ -750,6 +756,7 @@ def empirical_covariances(subjects, assume_centered=False, standardize=False):
     # single precision to double will be required or not.
     emp_covs = np.empty((n_features, n_features, n_subjects), order="F")
     for k, s in enumerate(subjects):
+        # TODO should we use sample std?
         if standardize:
             s = s / s.std(axis=0)  # copy on purpose
         M = empirical_covariance(s, assume_centered=assume_centered)
@@ -1186,6 +1193,12 @@ class GroupSparseCovarianceCV(BaseEstimator):
                 f"Got {subjects.__class__.__name__}"
             )
 
+        verbose = self.verbose
+        if verbose:
+            verbose = 1
+        elif not verbose:
+            verbose = 0
+
         for x in subjects:
             check_array(
                 x,
@@ -1228,7 +1241,7 @@ class GroupSparseCovarianceCV(BaseEstimator):
         covs_init = itertools.repeat(None)
 
         # Copying the cv generators to use them n_refinements times.
-        cv_ = zip(*cv)
+        cv_ = zip(*cv, strict=False)
 
         for i, (this_cv) in enumerate(itertools.tee(cv_, n_refinements)):
             # Compute the cross-validated loss on the current grid
@@ -1241,37 +1254,36 @@ class GroupSparseCovarianceCV(BaseEstimator):
                             *[
                                 (subject[train, :], subject[test, :])
                                 for subject, (train, test) in zip(
-                                    subjects, train_test
+                                    subjects, train_test, strict=False
                                 )
-                            ]
+                            ],
+                            strict=False,
                         )
                     )
                 )
             if self.early_stopping:
                 probes = [
-                    EarlyStopProbe(
-                        test_subjs, verbose=max(0, self.verbose - 1)
-                    )
+                    EarlyStopProbe(test_subjs, verbose=max(0, verbose - 1))
                     for _, test_subjs in train_test_subjs
                 ]
             else:
                 probes = itertools.repeat(None)
 
-            this_path = Parallel(n_jobs=self.n_jobs, verbose=self.verbose)(
+            this_path = Parallel(n_jobs=self.n_jobs, verbose=verbose)(
                 delayed(group_sparse_covariance_path)(
                     train_subjs,
                     alphas,
                     test_subjs=test_subjs,
                     max_iter=self.max_iter_cv,
                     tol=self.tol_cv,
-                    verbose=max(0, self.verbose - 1),
+                    verbose=max(0, verbose - 1),
                     debug=self.debug,
                     # Warm restart is useless with early stopping.
                     precisions_init=None if self.early_stopping else prec_init,
                     probe_function=probe,
                 )
                 for (train_subjs, test_subjs), prec_init, probe in zip(
-                    train_test_subjs, covs_init, probes
+                    train_test_subjs, covs_init, probes, strict=False
                 )
             )
 
@@ -1280,14 +1292,16 @@ class GroupSparseCovarianceCV(BaseEstimator):
             #   of alpha.
             # - precisions_list: corresponding precisions matrices, for each
             #   value of alpha.
-            precisions_list, scores = list(zip(*this_path))
+            precisions_list, scores = list(zip(*this_path, strict=False))
             # now scores[i][j] is the score for the i-th folding, j-th value of
             # alpha (analogous for precisions_list)
-            precisions_list = list(zip(*precisions_list))
-            scores = [np.mean(sc) for sc in zip(*scores)]
+            precisions_list = list(zip(*precisions_list, strict=False))
+            scores = [np.mean(sc) for sc in zip(*scores, strict=False)]
             # scores[i] is the mean score obtained for the i-th value of alpha.
 
-            path.extend(list(zip(alphas, scores, precisions_list)))
+            path.extend(
+                list(zip(alphas, scores, precisions_list, strict=False))
+            )
             path = sorted(path, key=operator.itemgetter(0), reverse=True)
 
             # Find the maximum score (avoid using the built-in 'max' function
@@ -1334,10 +1348,10 @@ class GroupSparseCovarianceCV(BaseEstimator):
                 logger.log(
                     "[GroupSparseCovarianceCV] Done refinement "
                     f"{i: 2} out of {n_refinements}",
-                    verbose=self.verbose,
+                    verbose=verbose,
                 )
 
-        path = list(zip(*path))
+        path = list(zip(*path, strict=False))
         cv_scores_ = list(path[1])
         alphas = list(path[0])
 
@@ -1346,7 +1360,7 @@ class GroupSparseCovarianceCV(BaseEstimator):
         self.cv_alphas_ = alphas
 
         # Finally, fit the model with the selected alpha
-        logger.log("Final optimization", verbose=self.verbose)
+        logger.log("Final optimization", verbose=verbose)
         self.covariances_ = emp_covs
         self.precisions_ = _group_sparse_covariance(
             emp_covs,
@@ -1354,7 +1368,7 @@ class GroupSparseCovarianceCV(BaseEstimator):
             self.alpha_,
             tol=self.tol,
             max_iter=self.max_iter,
-            verbose=max(0, self.verbose - 1),
+            verbose=max(0, verbose - 1),
             debug=self.debug,
         )
         return self

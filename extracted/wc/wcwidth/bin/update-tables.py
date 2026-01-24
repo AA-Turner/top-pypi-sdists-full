@@ -15,6 +15,8 @@ import os
 import re
 import sys
 import string
+import difflib
+import argparse
 import datetime
 import functools
 import unicodedata
@@ -51,8 +53,13 @@ UTC_NOW = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 CONNECT_TIMEOUT = int(os.environ.get('CONNECT_TIMEOUT', '10'))
 FETCH_BLOCKSIZE = int(os.environ.get('FETCH_BLOCKSIZE', '4096'))
-MAX_RETRIES = int(os.environ.get('MAX_RETRIES', '6'))
+MAX_RETRIES = int(os.environ.get('MAX_RETRIES', '10'))
 BACKOFF_FACTOR = float(os.environ.get('BACKOFF_FACTOR', '0.1'))
+
+# Global flag set by main() from --check-last-modified CLI argument.
+# When True, perform HTTP HEAD requests to check if remote files are newer.
+# Default is False because Unicode data files rarely change once published.
+CHECK_LAST_MODIFIED = False
 
 # Hangul Jamo is a decomposed form of Hangul Syllables, see
 # see https://www.unicode.org/faq/korean.html#3
@@ -66,6 +73,14 @@ HANGUL_JAMO_ZEROWIDTH = (
     *range(0x1160, 0x1200),  # Hangul Jungseong Filler .. Hangul Jongseong Ssangnieun
     *range(0xD7B0, 0xD800),  # Hangul Jungseong O-Yeo  .. Undefined Character of Hangul Jamo Extended-B
 )
+
+HEX_STR_VS16 = 'FE0F'
+# Grapheme Break Property values from UAX #29
+GRAPHEME_BREAK_PROPERTIES = (
+    'CR', 'LF', 'Control', 'Extend', 'ZWJ', 'Regional_Indicator',
+    'Prepend', 'SpacingMark', 'L', 'V', 'T', 'LV', 'LVT'
+)
+INCB_VALUES = ('Linker', 'Consonant', 'Extend')
 
 
 def _bisearch(ucs, table):
@@ -309,6 +324,26 @@ class UnicodeTableRenderDef(RenderDefinition):
         )
 
 
+@dataclass(frozen=True)
+class GraphemeTableRenderCtx(RenderContext):
+    """Render context for grapheme tables (latest version only)."""
+    unicode_version: str
+    tables: Mapping[str, TableDef]
+
+
+@dataclass
+class GraphemeTableRenderDef(RenderDefinition):
+    render_context: GraphemeTableRenderCtx
+
+    @classmethod
+    def new(cls, context: GraphemeTableRenderCtx) -> Self:
+        return cls(
+            jinja_filename='grapheme_table.py.j2',
+            output_filename=os.path.join(PATH_UP, 'wcwidth', 'table_grapheme.py'),
+            render_context=context,
+        )
+
+
 @functools.cache
 def fetch_unicode_versions() -> list[UnicodeVersion]:
     """Fetch, determine, and return Unicode Versions for processing."""
@@ -349,9 +384,18 @@ def fetch_table_wide_data() -> UnicodeTableRenderCtx:
         # Also subtract Hangul Jamo Vowels and Hangul Trailing Consonants
         table[version].values = table[version].values.difference(HANGUL_JAMO_ZEROWIDTH)
 
+        # Subtract Default_Ignorable_Code_Point characters (they should be zero-width).
+        # Exception: U+115F HANGUL CHOSEONG FILLER remains wide for jamo composition.
+        # See https://github.com/jquast/wcwidth/issues/118
+        default_ignorable = parse_derived_core_property(
+            fname=UnicodeDataFile.DerivedCoreProperties(version),
+            property_name='Default_Ignorable_Code_Point')
+        default_ignorable.discard(0x115F)  # Keep HANGUL CHOSEONG FILLER as wide
+        table[version].values = table[version].values.difference(default_ignorable)
+
         # finally, join with atypical 'wide' characters defined by category 'Sk',
-        table[version].values.update(parse_category(fname=UnicodeDataFile.DerivedGeneralCategory(version),
-                                                    wide=2).values)
+        fname = UnicodeDataFile.DerivedGeneralCategory(version)
+        table[version].values.update(parse_category(fname=fname, wide=2).values)
     return UnicodeTableRenderCtx('WIDE_EASTASIAN', table)
 
 
@@ -364,14 +408,32 @@ def fetch_table_zero_data() -> UnicodeTableRenderCtx:
     table: dict[UnicodeVersion, TableDef] = {}
     for version in fetch_unicode_versions():
         # Determine values of zero-width character lookup table by the following category codes
-        table[version] = parse_category(fname=UnicodeDataFile.DerivedGeneralCategory(version),
-                                        wide=0)
+        fname = UnicodeDataFile.DerivedGeneralCategory(version)
+        table[version] = parse_category(fname=fname, wide=0)
 
         # Include NULL
         table[version].values.add(0)
 
         # Add Hangul Jamo Vowels and Hangul Trailing Consonants
         table[version].values.update(HANGUL_JAMO_ZEROWIDTH)
+
+        # Add Default_Ignorable_Code_Point characters
+        # Per Unicode Standard (https://www.unicode.org/faq/unsup_char.html):
+        # "All default-ignorable characters should be rendered as completely invisible
+        # (and non advancing, i.e. 'zero width'), if not explicitly supported in rendering."
+        #
+        # See also:
+        # - https://www.unicode.org/reports/tr44/#Default_Ignorable_Code_Point
+        # - https://github.com/jquast/wcwidth/issues/118
+        table[version].values.update(parse_derived_core_property(
+            fname=UnicodeDataFile.DerivedCoreProperties(version),
+            property_name='Default_Ignorable_Code_Point'))
+
+        # Remove U+115F HANGUL CHOSEONG FILLER from zero-width table.
+        # Although it has Default_Ignorable_Code_Point property, it should remain
+        # width 2 because it combines with other Hangul Jamo to form width-2
+        # syllable blocks.
+        table[version].values.discard(0x115F)
 
         # Remove u+00AD categoryCode=Cf name="SOFT HYPHEN",
         # > https://www.unicode.org/faq/casemap_charprop.html
@@ -387,7 +449,42 @@ def fetch_table_zero_data() -> UnicodeTableRenderCtx:
         # This value was wrongly measured as a width of '0' in this wcwidth
         # versions 0.2.9 - 0.2.13. Fixed in 0.2.14
         table[version].values.discard(0x00AD)  # SOFT HYPHEN
+
+        # Remove Prepended_Concatenation_Mark characters from zero-width.
+        # Per Unicode Standard Annex #44, these format characters (General_Category=Cf) have
+        # mandatory visible display and should NOT be treated as invisible.
+        # See https://github.com/jquast/wcwidth/issues/119
+        table[version].values = table[version].values.difference(
+            parse_derived_core_property(
+                fname=UnicodeDataFile.PropList(version),
+                property_name='Prepended_Concatenation_Mark'))
+
     return UnicodeTableRenderCtx('ZERO_WIDTH', table)
+
+
+def fetch_table_ambiguous_data() -> UnicodeTableRenderCtx:
+    """
+    Fetch east-asian ambiguous character table for the latest Unicode version.
+
+    East Asian Ambiguous (A) characters can display as either 1 cell (narrow) or 2 cells (wide)
+    depending on the terminal's configuration. This table allows users to opt-in to treating these
+    characters as wide by passing ambiguous_width=2 to wcwidth/wcswidth.
+    """
+    table: dict[UnicodeVersion, TableDef] = {}
+    version = fetch_unicode_versions()[-1]
+    # parse 'ambiguous' characters by category 'A'
+    table[version] = parse_category_ambiguous(
+        fname=UnicodeDataFile.EastAsianWidth(version)
+    )
+    # Subtract zero-width characters (they should remain zero-width
+    # regardless of ambiguous_width setting)
+    table[version].values = table[version].values.difference(
+        parse_category(
+            fname=UnicodeDataFile.DerivedGeneralCategory(version),
+            wide=0
+        ).values
+    )
+    return UnicodeTableRenderCtx('AMBIGUOUS_EASTASIAN', table)
 
 
 def fetch_table_vs16_data() -> UnicodeTableRenderCtx:
@@ -406,8 +503,9 @@ def fetch_table_vs16_data() -> UnicodeTableRenderCtx:
     match unicode releases 8, 9, and 10, these specifications were mostly
     implemented only in Terminals supporting Unicode 9.0 or later.
 
-    For that reason, and that these values are not expected to change,
-    only this single shared table is exported.
+    For that reason, and that **these values are not expected to change**,
+    If they do, a noticeable change would occur in `wcwidth/table_vs16.py`
+    falsely labeled under version 9.0 but is prevented by assertion.
 
     One example, where v3.2 became v1.1 ("-" 12.0, "+" 15.1)::
 
@@ -437,13 +535,15 @@ def fetch_table_vs16_data() -> UnicodeTableRenderCtx:
 
     # parse table formatted by the latest emoji release (developed with
     # 15.1.0) and parse a single file for all individual releases
-    table[unicode_version] = parse_vs16_data(fname=UnicodeDataFile.EmojiVariationSequences(unicode_latest),
-                                             ubound_unicode_version=unicode_version)
+    table[unicode_version] = parse_vs_data(fname=UnicodeDataFile.EmojiVariationSequences(unicode_latest),
+                                           ubound_unicode_version=unicode_version,
+                                           hex_str_vs=HEX_STR_VS16)
 
     # parse and join the final emoji release 12.0 of the earlier "type"
     table[unicode_version].values.update(
-        parse_vs16_data(fname=UnicodeDataFile.LegacyEmojiVariationSequences(),
-                        ubound_unicode_version=unicode_version).values)
+        parse_vs_data(fname=UnicodeDataFile.LegacyEmojiVariationSequences(),
+                      ubound_unicode_version=unicode_version,
+                      hex_str_vs=HEX_STR_VS16).values)
 
     # perform culling on any values that are already understood as 'wide'
     # without the variation-16 selector
@@ -456,9 +556,9 @@ def fetch_table_vs16_data() -> UnicodeTableRenderCtx:
     return UnicodeTableRenderCtx('VS16_NARROW_TO_WIDE', table)
 
 
-def parse_vs16_data(fname: str, ubound_unicode_version: UnicodeVersion):
+def parse_vs_data(fname: str, ubound_unicode_version: UnicodeVersion, hex_str_vs: str):
     with open(fname, encoding='utf-8') as fin:
-        table_iter = parse_vs16_table(fin)
+        table_iter = parse_vs_table(fin, hex_str_vs)
         # pull "date string"
         date = next(table_iter).comment.split(':', 1)[1].strip()
         # pull values only matching this unicode version and lower
@@ -510,9 +610,8 @@ def parse_unicode_table(file: Iterable[str]) -> Iterator[TableEntry]:
         yield TableEntry(code_range, tuple(properties), comment)
 
 
-def parse_vs16_table(fp: Iterable[str]) -> Iterator[TableEntry]:
-    """Parse emoji-variation-sequences.txt for codepoints that precede 0xFE0F."""
-    hex_str_vs16 = 'FE0F'
+def parse_vs_table(fp: Iterable[str], hex_str_vs: str = 'FE0F') -> Iterator[TableEntry]:
+    """Parse emoji-variation-sequences.txt for codepoints that precede `hex_str_vs`."""
     for line in fp:
         data, _, comment = line.partition('#')
         data_fields: Iterator[str] = (field.strip() for field in data.split(';'))
@@ -524,8 +623,8 @@ def parse_vs16_table(fp: Iterable[str]) -> Iterator[TableEntry]:
                 yield TableEntry(None, tuple(properties), comment)
             continue
         code_points = code_points_str.split()
-        if len(code_points) == 2 and code_points[1] == hex_str_vs16:
-            # yield a single "code range" entry for a single value that precedes FE0F
+        if len(code_points) == 2 and code_points[1] == hex_str_vs:
+            # yield a single "code range" entry for a single value that precedes hex_str_vs
             yield TableEntry((int(code_points[0], 16), int(code_points[0], 16)), tuple(properties), comment)
 
 
@@ -546,6 +645,156 @@ def parse_category(fname: str, wide: int) -> TableDef:
     return TableDef(version, date, values)
 
 
+@functools.cache
+def parse_category_ambiguous(fname: str) -> TableDef:
+    """Parse EastAsianWidth.txt for 'A' (Ambiguous) category."""
+    print(f'parsing {fname}, category=A: ', end='', flush=True)
+
+    with open(fname, encoding='utf-8') as f:
+        table_iter = parse_unicode_table(f)
+
+        # pull "version string" from first line of source file
+        version = next(table_iter).comment.strip()
+        # and "date string" from second line
+        date = next(table_iter).comment.split(':', 1)[1].strip()
+        values = {
+            n
+            for entry in table_iter
+            if entry.code_range is not None and entry.properties[0] == 'A'
+            for n in range(entry.code_range[0], entry.code_range[1])
+        }
+    print('ok')
+    return TableDef(version, date, values)
+
+
+def parse_grapheme_break_properties(fname: str) -> dict[str, TableDef]:
+    """Parse GraphemeBreakProperty.txt for grapheme break properties needing tables."""
+    print(f'parsing {fname}: ', end='', flush=True)
+    values_by_prop: dict[str, set[int]] = {prop: set() for prop in GRAPHEME_BREAK_PROPERTIES}
+
+    with open(fname, encoding='utf-8') as f:
+        table_iter = parse_unicode_table(f)
+        version = next(table_iter).comment.strip()
+        date = next(table_iter).comment.split(':', 1)[1].strip()
+
+        for entry in table_iter:
+            if entry.code_range is None:
+                continue
+            if entry.properties and entry.properties[0] in values_by_prop:
+                values_by_prop[entry.properties[0]].update(
+                    range(entry.code_range[0], entry.code_range[1])
+                )
+
+    print('ok')
+    return {
+        f'GRAPHEME_{prop.upper()}': TableDef(version, date, values)
+        for prop, values in values_by_prop.items()
+    }
+
+
+def parse_extended_pictographic(fname: str) -> TableDef:
+    """Parse emoji-data.txt for Extended_Pictographic property."""
+    print(f'parsing {fname} for Extended_Pictographic: ', end='', flush=True)
+    values: set[int] = set()
+
+    with open(fname, encoding='utf-8') as f:
+        table_iter = parse_unicode_table(f)
+        # pull "version string" from first line of source file
+        version = next(table_iter).comment.strip()
+        # and "date string" from second line
+        date = next(table_iter).comment.split(':', 1)[1].strip()
+
+        for entry in table_iter:
+            if entry.code_range is None:
+                continue
+            if entry.properties and entry.properties[0] == 'Extended_Pictographic':
+                values.update(range(entry.code_range[0], entry.code_range[1]))
+
+    print('ok')
+    return TableDef(version, date, values)
+
+
+def parse_indic_conjunct_breaks(fname: str) -> dict[str, TableDef]:
+    """Parse DerivedCoreProperties.txt for all Indic_Conjunct_Break properties."""
+    print(f'parsing {fname} for InCB: ', end='', flush=True)
+    values_by_incb: dict[str, set[int]] = {val: set() for val in INCB_VALUES}
+
+    with open(fname, encoding='utf-8') as f:
+        for line in f:
+            data, _, comment = line.partition('#')
+            data = data.strip()
+            if not data:
+                continue
+
+            parts = [p.strip() for p in data.split(';')]
+            if len(parts) < 3:
+                continue
+
+            code_points_str, prop_name, prop_value = parts[0], parts[1], parts[2]
+
+            if prop_name == 'InCB' and prop_value in values_by_incb:
+                if '..' in code_points_str:
+                    start, end = code_points_str.split('..')
+                    values_by_incb[prop_value].update(
+                        range(int(start, 16), int(end, 16) + 1)
+                    )
+                else:
+                    values_by_incb[prop_value].add(int(code_points_str, 16))
+
+    print('ok')
+    return {
+        f'INCB_{val.upper()}': TableDef('DerivedCoreProperties', 'see file', values)
+        for val, values in values_by_incb.items()
+    }
+
+
+def parse_derived_core_property(fname: str, property_name: str) -> set[int]:
+    """Parse DerivedCoreProperties.txt for a specific property."""
+    print(f'parsing {fname} for {property_name}: ', end='', flush=True)
+    values: set[int] = set()
+
+    with open(fname, encoding='utf-8') as f:
+        for line in f:
+            data, _, comment = line.partition('#')
+            data = data.strip()
+            if not data:
+                continue
+
+            parts = [p.strip() for p in data.split(';')]
+            if len(parts) < 2:
+                continue
+
+            code_points_str, prop_name = parts[0], parts[1]
+
+            if prop_name == property_name:
+                if '..' in code_points_str:
+                    start, end = code_points_str.split('..')
+                    values.update(range(int(start, 16), int(end, 16) + 1))
+                else:
+                    values.add(int(code_points_str, 16))
+
+    print('ok')
+    return values
+
+
+def fetch_table_grapheme_data() -> GraphemeTableRenderCtx:
+    """Fetch grapheme break property tables for the latest Unicode version only."""
+    latest_version = fetch_unicode_versions()[-1]
+
+    # makes a table definition for each break property
+    tables = parse_grapheme_break_properties(
+        UnicodeDataFile.GraphemeBreakProperty(latest_version)
+    )
+    tables['EXTENDED_PICTOGRAPHIC'] = parse_extended_pictographic(
+        UnicodeDataFile.EmojiData(latest_version)
+    )
+    tables.update(parse_indic_conjunct_breaks(
+        UnicodeDataFile.DerivedCoreProperties(latest_version)
+    ))
+
+    return GraphemeTableRenderCtx(str(latest_version), tables)
+
+
 class UnicodeDataFile:
     """
     Helper class for fetching Unicode Data Files.
@@ -563,6 +812,11 @@ class UnicodeDataFile:
     URL_EMOJI_VARIATION = 'https://unicode.org/Public/{version}/ucd/emoji/emoji-variation-sequences.txt'
     URL_LEGACY_VARIATION = 'https://unicode.org/Public/emoji/{version}/emoji-variation-sequences.txt'
     URL_EMOJI_ZWJ = 'https://unicode.org/Public/emoji/{version}/emoji-zwj-sequences.txt'
+    URL_GRAPHEME_BREAK = 'https://www.unicode.org/Public/{version}/ucd/auxiliary/GraphemeBreakProperty.txt'
+    URL_EMOJI_DATA = 'https://www.unicode.org/Public/{version}/ucd/emoji/emoji-data.txt'
+    URL_DERIVED_CORE_PROPS = 'https://www.unicode.org/Public/{version}/ucd/DerivedCoreProperties.txt'
+    URL_PROP_LIST = 'https://www.unicode.org/Public/{version}/ucd/PropList.txt'
+    URL_GRAPHEME_BREAK_TEST = 'https://www.unicode.org/Public/{version}/ucd/auxiliary/GraphemeBreakTest.txt'
 
     @classmethod
     def DerivedAge(cls) -> str:
@@ -604,9 +858,41 @@ class UnicodeDataFile:
 
     @classmethod
     def TestEmojiZWJSequences(cls) -> str:
-        version = fetch_unicode_versions()[-1]
+        # ZWJ sequences are only at /Public/emoji/{version}/, use 'latest' for tests
         fname = os.path.join(PATH_TESTS, 'emoji-zwj-sequences.txt')
-        cls.do_retrieve(url=cls.URL_EMOJI_ZWJ.format(version=f"{version.major}.{version.minor}"), fname=fname)
+        cls.do_retrieve(url=cls.URL_EMOJI_ZWJ.format(version='latest'), fname=fname)
+        return fname
+
+    @classmethod
+    def GraphemeBreakProperty(cls, version: str) -> str:
+        fname = os.path.join(PATH_DATA, f'GraphemeBreakProperty-{version}.txt')
+        cls.do_retrieve(url=cls.URL_GRAPHEME_BREAK.format(version=version), fname=fname)
+        return fname
+
+    @classmethod
+    def EmojiData(cls, version: UnicodeVersion) -> str:
+        """Fetch emoji-data.txt for Extended_Pictographic property."""
+        fname = os.path.join(PATH_DATA, f'emoji-data-{version}.txt')
+        cls.do_retrieve(url=cls.URL_EMOJI_DATA.format(version=version), fname=fname)
+        return fname
+
+    @classmethod
+    def DerivedCoreProperties(cls, version: str) -> str:
+        fname = os.path.join(PATH_DATA, f'DerivedCoreProperties-{version}.txt')
+        cls.do_retrieve(url=cls.URL_DERIVED_CORE_PROPS.format(version=version), fname=fname)
+        return fname
+
+    @classmethod
+    def PropList(cls, version: str) -> str:
+        fname = os.path.join(PATH_DATA, f'PropList-{version}.txt')
+        cls.do_retrieve(url=cls.URL_PROP_LIST.format(version=version), fname=fname)
+        return fname
+
+    @classmethod
+    def TestGraphemeBreakTest(cls) -> str:
+        version = fetch_unicode_versions()[-1]
+        fname = os.path.join(PATH_TESTS, 'GraphemeBreakTest.txt')
+        cls.do_retrieve(url=cls.URL_GRAPHEME_BREAK_TEST.format(version=version), fname=fname)
         return fname
 
     @staticmethod
@@ -630,7 +916,7 @@ class UnicodeDataFile:
     def is_url_newer(url: str, fname: str) -> bool:
         if not os.path.exists(fname):
             return True
-        if '--no-check-last-modified' not in sys.argv[1:]:
+        if CHECK_LAST_MODIFIED:
             session = UnicodeDataFile.get_http_session()
             resp = session.head(url, timeout=CONNECT_TIMEOUT)
             resp.raise_for_status()
@@ -644,7 +930,7 @@ class UnicodeDataFile:
         session = requests.Session()
         retries = urllib3.util.Retry(total=MAX_RETRIES,
                                      backoff_factor=BACKOFF_FACTOR,
-                                     status_forcelist=[500, 502, 503, 504])
+                                     status_forcelist=[500, 502, 503, 504, 520])
         session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))
         return session
 
@@ -666,8 +952,113 @@ class UnicodeDataFile:
         return [os.path.join(PATH_DATA, match.string) for match in filename_matches]
 
 
-def main() -> None:
+def replace_if_modified(new_filename: str, original_filename: str) -> None:
+    """
+    Replace original file with new file only if there are significant changes.
+
+    If only the 'This code generated' timestamp line differs, discard the new file. If there are
+    other changes or the original doesn't exist, replace it.
+    """
+    if os.path.exists(original_filename):
+        with open(original_filename, encoding='utf-8') as f1, \
+                open(new_filename, encoding='utf-8') as f2:
+            old_lines = f1.readlines()
+            new_lines = f2.readlines()
+
+        # Generate diff
+        diff_lines = list(difflib.unified_diff(old_lines, new_lines,
+                                               fromfile=original_filename,
+                                               tofile=new_filename,
+                                               lineterm=''))
+
+        # Check if only the 'This code generated' line is different
+        significant_changes = False
+        for line in diff_lines:
+            if (line.startswith(('@@', '---', '+++')) or
+                    (line.startswith(('-', '+')) and 'This code generated' in line)):
+                continue
+            else:
+                significant_changes = line.startswith(('-', '+'))
+            if significant_changes:
+                break
+
+        if not significant_changes:
+            # only the code-generated timestamp changed, remove the .new file
+            os.remove(new_filename)
+            return False
+    # Significant changes found, replace the original
+    os.replace(new_filename, original_filename)
+    return True
+
+
+def fetch_all_emoji_files() -> None:
+    """
+    Fetch emoji variation sequences and ZWJ sequences for all versions.
+
+    URL locations:
+    - Variation sequences (5.0-12.1): /Public/emoji/{version}/
+    - Variation sequences (13.0+): /Public/{version}/ucd/emoji/
+    - ZWJ sequences (ALL versions): /Public/emoji/{version}/
+
+    Note: ZWJ files never moved to /Public/{version}/ucd/emoji/ - they remain
+    at /Public/emoji/{version}/ for all emoji versions.
+    """
+    unicode_versions = fetch_unicode_versions()
+
+    # Legacy variation sequences (before 13.0, at /Public/emoji/{version}/)
+    legacy_variation_versions = ['5.0', '11.0', '12.0', '12.1']
+
+    for emoji_version in legacy_variation_versions:
+        fname = os.path.join(PATH_DATA, f'emoji-variation-sequences-emoji-{emoji_version}.txt')
+        UnicodeDataFile.do_retrieve(
+            url=UnicodeDataFile.URL_LEGACY_VARIATION.format(version=emoji_version),
+            fname=fname)
+
+    # ZWJ sequences are ALL at /Public/emoji/{version}/ (they didn't move)
+    all_zwj_versions = ['5.0', '11.0', '12.0', '12.1', '13.0', '13.1',
+                        '14.0', '15.0', '15.1', '16.0']
+
+    for emoji_version in all_zwj_versions:
+        fname = os.path.join(PATH_DATA, f'emoji-zwj-sequences-emoji-{emoji_version}.txt')
+        UnicodeDataFile.do_retrieve(
+            url=UnicodeDataFile.URL_EMOJI_ZWJ.format(version=emoji_version),
+            fname=fname)
+
+    # Starting with Unicode 13.0.0, variation sequences moved to /Public/{version}/ucd/emoji/
+    for version in unicode_versions:
+        if version >= UnicodeVersion.parse('13.0.0'):
+            fname = os.path.join(PATH_DATA, f'emoji-variation-sequences-{version}.txt')
+            UnicodeDataFile.do_retrieve(
+                url=UnicodeDataFile.URL_EMOJI_VARIATION.format(version=version),
+                fname=fname)
+
+
+def parse_args() -> dict[str, Any]:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description='Update Unicode code tables for wcwidth using jinja2 code generation.',
+        epilog='https://github.com/jquast/wcwidth'
+    )
+    parser.add_argument(
+        '--fetch-all-versions',
+        action='store_true',
+        help='Fetch emoji variation sequences and ZWJ sequences for all Unicode versions '
+             '(for archival/testing purposes)'
+    )
+    parser.add_argument(
+        '--check-last-modified',
+        action='store_true',
+        help='Check if remote files are newer than local files (rarely needed)'
+    )
+    return vars(parser.parse_args())
+
+
+def main(fetch_all_versions: bool = False, check_last_modified: bool = False) -> None:
     """Update east-asian, combining and zero width tables."""
+    # Set global flag for HTTP requests to check Last-Modified headers
+    global CHECK_LAST_MODIFIED
+    CHECK_LAST_MODIFIED = check_last_modified
+
     # This defines which jinja source templates map to which output filenames,
     # and what function defines the source data. We hope to add more source
     # language options using jinja2 templates, with minimal modification of the
@@ -679,19 +1070,32 @@ def main() -> None:
         yield UnicodeTableRenderDef.new('table_vs16.py', fetch_table_vs16_data())
         yield UnicodeTableRenderDef.new('table_wide.py', fetch_table_wide_data())
         yield UnicodeTableRenderDef.new('table_zero.py', fetch_table_zero_data())
+        yield UnicodeTableRenderDef.new('table_ambiguous.py', fetch_table_ambiguous_data())
+        yield GraphemeTableRenderDef.new(fetch_table_grapheme_data())
         yield UnicodeVersionRstRenderDef.new(fetch_source_headers())
 
     for render_def in get_codegen_definitions():
-        with open(render_def.output_filename, 'w', encoding='utf-8', newline='\n') as fout:
-            print(f'write {render_def.output_filename}: ', flush=True, end='')
+        new_filename = render_def.output_filename + '.new'
+        with open(new_filename, 'w', encoding='utf-8', newline='\n') as fout:
+            print(f'write {new_filename}: ', flush=True, end='')
             for data in render_def.generate():
                 fout.write(data)
+
+        if not replace_if_modified(new_filename, render_def.output_filename):
+            print(f'discarded {new_filename} (timestamp-only change)')
+        else:
+            assert render_def.output_filename != 'table_vs16.py', ('table_vs16 not expected to change!')
             print('ok')
 
-    # fetch latest test data files
+    # fetch latest test data files, used by our automatic tests
     UnicodeDataFile.TestEmojiVariationSequences()
     UnicodeDataFile.TestEmojiZWJSequences()
+    UnicodeDataFile.TestGraphemeBreakTest()
+
+    # fetch all legacy emoji files if requested
+    if fetch_all_versions:
+        fetch_all_emoji_files()
 
 
 if __name__ == '__main__':
-    main()
+    main(**parse_args())

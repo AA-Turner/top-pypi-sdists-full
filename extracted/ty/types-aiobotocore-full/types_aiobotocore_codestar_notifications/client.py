@@ -3,7 +3,7 @@ Type annotations for codestar-notifications service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codestar_notifications/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -55,12 +56,6 @@ from .type_defs import (
     UpdateNotificationRuleRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -71,15 +66,15 @@ __all__ = ("CodeStarNotificationsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConfigurationException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConfigurationException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class CodeStarNotificationsClient(AioBaseClient):
@@ -137,7 +132,7 @@ class CodeStarNotificationsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codestar_notifications/client/#delete_notification_rule)
         """
 
-    async def delete_target(self, **kwargs: Unpack[DeleteTargetRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_target(self, **kwargs: Unpack[DeleteTargetRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a specified target for notifications.
 
@@ -230,7 +225,7 @@ class CodeStarNotificationsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codestar_notifications/client/#unsubscribe)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the association between one or more provided tags and a notification
         rule.
@@ -241,7 +236,7 @@ class CodeStarNotificationsClient(AioBaseClient):
 
     async def update_notification_rule(
         self, **kwargs: Unpack[UpdateNotificationRuleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a notification rule for a resource.
 
@@ -290,7 +285,7 @@ class CodeStarNotificationsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

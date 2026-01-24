@@ -25,6 +25,8 @@ from dbt.artifacts.resources.v1.config import (
     NodeAndTestConfig,
     NodeConfig,
     TestConfig,
+    list_str,
+    metas,
 )
 from dbt.artifacts.resources.v1.documentation import Documentation
 from dbt.artifacts.resources.v1.exposure import (
@@ -32,6 +34,13 @@ from dbt.artifacts.resources.v1.exposure import (
     ExposureConfig,
     ExposureType,
     MaturityType,
+)
+from dbt.artifacts.resources.v1.function import (
+    Function,
+    FunctionArgument,
+    FunctionConfig,
+    FunctionMandatory,
+    FunctionReturns,
 )
 from dbt.artifacts.resources.v1.generic_test import GenericTest, TestMetadata
 from dbt.artifacts.resources.v1.group import Group, GroupConfig
@@ -42,6 +51,7 @@ from dbt.artifacts.resources.v1.metric import (
     ConversionTypeParams,
     CumulativeTypeParams,
     Metric,
+    MetricAggregationParams,
     MetricConfig,
     MetricInput,
     MetricInputMeasure,
@@ -49,6 +59,7 @@ from dbt.artifacts.resources.v1.metric import (
     MetricTypeParams,
 )
 from dbt.artifacts.resources.v1.model import (
+    CustomGranularity,
     Model,
     ModelConfig,
     ModelFreshness,
@@ -66,6 +77,8 @@ from dbt.artifacts.resources.v1.saved_query import (
 from dbt.artifacts.resources.v1.seed import Seed, SeedConfig
 from dbt.artifacts.resources.v1.semantic_layer_components import (
     FileSlice,
+    MeasureAggregationParameters,
+    NonAdditiveDimension,
     SourceFileMetadata,
     WhereFilter,
     WhereFilterIntersection,
@@ -77,9 +90,8 @@ from dbt.artifacts.resources.v1.semantic_model import (
     DimensionValidityParams,
     Entity,
     Measure,
-    MeasureAggregationParameters,
     NodeRelation,
-    NonAdditiveDimension,
+    SemanticLayerElementConfig,
     SemanticModel,
     SemanticModelConfig,
 )

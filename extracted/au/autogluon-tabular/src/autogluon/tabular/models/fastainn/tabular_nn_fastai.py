@@ -103,6 +103,7 @@ class NNFastAiTabularModel(AbstractModel):
     ag_priority_by_problem_type = MappingProxyType({
         MULTICLASS: 95,
     })
+    seed_name = "random_seed"
 
     model_internals_file_name = "model-internals.pkl"
 
@@ -322,8 +323,9 @@ class NNFastAiTabularModel(AbstractModel):
         # Make deterministic
         from fastai.torch_core import set_seed
 
-        set_seed(0, True)
-        dls.rng.seed(0)
+        random_seed = params.pop(self.seed_name, self.default_random_seed)
+        set_seed(random_seed, True)
+        dls.rng.seed(random_seed)
 
         if self.problem_type == QUANTILE:
             dls.c = len(self.quantile_levels)
@@ -658,7 +660,11 @@ class NNFastAiTabularModel(AbstractModel):
 
     @classmethod
     def _class_tags(cls):
-        return {"can_estimate_memory_usage_static": True}
+        return {
+            "can_estimate_memory_usage_static": True,
+            "reset_torch_threads": True,
+            "reset_torch_cudnn_deterministic": True,
+        }
 
     def _more_tags(self):
         return {"can_refit_full": True}

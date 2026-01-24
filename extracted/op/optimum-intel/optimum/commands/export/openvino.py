@@ -15,28 +15,20 @@
 
 import json
 import logging
-import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
 
-from ...exporters import TasksManager
-from ...intel.utils.import_utils import (
-    DIFFUSERS_IMPORT_ERROR,
-    is_diffusers_available,
-    is_nncf_available,
-)
-from ...intel.utils.modeling_utils import _infer_library_from_model_name_or_path
-from ...utils.save_utils import maybe_load_preprocessors
-from ..base import BaseOptimumCLICommand, CommandInfo
+from optimum.commands.base import BaseOptimumCLICommand, CommandInfo
+from optimum.utils.constant import ALL_TASKS
 
 
 logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
-    from argparse import ArgumentParser, Namespace, _SubParsersAction
+    from argparse import ArgumentParser
 
 
 def parse_args_openvino(parser: "ArgumentParser"):
@@ -52,18 +44,17 @@ def parse_args_openvino(parser: "ArgumentParser"):
         "--task",
         default="auto",
         help=(
-            "The task to export the model for. If not specified, the task will be auto-inferred based on the model. Available tasks depend on the model, but are among:"
-            f" {str(TasksManager.get_all_tasks())}. For decoder models, use `xxx-with-past` to export the model using past key values in the decoder."
+            "The task to export the model for. If not specified, the task will be auto-inferred from the model's metadata or files. "
+            "For tasks that generate text, add the `xxx-with-past` suffix to export the model using past key values caching. "
+            f"Available tasks depend on the model, but are among the following list: {ALL_TASKS}."
         ),
     )
     optional_group.add_argument(
         "--framework",
         type=str,
-        choices=["pt", "tf"],
-        default=None,
-        help=(
-            "The framework to use for the export. If not provided, will attempt to use the local checkpoint's original framework or what is available in the environment."
-        ),
+        choices=["pt"],
+        default="pt",
+        help="The framework to use for the export. Defaults to 'pt' for PyTorch. ",
     )
     optional_group.add_argument(
         "--trust-remote-code",
@@ -85,7 +76,7 @@ def parse_args_openvino(parser: "ArgumentParser"):
     optional_group.add_argument(
         "--quant-mode",
         type=str,
-        choices=["int8", "f8e4m3", "f8e5m2", "nf4_f8e4m3", "nf4_f8e5m2", "cb4_f8e4m3", "int4_f8e4m3", "int4_f8e5m2"],
+        choices=["int8", "f8e4m3", "f8e5m2", "cb4_f8e4m3", "int4_f8e4m3", "int4_f8e5m2"],
         default=None,
         help=(
             "Quantization precision mode. This is used for applying full model quantization including activations. "
@@ -151,6 +142,20 @@ def parse_args_openvino(parser: "ArgumentParser"):
         help=("The group size to use for quantization. Recommended value is 128 and -1 uses per-column quantization."),
     )
     optional_group.add_argument(
+        "--group-size-fallback",
+        type=str,
+        choices=["error", "ignore", "adjust"],
+        default=None,
+        help=(
+            "Specifies how to handle operations that do not support the given group size. Possible values are: "
+            "`error`: raise an error if the given group size is not supported by a node, this is the default behavior; "
+            "`ignore`: skip nodes that cannot be compressed with the given group size; "
+            "`adjust`: adjust the group size to the maximum supported value for each problematic node, if there is no "
+            "valid value greater than or equal to 32, then the node is quantized to the backup precision which is "
+            "int8_asym by default. "
+        ),
+    )
+    optional_group.add_argument(
         "--backup-precision",
         type=str,
         choices=["none", "int8_sym", "int8_asym"],
@@ -169,13 +174,15 @@ def parse_args_openvino(parser: "ArgumentParser"):
         default=None,
         help=(
             "The dataset used for data-aware compression or quantization with NNCF. "
-            "For language models you can use the one from the list ['auto','wikitext2','c4','c4-new']. With 'auto' the "
+            "For language models you can use the one from the list ['auto','wikitext2','c4','c4-new','gsm8k']. With 'auto' the "
             "dataset will be collected from model's generations. "
             "For diffusion models it should be on of ['conceptual_captions',"
             "'laion/220k-GPT4Vision-captions-from-LIVIS','laion/filtered-wit']. "
             "For visual language models the dataset must be set to 'contextual'. "
             "Note: if none of the data-aware compression algorithms are selected and ratio parameter is omitted or "
             "equals 1.0, the dataset argument will not have an effect on the resulting model."
+            "Note: for text generation task, datasets with English texts such as 'wikitext2','gsm8k','c4' or 'c4-new' usually "
+            "work fine even for non-English models."
         ),
     )
     optional_group.add_argument(
@@ -328,27 +335,21 @@ def no_quantization_parameter_provided(args):
 class OVExportCommand(BaseOptimumCLICommand):
     COMMAND = CommandInfo(name="openvino", help="Export PyTorch models to OpenVINO IR.")
 
-    def __init__(
-        self,
-        subparsers: "_SubParsersAction",
-        args: Optional["Namespace"] = None,
-        command: Optional["CommandInfo"] = None,
-        from_defaults_factory: bool = False,
-        parser: Optional["ArgumentParser"] = None,
-    ):
-        super().__init__(
-            subparsers, args=args, command=command, from_defaults_factory=from_defaults_factory, parser=parser
-        )
-        self.args_string = " ".join(sys.argv[3:])
-
     @staticmethod
     def parse_args(parser: "ArgumentParser"):
         return parse_args_openvino(parser)
 
     def run(self):
-        from ...exporters.openvino.__main__ import infer_task, main_export, maybe_convert_tokenizers
-        from ...exporters.openvino.utils import save_preprocessors
-        from ...intel.openvino.configuration import _DEFAULT_4BIT_WQ_CONFIG, OVConfig, get_default_quantization_config
+        from ...exporters.openvino.__main__ import _main_quantize, _merge_move, main_export
+        from ...intel.openvino.configuration import (
+            _DEFAULT_4BIT_WQ_CONFIG,
+            OVConfig,
+            _GPTOSSQuantizationConfig,
+            get_default_quantization_config,
+        )
+        from ...intel.openvino.utils import TemporaryDirectory
+        from ...intel.utils.import_utils import is_nncf_available
+        from ...intel.utils.modeling_utils import _infer_library_from_model_name_or_path
 
         if self.args.library is None:
             # TODO: add revision, subfolder and token to args
@@ -381,6 +382,10 @@ class OVExportCommand(BaseOptimumCLICommand):
         else:
             if not is_nncf_available():
                 raise ImportError("Applying quantization requires nncf, please install it with `pip install nncf`")
+            if self.args.weight_format is not None and self.args.quant_mode is not None:
+                raise ValueError(
+                    "Both --weight-format and --quant-mode arguments are provided. Please provide only one of them."
+                )
 
             default_quantization_config = get_default_quantization_config(
                 self.args.model, self.args.weight_format, self.args.quant_mode
@@ -413,8 +418,6 @@ class OVExportCommand(BaseOptimumCLICommand):
                             "Dataset is required for full quantization. Please provide it with --dataset argument."
                         )
                     if self.args.quant_mode in [
-                        "nf4_f8e4m3",
-                        "nf4_f8e5m2",
                         "cb4_f8e4m3",
                         "int4_f8e4m3",
                         "int4_f8e5m2",
@@ -442,141 +445,30 @@ class OVExportCommand(BaseOptimumCLICommand):
                                 "quantization. It will be ignored."
                             )
                         quantization_config = prepare_q_config(self.args)
-            quantization_config["trust_remote_code"] = self.args.trust_remote_code
             ov_config = OVConfig(quantization_config=quantization_config)
 
-        quantization_config = ov_config.quantization_config if ov_config else None
-        quantize_with_dataset = quantization_config and getattr(quantization_config, "dataset", None) is not None
-        task = infer_task(self.args.task, self.args.model, library_name=library_name)
-        # in some cases automatic task detection for multimodal models gives incorrect results
-        if self.args.task == "auto" and library_name == "transformers":
-            from transformers import AutoConfig
-
-            from ...exporters.openvino.utils import MULTI_MODAL_TEXT_GENERATION_MODELS
-
-            config = AutoConfig.from_pretrained(
-                self.args.model,
-                cache_dir=self.args.cache_dir,
-                trust_remote_code=self.args.trust_remote_code,
-            )
-            if getattr(config, "model_type", "") in MULTI_MODAL_TEXT_GENERATION_MODELS:
-                task = "image-text-to-text"
-
-        if library_name == "diffusers" and quantize_with_dataset:
-            if not is_diffusers_available():
-                raise ValueError(DIFFUSERS_IMPORT_ERROR.format("Export of diffusers models"))
-
-            from diffusers import DiffusionPipeline
-
-            diffusers_config = DiffusionPipeline.load_config(self.args.model)
-            class_name = diffusers_config.get("_class_name", None)
-
-            if class_name == "LatentConsistencyModelPipeline":
-                from optimum.intel import OVLatentConsistencyModelPipeline
-
-                model_cls = OVLatentConsistencyModelPipeline
-
-            elif class_name == "StableDiffusionXLPipeline":
-                from optimum.intel import OVStableDiffusionXLPipeline
-
-                model_cls = OVStableDiffusionXLPipeline
-            elif class_name == "StableDiffusionPipeline":
-                from optimum.intel import OVStableDiffusionPipeline
-
-                model_cls = OVStableDiffusionPipeline
-            elif class_name == "StableDiffusion3Pipeline":
-                from optimum.intel import OVStableDiffusion3Pipeline
-
-                model_cls = OVStableDiffusion3Pipeline
-            elif class_name == "FluxPipeline":
-                from optimum.intel import OVFluxPipeline
-
-                model_cls = OVFluxPipeline
-            elif class_name == "SanaPipeline":
-                from optimum.intel import OVSanaPipeline
-
-                model_cls = OVSanaPipeline
-            elif class_name == "SaneSprintPipeline":
-                from optimum.intel import OVSanaSprintPipeline
-
-                model_cls = OVSanaSprintPipeline
-
-            else:
-                raise NotImplementedError(f"Quantization isn't supported for class {class_name}.")
-
-            model = model_cls.from_pretrained(self.args.model, export=True, quantization_config=quantization_config)
-            model.save_pretrained(self.args.output)
-            if not self.args.disable_convert_tokenizer:
-                maybe_convert_tokenizers(library_name, self.args.output, model, task=task)
-        elif (
-            quantize_with_dataset
-            and (
-                task in ["fill-mask", "zero-shot-image-classification"]
-                or task.startswith("text-generation")
-                or task.startswith("text2text-generation")
-                or task.startswith("automatic-speech-recognition")
-                or task.startswith("feature-extraction")
-            )
-            or (task == "image-text-to-text" and quantization_config is not None)
-        ):
-            if task.startswith("text-generation"):
-                from optimum.intel import OVModelForCausalLM
-
-                model_cls = OVModelForCausalLM
-            elif task.startswith("text2text-generation"):
-                from optimum.intel import OVModelForSeq2SeqLM
-
-                model_cls = OVModelForSeq2SeqLM
-            elif task == "image-text-to-text":
-                from optimum.intel import OVModelForVisualCausalLM
-
-                model_cls = OVModelForVisualCausalLM
-            elif "automatic-speech-recognition" in task:
-                from optimum.intel import OVModelForSpeechSeq2Seq
-
-                model_cls = OVModelForSpeechSeq2Seq
-            elif task.startswith("feature-extraction") and library_name == "transformers":
-                from ...intel import OVModelForFeatureExtraction
-
-                model_cls = OVModelForFeatureExtraction
-            elif task.startswith("feature-extraction") and library_name == "sentence_transformers":
-                from ...intel import OVSentenceTransformer
-
-                model_cls = OVSentenceTransformer
-            elif task == "fill-mask":
-                from ...intel import OVModelForMaskedLM
-
-                model_cls = OVModelForMaskedLM
-            elif task == "zero-shot-image-classification":
-                from ...intel import OVModelForZeroShotImageClassification
-
-                model_cls = OVModelForZeroShotImageClassification
-            else:
-                raise NotImplementedError(
-                    f"Unable to find a matching model class for the task={task} and library_name={library_name}."
-                )
-
-            # In this case, to apply quantization an instance of a model class is required
-            model = model_cls.from_pretrained(
-                self.args.model,
-                export=True,
-                quantization_config=quantization_config,
-                stateful=not self.args.disable_stateful,
-                trust_remote_code=self.args.trust_remote_code,
-                variant=self.args.variant,
-                cache_dir=self.args.cache_dir,
-            )
-            model.save_pretrained(self.args.output)
-
-            preprocessors = maybe_load_preprocessors(self.args.model, trust_remote_code=self.args.trust_remote_code)
-            save_preprocessors(preprocessors, model.config, self.args.output, self.args.trust_remote_code)
-            if not self.args.disable_convert_tokenizer:
-                maybe_convert_tokenizers(library_name, self.args.output, preprocessors=preprocessors, task=task)
+        temporary_directory = None
+        original_output = None
+        quantization_config = None if ov_config is None else ov_config.quantization_config
+        # We apply main_quantize only if quantization_config is explicitly provided and it is not a GPT-OSS workaround config.
+        # Otherwise, quantization can still be applied inside main_export if a model has more than 1B parameters.
+        # TODO: Remove GPT-OSS workaround when possible
+        apply_main_quantize = quantization_config and not isinstance(quantization_config, _GPTOSSQuantizationConfig)
+        if apply_main_quantize:
+            # In case main_quantize will be applied, export to a temporary directory first. This is to avoid confusion
+            # in the case when quantization unexpectedly fails, and an intermediate floating point model ends up at the
+            # target location.
+            original_output = Path(self.args.output)
+            temporary_directory = TemporaryDirectory()
+            output = Path(temporary_directory.name)
         else:
+            output = Path(self.args.output)
+
+        try:
             # TODO : add input shapes
             main_export(
                 model_name_or_path=self.args.model,
-                output=self.args.output,
+                output=output,
                 task=self.args.task,
                 framework=self.args.framework,
                 cache_dir=self.args.cache_dir,
@@ -590,6 +482,23 @@ class OVExportCommand(BaseOptimumCLICommand):
                 model_kwargs=self.args.model_kwargs,
                 # **input_shapes,
             )
+            if apply_main_quantize:
+                _main_quantize(
+                    model_name_or_path=self.args.model,
+                    task=self.args.task,
+                    library_name=library_name,
+                    quantization_config=quantization_config,
+                    output=output,
+                    cache_dir=self.args.cache_dir,
+                    trust_remote_code=self.args.trust_remote_code,
+                    model_kwargs=self.args.model_kwargs,
+                )
+                # Move exported model to the original output directory
+                original_output.mkdir(parents=True, exist_ok=True)
+                _merge_move(output, original_output)
+        finally:
+            if temporary_directory is not None:
+                temporary_directory.cleanup()
 
 
 def prepare_wc_config(args, default_configs):
@@ -610,6 +519,7 @@ def prepare_wc_config(args, default_configs):
         "dtype": args.weight_format,
         "backup_precision": args.backup_precision,
         "statistics_path": args.quantization_statistics_path,
+        "group_size_fallback": args.group_size_fallback,
     }
 
 
@@ -621,5 +531,4 @@ def prepare_q_config(args):
         "dataset": args.dataset,
         "num_samples": args.num_samples,
         "smooth_quant_alpha": args.smooth_quant_alpha,
-        "trust_remote_code": args.trust_remote_code,
     }

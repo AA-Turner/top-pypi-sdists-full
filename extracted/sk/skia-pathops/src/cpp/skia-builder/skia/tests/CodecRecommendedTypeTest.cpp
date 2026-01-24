@@ -6,23 +6,22 @@
  */
 
 #include "include/codec/SkAndroidCodec.h"
-#include "include/codec/SkEncodedImageFormat.h"
 #include "include/core/SkAlphaType.h"
 #include "include/core/SkBitmap.h"
 #include "include/core/SkColor.h"
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkColorType.h"
 #include "include/core/SkData.h"
-#include "include/core/SkImageEncoder.h"
+#include "include/core/SkDataTable.h"
 #include "include/core/SkImageInfo.h"
-#include "include/core/SkStream.h"
+#include "include/encode/SkPngEncoder.h"
 #include "tests/Test.h"
 
 #include <memory>
 #include <utility>
 
 DEF_TEST(Codec_recommendedF16, r) {
-    // Encode an F16 bitmap. SkEncodeImage will encode this to a true-color PNG
+    // Encode an F16 bitmap. SkPngEncoder will encode this to a true-color PNG
     // with a bit depth of 16. SkAndroidCodec should always recommend F16 for
     // such a PNG.
     SkBitmap bm;
@@ -31,9 +30,8 @@ DEF_TEST(Codec_recommendedF16, r) {
     // What is drawn is not important.
     bm.eraseColor(SK_ColorBLUE);
 
-    SkDynamicMemoryWStream wstream;
-    REPORTER_ASSERT(r, SkEncodeImage(&wstream, bm, SkEncodedImageFormat::kPNG, 100));
-    auto data = wstream.detachAsData();
+    auto data = SkPngEncoder::Encode(bm.pixmap(), {});
+    REPORTER_ASSERT(r, data != nullptr);
     auto androidCodec = SkAndroidCodec::MakeFromData(std::move(data));
     if (!androidCodec) {
         ERRORF(r, "Failed to create SkAndroidCodec");

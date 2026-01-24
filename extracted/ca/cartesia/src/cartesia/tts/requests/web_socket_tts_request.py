@@ -3,6 +3,7 @@
 import typing_extensions
 import typing_extensions
 from .output_format import OutputFormatParams
+from .generation_config import GenerationConfigParams
 from .tts_request_voice_specifier import TtsRequestVoiceSpecifierParams
 from ...core.serialization import FieldMetadata
 from ..types.model_speed import ModelSpeed
@@ -15,6 +16,7 @@ class WebSocketTtsRequestParams(typing_extensions.TypedDict):
     """
 
     output_format: typing_extensions.NotRequired[OutputFormatParams]
+    generation_config: typing_extensions.NotRequired[GenerationConfigParams]
     transcript: typing_extensions.NotRequired[str]
     voice: TtsRequestVoiceSpecifierParams
     duration: typing_extensions.NotRequired[int]
@@ -34,3 +36,7 @@ class WebSocketTtsRequestParams(typing_extensions.TypedDict):
     context_id: typing_extensions.NotRequired[str]
     max_buffer_delay_ms: typing_extensions.NotRequired[int]
     speed: typing_extensions.NotRequired[ModelSpeed]
+    pronunciation_dict_id: typing_extensions.NotRequired[str]
+    """
+    A pronunciation dict ID to use for the generation. This will be applied to this TTS generation only.
+    """

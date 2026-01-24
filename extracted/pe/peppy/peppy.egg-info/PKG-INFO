@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: peppy
-Version: 0.40.7
+Version: 0.40.8
 Summary: A python-based project metadata manager for portable encapsulated projects
 Home-page: https://github.com/pepkit/peppy/
 Author: Michal Stolarczyk, Nathan Sheffield, Vince Reuter, Andre Rendeiro, Oleksandr Khoroshevskyi
@@ -22,6 +22,16 @@ Requires-Dist: rich>=10.3.0
 Requires-Dist: ubiquerg>=0.6.2
 Requires-Dist: numpy
 Requires-Dist: pephubclient>=0.4.2
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 # peppy python package
 

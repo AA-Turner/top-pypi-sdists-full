@@ -11,11 +11,7 @@ def bake_keys(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add keyframes on every frame between the selected keyframes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add keyframes on every frame between the selected keyframes"""
 
 def blend_offset(
     execution_context: int | str | None = None,
@@ -26,10 +22,7 @@ def blend_offset(
 ) -> None:
     """Shift selected keys to the value of the neighboring keys as a block
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Offset Factor, Control which key to offset towards and how far
-    :type factor: float | None
     """
 
 def blend_to_default(
@@ -41,10 +34,7 @@ def blend_to_default(
 ) -> None:
     """Blend selected keys to their default value from their current position
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Factor, How much to blend to the default value
-    :type factor: float | None
     """
 
 def blend_to_ease(
@@ -56,10 +46,7 @@ def blend_to_ease(
 ) -> None:
     """Blends keyframes from current state to an ease-in or ease-out curve
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Blend, Favor either original data or ease curve
-    :type factor: float | None
     """
 
 def blend_to_neighbor(
@@ -71,10 +58,7 @@ def blend_to_neighbor(
 ) -> None:
     """Blend selected keyframes to their left or right neighbor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Blend, The blend factor with 0 being the current frame
-    :type factor: float | None
     """
 
 def breakdown(
@@ -86,10 +70,7 @@ def breakdown(
 ) -> None:
     """Move selected keyframes to an inbetween position relative to adjacent keys
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Factor, Favor either the left or the right key
-    :type factor: float | None
     """
 
 def butterworth_smooth(
@@ -105,18 +86,11 @@ def butterworth_smooth(
 ) -> None:
     """Smooth an F-Curve while maintaining the general shape of the curve
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param cutoff_frequency: Frequency Cutoff (Hz), Lower values give a smoother curve
-    :type cutoff_frequency: float | None
     :param filter_order: Filter Order, Higher values produce a harder frequency cutoff
-    :type filter_order: int | None
     :param samples_per_frame: Samples per Frame, How many samples to calculate per frame, helps with subframe data
-    :type samples_per_frame: int | None
     :param blend: Blend, How much to blend to the smoothed curve
-    :type blend: float | None
     :param blend_in_out: Blend In/Out, Linearly blend the smooth data to the border frames of the selection
-    :type blend_in_out: int | None
     """
 
 def clean(
@@ -129,12 +103,8 @@ def clean(
 ) -> None:
     """Simplify F-Curves by removing closely spaced keyframes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param threshold: Threshold
-    :type threshold: float | None
     :param channels: Channels
-    :type channels: bool | None
     """
 
 def click_insert(
@@ -148,14 +118,9 @@ def click_insert(
 ) -> None:
     """Insert new keyframe at the cursor position for the active F-Curve
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param frame: Frame Number, Frame to insert keyframe on
-    :type frame: float | None
     :param value: Value, Value for keyframe on
-    :type value: float | None
     :param extend: Extend, Extend selection instead of deselecting everything first
-    :type extend: bool | None
     """
 
 def clickselect(
@@ -164,6 +129,7 @@ def clickselect(
     /,
     *,
     wait_to_deselect_others: bool | None = False,
+    use_select_on_click: bool | None = False,
     mouse_x: int | None = 0,
     mouse_y: int | None = 0,
     extend: bool | None = False,
@@ -173,22 +139,14 @@ def clickselect(
 ) -> None:
     """Select keyframes by clicking on them
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param wait_to_deselect_others: Wait to Deselect Others
-    :type wait_to_deselect_others: bool | None
+    :param use_select_on_click: Act on Click, Instead of selecting on mouse press, wait to see if theres drag event. Otherwise select on mouse release
     :param mouse_x: Mouse X
-    :type mouse_x: int | None
     :param mouse_y: Mouse Y
-    :type mouse_y: int | None
     :param extend: Extend Select, Toggle keyframe selection instead of leaving newly selected keyframes only
-    :type extend: bool | None
     :param deselect_all: Deselect On Nothing, Deselect all when nothing under the cursor
-    :type deselect_all: bool | None
     :param column: Column Select, Select all keyframes that occur on the same frame as the one under the mouse
-    :type column: bool | None
     :param curves: Only Curves, Select all the keyframes in the curve
-    :type curves: bool | None
     """
 
 def copy(
@@ -196,11 +154,7 @@ def copy(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy selected keyframes to the internal clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy selected keyframes to the internal clipboard"""
 
 def cursor_set(
     execution_context: int | str | None = None,
@@ -212,12 +166,8 @@ def cursor_set(
 ) -> None:
     """Interactively set the current frame and value cursor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param frame: Frame
-    :type frame: float | None
     :param value: Value
-    :type value: float | None
     """
 
 def decimate(
@@ -231,8 +181,6 @@ def decimate(
 ) -> None:
     """Decimate F-Curves by removing keyframes that influence the curve shape the least
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param mode: Mode, Which mode to use for decimation
 
     RATIO
@@ -240,11 +188,8 @@ def decimate(
 
     ERROR
     Error Margin -- Use an error margin to specify how much the curve is allowed to deviate from the original path.
-        :type mode: typing.Literal['RATIO','ERROR'] | None
         :param factor: Factor, The ratio of keyframes to remove
-        :type factor: float | None
         :param remove_error_margin: Max Error Margin, How much the new decimated curve is allowed to deviate from the original
-        :type remove_error_margin: float | None
     """
 
 def delete(
@@ -256,10 +201,7 @@ def delete(
 ) -> None:
     """Remove all selected keyframes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param confirm: Confirm, Prompt for confirmation
-    :type confirm: bool | None
     """
 
 def driver_delete_invalid(
@@ -267,22 +209,14 @@ def driver_delete_invalid(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete all visible drivers considered invalid
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete all visible drivers considered invalid"""
 
 def driver_variables_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the driver variables of the active driver
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the driver variables of the active driver"""
 
 def driver_variables_paste(
     execution_context: int | str | None = None,
@@ -293,10 +227,7 @@ def driver_variables_paste(
 ) -> None:
     """Add copied driver variables to the active driver
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param replace: Replace Existing, Replace existing driver variables, instead of just appending to the end of the existing list
-    :type replace: bool | None
     """
 
 def duplicate(
@@ -308,10 +239,7 @@ def duplicate(
 ) -> None:
     """Make a copy of all selected keyframes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mode: Mode
-    :type mode: bpy.stub_internal.rna_enums.TransformModeTypeItems | None
     """
 
 def duplicate_move(
@@ -324,12 +252,8 @@ def duplicate_move(
 ) -> None:
     """Make a copy of all selected keyframes and move them
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param GRAPH_OT_duplicate: Duplicate Keyframes, Make a copy of all selected keyframes
-    :type GRAPH_OT_duplicate: duplicate | None
     :param TRANSFORM_OT_translate: Move, Move selected items
-    :type TRANSFORM_OT_translate: bpy.ops.transform.translate | None
     """
 
 def ease(
@@ -342,12 +266,8 @@ def ease(
 ) -> None:
     """Align keyframes on a ease-in or ease-out curve
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Curve Bend, Defines if the keys should be aligned on an ease-in or ease-out curve
-    :type factor: float | None
     :param sharpness: Sharpness, Higher values make the change more abrupt
-    :type sharpness: float | None
     """
 
 def easing_type(
@@ -359,10 +279,7 @@ def easing_type(
 ) -> None:
     """Set easing type for the F-Curve segments starting from the selected keyframes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.BeztripleInterpolationEasingItems | None
     """
 
 def equalize_handles(
@@ -376,8 +293,6 @@ def equalize_handles(
 ) -> None:
     """Ensure selected keyframes handles have equal length, optionally making them horizontal. Automatic, Automatic Clamped, or Vector handle types will be converted to Aligned
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param side: Side, Side of the keyframes Bézier handles to affect
 
     LEFT
@@ -388,11 +303,8 @@ def equalize_handles(
 
     BOTH
     Both -- Equalize both of a keyframes handles.
-        :type side: typing.Literal['LEFT','RIGHT','BOTH'] | None
         :param handle_length: Handle Length, Length to make selected keyframes Bézier handles
-        :type handle_length: float | None
         :param flatten: Flatten, Make the values of the selected keyframes handles the same as their respective keyframes
-        :type flatten: bool | None
     """
 
 def euler_filter(
@@ -400,11 +312,7 @@ def euler_filter(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Fix large jumps and flips in the selected Euler Rotation F-Curves arising from rotation values being clipped when baking physics
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Fix large jumps and flips in the selected Euler Rotation F-Curves arising from rotation values being clipped when baking physics"""
 
 def extrapolation_type(
     execution_context: int | str | None = None,
@@ -416,8 +324,6 @@ def extrapolation_type(
 ) -> None:
     """Set extrapolation mode for selected F-Curves
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     CONSTANT
@@ -431,7 +337,6 @@ def extrapolation_type(
 
     CLEAR_CYCLIC
     Clear Cyclic (F-Modifier) -- Remove Cycles F-Modifier if not needed anymore.
-        :type type: typing.Literal['CONSTANT','LINEAR','MAKE_CYCLIC','CLEAR_CYCLIC'] | None
     """
 
 def fmodifier_add(
@@ -444,12 +349,8 @@ def fmodifier_add(
 ) -> None:
     """Add F-Modifier to the active/selected F-Curves
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.FmodifierTypeItems | None
     :param only_active: Only Active, Only add F-Modifier to active F-Curve
-    :type only_active: bool | None
     """
 
 def fmodifier_copy(
@@ -457,11 +358,7 @@ def fmodifier_copy(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the F-Modifier(s) of the active F-Curve
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the F-Modifier(s) of the active F-Curve"""
 
 def fmodifier_paste(
     execution_context: int | str | None = None,
@@ -473,12 +370,8 @@ def fmodifier_paste(
 ) -> None:
     """Add copied F-Modifiers to the selected F-Curves
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param only_active: Only Active, Only paste F-Modifiers on active F-Curve
-    :type only_active: bool | None
     :param replace: Replace Existing, Replace existing F-Modifiers, instead of just appending to the end of the existing list
-    :type replace: bool | None
     """
 
 def frame_jump(
@@ -486,11 +379,7 @@ def frame_jump(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Place the cursor on the midpoint of selected keyframes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Place the cursor on the midpoint of selected keyframes"""
 
 def gaussian_smooth(
     execution_context: int | str | None = None,
@@ -503,14 +392,9 @@ def gaussian_smooth(
 ) -> None:
     """Smooth the curve using a Gaussian filter
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Factor, How much to blend to the default value
-    :type factor: float | None
     :param sigma: Sigma, The shape of the gaussian distribution, lower values make it sharper
-    :type sigma: float | None
     :param filter_width: Filter Width, How far to each side the operator will average the key values
-    :type filter_width: int | None
     """
 
 def ghost_curves_clear(
@@ -518,22 +402,14 @@ def ghost_curves_clear(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Clear F-Curve snapshots (Ghosts) for active Graph Editor
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Clear F-Curve snapshots (Ghosts) for active Graph Editor"""
 
 def ghost_curves_create(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create snapshot (Ghosts) of selected F-Curves as background aid for active Graph Editor
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create snapshot (Ghosts) of selected F-Curves as background aid for active Graph Editor"""
 
 def handle_type(
     execution_context: int | str | None = None,
@@ -544,10 +420,7 @@ def handle_type(
 ) -> None:
     """Set type of handle for selected keyframes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.KeyframeHandleTypeItems | None
     """
 
 def hide(
@@ -559,10 +432,7 @@ def hide(
 ) -> None:
     """Hide selected curves from Graph Editor view
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param unselected: Unselected, Hide unselected rather than selected curves
-    :type unselected: bool | None
     """
 
 def interpolation_type(
@@ -575,10 +445,7 @@ def interpolation_type(
 ) -> None:
     """Set interpolation mode for the F-Curve segments starting from the selected keyframes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.BeztripleInterpolationModeItems | None
     """
 
 def keyframe_insert(
@@ -591,8 +458,6 @@ def keyframe_insert(
 ) -> None:
     """Insert keyframes for the specified channels
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     ALL
@@ -609,7 +474,6 @@ def keyframe_insert(
 
     CURSOR_SEL
     Selected Channels at Cursor -- Insert a keyframe for selected F-Curves at the cursor point.
-        :type type: typing.Literal['ALL','SEL','ACTIVE','CURSOR_ACTIVE','CURSOR_SEL'] | None
     """
 
 def keyframe_jump(
@@ -621,10 +485,7 @@ def keyframe_jump(
 ) -> None:
     """Jump to previous/next keyframe
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param next: Next Keyframe
-    :type next: bool | None
     """
 
 def keys_to_samples(
@@ -632,11 +493,7 @@ def keys_to_samples(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Convert selected channels to an uneditable set of samples to save storage space
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Convert selected channels to an uneditable set of samples to save storage space"""
 
 def match_slope(
     execution_context: int | str | None = None,
@@ -647,10 +504,7 @@ def match_slope(
 ) -> None:
     """Blend selected keys to the slope of neighboring ones
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Factor, Defines which keys to use as slope and how much to blend towards them
-    :type factor: float | None
     """
 
 def mirror(
@@ -662,8 +516,6 @@ def mirror(
 ) -> None:
     """Flip selected keyframes over the selected mirror line
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     CFRA
@@ -680,7 +532,6 @@ def mirror(
 
     MARKER
     By Times Over First Selected Marker -- Flip times of selected keyframes using the first selected marker as the reference point.
-        :type type: typing.Literal['CFRA','VALUE','YAXIS','XAXIS','MARKER'] | None
     """
 
 def paste(
@@ -696,16 +547,10 @@ def paste(
 ) -> None:
     """Paste keyframes from the internal clipboard for the selected channels, starting on the current frame
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param offset: Frame Offset, Paste time offset of keys
-    :type offset: bpy.stub_internal.rna_enums.KeyframePasteOffsetItems | None
     :param value_offset: Value Offset, Paste keys with a value offset
-    :type value_offset: bpy.stub_internal.rna_enums.KeyframePasteOffsetValueItems | None
     :param merge: Type, Method of merging pasted keys and existing
-    :type merge: bpy.stub_internal.rna_enums.KeyframePasteMergeItems | None
     :param flipped: Flipped, Paste keyframes from mirrored bones if they exist
-    :type flipped: bool | None
     """
 
 def previewrange_set(
@@ -713,11 +558,7 @@ def previewrange_set(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set Preview Range based on range of selected keyframes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set Preview Range based on range of selected keyframes"""
 
 def push_pull(
     execution_context: int | str | None = None,
@@ -728,10 +569,7 @@ def push_pull(
 ) -> None:
     """Exaggerate or minimize the value of the selected keys
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Factor, Control how far to push or pull the keys
-    :type factor: float | None
     """
 
 def reveal(
@@ -743,10 +581,7 @@ def reveal(
 ) -> None:
     """Make previously hidden curves visible again in Graph Editor view
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param select: Select
-    :type select: bool | None
     """
 
 def samples_to_keys(
@@ -754,11 +589,7 @@ def samples_to_keys(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Convert selected channels from samples to keyframes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Convert selected channels from samples to keyframes"""
 
 def scale_average(
     execution_context: int | str | None = None,
@@ -769,10 +600,7 @@ def scale_average(
 ) -> None:
     """Scale selected key values by their combined average
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Scale Factor, The scale factor applied to the curve segments
-    :type factor: float | None
     """
 
 def scale_from_neighbor(
@@ -785,12 +613,8 @@ def scale_from_neighbor(
 ) -> None:
     """Increase or decrease the value of selected keys in relationship to the neighboring one
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Factor, The factor to scale keys with
-    :type factor: float | None
     :param anchor: Reference Key, Which end of the segment to use as a reference to scale from
-    :type anchor: typing.Literal['LEFT','RIGHT'] | None
     """
 
 def select_all(
@@ -802,8 +626,6 @@ def select_all(
 ) -> None:
     """Toggle selection of all keyframes
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -817,7 +639,6 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def select_box(
@@ -838,26 +659,15 @@ def select_box(
 ) -> None:
     """Select all keyframes within the specified region
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param axis_range: Axis Range
-        :type axis_range: bool | None
         :param include_handles: Include Handles, Are handles tested individually against the selection criteria, independently from their keys. When unchecked, handles are (de)selected in unison with their keys
-        :type include_handles: bool | None
         :param tweak: Tweak, Operator has been activated using a click-drag event
-        :type tweak: bool | None
         :param use_curve_selection: Select Curves, Allow selecting all the keyframes of a curve by selecting the calculated F-curve
-        :type use_curve_selection: bool | None
         :param xmin: X Min
-        :type xmin: int | None
         :param xmax: X Max
-        :type xmax: int | None
         :param ymin: Y Min
-        :type ymin: int | None
         :param ymax: Y Max
-        :type ymax: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param mode: Mode
 
     SET
@@ -868,7 +678,6 @@ def select_box(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
     """
 
 def select_circle(
@@ -886,16 +695,10 @@ def select_circle(
 ) -> None:
     """Select keyframe points using circle selection
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param x: X
-        :type x: int | None
         :param y: Y
-        :type y: int | None
         :param radius: Radius
-        :type radius: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param mode: Mode
 
     SET
@@ -906,11 +709,8 @@ def select_circle(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
         :param include_handles: Include Handles, Are handles tested individually against the selection criteria, independently from their keys. When unchecked, handles are (de)selected in unison with their keys
-        :type include_handles: bool | None
         :param use_curve_selection: Select Curves, Allow selecting all the keyframes of a curve by selecting the curve itself
-        :type use_curve_selection: bool | None
     """
 
 def select_column(
@@ -923,10 +723,7 @@ def select_column(
 ) -> None:
     """Select all keyframes on the specified frame(s)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mode: Mode
-    :type mode: typing.Literal['KEYS','CFRA','MARKERS_COLUMN','MARKERS_BETWEEN'] | None
     """
 
 def select_key_handles(
@@ -940,8 +737,6 @@ def select_key_handles(
 ) -> None:
     """For selected keyframes, select/deselect any combination of the key itself and its handles
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param left_handle_action: Left Handle, Effect on the left handle
 
     SELECT
@@ -952,7 +747,6 @@ def select_key_handles(
 
     KEEP
     Keep -- Leave as is.
-        :type left_handle_action: typing.Literal['SELECT','DESELECT','KEEP'] | None
         :param right_handle_action: Right Handle, Effect on the right handle
 
     SELECT
@@ -963,7 +757,6 @@ def select_key_handles(
 
     KEEP
     Keep -- Leave as is.
-        :type right_handle_action: typing.Literal['SELECT','DESELECT','KEEP'] | None
         :param key_action: Key, Effect on the key itself
 
     SELECT
@@ -974,7 +767,6 @@ def select_key_handles(
 
     KEEP
     Keep -- Leave as is.
-        :type key_action: typing.Literal['SELECT','DESELECT','KEEP'] | None
     """
 
 def select_lasso(
@@ -992,16 +784,10 @@ def select_lasso(
 ) -> None:
     """Select keyframe points using lasso selection
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param path: Path
-        :type path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path
-        :type use_smooth_stroke: bool | None
         :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke
-        :type smooth_stroke_factor: float | None
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues
-        :type smooth_stroke_radius: int | None
         :param mode: Mode
 
     SET
@@ -1012,11 +798,8 @@ def select_lasso(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
         :param include_handles: Include Handles, Are handles tested individually against the selection criteria, independently from their keys. When unchecked, handles are (de)selected in unison with their keys
-        :type include_handles: bool | None
         :param use_curve_selection: Select Curves, Allow selecting all the keyframes of a curve by selecting the curve itself
-        :type use_curve_selection: bool | None
     """
 
 def select_leftright(
@@ -1029,12 +812,8 @@ def select_leftright(
 ) -> None:
     """Select keyframes to the left or the right of the current frame
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mode: Mode
-    :type mode: typing.Literal['CHECK','LEFT','RIGHT'] | None
     :param extend: Extend Select
-    :type extend: bool | None
     """
 
 def select_less(
@@ -1042,33 +821,21 @@ def select_less(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Deselect keyframes on ends of selection islands
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Deselect keyframes on ends of selection islands"""
 
 def select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select keyframes occurring in the same F-Curves as selected ones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select keyframes occurring in the same F-Curves as selected ones"""
 
 def select_more(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select keyframes beside already selected ones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select keyframes beside already selected ones"""
 
 def shear(
     execution_context: int | str | None = None,
@@ -1080,10 +847,7 @@ def shear(
 ) -> None:
     """Affect the value of the keys linearly, keeping the same relationship between them using either the left or the right key as reference
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param factor: Shear Factor, The amount of shear to apply
-        :type factor: float | None
         :param direction: Direction, Which end of the segment to use as a reference to shear from
 
     FROM_LEFT
@@ -1091,7 +855,6 @@ def shear(
 
     FROM_RIGHT
     From Right -- Shear the keys using the right key as reference.
-        :type direction: typing.Literal['FROM_LEFT','FROM_RIGHT'] | None
     """
 
 def smooth(
@@ -1099,11 +862,7 @@ def smooth(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Apply weighted moving means to make selected F-Curves less bumpy
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Apply weighted moving means to make selected F-Curves less bumpy"""
 
 def snap(
     execution_context: int | str | None = None,
@@ -1122,8 +881,6 @@ def snap(
 ) -> None:
     """Snap selected keyframes to the chosen times/values
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     CFRA
@@ -1143,7 +900,6 @@ def snap(
 
     HORIZONTAL
     Flatten Handles -- Flatten handles for a smoother transition.
-        :type type: typing.Literal['CFRA','VALUE','NEAREST_FRAME','NEAREST_SECOND','NEAREST_MARKER','HORIZONTAL'] | None
     """
 
 def snap_cursor_value(
@@ -1151,11 +907,7 @@ def snap_cursor_value(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Place the cursor value on the average value of selected keyframes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Place the cursor value on the average value of selected keyframes"""
 
 def sound_to_samples(
     execution_context: int | str | None = None,
@@ -1200,50 +952,27 @@ def sound_to_samples(
 ) -> None:
     """Bakes a sound wave to samples on selected channels
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param show_multiview: Enable Multi-View
-        :type show_multiview: bool | None
         :param use_multiview: Use Multi-View
-        :type use_multiview: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -1257,27 +986,16 @@ def sound_to_samples(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param low: Lowest Frequency, Cutoff frequency of a high-pass filter that is applied to the audio data
-        :type low: float | None
         :param high: Highest Frequency, Cutoff frequency of a low-pass filter that is applied to the audio data
-        :type high: float | None
         :param attack: Attack Time, Value for the envelope calculation that tells how fast the envelope can rise (the lower the value the steeper it can rise)
-        :type attack: float | None
         :param release: Release Time, Value for the envelope calculation that tells how fast the envelope can fall (the lower the value the steeper it can fall)
-        :type release: float | None
         :param threshold: Threshold, Minimum amplitude value needed to influence the envelope
-        :type threshold: float | None
         :param use_accumulate: Accumulate, Only the positive differences of the envelope amplitudes are summarized to produce the output
-        :type use_accumulate: bool | None
         :param use_additive: Additive, The amplitudes of the envelope are summarized (or, when Accumulate is enabled, both positive and negative differences are accumulated)
-        :type use_additive: bool | None
         :param use_square: Square, The output is a square curve (negative values always result in -1, and positive ones in 1)
-        :type use_square: bool | None
         :param sthreshold: Square Threshold, Square only: all values with an absolute amplitude lower than that result in 0
-        :type sthreshold: float | None
     """
 
 def time_offset(
@@ -1289,10 +1007,7 @@ def time_offset(
 ) -> None:
     """Shifts the value of selected keys in time
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param frame_offset: Frame Offset, How far in frames to offset the animation
-    :type frame_offset: float | None
     """
 
 def view_all(
@@ -1304,10 +1019,7 @@ def view_all(
 ) -> None:
     """Reset viewable area to show full keyframe range
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param include_handles: Include Handles, Include handles of keyframes when calculating extents
-    :type include_handles: bool | None
     """
 
 def view_frame(
@@ -1315,11 +1027,7 @@ def view_frame(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move the view to the current frame
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move the view to the current frame"""
 
 def view_selected(
     execution_context: int | str | None = None,
@@ -1330,8 +1038,5 @@ def view_selected(
 ) -> None:
     """Reset viewable area to show selected keyframe range
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param include_handles: Include Handles, Include handles of keyframes when calculating extents
-    :type include_handles: bool | None
     """

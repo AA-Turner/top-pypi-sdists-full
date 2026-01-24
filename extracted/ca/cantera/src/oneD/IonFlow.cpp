@@ -18,6 +18,13 @@ namespace Cantera
 IonFlow::IonFlow(ThermoPhase* ph, size_t nsp, size_t points) :
     Flow1D(ph, nsp, points)
 {
+    warn_deprecated("IonFlow::IonFlow(ThermoPhase*, size_t, size_t)",
+        "To be removed after Cantera 3.2. Use constructor using Solution instead.");
+    _init(ph, nsp, points);
+}
+
+void IonFlow::_init(ThermoPhase* ph, size_t nsp, size_t points)
+{
     // make a local copy of species charge
     for (size_t k = 0; k < m_nsp; k++) {
         m_speciesCharge.push_back(m_thermo->charge(k));
@@ -33,8 +40,8 @@ IonFlow::IonFlow(ThermoPhase* ph, size_t nsp, size_t points) :
     }
 
     // Find the index of electron
-    if (m_thermo->speciesIndex("E") != npos ) {
-        m_kElectron = m_thermo->speciesIndex("E");
+    if (m_thermo->speciesIndex("E", false) != npos ) {
+        m_kElectron = m_thermo->speciesIndex("E", true);
     }
 
     // no bound for electric potential
@@ -44,19 +51,20 @@ IonFlow::IonFlow(ThermoPhase* ph, size_t nsp, size_t points) :
     // instabilities. Tolerance on electrons is even tighter to account for the
     // low "molecular" weight.
     for (size_t k : m_kCharge) {
-        setBounds(c_offset_Y + k, -1e-14, 1.0);
+        setBounds(c_offset_Y + k, -1e-10, 1.0);
     }
-    setBounds(c_offset_Y + m_kElectron, -1e-18, 1.0);
+    setBounds(c_offset_Y + m_kElectron, -1e-14, 1.0);
 
     m_refiner->setActive(c_offset_E, false);
     m_mobility.resize(m_nsp*m_points);
-    m_do_electric_field.resize(m_points,false);
 }
 
-IonFlow::IonFlow(shared_ptr<Solution> sol, const string& id, size_t points)
-    : IonFlow(sol->thermo().get(), sol->thermo()->nSpecies(), points)
+IonFlow::IonFlow(shared_ptr<Solution> phase, const string& id, size_t points)
+    : Flow1D(phase, id, points)
 {
-    setSolution(sol);
+    _init(phase->thermo().get(), phase->thermo()->nSpecies(), points);
+    m_solution = phase;
+    m_solution->thermo()->addSpeciesLock();
     m_id = id;
     m_kin = m_solution->kinetics().get();
     m_trans = m_solution->transport().get();
@@ -66,8 +74,8 @@ IonFlow::IonFlow(shared_ptr<Solution> sol, const string& id, size_t points)
             "Solution ('gas') object.");
     }
     m_solution->registerChangedCallback(this, [this]() {
-        setKinetics(m_solution->kinetics());
-        setTransport(m_solution->transport());
+        _setKinetics(m_solution->kinetics());
+        _setTransport(m_solution->transport());
     });
 }
 
@@ -84,7 +92,6 @@ string IonFlow::domainType() const {
 void IonFlow::resize(size_t components, size_t points){
     Flow1D::resize(components, points);
     m_mobility.resize(m_nsp*m_points);
-    m_do_electric_field.resize(m_points,false);
 }
 
 bool IonFlow::componentActive(size_t n) const
@@ -115,11 +122,10 @@ void IonFlow::updateTransport(double* x, size_t j0, size_t j1)
 
 void IonFlow::updateDiffFluxes(const double* x, size_t j0, size_t j1)
 {
-    if (m_stage == 1) {
-        frozenIonMethod(x,j0,j1);
-    }
-    if (m_stage == 2) {
+    if (m_do_electric_field) {
         electricFieldMethod(x,j0,j1);
+    } else {
+        frozenIonMethod(x,j0,j1);
     }
 }
 
@@ -187,8 +193,12 @@ void IonFlow::electricFieldMethod(const double* x, size_t j0, size_t j1)
 
 void IonFlow::setSolvingStage(const size_t stage)
 {
-    if (stage == 1 || stage == 2) {
-        m_stage = stage;
+    warn_deprecated("IonFlow::setSolvingStage", "To be removed after Cantera 3.2. ",
+        "Use solveElectricField() or fixElectricField() instead");
+    if (stage == 1) {
+        m_do_electric_field = false;
+    } else if (stage == 2) {
+        m_do_electric_field = true;
     } else {
         throw CanteraError("IonFlow::setSolvingStage",
                     "solution stage must be set to: "
@@ -202,7 +212,7 @@ void IonFlow::evalElectricField(double* x, double* rsd, int* diag,
                                 double rdt, size_t jmin, size_t jmax)
 {
     Flow1D::evalElectricField(x, rsd, diag, rdt, jmin, jmax);
-    if (m_stage != 2) {
+    if (!m_do_electric_field) {
         return;
     }
 
@@ -227,7 +237,7 @@ void IonFlow::evalSpecies(double* x, double* rsd, int* diag,
                           double rdt, size_t jmin, size_t jmax)
 {
     Flow1D::evalSpecies(x, rsd, diag, rdt, jmin, jmax);
-    if (m_stage != 2) {
+    if (!m_do_electric_field) {
         return;
     }
 
@@ -243,52 +253,34 @@ void IonFlow::evalSpecies(double* x, double* rsd, int* diag,
 
 void IonFlow::solveElectricField(size_t j)
 {
-    bool changed = false;
-    if (j == npos) {
-        for (size_t i = 0; i < m_points; i++) {
-            if (!m_do_electric_field[i]) {
-                changed = true;
-            }
-            m_do_electric_field[i] = true;
-        }
-    } else {
-        if (!m_do_electric_field[j]) {
-            changed = true;
-        }
-        m_do_electric_field[j] = true;
+    if (j != npos) {
+        warn_deprecated("IonFlow::solveElectricField", "Argument to be removed after "
+            "Cantera 3.2.");
+    }
+    if (!m_do_electric_field) {
+        needJacUpdate();
     }
     m_refiner->setActive(c_offset_U, true);
     m_refiner->setActive(c_offset_V, true);
     m_refiner->setActive(c_offset_T, true);
     m_refiner->setActive(c_offset_E, true);
-    if (changed) {
-        needJacUpdate();
-    }
+    m_do_electric_field = true;
 }
 
 void IonFlow::fixElectricField(size_t j)
 {
-    bool changed = false;
-    if (j == npos) {
-        for (size_t i = 0; i < m_points; i++) {
-            if (m_do_electric_field[i]) {
-                changed = true;
-            }
-            m_do_electric_field[i] = false;
-        }
-    } else {
-        if (m_do_electric_field[j]) {
-            changed = true;
-        }
-        m_do_electric_field[j] = false;
+    if (j != npos) {
+        warn_deprecated("IonFlow::fixElectricField", "Argument to be removed after "
+            "Cantera 3.2.");
+    }
+    if (m_do_electric_field) {
+        needJacUpdate();
     }
     m_refiner->setActive(c_offset_U, false);
     m_refiner->setActive(c_offset_V, false);
     m_refiner->setActive(c_offset_T, false);
     m_refiner->setActive(c_offset_E, false);
-    if (changed) {
-        needJacUpdate();
-    }
+    m_do_electric_field = false;
 }
 
 void IonFlow::setElectronTransport(vector<double>& tfix, vector<double>& diff_e,
@@ -306,16 +298,6 @@ void IonFlow::setElectronTransport(vector<double>& tfix, vector<double>& diff_e,
     m_mobi_e_fix.resize(degree + 1);
     polyfit(n, degree, tlog.data(), diff_e.data(), w.data(), m_diff_e_fix.data());
     polyfit(n, degree, tlog.data(), mobi_e.data(), w.data(), m_mobi_e_fix.data());
-}
-
-void IonFlow::_finalize(const double* x)
-{
-    Flow1D::_finalize(x);
-
-    bool p = m_do_electric_field[0];
-    if (p) {
-        solveElectricField();
-    }
 }
 
 }

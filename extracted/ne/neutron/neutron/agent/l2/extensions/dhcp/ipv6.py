@@ -147,7 +147,7 @@ class DHCPIPv6Responder(dhcp_base.DHCPResponderBase):
 
     def get_dhcp_options(self, mac, ip_info, req_options, req_type):
         ip_addr = ip_info['ip_address']
-        gateway_ip = ip_info['gateway_ip']
+        gateway_ip = str(ip_info['gateway_ip'])
         dns_nameservers = ip_info['dns_nameservers']
 
         option_list = []
@@ -210,9 +210,9 @@ class DHCPIPv6Responder(dhcp_base.DHCPResponderBase):
                 dhcp6.option(
                     code=DHCPV6_OPTION_DNS_RECURSIVE_NS,
                     data=domain_serach, length=len(domain_serach)))
-        else:
+        elif gateway_ip != constants.METADATA_V6_IP:
             # use gateway as the default DNS server address
-            domain_serach = addrconv.ipv6.text_to_bin(str(gateway_ip))
+            domain_serach = addrconv.ipv6.text_to_bin(gateway_ip)
             option_list.append(
                 dhcp6.option(
                     code=DHCPV6_OPTION_DNS_RECURSIVE_NS,
@@ -221,7 +221,7 @@ class DHCPIPv6Responder(dhcp_base.DHCPResponderBase):
         # 39: Fully Qualified Domain Name
         fqdn = 'host-%s' % ip_addr.replace('.', '-').replace(':', '-')
         if req_type == 'REQUEST' and cfg.CONF.dns_domain:
-            fqdn = '{}.{}'.format(fqdn, cfg.CONF.dns_domain)
+            fqdn = f'{fqdn}.{cfg.CONF.dns_domain}'
 
         # 0000 0... = Reserved: 0x00
         # .... .0.. = N bit: Server should perform DNS updates

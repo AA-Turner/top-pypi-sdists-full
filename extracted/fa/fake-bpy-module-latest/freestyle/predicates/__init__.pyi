@@ -31,9 +31,7 @@ class ContourUP1D:
         contour if it is bordered by a different shape on each of its sides.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: True if the Interface1D is a contour, false otherwise.
-                :rtype: bool
         """
 
 class DensityLowerThanUP1D:
@@ -44,10 +42,8 @@ class DensityLowerThanUP1D:
 
                 :param threshold: The value of the threshold density. Any Interface1D
         having a density lower than this threshold will match.
-                :type threshold: float
                 :param sigma: The sigma value defining the density evaluation window
         size used in the `freestyle.functions.DensityF0D` functor.
-                :type sigma: float
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> bool:
@@ -55,9 +51,7 @@ class DensityLowerThanUP1D:
         than a user-defined density value.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: True if the density is lower than a threshold.
-                :rtype: bool
         """
 
 class EqualToChainingTimeStampUP1D:
@@ -67,7 +61,6 @@ class EqualToChainingTimeStampUP1D:
         """Builds a EqualToChainingTimeStampUP1D object.
 
         :param ts: A time stamp value.
-        :type ts: int
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> bool:
@@ -75,9 +68,7 @@ class EqualToChainingTimeStampUP1D:
         user-defined value.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: True if the time stamp is equal to a user-defined value.
-                :rtype: bool
         """
 
 class EqualToTimeStampUP1D:
@@ -87,7 +78,6 @@ class EqualToTimeStampUP1D:
         """Builds a EqualToTimeStampUP1D object.
 
         :param ts: A time stamp value.
-        :type ts: int
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> bool:
@@ -95,9 +85,7 @@ class EqualToTimeStampUP1D:
         user-defined value.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: True if the time stamp is equal to a user-defined value.
-                :rtype: bool
         """
 
 class ExternalContourUP1D:
@@ -109,10 +97,8 @@ class ExternalContourUP1D:
         one of its sides.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: True if the Interface1D is an external contour, false
         otherwise.
-                :rtype: bool
         """
 
 class FalseBP1D:
@@ -124,11 +110,8 @@ class FalseBP1D:
         """Always returns false.
 
         :param inter1: The first Interface1D object.
-        :type inter1: freestyle.types.Interface1D
         :param inter2: The second Interface1D object.
-        :type inter2: freestyle.types.Interface1D
         :return: False.
-        :rtype: bool
         """
 
 class FalseUP0D:
@@ -138,9 +121,7 @@ class FalseUP0D:
         """Always returns false.
 
         :param it: An Interface0DIterator object.
-        :type it: freestyle.types.Interface0DIterator
         :return: False.
-        :rtype: bool
         """
 
 class FalseUP1D:
@@ -150,9 +131,7 @@ class FalseUP1D:
         """Always returns false.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: False.
-        :rtype: bool
         """
 
 class Length2DBP1D:
@@ -165,11 +144,8 @@ class Length2DBP1D:
         of inter2.
 
                 :param inter1: The first Interface1D object.
-                :type inter1: freestyle.types.Interface1D
                 :param inter2: The second Interface1D object.
-                :type inter2: freestyle.types.Interface1D
                 :return: True or false.
-                :rtype: bool
         """
 
 class MaterialBP1D:
@@ -190,7 +166,6 @@ class QuantitativeInvisibilityUP1D:
 
                 :param qi: The Quantitative Invisibility you want the Interface1D to
         have.
-                :type qi: int
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> bool:
@@ -200,10 +175,8 @@ class QuantitativeInvisibilityUP1D:
         equals a certain user-defined value.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: True if Quantitative Invisibility equals a user-defined
         value.
-                :rtype: bool
         """
 
 class SameShapeIdBP1D:
@@ -215,11 +188,8 @@ class SameShapeIdBP1D:
         """Returns true if inter1 and inter2 belong to the same shape.
 
         :param inter1: The first Interface1D object.
-        :type inter1: freestyle.types.Interface1D
         :param inter2: The second Interface1D object.
-        :type inter2: freestyle.types.Interface1D
         :return: True or false.
-        :rtype: bool
         """
 
 class ShapeUP1D:
@@ -229,9 +199,7 @@ class ShapeUP1D:
         """Builds a ShapeUP1D object.
 
         :param first: The first Id component.
-        :type first: int
         :param second: The second Id component.
-        :type second: int
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> bool:
@@ -239,10 +207,8 @@ class ShapeUP1D:
         same `freestyle.types.Id` as the one specified by the user.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: True if Interface1D belongs to the shape of the
         user-specified Id.
-                :rtype: bool
         """
 
 class TrueBP1D:
@@ -254,11 +220,8 @@ class TrueBP1D:
         """Always returns true.
 
         :param inter1: The first Interface1D object.
-        :type inter1: freestyle.types.Interface1D
         :param inter2: The second Interface1D object.
-        :type inter2: freestyle.types.Interface1D
         :return: True.
-        :rtype: bool
         """
 
 class TrueUP0D:
@@ -268,9 +231,7 @@ class TrueUP0D:
         """Always returns true.
 
         :param it: An Interface0DIterator object.
-        :type it: freestyle.types.Interface0DIterator
         :return: True.
-        :rtype: bool
         """
 
 class TrueUP1D:
@@ -280,9 +241,7 @@ class TrueUP1D:
         """Always returns true.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: True.
-        :rtype: bool
         """
 
 class ViewMapGradientNormBP1D:
@@ -298,15 +257,12 @@ class ViewMapGradientNormBP1D:
 
                 :param level: The level of the pyramid from which the pixel must be
         read.
-                :type level: int
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
                 :param sampling: The resolution used to sample the chain:
         GetViewMapGradientNormF0D is evaluated at each sample point and
         the result is obtained by combining the resulting values into a
         single one, following the method specified by integration_type.
-                :type sampling: float
         """
 
     def __call__(
@@ -316,11 +272,8 @@ class ViewMapGradientNormBP1D:
         higher for inter1 than for inter2.
 
                 :param inter1: The first Interface1D object.
-                :type inter1: freestyle.types.Interface1D
                 :param inter2: The second Interface1D object.
-                :type inter2: freestyle.types.Interface1D
                 :return: True or false.
-                :rtype: bool
         """
 
 class WithinImageBoundaryUP1D:
@@ -330,13 +283,9 @@ class WithinImageBoundaryUP1D:
         """Builds an WithinImageBoundaryUP1D object.
 
         :param xmin: X lower bound of the image boundary.
-        :type xmin: float
         :param ymin: Y lower bound of the image boundary.
-        :type ymin: float
         :param xmax: X upper bound of the image boundary.
-        :type xmax: float
         :param ymax: Y upper bound of the image boundary.
-        :type ymax: float
         """
 
     def __call__(self, inter) -> None:

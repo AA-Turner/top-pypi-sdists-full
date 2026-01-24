@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: spatialmath-python
-Version: 1.1.14
+Version: 1.1.15
 Summary: Provides spatial maths capability for Python.
 Author-email: Peter Corke <rvc@petercorke.com>
 Project-URL: Homepage, https://github.com/bdaiinstitute/spatialmath-python

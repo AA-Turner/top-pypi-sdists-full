@@ -88,6 +88,15 @@ if(BUILD_SYMUSIC_PY)
     target_link_libraries(core PRIVATE symusic)
 
     install(TARGETS core LIBRARY DESTINATION symusic)
+
+    nanobind_add_stub(
+        symusic_core_stub
+        INSTALL_TIME
+        MODULE symusic.core
+        OUTPUT symusic/core.pyi
+        MARKER_FILE symusic/py.typed
+        PYTHON_PATH "."
+    )
 #   install abc2midi and midi2abc
     add_subdirectory(3rdparty/abcmidi)
     install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
@@ -101,12 +110,14 @@ if(BUILD_SYMUSIC_EXAMPLE)
     add_executable(io_bench examples/cpp/io_bench.cpp)
     add_executable(synth examples/cpp/synth.cpp)
     add_executable(adjust_time examples/cpp/adjust_time.cpp)
+    add_executable(process_midi_directory examples/cpp/process_midi_directory.cpp)
 
     target_link_libraries(note_count PRIVATE symusic)
     target_link_libraries(dump PRIVATE symusic)
     target_link_libraries(io_bench PRIVATE symusic nanobench)
     target_link_libraries(synth PUBLIC symusic)
     target_link_libraries(adjust_time PUBLIC symusic)
+    target_link_libraries(process_midi_directory PRIVATE symusic)
 endif()
 
 if(BUILD_SYMUSIC_TEST)

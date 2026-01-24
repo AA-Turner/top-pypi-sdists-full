@@ -40,7 +40,7 @@ class XlabDatasetAPI(object):
 
     @retry_with_backoff(max_retries=MAX_RETRIES, base_delay=BASE_DELAY, max_delay=MAX_DELAY)
     def get_dataset_files(
-        self, dataset_name: str, payload: dict = None, needContent=False, auth=True
+        self, dataset_name: str, payload: dict = None, needContent=True, auth=True, after: str = None, limit: int = 500
     ):
         """
         get files info list
@@ -55,6 +55,10 @@ class XlabDatasetAPI(object):
             if need info like size etc, set True, by default False
         auth : bool, optional
             enable authorization, set True, by default True.
+        after : str, optional
+            pagination cursor for next page, by default None (start from beginning)
+        limit : int, optional
+            number of items per page, by default 1000
         Returns
         -------
         """
@@ -65,7 +69,11 @@ class XlabDatasetAPI(object):
         # list do not need authorization
         else:
             headers = base_headers
-        data = {"recursive": True, "needContent": needContent}
+        data = {"recursive": True, "needContent": needContent, "limit": limit}
+        
+        # Add after cursor if provided
+        if after:
+            data["after"] = after
 
         source_path = "/"
         if payload:
@@ -86,13 +94,13 @@ class XlabDatasetAPI(object):
         result_dict = resp.json()['data']
         # Any other files besides readme.md and metafile.yaml?
         if not result_dict['hasMediaFile']:
-            rprint(f"{OpenDataLabError(error_msg=highlight_urls(str(result_dict['toast'])))}")
+            rprint(f"{OpenDataLabError(error_msg=highlight_urls(str(result_dict['toast'])))} ")
             sys.exit(-1)
         # no content
         if not result_dict['list']:
             err_msg = OpenDataLabError(
                 404,
-                f'Failed to retrieve the dataset list. Please verify if the source path "{source_path}" '
+                f'Failed to retrieve the dataset list. Please verify if the source path "{source_path}" '\
                 'exists within the dataset repository.',
             )
             print(err_msg)

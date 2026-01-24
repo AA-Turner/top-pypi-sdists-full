@@ -1,5 +1,4 @@
 import json
-import sys
 from contextlib import suppress
 from pathlib import Path
 
@@ -7,10 +6,7 @@ import fastjsonschema
 import jsonschema
 import pytest
 
-if sys.implementation.name != "pypy":
-    import jsonschema_rs
-else:
-    jsonschema_rs = None
+import jsonschema_rs
 
 
 BENCHMARK_DATA = Path(__file__).parent.parent.parent / "benchmark/data"
@@ -39,6 +35,10 @@ CANADA = load_from_benches("canada.json")
 CITM_CATALOG_SCHEMA = load_from_benches("citm_catalog_schema.json")
 CITM_CATALOG = load_from_benches("citm_catalog.json")
 FAST_SCHEMA = load_from_benches("fast_schema.json")
+FHIR_SCHEMA = load_from_benches("fhir.schema.json")
+FHIR_INSTANCE = load_from_benches("patient-example-d.json")
+RECURSIVE_SCHEMA = load_from_benches("recursive_schema.json")
+RECURSIVE_INSTANCE = load_from_benches("recursive_instance.json")
 FAST_INSTANCE_VALID = [
     9,
     "hello",
@@ -80,6 +80,8 @@ def args(request, variant):
     schema, instance = request.node.get_closest_marker("data").args
     if (schema is OPENAPI or schema is SWAGGER) and variant == "fastjsonschema":
         pytest.skip("fastjsonschema does not support the uri-reference format and errors")
+    if schema is RECURSIVE_SCHEMA and variant == "fastjsonschema":
+        pytest.skip("fastjsonschema does not support $dynamicRef")
     if variant == "jsonschema-rs-is-valid":
         return jsonschema_rs.validator_for(schema).is_valid, instance
     if variant == "jsonschema-rs-validate":
@@ -100,6 +102,8 @@ if jsonschema_rs is not None:
             "geojson.json",
             "citm_catalog_schema.json",
             "fast_schema.json",
+            "fhir.schema.json",
+            "recursive_schema.json",
         ),
     )
     @pytest.mark.parametrize(
@@ -172,4 +176,16 @@ def test_canada(benchmark, args):
 @pytest.mark.data(CITM_CATALOG_SCHEMA, CITM_CATALOG)
 @pytest.mark.benchmark(group="citm_catalog")
 def test_citm_catalog(benchmark, args):
+    benchmark(*args)
+
+
+@pytest.mark.data(FHIR_SCHEMA, FHIR_INSTANCE)
+@pytest.mark.benchmark(group="fhir")
+def test_fhir(benchmark, args):
+    benchmark(*args)
+
+
+@pytest.mark.data(RECURSIVE_SCHEMA, RECURSIVE_INSTANCE)
+@pytest.mark.benchmark(group="recursive")
+def test_recursive(benchmark, args):
     benchmark(*args)

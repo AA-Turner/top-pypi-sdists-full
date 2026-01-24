@@ -4,7 +4,9 @@ import click
 # TODO: type the return value
 def try_import_gcp_secretmanager():
     try:
-        from google.cloud import secretmanager
+        from google.cloud import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP dependency for secrets manager")
+            secretmanager,
+        )
 
         return secretmanager
     except ImportError:
@@ -16,7 +18,9 @@ def try_import_gcp_secretmanager():
 
 def try_import_gcp_utils():
     try:
-        from anyscale.utils import gcp_utils
+        from anyscale.utils import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP dependency for CLI commands")
+            gcp_utils,
+        )
 
         return gcp_utils
     except ImportError as e:
@@ -27,7 +31,7 @@ def try_import_gcp_utils():
 
 def try_import_gcp_verify_lib():
     try:
-        import anyscale.gcp_verification as verify_lib
+        import anyscale.gcp_verification as verify_lib  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP dependency for CLI commands")
 
         return verify_lib
     except ImportError as e:
@@ -38,7 +42,9 @@ def try_import_gcp_verify_lib():
 
 def try_import_gcp_managed_setup_utils():
     try:
-        from anyscale.utils import gcp_managed_setup_utils
+        from anyscale.utils import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP dependency for CLI commands")
+            gcp_managed_setup_utils,
+        )
 
         return gcp_managed_setup_utils
     except ImportError as e:
@@ -49,8 +55,12 @@ def try_import_gcp_managed_setup_utils():
 
 def try_import_gcp_exceptions():
     try:
-        from google.api_core.exceptions import GoogleAPICallError
-        from googleapiclient.errors import HttpError
+        from google.api_core.exceptions import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP dependency for CLI commands")
+            GoogleAPICallError,
+        )
+        from googleapiclient.errors import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP dependency for CLI commands")
+            HttpError,
+        )
 
         return GoogleAPICallError, HttpError
     except ImportError as e:

@@ -1,6 +1,6 @@
 from asyncio import as_completed, ensure_future, iscoroutine
+from collections.abc import Awaitable, Callable
 from logging import DEBUG, getLogger
-from typing import Awaitable, Callable, Tuple
 
 import a_sync
 
@@ -220,7 +220,7 @@ async def _chainlink_and_band(token_address) -> bool:
 
 async def _check_bucket_helper(
     bucket: str, check: Callable[[Address], Awaitable[bool]], address: Address
-) -> Tuple[str, bool]:
+) -> tuple[str, bool]:
     """
     Asynchronously check if a token belongs to a specified bucket.
 

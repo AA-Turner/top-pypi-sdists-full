@@ -33,7 +33,7 @@ class DuplicateBatchDeleter(BatchDeleterCore):
         self.batches_not_deleted: list[str] = []
         self.all_batches_secured_to_thoughtful_were_deleted: bool = False
 
-    def check_if_all_batches_were_deleted(self):
+    def check_if_all_batches_were_deleted(self) -> None:
         """Check if all batches were deleted."""
         data_items = self.get_batch_rows()
         if self.batches_marked_to_deletion and (
@@ -59,7 +59,7 @@ class DuplicateBatchDeleter(BatchDeleterCore):
                 )
                 self.all_batches_secured_to_thoughtful_were_deleted = False
 
-    def generate_report(self):
+    def generate_report(self) -> dict:
         """Generate a report of the batches that were not deleted."""
         return {
             "practice": self.practice,

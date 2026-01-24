@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: time-machine
-Version: 2.19.0
+Version: 3.2.0
 Summary: Travel through time in your tests.
 Author-email: Adam Johnson <me@adamj.eu>
 License-Expression: MIT
@@ -15,19 +15,19 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: python-dateutil
 Provides-Extra: cli
 Requires-Dist: tokenize-rt; extra == "cli"
+Provides-Extra: dateutil
+Requires-Dist: python-dateutil>=2.8.2; extra == "dateutil"
 Dynamic: license-file
 
 ============

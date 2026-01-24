@@ -1,9 +1,8 @@
 Metadata-Version: 2.4
 Name: reproject
-Version: 0.15.0
+Version: 0.19.0
 Summary: Reproject astronomical images
-Author: Christoph Deil, Adam Ginsburg
-Author-email: Thomas Robitaille <thomas.robitaille@gmail.com>
+Author: Thomas Robitaille, Christoph Deil, Adam Ginsburg, Stuart Mumford, Sam Van Kooten
 License: BSD 3-Clause
 Project-URL: Homepage, https://reproject.readthedocs.io
 Requires-Python: >=3.11
@@ -13,9 +12,10 @@ Requires-Dist: numpy>=1.23
 Requires-Dist: astropy>=5.0
 Requires-Dist: astropy-healpix>=1.0
 Requires-Dist: scipy>=1.9
-Requires-Dist: dask[array]>=2021.8
-Requires-Dist: zarr>=2.11.0
-Requires-Dist: fsspec>=2021.8
+Requires-Dist: dask[array]>=2024.4.1
+Requires-Dist: dask-image>=2025.11.0
+Requires-Dist: zarr>=2.17.0
+Requires-Dist: fsspec>=2021.9
 Requires-Dist: pillow>=10.0
 Requires-Dist: pyavm>=0.9.6
 Provides-Extra: all

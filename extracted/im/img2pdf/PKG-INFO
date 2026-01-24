@@ -1,28 +1,15 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: img2pdf
-Version: 0.6.1
-Summary: Convert images to PDF via direct JPEG inclusion.
-Home-page: https://gitlab.mister-muffin.de/josch/img2pdf
-Download-URL: https://gitlab.mister-muffin.de/josch/img2pdf/repository/archive.tar.gz?ref=0.6.1
-Author: Johannes Schauer Marin Rodrigues
-Author-email: josch@mister-muffin.de
-License: LGPL
-Keywords: jpeg pdf converter
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: Other Audience
-Classifier: Environment :: Console
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
-Classifier: Natural Language :: English
-Classifier: Operating System :: OS Independent
+Version: 0.6.3
+Summary: Lossless conversion of raster images to PDF.
+Author-email: Johannes Schauer Marin Rodrigues <josch@mister-muffin.de>
+Requires-Python: >=3.5
 Description-Content-Type: text/markdown
-Provides-Extra: gui
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
 License-File: LICENSE
+Requires-Dist: Pillow
+Requires-Dist: pikepdf
+Project-URL: Home, https://gitlab.mister-muffin.de/josch/img2pdf
 
 [![Travis Status](https://travis-ci.com/josch/img2pdf.svg?branch=main)](https://app.travis-ci.com/josch/img2pdf)
 [![Appveyor Status](https://ci.appveyor.com/api/projects/status/2kws3wkqvi526llj/branch/main?svg=true)](https://ci.appveyor.com/project/josch/img2pdf/branch/main)
@@ -353,3 +340,4 @@ jpeg files as CMYK but converts them to RGB, so it's not lossless. When trying
 to feed it 16bit files, it errors out with Unhandled bps/spp combination. It
 also seems to choose JPEG encoding when using it on some file types (like
 palette images) making it again not lossless for that input as well.
+

@@ -1,19 +1,24 @@
 from __future__ import annotations
-import logging
+
 import asyncio
+import logging
+from collections import deque
+from datetime import datetime
+from itertools import zip_longest
+from typing import TYPE_CHECKING
+
 import httpx
-from ably.sync.transport.websockettransport import WebSocketTransport, ProtocolMessageAction
+
 from ably.sync.transport.defaults import Defaults
+from ably.sync.transport.websockettransport import ProtocolMessageAction, WebSocketTransport
+from ably.sync.types.connectiondetails import ConnectionDetails
 from ably.sync.types.connectionerrors import ConnectionErrors
 from ably.sync.types.connectionstate import ConnectionEvent, ConnectionState, ConnectionStateChange
+from ably.sync.types.operations import PublishResult
 from ably.sync.types.tokendetails import TokenDetails
-from ably.sync.util.exceptions import AblyException, IncompatibleClientIdException
 from ably.sync.util.eventemitter import EventEmitter
-from datetime import datetime
-from ably.sync.util.helper import get_random_id, Timer, is_token_error
-from typing import Optional, TYPE_CHECKING
-from ably.sync.types.connectiondetails import ConnectionDetails
-from queue import Queue
+from ably.sync.util.exceptions import AblyException, IncompatibleClientIdException
+from ably.sync.util.helper import Timer, get_random_id, is_token_error
 
 if TYPE_CHECKING:
     from ably.sync.realtime.realtime import AblyRealtime
@@ -21,33 +26,140 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+class PendingMessage:
+    """Represents a message awaiting acknowledgment from the server"""
+
+    def __init__(self, message: dict):
+        self.message = message
+        self.future: asyncio.Future[PublishResult] | None = None
+        action = message.get('action')
+
+        # Messages that require acknowledgment: MESSAGE, PRESENCE, ANNOTATION, OBJECT
+        self.ack_required = action in (
+            ProtocolMessageAction.MESSAGE,
+            ProtocolMessageAction.PRESENCE,
+            ProtocolMessageAction.ANNOTATION,
+            ProtocolMessageAction.OBJECT,
+        )
+
+        if self.ack_required:
+            self.future = asyncio.Future()
+
+
+class PendingMessageQueue:
+    """Queue for tracking messages awaiting acknowledgment"""
+
+    def __init__(self):
+        self.messages: list[PendingMessage] = []
+
+    def push(self, pending_message: PendingMessage) -> None:
+        """Add a message to the queue"""
+        self.messages.append(pending_message)
+
+    def count(self) -> int:
+        """Return the number of pending messages"""
+        return len(self.messages)
+
+    def complete_messages(
+        self,
+        serial: int,
+        count: int,
+        res: list[PublishResult] | None,
+        err: AblyException | None = None
+    ) -> None:
+        """Complete messages based on serial and count from ACK/NACK
+
+        Args:
+            serial: The msgSerial of the first message being acknowledged
+            count: The number of messages being acknowledged
+            res: List of PublishResult objects for each message acknowledged, or None if not available
+            err: Error from NACK, or None for successful ACK
+        """
+        log.debug(f'MessageQueue.complete_messages(): serial={serial}, count={count}, res={res}, err={err}')
+
+        if not self.messages:
+            log.warning('MessageQueue.complete_messages(): called on empty queue')
+            return
+
+        first = self.messages[0]
+        if first:
+            start_serial = first.message.get('msgSerial')
+            if start_serial is None:
+                log.warning('MessageQueue.complete_messages(): first message has no msgSerial')
+                return
+
+            end_serial = serial + count
+
+            if end_serial > start_serial:
+                # Remove and complete the acknowledged messages
+                num_to_complete = min(end_serial - start_serial, len(self.messages))
+                completed_messages = self.messages[:num_to_complete]
+                self.messages = self.messages[num_to_complete:]
+
+                # Default res to empty list if None
+                res_list = res if res is not None else []
+                for (msg, publish_result) in zip_longest(completed_messages, res_list):
+                    if msg.future and not msg.future.done():
+                        if err:
+                            msg.future.set_exception(err)
+                        else:
+                            # If publish_result is None, return empty PublishResult
+                            if publish_result is None:
+                                publish_result = PublishResult()
+                            msg.future.set_result(publish_result)
+
+    def complete_all_messages(self, err: AblyException) -> None:
+        """Complete all pending messages with an error"""
+        while self.messages:
+            msg = self.messages.pop(0)
+            if msg.future and not msg.future.done():
+                msg.future.set_exception(err)
+
+    def clear(self) -> None:
+        """Clear all messages from the queue"""
+        self.messages.clear()
+
+
 class ConnectionManager(EventEmitter):
     def __init__(self, realtime: AblyRealtime, initial_state):
         self.options = realtime.options
         self.__ably = realtime
         self.__state: ConnectionState = initial_state
-        self.__ping_future: Optional[asyncio.Future] = None
+        self.__ping_future: asyncio.Future | None = None
         self.__timeout_in_secs: float = self.options.realtime_request_timeout / 1000
-        self.transport: Optional[WebSocketTransport] = None
-        self.__connection_details: Optional[ConnectionDetails] = None
-        self.connection_id: Optional[str] = None
+        self.transport: WebSocketTransport | None = None
+        self.__connection_details: ConnectionDetails | None = None
+        self.connection_id: str | None = None
         self.__fail_state = ConnectionState.DISCONNECTED
-        self.transition_timer: Optional[Timer] = None
-        self.suspend_timer: Optional[Timer] = None
-        self.retry_timer: Optional[Timer] = None
-        self.connect_base_task: Optional[asyncio.Task] = None
-        self.disconnect_transport_task: Optional[asyncio.Task] = None
-        self.__fallback_hosts: list[str] = self.options.get_fallback_realtime_hosts()
-        self.queued_messages: Queue = Queue()
-        self.__error_reason: Optional[AblyException] = None
+        self.transition_timer: Timer | None = None
+        self.suspend_timer: Timer | None = None
+        self.retry_timer: Timer | None = None
+        self.connect_base_task: asyncio.Task | None = None
+        self.disconnect_transport_task: asyncio.Task | None = None
+        self.__fallback_hosts: list[str] = self.options.get_fallback_hosts()
+        self.queued_messages: deque[PendingMessage] = deque()
+        self.__error_reason: AblyException | None = None
+        self.msg_serial: int = 0
+        self.pending_message_queue: PendingMessageQueue = PendingMessageQueue()
         super().__init__()
 
-    def enact_state_change(self, state: ConnectionState, reason: Optional[AblyException] = None) -> None:
+    def enact_state_change(self, state: ConnectionState, reason: AblyException | None = None) -> None:
         current_state = self.__state
         log.debug(f'ConnectionManager.enact_state_change(): {current_state} -> {state}; reason = {reason}')
         self.__state = state
         if reason:
             self.__error_reason = reason
+
+        # RTN16d: Clear connection state when entering SUSPENDED or terminal states
+        if state == ConnectionState.SUSPENDED or state in (
+            ConnectionState.CLOSED,
+            ConnectionState.FAILED
+        ):
+            self.__connection_details = None
+            self.connection_id = None
+            self.__connection_key = None
+            self.msg_serial = 0
+
         self._emit('connectionstate', ConnectionStateChange(current_state, state, state, reason))
 
     def check_connection(self) -> bool:
@@ -67,6 +179,13 @@ class ConnectionManager(EventEmitter):
         params["v"] = protocol_version
         if self.connection_details:
             params["resume"] = self.connection_details.connection_key
+        # RTN2a: Set format to msgpack if use_binary_protocol is enabled
+        if self.options.use_binary_protocol:
+            params["format"] = "msgpack"
+
+        # Add any custom transport params from options
+        params.update(self.options.transport_params)
+
         return params
 
     def close_impl(self) -> None:
@@ -75,54 +194,149 @@ class ConnectionManager(EventEmitter):
         self.cancel_suspend_timer()
         self.start_transition_timer(ConnectionState.CLOSING, fail_state=ConnectionState.CLOSED)
         if self.transport:
-            self.transport.dispose()
+            # Try to send protocol CLOSE message in the background
+            asyncio.create_task(self.transport.close())
+            # Yield to event loop to give the close message a chance to send
+            asyncio.sleep(0)
+            self.transport.dispose()  # Dispose transport resources
         if self.connect_base_task:
             self.connect_base_task.cancel()
         if self.disconnect_transport_task:
             self.disconnect_transport_task
         self.cancel_retry_timer()
 
+        # Clear connection details to prevent resume on next connect
+        # When explicitly closed, we want a fresh connection, not a resume
+        self.__connection_details = None
+        self.connection_id = None
+        self.msg_serial = 0
+
         self.notify_state(ConnectionState.CLOSED)
 
-    def send_protocol_message(self, protocol_message: dict) -> None:
-        if self.state in (
-            ConnectionState.DISCONNECTED,
-            ConnectionState.CONNECTING,
-        ):
-            self.queued_messages.put(protocol_message)
-            return
+    def send_protocol_message(self, protocol_message: dict) -> PublishResult | None:
+        """Send a protocol message and optionally track it for acknowledgment
 
-        if self.state == ConnectionState.CONNECTED:
-            if self.transport:
-                self.transport.send(protocol_message)
-            else:
-                log.exception(
-                    "ConnectionManager.send_protocol_message(): can not send message with no active transport"
+        Args:
+            protocol_message: protocol message dict (new message)
+        Returns:
+            None
+        """
+        state_should_queue = (self.state in
+                           (ConnectionState.INITIALIZED, ConnectionState.DISCONNECTED, ConnectionState.CONNECTING))
+
+        if self.state != ConnectionState.CONNECTED and not state_should_queue:
+            raise AblyException(f"Cannot send message while connection is {self.state}", 400, 90000)
+
+        # RTL6c2: If queueMessages is false, fail immediately when not CONNECTED
+        if state_should_queue and not self.options.queue_messages:
+            raise AblyException(
+                f"Cannot send message while connection is {self.state}, and queue_messages is false",
+                400,
+                90000,
+            )
+
+        pending_message = PendingMessage(protocol_message)
+
+        # Assign msgSerial to messages that need acknowledgment
+        if pending_message.ack_required:
+            # New message - assign fresh serial
+            protocol_message['msgSerial'] = self.msg_serial
+            self.pending_message_queue.push(pending_message)
+            self.msg_serial += 1
+
+        if state_should_queue:
+            self.queued_messages.appendleft(pending_message)
+            if pending_message.ack_required:
+                return pending_message.future
+            return None
+
+        return self._send_protocol_message_on_connected_state(pending_message)
+
+    def _send_protocol_message_on_connected_state(
+        self, pending_message: PendingMessage
+    ) -> PublishResult | None:
+        if self.state == ConnectionState.CONNECTED and self.transport:
+            # Add to pending queue before sending (for messages being resent from queue)
+            if pending_message.ack_required and pending_message not in self.pending_message_queue.messages:
+                self.pending_message_queue.push(pending_message)
+            self.transport.send(pending_message.message)
+        else:
+            log.exception(
+                "ConnectionManager.send_protocol_message(): can not send message with no active transport"
+            )
+            if pending_message.future:
+                pending_message.future.set_exception(
+                    AblyException("No active transport", 500, 50000)
                 )
-            return
-
-        raise AblyException(f"ConnectionManager.send_protocol_message(): called in {self.state}", 500, 50000)
+        if pending_message.ack_required:
+            return pending_message.future
+        return None
 
     def send_queued_messages(self) -> None:
-        log.info(f'ConnectionManager.send_queued_messages(): sending {self.queued_messages.qsize()} message(s)')
-        while not self.queued_messages.empty():
-            asyncio.create_task(self.send_protocol_message(self.queued_messages.get()))
+        log.info(f'ConnectionManager.send_queued_messages(): sending {len(self.queued_messages)} message(s)')
+        while len(self.queued_messages) > 0:
+            pending_message = self.queued_messages.pop()
+            asyncio.create_task(self._send_protocol_message_on_connected_state(pending_message))
+
+    def requeue_pending_messages(self) -> None:
+        """RTN19a: Requeue messages awaiting ACK/NACK when transport disconnects
+
+        These messages will be resent when connection becomes CONNECTED again.
+        RTN19a2: msgSerial is preserved for resume, reset for new connection.
+        """
+        pending_count = self.pending_message_queue.count()
+        if pending_count == 0:
+            return
+
+        log.info(
+            f'ConnectionManager.requeue_pending_messages(): '
+            f'requeuing {pending_count} pending message(s) for resend'
+        )
+
+        # Get all pending messages and add them back to the queue
+        # They'll be sent again when we reconnect
+        pending_messages = list(self.pending_message_queue.messages)
+
+        # Add back to front of queue (FIFO but priority over new messages)
+        # Store the entire PendingMessage object to preserve Future
+        for pending_msg in reversed(pending_messages):
+            # PendingMessage object retains its Future, msgSerial
+            self.queued_messages.append(pending_msg)
+
+        # Clear the message queue since we're requeueing them all
+        # When they're resent, the existing Future will be resolved
+        self.pending_message_queue.clear()
 
     def fail_queued_messages(self, err) -> None:
         log.info(
-            f"ConnectionManager.fail_queued_messages(): discarding {self.queued_messages.qsize()} messages;" +
+            f"ConnectionManager.fail_queued_messages(): discarding {len(self.queued_messages)} messages;" +
             f" reason = {err}"
         )
-        while not self.queued_messages.empty():
-            msg = self.queued_messages.get()
-            log.exception(f"ConnectionManager.fail_queued_messages(): Failed to send protocol message: {msg}")
+        error = err or AblyException("Connection failed", 80000, 500)
+        while len(self.queued_messages) > 0:
+            pending_msg = self.queued_messages.pop()
+            log.exception(
+                f"ConnectionManager.fail_queued_messages(): Failed to send protocol message: "
+                f"{pending_msg.message}"
+            )
+            # Fail the Future if it exists
+            if pending_msg.future and not pending_msg.future.done():
+                pending_msg.future.set_exception(error)
+
+        # Also fail all pending messages awaiting acknowledgment
+        if self.pending_message_queue.count() > 0:
+            count = self.pending_message_queue.count()
+            log.info(
+                f"ConnectionManager.fail_queued_messages(): failing {count} pending messages"
+            )
+            self.pending_message_queue.complete_all_messages(error)
 
     def ping(self) -> float:
         if self.__ping_future:
             try:
                 response = self.__ping_future
             except asyncio.CancelledError:
-                raise AblyException("Ping request cancelled due to request timeout", 504, 50003)
+                raise AblyException("Ping request cancelled due to request timeout", 504, 50003) from None
             return response
 
         self.__ping_future = asyncio.Future()
@@ -136,15 +350,25 @@ class ConnectionManager(EventEmitter):
         try:
             asyncio.wait_for(self.__ping_future, self.__timeout_in_secs)
         except asyncio.TimeoutError:
-            raise AblyException("Timeout waiting for ping response", 504, 50003)
+            raise AblyException("Timeout waiting for ping response", 504, 50003) from None
 
         ping_end_time = datetime.now().timestamp()
         response_time_ms = (ping_end_time - ping_start_time) * 1000
         return round(response_time_ms, 2)
 
     def on_connected(self, connection_details: ConnectionDetails, connection_id: str,
-                     reason: Optional[AblyException] = None) -> None:
+                     reason: AblyException | None = None) -> None:
         self.__fail_state = ConnectionState.DISCONNECTED
+
+        # RTN19a2: Reset msgSerial if connectionId changed (new connection)
+        prev_connection_id = self.connection_id
+        connection_id_changed = prev_connection_id is not None and prev_connection_id != connection_id
+
+        if connection_id_changed:
+            log.info('ConnectionManager.on_connected(): New connectionId; resetting msgSerial')
+            self.msg_serial = 0
+            # Note: In JS they call resetSendAttempted() here, but we don't need it
+            # because we fail all pending messages on disconnect per RTN7e
 
         self.__connection_details = connection_details
         self.connection_id = connection_id
@@ -233,7 +457,7 @@ class ConnectionManager(EventEmitter):
     def on_channel_message(self, msg: dict) -> None:
         self.__ably.channels._on_channel_message(msg)
 
-    def on_heartbeat(self, id: Optional[str]) -> None:
+    def on_heartbeat(self, id: str | None) -> None:
         if self.__ping_future:
             # Resolve on heartbeat from ping request.
             if self.__ping_id == id:
@@ -241,7 +465,39 @@ class ConnectionManager(EventEmitter):
                     self.__ping_future.set_result(None)
                 self.__ping_future = None
 
-    def deactivate_transport(self, reason: Optional[AblyException] = None):
+    def on_ack(
+        self, serial: int, count: int, res: list[PublishResult] | None
+    ) -> None:
+        """Handle ACK protocol message from server
+
+        Args:
+            serial: The msgSerial of the first message being acknowledged
+            count: The number of messages being acknowledged
+            res: List of PublishResult objects for each message acknowledged, or None if not available
+        """
+        log.debug(f'ConnectionManager.on_ack(): serial={serial}, count={count}, res={res}')
+        self.pending_message_queue.complete_messages(serial, count, res)
+
+    def on_nack(self, serial: int, count: int, err: AblyException | None) -> None:
+        """Handle NACK protocol message from server
+
+        Args:
+            serial: The msgSerial of the first message being rejected
+            count: The number of messages being rejected
+            err: Error information from the server
+        """
+        if not err:
+            err = AblyException('Unable to send message; channel not responding', 50001, 500)
+
+        log.error(f'ConnectionManager.on_nack(): serial={serial}, count={count}, err={err}')
+        self.pending_message_queue.complete_messages(serial, count, None, err)
+
+    def deactivate_transport(self, reason: AblyException | None = None):
+        # RTN19a: Before disconnecting, requeue any pending messages
+        # so they'll be resent on reconnection
+        if self.transport:
+            log.info('ConnectionManager.deactivate_transport(): requeuing pending messages')
+            self.requeue_pending_messages()
         self.transport = None
         self.notify_state(ConnectionState.DISCONNECTED, reason)
 
@@ -275,7 +531,7 @@ class ConnectionManager(EventEmitter):
         self.start_transition_timer(ConnectionState.CONNECTING)
         self.connect_base_task = asyncio.create_task(self.connect_base())
 
-    def connect_with_fallback_hosts(self, fallback_hosts: list) -> Optional[Exception]:
+    def connect_with_fallback_hosts(self, fallback_hosts: list) -> Exception | None:
         for host in fallback_hosts:
             try:
                 if self.check_connection():
@@ -295,7 +551,7 @@ class ConnectionManager(EventEmitter):
 
     def connect_base(self) -> None:
         fallback_hosts = self.__fallback_hosts
-        primary_host = self.options.get_realtime_host()
+        primary_host = self.options.get_host()
         try:
             self.try_host(primary_host)
             return
@@ -343,8 +599,8 @@ class ConnectionManager(EventEmitter):
         except asyncio.CancelledError:
             return
 
-    def notify_state(self, state: ConnectionState, reason: Optional[AblyException] = None,
-                     retry_immediately: Optional[bool] = None) -> None:
+    def notify_state(self, state: ConnectionState, reason: AblyException | None = None,
+                     retry_immediately: bool | None = None) -> None:
         # RTN15a
         retry_immediately = (retry_immediately is not False) and (
             state == ConnectionState.DISCONNECTED and self.__state == ConnectionState.CONNECTED)
@@ -380,10 +636,18 @@ class ConnectionManager(EventEmitter):
             ConnectionState.SUSPENDED,
             ConnectionState.FAILED,
         ):
+            # RTN7e: Fail pending messages on SUSPENDED, CLOSED, FAILED
             self.fail_queued_messages(reason)
             self.ably.channels._propagate_connection_interruption(state, reason)
+        elif state == ConnectionState.DISCONNECTED and not self.options.queue_messages:
+            # RTN7d: If queueMessages is false, fail pending messages on DISCONNECTED
+            log.info(
+                'ConnectionManager.notify_state(): queueMessages is false; '
+                'failing pending messages on DISCONNECTED'
+            )
+            self.fail_queued_messages(reason)
 
-    def start_transition_timer(self, state: ConnectionState, fail_state: Optional[ConnectionState] = None) -> None:
+    def start_transition_timer(self, state: ConnectionState, fail_state: ConnectionState | None = None) -> None:
         log.debug(f'ConnectionManager.start_transition_timer(): transition state = {state}')
 
         if self.transition_timer:
@@ -428,7 +692,6 @@ class ConnectionManager(EventEmitter):
                     AblyException("Connection to server unavailable", 400, 80002)
                 )
                 self.__fail_state = ConnectionState.SUSPENDED
-                self.__connection_details = None
 
         self.suspend_timer = Timer(Defaults.connection_state_ttl, on_suspend_timer_expire)
 
@@ -463,6 +726,8 @@ class ConnectionManager(EventEmitter):
     def disconnect_transport(self) -> None:
         log.info('ConnectionManager.disconnect_transport()')
         if self.transport:
+            # RTN19a: Requeue pending messages before disposing transport
+            self.requeue_pending_messages()
             self.disconnect_transport_task = asyncio.create_task(self.transport.dispose())
 
     def on_auth_updated(self, token_details: TokenDetails):
@@ -520,5 +785,5 @@ class ConnectionManager(EventEmitter):
         return self.__state
 
     @property
-    def connection_details(self) -> Optional[ConnectionDetails]:
+    def connection_details(self) -> ConnectionDetails | None:
         return self.__connection_details

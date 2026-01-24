@@ -19,8 +19,8 @@ class CurrencyRepresentationViewSet(viewsets.RepresentationViewSet):
     serializer_class = CurrencyRepresentationSerializer
     filter_backends = (filters.OrderingFilter, filters.SearchFilter)
 
-    ordering = ordering_fields = ["-symbol"]
-    search_fields = ("symbol", "key")
+    ordering = ["name_repr"]
+    search_fields = ("name_repr", "key")
 
 
 class CurrencyModelViewSet(viewsets.ModelViewSet):

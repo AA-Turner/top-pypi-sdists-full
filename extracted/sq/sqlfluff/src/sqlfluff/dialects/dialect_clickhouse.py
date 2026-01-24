@@ -226,7 +226,9 @@ clickhouse_dialect.replace(
             r"[a-zA-Z_][0-9a-zA-Z_]*",
             IdentifierSegment,
             type="naked_identifier",
-            anti_template=r"^(" + r"|".join(dialect.sets("reserved_keywords")) + r")$",
+            anti_template=r"^("
+            + r"|".join(sorted(dialect.sets("reserved_keywords")))
+            + r")$",
         )
     ),
     SingleIdentifierGrammar=OneOf(
@@ -1421,6 +1423,38 @@ class DropUserStatementSegment(ansi.DropUserStatementSegment):
     )
 
 
+class CreateUserStatementSegment(BaseSegment):
+    """A `CREATE USER` statement.
+
+    As specified in
+    https://clickhouse.com/docs/en/sql-reference/statements/create/user/
+    """
+
+    type = "create_user_statement"
+
+    match_grammar = Sequence(
+        "CREATE",
+        "USER",
+        Ref("IfNotExistsGrammar", optional=True),
+        Ref("SingleIdentifierGrammar"),
+        Ref("OnClusterClauseSegment", optional=True),
+        # IDENTIFIED BY 'password' or IDENTIFIED WITH ... BY ...
+        Sequence(
+            "IDENTIFIED",
+            Sequence(
+                "WITH",
+                Ref("SingleIdentifierGrammar"),
+                optional=True,
+            ),
+            Sequence(
+                "BY",
+                Ref("QuotedLiteralSegment"),
+            ),
+            optional=True,
+        ),
+    )
+
+
 class DropRoleStatementSegment(ansi.DropRoleStatementSegment):
     """A `DROP ROLE` statement.
 
@@ -2119,6 +2153,18 @@ class AlterTableStatementSegment(BaseSegment):
                     optional=True,
                 ),
             ),
+            # ALTER TABLE ... DROP PARTITION|PART partition_expr
+            Sequence(
+                "DROP", OneOf("PARTITION", "PART"), Ref("SingleIdentifierGrammar")
+            ),
+            # ALTER TABLE ... REPLACE PARTITION partition_expr FROM table1
+            Sequence(
+                "REPLACE",
+                "PARTITION",
+                Ref("SingleIdentifierGrammar"),
+                "FROM",
+                Ref("TableReferenceSegment"),
+            ),
         ),
     )
 
@@ -2128,6 +2174,7 @@ class StatementSegment(ansi.StatementSegment):
 
     match_grammar = ansi.StatementSegment.match_grammar.copy(
         insert=[
+            Ref("CreateUserStatementSegment"),
             Ref("CreateMaterializedViewStatementSegment"),
             Ref("DropDictionaryStatementSegment"),
             Ref("DropQuotaStatementSegment"),
@@ -2189,6 +2236,29 @@ class LimitClauseSegment(ansi.LimitClauseSegment):
             ),
         ),
         Dedent,
+    )
+
+
+class FunctionContentsSegment(BaseSegment):
+    """A function contents segment that supports parametric aggregate functions.
+
+    https://clickhouse.com/docs/sql-reference/aggregate-functions/parametric-functions
+    """
+
+    type = "function_contents"
+
+    match_grammar: Matchable = OneOf(
+        # Double parentheses pattern: func(params)(args)
+        Sequence(
+            Bracketed(
+                Ref("FunctionContentsGrammar"),
+            ),
+            Bracketed(
+                Ref("FunctionContentsGrammar"),
+            ),
+        ),
+        # Standard ANSI single parentheses
+        ansi.FunctionContentsSegment.match_grammar,
     )
 
 

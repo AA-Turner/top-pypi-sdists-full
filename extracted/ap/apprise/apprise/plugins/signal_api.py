@@ -25,7 +25,10 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import annotations
+
 from json import dumps
+import logging
 import re
 
 import requests
@@ -35,7 +38,8 @@ from ..common import NotifyType
 from ..locale import gettext_lazy as _
 from ..url import PrivacyMode
 from ..utils.parse import is_phone_no, parse_bool, parse_phone_no
-from .base import NotifyBase
+from ..utils.sanitize import sanitize_payload
+from .base import NotifyBase, NotifyFormat
 
 GROUP_REGEX = re.compile(
     r"^\s*((\@|\%40)?(group\.)|\@|\%40)(?P<group>[a-z0-9_=-]+)", re.I
@@ -58,7 +62,7 @@ class NotifySignalAPI(NotifyBase):
     secure_protocol = "signals"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_signal"
+    setup_url = "https://appriseit.com/services/signal/"
 
     # Support attachments
     attachment_support = True
@@ -272,6 +276,12 @@ class NotifySignalAPI(NotifyBase):
             "Content-Type": "application/json",
         }
 
+        # Support Styled (Markdown formatting)
+        text_mode = (
+            "styled" if self.notify_format == NotifyFormat.MARKDOWN
+            else "normal"
+        )
+
         # Format defined here:
         #   https://bbernhard.github.io/signal-cli-rest-api\
         #       /#/Messages/post_v2_send
@@ -299,6 +309,7 @@ class NotifySignalAPI(NotifyBase):
                 ).rstrip()
             ),
             "number": self.source,
+            "text_mode": text_mode,
             "recipients": [],
         }
 
@@ -327,11 +338,24 @@ class NotifySignalAPI(NotifyBase):
             # Prepare our recipients
             payload["recipients"] = self.targets[index : index + batch_size]
 
-            self.logger.debug(
-                "Signal API POST URL:"
-                f" {notify_url} (cert_verify={self.verify_certificate!r})"
-            )
-            self.logger.debug(f"Signal API Payload: {payload!s}")
+            # Some Debug Logging
+            if self.logger.isEnabledFor(logging.DEBUG):
+                # Due to attachments; output can be quite heavy and io
+                # intensive.
+                # To accommodate this, we only show our debug payload
+                # information if required.
+                self.logger.debug(
+                    "Signal API POST URL:"
+                    f" {notify_url} (cert_verify={self.verify_certificate!r})"
+                )
+                log_payload = dict(payload)
+                log_payload.pop("recipients", None)
+                self.logger.debug(
+                    "Signal API Payload: %s", sanitize_payload(log_payload))
+                self.logger.debug(
+                    "Signal API Recipients: %s",
+                    payload.get("recipients", []),
+                )
 
             # Always call throttle before any remote server i/o is made
             self.throttle()
@@ -368,7 +392,8 @@ class NotifySignalAPI(NotifyBase):
                         )
                     )
 
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     # Mark our failure
                     has_error = True

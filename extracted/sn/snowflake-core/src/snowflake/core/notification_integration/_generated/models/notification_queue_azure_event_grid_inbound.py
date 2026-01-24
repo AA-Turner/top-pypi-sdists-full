@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import StrictStr
+from pydantic import ConfigDict, StrictStr
 
 from snowflake.core.notification_integration._generated.models.notification_hook import (
     NotificationHook,
@@ -37,9 +37,9 @@ class NotificationQueueAzureEventGridInbound(NotificationHook):
     azure_tenant_id : str, optional
         the ID of the Azure Active Directory tenant used for identity management.
     azure_consent_url : str, optional
-        URL to the Microsoft permissions request page.
+        URL to the Microsoft permissions request page — **Read-only:** *any user-provided value will be ignored.*
     azure_multi_tenant_app_name : str, optional
-        Name of the Snowflake client application created for your account.
+        Name of the Snowflake client application created for your account — **Read-only:** *any user-provided value will be ignored.*
     """
 
     azure_storage_queue_primary_uri: Optional[StrictStr] = None
@@ -52,9 +52,10 @@ class NotificationQueueAzureEventGridInbound(NotificationHook):
 
     __properties = ["type"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -84,7 +85,7 @@ class NotificationQueueAzureEventGridInbound(NotificationHook):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         _dict["type"] = NotificationHook.get_child_model_discriminator_value("NotificationQueueAzureEventGridInbound")
 
@@ -101,9 +102,9 @@ class NotificationQueueAzureEventGridInbound(NotificationHook):
             return None
 
         if type(obj) is not dict:
-            return NotificationQueueAzureEventGridInbound.parse_obj(obj)
+            return NotificationQueueAzureEventGridInbound.model_validate(obj)
 
-        _obj = NotificationQueueAzureEventGridInbound.parse_obj(
+        _obj = NotificationQueueAzureEventGridInbound.model_validate(
             {
                 "azure_storage_queue_primary_uri": obj.get("azure_storage_queue_primary_uri"),
                 "azure_tenant_id": obj.get("azure_tenant_id"),

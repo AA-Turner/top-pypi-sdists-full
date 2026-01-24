@@ -26,6 +26,15 @@ MODEL_2D_SHIFT = models.Shift(1) & models.Shift(2)
 MODEL_1D_SCALE = models.Scale(2)
 
 
+def gwcs_simple_2d():
+    output_frame = cf.Frame2D(name="world")
+    return wcs.WCS(MODEL_2D_SHIFT, output_frame=output_frame)
+
+
+def gwcs_empty_output_2d():
+    return wcs.WCS(MODEL_2D_SHIFT, output_frame=cf.EmptyFrame(name="world"))
+
+
 def gwcs_2d_quantity_shift():
     frame = cf.CoordinateFrame(
         name="quantity",
@@ -285,7 +294,7 @@ def gwcs_3spectral_orders():
     detector_frame = cf.Frame2D(
         name="detector", axes_names=("x", "y"), unit=(u.pix, u.pix)
     )
-    m = MODEL_2D_SHIFT & MODEL_1D_SCALE
+    m = models.Mapping((0, 1, 1)) | MODEL_2D_SHIFT & MODEL_1D_SCALE
 
     return wcs.WCS([(detector_frame, m), (comp1, None)])
 
@@ -410,7 +419,7 @@ def gwcs_spec_cel_time_4d():
     wcslin = models.Mapping((1, 0)) | (offx & offy) | aff
     tan = models.Pix2Sky_TAN(name="tangent_projection")
     n2c = models.RotateNative2Celestial(*crval, 180, name="sky_rotation")
-    cel_model = wcslin | tan | n2c
+    cel_model = wcslin | tan | n2c | models.Mapping((1, 0))
     icrs = cf.CelestialFrame(
         reference_frame=coord.ICRS(), name="sky", axes_order=(2, 1)
     )
@@ -734,3 +743,27 @@ def fits_wcs_imaging_simple(params):
         w.wcs.lonpole = 180
     w.wcs.set()
     return gw, w
+
+
+def gwcs_2d_spatial_shift_reverse():
+    """
+    A simple one step spatial WCS with forward from sky to detector.
+    """
+    pipe = [(ICRC_SKY_FRAME, MODEL_2D_SHIFT), (DETECTOR_2D_FRAME, None)]
+    return wcs.WCS(pipe)
+
+
+def gwcs_multi_stage():
+    """
+    A 3-step pipeline where the intermediate step is 1D and the final is 2D.
+    """
+    tr1 = models.Shift(10)
+    tr2 = models.Mapping((0, 0)) | models.Scale(-2) & models.Scale(-1)
+    det = cf.CoordinateFrame(
+        name="detector", naxes=1, unit=("pix",), axes_type="SPATIAL", axes_order=(0,)
+    )
+    intermediate = cf.CoordinateFrame(
+        name="intermediate", naxes=1, unit=("m",), axes_type="SPATIAL", axes_order=(0,)
+    )
+    cel = cf.CelestialFrame(name="sky", axes_names=("ra", "dec"))
+    return wcs.WCS([(det, tr1), (intermediate, tr2), (cel, None)])

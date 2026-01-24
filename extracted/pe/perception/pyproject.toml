@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "Perception"
-version = "0.8.1"
+version = "0.8.2"
 description = "Perception provides flexible, well-documented, and comprehensively tested tooling for perceptual hashing research, development, and production use."
 authors = ["Thorn <info@wearethorn.org>"]
 license = "Apache License 2.0"

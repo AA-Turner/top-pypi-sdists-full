@@ -1,7 +1,7 @@
 r'''
 # `github_repository_collaborators`
 
-Refer to the Terraform Registry for docs: [`github_repository_collaborators`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators).
+Refer to the Terraform Registry for docs: [`github_repository_collaborators`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RepositoryCollaborators(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.repositoryCollaborators.RepositoryCollaborators",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators github_repository_collaborators}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators github_repository_collaborators}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class RepositoryCollaborators(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators github_repository_collaborators} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators github_repository_collaborators} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#repository RepositoryCollaborators#repository}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#id RepositoryCollaborators#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_team: ignore_team block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#ignore_team RepositoryCollaborators#ignore_team}
-        :param team: team block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#team RepositoryCollaborators#team}
-        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#user RepositoryCollaborators#user}
+        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#repository RepositoryCollaborators#repository}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#id RepositoryCollaborators#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_team: ignore_team block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#ignore_team RepositoryCollaborators#ignore_team}
+        :param team: team block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#team RepositoryCollaborators#team}
+        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#user RepositoryCollaborators#user}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class RepositoryCollaborators(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RepositoryCollaborators to import.
-        :param import_from_id: The id of the existing RepositoryCollaborators that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RepositoryCollaborators that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RepositoryCollaborators to import is found.
         '''
         if __debug__:
@@ -313,11 +313,11 @@ class RepositoryCollaboratorsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#repository RepositoryCollaborators#repository}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#id RepositoryCollaborators#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_team: ignore_team block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#ignore_team RepositoryCollaborators#ignore_team}
-        :param team: team block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#team RepositoryCollaborators#team}
-        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#user RepositoryCollaborators#user}
+        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#repository RepositoryCollaborators#repository}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#id RepositoryCollaborators#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_team: ignore_team block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#ignore_team RepositoryCollaborators#ignore_team}
+        :param team: team block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#team RepositoryCollaborators#team}
+        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#user RepositoryCollaborators#user}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -427,14 +427,14 @@ class RepositoryCollaboratorsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def repository(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#repository RepositoryCollaborators#repository}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#repository RepositoryCollaborators#repository}.'''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#id RepositoryCollaborators#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#id RepositoryCollaborators#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -448,7 +448,7 @@ class RepositoryCollaboratorsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RepositoryCollaboratorsIgnoreTeam"]]]:
         '''ignore_team block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#ignore_team RepositoryCollaborators#ignore_team}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#ignore_team RepositoryCollaborators#ignore_team}
         '''
         result = self._values.get("ignore_team")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RepositoryCollaboratorsIgnoreTeam"]]], result)
@@ -459,7 +459,7 @@ class RepositoryCollaboratorsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RepositoryCollaboratorsTeam"]]]:
         '''team block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#team RepositoryCollaborators#team}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#team RepositoryCollaborators#team}
         '''
         result = self._values.get("team")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RepositoryCollaboratorsTeam"]]], result)
@@ -470,7 +470,7 @@ class RepositoryCollaboratorsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RepositoryCollaboratorsUser"]]]:
         '''user block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#user RepositoryCollaborators#user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#user RepositoryCollaborators#user}
         '''
         result = self._values.get("user")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RepositoryCollaboratorsUser"]]], result)
@@ -495,7 +495,7 @@ class RepositoryCollaboratorsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class RepositoryCollaboratorsIgnoreTeam:
     def __init__(self, *, team_id: builtins.str) -> None:
         '''
-        :param team_id: ID or slug of the team to ignore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#team_id RepositoryCollaborators#team_id}
+        :param team_id: ID or slug of the team to ignore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#team_id RepositoryCollaborators#team_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66ae9b7d72179d1a1b91348be54aa3de52f002c5805981795fd0d19df168fcb8)
@@ -508,7 +508,7 @@ class RepositoryCollaboratorsIgnoreTeam:
     def team_id(self) -> builtins.str:
         '''ID or slug of the team to ignore.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#team_id RepositoryCollaborators#team_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#team_id RepositoryCollaborators#team_id}
         '''
         result = self._values.get("team_id")
         assert result is not None, "Required property 'team_id' is missing"
@@ -693,8 +693,8 @@ class RepositoryCollaboratorsTeam:
         permission: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param team_id: Team ID or slug to add to the repository as a collaborator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#team_id RepositoryCollaborators#team_id}
-        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#permission RepositoryCollaborators#permission}.
+        :param team_id: Team ID or slug to add to the repository as a collaborator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#team_id RepositoryCollaborators#team_id}
+        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#permission RepositoryCollaborators#permission}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9dd0af3e1f365dc1e6030320b01b9949224a6d0d8818bb8a38f3a38e6be1dbd9)
@@ -710,7 +710,7 @@ class RepositoryCollaboratorsTeam:
     def team_id(self) -> builtins.str:
         '''Team ID or slug to add to the repository as a collaborator.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#team_id RepositoryCollaborators#team_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#team_id RepositoryCollaborators#team_id}
         '''
         result = self._values.get("team_id")
         assert result is not None, "Required property 'team_id' is missing"
@@ -718,7 +718,7 @@ class RepositoryCollaboratorsTeam:
 
     @builtins.property
     def permission(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#permission RepositoryCollaborators#permission}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#permission RepositoryCollaborators#permission}.'''
         result = self._values.get("permission")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -919,8 +919,8 @@ class RepositoryCollaboratorsUser:
         permission: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param username: (Required) The user to add to the repository as a collaborator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#username RepositoryCollaborators#username}
-        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#permission RepositoryCollaborators#permission}.
+        :param username: (Required) The user to add to the repository as a collaborator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#username RepositoryCollaborators#username}
+        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#permission RepositoryCollaborators#permission}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19e52202eed1e2af1c18be985bc9efafaad41cd95744ee915679d500ddd83cb6)
@@ -936,7 +936,7 @@ class RepositoryCollaboratorsUser:
     def username(self) -> builtins.str:
         '''(Required) The user to add to the repository as a collaborator.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#username RepositoryCollaborators#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#username RepositoryCollaborators#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -944,7 +944,7 @@ class RepositoryCollaboratorsUser:
 
     @builtins.property
     def permission(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_collaborators#permission RepositoryCollaborators#permission}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_collaborators#permission RepositoryCollaborators#permission}.'''
         result = self._values.get("permission")
         return typing.cast(typing.Optional[builtins.str], result)
 

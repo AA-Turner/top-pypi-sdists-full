@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: edx-codejail
-Version: 4.0.0
+Version: 4.1.0
 Summary: CodeJail manages execution of untrusted code in secure sandboxes. It is designed primarily for Python execution, but can be used for other languages as well.
 Home-page: https://github.com/openedx/codejail
 Author: edX
@@ -13,10 +13,21 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE.txt
 License-File: NOTICE.txt
+Requires-Dist: six
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 CodeJail
 ========
@@ -64,6 +75,7 @@ This library currently is tested to work with the following versions
 Python:
 
 * 3.11
+* 3.12
 
 Ubuntu:
 
@@ -100,7 +112,7 @@ Other details here that depend on your configuration:
 
 1. Create the new virtualenv, using ``--copies`` so that there's a distinct Python executable to limit::
 
-    $ sudo python3.11 -m venv --copies <SANDENV>
+    $ sudo python3.12 -m venv --copies <SANDENV>
 
    By default, the virtualenv would just symlink against the system Python, and apparmor's default configuration on some operating systems may prevent confinement from being appled to that.
 

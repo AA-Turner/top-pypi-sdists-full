@@ -31,9 +31,13 @@ the dulwich.client.get_ssh_vendor attribute:
 This implementation has comprehensive tests in tests/contrib/test_paramiko_vendor.py.
 """
 
+__all__ = [
+    "ParamikoSSHVendor",
+]
+
 import os
 import warnings
-from typing import Any, BinaryIO, Optional, cast
+from typing import Any, BinaryIO, cast
 
 import paramiko
 import paramiko.client
@@ -41,7 +45,15 @@ import paramiko.config
 
 
 class _ParamikoWrapper:
+    """Wrapper for paramiko SSH channel to provide a file-like interface."""
+
     def __init__(self, client: paramiko.SSHClient, channel: paramiko.Channel) -> None:
+        """Initialize the paramiko wrapper.
+
+        Args:
+            client: The SSH client instance
+            channel: The SSH channel for communication
+        """
         self.client = client
         self.channel = channel
 
@@ -50,15 +62,38 @@ class _ParamikoWrapper:
 
     @property
     def stderr(self) -> BinaryIO:
+        """Get stderr stream from the channel.
+
+        Returns:
+            Binary IO stream for stderr
+        """
         return cast(BinaryIO, self.channel.makefile_stderr("rb"))
 
     def can_read(self) -> bool:
+        """Check if data is available to read.
+
+        Returns:
+            True if data is available
+        """
         return self.channel.recv_ready()
 
     def write(self, data: bytes) -> None:
+        """Write data to the channel.
+
+        Args:
+            data: Bytes to write
+        """
         return self.channel.sendall(data)
 
-    def read(self, n: Optional[int] = None) -> bytes:
+    def read(self, n: int | None = None) -> bytes:
+        """Read data from the channel.
+
+        Args:
+            n: Number of bytes to read (default: 4096)
+
+        Returns:
+            Bytes read from the channel
+        """
         data = self.channel.recv(n or 4096)
         data_len = len(data)
 
@@ -73,13 +108,21 @@ class _ParamikoWrapper:
         return data
 
     def close(self) -> None:
+        """Close the SSH channel."""
         self.channel.close()
 
 
 class ParamikoSSHVendor:
+    """SSH vendor implementation using paramiko."""
+
     # http://docs.paramiko.org/en/2.4/api/client.html
 
     def __init__(self, **kwargs: object) -> None:
+        """Initialize the paramiko SSH vendor.
+
+        Args:
+            **kwargs: Additional keyword arguments passed to SSHClient
+        """
         self.kwargs = kwargs
         self.ssh_config = self._load_ssh_config()
 
@@ -101,15 +144,36 @@ class ParamikoSSHVendor:
     def run_command(
         self,
         host: str,
-        command: str,
-        username: Optional[str] = None,
-        port: Optional[int] = None,
-        password: Optional[str] = None,
-        pkey: Optional[paramiko.PKey] = None,
-        key_filename: Optional[str] = None,
-        protocol_version: Optional[int] = None,
+        command: bytes,
+        username: str | None = None,
+        port: int | None = None,
+        password: str | None = None,
+        pkey: paramiko.PKey | None = None,
+        key_filename: str | None = None,
+        ssh_command: str | None = None,
+        protocol_version: int | None = None,
         **kwargs: object,
     ) -> _ParamikoWrapper:
+        """Run a command on a remote host via SSH.
+
+        Args:
+            host: Hostname to connect to
+            command: Command to execute (as bytes)
+            username: SSH username (optional)
+            port: SSH port (optional)
+            password: SSH password (optional)
+            pkey: Private key for authentication (optional)
+            key_filename: Path to private key file (optional)
+            ssh_command: SSH command (ignored - Paramiko doesn't use external SSH)
+            protocol_version: SSH protocol version (optional)
+            **kwargs: Additional keyword arguments
+
+        Returns:
+            _ParamikoWrapper instance for the SSH channel
+        """
+        # Convert bytes command to str for paramiko
+        command_str = command.decode("utf-8")
+
         client = paramiko.SSHClient()
 
         # Get SSH config for this host
@@ -161,6 +225,6 @@ class ParamikoSSHVendor:
             channel.set_environment_variable(name="GIT_PROTOCOL", value="version=2")
 
         # Run commands
-        channel.exec_command(command)
+        channel.exec_command(command_str)
 
         return _ParamikoWrapper(client, channel)

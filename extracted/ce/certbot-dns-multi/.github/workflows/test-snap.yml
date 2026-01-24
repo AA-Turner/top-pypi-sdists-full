@@ -1,0 +1,35 @@
+name: Test the certbot-dns-multi snap
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 04 * * *' # At 04:23am every day
+
+jobs:
+  build:
+    name: Test
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Install Certbot snap
+        run: |
+          sudo snap install --classic certbot
+      - name: Install certbot-dns-multi
+        run: |
+          sudo snap install --edge certbot-dns-multi
+          sudo snap set certbot trust-plugin-with-root=ok
+          sudo snap connect certbot:plugin certbot-dns-multi
+      - name: Issue a staging certificate using certbot-dns-multi
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
+        run: |
+          sudo -E /usr/bin/env bash -c '\
+            mkdir -p /etc/letsencrypt/; \
+            umask 022; \
+            echo -e "dns_multi_provider = cloudflare\nCLOUDFLARE_DNS_API_TOKEN = $TOKEN" \
+            > /etc/letsencrypt/dns-multi.ini'
+          sudo certbot --staging register -n --no-eff-email \
+            --agree-tos --email certbot-dns-multi-nightly@zorin.au
+          sudo certbot certonly --staging \
+            -d "*.zorin.au" -a dns-multi \
+            --dns-multi-credentials=/etc/letsencrypt/dns-multi.ini
+          sudo certbot --staging unregister -n

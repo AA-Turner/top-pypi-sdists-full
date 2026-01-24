@@ -9,40 +9,53 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
+from .group_0347 import Verification
 
 
-class ReleaseAsset(GitHubModel):
-    """Release Asset
+class GitTag(GitHubModel):
+    """Git Tag
 
-    Data related to a release.
+    Metadata for a Git tag
     """
 
-    url: str = Field()
-    browser_download_url: str = Field()
-    id: int = Field()
     node_id: str = Field()
-    name: str = Field(description="The file name of the asset.")
-    label: Union[str, None] = Field()
-    state: Literal["uploaded", "open"] = Field(
-        description="State of the release asset."
-    )
-    content_type: str = Field()
-    size: int = Field()
-    digest: Union[str, None] = Field()
-    download_count: int = Field()
-    created_at: datetime = Field()
-    updated_at: datetime = Field()
-    uploader: Union[None, SimpleUser] = Field()
+    tag: str = Field(description="Name of the tag")
+    sha: str = Field()
+    url: str = Field(description="URL for the tag")
+    message: str = Field(description="Message describing the purpose of the tag")
+    tagger: GitTagPropTagger = Field()
+    object_: GitTagPropObject = Field(alias="object")
+    verification: Missing[Verification] = Field(default=UNSET, title="Verification")
 
 
-model_rebuild(ReleaseAsset)
+class GitTagPropTagger(GitHubModel):
+    """GitTagPropTagger"""
 
-__all__ = ("ReleaseAsset",)
+    date: str = Field()
+    email: str = Field()
+    name: str = Field()
+
+
+class GitTagPropObject(GitHubModel):
+    """GitTagPropObject"""
+
+    sha: str = Field()
+    type: str = Field()
+    url: str = Field()
+
+
+model_rebuild(GitTag)
+model_rebuild(GitTagPropTagger)
+model_rebuild(GitTagPropObject)
+
+__all__ = (
+    "GitTag",
+    "GitTagPropObject",
+    "GitTagPropTagger",
+)

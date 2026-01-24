@@ -65,6 +65,14 @@ fn wyhash_hash_bytes(value: Option<&[u8]>) -> Option<u64> {
     value.map(|v| real_wyhash(v, 0))
 }
 
+fn farmhash_fingerprint32(value: Option<&str>) -> Option<u32> {
+    value.map(|v| farmhash::fingerprint32(v.as_bytes()))
+}
+
+fn farmhash_fingerprint64(value: Option<&str>) -> Option<u64> {
+    value.map(|v| farmhash::fingerprint64(v.as_bytes()))
+}
+
 #[polars_expr(output_type=UInt64)]
 fn wyhash(inputs: &[Series]) -> PolarsResult<Series> {
     let s = inputs.get(0).expect("no series received");
@@ -84,6 +92,20 @@ fn wyhash(inputs: &[Series]) -> PolarsResult<Series> {
             "wyhash only works on strings or binary data".into(),
         )),
     }
+}
+
+#[polars_expr(output_type=UInt32)]
+fn farmhash32(inputs: &[Series]) -> PolarsResult<Series> {
+    let ca = inputs[0].str()?;
+    let out: ChunkedArray<UInt32Type> = unary_elementwise(ca, farmhash_fingerprint32);
+    Ok(out.into_series())
+}
+
+#[polars_expr(output_type=UInt64)]
+fn farmhash64(inputs: &[Series]) -> PolarsResult<Series> {
+    let ca = inputs[0].str()?;
+    let out: ChunkedArray<UInt64Type> = unary_elementwise(ca, farmhash_fingerprint64);
+    Ok(out.into_series())
 }
 
 #[polars_expr(output_type=String)]
@@ -375,5 +397,80 @@ fn xxh3_128(inputs: &[Series], kwargs: SeedKwargs64bit) -> PolarsResult<Series> 
 
     let ca = inputs[0].str()?;
     let out: ChunkedArray<BinaryType> = unary_elementwise(ca, seeded_hash_function);
+    Ok(out.into_series())
+}
+
+#[polars_expr(output_type=String)]
+fn uuid5(inputs: &[Series]) -> PolarsResult<Series> {
+    let ca = inputs[0].str()?;
+    let namespace_str = inputs[1].str()?;
+    let ns_value = namespace_str
+        .get(0)
+        .ok_or_else(|| PolarsError::ComputeError("Namespace must be provided".into()))?;
+
+    let namespace = match ns_value.to_lowercase().as_str() {
+        "dns" => uuid::Uuid::NAMESPACE_DNS,
+        "url" => uuid::Uuid::NAMESPACE_URL,
+        "oid" => uuid::Uuid::NAMESPACE_OID,
+        "x500" => uuid::Uuid::NAMESPACE_X500,
+        _ => uuid::Uuid::parse_str(ns_value)
+            .map_err(|e| PolarsError::ComputeError(format!("Invalid namespace '{}': {}", ns_value, e).into()))?,
+    };
+
+    let out: StringChunked = ca.apply_into_string_amortized(|value, output| {
+        output.push_str(&uuid::Uuid::new_v5(&namespace, value.as_bytes()).hyphenated().to_string())
+    });
+    Ok(out.into_series())
+}
+
+#[polars_expr(output_type=String)]
+fn uuid5_concat(inputs: &[Series]) -> PolarsResult<Series> {
+    let col1 = inputs[0].str()?;
+    let col2 = inputs[1].str()?;
+    
+    let out: StringChunked = col1
+        .into_iter()
+        .zip(col2.into_iter())
+        .map(|(a_opt, b_opt)| {
+            a_opt.map(|a| {
+                let mut input = string::String::with_capacity(a.len() + b_opt.map_or(0, |b| b.len()));
+                input.push_str(a);
+                if let Some(b) = b_opt {
+                    input.push_str(b);
+                }
+                uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_DNS, input.as_bytes())
+                    .hyphenated()
+                    .to_string()
+            })
+        })
+        .collect();
+    
+    Ok(out.into_series())
+}
+
+#[polars_expr(output_type=String)]
+fn uuid5_concat_default(inputs: &[Series]) -> PolarsResult<Series> {
+    let col1 = inputs[0].str()?;
+    let col2_casted = inputs[1].cast(&DataType::String)?;
+    let col2 = col2_casted.str()?;
+    let default = inputs[2].str()?;
+    let default_val = default.get(0).unwrap_or("a");
+    
+    let out: StringChunked = col1
+        .into_iter()
+        .zip(col2.into_iter())
+        .map(|(a_opt, b_opt)| {
+            a_opt.map(|a| {
+                let b = b_opt.unwrap_or(default_val);
+                let mut input = string::String::with_capacity(a.len() + b.len());
+                input.push_str(a);
+                input.push_str(b);
+                uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_DNS, input.as_bytes())
+                    .hyphenated()
+                    .to_string()
+            })
+        })
+        .collect();
+    
     Ok(out.into_series())
 }

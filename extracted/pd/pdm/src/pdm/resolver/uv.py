@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import subprocess
 from dataclasses import dataclass, replace
-from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -132,11 +132,15 @@ class UvResolver(Resolver):
                 req.extras = extra
             return req.as_line()
 
-        def make_hash(item: dict[str, Any]) -> FileHash:
-            link = Link(item["url"])
-            if "hash" not in item:
-                item["hash"] = hash_cache.get_hash(link, session)
-            return {"url": item["url"], "file": link.filename, "hash": item["hash"]}
+        def make_hash(item: dict[str, Any], fallback_url: str | None = None) -> FileHash:
+            url = item.get("url") or fallback_url
+            if url is None:
+                raise KeyError("url")
+            link = Link(url)
+            hash_value = item.get("hash")
+            if hash_value is None:
+                hash_value = hash_cache.get_hash(link, session)
+            return {"url": url, "file": link.filename, "hash": hash_value}
 
         for package in data["package"]:
             if (
@@ -165,8 +169,11 @@ class UvResolver(Resolver):
                 req = NamedRequirement.create(name=package["name"], specifier=f"=={package['version']}")
             candidate = Candidate(req, name=package["name"], version=package["version"])
 
-            for wheel in chain(package.get("wheels", []), [sdist] if (sdist := package.get("sdist")) else []):
-                candidate.hashes.append(make_hash(wheel))
+            fallback_url = package["source"].get("url")
+            for wheel in package.get("wheels", []):
+                candidate.hashes.append(make_hash(wheel, fallback_url))
+            if sdist := package.get("sdist"):
+                candidate.hashes.append(make_hash(sdist, fallback_url))
             entry = Package(candidate, [make_requirement(dep) for dep in package.get("dependencies", [])], "")
             packages.append(entry)
             if optional_dependencies := package.get("optional-dependencies"):
@@ -184,6 +191,13 @@ class UvResolver(Resolver):
 
         locked_repo = self.locked_repository or self.project.get_locked_repository()
         with uv_file_builder(self.project, str(self.target.requires_python), self.requirements, locked_repo) as builder:
+            venv_project = self.environment.interpreter.get_venv()
+            if venv_project is not None:
+                python_home = venv_project.root
+            else:  # pragma: no cover
+                python_home = self.environment.interpreter.path.parent
+                if python_home.name in ("bin", "Scripts"):
+                    python_home = python_home.parent
             builder.build_pyproject_toml()
             uv_lock_path = self.project.root / "uv.lock"
             if self.update_strategy != "all":
@@ -194,7 +208,8 @@ class UvResolver(Resolver):
                 uv_lock_command = self._build_lock_command()
                 self.project.core.ui.echo(f"Running uv lock command: {uv_lock_command}", verbosity=Verbosity.DETAIL)
                 real_command = [s.secret if isinstance(s, HiddenText) else s for s in uv_lock_command]
-                subprocess.run(real_command, cwd=self.project.root, check=True)
+                env = {**os.environ, "UV_PROJECT_ENVIRONMENT": str(python_home)}
+                subprocess.run(real_command, cwd=self.project.root, check=True, env=env)
             finally:
                 if isinstance(self.reporter, RichLockReporter):
                     self.reporter.start()

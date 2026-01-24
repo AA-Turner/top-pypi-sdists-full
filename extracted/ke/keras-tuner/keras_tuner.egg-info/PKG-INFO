@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: keras-tuner
-Version: 1.4.7
+Version: 1.4.8
 Summary: A Hyperparameter Tuning Library for Keras
 Home-page: https://github.com/keras-team/keras-tuner
 Author: The KerasTuner authors
@@ -22,6 +22,8 @@ Requires-Dist: keras
 Requires-Dist: packaging
 Requires-Dist: requests
 Requires-Dist: kt-legacy
+Requires-Dist: grpcio
+Requires-Dist: protobuf
 Provides-Extra: tensorflow
 Requires-Dist: tensorflow>=2.0; extra == "tensorflow"
 Provides-Extra: tensorflow-cpu
@@ -46,10 +48,19 @@ Provides-Extra: build
 Requires-Dist: tensorflow-cpu; extra == "build"
 Requires-Dist: namex; extra == "build"
 Requires-Dist: build; extra == "build"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 # KerasTuner
 
-[![](https://github.com/keras-team/keras-tuner/workflows/Tests/badge.svg?branch=master)](https://github.com/keras-team/keras-tuner/actions?query=workflow%3ATests+branch%3Amaster)
+[![](https://github.com/keras-team/keras-tuner/workflows/Tests/badge.svg)](https://github.com/keras-team/keras-tuner/actions?query=workflow%3ATests+branch%3Amaster)
 [![codecov](https://codecov.io/gh/keras-team/keras-tuner/branch/master/graph/badge.svg)](https://codecov.io/gh/keras-team/keras-tuner)
 [![PyPI version](https://badge.fury.io/py/keras-tuner.svg)](https://badge.fury.io/py/keras-tuner)
 

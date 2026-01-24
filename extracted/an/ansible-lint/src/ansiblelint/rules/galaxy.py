@@ -36,6 +36,8 @@ class GalaxyRule(AnsibleLintRule):
         "galaxy[version-missing]": "galaxy.yaml should have version tag.",
         "galaxy[no-runtime]": "meta/runtime.yml file not found.",
         "galaxy[invalid-dependency-version]": "Invalid collection metadata. Dependency version spec range is invalid",
+        "galaxy[no-repository]": "galaxy.yaml should have a repository key for publication to Galaxy. See https://docs.ansible.com/projects/ansible/latest/dev_guide/collections_galaxy_meta.html",
+        "galaxy[no-license]": "galaxy.yaml should have a license or license_file key for publication to Galaxy. See https://docs.ansible.com/projects/ansible/latest/dev_guide/collections_galaxy_meta.html",
     }
 
     def matchplay(self, file: Lintable, data: dict[str, Any]) -> list[MatchError]:
@@ -179,6 +181,26 @@ class GalaxyRule(AnsibleLintRule):
                 ),
             )
 
+        # Check for repository key - recommended for Galaxy publication
+        if "repository" not in data:
+            results.append(
+                self.create_matcherror(
+                    message="galaxy.yaml should have a repository key for publication to Galaxy. See https://docs.ansible.com/projects/ansible/latest/dev_guide/collections_galaxy_meta.html",
+                    tag="galaxy[no-repository]",
+                    filename=file,
+                ),
+            )
+
+        # Check for license or license_file key - recommended for Galaxy publication
+        if "license" not in data and "license_file" not in data:
+            results.append(
+                self.create_matcherror(
+                    message="galaxy.yaml should have a license or license_file key for publication to Galaxy. See https://docs.ansible.com/projects/ansible/latest/dev_guide/collections_galaxy_meta.html",
+                    tag="galaxy[no-license]",
+                    filename=file,
+                ),
+            )
+
         return results
 
 
@@ -188,12 +210,13 @@ if "pytest" in sys.modules:
     from ansiblelint.rules import RulesCollection  # pylint: disable=ungrouped-imports
     from ansiblelint.runner import Runner
 
-    def test_galaxy_no_collection_version() -> None:
+    def test_galaxy_no_collection_version(
+        empty_rule_collection: RulesCollection,
+    ) -> None:
         """Test for no collection version in galaxy."""
-        collection = RulesCollection()
-        collection.register(GalaxyRule())
+        empty_rule_collection.register(GalaxyRule())
         failure = "examples/.no_collection_version/galaxy.yml"
-        bad_runner = Runner(failure, rules=collection)
+        bad_runner = Runner(failure, rules=empty_rule_collection)
         errs = bad_runner.run()
         assert len(errs) == 1
 
@@ -252,6 +275,16 @@ if "pytest" in sys.modules:
                 "examples/collections/broken_no_runtime/galaxy.yml",
                 ["galaxy[no-runtime]"],
                 id="broken_no_runtime",
+            ),
+            pytest.param(
+                "examples/collections/broken_no_license/galaxy.yml",
+                ["galaxy[no-license]"],
+                id="broken_no_license",
+            ),
+            pytest.param(
+                "examples/collections/broken_no_repo/galaxy.yml",
+                ["galaxy[no-repository]"],
+                id="broken_no_repo",
             ),
         ),
     )

@@ -110,7 +110,7 @@ class TestContactSerializersValidation:
         return IBAN("AD1400080001001234567890")
 
     @pytest.fixture
-    def contact_data(iban, mocker: MockerFixture):
+    def contact_data(self, mocker: MockerFixture):
         return {
             "AddressContact": {
                 "serializer": AddressContactSerializer(),

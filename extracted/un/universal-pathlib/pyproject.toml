@@ -4,27 +4,29 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "universal_pathlib"
-license = {text = "MIT License"}
+license = "MIT"
 authors = [
     {name = "Andrew Fulton", email = "andrewfulton9@gmail.com"},
 ]
 description = "pathlib api extended to use fsspec backends"
 maintainers = [
+    {name = "Andreas Poehlmann"},
     {name = "Andreas Poehlmann", email = "andreas@poehlmann.io"},
     {name = "Norman Rzepka"},
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
-    "fsspec >=2022.1.0,!=2024.3.1",
+    "fsspec >=2024.5.0",
+    "pathlib-abc >=0.5.1,<0.6.0",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Development Status :: 4 - Beta",
 ]
 keywords = ["filesystem-spec", "pathlib"]
@@ -41,26 +43,33 @@ tests = [
     "pytest-mock >=3.12.0",
     "pylint >=2.17.4",
     "mypy >=1.10.0",
+    "pydantic >=2",
     "pytest-mypy-plugins >=3.1.2",
     "packaging",
 ]
+typechecking = [
+    "mypy >=1.10.0",
+    "pytest-mypy-plugins >=3.1.2",
+]
 dev = [
-    "adlfs",
-    "aiohttp",
-    "requests",
-    "gcsfs",
-    "s3fs",
-    "moto[s3,server]",
+    "fsspec[adl,http,github,gcs,s3,ssh,smb] >=2024.5.0",
+    "s3fs >=2024.5.0",
+    "gcsfs >=2024.5.0",
+    "adlfs >=2024",
+    "huggingface_hub",
     "webdav4[fsspec]",
-    "paramiko",
+    # testing
+    "moto[s3,server]",
     "wsgidav",
     "cheroot",
     # "hadoop-test-cluster",
     # "pyarrow",
+    "pyftpdlib",
+    "typing_extensions; python_version<'3.11'",
+]
+dev-third-party = [
     "pydantic",
     "pydantic-settings",
-    "smbprotocol",
-    "typing_extensions; python_version<'3.11'",
 ]
 
 [project.urls]
@@ -135,6 +144,7 @@ exclude_lines = [
   "raise NotImplementedError",
   "raise AssertionError",
   "@overload",
+  "except ImportError",
 ]
 
 [tool.mypy]
@@ -160,6 +170,32 @@ ignore_missing_imports = true
 module = "webdav4.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "pathlib_abc.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "smbprotocol.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pydantic.*"
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pydantic_core.*"
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "typing_inspection.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "annotated_types.*"
+ignore_errors = true
+
 [tool.pylint.format]
 max-line-length = 88
 
@@ -176,3 +212,14 @@ ignore-words-list = " "
 [tool.bandit]
 exclude_dirs = ["tests"]
 skips = ["B101"]
+
+[dependency-groups]
+docs = [
+    "mkdocs>=1.6.1",
+    "click!=8.2.2,!=8.3.0",  # https://github.com/mkdocs/mkdocs/issues/4032
+    "mkdocs-material>=9.6.22",
+    "mkdocstrings[python]>=0.30.1",
+    "mkdocs-exclude>=1.0.2",
+    "pymdown-extensions>=10.7.0",
+    "ruff>=0.14.1",
+]

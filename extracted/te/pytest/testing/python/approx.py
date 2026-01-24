@@ -5,18 +5,18 @@ from contextlib import contextmanager
 import decimal
 from decimal import Decimal
 from fractions import Fraction
+from math import inf
+from math import nan
 from math import sqrt
 import operator
 from operator import eq
 from operator import ne
+import re
 
 from _pytest.pytester import Pytester
 from _pytest.python_api import _recursive_sequence_map
 import pytest
 from pytest import approx
-
-
-inf, nan = float("inf"), float("nan")
 
 
 @pytest.fixture
@@ -77,7 +77,7 @@ def assert_approx_raises_regex(pytestconfig):
         )
 
         for i, (obtained_line, expected_line) in enumerate(
-            zip(obtained_message, expected_message)
+            zip(obtained_message, expected_message, strict=True)
         ):
             regex = re.compile(expected_line)
             assert regex.match(obtained_line) is not None, (
@@ -741,6 +741,17 @@ class TestApprox:
             ],
         )
 
+    def test_dict_differing_lengths(self, assert_approx_raises_regex):
+        assert_approx_raises_regex(
+            {"a": 0},
+            {"a": 0, "b": 1},
+            [
+                "  ",
+                r"  Impossible to compare mappings with different sizes\.",
+                r"  Lengths: 2 and 1",
+            ],
+        )
+
     def test_numpy_array(self):
         np = pytest.importorskip("numpy")
 
@@ -1036,6 +1047,20 @@ class TestApprox:
 
         assert b == pytest.approx(a, abs=2)
         assert b != pytest.approx(a, abs=0.5)
+
+    def test_approx_dicts_with_mismatch_on_keys(self) -> None:
+        """https://github.com/pytest-dev/pytest/issues/13816"""
+        expected = {"a": 1, "b": 3}
+        actual = {"a": 1, "c": 3}
+
+        with pytest.raises(
+            AssertionError,
+            match=re.escape(
+                "comparison failed.\n  Mappings has different keys: "
+                "expected dict_keys(['a', 'b']) but got dict_keys(['a', 'c'])"
+            ),
+        ):
+            assert actual == approx(expected)
 
 
 class MyVec3:  # incomplete

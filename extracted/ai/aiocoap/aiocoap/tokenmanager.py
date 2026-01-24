@@ -8,10 +8,6 @@ import random
 from . import error
 from . import interfaces
 
-# To be used sparingly here: This deals with request / responses on the token
-# layer. But the layer below won't even know that messages are responses, so it
-# can't make the informed decisions we make here.
-from .numbers.types import NON
 from .pipe import Pipe
 
 
@@ -26,7 +22,7 @@ class TokenManager(interfaces.RequestInterface, interfaces.TokenManager):
         """Unfinished incoming requests.
 
         ``(token, remote): (Pipe, stopper)`` where stopper is a
-        function unregistes the Pipe event handler and thus
+        function unregisters the Pipe event handler and thus
         indicates to the server the discontinued interest"""
 
         self.log = self.context.log
@@ -135,10 +131,10 @@ class TokenManager(interfaces.RequestInterface, interfaces.TokenManager):
                 m.token = request.token
                 m.remote = request.remote.as_response_address()
 
-                if m.mtype is None and request.mtype is NON:
-                    # Default to sending NON to NON requests; rely on the
-                    # default (CON if stand-alone else ACK) otherwise.
-                    m.mtype = NON
+                # The token interface may use information from that, eg.
+                # whether the request was sent reliably or not.
+                m.request = request
+
                 self.token_interface.send_message(
                     m,
                     # No more interest from *that* remote; as it's the only
@@ -273,7 +269,7 @@ class TokenManager(interfaces.RequestInterface, interfaces.TokenManager):
             # to be an exception, but that generally needs handling here.
             #
             # It may be that it'd be wise to reduce the use of send_canceller
-            # to situations when the request is actualy cancelled, and pass
+            # to situations when the request is actually cancelled, and pass
             # some information to the token_interface about whether it should
             # keep an eye out for responses on that token and cancel
             # transmission accordingly.

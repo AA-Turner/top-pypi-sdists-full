@@ -3,7 +3,8 @@
 import contextlib
 import math
 import warnings
-from typing import Callable, Dict, Optional, Tuple, TypedDict, Union
+from collections.abc import Callable
+from typing import TypedDict, cast
 
 import numpy
 from affine import Affine
@@ -20,6 +21,7 @@ from rio_tiler.constants import WGS84_CRS
 from rio_tiler.errors import InvalidBufferSize, PointOutsideBounds, TileOutsideBounds
 from rio_tiler.models import ImageData, PointData
 from rio_tiler.types import BBox, Indexes, NoData, RIOResampling, WarpResampling
+from rio_tiler.utils import _get_width_height, _missing_size
 from rio_tiler.utils import _requested_tile_aligned_with_internal_tile as is_aligned
 from rio_tiler.utils import (
     _round_window,
@@ -33,35 +35,12 @@ from rio_tiler.utils import (
 class Options(TypedDict, total=False):
     """Reader Options."""
 
-    force_binary_mask: Optional[bool]
-    nodata: Optional[NoData]
-    vrt_options: Optional[Dict]
-    resampling_method: Optional[RIOResampling]
-    reproject_method: Optional[WarpResampling]
-    unscale: Optional[bool]
-    post_process: Optional[Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray]]
-
-
-def _get_width_height(max_size, dataset_height, dataset_width) -> Tuple[int, int]:
-    """Get Output Width/Height based on a max_size and dataset shape."""
-    if max(dataset_height, dataset_width) < max_size:
-        return dataset_height, dataset_width
-
-    ratio = dataset_height / dataset_width
-    if ratio > 1:
-        height = max_size
-        width = math.ceil(height / ratio)
-    else:
-        width = max_size
-        height = math.ceil(width * ratio)
-
-    return height, width
-
-
-def _missing_size(w: Optional[int] = None, h: Optional[int] = None):
-    """Check if one and only one size (width, height) is valid."""
-    iterator = iter([w, h])
-    return any(iterator) and not any(iterator)
+    nodata: NoData | None
+    vrt_options: dict | None
+    resampling_method: RIOResampling | None
+    reproject_method: WarpResampling | None
+    unscale: bool | None
+    post_process: Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray] | None
 
 
 def _apply_buffer(
@@ -69,7 +48,7 @@ def _apply_buffer(
     bounds: BBox,
     height: int,
     width: int,
-) -> Tuple[BBox, int, int]:
+) -> tuple[BBox, int, int]:
     """Apply buffer on bounds."""
     x_res = (bounds[2] - bounds[0]) / width
     y_res = (bounds[3] - bounds[1]) / height
@@ -90,21 +69,20 @@ def _apply_buffer(
 
 
 def read(
-    src_dst: Union[DatasetReader, DatasetWriter, WarpedVRT],
-    dst_crs: Optional[CRS] = None,
-    height: Optional[int] = None,
-    width: Optional[int] = None,
-    max_size: Optional[int] = None,
-    indexes: Optional[Indexes] = None,
-    window: Optional[windows.Window] = None,
-    force_binary_mask: bool = True,
-    nodata: Optional[NoData] = None,
-    vrt_options: Optional[Dict] = None,
-    out_dtype: Optional[Union[str, numpy.dtype]] = None,
+    src_dst: DatasetReader | DatasetWriter | WarpedVRT,
+    dst_crs: CRS | None = None,
+    height: int | None = None,
+    width: int | None = None,
+    max_size: int | None = None,
+    indexes: Indexes | None = None,
+    window: windows.Window | None = None,
+    nodata: NoData | None = None,
+    vrt_options: dict | None = None,
+    out_dtype: str | numpy.dtype | None = None,
     resampling_method: RIOResampling = "nearest",
     reproject_method: WarpResampling = "nearest",
     unscale: bool = False,
-    post_process: Optional[Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray]] = None,
+    post_process: Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray] | None = None,
 ) -> ImageData:
     """Low level read function.
 
@@ -120,7 +98,6 @@ def read(
         vrt_options (dict, optional): Options to be passed to the rasterio.warp.WarpedVRT class.
         resampling_method (RIOResampling, optional): RasterIO resampling algorithm. Defaults to `nearest`.
         reproject_method (WarpResampling, optional): WarpKernel resampling algorithm. Defaults to `nearest`.
-        force_binary_mask (bool, optional): Cast returned mask to binary values (0 or 255). Defaults to `True`.
         unscale (bool, optional): Apply 'scales' and 'offsets' on output data value. Defaults to `False`.
         post_process (callable, optional): Function to apply on output data and mask values.
 
@@ -279,36 +256,36 @@ def read(
         # We only add dataset statistics if we have them for all the indexes
         dataset_statistics = stats if len(stats) == len(indexes) else None
 
-        # TODO: DEPRECATED, masked array are already using bool
-        if force_binary_mask:
-            pass
-
+        scales = numpy.array(dataset.scales)[numpy.array(indexes) - 1]
+        offsets = numpy.array(dataset.offsets)[numpy.array(indexes) - 1]
         if unscale:
-            data = data.astype("float32", casting="unsafe")
-
-            # reshaped to match data
-            scales = numpy.array(dataset.scales)[numpy.array(indexes) - 1].reshape(
-                (-1, 1, 1)
-            )
-            offsets = numpy.array(dataset.offsets)[numpy.array(indexes) - 1].reshape(
-                (-1, 1, 1)
+            data = cast(
+                numpy.ma.MaskedArray,
+                data.astype("float32", casting="unsafe"),
             )
 
-            numpy.multiply(data, scales, out=data, casting="unsafe")
-            numpy.add(data, offsets, out=data, casting="unsafe")
+            numpy.multiply(data, scales.reshape((-1, 1, 1)), out=data, casting="unsafe")
+            numpy.add(data, offsets.reshape((-1, 1, 1)), out=data, casting="unsafe")
 
             # apply scale/offsets to stats
             if dataset_statistics:
-                scales = numpy.array(dataset.scales)[numpy.array(indexes) - 1].reshape(
-                    (-1, 1)
-                )
-                offsets = numpy.array(dataset.offsets)[numpy.array(indexes) - 1].reshape(
-                    (-1, 1)
-                )
                 stats_array = numpy.array(dataset_statistics)
-                numpy.multiply(stats_array, scales, out=stats_array, casting="unsafe")
-                numpy.add(stats_array, offsets, out=stats_array, casting="unsafe")
+                numpy.multiply(
+                    stats_array,
+                    scales.reshape((-1, 1)),
+                    out=stats_array,
+                    casting="unsafe",
+                )
+                numpy.add(
+                    stats_array,
+                    offsets.reshape((-1, 1)),
+                    out=stats_array,
+                    casting="unsafe",
+                )
                 dataset_statistics = [tuple(s) for s in stats_array.tolist()]
+
+            scales = numpy.zeros(len(indexes)) + 1.0
+            offsets = numpy.zeros(len(indexes))
 
         if post_process:
             data = post_process(data)
@@ -322,33 +299,36 @@ def read(
             bounds=out_bounds,
             crs=dataset.crs,
             band_names=[f"b{idx}" for idx in indexes],
+            band_descriptions=[dataset.descriptions[ix - 1] or "" for idx in indexes],
             dataset_statistics=dataset_statistics,
             metadata=dataset.tags(),
+            nodata=nodata,
+            scales=scales.tolist(),
+            offsets=offsets.tolist(),
         )
 
 
 # flake8: noqa: C901
 def part(
-    src_dst: Union[DatasetReader, DatasetWriter, WarpedVRT],
+    src_dst: DatasetReader | DatasetWriter | WarpedVRT,
     bounds: BBox,
-    height: Optional[int] = None,
-    width: Optional[int] = None,
-    max_size: Optional[int] = None,
-    dst_crs: Optional[CRS] = None,
-    bounds_crs: Optional[CRS] = None,
-    indexes: Optional[Indexes] = None,
-    minimum_overlap: Optional[float] = None,
-    padding: Optional[int] = None,
-    buffer: Optional[float] = None,
-    force_binary_mask: bool = True,
-    nodata: Optional[NoData] = None,
-    vrt_options: Optional[Dict] = None,
-    out_dtype: Optional[Union[str, numpy.dtype]] = None,
+    height: int | None = None,
+    width: int | None = None,
+    max_size: int | None = None,
+    dst_crs: CRS | None = None,
+    bounds_crs: CRS | None = None,
+    indexes: Indexes | None = None,
+    minimum_overlap: float | None = None,
+    padding: int | None = None,
+    buffer: float | None = None,
+    nodata: NoData | None = None,
+    vrt_options: dict | None = None,
+    out_dtype: str | numpy.dtype | None = None,
     align_bounds_with_dataset: bool = False,
     resampling_method: RIOResampling = "nearest",
     reproject_method: WarpResampling = "nearest",
     unscale: bool = False,
-    post_process: Optional[Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray]] = None,
+    post_process: Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray] | None = None,
 ) -> ImageData:
     """Read part of a dataset.
 
@@ -477,7 +457,6 @@ def part(
             out_dtype=out_dtype,
             resampling_method=resampling_method,
             reproject_method=reproject_method,
-            force_binary_mask=force_binary_mask,
             unscale=unscale,
             post_process=post_process,
         )
@@ -522,7 +501,6 @@ def part(
             out_dtype=out_dtype,
             resampling_method=resampling_method,
             reproject_method=reproject_method,
-            force_binary_mask=force_binary_mask,
             unscale=unscale,
             post_process=post_process,
         )
@@ -532,6 +510,10 @@ def part(
             bounds=bounds,
             crs=img.crs,
             band_names=img.band_names,
+            band_descriptions=img.band_descriptions,
+            nodata=img.nodata,
+            scales=img.scales,
+            offsets=img.offsets,
             dataset_statistics=img.dataset_statistics,
             metadata=img.metadata,
         )
@@ -546,26 +528,24 @@ def part(
         out_dtype=out_dtype,
         resampling_method=resampling_method,
         reproject_method=reproject_method,
-        force_binary_mask=force_binary_mask,
         unscale=unscale,
         post_process=post_process,
     )
 
 
 def point(
-    src_dst: Union[DatasetReader, DatasetWriter, WarpedVRT],
-    coordinates: Tuple[float, float],
-    indexes: Optional[Indexes] = None,
+    src_dst: DatasetReader | DatasetWriter | WarpedVRT,
+    coordinates: tuple[float, float],
+    indexes: Indexes | None = None,
     coord_crs: CRS = WGS84_CRS,
-    force_binary_mask: bool = True,
-    nodata: Optional[NoData] = None,
-    vrt_options: Optional[Dict] = None,
-    out_dtype: Optional[Union[str, numpy.dtype]] = None,
+    nodata: NoData | None = None,
+    vrt_options: dict | None = None,
+    out_dtype: str | numpy.dtype | None = None,
     resampling_method: RIOResampling = "nearest",
     reproject_method: WarpResampling = "nearest",
     interpolate: bool = False,
     unscale: bool = False,
-    post_process: Optional[Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray]] = None,
+    post_process: Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray] | None = None,
 ) -> PointData:
     """Read a pixel value for a point.
 
@@ -663,7 +643,6 @@ def point(
             window=window,
             out_dtype=out_dtype,
             resampling_method=resampling_method,
-            force_binary_mask=force_binary_mask,
             unscale=unscale,
             post_process=post_process,
         )
@@ -671,8 +650,12 @@ def point(
         return PointData(
             img.array[:, 0, 0],
             band_names=img.band_names,
+            band_descriptions=img.band_descriptions,
             coordinates=coordinates,
             crs=coord_crs,
-            metadata=dataset.tags(),
             pixel_location=(col, row),
+            nodata=img.nodata,
+            scales=img.scales,
+            offsets=img.offsets,
+            metadata=img.metadata,
         )

@@ -40,6 +40,7 @@ namespace hwy {
 // access pairs of lines, and M1 L2 and POWER8 lines are also 128 bytes.
 #define HWY_ALIGNMENT 128
 
+// `align` is in bytes.
 template <typename T>
 HWY_API constexpr bool IsAligned(T* ptr, size_t align = HWY_ALIGNMENT) {
   return reinterpret_cast<uintptr_t>(ptr) % align == 0;
@@ -207,7 +208,7 @@ AlignedUniquePtr<T[]> MakeUniqueAlignedArrayWithAlloc(
   T* ptr = detail::AllocateAlignedItems<T>(items, alloc, opaque);
   if (ptr != nullptr) {
     for (size_t i = 0; i < items; i++) {
-      new (ptr + i) T(std::forward<Args>(args)...);
+      new (ptr + i) T(args...);
     }
   }
   return AlignedUniquePtr<T[]>(ptr, AlignedDeleter(free, opaque));

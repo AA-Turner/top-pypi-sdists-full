@@ -25,6 +25,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Intended Audience :: Science/Research",
   "Intended Audience :: End Users/Desktop",
   "Intended Audience :: Developers",
@@ -49,6 +50,9 @@ docs = [
 tests = [
   "pytest >= 3.9.1",
 ]
+
+[tool.setuptools]
+include-package-data = false
 
 [tool.setuptools_scm]
 version_file = "src/igwn_segments/_version.py"

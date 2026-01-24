@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: troposphere
-Version: 4.9.4
+Version: 4.9.6
 Summary: AWS CloudFormation creation library
 Home-page: https://github.com/cloudtools/troposphere
 Author: Mark Peek
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE

@@ -62,7 +62,7 @@ def _pyglet_imshow_list(images, caption=None, interval=0.5, keymap=None, hook=No
         print("Usage: ", file=sys.stderr)
         if keymap is not None:
             for key, function in keymap.items():
-                print("  {}: {}".format(key, function))
+                print(f"  {key}: {function}")
         print("  h: show help", file=sys.stderr)
         print("  q: close window", file=sys.stderr)
         print("  n: next image", file=sys.stderr)
@@ -104,11 +104,9 @@ def _pyglet_imshow_list(images, caption=None, interval=0.5, keymap=None, hook=No
 
     def _post_image_update():
         _centerize_sprite_in_window(sprite, window)
-        window.set_caption(
-            "{} {}/{}".format(images[window.index], window.index + 1, len(images))
-        )
+        window.set_caption(f"{images[window.index]} {window.index + 1}/{len(images)}")
         print(
-            "{} {}/{}".format(images[window.index], window.index + 1, len(images)),
+            f"{images[window.index]} {window.index + 1}/{len(images)}",
             file=sys.stderr,
         )
 
@@ -329,8 +327,8 @@ def _convert_to_imagedata(image):
         pitch=-image.width * len(image.mode),
     )
     if hasattr(pyglet, "__version__") and pyglet.__version__[0] == "2":
-        kwargs["fmt"] = image.mode
+        kwargs["fmt"] = image.mode  # type: ignore[assignment]
     else:
-        kwargs["format"] = image.mode
+        kwargs["format"] = image.mode  # type: ignore[assignment]
     image = pyglet.image.ImageData(**kwargs)
     return image

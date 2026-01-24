@@ -9,18 +9,12 @@ Forbid all explicitly concatenated strings, in favour of implicit concatenation.
 from __future__ import annotations
 
 import ast
-import sys
 import tokenize
 from collections.abc import Iterable
 from dataclasses import dataclass
+from itertools import pairwise
 
-if sys.version_info >= (3, 10):
-    from itertools import pairwise
-else:
-    from more_itertools import pairwise
-
-
-__all__ = ["__version__", "Checker"]
+__all__ = ["Checker", "__version__"]
 __version__ = "0.4.0"
 
 _ERROR = tuple[int, int, str, None]
@@ -55,7 +49,11 @@ def _explicit(root_node: ast.AST) -> Iterable[_ERROR]:
         if isinstance(node, ast.BinOp)
         and isinstance(node.op, ast.Add)
         and all(
-            isinstance(operand, (ast.Str, ast.Bytes, ast.JoinedStr))
+            isinstance(operand, ast.JoinedStr)
+            or (
+                isinstance(operand, ast.Constant)
+                and isinstance(operand.value, (str, bytes))
+            )
             for operand in [node.left, node.right]
         )
     )

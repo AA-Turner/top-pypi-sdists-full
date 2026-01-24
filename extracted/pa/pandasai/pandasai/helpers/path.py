@@ -1,6 +1,9 @@
 import os
+import re
+from io import BytesIO
+from typing import Union
 
-from pandasai.exceptions import InvalidWorkspacePathError
+from ..helpers.sql_sanitizer import sanitize_file_name
 
 
 def find_project_root(filename=None):
@@ -8,20 +11,7 @@ def find_project_root(filename=None):
     Check if Custom workspace path provide use that otherwise iterate to
     find project root
     """
-    if "PANDASAI_WORKSPACE" in os.environ:
-        workspace_path = os.environ["PANDASAI_WORKSPACE"]
-        if (
-            workspace_path
-            and os.path.exists(workspace_path)
-            and os.path.isdir(workspace_path)
-        ):
-            return workspace_path
-        raise InvalidWorkspacePathError(
-            "PANDASAI_WORKSPACE does not point to a valid directory"
-        )
 
-    # Get the path of the file that is be
-    # ing executed
     current_file_path = os.path.abspath(os.getcwd())
 
     # Navigate back until we either find a $filename file or there is no parent
@@ -39,7 +29,6 @@ def find_project_root(filename=None):
             os.path.isfile(os.path.join(root_folder, "pyproject.toml"))
             or os.path.isfile(os.path.join(root_folder, "setup.py"))
             or os.path.isfile(os.path.join(root_folder, "requirements.txt"))
-            or os.path.isfile(os.path.join(root_folder, "pandasai.json"))
         ):
             break
 
@@ -57,10 +46,56 @@ def find_closest(filename):
     return os.path.join(find_project_root(filename), filename)
 
 
-def create_directory(path):
-    if not os.path.exists(path):
-        # Create the directory
-        try:
-            os.makedirs(path)
-        except OSError as e:
-            raise OSError(f"Error creating directory: {e}") from e
+def validate_name_format(value):
+    """
+    Validate name format to be 'my-org'
+    """
+    return bool(re.match(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", value))
+
+
+def validate_underscore_name_format(value):
+    """
+    Validate name format to be 'my_organization'
+    """
+    return bool(re.match(r"^[a-z0-9]+(?:_[a-z0-9]+)*$", value))
+
+
+def transform_dash_to_underscore(value: str) -> str:
+    return value.replace("-", "_")
+
+
+def transform_underscore_to_dash(value: str) -> str:
+    return value.replace("_", "-")
+
+
+def get_validated_dataset_path(path: str):
+    # Validate path format
+    path_parts = path.split("/")
+    if len(path_parts) != 2:
+        raise ValueError("Path must be in format 'organization/dataset'")
+
+    org_name, dataset_name = path_parts
+
+    if not org_name or not dataset_name:
+        raise ValueError("Both organization and dataset names are required")
+
+    # Validate organization and dataset name format
+    if not validate_name_format(org_name):
+        raise ValueError(
+            "Organization name must be lowercase and use hyphens instead of spaces (e.g. 'my-org')"
+        )
+
+    if not validate_name_format(dataset_name):
+        raise ValueError(
+            "Dataset path name must be lowercase and use hyphens instead of spaces (e.g. 'my-dataset')"
+        )
+
+    return org_name, dataset_name
+
+
+def get_table_name_from_path(filepath: Union[str, BytesIO]) -> str:
+    return (
+        f"table_{sanitize_file_name(filepath)}"
+        if isinstance(filepath, str)
+        else "table_from_bytes"
+    )

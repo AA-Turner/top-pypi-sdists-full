@@ -11,13 +11,13 @@ jobs:
     working_directory: ~/circleci
     resource_class: large
     docker:
-      - image: ghcr.io/astral-sh/uv:0.5.7-python<<parameters.python>>-alpine
-      - image: cimg/postgres:12.12
+      - image: ghcr.io/astral-sh/uv:0.9.8-python<<parameters.python>>-alpine
+      - image: cimg/postgres:18.0
         environment:
           POSTGRES_USER: root
           POSTGRES_DB: root
           POSTGRES_HOST_AUTH_METHOD: trust
-      - image: cimg/mariadb:10.11
+      - image: cimg/mariadb:11.7
         environment:
           MYSQL_DATABASE: root
           MYSQL_USER: root
@@ -31,6 +31,14 @@ jobs:
 
     steps:
       - checkout
+      - restore_cache:
+          key: pre-commit
+      - run:
+          name: install git
+          command: apk add --no-cache git
+      - run:
+          name: Lint
+          command: uvx pre-commit run -a
       - restore_cache:
           key: uv-<<parameters.python>>
       - run: 
@@ -47,20 +55,21 @@ jobs:
           command: psql postgresql://@localhost/root -c 'create role postgres'
       - run:
           name: create mysql user
-          command: mysql root -u root -h 127.0.0.1 -e "create user 'root'@'127.0.0.1'; grant all privileges on *.* to 'root'@'127.0.0.1' identified by '';"
-      - run:
-          name: Check formatting
-          command: make lint
+          command: mysql --skip-ssl root -u root -h 127.0.0.1 -e "create user 'root'@'127.0.0.1'; grant all privileges on *.* to 'root'@'127.0.0.1' identified by '';"
       - run:
           name: Test with SQLAlchemy == << parameters.sqlalchemy >>
           command: |
-            UV_RUN_ARGS="--with pytest-xdist --with sqlalchemy==<<parameters.sqlalchemy>>" PYTEST_ARGS="-n4" make test
+            UV_RUN_ARGS="--with sqlalchemy==<<parameters.sqlalchemy>>" PYTEST_ARGS="-n4" make test
       - store_test_results:
           path: test-reports
       - save_cache:
           key: uv-<<parameters.python>>
           paths:
             - "~/.cache/uv"
+      - save_cache:
+          key: pre-commit
+          paths:
+            - "~/.cache/pre-commit"
 
   publish:
     working_directory: ~/circleci
@@ -82,7 +91,7 @@ workflows:
       - test:
           matrix:
             parameters:
-              python: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+              python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
               sqlalchemy: ["1.3.24", "1.4.49", "2.0.36"]
       - publish:
           requires:

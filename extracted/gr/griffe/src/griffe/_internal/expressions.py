@@ -150,10 +150,13 @@ def _expr_as_dict(expression: Expr, **kwargs: Any) -> dict[str, Any]:
     return fields
 
 
-# YORE: EOL 3.9: Remove block.
-_dataclass_opts: dict[str, bool] = {}
-if sys.version_info >= (3, 10):
-    _dataclass_opts["slots"] = True
+_modern_types = {
+    "typing.Tuple": "tuple",
+    "typing.Dict": "dict",
+    "typing.List": "list",
+    "typing.Set": "set",
+}
+
 
 
 @dataclass
@@ -250,8 +253,7 @@ class Expr:
         return isinstance(self, ExprSubscript) and self.canonical_name == "Generator"
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprAttribute(Expr):
     """Attributes like `a.b`."""
 
@@ -264,6 +266,11 @@ class ExprAttribute(Expr):
         for value in self.values[1:]:
             yield "."
             yield from _yield(value, flat=flat, outer_precedence=precedence)
+
+    def modernize(self) -> ExprName | ExprAttribute:
+        if modern := _modern_types.get(self.canonical_path):
+            return ExprName(modern, parent=self.last.parent)
+        return self
 
     def append(self, value: ExprName) -> None:
         """Append a name to this attribute.
@@ -298,8 +305,7 @@ class ExprAttribute(Expr):
         return self.last.canonical_path
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprBinOp(Expr):
     """Binary operations like `a + b`."""
 
@@ -321,8 +327,7 @@ class ExprBinOp(Expr):
         yield from _yield(self.right, flat=flat, outer_precedence=right_precedence, is_left=False)
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprBoolOp(Expr):
     """Boolean operations like `a or b`."""
 
@@ -340,8 +345,7 @@ class ExprBoolOp(Expr):
             yield from _yield(value, flat=flat, outer_precedence=precedence, is_left=False)
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprCall(Expr):
     """Calls like `f()`."""
 
@@ -362,8 +366,7 @@ class ExprCall(Expr):
         yield ")"
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprCompare(Expr):
     """Comparisons like `a > b`."""
 
@@ -382,8 +385,7 @@ class ExprCompare(Expr):
             yield from _yield(comp, flat=flat, outer_precedence=precedence)
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprComprehension(Expr):
     """Comprehensions like `a for b in c if d`."""
 
@@ -412,8 +414,7 @@ class ExprComprehension(Expr):
 # see `_build_constant` below (it always returns the value directly).
 # Maybe we could simply get rid of it, as it wouldn't bring much value
 # if used anyway.
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprConstant(Expr):
     """Constants like `"a"` or `1`."""
 
@@ -424,8 +425,7 @@ class ExprConstant(Expr):
         yield self.value
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprDict(Expr):
     """Dictionaries like `{"a": 0}`."""
 
@@ -444,8 +444,7 @@ class ExprDict(Expr):
         yield "}"
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprDictComp(Expr):
     """Dict comprehensions like `{k: v for k, v in a}`."""
 
@@ -461,12 +460,12 @@ class ExprDictComp(Expr):
         yield from _yield(self.key, flat=flat)
         yield ": "
         yield from _yield(self.value, flat=flat)
+        yield " "
         yield from _join(self.generators, " ", flat=flat)
         yield "}"
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprExtSlice(Expr):
     """Extended slice like `a[x:y, z]`."""
 
@@ -477,8 +476,7 @@ class ExprExtSlice(Expr):
         yield from _join(self.dims, ", ", flat=flat)
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprFormatted(Expr):
     """Formatted string like `{1 + 1}`."""
 
@@ -492,8 +490,7 @@ class ExprFormatted(Expr):
         yield "}"
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprGeneratorExp(Expr):
     """Generator expressions like `a for b in c for d in e`."""
 
@@ -508,8 +505,7 @@ class ExprGeneratorExp(Expr):
         yield from _join(self.generators, " ", flat=flat)
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprIfExp(Expr):
     """Conditions like `a if b else c`."""
 
@@ -538,8 +534,7 @@ class ExprIfExp(Expr):
             yield from _yield(self.orelse, flat=flat, outer_precedence=precedence, is_left=False)
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprJoinedStr(Expr):
     """Joined strings like `f"a {b} c"`."""
 
@@ -552,8 +547,7 @@ class ExprJoinedStr(Expr):
         yield "'"
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprKeyword(Expr):
     """Keyword arguments like `a=b`."""
 
@@ -593,8 +587,7 @@ class ExprKeyword(Expr):
         yield from _yield(self.value, flat=flat)
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprVarPositional(Expr):
     """Variadic positional parameters like `*args`."""
 
@@ -606,8 +599,7 @@ class ExprVarPositional(Expr):
         yield from _yield(self.value, flat=flat)
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprVarKeyword(Expr):
     """Variadic keyword parameters like `**kwargs`."""
 
@@ -619,8 +611,7 @@ class ExprVarKeyword(Expr):
         yield from _yield(self.value, flat=flat)
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprLambda(Expr):
     """Lambda expressions like `lambda a: a.b`."""
 
@@ -663,8 +654,7 @@ class ExprLambda(Expr):
         yield from _yield(self.body, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprList(Expr):
     """Lists like `[0, 1, 2]`."""
 
@@ -677,8 +667,7 @@ class ExprList(Expr):
         yield "]"
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprListComp(Expr):
     """List comprehensions like `[a for b in c]`."""
 
@@ -695,8 +684,7 @@ class ExprListComp(Expr):
         yield "]"
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=False, **_dataclass_opts)
+@dataclass(eq=False, slots=True)
 class ExprName(Expr):  # noqa: PLW1641
     """This class represents a Python object identified by a name in a given scope."""
 
@@ -715,6 +703,11 @@ class ExprName(Expr):  # noqa: PLW1641
 
     def iterate(self, *, flat: bool = True) -> Iterator[ExprName]:  # noqa: ARG002
         yield self
+
+    def modernize(self) -> ExprName:
+        if modern := _modern_types.get(self.canonical_path):
+            return ExprName(modern, parent=self.parent)
+        return self
 
     @property
     def path(self) -> str:
@@ -785,8 +778,7 @@ class ExprName(Expr):  # noqa: PLW1641
         return "[" in self.canonical_path
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprNamedExpr(Expr):
     """Named/assignment expressions like `a := b`."""
 
@@ -801,8 +793,7 @@ class ExprNamedExpr(Expr):
         yield from _yield(self.value, flat=flat)
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprParameter(Expr):
     """Parameters in function signatures like `a: int = 0`."""
 
@@ -816,8 +807,7 @@ class ExprParameter(Expr):
     """Parameter default."""
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprSet(Expr):
     """Sets like `{0, 1, 2}`."""
 
@@ -830,8 +820,7 @@ class ExprSet(Expr):
         yield "}"
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprSetComp(Expr):
     """Set comprehensions like `{a for b in c}`."""
 
@@ -848,8 +837,7 @@ class ExprSetComp(Expr):
         yield "}"
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprSlice(Expr):
     """Slices like `[a:b:c]`."""
 
@@ -871,14 +859,13 @@ class ExprSlice(Expr):
             yield from _yield(self.step, flat=flat)
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprSubscript(Expr):
     """Subscripts like `a[b]`."""
 
     left: str | Expr
     """Left part."""
-    slice: Expr
+    slice: str | Expr
     """Slice part."""
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
@@ -887,6 +874,33 @@ class ExprSubscript(Expr):
         # Prevent parentheses from being added, avoiding `a[(b)]`
         yield from _yield(self.slice, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
         yield "]"
+
+    @staticmethod
+    def _to_binop(elements: Sequence[Expr], op: str) -> ExprBinOp:
+        if len(elements) == 2:  # noqa: PLR2004
+            left, right = elements
+            if isinstance(left, Expr):
+                left = left.modernize()
+            if isinstance(right, Expr):
+                right = right.modernize()
+            return ExprBinOp(left=left, operator=op, right=right)
+
+        left = ExprSubscript._to_binop(elements[:-1], op=op)
+        right = elements[-1]
+        if isinstance(right, Expr):
+            right = right.modernize()
+        return ExprBinOp(left=left, operator=op, right=right)
+
+    def modernize(self) -> ExprBinOp | ExprSubscript:
+        if self.canonical_path == "typing.Union":
+            return self._to_binop(self.slice.elements, op="|")  # type: ignore[union-attr]
+        if self.canonical_path == "typing.Optional":
+            left = self.slice if isinstance(self.slice, str) else self.slice.modernize()
+            return ExprBinOp(left=left, operator="|", right="None")
+        return ExprSubscript(
+            left=self.left if isinstance(self.left, str) else self.left.modernize(),
+            slice=self.slice if isinstance(self.slice, str) else self.slice.modernize(),
+        )
 
     @property
     def path(self) -> str:
@@ -903,8 +917,7 @@ class ExprSubscript(Expr):
         return self.left.canonical_path
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprTuple(Expr):
     """Tuples like `(0, 1, 2)`."""
 
@@ -922,9 +935,14 @@ class ExprTuple(Expr):
         if not self.implicit:
             yield ")"
 
+    def modernize(self) -> ExprTuple:
+        return ExprTuple(
+            elements=[el if isinstance(el, str) else el.modernize() for el in self.elements],
+            implicit=self.implicit,
+        )
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+
+@dataclass(eq=True, slots=True)
 class ExprUnaryOp(Expr):
     """Unary operations like `-1`."""
 
@@ -940,8 +958,7 @@ class ExprUnaryOp(Expr):
         yield from _yield(self.value, flat=flat, outer_precedence=_get_precedence(self))
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprYield(Expr):
     """Yield statements like `yield a`."""
 
@@ -955,8 +972,7 @@ class ExprYield(Expr):
             yield from _yield(self.value, flat=flat)
 
 
-# YORE: EOL 3.9: Replace `**_dataclass_opts` with `slots=True` within line.
-@dataclass(eq=True, **_dataclass_opts)
+@dataclass(eq=True, slots=True)
 class ExprYieldFrom(Expr):
     """Yield statements like `yield from a`."""
 
@@ -1113,7 +1129,7 @@ def _build_compare(node: ast.Compare, parent: Module | Class, **kwargs: Any) -> 
 
 def _build_comprehension(node: ast.comprehension, parent: Module | Class, **kwargs: Any) -> Expr:
     return ExprComprehension(
-        _build(node.target, parent, **kwargs),
+        _build(node.target, parent, compr_target=True, **kwargs),
         _build(node.iter, parent, **kwargs),
         [_build(condition, parent, **kwargs) for condition in node.ifs],
         is_async=bool(node.is_async),
@@ -1274,7 +1290,7 @@ def _build_subscript(
     *,
     parse_strings: bool = False,
     literal_strings: bool = False,
-    in_subscript: bool = False,  # noqa: ARG001
+    subscript_slice: bool = False,  # noqa: ARG001
     **kwargs: Any,
 ) -> Expr:
     left = _build(node.value, parent, **kwargs)
@@ -1289,11 +1305,11 @@ def _build_subscript(
             parent,
             parse_strings=True,
             literal_strings=literal_strings,
-            in_subscript=True,
+            subscript_slice=True,
             **kwargs,
         )
     else:
-        slice_expr = _build(node.slice, parent, in_subscript=True, **kwargs)
+        slice_expr = _build(node.slice, parent, subscript_slice=True, **kwargs)
     return ExprSubscript(left, slice_expr)
 
 
@@ -1301,10 +1317,11 @@ def _build_tuple(
     node: ast.Tuple,
     parent: Module | Class,
     *,
-    in_subscript: bool = False,
+    subscript_slice: bool = False,
+    compr_target: bool = False,
     **kwargs: Any,
 ) -> Expr:
-    return ExprTuple([_build(el, parent, **kwargs) for el in node.elts], implicit=in_subscript)
+    return ExprTuple([_build(el, parent, **kwargs) for el in node.elts], implicit=subscript_slice or compr_target)
 
 
 def _build_unaryop(node: ast.UnaryOp, parent: Module | Class, **kwargs: Any) -> Expr:
@@ -1441,6 +1458,12 @@ safe_get_base_class = partial(
     safe_get_expression,
     parse_strings=False,
     msg_format=_msg_format % "base class",
+)
+get_class_keyword = partial(get_expression, parse_strings=False)
+safe_get_class_keyword = partial(
+    safe_get_expression,
+    parse_strings=False,
+    msg_format=_msg_format % "class keyword",
 )
 get_condition = partial(get_expression, parse_strings=False)
 safe_get_condition = partial(

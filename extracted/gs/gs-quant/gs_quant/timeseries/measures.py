@@ -168,6 +168,11 @@ class FxForecastHorizon(Enum):
     EOY4 = 'EOY4'
 
 
+class _FxForecastTimeSeriesPeriodType(Enum):
+    SHORT_TERM = '3/6/12-Month'
+    ANNUAL = 'Annual'
+
+
 class FundamentalMetricPeriodDirection(Enum):
     FORWARD = 'forward'
     TRAILING = 'trailing'
@@ -223,6 +228,13 @@ class _CommodityForecastType(Enum):
     SPOT_RETURN = 'spotReturn'
     ROLL_RETURN = 'rollReturn'
     TOTAL_RETURN = 'totalReturn'
+
+
+class _CommodityForecastTimeSeriesPeriodType(Enum):
+    SHORT_TERM = '3/6/12-Month Rolling'
+    MONTHLY = 'Monthly'
+    QUARTERLY = 'Quarterly'
+    ANNUAL = 'Annual'
 
 
 class _RatingMetric(Enum):
@@ -1633,7 +1645,6 @@ def fx_forecast(asset: Asset, relativePeriod: FxForecastHorizon = FxForecastHori
 
     if relativePeriod:
         log_warning(request_id, _logger, "'relativePeriod' is deprecated, please use 'relative_period' instead.")
-
     cross_mqid = asset.get_marquee_id()
     usd_based_cross_mqid = cross_to_usd_based_cross(cross_mqid)
     query_type = QueryType.FX_FORECAST
@@ -1652,6 +1663,65 @@ def fx_forecast(asset: Asset, relativePeriod: FxForecastHorizon = FxForecastHori
     if cross_mqid != usd_based_cross_mqid:
         series = 1 / series
 
+    series.dataset_ids = getattr(df, 'dataset_ids', ())
+    return series
+
+
+@plot_measure((AssetClass.FX,), (AssetType.Cross,), [MeasureDependency(
+    id_provider=cross_to_usd_based_cross, query_type=QueryType.FX_FORECAST)])
+def fx_forecast_time_series(
+    asset: Union[Asset, str],
+    forecastFrequency: _FxForecastTimeSeriesPeriodType = _FxForecastTimeSeriesPeriodType.ANNUAL.value, *,
+    source: str = None,
+    real_time: bool = False,
+    request_id: Optional[str] = None
+) -> pd.Series:
+    """
+    Short and long-term FX forecast time series.
+
+    :param asset: Asset object or string representing the asset ID
+    :param forecastFrequency: Forecast period type (e.g., Annual)
+    :param source: Name of the function caller
+    :param real_time: Whether to retrieve intraday data instead of EOD
+    :param request_id: Service request ID, if any
+    :return: Forecast time series for the Cross Asset
+    """
+    if real_time:
+        raise NotImplementedError('realtime fx_forecast_time_series not implemented')
+    if isinstance(asset, str):
+        cross_mqid = asset
+    elif isinstance(asset, Asset):
+        cross_mqid = asset.get_marquee_id()
+    else:
+        raise ValueError("Asset must be of type Asset or str")
+    usd_based_cross_mqid = cross_to_usd_based_cross(cross_mqid)
+    query_type = QueryType.FX_FORECAST
+    col_name = query_type.value.replace(' ', '')
+    col_name = col_name[0].lower() + col_name[1:]
+
+    q = GsDataApi.build_market_data_query(
+        [usd_based_cross_mqid],
+        query_type,
+        source=source,
+        real_time=real_time
+    )
+    log_debug(request_id, _logger, 'q %s', q)
+    df = _market_data_timed(q, request_id)
+    df.index.name = 'date'
+    df = df.reset_index().sort_values(by='date').groupby('relativePeriod')[['date', col_name]].last()
+    df = df.reset_index()
+    if forecastFrequency == _FxForecastTimeSeriesPeriodType.SHORT_TERM.value:
+        df = df[df['relativePeriod'].isin(['3m', '6m', '12m'])].drop('date', axis=1)
+        df['date'] = df['relativePeriod'].apply(lambda x: pd.Timestamp.today() + relativedelta(months=int(x[:-1])))
+        df = df[['date', col_name]].sort_values(by='date').set_index('date')
+    elif forecastFrequency == _FxForecastTimeSeriesPeriodType.ANNUAL.value:
+        df = df[df['relativePeriod'].str.startswith('EOY')].drop('date', axis=1)
+        df['date'] = df['relativePeriod'].apply(
+            lambda x: pd.Timestamp(f"{pd.Timestamp.today().year + int(x[3:])}-01-01"))
+        df = df[['date', col_name]].sort_values(by='date').set_index('date')
+    series = _extract_series_from_df(df, query_type)
+    if cross_mqid != usd_based_cross_mqid:
+        series = 1 / series
     series.dataset_ids = getattr(df, 'dataset_ids', ())
     return series
 
@@ -2871,18 +2941,18 @@ def _forward_price_elec(asset: Asset, price_method: str = 'LMP', bucket: str = '
 
     where = dict(priceMethod=price_method.upper(), quantityBucket=quantitybuckets_to_query, contract=contracts_to_query)
     with DataContext(start, end):
-        def _query_fwd(asset_, where_):
+        def _query_fwd(asset_, where_, source_=None):
             q = GsDataApi.build_market_data_query([asset_.get_marquee_id()], QueryType.FORWARD_PRICE,
-                                                  where=where_, source=None,
+                                                  where=where_, source=source_,
                                                   real_time=False)
             _logger.debug('q %s', q)
             return _market_data_timed(q)
 
-        forwards_data = _query_fwd(asset, where)
+        forwards_data = _query_fwd(asset, where, source)
         if forwards_data.empty:
             # For cases where uppercase priceMethod dont fetch data, try user input as is
             where['priceMethod'] = price_method
-            forwards_data = _query_fwd(asset, where)
+            forwards_data = _query_fwd(asset, where, source)
 
         dataset_ids = getattr(forwards_data, 'dataset_ids', ())
 
@@ -2916,7 +2986,7 @@ def forward_price(asset: Asset, price_method: str = 'LMP', bucket: str = 'PEAK',
     if real_time:
         raise MqValueError('Use daily frequency instead of intraday')
 
-    return _forward_price_elec(asset, price_method, bucket, contract_range)
+    return _forward_price_elec(asset, price_method, bucket, contract_range, source=source)
 
 
 @plot_measure((AssetClass.Commod,), (AssetType.Index, AssetType.CommodityPowerAggregatedNodes,
@@ -4375,6 +4445,90 @@ def commodity_forecast(asset: Asset, forecastPeriod: str = "3m",
     return series
 
 
+@plot_measure((AssetClass.Commod,), (AssetType.Commodity, AssetType.Index,), [QueryType.COMMODITY_FORECAST])
+def commodity_forecast_time_series(
+    asset: Union[Asset, str],
+    forecastFrequency: _CommodityForecastTimeSeriesPeriodType = _CommodityForecastTimeSeriesPeriodType.ANNUAL.value,
+    forecastType: _CommodityForecastType = _CommodityForecastType.SPOT,
+    forecastHorizonYears: int = 12, *,
+    source: str = None,
+    real_time: bool = False,
+    request_id: Optional[str] = None
+) -> pd.Series:
+    """
+    Short and long-term commodities forecast time series.
+
+    :param asset: Asset object or string representing the asset ID
+    :param forecastFrequency: Forecast period type (e.g., annual, quarterly)
+    :param forecastType: Type of return for commodity indices
+    :param forecastHorizonYears: Length of the forecast period in years
+    :param source: Name of the function caller
+    :param real_time: Whether to retrieve intraday data instead of EOD
+    :param request_id: Service request ID, if any
+    :return: Forecast time series for the commodity or index
+    """
+    if real_time:
+        raise NotImplementedError('real-time commodity_forecast not implemented')
+    if isinstance(asset, str):
+        mqid = asset
+    elif isinstance(asset, Asset):
+        mqid = asset.get_marquee_id()
+    else:
+        raise ValueError("Asset must be of type Asset or str")
+    query_type = QueryType.COMMODITY_FORECAST
+    col_name = query_type.value.replace(' ', '')
+    col_name = col_name[0].lower() + col_name[1:]
+
+    today = dt.date.today()
+    start_year = today.year
+    end_year = start_year + forecastHorizonYears
+    if forecastFrequency == _CommodityForecastTimeSeriesPeriodType.SHORT_TERM.value:
+        periods = ["3m", "6m", "12m"]
+    elif forecastFrequency == _CommodityForecastTimeSeriesPeriodType.MONTHLY.value:
+        periods = [f"{date.year}M{date.month}"
+                   for date in pd.date_range(start=f"{start_year}-01-01", end=f"{end_year}-01-01", freq="MS")]
+    elif forecastFrequency == _CommodityForecastTimeSeriesPeriodType.QUARTERLY.value:
+        periods = pd.period_range(start=f"{start_year}-01-01", end=f"{end_year}-01-01", freq="Q").strftime("%YQ%q")
+    elif forecastFrequency == _CommodityForecastTimeSeriesPeriodType.ANNUAL.value:
+        periods = pd.date_range(start=f"{start_year}-01-01", end=f"{end_year}-01-01", freq="YS").strftime("%Y")
+    else:
+        raise ValueError(
+            "Invalid forecastFrequency. Must be one of '3/6/12-Month Rolling', "
+            "'Monthly', 'Quarterly', 'Annual'.")
+    results = []
+    for period in periods:
+        _logger.debug('where assetId=%s, forecastPeriod=%s, forecastType=%s, query_type=%s',
+                      mqid, period, forecastType, query_type.value)
+
+        q = GsDataApi.build_market_data_query(
+            [mqid],
+            query_type,
+            where=dict(forecastPeriod=period, forecastType=forecastType),
+            source=source,
+            real_time=real_time
+        )
+        log_debug(request_id, _logger, 'q %s', q)
+
+        df = _market_data_timed(q, request_id)
+        if not df.empty:
+            last_value = df[col_name].iloc[-1]
+            start_of_period = pd.Timestamp(period[:4] + "-01-01")  # Default to start of the year
+            if 'm' in period:
+                months = int(period[:-1])
+                start_of_period = pd.Timestamp.today() + relativedelta(months=months)
+            elif "Q" in period:
+                year = int(period[:4])
+                quarter = int(period[-1])
+                start_of_period = pd.Timestamp(f"{year}-{(quarter - 1) * 3 + 1:02d}-01")
+            elif "M" in period:
+                month = int(period[5:])
+                start_of_period = start_of_period.replace(month=month)
+            results.append({'date': start_of_period.strftime('%Y-%m-%d'), col_name: last_value})
+    df = pd.DataFrame(results).set_index('date')
+    series = _extract_series_from_df(df, query_type)
+    return series
+
+
 def _get_marketdate_validation(market_date, start_date, end_date, timezone=None):
     """
     Validates the market date provided by the user
@@ -4625,50 +4779,6 @@ def _forward_price_eu_natgas(asset: Asset, contract_range: str = 'F20', price_me
     result.dataset_ids = dataset_ids
 
     return result
-
-
-@plot_measure((AssetClass.FX,), None, [QueryType.FORWARD_POINT])
-def spot_carry(asset: Asset, tenor: str, annualized: FXSpotCarry = FXSpotCarry.DAILY, *,
-               source: str = None, real_time: bool = False, request_id: Optional[str] = None) -> pd.Series:
-    """
-    Calculates carry using forward term structure i.e forwardpoints/spot with option to return it in annualized terms.
-
-    :param asset: asset object loaded from security master
-    :param tenor: relative date representation of expiration date e.g. 1m
-    :param annualized: whether to annualize carry, one of annualized or daily
-    :param source: name of function caller
-    :param real_time: whether to retrieve intraday data instead of EOD
-    :param request_id: service request id, if any
-    :return: FX spot carry curve
-    """
-
-    if tenor not in ['1m', '2m', '3m', '4m', '5m', '6m', '7m', '8m', '9m', '10m', '11m', '1y', '15m', '18m', '21m',
-                     '2y']:
-        raise MqValueError('tenor not included in dataset')
-    asset_id = cross_stored_direction_for_fx_vol(asset)
-    if real_time:
-        start, end = DataContext.current.start_time, DataContext.current.end_time
-        ds = Dataset(Dataset.GS.FXFORWARDPOINTS_INTRADAY)
-        mq_df = ds.get_data(asset_id=asset_id, start=start, end=end, tenor=tenor)
-        if 'm' in tenor:
-            mq_df['ann_factor'] = 12 / int(tenor.replace('m', ''))
-        else:
-            mq_df['ann_factor'] = 1 / int(tenor.replace('y', ''))
-    else:
-        start, end = DataContext.current.start_date, DataContext.current.end_date
-        ds = Dataset(Dataset.GS.FXFORWARDPOINTS_PREMIUM)
-        mq_df = ds.get_data(asset_id=asset_id, start=start, end=end, tenor=tenor)
-        mq_df = mq_df.reset_index()
-        mq_df['ann_factor'] = mq_df.apply(lambda x: 360 / (x.settlementDate - x.date).days, axis=1)
-        mq_df = mq_df.set_index('date')
-
-    if annualized == FXSpotCarry.ANNUALIZED:
-        mq_df['carry'] = -1 * mq_df['ann_factor'] * mq_df['forwardPoint'] / mq_df['spot']
-    else:
-        mq_df['carry'] = -1 * mq_df['forwardPoint'] / mq_df['spot']
-    series = ExtendedSeries(mq_df['carry'], name='spotCarry')
-    series.dataset_ids = ds.id
-    return series
 
 
 @plot_measure((AssetClass.FX,), None, [QueryType.IMPLIED_VOLATILITY])

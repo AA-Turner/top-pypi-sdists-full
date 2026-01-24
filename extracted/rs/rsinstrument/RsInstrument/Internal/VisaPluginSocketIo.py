@@ -47,10 +47,10 @@ class SocketIo:
 		return self._read_termination
 
 	@read_termination.setter
-	def read_termination(self, value: str or bool) -> None:
+	def read_termination(self, value: str | bool) -> None:
 		"""Read termination character. You can set it to False, or a string value"""
 		if isinstance(value, bool):
-			if value is True:
+			if value:
 				raise ValueError("SocketIO read_termination can not be set to True. You have to provide a string value")
 			self._read_termination = None
 			return
@@ -99,7 +99,8 @@ class SocketIo:
 		data, status = self.visalib.read(self.session, count)
 		return data
 
-	def go_to_local(self) -> None:
+	# noinspection PyUnusedLocal
+	def go_to_local(self, mixed_mode: bool) -> None:
 		"""Puts the instrument into local state."""
 		self.write("&GTL")
 

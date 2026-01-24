@@ -18,10 +18,12 @@ from cpython.unicode cimport PyUnicode_AsUTF8AndSize, PyUnicode_Check
 
 import datetime
 from decimal import Decimal
+from cython cimport cast
 
-cdef int64_t NULL_FLAG = -(1 << 63)              # -9223372036854775808
-cdef int64_t MIN_SIGNED_64BIT = NULL_FLAG + 1    # -9223372036854775807
-cdef int64_t MAX_SIGNED_64BIT = (1 << 63) - 1    # 09223372036854775807
+cdef uint64_t _INT64_HIGH_BIT = (<uint64_t>1) << 63
+cdef int64_t NULL_FLAG = -cast(int64_t, _INT64_HIGH_BIT)              # -9223372036854775808
+cdef int64_t MIN_SIGNED_64BIT = NULL_FLAG + 1               # -9223372036854775807
+cdef int64_t MAX_SIGNED_64BIT = cast(int64_t, _INT64_HIGH_BIT - 1)    # 9223372036854775807
 
 cdef inline bint map_contains(unordered_map[string, int64_t]& m, string key):
     return m.find(key) != m.end()
@@ -227,6 +229,64 @@ cdef class RelationStatistics:
         read_map(buf, &offset, inst.upper_bounds)
         read_map(buf, &offset, inst.cardinality_estimate)
         return inst
+
+    cpdef void merge(self, RelationStatistics other):
+        """
+        Merge another RelationStatistics into this one.
+
+        Parameters:
+            other: RelationStatistics
+                The statistics object to merge into this one.
+
+        Behavior:
+            - Sums record counts
+            - Takes minimum of lower bounds
+            - Takes maximum of upper bounds
+            - Sums null counts
+            - Takes maximum of cardinality estimates
+        """
+        cdef unordered_map[string, int64_t].iterator it
+        cdef string key
+        cdef int64_t value
+
+        # Add record counts
+        self.record_count += other.record_count
+        self.record_count_estimate += other.record_count_estimate
+
+        # Merge lower bounds (take minimum)
+        it = other.lower_bounds.begin()
+        while it != other.lower_bounds.end():
+            key = dereference(it).first
+            value = dereference(it).second
+            if not map_contains(self.lower_bounds, key) or value < self.lower_bounds[key]:
+                self.lower_bounds[key] = value
+            preincrement(it)
+
+        # Merge upper bounds (take maximum)
+        it = other.upper_bounds.begin()
+        while it != other.upper_bounds.end():
+            key = dereference(it).first
+            value = dereference(it).second
+            if not map_contains(self.upper_bounds, key) or value > self.upper_bounds[key]:
+                self.upper_bounds[key] = value
+            preincrement(it)
+
+        # Merge null counts (sum)
+        it = other.null_count.begin()
+        while it != other.null_count.end():
+            key = dereference(it).first
+            value = dereference(it).second
+            self.null_count[key] = map_get(self.null_count, key, 0) + value
+            preincrement(it)
+
+        # Merge cardinality estimates (take maximum)
+        it = other.cardinality_estimate.begin()
+        while it != other.cardinality_estimate.end():
+            key = dereference(it).first
+            value = dereference(it).second
+            if not map_contains(self.cardinality_estimate, key) or value > self.cardinality_estimate[key]:
+                self.cardinality_estimate[key] = value
+            preincrement(it)
 
     def __deepcopy__(self, memo):
         return self

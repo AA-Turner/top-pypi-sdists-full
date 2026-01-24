@@ -45,7 +45,7 @@ class AnalysisContext:
         if len(code) > 32:
             cutoff = code.find("(")
             if code[cutoff] == "(":
-                shortened_code = f"{code[:code.find('(')].strip()}(...)"
+                shortened_code = f"{code[: code.find('(')].strip()}(...)"
             else:
                 shortened_code = code
         else:
@@ -109,7 +109,8 @@ class AnalysisResult:
 
     def __lt__(self, other):
         return isinstance(other, AnalysisResult) and (
-            self.severity < other.severity or (self.severity == other.severity and str(self) < str(other))
+            self.severity < other.severity
+            or (self.severity == other.severity and str(self) < str(other))
         )
 
     def __bool__(self):
@@ -119,8 +120,7 @@ class AnalysisResult:
     def __str__(self):
         if self.message is None:
             return "No issues found"
-        else:
-            return self.message
+        return self.message
 
 
 class Analysis(ABC):
@@ -145,8 +145,7 @@ class DuplicateProtoAnalysis(Analysis):
                     if opcode.version in proto_versions:
                         yield AnalysisResult(
                             Severity.LIKELY_UNSAFE,
-                            f"The {i + 1}{suffix} opcode is a duplicate PROTO, which is unusual "
-                            f"and may be indicative of a tampered pickle",
+                            f"The {i + 1}{suffix} opcode is a duplicate PROTO, which is unusual and may be indicative of a tampered pickle",
                             "DuplicateProtoAnalysis",
                             trigger=i + 1,
                         )
@@ -183,6 +182,15 @@ class MisplacedProtoAnalysis(Analysis):
                     )
 
 
+class InvalidOpcode(Analysis):
+    def analyze(self, context: AnalysisContext) -> Iterator[AnalysisResult]:
+        if context.pickled.has_invalid_opcode:
+            yield AnalysisResult(
+                Severity.LIKELY_UNSAFE,
+                "The file has invalid opcode(s). It is either corrupted or attempting to bypass the pickle security analysis",
+            )
+
+
 class NonStandardImports(Analysis):
     def analyze(self, context: AnalysisContext) -> Iterator[AnalysisResult]:
         for node in context.pickled.non_standard_imports():
@@ -215,10 +223,13 @@ class UnsafeImportsML(Analysis):
         "torch.hub": "This module can load untrusted files from the web, exposing the system to arbitrary code execution.",
         "dill": "This module can load and execute arbitrary code.",
         "code": "This module can compile and execute arbitrary code.",
+        "pty": "This module contains functions that can perform system operations and execute arbitrary code.",
     }
 
     UNSAFE_IMPORTS = {
-        "torch": {"load": "This function can load untrusted files and code from arbitrary web sources."},
+        "torch": {
+            "load": "This function can load untrusted files and code from arbitrary web sources."
+        },
         "numpy.testing._private.utils": {"runstring": "This function can execute arbitrary code."},
         "operator": {
             "getitem": "This function can lead to arbitrary code execution",
@@ -239,7 +250,9 @@ class UnsafeImportsML(Analysis):
     def analyze(self, context: AnalysisContext) -> Iterator[AnalysisResult]:
         for node in context.pickled.properties.imports:
             shortened, _ = context.shorten_code(node)
-            all_modules = [node.module.rsplit(".", i)[0] for i in range(0, node.module.count(".") + 1)]
+            all_modules = [
+                node.module.rsplit(".", i)[0] for i in range(0, node.module.count(".") + 1)
+            ]
             for module_name in all_modules:
                 if module_name in self.UNSAFE_MODULES:
                     risk_info = self.UNSAFE_MODULES[module_name]
@@ -262,7 +275,12 @@ class UnsafeImportsML(Analysis):
             # NOTE(boyan): Special case with eval?
             # Copy pasted from pickled.unsafe_imports() original implementation
             elif "eval" in (n.name for n in node.names):
-                yield node
+                yield AnalysisResult(
+                    Severity.LIKELY_OVERTLY_MALICIOUS,
+                    f"`{shortened}` imports `eval` which can execute arbitrary code",
+                    "UnsafeImportsML",
+                    trigger=shortened,
+                )
 
 
 class BadCalls(Analysis):
@@ -270,11 +288,11 @@ class BadCalls(Analysis):
 
     def analyze(self, context: AnalysisContext) -> Iterator[AnalysisResult]:
         for node in context.pickled.properties.calls:
-            shortened, already_reported = context.shorten_code(node)
+            shortened, _already_reported = context.shorten_code(node)
             if any(shortened.startswith(f"{c}(") for c in self.BAD_CALLS):
                 yield AnalysisResult(
                     Severity.OVERTLY_MALICIOUS,
-                    f"Call to `{shortened}` is almost certainly evidence of a " "malicious pickle file",
+                    f"Call to `{shortened}` is almost certainly evidence of a malicious pickle file",
                     "OvertlyBadEval",
                     trigger=shortened,
                 )
@@ -283,7 +301,10 @@ class BadCalls(Analysis):
 class OvertlyBadEvals(Analysis):
     def analyze(self, context: AnalysisContext) -> Iterator[AnalysisResult]:
         for node in context.pickled.properties.non_setstate_calls:
-            if hasattr(node.func, "id") and node.func.id in context.pickled.properties.likely_safe_imports:
+            if (
+                hasattr(node.func, "id")
+                and node.func.id in context.pickled.properties.likely_safe_imports
+            ):
                 # if the call is to a constructor of an object imported from the Python
                 # standard library, it's probably okay
                 continue
@@ -299,7 +320,7 @@ class OvertlyBadEvals(Analysis):
                 # this is overtly bad, so record it and print it at the end
                 yield AnalysisResult(
                     Severity.OVERTLY_MALICIOUS,
-                    f"Call to `{shortened}` is almost certainly evidence of a " "malicious pickle file",
+                    f"Call to `{shortened}` is almost certainly evidence of a malicious pickle file",
                     "OvertlyBadEval",
                     trigger=shortened,
                 )
@@ -391,8 +412,9 @@ def check_safety(
         analyzer = Analyzer.default_instance
 
     results = analyzer.analyze(pickled)
-    severity_data = results.to_dict(verbosity)
+
     if json_output_path:
+        severity_data = results.to_dict(verbosity)
         # This is intentionally "a" to handle the case of stacked pickles
         with open(json_output_path, "a") as json_file:
             json.dump(severity_data, json_file, indent=4)
@@ -401,4 +423,8 @@ def check_safety(
 
 def is_likely_safe(filepath: str):
     with open(filepath, "rb") as f:
-        return check_safety(Pickled.load(f)).severity == Severity.LIKELY_SAFE
+        pickled = Pickled.load(f, fail_on_decode_error=False)
+        if pickled.has_invalid_opcode:
+            # Invalid pickle file, likely not safe
+            return False
+        return check_safety(pickled).severity == Severity.LIKELY_SAFE

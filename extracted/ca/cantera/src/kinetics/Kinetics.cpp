@@ -24,12 +24,27 @@ using namespace std;
 namespace Cantera
 {
 
-void Kinetics::checkReactionIndex(size_t i) const
+shared_ptr<Kinetics> Kinetics::clone(
+    const vector<shared_ptr<ThermoPhase>>& phases) const
 {
-    if (i >= nReactions()) {
-        throw IndexError("Kinetics::checkReactionIndex", "reactions", i,
-                         nReactions()-1);
+    vector<AnyMap> reactionDefs;
+    for (size_t i = 0; i < nReactions(); i++) {
+        reactionDefs.push_back(reaction(i)->parameters());
     }
+    AnyMap phaseNode = parameters();
+    phaseNode["__fix-duplicate-reactions__"] = true;
+    AnyMap rootNode;
+    rootNode["reactions"] = std::move(reactionDefs);
+    rootNode.applyUnits();
+    return newKinetics(phases, phaseNode, rootNode, phases[0]->root());
+}
+
+size_t Kinetics::checkReactionIndex(size_t i) const
+{
+    if (i < nReactions()) {
+        return i;
+    }
+    throw IndexError("Kinetics::checkReactionIndex", "reactions", i, nReactions());
 }
 
 void Kinetics::resizeReactions()
@@ -47,37 +62,56 @@ void Kinetics::resizeReactions()
     m_stoichMatrix = m_productStoich.stoichCoeffs();
     // reactants are destroyed for positive net rate of progress
     m_stoichMatrix -= m_reactantStoich.stoichCoeffs();
-
-    m_ready = true;
 }
 
 void Kinetics::checkReactionArraySize(size_t ii) const
 {
+    warn_deprecated("Kinetics::checkReactionArraySize",
+        "To be removed after Cantera 3.2. Only used by legacy CLib.");
     if (nReactions() > ii) {
         throw ArraySizeError("Kinetics::checkReactionArraySize", ii,
                              nReactions());
     }
 }
 
-void Kinetics::checkPhaseIndex(size_t m) const
+size_t Kinetics::checkPhaseIndex(size_t m) const
 {
-    if (m >= nPhases()) {
-        throw IndexError("Kinetics::checkPhaseIndex", "phase", m, nPhases()-1);
+    if (m < nPhases()) {
+        return m;
     }
+    throw IndexError("Kinetics::checkPhaseIndex", "phase", m, nPhases());
 }
 
 void Kinetics::checkPhaseArraySize(size_t mm) const
 {
+    warn_deprecated("Kinetics::checkPhaseArraySize",
+        "To be removed after Cantera 3.2. Unused.");
     if (nPhases() > mm) {
         throw ArraySizeError("Kinetics::checkPhaseArraySize", mm, nPhases());
     }
 }
 
-size_t Kinetics::reactionPhaseIndex() const
+size_t Kinetics::phaseIndex(const string& ph) const
 {
-    warn_deprecated("Kinetics::reactionPhaseIndex", "The reacting phase is always "
-        "the first phase. To be removed after Cantera 3.1.");
-    return 0;
+    size_t ix = phaseIndex(ph, false);
+    if (ix == npos) {
+        warn_deprecated("Kinetics::phaseIndex", "'raise' argument not specified. "
+            "Default behavior will change from returning npos to throwing an "
+            "exception after Cantera 3.2.");
+    }
+    return ix;
+}
+
+size_t Kinetics::phaseIndex(const string& ph, bool raise) const
+{
+    if (m_phaseindex.find(ph) == m_phaseindex.end()) {
+        if (raise) {
+            throw CanteraError("Kinetics::phaseIndex", "Phase '{}' not found", ph);
+        }
+        return npos;
+    } else {
+        return m_phaseindex.at(ph) - 1;
+    }
 }
 
 shared_ptr<ThermoPhase> Kinetics::reactionPhase() const
@@ -85,15 +119,18 @@ shared_ptr<ThermoPhase> Kinetics::reactionPhase() const
     return m_thermo[0];
 }
 
-void Kinetics::checkSpeciesIndex(size_t k) const
+size_t Kinetics::checkSpeciesIndex(size_t k) const
 {
-    if (k >= m_kk) {
-        throw IndexError("Kinetics::checkSpeciesIndex", "species", k, m_kk-1);
+    if (k < m_kk) {
+        return k;
     }
+    throw IndexError("Kinetics::checkSpeciesIndex", "species", k, m_kk);
 }
 
 void Kinetics::checkSpeciesArraySize(size_t kk) const
 {
+    warn_deprecated("Kinetics::checkSpeciesArraySize",
+        "To be removed after Cantera 3.2. Only used by legacy CLib.");
     if (m_kk > kk) {
         throw ArraySizeError("Kinetics::checkSpeciesArraySize", kk, m_kk);
     }
@@ -111,7 +148,7 @@ void Kinetics::setExplicitThirdBodyDuplicateHandling(const string& flag)
     }
 }
 
-pair<size_t, size_t> Kinetics::checkDuplicates(bool throw_err) const
+pair<size_t, size_t> Kinetics::checkDuplicates(bool throw_err, bool fix)
 {
     //! Map of (key indicating participating species) to reaction numbers
     map<size_t, vector<size_t>> participants;
@@ -201,7 +238,9 @@ pair<size_t, size_t> Kinetics::checkDuplicates(bool throw_err) const
                             "should be handled and suppress this warning.\n"
                             "Reaction {}: {}\nReaction {}: {}\n",
                             m+1, R.equation(), i+1, other.equation());
-                        warn_user("Kinetics::checkDuplicates", msg.what());
+                        if (!fix) {
+                            warn_user("Kinetics::checkDuplicates", msg.what());
+                        }
                         continue;
                     } // else m_explicit_third_body_duplicates == "error"
                 }
@@ -212,6 +251,11 @@ pair<size_t, size_t> Kinetics::checkDuplicates(bool throw_err) const
                         "Undeclared duplicate reactions detected:\n"
                         "Reaction {}: {}\nReaction {}: {}\n",
                         m+1, R.equation(), i+1, other.equation());
+            } else if (fix) {
+                R.duplicate = true;
+                other.duplicate = true;
+                unmatched_duplicates.erase(i);
+                unmatched_duplicates.erase(m);
             } else {
                 return {i,m};
             }
@@ -219,14 +263,17 @@ pair<size_t, size_t> Kinetics::checkDuplicates(bool throw_err) const
         participants[key].push_back(i);
     }
     if (unmatched_duplicates.size()) {
-        size_t i = *unmatched_duplicates.begin();
-        if (throw_err) {
-            errs.emplace_back("Kinetics::checkDuplicates",
-                m_reactions[i]->input,
-                "No duplicate found for declared duplicate reaction number {}"
-                " ({})", i, m_reactions[i]->equation());
-        } else {
-            return {i, i};
+        for (auto i : unmatched_duplicates) {
+            if (throw_err) {
+                errs.emplace_back("Kinetics::checkDuplicates",
+                    m_reactions[i]->input,
+                    "No duplicate found for declared duplicate reaction number {}"
+                    " ({})", i, m_reactions[i]->equation());
+            } else if (fix) {
+                m_reactions[i]->duplicate = false;
+            } else {
+                return {i, i};
+            }
         }
     }
     if (errs.empty()) {
@@ -287,22 +334,51 @@ double Kinetics::checkDuplicateStoich(map<int, double>& r1, map<int, double>& r2
 
 string Kinetics::kineticsSpeciesName(size_t k) const
 {
+    string ret = kineticsSpeciesName(k, false);
+    if (ret == "<unknown>") {
+        warn_deprecated("Kinetics::kineticsSpeciesName", "Behavior will change from "
+            "returning '<unknown>' to throwing an exception after Cantera 3.2.");
+    }
+    return ret;
+}
+
+string Kinetics::kineticsSpeciesName(size_t k, bool raise) const
+{
     for (size_t n = m_start.size()-1; n != npos; n--) {
         if (k >= m_start[n]) {
             return thermo(n).speciesName(k - m_start[n]);
         }
+    }
+    if (raise) {
+        // always throw exception after Cantera 3.2.
+        throw IndexError("Kinetics::kineticsSpeciesName", "totalSpecies", k, m_kk);
     }
     return "<unknown>";
 }
 
 size_t Kinetics::kineticsSpeciesIndex(const string& nm) const
 {
+    size_t ix = kineticsSpeciesIndex(nm, false);
+    if (ix == npos) {
+        warn_deprecated("Kinetics::kineticsSpeciesIndex", "'raise' argument not "
+            "specified. Default behavior will change from returning npos to throwing "
+            "an exception after Cantera 3.2.");
+    }
+    return ix;
+}
+
+size_t Kinetics::kineticsSpeciesIndex(const string& nm, bool raise) const
+{
     for (size_t n = 0; n < m_thermo.size(); n++) {
         // Check the ThermoPhase object for a match
-        size_t k = thermo(n).speciesIndex(nm);
+        size_t k = thermo(n).speciesIndex(nm, false);
         if (k != npos) {
             return k + m_start[n];
         }
+    }
+    if (raise) {
+        throw CanteraError("Kinetics::kineticsSpeciesIndex",
+            "Species '{}' not found", nm);
     }
     return npos;
 }
@@ -310,7 +386,7 @@ size_t Kinetics::kineticsSpeciesIndex(const string& nm) const
 ThermoPhase& Kinetics::speciesPhase(const string& nm)
 {
     for (size_t n = 0; n < m_thermo.size(); n++) {
-        size_t k = thermo(n).speciesIndex(nm);
+        size_t k = thermo(n).speciesIndex(nm, false);
         if (k != npos) {
             return thermo(n);
         }
@@ -321,7 +397,7 @@ ThermoPhase& Kinetics::speciesPhase(const string& nm)
 const ThermoPhase& Kinetics::speciesPhase(const string& nm) const
 {
     for (const auto& thermo : m_thermo) {
-        if (thermo->speciesIndex(nm) != npos) {
+        if (thermo->speciesIndex(nm, false) != npos) {
             return *thermo;
         }
     }
@@ -584,7 +660,24 @@ void Kinetics::addThermo(shared_ptr<ThermoPhase> thermo)
     resizeSpecies();
 }
 
-AnyMap Kinetics::parameters()
+void Kinetics::setParameters(const AnyMap& phaseNode) {
+    skipUndeclaredThirdBodies(phaseNode.getBool("skip-undeclared-third-bodies", false));
+    setExplicitThirdBodyDuplicateHandling(
+        phaseNode.getString("explicit-third-body-duplicates", "warn"));
+
+    if (phaseNode.hasKey("rate-multipliers")) {
+        const auto& defaultMultipliers = phaseNode["rate-multipliers"];
+        for (auto& [key, val] : defaultMultipliers) {
+            if (key == "default") {
+                m_defaultPerturb[-1] = val.asDouble();
+            } else {
+                m_defaultPerturb[stoi(key)] = val.asDouble();
+            }
+        }
+    }
+}
+
+AnyMap Kinetics::parameters() const
 {
     AnyMap out;
     string name = KineticsFactory::factory()->canonicalize(kineticsType());
@@ -601,6 +694,28 @@ AnyMap Kinetics::parameters()
             // and "modify-efficiency" do not need to be propagated here as their
             // effects are already applied to the corresponding reactions.
             out["explicit-third-body-duplicates"] = "error";
+        }
+        map<double, int> multipliers;
+        for (auto m : m_perturb) {
+            multipliers[m] += 1;
+        }
+        if (static_cast<size_t>(multipliers[1.0]) != (nReactions())) {
+            int defaultCount = 0;
+            double defaultMultiplier = 1.0;
+            for (auto& [m, count] : multipliers) {
+                if (count > defaultCount) {
+                    defaultCount = count;
+                    defaultMultiplier = m;
+                }
+            }
+            AnyMap multiplierMap;
+            multiplierMap["default"] = defaultMultiplier;
+            for (size_t i = 0; i < nReactions(); i++) {
+                if (m_perturb[i] != defaultMultiplier) {
+                    multiplierMap[to_string(i)] = m_perturb[i];
+                }
+            }
+            out["rate-multipliers"] = multiplierMap;
         }
     }
     return out;
@@ -684,7 +799,10 @@ bool Kinetics::addReaction(shared_ptr<Reaction> r, bool resize)
     // product orders = product stoichiometric coefficients
     m_productStoich.add(irxn, pk, pstoich, pstoich);
     if (r->reversible) {
+        m_revindex.push_back(irxn);
         m_revProductStoich.add(irxn, pk, pstoich, pstoich);
+    } else {
+        m_irrev.push_back(irxn);
     }
 
     m_reactions.push_back(r);
@@ -694,13 +812,15 @@ bool Kinetics::addReaction(shared_ptr<Reaction> r, bool resize)
     m_ropf.push_back(0.0);
     m_ropr.push_back(0.0);
     m_ropnet.push_back(0.0);
-    m_perturb.push_back(1.0);
+    m_perturb.push_back(getValue(m_defaultPerturb, irxn, m_defaultPerturb[-1]));
     m_dH.push_back(0.0);
 
     if (resize) {
         resizeReactions();
-    } else {
-        m_ready = false;
+    }
+
+    for (const auto& [id, callback] : m_reactionAddedCallbacks) {
+        callback();
     }
 
     return true;
@@ -710,6 +830,13 @@ void Kinetics::modifyReaction(size_t i, shared_ptr<Reaction> rNew)
 {
     checkReactionIndex(i);
     shared_ptr<Reaction>& rOld = m_reactions[i];
+
+    if (rNew->rate()->type() == "electron-collision-plasma") {
+        throw CanteraError("Kinetics::modifyReaction",
+            "Type electron-collision-plasma is not supported. "
+            "Use the rate object of the reaction to modify the data.");
+    }
+
     if (rNew->type() != rOld->type()) {
         throw CanteraError("Kinetics::modifyReaction",
             "Reaction types are different: {} != {}.",

@@ -12,12 +12,13 @@ legacy_tox_ini = """
 skip_missing_interpreters = True
 skipsdist = True
 envlist =
-    py{27,36,37,38,39,310,311,312,313}
+    py{27,36,37,38,39,310,311,312,313,314}
     cov-report
 
 [testenv]
 deps =
     -rtests/requirements.txt
+    setuptools
     -e .
 
 setenv =
@@ -102,7 +103,7 @@ directory = "docs/coverage"
 skip-string-normalization = true
 # skip-magic-trailing-comma = true
 line-length = 78
-# target-version = ['py312']
+# target-version = ['py313']
 include='''
 (
     tests/.*\.py
@@ -112,5 +113,13 @@ include='''
 extend-exclude='''
     tasks/_inv/shell.py
 '''
+
+
+# =======================================
+# isort
+# =======================================
+[tool.isort]
+profile = "black"
+force_single_line = true
 
 # vim: nowrap

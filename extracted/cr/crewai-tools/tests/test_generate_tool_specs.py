@@ -1,34 +1,32 @@
 import json
-from typing import List, Optional, Type
 from unittest import mock
 
-import pytest
 from crewai.tools.base_tool import BaseTool, EnvVar
+from crewai_tools.generate_tool_specs import ToolSpecExtractor
 from pydantic import BaseModel, Field
-
-from generate_tool_specs import ToolSpecExtractor
+import pytest
 
 
 class MockToolSchema(BaseModel):
     query: str = Field(..., description="The query parameter")
     count: int = Field(5, description="Number of results to return")
-    filters: Optional[List[str]] = Field(None, description="Optional filters to apply")
+    filters: list[str] | None = Field(None, description="Optional filters to apply")
 
 
 class MockTool(BaseTool):
     name: str = "Mock Search Tool"
     description: str = "A tool that mocks search functionality"
-    args_schema: Type[BaseModel] = MockToolSchema
+    args_schema: type[BaseModel] = MockToolSchema
 
     another_parameter: str = Field(
         "Another way to define a default value", description=""
     )
     my_parameter: str = Field("This is default value", description="What a description")
     my_parameter_bool: bool = Field(False)
-    package_dependencies: List[str] = Field(
+    package_dependencies: list[str] = Field(
         ["this-is-a-required-package", "another-required-package"], description=""
     )
-    env_vars: List[EnvVar] = [
+    env_vars: list[EnvVar] = [
         EnvVar(
             name="SERPER_API_KEY",
             description="API key for Serper",
@@ -63,8 +61,8 @@ def test_unwrap_schema(extractor):
 @pytest.fixture
 def mock_tool_extractor(extractor):
     with (
-        mock.patch("generate_tool_specs.dir", return_value=["MockTool"]),
-        mock.patch("generate_tool_specs.getattr", return_value=MockTool),
+        mock.patch("crewai_tools.generate_tool_specs.dir", return_value=["MockTool"]),
+        mock.patch("crewai_tools.generate_tool_specs.getattr", return_value=MockTool),
     ):
         extractor.extract_all_tools()
         assert len(extractor.tools_spec) == 1
@@ -111,7 +109,7 @@ def test_extract_init_params_schema(mock_tool_extractor):
     assert my_parameter["type"] == "string"
 
     my_parameter_bool = init_params_schema["properties"]["my_parameter_bool"]
-    assert my_parameter_bool["default"] == False
+    assert not my_parameter_bool["default"]
     assert my_parameter_bool["type"] == "boolean"
 
 
@@ -122,12 +120,12 @@ def test_extract_env_vars(mock_tool_extractor):
     api_key_var, rate_limit_var = tool_info["env_vars"]
     assert api_key_var["name"] == "SERPER_API_KEY"
     assert api_key_var["description"] == "API key for Serper"
-    assert api_key_var["required"] == True
-    assert api_key_var["default"] == None
+    assert api_key_var["required"]
+    assert api_key_var["default"] is None
 
     assert rate_limit_var["name"] == "API_RATE_LIMIT"
     assert rate_limit_var["description"] == "API rate limit"
-    assert rate_limit_var["required"] == False
+    assert not rate_limit_var["required"]
     assert rate_limit_var["default"] == "100"
 
 
@@ -152,7 +150,7 @@ def test_extract_run_params_schema(mock_tool_extractor):
 
     filters_param = run_params_schema["properties"]["filters"]
     assert filters_param["description"] == "Optional filters to apply"
-    assert filters_param["default"] == None
+    assert filters_param["default"] is None
     assert filters_param["anyOf"] == [
         {"items": {"type": "string"}, "type": "array"},
         {"type": "null"},

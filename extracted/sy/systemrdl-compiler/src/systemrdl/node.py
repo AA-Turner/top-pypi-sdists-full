@@ -64,6 +64,17 @@ class Node:
                 setattr(result, k, deepcopy(v, memo))
         return result
 
+    @property
+    def component_type_name(self) -> str:
+        """
+        Returns the component type name that this node represents.
+        For example: "reg", "field", "addrmap", etc...
+
+
+        .. versionadded:: 1.31
+        """
+        raise NotImplementedError
+
     @overload
     @staticmethod
     def _factory(inst: comp.Field, env: 'RDLEnvironment', parent: Optional['Node']) -> 'FieldNode': ...
@@ -349,11 +360,15 @@ class Node:
                 continue
 
             # .. otherwise continue parsing the path
-            m = re.fullmatch(r'^(\w+)((?:\[(?:\d+|0[xX][\da-fA-F]+)\])*)$', pathpart)
+            m = re.fullmatch(r'(\w+)(.*)', pathpart)
             if not m:
                 raise ValueError("Invalid path")
             inst_name, array_suffix = m.group(1, 2)
-            idx_list = [int(s, 0) for s in re.findall(r'\[(\d+|0[xX][\da-fA-F]+)\]', array_suffix)]
+            if array_suffix == "" or re.fullmatch(r"(\[\])+", array_suffix):
+                # No indexes specified
+                idx_list = []
+            else:
+                idx_list = [int(s, 0) for s in re.findall(r'\[(\d+|0[xX][\da-fA-F]+)\]', array_suffix)]
 
             current_node = current_node.get_child_by_name(inst_name)
             if current_node is None:
@@ -1268,6 +1283,10 @@ class RootNode(Node):
             return child
         raise RuntimeError
 
+    @property
+    def component_type_name(self) -> Literal['$root']:
+        return "$root"
+
 #===============================================================================
 class SignalNode(VectorNode):
     """
@@ -1277,6 +1296,10 @@ class SignalNode(VectorNode):
     """
     parent: Node
     inst: comp.Signal
+
+    @property
+    def component_type_name(self) -> Literal['signal']:
+        return "signal"
 
     @overload # type: ignore[override]
     def get_property(self, prop_name: Literal["signalwidth"], *, default: T)-> Union[int, T]: ...
@@ -1356,6 +1379,10 @@ class FieldNode(VectorNode):
     """
     parent: 'RegNode'
     inst: comp.Field
+
+    @property
+    def component_type_name(self) -> Literal['field']:
+        return "field"
 
     @overload # type: ignore[override]
     def get_property(self, prop_name: Literal["dontcompare"], *, default: T)-> Union[Union[int, bool], T]: ...
@@ -2005,6 +2032,34 @@ class FieldNode(VectorNode):
             fields.append(alias_field)
         return fields
 
+    @property
+    def has_overlaps(self) -> bool:
+        """
+        Returns True if this field overlaps with any other fields
+        that are present in the same register.
+
+        This is allowed if one is read-only and the other is write-only.
+
+
+        .. versionadded:: 1.31
+        """
+        return bool(self.inst.overlaps_with_names)
+
+    @property
+    def overlapping_fields(self) -> List['FieldNode']:
+        """
+        Returns a list of all other fields that overlap with this field.
+
+
+        .. versionadded:: 1.31
+        """
+        fields = []
+        for field_name in self.inst.overlaps_with_names:
+            field = self.parent.get_child_by_name(field_name)
+            assert isinstance(field, FieldNode)
+            fields.append(field)
+        return fields
+
 
 #===============================================================================
 class RegNode(AddressableNode):
@@ -2015,6 +2070,10 @@ class RegNode(AddressableNode):
     """
     parent: Union['AddrmapNode', 'RegNode', 'MemNode']
     inst: comp.Reg
+
+    @property
+    def component_type_name(self) -> Literal['reg']:
+        return "reg"
 
     @overload # type: ignore[override]
     def get_property(self, prop_name: Literal["dontcompare"], *, default: T)-> Union[bool, T]: ...
@@ -2092,18 +2151,18 @@ class RegNode(AddressableNode):
         return super().get_property(prop_name, **kwargs)
 
     @overload
-    def fields(self, skip_not_present: bool = True, include_gaps: Literal[False] = False) -> Sequence['FieldNode']: ...
+    def fields(self, skip_not_present: bool = True, include_gaps: Literal[False] = False, sw_readable_only: bool = False, sw_writable_only: bool = False) -> Sequence['FieldNode']: ...
 
     @overload
-    def fields(self, skip_not_present: bool, include_gaps: Literal[True]) -> Sequence[Union['FieldNode', Tuple[int, int]]]: ...
+    def fields(self, skip_not_present: bool, include_gaps: Literal[True], sw_readable_only: bool = False, sw_writable_only: bool = False) -> Sequence[Union['FieldNode', Tuple[int, int]]]: ...
 
     @overload
-    def fields(self, skip_not_present: bool = True, *, include_gaps: Literal[True]) -> Sequence[Union['FieldNode', Tuple[int, int]]]: ...
+    def fields(self, skip_not_present: bool = True, *, include_gaps: Literal[True], sw_readable_only: bool = False, sw_writable_only: bool = False) -> Sequence[Union['FieldNode', Tuple[int, int]]]: ...
 
     @overload
-    def fields(self, skip_not_present: bool = True, include_gaps: bool = False) -> Sequence[Union['FieldNode', Tuple[int, int]]]: ...
+    def fields(self, skip_not_present: bool = True, include_gaps: bool = False, sw_readable_only: bool = False, sw_writable_only: bool = False) -> Sequence[Union['FieldNode', Tuple[int, int]]]: ...
 
-    def fields(self, skip_not_present: bool = True, include_gaps: bool = False) -> Sequence[Union['FieldNode', Tuple[int, int]]]:
+    def fields(self, skip_not_present: bool = True, include_gaps: bool = False, sw_readable_only: bool = False, sw_writable_only: bool = False) -> Sequence[Union['FieldNode', Tuple[int, int]]]:
         """
         Returns a list of all fields of this register.
 
@@ -2115,6 +2174,17 @@ class RegNode(AddressableNode):
             If True, returned list also includes information about gaps between
             fields. Gaps are represented as tuples in the form of: ``(high, low)``
 
+            .. important::
+                Beware that SystemRDL allows fields with opposete software access
+                policies to overlap. Consider using this option along with
+                ``sw_readable_only`` or ``sw_writable_only``
+
+        sw_readable_only, sw_writable_only: bool
+            If either is true, only returns fields that are software readable or
+            writable respectively.
+
+            These options are mutually exclusive and cannot be set simultaneously.
+
         Returns
         -------
         :class:`~FieldNode`
@@ -2125,30 +2195,41 @@ class RegNode(AddressableNode):
             Returns list instead of generator.
 
             Added ``include_gaps`` argument
+
+
+        .. versionchanged:: 1.31
+            Added ``sw_readable_only`` and ``sw_writable_only`` arguments
         """
+        if sw_readable_only and sw_writable_only:
+            raise ValueError("sw_readable_only and sw_writable_only args are mutualy exclusive")
+
+        fields = []
+        for child in self.children(skip_not_present=skip_not_present):
+            if not isinstance(child, FieldNode):
+                continue
+            if sw_readable_only and not child.is_sw_readable:
+                continue
+            if sw_writable_only and not child.is_sw_writable:
+                continue
+            fields.append(child)
+
         if include_gaps:
             fields_with_gaps: List[Union['FieldNode', Tuple[int, int]]]
             fields_with_gaps = []
             current_bit = 0
-            for child in self.children(skip_not_present=skip_not_present):
-                if not isinstance(child, FieldNode):
-                    continue
-                if current_bit != child.low:
+            for field in fields:
+                if current_bit < field.low:
                     # Add gap before this field
-                    fields_with_gaps.append((child.low - 1, current_bit))
-                fields_with_gaps.append(child)
-                current_bit = child.high + 1
+                    fields_with_gaps.append((field.low - 1, current_bit))
+                fields_with_gaps.append(field)
+                current_bit = max(current_bit, field.high + 1)
             regwidth = self.get_property('regwidth')
             if current_bit != regwidth:
                 # Add gap at end of register
                 fields_with_gaps.append((regwidth - 1, current_bit))
             return fields_with_gaps
-        else:
-            fields = []
-            for child in self.children(skip_not_present=skip_not_present):
-                if isinstance(child, FieldNode):
-                    fields.append(child)
-            return fields
+
+        return fields
 
 
     @property
@@ -2300,7 +2381,7 @@ class RegNode(AddressableNode):
 
     def aliases(self, skip_not_present: bool = True) -> List['RegNode']:
         """
-        Returns a listof all the registers that are aliases of this primary register
+        Returns a list of all the registers that are aliases of this primary register
 
         Parameters
         ----------
@@ -2329,6 +2410,33 @@ class RegNode(AddressableNode):
             regs.append(alias_reg)
         return regs
 
+    @property
+    def has_overlaps(self) -> bool:
+        """
+        Returns True if this register overlaps with any other registers
+        that are present in the design.
+
+        This is allowed if one is read-only and the other is write-only.
+
+
+        .. versionadded:: 1.31
+        """
+        return bool(self.inst.overlaps_with_names)
+
+    @property
+    def overlapping_regs(self) -> List['RegNode']:
+        """
+        Returns a list of all other registers that overlap with this register.
+
+
+        .. versionadded:: 1.31
+        """
+        regs = []
+        for reg_name in self.inst.overlaps_with_names:
+            reg = self.parent.get_child_by_name(reg_name)
+            assert isinstance(reg, RegNode)
+            regs.append(reg)
+        return regs
 
 
 
@@ -2341,6 +2449,10 @@ class RegfileNode(AddressableNode):
     """
     parent: Union['AddrmapNode', 'RegfileNode']
     inst: comp.Regfile
+
+    @property
+    def component_type_name(self) -> Literal['regfile']:
+        return "regfile"
 
     @overload # type: ignore[override]
     def get_property(self, prop_name: Literal["dontcompare"], *, default: T)-> Union[bool, T]: ...
@@ -2424,6 +2536,10 @@ class AddrmapNode(AddressableNode):
     """
     parent: Union['AddrmapNode', RootNode]
     inst: comp.Addrmap
+
+    @property
+    def component_type_name(self) -> Literal['addrmap']:
+        return "addrmap"
 
     @overload # type: ignore[override]
     def get_property(self, prop_name: Literal["dontcompare"], *, default: T)-> Union[bool, T]: ...
@@ -2555,6 +2671,10 @@ class MemNode(AddressableNode):
     """
     parent: AddrmapNode
     inst: comp.Mem
+
+    @property
+    def component_type_name(self) -> Literal['mem']:
+        return "mem"
 
     @overload # type: ignore[override]
     def get_property(self, prop_name: Literal["hdl_path_slice"], *, default: T)-> Union[Optional[List[str]], T]: ...

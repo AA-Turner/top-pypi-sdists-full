@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -21,15 +21,13 @@ from __future__ import annotations
 from abc import abstractmethod
 from argparse import ArgumentParser, ArgumentTypeError, Namespace
 import argparse
-import logging
 import platform
 import re
-from typing import Any, Optional, Type, Union, Callable
+from typing import Any, Type, Callable
 import os
 
 from .filter import AbsoluteFilter, Filter, RelativeFilter
-
-LOGGER = logging.getLogger("gcovr")
+from .logging import LOGGER
 
 
 def check_percentage(value: str) -> float:
@@ -50,7 +48,7 @@ def check_percentage(value: str) -> float:
     return x
 
 
-def check_input_file(value: str, basedir: Optional[str] = None) -> str:
+def check_input_file(value: str, basedir: str | None = None) -> str:
     r"""
     Check that the input file is present. Return the full path.
     """
@@ -69,7 +67,7 @@ def check_input_file(value: str, basedir: Optional[str] = None) -> str:
     return os.path.abspath(value)
 
 
-def relative_path(value: str, basedir: Optional[str] = None) -> str:
+def relative_path(value: str, basedir: str | None = None) -> str:
     r"""
     Make a absolute path if value is a relative path.
     """
@@ -88,7 +86,7 @@ def relative_path(value: str, basedir: Optional[str] = None) -> str:
 class FilterOption:
     """Argparse type for filter options."""
 
-    def __init__(self, regex: str, path_context: Optional[str] = None) -> None:
+    def __init__(self, regex: str, path_context: str | None = None) -> None:
         self.regex = regex
         self.path_context = os.getcwd() if path_context is None else path_context
 
@@ -102,9 +100,11 @@ class FilterOption:
             r"\\\\|\\(?=[^\WabfnrtuUvx0-9AbBdDsSwWZ])", "/", self.regex
         )
         if bs_count:
-            LOGGER.warning("filters must use forward slashes as path separators")
-            LOGGER.warning(f"your filter : {self.regex}")
-            LOGGER.warning(f"did you mean: {suggestion}")
+            LOGGER.warning(
+                "Filters must use forward slashes as path separators, your filter >>%s<<.",
+                self.regex,
+            )
+            LOGGER.warning("Did you mean >>%s<<?", suggestion)
 
         if self.regex.startswith("/") or (
             (platform.system() == "Windows") and re.match(r"^[A-Za-z]:/", self.regex)
@@ -117,7 +117,7 @@ class FilterOption:
 class NonEmptyFilterOption(FilterOption):
     """Argparse type to check filters."""
 
-    def __init__(self, regex: str, path_context: Optional[str] = None) -> None:
+    def __init__(self, regex: str, path_context: str | None = None) -> None:
         if not regex:
             raise ArgumentTypeError("filter cannot be empty")
         super().__init__(regex, path_context)
@@ -131,7 +131,7 @@ class OutputOrDefault:
     - ``OutputOrDefault(path)``: use that path
     """
 
-    def __init__(self, value: Optional[str], basedir: Optional[str] = None) -> None:
+    def __init__(self, value: str | None, basedir: str | None = None) -> None:
         self.value = value
         self._check_output_and_make_abspath(os.getcwd() if basedir is None else basedir)
 
@@ -183,9 +183,9 @@ class OutputOrDefault:
     @classmethod
     def choose(
         cls,
-        choices: list[Optional[OutputOrDefault]],
-        default: Optional[OutputOrDefault] = None,
-    ) -> Optional[OutputOrDefault]:
+        choices: list[OutputOrDefault | None],
+        default: OutputOrDefault | None = None,
+    ) -> OutputOrDefault | None:
         """select the first choice that contains a value
 
         Example: chooses a truthy value over None:
@@ -238,7 +238,7 @@ class GcovrConfigOptionAction(argparse.Action):  # pylint: disable=abstract-meth
 
     @abstractmethod
     def store_config_key(
-        self, namespace: dict[str, Any], values: Any, config: Optional[str]
+        self, namespace: dict[str, Any], values: Any, config: str | None
     ) -> None:
         """Method to store a configuration key."""
 
@@ -254,20 +254,27 @@ class GcovrDeprecatedConfigOptionAction(GcovrConfigOptionAction):
         parser: ArgumentParser,
         namespace: Namespace,
         values: Any,
-        option_string: Optional[str] = None,
+        option_string: str | None = None,
     ) -> None:
         """Used by argparse to store the values."""
         LOGGER.warning(
-            f"Deprecated option {option_string} used, please use '{self.option} {self.value}' instead."
+            "Deprecated option %s used, please use '%s %s' instead.",
+            option_string,
+            self.option,
+            self.value,
         )
         setattr(namespace, self.dest, self.value)
 
     def store_config_key(
-        self, namespace: dict[str, Any], values: Any, config: Optional[str]
+        self, namespace: dict[str, Any], values: Any, config: str | None
     ) -> None:
-        LOGGER.warning(
-            f"Deprecated config key {config} used, please use '{self.config}={self.value}' instead."
-        )
+        if config is not None:
+            LOGGER.warning(
+                "Deprecated config key %s used, please use '%s=%s' instead.",
+                config,
+                self.config,
+                self.value,
+            )
         namespace[self.dest] = values
 
 
@@ -342,21 +349,21 @@ class GcovrConfigOption:
     def __init__(
         self,
         name: str,
-        flags: Optional[list[str]] = None,
+        flags: list[str] | None = None,
         *,
         help: str,
-        action: Union[str, Type[GcovrConfigOptionAction]] = "store",
-        choices: Optional[Union[tuple[int, ...], tuple[str, ...]]] = None,
+        action: str | Type[GcovrConfigOptionAction] = "store",
+        choices: tuple[int, ...] | tuple[str, ...] | None = None,
         const: Any = None,
         const_negate: Any = None,
-        config: Union[str, bool] = True,
+        config: str | bool = True,
         default: Any = None,
-        group: Optional[str] = None,
-        metavar: Optional[str] = None,
-        nargs: Union[int, str, None] = None,
+        group: str | None = None,
+        metavar: str | None = None,
+        nargs: int | str | None = None,
         positional: bool = False,
         required: bool = False,
-        type: Optional[Union[Callable[[str], Any], Type[FilterOption]]] = None,
+        type: Callable[[str], Any] | Type[FilterOption] | None = None,
     ) -> None:
         if flags is None:
             flags = []
@@ -453,10 +460,10 @@ class GcovrConfigOption:
 
 
 def _derive_configuration_key(
-    config: Union[str, bool],
+    config: str | bool,
     *,
     flags: list[str],
-) -> Optional[list[str]]:
+) -> list[str] | None:
     if config is True:
         config_keys = []
         for flag in flags:
@@ -470,6 +477,4 @@ def _derive_configuration_key(
     if isinstance(config, str):
         return [config]
 
-    raise AssertionError(
-        f"Sanity check failed, unexpected config entry type {config!r}"
-    )
+    raise AssertionError(f"Unexpected config entry type {config!r}")

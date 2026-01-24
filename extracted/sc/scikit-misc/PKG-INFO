@@ -1,35 +1,35 @@
 Metadata-Version: 2.1
 Name: scikit-misc
-Version: 0.5.1
+Version: 0.5.2
 Summary: Miscellaneous tools for scientific computing.
-Home-page: https://has2k1.github.io/scikit-misc/stable
 Author-Email: Hassan Kibirige <has2k1@gmail.com>
 License: Copyright (c) 2016, Hassan Kibirige
-        All rights reserved.
-        
-        Redistribution and use in source and binary forms, with or without
-        modification, are permitted provided that the following conditions are met:
-        
-         * Redistributions of source code must retain the above copyright notice,
-           this list of conditions and the following disclaimer.
-         * Redistributions in binary form must reproduce the above copyright
-           notice, this list of conditions and the following disclaimer in the
-           documentation and/or other materials provided with the distribution.
-         * Neither the name of  nor the names of its contributors may be used to
-           endorse or promote products derived from this software without specific
-           prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-        ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-        LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-        CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-        SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-        INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-        CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-        ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-        POSSIBILITY OF SUCH DAMAGE.
+         All rights reserved.
+         
+         Redistribution and use in source and binary forms, with or without
+         modification, are permitted provided that the following conditions are met:
+         
+          * Redistributions of source code must retain the above copyright notice,
+            this list of conditions and the following disclaimer.
+          * Redistributions in binary form must reproduce the above copyright
+            notice, this list of conditions and the following disclaimer in the
+            documentation and/or other materials provided with the distribution.
+          * Neither the name of  nor the names of its contributors may be used to
+            endorse or promote products derived from this software without specific
+            prior written permission.
+         
+         THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+         AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+         IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+         ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+         LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+         CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+         SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+         INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+         CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+         ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+         POSSIBILITY OF SUCH DAMAGE.
+         
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: Unix
@@ -43,36 +43,37 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Project-URL: Homepage, https://has2k1.github.io/scikit-misc/stable
-Project-URL: Repository, https://github.com/has2k1/scikit-misc
-Project-URL: Documentation, https://has2k1.github.io/scikit-misc/stable
-Project-URL: Changelog, https://has2k1.github.io/scikit-misc/stable/changelog.html
+Project-URL: homepage, https://has2k1.github.io/scikit-misc/stable
+Project-URL: repository, https://github.com/has2k1/scikit-misc
+Project-URL: documentation, https://has2k1.github.io/scikit-misc/stable
+Project-URL: changelog, https://has2k1.github.io/scikit-misc/stable/changelog.html
 Requires-Python: >=3.10
-Requires-Dist: numpy>=1.23.5
+Requires-Dist: numpy>=1.26.4
+Provides-Extra: all
 Requires-Dist: scikit-misc[doc]; extra == "all"
 Requires-Dist: scikit-misc[build]; extra == "all"
 Requires-Dist: scikit-misc[lint]; extra == "all"
 Requires-Dist: scikit-misc[test]; extra == "all"
 Requires-Dist: scikit-misc[dev]; extra == "all"
+Provides-Extra: doc
 Requires-Dist: numpydoc; extra == "doc"
 Requires-Dist: sphinx; extra == "doc"
+Provides-Extra: build
 Requires-Dist: cython; extra == "build"
 Requires-Dist: build; extra == "build"
 Requires-Dist: spin; extra == "build"
 Requires-Dist: meson; extra == "build"
 Requires-Dist: meson-python; extra == "build"
 Requires-Dist: ninja; extra == "build"
+Provides-Extra: lint
 Requires-Dist: ruff; extra == "lint"
+Provides-Extra: test
 Requires-Dist: pytest-cov; extra == "test"
+Provides-Extra: dev
 Requires-Dist: wheel; extra == "dev"
 Requires-Dist: twine; extra == "dev"
-Provides-Extra: all
-Provides-Extra: doc
-Provides-Extra: build
-Provides-Extra: lint
-Provides-Extra: test
-Provides-Extra: dev
 Description-Content-Type: text/x-rst
 
 ###########

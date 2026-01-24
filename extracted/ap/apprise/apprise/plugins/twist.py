@@ -69,7 +69,7 @@ class NotifyTwist(NotifyBase):
     secure_protocol = "twist"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_twist"
+    setup_url = "https://appriseit.com/services/twist/"
 
     # The maximum size of the message
     body_maxlen = 1000
@@ -369,7 +369,7 @@ class NotifyTwist(NotifyBase):
             return True
 
         # Send Logout Message
-        postokay, response = self._fetch("users/logout")
+        _postokay, _response = self._fetch("users/logout")
 
         # reset our token
         self.token = None
@@ -600,7 +600,7 @@ class NotifyTwist(NotifyBase):
                 "content": body,
             }
 
-            postokay, response = self._fetch(
+            postokay, _response = self._fetch(
                 "threads/add",
                 payload=payload,
             )
@@ -729,7 +729,8 @@ class NotifyTwist(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Mark our failure
                 return (False, content)

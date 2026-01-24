@@ -1,19 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: Flask-Alembic
-Version: 3.1.1
+Version: 3.2.0
 Summary: Integrate Alembic with Flask.
 Author: David Lord
 Maintainer-email: Pallets <contact@palletsprojects.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-Expression: MIT
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Flask
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Typing :: Typed
-Requires-Dist: alembic>=1.13
-Requires-Dist: flask>=3.0
-Requires-Dist: sqlalchemy>=2.0
+License-File: LICENSE.txt
+Requires-Dist: alembic>=1.13.0
+Requires-Dist: flask>=3.0.0
+Requires-Dist: sqlalchemy>=2.0.31
 Project-URL: Changes, https://flask-alembic.readthedocs.io/page/changes/
 Project-URL: Chat, https://discord.gg/pallets
 Project-URL: Documentation, https://flask-alembic.readthedocs.io

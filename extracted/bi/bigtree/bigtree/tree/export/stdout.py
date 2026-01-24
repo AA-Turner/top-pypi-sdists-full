@@ -1,11 +1,21 @@
 from __future__ import annotations
 
-from typing import Any, Collection, Iterable, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Callable, Collection, Iterable, TypeVar
 
 from bigtree.node import node
+from bigtree.tree.export._stdout import get_attr
 from bigtree.utils import common, constants
 
+try:
+    import rich
+except ImportError:  # pragma: no cover
+    from unittest.mock import MagicMock
+
+    rich = MagicMock()
+
+
 __all__ = [
+    "print_rich",
     "print_tree",
     "yield_tree",
     "hprint_tree",
@@ -18,16 +28,70 @@ __all__ = [
 T = TypeVar("T", bound=node.Node)
 
 
+def print_rich(
+    pre_str: str,
+    fill_str: str,
+    node_str: str,
+    _node: T,
+    console: rich.Console,
+    *,
+    node_format: str | None = None,
+    node_format_attr: str | Callable[[T], str] | None = None,
+    edge_format: str | None = None,
+    icon_prefix_attr: str | Callable[[T], str] | None = None,
+    icon_suffix_attr: str | Callable[[T], str] | None = None,
+    **kwargs: Any,
+) -> None:
+    """Add rich formatting and print tree to console
+
+    Args:
+        pre_str: edge of tree
+        fill_str: the empty spaces
+        node_str: node details
+        _node: node to print
+        console: rich console if exist, otherwise a console will be created
+        node_format: node format, sets the node format of every node, e.g., bold magenta
+        node_format_attr: If string type, it refers to ``Node`` attribute for node format. If callable type, it
+            takes in the node itself and returns the format. This sets the format of custom nodes, and overrides default
+            `node_format`
+        edge_format: edge format, sets the edge format, e.g., bold magenta
+        icon_prefix_attr: node icon infront of node name. Accepts emoji code (e.g., `:thumbs_up:`), unicode characters
+            (e.g., `\U0001f600`), or anything rich supports. If string type, it refers to ``Node`` attribute for icon.
+            If callable type, it takes in the node itself and returns the icon
+        icon_suffix_attr: node icon behind node name. Accepts emoji code (e.g., `:thumbs_up:`), unicode characters
+            (e.g., `\U0001f600`), or anything rich supports. If string type, it refers to ``Node`` attribute for icon.
+            If callable type, it takes in the node itself and returns the icon
+    """
+    # Add rich formatting
+    if icon_prefix_attr:
+        node_str_prefix = get_attr(_node, icon_prefix_attr, "")
+        node_str = f"{node_str_prefix} {node_str}" if node_str_prefix else node_str
+    if icon_suffix_attr:
+        node_str_suffix = get_attr(_node, icon_suffix_attr, "")
+        node_str = f"{node_str} {node_str_suffix}" if node_str_suffix else node_str
+    if node_format or node_format_attr:
+        _node_format = get_attr(_node, node_format_attr, node_format)
+        node_str = (
+            f"[{_node_format}]{node_str}[/{_node_format}]" if _node_format else node_str
+        )
+    if edge_format:
+        pre_str = f"[{edge_format}]{pre_str}[/{edge_format}]"
+        fill_str = f"[{edge_format}]{fill_str}[/{edge_format}]"
+    console.print(f"{pre_str}{fill_str}{node_str}", **kwargs)
+
+
 def print_tree(
     tree: T,
     alias: str = "node_name",
-    node_name_or_path: Optional[str] = None,
+    node_name_or_path: str | None = None,
     max_depth: int = 0,
     all_attrs: bool = False,
-    attr_list: Optional[Iterable[str]] = None,
+    attr_list: Iterable[str] | None = None,
+    attr_format: str = "{k}={v}",
+    attr_sep: str = ", ",
     attr_omit_null: bool = False,
     attr_bracket: Collection[str] = ("[", "]"),
-    style: Union[str, Iterable[str], constants.BasePrintStyle] = "const",
+    style: str | Iterable[str] | constants.BasePrintStyle = "const",
     **kwargs: Any,
 ) -> None:
     """Print tree to console, starting from `tree`. Accepts kwargs for print() function.
@@ -36,27 +100,32 @@ def print_tree(
     - Able to select which node to print from, resulting in a subtree, using `node_name_or_path`
     - Able to customise for maximum depth to print, using `max_depth`
     - Able to choose which attributes to show or show all attributes, using `all_attrs` and `attr_list`
+    - For showing attributes, able to customise the format of attributes and separator of attributes
     - Able to omit showing of attributes if it is null, using `attr_omit_null`
     - Able to customise open and close brackets if attributes are shown, using `attr_bracket`
-    - Able to customise style, to choose from str, List[str], or inherit from constants.BasePrintStyle, using `style`
+    - Able to customise style, to choose from str, list[str], or inherit from constants.BasePrintStyle, using `style`
+    - Able to support rich format, using `rich=True`
 
     For style,
 
     - (str): `ansi`, `ascii`, `const` (default), `const_bold`, `rounded`, `double` style
-    - (List[str]): Choose own style for stem, branch, and final stem icons, they must have the same number of characters
+    - (list[str]): Choose own style for stem, branch, and final stem icons, they must have the same number of characters
     - (constants.BasePrintStyle): `ANSIPrintStyle`, `ASCIIPrintStyle`, `ConstPrintStyle`, `ConstBoldPrintStyle`,
         `RoundedPrintStyle`, `DoublePrintStyle` style or inherit from `constants.BasePrintStyle`
+
+    For rich format, set `rich=True` and refer to ``print_rich`` for the list of arguments.
 
     Examples:
         **Printing tree**
 
-        >>> from bigtree import Node, print_tree
+        >>> from bigtree import Node, Tree
         >>> root = Node("a", alias="alias-a", age=90)
         >>> b = Node("b", age=65, parent=root)
         >>> c = Node("c", alias="alias-c", age=60, parent=root)
         >>> d = Node("d", age=40, parent=b)
         >>> e = Node("e", age=35, parent=b)
-        >>> print_tree(root)
+        >>> tree = Tree(root)
+        >>> tree.show()
         a
         ├── b
         │   ├── d
@@ -65,7 +134,7 @@ def print_tree(
 
         **Printing alias**
 
-        >>> print_tree(root, alias="alias")
+        >>> tree.show(alias="alias")
         alias-a
         ├── b
         │   ├── d
@@ -74,26 +143,33 @@ def print_tree(
 
         **Printing Sub-tree**
 
-        >>> print_tree(root, node_name_or_path="b")
+        >>> tree.show(node_name_or_path="b")
         b
         ├── d
         └── e
 
-        >>> print_tree(root, max_depth=2)
+        >>> tree.show(max_depth=2)
         a
         ├── b
         └── c
 
         **Printing Attributes**
 
-        >>> print_tree(root, attr_list=["age"])
+        >>> tree.show(attr_list=["age"])
         a [age=90]
         ├── b [age=65]
         │   ├── d [age=40]
         │   └── e [age=35]
         └── c [age=60]
 
-        >>> print_tree(root, attr_list=["age"], attr_bracket=["*(", ")"])
+        >>> tree.show(attr_list=["name", "age"], attr_format="{k}:{v}", attr_sep="; ")
+        a [name:a; age:90]
+        ├── b [name:b; age:65]
+        │   ├── d [name:d; age:40]
+        │   └── e [name:e; age:35]
+        └── c [name:c; age:60]
+
+        >>> tree.show(attr_list=["age"], attr_bracket=["*(", ")"])
         a *(age=90)
         ├── b *(age=65)
         │   ├── d *(age=40)
@@ -102,42 +178,42 @@ def print_tree(
 
         **Available Styles**
 
-        >>> print_tree(root, style="ansi")
+        >>> tree.show(style="ansi")
         a
         |-- b
         |   |-- d
         |   `-- e
         `-- c
 
-        >>> print_tree(root, style="ascii")
+        >>> tree.show(style="ascii")
         a
         |-- b
         |   |-- d
         |   +-- e
         +-- c
 
-        >>> print_tree(root, style="const")
+        >>> tree.show(style="const")
         a
         ├── b
         │   ├── d
         │   └── e
         └── c
 
-        >>> print_tree(root, style="const_bold")
+        >>> tree.show(style="const_bold")
         a
         ┣━━ b
         ┃   ┣━━ d
         ┃   ┗━━ e
         ┗━━ c
 
-        >>> print_tree(root, style="rounded")
+        >>> tree.show(style="rounded")
         a
         ├── b
         │   ├── d
         │   ╰── e
         ╰── c
 
-        >>> print_tree(root, style="double")
+        >>> tree.show(style="double")
         a
         ╠══ b
         ║   ╠══ d
@@ -147,7 +223,7 @@ def print_tree(
         **Custom Styles**
 
         >>> from bigtree import ANSIPrintStyle
-        >>> print_tree(root, style=ANSIPrintStyle)
+        >>> tree.show(style=ANSIPrintStyle)
         a
         |-- b
         |   |-- d
@@ -158,7 +234,7 @@ def print_tree(
 
         >>> import io
         >>> output = io.StringIO()
-        >>> print_tree(root, file=output)
+        >>> tree.show(file=output)
         >>> tree_string = output.getvalue()
         >>> print(tree_string)
         a
@@ -168,6 +244,17 @@ def print_tree(
         └── c
         <BLANKLINE>
 
+        **Printing rich format**
+
+        >>> from rich.console import Console
+        >>> console = Console(record=True, color_system=None)  # optional, for doctest for docstring
+        >>> tree.show(rich=True, node_format="bold magenta", edge_format="blue", console=console)
+        a
+        ├── b
+        │   ├── d
+        │   └── e
+        └── c
+
     Args:
         tree: tree to print
         alias: node attribute to use for node name in tree as alias to `node_name`
@@ -175,10 +262,20 @@ def print_tree(
         max_depth: maximum depth of tree to print, based on `depth` attribute
         all_attrs: indicator to show all attributes, overrides `attr_list` and `attr_omit_null`
         attr_list: node attributes to print
+        attr_format: if attributes are displayed, the format in which to display, uses k,v to correspond to
+            attribute name and attribute value
+        attr_sep: if attributes are displayed, the separator of attributes, defaults to comma
         attr_omit_null: indicator whether to omit showing of null attributes
         attr_bracket: open and close bracket for `all_attrs` or `attr_list`
         style: style of print
     """
+    # Forward-compatible, so signature does not change
+    rich_display = kwargs.pop("rich", False)
+    if rich_display:
+        from rich.console import Console
+
+        kwargs["console"] = kwargs.get("console") or Console(force_terminal=True)
+
     for pre_str, fill_str, _node in yield_tree(
         tree=tree,
         node_name_or_path=node_name_or_path,
@@ -195,44 +292,51 @@ def print_tree(
             attr_bracket_open, attr_bracket_close = attr_bracket
             if all_attrs:
                 attrs = _node.describe(exclude_attributes=["name"], exclude_prefix="_")
-                attr_str_list = [f"{k}={v}" for k, v in attrs]
+                attr_str_list = [attr_format.format(k=k, v=v) for k, v in attrs]
             else:
                 if attr_omit_null:
                     attr_str_list = [
-                        f"{attr_name}={_node.get_attr(attr_name)}"
+                        attr_format.replace("{k}", attr_name).replace(
+                            "{v}", str(_node.get_attr(attr_name))
+                        )
                         for attr_name in attr_list
                         if not common.isnull(_node.get_attr(attr_name))
                     ]
                 else:
                     attr_str_list = [
-                        f"{attr_name}={_node.get_attr(attr_name)}"
+                        attr_format.replace("{k}", attr_name).replace(
+                            "{v}", str(_node.get_attr(attr_name))
+                        )
                         for attr_name in attr_list
                         if hasattr(_node, attr_name)
                     ]
-            attr_str = ", ".join(attr_str_list)
+            attr_str = attr_sep.join(attr_str_list)
             if attr_str:
                 attr_str = f" {attr_bracket_open}{attr_str}{attr_bracket_close}"
         name_str = _node.get_attr(alias) or _node.node_name
         node_str = f"{name_str}{attr_str}"
-        print(f"{pre_str}{fill_str}{node_str}", **kwargs)
+        if rich_display:
+            print_rich(pre_str, fill_str, node_str, _node, **kwargs)
+        else:
+            print(f"{pre_str}{fill_str}{node_str}", **kwargs)
 
 
 def yield_tree(
     tree: T,
-    node_name_or_path: Optional[str] = None,
+    node_name_or_path: str | None = None,
     max_depth: int = 0,
-    style: Union[str, Iterable[str], constants.BasePrintStyle] = "const",
-) -> Iterable[Tuple[str, str, T]]:
+    style: str | Iterable[str] | constants.BasePrintStyle = "const",
+) -> Iterable[tuple[str, str, T]]:
     """Generator method for customizing printing of tree, starting from `tree`.
 
     - Able to select which node to print from, resulting in a subtree, using `node_name_or_path`
     - Able to customise for maximum depth to print, using `max_depth`
-    - Able to customise style, to choose from str, List[str], or inherit from constants.BasePrintStyle, using `style`
+    - Able to customise style, to choose from str, list[str], or inherit from constants.BasePrintStyle, using `style`
 
     For style,
 
     - (str): `ansi`, `ascii`, `const` (default), `const_bold`, `rounded`, `double` style
-    - (List[str]): Choose own style for stem, branch, and final stem icons, they must have the same number of characters
+    - (list[str]): Choose own style for stem, branch, and final stem icons, they must have the same number of characters
     - (constants.BasePrintStyle): `ANSIPrintStyle`, `ASCIIPrintStyle`, `ConstPrintStyle`, `ConstBoldPrintStyle`,
         `RoundedPrintStyle`, `DoublePrintStyle` style or inherit from `constants.BasePrintStyle`
 
@@ -361,12 +465,12 @@ def yield_tree(
 def hprint_tree(
     tree: T,
     alias: str = "node_name",
-    node_name_or_path: Optional[str] = None,
+    node_name_or_path: str | None = None,
     max_depth: int = 0,
     intermediate_node_name: bool = True,
     spacing: int = 0,
-    style: Union[str, Iterable[str], constants.BaseHPrintStyle] = "const",
-    border_style: Optional[Union[str, Iterable[str], constants.BorderStyle]] = None,
+    style: str | Iterable[str] | constants.BaseHPrintStyle = "const",
+    border_style: str | Iterable[str] | constants.BorderStyle | None = None,
     strip: bool = True,
     **kwargs: Any,
 ) -> None:
@@ -524,14 +628,14 @@ def hprint_tree(
 def hyield_tree(
     tree: T,
     alias: str = "node_name",
-    node_name_or_path: Optional[str] = None,
+    node_name_or_path: str | None = None,
     max_depth: int = 0,
     intermediate_node_name: bool = True,
     spacing: int = 0,
-    style: Union[str, Iterable[str], constants.BaseHPrintStyle] = "const",
-    border_style: Optional[Union[str, Iterable[str], constants.BorderStyle]] = None,
+    style: str | Iterable[str] | constants.BaseHPrintStyle = "const",
+    border_style: str | Iterable[str] | constants.BorderStyle | None = None,
     strip: bool = True,
-) -> List[str]:
+) -> list[str]:
     """Yield tree in horizontal orientation to console, starting from `tree`.
 
     - Able to have alias for node name if alias attribute is present, else it falls back to node_name, using `alias`
@@ -688,12 +792,12 @@ def hyield_tree(
 def vprint_tree(
     tree: T,
     alias: str = "node_name",
-    node_name_or_path: Optional[str] = None,
+    node_name_or_path: str | None = None,
     max_depth: int = 0,
     intermediate_node_name: bool = True,
     spacing: int = 2,
-    style: Union[str, Iterable[str], constants.BaseVPrintStyle] = "const",
-    border_style: Optional[Union[str, Iterable[str], constants.BorderStyle]] = "const",
+    style: str | Iterable[str] | constants.BaseVPrintStyle = "const",
+    border_style: str | Iterable[str] | constants.BorderStyle | None = "const",
     strip: bool = False,
     **kwargs: Any,
 ) -> None:
@@ -909,14 +1013,14 @@ def vprint_tree(
 def vyield_tree(
     tree: T,
     alias: str = "node_name",
-    node_name_or_path: Optional[str] = None,
+    node_name_or_path: str | None = None,
     max_depth: int = 0,
     intermediate_node_name: bool = True,
     spacing: int = 2,
-    style: Union[str, Iterable[str], constants.BaseVPrintStyle] = "const",
-    border_style: Optional[Union[str, Iterable[str], constants.BorderStyle]] = "const",
+    style: str | Iterable[str] | constants.BaseVPrintStyle = "const",
+    border_style: str | Iterable[str] | constants.BorderStyle | None = "const",
     strip: bool = False,
-) -> List[str]:
+) -> list[str]:
     """Yield tree in vertical orientation to console, starting from `tree`.
 
     - Able to have alias for node name if alias attribute is present, else it falls back to node_name, using `alias`
@@ -1123,11 +1227,11 @@ def vyield_tree(
 def tree_to_newick(
     tree: T,
     intermediate_node_name: bool = True,
-    length_attr: Optional[str] = None,
-    length_sep: Union[str, constants.NewickCharacter] = constants.NewickCharacter.SEP,
-    attr_list: Optional[Iterable[str]] = None,
+    length_attr: str | None = None,
+    length_sep: str | constants.NewickCharacter = constants.NewickCharacter.SEP,
+    attr_list: Iterable[str] | None = None,
     attr_prefix: str = "&&NHX:",
-    attr_sep: Union[str, constants.NewickCharacter] = constants.NewickCharacter.SEP,
+    attr_sep: str | constants.NewickCharacter = constants.NewickCharacter.SEP,
 ) -> str:
     """Export tree to Newick notation. Useful for describing phylogenetic tree.
 

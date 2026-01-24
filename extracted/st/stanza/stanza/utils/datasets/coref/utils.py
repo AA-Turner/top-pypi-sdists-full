@@ -56,13 +56,22 @@ def find_cconj_head(heads, upos, start, end):
         return cc_indexes[0] + start
     return None
 
-def process_document(pipe, doc_id, part_id, sentences, coref_spans, sentence_speakers, use_cconj_heads=True):
+def process_document(pipe, doc_id, part_id, sentences, coref_spans, sentence_speakers, use_cconj_heads=True, lang=None):
     """
+    doc_id: a string naming the document
+    part_id: if the document has a particular subpart (can be blank)
+    sentences: a list of list of string representing the raw text
+
     coref_spans: a list of lists
     one list per sentence
     each sentence has a list of spans, where each span is (span_index, span_start, span_end)
+    the indices are relative to 0 for that particular sentence, and if the span is exactly 1 word long, span_start == span_end
+
+    sentence_speakers: a list of list of string representing who said each word.  can all be blank if there are no known speakers
     """
     sentence_lens = [len(x) for x in sentences]
+    if sentence_speakers is None:
+        sentence_speakers = [" " for _ in sentences]
     if all(isinstance(x, list) for x in sentence_speakers):
         speaker = [y for x in sentence_speakers for y in x]
     else:
@@ -97,10 +106,10 @@ def process_document(pipe, doc_id, part_id, sentences, coref_spans, sentence_spe
     word_clusters = defaultdict(list)
     head2span = []
     word_total = 0
-    for parsed_sentence, ontonotes_coref, ontonotes_words in zip(doc.sentences, coref_spans, sentences):
+    for sent_idx, (parsed_sentence, ontonotes_words) in enumerate(zip(doc.sentences, sentences)):
         sentence_upos = [x.upos for x in parsed_sentence.words]
         sentence_heads = [x.head - 1 if x.head > 0 else None for x in parsed_sentence.words]
-        for span in ontonotes_coref:
+        for span in coref_spans[sent_idx]:
             # input is expected to be start word, end word + 1
             # counting from 0
             # whereas the OntoNotes coref_span is [start_word, end_word] inclusive
@@ -145,4 +154,6 @@ def process_document(pipe, doc_id, part_id, sentences, coref_spans, sentence_spe
     }
     if part_id is not None:
         processed["part_id"] = part_id
+    if lang is not None:
+        processed["lang"] = lang
     return processed

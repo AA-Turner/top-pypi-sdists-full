@@ -4,8 +4,13 @@ from bittensor_drand.bittensor_drand import (
     get_encrypted_commit as _get_encrypted_commit,
     get_encrypted_commitment as _get_encrypted_commitment,
     encrypt as _encrypt,
+    encrypt_at_round as _encrypt_at_round,
     decrypt as _decrypt,
+    decrypt_with_signature as _decrypt_with_signature,
+    get_signature_for_round as _get_signature_for_round,
     get_latest_round as _get_latest_round,
+    encrypt_mlkem768 as _encrypt_mlkem768,
+    mlkem_kdf_id as _mlkem_kdf_id,
 )
 
 
@@ -93,6 +98,23 @@ def encrypt(
     return _encrypt(data, n_blocks, block_time)
 
 
+def encrypt_at_round(data: bytes, reveal_round: int) -> tuple[bytes, int]:
+    """Encrypts arbitrary binary data for a specific Drand reveal round.
+
+    Arguments:
+        data: The binary data to encrypt.
+        reveal_round: The specific Drand round number when decryption becomes possible.
+
+    Returns:
+        encrypted_data (bytes): Raw bytes of the encrypted data.
+        reveal_round (int): The Drand round number when data can be revealed (same as input).
+
+    Raises:
+        ValueError: If encryption fails.
+    """
+    return _encrypt_at_round(data, reveal_round)
+
+
 def decrypt(encrypted_data: bytes, no_errors: bool = True) -> Optional[bytes]:
     """Decrypts previously encrypted data if the reveal time has been reached.
 
@@ -110,6 +132,41 @@ def decrypt(encrypted_data: bytes, no_errors: bool = True) -> Optional[bytes]:
     return _decrypt(encrypted_data, no_errors)
 
 
+def decrypt_with_signature(encrypted_data: bytes, signature_hex: str) -> bytes:
+    """Decrypts data using a provided Drand signature.
+    This function is useful when decrypting multiple ciphertexts for the same round,
+    allowing you to fetch the signature once and reuse it, avoiding redundant API calls.
+
+    Arguments:
+        encrypted_data: The encrypted data to decrypt.
+        signature_hex: Hex-encoded Drand BLS signature for the reveal round.
+
+    Returns:
+        decrypted_data (bytes): The decrypted data.
+
+    Raises:
+        ValueError: If decryption fails or signature is invalid.
+    """
+    return _decrypt_with_signature(encrypted_data, signature_hex)
+
+
+def get_signature_for_round(reveal_round: int) -> str:
+    """Fetches the Drand signature for a specific round.
+    This is useful for batch decryption scenarios where you want to decrypt
+    multiple ciphertexts for the same round without making redundant API calls.
+
+    Arguments:
+        reveal_round: The Drand round number to fetch the signature for.
+
+    Returns:
+        signature_hex (str): Hex-encoded BLS signature for the round.
+
+    Raises:
+        ValueError: If the signature cannot be fetched or is not yet available.
+    """
+    return _get_signature_for_round(reveal_round)
+
+
 def get_latest_round() -> int:
     """Gets the latest revealed Drand round number.
 
@@ -120,3 +177,45 @@ def get_latest_round() -> int:
         ValueError: If fetching the latest round fails.
     """
     return _get_latest_round()
+
+
+def encrypt_mlkem768(pk_bytes: bytes, plaintext: bytes) -> bytes:
+    """Encrypts data using ML-KEM-768 + XChaCha20Poly1305.
+
+    This function encrypts plaintext using ML-KEM-768 key encapsulation followed by XChaCha20Poly1305 authenticated
+    encryption. The public key is rotated every block and can be queried from the NextKey storage item.
+
+    Blob format: [u16 kem_len LE][kem_ct][nonce24][aead_ct]
+
+    Arguments:
+        pk_bytes: ML-KEM-768 public key bytes (from NextKey storage, 1184 bytes)
+        plaintext: Data to encrypt. For MEV Shield, this should be: payload_core + b"\\x01" + signature where
+            payload_core = signer_bytes (32B) + key_hash_bytes (32B) + SCALE(call)
+
+    Returns:
+        bytes: Encrypted blob
+
+    Raises:
+        ValueError: If encryption fails (invalid public key, buffer too small, etc.)
+    """
+    return _encrypt_mlkem768(pk_bytes, plaintext)
+
+
+def mlkem_kdf_id() -> bytes:
+    """Returns the KDF identifier used by ML-KEM encryption.
+
+    This function returns the KDF (Key Derivation Function) identifier "v1", which indicates that the AEAD key is
+    derived directly from the ML-KEM shared secret without any additional HKDF or hashing steps.
+
+    The "v1" KDF means:
+        - AEAD key = raw ML-KEM shared secret (32 bytes)
+        - No HKDF or additional hashing applied
+        - AAD (Additional Authenticated Data) = empty
+
+    This identifier is used to verify compatibility between the encryption library and the decryption logic on the
+    blockchain node.
+
+    Returns:
+        bytes: KDF identifier (b"v1")
+    """
+    return _mlkem_kdf_id()

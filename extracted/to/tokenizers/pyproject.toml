@@ -31,7 +31,7 @@ Source = "https://github.com/huggingface/tokenizers"
 
 
 [project.optional-dependencies]
-testing = ["pytest", "pytest-asyncio", "requests", "numpy", "datasets", "black==22.3", "ruff"]
+testing = ["pytest", "pytest-asyncio", "requests", "numpy", "datasets", "ruff", "ty"]
 docs = ["sphinx", "sphinx_rtd_theme", "setuptools_rust"]
 dev = ["tokenizers[testing]"]
 
@@ -47,9 +47,6 @@ bindings = "pyo3"
 features = ["pyo3/extension-module"]
 manifest-path = "bindings/python/Cargo.toml"
 
-[tool.black]
-line-length = 119
-target-version = ["py35"]
 
 [tool.ruff]
 line-length = 119

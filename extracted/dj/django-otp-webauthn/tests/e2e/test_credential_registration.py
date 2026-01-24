@@ -22,7 +22,7 @@ def test_register_credential__legacy_u2f_passwordless_setting_enabled(
 ):
     """Verify that legacy U2F authenticator credential registration is
     impossible when passwordless login is enabled, as these devices can never be
-    user to authenticate without a password.
+    used to authenticate without a password.
 
     See comment in ``WebAuthnHelper.get_discoverable_credentials_preference``
     method for more information.
@@ -225,6 +225,8 @@ def test_register_credential__fail_bad_user_presence(
     await_failure_event()
 
 
+# Sometimes the browser will take a very long time to respond with the expected SecurityError, other times it works fine.
+@pytest.mark.flaky(reruns=3)
 def test_register_credential__fail_bad_rpid(
     live_server,
     django_db_serialized_rollback,
@@ -240,13 +242,7 @@ def test_register_credential__fail_bad_rpid(
     playwright_force_login(user)
 
     # Create a virtual authenticator and listen for the credentialAdded event
-    authenticator = virtual_authenticator(VirtualAuthenticator.internal())
-
-    # Override the response parameters to force a failure
-    cdpsession.send(
-        "WebAuthn.setResponseOverrideBits",
-        {"authenticatorId": authenticator["authenticatorId"], "isBadUp": True},
-    )
+    virtual_authenticator(VirtualAuthenticator.internal())
 
     page.goto(live_server.url)
     await_start_event = wait_for_javascript_event(JS_EVENT_REGISTER_START)

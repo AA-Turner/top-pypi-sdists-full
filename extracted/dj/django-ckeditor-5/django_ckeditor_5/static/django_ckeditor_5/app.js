@@ -95,6 +95,39 @@ function createEditors(element = document.body) {
             'fileTypes': upload_file_types
         };
         config.licenseKey = 'GPL';
+
+        // Configure autosave if enabled
+        if (config.autosave) {
+            config.autosave.save = function(editor) {
+                return new Promise((resolve, reject) => {
+                    const textarea = document.querySelector(`#${editorEl.id}`);
+                    const data = editor.getData();
+                    textarea.value = data;
+
+                    // If save URL is provided, send to server
+                    if (config.autosave.saveUrl) {
+                        fetch(config.autosave.saveUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCookie(csrf_cookie_name),
+                            },
+                            body: JSON.stringify({
+                                id: editorEl.id,
+                                content: data
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(result => resolve(result))
+                        .catch(error => reject(error));
+                    } else {
+                        // Just update textarea
+                        resolve();
+                    }
+                });
+            };
+        }
+
         ClassicEditor.create(
             editorEl,
             config

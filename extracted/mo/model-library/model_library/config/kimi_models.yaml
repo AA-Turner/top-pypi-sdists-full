@@ -1,0 +1,33 @@
+base-config:
+  company: Kimi
+  documentation_url: https://platform.moonshot.ai/docs
+  open_source: true
+  supports:
+    images: false
+    tools: true
+    files: false
+  metadata:
+    available_as_evaluator: false
+    available_for_everyone: true
+    ignored_for_cost: false
+
+kimi-k2-models:
+  kimi/kimi-k2-thinking:
+    label: Kimi K2 Thinking
+    release_date: 2025-11-06
+    properties:
+      reasoning_model: true
+      context_window: 256_000
+      max_tokens: 32_000
+    default_parameters:
+      temperature: 1.0
+    costs_per_million_token:
+      input: 0.6
+      output: 2.5
+      cache:
+        read: 0.15
+    alternative_keys:
+      - fireworks/kimi-k2-thinking:
+          costs_per_million_token:
+            input: 0.6
+            output: 2.5

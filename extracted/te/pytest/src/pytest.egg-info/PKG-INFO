@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pytest
-Version: 8.4.2
+Version: 9.0.2
 Summary: pytest: simple powerful testing with Python
 Author: Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt, Floris Bruynooghe, Brianna Laugher, Florian Bruhin, Others (See AUTHORS)
-License: MIT
+License-Expression: MIT
 Project-URL: Changelog, https://docs.pytest.org/en/stable/changelog.html
 Project-URL: Contact, https://docs.pytest.org/en/stable/contact.html
 Project-URL: Funding, https://docs.pytest.org/en/stable/sponsor.html
@@ -13,13 +13,11 @@ Project-URL: Tracker, https://github.com/pytest-dev/pytest/issues
 Keywords: test,unittest
 Classifier: Development Status :: 6 - Mature
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -28,14 +26,13 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-License-File: AUTHORS
 Requires-Dist: colorama>=0.4; sys_platform == "win32"
 Requires-Dist: exceptiongroup>=1; python_version < "3.11"
-Requires-Dist: iniconfig>=1
-Requires-Dist: packaging>=20
+Requires-Dist: iniconfig>=1.0.1
+Requires-Dist: packaging>=22
 Requires-Dist: pluggy<2,>=1.5
 Requires-Dist: pygments>=2.7.2
 Requires-Dist: tomli>=1; python_version < "3.11"
@@ -130,7 +127,7 @@ To execute it::
     ========================== 1 failed in 0.04 seconds ===========================
 
 
-Due to ``pytest``'s detailed assertion introspection, only plain ``assert`` statements are used. See `getting-started <https://docs.pytest.org/en/stable/getting-started.html#our-first-test-run>`_ for more examples.
+Thanks to ``pytest``'s detailed assertion introspection, you can simply use plain ``assert`` statements. See `getting-started <https://docs.pytest.org/en/stable/getting-started.html#our-first-test-run>`_ for more examples.
 
 
 Features
@@ -148,7 +145,7 @@ Features
 - Can run `unittest <https://docs.pytest.org/en/stable/how-to/unittest.html>`_ (or trial)
   test suites out of the box
 
-- Python 3.9+ or PyPy3
+- Python 3.10+ or PyPy3
 
 - Rich plugin architecture, with over 1300+ `external plugins <https://docs.pytest.org/en/latest/reference/plugin_list.html>`_ and thriving community
 

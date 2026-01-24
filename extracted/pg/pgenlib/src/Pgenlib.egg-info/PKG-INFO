@@ -1,0 +1,69 @@
+Metadata-Version: 2.4
+Name: Pgenlib
+Version: 0.93.0
+Summary: Python wrapper for pgenlib's basic reader and writer.
+Home-page: https://github.com/chrchang/plink-ng
+Author: Christopher Chang
+Author-email: chrchang@alumni.caltech.edu
+Project-URL: Bug Tracker, https://github.com/chrchang/plink-ng/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.19.3
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+This provides a basic Python API for pgenlib; see [python_api.txt](python_api.txt) for details.
+
+
+### Build instructions
+PyPI:
+```
+pip install 'pip>=20.3'
+pip install Pgenlib
+```
+
+GitHub:
+```
+pip install 'pip>=20.3'
+pip install -e 'git+https://github.com/chrchang/plink-ng.git#egg=Pgenlib&subdirectory=2.0/Python'
+```
+
+Or install from a cloned copy:
+```
+# clone repo
+git clone https://github.com/chrchang/plink-ng
+# go to python folder
+cd plink-ng/2.0/Python
+# install the package
+pip install -e .
+```
+
+You can test the package with `pytest`.
+
+##### Example usage:
+```
+#write a 2 sample file
+import numpy as np
+import pgenlib as pg
+
+with pg.PgenWriter("test.pgen".encode("utf-8"), 2, variant_ct=3, nonref_flags=False) as writer:
+	writer.append_alleles(np.array([0,1,1,1],dtype=np.int32))
+	writer.append_alleles(np.array([0,1,0,0],dtype=np.int32))
+	writer.append_alleles(np.array([0,0,0,0],dtype=np.int32))
+
+```
+
+See [tests/test_pgenlib.py](tests/test_pgenlib.py) for more sophisticated examples.

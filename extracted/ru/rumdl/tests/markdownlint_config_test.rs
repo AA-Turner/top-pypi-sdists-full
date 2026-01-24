@@ -40,7 +40,7 @@ fn test_markdownlint_config_mapping() {
     // Parse as MarkdownlintConfig
     let ml_config: MarkdownlintConfig = serde_json::from_str(config_str).expect("Failed to parse markdownlint config");
     let sourced = ml_config.map_to_sourced_rumdl_config(Some("test_markdownlint.json"));
-    let rumdl_config: rumdl_lib::config::Config = sourced.into();
+    let rumdl_config: rumdl_lib::config::Config = sourced.into_validated_unchecked().into();
 
     // Check that all expected rules are mapped
     let expected_rules = vec![
@@ -171,17 +171,17 @@ fn test_markdownlint_config_provenance() {
     // Check that rules are present and provenance is correct
     let rule = sourced.rules.get("MD046").expect("MD046 missing");
     let style = rule.values.get("style").expect("style missing");
-    assert!(style.source == ConfigSource::Markdownlint);
+    assert!(style.source == ConfigSource::ProjectConfig);
     assert!(style.value.as_str().unwrap() == "fenced");
 
     let ul_rule = sourced.rules.get("MD004").expect("MD004 missing");
     let ul_style = ul_rule.values.get("style").expect("ul style missing");
-    assert!(ul_style.source == ConfigSource::Markdownlint);
+    assert!(ul_style.source == ConfigSource::ProjectConfig);
     assert!(ul_style.value.as_str().unwrap() == "dash");
 
     let heading_rule = sourced.rules.get("MD003").expect("MD003 missing");
     let heading_style = heading_rule.values.get("style").expect("heading style missing");
-    assert!(heading_style.source == ConfigSource::Markdownlint);
+    assert!(heading_style.source == ConfigSource::ProjectConfig);
     assert!(heading_style.value.as_str().unwrap() == "atx");
 }
 
@@ -218,16 +218,15 @@ MD014: false
 MD024:
   siblings_only: true
 MD046: false
-MD059: false
+MD060: false
 "#;
 
-    let config_map: HashMap<String, serde_yaml::Value> =
-        serde_yaml::from_str(config_str).expect("Failed to parse YAML");
+    let config_map: HashMap<String, serde_yml::Value> = serde_yml::from_str(config_str).expect("Failed to parse YAML");
     let ml_config = MarkdownlintConfig(config_map);
     let fragment = ml_config.map_to_sourced_rumdl_config_fragment(Some("test.yaml"));
 
-    // Check that all disabled rules (except MD059 which doesn't exist in rumdl) are in the disable list
-    let expected_disabled = vec!["MD013", "MD014", "MD033", "MD041", "MD046"];
+    // Check that all disabled rules are in the disable list
+    let expected_disabled = vec!["MD013", "MD014", "MD033", "MD041", "MD046", "MD060"];
     let disabled = &fragment.global.disable.value;
 
     // Sort both for easier comparison

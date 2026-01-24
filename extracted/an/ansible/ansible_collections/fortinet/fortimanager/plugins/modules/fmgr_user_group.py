@@ -16,7 +16,6 @@ short_description: Configure user groups.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -632,6 +634,13 @@ options:
                         choices:
                             - 'disable'
                             - 'enable'
+            logic_type:
+                aliases: ['logic-type']
+                type: str
+                description: Set the logic between members or matching entries.
+                choices:
+                    - 'or'
+                    - 'and'
 '''
 
 EXAMPLES = '''
@@ -653,7 +662,7 @@ EXAMPLES = '''
           id: 1
           name: ansible-test-group
           password: specify # <value in [auto-generate, specify, disable]>
-          user-id: email # <value in [email, auto-generate, specify]>
+          user_id: email # <value in [email, auto-generate, specify]>
 
 - name: Gathering fortimanager facts
   hosts: fortimanagers
@@ -727,6 +736,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'user_group': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -879,7 +889,8 @@ def main():
                         'user-name': {'v_range': [['7.0.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
                     },
                     'elements': 'dict'
-                }
+                },
+                'logic-type': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'choices': ['or', 'and'], 'type': 'str'}
             }
         }
     }

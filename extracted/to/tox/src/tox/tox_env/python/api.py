@@ -9,7 +9,7 @@ import sysconfig
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from virtualenv.discovery.py_spec import PythonSpec
 
@@ -79,7 +79,7 @@ class Python(ToxEnv, ABC):
 
         self.conf.add_config(
             keys=["base_python", "basepython"],
-            of_type=List[str],
+            of_type=list[str],
             default=self.default_base_python,
             desc="environment identifier for python, first one found wins",
             post_process=validate_base_python,
@@ -131,6 +131,7 @@ class Python(ToxEnv, ABC):
             env.extend(
                 [
                     "APPDATA",  # Needed for PIP platformsdirs.windows
+                    "LOCALAPPDATA",  # Needed for pymanager
                     "PROGRAMDATA",  # needed for discovering the VS compiler
                     "PROGRAMFILES(x86)",  # needed for discovering the VS compiler
                     "PROGRAMFILES",  # needed for discovering the VS compiler

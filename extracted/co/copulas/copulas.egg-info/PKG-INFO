@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: copulas
-Version: 0.12.3
+Version: 0.14.0
 Summary: Create tabular synthetic data using copulas-based modeling.
 Author-email: "DataCebo, Inc." <info@sdv.dev>
 License: BSL-1.1
@@ -15,30 +15,33 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: Free for non-commercial use
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <3.14,>=3.8
+Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.21.0; python_version < "3.10"
 Requires-Dist: numpy>=1.23.3; python_version >= "3.10" and python_version < "3.12"
 Requires-Dist: numpy>=1.26.0; python_version >= "3.12" and python_version < "3.13"
-Requires-Dist: numpy>=2.1.0; python_version >= "3.13"
+Requires-Dist: numpy>=2.1.0; python_version >= "3.13" and python_version < "3.14"
+Requires-Dist: numpy>=2.3.2; python_version >= "3.14"
 Requires-Dist: pandas>=1.4.0; python_version < "3.11"
 Requires-Dist: pandas>=1.5.0; python_version >= "3.11" and python_version < "3.12"
 Requires-Dist: pandas>=2.1.1; python_version >= "3.12" and python_version < "3.13"
-Requires-Dist: pandas>=2.2.3; python_version >= "3.13"
+Requires-Dist: pandas>=2.2.3; python_version >= "3.13" and python_version < "3.14"
+Requires-Dist: pandas>=2.3.3; python_version >= "3.14"
 Requires-Dist: plotly>=5.10.0; python_version < "3.13"
 Requires-Dist: plotly>=5.12.0; python_version >= "3.13"
 Requires-Dist: scipy>=1.7.3; python_version < "3.10"
 Requires-Dist: scipy>=1.9.2; python_version >= "3.10" and python_version < "3.12"
 Requires-Dist: scipy>=1.12.0; python_version >= "3.12" and python_version < "3.13"
-Requires-Dist: scipy>=1.14.1; python_version >= "3.13"
+Requires-Dist: scipy>=1.14.1; python_version >= "3.13" and python_version < "3.14"
+Requires-Dist: scipy>=1.16.1; python_version >= "3.14"
 Provides-Extra: tutorials
 Requires-Dist: markupsafe>=2.0.1; extra == "tutorials"
 Requires-Dist: scikit-learn>=0.24; python_version < "3.12" and extra == "tutorials"
@@ -72,7 +75,6 @@ Requires-Dist: ruff<1,>=0.3.2; extra == "dev"
 Requires-Dist: twine>=1.10.0; extra == "dev"
 Requires-Dist: wheel>=0.30.0; extra == "dev"
 Requires-Dist: coverage<7.8,>=7.7.1; extra == "dev"
-Requires-Dist: tox<4,>=2.9.1; extra == "dev"
 Requires-Dist: invoke; extra == "dev"
 Requires-Dist: urllib3<2.4,>=1.26.20; extra == "dev"
 Requires-Dist: tabulate<0.10,>=0.9.0; extra == "dev"

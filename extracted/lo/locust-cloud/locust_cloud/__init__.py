@@ -4,7 +4,7 @@ import pathlib
 import time
 import webbrowser
 from argparse import ArgumentTypeError
-from datetime import timedelta
+from datetime import datetime, timedelta
 from threading import Thread
 
 import requests
@@ -17,7 +17,7 @@ from locust_cloud.args import (
 from locust_cloud.common import CloudConfig, __version__, write_cloud_config
 from locust_cloud.import_finder import get_imported_files
 from locust_cloud.input_events import input_listener
-from locust_cloud.websocket import SessionMismatchError, Websocket, WebsocketTimeout
+from locust_cloud.websocket import SessionMismatchError, Websocket, WebsocketTimeout, engineio_handler
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,7 @@ def configure_logging(loglevel: str) -> None:
 
 
 def main(locustfiles: list[str] | None = None):
+    start_time = datetime.now()
     options, locust_options = combined_cloud_parser.parse_known_args()
 
     configure_logging(options.loglevel)
@@ -78,19 +79,32 @@ def main(locustfiles: list[str] | None = None):
             if env_variable.startswith("LOCUST_")
             and env_variable
             not in [
+                "LOCUST_LOCUSTFILE",
                 "LOCUST_USERS",
                 "LOCUST_WEB_HOST_DISPLAY_NAME",
                 "LOCUST_SKIP_MONKEY_PATCH",
                 "LOCUST_CLOUD",
+                "LOCUST_ENABLE_OPENTELEMETRY",
             ]
         ]
 
         locust_args = [
-            {"name": "LOCUST_USERS", "value": str(options.users)},
+            {"name": "LOCUST_LOCUSTFILE", "value": ",".join([str(file) for file in relative_locustfiles])},
             {"name": "LOCUST_FLAGS", "value": " ".join([option for option in locust_options if option != "--cloud"])},
+            {"name": "LOCUST_LOGLEVEL", "value": options.loglevel},
             {"name": "LOCUSTCLOUD_DEPLOYER_URL", "value": session.api_url},
             *locust_env_variables,
         ]
+
+        if options.otel:
+            locust_args.append({"name": "LOCUST_ENABLE_OPENTELEMETRY", "value": "true"})
+            locust_args.extend(
+                [
+                    {"name": env_variable, "value": os.environ[env_variable]}
+                    for env_variable in os.environ
+                    if env_variable.startswith("OTEL_")
+                ]
+            )
 
         if options.testrun_tags:
             locust_args.append({"name": "LOCUSTCLOUD_TESTRUN_TAGS", "value": ",".join(options.testrun_tags)})
@@ -98,7 +112,6 @@ def main(locustfiles: list[str] | None = None):
         payload = {
             "locust_args": locust_args,
             "project_data": project_data,
-            "user_count": options.users,
         }
 
         if options.image_tag is not None:
@@ -110,6 +123,10 @@ def main(locustfiles: list[str] | None = None):
 
         if options.workers is not None:
             payload["worker_count"] = options.workers
+
+        if options.users:
+            payload["user_count"] = options.users
+            locust_args.append({"name": "LOCUST_USERS", "value": str(options.users)})
 
         if options.requirements:
             payload["requirements"] = options.requirements
@@ -124,6 +141,7 @@ def main(locustfiles: list[str] | None = None):
                 js = {
                     "log_ws_url": f"ws://localhost:1095{os.environ.get('LOCUST_WEB_BASE_PATH', '')}/socket-logs",
                     "session_id": "valid-session-id",
+                    "worker_count": 1,
                 }
                 break
             try:
@@ -138,6 +156,11 @@ def main(locustfiles: list[str] | None = None):
                     logger.info(js["message"])
 
                 time.sleep(2)
+            except requests.exceptions.ConnectionError:
+                logger.error(
+                    "An error occured while trying to connect to the server. Please check your internet connection and try again."
+                )
+                return 1
             except requests.exceptions.RequestException as e:
                 logger.error(f"Failed to deploy the load generators: {e}")
                 return 1
@@ -165,11 +188,12 @@ def main(locustfiles: list[str] | None = None):
 
         # logger.debug(f"Session ID is {session_id}")
 
-        logger.info("Waiting for load generators to be ready...")
+        logger.info(f"Waiting for load generators ({js['worker_count']} workers) to be ready...")
         websocket.connect(
             log_ws_url,
             auth=session_id,
         )
+        websocket.sio.emit("subscribe")
         logger.debug(f"SocketIO transport type: {websocket.sio.transport()}")
         websocket.wait()
 
@@ -178,7 +202,7 @@ def main(locustfiles: list[str] | None = None):
         if options.local_instance:
             os.system("pkill -TERM -f bootstrap")
         else:
-            session.teardown()
+            session.teardown("KeyboardInterrupt")
         try:
             websocket.wait(timeout=True)
         except (WebsocketTimeout, SessionMismatchError) as e:
@@ -186,7 +210,10 @@ def main(locustfiles: list[str] | None = None):
             return 1
     except WebsocketTimeout as e:
         logger.error(str(e))
-        session.teardown()
+        if (datetime.now() - start_time).total_seconds() < 300:
+            session.teardown("WebsocketTimeout", debug_info=engineio_handler.logs)
+        else:
+            session.teardown("IdleTimeout")
         return 1
     except SessionMismatchError as e:
         # In this case we do not trigger the teardown since the running instance is not ours
@@ -194,7 +221,7 @@ def main(locustfiles: list[str] | None = None):
         return 1
     except Exception as e:
         logger.exception(e)
-        session.teardown()
+        session.teardown(f"Exception {e}")
         return 1
     else:
-        session.teardown()
+        session.teardown("Shutdown")

@@ -283,11 +283,51 @@ def test_expect(testdir):
                 dut.expect(pattern_list, expect_all=True, timeout=1)
 
             assert e.value.value.startswith('Not found "[\'foobar\']"')
+
+        def test_expect_no_matching_list(dut):  # fail
+            dut.write('Hello world!')
+            dut.write('Restarting')
+            dut.expect('world!', not_matching=[re.compile("Hell"), "Hello"])
+
+        def test_expect_no_matching_word(dut):  # fail
+            dut.write('Hello world!')
+            dut.write('Restarting')
+            dut.expect('Restarting', not_matching="Hello world!")
+
+        def test_expect_no_matching_word_pass(dut):
+            dut.write('Hello world!')
+            dut.write('Restarting')
+            dut.expect('Restarting', not_matching="Hello world!333")
+
+        def test_expect_no_matching_word_pass_rest(dut):
+            dut.write('Hello world!')
+            dut.write('Restarting')
+            dut.expect('Hello world', not_matching="Restarting")
+
+        def test_expect_exact_no_matching_list(dut):  # fail
+            dut.write('Hello world!')
+            dut.write('Restarting')
+            dut.expect_exact('world!', not_matching=["Hell1", "Hello"])
+
+        def test_expect_exact_no_matching_word(dut):  # fail
+            dut.write('Hello world!')
+            dut.write('Restarting')
+            dut.expect_exact('Restarting', not_matching="Hello world!")
+
+        def test_expect_exact_no_matching_word_pass(dut):
+            dut.write('Hello world!')
+            dut.write('Restarting')
+            dut.expect_exact('Restarting', not_matching="Hello world!333")
+
+        def test_expect_exact_no_matching_word_pass_rest(dut):
+            dut.write('Hello world!')
+            dut.write('Restarting')
+            dut.expect_exact('Hello world', not_matching="Restarting")
     """)
 
     result = testdir.runpytest()
 
-    result.assert_outcomes(passed=10)
+    result.assert_outcomes(failed=4, passed=14)
 
 
 def test_expect_from_timeout(testdir):
@@ -752,3 +792,32 @@ class TestTargetMarkers:
 
         result.assert_outcomes(passed=1)
         assert 'Unknown pytest.mark.esp32 - is this a typo?' not in result.stdout.str()
+
+
+def test_log_metric_with_path(pytester):
+    metric_file = pytester.path / 'metrics.txt'
+    pytester.makepyfile("""
+        def test_metric(log_metric):
+            log_metric('my_metric', 123.45, label1='value1', target='esp32')
+    """)
+
+    result = pytester.runpytest(f'--metric-path={metric_file}')
+    result.assert_outcomes(passed=1)
+
+    with open(metric_file) as f:
+        content = f.read()
+
+    assert content == 'my_metric{label1="value1",target="esp32"} 123.45\n'
+
+
+def test_log_metric_without_path(pytester):
+    pytester.makepyfile("""
+        import pytest
+
+        def test_metric_no_path(log_metric):
+            with pytest.warns(UserWarning, match='`--metric-path` is not specified, `log_metric` does nothing.'):
+                log_metric('my_metric', 123.45)
+    """)
+
+    result = pytester.runpytest()
+    result.assert_outcomes(passed=1)

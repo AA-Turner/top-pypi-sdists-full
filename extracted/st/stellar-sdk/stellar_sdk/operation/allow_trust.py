@@ -1,6 +1,6 @@
 import warnings
 from enum import IntFlag
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from .. import xdr as stellar_xdr
 from ..asset import Asset
@@ -35,7 +35,7 @@ class AllowTrust(Operation):
 
     Updates the authorized flag of an existing trustline. This can only be
     called by the issuer of a trustline's `asset
-    <https://developers.stellar.org/docs/glossary/assets/>`_.
+    <https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/assets>`_.
 
     The issuer can only clear the authorized flag if the issuer has the
     ``AUTH_REVOCABLE_FLAG`` set. Otherwise, the issuer can only set the authorized
@@ -43,7 +43,7 @@ class AllowTrust(Operation):
 
     Threshold: Low
 
-    See `Allow Trust <https://developers.stellar.org/docs/start/list-of-operations/#allow-trust>`_ for more information.
+    See `Allow Trust <https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#allow-trust>`_ for more information.
 
     :param trustor: The trusting account (the one being authorized).
     :param asset_code: The asset code being authorized.
@@ -61,8 +61,8 @@ class AllowTrust(Operation):
         self,
         trustor: str,
         asset_code: str,
-        authorize: Union[TrustLineEntryFlag, bool],
-        source: Optional[Union[MuxedAccount, str]] = None,
+        authorize: TrustLineEntryFlag | bool,
+        source: MuxedAccount | str | None = None,
     ) -> None:
         # We keep this class to ensure that the SDK can correctly parse historical transactions.
         warnings.warn(

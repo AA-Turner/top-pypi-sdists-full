@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.service._generated.models.service_spec import ServiceSpec, ServiceSpecModel
@@ -51,9 +51,9 @@ class Service(BaseModel):
     auto_resume : bool, optional
         Specifies whether to automatically resume a service when a service function or ingress is called.
     current_instances : int, optional
-        The current number of instances for the service.
+        The current number of instances for the service — **Read-only:** *any user-provided value will be ignored.*
     target_instances : int, optional
-        The target number of service instances that should be running as determined by Snowflake.
+        The target number of service instances that should be running as determined by Snowflake — **Read-only:** *any user-provided value will be ignored.*
     min_ready_instances : int, optional
         The minimum number of ready service instances to declare the service as READY.
     min_instances : int, optional
@@ -65,31 +65,31 @@ class Service(BaseModel):
     schema_name : str, optional
         A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     owner : str, optional
-        Role that owns the service.
+        Role that owns the service — **Read-only:** *any user-provided value will be ignored.*
     dns_name : str, optional
-        Snowflake-assiged DNS name of the service. The DNS name enables service-to-service communications.
+        Snowflake-assiged DNS name of the service. The DNS name enables service-to-service communications — **Read-only:** *any user-provided value will be ignored.*
     created_on : datetime, optional
-        Timestamp when the service was created.
+        Timestamp when the service was created — **Read-only:** *any user-provided value will be ignored.*
     updated_on : datetime, optional
-        Timestamp when the service was last updated.
+        Timestamp when the service was last updated — **Read-only:** *any user-provided value will be ignored.*
     resumed_on : datetime, optional
-        Timestamp when the service was last resumed.
+        Timestamp when the service was last resumed — **Read-only:** *any user-provided value will be ignored.*
     suspended_on : datetime, optional
-        Timestamp when the service was last suspended.
+        Timestamp when the service was last suspended — **Read-only:** *any user-provided value will be ignored.*
     auto_suspend_secs : int, optional
         Number of seconds of inactivity after which the service will be automatically suspended. The default value is 0 which represents the service will not be automatically suspended.
     owner_role_type : str, optional
-        The role type of the service owner.
+        The role type of the service owner — **Read-only:** *any user-provided value will be ignored.*
     is_job : bool, optional
-        True if the service is a job service; false otherwise.
+        True if the service is a job service; false otherwise — **Read-only:** *any user-provided value will be ignored.*
     spec_digest : str, optional
-        The unique and immutable identifier representing the service spec content.
+        The unique and immutable identifier representing the service spec content — **Read-only:** *any user-provided value will be ignored.*
     is_upgrading : bool, optional
-        TRUE, if Snowflake is in the process of upgrading the service.
+        TRUE, if Snowflake is in the process of upgrading the service — **Read-only:** *any user-provided value will be ignored.*
     managing_object_domain : str, optional
-        The domain of the managing object (for example, the domain of the notebook that manages the service). NULL if the service is not managed by a Snowflake entity.
+        The domain of the managing object (for example, the domain of the notebook that manages the service). NULL if the service is not managed by a Snowflake entity — **Read-only:** *any user-provided value will be ignored.*
     managing_object_name : str, optional
-        The name of the managing object (for example, the name of the notebook that manages the service). NULL if the service is not managed by a Snowflake entity.
+        The name of the managing object (for example, the name of the notebook that manages the service). NULL if the service is not managed by a Snowflake entity — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -212,9 +212,10 @@ class Service(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -256,7 +257,7 @@ class Service(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of spec
         if self.spec:
@@ -275,9 +276,9 @@ class Service(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Service.parse_obj(obj)
+            return Service.model_validate(obj)
 
-        _obj = Service.parse_obj(
+        _obj = Service.model_validate(
             {
                 "name": obj.get("name"),
                 "status": obj.get("status"),

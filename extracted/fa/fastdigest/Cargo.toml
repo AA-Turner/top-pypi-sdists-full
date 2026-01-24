@@ -1,0 +1,16 @@
+[package]
+name = "fastdigest"
+version = "0.9.2"
+edition = "2021"
+readme = "README.md"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.26", features = ["extension-module"] }
+ordered-float = "5.0"
+serde = { package = "serde", version = "1.0", optional = true, default-features = false }
+
+[features]
+use_serde = ["serde", "serde/derive", "ordered-float/serde"]

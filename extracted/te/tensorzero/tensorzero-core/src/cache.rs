@@ -2,27 +2,39 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 
+use crate::config::OtlpConfig;
 use crate::db::clickhouse::{ClickHouseConnectionInfo, TableName};
-use crate::embeddings::{EmbeddingModelResponse, EmbeddingRequest};
-use crate::error::{warn_discarded_cache_write, Error, ErrorDetails};
-use crate::inference::types::file::serialize_with_file_data;
+use crate::embeddings::{Embedding, EmbeddingModelResponse, EmbeddingRequest};
+use crate::error::{Error, ErrorDetails, warn_discarded_cache_write};
 use crate::inference::types::{
     ContentBlockChunk, ContentBlockOutput, FinishReason, ModelInferenceRequest,
     ModelInferenceResponse, ProviderInferenceResponseChunk, Usage,
 };
 use crate::model::StreamResponse;
-use crate::serde_util::deserialize_json_string;
-use crate::tool::{ToolCallConfig, ToolCallOutput};
+use crate::serde_util::{deserialize_json_string, serialize_json_string};
+use crate::tool::{InferenceResponseToolCall, InferenceResponseToolCallExt, ToolCallConfig};
+use crate::utils::spawn_ignoring_shutdown;
 use blake3::Hash;
 use clap::ValueEnum;
 use serde::de::{DeserializeOwned, IgnoredAny};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use uuid::Uuid;
 
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(
-    Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, ValueEnum, ts_rs::TS,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Serialize,
+    ValueEnum,
+    schemars::JsonSchema,
 )]
-#[ts(export)]
+#[cfg_attr(feature = "ts-bindings", ts(export))]
 #[serde(rename_all = "snake_case")]
 #[clap(rename_all = "snake_case")]
 pub enum CacheEnabledMode {
@@ -43,8 +55,9 @@ impl CacheEnabledMode {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, ts_rs::TS)]
-#[ts(export)]
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts-bindings", ts(export))]
 pub struct CacheParamsOptions {
     #[serde(default)]
     pub max_age_s: Option<u32>,
@@ -69,7 +82,7 @@ impl From<(CacheParamsOptions, bool)> for CacheOptions {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct CacheOptions {
     pub max_age_s: Option<u32>,
     pub enabled: CacheEnabledMode,
@@ -80,6 +93,8 @@ pub struct BaseModelProviderRequest<'request, T> {
     pub request: &'request T,
     pub model_name: &'request str,
     pub provider_name: &'request str,
+    pub otlp_config: &'request OtlpConfig,
+    pub model_inference_id: Uuid,
 }
 
 // We need a manual impl to avoid adding a 'T: Copy' bound
@@ -125,6 +140,10 @@ impl EmbeddingModelProviderRequest<'_> {
             model_name,
             provider_name,
             request,
+            // The OTLP config is deliberately not included in the cache key,
+            // since it's only used to construct the OTEL span.
+            otlp_config: _,
+            model_inference_id: _,
         } = self;
         let mut hasher = blake3::Hasher::new();
         hasher.update(model_name.as_bytes());
@@ -151,15 +170,19 @@ impl ModelProviderRequest<'_> {
             model_name,
             provider_name,
             request,
+            // The OTLP config is deliberately not included in the cache key,
+            // since it's only used to construct the OTEL span.
+            otlp_config: _,
+            model_inference_id: _,
         } = self;
         let mut hasher = blake3::Hasher::new();
         hasher.update(model_name.as_bytes());
         hasher.update(&[0]); // null byte after model name to ensure data is prefix-free
         hasher.update(provider_name.as_bytes());
         hasher.update(&[0]); // null byte after provider name to ensure data is prefix-free
-                             // Convert the request to a JSON Value, error if serialization fails
+        // Convert the request to a JSON Value, error if serialization fails
 
-        let mut request_value = serialize_with_file_data(request).map_err(|e| {
+        let mut request_value = serde_json::to_value(request).map_err(|e| {
             Error::new(ErrorDetails::Serialization {
                 message: format!("Failed to serialize request: {e}"),
             })
@@ -206,8 +229,8 @@ pub struct CacheData<T: CacheOutput> {
     pub output: T,
     pub raw_request: String,
     pub raw_response: String,
-    pub input_tokens: u32,
-    pub output_tokens: u32,
+    pub input_tokens: Option<u32>,
+    pub output_tokens: Option<u32>,
     pub finish_reason: Option<FinishReason>,
 }
 
@@ -238,7 +261,7 @@ impl CacheOutput for NonStreamingCacheData {
             if let ContentBlockOutput::ToolCall(tool_call) = block {
                 if cache_validation_info.tool_config.is_some() {
                     // If we have a tool config, validate against the schema
-                    let output = ToolCallOutput::new(
+                    let output = InferenceResponseToolCall::new_from_tool_call(
                         tool_call.clone(),
                         cache_validation_info.tool_config.as_ref(),
                     )
@@ -263,11 +286,21 @@ impl CacheOutput for EmbeddingCacheData {
     }
 }
 
+/// Cache data for embeddings.
+///
+/// Note: Unlike `NonStreamingCacheData` and `StreamingCacheData`, this requires both `serialize_with` and
+/// `deserialize_with` because `Embedding` is an untagged enum. Without `untagged`, OpenAI's API responses wouldn't
+/// deserialize correctly (they send bare arrays/strings). But with `untagged`, the enum serializes as bare JSON
+/// values ([1.0, 2.0] or "abc"), which breaks `deserialize_json_string` (which expects a JSON-encoded string). So we
+/// need `serialize_json_string` to ensure the data is stored in the format that `deserialize_json_string` expects.
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(transparent)]
 pub struct EmbeddingCacheData {
-    #[serde(deserialize_with = "deserialize_json_string")]
-    pub embedding: Vec<f32>,
+    #[serde(
+        serialize_with = "serialize_json_string",
+        deserialize_with = "deserialize_json_string"
+    )]
+    pub embedding: Embedding,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -289,7 +322,7 @@ fn spawn_maybe_cache_write<T: Serialize + CacheOutput + Send + Sync + 'static>(
     clickhouse_client: ClickHouseConnectionInfo,
     cache_validation_info: CacheValidationInfo,
 ) {
-    tokio::spawn(async move {
+    spawn_ignoring_shutdown(async move {
         if row
             .data
             .output
@@ -344,9 +377,8 @@ pub fn start_cache_write<T: Serialize + CacheOutput + Send + Sync + 'static>(
     Ok(())
 }
 
-/// A subset of `ProviderInferenceResponseChunk` containing only the fields we want to cache
-/// For example, we exclude 'usage', and fill it in with 0 input/output tokens when we
-/// return a cached chunk.
+/// A subset of `ProviderInferenceResponseChunk` containing only the fields we want to cache.
+/// We persist normalized usage but intentionally drop any raw usage entries.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CachedProviderInferenceResponseChunk {
     pub content: Vec<ContentBlockChunk>,
@@ -374,7 +406,7 @@ pub fn start_cache_write_streaming(
             finish_reason = Some(chunk_finish_reason);
         }
     }
-    let finish_reason = finish_reason.cloned();
+    let finish_reason = finish_reason.copied();
     let output = StreamingCacheData {
         chunks: chunks
             .into_iter()
@@ -447,7 +479,13 @@ pub async fn cache_lookup_streaming(
         max_age_s,
     )
     .await?;
-    Ok(result.map(|result| StreamResponse::from_cache(result, Arc::from(request.provider_name))))
+    Ok(result.map(|result| {
+        StreamResponse::from_cache(
+            result,
+            Arc::from(request.provider_name),
+            request.model_inference_id,
+        )
+    }))
 }
 
 pub async fn cache_lookup_inner<T: CacheOutput + DeserializeOwned>(
@@ -547,13 +585,17 @@ mod tests {
             output_schema: None,
             extra_body: Default::default(),
             extra_headers: Default::default(),
+            fetch_and_encode_input_files_before_inference: false,
             extra_cache_key: None,
             stop_sequences: None,
+            ..Default::default()
         };
         let model_provider_request = ModelProviderRequest {
             request: &model_inference_request,
             model_name: "test_model",
             provider_name: "test_provider",
+            otlp_config: &Default::default(),
+            model_inference_id: Uuid::now_v7(),
         };
         let cache_key = model_provider_request.get_cache_key().unwrap();
         let model_inference_request = ModelInferenceRequest {
@@ -571,15 +613,19 @@ mod tests {
             json_mode: ModelInferenceRequestJsonMode::Off,
             function_type: FunctionType::Chat,
             output_schema: None,
+            fetch_and_encode_input_files_before_inference: false,
             extra_body: Default::default(),
             extra_headers: Default::default(),
             extra_cache_key: None,
             stop_sequences: None,
+            ..Default::default()
         };
         let model_provider_request = ModelProviderRequest {
             request: &model_inference_request,
             model_name: "test_model",
             provider_name: "test_provider",
+            otlp_config: &Default::default(),
+            model_inference_id: Uuid::now_v7(),
         };
         let new_cache_key = model_provider_request.get_cache_key().unwrap();
         // Make sure the first two get the same cache key (and that we ignore the inference_id)
@@ -599,15 +645,19 @@ mod tests {
             json_mode: ModelInferenceRequestJsonMode::Off,
             function_type: FunctionType::Chat,
             output_schema: None,
+            fetch_and_encode_input_files_before_inference: false,
             extra_body: Default::default(),
             extra_headers: Default::default(),
             extra_cache_key: None,
             stop_sequences: None,
+            ..Default::default()
         };
         let model_provider_request = ModelProviderRequest {
             request: &streaming_model_inference_request,
             model_name: "test_model",
             provider_name: "test_provider",
+            otlp_config: &Default::default(),
+            model_inference_id: Uuid::now_v7(),
         };
         let streaming_cache_key = model_provider_request.get_cache_key().unwrap();
         assert_ne!(cache_key, streaming_cache_key);

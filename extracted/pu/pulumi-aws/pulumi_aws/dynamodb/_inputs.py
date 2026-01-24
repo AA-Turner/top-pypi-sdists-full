@@ -15,6 +15,18 @@ else:
 from .. import _utilities
 
 __all__ = [
+    'GlobalSecondaryIndexKeySchemaArgs',
+    'GlobalSecondaryIndexKeySchemaArgsDict',
+    'GlobalSecondaryIndexOnDemandThroughputArgs',
+    'GlobalSecondaryIndexOnDemandThroughputArgsDict',
+    'GlobalSecondaryIndexProjectionArgs',
+    'GlobalSecondaryIndexProjectionArgsDict',
+    'GlobalSecondaryIndexProvisionedThroughputArgs',
+    'GlobalSecondaryIndexProvisionedThroughputArgsDict',
+    'GlobalSecondaryIndexTimeoutsArgs',
+    'GlobalSecondaryIndexTimeoutsArgsDict',
+    'GlobalSecondaryIndexWarmThroughputArgs',
+    'GlobalSecondaryIndexWarmThroughputArgsDict',
     'GlobalTableReplicaArgs',
     'GlobalTableReplicaArgsDict',
     'TableAttributeArgs',
@@ -25,6 +37,10 @@ __all__ = [
     'TableGlobalSecondaryIndexArgsDict',
     'TableGlobalSecondaryIndexOnDemandThroughputArgs',
     'TableGlobalSecondaryIndexOnDemandThroughputArgsDict',
+    'TableGlobalSecondaryIndexWarmThroughputArgs',
+    'TableGlobalSecondaryIndexWarmThroughputArgsDict',
+    'TableGlobalTableWitnessArgs',
+    'TableGlobalTableWitnessArgsDict',
     'TableImportTableArgs',
     'TableImportTableArgsDict',
     'TableImportTableInputFormatOptionsArgs',
@@ -45,11 +61,371 @@ __all__ = [
     'TableServerSideEncryptionArgsDict',
     'TableTtlArgs',
     'TableTtlArgsDict',
+    'TableWarmThroughputArgs',
+    'TableWarmThroughputArgsDict',
     'GetTableServerSideEncryptionArgs',
     'GetTableServerSideEncryptionArgsDict',
 ]
 
 MYPY = False
+
+if not MYPY:
+    class GlobalSecondaryIndexKeySchemaArgsDict(TypedDict):
+        attribute_name: pulumi.Input[_builtins.str]
+        """
+        Name of the attribute.
+        """
+        attribute_type: pulumi.Input[_builtins.str]
+        """
+        Type of the attribute in the index.
+        Valid values are `S` (string), `N` (number), or `B` (binary).
+        """
+        key_type: pulumi.Input[_builtins.str]
+        """
+        Key type.
+        Valid values are `HASH` or `RANGE`.
+        """
+elif False:
+    GlobalSecondaryIndexKeySchemaArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class GlobalSecondaryIndexKeySchemaArgs:
+    def __init__(__self__, *,
+                 attribute_name: pulumi.Input[_builtins.str],
+                 attribute_type: pulumi.Input[_builtins.str],
+                 key_type: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] attribute_name: Name of the attribute.
+        :param pulumi.Input[_builtins.str] attribute_type: Type of the attribute in the index.
+               Valid values are `S` (string), `N` (number), or `B` (binary).
+        :param pulumi.Input[_builtins.str] key_type: Key type.
+               Valid values are `HASH` or `RANGE`.
+        """
+        pulumi.set(__self__, "attribute_name", attribute_name)
+        pulumi.set(__self__, "attribute_type", attribute_type)
+        pulumi.set(__self__, "key_type", key_type)
+
+    @_builtins.property
+    @pulumi.getter(name="attributeName")
+    def attribute_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        Name of the attribute.
+        """
+        return pulumi.get(self, "attribute_name")
+
+    @attribute_name.setter
+    def attribute_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "attribute_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="attributeType")
+    def attribute_type(self) -> pulumi.Input[_builtins.str]:
+        """
+        Type of the attribute in the index.
+        Valid values are `S` (string), `N` (number), or `B` (binary).
+        """
+        return pulumi.get(self, "attribute_type")
+
+    @attribute_type.setter
+    def attribute_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "attribute_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="keyType")
+    def key_type(self) -> pulumi.Input[_builtins.str]:
+        """
+        Key type.
+        Valid values are `HASH` or `RANGE`.
+        """
+        return pulumi.get(self, "key_type")
+
+    @key_type.setter
+    def key_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "key_type", value)
+
+
+if not MYPY:
+    class GlobalSecondaryIndexOnDemandThroughputArgsDict(TypedDict):
+        max_read_request_units: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Maximum number of read request units for this index.
+        """
+        max_write_request_units: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Maximum number of write request units for this index.
+        """
+elif False:
+    GlobalSecondaryIndexOnDemandThroughputArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class GlobalSecondaryIndexOnDemandThroughputArgs:
+    def __init__(__self__, *,
+                 max_read_request_units: Optional[pulumi.Input[_builtins.int]] = None,
+                 max_write_request_units: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.int] max_read_request_units: Maximum number of read request units for this index.
+        :param pulumi.Input[_builtins.int] max_write_request_units: Maximum number of write request units for this index.
+        """
+        if max_read_request_units is not None:
+            pulumi.set(__self__, "max_read_request_units", max_read_request_units)
+        if max_write_request_units is not None:
+            pulumi.set(__self__, "max_write_request_units", max_write_request_units)
+
+    @_builtins.property
+    @pulumi.getter(name="maxReadRequestUnits")
+    def max_read_request_units(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Maximum number of read request units for this index.
+        """
+        return pulumi.get(self, "max_read_request_units")
+
+    @max_read_request_units.setter
+    def max_read_request_units(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "max_read_request_units", value)
+
+    @_builtins.property
+    @pulumi.getter(name="maxWriteRequestUnits")
+    def max_write_request_units(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Maximum number of write request units for this index.
+        """
+        return pulumi.get(self, "max_write_request_units")
+
+    @max_write_request_units.setter
+    def max_write_request_units(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "max_write_request_units", value)
+
+
+if not MYPY:
+    class GlobalSecondaryIndexProjectionArgsDict(TypedDict):
+        projection_type: pulumi.Input[_builtins.str]
+        """
+        The set of attributes represented in the index.
+        One of `ALL`, `INCLUDE`, or `KEYS_ONLY`.
+        """
+        non_key_attributes: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        Specifies which additional attributes to include in the index.
+        Only valid when `projection_type` is `INCLUDE`.`
+        """
+elif False:
+    GlobalSecondaryIndexProjectionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class GlobalSecondaryIndexProjectionArgs:
+    def __init__(__self__, *,
+                 projection_type: pulumi.Input[_builtins.str],
+                 non_key_attributes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        """
+        :param pulumi.Input[_builtins.str] projection_type: The set of attributes represented in the index.
+               One of `ALL`, `INCLUDE`, or `KEYS_ONLY`.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] non_key_attributes: Specifies which additional attributes to include in the index.
+               Only valid when `projection_type` is `INCLUDE`.`
+        """
+        pulumi.set(__self__, "projection_type", projection_type)
+        if non_key_attributes is not None:
+            pulumi.set(__self__, "non_key_attributes", non_key_attributes)
+
+    @_builtins.property
+    @pulumi.getter(name="projectionType")
+    def projection_type(self) -> pulumi.Input[_builtins.str]:
+        """
+        The set of attributes represented in the index.
+        One of `ALL`, `INCLUDE`, or `KEYS_ONLY`.
+        """
+        return pulumi.get(self, "projection_type")
+
+    @projection_type.setter
+    def projection_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "projection_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nonKeyAttributes")
+    def non_key_attributes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        Specifies which additional attributes to include in the index.
+        Only valid when `projection_type` is `INCLUDE`.`
+        """
+        return pulumi.get(self, "non_key_attributes")
+
+    @non_key_attributes.setter
+    def non_key_attributes(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "non_key_attributes", value)
+
+
+if not MYPY:
+    class GlobalSecondaryIndexProvisionedThroughputArgsDict(TypedDict):
+        read_capacity_units: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Number of read capacity units for this index.
+        """
+        write_capacity_units: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Number of write capacity units for this index.
+        """
+elif False:
+    GlobalSecondaryIndexProvisionedThroughputArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class GlobalSecondaryIndexProvisionedThroughputArgs:
+    def __init__(__self__, *,
+                 read_capacity_units: Optional[pulumi.Input[_builtins.int]] = None,
+                 write_capacity_units: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.int] read_capacity_units: Number of read capacity units for this index.
+        :param pulumi.Input[_builtins.int] write_capacity_units: Number of write capacity units for this index.
+        """
+        if read_capacity_units is not None:
+            pulumi.set(__self__, "read_capacity_units", read_capacity_units)
+        if write_capacity_units is not None:
+            pulumi.set(__self__, "write_capacity_units", write_capacity_units)
+
+    @_builtins.property
+    @pulumi.getter(name="readCapacityUnits")
+    def read_capacity_units(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Number of read capacity units for this index.
+        """
+        return pulumi.get(self, "read_capacity_units")
+
+    @read_capacity_units.setter
+    def read_capacity_units(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "read_capacity_units", value)
+
+    @_builtins.property
+    @pulumi.getter(name="writeCapacityUnits")
+    def write_capacity_units(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Number of write capacity units for this index.
+        """
+        return pulumi.get(self, "write_capacity_units")
+
+    @write_capacity_units.setter
+    def write_capacity_units(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "write_capacity_units", value)
+
+
+if not MYPY:
+    class GlobalSecondaryIndexTimeoutsArgsDict(TypedDict):
+        create: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        delete: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        """
+        update: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+elif False:
+    GlobalSecondaryIndexTimeoutsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class GlobalSecondaryIndexTimeoutsArgs:
+    def __init__(__self__, *,
+                 create: Optional[pulumi.Input[_builtins.str]] = None,
+                 delete: Optional[pulumi.Input[_builtins.str]] = None,
+                 update: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] create: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        :param pulumi.Input[_builtins.str] delete: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        :param pulumi.Input[_builtins.str] update: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        if create is not None:
+            pulumi.set(__self__, "create", create)
+        if delete is not None:
+            pulumi.set(__self__, "delete", delete)
+        if update is not None:
+            pulumi.set(__self__, "update", update)
+
+    @_builtins.property
+    @pulumi.getter
+    def create(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        return pulumi.get(self, "create")
+
+    @create.setter
+    def create(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "create", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def delete(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        """
+        return pulumi.get(self, "delete")
+
+    @delete.setter
+    def delete(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "delete", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def update(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        return pulumi.get(self, "update")
+
+    @update.setter
+    def update(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "update", value)
+
+
+if not MYPY:
+    class GlobalSecondaryIndexWarmThroughputArgsDict(TypedDict):
+        read_units_per_second: pulumi.Input[_builtins.int]
+        """
+        Number of read operations this index can instantaneously support.
+        """
+        write_units_per_second: pulumi.Input[_builtins.int]
+        """
+        Number of write operations this index can instantaneously support.
+        """
+elif False:
+    GlobalSecondaryIndexWarmThroughputArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class GlobalSecondaryIndexWarmThroughputArgs:
+    def __init__(__self__, *,
+                 read_units_per_second: pulumi.Input[_builtins.int],
+                 write_units_per_second: pulumi.Input[_builtins.int]):
+        """
+        :param pulumi.Input[_builtins.int] read_units_per_second: Number of read operations this index can instantaneously support.
+        :param pulumi.Input[_builtins.int] write_units_per_second: Number of write operations this index can instantaneously support.
+        """
+        pulumi.set(__self__, "read_units_per_second", read_units_per_second)
+        pulumi.set(__self__, "write_units_per_second", write_units_per_second)
+
+    @_builtins.property
+    @pulumi.getter(name="readUnitsPerSecond")
+    def read_units_per_second(self) -> pulumi.Input[_builtins.int]:
+        """
+        Number of read operations this index can instantaneously support.
+        """
+        return pulumi.get(self, "read_units_per_second")
+
+    @read_units_per_second.setter
+    def read_units_per_second(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "read_units_per_second", value)
+
+    @_builtins.property
+    @pulumi.getter(name="writeUnitsPerSecond")
+    def write_units_per_second(self) -> pulumi.Input[_builtins.int]:
+        """
+        Number of write operations this index can instantaneously support.
+        """
+        return pulumi.get(self, "write_units_per_second")
+
+    @write_units_per_second.setter
+    def write_units_per_second(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "write_units_per_second", value)
+
 
 if not MYPY:
     class GlobalTableReplicaArgsDict(TypedDict):
@@ -201,7 +577,7 @@ if not MYPY:
         """
         on_demand_throughput: NotRequired[pulumi.Input['TableGlobalSecondaryIndexOnDemandThroughputArgsDict']]
         """
-        Sets the maximum number of read and write units for the specified on-demand table. See below.
+        Sets the maximum number of read and write units for the specified on-demand index. See below.
         """
         range_key: NotRequired[pulumi.Input[_builtins.str]]
         """
@@ -210,6 +586,10 @@ if not MYPY:
         read_capacity: NotRequired[pulumi.Input[_builtins.int]]
         """
         Number of read units for this index. Must be set if billing_mode is set to PROVISIONED.
+        """
+        warm_throughput: NotRequired[pulumi.Input['TableGlobalSecondaryIndexWarmThroughputArgsDict']]
+        """
+        Sets the number of warm read and write units for this index. See below.
         """
         write_capacity: NotRequired[pulumi.Input[_builtins.int]]
         """
@@ -228,15 +608,17 @@ class TableGlobalSecondaryIndexArgs:
                  on_demand_throughput: Optional[pulumi.Input['TableGlobalSecondaryIndexOnDemandThroughputArgs']] = None,
                  range_key: Optional[pulumi.Input[_builtins.str]] = None,
                  read_capacity: Optional[pulumi.Input[_builtins.int]] = None,
+                 warm_throughput: Optional[pulumi.Input['TableGlobalSecondaryIndexWarmThroughputArgs']] = None,
                  write_capacity: Optional[pulumi.Input[_builtins.int]] = None):
         """
         :param pulumi.Input[_builtins.str] hash_key: Name of the hash key in the index; must be defined as an attribute in the resource.
         :param pulumi.Input[_builtins.str] name: Name of the index.
         :param pulumi.Input[_builtins.str] projection_type: One of `ALL`, `INCLUDE` or `KEYS_ONLY` where `ALL` projects every attribute into the index, `KEYS_ONLY` projects  into the index only the table and index hash_key and sort_key attributes ,  `INCLUDE` projects into the index all of the attributes that are defined in `non_key_attributes` in addition to the attributes that that`KEYS_ONLY` project.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] non_key_attributes: Only required with `INCLUDE` as a projection type; a list of attributes to project into the index. These do not need to be defined as attributes on the table.
-        :param pulumi.Input['TableGlobalSecondaryIndexOnDemandThroughputArgs'] on_demand_throughput: Sets the maximum number of read and write units for the specified on-demand table. See below.
+        :param pulumi.Input['TableGlobalSecondaryIndexOnDemandThroughputArgs'] on_demand_throughput: Sets the maximum number of read and write units for the specified on-demand index. See below.
         :param pulumi.Input[_builtins.str] range_key: Name of the range key; must be defined
         :param pulumi.Input[_builtins.int] read_capacity: Number of read units for this index. Must be set if billing_mode is set to PROVISIONED.
+        :param pulumi.Input['TableGlobalSecondaryIndexWarmThroughputArgs'] warm_throughput: Sets the number of warm read and write units for this index. See below.
         :param pulumi.Input[_builtins.int] write_capacity: Number of write units for this index. Must be set if billing_mode is set to PROVISIONED.
         """
         pulumi.set(__self__, "hash_key", hash_key)
@@ -250,6 +632,8 @@ class TableGlobalSecondaryIndexArgs:
             pulumi.set(__self__, "range_key", range_key)
         if read_capacity is not None:
             pulumi.set(__self__, "read_capacity", read_capacity)
+        if warm_throughput is not None:
+            pulumi.set(__self__, "warm_throughput", warm_throughput)
         if write_capacity is not None:
             pulumi.set(__self__, "write_capacity", write_capacity)
 
@@ -305,7 +689,7 @@ class TableGlobalSecondaryIndexArgs:
     @pulumi.getter(name="onDemandThroughput")
     def on_demand_throughput(self) -> Optional[pulumi.Input['TableGlobalSecondaryIndexOnDemandThroughputArgs']]:
         """
-        Sets the maximum number of read and write units for the specified on-demand table. See below.
+        Sets the maximum number of read and write units for the specified on-demand index. See below.
         """
         return pulumi.get(self, "on_demand_throughput")
 
@@ -336,6 +720,18 @@ class TableGlobalSecondaryIndexArgs:
     @read_capacity.setter
     def read_capacity(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "read_capacity", value)
+
+    @_builtins.property
+    @pulumi.getter(name="warmThroughput")
+    def warm_throughput(self) -> Optional[pulumi.Input['TableGlobalSecondaryIndexWarmThroughputArgs']]:
+        """
+        Sets the number of warm read and write units for this index. See below.
+        """
+        return pulumi.get(self, "warm_throughput")
+
+    @warm_throughput.setter
+    def warm_throughput(self, value: Optional[pulumi.Input['TableGlobalSecondaryIndexWarmThroughputArgs']]):
+        pulumi.set(self, "warm_throughput", value)
 
     @_builtins.property
     @pulumi.getter(name="writeCapacity")
@@ -400,6 +796,90 @@ class TableGlobalSecondaryIndexOnDemandThroughputArgs:
     @max_write_request_units.setter
     def max_write_request_units(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "max_write_request_units", value)
+
+
+if not MYPY:
+    class TableGlobalSecondaryIndexWarmThroughputArgsDict(TypedDict):
+        read_units_per_second: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Number of read operations a table or index can instantaneously support. For the base table, decreasing this value will force a new resource. For a global secondary index, this value can be increased or decreased without recreation. Minimum value of `12000` (default).
+        """
+        write_units_per_second: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Number of write operations a table or index can instantaneously support. For the base table, decreasing this value will force a new resource. For a global secondary index, this value can be increased or decreased without recreation. Minimum value of `4000` (default).
+        """
+elif False:
+    TableGlobalSecondaryIndexWarmThroughputArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class TableGlobalSecondaryIndexWarmThroughputArgs:
+    def __init__(__self__, *,
+                 read_units_per_second: Optional[pulumi.Input[_builtins.int]] = None,
+                 write_units_per_second: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.int] read_units_per_second: Number of read operations a table or index can instantaneously support. For the base table, decreasing this value will force a new resource. For a global secondary index, this value can be increased or decreased without recreation. Minimum value of `12000` (default).
+        :param pulumi.Input[_builtins.int] write_units_per_second: Number of write operations a table or index can instantaneously support. For the base table, decreasing this value will force a new resource. For a global secondary index, this value can be increased or decreased without recreation. Minimum value of `4000` (default).
+        """
+        if read_units_per_second is not None:
+            pulumi.set(__self__, "read_units_per_second", read_units_per_second)
+        if write_units_per_second is not None:
+            pulumi.set(__self__, "write_units_per_second", write_units_per_second)
+
+    @_builtins.property
+    @pulumi.getter(name="readUnitsPerSecond")
+    def read_units_per_second(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Number of read operations a table or index can instantaneously support. For the base table, decreasing this value will force a new resource. For a global secondary index, this value can be increased or decreased without recreation. Minimum value of `12000` (default).
+        """
+        return pulumi.get(self, "read_units_per_second")
+
+    @read_units_per_second.setter
+    def read_units_per_second(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "read_units_per_second", value)
+
+    @_builtins.property
+    @pulumi.getter(name="writeUnitsPerSecond")
+    def write_units_per_second(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Number of write operations a table or index can instantaneously support. For the base table, decreasing this value will force a new resource. For a global secondary index, this value can be increased or decreased without recreation. Minimum value of `4000` (default).
+        """
+        return pulumi.get(self, "write_units_per_second")
+
+    @write_units_per_second.setter
+    def write_units_per_second(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "write_units_per_second", value)
+
+
+if not MYPY:
+    class TableGlobalTableWitnessArgsDict(TypedDict):
+        region_name: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Name of the AWS Region that serves as a witness for the MRSC global table.
+        """
+elif False:
+    TableGlobalTableWitnessArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class TableGlobalTableWitnessArgs:
+    def __init__(__self__, *,
+                 region_name: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] region_name: Name of the AWS Region that serves as a witness for the MRSC global table.
+        """
+        if region_name is not None:
+            pulumi.set(__self__, "region_name", region_name)
+
+    @_builtins.property
+    @pulumi.getter(name="regionName")
+    def region_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Name of the AWS Region that serves as a witness for the MRSC global table.
+        """
+        return pulumi.get(self, "region_name")
+
+    @region_name.setter
+    def region_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "region_name", value)
 
 
 if not MYPY:
@@ -1176,6 +1656,58 @@ class TableTtlArgs:
     @enabled.setter
     def enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "enabled", value)
+
+
+if not MYPY:
+    class TableWarmThroughputArgsDict(TypedDict):
+        read_units_per_second: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Number of read operations a table or index can instantaneously support. For the base table, decreasing this value will force a new resource. For a global secondary index, this value can be increased or decreased without recreation. Minimum value of `12000` (default).
+        """
+        write_units_per_second: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Number of write operations a table or index can instantaneously support. For the base table, decreasing this value will force a new resource. For a global secondary index, this value can be increased or decreased without recreation. Minimum value of `4000` (default).
+        """
+elif False:
+    TableWarmThroughputArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class TableWarmThroughputArgs:
+    def __init__(__self__, *,
+                 read_units_per_second: Optional[pulumi.Input[_builtins.int]] = None,
+                 write_units_per_second: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.int] read_units_per_second: Number of read operations a table or index can instantaneously support. For the base table, decreasing this value will force a new resource. For a global secondary index, this value can be increased or decreased without recreation. Minimum value of `12000` (default).
+        :param pulumi.Input[_builtins.int] write_units_per_second: Number of write operations a table or index can instantaneously support. For the base table, decreasing this value will force a new resource. For a global secondary index, this value can be increased or decreased without recreation. Minimum value of `4000` (default).
+        """
+        if read_units_per_second is not None:
+            pulumi.set(__self__, "read_units_per_second", read_units_per_second)
+        if write_units_per_second is not None:
+            pulumi.set(__self__, "write_units_per_second", write_units_per_second)
+
+    @_builtins.property
+    @pulumi.getter(name="readUnitsPerSecond")
+    def read_units_per_second(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Number of read operations a table or index can instantaneously support. For the base table, decreasing this value will force a new resource. For a global secondary index, this value can be increased or decreased without recreation. Minimum value of `12000` (default).
+        """
+        return pulumi.get(self, "read_units_per_second")
+
+    @read_units_per_second.setter
+    def read_units_per_second(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "read_units_per_second", value)
+
+    @_builtins.property
+    @pulumi.getter(name="writeUnitsPerSecond")
+    def write_units_per_second(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Number of write operations a table or index can instantaneously support. For the base table, decreasing this value will force a new resource. For a global secondary index, this value can be increased or decreased without recreation. Minimum value of `4000` (default).
+        """
+        return pulumi.get(self, "write_units_per_second")
+
+    @write_units_per_second.setter
+    def write_units_per_second(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "write_units_per_second", value)
 
 
 if not MYPY:

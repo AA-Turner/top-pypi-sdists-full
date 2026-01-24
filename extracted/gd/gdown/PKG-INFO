@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: gdown
-Version: 5.2.0
+Version: 5.2.1
 Summary: Google Drive Public File/Folder Downloader
 Project-URL: Homepage, https://github.com/wkentaro/gdown
 Author-email: Kentaro Wada <www.kentaro.wada@gmail.com>

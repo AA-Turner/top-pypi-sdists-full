@@ -29,7 +29,7 @@ report.save()
 import base64
 import os
 from datetime import datetime
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Iterable, Optional, Tuple, Union
 from typing import List as LList
 
 from annotated_types import Annotated, Ge, Le
@@ -42,10 +42,11 @@ except ImportError:
 from urllib.parse import urlparse, urlunparse
 
 import wandb
-from pydantic import ConfigDict, Field, validator
+from pydantic import ConfigDict, Field, model_validator, validator
 from pydantic.dataclasses import dataclass
 
-from . import expr_parsing, gql, internal
+from . import gql, internal
+from ... import expr
 from .internal import (
     CodeCompareDiff,
     FontSize,
@@ -518,10 +519,11 @@ class OrderedList(List):
     """A list of items in a numbered list.
 
     Attributes:
-        items (LList[str]): A list of one or more `OrderedListItem` objects.
+        items (LList[TextLikeField]): A list of one or more `OrderedListItem` objects.
+            Each item can be a string or a list of TextLike objects.
     """
 
-    items: LList[str] = Field(default_factory=lambda: [""])
+    items: LList[TextLikeField] = Field(default_factory=lambda: [""])
 
     def _to_model(self):
         children = [OrderedListItem(li)._to_model() for li in self.items]
@@ -533,10 +535,11 @@ class UnorderedList(List):
     """A list of items in a bulleted list.
 
     Attributes:
-        items (LList[str]): A list of one or more `UnorderedListItem` objects.
+        items (LList[TextLikeField]): A list of one or more `UnorderedListItem` objects.
+            Each item can be a string or a list of TextLike objects.
     """
 
-    items: LList[str] = Field(default_factory=lambda: [""])
+    items: LList[TextLikeField] = Field(default_factory=lambda: [""])
 
     def _to_model(self):
         children = [UnorderedListItem(li)._to_model() for li in self.items]
@@ -906,20 +909,40 @@ class Runset(Base):
         project (str): The name of the project were the runs are stored.
         name (str): The name of the run set. Set to `Run set` by default.
         query (str): A query string to filter runs.
-        filters (Optional[str]): A filter string to filter runs.
+        filters (Union[str, LList[expr.FilterExpr]]): Filters to apply to runs. Can be:
+            - A string expression: e.g., "Config('lr') = 0.001 and State = 'finished'"
+              Supports operators: =, ==, !=, <, >, <=, >=, in, not in
+            - A list of FilterExpr objects: e.g., [expr.Config('lr') == 0.001]
         groupby (LList[str]): A list of metric names to group by. Supported formats are:
             - "group" or "run.group" to group by a run attribute
             - "config.param" to group by a config parameter
             - "summary.metric" to group by a summary metric
         order (LList[OrderBy]): A list of `OrderBy` objects to order by.
         custom_run_colors (LList[OrderBy]): A dictionary mapping run IDs to colors.
+
+    Example:
+        ```python
+        # Using string filters
+        wr.Runset(
+            entity="my-entity",
+            project="my-project",
+            filters="Config('learning_rate') = 0.001 and State = 'finished'"
+        )
+
+        # Using FilterExpr list
+        wr.Runset(
+            entity="my-entity",
+            project="my-project",
+            filters=[expr.Config("learning_rate") == 0.001]
+        )
+        ```
     """
 
     entity: str = ""
     project: str = ""
     name: str = "Run set"
     query: str = ""
-    filters: Optional[str] = ""
+    filters: Union[str, LList["expr.FilterExpr"]] = ""
     groupby: LList[str] = Field(default_factory=list)
     order: LList[OrderBy] = Field(
         default_factory=lambda: [OrderBy("CreatedTimestamp", ascending=False)]
@@ -931,6 +954,19 @@ class Runset(Base):
     )
 
     _id: str = Field(default_factory=internal._generate_name, init=False, repr=False)
+
+    @model_validator(mode="after")
+    def convert_filterexpr_list_to_string(self):
+        """Convert FilterExpr list to string expression for internal processing."""
+        # Inline the normalization logic to avoid circular import with expr module
+        if isinstance(self.filters, list):
+            # Convert FilterExpr list to internal Filters tree
+            filters_tree = expr.filter_expr_to_filters_tree(self.filters)
+            # Convert Filters tree to string expression
+            filter_string = expr.filters_to_expr(filters_tree)
+            # Update the filters field
+            object.__setattr__(self, "filters", filter_string)
+        return self
 
     def _to_model(self):
         project = None
@@ -959,8 +995,9 @@ class Runset(Base):
         obj = internal.Runset(
             project=project,
             name=self.name,
-            filters=expr_parsing.expr_to_filters(self.filters),
-            grouping=[expr_parsing.groupby_str_to_key(g) for g in self.groupby],
+            search=internal.RunsetSearch(query=self.query),
+            filters=expr.expr_to_filters(self.filters),
+            grouping=[expr.groupby_str_to_key(g) for g in self.groupby],
             sort=internal.Sort(keys=[o._to_model() for o in self.order]),
         )
         obj.id = self._id
@@ -982,8 +1019,9 @@ class Runset(Base):
             entity=entity,
             project=project,
             name=model.name,
-            filters=expr_parsing.filters_to_expr(model.filters),
-            groupby=[expr_parsing.to_frontend_name(k.name) for k in model.grouping],
+            query=model.search.query if model.search else "",
+            filters=expr.filters_to_expr(model.filters),
+            groupby=[expr.to_frontend_name(k.name) for k in model.grouping],
             order=[OrderBy._from_model(s) for s in model.sort.keys],
         )
         obj._id = model.id
@@ -1040,6 +1078,12 @@ class PanelGrid(Block):
     )
 
     def _to_model(self):
+        # Merge custom_run_colors from runsets, with PanelGrid colors taking precedence
+        merged_colors = {}
+        for rs in self.runsets:
+            merged_colors.update(rs.custom_run_colors)
+        merged_colors.update(self.custom_run_colors)
+
         return internal.PanelGrid(
             metadata=internal.PanelGridMetadata(
                 run_sets=[rs._to_model() for rs in self.runsets],
@@ -1051,7 +1095,7 @@ class PanelGrid(Block):
                     panel_bank_config=internal.PanelBankConfig(),
                     open_viz=self._open_viz,
                 ),
-                custom_run_colors=_to_color_dict(self.custom_run_colors, self.runsets),
+                custom_run_colors=_to_color_dict(merged_colors, self.runsets),
             )
         )
 
@@ -1788,7 +1832,12 @@ class LinePlot(Panel):
         legend_template (Optional[str]): The template for the legend.
         aggregate (Optional[bool]): If set to `True`, aggregate the data.
         xaxis_expression (Optional[str]): The expression for the x-axis.
+        xaxis_format (Optional[str]): The format for the x-axis. This option
+            appears if you define a custom metric. For example,
+            you can specify 'datetime' to format the x-axis as a date and time.
         legend_fields (Optional[LList[str]]): The fields to include in the legend.
+        metric_regex (Optional[str]): Regular expression pattern to match y-axis metrics.
+            The backend will use this pattern to select matching metrics.
     """
 
     title: Optional[str] = None
@@ -1817,6 +1866,7 @@ class LinePlot(Panel):
     xaxis_expression: Optional[str] = None
     xaxis_format: Optional[str] = None
     legend_fields: Optional[LList[str]] = None
+    metric_regex: Optional[str] = None
 
     def _to_model(self):
         return internal.LinePlot(
@@ -1845,10 +1895,12 @@ class LinePlot(Panel):
                 font_size=self.font_size,
                 legend_position=self.legend_position,
                 legend_template=self.legend_template,
-                aggregate=True if self.groupby else self.aggregate,
+                aggregate=self.groupby not in (None, "None") or self.aggregate,
                 x_expression=self.xaxis_expression,
                 x_axis_format=self.xaxis_format,
                 legend_fields=self.legend_fields,
+                metric_regex=self.metric_regex,
+                use_metric_regex=True if self.metric_regex else None,
             ),
             id=self._id,
             layout=self.layout._to_model(),
@@ -1856,36 +1908,48 @@ class LinePlot(Panel):
 
     @classmethod
     def _from_model(cls, model: internal.LinePlot):
-        obj = cls(
-            title=model.config.chart_title,
-            x=_metric_to_frontend(model.config.x_axis),
-            y=[_metric_to_frontend(name) for name in model.config.metrics],
-            range_x=(model.config.x_axis_min, model.config.x_axis_max),
-            range_y=(model.config.y_axis_min, model.config.y_axis_max),
-            log_x=model.config.x_log_scale,
-            log_y=model.config.y_log_scale,
-            title_x=model.config.x_axis_title,
-            title_y=model.config.y_axis_title,
-            ignore_outliers=model.config.ignore_outliers,
-            groupby=_metric_to_frontend_groupby(model.config.group_by),
-            groupby_aggfunc=model.config.group_agg,
-            groupby_rangefunc=model.config.group_area,
-            smoothing_factor=model.config.smoothing_weight,
-            smoothing_type=model.config.smoothing_type,
-            smoothing_show_original=model.config.show_original_after_smoothing,
-            max_runs_to_show=model.config.limit,
-            custom_expressions=model.config.expressions,
-            plot_type=model.config.plot_type,
-            font_size=model.config.font_size,
-            legend_position=model.config.legend_position,
-            legend_template=model.config.legend_template,
-            aggregate=model.config.aggregate,
-            xaxis_expression=model.config.x_expression,
-            xaxis_format=model.config.x_axis_format,
-            layout=Layout._from_model(model.layout),
-            legend_fields=model.config.legend_fields,
+        # Create object manually setting all attributes
+        obj = cls.__new__(cls)
+
+        object.__setattr__(obj, "title", model.config.chart_title)
+        object.__setattr__(obj, "x", _metric_to_frontend(model.config.x_axis))
+        object.__setattr__(
+            obj, "y", [_metric_to_frontend(name) for name in model.config.metrics]
         )
-        obj._id = model.id
+        object.__setattr__(
+            obj, "range_x", (model.config.x_axis_min, model.config.x_axis_max)
+        )
+        object.__setattr__(
+            obj, "range_y", (model.config.y_axis_min, model.config.y_axis_max)
+        )
+        object.__setattr__(obj, "log_x", model.config.x_log_scale)
+        object.__setattr__(obj, "log_y", model.config.y_log_scale)
+        object.__setattr__(obj, "title_x", model.config.x_axis_title)
+        object.__setattr__(obj, "title_y", model.config.y_axis_title)
+        object.__setattr__(obj, "ignore_outliers", model.config.ignore_outliers)
+        object.__setattr__(
+            obj, "groupby", _metric_to_frontend_groupby(model.config.group_by)
+        )
+        object.__setattr__(obj, "groupby_aggfunc", model.config.group_agg)
+        object.__setattr__(obj, "groupby_rangefunc", model.config.group_area)
+        object.__setattr__(obj, "smoothing_factor", model.config.smoothing_weight)
+        object.__setattr__(obj, "smoothing_type", model.config.smoothing_type)
+        object.__setattr__(
+            obj, "smoothing_show_original", model.config.show_original_after_smoothing
+        )
+        object.__setattr__(obj, "max_runs_to_show", model.config.limit)
+        object.__setattr__(obj, "custom_expressions", model.config.expressions)
+        object.__setattr__(obj, "plot_type", model.config.plot_type)
+        object.__setattr__(obj, "font_size", model.config.font_size)
+        object.__setattr__(obj, "legend_position", model.config.legend_position)
+        object.__setattr__(obj, "legend_template", model.config.legend_template)
+        object.__setattr__(obj, "aggregate", model.config.aggregate)
+        object.__setattr__(obj, "xaxis_expression", model.config.x_expression)
+        object.__setattr__(obj, "xaxis_format", model.config.x_axis_format)
+        object.__setattr__(obj, "layout", Layout._from_model(model.layout))
+        object.__setattr__(obj, "legend_fields", model.config.legend_fields)
+        object.__setattr__(obj, "metric_regex", model.config.metric_regex)
+        object.__setattr__(obj, "_id", model.id)
         return obj
 
 
@@ -2064,14 +2128,14 @@ class BarPlot(Panel):
                 font_size=self.font_size,
                 override_series_titles=self.line_titles,
                 override_colors=self.line_colors,
-                aggregate=True if self.groupby else self.aggregate,
+                aggregate=self.groupby not in (None, "None") or self.aggregate,
             ),
             layout=self.layout._to_model(),
             id=self._id,
         )
 
     @classmethod
-    def _from_model(cls, model: internal.ScatterPlot):
+    def _from_model(cls, model: internal.BarPlot):
         obj = cls(
             title=model.config.chart_title,
             metrics=[_metric_to_frontend(name) for name in model.config.metrics],
@@ -2346,24 +2410,64 @@ class RunComparer(Panel):
 @dataclass(config=dataclass_config, repr=False)
 class MediaBrowser(Panel):
     """
-    A panel that displays media files in a grid layout.
+    A panel that displays media files in a gallery or grid layout.
 
     Attributes:
         title (Optional[str]): The title of the panel.
         num_columns (Optional[int]): The number of columns in the grid.
         media_keys (LList[str]): A list of media keys that correspond to the media files.
+        mode (Optional[Literal["gallery", "grid"]]): The display mode for the panel.
+            If not specified, will be inferred from the axes provided. Required if both
+            gallery_axis and grid axes are specified.
+        gallery_axis (Optional[Literal["step", "index", "run"]]): The field to use for the axis in gallery mode.
+        grid_x_axis (Optional[Literal["step", "index", "run"]]): The field to use for the x-axis in grid mode.
+        grid_y_axis (Optional[Literal["step", "index", "run"]]): The field to use for the y-axis in grid mode.
     """
 
     title: Optional[str] = None
     num_columns: Optional[int] = None
     media_keys: LList[str] = Field(default_factory=list)
+    mode: Optional[Literal["gallery", "grid"]] = None
+    gallery_axis: Optional[Literal["step", "index", "run"]] = None
+    grid_x_axis: Optional[Literal["step", "index", "run"]] = None
+    grid_y_axis: Optional[Literal["step", "index", "run"]] = None
 
     def _to_model(self):
+        gallery_settings = None
+        grid_settings = None
+        mode = self.mode
+
+        has_gallery_axis = self.gallery_axis is not None
+        has_grid_axis = self.grid_x_axis is not None or self.grid_y_axis is not None
+
+        # Validate that mode is specified if both gallery and grid axes are provided
+        if has_gallery_axis and has_grid_axis and mode is None:
+            raise ValueError(
+                "Must specify 'mode' parameter when both gallery_axis and grid axes "
+                "(grid_x_axis/grid_y_axis) are provided. Set mode='gallery' or mode='grid'."
+            )
+
+        if self.gallery_axis is not None:
+            gallery_settings = internal.GallerySettings(axis=self.gallery_axis)
+            if mode is None:
+                mode = "gallery"
+
+        if self.grid_x_axis is not None or self.grid_y_axis is not None:
+            grid_settings = internal.GridSettings(
+                x_axis=self.grid_x_axis,
+                y_axis=self.grid_y_axis,
+            )
+            if mode is None:
+                mode = "grid"
+
         return internal.MediaBrowser(
             config=internal.MediaBrowserConfig(
                 chart_title=self.title,
                 column_count=self.num_columns,
                 media_keys=self.media_keys,
+                mode=mode,
+                gallery_settings=gallery_settings,
+                grid_settings=grid_settings,
             ),
             layout=self.layout._to_model(),
             id=self._id,
@@ -2371,10 +2475,25 @@ class MediaBrowser(Panel):
 
     @classmethod
     def _from_model(cls, model: internal.MediaBrowser):
+        gallery_axis = None
+        grid_x_axis = None
+        grid_y_axis = None
+
+        if model.config.gallery_settings:
+            gallery_axis = model.config.gallery_settings.axis
+
+        if model.config.grid_settings:
+            grid_x_axis = model.config.grid_settings.x_axis
+            grid_y_axis = model.config.grid_settings.y_axis
+
         obj = cls(
             title=model.config.chart_title,
             num_columns=model.config.column_count,
             media_keys=model.config.media_keys,
+            mode=model.config.mode,
+            gallery_axis=gallery_axis,
+            grid_x_axis=grid_x_axis,
+            grid_y_axis=grid_y_axis,
             layout=Layout._from_model(model.layout),
         )
         obj._id = model.id
@@ -2490,6 +2609,7 @@ class CustomChart(Panel):
                 string_settings=self.chart_strings,
             ),
             layout=self.layout._to_model(),
+            id=self._id,
         )
 
     @classmethod
@@ -2514,16 +2634,19 @@ class CustomChart(Panel):
 
         query = fields_to_dict(model.config.user_query.query_fields)
 
-        return cls(
+        obj = cls(
             query=query,
             chart_name=model.config.panel_def_id,
             chart_fields=model.config.field_settings,
             chart_strings=model.config.string_settings,
             layout=Layout._from_model(model.layout),
         )
+        obj._id = model.id
+        return obj
 
 
 @dataclass(config=ConfigDict(validate_assignment=True, extra="forbid", slots=True))
+@dataclass(config=ConfigDict(validate_assignment=True, extra="allow", slots=True))
 class UnknownPanel(Base):
     """
     INTERNAL: This class is not for public use.
@@ -2538,7 +2661,6 @@ class UnknownPanel(Base):
 
     def _to_model(self):
         d = self.__dict__
-        print(d)
         return internal.UnknownPanel.model_validate(d)
 
     @classmethod
@@ -2559,11 +2681,17 @@ class WeavePanel(Panel):
     config: dict = Field(default_factory=dict)
 
     def _to_model(self):
-        return internal.WeavePanel(config=self.config, layout=self.layout._to_model())
+        return internal.WeavePanel(
+            config=self.config,
+            layout=self.layout._to_model(),
+            id=self._id,
+        )
 
     @classmethod
     def _from_model(cls, model: internal.WeavePanel):
-        return cls(config=model.config)
+        obj = cls(config=model.config)
+        obj._id = model.id
+        return obj
 
 
 @dataclass(config=dataclass_config)
@@ -2762,13 +2890,16 @@ class WeavePanelSummaryTable(Panel):
                 }
             },
             layout=self.layout._to_model(),
+            id=self._id,
         )
 
     @classmethod
     def _from_model(cls, model: internal.WeavePanel):
         inputs = internal._get_weave_panel_inputs(model.config)
         table_name = inputs["key"]["val"]
-        return cls(table_name=table_name)
+        obj = cls(table_name=table_name)
+        obj._id = model.id
+        return obj
 
 
 @dataclass(config=dataclass_config)
@@ -2896,6 +3027,7 @@ class WeavePanelArtifactVersionedFile(Panel):
                 }
             },
             layout=self.layout._to_model(),
+            id=self._id,
         )
 
     @classmethod
@@ -2906,7 +3038,9 @@ class WeavePanelArtifactVersionedFile(Panel):
             "val"
         ]
         file = inputs["path"]["val"]
-        return cls(artifact=artifact, version=version, file=file)
+        obj = cls(artifact=artifact, version=version, file=file)
+        obj._id = model.id
+        return obj
 
 
 @dataclass(config=dataclass_config)
@@ -3007,6 +3141,7 @@ class WeavePanelArtifact(WeavePanel):
                 }
             },
             layout=self.layout._to_model(),
+            id=self._id,
         )
 
     @classmethod
@@ -3016,7 +3151,9 @@ class WeavePanelArtifact(WeavePanel):
         tab = model.config["panel2Config"]["panelConfig"]["tabConfigs"]["overview"].get(
             "selectedTab", "overview"
         )
-        return cls(artifact=artifact, tab=tab)
+        obj = cls(artifact=artifact, tab=tab)
+        obj._id = model.id
+        return obj
 
 
 @dataclass(config=dataclass_config, repr=False)
@@ -3357,16 +3494,19 @@ def _lookup(block):
     cls = block_mapping.get(block.__class__, UnknownBlock)
 
     if cls is UnknownBlock:
-        wandb.termwarn(f"Unknown block type: {block.__class__}")
+        block_type = getattr(block, "type", "unknown")
+        wandb.termwarn(f"Unsupported block type: {block_type}")
+        return UnknownBlock._from_model(block)
 
     if cls is WeaveBlock:
-        for cls in defined_weave_blocks:
+        for weave_cls in defined_weave_blocks:
             try:
-                cls._from_model(block)
+                return weave_cls._from_model(block)
             except Exception:
                 continue
-            else:
-                break
+        # If none of the specific WeaveBlock types worked, treat as unknown
+        wandb.termwarn(f"Unsupported WeaveBlock configuration: {block.type}")
+        return UnknownBlock._from_model(block)
 
     return cls._from_model(block)
 
@@ -3396,7 +3536,11 @@ def _lookup_panel(panel):
     cls = panel_mapping.get(panel.__class__, UnknownPanel)
 
     if cls is UnknownPanel:
-        wandb.termwarn(f"Unknown panel type: {panel.__class__}")
+        # Try both camelCase (from API) and snake_case (from Pydantic)
+        panel_type = getattr(panel, "view_type", None) or getattr(
+            panel, "viewType", "unknown"
+        )
+        wandb.termwarn(f"Unsupported panel type: {panel_type}")
 
     if cls is WeavePanel:
         # TODO the more panels that get defined, the more of a need there is to either
@@ -3557,27 +3701,79 @@ def _resolve_collisions(panels: LList[Panel], x_max: int = 24):
             l1, l2 = p1.layout, p2.layout
 
             if _collides(p1, p2):
-                x = l1.x + l1.w - l2.x
-                y = l1.y + l1.h - l2.y
-
-                if l2.x + l2.w + x <= x_max:
-                    l2.x += x
-
+                # Handle layout that might be a dict (for UnknownPanel)
+                if isinstance(l1, dict):
+                    l1_x, l1_y, l1_w, l1_h = (
+                        l1.get("x", 0),
+                        l1.get("y", 0),
+                        l1.get("w", 0),
+                        l1.get("h", 0),
+                    )
                 else:
-                    l2.y += y
-                    l2.x = 0
+                    l1_x, l1_y, l1_w, l1_h = l1.x, l1.y, l1.w, l1.h
+
+                if isinstance(l2, dict):
+                    l2_x, l2_y, l2_w, _ = (
+                        l2.get("x", 0),
+                        l2.get("y", 0),
+                        l2.get("w", 0),
+                        l2.get("h", 0),
+                    )
+                else:
+                    l2_x, l2_y, l2_w, _ = l2.x, l2.y, l2.w, l2.h
+
+                x = l1_x + l1_w - l2_x
+                y = l1_y + l1_h - l2_y
+
+                if l2_x + l2_w + x <= x_max:
+                    if isinstance(l2, dict):
+                        l2["x"] = l2_x + x
+                    else:
+                        l2.x += x
+                else:
+                    if isinstance(l2, dict):
+                        l2["y"] = l2_y + y
+                        l2["x"] = 0
+                    else:
+                        l2.y += y
+                        l2.x = 0
     return panels
 
 
 def _collides(p1: Panel, p2: Panel) -> bool:
     l1, l2 = p1.layout, p2.layout
 
+    # Check if panels are the same by ID (if available)
+    p1_id = getattr(p1, "_id", None)
+    p2_id = getattr(p2, "_id", None)
+
+    # Handle layout that might be a dict (for UnknownPanel)
+    if isinstance(l1, dict):
+        l1_x, l1_y, l1_w, l1_h = (
+            l1.get("x", 0),
+            l1.get("y", 0),
+            l1.get("w", 0),
+            l1.get("h", 0),
+        )
+    else:
+        l1_x, l1_y, l1_w, l1_h = l1.x, l1.y, l1.w, l1.h
+
+    if isinstance(l2, dict):
+        l2_x, l2_y, l2_w, l2_h = (
+            l2.get("x", 0),
+            l2.get("y", 0),
+            l2.get("w", 0),
+            l2.get("h", 0),
+        )
+    else:
+        l2_x, l2_y, l2_w, l2_h = l2.x, l2.y, l2.w, l2.h
+
     if (
-        (p1._id == p2._id)
-        or (l1.x + l1.w <= l2.x)
-        or (l1.x >= l2.w + l2.x)
-        or (l1.y + l1.h <= l2.y)
-        or (l1.y >= l2.y + l2.h)
+        (p1_id is not None and p2_id is not None and p1_id == p2_id)
+        or (l1_x + l1_w <= l2_x)
+        or (l1_x >= l2_w + l2_x)
+        or (l1_y + l1_h <= l2_y)
+        or (l1_y >= l2_y + l2_h)
     ):
         return False
 
@@ -3588,10 +3784,10 @@ def _metric_to_backend(x: Optional[MetricType]):
     if x is None:
         return x
     if isinstance(x, str):  # Same as Metric
-        return expr_parsing.to_backend_name(x)
+        return expr.to_backend_name(x)
     if isinstance(x, Metric):
         name = x.name
-        return expr_parsing.to_backend_name(name)
+        return expr.to_backend_name(name)
     if isinstance(x, Config):
         name, *rest = x.name.split(".")
         rest = "." + ".".join(rest) if rest else ""
@@ -3615,7 +3811,7 @@ def _metric_to_frontend(x: str):
             name = x.replace(k, "")
             return SummaryMetric(name)
 
-    name = expr_parsing.to_frontend_name(x)
+    name = expr.to_frontend_name(x)
     return Metric(name)
 
 
@@ -3628,7 +3824,7 @@ def _metric_to_backend_pc(x: Optional[SummaryOrConfigOnlyMetric]):
         # strip the prefix and map the name to its backend representation.
         if x.startswith("run."):
             name = x.split("run.", 1)[1]
-            backend_name = expr_parsing.to_backend_name(name)
+            backend_name = expr.to_backend_name(name)
             return f"run:{backend_name}"
         # Otherwise, assume summary metric (legacy behaviour)
         name = x
@@ -3636,7 +3832,7 @@ def _metric_to_backend_pc(x: Optional[SummaryOrConfigOnlyMetric]):
     if isinstance(x, Metric):
         # Run-level metric – convert to backend name (handles FE ⇄ BE mapping, e.g. "CreatedTimestamp" → "createdAt")
         name = x.name
-        backend_name = expr_parsing.to_backend_name(name)
+        backend_name = expr.to_backend_name(name)
         return f"run:{backend_name}"
     if isinstance(x, Config):
         name, *rest = x.name.split(".")
@@ -3667,10 +3863,10 @@ def _metric_to_frontend_pc(x: str):
         return SummaryMetric(name)
     if x.startswith("run:"):
         name = x.replace("run:", "")
-        backend_name = expr_parsing.to_frontend_name(name)
+        backend_name = expr.to_frontend_name(name)
         return Metric(backend_name)
 
-    name = expr_parsing.to_frontend_name(x)
+    name = expr.to_frontend_name(x)
     return Metric(name)
 
 
@@ -3703,8 +3899,8 @@ def _metric_to_backend_groupby(val: Optional[Union[str, "Config"]]) -> Optional[
     Anything that is already in the correct format
     ("epochs.value", "a.value.b", …) is returned unchanged.
     """
-    if val is None:
-        return None
+    if val in (None, "None"):
+        return val
 
     # 1) unwrap wr.Config
     if isinstance(val, Config):
@@ -3733,7 +3929,7 @@ def _metric_to_frontend_groupby(val: Optional[str]):
     Anything that isn’t a config path (doesn’t have '.value' as the second
     token) is returned unchanged.
     """
-    if val is None or not isinstance(val, str):
+    if val in (None, "None") or not isinstance(val, str):
         return val
 
     parts = val.split(".")
@@ -3786,7 +3982,9 @@ def _from_color_dict(d, runsets):
     for k, v in d.items():
         id, *backend_parts = k.split("-")
 
-        if backend_parts:
+        # Only treat as RunsetGroup format if all backend parts contain ':'
+        # Plain string keys (like run IDs) may contain dashes but won't have colons
+        if backend_parts and all(":" in part for part in backend_parts):
             groups = []
             for part in backend_parts:
                 key, value = part.rsplit(":", 1)
@@ -3794,8 +3992,12 @@ def _from_color_dict(d, runsets):
                 group = RunsetGroupKey(kkey, value)
                 groups.append(group)
             rs = _get_rs_by_id(runsets, id)
-            rg = RunsetGroup(runset_name=rs.name, keys=groups)
-            new_key = rg
+            # If runset not found (e.g., during migration), preserve the original key
+            if rs is None:
+                new_key = k
+            else:
+                rg = RunsetGroup(runset_name=rs.name, keys=groups)
+                new_key = rg
         else:
             new_key = k
         d2[new_key] = v

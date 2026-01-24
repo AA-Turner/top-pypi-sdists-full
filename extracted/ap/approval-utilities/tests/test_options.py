@@ -5,7 +5,7 @@ import sys
 from approvaltests import (
     ReporterForTesting,
     approvals,
-    combination_approvals,
+    combination_approvals,  # noqa: F401
     get_default_reporter,
     verify,
     verify_all,
@@ -13,9 +13,9 @@ from approvaltests import (
 from approvaltests.core.options import Options
 from approvaltests.reporters import MultiReporter, ReportByCreatingDiffFile
 from approvaltests.reporters.report_with_beyond_compare import ReportWithPycharm
-from approvaltests.utilities import command_line_approvals
-from approvaltests.utilities.logger import simple_logger_approvals
-from approvaltests.utilities.logging import logging_approvals
+from approvaltests.utilities import command_line_approvals  # noqa: F401
+from approvaltests.utilities.logger import simple_logger_approvals  # noqa: F401
+from approvaltests.utilities.logging import logging_approvals  # noqa: F401
 
 _approvals_modules = list(
     sorted(
@@ -51,9 +51,9 @@ def assert_verify_methods_have_options(module) -> None:
 
         argspec = inspect.getfullargspec(obj)
         has_options = "options" in argspec.kwonlyargs
-        assert (
-            has_options
-        ), f"Missing Keyword only parameter `options` in {function_name}:\n\t{argspec}"
+        assert has_options, (
+            f"Missing Keyword only parameter `options` in {function_name}:\n\t{argspec}"
+        )
 
 
 def test_empty_options_has_default_reporter() -> None:

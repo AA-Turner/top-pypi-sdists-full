@@ -108,6 +108,12 @@ class ManagedTransforms(google.protobuf.message.Message):
         BIGQUERY_READ: ManagedTransforms._Urns.ValueType  # 4
         BIGQUERY_WRITE: ManagedTransforms._Urns.ValueType  # 5
         ICEBERG_CDC_READ: ManagedTransforms._Urns.ValueType  # 6
+        POSTGRES_READ: ManagedTransforms._Urns.ValueType  # 7
+        POSTGRES_WRITE: ManagedTransforms._Urns.ValueType  # 8
+        MYSQL_READ: ManagedTransforms._Urns.ValueType  # 9
+        MYSQL_WRITE: ManagedTransforms._Urns.ValueType  # 10
+        SQL_SERVER_READ: ManagedTransforms._Urns.ValueType  # 11
+        SQL_SERVER_WRITE: ManagedTransforms._Urns.ValueType  # 12
 
     class Urns(_Urns, metaclass=_UrnsEnumTypeWrapper): ...
     ICEBERG_READ: ManagedTransforms.Urns.ValueType  # 0
@@ -117,6 +123,12 @@ class ManagedTransforms(google.protobuf.message.Message):
     BIGQUERY_READ: ManagedTransforms.Urns.ValueType  # 4
     BIGQUERY_WRITE: ManagedTransforms.Urns.ValueType  # 5
     ICEBERG_CDC_READ: ManagedTransforms.Urns.ValueType  # 6
+    POSTGRES_READ: ManagedTransforms.Urns.ValueType  # 7
+    POSTGRES_WRITE: ManagedTransforms.Urns.ValueType  # 8
+    MYSQL_READ: ManagedTransforms.Urns.ValueType  # 9
+    MYSQL_WRITE: ManagedTransforms.Urns.ValueType  # 10
+    SQL_SERVER_READ: ManagedTransforms.Urns.ValueType  # 11
+    SQL_SERVER_WRITE: ManagedTransforms.Urns.ValueType  # 12
 
     def __init__(
         self,

@@ -1,9 +1,9 @@
 use crate::py_regex_options::PyRegexOptions;
-use pyo3::prelude::*;
+use pyo3::{IntoPyObjectExt, prelude::*};
 use regex::{Regex, RegexBuilder};
 use std::borrow::{Borrow, Cow};
 
-#[pyclass(name = "Regex", frozen)]
+#[pyclass(name = "Regex", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Clone, Debug)]
 pub struct PyRegex {
@@ -50,36 +50,6 @@ impl TryFrom<RegexBuilder> for PyRegex {
     }
 }
 
-//
-// build
-// case_insensitive -- default false
-// crlf -- default false
-// dot_matches_new_line -- default false
-// ignore_whitespace -- default false
-// line_terminator - default '\n'
-// multi_line -- default false
-// octal -- default false
-// size_limit -- default none
-// swap_greed -- default false
-// unicode -- default true
-// -------NOT SUPPORTED---------
-// dfa_size_limit
-// nest_limit -- idk
-
-fn get_line_terminator_u8(line_terminator: Option<&str>) -> PyResult<u8> {
-    match line_terminator {
-        Some(lt) => {
-            if lt.len() != 1 {
-                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    "line_terminator must be a single byte",
-                ));
-            }
-            Ok(lt.as_bytes()[0])
-        }
-        None => Ok(b'\n'),
-    }
-}
-
 #[pymethods]
 impl PyRegex {
     #[new]
@@ -106,82 +76,111 @@ impl PyRegex {
         crlf: bool,
         dot_matches_new_line: bool,
         ignore_whitespace: bool,
-        line_terminator: Option<&str>,
+        line_terminator: Option<ryo3_core::types::Byte>,
         multi_line: bool,
         octal: bool,
         size_limit: Option<usize>,
         swap_greed: bool,
         unicode: bool,
     ) -> PyResult<Self> {
-        let mut builder = RegexBuilder::new(pattern);
+        // let line_terminator_u8: u8 = get_line_terminator_u8(line_terminator)?;
+        let options = PyRegexOptions {
+            case_insensitive,
+            crlf,
+            dot_matches_new_line,
+            ignore_whitespace,
+            line_terminator: line_terminator.map_or(b'\n', |lt| *lt),
+            multi_line,
+            octal,
+            size_limit,
+            swap_greed,
+            unicode,
+        };
 
-        // fill in the bools
-        let mut builder = builder
-            .case_insensitive(case_insensitive)
-            .crlf(crlf)
-            .dot_matches_new_line(dot_matches_new_line)
-            .ignore_whitespace(ignore_whitespace)
-            .multi_line(multi_line)
-            .octal(octal)
-            .swap_greed(swap_greed)
-            .unicode(unicode);
-
-        let line_terminator_u8: u8 = get_line_terminator_u8(line_terminator)?;
-        builder = builder.line_terminator(line_terminator_u8);
-
-        if let Some(size_limit) = size_limit {
-            builder.size_limit(size_limit);
-        }
-        builder.build().map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid regex: {e}"))
+        let re = options.build_pattern(pattern)?;
+        Ok(Self {
+            re: std::sync::Arc::new(re),
+            options: Some(options),
         })
     }
 
+    fn __getnewargs_ex__<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<Bound<'py, pyo3::types::PyTuple>> {
+        let kwargs = if let Some(opts) = &self.options {
+            opts.as_pydict(py)?.into_bound_py_any(py)?
+        } else {
+            pyo3::types::PyDict::new(py).into_bound_py_any(py)?
+        };
+
+        let args = pyo3::types::PyTuple::new(py, [self.re.as_str().into_bound_py_any(py)?])?;
+        pyo3::types::PyTuple::new(py, &[args.into_bound_py_any(py)?, kwargs])
+    }
+
     fn __repr__(&self) -> String {
-        format!("Regex('{}')", self.re)
+        format!("{self}")
     }
 
     fn __eq__(&self, other: &Self) -> bool {
-        self.re.as_str() == other.re.as_str()
+        self.re.as_str() == other.re.as_str() && self.options == other.options
     }
 
-    fn is_match(&self, text: &str) -> bool {
-        self.re.is_match(text)
+    fn __ne__(&self, other: &Self) -> bool {
+        !self.__eq__(other)
     }
 
-    fn find(&self, text: &str) -> Option<(usize, usize)> {
-        self.re.find(text).map(|m| (m.start(), m.end()))
+    /// Returns true if and only if there is a match for the regex anywhere in the haystack given.
+    ///
+    /// It is recommended to use this method if all you need to do is test
+    /// whether a match exists, since the underlying matching engine may be
+    /// able to do less work.
+    fn is_match(&self, haystack: &str) -> bool {
+        self.re.is_match(haystack)
     }
 
-    fn find_all(&self, text: &str) -> Vec<(usize, usize)> {
+    /// Returns true if and only if there is a match for the regex anywhere in the haystack given.
+    ///
+    /// It is recommended to use this method if all you need to do is test
+    /// whether a match exists, since the underlying matching engine may be
+    /// able to do less work.
+    fn test(&self, haystack: &str) -> bool {
+        self.re.is_match(haystack)
+    }
+
+    fn find(&self, haystack: &str) -> Option<(usize, usize)> {
+        self.re.find(haystack).map(|m| (m.start(), m.end()))
+    }
+
+    fn find_all(&self, haystack: &str) -> Vec<(usize, usize)> {
         self.re
-            .find_iter(text)
+            .find_iter(haystack)
             .map(|m| (m.start(), m.end()))
             .collect()
     }
 
-    fn findall(&self, text: &str) -> Vec<(usize, usize)> {
-        self.find_all(text)
+    fn findall(&self, haystack: &str) -> Vec<(usize, usize)> {
+        self.find_all(haystack)
     }
 
-    fn replace<'py>(&self, text: &'py str, replace: &str) -> Cow<'py, str> {
-        self.re.replace(text, replace)
+    fn replace<'py>(&self, haystack: &'py str, replacement: &str) -> Cow<'py, str> {
+        self.re.replace(haystack, replacement)
     }
 
-    fn replace_all(&self, text: &str, replace: &str) -> String {
-        self.re.replace_all(text, replace).to_string()
+    fn replace_all(&self, haystack: &str, replacement: &str) -> String {
+        self.re.replace_all(haystack, replacement).to_string()
     }
 
-    fn split(&self, text: &str) -> Vec<String> {
+    fn split(&self, haystack: &str) -> Vec<String> {
         self.re
-            .split(text)
+            .split(haystack)
             .map(std::string::ToString::to_string)
             .collect()
     }
 
-    fn splitn(&self, text: &str, n: usize) -> Vec<String> {
+    fn splitn(&self, haystack: &str, n: usize) -> Vec<String> {
         self.re
-            .splitn(text, n)
+            .splitn(haystack, n)
             .map(std::string::ToString::to_string)
             .collect()
     }
@@ -190,5 +189,18 @@ impl PyRegex {
 impl Borrow<Regex> for PyRegex {
     fn borrow(&self) -> &Regex {
         &self.re
+    }
+}
+
+impl std::fmt::Display for PyRegex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(opts) = &self.options {
+            write!(f, "Regex(r'{}'", self.re.as_str())?;
+            opts.write_regex_kwargs(f)?;
+            write!(f, ")")
+            // }
+        } else {
+            write!(f, "Regex(r'{}')", self.re.as_str())
+        }
     }
 }

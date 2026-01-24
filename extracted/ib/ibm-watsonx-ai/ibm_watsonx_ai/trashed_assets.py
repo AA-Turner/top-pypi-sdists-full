@@ -1,17 +1,19 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
-
-from pandas import DataFrame
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
+    from pandas import DataFrame
+
     from ibm_watsonx_ai import APIClient
+
+ListType: TypeAlias = list
 
 
 class TrashedAssets(WMLResource):
@@ -71,8 +73,8 @@ class TrashedAssets(WMLResource):
             )
 
     @staticmethod
-    def _prepare_attachment_list_for_removal(asset_details):
-        def attachment_requires_removal(attachment_details):
+    def _prepare_attachment_list_for_removal(asset_details: dict) -> ListType:
+        def attachment_requires_removal(attachment_details: dict) -> Any:
             return attachment_details.get("is_remote") or (
                 attachment_details.get("is_referenced")
                 and attachment_details.get("is_object_key_read_only")
@@ -82,9 +84,9 @@ class TrashedAssets(WMLResource):
             filter(attachment_requires_removal, asset_details.get("attachments", []))
         )
 
-    def _remove_attachment(self, attachment_path):
-        response = self._client._session.delete(
-            self._client._href_definitions.get_wsd_model_attachment_href()
+    def _remove_attachment(self, attachment_path: str) -> Literal["SUCCESS"]:
+        response = self._client.httpx_client.delete(
+            url=self._client._href_definitions.get_wsd_model_attachment_href()
             + f"/{attachment_path}",
             headers=self._client._get_headers(),
             params=self._client._params(),
@@ -146,8 +148,8 @@ class TrashedAssets(WMLResource):
 
             asset_details = client.trashed_assets.restore(asset_id)
         """
-        response = self._client._session.post(
-            self._client._href_definitions.get_trashed_asset_restore_href(asset_id),
+        response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_trashed_asset_restore_href(asset_id),
             headers=self._client._get_headers(),
             params=self._client._params(),
         )
@@ -163,6 +165,7 @@ class TrashedAssets(WMLResource):
 
         :return: status "SUCCESS" if purge is successful
         :rtype: Literal["SUCCESS"]
+        :raises APIRequestFailure: if purging all trashed assets failed
 
         **Example:**
 
@@ -170,8 +173,8 @@ class TrashedAssets(WMLResource):
 
             client.trashed_assets.purge_all()
         """
-        response = self._client._session.delete(
-            self._client._href_definitions.get_trashed_assets_purge_all_href(),
+        response = self._client.httpx_client.delete(
+            url=self._client._href_definitions.get_trashed_assets_purge_all_href(),
             headers=self._client._get_headers(),
             params=self._client._params(),
         )
@@ -182,6 +185,7 @@ class TrashedAssets(WMLResource):
             self._handle_response(
                 204, "purging all trashed assets", response, json_response=False
             )
+            return "SUCCESS"
 
     def delete(self, asset_id: str) -> Literal["SUCCESS"]:
         """Delete a trashed asset.
@@ -191,6 +195,7 @@ class TrashedAssets(WMLResource):
 
         :return: status "SUCCESS" if deletion is successful
         :rtype: Literal["SUCCESS"]
+        :raises WMLClientError: if deletion failed
 
         **Example:**
 
@@ -198,8 +203,8 @@ class TrashedAssets(WMLResource):
 
             client.trashed_assets.delete(asset_id)
         """
-        response = self._client._session.delete(
-            self._client._href_definitions.get_trashed_asset_href(asset_id),
+        response = self._client.httpx_client.delete(
+            url=self._client._href_definitions.get_trashed_asset_href(asset_id),
             headers=self._client._get_headers(),
             params=self._client._params(),
         )

@@ -14,24 +14,29 @@ import typing as t
 import warnings
 
 from libtmux._internal.query_list import QueryList
-from libtmux._internal.types import StrPath
-from libtmux.common import has_gte_version, tmux_cmd
+from libtmux.common import tmux_cmd
 from libtmux.constants import (
     RESIZE_ADJUSTMENT_DIRECTION_FLAG_MAP,
+    OptionScope,
     PaneDirection,
     ResizeAdjustmentDirection,
     WindowDirection,
 )
+from libtmux.hooks import HooksMixin
 from libtmux.neo import Obj, fetch_obj, fetch_objs
 from libtmux.pane import Pane
 
 from . import exc
-from .common import PaneDict, WindowOptionDict, handle_option_error
+from .common import PaneDict, WindowOptionDict
+from .options import OptionsMixin
 
 if t.TYPE_CHECKING:
     import sys
     import types
 
+    from libtmux._internal.types import StrPath
+
+    from .common import PaneDict, WindowOptionDict
     from .server import Server
     from .session import Session
 
@@ -45,7 +50,11 @@ logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass()
-class Window(Obj):
+class Window(
+    Obj,
+    OptionsMixin,
+    HooksMixin,
+):
     """:term:`tmux(1)` :term:`Window` [window_manual]_.
 
     Holds :class:`Pane` objects.
@@ -100,6 +109,8 @@ class Window(Obj):
        https://man.openbsd.org/tmux.1#DESCRIPTION. Accessed April 1st, 2018.
     """
 
+    default_option_scope: OptionScope | None = OptionScope.Window
+    default_hook_scope: OptionScope | None = OptionScope.Window
     server: Server
 
     def __enter__(self) -> Self:
@@ -273,27 +284,32 @@ class Window(Obj):
         Parameters
         ----------
         attach : bool, optional
-            make new window the current window after creating it, default
+            Make new window the current window after creating it, default
             True.
         start_directory : str or PathLike, optional
-            specifies the working directory in which the new window is created.
+            Specifies the working directory in which the new window is created.
         direction : PaneDirection, optional
-            split in direction. If none is specified, assume down.
-        full_window_split: bool, optional
-            split across full window width or height, rather than active pane.
-        zoom: bool, optional
-            expand pane
+            Split in direction. If none is specified, assume down.
+        full_window_split : bool, optional
+            Split across full window width or height, rather than active pane.
+        zoom : bool, optional
+            Expand pane.
         shell : str, optional
-            execute a command on splitting the window.  The pane will close
+            Execute a command on splitting the window. The pane will close
             when the command exits.
 
-            NOTE: When this command exits the pane will close.  This feature
+            NOTE: When this command exits the pane will close. This feature
             is useful for long-running processes where the closing of the
             window upon completion is desired.
-        size: int, optional
+        size : int, optional
             Cell/row or percentage to occupy with respect to current window.
-        environment: dict, optional
-            Environmental variables for new pane. tmux 3.0+ only. Passthrough to ``-e``.
+        environment : dict, optional
+            Environmental variables for new pane. Passthrough to ``-e``.
+
+        Returns
+        -------
+        :class:`Pane`
+            The newly created pane.
         """
         active_pane = self.active_pane or self.panes[0]
         return active_pane.split(
@@ -356,10 +372,6 @@ class Window(Obj):
         2. Manual resizing: ``height`` and / or ``width``.
         3. Expand or shrink: ``expand`` or ``shrink``.
         """
-        if not has_gte_version("2.9"):
-            warnings.warn("resize() requires tmux 2.9 or newer", stacklevel=2)
-            return self
-
         tmux_args: tuple[str, ...] = ()
 
         # Adjustments
@@ -402,7 +414,7 @@ class Window(Obj):
         Parameters
         ----------
         layout : str, optional
-            string of the layout, 'even-horizontal', 'tiled', etc. Entering
+            String of the layout, 'even-horizontal', 'tiled', etc. Entering
             None (leaving this blank) is same as ``select-layout`` with no
             layout. In recent tmux versions, it picks the most recently
             set layout.
@@ -423,7 +435,17 @@ class Window(Obj):
                 Panes are spread out as evenly as possible over the window in
                 both rows and columns.
             'custom'
-                custom dimensions (see :term:`tmux(1)` manpages).
+                Custom dimensions (see :term:`tmux(1)` manpages).
+
+        Returns
+        -------
+        :class:`Window`
+            Self, for method chaining.
+
+        Raises
+        ------
+        :exc:`libtmux.exc.LibTmuxException`
+            If tmux returns an error.
         """
         cmd = ["select-layout"]
 
@@ -436,123 +458,6 @@ class Window(Obj):
             raise exc.LibTmuxException(proc.stderr)
 
         return self
-
-    def set_window_option(self, option: str, value: int | str) -> Window:
-        """Set option for tmux window.
-
-        Wraps ``$ tmux set-window-option <option> <value>``.
-
-        Parameters
-        ----------
-        option : str
-            option to set, e.g. 'aggressive-resize'
-        value : str
-            window option value. True/False will turn in 'on' and 'off',
-            also accepts string of 'on' or 'off' directly.
-
-        Raises
-        ------
-        :exc:`exc.OptionError`, :exc:`exc.UnknownOption`,
-        :exc:`exc.InvalidOption`, :exc:`exc.AmbiguousOption`
-        """
-        if isinstance(value, bool) and value:
-            value = "on"
-        elif isinstance(value, bool) and not value:
-            value = "off"
-
-        cmd = self.cmd(
-            "set-window-option",
-            option,
-            value,
-        )
-
-        if isinstance(cmd.stderr, list) and len(cmd.stderr):
-            handle_option_error(cmd.stderr[0])
-
-        return self
-
-    def show_window_options(self, g: bool | None = False) -> WindowOptionDict:
-        """Return dict of options for window.
-
-        .. versionchanged:: 0.13.0
-
-           ``option`` removed, use show_window_option to return an individual option.
-
-        Parameters
-        ----------
-        g : str, optional
-            Pass ``-g`` flag for global variable, default False.
-        """
-        tmux_args: tuple[str, ...] = ()
-
-        if g:
-            tmux_args += ("-g",)
-
-        tmux_args += ("show-window-options",)
-        cmd = self.cmd(*tmux_args)
-
-        output = cmd.stdout
-
-        # The shlex.split function splits the args at spaces, while also
-        # retaining quoted sub-strings.
-        #   shlex.split('this is "a test"') => ['this', 'is', 'a test']
-
-        window_options: WindowOptionDict = {}
-        for item in output:
-            try:
-                key, val = shlex.split(item)
-            except ValueError:
-                logger.exception(f"Error extracting option: {item}")
-            assert isinstance(key, str)
-            assert isinstance(val, str)
-
-            if isinstance(val, str) and val.isdigit():
-                window_options[key] = int(val)
-
-        return window_options
-
-    def show_window_option(
-        self,
-        option: str,
-        g: bool = False,
-    ) -> str | int | None:
-        """Return option value for the target window.
-
-        todo: test and return True/False for on/off string
-
-        Parameters
-        ----------
-        option : str
-        g : bool, optional
-            Pass ``-g`` flag, global. Default False.
-
-        Raises
-        ------
-        :exc:`exc.OptionError`, :exc:`exc.UnknownOption`,
-        :exc:`exc.InvalidOption`, :exc:`exc.AmbiguousOption`
-        """
-        tmux_args: tuple[str | int, ...] = ()
-
-        if g:
-            tmux_args += ("-g",)
-
-        tmux_args += (option,)
-
-        cmd = self.cmd("show-window-options", *tmux_args)
-
-        if len(cmd.stderr):
-            handle_option_error(cmd.stderr[0])
-
-        window_options_output = cmd.stdout
-
-        if not len(window_options_output):
-            return None
-
-        value_raw = next(shlex.split(item) for item in window_options_output)
-
-        value: str | int = int(value_raw[1]) if value_raw[1].isdigit() else value_raw[1]
-
-        return value
 
     def rename_window(self, new_name: str) -> Window:
         """Rename window.
@@ -572,8 +477,6 @@ class Window(Obj):
         >>> window.rename_window('New name')
         Window(@1 1:New name, Session($1 ...))
         """
-        import shlex
-
         lex = shlex.shlex(new_name)
         lex.escape = " "
         lex.whitespace_split = False
@@ -582,7 +485,7 @@ class Window(Obj):
             self.cmd("rename-window", new_name)
             self.window_name = new_name
         except Exception:
-            logger.exception(f"Error renaming window to {new_name}")
+            logger.exception("Error renaming window to %s", new_name)
 
         self.refresh()
 
@@ -651,11 +554,21 @@ class Window(Obj):
         Parameters
         ----------
         destination : str, optional
-            the ``target window`` or index to move the window to, default:
-            empty string
+            The ``target window`` or index to move the window to, default:
+            empty string.
         session : str, optional
-            the ``target session`` or index to move the window to, default:
+            The ``target session`` or index to move the window to, default:
             current session.
+
+        Returns
+        -------
+        :class:`Window`
+            Self, for method chaining.
+
+        Raises
+        ------
+        :exc:`libtmux.exc.LibTmuxException`
+            If tmux returns an error.
         """
         session = session or self.session_id
         proc = self.cmd(
@@ -693,11 +606,6 @@ class Window(Obj):
 
         Examples
         --------
-        .. ::
-            >>> import pytest
-            >>> from libtmux.common import has_lt_version
-            >>> if has_lt_version('3.2'):
-            ...     pytest.skip('This doctest requires tmux 3.2 or newer')
         >>> window_initial = session.new_window(window_name='Example')
         >>> window_initial
         Window(@... 2:Example, Session($1 libtmux_...))
@@ -793,7 +701,7 @@ class Window(Obj):
         """Representation of :class:`Window` object."""
         return (
             f"{self.__class__.__name__}({self.window_id} "
-            + f"{self.window_index}:{self.window_name}, {self.session})"
+            f"{self.window_index}:{self.window_name}, {self.session})"
         )
 
     #
@@ -889,31 +797,10 @@ class Window(Obj):
 
            ``percent=25`` deprecated in favor of ``size="25%"``.
         """
-        warnings.warn(
-            "Window.split_window() is deprecated in favor of Window.split()",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
-
-        if percent is not None:
-            # Deprecated in 3.1 in favor of -l
-            warnings.warn(
-                f'Deprecated in favor of size="{str(percent).rstrip("%")}%" '
-                + ' ("-l" flag) in tmux 3.1+.',
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
-            if size is None:
-                size = f"{str(percent).rstrip('%')}%"
-
-        return self.split(
-            target=target,
-            start_directory=start_directory,
-            attach=attach,
-            direction=PaneDirection.Below if vertical else PaneDirection.Right,
-            shell=shell,
-            size=size,
-            environment=environment,
+        raise exc.DeprecatedError(
+            deprecated="Window.split_window()",
+            replacement="Window.split()",
+            version="0.33.0",
         )
 
     @property
@@ -926,15 +813,11 @@ class Window(Obj):
 
            Deprecated in favor of :meth:`.active_pane`.
         """
-        warnings.warn(
-            "Window.attached_pane() is deprecated in favor of Window.active_pane()",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Window.attached_pane",
+            replacement="Window.active_pane",
+            version="0.31.0",
         )
-        panes = self.panes.filter(pane_active="1")
-        if len(panes) > 0:
-            return panes[0]
-        return None
 
     def select_window(self) -> Window:
         """Select window.
@@ -945,13 +828,11 @@ class Window(Obj):
 
            Deprecated in favor of :meth:`.select()`.
         """
-        warnings.warn(
-            "Window.select_window() is deprecated in favor of Window.select()",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Window.select_window()",
+            replacement="Window.select()",
+            version="0.30.0",
         )
-        assert isinstance(self.window_index, str)
-        return self.session.select_window(self.window_index)
 
     def kill_window(self) -> None:
         """Kill the current :class:`Window` object. ``$ tmux kill-window``.
@@ -962,47 +843,102 @@ class Window(Obj):
 
            Deprecated in favor of :meth:`.kill()`.
         """
+        raise exc.DeprecatedError(
+            deprecated="Window.kill_window()",
+            replacement="Window.kill()",
+            version="0.30.0",
+        )
+
+    def set_window_option(
+        self,
+        option: str,
+        value: int | str,
+    ) -> Window:
+        """Set option for tmux window. Deprecated by :meth:`Window.set_option()`.
+
+        .. deprecated:: 0.50
+
+           Deprecated by :meth:`Window.set_option()`.
+
+        """
         warnings.warn(
-            "Window.kill_server() is deprecated in favor of Window.kill()",
+            "Window.set_window_option() is deprecated in favor of Window.set_option()",
             category=DeprecationWarning,
             stacklevel=2,
         )
-        proc = self.cmd("kill-window")
+        return self.set_option(option=option, value=value)
 
-        if proc.stderr:
-            raise exc.LibTmuxException(proc.stderr)
+    def show_window_options(self, g: bool | None = False) -> WindowOptionDict:
+        """Show options for tmux window. Deprecated by :meth:`Window.show_options()`.
+
+        .. deprecated:: 0.50
+
+           Deprecated by :meth:`Window.show_options()`.
+
+        """
+        warnings.warn(
+            "Window.show_window_options() is deprecated"
+            " in favor of Window.show_options()",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.show_options(
+            global_=g or False,
+            scope=OptionScope.Window,
+        )
+
+    def show_window_option(
+        self,
+        option: str,
+        g: bool = False,
+    ) -> str | int | None:
+        """Return option for target window. Deprecated by :meth:`Window.show_option()`.
+
+        .. deprecated:: 0.50
+
+           Deprecated by :meth:`Window.show_option()`.
+
+        """
+        warnings.warn(
+            "Window.show_window_option() is deprecated"
+            " in favor of Window.show_option()",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.show_option(
+            option=option,
+            global_=g,
+        )
 
     def get(self, key: str, default: t.Any | None = None) -> t.Any:
         """Return key-based lookup. Deprecated by attributes.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Deprecated by attribute lookup.e.g. ``window['window_name']`` is now
            accessed via ``window.window_name``.
 
         """
-        warnings.warn(
-            "Window.get() is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Window.get()",
+            replacement="direct attribute access (e.g., window.window_name)",
+            version="0.17.0",
         )
-        return getattr(self, key, default)
 
     def __getitem__(self, key: str) -> t.Any:
         """Return item lookup by key. Deprecated in favor of attributes.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Deprecated in favor of attributes. e.g. ``window['window_name']`` is now
            accessed via ``window.window_name``.
 
         """
-        warnings.warn(
-            f"Item lookups, e.g. window['{key}'] is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Window[key] lookup",
+            replacement="direct attribute access (e.g., window.window_name)",
+            version="0.17.0",
         )
-        return getattr(self, key)
 
     def get_by_id(self, pane_id: str) -> Pane | None:
         """Return pane by id. Deprecated in favor of :meth:`.panes.get()`.
@@ -1012,100 +948,94 @@ class Window(Obj):
            Deprecated by :meth:`.panes.get()`.
 
         """
-        warnings.warn(
-            "Window.get_by_id() is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Window.get_by_id()",
+            replacement="Window.panes.get(pane_id=..., default=None)",
+            version="0.16.0",
         )
-        return self.panes.get(pane_id=pane_id, default=None)
 
     def where(self, kwargs: dict[str, t.Any]) -> list[Pane]:
         """Filter through panes, return list of :class:`Pane`.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Deprecated by :meth:`.panes.filter()`.
 
         """
-        warnings.warn(
-            "Window.where() is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Window.where()",
+            replacement="Window.panes.filter()",
+            version="0.17.0",
         )
-        try:
-            return self.panes.filter(**kwargs)
-        except IndexError:
-            return []
 
     def find_where(self, kwargs: dict[str, t.Any]) -> Pane | None:
         """Filter through panes, return first :class:`Pane`.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Slated to be removed in favor of :meth:`.panes.get()`.
 
         """
-        warnings.warn(
-            "Window.find_where() is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Window.find_where()",
+            replacement="Window.panes.get(default=None, **kwargs)",
+            version="0.17.0",
         )
-        return self.panes.get(default=None, **kwargs)
 
     def _list_panes(self) -> list[PaneDict]:
         """Return list of panes (deprecated in favor of :meth:`.panes`).
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Slated to be removed in favor of :attr:`.panes`.
 
         """
-        warnings.warn(
-            "Window._list_panes() is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Window._list_panes()",
+            replacement="Window.panes property",
+            version="0.17.0",
         )
-        return [pane.__dict__ for pane in self.panes]
 
     @property
     def _panes(self) -> list[PaneDict]:
         """Property / alias to return :meth:`~._list_panes`.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Slated to be removed in favor of :attr:`.panes`.
 
         """
-        warnings.warn("_panes is deprecated", category=DeprecationWarning, stacklevel=2)
-        return self._list_panes()
+        raise exc.DeprecatedError(
+            deprecated="Window._panes",
+            replacement="Window.panes property",
+            version="0.17.0",
+        )
 
     def list_panes(self) -> list[Pane]:
         """Return list of :class:`Pane` for the window.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Slated to be removed in favor of :attr:`.panes`.
 
         """
-        warnings.warn(
-            "list_panes() is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Window.list_panes()",
+            replacement="Window.panes property",
+            version="0.17.0",
         )
-        return self.panes
 
     @property
     def children(self) -> QueryList[Pane]:
         """Was used by TmuxRelationalObject (but that's longer used in this class).
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Slated to be removed in favor of :attr:`.panes`.
 
         """
-        warnings.warn(
-            "Window.children is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Window.children",
+            replacement="Window.panes property",
+            version="0.17.0",
         )
-        return self.panes

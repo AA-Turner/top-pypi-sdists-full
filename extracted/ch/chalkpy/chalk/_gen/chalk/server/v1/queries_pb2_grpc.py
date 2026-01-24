@@ -90,6 +90,26 @@ class QueriesServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryVersionsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryVersionsResponse.FromString,
         )
+        self.GetQueryRun = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/GetQueryRun",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryRunRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryRunResponse.FromString,
+        )
+        self.GetStreamingResolverMappingPlan = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/GetStreamingResolverMappingPlan",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMappingPlanRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMappingPlanResponse.FromString,
+        )
+        self.GetStreamingResolverSinkPlan = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/GetStreamingResolverSinkPlan",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverSinkPlanRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverSinkPlanResponse.FromString,
+        )
+        self.GetStreamingResolverMaterializedAggregationPlan = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/GetStreamingResolverMaterializedAggregationPlan",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMaterializedAggregationPlanRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMaterializedAggregationPlanResponse.FromString,
+        )
 
 
 class QueriesServiceServicer(object):
@@ -185,6 +205,30 @@ class QueriesServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetQueryRun(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetStreamingResolverMappingPlan(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetStreamingResolverSinkPlan(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetStreamingResolverMaterializedAggregationPlan(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_QueriesServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -262,6 +306,26 @@ def add_QueriesServiceServicer_to_server(servicer, server):
             servicer.ListMetaQueryVersions,
             request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryVersionsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryVersionsResponse.SerializeToString,
+        ),
+        "GetQueryRun": grpc.unary_unary_rpc_method_handler(
+            servicer.GetQueryRun,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryRunRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryRunResponse.SerializeToString,
+        ),
+        "GetStreamingResolverMappingPlan": grpc.unary_unary_rpc_method_handler(
+            servicer.GetStreamingResolverMappingPlan,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMappingPlanRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMappingPlanResponse.SerializeToString,
+        ),
+        "GetStreamingResolverSinkPlan": grpc.unary_unary_rpc_method_handler(
+            servicer.GetStreamingResolverSinkPlan,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverSinkPlanRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverSinkPlanResponse.SerializeToString,
+        ),
+        "GetStreamingResolverMaterializedAggregationPlan": grpc.unary_unary_rpc_method_handler(
+            servicer.GetStreamingResolverMaterializedAggregationPlan,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMaterializedAggregationPlanRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMaterializedAggregationPlanResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.QueriesService", rpc_method_handlers)
@@ -697,6 +761,122 @@ class QueriesService(object):
             "/chalk.server.v1.QueriesService/ListMetaQueryVersions",
             chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryVersionsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryVersionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetQueryRun(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/GetQueryRun",
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryRunRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryRunResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetStreamingResolverMappingPlan(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/GetStreamingResolverMappingPlan",
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMappingPlanRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMappingPlanResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetStreamingResolverSinkPlan(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/GetStreamingResolverSinkPlan",
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverSinkPlanRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverSinkPlanResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetStreamingResolverMaterializedAggregationPlan(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/GetStreamingResolverMaterializedAggregationPlan",
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMaterializedAggregationPlanRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMaterializedAggregationPlanResponse.FromString,
             options,
             channel_credentials,
             insecure,

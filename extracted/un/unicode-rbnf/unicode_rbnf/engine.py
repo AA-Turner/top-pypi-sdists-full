@@ -10,9 +10,9 @@ from bisect import bisect_left
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum, IntFlag, auto
-from math import ceil, floor, isinf, isnan, log, modf
+from math import ceil, floor, isinf, isnan, log
 from pathlib import Path
-from typing import Dict, Final, Iterable, List, Optional, Set, Union
+from typing import Dict, Final, Iterable, List, Optional, Set, Tuple, Union
 from xml.etree import ElementTree as et
 
 DEFAULT_TOLERANCE: Final = 1e-8
@@ -57,12 +57,20 @@ class FormatPurpose(Enum):
         return FormatPurpose.UNKNOWN
 
 
+_DEFAULT_RULESETS: Dict[Tuple[str, FormatPurpose], str] = {
+    ("ko", FormatPurpose.CARDINAL): "spellout-cardinal-sinokorean",
+}
+
+
 @dataclass
 class FormatResult:
     """Result of formatting a number."""
 
     text: str
     """Formatted text from shortest ruleset name."""
+
+    text_ruleset: str
+    """Ruleset that was used for text."""
 
     text_by_ruleset: Dict[str, str]
     """Formatted text for each ruleset."""
@@ -82,6 +90,19 @@ class NoRuleForNumberError(RbnfError):
 
 class RbnfRulePart(ABC):
     """Abstract base class for rule parts."""
+
+
+class ParseState(str, Enum):
+    """Set of rbnf parser."""
+
+    TEXT = "text"
+    SUB_OPTIONAL_BEFORE = "optional_before"
+    SUB_OPTIONAL_AFTER = "optional_after"
+    SUB_PLURAL_FORMAT = "plural_format"
+    SUB_REMAINDER = "remainder"
+    SUB_QUOTIENT = "quotient"
+    SUB_RULESET_NAME = "sub_ruleset_name"
+    REPLACE_RULESET_NAME = "replace_ruleset_name"
 
 
 @dataclass
@@ -133,16 +154,66 @@ class ReplaceRulePart(RbnfRulePart):
     """Name of ruleset to use."""
 
 
-class ParseState(str, Enum):
-    """Set of rbnf parser."""
+@dataclass
+class PluralFormatPart(RbnfRulePart):
+    """Function with other ruleset (keep value)."""
 
-    TEXT = "text"
-    SUB_OPTIONAL_BEFORE = "optional_before"
-    SUB_OPTIONAL_AFTER = "optional_after"
-    SUB_REMAINDER = "remainder"
-    SUB_QUOTIENT = "quotient"
-    SUB_RULESET_NAME = "sub_ruleset_name"
-    REPLACE_RULESET_NAME = "replace_ruleset_name"
+    function_name: str = ""
+    """Function to use for substitution."""
+
+    function_value: str = ""
+    """Value to use for fucntion substitution."""
+
+    previous_state: Optional[ParseState] = None
+    """Previous state of parser."""
+
+    previous_part: Optional[RbnfRulePart] = None
+    """Previous part of parser."""
+
+    def render(self, number: Union[int, float, Decimal]) -> str:
+        """Render function with value."""
+        count_zero = self.function_value.count("0")
+        name_value = str(number)[:-count_zero]
+        value = Decimal(name_value[-1:])
+        value_many = Decimal(name_value[-2:])
+
+        clean_fn = self.function_name.replace("cardinal,", "").replace("ordinal,", "")
+
+        zero_match = re.search(r"zero\{(.*?)\}", clean_fn)
+        zero_value = zero_match.group(1) if zero_match else ""
+        if zero_match and zero_value and value == 0:
+            return zero_value
+
+        one_match = re.search(r"one\{(.*?)\}", clean_fn)
+        one_value = one_match.group(1) if one_match else ""
+        if one_match and one_value and value == 1:
+            return one_value
+
+        two_match = re.search(r"two\{(.*?)\}", clean_fn)
+        two_value = two_match.group(1) if two_match else ""
+        if two_match and two_value and value == 2:
+            return two_value
+
+        few_match = re.search(r"few\{(.*?)\}", clean_fn)
+        few_value = few_match.group(1) if few_match else ""
+        if few_match and few_value and value in [2, 3, 4]:
+            return few_value
+
+        many_match = re.search(r"many\{(.*?)\}", clean_fn)
+        many_value = many_match.group(1) if many_match else ""
+        if (
+            many_match
+            and few_value
+            and value_many in [11, 12, 13, 14, 15, 16, 17, 18, 19]
+        ):
+            return few_value
+
+        other_match = re.search(r"other\{(.*?)\}", clean_fn)
+        other_value = other_match.group(1) if other_match else ""
+        if other_match and other_value:
+            return other_value
+
+        return many_value
 
 
 class RbnfSpecialRule(str, Enum):
@@ -199,8 +270,13 @@ class RbnfRule:
         part: Optional[RbnfRulePart] = None
         is_sub_optional = False
         sub_text_before = ""
+        skip_next_char = False
 
-        for c in text:
+        for x, c in enumerate(text):
+            if skip_next_char:
+                skip_next_char = False
+                continue
+
             if c == ";":
                 # End of rule text
                 break
@@ -209,10 +285,24 @@ class RbnfRule:
                 # Placeholder
                 continue
 
+            next_c: Optional[str] = None
+            if (x + 1) < len(text):
+                next_c = text[x + 1]
+
             if c in (">", "→"):
                 # Divide the number by the rule's divisor and format the remainder
                 if state in {ParseState.TEXT, ParseState.SUB_OPTIONAL_BEFORE}:
                     state = ParseState.SUB_REMAINDER
+
+                    if rule.parts and isinstance(rule.parts[-1], TextRulePart):
+                        # Shift whitespace before arrow here.
+                        # This is so it separates words in fractional mode.
+                        prev_text_part: TextRulePart = rule.parts[-1]
+                        prev_text_stripped = prev_text_part.text.rstrip()
+                        prev_whitespace = prev_text_part.text[len(prev_text_stripped) :]
+                        prev_text_part.text = prev_text_stripped
+                        sub_text_before += prev_whitespace
+
                     part = SubRulePart(
                         SubType.REMAINDER,
                         is_optional=is_sub_optional,
@@ -220,7 +310,14 @@ class RbnfRule:
                     )
                     rule.parts.append(part)
                     sub_text_before = ""
+
                 elif state in {ParseState.SUB_REMAINDER, ParseState.SUB_RULESET_NAME}:
+                    if next_c in (">", "→"):
+                        # Ignore final arrow in triple arrow.
+                        # It means to render digit-by-digit, which we already do
+                        # in "fractional" mode.
+                        skip_next_char = True
+
                     if is_sub_optional:
                         state = ParseState.SUB_OPTIONAL_AFTER
                     else:
@@ -255,6 +352,24 @@ class RbnfRule:
                     pass
                 else:
                     raise ValueError(f"Got {c} in {state}")
+            elif c == "$":
+                # $(cardinal,plural syntax)$, $(ordinal,plural syntax)$
+                if text[x + 1] == "(":
+                    _previous_state = state
+                    _previous_part = part
+                    state = ParseState.SUB_PLURAL_FORMAT
+                    part = PluralFormatPart()
+                    part.function_value = value_str
+                    part.previous_state = _previous_state
+                    part.previous_part = _previous_part
+                elif state == ParseState.SUB_PLURAL_FORMAT and text[x - 1] == ")":
+                    assert isinstance(part, PluralFormatPart)
+                    assert part.previous_state is not None
+                    rule.parts.append(part)
+                    state = part.previous_state
+                    part = part.previous_part
+                else:
+                    raise ValueError(f"Got {c} in {state} fot text: {text} (x: {x})")
             elif c == "[":
                 # [optional] (start)
                 if state == ParseState.TEXT:
@@ -289,6 +404,10 @@ class RbnfRule:
                 # [... after]
                 assert isinstance(part, SubRulePart)
                 part.text_after += c
+            elif state == ParseState.SUB_PLURAL_FORMAT:
+                assert isinstance(part, PluralFormatPart)
+                if c not in ["(", ")"]:
+                    part.function_name += c
             elif state == ParseState.SUB_RULESET_NAME:
                 # %ruleset_name in << or >>
                 assert isinstance(part, SubRulePart)
@@ -335,6 +454,9 @@ class RbnfRuleSet:
 
     special_rules: Dict[RbnfSpecialRule, RbnfRule] = field(default_factory=dict)
     """Rules keyed by special rule type."""
+
+    is_private: bool = False
+    """True if ruleset is private."""
 
     _sorted_numbers: Optional[List[int]] = field(default=None)
     """Sorted list of numeric_rules keys (updated on demand)."""
@@ -462,12 +584,13 @@ class RbnfEngine:
         rule_text: str,
         ruleset_name: str,
         radix: int = 10,
+        is_private: bool = False,
     ) -> Optional[RbnfRule]:
         """Manually add a rule to the engine."""
         assert ruleset_name is not None
         ruleset = self.rulesets.get(ruleset_name)
         if ruleset is None:
-            ruleset = RbnfRuleSet(name=ruleset_name)
+            ruleset = RbnfRuleSet(name=ruleset_name, is_private=is_private)
             self.rulesets[ruleset_name] = ruleset
 
         rule = RbnfRule.parse(value_str, rule_text, radix=radix)
@@ -499,6 +622,8 @@ class RbnfEngine:
                 _LOGGER.debug("Skipping ruleset: %s", ruleset_name)
                 continue
 
+            is_private = group_elem.attrib.get("access") == "private"
+
             for rule_elem in group_elem.findall("rbnfrule"):
                 if not rule_elem.text:
                     continue
@@ -511,6 +636,7 @@ class RbnfEngine:
                     rule_elem.text,
                     ruleset_name,
                     radix=radix,
+                    is_private=is_private,
                 )
 
     def format_number(
@@ -529,10 +655,11 @@ class RbnfEngine:
         if ruleset_names is None:
             # Gather all rulesets that fit the formatting purpose
             ruleset_names = [
-                r
-                for r in self.rulesets
-                if FormatPurpose.from_ruleset_name(r) == purpose
-                and ("verbose" not in r)
+                r_name
+                for r_name, r in self.rulesets.items()
+                if (not r.is_private)
+                and (FormatPurpose.from_ruleset_name(r_name) == purpose)
+                and ("verbose" not in r_name)
             ]
 
         if not ruleset_names:
@@ -564,10 +691,20 @@ class RbnfEngine:
         if not number_strs:
             raise NoRuleForNumberError(f"No rules were successful for {number}")
 
-        shortest_ruleset = sorted(number_strs, key=len)[0]
+        # Put spellout-numbering at the end
+        default_ruleset = _DEFAULT_RULESETS.get((self.language, purpose))
+        if (not default_ruleset) or (default_ruleset not in number_strs):
+            default_ruleset = "spellout-numbering"
+
+        if default_ruleset not in number_strs:
+            # Use ruleset with shortest length.
+            # Silly, but works most of the time.
+            default_ruleset = sorted(number_strs, key=len)[0]
 
         return FormatResult(
-            text=number_strs[shortest_ruleset], text_by_ruleset=number_strs
+            text=number_strs[default_ruleset],
+            text_ruleset=default_ruleset,
+            text_by_ruleset=number_strs,
         )
 
     def iter_format_number(
@@ -594,35 +731,43 @@ class RbnfEngine:
 
         q: int = 0
         r: int = 0
+        r_digits: Optional[str] = None
 
         if isinstance(rule.value, RbnfSpecialRule):
             if rule.value == RbnfSpecialRule.NEGATIVE_NUMBER:
                 r = int(-number)
             elif rule.value == RbnfSpecialRule.IMPROPER_FRACTION:
-                frac_part, int_part = modf(number)
-                q = int(int_part)
-                r = fractional_to_int(frac_part * 10, tolerance=tolerance)
+                dec_num = Decimal(str(number))
+                q_str, r_digits = str(dec_num).split(".", maxsplit=1)
+                q = int(q_str)
             elif rule.value in {RbnfSpecialRule.NOT_A_NUMBER, RbnfSpecialRule.INFINITY}:
                 # Should just be text substitutions
                 pass
             else:
                 _LOGGER.warning("Unhandled special rule: %s", rule.value)
         elif rule.value > 0:
+            if len(str(rule.value)) > 1 and str(rule.value)[0] != "1":
+                rule.value = int("1" + str(rule.value)[1:])
             power_below = rule.radix ** int(floor(log(rule.value, rule.radix)))
             power_above = rule.radix ** int(ceil(log(rule.value, rule.radix)))
             divisor = power_above if (number >= power_above) else power_below
-            q, r = divmod(number, divisor)
+            q, r = divmod(int(number), divisor)
 
         for part in rule.parts:
             if isinstance(part, TextRulePart):
                 if part.text:
                     yield part.text
+            elif isinstance(part, PluralFormatPart):
+                if part.function_name:
+                    yield part.render(number)
             elif isinstance(part, SubRulePart):
                 sub_part: SubRulePart = part
 
                 if part.type == SubType.QUOTIENT:
-                    if (q == 0) and (
-                        sub_part.is_optional or (part.ruleset_name is None)
+                    if (
+                        (q == 0)
+                        and (sub_part.is_optional or (part.ruleset_name is None))
+                        and (not r_digits)
                     ):
                         # Rulesets can use quotients of zero
                         continue
@@ -637,19 +782,39 @@ class RbnfEngine:
                     if part.text_after:
                         yield part.text_after
                 elif part.type == SubType.REMAINDER:
-                    if (r == 0) and (
-                        sub_part.is_optional or (part.ruleset_name is None)
+                    if (
+                        (r == 0)
+                        and (sub_part.is_optional or (part.ruleset_name is None))
+                        and (not r_digits)
                     ):
                         # Rulesets can use remainders of zero
                         continue
 
+                    if r_digits:
+                        # Render digit-by-digit
+                        for digit_str in r_digits:
+                            digit = int(digit_str)
+
+                            if part.text_before:
+                                yield part.text_before
+                            yield from self.iter_format_number(
+                                digit,
+                                ruleset_name=part.ruleset_name or ruleset_name,
+                                tolerance=tolerance,
+                            )
+                            if part.text_after:
+                                yield part.text_after
+                        continue
+
                     if part.text_before:
                         yield part.text_before
+
                     yield from self.iter_format_number(
                         r,
                         ruleset_name=part.ruleset_name or ruleset_name,
                         tolerance=tolerance,
                     )
+
                     if part.text_after:
                         yield part.text_after
             elif isinstance(part, ReplaceRulePart):

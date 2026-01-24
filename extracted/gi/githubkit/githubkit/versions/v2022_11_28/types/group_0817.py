@@ -9,202 +9,88 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
+from typing import Literal
 from typing_extensions import NotRequired, TypedDict
 
-from .group_0003 import SimpleUserType
-from .group_0442 import EnterpriseWebhooksType
-from .group_0443 import SimpleInstallationType
-from .group_0444 import OrganizationSimpleWebhooksType
-from .group_0445 import RepositoryWebhooksType
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
+from .group_0473 import EnterpriseWebhooksType, EnterpriseWebhooksTypeForResponse
+from .group_0474 import SimpleInstallationType, SimpleInstallationTypeForResponse
+from .group_0475 import (
+    OrganizationSimpleWebhooksType,
+    OrganizationSimpleWebhooksTypeForResponse,
+)
+from .group_0476 import RepositoryWebhooksType, RepositoryWebhooksTypeForResponse
 
 
-class WebhookStatusType(TypedDict):
-    """status event"""
+class WebhookRepositoryRenamedType(TypedDict):
+    """repository renamed event"""
 
-    avatar_url: NotRequired[Union[str, None]]
-    branches: list[WebhookStatusPropBranchesItemsType]
-    commit: WebhookStatusPropCommitType
-    context: str
-    created_at: str
-    description: Union[str, None]
+    action: Literal["renamed"]
+    changes: WebhookRepositoryRenamedPropChangesType
     enterprise: NotRequired[EnterpriseWebhooksType]
-    id: int
     installation: NotRequired[SimpleInstallationType]
-    name: str
     organization: NotRequired[OrganizationSimpleWebhooksType]
     repository: RepositoryWebhooksType
     sender: SimpleUserType
-    sha: str
-    state: Literal["pending", "success", "failure", "error"]
-    target_url: Union[str, None]
-    updated_at: str
 
 
-class WebhookStatusPropBranchesItemsType(TypedDict):
-    """WebhookStatusPropBranchesItems"""
+class WebhookRepositoryRenamedTypeForResponse(TypedDict):
+    """repository renamed event"""
 
-    commit: WebhookStatusPropBranchesItemsPropCommitType
-    name: str
-    protected: bool
-
-
-class WebhookStatusPropBranchesItemsPropCommitType(TypedDict):
-    """WebhookStatusPropBranchesItemsPropCommit"""
-
-    sha: Union[str, None]
-    url: Union[str, None]
+    action: Literal["renamed"]
+    changes: WebhookRepositoryRenamedPropChangesTypeForResponse
+    enterprise: NotRequired[EnterpriseWebhooksTypeForResponse]
+    installation: NotRequired[SimpleInstallationTypeForResponse]
+    organization: NotRequired[OrganizationSimpleWebhooksTypeForResponse]
+    repository: RepositoryWebhooksTypeForResponse
+    sender: SimpleUserTypeForResponse
 
 
-class WebhookStatusPropCommitType(TypedDict):
-    """WebhookStatusPropCommit"""
+class WebhookRepositoryRenamedPropChangesType(TypedDict):
+    """WebhookRepositoryRenamedPropChanges"""
 
-    author: Union[WebhookStatusPropCommitPropAuthorType, None]
-    comments_url: str
-    commit: WebhookStatusPropCommitPropCommitType
-    committer: Union[WebhookStatusPropCommitPropCommitterType, None]
-    html_url: str
-    node_id: str
-    parents: list[WebhookStatusPropCommitPropParentsItemsType]
-    sha: str
-    url: str
+    repository: WebhookRepositoryRenamedPropChangesPropRepositoryType
 
 
-class WebhookStatusPropCommitPropAuthorType(TypedDict):
-    """User"""
+class WebhookRepositoryRenamedPropChangesTypeForResponse(TypedDict):
+    """WebhookRepositoryRenamedPropChanges"""
 
-    avatar_url: NotRequired[str]
-    deleted: NotRequired[bool]
-    email: NotRequired[Union[str, None]]
-    events_url: NotRequired[str]
-    followers_url: NotRequired[str]
-    following_url: NotRequired[str]
-    gists_url: NotRequired[str]
-    gravatar_id: NotRequired[str]
-    html_url: NotRequired[str]
-    id: NotRequired[int]
-    login: NotRequired[str]
-    name: NotRequired[str]
-    node_id: NotRequired[str]
-    organizations_url: NotRequired[str]
-    received_events_url: NotRequired[str]
-    repos_url: NotRequired[str]
-    site_admin: NotRequired[bool]
-    starred_url: NotRequired[str]
-    subscriptions_url: NotRequired[str]
-    type: NotRequired[Literal["Bot", "User", "Organization"]]
-    url: NotRequired[str]
+    repository: WebhookRepositoryRenamedPropChangesPropRepositoryTypeForResponse
 
 
-class WebhookStatusPropCommitPropCommitterType(TypedDict):
-    """User"""
+class WebhookRepositoryRenamedPropChangesPropRepositoryType(TypedDict):
+    """WebhookRepositoryRenamedPropChangesPropRepository"""
 
-    avatar_url: NotRequired[str]
-    deleted: NotRequired[bool]
-    email: NotRequired[Union[str, None]]
-    events_url: NotRequired[str]
-    followers_url: NotRequired[str]
-    following_url: NotRequired[str]
-    gists_url: NotRequired[str]
-    gravatar_id: NotRequired[str]
-    html_url: NotRequired[str]
-    id: NotRequired[int]
-    login: NotRequired[str]
-    name: NotRequired[str]
-    node_id: NotRequired[str]
-    organizations_url: NotRequired[str]
-    received_events_url: NotRequired[str]
-    repos_url: NotRequired[str]
-    site_admin: NotRequired[bool]
-    starred_url: NotRequired[str]
-    subscriptions_url: NotRequired[str]
-    type: NotRequired[Literal["Bot", "User", "Organization"]]
-    url: NotRequired[str]
+    name: WebhookRepositoryRenamedPropChangesPropRepositoryPropNameType
 
 
-class WebhookStatusPropCommitPropParentsItemsType(TypedDict):
-    """WebhookStatusPropCommitPropParentsItems"""
+class WebhookRepositoryRenamedPropChangesPropRepositoryTypeForResponse(TypedDict):
+    """WebhookRepositoryRenamedPropChangesPropRepository"""
 
-    html_url: str
-    sha: str
-    url: str
+    name: WebhookRepositoryRenamedPropChangesPropRepositoryPropNameTypeForResponse
 
 
-class WebhookStatusPropCommitPropCommitType(TypedDict):
-    """WebhookStatusPropCommitPropCommit"""
+class WebhookRepositoryRenamedPropChangesPropRepositoryPropNameType(TypedDict):
+    """WebhookRepositoryRenamedPropChangesPropRepositoryPropName"""
 
-    author: WebhookStatusPropCommitPropCommitPropAuthorType
-    comment_count: int
-    committer: WebhookStatusPropCommitPropCommitPropCommitterType
-    message: str
-    tree: WebhookStatusPropCommitPropCommitPropTreeType
-    url: str
-    verification: WebhookStatusPropCommitPropCommitPropVerificationType
+    from_: str
 
 
-class WebhookStatusPropCommitPropCommitPropAuthorType(TypedDict):
-    """WebhookStatusPropCommitPropCommitPropAuthor"""
+class WebhookRepositoryRenamedPropChangesPropRepositoryPropNameTypeForResponse(
+    TypedDict
+):
+    """WebhookRepositoryRenamedPropChangesPropRepositoryPropName"""
 
-    date: datetime
-    email: str
-    name: str
-    username: NotRequired[str]
-
-
-class WebhookStatusPropCommitPropCommitPropCommitterType(TypedDict):
-    """WebhookStatusPropCommitPropCommitPropCommitter"""
-
-    date: datetime
-    email: str
-    name: str
-    username: NotRequired[str]
-
-
-class WebhookStatusPropCommitPropCommitPropTreeType(TypedDict):
-    """WebhookStatusPropCommitPropCommitPropTree"""
-
-    sha: str
-    url: str
-
-
-class WebhookStatusPropCommitPropCommitPropVerificationType(TypedDict):
-    """WebhookStatusPropCommitPropCommitPropVerification"""
-
-    payload: Union[str, None]
-    reason: Literal[
-        "expired_key",
-        "not_signing_key",
-        "gpgverify_error",
-        "gpgverify_unavailable",
-        "unsigned",
-        "unknown_signature_type",
-        "no_user",
-        "unverified_email",
-        "bad_email",
-        "unknown_key",
-        "malformed_signature",
-        "invalid",
-        "valid",
-        "bad_cert",
-        "ocsp_pending",
-    ]
-    signature: Union[str, None]
-    verified: bool
-    verified_at: Union[str, None]
+    from_: str
 
 
 __all__ = (
-    "WebhookStatusPropBranchesItemsPropCommitType",
-    "WebhookStatusPropBranchesItemsType",
-    "WebhookStatusPropCommitPropAuthorType",
-    "WebhookStatusPropCommitPropCommitPropAuthorType",
-    "WebhookStatusPropCommitPropCommitPropCommitterType",
-    "WebhookStatusPropCommitPropCommitPropTreeType",
-    "WebhookStatusPropCommitPropCommitPropVerificationType",
-    "WebhookStatusPropCommitPropCommitType",
-    "WebhookStatusPropCommitPropCommitterType",
-    "WebhookStatusPropCommitPropParentsItemsType",
-    "WebhookStatusPropCommitType",
-    "WebhookStatusType",
+    "WebhookRepositoryRenamedPropChangesPropRepositoryPropNameType",
+    "WebhookRepositoryRenamedPropChangesPropRepositoryPropNameTypeForResponse",
+    "WebhookRepositoryRenamedPropChangesPropRepositoryType",
+    "WebhookRepositoryRenamedPropChangesPropRepositoryTypeForResponse",
+    "WebhookRepositoryRenamedPropChangesType",
+    "WebhookRepositoryRenamedPropChangesTypeForResponse",
+    "WebhookRepositoryRenamedType",
+    "WebhookRepositoryRenamedTypeForResponse",
 )

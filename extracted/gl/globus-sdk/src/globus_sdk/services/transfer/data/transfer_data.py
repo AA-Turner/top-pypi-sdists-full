@@ -5,10 +5,8 @@ import logging
 import typing as t
 import uuid
 
-from globus_sdk import exc, utils
-
-if t.TYPE_CHECKING:
-    import globus_sdk
+from globus_sdk._missing import MISSING, MissingType
+from globus_sdk._payload import GlobusPayload
 
 log = logging.getLogger(__name__)
 _sync_level_dict: dict[t.Literal["exists", "size", "mtime", "checksum"], int] = {
@@ -20,8 +18,8 @@ _sync_level_dict: dict[t.Literal["exists", "size", "mtime", "checksum"], int] = 
 
 
 def _parse_sync_level(
-    sync_level: t.Literal["exists", "size", "mtime", "checksum"] | int,
-) -> int:
+    sync_level: t.Literal["exists", "size", "mtime", "checksum"] | int | MissingType,
+) -> int | MissingType:
     """
     Map sync_level strings to known int values
 
@@ -35,7 +33,7 @@ def _parse_sync_level(
     return sync_level
 
 
-class TransferData(utils.PayloadWrapper):
+class TransferData(GlobusPayload):
     r"""
     Convenience class for constructing a transfer document, to use as the
     ``data`` parameter to
@@ -44,20 +42,13 @@ class TransferData(utils.PayloadWrapper):
     At least one item must be added using
     :meth:`add_item <globus_sdk.TransferData.add_item>`.
 
-    If ``submission_id`` isn't passed, one will be fetched automatically. The
-    submission ID can be pulled out of here to inspect, but the document
-    can be used as-is multiple times over to retry a potential submission
-    failure (so there shouldn't be any need to inspect it).
-
-    :param transfer_client: A ``TransferClient`` instance which will be used to get a
-        submission ID if one is not supplied. Should be the same instance that is used
-        to submit the transfer.
     :param source_endpoint: The endpoint ID of the source endpoint
     :param destination_endpoint: The endpoint ID of the destination endpoint
     :param label: A string label for the Task
     :param submission_id: A submission ID value fetched via :meth:`get_submission_id \
-        <globus_sdk.TransferClient.get_submission_id>`. Defaults to using
-        ``transfer_client.get_submission_id``
+        <globus_sdk.TransferClient.get_submission_id>`. By default, the SDK
+        will fetch and populate this field when :meth:`submit_transfer \
+        <globus_sdk.TransferClient.submit_transfer>` is called.
     :param sync_level: The method used to compare items between the source and
         destination. One of  ``"exists"``, ``"size"``, ``"mtime"``, or ``"checksum"``
         See the section below on sync-level for an explanation of values.
@@ -77,14 +68,6 @@ class TransferData(utils.PayloadWrapper):
         timestamp is in UTC to avoid confusion and ambiguity. Examples of ISO-8601
         timestamps include ``2017-10-12 09:30Z``, ``2017-10-12 12:33:54+00:00``, and
         ``2017-10-12``
-    :param recursive_symlinks: Specify the behavior of recursive directory transfers
-        when encountering symlinks. One of ``"ignore"``, ``"keep"``, or ``"copy"``.
-        ``"ignore"`` skips symlinks, ``"keep"`` creates symlinks at the destination
-        matching the source (without modifying the link path at all), and
-        ``"copy"`` follows symlinks on the source, failing if the link is invalid.
-        [default: ``"ignore"``]
-    :param skip_activation_check: When true, allow submission even if the endpoints
-        aren't currently activated
     :param skip_source_errors: When true, source permission denied and file
         not found errors from the source endpoint will cause the offending
         path to be skipped.
@@ -92,7 +75,7 @@ class TransferData(utils.PayloadWrapper):
     :param fail_on_quota_errors: When true, quota exceeded errors will cause the
         task to fail.
         [default: ``False``]
-    :param delete_destination_extra: Delete files, directories, and symlinks on the
+    :param delete_destination_extra: Delete files and directories on the
         destination endpoint which don’t exist on the source endpoint or are a
         different type. Only applies for recursive directory transfers.
         [default: ``False``]
@@ -163,70 +146,49 @@ class TransferData(utils.PayloadWrapper):
 
     def __init__(
         self,
-        transfer_client: globus_sdk.TransferClient | None = None,
-        source_endpoint: uuid.UUID | str | None = None,
-        destination_endpoint: uuid.UUID | str | None = None,
+        source_endpoint: uuid.UUID | str,
+        destination_endpoint: uuid.UUID | str,
         *,
-        label: str | None = None,
-        submission_id: uuid.UUID | str | None = None,
+        label: str | MissingType = MISSING,
+        submission_id: uuid.UUID | str | MissingType = MISSING,
         sync_level: (
-            int | None | t.Literal["exists", "size", "mtime", "checksum"]
-        ) = None,
-        verify_checksum: bool = False,
-        preserve_timestamp: bool = False,
-        encrypt_data: bool = False,
-        deadline: datetime.datetime | str | None = None,
-        skip_activation_check: bool | None = None,
-        skip_source_errors: bool = False,
-        fail_on_quota_errors: bool = False,
-        recursive_symlinks: str | None = None,
-        delete_destination_extra: bool = False,
-        notify_on_succeeded: bool = True,
-        notify_on_failed: bool = True,
-        notify_on_inactive: bool = True,
-        source_local_user: str | None = None,
-        destination_local_user: str | None = None,
+            int | t.Literal["exists", "size", "mtime", "checksum"] | MissingType
+        ) = MISSING,
+        verify_checksum: bool | MissingType = MISSING,
+        preserve_timestamp: bool | MissingType = MISSING,
+        encrypt_data: bool | MissingType = MISSING,
+        deadline: datetime.datetime | str | MissingType = MISSING,
+        skip_source_errors: bool | MissingType = MISSING,
+        fail_on_quota_errors: bool | MissingType = MISSING,
+        delete_destination_extra: bool | MissingType = MISSING,
+        notify_on_succeeded: bool | MissingType = MISSING,
+        notify_on_failed: bool | MissingType = MISSING,
+        notify_on_inactive: bool | MissingType = MISSING,
+        source_local_user: str | MissingType = MISSING,
+        destination_local_user: str | MissingType = MISSING,
         additional_fields: dict[str, t.Any] | None = None,
     ) -> None:
         super().__init__()
-        # these must be checked explicitly to handle the fact that `transfer_client` is
-        # the first arg
-        if source_endpoint is None:
-            raise exc.GlobusSDKUsageError("source_endpoint is required")
-        if destination_endpoint is None:
-            raise exc.GlobusSDKUsageError("destination_endpoint is required")
-
         log.debug("Creating a new TransferData object")
         self["DATA_TYPE"] = "transfer"
         self["DATA"] = []
-        self._set_optstrs(
-            source_endpoint=source_endpoint,
-            destination_endpoint=destination_endpoint,
-            label=label,
-            submission_id=submission_id
-            or (
-                transfer_client.get_submission_id()["value"]
-                if transfer_client
-                else None
-            ),
-            recursive_symlinks=recursive_symlinks,
-            deadline=deadline,
-            source_local_user=source_local_user,
-            destination_local_user=destination_local_user,
-        )
-        self._set_optbools(
-            verify_checksum=verify_checksum,
-            preserve_timestamp=preserve_timestamp,
-            encrypt_data=encrypt_data,
-            skip_activation_check=skip_activation_check,
-            skip_source_errors=skip_source_errors,
-            fail_on_quota_errors=fail_on_quota_errors,
-            delete_destination_extra=delete_destination_extra,
-            notify_on_succeeded=notify_on_succeeded,
-            notify_on_failed=notify_on_failed,
-            notify_on_inactive=notify_on_inactive,
-        )
-        self._set_value("sync_level", sync_level, callback=_parse_sync_level)
+        self["source_endpoint"] = source_endpoint
+        self["destination_endpoint"] = destination_endpoint
+        self["label"] = label
+        self["submission_id"] = submission_id
+        self["deadline"] = deadline
+        self["source_local_user"] = source_local_user
+        self["destination_local_user"] = destination_local_user
+        self["verify_checksum"] = verify_checksum
+        self["preserve_timestamp"] = preserve_timestamp
+        self["encrypt_data"] = encrypt_data
+        self["skip_source_errors"] = skip_source_errors
+        self["fail_on_quota_errors"] = fail_on_quota_errors
+        self["delete_destination_extra"] = delete_destination_extra
+        self["notify_on_succeeded"] = notify_on_succeeded
+        self["notify_on_failed"] = notify_on_failed
+        self["notify_on_inactive"] = notify_on_inactive
+        self["sync_level"] = _parse_sync_level(sync_level)
 
         for k, v in self.items():
             log.debug("TransferData.%s = %s", k, v)
@@ -244,15 +206,13 @@ class TransferData(utils.PayloadWrapper):
         source_path: str,
         destination_path: str,
         *,
-        recursive: bool | None = None,
-        external_checksum: str | None = None,
-        checksum_algorithm: str | None = None,
+        recursive: bool | MissingType = MISSING,
+        external_checksum: str | MissingType = MISSING,
+        checksum_algorithm: str | MissingType = MISSING,
         additional_fields: dict[str, t.Any] | None = None,
     ) -> None:
         """
-        Add a file or directory to be transferred. If the item is a symlink
-        to a file or directory, the file or directory at the target of
-        the symlink will be transferred.
+        Add a file or directory to be transferred.
 
         Appends a transfer_item document to the DATA key of the transfer
         document.
@@ -282,44 +242,13 @@ class TransferData(utils.PayloadWrapper):
             "DATA_TYPE": "transfer_item",
             "source_path": source_path,
             "destination_path": destination_path,
+            "recursive": recursive,
+            "external_checksum": external_checksum,
+            "checksum_algorithm": checksum_algorithm,
+            **(additional_fields or {}),
         }
-        if recursive is not None:
-            item_data["recursive"] = recursive
-        if external_checksum is not None:
-            item_data["external_checksum"] = external_checksum
-        if checksum_algorithm is not None:
-            item_data["checksum_algorithm"] = checksum_algorithm
-        if additional_fields is not None:
-            item_data.update(additional_fields)
-
         log.debug(
             'TransferData[{}, {}].add_item: "{}"->"{}"'.format(
-                self["source_endpoint"],
-                self["destination_endpoint"],
-                source_path,
-                destination_path,
-            )
-        )
-        self["DATA"].append(item_data)
-
-    def add_symlink_item(self, source_path: str, destination_path: str) -> None:
-        """
-        Add a symlink to be transferred as a symlink rather than as the
-        target of the symlink.
-
-        Appends a transfer_symlink_item document to the DATA key of the
-        transfer document.
-
-        :param source_path: Path to the source symlink
-        :param destination_path: Path to which the source symlink will be transferred
-        """
-        item_data = {
-            "DATA_TYPE": "transfer_symlink_item",
-            "source_path": source_path,
-            "destination_path": destination_path,
-        }
-        log.debug(
-            'TransferData[{}, {}].add_symlink_item: "{}"->"{}"'.format(
                 self["source_endpoint"],
                 self["destination_endpoint"],
                 source_path,
@@ -334,8 +263,8 @@ class TransferData(utils.PayloadWrapper):
         *,
         method: t.Literal["include", "exclude"] = "exclude",
         type: (  # pylint: disable=redefined-builtin
-            None | t.Literal["file", "dir"]
-        ) = None,
+            t.Literal["file", "dir"] | MissingType
+        ) = MISSING,
     ) -> None:
         """
         Add a filter rule to the transfer document.
@@ -377,15 +306,14 @@ class TransferData(utils.PayloadWrapper):
         ``tdata`` now describes a transfer which will only transfer files
         with the ``.txt`` extension.
         """
-        if "filter_rules" not in self:
+        if self.get("filter_rules", MISSING) is MISSING:
             self["filter_rules"] = []
         rule = {
             "DATA_TYPE": "filter_rule",
             "method": method,
             "name": name,
+            "type": type,
         }
-        if type is not None:
-            rule["type"] = type
         self["filter_rules"].append(rule)
 
     def iter_items(self) -> t.Iterator[dict[str, t.Any]]:

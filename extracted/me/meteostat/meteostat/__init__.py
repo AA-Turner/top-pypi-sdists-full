@@ -2,34 +2,53 @@
 █▀▄▀█ █▀▀ ▀█▀ █▀▀ █▀█ █▀ ▀█▀ ▄▀█ ▀█▀
 █░▀░█ ██▄ ░█░ ██▄ █▄█ ▄█ ░█░ █▀█ ░█░
 
-A Python library for accessing open weather and climate data
+A Python library for accessing open weather and climate data.
 
 Meteorological data provided by Meteostat (https://dev.meteostat.net)
-under the terms of the Creative Commons Attribution-NonCommercial
-4.0 International Public License.
+under the terms of the Creative Commons Attribution 4.0 International
+License.
 
 The code is licensed under the MIT license.
 """
 
 __appname__ = "meteostat"
-__version__ = "1.7.4"
+__version__ = "2.0.1"
 
-from .interface.base import Base
-from .interface.timeseries import TimeSeries
-from .interface.stations import Stations
-from .interface.point import Point
-from .interface.hourly import Hourly
-from .interface.daily import Daily
-from .interface.monthly import Monthly
-from .interface.normals import Normals
+from meteostat.api.daily import daily
+from meteostat.api.hourly import hourly
+from meteostat.api.interpolate import interpolate
+from meteostat.api.inventory import Inventory
+from meteostat.api.merge import merge
+from meteostat.api.monthly import monthly
+from meteostat.api.normals import normals
+from meteostat.api.point import Point
+from meteostat.api.stations import stations
+from meteostat.api.timeseries import TimeSeries
+from meteostat.core.cache import purge
+from meteostat.api.config import config
+from meteostat.enumerations import Granularity, Parameter, Provider, UnitSystem
+from meteostat.interpolation.lapserate import lapse_rate
+from meteostat.typing import Station, License
 
+# Export public API
 __all__ = [
-    "Base",
-    "TimeSeries",
-    "Stations",
+    "config",
+    "daily",
+    "hourly",
+    "Granularity",
+    "interpolate",
+    "Inventory",
+    "lapse_rate",
+    "License",
+    "merge",
+    "monthly",
+    "normals",
+    "Parameter",
     "Point",
-    "Hourly",
-    "Daily",
-    "Monthly",
-    "Normals",
+    "Provider",
+    "purge",
+    "Station",
+    "stations",
+    "TimeSeries",
+    "UnitSystem",
 ]

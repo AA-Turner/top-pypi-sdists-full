@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 from typing import Any, TypeVar
 
-__all__ = [
+__all__ = [  # noqa: RUF022
     # aiokafka custom errors
     "ConsumerStoppedError",
     "NoOffsetForPartitionError",
@@ -280,8 +280,7 @@ class UnknownTopicOrPartitionError(BrokerResponseError):
     errno = 3
     message = "UNKNOWN_TOPIC_OR_PARTITION"
     description = (
-        "This request is for a topic or partition that does not"
-        " exist on this broker."
+        "This request is for a topic or partition that does not exist on this broker."
     )
     retriable = True
     invalid_metadata = True
@@ -341,8 +340,7 @@ class ReplicaNotAvailableError(BrokerResponseError):
     errno = 9
     message = "REPLICA_NOT_AVAILABLE"
     description = (
-        "If replica is expected on a broker, but is not (this can be"
-        " safely ignored)."
+        "If replica is expected on a broker, but is not (this can be safely ignored)."
     )
 
 
@@ -740,7 +738,9 @@ class OperationNotAttempted(BrokerResponseError):
 class KafkaStorageError(BrokerResponseError):
     errno = 56
     message = "KAFKA_STORAGE_ERROR"
-    description = "The user-specified log directory is not found in the broker config."
+    description = "Disk error when trying to access log file on the disk."
+    retriable = True
+    invalid_metadata = True
 
 
 class LogDirNotFound(BrokerResponseError):

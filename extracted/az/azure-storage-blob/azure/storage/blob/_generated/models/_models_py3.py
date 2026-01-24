@@ -7,20 +7,15 @@
 # Changes may cause incorrect behavior and will be lost if the code is regenerated.
 # --------------------------------------------------------------------------
 
+from collections.abc import MutableMapping
 import datetime
-import sys
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import Any, Optional, TYPE_CHECKING, Union
 
-from .. import _serialization
-
-if sys.version_info >= (3, 9):
-    from collections.abc import MutableMapping
-else:
-    from typing import MutableMapping  # type: ignore
+from .._utils import serialization as _serialization
 
 if TYPE_CHECKING:
     from .. import models as _models
-JSON = MutableMapping[str, Any]  # pylint: disable=unsubscriptable-object
+JSON = MutableMapping[str, Any]
 
 
 class AccessPolicy(_serialization.Model):
@@ -122,7 +117,7 @@ class ArrowConfiguration(_serialization.Model):
     }
     _xml_map = {"name": "ArrowConfiguration"}
 
-    def __init__(self, *, schema: List["_models.ArrowField"], **kwargs: Any) -> None:
+    def __init__(self, *, schema: list["_models.ArrowField"], **kwargs: Any) -> None:
         """
         :keyword schema: Required.
         :paramtype schema: list[~azure.storage.blob.models.ArrowField]
@@ -202,7 +197,7 @@ class BlobFlatListSegment(_serialization.Model):
     }
     _xml_map = {"name": "Blobs"}
 
-    def __init__(self, *, blob_items: List["_models.BlobItemInternal"], **kwargs: Any) -> None:
+    def __init__(self, *, blob_items: list["_models.BlobItemInternal"], **kwargs: Any) -> None:
         """
         :keyword blob_items: Required.
         :paramtype blob_items: list[~azure.storage.blob.models.BlobItemInternal]
@@ -235,8 +230,8 @@ class BlobHierarchyListSegment(_serialization.Model):
     def __init__(
         self,
         *,
-        blob_items: List["_models.BlobItemInternal"],
-        blob_prefixes: Optional[List["_models.BlobPrefix"]] = None,
+        blob_items: list["_models.BlobItemInternal"],
+        blob_prefixes: Optional[list["_models.BlobPrefix"]] = None,
         **kwargs: Any
     ) -> None:
         """
@@ -380,7 +375,7 @@ class BlobItemInternal(_serialization.Model):
         metadata: Optional["_models.BlobMetadata"] = None,
         blob_tags: Optional["_models.BlobTags"] = None,
         has_versions_only: Optional[bool] = None,
-        object_replication_metadata: Optional[Dict[str, str]] = None,
+        object_replication_metadata: Optional[dict[str, str]] = None,
         **kwargs: Any
     ) -> None:
         """
@@ -435,7 +430,7 @@ class BlobMetadata(_serialization.Model):
     _xml_map = {"name": "Metadata"}
 
     def __init__(
-        self, *, additional_properties: Optional[Dict[str, str]] = None, encrypted: Optional[str] = None, **kwargs: Any
+        self, *, additional_properties: Optional[dict[str, str]] = None, encrypted: Optional[str] = None, **kwargs: Any
     ) -> None:
         """
         :keyword additional_properties: Unmatched properties from the message are deserialized to this
@@ -447,6 +442,57 @@ class BlobMetadata(_serialization.Model):
         super().__init__(**kwargs)
         self.additional_properties = additional_properties
         self.encrypted = encrypted
+
+
+class BlobModifiedAccessConditions(_serialization.Model):
+    """Parameter group.
+
+    :ivar if_modified_since: Specify this header value to operate only on a blob if it has been
+     modified since the specified date/time.
+    :vartype if_modified_since: ~datetime.datetime
+    :ivar if_unmodified_since: Specify this header value to operate only on a blob if it has not
+     been modified since the specified date/time.
+    :vartype if_unmodified_since: ~datetime.datetime
+    :ivar if_match: Specify an ETag value to operate only on blobs with a matching value.
+    :vartype if_match: str
+    :ivar if_none_match: Specify an ETag value to operate only on blobs without a matching value.
+    :vartype if_none_match: str
+    """
+
+    _attribute_map = {
+        "if_modified_since": {"key": "ifModifiedSince", "type": "rfc-1123"},
+        "if_unmodified_since": {"key": "ifUnmodifiedSince", "type": "rfc-1123"},
+        "if_match": {"key": "ifMatch", "type": "str"},
+        "if_none_match": {"key": "ifNoneMatch", "type": "str"},
+    }
+
+    def __init__(
+        self,
+        *,
+        if_modified_since: Optional[datetime.datetime] = None,
+        if_unmodified_since: Optional[datetime.datetime] = None,
+        if_match: Optional[str] = None,
+        if_none_match: Optional[str] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword if_modified_since: Specify this header value to operate only on a blob if it has been
+         modified since the specified date/time.
+        :paramtype if_modified_since: ~datetime.datetime
+        :keyword if_unmodified_since: Specify this header value to operate only on a blob if it has not
+         been modified since the specified date/time.
+        :paramtype if_unmodified_since: ~datetime.datetime
+        :keyword if_match: Specify an ETag value to operate only on blobs with a matching value.
+        :paramtype if_match: str
+        :keyword if_none_match: Specify an ETag value to operate only on blobs without a matching
+         value.
+        :paramtype if_none_match: str
+        """
+        super().__init__(**kwargs)
+        self.if_modified_since = if_modified_since
+        self.if_unmodified_since = if_unmodified_since
+        self.if_match = if_match
+        self.if_none_match = if_none_match
 
 
 class BlobName(_serialization.Model):
@@ -874,7 +920,7 @@ class BlobTags(_serialization.Model):
     }
     _xml_map = {"name": "Tags"}
 
-    def __init__(self, *, blob_tag_set: List["_models.BlobTag"], **kwargs: Any) -> None:
+    def __init__(self, *, blob_tag_set: list["_models.BlobTag"], **kwargs: Any) -> None:
         """
         :keyword blob_tag_set: Required.
         :paramtype blob_tag_set: list[~azure.storage.blob.models.BlobTag]
@@ -933,8 +979,8 @@ class BlockList(_serialization.Model):
     def __init__(
         self,
         *,
-        committed_blocks: Optional[List["_models.Block"]] = None,
-        uncommitted_blocks: Optional[List["_models.Block"]] = None,
+        committed_blocks: Optional[list["_models.Block"]] = None,
+        uncommitted_blocks: Optional[list["_models.Block"]] = None,
         **kwargs: Any
     ) -> None:
         """
@@ -969,9 +1015,9 @@ class BlockLookupList(_serialization.Model):
     def __init__(
         self,
         *,
-        committed: Optional[List[str]] = None,
-        uncommitted: Optional[List[str]] = None,
-        latest: Optional[List[str]] = None,
+        committed: Optional[list[str]] = None,
+        uncommitted: Optional[list[str]] = None,
+        latest: Optional[list[str]] = None,
         **kwargs: Any
     ) -> None:
         """
@@ -1098,7 +1144,7 @@ class ContainerItem(_serialization.Model):
         properties: "_models.ContainerProperties",
         deleted: Optional[bool] = None,
         version: Optional[str] = None,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: Optional[dict[str, str]] = None,
         **kwargs: Any
     ) -> None:
         """
@@ -1555,7 +1601,7 @@ class FilterBlobSegment(_serialization.Model):
         *,
         service_endpoint: str,
         where: str,
-        blobs: List["_models.FilterBlobItem"],
+        blobs: list["_models.FilterBlobItem"],
         next_marker: Optional[str] = None,
         **kwargs: Any
     ) -> None:
@@ -1898,7 +1944,7 @@ class ListContainersSegmentResponse(_serialization.Model):
         self,
         *,
         service_endpoint: str,
-        container_items: List["_models.ContainerItem"],
+        container_items: list["_models.ContainerItem"],
         prefix: Optional[str] = None,
         marker: Optional[str] = None,
         max_results: Optional[int] = None,
@@ -2129,8 +2175,8 @@ class PageList(_serialization.Model):
     def __init__(
         self,
         *,
-        page_range: Optional[List["_models.PageRange"]] = None,
-        clear_range: Optional[List["_models.ClearRange"]] = None,
+        page_range: Optional[list["_models.PageRange"]] = None,
+        clear_range: Optional[list["_models.ClearRange"]] = None,
         next_marker: Optional[str] = None,
         **kwargs: Any
     ) -> None:
@@ -2579,19 +2625,45 @@ class StorageError(_serialization.Model):
 
     :ivar message:
     :vartype message: str
+    :ivar copy_source_status_code:
+    :vartype copy_source_status_code: int
+    :ivar copy_source_error_code:
+    :vartype copy_source_error_code: str
+    :ivar copy_source_error_message:
+    :vartype copy_source_error_message: str
     """
 
     _attribute_map = {
         "message": {"key": "Message", "type": "str"},
+        "copy_source_status_code": {"key": "CopySourceStatusCode", "type": "int"},
+        "copy_source_error_code": {"key": "CopySourceErrorCode", "type": "str"},
+        "copy_source_error_message": {"key": "CopySourceErrorMessage", "type": "str"},
     }
 
-    def __init__(self, *, message: Optional[str] = None, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *,
+        message: Optional[str] = None,
+        copy_source_status_code: Optional[int] = None,
+        copy_source_error_code: Optional[str] = None,
+        copy_source_error_message: Optional[str] = None,
+        **kwargs: Any
+    ) -> None:
         """
         :keyword message:
         :paramtype message: str
+        :keyword copy_source_status_code:
+        :paramtype copy_source_status_code: int
+        :keyword copy_source_error_code:
+        :paramtype copy_source_error_code: str
+        :keyword copy_source_error_message:
+        :paramtype copy_source_error_message: str
         """
         super().__init__(**kwargs)
         self.message = message
+        self.copy_source_status_code = copy_source_status_code
+        self.copy_source_error_code = copy_source_error_code
+        self.copy_source_error_message = copy_source_error_message
 
 
 class StorageServiceProperties(_serialization.Model):
@@ -2634,7 +2706,7 @@ class StorageServiceProperties(_serialization.Model):
         logging: Optional["_models.Logging"] = None,
         hour_metrics: Optional["_models.Metrics"] = None,
         minute_metrics: Optional["_models.Metrics"] = None,
-        cors: Optional[List["_models.CorsRule"]] = None,
+        cors: Optional[list["_models.CorsRule"]] = None,
         default_service_version: Optional[str] = None,
         delete_retention_policy: Optional["_models.RetentionPolicy"] = None,
         static_website: Optional["_models.StaticWebsite"] = None,

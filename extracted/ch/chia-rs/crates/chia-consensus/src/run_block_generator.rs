@@ -1,24 +1,25 @@
 use crate::allocator::make_allocator;
 use crate::condition_sanitizers::parse_amount;
 use crate::conditions::{
-    parse_spends, process_single_spend, validate_conditions, validate_signature, EmptyVisitor,
-    ParseState, SpendBundleConditions,
+    EmptyVisitor, ParseState, SpendBundleConditions, parse_spends, process_single_spend,
+    validate_conditions, validate_signature,
 };
 use crate::consensus_constants::ConsensusConstants;
-use crate::flags::DONT_VALIDATE_SIGNATURE;
-use crate::generator_rom::{CLVM_DESERIALIZER, GENERATOR_ROM};
-use crate::validation_error::{first, ErrorCode, ValidationErr};
+use crate::flags::{DONT_VALIDATE_SIGNATURE, SIMPLE_GENERATOR};
+use crate::validation_error::{ErrorCode, ValidationErr, first};
 use chia_bls::{BlsCache, Signature};
 use chia_protocol::{BytesImpl, Coin, CoinSpend, Program};
+use chia_puzzles::{CHIALISP_DESERIALISATION, ROM_BOOTSTRAP_GENERATOR};
 use clvm_traits::FromClvm;
-use clvm_utils::{tree_hash_cached, TreeCache};
+use clvm_traits::MatchByte;
+use clvm_utils::{TreeCache, tree_hash_cached};
+use clvmr::SExp;
 use clvmr::allocator::{Allocator, NodePtr};
 use clvmr::chia_dialect::ChiaDialect;
 use clvmr::cost::Cost;
 use clvmr::reduction::Reduction;
 use clvmr::run_program::run_program;
 use clvmr::serde::{node_from_bytes, node_from_bytes_backrefs};
-use clvmr::{SExp, LIMIT_HEAP};
 
 pub fn subtract_cost(
     a: &Allocator,
@@ -38,11 +39,20 @@ pub fn subtract_cost(
 pub fn setup_generator_args<GenBuf: AsRef<[u8]>, I: IntoIterator<Item = GenBuf>>(
     a: &mut Allocator,
     block_refs: I,
+    flags: u32,
 ) -> Result<NodePtr, ValidationErr>
 where
     <I as IntoIterator>::IntoIter: DoubleEndedIterator,
 {
-    let clvm_deserializer = node_from_bytes(a, &CLVM_DESERIALIZER)?;
+    // once we have soft-forked in requiring simple generators, we no longer
+    // need to pass in the deserialization program
+    if (flags & SIMPLE_GENERATOR) != 0 {
+        if block_refs.into_iter().next().is_some() {
+            return Err(ValidationErr(a.nil(), ErrorCode::TooManyGeneratorRefs));
+        }
+        return Ok(a.nil());
+    }
+    let clvm_deserializer = node_from_bytes(a, &CHIALISP_DESERIALISATION)?;
 
     // iterate in reverse order since we're building a linked list from
     // the tail
@@ -86,13 +96,15 @@ pub fn run_block_generator<GenBuf: AsRef<[u8]>, I: IntoIterator<Item = GenBuf>>(
 where
     <I as IntoIterator>::IntoIter: DoubleEndedIterator,
 {
+    check_generator_quote(a, program, flags)?;
     let mut cost_left = max_cost;
     let byte_cost = program.len() as u64 * constants.cost_per_byte;
 
     subtract_cost(a, &mut cost_left, byte_cost)?;
 
-    let generator_rom = node_from_bytes(a, &GENERATOR_ROM)?;
+    let rom_generator = node_from_bytes(a, &ROM_BOOTSTRAP_GENERATOR)?;
     let program = node_from_bytes_backrefs(a, program)?;
+    check_generator_node(a, program, flags)?;
 
     // this is setting up the arguments to be passed to the generator ROM,
     // not the actual generator (the ROM does that).
@@ -110,7 +122,7 @@ where
 
     let dialect = ChiaDialect::new(flags);
     let Reduction(clvm_cost, generator_output) =
-        run_program(a, &dialect, generator_rom, args, cost_left)?;
+        run_program(a, &dialect, rom_generator, args, cost_left)?;
 
     subtract_cost(a, &mut cost_left, clvm_cost)?;
 
@@ -154,6 +166,39 @@ fn extract_n<const N: usize>(
     Ok(ret)
 }
 
+// this function checks if the generator start with a quote
+// this is required after the SIMPLE_GENERATOR fork is active
+#[inline]
+pub fn check_generator_quote(
+    a: &Allocator,
+    program: &[u8],
+    flags: u32,
+) -> Result<(), ValidationErr> {
+    if flags & SIMPLE_GENERATOR == 0 || program.starts_with(&[0xff, 0x01]) {
+        Ok(())
+    } else {
+        Err(ValidationErr(a.nil(), ErrorCode::ComplexGeneratorReceived))
+    }
+}
+
+// this function is mostly the same as above but is a double check in case of
+// discrepancies in serialized vs deserialized forms
+#[inline]
+pub fn check_generator_node(
+    a: &Allocator,
+    program: NodePtr,
+    flags: u32,
+) -> Result<(), ValidationErr> {
+    if flags & SIMPLE_GENERATOR == 0 {
+        return Ok(());
+    }
+    // this expects an atom with a single byte value of 1 as the first value in the list
+    match <(MatchByte<1>, NodePtr)>::from_clvm(a, program) {
+        Err(..) => Err(ValidationErr(a.nil(), ErrorCode::ComplexGeneratorReceived)),
+        _ => Ok(()),
+    }
+}
+
 /// This has the same behavior as run_block_generator() but implements the
 /// generator ROM in rust instead of using the CLVM implementation.
 /// it is not backwards compatible in the CLVM cost computation (in this version
@@ -174,14 +219,16 @@ pub fn run_block_generator2<GenBuf: AsRef<[u8]>, I: IntoIterator<Item = GenBuf>>
 where
     <I as IntoIterator>::IntoIter: DoubleEndedIterator,
 {
+    check_generator_quote(a, program, flags)?;
     let byte_cost = program.len() as u64 * constants.cost_per_byte;
 
     let mut cost_left = max_cost;
     subtract_cost(a, &mut cost_left, byte_cost)?;
 
     let program = node_from_bytes_backrefs(a, program)?;
+    check_generator_node(a, program, flags)?;
 
-    let args = setup_generator_args(a, block_refs)?;
+    let args = setup_generator_args(a, block_refs, flags)?;
     let dialect = ChiaDialect::new(flags);
 
     let Reduction(clvm_cost, all_spends) = run_program(a, &dialect, program, args, cost_left)?;
@@ -252,6 +299,8 @@ where
     Ok(ret)
 }
 
+// this function is less capable of handling problematic generators as they are
+// returning serialized puzzles, which may not be possible. They will simply ignore many of the bad cases.
 pub fn get_coinspends_for_trusted_block<GenBuf: AsRef<[u8]>, I: IntoIterator<Item = GenBuf>>(
     constants: &ConsensusConstants,
     generator: &Program,
@@ -261,11 +310,13 @@ pub fn get_coinspends_for_trusted_block<GenBuf: AsRef<[u8]>, I: IntoIterator<Ite
 where
     <I as IntoIterator>::IntoIter: DoubleEndedIterator,
 {
-    let mut a = make_allocator(LIMIT_HEAP);
+    let mut a = make_allocator(flags);
+    check_generator_quote(&a, generator.as_ref(), flags)?;
     let mut output = Vec::<CoinSpend>::new();
 
     let program = node_from_bytes_backrefs(&mut a, generator)?;
-    let args = setup_generator_args(&mut a, refs)?;
+    check_generator_node(&a, program, flags)?;
+    let args = setup_generator_args(&mut a, refs, flags)?;
     let dialect = ChiaDialect::new(flags);
 
     let Reduction(_clvm_cost, res) = run_program(
@@ -316,6 +367,9 @@ where
     Ok(output)
 }
 
+// this function is less capable of handling problematic generators as they are
+// returning serialized puzzles, which may not be possible. They will simply ignore many of the bad cases.
+
 // this function returns a list of tuples (coinspend, conditions)
 // conditions are formatted as a vec of tuples of (condition_opcode, args)
 #[allow(clippy::type_complexity)]
@@ -331,11 +385,13 @@ pub fn get_coinspends_with_conditions_for_trusted_block<
 where
     <I as IntoIterator>::IntoIter: DoubleEndedIterator,
 {
-    let mut a = make_allocator(LIMIT_HEAP);
+    let mut a = make_allocator(flags);
+    check_generator_quote(&a, generator.as_ref(), flags)?;
     let mut output = Vec::<(CoinSpend, Vec<(u32, Vec<Vec<u8>>)>)>::new();
 
     let program = node_from_bytes_backrefs(&mut a, generator)?;
-    let args = setup_generator_args(&mut a, refs)?;
+    check_generator_node(&a, program, flags)?;
+    let args = setup_generator_args(&mut a, refs, flags)?;
     let dialect = ChiaDialect::new(flags);
 
     let Reduction(_clvm_cost, res) = run_program(
@@ -381,13 +437,15 @@ where
         let Ok(solution_program) = Program::from_clvm(&a, solution) else {
             continue;
         };
-        let coinspend = CoinSpend::new(coin, puzzle_program.clone(), solution_program.clone());
-        let Ok((_, res)) =
-            puzzle_program.run(&mut a, flags, constants.max_block_cost_clvm, &solution)
-        else {
-            output.push((coinspend, cond_output));
-            continue; // Skip this spend on error
-        };
+
+        let Reduction(_clvm_cost, res) = run_program(
+            &mut a,
+            &dialect,
+            puzzle,
+            solution,
+            constants.max_block_cost_clvm,
+        )
+        .map_err(|_| ValidationErr(program, ErrorCode::GeneratorRuntimeError))?;
         // conditions_list is the full returned output of puzzle ran with solution
         // ((51 0xcafef00d 100) (51 0x1234 200) ...)
 
@@ -425,7 +483,10 @@ where
             // we have a valid condition
             cond_output.push((opcode, bytes_vec));
         }
-        output.push((coinspend, cond_output));
+        output.push((
+            CoinSpend::new(coin, puzzle_program.clone(), solution_program.clone()),
+            cond_output,
+        ));
     }
     Ok(output)
 }

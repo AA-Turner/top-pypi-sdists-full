@@ -85,7 +85,7 @@ async def test_devtools_log_spillover(devtools):
     }
 
 
-async def test_devtools_client_update_console_dimensions(devtools, server):
+async def test_devtools_client_update_console_dimensions(devtools, server) -> None:
     """Sending new server info through websocket from server to client should (eventually)
     result in the dimensions of the devtools client console being updated to match.
     """

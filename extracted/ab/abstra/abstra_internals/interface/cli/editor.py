@@ -12,37 +12,46 @@ from abstra_internals.cloud_api import connect_tunnel
 from abstra_internals.controllers.codebase_events import CodebaseEventController
 from abstra_internals.controllers.execution.consumer import ConsumerController
 from abstra_internals.controllers.main import MainController
-from abstra_internals.environment import HOST
+from abstra_internals.environment import EDITOR_MODE, HOST, RABBITMQ_CONNECTION_URI
 from abstra_internals.interface.cli.messages import serve_message
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.logs_watcher import LogsWatcher, on_logs_update
 from abstra_internals.repositories.consumer import EditorConsumer
-from abstra_internals.repositories.factory import build_editor_repositories
-from abstra_internals.repositories.producer import LocalProducerRepository
+from abstra_internals.repositories.factory import (
+    build_editor_repositories,
+    build_web_editor_repositories,
+    get_mp_context_repository,
+)
+from abstra_internals.repositories.producer import (
+    LocalProducerRepository,
+)
 from abstra_internals.server.apps import get_local_app
 from abstra_internals.services.file_watcher import FileWatcher
 from abstra_internals.settings import Settings
 from abstra_internals.stdio_patcher import StdioPatcher
 from abstra_internals.tasks_watcher import TasksWatcher, on_tasks_update
 from abstra_internals.utils.browser import background_open_editor
+from abstra_internals.utils.multiprocessing import safe_multiprocessing_queue
 from abstra_internals.version import check_latest_version
 
 
-def start_consumer(controller: MainController):
-    if not isinstance(controller.producer_repository, LocalProducerRepository):
-        raise ValueError("Invalid producer repository")
+def start_consumer(controller: MainController, debug_mode: bool = False):
+    if isinstance(controller.producer_repository, LocalProducerRepository):
+        consumer = EditorConsumer(controller.producer_repository.queue)
+        consumer_controller = ConsumerController(
+            controller, consumer, debug_mode=debug_mode
+        )
 
-    consumer = EditorConsumer(controller.producer_repository.queue)
+        th = threading.Thread(
+            daemon=True,
+            name="start_consumer::EditorConsumer",
+            target=consumer_controller.start_loop,
+        )
 
-    th = threading.Thread(
-        daemon=True,
-        name="ExecutionConsumer",
-        target=ConsumerController(controller, consumer).start_loop,
-    )
+        th.start()
+        return consumer, th, consumer_controller
 
-    th.start()
-
-    return consumer, th
+    raise ValueError("Invalid producer repository")
 
 
 def ensure_certificates():
@@ -80,16 +89,43 @@ def ensure_certificates():
             print(f"Failed to restore certificates: {update_e}")
 
 
-def editor(headless: bool):
+def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
     ensure_certificates()
 
     load_dotenv(Settings.root_path / ".env")
 
     serve_message()
     check_latest_version()
-    AbstraLogger.init("local")
+    AbstraLogger.init("local" if EDITOR_MODE == "local" else "cloud")
 
-    repositories = build_editor_repositories()
+    # Determine if we should use RabbitMQ based on EDITOR_MODE and RABBITMQ_CONNECTION_URI
+    # Web editor with workers: EDITOR_MODE=web + RABBITMQ_CONNECTION_URI set
+    # Web editor without workers: EDITOR_MODE=web + no RABBITMQ_CONNECTION_URI (legacy mode)
+    # Local editor: EDITOR_MODE=local
+    is_web_editor = EDITOR_MODE == "web"
+    use_rabbitmq_workers = is_web_editor and RABBITMQ_CONNECTION_URI is not None
+
+    AbstraLogger.info(
+        f"[Editor] Configuration: EDITOR_MODE={EDITOR_MODE}, RABBITMQ_CONNECTION_URI={'SET' if RABBITMQ_CONNECTION_URI else 'NOT SET'}"
+    )
+
+    if use_rabbitmq_workers:
+        AbstraLogger.info(
+            "[Editor] Running in web editor mode with RabbitMQ workers (isolated execution)"
+        )
+        assert RABBITMQ_CONNECTION_URI is not None
+        repositories = build_web_editor_repositories(RABBITMQ_CONNECTION_URI)
+    else:
+        if is_web_editor:
+            AbstraLogger.info(
+                "[Editor] Running in web editor mode without workers (legacy mode)"
+            )
+        else:
+            AbstraLogger.info("[Editor] Running in local editor mode")
+        mp_context = get_mp_context_repository()
+        local_queue = safe_multiprocessing_queue(mp_context.get_context())
+        repositories = build_editor_repositories(local_queue)
+
     main_controller = MainController(repositories)
     main_controller.reset_repositories()
     StdioPatcher.apply(main_controller)
@@ -111,7 +147,8 @@ def editor(headless: bool):
     tasks_watcher = TasksWatcher([on_tasks_update])
     tasks_watcher.start()
 
-    start_consumer(main_controller)
+    if not is_web_editor:
+        start_consumer(main_controller, debug_mode=debug_mode)
 
     app = get_local_app(main_controller)
     server = make_server(host=HOST, port=Settings.server_port, threaded=True, app=app)
@@ -119,6 +156,6 @@ def editor(headless: bool):
     if not headless:
         background_open_editor()
 
-    connect_tunnel()
+    connect_tunnel(verbose=verbose)
 
     server.serve_forever()

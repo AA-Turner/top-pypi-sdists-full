@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: guppy3
-Version: 3.1.5
+Version: 3.1.6
 Summary: Guppy 3 -- Guppy-PE ported to Python 3
 Home-page: https://github.com/zhuyifei1999/guppy3/
 Author: YiFei Zhu
@@ -9,15 +9,24 @@ License: MIT
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: C
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 4 - Beta
 Classifier: Topic :: Software Development :: Debuggers
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 # Guppy 3
 [![Build Status](https://img.shields.io/github/actions/workflow/status/zhuyifei1999/guppy3/workflow.yml?branch=master)](https://github.com/zhuyifei1999/guppy3/actions/workflows/workflow.yml) [![Codecov](https://img.shields.io/codecov/c/github/zhuyifei1999/guppy3)](https://codecov.io/gh/zhuyifei1999/guppy3) [![PyPI version](https://img.shields.io/pypi/v/guppy3)](https://pypi.org/project/guppy3/) [![Repology - Repositories](https://img.shields.io/repology/repositories/python:guppy3)](https://repology.org/project/python:guppy3/versions) [![PyPI - Downloads](https://img.shields.io/pypi/dm/guppy3)](https://pypistats.org/packages/guppy3)  
@@ -37,7 +46,7 @@ Guppy 3 is a fork of Guppy-PE, created by Sverker Nilsson for Python 2.
 
 ## Requirements
 
-You should have Python 3.9, 3.10, 3.11, 3.12, or 3.13. This package is CPython
+You should have Python 3.10, 3.11, 3.12, 3.13, or 3.14. This package is CPython
 only; PyPy and other Python implementations are not supported. Python 2 support
 can be obtained from [guppy-pe](http://guppy-pe.sourceforge.net/) by
 Sverker Nilsson, from which this package is forked.
@@ -105,6 +114,7 @@ People have written awesome posts on how to use this toolset, including:
 * [Digging into python memory issues in ckan with heapy](https://joetsoi.github.io/debugging-python-ckan-memory-issues/)
 * [Optimizing memory usage in Python: a case study](https://web.archive.org/web/20230614181724/https://guillaume.segu.in/blog/code/487/optimizing-memory-usage-in-python-a-case-study/)
 * [Memory profiling in python](https://quantlane.com/blog/python-memory-profiling/)
+* [guppy/heapy - Profile Memory Usage in Python](https://coderzcolumn.com/tutorials/python/guppy-heapy-profile-memory-usage-in-python)
 
 Formal and API documentation are [also available](https://zhuyifei1999.github.io/guppy3/).
 

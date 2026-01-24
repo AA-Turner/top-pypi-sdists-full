@@ -1,12 +1,11 @@
 import os
 import platform
-from typing import Union
 
 from numpy import arange, array, cumsum, dot, ones, vstack
 from numpy.linalg import pinv
 from numpy.random import Generator, RandomState
 
-from arch.typing import UnitRootTrend
+from arch._typing import UnitRootTrend
 
 # Storage Location
 if platform.system() == "Linux":
@@ -66,7 +65,7 @@ def adf_simulation(
     n: int,
     trend: UnitRootTrend,
     b: int,
-    rng: Union[None, RandomState, Generator] = None,
+    rng: None | RandomState | Generator = None,
 ) -> float:
     """
     Simulates the empirical distribution of the ADF z-test statistic

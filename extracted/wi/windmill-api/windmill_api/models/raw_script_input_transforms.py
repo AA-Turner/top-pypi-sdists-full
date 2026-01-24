@@ -17,7 +17,7 @@ T = TypeVar("T", bound="RawScriptInputTransforms")
 
 @_attrs_define
 class RawScriptInputTransforms:
-    """ """
+    """Map of parameter names to their values (static or JavaScript expressions). These become the script's input arguments"""
 
     additional_properties: Dict[
         str, Union["RawScriptInputTransformsAdditionalPropertyType0", "RawScriptInputTransformsAdditionalPropertyType1"]

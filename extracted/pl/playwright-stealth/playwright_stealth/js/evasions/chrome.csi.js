@@ -7,7 +7,7 @@ if (!window.chrome) {
     writable: true,
     enumerable: true,
     configurable: false, // note!
-    value: {}, // We'll extend that later
+    value: {} // We'll extend that later
   });
 }
 
@@ -17,12 +17,12 @@ if (!("csi" in window.chrome) && window.performance?.timing) {
   const { csi_timing } = window.performance;
 
   log("loading chrome.csi.js");
-  window.chrome.csi = function () {
+  window.chrome.csi = function() {
     return {
       onloadT: csi_timing?.domContentLoadedEventEnd,
       startE: csi_timing?.navigationStart,
       pageT: Date.now() - csi_timing?.navigationStart,
-      tran: 15, // transition? seems constant
+      tran: 15 // transition? seems constant
     };
   };
   utils.patchToString(window.chrome.csi);

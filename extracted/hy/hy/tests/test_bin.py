@@ -6,8 +6,11 @@ import platform
 import re
 import shlex
 import subprocess
+from textwrap import dedent
 from importlib.util import cache_from_source
 from pathlib import Path
+
+from hy.compat import PY3_10, PY3_13
 
 import pytest
 
@@ -442,6 +445,41 @@ def test_traceback_shebang(tmp_path):
     assert 'ZeroDivisionError'
     assert 'my cool shebang' not in error
     assert '(/ 1 0)' in error
+
+
+@pytest.mark.xfail(not PY3_10, reason = 'not worth debugging, since CPython 3.9 is unmaintained and this is a minor, undocumented feature')
+def test_pdb_ll(tmp_path):
+    # Test the Python debugger's `ll` command.
+
+    p = tmp_path / 'ex.hy'
+    p.write_text(str.strip(dedent('''
+        (defn f []
+          (print (.upper "aaa"))
+          (breakpoint)
+          (print (.upper "bbb")))
+        (f)''')))
+    o, _ = run_cmd(['hy', p], 'll\nquit\n', expect = 1)
+
+    assert 'AAA' in o
+    assert 'BBB' not in o
+
+    arrow_line = 3 if PY3_13 else 4
+      # Bizarrely, Python 3.12 and earlier will point the arrow to the
+      # line after the breakpoint rather than the line with the
+      # breakpoint, even in pure Python.
+    def arrow(i):
+        return '->' if i == arrow_line else ''
+    def clean(x):
+        return re.sub(r'\s+', ' ', x).strip()
+
+    assert (
+        clean(f'''
+            (Pdb) 1         (defn f []
+              2               (print (.upper "aaa"))
+              3  {arrow(3)}   (breakpoint)
+              4  {arrow(4)}   (print (.upper "bbb")))
+            (Pdb)''')
+        in clean(o))
 
 
 def test_hystartup():

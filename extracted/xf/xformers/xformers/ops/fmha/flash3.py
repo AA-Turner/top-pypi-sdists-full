@@ -103,6 +103,7 @@ def _flash_attention3_incompatible_reason() -> Optional[str]:
 
 FLASH3_HAS_PAGED_ATTENTION = True
 FLASH3_HAS_FLOAT8 = False
+FLASH3_HAS_DETERMINISTIC_MODE = False
 _C_flashattention3 = None
 if importlib.util.find_spec("...flash_attn_3._C", package=__package__):
     from ..._cpp_lib import _build_metadata
@@ -110,6 +111,7 @@ if importlib.util.find_spec("...flash_attn_3._C", package=__package__):
 
     if _build_metadata is not None:
         FLASH_VERSION = _build_metadata.flash_version.lstrip("v")
+    FLASH3_HAS_DETERMINISTIC_MODE = True
     _C_flashattention3 = torch.ops.flash_attn_3
 
 elif importlib.util.find_spec("flash_attn_3") and importlib.util.find_spec(
@@ -461,7 +463,10 @@ if _C_flashattention3 is not None:
         window_right: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         dq, dk, dv = _create_dq_dk_dv(grads_share_storage, query, key, value)
-        is_deterministic = False
+        is_deterministic = (
+            torch.are_deterministic_algorithms_enabled()
+            and FLASH3_HAS_DETERMINISTIC_MODE
+        )
         if cu_seqlens_q is None:
             assert cu_seqlens_k is None
 
@@ -595,6 +600,7 @@ class FwOp(AttentionFwOpBase):
     OPERATOR = get_operator("xformers_flash3", "flash_fwd")
     SUPPORTED_DEVICES: Set[str] = {"cuda"}
     CUDA_MINIMUM_COMPUTE_CAPABILITY = (8, 0)
+    CUDA_MAXIMUM_COMPUTE_CAPABILITY = (9, 0)
     SUPPORTED_DTYPES: Set[torch.dtype] = {
         torch.half,
         torch.bfloat16,
@@ -753,9 +759,7 @@ class FwOp(AttentionFwOpBase):
             return out, None
         ctx = Context(
             out=out,
-            lse=_post_process_lse(
-                softmax_lse, inp, tuple(original_query_shape), varlen_lse_packed=True
-            ),
+            lse=_post_process_lse(softmax_lse, inp, tuple(original_query_shape)),
         )
         return (out, ctx)
 
@@ -767,6 +771,7 @@ class BwOp(AttentionBwOpBase):
     OPERATOR = get_operator("xformers_flash3", "flash_bwd")
     SUPPORTED_DEVICES = FwOp.SUPPORTED_DEVICES
     CUDA_MINIMUM_COMPUTE_CAPABILITY = FwOp.CUDA_MINIMUM_COMPUTE_CAPABILITY
+    CUDA_MAXIMUM_COMPUTE_CAPABILITY = FwOp.CUDA_MAXIMUM_COMPUTE_CAPABILITY
     SUPPORTED_DTYPES = FwOp.SUPPORTED_DTYPES
     SUPPORTED_MAX_K = FwOp.SUPPORTED_MAX_K
     SUPPORTED_MIN_K = 64
@@ -787,7 +792,7 @@ class BwOp(AttentionBwOpBase):
     SUPPORTS_DROPOUT = FwOp.SUPPORTS_DROPOUT
     SUPPORTS_CUSTOM_SCALE = FwOp.SUPPORTS_CUSTOM_SCALE
     SUPPORTS_DIFFERENT_VALUE_EMBED = FwOp.SUPPORTS_DIFFERENT_VALUE_EMBED
-    IS_DETERMINISTIC = False
+    IS_DETERMINISTIC = FLASH3_HAS_DETERMINISTIC_MODE
     SUPPORTS_BMGHK = False
     SUPPORTS_LSE_FORMATS: Sequence[str] = ["", "varlen_flat"]
     NAME = f"fa3B@{FLASH_VERSION}"
@@ -880,6 +885,7 @@ class FwOp_KVSplit(FwOp):
         BlockDiagonalCausalWithOffsetGappyKeysMask,
         BlockDiagonalGappyKeysMask,
         BlockDiagonalLocalAttentionPaddedKeysMask,
+        BlockDiagonalCausalLocalAttentionPaddedKeysMask,
     ) + (
         (
             PagedBlockDiagonalCausalWithOffsetGappyKeysMask,

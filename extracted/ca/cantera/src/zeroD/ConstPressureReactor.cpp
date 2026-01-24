@@ -118,17 +118,29 @@ void ConstPressureReactor::eval(double time, double* LHS, double* RHS)
     }
 }
 
+vector<size_t> ConstPressureReactor::steadyConstraints() const {
+    if (nSurfs() != 0) {
+        throw CanteraError("ConstPressureReactor::steadyConstraints",
+            "Steady state solver cannot currently be used with ConstPressureReactor"
+            " when reactor surfaces are present.\n"
+            "See https://github.com/Cantera/enhancements/issues/234");
+    }
+    return {0}; // mass
+}
+
 size_t ConstPressureReactor::componentIndex(const string& nm) const
 {
-    size_t k = speciesIndex(nm);
-    if (k != npos) {
-        return k + 2;
-    } else if (nm == "mass") {
+    if (nm == "mass") {
         return 0;
-    } else if (nm == "enthalpy") {
+    }
+    if (nm == "enthalpy") {
         return 1;
-    } else {
-        return npos;
+    }
+    try {
+        return speciesIndex(nm) + 2;
+    } catch (const CanteraError&) {
+        throw CanteraError("ConstPressureReactor::componentIndex",
+            "Component '{}' not found", nm);
     }
 }
 
@@ -153,8 +165,39 @@ string ConstPressureReactor::componentName(size_t k) {
             }
         }
     }
-    throw CanteraError("ConstPressureReactor::componentName",
-                       "Index is out of bounds.");
+    throw IndexError("ConstPressureReactor::componentName", "component", k, m_nv);
+}
+
+double ConstPressureReactor::upperBound(size_t k) const {
+    if (k == 0) {
+        return BigNumber; // mass
+    } else if (k == 1) {
+        return BigNumber; // enthalpy
+    } else if (k >= 2 && k < m_nv) {
+        return 1.0; // species mass fraction or surface coverage
+    } else {
+        throw CanteraError("ConstPressureReactor::upperBound",
+                           "Index {} is out of bounds.", k);
+    }
+}
+
+double ConstPressureReactor::lowerBound(size_t k) const {
+    if (k == 0) {
+        return 0; // mass
+    } else if (k == 1) {
+        return -BigNumber; // enthalpy
+    } else if (k >= 2 && k < m_nv) {
+        return -Tiny; // species mass fraction or surface coverage
+    } else {
+        throw CanteraError("ConstPressureReactor::lowerBound",
+                           "Index {} is out of bounds.", k);
+    }
+}
+
+void ConstPressureReactor::resetBadValues(double* y) {
+    for (size_t k = 2; k < m_nv; k++) {
+        y[k] = std::max(y[k], 0.0);
+    }
 }
 
 }

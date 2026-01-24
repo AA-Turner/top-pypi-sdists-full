@@ -1412,6 +1412,220 @@ class CreateDatasetResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class CreateExportRequest(AbstractModel):
+    r"""CreateExport请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Service: 服务类型，TRAIN为任务式建模, NOTEBOOK为Notebook, INFER为在线服务, BATCH为批量预测枚举值：- TRAIN- NOTEBOOK- INFER- BATCH
+        :type Service: str
+        :param _ServiceId: 服务ID，和Service参数对应，不同Service的服务ID获取方式不同，具体如下：- Service类型为TRAIN：  调用[DescribeTrainingTask接口](/document/product/851/75089)查询训练任务详情，ServiceId为接口返回值中Response.TrainingTaskDetail.LatestInstanceId- Service类型为NOTEBOOK：  调用[DescribeNotebook接口](/document/product/851/95662)查询Notebook详情，ServiceId为接口返回值中Response.NotebookDetail.PodName- Service类型为INFER：  调用[DescribeModelServiceGroup接口](/document/product/851/82285)查询服务组详情，ServiceId为接口返回值中Response.ServiceGroup.Services.ServiceId- Service类型为BATCH：  调用[DescribeBatchTask接口](/document/product/851/80180)查询跑批任务详情，ServiceId为接口返回值中Response.BatchTaskDetail.LatestInstanceId
+        :type ServiceId: str
+        :param _StartTime: 日志查询开始时间（RFC3339格式的时间字符串），默认值为当前时间的前一个小时
+        :type StartTime: str
+        :param _EndTime: 日志查询结束时间（RFC3339格式的时间字符串），开始时间和结束时间必须同时填或同时不填，默认值为当前时间
+        :type EndTime: str
+        :param _Format: 日志导出数据格式。json，csv，默认为csv
+        :type Format: str
+        :param _PodName: Pod的名称，即需要查询服务对应的Pod，和Service参数对应，不同Service的PodName获取方式不同，具体如下：- Service类型为TRAIN：  调用[DescribeTrainingTaskPods接口](/document/product/851/75088)查询训练任务pod列表，PodName为接口返回值中Response.PodNames- Service类型为NOTEBOOK：  调用[DescribeNotebook接口](/document/product/851/95662)查询Notebook详情，PodName为接口返回值中Response.NotebookDetail.PodName- Service类型为INFER：  调用[DescribeModelService接口](/document/product/851/82287)查询单个服务详情，PodName为接口返回值中Response.Service.ServiceInfo.PodInfos- Service类型为BATCH：  调用[DescribeBatchTask接口](/document/product/851/80180)查询跑批任务详情，PodName为接口返回值中Response.BatchTaskDetail. PodList注：支持结尾通配符*
+        :type PodName: str
+        :param _JobCategory: 描述任务的类型
+        :type JobCategory: str
+        :param _InstanceType: 实例的类型
+        :type InstanceType: str
+        :param _InstanceId: 查实例Id
+        :type InstanceId: str
+        :param _Type: 日志类型： PLATFORM_INIT, PLATFORM_SANITY_CHECK, USER
+        :type Type: str
+        """
+        self._Service = None
+        self._ServiceId = None
+        self._StartTime = None
+        self._EndTime = None
+        self._Format = None
+        self._PodName = None
+        self._JobCategory = None
+        self._InstanceType = None
+        self._InstanceId = None
+        self._Type = None
+
+    @property
+    def Service(self):
+        r"""服务类型，TRAIN为任务式建模, NOTEBOOK为Notebook, INFER为在线服务, BATCH为批量预测枚举值：- TRAIN- NOTEBOOK- INFER- BATCH
+        :rtype: str
+        """
+        return self._Service
+
+    @Service.setter
+    def Service(self, Service):
+        self._Service = Service
+
+    @property
+    def ServiceId(self):
+        r"""服务ID，和Service参数对应，不同Service的服务ID获取方式不同，具体如下：- Service类型为TRAIN：  调用[DescribeTrainingTask接口](/document/product/851/75089)查询训练任务详情，ServiceId为接口返回值中Response.TrainingTaskDetail.LatestInstanceId- Service类型为NOTEBOOK：  调用[DescribeNotebook接口](/document/product/851/95662)查询Notebook详情，ServiceId为接口返回值中Response.NotebookDetail.PodName- Service类型为INFER：  调用[DescribeModelServiceGroup接口](/document/product/851/82285)查询服务组详情，ServiceId为接口返回值中Response.ServiceGroup.Services.ServiceId- Service类型为BATCH：  调用[DescribeBatchTask接口](/document/product/851/80180)查询跑批任务详情，ServiceId为接口返回值中Response.BatchTaskDetail.LatestInstanceId
+        :rtype: str
+        """
+        return self._ServiceId
+
+    @ServiceId.setter
+    def ServiceId(self, ServiceId):
+        self._ServiceId = ServiceId
+
+    @property
+    def StartTime(self):
+        r"""日志查询开始时间（RFC3339格式的时间字符串），默认值为当前时间的前一个小时
+        :rtype: str
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def EndTime(self):
+        r"""日志查询结束时间（RFC3339格式的时间字符串），开始时间和结束时间必须同时填或同时不填，默认值为当前时间
+        :rtype: str
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
+    @property
+    def Format(self):
+        r"""日志导出数据格式。json，csv，默认为csv
+        :rtype: str
+        """
+        return self._Format
+
+    @Format.setter
+    def Format(self, Format):
+        self._Format = Format
+
+    @property
+    def PodName(self):
+        r"""Pod的名称，即需要查询服务对应的Pod，和Service参数对应，不同Service的PodName获取方式不同，具体如下：- Service类型为TRAIN：  调用[DescribeTrainingTaskPods接口](/document/product/851/75088)查询训练任务pod列表，PodName为接口返回值中Response.PodNames- Service类型为NOTEBOOK：  调用[DescribeNotebook接口](/document/product/851/95662)查询Notebook详情，PodName为接口返回值中Response.NotebookDetail.PodName- Service类型为INFER：  调用[DescribeModelService接口](/document/product/851/82287)查询单个服务详情，PodName为接口返回值中Response.Service.ServiceInfo.PodInfos- Service类型为BATCH：  调用[DescribeBatchTask接口](/document/product/851/80180)查询跑批任务详情，PodName为接口返回值中Response.BatchTaskDetail. PodList注：支持结尾通配符*
+        :rtype: str
+        """
+        return self._PodName
+
+    @PodName.setter
+    def PodName(self, PodName):
+        self._PodName = PodName
+
+    @property
+    def JobCategory(self):
+        r"""描述任务的类型
+        :rtype: str
+        """
+        return self._JobCategory
+
+    @JobCategory.setter
+    def JobCategory(self, JobCategory):
+        self._JobCategory = JobCategory
+
+    @property
+    def InstanceType(self):
+        r"""实例的类型
+        :rtype: str
+        """
+        return self._InstanceType
+
+    @InstanceType.setter
+    def InstanceType(self, InstanceType):
+        self._InstanceType = InstanceType
+
+    @property
+    def InstanceId(self):
+        r"""查实例Id
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def Type(self):
+        r"""日志类型： PLATFORM_INIT, PLATFORM_SANITY_CHECK, USER
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+
+    def _deserialize(self, params):
+        self._Service = params.get("Service")
+        self._ServiceId = params.get("ServiceId")
+        self._StartTime = params.get("StartTime")
+        self._EndTime = params.get("EndTime")
+        self._Format = params.get("Format")
+        self._PodName = params.get("PodName")
+        self._JobCategory = params.get("JobCategory")
+        self._InstanceType = params.get("InstanceType")
+        self._InstanceId = params.get("InstanceId")
+        self._Type = params.get("Type")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateExportResponse(AbstractModel):
+    r"""CreateExport返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ExportId: 日志下载任务的ID
+        :type ExportId: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ExportId = None
+        self._RequestId = None
+
+    @property
+    def ExportId(self):
+        r"""日志下载任务的ID
+        :rtype: str
+        """
+        return self._ExportId
+
+    @ExportId.setter
+    def ExportId(self, ExportId):
+        self._ExportId = ExportId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._ExportId = params.get("ExportId")
+        self._RequestId = params.get("RequestId")
+
+
 class CreateModelServiceAuthTokenRequest(AbstractModel):
     r"""CreateModelServiceAuthToken请求参数结构体
 
@@ -1618,8 +1832,10 @@ HYBRID_PAID:
         :type RollingUpdate: :class:`tencentcloud.tione.v20211111.models.RollingUpdate`
         :param _Sidecar: sidecar配置
         :type Sidecar: :class:`tencentcloud.tione.v20211111.models.SidecarSpec`
-        :param _VolumeMounts: 数据盘批量挂载配置，当前仅支持CFS，仅针对“模型来源-资源组缓存”。
+        :param _VolumeMounts: 数据盘批量挂载配置，当前仅支持CFS，仅针对“模型来源-腾讯云存储、模型来源-腾讯云容器镜像、模型来源-资源组、模型来源-数据源”。
         :type VolumeMounts: list of VolumeMount
+        :param _SchedulingStrategy: 调度策略 [binpack] 优先占满整机，尽量避免碎卡（默认值）[spread] 优先分散在各个节点，确保服务高可用
+        :type SchedulingStrategy: str
         """
         self._ServiceGroupId = None
         self._ServiceGroupName = None
@@ -1663,6 +1879,7 @@ HYBRID_PAID:
         self._RollingUpdate = None
         self._Sidecar = None
         self._VolumeMounts = None
+        self._SchedulingStrategy = None
 
     @property
     def ServiceGroupId(self):
@@ -2140,7 +2357,7 @@ HYBRID_PAID:
 
     @property
     def VolumeMounts(self):
-        r"""数据盘批量挂载配置，当前仅支持CFS，仅针对“模型来源-资源组缓存”。
+        r"""数据盘批量挂载配置，当前仅支持CFS，仅针对“模型来源-腾讯云存储、模型来源-腾讯云容器镜像、模型来源-资源组、模型来源-数据源”。
         :rtype: list of VolumeMount
         """
         return self._VolumeMounts
@@ -2148,6 +2365,17 @@ HYBRID_PAID:
     @VolumeMounts.setter
     def VolumeMounts(self, VolumeMounts):
         self._VolumeMounts = VolumeMounts
+
+    @property
+    def SchedulingStrategy(self):
+        r"""调度策略 [binpack] 优先占满整机，尽量避免碎卡（默认值）[spread] 优先分散在各个节点，确保服务高可用
+        :rtype: str
+        """
+        return self._SchedulingStrategy
+
+    @SchedulingStrategy.setter
+    def SchedulingStrategy(self, SchedulingStrategy):
+        self._SchedulingStrategy = SchedulingStrategy
 
 
     def _deserialize(self, params):
@@ -2237,6 +2465,7 @@ HYBRID_PAID:
                 obj = VolumeMount()
                 obj._deserialize(item)
                 self._VolumeMounts.append(obj)
+        self._SchedulingStrategy = params.get("SchedulingStrategy")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2855,7 +3084,7 @@ EXIST：导入现有版本
         :type TrainingJobName: str
         :param _TrainingModelCosPath: 模型来源cos目录，以/结尾
         :type TrainingModelCosPath: :class:`tencentcloud.tione.v20211111.models.CosPathInfo`
-        :param _AlgorithmFramework: 算法框架 （PYTORCH/TENSORFLOW/DETECTRON2/PMML/MMDETECTION)
+        :param _AlgorithmFramework: 算法框架 （PYTORCH/TENSORFLOW/DETECTRON2/PMML/MMDETECTION/ONNX)
         :type AlgorithmFramework: str
         :param _ReasoningEnvironment: 推理环境
         :type ReasoningEnvironment: str
@@ -2885,7 +3114,7 @@ EXIST：导入现有版本
 枚举值：NORMAL(通用)  ACCELERATE(加速)
 注意:  默认为NORMAL
         :type ModelVersionType: str
-        :param _ModelFormat: 模型格式 （PYTORCH/TORCH_SCRIPT/DETECTRON2/SAVED_MODEL/FROZEN_GRAPH/PMML/MMDETECTION/ONNX/HUGGING_FACE）
+        :param _ModelFormat: 模型格式 （PYTORCH/TORCH_SCRIPT/DETECTRON2/SAVED_MODEL/FROZEN_GRAPH/PMML/MMDETECTION/ONNX/HUGGING_FACE_BERT/HUGGING_FACE_STABLE_DIFFUSION/HUGGING_FACE_STABLE_DIFFUSION_LORA/WEB_UI_STABLE_DIFFUSION）
         :type ModelFormat: str
         :param _ReasoningEnvironmentId: 推理镜像ID
         :type ReasoningEnvironmentId: str
@@ -2996,7 +3225,7 @@ EXIST：导入现有版本
 
     @property
     def AlgorithmFramework(self):
-        r"""算法框架 （PYTORCH/TENSORFLOW/DETECTRON2/PMML/MMDETECTION)
+        r"""算法框架 （PYTORCH/TENSORFLOW/DETECTRON2/PMML/MMDETECTION/ONNX)
         :rtype: str
         """
         return self._AlgorithmFramework
@@ -3152,7 +3381,7 @@ EXIST：导入现有版本
 
     @property
     def ModelFormat(self):
-        r"""模型格式 （PYTORCH/TORCH_SCRIPT/DETECTRON2/SAVED_MODEL/FROZEN_GRAPH/PMML/MMDETECTION/ONNX/HUGGING_FACE）
+        r"""模型格式 （PYTORCH/TORCH_SCRIPT/DETECTRON2/SAVED_MODEL/FROZEN_GRAPH/PMML/MMDETECTION/ONNX/HUGGING_FACE_BERT/HUGGING_FACE_STABLE_DIFFUSION/HUGGING_FACE_STABLE_DIFFUSION_LORA/WEB_UI_STABLE_DIFFUSION）
         :rtype: str
         """
         return self._ModelFormat
@@ -5680,6 +5909,70 @@ class DeleteDatasetResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DeleteExportRequest(AbstractModel):
+    r"""DeleteExport请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ExportId: 日志下载任务的ID
+        :type ExportId: str
+        """
+        self._ExportId = None
+
+    @property
+    def ExportId(self):
+        r"""日志下载任务的ID
+        :rtype: str
+        """
+        return self._ExportId
+
+    @ExportId.setter
+    def ExportId(self, ExportId):
+        self._ExportId = ExportId
+
+
+    def _deserialize(self, params):
+        self._ExportId = params.get("ExportId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteExportResponse(AbstractModel):
+    r"""DeleteExport返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class DeleteModelServiceAuthTokenRequest(AbstractModel):
     r"""DeleteModelServiceAuthToken请求参数结构体
 
@@ -5851,6 +6144,8 @@ class DeleteModelServiceRequest(AbstractModel):
 
     @property
     def ServiceCategory(self):
+        warnings.warn("parameter `ServiceCategory` is deprecated", DeprecationWarning) 
+
         r"""服务分类
         :rtype: str
         """
@@ -5858,6 +6153,8 @@ class DeleteModelServiceRequest(AbstractModel):
 
     @ServiceCategory.setter
     def ServiceCategory(self, ServiceCategory):
+        warnings.warn("parameter `ServiceCategory` is deprecated", DeprecationWarning) 
+
         self._ServiceCategory = ServiceCategory
 
 
@@ -6220,7 +6517,7 @@ class DescribeBillingResourceGroupRequest(AbstractModel):
 2. Filter.Values: 长度为1且Filter.Fuzzy=true时，支持模糊查询; 不为1时，精确查询
 3. 每次请求的Filters的上限为10，Filter.Values的上限为100
         :type Filters: list of Filter
-        :param _Offset: 分页查询起始位置，如：Limit为10，第一页Offset为0，第二页Offset为10....即每页左边为闭区间; 默认0
+        :param _Offset: 分页查询起始位置，如：Limit为10，第一页Offset为0，第二页Offset为10...即每页左边为闭区间; 默认0
         :type Offset: int
         :param _Limit: 分页查询每页大小，默认20
         :type Limit: int
@@ -6266,7 +6563,7 @@ class DescribeBillingResourceGroupRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""分页查询起始位置，如：Limit为10，第一页Offset为0，第二页Offset为10....即每页左边为闭区间; 默认0
+        r"""分页查询起始位置，如：Limit为10，第一页Offset为0，第二页Offset为10...即每页左边为闭区间; 默认0
         :rtype: int
         """
         return self._Offset
@@ -7552,6 +7849,160 @@ class DescribeEventsResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeExportRequest(AbstractModel):
+    r"""DescribeExport请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ExportId: 日志下载任务的ID
+        :type ExportId: str
+        """
+        self._ExportId = None
+
+    @property
+    def ExportId(self):
+        r"""日志下载任务的ID
+        :rtype: str
+        """
+        return self._ExportId
+
+    @ExportId.setter
+    def ExportId(self, ExportId):
+        self._ExportId = ExportId
+
+
+    def _deserialize(self, params):
+        self._ExportId = params.get("ExportId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeExportResponse(AbstractModel):
+    r"""DescribeExport返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ExportId: 日志下载任务的ID
+        :type ExportId: str
+        :param _FileName: 日志下载文件名
+        :type FileName: str
+        :param _CosPath: 日志导出路径,有效期一个小时，请尽快使用该路径下载。
+        :type CosPath: str
+        :param _CreateTime: 下载任务创建时间
+        :type CreateTime: str
+        :param _FileSize: 日志文件大小
+        :type FileSize: str
+        :param _Status: 日志下载状态。Processing:导出正在进行中，Completed:导出完成，Failed:导出失败，Expired:日志导出已过期(三天有效期), Queuing 排队中
+        :type Status: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ExportId = None
+        self._FileName = None
+        self._CosPath = None
+        self._CreateTime = None
+        self._FileSize = None
+        self._Status = None
+        self._RequestId = None
+
+    @property
+    def ExportId(self):
+        r"""日志下载任务的ID
+        :rtype: str
+        """
+        return self._ExportId
+
+    @ExportId.setter
+    def ExportId(self, ExportId):
+        self._ExportId = ExportId
+
+    @property
+    def FileName(self):
+        r"""日志下载文件名
+        :rtype: str
+        """
+        return self._FileName
+
+    @FileName.setter
+    def FileName(self, FileName):
+        self._FileName = FileName
+
+    @property
+    def CosPath(self):
+        r"""日志导出路径,有效期一个小时，请尽快使用该路径下载。
+        :rtype: str
+        """
+        return self._CosPath
+
+    @CosPath.setter
+    def CosPath(self, CosPath):
+        self._CosPath = CosPath
+
+    @property
+    def CreateTime(self):
+        r"""下载任务创建时间
+        :rtype: str
+        """
+        return self._CreateTime
+
+    @CreateTime.setter
+    def CreateTime(self, CreateTime):
+        self._CreateTime = CreateTime
+
+    @property
+    def FileSize(self):
+        r"""日志文件大小
+        :rtype: str
+        """
+        return self._FileSize
+
+    @FileSize.setter
+    def FileSize(self, FileSize):
+        self._FileSize = FileSize
+
+    @property
+    def Status(self):
+        r"""日志下载状态。Processing:导出正在进行中，Completed:导出完成，Failed:导出失败，Expired:日志导出已过期(三天有效期), Queuing 排队中
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._ExportId = params.get("ExportId")
+        self._FileName = params.get("FileName")
+        self._CosPath = params.get("CosPath")
+        self._CreateTime = params.get("CreateTime")
+        self._FileSize = params.get("FileSize")
+        self._Status = params.get("Status")
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeInferTemplatesRequest(AbstractModel):
     r"""DescribeInferTemplates请求参数结构体
 
@@ -8053,7 +8504,7 @@ class DescribeModelAccelerateVersionsRequest(AbstractModel):
         :type OrderField: str
         :param _Order: 排序方向; 枚举值: ASC | DESC；默认DESC
         :type Order: str
-        :param _Offset: 分页查询起始位置，如：Limit为100，第一页Offset为0，第二页Offset为100....即每页左边为闭区间; 默认0
+        :param _Offset: 分页查询起始位置，如：Limit为100，第一页Offset为0，第二页Offset为100...即每页左边为闭区间; 默认0
         :type Offset: int
         :param _Limit: 分页查询每页大小，最大20000; 默认10
         :type Limit: int
@@ -8105,7 +8556,7 @@ class DescribeModelAccelerateVersionsRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""分页查询起始位置，如：Limit为100，第一页Offset为0，第二页Offset为100....即每页左边为闭区间; 默认0
+        r"""分页查询起始位置，如：Limit为100，第一页Offset为0，第二页Offset为100...即每页左边为闭区间; 默认0
         :rtype: int
         """
         return self._Offset
@@ -8256,6 +8707,8 @@ class DescribeModelServiceCallInfoRequest(AbstractModel):
 
     @property
     def ServiceCategory(self):
+        warnings.warn("parameter `ServiceCategory` is deprecated", DeprecationWarning) 
+
         r"""服务分类
         :rtype: str
         """
@@ -8263,6 +8716,8 @@ class DescribeModelServiceCallInfoRequest(AbstractModel):
 
     @ServiceCategory.setter
     def ServiceCategory(self, ServiceCategory):
+        warnings.warn("parameter `ServiceCategory` is deprecated", DeprecationWarning) 
+
         self._ServiceCategory = ServiceCategory
 
 
@@ -8449,6 +8904,8 @@ class DescribeModelServiceGroupRequest(AbstractModel):
 
     @property
     def ServiceCategory(self):
+        warnings.warn("parameter `ServiceCategory` is deprecated", DeprecationWarning) 
+
         r"""服务分类
         :rtype: str
         """
@@ -8456,6 +8913,8 @@ class DescribeModelServiceGroupRequest(AbstractModel):
 
     @ServiceCategory.setter
     def ServiceCategory(self, ServiceCategory):
+        warnings.warn("parameter `ServiceCategory` is deprecated", DeprecationWarning) 
+
         self._ServiceCategory = ServiceCategory
 
 
@@ -8619,6 +9078,8 @@ class DescribeModelServiceGroupsRequest(AbstractModel):
 
     @property
     def ServiceCategory(self):
+        warnings.warn("parameter `ServiceCategory` is deprecated", DeprecationWarning) 
+
         r"""服务分类
         :rtype: str
         """
@@ -8626,6 +9087,8 @@ class DescribeModelServiceGroupsRequest(AbstractModel):
 
     @ServiceCategory.setter
     def ServiceCategory(self, ServiceCategory):
+        warnings.warn("parameter `ServiceCategory` is deprecated", DeprecationWarning) 
+
         self._ServiceCategory = ServiceCategory
 
 
@@ -8867,6 +9330,8 @@ class DescribeModelServiceRequest(AbstractModel):
 
     @property
     def ServiceCategory(self):
+        warnings.warn("parameter `ServiceCategory` is deprecated", DeprecationWarning) 
+
         r"""服务分类
         :rtype: str
         """
@@ -8874,6 +9339,8 @@ class DescribeModelServiceRequest(AbstractModel):
 
     @ServiceCategory.setter
     def ServiceCategory(self, ServiceCategory):
+        warnings.warn("parameter `ServiceCategory` is deprecated", DeprecationWarning) 
+
         self._ServiceCategory = ServiceCategory
 
 
@@ -9166,7 +9633,7 @@ class DescribeNotebooksResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _NotebookSet: 详情
+        :param _NotebookSet: notebook详情
         :type NotebookSet: list of NotebookSetItem
         :param _TotalCount: 总条数
         :type TotalCount: int
@@ -9179,7 +9646,7 @@ class DescribeNotebooksResponse(AbstractModel):
 
     @property
     def NotebookSet(self):
-        r"""详情
+        r"""notebook详情
         :rtype: list of NotebookSetItem
         """
         return self._NotebookSet
@@ -9353,6 +9820,60 @@ class DescribePlatformImagesResponse(AbstractModel):
                 obj = PlatformImageInfo()
                 obj._deserialize(item)
                 self._PlatformImageInfos.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeSubAccountLinuxUserInfosRequest(AbstractModel):
+    r"""DescribeSubAccountLinuxUserInfos请求参数结构体
+
+    """
+
+
+class DescribeSubAccountLinuxUserInfosResponse(AbstractModel):
+    r"""DescribeSubAccountLinuxUserInfos返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SubAccountList: 子账号信息列表
+        :type SubAccountList: list of SubAccountInfo
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._SubAccountList = None
+        self._RequestId = None
+
+    @property
+    def SubAccountList(self):
+        r"""子账号信息列表
+        :rtype: list of SubAccountInfo
+        """
+        return self._SubAccountList
+
+    @SubAccountList.setter
+    def SubAccountList(self, SubAccountList):
+        self._SubAccountList = SubAccountList
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("SubAccountList") is not None:
+            self._SubAccountList = []
+            for item in params.get("SubAccountList"):
+                obj = SubAccountInfo()
+                obj._deserialize(item)
+                self._SubAccountList.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -10228,6 +10749,95 @@ class ExecAction(AbstractModel):
 
     def _deserialize(self, params):
         self._Command = params.get("Command")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ExposePortConfig(AbstractModel):
+    r"""暴露端口信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Enable: 是否开启暴露容器服务端口
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Enable: bool
+        :param _VpcId: vpc id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type VpcId: str
+        :param _ClbId: clb id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ClbId: str
+        :param _ClbHost: clb domain
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ClbHost: str
+        """
+        self._Enable = None
+        self._VpcId = None
+        self._ClbId = None
+        self._ClbHost = None
+
+    @property
+    def Enable(self):
+        r"""是否开启暴露容器服务端口
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._Enable
+
+    @Enable.setter
+    def Enable(self, Enable):
+        self._Enable = Enable
+
+    @property
+    def VpcId(self):
+        r"""vpc id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._VpcId
+
+    @VpcId.setter
+    def VpcId(self, VpcId):
+        self._VpcId = VpcId
+
+    @property
+    def ClbId(self):
+        r"""clb id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ClbId
+
+    @ClbId.setter
+    def ClbId(self, ClbId):
+        self._ClbId = ClbId
+
+    @property
+    def ClbHost(self):
+        r"""clb domain
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ClbHost
+
+    @ClbHost.setter
+    def ClbHost(self, ClbHost):
+        self._ClbHost = ClbHost
+
+
+    def _deserialize(self, params):
+        self._Enable = params.get("Enable")
+        self._VpcId = params.get("VpcId")
+        self._ClbId = params.get("ClbId")
+        self._ClbHost = params.get("ClbHost")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13444,6 +14054,7 @@ class ModelInfo(AbstractModel):
         :param _CosPathInfo: cos路径信息
         :type CosPathInfo: :class:`tencentcloud.tione.v20211111.models.CosPathInfo`
         :param _GooseFSx: GooseFSx的配置，ModelSource为GooseFSx时有效
+注意：此字段可能返回 null，表示取不到有效值。
         :type GooseFSx: :class:`tencentcloud.tione.v20211111.models.GooseFSx`
         :param _AlgorithmFramework: 模型对应的算法框架，预留
 注意：此字段可能返回 null，表示取不到有效值。
@@ -13546,6 +14157,7 @@ class ModelInfo(AbstractModel):
     @property
     def GooseFSx(self):
         r"""GooseFSx的配置，ModelSource为GooseFSx时有效
+注意：此字段可能返回 null，表示取不到有效值。
         :rtype: :class:`tencentcloud.tione.v20211111.models.GooseFSx`
         """
         return self._GooseFSx
@@ -14195,8 +14807,10 @@ HYBRID_PAID:
         :type Sidecar: :class:`tencentcloud.tione.v20211111.models.SidecarSpec`
         :param _ResourceGroupId: 资源组 id
         :type ResourceGroupId: str
-        :param _VolumeMounts: 数据盘批量挂载配置，当前仅支持CFS，仅针对“模型来源-资源组缓存”。
+        :param _VolumeMounts: 数据盘批量挂载配置，当前仅支持CFS，仅针对“模型来源-腾讯云存储、模型来源-腾讯云容器镜像、模型来源-资源组、模型来源-数据源”。
         :type VolumeMounts: list of VolumeMount
+        :param _SchedulingStrategy: 调度策略 [binpack] 优先占满整机，尽量避免碎卡（默认值）[spread] 优先分散在各个节点，确保服务高可用
+        :type SchedulingStrategy: str
         """
         self._ServiceId = None
         self._ModelInfo = None
@@ -14232,6 +14846,7 @@ HYBRID_PAID:
         self._Sidecar = None
         self._ResourceGroupId = None
         self._VolumeMounts = None
+        self._SchedulingStrategy = None
 
     @property
     def ServiceId(self):
@@ -14621,7 +15236,7 @@ HYBRID_PAID:
 
     @property
     def VolumeMounts(self):
-        r"""数据盘批量挂载配置，当前仅支持CFS，仅针对“模型来源-资源组缓存”。
+        r"""数据盘批量挂载配置，当前仅支持CFS，仅针对“模型来源-腾讯云存储、模型来源-腾讯云容器镜像、模型来源-资源组、模型来源-数据源”。
         :rtype: list of VolumeMount
         """
         return self._VolumeMounts
@@ -14629,6 +15244,17 @@ HYBRID_PAID:
     @VolumeMounts.setter
     def VolumeMounts(self, VolumeMounts):
         self._VolumeMounts = VolumeMounts
+
+    @property
+    def SchedulingStrategy(self):
+        r"""调度策略 [binpack] 优先占满整机，尽量避免碎卡（默认值）[spread] 优先分散在各个节点，确保服务高可用
+        :rtype: str
+        """
+        return self._SchedulingStrategy
+
+    @SchedulingStrategy.setter
+    def SchedulingStrategy(self, SchedulingStrategy):
+        self._SchedulingStrategy = SchedulingStrategy
 
 
     def _deserialize(self, params):
@@ -14705,6 +15331,7 @@ HYBRID_PAID:
                 obj = VolumeMount()
                 obj._deserialize(item)
                 self._VolumeMounts.append(obj)
+        self._SchedulingStrategy = params.get("SchedulingStrategy")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -14759,6 +15386,467 @@ class ModifyModelServiceResponse(AbstractModel):
         if params.get("Service") is not None:
             self._Service = Service()
             self._Service._deserialize(params.get("Service"))
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyNotebookRequest(AbstractModel):
+    r"""ModifyNotebook请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: notebook id
+        :type Id: str
+        :param _Name: 名称。不超过60个字符，仅支持中英文、数字、下划线"_"、短横"-"，只能以中英文、数字开头
+        :type Name: str
+        :param _ChargeType: （不允许修改）计算资源付费模式 ，可选值为：
+PREPAID：预付费，即包年包月
+POSTPAID_BY_HOUR：按小时后付费
+        :type ChargeType: str
+        :param _ResourceConf: 计算资源配置
+        :type ResourceConf: :class:`tencentcloud.tione.v20211111.models.ResourceConf`
+        :param _AutoStopping: 是否自动停止
+        :type AutoStopping: bool
+        :param _DirectInternetAccess: 是否访问公网
+        :type DirectInternetAccess: bool
+        :param _RootAccess: 是否ROOT权限
+        :type RootAccess: bool
+        :param _LogEnable: 是否上报日志
+        :type LogEnable: bool
+        :param _ResourceGroupId: 资源组ID(for预付费)
+        :type ResourceGroupId: str
+        :param _VpcId: （不允许修改）Vpc-Id
+        :type VpcId: str
+        :param _SubnetId: （不允许修改）子网Id
+        :type SubnetId: str
+        :param _VolumeSizeInGB: 存储卷大小，单位GB
+        :type VolumeSizeInGB: int
+        :param _VolumeSourceType: （不允许修改）存储的类型。取值包含： 
+    FREE:    预付费的免费存储
+    CLOUD_PREMIUM： 高性能云硬盘
+    CLOUD_SSD： SSD云硬盘
+    CFS:     CFS存储，包含NFS和turbo
+        :type VolumeSourceType: str
+        :param _VolumeSourceCFS: （不允许修改）CFS存储的配置
+        :type VolumeSourceCFS: :class:`tencentcloud.tione.v20211111.models.CFSConfig`
+        :param _LogConfig: 日志配置
+        :type LogConfig: :class:`tencentcloud.tione.v20211111.models.LogConfig`
+        :param _LifecycleScriptId: 生命周期脚本的ID
+        :type LifecycleScriptId: str
+        :param _DefaultCodeRepoId: 默认GIT存储库的ID
+        :type DefaultCodeRepoId: str
+        :param _AdditionalCodeRepoIds: 其他GIT存储库的ID，最多3个
+        :type AdditionalCodeRepoIds: list of str
+        :param _AutomaticStopTime: 自动停止时间，单位小时
+        :type AutomaticStopTime: int
+        :param _Tags: 标签配置
+        :type Tags: list of Tag
+        :param _DataConfigs: 数据配置，只支持WEDATA_HDFS
+        :type DataConfigs: list of DataConfig
+        :param _ImageInfo: 镜像信息
+        :type ImageInfo: :class:`tencentcloud.tione.v20211111.models.ImageInfo`
+        :param _ImageType: 镜像类型，包括SYSTEM、TCR、CCR
+        :type ImageType: str
+        :param _SSHConfig: SSH配置
+        :type SSHConfig: :class:`tencentcloud.tione.v20211111.models.SSHConfig`
+        :param _Envs: 自定义环境变量
+        :type Envs: list of EnvVar
+        """
+        self._Id = None
+        self._Name = None
+        self._ChargeType = None
+        self._ResourceConf = None
+        self._AutoStopping = None
+        self._DirectInternetAccess = None
+        self._RootAccess = None
+        self._LogEnable = None
+        self._ResourceGroupId = None
+        self._VpcId = None
+        self._SubnetId = None
+        self._VolumeSizeInGB = None
+        self._VolumeSourceType = None
+        self._VolumeSourceCFS = None
+        self._LogConfig = None
+        self._LifecycleScriptId = None
+        self._DefaultCodeRepoId = None
+        self._AdditionalCodeRepoIds = None
+        self._AutomaticStopTime = None
+        self._Tags = None
+        self._DataConfigs = None
+        self._ImageInfo = None
+        self._ImageType = None
+        self._SSHConfig = None
+        self._Envs = None
+
+    @property
+    def Id(self):
+        r"""notebook id
+        :rtype: str
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def Name(self):
+        r"""名称。不超过60个字符，仅支持中英文、数字、下划线"_"、短横"-"，只能以中英文、数字开头
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def ChargeType(self):
+        r"""（不允许修改）计算资源付费模式 ，可选值为：
+PREPAID：预付费，即包年包月
+POSTPAID_BY_HOUR：按小时后付费
+        :rtype: str
+        """
+        return self._ChargeType
+
+    @ChargeType.setter
+    def ChargeType(self, ChargeType):
+        self._ChargeType = ChargeType
+
+    @property
+    def ResourceConf(self):
+        r"""计算资源配置
+        :rtype: :class:`tencentcloud.tione.v20211111.models.ResourceConf`
+        """
+        return self._ResourceConf
+
+    @ResourceConf.setter
+    def ResourceConf(self, ResourceConf):
+        self._ResourceConf = ResourceConf
+
+    @property
+    def AutoStopping(self):
+        r"""是否自动停止
+        :rtype: bool
+        """
+        return self._AutoStopping
+
+    @AutoStopping.setter
+    def AutoStopping(self, AutoStopping):
+        self._AutoStopping = AutoStopping
+
+    @property
+    def DirectInternetAccess(self):
+        r"""是否访问公网
+        :rtype: bool
+        """
+        return self._DirectInternetAccess
+
+    @DirectInternetAccess.setter
+    def DirectInternetAccess(self, DirectInternetAccess):
+        self._DirectInternetAccess = DirectInternetAccess
+
+    @property
+    def RootAccess(self):
+        r"""是否ROOT权限
+        :rtype: bool
+        """
+        return self._RootAccess
+
+    @RootAccess.setter
+    def RootAccess(self, RootAccess):
+        self._RootAccess = RootAccess
+
+    @property
+    def LogEnable(self):
+        r"""是否上报日志
+        :rtype: bool
+        """
+        return self._LogEnable
+
+    @LogEnable.setter
+    def LogEnable(self, LogEnable):
+        self._LogEnable = LogEnable
+
+    @property
+    def ResourceGroupId(self):
+        r"""资源组ID(for预付费)
+        :rtype: str
+        """
+        return self._ResourceGroupId
+
+    @ResourceGroupId.setter
+    def ResourceGroupId(self, ResourceGroupId):
+        self._ResourceGroupId = ResourceGroupId
+
+    @property
+    def VpcId(self):
+        r"""（不允许修改）Vpc-Id
+        :rtype: str
+        """
+        return self._VpcId
+
+    @VpcId.setter
+    def VpcId(self, VpcId):
+        self._VpcId = VpcId
+
+    @property
+    def SubnetId(self):
+        r"""（不允许修改）子网Id
+        :rtype: str
+        """
+        return self._SubnetId
+
+    @SubnetId.setter
+    def SubnetId(self, SubnetId):
+        self._SubnetId = SubnetId
+
+    @property
+    def VolumeSizeInGB(self):
+        r"""存储卷大小，单位GB
+        :rtype: int
+        """
+        return self._VolumeSizeInGB
+
+    @VolumeSizeInGB.setter
+    def VolumeSizeInGB(self, VolumeSizeInGB):
+        self._VolumeSizeInGB = VolumeSizeInGB
+
+    @property
+    def VolumeSourceType(self):
+        r"""（不允许修改）存储的类型。取值包含： 
+    FREE:    预付费的免费存储
+    CLOUD_PREMIUM： 高性能云硬盘
+    CLOUD_SSD： SSD云硬盘
+    CFS:     CFS存储，包含NFS和turbo
+        :rtype: str
+        """
+        return self._VolumeSourceType
+
+    @VolumeSourceType.setter
+    def VolumeSourceType(self, VolumeSourceType):
+        self._VolumeSourceType = VolumeSourceType
+
+    @property
+    def VolumeSourceCFS(self):
+        r"""（不允许修改）CFS存储的配置
+        :rtype: :class:`tencentcloud.tione.v20211111.models.CFSConfig`
+        """
+        return self._VolumeSourceCFS
+
+    @VolumeSourceCFS.setter
+    def VolumeSourceCFS(self, VolumeSourceCFS):
+        self._VolumeSourceCFS = VolumeSourceCFS
+
+    @property
+    def LogConfig(self):
+        r"""日志配置
+        :rtype: :class:`tencentcloud.tione.v20211111.models.LogConfig`
+        """
+        return self._LogConfig
+
+    @LogConfig.setter
+    def LogConfig(self, LogConfig):
+        self._LogConfig = LogConfig
+
+    @property
+    def LifecycleScriptId(self):
+        r"""生命周期脚本的ID
+        :rtype: str
+        """
+        return self._LifecycleScriptId
+
+    @LifecycleScriptId.setter
+    def LifecycleScriptId(self, LifecycleScriptId):
+        self._LifecycleScriptId = LifecycleScriptId
+
+    @property
+    def DefaultCodeRepoId(self):
+        r"""默认GIT存储库的ID
+        :rtype: str
+        """
+        return self._DefaultCodeRepoId
+
+    @DefaultCodeRepoId.setter
+    def DefaultCodeRepoId(self, DefaultCodeRepoId):
+        self._DefaultCodeRepoId = DefaultCodeRepoId
+
+    @property
+    def AdditionalCodeRepoIds(self):
+        r"""其他GIT存储库的ID，最多3个
+        :rtype: list of str
+        """
+        return self._AdditionalCodeRepoIds
+
+    @AdditionalCodeRepoIds.setter
+    def AdditionalCodeRepoIds(self, AdditionalCodeRepoIds):
+        self._AdditionalCodeRepoIds = AdditionalCodeRepoIds
+
+    @property
+    def AutomaticStopTime(self):
+        r"""自动停止时间，单位小时
+        :rtype: int
+        """
+        return self._AutomaticStopTime
+
+    @AutomaticStopTime.setter
+    def AutomaticStopTime(self, AutomaticStopTime):
+        self._AutomaticStopTime = AutomaticStopTime
+
+    @property
+    def Tags(self):
+        r"""标签配置
+        :rtype: list of Tag
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+    @property
+    def DataConfigs(self):
+        r"""数据配置，只支持WEDATA_HDFS
+        :rtype: list of DataConfig
+        """
+        return self._DataConfigs
+
+    @DataConfigs.setter
+    def DataConfigs(self, DataConfigs):
+        self._DataConfigs = DataConfigs
+
+    @property
+    def ImageInfo(self):
+        r"""镜像信息
+        :rtype: :class:`tencentcloud.tione.v20211111.models.ImageInfo`
+        """
+        return self._ImageInfo
+
+    @ImageInfo.setter
+    def ImageInfo(self, ImageInfo):
+        self._ImageInfo = ImageInfo
+
+    @property
+    def ImageType(self):
+        r"""镜像类型，包括SYSTEM、TCR、CCR
+        :rtype: str
+        """
+        return self._ImageType
+
+    @ImageType.setter
+    def ImageType(self, ImageType):
+        self._ImageType = ImageType
+
+    @property
+    def SSHConfig(self):
+        r"""SSH配置
+        :rtype: :class:`tencentcloud.tione.v20211111.models.SSHConfig`
+        """
+        return self._SSHConfig
+
+    @SSHConfig.setter
+    def SSHConfig(self, SSHConfig):
+        self._SSHConfig = SSHConfig
+
+    @property
+    def Envs(self):
+        r"""自定义环境变量
+        :rtype: list of EnvVar
+        """
+        return self._Envs
+
+    @Envs.setter
+    def Envs(self, Envs):
+        self._Envs = Envs
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._Name = params.get("Name")
+        self._ChargeType = params.get("ChargeType")
+        if params.get("ResourceConf") is not None:
+            self._ResourceConf = ResourceConf()
+            self._ResourceConf._deserialize(params.get("ResourceConf"))
+        self._AutoStopping = params.get("AutoStopping")
+        self._DirectInternetAccess = params.get("DirectInternetAccess")
+        self._RootAccess = params.get("RootAccess")
+        self._LogEnable = params.get("LogEnable")
+        self._ResourceGroupId = params.get("ResourceGroupId")
+        self._VpcId = params.get("VpcId")
+        self._SubnetId = params.get("SubnetId")
+        self._VolumeSizeInGB = params.get("VolumeSizeInGB")
+        self._VolumeSourceType = params.get("VolumeSourceType")
+        if params.get("VolumeSourceCFS") is not None:
+            self._VolumeSourceCFS = CFSConfig()
+            self._VolumeSourceCFS._deserialize(params.get("VolumeSourceCFS"))
+        if params.get("LogConfig") is not None:
+            self._LogConfig = LogConfig()
+            self._LogConfig._deserialize(params.get("LogConfig"))
+        self._LifecycleScriptId = params.get("LifecycleScriptId")
+        self._DefaultCodeRepoId = params.get("DefaultCodeRepoId")
+        self._AdditionalCodeRepoIds = params.get("AdditionalCodeRepoIds")
+        self._AutomaticStopTime = params.get("AutomaticStopTime")
+        if params.get("Tags") is not None:
+            self._Tags = []
+            for item in params.get("Tags"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._Tags.append(obj)
+        if params.get("DataConfigs") is not None:
+            self._DataConfigs = []
+            for item in params.get("DataConfigs"):
+                obj = DataConfig()
+                obj._deserialize(item)
+                self._DataConfigs.append(obj)
+        if params.get("ImageInfo") is not None:
+            self._ImageInfo = ImageInfo()
+            self._ImageInfo._deserialize(params.get("ImageInfo"))
+        self._ImageType = params.get("ImageType")
+        if params.get("SSHConfig") is not None:
+            self._SSHConfig = SSHConfig()
+            self._SSHConfig._deserialize(params.get("SSHConfig"))
+        if params.get("Envs") is not None:
+            self._Envs = []
+            for item in params.get("Envs"):
+                obj = EnvVar()
+                obj._deserialize(item)
+                self._Envs.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyNotebookResponse(AbstractModel):
+    r"""ModifyNotebook返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
 
 
@@ -14843,6 +15931,109 @@ class ModifyNotebookTagsResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyServiceGroupWeightsRequest(AbstractModel):
+    r"""ModifyServiceGroupWeights请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ServiceGroupId: 服务组id
+        :type ServiceGroupId: str
+        :param _Weights: 权重设置
+        :type Weights: list of WeightEntry
+        """
+        self._ServiceGroupId = None
+        self._Weights = None
+
+    @property
+    def ServiceGroupId(self):
+        r"""服务组id
+        :rtype: str
+        """
+        return self._ServiceGroupId
+
+    @ServiceGroupId.setter
+    def ServiceGroupId(self, ServiceGroupId):
+        self._ServiceGroupId = ServiceGroupId
+
+    @property
+    def Weights(self):
+        r"""权重设置
+        :rtype: list of WeightEntry
+        """
+        return self._Weights
+
+    @Weights.setter
+    def Weights(self, Weights):
+        self._Weights = Weights
+
+
+    def _deserialize(self, params):
+        self._ServiceGroupId = params.get("ServiceGroupId")
+        if params.get("Weights") is not None:
+            self._Weights = []
+            for item in params.get("Weights"):
+                obj = WeightEntry()
+                obj._deserialize(item)
+                self._Weights.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyServiceGroupWeightsResponse(AbstractModel):
+    r"""ModifyServiceGroupWeights返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ServiceGroup: 更新权重后的服务组信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ServiceGroup: :class:`tencentcloud.tione.v20211111.models.ServiceGroup`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ServiceGroup = None
+        self._RequestId = None
+
+    @property
+    def ServiceGroup(self):
+        r"""更新权重后的服务组信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.tione.v20211111.models.ServiceGroup`
+        """
+        return self._ServiceGroup
+
+    @ServiceGroup.setter
+    def ServiceGroup(self, ServiceGroup):
+        self._ServiceGroup = ServiceGroup
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("ServiceGroup") is not None:
+            self._ServiceGroup = ServiceGroup()
+            self._ServiceGroup._deserialize(params.get("ServiceGroup"))
         self._RequestId = params.get("RequestId")
 
 
@@ -15773,6 +16964,8 @@ class NotebookSetItem(AbstractModel):
         :param _AppId: AppId
 注意：此字段可能返回 null，表示取不到有效值。
         :type AppId: str
+        :param _ExposePortConfig: 容器服务暴露端口配置
+        :type ExposePortConfig: :class:`tencentcloud.tione.v20211111.models.ExposePortConfig`
         """
         self._Id = None
         self._Name = None
@@ -15804,6 +16997,7 @@ class NotebookSetItem(AbstractModel):
         self._SubUin = None
         self._SubUinName = None
         self._AppId = None
+        self._ExposePortConfig = None
 
     @property
     def Id(self):
@@ -16160,6 +17354,17 @@ class NotebookSetItem(AbstractModel):
     def AppId(self, AppId):
         self._AppId = AppId
 
+    @property
+    def ExposePortConfig(self):
+        r"""容器服务暴露端口配置
+        :rtype: :class:`tencentcloud.tione.v20211111.models.ExposePortConfig`
+        """
+        return self._ExposePortConfig
+
+    @ExposePortConfig.setter
+    def ExposePortConfig(self, ExposePortConfig):
+        self._ExposePortConfig = ExposePortConfig
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -16205,6 +17410,9 @@ class NotebookSetItem(AbstractModel):
         self._SubUin = params.get("SubUin")
         self._SubUinName = params.get("SubUinName")
         self._AppId = params.get("AppId")
+        if params.get("ExposePortConfig") is not None:
+            self._ExposePortConfig = ExposePortConfig()
+            self._ExposePortConfig._deserialize(params.get("ExposePortConfig"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -18185,6 +19393,13 @@ RealGpu=100表示实际使用了一张gpu卡, 对应实际的实例机型, 有�
         :type RealGpu: int
         :param _RealGpuDetailSet: 创建或更新时无需填写，仅展示需要关注。详细的GPU使用信息。
         :type RealGpuDetailSet: list of GpuDetail
+        :param _EnableRDMA: 是否开启rdma
+注意：此字段可能返回 null，表示取不到有效值。
+        :type EnableRDMA: bool
+        :param _RootDisk: root disk size(GB)
+        :type RootDisk: int
+        :param _DataDisk: data disk size(GB)
+        :type DataDisk: int
         """
         self._Cpu = None
         self._Memory = None
@@ -18192,6 +19407,9 @@ RealGpu=100表示实际使用了一张gpu卡, 对应实际的实例机型, 有�
         self._GpuType = None
         self._RealGpu = None
         self._RealGpuDetailSet = None
+        self._EnableRDMA = None
+        self._RootDisk = None
+        self._DataDisk = None
 
     @property
     def Cpu(self):
@@ -18268,6 +19486,40 @@ RealGpu=100表示实际使用了一张gpu卡, 对应实际的实例机型, 有�
     def RealGpuDetailSet(self, RealGpuDetailSet):
         self._RealGpuDetailSet = RealGpuDetailSet
 
+    @property
+    def EnableRDMA(self):
+        r"""是否开启rdma
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._EnableRDMA
+
+    @EnableRDMA.setter
+    def EnableRDMA(self, EnableRDMA):
+        self._EnableRDMA = EnableRDMA
+
+    @property
+    def RootDisk(self):
+        r"""root disk size(GB)
+        :rtype: int
+        """
+        return self._RootDisk
+
+    @RootDisk.setter
+    def RootDisk(self, RootDisk):
+        self._RootDisk = RootDisk
+
+    @property
+    def DataDisk(self):
+        r"""data disk size(GB)
+        :rtype: int
+        """
+        return self._DataDisk
+
+    @DataDisk.setter
+    def DataDisk(self, DataDisk):
+        self._DataDisk = DataDisk
+
 
     def _deserialize(self, params):
         self._Cpu = params.get("Cpu")
@@ -18281,6 +19533,9 @@ RealGpu=100表示实际使用了一张gpu卡, 对应实际的实例机型, 有�
                 obj = GpuDetail()
                 obj._deserialize(item)
                 self._RealGpuDetailSet.append(obj)
+        self._EnableRDMA = params.get("EnableRDMA")
+        self._RootDisk = params.get("RootDisk")
+        self._DataDisk = params.get("DataDisk")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -18763,10 +20018,8 @@ class Service(AbstractModel):
 注意：此字段可能返回 null，表示取不到有效值。
         :type BusinessStatus: str
         :param _ServiceLimit: 已废弃,以ServiceInfo中的对应为准
-注意：此字段可能返回 null，表示取不到有效值。
         :type ServiceLimit: :class:`tencentcloud.tione.v20211111.models.ServiceLimit`
         :param _ScheduledAction: 已废弃,以ServiceInfo中的对应为准
-注意：此字段可能返回 null，表示取不到有效值。
         :type ScheduledAction: :class:`tencentcloud.tione.v20211111.models.ScheduledAction`
         :param _CreateFailedReason: 服务创建失败的原因，创建成功后该字段为默认值 CREATE_SUCCEED
 注意：此字段可能返回 null，表示取不到有效值。
@@ -19101,7 +20354,6 @@ DEFAULT: 其他来源
         warnings.warn("parameter `ServiceLimit` is deprecated", DeprecationWarning) 
 
         r"""已废弃,以ServiceInfo中的对应为准
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: :class:`tencentcloud.tione.v20211111.models.ServiceLimit`
         """
         return self._ServiceLimit
@@ -19117,7 +20369,6 @@ DEFAULT: 其他来源
         warnings.warn("parameter `ScheduledAction` is deprecated", DeprecationWarning) 
 
         r"""已废弃,以ServiceInfo中的对应为准
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: :class:`tencentcloud.tione.v20211111.models.ScheduledAction`
         """
         return self._ScheduledAction
@@ -20303,22 +21554,16 @@ HYBRID_PAID:
 注意：此字段可能返回 null，表示取不到有效值。
         :type Resources: :class:`tencentcloud.tione.v20211111.models.ResourceInfo`
         :param _InstanceType: 后付费实例对应的机型规格
-注意：此字段可能返回 null，表示取不到有效值。
         :type InstanceType: str
         :param _ModelInfo: 模型信息
-注意：此字段可能返回 null，表示取不到有效值。
         :type ModelInfo: :class:`tencentcloud.tione.v20211111.models.ModelInfo`
         :param _LogEnable: 是否启用日志
-注意：此字段可能返回 null，表示取不到有效值。
         :type LogEnable: bool
         :param _LogConfig: 日志配置
-注意：此字段可能返回 null，表示取不到有效值。
         :type LogConfig: :class:`tencentcloud.tione.v20211111.models.LogConfig`
         :param _AuthorizationEnable: 是否开启鉴权
-注意：此字段可能返回 null，表示取不到有效值。
         :type AuthorizationEnable: bool
         :param _HorizontalPodAutoscaler: hpa配置
-注意：此字段可能返回 null，表示取不到有效值。
         :type HorizontalPodAutoscaler: :class:`tencentcloud.tione.v20211111.models.HorizontalPodAutoscaler`
         :param _Status: 服务的状态描述
 注意：此字段可能返回 null，表示取不到有效值。
@@ -20400,6 +21645,10 @@ HYBRID_PAID:
         :type InstancePerReplicas: int
         :param _VolumeMounts: 批量数据盘挂载配置
         :type VolumeMounts: list of VolumeMount
+        :param _SchedulingStrategy: 调度策略 [binpack] 优先占满整机，尽量避免碎卡（默认值）[spread] 优先分散在各个节点，确保服务高可用
+        :type SchedulingStrategy: str
+        :param _NodeCount: 服务实际运行的节点数
+        :type NodeCount: int
         """
         self._Replicas = None
         self._ImageInfo = None
@@ -20440,6 +21689,8 @@ HYBRID_PAID:
         self._RollingUpdate = None
         self._InstancePerReplicas = None
         self._VolumeMounts = None
+        self._SchedulingStrategy = None
+        self._NodeCount = None
 
     @property
     def Replicas(self):
@@ -20499,7 +21750,6 @@ HYBRID_PAID:
     @property
     def InstanceType(self):
         r"""后付费实例对应的机型规格
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
         return self._InstanceType
@@ -20511,7 +21761,6 @@ HYBRID_PAID:
     @property
     def ModelInfo(self):
         r"""模型信息
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: :class:`tencentcloud.tione.v20211111.models.ModelInfo`
         """
         return self._ModelInfo
@@ -20523,7 +21772,6 @@ HYBRID_PAID:
     @property
     def LogEnable(self):
         r"""是否启用日志
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: bool
         """
         return self._LogEnable
@@ -20535,7 +21783,6 @@ HYBRID_PAID:
     @property
     def LogConfig(self):
         r"""日志配置
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: :class:`tencentcloud.tione.v20211111.models.LogConfig`
         """
         return self._LogConfig
@@ -20547,7 +21794,6 @@ HYBRID_PAID:
     @property
     def AuthorizationEnable(self):
         r"""是否开启鉴权
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: bool
         """
         return self._AuthorizationEnable
@@ -20559,7 +21805,6 @@ HYBRID_PAID:
     @property
     def HorizontalPodAutoscaler(self):
         r"""hpa配置
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: :class:`tencentcloud.tione.v20211111.models.HorizontalPodAutoscaler`
         """
         return self._HorizontalPodAutoscaler
@@ -20917,6 +22162,28 @@ HYBRID_PAID:
     def VolumeMounts(self, VolumeMounts):
         self._VolumeMounts = VolumeMounts
 
+    @property
+    def SchedulingStrategy(self):
+        r"""调度策略 [binpack] 优先占满整机，尽量避免碎卡（默认值）[spread] 优先分散在各个节点，确保服务高可用
+        :rtype: str
+        """
+        return self._SchedulingStrategy
+
+    @SchedulingStrategy.setter
+    def SchedulingStrategy(self, SchedulingStrategy):
+        self._SchedulingStrategy = SchedulingStrategy
+
+    @property
+    def NodeCount(self):
+        r"""服务实际运行的节点数
+        :rtype: int
+        """
+        return self._NodeCount
+
+    @NodeCount.setter
+    def NodeCount(self, NodeCount):
+        self._NodeCount = NodeCount
+
 
     def _deserialize(self, params):
         self._Replicas = params.get("Replicas")
@@ -21008,6 +22275,8 @@ HYBRID_PAID:
                 obj = VolumeMount()
                 obj._deserialize(item)
                 self._VolumeMounts.append(obj)
+        self._SchedulingStrategy = params.get("SchedulingStrategy")
+        self._NodeCount = params.get("NodeCount")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -21974,6 +23243,102 @@ class StopTrainingTaskResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
+
+
+class SubAccountInfo(AbstractModel):
+    r"""子账号信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Uin: 腾讯云主账号UIN
+        :type Uin: str
+        :param _SubUin: 腾讯云子账号UIN
+        :type SubUin: str
+        :param _SubUinName: 子账号名称
+        :type SubUinName: str
+        :param _LinuxUid: 子账号在Linux下的UID
+        :type LinuxUid: int
+        :param _LinuxGid: 子账号在Linux下的GID
+        :type LinuxGid: int
+        """
+        self._Uin = None
+        self._SubUin = None
+        self._SubUinName = None
+        self._LinuxUid = None
+        self._LinuxGid = None
+
+    @property
+    def Uin(self):
+        r"""腾讯云主账号UIN
+        :rtype: str
+        """
+        return self._Uin
+
+    @Uin.setter
+    def Uin(self, Uin):
+        self._Uin = Uin
+
+    @property
+    def SubUin(self):
+        r"""腾讯云子账号UIN
+        :rtype: str
+        """
+        return self._SubUin
+
+    @SubUin.setter
+    def SubUin(self, SubUin):
+        self._SubUin = SubUin
+
+    @property
+    def SubUinName(self):
+        r"""子账号名称
+        :rtype: str
+        """
+        return self._SubUinName
+
+    @SubUinName.setter
+    def SubUinName(self, SubUinName):
+        self._SubUinName = SubUinName
+
+    @property
+    def LinuxUid(self):
+        r"""子账号在Linux下的UID
+        :rtype: int
+        """
+        return self._LinuxUid
+
+    @LinuxUid.setter
+    def LinuxUid(self, LinuxUid):
+        self._LinuxUid = LinuxUid
+
+    @property
+    def LinuxGid(self):
+        r"""子账号在Linux下的GID
+        :rtype: int
+        """
+        return self._LinuxGid
+
+    @LinuxGid.setter
+    def LinuxGid(self, LinuxGid):
+        self._LinuxGid = LinuxGid
+
+
+    def _deserialize(self, params):
+        self._Uin = params.get("Uin")
+        self._SubUin = params.get("SubUin")
+        self._SubUinName = params.get("SubUinName")
+        self._LinuxUid = params.get("LinuxUid")
+        self._LinuxGid = params.get("LinuxGid")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
 
 
 class TCPSocketAction(AbstractModel):
@@ -23902,6 +25267,75 @@ STARTING启动中、RUNNING运行中、STOPPING停止中、STOPPED已停止、FA
         
 
 
+class UpdateSubAccountLinuxUserInfoRequest(AbstractModel):
+    r"""UpdateSubAccountLinuxUserInfo请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SubAccountList: 子账号信息列表
+        :type SubAccountList: list of SubAccountInfo
+        """
+        self._SubAccountList = None
+
+    @property
+    def SubAccountList(self):
+        r"""子账号信息列表
+        :rtype: list of SubAccountInfo
+        """
+        return self._SubAccountList
+
+    @SubAccountList.setter
+    def SubAccountList(self, SubAccountList):
+        self._SubAccountList = SubAccountList
+
+
+    def _deserialize(self, params):
+        if params.get("SubAccountList") is not None:
+            self._SubAccountList = []
+            for item in params.get("SubAccountList"):
+                obj = SubAccountInfo()
+                obj._deserialize(item)
+                self._SubAccountList.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpdateSubAccountLinuxUserInfoResponse(AbstractModel):
+    r"""UpdateSubAccountLinuxUserInfo返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class Usage(AbstractModel):
     r"""大模型生成Token统计
 
@@ -24028,6 +25462,57 @@ class VolumeMount(AbstractModel):
             self._CFSConfig._deserialize(params.get("CFSConfig"))
         self._VolumeSourceType = params.get("VolumeSourceType")
         self._MountPath = params.get("MountPath")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class WeightEntry(AbstractModel):
+    r"""服务的权重
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ServiceId: 服务id
+        :type ServiceId: str
+        :param _Weight: 流量权重值，同 ServiceGroup 下 总和应为 100
+        :type Weight: int
+        """
+        self._ServiceId = None
+        self._Weight = None
+
+    @property
+    def ServiceId(self):
+        r"""服务id
+        :rtype: str
+        """
+        return self._ServiceId
+
+    @ServiceId.setter
+    def ServiceId(self, ServiceId):
+        self._ServiceId = ServiceId
+
+    @property
+    def Weight(self):
+        r"""流量权重值，同 ServiceGroup 下 总和应为 100
+        :rtype: int
+        """
+        return self._Weight
+
+    @Weight.setter
+    def Weight(self, Weight):
+        self._Weight = Weight
+
+
+    def _deserialize(self, params):
+        self._ServiceId = params.get("ServiceId")
+        self._Weight = params.get("Weight")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

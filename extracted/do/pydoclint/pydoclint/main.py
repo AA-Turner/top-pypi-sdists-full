@@ -12,11 +12,17 @@ from pydoclint.baseline import (
     generateBaseline,
     parseBaseline,
     reEvaluateBaseline,
+    updateBaselineWithUnfixedViolations,
 )
 from pydoclint.parse_config import (
     injectDefaultOptionsFromUserSpecifiedTomlFilePath,
 )
-from pydoclint.utils.invisibleChars import replaceInvisibleChars
+from pydoclint.utils.invisible_chars import replaceInvisibleChars
+from pydoclint.utils.noqa import (
+    codeIsSuppressed,
+    collectNativeNoqaSuppression,
+    collectNoqaCodesByLine,
+)
 from pydoclint.utils.violation import Violation
 from pydoclint.visitor import Visitor
 
@@ -28,14 +34,29 @@ echoAsError = True
 
 
 def validateStyleValue(
-        context: click.Context,
-        param: click.Parameter,
+        context: click.Context,  # noqa: ARG001
+        param: click.Parameter,  # noqa: ARG001
         value: str | None,
 ) -> str | None:
     """Validate the value of the 'style' option"""
     if value not in {'numpy', 'google', 'sphinx'}:
         raise click.BadParameter(
             '"--style" must be "numpy", "google", or "sphinx"'
+        )
+
+    return value
+
+
+def validateNativeModeNoqaLocation(
+        context: click.Context,  # noqa: ARG001
+        param: click.Parameter,  # noqa: ARG001
+        value: str,
+) -> str:
+    """Validate the value of the native NOQA location option"""
+    allowed = {'definition', 'docstring'}
+    if value not in allowed:
+        raise click.BadParameter(
+            '"--native-noqa-location" must be "definition" or "docstring"'
         )
 
     return value
@@ -107,7 +128,9 @@ def validateStyleValue(
     type=bool,
     show_default=True,
     default=True,
-    help='Whether to check docstring argument order against function signature',
+    help=(
+        'Whether to check docstring argument order against function signature'
+    ),
 )
 @click.option(
     '-scsd',
@@ -123,7 +146,10 @@ def validateStyleValue(
     type=bool,
     show_default=True,
     default=False,
-    help='If True, skip checking docstring "Raises" section against "raise" statements',
+    help=(
+        'If True, skip checking docstring "Raises" section against "raise"'
+        ' statements'
+    ),
 )
 @click.option(
     '-aid',
@@ -277,6 +303,18 @@ def validateStyleValue(
     ),
 )
 @click.option(
+    '-oswdv',
+    '--omit-stars-when-documenting-varargs',
+    type=bool,
+    show_default=True,
+    default=False,
+    help=(
+        'If True, docstrings may omit the leading * when documenting *args'
+        ' and **kwargs, and pydoclint will still match them against the'
+        ' function signature.'
+    ),
+)
+@click.option(
     '-sdae',
     '--should-declare-assert-error-if-assert-statement-exists',
     type=bool,
@@ -359,6 +397,19 @@ def validateStyleValue(
     default=False,
     help='If True, show file names in the front of every violation message.',
 )
+@click.option(
+    '-nmnl',
+    '--native-mode-noqa-location',
+    type=str,
+    show_default=True,
+    default='docstring',
+    callback=validateNativeModeNoqaLocation,
+    help=(
+        'Where to read DOC NOQA comments in native mode:'
+        ' "definition" for the function/method/class definition line,'
+        ' or "docstring" for the line containing the closing docstring.'
+    ),
+)
 @click.argument(
     'paths',
     nargs=-1,
@@ -392,8 +443,9 @@ def validateStyleValue(
 )
 @click.version_option(__version__)
 @click.pass_context
-def main(  # noqa: C901
+def main(  # noqa: C901, PLR0915
         ctx: click.Context,
+        *,
         quiet: bool,
         exclude: str,
         style: str,
@@ -418,6 +470,7 @@ def main(  # noqa: C901
         require_yield_section_when_yielding_nothing: bool,
         only_attrs_with_classvar_are_treated_as_class_attrs: bool,
         should_document_star_arguments: bool,
+        omit_stars_when_documenting_varargs: bool,
         should_declare_assert_error_if_assert_statement_exists: bool,
         check_style_mismatch: bool,
         check_arg_defaults: bool,
@@ -425,20 +478,19 @@ def main(  # noqa: C901
         auto_regenerate_baseline: bool,
         baseline: str,
         show_filenames_in_every_violation_message: bool,
-        config: str | None,  # don't remove it b/c it's required by `click`
+        native_mode_noqa_location: str,
+        config: str | None,  # noqa: ARG001, (don't remove `config` b/c it's required by `click`)
 ) -> None:
     """Command-line entry point of pydoclint"""
-    logging.basicConfig(level=logging.WARN if quiet else logging.INFO)
+    logging.basicConfig(level=logging.WARNING if quiet else logging.INFO)
     ctx.ensure_object(dict)
 
     if type_hints_in_docstring != 'None':  # it means users supply this option
         click.echo(
             click.style(
-                ''.join(
-                    [
-                        'The option `--type-hints-in-docstring` has been renamed;',
-                        ' please use `--arg-type-hints-in-docstring` instead',
-                    ]
+                (
+                    'The option `--type-hints-in-docstring` has been renamed;'
+                    ' please use `--arg-type-hints-in-docstring` instead'
                 ),
                 fg='red',
                 bold=True,
@@ -450,11 +502,9 @@ def main(  # noqa: C901
     if type_hints_in_signature != 'None':  # it means users supply this option
         click.echo(
             click.style(
-                ''.join(
-                    [
-                        'The option `--type-hints-in-signature` has been renamed;',
-                        ' please use `--arg-type-hints-in-signature` instead',
-                    ]
+                (
+                    'The option `--type-hints-in-signature` has been renamed;'
+                    ' please use `--arg-type-hints-in-signature` instead'
                 ),
                 fg='red',
                 bold=True,
@@ -467,12 +517,10 @@ def main(  # noqa: C901
     if require_return_section_when_returning_none != 'None':  # type:ignore[comparison-overlap]
         click.echo(
             click.style(
-                ''.join(
-                    [
-                        'The option `--require-return-section-when-returning-none`',
-                        ' has been renamed; please use',
-                        '`--require-return-section-when-returning-nothing` instead',
-                    ]
+                (
+                    'The option `--require-return-section-when-returning-none`'
+                    ' has been renamed; please use'
+                    '`--require-return-section-when-returning-nothing` instead'
                 ),
                 fg='red',
                 bold=True,
@@ -539,11 +587,13 @@ def main(  # noqa: C901
             require_yield_section_when_yielding_nothing
         ),
         shouldDocumentStarArguments=should_document_star_arguments,
+        omitStarsWhenDocumentingVarargs=omit_stars_when_documenting_varargs,
         shouldDeclareAssertErrorIfAssertStatementExists=(
             should_declare_assert_error_if_assert_statement_exists
         ),
         checkStyleMismatch=check_style_mismatch,
         checkArgDefaults=check_arg_defaults,
+        nativeModeNoqaLocation=native_mode_noqa_location,
     )
 
     if generate_baseline:
@@ -579,8 +629,14 @@ def main(  # noqa: C901
         ) = reEvaluateBaseline(parsedBaseline, violationsInAllFiles)
         if baselineRegenerationNeeded:
             if auto_regenerate_baseline:
+                updatedBaseline = updateBaselineWithUnfixedViolations(
+                    baseline=parsedBaseline,
+                    unfixedBaselineViolations=(
+                        unfixedBaselineViolationsInAllFiles
+                    ),
+                )
                 generateBaseline(
-                    violationsAllFiles=unfixedBaselineViolationsInAllFiles,
+                    violationsAllFiles=updatedBaseline,
                     path=baselinePath,
                 )
                 click.echo(
@@ -609,9 +665,10 @@ def main(  # noqa: C901
     # Print violation messages nicely to the terminal
     violationCounter: int = 0
     if len(violationsInAllFiles) > 0:
-        counter = 0
-        for filename, violationsInThisFile in violationsInAllFiles.items():
-            counter += 1
+        for counter, (filename, violationsInThisFile) in enumerate(
+            violationsInAllFiles.items(),
+            start=1,
+        ):
             if len(violationsInThisFile) > 0:
                 if counter > 1:
                     click.echo('', err=echoAsError)
@@ -663,6 +720,7 @@ def main(  # noqa: C901
 
 def _checkPaths(
         paths: tuple[str, ...],
+        *,
         style: str = 'numpy',
         argTypeHintsInSignature: bool = True,
         argTypeHintsInDocstring: bool = True,
@@ -681,9 +739,11 @@ def _checkPaths(
         requireReturnSectionWhenReturningNothing: bool = False,
         requireYieldSectionWhenYieldingNothing: bool = False,
         shouldDocumentStarArguments: bool = True,
+        omitStarsWhenDocumentingVarargs: bool = False,
         shouldDeclareAssertErrorIfAssertStatementExists: bool = False,
         checkStyleMismatch: bool = False,
         checkArgDefaults: bool = False,
+        nativeModeNoqaLocation: str = 'docstring',
         quiet: bool = False,
         exclude: str = '',
 ) -> dict[str, list[Violation]]:
@@ -745,11 +805,13 @@ def _checkPaths(
                 requireYieldSectionWhenYieldingNothing
             ),
             shouldDocumentStarArguments=shouldDocumentStarArguments,
+            omitStarsWhenDocumentingVarargs=omitStarsWhenDocumentingVarargs,
             shouldDeclareAssertErrorIfAssertStatementExists=(
                 shouldDeclareAssertErrorIfAssertStatementExists
             ),
             checkStyleMismatch=checkStyleMismatch,
             checkArgDefaults=checkArgDefaults,
+            nativeModeNoqaLocation=nativeModeNoqaLocation,
         )
         allViolations[filename.as_posix()] = violationsInThisFile
 
@@ -758,6 +820,7 @@ def _checkPaths(
 
 def _checkFile(
         filename: Path,
+        *,
         style: str = 'numpy',
         argTypeHintsInSignature: bool = True,
         argTypeHintsInDocstring: bool = True,
@@ -776,14 +839,16 @@ def _checkFile(
         requireReturnSectionWhenReturningNothing: bool = False,
         requireYieldSectionWhenYieldingNothing: bool = False,
         shouldDocumentStarArguments: bool = True,
+        omitStarsWhenDocumentingVarargs: bool = False,
         shouldDeclareAssertErrorIfAssertStatementExists: bool = False,
         checkStyleMismatch: bool = False,
         checkArgDefaults: bool = False,
+        nativeModeNoqaLocation: str = 'docstring',
 ) -> list[Violation]:
     if not filename.is_file():  # sometimes folder names can end with `.py`
         return []
 
-    with open(filename, encoding='utf-8', errors='replace') as fp:
+    with Path(filename).open(encoding='utf-8', errors='replace') as fp:
         # Note: errors='replace' would replace unrecognized characters with
         #       question marks. This may not be a perfect solution, but for
         #       not this may be good enough.
@@ -803,8 +868,8 @@ def _checkFile(
                 return [Violation(code=2, line=0, msgPostfix=str(e2))]
         else:  # other syntax errors
             return [Violation(code=2, line=0, msgPostfix=str(e))]
-    except Exception as e3:  # other non-SyntaxError exceptions
-        raise e3
+    except Exception:  # other non-SyntaxError exceptions
+        raise
 
     visitor = Visitor(
         style=style,
@@ -835,6 +900,7 @@ def _checkFile(
             requireYieldSectionWhenYieldingNothing
         ),
         shouldDocumentStarArguments=shouldDocumentStarArguments,
+        omitStarsWhenDocumentingVarargs=omitStarsWhenDocumentingVarargs,
         shouldDeclareAssertErrorIfAssertStatementExists=(
             shouldDeclareAssertErrorIfAssertStatementExists
         ),
@@ -842,7 +908,22 @@ def _checkFile(
         checkArgDefaults=checkArgDefaults,
     )
     visitor.visit(tree)
-    return visitor.violations
+
+    codesByLine = collectNoqaCodesByLine(src)
+    suppressionByDefinitionLine = collectNativeNoqaSuppression(
+        tree=tree,
+        codesByLine=codesByLine,
+        location=nativeModeNoqaLocation,
+    )
+
+    return [  # filter violations
+        violation
+        for violation in visitor.violations
+        if not codeIsSuppressed(
+            violation.fullErrorCode,
+            suppressionByDefinitionLine.get(violation.line, set()),
+        )
+    ]
 
 
 if __name__ == '__main__':

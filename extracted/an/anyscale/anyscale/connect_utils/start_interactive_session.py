@@ -237,7 +237,7 @@ class StartInteractiveSessionBlock:
                 f"Info: {session_url} {secure} {metadata} {connection_retries} {job_config}"
             )
             if job_config is not None:
-                self.log.debug("RuntimeEnv", job_config.runtime_env)
+                self.log.debug("RuntimeEnv %s", job_config.runtime_env)
             connect_kwargs = {
                 "secure": secure,
                 "metadata": metadata,
@@ -274,7 +274,7 @@ class StartInteractiveSessionBlock:
 
             # If dynamic version check passes, then reconnect with the job_config
             info = self._ray.util.connect(session_url, **connect_kwargs)
-            self.log.debug("Connected server info: ", info)
+            self.log.debug("Connected server info: %s", info)
         except Exception as connection_exception:
             self.log.debug(f"Connection error after {connection_retries} retries")
             ray_info = None
@@ -317,7 +317,7 @@ class StartInteractiveSessionBlock:
 
         if info["num_clients"] > 1 and (not allow_multiple_clients):
             self.log.debug(
-                "Failed to acquire lock due to too many connections: ",
+                "Failed to acquire lock due to too many connections: %s",
                 info["num_clients"],
             )
             self._ray.util.disconnect()

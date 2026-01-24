@@ -20,6 +20,7 @@ QUERY_API = "query"
 IMAGE_API = "images"
 LOGS_API = "events"
 TOKENS_API = "apikeys"
+WHOAMI_API = "whoami"
 
 # Role APIs
 GET_ROLES = API(ROLE_API, HTTPMethod.GET, HTTPStatus.OK, endpoint=EndPoint.HERACLES)
@@ -84,7 +85,44 @@ CHANGE_USER_ROLE = API(
 GET_CURRENT_USER = API(
     f"{USER_API}/current", HTTPMethod.GET, HTTPStatus.OK, endpoint=EndPoint.HERACLES
 )
+GET_WHOAMI_USER = API(
+    WHOAMI_API, HTTPMethod.GET, HTTPStatus.OK, endpoint=EndPoint.HERACLES
+)
 
+# oauth client authentication
+GET_OAUTH_CLIENT = API(
+    "oauth-clients/token",
+    HTTPMethod.POST,
+    HTTPStatus.OK,
+    endpoint=EndPoint.HERACLES,
+)
+
+# OAuth client management APIs
+OAUTH_CLIENTS_API = "oauth-clients"
+GET_OAUTH_CLIENTS = API(
+    OAUTH_CLIENTS_API, HTTPMethod.GET, HTTPStatus.OK, endpoint=EndPoint.HERACLES
+)
+CREATE_OAUTH_CLIENT = API(
+    OAUTH_CLIENTS_API, HTTPMethod.POST, HTTPStatus.OK, endpoint=EndPoint.HERACLES
+)
+GET_OAUTH_CLIENT_BY_ID = API(
+    OAUTH_CLIENTS_API + "/{client_id}",
+    HTTPMethod.GET,
+    HTTPStatus.OK,
+    endpoint=EndPoint.HERACLES,
+)
+UPDATE_OAUTH_CLIENT = API(
+    OAUTH_CLIENTS_API + "/{client_id}",
+    HTTPMethod.PUT,
+    HTTPStatus.OK,
+    endpoint=EndPoint.HERACLES,
+)
+DELETE_OAUTH_CLIENT = API(
+    OAUTH_CLIENTS_API + "/{client_id}",
+    HTTPMethod.DELETE,
+    HTTPStatus.OK,
+    endpoint=EndPoint.HERACLES,
+)
 # SQL parsing APIs
 PARSE_QUERY = API(
     f"{QUERY_API}/parse", HTTPMethod.POST, HTTPStatus.OK, endpoint=EndPoint.HEKA
@@ -457,6 +495,34 @@ WORKFLOW_UPDATE = API(
 )
 WORKFLOW_ARCHIVE = API(
     WORKFLOW_API + "/{workflow_name}/archive",
+    HTTPMethod.POST,
+    HTTPStatus.OK,
+    endpoint=EndPoint.HERACLES,
+)
+
+# Package workflow endpoints (new endpoints only these are supported)
+PACKAGE_WORKFLOW_RERUN_API = "package-workflows/submit"
+PACKAGE_WORKFLOW_RERUN = API(
+    PACKAGE_WORKFLOW_RERUN_API,
+    HTTPMethod.POST,
+    HTTPStatus.OK,
+    endpoint=EndPoint.HERACLES,
+)
+
+PACKAGE_WORKFLOW_RUN_API = "package-workflows?submit=true"
+PACKAGE_WORKFLOW_RUN = API(
+    PACKAGE_WORKFLOW_RUN_API, HTTPMethod.POST, HTTPStatus.OK, endpoint=EndPoint.HERACLES
+)
+
+PACKAGE_WORKFLOW_API = "package-workflows"
+PACKAGE_WORKFLOW_UPDATE = API(
+    PACKAGE_WORKFLOW_API + "/{workflow_name}",
+    HTTPMethod.POST,
+    HTTPStatus.OK,
+    endpoint=EndPoint.HERACLES,
+)
+PACKAGE_WORKFLOW_ARCHIVE = API(
+    PACKAGE_WORKFLOW_API + "/{workflow_name}/archive",
     HTTPMethod.POST,
     HTTPStatus.OK,
     endpoint=EndPoint.HERACLES,

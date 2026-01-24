@@ -1,0 +1,397 @@
+import logging
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+from mstrio import config
+from mstrio.api import subscriptions
+from mstrio.connection import Connection
+from mstrio.utils.entity import ChangeJournalMixin, DeleteMixin, EntityBase
+from mstrio.utils.helper import (
+    Dictable,
+    delete_none_values,
+    exception_handler,
+    fetch_objects_async,
+    filter_params_for_func,
+    find_object_with_name,
+)
+from mstrio.utils.resolvers import get_project_id_from_params_set
+from mstrio.utils.version_helper import class_version_handler, meets_minimal_version
+
+if TYPE_CHECKING:
+    from mstrio.server.project import Project
+
+logger = logging.getLogger(__name__)
+
+
+def list_dynamic_recipient_lists(
+    connection: Connection,
+    project: 'Project | str | None' = None,
+    project_id: str | None = None,
+    project_name: str | None = None,
+    to_dictionary: bool = False,
+    limit: int | None = None,
+    **filters,
+) -> list["DynamicRecipientList"] | list[dict]:
+    """Get list of Dynamic Recipient List objects or dicts with them.
+
+    Args:
+        connection: Strategy One connection object returned by
+            `connection.Connection()`
+        project (Project | str, optional): Project object or ID or name
+            specifying the project. May be used instead of `project_id` or
+            `project_name`.
+        project_id (str, optional): Project ID
+        project_name (str, optional): Project name
+        to_dictionary (bool, optional): If True returns list of dictionaries,
+            by default (False) returns DynamicRecipientList objects
+        limit (integer, optional): limit the number of elements returned. If
+            None all object are returned
+        **filters: Available filter parameters: ['name', 'id', 'description',
+            'source_report_id', 'physical_address', 'linked_user', 'device']
+
+    Returns:
+        list with DynamicRecipientList objects or list of dictionaries
+    """
+    proj_id = get_project_id_from_params_set(
+        connection,
+        project,
+        project_id,
+        project_name,
+    )
+
+    msg = "Error getting Dynamic Recipient List list."
+    chunk_size = (
+        1000
+        if meets_minimal_version(connection.iserver_version, '11.3.0300')
+        else 1000000
+    )
+
+    objects = fetch_objects_async(
+        connection=connection,
+        api=subscriptions.list_dynamic_recipient_lists,
+        async_api=subscriptions.list_dynamic_recipient_lists_async,
+        limit=limit,
+        chunk_size=chunk_size,
+        filters=filters,
+        error_msg=msg,
+        dict_unpack_value='listOfDynamicRecipientLists',
+        project_id=proj_id,
+    )
+
+    if to_dictionary:
+        return objects
+    else:
+        return [
+            DynamicRecipientList.from_dict(connection=connection, source=obj)
+            for obj in objects
+        ]
+
+
+@class_version_handler('11.3.0600')
+class DynamicRecipientList(EntityBase, ChangeJournalMixin, DeleteMixin):
+    """Python representation of Strategy One DynamicRecipientList object.
+
+    Attributes:
+        id: DynamicRecipientList's ID
+        name: DynamicRecipientList's name
+        description: DynamicRecipientList's description
+        source_report_id: Id of the Report that is the source of the
+            DynamicRecipientList
+        physical_address: Physical Address for the DynamicRecipientList
+        linked_user: Linked User for the DynamicRecipientList
+        device: Device for the DynamicRecipientList
+        recipient_name: Recipient Name for the DynamicRecipientList
+        notification_address: Notification Address for the DynamicRecipientList
+        notification_device: Notification Device for the DynamicRecipientList
+        personalization: Personalization for the DynamicRecipientList
+    """
+
+    @dataclass
+    class MappingField(Dictable):
+        """Python representation of a Mapping Field.
+
+        Attributes:
+            attribute_id: ID of the mapped attribute
+            attribute_form_id: ID of the mapped attribute's form
+        """
+
+        attribute_id: str
+        attribute_form_id: str
+
+    _API_GETTERS = {
+        (
+            'id',
+            'name',
+            'description',
+            'source_report_id',
+            'physical_address',
+            'linked_user',
+            'device',
+            'recipient_name',
+            'notification_address',
+            'notification_device',
+            'personalization',
+        ): subscriptions.get_dynamic_recipient_list
+    }
+    _API_PATCH = {
+        (
+            'id',
+            'name',
+            'description',
+            'source_report_id',
+            'physical_address',
+            'linked_user',
+            'device',
+            'recipient_name',
+            'notification_address',
+            'notification_device',
+            'personalization',
+        ): (subscriptions.update_dynamic_recipient_list, 'partial_put')
+    }
+    _API_DELETE = staticmethod(subscriptions.remove_dynamic_recipient_list)
+    _API_DEL_JOURNAL_MIN_VER = None
+    _FROM_DICT_MAP = {
+        **EntityBase._FROM_DICT_MAP,
+        'physical_address': MappingField.from_dict,
+        'linked_user': MappingField.from_dict,
+        'device': MappingField.from_dict,
+        'recipient_name': MappingField.from_dict,
+        'notification_address': MappingField.from_dict,
+        'notification_device': MappingField.from_dict,
+        'personalization': MappingField.from_dict,
+    }
+
+    def __init__(
+        self,
+        connection: Connection,
+        id: str | None = None,
+        name: str | None = None,
+        project: 'Project | str | None' = None,
+        project_id: str | None = None,
+        project_name: str | None = None,
+    ) -> None:
+        """Initializes a new instance of a DynamicRecipientList class
+
+        Args:
+            connection (Connection): Strategy One connection object returned
+                by `connection.Connection()`
+            id (str, optional): DynamicRecipientList's ID. Defaults to None
+            name (str, optional): DynamicRecipientList's name. Defaults to None
+            project (Project | str, optional): Project object or ID or name
+                specifying the project. May be used instead of `project_id` or
+                `project_name`.
+            project_id (str, optional): Project ID
+            project_name (str, optional): Project name
+
+        Note:
+            Parameter `name` is not used when fetching. If only `name` parameter
+            is provided, `id` will be found automatically if such object exists.
+
+        Raises:
+            ValueError: if both `id` and `name` are not provided or if
+                DynamicRecipientList with the given `name` doesn't exist.
+        """
+        if not id:
+            if name:
+                dynamic_recipient_list = find_object_with_name(
+                    connection=connection,
+                    cls=self.__class__,
+                    name=name,
+                    listing_function=list_dynamic_recipient_lists,
+                )
+                id = dynamic_recipient_list['id']
+            else:
+                exception_handler(
+                    msg='Must provide valid id or name', exception_type=ValueError
+                )
+
+        proj_id = get_project_id_from_params_set(
+            connection,
+            project,
+            project_id,
+            project_name,
+        )
+        super().__init__(
+            connection=connection, object_id=id, name=name, project_id=proj_id
+        )
+
+    def _init_variables(self, **kwargs) -> None:
+        super()._init_variables(**kwargs)
+        self.name = kwargs.get('name')
+        self.project_id = kwargs.get('project_id')
+        self.description = kwargs.get('description')
+        self.source_report_id = kwargs.get('source_report_id')
+        self.physical_address = (
+            DynamicRecipientList.MappingField.from_dict(paddress)
+            if (paddress := kwargs.get('physical_address'))
+            else None
+        )
+        self.linked_user = (
+            DynamicRecipientList.MappingField.from_dict(luser)
+            if (luser := kwargs.get('linked_user'))
+            else None
+        )
+        self.device = (
+            DynamicRecipientList.MappingField.from_dict(dvc)
+            if (dvc := kwargs.get('device'))
+            else None
+        )
+        self.recipient_name = (
+            DynamicRecipientList.MappingField.from_dict(rname)
+            if (rname := kwargs.get('recipient_name'))
+            else None
+        )
+        self.notification_address = (
+            DynamicRecipientList.MappingField.from_dict(naddress)
+            if (naddress := kwargs.get('notification_address'))
+            else None
+        )
+        self.notification_device = (
+            DynamicRecipientList.MappingField.from_dict(ndevice)
+            if (ndevice := kwargs.get('notification_device'))
+            else None
+        )
+        self.personalization = (
+            DynamicRecipientList.MappingField.from_dict(prsnlz)
+            if (prsnlz := kwargs.get('personalization'))
+            else None
+        )
+
+    @classmethod
+    def create(
+        cls,
+        connection: Connection,
+        name: str,
+        source_report_id: str,
+        physical_address: MappingField,
+        linked_user: MappingField,
+        device: MappingField,
+        project: 'Project | str | None' = None,
+        project_id: str | None = None,
+        project_name: str | None = None,
+        description: str | None = None,
+        recipient_name: MappingField | None = None,
+        notification_address: MappingField | None = None,
+        notification_device: MappingField | None = None,
+        personalization: MappingField | None = None,
+    ) -> "DynamicRecipientList":
+        """Create a new DynamicRecipientList with specified properties.
+
+        Args:
+            name (string): DynamicRecipientList's name
+            source_report_id (string): ID of the Report that is the source of
+                the DynamicRecipientList
+            physical_address (MappingField): Mapping Field representing the
+                Physical Address for the DynamicRecipientList
+            linked_user (MappingField): Mapping Field representing the Linked
+                User for the DynamicRecipientList
+            device (MappingField): Mapping Field representing the Device for
+                the DynamicRecipientList
+            project (Project | str, optional): Project object or ID or name
+                specifying the project. May be used instead of `project_id` or
+                `project_name`.
+            project_id (str, optional): Project ID
+            project_name (str, optional): Project name
+            description (string, optional): DynamicRecipientList's description
+            recipient_name (MappingField, optional): Mapping Field representing
+                the Recipient Name for the DynamicRecipientList
+            notification_address (MappingField, optional): Mapping Field
+                representing the Notification Address for the
+                DynamicRecipientList
+            notification_device (MappingField, optional): Mapping Field
+                representing the Notification Device for the
+                DynamicRecipientList
+            personalization (MappingField, optional): Mapping Field representing
+                the Personalization for the DynamicRecipientList
+
+        Returns:
+            DynamicRecipientList class object.
+        """
+        body = {
+            'name': name,
+            'description': description if description else None,
+            'sourceReportId': source_report_id,
+            'physicalAddress': physical_address.to_dict(),
+            'linkedUser': linked_user.to_dict(),
+            'device': device.to_dict(),
+            'recipientName': recipient_name.to_dict() if recipient_name else None,
+            'notificationAddress': (
+                notification_address.to_dict() if notification_address else None
+            ),
+            'notificationDevice': (
+                notification_device.to_dict() if notification_device else None
+            ),
+            'personalization': personalization.to_dict() if personalization else None,
+        }
+        body = delete_none_values(source=body, recursion=True)
+        proj_id = get_project_id_from_params_set(
+            connection,
+            project,
+            project_id,
+            project_name,
+        )
+        response = subscriptions.create_dynamic_recipient_list(
+            connection=connection, project_id=proj_id, body=body
+        ).json()
+
+        if config.verbose:
+            logger.info(
+                f"Created Dynamic Recipient List named: '{name}' with ID: '"
+                f"{response['id']}'"
+            )
+
+        return cls.from_dict(source={**response}, connection=connection)
+
+    def alter(
+        self,
+        name: str | None = None,
+        source_report_id: str | None = None,
+        physical_address: MappingField | None = None,
+        linked_user: MappingField | None = None,
+        device: MappingField | None = None,
+        description: str | None = None,
+        recipient_name: MappingField | None = None,
+        notification_address: MappingField | None = None,
+        notification_device: MappingField | None = None,
+        personalization: MappingField | None = None,
+    ) -> None:
+        """Alter a DynamicRecipientList's specified properties
+
+        Note:
+            If one alters the source_report_id, all existing Mapping Fields
+            also need to be updated to reflect the new source report.
+
+        Args:
+            name (string, optional): DynamicRecipientList's name
+            source_report_id (string, optional): ID of the Report that is the
+                source of the DynamicRecipientList
+            physical_address (MappingField, optional): Mapping Field
+                representing the Physical Address for the DynamicRecipientList
+            linked_user (MappingField, optional): Mapping Field representing
+                the Linked User for the DynamicRecipientList
+            device (MappingField, optional): Mapping Field representing the
+                Device for the DynamicRecipientList
+            description (string, optional): DynamicRecipientList's description
+            recipient_name (MappingField, optional): Mapping Field representing
+                the Recipient Name for the DynamicRecipientList
+            notification_address (MappingField, optional): Mapping Field
+                representing the Notification Address for the
+                DynamicRecipientList
+            notification_device (MappingField, optional): Mapping Field
+                representing the Notification Device for the
+                DynamicRecipientList
+            personalization (MappingField, optional): Mapping Field
+                representing the Personalization for the DynamicRecipientList
+        """
+        name = name or self.name
+        description = description or self.description
+        source_report_id = source_report_id or self.source_report_id
+        physical_address = physical_address or self.physical_address
+        linked_user = linked_user or self.linked_user
+        device = device or self.device
+        recipient_name = recipient_name or self.recipient_name
+        notification_address = notification_address or self.notification_address
+        notification_device = notification_device or self.notification_device
+        personalization = personalization or self.personalization
+        properties = filter_params_for_func(self.alter, locals(), exclude=['self'])
+        self._alter_properties(**properties)

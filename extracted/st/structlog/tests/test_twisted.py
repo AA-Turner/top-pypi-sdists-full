@@ -7,11 +7,11 @@ import json
 
 import pytest
 
-from pretend import call_recorder
-
 from structlog import ReturnLogger
 from structlog._config import _CONFIG
 from structlog.processors import KeyValueRenderer
+
+from .helpers import call_recorder
 
 
 try:
@@ -105,7 +105,7 @@ class TestExtractStuffAndWhy:
         """
         with pytest.raises(
             ValueError,
-            match="Both _stuff and event contain an Exception/Failure.",
+            match="Both _stuff and event contain an Exception/Failure",
         ):
             _extractStuffAndWhy(
                 {
@@ -119,7 +119,7 @@ class TestExtractStuffAndWhy:
         Raise ValueError if both _why and event are in the event_dict.
         """
         with pytest.raises(
-            ValueError, match="Both `_why` and `event` supplied."
+            ValueError, match="Both `_why` and `event` supplied"
         ):
             _extractStuffAndWhy({"_why": "foo", "event": "bar"})
 
@@ -222,7 +222,7 @@ class TestEventAdapter:
         la = EventAdapter(_render_repr)
 
         with pytest.raises(
-            ValueError, match="Both `_why` and `event` supplied."
+            ValueError, match="Both `_why` and `event` supplied"
         ):
             la(None, "err", {"event": "someEvent", "_why": "someReason"})
 
@@ -327,7 +327,7 @@ class TestJSONObserverWrapper:
         o = call_recorder(lambda *a, **kw: None)
         JSONLogObserverWrapper(o)({"message": ("hello",)})
 
-        assert 1 == len(o.calls)
+        assert 1 == len(o.call_args_list)
 
     def test_jsonifiesPlainLogEntries(self):
         """
@@ -336,7 +336,7 @@ class TestJSONObserverWrapper:
         """
         o = call_recorder(lambda *a, **kw: None)
         JSONLogObserverWrapper(o)({"message": ("hello",), "system": "-"})
-        msg = json.loads(o.calls[0].args[0]["message"][0])
+        msg = json.loads(o.call_args_list[0].args[0]["message"][0])
 
         assert msg == {"event": "hello", "system": "-"}
 

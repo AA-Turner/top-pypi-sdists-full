@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # Still needed for Python 3.8, replaced with better implementations in Py39+
 
 import logging
 from typing import TYPE_CHECKING

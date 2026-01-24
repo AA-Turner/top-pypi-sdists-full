@@ -24,6 +24,7 @@ func convertCollectionToModel(collectionAndMetadataList []*dbmodel.CollectionAnd
 			ID:                         types.MustParse(collectionAndMetadata.Collection.ID),
 			Name:                       *collectionAndMetadata.Collection.Name,
 			ConfigurationJsonStr:       *collectionAndMetadata.Collection.ConfigurationJsonStr,
+			SchemaStr:                  collectionAndMetadata.Collection.SchemaStr,
 			Dimension:                  collectionAndMetadata.Collection.Dimension,
 			TenantID:                   collectionAndMetadata.TenantID,
 			DatabaseName:               collectionAndMetadata.DatabaseName,
@@ -40,6 +41,7 @@ func convertCollectionToModel(collectionAndMetadataList []*dbmodel.CollectionAnd
 			CreatedAt:                  collectionAndMetadata.Collection.CreatedAt,
 			UpdatedAt:                  collectionAndMetadata.Collection.UpdatedAt.Unix(),
 			DatabaseId:                 types.MustParse(collectionAndMetadata.Collection.DatabaseID),
+			CompactionFailureCount:     collectionAndMetadata.Collection.CompactionFailureCount,
 		}
 		collection.Metadata = convertCollectionMetadataToModel(collectionAndMetadata.CollectionMetadata)
 		collections = append(collections, collection)

@@ -16,7 +16,6 @@ short_description: Per APN shaper.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -127,7 +129,7 @@ EXAMPLES = '''
         state: present
         firewall_gtp_perapnshaper:
           id: 1
-          rate-limit: 20
+          rate_limit: 20
 
 - name: Gathering fortimanager facts
   hosts: fortimanagers
@@ -145,7 +147,7 @@ EXAMPLES = '''
           params:
             adom: "FortiCarrier" # This is FOC-only object, need a FortiCarrier adom
             gtp: "ansible-test" # name
-            per-apn-shaper: "your_value"
+            per_apn_shaper: "your_value"
 '''
 
 RETURN = '''
@@ -203,6 +205,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'gtp': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_gtp_perapnshaper': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

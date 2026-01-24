@@ -9,11 +9,14 @@ IPython Console plugin based on QtConsole.
 """
 
 # Standard library imports
+from functools import cached_property
+import re
 import sys
-from typing import List
+from typing import List, Optional
 
 # Third party imports
 from qtpy.QtCore import Signal, Slot
+from superqt.utils import qdebounced
 
 # Local imports
 from spyder.api.fonts import SpyderFontType
@@ -21,9 +24,12 @@ from spyder.api.plugins import Plugins, SpyderDockablePlugin
 from spyder.api.plugin_registration.decorators import (
     on_plugin_available, on_plugin_teardown)
 from spyder.api.translations import _
+from spyder.plugins.application.api import ApplicationActions
 from spyder.plugins.ipythonconsole.api import (
     IPythonConsolePyConfiguration,
-    IPythonConsoleWidgetMenus
+    IPythonConsoleWidgetActions,
+    IPythonConsoleWidgetMenus,
+    RemoteConsolesMenus
 )
 from spyder.plugins.ipythonconsole.confpage import IPythonConsoleConfigPage
 from spyder.plugins.ipythonconsole.widgets.run_conf import IPythonConfigOptions
@@ -45,9 +51,8 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
     This is a widget with tabs where each one is a ClientWidget
     """
 
-    # This is required for the new API
     NAME = 'ipython_console'
-    REQUIRES = [Plugins.Console, Plugins.Preferences]
+    REQUIRES = [Plugins.Application, Plugins.Console, Plugins.Preferences]
     OPTIONAL = [
         Plugins.Editor,
         Plugins.History,
@@ -67,6 +72,8 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
     CONF_FILE = False
     DISABLE_ACTIONS_WHEN_HIDDEN = False
     RAISE_AND_FOCUS = True
+    CAN_HANDLE_EDIT_ACTIONS = True
+    CAN_HANDLE_SEARCH_ACTIONS = True
 
     # Signals
     sig_append_to_history_requested = Signal(str, str)
@@ -198,7 +205,7 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         Example `{'name': str, 'ignore_unknown': bool}`.
     """
 
-    sig_current_directory_changed = Signal(str)
+    sig_current_directory_changed = Signal(str, str)
     """
     This signal is emitted when the current directory of the active shell
     widget has changed.
@@ -207,6 +214,8 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
     ----------
     working_directory: str
         The new working directory path.
+    server_id: str
+        The server identification from where the working directory is reachable.
     """
 
     sig_interpreter_changed = Signal(str)
@@ -238,6 +247,8 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
 
     def on_initialize(self):
         widget = self.get_widget()
+
+        self._is_remote_consoles_menu_added = False
 
         # Main widget signals
         # Connect signal to open preferences
@@ -294,6 +305,16 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
             ]
         }
 
+        self.pyw_editor_run_configuration = {
+            'origin': self.NAME,
+            'extension': 'pyw',
+            'contexts': [
+                {'name': 'File'},
+                {'name': 'Cell'},
+                {'name': 'Selection'},
+            ]
+        }
+
         self.executor_configuration = [
             {
                 'input_extension': 'py',
@@ -312,6 +333,14 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
                 'priority': 0
             },
             {
+                'input_extension': 'pyw',
+                'context': {'name': 'File'},
+                'output_formats': [],
+                'configuration_widget': IPythonConfigOptions,
+                'requires_cwd': True,
+                'priority': 0
+            },
+            {
                 'input_extension': 'py',
                 'context': {'name': 'Cell'},
                 'output_formats': [],
@@ -321,6 +350,14 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
             },
             {
                 'input_extension': 'ipy',
+                'context': {'name': 'Cell'},
+                'output_formats': [],
+                'configuration_widget': None,
+                'requires_cwd': True,
+                'priority': 0
+            },
+            {
+                'input_extension': 'pyw',
                 'context': {'name': 'Cell'},
                 'output_formats': [],
                 'configuration_widget': None,
@@ -337,6 +374,14 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
             },
             {
                 'input_extension': 'ipy',
+                'context': {'name': 'Selection'},
+                'output_formats': [],
+                'configuration_widget': None,
+                'requires_cwd': True,
+                'priority': 0
+            },
+            {
+                'input_extension': 'pyw',
                 'context': {'name': 'Selection'},
                 'output_formats': [],
                 'configuration_widget': None,
@@ -352,6 +397,27 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
                 'priority': 0
             },
         ]
+
+    @on_plugin_available(plugin=Plugins.Application)
+    def on_application_available(self) -> None:
+        widget = self.get_widget()
+        widget.sig_edit_action_enabled.connect(self._enable_edit_action)
+
+        # Enable Select All edit action
+        self._enable_edit_action(ApplicationActions.SelectAll, True)
+
+        # Setup Search actions
+        self._enable_search_action(ApplicationActions.FindText, True)
+        self._enable_search_action(ApplicationActions.FindNext, True)
+        self._enable_search_action(ApplicationActions.FindPrevious, True)
+        # Replace action is set disabled since the `FindReplace` widget created
+        # by the main widget has `enable_replace=False`
+        self._enable_search_action(ApplicationActions.ReplaceText, False)
+
+    @on_plugin_teardown(plugin=Plugins.Application)
+    def on_application_teardown(self) -> None:
+        widget = self.get_widget()
+        widget.sig_edit_action_enabled.disconnect(self._enable_edit_action)
 
     @on_plugin_available(plugin=Plugins.StatusBar)
     def on_statusbar_available(self):
@@ -389,6 +455,10 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
     def on_main_menu_available(self):
         widget = self.get_widget()
         mainmenu = self.get_plugin(Plugins.MainMenu)
+
+        # Connect state check/update logic for edit actions
+        edit_menu = mainmenu.get_application_menu(ApplicationMenus.Edit)
+        edit_menu.aboutToShow.connect(widget.update_edit_menu)
 
         # Add signal to update actions state before showing the menu
         console_menu = mainmenu.get_application_menu(
@@ -436,8 +506,15 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
             self.get_widget().ipython_menu,
             menu_id=ApplicationMenus.Help,
             section=HelpMenuSections.ExternalDocumentation,
-            before_section=HelpMenuSections.About,
+            before_section=HelpMenuSections.Support,
         )
+
+        # Add remote console submenu
+        if (
+            self.is_plugin_available(Plugins.RemoteClient)
+            and not self._is_remote_consoles_menu_added
+        ):
+            self._add_remote_consoles_menu()
 
     @on_plugin_available(plugin=Plugins.Editor)
     def on_editor_available(self):
@@ -448,7 +525,8 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         for run_config in [
             self.python_editor_run_configuration,
             self.ipython_editor_run_configuration,
-            self.cython_editor_run_configuration
+            self.cython_editor_run_configuration,
+            self.pyw_editor_run_configuration
         ]:
             editor.add_supported_run_configuration(run_config)
 
@@ -467,7 +545,11 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
     def on_working_directory_available(self):
         working_directory = self.get_plugin(Plugins.WorkingDirectory)
         working_directory.sig_current_directory_changed.connect(
-            self.save_working_directory)
+            self._save_working_directory
+        )
+        working_directory.sig_current_directory_changed.connect(
+            self.set_current_client_working_directory
+        )
 
     @on_plugin_available(plugin=Plugins.PythonpathManager)
     def on_pythonpath_manager_available(self):
@@ -476,9 +558,27 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
 
     @on_plugin_available(plugin=Plugins.RemoteClient)
     def on_remote_client_available(self):
-        remote_client = self.get_plugin(Plugins.RemoteClient)
-        remote_client.sig_server_stopped.connect(self._close_remote_clients)
-        remote_client.sig_server_renamed.connect(self._rename_remote_clients)
+        self._remote_client.sig_server_stopped.connect(
+            self._close_remote_clients
+        )
+        self._remote_client.sig_server_renamed.connect(
+            self._rename_remote_clients
+        )
+        self._remote_client.sig_server_changed.connect(
+            self._on_remote_server_changed
+        )
+        self._remote_client.sig_connection_established.connect(
+            self._on_remote_server_connected
+        )
+        self._remote_client.sig_connection_lost.connect(
+            self._on_remote_server_disconnected
+        )
+
+        if (
+            self.is_plugin_available(Plugins.MainMenu)
+            and not self._is_remote_consoles_menu_added
+        ):
+            self._add_remote_consoles_menu()
 
     @on_plugin_available(plugin=Plugins.MainInterpreter)
     def on_main_interpreter_available(self):
@@ -493,14 +593,25 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
 
     @on_plugin_teardown(plugin=Plugins.MainMenu)
     def on_main_menu_teardown(self):
+        widget = self.get_widget()
         mainmenu = self.get_plugin(Plugins.MainMenu)
         mainmenu.remove_application_menu(ApplicationMenus.Consoles)
+
+        # Disconnect state check/update logic for edit actions
+        edit_menu = mainmenu.get_application_menu(ApplicationMenus.Edit)
+        edit_menu.aboutToShow.disconnect(widget.update_edit_menu)
 
         # IPython documentation menu
         mainmenu.remove_item_from_application_menu(
             IPythonConsoleWidgetMenus.Documentation,
             menu_id=ApplicationMenus.Help
-         )
+        )
+
+        if self._is_remote_consoles_menu_added:
+            mainmenu.remove_item_from_application_menu(
+                RemoteConsolesMenus.RemoteConsoles,
+                menu_id=ApplicationMenus.Consoles,
+            )
 
     @on_plugin_teardown(plugin=Plugins.Editor)
     def on_editor_teardown(self):
@@ -511,7 +622,8 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         for run_config in [
             self.python_editor_run_configuration,
             self.ipython_editor_run_configuration,
-            self.cython_editor_run_configuration
+            self.cython_editor_run_configuration,
+            self.pyw_editor_run_configuration
         ]:
             editor.remove_supported_run_configuration(run_config)
 
@@ -531,7 +643,11 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
     def on_working_directory_teardown(self):
         working_directory = self.get_plugin(Plugins.WorkingDirectory)
         working_directory.sig_current_directory_changed.disconnect(
-            self.save_working_directory)
+            self._save_working_directory
+        )
+        working_directory.sig_current_directory_changed.disconnect(
+            self.set_current_client_working_directory
+        )
 
     @on_plugin_teardown(plugin=Plugins.PythonpathManager)
     def on_pythonpath_manager_teardown(self):
@@ -540,10 +656,14 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
 
     @on_plugin_teardown(plugin=Plugins.RemoteClient)
     def on_remote_client_teardown(self):
-        remote_client = self.get_plugin(Plugins.RemoteClient)
-        remote_client.sig_server_stopped.disconnect(self._close_remote_clients)
-        remote_client.sig_server_renamed.disconnect(
+        self._remote_client.sig_server_stopped.disconnect(
+            self._close_remote_clients
+        )
+        self._remote_client.sig_server_renamed.disconnect(
             self._rename_remote_clients
+        )
+        self._remote_client.sig_server_changed.disconnect(
+            self._on_remote_server_changed
         )
 
     @on_plugin_teardown(plugin=Plugins.MainInterpreter)
@@ -592,12 +712,6 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
     def _on_project_closed(self):
         self.get_widget().update_active_project_path(None)
 
-    def _close_remote_clients(self, server_id):
-        self.get_widget().close_remote_clients(server_id)
-
-    def _rename_remote_clients(self, server_id):
-        self.get_widget().rename_remote_clients(server_id)
-
     def _update_envs(self, envs):
         self.get_widget().update_envs(envs)
 
@@ -609,6 +723,17 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         dlg = container.dialog
         index = dlg.get_index_by_name("main_interpreter")
         dlg.set_current_index(index)
+
+    def _save_working_directory(self, dirname):
+        """
+        Save current working directory on the main widget to start new clients.
+
+        Parameters
+        ----------
+        new_dir: str
+            Path to the new current working directory.
+        """
+        self.get_widget().save_working_directory(dirname)
 
     # ---- Public API
     # -------------------------------------------------------------------------
@@ -811,6 +936,34 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         """Close client tab from index or client (or close current tab)"""
         self.get_widget().close_client(index=index, client=client,
                                        ask_recursive=ask_recursive)
+    def undo(self) -> None:
+        return self.get_widget().current_client_undo()
+
+    def redo(self) -> None:
+        return self.get_widget().current_client_redo()
+
+    def cut(self) -> None:
+        return self.get_widget().current_client_cut()
+
+    def copy(self) -> None:
+        return self.get_widget().current_client_copy()
+
+    def paste(self) -> None:
+        return self.get_widget().current_client_paste()
+
+    def select_all(self) -> None:
+        return self.get_widget().current_client_select_all()
+
+    def find(self) -> None:
+        find_widget = self.get_widget().find_widget
+        find_widget.show()
+        find_widget.search_text.setFocus()
+
+    def find_next(self) -> None:
+        self.get_widget().find_widget.find_next()
+
+    def find_previous(self) -> None:
+        self.get_widget().find_widget.find_previous()
 
     # ---- For execution
     @run_execute(context=RunContext.File)
@@ -869,6 +1022,7 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         cell_text = run_input['cell']
 
         if run_input['copy']:
+            cell_text = re.sub(r'(^\s*\n)|(\n\s*$)', '', cell_text)
             self.run_selection(cell_text)
             return
 
@@ -981,7 +1135,12 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         self.get_widget().execute_code(lines)
 
     # ---- For working directory and path management
-    def set_current_client_working_directory(self, directory):
+    @qdebounced(timeout=100)
+    def set_current_client_working_directory(
+        self, directory: str,
+        sender_plugin: Optional[str] = None,
+        server_id: Optional[str] = None,
+    ):
         """
         Set current client working directory.
 
@@ -989,42 +1148,21 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         ----------
         directory : str
             Path for the new current working directory.
+        sender_plugin: str
+            Name of the plugin that requested changing the working directory.
+            Default is None, which means this plugin did it.
 
         Returns
         -------
         None.
         """
-        self.get_widget().set_current_client_working_directory(directory)
+        # Only update the cwd if this plugin didn't request changing it
+        if sender_plugin != self.NAME:
+            self.get_widget().set_current_client_working_directory(
+                directory, server_id
+            )
 
-    def set_working_directory(self, dirname):
-        """
-        Set current working directory in the Working Directory and Files
-        plugins.
-
-        Parameters
-        ----------
-        dirname : str
-            Path to the new current working directory.
-
-        Returns
-        -------
-        None.
-        """
-        self.get_widget().set_working_directory(dirname)
-
-    @Slot(str)
-    def save_working_directory(self, dirname):
-        """
-        Save current working directory on the main widget to start new clients.
-
-        Parameters
-        ----------
-        new_dir: str
-            Path to the new current working directory.
-        """
-        self.get_widget().save_working_directory(dirname)
-
-    def update_path(self, path_dict, new_path_dict):
+    def update_path(self, new_path, prioritize):
         """
         Update path on consoles.
 
@@ -1033,17 +1171,18 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
 
         Parameters
         ----------
-        path_dict : dict
-            Corresponds to the previous state of the PYTHONPATH.
-        new_path_dict : dict
-            Corresponds to the new state of the PYTHONPATH.
+        new_path : list of str
+            New state of the Python path handled by Spyder.
+        prioritize : bool
+            Whether to prioritize Python path in sys.path
 
         Returns
         -------
         None.
         """
-        self.get_widget().update_path(path_dict, new_path_dict)
+        self.get_widget().update_path(new_path, prioritize)
 
+    # ---- For restarts
     def restart(self):
         """
         Restart the console.
@@ -1075,3 +1214,59 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
     def show_quickref(self):
         """Show IPython Cheat Sheet."""
         self.get_widget().show_quickref()
+
+    # ---- For the Remote client plugin
+    # -------------------------------------------------------------------------
+    @cached_property
+    def _remote_client(self):
+        return self.get_plugin(Plugins.RemoteClient)
+
+    def _add_remote_consoles_menu(self):
+        """Add remote consoles submenu to the Consoles menu."""
+        widget = self.get_widget()
+        widget.setup_remote_consoles_submenu(render=False)
+
+        menu = widget.get_menu(RemoteConsolesMenus.RemoteConsoles)
+        mainmenu = self.get_plugin(Plugins.MainMenu)
+        mainmenu.add_item_to_application_menu(
+            menu,
+            menu_id=ApplicationMenus.Consoles,
+            section=ConsolesMenuSections.New,
+            before=IPythonConsoleWidgetActions.ConnectToKernel,
+        )
+
+        self._is_remote_consoles_menu_added = True
+
+    @Slot(str)
+    def _close_remote_clients(self, server_id):
+        self.get_widget().close_remote_clients(server_id)
+
+    @Slot(str)
+    def _rename_remote_clients(self, server_id):
+        self.get_widget().rename_remote_clients(server_id)
+
+    @Slot()
+    def _on_remote_server_changed(self):
+        self.get_widget().setup_remote_consoles_submenu()
+
+    @Slot(str)
+    def _on_remote_server_connected(self, server_id):
+        self.get_widget().setup_server_consoles_submenu(server_id)
+
+    @Slot(str)
+    def _on_remote_server_disconnected(self, server_id):
+        self.get_widget().clear_server_consoles_submenu(server_id)
+
+    # ---- Methods related to the Application plugin
+    # ------------------------------------------------------------------------
+    def _enable_edit_action(self, action_name: str, enabled: bool) -> None:
+        """Enable or disable edit action for this plugin."""
+        application = self.get_plugin(Plugins.Application, error=False)
+        if application:
+            application.enable_edit_action(action_name, enabled, self.NAME)
+
+    def _enable_search_action(self, action_name: str, enabled: bool) -> None:
+        """Enable or disable search action for this plugin."""
+        application = self.get_plugin(Plugins.Application, error=False)
+        if application:
+            application.enable_search_action(action_name, enabled, self.NAME)

@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -17,16 +17,13 @@
 #
 # ****************************************************************************
 
-import logging
-from typing import Callable, Optional
+from typing import Callable
 
-from ..coverage import CoverageContainer, FileCoverage
+from ..data_model.coverage import FileCoverage
+from ..data_model.container import CoverageContainer
+from ..data_model.merging import get_merge_mode_from_options
 from ..filter import is_file_excluded
-from ..merging import (
-    get_merge_mode_from_options,
-    merge_covdata,
-    insert_file_coverage,
-)
+from ..logging import LOGGER
 from ..options import GcovrConfigOption, Options, OutputOrDefault
 from ..utils import search_file
 
@@ -41,10 +38,10 @@ from .html import HtmlHandler
 from .jacoco import JaCoCoHandler
 from .json import JsonHandler
 from .lcov import LcovHandler
+from .llvm import LlvmHandler
+from .markdown import MarkdownHandler
 from .sonarqube import SonarqubeHandler
 from .txt import TxtHandler
-
-LOGGER = logging.getLogger("gcovr")
 
 
 def get_options() -> list[GcovrConfigOption]:
@@ -61,6 +58,8 @@ def get_options() -> list[GcovrConfigOption]:
             *JaCoCoHandler.get_options(),
             *JsonHandler.get_options(),
             *LcovHandler.get_options(),
+            *LlvmHandler.get_options(),
+            *MarkdownHandler.get_options(),
             *SonarqubeHandler.get_options(),
             *TxtHandler.get_options(),
         ]
@@ -80,6 +79,8 @@ def validate_options(options: Options) -> None:
         JaCoCoHandler,
         JsonHandler,
         LcovHandler,
+        LlvmHandler,
+        MarkdownHandler,
         SonarqubeHandler,
         TxtHandler,
     ]:
@@ -88,34 +89,47 @@ def validate_options(options: Options) -> None:
 
 def read_reports(options: Options) -> CoverageContainer:
     """Read the reports from the given locations."""
-    if options.json_add_tracefile or options.cobertura_add_tracefile:
+    if options.json_tracefile or options.cobertura_tracefile:
         covdata = JsonHandler(options).read_report()
-        covdata = merge_covdata(
-            covdata,
+        covdata.merge(
             CoberturaHandler(options).read_report(),
             get_merge_mode_from_options(options),
         )
+    elif options.llvm_profdata_cmd:
+        covdata = LlvmHandler(options).read_report()
     else:
         covdata = GcovHandler(options).read_report()
 
-    if options.include:
+    if not covdata:
+        LOGGER.warning(
+            "All coverage data is filtered out. Please check your paths and filters."
+        )
+
+    if options.include_search_filter:
         for search_path in options.search_paths or [options.root]:
-            LOGGER.debug(f"Search for included files in {search_path}")
+            LOGGER.debug("Search for included files in %s", search_path)
             for fname in search_file(
-                lambda fname: any(f.match(fname) for f in options.include),
+                lambda fname: any(
+                    f.match(fname) for f in options.include_search_filter
+                ),
                 search_path,
-                exclude_dirs=options.gcov_exclude_dirs,
+                exclude_directory=options.exclude_directory,
             ):
                 # Return if the filename does not match the filter
                 # Return if the filename matches the exclude pattern
-                if is_file_excluded(fname, options.filter, options.exclude):
+                if is_file_excluded(
+                    "source file", fname, options.include_filter, options.exclude_filter
+                ):
                     continue
 
-                file_cov = FileCoverage(fname, None)
-                LOGGER.debug(f"Merge empty coverage data for {fname}")
-                insert_file_coverage(
-                    covdata, file_cov, get_merge_mode_from_options(options)
+                filecov = FileCoverage("option --include", filename=fname)
+                LOGGER.debug("Merge empty coverage data for %s", fname)
+                covdata.insert_file_coverage(
+                    filecov, get_merge_mode_from_options(options)
                 )
+
+    if options.merge_lines:
+        covdata.merge_lines(options)
 
     return covdata
 
@@ -124,7 +138,7 @@ def write_reports(covdata: CoverageContainer, options: Options) -> None:
     """Write the reports to the given locations."""
     generators: list[
         tuple[
-            list[Optional[OutputOrDefault]],
+            list[OutputOrDefault | None],
             Callable[[CoverageContainer, str], None],
             Callable[[], None],
         ]
@@ -238,7 +252,31 @@ def write_reports(covdata: CoverageContainer, options: Options) -> None:
             )
         )
 
-    if options.sonarqube:
+    if options.markdown:
+        generators.append(
+            (
+                [options.markdown],
+                MarkdownHandler(options).write_report,
+                lambda: LOGGER.warning(
+                    "Markdown output skipped - "
+                    "consider providing an output file with `--markdown=OUTPUT`."
+                ),
+            )
+        )
+
+    if options.markdown_summary:
+        generators.append(
+            (
+                [options.markdown_summary],
+                MarkdownHandler(options).write_summary_report,
+                lambda: LOGGER.warning(
+                    "Markdown summary output skipped - "
+                    "consider providing an output file with `--markdown-summary=OUTPUT`."
+                ),
+            )
+        )
+
+    if options.sonarqube or options.sonarqube_pretty:
         generators.append(
             (
                 [options.sonarqube],
@@ -296,7 +334,7 @@ def write_reports(covdata: CoverageContainer, options: Options) -> None:
         and not default_output_used
     ):
         LOGGER.warning(
-            f"--output={repr(default_output.value)} option was provided but not used."
+            "--output=%s option was provided but not used.", repr(default_output.value)
         )
 
     if options.txt_summary:

@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.669524                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.830858                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import abc
-import collections
 import metaflow
 import typing
+import collections
+import abc
 if typing.TYPE_CHECKING:
-    import metaflow.user_configs.config_parameters
-    import typing
-    import metaflow.parameters
     import collections.abc
+    import metaflow.parameters
+    import typing
+    import metaflow.user_configs.config_parameters
     import abc
 
 from ..exception import MetaflowException as MetaflowException
@@ -254,8 +254,15 @@ class Config(metaflow.parameters.Parameter, collections.abc.Mapping, metaclass=a
         If the name starts with a ".", it is assumed to be relative to "metaflow".
     show_default : bool, default True
         If True, show the default value in the help text.
+    plain : bool, default False
+        If True, the configuration value is just returned as is and not converted to
+        a ConfigValue. Use this is you just want to directly access your configuration.
+        Note that modifications are not persisted across steps (ie: ConfigValue prevents
+        modifications and raises and error -- if you have your own object, no error
+        is raised but no modifications are persisted). You can also use this to return
+        any arbitrary object (not just dictionary-like objects).
     """
-    def __init__(self, name: str, default: typing.Union[str, typing.Callable[[metaflow.parameters.ParameterContext], str], None] = None, default_value: typing.Union[str, typing.Dict[str, typing.Any], typing.Callable[[metaflow.parameters.ParameterContext], typing.Union[str, typing.Dict[str, typing.Any]]], None] = None, help: typing.Optional[str] = None, required: typing.Optional[bool] = None, parser: typing.Union[str, typing.Callable[[str], typing.Dict[typing.Any, typing.Any]], None] = None, **kwargs: typing.Dict[str, str]):
+    def __init__(self, name: str, default: typing.Union[str, typing.Callable[[metaflow.parameters.ParameterContext], str], None] = None, default_value: typing.Union[str, typing.Dict[str, typing.Any], typing.Callable[[metaflow.parameters.ParameterContext], typing.Union[str, typing.Dict[str, typing.Any]]], None] = None, help: typing.Optional[str] = None, required: typing.Optional[bool] = None, parser: typing.Union[str, typing.Callable[[str], typing.Dict[typing.Any, typing.Any]], None] = None, plain: bool = False, **kwargs: typing.Dict[str, str]):
         ...
     def load_parameter(self, v):
         ...

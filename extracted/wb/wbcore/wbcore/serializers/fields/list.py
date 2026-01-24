@@ -100,5 +100,5 @@ class SparklineField(WBCoreSerializerFieldMixin, serializers.ListField):
     def to_representation(self, obj):
         representation = [[]]  # if row is [] or null, we default to an empty list of list
         if (x_data := getattr(obj, self.x_data_label, None)) and (y_data := getattr(obj, self.y_data_label, None)):
-            representation = zip(x_data, y_data)
+            representation = zip(x_data, y_data, strict=False)
         return representation

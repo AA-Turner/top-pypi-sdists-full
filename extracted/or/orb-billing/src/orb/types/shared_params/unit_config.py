@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Optional
 from typing_extensions import Required, TypedDict
 
 __all__ = ["UnitConfig"]
 
 
 class UnitConfig(TypedDict, total=False):
+    """Configuration for unit pricing"""
+
     unit_amount: Required[str]
     """Rate per unit of usage"""
 
-    scaling_factor: Optional[float]
-    """Multiplier to scale rated quantity by"""
+    prorated: bool
+    """If true, subtotals from this price are prorated based on the service period"""

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import warnings
 from typing import TYPE_CHECKING
 
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
     from pytest import Session
 
     from pytest_codspeed.config import PedanticOptions
-    from pytest_codspeed.instruments import T
+    from pytest_codspeed.instruments import P, T
     from pytest_codspeed.plugin import BenchmarkMarkerOptions, CodSpeedConfig
 
 
@@ -27,7 +28,11 @@ class ValgrindInstrument(Instrument):
         try:
             self.instrument_hooks = InstrumentHooks()
             self.instrument_hooks.set_integration("pytest-codspeed", __semver_version__)
-        except RuntimeError:
+        except RuntimeError as e:
+            if os.environ.get("CODSPEED_ENV") is not None:
+                raise Exception(
+                    "Failed to initialize CPU simulation instrument hooks"
+                ) from e
             self.instrument_hooks = None
 
         self.should_measure = self.instrument_hooks is not None
@@ -52,9 +57,9 @@ class ValgrindInstrument(Instrument):
         marker_options: BenchmarkMarkerOptions,
         name: str,
         uri: str,
-        fn: Callable[..., T],
-        *args: tuple,
-        **kwargs: dict[str, Any],
+        fn: Callable[P, T],
+        *args: P.args,
+        **kwargs: P.kwargs,
     ) -> T:
         self.benchmark_count += 1
 

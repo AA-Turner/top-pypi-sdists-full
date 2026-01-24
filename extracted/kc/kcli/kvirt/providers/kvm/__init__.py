@@ -233,6 +233,7 @@ class Kvirt(object):
             self.url = 'qemu:///session'
             userport = common.get_free_port()
             metadata['userport'] = userport
+            metadata['usermode_backend'] = 'passt' if which('passt') is not None else 'slirp'
             usermode = True
         if self.exists(name):
             return {'result': 'failure', 'reason': f"VM {name} already exists"}
@@ -736,9 +737,15 @@ class Kvirt(object):
             if netname in ovsnetworks:
                 ovs = True
             if usermode:
-                iftype = 'user'
-                sourcexml = "<backend type='passt'/>"
-                sourcexml += f"<portForward proto='tcp'><range start='{userport}' to='22'/></portForward>"
+                usermode_backend = 'passt' if which('passt') is not None else 'slirp'
+                if usermode_backend == 'slirp':
+                    # Skip libvirt interface for slirp - handled via QEMU command line
+                    continue
+                else:
+                    # Default to passt
+                    iftype = 'user'
+                    sourcexml = "<backend type='passt'/>"
+                    sourcexml += f"<portForward proto='tcp'><range start='{userport}' to='22'/></portForward>"
             elif netname in networks:
                 iftype = 'network'
                 sourcexml = f"<source network='{netname}'/>"
@@ -1097,7 +1104,8 @@ class Kvirt(object):
             vcpuxml = f"<vcpu>{numcpus}</vcpu>"
         clockxml = "<clock offset='utc'/>"
         qemuextraxml = ''
-        if ignition or macosx or tpm or qemuextra is not None or nvmedisks:
+        slirp = usermode and which('passt') is None
+        if ignition or macosx or tpm or qemuextra is not None or nvmedisks or slirp:
             namespace = "xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'"
             ignitionxml = ""
             if ignition:
@@ -1139,12 +1147,19 @@ class Kvirt(object):
 <qemu:arg value='file={diskpath},format=qcow2,if=none,id=NVME{index}'/>
 <qemu:arg value='-device'/>
 <qemu:arg value='nvme,drive=NVME{index},serial=nvme-{index}'/>""".format(index=index, diskpath=diskpath)
+            slirpxml = ""
+            if slirp:
+                slirpxml = f"""<qemu:arg value='-netdev'/>
+<qemu:arg value='user,id=net0,hostfwd=tcp::{userport}-:22'/>
+<qemu:arg value='-device'/>
+<qemu:arg value='virtio-net-pci,netdev=net0,addr=0x10'/>"""
             qemuextraxml = """<qemu:commandline>
 {ignitionxml}
 {macosxml}
 {freeformxml}
 {nvmexml}
-</qemu:commandline>""".format(ignitionxml=ignitionxml, macosxml=macosxml, freeformxml=freeformxml, nvmexml=nvmexml)
+{slirpxml}
+</qemu:commandline>""".format(ignitionxml=ignitionxml, macosxml=macosxml, freeformxml=freeformxml, nvmexml=nvmexml, slirpxml=slirpxml)
         sharedxml = ""
         if sharedfolders:
             for folder in sharedfolders:
@@ -1188,6 +1203,7 @@ class Kvirt(object):
 <source><address domain='0x%s' bus='0x%s' slot='0x%s' function='0x%s'/></source>
 </hostdev>""" % (newdomain, newbus, newslot, newfunction)
             hostdevxml += newhostdev
+        pmuxml = "<pmu state='on'/>" if overrides.get('pmu', False) else ''
         rngxml = ""
         if rng:
             rngxml = """<rng model='virtio'>
@@ -1289,6 +1305,7 @@ class Kvirt(object):
 <bootmenu enable="yes" timeout="60"/>
 </os>
 <features>
+{pmuxml}
 {smmxml}
 {ioapicxml}
 {acpixml}
@@ -1329,7 +1346,7 @@ class Kvirt(object):
                     isoxml=isoxml, extraisoxml=extraisoxml, floppyxml=floppyxml, displayxml=displayxml,
                     serialxml=serialxml, sharedxml=sharedxml, guestxml=guestxml, videoxml=videoxml,
                     hostdevxml=hostdevxml, rngxml=rngxml, tpmxml=tpmxml, cpuxml=cpuxml, qemuextraxml=qemuextraxml,
-                    ioapicxml=ioapicxml, acpixml=acpixml, iommuxml=iommuxml, iommumemxml=iommumemxml,
+                    ioapicxml=ioapicxml, acpixml=acpixml, pmuxml=pmuxml, iommuxml=iommuxml, iommumemxml=iommumemxml,
                     iommufeaturesxml=iommufeaturesxml, iommudevicexml=iommudevicexml, controllerxml=controllerxml,
                     clockxml=clockxml)
         if self.debug:
@@ -1434,7 +1451,8 @@ class Kvirt(object):
         xml = vm.XMLDesc(0)
         root = ET.fromstring(xml)
         for _os in list(root.iter('os')):
-            if list(_os.iter('boot'))[0].get('dev') == 'cdrom':
+            boot = _os.iter('boot')
+            if boot is not None and list(boot)[0].get('dev') == 'cdrom':
                 return {'result': 'success'}
         newxml = ET.tostring(root).decode("utf-8")
         newxml = newxml.replace('dev="cdrom"', 'dev="TEMP"')
@@ -1945,7 +1963,7 @@ class Kvirt(object):
                 if ips and 'ip' not in yamlinfo:
                     ip4s = [i for i in ips if ':' not in i]
                     ip6s = [i for i in ips if i not in ip4s]
-                    yamlinfo['ip'] = ip4s[0] if ip4s else ip6s[0]
+                    yamlinfo['ip'] = ip4s[0] if ip4s else ip6s[-1]
         if len(all_ips) > 1:
             yamlinfo['ips'] = all_ips
         pcidevices = []
@@ -2677,7 +2695,6 @@ class Kvirt(object):
                 else:
                     vm.setVcpus(numcpus)
                     return {'result': 'success'}
-            warning("Note it will only be effective upon next start")
         cpunode.text = str(numcpus)
         newxml = ET.tostring(root).decode("utf-8")
         conn.defineXML(newxml)
@@ -3522,7 +3539,11 @@ class Kvirt(object):
             domainxml = f"<domain name='{name}' localOnly='{localdomain}'/>"
         if len(name) < 16:
             bridgename = name if name != 'default' else 'virbr0'
-            bridgexml = f"<bridge name='{bridgename}' stp='on' delay='0'/>"
+            if 'fwzone' in overrides:
+                fwzone = overrides.get('fwzone')
+                bridgexml = f"<bridge name='{bridgename}' zone='{fwzone}' stp='on' delay='0'/>"
+            else:
+                bridgexml = f"<bridge name='{bridgename}' stp='on' delay='0'/>"
         else:
             return {'result': 'failure', 'reason': f"network {name} is more than 16 characters"}
         prefix = cidr.split('/')[1]

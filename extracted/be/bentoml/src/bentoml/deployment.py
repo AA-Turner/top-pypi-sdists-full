@@ -18,6 +18,7 @@ from ._internal.cloud.schemas.modelschemas import LabelItemSchema
 from ._internal.configuration.containers import BentoMLContainer
 from ._internal.tag import Tag
 from .exceptions import BentoMLException
+from .exceptions import NotFound
 
 if t.TYPE_CHECKING:
     from ._internal.cloud import BentoCloudClient
@@ -38,6 +39,7 @@ def create(
     instance_type: str | None = ...,
     strategy: str | None = ...,
     envs: t.List[EnvItemSchema] | t.List[dict[str, t.Any]] | None = ...,
+    secrets: t.List[str] | None = ...,
     labels: t.List[LabelItemSchema] | t.List[dict[str, str]] | None = ...,
     extras: dict[str, t.Any] | None = ...,
 ) -> Deployment: ...
@@ -77,6 +79,7 @@ def create(
     strategy: str | None = None,
     envs: t.List[EnvItemSchema] | t.List[dict[str, t.Any]] | None = None,
     labels: t.List[LabelItemSchema] | t.List[dict[str, str]] | None = None,
+    secrets: t.List[str] | None = None,
     extras: dict[str, t.Any] | None = None,
     config_dict: dict[str, t.Any] | None = None,
     config_file: str | None = None,
@@ -113,12 +116,13 @@ def create(
             if labels is not None
             else None
         ),
+        secrets=secrets,
         extras=extras,
         config_dict=config_dict,
         config_file=config_file,
     )
     try:
-        config_params.verify()
+        config_params.verify(_client=_cloud_client.client)
     except BentoMLException as e:
         raise BentoMLException(
             f"Failed to create deployment due to invalid configuration: {e}"
@@ -130,7 +134,6 @@ def create(
 def update(
     name: str | None = ...,
     path_context: str | None = ...,
-    context: str | None = ...,
     cluster: str | None = ...,
     *,
     bento: BentoType | None = ...,
@@ -149,7 +152,6 @@ def update(
 def update(
     name: str | None = ...,
     path_context: str | None = ...,
-    context: str | None = ...,
     cluster: str | None = None,
     *,
     bento: BentoType | None = ...,
@@ -161,7 +163,6 @@ def update(
 def update(
     name: str | None = ...,
     path_context: str | None = ...,
-    context: str | None = ...,
     cluster: str | None = None,
     *,
     bento: BentoType | None = ...,
@@ -228,7 +229,7 @@ def update(
         config_file=config_file,
     )
     try:
-        config_params.verify(create=False)
+        config_params.verify(create=False, _client=_cloud_client.client)
     except BentoMLException as e:
         raise BentoMLException(
             f"Failed to create deployment due to invalid configuration: {e}"
@@ -279,7 +280,7 @@ def apply(
         config_file=config_file,
     )
     try:
-        config_params.verify(create=False)
+        config_params.verify(create=False, _client=_cloud_client.client)
     except BentoMLException as e:
         raise BentoMLException(
             f"Failed to create deployment due to invalid configuration: {e}"
@@ -305,6 +306,37 @@ def terminate(
     _cloud_client: BentoCloudClient = Provide[BentoMLContainer.bentocloud_client],
 ) -> Deployment:
     return _cloud_client.deployment.terminate(name=name, cluster=cluster, wait=wait)
+
+
+@inject
+def start(
+    name: str,
+    cluster: str | None = None,
+    _cloud_client: BentoCloudClient = Provide[BentoMLContainer.bentocloud_client],
+) -> Deployment:
+    """Start a terminated deployment by updating it with no configuration changes.
+
+    Returns:
+        Deployment: The updated deployment
+    """
+    from ._internal.cloud.schemas.modelschemas import DeploymentStatus
+
+    # First check if deployment exists and get its status
+    try:
+        deployment = get(name=name, cluster=cluster)
+        status = deployment.get_status(refetch=True).status
+    except Exception as e:
+        if "not found" in str(e).lower():
+            raise NotFound(f"Deployment '{name}' not found.") from e
+        raise
+    else:
+        if status != DeploymentStatus.Terminated.value:
+            raise BentoMLException(
+                f"Deployment '{name}' is not terminated (current status: {status}). Only terminated deployments can be started.",
+            )
+
+    config_params = DeploymentConfigParameters(name=name, cluster=cluster)
+    return _cloud_client.deployment.update(deployment_config_params=config_params)
 
 
 @inject
@@ -343,4 +375,4 @@ def list(
     return _cloud_client.deployment.list(cluster=cluster, search=search, dev=dev, q=q)
 
 
-__all__ = ["create", "get", "update", "apply", "terminate", "delete", "list"]
+__all__ = ["create", "get", "update", "apply", "terminate", "start", "delete", "list"]

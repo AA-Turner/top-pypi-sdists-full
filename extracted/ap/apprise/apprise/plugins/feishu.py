@@ -55,7 +55,7 @@ class NotifyFeishu(NotifyBase):
     secure_protocol = "feishu"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_feishu"
+    setup_url = "https://appriseit.com/services/feishu/"
 
     # Notification URL
     notify_url = "https://open.feishu.cn/open-apis/bot/v2/hook/{token}/"
@@ -173,7 +173,8 @@ class NotifyFeishu(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Return; we're done
                 return False

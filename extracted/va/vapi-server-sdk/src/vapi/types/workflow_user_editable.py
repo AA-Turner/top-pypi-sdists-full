@@ -87,6 +87,17 @@ class WorkflowUserEditable(UncheckedBaseModel):
     This is the voicemail detection plan for the workflow.
     """
 
+    max_duration_seconds: typing_extensions.Annotated[
+        typing.Optional[float], FieldMetadata(alias="maxDurationSeconds")
+    ] = pydantic.Field(default=None)
+    """
+    This is the maximum duration of the call in seconds.
+    
+    After this duration, the call will automatically end.
+    
+    Default is 1800 (30 minutes), max is 43200 (12 hours), and min is 10 seconds.
+    """
+
     name: str
     edges: typing.List[Edge]
     global_prompt: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="globalPrompt")] = None
@@ -189,6 +200,15 @@ class WorkflowUserEditable(UncheckedBaseModel):
     This is the plan for keypad input handling during workflow calls.
     """
 
+    voicemail_message: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="voicemailMessage")] = (
+        pydantic.Field(default=None)
+    )
+    """
+    This is the message that the assistant will say if the call is forwarded to voicemail.
+    
+    If unspecified, it will hang up.
+    """
+
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:
@@ -201,6 +221,7 @@ class WorkflowUserEditable(UncheckedBaseModel):
 
 from .anthropic_model import AnthropicModel  # noqa: E402, F401, I001
 from .anyscale_model import AnyscaleModel  # noqa: E402, F401, I001
+from .assistant_overrides import AssistantOverrides  # noqa: E402, F401, I001
 from .call_hook_assistant_speech_interrupted import CallHookAssistantSpeechInterrupted  # noqa: E402, F401, I001
 from .call_hook_call_ending import CallHookCallEnding  # noqa: E402, F401, I001
 from .call_hook_customer_speech_interrupted import CallHookCustomerSpeechInterrupted  # noqa: E402, F401, I001

@@ -146,7 +146,7 @@ class Registry:
         signatures: Optional[dict[str, model_signature.ModelSignature]] = None,
         sample_input_data: Optional[type_hints.SupportedDataType] = None,
         user_files: Optional[dict[str, list[str]]] = None,
-        code_paths: Optional[list[str]] = None,
+        code_paths: Optional[list[type_hints.CodePathLike]] = None,
         ext_modules: Optional[list[ModuleType]] = None,
         task: task.Task = task.Task.UNKNOWN,
         options: Optional[type_hints.ModelSaveOption] = None,
@@ -200,7 +200,7 @@ class Registry:
                 It would also be used as background data in explanation and to capture data lineage. Defaults to None.
             user_files: Dictionary where the keys are subdirectories, and values are lists of local file name
                 strings. The local file name strings can include wildcards (? or *) for matching multiple files.
-            code_paths: List of directories containing code to import. Defaults to None.
+            code_paths: List of directories or CodePath objects containing code to import. Defaults to None.
             ext_modules: List of external modules to pickle with the model object.
                 Only supported when logging the following types of model:
                 Scikit-learn, Snowpark ML, PyTorch, TorchScript and Custom Model. Defaults to None.
@@ -235,6 +235,10 @@ class Registry:
                     - max_batch_size: Maximum batch size that the method could accept in the Snowflake Warehouse.
                         Defaults to None, determined automatically by Snowflake.
                     - function_type: One of supported model method function types (FUNCTION or TABLE_FUNCTION).
+                    - volatility: Volatility level for the function (use Volatility.VOLATILE or Volatility.IMMUTABLE).
+                        Volatility.VOLATILE functions may return different results for the same arguments, while
+                        Volatility.IMMUTABLE functions always return the same result for the same arguments.
+                        Defaults to None (no volatility specified).
         Returns:
             ModelVersion: ModelVersion object corresponding to the model just logged.
         """
@@ -294,7 +298,7 @@ class Registry:
         signatures: Optional[dict[str, model_signature.ModelSignature]] = None,
         sample_input_data: Optional[type_hints.SupportedDataType] = None,
         user_files: Optional[dict[str, list[str]]] = None,
-        code_paths: Optional[list[str]] = None,
+        code_paths: Optional[list[type_hints.CodePathLike]] = None,
         ext_modules: Optional[list[ModuleType]] = None,
         task: task.Task = task.Task.UNKNOWN,
         options: Optional[type_hints.ModelSaveOption] = None,
@@ -348,7 +352,7 @@ class Registry:
                 It would also be used as background data in explanation and to capture data lineage. Defaults to None.
             user_files: Dictionary where the keys are subdirectories, and values are lists of local file name
                 strings. The local file name strings can include wildcards (? or *) for matching multiple files.
-            code_paths: List of directories containing code to import. Defaults to None.
+            code_paths: List of directories or CodePath objects containing code to import. Defaults to None.
             ext_modules: List of external modules to pickle with the model object.
                 Only supported when logging the following types of model:
                 Scikit-learn, Snowpark ML, PyTorch, TorchScript and Custom Model. Defaults to None.
@@ -366,6 +370,12 @@ class Registry:
                     Warehouse. It detects any ==x.y.z in specifiers and replaced with >=x.y, <(x+1). Defaults to True.
                 - function_type: Set the method function type globally. To set method function types individually see
                   function_type in model_options.
+                - volatility: Set the volatility for all model methods globally (use Volatility.VOLATILE or
+                  Volatility.IMMUTABLE). Volatility.VOLATILE functions may return different results for the same
+                  arguments, while Volatility.IMMUTABLE functions always return the same result for the same arguments.
+                  Defaults are set automatically based on model type: supported models (sklearn, xgboost, pytorch,
+                  huggingface_pipeline, mlflow, etc.) default to IMMUTABLE, while custom models default to VOLATILE.
+                  Individual method volatility can be set in method_options and will override this global setting.
                 - target_methods: List of target methods to register when logging the model.
                   This option is not used in MLFlow models. Defaults to None, in which case the model handler's
                   default target methods will be used.
@@ -382,6 +392,11 @@ class Registry:
                     - max_batch_size: Maximum batch size that the method could accept in the Snowflake Warehouse.
                         Defaults to None, determined automatically by Snowflake.
                     - function_type: One of supported model method function types (FUNCTION or TABLE_FUNCTION).
+                    - volatility: Volatility level for the function (use Volatility.VOLATILE or Volatility.IMMUTABLE).
+                        Volatility.VOLATILE functions may return different results for the same arguments, while
+                        Volatility.IMMUTABLE functions always return the same result for the same arguments.
+                        This per-method setting overrides any global volatility setting.
+                        Defaults to None (no volatility specified).
 
         Raises:
             ValueError: If extra arguments are specified ModelVersion is provided.

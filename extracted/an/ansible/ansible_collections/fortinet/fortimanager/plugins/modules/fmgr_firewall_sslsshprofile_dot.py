@@ -16,7 +16,6 @@ short_description: Configure DNS over TLS options.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.1.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -64,6 +63,9 @@ options:
         description: The rc codes list with which the conditions to fail will be overriden.
         type: list
         elements: int
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -110,6 +112,7 @@ options:
                     - 'bypass'
                     - 'inspect'
                     - 'block'
+                    - 'bypass-on-cert-req'
             expired_server_cert:
                 aliases: ['expired-server-cert']
                 type: str
@@ -218,8 +221,8 @@ EXAMPLES = '''
     - name: Configure DNS over TLS options.
       fortinet.fortimanager.fmgr_firewall_sslsshprofile_dot:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -227,7 +230,7 @@ EXAMPLES = '''
         firewall_sslsshprofile_dot:
           # cert_validation_failure: <value in [allow, block, ignore]>
           # cert_validation_timeout: <value in [allow, block, ignore]>
-          # client_certificate: <value in [bypass, inspect, block]>
+          # client_certificate: <value in [bypass, inspect, block, ...]>
           # expired_server_cert: <value in [allow, block, ignore]>
           # proxy_after_tcp_handshake: <value in [disable, enable]>
           # revoked_server_cert: <value in [allow, block, ignore]>
@@ -298,13 +301,14 @@ def main():
         'adom': {'required': True, 'type': 'str'},
         'ssl-ssh-profile': {'type': 'str', 'api_name': 'ssl_ssh_profile'},
         'ssl_ssh_profile': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_sslsshprofile_dot': {
             'type': 'dict',
             'v_range': [['7.0.0', '']],
             'options': {
                 'cert-validation-failure': {'v_range': [['7.0.0', '']], 'choices': ['allow', 'block', 'ignore'], 'type': 'str'},
                 'cert-validation-timeout': {'v_range': [['7.0.0', '']], 'choices': ['allow', 'block', 'ignore'], 'type': 'str'},
-                'client-certificate': {'v_range': [['7.0.0', '']], 'choices': ['bypass', 'inspect', 'block'], 'type': 'str'},
+                'client-certificate': {'v_range': [['7.0.0', '']], 'choices': ['bypass', 'inspect', 'block', 'bypass-on-cert-req'], 'type': 'str'},
                 'expired-server-cert': {'v_range': [['7.0.0', '']], 'choices': ['allow', 'block', 'ignore'], 'type': 'str'},
                 'proxy-after-tcp-handshake': {'v_range': [['7.0.0', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'revoked-server-cert': {'v_range': [['7.0.0', '']], 'choices': ['allow', 'block', 'ignore'], 'type': 'str'},

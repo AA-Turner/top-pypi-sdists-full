@@ -26,13 +26,15 @@ ASCII-only dimensions will be relaxed in a future release. Unicode/UTF-8 is
 fully supported in SOMA DataFrame non-indexed columns.
 """
 
-from typing import Any, Union
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
 
-_ARROW_TO_TDB_ATTR: dict[Any, Union[str, TypeError]] = {
+_ARROW_TO_TDB_ATTR: dict[Any, str | TypeError] = {
     pa.string(): "U1",
     pa.large_string(): "U1",
     pa.binary(): "bytes",
@@ -92,7 +94,7 @@ _CARROW_TO_PYARROW: dict[pa.DataType, str] = {
 
 # Same as _ARROW_TO_TDB_ATTR, but used for DataFrame indexed columns, aka TileDB Dimensions.
 # Any type system differences from the base-case Attr should be added here.
-_ARROW_TO_TDB_DIM: dict[Any, Union[str, TypeError]] = _ARROW_TO_TDB_ATTR.copy()
+_ARROW_TO_TDB_DIM: dict[Any, str | TypeError] = _ARROW_TO_TDB_ATTR.copy()
 """Same as _ARROW_TO_TDB_ATTR, but used for DataFrame indexed columns, aka TileDB Dimensions.
 Any type system differences from the base-case Attr should be added here.
 """
@@ -100,13 +102,11 @@ _ARROW_TO_TDB_DIM.update(
     {
         pa.string(): "ascii",  # TODO: temporary work-around until Dimension UTF8 support is available.
         pa.large_string(): "ascii",  # TODO: temporary work-around until Dimension UTF8 support is available.
-    }
+    },
 )
 
 
-def tiledb_type_from_arrow_type(
-    t: pa.DataType, is_indexed_column: bool = False
-) -> npt.DTypeLike:
+def tiledb_type_from_arrow_type(t: pa.DataType, is_indexed_column: bool = False) -> npt.DTypeLike:
     """Given an Arrow type, return the corresponding TileDB type as a NumPy dtype.
     Building block for Arrow-to-TileDB schema translation.
 
@@ -141,7 +141,7 @@ def tiledb_type_from_arrow_type(
         return np.dtype(arrow_type)
 
     if not pa.types.is_primitive(t):
-        raise TypeError(f"Type {str(t)} - unsupported type")
+        raise TypeError(f"Type {t!s} - unsupported type")
     if pa.types.is_timestamp(t):
         raise TypeError("TimeStampType - unsupported type (timezone not supported)")
     if pa.types.is_time32(t):
@@ -160,9 +160,7 @@ def tiledb_type_from_arrow_type(
         raise TypeError("Unsupported Arrow type") from exc
 
 
-def arrow_type_from_tiledb_dtype(
-    tiledb_dtype: npt.DTypeLike, bytes_are_ascii: bool = True
-) -> pa.DataType:
+def arrow_type_from_tiledb_dtype(tiledb_dtype: npt.DTypeLike, bytes_are_ascii: bool = True) -> pa.DataType:
     """Maps a TileDB dtype (``'bytes'``, ``'ascii'``, or an ``np.dtype``) to an Arrow type.  Note that
     when we read tiledb schema off storage, ``ascii`` and ``bytes`` both have ``dtype`` of `"S"`
     which is equal to ``bytes`` -- so, the caller should disambgiuate.
@@ -170,12 +168,10 @@ def arrow_type_from_tiledb_dtype(
     if tiledb_dtype == "bytes":
         if bytes_are_ascii:
             return pa.large_string()
-        else:
-            return pa.large_binary()
-    elif tiledb_dtype == "ascii" or tiledb_dtype == np.dtype(str):
+        return pa.large_binary()
+    if tiledb_dtype == "ascii" or tiledb_dtype == np.dtype(str):
         return pa.large_string()
-    else:
-        return pa.from_numpy_dtype(tiledb_dtype)
+    return pa.from_numpy_dtype(tiledb_dtype)
 
 
 def is_string_dtypelike(dtype: npt.DTypeLike) -> bool:
@@ -190,7 +186,7 @@ def is_string_dtypelike(dtype: npt.DTypeLike) -> bool:
     return False
 
 
-def is_string_dtype(dtype: Any) -> bool:
+def is_string_dtype(dtype: Any) -> bool:  # noqa: ANN401
     return dtype.name in ["object", "string", "str32", "str64"]
 
 

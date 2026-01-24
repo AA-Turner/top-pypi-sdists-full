@@ -1,0 +1,104 @@
+name: Cleanup Test Resources
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Mode of operation'
+        required: true
+        default: 'dry-run'
+        type: choice
+        options:
+          - dry-run     # list only
+          - plan        # list with optional filters
+          - delete      # delete specified resources
+      region:
+        description: 'AWS region'
+        required: false
+        default: 'us-east-1'
+      user_filter:
+        description: 'Substring filter for IAM usernames (plan/dry-run modes)'
+        required: false
+      playground_ids:
+        description: 'Comma-separated API Gateway REST API IDs to delete (delete mode)'
+        required: false
+      iam_usernames:
+        description: 'Comma-separated IAM usernames to delete (delete mode)'
+        required: false
+      confirm:
+        description: "Type DELETE to allow deletions (required for delete mode)"
+        required: false
+
+permissions:
+  contents: read
+  # If you later move to OIDC role assumption, uncomment:
+  # id-token: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    env:
+      AWS_REGION: ${{ github.event.inputs.region || 'us-east-1' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      
+      # Configure AWS credentials (currently using static secrets; consider switching to OIDC)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.DATA_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.DATA_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install boto3
+      
+      - name: List resources (dry-run / plan modes)
+        if: ${{ github.event.inputs.mode == 'dry-run' || github.event.inputs.mode == 'plan' }}
+        run: |
+          echo "Listing resources (mode=${{ github.event.inputs.mode }})"
+          python scripts/cleanup_test_resources.py --region ${{ env.AWS_REGION }} --list-only $([ -n "${{ github.event.inputs.user_filter }}" ] && echo "--user-filter '${{ github.event.inputs.user_filter }}'")
+        shell: bash
+      
+      - name: Validate delete inputs
+        if: ${{ github.event.inputs.mode == 'delete' }}
+        run: |
+          echo "Validating delete inputs..."
+          if [ "${{ github.event.inputs.confirm }}" != "DELETE" ]; then
+            echo "Deletion not confirmed. 'confirm' must be DELETE."; exit 1;
+          fi
+          if [ -z "${{ github.event.inputs.playground_ids }}" ] && [ -z "${{ github.event.inputs.iam_usernames }}" ]; then
+            echo "Nothing to delete. Provide playground_ids and/or iam_usernames."; exit 1;
+          fi
+        shell: bash
+      
+      - name: Perform deletion
+        if: ${{ github.event.inputs.mode == 'delete' }}
+        run: |
+          echo "Starting deletion..."
+          python scripts/cleanup_test_resources.py \
+            --region ${{ env.AWS_REGION }} \
+            --playgrounds "${{ github.event.inputs.playground_ids }}" \
+            --users "${{ github.event.inputs.iam_usernames }}" \
+            --confirm-delete DELETE
+        shell: bash
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "Cleanup workflow completed"
+          echo "Mode: ${{ github.event.inputs.mode }}"
+          echo "Region: ${{ env.AWS_REGION }}"
+          echo "User filter: ${{ github.event.inputs.user_filter }}"
+          echo "Playground IDs: ${{ github.event.inputs.playground_ids }}"
+          echo "IAM Usernames: ${{ github.event.inputs.iam_usernames }}"

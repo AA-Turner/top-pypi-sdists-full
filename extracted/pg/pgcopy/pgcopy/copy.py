@@ -3,6 +3,7 @@ import functools
 import os
 import struct
 import tempfile
+import uuid
 from datetime import date, datetime
 
 try:
@@ -112,6 +113,8 @@ def jsonb_formatter(val):
 
 
 def uuid_formatter(guid):
+    if isinstance(guid, str):
+        guid = uuid.UUID(guid)
     return "i2Q", (16, (guid.int >> 64) & MAX_INT64, guid.int & MAX_INT64)
 
 
@@ -242,7 +245,7 @@ class CopyManager(object):
     :type table: str
 
     :param cols: columns in the table into which to copy data
-    :type cols: list of str
+    :type cols: iterable of str
 
     :raises ValueError: if the table or columns do not exist.
     """

@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: pudb
-Version: 2025.1.1
+Version: 2025.1.5
 Summary: A full-screen, console-based Python debugger
 Author-email: Andreas Kloeckner <inform@tiker.net>
 License-Expression: MIT
 License-File: LICENSE
-License-File: LICENSE~
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Environment :: Console :: Curses
@@ -25,12 +24,11 @@ Classifier: Topic :: Utilities
 Requires-Python: ~=3.8
 Requires-Dist: jedi<1,>=0.18
 Requires-Dist: packaging>=20.0
-Requires-Dist: pygments>=2.7.4
+Requires-Dist: pygments>=2.19
 Requires-Dist: typing-extensions>=4.13
-Requires-Dist: urwid!=3.0.0; python_version < '3.9'
 Requires-Dist: urwid-readline
-Requires-Dist: urwid; python_version >= '3.9'
 Requires-Dist: urwid>=2.4
+Requires-Dist: urwid>=2.5.1
 Provides-Extra: completion
 Requires-Dist: shtab; extra == 'completion'
 Description-Content-Type: text/x-rst

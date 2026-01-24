@@ -637,12 +637,11 @@ def search_app(
 
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
-    if project_id is None:
-        project_id = ""
     response = httpx.get(
         urljoin(
             constants.Hosting.HOSTING_SERVICE,
-            f"/v1/apps/search?app_name={app_name}&project_id={project_id}",
+            f"/v1/apps/search?app_name={app_name}"
+            + (f"&project_id={project_id}" if project_id else ""),
         ),
         headers=authorization_header(client.token),
         timeout=constants.Hosting.TIMEOUT,
@@ -861,10 +860,16 @@ def get_hostname(
     try:
         response.raise_for_status()
     except httpx.HTTPStatusError as ex:
-        ex_details = ex.response.json().get("detail")
-        if ex_details == "hostname taken":
-            return {"error": "hostname taken"}
-        raise Exception(f"deployment failed: {ex_details}") from ex
+        try:
+            ex_details = ex.response.json().get("detail")
+            if ex_details == "hostname taken":
+                return {"error": "hostname taken"}
+            raise Exception(f"deployment failed: {ex_details}") from ex
+        except (ValueError, AttributeError):
+            # Response is not valid JSON or missing detail field
+            raise Exception(
+                f"deployment failed: HTTP {ex.response.status_code} - {ex.response.text}"
+            ) from ex
     response_json = response.json()
     return response_json
 
@@ -958,7 +963,7 @@ def update_secrets(
     response = httpx.post(
         urljoin(
             constants.Hosting.HOSTING_SERVICE,
-            f"/v1/apps/{app_id}/secrets?reboot={'true' if reboot else 'false'}",
+            f"/v1/apps/{app_id}/secrets?reboot={reboot}",
         ),
         headers=authorization_header(client.token),
         json={"secrets": secrets},
@@ -994,7 +999,7 @@ def delete_secret(
     response = httpx.delete(
         urljoin(
             constants.Hosting.HOSTING_SERVICE,
-            f"/v1/apps/{app_id}/secrets/{key}?reboot={'true' if reboot else 'false'}",
+            f"/v1/apps/{app_id}/secrets/{key}?reboot={reboot}",
         ),
         headers=authorization_header(client.token),
         timeout=constants.Hosting.TIMEOUT,
@@ -1273,6 +1278,7 @@ def invite_user_to_project(
 
 def validate_deployment_args(
     app_name: str,
+    app_id: str | None,
     project_id: str | None,
     regions: list[str] | None,
     vmtype: str | None,
@@ -1283,6 +1289,7 @@ def validate_deployment_args(
 
     Args:
         app_name: The name of the application.
+        app_id: The ID of the application.
         project_id: The ID of the project to associate the deployment with.
         regions: The list of regions for the deployment.
         vmtype: The VM type for the deployment.
@@ -1300,6 +1307,7 @@ def validate_deployment_args(
 
     param_data = {
         "app_name": app_name or "",
+        "app_id": app_id or "",
         "project_id": project_id or "",
         "regions": json.dumps(regions or []),
         "vmtype": vmtype or "",
@@ -1325,16 +1333,17 @@ def validate_deployment_args(
 
 
 def create_deployment(
-    app_name: str,
+    zip_dir: Path,
+    client: AuthenticatedClient,
+    app_name: str | None,
     project_id: str | None,
     regions: list | None,
-    zip_dir: Path,
     hostname: str | None,
     vmtype: str | None,
     secrets: dict | None,
-    client: AuthenticatedClient,
     packages: list | None,
     strategy: str | None,
+    app_id: str | None,
 ) -> str:
     """Create a new deployment for an application.
 
@@ -1349,6 +1358,7 @@ def create_deployment(
         client: The authenticated client
         packages: The list of packages to install on the VM.
         strategy: The deployment strategy to use.
+        app_id: The ID of the application.
 
     Returns:
         The deployment id.git c
@@ -1379,6 +1389,7 @@ def create_deployment(
         ),
     ]
     payload: dict[str, Any] = {
+        "app_id": app_id,
         "app_name": app_name,
         "reflex_hosting_cli_version": cli_version,
         "reflex_version": dependency.get_reflex_version(),
@@ -1678,13 +1689,13 @@ def get_app_status(app_id: str, client: AuthenticatedClient) -> str:
             ),
             headers=authorization_header(client.token),
         )
-    except httpx.RequestError:
-        return "lost connection: trying again"
+    except httpx.RequestError as e:
+        return "lost connection: trying again" + f"({e.__class__.__name__}: {e})"
 
     try:
         response.raise_for_status()
     except httpx.HTTPStatusError:
-        return "error: bad response. received a bad response from cloud service."
+        return f"error: bad response: {response.status_code}. received a bad response from cloud service."
     return response.json()
 
 
@@ -1775,8 +1786,8 @@ def _get_deployment_status(deployment_id: str, token: str) -> str:
             ),
             headers=authorization_header(token),
         )
-    except httpx.RequestError:
-        return "lost connection: trying again"
+    except httpx.RequestError as e:
+        return "lost connection: trying again" + f"({e.__class__.__name__}: {e})"
 
     try:
         response.raise_for_status()

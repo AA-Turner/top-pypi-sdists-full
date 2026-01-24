@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-axes
-Version: 8.0.0
+Version: 8.1.0
 Summary: Keep track of failed login attempts in Django-powered sites.
 Home-page: https://github.com/jazzband/django-axes
 Author: Josh VanderLinden, Philip Neustrom, Michael Blume, Alex Clark, Camilo Nova, Aleksi Hakli
@@ -17,24 +17,24 @@ Classifier: Environment :: Web Environment
 Classifier: Environment :: Plugins
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Internet :: Log Analysis
 Classifier: Topic :: Security
 Classifier: Topic :: System :: Logging
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: django>=4.2
 Requires-Dist: asgiref>=3.6.0
@@ -143,6 +143,25 @@ See `CONTRIBUTING <CONTRIBUTING.rst>`__.
 
 Changes
 =======
+
+8.1.0 (2025-12-19)
+------------------
+
+- Add Persion (fa) translations for django-axes.
+  [AmirAli-BahramJerdi]
+- Add individual attempt expiry support.
+  [kuldeepkhatke]
+- Add checks for missing ip_address in lockout params.
+  [shayanTaki]
+- Add missing ``settings.AXES_IPWARE_PROXY_ORDER`` documentation.
+  [ram98kgp]
+- Enhance ``get_lockout_response`` to receive original response as parameter.
+  [mounirmesselmeni]
+- Update documentation.
+- Add Python 3.14 support.
+- Add Django 6.0 support.
+- Remove Python 3.9 support (EOL).
+- Remove Django 5.1 support (EOL).
 
 8.0.0 (2025-05-10)
 ------------------

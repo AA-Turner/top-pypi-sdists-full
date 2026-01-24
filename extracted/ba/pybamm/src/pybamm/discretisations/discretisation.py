@@ -9,6 +9,7 @@ from scipy.sparse import block_diag, csc_matrix, csr_matrix
 from scipy.sparse.linalg import inv
 
 import pybamm
+from pybamm.models.base_model import ModelSolutionObservability
 
 
 def has_bc_of_form(symbol, side, bcs, form):
@@ -39,6 +40,9 @@ class Discretisation:
         (not used anywhere in the model, len(rhs)>1), then the variable
         is moved to be explicitly integrated when called by the solution object.
         Default is False.
+    resolve_coupled_variables : bool, optional
+        If True, resolve CoupledVariables in rhs, algebraic, initial_conditions,
+        and boundary_conditions before processing. Default is False.
     """
 
     def __init__(
@@ -47,6 +51,7 @@ class Discretisation:
         spatial_methods=None,
         check_model=True,
         remove_independent_variables_from_rhs=False,
+        resolve_coupled_variables=False,
     ):
         self._mesh = mesh
         if mesh is None:
@@ -78,6 +83,7 @@ class Discretisation:
         self._remove_independent_variables_from_rhs_flag = (
             remove_independent_variables_from_rhs
         )
+        self._resolve_coupled_variables = resolve_coupled_variables
 
     @property
     def mesh(self):
@@ -108,7 +114,12 @@ class Discretisation:
         # reset discretised_symbols
         self._discretised_symbols = {}
 
-    def process_model(self, model, inplace=True):
+    def process_model(
+        self,
+        model,
+        inplace=True,
+        delayed_variable_processing=None,
+    ):
         """
         Discretise a model. Currently inplace, could be changed to return a new model.
 
@@ -120,6 +131,9 @@ class Discretisation:
         inplace : bool, optional
             If True, discretise the model in place. Otherwise, return a new
             discretised model. Default is True.
+        delayed_variable_processing: bool, optional
+            If True, make variable processing a post-processing step.
+            Default is False.
 
         Returns
         -------
@@ -141,6 +155,8 @@ class Discretisation:
                 "Set 'inplace=False' when first discretising a model to then be able "
                 "to discretise it more times (e.g. for convergence studies)."
             )
+        if delayed_variable_processing is None:
+            delayed_variable_processing = False
 
         pybamm.logger.info(f"Start discretising {model.name}")
 
@@ -189,17 +205,15 @@ class Discretisation:
             # create a copy of the original model
             model_disc = model.new_copy()
 
+        if self._resolve_coupled_variables:
+            self._resolve_coupled_variables_in_model(model)
+
         # Keep a record of y_slices in the model
         model_disc.y_slices = self.y_slices_explicit
         # Keep a record of the bounds in the model
         model_disc.bounds = self.bounds
 
         model_disc.bcs = self.bcs
-
-        # pre-process variables so that all state variables are included
-        pre_processed_variables = self._pre_process_variables(
-            model.variables, model.initial_conditions
-        )
 
         pybamm.logger.verbose(f"Discretise initial conditions for {model.name}")
         ics, concat_ics = self.process_initial_conditions(model)
@@ -211,7 +225,22 @@ class Discretisation:
         # model.initial_conditions and model.boundary_conditions
         pybamm.logger.verbose(f"Discretise variables for {model.name}")
 
-        model_disc.variables = self.process_dict(pre_processed_variables)
+        # pre-process variables so that all state variables are included
+        # This is the ONLY place where model.variables should be modified
+        pre_processed_variables = self._pre_process_variables(
+            model.variables, model.initial_conditions
+        )
+        model_disc.variables = pybamm.FuzzyDict(pre_processed_variables)
+
+        if not delayed_variable_processing:
+            # Process variables and store in _variables_processed
+            variables_to_process = model.get_processed_variables_dict()
+            for name, var in pre_processed_variables.items():
+                if name not in variables_to_process:
+                    # New variable (e.g., added by _pre_process_variables)
+                    variables_to_process[name] = var
+            processed_variables = self.process_dict(variables_to_process)
+            model_disc.update_processed_variables(processed_variables)
 
         # Process parabolic and elliptic equations
         pybamm.logger.verbose(f"Discretise model equations for {model.name}")
@@ -252,10 +281,65 @@ class Discretisation:
 
         pybamm.logger.info(f"Finish discretising {model.name}")
 
-        # Record that the model has been discretised
-        model_disc.is_discretised = True
+        # Re-discretising the model means it can no longer safely process symbols.
+        # Not currently reachable, but keeping the check for safety
+        if model.is_discretised:
+            pybamm.logger.debug(
+                f"Model '{model.name}' is being re-discretised, "
+                "which makes it unable to process symbols using `model.process_symbol`"
+            )  # pragma: no cover
+            model_disc.disable_symbol_processing(
+                ModelSolutionObservability.REDISCRETISED_MODEL
+            )  # pragma: no cover
 
+        pybamm.logger.debug("Attaching the `discretisation` to the `symbol_processor`")
+        model_disc.symbol_processor.discretisation = self
+
+        model_disc.is_discretised = True
         return model_disc
+
+    def _resolve_coupled_variables_in_model(self, model):
+        """Resolve CoupledVariables in rhs, algebraic, initial_conditions, and boundary_conditions."""
+
+        def resolve_symbol(symbol):
+            if isinstance(symbol, pybamm.CoupledVariable):
+                if symbol.name not in model.variables:
+                    raise pybamm.DiscretisationError(
+                        f"CoupledVariable '{symbol.name}' not found in model.variables."
+                    )
+                return resolve_symbol(model.variables[symbol.name])
+            elif hasattr(symbol, "children") and symbol.children:
+                new_children = []
+                changed = False
+                for child in symbol.children:
+                    new_child = resolve_symbol(child)
+                    new_children.append(new_child)
+                    if new_child is not child:
+                        changed = True
+                if changed:
+                    return symbol.create_copy(new_children=new_children)
+            return symbol
+
+        for var, expr in list(model.rhs.items()):
+            resolved = resolve_symbol(expr)
+            if resolved is not expr:
+                model.rhs[var] = resolved
+
+        for var, expr in list(model.algebraic.items()):
+            resolved = resolve_symbol(expr)
+            if resolved is not expr:
+                model.algebraic[var] = resolved
+
+        for var, expr in list(model.initial_conditions.items()):
+            resolved = resolve_symbol(expr)
+            if resolved is not expr:
+                model.initial_conditions[var] = resolved
+
+        for var, bcs in list(model.boundary_conditions.items()):
+            for side, (expr, bc_type) in list(bcs.items()):
+                resolved = resolve_symbol(expr)
+                if resolved is not expr:
+                    model.boundary_conditions[var][side] = (resolved, bc_type)
 
     def set_variable_slices(self, variables):
         """
@@ -273,26 +357,59 @@ class Discretisation:
         end = 0
         lower_bounds = []
         upper_bounds = []
+
         # Iterate through unpacked variables, adding appropriate slices to y_slices
         for variable in variables:
+            if variable in y_slices:
+                continue
             # Add up the size of all the domains in variable.domain
             if isinstance(variable, pybamm.ConcatenationVariable):
-                start_ = start
                 spatial_method = self.spatial_methods[variable.domain[0]]
+                dimension = spatial_method.mesh[variable.domain[0]].dimension
+                start_ = start
                 children = variable.children
                 meshes = OrderedDict()
+                lr_points = OrderedDict()
+                tb_points = OrderedDict()
                 for child in children:
                     meshes[child] = [spatial_method.mesh[dom] for dom in child.domain]
+                    if dimension == 2:
+                        lr_points[child] = sum(
+                            spatial_method.mesh[dom].npts_lr for dom in child.domain
+                        )
+                        tb_points[child] = sum(
+                            spatial_method.mesh[dom].npts_tb for dom in child.domain
+                        )
                 sec_points = spatial_method._get_auxiliary_domain_repeats(
                     variable.domains
                 )
                 for _ in range(sec_points):
+                    start_this_child = start_
                     for child, mesh in meshes.items():
                         for domain_mesh in mesh:
                             end += domain_mesh.npts_for_broadcast_to_nodes
                         # Add to slices
-                        y_slices[child].append(slice(start_, end))
-                        y_slices_explicit[child].append(slice(start_, end))
+                        if dimension == 2:
+                            other_children = set(meshes.keys()) - {child}
+                            num_pts_to_skip = sum(
+                                lr_points[other_child] for other_child in other_children
+                            )
+                            for row in range(tb_points[child]):
+                                start_this_row = (
+                                    start_this_child
+                                    + (lr_points[child] + num_pts_to_skip) * row
+                                )
+                                end_this_row = start_this_row + lr_points[child]
+                                y_slices[child].append(
+                                    slice(start_this_row, end_this_row)
+                                )
+                                y_slices_explicit[child].append(
+                                    slice(start_this_row, end_this_row)
+                                )
+                            start_this_child += lr_points[child]
+                        else:
+                            y_slices[child].append(slice(start_, end))
+                            y_slices_explicit[child].append(slice(start_, end))
                         # Increment start_
                         start_ = end
             else:
@@ -373,30 +490,29 @@ class Discretisation:
 
         internal_bcs = {}
         for var in model.boundary_conditions.keys():
-            if isinstance(var, pybamm.Concatenation):
-                children = var.orphans
+            if not isinstance(var, pybamm.Concatenation):
+                continue
+            children = var.orphans
 
-                first_child = children[0]
-                next_child = children[1]
+            first_child = children[0]
+            next_child = children[1]
 
-                lbc = self.bcs[var]["left"]
-                rbc = (boundary_gradient(first_child, next_child), "Neumann")
+            lbc = self.bcs[var]["left"]
+            rbc = (boundary_gradient(first_child, next_child), "Neumann")
 
-                if first_child not in bc_keys:
-                    internal_bcs.update({first_child: {"left": lbc, "right": rbc}})
+            if first_child not in bc_keys:
+                internal_bcs.update({first_child: {"left": lbc, "right": rbc}})
 
-                for current_child, next_child in itertools.pairwise(children[1:]):
-                    lbc = rbc
-                    rbc = (boundary_gradient(current_child, next_child), "Neumann")
-                    if current_child not in bc_keys:
-                        internal_bcs.update(
-                            {current_child: {"left": lbc, "right": rbc}}
-                        )
-
+            for current_child, next_child in itertools.pairwise(children[1:]):
                 lbc = rbc
-                rbc = self.bcs[var]["right"]
-                if children[-1] not in bc_keys:
-                    internal_bcs.update({children[-1]: {"left": lbc, "right": rbc}})
+                rbc = (boundary_gradient(current_child, next_child), "Neumann")
+                if current_child not in bc_keys:
+                    internal_bcs.update({current_child: {"left": lbc, "right": rbc}})
+
+            lbc = rbc
+            rbc = self.bcs[var]["right"]
+            if children[-1] not in bc_keys:
+                internal_bcs.update({children[-1]: {"left": lbc, "right": rbc}})
 
         self.bcs.update(internal_bcs)
 
@@ -694,15 +810,17 @@ class Discretisation:
             If any state variable names are already included but with
             incorrect expressions
         """
-        new_variables = {k: v for k, v in variables.items()}
+        new_variables = dict(variables)
         for var in initial_conditions.keys():
             if var.name not in new_variables:
                 new_variables[var.name] = var
             else:
-                if new_variables[var.name] != var:
+                existing_var = new_variables[var.name]
+                # Compare by name and domains, not identity (handles unpickling case)
+                if existing_var.name != var.name or existing_var.domains != var.domains:
                     raise pybamm.ModelError(
                         f"Variable '{var.name}' should have expression "
-                        f"'{var}', but has expression '{new_variables[var.name]}'"
+                        f"'{var}', but has expression '{existing_var}'"
                     )
         return new_variables
 
@@ -727,29 +845,50 @@ class Discretisation:
             Discretised equations
 
         """
-        new_var_eqn_dict = {}
-        for eqn_key, eqn in var_eqn_dict.items():
-            # Broadcast if the equation evaluates to a number (e.g. Scalar)
-            if np.prod(eqn.shape_for_testing) == 1 and not isinstance(eqn_key, str):
-                if eqn_key.domain == []:
-                    eqn = eqn * pybamm.Vector([1])
-                else:
-                    eqn = pybamm.FullBroadcast(eqn, broadcast_domains=eqn_key.domains)
+        return {
+            k: self.process_equation(k, v, ics=ics) for k, v in var_eqn_dict.items()
+        }
 
-            pybamm.logger.debug(f"Discretise {eqn_key!r}")
-            processed_eqn = self.process_symbol(eqn)
-            # Calculate scale if the key has a scale
-            scale = getattr(eqn_key, "scale", 1)
-            if ics:
-                reference = getattr(eqn_key, "reference", 0)
+    def process_equation(self, name, eqn, ics=False):
+        """Discretise a dictionary of {variable: equation}, broadcasting if necessary
+        (can be model.rhs, model.algebraic, model.initial_conditions or
+        model.variables).
+
+        Parameters
+        ----------
+        var_eqn_dict : dict
+            Equations ({variable: equation} dict) to dicretise
+            (can be model.rhs, model.algebraic, model.initial_conditions or
+            model.variables)
+        ics : bool, optional
+            Whether the equations are initial conditions. If True, the equations are
+            scaled by the reference value of the variable, if given
+
+        Returns
+        -------
+        processed_eqn
+            Discretised equation
+
+        """
+        # Broadcast if the equation evaluates to a number (e.g. Scalar)
+        if np.prod(eqn.shape_for_testing) == 1 and not isinstance(name, str):
+            if name.domain == []:
+                eqn = eqn * pybamm.Vector([1])
             else:
-                reference = 0
+                eqn = pybamm.FullBroadcast(eqn, broadcast_domains=name.domains)
 
-            if scale != 1 or reference != 0:
-                processed_eqn = (processed_eqn - reference) / scale
+        pybamm.logger.debug(f"Discretise {name!r}")
 
-            new_var_eqn_dict[eqn_key] = processed_eqn
-        return new_var_eqn_dict
+        processed_eqn = self.process_symbol(eqn)
+        if ics and (reference := getattr(name, "reference", 0)) != 0:
+            processed_eqn = processed_eqn - reference
+
+        # Calculate scale if the key has a scale
+        scale = getattr(name, "scale", 1)
+        if scale != 1:
+            processed_eqn = processed_eqn / scale
+
+        return processed_eqn
 
     def process_symbol(self, symbol):
         """Discretise operators in model equations.
@@ -766,34 +905,32 @@ class Discretisation:
             Discretised symbol
 
         """
-        try:
-            return self._discretised_symbols[symbol]
-        except KeyError:
-            discretised_symbol = self._process_symbol(symbol)
-            self._discretised_symbols[symbol] = discretised_symbol
-            discretised_symbol.test_shape()
+        _discretised_symbol = self._discretised_symbols.get(symbol)
+        if _discretised_symbol is not None:
+            return _discretised_symbol
+        discretised_symbol = self._process_symbol(symbol)
+        self._discretised_symbols[symbol] = discretised_symbol
+        discretised_symbol.test_shape()
 
-            # Assign mesh as an attribute to the processed variable
-            if symbol.domain != []:
-                discretised_symbol.mesh = self.mesh[symbol.domain]
-            else:
-                discretised_symbol.mesh = None
+        # Assign mesh as an attribute to the processed variable
+        if symbol.domain != []:
+            discretised_symbol.mesh = self.mesh[symbol.domain]
+        else:
+            discretised_symbol.mesh = None
 
-            # Assign secondary mesh
-            if symbol.domains["secondary"] != []:
-                discretised_symbol.secondary_mesh = self.mesh[
-                    symbol.domains["secondary"]
-                ]
-            else:
-                discretised_symbol.secondary_mesh = None
+        # Assign secondary mesh
+        if symbol.domains["secondary"] != []:
+            discretised_symbol.secondary_mesh = self.mesh[symbol.domains["secondary"]]
+        else:
+            discretised_symbol.secondary_mesh = None
 
-            # Assign tertiary mesh
-            if symbol.domains["tertiary"] != []:
-                discretised_symbol.tertiary_mesh = self.mesh[symbol.domains["tertiary"]]
-            else:
-                discretised_symbol.tertiary_mesh = None
+        # Assign tertiary mesh
+        if symbol.domains["tertiary"] != []:
+            discretised_symbol.tertiary_mesh = self.mesh[symbol.domains["tertiary"]]
+        else:
+            discretised_symbol.tertiary_mesh = None
 
-            return discretised_symbol
+        return discretised_symbol
 
     def _process_symbol(self, symbol):
         """See :meth:`Discretisation.process_symbol()`."""
@@ -807,13 +944,48 @@ class Discretisation:
                     self.bcs[key_id] = self.check_tab_conditions(
                         symbol, self.bcs[key_id]
                     )
+        else:
+            spatial_method = None
 
         if isinstance(symbol, pybamm.BinaryOperator):
             # Pre-process children
             left, right = symbol.children
+            # Catch case where diffusion is a scalar and turn it into an identity matrix vector field.
+            if isinstance(spatial_method, pybamm.FiniteVolume2D):
+                if isinstance(left, pybamm.Scalar) and (
+                    isinstance(right, pybamm.VectorField)
+                    or isinstance(right, pybamm.Gradient)
+                ):
+                    left = pybamm.VectorField(left, left)
+                elif isinstance(right, pybamm.Scalar) and (
+                    isinstance(left, pybamm.VectorField)
+                    or isinstance(left, pybamm.Gradient)
+                ):
+                    right = pybamm.VectorField(right, right)
             disc_left = self.process_symbol(left)
             disc_right = self.process_symbol(right)
             if symbol.domain == []:
+                if isinstance(disc_left, pybamm.VectorField) or isinstance(
+                    disc_right, pybamm.VectorField
+                ):
+                    if not isinstance(disc_right, pybamm.VectorField):
+                        disc_right = pybamm.VectorField(disc_right, disc_right)
+                    if not isinstance(disc_left, pybamm.VectorField):
+                        disc_left = pybamm.VectorField(disc_left, disc_left)
+                    else:  # both are vector fields already
+                        pass
+                    disc_lr = pybamm.simplify_if_constant(
+                        symbol.create_copy(
+                            new_children=[disc_left.lr_field, disc_right.lr_field]
+                        )
+                    )
+                    disc_tb = pybamm.simplify_if_constant(
+                        symbol.create_copy(
+                            new_children=[disc_left.tb_field, disc_right.tb_field]
+                        )
+                    )
+                    return pybamm.VectorField(disc_lr, disc_tb)
+
                 return pybamm.simplify_if_constant(
                     symbol.create_copy(new_children=[disc_left, disc_right])
                 )
@@ -878,7 +1050,10 @@ class Discretisation:
                     symbol.integration_variable[0].domain[0]
                 ]
                 out = integral_spatial_method.integral(
-                    child, disc_child, symbol._integration_dimension
+                    child,
+                    disc_child,
+                    symbol._integration_dimension,
+                    symbol.integration_variable,
                 )
                 out.copy_domains(symbol)
                 return out
@@ -888,6 +1063,17 @@ class Discretisation:
                     child, vector_type=symbol.vector_type
                 )
 
+            elif isinstance(symbol, pybamm.OneDimensionalIntegral):
+                child_spatial_method = self.spatial_methods[
+                    symbol.integration_domain[0]
+                ]
+                return child_spatial_method.one_dimensional_integral(
+                    symbol,
+                    child,
+                    disc_child,
+                    symbol.integration_domain,
+                    symbol.direction,
+                )
             elif isinstance(symbol, pybamm.BoundaryIntegral):
                 return child_spatial_method.boundary_integral(
                     child, disc_child, symbol.region
@@ -918,6 +1104,20 @@ class Discretisation:
                 return child_spatial_method.evaluate_at(
                     symbol, disc_child, symbol.position
                 )
+            elif isinstance(symbol, pybamm.UpwindDownwind2D):
+                return spatial_method.upwind_or_downwind(
+                    child,
+                    disc_child,
+                    self.bcs,
+                    symbol.lr_direction,
+                    symbol.tb_direction,
+                )
+            elif isinstance(symbol, pybamm.NodeToEdge2D):
+                return spatial_method.node_to_edge(
+                    disc_child,
+                    method="arithmetic",
+                    direction=symbol.direction,
+                )
             elif isinstance(symbol, pybamm.UpwindDownwind):
                 direction = symbol.name  # upwind or downwind
                 return spatial_method.upwind_or_downwind(
@@ -926,8 +1126,24 @@ class Discretisation:
             elif isinstance(symbol, pybamm.NotConstant):
                 # After discretisation, we can make the symbol constant
                 return disc_child
+            elif isinstance(symbol, pybamm.Magnitude):
+                if not isinstance(disc_child, pybamm.VectorField):
+                    raise ValueError("Magnitude can only be applied to a vector field")
+                direction = symbol.direction
+                if direction == "lr":
+                    return disc_child.lr_field
+                elif direction == "tb":
+                    return disc_child.tb_field
+                else:
+                    raise ValueError("Invalid direction")
             else:
-                return symbol.create_copy(new_children=[disc_child])
+                if isinstance(disc_child, pybamm.VectorField):
+                    return pybamm.VectorField(
+                        symbol.create_copy(new_children=[disc_child.lr_field]),
+                        symbol.create_copy(new_children=[disc_child.tb_field]),
+                    )
+                else:
+                    return symbol.create_copy(new_children=[disc_child])
 
         elif isinstance(symbol, pybamm.Function):
             disc_children = [self.process_symbol(child) for child in symbol.children]
@@ -969,9 +1185,8 @@ class Discretisation:
             old_y_slices = self.y_slices.copy()
             for child in symbol.children:
                 child_no_scale = child.create_copy()
-                child_no_scale._scale = 1
-                child_no_scale._reference = 0
-                child_no_scale.set_id()
+                child_no_scale.scale = 1
+                child_no_scale.reference = 0
                 self.y_slices[child_no_scale] = self.y_slices[child]
                 new_children.append(self.process_symbol(child_no_scale))
             self.y_slices = old_y_slices
@@ -994,8 +1209,22 @@ class Discretisation:
             return symbol.create_copy()
 
         elif isinstance(symbol, pybamm.CoupledVariable):
-            new_symbol = self.process_symbol(symbol.children[0])
-            return new_symbol
+            raise pybamm.DiscretisationError(
+                f"CoupledVariable '{symbol.name}' was not resolved before discretisation. "
+                "Ensure the variable exists in model.variables."
+            )
+
+        elif isinstance(symbol, pybamm.VectorField):
+            # VectorField is a subclass of TensorField, handle it first for specificity
+            left_symbol = self.process_symbol(symbol.lr_field)
+            right_symbol = self.process_symbol(symbol.tb_field)
+            return symbol.create_copy(new_children=[left_symbol, right_symbol])
+
+        elif isinstance(symbol, pybamm.TensorField):
+            # General TensorField handling (rank-2 tensors)
+            processed_children = [self.process_symbol(c) for c in symbol.children]
+            return symbol.create_copy(new_children=processed_children)
+
         elif isinstance(symbol, pybamm.Constant):
             # after discretisation we just care about the value, not the name
             return self.process_symbol(pybamm.Scalar(symbol.value))
@@ -1059,9 +1288,7 @@ class Discretisation:
         equations = list(var_eqn_dict.values())
 
         # sort equations according to slices
-        sorted_equations = [
-            eq for _, eq in sorted(zip(slices, equations, strict=False))
-        ]
+        sorted_equations = [eq for _, eq in sorted(zip(slices, equations, strict=True))]
 
         return self.concatenate(*sorted_equations, sparse=sparse)
 
@@ -1149,15 +1376,19 @@ class Discretisation:
                 if len(model.rhs) != 1:
                     pybamm.logger.info(f"removing variable {var} from rhs")
                     my_initial_condition = model.initial_conditions[var]
-                    model.variables[var.name] = pybamm.ExplicitTimeIntegral(
+                    explicit_integral = pybamm.ExplicitTimeIntegral(
                         model.rhs[var], my_initial_condition
                     )
+                    # Collect variables to update in _variables_processed
+                    # Do NOT modify model.variables - only update _variables_processed
+                    vars_to_update = {var.name: explicit_integral}
                     # edge case where a variable appears
                     # in variables twice under different names
                     for key in model.variables:
                         if model.variables[key] == var:
-                            print("here")
-                            model.variables[key] = model.variables[var.name]
+                            vars_to_update[key] = explicit_integral
+                    # Update _variables_processed using the proper method
+                    model.update_processed_variables(vars_to_update)
                     del model.rhs[var]
                     del model.initial_conditions[var]
                 else:

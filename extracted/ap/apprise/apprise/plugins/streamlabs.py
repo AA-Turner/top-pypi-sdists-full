@@ -86,7 +86,7 @@ class NotifyStreamlabs(NotifyBase):
     secure_protocol = "strmlabs"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_streamlabs"
+    setup_url = "https://appriseit.com/services/streamlabs/"
 
     # Streamlabs Api endpoint
     notify_url = "https://streamlabs.com/api/v1.0/"
@@ -296,6 +296,7 @@ class NotifyStreamlabs(NotifyBase):
                     headers=headers,
                     data=data,
                     verify=self.verify_certificate,
+                    timeout=self.request_timeout,
                 )
                 if r.status_code != requests.codes.ok:
                     # We had a problem
@@ -312,7 +313,8 @@ class NotifyStreamlabs(NotifyBase):
                         )
                     )
 
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
                     return False
 
                 else:
@@ -341,6 +343,7 @@ class NotifyStreamlabs(NotifyBase):
                     headers=headers,
                     data=data,
                     verify=self.verify_certificate,
+                    timeout=self.request_timeout,
                 )
                 if r.status_code != requests.codes.ok:
                     # We had a problem

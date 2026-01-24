@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stable_baselines3
-Version: 2.7.0
+Version: 2.7.1
 Summary: Pytorch version of Stable Baselines, implementations of reinforcement learning algorithms.
 Home-page: https://github.com/DLR-RM/stable-baselines3
 Author: Antonin Raffin

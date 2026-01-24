@@ -33,7 +33,7 @@ from typing import Dict
 
 if TYPE_CHECKING:
     from . import DomainEntityRef
-    from . import JsonSchemaWithDefinitions
+    from . import JsonSchemaDocument
 
 class DecisionTableContract(object):
     """
@@ -51,9 +51,9 @@ class DecisionTableContract(object):
         """
         self.swagger_types = {
             'parent_schema': 'DomainEntityRef',
-            'row_authoring_schema': 'JsonSchemaWithDefinitions',
-            'execution_input_schema': 'JsonSchemaWithDefinitions',
-            'execution_output_schema': 'JsonSchemaWithDefinitions'
+            'row_authoring_schema': 'JsonSchemaDocument',
+            'execution_input_schema': 'JsonSchemaDocument',
+            'execution_output_schema': 'JsonSchemaDocument'
         }
 
         self.attribute_map = {
@@ -72,7 +72,7 @@ class DecisionTableContract(object):
     def parent_schema(self) -> 'DomainEntityRef':
         """
         Gets the parent_schema of this DecisionTableContract.
-        DSS V1 schema entity defining source properties for the decision table contract schemas
+        DSS schema entity defining source properties for the decision table contract schemas
 
         :return: The parent_schema of this DecisionTableContract.
         :rtype: DomainEntityRef
@@ -83,7 +83,7 @@ class DecisionTableContract(object):
     def parent_schema(self, parent_schema: 'DomainEntityRef') -> None:
         """
         Sets the parent_schema of this DecisionTableContract.
-        DSS V1 schema entity defining source properties for the decision table contract schemas
+        DSS schema entity defining source properties for the decision table contract schemas
 
         :param parent_schema: The parent_schema of this DecisionTableContract.
         :type: DomainEntityRef
@@ -93,72 +93,72 @@ class DecisionTableContract(object):
         self._parent_schema = parent_schema
 
     @property
-    def row_authoring_schema(self) -> 'JsonSchemaWithDefinitions':
+    def row_authoring_schema(self) -> 'JsonSchemaDocument':
         """
         Gets the row_authoring_schema of this DecisionTableContract.
         JSON schema describing required value types for each column in every row in a decision table
 
         :return: The row_authoring_schema of this DecisionTableContract.
-        :rtype: JsonSchemaWithDefinitions
+        :rtype: JsonSchemaDocument
         """
         return self._row_authoring_schema
 
     @row_authoring_schema.setter
-    def row_authoring_schema(self, row_authoring_schema: 'JsonSchemaWithDefinitions') -> None:
+    def row_authoring_schema(self, row_authoring_schema: 'JsonSchemaDocument') -> None:
         """
         Sets the row_authoring_schema of this DecisionTableContract.
         JSON schema describing required value types for each column in every row in a decision table
 
         :param row_authoring_schema: The row_authoring_schema of this DecisionTableContract.
-        :type: JsonSchemaWithDefinitions
+        :type: JsonSchemaDocument
         """
         
 
         self._row_authoring_schema = row_authoring_schema
 
     @property
-    def execution_input_schema(self) -> 'JsonSchemaWithDefinitions':
+    def execution_input_schema(self) -> 'JsonSchemaDocument':
         """
         Gets the execution_input_schema of this DecisionTableContract.
         JSON schema for execution input data for a decision table
 
         :return: The execution_input_schema of this DecisionTableContract.
-        :rtype: JsonSchemaWithDefinitions
+        :rtype: JsonSchemaDocument
         """
         return self._execution_input_schema
 
     @execution_input_schema.setter
-    def execution_input_schema(self, execution_input_schema: 'JsonSchemaWithDefinitions') -> None:
+    def execution_input_schema(self, execution_input_schema: 'JsonSchemaDocument') -> None:
         """
         Sets the execution_input_schema of this DecisionTableContract.
         JSON schema for execution input data for a decision table
 
         :param execution_input_schema: The execution_input_schema of this DecisionTableContract.
-        :type: JsonSchemaWithDefinitions
+        :type: JsonSchemaDocument
         """
         
 
         self._execution_input_schema = execution_input_schema
 
     @property
-    def execution_output_schema(self) -> 'JsonSchemaWithDefinitions':
+    def execution_output_schema(self) -> 'JsonSchemaDocument':
         """
         Gets the execution_output_schema of this DecisionTableContract.
         JSON schema for execution output data for a decision table
 
         :return: The execution_output_schema of this DecisionTableContract.
-        :rtype: JsonSchemaWithDefinitions
+        :rtype: JsonSchemaDocument
         """
         return self._execution_output_schema
 
     @execution_output_schema.setter
-    def execution_output_schema(self, execution_output_schema: 'JsonSchemaWithDefinitions') -> None:
+    def execution_output_schema(self, execution_output_schema: 'JsonSchemaDocument') -> None:
         """
         Sets the execution_output_schema of this DecisionTableContract.
         JSON schema for execution output data for a decision table
 
         :param execution_output_schema: The execution_output_schema of this DecisionTableContract.
-        :type: JsonSchemaWithDefinitions
+        :type: JsonSchemaDocument
         """
         
 

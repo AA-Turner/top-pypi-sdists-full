@@ -1,0 +1,21 @@
+name: "Release Issue"
+description: "Release Issue Template"
+title: "Release 2.x.y"
+labels:
+  - "category:release"
+  - "2.x"
+body:
+
+  - type: textarea
+    id: todos
+    attributes:
+      label: Release todos
+      description: Checklist of things to do for this release
+      value: |
+        ## Release todos:
+        - [ ] bump version to 2.x.y
+        - [ ] generate release notes and paste them in `docs/release-notes.md`, then run the linkification script
+        - [ ] tag `main` with 2.x.y (`git checkout main && git pull && git tag 2.x.y && git push origin tag 2.x.y`)
+        - [ ] publish release notes after PyPI upload
+    validations:
+      required: true

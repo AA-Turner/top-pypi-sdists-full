@@ -25,8 +25,9 @@ import json
 import os
 import shutil
 import tempfile
+from pathlib import Path
 
-from dulwich import porcelain
+from dulwich.client import LocalGitClient
 from dulwich.lfs import LFSFilterDriver, LFSPointer, LFSStore
 from dulwich.repo import Repo
 
@@ -36,9 +37,21 @@ from . import TestCase
 class LFSTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
+        # Suppress LFS warnings during these tests
+        import logging
+
+        self._old_level = logging.getLogger("dulwich.lfs").level
+        logging.getLogger("dulwich.lfs").setLevel(logging.ERROR)
         self.test_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.test_dir)
         self.lfs = LFSStore.create(self.test_dir)
+
+    def tearDown(self) -> None:
+        # Restore original logging level
+        import logging
+
+        logging.getLogger("dulwich.lfs").setLevel(self._old_level)
+        super().tearDown()
 
     def test_create(self) -> None:
         sha = self.lfs.write_object([b"a", b"b"])
@@ -209,18 +222,29 @@ class LFSIntegrationTests(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        import os
+        # Suppress LFS warnings during these integration tests
+        import logging
 
-        from dulwich.repo import Repo
+        self._old_level = logging.getLogger("dulwich.lfs").level
+        logging.getLogger("dulwich.lfs").setLevel(logging.ERROR)
 
         # Create temporary directory for test repo
         self.test_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.test_dir)
 
         # Initialize repo
+        from dulwich.repo import Repo
+
         self.repo = Repo.init(self.test_dir)
         self.lfs_dir = os.path.join(self.test_dir, ".git", "lfs")
         self.lfs_store = LFSStore.create(self.lfs_dir)
+
+    def tearDown(self) -> None:
+        # Restore original logging level
+        import logging
+
+        logging.getLogger("dulwich.lfs").setLevel(self._old_level)
+        super().tearDown()
 
     def test_lfs_with_gitattributes(self) -> None:
         """Test LFS integration with .gitattributes."""
@@ -338,13 +362,23 @@ class LFSIntegrationTests(TestCase):
             f.write(pointer.to_bytes())
 
         # Commit files
-        porcelain.add(source_repo, paths=[".gitattributes", "test.bin"])
-        porcelain.commit(source_repo, message=b"Add LFS tracked file")
+        source_worktree = source_repo.get_worktree()
+        source_worktree.stage([b".gitattributes", b"test.bin"])
+        source_worktree.commit(
+            message=b"Add LFS tracked file",
+            committer=b"Test <test@example.com>",
+            author=b"Test <test@example.com>",
+            commit_timestamp=1000000000,
+            author_timestamp=1000000000,
+            commit_timezone=0,
+            author_timezone=0,
+        )
         source_repo.close()
 
         # Clone the repository
         target_dir = os.path.join(self.test_dir, "target")
-        target_repo = porcelain.clone(source_dir, target_dir)
+        client = LocalGitClient()
+        target_repo = client.clone(source_dir, target_dir)
 
         # Verify no LFS commands in config
         target_config = target_repo.get_config_stack()
@@ -386,8 +420,17 @@ class LFSIntegrationTests(TestCase):
             f.write(pointer.to_bytes())
 
         # Commit
-        porcelain.add(self.repo, paths=[".gitattributes", "data.dat"])
-        porcelain.commit(self.repo, message=b"Add LFS file")
+        worktree = self.repo.get_worktree()
+        worktree.stage([b".gitattributes", b"data.dat"])
+        worktree.commit(
+            message=b"Add LFS file",
+            committer=b"Test <test@example.com>",
+            author=b"Test <test@example.com>",
+            commit_timestamp=1000000000,
+            author_timestamp=1000000000,
+            commit_timezone=0,
+            author_timezone=0,
+        )
 
         # Reset index to trigger checkout with filter
         self.repo.get_worktree().reset_index()
@@ -701,7 +744,13 @@ class LFSServerTests(TestCase):
         self.server_thread = threading.Thread(target=self.server.serve_forever)
         self.server_thread.daemon = True
         self.server_thread.start()
-        self.addCleanup(self.server.shutdown)
+
+        def cleanup_server():
+            self.server.shutdown()
+            self.server.server_close()
+            self.server_thread.join(timeout=1.0)
+
+        self.addCleanup(cleanup_server)
 
     def test_server_batch_endpoint(self) -> None:
         """Test the batch endpoint directly."""
@@ -962,7 +1011,7 @@ class LFSClientTests(TestCase):
         super().setUp()
         import threading
 
-        from dulwich.lfs import LFSClient
+        from dulwich.lfs import HTTPLFSClient
         from dulwich.lfs_server import run_lfs_server
 
         # Create temporary directory for LFS storage
@@ -974,10 +1023,16 @@ class LFSClientTests(TestCase):
         self.server_thread = threading.Thread(target=self.server.serve_forever)
         self.server_thread.daemon = True
         self.server_thread.start()
-        self.addCleanup(self.server.shutdown)
 
-        # Create LFS client pointing to our test server
-        self.client = LFSClient(self.server_url)
+        def cleanup_server():
+            self.server.shutdown()
+            self.server.server_close()
+            self.server_thread.join(timeout=1.0)
+
+        self.addCleanup(cleanup_server)
+
+        # Create HTTP LFS client pointing to our test server
+        self.client = HTTPLFSClient(self.server_url)
 
     def test_client_url_normalization(self) -> None:
         """Test that client URL is normalized correctly."""
@@ -1081,3 +1136,193 @@ class LFSClientTests(TestCase):
             self.client.upload("wrong_oid", 5, b"hello")
         # Server should reject due to OID mismatch
         self.assertIn("OID mismatch", str(cm.exception))
+
+    def test_from_config_validates_lfs_url(self) -> None:
+        """Test that from_config validates lfs.url and raises error for invalid URLs."""
+        from dulwich.config import ConfigFile
+        from dulwich.lfs import LFSClient
+
+        # Test with invalid lfs.url - no scheme/host
+        config = ConfigFile()
+        config.set((b"lfs",), b"url", b"objects")
+        with self.assertRaises(ValueError) as cm:
+            LFSClient.from_config(config)
+        self.assertIn("Invalid lfs.url", str(cm.exception))
+        self.assertIn("objects", str(cm.exception))
+
+        # Test with another malformed URL - no scheme
+        config.set((b"lfs",), b"url", b"//example.com/path")
+        with self.assertRaises(ValueError) as cm:
+            LFSClient.from_config(config)
+        self.assertIn("Invalid lfs.url", str(cm.exception))
+
+        # Test with relative path - should be rejected (not supported by git-lfs)
+        config.set((b"lfs",), b"url", b"../lfs")
+        with self.assertRaises(ValueError) as cm:
+            LFSClient.from_config(config)
+        self.assertIn("Invalid lfs.url", str(cm.exception))
+
+        # Test with relative path starting with ./
+        config.set((b"lfs",), b"url", b"./lfs")
+        with self.assertRaises(ValueError) as cm:
+            LFSClient.from_config(config)
+        self.assertIn("Invalid lfs.url", str(cm.exception))
+
+        # Test with unsupported scheme - git://
+        config.set((b"lfs",), b"url", b"git://example.com/repo.git")
+        with self.assertRaises(ValueError) as cm:
+            LFSClient.from_config(config)
+        self.assertIn("Invalid lfs.url", str(cm.exception))
+
+        # Test with unsupported scheme - ssh://
+        config.set((b"lfs",), b"url", b"ssh://git@example.com/repo.git")
+        with self.assertRaises(ValueError) as cm:
+            LFSClient.from_config(config)
+        self.assertIn("Invalid lfs.url", str(cm.exception))
+
+        # Test with http:// but no hostname
+        config.set((b"lfs",), b"url", b"http://")
+        with self.assertRaises(ValueError) as cm:
+            LFSClient.from_config(config)
+        self.assertIn("Invalid lfs.url", str(cm.exception))
+
+        # Test with valid https URL - should succeed
+        config.set((b"lfs",), b"url", b"https://example.com/repo.git/info/lfs")
+        client = LFSClient.from_config(config)
+        self.assertIsNotNone(client)
+        assert client is not None  # for mypy
+        self.assertEqual(client.url, "https://example.com/repo.git/info/lfs")
+
+        # Test with valid http URL - should succeed
+        config.set((b"lfs",), b"url", b"http://localhost:8080/lfs")
+        client = LFSClient.from_config(config)
+        self.assertIsNotNone(client)
+        assert client is not None  # for mypy
+        self.assertEqual(client.url, "http://localhost:8080/lfs")
+
+        # Test with valid file:// URL - should succeed
+        config.set((b"lfs",), b"url", b"file:///path/to/lfs")
+        client = LFSClient.from_config(config)
+        self.assertIsNotNone(client)
+        assert client is not None  # for mypy
+        self.assertEqual(client.url, "file:///path/to/lfs")
+
+        # Test with no lfs.url but valid remote - should derive URL
+        config2 = ConfigFile()
+        config2.set(
+            (b"remote", b"origin"), b"url", b"https://example.com/user/repo.git"
+        )
+        client2 = LFSClient.from_config(config2)
+        self.assertIsNotNone(client2)
+        assert client2 is not None  # for mypy
+        self.assertEqual(client2.url, "https://example.com/user/repo.git/info/lfs")
+
+
+class FileLFSClientTests(TestCase):
+    """Tests for FileLFSClient with file:// URLs."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        # Create temporary directory for LFS storage
+        self.test_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.test_dir)
+
+        # Create LFS store and populate with test data
+        from dulwich.lfs import FileLFSClient, LFSStore
+
+        self.lfs_store = LFSStore.create(self.test_dir)
+        self.test_content = b"Test file content for FileLFSClient"
+        self.test_oid = self.lfs_store.write_object([self.test_content])
+
+        # Create FileLFSClient pointing to the test directory
+        # Use Path.as_uri() to create proper file:// URLs on all platforms
+        file_url = Path(self.test_dir).as_uri()
+        self.client = FileLFSClient(file_url)
+
+    def test_download_existing_object(self) -> None:
+        """Test downloading an existing object from file:// URL."""
+        content = self.client.download(self.test_oid, len(self.test_content))
+        self.assertEqual(content, self.test_content)
+
+    def test_download_missing_object(self) -> None:
+        """Test downloading a non-existent object raises LFSError."""
+        from dulwich.lfs import LFSError
+
+        fake_oid = "0" * 64
+        with self.assertRaises(LFSError) as cm:
+            self.client.download(fake_oid, 100)
+        self.assertIn("Object not found", str(cm.exception))
+
+    def test_download_size_mismatch(self) -> None:
+        """Test download with wrong size raises LFSError."""
+        from dulwich.lfs import LFSError
+
+        with self.assertRaises(LFSError) as cm:
+            self.client.download(self.test_oid, 999)  # Wrong size
+        self.assertIn("Size mismatch", str(cm.exception))
+
+    def test_upload_new_object(self) -> None:
+        """Test uploading a new object to file:// URL."""
+        import hashlib
+
+        new_content = b"New content to upload"
+        new_oid = hashlib.sha256(new_content).hexdigest()
+
+        # Upload
+        self.client.upload(new_oid, len(new_content), new_content)
+
+        # Verify it was stored
+        with self.lfs_store.open_object(new_oid) as f:
+            stored_content = f.read()
+        self.assertEqual(stored_content, new_content)
+
+    def test_upload_size_mismatch(self) -> None:
+        """Test upload with mismatched size raises LFSError."""
+        from dulwich.lfs import LFSError
+
+        content = b"test"
+        oid = "0" * 64
+
+        with self.assertRaises(LFSError) as cm:
+            self.client.upload(oid, 999, content)  # Wrong size
+        self.assertIn("Size mismatch", str(cm.exception))
+
+    def test_upload_oid_mismatch(self) -> None:
+        """Test upload with mismatched OID raises LFSError."""
+        from dulwich.lfs import LFSError
+
+        content = b"test"
+        wrong_oid = "0" * 64  # Won't match actual SHA256
+
+        with self.assertRaises(LFSError) as cm:
+            self.client.upload(wrong_oid, len(content), content)
+        self.assertIn("OID mismatch", str(cm.exception))
+
+    def test_from_config_creates_file_client(self) -> None:
+        """Test that from_config creates FileLFSClient for file:// URLs."""
+        from dulwich.config import ConfigFile
+        from dulwich.lfs import FileLFSClient, LFSClient
+
+        config = ConfigFile()
+        file_url = Path(self.test_dir).as_uri()
+        config.set((b"lfs",), b"url", file_url.encode())
+
+        client = LFSClient.from_config(config)
+        self.assertIsInstance(client, FileLFSClient)
+        assert client is not None  # for mypy
+        self.assertEqual(client.url, file_url)
+
+    def test_round_trip(self) -> None:
+        """Test uploading and then downloading an object."""
+        import hashlib
+
+        content = b"Round trip test content"
+        oid = hashlib.sha256(content).hexdigest()
+
+        # Upload
+        self.client.upload(oid, len(content), content)
+
+        # Download
+        downloaded = self.client.download(oid, len(content))
+
+        self.assertEqual(downloaded, content)

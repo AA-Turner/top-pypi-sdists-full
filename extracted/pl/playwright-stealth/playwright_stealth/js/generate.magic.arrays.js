@@ -12,7 +12,7 @@ generateFunctionMocks = (proto, itemMainProp, dataArray) => ({
       const isInteger = args[0] && Number.isInteger(Number(args[0])); // Cast potential string to number first, then check for integer
       // Note: Vanilla never returns `undefined`
       return (isInteger ? dataArray[Number(args[0])] : dataArray[0]) || null;
-    },
+    }
   }),
   /** Returns the MimeType object with the specified name. */
   namedItem: utils.createProxy(proto.namedItem, {
@@ -23,16 +23,16 @@ generateFunctionMocks = (proto, itemMainProp, dataArray) => ({
         );
       }
       return dataArray.find((mt) => mt[itemMainProp] === args[0]) || null; // Not `undefined`!
-    },
+    }
   }),
   /** Does nothing and shall return nothing */
   refresh: proto.refresh
     ? utils.createProxy(proto.refresh, {
-        apply(target, ctx, args) {
-          return undefined;
-        },
-      })
-    : undefined,
+      apply(target, ctx, args) {
+        return undefined;
+      }
+    })
+    : undefined
 });
 
 function generateMagicArray(
@@ -47,7 +47,7 @@ function generateMagicArray(
       value,
       writable: false,
       enumerable: false, // Important for mimeTypes & plugins: `JSON.stringify(navigator.mimeTypes)`
-      configurable: false,
+      configurable: false
     });
 
   // Loop over our fake data and construct items
@@ -91,8 +91,8 @@ function generateMagicArray(
       value: magicArray.length,
       writable: false,
       enumerable: false,
-      configurable: true, // Important to be able to use the ownKeys trap in a Proxy to strip `length`
-    },
+      configurable: true // Important to be able to use the ownKeys trap in a Proxy to strip `length`
+    }
   });
 
   // Generate our functional function mocks :-)
@@ -125,6 +125,6 @@ function generateMagicArray(
       typeProps.forEach((_, i) => keys.push(`${i}`));
       typeProps.forEach((propName) => keys.push(propName));
       return keys;
-    },
+    }
   });
 }

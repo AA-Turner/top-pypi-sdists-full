@@ -311,9 +311,18 @@ class FusionEnvironmentRefreshActivity(pulumi.CustomResource):
                  source_fusion_environment_id: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        This resource provides the Fusion Environment Refresh Activity resource in Oracle Cloud Infrastructure Fusion Apps service.
+        ## Example Usage
 
-        Creates a new RefreshActivity.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_fusion_environment_refresh_activity = oci.fusionapps.FusionEnvironmentRefreshActivity("test_fusion_environment_refresh_activity",
+            fusion_environment_id=test_fusion_environment["id"],
+            source_fusion_environment_id=test_fusion_environment["id"],
+            is_data_masking_opted=fusion_environment_refresh_activity_is_data_masking_opted,
+            time_scheduled_start=fusion_environment_refresh_activity_time_scheduled_start)
+        ```
 
         ## Import
 
@@ -336,9 +345,18 @@ class FusionEnvironmentRefreshActivity(pulumi.CustomResource):
                  args: FusionEnvironmentRefreshActivityArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Fusion Environment Refresh Activity resource in Oracle Cloud Infrastructure Fusion Apps service.
+        ## Example Usage
 
-        Creates a new RefreshActivity.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_fusion_environment_refresh_activity = oci.fusionapps.FusionEnvironmentRefreshActivity("test_fusion_environment_refresh_activity",
+            fusion_environment_id=test_fusion_environment["id"],
+            source_fusion_environment_id=test_fusion_environment["id"],
+            is_data_masking_opted=fusion_environment_refresh_activity_is_data_masking_opted,
+            time_scheduled_start=fusion_environment_refresh_activity_time_scheduled_start)
+        ```
 
         ## Import
 

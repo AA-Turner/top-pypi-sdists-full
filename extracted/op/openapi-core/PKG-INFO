@@ -1,23 +1,24 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: openapi-core
-Version: 0.19.5
+Version: 0.22.0
 Summary: client-side and server-side support for the OpenAPI Specification v3
 License: BSD-3-Clause
+License-File: LICENSE
 Keywords: openapi,swagger,schema
 Author: Artur Maciag
 Author-email: maciag.artur@gmail.com
-Requires-Python: >=3.8.0,<4.0.0
+Requires-Python: >=3.9.0,<4.0.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
@@ -29,23 +30,22 @@ Provides-Extra: flask
 Provides-Extra: requests
 Provides-Extra: starlette
 Requires-Dist: aiohttp (>=3.0) ; extra == "aiohttp"
-Requires-Dist: aioitertools (>=0.11,<0.13) ; extra == "starlette"
+Requires-Dist: aioitertools (>=0.11,<0.14) ; extra == "starlette"
 Requires-Dist: django (>=3.0) ; extra == "django"
 Requires-Dist: falcon (>=3.0) ; extra == "falcon"
-Requires-Dist: fastapi (>=0.111,<0.116) ; extra == "fastapi"
+Requires-Dist: fastapi (>=0.111,<0.125) ; extra == "fastapi"
 Requires-Dist: flask ; extra == "flask"
 Requires-Dist: isodate
-Requires-Dist: jsonschema (>=4.18.0,<5.0.0)
-Requires-Dist: jsonschema-path (>=0.3.1,<0.4.0)
+Requires-Dist: jsonschema (>=4.23.0,<5.0.0)
+Requires-Dist: jsonschema-path (>=0.3.4,<0.4.0)
 Requires-Dist: more-itertools
 Requires-Dist: multidict (>=6.0.4,<7.0.0) ; extra == "aiohttp"
 Requires-Dist: openapi-schema-validator (>=0.6.0,<0.7.0)
 Requires-Dist: openapi-spec-validator (>=0.7.1,<0.8.0)
-Requires-Dist: parse
 Requires-Dist: requests ; extra == "requests"
-Requires-Dist: starlette (>=0.26.1,<0.45.0) ; extra == "starlette"
+Requires-Dist: starlette (>=0.26.1,<0.50.0) ; extra == "starlette"
 Requires-Dist: typing-extensions (>=4.8.0,<5.0.0)
-Requires-Dist: werkzeug (<3.1.2)
+Requires-Dist: werkzeug (>=2.1.0)
 Project-URL: Documentation, https://openapi-core.readthedocs.io
 Project-URL: Repository, https://github.com/python-openapi/openapi-core
 Description-Content-Type: text/markdown

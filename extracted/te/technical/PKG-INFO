@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: technical
-Version: 1.5.3
+Version: 1.5.4
 Summary: Technical Indicators for Financial Analysis
 Author: Freqtrade Team
 Author-email: Freqtrade Team <freqtrade@protonmail.com>
@@ -8,14 +8,14 @@ License: GPLv3
 Project-URL: Homepage, https://github.com/freqtrade/technical
 Project-URL: Bug Tracker, https://github.com/freqtrade/technical/issues
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Topic :: Office/Business :: Financial :: Investment
 Classifier: Intended Audience :: Science/Research
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: TA-lib

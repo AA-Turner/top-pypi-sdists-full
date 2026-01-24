@@ -5,23 +5,9 @@ from typing_extensions import Literal, TypeAlias
 
 from . import page_range
 from ..._models import BaseModel
+from .large_table_chunking_config import LargeTableChunkingConfig
 
-__all__ = ["AdvancedProcessingOptions", "LargeTableChunking", "PageRange"]
-
-
-class LargeTableChunking(BaseModel):
-    enabled: Optional[bool] = None
-    """
-    If large tables should be chunked into smaller tables, currently only supported
-    on spreadsheet and CSV files.
-    """
-
-    size: Optional[int] = None
-    """The max row/column size for a table to be chunked.
-
-    Defaults to 50. Header rows/columns are persisted based on heuristics.
-    """
-
+__all__ = ["AdvancedProcessingOptions", "PageRange"]
 
 PageRange: TypeAlias = Union[page_range.PageRange, List[page_range.PageRange], List[int]]
 
@@ -83,7 +69,7 @@ class AdvancedProcessingOptions(BaseModel):
     keep_line_breaks: Optional[bool] = None
     """If line breaks should be preserved in the text."""
 
-    large_table_chunking: Optional[LargeTableChunking] = None
+    large_table_chunking: Optional[LargeTableChunkingConfig] = None
     """
     The configuration options for large table chunking (currently only supported on
     spreadsheet and CSV files).
@@ -95,7 +81,7 @@ class AdvancedProcessingOptions(BaseModel):
     be merged across breaks and spaces.
     """
 
-    ocr_system: Optional[Literal["highres", "multilingual", "combined", "legacy"]] = None
+    ocr_system: Optional[Literal["highres", "multilingual", "combined", "reducto", "legacy"]] = None
     """The OCR system to use.
 
     Highres is recommended for documents with English characters. Legacy uses an

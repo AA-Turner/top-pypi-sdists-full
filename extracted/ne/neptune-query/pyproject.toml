@@ -1,0 +1,131 @@
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.poetry-dynamic-versioning]
+enable = false
+vcs = "git"
+style = "semver"
+pattern = "default-unprefixed"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+azure-storage-blob = "^12.7.0"
+pandas = ">=1.4.0"
+
+# neptune-api dependencies:
+httpx = { version = ">=0.15.4,<0.28.2", extras = ["http2"] }
+attrs = ">=21.3.0"
+python-dateutil = "^2.8.0"
+PyJWT = "^2.0.0"
+protobuf = ">=4.21.1,<7"
+
+# Optional for default progress update handling
+tqdm = { version = ">=4.66.0" }
+
+[tool.poetry]
+authors = ["neptune.ai <contact@neptune.ai>"]
+description = "Neptune Query is a Python library for retrieving data from Neptune."
+repository = "https://github.com/neptune-ai/neptune-query"
+homepage = "https://neptune.ai/"
+documentation = "https://docs.neptune.ai/"
+license = "Apache License 2.0"
+name = "neptune-query"
+readme = "README.md"
+version = "1.11.0"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+keywords = [
+    "MLOps",
+    "ML Experiment Tracking",
+    "ML Model Registry",
+    "ML Model Store",
+    "ML Metadata Store",
+]
+exclude = [
+    "src/neptune_query/generated/neptune_api_spec/**",
+    "src/neptune_query/generated/README.md",
+]
+packages = [
+    { include = "neptune_query", from = "src" },
+]
+
+[tool.poetry.urls]
+"Tracker" = "https://github.com/neptune-ai/neptune-query/issues"
+"Documentation" = "https://docs.neptune.ai/"
+
+[tool.black]
+line-length = 120
+target-version = ["py310", "py311"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+split_on_trailing_comma = false
+line_length = 120
+force_grid_wrap = 2
+
+[tool.flake8]
+max-line-length = 120
+# E203: whitespace before ':' - conflicts with black
+# E501: line too long
+extend-ignore = "E203"
+per-file-ignores = """
+    src/neptune_api_codegen/docker/rofiles/neptune_api/client.py:E501
+    src/neptune_query/generated/neptune_api/*:E501
+"""
+
+[tool.mypy]
+mypy_path = "src/"
+packages = "neptune_query"
+follow_imports = "silent"
+install_types = "True"
+non_interactive = "True"
+disallow_untyped_defs = "True"
+no_implicit_optional = "True"
+check_untyped_defs = "True"
+warn_return_any = "True"
+show_error_codes = "True"
+warn_unused_ignores = "True"
+ignore_missing_imports = "True"
+
+[tool.pytest.ini_options]
+addopts = ["--benchmark-disable"]
+markers = [
+    "files: mark test as downloading files using the neptune storage api",
+]
+env_files = [
+    ".env",
+]
+
+# This is for neptune-api generated code only. We may remove this later
+[tool.ruff]
+line-length = 120
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["F", "UP"]

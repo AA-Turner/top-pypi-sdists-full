@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import StrictStr, field_validator
+from pydantic import ConfigDict, StrictStr, field_validator
 
 from snowflake.core.api_integration._generated.models.api_hook import ApiHook
 
@@ -52,9 +52,10 @@ class GoogleCloudHook(ApiHook):
             raise ValueError("must validate the enum values ('GOOGLE_API_GATEWAY')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -79,7 +80,7 @@ class GoogleCloudHook(ApiHook):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # set to None if api_key (nullable) is None
         if self.api_key is None:
@@ -100,9 +101,9 @@ class GoogleCloudHook(ApiHook):
             return None
 
         if type(obj) is not dict:
-            return GoogleCloudHook.parse_obj(obj)
+            return GoogleCloudHook.model_validate(obj)
 
-        _obj = GoogleCloudHook.parse_obj(
+        _obj = GoogleCloudHook.model_validate(
             {
                 "api_provider": obj.get("api_provider"),
                 "google_audience": obj.get("google_audience"),

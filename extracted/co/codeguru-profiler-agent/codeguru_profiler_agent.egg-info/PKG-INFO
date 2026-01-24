@@ -1,11 +1,19 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: codeguru_profiler_agent
-Version: 1.2.5
+Version: 1.2.6
 Summary: The Python agent to be used for Amazon CodeGuru Profiler
 Home-page: https://github.com/aws/amazon-codeguru-profiler-python-agent
 Download-URL: https://github.com/aws/amazon-codeguru-profiler-python-agent
 Author: Amazon Web Services
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Utilities
 Classifier: License :: OSI Approved :: Apache Software License
@@ -14,6 +22,16 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: boto3>=1.14.0
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ## Amazon CodeGuru Profiler Python Agent
 

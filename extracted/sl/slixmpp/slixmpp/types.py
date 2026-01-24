@@ -14,6 +14,7 @@ from typing import (
     Union,
     Iterable,
     List,
+    NamedTuple,
 )
 
 try:
@@ -165,8 +166,15 @@ ClientTypes = Literal[
     "web",
 ]
 
+class HatTuple(NamedTuple):
+    uri: str
+    title: str
+    hue: Optional[float] = None
+
+
 __all__ = [
     'Protocol', 'TypedDict', 'Literal', 'OptJid', 'OptJidStr', 'JidStr', 'MAMDefault',
     'PresenceTypes', 'PresenceShows', 'MessageTypes', 'IqTypes', 'MucRole',
-    'MucAffiliation', 'FilterString', 'ErrorConditions', 'ErrorTypes', 'ClientTypes'
+    'MucAffiliation', 'FilterString', 'ErrorConditions', 'ErrorTypes', 'ClientTypes',
+    'HatTuple',
 ]

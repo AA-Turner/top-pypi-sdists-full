@@ -13,8 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""Performance tests for mask_password.
-"""
+"""Performance tests for mask_password."""
 
 import timeit
 
@@ -30,17 +29,18 @@ infile = 'large_json_payload.txt'
 
 with open(infile) as f:
     input_str = f.read()
-print('payload has %d bytes' % len(input_str))
+print(f'payload has {len(input_str)} bytes')
 
 for pattern in strutils._SANITIZE_PATTERNS_2['admin_pass']:
-    print('\ntesting %s' % pattern.pattern)
+    print(f'\ntesting {pattern.pattern}')
     t = timeit.Timer(
         r"re.sub(pattern, r'\g<1>***\g<2>', payload)",
-        """
+        f"""
 import re
-payload = '''{}'''
-pattern = re.compile(r'''{}''')
-""".format(input_str, pattern.pattern))
+payload = '''{input_str}'''
+pattern = re.compile(r'''{pattern.pattern}''')
+""",
+    )
     print(t.timeit(1))
 
 t = timeit.Timer(

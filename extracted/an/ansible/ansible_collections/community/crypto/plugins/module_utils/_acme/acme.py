@@ -18,6 +18,7 @@ import typing as t
 from ansible.module_utils.basic import missing_required_lib
 from ansible.module_utils.common.text.converters import to_bytes
 from ansible.module_utils.urls import fetch_url
+
 from ansible_collections.community.crypto.plugins.module_utils._acme.backend_cryptography import (
     CRYPTOGRAPHY_ERROR,
     CRYPTOGRAPHY_MINIMAL_VERSION,
@@ -47,16 +48,13 @@ from ansible_collections.community.crypto.plugins.module_utils._time import (
     get_now_datetime,
 )
 
-
 if t.TYPE_CHECKING:
     import http.client  # pragma: no cover
     import os  # pragma: no cover
     import urllib.error  # pragma: no cover
 
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
-    from ansible_collections.community.crypto.plugins.module_utils._acme.account import (  # pragma: no cover
-        ACMEAccount,
-    )
+
     from ansible_collections.community.crypto.plugins.module_utils._acme.backends import (  # pragma: no cover
         CertificateInformation,
         CryptoBackend,
@@ -130,12 +128,10 @@ def _is_failed(
 ) -> bool:
     if info["status"] < 200 or info["status"] >= 400:
         return True
-    if (
+    return bool(
         expected_status_codes is not None
         and info["status"] not in expected_status_codes
-    ):
-        return True
-    return False
+    )
 
 
 class ACMEDirectory:
@@ -813,8 +809,8 @@ def create_backend(
 
 
 __all__ = (
-    "ACMEDirectory",
     "ACMEClient",
-    "create_default_argspec",
+    "ACMEDirectory",
     "create_backend",
+    "create_default_argspec",
 )

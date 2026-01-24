@@ -1,0 +1,204 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "txaio"
+version = "25.12.2"
+description = "Compatibility API between asyncio/Twisted/Trollius"
+readme = {file = "README.md", content-type = "text/markdown"}
+license = "MIT"
+authors = [
+    {name = "typedef int GmbH", email = "contact@typedefint.eu"}
+]
+maintainers = [
+    {name = "typedef int GmbH", email = "contact@typedefint.eu"}
+]
+keywords = ["asyncio", "twisted", "trollius", "coroutine"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Framework :: Twisted",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+twisted = [
+    "zope.interface>=5.2.0",
+    "twisted>=22.10.0",
+]
+asyncio = []
+
+# Documentation tools (used by RTD via .readthedocs.yaml)
+docs = [
+    # Core Sphinx + MyST
+    "sphinx>=8.2.3",
+    "myst-parser>=2.0",
+
+    # Theme
+    "furo>=2024.7.0",
+
+    # API docs (no-import parsing)
+    "sphinx-autoapi>=2.1.0",
+
+    # UX Enhancements
+    "sphinx-copybutton>=0.5",
+    "sphinx-design>=0.5",
+    "sphinxcontrib-images>=0.9",
+
+    # Spell checking
+    "sphinxcontrib-spelling>=8.0",
+    "pyenchant>=3.2",
+
+    # Static asset optimization
+    "scour>=0.38",
+
+    # Social previews
+    "sphinxext-opengraph>=0.9",
+
+    # MyST auto-linking
+    "linkify-it-py>=2.0.0",
+]
+
+# Developer tools (linting, testing, building)
+dev = [
+    # Build tools
+    "build>=1.0.0",
+    "wheel>=0.42.0",
+    "twine>=5.0.0",
+
+    # Testing
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "coverage>=7.0.0",
+
+    # Code quality
+    "ruff>=0.4.0",
+    # Note: ty (Astral type checker) is installed via `uv tool install ty`
+    # It's a standalone Rust binary, not a Python package dependency
+]
+
+all = [
+    "zope.interface>=5.2.0",
+    "twisted>=22.10.0",
+]
+
+[project.urls]
+Homepage = "https://txaio.readthedocs.io/"
+Documentation = "https://txaio.readthedocs.io/"
+Repository = "https://github.com/crossbario/txaio"
+Source = "https://github.com/crossbario/txaio"
+"Bug Tracker" = "https://github.com/crossbario/txaio/issues"
+
+# Hatchling build configuration
+[tool.hatch.build.targets.wheel]
+packages = ["src/txaio"]
+
+[tool.hatch.build.targets.sdist]
+# By default, hatchling includes all git-tracked files
+# Exclude build artifacts from sdist
+exclude = [
+    "/.github",
+    "/docs/_build",
+    "/.venvs",
+    "/.uv-cache",
+    "/.coverage",
+    "/.pytest_cache",
+    "/.mypy_cache",
+    "/.ruff_cache",
+]
+
+[tool.ruff]
+# Same as Black.
+line-length = 88
+indent-width = 4
+target-version = "py311"
+
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of pycodestyle (`E`) codes by default.
+select = ["E4", "E7", "E9", "F"]
+
+# Files and directories to ignore
+exclude = [
+    ".tox",
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+]
+
+# Violations to ignore (technical debt - aim to remove over time)
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-v",
+]
+
+[tool.coverage.run]
+source = ["src/txaio"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.ty]
+# ty is Astral's extremely fast Python type checker (Rust-based)
+# https://github.com/astral-sh/ty
+#
+# txaio uses dynamic module attribute assignment for framework switching
+# (txaio.using_twisted, txaio.using_asyncio) which ty flags as errors.
+# These are intentional runtime modifications, so we suppress them.
+[tool.ty.rules]
+# Suppress unresolved-attribute for dynamic framework switching pattern
+# unresolved-attribute = "ignore"

@@ -488,7 +488,7 @@ class ViewApi:
         # process the body parameter
         _body_params = None
 
-        if _params["view"]:
+        if _params["view"] is not None:
             _body_params = _params["view"]
 
         # set the HTTP header `Accept`

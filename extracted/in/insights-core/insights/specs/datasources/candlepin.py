@@ -73,6 +73,9 @@ def candlepin_broker(broker):
                     line for line in ET.tostring(root).decode('utf-8').splitlines() if line.strip()
                 ],
                 relative_path='insights_datasources/candlepin_broker.xml',
+                ds=Specs.candlepin_broker,
+                ctx=broker.get(HostContext),
+                cleaner=broker.get("cleaner"),
             )
     except Exception as e:
         raise SkipComponent("Unexpected exception:{e}".format(e=str(e)))

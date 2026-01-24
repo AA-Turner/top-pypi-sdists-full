@@ -30,8 +30,8 @@ from fastly.exceptions import ApiAttributeError
 
 
 def lazy_import():
-    from fastly.model.pagination_cursor_meta import PaginationCursorMeta
-    globals()['PaginationCursorMeta'] = PaginationCursorMeta
+    from fastly.model.suggestion import Suggestion
+    globals()['Suggestion'] = Suggestion
 
 
 class InlineResponse2006(ModelNormal):
@@ -85,8 +85,7 @@ class InlineResponse2006(ModelNormal):
         """
         lazy_import()
         return {
-            'data': ([str],),  # noqa: E501
-            'meta': (PaginationCursorMeta,),  # noqa: E501
+            'results': ([Suggestion],),  # noqa: E501
         }
 
     @cached_property
@@ -95,8 +94,7 @@ class InlineResponse2006(ModelNormal):
 
 
     attribute_map = {
-        'data': 'data',  # noqa: E501
-        'meta': 'meta',  # noqa: E501
+        'results': 'results',  # noqa: E501
     }
 
     read_only_vars = {
@@ -140,8 +138,7 @@ class InlineResponse2006(ModelNormal):
                                 Animal class but this time we won't travel
                                 through its discriminator because we passed in
                                 _visited_composed_classes = (Animal,)
-            data ([str]): [optional]  # noqa: E501
-            meta (PaginationCursorMeta): [optional]  # noqa: E501
+            results ([Suggestion]): [optional]  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)
@@ -223,8 +220,7 @@ class InlineResponse2006(ModelNormal):
                                 Animal class but this time we won't travel
                                 through its discriminator because we passed in
                                 _visited_composed_classes = (Animal,)
-            data ([str]): [optional]  # noqa: E501
-            meta (PaginationCursorMeta): [optional]  # noqa: E501
+            results ([Suggestion]): [optional]  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)

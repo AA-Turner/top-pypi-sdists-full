@@ -6,12 +6,15 @@ import json
 import os
 import queue
 import re
+import sys
 import threading
 import time
 import typing
 from contextlib import asynccontextmanager, contextmanager
-from dataclasses import dataclass
-from typing import Any, Callable, ClassVar, Literal, TypeVar
+from contextvars import ContextVar
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Callable, ClassVar, Optional, TypeVar
 
 import fastapi
 import grpc.aio as async_grpc
@@ -27,13 +30,29 @@ from fal.api import (
 from fal.api import (
     function as fal_function,
 )
+from fal.container import ContainerImage
 from fal.exceptions import FalServerlessException, RequestCancelledException
 from fal.logging import get_logger
+from fal.ref import set_current_app
+from fal.sdk import (
+    ApplicationHealthCheckConfig,
+    AuthModeLiteral,
+    HealthCheck,
+    RetryConditionLiteral,
+)
 from fal.toolkit.file import request_lifecycle_preference
 from fal.toolkit.file.providers.fal import LIFECYCLE_PREFERENCE
 
 REALTIME_APP_REQUIREMENTS = ["websockets", "msgpack"]
 REQUEST_ID_KEY = "x-fal-request-id"
+REQUEST_ENDPOINT_KEY = "x-fal-endpoint"
+DEFAULT_APP_FILES_IGNORE = [
+    r"\.pyc$",
+    r"__pycache__/",
+    r"\.git/",
+    r"\.DS_Store$",
+]
+
 
 EndpointT = TypeVar("EndpointT", bound=Callable[..., Any])
 logger = get_logger(__name__)
@@ -92,17 +111,36 @@ async def _set_logger_labels(
         code = await res.code()
         assert str(code) == "StatusCode.OK", str(code)
     except BaseException:
-        # NOTE hiding this for now to not print on every request
-        # logger.debug("Failed to set logger labels", exc_info=True)
-        pass
+        # ignore if shutting down
+        if os.environ.get("FAL_RUNNER_STATE") == "TERMINATING":
+            return
+
+        logger.debug("Failed to set logger labels", exc_info=True)
 
 
 def wrap_app(cls: type[App], **kwargs) -> IsolatedFunction:
     include_modules_from(cls)
 
+    host = kwargs.get("host", None)
+    if host:
+        cls.local_file_path = host.local_file_path
+
     def initialize_and_serve():
+        import threading
+
         app = cls()
-        app.serve()
+        set_current_app(app)
+
+        if threading.current_thread() == threading.main_thread():
+            return app.serve()
+        else:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+            asyncio.run(app.serve())
+
+    # if the function is not marked with _run_on_main_thread, it runs on a thread pool
+    # however in thread pool, the function cannot receive SIGTERM
+    # we run the function on main thread so SIGTERM can be propagated to the app
+    initialize_and_serve._run_on_main_thread = True  # type: ignore[attr-defined]
 
     metadata = {}
     app = cls(_allow_init=True)
@@ -121,6 +159,7 @@ def wrap_app(cls: type[App], **kwargs) -> IsolatedFunction:
         local_python_modules=cls.local_python_modules,
         machine_type=cls.machine_type,
         num_gpus=cls.num_gpus,
+        regions=cls.regions,
         **cls.host_kwargs,
         **kwargs,
         metadata=metadata,
@@ -139,6 +178,7 @@ def wrap_app(cls: type[App], **kwargs) -> IsolatedFunction:
 class AppClientError(FalServerlessException):
     message: str
     status_code: int
+    headers: dict[str, str] = field(default_factory=dict)
 
 
 class EndpointClient:
@@ -165,6 +205,7 @@ class EndpointClient:
                 raise AppClientError(
                     f"Failed to POST {url}: {resp.status_code} {resp.text}",
                     status_code=resp.status_code,
+                    headers=resp.headers,
                 )
             resp_dict = resp.json()
 
@@ -256,6 +297,7 @@ class AppClient:
                                 "Health check failed with non-retryable error: "
                                 f"{resp.status_code} {resp.text}",
                                 status_code=resp.status_code,
+                                headers=resp.headers,
                             )
 
                     time.sleep(health_check_interval)
@@ -297,11 +339,135 @@ def _print_python_packages() -> None:
     print("[debug] Python packages installed:", ", ".join(packages))
 
 
+def _include_app_files_path(
+    local_file_path: str | None, app_files_context_dir: str | None
+):
+    base_cloud_dir = Path("/app")
+    if local_file_path is None:
+        return
+
+    # In case of container apps, the /app directory is not created by default
+    # so we need to check if it exists before proceeding
+    if not base_cloud_dir.exists():
+        return
+
+    base_path = Path(local_file_path).resolve()
+    if base_path.is_dir():
+        original_script_dir = base_path
+    else:
+        original_script_dir = base_path.parent
+
+    if app_files_context_dir:
+        context_path = Path(app_files_context_dir)
+        if context_path.is_absolute():
+            final_script_dir = context_path.resolve()
+        else:
+            final_script_dir = (original_script_dir / context_path).resolve()
+
+        # relative path between the original script dir
+        # and where the app_files_context_dir is targetting
+        relative_path = os.path.relpath(original_script_dir, final_script_dir)
+        # cloud final_path based on the `/app` base dir,
+        final_path = base_cloud_dir / Path(relative_path)
+    else:
+        # if no app_files_context_dir is provided, the base directory is the root
+        final_path = base_cloud_dir
+
+    # Create the final path if it doesn't exist
+    # This is for cases when fal app is not in root
+    # and its parent directory is not in app_files
+    # Which means that the relative path to app won't be created by default
+    final_path.mkdir(parents=True, exist_ok=True)
+
+    # Add local files deployment path to sys.path so imports
+    # work correctly in the isolate agent
+    # Append the final path to sys.path first so that the
+    # relative directory is resolved first in case of conflicts
+    sys.path.append(str(final_path))
+
+    # Add the base cloud dir path to sys.path so that
+    # the app can access the files in the top level directory
+    # This is for cases when fal app is not in root,
+    # and user wants to access the files without using relative imports
+    sys.path.append(str(base_cloud_dir))
+
+    # Change the current working directory to the path of the app
+    # so that the app can access the files in the current directory
+    os.chdir(str(final_path))
+
+
+@dataclass
+class RequestContext:
+    headers: fastapi.Header
+
+
 class App(BaseServable):
+    """Create a fal serverless application.
+
+    Subclass this to define your application with custom setup, endpoints,
+    and configuration. The App class handles model loading, request routing,
+    and lifecycle management.
+
+    Example:
+        >>> class TextToImage(fal.App, machine_type="GPU"):
+        ...     requirements = ["diffusers", "torch"]
+        ...
+        ...     def setup(self):
+        ...         self.pipe = StableDiffusionPipeline.from_pretrained(
+        ...             "runwayml/stable-diffusion-v1-5"
+        ...         )
+        ...
+        ...     @fal.endpoint("/")
+        ...     def generate(self, prompt: str) -> dict:
+        ...         image = self.pipe(prompt).images[0]
+        ...         return {"url": fal.toolkit.upload_image(image)}
+
+    Attributes:
+        requirements: List of pip packages to install in the environment.
+            Supports standard pip syntax including version specifiers.
+            Example: `["numpy==1.24.0", "torch>=2.0.0"]`
+        local_python_modules: List of local Python module names to include
+            in the deployment. Use for custom code not available on PyPI.
+            Example: `["my_utils", "models"]`
+        machine_type: Compute instance type for your application. CPU options: 'XS',
+            'S' (default), 'M', 'L'. GPU options: 'GPU-A6000', 'GPU-A100', 'GPU-H100',
+            'GPU-H200', 'GPU-B200'. Use a string for a single type, or a list to
+            define fallback types (tried in order until one is available).
+            Example: `"GPU-A100"` or `["GPU-H100", "GPU-A100"]`
+        num_gpus: Number of GPUs to allocate. Only applies to GPU machine types.
+        regions: Allowed regions for deployment. None means any region.
+            Example: `["us-east", "eu-west"]`
+        host_kwargs: Advanced configuration dictionary passed to the host.
+            For internal use. Prefer using class attributes instead.
+        app_name: Custom name for the application. Defaults to class name.
+        app_auth: Authentication mode. Options: 'private' (API key required),
+            'public' (no auth), 'shared' (shareable link).
+        app_files: List of files/directories to include in deployment.
+            Example: `["./models", "./config.yaml"]`
+        app_files_ignore: Regex patterns to exclude from deployment.
+            Default excludes `.pyc`, `__pycache__`, `.git`, `.DS_Store`.
+        app_files_context_dir: Base directory for resolving app_files paths.
+            Defaults to the directory containing the app file.
+        request_timeout: Maximum seconds for a single request. None for default.
+        startup_timeout: Maximum seconds for app startup/setup. None for default.
+        min_concurrency: Minimum warm instances to keep running. Set to 1+ to
+            avoid cold starts. Default is 0 (scale to zero).
+        max_concurrency: Maximum instances to scale up to.
+        concurrency_buffer: Additional instances to keep warm above current load.
+        concurrency_buffer_perc: Percentage buffer of instances above current load.
+        scaling_delay: Seconds to wait for a request to be picked up by a runner
+            before triggering a scale up. Useful for apps with slow startup times.
+        max_multiplexing: Maximum concurrent requests per instance.
+        kind: Deployment kind. For internal use.
+        image: Custom container image for the application. Use ContainerImage
+            to specify a Dockerfile.
+    """
+
     requirements: ClassVar[list[str]] = []
     local_python_modules: ClassVar[list[str]] = []
-    machine_type: ClassVar[str] = "S"
+    machine_type: ClassVar[str | list[str]] = "S"
     num_gpus: ClassVar[int | None] = None
+    regions: ClassVar[Optional[list[str]]] = None
     host_kwargs: ClassVar[dict[str, Any]] = {
         "_scheduler": "nomad",
         "_scheduler_options": {
@@ -310,17 +476,37 @@ class App(BaseServable):
         "resolver": "uv",
         "keep_alive": 60,
     }
-    app_name: ClassVar[str]
-    app_auth: ClassVar[Literal["private", "public", "shared", None]] = None
-    request_timeout: ClassVar[int | None] = None
-    startup_timeout: ClassVar[int | None] = None
+    app_name: ClassVar[Optional[str]] = None
+    app_auth: ClassVar[Optional[AuthModeLiteral]] = None
+    app_files: ClassVar[list[str]] = []
+    app_files_ignore: ClassVar[list[str]] = DEFAULT_APP_FILES_IGNORE
+    app_files_context_dir: ClassVar[Optional[str]] = None
+    request_timeout: ClassVar[Optional[int]] = None
+    startup_timeout: ClassVar[Optional[int]] = None
+    min_concurrency: ClassVar[Optional[int]] = None
+    max_concurrency: ClassVar[Optional[int]] = None
+    concurrency_buffer: ClassVar[Optional[int]] = None
+    concurrency_buffer_perc: ClassVar[Optional[int]] = None
+    scaling_delay: ClassVar[Optional[int]] = None
+    max_multiplexing: ClassVar[Optional[int]] = None
+    kind: ClassVar[Optional[str]] = None
+    image: ClassVar[Optional[ContainerImage]] = None
+    local_file_path: ClassVar[Optional[str]] = None
+    skip_retry_conditions: ClassVar[Optional[list[RetryConditionLiteral]]] = None
 
     isolate_channel: async_grpc.Channel | None = None
+
+    _current_request_context: ContextVar[RequestContext | None] | None = None
 
     def __init_subclass__(cls, **kwargs):
         app_name = kwargs.pop("name", None) or _to_fal_app_name(cls.__name__)
         parent_settings = getattr(cls, "host_kwargs", {})
         cls.host_kwargs = {**parent_settings, **kwargs}
+
+        for key in parent_settings.keys():
+            val = getattr(cls, key, None)
+            if val is not None:
+                cls.host_kwargs[key] = val
 
         if cls.request_timeout is not None:
             cls.host_kwargs["request_timeout"] = cls.request_timeout
@@ -328,12 +514,67 @@ class App(BaseServable):
         if cls.startup_timeout is not None:
             cls.host_kwargs["startup_timeout"] = cls.startup_timeout
 
-        cls.app_name = getattr(cls, "app_name", app_name)
+        if cls.app_files:
+            cls.host_kwargs["app_files"] = cls.app_files
+
+        if cls.app_files_ignore:
+            cls.host_kwargs["app_files_ignore"] = cls.app_files_ignore
+
+        if cls.app_files_context_dir is not None:
+            cls.host_kwargs["app_files_context_dir"] = cls.app_files_context_dir
+            if not cls.app_files:
+                raise ValueError(
+                    "app_files_context_dir is only supported when app_files is provided"
+                )
+
+        if cls.min_concurrency is not None:
+            cls.host_kwargs["min_concurrency"] = cls.min_concurrency
+
+        if cls.max_concurrency is not None:
+            cls.host_kwargs["max_concurrency"] = cls.max_concurrency
+
+        if cls.concurrency_buffer is not None:
+            cls.host_kwargs["concurrency_buffer"] = cls.concurrency_buffer
+
+        if cls.concurrency_buffer_perc is not None:
+            cls.host_kwargs["concurrency_buffer_perc"] = cls.concurrency_buffer_perc
+
+        if cls.scaling_delay is not None:
+            cls.host_kwargs["scaling_delay"] = cls.scaling_delay
+
+        if cls.max_multiplexing is not None:
+            cls.host_kwargs["max_multiplexing"] = cls.max_multiplexing
+
+        if cls.kind is not None:
+            cls.host_kwargs["kind"] = cls.kind
+
+        if cls.image is not None:
+            cls.host_kwargs["image"] = cls.image
+            cls.host_kwargs["kind"] = "container"
+            # For consistency, check also here (same check with function decorator)
+            if cls.app_files:
+                raise ValueError("app_files is not supported for container apps.")
+
+        if cls.skip_retry_conditions is not None:
+            cls.host_kwargs["skip_retry_conditions"] = cls.skip_retry_conditions
+
+        cls.host_kwargs["health_check_config"] = cls.get_health_check_config()
+
+        cls.app_name = getattr(cls, "app_name") or app_name
 
         if cls.__init__ is not App.__init__:
             raise ValueError(
                 "App classes should not override __init__ directly. "
                 "Use setup() instead."
+            )
+
+        if cls.requirements and cls.host_kwargs.get("kind") == "container":
+            from fal.console import console
+
+            console.print(
+                "\n[yellow]WARNING:[/yellow] Using [bold]requirements[/bold] with "
+                "container apps is not recommended. For better performance, "
+                "install dependencies in the Dockerfile instead.\n"
             )
 
     def __init__(self, *, _allow_init: bool = False):
@@ -344,6 +585,17 @@ class App(BaseServable):
                 f"Please use `fal run path/to/app.py::{cls_name}` to run your app."
             )
 
+    def __getstate__(self) -> dict[str, Any]:
+        # we might need to pickle the app sometimes,
+        # e.g. in fal distributed workers from our toolkit
+        state = self.__dict__.copy()
+        state.pop("_current_request_context", None)
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        self.__dict__.update(state)
+        self._current_request_context = None
+
     @classmethod
     def get_endpoints(cls) -> list[str]:
         return [
@@ -351,6 +603,41 @@ class App(BaseServable):
             for _, endpoint in inspect.getmembers(cls, inspect.isfunction)
             if (signature := getattr(endpoint, "route_signature", None))
         ]
+
+    @classmethod
+    def get_health_check_config(cls) -> Optional[ApplicationHealthCheckConfig]:
+        health_check_path: str | None = None
+        health_check: HealthCheck | None = None
+
+        for _, endpoint in inspect.getmembers(cls, inspect.isfunction):
+            signature = getattr(endpoint, "route_signature", None)
+            if not signature or not signature.health_check:
+                continue
+
+            if signature.is_websocket:
+                raise ValueError(
+                    "Health check endpoints cannot be websocket endpoints."
+                )
+
+            if health_check is not None:
+                raise ValueError(
+                    "Multiple health check endpoints found. "
+                    "An app can only have one health check endpoint."
+                )
+
+            health_check_path = signature.path
+            health_check = signature.health_check
+
+        if health_check is None or health_check_path is None:
+            return None
+
+        return ApplicationHealthCheckConfig(
+            path=health_check_path,
+            start_period_seconds=health_check.start_period_seconds,
+            timeout_seconds=health_check.timeout_seconds,
+            failure_threshold=health_check.failure_threshold,
+            call_regularly=health_check.call_regularly,
+        )
 
     def collect_routes(self) -> dict[RouteSignature, Callable[..., Any]]:
         return {
@@ -361,18 +648,52 @@ class App(BaseServable):
 
     @asynccontextmanager
     async def lifespan(self, app: fastapi.FastAPI):
+        os.environ["FAL_RUNNER_STATE"] = "SETUP"
+
+        # Configure sys.path based on deployment type:
+        # - app_files: files synced to /app
+        # - container: files baked into image
+        self._current_request_context = ContextVar(
+            "_current_request_context", default=RequestContext(headers={})
+        )
+
+        # We want to not do any directory changes for container apps,
+        # since we don't have explicit checks to see the kind of app
+        # We check for app_files here and check kind and app_files earlier
+        # to ensure that container apps don't have app_files
+        if self.app_files:
+            # For app_files deployments (always use /app)
+            _include_app_files_path(self.local_file_path, self.app_files_context_dir)
+        elif self.image is not None:
+            # For containers, add the working directory to sys.path
+            # isolate's runpy.run_path() overrides sys.path[0],
+            # so the working directory is never added to sys.path
+            sys.path.insert(0, "")
         _print_python_packages()
         await _call_any_fn(self.setup)
+
+        os.environ["FAL_RUNNER_STATE"] = "RUNNING"
+
         try:
             yield
         finally:
+            os.environ["FAL_RUNNER_STATE"] = "TERMINATING"
             await _call_any_fn(self.teardown)
+
+    @property
+    def current_request(self) -> RequestContext | None:
+        if self._current_request_context is None:
+            return None
+        return self._current_request_context.get()
 
     def health(self):
         return {"version": self.version}
 
     def setup(self):
         """Setup the application before serving."""
+
+    def handle_exit(self):
+        """Handle exit signal."""
 
     def teardown(self):
         """Teardown the application after serving."""
@@ -459,12 +780,18 @@ class App(BaseServable):
                 return await call_next(request)
 
             request_id = request.headers.get(REQUEST_ID_KEY)
-            if request_id is None:
+            request_endpoint = request.headers.get(REQUEST_ENDPOINT_KEY)
+
+            if request_id is None and request_endpoint is None:
                 return await call_next(request)
 
-            await _set_logger_labels(
-                {"fal_request_id": request_id}, channel=self.isolate_channel
-            )
+            labels_to_set = {}
+            if request_id:
+                labels_to_set["fal_request_id"] = request_id
+            if request_endpoint:
+                labels_to_set["fal_endpoint"] = request_endpoint
+
+            await _set_logger_labels(labels_to_set, channel=self.isolate_channel)
 
             async def _unset_at_end():
                 await _set_logger_labels({}, channel=self.isolate_channel)  # type: ignore
@@ -497,7 +824,27 @@ class App(BaseServable):
             # the connection without receiving a response
             return JSONResponse({"detail": str(exc)}, 499)
 
+        @app.middleware("http")
+        async def set_current_request_context(request, call_next):
+            if self._current_request_context is None:
+                from fastapi.logger import logger
+
+                logger.warning(
+                    "request context is not set. "
+                    "lifespan may not have worked as expected."
+                )
+                return await call_next(request)
+
+            context = RequestContext(headers=request.headers)
+
+            token = self._current_request_context.set(context)
+            try:
+                return await call_next(request)
+            finally:
+                self._current_request_context.reset(token)
+
     def _add_extra_routes(self, app: fastapi.FastAPI):
+        # TODO remove this once we have a proper health check endpoint
         @app.get("/health")
         def health():
             return self.health()
@@ -508,7 +855,10 @@ class App(BaseServable):
 
 
 def endpoint(
-    path: str, *, is_websocket: bool = False
+    path: str,
+    *,
+    is_websocket: bool = False,
+    health_check: HealthCheck | None = None,
 ) -> Callable[[EndpointT], EndpointT]:
     """Designate the decorated function as an application endpoint."""
 
@@ -518,7 +868,11 @@ def endpoint(
                 f"Can't set multiple routes for the same function: {callable.__name__}"
             )
 
-        callable.route_signature = RouteSignature(path=path, is_websocket=is_websocket)  # type: ignore
+        callable.route_signature = RouteSignature(  # type: ignore
+            path=path,
+            is_websocket=is_websocket,
+            health_check=health_check,
+        )
         return callable
 
     return marker_fn

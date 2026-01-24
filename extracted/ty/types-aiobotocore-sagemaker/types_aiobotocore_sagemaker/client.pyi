@@ -3,7 +3,7 @@ Type annotations for sagemaker service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -69,6 +70,7 @@ from .paginator import (
     ListLabelingJobsForWorkteamPaginator,
     ListLabelingJobsPaginator,
     ListLineageGroupsPaginator,
+    ListMlflowAppsPaginator,
     ListMlflowTrackingServersPaginator,
     ListModelBiasJobDefinitionsPaginator,
     ListModelCardExportJobsPaginator,
@@ -127,6 +129,10 @@ from .type_defs import (
     BatchDeleteClusterNodesResponseTypeDef,
     BatchDescribeModelPackageInputTypeDef,
     BatchDescribeModelPackageOutputTypeDef,
+    BatchRebootClusterNodesRequestTypeDef,
+    BatchRebootClusterNodesResponseTypeDef,
+    BatchReplaceClusterNodesRequestTypeDef,
+    BatchReplaceClusterNodesResponseTypeDef,
     CreateActionRequestTypeDef,
     CreateActionResponseTypeDef,
     CreateAlgorithmInputTypeDef,
@@ -194,6 +200,8 @@ from .type_defs import (
     CreateInferenceRecommendationsJobResponseTypeDef,
     CreateLabelingJobRequestTypeDef,
     CreateLabelingJobResponseTypeDef,
+    CreateMlflowAppRequestTypeDef,
+    CreateMlflowAppResponseTypeDef,
     CreateMlflowTrackingServerRequestTypeDef,
     CreateMlflowTrackingServerResponseTypeDef,
     CreateModelBiasJobDefinitionRequestTypeDef,
@@ -228,6 +236,8 @@ from .type_defs import (
     CreatePipelineResponseTypeDef,
     CreatePresignedDomainUrlRequestTypeDef,
     CreatePresignedDomainUrlResponseTypeDef,
+    CreatePresignedMlflowAppUrlRequestTypeDef,
+    CreatePresignedMlflowAppUrlResponseTypeDef,
     CreatePresignedMlflowTrackingServerUrlRequestTypeDef,
     CreatePresignedMlflowTrackingServerUrlResponseTypeDef,
     CreatePresignedNotebookInstanceUrlInputTypeDef,
@@ -294,6 +304,8 @@ from .type_defs import (
     DeleteInferenceComponentInputTypeDef,
     DeleteInferenceExperimentRequestTypeDef,
     DeleteInferenceExperimentResponseTypeDef,
+    DeleteMlflowAppRequestTypeDef,
+    DeleteMlflowAppResponseTypeDef,
     DeleteMlflowTrackingServerRequestTypeDef,
     DeleteMlflowTrackingServerResponseTypeDef,
     DeleteModelBiasJobDefinitionRequestTypeDef,
@@ -312,10 +324,12 @@ from .type_defs import (
     DeletePartnerAppResponseTypeDef,
     DeletePipelineRequestTypeDef,
     DeletePipelineResponseTypeDef,
+    DeleteProcessingJobRequestTypeDef,
     DeleteProjectInputTypeDef,
     DeleteSpaceRequestTypeDef,
     DeleteStudioLifecycleConfigRequestTypeDef,
     DeleteTagsInputTypeDef,
+    DeleteTrainingJobRequestTypeDef,
     DeleteTrialComponentRequestTypeDef,
     DeleteTrialComponentResponseTypeDef,
     DeleteTrialRequestTypeDef,
@@ -401,6 +415,8 @@ from .type_defs import (
     DescribeLabelingJobResponseTypeDef,
     DescribeLineageGroupRequestTypeDef,
     DescribeLineageGroupResponseTypeDef,
+    DescribeMlflowAppRequestTypeDef,
+    DescribeMlflowAppResponseTypeDef,
     DescribeMlflowTrackingServerRequestTypeDef,
     DescribeMlflowTrackingServerResponseTypeDef,
     DescribeModelBiasJobDefinitionRequestTypeDef,
@@ -565,6 +581,8 @@ from .type_defs import (
     ListLabelingJobsResponseTypeDef,
     ListLineageGroupsRequestTypeDef,
     ListLineageGroupsResponseTypeDef,
+    ListMlflowAppsRequestTypeDef,
+    ListMlflowAppsResponseTypeDef,
     ListMlflowTrackingServersRequestTypeDef,
     ListMlflowTrackingServersResponseTypeDef,
     ListModelBiasJobDefinitionsRequestTypeDef,
@@ -743,6 +761,8 @@ from .type_defs import (
     UpdateInferenceComponentRuntimeConfigOutputTypeDef,
     UpdateInferenceExperimentRequestTypeDef,
     UpdateInferenceExperimentResponseTypeDef,
+    UpdateMlflowAppRequestTypeDef,
+    UpdateMlflowAppResponseTypeDef,
     UpdateMlflowTrackingServerRequestTypeDef,
     UpdateMlflowTrackingServerResponseTypeDef,
     UpdateModelCardRequestTypeDef,
@@ -796,12 +816,6 @@ from .waiter import (
     TransformJobCompletedOrStoppedWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -810,11 +824,11 @@ else:
 __all__ = ("SageMakerClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ResourceInUse: Type[BotocoreClientError]
-    ResourceLimitExceeded: Type[BotocoreClientError]
-    ResourceNotFound: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ResourceInUse: type[BotocoreClientError]
+    ResourceLimitExceeded: type[BotocoreClientError]
+    ResourceNotFound: type[BotocoreClientError]
 
 class SageMakerClient(AioBaseClient):
     """
@@ -921,6 +935,27 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#batch_describe_model_package)
         """
 
+    async def batch_reboot_cluster_nodes(
+        self, **kwargs: Unpack[BatchRebootClusterNodesRequestTypeDef]
+    ) -> BatchRebootClusterNodesResponseTypeDef:
+        """
+        Reboots specific nodes within a SageMaker HyperPod cluster using a soft
+        recovery mechanism.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/batch_reboot_cluster_nodes.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#batch_reboot_cluster_nodes)
+        """
+
+    async def batch_replace_cluster_nodes(
+        self, **kwargs: Unpack[BatchReplaceClusterNodesRequestTypeDef]
+    ) -> BatchReplaceClusterNodesResponseTypeDef:
+        """
+        Replaces specific nodes within a SageMaker HyperPod cluster with new hardware.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/batch_replace_cluster_nodes.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#batch_replace_cluster_nodes)
+        """
+
     async def create_action(
         self, **kwargs: Unpack[CreateActionRequestTypeDef]
     ) -> CreateActionResponseTypeDef:
@@ -997,7 +1032,7 @@ class SageMakerClient(AioBaseClient):
         self, **kwargs: Unpack[CreateClusterRequestTypeDef]
     ) -> CreateClusterResponseTypeDef:
         """
-        Creates a SageMaker HyperPod cluster.
+        Creates an Amazon SageMaker HyperPod cluster.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_cluster.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_cluster)
@@ -1277,6 +1312,17 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_labeling_job)
         """
 
+    async def create_mlflow_app(
+        self, **kwargs: Unpack[CreateMlflowAppRequestTypeDef]
+    ) -> CreateMlflowAppResponseTypeDef:
+        """
+        Creates an MLflow Tracking Server using a general purpose Amazon S3 bucket as
+        the artifact store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_mlflow_app.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_mlflow_app)
+        """
+
     async def create_mlflow_tracking_server(
         self, **kwargs: Unpack[CreateMlflowTrackingServerRequestTypeDef]
     ) -> CreateMlflowTrackingServerResponseTypeDef:
@@ -1450,6 +1496,17 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_presigned_domain_url.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_presigned_domain_url)
+        """
+
+    async def create_presigned_mlflow_app_url(
+        self, **kwargs: Unpack[CreatePresignedMlflowAppUrlRequestTypeDef]
+    ) -> CreatePresignedMlflowAppUrlResponseTypeDef:
+        """
+        Returns a presigned URL that you can use to connect to the MLflow UI attached
+        to your MLflow App.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_presigned_mlflow_app_url.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_presigned_mlflow_app_url)
         """
 
     async def create_presigned_mlflow_tracking_server_url(
@@ -1811,7 +1868,7 @@ class SageMakerClient(AioBaseClient):
 
     async def delete_flow_definition(
         self, **kwargs: Unpack[DeleteFlowDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified flow definition.
 
@@ -1851,7 +1908,7 @@ class SageMakerClient(AioBaseClient):
 
     async def delete_human_task_ui(
         self, **kwargs: Unpack[DeleteHumanTaskUiRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Use this operation to delete a human task user interface (worker task template).
 
@@ -1869,7 +1926,7 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_hyper_parameter_tuning_job)
         """
 
-    async def delete_image(self, **kwargs: Unpack[DeleteImageRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_image(self, **kwargs: Unpack[DeleteImageRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a SageMaker AI image and all versions of the image.
 
@@ -1879,7 +1936,7 @@ class SageMakerClient(AioBaseClient):
 
     async def delete_image_version(
         self, **kwargs: Unpack[DeleteImageVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a version of a SageMaker AI image.
 
@@ -1905,6 +1962,16 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_inference_experiment.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_inference_experiment)
+        """
+
+    async def delete_mlflow_app(
+        self, **kwargs: Unpack[DeleteMlflowAppRequestTypeDef]
+    ) -> DeleteMlflowAppResponseTypeDef:
+        """
+        Deletes an MLflow App.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_mlflow_app.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_mlflow_app)
         """
 
     async def delete_mlflow_tracking_server(
@@ -2057,6 +2124,16 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_pipeline)
         """
 
+    async def delete_processing_job(
+        self, **kwargs: Unpack[DeleteProcessingJobRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a processing job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_processing_job.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_processing_job)
+        """
+
     async def delete_project(
         self, **kwargs: Unpack[DeleteProjectInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -2087,12 +2164,22 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_studio_lifecycle_config)
         """
 
-    async def delete_tags(self, **kwargs: Unpack[DeleteTagsInputTypeDef]) -> Dict[str, Any]:
+    async def delete_tags(self, **kwargs: Unpack[DeleteTagsInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified tags from an SageMaker resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_tags.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_tags)
+        """
+
+    async def delete_training_job(
+        self, **kwargs: Unpack[DeleteTrainingJobRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a training job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_training_job.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_training_job)
         """
 
     async def delete_trial(
@@ -2127,7 +2214,7 @@ class SageMakerClient(AioBaseClient):
 
     async def delete_workforce(
         self, **kwargs: Unpack[DeleteWorkforceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Use this operation to delete a workforce.
 
@@ -2544,6 +2631,16 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_lineage_group)
         """
 
+    async def describe_mlflow_app(
+        self, **kwargs: Unpack[DescribeMlflowAppRequestTypeDef]
+    ) -> DescribeMlflowAppResponseTypeDef:
+        """
+        Returns information about an MLflow App.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_mlflow_app.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_mlflow_app)
+        """
+
     async def describe_mlflow_tracking_server(
         self, **kwargs: Unpack[DescribeMlflowTrackingServerRequestTypeDef]
     ) -> DescribeMlflowTrackingServerResponseTypeDef:
@@ -2869,7 +2966,7 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#detach_cluster_node_volume)
         """
 
-    async def disable_sagemaker_servicecatalog_portfolio(self) -> Dict[str, Any]:
+    async def disable_sagemaker_servicecatalog_portfolio(self) -> dict[str, Any]:
         """
         Disables using Service Catalog in SageMaker.
 
@@ -2887,7 +2984,7 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#disassociate_trial_component)
         """
 
-    async def enable_sagemaker_servicecatalog_portfolio(self) -> Dict[str, Any]:
+    async def enable_sagemaker_servicecatalog_portfolio(self) -> dict[str, Any]:
         """
         Enables using Service Catalog in SageMaker.
 
@@ -3382,6 +3479,16 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_lineage_groups.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_lineage_groups)
+        """
+
+    async def list_mlflow_apps(
+        self, **kwargs: Unpack[ListMlflowAppsRequestTypeDef]
+    ) -> ListMlflowAppsResponseTypeDef:
+        """
+        Lists all MLflow Apps.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_mlflow_apps.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_mlflow_apps)
         """
 
     async def list_mlflow_tracking_servers(
@@ -4393,6 +4500,16 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#update_inference_experiment)
         """
 
+    async def update_mlflow_app(
+        self, **kwargs: Unpack[UpdateMlflowAppRequestTypeDef]
+    ) -> UpdateMlflowAppResponseTypeDef:
+        """
+        Updates an MLflow App.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/update_mlflow_app.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#update_mlflow_app)
+        """
+
     async def update_mlflow_tracking_server(
         self, **kwargs: Unpack[UpdateMlflowTrackingServerRequestTypeDef]
     ) -> UpdateMlflowTrackingServerResponseTypeDef:
@@ -4445,7 +4562,7 @@ class SageMakerClient(AioBaseClient):
 
     async def update_notebook_instance(
         self, **kwargs: Unpack[UpdateNotebookInstanceInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a notebook instance.
 
@@ -4455,7 +4572,7 @@ class SageMakerClient(AioBaseClient):
 
     async def update_notebook_instance_lifecycle_config(
         self, **kwargs: Unpack[UpdateNotebookInstanceLifecycleConfigInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a notebook instance lifecycle configuration created with the <a
         href="https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateNotebookInstanceLifecycleConfig.html">CreateNotebookInstanceLifecycleConfig</a>
@@ -5020,6 +5137,17 @@ class SageMakerClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_lineage_groups"]
     ) -> ListLineageGroupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_mlflow_apps"]
+    ) -> ListMlflowAppsPaginator:
         """
         Create a paginator for an operation.
 
@@ -5640,7 +5768,7 @@ class SageMakerClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

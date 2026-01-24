@@ -1,6 +1,6 @@
 [project]
 name = "mirakuru"
-version = "2.6.1"
+version = "3.0.1"
 description = "Process executor (not only) for tests."
 readme = "README.rst"
 keywords = ["process", "executor", "tests", "orchestration"]
@@ -16,11 +16,11 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -30,12 +30,12 @@ dependencies = [
     # <https://github.com/giampaolo/psutil/issues/82>.
     "psutil>=4.0.0; sys_platform != 'cygwin'",
 ]
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 
 [project.urls]
 "Source" = "https://github.com/dbfixtures/mirakuru"
 "Bug Tracker" = "https://github.com/dbfixtures/mirakuru/issues"
-"Changelog" = "https://github.com/dbfixtures/mirakuru/blob/v2.6.1/CHANGES.rst"
+"Changelog" = "https://github.com/dbfixtures/mirakuru/blob/v3.0.1/CHANGES.rst"
 
 [build-system]
 requires = ["setuptools >= 77.0.3", "wheel"]
@@ -84,13 +84,9 @@ showcontent = false
 filterwarnings = "error"
 xfail_strict = "True"
 
-[tool.black]
-line-length = 100
-target-version = ['py39']
-include = '.*\.pyi?$'
-
 [tool.ruff]
 line-length = 100
+target-version = 'py310'
 
 [tool.ruff.lint]
 select = [
@@ -105,7 +101,7 @@ select = [
 # github_url = "https://github.com/<user or organization>/<project>/"
 
 [tool.tbump.version]
-current = "2.6.1"
+current = "3.0.1"
 
 # Example of a semver regexp.
 # Make sure this matches current_version before

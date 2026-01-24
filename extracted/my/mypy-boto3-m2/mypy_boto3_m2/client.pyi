@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -105,12 +106,6 @@ from .type_defs import (
     UpdateEnvironmentResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -119,16 +114,16 @@ else:
 __all__ = ("MainframeModernizationClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ExecutionTimeoutException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ExecutionTimeoutException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class MainframeModernizationClient(BaseClient):
     """
@@ -167,7 +162,7 @@ class MainframeModernizationClient(BaseClient):
 
     def cancel_batch_job_execution(
         self, **kwargs: Unpack[CancelBatchJobExecutionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels the running of a specific batch job execution.
 
@@ -228,7 +223,7 @@ class MainframeModernizationClient(BaseClient):
 
     def delete_application(
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a specific application.
 
@@ -238,7 +233,7 @@ class MainframeModernizationClient(BaseClient):
 
     def delete_application_from_environment(
         self, **kwargs: Unpack[DeleteApplicationFromEnvironmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a specific application from the specific runtime environment where it
         was previously deployed.
@@ -249,7 +244,7 @@ class MainframeModernizationClient(BaseClient):
 
     def delete_environment(
         self, **kwargs: Unpack[DeleteEnvironmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a specific runtime environment.
 
@@ -469,7 +464,7 @@ class MainframeModernizationClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_m2/client/#list_tags_for_resource)
         """
 
-    def start_application(self, **kwargs: Unpack[StartApplicationRequestTypeDef]) -> Dict[str, Any]:
+    def start_application(self, **kwargs: Unpack[StartApplicationRequestTypeDef]) -> dict[str, Any]:
         """
         Starts an application that is currently stopped.
 
@@ -488,7 +483,7 @@ class MainframeModernizationClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_m2/client/#start_batch_job)
         """
 
-    def stop_application(self, **kwargs: Unpack[StopApplicationRequestTypeDef]) -> Dict[str, Any]:
+    def stop_application(self, **kwargs: Unpack[StopApplicationRequestTypeDef]) -> dict[str, Any]:
         """
         Stops a running application.
 
@@ -496,7 +491,7 @@ class MainframeModernizationClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_m2/client/#stop_application)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags to the specified resource.
 
@@ -504,7 +499,7 @@ class MainframeModernizationClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_m2/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified resource.
 

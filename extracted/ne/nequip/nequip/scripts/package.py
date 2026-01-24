@@ -2,13 +2,12 @@
 
 import torch
 
-from nequip.model.saved_models.checkpoint import data_dict_from_checkpoint
 from nequip.model.saved_models.package import (
     _get_shared_importer,
     _get_package_metadata,
-    _suppress_package_importer_warnings,
+    _suppress_package_importer_exporter_warnings,
 )
-from nequip.model.saved_models import ModelFromCheckpoint
+from nequip.model.saved_models import load_saved_model
 from nequip.model.utils import (
     _COMPILE_MODE_OPTIONS,
     _EAGER_MODEL_KEY,
@@ -17,7 +16,7 @@ from nequip.nn.model_modifier_utils import (
     is_persistent_model_modifier,
     is_private_model_modifier,
 )
-from nequip.model.modify_utils import get_all_modifiers, only_apply_persistent_modifiers
+from nequip.model.modify_utils import get_all_modifiers
 from nequip.utils.logger import RankedLogger
 from nequip.utils.versions import get_current_code_versions, _TORCH_GE_2_6
 from nequip.utils.versions.version_utils import get_version_safe
@@ -101,7 +100,7 @@ def main(args=None):
             "packed model file to inspect must end with the `.nequip.zip` extension"
         )
 
-        with _suppress_package_importer_warnings():
+        with _suppress_package_importer_exporter_warnings():
             imp = torch.package.PackageImporter(args.pkg_path)
             pkg_metadata = _get_package_metadata(imp)
 
@@ -188,11 +187,6 @@ def main(args=None):
         # == set global state ==
         set_global_state()
 
-        # == get example data from checkpoint ==
-        # the reason for including it here is that whoever receives the packaged model file does not need to have access to the original data source to do `nequip-compile` on the packaged model (AOT export requires example data)
-        logger.info("Instantiating datamodule for packaging.")
-        data = data_dict_from_checkpoint(args.ckpt_path)
-
         # === perform packaging ===
 
         # the main complication is that we need to account for the possibility that the checkpoint is based on another packaged model
@@ -211,10 +205,14 @@ def main(args=None):
         # == get eager model ==
         # if the origin is `ModelFromPackage`, this call would have populated a variable that we can query later
         logger.info(f"Building `{_EAGER_MODEL_KEY}` model for packaging ...")
-        with only_apply_persistent_modifiers(persistent_only=True):
-            eager_model = ModelFromCheckpoint(
-                args.ckpt_path, compile_mode=_EAGER_MODEL_KEY
-            )
+        eager_model, data = load_saved_model(
+            args.ckpt_path,
+            compile_mode=_EAGER_MODEL_KEY,
+            model_key=None,
+            return_data_dict=True,
+            # ^ get example data from checkpoint/package
+            # the reason for including it here is that whoever receives the packaged model file does not need to have access to the original data source to do `nequip-compile` on the packaged model (AOT export requires example data)
+        )
 
         # it's a `ModuleDict`, so we just reach into one of the models to get `type_names`
         # we expect all models to have the same `type_names` (see init of base Lightning module in `nequip/train/lightning.py`)
@@ -246,12 +244,13 @@ def main(args=None):
 
         for compile_mode in package_compile_modes:
             logger.info(f"Building `{compile_mode}` model for packaging ...")
-            with only_apply_persistent_modifiers(persistent_only=True):
-                model = ModelFromCheckpoint(args.ckpt_path, compile_mode=compile_mode)
+            model = load_saved_model(
+                args.ckpt_path, compile_mode=compile_mode, model_key=None
+            )
             models_to_package.update({compile_mode: model})
 
         # == package ==
-        with _suppress_package_importer_warnings():
+        with _suppress_package_importer_exporter_warnings():
             with torch.package.PackageExporter(
                 args.output_path, importer=importers, debug=True
             ) as exp:
@@ -287,6 +286,8 @@ def main(args=None):
 
                 # save models
                 for compile_mode, model in models_to_package.items():
+                    # make sure model is on CPU before packaging
+                    model = model.to(torch.device("cpu"))
                     exp.save_pickle(
                         package="model",
                         resource=f"{compile_mode}_model.pkl",

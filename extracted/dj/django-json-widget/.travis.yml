@@ -1,0 +1,57 @@
+# Config file for automatic testing at travis-ci.org
+
+language: python
+
+python:
+  - "3.6"
+  - "3.7"
+  - "3.8"
+  - "3.9"
+  - "3.10"
+  - "3.11"
+  - "3.12"
+
+matrix:
+  fast_finish: true
+  include:
+    # DJANGO 3.2.25
+    - python: 3.6
+      env: DJANGO_VERSION=3.2.25
+    - python: 3.7
+      env: DJANGO_VERSION=3.2.25
+    - python: 3.8
+      env: DJANGO_VERSION=3.2.25
+    - python: 3.9
+      env: DJANGO_VERSION=3.2.25
+    - python: 3.10
+      env: DJANGO_VERSION=3.2.25
+    # DJANGO 4.2.11
+      env: DJANGO_VERSION=3.2.25
+    - python: 3.8
+      env: DJANGO_VERSION=3.2.25
+    - python: 3.9
+      env: DJANGO_VERSION=3.2.25
+    - python: 3.10
+      env: DJANGO_VERSION=3.2.25
+    - python: 3.11
+      env: DJANGO_VERSION=3.2.25
+    - python: 3.12
+      env: DJANGO_VERSION=3.2.25
+    # DJANGO 5.0.3
+    - python: 3.10
+      env: DJANGO_VERSION=3.2.25
+    - python: 3.11
+      env: DJANGO_VERSION=3.2.25
+    - python: 3.12
+      env: DJANGO_VERSION=3.2.25
+# command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
+install:
+  - echo "$DJANGO_VERSION"
+  - pip install -r requirements_test.txt
+
+# command to run tests using coverage, e.g. python setup.py test
+script: coverage run --source django_json_widget runtests.py
+# script: tox -e $TOX_ENV
+
+# after_success:
+#   - codecov -e TOX_ENV

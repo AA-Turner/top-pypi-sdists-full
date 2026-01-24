@@ -60,11 +60,11 @@ setup(
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
     ],
 
     # What does your project relate to?
@@ -85,12 +85,12 @@ setup(
         'requests', 
         'networkx',
         'tomli;python_version<"3.11"',
-        'torch>=1.3.0',
+        'torch>=1.13.0',
         'tqdm',
     ],
 
     # List required Python versions
-    python_requires='>=3.8',
+    python_requires='>=3.9',
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,
@@ -130,7 +130,11 @@ setup(
     # installed, specify them here.  If using Python 2.6 or less, then these
     # have to be included in MANIFEST.in as well.
     package_data={
-        "": ["*.pl"],
+        "": ["pipeline/demo/*ttf",
+             "pipeline/demo/*css",
+             "pipeline/demo/*html",
+             "pipeline/demo/*js",
+             "pipeline/demo/*gif",],
     },
 
     include_package_data=True,

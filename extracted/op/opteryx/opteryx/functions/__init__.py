@@ -4,7 +4,52 @@
 # Distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND.
 
 """
-These are a set of functions that can be applied to data.
+SQL Functions Module
+
+This module provides all SQL functions available in Opteryx queries. Functions are
+organized by category and automatically registered for use in SQL expressions.
+
+Categories:
+- Arithmetic: Mathematical operations and calculations
+- String: Text manipulation (UPPER, LOWER, SUBSTRING, CONCAT, etc.)
+- Date/Time: Temporal operations (NOW, DATE_TRUNC, EXTRACT, etc.)
+- Aggregate: Aggregation functions (SUM, COUNT, AVG, MIN, MAX, etc.)
+- Conditional: Logic functions (CASE, COALESCE, NULLIF, etc.)
+- Array: Array operations and manipulations
+- Encoding: Base64, hex, and other encoding/decoding functions
+- Other: Utility and specialized functions
+
+Function Registration:
+Functions are registered in the FUNCTIONS dictionary with their implementation,
+return type, and cost estimate for query optimization.
+
+Structure:
+- function_name: (implementation_function, return_type, cost_estimate)
+- return_type: PyArrow data type or "VARIANT" for dynamic types
+- cost_estimate: Relative execution cost (currently always 1.0)
+
+Adding New Functions:
+1. Implement the function logic in the appropriate category module
+2. Add to the FUNCTIONS dictionary below
+3. Add comprehensive tests in tests/functions/
+4. Update documentation if the function introduces new patterns
+
+Example:
+    # Using functions in queries
+    SELECT UPPER(name), DATE_TRUNC('month', created_at) FROM users
+
+    # Function returns PyArrow arrays and handles null values
+    def my_string_function(arr):
+        return pa.compute.upper(arr)
+
+    # Register in FUNCTIONS dictionary
+    FUNCTIONS['MY_UPPER'] = (my_string_function, 'VARCHAR', 1.0)
+
+Performance Notes:
+- Functions should operate on PyArrow arrays for vectorization
+- Use PyArrow compute functions when available for best performance
+- Handle null values appropriately
+- Consider memory usage for large arrays
 """
 
 import datetime
@@ -20,10 +65,19 @@ from pyarrow import ArrowNotImplementedError
 from pyarrow import compute
 
 import opteryx
-from opteryx.compiled.list_ops.list_contains_all import list_contains_all
-from opteryx.compiled.list_ops.list_contains_any import list_contains_any
-from opteryx.compiled.list_ops.list_encode_utf8 import list_encode_utf8 as to_blob
-from opteryx.compiled.list_ops.list_length import list_length
+from opteryx.compiled.list_ops import list_contains_all
+from opteryx.compiled.list_ops import list_contains_any
+from opteryx.compiled.list_ops import list_encode_utf8 as to_blob
+from opteryx.compiled.list_ops import list_initcap
+from opteryx.compiled.list_ops import list_length
+from opteryx.compiled.list_ops import list_md5
+from opteryx.compiled.list_ops import list_replace
+from opteryx.compiled.list_ops import list_sha1
+from opteryx.compiled.list_ops import list_sha256
+from opteryx.compiled.list_ops import list_sha512
+from opteryx.compiled.list_ops import list_soundex
+from opteryx.compiled.list_ops import list_string_slice_left
+from opteryx.compiled.list_ops import list_string_slice_right
 from opteryx.exceptions import FunctionExecutionError
 from opteryx.exceptions import IncorrectTypeError
 from opteryx.functions import date_functions
@@ -79,7 +133,7 @@ def _get(array, key):
     except Exception:
         raise IncorrectTypeError("VARCHAR and ARRAY values must be subscripted with NUMERIC values")
     if isinstance(first_element, (list, str, pyarrow.ListScalar, bytes, numpy.ndarray)):
-        from opteryx.compiled.list_ops.list_get_element import list_get_element
+        from opteryx.compiled.list_ops import list_get_element
 
         return list_get_element(array, index)
 
@@ -124,7 +178,7 @@ def fixed_value_function(function, context):
     if function in ("VERSION",):
         return OrsoTypes.VARCHAR, opteryx.__version__
     if function in ("NOW", "UTC_TIMESTAMP"):
-        return OrsoTypes.TIMESTAMP, numpy.datetime64(context.connection.connected_at)
+        return OrsoTypes.TIMESTAMP, numpy.datetime64(context.connection.connected_at, "us")
     if function in ("CURRENT_TIME",):
         # CURRENT_TIME is an alias for NOW, so we return the same value
         return OrsoTypes.TIME, context.connection.connected_at.time()
@@ -153,7 +207,7 @@ def fixed_value_function(function, context):
         return OrsoTypes.DOUBLE, 2.71828182845904523536028747135266249775724709369995
     if function == "UTC_TIMESTAMP":
         # UTC timestamp
-        return OrsoTypes.TIMESTAMP, numpy.datetime64(datetime.datetime.utcnow(), "us")
+        return OrsoTypes.TIMESTAMP, numpy.datetime64(datetime.datetime.now(datetime.UTC), "us")
     if function == "UNIXTIME":
         # We should only ever get here if the function is called without parameters
         return OrsoTypes.INTEGER, context.connection.connected_at.timestamp()
@@ -223,7 +277,7 @@ def cast(_type):
             elif len(args) == 1:
                 kwargs["precision"] = args[0]
                 kwargs["scale"] = 0
-        elif _type in ("VARCHAR", "BLOB") and len(args) == 1:
+        elif _type in ("VARCHAR", "BLOB", "VARBINARY") and len(args) == 1:
             # VARCHAR and BLOB can take a single argument for length
             kwargs["length"] = args[0]
         elif _type == "ARRAY" and len(args) == 1:
@@ -244,11 +298,11 @@ def cast_to_varchar(arr, *args):
         # If the array is a float64, we can use the fast format_double_array_strings
         return format_double_array_ascii(arr)
     if arr.dtype == numpy.int64:
-        from opteryx.compiled.list_ops.list_cast_int64_to_string import list_cast_int64_to_ascii
+        from opteryx.compiled.list_ops import list_cast_int64_to_ascii
 
         return list_cast_int64_to_ascii(arr)
     if arr.dtype == numpy.uint64:
-        from opteryx.compiled.list_ops.list_cast_uint64_to_string import list_cast_uint64_to_ascii
+        from opteryx.compiled.list_ops import list_cast_uint64_to_ascii
 
         return list_cast_uint64_to_ascii(arr)
 
@@ -270,11 +324,11 @@ def cast_to_blob(arr, *args):
 
         return format_double_array_bytes(arr)
     if arr.dtype == numpy.int64:
-        from opteryx.compiled.list_ops.list_cast_int64_to_string import list_cast_int64_to_bytes
+        from opteryx.compiled.list_ops import list_cast_int64_to_bytes
 
         return list_cast_int64_to_bytes(arr)
     if arr.dtype == numpy.uint64:
-        from opteryx.compiled.list_ops.list_cast_uint64_to_string import list_cast_uint64_to_bytes
+        from opteryx.compiled.list_ops import list_cast_uint64_to_bytes
 
         return list_cast_uint64_to_bytes(arr)
 
@@ -316,8 +370,8 @@ def cast_to_double(arr, *args):
 
 
 def cast_to_int(arr, *args):
-    from opteryx.compiled.list_ops.list_cast_string_to_int import list_cast_ascii_to_int
-    from opteryx.compiled.list_ops.list_cast_string_to_int import list_cast_bytes_to_int
+    from opteryx.compiled.list_ops import list_cast_ascii_to_int
+    from opteryx.compiled.list_ops import list_cast_bytes_to_int
 
     if hasattr(arr, "to_numpy"):
         arr = arr.to_numpy(False)
@@ -438,6 +492,10 @@ DEPRECATED_FUNCTIONS = {
     "TRY_STRUCT": None,  # deprecated, removed 0.24.0
     "LEN": "LENGTH",  # deprecated, removed 0.24.0
     "INT": "INTEGER",  # remove 0.27.0
+    "GET": None,  # remove 0.28.0
+    "SEARCH": None,  # remove 0.28.0
+    "BLOB": "VARBINARY",  # remove 0.29.0
+    "TRY_BLOB": "TRY_VARBINARY",  # remove 0.29.0
 }
 
 # fmt:off
@@ -470,11 +528,13 @@ FUNCTIONS = {
     "DATE": (lambda x: compute.cast(x, pyarrow.date32()), "DATE", 1.0),
     "PASSTHRU": (lambda x: x, "VARIANT", 1.0),
     "BLOB": (cast_to_blob, "BLOB", 1.0),
+    "VARBINARY": (cast_to_blob, "BLOB", 1.0),
     "TRY_ARRAY": (other_functions.array_cast_safe, "VARIANT", 1.0),
     "TRY_TIMESTAMP": (try_cast("TIMESTAMP"), "TIMESTAMP", 1.0),
     "TRY_BOOLEAN": (try_cast("BOOLEAN"), "BOOLEAN", 1.0),
     "TRY_VARCHAR": (try_cast("VARCHAR"), "VARCHAR", 1.0),
     "TRY_BLOB": (try_cast("BLOB"), "BLOB", 1.0),
+    "TRY_VARBINARY": (try_cast("BLOB"), "BLOB", 1.0),
     "TRY_INTEGER": (try_cast("INTEGER"), "INTEGER", 1.0),
     "TRY_DECIMAL": (try_cast("DECIMAL"), "DECIMAL", 1.0),
     "TRY_DOUBLE": (try_cast("DOUBLE"), "DOUBLE", 1.0),
@@ -488,11 +548,12 @@ FUNCTIONS = {
     "LENGTH": (list_length, "INTEGER", 1.0),  # LENGTH(str) -> int
     "UPPER": (compute.utf8_upper, "VARCHAR", 1.0),  # UPPER(str) -> str
     "LOWER": (compute.utf8_lower, "VARCHAR", 1.0),  # LOWER(str) -> str
-    "LEFT": (string_functions.string_slicer_left, "VARCHAR", 1.0),
-    "RIGHT": (string_functions.string_slicer_right, "VARCHAR", 1.0),
+    "LEFT": (list_string_slice_left, "VARCHAR", 1.0),
+    "RIGHT": (list_string_slice_right, "VARCHAR", 1.0),
     "REVERSE": (compute.utf8_reverse, "VARCHAR", 1.0),
-    "SOUNDEX": (string_functions.soundex, "VARCHAR", 1.0),
+    "SOUNDEX": (list_soundex, "VARCHAR", 1.0),
     "TITLE": (compute.utf8_title, "VARCHAR", 1.0),
+    "INITCAP": (list_initcap, "VARCHAR", 1.0),
     "CONCAT": (string_functions.concat, "VARCHAR", 1.0),
     "CONCAT_WS": (string_functions.concat_ws, "VARCHAR", 1.0),
     "SUBSTRING": (string_functions.substring, "VARCHAR", 1.0),
@@ -505,20 +566,21 @@ FUNCTIONS = {
     "LEVENSHTEIN": (string_functions.levenshtein, "INTEGER", 1.0),
     "SPLIT": (string_functions.split, "ARRAY<VARCHAR>", 1.0),
     "MATCH_AGAINST": (string_functions.match_against, "BOOLEAN", 1.0),
+    "REPLACE": (list_replace, "VARCHAR", 1.0),
     "REGEXP_REPLACE": (string_functions.regex_replace, "BLOB", 1.0),
 
     # HASHING & ENCODING
     "HASH": (_iterate_single_parameter(lambda x: hex(hash_bytes(str(x).encode()))[2:]), "BLOB", 1.0),
-    "MD5": (_iterate_single_parameter(string_functions.get_md5), "BLOB", 1.0),
-    "SHA1": (_iterate_single_parameter(string_functions.get_sha1), "BLOB", 1.0),
+    "MD5": (list_md5, "BLOB", 1.0),
+    "SHA1": (list_sha1, "BLOB", 1.0),
     "SHA224": (_iterate_single_parameter(string_functions.get_sha224), "BLOB", 1.0),
-    "SHA256": (_iterate_single_parameter(string_functions.get_sha256), "BLOB", 1.0),
+    "SHA256": (list_sha256, "BLOB", 1.0),
     "SHA384": (_iterate_single_parameter(string_functions.get_sha384), "BLOB", 1.0),
-    "SHA512": (_iterate_single_parameter(string_functions.get_sha512), "BLOB", 1.0),
+    "SHA512": (list_sha512, "BLOB", 1.0),
     "RANDOM": (number_functions.random_number, "DOUBLE", 1.0),
     "RAND": (number_functions.random_number, "DOUBLE", 1.0),
     "NORMAL": (number_functions.random_normal, "DOUBLE", 1.0),
-    "RANDOM_STRING": (number_functions.random_string, "BLOB", 1.0),
+    "RANDOM_STRING": (number_functions.random_strings, "BLOB", 1.0),
     "BASE64_ENCODE": (string_functions.base64_encode, "BLOB", 1.0),
     "BASE64_DECODE": (string_functions.base64_decode, "BLOB", 1.0),
     "BASE85_ENCODE": (_iterate_single_parameter(string_functions.get_base85_encode), "BLOB", 1.0),
@@ -661,10 +723,13 @@ def apply_function(function: str = None, *parameters):
 
 def is_function(name: str) -> bool:
     """
-    sugar
+    Check if the given name is a valid function name.
     """
     return name.upper() in FUNCTIONS
 
 
 def functions() -> list[str]:
+    """
+    Return a list of all available function names.
+    """
     return list(FUNCTIONS.keys())

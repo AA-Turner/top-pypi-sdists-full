@@ -9,15 +9,28 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
+import datetime as _dt
+from typing import Literal, Union
+from typing_extensions import TypedDict
 
 
-class DeploymentBranchPolicyNamePatternWithTypeType(TypedDict):
-    """Deployment branch and tag policy name pattern"""
+class CodeScanningAutofixType(TypedDict):
+    """CodeScanningAutofix"""
 
-    name: str
-    type: NotRequired[Literal["branch", "tag"]]
+    status: Literal["pending", "error", "success", "outdated"]
+    description: Union[str, None]
+    started_at: _dt.datetime
 
 
-__all__ = ("DeploymentBranchPolicyNamePatternWithTypeType",)
+class CodeScanningAutofixTypeForResponse(TypedDict):
+    """CodeScanningAutofix"""
+
+    status: Literal["pending", "error", "success", "outdated"]
+    description: Union[str, None]
+    started_at: str
+
+
+__all__ = (
+    "CodeScanningAutofixType",
+    "CodeScanningAutofixTypeForResponse",
+)

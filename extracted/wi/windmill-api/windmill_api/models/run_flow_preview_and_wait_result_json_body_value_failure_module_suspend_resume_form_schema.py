@@ -8,7 +8,7 @@ T = TypeVar("T", bound="RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleSus
 
 @_attrs_define
 class RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleSuspendResumeFormSchema:
-    """ """
+    """JSON Schema for the resume form"""
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

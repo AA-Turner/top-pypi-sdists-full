@@ -28,13 +28,11 @@ from .log import log_info
 class PatoolError(Exception):
     """Raised when errors occur."""
 
-    pass
 
-
-def backtick(cmd: Sequence[str], encoding: str = 'utf-8') -> str:
+def backtick(cmd: Sequence[str], encoding: str = 'utf-8', check: bool = True) -> str:
     """Return decoded output from command."""
     return subprocess.run(
-        cmd, stdout=subprocess.PIPE, check=True, encoding=encoding, errors="replace"
+        cmd, stdout=subprocess.PIPE, check=check, encoding=encoding, errors="replace"
     ).stdout
 
 
@@ -47,7 +45,9 @@ def run_under_pythonw() -> bool:
     )
 
 
-def run(cmd: Sequence[str], verbosity: int = 0, **kwargs) -> int:
+def run(
+    cmd: Sequence[str], verbosity: int = 0, interactive: bool = True, **kwargs
+) -> int:
     """Run command without error checking.
     @return: command return code
     """
@@ -61,8 +61,9 @@ def run(cmd: Sequence[str], verbosity: int = 0, **kwargs) -> int:
         kwargs["creationflags"] = (
             subprocess.CREATE_NO_WINDOW  # pytype: disable=module-attr
         )
-    # try to prevent hangs for programs requiring input
-    kwargs["input"] = ""
+    if not interactive:
+        # try to prevent hangs for programs requiring input
+        kwargs["input"] = ""
     if verbosity < 1:
         # hide command output on stdout
         kwargs['stdout'] = subprocess.DEVNULL
@@ -76,13 +77,15 @@ def run(cmd: Sequence[str], verbosity: int = 0, **kwargs) -> int:
         if kwargs.get("shell"):
             # for shell calls the command must be a string
             cmd = " ".join(cmd)
-    res = subprocess.run(cmd, **kwargs)
+    res = subprocess.run(cmd, check=False, **kwargs)
     return res.returncode
 
 
-def run_checked(cmd: Sequence[str], ret_ok: Sequence[int] = (0,), **kwargs) -> int:
+def run_checked(
+    cmd: Sequence[str], ret_ok: Sequence[int] = (0,), interactive: bool = True, **kwargs
+) -> int:
     """Run command and raise PatoolError on error."""
-    retcode = run(cmd, **kwargs)
+    retcode = run(cmd, interactive=interactive, **kwargs)
     if retcode not in ret_ok:
         msg = f"Command `{cmd}' returned non-zero exit status {retcode}"
         raise PatoolError(msg)
@@ -181,8 +184,8 @@ def find_program(program: str) -> str | None:
 
 def get_nt_7z_dir() -> str:
     """Return 7-Zip directory from registry, or an empty string."""
-    import winreg  # type: ignore
-    import platform
+    import winreg  # noqa: PLC0415
+    import platform  # noqa: PLC0415
 
     python_bits = platform.architecture()[0]
     keyname = r"SOFTWARE\7-Zip"
@@ -230,6 +233,14 @@ def get_peazip_addon_dir() -> str:
     if platform.system() == 'Darwin':
         return '/Applications/peazip.app/Content/MacOS/bin/'
     return ''
+
+
+def get_arc_format(arc_exe: str) -> str:
+    """If running arc_exe without options prints "FreeArc" in its output assume
+    the given arc_exe supports the freearc format. Else assume arc format support.
+    """
+    helptext = backtick([arc_exe], check=False)
+    return "freearc" if "FreeArc" in helptext else "arc"
 
 
 def strlist_with_or(alist: Sequence[str]) -> str:

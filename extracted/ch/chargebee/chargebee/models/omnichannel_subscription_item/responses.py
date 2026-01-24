@@ -2,7 +2,10 @@ from dataclasses import dataclass
 from chargebee.model import Model
 from typing import Dict, List, Any
 from chargebee.response import Response
-from chargebee.models import omnichannel_subscription_item_scheduled_change
+from chargebee.models import (
+    omnichannel_subscription_item_offer,
+    omnichannel_subscription_item_scheduled_change,
+)
 
 
 @dataclass
@@ -38,6 +41,9 @@ class OmnichannelSubscriptionItemResponse(Model):
     resumes_at: int = None
     has_scheduled_changes: bool = None
     resource_version: int = None
+    omnichannel_subscription_item_offers: List[
+        "omnichannel_subscription_item_offer.OmnichannelSubscriptionItemOfferResponse"
+    ] = None
     upcoming_renewal: UpcomingRenewalResponse = None
     linked_item: LinkedItemResponse = None
 

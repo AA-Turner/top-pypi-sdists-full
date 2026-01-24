@@ -215,6 +215,14 @@ class GaussianMixtureModel(
         return self._set(probabilityCol=value)
 
     @property
+    @since("4.1.0")
+    def numFeatures(self) -> int:
+        """
+        Number of features, i.e., length of Vectors which this transforms.
+        """
+        return self._call_java("numFeatures")
+
+    @property
     @since("2.0.0")
     def weights(self) -> List[float]:
         """
@@ -247,20 +255,6 @@ class GaussianMixtureModel(
         """
         return self._call_java("gaussiansDF")
 
-    @property
-    @since("2.1.0")
-    def summary(self) -> "GaussianMixtureSummary":
-        """
-        Gets summary (cluster assignments, cluster sizes) of the model trained on the
-        training set. An exception is thrown if no summary exists.
-        """
-        if self.hasSummary:
-            return GaussianMixtureSummary(super(GaussianMixtureModel, self).summary)
-        else:
-            raise RuntimeError(
-                "No training summary available for this %s" % self.__class__.__name__
-            )
-
     @since("3.0.0")
     def predict(self, value: Vector) -> int:
         """
@@ -274,6 +268,10 @@ class GaussianMixtureModel(
         Predict probability for the given features.
         """
         return self._call_java("predictProbability", value)
+
+    @property
+    def _summaryCls(self) -> type:
+        return GaussianMixtureSummary
 
 
 @inherit_doc
@@ -687,18 +685,12 @@ class KMeansModel(
         return [vec for vec in matrix.toArray()]
 
     @property
-    @since("2.1.0")
-    def summary(self) -> KMeansSummary:
+    @since("4.1.0")
+    def numFeatures(self) -> int:
         """
-        Gets summary (cluster assignments, cluster sizes) of the model trained on the
-        training set. An exception is thrown if no summary exists.
+        Number of features, i.e., length of Vectors which this transforms.
         """
-        if self.hasSummary:
-            return KMeansSummary(super(KMeansModel, self).summary)
-        else:
-            raise RuntimeError(
-                "No training summary available for this %s" % self.__class__.__name__
-            )
+        return self._call_java("numFeatures")
 
     @since("3.0.0")
     def predict(self, value: Vector) -> int:
@@ -706,6 +698,10 @@ class KMeansModel(
         Predict label for the given features.
         """
         return self._call_java("predict", value)
+
+    @property
+    def _summaryCls(self) -> type:
+        return KMeansSummary
 
 
 @inherit_doc
@@ -1026,18 +1022,12 @@ class BisectingKMeansModel(
         return self._call_java("computeCost", dataset)
 
     @property
-    @since("2.1.0")
-    def summary(self) -> "BisectingKMeansSummary":
+    @since("4.1.0")
+    def numFeatures(self) -> int:
         """
-        Gets summary (cluster assignments, cluster sizes) of the model trained on the
-        training set. An exception is thrown if no summary exists.
+        Number of features, i.e., length of Vectors which this transforms.
         """
-        if self.hasSummary:
-            return BisectingKMeansSummary(super(BisectingKMeansModel, self).summary)
-        else:
-            raise RuntimeError(
-                "No training summary available for this %s" % self.__class__.__name__
-            )
+        return self._call_java("numFeatures")
 
     @since("3.0.0")
     def predict(self, value: Vector) -> int:
@@ -1045,6 +1035,10 @@ class BisectingKMeansModel(
         Predict label for the given features.
         """
         return self._call_java("predict", value)
+
+    @property
+    def _summaryCls(self) -> type:
+        return BisectingKMeansSummary
 
 
 @inherit_doc

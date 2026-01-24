@@ -5,19 +5,28 @@ build-backend = "hatchling.build"
 
 [project]
 name = "narwhals"
-version = "2.5.0"
+version = "2.15.0"
 dependencies = []
 requires-python = ">=3.9"
 authors = [
   { name = "Marco Gorelli", email = "hello_narwhals@proton.me" },
 ]
+license = {file = "LICENSE.md"}
 description = "Extremely lightweight compatibility layer between dataframe libraries"
 readme = "README.md"
 keywords = ["dataframes", "interoperability", "pandas", "polars", "pyarrow", "dask", "modin", "cudf"]
 classifiers = [
+  "Development Status :: 5 - Production/Stable",
   "License :: OSI Approved :: MIT License",
-  "Programming Language :: Python",
   "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Free Threading :: 2 - Beta",
   "Typing :: Typed",
 ]
 
@@ -42,7 +51,7 @@ pyspark = ["pyspark>=3.5.0"]
 pyspark-connect = ["pyspark[connect]>=3.5.0"]
 polars = ["polars>=0.20.4"]
 dask = ["dask[dataframe]>=2024.8"]
-duckdb = ["duckdb>=1.0"]
+duckdb = ["duckdb>=1.1"]
 ibis = ["ibis-framework>=6.0.0", "rich", "packaging", "pyarrow_hotfix"]
 sqlframe = ["sqlframe>=3.22.0,!=3.39.3"]
 
@@ -72,7 +81,7 @@ typing = [  # keep some of these pinned and bump periodically so there's fewer s
   "pyright",
   "pyarrow-stubs==19.2",
   "sqlframe",
-  "polars==1.32.2",
+  "polars==1.34.0",
   "uv",
   "narwhals[ibis]",
 ]
@@ -174,7 +183,6 @@ ignore = [
   "FBT003",  # boolean-positional-value-in-call (We enforce at definition site when it is a flag, not a value (e.g. `lit(False)`))
   "FIX",     # flake8-fixme
   "PD010",   # pandas-use-of-dot-pivot-or-unstack
-  "PD901",   # pandas-df-variable-name (This is a auxiliary library so dataframe variables have no concrete business meaning)
   "PLC0415", # `import` should be at the top-level of a file
   "PLR0913", # too-many-arguments
   "PLR2004", # magic-value-comparison
@@ -211,8 +219,8 @@ extend-ignore-names = [
   "PLR0916", # too-many-boolean-expressions
 ]
 "tpch/tests/*" = ["S101"]
-"utils/*" = ["S311"]
-"utils/bump_version.py" = ["S603", "S607", "T201"]
+"utils/*" = ["S311", "T201"]
+"utils/bump_version.py" = ["S603", "S607"]
 "tpch/execute/*" = ["T201"]
 "tpch/notebooks/*" = [
   "ANN001",
@@ -244,27 +252,39 @@ norecursedirs =  ['*.egg', '.*', '_darcs', 'build', 'CVS', 'dist', 'node_modules
 testpaths = ["tests"]
 filterwarnings = [
   "error",
-  'ignore:.*defaulting to pandas implementation',
-  'ignore:.*implementation has mismatches with pandas',
+  'ignore:.*defaulting to pandas implementation:Warning:modin',
+  'ignore:.*implementation has mismatches with pandas:Warning:modin',
   'ignore:.*You are using pyarrow version',
+
+  # https://discuss.python.org/t/types-uniontype-was-merged-with-wrong-class-not-even-a-class/102275/31
+  "ignore:.*'_UnionGenericAlias' is deprecated:DeprecationWarning",
+
   # This warning was temporarily raised by pandas but then reverted.
   'ignore:.*Passing a BlockManager to DataFrame:DeprecationWarning',
+
   # This warning was temporarily raised by Polars but then reverted.
   'ignore:.*The default coalesce behavior of left join will change:DeprecationWarning',
+
   'ignore: unclosed <socket.socket',
   'ignore:.*The distutils package is deprecated and slated for removal in Python 3.12:DeprecationWarning:pyspark',
-  'ignore:.*distutils Version classes are deprecated. Use packaging.version instead.*:DeprecationWarning:pyspark',
+  'ignore:.*distutils Version classes are deprecated. Use packaging.version instead.*:DeprecationWarning',
   'ignore:.*is_datetime64tz_dtype is deprecated and will be removed in a future version.*:DeprecationWarning:pyspark',
+
   # Warning raised by PyArrow nightly just by importing pandas
   'ignore:.*Python binding for RankQuantileOptions not exposed:RuntimeWarning:pyarrow',
+
   'ignore:.*pandas only supports SQLAlchemy:UserWarning:sqlframe',
   'ignore:.*numpy.core is deprecated and has been renamed to numpy._core.*:DeprecationWarning:sqlframe',
   "ignore:.*__array__ implementation doesn't accept a copy keyword, so passing copy=False failed:DeprecationWarning:modin",
+
   # raised internally by pandas
   "ignore:.*np.find_common_type is deprecated:DeprecationWarning:pandas",
+
   # Warning raised when calling PandasLikeNamespace.from_arrow with old pyarrow
   "ignore:.*is_sparse is deprecated and will be removed in a future version.*:DeprecationWarning:pyarrow",
-  'ignore:.*invalid value encountered in cast:RuntimeWarning:pandas',
+
+  "ignore:.*invalid value encountered in cast:RuntimeWarning:pandas",
+  "ignore:.*The behavior of DataFrame concatenation with empty or all-NA entries is deprecated:FutureWarning",
 ]
 xfail_strict = true
 markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
@@ -281,6 +301,7 @@ plugins = ["covdefaults"]
 fail_under = 80  # This is just for local development, in CI we set it to 100
 omit = [
   'narwhals/typing.py',
+  'narwhals/compliant.py',
   'narwhals/stable/v1/typing.py',
   'narwhals/stable/v2/typing.py',
   'narwhals/this.py',
@@ -301,9 +322,11 @@ exclude_also = [
   "if .*implementation.is_modin",
   "if .*implementation.is_pyspark",
   "if .*implementation.is_pyspark_connect",
+  "except ModuleNotFoundError",
   'request.applymarker\(pytest.mark.xfail',
   'backend_version <',
   '.*._backend_version\(\) <',
+  'BACKEND_VERSION <',
   'if ".*" in str\(constructor',
   'pytest.skip\(',
   'assert_never\(',
@@ -311,7 +334,7 @@ exclude_also = [
 ]
 
 [tool.mypy]
-files = ["narwhals", "tests"]
+files = ["narwhals", "tests", "test-plugin"]
 pretty = true
 strict = true
 
@@ -357,7 +380,7 @@ reportMissingModuleSource = "none"
 reportPrivateImportUsage = "none"
 reportUnusedExpression = "none"    # handled by (https://docs.astral.sh/ruff/rules/unused-variable/)
 typeCheckingMode = "basic"
-include = ["narwhals", "tests"]
+include = ["narwhals", "tests", "test-plugin"]
 ignore = [
   "../.venv/",
   "../../../**/Lib",      # stdlib

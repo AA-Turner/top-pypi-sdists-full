@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -424,8 +424,8 @@ class TooManyTagsException(ServiceException):
 
 
 class AbortEnvironmentUpdateMessage(ServiceRequest):
-    EnvironmentId: Optional[EnvironmentId]
-    EnvironmentName: Optional[EnvironmentName]
+    EnvironmentId: EnvironmentId | None
+    EnvironmentName: EnvironmentName | None
 
 
 class MaxAgeRule(TypedDict, total=False):
@@ -434,8 +434,8 @@ class MaxAgeRule(TypedDict, total=False):
     """
 
     Enabled: BoxedBoolean
-    MaxAgeInDays: Optional[BoxedInt]
-    DeleteSourceFromS3: Optional[BoxedBoolean]
+    MaxAgeInDays: BoxedInt | None
+    DeleteSourceFromS3: BoxedBoolean | None
 
 
 class MaxCountRule(TypedDict, total=False):
@@ -444,8 +444,8 @@ class MaxCountRule(TypedDict, total=False):
     """
 
     Enabled: BoxedBoolean
-    MaxCount: Optional[BoxedInt]
-    DeleteSourceFromS3: Optional[BoxedBoolean]
+    MaxCount: BoxedInt | None
+    DeleteSourceFromS3: BoxedBoolean | None
 
 
 class ApplicationVersionLifecycleConfig(TypedDict, total=False):
@@ -458,8 +458,8 @@ class ApplicationVersionLifecycleConfig(TypedDict, total=False):
     bundle remains in S3 unless you configure the rule to delete it.
     """
 
-    MaxCountRule: Optional[MaxCountRule]
-    MaxAgeRule: Optional[MaxAgeRule]
+    MaxCountRule: MaxCountRule | None
+    MaxAgeRule: MaxAgeRule | None
 
 
 class ApplicationResourceLifecycleConfig(TypedDict, total=False):
@@ -470,12 +470,12 @@ class ApplicationResourceLifecycleConfig(TypedDict, total=False):
     lifecycle settings for application versions.
     """
 
-    ServiceRole: Optional[String]
-    VersionLifecycleConfig: Optional[ApplicationVersionLifecycleConfig]
+    ServiceRole: String | None
+    VersionLifecycleConfig: ApplicationVersionLifecycleConfig | None
 
 
-ConfigurationTemplateNamesList = List[ConfigurationTemplateName]
-VersionLabelsList = List[VersionLabel]
+ConfigurationTemplateNamesList = list[ConfigurationTemplateName]
+VersionLabelsList = list[VersionLabel]
 UpdateDate = datetime
 CreationDate = datetime
 
@@ -483,29 +483,29 @@ CreationDate = datetime
 class ApplicationDescription(TypedDict, total=False):
     """Describes the properties of an application."""
 
-    ApplicationArn: Optional[ApplicationArn]
-    ApplicationName: Optional[ApplicationName]
-    Description: Optional[Description]
-    DateCreated: Optional[CreationDate]
-    DateUpdated: Optional[UpdateDate]
-    Versions: Optional[VersionLabelsList]
-    ConfigurationTemplates: Optional[ConfigurationTemplateNamesList]
-    ResourceLifecycleConfig: Optional[ApplicationResourceLifecycleConfig]
+    ApplicationArn: ApplicationArn | None
+    ApplicationName: ApplicationName | None
+    Description: Description | None
+    DateCreated: CreationDate | None
+    DateUpdated: UpdateDate | None
+    Versions: VersionLabelsList | None
+    ConfigurationTemplates: ConfigurationTemplateNamesList | None
+    ResourceLifecycleConfig: ApplicationResourceLifecycleConfig | None
 
 
-ApplicationDescriptionList = List[ApplicationDescription]
+ApplicationDescriptionList = list[ApplicationDescription]
 
 
 class ApplicationDescriptionMessage(TypedDict, total=False):
     """Result message containing a single description of an application."""
 
-    Application: Optional[ApplicationDescription]
+    Application: ApplicationDescription | None
 
 
 class ApplicationDescriptionsMessage(TypedDict, total=False):
     """Result message containing a list of application descriptions."""
 
-    Applications: Optional[ApplicationDescriptionList]
+    Applications: ApplicationDescriptionList | None
 
 
 class Latency(TypedDict, total=False):
@@ -513,14 +513,14 @@ class Latency(TypedDict, total=False):
     over the last 10 seconds.
     """
 
-    P999: Optional[NullableDouble]
-    P99: Optional[NullableDouble]
-    P95: Optional[NullableDouble]
-    P90: Optional[NullableDouble]
-    P85: Optional[NullableDouble]
-    P75: Optional[NullableDouble]
-    P50: Optional[NullableDouble]
-    P10: Optional[NullableDouble]
+    P999: NullableDouble | None
+    P99: NullableDouble | None
+    P95: NullableDouble | None
+    P90: NullableDouble | None
+    P85: NullableDouble | None
+    P75: NullableDouble | None
+    P50: NullableDouble | None
+    P10: NullableDouble | None
 
 
 class StatusCodes(TypedDict, total=False):
@@ -530,34 +530,34 @@ class StatusCodes(TypedDict, total=False):
     Definitions <http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html>`__.
     """
 
-    Status2xx: Optional[NullableInteger]
-    Status3xx: Optional[NullableInteger]
-    Status4xx: Optional[NullableInteger]
-    Status5xx: Optional[NullableInteger]
+    Status2xx: NullableInteger | None
+    Status3xx: NullableInteger | None
+    Status4xx: NullableInteger | None
+    Status5xx: NullableInteger | None
 
 
 class ApplicationMetrics(TypedDict, total=False):
     """Application request metrics for an AWS Elastic Beanstalk environment."""
 
-    Duration: Optional[NullableInteger]
-    RequestCount: Optional[RequestCount]
-    StatusCodes: Optional[StatusCodes]
-    Latency: Optional[Latency]
+    Duration: NullableInteger | None
+    RequestCount: RequestCount | None
+    StatusCodes: StatusCodes | None
+    Latency: Latency | None
 
 
-ApplicationNamesList = List[ApplicationName]
+ApplicationNamesList = list[ApplicationName]
 
 
 class ApplicationResourceLifecycleDescriptionMessage(TypedDict, total=False):
-    ApplicationName: Optional[ApplicationName]
-    ResourceLifecycleConfig: Optional[ApplicationResourceLifecycleConfig]
+    ApplicationName: ApplicationName | None
+    ResourceLifecycleConfig: ApplicationResourceLifecycleConfig | None
 
 
 class S3Location(TypedDict, total=False):
     """The bucket and key of an item stored in Amazon S3."""
 
-    S3Bucket: Optional[S3Bucket]
-    S3Key: Optional[S3Key]
+    S3Bucket: S3Bucket | None
+    S3Key: S3Key | None
 
 
 class SourceBuildInformation(TypedDict, total=False):
@@ -571,49 +571,49 @@ class SourceBuildInformation(TypedDict, total=False):
 class ApplicationVersionDescription(TypedDict, total=False):
     """Describes the properties of an application version."""
 
-    ApplicationVersionArn: Optional[ApplicationVersionArn]
-    ApplicationName: Optional[ApplicationName]
-    Description: Optional[Description]
-    VersionLabel: Optional[VersionLabel]
-    SourceBuildInformation: Optional[SourceBuildInformation]
-    BuildArn: Optional[String]
-    SourceBundle: Optional[S3Location]
-    DateCreated: Optional[CreationDate]
-    DateUpdated: Optional[UpdateDate]
-    Status: Optional[ApplicationVersionStatus]
+    ApplicationVersionArn: ApplicationVersionArn | None
+    ApplicationName: ApplicationName | None
+    Description: Description | None
+    VersionLabel: VersionLabel | None
+    SourceBuildInformation: SourceBuildInformation | None
+    BuildArn: String | None
+    SourceBundle: S3Location | None
+    DateCreated: CreationDate | None
+    DateUpdated: UpdateDate | None
+    Status: ApplicationVersionStatus | None
 
 
-ApplicationVersionDescriptionList = List[ApplicationVersionDescription]
+ApplicationVersionDescriptionList = list[ApplicationVersionDescription]
 
 
 class ApplicationVersionDescriptionMessage(TypedDict, total=False):
     """Result message wrapping a single description of an application version."""
 
-    ApplicationVersion: Optional[ApplicationVersionDescription]
+    ApplicationVersion: ApplicationVersionDescription | None
 
 
 class ApplicationVersionDescriptionsMessage(TypedDict, total=False):
     """Result message wrapping a list of application version descriptions."""
 
-    ApplicationVersions: Optional[ApplicationVersionDescriptionList]
-    NextToken: Optional[Token]
+    ApplicationVersions: ApplicationVersionDescriptionList | None
+    NextToken: Token | None
 
 
 class ApplyEnvironmentManagedActionRequest(ServiceRequest):
     """Request to execute a scheduled managed action immediately."""
 
-    EnvironmentName: Optional[String]
-    EnvironmentId: Optional[String]
+    EnvironmentName: String | None
+    EnvironmentId: String | None
     ActionId: String
 
 
 class ApplyEnvironmentManagedActionResult(TypedDict, total=False):
     """The result message containing information about the managed action."""
 
-    ActionId: Optional[String]
-    ActionDescription: Optional[String]
-    ActionType: Optional[ActionType]
-    Status: Optional[String]
+    ActionId: String | None
+    ActionDescription: String | None
+    ActionType: ActionType | None
+    Status: String | None
 
 
 class AssociateEnvironmentOperationsRoleMessage(ServiceRequest):
@@ -626,54 +626,54 @@ class AssociateEnvironmentOperationsRoleMessage(ServiceRequest):
 class AutoScalingGroup(TypedDict, total=False):
     """Describes an Auto Scaling launch configuration."""
 
-    Name: Optional[ResourceId]
+    Name: ResourceId | None
 
 
-AutoScalingGroupList = List[AutoScalingGroup]
-SolutionStackFileTypeList = List[FileTypeExtension]
+AutoScalingGroupList = list[AutoScalingGroup]
+SolutionStackFileTypeList = list[FileTypeExtension]
 
 
 class SolutionStackDescription(TypedDict, total=False):
     """Describes the solution stack."""
 
-    SolutionStackName: Optional[SolutionStackName]
-    PermittedFileTypes: Optional[SolutionStackFileTypeList]
+    SolutionStackName: SolutionStackName | None
+    PermittedFileTypes: SolutionStackFileTypeList | None
 
 
-AvailableSolutionStackDetailsList = List[SolutionStackDescription]
-AvailableSolutionStackNamesList = List[SolutionStackName]
+AvailableSolutionStackDetailsList = list[SolutionStackDescription]
+AvailableSolutionStackNamesList = list[SolutionStackName]
 
 
 class BuildConfiguration(TypedDict, total=False):
     """Settings for an AWS CodeBuild build."""
 
-    ArtifactName: Optional[String]
+    ArtifactName: String | None
     CodeBuildServiceRole: NonEmptyString
-    ComputeType: Optional[ComputeType]
+    ComputeType: ComputeType | None
     Image: NonEmptyString
-    TimeoutInMinutes: Optional[BoxedInt]
+    TimeoutInMinutes: BoxedInt | None
 
 
 class Builder(TypedDict, total=False):
     """The builder used to build the custom platform."""
 
-    ARN: Optional[ARN]
+    ARN: ARN | None
 
 
 class CPUUtilization(TypedDict, total=False):
     """CPU utilization metrics for an instance."""
 
-    User: Optional[NullableDouble]
-    Nice: Optional[NullableDouble]
-    System: Optional[NullableDouble]
-    Idle: Optional[NullableDouble]
-    IOWait: Optional[NullableDouble]
-    IRQ: Optional[NullableDouble]
-    SoftIRQ: Optional[NullableDouble]
-    Privileged: Optional[NullableDouble]
+    User: NullableDouble | None
+    Nice: NullableDouble | None
+    System: NullableDouble | None
+    Idle: NullableDouble | None
+    IOWait: NullableDouble | None
+    IRQ: NullableDouble | None
+    SoftIRQ: NullableDouble | None
+    Privileged: NullableDouble | None
 
 
-Causes = List[Cause]
+Causes = list[Cause]
 
 
 class CheckDNSAvailabilityMessage(ServiceRequest):
@@ -685,19 +685,19 @@ class CheckDNSAvailabilityMessage(ServiceRequest):
 class CheckDNSAvailabilityResultMessage(TypedDict, total=False):
     """Indicates if the specified CNAME is available."""
 
-    Available: Optional[CnameAvailability]
-    FullyQualifiedCNAME: Optional[DNSCname]
+    Available: CnameAvailability | None
+    FullyQualifiedCNAME: DNSCname | None
 
 
-VersionLabels = List[VersionLabel]
+VersionLabels = list[VersionLabel]
 
 
 class ComposeEnvironmentsMessage(ServiceRequest):
     """Request to create or update a group of environments."""
 
-    ApplicationName: Optional[ApplicationName]
-    GroupName: Optional[GroupName]
-    VersionLabels: Optional[VersionLabels]
+    ApplicationName: ApplicationName | None
+    GroupName: GroupName | None
+    VersionLabels: VersionLabels | None
 
 
 class OptionRestrictionRegex(TypedDict, total=False):
@@ -705,30 +705,30 @@ class OptionRestrictionRegex(TypedDict, total=False):
     configuration option value.
     """
 
-    Pattern: Optional[RegexPattern]
-    Label: Optional[RegexLabel]
+    Pattern: RegexPattern | None
+    Label: RegexLabel | None
 
 
-ConfigurationOptionPossibleValues = List[ConfigurationOptionPossibleValue]
+ConfigurationOptionPossibleValues = list[ConfigurationOptionPossibleValue]
 
 
 class ConfigurationOptionDescription(TypedDict, total=False):
     """Describes the possible values for a configuration option."""
 
-    Namespace: Optional[OptionNamespace]
-    Name: Optional[ConfigurationOptionName]
-    DefaultValue: Optional[ConfigurationOptionDefaultValue]
-    ChangeSeverity: Optional[ConfigurationOptionSeverity]
-    UserDefined: Optional[UserDefinedOption]
-    ValueType: Optional[ConfigurationOptionValueType]
-    ValueOptions: Optional[ConfigurationOptionPossibleValues]
-    MinValue: Optional[OptionRestrictionMinValue]
-    MaxValue: Optional[OptionRestrictionMaxValue]
-    MaxLength: Optional[OptionRestrictionMaxLength]
-    Regex: Optional[OptionRestrictionRegex]
+    Namespace: OptionNamespace | None
+    Name: ConfigurationOptionName | None
+    DefaultValue: ConfigurationOptionDefaultValue | None
+    ChangeSeverity: ConfigurationOptionSeverity | None
+    UserDefined: UserDefinedOption | None
+    ValueType: ConfigurationOptionValueType | None
+    ValueOptions: ConfigurationOptionPossibleValues | None
+    MinValue: OptionRestrictionMinValue | None
+    MaxValue: OptionRestrictionMaxValue | None
+    MaxLength: OptionRestrictionMaxLength | None
+    Regex: OptionRestrictionRegex | None
 
 
-ConfigurationOptionDescriptionsList = List[ConfigurationOptionDescription]
+ConfigurationOptionDescriptionsList = list[ConfigurationOptionDescription]
 
 
 class ConfigurationOptionSetting(TypedDict, total=False):
@@ -739,39 +739,39 @@ class ConfigurationOptionSetting(TypedDict, total=False):
     in the *AWS Elastic Beanstalk Developer Guide*.
     """
 
-    ResourceName: Optional[ResourceName]
-    Namespace: Optional[OptionNamespace]
-    OptionName: Optional[ConfigurationOptionName]
-    Value: Optional[ConfigurationOptionValue]
+    ResourceName: ResourceName | None
+    Namespace: OptionNamespace | None
+    OptionName: ConfigurationOptionName | None
+    Value: ConfigurationOptionValue | None
 
 
-ConfigurationOptionSettingsList = List[ConfigurationOptionSetting]
+ConfigurationOptionSettingsList = list[ConfigurationOptionSetting]
 
 
 class ConfigurationOptionsDescription(TypedDict, total=False):
     """Describes the settings for a specified configuration set."""
 
-    SolutionStackName: Optional[SolutionStackName]
-    PlatformArn: Optional[PlatformArn]
-    Options: Optional[ConfigurationOptionDescriptionsList]
+    SolutionStackName: SolutionStackName | None
+    PlatformArn: PlatformArn | None
+    Options: ConfigurationOptionDescriptionsList | None
 
 
 class ConfigurationSettingsDescription(TypedDict, total=False):
     """Describes the settings for a configuration set."""
 
-    SolutionStackName: Optional[SolutionStackName]
-    PlatformArn: Optional[PlatformArn]
-    ApplicationName: Optional[ApplicationName]
-    TemplateName: Optional[ConfigurationTemplateName]
-    Description: Optional[Description]
-    EnvironmentName: Optional[EnvironmentName]
-    DeploymentStatus: Optional[ConfigurationDeploymentStatus]
-    DateCreated: Optional[CreationDate]
-    DateUpdated: Optional[UpdateDate]
-    OptionSettings: Optional[ConfigurationOptionSettingsList]
+    SolutionStackName: SolutionStackName | None
+    PlatformArn: PlatformArn | None
+    ApplicationName: ApplicationName | None
+    TemplateName: ConfigurationTemplateName | None
+    Description: Description | None
+    EnvironmentName: EnvironmentName | None
+    DeploymentStatus: ConfigurationDeploymentStatus | None
+    DateCreated: CreationDate | None
+    DateUpdated: UpdateDate | None
+    OptionSettings: ConfigurationOptionSettingsList | None
 
 
-ConfigurationSettingsDescriptionList = List[ConfigurationSettingsDescription]
+ConfigurationSettingsDescriptionList = list[ConfigurationSettingsDescription]
 
 
 class ConfigurationSettingsDescriptions(TypedDict, total=False):
@@ -779,63 +779,63 @@ class ConfigurationSettingsDescriptions(TypedDict, total=False):
     environment.
     """
 
-    ConfigurationSettings: Optional[ConfigurationSettingsDescriptionList]
+    ConfigurationSettings: ConfigurationSettingsDescriptionList | None
 
 
 class ValidationMessage(TypedDict, total=False):
     """An error or warning for a desired configuration option value."""
 
-    Message: Optional[ValidationMessageString]
-    Severity: Optional[ValidationSeverity]
-    Namespace: Optional[OptionNamespace]
-    OptionName: Optional[ConfigurationOptionName]
+    Message: ValidationMessageString | None
+    Severity: ValidationSeverity | None
+    Namespace: OptionNamespace | None
+    OptionName: ConfigurationOptionName | None
 
 
-ValidationMessagesList = List[ValidationMessage]
+ValidationMessagesList = list[ValidationMessage]
 
 
 class ConfigurationSettingsValidationMessages(TypedDict, total=False):
     """Provides a list of validation messages."""
 
-    Messages: Optional[ValidationMessagesList]
+    Messages: ValidationMessagesList | None
 
 
 class Tag(TypedDict, total=False):
     """Describes a tag applied to a resource in an environment."""
 
-    Key: Optional[TagKey]
-    Value: Optional[TagValue]
+    Key: TagKey | None
+    Value: TagValue | None
 
 
-Tags = List[Tag]
+Tags = list[Tag]
 
 
 class CreateApplicationMessage(ServiceRequest):
     """Request to create an application."""
 
     ApplicationName: ApplicationName
-    Description: Optional[Description]
-    ResourceLifecycleConfig: Optional[ApplicationResourceLifecycleConfig]
-    Tags: Optional[Tags]
+    Description: Description | None
+    ResourceLifecycleConfig: ApplicationResourceLifecycleConfig | None
+    Tags: Tags | None
 
 
 class CreateApplicationVersionMessage(ServiceRequest):
     ApplicationName: ApplicationName
     VersionLabel: VersionLabel
-    Description: Optional[Description]
-    SourceBuildInformation: Optional[SourceBuildInformation]
-    SourceBundle: Optional[S3Location]
-    BuildConfiguration: Optional[BuildConfiguration]
-    AutoCreateApplication: Optional[AutoCreateApplication]
-    Process: Optional[ApplicationVersionProccess]
-    Tags: Optional[Tags]
+    Description: Description | None
+    SourceBuildInformation: SourceBuildInformation | None
+    SourceBundle: S3Location | None
+    BuildConfiguration: BuildConfiguration | None
+    AutoCreateApplication: AutoCreateApplication | None
+    Process: ApplicationVersionProccess | None
+    Tags: Tags | None
 
 
 class SourceConfiguration(TypedDict, total=False):
     """A specification for an environment configuration."""
 
-    ApplicationName: Optional[ApplicationName]
-    TemplateName: Optional[ConfigurationTemplateName]
+    ApplicationName: ApplicationName | None
+    TemplateName: ConfigurationTemplateName | None
 
 
 class CreateConfigurationTemplateMessage(ServiceRequest):
@@ -843,49 +843,49 @@ class CreateConfigurationTemplateMessage(ServiceRequest):
 
     ApplicationName: ApplicationName
     TemplateName: ConfigurationTemplateName
-    SolutionStackName: Optional[SolutionStackName]
-    PlatformArn: Optional[PlatformArn]
-    SourceConfiguration: Optional[SourceConfiguration]
-    EnvironmentId: Optional[EnvironmentId]
-    Description: Optional[Description]
-    OptionSettings: Optional[ConfigurationOptionSettingsList]
-    Tags: Optional[Tags]
+    SolutionStackName: SolutionStackName | None
+    PlatformArn: PlatformArn | None
+    SourceConfiguration: SourceConfiguration | None
+    EnvironmentId: EnvironmentId | None
+    Description: Description | None
+    OptionSettings: ConfigurationOptionSettingsList | None
+    Tags: Tags | None
 
 
 class OptionSpecification(TypedDict, total=False):
     """A specification identifying an individual configuration option."""
 
-    ResourceName: Optional[ResourceName]
-    Namespace: Optional[OptionNamespace]
-    OptionName: Optional[ConfigurationOptionName]
+    ResourceName: ResourceName | None
+    Namespace: OptionNamespace | None
+    OptionName: ConfigurationOptionName | None
 
 
-OptionsSpecifierList = List[OptionSpecification]
+OptionsSpecifierList = list[OptionSpecification]
 
 
 class EnvironmentTier(TypedDict, total=False):
     """Describes the properties of an environment tier"""
 
-    Name: Optional[String]
-    Type: Optional[String]
-    Version: Optional[String]
+    Name: String | None
+    Type: String | None
+    Version: String | None
 
 
 class CreateEnvironmentMessage(ServiceRequest):
     ApplicationName: ApplicationName
-    EnvironmentName: Optional[EnvironmentName]
-    GroupName: Optional[GroupName]
-    Description: Optional[Description]
-    CNAMEPrefix: Optional[DNSCnamePrefix]
-    Tier: Optional[EnvironmentTier]
-    Tags: Optional[Tags]
-    VersionLabel: Optional[VersionLabel]
-    TemplateName: Optional[ConfigurationTemplateName]
-    SolutionStackName: Optional[SolutionStackName]
-    PlatformArn: Optional[PlatformArn]
-    OptionSettings: Optional[ConfigurationOptionSettingsList]
-    OptionsToRemove: Optional[OptionsSpecifierList]
-    OperationsRole: Optional[OperationsRole]
+    EnvironmentName: EnvironmentName | None
+    GroupName: GroupName | None
+    Description: Description | None
+    CNAMEPrefix: DNSCnamePrefix | None
+    Tier: EnvironmentTier | None
+    Tags: Tags | None
+    VersionLabel: VersionLabel | None
+    TemplateName: ConfigurationTemplateName | None
+    SolutionStackName: SolutionStackName | None
+    PlatformArn: PlatformArn | None
+    OptionSettings: ConfigurationOptionSettingsList | None
+    OptionsToRemove: OptionsSpecifierList | None
+    OperationsRole: OperationsRole | None
 
 
 class CreatePlatformVersionRequest(ServiceRequest):
@@ -894,58 +894,58 @@ class CreatePlatformVersionRequest(ServiceRequest):
     PlatformName: PlatformName
     PlatformVersion: PlatformVersion
     PlatformDefinitionBundle: S3Location
-    EnvironmentName: Optional[EnvironmentName]
-    OptionSettings: Optional[ConfigurationOptionSettingsList]
-    Tags: Optional[Tags]
+    EnvironmentName: EnvironmentName | None
+    OptionSettings: ConfigurationOptionSettingsList | None
+    Tags: Tags | None
 
 
-SupportedAddonList = List[SupportedAddon]
-SupportedTierList = List[SupportedTier]
+SupportedAddonList = list[SupportedAddon]
+SupportedTierList = list[SupportedTier]
 
 
 class PlatformSummary(TypedDict, total=False):
     """Summary information about a platform version."""
 
-    PlatformArn: Optional[PlatformArn]
-    PlatformOwner: Optional[PlatformOwner]
-    PlatformStatus: Optional[PlatformStatus]
-    PlatformCategory: Optional[PlatformCategory]
-    OperatingSystemName: Optional[OperatingSystemName]
-    OperatingSystemVersion: Optional[OperatingSystemVersion]
-    SupportedTierList: Optional[SupportedTierList]
-    SupportedAddonList: Optional[SupportedAddonList]
-    PlatformLifecycleState: Optional[PlatformLifecycleState]
-    PlatformVersion: Optional[PlatformVersion]
-    PlatformBranchName: Optional[BranchName]
-    PlatformBranchLifecycleState: Optional[PlatformBranchLifecycleState]
+    PlatformArn: PlatformArn | None
+    PlatformOwner: PlatformOwner | None
+    PlatformStatus: PlatformStatus | None
+    PlatformCategory: PlatformCategory | None
+    OperatingSystemName: OperatingSystemName | None
+    OperatingSystemVersion: OperatingSystemVersion | None
+    SupportedTierList: SupportedTierList | None
+    SupportedAddonList: SupportedAddonList | None
+    PlatformLifecycleState: PlatformLifecycleState | None
+    PlatformVersion: PlatformVersion | None
+    PlatformBranchName: BranchName | None
+    PlatformBranchLifecycleState: PlatformBranchLifecycleState | None
 
 
 class CreatePlatformVersionResult(TypedDict, total=False):
-    PlatformSummary: Optional[PlatformSummary]
-    Builder: Optional[Builder]
+    PlatformSummary: PlatformSummary | None
+    Builder: Builder | None
 
 
 class CreateStorageLocationResultMessage(TypedDict, total=False):
     """Results of a CreateStorageLocationResult call."""
 
-    S3Bucket: Optional[S3Bucket]
+    S3Bucket: S3Bucket | None
 
 
 class CustomAmi(TypedDict, total=False):
     """A custom AMI available to platforms."""
 
-    VirtualizationType: Optional[VirtualizationType]
-    ImageId: Optional[ImageId]
+    VirtualizationType: VirtualizationType | None
+    ImageId: ImageId | None
 
 
-CustomAmiList = List[CustomAmi]
+CustomAmiList = list[CustomAmi]
 
 
 class DeleteApplicationMessage(ServiceRequest):
     """Request to delete an application."""
 
     ApplicationName: ApplicationName
-    TerminateEnvByForce: Optional[TerminateEnvForce]
+    TerminateEnvByForce: TerminateEnvForce | None
 
 
 class DeleteApplicationVersionMessage(ServiceRequest):
@@ -953,7 +953,7 @@ class DeleteApplicationVersionMessage(ServiceRequest):
 
     ApplicationName: ApplicationName
     VersionLabel: VersionLabel
-    DeleteSourceBundle: Optional[DeleteSourceBundle]
+    DeleteSourceBundle: DeleteSourceBundle | None
 
 
 class DeleteConfigurationTemplateMessage(ServiceRequest):
@@ -971,11 +971,11 @@ class DeleteEnvironmentConfigurationMessage(ServiceRequest):
 
 
 class DeletePlatformVersionRequest(ServiceRequest):
-    PlatformArn: Optional[PlatformArn]
+    PlatformArn: PlatformArn | None
 
 
 class DeletePlatformVersionResult(TypedDict, total=False):
-    PlatformSummary: Optional[PlatformSummary]
+    PlatformSummary: PlatformSummary | None
 
 
 DeploymentTimestamp = datetime
@@ -985,10 +985,10 @@ NullableLong = int
 class Deployment(TypedDict, total=False):
     """Information about an application version deployment."""
 
-    VersionLabel: Optional[String]
-    DeploymentId: Optional[NullableLong]
-    Status: Optional[String]
-    DeploymentTime: Optional[DeploymentTimestamp]
+    VersionLabel: String | None
+    DeploymentId: NullableLong | None
+    Status: String | None
+    DeploymentTime: DeploymentTimestamp | None
 
 
 class ResourceQuota(TypedDict, total=False):
@@ -996,7 +996,7 @@ class ResourceQuota(TypedDict, total=False):
     in an AWS account. It reflects the resource's limits for this account.
     """
 
-    Maximum: Optional[BoxedInt]
+    Maximum: BoxedInt | None
 
 
 class ResourceQuotas(TypedDict, total=False):
@@ -1005,41 +1005,41 @@ class ResourceQuotas(TypedDict, total=False):
     account.
     """
 
-    ApplicationQuota: Optional[ResourceQuota]
-    ApplicationVersionQuota: Optional[ResourceQuota]
-    EnvironmentQuota: Optional[ResourceQuota]
-    ConfigurationTemplateQuota: Optional[ResourceQuota]
-    CustomPlatformQuota: Optional[ResourceQuota]
+    ApplicationQuota: ResourceQuota | None
+    ApplicationVersionQuota: ResourceQuota | None
+    EnvironmentQuota: ResourceQuota | None
+    ConfigurationTemplateQuota: ResourceQuota | None
+    CustomPlatformQuota: ResourceQuota | None
 
 
 class DescribeAccountAttributesResult(TypedDict, total=False):
-    ResourceQuotas: Optional[ResourceQuotas]
+    ResourceQuotas: ResourceQuotas | None
 
 
 class DescribeApplicationVersionsMessage(ServiceRequest):
     """Request to describe application versions."""
 
-    ApplicationName: Optional[ApplicationName]
-    VersionLabels: Optional[VersionLabelsList]
-    MaxRecords: Optional[MaxRecords]
-    NextToken: Optional[Token]
+    ApplicationName: ApplicationName | None
+    VersionLabels: VersionLabelsList | None
+    MaxRecords: MaxRecords | None
+    NextToken: Token | None
 
 
 class DescribeApplicationsMessage(ServiceRequest):
     """Request to describe one or more applications."""
 
-    ApplicationNames: Optional[ApplicationNamesList]
+    ApplicationNames: ApplicationNamesList | None
 
 
 class DescribeConfigurationOptionsMessage(ServiceRequest):
     """Result message containing a list of application version descriptions."""
 
-    ApplicationName: Optional[ApplicationName]
-    TemplateName: Optional[ConfigurationTemplateName]
-    EnvironmentName: Optional[EnvironmentName]
-    SolutionStackName: Optional[SolutionStackName]
-    PlatformArn: Optional[PlatformArn]
-    Options: Optional[OptionsSpecifierList]
+    ApplicationName: ApplicationName | None
+    TemplateName: ConfigurationTemplateName | None
+    EnvironmentName: EnvironmentName | None
+    SolutionStackName: SolutionStackName | None
+    PlatformArn: PlatformArn | None
+    Options: OptionsSpecifierList | None
 
 
 class DescribeConfigurationSettingsMessage(ServiceRequest):
@@ -1048,19 +1048,19 @@ class DescribeConfigurationSettingsMessage(ServiceRequest):
     """
 
     ApplicationName: ApplicationName
-    TemplateName: Optional[ConfigurationTemplateName]
-    EnvironmentName: Optional[EnvironmentName]
+    TemplateName: ConfigurationTemplateName | None
+    EnvironmentName: EnvironmentName | None
 
 
-EnvironmentHealthAttributes = List[EnvironmentHealthAttribute]
+EnvironmentHealthAttributes = list[EnvironmentHealthAttribute]
 
 
 class DescribeEnvironmentHealthRequest(ServiceRequest):
     """See the example below to learn how to create a request body."""
 
-    EnvironmentName: Optional[EnvironmentName]
-    EnvironmentId: Optional[EnvironmentId]
-    AttributeNames: Optional[EnvironmentHealthAttributes]
+    EnvironmentName: EnvironmentName | None
+    EnvironmentId: EnvironmentId | None
+    AttributeNames: EnvironmentHealthAttributes | None
 
 
 RefreshedAt = datetime
@@ -1072,36 +1072,36 @@ class InstanceHealthSummary(TypedDict, total=False):
     Statuses <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/health-enhanced-status.html>`__.
     """
 
-    NoData: Optional[NullableInteger]
-    Unknown: Optional[NullableInteger]
-    Pending: Optional[NullableInteger]
-    Ok: Optional[NullableInteger]
-    Info: Optional[NullableInteger]
-    Warning: Optional[NullableInteger]
-    Degraded: Optional[NullableInteger]
-    Severe: Optional[NullableInteger]
+    NoData: NullableInteger | None
+    Unknown: NullableInteger | None
+    Pending: NullableInteger | None
+    Ok: NullableInteger | None
+    Info: NullableInteger | None
+    Warning: NullableInteger | None
+    Degraded: NullableInteger | None
+    Severe: NullableInteger | None
 
 
 class DescribeEnvironmentHealthResult(TypedDict, total=False):
     """Health details for an AWS Elastic Beanstalk environment."""
 
-    EnvironmentName: Optional[EnvironmentName]
-    HealthStatus: Optional[String]
-    Status: Optional[EnvironmentHealth]
-    Color: Optional[String]
-    Causes: Optional[Causes]
-    ApplicationMetrics: Optional[ApplicationMetrics]
-    InstancesHealth: Optional[InstanceHealthSummary]
-    RefreshedAt: Optional[RefreshedAt]
+    EnvironmentName: EnvironmentName | None
+    HealthStatus: String | None
+    Status: EnvironmentHealth | None
+    Color: String | None
+    Causes: Causes | None
+    ApplicationMetrics: ApplicationMetrics | None
+    InstancesHealth: InstanceHealthSummary | None
+    RefreshedAt: RefreshedAt | None
 
 
 class DescribeEnvironmentManagedActionHistoryRequest(ServiceRequest):
     """Request to list completed and failed managed actions."""
 
-    EnvironmentId: Optional[EnvironmentId]
-    EnvironmentName: Optional[EnvironmentName]
-    NextToken: Optional[String]
-    MaxItems: Optional[ManagedActionHistoryMaxItems]
+    EnvironmentId: EnvironmentId | None
+    EnvironmentName: EnvironmentName | None
+    NextToken: String | None
+    MaxItems: ManagedActionHistoryMaxItems | None
 
 
 Timestamp = datetime
@@ -1110,17 +1110,17 @@ Timestamp = datetime
 class ManagedActionHistoryItem(TypedDict, total=False):
     """The record of a completed or failed managed action."""
 
-    ActionId: Optional[String]
-    ActionType: Optional[ActionType]
-    ActionDescription: Optional[String]
-    FailureType: Optional[FailureType]
-    Status: Optional[ActionHistoryStatus]
-    FailureDescription: Optional[String]
-    ExecutedTime: Optional[Timestamp]
-    FinishedTime: Optional[Timestamp]
+    ActionId: String | None
+    ActionType: ActionType | None
+    ActionDescription: String | None
+    FailureType: FailureType | None
+    Status: ActionHistoryStatus | None
+    FailureDescription: String | None
+    ExecutedTime: Timestamp | None
+    FinishedTime: Timestamp | None
 
 
-ManagedActionHistoryItems = List[ManagedActionHistoryItem]
+ManagedActionHistoryItems = list[ManagedActionHistoryItem]
 
 
 class DescribeEnvironmentManagedActionHistoryResult(TypedDict, total=False):
@@ -1128,8 +1128,8 @@ class DescribeEnvironmentManagedActionHistoryResult(TypedDict, total=False):
     actions.
     """
 
-    ManagedActionHistoryItems: Optional[ManagedActionHistoryItems]
-    NextToken: Optional[String]
+    ManagedActionHistoryItems: ManagedActionHistoryItems | None
+    NextToken: String | None
 
 
 class DescribeEnvironmentManagedActionsRequest(ServiceRequest):
@@ -1137,53 +1137,53 @@ class DescribeEnvironmentManagedActionsRequest(ServiceRequest):
     actions.
     """
 
-    EnvironmentName: Optional[String]
-    EnvironmentId: Optional[String]
-    Status: Optional[ActionStatus]
+    EnvironmentName: String | None
+    EnvironmentId: String | None
+    Status: ActionStatus | None
 
 
 class ManagedAction(TypedDict, total=False):
     """The record of an upcoming or in-progress managed action."""
 
-    ActionId: Optional[String]
-    ActionDescription: Optional[String]
-    ActionType: Optional[ActionType]
-    Status: Optional[ActionStatus]
-    WindowStartTime: Optional[Timestamp]
+    ActionId: String | None
+    ActionDescription: String | None
+    ActionType: ActionType | None
+    Status: ActionStatus | None
+    WindowStartTime: Timestamp | None
 
 
-ManagedActions = List[ManagedAction]
+ManagedActions = list[ManagedAction]
 
 
 class DescribeEnvironmentManagedActionsResult(TypedDict, total=False):
     """The result message containing a list of managed actions."""
 
-    ManagedActions: Optional[ManagedActions]
+    ManagedActions: ManagedActions | None
 
 
 class DescribeEnvironmentResourcesMessage(ServiceRequest):
     """Request to describe the resources in an environment."""
 
-    EnvironmentId: Optional[EnvironmentId]
-    EnvironmentName: Optional[EnvironmentName]
+    EnvironmentId: EnvironmentId | None
+    EnvironmentName: EnvironmentName | None
 
 
 IncludeDeletedBackTo = datetime
-EnvironmentNamesList = List[EnvironmentName]
-EnvironmentIdList = List[EnvironmentId]
+EnvironmentNamesList = list[EnvironmentName]
+EnvironmentIdList = list[EnvironmentId]
 
 
 class DescribeEnvironmentsMessage(ServiceRequest):
     """Request to describe one or more environments."""
 
-    ApplicationName: Optional[ApplicationName]
-    VersionLabel: Optional[VersionLabel]
-    EnvironmentIds: Optional[EnvironmentIdList]
-    EnvironmentNames: Optional[EnvironmentNamesList]
-    IncludeDeleted: Optional[IncludeDeleted]
-    IncludedDeletedBackTo: Optional[IncludeDeletedBackTo]
-    MaxRecords: Optional[MaxRecords]
-    NextToken: Optional[Token]
+    ApplicationName: ApplicationName | None
+    VersionLabel: VersionLabel | None
+    EnvironmentIds: EnvironmentIdList | None
+    EnvironmentNames: EnvironmentNamesList | None
+    IncludeDeleted: IncludeDeleted | None
+    IncludedDeletedBackTo: IncludeDeletedBackTo | None
+    MaxRecords: MaxRecords | None
+    NextToken: Token | None
 
 
 TimeFilterEnd = datetime
@@ -1193,40 +1193,40 @@ TimeFilterStart = datetime
 class DescribeEventsMessage(ServiceRequest):
     """Request to retrieve a list of events for an environment."""
 
-    ApplicationName: Optional[ApplicationName]
-    VersionLabel: Optional[VersionLabel]
-    TemplateName: Optional[ConfigurationTemplateName]
-    EnvironmentId: Optional[EnvironmentId]
-    EnvironmentName: Optional[EnvironmentName]
-    PlatformArn: Optional[PlatformArn]
-    RequestId: Optional[RequestId]
-    Severity: Optional[EventSeverity]
-    StartTime: Optional[TimeFilterStart]
-    EndTime: Optional[TimeFilterEnd]
-    MaxRecords: Optional[MaxRecords]
-    NextToken: Optional[Token]
+    ApplicationName: ApplicationName | None
+    VersionLabel: VersionLabel | None
+    TemplateName: ConfigurationTemplateName | None
+    EnvironmentId: EnvironmentId | None
+    EnvironmentName: EnvironmentName | None
+    PlatformArn: PlatformArn | None
+    RequestId: RequestId | None
+    Severity: EventSeverity | None
+    StartTime: TimeFilterStart | None
+    EndTime: TimeFilterEnd | None
+    MaxRecords: MaxRecords | None
+    NextToken: Token | None
 
 
-InstancesHealthAttributes = List[InstancesHealthAttribute]
+InstancesHealthAttributes = list[InstancesHealthAttribute]
 
 
 class DescribeInstancesHealthRequest(ServiceRequest):
     """Parameters for a call to ``DescribeInstancesHealth``."""
 
-    EnvironmentName: Optional[EnvironmentName]
-    EnvironmentId: Optional[EnvironmentId]
-    AttributeNames: Optional[InstancesHealthAttributes]
-    NextToken: Optional[NextToken]
+    EnvironmentName: EnvironmentName | None
+    EnvironmentId: EnvironmentId | None
+    AttributeNames: InstancesHealthAttributes | None
+    NextToken: NextToken | None
 
 
-LoadAverage = List[LoadAverageValue]
+LoadAverage = list[LoadAverageValue]
 
 
 class SystemStatus(TypedDict, total=False):
     """CPU utilization and load average metrics for an Amazon EC2 instance."""
 
-    CPUUtilization: Optional[CPUUtilization]
-    LoadAverage: Optional[LoadAverage]
+    CPUUtilization: CPUUtilization | None
+    LoadAverage: LoadAverage | None
 
 
 LaunchedAt = datetime
@@ -1237,19 +1237,19 @@ class SingleInstanceHealth(TypedDict, total=False):
     Beanstalk environment.
     """
 
-    InstanceId: Optional[InstanceId]
-    HealthStatus: Optional[String]
-    Color: Optional[String]
-    Causes: Optional[Causes]
-    LaunchedAt: Optional[LaunchedAt]
-    ApplicationMetrics: Optional[ApplicationMetrics]
-    System: Optional[SystemStatus]
-    Deployment: Optional[Deployment]
-    AvailabilityZone: Optional[String]
-    InstanceType: Optional[String]
+    InstanceId: InstanceId | None
+    HealthStatus: String | None
+    Color: String | None
+    Causes: Causes | None
+    LaunchedAt: LaunchedAt | None
+    ApplicationMetrics: ApplicationMetrics | None
+    System: SystemStatus | None
+    Deployment: Deployment | None
+    AvailabilityZone: String | None
+    InstanceType: String | None
 
 
-InstanceHealthList = List[SingleInstanceHealth]
+InstanceHealthList = list[SingleInstanceHealth]
 
 
 class DescribeInstancesHealthResult(TypedDict, total=False):
@@ -1257,63 +1257,63 @@ class DescribeInstancesHealthResult(TypedDict, total=False):
     Elastic Beanstalk environment.
     """
 
-    InstanceHealthList: Optional[InstanceHealthList]
-    RefreshedAt: Optional[RefreshedAt]
-    NextToken: Optional[NextToken]
+    InstanceHealthList: InstanceHealthList | None
+    RefreshedAt: RefreshedAt | None
+    NextToken: NextToken | None
 
 
 class DescribePlatformVersionRequest(ServiceRequest):
-    PlatformArn: Optional[PlatformArn]
+    PlatformArn: PlatformArn | None
 
 
 class PlatformFramework(TypedDict, total=False):
     """A framework supported by the platform."""
 
-    Name: Optional[String]
-    Version: Optional[String]
+    Name: String | None
+    Version: String | None
 
 
-PlatformFrameworks = List[PlatformFramework]
+PlatformFrameworks = list[PlatformFramework]
 
 
 class PlatformProgrammingLanguage(TypedDict, total=False):
     """A programming language supported by the platform."""
 
-    Name: Optional[String]
-    Version: Optional[String]
+    Name: String | None
+    Version: String | None
 
 
-PlatformProgrammingLanguages = List[PlatformProgrammingLanguage]
+PlatformProgrammingLanguages = list[PlatformProgrammingLanguage]
 
 
 class PlatformDescription(TypedDict, total=False):
     """Detailed information about a platform version."""
 
-    PlatformArn: Optional[PlatformArn]
-    PlatformOwner: Optional[PlatformOwner]
-    PlatformName: Optional[PlatformName]
-    PlatformVersion: Optional[PlatformVersion]
-    SolutionStackName: Optional[SolutionStackName]
-    PlatformStatus: Optional[PlatformStatus]
-    DateCreated: Optional[CreationDate]
-    DateUpdated: Optional[UpdateDate]
-    PlatformCategory: Optional[PlatformCategory]
-    Description: Optional[Description]
-    Maintainer: Optional[Maintainer]
-    OperatingSystemName: Optional[OperatingSystemName]
-    OperatingSystemVersion: Optional[OperatingSystemVersion]
-    ProgrammingLanguages: Optional[PlatformProgrammingLanguages]
-    Frameworks: Optional[PlatformFrameworks]
-    CustomAmiList: Optional[CustomAmiList]
-    SupportedTierList: Optional[SupportedTierList]
-    SupportedAddonList: Optional[SupportedAddonList]
-    PlatformLifecycleState: Optional[PlatformLifecycleState]
-    PlatformBranchName: Optional[BranchName]
-    PlatformBranchLifecycleState: Optional[PlatformBranchLifecycleState]
+    PlatformArn: PlatformArn | None
+    PlatformOwner: PlatformOwner | None
+    PlatformName: PlatformName | None
+    PlatformVersion: PlatformVersion | None
+    SolutionStackName: SolutionStackName | None
+    PlatformStatus: PlatformStatus | None
+    DateCreated: CreationDate | None
+    DateUpdated: UpdateDate | None
+    PlatformCategory: PlatformCategory | None
+    Description: Description | None
+    Maintainer: Maintainer | None
+    OperatingSystemName: OperatingSystemName | None
+    OperatingSystemVersion: OperatingSystemVersion | None
+    ProgrammingLanguages: PlatformProgrammingLanguages | None
+    Frameworks: PlatformFrameworks | None
+    CustomAmiList: CustomAmiList | None
+    SupportedTierList: SupportedTierList | None
+    SupportedAddonList: SupportedAddonList | None
+    PlatformLifecycleState: PlatformLifecycleState | None
+    PlatformBranchName: BranchName | None
+    PlatformBranchLifecycleState: PlatformBranchLifecycleState | None
 
 
 class DescribePlatformVersionResult(TypedDict, total=False):
-    PlatformDescription: Optional[PlatformDescription]
+    PlatformDescription: PlatformDescription | None
 
 
 class DisassociateEnvironmentOperationsRoleMessage(ServiceRequest):
@@ -1331,29 +1331,29 @@ class EnvironmentLink(TypedDict, total=False):
     for details.
     """
 
-    LinkName: Optional[String]
-    EnvironmentName: Optional[String]
+    LinkName: String | None
+    EnvironmentName: String | None
 
 
-EnvironmentLinks = List[EnvironmentLink]
+EnvironmentLinks = list[EnvironmentLink]
 
 
 class Listener(TypedDict, total=False):
     """Describes the properties of a Listener for the LoadBalancer."""
 
-    Protocol: Optional[String]
-    Port: Optional[Integer]
+    Protocol: String | None
+    Port: Integer | None
 
 
-LoadBalancerListenersDescription = List[Listener]
+LoadBalancerListenersDescription = list[Listener]
 
 
 class LoadBalancerDescription(TypedDict, total=False):
     """Describes the details of a LoadBalancer."""
 
-    LoadBalancerName: Optional[String]
-    Domain: Optional[String]
-    Listeners: Optional[LoadBalancerListenersDescription]
+    LoadBalancerName: String | None
+    Domain: String | None
+    Listeners: LoadBalancerListenersDescription | None
 
 
 class EnvironmentResourcesDescription(TypedDict, total=False):
@@ -1361,43 +1361,43 @@ class EnvironmentResourcesDescription(TypedDict, total=False):
     live data.
     """
 
-    LoadBalancer: Optional[LoadBalancerDescription]
+    LoadBalancer: LoadBalancerDescription | None
 
 
 class EnvironmentDescription(TypedDict, total=False):
     """Describes the properties of an environment."""
 
-    EnvironmentName: Optional[EnvironmentName]
-    EnvironmentId: Optional[EnvironmentId]
-    ApplicationName: Optional[ApplicationName]
-    VersionLabel: Optional[VersionLabel]
-    SolutionStackName: Optional[SolutionStackName]
-    PlatformArn: Optional[PlatformArn]
-    TemplateName: Optional[ConfigurationTemplateName]
-    Description: Optional[Description]
-    EndpointURL: Optional[EndpointURL]
-    CNAME: Optional[DNSCname]
-    DateCreated: Optional[CreationDate]
-    DateUpdated: Optional[UpdateDate]
-    Status: Optional[EnvironmentStatus]
-    AbortableOperationInProgress: Optional[AbortableOperationInProgress]
-    Health: Optional[EnvironmentHealth]
-    HealthStatus: Optional[EnvironmentHealthStatus]
-    Resources: Optional[EnvironmentResourcesDescription]
-    Tier: Optional[EnvironmentTier]
-    EnvironmentLinks: Optional[EnvironmentLinks]
-    EnvironmentArn: Optional[EnvironmentArn]
-    OperationsRole: Optional[OperationsRole]
+    EnvironmentName: EnvironmentName | None
+    EnvironmentId: EnvironmentId | None
+    ApplicationName: ApplicationName | None
+    VersionLabel: VersionLabel | None
+    SolutionStackName: SolutionStackName | None
+    PlatformArn: PlatformArn | None
+    TemplateName: ConfigurationTemplateName | None
+    Description: Description | None
+    EndpointURL: EndpointURL | None
+    CNAME: DNSCname | None
+    DateCreated: CreationDate | None
+    DateUpdated: UpdateDate | None
+    Status: EnvironmentStatus | None
+    AbortableOperationInProgress: AbortableOperationInProgress | None
+    Health: EnvironmentHealth | None
+    HealthStatus: EnvironmentHealthStatus | None
+    Resources: EnvironmentResourcesDescription | None
+    Tier: EnvironmentTier | None
+    EnvironmentLinks: EnvironmentLinks | None
+    EnvironmentArn: EnvironmentArn | None
+    OperationsRole: OperationsRole | None
 
 
-EnvironmentDescriptionsList = List[EnvironmentDescription]
+EnvironmentDescriptionsList = list[EnvironmentDescription]
 
 
 class EnvironmentDescriptionsMessage(TypedDict, total=False):
     """Result message containing a list of environment descriptions."""
 
-    Environments: Optional[EnvironmentDescriptionsList]
-    NextToken: Optional[Token]
+    Environments: EnvironmentDescriptionsList | None
+    NextToken: Token | None
 
 
 SampleTimestamp = datetime
@@ -1406,68 +1406,68 @@ SampleTimestamp = datetime
 class EnvironmentInfoDescription(TypedDict, total=False):
     """The information retrieved from the Amazon EC2 instances."""
 
-    InfoType: Optional[EnvironmentInfoType]
-    Ec2InstanceId: Optional[Ec2InstanceId]
-    SampleTimestamp: Optional[SampleTimestamp]
-    Message: Optional[Message]
+    InfoType: EnvironmentInfoType | None
+    Ec2InstanceId: Ec2InstanceId | None
+    SampleTimestamp: SampleTimestamp | None
+    Message: Message | None
 
 
-EnvironmentInfoDescriptionList = List[EnvironmentInfoDescription]
+EnvironmentInfoDescriptionList = list[EnvironmentInfoDescription]
 
 
 class Queue(TypedDict, total=False):
     """Describes a queue."""
 
-    Name: Optional[String]
-    URL: Optional[String]
+    Name: String | None
+    URL: String | None
 
 
-QueueList = List[Queue]
+QueueList = list[Queue]
 
 
 class Trigger(TypedDict, total=False):
     """Describes a trigger."""
 
-    Name: Optional[ResourceId]
+    Name: ResourceId | None
 
 
-TriggerList = List[Trigger]
+TriggerList = list[Trigger]
 
 
 class LoadBalancer(TypedDict, total=False):
     """Describes a LoadBalancer."""
 
-    Name: Optional[ResourceId]
+    Name: ResourceId | None
 
 
-LoadBalancerList = List[LoadBalancer]
+LoadBalancerList = list[LoadBalancer]
 
 
 class LaunchTemplate(TypedDict, total=False):
     """Describes an Amazon EC2 launch template."""
 
-    Id: Optional[ResourceId]
+    Id: ResourceId | None
 
 
-LaunchTemplateList = List[LaunchTemplate]
+LaunchTemplateList = list[LaunchTemplate]
 
 
 class LaunchConfiguration(TypedDict, total=False):
     """Describes an Auto Scaling launch configuration."""
 
-    Name: Optional[ResourceId]
+    Name: ResourceId | None
 
 
-LaunchConfigurationList = List[LaunchConfiguration]
+LaunchConfigurationList = list[LaunchConfiguration]
 
 
 class Instance(TypedDict, total=False):
     """The description of an Amazon EC2 instance."""
 
-    Id: Optional[ResourceId]
+    Id: ResourceId | None
 
 
-InstanceList = List[Instance]
+InstanceList = list[Instance]
 
 
 class EnvironmentResourceDescription(TypedDict, total=False):
@@ -1475,20 +1475,20 @@ class EnvironmentResourceDescription(TypedDict, total=False):
     live.
     """
 
-    EnvironmentName: Optional[EnvironmentName]
-    AutoScalingGroups: Optional[AutoScalingGroupList]
-    Instances: Optional[InstanceList]
-    LaunchConfigurations: Optional[LaunchConfigurationList]
-    LaunchTemplates: Optional[LaunchTemplateList]
-    LoadBalancers: Optional[LoadBalancerList]
-    Triggers: Optional[TriggerList]
-    Queues: Optional[QueueList]
+    EnvironmentName: EnvironmentName | None
+    AutoScalingGroups: AutoScalingGroupList | None
+    Instances: InstanceList | None
+    LaunchConfigurations: LaunchConfigurationList | None
+    LaunchTemplates: LaunchTemplateList | None
+    LoadBalancers: LoadBalancerList | None
+    Triggers: TriggerList | None
+    Queues: QueueList | None
 
 
 class EnvironmentResourceDescriptionsMessage(TypedDict, total=False):
     """Result message containing a list of environment resource descriptions."""
 
-    EnvironmentResources: Optional[EnvironmentResourceDescription]
+    EnvironmentResources: EnvironmentResourceDescription | None
 
 
 EventDate = datetime
@@ -1497,35 +1497,35 @@ EventDate = datetime
 class EventDescription(TypedDict, total=False):
     """Describes an event."""
 
-    EventDate: Optional[EventDate]
-    Message: Optional[EventMessage]
-    ApplicationName: Optional[ApplicationName]
-    VersionLabel: Optional[VersionLabel]
-    TemplateName: Optional[ConfigurationTemplateName]
-    EnvironmentName: Optional[EnvironmentName]
-    PlatformArn: Optional[PlatformArn]
-    RequestId: Optional[RequestId]
-    Severity: Optional[EventSeverity]
+    EventDate: EventDate | None
+    Message: EventMessage | None
+    ApplicationName: ApplicationName | None
+    VersionLabel: VersionLabel | None
+    TemplateName: ConfigurationTemplateName | None
+    EnvironmentName: EnvironmentName | None
+    PlatformArn: PlatformArn | None
+    RequestId: RequestId | None
+    Severity: EventSeverity | None
 
 
-EventDescriptionList = List[EventDescription]
+EventDescriptionList = list[EventDescription]
 
 
 class EventDescriptionsMessage(TypedDict, total=False):
     """Result message wrapping a list of event descriptions."""
 
-    Events: Optional[EventDescriptionList]
-    NextToken: Optional[Token]
+    Events: EventDescriptionList | None
+    NextToken: Token | None
 
 
 class ListAvailableSolutionStacksResultMessage(TypedDict, total=False):
     """A list of available AWS Elastic Beanstalk solution stacks."""
 
-    SolutionStacks: Optional[AvailableSolutionStackNamesList]
-    SolutionStackDetails: Optional[AvailableSolutionStackDetailsList]
+    SolutionStacks: AvailableSolutionStackNamesList | None
+    SolutionStackDetails: AvailableSolutionStackDetailsList | None
 
 
-SearchFilterValues = List[SearchFilterValue]
+SearchFilterValues = list[SearchFilterValue]
 
 
 class SearchFilter(TypedDict, total=False):
@@ -1544,39 +1544,39 @@ class SearchFilter(TypedDict, total=False):
     you're calling that takes a ``SearchFilter`` parameter.
     """
 
-    Attribute: Optional[SearchFilterAttribute]
-    Operator: Optional[SearchFilterOperator]
-    Values: Optional[SearchFilterValues]
+    Attribute: SearchFilterAttribute | None
+    Operator: SearchFilterOperator | None
+    Values: SearchFilterValues | None
 
 
-SearchFilters = List[SearchFilter]
+SearchFilters = list[SearchFilter]
 
 
 class ListPlatformBranchesRequest(ServiceRequest):
-    Filters: Optional[SearchFilters]
-    MaxRecords: Optional[PlatformBranchMaxRecords]
-    NextToken: Optional[Token]
+    Filters: SearchFilters | None
+    MaxRecords: PlatformBranchMaxRecords | None
+    NextToken: Token | None
 
 
 class PlatformBranchSummary(TypedDict, total=False):
     """Summary information about a platform branch."""
 
-    PlatformName: Optional[PlatformName]
-    BranchName: Optional[BranchName]
-    LifecycleState: Optional[PlatformBranchLifecycleState]
-    BranchOrder: Optional[BranchOrder]
-    SupportedTierList: Optional[SupportedTierList]
+    PlatformName: PlatformName | None
+    BranchName: BranchName | None
+    LifecycleState: PlatformBranchLifecycleState | None
+    BranchOrder: BranchOrder | None
+    SupportedTierList: SupportedTierList | None
 
 
-PlatformBranchSummaryList = List[PlatformBranchSummary]
+PlatformBranchSummaryList = list[PlatformBranchSummary]
 
 
 class ListPlatformBranchesResult(TypedDict, total=False):
-    PlatformBranchSummaryList: Optional[PlatformBranchSummaryList]
-    NextToken: Optional[Token]
+    PlatformBranchSummaryList: PlatformBranchSummaryList | None
+    NextToken: Token | None
 
 
-PlatformFilterValueList = List[PlatformFilterValue]
+PlatformFilterValueList = list[PlatformFilterValue]
 
 
 class PlatformFilter(TypedDict, total=False):
@@ -1586,26 +1586,26 @@ class PlatformFilter(TypedDict, total=False):
     The filter is evaluated as follows: ``Type Operator Values[1]``
     """
 
-    Type: Optional[PlatformFilterType]
-    Operator: Optional[PlatformFilterOperator]
-    Values: Optional[PlatformFilterValueList]
+    Type: PlatformFilterType | None
+    Operator: PlatformFilterOperator | None
+    Values: PlatformFilterValueList | None
 
 
-PlatformFilters = List[PlatformFilter]
+PlatformFilters = list[PlatformFilter]
 
 
 class ListPlatformVersionsRequest(ServiceRequest):
-    Filters: Optional[PlatformFilters]
-    MaxRecords: Optional[PlatformMaxRecords]
-    NextToken: Optional[Token]
+    Filters: PlatformFilters | None
+    MaxRecords: PlatformMaxRecords | None
+    NextToken: Token | None
 
 
-PlatformSummaryList = List[PlatformSummary]
+PlatformSummaryList = list[PlatformSummary]
 
 
 class ListPlatformVersionsResult(TypedDict, total=False):
-    PlatformSummaryList: Optional[PlatformSummaryList]
-    NextToken: Optional[Token]
+    PlatformSummaryList: PlatformSummaryList | None
+    NextToken: Token | None
 
 
 class ListTagsForResourceMessage(ServiceRequest):
@@ -1613,8 +1613,8 @@ class ListTagsForResourceMessage(ServiceRequest):
 
 
 class RebuildEnvironmentMessage(ServiceRequest):
-    EnvironmentId: Optional[EnvironmentId]
-    EnvironmentName: Optional[EnvironmentName]
+    EnvironmentId: EnvironmentId | None
+    EnvironmentName: EnvironmentName | None
 
 
 class RequestEnvironmentInfoMessage(ServiceRequest):
@@ -1622,29 +1622,29 @@ class RequestEnvironmentInfoMessage(ServiceRequest):
     Elastic Beanstalk storage bucket.
     """
 
-    EnvironmentId: Optional[EnvironmentId]
-    EnvironmentName: Optional[EnvironmentName]
+    EnvironmentId: EnvironmentId | None
+    EnvironmentName: EnvironmentName | None
     InfoType: EnvironmentInfoType
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class ResourceTagsDescriptionMessage(TypedDict, total=False):
-    ResourceArn: Optional[ResourceArn]
-    ResourceTags: Optional[TagList]
+    ResourceArn: ResourceArn | None
+    ResourceTags: TagList | None
 
 
 class RestartAppServerMessage(ServiceRequest):
-    EnvironmentId: Optional[EnvironmentId]
-    EnvironmentName: Optional[EnvironmentName]
+    EnvironmentId: EnvironmentId | None
+    EnvironmentName: EnvironmentName | None
 
 
 class RetrieveEnvironmentInfoMessage(ServiceRequest):
     """Request to download logs retrieved with RequestEnvironmentInfo."""
 
-    EnvironmentId: Optional[EnvironmentId]
-    EnvironmentName: Optional[EnvironmentName]
+    EnvironmentId: EnvironmentId | None
+    EnvironmentName: EnvironmentName | None
     InfoType: EnvironmentInfoType
 
 
@@ -1653,35 +1653,35 @@ class RetrieveEnvironmentInfoResultMessage(TypedDict, total=False):
     info.
     """
 
-    EnvironmentInfo: Optional[EnvironmentInfoDescriptionList]
+    EnvironmentInfo: EnvironmentInfoDescriptionList | None
 
 
 class SwapEnvironmentCNAMEsMessage(ServiceRequest):
     """Swaps the CNAMEs of two environments."""
 
-    SourceEnvironmentId: Optional[EnvironmentId]
-    SourceEnvironmentName: Optional[EnvironmentName]
-    DestinationEnvironmentId: Optional[EnvironmentId]
-    DestinationEnvironmentName: Optional[EnvironmentName]
+    SourceEnvironmentId: EnvironmentId | None
+    SourceEnvironmentName: EnvironmentName | None
+    DestinationEnvironmentId: EnvironmentId | None
+    DestinationEnvironmentName: EnvironmentName | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TerminateEnvironmentMessage(ServiceRequest):
     """Request to terminate an environment."""
 
-    EnvironmentId: Optional[EnvironmentId]
-    EnvironmentName: Optional[EnvironmentName]
-    TerminateResources: Optional[TerminateEnvironmentResources]
-    ForceTerminate: Optional[ForceTerminate]
+    EnvironmentId: EnvironmentId | None
+    EnvironmentName: EnvironmentName | None
+    TerminateResources: TerminateEnvironmentResources | None
+    ForceTerminate: ForceTerminate | None
 
 
 class UpdateApplicationMessage(ServiceRequest):
     """Request to update an application."""
 
     ApplicationName: ApplicationName
-    Description: Optional[Description]
+    Description: Description | None
 
 
 class UpdateApplicationResourceLifecycleMessage(ServiceRequest):
@@ -1692,7 +1692,7 @@ class UpdateApplicationResourceLifecycleMessage(ServiceRequest):
 class UpdateApplicationVersionMessage(ServiceRequest):
     ApplicationName: ApplicationName
     VersionLabel: VersionLabel
-    Description: Optional[Description]
+    Description: Description | None
 
 
 class UpdateConfigurationTemplateMessage(ServiceRequest):
@@ -1702,46 +1702,46 @@ class UpdateConfigurationTemplateMessage(ServiceRequest):
 
     ApplicationName: ApplicationName
     TemplateName: ConfigurationTemplateName
-    Description: Optional[Description]
-    OptionSettings: Optional[ConfigurationOptionSettingsList]
-    OptionsToRemove: Optional[OptionsSpecifierList]
+    Description: Description | None
+    OptionSettings: ConfigurationOptionSettingsList | None
+    OptionsToRemove: OptionsSpecifierList | None
 
 
 class UpdateEnvironmentMessage(ServiceRequest):
     """Request to update an environment."""
 
-    ApplicationName: Optional[ApplicationName]
-    EnvironmentId: Optional[EnvironmentId]
-    EnvironmentName: Optional[EnvironmentName]
-    GroupName: Optional[GroupName]
-    Description: Optional[Description]
-    Tier: Optional[EnvironmentTier]
-    VersionLabel: Optional[VersionLabel]
-    TemplateName: Optional[ConfigurationTemplateName]
-    SolutionStackName: Optional[SolutionStackName]
-    PlatformArn: Optional[PlatformArn]
-    OptionSettings: Optional[ConfigurationOptionSettingsList]
-    OptionsToRemove: Optional[OptionsSpecifierList]
+    ApplicationName: ApplicationName | None
+    EnvironmentId: EnvironmentId | None
+    EnvironmentName: EnvironmentName | None
+    GroupName: GroupName | None
+    Description: Description | None
+    Tier: EnvironmentTier | None
+    VersionLabel: VersionLabel | None
+    TemplateName: ConfigurationTemplateName | None
+    SolutionStackName: SolutionStackName | None
+    PlatformArn: PlatformArn | None
+    OptionSettings: ConfigurationOptionSettingsList | None
+    OptionsToRemove: OptionsSpecifierList | None
 
 
 class UpdateTagsForResourceMessage(ServiceRequest):
     ResourceArn: ResourceArn
-    TagsToAdd: Optional[TagList]
-    TagsToRemove: Optional[TagKeyList]
+    TagsToAdd: TagList | None
+    TagsToRemove: TagKeyList | None
 
 
 class ValidateConfigurationSettingsMessage(ServiceRequest):
     """A list of validation messages for a specified configuration template."""
 
     ApplicationName: ApplicationName
-    TemplateName: Optional[ConfigurationTemplateName]
-    EnvironmentName: Optional[EnvironmentName]
+    TemplateName: ConfigurationTemplateName | None
+    EnvironmentName: EnvironmentName | None
     OptionSettings: ConfigurationOptionSettingsList
 
 
 class ElasticbeanstalkApi:
-    service = "elasticbeanstalk"
-    version = "2010-12-01"
+    service: str = "elasticbeanstalk"
+    version: str = "2010-12-01"
 
     @handler("AbortEnvironmentUpdate")
     def abort_environment_update(

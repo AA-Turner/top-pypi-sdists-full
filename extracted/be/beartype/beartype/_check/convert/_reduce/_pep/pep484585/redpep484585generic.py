@@ -16,7 +16,7 @@ from beartype.typing import (
     Generic,
     Optional,
 )
-from beartype._data.hint.datahintpep import Hint
+from beartype._data.typing.datatypingport import Hint
 from beartype._check.metadata.hint.hintsane import (
     HINT_SANE_IGNORABLE,
     HintOrSane,
@@ -67,9 +67,9 @@ def reduce_hint_pep484585_generic_subbed(
         * Else, the passed hint is a **child** of some parent hint. In this
           case, the **sanified parent type hint metadata** (i.e., immutable and
           thus hashable object encapsulating *all* metadata previously returned
-          by :mod:`beartype._check.convert.convsanify` sanifiers after
-          sanitizing the possibly PEP-noncompliant parent hint of this child
-          hint into a fully PEP-compliant parent hint).
+          by :mod:`beartype._check.convert.convmain` sanifiers after sanitizing
+          the possibly PEP-noncompliant parent hint of this child hint into a
+          fully PEP-compliant parent hint).
     exception_prefix : str
         Human-readable substring prefixing raised exception messages.
 
@@ -89,8 +89,8 @@ def reduce_hint_pep484585_generic_subbed(
     '''
 
     # Avoid circular import dependencies.
-    from beartype._check.convert._reduce._pep.pep484.redpep484typevar import (
-        reduce_hint_pep484_subbed_typevars_to_hints)
+    from beartype._check.convert._reduce._pep.redpep484612646 import (
+        reduce_hint_pep484612646_subbed_typeargs_to_hints)
 
     # If this subscripted generic is the "typing.Generic" superclass directly
     # parametrized by one or more type variables (e.g., "typing.Generic[T]"),
@@ -136,7 +136,7 @@ def reduce_hint_pep484585_generic_subbed(
     #   this unsubscripted generic to all non-type variable hints subscripting
     #   this subscripted generic.
     # print(f'[reduce_hint_pep484585_generic_subbed] Reducing subscripted generic {repr(hint)}...')
-    hint_reduced = reduce_hint_pep484_subbed_typevars_to_hints(
+    hint_reduced = reduce_hint_pep484612646_subbed_typeargs_to_hints(
         hint=hint,
         hint_parent_sane=hint_parent_sane,
         exception_prefix=exception_prefix,

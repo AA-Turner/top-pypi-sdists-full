@@ -9,17 +9,34 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+import datetime as _dt
+from typing import Union
+from typing_extensions import NotRequired, TypedDict
 
 
-class AuditLogStreamKeyType(TypedDict):
-    """stream-key
+class AnnouncementType(TypedDict):
+    """Enterprise Announcement
 
-    Audit Log Streaming Public Key
+    Enterprise global announcement
     """
 
-    key_id: str
-    key: str
+    announcement: Union[str, None]
+    expires_at: NotRequired[Union[_dt.datetime, None]]
+    user_dismissible: NotRequired[Union[bool, None]]
 
 
-__all__ = ("AuditLogStreamKeyType",)
+class AnnouncementTypeForResponse(TypedDict):
+    """Enterprise Announcement
+
+    Enterprise global announcement
+    """
+
+    announcement: Union[str, None]
+    expires_at: NotRequired[Union[str, None]]
+    user_dismissible: NotRequired[Union[bool, None]]
+
+
+__all__ = (
+    "AnnouncementType",
+    "AnnouncementTypeForResponse",
+)

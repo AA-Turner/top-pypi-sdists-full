@@ -1,0 +1,34 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "typst"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+dependencies = []
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+readme = "README.md"
+
+[project.urls]
+
+Homepage = "https://github.com/messense/typst-py/"
+Repository = "https://github.com/messense/typst-py"
+Readme = "https://github.com/messense/typst-py/blob/main/README.md"
+Documentation = "https://github.com/messense/typst-py/blob/main/README.md"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+]
+
+[tool.maturin]
+module-name = "typst._typst"
+python-source = "python"
+features = ["pyo3/extension-module"]

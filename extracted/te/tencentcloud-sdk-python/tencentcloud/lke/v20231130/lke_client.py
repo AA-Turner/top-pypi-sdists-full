@@ -26,6 +26,29 @@ class LkeClient(AbstractClient):
     _service = 'lke'
 
 
+    def CallbackWorkflowToolNode(self, request):
+        r"""工作流工具节点异步回调
+
+        :param request: Request instance for CallbackWorkflowToolNode.
+        :type request: :class:`tencentcloud.lke.v20231130.models.CallbackWorkflowToolNodeRequest`
+        :rtype: :class:`tencentcloud.lke.v20231130.models.CallbackWorkflowToolNodeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CallbackWorkflowToolNode", params, headers=headers)
+            response = json.loads(body)
+            model = models.CallbackWorkflowToolNodeResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CheckAttributeLabelExist(self, request):
         r"""检查属性下的标签名是否存在
 
@@ -63,29 +86,6 @@ class LkeClient(AbstractClient):
             body = self.call("CheckAttributeLabelRefer", params, headers=headers)
             response = json.loads(body)
             model = models.CheckAttributeLabelReferResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
-    def CreateAgent(self, request):
-        r"""创建一个Agent
-
-        :param request: Request instance for CreateAgent.
-        :type request: :class:`tencentcloud.lke.v20231130.models.CreateAgentRequest`
-        :rtype: :class:`tencentcloud.lke.v20231130.models.CreateAgentResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("CreateAgent", params, headers=headers)
-            response = json.loads(body)
-            model = models.CreateAgentResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -166,6 +166,9 @@ class LkeClient(AbstractClient):
 
     def CreateQA(self, request):
         r"""录入问答
+        知识库相关背景知识介绍
+        “知识库检索范围”文档：https://cloud.tencent.com/document/product/1759/112704
+        “标签”文档：https://cloud.tencent.com/document/product/1759/112956
 
         :param request: Request instance for CreateQA.
         :type request: :class:`tencentcloud.lke.v20231130.models.CreateQARequest`
@@ -189,6 +192,9 @@ class LkeClient(AbstractClient):
 
     def CreateQACate(self, request):
         r"""创建QA分类
+        知识库相关背景知识介绍
+        “知识库检索范围”文档：https://cloud.tencent.com/document/product/1759/112704
+        “标签”文档：https://cloud.tencent.com/document/product/1759/112956
 
         :param request: Request instance for CreateQACate.
         :type request: :class:`tencentcloud.lke.v20231130.models.CreateQACateRequest`
@@ -764,7 +770,7 @@ class LkeClient(AbstractClient):
 
 
     def DescribeNodeRun(self, request):
-        r"""通过DescribeWorkflowRun接口获取了工作流异步运行的整体内容，其中包含了基本的节点信息，再通用本接口可查看节点的运行详情（包括输入、输出、日志等）。
+        r"""通过DescribeWorkflowRun接口获取了工作流异步运行的整体内容，其中包含了基本的节点信息，再通过本接口可查看节点的运行详情（包括输入、输出、日志等）。
 
         :param request: Request instance for DescribeNodeRun.
         :type request: :class:`tencentcloud.lke.v20231130.models.DescribeNodeRunRequest`
@@ -1086,7 +1092,7 @@ class LkeClient(AbstractClient):
 
 
     def ExportAttributeLabel(self, request):
-        r"""导出属性标签
+        r"""导出标签
 
         :param request: Request instance for ExportAttributeLabel.
         :type request: :class:`tencentcloud.lke.v20231130.models.ExportAttributeLabelRequest`
@@ -1110,6 +1116,9 @@ class LkeClient(AbstractClient):
 
     def ExportQAList(self, request):
         r"""导出QA列表
+        知识库相关背景知识介绍
+        “知识库检索范围”文档：https://cloud.tencent.com/document/product/1759/112704
+        “标签”文档：https://cloud.tencent.com/document/product/1759/112956
 
         :param request: Request instance for ExportQAList.
         :type request: :class:`tencentcloud.lke.v20231130.models.ExportQAListRequest`
@@ -1133,6 +1142,9 @@ class LkeClient(AbstractClient):
 
     def ExportUnsatisfiedReply(self, request):
         r"""导出不满意回复
+        知识库相关背景知识介绍
+        “知识库检索范围”文档：https://cloud.tencent.com/document/product/1759/112704
+        “标签”文档：https://cloud.tencent.com/document/product/1759/112956
 
         :param request: Request instance for ExportUnsatisfiedReply.
         :type request: :class:`tencentcloud.lke.v20231130.models.ExportUnsatisfiedReplyRequest`
@@ -1409,7 +1421,10 @@ class LkeClient(AbstractClient):
 
 
     def GroupQA(self, request):
-        r"""QA分组
+        r"""用户将多个问答批量的分类到知识库的具体分类
+        知识库相关背景知识介绍
+        “知识库检索范围”文档：https://cloud.tencent.com/document/product/1759/112704
+        “标签”文档：https://cloud.tencent.com/document/product/1759/112956
 
         :param request: Request instance for GroupQA.
         :type request: :class:`tencentcloud.lke.v20231130.models.GroupQARequest`
@@ -1640,6 +1655,9 @@ class LkeClient(AbstractClient):
 
     def ListQA(self, request):
         r"""问答列表
+        知识库相关背景知识介绍
+        “知识库检索范围”文档：https://cloud.tencent.com/document/product/1759/112704
+        “标签”文档：https://cloud.tencent.com/document/product/1759/112956
 
         :param request: Request instance for ListQA.
         :type request: :class:`tencentcloud.lke.v20231130.models.ListQARequest`
@@ -1663,6 +1681,9 @@ class LkeClient(AbstractClient):
 
     def ListQACate(self, request):
         r"""获取QA分类
+        知识库相关背景知识介绍
+        “知识库检索范围”文档：https://cloud.tencent.com/document/product/1759/112704
+        “标签”文档：https://cloud.tencent.com/document/product/1759/112956
 
         :param request: Request instance for ListQACate.
         :type request: :class:`tencentcloud.lke.v20231130.models.ListQACateRequest`
@@ -1846,7 +1867,7 @@ class LkeClient(AbstractClient):
 
 
     def ListSelectDoc(self, request):
-        r"""文档生成问答时，可通过该接口获得当前支持生成问答的文档列表，当前不支持xlsx、xls、csv格式的文档生成问答，且文档需处于待发布或已发布状态才可生成问答。
+        r"""获取文档下拉列表。
 
         :param request: Request instance for ListSelectDoc.
         :type request: :class:`tencentcloud.lke.v20231130.models.ListSelectDocRequest`
@@ -1951,29 +1972,6 @@ class LkeClient(AbstractClient):
             body = self.call("ListWorkflowRuns", params, headers=headers)
             response = json.loads(body)
             model = models.ListWorkflowRunsResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
-    def ModifyAgent(self, request):
-        r"""修改Agent信息
-
-        :param request: Request instance for ModifyAgent.
-        :type request: :class:`tencentcloud.lke.v20231130.models.ModifyAgentRequest`
-        :rtype: :class:`tencentcloud.lke.v20231130.models.ModifyAgentResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("ModifyAgent", params, headers=headers)
-            response = json.loads(body)
-            model = models.ModifyAgentResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -2473,6 +2471,9 @@ class LkeClient(AbstractClient):
 
     def VerifyQA(self, request):
         r"""校验问答
+        知识库相关背景知识介绍
+        “知识库检索范围”文档：https://cloud.tencent.com/document/product/1759/112704
+        “标签”文档：https://cloud.tencent.com/document/product/1759/112956
 
         :param request: Request instance for VerifyQA.
         :type request: :class:`tencentcloud.lke.v20231130.models.VerifyQARequest`

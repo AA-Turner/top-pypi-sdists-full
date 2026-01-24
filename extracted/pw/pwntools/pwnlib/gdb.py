@@ -353,10 +353,6 @@ def _gdbserver_args(pid=None, path=None, port=0, gdbserver_args=None, args=None,
         gdbserver_args += ['--wrapper', python_wrapper_script, '--']
     elif env is not None:
         gdbserver_args += ['--wrapper', which('env'), '-i'] + env_args + ['--']
-    # --no-startup-with-shell is required for forking shells like SHELL=/bin/fish
-    # https://github.com/Gallopsled/pwntools/issues/2377
-    else:
-        gdbserver_args += ['--no-startup-with-shell']
 
     gdbserver_args += ['localhost:%d' % port]
     gdbserver_args += args
@@ -750,6 +746,12 @@ def binary():
         >>> gdb.binary() # doctest: +SKIP
         '/usr/bin/gdb'
     """
+    if context.gdb_binary:
+        gdb = misc.which(context.gdb_binary)
+        if not gdb:
+            log.warn_once('Path to gdb binary `{}` not found'.format(context.gdb_binary))
+        return gdb
+
     gdb = misc.which('pwntools-gdb') or misc.which('gdb')
 
     if not context.native:
@@ -950,6 +952,8 @@ def attach(target, gdbscript = '', exe = None, gdb_args = None, ssh = None, sysr
             Process name.  The youngest process is selected.
         :obj:`tuple`
             Host, port pair of a listening ``gdbserver``
+            Tries to look up the target exe from the ``gdbserver`` commandline,
+            requires explicit ``exe`` argument if the target exe is not in the commandline.
         :class:`.process`
             Process to connect to
         :class:`.sock`
@@ -1034,6 +1038,30 @@ def attach(target, gdbscript = '', exe = None, gdb_args = None, ssh = None, sysr
         >>> io.sendline(b'echo Hello from bash && exit')
         >>> io.recvall()
         b'Hello from bash\n'
+        >>> server.close()
+
+        Attach to a gdbserver / gdbstub running on the local machine
+        by specifying the host and port tuple it is listening on.
+        (gdbserver always listens on 0.0.0.0)
+
+        >>> gdbserver = process(['gdbserver', '1.2.3.4:12345', '/bin/bash'])
+        >>> gdbserver.recvline_contains(b'Listening on port', timeout=10)
+        b'Listening on port 12345'
+        >>> pid = gdb.attach(('0.0.0.0', 12345), gdbscript='''
+        ... tbreak main
+        ... commands
+        ... call puts("Hello from gdbserver debugger!")
+        ... continue
+        ... end
+        ... ''')
+        >>> gdbserver.recvline(timeout=10)  # doctest: +ELLIPSIS
+        b'Remote debugging from host 127.0.0.1, ...\n'
+        >>> gdbserver.recvline(timeout=10)
+        b'Hello from gdbserver debugger!\n'
+        >>> gdbserver.sendline(b'echo Hello from bash && exit')
+        >>> gdbserver.recvline(timeout=10)
+        b'Hello from bash\n'
+        >>> gdbserver.close()
 
         Attach to processes running on a remote machine via an SSH :class:`.ssh` process
 
@@ -1251,7 +1279,7 @@ def attach(target, gdbscript = '', exe = None, gdb_args = None, ssh = None, sysr
     gdb_pid = misc.run_in_new_terminal(cmd, preexec_fn = preexec_fn)
 
     if pid and context.native:
-        proc.wait_for_debugger(pid, gdb_pid)
+        gdb_pid = proc.wait_for_debugger(pid, gdb_pid)
 
     if not api:
         return gdb_pid

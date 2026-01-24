@@ -20,23 +20,8 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            python-version: '3.9'
-            toxenv: py39-test-pytestoldest
-          - os: windows-latest
-            python-version: '3.9'
-            toxenv: py39-test-pytest50
-          - os: macos-13
-            python-version: '3.9'
-            toxenv: py39-test-pytest51
-          - os: ubuntu-latest
-            python-version: '3.9'
-            toxenv: py39-test-pytest60
-          - os: ubuntu-latest
-            python-version: '3.9'
-            toxenv: py39-test-pytest62
-          - os: ubuntu-latest
             python-version: '3.10'
-            toxenv: py310-test-pytest70
+            toxenv: py10-test-pytestoldest
           - os: ubuntu-latest
             python-version: '3.10'
             toxenv: py310-test-pytest71
@@ -63,23 +48,27 @@ jobs:
             toxenv: py313-test-pytest83
           - os: windows-latest
             python-version: '3.13'
-            toxenv: py313-test-pytestdev
+            toxenv: py313-test-pytest84
+          - os: windows-latest
+            python-version: '3.14'
+            toxenv: py314-test-pytestdev
+            posargs: -v
           - os: macos-latest
-            python-version: '3.12'
-            toxenv: py312-test-pytestdev
+            python-version: '3.14'
+            toxenv: py314-test-pytestdev
           - os: ubuntu-latest
-            python-version: '3.13'
-            toxenv: py313-test-pytestdev-numpydev
+            python-version: '3.14'
+            toxenv: py314-test-pytestdev-numpydev
           - os: ubuntu-latest
             python-version: '3.13'
             toxenv: py313-test-pytest83-pytestasyncio
 
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
       with:
         fetch-depth: 0
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548  # v6.1.0
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Tox

@@ -1,3 +1,7 @@
+"""Base classes for encoder and decoder implementations.
+
+Defines the foundational interface and validation logic for all coder classes.
+"""
 from typing import (
     Any,
 )
@@ -29,7 +33,7 @@ class BaseCoder:
         # Validate given combination of kwargs
         self.validate()
 
-    def validate(self):
+    def validate(self) -> None:
         pass
 
     @classmethod

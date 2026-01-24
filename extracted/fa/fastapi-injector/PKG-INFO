@@ -1,11 +1,12 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: fastapi-injector
-Version: 0.8.0
+Version: 0.9.0
 Summary: python-injector integration for FastAPI
 License: BSD
+License-File: LICENSE
 Author: Matyas Richter
 Author-email: matyas@mrichter.cz
-Requires-Python: >=3.9,<3.14
+Requires-Python: >=3.10,<4
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Framework :: FastAPI
 Classifier: Environment :: Web Environment

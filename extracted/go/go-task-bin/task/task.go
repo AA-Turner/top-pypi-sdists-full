@@ -78,9 +78,11 @@ func (e *Executor) Run(ctx context.Context, calls ...*Call) error {
 		return err
 	}
 
-	g, ctx := errgroup.WithContext(ctx)
+	g := &errgroup.Group{}
+	if e.Failfast {
+		g, ctx = errgroup.WithContext(ctx)
+	}
 	for _, c := range regularCalls {
-		c := c
 		if e.Parallel {
 			g.Go(func() error { return e.RunTask(ctx, c) })
 		} else {
@@ -113,7 +115,7 @@ func (e *Executor) splitRegularAndWatchCalls(calls ...*Call) (regularCalls []*Ca
 			regularCalls = append(regularCalls, c)
 		}
 	}
-	return
+	return regularCalls, watchCalls, err
 }
 
 // RunTask runs a task by its name
@@ -150,7 +152,7 @@ func (e *Executor) RunTask(ctx context.Context, call *Call) error {
 	release := e.acquireConcurrencyLimit()
 	defer release()
 
-	return e.startExecution(ctx, t, func(ctx context.Context) error {
+	if err = e.startExecution(ctx, t, func(ctx context.Context) error {
 		e.Logger.VerboseErrf(logger.Magenta, "task: %q started\n", call.Task)
 		if err := e.runDeps(ctx, t); err != nil {
 			return err
@@ -210,7 +212,7 @@ func (e *Executor) RunTask(ctx context.Context, call *Call) error {
 
 		for i := range t.Cmds {
 			if t.Cmds[i].Defer {
-				defer e.runDeferred(t, call, i, &deferredExitCode)
+				defer e.runDeferred(t, call, i, t.Vars, &deferredExitCode)
 				continue
 			}
 
@@ -228,16 +230,16 @@ func (e *Executor) RunTask(ctx context.Context, call *Call) error {
 					deferredExitCode = uint8(exitCode)
 				}
 
-				if call.Indirect {
-					return err
-				}
-
-				return &errors.TaskRunError{TaskName: t.Task, Err: err}
+				return err
 			}
 		}
 		e.Logger.VerboseErrf(logger.Magenta, "task: %q finished\n", call.Task)
 		return nil
-	})
+	}); err != nil {
+		return &errors.TaskRunError{TaskName: t.Name(), Err: err}
+	}
+
+	return nil
 }
 
 func (e *Executor) mkdir(t *ast.Task) error {
@@ -258,13 +260,15 @@ func (e *Executor) mkdir(t *ast.Task) error {
 }
 
 func (e *Executor) runDeps(ctx context.Context, t *ast.Task) error {
-	g, ctx := errgroup.WithContext(ctx)
+	g := &errgroup.Group{}
+	if e.Failfast || t.Failfast {
+		g, ctx = errgroup.WithContext(ctx)
+	}
 
 	reacquire := e.releaseConcurrencyLimit()
 	defer reacquire()
 
 	for _, d := range t.Deps {
-		d := d
 		g.Go(func() error {
 			err := e.RunTask(ctx, &Call{Task: d.Task, Vars: d.Vars, Silent: d.Silent, Indirect: true})
 			if err != nil {
@@ -277,17 +281,11 @@ func (e *Executor) runDeps(ctx context.Context, t *ast.Task) error {
 	return g.Wait()
 }
 
-func (e *Executor) runDeferred(t *ast.Task, call *Call, i int, deferredExitCode *uint8) {
+func (e *Executor) runDeferred(t *ast.Task, call *Call, i int, vars *ast.Vars, deferredExitCode *uint8) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	origTask, err := e.GetTask(call)
-	if err != nil {
-		return
-	}
-
 	cmd := t.Cmds[i]
-	vars, _ := e.Compiler.GetVariables(origTask, call)
 	cache := &templater.Cache{Vars: vars}
 	extra := map[string]any{}
 
@@ -313,10 +311,12 @@ func (e *Executor) runCommand(ctx context.Context, t *ast.Task, call *Call, i in
 		defer reacquire()
 
 		err := e.RunTask(ctx, &Call{Task: cmd.Task, Vars: cmd.Vars, Silent: cmd.Silent, Indirect: true})
-		if err != nil {
-			return err
+		var exitCode interp.ExitStatus
+		if errors.As(err, &exitCode) && cmd.IgnoreError {
+			e.Logger.VerboseErrf(logger.Yellow, "task: [%s] task error ignored: %v\n", t.Name(), err)
+			return nil
 		}
-		return nil
+		return err
 	case cmd.Cmd != "":
 		if !shouldRunOnCurrentPlatform(cmd.Platforms) {
 			e.Logger.VerboseOutf(logger.Yellow, "task: [%s] %s not for current platform - ignored\n", t.Name(), cmd.Cmd)
@@ -372,7 +372,7 @@ func (e *Executor) startExecution(ctx context.Context, t *ast.Task, execute func
 		return err
 	}
 
-	if h == "" {
+	if h == "" || t.Watch {
 		return execute(ctx)
 	}
 
@@ -458,8 +458,11 @@ func (e *Executor) GetTask(call *Call) (*ast.Task, error) {
 	// If we found no tasks
 	if len(aliasedTasks) == 0 {
 		didYouMean := ""
-		if e.fuzzyModel != nil {
-			didYouMean = e.fuzzyModel.SpellCheck(call.Task)
+		if !e.DisableFuzzy {
+			e.fuzzyModelOnce.Do(e.setupFuzzyModel)
+			if e.fuzzyModel != nil {
+				didYouMean = e.fuzzyModel.SpellCheck(call.Task)
+			}
 		}
 		return nil, &errors.TaskNotFoundError{
 			TaskName:   call.Task,
@@ -498,7 +501,7 @@ func (e *Executor) GetTaskList(filters ...FilterFunc) ([]*ast.Task, error) {
 	// Compile the list of tasks
 	for i := range tasks {
 		g.Go(func() error {
-			compiledTask, err := e.FastCompiledTask(&Call{Task: tasks[i].Task})
+			compiledTask, err := e.CompiledTaskForTaskList(&Call{Task: tasks[i].Task})
 			if err != nil {
 				return err
 			}

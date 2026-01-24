@@ -1,15 +1,15 @@
 version: 2.1
 
 orbs:
-  win: circleci/windows@5.0.0
-  macos: circleci/macos@2.4.1
+  win: circleci/windows@5.1  # latest as of Jan 2026
+  macos: circleci/macos@2.5  # latest as of Jan 2026
 
 commands:
   run-cibuildwheel:
     parameters:
       cibw-version:
         type: string
-        default: 3.1.3
+        default: 3.2.1
     steps:
       - run:
           name: run cibuildwheel
@@ -75,6 +75,7 @@ jobs:
             python -m build \
               -Ccompile-args="-v" \
               -Csetup-args="-Dwerror=true"
+            rm -r dist
 
       - run:
           name: build and install with -Werror and without -NDEBUG
@@ -82,7 +83,8 @@ jobs:
             . env/bin/activate
             python -m build \
               -Ccompile-args="-v" \
-              -Csetup-args="-Db_ndebug=true" \
+              -Csetup-args="-Dbuildtype=debug" \
+              -Csetup-args="-Dbuild-tests=disabled" \
               -Csetup-args="-Dwerror=true"
             pip install dist/dwave*optimization*.whl --force
 
@@ -90,14 +92,13 @@ jobs:
           name: test with installed package
           command: |
             . env/bin/activate
+            pip install --group test
             cd tests/
-            pip install -r requirements.txt
             python -Werror -m unittest
 
   python-macOS:
     macos:
-      xcode: 16.4.0  # latest as of August 2025
-    resource_class: macos.m1.medium.gen1
+      xcode: 26.2.0  # latest as of Jan 2026
 
     parameters:
       cibw-arch:
@@ -155,7 +156,7 @@ jobs:
         type: string
       dependency-versions:
         type: string
-      only-binary:
+      optional-dependency-versions:
         type: string
 
     docker:
@@ -166,14 +167,23 @@ jobs:
       - attach_workspace:
           at: dist
       - run:
-          name: install
+          name: install package with dependencies
           command: |
             python -m venv env
             . env/bin/activate
-            pip install << parameters.dependency-versions >> --upgrade --only-binary << parameters.only-binary >>
+            pip install pip --upgrade
+            pip install --upgrade --only-binary=:all: \
+              << parameters.dependency-versions >>
             pip install dwave-optimization --no-index -f dist/ --no-deps --force-reinstall
       - run: *run-tests
-
+      - run:
+          name: install optional dependencies
+          command: |
+            . env/bin/activate
+            pip install --upgrade --only-binary=:all: \
+              << parameters.dependency-versions >> \
+              << parameters.optional-dependency-versions >> \
+      - run: *run-tests
 
   cpp-gcc:
     parameters:
@@ -190,18 +200,25 @@ jobs:
           command: |
             apt update
             apt install python3-pip python3-venv -y
+            apt install valgrind -y
       - run: &install-requirements
           name: create venv and install build dependencies
           command: |
             python3 -m venv env
             . env/bin/activate
-            pip install -r requirements.txt
+            pip install pip --upgrade
+            pip install --group build
       - run: &run-cpp-tests
           name: run c++ tests with meson
           command: |
             . env/bin/activate
             meson setup _build -Dbuildtype=debug -Dwerror=true
             meson test -C _build
+
+      - run:
+          name: run c++ tests with valgrind
+          command: |
+            valgrind --error-exitcode=1 ./_build/tests/cpp/tests-all
 
       - run: &run-cpp23-tests
           name: run c++23 tests with meson
@@ -212,8 +229,7 @@ jobs:
 
   cpp-macOS:
     macos:
-      xcode: 15.3.0
-    resource_class: macos.m1.medium.gen1
+      xcode: 26.2.0  # latest as of Jan 2026
 
     steps:
       - checkout
@@ -266,7 +282,7 @@ jobs:
 
   docs:
     docker:
-      - image: cimg/python:3.10  # As of July 2024, RTD uses 3.10
+      - image: cimg/python:3.13  # As of Dec 2025, the dwave-ocean-sdk uses 3.13
 
     steps:
       - checkout
@@ -284,7 +300,10 @@ jobs:
           command: |
             python -m venv env
             . env/bin/activate
-            pip install dist/*optimization*cp310*.whl -r docs/requirements.txt
+            pip install pip --upgrade
+            pip install --group dev
+            pip install dwave-optimization --no-deps --find-links=dist
+            pip install --group docs
 
       - run:
           name: build docs
@@ -300,6 +319,16 @@ jobs:
           command: |
             . env/bin/activate
             make -C docs doctest
+
+      - run:
+          name: build changelog
+          command: |
+            . env/bin/activate
+            pip install --group changelog
+            reno report -o changelog.rst
+
+      - store_artifacts:
+          path: changelog.rst
 
   deploy:
     docker:
@@ -342,23 +371,23 @@ workflows:
           filters: *tags
       - python-dependencies:
           name: python-dependencies-oldest
-          python-version: "3.9"
-          dependency-versions: numpy==1.20.0
-          only-binary: numpy
+          python-version: "3.10"
+          dependency-versions: numpy==1.21.3
+          optional-dependency-versions: dimod==0.12.0 scikit-learn==1.6.0
           requires:
             - python-linux
       - python-dependencies:
           name: python-dependencies-latest
-          python-version: "3.13"  # should be updated to 3.14 once there is a non-rc image
+          python-version: "3.14"
           dependency-versions: numpy
-          only-binary: numpy
+          optional-dependency-versions: dimod scikit-learn
           requires:
             - python-linux
       - cpp-gcc:
           name: cpp-gcc-<< matrix.gcc-version >>
           matrix:
             parameters:
-              gcc-version: ["11", "latest"]
+              gcc-version: ["12", "latest"]
       - cpp-macOS
       - serialization:
           requires:

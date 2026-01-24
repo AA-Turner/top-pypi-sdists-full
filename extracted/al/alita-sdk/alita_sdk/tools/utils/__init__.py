@@ -7,6 +7,8 @@ import requests
 from pydantic import create_model, Field
 
 
+# DEPRECATED: Tool names no longer use prefixes
+# Kept for backward compatibility only
 TOOLKIT_SPLITTER = "___"
 TOOL_NAME_LIMIT = 64
 
@@ -22,10 +24,13 @@ def clean_string(s: str, max_length: int = 0):
 
 
 def get_max_toolkit_length(selected_tools: Any):
-    """Calculates the maximum length of the toolkit name based on the selected tools per toolkit."""
-
-    longest_tool_name_length = max(len(tool_name) for tool_name in selected_tools.keys())
-    return TOOL_NAME_LIMIT - longest_tool_name_length - len(TOOLKIT_SPLITTER)
+    """DEPRECATED: Calculates the maximum length of the toolkit name.
+    
+    This function is deprecated as tool names no longer use prefixes.
+    Returns a fixed value for backward compatibility.
+    """
+    # Return a reasonable default since we no longer use prefixes
+    return 50
 
 
 def parse_list(list_str: str = None) -> List[str]:
@@ -97,3 +102,20 @@ def check_connection_response(check_fun):
         else:
             return f"Service Unreachable: return code {response.status_code}"
     return _wrapper
+
+
+def make_json_serializable(obj):
+    if isinstance(obj, BaseModel):
+        return obj.model_dump()
+    if isinstance(obj, dict):
+        return {k: make_json_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [make_json_serializable(i) for i in obj]
+    if isinstance(obj, bool):
+        return bool(obj)
+    if isinstance(obj, (str, int, float)) or obj is None:
+        return obj
+    # Fallback: handle objects that look like booleans but were not caught above
+    if str(obj) in ("True", "False"):
+        return str(obj) == "True"
+    return str(obj)

@@ -13,13 +13,9 @@ from astropy.wcs import WCS
 import sunpy
 import sunpy.map
 from sunpy.data.test import get_dummy_map_from_header, get_test_data_filenames, get_test_filepath, rootdir
+from sunpy.io._fits import read
 from sunpy.tests.helpers import asdf_entry_points, figure_test, skip_glymur
-from sunpy.util.exceptions import (
-    NoMapsInFileError,
-    SunpyDeprecationWarning,
-    SunpyMetadataWarning,
-    SunpyUserWarning,
-)
+from sunpy.util.exceptions import NoMapsInFileError, SunpyMetadataWarning, SunpyUserWarning
 
 a_list_of_many = [f for f in get_test_data_filenames() if 'efz' in f.name]
 
@@ -60,6 +56,7 @@ def test_read_asdf_and_verify(tmpdir):
     assert isinstance(loaded_asdf_map, sunpy.map.sources.AIAMap)
 
 
+@asdf_entry_points
 def test_map_meta_changes_in_asdf(tmpdir):
     map = sunpy.map.Map(AIA_171_IMAGE)
     map = map.rotate(90 * u.deg)
@@ -231,19 +228,6 @@ def test_errors(tmpdir):
         sunpy.map.Map(files)
 
 
-@pytest.mark.filterwarnings('ignore:"silence_errors" was deprecated in version 5')
-@pytest.mark.filterwarnings("ignore:One of the data, header pairs failed to validate")
-@pytest.mark.parametrize(('silence', 'error', 'match'),
-                         [(True, RuntimeError, 'No maps loaded'),
-                          (False, sunpy.map.mapbase.MapMetaValidationError,
-                           'Image coordinate units for axis 1 not present in metadata.')])
-def test_silence_errors(silence, error, match):
-    # Check that the correct errors are raised depending on silence_errors value
-    data = np.arange(0, 100).reshape(10, 10)
-    with pytest.raises(error, match=match):
-        sunpy.map.Map(data, {}, silence_errors=silence)
-
-
 @pytest.mark.filterwarnings("ignore:One of the data, header pairs failed to validate")
 @pytest.mark.parametrize(('allow_errors', 'error', 'match'),
                          [(True, RuntimeError, 'No maps loaded'),
@@ -282,6 +266,7 @@ def test_uri_pattern():
 
 @pytest.mark.remote_data
 @pytest.mark.filterwarnings("ignore:datetime.datetime.utcnow:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:The ANA reader may be removed in a future version of sunpy")
 def test_uri_directory_pattern():
     """
     Testing publicly accessible s3 directory
@@ -354,10 +339,6 @@ def test_no_2d_hdus(tmpdir):
     with pytest.raises(NoMapsInFileError, match='Found no HDUs with >= 2D data'):
         sunpy.map.Map(tmp_fpath)
 
-    with pytest.warns(SunpyUserWarning, match='One of the arguments failed to parse'):
-        with pytest.warns(SunpyDeprecationWarning, match='"silence_errors" was deprecated in version 5.1 and will be removed in a future version'):
-            sunpy.map.Map([tmp_fpath, AIA_171_IMAGE], silence_errors=True)
-
 
 @skip_glymur
 def test_map_jp2_AIA():
@@ -382,14 +363,16 @@ def test_map_jp2_HMI():
     plt.colorbar()
 
 
-def test_map_fits():
-    fits_map = sunpy.map.Map(AIA_171_IMAGE, memmap=False)
-    assert isinstance(fits_map, sunpy.map.GenericMap)
-    # The base of an array that owns its memory is None
-    assert fits_map.data.base is None
-    fits_map = sunpy.map.Map(AIA_171_IMAGE, memmap=True)
-    assert isinstance(fits_map, sunpy.map.GenericMap)
-    assert fits_map.data.base is not None
+def test_map_fits(mocker):
+
+    hdus = read(AIA_171_IMAGE)
+    mock = mocker.patch("sunpy.io._file_tools.fits.read", return_value=hdus)
+    sunpy.map.Map(AIA_171_IMAGE, memmap=False)
+    assert mock.call_args.kwargs["memmap"] is False
+
+    mock.reset_mock()
+    sunpy.map.Map(AIA_171_IMAGE, memmap=True)
+    assert mock.call_args.kwargs["memmap"] is True
 
 
 def test_map_list_of_files_with_one_broken():

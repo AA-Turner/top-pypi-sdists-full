@@ -11,13 +11,17 @@
  * found in the LICENSE file.
  */
 
+#include "include/codec/SkCodec.h"
+#include "include/core/SkImage.h"
 #include "include/core/SkPicture.h"
 #include "include/core/SkString.h"
 #include "include/core/SkSurface.h"
-#include "include/utils/SkBase64.h"
+#include "include/docs/SkMultiPictureDocument.h"
+#include "include/encode/SkPngEncoder.h"
+#include "src/base/SkBase64.h"
 #include "src/core/SkPicturePriv.h"
+#include "src/ports/SkTypeface_FreeType.h"
 #include "src/utils/SkJSONWriter.h"
-#include "src/utils/SkMultiPictureDocument.h"
 #include "tools/SkSharingProc.h"
 #include "tools/UrlDataManager.h"
 #include "tools/debugger/DebugCanvas.h"
@@ -33,10 +37,11 @@
 #include <emscripten/bind.h>
 
 #ifdef CK_ENABLE_WEBGL
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/gl/GrGLInterface.h"
-#include "include/gpu/gl/GrGLTypes.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
+#include "include/gpu/ganesh/gl/GrGLInterface.h"
+#include "include/gpu/ganesh/gl/GrGLTypes.h"
 
 #include <GL/gl.h>
 #include <emscripten/html5.h>
@@ -62,6 +67,27 @@ ImageInfoNoColorspace toImageInfoNoColorspace(const SkImageInfo& ii) {
   return (ImageInfoNoColorspace){ii.width(), ii.height(), ii.colorType(), ii.alphaType()};
 }
 
+static sk_sp<SkImage> deserializeImage(sk_sp<SkData> data, std::optional<SkAlphaType>, void*) {
+  std::unique_ptr<SkCodec> codec = DecodeImageData(std::move(data));
+  if (!codec) {
+    SkDebugf("Could not decode an image\n");
+    return nullptr;
+  }
+  sk_sp<SkImage> img = std::get<0>(codec->getImage());
+  if (!img) {
+    SkDebugf("Could not make an image from a codec\n");
+    return nullptr;
+  }
+  return img;
+}
+
+static void register_typeface() {
+  static SkOnce once;
+  once([] {
+    SkTypeface::Register(SkTypeface_FreeType::FactoryId,
+                         SkTypeface_FreeType::MakeFromStream );
+  });
+}
 
 class SkpDebugPlayer {
   public:
@@ -95,7 +121,11 @@ class SkpDebugPlayer {
       } else {
         SkDebugf("Try reading as single-frame skp\n");
         // TODO(nifong): Rely on SkPicture's return errors once it provides some.
-        frames.push_back(loadSingleFrame(&stream));
+        std::unique_ptr<DebugCanvas> canvas = loadSingleFrame(&stream);
+        if (!canvas) {
+          return "Error loading single frame";
+        }
+        frames.push_back(std::move(canvas));
       }
       return "";
     }
@@ -120,7 +150,9 @@ class SkpDebugPlayer {
         // otherwise, its a frame at the top level.
         frames[fp]->drawTo(surface->getCanvas(), index);
       }
-      surface->flush();
+#ifdef CK_ENABLE_WEBGL
+      skgpu::ganesh::Flush(surface);
+#endif
     }
 
     // Draws to the end of the current frame.
@@ -128,17 +160,19 @@ class SkpDebugPlayer {
       auto* canvas = surface->getCanvas();
       canvas->clear(SK_ColorTRANSPARENT);
       frames[fp]->draw(surface->getCanvas());
-      surface->getCanvas()->flush();
+#ifdef CK_ENABLE_WEBGL
+      skgpu::ganesh::Flush(surface);
+#endif
     }
 
     // Gets the bounds for the given frame
     // (or layer update, assuming there is one at that frame for fInspectedLayer)
-    const SkIRect getBoundsForFrame(int32_t frame) {
-      if (fInspectedLayer < 0) {
-        return fBoundsArray[frame];
-      }
-      auto summary = fLayerManager->event(fInspectedLayer, fp);
-      return SkIRect::MakeWH(summary.layerWidth, summary.layerHeight);
+    SkIRect getBoundsForFrame(int32_t frame) {
+        if (fInspectedLayer < 0) {
+            return fBoundsArray[frame];
+        }
+        auto summary = fLayerManager->event(fInspectedLayer, fp);
+        return SkIRect::MakeWH(summary.layerWidth, summary.layerHeight);
     }
 
     // Gets the bounds for the current frame
@@ -161,31 +195,31 @@ class SkpDebugPlayer {
     // However, there's not a simple way to make the debugcanvases pull settings from a central
     // location so we set it on all of them at once.
     void setOverdrawVis(bool on) {
-      for (int i=0; i < frames.size(); i++) {
+      for (size_t i=0; i < frames.size(); i++) {
         frames[i]->setOverdrawViz(on);
       }
       fLayerManager->setOverdrawViz(on);
     }
     void setGpuOpBounds(bool on) {
-      for (int i=0; i < frames.size(); i++) {
+      for (size_t i=0; i < frames.size(); i++) {
         frames[i]->setDrawGpuOpBounds(on);
       }
       fLayerManager->setDrawGpuOpBounds(on);
     }
     void setClipVizColor(JSColor color) {
-      for (int i=0; i < frames.size(); i++) {
+      for (size_t i=0; i < frames.size(); i++) {
         frames[i]->setClipVizColor(SkColor(color));
       }
       fLayerManager->setClipVizColor(SkColor(color));
     }
     void setAndroidClipViz(bool on) {
-      for (int i=0; i < frames.size(); i++) {
+      for (size_t i=0; i < frames.size(); i++) {
         frames[i]->setAndroidClipViz(on);
       }
       // doesn't matter in layers
     }
     void setOriginVisible(bool on) {
-      for (int i=0; i < frames.size(); i++) {
+      for (size_t i=0; i < frames.size(); i++) {
         frames[i]->setOriginVisible(on);
       }
     }
@@ -255,8 +289,8 @@ class SkpDebugPlayer {
     // filenames like "\\1" in DrawImage commands.
     // Return type is the PNG data as a base64 encoded string with prepended URI.
     std::string getImageResource(int index) {
-      sk_sp<SkData> pngData = fImages[index]->encodeToData();
-      size_t len = SkBase64::Encode(pngData->data(), pngData->size(), nullptr);
+      sk_sp<SkData> pngData = SkPngEncoder::Encode(nullptr, fImages[index].get(), {});
+      size_t len = SkBase64::EncodedSize(pngData->size());
       SkString dst;
       dst.resize(len);
       SkBase64::Encode(pngData->data(), pngData->size(), dst.data());
@@ -366,8 +400,11 @@ class SkpDebugPlayer {
       // Loads a single frame (traditional) skp file from the provided data stream and returns
       // a newly allocated DebugCanvas initialized with the SkPicture that was in the file.
       std::unique_ptr<DebugCanvas> loadSingleFrame(SkMemoryStream* stream) {
+        register_typeface();
+        SkDeserialProcs procs;
+        procs.fImageDataProc = deserializeImage;
         // note overloaded = operator that actually does a move
-        sk_sp<SkPicture> picture = SkPicture::MakeFromStream(stream);
+        sk_sp<SkPicture> picture = SkPicture::MakeFromStream(stream, &procs);
         if (!picture) {
           SkDebugf("Unable to deserialze frame.\n");
           return nullptr;
@@ -383,13 +420,14 @@ class SkpDebugPlayer {
       }
 
       std::string loadMultiFrame(SkMemoryStream* stream) {
+        register_typeface();
         // Attempt to deserialize with an image sharing serial proc.
         auto deserialContext = std::make_unique<SkSharingDeserialContext>();
         SkDeserialProcs procs;
         procs.fImageProc = SkSharingDeserialContext::deserializeImage;
         procs.fImageCtx = deserialContext.get();
 
-        int page_count = SkMultiPictureDocumentReadPageCount(stream);
+        int page_count = SkMultiPictureDocument::ReadPageCount(stream);
         if (!page_count) {
           // MSKP's have a version separate from the SKP subpictures they contain.
           return "Not a MultiPictureDocument, MultiPictureDocument file version too old, or MultiPictureDocument contained 0 frames.";
@@ -397,7 +435,7 @@ class SkpDebugPlayer {
         SkDebugf("Expecting %d frames\n", page_count);
 
         std::vector<SkDocumentPage> pages(page_count);
-        if (!SkMultiPictureDocumentRead(stream, pages.data(), page_count, &procs)) {
+        if (!SkMultiPictureDocument::Read(stream, pages.data(), page_count, &procs)) {
           return "Reading frames from MultiPictureDocument failed";
         }
 

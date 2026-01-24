@@ -83,12 +83,12 @@ PycairoSurface_FromSurface (cairo_surface_t *surface, PyObject *base) {
     type = &PycairoWin32PrintingSurface_Type;
     break;
 #endif
-#ifdef CAIRO_HAS_XCB_SURFACE
+#if defined(CAIRO_HAS_XCB_SURFACE) && !defined(PYCAIRO_NO_X11)
   case CAIRO_SURFACE_TYPE_XCB:
     type = &PycairoXCBSurface_Type;
     break;
 #endif
-#ifdef CAIRO_HAS_XLIB_SURFACE
+#if defined(CAIRO_HAS_XLIB_SURFACE) && !defined(PYCAIRO_NO_X11)
   case CAIRO_SURFACE_TYPE_XLIB:
     type = &PycairoXlibSurface_Type;
     break;
@@ -857,12 +857,12 @@ image_surface_create_for_data (PyTypeObject *type, PyObject *args) {
 
   format = (cairo_format_t)format_arg;
 
-  if (width <= 0) {
-    PyErr_SetString(PyExc_ValueError, "width must be positive");
+  if (width < 0) {
+    PyErr_SetString(PyExc_ValueError, "width cannot be negative");
     return NULL;
   }
-  if (height <= 0) {
-    PyErr_SetString(PyExc_ValueError, "height must be positive");
+  if (height < 0) {
+    PyErr_SetString(PyExc_ValueError, "height cannot be negative");
     return NULL;
   }
   /* if stride is missing, calculate it from width */
@@ -998,6 +998,24 @@ image_surface_format_stride_for_width (PyObject *self, PyObject *args) {
   return PyLong_FromLong (cairo_format_stride_for_width (format, width));
 }
 
+/* Create a view into an empty bytes object.
+ * Corresponds to memoryview(b"") in Python.
+ * Returns NULL and sets an exception on error.
+ */
+static PyObject *
+create_empty_memoryview(void)
+{
+    PyObject *empty_bytes, *view;
+
+    empty_bytes = PyBytes_FromStringAndSize (NULL, 0);
+    if (!empty_bytes)
+        return NULL;
+
+    view = PyMemoryView_FromObject (empty_bytes);
+    Py_DECREF(empty_bytes);
+    return view;
+}
+
 static PyObject *
 image_surface_get_data (PycairoImageSurface *o, PyObject *ignored) {
   cairo_surface_t *surface;
@@ -1024,7 +1042,12 @@ image_surface_get_data (PycairoImageSurface *o, PyObject *ignored) {
 
   buffer = cairo_image_surface_get_data (surface);
   if (buffer == NULL) {
-    Py_RETURN_NONE;
+    // It's documented to return NULL after finish, but that's not always the case:
+    // https://gitlab.freedesktop.org/cairo/cairo/-/issues/406
+    // and it returns NULL if the size is 0 and it's backed by pixman:
+    // https://gitlab.freedesktop.org/cairo/cairo/-/issues/880
+    // Let's paper over this by returning an empty memoryview.
+    return create_empty_memoryview();
   }
   height = cairo_image_surface_get_height (surface);
   stride = cairo_image_surface_get_stride (surface);
@@ -2291,7 +2314,7 @@ PyTypeObject PycairoWin32PrintingSurface_Type = {
 
 
 /* Class XCBSurface(Surface) --------------------------------------------- */
-#ifdef CAIRO_HAS_XCB_SURFACE
+#if defined(CAIRO_HAS_XCB_SURFACE) && !defined(PYCAIRO_NO_X11)
 #include <cairo-xcb.h>
 
 static PyObject *
@@ -2359,11 +2382,11 @@ PyTypeObject PycairoXCBSurface_Type = {
   0,                                  /* tp_is_gc */
   0,                                  /* tp_bases */
 };
-#endif  /* CAIRO_HAS_XCB_SURFACE */
+#endif  /* defined(CAIRO_HAS_XCB_SURFACE) && !defined(PYCAIRO_NO_X11) */
 
 
 /* Class XlibSurface(Surface) --------------------------------------------- */
-#ifdef CAIRO_HAS_XLIB_SURFACE
+#if defined(CAIRO_HAS_XLIB_SURFACE) && !defined(PYCAIRO_NO_X11)
 #include <cairo-xlib.h>
 
 static PyObject *
@@ -2438,7 +2461,7 @@ PyTypeObject PycairoXlibSurface_Type = {
   0,                                  /* tp_is_gc */
   0,                                  /* tp_bases */
 };
-#endif  /* CAIRO_HAS_XLIB_SURFACE */
+#endif  /* defined(CAIRO_HAS_XLIB_SURFACE) && !defined(PYCAIRO_NO_X11) */
 
 #ifdef CAIRO_HAS_TEE_SURFACE
 #include <cairo-tee.h>

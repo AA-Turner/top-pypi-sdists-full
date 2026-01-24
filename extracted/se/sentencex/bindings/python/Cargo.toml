@@ -1,0 +1,19 @@
+[package]
+name = "sentencex-py"
+version = "0.1.9"
+edition = "2024"
+description = "Sentence segmentation library with wide language support optimized for speed and utility."
+authors = ["Santhosh Thottingal <santhosh.thottingal@gmail.com>"]
+keywords = ["nlp", "sentences", "multilingual"]
+categories = ["text-processing"]
+license = "MIT"
+repository = "https://github.com/wikimedia/sentencex"
+readme = "README.md"
+
+[lib]
+name = "sentencex"
+crate-type = ["cdylib"]
+
+[dependencies]
+sentencex = { path = "../../" }
+pyo3 = { version = "0.27", features = ["extension-module"] }

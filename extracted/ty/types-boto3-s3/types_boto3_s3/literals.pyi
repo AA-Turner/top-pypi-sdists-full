@@ -3,7 +3,7 @@ Type annotations for s3 service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_s3/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -24,6 +24,7 @@ else:
 __all__ = (
     "AnalyticsS3ExportFileFormatType",
     "ArchiveStatusType",
+    "BucketAbacStatusType",
     "BucketAccelerateStatusType",
     "BucketCannedACLType",
     "BucketExistsWaiterName",
@@ -39,6 +40,7 @@ __all__ = (
     "DataRedundancyType",
     "DeleteMarkerReplicationStatusType",
     "EncodingTypeType",
+    "EncryptionTypeType",
     "EventType",
     "ExistingObjectReplicationStatusType",
     "ExpirationStateType",
@@ -113,6 +115,7 @@ __all__ = (
 
 AnalyticsS3ExportFileFormatType = Literal["CSV"]
 ArchiveStatusType = Literal["ARCHIVE_ACCESS", "DEEP_ARCHIVE_ACCESS"]
+BucketAbacStatusType = Literal["Disabled", "Enabled"]
 BucketAccelerateStatusType = Literal["Enabled", "Suspended"]
 BucketCannedACLType = Literal["authenticated-read", "private", "public-read", "public-read-write"]
 BucketExistsWaiterName = Literal["bucket_exists"]
@@ -162,6 +165,7 @@ CompressionTypeType = Literal["BZIP2", "GZIP", "NONE"]
 DataRedundancyType = Literal["SingleAvailabilityZone", "SingleLocalZone"]
 DeleteMarkerReplicationStatusType = Literal["Disabled", "Enabled"]
 EncodingTypeType = Literal["url"]
+EncryptionTypeType = Literal["NONE", "SSE-C"]
 EventType = Literal[
     "s3:IntelligentTiering",
     "s3:LifecycleExpiration:*",
@@ -211,6 +215,7 @@ InventoryOptionalFieldType = Literal[
     "IntelligentTieringAccessTier",
     "IsMultipartUploaded",
     "LastModifiedDate",
+    "LifecycleExpirationDate",
     "ObjectAccessControlList",
     "ObjectLockLegalHoldStatus",
     "ObjectLockMode",
@@ -253,6 +258,7 @@ ObjectOwnershipType = Literal["BucketOwnerEnforced", "BucketOwnerPreferred", "Ob
 ObjectStorageClassType = Literal[
     "DEEP_ARCHIVE",
     "EXPRESS_ONEZONE",
+    "FSX_ONTAP",
     "FSX_OPENZFS",
     "GLACIER",
     "GLACIER_IR",
@@ -287,6 +293,7 @@ StorageClassAnalysisSchemaVersionType = Literal["V_1"]
 StorageClassType = Literal[
     "DEEP_ARCHIVE",
     "EXPRESS_ONEZONE",
+    "FSX_ONTAP",
     "FSX_OPENZFS",
     "GLACIER",
     "GLACIER_IR",
@@ -335,7 +342,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -405,6 +411,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -450,7 +457,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -503,7 +509,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -542,8 +547,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -578,6 +581,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -587,6 +591,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -597,6 +602,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -618,8 +626,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -634,15 +640,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -673,8 +680,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -714,6 +721,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

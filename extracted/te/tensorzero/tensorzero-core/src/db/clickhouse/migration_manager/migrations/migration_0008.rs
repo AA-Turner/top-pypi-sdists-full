@@ -1,5 +1,5 @@
-use crate::db::clickhouse::migration_manager::migration_trait::Migration;
 use crate::db::clickhouse::ClickHouseConnectionInfo;
+use crate::db::clickhouse::migration_manager::migration_trait::Migration;
 use crate::error::{Error, ErrorDetails};
 
 use super::{check_column_exists, check_table_exists, get_column_type};
@@ -161,9 +161,9 @@ impl Migration for Migration0008<'_> {
         // There shouldn't be anything in the database when this runs, so this is fine -
         // re-applying the migration after a rollback will just leave the 'errors' column unchanged
         "/* Change the timing columns back to non-nullable types */\
-            ALTER TABLE ModelInference MODIFY COLUMN response_time_ms UInt32;
-            ALTER TABLE ChatInference MODIFY COLUMN processing_time_ms UInt32;
-            ALTER TABLE JsonInference MODIFY COLUMN processing_time_ms UInt32;
+            ALTER TABLE ModelInference MODIFY COLUMN response_time_ms UInt32 DEFAULT 0;
+            ALTER TABLE ChatInference MODIFY COLUMN processing_time_ms UInt32 DEFAULT 0;
+            ALTER TABLE JsonInference MODIFY COLUMN processing_time_ms UInt32 DEFAULT 0;
             /* Drop the columns */\
             ALTER TABLE BatchRequest \
             DROP COLUMN raw_request,\

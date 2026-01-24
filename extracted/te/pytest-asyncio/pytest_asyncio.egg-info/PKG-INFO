@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-asyncio
-Version: 1.2.0
+Version: 1.3.0
 Summary: Pytest support for asyncio
 Author-email: Tin Tvrtković <tinchester@gmail.com>
 Maintainer-email: Michael Seifert <m.seifert@digitalernachschub.de>
@@ -15,7 +15,6 @@ Classifier: Framework :: AsyncIO
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -23,11 +22,11 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Testing
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: backports-asyncio-runner<2,>=1.1; python_version < "3.11"
-Requires-Dist: pytest<9,>=8.2
+Requires-Dist: pytest<10,>=8.2
 Requires-Dist: typing-extensions>=4.12; python_version < "3.13"
 Provides-Extra: docs
 Requires-Dist: sphinx>=5.3; extra == "docs"

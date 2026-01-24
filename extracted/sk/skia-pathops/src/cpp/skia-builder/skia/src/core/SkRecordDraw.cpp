@@ -5,14 +5,45 @@
  * found in the LICENSE file.
  */
 
-#include "include/core/SkBBHFactory.h"
-#include "include/core/SkImage.h"
-#include "include/private/base/SkTDArray.h"
-#include "src/core/SkCanvasPriv.h"
-#include "src/core/SkColorFilterBase.h"
-#include "src/core/SkImageFilter_Base.h"
 #include "src/core/SkRecordDraw.h"
+
+#include "include/core/SkBBHFactory.h"
+#include "include/core/SkBlendMode.h"
+#include "include/core/SkBlender.h"
+#include "include/core/SkColor.h"
+#include "include/core/SkImage.h"
+#include "include/core/SkMatrix.h"
+#include "include/core/SkMesh.h"
+#include "include/core/SkPaint.h"
+#include "include/core/SkRRect.h"
+#include "include/core/SkRSXform.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkRegion.h"
+#include "include/core/SkScalar.h"
+#include "include/core/SkShader.h"
+#include "include/core/SkString.h"
+#include "include/core/SkTextBlob.h"
+#include "include/core/SkVertices.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkPoint_impl.h"
+#include "include/private/base/SkTDArray.h"
+#include "include/private/base/SkTemplates.h"
+#include "include/private/chromium/Slug.h"
+#include "src/core/SkCanvasPriv.h"
+#include "src/core/SkDrawShadowInfo.h"
+#include "src/core/SkImageFilter_Base.h"
+#include "src/core/SkRecord.h"
+#include "src/core/SkRecords.h"
+#include "src/effects/colorfilters/SkColorFilterBase.h"
 #include "src/utils/SkPatchUtils.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <optional>
+#include <vector>
+
+class SkImageFilter;
 
 void SkRecordDraw(const SkRecord& record,
                   SkCanvas* canvas,
@@ -59,33 +90,24 @@ void SkRecordDraw(const SkRecord& record,
     }
 }
 
-void SkRecordPartialDraw(const SkRecord& record, SkCanvas* canvas,
-                         SkPicture const* const drawablePicts[], int drawableCount,
-                         int start, int stop,
-                         const SkM44& initialCTM) {
-    SkAutoCanvasRestore saveRestore(canvas, true /*save now, restore at exit*/);
-
-    stop = std::min(stop, record.count());
-    SkRecords::Draw draw(canvas, drawablePicts, nullptr, drawableCount, &initialCTM);
-    for (int i = start; i < stop; i++) {
-        record.visit(i, draw);
-    }
-}
-
 namespace SkRecords {
 
 // NoOps draw nothing.
 template <> void Draw::draw(const NoOp&) {}
 
 #define DRAW(T, call) template <> void Draw::draw(const T& r) { fCanvas->call; }
-DRAW(Flush, flush())
 DRAW(Restore, restore())
 DRAW(Save, save())
-DRAW(SaveLayer, saveLayer(SkCanvasPriv::ScaledBackdropLayer(r.bounds,
-                                                            r.paint,
-                                                            r.backdrop.get(),
-                                                            r.backdropScale,
-                                                            r.saveLayerFlags)))
+DRAW(SaveLayer,
+     saveLayer(SkCanvasPriv::ScaledBackdropLayer(
+               r.bounds,
+               r.paint,
+               r.backdrop.get(),
+               r.backdropScale,
+               r.backdropTileMode,
+               r.saveLayerFlags,
+               SkCanvas::FilterSpan{const_cast<sk_sp<SkImageFilter>*>(r.filters.data()),
+                                    r.filters.size()})))
 
 template <> void Draw::draw(const SaveBehind& r) {
     SkCanvasPriv::SaveBehind(fCanvas, r.subset);
@@ -134,26 +156,19 @@ DRAW(DrawPaint, drawPaint(r.paint))
 DRAW(DrawPath, drawPath(r.path, r.paint))
 DRAW(DrawPatch, drawPatch(r.cubics, r.colors, r.texCoords, r.bmode, r.paint))
 DRAW(DrawPicture, drawPicture(r.picture.get(), &r.matrix, r.paint))
-DRAW(DrawPoints, drawPoints(r.mode, r.count, r.pts, r.paint))
+DRAW(DrawPoints, drawPoints(r.mode, {r.pts, r.count}, r.paint))
 DRAW(DrawRRect, drawRRect(r.rrect, r.paint))
 DRAW(DrawRect, drawRect(r.rect, r.paint))
 DRAW(DrawRegion, drawRegion(r.region, r.paint))
 DRAW(DrawTextBlob, drawTextBlob(r.blob.get(), r.x, r.y, r.paint))
-#if defined(SK_GANESH)
-DRAW(DrawSlug, drawSlug(r.slug.get()))
-#else
-// Turn draw into a nop.
-template <> void Draw::draw(const DrawSlug&) {}
-#endif
-DRAW(DrawAtlas, drawAtlas(r.atlas.get(), r.xforms, r.texs, r.colors, r.count, r.mode, r.sampling,
-                          r.cull, r.paint))
+DRAW(DrawSlug, drawSlug(r.slug.get(), r.paint))
+DRAW(DrawAtlas, drawAtlas(r.atlas.get(),
+                          {r.xforms, r.count},
+                          {r.texs, r.count},
+                          {r.colors, r.colors ? r.count : 0},
+                          r.mode, r.sampling, r.cull, r.paint))
 DRAW(DrawVertices, drawVertices(r.vertices, r.bmode, r.paint))
-#ifdef SK_ENABLE_SKSL
 DRAW(DrawMesh, drawMesh(r.mesh, r.blender, r.paint))
-#else
-// Turn draw into a nop.
-template <> void Draw::draw(const DrawMesh&) {}
-#endif
 DRAW(DrawShadowRec, private_draw_shadow_rec(r.path, r.rec))
 DRAW(DrawAnnotation, drawAnnotation(r.rect, r.key.c_str(), r.value.get()))
 
@@ -278,9 +293,15 @@ private:
 
     // The bounds of these ops must be calculated when we hit the Restore
     // from the bounds of the ops in the same Save block.
-    void trackBounds(const Save&)          { this->pushSaveBlock(nullptr); }
-    void trackBounds(const SaveLayer& op)  { this->pushSaveBlock(op.paint); }
-    void trackBounds(const SaveBehind&)    { this->pushSaveBlock(nullptr); }
+    void trackBounds(const Save&) {
+        this->pushSaveBlock(nullptr, /*hasBackdropFilter=*/false);
+    }
+    void trackBounds(const SaveLayer& op) {
+        this->pushSaveBlock(op.paint, /*hasBackdropFilter=*/op.backdrop != nullptr);
+    }
+    void trackBounds(const SaveBehind&) {
+        this->pushSaveBlock(nullptr, /*hasBackdropFilter=*/false);
+    }
     void trackBounds(const Restore&) {
         const bool isSaveLayer = fSaveStack.back().paint != nullptr;
         fBounds[fCurrentOp] = this->popSaveBlock();
@@ -308,14 +329,15 @@ private:
         this->updateSaveBounds(fBounds[fCurrentOp]);
     }
 
-    void pushSaveBlock(const SkPaint* paint) {
+    void pushSaveBlock(const SkPaint* paint, bool hasBackdropFilter) {
         // Starting a new Save block.  Push a new entry to represent that.
         SaveBounds sb;
         sb.controlOps = 0;
-        // If the paint affects transparent black,
+
+        // If the paint affects transparent black, or we have a backdrop filter,
         // the bound shouldn't be smaller than the cull.
-        sb.bounds =
-            PaintMayAffectTransparentBlack(paint) ? fCullRect : Bounds::MakeEmpty();
+        bool affectsFullCullRect = hasBackdropFilter || PaintMayAffectTransparentBlack(paint);
+        sb.bounds = affectsFullCullRect ? fCullRect : Bounds::MakeEmpty();
         sb.paint = paint;
         sb.ctm = this->fCTM;
 
@@ -398,8 +420,6 @@ private:
         }
     }
 
-    Bounds bounds(const Flush&) const { return fCullRect; }
-
     Bounds bounds(const DrawPaint&) const { return fCullRect; }
     Bounds bounds(const DrawBehind&) const { return fCullRect; }
     Bounds bounds(const NoOp&)  const { return Bounds::MakeEmpty(); }    // NoOps don't draw.
@@ -435,8 +455,7 @@ private:
                                            : this->adjustAndMap(op.path.getBounds(), &op.paint);
     }
     Bounds bounds(const DrawPoints& op) const {
-        SkRect dst;
-        dst.setBounds(op.pts, op.count);
+        SkRect dst = SkRect::BoundsOrEmpty({op.pts, op.count});
 
         // Pad the bounding box a little to make sure hairline points' bounds aren't empty.
         SkScalar stroke = std::max(op.paint.getStrokeWidth(), 0.01f);
@@ -445,19 +464,14 @@ private:
         return this->adjustAndMap(dst, &op.paint);
     }
     Bounds bounds(const DrawPatch& op) const {
-        SkRect dst;
-        dst.setBounds(op.cubics, SkPatchUtils::kNumCtrlPts);
+        const auto dst = SkRect::BoundsOrEmpty({op.cubics, (size_t)SkPatchUtils::kNumCtrlPts});
         return this->adjustAndMap(dst, &op.paint);
     }
     Bounds bounds(const DrawVertices& op) const {
         return this->adjustAndMap(op.vertices->bounds(), &op.paint);
     }
     Bounds bounds(const DrawMesh& op) const {
-#ifdef SK_ENABLE_SKSL
         return this->adjustAndMap(op.mesh.bounds(), &op.paint);
-#else
-        return SkRect::MakeEmpty();
-#endif
     }
     Bounds bounds(const DrawAtlas& op) const {
         if (op.cull) {
@@ -487,16 +501,10 @@ private:
         return this->adjustAndMap(dst, &op.paint);
     }
 
-#if defined(SK_GANESH)
     Bounds bounds(const DrawSlug& op) const {
         SkRect dst = op.slug->sourceBoundsWithOrigin();
-        return this->adjustAndMap(dst, &op.slug->initialPaint());
+        return this->adjustAndMap(dst, &op.paint);
     }
-#else
-    Bounds bounds(const DrawSlug& op) const {
-        return SkRect::MakeEmpty();
-    }
-#endif
 
     Bounds bounds(const DrawDrawable& op) const {
         return this->adjustAndMap(op.worstCaseBounds, nullptr);
@@ -506,10 +514,7 @@ private:
         return this->adjustAndMap(op.rect, nullptr);
     }
     Bounds bounds(const DrawEdgeAAQuad& op) const {
-        SkRect bounds = op.rect;
-        if (op.clip) {
-            bounds.setBounds(op.clip, 4);
-        }
+        const auto bounds = op.clip ? SkRect::BoundsOrEmpty({op.clip, 4}) : op.rect;
         return this->adjustAndMap(bounds, nullptr);
     }
     Bounds bounds(const DrawEdgeAAImageSet& op) const {
@@ -518,7 +523,7 @@ private:
         for (int i = 0; i < op.count; ++i) {
             SkRect entryBounds = op.set[i].fDstRect;
             if (op.set[i].fHasClip) {
-                entryBounds.setBounds(op.dstClips + clipIndex, 4);
+                entryBounds = SkRect::BoundsOrEmpty({op.dstClips + clipIndex, 4});
                 clipIndex += 4;
             }
             if (op.set[i].fMatrixIndex >= 0) {
@@ -544,11 +549,11 @@ private:
 
     bool adjustForSaveLayerPaints(SkRect* rect, int savesToIgnore = 0) const {
         for (int i = fSaveStack.size() - 1 - savesToIgnore; i >= 0; i--) {
-            SkMatrix inverse;
-            if (!fSaveStack[i].ctm.invert(&inverse)) {
+            auto inverse = fSaveStack[i].ctm.invert();
+            if (!inverse) {
                 return false;
             }
-            inverse.mapRect(rect);
+            inverse->mapRect(rect);
             if (!AdjustForPaint(fSaveStack[i].paint, rect)) {
                 return false;
             }

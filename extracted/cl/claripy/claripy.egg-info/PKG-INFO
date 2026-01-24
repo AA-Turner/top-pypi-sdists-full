@@ -1,10 +1,9 @@
 Metadata-Version: 2.4
 Name: claripy
-Version: 9.2.175
+Version: 9.2.194
 Summary: An abstraction layer for constraint solvers
-License: BSD-2-Clause
+License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://github.com/angr/claripy
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10

@@ -2,6 +2,7 @@ import asyncio
 import os
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 import langgraph.version
 import orjson
@@ -11,8 +12,9 @@ import langgraph_api.config as config
 from langgraph_api.auth.custom import get_auth_instance
 from langgraph_api.config import (
     LANGGRAPH_CLOUD_LICENSE_KEY,
-    LANGSMITH_API_KEY,
     LANGSMITH_AUTH_ENDPOINT,
+    LANGSMITH_CONTROL_PLANE_API_KEY,
+    LANGSMITH_LICENSE_REQUIRED_CLAIMS,
     USES_CUSTOM_APP,
     USES_CUSTOM_AUTH,
     USES_INDEXING,
@@ -60,7 +62,7 @@ NODE_COUNTER = 0
 FROM_TIMESTAMP = datetime.now(UTC).isoformat()
 
 # Beacon endpoint for license key submissions
-BEACON_ENDPOINT = "https://api.smith.langchain.com/v1/metadata/submit"
+BEACON_ENDPOINT = "https://beacon.langchain.com/v1/beacon/metadata/submit"
 
 # LangChain auth endpoint for API key submissions
 LANGCHAIN_METADATA_ENDPOINT = None
@@ -121,20 +123,57 @@ async def metadata_loop() -> None:
         from langgraph_api import __version__
     except ImportError:
         __version__ = None
-    if not LANGGRAPH_CLOUD_LICENSE_KEY and not LANGSMITH_API_KEY:
+    if not LANGGRAPH_CLOUD_LICENSE_KEY and not LANGSMITH_CONTROL_PLANE_API_KEY:
+        logger.info(
+            "No license key or control plane API key set, skipping metadata loop"
+        )
         return
+    lg_version = langgraph.version.__version__
 
     if (
         LANGGRAPH_CLOUD_LICENSE_KEY
         and not LANGGRAPH_CLOUD_LICENSE_KEY.startswith("lcl_")
-        and not LANGSMITH_API_KEY
+        and not LANGSMITH_CONTROL_PLANE_API_KEY
     ):
         logger.info("Running in air-gapped mode, skipping metadata loop")
         return
 
-    logger.info("Starting metadata loop")
+    # TODO: This is a temporary "hack". A user could inadvertently include
+    # 'agent_builder_enabled' in LANGSMITH_LICENSE_REQUIRED_CLAIMS for a
+    # non-Agent Builder self-hosted deployment. If the 'agent_builder_enabled'
+    # entitlement is enabled, then this would bypass the metadata loop.
+    #
+    # If the 'agent_builder_enabled' entitlement is disabled, then this is ok
+    # because the license key validation would fail and the app would not start.
+    if (
+        LANGGRAPH_CLOUD_LICENSE_KEY
+        and "agent_builder_enabled" in LANGSMITH_LICENSE_REQUIRED_CLAIMS
+    ):
+        logger.info("Skipping metadata loop for self-hosted Agent Builder")
+        return
+
+    logger.info("Starting metadata loop", endpoint=LANGCHAIN_METADATA_ENDPOINT)
 
     global RUN_COUNTER, NODE_COUNTER, FROM_TIMESTAMP
+    base_tags = _ensure_strings(
+        # Tag values must be strings.
+        {
+            "langgraph.python.version": lg_version,
+            "langgraph_api.version": __version__ or "",
+            "langgraph.platform.revision": REVISION or "",
+            "langgraph.platform.variant": VARIANT or "",
+            "langgraph.platform.host": HOST,
+            "langgraph.platform.tenant_id": TENANT_ID or "",
+            "langgraph.platform.project_id": PROJECT_ID or "",
+            "langgraph.platform.plan": PLAN,
+            # user app features
+            "user_app.uses_indexing": USES_INDEXING or "",
+            "user_app.uses_custom_app": USES_CUSTOM_APP or "",
+            "user_app.uses_custom_auth": USES_CUSTOM_AUTH or "",
+            "user_app.uses_thread_ttl": USES_THREAD_TTL or "",
+            "user_app.uses_store_ttl": USES_STORE_TTL or "",
+        }
+    )
     while True:
         # because we always read and write from coroutines in main thread
         # we don't need a lock as long as there's no awaits in this block
@@ -150,27 +189,10 @@ async def metadata_loop() -> None:
         base_payload = {
             "from_timestamp": from_timestamp,
             "to_timestamp": to_timestamp,
-            "tags": {
-                # Tag values must be strings.
-                "langgraph.python.version": langgraph.version.__version__,
-                "langgraph_api.version": __version__ or "",
-                "langgraph.platform.revision": REVISION or "",
-                "langgraph.platform.variant": VARIANT or "",
-                "langgraph.platform.host": HOST,
-                "langgraph.platform.tenant_id": TENANT_ID or "",
-                "langgraph.platform.project_id": PROJECT_ID or "",
-                "langgraph.platform.plan": PLAN,
-                # user app features
-                "user_app.uses_indexing": str(USES_INDEXING or ""),
-                "user_app.uses_custom_app": str(USES_CUSTOM_APP or ""),
-                "user_app.uses_custom_auth": str(USES_CUSTOM_AUTH),
-                "user_app.uses_thread_ttl": str(USES_THREAD_TTL),
-                "user_app.uses_store_ttl": str(USES_STORE_TTL),
-                **usage_tags,
-            },
+            "tags": base_tags | _ensure_strings(usage_tags),
             "measures": {
-                "langgraph.platform.runs": runs,
-                "langgraph.platform.nodes": nodes,
+                "langgraph.platform.runs": int(runs),
+                "langgraph.platform.nodes": int(nodes),
                 **usage_measures,
             },
             "logs": [],
@@ -196,7 +218,11 @@ async def metadata_loop() -> None:
                     body=orjson.dumps(beacon_payload),
                     headers={"Content-Type": "application/json"},
                 )
-                await logger.ainfo("Successfully submitted metadata to beacon endpoint")
+                await logger.ainfo(
+                    "Successfully submitted metadata to beacon endpoint",
+                    n_runs=runs,
+                    n_nodes=nodes,
+                )
             except Exception as e:
                 submissions_failed.append("beacon")
                 await logger.awarning(
@@ -204,10 +230,10 @@ async def metadata_loop() -> None:
                 )
 
         # 2. Send to langchain auth endpoint if API key is set
-        if LANGSMITH_API_KEY and LANGCHAIN_METADATA_ENDPOINT:
+        if LANGSMITH_CONTROL_PLANE_API_KEY and LANGCHAIN_METADATA_ENDPOINT:
             langchain_payload = {
                 **base_payload,
-                "api_key": LANGSMITH_API_KEY,
+                "api_key": LANGSMITH_CONTROL_PLANE_API_KEY,
             }
             submissions_attempted.append("langchain")
             try:
@@ -217,7 +243,11 @@ async def metadata_loop() -> None:
                     body=orjson.dumps(langchain_payload),
                     headers={"Content-Type": "application/json"},
                 )
-                logger.info("Successfully submitted metadata to LangSmith instance")
+                logger.info(
+                    "Successfully submitted metadata to LangSmith instance",
+                    n_runs=runs,
+                    n_nodes=nodes,
+                )
             except Exception as e:
                 submissions_failed.append("langchain")
                 await logger.awarning(
@@ -238,3 +268,7 @@ async def metadata_loop() -> None:
             )
 
         await asyncio.sleep(INTERVAL)
+
+
+def _ensure_strings(payload: dict[str, Any]) -> dict[str, Any]:
+    return {k: "" if v is None else str(v) for k, v in payload.items()}

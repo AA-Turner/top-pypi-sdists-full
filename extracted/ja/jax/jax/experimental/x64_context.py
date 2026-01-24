@@ -14,66 +14,23 @@
 
 """Context managers for toggling X64 mode.
 
-**Experimental: please give feedback, and expect changes.**
+**Deprecated: use :func:`jax.enable_x64` instead.**
 """
 
-# This file provides
-#  1. a jax.experimental API endpoint;
-#  2. the `disable_x64` wrapper.
-# TODO(jakevdp): remove this file, and consider removing `disable_x64` for
-# uniformity
+_deprecations = {
+  # Remove in v0.10.0
+  "disable_x64": (
+    ("jax.experimental.x64_context.disable_x64 was removed in JAX v0.9.0;"
+     " use jax.enable_x64(False) instead."),
+    None
+  ),
+  "enable_x64": (
+    ("jax.experimental.x64_context.enable_x64 was removed in JAX v0.9.0;"
+     " use jax.enable_x64(True) instead."),
+    None
+  ),
+}
 
-from contextlib import contextmanager
-from jax._src import config
-
-@contextmanager
-def enable_x64(new_val: bool = True):
-  """Experimental context manager to temporarily enable X64 mode.
-
-  .. warning::
-
-    This context manager remains experimental because it is fundamentally broken
-    and can result in unexpected behavior, particularly when used in conjunction
-    with JAX transformations like :func:`jax.jit`, :func:`jax.vmap`, :func:`jax.grad`,
-    and others. See https://github.com/jax-ml/jax/issues/5982 for details.
-
-  Usage::
-
-    >>> x = np.arange(5, dtype='float64')
-    >>> with enable_x64():
-    ...   print(jnp.asarray(x).dtype)
-    ...
-    float64
-
-  See Also
-  --------
-  jax.experimental.disable_x64 : temporarily disable X64 mode.
-  """
-  with config.enable_x64(new_val):
-    yield
-
-@contextmanager
-def disable_x64():
-  """Experimental context manager to temporarily disable X64 mode.
-
-  .. warning::
-
-    This context manager remains experimental because it is fundamentally broken
-    and can result in unexpected behavior, particularly when used in conjunction
-    with JAX transformations like :func:`jax.jit`, :func:`jax.vmap`, :func:`jax.grad`,
-    and others. See https://github.com/jax-ml/jax/issues/5982 for details.
-
-  Usage::
-
-    >>> x = np.arange(5, dtype='float64')
-    >>> with disable_x64():
-    ...   print(jnp.asarray(x).dtype)
-    ...
-    float32
-
-  See Also
-  --------
-  jax.experimental.enable_x64 : temporarily enable X64 mode.
-  """
-  with config.enable_x64(False):
-    yield
+from jax._src.deprecations import deprecation_getattr as _deprecation_getattr
+__getattr__ = _deprecation_getattr(__name__, _deprecations)
+del _deprecation_getattr

@@ -21,6 +21,12 @@ import sys
 import nested_diff
 import nested_diff.handlers
 
+HELP_EPILOG = """\
+examples:
+  Print version:
+    %(prog)s --version
+"""
+
 
 class App:
     """Base class for command line tools."""
@@ -49,7 +55,10 @@ class App:
         """
         self.override_excepthook()  # ASAP, but overridable by descendants
 
-        self.argparser = self.get_argparser(description=self.__doc__)
+        self.argparser = self.get_argparser(
+            description=self.__doc__,
+            epilog=getattr(sys.modules[self.__module__], 'HELP_EPILOG', None),
+        )
         self.args = self.argparser.parse_args(args=args)
 
     @staticmethod
@@ -57,14 +66,17 @@ class App:
         if opts is None:
             return {}
 
-        import json
+        import json  # noqa: PLC0415
 
         return json.loads(opts)
 
     @classmethod
     def cli(cls):
         """Cli tool entry point."""
-        return cls().run()
+        try:
+            return cls().run()
+        except KeyboardInterrupt:
+            return 2  # pragma nocover
 
     @property
     def dumper(self):
@@ -79,7 +91,7 @@ class App:
 
             return self.__dumper
 
-    def get_argparser(self, description=None):
+    def get_argparser(self, description=None, epilog=None):
         """Return complete CLI argument parser."""
         return argparse.ArgumentParser(
             description=description,
@@ -87,6 +99,8 @@ class App:
                 self.get_optional_args_parser(),
                 self.get_positional_args_parser(),
             ),
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog=epilog,
         )
 
     def get_optional_args_parser(self):
@@ -160,17 +174,12 @@ class App:
 
         raise RuntimeError(f'Unsupported output format: {fmt}')
 
-    def guess_fmt(
-        self,
-        fp,
-        default,
-        ignore_fps=(sys.stdin, sys.stdout, sys.stderr),
-    ):
+    def guess_fmt(self, fp, default):
         """Guess format of a file object according it's extension."""
-        if fp in ignore_fps:
-            return default
-
-        fmt = os.path.splitext(fp.name)[-1].split('.')[-1].lower()
+        try:
+            fmt = os.path.splitext(fp.name)[-1].split('.')[-1].lower()
+        except Exception:  # noqa: BLE001
+            fmt = default
 
         if fmt == 'yml':
             fmt = 'yaml'
@@ -345,7 +354,7 @@ class JsonDumper(Dumper):
         """
         super().__init__()
 
-        import json
+        import json  # noqa: PLC0415
 
         self.encoder = json.JSONEncoder(**self.get_opts(kwargs))
 
@@ -383,7 +392,7 @@ class JsonLoader(Loader):
         """
         super().__init__()
 
-        import json
+        import json  # noqa: PLC0415
 
         self.decoder = json.JSONDecoder(**self.get_opts(kwargs))
 
@@ -404,8 +413,8 @@ class IniDumper(Dumper):
         """
         super().__init__()
 
-        import configparser
-        import io
+        import configparser  # noqa: PLC0415
+        import io  # noqa: PLC0415
 
         self.encoder = configparser.ConfigParser(**self.get_opts(kwargs))
         self.stringio = io.StringIO()
@@ -430,7 +439,7 @@ class IniLoader(Loader):
         """
         super().__init__()
 
-        import configparser
+        import configparser  # noqa: PLC0415
 
         self.decoder = configparser.ConfigParser(**kwargs)
 
@@ -457,7 +466,7 @@ class PprintDumper(Dumper):
         """Initialize dumper."""
         super().__init__()
 
-        import pprint
+        import pprint  # noqa: PLC0415
 
         self.codec = pprint.PrettyPrinter(**self.get_opts(kwargs))
 
@@ -495,7 +504,7 @@ class TomlDumper(Dumper):
         """Initialize dumper."""
         super().__init__()
 
-        import tomli_w
+        import tomli_w  # noqa: PLC0415
 
         self.codec = tomli_w
 
@@ -512,9 +521,9 @@ class TomlLoader(Loader):
         super().__init__()
 
         if sys.version_info >= (3, 11):
-            import tomllib  # pragma nocover
+            import tomllib  # pragma nocover # noqa: PLC0415
         else:
-            import tomli as tomllib  # pragma nocover
+            import tomli as tomllib  # pragma nocover # noqa: PLC0415
 
         self.codec = tomllib
 
@@ -535,12 +544,12 @@ class YamlDumper(Dumper):
         """
         super().__init__()
 
-        import yaml
+        import yaml  # noqa: PLC0415
 
         try:
-            from yaml import CSafeDumper as ImportedYamlDumper
+            from yaml import CSafeDumper as ImportedYamlDumper  # noqa: PLC0415
         except ImportError:
-            from yaml import SafeDumper as ImportedYamlDumper
+            from yaml import SafeDumper as ImportedYamlDumper  # noqa: PLC0415
 
         class _YamlDumper(ImportedYamlDumper):
             def represent_scalar(self, tag, value, style=None):
@@ -588,16 +597,18 @@ class YamlLoader(Loader):
         """
         super().__init__()
 
-        import yaml
+        import yaml  # noqa: PLC0415
 
         try:
-            from yaml import CSafeLoader as YamlLoader
+            from yaml import CSafeLoader as YamlLoader  # noqa: PLC0415
         except ImportError:
-            from yaml import SafeLoader as YamlLoader
+            from yaml import SafeLoader as YamlLoader  # noqa: PLC0415
 
-        from yaml.nodes import MappingNode as YamlMappingNode
-        from yaml.nodes import ScalarNode as YamlScalarNode
-        from yaml.nodes import SequenceNode as YamlSequenceNode
+        from yaml.nodes import (  # noqa: PLC0415
+            MappingNode as YamlMappingNode,
+            ScalarNode as YamlScalarNode,
+            SequenceNode as YamlSequenceNode,
+        )
 
         self.opts = self.get_opts(kwargs)
         self.yaml = yaml
@@ -621,7 +632,57 @@ class YamlLoader(Loader):
 
     def decode(self, data):
         """Parse YAML string."""
-        return self.yaml.load(data, Loader=self.yaml_loader, **self.opts)
+        items = list(
+            self.yaml.load_all(data, Loader=self.yaml_loader, **self.opts),
+        )
+
+        if len(items) == 1:
+            return items[0]
+
+        return ListOfDocuments(items)
+
+
+class ListOfDocuments:
+    """Wrapper to represent bunch of documents like YAML stream."""
+
+    def __init__(self, items):
+        """Initialize wrapper.
+
+        Args:
+            items: list of documents.
+
+        """
+        self.items = items
+
+    def __repr__(self):
+        """Repr for wrapper."""
+        return f'ListOfDocuments({self.items})'
+
+
+class ListOfDocumentsHandler(nested_diff.handlers.ListHandler):
+    """ListOfDocuments handler."""
+
+    extension_id = 'nested_diff.ListOfDocuments'
+    handled_type = ListOfDocuments
+
+    def diff(self, differ, a, b):
+        """Calculate diff for two ListOfDocuments objects.
+
+        Args:
+            differ: nested_diff.Differ object.
+            a: First object to diff.
+            b: Second object to diff.
+
+        Returns:
+            Tuple: equality flag and nested diff.
+
+        """
+        equal, diff = differ.diff(a.items, b.items)
+
+        if diff:
+            diff['E'] = self.extension_id
+
+        return equal, diff
 
 
 class YamlNode:

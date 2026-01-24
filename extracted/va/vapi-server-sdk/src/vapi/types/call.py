@@ -13,7 +13,6 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 from .analysis import Analysis
 from .artifact import Artifact
 from .artifact_plan import ArtifactPlan
-from .assistant_overrides import AssistantOverrides
 from .call_costs_item import CallCostsItem
 from .call_destination import CallDestination
 from .call_ended_reason import CallEndedReason
@@ -22,6 +21,7 @@ from .call_phone_call_provider import CallPhoneCallProvider
 from .call_phone_call_transport import CallPhoneCallTransport
 from .call_status import CallStatus
 from .call_type import CallType
+from .compliance import Compliance
 from .cost_breakdown import CostBreakdown
 from .create_customer_dto import CreateCustomerDto
 from .create_squad_dto import CreateSquadDto
@@ -147,6 +147,11 @@ class Call(UncheckedBaseModel):
     These are the artifacts created from the call. Configure in `assistant.artifactPlan`.
     """
 
+    compliance: typing.Optional[Compliance] = pydantic.Field(default=None)
+    """
+    This is the compliance of the call. Configure in `assistant.compliancePlan`.
+    """
+
     phone_call_provider_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="phoneCallProviderId")
     ] = pydantic.Field(default=None)
@@ -186,7 +191,7 @@ class Call(UncheckedBaseModel):
     """
 
     assistant_overrides: typing_extensions.Annotated[
-        typing.Optional[AssistantOverrides], FieldMetadata(alias="assistantOverrides")
+        typing.Optional["AssistantOverrides"], FieldMetadata(alias="assistantOverrides")
     ] = pydantic.Field(default=None)
     """
     These are the overrides for the `assistant` or `assistantId`'s settings and template variables.
@@ -212,6 +217,14 @@ class Call(UncheckedBaseModel):
     - Assistant, use `assistant` or `assistantId`
     - Squad, use `squad` or `squadId`
     - Workflow, use `workflow` or `workflowId`
+    """
+
+    squad_overrides: typing_extensions.Annotated[
+        typing.Optional["AssistantOverrides"], FieldMetadata(alias="squadOverrides")
+    ] = pydantic.Field(default=None)
+    """
+    These are the overrides for the `squad` or `squadId`'s member settings and template variables.
+    This will apply to all members of the squad.
     """
 
     workflow_id: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="workflowId")] = pydantic.Field(
@@ -306,6 +319,7 @@ class Call(UncheckedBaseModel):
 
 from .anthropic_model import AnthropicModel  # noqa: E402, F401, I001
 from .anyscale_model import AnyscaleModel  # noqa: E402, F401, I001
+from .assistant_overrides import AssistantOverrides  # noqa: E402, F401, I001
 from .call_hook_assistant_speech_interrupted import CallHookAssistantSpeechInterrupted  # noqa: E402, F401, I001
 from .call_hook_call_ending import CallHookCallEnding  # noqa: E402, F401, I001
 from .call_hook_customer_speech_interrupted import CallHookCustomerSpeechInterrupted  # noqa: E402, F401, I001

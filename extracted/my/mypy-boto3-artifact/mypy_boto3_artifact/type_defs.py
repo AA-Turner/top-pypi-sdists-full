@@ -28,11 +28,6 @@ from .literals import (
     UploadStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -52,6 +47,9 @@ __all__ = (
     "ListCustomerAgreementsRequestPaginateTypeDef",
     "ListCustomerAgreementsRequestTypeDef",
     "ListCustomerAgreementsResponseTypeDef",
+    "ListReportVersionsRequestPaginateTypeDef",
+    "ListReportVersionsRequestTypeDef",
+    "ListReportVersionsResponseTypeDef",
     "ListReportsRequestPaginateTypeDef",
     "ListReportsRequestTypeDef",
     "ListReportsResponseTypeDef",
@@ -81,8 +79,8 @@ CustomerAgreementSummaryTypeDef = TypedDict(
         "effectiveEnd": NotRequired[datetime],
         "state": NotRequired[CustomerAgreementStateType],
         "description": NotRequired[str],
-        "acceptanceTerms": NotRequired[List[str]],
-        "terminateTerms": NotRequired[List[str]],
+        "acceptanceTerms": NotRequired[list[str]],
+        "terminateTerms": NotRequired[list[str]],
         "type": NotRequired[AgreementTypeType],
     },
 )
@@ -91,7 +89,7 @@ CustomerAgreementSummaryTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -150,7 +148,8 @@ class ListCustomerAgreementsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class ListReportsRequestTypeDef(TypedDict):
+class ListReportVersionsRequestTypeDef(TypedDict):
+    reportId: str
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -177,6 +176,11 @@ ReportSummaryTypeDef = TypedDict(
 )
 
 
+class ListReportsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class PutAccountSettingsRequestTypeDef(TypedDict):
     notificationSubscriptionStatus: NotRequired[NotificationSubscriptionStatusType]
 
@@ -198,7 +202,7 @@ class GetTermForReportResponseTypeDef(TypedDict):
 
 
 class ListCustomerAgreementsResponseTypeDef(TypedDict):
-    customerAgreements: List[CustomerAgreementSummaryTypeDef]
+    customerAgreements: list[CustomerAgreementSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -217,11 +221,22 @@ class ListCustomerAgreementsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListReportVersionsRequestPaginateTypeDef(TypedDict):
+    reportId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListReportsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListReportVersionsResponseTypeDef(TypedDict):
+    reports: list[ReportSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ListReportsResponseTypeDef(TypedDict):
-    reports: List[ReportSummaryTypeDef]
+    reports: list[ReportSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

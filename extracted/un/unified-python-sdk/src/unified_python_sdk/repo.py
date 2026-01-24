@@ -60,6 +60,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_branch, False, False, "json", shared.RepoBranch
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -76,7 +77,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createRepoBranch",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -152,6 +153,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_branch, False, False, "json", shared.RepoBranch
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -168,7 +170,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createRepoBranch",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -244,6 +246,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_commit, False, False, "json", shared.RepoCommit
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -260,7 +263,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createRepoCommit",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -336,6 +339,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_commit, False, False, "json", shared.RepoCommit
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -352,7 +356,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createRepoCommit",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -428,6 +432,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_organization, False, False, "json", shared.RepoOrganization
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -444,7 +449,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createRepoOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -520,6 +525,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_organization, False, False, "json", shared.RepoOrganization
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -536,7 +542,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createRepoOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -612,6 +618,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_pullrequest, False, False, "json", shared.RepoPullrequest
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -628,7 +635,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createRepoPullrequest",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -704,6 +711,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_pullrequest, False, False, "json", shared.RepoPullrequest
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -720,7 +728,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createRepoPullrequest",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -796,6 +804,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_repository, False, False, "json", shared.RepoRepository
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -812,7 +821,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createRepoRepository",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -888,6 +897,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_repository, False, False, "json", shared.RepoRepository
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -904,7 +914,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createRepoRepository",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -976,6 +986,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -992,7 +1003,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getRepoBranch",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1064,6 +1075,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1080,7 +1092,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getRepoBranch",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1152,6 +1164,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1168,7 +1181,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getRepoCommit",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1240,6 +1253,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1256,7 +1270,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getRepoCommit",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1329,6 +1343,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1345,7 +1360,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getRepoOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1418,6 +1433,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1434,7 +1450,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getRepoOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1507,6 +1523,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1523,7 +1540,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getRepoPullrequest",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1596,6 +1613,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1612,7 +1630,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getRepoPullrequest",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1685,6 +1703,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1701,7 +1720,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getRepoRepository",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1774,6 +1793,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1790,7 +1810,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getRepoRepository",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1863,6 +1883,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1879,7 +1900,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listRepoBranches",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1952,6 +1973,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1968,7 +1990,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listRepoBranches",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2041,6 +2063,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2057,7 +2080,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listRepoCommits",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2130,6 +2153,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2146,7 +2170,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listRepoCommits",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2219,6 +2243,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2235,7 +2260,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listRepoOrganizations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2308,6 +2333,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2324,7 +2350,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listRepoOrganizations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2397,6 +2423,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2413,7 +2440,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listRepoPullrequests",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2486,6 +2513,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2502,7 +2530,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listRepoPullrequests",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2575,6 +2603,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2591,7 +2620,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listRepoRepositories",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2664,6 +2693,7 @@ class Repo(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2680,7 +2710,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listRepoRepositories",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2756,6 +2786,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_branch, False, False, "json", shared.RepoBranch
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2772,7 +2803,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchRepoBranch",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2848,6 +2879,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_branch, False, False, "json", shared.RepoBranch
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2864,7 +2896,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchRepoBranch",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2940,6 +2972,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_commit, False, False, "json", shared.RepoCommit
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2956,7 +2989,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchRepoCommit",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3032,6 +3065,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_commit, False, False, "json", shared.RepoCommit
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3048,7 +3082,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchRepoCommit",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3124,6 +3158,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_organization, False, False, "json", shared.RepoOrganization
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3140,7 +3175,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchRepoOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3216,6 +3251,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_organization, False, False, "json", shared.RepoOrganization
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3232,7 +3268,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchRepoOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3308,6 +3344,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_pullrequest, False, False, "json", shared.RepoPullrequest
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3324,7 +3361,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchRepoPullrequest",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3400,6 +3437,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_pullrequest, False, False, "json", shared.RepoPullrequest
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3416,7 +3454,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchRepoPullrequest",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3492,6 +3530,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_repository, False, False, "json", shared.RepoRepository
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3508,7 +3547,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchRepoRepository",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3584,6 +3623,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_repository, False, False, "json", shared.RepoRepository
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3600,7 +3640,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchRepoRepository",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3673,6 +3713,7 @@ class Repo(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3689,7 +3730,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeRepoBranch",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3767,6 +3808,7 @@ class Repo(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3783,7 +3825,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeRepoBranch",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3861,6 +3903,7 @@ class Repo(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3877,7 +3920,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeRepoCommit",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3955,6 +3998,7 @@ class Repo(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3971,7 +4015,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeRepoCommit",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4049,6 +4093,7 @@ class Repo(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4065,7 +4110,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeRepoOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4143,6 +4188,7 @@ class Repo(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4159,7 +4205,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeRepoOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4237,6 +4283,7 @@ class Repo(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4253,7 +4300,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeRepoPullrequest",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4331,6 +4378,7 @@ class Repo(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4347,7 +4395,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeRepoPullrequest",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4425,6 +4473,7 @@ class Repo(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4441,7 +4490,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeRepoRepository",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4519,6 +4568,7 @@ class Repo(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4535,7 +4585,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeRepoRepository",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4616,6 +4666,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_branch, False, False, "json", shared.RepoBranch
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4632,7 +4683,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateRepoBranch",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4708,6 +4759,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_branch, False, False, "json", shared.RepoBranch
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4724,7 +4776,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateRepoBranch",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4800,6 +4852,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_commit, False, False, "json", shared.RepoCommit
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4816,7 +4869,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateRepoCommit",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4892,6 +4945,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_commit, False, False, "json", shared.RepoCommit
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4908,7 +4962,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateRepoCommit",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4984,6 +5038,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_organization, False, False, "json", shared.RepoOrganization
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5000,7 +5055,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateRepoOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5076,6 +5131,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_organization, False, False, "json", shared.RepoOrganization
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5092,7 +5148,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateRepoOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5168,6 +5224,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_pullrequest, False, False, "json", shared.RepoPullrequest
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5184,7 +5241,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateRepoPullrequest",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5260,6 +5317,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_pullrequest, False, False, "json", shared.RepoPullrequest
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5276,7 +5334,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateRepoPullrequest",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5352,6 +5410,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_repository, False, False, "json", shared.RepoRepository
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5368,7 +5427,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateRepoRepository",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5444,6 +5503,7 @@ class Repo(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.repo_repository, False, False, "json", shared.RepoRepository
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5460,7 +5520,7 @@ class Repo(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateRepoRepository",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

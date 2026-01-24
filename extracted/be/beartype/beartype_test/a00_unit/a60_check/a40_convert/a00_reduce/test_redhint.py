@@ -7,8 +7,21 @@
 Project-wide **PEP-agnostic type hint reduction** unit tests.
 
 This submodule unit tests the public API of the private
-:mod:`beartype._check.convert._reduce.redhint` submodule.
+:mod:`beartype._check.convert._reduce.redmain` submodule.
 '''
+
+# ....................{ TODO                               }....................
+#FIXME: We've currently split some PEP-specific hint_reduce() unit tests into
+#PEP-specific submodules of this subpackage (e.g., "pep.test_redpep695"). The
+#the test_reduce() unit test defined below is dramatically superior, however.
+#Why? Internal dataclass machinery uniquely implemented in this test automates
+#away associated unpleasantness. Thus, for maintainability, *ALL* of those
+#submodules should be:
+#* Integrated into the sole test_reduce_hint() unit test defined below. Yes,
+#  this test will begin to become uncomfortably long. Who cares? Well,
+#  technically, *WE* care -- but not that much. Long tests can later be
+#  subdivided. The critical point is that test_reduce() machinery is superior.
+#* Subsequently removed.
 
 # ....................{ IMPORTS                            }....................
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -18,36 +31,41 @@ This submodule unit tests the public API of the private
 from beartype_test._util.mark.pytmark import ignore_warnings
 
 # ....................{ TESTS ~ reducers                   }....................
+#FIXME: This unit test is getting a bit long in the tooth. Consider splitting
+#into smaller PEP-specific unit tests using the same pseudo-fixture approach as
+#implemented by the "beartype_test.a00_unit.data.hint.pep.data_pepfixture" submodule.
 def test_reduce_hint() -> None:
     '''
     Test the private
-    :func:`beartype._check.convert._reduce.redhint.reduce_hint` reducer.
+    :func:`beartype._check.convert._reduce.redmain.reduce_hint` reducer.
     '''
 
     # ..................{ IMPORTS                            }..................
     # Defer test-specific imports.
-    from beartype.roar import BeartypeDecorHintNonpepNumpyException
     from beartype.typing import (
         Annotated,
     )
     from beartype.vale import IsEqual
     from beartype._cave._cavefast import NoneType
-    from beartype._check.convert._reduce.redhint import reduce_hint
-    from beartype._check.metadata.hint.hintsane import HintSane
-    from beartype._conf.confmain import BeartypeConf
+    from beartype._check.convert._reduce.redmain import reduce_hint
     from beartype._conf.confcommon import BEARTYPE_CONF_DEFAULT
+    from beartype._conf.confmain import BeartypeConf
     from beartype._data.cls.datacls import TYPES_PEP484_GENERIC_IO
-    from beartype._data.hint.datahinttyping import (
+    from beartype._data.typing.datatyping import (
         Pep484TowerComplex,
         Pep484TowerFloat,
+        TypeException,
     )
-    from beartype._data.hint.pep.sign.datapepsigns import HintSignAnnotated
+    from beartype._data.typing.datatypingport import Hint
+    from beartype._data.hint.sign.datahintsigns import HintSignAnnotated
+    from beartype._data.kind.datakindiota import SENTINEL
+    from beartype._util.hint.pep.proposal.pep484604 import (
+        make_hint_pep484604_union)
     from beartype._util.hint.pep.proposal.pep593 import is_hint_pep593
     from beartype._util.hint.pep.utilpepsign import get_hint_pep_sign
-    # from beartype_test.a00_unit.data.hint.pep.proposal.data_pep484 import (
-    #     T_int,
-    #     T_str_or_bytes,
-    # )
+    from beartype._util.py.utilpyversion import IS_PYTHON_AT_LEAST_3_11
+    from beartype_test.a00_unit.data.pep.data_pep484 import (
+        T_str_or_bytes)
     from beartype_test._util.module.pytmodtest import is_package_numpy
     from dataclasses import InitVar
     from pytest import raises
@@ -55,67 +73,321 @@ def test_reduce_hint() -> None:
     # Intentionally import PEP 484-specific type hint factories.
     from typing import Protocol
 
+    # ..................{ CLASSES                            }..................
+    class HintReductionValid(object):
+        '''
+        **Valid type hint reduction case** (i.e., dataclass encapsulating the
+        valid use case of reducing one type hint into another).
+
+        Attributes
+        ----------
+        conf : BeartypeConf
+            Input beartype configuration configuring this reduction.
+        hint_unreduced : Hint
+            Input hint to be reduced.
+        hint_reduced : Hint
+            Output hint expected to be returned from the :func:`.reduce_hint`
+            reducer when passed these inputs.
+        '''
+
+        # ..................{ INITIALIZERS                   }..................
+        def __init__(
+            self,
+
+            # Mandatory parameters.
+            hint_unreduced: Hint,
+
+            # Optional parameters.
+            conf: BeartypeConf = BEARTYPE_CONF_DEFAULT,
+            hint_reduced: Hint = SENTINEL,
+        ) -> None:
+            '''
+            Initialize this valid type hint reduction case.
+
+            Attributes
+            ----------
+            hint_unreduced : Hint
+                Input hint to be reduced.
+            conf : BeartypeConf, default: BEARTYPE_CONF_DEFAULT
+                Input beartype configuration configuring this reduction.
+                Defaults to the default beartype configuration.
+            hint_reduced : Hint, default: SENTINEL
+                Output hint expected to be returned from the
+                :func:`.reduce_hint` reducer when passed these inputs. Defaults
+                to the sentinel placeholder, in which case this output hint
+                actually defaults to this input hint. This default trivializes
+                testing for **irreducible hints** (i.e., hints *not* reduced by
+                the :func:`.reduce_hint` reducer).
+            '''
+
+            # If unpassed, default this output hint to this input hint.
+            if hint_reduced is SENTINEL:
+                hint_reduced = hint_unreduced
+
+            # Classify all passed parameters.
+            self.hint_unreduced = hint_unreduced
+            self.hint_reduced = hint_reduced
+            self.conf = conf
+
+
+    class HintReductionInvalid(object):
+        '''
+        **Invalid type hint reduction case** (i.e., dataclass encapsulating the
+        invalid use case of reducing one type hint, which then raises an
+        exception due to being invalid).
+
+        Attributes
+        ----------
+        conf : BeartypeConf
+            Input beartype configuration configuring this reduction.
+        hint_unreduced : Hint
+            Input hint to be reduced.
+        exception_type : Type[Exception]
+            Output type of exception expected to be raised by the
+            :func:`.reduce_hint` reducer when passed these inputs.
+        '''
+
+        # ..................{ INITIALIZERS                   }..................
+        def __init__(
+            self,
+
+            # Mandatory parameters.
+            hint_unreduced: Hint,
+            exception_type: TypeException,
+
+            # Optional parameters.
+            conf: BeartypeConf = BEARTYPE_CONF_DEFAULT,
+        ) -> None:
+            '''
+            Initialize this invalid type hint reduction case.
+
+            Attributes
+            ----------
+            hint_unreduced : Hint
+                Input hint to be reduced.
+            exception_type : Type[Exception]
+                Output type of exception expected to be raised by the
+                :func:`.reduce_hint` reducer when passed these inputs.
+            conf : BeartypeConf, default: BEARTYPE_CONF_DEFAULT
+                Input beartype configuration configuring this reduction.
+                Defaults to the default beartype configuration.
+            '''
+
+            # Classify all passed parameters.
+            self.hint_unreduced = hint_unreduced
+            self.exception_type = exception_type
+            self.conf = conf
+
     # ..................{ LOCALS                             }..................
-    # Keyword arguments to be passed to all calls to reduce_hints() below.
-    kwargs = {
-        'conf': BEARTYPE_CONF_DEFAULT,
-    }
+    # List of all valid reduction cases to be tested.
+    hint_reductions_valid = [
+        # ..................{ PEP 484                        }..................
+        # An isinstanceable type is preserved as is without reduction.
+        HintReductionValid(int),
 
-    # ..................{ CORE                               }..................
-    # Assert this reducer preserves an isinstanceable type as is.
-    assert reduce_hint(hint=int, **kwargs) == HintSane(int)
+        # The builtin "None" singleton reduces to its type (i.e., "type(None)").
+        HintReductionValid(hint_unreduced=None, hint_reduced=NoneType),
 
-    # Assert this reducer reduces "None" to "type(None)".
-    assert reduce_hint(hint=None, **kwargs) == HintSane(NoneType)
+        # ..................{ PEP 484 ~ tower                }..................
+        # The builtin "float" and "complex" types reduce to their corresponding
+        # numeric towers when configured to do so.
+        HintReductionValid(
+            hint_unreduced=float,
+            hint_reduced=Pep484TowerFloat,
+            conf=BeartypeConf(is_pep484_tower=True),
+        ),
+        HintReductionValid(
+            hint_unreduced=complex,
+            hint_reduced=Pep484TowerComplex,
+            conf=BeartypeConf(is_pep484_tower=True),
+        ),
 
-    # ..................{ PEP 484 ~ tower                    }..................
-    # Assert this reducer expands the builtin "float" and "complex" types to
-    # their corresponding numeric towers when configured to do so.
-    hint_pep484_tower_float_sane = reduce_hint(
-        hint=float,
-        conf=BeartypeConf(is_pep484_tower=True),
-    )
-    hint_pep484_tower_complex_sane = reduce_hint(
-        hint=complex,
-        conf=BeartypeConf(is_pep484_tower=True),
-    )
-    assert hint_pep484_tower_float_sane.hint == Pep484TowerFloat
-    assert hint_pep484_tower_complex_sane.hint == Pep484TowerComplex
+        # The builtin "float" and "complex" types are preserved as is without
+        # being reduced when configured to do so.
+        HintReductionValid(
+            hint_unreduced=float,
+            hint_reduced=float,
+            conf=BeartypeConf(is_pep484_tower=False),
+        ),
+        HintReductionValid(
+            hint_unreduced=complex,
+            hint_reduced=complex,
+            conf=BeartypeConf(is_pep484_tower=False),
+        ),
 
-    # Assert this reducer preserves the builtin "float" and "complex" types as
-    # is when configured to disable the implicit numeric tower.
-    assert reduce_hint(
-        hint=float,
-        conf=BeartypeConf(is_pep484_tower=False),
-    ) == HintSane(float)
-    assert reduce_hint(
-        hint=complex,
-        conf=BeartypeConf(is_pep484_tower=False),
-    ) == HintSane(complex)
+        # ..................{ PEP 484 ~ typevar              }..................
+        # A PEP 484-compliant constrained type variable reduces to the PEP 484-
+        # or 604-compliant union of those constraints.
+        HintReductionValid(
+            hint_unreduced=T_str_or_bytes,
+            hint_reduced=make_hint_pep484604_union((str, bytes,)),
+        ),
 
-    #FIXME: Excise us up, please. We no longer reduce type variables. *sigh*
-    #FIXME: *WAIT*. We absolutely do reduce type variables. Resurrect this!
-    # # ..................{ PEP 484 ~ typevar                  }..................
-    # # Assert this reducer preserves unbounded type variables as is.
-    # assert reduce_hint(hint=T, **kwargs) is T
-    #
-    # # Assert this reducer reduces bounded type variables to their upper bound.
-    # assert reduce_hint(hint=T_int, **kwargs) is int
-    #
-    # # Union of all constraints parametrizing a constrained type variable,
-    # # reduced from that type variable.
-    # typevar_constraints_union = reduce_hint(hint=T_str_or_bytes, **kwargs)
-    #
-    # # Assert this union contains all constraints parametrizing this variable.
-    # assert str   in typevar_constraints_union.__args__
-    # assert bytes in typevar_constraints_union.__args__
+        # ..................{ PEP 557                        }..................
+        # A PEP 557-compliant "InitVar" is reduced to its child hint.
+        HintReductionValid(hint_unreduced=InitVar[str], hint_reduced=str),
+
+        # ..................{ PEP 593                        }..................
+        # A PEP 593-compliant beartype-agnostic metahint is reduced to the
+        # lower-level hint it annotates.
+        HintReductionValid(hint_unreduced=Annotated[int, 42], hint_reduced=int),
+
+        # A PEP 593-compliant beartype-specific metahint is preserved as is.
+        HintReductionValid(Annotated[str, IsEqual['In their noonday dreams.']]),
+    ]
+
+    # List of all invalid reduction cases to be tested.
+    hint_reductions_invalid = []
+
+    # ..................{ PEP 646                            }..................
+    # If the active Python interpreter targets Python >= 3.11 and thus supports
+    # PEP 646...
+    if IS_PYTHON_AT_LEAST_3_11:
+        # ....................{ IMPORTS                    }....................
+        # Defer PEP-specific imports.
+        from beartype.roar import BeartypeDecorHintPep646Exception
+        from beartype._util.hint.pep.proposal.pep646692 import (
+            make_hint_pep646_tuple_unpacked_prefix)
+        from beartype_test.a00_unit.data.pep.data_pep646 import (
+            Ts_unpacked,
+            Us_unpacked,
+        )
+
+        # ....................{ CLASSES                    }....................
+        # class GloomBird(TypedDict):
+        #     '''
+        #     Arbitrary :pep:`589`-compliant typed dictionary.
+        #     '''
+        #
+        #     pass
+
+        # ....................{ LOCALS                     }....................
+        # Extend this list with PEP 646-compliant valid reduction cases.
+        hint_reductions_valid.extend((
+            # A PEP 646-compliant tuple hint subscripted by *ONLY* a single PEP
+            # 646-compliant unpacked type variable tuple reduces to the
+            # semantically equivalent builtin "tuple" type.
+            HintReductionValid(
+                hint_unreduced=tuple[Ts_unpacked], hint_reduced=tuple),
+
+            # A PEP 646-compliant tuple hint subscripted by *ONLY* a single PEP
+            # 646-compliant unpacked child variable-length tuple hint reduces to
+            # the semantically equivalent PEP 585-compliant variable-length
+            # tuple hint subscripted by the same child hints as that unpacked
+            # child hint.
+            HintReductionValid(
+                hint_unreduced=(
+                    tuple[make_hint_pep646_tuple_unpacked_prefix((str, ...))]),
+                hint_reduced=tuple[str, ...],
+            ),
+
+            # A PEP 646-compliant tuple hint subscripted by a PEP 646-compliant
+            # unpacked child fixed-length tuple hint reduces to the semantically
+            # equivalent PEP 585-compliant fixed-length tuple hint.
+            HintReductionValid(
+                hint_unreduced=tuple[
+                    int,
+                    make_hint_pep646_tuple_unpacked_prefix((str, bool)),
+                    float,
+                ],
+                hint_reduced=tuple[int, str, bool, float],
+            ),
+        ))
+
+        # Extend this list with PEP 646-compliant invalid reduction cases.
+        hint_reductions_invalid.extend((
+            #FIXME: *UNCOMMENT*, please. This is totally invalid but no longer
+            #covered by the current implementation of this reducer. Whatevahs!
+            # # A PEP 646-compliant tuple hint subscripted by a PEP 692-compliant
+            # # unpacked type dictionary is invalid.
+            # (
+            #     tuple[Unpack[GloomBird]],
+            #     BeartypeDecorHintPep646Exception,
+            # ),
+
+            # A PEP 646-compliant tuple hint subscripted by two PEP
+            # 646-compliant unpacked child fixed-length tuple hint separated by
+            # other unrelated child hints is invalid.
+            HintReductionInvalid(
+                hint_unreduced=tuple[
+                    str,
+                    make_hint_pep646_tuple_unpacked_prefix((int, float)),
+                    bool,
+                    make_hint_pep646_tuple_unpacked_prefix((complex, list)),
+                    bytes,
+                ],
+                exception_type=BeartypeDecorHintPep646Exception,
+            ),
+
+            # A PEP 646-compliant tuple hint subscripted by two PEP 646-compliant
+            # unpacked type variable tuples separated by other unrelated child hints
+            # is invalid.
+            HintReductionInvalid(
+                hint_unreduced=(
+                    tuple[str, Ts_unpacked, bool, Us_unpacked, bytes]),
+                exception_type=BeartypeDecorHintPep646Exception,
+            ),
+
+            # A PEP 646-compliant tuple hint subscripted by one PEP
+            # 646-compliant unpacked child variable-length tuple hint *AND* one
+            # PEP 646-compliant unpacked child type variable tuple separated by
+            # other unrelated child hints is invalid.
+            #
+            # Order is probably insignificant -- but could be. Ergo, we test
+            # both orders for fuller coverage.
+            HintReductionInvalid(
+                hint_unreduced=tuple[
+                    str,
+                    make_hint_pep646_tuple_unpacked_prefix((complex, float)),
+                    bool,
+                    Ts_unpacked,
+                    bytes,
+                ],
+                exception_type=BeartypeDecorHintPep646Exception,
+            ),
+            HintReductionInvalid(
+                hint_unreduced=tuple[
+                    str,
+                    Ts_unpacked,
+                    bool,
+                    make_hint_pep646_tuple_unpacked_prefix((float, int)),
+                    bytes,
+                ],
+                exception_type=BeartypeDecorHintPep646Exception,
+            ),
+        ))
+    # Else, the active Python interpreter targets Python < 3.11 and thus fails
+    # to support PEP 646.
+
+    # ....................{ PASS                           }....................
+    # For each valid hint reduction case...
+    for hint_reduction_valid in hint_reductions_valid:
+        # Sanified metadata encapsulating the reduction of this input hint.
+        hint_reduced_sane = reduce_hint(
+            hint=hint_reduction_valid.hint_unreduced,
+            conf=hint_reduction_valid.conf,
+        )
+
+        # Assert that this reduction produced the expected output hint.
+        assert hint_reduced_sane.hint == hint_reduction_valid.hint_reduced
+
+    # ....................{ FAIL                           }....................
+    # For each invalid hint reduction case...
+    for hint_reduction_invalid in hint_reductions_invalid:
+        # Assert that this reducer raises the expected type of exception when
+        # passed this input hint.
+        with raises(hint_reduction_invalid.exception_type):
+            reduce_hint(
+                hint=hint_reduction_invalid.hint_unreduced,
+                conf=hint_reduction_invalid.conf,
+            )
 
     # ..................{ PEP 544                            }..................
     # For each PEP 484-compliant "typing" IO generic superclass...
     for pep484_generic_io in TYPES_PEP484_GENERIC_IO:
         # Metadata encapsulating the equivalent PEP 544-compliant protocol
         # reduced from this generic.
-        pep544_protocol_io_sane = reduce_hint(hint=pep484_generic_io, **kwargs)
+        pep544_protocol_io_sane = reduce_hint(pep484_generic_io)
 
         # This protocol.
         pep544_protocol_io = pep544_protocol_io_sane.hint
@@ -128,30 +400,17 @@ def test_reduce_hint() -> None:
             issubclass(pep544_protocol_io, Protocol)
         )
 
-    # ..................{ PEP 557                            }..................
-    # Assert this reducer reduces an "InitVar" to its subscripted argument.
-    assert reduce_hint(hint=InitVar[str], **kwargs) == HintSane(str)
-
-    # ..................{ PEP 593                            }..................
-    # Assert this reducer reduces a beartype-agnostic metahint to the
-    # lower-level hint it annotates.
-    assert reduce_hint(hint=Annotated[int, 42], **kwargs) == HintSane(int)
-
-    # Assert this reducer preserves a beartype-specific metahint as is.
-    leaves_when_laid = Annotated[str, IsEqual['In their noonday dreams.']]
-    assert reduce_hint(hint=leaves_when_laid, **kwargs) == HintSane(
-        leaves_when_laid)
-
-    # ..................{ NUMPY                              }..................
+    # ..................{ API ~ numpy                        }..................
     # If a recent version of NumPy is importable...
     if is_package_numpy():
-        # Defer third party imports.
+        # Defer API-specific imports.
+        from beartype.roar import BeartypeDecorHintNonpepNumpyException
         from numpy import float64
         from numpy.typing import NDArray
 
         # Metadata encapsulating the reduction of a NumPy array type hint to a
         # beartype validator.
-        ndarray_reduced_sane = reduce_hint(hint=NDArray[float64], **kwargs)
+        ndarray_reduced_sane = reduce_hint(NDArray[float64])
 
         # This beartype validator.
         ndarray_reduced = ndarray_reduced_sane.hint
@@ -163,10 +422,7 @@ def test_reduce_hint() -> None:
         # erroneously subscripted by an object *NOT* reducible to a data
         # type raises the expected exception.
         with raises(BeartypeDecorHintNonpepNumpyException):
-            reduce_hint(
-                hint=NDArray['From_my_wings_are_shaken_the_dews_that_waken'],
-                **kwargs
-            )
+            reduce_hint(NDArray['From_my_wings_are_shaken_the_dews_that_waken'])
 
 # ....................{ TESTS ~ raiser                     }....................
 # Prevent pytest from capturing and displaying all expected non-fatal
@@ -175,7 +431,7 @@ def test_reduce_hint() -> None:
 def test_reduce_hint_ignorable(hints_pep_meta, hints_ignorable) -> None:
     '''
     Test the private
-    :func:`beartype._check.convert._reduce.redhint.reduce_hint` reducer with
+    :func:`beartype._check.convert._reduce.redmain.reduce_hint` reducer with
     respect to ignorable hints.
 
     Parameters
@@ -189,7 +445,7 @@ def test_reduce_hint_ignorable(hints_pep_meta, hints_ignorable) -> None:
 
     # Defer test-specific imports.
     from beartype._check.metadata.hint.hintsane import HINT_SANE_IGNORABLE
-    from beartype._check.convert._reduce.redhint import reduce_hint
+    from beartype._check.convert._reduce.redmain import reduce_hint
     from beartype_test.a00_unit.data.hint.data_hint import (
         HINTS_NONPEP_UNIGNORABLE)
 

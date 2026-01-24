@@ -35,25 +35,36 @@ T = TypeVar("T", bound="CompletedJobRawFlowPreprocessorModule")
 
 @_attrs_define
 class CompletedJobRawFlowPreprocessorModule:
-    """
+    """A single step in a flow. Can be a script, subflow, loop, or branch
+
     Attributes:
-        id (str):
+        id (str): Unique identifier for this step. Used to reference results via 'results.step_id'. Must be a valid
+            identifier (alphanumeric, underscore, hyphen)
         value (Any):
-        stop_after_if (Union[Unset, CompletedJobRawFlowPreprocessorModuleStopAfterIf]):
-        stop_after_all_iters_if (Union[Unset, CompletedJobRawFlowPreprocessorModuleStopAfterAllItersIf]):
-        skip_if (Union[Unset, CompletedJobRawFlowPreprocessorModuleSkipIf]):
+        stop_after_if (Union[Unset, CompletedJobRawFlowPreprocessorModuleStopAfterIf]): Early termination condition for
+            a module
+        stop_after_all_iters_if (Union[Unset, CompletedJobRawFlowPreprocessorModuleStopAfterAllItersIf]): Early
+            termination condition for a module
+        skip_if (Union[Unset, CompletedJobRawFlowPreprocessorModuleSkipIf]): Conditionally skip this step based on
+            previous results or flow inputs
         sleep (Union['CompletedJobRawFlowPreprocessorModuleSleepType0',
-            'CompletedJobRawFlowPreprocessorModuleSleepType1', Unset]):
-        cache_ttl (Union[Unset, float]):
+            'CompletedJobRawFlowPreprocessorModuleSleepType1', Unset]): Maps input parameters for a step. Can be a static
+            value or a JavaScript expression that references previous results or flow inputs
+        cache_ttl (Union[Unset, float]): Cache duration in seconds for this step's results
+        cache_ignore_s3_path (Union[Unset, bool]):
         timeout (Union['CompletedJobRawFlowPreprocessorModuleTimeoutType0',
-            'CompletedJobRawFlowPreprocessorModuleTimeoutType1', Unset]):
-        delete_after_use (Union[Unset, bool]):
-        summary (Union[Unset, str]):
-        mock (Union[Unset, CompletedJobRawFlowPreprocessorModuleMock]):
-        suspend (Union[Unset, CompletedJobRawFlowPreprocessorModuleSuspend]):
-        priority (Union[Unset, float]):
-        continue_on_error (Union[Unset, bool]):
-        retry (Union[Unset, CompletedJobRawFlowPreprocessorModuleRetry]):
+            'CompletedJobRawFlowPreprocessorModuleTimeoutType1', Unset]): Maps input parameters for a step. Can be a static
+            value or a JavaScript expression that references previous results or flow inputs
+        delete_after_use (Union[Unset, bool]): If true, this step's result is deleted after use to save memory
+        summary (Union[Unset, str]): Short description of what this step does
+        mock (Union[Unset, CompletedJobRawFlowPreprocessorModuleMock]): Mock configuration for testing without executing
+            the actual step
+        suspend (Union[Unset, CompletedJobRawFlowPreprocessorModuleSuspend]): Configuration for approval/resume steps
+            that wait for user input
+        priority (Union[Unset, float]): Execution priority for this step (higher numbers run first)
+        continue_on_error (Union[Unset, bool]): If true, flow continues even if this step fails
+        retry (Union[Unset, CompletedJobRawFlowPreprocessorModuleRetry]): Retry configuration for failed module
+            executions
     """
 
     id: str
@@ -65,6 +76,7 @@ class CompletedJobRawFlowPreprocessorModule:
         "CompletedJobRawFlowPreprocessorModuleSleepType0", "CompletedJobRawFlowPreprocessorModuleSleepType1", Unset
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
+    cache_ignore_s3_path: Union[Unset, bool] = UNSET
     timeout: Union[
         "CompletedJobRawFlowPreprocessorModuleTimeoutType0", "CompletedJobRawFlowPreprocessorModuleTimeoutType1", Unset
     ] = UNSET
@@ -114,6 +126,7 @@ class CompletedJobRawFlowPreprocessorModule:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
+        cache_ignore_s3_path = self.cache_ignore_s3_path
         timeout: Union[Dict[str, Any], Unset]
         if isinstance(self.timeout, Unset):
             timeout = UNSET
@@ -162,6 +175,8 @@ class CompletedJobRawFlowPreprocessorModule:
             field_dict["sleep"] = sleep
         if cache_ttl is not UNSET:
             field_dict["cache_ttl"] = cache_ttl
+        if cache_ignore_s3_path is not UNSET:
+            field_dict["cache_ignore_s3_path"] = cache_ignore_s3_path
         if timeout is not UNSET:
             field_dict["timeout"] = timeout
         if delete_after_use is not UNSET:
@@ -273,6 +288,8 @@ class CompletedJobRawFlowPreprocessorModule:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
+        cache_ignore_s3_path = d.pop("cache_ignore_s3_path", UNSET)
+
         def _parse_timeout(
             data: object,
         ) -> Union[
@@ -345,6 +362,7 @@ class CompletedJobRawFlowPreprocessorModule:
             skip_if=skip_if,
             sleep=sleep,
             cache_ttl=cache_ttl,
+            cache_ignore_s3_path=cache_ignore_s3_path,
             timeout=timeout,
             delete_after_use=delete_after_use,
             summary=summary,

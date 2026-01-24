@@ -1,7 +1,7 @@
 """Module providing exported_model functionality."""
 
 import sys
-from matrice.utils import (
+from matrice_common.utils import (
     handle_response,
     get_summary,
 )

@@ -33,18 +33,32 @@ def test_get_hint_pep_args(hints_pep_meta) -> None:
 
     # ....................{ IMPORTS                        }....................
     # Defer test-specific imports.
+    from beartype.roar import BeartypeDecorHintPepException
     from beartype.typing import Tuple
     from beartype._util.hint.pep.utilpepget import (
         get_hint_pep_args,
         _HINT_ARGS_EMPTY_TUPLE,
     )
     from beartype_test.a00_unit.data.hint.data_hint import NOT_HINTS_PEP
+    from pytest import raises
 
-    # ....................{ ASSERTS                        }....................
+    # ....................{ CLASSES                        }....................
+    class TheWholeMammothBrood(object):
+        '''
+        Arbitrary PEP-noncompliant type defining the ``__args__`` dunder
+        attribute to *not* be a tuple.
+        '''
+
+        __args__ = 'But one of the whole mammoth-brood still kept'
+
+    # ....................{ PASS                           }....................
     # For each PEP-compliant hint, assert this getter returns...
     for hint_pep_meta in hints_pep_meta:
+        # Localize this hint to simplify debugging.
+        hint = hint_pep_meta.hint
+
         # Tuple of all arguments subscripting this hint.
-        hint_args = get_hint_pep_args(hint_pep_meta.hint)
+        hint_args = get_hint_pep_args(hint)
         assert isinstance(hint_args, tuple)
 
         # For subscripted hints, one or more arguments.
@@ -58,22 +72,29 @@ def test_get_hint_pep_args(hints_pep_meta) -> None:
     for not_hint_pep in NOT_HINTS_PEP:
         assert get_hint_pep_args(not_hint_pep) == ()
 
-    # ....................{ ASSERTS ~ tuple                }....................
+    # ....................{ PASS ~ tuple                   }....................
     # Explicitly validate that this getter handles both PEP 484- and 585-
     # compliant empty tuples by returning "_HINT_ARGS_EMPTY_TUPLE" as expected.
 
-    # Assert that this getter when passed a PEP 484-compliant empty tuple type
-    # hint returns a tuple containing an empty tuple for disambiguity.
+    # Assert this getter when passed a PEP 484-compliant empty tuple hint
+    # returns a tuple containing an empty tuple for disambiguity.
     assert get_hint_pep_args(Tuple[()]) == _HINT_ARGS_EMPTY_TUPLE
 
-    # Assert that this getter when passed a PEP 585-compliant empty tuple type
-    # hint returns a tuple containing an empty tuple for disambiguity.
+    # Assert this getter when passed a PEP 585-compliant empty tuple hint
+    # returns a tuple containing an empty tuple for disambiguity.
     assert get_hint_pep_args(tuple[()]) == _HINT_ARGS_EMPTY_TUPLE
 
+    # ....................{ FAIL                           }....................
+    # Assert this getter when passed a PEP-noncompliant hint defining the
+    # "__args__" dunder attribute to *NOT* be a tuple raises the expected
+    # exception.
+    with raises(BeartypeDecorHintPepException):
+        get_hint_pep_args(TheWholeMammothBrood)
 
-def test_get_hint_pep_typevars(hints_pep_meta) -> None:
+
+def test_get_hint_pep_typeargs_packed(hints_pep_meta) -> None:
     '''
-    Test the :func:`beartype._util.hint.pep.utilpepget.get_hint_pep_typevars`
+    Test the :func:`beartype._util.hint.pep.utilpepget.get_hint_pep_typeargs_packed`
     getter.
 
     Parameters
@@ -85,43 +106,61 @@ def test_get_hint_pep_typevars(hints_pep_meta) -> None:
 
     # ....................{ IMPORTS                        }....................
     # Defer test-specific imports.
-    from beartype._data.hint.pep.sign.datapepsigns import HintSignTypeVar
-    from beartype._util.hint.pep.utilpepget import get_hint_pep_typevars
-    from beartype._util.hint.pep.utilpepsign import get_hint_pep_sign_or_none
+    from beartype.roar import BeartypeDecorHintPepException
+    from beartype._util.hint.pep.proposal.pep484612646 import (
+        is_hint_pep484612646_typearg_packed)
+    from beartype._util.hint.pep.utilpepget import get_hint_pep_typeargs_packed
     from beartype_test.a00_unit.data.hint.data_hint import NOT_HINTS_PEP
+    from pytest import raises
 
-    # ....................{ ASSERTS                        }....................
+    # ....................{ CLASSES                        }....................
+    class HisSovereigntyAndRuleAndMajesty(object):
+        '''
+        Arbitrary PEP-noncompliant type defining the ``__parameters__`` dunder
+        attribute to *not* be a tuple.
+        '''
+
+        __parameters__ = "His sov'reignty, and rule, and majesty;—"
+
+    # ....................{ PASS                           }....................
     # For each PEP-compliant test hint...
     for hint_pep_meta in hints_pep_meta:
-        # Tuple of all type variables discovered by this getter.
-        hint_typevars = get_hint_pep_typevars(hint_pep_meta.hint)
-        assert isinstance(hint_typevars, tuple)
+        # Tuple of all packed type parameters discovered by this getter.
+        hint_typeargs_packed = get_hint_pep_typeargs_packed(hint_pep_meta.hint)
+        assert isinstance(hint_typeargs_packed, tuple)
 
-        # Assert that all items of this tuple are actually type variables.
-        for hint_typevar in hint_typevars:
-            assert get_hint_pep_sign_or_none(hint_typevar) is HintSignTypeVar
+        # Assert all items of this tuple are actually packed type parameters.
+        for hint_typearg in hint_typeargs_packed:
+            assert is_hint_pep484612646_typearg_packed(hint_typearg) is True
 
-        # If this hint is parametrized by one or more type variables...
-        if hint_pep_meta.is_typevars:
-            # Assert that this getter returns one or more type variables.
-            assert hint_typevars
+        # If this hint is parametrized by one or more type parameters...
+        if hint_pep_meta.is_typeargs:
+            # Assert this getter returns one or more type parameters.
+            assert hint_typeargs_packed
 
-            # If the exact type variables parametrizing this hint are known
+            # If the exact type parameters parametrizing this hint are known
             # at test time...
-            if hint_pep_meta.typevars:
-                # Assert that this getter returns only these type variables.
-                assert hint_pep_meta.typevars == hint_typevars
-            # Else, the exact type variables parametrizing this hint are
-            # unknown at test time. In this case, silently ignore the exact
-            # contents of this tuple.
-        # Else, this hint is unparametrized by type variables. In this case,
-        # assert that this getter returns the empty tuple.
+            if hint_pep_meta.typeargs_packed:
+                # Assert this getter returns only these type parameters.
+                assert hint_pep_meta.typeargs_packed == hint_typeargs_packed
+            # Else, the exact type parameters parametrizing this hint are unknown
+            # at test time. In this case, silently ignore the exact contents of
+            # this tuple.
+        # Else, this hint is unparametrized by type parameters. In this case,
+        # assert this getter returns the empty tuple.
         else:
-            assert hint_typevars == ()
+            assert hint_typeargs_packed == ()
 
-    # Assert this getter returns *NO* type variables for non-"typing" hints.
+    # Assert this getter returns *NO* type parameters for non-"typing" hints.
     for not_hint_pep in NOT_HINTS_PEP:
-        assert get_hint_pep_typevars(not_hint_pep) == ()
+        assert get_hint_pep_typeargs_packed(not_hint_pep) == ()
+
+    # ....................{ FAIL                           }....................
+    # Assert this getter when passed a PEP-noncompliant hint defining the
+    # "__parameters__" dunder attribute to *NOT* be a tuple raises the expected
+    # exception.
+    with raises(BeartypeDecorHintPepException):
+        get_hint_pep_typeargs_packed(HisSovereigntyAndRuleAndMajesty)
 
 # ....................{ TESTS ~ origin : type              }....................
 def test_get_hint_pep_type_isinstanceable(hints_pep_meta) -> None:

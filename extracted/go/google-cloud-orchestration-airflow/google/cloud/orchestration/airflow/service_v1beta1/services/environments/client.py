@@ -43,6 +43,7 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
+import google.protobuf
 
 from google.cloud.orchestration.airflow.service_v1beta1 import (
     gapic_version as package_version,
@@ -159,6 +160,34 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "composer.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -397,12 +426,8 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = EnvironmentsClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -410,7 +435,7 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -442,20 +467,14 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = EnvironmentsClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -1264,146 +1283,140 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
 
                 **Note:** Only the following fields can be updated:
 
-                -  ``config.softwareConfig.pypiPackages``
+                - ``config.softwareConfig.pypiPackages``
 
-                   -  Replace all custom custom PyPI packages. If a
-                      replacement package map is not included in
-                      ``environment``, all custom PyPI packages are
-                      cleared. It is an error to provide both this mask
-                      and a mask specifying an individual package.
+                  - Replace all custom custom PyPI packages. If a
+                    replacement package map is not included in
+                    ``environment``, all custom PyPI packages are
+                    cleared. It is an error to provide both this mask
+                    and a mask specifying an individual package.
 
-                -  ``config.softwareConfig.pypiPackages.``\ packagename
+                - ``config.softwareConfig.pypiPackages.``\ packagename
 
-                   -  Update the custom PyPI package *packagename*,
-                      preserving other packages. To delete the package,
-                      include it in ``updateMask``, and omit the mapping
-                      for it in
-                      ``environment.config.softwareConfig.pypiPackages``.
-                      It is an error to provide both a mask of this form
-                      and the ``config.softwareConfig.pypiPackages``
-                      mask.
+                  - Update the custom PyPI package *packagename*,
+                    preserving other packages. To delete the package,
+                    include it in ``updateMask``, and omit the mapping
+                    for it in
+                    ``environment.config.softwareConfig.pypiPackages``.
+                    It is an error to provide both a mask of this form
+                    and the ``config.softwareConfig.pypiPackages`` mask.
 
-                -  ``labels``
+                - ``labels``
 
-                   -  Replace all environment labels. If a replacement
-                      labels map is not included in ``environment``, all
-                      labels are cleared. It is an error to provide both
-                      this mask and a mask specifying one or more
-                      individual labels.
+                  - Replace all environment labels. If a replacement
+                    labels map is not included in ``environment``, all
+                    labels are cleared. It is an error to provide both
+                    this mask and a mask specifying one or more
+                    individual labels.
 
-                -  ``labels.``\ labelName
+                - ``labels.``\ labelName
 
-                   -  Set the label named *labelName*, while preserving
-                      other labels. To delete the label, include it in
-                      ``updateMask`` and omit its mapping in
-                      ``environment.labels``. It is an error to provide
-                      both a mask of this form and the ``labels`` mask.
+                  - Set the label named *labelName*, while preserving
+                    other labels. To delete the label, include it in
+                    ``updateMask`` and omit its mapping in
+                    ``environment.labels``. It is an error to provide
+                    both a mask of this form and the ``labels`` mask.
 
-                -  ``config.nodeCount``
+                - ``config.nodeCount``
 
-                   -  Horizontally scale the number of nodes in the
-                      environment. An integer greater than or equal to 3
-                      must be provided in the ``config.nodeCount``
-                      field. Supported for Cloud Composer environments
-                      in versions composer-1.\ *.*-airflow-*.*.*.
+                  - Horizontally scale the number of nodes in the
+                    environment. An integer greater than or equal to 3
+                    must be provided in the ``config.nodeCount`` field.
+                    Supported for Cloud Composer environments in
+                    versions composer-1.\ *.*-airflow-*.*.\*.
 
-                -  ``config.webServerNetworkAccessControl``
+                - ``config.webServerNetworkAccessControl``
 
-                   -  Replace the environment's current
-                      WebServerNetworkAccessControl.
+                  - Replace the environment's current
+                    WebServerNetworkAccessControl.
 
-                -  ``config.softwareConfig.airflowConfigOverrides``
+                - ``config.softwareConfig.airflowConfigOverrides``
 
-                   -  Replace all Apache Airflow config overrides. If a
-                      replacement config overrides map is not included
-                      in ``environment``, all config overrides are
-                      cleared. It is an error to provide both this mask
-                      and a mask specifying one or more individual
-                      config overrides.
+                  - Replace all Apache Airflow config overrides. If a
+                    replacement config overrides map is not included in
+                    ``environment``, all config overrides are cleared.
+                    It is an error to provide both this mask and a mask
+                    specifying one or more individual config overrides.
 
-                -  ``config.softwareConfig.airflowConfigOverrides.``\ section-name
+                - ``config.softwareConfig.airflowConfigOverrides.``\ section-name
 
-                   -  Override the Apache Airflow config property *name*
-                      in the section named *section*, preserving other
-                      properties. To delete the property override,
-                      include it in ``updateMask`` and omit its mapping
-                      in
-                      ``environment.config.softwareConfig.airflowConfigOverrides``.
-                      It is an error to provide both a mask of this form
-                      and the
-                      ``config.softwareConfig.airflowConfigOverrides``
-                      mask.
+                  - Override the Apache Airflow config property *name*
+                    in the section named *section*, preserving other
+                    properties. To delete the property override, include
+                    it in ``updateMask`` and omit its mapping in
+                    ``environment.config.softwareConfig.airflowConfigOverrides``.
+                    It is an error to provide both a mask of this form
+                    and the
+                    ``config.softwareConfig.airflowConfigOverrides``
+                    mask.
 
-                -  ``config.softwareConfig.envVariables``
+                - ``config.softwareConfig.envVariables``
 
-                   -  Replace all environment variables. If a
-                      replacement environment variable map is not
-                      included in ``environment``, all custom
-                      environment variables are cleared.
+                  - Replace all environment variables. If a replacement
+                    environment variable map is not included in
+                    ``environment``, all custom environment variables
+                    are cleared.
 
-                -  ``config.softwareConfig.imageVersion``
+                - ``config.softwareConfig.imageVersion``
 
-                   -  Upgrade the version of the environment in-place.
-                      Refer to ``SoftwareConfig.image_version`` for
-                      information on how to format the new image
-                      version. Additionally, the new image version
-                      cannot effect a version downgrade, and must match
-                      the current image version's Composer and Airflow
-                      major versions. Consult the `Cloud Composer
-                      version
-                      list </composer/docs/concepts/versioning/composer-versions>`__
-                      for valid values.
+                  - Upgrade the version of the environment in-place.
+                    Refer to ``SoftwareConfig.image_version`` for
+                    information on how to format the new image version.
+                    Additionally, the new image version cannot effect a
+                    version downgrade, and must match the current image
+                    version's Composer and Airflow major versions.
+                    Consult the `Cloud Composer version
+                    list </composer/docs/concepts/versioning/composer-versions>`__
+                    for valid values.
 
-                -  ``config.softwareConfig.schedulerCount``
+                - ``config.softwareConfig.schedulerCount``
 
-                   -  Horizontally scale the number of schedulers in
-                      Airflow. A positive integer not greater than the
-                      number of nodes must be provided in the
-                      ``config.softwareConfig.schedulerCount`` field.
-                      Supported for Cloud Composer environments in
-                      versions composer-1.\ *.*-airflow-2.*.*.
+                  - Horizontally scale the number of schedulers in
+                    Airflow. A positive integer not greater than the
+                    number of nodes must be provided in the
+                    ``config.softwareConfig.schedulerCount`` field.
+                    Supported for Cloud Composer environments in
+                    versions composer-1.\ *.*-airflow-2.\ *.*.
 
-                -  ``config.softwareConfig.cloudDataLineageIntegration``
+                - ``config.softwareConfig.cloudDataLineageIntegration``
 
-                   -  Configuration for Cloud Data Lineage integration.
+                  - Configuration for Cloud Data Lineage integration.
 
-                -  ``config.databaseConfig.machineType``
+                - ``config.databaseConfig.machineType``
 
-                   -  Cloud SQL machine type used by Airflow database.
-                      It has to be one of: db-n1-standard-2,
-                      db-n1-standard-4, db-n1-standard-8 or
-                      db-n1-standard-16. Supported for Cloud Composer
-                      environments in versions
-                      composer-1.\ *.*-airflow-*.*.*.
+                  - Cloud SQL machine type used by Airflow database. It
+                    has to be one of: db-n1-standard-2,
+                    db-n1-standard-4, db-n1-standard-8 or
+                    db-n1-standard-16. Supported for Cloud Composer
+                    environments in versions
+                    composer-1.\ *.*-airflow-*.*.\*.
 
-                -  ``config.webServerConfig.machineType``
+                - ``config.webServerConfig.machineType``
 
-                   -  Machine type on which Airflow web server is
-                      running. It has to be one of:
-                      composer-n1-webserver-2, composer-n1-webserver-4
-                      or composer-n1-webserver-8. Supported for Cloud
-                      Composer environments in versions
-                      composer-1.\ *.*-airflow-*.*.*.
+                  - Machine type on which Airflow web server is running.
+                    It has to be one of: composer-n1-webserver-2,
+                    composer-n1-webserver-4 or composer-n1-webserver-8.
+                    Supported for Cloud Composer environments in
+                    versions composer-1.\ *.*-airflow-*.*.\*.
 
-                -  ``config.maintenanceWindow``
+                - ``config.maintenanceWindow``
 
-                   -  Maintenance window during which Cloud Composer
-                      components may be under maintenance.
+                  - Maintenance window during which Cloud Composer
+                    components may be under maintenance.
 
-                -  ``config.workloadsConfig``
+                - ``config.workloadsConfig``
 
-                   -  The workloads configuration settings for the GKE
-                      cluster associated with the Cloud Composer
-                      environment. Supported for Cloud Composer
-                      environments in versions
-                      composer-2.\ *.*-airflow-*.*.\* and newer.
+                  - The workloads configuration settings for the GKE
+                    cluster associated with the Cloud Composer
+                    environment. Supported for Cloud Composer
+                    environments in versions
+                    composer-2.\ *.*-airflow-*.*.\* and newer.
 
-                -  ``config.environmentSize``
+                - ``config.environmentSize``
 
-                   -  The size of the Cloud Composer environment.
-                      Supported for Cloud Composer environments in
-                      versions composer-2.\ *.*-airflow-*.*.\* and
-                      newer.
+                  - The size of the Cloud Composer environment.
+                    Supported for Cloud Composer environments in
+                    versions composer-2.\ *.*-airflow-*.*.\* and newer.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2208,7 +2221,7 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
         r"""Creates a user workloads Secret.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2334,7 +2347,7 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
         field in the response are cleared.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2450,7 +2463,7 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
         r"""Lists user workloads Secrets.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2580,7 +2593,7 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
         r"""Updates a user workloads Secret.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2696,7 +2709,7 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
         r"""Deletes a user workloads Secret.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2800,7 +2813,7 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
         r"""Creates a user workloads ConfigMap.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2926,7 +2939,7 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
         r"""Gets an existing user workloads ConfigMap.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -3042,7 +3055,7 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
         r"""Lists user workloads ConfigMaps.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -3173,7 +3186,7 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
         r"""Updates a user workloads ConfigMap.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -3295,7 +3308,7 @@ class EnvironmentsClient(metaclass=EnvironmentsClientMeta):
         r"""Deletes a user workloads ConfigMap.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -3977,5 +3990,7 @@ DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
     gapic_version=package_version.__version__
 )
 
+if hasattr(DEFAULT_CLIENT_INFO, "protobuf_runtime_version"):  # pragma: NO COVER
+    DEFAULT_CLIENT_INFO.protobuf_runtime_version = google.protobuf.__version__
 
 __all__ = ("EnvironmentsClient",)

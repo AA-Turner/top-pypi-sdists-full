@@ -20,7 +20,7 @@ class RecordWriter
     void operator=(RecordWriter&&) = delete;
 
     virtual bool writeRecord(const MemoryRecord& record) = 0;
-    virtual bool writeRecord(const pyrawframe_map_val_t& item) = 0;
+    virtual bool writeRecord(const pycode_map_val_t& item) = 0;
     virtual bool writeRecord(const UnresolvedNativeFrame& record) = 0;
 
     virtual bool writeMappings(const std::vector<ImageSegments>& mappings) = 0;
@@ -28,8 +28,8 @@ class RecordWriter
     virtual bool writeThreadSpecificRecord(thread_id_t tid, const FramePop& record) = 0;
     virtual bool writeThreadSpecificRecord(thread_id_t tid, const FramePush& record) = 0;
     virtual bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) = 0;
-    virtual bool writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record) = 0;
     virtual bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) = 0;
+    virtual bool writeThreadSpecificRecord(thread_id_t tid, const ObjectRecord& record) = 0;
 
     virtual bool writeHeader(bool seek_to_start) = 0;
     virtual bool writeTrailer() = 0;
@@ -50,8 +50,8 @@ class RecordWriter
     bool inline writeSimpleType(const T& item);
 
     bool inline writeString(const char* the_string);
-    bool inline writeVarint(size_t val);
-    bool inline writeSignedVarint(ssize_t val);
+    bool inline writeVarint(uint64_t val);
+    bool inline writeSignedVarint(int64_t val);
 
     template<typename T>
     bool inline writeIntegralDelta(T* prev, T new_val);
@@ -63,7 +63,8 @@ createRecordWriter(
         const std::string& command_line,
         bool native_traces,
         FileFormat file_format,
-        bool trace_python_allocators);
+        bool trace_python_allocators,
+        bool track_object_lifetimes);
 
 template<typename T>
 bool inline RecordWriter::writeSimpleType(const T& item)
@@ -80,7 +81,7 @@ bool inline RecordWriter::writeString(const char* the_string)
     return d_sink->writeAll(the_string, strlen(the_string) + 1);
 }
 
-bool inline RecordWriter::writeVarint(size_t rest)
+bool inline RecordWriter::writeVarint(uint64_t rest)
 {
     unsigned char next_7_bits = rest & 0x7f;
     rest >>= 7;
@@ -96,20 +97,20 @@ bool inline RecordWriter::writeVarint(size_t rest)
     return writeSimpleType(next_7_bits);
 }
 
-bool inline RecordWriter::writeSignedVarint(ssize_t val)
+bool inline RecordWriter::writeSignedVarint(int64_t val)
 {
     // protobuf style "zig-zag" encoding
     // https://developers.google.com/protocol-buffers/docs/encoding#signed-ints
     // This encodes -64 through 63 in 1 byte, -8192 through 8191 in 2 bytes, etc
-    size_t zigzag_val = (static_cast<size_t>(val) << 1)
-                        ^ static_cast<size_t>(val >> std::numeric_limits<ssize_t>::digits);
+    uint64_t zigzag_val = (static_cast<uint64_t>(val) << 1)
+                          ^ static_cast<uint64_t>(val >> std::numeric_limits<int64_t>::digits);
     return writeVarint(zigzag_val);
 }
 
 template<typename T>
 bool inline RecordWriter::writeIntegralDelta(T* prev, T new_val)
 {
-    ssize_t delta = new_val - *prev;
+    int64_t delta = new_val - *prev;
     *prev = new_val;
     return writeSignedVarint(delta);
 }

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import ctypes
 import os
 
@@ -207,9 +206,6 @@ class LAMMPSCalculatorMixIn:
 
         stress = -stress * 101325 * units.Pascal
         forces = np.vstack((fx, fy, fz)).T * units.kcal/units.mol
-        #print('fx', fx)
-        #print('fy', fy)
-        #print('fz', fy)
 
         return energy, forces, stress
 
@@ -590,15 +586,18 @@ class LAMMPSCalculator(LAMMPSCalculatorMixIn):
         lmp_dat=None,
         skip_dump = True,
         coulcut = False,
+        workdir = '.',
         *args,
         **lwargs,
     ):
 
         self.struc = struc
         self.base = base
-        cmdargs = ["-screen", "none", "-log", f"{base}.log", "-nocite"]
-        self.lin = f"{base}.in"
-        self.ldat = f"{base}.dat"
+        self.workdir = workdir,
+        #cmdargs = ["-screen", "none", "-log", f"{workdir}/{base}.log", "-nocite"]
+        cmdargs = ["-screen", "none", "-log", "none", "-nocite"]
+        self.lin = f"{workdir}/{base}.in"
+        self.ldat = f"{workdir}/{base}.dat"
         self.dumpdir = dumpdir
         self.coulcut = coulcut
 

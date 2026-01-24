@@ -36,7 +36,7 @@ class TestCreateOnrampOrderRequest(unittest.TestCase):
         model = CreateOnrampOrderRequest()
         if include_optional:
             return CreateOnrampOrderRequest(
-                agreement_accepted_at = '2025-04-24T00:00Z',
+                agreement_accepted_at = '2025-04-24T00:00:00Z',
                 destination_address = '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
                 destination_network = 'base',
                 email = 'test@example.com',
@@ -47,13 +47,15 @@ class TestCreateOnrampOrderRequest(unittest.TestCase):
                 payment_currency = 'USD',
                 payment_method = 'GUEST_CHECKOUT_APPLE_PAY',
                 phone_number = '+12055555555',
-                phone_number_verified_at = '2025-04-24T00:00Z',
+                phone_number_verified_at = '2025-04-24T00:00:00Z',
                 purchase_amount = '10.000000',
-                purchase_currency = 'USDC'
+                purchase_currency = 'USDC',
+                client_ip = '127.0.0.1',
+                domain = 'pay.coinbase.com'
             )
         else:
             return CreateOnrampOrderRequest(
-                agreement_accepted_at = '2025-04-24T00:00Z',
+                agreement_accepted_at = '2025-04-24T00:00:00Z',
                 destination_address = '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
                 destination_network = 'base',
                 email = 'test@example.com',
@@ -61,7 +63,7 @@ class TestCreateOnrampOrderRequest(unittest.TestCase):
                 payment_currency = 'USD',
                 payment_method = 'GUEST_CHECKOUT_APPLE_PAY',
                 phone_number = '+12055555555',
-                phone_number_verified_at = '2025-04-24T00:00Z',
+                phone_number_verified_at = '2025-04-24T00:00:00Z',
                 purchase_currency = 'USDC',
         )
         """

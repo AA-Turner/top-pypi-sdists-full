@@ -1,0 +1,161 @@
+"""
+Environment variables read by the dstack server. Documented in reference/environment-variables.md
+"""
+
+import os
+from enum import Enum
+from pathlib import Path
+
+from dstack._internal.utils.env import environ
+from dstack._internal.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+DSTACK_DIR_PATH = Path("~/.dstack/").expanduser()
+
+SERVER_DIR_PATH = Path(os.getenv("DSTACK_SERVER_DIR", DSTACK_DIR_PATH / "server")).resolve()
+
+SERVER_CONFIG_FILE_PATH = SERVER_DIR_PATH / "config.yml"
+
+SERVER_DATA_DIR_PATH = SERVER_DIR_PATH / "data"
+SERVER_DATA_DIR_PATH.mkdir(parents=True, exist_ok=True)
+DATABASE_URL = os.getenv(
+    "DSTACK_DATABASE_URL", f"sqlite+aiosqlite:///{str(SERVER_DATA_DIR_PATH.absolute())}/sqlite.db"
+)
+
+SERVER_HOST = os.getenv("DSTACK_SERVER_HOST", "localhost")
+SERVER_PORT = int(os.getenv("DSTACK_SERVER_PORT", "8000"))
+SERVER_URL = os.getenv("DSTACK_SERVER_URL", f"http://{SERVER_HOST}:{SERVER_PORT}")
+
+SERVER_ENVIRONMENT = os.getenv("DSTACK_SERVER_ENVIRONMENT", "dev")
+
+ROOT_LOG_LEVEL = os.getenv("DSTACK_SERVER_ROOT_LOG_LEVEL", "ERROR").upper()
+LOG_LEVEL = os.getenv("DSTACK_SERVER_LOG_LEVEL", "WARNING").upper()
+LOG_FORMAT = os.getenv("DSTACK_SERVER_LOG_FORMAT", "rich").lower()
+
+ALEMBIC_MIGRATIONS_LOCATION = os.getenv(
+    "DSTACK_ALEMBIC_MIGRATIONS_LOCATION", "dstack._internal.server:migrations"
+)
+
+# Users may want to increase client pool size to support more concurrent resources
+# if their db supports many connections.
+DB_POOL_SIZE = int(os.getenv("DSTACK_DB_POOL_SIZE", 20))
+DB_MAX_OVERFLOW = int(os.getenv("DSTACK_DB_MAX_OVERFLOW", 20))
+
+# Scale the number of background processing tasks
+# allowing to process more resources on one server replica.
+# Not recommended to change on SQLite.
+# DSTACK_DB_POOL_SIZE and DSTACK_DB_MAX_OVERFLOW
+# must be increased proportionally.
+SERVER_BACKGROUND_PROCESSING_FACTOR = int(
+    os.getenv("DSTACK_SERVER_BACKGROUND_PROCESSING_FACTOR", 1)
+)
+
+SERVER_BACKGROUND_PROCESSING_DISABLED = (
+    os.getenv("DSTACK_SERVER_BACKGROUND_PROCESSING_DISABLED") is not None
+)
+SERVER_BACKGROUND_PROCESSING_ENABLED = not SERVER_BACKGROUND_PROCESSING_DISABLED
+
+SERVER_EXECUTOR_MAX_WORKERS = int(os.getenv("DSTACK_SERVER_EXECUTOR_MAX_WORKERS", 128))
+
+MAX_OFFERS_TRIED = int(os.getenv("DSTACK_SERVER_MAX_OFFERS_TRIED", 25))
+MAX_PROBES_PER_JOB = int(os.getenv("DSTACK_SERVER_MAX_PROBES_PER_JOB", 10))
+MAX_PROBE_TIMEOUT = int(os.getenv("DSTACK_SERVER_MAX_PROBE_TIMEOUT", 60 * 5))
+
+SERVER_CONFIG_DISABLED = os.getenv("DSTACK_SERVER_CONFIG_DISABLED") is not None
+SERVER_CONFIG_ENABLED = not SERVER_CONFIG_DISABLED
+
+# TODO: remove deprecated DSTACK_SERVER_BUCKET and DSTACK_SERVER_BUCKET_REGION env var usage
+SERVER_S3_BUCKET = os.getenv("DSTACK_SERVER_S3_BUCKET", os.getenv("DSTACK_SERVER_BUCKET"))
+SERVER_S3_BUCKET_REGION = os.getenv(
+    "DSTACK_SERVER_S3_BUCKET_REGION", os.getenv("DSTACK_SERVER_BUCKET_REGION")
+)
+
+SERVER_GCS_BUCKET = os.getenv("DSTACK_SERVER_GCS_BUCKET")
+
+SERVER_CLOUDWATCH_LOG_GROUP = os.getenv("DSTACK_SERVER_CLOUDWATCH_LOG_GROUP")
+SERVER_CLOUDWATCH_LOG_REGION = os.getenv("DSTACK_SERVER_CLOUDWATCH_LOG_REGION")
+
+SERVER_GCP_LOGGING_PROJECT = os.getenv("DSTACK_SERVER_GCP_LOGGING_PROJECT")
+
+SERVER_FLUENTBIT_HOST = os.getenv("DSTACK_SERVER_FLUENTBIT_HOST")
+SERVER_FLUENTBIT_PORT = int(os.getenv("DSTACK_SERVER_FLUENTBIT_PORT", "24224"))
+SERVER_FLUENTBIT_PROTOCOL = os.getenv("DSTACK_SERVER_FLUENTBIT_PROTOCOL", "forward")
+SERVER_FLUENTBIT_TAG_PREFIX = os.getenv("DSTACK_SERVER_FLUENTBIT_TAG_PREFIX", "dstack")
+
+SERVER_ELASTICSEARCH_HOST = os.getenv("DSTACK_SERVER_ELASTICSEARCH_HOST")
+SERVER_ELASTICSEARCH_INDEX = os.getenv("DSTACK_SERVER_ELASTICSEARCH_INDEX", "dstack-logs")
+SERVER_ELASTICSEARCH_API_KEY = os.getenv("DSTACK_SERVER_ELASTICSEARCH_API_KEY")
+
+SERVER_METRICS_RUNNING_TTL_SECONDS = environ.get_int(
+    "DSTACK_SERVER_METRICS_RUNNING_TTL_SECONDS", default=3600
+)
+SERVER_METRICS_FINISHED_TTL_SECONDS = environ.get_int(
+    "DSTACK_SERVER_METRICS_FINISHED_TTL_SECONDS", default=7 * 24 * 3600
+)
+SERVER_INSTANCE_HEALTH_TTL_SECONDS = environ.get_int(
+    "DSTACK_SERVER_INSTANCE_HEALTH_TTL_SECONDS", default=7 * 24 * 3600
+)
+SERVER_INSTANCE_HEALTH_MIN_COLLECT_INTERVAL_SECONDS = environ.get_int(
+    "DSTACK_SERVER_INSTANCE_HEALTH_MIN_COLLECT_INTERVAL_SECONDS", default=60
+)
+
+SERVER_EVENTS_TTL_SECONDS = int(
+    # default documented in reference/environment-variables.md, keep in sync
+    os.getenv("DSTACK_SERVER_EVENTS_TTL_SECONDS", 30 * 24 * 3600)
+)
+
+SERVER_KEEP_SHIM_TASKS = os.getenv("DSTACK_SERVER_KEEP_SHIM_TASKS") is not None
+
+DEFAULT_PROJECT_NAME = "main"
+
+SENTRY_DSN = os.getenv("DSTACK_SENTRY_DSN")
+SENTRY_TRACES_SAMPLE_RATE = float(os.getenv("DSTACK_SENTRY_TRACES_SAMPLE_RATE", 0.1))
+SENTRY_TRACES_BACKGROUND_SAMPLE_RATE = float(
+    os.getenv("DSTACK_SENTRY_TRACES_BACKGROUND_SAMPLE_RATE", 0.01)
+)
+SENTRY_PROFILES_SAMPLE_RATE = float(os.getenv("DSTACK_SENTRY_PROFILES_SAMPLE_RATE", 0))
+
+DEFAULT_CREDS_DISABLED = os.getenv("DSTACK_DEFAULT_CREDS_DISABLED") is not None
+DEFAULT_CREDS_ENABLED = not DEFAULT_CREDS_DISABLED
+
+ACME_SERVER = os.getenv("DSTACK_ACME_SERVER")
+ACME_EAB_KID = os.getenv("DSTACK_ACME_EAB_KID")
+ACME_EAB_HMAC_KEY = os.getenv("DSTACK_ACME_EAB_HMAC_KEY")
+DEFAULT_SERVICE_CLIENT_MAX_BODY_SIZE = int(
+    os.getenv("DSTACK_DEFAULT_SERVICE_CLIENT_MAX_BODY_SIZE", 64 * 1024 * 1024)
+)
+
+USER_PROJECT_DEFAULT_QUOTA = int(os.getenv("DSTACK_USER_PROJECT_DEFAULT_QUOTA", 10))
+FORBID_SERVICES_WITHOUT_GATEWAY = os.getenv("DSTACK_FORBID_SERVICES_WITHOUT_GATEWAY") is not None
+
+SERVER_CODE_UPLOAD_LIMIT = int(os.getenv("DSTACK_SERVER_CODE_UPLOAD_LIMIT", 2 * 2**20))
+
+# Development settings
+
+SQL_ECHO_ENABLED = os.getenv("DSTACK_SQL_ECHO_ENABLED") is not None
+
+SERVER_PROFILING_ENABLED = os.getenv("DSTACK_SERVER_PROFILING_ENABLED") is not None
+
+UPDATE_DEFAULT_PROJECT = os.getenv("DSTACK_UPDATE_DEFAULT_PROJECT") is not None
+DO_NOT_UPDATE_DEFAULT_PROJECT = os.getenv("DSTACK_DO_NOT_UPDATE_DEFAULT_PROJECT") is not None
+SKIP_GATEWAY_UPDATE = os.getenv("DSTACK_SKIP_GATEWAY_UPDATE") is not None
+ENABLE_PROMETHEUS_METRICS = os.getenv("DSTACK_ENABLE_PROMETHEUS_METRICS") is not None
+
+
+class JobNetworkMode(Enum):
+    # "host" for multinode runs only, "bridge" otherwise. Opt-in new defaut
+    HOST_FOR_MULTINODE_ONLY = 1
+    # "bridge" if the job occupies only a part of the instance, "host" otherswise. Current default
+    HOST_WHEN_POSSIBLE = 2
+    # Always "bridge", even for multinode runs. Same as legacy DSTACK_FORCE_BRIDGE_NETWORK=true
+    FORCED_BRIDGE = 3
+
+
+DEFAULT_JOB_NETWORK_MODE = JobNetworkMode.HOST_WHEN_POSSIBLE
+JOB_NETWORK_MODE = environ.get_enum(
+    "DSTACK_SERVER_JOB_NETWORK_MODE",
+    JobNetworkMode,
+    value_type=int,
+    default=DEFAULT_JOB_NETWORK_MODE,
+)

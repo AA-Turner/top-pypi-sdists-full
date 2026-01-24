@@ -3,6 +3,7 @@
 from .basesdk import BaseSDK
 from orq_ai_sdk import models, utils
 from orq_ai_sdk._hooks import HookContext
+from orq_ai_sdk.models import fileuploadop as models_fileuploadop
 from orq_ai_sdk.types import OptionalNullable, UNSET
 from orq_ai_sdk.utils import get_security_from_env
 from orq_ai_sdk.utils.unmarshal_json_response import unmarshal_json_response
@@ -13,13 +14,16 @@ class Files(BaseSDK):
     def create(
         self,
         *,
-        file: Union[models.FileUploadFile, models.FileUploadFileTypedDict],
-        purpose: Optional[models.Purpose] = "retrieval",
+        file: Union[
+            models_fileuploadop.FileUploadFile,
+            models_fileuploadop.FileUploadFileTypedDict,
+        ],
+        purpose: Optional[models_fileuploadop.Purpose] = "retrieval",
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.FileUploadResponseBody]:
+    ) -> models.FileUploadResponseBody:
         r"""Create file
 
         Files are used to upload documents that can be used with features like [Deployments](https://docs.orq.ai/reference/deploymentinvoke-1).
@@ -65,6 +69,7 @@ class Files(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, False, "multipart", models.FileUploadRequestBody
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -81,7 +86,7 @@ class Files(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="FileUpload",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -92,9 +97,7 @@ class Files(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.FileUploadResponseBody], http_res
-            )
+            return unmarshal_json_response(models.FileUploadResponseBody, http_res)
         if utils.match_response(http_res, ["400", "4XX"], "*"):
             http_res_text = utils.stream_to_text(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -107,13 +110,16 @@ class Files(BaseSDK):
     async def create_async(
         self,
         *,
-        file: Union[models.FileUploadFile, models.FileUploadFileTypedDict],
-        purpose: Optional[models.Purpose] = "retrieval",
+        file: Union[
+            models_fileuploadop.FileUploadFile,
+            models_fileuploadop.FileUploadFileTypedDict,
+        ],
+        purpose: Optional[models_fileuploadop.Purpose] = "retrieval",
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.FileUploadResponseBody]:
+    ) -> models.FileUploadResponseBody:
         r"""Create file
 
         Files are used to upload documents that can be used with features like [Deployments](https://docs.orq.ai/reference/deploymentinvoke-1).
@@ -159,6 +165,7 @@ class Files(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, False, "multipart", models.FileUploadRequestBody
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -175,7 +182,7 @@ class Files(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="FileUpload",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -186,9 +193,7 @@ class Files(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.FileUploadResponseBody], http_res
-            )
+            return unmarshal_json_response(models.FileUploadResponseBody, http_res)
         if utils.match_response(http_res, ["400", "4XX"], "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -208,7 +213,7 @@ class Files(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.FileListResponseBody]:
+    ) -> models.FileListResponseBody:
         r"""List all files
 
         Returns a list of the files that your account has access to. orq.ai sorts and returns the files by their creation dates, placing the most recently created files at the top.
@@ -253,6 +258,7 @@ class Files(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -269,7 +275,7 @@ class Files(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="FileList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -280,9 +286,7 @@ class Files(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.FileListResponseBody], http_res
-            )
+            return unmarshal_json_response(models.FileListResponseBody, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = utils.stream_to_text(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -302,7 +306,7 @@ class Files(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.FileListResponseBody]:
+    ) -> models.FileListResponseBody:
         r"""List all files
 
         Returns a list of the files that your account has access to. orq.ai sorts and returns the files by their creation dates, placing the most recently created files at the top.
@@ -347,6 +351,7 @@ class Files(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -363,7 +368,7 @@ class Files(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="FileList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -374,9 +379,7 @@ class Files(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.FileListResponseBody], http_res
-            )
+            return unmarshal_json_response(models.FileListResponseBody, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -394,7 +397,7 @@ class Files(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.FileGetResponseBody]:
+    ) -> models.FileGetResponseBody:
         r"""Retrieve a file
 
         Retrieves the details of an existing file object. After you supply a unique file ID, orq.ai returns the corresponding file object
@@ -435,6 +438,7 @@ class Files(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -451,7 +455,7 @@ class Files(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="FileGet",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -462,9 +466,7 @@ class Files(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.FileGetResponseBody], http_res
-            )
+            return unmarshal_json_response(models.FileGetResponseBody, http_res)
         if utils.match_response(http_res, ["404", "4XX"], "*"):
             http_res_text = utils.stream_to_text(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -482,7 +484,7 @@ class Files(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.FileGetResponseBody]:
+    ) -> models.FileGetResponseBody:
         r"""Retrieve a file
 
         Retrieves the details of an existing file object. After you supply a unique file ID, orq.ai returns the corresponding file object
@@ -523,6 +525,7 @@ class Files(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -539,7 +542,7 @@ class Files(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="FileGet",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -550,9 +553,7 @@ class Files(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.FileGetResponseBody], http_res
-            )
+            return unmarshal_json_response(models.FileGetResponseBody, http_res)
         if utils.match_response(http_res, ["404", "4XX"], "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -609,6 +610,7 @@ class Files(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -625,7 +627,7 @@ class Files(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="FileDelete",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -693,6 +695,7 @@ class Files(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -709,7 +712,7 @@ class Files(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="FileDelete",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),

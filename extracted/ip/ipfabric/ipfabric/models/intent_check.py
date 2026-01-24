@@ -43,19 +43,19 @@ class Result(BaseModel):
 
         old = self.checks
         new = other.checks
-        data = dict()
+        data = {}
         if self.count is not None or other.count is not None:
-            data["count"] = dict(
-                loaded_snapshot=self.count or 0,
-                compare_snapshot=other.count or 0,
-                diff=(other.count or 0) - (self.count or 0),
-            )
+            data["count"] = {
+                "loaded_snapshot": self.count or 0,
+                "compare_snapshot": other.count or 0,
+                "diff": (other.count or 0) - (self.count or 0),
+            }
 
         for value in ["green", "blue", "amber", "red"]:
             if getattr(old, value) is not None or getattr(new, value) is not None:
                 o = self.get_value(old, value)
                 n = self.get_value(new, value)
-                data[value] = dict(loaded_snapshot=o, compare_snapshot=n, diff=(n - o))
+                data[value] = {"loaded_snapshot": o, "compare_snapshot": n, "diff": (n - o)}
         return data
 
     @staticmethod

@@ -38,7 +38,7 @@ from .._jsii import *
 from ..aws_ec2 import Instance as _Instance_873cd165
 from ..aws_elasticloadbalancingv2 import (
     ApplicationListener as _ApplicationListener_e0620bf5,
-    IApplicationLoadBalancer as _IApplicationLoadBalancer_4cbd50ab,
+    IApplicationLoadBalancerRef as _IApplicationLoadBalancerRef_94a322e8,
     IApplicationLoadBalancerTarget as _IApplicationLoadBalancerTarget_fabf9003,
     IApplicationTargetGroup as _IApplicationTargetGroup_57799827,
     INetworkLoadBalancerTarget as _INetworkLoadBalancerTarget_688b169f,
@@ -83,8 +83,8 @@ class AlbArnTarget(
     @jsii.member(jsii_name="attachToNetworkTargetGroup")
     def attach_to_network_target_group(
         self,
-        target_group: _INetworkTargetGroup_abca2df7,
-    ) -> _LoadBalancerTargetProps_4c30a73c:
+        target_group: "_INetworkTargetGroup_abca2df7",
+    ) -> "_LoadBalancerTargetProps_4c30a73c":
         '''Register this alb target with a load balancer.
 
         Don't call this, it is called automatically when you add the target to a
@@ -95,7 +95,7 @@ class AlbArnTarget(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ea49d3d21e7fdd26737ad142510132a0b92aad60fc05d121077fff9d7ef5770)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
-        return typing.cast(_LoadBalancerTargetProps_4c30a73c, jsii.invoke(self, "attachToNetworkTargetGroup", [target_group]))
+        return typing.cast("_LoadBalancerTargetProps_4c30a73c", jsii.invoke(self, "attachToNetworkTargetGroup", [target_group]))
 
 
 class AlbListenerTarget(
@@ -144,7 +144,7 @@ class AlbListenerTarget(
         CfnOutput(self, "NlbEndpoint", value=f"http://{nlb.loadBalancerDnsName}")
     '''
 
-    def __init__(self, alb_listener: _ApplicationListener_e0620bf5) -> None:
+    def __init__(self, alb_listener: "_ApplicationListener_e0620bf5") -> None:
         '''Create a new ALB target.
 
         The associated target group will automatically have a dependency added
@@ -160,8 +160,8 @@ class AlbListenerTarget(
     @jsii.member(jsii_name="attachToNetworkTargetGroup")
     def attach_to_network_target_group(
         self,
-        target_group: _INetworkTargetGroup_abca2df7,
-    ) -> _LoadBalancerTargetProps_4c30a73c:
+        target_group: "_INetworkTargetGroup_abca2df7",
+    ) -> "_LoadBalancerTargetProps_4c30a73c":
         '''Register this ALB target with a load balancer.
 
         Don't call this, it is called automatically when you add the target to a
@@ -175,7 +175,7 @@ class AlbListenerTarget(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__20a98e4d36be7fd597fbdb5dc2eb39c596b74bb2f49614c2332d5ae90c821450)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
-        return typing.cast(_LoadBalancerTargetProps_4c30a73c, jsii.invoke(self, "attachToNetworkTargetGroup", [target_group]))
+        return typing.cast("_LoadBalancerTargetProps_4c30a73c", jsii.invoke(self, "attachToNetworkTargetGroup", [target_group]))
 
 
 class AlbTarget(
@@ -203,14 +203,14 @@ class AlbTarget(
         from aws_cdk import aws_elasticloadbalancingv2 as elbv2
         from aws_cdk import aws_elasticloadbalancingv2_targets as elasticloadbalancingv2_targets
         
-        # application_load_balancer: elbv2.ApplicationLoadBalancer
+        # application_load_balancer_ref: elbv2.IApplicationLoadBalancerRef
         
-        alb_target = elasticloadbalancingv2_targets.AlbTarget(application_load_balancer, 123)
+        alb_target = elasticloadbalancingv2_targets.AlbTarget(application_load_balancer_ref, 123)
     '''
 
     def __init__(
         self,
-        alb: _IApplicationLoadBalancer_4cbd50ab,
+        alb: "_IApplicationLoadBalancerRef_94a322e8",
         port: jsii.Number,
     ) -> None:
         '''
@@ -266,8 +266,8 @@ class InstanceIdTarget(
     @jsii.member(jsii_name="attachToApplicationTargetGroup")
     def attach_to_application_target_group(
         self,
-        target_group: _IApplicationTargetGroup_57799827,
-    ) -> _LoadBalancerTargetProps_4c30a73c:
+        target_group: "_IApplicationTargetGroup_57799827",
+    ) -> "_LoadBalancerTargetProps_4c30a73c":
         '''Register this instance target with a load balancer.
 
         Don't call this, it is called automatically when you add the target to a
@@ -278,13 +278,13 @@ class InstanceIdTarget(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e70e7ee18a71770eaa08504d84271779a0a58094edefcc8ce3216dc7e9b68be)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
-        return typing.cast(_LoadBalancerTargetProps_4c30a73c, jsii.invoke(self, "attachToApplicationTargetGroup", [target_group]))
+        return typing.cast("_LoadBalancerTargetProps_4c30a73c", jsii.invoke(self, "attachToApplicationTargetGroup", [target_group]))
 
     @jsii.member(jsii_name="attachToNetworkTargetGroup")
     def attach_to_network_target_group(
         self,
-        target_group: _INetworkTargetGroup_abca2df7,
-    ) -> _LoadBalancerTargetProps_4c30a73c:
+        target_group: "_INetworkTargetGroup_abca2df7",
+    ) -> "_LoadBalancerTargetProps_4c30a73c":
         '''Register this instance target with a load balancer.
 
         Don't call this, it is called automatically when you add the target to a
@@ -295,7 +295,7 @@ class InstanceIdTarget(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c0af4f33601944860c7afb8bd7b24a7ae7f810bbfad86781e7210eacdf47b0a)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
-        return typing.cast(_LoadBalancerTargetProps_4c30a73c, jsii.invoke(self, "attachToNetworkTargetGroup", [target_group]))
+        return typing.cast("_LoadBalancerTargetProps_4c30a73c", jsii.invoke(self, "attachToNetworkTargetGroup", [target_group]))
 
 
 class InstanceTarget(
@@ -320,7 +320,7 @@ class InstanceTarget(
 
     def __init__(
         self,
-        instance: _Instance_873cd165,
+        instance: "_Instance_873cd165",
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Create a new Instance target.
@@ -398,8 +398,8 @@ class IpTarget(
     @jsii.member(jsii_name="attachToApplicationTargetGroup")
     def attach_to_application_target_group(
         self,
-        target_group: _IApplicationTargetGroup_57799827,
-    ) -> _LoadBalancerTargetProps_4c30a73c:
+        target_group: "_IApplicationTargetGroup_57799827",
+    ) -> "_LoadBalancerTargetProps_4c30a73c":
         '''Register this instance target with a load balancer.
 
         Don't call this, it is called automatically when you add the target to a
@@ -410,13 +410,13 @@ class IpTarget(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a9a376c8ed3a883a27f4ae60ca1aec9ad984e59f8e7fa8a170556c3f7fe55e5)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
-        return typing.cast(_LoadBalancerTargetProps_4c30a73c, jsii.invoke(self, "attachToApplicationTargetGroup", [target_group]))
+        return typing.cast("_LoadBalancerTargetProps_4c30a73c", jsii.invoke(self, "attachToApplicationTargetGroup", [target_group]))
 
     @jsii.member(jsii_name="attachToNetworkTargetGroup")
     def attach_to_network_target_group(
         self,
-        target_group: _INetworkTargetGroup_abca2df7,
-    ) -> _LoadBalancerTargetProps_4c30a73c:
+        target_group: "_INetworkTargetGroup_abca2df7",
+    ) -> "_LoadBalancerTargetProps_4c30a73c":
         '''Register this instance target with a load balancer.
 
         Don't call this, it is called automatically when you add the target to a
@@ -427,7 +427,7 @@ class IpTarget(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__069f34c3f18be180bdb72c9a996b9bd91047c65c9c1cf353e7587ca71c38032a)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
-        return typing.cast(_LoadBalancerTargetProps_4c30a73c, jsii.invoke(self, "attachToNetworkTargetGroup", [target_group]))
+        return typing.cast("_LoadBalancerTargetProps_4c30a73c", jsii.invoke(self, "attachToNetworkTargetGroup", [target_group]))
 
 
 @jsii.implements(_IApplicationLoadBalancerTarget_fabf9003)
@@ -459,7 +459,7 @@ class LambdaTarget(
         )
     '''
 
-    def __init__(self, fn: _IFunction_6adb0ab8) -> None:
+    def __init__(self, fn: "_IFunction_6adb0ab8") -> None:
         '''Create a new Lambda target.
 
         :param fn: -
@@ -472,8 +472,8 @@ class LambdaTarget(
     @jsii.member(jsii_name="attachToApplicationTargetGroup")
     def attach_to_application_target_group(
         self,
-        target_group: _IApplicationTargetGroup_57799827,
-    ) -> _LoadBalancerTargetProps_4c30a73c:
+        target_group: "_IApplicationTargetGroup_57799827",
+    ) -> "_LoadBalancerTargetProps_4c30a73c":
         '''Register this instance target with a load balancer.
 
         Don't call this, it is called automatically when you add the target to a
@@ -484,13 +484,13 @@ class LambdaTarget(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b190f4c5fe7b990d3e274ecebf1188f5d7b6279fa49c8d06b07414c2348d886)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
-        return typing.cast(_LoadBalancerTargetProps_4c30a73c, jsii.invoke(self, "attachToApplicationTargetGroup", [target_group]))
+        return typing.cast("_LoadBalancerTargetProps_4c30a73c", jsii.invoke(self, "attachToApplicationTargetGroup", [target_group]))
 
     @jsii.member(jsii_name="attachToNetworkTargetGroup")
     def attach_to_network_target_group(
         self,
-        target_group: _INetworkTargetGroup_abca2df7,
-    ) -> _LoadBalancerTargetProps_4c30a73c:
+        target_group: "_INetworkTargetGroup_abca2df7",
+    ) -> "_LoadBalancerTargetProps_4c30a73c":
         '''Register this instance target with a load balancer.
 
         Don't call this, it is called automatically when you add the target to a
@@ -501,7 +501,7 @@ class LambdaTarget(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a2f6c60936adbb8b62de293ba6e14e2a54ee5b179f71c61e5f73cca4e987d14a)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
-        return typing.cast(_LoadBalancerTargetProps_4c30a73c, jsii.invoke(self, "attachToNetworkTargetGroup", [target_group]))
+        return typing.cast("_LoadBalancerTargetProps_4c30a73c", jsii.invoke(self, "attachToNetworkTargetGroup", [target_group]))
 
 
 __all__ = [
@@ -542,7 +542,7 @@ def _typecheckingstub__20a98e4d36be7fd597fbdb5dc2eb39c596b74bb2f49614c2332d5ae90
     pass
 
 def _typecheckingstub__bd3c46777bea3cc0051ec19e4d49e906dc65667b0e86f1104c7ed8f70dc67e80(
-    alb: _IApplicationLoadBalancer_4cbd50ab,
+    alb: _IApplicationLoadBalancerRef_94a322e8,
     port: jsii.Number,
 ) -> None:
     """Type checking stubs"""

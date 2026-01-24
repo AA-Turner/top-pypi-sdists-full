@@ -56,12 +56,10 @@ from ..models import ProgramInsightsSettings
 from ..models import ProgramInsightsSettingsEntityListing
 from ..models import ProgramJob
 from ..models import ProgramJobRequest
-from ..models import ProgramMappings
 from ..models import ProgramMappingsRequest
 from ..models import ProgramRequest
 from ..models import ProgramTranscriptionEngines
 from ..models import ProgramsEntityListing
-from ..models import ProgramsMappingsEntityListing
 from ..models import ReprocessInteractionsByJobIdResponse
 from ..models import ReprocessJobEntityListingResponse
 from ..models import ReprocessJobResponse
@@ -80,6 +78,8 @@ from ..models import Topic
 from ..models import TopicJob
 from ..models import TopicJobRequest
 from ..models import TopicRequest
+from ..models import TopicsDefinitionsProgramMappings
+from ..models import TopicsDefinitionsProgramsMappingsEntityListing
 from ..models import TopicsEntityListing
 from ..models import TranscriptSearchRequest
 from ..models import TranscriptUrl
@@ -1319,6 +1319,7 @@ class SpeechTextAnalyticsApi(object):
         :param callback function: The callback function
             for asynchronous request. (optional)
         :param str dialect: The key for filter the listing by dialect, dialect format is {language}-{country} where language follows ISO 639-1 standard and country follows ISO 3166-1 alpha 2 standard
+        :param str transcription_engine: Filter by transcription engine
         :param str next_page: The key for listing the next page
         :param int page_size: The page size for the listing
         :return: DictionaryFeedbackEntityListing
@@ -1326,7 +1327,7 @@ class SpeechTextAnalyticsApi(object):
                  returns the request thread.
         """
 
-        all_params = ['dialect', 'next_page', 'page_size']
+        all_params = ['dialect', 'transcription_engine', 'next_page', 'page_size']
         all_params.append('callback')
 
         params = locals()
@@ -1347,6 +1348,8 @@ class SpeechTextAnalyticsApi(object):
         query_params = {}
         if 'dialect' in params:
             query_params['dialect'] = params['dialect']
+        if 'transcription_engine' in params:
+            query_params['transcriptionEngine'] = params['transcription_engine']
         if 'next_page' in params:
             query_params['nextPage'] = params['next_page']
         if 'page_size' in params:
@@ -1540,7 +1543,7 @@ class SpeechTextAnalyticsApi(object):
                                             callback=params.get('callback'))
         return response
 
-    def get_speechandtextanalytics_program_mappings(self, program_id: str, **kwargs) -> 'ProgramMappings':
+    def get_speechandtextanalytics_program_mappings(self, program_id: str, **kwargs) -> 'TopicsDefinitionsProgramMappings':
         """
         Get Speech & Text Analytics program mappings to queues and flows by id
         
@@ -1556,7 +1559,7 @@ class SpeechTextAnalyticsApi(object):
         :param callback function: The callback function
             for asynchronous request. (optional)
         :param str program_id: The id of the program (required)
-        :return: ProgramMappings
+        :return: TopicsDefinitionsProgramMappings
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -1613,7 +1616,7 @@ class SpeechTextAnalyticsApi(object):
                                             body=body_params,
                                             post_params=form_params,
                                             files=local_var_files,
-                                            response_type='ProgramMappings',
+                                            response_type='TopicsDefinitionsProgramMappings',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response
@@ -1792,12 +1795,15 @@ class SpeechTextAnalyticsApi(object):
         :param str next_page: The key for listing the next page
         :param int page_size: The page size for the listing
         :param str state: Program state. Defaults to Latest
+        :param str name: Case insensitive partial name to filter by
+        :param str sort_by: Sort results by. Defaults to name
+        :param str sort_order: Sort order. Defaults to asc
         :return: ProgramsEntityListing
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = ['next_page', 'page_size', 'state']
+        all_params = ['next_page', 'page_size', 'state', 'name', 'sort_by', 'sort_order']
         all_params.append('callback')
 
         params = locals()
@@ -1822,6 +1828,12 @@ class SpeechTextAnalyticsApi(object):
             query_params['pageSize'] = params['page_size']
         if 'state' in params:
             query_params['state'] = params['state']
+        if 'name' in params:
+            query_params['name'] = params['name']
+        if 'sort_by' in params:
+            query_params['sortBy'] = params['sort_by']
+        if 'sort_order' in params:
+            query_params['sortOrder'] = params['sort_order']
 
         header_params = {}
 
@@ -1933,7 +1945,7 @@ class SpeechTextAnalyticsApi(object):
                                             callback=params.get('callback'))
         return response
 
-    def get_speechandtextanalytics_programs_mappings(self, **kwargs) -> 'ProgramsMappingsEntityListing':
+    def get_speechandtextanalytics_programs_mappings(self, **kwargs) -> 'TopicsDefinitionsProgramsMappingsEntityListing':
         """
         Get the list of Speech & Text Analytics programs mappings to queues and flows
         
@@ -1950,7 +1962,7 @@ class SpeechTextAnalyticsApi(object):
             for asynchronous request. (optional)
         :param str next_page: The key for listing the next page
         :param int page_size: The page size for the listing
-        :return: ProgramsMappingsEntityListing
+        :return: TopicsDefinitionsProgramsMappingsEntityListing
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -2006,7 +2018,7 @@ class SpeechTextAnalyticsApi(object):
                                             body=body_params,
                                             post_params=form_params,
                                             files=local_var_files,
-                                            response_type='ProgramsMappingsEntityListing',
+                                            response_type='TopicsDefinitionsProgramsMappingsEntityListing',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response
@@ -2877,6 +2889,7 @@ class SpeechTextAnalyticsApi(object):
             for asynchronous request. (optional)
         :param str next_page: The key for listing the next page
         :param int page_size: The page size for the listing. The max that will be returned is 500.
+        :param int page_number: The page number for the listing
         :param str state: Topic state. Defaults to latest
         :param str name: Case insensitive partial name to filter by
         :param list[str] ids: Comma separated Topic IDs to filter by. Cannot be used with other filters. Maximum of 50 IDs allowed.
@@ -2888,7 +2901,7 @@ class SpeechTextAnalyticsApi(object):
                  returns the request thread.
         """
 
-        all_params = ['next_page', 'page_size', 'state', 'name', 'ids', 'dialects', 'sort_by', 'sort_order']
+        all_params = ['next_page', 'page_size', 'page_number', 'state', 'name', 'ids', 'dialects', 'sort_by', 'sort_order']
         all_params.append('callback')
 
         params = locals()
@@ -2911,6 +2924,8 @@ class SpeechTextAnalyticsApi(object):
             query_params['nextPage'] = params['next_page']
         if 'page_size' in params:
             query_params['pageSize'] = params['page_size']
+        if 'page_number' in params:
+            query_params['pageNumber'] = params['page_number']
         if 'state' in params:
             query_params['state'] = params['state']
         if 'name' in params:
@@ -4682,7 +4697,7 @@ class SpeechTextAnalyticsApi(object):
                                             callback=params.get('callback'))
         return response
 
-    def put_speechandtextanalytics_program_mappings(self, program_id: str, body: 'ProgramMappingsRequest', **kwargs) -> 'ProgramMappings':
+    def put_speechandtextanalytics_program_mappings(self, program_id: str, body: 'ProgramMappingsRequest', **kwargs) -> 'TopicsDefinitionsProgramMappings':
         """
         Set Speech & Text Analytics program mappings to queues and flows
         
@@ -4699,7 +4714,7 @@ class SpeechTextAnalyticsApi(object):
             for asynchronous request. (optional)
         :param str program_id: The id of the program (required)
         :param ProgramMappingsRequest body: The program to set mappings for (required)
-        :return: ProgramMappings
+        :return: TopicsDefinitionsProgramMappings
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -4761,7 +4776,7 @@ class SpeechTextAnalyticsApi(object):
                                             body=body_params,
                                             post_params=form_params,
                                             files=local_var_files,
-                                            response_type='ProgramMappings',
+                                            response_type='TopicsDefinitionsProgramMappings',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response

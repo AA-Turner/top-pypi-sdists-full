@@ -8,11 +8,11 @@ from localstack.utils.patch import patch
 from localstack.utils.strings import to_str
 class DecryptionHandler:
 	decryption_key:bytes
-	def __init__(A,decryption_key):A.decryption_key=decryption_key
-	def decrypt(D,content):C=b'\x00';E=C*16;F=Cipher(algorithms.AES(D.decryption_key),modes.CBC(E));B=F.decryptor();A=B.update(content)+B.finalize();A=A.partition(C)[0];return A
+	def __init__(A,decryption_key:bytes):A.decryption_key=decryption_key
+	def decrypt(D,content)->bytes:C=b'\x00';E=C*16;F=Cipher(algorithms.AES(D.decryption_key),modes.CBC(E));B=F.decryptor();A=B.update(content)+B.finalize();A=A.partition(C)[0];return A
 class EncryptedFileFinder(MetaPathFinder):
 	decryption_handler:DecryptionHandler
-	def __init__(A,decryption_handler):A.decryption_handler=decryption_handler
+	def __init__(A,decryption_handler:DecryptionHandler):A.decryption_handler=decryption_handler
 	def find_spec(E,fullname,path,target=None):
 		C=fullname;A=path
 		if A and not isinstance(A,list):A=list(getattr(A,'_path',[]))
@@ -23,12 +23,12 @@ class EncryptedFileFinder(MetaPathFinder):
 		return spec_from_file_location(C,B,loader=DecryptingLoader(B,E.decryption_handler))
 class DecryptingLoader(SourceLoader):
 	decryption_handler:DecryptionHandler
-	def __init__(A,encrypted_file,decryption_handler):A.encrypted_file=encrypted_file;A.decryption_handler=decryption_handler
+	def __init__(A,encrypted_file,decryption_handler:DecryptionHandler):A.encrypted_file=encrypted_file;A.decryption_handler=decryption_handler
 	def get_filename(A,fullname):return A.encrypted_file
 	def get_data(B,filename):
 		with open(filename,'rb')as C:A=C.read()
 		A=B.decryption_handler.decrypt(A);return A
-def init_source_decryption(decryption_handler):A=decryption_handler;sys.meta_path.insert(0,EncryptedFileFinder(A));patch_traceback_lines();patch_inspect_findsource();patch_tokenize_open(A)
+def init_source_decryption(decryption_handler:DecryptionHandler):A=decryption_handler;sys.meta_path.insert(0,EncryptedFileFinder(A));patch_traceback_lines();patch_inspect_findsource();patch_tokenize_open(A)
 def patch_traceback_lines():
 	if getattr(traceback.FrameSummary,_A,None):return
 	@property
@@ -43,7 +43,7 @@ def patch_inspect_findsource():
 		try:return B(*A,**C)
 		except Exception:return[],0
 	B=inspect.findsource;inspect.findsource=A;inspect._ls_patch_applied=True
-def patch_tokenize_open(decryption_handler):
+def patch_tokenize_open(decryption_handler:DecryptionHandler):
 	@patch(tokenize.open)
 	def A(fn,filename,*C,**D):
 		A=filename

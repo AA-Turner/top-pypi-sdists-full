@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster
-Version: 1.11.11
+Version: 1.12.12
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
 Author: Dagster Labs
 Author-email: hello@dagsterlabs.com
@@ -20,19 +20,19 @@ Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9,<3.14
+Requires-Python: >=3.10,<3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: click<8.2,>=5.0
+Requires-Dist: click<9.0,>=5.0
 Requires-Dist: coloredlogs<=14.0,>=6.1
 Requires-Dist: Jinja2
 Requires-Dist: alembic!=1.11.0,!=1.6.3,!=1.7.0,>=1.2.1
@@ -60,13 +60,12 @@ Requires-Dist: universal_pathlib; python_version < "3.12"
 Requires-Dist: universal_pathlib>=0.2.0; python_version >= "3.12"
 Requires-Dist: rich
 Requires-Dist: filelock
-Requires-Dist: dagster-pipes==1.11.11
-Requires-Dist: dagster-shared==1.11.11
+Requires-Dist: dagster-pipes==1.12.12
+Requires-Dist: dagster-shared==1.12.12
 Requires-Dist: antlr4-python3-runtime
 Provides-Extra: docker
 Requires-Dist: docker; extra == "docker"
 Provides-Extra: test
-Requires-Dist: buildkite-test-collector; extra == "test"
 Requires-Dist: docker; extra == "test"
 Requires-Dist: grpcio-tools>=1.44.0; extra == "test"
 Requires-Dist: mypy-protobuf; extra == "test"
@@ -89,7 +88,7 @@ Requires-Dist: ruff==0.11.5; extra == "test"
 Provides-Extra: test-components
 Requires-Dist: tomlkit; extra == "test-components"
 Requires-Dist: jsonschema; extra == "test-components"
-Requires-Dist: pandas; extra == "test-components"
+Requires-Dist: pandas<3.0.0; extra == "test-components"
 Requires-Dist: duckdb; extra == "test-components"
 Provides-Extra: mypy
 Requires-Dist: mypy==1.8.0; extra == "mypy"
@@ -164,24 +163,25 @@ With Dagster, you declare—as Python functions—the data assets that you want 
 Here is an example of a graph of three assets defined in Python:
 
 ```python
-from dagster import asset
-from pandas import DataFrame, read_html, get_dummies
+import dagster as dg
+import pandas as pd
+
 from sklearn.linear_model import LinearRegression
 
-@asset
-def country_populations() -> DataFrame:
-    df = read_html("https://tinyurl.com/mry64ebh")[0]
+@dg.asset
+def country_populations() -> pd.DataFrame:
+    df = pd.read_html("https://tinyurl.com/mry64ebh")[0]
     df.columns = ["country", "pop2022", "pop2023", "change", "continent", "region"]
-    df["change"] = df["change"].str.rstrip("%").str.replace("−", "-").astype("float")
+    df["change"] = df["change"].str.rstrip("%").astype("float")
     return df
 
-@asset
-def continent_change_model(country_populations: DataFrame) -> LinearRegression:
+@dg.asset
+def continent_change_model(country_populations: pd.DataFrame) -> LinearRegression:
     data = country_populations.dropna(subset=["change"])
-    return LinearRegression().fit(get_dummies(data[["continent"]]), data["change"])
+    return LinearRegression().fit(pd.get_dummies(data[["continent"]]), data["change"])
 
-@asset
-def continent_stats(country_populations: DataFrame, continent_change_model: LinearRegression) -> DataFrame:
+@dg.asset
+def continent_stats(country_populations: pd.DataFrame, continent_change_model: LinearRegression) -> pd.DataFrame:
     result = country_populations.groupby("continent").sum()
     result["pop_change_factor"] = continent_change_model.coef_
     return result
@@ -199,7 +199,7 @@ Dagster is built to be used at every stage of the data development lifecycle - l
 
 If you're new to Dagster, we recommend checking out the [docs](https://docs.dagster.io) or following the hands-on [tutorial](https://docs.dagster.io/etl-pipeline-tutorial/).
 
-Dagster is available on PyPI and officially supports Python 3.9 through Python 3.13.
+Dagster is available on PyPI and officially supports Python 3.9 through Python 3.14.
 
 ```bash
 pip install dagster dagster-webserver
@@ -258,7 +258,7 @@ Join our community here:
 - 🌟 [Star us on GitHub](https://github.com/dagster-io/dagster)
 - 📥 [Subscribe to our Newsletter](https://dagster.io/newsletter-signup)
 - 🐦 [Follow us on Twitter](https://twitter.com/dagster)
-- 🕴️ [Follow us on LinkedIn](https://linkedin.com/showcase/dagster)
+- 🕴️ [Follow us on LinkedIn](https://www.linkedin.com/company/dagsterlabs/)
 - 📺 [Subscribe to our YouTube channel](https://www.youtube.com/@dagsterio)
 - 📚 [Read our blog posts](https://dagster.io/blog)
 - 👋 [Join us on Slack](https://dagster.io/slack)

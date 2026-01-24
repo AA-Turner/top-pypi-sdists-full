@@ -5,6 +5,7 @@
 #include "cuda_dr_utils.h"
 
 #include <algorithm>  // for max
+#include <charconv>   // for from_chars
 #include <cstdint>    // for int32_t
 #include <cstring>    // for memset
 #include <memory>     // for make_unique
@@ -18,7 +19,7 @@
 #include "xgboost/string_view.h"  // for StringView
 
 namespace xgboost::cudr {
-CuDriverApi::CuDriverApi() {
+CuDriverApi::CuDriverApi(std::int32_t cu_major, std::int32_t cu_minor, std::int32_t kdm_major) {
   // similar to dlopen, but without the need to release a handle.
   auto safe_load = [](xgboost::StringView name, auto **fnptr) {
     cudaDriverEntryPointQueryResult status;
@@ -46,7 +47,18 @@ CuDriverApi::CuDriverApi() {
   safe_load("cuGetErrorName", &this->cuGetErrorName);
   safe_load("cuDeviceGetAttribute", &this->cuDeviceGetAttribute);
   safe_load("cuDeviceGet", &this->cuDeviceGet);
-
+#if defined(CUDA_HW_DECOM_AVAILABLE)
+  // CTK 12.8
+  if (((cu_major == 12 && cu_minor >= 8) || cu_major > 12) && (kdm_major >= 570)) {
+    safe_load("cuMemBatchDecompressAsync", &this->cuMemBatchDecompressAsync);
+  } else {
+    this->cuMemBatchDecompressAsync = nullptr;
+  }
+#else
+  (void)cu_major;
+  (void)cu_minor;
+  (void)kdm_major;
+#endif  // defined(CUDA_HW_DECOM_AVAILABLE)
   CHECK(this->cuMemGetAllocationGranularity);
 }
 
@@ -80,9 +92,17 @@ void CuDriverApi::ThrowIfError(CUresult status, StringView fn, std::int32_t line
 }
 
 [[nodiscard]] CuDriverApi &GetGlobalCuDriverApi() {
+  std::int32_t cu_major = -1, cu_minor = -1;
+  curt::GetDrVersionGlobal(&cu_major, &cu_minor);
+
+  std::int32_t kdm_major = -1, kdm_minor = -1;
+  if (!GetVersionFromSmiGlobal(&kdm_major, &kdm_minor)) {
+    kdm_major = -1;
+  }
+
   static std::once_flag flag;
   static std::unique_ptr<CuDriverApi> cu;
-  std::call_once(flag, [&] { cu = std::make_unique<CuDriverApi>(); });
+  std::call_once(flag, [&] { cu = std::make_unique<CuDriverApi>(cu_major, cu_minor, kdm_major); });
   return *cu;
 }
 
@@ -149,15 +169,59 @@ void MakeCuMemLocation(CUmemLocationType type, CUmemLocation *loc) {
   if (smi_ver.size() != 2 && smi_ver.size() != 3) {
     return Invalid();
   }
-  try {
-    *p_major = std::stoi(smi_ver[0]);
-    *p_minor = std::stoi(smi_ver[1]);
-    LOG(INFO) << "Driver version: `" << *p_major << "." << *p_minor << "`";
-    return true;
-  } catch (std::exception const &) {
+
+  auto [smajor, sminor] = std::tie(smi_ver[0], smi_ver[1]);
+  auto ret0 = std::from_chars(smajor.data(), smajor.data() + smajor.size(), *p_major);
+  auto ret1 = std::from_chars(sminor.data(), sminor.data() + sminor.size(), *p_minor);
+  if (ret0.ec != std::errc{} || ret1.ec != std::errc{}) {
+    return Invalid();
+  }
+  LOG(INFO) << "Driver version: `" << *p_major << "." << *p_minor << "`";
+  return true;
+}
+
+[[nodiscard]] bool GetVersionFromSmiGlobal(std::int32_t *p_major, std::int32_t *p_minor) {
+  static std::once_flag flag;
+  static std::int32_t major = -1, minor = -1;
+  static bool result = false;
+  std::call_once(flag, [&] { result = GetVersionFromSmi(&major, &minor); });
+
+  *p_major = major;
+  *p_minor = minor;
+  return result;
+}
+
+namespace detail {
+// Split up an impl function for simple tests.
+[[nodiscard]] std::int32_t GetC2cLinkCountFromSmiImpl(std::string const &smi_output) {
+  using common::Split, common::TrimFirst, common::TrimLast;
+  auto smi_out_str = TrimLast(TrimFirst(smi_output));
+  auto lines = Split(smi_out_str, '\n');
+  if (lines.size() <= 1) {
+    return -1;
+  }
+  return lines.size() - 1;
+}
+}  // namespace detail
+
+[[nodiscard]] std::int32_t GetC2cLinkCountFromSmi() {
+  auto n_devices = curt::AllVisibleGPUs();
+  if (n_devices < 1) {
+    return -1;
   }
 
-  return Invalid();
+  // See test for example output from smi.
+  auto cmd = "nvidia-smi c2c -s -i 0";  // Select the first GPU to query.
+  auto out = common::CmdOutput(StringView{cmd});
+  auto cnt = detail::GetC2cLinkCountFromSmiImpl(out);
+  return cnt;
+}
+
+[[nodiscard]] std::int32_t GetC2cLinkCountFromSmiGlobal() {
+  static std::once_flag once;
+  static std::int32_t cnt = -1;
+  std::call_once(once, [&] { cnt = GetC2cLinkCountFromSmi(); });
+  return cnt;
 }
 }  // namespace xgboost::cudr
 #endif

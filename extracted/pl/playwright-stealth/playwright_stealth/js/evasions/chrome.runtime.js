@@ -5,12 +5,12 @@ const STATIC_DATA = {
     CHROME_UPDATE: "chrome_update",
     INSTALL: "install",
     SHARED_MODULE_UPDATE: "shared_module_update",
-    UPDATE: "update",
+    UPDATE: "update"
   },
   OnRestartRequiredReason: {
     APP_UPDATE: "app_update",
     OS_UPDATE: "os_update",
-    PERIODIC: "periodic",
+    PERIODIC: "periodic"
   },
   PlatformArch: {
     ARM: "arm",
@@ -18,14 +18,14 @@ const STATIC_DATA = {
     MIPS: "mips",
     MIPS64: "mips64",
     X86_32: "x86-32",
-    X86_64: "x86-64",
+    X86_64: "x86-64"
   },
   PlatformNaclArch: {
     ARM: "arm",
     MIPS: "mips",
     MIPS64: "mips64",
     X86_32: "x86-32",
-    X86_64: "x86-64",
+    X86_64: "x86-64"
   },
   PlatformOs: {
     ANDROID: "android",
@@ -33,13 +33,13 @@ const STATIC_DATA = {
     LINUX: "linux",
     MAC: "mac",
     OPENBSD: "openbsd",
-    WIN: "win",
+    WIN: "win"
   },
   RequestUpdateCheckStatus: {
     NO_UPDATE: "no_update",
     THROTTLED: "throttled",
-    UPDATE_AVAILABLE: "update_available",
-  },
+    UPDATE_AVAILABLE: "update_available"
+  }
 };
 
 if (!window.chrome) {
@@ -49,7 +49,7 @@ if (!window.chrome) {
     writable: true,
     enumerable: true,
     configurable: false, // note!
-    value: {}, // We'll extend that later
+    value: {} // We'll extend that later
   });
 }
 
@@ -68,36 +68,42 @@ if (!existsAlready && !isNotSecure) {
     },
     // These two require more sophisticated mocks
     connect: null,
-    sendMessage: null,
+    sendMessage: null
   };
 
   const makeCustomRuntimeErrors = (preamble, method, extensionId) => ({
     NoMatchingSignature: new TypeError(preamble + `No matching signature.`),
     MustSpecifyExtensionID: new TypeError(
-      preamble + `${method} called from a webpage must specify an Extension ID (string) for its first argument.`
+      preamble +
+      `${method} called from a webpage must specify an Extension ID (string) for its first argument.`
     ),
-    InvalidExtensionID: new TypeError(preamble + `Invalid extension id: '${extensionId}'`),
+    InvalidExtensionID: new TypeError(
+      preamble + `Invalid extension id: '${extensionId}'`)
   });
 
   // Valid Extension IDs are 32 characters in length and use the letter `a` to `p`:
   // https://source.chromium.org/chromium/chromium/src/+/master:components/crx_file/id_util.cc;drc=14a055ccb17e8c8d5d437fe080faba4c6f07beac;l=90
-  const isValidExtensionID = (str) => str.length === 32 && str.toLowerCase().match(/^[a-p]+$/);
+  const isValidExtensionID = (str) => str.length === 32 &&
+    str.toLowerCase().match(/^[a-p]+$/);
 
   /** Mock `chrome.runtime.sendMessage` */
   const sendMessageHandler = {
-    apply: function (target, ctx, args) {
+    apply: function(target, ctx, args) {
       const [extensionId, options, responseCallback] = args || [];
 
       // Define custom errors
       const errorPreamble = `Error in invocation of runtime.sendMessage(optional string extensionId, any message, optional object options, optional function responseCallback): `;
-      const Errors = makeCustomRuntimeErrors(errorPreamble, `chrome.runtime.sendMessage()`, extensionId);
+      const Errors = makeCustomRuntimeErrors(errorPreamble,
+        `chrome.runtime.sendMessage()`, extensionId);
 
       // Check if the call signature looks ok
       const noArguments = args.length === 0;
       const tooManyArguments = args.length > 4;
       const incorrectOptions = options && typeof options !== "object";
-      const incorrectResponseCallback = responseCallback && typeof responseCallback !== "function";
-      if (noArguments || tooManyArguments || incorrectOptions || incorrectResponseCallback) {
+      const incorrectResponseCallback = responseCallback &&
+        typeof responseCallback !== "function";
+      if (noArguments || tooManyArguments || incorrectOptions ||
+        incorrectResponseCallback) {
         throw Errors.NoMatchingSignature;
       }
 
@@ -116,9 +122,11 @@ if (!existsAlready && !isNotSecure) {
       }
 
       return undefined; // Normal behavior
-    },
+    }
   };
-  utils.mockWithProxy(window.chrome.runtime, "sendMessage", function sendMessage() {}, sendMessageHandler);
+  utils.mockWithProxy(window.chrome.runtime, "sendMessage",
+    function sendMessage() {
+    }, sendMessageHandler);
 
   /**
    * Mock `chrome.runtime.connect`
@@ -126,12 +134,13 @@ if (!existsAlready && !isNotSecure) {
    * @see https://developer.chrome.com/apps/runtime#method-connect
    */
   const connectHandler = {
-    apply: function (target, ctx, args) {
+    apply: function(target, ctx, args) {
       const [extensionId, connectInfo] = args || [];
 
       // Define custom errors
       const errorPreamble = `Error in invocation of runtime.connect(optional string extensionId, optional object connectInfo): `;
-      const Errors = makeCustomRuntimeErrors(errorPreamble, `chrome.runtime.connect()`, extensionId);
+      const Errors = makeCustomRuntimeErrors(errorPreamble,
+        `chrome.runtime.connect()`, extensionId);
 
       // Behavior differs a bit from sendMessage:
       const noArguments = args.length === 0;
@@ -141,7 +150,8 @@ if (!existsAlready && !isNotSecure) {
       }
 
       const tooManyArguments = args.length > 2;
-      const incorrectConnectInfoType = connectInfo && typeof connectInfo !== "object";
+      const incorrectConnectInfoType = connectInfo && typeof connectInfo !==
+        "object";
 
       if (tooManyArguments || incorrectConnectInfoType) {
         throw Errors.NoMatchingSignature;
@@ -173,7 +183,8 @@ if (!existsAlready && !isNotSecure) {
           }
           const MismatchError = (propName, expected, found) =>
             TypeError(
-              errorPreamble + `Error at property '${propName}': Invalid type: expected ${expected}, found ${found}.`
+              errorPreamble +
+              `Error at property '${propName}': Invalid type: expected ${expected}, found ${found}.`
             );
           if (k === "name" && typeof v !== "string") {
             throw MismatchError(k, "string", typeof v);
@@ -190,25 +201,31 @@ if (!existsAlready && !isNotSecure) {
 
       // Unfortunately even when the connect fails Chrome will return an object with methods we need to mock as well
       return utils.patchToStringNested(makeConnectResponse());
-    },
+    }
   };
-  utils.mockWithProxy(window.chrome.runtime, "connect", function connect() {}, connectHandler);
+  utils.mockWithProxy(window.chrome.runtime, "connect", function connect() {
+  }, connectHandler);
 
   function makeConnectResponse() {
     const onSomething = () => ({
-      addListener: function addListener() {},
-      dispatch: function dispatch() {},
-      hasListener: function hasListener() {},
+      addListener: function addListener() {
+      },
+      dispatch: function dispatch() {
+      },
+      hasListener: function hasListener() {
+      },
       hasListeners: function hasListeners() {
         return false;
       },
-      removeListener: function removeListener() {},
+      removeListener: function removeListener() {
+      }
     });
 
     const response = {
       name: "",
       sender: undefined,
-      disconnect: function disconnect() {},
+      disconnect: function disconnect() {
+      },
       onDisconnect: onSomething(),
       onMessage: onSomething(),
       postMessage: function postMessage() {
@@ -216,7 +233,7 @@ if (!existsAlready && !isNotSecure) {
           throw new TypeError(`Insufficient number of arguments.`);
         }
         throw new Error(`Attempting to use a disconnected port object`);
-      },
+      }
     };
     return response;
   }

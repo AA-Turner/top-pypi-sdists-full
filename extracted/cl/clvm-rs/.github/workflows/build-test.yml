@@ -22,11 +22,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-13, ubuntu-latest, windows-latest]
+        os: [macos-15-intel, ubuntu-latest, windows-latest]
         python: [3.8]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -127,7 +127,7 @@ jobs:
           # ignoring `clvm_rs.so`, which is pretty important)
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-${{ matrix.os }}-py-${{ matrix.python }}
           path: ./target/wheels/
@@ -138,7 +138,7 @@ jobs:
     needs: build_wheels
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -148,7 +148,7 @@ jobs:
           python-version: "3.10"
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           merge-multiple: true
           pattern: wheels-*
@@ -165,13 +165,11 @@ jobs:
     runs-on: ubuntu-22.04
     name: Checks
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 1
-      - name: Install rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      - name: Set up rusts
+        uses: dtolnay/rust-toolchain@1.89.0
       - name: Clippy
         run: cargo clippy --all-targets --workspace -- -D warnings
       - name: fmt
@@ -185,17 +183,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-13, ubuntu-latest]
+        os: [macos-15-intel, ubuntu-latest]
         python: [3.8]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 1
-      - name: Install rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly
-          components: rustfmt, clippy
+      - name: Set up rusts
+        uses: dtolnay/rust-toolchain@nightly
       - name: fmt
         run: |
           cd fuzz
@@ -212,7 +207,7 @@ jobs:
           cd tools
           cargo run --bin generate-fuzz-corpus
       - name: build
-        run: cargo fuzz list | xargs -I "%" sh -c "cargo fuzz run % -- -max_total_time=30 || exit 255"
+        run: cargo +nightly fuzz list | xargs -I "%" sh -c "cargo +nightly fuzz run % -- -max_total_time=30 || exit 255"
 
   unit_tests:
     name: Unit tests
@@ -220,16 +215,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-13, ubuntu-latest, windows-latest]
+        os: [macos-15-intel, ubuntu-latest, windows-latest]
         python: [3.8]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 1
-      - name: Install rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      - name: Set up rusts
+        uses: dtolnay/rust-toolchain@1.89.0
 
       - name: build
         run: cargo build --workspace --exclude clvm_rs-fuzz
@@ -252,7 +245,7 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - name: Run for coverage
         run: |

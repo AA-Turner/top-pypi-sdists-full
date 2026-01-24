@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bedrock-agentcore
-Version: 0.1.4
+Version: 1.2.0
 Summary: An SDK for using Bedrock AgentCore
 Project-URL: Homepage, https://github.com/aws/bedrock-agentcore-sdk-python
 Project-URL: Bug Tracker, https://github.com/aws/bedrock-agentcore-sdk-python/issues
@@ -21,15 +21,18 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: boto3>=1.39.7
-Requires-Dist: botocore>=1.39.7
-Requires-Dist: pydantic<3.0.0,>=2.0.0
+Requires-Dist: boto3>=1.40.52
+Requires-Dist: botocore>=1.40.52
+Requires-Dist: pydantic<2.41.3,>=2.0.0
 Requires-Dist: starlette>=0.46.2
 Requires-Dist: typing-extensions<5.0.0,>=4.13.2
 Requires-Dist: urllib3>=1.26.0
 Requires-Dist: uvicorn>=0.34.2
+Requires-Dist: websockets>=12.0
 Provides-Extra: strands-agents
 Requires-Dist: strands-agents>=1.1.0; extra == 'strands-agents'
+Provides-Extra: strands-agents-evals
+Requires-Dist: strands-agents-evals>=0.1.0; extra == 'strands-agents-evals'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -99,23 +102,20 @@ app.run()  # Ready to run on Bedrock AgentCore
 - ✅ **Production-ready deployment** - Reliable, scalable, compliant hosting
 
 ## Amazon Bedrock AgentCore services
-- 🚀 **Runtime** - Secure and session isolated compute: **[Runtime Quick Start](https://aws.github.io/bedrock-agentcore-starter-toolkit/user-guide/runtime/quickstart.html)**
-- 🧠 **Memory** - Persistent knowledge across sessions: **[Memory Quick Start](https://aws.github.io/bedrock-agentcore-starter-toolkit/user-guide/memory/quickstart.html)**
-- 🔗 **Gateway** - Transform APIs into MCP tools: **[Gateway Quick Start](https://aws.github.io/bedrock-agentcore-starter-toolkit/user-guide/gateway/quickstart.html)**
-- 💻 **Code Interpreter** - Secure sandboxed execution: **[Code Interpreter Quick Start](https://aws.github.io/bedrock-agentcore-starter-toolkit/user-guide/builtin-tools/quickstart-code-interpreter.html)**
-- 🌐 **Browser** - Cloud-based web automation: **[Browser Quick Start](https://aws.github.io/bedrock-agentcore-starter-toolkit/user-guide/builtin-tools/quickstart-browser.html)**
-- 📊 **Observability** - OpenTelemetry tracing: **[Observability Quick Start](https://aws.github.io/bedrock-agentcore-starter-toolkit/user-guide/observability/quickstart.html)**
-- 🔐 **Identity** - AWS & third-party auth:
+- 🚀 **Runtime** - Secure and session isolated compute: **[Runtime Quick Start](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-get-started-toolkit.html)**
+- 🧠 **Memory** - Persistent knowledge across sessions: **[Memory Quick Start](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory-get-started.html)**
+- 🔗 **Gateway** - Transform APIs into MCP tools: **[Gateway Quick Start](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-quick-start.html)**
+- 💻 **Code Interpreter** - Secure sandboxed execution: **[Code Interpreter Quick Start](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/code-interpreter-getting-started.html)**
+- 🌐 **Browser** - Cloud-based web automation: **[Browser Quick Start](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/browser-onboarding.html)**
+- 📊 **Observability** - OpenTelemetry tracing: **[Observability Quick Start](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-get-started.html)**
+- 🔐 **Identity** - AWS & third-party auth: **[Identity Quick Start](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-getting-started-cognito.html)**
 
 ## 🏗️ Deployment
 
 **Quick Start:** Use the [Bedrock AgentCore Starter Toolkit](https://github.com/aws/bedrock-agentcore-starter-toolkit) for rapid prototyping.
 
-**Production:** [AWS CDK](https://aws.amazon.com/cdk/) - coming soon.
+**Production:** [AWS CDK](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_bedrockagentcore-readme.html).
 
-## ⚠️ Preview Status
-
-Bedrock AgentCore SDK is currently in public preview. APIs may change as we refine the SDK.
 
 ## 📝 License & Contributing
 

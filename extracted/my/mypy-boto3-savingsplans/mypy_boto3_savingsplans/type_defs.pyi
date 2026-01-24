@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -36,12 +37,6 @@ from .literals import (
     SavingsPlanTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -86,7 +81,7 @@ TimestampTypeDef = Union[datetime, str]
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -121,13 +116,13 @@ class SavingsPlanTypeDef(TypedDict):
     ec2InstanceFamily: NotRequired[str]
     savingsPlanType: NotRequired[SavingsPlanTypeType]
     paymentOption: NotRequired[SavingsPlanPaymentOptionType]
-    productTypes: NotRequired[List[SavingsPlanProductTypeType]]
+    productTypes: NotRequired[list[SavingsPlanProductTypeType]]
     currency: NotRequired[CurrencyCodeType]
     commitment: NotRequired[str]
     upfrontPaymentAmount: NotRequired[str]
     recurringPaymentAmount: NotRequired[str]
     termDurationInSeconds: NotRequired[int]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     returnableUntil: NotRequired[str]
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -178,7 +173,7 @@ class CreateSavingsPlanResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ReturnSavingsPlanResponseTypeDef(TypedDict):
@@ -227,13 +222,13 @@ class DescribeSavingsPlansRequestTypeDef(TypedDict):
     filters: NotRequired[Sequence[SavingsPlanFilterTypeDef]]
 
 class DescribeSavingsPlansResponseTypeDef(TypedDict):
-    savingsPlans: List[SavingsPlanTypeDef]
+    savingsPlans: list[SavingsPlanTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class SavingsPlanOfferingTypeDef(TypedDict):
     offeringId: NotRequired[str]
-    productTypes: NotRequired[List[SavingsPlanProductTypeType]]
+    productTypes: NotRequired[list[SavingsPlanProductTypeType]]
     planType: NotRequired[SavingsPlanTypeType]
     description: NotRequired[str]
     paymentOption: NotRequired[SavingsPlanPaymentOptionType]
@@ -242,7 +237,7 @@ class SavingsPlanOfferingTypeDef(TypedDict):
     serviceCode: NotRequired[str]
     usageType: NotRequired[str]
     operation: NotRequired[str]
-    properties: NotRequired[List[SavingsPlanOfferingPropertyTypeDef]]
+    properties: NotRequired[list[SavingsPlanOfferingPropertyTypeDef]]
 
 class SavingsPlanOfferingRateTypeDef(TypedDict):
     savingsPlanOffering: NotRequired[ParentSavingsPlanOfferingTypeDef]
@@ -252,7 +247,7 @@ class SavingsPlanOfferingRateTypeDef(TypedDict):
     serviceCode: NotRequired[SavingsPlanRateServiceCodeType]
     usageType: NotRequired[str]
     operation: NotRequired[str]
-    properties: NotRequired[List[SavingsPlanOfferingRatePropertyTypeDef]]
+    properties: NotRequired[list[SavingsPlanOfferingRatePropertyTypeDef]]
 
 class SavingsPlanRateTypeDef(TypedDict):
     rate: NotRequired[str]
@@ -262,20 +257,20 @@ class SavingsPlanRateTypeDef(TypedDict):
     serviceCode: NotRequired[SavingsPlanRateServiceCodeType]
     usageType: NotRequired[str]
     operation: NotRequired[str]
-    properties: NotRequired[List[SavingsPlanRatePropertyTypeDef]]
+    properties: NotRequired[list[SavingsPlanRatePropertyTypeDef]]
 
 class DescribeSavingsPlansOfferingsResponseTypeDef(TypedDict):
-    searchResults: List[SavingsPlanOfferingTypeDef]
+    searchResults: list[SavingsPlanOfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class DescribeSavingsPlansOfferingRatesResponseTypeDef(TypedDict):
-    searchResults: List[SavingsPlanOfferingRateTypeDef]
+    searchResults: list[SavingsPlanOfferingRateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class DescribeSavingsPlanRatesResponseTypeDef(TypedDict):
     savingsPlanId: str
-    searchResults: List[SavingsPlanRateTypeDef]
+    searchResults: list[SavingsPlanRateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

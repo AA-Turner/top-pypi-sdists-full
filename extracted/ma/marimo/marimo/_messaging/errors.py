@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 from typing import Optional, Union
@@ -33,6 +33,7 @@ class MultipleDefinitionError(msgspec.Struct, tag="multiple-defs"):
 
 class ImportStarError(msgspec.Struct, tag="import-star"):
     msg: str
+    lineno: Optional[int] = None
 
     def describe(self) -> str:
         return self.msg
@@ -72,6 +73,7 @@ class MarimoExceptionRaisedError(msgspec.Struct, tag="exception"):
 
 class MarimoSyntaxError(msgspec.Struct, tag="syntax"):
     msg: str
+    lineno: Optional[int] = None
 
     def describe(self) -> str:
         return self.msg
@@ -108,6 +110,25 @@ class MarimoInternalError(msgspec.Struct, tag="internal"):
 
     def __post_init__(self) -> None:
         self.msg = f"An internal error occurred: {self.error_id}"
+
+    def describe(self) -> str:
+        return self.msg
+
+
+class MarimoSQLError(msgspec.Struct, tag="sql-error"):
+    """
+    SQL-specific error with enhanced metadata for debugging.
+    """
+
+    msg: str
+    sql_statement: str
+    hint: Optional[str] = (
+        None  # Helpful hints like "Did you mean?" or "Candidate bindings"
+    )
+    sql_line: Optional[int] = None  # 0-based line within SQL
+    sql_col: Optional[int] = None  # 0-based column within SQL
+    node_lineno: int = 0
+    node_col_offset: int = 0
 
     def describe(self) -> str:
         return self.msg
@@ -154,5 +175,6 @@ Error = Union[
     MarimoInterruptionError,
     MarimoSyntaxError,
     MarimoInternalError,
+    MarimoSQLError,
     UnknownError,
 ]

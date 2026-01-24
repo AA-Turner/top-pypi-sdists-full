@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 PACKAGE_NAME = "sqlean"
 SQLEAN_VERSION = "0.27.4"
-VERSION = "3.50.4.3"
+VERSION = "3.50.4.5"
 
 SHORT_DESCRIPTION = "sqlite3 with extensions"
 LONG_DESCRIPTION = Path("README.md").read_text()
@@ -102,9 +102,6 @@ class Builder(build_ext):
         )
         for feature in features:
             ext.define_macros.append(("SQLITE_%s" % feature, "1"))
-
-        # Always use memory for temp store.
-        ext.define_macros.append(("SQLITE_TEMP_STORE", "3"))
 
         # Increase the maximum number of "host parameters" which SQLite will accept
         ext.define_macros.append(("SQLITE_MAX_VARIABLE_NUMBER", "250000"))

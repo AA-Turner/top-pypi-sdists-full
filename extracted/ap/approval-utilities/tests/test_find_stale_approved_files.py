@@ -40,13 +40,13 @@ def create_sandbox(
 
 # Execute the comparison script
 def execute_script(directory: str, log_file: str) -> None:
-
     script = "find_stale_approved_files.py"
     dirname = os.path.dirname(__file__)
     full_script = os.path.join(dirname, script)
     print(f"Executing script: {full_script=}")
     result = subprocess.run(
         [sys.executable, full_script, directory, log_file],
+        check=False,
         capture_output=True,
         text=True,
     )

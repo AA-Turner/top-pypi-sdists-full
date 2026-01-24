@@ -8,6 +8,7 @@ from typing import (
     Dict,
     ForwardRef,
     Generic,
+    List,
     Optional,
     Set,
     Tuple,
@@ -18,6 +19,7 @@ from typing import (
     get_origin,
 )
 
+from vellum.client import Vellum as VellumClient
 from vellum.client.types.code_resource_definition import CodeResourceDefinition
 from vellum.workflows import BaseWorkflow
 from vellum.workflows.constants import undefined
@@ -29,12 +31,14 @@ from vellum.workflows.references.node import NodeReference
 from vellum.workflows.types.core import JsonArray, JsonObject
 from vellum.workflows.types.generics import NodeType
 from vellum.workflows.types.utils import get_original_base
+from vellum.workflows.utils.functions import compile_annotation
 from vellum.workflows.utils.names import pascal_to_title_case
 from vellum.workflows.utils.uuids import uuid4_from_hash
 from vellum.workflows.utils.vellum_variables import primitive_type_to_vellum_variable_type
-from vellum_ee.workflows.display.editor.types import NodeDisplayComment, NodeDisplayData
+from vellum_ee.workflows.display.editor.types import NodeDisplayComment, NodeDisplayData, NodeDisplayPosition
 from vellum_ee.workflows.display.nodes.get_node_display_class import get_node_display_class
 from vellum_ee.workflows.display.nodes.types import NodeOutputDisplay, PortDisplay, PortDisplayOverrides
+from vellum_ee.workflows.display.utils.exceptions import NodeValidationError, UnsupportedSerializationException
 from vellum_ee.workflows.display.utils.expressions import serialize_value
 from vellum_ee.workflows.display.utils.registry import register_node_display_class
 
@@ -59,10 +63,9 @@ class BaseNodeDisplayMeta(type):
         cls = cast(Type["BaseNodeDisplay"], super().__new__(mcs, name, bases, dct))
         # This cast shouldn't be necessary, but it's a workaround for a mypy bug
         node_class = cast(Type[BaseNode], cls.infer_node_class() if name != "BaseNodeDisplay" else BaseNode)
-
         if not dct.get("output_display"):
             cls.output_display = {
-                ref: NodeOutputDisplay(id=node_class.__output_ids__[ref.name], name=ref.name)
+                ref: NodeOutputDisplay(id=node_class.__output_ids__[ref.name], name=ref.name, _is_implicit=True)
                 for ref in node_class.Outputs
                 if ref.name in node_class.__output_ids__
             }
@@ -139,6 +142,11 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
     __unserializable_attributes__: Set[NodeReference] = set()
     # END: Attributes for backwards compatible serialization
 
+    def build(self, client: VellumClient) -> None:
+        # Individual display classes can override this method to perform any async logic
+        # needed to perform serialization across all nodes.
+        pass
+
     def serialize(self, display_context: "WorkflowDisplayContext", **kwargs: Any) -> JsonObject:
         node = self._node
         node_id = self.node_id
@@ -183,32 +191,13 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
             existing_adornments = adornments if adornments is not None else []
             return display_class().serialize(display_context, adornments=existing_adornments + [adornment])
 
-        outputs: JsonArray = []
-        for output in node.Outputs:
-            type = primitive_type_to_vellum_variable_type(output)
-            value = (
-                serialize_value(node_id, display_context, output.instance)
-                if output.instance is not None and output.instance != undefined
-                else None
-            )
-
-            outputs.append(
-                {
-                    "id": str(uuid4_from_hash(f"{node_id}|{output.name}")),
-                    "name": output.name,
-                    "type": type,
-                    "value": value,
-                }
-            )
-
         return {
             "id": str(node_id),
             "label": self.label,
             "type": "GENERIC",
-            **self.serialize_generic_fields(display_context),
             "adornments": adornments,
             "attributes": attributes,
-            "outputs": outputs,
+            **self.serialize_generic_fields(display_context),
         }
 
     def serialize_ports(self, display_context: "WorkflowDisplayContext") -> JsonArray:
@@ -220,14 +209,18 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
         for port in node.Ports:
             id = str(self.get_node_port_display(port).id)
             if port._condition_type:
+                expression = None
+                if port._condition:
+                    try:
+                        expression = serialize_value(node_id, display_context, port._condition)
+                    except UnsupportedSerializationException as e:
+                        display_context.add_error(e)
                 ports.append(
                     {
                         "id": id,
                         "name": port.name,
                         "type": port._condition_type.value,
-                        "expression": (
-                            serialize_value(node_id, display_context, port._condition) if port._condition else None
-                        ),
+                        "expression": expression,
                     }
                 )
             else:
@@ -275,14 +268,60 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
 
         return attributes
 
-    def serialize_generic_fields(self, display_context: "WorkflowDisplayContext") -> JsonObject:
+    def _serialize_outputs(self, display_context: "WorkflowDisplayContext") -> JsonArray:
+        """Generate outputs array from node output displays or node.Outputs."""
+        outputs: JsonArray = []
+        node = self._node
+
+        for output in node.Outputs:
+            output_type = primitive_type_to_vellum_variable_type(output)
+            value = (
+                serialize_value(self.node_id, display_context, output.instance)
+                if output.instance is not None and output.instance != undefined
+                else None
+            )
+
+            output_id = (
+                str(self.output_display[output].id)
+                if output in self.output_display
+                else str(uuid4_from_hash(f"{self.node_id}|{output.name}"))
+            )
+            try:
+                schema = compile_annotation(output.normalized_type, {})
+            except Exception as e:
+                display_context.add_error(
+                    NodeValidationError(
+                        message=f"Failed to compile output schema for output '{output.name}': {e}",
+                        node_class_name=self._node.__name__,
+                    )
+                )
+                schema = None
+
+            outputs.append(
+                {
+                    "id": output_id,
+                    "name": output.name,
+                    "type": output_type,
+                    "value": value,
+                    "schema": schema,
+                }
+            )
+
+        return outputs
+
+    def serialize_generic_fields(
+        self, display_context: "WorkflowDisplayContext", exclude: Optional[List[str]] = None
+    ) -> JsonObject:
         """Serialize generic fields that are common to all nodes."""
+        exclude = exclude or []
+
         result: JsonObject = {
-            "display_data": self.get_display_data().dict(),
-            "base": self.get_base().dict(),
-            "definition": self.get_definition().dict(),
-            "trigger": self.serialize_trigger(),
-            "ports": self.serialize_ports(display_context),
+            "display_data": self.get_display_data().dict() if "display_data" not in exclude else None,
+            "base": self.get_base().dict() if "base" not in exclude else None,
+            "definition": self.get_definition().dict() if "definition" not in exclude else None,
+            "trigger": self.serialize_trigger() if "trigger" not in exclude else None,
+            "ports": self.serialize_ports(display_context) if "ports" not in exclude else None,
+            "outputs": self._serialize_outputs(display_context) if "outputs" not in exclude else None,
         }
 
         # Only include should_file_merge if there are custom methods defined
@@ -298,6 +337,9 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
                 result["should_file_merge"] = True
         except Exception:
             pass
+
+        for key in exclude:
+            result.pop(key, None)
 
         return result
 
@@ -379,7 +421,7 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
     @cached_property
     def node_id(self) -> UUID:
         """Can be overridden as a class attribute to specify a custom node id."""
-        return uuid4_from_hash(self._node.__qualname__)
+        return self._node.__id__
 
     @cached_property
     def label(self) -> str:
@@ -444,37 +486,71 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
         register_node_display_class(node_class=node_class, node_display_class=cls)
 
     def get_display_data(self) -> NodeDisplayData:
-        explicit_value = self._get_explicit_node_display_attr("display_data", NodeDisplayData)
+        """
+        Get display data by first building from BaseNode.Display, then overriding with BaseNodeDisplay.
+        This approach is more scalable as we add more attributes to Display class.
+        """
         docstring = self._node.__doc__
 
-        if explicit_value and explicit_value.comment and docstring:
-            comment = (
-                NodeDisplayComment(value=docstring, expanded=explicit_value.comment.expanded)
-                if explicit_value.comment.expanded is not None
-                else NodeDisplayComment(value=docstring, expanded=True)
+        # Step 1: Start with BaseNode.Display attributes as base
+        base_kwargs: Dict[str, Any] = {}
+        base_node = next((base for base in self._node.__bases__ if issubclass(base, BaseNode)), BaseNode)
+
+        # Add Display class attributes if they exist
+        if self._node.Display.icon is not None and self._node.Display.icon != base_node.Display.icon:
+            base_kwargs["icon"] = self._node.Display.icon
+        if self._node.Display.color is not None and self._node.Display.color != base_node.Display.color:
+            base_kwargs["color"] = self._node.Display.color
+
+        # Add position from x, y if they exist
+        if self._node.Display.x is not None or self._node.Display.y is not None:
+            base_kwargs["position"] = NodeDisplayPosition(
+                x=self._node.Display.x if self._node.Display.x is not None else 0.0,
+                y=self._node.Display.y if self._node.Display.y is not None else 0.0,
             )
-            from typing import Any, Dict
 
-            kwargs: Dict[str, Any] = {
-                "position": explicit_value.position,
-                "z_index": explicit_value.z_index,
-                "width": explicit_value.width,
-                "height": explicit_value.height,
-                "comment": comment,
-            }
-            if explicit_value.icon is not None:
-                kwargs["icon"] = explicit_value.icon
-            if explicit_value.color is not None:
-                kwargs["color"] = explicit_value.color
-            return NodeDisplayData(**kwargs)
+        # Add z_index if it exists
+        if self._node.Display.z_index is not None and self._node.Display.z_index != base_node.Display.z_index:
+            base_kwargs["z_index"] = self._node.Display.z_index
 
-        if explicit_value:
-            return explicit_value
-
+        # Add docstring as comment if present
         if docstring:
-            return NodeDisplayData(
-                comment=NodeDisplayComment(value=docstring, expanded=True),
-            )
+            base_kwargs["comment"] = NodeDisplayComment(value=docstring, expanded=True)
+
+        # Step 2: Get explicit BaseNodeDisplay values
+        explicit_value = self._get_explicit_node_display_attr("display_data", NodeDisplayData)
+
+        # Step 3: Override with explicit BaseNodeDisplay values if present
+        if explicit_value:
+            # Get fields that were explicitly set for z_index handling
+            fields_set = explicit_value.model_fields_set
+
+            # Override position only if explicitly set (since it has a default value)
+            if "position" in fields_set:
+                base_kwargs["position"] = explicit_value.position
+
+            # Override simple attributes (only if not None)
+            for attr in ("width", "height", "icon", "color", "z_index"):
+                value = getattr(explicit_value, attr, None)
+                if value is not None:
+                    base_kwargs[attr] = value
+
+            # Special handling for comment: merge docstring with explicit comment's expanded state
+            if explicit_value.comment:
+                base_kwargs["comment"] = (
+                    NodeDisplayComment(
+                        value=docstring,
+                        expanded=(
+                            explicit_value.comment.expanded if explicit_value.comment.expanded is not None else True
+                        ),
+                    )
+                    if docstring
+                    else explicit_value.comment
+                )
+
+        # Step 4: Return the merged result
+        if base_kwargs:
+            return NodeDisplayData(**base_kwargs)
 
         return NodeDisplayData()
 

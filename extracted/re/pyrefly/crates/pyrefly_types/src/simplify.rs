@@ -14,20 +14,24 @@ use crate::literal::Lit;
 use crate::stdlib::Stdlib;
 use crate::tuple::Tuple;
 use crate::types::Type;
+use crate::types::Union;
 
 /// Turn unions of unions into a flattened list for one union, and return the deduped list.
 fn flatten_and_dedup(xs: Vec<Type>) -> Vec<Type> {
     fn flatten(xs: Vec<Type>, res: &mut Vec<Type>) {
         for x in xs {
             match x {
-                Type::Union(xs) => flatten(xs, res),
+                Type::Union(box Union { members, .. }) => flatten(members, res),
                 Type::Never(_) => {}
                 _ => res.push(x),
             }
         }
     }
-    let mut res = Vec::with_capacity(xs.len());
-    flatten(xs, &mut res);
+    let mut flattened = Vec::with_capacity(xs.len());
+    flatten(xs, &mut flattened);
+    simplify_intersections(&mut flattened);
+    let mut res = Vec::with_capacity(flattened.len());
+    flatten(flattened, &mut res);
 
     res.sort();
     res.dedup();
@@ -48,6 +52,19 @@ fn try_collapse(mut xs: Vec<Type>) -> Result<Type, Vec<Type>> {
     }
 }
 
+fn simplify_intersections(xs: &mut [Type]) {
+    // Simplify `A | (A & B)` to `A`
+    let (mut intersects, non_intersects): (Vec<_>, Vec<_>) =
+        xs.iter_mut().partition(|x| matches!(x, Type::Intersect(_)));
+    for x in intersects.iter_mut() {
+        if let Type::Intersect(y) = x
+            && y.0.iter_mut().any(|t| non_intersects.contains(&t))
+        {
+            **x = Type::never();
+        }
+    }
+}
+
 fn unions_internal(
     xs: Vec<Type>,
     stdlib: Option<&Stdlib>,
@@ -58,8 +75,14 @@ fn unions_internal(
         if let Some(stdlib) = stdlib {
             collapse_literals(&mut res, stdlib, enum_members.unwrap_or(&|_| None));
         }
+        collapse_tuple_unions_with_empty(&mut res);
         // `res` is collapsible again if `flatten_and_dedup` drops `xs` to 0 or 1 elements
-        try_collapse(res).unwrap_or_else(Type::Union)
+        try_collapse(res).unwrap_or_else(|members| {
+            Type::Union(Box::new(Union {
+                members,
+                display_name: None,
+            }))
+        })
     })
 }
 
@@ -76,6 +99,29 @@ pub fn unions_with_literals(
     enum_members: &dyn Fn(&Class) -> Option<usize>,
 ) -> Type {
     unions_internal(xs, Some(stdlib), Some(enum_members))
+}
+
+pub fn intersect(ts: Vec<Type>, fallback: Type) -> Type {
+    let mut flattened = Vec::new();
+    for t in ts {
+        match t {
+            Type::Union(_) => {
+                // TODO: Flatten these instead of giving up.
+                return fallback;
+            }
+            Type::Intersect(x) => flattened.extend(x.0),
+            t => flattened.push(t),
+        }
+    }
+    flattened.sort();
+    flattened.dedup();
+    if flattened.is_empty() || flattened.iter().any(|t| t.is_never()) {
+        Type::never()
+    } else if flattened.len() == 1 {
+        flattened.into_iter().next().unwrap()
+    } else {
+        Type::Intersect(Box::new((flattened, fallback)))
+    }
 }
 
 fn remove_maximum<T: Ord>(xs: &mut Vec<T>) {
@@ -123,12 +169,12 @@ fn collapse_literals(
     // inserting them all.
     for t in types.iter() {
         match t {
-            Type::LiteralString => {
+            Type::LiteralString(_) => {
                 has_literal_string = true;
                 literal_types.insert(stdlib.str().clone(), false);
             }
             Type::Literal(x) => {
-                match x {
+                match &x.value {
                     Lit::Bool(true) => has_true = true,
                     Lit::Bool(false) => has_false = true,
                     Lit::Str(_) => has_specific_str = true,
@@ -138,7 +184,7 @@ fn collapse_literals(
                     }
                     _ => {}
                 }
-                literal_types.insert(x.general_class_type(stdlib).clone(), false);
+                literal_types.insert(x.value.general_class_type(stdlib).clone(), false);
             }
             Type::ClassType(class)
                 if !literal_types.is_empty()
@@ -178,9 +224,9 @@ fn collapse_literals(
     {
         // We actually have some things to delete
         types.retain(|x| match x {
-            Type::LiteralString => literal_types.get(stdlib.str()) == Some(&false),
+            Type::LiteralString(_) => literal_types.get(stdlib.str()) == Some(&false),
             Type::Literal(x) => {
-                match x {
+                match &x.value {
                     Lit::Bool(_) if has_true && has_false => return false,
                     Lit::Str(_) if has_literal_string => return false,
                     Lit::Enum(lit_enum) if enums_to_delete.contains(&lit_enum.class) => {
@@ -190,7 +236,7 @@ fn collapse_literals(
                     }
                     _ => {}
                 }
-                literal_types.get(x.general_class_type(stdlib)) == Some(&false)
+                literal_types.get(x.value.general_class_type(stdlib)) == Some(&false)
             }
             Type::Any(style) => !any_styles.contains(style),
             Type::Never(style) => !never_styles.contains(style),
@@ -208,6 +254,47 @@ fn collapse_literals(
     }
 }
 
+fn collapse_tuple_unions_with_empty(types: &mut Vec<Type>) {
+    let Some(empty_idx) = types.iter().position(|t| match t {
+        Type::Tuple(Tuple::Concrete(elts)) => elts.is_empty(),
+        _ => false,
+    }) else {
+        return;
+    };
+
+    let mut empty_is_redundant = false;
+    for (idx, ty) in types.iter_mut().enumerate() {
+        if idx == empty_idx {
+            continue;
+        }
+        match ty {
+            Type::Tuple(Tuple::Unbounded(_)) => {
+                empty_is_redundant = true;
+            }
+            Type::Tuple(Tuple::Unpacked(unpacked)) => {
+                let (prefix, middle, suffix) = &**unpacked;
+                if prefix.len() + suffix.len() == 1
+                    && let Type::Tuple(Tuple::Unbounded(elem)) = middle
+                    && prefix
+                        .iter()
+                        .chain(suffix.iter())
+                        .all(|fixed| fixed == elem.as_ref())
+                {
+                    *ty = Type::unbounded_tuple(elem.as_ref().clone());
+                    empty_is_redundant = true;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if empty_is_redundant {
+        types.remove(empty_idx);
+        types.sort();
+        types.dedup();
+    }
+}
+
 fn flatten_unpacked_concrete_tuples(elts: Vec<Type>) -> Vec<Type> {
     let mut result = Vec::new();
     for elt in elts {
@@ -222,48 +309,46 @@ fn flatten_unpacked_concrete_tuples(elts: Vec<Type>) -> Vec<Type> {
 }
 
 // After a TypeVarTuple gets substituted with a tuple type, try to simplify the type
-pub fn simplify_tuples(tuple: Tuple) -> Type {
+pub fn simplify_tuples(tuple: Tuple) -> Tuple {
     match tuple {
-        Tuple::Concrete(elts) => {
-            Type::Tuple(Tuple::Concrete(flatten_unpacked_concrete_tuples(elts)))
-        }
-        Tuple::Unpacked(box (prefix, middle @ Type::Tuple(_), suffix))
+        Tuple::Concrete(elts) => Tuple::Concrete(flatten_unpacked_concrete_tuples(elts)),
+        Tuple::Unpacked(box (prefix, Type::Tuple(middle), suffix))
             if prefix.is_empty() && suffix.is_empty() =>
         {
             middle
         }
         Tuple::Unpacked(box (prefix, middle, suffix)) => match middle {
             Type::Tuple(Tuple::Concrete(elts)) => {
-                Type::Tuple(Tuple::Concrete(flatten_unpacked_concrete_tuples(
+                Tuple::Concrete(flatten_unpacked_concrete_tuples(
                     prefix
                         .into_iter()
                         .chain(elts)
                         .chain(suffix)
                         .collect::<Vec<_>>(),
-                )))
+                ))
             }
             Type::Tuple(Tuple::Unpacked(box (m_prefix, m_middle, m_suffix))) => {
                 let mut new_prefix = flatten_unpacked_concrete_tuples(prefix);
                 new_prefix.extend(flatten_unpacked_concrete_tuples(m_prefix));
                 let mut new_suffix = flatten_unpacked_concrete_tuples(m_suffix);
                 new_suffix.extend(flatten_unpacked_concrete_tuples(suffix));
-                Type::Tuple(Tuple::Unpacked(Box::new((
-                    new_prefix, m_middle, new_suffix,
-                ))))
+                Tuple::unpacked(new_prefix, m_middle, new_suffix)
             }
-            _ => Type::Tuple(Tuple::Unpacked(Box::new((
+            _ => Tuple::unpacked(
                 flatten_unpacked_concrete_tuples(prefix),
                 middle,
                 flatten_unpacked_concrete_tuples(suffix),
-            )))),
+            ),
         },
-        _ => Type::Tuple(tuple),
+        _ => tuple,
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::simplify::intersect;
     use crate::simplify::unions;
+    use crate::tuple::Tuple;
     use crate::types::NeverStyle;
     use crate::types::Type;
 
@@ -275,5 +360,67 @@ mod tests {
         ];
         let res = unions(xs);
         assert_eq!(res, Type::never());
+    }
+
+    #[test]
+    fn test_intersect_simple() {
+        let xs = vec![Type::any_tuple(), Type::any_implicit()];
+        assert_eq!(
+            intersect(xs.clone(), Type::never()),
+            Type::Intersect(Box::new((xs, Type::never())))
+        );
+    }
+
+    #[test]
+    fn test_intersect_empty() {
+        let xs = Vec::new();
+        assert_eq!(intersect(xs, Type::any_implicit()), Type::never())
+    }
+
+    #[test]
+    fn test_intersect_never() {
+        let xs = vec![Type::any_implicit(), Type::never()];
+        assert_eq!(intersect(xs, Type::any_implicit()), Type::never());
+    }
+
+    #[test]
+    fn test_intersect_one() {
+        let xs = vec![Type::None];
+        assert_eq!(intersect(xs, Type::never()), Type::None);
+    }
+
+    #[test]
+    fn test_simplify_union_with_intersect() {
+        let xs = vec![
+            Type::any_implicit(),
+            intersect(vec![Type::any_implicit(), Type::any_tuple()], Type::never()),
+        ];
+        assert_eq!(unions(xs), Type::any_implicit());
+    }
+
+    #[test]
+    fn test_union_empty_with_prefix_variadic_tuple() {
+        let xs = vec![
+            Type::concrete_tuple(vec![]),
+            Type::Tuple(Tuple::unpacked(
+                vec![Type::None],
+                Type::unbounded_tuple(Type::None),
+                Vec::new(),
+            )),
+        ];
+        assert_eq!(unions(xs), Type::unbounded_tuple(Type::None));
+    }
+
+    #[test]
+    fn test_union_empty_with_suffix_variadic_tuple() {
+        let xs = vec![
+            Type::concrete_tuple(vec![]),
+            Type::Tuple(Tuple::unpacked(
+                Vec::new(),
+                Type::unbounded_tuple(Type::None),
+                vec![Type::None],
+            )),
+        ];
+        assert_eq!(unions(xs), Type::unbounded_tuple(Type::None));
     }
 }

@@ -3,7 +3,7 @@ Main interface for quicksight service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -13,6 +13,7 @@ Usage::
         Client,
         DescribeFolderPermissionsPaginator,
         DescribeFolderResolvedPermissionsPaginator,
+        ListActionConnectorsPaginator,
         ListAnalysesPaginator,
         ListAssetBundleExportJobsPaginator,
         ListAssetBundleImportJobsPaginator,
@@ -22,6 +23,7 @@ Usage::
         ListDashboardsPaginator,
         ListDataSetsPaginator,
         ListDataSourcesPaginator,
+        ListFlowsPaginator,
         ListFolderMembersPaginator,
         ListFoldersForResourcePaginator,
         ListFoldersPaginator,
@@ -40,10 +42,12 @@ Usage::
         ListUserGroupsPaginator,
         ListUsersPaginator,
         QuickSightClient,
+        SearchActionConnectorsPaginator,
         SearchAnalysesPaginator,
         SearchDashboardsPaginator,
         SearchDataSetsPaginator,
         SearchDataSourcesPaginator,
+        SearchFlowsPaginator,
         SearchFoldersPaginator,
         SearchGroupsPaginator,
         SearchTopicsPaginator,
@@ -54,6 +58,7 @@ Usage::
 
     describe_folder_permissions_paginator: DescribeFolderPermissionsPaginator = client.get_paginator("describe_folder_permissions")
     describe_folder_resolved_permissions_paginator: DescribeFolderResolvedPermissionsPaginator = client.get_paginator("describe_folder_resolved_permissions")
+    list_action_connectors_paginator: ListActionConnectorsPaginator = client.get_paginator("list_action_connectors")
     list_analyses_paginator: ListAnalysesPaginator = client.get_paginator("list_analyses")
     list_asset_bundle_export_jobs_paginator: ListAssetBundleExportJobsPaginator = client.get_paginator("list_asset_bundle_export_jobs")
     list_asset_bundle_import_jobs_paginator: ListAssetBundleImportJobsPaginator = client.get_paginator("list_asset_bundle_import_jobs")
@@ -63,6 +68,7 @@ Usage::
     list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
     list_data_sets_paginator: ListDataSetsPaginator = client.get_paginator("list_data_sets")
     list_data_sources_paginator: ListDataSourcesPaginator = client.get_paginator("list_data_sources")
+    list_flows_paginator: ListFlowsPaginator = client.get_paginator("list_flows")
     list_folder_members_paginator: ListFolderMembersPaginator = client.get_paginator("list_folder_members")
     list_folders_for_resource_paginator: ListFoldersForResourcePaginator = client.get_paginator("list_folders_for_resource")
     list_folders_paginator: ListFoldersPaginator = client.get_paginator("list_folders")
@@ -80,10 +86,12 @@ Usage::
     list_themes_paginator: ListThemesPaginator = client.get_paginator("list_themes")
     list_user_groups_paginator: ListUserGroupsPaginator = client.get_paginator("list_user_groups")
     list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
+    search_action_connectors_paginator: SearchActionConnectorsPaginator = client.get_paginator("search_action_connectors")
     search_analyses_paginator: SearchAnalysesPaginator = client.get_paginator("search_analyses")
     search_dashboards_paginator: SearchDashboardsPaginator = client.get_paginator("search_dashboards")
     search_data_sets_paginator: SearchDataSetsPaginator = client.get_paginator("search_data_sets")
     search_data_sources_paginator: SearchDataSourcesPaginator = client.get_paginator("search_data_sources")
+    search_flows_paginator: SearchFlowsPaginator = client.get_paginator("search_flows")
     search_folders_paginator: SearchFoldersPaginator = client.get_paginator("search_folders")
     search_groups_paginator: SearchGroupsPaginator = client.get_paginator("search_groups")
     search_topics_paginator: SearchTopicsPaginator = client.get_paginator("search_topics")
@@ -94,6 +102,7 @@ from .client import QuickSightClient
 from .paginator import (
     DescribeFolderPermissionsPaginator,
     DescribeFolderResolvedPermissionsPaginator,
+    ListActionConnectorsPaginator,
     ListAnalysesPaginator,
     ListAssetBundleExportJobsPaginator,
     ListAssetBundleImportJobsPaginator,
@@ -103,6 +112,7 @@ from .paginator import (
     ListDashboardVersionsPaginator,
     ListDataSetsPaginator,
     ListDataSourcesPaginator,
+    ListFlowsPaginator,
     ListFolderMembersPaginator,
     ListFoldersForResourcePaginator,
     ListFoldersPaginator,
@@ -120,10 +130,12 @@ from .paginator import (
     ListThemeVersionsPaginator,
     ListUserGroupsPaginator,
     ListUsersPaginator,
+    SearchActionConnectorsPaginator,
     SearchAnalysesPaginator,
     SearchDashboardsPaginator,
     SearchDataSetsPaginator,
     SearchDataSourcesPaginator,
+    SearchFlowsPaginator,
     SearchFoldersPaginator,
     SearchGroupsPaginator,
     SearchTopicsPaginator,
@@ -135,6 +147,7 @@ __all__ = (
     "Client",
     "DescribeFolderPermissionsPaginator",
     "DescribeFolderResolvedPermissionsPaginator",
+    "ListActionConnectorsPaginator",
     "ListAnalysesPaginator",
     "ListAssetBundleExportJobsPaginator",
     "ListAssetBundleImportJobsPaginator",
@@ -144,6 +157,7 @@ __all__ = (
     "ListDashboardsPaginator",
     "ListDataSetsPaginator",
     "ListDataSourcesPaginator",
+    "ListFlowsPaginator",
     "ListFolderMembersPaginator",
     "ListFoldersForResourcePaginator",
     "ListFoldersPaginator",
@@ -162,10 +176,12 @@ __all__ = (
     "ListUserGroupsPaginator",
     "ListUsersPaginator",
     "QuickSightClient",
+    "SearchActionConnectorsPaginator",
     "SearchAnalysesPaginator",
     "SearchDashboardsPaginator",
     "SearchDataSetsPaginator",
     "SearchDataSourcesPaginator",
+    "SearchFlowsPaginator",
     "SearchFoldersPaginator",
     "SearchGroupsPaginator",
     "SearchTopicsPaginator",

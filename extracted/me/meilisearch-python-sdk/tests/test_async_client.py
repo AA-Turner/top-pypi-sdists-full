@@ -25,6 +25,7 @@ from meilisearch_python_sdk.errors import (
 from meilisearch_python_sdk.models.client import KeyCreate, KeyUpdate, Network
 from meilisearch_python_sdk.models.index import IndexInfo
 from meilisearch_python_sdk.models.version import Version
+from meilisearch_python_sdk.models.webhook import WebhookCreate, WebhookUpdate
 from meilisearch_python_sdk.types import JsonDict
 
 
@@ -127,17 +128,6 @@ async def test_create_index_no_primary_key(async_client):
 async def test_create_index_orjson_handler(async_client_orjson_handler):
     uid = str(uuid4())
     index = await async_client_orjson_handler.create_index(uid=uid)
-
-    assert index.uid == uid
-
-    assert index.primary_key is None
-    assert isinstance(index.created_at, datetime)
-    assert isinstance(index.updated_at, datetime)
-
-
-async def test_create_index_ujson_handler(async_client_ujson_handler):
-    uid = str(uuid4())
-    index = await async_client_ujson_handler.create_index(uid=uid)
 
     assert index.uid == uid
 
@@ -557,7 +547,7 @@ async def test_swap_indexes_rename(async_client, async_empty_index):
     task = await index.add_documents([{"id": 1, "title": index.uid}])
     await async_client.wait_for_task(task.task_uid)
     swapTask = await async_client.swap_indexes([(index.uid, new_name)], rename=True)
-    task = async_client.wait_for_task(swapTask.task_uid)
+    task = await async_client.wait_for_task(swapTask.task_uid)
 
     indexes = await async_client.get_indexes()
     uids = [index.uid for index in indexes]
@@ -1085,3 +1075,55 @@ async def test_add_or_update_networks(async_client):
     assert len(response.remotes) >= 2
     assert "remote_1" in response.remotes
     assert "remote_2" in response.remotes
+
+
+async def test_get_webhooks(async_client, webhook):
+    response = await async_client.get_webhooks()
+
+    assert response.results is not None
+    assert webhook in response.results
+
+
+async def test_create_webhook(async_client):
+    webhook_config = WebhookCreate(
+        url="https://example.com/webhook", headers={"Authorization": "Bearer token"}
+    )
+    webhook = await async_client.create_webhook(webhook_config)
+
+    try:
+        assert webhook.uuid is not None
+        assert webhook.url == "https://example.com/webhook"
+        assert webhook.is_editable is True
+    finally:
+        await async_client.delete_webhook(webhook.uuid)
+
+
+async def test_get_webhook(async_client, webhook):
+    result = await async_client.get_webhook(webhook.uuid)
+
+    assert result.uuid == webhook.uuid
+    assert result.url == webhook.url
+    assert result.is_editable == webhook.is_editable
+
+
+async def test_update_webhook(async_client, webhook):
+    update = WebhookUpdate(url="https://example.com/new-webhook", headers={"X-Custom": "value"})
+    updated = await async_client.update_webhook(uuid=webhook.uuid, webhook=update)
+
+    assert updated.uuid == webhook.uuid
+    assert updated.url == "https://example.com/new-webhook"
+    assert updated.headers == {"X-Custom": "value"}
+
+
+async def test_delete_webhook(async_client, webhook):
+    status_code = await async_client.delete_webhook(webhook.uuid)
+
+    assert status_code == 204
+
+
+async def test_experimental_features(async_client):
+    features = await async_client.get_experimental_features()
+    assert len(features) >= 1
+    key = next(iter(features))
+    update = await async_client.update_experimental_features({key: True})
+    assert update[key] is True

@@ -1,6 +1,5 @@
 from collections import deque
 from dataclasses import dataclass
-from itertools import count
 from pathlib import Path
 from threading import current_thread
 from types import FrameType
@@ -10,18 +9,20 @@ import uuid
 
 from ddtrace.debugging._probe.model import LiteralTemplateSegment
 from ddtrace.debugging._probe.model import LogLineProbe
+from ddtrace.debugging._safety import safe_getattr
 from ddtrace.debugging._session import Session
 from ddtrace.debugging._signal.snapshot import DEFAULT_CAPTURE_LIMITS
 from ddtrace.debugging._signal.snapshot import Snapshot
-from ddtrace.debugging._uploader import LogsIntakeUploaderV1
+from ddtrace.debugging._uploader import SignalUploader
 from ddtrace.debugging._uploader import UploaderProduct
 from ddtrace.internal import core
 from ddtrace.internal.logger import get_logger
 from ddtrace.internal.packages import is_user_code
 from ddtrace.internal.rate_limiter import BudgetRateLimiterWithJitter as RateLimiter
 from ddtrace.internal.rate_limiter import RateLimitExceeded
+from ddtrace.internal.settings._config import config as global_config
+from ddtrace.internal.settings.exception_replay import config
 from ddtrace.internal.utils.time import HourGlass
-from ddtrace.settings.exception_replay import config
 from ddtrace.trace import Span
 
 
@@ -113,32 +114,74 @@ def limit_exception(exc_ident: int) -> bool:
 def unwind_exception_chain(
     exc: t.Optional[BaseException], tb: t.Optional[TracebackType]
 ) -> t.Tuple[ExceptionChain, t.Optional[uuid.UUID]]:
-    """Unwind the exception chain and assign it an ID."""
+    """Unwind the exception chain and assign it an ID.
+
+    The chain goes from "cause to effect", meaning that every cause for an
+    exception is put first.
+    """
     chain: ExceptionChain = deque()
+    seen: t.Set[int] = set()  # Track visited exceptions by id to detect cycles
 
-    while exc is not None:
-        chain.append((exc, tb))
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        chain.appendleft((exc, tb))
 
-        if exc.__cause__ is not None:
-            exc = exc.__cause__
-        elif exc.__context__ is not None and not exc.__suppress_context__:
-            exc = exc.__context__
+        if (cause := safe_getattr(exc, "__cause__")) is not None:
+            exc, tb = cause, safe_getattr(cause, "__traceback__")
         else:
-            exc = None
-
-        tb = getattr(exc, "__traceback__", None)
+            if (context := safe_getattr(exc, "__context__")) is not None:
+                if not safe_getattr(exc, "__suppress_context__", False):
+                    exc, tb = context, safe_getattr(context, "__traceback__")
+                else:
+                    exc = None
+            else:
+                exc = None
 
     exc_id = None
     if chain:
         # If the chain is not trivial we generate an ID for the whole chain and
         # store it on the outermost exception, if not already generated.
-        exc, _ = chain[-1]
+        exc, _ = chain[0]
         try:
             exc_id = exc._dd_exc_id  # type: ignore[attr-defined]
         except AttributeError:
             exc._dd_exc_id = exc_id = uuid.uuid4()  # type: ignore[attr-defined]
 
     return chain, exc_id
+
+
+def get_tb_frames_from_exception_chain(chain: ExceptionChain) -> t.Generator[t.Tuple[int, TracebackType], None, None]:
+    """Get the frames from the exception chain.
+
+    For each exception in the chain we collect the maximum number of frames
+    configured, starting from the point where the exception was thrown.
+    """
+    frame_count = 0
+
+    for _, tb in chain:
+        # Retain only the last N frames from the traceback, where N is the
+        # configured max size for span tracebacks.
+        local_frames: t.Deque[TracebackType] = deque(maxlen=global_config._span_traceback_max_size)
+        if tb is None or tb.tb_frame is None:
+            continue
+
+        _tb: t.Optional[TracebackType] = tb
+        while _tb is not None:
+            local_frames.append(_tb)
+            _tb = _tb.tb_next
+
+        # Update the frame count to allow computing the sequence number
+        frame_count += len(local_frames)
+
+        # Set the initial sequence number. This will decrease as we yield the
+        # new frames
+        frame_index = frame_count
+
+        # Pop and yield the frames from this traceback in reverse order
+        while local_frames:
+            frame = local_frames.pop()
+            yield frame_index, frame
+            frame_index -= 1
 
 
 class SpanExceptionProbe(LogLineProbe):
@@ -168,6 +211,8 @@ class SpanExceptionProbe(LogLineProbe):
 
 @dataclass
 class SpanExceptionSnapshot(Snapshot):
+    __type__ = "snapshot"
+
     exc_id: t.Optional[uuid.UUID] = None
 
     @property
@@ -200,7 +245,7 @@ def can_capture(span: Span) -> bool:
             # If we are in a debug session we always capture
             return True
         result = GLOBAL_RATE_LIMITER.limit() is not RateLimitExceeded
-        root.set_tag_str(CAPTURE_TRACE_TAG, str(result).lower())
+        root._set_tag_str(CAPTURE_TRACE_TAG, str(result).lower())
         return result
 
     msg = f"unexpected value for {CAPTURE_TRACE_TAG}: {info_captured}"
@@ -212,58 +257,72 @@ def get_snapshot_count(span: Span) -> int:
     if root is None:
         return 0
 
-    count = root.get_metric(SNAPSHOT_COUNT_TAG)
-    if count is None:
+    if (count := root.get_metric(SNAPSHOT_COUNT_TAG)) is None:
         return 0
 
     return int(count)
 
 
 class SpanExceptionHandler:
-    __uploader__ = LogsIntakeUploaderV1
+    __uploader__ = SignalUploader
 
     _instance: t.Optional["SpanExceptionHandler"] = None
 
-    def _capture_tb_frame_for_span(
-        self, span: Span, tb: TracebackType, exc_id: uuid.UUID, seq_nr: int = 1, only_user_code: bool = True
+    def _attach_tb_frame_snapshot_to_span(
+        self,
+        span: Span,
+        tb: TracebackType,
+        exc_id: uuid.UUID,
+        seq_nr: int = 1,
+        only_user_code: bool = True,
+        cached_only: bool = False,
     ) -> bool:
-        frame = tb.tb_frame
-        code = frame.f_code
-        if only_user_code and not is_user_code(Path(code.co_filename)):
-            return False
-
-        snapshot = None
-        snapshot_id = frame.f_locals.get(SNAPSHOT_KEY, None)
-        if snapshot_id is None:
-            # We don't have a snapshot for the frame so we create one
-            snapshot = SpanExceptionSnapshot(
-                probe=SpanExceptionProbe.build(exc_id, frame),
-                frame=frame,
-                thread=current_thread(),
-                trace_context=span,
-                exc_id=exc_id,
-            )
-
-            # Capture
-            try:
-                snapshot.do_line()
-            except Exception:
-                log.exception("Error capturing exception replay snapshot %r", snapshot)
+        try:
+            frame = tb.tb_frame
+            code = frame.f_code
+            if only_user_code and not is_user_code(Path(code.co_filename)):
                 return False
 
-            # Collect
-            self.__uploader__.get_collector().push(snapshot)
+            snapshot = None
+            if (snapshot_id := frame.f_locals.get(SNAPSHOT_KEY, None)) is None:
+                # We don't have a snapshot for the frame so we create one
+                if cached_only:
+                    # If we only want a cached snapshot we return True as a signal
+                    # that we would have captured, but we actually skip generating
+                    # a new snapshot.
+                    return True
 
-            # Memoize
-            frame.f_locals[SNAPSHOT_KEY] = snapshot_id = snapshot.uuid
+                snapshot = SpanExceptionSnapshot(
+                    probe=SpanExceptionProbe.build(exc_id, frame),
+                    frame=frame,
+                    thread=current_thread(),
+                    trace_context=span,
+                    exc_id=exc_id,
+                )
 
-        # Add correlation tags on the span
-        span.set_tag_str(FRAME_SNAPSHOT_ID_TAG % seq_nr, snapshot_id)
-        span.set_tag_str(FRAME_FUNCTION_TAG % seq_nr, code.co_name)
-        span.set_tag_str(FRAME_FILE_TAG % seq_nr, code.co_filename)
-        span.set_tag_str(FRAME_LINE_TAG % seq_nr, str(tb.tb_lineno))
+                # Capture
+                snapshot.do_line()
 
-        return snapshot is not None
+                # Collect
+                if (collector := self.__uploader__.get_collector()) is None:
+                    log.error("No collector available to push exception replay snapshot")
+                    return False
+
+                collector.push(snapshot)
+
+                # Memoize
+                frame.f_locals[SNAPSHOT_KEY] = snapshot_id = snapshot.uuid
+
+            # Add correlation tags on the span
+            span._set_tag_str(FRAME_SNAPSHOT_ID_TAG % seq_nr, snapshot_id)
+            span._set_tag_str(FRAME_FUNCTION_TAG % seq_nr, code.co_name)
+            span._set_tag_str(FRAME_FILE_TAG % seq_nr, code.co_filename)
+            span._set_tag_str(FRAME_LINE_TAG % seq_nr, str(tb.tb_lineno))
+
+            return snapshot is not None
+        except Exception:  # noqa: F841
+            log.exception("Error capturing exception replay snapshot")
+            return False
 
     def on_span_exception(
         self, span: Span, _exc_type: t.Type[BaseException], exc: BaseException, traceback: t.Optional[TracebackType]
@@ -286,33 +345,36 @@ class SpanExceptionHandler:
             # We have seen this exception recently
             return
 
-        seq = count(1)  # 1-based sequence number
-
         frames_captured = get_snapshot_count(span)
 
-        while chain and frames_captured < config.max_frames:
-            exc, _tb = chain.pop()  # LIFO: reverse the chain
+        # Capture more frames if we have budget left, otherwise set just the
+        # tags on the span for those frames that we have already captured.
+        for seq_nr, _tb in get_tb_frames_from_exception_chain(chain):
+            has_snapshot_budget = frames_captured < config.max_frames
+            has_captured = self._attach_tb_frame_snapshot_to_span(
+                span, _tb, exc_id, seq_nr, cached_only=not has_snapshot_budget
+            )
+            if not has_snapshot_budget and has_captured:
+                # We would need to capture new frames at this point but we don't
+                # have budget left so we stop capturing.
+                break
 
-            if _tb is None or _tb.tb_frame is None:
-                # If we don't have a traceback there isn't much we can do
-                continue
+            frames_captured += has_captured
 
-            # DEV: We go from the handler up to the root exception
-            while _tb and frames_captured < config.max_frames:
-                frames_captured += self._capture_tb_frame_for_span(span, _tb, exc_id, next(seq))
-
-                # Move up the traceback
-                _tb = _tb.tb_next
+            if has_captured and frames_captured >= config.max_frames:
+                # The last capture has saturated the budget so we can stop
+                # capturing
+                break
 
         if not frames_captured and tb is not None:
             # Ensure we capture at least one frame if we have a traceback,
             # the one potentially closer to user code.
-            frames_captured += self._capture_tb_frame_for_span(span, tb, exc_id, only_user_code=False)
+            frames_captured += self._attach_tb_frame_snapshot_to_span(span, tb, exc_id, only_user_code=False)
 
         if frames_captured:
-            span.set_tag_str(DEBUG_INFO_TAG, "true")
-            span.set_tag_str(EXCEPTION_HASH_TAG, str(exc_ident))
-            span.set_tag_str(EXCEPTION_ID_TAG, str(exc_id))
+            span._set_tag_str(DEBUG_INFO_TAG, "true")
+            span._set_tag_str(EXCEPTION_HASH_TAG, str(exc_ident))
+            span._set_tag_str(EXCEPTION_ID_TAG, str(exc_id))
 
             # Update the snapshot count
             root = span._local_root

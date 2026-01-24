@@ -838,6 +838,63 @@ cr.AwsCustomResource(self, "CrossAccount",
 )
 ```
 
+#### Using External IDs for Enhanced Security
+
+When assuming cross-account roles, you can specify an external ID to prevent the "confused deputy" problem. The external ID is a unique identifier provided by the third-party service that helps ensure the service is acting on behalf of the correct customer:
+
+```python
+cross_account_role_arn = "arn:aws:iam::OTHERACCOUNT:role/CrossAccountRoleName"
+service_external_id = "unique-secret-value-12345" # External ID provided by the third party service. This value should be unique among the third-party service's customers.
+
+
+cr.AwsCustomResource(self, "SecureCrossAccount",
+    on_create=cr.AwsSdkCall(
+        assumed_role_arn=cross_account_role_arn,
+        external_id=service_external_id,  # Prevents confused deputy attacks
+        service="sts",
+        action="GetCallerIdentity",
+        physical_resource_id=cr.PhysicalResourceId.of("id")
+    ),
+    policy=cr.AwsCustomResourcePolicy.from_statements([iam.PolicyStatement.from_json({
+        "Effect": "Allow",
+        "Action": "sts:AssumeRole",
+        "Resource": cross_account_role_arn
+    })])
+)
+```
+
+The external ID can also be different for each lifecycle operation:
+
+```python
+# create_role_arn: str
+# update_role_arn: str
+
+
+cr.AwsCustomResource(self, "MultiRoleSecure",
+    on_create=cr.AwsSdkCall(
+        assumed_role_arn=create_role_arn,
+        external_id="create-secret-123",
+        service="ec2",
+        action="DescribeInstances",
+        physical_resource_id=cr.PhysicalResourceId.of("id")
+    ),
+    on_update=cr.AwsSdkCall(
+        assumed_role_arn=update_role_arn,
+        external_id="update-secret-456",
+        service="ec2",
+        action="DescribeInstances"
+    ),
+    policy=cr.AwsCustomResourcePolicy.from_statements([
+        iam.PolicyStatement(
+            actions=["sts:AssumeRole"],
+            resources=[create_role_arn, update_role_arn]
+        )
+    ])
+)
+```
+
+For more information on external IDs and preventing confused deputy attacks, see the [AWS IAM User Guide](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_common-scenarios_third-party.html).
+
 #### Custom Resource Config
 
 **This feature is currently experimental**
@@ -1021,16 +1078,15 @@ from ..aws_iam import (
     IRole as _IRole_235f5d8e,
     PolicyStatement as _PolicyStatement_0fe33853,
 )
-from ..aws_kms import IKeyRef as _IKeyRef_1e82344b
 from ..aws_lambda import (
     ApplicationLogLevel as _ApplicationLogLevel_cd92660a,
     IFunction as _IFunction_6adb0ab8,
     Runtime as _Runtime_b4eaa844,
 )
-from ..aws_logs import (
-    ILogGroup as _ILogGroup_3c4fa718, RetentionDays as _RetentionDays_070f99f0
-)
+from ..aws_logs import RetentionDays as _RetentionDays_070f99f0
 from ..aws_stepfunctions import LogLevel as _LogLevel_be1990fe
+from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
+from ..interfaces.aws_logs import ILogGroupRef as _ILogGroupRef_874d025a
 
 
 @jsii.implements(_IGrantable_71c4f5de)
@@ -1051,45 +1107,47 @@ class AwsCustomResource(
 
     Example::
 
-        get_parameter = cr.AwsCustomResource(self, "GetParameter",
-            on_update=cr.AwsSdkCall( # will also be called for a CREATE event
-                service="SSM",
-                action="GetParameter",
-                parameters={
-                    "Name": "my-parameter",
-                    "WithDecryption": True
-                },
-                physical_resource_id=cr.PhysicalResourceId.of(Date.now().to_string())),
-            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
-                resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE
-            )
-        )
+        cross_account_role_arn = "arn:aws:iam::OTHERACCOUNT:role/CrossAccountRoleName" # arn of role deployed in separate account
         
-        # Use the value in another construct with
-        get_parameter.get_response_field("Parameter.Value")
+        call_region = "us-west-1" # sdk call to be made in specified region (optional)
+        
+        cr.AwsCustomResource(self, "CrossAccount",
+            on_create=cr.AwsSdkCall(
+                assumed_role_arn=cross_account_role_arn,
+                region=call_region,  # optional
+                service="sts",
+                action="GetCallerIdentity",
+                physical_resource_id=cr.PhysicalResourceId.of("id")
+            ),
+            policy=cr.AwsCustomResourcePolicy.from_statements([iam.PolicyStatement.from_json({
+                "Effect": "Allow",
+                "Action": "sts:AssumeRole",
+                "Resource": cross_account_role_arn
+            })])
+        )
     '''
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         function_name: typing.Optional[builtins.str] = None,
         install_latest_aws_sdk: typing.Optional[builtins.bool] = None,
-        log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-        log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
+        log_group: typing.Optional["_ILogGroupRef_874d025a"] = None,
+        log_retention: typing.Optional["_RetentionDays_070f99f0"] = None,
         memory_size: typing.Optional[jsii.Number] = None,
         on_create: typing.Optional[typing.Union["AwsSdkCall", typing.Dict[builtins.str, typing.Any]]] = None,
         on_delete: typing.Optional[typing.Union["AwsSdkCall", typing.Dict[builtins.str, typing.Any]]] = None,
         on_update: typing.Optional[typing.Union["AwsSdkCall", typing.Dict[builtins.str, typing.Any]]] = None,
         policy: typing.Optional["AwsCustomResourcePolicy"] = None,
-        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         resource_type: typing.Optional[builtins.str] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        service_timeout: typing.Optional[_Duration_4839e8c3] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
-        vpc: typing.Optional[_IVpc_f30d5663] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        service_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -1157,7 +1215,7 @@ class AwsCustomResource(
     def get_response_field_reference(
         self,
         data_path: builtins.str,
-    ) -> _Reference_6ab8bd04:
+    ) -> "_Reference_6ab8bd04":
         '''Returns response data for the AWS SDK call.
 
         Example for S3 / listBucket : 'Buckets.0.Name'
@@ -1174,7 +1232,7 @@ class AwsCustomResource(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a3cb7c74c2f60a8f1c2cfe429816d6751f4abf9bd7f2fccca230d2e342d4c5e)
             check_type(argname="argument data_path", value=data_path, expected_type=type_hints["data_path"])
-        return typing.cast(_Reference_6ab8bd04, jsii.invoke(self, "getResponseFieldReference", [data_path]))
+        return typing.cast("_Reference_6ab8bd04", jsii.invoke(self, "getResponseFieldReference", [data_path]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -1190,9 +1248,9 @@ class AwsCustomResource(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> _IPrincipal_539bb2fd:
+    def grant_principal(self) -> "_IPrincipal_539bb2fd":
         '''The principal to grant permissions to.'''
-        return typing.cast(_IPrincipal_539bb2fd, jsii.get(self, "grantPrincipal"))
+        return typing.cast("_IPrincipal_539bb2fd", jsii.get(self, "grantPrincipal"))
 
 
 class AwsCustomResourcePolicy(
@@ -1205,20 +1263,23 @@ class AwsCustomResourcePolicy(
 
     Example::
 
-        get_parameter = cr.AwsCustomResource(self, "GetParameter",
-            on_update=cr.AwsSdkCall(
-                service="SSM",
-                action="GetParameter",
-                parameters={
-                    "Name": "my-parameter",
-                    "WithDecryption": True
-                },
-                physical_resource_id=cr.PhysicalResourceId.of(Date.now().to_string()),
-                logging=cr.Logging.with_data_hidden()
+        cross_account_role_arn = "arn:aws:iam::OTHERACCOUNT:role/CrossAccountRoleName" # arn of role deployed in separate account
+        
+        call_region = "us-west-1" # sdk call to be made in specified region (optional)
+        
+        cr.AwsCustomResource(self, "CrossAccount",
+            on_create=cr.AwsSdkCall(
+                assumed_role_arn=cross_account_role_arn,
+                region=call_region,  # optional
+                service="sts",
+                action="GetCallerIdentity",
+                physical_resource_id=cr.PhysicalResourceId.of("id")
             ),
-            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
-                resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE
-            )
+            policy=cr.AwsCustomResourcePolicy.from_statements([iam.PolicyStatement.from_json({
+                "Effect": "Allow",
+                "Action": "sts:AssumeRole",
+                "Resource": cross_account_role_arn
+            })])
         )
     '''
 
@@ -1250,7 +1311,7 @@ class AwsCustomResourcePolicy(
     @builtins.classmethod
     def from_statements(
         cls,
-        statements: typing.Sequence[_PolicyStatement_0fe33853],
+        statements: typing.Sequence["_PolicyStatement_0fe33853"],
     ) -> "AwsCustomResourcePolicy":
         '''Explicit IAM Policy Statements.
 
@@ -1269,9 +1330,9 @@ class AwsCustomResourcePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="statements")
-    def statements(self) -> typing.List[_PolicyStatement_0fe33853]:
+    def statements(self) -> typing.List["_PolicyStatement_0fe33853"]:
         '''statements for explicit policy.'''
-        return typing.cast(typing.List[_PolicyStatement_0fe33853], jsii.get(self, "statements"))
+        return typing.cast(typing.List["_PolicyStatement_0fe33853"], jsii.get(self, "statements"))
 
     @builtins.property
     @jsii.member(jsii_name="resources")
@@ -1308,20 +1369,20 @@ class AwsCustomResourceProps:
         *,
         function_name: typing.Optional[builtins.str] = None,
         install_latest_aws_sdk: typing.Optional[builtins.bool] = None,
-        log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-        log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
+        log_group: typing.Optional["_ILogGroupRef_874d025a"] = None,
+        log_retention: typing.Optional["_RetentionDays_070f99f0"] = None,
         memory_size: typing.Optional[jsii.Number] = None,
         on_create: typing.Optional[typing.Union["AwsSdkCall", typing.Dict[builtins.str, typing.Any]]] = None,
         on_delete: typing.Optional[typing.Union["AwsSdkCall", typing.Dict[builtins.str, typing.Any]]] = None,
         on_update: typing.Optional[typing.Union["AwsSdkCall", typing.Dict[builtins.str, typing.Any]]] = None,
-        policy: typing.Optional[AwsCustomResourcePolicy] = None,
-        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+        policy: typing.Optional["AwsCustomResourcePolicy"] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         resource_type: typing.Optional[builtins.str] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        service_timeout: typing.Optional[_Duration_4839e8c3] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
-        vpc: typing.Optional[_IVpc_f30d5663] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        service_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Properties for AwsCustomResource.
 
@@ -1348,22 +1409,24 @@ class AwsCustomResourceProps:
 
         Example::
 
-            get_parameter = cr.AwsCustomResource(self, "GetParameter",
-                on_update=cr.AwsSdkCall( # will also be called for a CREATE event
-                    service="SSM",
-                    action="GetParameter",
-                    parameters={
-                        "Name": "my-parameter",
-                        "WithDecryption": True
-                    },
-                    physical_resource_id=cr.PhysicalResourceId.of(Date.now().to_string())),
-                policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
-                    resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE
-                )
-            )
+            cross_account_role_arn = "arn:aws:iam::OTHERACCOUNT:role/CrossAccountRoleName" # arn of role deployed in separate account
             
-            # Use the value in another construct with
-            get_parameter.get_response_field("Parameter.Value")
+            call_region = "us-west-1" # sdk call to be made in specified region (optional)
+            
+            cr.AwsCustomResource(self, "CrossAccount",
+                on_create=cr.AwsSdkCall(
+                    assumed_role_arn=cross_account_role_arn,
+                    region=call_region,  # optional
+                    service="sts",
+                    action="GetCallerIdentity",
+                    physical_resource_id=cr.PhysicalResourceId.of("id")
+                ),
+                policy=cr.AwsCustomResourcePolicy.from_statements([iam.PolicyStatement.from_json({
+                    "Effect": "Allow",
+                    "Action": "sts:AssumeRole",
+                    "Resource": cross_account_role_arn
+                })])
+            )
         '''
         if isinstance(on_create, dict):
             on_create = AwsSdkCall(**on_create)
@@ -1458,7 +1521,7 @@ class AwsCustomResourceProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
+    def log_group(self) -> typing.Optional["_ILogGroupRef_874d025a"]:
         '''The Log Group used for logging of events emitted by the custom resource's lambda function.
 
         Providing a user-controlled log group was rolled out to commercial regions on 2023-11-16.
@@ -1467,10 +1530,10 @@ class AwsCustomResourceProps:
         :default: - a default log group created by AWS Lambda
         '''
         result = self._values.get("log_group")
-        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], result)
+        return typing.cast(typing.Optional["_ILogGroupRef_874d025a"], result)
 
     @builtins.property
-    def log_retention(self) -> typing.Optional[_RetentionDays_070f99f0]:
+    def log_retention(self) -> typing.Optional["_RetentionDays_070f99f0"]:
         '''The number of days log events of the singleton Lambda function implementing this custom resource are kept in CloudWatch Logs.
 
         This is a legacy API and we strongly recommend you migrate to ``logGroup`` if you can.
@@ -1479,7 +1542,7 @@ class AwsCustomResourceProps:
         :default: logs.RetentionDays.INFINITE
         '''
         result = self._values.get("log_retention")
-        return typing.cast(typing.Optional[_RetentionDays_070f99f0], result)
+        return typing.cast(typing.Optional["_RetentionDays_070f99f0"], result)
 
     @builtins.property
     def memory_size(self) -> typing.Optional[jsii.Number]:
@@ -1518,7 +1581,7 @@ class AwsCustomResourceProps:
         return typing.cast(typing.Optional["AwsSdkCall"], result)
 
     @builtins.property
-    def policy(self) -> typing.Optional[AwsCustomResourcePolicy]:
+    def policy(self) -> typing.Optional["AwsCustomResourcePolicy"]:
         '''The policy that will be added to the execution role of the Lambda function implementing this custom resource provider.
 
         The custom resource also implements ``iam.IGrantable``, making it possible
@@ -1537,16 +1600,16 @@ class AwsCustomResourceProps:
         :see: Policy.fromSdkCalls
         '''
         result = self._values.get("policy")
-        return typing.cast(typing.Optional[AwsCustomResourcePolicy], result)
+        return typing.cast(typing.Optional["AwsCustomResourcePolicy"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional[_RemovalPolicy_9f93c814]:
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
         '''The policy to apply when this resource is removed from the application.
 
         :default: cdk.RemovalPolicy.Destroy
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_RemovalPolicy_9f93c814], result)
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
     def resource_type(self) -> typing.Optional[builtins.str]:
@@ -1558,7 +1621,7 @@ class AwsCustomResourceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The execution role for the singleton Lambda function implementing this custom resource provider.
 
         This role will apply to all ``AwsCustomResource``
@@ -1568,10 +1631,10 @@ class AwsCustomResourceProps:
         :default: - a new role is created
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
-    def service_timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def service_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum time that can elapse before a custom resource operation times out.
 
         You should not need to set this property. It is intended to allow quick turnaround
@@ -1584,28 +1647,28 @@ class AwsCustomResourceProps:
         :default: Duration.seconds(3600)
         '''
         result = self._values.get("service_timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The timeout for the singleton Lambda function implementing this custom resource.
 
         :default: Duration.minutes(2)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_IVpc_f30d5663]:
+    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
         '''The vpc to provision the lambda function in.
 
         :default: - the function is not provisioned inside a vpc.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_IVpc_f30d5663], result)
+        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_SubnetSelection_e57d76df]:
+    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
         '''Which subnets from the VPC to place the lambda function in.
 
         Only used if 'vpc' is supplied. Note: internet access for Lambdas
@@ -1614,7 +1677,7 @@ class AwsCustomResourceProps:
         :default: - the Vpc default strategy if not specified
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_SubnetSelection_e57d76df], result)
+        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1636,6 +1699,7 @@ class AwsCustomResourceProps:
         "service": "service",
         "api_version": "apiVersion",
         "assumed_role_arn": "assumedRoleArn",
+        "external_id": "externalId",
         "ignore_error_codes_matching": "ignoreErrorCodesMatching",
         "logging": "logging",
         "output_paths": "outputPaths",
@@ -1652,6 +1716,7 @@ class AwsSdkCall:
         service: builtins.str,
         api_version: typing.Optional[builtins.str] = None,
         assumed_role_arn: typing.Optional[builtins.str] = None,
+        external_id: typing.Optional[builtins.str] = None,
         ignore_error_codes_matching: typing.Optional[builtins.str] = None,
         logging: typing.Optional["Logging"] = None,
         output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1665,6 +1730,7 @@ class AwsSdkCall:
         :param service: The service to call. This is the name of an AWS service, in one of the following forms: - An AWS SDK for JavaScript v3 package name (``@aws-sdk/client-api-gateway``) - An AWS SDK for JavaScript v3 client name (``api-gateway``) - An AWS SDK for JavaScript v2 constructor name (``APIGateway``) - A lowercase AWS SDK for JavaScript v2 constructor name (``apigateway``)
         :param api_version: API version to use for the service. Default: - use latest available API version
         :param assumed_role_arn: Used for running the SDK calls in underlying lambda with a different role. Can be used primarily for cross-account requests to for example connect hostedzone with a shared vpc. Region controls where assumeRole call is made. Example for Route53 / associateVPCWithHostedZone Default: - run without assuming role
+        :param external_id: External ID to use when assuming the role for cross-account requests. This is an additional security measure that helps prevent the "confused deputy" problem where an entity that doesn't have permission to perform an action can coerce a more-privileged entity to perform the action. The external ID must be provided by the third-party service and should not be generated by you. This value should be unique among the third-party service's customers. This property is only used when ``assumedRoleArn`` is specified. Default: - no external ID
         :param ignore_error_codes_matching: The regex pattern to use to catch API errors. The ``code`` property of the ``Error`` object will be tested against this pattern. If there is a match an error will not be thrown. Default: - do not catch errors
         :param logging: A property used to configure logging during lambda function execution. Note: The default Logging configuration is all. This configuration will enable logging on all logged data in the lambda handler. This includes: - The event object that is received by the lambda handler - The response received after making a API call - The response object that the lambda handler will return - SDK versioning information - Caught and uncaught errors Default: Logging.all()
         :param output_paths: Restrict the data returned by the custom resource to specific paths in the API response. Use this to limit the data returned by the custom resource if working with API calls that could potentially result in custom response objects exceeding the hard limit of 4096 bytes. Example for ECS / updateService: ['service.deploymentConfiguration.maximumPercent'] Default: - return all data
@@ -1694,6 +1760,7 @@ class AwsSdkCall:
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
             check_type(argname="argument api_version", value=api_version, expected_type=type_hints["api_version"])
             check_type(argname="argument assumed_role_arn", value=assumed_role_arn, expected_type=type_hints["assumed_role_arn"])
+            check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
             check_type(argname="argument ignore_error_codes_matching", value=ignore_error_codes_matching, expected_type=type_hints["ignore_error_codes_matching"])
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument output_paths", value=output_paths, expected_type=type_hints["output_paths"])
@@ -1708,6 +1775,8 @@ class AwsSdkCall:
             self._values["api_version"] = api_version
         if assumed_role_arn is not None:
             self._values["assumed_role_arn"] = assumed_role_arn
+        if external_id is not None:
+            self._values["external_id"] = external_id
         if ignore_error_codes_matching is not None:
             self._values["ignore_error_codes_matching"] = ignore_error_codes_matching
         if logging is not None:
@@ -1778,6 +1847,27 @@ class AwsSdkCall:
         :default: - run without assuming role
         '''
         result = self._values.get("assumed_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def external_id(self) -> typing.Optional[builtins.str]:
+        '''External ID to use when assuming the role for cross-account requests.
+
+        This is an additional security measure that helps prevent the "confused deputy"
+        problem where an entity that doesn't have permission to perform an action
+        can coerce a more-privileged entity to perform the action.
+
+        The external ID must be provided by the third-party service and should not
+        be generated by you. This value should be unique among the third-party
+        service's customers.
+
+        This property is only used when ``assumedRoleArn`` is specified.
+
+        :default: - no external ID
+
+        :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html
+        '''
+        result = self._values.get("external_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -1894,7 +1984,7 @@ class CustomResourceConfig(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, scope: _constructs_77d1e7e8.IConstruct) -> "CustomResourceConfig":
+    def of(cls, scope: "_constructs_77d1e7e8.IConstruct") -> "CustomResourceConfig":
         '''Returns the CustomResourceConfig for this scope.
 
         :param scope: -
@@ -1905,7 +1995,7 @@ class CustomResourceConfig(
         return typing.cast("CustomResourceConfig", jsii.sinvoke(cls, "of", [scope]))
 
     @jsii.member(jsii_name="addLambdaRuntime")
-    def add_lambda_runtime(self, lambda_runtime: _Runtime_b4eaa844) -> None:
+    def add_lambda_runtime(self, lambda_runtime: "_Runtime_b4eaa844") -> None:
         '''Set the runtime version on AWS-vended custom resources lambdas.
 
         This feature is currently experimental.
@@ -1918,7 +2008,7 @@ class CustomResourceConfig(
         return typing.cast(None, jsii.invoke(self, "addLambdaRuntime", [lambda_runtime]))
 
     @jsii.member(jsii_name="addLogRetentionLifetime")
-    def add_log_retention_lifetime(self, retention: _RetentionDays_070f99f0) -> None:
+    def add_log_retention_lifetime(self, retention: "_RetentionDays_070f99f0") -> None:
         '''Set the log retention of AWS-vended custom resource lambdas.
 
         This feature is currently experimental.
@@ -1931,7 +2021,7 @@ class CustomResourceConfig(
         return typing.cast(None, jsii.invoke(self, "addLogRetentionLifetime", [retention]))
 
     @jsii.member(jsii_name="addRemovalPolicy")
-    def add_removal_policy(self, removal_policy: _RemovalPolicy_9f93c814) -> None:
+    def add_removal_policy(self, removal_policy: "_RemovalPolicy_9f93c814") -> None:
         '''Set the removal policy of AWS-vended custom resource logGroup.
 
         This feature is currently experimental.
@@ -1967,7 +2057,7 @@ class CustomResourceLambdaRuntime(
         custom_resource_lambda_runtime = custom_resources.CustomResourceLambdaRuntime(runtime)
     '''
 
-    def __init__(self, lambda_runtime: _Runtime_b4eaa844) -> None:
+    def __init__(self, lambda_runtime: "_Runtime_b4eaa844") -> None:
         '''
         :param lambda_runtime: -
         '''
@@ -1977,7 +2067,7 @@ class CustomResourceLambdaRuntime(
         jsii.create(self.__class__, self, [lambda_runtime])
 
     @jsii.member(jsii_name="visit")
-    def visit(self, node: _constructs_77d1e7e8.IConstruct) -> None:
+    def visit(self, node: "_constructs_77d1e7e8.IConstruct") -> None:
         '''All aspects can visit an IConstruct.
 
         :param node: -
@@ -2009,7 +2099,7 @@ class CustomResourceLogRetention(
         custom_resource_log_retention = custom_resources.CustomResourceLogRetention(logs.RetentionDays.ONE_DAY)
     '''
 
-    def __init__(self, set_log_retention: _RetentionDays_070f99f0) -> None:
+    def __init__(self, set_log_retention: "_RetentionDays_070f99f0") -> None:
         '''
         :param set_log_retention: -
         '''
@@ -2019,7 +2109,7 @@ class CustomResourceLogRetention(
         jsii.create(self.__class__, self, [set_log_retention])
 
     @jsii.member(jsii_name="visit")
-    def visit(self, node: _constructs_77d1e7e8.IConstruct) -> None:
+    def visit(self, node: "_constructs_77d1e7e8.IConstruct") -> None:
         '''All aspects can visit an IConstruct.
 
         :param node: -
@@ -2051,7 +2141,7 @@ class CustomResourceRemovalPolicy(
         custom_resource_removal_policy = custom_resources.CustomResourceRemovalPolicy(cdk.RemovalPolicy.DESTROY)
     '''
 
-    def __init__(self, removal_policy: _RemovalPolicy_9f93c814) -> None:
+    def __init__(self, removal_policy: "_RemovalPolicy_9f93c814") -> None:
         '''
         :param removal_policy: -
         '''
@@ -2061,7 +2151,7 @@ class CustomResourceRemovalPolicy(
         jsii.create(self.__class__, self, [removal_policy])
 
     @jsii.member(jsii_name="visit")
-    def visit(self, node: _constructs_77d1e7e8.IConstruct) -> None:
+    def visit(self, node: "_constructs_77d1e7e8.IConstruct") -> None:
         '''All aspects can visit an IConstruct.
 
         :param node: -
@@ -2085,9 +2175,9 @@ class LogOptions:
     def __init__(
         self,
         *,
-        destination: typing.Optional[_ILogGroup_3c4fa718] = None,
+        destination: typing.Optional["_ILogGroupRef_874d025a"] = None,
         include_execution_data: typing.Optional[builtins.bool] = None,
-        level: typing.Optional[_LogLevel_be1990fe] = None,
+        level: typing.Optional["_LogLevel_be1990fe"] = None,
     ) -> None:
         '''Log Options for the state machine.
 
@@ -2101,14 +2191,14 @@ class LogOptions:
 
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
-            from aws_cdk import aws_logs as logs
             from aws_cdk import aws_stepfunctions as stepfunctions
             from aws_cdk import custom_resources
+            from aws_cdk.interfaces import aws_logs as interfaces_logs
             
-            # log_group: logs.LogGroup
+            # log_group_ref: interfaces_logs.ILogGroupRef
             
             log_options = custom_resources.LogOptions(
-                destination=log_group,
+                destination=log_group_ref,
                 include_execution_data=False,
                 level=stepfunctions.LogLevel.OFF
             )
@@ -2127,13 +2217,13 @@ class LogOptions:
             self._values["level"] = level
 
     @builtins.property
-    def destination(self) -> typing.Optional[_ILogGroup_3c4fa718]:
+    def destination(self) -> typing.Optional["_ILogGroupRef_874d025a"]:
         '''The log group where the execution history events will be logged.
 
         :default: - a new log group will be created
         '''
         result = self._values.get("destination")
-        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], result)
+        return typing.cast(typing.Optional["_ILogGroupRef_874d025a"], result)
 
     @builtins.property
     def include_execution_data(self) -> typing.Optional[builtins.bool]:
@@ -2145,13 +2235,13 @@ class LogOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def level(self) -> typing.Optional[_LogLevel_be1990fe]:
+    def level(self) -> typing.Optional["_LogLevel_be1990fe"]:
         '''Defines which category of execution history events are logged.
 
         :default: - ERROR
         '''
         result = self._values.get("level")
-        return typing.cast(typing.Optional[_LogLevel_be1990fe], result)
+        return typing.cast(typing.Optional["_LogLevel_be1990fe"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2392,7 +2482,7 @@ class PhysicalResourceIdReference(
         jsii.create(self.__class__, self, [])
 
     @jsii.member(jsii_name="resolve")
-    def resolve(self, _context: _IResolveContext_b2df1921) -> typing.Any:
+    def resolve(self, _context: "_IResolveContext_b2df1921") -> typing.Any:
         '''Produce the Token's value at resolution time.
 
         :param _context: -
@@ -2467,26 +2557,26 @@ class Provider(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        on_event_handler: _IFunction_6adb0ab8,
+        on_event_handler: "_IFunction_6adb0ab8",
         disable_waiter_state_machine_logging: typing.Optional[builtins.bool] = None,
-        framework_complete_and_timeout_role: typing.Optional[_IRole_235f5d8e] = None,
-        framework_lambda_logging_level: typing.Optional[_ApplicationLogLevel_cd92660a] = None,
-        framework_on_event_role: typing.Optional[_IRole_235f5d8e] = None,
-        is_complete_handler: typing.Optional[_IFunction_6adb0ab8] = None,
-        log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-        log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-        provider_function_env_encryption: typing.Optional[_IKeyRef_1e82344b] = None,
+        framework_complete_and_timeout_role: typing.Optional["_IRole_235f5d8e"] = None,
+        framework_lambda_logging_level: typing.Optional["_ApplicationLogLevel_cd92660a"] = None,
+        framework_on_event_role: typing.Optional["_IRole_235f5d8e"] = None,
+        is_complete_handler: typing.Optional["_IFunction_6adb0ab8"] = None,
+        log_group: typing.Optional["_ILogGroupRef_874d025a"] = None,
+        log_retention: typing.Optional["_RetentionDays_070f99f0"] = None,
+        provider_function_env_encryption: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
         provider_function_name: typing.Optional[builtins.str] = None,
-        query_interval: typing.Optional[_Duration_4839e8c3] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-        total_timeout: typing.Optional[_Duration_4839e8c3] = None,
-        vpc: typing.Optional[_IVpc_f30d5663] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-        waiter_state_machine_log_options: typing.Optional[typing.Union[LogOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        query_interval: typing.Optional["_Duration_4839e8c3"] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        total_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        waiter_state_machine_log_options: typing.Optional[typing.Union["LogOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -2543,9 +2633,9 @@ class Provider(
 
     @builtins.property
     @jsii.member(jsii_name="onEventHandler")
-    def on_event_handler(self) -> _IFunction_6adb0ab8:
+    def on_event_handler(self) -> "_IFunction_6adb0ab8":
         '''The user-defined AWS Lambda function which is invoked for all resource lifecycle operations (CREATE/UPDATE/DELETE).'''
-        return typing.cast(_IFunction_6adb0ab8, jsii.get(self, "onEventHandler"))
+        return typing.cast("_IFunction_6adb0ab8", jsii.get(self, "onEventHandler"))
 
     @builtins.property
     @jsii.member(jsii_name="serviceToken")
@@ -2555,9 +2645,9 @@ class Provider(
 
     @builtins.property
     @jsii.member(jsii_name="isCompleteHandler")
-    def is_complete_handler(self) -> typing.Optional[_IFunction_6adb0ab8]:
+    def is_complete_handler(self) -> typing.Optional["_IFunction_6adb0ab8"]:
         '''The user-defined AWS Lambda function which is invoked asynchronously in order to determine if the operation is complete.'''
-        return typing.cast(typing.Optional[_IFunction_6adb0ab8], jsii.get(self, "isCompleteHandler"))
+        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], jsii.get(self, "isCompleteHandler"))
 
 
 @jsii.data_type(
@@ -2587,23 +2677,23 @@ class ProviderProps:
     def __init__(
         self,
         *,
-        on_event_handler: _IFunction_6adb0ab8,
+        on_event_handler: "_IFunction_6adb0ab8",
         disable_waiter_state_machine_logging: typing.Optional[builtins.bool] = None,
-        framework_complete_and_timeout_role: typing.Optional[_IRole_235f5d8e] = None,
-        framework_lambda_logging_level: typing.Optional[_ApplicationLogLevel_cd92660a] = None,
-        framework_on_event_role: typing.Optional[_IRole_235f5d8e] = None,
-        is_complete_handler: typing.Optional[_IFunction_6adb0ab8] = None,
-        log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-        log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-        provider_function_env_encryption: typing.Optional[_IKeyRef_1e82344b] = None,
+        framework_complete_and_timeout_role: typing.Optional["_IRole_235f5d8e"] = None,
+        framework_lambda_logging_level: typing.Optional["_ApplicationLogLevel_cd92660a"] = None,
+        framework_on_event_role: typing.Optional["_IRole_235f5d8e"] = None,
+        is_complete_handler: typing.Optional["_IFunction_6adb0ab8"] = None,
+        log_group: typing.Optional["_ILogGroupRef_874d025a"] = None,
+        log_retention: typing.Optional["_RetentionDays_070f99f0"] = None,
+        provider_function_env_encryption: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
         provider_function_name: typing.Optional[builtins.str] = None,
-        query_interval: typing.Optional[_Duration_4839e8c3] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-        total_timeout: typing.Optional[_Duration_4839e8c3] = None,
-        vpc: typing.Optional[_IVpc_f30d5663] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-        waiter_state_machine_log_options: typing.Optional[typing.Union[LogOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        query_interval: typing.Optional["_Duration_4839e8c3"] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        total_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        waiter_state_machine_log_options: typing.Optional[typing.Union["LogOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Initialization properties for the ``Provider`` construct.
 
@@ -2716,7 +2806,7 @@ class ProviderProps:
             self._values["waiter_state_machine_log_options"] = waiter_state_machine_log_options
 
     @builtins.property
-    def on_event_handler(self) -> _IFunction_6adb0ab8:
+    def on_event_handler(self) -> "_IFunction_6adb0ab8":
         '''The AWS Lambda function to invoke for all resource lifecycle operations (CREATE/UPDATE/DELETE).
 
         This function is responsible to begin the requested resource operation
@@ -2726,7 +2816,7 @@ class ProviderProps:
         '''
         result = self._values.get("on_event_handler")
         assert result is not None, "Required property 'on_event_handler' is missing"
-        return typing.cast(_IFunction_6adb0ab8, result)
+        return typing.cast("_IFunction_6adb0ab8", result)
 
     @builtins.property
     def disable_waiter_state_machine_logging(self) -> typing.Optional[builtins.bool]:
@@ -2738,7 +2828,7 @@ class ProviderProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def framework_complete_and_timeout_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def framework_complete_and_timeout_role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''Lambda execution role for provider framework's isComplete/onTimeout Lambda function.
 
         Note that this role
@@ -2751,21 +2841,21 @@ class ProviderProps:
         :default: - A default role will be created.
         '''
         result = self._values.get("framework_complete_and_timeout_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
     def framework_lambda_logging_level(
         self,
-    ) -> typing.Optional[_ApplicationLogLevel_cd92660a]:
+    ) -> typing.Optional["_ApplicationLogLevel_cd92660a"]:
         '''Log level of the provider framework lambda.
 
         :default: true - Logging is disabled by default
         '''
         result = self._values.get("framework_lambda_logging_level")
-        return typing.cast(typing.Optional[_ApplicationLogLevel_cd92660a], result)
+        return typing.cast(typing.Optional["_ApplicationLogLevel_cd92660a"], result)
 
     @builtins.property
-    def framework_on_event_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def framework_on_event_role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''Lambda execution role for provider framework's onEvent Lambda function.
 
         Note that this role must be assumed
@@ -2776,10 +2866,10 @@ class ProviderProps:
         :default: - A default role will be created.
         '''
         result = self._values.get("framework_on_event_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
-    def is_complete_handler(self) -> typing.Optional[_IFunction_6adb0ab8]:
+    def is_complete_handler(self) -> typing.Optional["_IFunction_6adb0ab8"]:
         '''The AWS Lambda function to invoke in order to determine if the operation is complete.
 
         This function will be called immediately after ``onEvent`` and then
@@ -2793,10 +2883,10 @@ class ProviderProps:
         is expected to finish all lifecycle operations within the initial invocation.
         '''
         result = self._values.get("is_complete_handler")
-        return typing.cast(typing.Optional[_IFunction_6adb0ab8], result)
+        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
 
     @builtins.property
-    def log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
+    def log_group(self) -> typing.Optional["_ILogGroupRef_874d025a"]:
         '''The Log Group used for logging of events emitted by the custom resource's lambda function.
 
         Providing a user-controlled log group was rolled out to commercial regions on 2023-11-16.
@@ -2805,10 +2895,10 @@ class ProviderProps:
         :default: - a default log group created by AWS Lambda
         '''
         result = self._values.get("log_group")
-        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], result)
+        return typing.cast(typing.Optional["_ILogGroupRef_874d025a"], result)
 
     @builtins.property
-    def log_retention(self) -> typing.Optional[_RetentionDays_070f99f0]:
+    def log_retention(self) -> typing.Optional["_RetentionDays_070f99f0"]:
         '''The number of days framework log events are kept in CloudWatch Logs.
 
         When
@@ -2821,16 +2911,16 @@ class ProviderProps:
         :default: logs.RetentionDays.INFINITE
         '''
         result = self._values.get("log_retention")
-        return typing.cast(typing.Optional[_RetentionDays_070f99f0], result)
+        return typing.cast(typing.Optional["_RetentionDays_070f99f0"], result)
 
     @builtins.property
-    def provider_function_env_encryption(self) -> typing.Optional[_IKeyRef_1e82344b]:
+    def provider_function_env_encryption(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
         '''AWS KMS key used to encrypt provider lambda's environment variables.
 
         :default: - AWS Lambda creates and uses an AWS managed customer master key (CMK)
         '''
         result = self._values.get("provider_function_env_encryption")
-        return typing.cast(typing.Optional[_IKeyRef_1e82344b], result)
+        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
 
     @builtins.property
     def provider_function_name(self) -> typing.Optional[builtins.str]:
@@ -2844,7 +2934,7 @@ class ProviderProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def query_interval(self) -> typing.Optional[_Duration_4839e8c3]:
+    def query_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''Time between calls to the ``isComplete`` handler which determines if the resource has been stabilized.
 
         The first ``isComplete`` will be called immediately after ``handler`` and then
@@ -2854,10 +2944,10 @@ class ProviderProps:
         :default: Duration.seconds(5)
         '''
         result = self._values.get("query_interval")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''(deprecated) AWS Lambda execution role.
 
         The role is shared by provider framework's onEvent, isComplete lambda, and onTimeout Lambda functions.
@@ -2871,10 +2961,12 @@ class ProviderProps:
         :stability: deprecated
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
-    def security_groups(self) -> typing.Optional[typing.List[_ISecurityGroup_acf8a799]]:
+    def security_groups(
+        self,
+    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
         '''Security groups to attach to the provider functions.
 
         Only used if 'vpc' is supplied
@@ -2885,10 +2977,10 @@ class ProviderProps:
         group is created for each function.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_ISecurityGroup_acf8a799]], result)
+        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
 
     @builtins.property
-    def total_timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def total_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''Total timeout for the entire operation.
 
         The maximum timeout is 1 hour (yes, it can exceed the AWS Lambda 15 minutes)
@@ -2896,19 +2988,19 @@ class ProviderProps:
         :default: Duration.minutes(30)
         '''
         result = self._values.get("total_timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_IVpc_f30d5663]:
+    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
         '''The vpc to provision the lambda functions in.
 
         :default: - functions are not provisioned inside a vpc.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_IVpc_f30d5663], result)
+        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_SubnetSelection_e57d76df]:
+    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
         '''Which subnets from the VPC to place the lambda functions in.
 
         Only used if 'vpc' is supplied. Note: internet access for Lambdas
@@ -2917,16 +3009,16 @@ class ProviderProps:
         :default: - the Vpc default strategy if not specified
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_SubnetSelection_e57d76df], result)
+        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
 
     @builtins.property
-    def waiter_state_machine_log_options(self) -> typing.Optional[LogOptions]:
+    def waiter_state_machine_log_options(self) -> typing.Optional["LogOptions"]:
         '''Defines what execution history events of the waiter state machine are logged and where they are logged.
 
         :default: - A default log group will be created if logging for the waiter state machine is enabled.
         '''
         result = self._values.get("waiter_state_machine_log_options")
-        return typing.cast(typing.Optional[LogOptions], result)
+        return typing.cast(typing.Optional["LogOptions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3025,12 +3117,12 @@ class WaiterStateMachine(
         # The values are placeholders you should change.
         import aws_cdk as cdk
         from aws_cdk import aws_lambda as lambda_
-        from aws_cdk import aws_logs as logs
         from aws_cdk import aws_stepfunctions as stepfunctions
         from aws_cdk import custom_resources
+        from aws_cdk.interfaces import aws_logs as interfaces_logs
         
         # function_: lambda.Function
-        # log_group: logs.LogGroup
+        # log_group_ref: interfaces_logs.ILogGroupRef
         
         waiter_state_machine = custom_resources.WaiterStateMachine(self, "MyWaiterStateMachine",
             backoff_rate=123,
@@ -3042,7 +3134,7 @@ class WaiterStateMachine(
             # the properties below are optional
             disable_logging=False,
             log_options=custom_resources.LogOptions(
-                destination=log_group,
+                destination=log_group_ref,
                 include_execution_data=False,
                 level=stepfunctions.LogLevel.OFF
             )
@@ -3051,16 +3143,16 @@ class WaiterStateMachine(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         backoff_rate: jsii.Number,
-        interval: _Duration_4839e8c3,
-        is_complete_handler: _IFunction_6adb0ab8,
+        interval: "_Duration_4839e8c3",
+        is_complete_handler: "_IFunction_6adb0ab8",
         max_attempts: jsii.Number,
-        timeout_handler: _IFunction_6adb0ab8,
+        timeout_handler: "_IFunction_6adb0ab8",
         disable_logging: typing.Optional[builtins.bool] = None,
-        log_options: typing.Optional[typing.Union[LogOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        log_options: typing.Optional[typing.Union["LogOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -3090,15 +3182,20 @@ class WaiterStateMachine(
         jsii.create(self.__class__, self, [scope, id, props])
 
     @jsii.member(jsii_name="grantStartExecution")
-    def grant_start_execution(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+    def grant_start_execution(
+        self,
+        identity: "_IGrantable_71c4f5de",
+    ) -> "_Grant_a7ae64f8":
         '''Grant the given identity permissions on StartExecution of the state machine.
+
+        [disable-awslint:no-grants]
 
         :param identity: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c3d1c306ca04ebd1194ce4f97bed6aa9510a02067654b39f43a1ecef601e3db)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantStartExecution", [identity]))
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantStartExecution", [identity]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -3131,12 +3228,12 @@ class WaiterStateMachineProps:
         self,
         *,
         backoff_rate: jsii.Number,
-        interval: _Duration_4839e8c3,
-        is_complete_handler: _IFunction_6adb0ab8,
+        interval: "_Duration_4839e8c3",
+        is_complete_handler: "_IFunction_6adb0ab8",
         max_attempts: jsii.Number,
-        timeout_handler: _IFunction_6adb0ab8,
+        timeout_handler: "_IFunction_6adb0ab8",
         disable_logging: typing.Optional[builtins.bool] = None,
-        log_options: typing.Optional[typing.Union[LogOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        log_options: typing.Optional[typing.Union["LogOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Initialization properties for the ``WaiterStateMachine`` construct.
 
@@ -3156,12 +3253,12 @@ class WaiterStateMachineProps:
             # The values are placeholders you should change.
             import aws_cdk as cdk
             from aws_cdk import aws_lambda as lambda_
-            from aws_cdk import aws_logs as logs
             from aws_cdk import aws_stepfunctions as stepfunctions
             from aws_cdk import custom_resources
+            from aws_cdk.interfaces import aws_logs as interfaces_logs
             
             # function_: lambda.Function
-            # log_group: logs.LogGroup
+            # log_group_ref: interfaces_logs.ILogGroupRef
             
             waiter_state_machine_props = custom_resources.WaiterStateMachineProps(
                 backoff_rate=123,
@@ -3173,7 +3270,7 @@ class WaiterStateMachineProps:
                 # the properties below are optional
                 disable_logging=False,
                 log_options=custom_resources.LogOptions(
-                    destination=log_group,
+                    destination=log_group_ref,
                     include_execution_data=False,
                     level=stepfunctions.LogLevel.OFF
                 )
@@ -3210,18 +3307,18 @@ class WaiterStateMachineProps:
         return typing.cast(jsii.Number, result)
 
     @builtins.property
-    def interval(self) -> _Duration_4839e8c3:
+    def interval(self) -> "_Duration_4839e8c3":
         '''The interval to wait between attempts.'''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
-        return typing.cast(_Duration_4839e8c3, result)
+        return typing.cast("_Duration_4839e8c3", result)
 
     @builtins.property
-    def is_complete_handler(self) -> _IFunction_6adb0ab8:
+    def is_complete_handler(self) -> "_IFunction_6adb0ab8":
         '''The main handler that notifies if the waiter to decide 'complete' or 'incomplete'.'''
         result = self._values.get("is_complete_handler")
         assert result is not None, "Required property 'is_complete_handler' is missing"
-        return typing.cast(_IFunction_6adb0ab8, result)
+        return typing.cast("_IFunction_6adb0ab8", result)
 
     @builtins.property
     def max_attempts(self) -> jsii.Number:
@@ -3231,11 +3328,11 @@ class WaiterStateMachineProps:
         return typing.cast(jsii.Number, result)
 
     @builtins.property
-    def timeout_handler(self) -> _IFunction_6adb0ab8:
+    def timeout_handler(self) -> "_IFunction_6adb0ab8":
         '''The handler to call if the waiter times out and is incomplete.'''
         result = self._values.get("timeout_handler")
         assert result is not None, "Required property 'timeout_handler' is missing"
-        return typing.cast(_IFunction_6adb0ab8, result)
+        return typing.cast("_IFunction_6adb0ab8", result)
 
     @builtins.property
     def disable_logging(self) -> typing.Optional[builtins.bool]:
@@ -3247,13 +3344,13 @@ class WaiterStateMachineProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def log_options(self) -> typing.Optional[LogOptions]:
+    def log_options(self) -> typing.Optional["LogOptions"]:
         '''Defines what execution history events are logged and where they are logged.
 
         :default: - A default log group will be created if logging is enabled.
         '''
         result = self._values.get("log_options")
-        return typing.cast(typing.Optional[LogOptions], result)
+        return typing.cast(typing.Optional["LogOptions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3296,7 +3393,7 @@ def _typecheckingstub__4b163f566913e92c7adaa1ea97e50050b801bd514d3b2f5e3ddf86c11
     *,
     function_name: typing.Optional[builtins.str] = None,
     install_latest_aws_sdk: typing.Optional[builtins.bool] = None,
-    log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    log_group: typing.Optional[_ILogGroupRef_874d025a] = None,
     log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
     memory_size: typing.Optional[jsii.Number] = None,
     on_create: typing.Optional[typing.Union[AwsSdkCall, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3336,7 +3433,7 @@ def _typecheckingstub__2b5a9dace9a09081edfef936656f2d5670f198fb300a32c31957c93e5
     *,
     function_name: typing.Optional[builtins.str] = None,
     install_latest_aws_sdk: typing.Optional[builtins.bool] = None,
-    log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    log_group: typing.Optional[_ILogGroupRef_874d025a] = None,
     log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
     memory_size: typing.Optional[jsii.Number] = None,
     on_create: typing.Optional[typing.Union[AwsSdkCall, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3360,6 +3457,7 @@ def _typecheckingstub__af7bb124668b93c6ce7d641df2daeabfe424e271742385a76e7e56ec9
     service: builtins.str,
     api_version: typing.Optional[builtins.str] = None,
     assumed_role_arn: typing.Optional[builtins.str] = None,
+    external_id: typing.Optional[builtins.str] = None,
     ignore_error_codes_matching: typing.Optional[builtins.str] = None,
     logging: typing.Optional[Logging] = None,
     output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -3432,7 +3530,7 @@ def _typecheckingstub__b25638ab024a9c20a9f0e648bced71eb09bda8705a26cd9e81b3c7611
 
 def _typecheckingstub__2622296f61199d2b10825c21d976c0578e9488ad1b2b7635565f604c598734b7(
     *,
-    destination: typing.Optional[_ILogGroup_3c4fa718] = None,
+    destination: typing.Optional[_ILogGroupRef_874d025a] = None,
     include_execution_data: typing.Optional[builtins.bool] = None,
     level: typing.Optional[_LogLevel_be1990fe] = None,
 ) -> None:
@@ -3474,9 +3572,9 @@ def _typecheckingstub__29415d7bf7977fcf110b77ce69cec309dcf0404601944735020770ddf
     framework_lambda_logging_level: typing.Optional[_ApplicationLogLevel_cd92660a] = None,
     framework_on_event_role: typing.Optional[_IRole_235f5d8e] = None,
     is_complete_handler: typing.Optional[_IFunction_6adb0ab8] = None,
-    log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    log_group: typing.Optional[_ILogGroupRef_874d025a] = None,
     log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-    provider_function_env_encryption: typing.Optional[_IKeyRef_1e82344b] = None,
+    provider_function_env_encryption: typing.Optional[_IKeyRef_d4fc6ef3] = None,
     provider_function_name: typing.Optional[builtins.str] = None,
     query_interval: typing.Optional[_Duration_4839e8c3] = None,
     role: typing.Optional[_IRole_235f5d8e] = None,
@@ -3497,9 +3595,9 @@ def _typecheckingstub__32b03803ee02437d8d83814282c700ede5633030e4d9f7ebdaf3b9d07
     framework_lambda_logging_level: typing.Optional[_ApplicationLogLevel_cd92660a] = None,
     framework_on_event_role: typing.Optional[_IRole_235f5d8e] = None,
     is_complete_handler: typing.Optional[_IFunction_6adb0ab8] = None,
-    log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    log_group: typing.Optional[_ILogGroupRef_874d025a] = None,
     log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-    provider_function_env_encryption: typing.Optional[_IKeyRef_1e82344b] = None,
+    provider_function_env_encryption: typing.Optional[_IKeyRef_d4fc6ef3] = None,
     provider_function_name: typing.Optional[builtins.str] = None,
     query_interval: typing.Optional[_Duration_4839e8c3] = None,
     role: typing.Optional[_IRole_235f5d8e] = None,

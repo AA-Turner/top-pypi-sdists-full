@@ -1,17 +1,21 @@
+from typing import Any
+
 from django.contrib.admin import helpers
 from django.contrib.admin.utils import lookup_field, quote
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.db.models import (
+    FileField,
     ForeignObjectRel,
     ImageField,
     JSONField,
     ManyToManyRel,
     OneToOneField,
 )
+from django.forms import ModelChoiceField, ModelMultipleChoiceField, Widget
 from django.forms.utils import flatatt
 from django.template.defaultfilters import linebreaksbr
-from django.urls import NoReverseMatch, reverse
+from django.urls import NoReverseMatch, reverse, reverse_lazy
 from django.utils.html import conditional_escape, format_html
 from django.utils.module_loading import import_string
 from django.utils.safestring import SafeText, mark_safe
@@ -23,10 +27,17 @@ from unfold.widgets import (
     CHECKBOX_LABEL_CLASSES,
     INPUT_CLASSES,
     LABEL_CLASSES,
+    UnfoldAdminAutocompleteModelChoiceFieldWidget,
+    UnfoldAdminMultipleAutocompleteModelChoiceFieldWidget,
 )
 
 
 class UnfoldAdminReadonlyField(helpers.AdminReadonlyField):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.resolved_field = self._resolve_field()
+
     def label_tag(self) -> SafeText:
         attrs = {
             "class": " ".join(LABEL_CLASSES + ["mb-2"]),
@@ -36,34 +47,38 @@ class UnfoldAdminReadonlyField(helpers.AdminReadonlyField):
 
         return format_html("<label{}>{}</label>", flatatt(attrs), capfirst(label))
 
-    def is_json(self) -> bool:
-        field, obj, model_admin = (
-            self.field["field"],
-            self.form.instance,
-            self.model_admin,
-        )
-
-        try:
-            f, attr, value = lookup_field(field, obj, model_admin)
-        except (AttributeError, ValueError, ObjectDoesNotExist):
+    @property
+    def url(self) -> str | bool:
+        if not self.is_file:
             return False
+
+        if hasattr(self.form.instance, self.field["field"]):
+            field_value = getattr(self.form.instance, self.field["field"])
+
+            if field_value and hasattr(field_value, "url"):
+                return field_value.url
+
+        return False
+
+    @property
+    def is_json(self) -> bool:
+        if not self.resolved_field:
+            return False
+
+        f, attr, value = self.resolved_field
 
         return isinstance(f, JSONField)
 
+    @property
     def is_image(self) -> bool:
-        field, obj, model_admin = (
-            self.field["field"],
-            self.form.instance,
-            self.model_admin,
-        )
-
-        try:
-            f, attr, value = lookup_field(field, obj, model_admin)
-        except (AttributeError, ValueError, ObjectDoesNotExist):
+        if not self.resolved_field:
             return False
+
+        f, attr, value = self.resolved_field
 
         if hasattr(attr, "image"):
             return attr.image
+
         elif (
             isinstance(attr, property)
             and hasattr(attr, "fget")
@@ -72,6 +87,14 @@ class UnfoldAdminReadonlyField(helpers.AdminReadonlyField):
             return attr.fget.image
 
         return isinstance(f, ImageField)
+
+    @property
+    def is_file(self) -> bool:
+        if not self.resolved_field:
+            return False
+
+        f, attr, value = self.resolved_field
+        return isinstance(f, ImageField | FileField)
 
     def contents(self) -> str:
         contents = self._get_contents()
@@ -95,7 +118,7 @@ class UnfoldAdminReadonlyField(helpers.AdminReadonlyField):
             return str(remote_obj)
 
     def _get_contents(self) -> str:
-        from django.contrib.admin.templatetags.admin_list import _boolean_icon
+        from unfold.utils import _boolean_icon
 
         field, obj, model_admin = (
             self.field["field"],
@@ -126,7 +149,7 @@ class UnfoldAdminReadonlyField(helpers.AdminReadonlyField):
                 if isinstance(f.remote_field, ManyToManyRel) and value is not None:
                     result_repr = ", ".join(map(str, value.all()))
                 elif (
-                    isinstance(f.remote_field, (ForeignObjectRel, OneToOneField))
+                    isinstance(f.remote_field, ForeignObjectRel | OneToOneField)
                     and value is not None
                 ):
                     result_repr = self.get_admin_url(f.remote_field, value)
@@ -163,9 +186,21 @@ class UnfoldAdminReadonlyField(helpers.AdminReadonlyField):
 
         return contents
 
+    def _resolve_field(self) -> bool | list:
+        field, obj, model_admin = (
+            self.field["field"],
+            self.form.instance,
+            self.model_admin,
+        )
+
+        try:
+            return lookup_field(field, obj, model_admin)
+        except (AttributeError, ValueError, ObjectDoesNotExist):
+            return False
+
 
 class UnfoldAdminField(helpers.AdminField):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         try:
@@ -205,3 +240,24 @@ class UnfoldAdminField(helpers.AdminField):
             attrs=attrs,
             label_suffix=required if self.field.field.required else "",
         )
+
+
+class AutocompleteFieldMixin:
+    def __init__(self, url_path: str, *args: Any, **kwargs: Any) -> None:
+        self.url_path = url_path
+        super().__init__(*args, **kwargs)
+
+    def widget_attrs(self, widget: Widget) -> dict[str, Any]:
+        return {
+            "data-ajax--url": reverse_lazy(self.url_path),
+        }
+
+
+class UnfoldAdminAutocompleteModelChoiceField(AutocompleteFieldMixin, ModelChoiceField):
+    widget = UnfoldAdminAutocompleteModelChoiceFieldWidget
+
+
+class UnfoldAdminMultipleAutocompleteModelChoiceField(
+    AutocompleteFieldMixin, ModelMultipleChoiceField
+):
+    widget = UnfoldAdminMultipleAutocompleteModelChoiceFieldWidget

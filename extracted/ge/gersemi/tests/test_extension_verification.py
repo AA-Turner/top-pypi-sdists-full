@@ -1,8 +1,8 @@
 import re
 import pytest
-from gersemi.extensions import verify, VerificationFailure
+from gersemi.builtin_commands import builtin_commands
 from gersemi.extension_type import ModuleExtension
-
+from gersemi.extensions import VerificationFailure, verify
 
 defs = "gersemi_foo:command_definitions"
 ab = f"{defs}['ab']"
@@ -13,16 +13,18 @@ ab_signatures = f"{ab}['signatures']"
 @pytest.mark.parametrize(
     "definition",
     [
-        dict(),
+        {},
         {"ab": {}},
         {"ab": {"options": set()}},
-        {"ab": {"options": tuple()}},
+        {"ab": {"options": ()}},
         {"ab": {"options": []}},
         {"ab": {"options": ("ONE", "TWO", "THREE")}},
         {"ab": {"unsupported_entry": {}, "foobar": {}}},
         {"ab": {"unsupported_entry": {}, "options": [], "foobar": {}}},
         {"ab": {"signatures": {"OK": {}}}},
         {"ab": {"signatures": {"OK": {"multi_value_keywords": "VALUES"}}}},
+        {"ab": {"options": ("ONE", "22", "THREE")}},
+        {"ab": {"one_value_keywords": ("ONE", "234", "THREE")}},
     ],
 )
 def test_extension_passes_verification(definition):
@@ -33,9 +35,9 @@ def test_extension_passes_verification(definition):
 
 
 @pytest.mark.parametrize(
-    ["definition", "outcome"],
+    ("definition", "outcome"),
     [
-        (tuple(), f"{defs}: is not a mapping"),
+        ((), f"{defs}: is not a mapping"),
         ({12: 34}, f"{defs}: command name (12) has to be a string"),
         (
             {"": 34},
@@ -55,14 +57,6 @@ def test_extension_passes_verification(definition):
             f"{ab}['options']: keyword (2) has to be a string",
         ),
         (
-            {"ab": {"options": ("ONE", "22", "THREE")}},
-            f"{ab}['options']: keyword ('22') has to start with a letter or underscore",
-        ),
-        (
-            {"ab": {"one_value_keywords": ("ONE", "234", "THREE")}},
-            f"{ab}['one_value_keywords']: keyword ('234') has to start with a letter or underscore",
-        ),
-        (
             {"ab": {"front_positional_arguments": 34}},
             f"{ab}['front_positional_arguments']: is not a collection of strings (34)",
         ),
@@ -75,7 +69,7 @@ def test_extension_passes_verification(definition):
             f"{ab}['front_positional_arguments'][2]: argument (34) has to be a string",
         ),
         (
-            {"ab": {"sections": tuple()}},
+            {"ab": {"sections": ()}},
             f"{ab_sections}: is not a mapping",
         ),
         (
@@ -84,24 +78,24 @@ def test_extension_passes_verification(definition):
         ),
         (
             {"ab": {"sections": {"12": 34}}},
-            f"{ab_sections}: keyword ('12') has to start with a letter or underscore",
+            f"{ab_sections}['12']: is not a mapping",
         ),
         (
             {"ab": {"sections": {"ABC": 34}}},
             f"{ab_sections}['ABC']: is not a mapping",
         ),
         (
-            {"ab": {"sections": {"ABC": {"sections": tuple()}}}},
+            {"ab": {"sections": {"ABC": {"sections": ()}}}},
             f"{ab_sections}['ABC']['sections']: is not a mapping",
         ),
-        ({"ab": {"signatures": tuple()}}, f"{ab_signatures}: is not a mapping"),
+        ({"ab": {"signatures": ()}}, f"{ab_signatures}: is not a mapping"),
         (
             {"ab": {"signatures": {12: 34}}},
             f"{ab_signatures}: signature (12) has to be a string",
         ),
         (
             {"ab": {"signatures": {"12": 34}}},
-            f"{ab_signatures}: signature ('12') has to start with a letter or underscore",
+            f"{ab_signatures}['12']: is not a mapping",
         ),
         (
             {"ab": {"signatures": {"CD": 34}}},
@@ -112,3 +106,15 @@ def test_extension_passes_verification(definition):
 def test_extension_fails_verification(definition, outcome):
     with pytest.raises(VerificationFailure, match=re.escape(outcome)):
         verify(ModuleExtension("foo"), definition)
+
+
+@pytest.mark.parametrize(
+    ("command", "definition"),
+    list(builtin_commands.items()),
+    ids=list(builtin_commands),
+)
+def test_extension_based_on_builtins_works(command, definition):
+    try:
+        verify(ModuleExtension("foo"), {command: definition})
+    except VerificationFailure as e:
+        pytest.fail(f"{repr(definition)} should pass verification but doesn't: {e}")

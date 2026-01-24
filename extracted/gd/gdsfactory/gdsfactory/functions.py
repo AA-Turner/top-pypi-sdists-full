@@ -331,14 +331,13 @@ def snap_angle(a: float) -> float:
     a = a % 360
     if -45 < a < 45:
         return 0
-    elif 45 < a < 135:
+    if 45 < a < 135:
         return 90
-    elif 135 < a < 225:
+    if 135 < a < 225:
         return 180
-    elif 225 < a < 315:
+    if 225 < a < 315:
         return 270
-    else:
-        return 0
+    return 0
 
 
 def angles_rad(pts: npt.NDArray[np.floating[Any]]) -> npt.NDArray[np.floating[Any]]:
@@ -498,4 +497,59 @@ def mirror(component: Component, x_mirror: bool = True) -> gf.Component:
         ref.mirror_y()
     c.add_ports(ref.ports)
     c.copy_child_info(component)
+    return c
+
+
+def remove_shapes_near_exclusion(
+    c: gf.Component,
+    target_layer: LayerSpec,
+    exclusion_layer: LayerSpec,
+    *,
+    margin: float = 2.0,
+    remove_entire_shapes: bool = True,
+    flatten: bool = True,
+) -> gf.Component:
+    """Remove shapes on target_layer that interact with exclusion_layer.
+
+    Args:
+        c: Component to modify.
+        target_layer: Layer containing shapes to potentially remove.
+        exclusion_layer: Layer defining exclusion zones.
+        margin: Exclusion margin/halo in microns (default 2.0).
+        remove_entire_shapes: If True, removes entire shapes that touch the
+            exclusion zone. If False, only clips the overlapping portions.
+        flatten: If True, flattens the component before processing.
+
+    Returns:
+        Modified component with shapes removed/clipped.
+    """
+    import klayout.db as kdb
+
+    if flatten:
+        c.flatten()
+
+    # Convert margin to database units
+    margin_dbu = c.kcl.to_dbu(margin)
+
+    # Get the exclusion region and expand it
+    exclusion_layer_kdb = gf.get_layer(exclusion_layer)
+    exclusion_region = kdb.Region(c.begin_shapes_rec(exclusion_layer_kdb))
+    halo_region = exclusion_region.sized(margin_dbu)
+
+    # Get target shapes
+    target_layer_kdb = gf.get_layer(target_layer)
+    target_region = kdb.Region(c.shapes(target_layer_kdb))
+
+    if remove_entire_shapes:
+        # Remove entire shapes that interact with the exclusion halo
+        # A shape "interacts" if it has any overlap with the halo
+        overlapping = target_region.overlapping(halo_region)
+        cleaned_region = target_region - overlapping
+    else:
+        # Just clip/subtract the overlapping portions
+        cleaned_region = target_region - halo_region
+
+    # Clear target layer and add cleaned geometry
+    c.shapes(target_layer_kdb).clear()
+    c.shapes(target_layer_kdb).insert(cleaned_region)
     return c

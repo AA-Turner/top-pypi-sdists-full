@@ -34,15 +34,17 @@ class DescribeMachinePoolRequestsFilters(object):
     """
     openapi_types = {
         'partitions': 'list[str]',
-        'workload_name': 'TextQuery'
+        'workload_name': 'TextQuery',
+        'machine_type_partition_filters': 'list[MachineTypePartitionFilter]'
     }
 
     attribute_map = {
         'partitions': 'partitions',
-        'workload_name': 'workload_name'
+        'workload_name': 'workload_name',
+        'machine_type_partition_filters': 'machine_type_partition_filters'
     }
 
-    def __init__(self, partitions=None, workload_name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, partitions=None, workload_name=None, machine_type_partition_filters=None, local_vars_configuration=None):  # noqa: E501
         """DescribeMachinePoolRequestsFilters - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -50,18 +52,21 @@ class DescribeMachinePoolRequestsFilters(object):
 
         self._partitions = None
         self._workload_name = None
+        self._machine_type_partition_filters = None
         self.discriminator = None
 
         if partitions is not None:
             self.partitions = partitions
         if workload_name is not None:
             self.workload_name = workload_name
+        if machine_type_partition_filters is not None:
+            self.machine_type_partition_filters = machine_type_partition_filters
 
     @property
     def partitions(self):
         """Gets the partitions of this DescribeMachinePoolRequestsFilters.  # noqa: E501
 
-        The partitions to filter by.  # noqa: E501
+        The partitions to filter by (for backward compatibility).  # noqa: E501
 
         :return: The partitions of this DescribeMachinePoolRequestsFilters.  # noqa: E501
         :rtype: list[str]
@@ -72,7 +77,7 @@ class DescribeMachinePoolRequestsFilters(object):
     def partitions(self, partitions):
         """Sets the partitions of this DescribeMachinePoolRequestsFilters.
 
-        The partitions to filter by.  # noqa: E501
+        The partitions to filter by (for backward compatibility).  # noqa: E501
 
         :param partitions: The partitions of this DescribeMachinePoolRequestsFilters.  # noqa: E501
         :type: list[str]
@@ -102,6 +107,29 @@ class DescribeMachinePoolRequestsFilters(object):
         """
 
         self._workload_name = workload_name
+
+    @property
+    def machine_type_partition_filters(self):
+        """Gets the machine_type_partition_filters of this DescribeMachinePoolRequestsFilters.  # noqa: E501
+
+        The machine_type, partition pair to filter by. If not provided, no filtering is performed.  # noqa: E501
+
+        :return: The machine_type_partition_filters of this DescribeMachinePoolRequestsFilters.  # noqa: E501
+        :rtype: list[MachineTypePartitionFilter]
+        """
+        return self._machine_type_partition_filters
+
+    @machine_type_partition_filters.setter
+    def machine_type_partition_filters(self, machine_type_partition_filters):
+        """Sets the machine_type_partition_filters of this DescribeMachinePoolRequestsFilters.
+
+        The machine_type, partition pair to filter by. If not provided, no filtering is performed.  # noqa: E501
+
+        :param machine_type_partition_filters: The machine_type_partition_filters of this DescribeMachinePoolRequestsFilters.  # noqa: E501
+        :type: list[MachineTypePartitionFilter]
+        """
+
+        self._machine_type_partition_filters = machine_type_partition_filters
 
     def to_dict(self):
         """Returns the model properties as a dict"""

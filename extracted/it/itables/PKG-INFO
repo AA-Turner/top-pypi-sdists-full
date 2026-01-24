@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: itables
-Version: 2.5.2
-Summary: Pandas and Polar DataFrames as interactive DataTables
+Version: 2.6.2
+Summary: Python DataFrames as interactive DataTables
 Project-URL: Homepage, https://mwouts.github.io/itables/
 Project-URL: Documentation, https://mwouts.github.io/itables
 Project-URL: Repository, https://github.com/mwouts/itables.git
@@ -31,7 +31,7 @@ License: MIT License
         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
         SOFTWARE.
 License-File: LICENSE
-Keywords: DataTables,Interactive,Javascript,Pandas,Polars
+Keywords: DataTables,Interactive,Javascript,Narwhals,Pandas,Polars
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Dash
 Classifier: Framework :: Jupyter
@@ -45,15 +45,18 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
-Requires-Dist: ipython
-Requires-Dist: numpy
-Requires-Dist: pandas
 Provides-Extra: all
 Requires-Dist: anywidget; extra == 'all'
 Requires-Dist: dash; extra == 'all'
+Requires-Dist: ipython; extra == 'all'
+Requires-Dist: marimo; extra == 'all'
 Requires-Dist: matplotlib; extra == 'all'
+Requires-Dist: modin[dask]; extra == 'all'
+Requires-Dist: narwhals; extra == 'all'
+Requires-Dist: pandas; extra == 'all'
 Requires-Dist: platformdirs; extra == 'all'
 Requires-Dist: polars; extra == 'all'
 Requires-Dist: pyarrow; extra == 'all'
@@ -64,6 +67,8 @@ Requires-Dist: streamlit; extra == 'all'
 Requires-Dist: tomli; (python_version < '3.11') and extra == 'all'
 Requires-Dist: traitlets; extra == 'all'
 Requires-Dist: typeguard>=4.4.1; extra == 'all'
+Requires-Dist: typing-extensions; extra == 'all'
+Requires-Dist: typing-extensions; (python_version < '3.11') and extra == 'all'
 Requires-Dist: world-bank-data; extra == 'all'
 Provides-Extra: check-type
 Requires-Dist: typeguard>=4.4.1; extra == 'check-type'
@@ -72,20 +77,28 @@ Requires-Dist: platformdirs; extra == 'config'
 Requires-Dist: tomli; (python_version < '3.11') and extra == 'config'
 Provides-Extra: dash
 Requires-Dist: dash; extra == 'dash'
+Requires-Dist: typing-extensions; extra == 'dash'
 Provides-Extra: dev
 Requires-Dist: anywidget; extra == 'dev'
 Requires-Dist: dash; extra == 'dev'
 Requires-Dist: ipykernel; extra == 'dev'
+Requires-Dist: ipython; extra == 'dev'
 Requires-Dist: jupyterlab; extra == 'dev'
 Requires-Dist: jupytext; extra == 'dev'
 Requires-Dist: marimo; extra == 'dev'
 Requires-Dist: matplotlib; extra == 'dev'
+Requires-Dist: modin[dask]; extra == 'dev'
+Requires-Dist: narwhals; extra == 'dev'
 Requires-Dist: nbconvert; extra == 'dev'
+Requires-Dist: pandas; extra == 'dev'
+Requires-Dist: pandas-stubs; extra == 'dev'
 Requires-Dist: platformdirs; extra == 'dev'
 Requires-Dist: polars; extra == 'dev'
 Requires-Dist: pyarrow; extra == 'dev'
+Requires-Dist: pyright; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: pytest-xdist; extra == 'dev'
 Requires-Dist: pytz; extra == 'dev'
 Requires-Dist: requests; extra == 'dev'
 Requires-Dist: shiny; extra == 'dev'
@@ -94,11 +107,24 @@ Requires-Dist: streamlit; extra == 'dev'
 Requires-Dist: tomli; (python_version < '3.11') and extra == 'dev'
 Requires-Dist: traitlets; extra == 'dev'
 Requires-Dist: typeguard>=4.4.1; extra == 'dev'
+Requires-Dist: typing-extensions; extra == 'dev'
+Requires-Dist: typing-extensions; (python_version < '3.11') and extra == 'dev'
 Requires-Dist: watchfiles; extra == 'dev'
 Requires-Dist: world-bank-data; extra == 'dev'
+Provides-Extra: marimo
+Requires-Dist: marimo; extra == 'marimo'
+Provides-Extra: narwhals
+Requires-Dist: narwhals; extra == 'narwhals'
+Provides-Extra: notebook
+Requires-Dist: ipython; extra == 'notebook'
+Provides-Extra: other-dataframes
+Requires-Dist: modin[dask]; extra == 'other-dataframes'
+Requires-Dist: narwhals; extra == 'other-dataframes'
+Requires-Dist: pyarrow; extra == 'other-dataframes'
+Provides-Extra: pandas
+Requires-Dist: pandas; extra == 'pandas'
 Provides-Extra: polars
 Requires-Dist: polars; extra == 'polars'
-Requires-Dist: pyarrow; extra == 'polars'
 Provides-Extra: samples
 Requires-Dist: pytz; extra == 'samples'
 Requires-Dist: world-bank-data; extra == 'samples'
@@ -109,28 +135,59 @@ Provides-Extra: streamlit
 Requires-Dist: streamlit; extra == 'streamlit'
 Provides-Extra: style
 Requires-Dist: matplotlib; extra == 'style'
-Provides-Extra: test
-Requires-Dist: anywidget; extra == 'test'
-Requires-Dist: dash; extra == 'test'
-Requires-Dist: ipykernel; extra == 'test'
-Requires-Dist: jupytext; extra == 'test'
-Requires-Dist: marimo; extra == 'test'
-Requires-Dist: matplotlib; extra == 'test'
-Requires-Dist: nbconvert; extra == 'test'
-Requires-Dist: platformdirs; extra == 'test'
-Requires-Dist: polars; extra == 'test'
-Requires-Dist: pyarrow; extra == 'test'
-Requires-Dist: pytest; extra == 'test'
-Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: pytz; extra == 'test'
-Requires-Dist: requests; extra == 'test'
-Requires-Dist: shiny; extra == 'test'
-Requires-Dist: shinywidgets; extra == 'test'
-Requires-Dist: streamlit; extra == 'test'
-Requires-Dist: tomli; (python_version < '3.11') and extra == 'test'
-Requires-Dist: traitlets; extra == 'test'
-Requires-Dist: typeguard>=4.4.1; extra == 'test'
-Requires-Dist: world-bank-data; extra == 'test'
+Requires-Dist: pandas; extra == 'style'
+Provides-Extra: test-all
+Requires-Dist: anywidget; extra == 'test-all'
+Requires-Dist: dash; extra == 'test-all'
+Requires-Dist: ipykernel; extra == 'test-all'
+Requires-Dist: ipython; extra == 'test-all'
+Requires-Dist: jupytext; extra == 'test-all'
+Requires-Dist: marimo; extra == 'test-all'
+Requires-Dist: matplotlib; extra == 'test-all'
+Requires-Dist: modin[dask]; extra == 'test-all'
+Requires-Dist: narwhals; extra == 'test-all'
+Requires-Dist: nbconvert; extra == 'test-all'
+Requires-Dist: pandas; extra == 'test-all'
+Requires-Dist: platformdirs; extra == 'test-all'
+Requires-Dist: polars; extra == 'test-all'
+Requires-Dist: pyarrow; extra == 'test-all'
+Requires-Dist: pytest; extra == 'test-all'
+Requires-Dist: pytest-cov; extra == 'test-all'
+Requires-Dist: pytest-xdist; extra == 'test-all'
+Requires-Dist: pytz; extra == 'test-all'
+Requires-Dist: requests; extra == 'test-all'
+Requires-Dist: shiny; extra == 'test-all'
+Requires-Dist: shinywidgets; extra == 'test-all'
+Requires-Dist: streamlit; extra == 'test-all'
+Requires-Dist: tomli; (python_version < '3.11') and extra == 'test-all'
+Requires-Dist: traitlets; extra == 'test-all'
+Requires-Dist: typeguard>=4.4.1; extra == 'test-all'
+Requires-Dist: typing-extensions; extra == 'test-all'
+Requires-Dist: typing-extensions; (python_version < '3.11') and extra == 'test-all'
+Requires-Dist: world-bank-data; extra == 'test-all'
+Provides-Extra: test-base
+Requires-Dist: pytest; extra == 'test-base'
+Requires-Dist: pytest-cov; extra == 'test-base'
+Requires-Dist: pytest-xdist; extra == 'test-base'
+Provides-Extra: test-dash
+Requires-Dist: dash; extra == 'test-dash'
+Requires-Dist: pytest; extra == 'test-dash'
+Requires-Dist: pytest-cov; extra == 'test-dash'
+Requires-Dist: pytest-xdist; extra == 'test-dash'
+Requires-Dist: typing-extensions; extra == 'test-dash'
+Provides-Extra: test-notebook
+Requires-Dist: anywidget; extra == 'test-notebook'
+Requires-Dist: ipykernel; extra == 'test-notebook'
+Requires-Dist: ipython; extra == 'test-notebook'
+Requires-Dist: jupytext; extra == 'test-notebook'
+Requires-Dist: nbconvert; extra == 'test-notebook'
+Requires-Dist: pytest; extra == 'test-notebook'
+Requires-Dist: pytest-cov; extra == 'test-notebook'
+Requires-Dist: pytest-xdist; extra == 'test-notebook'
+Requires-Dist: requests; extra == 'test-notebook'
+Requires-Dist: traitlets; extra == 'test-notebook'
+Provides-Extra: typing
+Requires-Dist: typing-extensions; (python_version < '3.11') and extra == 'typing'
 Provides-Extra: widget
 Requires-Dist: anywidget; extra == 'widget'
 Requires-Dist: traitlets; extra == 'widget'
@@ -150,16 +207,14 @@ Description-Content-Type: text/markdown
 [![Dash Component](https://img.shields.io/badge/Dash-Plotly-1098F7.svg?style=flat&logo=Plotly)](https://mwouts.github.io/itables/apps/dash.html)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_red.svg)](https://itables.streamlit.app)
 
-This packages changes how Pandas and Polars DataFrames are rendered in Python notebooks and applications.
+This package changes how Pandas and Polars DataFrames are rendered in Python notebooks and applications.
 With `itables` you can display your tables as interactive [DataTables](https://datatables.net/)
 that you can sort, paginate, scroll or filter.
 
 ITables is just about how tables are displayed. You can turn it on and off in just two lines,
 with no other impact on your data workflow.
 
-The `itables` package only depends on `numpy`, `pandas` and `IPython`
-which you must already have if you work with Pandas in Jupyter (add `polars`, `pyarrow` if you
-work with Polars DataFrames).
+Since v2.6.0, ITables has no dependencies. It works out of the box with Pandas or Polars in Jupyter, Dash, Streamlit, or Marimo—you only need these packages installed. The Jupyter Widget is the sole exception, requiring `anywidget`. With Narwhals installed, ITables can also display DataFrames from other libraries like cuDF, Modin or PyArrow.
 
 ## Documentation
 
@@ -210,7 +265,7 @@ ITables is also available as
 ## Licence
 
 ITables is developed by [Marc Wouts](https://github.com/mwouts) on [GitHub](https://github.com/mwouts/itables),
-under a MIT license.
+under an MIT license.
 
 ITables is a wrapper for [datatables.net](https://datatables.net/) which is developed by Allan Jardine
-[(sponsor him!)](https://github.com/sponsors/AllanJard), also under a MIT license.
+[(sponsor him!)](https://github.com/sponsors/AllanJard), also under an MIT license.

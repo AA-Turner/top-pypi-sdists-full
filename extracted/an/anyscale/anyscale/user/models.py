@@ -199,3 +199,56 @@ admin_created_users: List[AdminCreatedUser] = anyscale.user.admin_batch_create([
     def _validate_title(self, title: Optional[str]):
         if title is not None and not isinstance(title, str):
             raise TypeError("title must be a string.")
+
+
+@dataclass(frozen=True)
+class User(ModelBase):
+    """Collaborator returned by ``anyscale.user`` APIs."""
+
+    __doc_py_example__ = """\
+import anyscale
+
+for user in anyscale.user.list(max_items=5):
+    print(f"{user.email} ({user.permission_level})")
+"""
+
+    email: str = field(
+        metadata={"docstring": "Email address associated with the collaborator."}
+    )
+
+    def _validate_email(self, email: str):
+        if not isinstance(email, str):
+            raise TypeError("email must be a string.")
+
+    name: str = field(metadata={"docstring": "Display name of the collaborator."})
+
+    def _validate_name(self, name: str):
+        if not isinstance(name, str):
+            raise TypeError("name must be a string.")
+
+    created_at: datetime = field(
+        metadata={"docstring": "Timestamp for when the collaborator was created."}
+    )
+
+    def _validate_created_at(self, created_at: datetime):
+        if not isinstance(created_at, datetime):
+            raise TypeError("created_at must be a datetime.")
+
+    permission_level: str = field(
+        metadata={"docstring": "Organization permission level for the collaborator."}
+    )
+
+    def _validate_permission_level(self, permission_level: str):
+        if not isinstance(permission_level, str):
+            raise TypeError("permission_level must be a string.")
+
+    user_id: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "Optional user ID backing the collaborator (may be absent for service accounts)."
+        },
+    )
+
+    def _validate_user_id(self, user_id: Optional[str]):
+        if user_id is not None and not isinstance(user_id, str):
+            raise TypeError("user_id must be a string.")

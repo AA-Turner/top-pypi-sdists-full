@@ -17,9 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictInt, StrictStr, conlist 
 from finbourne_horizon.models.integration_log_activity import IntegrationLogActivity
 from finbourne_horizon.models.integration_log_record import IntegrationLogRecord
 from finbourne_horizon.models.integration_log_target_record import IntegrationLogTargetRecord
@@ -28,16 +30,16 @@ class IIntegrationLogResponse(BaseModel):
     """
     IIntegrationLogResponse
     """
-    log_id: StrictInt = Field(..., alias="logId")
+    log_id: StrictInt = Field(alias="logId")
     run_id:  Optional[StrictStr] = Field(None,alias="runId") 
-    parent_log_id: Optional[StrictInt] = Field(None, alias="parentLogId")
+    parent_log_id: Optional[StrictInt] = Field(default=None, alias="parentLogId")
     log_type:  StrictStr = Field(...,alias="logType") 
-    first_activity: Optional[datetime] = Field(None, alias="firstActivity")
-    last_activity: Optional[datetime] = Field(None, alias="lastActivity")
+    first_activity: Optional[datetime] = Field(default=None, alias="firstActivity")
+    last_activity: Optional[datetime] = Field(default=None, alias="lastActivity")
     status:  Optional[StrictStr] = Field(None,alias="status") 
-    source_record: Optional[IntegrationLogRecord] = Field(None, alias="sourceRecord")
-    target_record: Optional[IntegrationLogTargetRecord] = Field(None, alias="targetRecord")
-    activities: conlist(IntegrationLogActivity) = Field(...)
+    source_record: Optional[IntegrationLogRecord] = Field(default=None, alias="sourceRecord")
+    target_record: Optional[IntegrationLogTargetRecord] = Field(default=None, alias="targetRecord")
+    activities: List[IntegrationLogActivity]
     __properties = ["logId", "runId", "parentLogId", "logType", "firstActivity", "lastActivity", "status", "sourceRecord", "targetRecord", "activities"]
 
     class Config:
@@ -142,3 +144,5 @@ class IIntegrationLogResponse(BaseModel):
             "activities": [IntegrationLogActivity.from_dict(_item) for _item in obj.get("activities")] if obj.get("activities") is not None else None
         })
         return _obj
+
+IIntegrationLogResponse.update_forward_refs()

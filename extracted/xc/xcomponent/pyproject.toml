@@ -1,6 +1,6 @@
 [project]
 name = "xcomponent"
-version = "0.6.7"
+version = "0.11.0"
 description = "An embeded component base template engine - inspired by JSX"
 readme = "README.md"
 authors = [{ name = "Guillaume Gauvrit", email = "guillaume@gauvr.it" }]
@@ -40,7 +40,9 @@ docs = [
 
 [dependency-groups]
 dev = [
+    "babel (>=2.17.0,<3.0.0)",
     "bs4>=0.0.2",
+    "fastlifeweb >=0.37,<1",
     "mypy >=1.16.0,<2",
     "pytest >=8.3.5,<9",
 ]
@@ -51,6 +53,9 @@ docs = [
     "sphinx >=8.0.0,<9",
     "sphinx-autodoc2 >=0.5.0,<1",
 ]
+
+[project.entry-points."babel.extractors"]
+xcomponent = "xcomponent.adapters.babel:extract_xcomponent"
 
 [tool.pyright]
 autoSearchPaths = false

@@ -42,14 +42,12 @@ class SequencerCrossfadeSounds(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -78,14 +76,12 @@ class SequencerDeinterlaceSelectedMovies(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -114,14 +110,12 @@ class SequencerFadesAdd(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def calculate_fade_duration(self, context, strip) -> None:
@@ -199,14 +193,12 @@ class SequencerFadesClear(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -235,14 +227,12 @@ class SequencerSplitMulticam(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -270,14 +260,12 @@ class SEQUENCER_FH_image_strip(_bpy_types.FileHandler, SequencerFileHandlerBase)
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class SEQUENCER_FH_movie_strip(_bpy_types.FileHandler, SequencerFileHandlerBase):
@@ -292,14 +280,12 @@ class SEQUENCER_FH_movie_strip(_bpy_types.FileHandler, SequencerFileHandlerBase)
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class SEQUENCER_FH_sound_strip(_bpy_types.FileHandler, SequencerFileHandlerBase):
@@ -314,14 +300,12 @@ class SEQUENCER_FH_sound_strip(_bpy_types.FileHandler, SequencerFileHandlerBase)
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 def calculate_duration_frames(scene, duration_seconds) -> None: ...

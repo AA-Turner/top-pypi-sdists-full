@@ -31,7 +31,7 @@ ssize_t PyTreeSpec::HashValueImpl() const {
     HashCombine(seed, m_none_is_leaf);
     HashCombine(seed, m_namespace);
 
-    for (const Node& node : m_traversal) {
+    for (const Node &node : m_traversal) {
         HashCombine(seed, node.kind);
         HashCombine(seed, node.arity);
         HashCombine(seed, node.num_leaves);
@@ -40,7 +40,7 @@ ssize_t PyTreeSpec::HashValueImpl() const {
         switch (node.kind) {
             case PyTreeKind::Custom: {
                 // We don't hash node_data of custom node types since they may not hashable.
-                const auto& type = GetType(node);
+                const auto &type = GetType(node);
                 HashCombine(seed, EVALUATE_WITH_LOCK_HELD(py::hash(type), type));
                 break;
             }
@@ -76,7 +76,7 @@ ssize_t PyTreeSpec::HashValueImpl() const {
                 EXPECT_EQ(ListGetSize(keys),
                           node.arity,
                           "Number of keys and entries does not match.");
-                for (const py::handle& key : keys) {
+                for (const py::handle &key : keys) {
                     HashCombine(seed, EVALUATE_WITH_LOCK_HELD(py::hash(key), key));
                 }
                 break;
@@ -98,26 +98,26 @@ ssize_t PyTreeSpec::HashValue() const {
 
     const ThreadedIdentity ident{this, std::this_thread::get_id()};
     {
-        const scoped_read_lock_guard lock{mutex};
+        const scoped_read_lock lock{mutex};
         if (running.find(ident) != running.end()) [[unlikely]] {
             return 0;
         }
     }
 
     {
-        const scoped_write_lock_guard lock{mutex};
+        const scoped_write_lock lock{mutex};
         running.insert(ident);
     }
     try {
         const ssize_t result = HashValueImpl();
         {
-            const scoped_write_lock_guard lock{mutex};
+            const scoped_write_lock lock{mutex};
             running.erase(ident);
         }
         return result;
     } catch (...) {
         {
-            const scoped_write_lock_guard lock{mutex};
+            const scoped_write_lock lock{mutex};
             running.erase(ident);
         }
         std::rethrow_exception(std::current_exception());

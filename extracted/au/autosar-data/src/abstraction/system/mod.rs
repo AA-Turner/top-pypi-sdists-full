@@ -3,14 +3,16 @@ use crate::{
     abstraction::{
         ArPackage, AutosarAbstractionError, EcuInstance, abstraction_err_to_pyerr,
         communication::{
-            CanCluster, CanFrame, CanTpConfig, ContainerIPdu, ContainerIPduHeaderType, DcmIPdu,
-            DoIpTpConfig, EthernetCluster, EventGroupControlType, FlexrayArTpConfig,
-            FlexrayCluster, FlexrayClusterSettings, FlexrayFrame, FlexrayTpConfig,
-            GeneralPurposeIPdu, GeneralPurposeIPduCategory, GeneralPurposePdu,
-            GeneralPurposePduCategory, ISignal, ISignalGroup, ISignalIPdu, MultiplexedIPdu, NPdu,
-            NmConfig, NmPdu, RxAcceptContainedIPdu, SecureCommunicationProps, SecuredIPdu,
-            ServiceInstanceCollectionSet, SoAdRoutingGroup, SocketConnectionIpduIdentifierSet,
-            SomeipTpConfig, SystemSignal, SystemSignalGroup,
+            CanCluster, CanFrame, CanTpConfig, CommunicationDirection, ContainerIPdu,
+            ContainerIPduHeaderType, DcmIPdu, DiagPduType, DoIpTpConfig, EthernetCluster,
+            EventGroupControlType, FlexrayArTpConfig, FlexrayCluster, FlexrayClusterSettings,
+            FlexrayFrame, FlexrayTpConfig, GeneralPurposeIPdu, GeneralPurposeIPduCategory,
+            GeneralPurposePdu, GeneralPurposePduCategory, ISignal, ISignalGroup, ISignalIPdu,
+            ISignalIPduGroup, LinCluster, LinEventTriggeredFrame, LinSporadicFrame,
+            LinUnconditionalFrame, MultiplexedIPdu, NPdu, NmConfig, NmPdu, RxAcceptContainedIPdu,
+            SecureCommunicationProps, SecuredIPdu, ServiceInstanceCollectionSet, SoAdRoutingGroup,
+            SocketConnectionIpduIdentifierSet, SomeipTpConfig, SystemSignal, SystemSignalGroup,
+            UserDefinedPdu,
         },
         datatype::SwBaseType,
         software_component::{CompositionSwComponentType, RootSwCompositionPrototype},
@@ -42,6 +44,15 @@ impl System {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -185,17 +196,33 @@ impl System {
         }
     }
 
+    /// create a new LIN-CLUSTER and connect it to the SYSTEM
+    ///
+    /// The cluster must have a channel to be valid, but this channel is not created automatically.
+    /// Call [`LinCluster::create_physical_channel`] to create it.
+    #[pyo3(signature = (cluster_name, package, /))]
+    #[pyo3(text_signature = "(self, cluster_name: str, package: ArPackage, /)")]
+    fn create_lin_cluster(&self, cluster_name: &str, package: &ArPackage) -> PyResult<LinCluster> {
+        match self.0.create_lin_cluster(cluster_name, &package.0) {
+            Ok(cluster) => Ok(LinCluster(cluster)),
+            Err(error) => PyResult::Err(AutosarAbstractionError::new_err(error.to_string())),
+        }
+    }
+
     /// Create an iterator over all clusters connected to the SYSTEM
     fn clusters(&self) -> ClusterIterator {
         ClusterIterator::new(self.0.clusters().filter_map(|cluster| match cluster {
             autosar_data_abstraction::communication::Cluster::Can(cluster) => {
-                Python::with_gil(|py| CanCluster(cluster).into_py_any(py).ok())
+                Python::attach(|py| CanCluster(cluster).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::Cluster::Ethernet(cluster) => {
-                Python::with_gil(|py| EthernetCluster(cluster).into_py_any(py).ok())
+                Python::attach(|py| EthernetCluster(cluster).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::Cluster::FlexRay(cluster) => {
-                Python::with_gil(|py| FlexrayCluster(cluster).into_py_any(py).ok())
+                Python::attach(|py| FlexrayCluster(cluster).into_py_any(py).ok())
+            }
+            autosar_data_abstraction::communication::Cluster::Lin(cluster) => {
+                Python::attach(|py| LinCluster(cluster).into_py_any(py).ok())
             }
             _ => None,
         }))
@@ -235,14 +262,91 @@ impl System {
         }
     }
 
+    /// create a new [`LinEventTriggeredFrame`]
+    ///
+    /// This new frame needs to be linked to a `LinPhysicalChannel`
+    #[pyo3(signature = (name, package, byte_length, /))]
+    #[pyo3(text_signature = "(self, name: str, package: ArPackage, byte_length: int, /)")]
+    fn create_lin_event_triggered_frame(
+        &self,
+        name: &str,
+        package: &ArPackage,
+        byte_length: u64,
+    ) -> PyResult<LinEventTriggeredFrame> {
+        match self
+            .0
+            .create_lin_event_triggered_frame(name, &package.0, byte_length)
+        {
+            Ok(frame) => Ok(LinEventTriggeredFrame(frame)),
+            Err(error) => Err(AutosarAbstractionError::new_err(error.to_string())),
+        }
+    }
+
+    /// create a new [`LinSporadicFrame`]
+    ///
+    /// This new frame needs to be linked to a `LinPhysicalChannel`
+    #[pyo3(signature = (name, package, byte_length, /))]
+    #[pyo3(text_signature = "(self, name: str, package: ArPackage, byte_length: int, /)")]
+    fn create_lin_sporadic_frame(
+        &self,
+        name: &str,
+        package: &ArPackage,
+        byte_length: u64,
+    ) -> PyResult<LinSporadicFrame> {
+        match self
+            .0
+            .create_lin_sporadic_frame(name, &package.0, byte_length)
+        {
+            Ok(frame) => Ok(LinSporadicFrame(frame)),
+            Err(error) => Err(AutosarAbstractionError::new_err(error.to_string())),
+        }
+    }
+
+    /// create a new [`LinUnconditionalFrame`]
+    ///
+    /// This new frame needs to be linked to a `LinPhysicalChannel`
+    #[pyo3(signature = (name, package, byte_length, /))]
+    #[pyo3(text_signature = "(self, name: str, package: ArPackage, byte_length: int, /)")]
+    fn create_lin_unconditional_frame(
+        &self,
+        name: &str,
+        package: &ArPackage,
+        byte_length: u64,
+    ) -> PyResult<LinUnconditionalFrame> {
+        match self
+            .0
+            .create_lin_unconditional_frame(name, &package.0, byte_length)
+        {
+            Ok(frame) => Ok(LinUnconditionalFrame(frame)),
+            Err(error) => Err(AutosarAbstractionError::new_err(error.to_string())),
+        }
+    }
+
     /// iterate over all Frames in the System
     fn frames(&self) -> FrameIterator {
+        use autosar_data_abstraction::communication as comm;
+
         FrameIterator::new(self.0.frames().filter_map(|frame| match frame {
-            autosar_data_abstraction::communication::Frame::Can(frame) => {
-                Python::with_gil(|py| CanFrame(frame).into_py_any(py).ok())
+            comm::Frame::Can(frame) => Python::attach(|py| CanFrame(frame).into_py_any(py).ok()),
+            comm::Frame::Flexray(frame) => {
+                Python::attach(|py| FlexrayFrame(frame).into_py_any(py).ok())
             }
-            autosar_data_abstraction::communication::Frame::Flexray(frame) => {
-                Python::with_gil(|py| FlexrayFrame(frame).into_py_any(py).ok())
+            comm::Frame::Lin(comm::LinFrame::EventTriggered(lin_event_triggered_frame)) => {
+                Python::attach(|py| {
+                    LinEventTriggeredFrame(lin_event_triggered_frame)
+                        .into_py_any(py)
+                        .ok()
+                })
+            }
+            comm::Frame::Lin(comm::LinFrame::Sporadic(lin_sporadic_frame)) => {
+                Python::attach(|py| LinSporadicFrame(lin_sporadic_frame).into_py_any(py).ok())
+            }
+            comm::Frame::Lin(comm::LinFrame::Unconditional(lin_unconditional_frame)) => {
+                Python::attach(|py| {
+                    LinUnconditionalFrame(lin_unconditional_frame)
+                        .into_py_any(py)
+                        .ok()
+                })
             }
             _ => None,
         }))
@@ -344,10 +448,21 @@ impl System {
     }
 
     /// create a [`DcmIPdu`] in the [`System`]
-    #[pyo3(signature = (name, package, length, /))]
-    #[pyo3(text_signature = "(self, name: str, package: ArPackage, length: int, /)")]
-    fn create_dcm_ipdu(&self, name: &str, package: &ArPackage, length: u32) -> PyResult<DcmIPdu> {
-        match self.0.create_dcm_ipdu(name, &package.0, length) {
+    #[pyo3(signature = (name, package, length, diag_pdu_type, /))]
+    #[pyo3(
+        text_signature = "(self, name: str, package: ArPackage, length: int, diag_pdu_type: DiagPduType, /)"
+    )]
+    fn create_dcm_ipdu(
+        &self,
+        name: &str,
+        package: &ArPackage,
+        length: u32,
+        diag_pdu_type: DiagPduType,
+    ) -> PyResult<DcmIPdu> {
+        match self
+            .0
+            .create_dcm_ipdu(name, &package.0, length, diag_pdu_type.into())
+        {
             Ok(ipdu) => Ok(DcmIPdu(ipdu)),
             Err(error) => Err(AutosarAbstractionError::new_err(error.to_string())),
         }
@@ -456,39 +571,78 @@ impl System {
         }
     }
 
+    /// create a [`UserDefinedPdu`] in the [`System`]
+    #[pyo3(signature = (name, package, length, /))]
+    #[pyo3(text_signature = "(self, name: str, package: ArPackage, length: int, /)")]
+    fn create_user_defined_pdu(
+        &self,
+        name: &str,
+        package: &ArPackage,
+        length: u32,
+    ) -> PyResult<UserDefinedPdu> {
+        match self.0.create_user_defined_pdu(name, &package.0, length) {
+            Ok(ipdu) => Ok(UserDefinedPdu(ipdu)),
+            Err(error) => Err(AutosarAbstractionError::new_err(error.to_string())),
+        }
+    }
+
     /// iterate over all PDUs in the System
     ///
     /// This iterator returns all PDUs that are connected to the System using a FibexElementRef.
     fn pdus(&self) -> PduIterator {
         PduIterator::new(self.0.pdus().filter_map(|pdu| match pdu {
             autosar_data_abstraction::communication::Pdu::ISignalIPdu(pdu) => {
-                Python::with_gil(|py| ISignalIPdu(pdu).into_py_any(py).ok())
+                Python::attach(|py| ISignalIPdu(pdu).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::Pdu::NmPdu(pdu) => {
-                Python::with_gil(|py| NmPdu(pdu).into_py_any(py).ok())
+                Python::attach(|py| NmPdu(pdu).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::Pdu::NPdu(pdu) => {
-                Python::with_gil(|py| NPdu(pdu).into_py_any(py).ok())
+                Python::attach(|py| NPdu(pdu).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::Pdu::DcmIPdu(pdu) => {
-                Python::with_gil(|py| DcmIPdu(pdu).into_py_any(py).ok())
+                Python::attach(|py| DcmIPdu(pdu).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::Pdu::GeneralPurposePdu(pdu) => {
-                Python::with_gil(|py| GeneralPurposePdu(pdu).into_py_any(py).ok())
+                Python::attach(|py| GeneralPurposePdu(pdu).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::Pdu::GeneralPurposeIPdu(pdu) => {
-                Python::with_gil(|py| GeneralPurposeIPdu(pdu).into_py_any(py).ok())
+                Python::attach(|py| GeneralPurposeIPdu(pdu).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::Pdu::ContainerIPdu(pdu) => {
-                Python::with_gil(|py| ContainerIPdu(pdu).into_py_any(py).ok())
+                Python::attach(|py| ContainerIPdu(pdu).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::Pdu::SecuredIPdu(pdu) => {
-                Python::with_gil(|py| SecuredIPdu(pdu).into_py_any(py).ok())
+                Python::attach(|py| SecuredIPdu(pdu).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::Pdu::MultiplexedIPdu(pdu) => {
-                Python::with_gil(|py| MultiplexedIPdu(pdu).into_py_any(py).ok())
+                Python::attach(|py| MultiplexedIPdu(pdu).into_py_any(py).ok())
+            }
+            autosar_data_abstraction::communication::Pdu::UserDefinedPdu(pdu) => {
+                Python::attach(|py| UserDefinedPdu(pdu).into_py_any(py).ok())
             } //_ => None,
         }))
+    }
+
+    /// create a new `ISignalIPduGroup` in the System
+    pub fn create_isignal_ipdu_group(
+        &self,
+        name: &str,
+        package: &ArPackage,
+        communication_direction: CommunicationDirection,
+    ) -> PyResult<ISignalIPduGroup> {
+        match self
+            .0
+            .create_isignal_ipdu_group(name, &package.0, communication_direction.into())
+        {
+            Ok(set) => Ok(ISignalIPduGroup(set)),
+            Err(error) => Err(AutosarAbstractionError::new_err(error.to_string())),
+        }
+    }
+
+    /// iterate over all ISSignalIPduGroups in the system
+    fn isignal_ipdu_groups(&self) -> ISignalIPduGroupIterator {
+        ISignalIPduGroupIterator::new(self.0.isignal_ipdu_groups().map(ISignalIPduGroup))
     }
 
     /// Create a `SocketConnectionIpduIdentifierSet` in the SYSTEM
@@ -571,6 +725,8 @@ impl System {
             autosar_data_abstraction::communication::Cluster::Ethernet(ethernet_cluster.0)
         } else if let Ok(flexray_cluster) = cluster.extract::<FlexrayCluster>() {
             autosar_data_abstraction::communication::Cluster::FlexRay(flexray_cluster.0)
+        } else if let Ok(lin_cluster) = cluster.extract::<LinCluster>() {
+            autosar_data_abstraction::communication::Cluster::Lin(lin_cluster.0)
         } else {
             return Err(PyTypeError::new_err(format!(
                 "'{}' cannot be converted to 'Cluster'",
@@ -742,13 +898,14 @@ impl System {
 iterator_wrapper!(EcuInstanceIterator, EcuInstance);
 iterator_wrapper!(
     ClusterIterator,
-    PyObject,
+    Py<PyAny>,
     "Union[CanCluster, EthernetCluster, FlexrayCluster]"
 );
-iterator_wrapper!(FrameIterator, PyObject, "Union[CanFrame, FlexrayFrame]");
+iterator_wrapper!(FrameIterator, Py<PyAny>, "Union[CanFrame, FlexrayFrame]");
 iterator_wrapper!(ISignalIterator, ISignal);
 iterator_wrapper!(ISignalGroupIterator, ISignalGroup);
-iterator_wrapper!(PduIterator, PyObject, "Pdu");
+iterator_wrapper!(PduIterator, Py<PyAny>, "Pdu");
+iterator_wrapper!(ISignalIPduGroupIterator, ISignalIPduGroup);
 
 //#########################################################
 

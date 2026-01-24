@@ -1,61 +1,40 @@
 Metadata-Version: 2.4
 Name: cmd2
-Version: 2.7.0
+Version: 3.1.0
 Summary: cmd2 - quickly build feature-rich and user-friendly interactive command line applications in Python
 Author: cmd2 Contributors
-License: The MIT License (MIT)
-        
-        Copyright (c) 2008-2025 Catherine Devlin and others
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in
-        all copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-        THE SOFTWARE.
-        
+License-Expression: MIT
 Keywords: CLI,cmd,command,interactive,prompt,Python
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: backports.strenum; python_version == "3.10"
 Requires-Dist: gnureadline>=8; platform_system == "Darwin"
-Requires-Dist: pyperclip>=1.8
+Requires-Dist: pyperclip>=1.8.2
 Requires-Dist: pyreadline3>=3.4; platform_system == "Windows"
+Requires-Dist: rich>=14.1.0
 Requires-Dist: rich-argparse>=1.7.1
-Requires-Dist: wcwidth>=0.2.10
 Dynamic: license-file
 
 <h1 align="center">cmd2 : immersive interactive command line applications</h1>
 
 [![Latest Version](https://img.shields.io/pypi/v/cmd2.svg?style=flat-square&label=latest%20stable%20version)](https://pypi.python.org/pypi/cmd2/)
 [![GitHub Actions](https://github.com/python-cmd2/cmd2/workflows/CI/badge.svg)](https://github.com/python-cmd2/cmd2/actions?query=workflow%3ACI)
-[![codecov](https://codecov.io/gh/python-cmd2/cmd2/branch/master/graph/badge.svg)](https://codecov.io/gh/python-cmd2/cmd2)
+[![codecov](https://codecov.io/gh/python-cmd2/cmd2/branch/main/graph/badge.svg)](https://codecov.io/gh/python-cmd2/cmd2)
 [![Documentation Status](https://readthedocs.org/projects/cmd2/badge/?version=latest)](http://cmd2.readthedocs.io/en/latest/?badge=latest)
 <a href="https://discord.gg/RpVG6tk"><img src="https://img.shields.io/badge/chat-on%20discord-7289da.svg" alt="Chat"></a>
 
@@ -69,7 +48,7 @@ Dynamic: license-file
   <a href="#projects-using-cmd2">Projects using cmd2</a> •
 </p>
 
-[![Screenshot](https://raw.githubusercontent.com/python-cmd2/cmd2/master/cmd2.png)](https://youtu.be/DDU_JH6cFsA)
+[![Screenshot](https://raw.githubusercontent.com/python-cmd2/cmd2/main/cmd2.png)](https://youtu.be/DDU_JH6cFsA)
 
 cmd2 is a tool for building interactive command line applications in Python. Its goal is to make it
 quick and easy for developers to build feature-rich and user-friendly interactive command line
@@ -78,9 +57,14 @@ applications. It provides a simple API which is an extension of Python's built-i
 of cmd to make your life easier and eliminates much of the boilerplate code which would be necessary
 when using cmd.
 
+> :warning: **`cmd2` 3.0.0 has been released and there are some significant backwards
+> incompatibilities from version `2.x`. Please see the
+> [Migration Guide](https://cmd2.readthedocs.io/en/latest/upgrades/) for tips on upgrading from
+> `cmd2` 2.x to 3.x.**
+
 ## The developers toolbox
 
-![system schema](https://raw.githubusercontent.com/python-cmd2/cmd2/master/.github/images/graph.drawio.png)
+![system schema](https://raw.githubusercontent.com/python-cmd2/cmd2/main/.github/images/graph.drawio.png)
 
 When creating solutions developers have no shortage of tools to create rich and smart user
 interfaces. System administrators have long been duct taping together brittle workflows based on a
@@ -88,7 +72,7 @@ menagerie of simple command line tools created by strangers on github and the gu
 Unfortunately, when CLIs become significantly complex the ease of command discoverability tends to
 fade quickly. On the other hand, Web and traditional desktop GUIs are first in class when it comes
 to easily discovering functionality. The price we pay for beautifully colored displays is complexity
-required to aggregate disperate applications into larger systems. `cmd2` fills the niche between
+required to aggregate disparate applications into larger systems. `cmd2` fills the niche between
 high [ease of command discovery](https://clig.dev/#ease-of-discovery) applications and smart
 workflow automation systems.
 
@@ -136,7 +120,7 @@ On all operating systems, the latest stable version of `cmd2` can be installed u
 pip install -U cmd2
 ```
 
-cmd2 works with Python 3.9+ on Windows, macOS, and Linux. It is pure Python code with few 3rd-party
+cmd2 works with Python 3.10+ on Windows, macOS, and Linux. It is pure Python code with few 3rd-party
 dependencies. It works with both conventional CPython and free-threaded variants.
 
 For information on other installation options, see
@@ -154,20 +138,16 @@ examples.
 
 ## Tutorials
 
-- PyOhio 2019 presentation:
-    - [video](https://www.youtube.com/watch?v=pebeWrTqIIw)
-    - [slides](https://github.com/python-cmd2/talks/blob/master/PyOhio_2019/cmd2-PyOhio_2019.pdf)
-    - [example code](https://github.com/python-cmd2/talks/tree/master/PyOhio_2019/examples)
+- [cmd2 example applications](https://github.com/python-cmd2/cmd2/tree/main/examples)
+    - Basic cmd2 examples to demonstrate how to use various features
+- [Advanced Examples](https://github.com/jayrod/cmd2-example-apps)
+    - More complex examples that demonstrate more featuers about how to put together a complete
+      application
 - [Cookiecutter](https://github.com/cookiecutter/cookiecutter) Templates from community
     - Basic cookiecutter template for cmd2 application :
       https://github.com/jayrod/cookiecutter-python-cmd2
     - Advanced cookiecutter template with external plugin support :
       https://github.com/jayrod/cookiecutter-python-cmd2-ext-plug
-- [cmd2 example applications](https://github.com/python-cmd2/cmd2/tree/master/examples)
-    - Basic cmd2 examples to demonstrate how to use various features
-- [Advanced Examples](https://github.com/jayrod/cmd2-example-apps)
-    - More complex examples that demonstrate more featuers about how to put together a complete
-      application
 
 ## Hello World
 
@@ -180,9 +160,8 @@ import cmd2
 class FirstApp(cmd2.Cmd):
     """A simple cmd2 application."""
 
-
-def do_hello_world(self, _: cmd2.Statement):
-    self.poutput('Hello World')
+    def do_hello_world(self, _: cmd2.Statement):
+        self.poutput('Hello World')
 
 
 if __name__ == '__main__':
@@ -224,6 +203,7 @@ reproduce the bug. At a minimum, please state the following:
 | [tomcatmanager](https://github.com/tomcatmanager/tomcatmanager) | A command line tool and python library for managing a tomcat server                                                             | [tomcatmanager](https://github.com/tomcatmanager)                     |
 | [Falcon Toolkit](https://github.com/CrowdStrike/Falcon-Toolkit) | Unleash the power of the CrowdStrike Falcon Platform at the CLI                                                                 | [CrowdStrike](https://github.com/CrowdStrike)                         |
 | [EXPLIoT](https://gitlab.com/expliot_framework/expliot)         | Internet of Things Security Testing and Exploitation framework                                                                  | [expliot_framework](https://gitlab.com/expliot_framework/)            |
+| [Pobshell](https://github.com/pdalloz/pobshell)                 | A Bash‑like shell for live Python objects: `cd`, `ls`, `cat`, `find` and _CLI piping_ for object code, str values & more        | [Peter Dalloz](https://www.linkedin.com/in/pdalloz)                   |
 
 Possibly defunct but still good examples
 

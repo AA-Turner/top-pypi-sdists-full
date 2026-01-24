@@ -67,9 +67,10 @@ class AdUnitServiceTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -148,6 +149,41 @@ class AdUnitServiceTransport(abc.ABC):
                 default_timeout=None,
                 client_info=client_info,
             ),
+            self.create_ad_unit: gapic_v1.method.wrap_method(
+                self.create_ad_unit,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_ad_unit: gapic_v1.method.wrap_method(
+                self.update_ad_unit,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.batch_create_ad_units: gapic_v1.method.wrap_method(
+                self.batch_create_ad_units,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.batch_update_ad_units: gapic_v1.method.wrap_method(
+                self.batch_update_ad_units,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.batch_activate_ad_units: gapic_v1.method.wrap_method(
+                self.batch_activate_ad_units,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.batch_deactivate_ad_units: gapic_v1.method.wrap_method(
+                self.batch_deactivate_ad_units,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.batch_archive_ad_units: gapic_v1.method.wrap_method(
+                self.batch_archive_ad_units,
+                default_timeout=None,
+                client_info=client_info,
+            ),
             self.get_operation: gapic_v1.method.wrap_method(
                 self.get_operation,
                 default_timeout=None,
@@ -193,6 +229,84 @@ class AdUnitServiceTransport(abc.ABC):
         Union[
             ad_unit_service.ListAdUnitSizesResponse,
             Awaitable[ad_unit_service.ListAdUnitSizesResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def create_ad_unit(
+        self,
+    ) -> Callable[
+        [ad_unit_service.CreateAdUnitRequest],
+        Union[ad_unit_messages.AdUnit, Awaitable[ad_unit_messages.AdUnit]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_ad_unit(
+        self,
+    ) -> Callable[
+        [ad_unit_service.UpdateAdUnitRequest],
+        Union[ad_unit_messages.AdUnit, Awaitable[ad_unit_messages.AdUnit]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def batch_create_ad_units(
+        self,
+    ) -> Callable[
+        [ad_unit_service.BatchCreateAdUnitsRequest],
+        Union[
+            ad_unit_service.BatchCreateAdUnitsResponse,
+            Awaitable[ad_unit_service.BatchCreateAdUnitsResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def batch_update_ad_units(
+        self,
+    ) -> Callable[
+        [ad_unit_service.BatchUpdateAdUnitsRequest],
+        Union[
+            ad_unit_service.BatchUpdateAdUnitsResponse,
+            Awaitable[ad_unit_service.BatchUpdateAdUnitsResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def batch_activate_ad_units(
+        self,
+    ) -> Callable[
+        [ad_unit_service.BatchActivateAdUnitsRequest],
+        Union[
+            ad_unit_service.BatchActivateAdUnitsResponse,
+            Awaitable[ad_unit_service.BatchActivateAdUnitsResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def batch_deactivate_ad_units(
+        self,
+    ) -> Callable[
+        [ad_unit_service.BatchDeactivateAdUnitsRequest],
+        Union[
+            ad_unit_service.BatchDeactivateAdUnitsResponse,
+            Awaitable[ad_unit_service.BatchDeactivateAdUnitsResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def batch_archive_ad_units(
+        self,
+    ) -> Callable[
+        [ad_unit_service.BatchArchiveAdUnitsRequest],
+        Union[
+            ad_unit_service.BatchArchiveAdUnitsResponse,
+            Awaitable[ad_unit_service.BatchArchiveAdUnitsResponse],
         ],
     ]:
         raise NotImplementedError()

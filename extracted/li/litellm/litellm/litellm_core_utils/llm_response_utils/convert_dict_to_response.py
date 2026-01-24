@@ -2,11 +2,11 @@ import asyncio
 import json
 import time
 import traceback
-import uuid
 from typing import Dict, Iterable, List, Literal, Optional, Tuple, Union
 
 import litellm
 from litellm._logging import verbose_logger
+from litellm._uuid import uuid
 from litellm.constants import RESPONSE_FORMAT_TOOL_NAME
 from litellm.litellm_core_utils.prompt_templates.common_utils import (
     _extract_reasoning_content,
@@ -31,11 +31,14 @@ from litellm.types.utils import Logprobs as TextCompletionLogprobs
 from litellm.types.utils import (
     Message,
     ModelResponse,
+    ModelResponseStream,
     RerankResponse,
     StreamingChoices,
     TextChoices,
     TextCompletionResponse,
     TranscriptionResponse,
+    TranscriptionUsageDurationObject,
+    TranscriptionUsageTokensObject,
     Usage,
 )
 
@@ -108,12 +111,12 @@ async def convert_to_streaming_response_async(response_object: Optional[dict] = 
     if response_object is None:
         raise Exception("Error in response object format")
 
-    model_response_object = ModelResponse(stream=True)
+    model_response_object = ModelResponseStream()
 
     if model_response_object is None:
         raise Exception("Error in response creating model response object")
 
-    choice_list = []
+    choice_list: List[StreamingChoices] = []
 
     for idx, choice in enumerate(response_object["choices"]):
         if (
@@ -182,8 +185,8 @@ def convert_to_streaming_response(response_object: Optional[dict] = None):
     if response_object is None:
         raise Exception("Error in response object format")
 
-    model_response_object = ModelResponse(stream=True)
-    choice_list = []
+    model_response_object = ModelResponseStream()
+    choice_list: List[StreamingChoices] = []
     for idx, choice in enumerate(response_object["choices"]):
         delta = Delta(**choice["message"])
         finish_reason = choice.get("finish_reason", None)
@@ -427,28 +430,58 @@ def convert_to_model_response_object(  # noqa: PLR0915
 
     if hidden_params is None:
         hidden_params = {}
+    
+    # Preserve existing additional_headers if they contain important provider headers
+    # For responses API, additional_headers may already be set with LLM provider headers
+    existing_additional_headers = hidden_params.get("additional_headers", {})
+    if existing_additional_headers and _response_headers is None:
+        # Keep existing headers when _response_headers is None (responses API case)
+        additional_headers = existing_additional_headers
+    else:
+        # Merge new headers with existing ones
+        if existing_additional_headers:
+            additional_headers.update(existing_additional_headers)
+    
     hidden_params["additional_headers"] = additional_headers
 
     ### CHECK IF ERROR IN RESPONSE ### - openrouter returns these in the dictionary
+    # Some OpenAI-compatible providers (e.g., Apertis) return empty error objects
+    # even on success. Only raise if the error contains meaningful data.
     if (
         response_object is not None
         and "error" in response_object
         and response_object["error"] is not None
     ):
-        error_args = {"status_code": 422, "message": "Error in response object"}
-        if isinstance(response_object["error"], dict):
-            if "code" in response_object["error"]:
-                error_args["status_code"] = response_object["error"]["code"]
-            if "message" in response_object["error"]:
-                if isinstance(response_object["error"]["message"], dict):
-                    message_str = json.dumps(response_object["error"]["message"])
-                else:
-                    message_str = str(response_object["error"]["message"])
-                error_args["message"] = message_str
-        raised_exception = Exception()
-        setattr(raised_exception, "status_code", error_args["status_code"])
-        setattr(raised_exception, "message", error_args["message"])
-        raise raised_exception
+        error_obj = response_object["error"]
+        has_meaningful_error = False
+
+        if isinstance(error_obj, dict):
+            # Check if error dict has non-empty message or non-null code
+            error_message = error_obj.get("message", "")
+            error_code = error_obj.get("code")
+            has_meaningful_error = bool(error_message) or error_code is not None
+        elif isinstance(error_obj, str):
+            # String error is meaningful if non-empty
+            has_meaningful_error = bool(error_obj)
+        else:
+            # Any other truthy value is considered meaningful
+            has_meaningful_error = True
+
+        if has_meaningful_error:
+            error_args = {"status_code": 422, "message": "Error in response object"}
+            if isinstance(error_obj, dict):
+                if "code" in error_obj:
+                    error_args["status_code"] = error_obj["code"]
+                if "message" in error_obj:
+                    if isinstance(error_obj["message"], dict):
+                        message_str = json.dumps(error_obj["message"])
+                    else:
+                        message_str = str(error_obj["message"])
+                    error_args["message"] = message_str
+            raised_exception = Exception()
+            setattr(raised_exception, "status_code", error_args["status_code"])
+            setattr(raised_exception, "message", error_args["message"])
+            raise raised_exception
 
     try:
         if response_type == "completion" and (
@@ -460,7 +493,7 @@ def convert_to_model_response_object(  # noqa: PLR0915
             if stream is True:
                 # for returning cached responses, we need to yield a generator
                 return convert_to_streaming_response(response_object=response_object)
-            choice_list = []
+            choice_list: List[Choices] = []
 
             assert response_object["choices"] is not None and isinstance(
                 response_object["choices"], Iterable
@@ -564,7 +597,7 @@ def convert_to_model_response_object(  # noqa: PLR0915
                     provider_specific_fields=provider_specific_fields,
                 )
                 choice_list.append(choice)
-            model_response_object.choices = choice_list
+            model_response_object.choices = choice_list  # type: ignore
 
             if "usage" in response_object and response_object["usage"] is not None:
                 usage_object = litellm.Usage(**response_object["usage"])
@@ -682,6 +715,24 @@ def convert_to_model_response_object(  # noqa: PLR0915
             for key in optional_keys:  # not guaranteed to be in response
                 if key in response_object:
                     setattr(model_response_object, key, response_object[key])
+
+            if "usage" in response_object and response_object["usage"] is not None:
+                tr_usage_object: Optional[
+                    Union[
+                        TranscriptionUsageDurationObject, TranscriptionUsageTokensObject
+                    ]
+                ] = None
+
+                if response_object["usage"].get("type", None) == "duration":
+                    tr_usage_object = TranscriptionUsageDurationObject(
+                        **response_object["usage"]
+                    )
+                elif response_object["usage"].get("type", None) == "tokens":
+                    tr_usage_object = TranscriptionUsageTokensObject(
+                        **response_object["usage"]
+                    )
+                if tr_usage_object is not None:
+                    setattr(model_response_object, "usage", tr_usage_object)
 
             if hidden_params is not None:
                 model_response_object._hidden_params = hidden_params

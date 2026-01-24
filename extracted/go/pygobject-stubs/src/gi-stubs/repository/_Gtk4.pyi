@@ -1,5 +1,7 @@
 import typing
 
+import os
+
 import cairo
 from gi.repository import Gdk
 from gi.repository import GdkPixbuf
@@ -9,6 +11,7 @@ from gi.repository import GObject
 from gi.repository import Graphene
 from gi.repository import Gsk
 from gi.repository import Pango
+from typing_extensions import Self
 
 T = typing.TypeVar("T")
 CellRendererT = typing.TypeVar(
@@ -21,6 +24,7 @@ CellRendererT = typing.TypeVar(
     CellRendererText,
     CellRendererToggle,
 )
+WidgetT = typing.TypeVar("WidgetT", bound=Widget)
 _SomeSurface = typing.TypeVar("_SomeSurface", bound=cairo.Surface)
 
 ACCESSIBLE_ATTRIBUTE_BACKGROUND: str = "bg-color"
@@ -59,10 +63,10 @@ ACCESSIBLE_ATTRIBUTE_VARIANT_TITLE_CAPS: str = "title-caps"
 ACCESSIBLE_ATTRIBUTE_VARIANT_UNICASE: str = "unicase"
 ACCESSIBLE_ATTRIBUTE_WEIGHT: str = "weight"
 ACCESSIBLE_VALUE_UNDEFINED: int = -1
-BINARY_AGE: int = 1602
+BINARY_AGE: int = 1806
 IM_MODULE_EXTENSION_POINT_NAME: str = "gtk-im-module"
 INPUT_ERROR: int = -1
-INTERFACE_AGE: int = 2
+INTERFACE_AGE: int = 6
 INVALID_LIST_POSITION: int = 4294967295
 LEVEL_BAR_OFFSET_FULL: str = "full"
 LEVEL_BAR_OFFSET_HIGH: str = "high"
@@ -70,8 +74,8 @@ LEVEL_BAR_OFFSET_LOW: str = "low"
 MAJOR_VERSION: int = 4
 MAX_COMPOSE_LEN: int = 7
 MEDIA_FILE_EXTENSION_POINT_NAME: str = "gtk-media-file"
-MICRO_VERSION: int = 2
-MINOR_VERSION: int = 16
+MICRO_VERSION: int = 6
+MINOR_VERSION: int = 18
 PAPER_NAME_A3: str = "iso_a3"
 PAPER_NAME_A4: str = "iso_a4"
 PAPER_NAME_A5: str = "iso_a5"
@@ -120,7 +124,6 @@ STYLE_PROVIDER_PRIORITY_USER: int = 800
 TEXT_VIEW_PRIORITY_VALIDATE: int = 125
 TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID: int = -1
 TREE_SORTABLE_UNSORTED_SORT_COLUMN_ID: int = -2
-_introspection_module = ...  # FIXME Constant
 _lock = ...  # FIXME Constant
 _namespace: str = "Gtk"
 _overrides_module = ...  # FIXME Constant
@@ -172,6 +175,7 @@ def constraint_vfl_parser_error_quark() -> int: ...
 def css_parser_error_quark() -> int: ...
 def css_parser_warning_quark() -> int: ...
 def dialog_error_quark() -> int: ...
+def disable_portals() -> None: ...
 def disable_setlocale() -> None: ...
 def distribute_natural_allocation(
     extra_space: int, sizes: typing.Sequence[RequestedSize]
@@ -388,8 +392,7 @@ class ATContext(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         accessible: Accessible
         accessible_role: AccessibleRole
         display: Gdk.Display
@@ -448,9 +451,9 @@ class AboutDialog(
       license-type -> GtkLicense: license-type
 
     Signals from GtkWindow:
-      keys-changed ()
       activate-focus ()
       activate-default ()
+      keys-changed ()
       enable-debugging (gboolean) -> gboolean
       close-request () -> gboolean
 
@@ -482,7 +485,6 @@ class AboutDialog(
       fullscreened -> gboolean: fullscreened
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -491,6 +493,7 @@ class AboutDialog(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -531,12 +534,12 @@ class AboutDialog(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Window.Props):
         artists: list[str]
         authors: list[str]
         comments: typing.Optional[str]
@@ -592,6 +595,7 @@ class AboutDialog(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -669,6 +673,7 @@ class AboutDialog(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -736,7 +741,6 @@ class Accessible(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def announce(
         self, message: str, priority: AccessibleAnnouncementPriority
     ) -> None: ...
@@ -758,6 +762,7 @@ class Accessible(GObject.GInterface):
     def update_next_accessible_sibling(
         self, new_sibling: typing.Optional[Accessible] = None
     ) -> None: ...
+    def update_platform_state(self, state: AccessiblePlatformState) -> None: ...
     def update_property(
         self,
         properties: typing.Sequence[AccessibleProperty],
@@ -785,9 +790,9 @@ class AccessibleInterface(GObject.GPointer):
 
     g_iface: GObject.TypeInterface = ...
     get_at_context: typing.Callable[[Accessible], typing.Optional[ATContext]] = ...
-    get_platform_state: typing.Callable[[Accessible, AccessiblePlatformState], bool] = (
-        ...
-    )
+    get_platform_state: typing.Callable[
+        [Accessible, AccessiblePlatformState], bool
+    ] = ...
     get_accessible_parent: typing.Callable[
         [Accessible], typing.Optional[Accessible]
     ] = ...
@@ -810,7 +815,6 @@ class AccessibleList(GObject.GBoxed):
         new_from_array(accessibles:list) -> Gtk.AccessibleList
         new_from_list(list:list) -> Gtk.AccessibleList
     """
-
     def get_objects(self) -> list[Accessible]: ...
     @classmethod
     def new_from_array(
@@ -840,7 +844,6 @@ class AccessibleText(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def update_caret_position(self) -> None: ...
     def update_contents(
         self, change: AccessibleTextContentChange, start: int, end: int
@@ -905,7 +908,6 @@ class ActionBar(Widget, Accessible, Buildable, ConstraintTarget):
       revealed -> gboolean: revealed
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -914,6 +916,7 @@ class ActionBar(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -954,12 +957,12 @@ class ActionBar(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         revealed: bool
         can_focus: bool
         can_target: bool
@@ -976,6 +979,7 @@ class ActionBar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -1014,6 +1018,7 @@ class ActionBar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -1051,7 +1056,6 @@ class Actionable(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def get_action_name(self) -> typing.Optional[str]: ...
     def get_action_target_value(self) -> typing.Optional[GLib.Variant]: ...
     def set_action_name(self, action_name: typing.Optional[str] = None) -> None: ...
@@ -1092,7 +1096,6 @@ class ActivateAction(ShortcutAction):
     Signals from GObject:
       notify (GParam)
     """
-
     @staticmethod
     def get() -> ActivateAction: ...
 
@@ -1124,8 +1127,7 @@ class Adjustment(GObject.InitiallyUnowned):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.InitiallyUnowned.Props):
         lower: float
         page_increment: float
         page_size: float
@@ -1218,8 +1220,7 @@ class AlertDialog(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         buttons: typing.Optional[list[str]]
         cancel_button: int
         default_button: int
@@ -1288,8 +1289,7 @@ class AlternativeTrigger(ShortcutTrigger):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(ShortcutTrigger.Props):
         first: ShortcutTrigger
         second: ShortcutTrigger
 
@@ -1333,8 +1333,7 @@ class AnyFilter(MultiFilter, Gio.ListModel, Buildable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(MultiFilter.Props):
         item_type: typing.Type[typing.Any]
         n_items: int
 
@@ -1351,7 +1350,6 @@ class AppChooser(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def get_app_info(self) -> typing.Optional[Gio.AppInfo]: ...
     def get_content_type(self) -> str: ...
     def refresh(self) -> None: ...
@@ -1379,7 +1377,6 @@ class AppChooserButton(Widget, Accessible, AppChooser, Buildable, ConstraintTarg
       modal -> gboolean: modal
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -1388,6 +1385,7 @@ class AppChooserButton(Widget, Accessible, AppChooser, Buildable, ConstraintTarg
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -1428,12 +1426,12 @@ class AppChooserButton(Widget, Accessible, AppChooser, Buildable, ConstraintTarg
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         heading: typing.Optional[str]
         modal: bool
         show_default_item: bool
@@ -1453,6 +1451,7 @@ class AppChooserButton(Widget, Accessible, AppChooser, Buildable, ConstraintTarg
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -1495,6 +1494,7 @@ class AppChooserButton(Widget, Accessible, AppChooser, Buildable, ConstraintTarg
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -1561,9 +1561,9 @@ class AppChooserDialog(
       use-header-bar -> gint: use-header-bar
 
     Signals from GtkWindow:
-      keys-changed ()
       activate-focus ()
       activate-default ()
+      keys-changed ()
       enable-debugging (gboolean) -> gboolean
       close-request () -> gboolean
 
@@ -1595,7 +1595,6 @@ class AppChooserDialog(
       fullscreened -> gboolean: fullscreened
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -1604,6 +1603,7 @@ class AppChooserDialog(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -1644,12 +1644,12 @@ class AppChooserDialog(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Dialog.Props):
         gfile: Gio.File
         heading: typing.Optional[str]
         use_header_bar: int
@@ -1692,6 +1692,7 @@ class AppChooserDialog(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -1757,6 +1758,7 @@ class AppChooserDialog(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -1812,7 +1814,6 @@ class AppChooserWidget(Widget, Accessible, AppChooser, Buildable, ConstraintTarg
       default-text -> gchararray: default-text
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -1821,6 +1822,7 @@ class AppChooserWidget(Widget, Accessible, AppChooser, Buildable, ConstraintTarg
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -1861,12 +1863,12 @@ class AppChooserWidget(Widget, Accessible, AppChooser, Buildable, ConstraintTarg
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         default_text: typing.Optional[str]
         show_all: bool
         show_default: bool
@@ -1888,6 +1890,7 @@ class AppChooserWidget(Widget, Accessible, AppChooser, Buildable, ConstraintTarg
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -1932,6 +1935,7 @@ class AppChooserWidget(Widget, Accessible, AppChooser, Buildable, ConstraintTarg
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -2023,8 +2027,7 @@ class Application(Gio.Application, Gio.ActionGroup, Gio.ActionMap):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Gio.Application.Props):
         active_window: typing.Optional[Window]
         menubar: typing.Optional[Gio.MenuModel]
         register_session: bool
@@ -2125,9 +2128,9 @@ class ApplicationWindow(
       action-state-changed (gchararray, GVariant)
 
     Signals from GtkWindow:
-      keys-changed ()
       activate-focus ()
       activate-default ()
+      keys-changed ()
       enable-debugging (gboolean) -> gboolean
       close-request () -> gboolean
 
@@ -2159,7 +2162,6 @@ class ApplicationWindow(
       fullscreened -> gboolean: fullscreened
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -2168,6 +2170,7 @@ class ApplicationWindow(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -2208,12 +2211,12 @@ class ApplicationWindow(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Window.Props):
         show_menubar: bool
         application: typing.Optional[Application]
         child: typing.Optional[Widget]
@@ -2254,6 +2257,7 @@ class ApplicationWindow(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -2317,6 +2321,7 @@ class ApplicationWindow(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -2376,7 +2381,6 @@ class AspectFrame(Widget, Accessible, Buildable, ConstraintTarget):
       child -> GtkWidget: child
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -2385,6 +2389,7 @@ class AspectFrame(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -2425,12 +2430,12 @@ class AspectFrame(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         child: typing.Optional[Widget]
         obey_child: bool
         ratio: float
@@ -2451,6 +2456,7 @@ class AspectFrame(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -2493,6 +2499,7 @@ class AspectFrame(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -2551,9 +2558,9 @@ class Assistant(
       pages -> GListModel: pages
 
     Signals from GtkWindow:
-      keys-changed ()
       activate-focus ()
       activate-default ()
+      keys-changed ()
       enable-debugging (gboolean) -> gboolean
       close-request () -> gboolean
 
@@ -2585,7 +2592,6 @@ class Assistant(
       fullscreened -> gboolean: fullscreened
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -2594,6 +2600,7 @@ class Assistant(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -2634,12 +2641,12 @@ class Assistant(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Window.Props):
         pages: Gio.ListModel
         use_header_bar: int
         application: typing.Optional[Application]
@@ -2681,6 +2688,7 @@ class Assistant(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -2743,6 +2751,7 @@ class Assistant(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -2810,8 +2819,7 @@ class AssistantPage(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         child: Widget
         complete: bool
         page_type: AssistantPageType
@@ -2841,7 +2849,6 @@ class BinLayout(LayoutManager):
     Signals from GObject:
       notify (GParam)
     """
-
     @classmethod
     def new(cls) -> BinLayout: ...
 
@@ -2865,7 +2872,6 @@ class Bitset(GObject.GBoxed):
         new_empty() -> Gtk.Bitset
         new_range(start:int, n_items:int) -> Gtk.Bitset
     """
-
     def add(self, value: int) -> bool: ...
     def add_range(self, start: int, n_items: int) -> None: ...
     def add_range_closed(self, first: int, last: int) -> None: ...
@@ -2948,8 +2954,7 @@ class BookmarkList(GObject.Object, Gio.ListModel):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         attributes: typing.Optional[str]
         filename: str
         io_priority: int
@@ -3009,8 +3014,7 @@ class BoolFilter(Filter):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Filter.Props):
         expression: typing.Optional[Expression]
         invert: bool
 
@@ -3075,7 +3079,6 @@ class Box(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       baseline-position -> GtkBaselinePosition: baseline-position
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -3084,6 +3087,7 @@ class Box(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -3124,12 +3128,12 @@ class Box(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         baseline_child: int
         baseline_position: BaselinePosition
         homogeneous: bool
@@ -3149,6 +3153,7 @@ class Box(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -3192,6 +3197,7 @@ class Box(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -3263,8 +3269,7 @@ class BoxLayout(LayoutManager, Orientable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(LayoutManager.Props):
         baseline_child: int
         baseline_position: BaselinePosition
         homogeneous: bool
@@ -3309,7 +3314,6 @@ class Buildable(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def get_buildable_id(self) -> typing.Optional[str]: ...
 
 class BuildableIface(GObject.GPointer):
@@ -3388,8 +3392,7 @@ class Builder(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         current_object: typing.Optional[GObject.Object]
         scope: BuilderScope
         translation_domain: typing.Optional[str]
@@ -3418,7 +3421,7 @@ class Builder(GObject.Object):
         function_name: str,
         flags: BuilderClosureFlags,
         object: typing.Optional[GObject.Object] = None,
-    ) -> typing.Optional[typing.Callable[..., Any]]: ...
+    ) -> typing.Optional[typing.Callable[..., typing.Any]]: ...
     def define_builder_scope(): ...  # FIXME Function
     def expose_object(self, name: str, object: GObject.Object) -> None: ...
     def extend_with_template(
@@ -3557,8 +3560,7 @@ class BuilderListItemFactory(ListItemFactory):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(ListItemFactory.Props):
         bytes: GLib.Bytes
         resource: typing.Optional[str]
         scope: typing.Optional[BuilderScope]
@@ -3600,7 +3602,7 @@ class BuilderScopeInterface(GObject.GPointer):
     ] = ...
     create_closure: typing.Callable[
         [BuilderScope, Builder, str, BuilderClosureFlags, GObject.Object],
-        typing.Callable[..., Any],
+        typing.Callable[..., typing.Any],
     ] = ...
 
 class Button(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
@@ -3630,7 +3632,6 @@ class Button(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
       can-shrink -> gboolean: can-shrink
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -3639,6 +3640,7 @@ class Button(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -3679,12 +3681,12 @@ class Button(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         can_shrink: bool
         child: typing.Optional[Widget]
         has_frame: bool
@@ -3706,6 +3708,7 @@ class Button(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -3752,6 +3755,7 @@ class Button(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -3820,7 +3824,6 @@ class CClosureExpression(Expression):
         CClosureExpression(**properties)
         new(value_type:GType, marshal:GObject.ClosureMarshal=None, params:list, callback_func:GObject.Callback, user_data=None) -> Gtk.CClosureExpression
     """
-
     @classmethod
     def new(
         cls,
@@ -3828,7 +3831,7 @@ class CClosureExpression(Expression):
         marshal: typing.Optional[
             typing.Callable[
                 [
-                    typing.Callable[..., Any],
+                    typing.Callable[..., typing.Any],
                     typing.Optional[typing.Any],
                     typing.Sequence[typing.Any],
                     None,
@@ -3869,7 +3872,6 @@ class Calendar(Widget, Accessible, Buildable, ConstraintTarget):
       show-week-numbers -> gboolean: show-week-numbers
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -3878,6 +3880,7 @@ class Calendar(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -3918,12 +3921,12 @@ class Calendar(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         day: int
         month: int
         show_day_names: bool
@@ -3945,6 +3948,7 @@ class Calendar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -3988,6 +3992,7 @@ class Calendar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -4041,7 +4046,6 @@ class CallbackAction(ShortcutAction):
     Signals from GObject:
       notify (GParam)
     """
-
     @classmethod
     def new(
         cls, callback: typing.Callable[..., bool], *data: typing.Any
@@ -4073,8 +4077,7 @@ class CellArea(GObject.InitiallyUnowned, Buildable, CellLayout):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.InitiallyUnowned.Props):
         edit_widget: typing.Optional[CellEditable]
         edited_cell: typing.Optional[CellRenderer]
         focus_cell: typing.Optional[CellRenderer]
@@ -4208,6 +4211,7 @@ class CellArea(GObject.InitiallyUnowned, Buildable, CellLayout):
         cell_area: Gdk.Rectangle,
         flags: CellRendererState,
     ) -> int: ...
+    # override
     def find_cell_property(self, property_name: str) -> GObject.ParamSpec: ...
     def focus(self, direction: DirectionType) -> bool: ...
     def foreach(
@@ -4262,6 +4266,7 @@ class CellArea(GObject.InitiallyUnowned, Buildable, CellLayout):
     def inner_cell_area(
         self, widget: Widget, cell_area: Gdk.Rectangle
     ) -> Gdk.Rectangle: ...
+    # override
     def install_cell_property(
         self, property_id: int, pspec: GObject.ParamSpec
     ) -> None: ...
@@ -4269,6 +4274,7 @@ class CellArea(GObject.InitiallyUnowned, Buildable, CellLayout):
     def is_focus_sibling(
         self, renderer: CellRenderer, sibling: CellRenderer
     ) -> bool: ...
+    # override
     def list_cell_properties(self) -> list[GObject.ParamSpec]: ...
     def remove(self, renderer: CellRenderer) -> None: ...
     def remove_focus_sibling(
@@ -4324,8 +4330,7 @@ class CellAreaBox(CellArea, Buildable, CellLayout, Orientable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(CellArea.Props):
         spacing: int
         edit_widget: typing.Optional[CellEditable]
         edited_cell: typing.Optional[CellRenderer]
@@ -4445,8 +4450,7 @@ class CellAreaContext(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         area: CellArea
         minimum_height: int
         minimum_width: int
@@ -4506,7 +4510,6 @@ class CellEditable(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def editing_done(self) -> None: ...
     def remove_widget(self) -> None: ...
     def start_editing(self, event: typing.Optional[Gdk.Event] = None) -> None: ...
@@ -4523,9 +4526,9 @@ class CellEditableIface(GObject.GPointer):
     g_iface: GObject.TypeInterface = ...
     editing_done: typing.Callable[[CellEditable], None] = ...
     remove_widget: typing.Callable[[CellEditable], None] = ...
-    start_editing: typing.Callable[[CellEditable, typing.Optional[Gdk.Event]], None] = (
-        ...
-    )
+    start_editing: typing.Callable[
+        [CellEditable, typing.Optional[Gdk.Event]], None
+    ] = ...
 
 class CellLayout(GObject.GInterface):
     """
@@ -4534,7 +4537,6 @@ class CellLayout(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def add_attribute(
         self, cell: CellRenderer, attribute: str, column: int
     ) -> None: ...
@@ -4606,8 +4608,7 @@ class CellRenderer(GObject.InitiallyUnowned):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.InitiallyUnowned.Props):
         cell_background_rgba: Gdk.RGBA
         cell_background_set: bool
         editing: bool
@@ -4841,8 +4842,7 @@ class CellRendererAccel(CellRendererText):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(CellRendererText.Props):
         accel_key: int
         accel_mode: CellRendererAccelMode
         accel_mods: Gdk.ModifierType
@@ -5141,8 +5141,7 @@ class CellRendererCombo(CellRendererText):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(CellRendererText.Props):
         has_entry: bool
         model: TreeModel
         text_column: int
@@ -5322,8 +5321,7 @@ class CellRendererPixbuf(CellRenderer):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(CellRenderer.Props):
         gicon: Gio.Icon
         icon_name: str
         icon_size: IconSize
@@ -5420,8 +5418,7 @@ class CellRendererProgress(CellRenderer, Orientable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(CellRenderer.Props):
         inverted: bool
         pulse: int
         text: str
@@ -5564,8 +5561,7 @@ class CellRendererSpin(CellRendererText):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(CellRendererText.Props):
         adjustment: Adjustment
         climb_rate: float
         digits: int
@@ -5741,8 +5737,7 @@ class CellRendererSpinner(CellRenderer):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(CellRenderer.Props):
         active: bool
         pulse: int
         size: IconSize
@@ -5872,8 +5867,7 @@ class CellRendererText(CellRenderer):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(CellRenderer.Props):
         align_set: bool
         alignment: Pango.Alignment
         attributes: Pango.AttrList
@@ -6063,8 +6057,7 @@ class CellRendererToggle(CellRenderer):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(CellRenderer.Props):
         activatable: bool
         active: bool
         inconsistent: bool
@@ -6139,7 +6132,6 @@ class CellView(Widget, Accessible, Buildable, CellLayout, ConstraintTarget, Orie
       fit-model -> gboolean: fit-model
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -6148,6 +6140,7 @@ class CellView(Widget, Accessible, Buildable, CellLayout, ConstraintTarget, Orie
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -6188,12 +6181,12 @@ class CellView(Widget, Accessible, Buildable, CellLayout, ConstraintTarget, Orie
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         cell_area: CellArea
         cell_area_context: CellAreaContext
         draw_sensitive: bool
@@ -6214,6 +6207,7 @@ class CellView(Widget, Accessible, Buildable, CellLayout, ConstraintTarget, Orie
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -6257,6 +6251,7 @@ class CellView(Widget, Accessible, Buildable, CellLayout, ConstraintTarget, Orie
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -6314,7 +6309,6 @@ class CenterBox(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       shrink-center-last -> gboolean: shrink-center-last
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -6323,6 +6317,7 @@ class CenterBox(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -6363,12 +6358,12 @@ class CenterBox(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         baseline_position: BaselinePosition
         center_widget: typing.Optional[Widget]
         end_widget: typing.Optional[Widget]
@@ -6389,6 +6384,7 @@ class CenterBox(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -6432,6 +6428,7 @@ class CenterBox(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -6483,8 +6480,7 @@ class CenterLayout(LayoutManager):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(LayoutManager.Props):
         shrink_center_last: bool
 
     props: Props = ...
@@ -6541,7 +6537,6 @@ class CheckButton(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
       child -> GtkWidget: child
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -6550,6 +6545,7 @@ class CheckButton(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -6590,12 +6586,12 @@ class CheckButton(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         active: bool
         child: typing.Optional[Widget]
         inconsistent: bool
@@ -6616,6 +6612,7 @@ class CheckButton(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -6663,6 +6660,7 @@ class CheckButton(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -6726,12 +6724,11 @@ class ClosureExpression(Expression):
         ClosureExpression(**properties)
         new(value_type:GType, closure:GObject.Closure, params:list=None) -> Gtk.ClosureExpression
     """
-
     @classmethod
     def new(
         cls,
         value_type: typing.Type[typing.Any],
-        closure: typing.Callable[..., Any],
+        closure: typing.Callable[..., typing.Any],
         params: typing.Optional[typing.Sequence[Expression]] = None,
     ) -> ClosureExpression: ...
 
@@ -6760,7 +6757,6 @@ class ColorButton(Widget, Accessible, Buildable, ColorChooser, ConstraintTarget)
       color-activated (GdkRGBA)
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -6769,6 +6765,7 @@ class ColorButton(Widget, Accessible, Buildable, ColorChooser, ConstraintTarget)
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -6809,12 +6806,12 @@ class ColorButton(Widget, Accessible, Buildable, ColorChooser, ConstraintTarget)
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         modal: bool
         show_editor: bool
         title: str
@@ -6833,6 +6830,7 @@ class ColorButton(Widget, Accessible, Buildable, ColorChooser, ConstraintTarget)
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -6875,6 +6873,7 @@ class ColorButton(Widget, Accessible, Buildable, ColorChooser, ConstraintTarget)
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -6911,7 +6910,6 @@ class ColorChooser(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def add_palette(
         self,
         orientation: Orientation,
@@ -6957,9 +6955,9 @@ class ColorChooserDialog(
       use-header-bar -> gint: use-header-bar
 
     Signals from GtkWindow:
-      keys-changed ()
       activate-focus ()
       activate-default ()
+      keys-changed ()
       enable-debugging (gboolean) -> gboolean
       close-request () -> gboolean
 
@@ -6991,7 +6989,6 @@ class ColorChooserDialog(
       fullscreened -> gboolean: fullscreened
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -7000,6 +6997,7 @@ class ColorChooserDialog(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -7040,12 +7038,12 @@ class ColorChooserDialog(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Dialog.Props):
         show_editor: bool
         use_header_bar: int
         application: typing.Optional[Application]
@@ -7087,6 +7085,7 @@ class ColorChooserDialog(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -7152,6 +7151,7 @@ class ColorChooserDialog(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -7214,7 +7214,6 @@ class ColorChooserWidget(Widget, Accessible, Buildable, ColorChooser, Constraint
       color-activated (GdkRGBA)
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -7223,6 +7222,7 @@ class ColorChooserWidget(Widget, Accessible, Buildable, ColorChooser, Constraint
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -7263,12 +7263,12 @@ class ColorChooserWidget(Widget, Accessible, Buildable, ColorChooser, Constraint
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         show_editor: bool
         can_focus: bool
         can_target: bool
@@ -7285,6 +7285,7 @@ class ColorChooserWidget(Widget, Accessible, Buildable, ColorChooser, Constraint
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -7325,6 +7326,7 @@ class ColorChooserWidget(Widget, Accessible, Buildable, ColorChooser, Constraint
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -7367,8 +7369,7 @@ class ColorDialog(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         modal: bool
         title: str
         with_alpha: bool
@@ -7414,7 +7415,6 @@ class ColorDialogButton(Widget, Accessible, Buildable, ConstraintTarget):
       rgba -> GdkRGBA: rgba
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -7423,6 +7423,7 @@ class ColorDialogButton(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -7463,12 +7464,12 @@ class ColorDialogButton(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         dialog: typing.Optional[ColorDialog]
         rgba: Gdk.RGBA
         can_focus: bool
@@ -7486,6 +7487,7 @@ class ColorDialogButton(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -7525,6 +7527,7 @@ class ColorDialogButton(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -7600,7 +7603,6 @@ class ColumnView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
       tab-behavior -> GtkListTabBehavior: tab-behavior
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -7609,6 +7611,7 @@ class ColumnView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -7649,12 +7652,12 @@ class ColumnView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         columns: Gio.ListModel
         enable_rubberband: bool
         header_factory: typing.Optional[ListItemFactory]
@@ -7681,6 +7684,7 @@ class ColumnView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -7731,6 +7735,7 @@ class ColumnView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -7824,8 +7829,7 @@ class ColumnViewCell(ListItem):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(ListItem.Props):
         child: typing.Optional[Widget]
         focusable: bool
         item: typing.Optional[GObject.Object]
@@ -7883,8 +7887,7 @@ class ColumnViewColumn(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         column_view: typing.Optional[ColumnView]
         expand: bool
         factory: typing.Optional[ListItemFactory]
@@ -7960,8 +7963,7 @@ class ColumnViewRow(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         accessible_description: str
         accessible_label: str
         activatable: bool
@@ -8016,8 +8018,7 @@ class ColumnViewSorter(Sorter):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Sorter.Props):
         primary_sort_column: typing.Optional[ColumnViewColumn]
         primary_sort_order: SortType
 
@@ -8082,7 +8083,6 @@ class ComboBox(
       remove-widget ()
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -8091,6 +8091,7 @@ class ComboBox(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -8131,12 +8132,12 @@ class ComboBox(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         active: int
         active_id: typing.Optional[str]
         button_sensitivity: SensitivityType
@@ -8163,6 +8164,7 @@ class ComboBox(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -8212,6 +8214,7 @@ class ComboBox(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -8331,7 +8334,6 @@ class ComboBoxText(
       remove-widget ()
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -8340,6 +8342,7 @@ class ComboBoxText(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -8380,12 +8383,12 @@ class ComboBoxText(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(ComboBox.Props):
         active: int
         active_id: typing.Optional[str]
         button_sensitivity: SensitivityType
@@ -8412,6 +8415,7 @@ class ComboBoxText(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -8460,6 +8464,7 @@ class ComboBoxText(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -8502,7 +8507,6 @@ class ConstantExpression(Expression):
         ConstantExpression(**properties)
         new_for_value(value:GObject.Value) -> Gtk.ConstantExpression
     """
-
     def get_value(self) -> typing.Any: ...
     @classmethod
     def new_for_value(cls, value: typing.Any) -> ConstantExpression: ...
@@ -8532,8 +8536,7 @@ class Constraint(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         constant: float
         multiplier: float
         relation: ConstraintRelation
@@ -8623,8 +8626,7 @@ class ConstraintGuide(GObject.Object, ConstraintTarget):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         max_height: int
         max_width: int
         min_height: int
@@ -8684,7 +8686,6 @@ class ConstraintLayout(LayoutManager, Buildable):
     Signals from GObject:
       notify (GParam)
     """
-
     def add_constraint(self, constraint: Constraint) -> None: ...
     def add_constraints_from_description(
         self,
@@ -8719,8 +8720,7 @@ class ConstraintLayoutChild(LayoutChild):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(LayoutChild.Props):
         child_widget: Widget
         layout_manager: LayoutManager
 
@@ -8814,7 +8814,6 @@ class CssSection(GObject.GBoxed):
         new(file:Gio.File=None, start:Gtk.CssLocation, end:Gtk.CssLocation) -> Gtk.CssSection
         new_with_bytes(file:Gio.File=None, bytes:GLib.Bytes=None, start:Gtk.CssLocation, end:Gtk.CssLocation) -> Gtk.CssSection
     """
-
     def get_bytes(self) -> typing.Optional[GLib.Bytes]: ...
     def get_end_location(self) -> CssLocation: ...
     def get_file(self) -> typing.Optional[Gio.File]: ...
@@ -8856,7 +8855,6 @@ class CustomFilter(Filter):
     Signals from GObject:
       notify (GParam)
     """
-
     @classmethod
     def new(
         cls,
@@ -8894,7 +8892,6 @@ class CustomLayout(LayoutManager):
     Signals from GObject:
       notify (GParam)
     """
-
     @classmethod
     def new(
         cls,
@@ -8933,7 +8930,6 @@ class CustomSorter(Sorter):
     Signals from GObject:
       notify (GParam)
     """
-
     # override
     @classmethod
     def new(
@@ -8942,7 +8938,7 @@ class CustomSorter(Sorter):
             typing.Callable[[typing.Any, typing.Any, typing.Any], int]
         ] = None,
         user_data: typing.Any = None,
-    ) -> CustomSorter: ...  # FIXME Function
+    ) -> CustomSorter: ...
     # override
     def set_sort_func(
         self,
@@ -8950,7 +8946,7 @@ class CustomSorter(Sorter):
             typing.Callable[[typing.Any, typing.Any, typing.Any], int]
         ] = None,
         user_data: typing.Any = None,
-    ) -> None: ...  # FIXME Function
+    ) -> None: ...
 
 class CustomSorterClass(GObject.GPointer):
     """
@@ -8984,9 +8980,9 @@ class Dialog(
       use-header-bar -> gint: use-header-bar
 
     Signals from GtkWindow:
-      keys-changed ()
       activate-focus ()
       activate-default ()
+      keys-changed ()
       enable-debugging (gboolean) -> gboolean
       close-request () -> gboolean
 
@@ -9018,7 +9014,6 @@ class Dialog(
       fullscreened -> gboolean: fullscreened
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -9027,6 +9022,7 @@ class Dialog(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -9067,12 +9063,12 @@ class Dialog(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Window.Props):
         use_header_bar: int
         application: typing.Optional[Application]
         child: typing.Optional[Widget]
@@ -9113,6 +9109,7 @@ class Dialog(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -9176,6 +9173,7 @@ class Dialog(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -9250,8 +9248,7 @@ class DirectoryList(GObject.Object, Gio.ListModel):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         attributes: typing.Optional[str]
         error: typing.Optional[GLib.Error]
         file: typing.Optional[Gio.File]
@@ -9312,7 +9309,6 @@ class DragIcon(Widget, Accessible, Buildable, ConstraintTarget, Native, Root):
       child -> GtkWidget: child
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -9321,6 +9317,7 @@ class DragIcon(Widget, Accessible, Buildable, ConstraintTarget, Native, Root):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -9361,12 +9358,12 @@ class DragIcon(Widget, Accessible, Buildable, ConstraintTarget, Native, Root):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         child: typing.Optional[Widget]
         can_focus: bool
         can_target: bool
@@ -9383,6 +9380,7 @@ class DragIcon(Widget, Accessible, Buildable, ConstraintTarget, Native, Root):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -9421,6 +9419,7 @@ class DragIcon(Widget, Accessible, Buildable, ConstraintTarget, Native, Root):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -9488,10 +9487,10 @@ class DragSource(GestureSingle):
       button -> guint: button
 
     Signals from GtkGesture:
+      update (GdkEventSequence)
       cancel (GdkEventSequence)
       begin (GdkEventSequence)
       end (GdkEventSequence)
-      update (GdkEventSequence)
       sequence-state-changed (GdkEventSequence, GtkEventSequenceState)
 
     Properties from GtkGesture:
@@ -9506,8 +9505,7 @@ class DragSource(GestureSingle):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GestureSingle.Props):
         actions: Gdk.DragAction
         content: typing.Optional[Gdk.ContentProvider]
         button: int
@@ -9567,7 +9565,6 @@ class DrawingArea(Widget, Accessible, Buildable, ConstraintTarget):
       content-height -> gint: content-height
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -9576,6 +9573,7 @@ class DrawingArea(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -9616,12 +9614,12 @@ class DrawingArea(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         content_height: int
         content_width: int
         can_focus: bool
@@ -9639,6 +9637,7 @@ class DrawingArea(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -9679,6 +9678,7 @@ class DrawingArea(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -9753,8 +9753,7 @@ class DropControllerMotion(EventController):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(EventController.Props):
         contains_pointer: bool
         drop: typing.Optional[Gdk.Drop]
         is_pointer: bool
@@ -9806,7 +9805,6 @@ class DropDown(Widget, Accessible, Buildable, ConstraintTarget):
       search-match-mode -> GtkStringFilterMatchMode: search-match-mode
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -9815,6 +9813,7 @@ class DropDown(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -9855,12 +9854,12 @@ class DropDown(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         enable_search: bool
         expression: typing.Optional[Expression]
         factory: typing.Optional[ListItemFactory]
@@ -9886,6 +9885,7 @@ class DropDown(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -9932,6 +9932,7 @@ class DropDown(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -10032,8 +10033,7 @@ class DropTarget(EventController):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(EventController.Props):
         actions: Gdk.DragAction
         current_drop: typing.Optional[Gdk.Drop]
         drop: typing.Optional[Gdk.Drop]
@@ -10105,8 +10105,7 @@ class DropTargetAsync(EventController):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(EventController.Props):
         actions: Gdk.DragAction
         formats: typing.Optional[Gdk.ContentFormats]
         name: typing.Optional[str]
@@ -10145,7 +10144,6 @@ class Editable(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def delegate_get_accessible_platform_state(
         self, state: AccessiblePlatformState
     ) -> bool: ...
@@ -10209,9 +10207,9 @@ class EditableInterface(GObject.GPointer):
     get_text: typing.Callable[[Editable], str] = ...
     do_insert_text: typing.Callable[[Editable, str, int], int] = ...
     do_delete_text: typing.Callable[[Editable, int, int], None] = ...
-    get_selection_bounds: typing.Callable[[Editable], typing.Tuple[bool, int, int]] = (
-        ...
-    )
+    get_selection_bounds: typing.Callable[
+        [Editable], typing.Tuple[bool, int, int]
+    ] = ...
     set_selection_bounds: typing.Callable[[Editable, int, int], None] = ...
     get_delegate: typing.Callable[[Editable], typing.Optional[Editable]] = ...
 
@@ -10235,7 +10233,6 @@ class EditableLabel(Widget, Accessible, Buildable, ConstraintTarget, Editable):
       delete-text (gint, gint)
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -10244,6 +10241,7 @@ class EditableLabel(Widget, Accessible, Buildable, ConstraintTarget, Editable):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -10284,12 +10282,12 @@ class EditableLabel(Widget, Accessible, Buildable, ConstraintTarget, Editable):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         editing: bool
         can_focus: bool
         can_target: bool
@@ -10306,6 +10304,7 @@ class EditableLabel(Widget, Accessible, Buildable, ConstraintTarget, Editable):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -10352,6 +10351,7 @@ class EditableLabel(Widget, Accessible, Buildable, ConstraintTarget, Editable):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -10424,7 +10424,6 @@ class EmojiChooser(
       cascade-popdown -> gboolean: cascade-popdown
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -10433,6 +10432,7 @@ class EmojiChooser(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -10473,12 +10473,12 @@ class EmojiChooser(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Popover.Props):
         autohide: bool
         cascade_popdown: bool
         child: typing.Optional[Widget]
@@ -10502,6 +10502,7 @@ class EmojiChooser(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -10547,6 +10548,7 @@ class EmojiChooser(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -10638,7 +10640,6 @@ class Entry(Widget, Accessible, Buildable, CellEditable, ConstraintTarget, Edita
       remove-widget ()
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -10647,6 +10648,7 @@ class Entry(Widget, Accessible, Buildable, CellEditable, ConstraintTarget, Edita
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -10687,12 +10689,12 @@ class Entry(Widget, Accessible, Buildable, CellEditable, ConstraintTarget, Edita
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         activates_default: bool
         attributes: typing.Optional[Pango.AttrList]
         buffer: EntryBuffer
@@ -10747,6 +10749,7 @@ class Entry(Widget, Accessible, Buildable, CellEditable, ConstraintTarget, Edita
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -10829,6 +10832,7 @@ class Entry(Widget, Accessible, Buildable, CellEditable, ConstraintTarget, Edita
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -10972,8 +10976,7 @@ class EntryBuffer(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         length: int
         max_length: int
         text: str
@@ -11072,8 +11075,7 @@ class EntryCompletion(GObject.Object, Buildable, CellLayout):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         cell_area: CellArea
         inline_completion: bool
         inline_selection: bool
@@ -11145,8 +11147,7 @@ class EventController(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         name: typing.Optional[str]
         propagation_limit: PropagationLimit
         propagation_phase: PropagationPhase
@@ -11203,8 +11204,7 @@ class EventControllerFocus(EventController):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(EventController.Props):
         contains_focus: bool
         is_focus: bool
         name: typing.Optional[str]
@@ -11252,8 +11252,7 @@ class EventControllerKey(EventController):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(EventController.Props):
         name: typing.Optional[str]
         propagation_limit: PropagationLimit
         propagation_phase: PropagationPhase
@@ -11298,8 +11297,7 @@ class EventControllerLegacy(EventController):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(EventController.Props):
         name: typing.Optional[str]
         propagation_limit: PropagationLimit
         propagation_phase: PropagationPhase
@@ -11346,8 +11344,7 @@ class EventControllerMotion(EventController):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(EventController.Props):
         contains_pointer: bool
         is_pointer: bool
         name: typing.Optional[str]
@@ -11398,8 +11395,7 @@ class EventControllerScroll(EventController):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(EventController.Props):
         flags: EventControllerScrollFlags
         name: typing.Optional[str]
         propagation_limit: PropagationLimit
@@ -11449,8 +11445,7 @@ class EveryFilter(MultiFilter, Gio.ListModel, Buildable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(MultiFilter.Props):
         item_type: typing.Type[typing.Any]
         n_items: int
 
@@ -11485,7 +11480,6 @@ class Expander(Widget, Accessible, Buildable, ConstraintTarget):
       child -> GtkWidget: child
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -11494,6 +11488,7 @@ class Expander(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -11534,12 +11529,12 @@ class Expander(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         child: typing.Optional[Widget]
         expanded: bool
         label: typing.Optional[str]
@@ -11562,6 +11557,7 @@ class Expander(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -11606,6 +11602,7 @@ class Expander(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -11653,7 +11650,6 @@ class Expression:
 
         Expression(**properties)
     """
-
     def bind(
         self,
         target: GObject.Object,
@@ -11687,7 +11683,6 @@ class FileChooser(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def add_choice(
         self,
         id: str,
@@ -11747,9 +11742,9 @@ class FileChooserDialog(
       use-header-bar -> gint: use-header-bar
 
     Signals from GtkWindow:
-      keys-changed ()
       activate-focus ()
       activate-default ()
+      keys-changed ()
       enable-debugging (gboolean) -> gboolean
       close-request () -> gboolean
 
@@ -11781,7 +11776,6 @@ class FileChooserDialog(
       fullscreened -> gboolean: fullscreened
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -11790,6 +11784,7 @@ class FileChooserDialog(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -11830,12 +11825,12 @@ class FileChooserDialog(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Dialog.Props):
         use_header_bar: int
         application: typing.Optional[Application]
         child: typing.Optional[Widget]
@@ -11876,6 +11871,7 @@ class FileChooserDialog(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -11944,6 +11940,7 @@ class FileChooserDialog(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -11994,8 +11991,7 @@ class FileChooserNative(NativeDialog, FileChooser):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(NativeDialog.Props):
         accept_label: typing.Optional[str]
         cancel_label: typing.Optional[str]
         modal: bool
@@ -12079,7 +12075,6 @@ class FileChooserWidget(Widget, Accessible, Buildable, ConstraintTarget, FileCho
       show-time -> gboolean: show-time
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -12088,6 +12083,7 @@ class FileChooserWidget(Widget, Accessible, Buildable, ConstraintTarget, FileCho
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -12128,12 +12124,12 @@ class FileChooserWidget(Widget, Accessible, Buildable, ConstraintTarget, FileCho
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         search_mode: bool
         show_time: bool
         subtitle: str
@@ -12152,6 +12148,7 @@ class FileChooserWidget(Widget, Accessible, Buildable, ConstraintTarget, FileCho
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -12196,6 +12193,7 @@ class FileChooserWidget(Widget, Accessible, Buildable, ConstraintTarget, FileCho
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -12245,8 +12243,7 @@ class FileDialog(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         accept_label: typing.Optional[str]
         default_filter: typing.Optional[FileFilter]
         filters: typing.Optional[Gio.ListModel]
@@ -12294,6 +12291,26 @@ class FileDialog(GObject.Object):
         *user_data: typing.Any,
     ) -> None: ...
     def open_multiple_finish(self, result: Gio.AsyncResult) -> Gio.ListModel: ...
+    def open_multiple_text_files(
+        self,
+        parent: typing.Optional[Window] = None,
+        cancellable: typing.Optional[Gio.Cancellable] = None,
+        callback: typing.Optional[typing.Callable[..., None]] = None,
+        *user_data: typing.Any,
+    ) -> None: ...
+    def open_multiple_text_files_finish(
+        self, result: Gio.AsyncResult
+    ) -> typing.Tuple[Gio.ListModel, str]: ...
+    def open_text_file(
+        self,
+        parent: typing.Optional[Window] = None,
+        cancellable: typing.Optional[Gio.Cancellable] = None,
+        callback: typing.Optional[typing.Callable[..., None]] = None,
+        *user_data: typing.Any,
+    ) -> None: ...
+    def open_text_file_finish(
+        self, result: Gio.AsyncResult
+    ) -> typing.Tuple[Gio.File, str]: ...
     def save(
         self,
         parent: typing.Optional[Window] = None,
@@ -12302,6 +12319,16 @@ class FileDialog(GObject.Object):
         *user_data: typing.Any,
     ) -> None: ...
     def save_finish(self, result: Gio.AsyncResult) -> Gio.File: ...
+    def save_text_file(
+        self,
+        parent: typing.Optional[Window] = None,
+        cancellable: typing.Optional[Gio.Cancellable] = None,
+        callback: typing.Optional[typing.Callable[..., None]] = None,
+        *user_data: typing.Any,
+    ) -> None: ...
+    def save_text_file_finish(
+        self, result: Gio.AsyncResult
+    ) -> typing.Tuple[Gio.File, str, str]: ...
     def select_folder(
         self,
         parent: typing.Optional[Window] = None,
@@ -12366,8 +12393,7 @@ class FileFilter(Filter, Buildable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Filter.Props):
         name: typing.Optional[str]
         mime_types: list[str]
         patterns: list[str]
@@ -12413,8 +12439,7 @@ class FileLauncher(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         always_ask: bool
         file: typing.Optional[Gio.File]
         writable: bool
@@ -12535,8 +12560,7 @@ class FilterListModel(GObject.Object, Gio.ListModel, SectionModel):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         filter: typing.Optional[Filter]
         incremental: bool
         item_type: typing.Type[typing.Any]
@@ -12588,7 +12612,6 @@ class Fixed(Widget, Accessible, Buildable, ConstraintTarget):
     Object GtkFixed
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -12597,6 +12620,7 @@ class Fixed(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -12637,12 +12661,12 @@ class Fixed(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         can_focus: bool
         can_target: bool
         css_classes: list[str]
@@ -12658,6 +12682,7 @@ class Fixed(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -12696,6 +12721,7 @@ class Fixed(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -12751,7 +12777,6 @@ class FixedLayout(LayoutManager):
     Signals from GObject:
       notify (GParam)
     """
-
     @classmethod
     def new(cls) -> FixedLayout: ...
 
@@ -12775,8 +12800,7 @@ class FixedLayoutChild(LayoutChild):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(LayoutChild.Props):
         transform: typing.Optional[Gsk.Transform]
         child_widget: Widget
         layout_manager: LayoutManager
@@ -12838,8 +12862,7 @@ class FlattenListModel(GObject.Object, Gio.ListModel, SectionModel):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         item_type: typing.Type[typing.Any]
         model: typing.Optional[Gio.ListModel]
         n_items: int
@@ -12894,7 +12917,6 @@ class FlowBox(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       accept-unpaired-release -> gboolean: accept-unpaired-release
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -12903,6 +12925,7 @@ class FlowBox(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -12943,12 +12966,12 @@ class FlowBox(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         accept_unpaired_release: bool
         activate_on_single_click: bool
         column_spacing: int
@@ -12972,6 +12995,7 @@ class FlowBox(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -13018,6 +13042,7 @@ class FlowBox(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -13107,7 +13132,6 @@ class FlowBoxChild(Widget, Accessible, Buildable, ConstraintTarget):
       child -> GtkWidget: child
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -13116,6 +13140,7 @@ class FlowBoxChild(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -13156,12 +13181,12 @@ class FlowBoxChild(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         child: typing.Optional[Widget]
         can_focus: bool
         can_target: bool
@@ -13178,6 +13203,7 @@ class FlowBoxChild(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -13217,6 +13243,7 @@ class FlowBoxChild(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -13283,7 +13310,6 @@ class FontButton(Widget, Accessible, Buildable, ConstraintTarget, FontChooser):
       font-activated (gchararray)
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -13292,6 +13318,7 @@ class FontButton(Widget, Accessible, Buildable, ConstraintTarget, FontChooser):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -13332,12 +13359,12 @@ class FontButton(Widget, Accessible, Buildable, ConstraintTarget, FontChooser):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         modal: bool
         title: str
         use_font: bool
@@ -13357,6 +13384,7 @@ class FontButton(Widget, Accessible, Buildable, ConstraintTarget, FontChooser):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -13405,6 +13433,7 @@ class FontButton(Widget, Accessible, Buildable, ConstraintTarget, FontChooser):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -13449,7 +13478,6 @@ class FontChooser(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def get_font(self) -> typing.Optional[str]: ...
     def get_font_desc(self) -> typing.Optional[Pango.FontDescription]: ...
     def get_font_face(self) -> typing.Optional[Pango.FontFace]: ...
@@ -13505,9 +13533,9 @@ class FontChooserDialog(
       use-header-bar -> gint: use-header-bar
 
     Signals from GtkWindow:
-      keys-changed ()
       activate-focus ()
       activate-default ()
+      keys-changed ()
       enable-debugging (gboolean) -> gboolean
       close-request () -> gboolean
 
@@ -13539,7 +13567,6 @@ class FontChooserDialog(
       fullscreened -> gboolean: fullscreened
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -13548,6 +13575,7 @@ class FontChooserDialog(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -13588,12 +13616,12 @@ class FontChooserDialog(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Dialog.Props):
         use_header_bar: int
         application: typing.Optional[Application]
         child: typing.Optional[Widget]
@@ -13634,6 +13662,7 @@ class FontChooserDialog(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -13703,6 +13732,7 @@ class FontChooserDialog(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -13773,7 +13803,6 @@ class FontChooserWidget(Widget, Accessible, Buildable, ConstraintTarget, FontCho
       font-activated (gchararray)
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -13782,6 +13811,7 @@ class FontChooserWidget(Widget, Accessible, Buildable, ConstraintTarget, FontCho
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -13822,12 +13852,12 @@ class FontChooserWidget(Widget, Accessible, Buildable, ConstraintTarget, FontCho
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         tweak_action: Gio.Action
         can_focus: bool
         can_target: bool
@@ -13844,6 +13874,7 @@ class FontChooserWidget(Widget, Accessible, Buildable, ConstraintTarget, FontCho
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -13888,6 +13919,7 @@ class FontChooserWidget(Widget, Accessible, Buildable, ConstraintTarget, FontCho
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -13936,8 +13968,7 @@ class FontDialog(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         filter: typing.Optional[Filter]
         font_map: typing.Optional[Pango.FontMap]
         language: typing.Optional[Pango.Language]
@@ -14028,7 +14059,6 @@ class FontDialogButton(Widget, Accessible, Buildable, ConstraintTarget):
       use-size -> gboolean: use-size
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -14037,6 +14067,7 @@ class FontDialogButton(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -14077,12 +14108,12 @@ class FontDialogButton(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         dialog: typing.Optional[FontDialog]
         font_desc: typing.Optional[Pango.FontDescription]
         font_features: typing.Optional[str]
@@ -14105,6 +14136,7 @@ class FontDialogButton(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -14149,6 +14181,7 @@ class FontDialogButton(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -14226,7 +14259,6 @@ class Frame(Widget, Accessible, Buildable, ConstraintTarget):
       child -> GtkWidget: child
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -14235,6 +14267,7 @@ class Frame(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -14275,12 +14308,12 @@ class Frame(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         child: typing.Optional[Widget]
         label: typing.Optional[str]
         label_widget: typing.Optional[Widget]
@@ -14300,6 +14333,7 @@ class Frame(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -14342,6 +14376,7 @@ class Frame(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -14399,8 +14434,8 @@ class GLArea(Widget, Accessible, Buildable, ConstraintTarget):
     Object GtkGLArea
 
     Signals from GtkGLArea:
-      resize (gint, gint)
       render (GdkGLContext) -> gboolean
+      resize (gint, gint)
       create-context () -> GdkGLContext
 
     Properties from GtkGLArea:
@@ -14413,7 +14448,6 @@ class GLArea(Widget, Accessible, Buildable, ConstraintTarget):
       auto-render -> gboolean: auto-render
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -14422,6 +14456,7 @@ class GLArea(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -14462,12 +14497,12 @@ class GLArea(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         allowed_apis: Gdk.GLAPI
         api: Gdk.GLAPI
         auto_render: bool
@@ -14490,6 +14525,7 @@ class GLArea(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -14533,6 +14569,7 @@ class GLArea(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -14601,10 +14638,10 @@ class Gesture(EventController):
     Object GtkGesture
 
     Signals from GtkGesture:
+      update (GdkEventSequence)
       cancel (GdkEventSequence)
       begin (GdkEventSequence)
       end (GdkEventSequence)
-      update (GdkEventSequence)
       sequence-state-changed (GdkEventSequence, GtkEventSequenceState)
 
     Properties from GtkGesture:
@@ -14619,8 +14656,7 @@ class Gesture(EventController):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(EventController.Props):
         n_points: int
         name: typing.Optional[str]
         propagation_limit: PropagationLimit
@@ -14686,10 +14722,10 @@ class GestureClick(GestureSingle):
       button -> guint: button
 
     Signals from GtkGesture:
+      update (GdkEventSequence)
       cancel (GdkEventSequence)
       begin (GdkEventSequence)
       end (GdkEventSequence)
-      update (GdkEventSequence)
       sequence-state-changed (GdkEventSequence, GtkEventSequenceState)
 
     Properties from GtkGesture:
@@ -14704,8 +14740,7 @@ class GestureClick(GestureSingle):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GestureSingle.Props):
         button: int
         exclusive: bool
         touch_only: bool
@@ -14753,10 +14788,10 @@ class GestureDrag(GestureSingle):
       button -> guint: button
 
     Signals from GtkGesture:
+      update (GdkEventSequence)
       cancel (GdkEventSequence)
       begin (GdkEventSequence)
       end (GdkEventSequence)
-      update (GdkEventSequence)
       sequence-state-changed (GdkEventSequence, GtkEventSequenceState)
 
     Properties from GtkGesture:
@@ -14771,8 +14806,7 @@ class GestureDrag(GestureSingle):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GestureSingle.Props):
         button: int
         exclusive: bool
         touch_only: bool
@@ -14812,8 +14846,8 @@ class GestureLongPress(GestureSingle):
     Object GtkGestureLongPress
 
     Signals from GtkGestureLongPress:
-      cancelled ()
       pressed (gdouble, gdouble)
+      cancelled ()
 
     Properties from GtkGestureLongPress:
       delay-factor -> gdouble: delay-factor
@@ -14824,10 +14858,10 @@ class GestureLongPress(GestureSingle):
       button -> guint: button
 
     Signals from GtkGesture:
+      update (GdkEventSequence)
       cancel (GdkEventSequence)
       begin (GdkEventSequence)
       end (GdkEventSequence)
-      update (GdkEventSequence)
       sequence-state-changed (GdkEventSequence, GtkEventSequenceState)
 
     Properties from GtkGesture:
@@ -14842,8 +14876,7 @@ class GestureLongPress(GestureSingle):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GestureSingle.Props):
         delay_factor: float
         button: int
         exclusive: bool
@@ -14901,10 +14934,10 @@ class GesturePan(GestureDrag):
       button -> guint: button
 
     Signals from GtkGesture:
+      update (GdkEventSequence)
       cancel (GdkEventSequence)
       begin (GdkEventSequence)
       end (GdkEventSequence)
-      update (GdkEventSequence)
       sequence-state-changed (GdkEventSequence, GtkEventSequenceState)
 
     Properties from GtkGesture:
@@ -14919,8 +14952,7 @@ class GesturePan(GestureDrag):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GestureDrag.Props):
         orientation: Orientation
         button: int
         exclusive: bool
@@ -14965,10 +14997,10 @@ class GestureRotate(Gesture):
       angle-changed (gdouble, gdouble)
 
     Signals from GtkGesture:
+      update (GdkEventSequence)
       cancel (GdkEventSequence)
       begin (GdkEventSequence)
       end (GdkEventSequence)
-      update (GdkEventSequence)
       sequence-state-changed (GdkEventSequence, GtkEventSequenceState)
 
     Properties from GtkGesture:
@@ -14983,8 +15015,7 @@ class GestureRotate(Gesture):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Gesture.Props):
         n_points: int
         name: typing.Optional[str]
         propagation_limit: PropagationLimit
@@ -15021,10 +15052,10 @@ class GestureSingle(Gesture):
       button -> guint: button
 
     Signals from GtkGesture:
+      update (GdkEventSequence)
       cancel (GdkEventSequence)
       begin (GdkEventSequence)
       end (GdkEventSequence)
-      update (GdkEventSequence)
       sequence-state-changed (GdkEventSequence, GtkEventSequenceState)
 
     Properties from GtkGesture:
@@ -15039,8 +15070,7 @@ class GestureSingle(Gesture):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Gesture.Props):
         button: int
         exclusive: bool
         touch_only: bool
@@ -15098,10 +15128,10 @@ class GestureStylus(GestureSingle):
       button -> guint: button
 
     Signals from GtkGesture:
+      update (GdkEventSequence)
       cancel (GdkEventSequence)
       begin (GdkEventSequence)
       end (GdkEventSequence)
-      update (GdkEventSequence)
       sequence-state-changed (GdkEventSequence, GtkEventSequenceState)
 
     Properties from GtkGesture:
@@ -15116,8 +15146,7 @@ class GestureStylus(GestureSingle):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GestureSingle.Props):
         stylus_only: bool
         button: int
         exclusive: bool
@@ -15173,10 +15202,10 @@ class GestureSwipe(GestureSingle):
       button -> guint: button
 
     Signals from GtkGesture:
+      update (GdkEventSequence)
       cancel (GdkEventSequence)
       begin (GdkEventSequence)
       end (GdkEventSequence)
-      update (GdkEventSequence)
       sequence-state-changed (GdkEventSequence, GtkEventSequenceState)
 
     Properties from GtkGesture:
@@ -15191,8 +15220,7 @@ class GestureSwipe(GestureSingle):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GestureSingle.Props):
         button: int
         exclusive: bool
         touch_only: bool
@@ -15234,10 +15262,10 @@ class GestureZoom(Gesture):
       scale-changed (gdouble)
 
     Signals from GtkGesture:
+      update (GdkEventSequence)
       cancel (GdkEventSequence)
       begin (GdkEventSequence)
       end (GdkEventSequence)
-      update (GdkEventSequence)
       sequence-state-changed (GdkEventSequence, GtkEventSequenceState)
 
     Properties from GtkGesture:
@@ -15252,8 +15280,7 @@ class GestureZoom(Gesture):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Gesture.Props):
         n_points: int
         name: typing.Optional[str]
         propagation_limit: PropagationLimit
@@ -15291,7 +15318,6 @@ class GraphicsOffload(Widget, Accessible, Buildable, ConstraintTarget):
       black-background -> gboolean: black-background
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -15300,6 +15326,7 @@ class GraphicsOffload(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -15340,12 +15367,12 @@ class GraphicsOffload(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         black_background: bool
         child: typing.Optional[Widget]
         enabled: GraphicsOffloadEnabled
@@ -15364,6 +15391,7 @@ class GraphicsOffload(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -15404,6 +15432,7 @@ class GraphicsOffload(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -15461,7 +15490,6 @@ class Grid(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       baseline-row -> gint: baseline-row
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -15470,6 +15498,7 @@ class Grid(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -15510,12 +15539,12 @@ class Grid(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         baseline_row: int
         column_homogeneous: bool
         column_spacing: int
@@ -15536,6 +15565,7 @@ class Grid(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -15580,6 +15610,7 @@ class Grid(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -15666,8 +15697,7 @@ class GridLayout(LayoutManager):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(LayoutManager.Props):
         baseline_row: int
         column_homogeneous: bool
         column_spacing: int
@@ -15721,8 +15751,7 @@ class GridLayoutChild(LayoutChild):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(LayoutChild.Props):
         column: int
         column_span: int
         row: int
@@ -15800,7 +15829,6 @@ class GridView(
       orientation -> GtkOrientation: orientation
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -15809,6 +15837,7 @@ class GridView(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -15849,12 +15878,12 @@ class GridView(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(ListBase.Props):
         enable_rubberband: bool
         factory: typing.Optional[ListItemFactory]
         max_columns: int
@@ -15878,6 +15907,7 @@ class GridView(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -15927,6 +15957,7 @@ class GridView(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -15993,9 +16024,9 @@ class HeaderBar(Widget, Accessible, Buildable, ConstraintTarget):
       title-widget -> GtkWidget: title-widget
       show-title-buttons -> gboolean: show-title-buttons
       decoration-layout -> gchararray: decoration-layout
+      use-native-controls -> gboolean: use-native-controls
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -16004,6 +16035,7 @@ class HeaderBar(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -16044,15 +16076,16 @@ class HeaderBar(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         decoration_layout: typing.Optional[str]
         show_title_buttons: bool
         title_widget: typing.Optional[Widget]
+        use_native_controls: bool
         can_focus: bool
         can_target: bool
         css_classes: list[str]
@@ -16068,6 +16101,7 @@ class HeaderBar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -16095,6 +16129,7 @@ class HeaderBar(Widget, Accessible, Buildable, ConstraintTarget):
         decoration_layout: typing.Optional[str] = ...,
         show_title_buttons: bool = ...,
         title_widget: typing.Optional[Widget] = ...,
+        use_native_controls: bool = ...,
         can_focus: bool = ...,
         can_target: bool = ...,
         css_classes: typing.Sequence[str] = ...,
@@ -16108,6 +16143,7 @@ class HeaderBar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -16129,6 +16165,7 @@ class HeaderBar(Widget, Accessible, Buildable, ConstraintTarget):
     def get_decoration_layout(self) -> typing.Optional[str]: ...
     def get_show_title_buttons(self) -> bool: ...
     def get_title_widget(self) -> typing.Optional[Widget]: ...
+    def get_use_native_controls(self) -> bool: ...
     @classmethod
     def new(cls) -> HeaderBar: ...
     def pack_end(self, child: Widget) -> None: ...
@@ -16139,6 +16176,7 @@ class HeaderBar(Widget, Accessible, Buildable, ConstraintTarget):
     def set_title_widget(
         self, title_widget: typing.Optional[Widget] = None
     ) -> None: ...
+    def set_use_native_controls(self, setting: bool) -> None: ...
 
 class IMContext(GObject.Object):
     """
@@ -16165,8 +16203,7 @@ class IMContext(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         input_hints: InputHints
         input_purpose: InputPurpose
 
@@ -16294,8 +16331,7 @@ class IMContextSimple(IMContext):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(IMContext.Props):
         input_hints: InputHints
         input_purpose: InputPurpose
 
@@ -16348,8 +16384,7 @@ class IMMulticontext(IMContext):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(IMContext.Props):
         input_hints: InputHints
         input_purpose: InputPurpose
 
@@ -16404,8 +16439,7 @@ class IconPaintable(GObject.Object, Gdk.Paintable, SymbolicPaintable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         file: typing.Optional[Gio.File]
         icon_name: typing.Optional[str]
         is_symbolic: bool
@@ -16444,8 +16478,7 @@ class IconTheme(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         display: typing.Optional[Gdk.Display]
         icon_names: list[str]
         resource_path: typing.Optional[list[str]]
@@ -16542,7 +16575,6 @@ class IconView(Widget, Accessible, Buildable, CellLayout, ConstraintTarget, Scro
       activate-on-single-click -> gboolean: activate-on-single-click
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -16551,6 +16583,7 @@ class IconView(Widget, Accessible, Buildable, CellLayout, ConstraintTarget, Scro
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -16591,12 +16624,12 @@ class IconView(Widget, Accessible, Buildable, CellLayout, ConstraintTarget, Scro
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         activate_on_single_click: bool
         cell_area: CellArea
         column_spacing: int
@@ -16629,6 +16662,7 @@ class IconView(Widget, Accessible, Buildable, CellLayout, ConstraintTarget, Scro
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -16687,6 +16721,7 @@ class IconView(Widget, Accessible, Buildable, CellLayout, ConstraintTarget, Scro
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -16841,7 +16876,6 @@ class Image(Widget, Accessible, Buildable, ConstraintTarget):
       use-fallback -> gboolean: use-fallback
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -16850,6 +16884,7 @@ class Image(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -16890,12 +16925,12 @@ class Image(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         file: str
         gicon: typing.Optional[Gio.Icon]
         icon_name: typing.Optional[str]
@@ -16920,6 +16955,7 @@ class Image(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -16965,6 +17001,7 @@ class Image(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -17042,7 +17079,6 @@ class InfoBar(Widget, Accessible, Buildable, ConstraintTarget):
       revealed -> gboolean: revealed
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -17051,6 +17087,7 @@ class InfoBar(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -17091,12 +17128,12 @@ class InfoBar(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         message_type: MessageType
         revealed: bool
         show_close_button: bool
@@ -17115,6 +17152,7 @@ class InfoBar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -17155,6 +17193,7 @@ class InfoBar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -17215,7 +17254,6 @@ class Inscription(Widget, Accessible, AccessibleText, Buildable, ConstraintTarge
       yalign -> gfloat: yalign
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -17224,6 +17262,7 @@ class Inscription(Widget, Accessible, AccessibleText, Buildable, ConstraintTarge
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -17264,12 +17303,12 @@ class Inscription(Widget, Accessible, AccessibleText, Buildable, ConstraintTarge
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         attributes: typing.Optional[Pango.AttrList]
         min_chars: int
         min_lines: int
@@ -17295,6 +17334,7 @@ class Inscription(Widget, Accessible, AccessibleText, Buildable, ConstraintTarge
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -17344,6 +17384,7 @@ class Inscription(Widget, Accessible, AccessibleText, Buildable, ConstraintTarge
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -17415,8 +17456,7 @@ class KeyvalTrigger(ShortcutTrigger):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(ShortcutTrigger.Props):
         keyval: int
         modifiers: Gdk.ModifierType
 
@@ -17472,7 +17512,6 @@ class Label(Widget, Accessible, AccessibleText, Buildable, ConstraintTarget):
       tabs -> PangoTabArray: tabs
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -17481,6 +17520,7 @@ class Label(Widget, Accessible, AccessibleText, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -17521,12 +17561,12 @@ class Label(Widget, Accessible, AccessibleText, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         attributes: typing.Optional[Pango.AttrList]
         ellipsize: Pango.EllipsizeMode
         extra_menu: typing.Optional[Gio.MenuModel]
@@ -17562,6 +17602,7 @@ class Label(Widget, Accessible, AccessibleText, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -17618,6 +17659,7 @@ class Label(Widget, Accessible, AccessibleText, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -17707,8 +17749,7 @@ class LayoutChild(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         child_widget: Widget
         layout_manager: LayoutManager
 
@@ -17817,7 +17858,6 @@ class LevelBar(
       inverted -> gboolean: inverted
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -17826,6 +17866,7 @@ class LevelBar(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -17866,12 +17907,12 @@ class LevelBar(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         inverted: bool
         max_value: float
         min_value: float
@@ -17892,6 +17933,7 @@ class LevelBar(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -17935,6 +17977,7 @@ class LevelBar(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -18006,7 +18049,6 @@ class LinkButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
       can-shrink -> gboolean: can-shrink
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -18015,6 +18057,7 @@ class LinkButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -18055,12 +18098,12 @@ class LinkButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Button.Props):
         uri: str
         visited: bool
         can_shrink: bool
@@ -18084,6 +18127,7 @@ class LinkButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -18131,6 +18175,7 @@ class LinkButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -18176,7 +18221,6 @@ class ListBase(Widget, Accessible, Buildable, ConstraintTarget, Orientable, Scro
       orientation -> GtkOrientation: orientation
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -18185,6 +18229,7 @@ class ListBase(Widget, Accessible, Buildable, ConstraintTarget, Orientable, Scro
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -18225,12 +18270,12 @@ class ListBase(Widget, Accessible, Buildable, ConstraintTarget, Orientable, Scro
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         orientation: Orientation
         can_focus: bool
         can_target: bool
@@ -18247,6 +18292,7 @@ class ListBase(Widget, Accessible, Buildable, ConstraintTarget, Orientable, Scro
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -18289,6 +18335,7 @@ class ListBase(Widget, Accessible, Buildable, ConstraintTarget, Orientable, Scro
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -18340,9 +18387,9 @@ class ListBox(Widget, Accessible, Buildable, ConstraintTarget):
       activate-on-single-click -> gboolean: activate-on-single-click
       accept-unpaired-release -> gboolean: accept-unpaired-release
       show-separators -> gboolean: show-separators
+      tab-behavior -> GtkListTabBehavior: tab-behavior
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -18351,6 +18398,7 @@ class ListBox(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -18391,16 +18439,17 @@ class ListBox(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         accept_unpaired_release: bool
         activate_on_single_click: bool
         selection_mode: SelectionMode
         show_separators: bool
+        tab_behavior: ListTabBehavior
         can_focus: bool
         can_target: bool
         css_classes: list[str]
@@ -18416,6 +18465,7 @@ class ListBox(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -18444,6 +18494,7 @@ class ListBox(Widget, Accessible, Buildable, ConstraintTarget):
         activate_on_single_click: bool = ...,
         selection_mode: SelectionMode = ...,
         show_separators: bool = ...,
+        tab_behavior: ListTabBehavior = ...,
         can_focus: bool = ...,
         can_target: bool = ...,
         css_classes: typing.Sequence[str] = ...,
@@ -18457,6 +18508,7 @@ class ListBox(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -18492,6 +18544,7 @@ class ListBox(Widget, Accessible, Buildable, ConstraintTarget):
     def get_selected_rows(self) -> list[ListBoxRow]: ...
     def get_selection_mode(self) -> SelectionMode: ...
     def get_show_separators(self) -> bool: ...
+    def get_tab_behavior(self) -> ListTabBehavior: ...
     def insert(self, child: Widget, position: int) -> None: ...
     def invalidate_filter(self) -> None: ...
     def invalidate_headers(self) -> None: ...
@@ -18528,6 +18581,7 @@ class ListBox(Widget, Accessible, Buildable, ConstraintTarget):
         sort_func: typing.Optional[typing.Callable[..., int]] = None,
         *user_data: typing.Any,
     ) -> None: ...
+    def set_tab_behavior(self, behavior: ListTabBehavior) -> None: ...
     def unselect_all(self) -> None: ...
     def unselect_row(self, row: ListBoxRow) -> None: ...
 
@@ -18551,7 +18605,6 @@ class ListBoxRow(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
       child -> GtkWidget: child
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -18560,6 +18613,7 @@ class ListBoxRow(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -18600,12 +18654,12 @@ class ListBoxRow(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         activatable: bool
         child: typing.Optional[Widget]
         selectable: bool
@@ -18624,6 +18678,7 @@ class ListBoxRow(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -18667,6 +18722,7 @@ class ListBoxRow(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -18735,8 +18791,7 @@ class ListHeader(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         child: typing.Optional[Widget]
         end: int
         item: typing.Optional[GObject.Object]
@@ -18778,8 +18833,7 @@ class ListItem(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         accessible_description: str
         accessible_label: str
         activatable: bool
@@ -18949,7 +19003,6 @@ class ListView(
       orientation -> GtkOrientation: orientation
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -18958,6 +19011,7 @@ class ListView(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -18998,12 +19052,12 @@ class ListView(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(ListBase.Props):
         enable_rubberband: bool
         factory: typing.Optional[ListItemFactory]
         header_factory: typing.Optional[ListItemFactory]
@@ -19027,6 +19081,7 @@ class ListView(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -19076,6 +19131,7 @@ class ListView(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -19161,7 +19217,6 @@ class LockButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
       can-shrink -> gboolean: can-shrink
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -19170,6 +19225,7 @@ class LockButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -19210,12 +19266,12 @@ class LockButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Button.Props):
         permission: typing.Optional[Gio.Permission]
         text_lock: str
         text_unlock: str
@@ -19243,6 +19299,7 @@ class LockButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -19294,6 +19351,7 @@ class LockButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -19347,8 +19405,7 @@ class MapListModel(GObject.Object, Gio.ListModel, SectionModel):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         has_map: bool
         item_type: typing.Type[typing.Any]
         model: typing.Optional[Gio.ListModel]
@@ -19398,7 +19455,6 @@ class MediaControls(Widget, Accessible, Buildable, ConstraintTarget):
       media-stream -> GtkMediaStream: media-stream
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -19407,6 +19463,7 @@ class MediaControls(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -19447,12 +19504,12 @@ class MediaControls(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         media_stream: typing.Optional[MediaStream]
         can_focus: bool
         can_target: bool
@@ -19469,6 +19526,7 @@ class MediaControls(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -19507,6 +19565,7 @@ class MediaControls(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -19586,8 +19645,7 @@ class MediaFile(MediaStream, Gdk.Paintable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(MediaStream.Props):
         file: typing.Optional[Gio.File]
         input_stream: typing.Optional[Gio.InputStream]
         duration: int
@@ -19613,7 +19671,6 @@ class MediaFile(MediaStream, Gdk.Paintable):
         loop: bool = ...,
         muted: bool = ...,
         playing: bool = ...,
-        prepared: bool = ...,
         volume: float = ...,
     ) -> None: ...
     def clear(self) -> None: ...
@@ -19687,8 +19744,7 @@ class MediaStream(GObject.Object, Gdk.Paintable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         duration: int
         ended: bool
         error: typing.Optional[GLib.Error]
@@ -19710,7 +19766,6 @@ class MediaStream(GObject.Object, Gdk.Paintable):
         loop: bool = ...,
         muted: bool = ...,
         playing: bool = ...,
-        prepared: bool = ...,
         volume: float = ...,
     ) -> None: ...
     def do_pause(self) -> None: ...
@@ -19805,7 +19860,6 @@ class MenuButton(Widget, Accessible, Buildable, ConstraintTarget):
       can-shrink -> gboolean: can-shrink
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -19814,6 +19868,7 @@ class MenuButton(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -19854,12 +19909,12 @@ class MenuButton(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         active: bool
         always_show_arrow: bool
         can_shrink: bool
@@ -19887,6 +19942,7 @@ class MenuButton(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -19936,6 +19992,7 @@ class MenuButton(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -20019,9 +20076,9 @@ class MessageDialog(
       use-header-bar -> gint: use-header-bar
 
     Signals from GtkWindow:
-      keys-changed ()
       activate-focus ()
       activate-default ()
+      keys-changed ()
       enable-debugging (gboolean) -> gboolean
       close-request () -> gboolean
 
@@ -20053,7 +20110,6 @@ class MessageDialog(
       fullscreened -> gboolean: fullscreened
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -20062,6 +20118,7 @@ class MessageDialog(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -20102,12 +20159,12 @@ class MessageDialog(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Dialog.Props):
         message_area: Widget
         message_type: MessageType
         secondary_text: str
@@ -20154,6 +20211,7 @@ class MessageDialog(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -20224,6 +20282,7 @@ class MessageDialog(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -20260,7 +20319,6 @@ class MnemonicAction(ShortcutAction):
     Signals from GObject:
       notify (GParam)
     """
-
     @staticmethod
     def get() -> MnemonicAction: ...
 
@@ -20283,8 +20341,7 @@ class MnemonicTrigger(ShortcutTrigger):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(ShortcutTrigger.Props):
         keyval: int
 
     props: Props = ...
@@ -20333,8 +20390,7 @@ class MountOperation(Gio.MountOperation):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Gio.MountOperation.Props):
         display: Gdk.Display
         is_showing: bool
         parent: typing.Optional[Window]
@@ -20413,8 +20469,7 @@ class MultiFilter(Filter, Gio.ListModel, Buildable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Filter.Props):
         item_type: typing.Type[typing.Any]
         n_items: int
 
@@ -20452,8 +20507,7 @@ class MultiSelection(GObject.Object, Gio.ListModel, SectionModel, SelectionModel
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         item_type: typing.Type[typing.Any]
         model: typing.Optional[Gio.ListModel]
         n_items: int
@@ -20500,8 +20554,7 @@ class MultiSorter(Sorter, Gio.ListModel, Buildable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Sorter.Props):
         item_type: typing.Type[typing.Any]
         n_items: int
 
@@ -20539,8 +20592,7 @@ class NamedAction(ShortcutAction):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(ShortcutAction.Props):
         action_name: str
 
     props: Props = ...
@@ -20558,7 +20610,6 @@ class Native(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     @staticmethod
     def get_for_surface(surface: Gdk.Surface) -> typing.Optional[Native]: ...
     def get_renderer(self) -> typing.Optional[Gsk.Renderer]: ...
@@ -20589,8 +20640,7 @@ class NativeDialog(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         modal: bool
         title: typing.Optional[str]
         transient_for: typing.Optional[Window]
@@ -20652,7 +20702,6 @@ class NeverTrigger(ShortcutTrigger):
     Signals from GObject:
       notify (GParam)
     """
-
     @staticmethod
     def get() -> NeverTrigger: ...
 
@@ -20686,8 +20735,7 @@ class NoSelection(GObject.Object, Gio.ListModel, SectionModel, SelectionModel):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         item_type: typing.Type[typing.Any]
         model: typing.Optional[Gio.ListModel]
         n_items: int
@@ -20744,7 +20792,6 @@ class Notebook(Widget, Accessible, Buildable, ConstraintTarget):
       pages -> GListModel: pages
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -20753,6 +20800,7 @@ class Notebook(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -20793,12 +20841,12 @@ class Notebook(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         enable_popup: bool
         group_name: typing.Optional[str]
         page: int
@@ -20822,6 +20870,7 @@ class Notebook(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -20866,6 +20915,7 @@ class Notebook(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -20982,8 +21032,7 @@ class NotebookPage(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         child: Widget
         detachable: bool
         menu: Widget
@@ -21024,7 +21073,6 @@ class NothingAction(ShortcutAction):
     Signals from GObject:
       notify (GParam)
     """
-
     @staticmethod
     def get() -> NothingAction: ...
 
@@ -21051,8 +21099,7 @@ class NumericSorter(Sorter):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Sorter.Props):
         expression: typing.Optional[Expression]
         sort_order: SortType
 
@@ -21089,7 +21136,6 @@ class ObjectExpression(Expression):
         ObjectExpression(**properties)
         new(object:GObject.Object) -> Gtk.ObjectExpression
     """
-
     def get_object(self) -> typing.Optional[GObject.Object]: ...
     @classmethod
     def new(cls, object: GObject.Object) -> ObjectExpression: ...
@@ -21101,7 +21147,6 @@ class Orientable(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def get_orientation(self) -> Orientation: ...
     def set_orientation(self, orientation: Orientation) -> None: ...
 
@@ -21134,7 +21179,6 @@ class Overlay(Widget, Accessible, Buildable, ConstraintTarget):
       child -> GtkWidget: child
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -21143,6 +21187,7 @@ class Overlay(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -21183,12 +21228,12 @@ class Overlay(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         child: typing.Optional[Widget]
         can_focus: bool
         can_target: bool
@@ -21205,6 +21250,7 @@ class Overlay(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -21243,6 +21289,7 @@ class Overlay(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -21286,7 +21333,6 @@ class OverlayLayout(LayoutManager):
     Signals from GObject:
       notify (GParam)
     """
-
     @classmethod
     def new(cls) -> OverlayLayout: ...
 
@@ -21311,8 +21357,7 @@ class OverlayLayoutChild(LayoutChild):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(LayoutChild.Props):
         clip_overlay: bool
         measure: bool
         child_widget: Widget
@@ -21392,8 +21437,7 @@ class PadController(EventController):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(EventController.Props):
         action_group: Gio.ActionGroup
         pad: Gdk.Device
         name: typing.Optional[str]
@@ -21450,7 +21494,6 @@ class PageSetup(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
     def copy(self) -> PageSetup: ...
     def get_bottom_margin(self, unit: Unit) -> float: ...
     def get_left_margin(self, unit: Unit) -> float: ...
@@ -21510,9 +21553,9 @@ class PageSetupUnixDialog(
       use-header-bar -> gint: use-header-bar
 
     Signals from GtkWindow:
-      keys-changed ()
       activate-focus ()
       activate-default ()
+      keys-changed ()
       enable-debugging (gboolean) -> gboolean
       close-request () -> gboolean
 
@@ -21544,7 +21587,6 @@ class PageSetupUnixDialog(
       fullscreened -> gboolean: fullscreened
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -21553,6 +21595,7 @@ class PageSetupUnixDialog(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -21593,12 +21636,12 @@ class PageSetupUnixDialog(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Dialog.Props):
         use_header_bar: int
         application: typing.Optional[Application]
         child: typing.Optional[Widget]
@@ -21639,6 +21682,7 @@ class PageSetupUnixDialog(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -21701,6 +21745,7 @@ class PageSetupUnixDialog(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -21765,7 +21810,6 @@ class Paned(
       end-child -> GtkWidget: end-child
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -21774,6 +21818,7 @@ class Paned(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -21814,12 +21859,12 @@ class Paned(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         end_child: typing.Optional[Widget]
         max_position: int
         min_position: int
@@ -21846,6 +21891,7 @@ class Paned(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -21893,6 +21939,7 @@ class Paned(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -21944,7 +21991,6 @@ class PaperSize(GObject.GBoxed):
         new_from_key_file(key_file:GLib.KeyFile, group_name:str=None) -> Gtk.PaperSize
         new_from_ppd(ppd_name:str, ppd_display_name:str, width:float, height:float) -> Gtk.PaperSize
     """
-
     def copy(self) -> PaperSize: ...
     def free(self) -> None: ...
     @staticmethod
@@ -22022,7 +22068,6 @@ class PasswordEntry(Widget, Accessible, Buildable, ConstraintTarget, Editable):
       delete-text (gint, gint)
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -22031,6 +22076,7 @@ class PasswordEntry(Widget, Accessible, Buildable, ConstraintTarget, Editable):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -22071,12 +22117,12 @@ class PasswordEntry(Widget, Accessible, Buildable, ConstraintTarget, Editable):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         activates_default: bool
         extra_menu: typing.Optional[Gio.MenuModel]
         placeholder_text: str
@@ -22096,6 +22142,7 @@ class PasswordEntry(Widget, Accessible, Buildable, ConstraintTarget, Editable):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -22145,6 +22192,7 @@ class PasswordEntry(Widget, Accessible, Buildable, ConstraintTarget, Editable):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -22199,8 +22247,7 @@ class PasswordEntryBuffer(EntryBuffer):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(EntryBuffer.Props):
         length: int
         max_length: int
         text: str
@@ -22248,7 +22295,6 @@ class Picture(Widget, Accessible, Buildable, ConstraintTarget):
       content-fit -> GtkContentFit: content-fit
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -22257,6 +22303,7 @@ class Picture(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -22297,12 +22344,12 @@ class Picture(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         alternative_text: typing.Optional[str]
         can_shrink: bool
         content_fit: ContentFit
@@ -22324,6 +22371,7 @@ class Picture(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -22367,6 +22415,7 @@ class Picture(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -22460,7 +22509,6 @@ class Popover(Widget, Accessible, Buildable, ConstraintTarget, Native, ShortcutM
       cascade-popdown -> gboolean: cascade-popdown
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -22469,6 +22517,7 @@ class Popover(Widget, Accessible, Buildable, ConstraintTarget, Native, ShortcutM
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -22509,12 +22558,12 @@ class Popover(Widget, Accessible, Buildable, ConstraintTarget, Native, ShortcutM
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         autohide: bool
         cascade_popdown: bool
         child: typing.Optional[Widget]
@@ -22538,6 +22587,7 @@ class Popover(Widget, Accessible, Buildable, ConstraintTarget, Native, ShortcutM
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -22584,6 +22634,7 @@ class Popover(Widget, Accessible, Buildable, ConstraintTarget, Native, ShortcutM
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -22675,7 +22726,6 @@ class PopoverMenu(
       cascade-popdown -> gboolean: cascade-popdown
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -22684,6 +22734,7 @@ class PopoverMenu(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -22724,12 +22775,12 @@ class PopoverMenu(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Popover.Props):
         flags: PopoverMenuFlags
         menu_model: typing.Optional[Gio.MenuModel]
         visible_submenu: str
@@ -22756,6 +22807,7 @@ class PopoverMenu(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -22804,6 +22856,7 @@ class PopoverMenu(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -22852,7 +22905,6 @@ class PopoverMenuBar(Widget, Accessible, Buildable, ConstraintTarget):
       menu-model -> GMenuModel: menu-model
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -22861,6 +22913,7 @@ class PopoverMenuBar(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -22901,12 +22954,12 @@ class PopoverMenuBar(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         menu_model: typing.Optional[Gio.MenuModel]
         can_focus: bool
         can_target: bool
@@ -22923,6 +22976,7 @@ class PopoverMenuBar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -22961,6 +23015,7 @@ class PopoverMenuBar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -23003,7 +23058,6 @@ class PrintContext(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
     def create_pango_context(self) -> Pango.Context: ...
     def create_pango_layout(self) -> Pango.Layout: ...
     def get_cairo_context(self) -> cairo.Context: ...
@@ -23039,8 +23093,7 @@ class PrintDialog(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         accept_label: str
         modal: bool
         page_setup: typing.Optional[PageSetup]
@@ -23131,8 +23184,7 @@ class PrintJob(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         page_setup: PageSetup
         printer: Printer
         settings: PrintSettings
@@ -23240,8 +23292,7 @@ class PrintOperation(GObject.Object, PrintOperationPreview):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         allow_async: bool
         current_page: int
         custom_tab_label: typing.Optional[str]
@@ -23372,7 +23423,6 @@ class PrintOperationPreview(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def end_preview(self) -> None: ...
     def is_selected(self, page_nr: int) -> bool: ...
     def render_page(self, page_nr: int) -> None: ...
@@ -23422,7 +23472,6 @@ class PrintSettings(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
     def copy(self) -> PrintSettings: ...
     def foreach(
         self, func: typing.Callable[..., None], *user_data: typing.Any
@@ -23549,9 +23598,9 @@ class PrintUnixDialog(
       use-header-bar -> gint: use-header-bar
 
     Signals from GtkWindow:
-      keys-changed ()
       activate-focus ()
       activate-default ()
+      keys-changed ()
       enable-debugging (gboolean) -> gboolean
       close-request () -> gboolean
 
@@ -23583,7 +23632,6 @@ class PrintUnixDialog(
       fullscreened -> gboolean: fullscreened
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -23592,6 +23640,7 @@ class PrintUnixDialog(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -23632,12 +23681,12 @@ class PrintUnixDialog(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Dialog.Props):
         current_page: int
         embed_page_setup: bool
         has_selection: bool
@@ -23686,6 +23735,7 @@ class PrintUnixDialog(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -23755,6 +23805,7 @@ class PrintUnixDialog(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -23825,8 +23876,7 @@ class Printer(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         accepting_jobs: bool
         accepts_pdf: bool
         accepts_ps: bool
@@ -23895,7 +23945,6 @@ class ProgressBar(
       ellipsize -> PangoEllipsizeMode: ellipsize
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -23904,6 +23953,7 @@ class ProgressBar(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -23944,12 +23994,12 @@ class ProgressBar(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         ellipsize: Pango.EllipsizeMode
         fraction: float
         inverted: bool
@@ -23971,6 +24021,7 @@ class ProgressBar(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -24015,6 +24066,7 @@ class ProgressBar(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -24060,7 +24112,6 @@ class PropertyExpression(Expression):
         new(this_type:GType, expression:Gtk.Expression=None, property_name:str) -> Gtk.PropertyExpression
         new_for_pspec(expression:Gtk.Expression=None, pspec:GObject.ParamSpec) -> Gtk.PropertyExpression
     """
-
     def get_expression(self) -> typing.Optional[Expression]: ...
     def get_pspec(self) -> GObject.ParamSpec: ...
     @classmethod
@@ -24078,8 +24129,8 @@ class PropertyExpression(Expression):
 class PyGTKDeprecationWarning:
     args = ...  # FIXME Constant
 
-    def add_note(self, *args, **kwargs): ...  # FIXME Function
-    def with_traceback(self, *args, **kwargs): ...  # FIXME Function
+    def add_note(self, object, /): ...  # FIXME Function
+    def with_traceback(self, object, /): ...  # FIXME Function
 
 class Range(
     Widget, Accessible, AccessibleRange, Buildable, ConstraintTarget, Orientable
@@ -24108,7 +24159,6 @@ class Range(
       round-digits -> gint: round-digits
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -24117,6 +24167,7 @@ class Range(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -24157,12 +24208,12 @@ class Range(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         adjustment: Adjustment
         fill_level: float
         inverted: bool
@@ -24184,6 +24235,7 @@ class Range(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -24229,6 +24281,7 @@ class Range(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -24363,8 +24416,7 @@ class RecentManager(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         filename: str
         size: int
 
@@ -24453,7 +24505,6 @@ class Revealer(Widget, Accessible, Buildable, ConstraintTarget):
       child -> GtkWidget: child
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -24462,6 +24513,7 @@ class Revealer(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -24502,12 +24554,12 @@ class Revealer(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         child: typing.Optional[Widget]
         child_revealed: bool
         reveal_child: bool
@@ -24528,6 +24580,7 @@ class Revealer(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -24569,6 +24622,7 @@ class Revealer(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -24606,7 +24660,6 @@ class Root(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def get_display(self) -> Gdk.Display: ...
     def get_focus(self) -> typing.Optional[Widget]: ...
     def set_focus(self, focus: typing.Optional[Widget] = None) -> None: ...
@@ -24648,7 +24701,6 @@ class Scale(
       round-digits -> gint: round-digits
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -24657,6 +24709,7 @@ class Scale(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -24697,12 +24750,12 @@ class Scale(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Range.Props):
         digits: int
         draw_value: bool
         has_origin: bool
@@ -24728,6 +24781,7 @@ class Scale(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -24777,6 +24831,7 @@ class Scale(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -24851,7 +24906,6 @@ class ScaleButton(
       has-frame -> gboolean: has-frame
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -24860,6 +24914,7 @@ class ScaleButton(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -24900,12 +24955,12 @@ class ScaleButton(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         active: bool
         adjustment: Adjustment
         has_frame: bool
@@ -24926,6 +24981,7 @@ class ScaleButton(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -24969,6 +25025,7 @@ class ScaleButton(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -25043,7 +25100,6 @@ class ScrollInfo(GObject.GBoxed):
 
         new() -> Gtk.ScrollInfo
     """
-
     def get_enable_horizontal(self) -> bool: ...
     def get_enable_vertical(self) -> bool: ...
     @classmethod
@@ -25060,7 +25116,6 @@ class Scrollable(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def get_border(self) -> typing.Tuple[bool, Border]: ...
     def get_hadjustment(self) -> typing.Optional[Adjustment]: ...
     def get_hscroll_policy(self) -> ScrollablePolicy: ...
@@ -25104,7 +25159,6 @@ class Scrollbar(
       adjustment -> GtkAdjustment: adjustment
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -25113,6 +25167,7 @@ class Scrollbar(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -25153,12 +25208,12 @@ class Scrollbar(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         adjustment: Adjustment
         can_focus: bool
         can_target: bool
@@ -25175,6 +25230,7 @@ class Scrollbar(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -25214,6 +25270,7 @@ class Scrollbar(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -25277,7 +25334,6 @@ class ScrolledWindow(Widget, Accessible, Buildable, ConstraintTarget):
       child -> GtkWidget: child
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -25286,6 +25342,7 @@ class ScrolledWindow(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -25326,12 +25383,12 @@ class ScrolledWindow(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         child: typing.Optional[Widget]
         hadjustment: Adjustment
         has_frame: bool
@@ -25362,6 +25419,7 @@ class ScrolledWindow(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -25414,6 +25472,7 @@ class ScrolledWindow(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -25490,7 +25549,6 @@ class SearchBar(Widget, Accessible, Buildable, ConstraintTarget):
       key-capture-widget -> GtkWidget: key-capture-widget
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -25499,6 +25557,7 @@ class SearchBar(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -25539,12 +25598,12 @@ class SearchBar(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         child: typing.Optional[Widget]
         key_capture_widget: typing.Optional[Widget]
         search_mode_enabled: bool
@@ -25564,6 +25623,7 @@ class SearchBar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -25605,6 +25665,7 @@ class SearchBar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -25669,7 +25730,6 @@ class SearchEntry(Widget, Accessible, Buildable, ConstraintTarget, Editable):
       delete-text (gint, gint)
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -25678,6 +25738,7 @@ class SearchEntry(Widget, Accessible, Buildable, ConstraintTarget, Editable):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -25718,12 +25779,12 @@ class SearchEntry(Widget, Accessible, Buildable, ConstraintTarget, Editable):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         activates_default: bool
         input_hints: InputHints
         input_purpose: InputPurpose
@@ -25744,6 +25805,7 @@ class SearchEntry(Widget, Accessible, Buildable, ConstraintTarget, Editable):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -25794,6 +25856,7 @@ class SearchEntry(Widget, Accessible, Buildable, ConstraintTarget, Editable):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -25840,7 +25903,6 @@ class SectionModel(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def get_section(self, position: int) -> typing.Tuple[int, int]: ...
     def sections_changed(self, position: int, n_items: int) -> None: ...
 
@@ -25878,8 +25940,7 @@ class SelectionFilterModel(GObject.Object, Gio.ListModel):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         item_type: typing.Type[typing.Any]
         model: typing.Optional[SelectionModel]
         n_items: int
@@ -25911,7 +25972,6 @@ class SelectionModel(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def get_selection(self) -> Bitset: ...
     def get_selection_in_range(self, position: int, n_items: int) -> Bitset: ...
     def is_selected(self, position: int) -> bool: ...
@@ -25958,7 +26018,6 @@ class Separator(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
     Object GtkSeparator
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -25967,6 +26026,7 @@ class Separator(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -26007,12 +26067,12 @@ class Separator(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         can_focus: bool
         can_target: bool
         css_classes: list[str]
@@ -26028,6 +26088,7 @@ class Separator(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -26066,6 +26127,7 @@ class Separator(Widget, Accessible, Buildable, ConstraintTarget, Orientable):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -26158,8 +26220,7 @@ class Settings(GObject.Object, StyleProvider):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         gtk_alternative_button_order: bool
         gtk_alternative_sort_arrows: bool
         gtk_application_prefer_dark_theme: bool
@@ -26294,8 +26355,7 @@ class Shortcut(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         action: typing.Optional[ShortcutAction]
         arguments: typing.Optional[GLib.Variant]
         trigger: typing.Optional[ShortcutTrigger]
@@ -26334,7 +26394,6 @@ class ShortcutAction(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
     def activate(
         self,
         flags: ShortcutActionFlags,
@@ -26390,8 +26449,7 @@ class ShortcutController(EventController, Gio.ListModel, Buildable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(EventController.Props):
         item_type: typing.Type[typing.Any]
         mnemonic_modifiers: Gdk.ModifierType
         n_items: int
@@ -26441,7 +26499,6 @@ class ShortcutLabel(Widget, Accessible, Buildable, ConstraintTarget):
       disabled-text -> gchararray: disabled-text
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -26450,6 +26507,7 @@ class ShortcutLabel(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -26490,12 +26548,12 @@ class ShortcutLabel(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         accelerator: typing.Optional[str]
         disabled_text: typing.Optional[str]
         can_focus: bool
@@ -26513,6 +26571,7 @@ class ShortcutLabel(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -26552,6 +26611,7 @@ class ShortcutLabel(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -26591,9 +26651,9 @@ class ShortcutManagerInterface(GObject.GPointer):
 
     g_iface: GObject.TypeInterface = ...
     add_controller: typing.Callable[[ShortcutManager, ShortcutController], None] = ...
-    remove_controller: typing.Callable[[ShortcutManager, ShortcutController], None] = (
-        ...
-    )
+    remove_controller: typing.Callable[
+        [ShortcutManager, ShortcutController], None
+    ] = ...
 
 class ShortcutTrigger(GObject.Object):
     """
@@ -26609,7 +26669,6 @@ class ShortcutTrigger(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
     def compare(self, trigger2: ShortcutTrigger) -> int: ...
     def equal(self, trigger2: ShortcutTrigger) -> bool: ...
     def hash(self) -> int: ...
@@ -26647,7 +26706,6 @@ class ShortcutsGroup(Box, Accessible, Buildable, ConstraintTarget, Orientable):
       baseline-position -> GtkBaselinePosition: baseline-position
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -26656,6 +26714,7 @@ class ShortcutsGroup(Box, Accessible, Buildable, ConstraintTarget, Orientable):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -26696,12 +26755,12 @@ class ShortcutsGroup(Box, Accessible, Buildable, ConstraintTarget, Orientable):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Box.Props):
         height: int
         title: str
         view: str
@@ -26724,6 +26783,7 @@ class ShortcutsGroup(Box, Accessible, Buildable, ConstraintTarget, Orientable):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -26772,6 +26832,7 @@ class ShortcutsGroup(Box, Accessible, Buildable, ConstraintTarget, Orientable):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -26821,7 +26882,6 @@ class ShortcutsSection(Box, Accessible, Buildable, ConstraintTarget, Orientable)
       baseline-position -> GtkBaselinePosition: baseline-position
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -26830,6 +26890,7 @@ class ShortcutsSection(Box, Accessible, Buildable, ConstraintTarget, Orientable)
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -26870,12 +26931,12 @@ class ShortcutsSection(Box, Accessible, Buildable, ConstraintTarget, Orientable)
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Box.Props):
         max_height: int
         section_name: str
         title: str
@@ -26899,6 +26960,7 @@ class ShortcutsSection(Box, Accessible, Buildable, ConstraintTarget, Orientable)
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -26945,6 +27007,7 @@ class ShortcutsSection(Box, Accessible, Buildable, ConstraintTarget, Orientable)
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -26992,7 +27055,6 @@ class ShortcutsShortcut(Widget, Accessible, Buildable, ConstraintTarget):
       action-name -> gchararray: action-name
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -27001,6 +27063,7 @@ class ShortcutsShortcut(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -27041,12 +27104,12 @@ class ShortcutsShortcut(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         accelerator: str
         action_name: str
         direction: TextDirection
@@ -27071,6 +27134,7 @@ class ShortcutsShortcut(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -27121,6 +27185,7 @@ class ShortcutsShortcut(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -27163,9 +27228,9 @@ class ShortcutsWindow(
       view-name -> gchararray: view-name
 
     Signals from GtkWindow:
-      keys-changed ()
       activate-focus ()
       activate-default ()
+      keys-changed ()
       enable-debugging (gboolean) -> gboolean
       close-request () -> gboolean
 
@@ -27197,7 +27262,6 @@ class ShortcutsWindow(
       fullscreened -> gboolean: fullscreened
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -27206,6 +27270,7 @@ class ShortcutsWindow(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -27246,12 +27311,12 @@ class ShortcutsWindow(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Window.Props):
         section_name: str
         view_name: str
         application: typing.Optional[Application]
@@ -27293,6 +27358,7 @@ class ShortcutsWindow(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -27356,6 +27422,7 @@ class ShortcutsWindow(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -27393,8 +27460,7 @@ class SignalAction(ShortcutAction):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(ShortcutAction.Props):
         signal_name: str
 
     props: Props = ...
@@ -27425,7 +27491,6 @@ class SignalListItemFactory(ListItemFactory):
     Signals from GObject:
       notify (GParam)
     """
-
     @classmethod
     def new(cls) -> SignalListItemFactory: ...
 
@@ -27463,8 +27528,7 @@ class SingleSelection(GObject.Object, Gio.ListModel, SectionModel, SelectionMode
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         autoselect: bool
         can_unselect: bool
         item_type: typing.Type[typing.Any]
@@ -27521,8 +27585,7 @@ class SizeGroup(GObject.Object, Buildable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         mode: SizeGroupMode
 
     props: Props = ...
@@ -27563,8 +27626,7 @@ class SliceListModel(GObject.Object, Gio.ListModel, SectionModel):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         item_type: typing.Type[typing.Any]
         model: typing.Optional[Gio.ListModel]
         n_items: int
@@ -27614,7 +27676,6 @@ class Snapshot(Gdk.Snapshot):
     Signals from GObject:
       notify (GParam)
     """
-
     def append_border(
         self,
         outline: Gsk.RoundedRect,
@@ -27785,8 +27846,7 @@ class SortListModel(GObject.Object, Gio.ListModel, SectionModel):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         incremental: bool
         item_type: typing.Type[typing.Any]
         model: typing.Optional[Gio.ListModel]
@@ -27932,7 +27992,6 @@ class SpinButton(
       remove-widget ()
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -27941,6 +28000,7 @@ class SpinButton(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -27981,12 +28041,12 @@ class SpinButton(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         activates_default: bool
         adjustment: Adjustment
         climb_rate: float
@@ -28011,6 +28071,7 @@ class SpinButton(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -28067,6 +28128,7 @@ class SpinButton(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -28143,7 +28205,6 @@ class Spinner(Widget, Accessible, Buildable, ConstraintTarget):
       spinning -> gboolean: spinning
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -28152,6 +28213,7 @@ class Spinner(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -28192,12 +28254,12 @@ class Spinner(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         spinning: bool
         can_focus: bool
         can_target: bool
@@ -28214,6 +28276,7 @@ class Spinner(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -28252,6 +28315,7 @@ class Spinner(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -28300,7 +28364,6 @@ class Stack(Widget, Accessible, Buildable, ConstraintTarget):
       pages -> GtkSelectionModel: pages
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -28309,6 +28372,7 @@ class Stack(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -28349,12 +28413,12 @@ class Stack(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         hhomogeneous: bool
         interpolate_size: bool
         pages: SelectionModel
@@ -28379,6 +28443,7 @@ class Stack(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -28423,6 +28488,7 @@ class Stack(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -28495,8 +28561,7 @@ class StackPage(GObject.Object, Accessible):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         child: Widget
         icon_name: typing.Optional[str]
         name: typing.Optional[str]
@@ -28547,7 +28612,6 @@ class StackSidebar(Widget, Accessible, Buildable, ConstraintTarget):
       stack -> GtkStack: stack
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -28556,6 +28620,7 @@ class StackSidebar(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -28596,12 +28661,12 @@ class StackSidebar(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         stack: typing.Optional[Stack]
         can_focus: bool
         can_target: bool
@@ -28618,6 +28683,7 @@ class StackSidebar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -28656,6 +28722,7 @@ class StackSidebar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -28694,7 +28761,6 @@ class StackSwitcher(Widget, Accessible, Buildable, ConstraintTarget, Orientable)
       stack -> GtkStack: stack
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -28703,6 +28769,7 @@ class StackSwitcher(Widget, Accessible, Buildable, ConstraintTarget, Orientable)
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -28743,12 +28810,12 @@ class StackSwitcher(Widget, Accessible, Buildable, ConstraintTarget, Orientable)
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         stack: typing.Optional[Stack]
         can_focus: bool
         can_target: bool
@@ -28765,6 +28832,7 @@ class StackSwitcher(Widget, Accessible, Buildable, ConstraintTarget, Orientable)
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -28804,6 +28872,7 @@ class StackSwitcher(Widget, Accessible, Buildable, ConstraintTarget, Orientable)
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -28844,7 +28913,6 @@ class Statusbar(Widget, Accessible, Buildable, ConstraintTarget):
       text-popped (guint, gchararray)
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -28853,6 +28921,7 @@ class Statusbar(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -28893,12 +28962,12 @@ class Statusbar(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         can_focus: bool
         can_target: bool
         css_classes: list[str]
@@ -28914,6 +28983,7 @@ class Statusbar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -28951,6 +29021,7 @@ class Statusbar(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -29000,8 +29071,7 @@ class StringFilter(Filter):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Filter.Props):
         expression: typing.Optional[Expression]
         ignore_case: bool
         match_mode: StringFilterMatchMode
@@ -29061,8 +29131,7 @@ class StringList(GObject.Object, Gio.ListModel, Buildable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         item_type: typing.Type[typing.Any]
         n_items: int
         strings: list[str]
@@ -29070,6 +29139,7 @@ class StringList(GObject.Object, Gio.ListModel, Buildable):
     props: Props = ...
     def __init__(self, strings: typing.Sequence[str] = ...) -> None: ...
     def append(self, string: str) -> None: ...
+    def find(self, string: str) -> int: ...
     def get_string(self, position: int) -> typing.Optional[str]: ...
     @classmethod
     def new(
@@ -29112,8 +29182,7 @@ class StringObject(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         string: str
 
     props: Props = ...
@@ -29154,8 +29223,7 @@ class StringSorter(Sorter):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Sorter.Props):
         collation: Collation
         expression: typing.Optional[Expression]
         ignore_case: bool
@@ -29205,8 +29273,7 @@ class StyleContext(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         display: Gdk.Display
 
     props: Props = ...
@@ -29279,7 +29346,6 @@ class Switch(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
       state -> gboolean: state
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -29288,6 +29354,7 @@ class Switch(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -29328,12 +29395,12 @@ class Switch(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         active: bool
         state: bool
         can_focus: bool
@@ -29351,6 +29418,7 @@ class Switch(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -29392,6 +29460,7 @@ class Switch(Widget, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -29426,7 +29495,6 @@ class SymbolicPaintable(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def snapshot_symbolic(
         self,
         snapshot: Gdk.Snapshot,
@@ -29452,14 +29520,17 @@ class SymbolicPaintableInterface(GObject.GPointer):
 # override
 class Template:
     def __init__(
-        self, filename: str = ..., resource_path: str = ..., string: str = ...
+        self,
+        filename: str | os.PathLike[str] = ...,
+        resource_path: str = ...,
+        string: str | bytes = ...,
     ) -> None: ...
     @classmethod
-    def from_file(cls, filename: str) -> Template: ...
+    def from_file(cls, filename: str | os.PathLike[str]) -> Template: ...
     @classmethod
     def from_resource(cls, resource_path: str) -> Template: ...
     @classmethod
-    def from_string(cls, string: str) -> Template: ...
+    def from_string(cls, string: str | bytes) -> Template: ...
     def __call__(self, cls: T) -> T: ...
 
     class Callback:
@@ -29520,7 +29591,6 @@ class Text(Widget, Accessible, AccessibleText, Buildable, ConstraintTarget, Edit
       delete-text (gint, gint)
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -29529,6 +29599,7 @@ class Text(Widget, Accessible, AccessibleText, Buildable, ConstraintTarget, Edit
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -29569,12 +29640,12 @@ class Text(Widget, Accessible, AccessibleText, Buildable, ConstraintTarget, Edit
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         activates_default: bool
         attributes: typing.Optional[Pango.AttrList]
         buffer: EntryBuffer
@@ -29608,6 +29679,7 @@ class Text(Widget, Accessible, AccessibleText, Buildable, ConstraintTarget, Edit
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -29671,6 +29743,7 @@ class Text(Widget, Accessible, AccessibleText, Buildable, ConstraintTarget, Edit
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -29776,8 +29849,7 @@ class TextBuffer(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         can_redo: bool
         can_undo: bool
         cursor_position: int
@@ -30159,8 +30231,7 @@ class TextMark(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         left_gravity: bool
         name: typing.Optional[str]
 
@@ -30294,8 +30365,7 @@ class TextTag(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         accumulative_margin: bool
         allow_breaks: bool
         allow_breaks_set: bool
@@ -30520,7 +30590,6 @@ class TextTagTable(GObject.Object, Buildable):
     Signals from GObject:
       notify (GParam)
     """
-
     def add(self, tag: TextTag) -> bool: ...
     def foreach(self, func: typing.Callable[..., None], *data: typing.Any) -> None: ...
     def get_size(self) -> int: ...
@@ -30584,7 +30653,6 @@ class TextView(
       extra-menu -> GMenuModel: extra-menu
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -30593,6 +30661,7 @@ class TextView(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -30633,12 +30702,12 @@ class TextView(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         accepts_tab: bool
         bottom_margin: int
         buffer: TextBuffer
@@ -30675,6 +30744,7 @@ class TextView(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -30739,6 +30809,7 @@ class TextView(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -30822,6 +30893,7 @@ class TextView(
     def get_rtl_context(self) -> Pango.Context: ...
     def get_tabs(self) -> typing.Optional[Pango.TabArray]: ...
     def get_top_margin(self) -> int: ...
+    def get_visible_offset(self) -> typing.Tuple[float, float]: ...
     def get_visible_rect(self) -> Gdk.Rectangle: ...
     def get_wrap_mode(self) -> WrapMode: ...
     def im_context_filter_keypress(self, event: Gdk.Event) -> bool: ...
@@ -30943,7 +31015,6 @@ class ToggleButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
       can-shrink -> gboolean: can-shrink
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -30952,6 +31023,7 @@ class ToggleButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -30992,12 +31064,12 @@ class ToggleButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Button.Props):
         active: bool
         can_shrink: bool
         child: typing.Optional[Widget]
@@ -31020,6 +31092,7 @@ class ToggleButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -31069,6 +31142,7 @@ class ToggleButton(Button, Accessible, Actionable, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -31127,7 +31201,6 @@ class Tooltip(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
     def set_custom(self, custom_widget: typing.Optional[Widget] = None) -> None: ...
     def set_icon(self, paintable: typing.Optional[Gdk.Paintable] = None) -> None: ...
     def set_icon_from_gicon(self, gicon: typing.Optional[Gio.Icon] = None) -> None: ...
@@ -31142,7 +31215,6 @@ class TreeDragDest(GObject.GInterface):
     """
     Interface GtkTreeDragDest
     """
-
     def drag_data_received(self, dest: TreePath, value: typing.Any) -> bool: ...
     def row_drop_possible(self, dest_path: TreePath, value: typing.Any) -> bool: ...
 
@@ -31156,16 +31228,15 @@ class TreeDragDestIface(GObject.GPointer):
     """
 
     g_iface: GObject.TypeInterface = ...
-    drag_data_received: typing.Callable[[TreeDragDest, TreePath, typing.Any], bool] = (
-        ...
-    )
+    drag_data_received: typing.Callable[
+        [TreeDragDest, TreePath, typing.Any], bool
+    ] = ...
     row_drop_possible: typing.Callable[[TreeDragDest, TreePath, typing.Any], bool] = ...
 
 class TreeDragSource(GObject.GInterface):
     """
     Interface GtkTreeDragSource
     """
-
     def drag_data_delete(self, path: TreePath) -> bool: ...
     def drag_data_get(self, path: TreePath) -> typing.Optional[Gdk.ContentProvider]: ...
     def row_draggable(self, path: TreePath) -> bool: ...
@@ -31206,7 +31277,6 @@ class TreeExpander(Widget, Accessible, Buildable, ConstraintTarget):
       list-row -> GtkTreeListRow: list-row
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -31215,6 +31285,7 @@ class TreeExpander(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -31255,12 +31326,12 @@ class TreeExpander(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         child: typing.Optional[Widget]
         hide_expander: bool
         indent_for_depth: bool
@@ -31282,6 +31353,7 @@ class TreeExpander(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -31324,6 +31396,7 @@ class TreeExpander(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -31407,8 +31480,7 @@ class TreeListModel(GObject.Object, Gio.ListModel):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         autoexpand: bool
         item_type: typing.Type[typing.Any]
         model: Gio.ListModel
@@ -31464,8 +31536,7 @@ class TreeListRow(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         children: typing.Optional[Gio.ListModel]
         depth: int
         expandable: bool
@@ -31515,8 +31586,7 @@ class TreeListRowSorter(Sorter):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Sorter.Props):
         sorter: typing.Optional[Sorter]
 
     props: Props = ...
@@ -31615,8 +31685,7 @@ class TreeModelFilter(GObject.Object, TreeDragSource, TreeModel):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         child_model: TreeModel
         virtual_root: TreePath
 
@@ -31761,8 +31830,7 @@ class TreeModelSort(GObject.Object, TreeDragSource, TreeModel, TreeSortable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         model: TreeModel
 
     props: Props = ...
@@ -31811,7 +31879,6 @@ class TreePath(GObject.GBoxed):
         new_from_indices(indices:list) -> Gtk.TreePath
         new_from_string(path:str) -> Gtk.TreePath or None
     """
-
     def append_index(self, index_: int) -> None: ...
     def compare(self, b: TreePath) -> int: ...
     def copy(self) -> TreePath: ...
@@ -31886,8 +31953,7 @@ class TreeSelection(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         mode: SelectionMode
 
     props: Props = ...
@@ -31929,7 +31995,6 @@ class TreeSortable(GObject.GInterface):
     Signals from GObject:
       notify (GParam)
     """
-
     def get_sort_column_id(
         self,
     ) -> (
@@ -32099,7 +32164,6 @@ class TreeView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
       activate-on-single-click -> gboolean: activate-on-single-click
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -32108,6 +32172,7 @@ class TreeView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -32148,12 +32213,12 @@ class TreeView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         activate_on_single_click: bool
         enable_grid_lines: TreeViewGridLines
         enable_search: bool
@@ -32186,6 +32251,7 @@ class TreeView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -32245,6 +32311,7 @@ class TreeView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -32360,7 +32427,7 @@ class TreeView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
         typing.Tuple[
             typing.Optional[TreePath], typing.Optional[TreeViewColumn], int, int
         ]
-    ]: ...  # CHECK Wrapped function
+    ]: ...
     def get_reorderable(self) -> bool: ...
     def get_rubber_banding(self) -> bool: ...
     def get_search_column(self) -> int: ...
@@ -32381,7 +32448,7 @@ class TreeView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
     # override
     def insert_column_with_attributes(
         self, position: int, title: str, cell: CellRenderer, **kwargs: typing.Any
-    ) -> None: ...  # FIXME Function
+    ) -> None: ...
     def insert_column_with_data_func(
         self,
         position: int,
@@ -32419,7 +32486,7 @@ class TreeView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
         use_align: bool = False,
         row_align: float = 0.0,
         col_align: float = 0.0,
-    ) -> None: ...  # FIXME Function
+    ) -> None: ...
     def scroll_to_point(self, tree_x: int, tree_y: int) -> None: ...
     def set_activate_on_single_click(self, single: bool) -> None: ...
     def set_column_drag_function(
@@ -32433,7 +32500,7 @@ class TreeView(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
         path: TreePath,
         column: typing.Optional[TreeViewColumn] = None,
         start_editing: bool = False,
-    ) -> None: ...  # FIXME Function
+    ) -> None: ...
     def set_cursor_on_cell(
         self,
         path: TreePath,
@@ -32508,9 +32575,9 @@ class TreeViewClass(GObject.GPointer):
     unselect_all: typing.Callable[[TreeView], bool] = ...
     select_cursor_row: typing.Callable[[TreeView, bool], bool] = ...
     toggle_cursor_row: typing.Callable[[TreeView], bool] = ...
-    expand_collapse_cursor_row: typing.Callable[[TreeView, bool, bool, bool], bool] = (
-        ...
-    )
+    expand_collapse_cursor_row: typing.Callable[
+        [TreeView, bool, bool, bool], bool
+    ] = ...
     select_cursor_parent: typing.Callable[[TreeView], bool] = ...
     start_interactive_search: typing.Callable[[TreeView], bool] = ...
     _reserved: list[None] = ...
@@ -32676,8 +32743,7 @@ class UriLauncher(GObject.Object):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         uri: typing.Optional[str]
 
     props: Props = ...
@@ -32729,7 +32795,6 @@ class Video(Widget, Accessible, Buildable, ConstraintTarget):
       graphics-offload -> GtkGraphicsOffloadEnabled: graphics-offload
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -32738,6 +32803,7 @@ class Video(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -32778,12 +32844,12 @@ class Video(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         autoplay: bool
         file: typing.Optional[Gio.File]
         graphics_offload: GraphicsOffloadEnabled
@@ -32804,6 +32870,7 @@ class Video(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -32846,6 +32913,7 @@ class Video(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -32916,7 +32984,6 @@ class Viewport(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
       child -> GtkWidget: child
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -32925,6 +32992,7 @@ class Viewport(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -32965,12 +33033,12 @@ class Viewport(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         child: typing.Optional[Widget]
         scroll_to_focus: bool
         can_focus: bool
@@ -32988,6 +33056,7 @@ class Viewport(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -33031,6 +33100,7 @@ class Viewport(Widget, Accessible, Buildable, ConstraintTarget, Scrollable):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -33096,7 +33166,6 @@ class VolumeButton(
       has-frame -> gboolean: has-frame
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -33105,6 +33174,7 @@ class VolumeButton(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -33145,12 +33215,12 @@ class VolumeButton(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(ScaleButton.Props):
         use_symbolic: bool
         active: bool
         adjustment: Adjustment
@@ -33172,6 +33242,7 @@ class VolumeButton(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -33216,6 +33287,7 @@ class VolumeButton(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -33249,7 +33321,6 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
     Object GtkWidget
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -33258,6 +33329,7 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -33298,12 +33370,12 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.InitiallyUnowned.Props):
         can_focus: bool
         can_target: bool
         css_classes: list[str]
@@ -33319,6 +33391,7 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -33358,6 +33431,7 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -33385,7 +33459,9 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
     def add_controller(self, controller: EventController) -> None: ...
     def add_css_class(self, css_class: str) -> None: ...
     def add_mnemonic_label(self, label: Widget) -> None: ...
-    def add_shortcut(self, shortcut: Shortcut) -> None: ...
+    # override
+    @classmethod
+    def add_shortcut(cls, shortcut: Shortcut) -> None: ...
     def add_tick_callback(
         self, callback: typing.Callable[..., bool], *user_data: typing.Any
     ) -> int: ...
@@ -33396,11 +33472,15 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
         baseline: int,
         transform: typing.Optional[Gsk.Transform] = None,
     ) -> None: ...
+    # override
+    @classmethod
     def bind_template_callback_full(
-        self, callback_name: str, callback_symbol: typing.Callable[[], None]
+        cls, callback_name: str, callback_symbol: typing.Callable[[], None]
     ) -> None: ...
+    # override
+    @classmethod
     def bind_template_child_full(
-        self, name: str, internal_child: bool, struct_offset: int
+        cls, name: str, internal_child: bool, struct_offset: int
     ) -> None: ...
     def child_focus(self, direction: DirectionType) -> bool: ...
     def compute_bounds(self, target: Widget) -> typing.Tuple[bool, Graphene.Rect]: ...
@@ -33450,14 +33530,17 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
         self, start_x: int, start_y: int, current_x: int, current_y: int
     ) -> bool: ...
     def error_bell(self) -> None: ...
-    def get_activate_signal(self) -> int: ...
+    # override
+    @classmethod
+    def get_activate_signal(cls) -> int: ...
     def get_allocated_baseline(self) -> int: ...
     def get_allocated_height(self) -> int: ...
     def get_allocated_width(self) -> int: ...
     def get_allocation(self) -> Gdk.Rectangle: ...
+    # override
     def get_ancestor(
-        self, widget_type: typing.Type[typing.Any]
-    ) -> typing.Optional[Widget]: ...
+        self, widget_type: typing.Type[WidgetT]
+    ) -> typing.Optional[WidgetT]: ...
     def get_baseline(self) -> int: ...
     def get_can_focus(self) -> bool: ...
     def get_can_target(self) -> bool: ...
@@ -33465,10 +33548,13 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
     def get_clipboard(self) -> Gdk.Clipboard: ...
     def get_color(self) -> Gdk.RGBA: ...
     def get_css_classes(self) -> list[str]: ...
-    def get_css_name(self) -> str: ...
+    # override
+    @classmethod
+    def get_css_name(cls) -> str: ...
     def get_cursor(self) -> typing.Optional[Gdk.Cursor]: ...
-    @staticmethod
-    def get_default_direction() -> TextDirection: ...
+    # override
+    @classmethod
+    def get_default_direction(cls) -> TextDirection: ...
     def get_direction(self) -> TextDirection: ...
     def get_display(self) -> Gdk.Display: ...
     def get_first_child(self) -> typing.Optional[Widget]: ...
@@ -33485,7 +33571,9 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
     def get_hexpand_set(self) -> bool: ...
     def get_last_child(self) -> typing.Optional[Widget]: ...
     def get_layout_manager(self) -> typing.Optional[LayoutManager]: ...
+    # override
     def get_layout_manager_type(self) -> typing.Type[typing.Any]: ...
+    def get_limit_events(self) -> bool: ...
     def get_mapped(self) -> bool: ...
     def get_margin_bottom(self) -> int: ...
     def get_margin_end(self) -> int: ...
@@ -33539,13 +33627,17 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
     def insert_before(
         self, parent: Widget, next_sibling: typing.Optional[Widget] = None
     ) -> None: ...
+    # override
+    @classmethod
     def install_action(
-        self,
+        cls,
         action_name: str,
         parameter_type: typing.Optional[str],
         activate: typing.Callable[[Widget, str, typing.Optional[GLib.Variant]], None],
     ) -> None: ...
-    def install_property_action(self, action_name: str, property_name: str) -> None: ...
+    # override
+    @classmethod
+    def install_property_action(cls, action_name: str, property_name: str) -> None: ...
     def is_ancestor(self, ancestor: Widget) -> bool: ...
     def is_drawable(self) -> bool: ...
     def is_focus(self) -> bool: ...
@@ -33561,8 +33653,10 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
     def observe_children(self) -> Gio.ListModel: ...
     def observe_controllers(self) -> Gio.ListModel: ...
     def pick(self, x: float, y: float, flags: PickFlags) -> typing.Optional[Widget]: ...
+    # override
+    @classmethod
     def query_action(
-        self, index_: int
+        cls, index_: int
     ) -> typing.Tuple[bool, typing.Type[typing.Any], str, GLib.VariantType, str]: ...
     def queue_allocate(self) -> None: ...
     def queue_draw(self) -> None: ...
@@ -33572,18 +33666,27 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
     def remove_css_class(self, css_class: str) -> None: ...
     def remove_mnemonic_label(self, label: Widget) -> None: ...
     def remove_tick_callback(self, id: int) -> None: ...
-    def set_accessible_role(self, accessible_role: AccessibleRole) -> None: ...
-    def set_activate_signal(self, signal_id: int) -> None: ...
-    def set_activate_signal_from_name(self, signal_name: str) -> None: ...
+    # override
+    @classmethod
+    def set_accessible_role(cls, accessible_role: AccessibleRole) -> None: ...
+    # override
+    @classmethod
+    def set_activate_signal(cls, signal_id: int) -> None: ...
+    # override
+    @classmethod
+    def set_activate_signal_from_name(cls, signal_name: str) -> None: ...
     def set_can_focus(self, can_focus: bool) -> None: ...
     def set_can_target(self, can_target: bool) -> None: ...
     def set_child_visible(self, child_visible: bool) -> None: ...
     def set_css_classes(self, classes: typing.Sequence[str]) -> None: ...
-    def set_css_name(self, name: str) -> None: ...
+    # override
+    @classmethod
+    def set_css_name(cls, name: str) -> None: ...
     def set_cursor(self, cursor: typing.Optional[Gdk.Cursor] = None) -> None: ...
     def set_cursor_from_name(self, name: typing.Optional[str] = None) -> None: ...
-    @staticmethod
-    def set_default_direction(dir: TextDirection) -> None: ...
+    # override
+    @classmethod
+    def set_default_direction(cls, dir: TextDirection) -> None: ...
     def set_direction(self, dir: TextDirection) -> None: ...
     def set_focus_child(self, child: typing.Optional[Widget] = None) -> None: ...
     def set_focus_on_click(self, focus_on_click: bool) -> None: ...
@@ -33596,10 +33699,14 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
     def set_has_tooltip(self, has_tooltip: bool) -> None: ...
     def set_hexpand(self, expand: bool) -> None: ...
     def set_hexpand_set(self, set: bool) -> None: ...
+    # override
+    @classmethod
     def set_layout_manager(
-        self, layout_manager: typing.Optional[LayoutManager] = None
+        cls, layout_manager: typing.Optional[LayoutManager] = None
     ) -> None: ...
+    # override
     def set_layout_manager_type(self, type: typing.Type[typing.Any]) -> None: ...
+    def set_limit_events(self, limit_events: bool) -> None: ...
     def set_margin_bottom(self, margin: int) -> None: ...
     def set_margin_end(self, margin: int) -> None: ...
     def set_margin_start(self, margin: int) -> None: ...
@@ -33612,9 +33719,15 @@ class Widget(GObject.InitiallyUnowned, Accessible, Buildable, ConstraintTarget):
     def set_sensitive(self, sensitive: bool) -> None: ...
     def set_size_request(self, width: int, height: int) -> None: ...
     def set_state_flags(self, flags: StateFlags, clear: bool) -> None: ...
-    def set_template(self, template_bytes: GLib.Bytes) -> None: ...
-    def set_template_from_resource(self, resource_name: str) -> None: ...
-    def set_template_scope(self, scope: BuilderScope) -> None: ...
+    # override
+    @classmethod
+    def set_template(cls, template_bytes: GLib.Bytes) -> None: ...
+    # override
+    @classmethod
+    def set_template_from_resource(cls, resource_name: str) -> None: ...
+    # override
+    @classmethod
+    def set_template_scope(cls, scope: BuilderScope) -> None: ...
     def set_tooltip_markup(self, markup: typing.Optional[str] = None) -> None: ...
     def set_tooltip_text(self, text: typing.Optional[str] = None) -> None: ...
     def set_valign(self, align: Align) -> None: ...
@@ -33680,10 +33793,14 @@ class WidgetClass(GObject.GPointer):
     def bind_template_child_full(
         self, name: str, internal_child: bool, struct_offset: int
     ) -> None: ...
-    def get_accessible_role(self) -> AccessibleRole: ...
+    # override
+    @classmethod
+    def get_accessible_role(cls) -> AccessibleRole: ...
     def get_activate_signal(self) -> int: ...
     def get_css_name(self) -> str: ...
-    def get_layout_manager_type(self) -> typing.Type[typing.Any]: ...
+    # override
+    @classmethod
+    def get_layout_manager_type(cls) -> typing.Type[typing.Any]: ...
     def install_action(
         self,
         action_name: str,
@@ -33726,8 +33843,7 @@ class WidgetPaintable(GObject.Object, Gdk.Paintable):
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(GObject.Object.Props):
         widget: typing.Optional[Widget]
 
     props: Props = ...
@@ -33764,9 +33880,9 @@ class Window(
     Object GtkWindow
 
     Signals from GtkWindow:
-      keys-changed ()
       activate-focus ()
       activate-default ()
+      keys-changed ()
       enable-debugging (gboolean) -> gboolean
       close-request () -> gboolean
 
@@ -33798,7 +33914,6 @@ class Window(
       fullscreened -> gboolean: fullscreened
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -33807,6 +33922,7 @@ class Window(
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -33847,12 +33963,12 @@ class Window(
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         application: typing.Optional[Application]
         child: typing.Optional[Widget]
         decorated: bool
@@ -33892,6 +34008,7 @@ class Window(
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -33954,6 +34071,7 @@ class Window(
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -34082,10 +34200,10 @@ class WindowControls(Widget, Accessible, Buildable, ConstraintTarget):
     Properties from GtkWindowControls:
       side -> GtkPackType: side
       decoration-layout -> gchararray: decoration-layout
+      use-native-controls -> gboolean: use-native-controls
       empty -> gboolean: empty
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -34094,6 +34212,7 @@ class WindowControls(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -34134,15 +34253,16 @@ class WindowControls(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         decoration_layout: typing.Optional[str]
         empty: bool
         side: PackType
+        use_native_controls: bool
         can_focus: bool
         can_target: bool
         css_classes: list[str]
@@ -34158,6 +34278,7 @@ class WindowControls(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -34184,6 +34305,7 @@ class WindowControls(Widget, Accessible, Buildable, ConstraintTarget):
         self,
         decoration_layout: typing.Optional[str] = ...,
         side: PackType = ...,
+        use_native_controls: bool = ...,
         can_focus: bool = ...,
         can_target: bool = ...,
         css_classes: typing.Sequence[str] = ...,
@@ -34197,6 +34319,7 @@ class WindowControls(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -34218,10 +34341,12 @@ class WindowControls(Widget, Accessible, Buildable, ConstraintTarget):
     def get_decoration_layout(self) -> typing.Optional[str]: ...
     def get_empty(self) -> bool: ...
     def get_side(self) -> PackType: ...
+    def get_use_native_controls(self) -> bool: ...
     @classmethod
     def new(cls, side: PackType) -> WindowControls: ...
     def set_decoration_layout(self, layout: typing.Optional[str] = None) -> None: ...
     def set_side(self, side: PackType) -> None: ...
+    def set_use_native_controls(self, setting: bool) -> None: ...
 
 class WindowControlsClass(GObject.GPointer):
     """
@@ -34289,7 +34414,6 @@ class WindowHandle(Widget, Accessible, Buildable, ConstraintTarget):
       child -> GtkWidget: child
 
     Signals from GtkWidget:
-      direction-changed (GtkTextDirection)
       destroy ()
       show ()
       hide ()
@@ -34298,6 +34422,7 @@ class WindowHandle(Widget, Accessible, Buildable, ConstraintTarget):
       realize ()
       unrealize ()
       state-flags-changed (GtkStateFlags)
+      direction-changed (GtkTextDirection)
       mnemonic-activate (gboolean) -> gboolean
       move-focus (GtkDirectionType)
       keynav-failed (GtkDirectionType) -> gboolean
@@ -34338,12 +34463,12 @@ class WindowHandle(Widget, Accessible, Buildable, ConstraintTarget):
       css-name -> gchararray: css-name
       css-classes -> GStrv: css-classes
       layout-manager -> GtkLayoutManager: layout-manager
+      limit-events -> gboolean: limit-events
 
     Signals from GObject:
       notify (GParam)
     """
-
-    class Props:
+    class Props(Widget.Props):
         child: typing.Optional[Widget]
         can_focus: bool
         can_target: bool
@@ -34360,6 +34485,7 @@ class WindowHandle(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool
         hexpand_set: bool
         layout_manager: typing.Optional[LayoutManager]
+        limit_events: bool
         margin_bottom: int
         margin_end: int
         margin_start: int
@@ -34398,6 +34524,7 @@ class WindowHandle(Widget, Accessible, Buildable, ConstraintTarget):
         hexpand: bool = ...,
         hexpand_set: bool = ...,
         layout_manager: typing.Optional[LayoutManager] = ...,
+        limit_events: bool = ...,
         margin_bottom: int = ...,
         margin_end: int = ...,
         margin_start: int = ...,
@@ -34453,8 +34580,9 @@ class CellRendererState(GObject.GFlags):
 class DebugFlags(GObject.GFlags):
     A11Y = 131072
     ACTIONS = 4096
-    BUILDER = 128
+    BUILDER = 2097152
     BUILDER_OBJECTS = 65536
+    BUILDER_TRACE = 128
     CONSTRAINTS = 32768
     CSS = 1048576
     GEOMETRY = 16
@@ -34495,6 +34623,7 @@ class FontChooserLevel(GObject.GFlags):
 class IconLookupFlags(GObject.GFlags):
     FORCE_REGULAR = 1
     FORCE_SYMBOLIC = 2
+    NONE = 0
     PRELOAD = 4
 
 class InputHints(GObject.GFlags):
@@ -34632,12 +34761,18 @@ class AccessibleRelation(GObject.GEnum):
     COL_INDEX = 2
     COL_INDEX_TEXT = 3
     COL_SPAN = 4
+    CONTROLLED_BY = 20
     CONTROLS = 5
     DESCRIBED_BY = 6
+    DESCRIPTION_FOR = 19
     DETAILS = 7
+    DETAILS_FOR = 21
     ERROR_MESSAGE = 8
+    ERROR_MESSAGE_FOR = 22
+    FLOW_FROM = 23
     FLOW_TO = 9
     LABELLED_BY = 10
+    LABEL_FOR = 18
     OWNS = 11
     POS_IN_SET = 12
     ROW_COUNT = 13

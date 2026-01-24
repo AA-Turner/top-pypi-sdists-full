@@ -12,8 +12,8 @@ import pyvisa
 from pyvisa.errors import StatusCode, VisaIOError
 
 from .VisaPluginSocketIo import ResourceManager, SocketIo
-from . import InstrumentSettings, InstrumentErrors, Conversions as Conv
-from .InstrumentSettings import WaitForOpcMode, OpcSyncQueryMechanism, InstrViClearMode as ViClearMode
+from . import InstrumentErrors, Conversions as Conv
+from .InstrumentSettings import InstrumentSettings, WaitForOpcMode, OpcSyncQueryMechanism, InstrViClearMode as ViClearMode
 from .StreamReader import StreamReader
 from .StreamWriter import StreamWriter
 from .Utilities import size_to_kb_mb_string, calculate_chunks_count
@@ -70,7 +70,7 @@ class VisaSession(object):
 		self._data_chunk_size: int = None
 		self._std_bin_block_header_max_len: int = 999999999
 		self._lock = None
-		self._flush_with_tout_tolerance: None or bool = None
+		self._flush_with_tout_tolerance: None | bool = None
 		self.disable_opc_query: bool = settings.disable_opc_query
 		self.last_status = None
 		self.visa_library_name = None
@@ -322,7 +322,7 @@ class VisaSession(object):
 		"""Returns the current RLock object."""
 		return self._lock
 
-	def lock_resource(self, timeout: int, requested_key: str or bytes = None) -> bytes or None:
+	def lock_resource(self, timeout: int, requested_key: str | bytes = None) -> bytes | str | None:
 		"""Locks the instrument to prevent it from communicating with other clients."""
 		if requested_key is None:
 			self._session.lock_excl(timeout)
@@ -376,7 +376,7 @@ class VisaSession(object):
 	# noinspection PyTypeChecker
 	def _set_ese_mask(self, mask: EventStatusRegister, reset: bool = True) -> None:
 		"""Sends *ESE command with mask parameter."""
-		if reset is False:
+		if not reset:
 			current_value = int(self._query_str_no_events('*ESE?'))
 			mask = current_value | mask.value
 		self.write("*ESE %d" % mask.value)
@@ -384,7 +384,7 @@ class VisaSession(object):
 	# noinspection PyTypeChecker
 	def _set_sre_mask(self, mask: StatusByte, reset: bool = True) -> None:
 		"""Sends *SRE command with StatusByte mask parameter."""
-		if reset is False:
+		if not reset:
 			current_value = int(self._query_str_no_events('*SRE?'))
 			mask = current_value | mask.value
 		# Also affect the _opc_wait_mode:
@@ -403,7 +403,7 @@ class VisaSession(object):
 		if command.endswith(self._term_char):
 			command = command.rstrip(self._term_char)
 
-		if is_query is True:
+		if is_query:
 			if self.opc_sync_query_mechanism == OpcSyncQueryMechanism.standard or self.opc_sync_query_mechanism == OpcSyncQueryMechanism.also_check_mav:
 				self.clear_before_read()
 				self.write(command + ';*OPC')
@@ -579,7 +579,7 @@ class VisaSession(object):
 		else:
 			return code, response
 
-	def query_syst_error(self) -> Tuple[int, str] or None:
+	def query_syst_error(self) -> Tuple[int, str] | None:
 		"""Returns one response to the SYSTEM:ERROR? query.
 		The response is a Tuple of (code: int, message: str)"""
 		error = self._query_str_no_events('SYST:ERR?')
@@ -587,7 +587,7 @@ class VisaSession(object):
 			return None
 		return self._parse_err_query_response(error.strip())
 
-	def query_all_syst_errors(self) -> List[Tuple[int, str]] or None:
+	def query_all_syst_errors(self) -> List[Tuple[int, str]] | None:
 		"""Returns all errors in the instrument's error queue.
 		If no error is detected, the return value is None."""
 		errors = []
@@ -628,8 +628,12 @@ class VisaSession(object):
 				opc = '1'
 			else:
 				opc = self._query_str_no_events('*OPC?')
+
 			repeat = 0
 			while not correct:
+				if opc is None:
+					break
+
 				if len(opc) <= 2:
 					opc = opc.strip()
 					correct = opc == '0' or opc == '1'
@@ -674,7 +678,7 @@ class VisaSession(object):
 		if self._flush_with_tout_tolerance is None:
 			res = self._read_str_timed(300, True)
 			self._flush_with_tout_tolerance = True if res is None else False
-		elif self._flush_with_tout_tolerance is True:
+		elif self._flush_with_tout_tolerance:
 			self._read_str_timed(300, True)
 		else:
 			self._read_unknown_len(StreamWriter.as_bin_var(), False)
@@ -781,9 +785,9 @@ class VisaSession(object):
 		"""Returns true, if the opc-sync queries require status clearing afterward."""
 		if self.vxi_capable is False or self._opc_wait_mode is WaitForOpcMode.opc_query:
 			return False
-		if self.opc_sync_query_mechanism == InstrumentSettings.OpcSyncQueryMechanism.standard:
+		if self.opc_sync_query_mechanism == OpcSyncQueryMechanism.standard:
 			return True
-		if self.opc_sync_query_mechanism == InstrumentSettings.OpcSyncQueryMechanism.also_check_mav:
+		if self.opc_sync_query_mechanism == OpcSyncQueryMechanism.also_check_mav:
 			return True
 		return False
 
@@ -852,6 +856,7 @@ class VisaSession(object):
 				if self.on_read_chunk_handler and allow_chunk_events:
 					total_size = len(stream) if eot is True else None
 					event_args = EventArgsChunk(stream.binary, chunk_ix, len(chunk), total_size, len(stream), eot, None, chunk if self.io_events_include_data else None)
+					# noinspection PyCallingNonCallable
 					self.on_read_chunk_handler(event_args)
 				chunk_ix += 1
 
@@ -859,7 +864,7 @@ class VisaSession(object):
 		"""Returns True, if the last status signalled that more data is available"""
 		return self.last_status == pyvisa.constants.StatusCode.success_max_count_read
 
-	def _read_str_no_events(self) -> str:
+	def _read_str_no_events(self) -> str | None:
 		"""Reads response from the instrument. The response is then trimmed for trailing LF. \n
 		Sending of any read events is blocked."""
 		if self.read_delay > 0:
@@ -868,7 +873,7 @@ class VisaSession(object):
 		self._read_unknown_len(stream, False)
 		return stream.content
 
-	def _query_str_no_events(self, query: str, allow_tout_error_narrow_down: bool = True) -> str:
+	def _query_str_no_events(self, query: str, allow_tout_error_narrow_down: bool = True) -> str | None:
 		"""Queries the instrument and reads the response as string.
 		The length of the string is not limited. The response is then trimmed for trailing LF.
 		Sending of any read events is blocked. Use this method for all the service VisaSession queries."""
@@ -900,7 +905,7 @@ class VisaSession(object):
 			self._narrow_down_io_tout_error(f"Query with timeout {timeout} ms '{query.rstrip(self._term_char)}' - ", timeout)
 		return response
 
-	def _read_str_timed(self, timeout: int, suppress_read_tout: bool = False) -> str or None:
+	def _read_str_timed(self, timeout: int, suppress_read_tout: bool = False) -> str | None:
 		"""Reads response from the instrument with a VISA timeout temporarily set for the read.
 		The VISA timeout is set back to the previous value before the method finishes even if an exception occurs.
 		Sending of any read events is blocked."""
@@ -927,7 +932,7 @@ class VisaSession(object):
 			finally:
 				self.visa_timeout = old_visa_tout
 
-	def _read_str(self) -> str:
+	def _read_str(self) -> str | None:
 		"""Reads response from the instrument. The response is then trimmed for trailing LF."""
 		if self.read_delay > 0:
 			time.sleep(self.read_delay / 1000)
@@ -1167,7 +1172,7 @@ class VisaSession(object):
 			InstrumentErrors.throw_bin_block_unexp_resp_exception(self.resource_name, whole_hdr)
 		return data_type, whole_hdr, length
 
-	def get_bin_data_length(self, query: str) -> int or None:
+	def get_bin_data_length(self, query: str) -> int | None:
 		"""Returns only the length binary data header, and discards the actual data.
 		Any timeout error is suppressed, and the method returns None instead.
 		Warning!!! - for non-VXI sessions (SOCKET, ASRL) this method transfers the entire file to the control PC, which might take a long time."""
@@ -1303,10 +1308,16 @@ class VisaSession(object):
 				break
 		return response
 
-	def go_to_local(self) -> None:
-		"""Puts the instrument into local state."""
+	def go_to_local(self, mixed_mode: bool) -> None:
+		"""Puts the instrument into local state.
+		By default, the method uses a mechanism to keep the instrument in a mixed mode: remote and local.
+		That means, you can remote-control your instrument, and at the same time it still allows manual control.
+		Set the mixed_mode to False, if you want your instrument to go to remote mode as soon as it receives the first remote command."""
 		if self.vxi_capable:
-			self._session.control_ren(pyvisa.constants.RENLineOperation.deassert_gtl)
+			if mixed_mode:
+				self._session.control_ren(pyvisa.constants.RENLineOperation.deassert_gtl)
+			else:
+				self._session.control_ren(pyvisa.constants.RENLineOperation.address_gtl)
 		else:
 			self.write("&GTL")
 
@@ -1341,7 +1352,7 @@ class EventArgsChunk:
 			total_size: int,
 			transferred_size: int,
 			end_of_transfer: bool,
-			total_chunks: int or None,
+			total_chunks: int | None,
 			data: AnyStr = None):
 
 		self.binary = binary

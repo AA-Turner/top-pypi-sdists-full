@@ -12,8 +12,8 @@ from seeq.spy.workbooks.job import _pull, _push
 
 
 @Status.handle_keyboard_interrupt(no_session=True)
-def redo(job_folder: str, workbooks_df: Union[pd.DataFrame, str, list], action: Optional[str] = None,
-         *, quiet: Optional[bool] = None, status: Optional[Status] = None):
+def redo(job_folder: str, workbooks_df: Union[pd.DataFrame, str, list] = None, *, action: Optional[str] = None,
+         hard: bool = False, quiet: Optional[bool] = None, status: Optional[Status] = None):
     """
     Marks a set of workbooks to be redone in the specified job folder.
 
@@ -26,12 +26,18 @@ def redo(job_folder: str, workbooks_df: Union[pd.DataFrame, str, list], action: 
         A DataFrame containing an 'ID' column that can be used to identify the
         workbooks to affect. These IDs are based on the source system (not the
         destination system). Alternatively, you can supply a workbook ID
-        directly as a str or list of strs.
+        directly as a str or list of strs. If omitted, all workbooks in the
+        job folder are affected.
 
     action : str
         If supplied, limits the redo to the specified actions. You can specify
         'pull' or 'push'. If not supplied, both pull and push are affected.
         Note that 'pull' automatically includes 'push'.
+
+    hard : bool, default False
+        If true, forces re-pushing of all inventory items. Otherwise, only
+        causes re-push of workbook/worksheet/workstep definitions and Topic
+        content.
 
     quiet : bool
         If True, suppresses progress output. Note that when status is
@@ -48,12 +54,19 @@ def redo(job_folder: str, workbooks_df: Union[pd.DataFrame, str, list], action: 
         (job_folder, 'job_folder', str),
         (workbooks_df, 'workbooks_df', (pd.DataFrame, str, list)),
         (action, 'action', str),
+        (hard, 'hard', bool),
         (quiet, 'quiet', bool),
         (status, 'status', Status)
     ])
 
     if not util.safe_exists(job_folder):
         raise SPyValueError(f'Job folder "{job_folder}" does not exist.')
+
+    if workbooks_df is None:
+        job_workbooks_folder = _pull.get_workbooks_folder(job_folder)
+        workbooks_df = pd.DataFrame([
+            {'ID': workbook_id} for _, workbook_id in _pull.walk_workbook_folders(job_workbooks_folder)
+        ])
 
     if isinstance(workbooks_df, str):
         workbooks_df = pd.DataFrame({'ID': [workbooks_df]})
@@ -69,7 +82,6 @@ def redo(job_folder: str, workbooks_df: Union[pd.DataFrame, str, list], action: 
     else:
         action = 'pull'
 
-    workbooks_df: pd.DataFrame
     status_columns = [c for c in ['ID', 'Name', 'Type', 'Workbook Type'] if c in workbooks_df]
 
     status.df = workbooks_df[status_columns].copy()
@@ -78,7 +90,7 @@ def redo(job_folder: str, workbooks_df: Union[pd.DataFrame, str, list], action: 
         _pull.redo(job_folder, status)
 
     if action == 'push':
-        _push.redo(job_folder, status)
+        _push.redo(job_folder, hard, status)
 
     status.update(
         'Successfully marked specified items to be redone. Execute spy.job.workbooks.pull() and/or '

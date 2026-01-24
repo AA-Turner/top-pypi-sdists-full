@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypgstac
-Version: 0.9.8
+Version: 0.9.9
 Summary: Schema, functions and a python library for storing and accessing STAC collections and items in PostgreSQL
 Project-URL: Homepage, https://stac-utils.github.io/pgstac/
 Project-URL: Documentation, https://stac-utils.github.io/pgstac/

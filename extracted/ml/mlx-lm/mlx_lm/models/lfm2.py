@@ -5,6 +5,7 @@ from typing import Any, List, Optional
 import mlx.core as mx
 import mlx.nn as nn
 
+from .activations import swiglu
 from .base import (
     BaseModelArgs,
     create_attention_mask,
@@ -31,8 +32,19 @@ class ModelArgs(BaseModelArgs):
     block_multiple_of: int
     block_ffn_dim_multiplier: float
     block_auto_adjust_ff_dim: bool
-    full_attn_idxs: List[int]
     rope_theta: float
+    full_attn_idxs: Optional[List[int]] = None
+    layer_types: Optional[List[str]] = None
+
+    def __post_init__(self):
+        if self.num_key_value_heads is None:
+            self.num_key_value_heads = self.num_attention_heads
+        if self.full_attn_idxs is None:
+            self.full_attn_idxs = [
+                i
+                for i, layer_type in enumerate(self.layer_types)
+                if layer_type == "full_attention"
+            ]
 
 
 class Attention(nn.Module):
@@ -122,23 +134,33 @@ class ShortConv(nn.Module):
         mask: Optional[mx.array] = None,
         cache: Optional[Any] = None,
     ):
-        seqlen = x.shape[1]
         BCx = self.in_proj(x)
         B, C, x = mx.split(BCx, 3, axis=-1)
         Bx = B * x
         if mask is not None:
             Bx = mx.where(mask[..., None], Bx, 0)
-        state = None
-        if cache is not None:
-            state = cache[0]
-        if state is None:
-            state = mx.zeros(
-                (Bx.shape[0], self.L_cache - 1, self.args.hidden_size), dtype=Bx.dtype
-            )
 
-        Bx = mx.concatenate([state, Bx], axis=-2)
         if cache is not None:
-            cache[0] = Bx[:, -(self.L_cache - 1) :]
+            if cache[0] is None:
+                state = mx.zeros(
+                    (Bx.shape[0], self.L_cache - 1, self.args.hidden_size),
+                    dtype=Bx.dtype,
+                )
+            else:
+                state = cache[0]
+            Bx = mx.concatenate([state, Bx], axis=1)
+            n_keep = self.L_cache - 1
+            t = x.shape[1]
+            if cache.lengths is not None:
+                ends = mx.clip(cache.lengths, 0, t)
+                positions = (ends[:, None] + mx.arange(n_keep))[..., None]
+                cache[0] = mx.take_along_axis(Bx, positions, axis=1)
+            else:
+                cache[0] = Bx[:, -n_keep:, :]
+            cache.advance(t)
+        else:
+            Bx = mx.pad(Bx, [(0, 0), (self.L_cache - 1, 0), (0, 0)])
+
         conv_out = self.conv(Bx)
 
         y = C * conv_out
@@ -166,7 +188,7 @@ class MLP(nn.Module):
         self.w2 = nn.Linear(ff_dim, dim, bias=False)
 
     def __call__(self, x) -> mx.array:
-        return self.w2(nn.silu(self.w1(x)) * self.w3(x))
+        return self.w2(swiglu(self.w1(x), self.w3(x)))
 
 
 class Lfm2DecoderLayer(nn.Module):

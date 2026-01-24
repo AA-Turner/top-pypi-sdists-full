@@ -7,7 +7,6 @@ import pathlib
 import urllib.parse
 from typing import Any, Dict, Final, List, Literal, Optional, Tuple, Type, Union
 
-import opik.decorator.tracing_runtime_config as tracing_runtime_config
 import pydantic
 import pydantic_settings
 from pydantic_settings import BaseSettings, InitSettingsSource
@@ -213,7 +212,7 @@ class OpikConfig(pydantic_settings.BaseSettings):
     Timeout for guardrail.validate calls in seconds. If response takes more than this, it will be considered failed and raises an Exception.
     """
 
-    maximal_queue_size: int = 100_000
+    maximal_queue_size: int = 1_000_000
     """
     Specifies the maximum number of messages that can be queued for delivery when a connection error occurs or rate limiting is in effect.
     """
@@ -226,6 +225,17 @@ class OpikConfig(pydantic_settings.BaseSettings):
     """
     If set to True, both the start and end of the trace and span will be logged. This is useful for traces and spans that span long durations.
     For shorter traces/spans, it is recommended to keep this setting disabled to minimize data logging overhead.
+    """
+
+    min_base64_embedded_attachment_size: int = 256_000
+    """
+    Minimum size of the attachment string in bytes that will be kept embedded in the base64 string. (250KB)
+    Attachments larger than this size will be extracted from inputs/outputs of spans/traces and uploaded to the Opik backend.
+    """
+
+    is_attachment_extraction_active: bool = True
+    """
+    If set to True, attachments larger than `min_base64_embedded_attachment_size` will be extracted from spans/traces and uploaded to the Opik backend.
     """
 
     @property
@@ -257,12 +267,8 @@ class OpikConfig(pydantic_settings.BaseSettings):
     def guardrails_backend_host(self) -> str:
         return url_helpers.get_base_url(self.url_override) + "guardrails/"
 
-    @property
-    def runtime(self) -> tracing_runtime_config.TracingRuntimeConfig:
-        return tracing_runtime_config.runtime_cfg
-
     @pydantic.model_validator(mode="after")
-    def _set_url_override_from_api_key(self) -> "OpikConfig":
+    def _set_url_override_from_api_key(self) -> OpikConfig:
         url_was_not_provided = (
             "url_override" not in self.model_fields_set or self.url_override is None
         )

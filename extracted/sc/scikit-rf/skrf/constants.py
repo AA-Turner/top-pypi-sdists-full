@@ -23,6 +23,10 @@ This module contains constants, numerical approximations, and unit conversions
 
     0 + epsilon where epsilon is small. Used to avoid numerical error.
 
+.. data:: LOG_OF_NEG
+
+    Very low but minus infinity value for numerical purposes.
+
 .. data:: K_BOLTZMANN
 
     Boltzmann constant (1.38064852e-23)
@@ -38,9 +42,15 @@ This module contains constants, numerical approximations, and unit conversions
 
     Default S-parameter definition: 'power', for power-wave definition.
 
-.. data:: S_DEF_HFSS_DEFAULT
+.. autodata:: S_DEF_HFSS_DEFAULT
 
-    Default S-parameter definition setting in HFSS: 'traveling' ("Generalized" in HFSS)
+    Default ANSYS HFSS S-parameter definition: 'traveling'
+
+.. autodata:: SweepTypeT
+
+.. autodata:: FrequencyUnitT
+
+    Frequency units: "Hz", "kHz", "MHz", "GHz", "THz" (case-insensitive).
 
 .. autosummary::
    :toctree: generated/
@@ -111,9 +121,16 @@ S_DEF_DEFAULT = 'power'
 S_DEF_HFSS_DEFAULT = 'traveling'
 
 FrequencyUnitT = Literal["Hz", "kHz", "MHz", "GHz", "THz"]
+"""
+Frequency units: "Hz", "kHz", "MHz", "GHz", "THz" (case-insensitive).
+"""
 FREQ_UNITS: dict[FrequencyUnitT, float] = {"Hz": 1.0, "kHz": 1e3, "MHz": 1e6, "GHz": 1e9, "THz": 1e12}
 
 SweepTypeT = Literal["lin", "log"]
+"""
+Frequency sweep type, either "lin" or "log".
+"""
+
 CoordT = Literal["cart", "polar"]
 InterpolKindT = Literal["linear", "cubic", "nearest", "zero", "slinear", "quadratic", "rational"]
 PrimaryPropertiesT = Literal['s', 'z', 'y', 'a', 'g', 'h', 't']

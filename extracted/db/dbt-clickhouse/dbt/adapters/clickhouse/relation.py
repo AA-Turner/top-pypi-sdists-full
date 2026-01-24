@@ -43,6 +43,8 @@ class ClickHouseRelation(BaseRelation):
     quote_character: str = '`'
     can_exchange: bool = False
     can_on_cluster: bool = False
+    require_alias: bool = False
+    is_temporary: bool = False
 
     def __post_init__(self):
         if self.database != self.schema and self.database:
@@ -66,8 +68,16 @@ class ClickHouseRelation(BaseRelation):
 
         return filter
 
-    def derivative(self, suffix: str, relation_type: Optional[str] = None) -> BaseRelation:
-        path = Path(schema=self.path.schema, database='', identifier=self.path.identifier + suffix)
+    def derivative(
+        self,
+        suffix: str,
+        relation_type: Optional[str] = None,
+        interpret_suffix_as_full_identifier: bool = False,
+    ) -> BaseRelation:
+        new_identifier = (
+            suffix if interpret_suffix_as_full_identifier else self.path.identifier + suffix
+        )
+        path = Path(schema=self.path.schema, database='', identifier=new_identifier)
         derivative_type = ClickHouseRelationType(relation_type) if relation_type else self.type
         return ClickHouseRelation(
             type=derivative_type, path=path, can_on_cluster=self.can_on_cluster

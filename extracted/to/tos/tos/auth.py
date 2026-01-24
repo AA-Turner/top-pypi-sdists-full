@@ -33,11 +33,11 @@ def _need_signed_headers(key, is_signing_query):
     return (key == "content-type" and not is_signing_query) or key.startswith(V4_PREFIX) or key == 'host'
 
 
-def _get_signed_headers(headers, is_signing_query=False):
+def _get_signed_headers(headers, is_signing_query=False, is_signed_all_headers=False):
     signed_headers = {}
     for k, v in headers.items():
         k = k.lower()
-        if _need_signed_headers(k, is_signing_query):
+        if _need_signed_headers(k, is_signing_query) or is_signed_all_headers:
             signed_headers[k] = v
     return sorted(signed_headers.items(), key=lambda d: d[0].lower())
 
@@ -87,7 +87,8 @@ def _check_policy_key(key):
 
 
 def _get_post_policy(date: str, expire: int, algorithm, credential, bucket, object_key,
-                     conditions: [], content_length_range: ContentLengthRange = None, sts: str = None) -> dict:
+                     conditions: [], content_length_range: ContentLengthRange = None, sts: str = None,
+                     multi_values_conditions: [] = None) -> dict:
     time = datetime.datetime.strptime(date, DATE_FORMAT).replace(tzinfo=pytz.utc) + datetime.timedelta(seconds=expire)
     post_policy = {
         "expiration": time.strftime(LAST_MODIFY_TIME_DATE_FORMAT)
@@ -101,12 +102,17 @@ def _get_post_policy(date: str, expire: int, algorithm, credential, bucket, obje
     if sts:
         cond.append({'x-tos-security-token': sts})
 
-    for c in conditions:
-        _check_policy_key(c.key)
-        if c.operator:
-            cond.append([c.operator, "${}".format(c.key), c.value])
-            continue
-        cond.append({c.key: c.value})
+    if conditions:
+        for c in conditions:
+            _check_policy_key(c.key)
+            if c.operator:
+                cond.append([c.operator, "${}".format(c.key), c.value])
+                continue
+            cond.append({c.key: c.value})
+    
+    if multi_values_conditions:
+        for c in multi_values_conditions:
+            cond.append([c.operator, "${}".format(c.key), c.values])
 
     if content_length_range:
         cond.append(["content-length-range", content_length_range.start, content_length_range.end])
@@ -129,10 +135,11 @@ def _get_policy(conditions: []):
 
 
 class AuthBase():
-    def __init__(self, credentials_provider, region):
+    def __init__(self, credentials_provider, region,service='tos'):
         self.credentials_provider = credentials_provider
         self.region = region.strip()
         self.credential = None
+        self.service = service
 
     def sign_request(self, req):
         self.credential = self.credentials_provider.get_credentials()
@@ -149,7 +156,7 @@ class AuthBase():
         signature = self._make_signature(req=req, date=date, signed_headers=signed_headers)
         req.headers['Authorization'] = self._inject_signature_to_request(signature, date, signed_headers)
 
-    def sign_url(self, req, expires):
+    def sign_url(self, req, expires, is_signed_all_headers=False):
         if expires is None:
             expires = 60 * 60
         date = datetime.datetime.utcnow().strftime(DATE_FORMAT)
@@ -161,14 +168,15 @@ class AuthBase():
         req.params['X-Tos-Expires'] = expires
         if self.credential.get_security_token():
             req.params["X-Tos-Security-Token"] = self.credential.get_security_token()
-        signed_headers = _get_signed_headers(req.headers, True)
+        signed_headers = _get_signed_headers(req.headers, True, is_signed_all_headers)
         req.params['X-Tos-SignedHeaders'] = _get_signed_header_key(signed_headers)
         req.params['X-Tos-Signature'] = self._make_signature(req=req, date=date, signed_headers=signed_headers)
 
         return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
 
     def post_sign(self, bucket: str, key: str, expires: int, conditions: [],
-                  content_length_range: ContentLengthRange) -> PreSignedPostSignatureOutPut:
+                  content_length_range: ContentLengthRange,
+                  multi_values_conditions: [] = None) -> PreSignedPostSignatureOutPut:
         date = datetime.datetime.utcnow().strftime(DATE_FORMAT)
         self.credential = self.credentials_provider.get_credentials()
 
@@ -178,7 +186,8 @@ class AuthBase():
         sign.credential = self._credential(date)
         sign.origin_policy = _get_post_policy(date, expires, sign.algorithm, sign.credential, bucket, key,
                                               conditions, content_length_range,
-                                              self.credential.get_security_token())
+                                              self.credential.get_security_token(),
+                                              multi_values_conditions=multi_values_conditions)
         sign.origin_policy = json.dumps(sign.origin_policy)
         sign.policy = base64.b64encode(sign.origin_policy.encode('utf-8')).decode('utf-8')
         sign.signature = self._make_signature(date=date, string_to_sign=sign.policy)
@@ -232,32 +241,32 @@ class AuthBase():
         return '\n'.join(sts)
 
     def _credential(self, date):
-        return "{0}/{1}/{2}/tos/request".format(self.credential.get_ak(), date[0:8], self.region)
+        return "{0}/{1}/{2}/{3}/request".format(self.credential.get_ak(), date[0:8], self.region,self.service)
 
     def _credential_scope(self, date):
-        return "{0}/{1}/tos/request".format(date[0:8], self.region)
+        return "{0}/{1}/{2}/request".format(date[0:8], self.region,self.service)
 
     def _signature(self, string_to_sign, date):
         k_date = _sign(to_bytes(self.credential.get_sk()), date[0:8])
         k_region = _sign(k_date, self.region)
-        k_service = _sign(k_region, 'tos')
+        k_service = _sign(k_region, self.service)
         k_signing = _sign(k_service, 'request')
         return _sign(k_signing, string_to_sign, hex=True)
 
 
 class Auth(AuthBase):
-    def __init__(self, access_key_id, access_key_secret, region, sts=None):
-        super(Auth, self).__init__(StaticCredentialsProvider(access_key_id, access_key_secret, sts), region)
+    def __init__(self, access_key_id, access_key_secret, region, sts=None,service='tos'):
+        super(Auth, self).__init__(StaticCredentialsProvider(access_key_id, access_key_secret, sts), region,service)
 
 
 class CredentialProviderAuth(AuthBase):
-    def __init__(self, credential_provider, region):
-        super(CredentialProviderAuth, self).__init__(credential_provider, region)
+    def __init__(self, credential_provider, region,service='tos'):
+        super(CredentialProviderAuth, self).__init__(credential_provider, region,service)
 
 
 class FederationAuth(AuthBase):
-    def __init__(self, credentials_provider: FederationCredentials, region: str):
-        super(FederationAuth, self).__init__(credentials_provider, region)
+    def __init__(self, credentials_provider: FederationCredentials, region: str,service='tos'):
+        super(FederationAuth, self).__init__(credentials_provider, region,service)
 
 
 class AnonymousAuth(object):
@@ -267,15 +276,16 @@ class AnonymousAuth(object):
     def sign_request(self, req):
         pass
 
-    def sign_url(self, req, expires):
+    def sign_url(self, req, expires, is_signed_all_headers=False):
         return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
 
     def post_sign(self, bucket: str, key: str, expires: int, conditions: [],
-                  content_length_range: ContentLengthRange) -> PreSignedPostSignatureOutPut:
+                  content_length_range: ContentLengthRange,
+                  multi_values_conditions: [] = None) -> PreSignedPostSignatureOutPut:
         date = datetime.datetime.utcnow().strftime(DATE_FORMAT)
         sign = PreSignedPostSignatureOutPut()
         sign.origin_policy = _get_post_policy(date, expires, sign.algorithm, sign.credential, bucket, key,
-                                              conditions, content_length_range)
+                                              conditions, content_length_range, multi_values_conditions=multi_values_conditions)
         sign.origin_policy = json.dumps(sign.origin_policy)
         sign.policy = base64.b64encode(sign.origin_policy.encode('utf-8')).decode('utf-8')
 

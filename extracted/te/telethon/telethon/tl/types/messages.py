@@ -2076,14 +2076,15 @@ class MessageViews(TLObject):
 
 
 class Messages(TLObject):
-    CONSTRUCTOR_ID = 0x8c718e87
+    CONSTRUCTOR_ID = 0x1d73e7ea
     SUBCLASS_OF_ID = 0xd4b40b5e
 
-    def __init__(self, messages: List['TypeMessage'], chats: List['TypeChat'], users: List['TypeUser']):
+    def __init__(self, messages: List['TypeMessage'], topics: List['TypeForumTopic'], chats: List['TypeChat'], users: List['TypeUser']):
         """
         Constructor for messages.Messages: Instance of either Messages, MessagesSlice, ChannelMessages, MessagesNotModified.
         """
         self.messages = messages
+        self.topics = topics
         self.chats = chats
         self.users = users
 
@@ -2091,14 +2092,16 @@ class Messages(TLObject):
         return {
             '_': 'Messages',
             'messages': [] if self.messages is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.messages],
+            'topics': [] if self.topics is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.topics],
             'chats': [] if self.chats is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.chats],
             'users': [] if self.users is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.users]
         }
 
     def _bytes(self):
         return b''.join((
-            b'\x87\x8eq\x8c',
+            b'\xea\xe7s\x1d',
             b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.messages)),b''.join(x._bytes() for x in self.messages),
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.topics)),b''.join(x._bytes() for x in self.topics),
             b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.chats)),b''.join(x._bytes() for x in self.chats),
             b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.users)),b''.join(x._bytes() for x in self.users),
         ))
@@ -2112,6 +2115,12 @@ class Messages(TLObject):
             _messages.append(_x)
 
         reader.read_int()
+        _topics = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _topics.append(_x)
+
+        reader.read_int()
         _chats = []
         for _ in range(reader.read_int()):
             _x = reader.tgread_object()
@@ -2123,7 +2132,7 @@ class Messages(TLObject):
             _x = reader.tgread_object()
             _users.append(_x)
 
-        return cls(messages=_messages, chats=_chats, users=_users)
+        return cls(messages=_messages, topics=_topics, chats=_chats, users=_users)
 
 
 class MessagesNotModified(TLObject):
@@ -2155,15 +2164,16 @@ class MessagesNotModified(TLObject):
 
 
 class MessagesSlice(TLObject):
-    CONSTRUCTOR_ID = 0x762b263d
+    CONSTRUCTOR_ID = 0x5f206716
     SUBCLASS_OF_ID = 0xd4b40b5e
 
-    def __init__(self, count: int, messages: List['TypeMessage'], chats: List['TypeChat'], users: List['TypeUser'], inexact: Optional[bool]=None, next_rate: Optional[int]=None, offset_id_offset: Optional[int]=None, search_flood: Optional['TypeSearchPostsFlood']=None):
+    def __init__(self, count: int, messages: List['TypeMessage'], topics: List['TypeForumTopic'], chats: List['TypeChat'], users: List['TypeUser'], inexact: Optional[bool]=None, next_rate: Optional[int]=None, offset_id_offset: Optional[int]=None, search_flood: Optional['TypeSearchPostsFlood']=None):
         """
         Constructor for messages.Messages: Instance of either Messages, MessagesSlice, ChannelMessages, MessagesNotModified.
         """
         self.count = count
         self.messages = messages
+        self.topics = topics
         self.chats = chats
         self.users = users
         self.inexact = inexact
@@ -2176,6 +2186,7 @@ class MessagesSlice(TLObject):
             '_': 'MessagesSlice',
             'count': self.count,
             'messages': [] if self.messages is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.messages],
+            'topics': [] if self.topics is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.topics],
             'chats': [] if self.chats is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.chats],
             'users': [] if self.users is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.users],
             'inexact': self.inexact,
@@ -2186,13 +2197,14 @@ class MessagesSlice(TLObject):
 
     def _bytes(self):
         return b''.join((
-            b'=&+v',
+            b'\x16g _',
             struct.pack('<I', (0 if self.inexact is None or self.inexact is False else 2) | (0 if self.next_rate is None or self.next_rate is False else 1) | (0 if self.offset_id_offset is None or self.offset_id_offset is False else 4) | (0 if self.search_flood is None or self.search_flood is False else 8)),
             struct.pack('<i', self.count),
             b'' if self.next_rate is None or self.next_rate is False else (struct.pack('<i', self.next_rate)),
             b'' if self.offset_id_offset is None or self.offset_id_offset is False else (struct.pack('<i', self.offset_id_offset)),
             b'' if self.search_flood is None or self.search_flood is False else (self.search_flood._bytes()),
             b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.messages)),b''.join(x._bytes() for x in self.messages),
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.topics)),b''.join(x._bytes() for x in self.topics),
             b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.chats)),b''.join(x._bytes() for x in self.chats),
             b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.users)),b''.join(x._bytes() for x in self.users),
         ))
@@ -2222,6 +2234,12 @@ class MessagesSlice(TLObject):
             _messages.append(_x)
 
         reader.read_int()
+        _topics = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _topics.append(_x)
+
+        reader.read_int()
         _chats = []
         for _ in range(reader.read_int()):
             _x = reader.tgread_object()
@@ -2233,7 +2251,7 @@ class MessagesSlice(TLObject):
             _x = reader.tgread_object()
             _users.append(_x)
 
-        return cls(count=_count, messages=_messages, chats=_chats, users=_users, inexact=_inexact, next_rate=_next_rate, offset_id_offset=_offset_id_offset, search_flood=_search_flood)
+        return cls(count=_count, messages=_messages, topics=_topics, chats=_chats, users=_users, inexact=_inexact, next_rate=_next_rate, offset_id_offset=_offset_id_offset, search_flood=_search_flood)
 
 
 class MyStickers(TLObject):

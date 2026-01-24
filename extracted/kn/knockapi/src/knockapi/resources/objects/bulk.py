@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from typing import List, Iterable
+from typing import Iterable
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Query, Headers, NotGiven, SequenceNotStr, not_given
 from ..._utils import maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -17,7 +17,12 @@ from ..._response import (
     async_to_streamed_response_wrapper,
 )
 from ..._base_client import make_request_options
-from ...types.objects import bulk_set_params, bulk_delete_params, bulk_add_subscriptions_params
+from ...types.objects import (
+    bulk_set_params,
+    bulk_delete_params,
+    bulk_add_subscriptions_params,
+    bulk_delete_subscriptions_params,
+)
 from ...types.bulk_operation import BulkOperation
 
 __all__ = ["BulkResource", "AsyncBulkResource"]
@@ -47,13 +52,14 @@ class BulkResource(SyncAPIResource):
         self,
         collection: str,
         *,
-        object_ids: List[str],
+        object_ids: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BulkOperation:
         """
         Bulk deletes objects from the specified collection.
@@ -68,6 +74,8 @@ class BulkResource(SyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not collection:
             raise ValueError(f"Expected a non-empty value for `collection` but received {collection!r}")
@@ -75,7 +83,11 @@ class BulkResource(SyncAPIResource):
             f"/v1/objects/{collection}/bulk/delete",
             body=maybe_transform({"object_ids": object_ids}, bulk_delete_params.BulkDeleteParams),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BulkOperation,
         )
@@ -90,7 +102,8 @@ class BulkResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BulkOperation:
         """Add subscriptions for all objects in a single collection.
 
@@ -101,7 +114,7 @@ class BulkResource(SyncAPIResource):
         for the `recipient` field.
 
         Args:
-          subscriptions: A list of subscriptions.
+          subscriptions: A nested list of subscriptions.
 
           extra_headers: Send extra headers
 
@@ -110,6 +123,8 @@ class BulkResource(SyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not collection:
             raise ValueError(f"Expected a non-empty value for `collection` but received {collection!r}")
@@ -119,7 +134,59 @@ class BulkResource(SyncAPIResource):
                 {"subscriptions": subscriptions}, bulk_add_subscriptions_params.BulkAddSubscriptionsParams
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=BulkOperation,
+        )
+
+    def delete_subscriptions(
+        self,
+        collection: str,
+        *,
+        subscriptions: Iterable[bulk_delete_subscriptions_params.Subscription],
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> BulkOperation:
+        """Delete subscriptions for many objects in a single collection type.
+
+        If a
+        subscription for an object in the collection doesn't exist, it will be skipped.
+
+        Args:
+          subscriptions: A nested list of subscriptions.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not collection:
+            raise ValueError(f"Expected a non-empty value for `collection` but received {collection!r}")
+        return self._post(
+            f"/v1/objects/{collection}/bulk/subscriptions/delete",
+            body=maybe_transform(
+                {"subscriptions": subscriptions}, bulk_delete_subscriptions_params.BulkDeleteSubscriptionsParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BulkOperation,
         )
@@ -134,7 +201,8 @@ class BulkResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BulkOperation:
         """
         Bulk sets up to 1,000 objects at a time in the specified collection.
@@ -149,6 +217,8 @@ class BulkResource(SyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not collection:
             raise ValueError(f"Expected a non-empty value for `collection` but received {collection!r}")
@@ -156,7 +226,11 @@ class BulkResource(SyncAPIResource):
             f"/v1/objects/{collection}/bulk/set",
             body=maybe_transform({"objects": objects}, bulk_set_params.BulkSetParams),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BulkOperation,
         )
@@ -186,13 +260,14 @@ class AsyncBulkResource(AsyncAPIResource):
         self,
         collection: str,
         *,
-        object_ids: List[str],
+        object_ids: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BulkOperation:
         """
         Bulk deletes objects from the specified collection.
@@ -207,6 +282,8 @@ class AsyncBulkResource(AsyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not collection:
             raise ValueError(f"Expected a non-empty value for `collection` but received {collection!r}")
@@ -214,7 +291,11 @@ class AsyncBulkResource(AsyncAPIResource):
             f"/v1/objects/{collection}/bulk/delete",
             body=await async_maybe_transform({"object_ids": object_ids}, bulk_delete_params.BulkDeleteParams),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BulkOperation,
         )
@@ -229,7 +310,8 @@ class AsyncBulkResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BulkOperation:
         """Add subscriptions for all objects in a single collection.
 
@@ -240,7 +322,7 @@ class AsyncBulkResource(AsyncAPIResource):
         for the `recipient` field.
 
         Args:
-          subscriptions: A list of subscriptions.
+          subscriptions: A nested list of subscriptions.
 
           extra_headers: Send extra headers
 
@@ -249,6 +331,8 @@ class AsyncBulkResource(AsyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not collection:
             raise ValueError(f"Expected a non-empty value for `collection` but received {collection!r}")
@@ -258,7 +342,59 @@ class AsyncBulkResource(AsyncAPIResource):
                 {"subscriptions": subscriptions}, bulk_add_subscriptions_params.BulkAddSubscriptionsParams
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=BulkOperation,
+        )
+
+    async def delete_subscriptions(
+        self,
+        collection: str,
+        *,
+        subscriptions: Iterable[bulk_delete_subscriptions_params.Subscription],
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> BulkOperation:
+        """Delete subscriptions for many objects in a single collection type.
+
+        If a
+        subscription for an object in the collection doesn't exist, it will be skipped.
+
+        Args:
+          subscriptions: A nested list of subscriptions.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not collection:
+            raise ValueError(f"Expected a non-empty value for `collection` but received {collection!r}")
+        return await self._post(
+            f"/v1/objects/{collection}/bulk/subscriptions/delete",
+            body=await async_maybe_transform(
+                {"subscriptions": subscriptions}, bulk_delete_subscriptions_params.BulkDeleteSubscriptionsParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BulkOperation,
         )
@@ -273,7 +409,8 @@ class AsyncBulkResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BulkOperation:
         """
         Bulk sets up to 1,000 objects at a time in the specified collection.
@@ -288,6 +425,8 @@ class AsyncBulkResource(AsyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not collection:
             raise ValueError(f"Expected a non-empty value for `collection` but received {collection!r}")
@@ -295,7 +434,11 @@ class AsyncBulkResource(AsyncAPIResource):
             f"/v1/objects/{collection}/bulk/set",
             body=await async_maybe_transform({"objects": objects}, bulk_set_params.BulkSetParams),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BulkOperation,
         )
@@ -310,6 +453,9 @@ class BulkResourceWithRawResponse:
         )
         self.add_subscriptions = to_raw_response_wrapper(
             bulk.add_subscriptions,
+        )
+        self.delete_subscriptions = to_raw_response_wrapper(
+            bulk.delete_subscriptions,
         )
         self.set = to_raw_response_wrapper(
             bulk.set,
@@ -326,6 +472,9 @@ class AsyncBulkResourceWithRawResponse:
         self.add_subscriptions = async_to_raw_response_wrapper(
             bulk.add_subscriptions,
         )
+        self.delete_subscriptions = async_to_raw_response_wrapper(
+            bulk.delete_subscriptions,
+        )
         self.set = async_to_raw_response_wrapper(
             bulk.set,
         )
@@ -341,6 +490,9 @@ class BulkResourceWithStreamingResponse:
         self.add_subscriptions = to_streamed_response_wrapper(
             bulk.add_subscriptions,
         )
+        self.delete_subscriptions = to_streamed_response_wrapper(
+            bulk.delete_subscriptions,
+        )
         self.set = to_streamed_response_wrapper(
             bulk.set,
         )
@@ -355,6 +507,9 @@ class AsyncBulkResourceWithStreamingResponse:
         )
         self.add_subscriptions = async_to_streamed_response_wrapper(
             bulk.add_subscriptions,
+        )
+        self.delete_subscriptions = async_to_streamed_response_wrapper(
+            bulk.delete_subscriptions,
         )
         self.set = async_to_streamed_response_wrapper(
             bulk.set,

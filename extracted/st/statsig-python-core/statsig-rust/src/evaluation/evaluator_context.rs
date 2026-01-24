@@ -1,50 +1,69 @@
-use crate::evaluation::dynamic_value::DynamicValue;
-use crate::evaluation::evaluator_result::EvaluatorResult;
-use crate::event_logging::exposable_string::ExposableString;
-use crate::hashing::HashUtil;
-use crate::spec_store::SpecStoreData;
-use crate::specs_response::spec_types::{Rule, Spec};
-use crate::user::StatsigUserInternal;
-use crate::StatsigErr::StackOverflowError;
-use crate::{OverrideAdapter, StatsigErr};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::evaluation::dynamic_value::DynamicValue;
+use crate::evaluation::evaluator_result::EvaluatorResult;
+use crate::hashing::HashUtil;
+use crate::id_lists_adapter::IdList;
+use crate::interned_string::InternedString;
+use crate::specs_response::spec_types::{Rule, Spec, SpecsResponseFull};
+use crate::user::StatsigUserInternal;
+use crate::StatsigErr::StackOverflowError;
+use crate::{OverrideAdapter, Statsig, StatsigErr};
+
 const MAX_RECURSIVE_DEPTH: u16 = 300;
+
+// (gate_name, (bool_value, rule_id))
+type NestedGateMemo = HashMap<InternedString, (bool, Option<InternedString>)>;
+
+pub enum IdListResolution<'a> {
+    MapLookup(&'a HashMap<String, IdList>),
+    Callback(&'a dyn Fn(&str, &str) -> bool),
+}
 
 pub struct EvaluatorContext<'a> {
     pub user: &'a StatsigUserInternal<'a, 'a>,
-    pub spec_store_data: &'a SpecStoreData,
+    pub specs_data: &'a SpecsResponseFull,
+    pub id_list_resolver: IdListResolution<'a>,
     pub hashing: &'a HashUtil,
-    pub result: EvaluatorResult<'a>,
+    pub result: EvaluatorResult,
     pub nested_count: u16,
     pub app_id: Option<&'a DynamicValue>,
     pub override_adapter: Option<&'a Arc<dyn OverrideAdapter>>,
-    pub nested_gate_memo: HashMap<&'a str, (bool, Option<&'a ExposableString>)>,
-    pub use_experimental_ua_parser: bool,
+    pub nested_gate_memo: NestedGateMemo,
+    pub should_user_third_party_parser: bool,
+    pub statsig: Option<&'a Statsig>,
+    pub disable_exposure_logging: bool,
 }
 
 impl<'a> EvaluatorContext<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         user: &'a StatsigUserInternal,
-        spec_store_data: &'a SpecStoreData,
+        specs_data: &'a SpecsResponseFull,
+        id_list_resolver: IdListResolution<'a>,
         hashing: &'a HashUtil,
         app_id: Option<&'a DynamicValue>,
         override_adapter: Option<&'a Arc<dyn OverrideAdapter>>,
-        use_experimental_ua_parser: bool,
+        should_user_third_party_parser: bool,
+        statsig: Option<&'a Statsig>,
+        disable_exposure_logging: bool,
     ) -> Self {
         let result = EvaluatorResult::default();
 
         Self {
             user,
-            spec_store_data,
+            specs_data,
+            id_list_resolver,
             hashing,
             app_id,
             result,
             override_adapter,
             nested_count: 0,
             nested_gate_memo: HashMap::new(),
-            use_experimental_ua_parser,
+            should_user_third_party_parser,
+            statsig,
+            disable_exposure_logging,
         }
     }
 

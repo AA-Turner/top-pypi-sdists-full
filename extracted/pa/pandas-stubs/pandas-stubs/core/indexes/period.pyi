@@ -1,9 +1,6 @@
 from collections.abc import Hashable
 import datetime
-from typing import (
-    Any,
-    overload,
-)
+from typing import overload
 
 import numpy as np
 import pandas as pd
@@ -22,22 +19,30 @@ from pandas._typing import (
     AxesData,
     Dtype,
     Frequency,
-    np_1darray,
+    np_1darray_intp,
+    np_1darray_object,
+    np_ndarray_bool,
 )
 
 class PeriodIndex(DatetimeIndexOpsMixin[pd.Period, np.object_], PeriodIndexFieldOps):
     def __new__(
         cls,
-        data: AxesData[Any] | None = None,
+        data: AxesData | None = None,
         freq: Frequency | None = None,
         dtype: Dtype | None = None,
         copy: bool = False,
         name: Hashable | None = None,
     ) -> Self: ...
     @property
-    def values(self) -> np_1darray[np.object_]: ...
-    @overload
-    def __sub__(self, other: Period) -> Index: ...
+    def values(self) -> np_1darray_object: ...
+    def __add__(  # type: ignore[override] # pyright: ignore[reportIncompatibleMethodOverride] # pyrefly: ignore[bad-override] # ty: ignore[invalid-method-override]
+        self, other: datetime.timedelta
+    ) -> Self: ...
+    def __radd__(  # type: ignore[override] # pyright: ignore[reportIncompatibleMethodOverride] # pyrefly: ignore[bad-override] # ty: ignore[invalid-method-override]
+        self, other: datetime.timedelta
+    ) -> Self: ...
+    @overload  # type: ignore[override]
+    def __sub__(self, other: Period) -> Index: ...  # pyrefly: ignore[bad-override]
     @overload
     def __sub__(self, other: Self) -> Index: ...
     @overload
@@ -45,20 +50,20 @@ class PeriodIndex(DatetimeIndexOpsMixin[pd.Period, np.object_], PeriodIndexField
     @overload
     def __sub__(self, other: NaTType) -> NaTType: ...
     @overload
-    def __sub__(self, other: TimedeltaIndex | pd.Timedelta) -> Self: ...
+    def __sub__(  # pyright: ignore[reportIncompatibleMethodOverride] # ty: ignore[invalid-method-override]
+        self, other: TimedeltaIndex | pd.Timedelta
+    ) -> Self: ...
     @overload  # type: ignore[override]
-    def __rsub__(self, other: Period) -> Index: ...
+    def __rsub__(self, other: Period) -> Index: ...  # pyrefly: ignore[bad-override]
     @overload
     def __rsub__(self, other: Self) -> Index: ...
     @overload
-    def __rsub__(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def __rsub__(  # pyright: ignore[reportIncompatibleMethodOverride] # ty: ignore[invalid-method-override]
         self, other: NaTType
     ) -> NaTType: ...
     def asof_locs(
-        self,
-        where: pd.DatetimeIndex | PeriodIndex,
-        mask: np_1darray[np.bool_],
-    ) -> np_1darray[np.intp]: ...
+        self, where: pd.DatetimeIndex | Self, mask: np_ndarray_bool
+    ) -> np_1darray_intp: ...
     @property
     def is_full(self) -> bool: ...
     @property

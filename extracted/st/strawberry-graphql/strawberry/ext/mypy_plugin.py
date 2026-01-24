@@ -1,15 +1,11 @@
 from __future__ import annotations
 
 import re
-import typing
 import warnings
 from decimal import Decimal
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Optional,
-    Union,
     cast,
 )
 
@@ -44,6 +40,7 @@ from mypy.types import (
     CallableType,
     Instance,
     NoneType,
+    Type,
     TypeOfAny,
     TypeVarType,
     UnionType,
@@ -57,7 +54,7 @@ try:
 except ImportError:
     TypeVarDef = TypeVarType
 
-PYDANTIC_VERSION: Optional[tuple[int, ...]] = None
+PYDANTIC_VERSION: tuple[int, ...] | None = None
 
 # To be compatible with user who don't use pydantic
 try:
@@ -74,6 +71,8 @@ except ImportError:
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from mypy.nodes import ClassDef, Expression
     from mypy.plugins import (  # type: ignore
         AnalyzeTypeContext,
@@ -158,21 +157,31 @@ def _get_type_for_expr(expr: Expression, api: SemanticAnalyzerPluginInterface) -
     raise ValueError(f"Unsupported expression {type(expr)}")
 
 
-def create_type_hook(ctx: DynamicClassDefContext) -> None:
-    # returning classes/type aliases is not supported yet by mypy
-    # see https://github.com/python/mypy/issues/5865
+def create_type_alias(
+    target: Type, ctx: DynamicClassDefContext, plugin_generated: bool
+) -> None:
+    init_kwargs = {
+        "target": target,
+        "fullname": ctx.api.qualified_name(ctx.name),
+        "line": ctx.call.line,
+        "column": ctx.call.column,
+    }
 
-    type_alias = TypeAlias(
-        AnyType(TypeOfAny.from_error),
-        fullname=ctx.api.qualified_name(ctx.name),
-        line=ctx.call.line,
-        column=ctx.call.column,
-    )
+    if Decimal("1.19") <= MypyVersion.VERSION:
+        init_kwargs["module"] = ctx.api.cur_mod_id
+
+    type_alias = TypeAlias(**init_kwargs)
 
     ctx.api.add_symbol_table_node(
         ctx.name,
-        SymbolTableNode(GDEF, type_alias, plugin_generated=True),
+        SymbolTableNode(GDEF, type_alias, plugin_generated=plugin_generated),
     )
+
+
+def create_type_hook(ctx: DynamicClassDefContext) -> None:
+    # returning classes/type aliases is not supported yet by mypy
+    # see https://github.com/python/mypy/issues/5865
+    create_type_alias(AnyType(TypeOfAny.from_error), ctx, plugin_generated=True)
 
 
 def union_hook(ctx: DynamicClassDefContext) -> None:
@@ -189,30 +198,12 @@ def union_hook(ctx: DynamicClassDefContext) -> None:
                 tuple(_get_type_for_expr(x, ctx.api) for x in types.items)
             )
         except InvalidNodeTypeException:
-            type_alias = TypeAlias(
-                AnyType(TypeOfAny.from_error),
-                fullname=ctx.api.qualified_name(ctx.name),
-                line=ctx.call.line,
-                column=ctx.call.column,
+            create_type_alias(
+                AnyType(TypeOfAny.from_error), ctx, plugin_generated=False
             )
-
-            ctx.api.add_symbol_table_node(
-                ctx.name,
-                SymbolTableNode(GDEF, type_alias, plugin_generated=False),
-            )
-
             return
 
-        type_alias = TypeAlias(
-            type_,
-            fullname=ctx.api.qualified_name(ctx.name),
-            line=ctx.call.line,
-            column=ctx.call.column,
-        )
-
-        ctx.api.add_symbol_table_node(
-            ctx.name, SymbolTableNode(GDEF, type_alias, plugin_generated=False)
-        )
+        create_type_alias(type_, ctx, plugin_generated=False)
 
 
 def enum_hook(ctx: DynamicClassDefContext) -> None:
@@ -229,19 +220,10 @@ def enum_hook(ctx: DynamicClassDefContext) -> None:
                 TypeOfAny.implementation_artifact
             )
 
-            type_alias = TypeAlias(
-                var_type,
-                fullname=ctx.api.qualified_name(ctx.name),
-                line=ctx.call.line,
-                column=ctx.call.column,
-            )
-
-            ctx.api.add_symbol_table_node(
-                ctx.name, SymbolTableNode(GDEF, type_alias, plugin_generated=False)
-            )
+            create_type_alias(var_type, ctx, plugin_generated=False)
             return
 
-    enum_type: Optional[Type]
+    enum_type: Type | None
 
     try:
         enum_type = _get_type_for_expr(first_argument, ctx.api)
@@ -251,20 +233,21 @@ def enum_hook(ctx: DynamicClassDefContext) -> None:
     if not enum_type:
         enum_type = AnyType(TypeOfAny.from_error)
 
-    type_alias = TypeAlias(
-        enum_type,
-        fullname=ctx.api.qualified_name(ctx.name),
-        line=ctx.call.line,
-        column=ctx.call.column,
-    )
-
-    ctx.api.add_symbol_table_node(
-        ctx.name, SymbolTableNode(GDEF, type_alias, plugin_generated=False)
-    )
+    create_type_alias(enum_type, ctx, plugin_generated=False)
 
 
 def scalar_hook(ctx: DynamicClassDefContext) -> None:
+    # If there are no positional arguments, this is the new scalar(name="...")
+    # pattern which returns a ScalarDefinition - no mypy magic needed
+    if not ctx.call.args:
+        return
+
     first_argument = ctx.call.args[0]
+
+    # If the first argument is a string (StrExpr), this is scalar(name="...")
+    # which returns a ScalarDefinition - no mypy magic needed
+    if not isinstance(first_argument, (NameExpr, CallExpr, IndexExpr, MemberExpr)):
+        return
 
     if isinstance(first_argument, NameExpr):
         if not first_argument.node:
@@ -277,19 +260,10 @@ def scalar_hook(ctx: DynamicClassDefContext) -> None:
                 TypeOfAny.implementation_artifact
             )
 
-            type_alias = TypeAlias(
-                var_type,
-                fullname=ctx.api.qualified_name(ctx.name),
-                line=ctx.call.line,
-                column=ctx.call.column,
-            )
-
-            ctx.api.add_symbol_table_node(
-                ctx.name, SymbolTableNode(GDEF, type_alias, plugin_generated=False)
-            )
+            create_type_alias(var_type, ctx, plugin_generated=False)
             return
 
-    scalar_type: Optional[Type]
+    scalar_type: Type | None
 
     # TODO: add proper support for NewType
 
@@ -301,25 +275,16 @@ def scalar_hook(ctx: DynamicClassDefContext) -> None:
     if not scalar_type:
         scalar_type = AnyType(TypeOfAny.from_error)
 
-    type_alias = TypeAlias(
-        scalar_type,
-        fullname=ctx.api.qualified_name(ctx.name),
-        line=ctx.call.line,
-        column=ctx.call.column,
-    )
-
-    ctx.api.add_symbol_table_node(
-        ctx.name, SymbolTableNode(GDEF, type_alias, plugin_generated=False)
-    )
+    create_type_alias(scalar_type, ctx, plugin_generated=False)
 
 
 def add_static_method_to_class(
-    api: Union[SemanticAnalyzerPluginInterface, CheckerPluginInterface],
+    api: SemanticAnalyzerPluginInterface | CheckerPluginInterface,
     cls: ClassDef,
     name: str,
     args: list[Argument],
     return_type: Type,
-    tvar_def: Optional[TypeVarType] = None,
+    tvar_def: TypeVarType | None = None,
 ) -> None:
     """Adds a static method.
 
@@ -355,7 +320,7 @@ def add_static_method_to_class(
         arg_types, arg_kinds, arg_names, return_type, function_type
     )
     if tvar_def:
-        signature.variables = [tvar_def]
+        signature.variables = [tvar_def]  # type: ignore[assignment]
 
     func = FuncDef(name, args, Block([PassStmt()]))
 
@@ -527,7 +492,7 @@ def strawberry_pydantic_class_callback(ctx: ClassDefContext) -> None:
 class StrawberryPlugin(Plugin):
     def get_dynamic_class_hook(
         self, fullname: str
-    ) -> Optional[Callable[[DynamicClassDefContext], None]]:
+    ) -> Callable[[DynamicClassDefContext], None] | None:
         # TODO: investigate why we need this instead of `strawberry.union.union` on CI
         # we have the same issue in the other hooks
         if self._is_strawberry_union(fullname):
@@ -544,7 +509,7 @@ class StrawberryPlugin(Plugin):
 
         return None
 
-    def get_type_analyze_hook(self, fullname: str) -> Union[Callable[..., Type], None]:
+    def get_type_analyze_hook(self, fullname: str) -> Callable[..., Type] | None:
         if self._is_strawberry_lazy_type(fullname):
             return lazy_type_analyze_callback
 
@@ -552,7 +517,7 @@ class StrawberryPlugin(Plugin):
 
     def get_class_decorator_hook(
         self, fullname: str
-    ) -> Optional[Callable[[ClassDefContext], None]]:
+    ) -> Callable[[ClassDefContext], None] | None:
         if self._is_strawberry_pydantic_decorator(fullname):
             return strawberry_pydantic_class_callback
 
@@ -613,7 +578,7 @@ class StrawberryPlugin(Plugin):
         )
 
 
-def plugin(version: str) -> typing.Type[StrawberryPlugin]:
+def plugin(version: str) -> type[StrawberryPlugin]:
     match = VERSION_RE.match(version)
     if match:
         MypyVersion.VERSION = Decimal(".".join(match.groups()))

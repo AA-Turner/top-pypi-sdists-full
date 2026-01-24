@@ -7,8 +7,9 @@ __all__ = ["concatenate_along_batch", "concatenate_along_seq", "tile_along_seq"]
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
+from coola.recursive import recursive_apply
+
 from batcharray import array as ba
-from batcharray.recursive import recursive_apply
 
 if TYPE_CHECKING:
     from collections.abc import Hashable, Sequence
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
 
 
 def concatenate_along_batch(
-    data: Sequence[dict[Hashable, np.ndarray]]
+    data: Sequence[dict[Hashable, np.ndarray]],
 ) -> dict[Hashable, np.ndarray]:
     r"""Concatenate the given arrays in the batch axis.
 
@@ -36,25 +37,23 @@ def concatenate_along_batch(
     Returns:
         The concatenated arrays along the batch axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import concatenate_along_batch
+        >>> data = [
+        ...     {
+        ...         "a": np.array([[0, 1, 2], [4, 5, 6]]),
+        ...         "b": np.array([[10, 11, 12], [13, 14, 15]]),
+        ...     },
+        ...     {"a": np.array([[7, 8, 9]]), "b": np.array([[17, 18, 19]])},
+        ... ]
+        >>> out = concatenate_along_batch(data)
+        >>> out
+        {'a': array([[0, 1, 2], [4, 5, 6], [7, 8, 9]]),
+         'b': array([[10, 11, 12], [13, 14, 15], [17, 18, 19]])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import concatenate_along_batch
-    >>> data = [
-    ...     {
-    ...         "a": np.array([[0, 1, 2], [4, 5, 6]]),
-    ...         "b": np.array([[10, 11, 12], [13, 14, 15]]),
-    ...     },
-    ...     {"a": np.array([[7, 8, 9]]), "b": np.array([[17, 18, 19]])},
-    ... ]
-    >>> out = concatenate_along_batch(data)
-    >>> out
-    {'a': array([[0, 1, 2], [4, 5, 6], [7, 8, 9]]),
-     'b': array([[10, 11, 12], [13, 14, 15], [17, 18, 19]])}
-
-    ```
+        ```
     """
     if not data:
         return {}
@@ -80,25 +79,23 @@ def concatenate_along_seq(data: Sequence[dict[Hashable, np.ndarray]]) -> dict[Ha
     Returns:
         The concatenated arrays along the sequence axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import concatenate_along_seq
+        >>> data = [
+        ...     {
+        ...         "a": np.array([[0, 1, 2], [4, 5, 6]]),
+        ...         "b": np.array([[10, 11, 12], [13, 14, 15]]),
+        ...     },
+        ...     {"a": np.array([[7], [8]]), "b": np.array([[17], [18]])},
+        ... ]
+        >>> out = concatenate_along_seq(data)
+        >>> out
+        {'a': array([[0, 1, 2, 7], [4, 5, 6, 8]]),
+         'b': array([[10, 11, 12, 17], [13, 14, 15, 18]])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import concatenate_along_seq
-    >>> data = [
-    ...     {
-    ...         "a": np.array([[0, 1, 2], [4, 5, 6]]),
-    ...         "b": np.array([[10, 11, 12], [13, 14, 15]]),
-    ...     },
-    ...     {"a": np.array([[7], [8]]), "b": np.array([[17], [18]])},
-    ... ]
-    >>> out = concatenate_along_seq(data)
-    >>> out
-    {'a': array([[0, 1, 2, 7], [4, 5, 6, 8]]),
-     'b': array([[10, 11, 12, 17], [13, 14, 15, 18]])}
-
-    ```
+        ```
     """
     if not data:
         return {}
@@ -122,21 +119,19 @@ def tile_along_seq(data: Any, reps: int) -> Any:
     Returns:
         The arrays repeated along the sequence axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import tile_along_seq
+        >>> data = {
+        ...     "a": np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]]),
+        ...     "b": np.array([[4, 3, 2, 1, 0]]),
+        ... }
+        >>> out = tile_along_seq(data, 2)
+        >>> out
+        {'a': array([[0, 1, 2, 3, 4, 0, 1, 2, 3, 4], [5, 6, 7, 8, 9, 5, 6, 7, 8, 9]]),
+         'b': array([[4, 3, 2, 1, 0, 4, 3, 2, 1, 0]])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import tile_along_seq
-    >>> data = {
-    ...     "a": np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]]),
-    ...     "b": np.array([[4, 3, 2, 1, 0]]),
-    ... }
-    >>> out = tile_along_seq(data, 2)
-    >>> out
-    {'a': array([[0, 1, 2, 3, 4, 0, 1, 2, 3, 4], [5, 6, 7, 8, 9, 5, 6, 7, 8, 9]]),
-     'b': array([[4, 3, 2, 1, 0, 4, 3, 2, 1, 0]])}
-
-    ```
+        ```
     """
     return recursive_apply(data, partial(ba.tile_along_seq, reps=reps))

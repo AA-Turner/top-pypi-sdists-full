@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter-server-ydoc
-Version: 2.1.1
+Version: 2.2.0
 Summary: jupyter-server extension integrating collaborative shared models.
 Project-URL: Documentation, https://jupyterlab-realtime-collaboration.readthedocs.io/
 Project-URL: Repository, https://github.com/jupyterlab/jupyter-collaboration

@@ -1,26 +1,26 @@
-/*
- * This externs file prevents the Closure JS compiler from minifying away
- * names of objects created by Emscripten.
- * Basically, by defining empty objects and functions here, Closure will
- * know not to rename them.  This is needed because of our pre-js files,
- * that is, the JS we hand-write to bundle into the output. That JS will be
- * hit by the closure compiler and thus needs to know about what functions
- * have special names and should not be minified.
- *
- * Emscripten does not support automatically generating an externs file, so we
- * do it by hand. The general process is to write some JS code, and then put any
- * calls to CanvasKit or related things in here. Running ./compile.sh and then
- * looking at the minified results or running the Release trybot should
- * verify nothing was missed. Optionally, looking directly at the minified
- * pathkit.js can be useful when developing locally.
- *
- * Docs:
- *   https://github.com/cljsjs/packages/wiki/Creating-Externs
- *   https://github.com/google/closure-compiler/wiki/Types-in-the-Closure-Type-System
- *
- * Example externs:
- *   https://github.com/google/closure-compiler/tree/master/externs
- */
+//
+// This externs file prevents the Closure JS compiler from minifying away
+// names of objects created by Emscripten.
+// Basically, by defining empty objects and functions here, Closure will
+// know not to rename them.  This is needed because of our pre-js files,
+// that is, the JS we hand-write to bundle into the output. That JS will be
+// hit by the closure compiler and thus needs to know about what functions
+// have special names and should not be minified.
+//
+// Emscripten does not support automatically generating an externs file, so we
+// do it by hand. The general process is to write some JS code, and then put any
+// calls to CanvasKit or related things in here. Running ./compile.sh and then
+// looking at the minified results or running the Release trybot should
+// verify nothing was missed. Optionally, looking directly at the minified
+// pathkit.js can be useful when developing locally.
+//
+// Docs:
+//   https://github.com/cljsjs/packages/wiki/Creating-Externs
+//   https://github.com/google/closure-compiler/wiki/Types-in-the-Closure-Type-System
+//
+// Example externs:
+//   https://github.com/google/closure-compiler/tree/master/externs
+//
 
 var CanvasKit = {
   // public API (i.e. things we declare in the pre-js file or in the cpp bindings)
@@ -110,6 +110,10 @@ var CanvasKit = {
     _size: function() {},
   },
 
+  Blender: {
+    Mode: function() {},
+  },
+
   GrDirectContext: {
     // public API (from webgl.js)
     prototype: {
@@ -132,12 +136,34 @@ var CanvasKit = {
       seek: function() {},
       seekFrame: function() {},
       setColor: function() {},
+      setColorSlot: function() {},
+      getColorSlot: function() {},
+      setScalarSlot: function() {},
+      getScalarSlot: function() {},
+      setVec2Slot: function() {},
+      getVec2Slot: function() {},
+      setTextSlot: function() {},
+      getTextSlot: function() {},
+      setImageSlot: function() {},
       setTransform: function() {},
       size: function() {},
+
+      attachEditor:          function() {},
+      enableEditor:          function() {},
+      dispatchEditorKey:     function() {},
+      dispatchEditorPointer: function() {},
+      setEditorCursorWeight: function() {},
     },
     _render: function() {},
     _seek: function() {},
     _seekFrame: function() {},
+    _setTransform: function() {},
+    _getSlotInfo: function() {},
+    _setColorSlot: function() {},
+    _getColorSlot: function() {},
+    _setVec2Slot: function() {},
+    _getVec2Slot: function() {},
+    _setTextSlot: function() {},
     _size: function() {},
   },
 
@@ -149,16 +175,21 @@ var CanvasKit = {
     getHeight: function() {},
     getIdeographicBaseline: function() {},
     getLineMetrics: function() {},
+    getLineMetricsAt: function() {},
+    getLineNumberAt: function() {},
     getLongestLine: function() {},
     getMaxIntrinsicWidth: function() {},
     getMaxWidth: function() {},
     getMinIntrinsicWidth: function() {},
+    getNumberOfLines: function() {},
     getWordBoundary: function() {},
     getShapedLines: function() {},
     layout: function() {},
 
     // private API
     /** @return {Float32Array} */
+    _getClosestGlyphInfoAtCoordinate: function() {},
+    _getGlyphInfoAt: function() {},
     _getRectsForRange: function() {},
     _getRectsForPlaceholders: function() {},
   },
@@ -207,9 +238,26 @@ var CanvasKit = {
     _setLineBreaksUtf16: function() {},
   },
 
+  Bidi: {
+    Make: function() {},
+    getBidiRegions: function () {},
+    reorderVisual: function () {},
+    // private API
+    _getBidiRegions: function() {},
+    _reorderVisual: function() {},
+  },
+
+  CodeUnits: {
+    Make: function() {},
+    compute: function() {},
+    // private API
+    _compute: function() {},
+  },
+
   RuntimeEffect: {
     // public API (from JS bindings)
     Make: function() {},
+    MakeForBlender: function() {},
     getUniform: function() {},
     getUniformCount: function() {},
     getUniformFloatCount: function() {},
@@ -217,11 +265,14 @@ var CanvasKit = {
     prototype: {
       makeShader: function() {},
       makeShaderWithChildren: function() {},
+      makeBlender: function() {},
     },
     // private API (from C++ bindings)
     _Make: function() {},
+    _MakeForBlender: function() {},
     _makeShader: function() {},
     _makeShaderWithChildren: function() {},
+    _makeBlender: function() {},
   },
 
   ParagraphStyle: function() {},
@@ -287,6 +338,7 @@ var CanvasKit = {
       drawTextBlob: function() {},
       drawVertices: function() {},
       getDeviceClipBounds: function() {},
+      quickReject: function() {},
       getLocalToDevice: function() {},
       getTotalMatrix: function() {},
       readPixels: function() {},
@@ -330,6 +382,7 @@ var CanvasKit = {
     _drawTextBlob: function() {},
     _drawVertices: function() {},
     _getDeviceClipBounds: function() {},
+    _quickReject: function() {},
     _getLocalToDevice: function() {},
     _getTotalMatrix: function() {},
     _readPixels: function() {},
@@ -419,6 +472,7 @@ var CanvasKit = {
     FromData: function() {},
     countFamilies: function() {},
     getFamilyName: function() {},
+    matchFamilyStyle: function() {},
 
     // private API
     _makeTypefaceFromData: function() {},
@@ -475,7 +529,12 @@ var CanvasKit = {
     MakeMatrixTransform: function() {},
     MakeOffset: function() {},
 
+    prototype: {
+      getOutputBounds: function() {},
+    },
+
     // private API
+    _getOutputBounds: function() {},
     _MakeDropShadow: function() {},
     _MakeDropShadowOnly: function() {},
     _MakeImageCubic: function() {},
@@ -532,6 +591,7 @@ var CanvasKit = {
     getStrokeWidth: function() {},
     setAntiAlias: function() {},
     setBlendMode: function() {},
+    setBlender: function() {},
     setColorInt: function() {},
     setDither: function() {},
     setImageFilter: function() {},
@@ -580,66 +640,84 @@ var CanvasKit = {
     MakeFromOp: function() {},
     MakeFromVerbsPointsWeights: function() {},
     contains: function() {},
-    /** @return {CanvasKit.Path} */
     copy: function() {},
     countPoints: function() {},
     equals: function() {},
     getFillType: function() {},
     isEmpty: function() {},
-    isVolatile: function() {},
     makeAsWinding: function() {},
-    reset: function() {},
-    rewind: function() {},
+    makeDash: function() {},
     setFillType: function() {},
-    setIsVolatile: function() {},
     toCmds: function() {},
     toSVGString: function() {},
 
     prototype: {
-      addArc: function() {},
-      addCircle: function() {},
-      addOval: function() {},
-      addPath: function() {},
-      addPoly: function() {},
-      addRect: function() {},
-      addRRect: function() {},
-      addVerbsPointsWeights: function() {},
-      arc: function() {},
-      arcToOval: function() {},
-      arcToRotated: function() {},
-      arcToTangent: function() {},
-      close: function() {},
-      conicTo: function() {},
       computeTightBounds: function() {},
-      cubicTo: function() {},
-      dash: function() {},
       getBounds: function() {},
       getPoint: function() {},
-      lineTo: function() {},
-      moveTo: function() {},
-      offset: function() {},
-      op: function() {},
-      quadTo: function() {},
-      rArcTo: function() {},
-      rConicTo: function() {},
-      rCubicTo: function() {},
-      rLineTo: function() {},
-      rMoveTo: function() {},
-      rQuadTo: function() {},
-      simplify: function() {},
-      stroke: function() {},
-      transform: function() {},
-      trim: function() {},
+      makeStroked: function() {},
+      makeTrimmed: function() {},
+      makeSimplified: function() {},
+      makeCombined: function() {},
     },
 
     // private API
     _MakeFromCmds: function() {},
     _MakeFromVerbsPointsWeights: function() {},
+    _computeTightBounds: function() {},
+    _getBounds: function() {},
+    _getPoint: function() {},
+    _makeCombined: function() {},
+    _makeSimplified: function() {},
+    _makeStroked: function() {},
+    _makeTrimmed: function() {},
+    delete: function() {},
+    dump: function() {},
+    dumpHex: function() {},
+  },
+
+  PathBuilder: {
+    // public API (from C++ and JS bindings)
+    countPoints: function() {},
+    detach: function() {},
+    detachAndDelete: function() {},
+    isEmpty: function() {},
+    reset: function() {},
+    setFillType: function() {},
+    snapshot: function() {},
+
+    prototype: {
+        addArc: function() {},
+        addCircle: function() {},
+        addOval: function() {},
+        addPath: function() {},
+        addPolygon: function() {},
+        addRect: function() {},
+        addRRect: function() {},
+        addVerbsPointsWeights: function() {},
+        arcToOval: function() {},
+        arcToRotated: function() {},
+        arcToTangent: function() {},
+        close: function() {},
+        conicTo: function() {},
+        cubicTo: function() {},
+        lineTo: function() {},
+        moveTo: function() {},
+        quadTo: function() {},
+        rArcTo: function() {},
+        rConicTo: function() {},
+        rCubicTo: function() {},
+        rLineTo: function() {},
+        rMoveTo: function() {},
+        rQuadTo: function() {},
+        transform: function() {},
+    },
+
     _addArc: function() {},
     _addCircle: function() {},
     _addOval: function() {},
     _addPath: function() {},
-    _addPoly: function() {},
+    _addPolygon: function() {},
     _addRect: function() {},
     _addRRect: function() {},
     _addVerbsPointsWeights: function() {},
@@ -648,37 +726,30 @@ var CanvasKit = {
     _arcToTangent: function() {},
     _close: function() {},
     _conicTo: function() {},
-    _computeTightBounds: function() {},
     _cubicTo: function() {},
-    _dash: function() {},
     _getBounds: function() {},
-    _getPoint: function() {},
     _lineTo: function() {},
     _moveTo: function() {},
-    _op: function() {},
     _quadTo: function() {},
     _rArcTo: function() {},
     _rConicTo: function() {},
     _rCubicTo: function() {},
-    _rect: function() {},
     _rLineTo: function() {},
     _rMoveTo: function() {},
     _rQuadTo: function() {},
-    _simplify: function() {},
-    _stroke: function() {},
     _transform: function() {},
-    _trim: function() {},
-    delete: function() {},
-    dump: function() {},
-    dumpHex: function() {},
+
   },
 
   Picture: {
     serialize: function() {},
+    approximateByteSize: function() {},
     prototype: {
       makeShader: function() {},
+      cullRect: function () {},
     },
     _makeShader: function() {},
+    _cullRect: function () {},
   },
 
   PictureRecorder: {
@@ -755,11 +826,13 @@ var CanvasKit = {
   },
 
   Typeface: {
-    MakeFreeTypeFaceFromData: function() {},
+    GetDefault: function() {},
+    MakeTypefaceFromData: function() {},
     prototype: {
       getGlyphIDs: function() {},
+      getFamilyName: function() {},
     },
-    _MakeFreeTypeFaceFromData: function() {},
+    _MakeTypefaceFromData: function() {},
     _getGlyphIDs: function() {},
   },
 
@@ -1065,6 +1138,31 @@ var CanvasKit = {
     TriangleFan: {},
   },
 
+  InputState: {
+    Up: {},
+    Down: {},
+    Move: {},
+    Right: {},
+    Left: {},
+  },
+
+  ModifierKey: {
+    None: {},
+    Shift: {},
+    Control: {},
+    Option: {},
+    Command: {},
+    FirstPass: {},
+  },
+
+  CodeUnitFlags: {
+    NoCodeUnitFlag: {},
+    Whitespace: {},
+    Space: {},
+    Control: {},
+    Ideographic: {},
+  },
+
   // Things Enscriptem adds for us
 
   /**
@@ -1110,6 +1208,8 @@ var CanvasKit = {
 // unless they go on the prototype.
 CanvasKit.Paragraph.prototype.getRectsForRange = function() {};
 CanvasKit.Paragraph.prototype.getRectsForPlaceholders = function() {};
+CanvasKit.Paragraph.prototype.getClosestGlyphInfoAtCoordinate = function() {};
+CanvasKit.Paragraph.prototype.getGlyphInfoAt = function() {};
 
 CanvasKit.Surface.prototype.dispose = function() {};
 CanvasKit.Surface.prototype.flush = function() {};

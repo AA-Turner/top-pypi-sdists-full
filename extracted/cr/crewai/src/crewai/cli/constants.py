@@ -145,6 +145,7 @@ MODELS = {
         "claude-3-haiku-20240307",
     ],
     "gemini": [
+        "gemini/gemini-3-pro-preview",
         "gemini/gemini-1.5-flash",
         "gemini/gemini-1.5-pro",
         "gemini/gemini-2.0-flash-lite-001",
@@ -322,7 +323,7 @@ MODELS = {
     ],
 }
 
-DEFAULT_LLM_MODEL = "gpt-4o-mini"
+DEFAULT_LLM_MODEL = "gpt-4.1-mini"
 
 JSON_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
 

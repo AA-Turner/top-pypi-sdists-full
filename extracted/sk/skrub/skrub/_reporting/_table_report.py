@@ -4,6 +4,9 @@ import json
 import numbers
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+
 from .. import _config
 from .. import _dataframe as sbd
 from ._html import to_html
@@ -25,7 +28,6 @@ def _check_max_cols(max_plot_columns, max_association_columns):
             "'max_plot_columns' must be a positive scalar or 'all', got"
             f" {max_plot_columns!r}."
         )
-
     max_association_columns = (
         max_association_columns
         if max_association_columns is not None
@@ -46,9 +48,9 @@ def _check_max_cols(max_plot_columns, max_association_columns):
 class TableReport:
     r"""Summarize the contents of a dataframe.
 
-    This class summarizes a dataframe, providing information such as the type
-    and summary statistics (mean, number of missing values, etc.) for each
-    column.
+    This class summarizes a dataframe or numpy array, providing information such as
+    the type and summary statistics (mean, number of missing values, etc.) for each
+    column. Numpy arrays are converted to pandas DataFrame or Series.
 
     Parameters
     ----------
@@ -110,6 +112,15 @@ class TableReport:
         .. code:: shell
 
             export SKB_MAX_ASSOCIATION_COLUMNS=30
+
+    open_tab : str, default="table"
+        The tab that will be displayed by default when the report is opened.
+        Must be one of "table", "stats", "distributions", or "associations".
+
+        * "table": Shows a sample of the dataframe rows
+        * "stats": Shows summary statistics for all columns
+        * "distributions": Shows plots of column distributions
+        * "associations": Shows column associations and similarities
 
     See Also
     --------
@@ -182,27 +193,60 @@ class TableReport:
         order_by=None,
         title=None,
         column_filters=None,
-        verbose=1,
+        verbose=None,
         max_plot_columns=None,
         max_association_columns=None,
+        open_tab="table",
     ):
+        if isinstance(dataframe, np.ndarray):
+            if dataframe.ndim == 1:
+                dataframe = pd.Series(dataframe, name="0")
+
+            elif dataframe.ndim == 2:
+                dataframe = pd.DataFrame(
+                    dataframe, columns=[str(i) for i in range(dataframe.shape[1])]
+                )
+
+            else:
+                raise ValueError(
+                    f"Input NumPy array has {dataframe.ndim} dimensions. "
+                    "TableReport only supports 1D and 2D arrays"
+                )
+
         n_rows = max(1, n_rows)
+        if verbose is None:
+            self.verbose = _config.get_config()["table_report_verbosity"]
+        else:
+            self.verbose = verbose
+
+        # Validate open_tab parameter
+        valid_tabs = ["table", "stats", "distributions", "associations"]
+        if open_tab not in valid_tabs:
+            raise ValueError(
+                f"'open_tab' must be one of {valid_tabs}, got {open_tab!r}."
+            )
+        self.open_tab = open_tab
+
         self._summary_kwargs = {
             "order_by": order_by,
             "max_top_slice_size": -(n_rows // -2),
             "max_bottom_slice_size": n_rows // 2,
-            "verbose": verbose,
+            "verbose": self.verbose,
         }
         self._to_html_kwargs = {}
         self.title = title
         self.column_filters = column_filters
-        self.verbose = verbose
         self.max_plot_columns, self.max_association_columns = _check_max_cols(
             max_plot_columns, max_association_columns
         )
         self.dataframe = (
             sbd.to_frame(dataframe) if sbd.is_column(dataframe) else dataframe
         )
+        if sbd.is_polars(dataframe) and sbd.is_lazyframe(dataframe):
+            raise ValueError(
+                "The TableReport does not support lazy dataframes. Please call"
+                " `.collect()` to use the TableReport on the current dataframe."
+            )
         self.n_columns = sbd.shape(self.dataframe)[1]
 
     def _set_minimal_mode(self):
@@ -225,6 +269,9 @@ class TableReport:
         self._to_html_kwargs["minimal_report_mode"] = True
         self.max_association_columns = 0
         self.max_plot_columns = 0
+        # In minimal mode, fall back to 'table' if user selected unavailable tabs
+        if self.open_tab in ["distributions", "associations"]:
+            self.open_tab = "table"
 
     def _display_subsample_hint(self):
         self._summary["is_subsampled"] = True
@@ -262,6 +309,7 @@ class TableReport:
             self._summary,
             standalone=True,
             column_filters=self.column_filters,
+            open_tab=self.open_tab,
             **self._to_html_kwargs,
         )
 
@@ -277,6 +325,7 @@ class TableReport:
             self._summary,
             standalone=False,
             column_filters=self.column_filters,
+            open_tab=self.open_tab,
             **self._to_html_kwargs,
         )
 

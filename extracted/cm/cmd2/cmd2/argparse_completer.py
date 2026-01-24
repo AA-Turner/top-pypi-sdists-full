@@ -1,4 +1,4 @@
-"""Module efines the ArgparseCompleter class which provides argparse-based tab completion to cmd2 apps.
+"""Module defines the ArgparseCompleter class which provides argparse-based tab completion to cmd2 apps.
 
 See the header of argparse_custom.py for instructions on how to use these features.
 """
@@ -9,25 +9,24 @@ import numbers
 from collections import (
     deque,
 )
+from collections.abc import Sequence
 from typing import (
+    IO,
     TYPE_CHECKING,
-    Optional,
-    Union,
     cast,
 )
 
-from .ansi import (
-    style_aware_wcswidth,
-    widest_line,
-)
-from .constants import (
-    INFINITY,
-)
+from .constants import INFINITY
+from .rich_utils import Cmd2GeneralConsole
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .cmd2 import (
-        Cmd,
-    )
+    from .cmd2 import Cmd
+
+from rich.box import SIMPLE_HEAD
+from rich.table import (
+    Column,
+    Table,
+)
 
 from .argparse_custom import (
     ChoicesCallable,
@@ -35,20 +34,12 @@ from .argparse_custom import (
     CompletionItem,
     generate_range_error,
 )
-from .command_definition import (
-    CommandSet,
-)
-from .exceptions import (
-    CompletionError,
-)
-from .table_creator import (
-    Column,
-    HorizontalAlignment,
-    SimpleTable,
-)
+from .command_definition import CommandSet
+from .exceptions import CompletionError
+from .styles import Cmd2Style
 
-# If no descriptive header is supplied, then this will be used instead
-DEFAULT_DESCRIPTIVE_HEADER = 'Description'
+# If no descriptive headers are supplied, then this will be used instead
+DEFAULT_DESCRIPTIVE_HEADERS: Sequence[str | Column] = ['Description']
 
 # Name of the choice/completer function argument that, if present, will be passed a dictionary of
 # command line tokens up through the token being completed mapped to their argparse destination name.
@@ -104,8 +95,8 @@ class _ArgumentState:
 
     def __init__(self, arg_action: argparse.Action) -> None:
         self.action = arg_action
-        self.min: Union[int, str]
-        self.max: Union[float, int, str]
+        self.min: int | str
+        self.max: float | int | str
         self.count = 0
         self.is_remainder = self.action.nargs == argparse.REMAINDER
 
@@ -140,7 +131,7 @@ class _UnfinishedFlagError(CompletionError):
         :param flag_arg_state: information about the unfinished flag action.
         """
         arg = f'{argparse._get_action_name(flag_arg_state.action)}'
-        err = f'{generate_range_error(cast(int, flag_arg_state.min), cast(Union[int, float], flag_arg_state.max))}'
+        err = f'{generate_range_error(cast(int, flag_arg_state.min), cast(int | float, flag_arg_state.max))}'
         error = f"Error: argument {arg}: {err} ({flag_arg_state.count} entered)"
         super().__init__(error)
 
@@ -162,7 +153,7 @@ class ArgparseCompleter:
     """Automatic command line tab completion based on argparse parameters."""
 
     def __init__(
-        self, parser: argparse.ArgumentParser, cmd2_app: 'Cmd', *, parent_tokens: Optional[dict[str, list[str]]] = None
+        self, parser: argparse.ArgumentParser, cmd2_app: 'Cmd', *, parent_tokens: dict[str, list[str]] | None = None
     ) -> None:
         """Create an ArgparseCompleter.
 
@@ -202,7 +193,7 @@ class ArgparseCompleter:
                     self._subcommand_action = action
 
     def complete(
-        self, text: str, line: str, begidx: int, endidx: int, tokens: list[str], *, cmd_set: Optional[CommandSet] = None
+        self, text: str, line: str, begidx: int, endidx: int, tokens: list[str], *, cmd_set: CommandSet | None = None
     ) -> list[str]:
         """Complete text using argparse metadata.
 
@@ -227,10 +218,10 @@ class ArgparseCompleter:
         skip_remaining_flags = False
 
         # _ArgumentState of the current positional
-        pos_arg_state: Optional[_ArgumentState] = None
+        pos_arg_state: _ArgumentState | None = None
 
         # _ArgumentState of the current flag
-        flag_arg_state: Optional[_ArgumentState] = None
+        flag_arg_state: _ArgumentState | None = None
 
         # Non-reusable flags that we've parsed
         matched_flags: list[str] = []
@@ -522,7 +513,7 @@ class ArgparseCompleter:
 
         return matches
 
-    def _format_completions(self, arg_state: _ArgumentState, completions: Union[list[str], list[CompletionItem]]) -> list[str]:
+    def _format_completions(self, arg_state: _ArgumentState, completions: list[str] | list[CompletionItem]) -> list[str]:
         """Format CompletionItems into hint table."""
         # Nothing to do if we don't have at least 2 completions which are all CompletionItems
         if len(completions) < 2 or not all(isinstance(c, CompletionItem) for c in completions):
@@ -537,7 +528,7 @@ class ArgparseCompleter:
         if not self._cmd2_app.matches_sorted:
             # If all orig_value types are numbers, then sort by that value
             if all_nums:
-                completion_items.sort(key=lambda c: c.orig_value)  # type: ignore[no-any-return]
+                completion_items.sort(key=lambda c: c.orig_value)
 
             # Otherwise sort as strings
             else:
@@ -547,8 +538,6 @@ class ArgparseCompleter:
 
         # Check if there are too many CompletionItems to display as a table
         if len(completions) <= self._cmd2_app.max_completion_items:
-            four_spaces = 4 * ' '
-
             # If a metavar was defined, use that instead of the dest field
             destination = arg_state.action.metavar if arg_state.action.metavar else arg_state.action.dest
 
@@ -561,39 +550,45 @@ class ArgparseCompleter:
                 tuple_index = min(len(destination) - 1, arg_state.count)
                 destination = destination[tuple_index]
 
-            desc_header = arg_state.action.get_descriptive_header()  # type: ignore[attr-defined]
-            if desc_header is None:
-                desc_header = DEFAULT_DESCRIPTIVE_HEADER
+            desc_headers = cast(Sequence[str | Column] | None, arg_state.action.get_descriptive_headers())  # type: ignore[attr-defined]
+            if desc_headers is None:
+                desc_headers = DEFAULT_DESCRIPTIVE_HEADERS
 
-            # Replace tabs with 4 spaces so we can calculate width
-            desc_header = desc_header.replace('\t', four_spaces)
-
-            # Calculate needed widths for the token and description columns of the table
-            token_width = style_aware_wcswidth(destination)
-            desc_width = widest_line(desc_header)
-
-            for item in completion_items:
-                token_width = max(style_aware_wcswidth(item), token_width)
-
-                # Replace tabs with 4 spaces so we can calculate width
-                item.description = item.description.replace('\t', four_spaces)
-                desc_width = max(widest_line(item.description), desc_width)
-
-            cols = []
-            dest_alignment = HorizontalAlignment.RIGHT if all_nums else HorizontalAlignment.LEFT
-            cols.append(
+            # Build all headers for the hint table
+            headers: list[Column] = []
+            headers.append(
                 Column(
                     destination.upper(),
-                    width=token_width,
-                    header_horiz_align=dest_alignment,
-                    data_horiz_align=dest_alignment,
+                    justify="right" if all_nums else "left",
+                    no_wrap=True,
                 )
             )
-            cols.append(Column(desc_header, width=desc_width))
+            for desc_header in desc_headers:
+                header = (
+                    desc_header
+                    if isinstance(desc_header, Column)
+                    else Column(
+                        desc_header,
+                        overflow="fold",
+                    )
+                )
+                headers.append(header)
 
-            hint_table = SimpleTable(cols, divider_char=self._cmd2_app.ruler)
-            table_data = [[item, item.description] for item in completion_items]
-            self._cmd2_app.formatted_completions = hint_table.generate_table(table_data, row_spacing=0)
+            # Build the hint table
+            hint_table = Table(
+                *headers,
+                box=SIMPLE_HEAD,
+                show_edge=False,
+                border_style=Cmd2Style.TABLE_BORDER,
+            )
+            for item in completion_items:
+                hint_table.add_row(item, *item.descriptive_data)
+
+            # Generate the hint table string
+            console = Cmd2GeneralConsole()
+            with console.capture() as capture:
+                console.print(hint_table, end="")
+            self._cmd2_app.formatted_completions = capture.get()
 
         # Return sorted list of completions
         return cast(list[str], completions)
@@ -624,24 +619,28 @@ class ArgparseCompleter:
                 break
         return []
 
-    def format_help(self, tokens: list[str]) -> str:
-        """Supports cmd2's help command in the retrieval of help text.
+    def print_help(self, tokens: list[str], file: IO[str] | None = None) -> None:
+        """Supports cmd2's help command in the printing of help text.
 
         :param tokens: arguments passed to help command
-        :return: help text of the command being queried.
+        :param file: optional file object where the argparse should write help text
+                     If not supplied, argparse will write to sys.stdout.
         """
-        # If our parser has subcommands, we must examine the tokens and check if they are subcommands
+        # If our parser has subcommands, we must examine the tokens and check if they are subcommands.
         # If so, we will let the subcommand's parser handle the rest of the tokens via another ArgparseCompleter.
-        if self._subcommand_action is not None:
-            for token_index, token in enumerate(tokens):
-                if token in self._subcommand_action.choices:
-                    parser: argparse.ArgumentParser = self._subcommand_action.choices[token]
-                    completer_type = self._cmd2_app._determine_ap_completer_type(parser)
+        if tokens and self._subcommand_action is not None:
+            parser = cast(
+                argparse.ArgumentParser | None,
+                self._subcommand_action.choices.get(tokens[0]),
+            )
 
-                    completer = completer_type(parser, self._cmd2_app)
-                    return completer.format_help(tokens[token_index + 1 :])
-                break
-        return self._parser.format_help()
+            if parser:
+                completer_type = self._cmd2_app._determine_ap_completer_type(parser)
+                completer = completer_type(parser, self._cmd2_app)
+                completer.print_help(tokens[1:])
+                return
+
+        self._parser.print_help(file=file)
 
     def _complete_arg(
         self,
@@ -652,7 +651,7 @@ class ArgparseCompleter:
         arg_state: _ArgumentState,
         consumed_arg_values: dict[str, list[str]],
         *,
-        cmd_set: Optional[CommandSet] = None,
+        cmd_set: CommandSet | None = None,
     ) -> list[str]:
         """Tab completion routine for an argparse argument.
 
@@ -660,7 +659,7 @@ class ArgparseCompleter:
         :raises CompletionError: if the completer or choices function this calls raises one.
         """
         # Check if the arg provides choices to the user
-        arg_choices: Union[list[str], ChoicesCallable]
+        arg_choices: list[str] | ChoicesCallable
         if arg_state.action.choices is not None:
             arg_choices = list(arg_state.action.choices)
             if not arg_choices:
@@ -722,12 +721,12 @@ class ArgparseCompleter:
                 if not arg_choices.is_completer:
                     choices_func = arg_choices.choices_provider
                     if isinstance(choices_func, ChoicesProviderFuncWithTokens):
-                        completion_items = choices_func(*args, **kwargs)  # type: ignore[arg-type]
+                        completion_items = choices_func(*args, **kwargs)
                     else:  # pragma: no cover
                         # This won't hit because runtime checking doesn't check function argument types and will always
                         # resolve true above. Mypy, however, does see the difference and gives an error that can't be
                         # ignored. Mypy issue #5485 discusses this problem
-                        completion_items = choices_func(*args)  # type: ignore[arg-type]
+                        completion_items = choices_func(*args)
                 # else case is already covered above
             else:
                 completion_items = arg_choices

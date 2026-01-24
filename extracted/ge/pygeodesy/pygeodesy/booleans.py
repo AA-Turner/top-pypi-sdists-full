@@ -45,7 +45,7 @@ from pygeodesy.utily import fabs, _unrollon, _Wrap
 # from math import fabs  # from .utily
 
 __all__ = _ALL_LAZY.booleans
-__version__ = '25.09.04'
+__version__ = '25.10.30'
 
 _0EPS  =  EPS  # near-zero, positive
 _EPS0  = -EPS  # near-zero, negative
@@ -1434,17 +1434,14 @@ class _CompositeGH(_CompositeBase):
 
     def _clip(self, corners, s_entry, c_entry, Clas=None,
                            **closed_inull_raiser_xtend_eps):
-        # Clip this polygon with another one, C{corners}.
-
-        # Core of Greiner/Hormann's algorithm, enhanced U{Correia's
-        # <https://GitHub.com/helderco/univ-polyclip>} implementation***
-        # and extended to optionally handle so-called "degenerate cases"
+        # Clip this polygon with another one, C{corners}, using
+        # Greiner/Hormann's algorithm extended to optionally
+        # handle some so-called "degenerate cases"
         S = self
         C = self._class(corners, closed_inull_raiser_xtend_eps,
                                  raiser=False, xtend=False)
         bt = C._bottom_top_eps2
         lr = C._left_right_eps2
-
         # 1. find intersections
         for s1, s2, Sc in S._edges3(**closed_inull_raiser_xtend_eps):
             if not (_outside(s1.x, s2.x, *lr) or
@@ -1507,13 +1504,13 @@ class _CompositeGH(_CompositeBase):
 
     @property
     def xtend(self):
-        '''Get the option to handle I{degenerate cases} (C{bool}).
+        '''Get the option to handle some I{degenerate cases} (C{bool}).
         '''
         return self._xtend
 
     @xtend.setter  # PYCHOK setter!
     def xtend(self, xtend):
-        '''Set the option to handle I{degenerate cases} (C{bool}).
+        '''Set the option to handle some I{degenerate cases} (C{bool}).
         '''
         self._xtend = bool(xtend)
 
@@ -1825,9 +1822,7 @@ class BooleanFHP(_CompositeFHP, _BooleanBase):
 class BooleanGH(_CompositeGH, _BooleanBase):
     '''I{Composite} class providing I{boolean} operations between two
        I{composites} using the U{Greiner-Hormann<http://www.Inf.USI.CH/
-       hormann/papers/Greiner.1998.ECO.pdf>} algorithm and U{Correia
-       <https://GitHub.com/helderco/univ-polyclip>}'s implementation,
-       modified and extended.
+       hormann/papers/Greiner.1998.ECO.pdf>} algorithm, extended.
 
        The supported operations between (composite) polygon A and B are:
 
@@ -1984,7 +1979,7 @@ __all__ += _ALL_DOCS(_BooleanBase, _Clip,
 
 # **) MIT License
 #
-# Copyright (C) 2018-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2018-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -2003,23 +1998,3 @@ __all__ += _ALL_DOCS(_BooleanBase, _Clip,
 # OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
-
-# ***) GNU GPL 3
-#
-# Copyright (C) 2011-2012 Helder Correia <Helder.MC@Gmail.com>
-#
-# This program is free software: you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as
-# published by the Free Software Foundation, either version 3 of
-# the License, or any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.GNU.org/licenses/>.
-#
-# You should have received the README file along with this program.
-# If not, see <https://GitHub.com/helderco/univ-polyclip>.

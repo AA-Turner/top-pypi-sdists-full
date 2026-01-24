@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -26,6 +27,7 @@ from .literals import (
     ChannelRoleType,
     ChannelTypeType,
     ConfigurationStatusType,
+    DefaultStorageTierType,
     FormatType,
     ImageSelectorTypeType,
     MediaStorageConfigurationStatusType,
@@ -38,12 +40,6 @@ from .literals import (
     UploaderStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -76,6 +72,8 @@ __all__ = (
     "DescribeSignalingChannelOutputTypeDef",
     "DescribeStreamInputTypeDef",
     "DescribeStreamOutputTypeDef",
+    "DescribeStreamStorageConfigurationInputTypeDef",
+    "DescribeStreamStorageConfigurationOutputTypeDef",
     "EdgeAgentStatusTypeDef",
     "EdgeConfigTypeDef",
     "GetDataEndpointInputTypeDef",
@@ -119,6 +117,7 @@ __all__ = (
     "StartEdgeConfigurationUpdateOutputTypeDef",
     "StreamInfoTypeDef",
     "StreamNameConditionTypeDef",
+    "StreamStorageConfigurationTypeDef",
     "TagResourceInputTypeDef",
     "TagStreamInputTypeDef",
     "TagTypeDef",
@@ -130,6 +129,7 @@ __all__ = (
     "UpdateNotificationConfigurationInputTypeDef",
     "UpdateSignalingChannelInputTypeDef",
     "UpdateStreamInputTypeDef",
+    "UpdateStreamStorageConfigurationInputTypeDef",
     "UploaderConfigTypeDef",
 )
 
@@ -151,18 +151,13 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 
-class CreateStreamInputTypeDef(TypedDict):
-    StreamName: str
-    DeviceName: NotRequired[str]
-    MediaType: NotRequired[str]
-    KmsKeyId: NotRequired[str]
-    DataRetentionInHours: NotRequired[int]
-    Tags: NotRequired[Mapping[str, str]]
+class StreamStorageConfigurationTypeDef(TypedDict):
+    DefaultStorageTier: DefaultStorageTierType
 
 
 class DeleteEdgeConfigurationInputTypeDef(TypedDict):
@@ -252,6 +247,11 @@ class StreamInfoTypeDef(TypedDict):
     Status: NotRequired[StatusType]
     CreationTime: NotRequired[datetime]
     DataRetentionInHours: NotRequired[int]
+
+
+class DescribeStreamStorageConfigurationInputTypeDef(TypedDict):
+    StreamName: NotRequired[str]
+    StreamARN: NotRequired[str]
 
 
 class LastRecorderStatusTypeDef(TypedDict):
@@ -412,15 +412,39 @@ class GetDataEndpointOutputTypeDef(TypedDict):
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForStreamOutputTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class CreateStreamInputTypeDef(TypedDict):
+    StreamName: str
+    DeviceName: NotRequired[str]
+    MediaType: NotRequired[str]
+    KmsKeyId: NotRequired[str]
+    DataRetentionInHours: NotRequired[int]
+    Tags: NotRequired[Mapping[str, str]]
+    StreamStorageConfiguration: NotRequired[StreamStorageConfigurationTypeDef]
+
+
+class DescribeStreamStorageConfigurationOutputTypeDef(TypedDict):
+    StreamName: str
+    StreamARN: str
+    StreamStorageConfiguration: StreamStorageConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateStreamStorageConfigurationInputTypeDef(TypedDict):
+    CurrentVersion: str
+    StreamStorageConfiguration: StreamStorageConfigurationTypeDef
+    StreamName: NotRequired[str]
+    StreamARN: NotRequired[str]
 
 
 class DeletionConfigTypeDef(TypedDict):
@@ -446,7 +470,7 @@ class ListSignalingChannelsInputPaginateTypeDef(TypedDict):
 
 
 class DescribeMappedResourceConfigurationOutputTypeDef(TypedDict):
-    MappedResourceConfigurationList: List[MappedResourceConfigurationListItemTypeDef]
+    MappedResourceConfigurationList: list[MappedResourceConfigurationListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -467,7 +491,7 @@ class DescribeStreamOutputTypeDef(TypedDict):
 
 
 class ListStreamsOutputTypeDef(TypedDict):
-    StreamInfoList: List[StreamInfoTypeDef]
+    StreamInfoList: list[StreamInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -485,7 +509,7 @@ class GetSignalingChannelEndpointInputTypeDef(TypedDict):
 
 
 class GetSignalingChannelEndpointOutputTypeDef(TypedDict):
-    ResourceEndpointList: List[ResourceEndpointListItemTypeDef]
+    ResourceEndpointList: list[ResourceEndpointListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -495,7 +519,7 @@ class ImageGenerationConfigurationOutputTypeDef(TypedDict):
     DestinationConfig: ImageGenerationDestinationConfigTypeDef
     SamplingInterval: int
     Format: FormatType
-    FormatConfig: NotRequired[Dict[Literal["JPEGQuality"], str]]
+    FormatConfig: NotRequired[dict[Literal["JPEGQuality"], str]]
     WidthPixels: NotRequired[int]
     HeightPixels: NotRequired[int]
 
@@ -542,7 +566,7 @@ class DescribeSignalingChannelOutputTypeDef(TypedDict):
 
 
 class ListSignalingChannelsOutputTypeDef(TypedDict):
-    ChannelInfoList: List[ChannelInfoTypeDef]
+    ChannelInfoList: list[ChannelInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -621,6 +645,6 @@ class StartEdgeConfigurationUpdateOutputTypeDef(TypedDict):
 
 
 class ListEdgeAgentConfigurationsOutputTypeDef(TypedDict):
-    EdgeConfigs: List[ListEdgeAgentConfigurationsEdgeConfigTypeDef]
+    EdgeConfigs: list[ListEdgeAgentConfigurationsEdgeConfigTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

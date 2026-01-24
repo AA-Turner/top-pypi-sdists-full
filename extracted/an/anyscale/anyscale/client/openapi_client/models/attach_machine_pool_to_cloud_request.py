@@ -34,15 +34,17 @@ class AttachMachinePoolToCloudRequest(object):
     """
     openapi_types = {
         'machine_pool_name': 'str',
-        'cloud_id': 'str'
+        'cloud_id': 'str',
+        'cloud_resource_id': 'str'
     }
 
     attribute_map = {
         'machine_pool_name': 'machine_pool_name',
-        'cloud_id': 'cloud_id'
+        'cloud_id': 'cloud_id',
+        'cloud_resource_id': 'cloud_resource_id'
     }
 
-    def __init__(self, machine_pool_name=None, cloud_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, machine_pool_name=None, cloud_id=None, cloud_resource_id=None, local_vars_configuration=None):  # noqa: E501
         """AttachMachinePoolToCloudRequest - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -50,10 +52,13 @@ class AttachMachinePoolToCloudRequest(object):
 
         self._machine_pool_name = None
         self._cloud_id = None
+        self._cloud_resource_id = None
         self.discriminator = None
 
         self.machine_pool_name = machine_pool_name
         self.cloud_id = cloud_id
+        if cloud_resource_id is not None:
+            self.cloud_resource_id = cloud_resource_id
 
     @property
     def machine_pool_name(self):
@@ -104,6 +109,29 @@ class AttachMachinePoolToCloudRequest(object):
             raise ValueError("Invalid value for `cloud_id`, must not be `None`")  # noqa: E501
 
         self._cloud_id = cloud_id
+
+    @property
+    def cloud_resource_id(self):
+        """Gets the cloud_resource_id of this AttachMachinePoolToCloudRequest.  # noqa: E501
+
+        The ID of the specific cloud resource to attach to. If not specified, attaches to the primary cloud resource in the cloud. Note that this is not the machine pool / PCP cloud resource.  # noqa: E501
+
+        :return: The cloud_resource_id of this AttachMachinePoolToCloudRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_resource_id
+
+    @cloud_resource_id.setter
+    def cloud_resource_id(self, cloud_resource_id):
+        """Sets the cloud_resource_id of this AttachMachinePoolToCloudRequest.
+
+        The ID of the specific cloud resource to attach to. If not specified, attaches to the primary cloud resource in the cloud. Note that this is not the machine pool / PCP cloud resource.  # noqa: E501
+
+        :param cloud_resource_id: The cloud_resource_id of this AttachMachinePoolToCloudRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_resource_id = cloud_resource_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

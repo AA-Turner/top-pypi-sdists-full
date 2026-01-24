@@ -146,7 +146,7 @@ SZ_DYNAMIC void sz_fill(sz_ptr_t target, sz_size_t length, sz_u8_t value);
  *  @note   Selects the fastest implementation at compile- or run-time based on `SZ_DYNAMIC_DISPATCH`.
  *  @sa     sz_lookup_serial, sz_lookup_haswell, sz_lookup_ice, sz_lookup_neon
  */
-SZ_DYNAMIC void sz_lookup(sz_ptr_t target, sz_size_t length, sz_cptr_t source, sz_cptr_t lut);
+SZ_DYNAMIC void sz_lookup(sz_ptr_t target, sz_size_t length, sz_cptr_t source, char const lut[sz_at_least_(256)]);
 
 /** @copydoc sz_copy */
 SZ_PUBLIC void sz_copy_serial(sz_ptr_t target, sz_cptr_t source, sz_size_t length);
@@ -155,7 +155,7 @@ SZ_PUBLIC void sz_move_serial(sz_ptr_t target, sz_cptr_t source, sz_size_t lengt
 /** @copydoc sz_fill */
 SZ_PUBLIC void sz_fill_serial(sz_ptr_t target, sz_size_t length, sz_u8_t value);
 /** @copydoc sz_lookup */
-SZ_PUBLIC void sz_lookup_serial(sz_ptr_t target, sz_size_t length, sz_cptr_t source, sz_cptr_t lut);
+SZ_PUBLIC void sz_lookup_serial(sz_ptr_t target, sz_size_t length, sz_cptr_t source, char const lut[sz_at_least_(256)]);
 
 #if SZ_USE_HASWELL
 /** @copydoc sz_copy */
@@ -165,7 +165,8 @@ SZ_PUBLIC void sz_move_haswell(sz_ptr_t target, sz_cptr_t source, sz_size_t leng
 /** @copydoc sz_rfind_fill */
 SZ_PUBLIC void sz_fill_haswell(sz_ptr_t target, sz_size_t length, sz_u8_t value);
 /** @copydoc sz_lookup */
-SZ_PUBLIC void sz_lookup_haswell(sz_ptr_t target, sz_size_t length, sz_cptr_t source, sz_cptr_t lut);
+SZ_PUBLIC void sz_lookup_haswell(sz_ptr_t target, sz_size_t length, sz_cptr_t source,
+                                 char const lut[sz_at_least_(256)]);
 #endif
 
 #if SZ_USE_SKYLAKE
@@ -179,7 +180,7 @@ SZ_PUBLIC void sz_fill_skylake(sz_ptr_t target, sz_size_t length, sz_u8_t value)
 
 #if SZ_USE_ICE
 /** @copydoc sz_lookup */
-SZ_PUBLIC void sz_lookup_ice(sz_ptr_t target, sz_size_t length, sz_cptr_t source, sz_cptr_t lut);
+SZ_PUBLIC void sz_lookup_ice(sz_ptr_t target, sz_size_t length, sz_cptr_t source, char const lut[sz_at_least_(256)]);
 #endif
 
 #if SZ_USE_NEON
@@ -190,7 +191,7 @@ SZ_PUBLIC void sz_move_neon(sz_ptr_t target, sz_cptr_t source, sz_size_t length)
 /** @copydoc sz_rfind_fill */
 SZ_PUBLIC void sz_fill_neon(sz_ptr_t target, sz_size_t length, sz_u8_t value);
 /** @copydoc sz_lookup */
-SZ_PUBLIC void sz_lookup_neon(sz_ptr_t target, sz_size_t length, sz_cptr_t source, sz_cptr_t lut);
+SZ_PUBLIC void sz_lookup_neon(sz_ptr_t target, sz_size_t length, sz_cptr_t source, char const lut[sz_at_least_(256)]);
 #endif
 
 #pragma endregion // Core API
@@ -207,7 +208,7 @@ SZ_PUBLIC void sz_lookup_neon(sz_ptr_t target, sz_size_t length, sz_cptr_t sourc
  *  This, however, breaks for extended ASCII, so a different solution is needed.
  *  http://0x80.pl/notesen/2016-01-06-swar-swap-case.html
  */
-SZ_PUBLIC void sz_lookup_init_lower(sz_ptr_t lut) {
+SZ_PUBLIC void sz_lookup_init_lower(char lut[sz_at_least_(256)]) {
     static sz_u8_t const lowered[256] = {
         0,   1,   2,   3,   4,   5,   6,   7,   8,   9,   10,  11,  12,  13,  14,  15,  //
         16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31,  //
@@ -239,7 +240,7 @@ SZ_PUBLIC void sz_lookup_init_lower(sz_ptr_t lut) {
  *  This, however, breaks for extended ASCII, so a different solution is needed.
  *  http://0x80.pl/notesen/2016-01-06-swar-swap-case.html
  */
-SZ_PUBLIC void sz_lookup_init_upper(sz_ptr_t lut) {
+SZ_PUBLIC void sz_lookup_init_upper(char lut[sz_at_least_(256)]) {
     static sz_u8_t const upped[256] = {
         0,   1,   2,   3,   4,   5,   6,   7,   8,   9,   10,  11,  12,  13,  14,  15,  //
         16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31,  //
@@ -265,7 +266,7 @@ SZ_PUBLIC void sz_lookup_init_upper(sz_ptr_t lut) {
  *  @brief Initializes a lookup table for converting bytes to ASCII characters.
  *  @param[out] lut Lookup table to be initialized. Must be exactly 256 bytes long.
  */
-SZ_PUBLIC void sz_lookup_init_ascii(sz_ptr_t lut) {
+SZ_PUBLIC void sz_lookup_init_ascii(char lut[sz_at_least_(256)]) {
     for (sz_size_t i = 0; i < 256; ++i) lut[i] = (sz_u8_t)(i & 0x7F);
 }
 
@@ -304,7 +305,7 @@ SZ_PUBLIC sz_bool_t sz_isascii(sz_cptr_t text, sz_size_t length) {
 
 #pragma region Serial Implementation
 
-SZ_PUBLIC void sz_lookup_serial(sz_ptr_t result, sz_size_t length, sz_cptr_t text, sz_cptr_t lut) {
+SZ_PUBLIC void sz_lookup_serial(sz_ptr_t result, sz_size_t length, sz_cptr_t text, char const lut[sz_at_least_(256)]) {
     sz_u8_t const *unsigned_lut = (sz_u8_t const *)lut;
     sz_u8_t const *unsigned_text = (sz_u8_t const *)text;
     sz_u8_t *unsigned_result = (sz_u8_t *)result;
@@ -600,7 +601,8 @@ SZ_PUBLIC void sz_move_haswell(sz_ptr_t target, sz_cptr_t source, sz_size_t leng
     }
 }
 
-SZ_PUBLIC void sz_lookup_haswell(sz_ptr_t target, sz_size_t length, sz_cptr_t source, sz_cptr_t lut) {
+SZ_PUBLIC void sz_lookup_haswell(sz_ptr_t target, sz_size_t length, sz_cptr_t source,
+                                 char const lut[sz_at_least_(256)]) {
 
     // If the input is tiny (especially smaller than the look-up table itself), we may end up paying
     // more for organizing the SIMD registers and changing the CPU state, than for the actual computation.
@@ -996,7 +998,7 @@ SZ_PUBLIC void sz_move_skylake(sz_ptr_t target, sz_cptr_t source, sz_size_t leng
 #pragma GCC target("avx", "avx512f", "avx512vl", "avx512bw", "avx512dq", "avx512vbmi", "bmi", "bmi2")
 #endif
 
-SZ_PUBLIC void sz_lookup_ice(sz_ptr_t target, sz_size_t length, sz_cptr_t source, sz_cptr_t lut) {
+SZ_PUBLIC void sz_lookup_ice(sz_ptr_t target, sz_size_t length, sz_cptr_t source, char const lut[sz_at_least_(256)]) {
 
     // If the input is tiny (especially smaller than the look-up table itself), we may end up paying
     // more for organizing the SIMD registers and changing the CPU state, than for the actual computation.
@@ -1015,93 +1017,54 @@ SZ_PUBLIC void sz_lookup_ice(sz_ptr_t target, sz_size_t length, sz_cptr_t source
     __mmask64 head_mask = sz_u64_mask_until_(head_length);
     __mmask64 tail_mask = sz_u64_mask_until_(tail_length);
 
-    // We need to pull the lookup table into 4x ZMM registers.
-    // We can use `vpermi2b` instruction to perform the look in two ZMM registers with `_mm512_permutex2var_epi8`
-    // intrinsics, but it has a 6-cycle latency on Sapphire Rapids and requires AVX512-VBMI. Assuming we need to
-    // operate on 4 registers, it might be cleaner to use 2x separate `_mm512_permutexvar_epi8` calls.
-    // Combining the results with 2x `_mm512_test_epi8_mask` and 3x blends afterwards.
+    // We use VPERMI2B (`_mm512_permutex2var_epi8`) to perform 256-entry lookups efficiently.
+    // VPERMI2B uses bit 6 of each index to select between two 64-byte tables, allowing us to
+    // cover 128 entries per instruction (2 instructions for all 256 entries).
     //
-    //  - 4x `_mm512_permutexvar_epi8` maps to "VPERMB (ZMM, ZMM, ZMM)":
-    //      - On Ice Lake: 3 cycles latency, ports: 1*p5
-    //      - On Genoa: 6 cycles latency, ports: 1*FP12
-    //  - 3x `_mm512_mask_blend_epi8` maps to "VPBLENDMB_Z (ZMM, K, ZMM, ZMM)":
-    //      - On Ice Lake: 3 cycles latency, ports: 1*p05
-    //      - On Genoa: 1 cycle latency, ports: 1*FP0123
-    //  - 2x `_mm512_test_epi8_mask` maps to "VPTESTMB (K, ZMM, ZMM)":
-    //      - On Ice Lake: 3 cycles latency, ports: 1*p5
-    //      - On Genoa: 4 cycles latency, ports: 1*FP01
-    //
+    // For the high-bit (bit 7) selection, we use VPMOVB2M (`_mm512_movepi8_mask`) which extracts
+    // the sign bit of each byte directly to a mask register. This goes to port 0 on Intel,
+    // avoiding the port 5 bottleneck that VPTESTMB would cause.
     sz_u512_vec_t lut_0_to_63_vec, lut_64_to_127_vec, lut_128_to_191_vec, lut_192_to_255_vec;
     lut_0_to_63_vec.zmm = _mm512_loadu_si512((lut));
     lut_64_to_127_vec.zmm = _mm512_loadu_si512((lut + 64));
     lut_128_to_191_vec.zmm = _mm512_loadu_si512((lut + 128));
     lut_192_to_255_vec.zmm = _mm512_loadu_si512((lut + 192));
 
-    sz_u512_vec_t first_bit_vec, second_bit_vec;
-    first_bit_vec.zmm = _mm512_set1_epi8((char)0x80);
-    second_bit_vec.zmm = _mm512_set1_epi8((char)0x40);
-
-    __mmask64 first_bit_mask, second_bit_mask;
-    sz_u512_vec_t source_vec;
-    // If the top bit is set in each word of `source_vec`, than we use `lookup_128_to_191_vec` or
-    // `lookup_192_to_255_vec`. If the second bit is set, we use `lookup_64_to_127_vec` or `lookup_192_to_255_vec`.
-    sz_u512_vec_t lookup_0_to_63_vec, lookup_64_to_127_vec, lookup_128_to_191_vec, lookup_192_to_255_vec;
-    sz_u512_vec_t blended_0_to_127_vec, blended_128_to_255_vec, blended_0_to_255_vec;
+    __mmask64 high_bit_mask;
+    sz_u512_vec_t source_vec, low_half_vec, high_half_vec, result_vec;
 
     // Handling the head.
     if (head_length) {
         source_vec.zmm = _mm512_maskz_loadu_epi8(head_mask, source);
-        lookup_0_to_63_vec.zmm = _mm512_permutexvar_epi8(source_vec.zmm, lut_0_to_63_vec.zmm);
-        lookup_64_to_127_vec.zmm = _mm512_permutexvar_epi8(source_vec.zmm, lut_64_to_127_vec.zmm);
-        lookup_128_to_191_vec.zmm = _mm512_permutexvar_epi8(source_vec.zmm, lut_128_to_191_vec.zmm);
-        lookup_192_to_255_vec.zmm = _mm512_permutexvar_epi8(source_vec.zmm, lut_192_to_255_vec.zmm);
-        first_bit_mask = _mm512_test_epi8_mask(source_vec.zmm, first_bit_vec.zmm);
-        second_bit_mask = _mm512_test_epi8_mask(source_vec.zmm, second_bit_vec.zmm);
-        blended_0_to_127_vec.zmm =
-            _mm512_mask_blend_epi8(second_bit_mask, lookup_0_to_63_vec.zmm, lookup_64_to_127_vec.zmm);
-        blended_128_to_255_vec.zmm =
-            _mm512_mask_blend_epi8(second_bit_mask, lookup_128_to_191_vec.zmm, lookup_192_to_255_vec.zmm);
-        blended_0_to_255_vec.zmm =
-            _mm512_mask_blend_epi8(first_bit_mask, blended_0_to_127_vec.zmm, blended_128_to_255_vec.zmm);
-        _mm512_mask_storeu_epi8(target, head_mask, blended_0_to_255_vec.zmm);
+        // VPERMI2B: bit 6 selects between the two tables, bits 0-5 index within each
+        low_half_vec.zmm = _mm512_permutex2var_epi8(lut_0_to_63_vec.zmm, source_vec.zmm, lut_64_to_127_vec.zmm);
+        high_half_vec.zmm = _mm512_permutex2var_epi8(lut_128_to_191_vec.zmm, source_vec.zmm, lut_192_to_255_vec.zmm);
+        // VPMOVB2M: extract bit 7 (sign bit) of each byte directly to mask - uses port 0, not port 5
+        high_bit_mask = _mm512_movepi8_mask(source_vec.zmm);
+        result_vec.zmm = _mm512_mask_blend_epi8(high_bit_mask, low_half_vec.zmm, high_half_vec.zmm);
+        _mm512_mask_storeu_epi8(target, head_mask, result_vec.zmm);
         source += head_length, target += head_length, length -= head_length;
     }
 
     // Handling the body in 64-byte chunks aligned to cache-line boundaries with respect to `target`.
     while (length >= 64) {
         source_vec.zmm = _mm512_loadu_si512(source);
-        lookup_0_to_63_vec.zmm = _mm512_permutexvar_epi8(source_vec.zmm, lut_0_to_63_vec.zmm);
-        lookup_64_to_127_vec.zmm = _mm512_permutexvar_epi8(source_vec.zmm, lut_64_to_127_vec.zmm);
-        lookup_128_to_191_vec.zmm = _mm512_permutexvar_epi8(source_vec.zmm, lut_128_to_191_vec.zmm);
-        lookup_192_to_255_vec.zmm = _mm512_permutexvar_epi8(source_vec.zmm, lut_192_to_255_vec.zmm);
-        first_bit_mask = _mm512_test_epi8_mask(source_vec.zmm, first_bit_vec.zmm);
-        second_bit_mask = _mm512_test_epi8_mask(source_vec.zmm, second_bit_vec.zmm);
-        blended_0_to_127_vec.zmm =
-            _mm512_mask_blend_epi8(second_bit_mask, lookup_0_to_63_vec.zmm, lookup_64_to_127_vec.zmm);
-        blended_128_to_255_vec.zmm =
-            _mm512_mask_blend_epi8(second_bit_mask, lookup_128_to_191_vec.zmm, lookup_192_to_255_vec.zmm);
-        blended_0_to_255_vec.zmm =
-            _mm512_mask_blend_epi8(first_bit_mask, blended_0_to_127_vec.zmm, blended_128_to_255_vec.zmm);
-        _mm512_store_si512(target, blended_0_to_255_vec.zmm); //! Aligned store, our main weapon!
+        low_half_vec.zmm = _mm512_permutex2var_epi8(lut_0_to_63_vec.zmm, source_vec.zmm, lut_64_to_127_vec.zmm);
+        high_half_vec.zmm = _mm512_permutex2var_epi8(lut_128_to_191_vec.zmm, source_vec.zmm, lut_192_to_255_vec.zmm);
+        high_bit_mask = _mm512_movepi8_mask(source_vec.zmm);
+        result_vec.zmm = _mm512_mask_blend_epi8(high_bit_mask, low_half_vec.zmm, high_half_vec.zmm);
+        _mm512_store_si512(target, result_vec.zmm); //! Aligned store, our main weapon!
         source += 64, target += 64, length -= 64;
     }
 
     // Handling the tail.
     if (tail_length) {
         source_vec.zmm = _mm512_maskz_loadu_epi8(tail_mask, source);
-        lookup_0_to_63_vec.zmm = _mm512_permutexvar_epi8(source_vec.zmm, lut_0_to_63_vec.zmm);
-        lookup_64_to_127_vec.zmm = _mm512_permutexvar_epi8(source_vec.zmm, lut_64_to_127_vec.zmm);
-        lookup_128_to_191_vec.zmm = _mm512_permutexvar_epi8(source_vec.zmm, lut_128_to_191_vec.zmm);
-        lookup_192_to_255_vec.zmm = _mm512_permutexvar_epi8(source_vec.zmm, lut_192_to_255_vec.zmm);
-        first_bit_mask = _mm512_test_epi8_mask(source_vec.zmm, first_bit_vec.zmm);
-        second_bit_mask = _mm512_test_epi8_mask(source_vec.zmm, second_bit_vec.zmm);
-        blended_0_to_127_vec.zmm =
-            _mm512_mask_blend_epi8(second_bit_mask, lookup_0_to_63_vec.zmm, lookup_64_to_127_vec.zmm);
-        blended_128_to_255_vec.zmm =
-            _mm512_mask_blend_epi8(second_bit_mask, lookup_128_to_191_vec.zmm, lookup_192_to_255_vec.zmm);
-        blended_0_to_255_vec.zmm =
-            _mm512_mask_blend_epi8(first_bit_mask, blended_0_to_127_vec.zmm, blended_128_to_255_vec.zmm);
-        _mm512_mask_storeu_epi8(target, tail_mask, blended_0_to_255_vec.zmm);
+        low_half_vec.zmm = _mm512_permutex2var_epi8(lut_0_to_63_vec.zmm, source_vec.zmm, lut_64_to_127_vec.zmm);
+        high_half_vec.zmm = _mm512_permutex2var_epi8(lut_128_to_191_vec.zmm, source_vec.zmm, lut_192_to_255_vec.zmm);
+        high_bit_mask = _mm512_movepi8_mask(source_vec.zmm);
+        result_vec.zmm = _mm512_mask_blend_epi8(high_bit_mask, low_half_vec.zmm, high_half_vec.zmm);
+        _mm512_mask_storeu_epi8(target, tail_mask, result_vec.zmm);
         source += tail_length, target += tail_length, length -= tail_length;
     }
 }
@@ -1120,10 +1083,10 @@ SZ_PUBLIC void sz_lookup_ice(sz_ptr_t target, sz_size_t length, sz_cptr_t source
 #pragma region NEON Implementation
 #if SZ_USE_NEON
 #if defined(__clang__)
-#pragma clang attribute push(__attribute__((target("arch=armv8.2-a+simd"))), apply_to = function)
+#pragma clang attribute push(__attribute__((target("+simd"))), apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
-#pragma GCC target("arch=armv8.2-a+simd")
+#pragma GCC target("+simd")
 #endif
 
 SZ_PUBLIC void sz_copy_neon(sz_ptr_t target, sz_cptr_t source, sz_size_t length) {
@@ -1183,7 +1146,7 @@ SZ_PUBLIC void sz_fill_neon(sz_ptr_t target, sz_size_t length, sz_u8_t value) {
     if (length) sz_fill_serial(target, length, value);
 }
 
-SZ_PUBLIC void sz_lookup_neon(sz_ptr_t target, sz_size_t length, sz_cptr_t source, sz_cptr_t lut) {
+SZ_PUBLIC void sz_lookup_neon(sz_ptr_t target, sz_size_t length, sz_cptr_t source, char const lut[sz_at_least_(256)]) {
 
     // If the input is tiny (especially smaller than the look-up table itself), we may end up paying
     // more for organizing the SIMD registers and changing the CPU state, than for the actual computation.
@@ -1194,6 +1157,7 @@ SZ_PUBLIC void sz_lookup_neon(sz_ptr_t target, sz_size_t length, sz_cptr_t sourc
 
     sz_size_t head_length = (16 - ((sz_size_t)target % 16)) % 16; // 15 or less.
     sz_size_t tail_length = (sz_size_t)(target + length) % 16;    // 15 or less.
+    sz_size_t body_length = length - head_length - tail_length;
 
     // We need to pull the lookup table into 16x NEON registers. We have a total of 32 such registers.
     // According to the Neoverse V2 manual, the 4-table lookup has a latency of 6 cycles, and 4x throughput.
@@ -1216,9 +1180,7 @@ SZ_PUBLIC void sz_lookup_neon(sz_ptr_t target, sz_size_t length, sz_cptr_t sourc
     // to perform a 4-table lookup in a single instruction. The XORs are used to adjust the lookup position
     // within each 64-byte range of the table.
     // Details on the 4-table lookup: https://lemire.me/blog/2019/07/23/arbitrary-byte-to-byte-maps-using-arm-neon/
-    length -= head_length;
-    length -= tail_length;
-    for (; length >= 16; source += 16, target += 16, length -= 16) {
+    for (; body_length >= 16; source += 16, target += 16, body_length -= 16) {
         source_vec.u8x16 = vld1q_u8((sz_u8_t const *)source);
         lookup_0_to_63_vec.u8x16 = vqtbl4q_u8(lut_0_to_63_vec, source_vec.u8x16);
         lookup_64_to_127_vec.u8x16 = vqtbl4q_u8(lut_64_to_127_vec, veorq_u8(source_vec.u8x16, vdupq_n_u8(0x40)));
@@ -1248,10 +1210,10 @@ SZ_PUBLIC void sz_lookup_neon(sz_ptr_t target, sz_size_t length, sz_cptr_t sourc
 #pragma region SVE Implementation
 #if SZ_USE_SVE
 #if defined(__clang__)
-#pragma clang attribute push(__attribute__((target("arch=armv8.2-a+sve"))), apply_to = function)
+#pragma clang attribute push(__attribute__((target("+sve"))), apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
-#pragma GCC target("arch=armv8.2-a+sve")
+#pragma GCC target("+sve")
 #endif
 
 SZ_PUBLIC void sz_fill_sve(sz_ptr_t target, sz_size_t length, sz_u8_t value) {
@@ -1275,9 +1237,8 @@ SZ_PUBLIC void sz_fill_sve(sz_ptr_t target, sz_size_t length, sz_u8_t value) {
         target += head_length;
 
         // Aligned body loop
-        for (; body_length >= vec_len; target += vec_len, body_length -= vec_len) {
+        for (; body_length >= vec_len; target += vec_len, body_length -= vec_len)
             svst1_u8(svptrue_b8(), (sz_u8_t *)target, value_vec);
-        }
 
         // Handle unaligned tail
         svbool_t tail_mask = svwhilelt_b8((sz_u64_t)0ull, (sz_u64_t)tail_length);
@@ -1288,12 +1249,6 @@ SZ_PUBLIC void sz_fill_sve(sz_ptr_t target, sz_size_t length, sz_u8_t value) {
 SZ_PUBLIC void sz_copy_sve(sz_ptr_t target, sz_cptr_t source, sz_size_t length) {
     sz_size_t vec_len = svcntb(); // Vector length in bytes
 
-    // Arm Neoverse V2 cores in Graviton 4, for example, come with 256 KB of L1 data cache per core,
-    // and 8 MB of L2 cache per core. Moreover, the L1 cache is fully associative.
-    // With two strings, we may consider the overal workload huge, if each exceeds 1 MB in length.
-    //
-    //      int is_huge = length >= 4ull * 1024ull * 1024ull;
-    //
     // When the buffer is small, there isn't much to innovate.
     if (length <= vec_len) {
         // Small buffer case: use mask to handle small writes
@@ -1301,69 +1256,161 @@ SZ_PUBLIC void sz_copy_sve(sz_ptr_t target, sz_cptr_t source, sz_size_t length) 
         svuint8_t data = svld1_u8(mask, (sz_u8_t *)source);
         svst1_u8(mask, (sz_u8_t *)target, data);
     }
-    // When dealing with larger buffers, similar to AVX-512, we want minimize unaligned operations
-    // and handle the head, body, and tail separately. We can also traverse the buffer in both directions
-    // as Arm generally supports more simultaneous stores than x86 CPUs.
-    //
-    // For gigantic datasets, similar to AVX-512, non-temporal "loads" and "stores" can be used.
-    // Sadly, if the register size (16 byte or larger) is smaller than a cache-line (64 bytes)
-    // we will pay a huge penalty on loads, fetching the same content many times.
-    // It may be better to allow caching (and subsequent eviction), in favor of using four-element
-    // tuples, wich will be guaranteed to be a multiple of a cache line.
-    //
-    // Another approach is to use the `LD4B` instructions, which will populate four registers at once.
-    // This however, further decreases the performance from LibC-like 29 GB/s to 20 GB/s.
+    // Slightly larger buffers
+    else if (2 * length <= vec_len) {
+        svbool_t mask_first = svptrue_b8();
+        svbool_t mask_second = svwhilelt_b8((sz_u64_t)vec_len, (sz_u64_t)length);
+        svuint8_t data_first = svld1_u8(mask_first, (sz_u8_t *)(source));
+        svuint8_t data_second = svld1_u8(mask_second, (sz_u8_t *)(source + vec_len));
+        svst1_u8(mask_first, (sz_u8_t *)(target), data_first);
+        svst1_u8(mask_second, (sz_u8_t *)(target + vec_len), data_second);
+    }
+    // For medium-sized buffers, use unidirectional traversal without non-temporal operations
     else {
-        // Calculating head, body, and tail sizes depends on the `vec_len`,
-        // but it's runtime constant, and the modulo operation is expensive!
-        // Instead we use the fact, that it's always a multiple of 128 bits or 16 bytes.
-        sz_size_t head_length = 16 - ((sz_size_t)target % 16);
-        sz_size_t tail_length = (sz_size_t)(target + length) % 16;
-        sz_size_t body_length = length - head_length - tail_length;
-
-        // Handle unaligned parts
-        svbool_t head_mask = svwhilelt_b8((sz_u64_t)0ull, (sz_u64_t)head_length);
-        svuint8_t head_data = svld1_u8(head_mask, (sz_u8_t *)source);
-        svst1_u8(head_mask, (sz_u8_t *)target, head_data);
-        svbool_t tail_mask = svwhilelt_b8((sz_u64_t)0ull, (sz_u64_t)tail_length);
-        svuint8_t tail_data = svld1_u8(tail_mask, (sz_u8_t *)source + head_length + body_length);
-        svst1_u8(tail_mask, (sz_u8_t *)target + head_length + body_length, tail_data);
-        target += head_length;
-        source += head_length;
-
-        // Aligned body loop, walking in two directions
-        for (; body_length >= vec_len * 2; target += vec_len, source += vec_len, body_length -= vec_len * 2) {
-            svuint8_t forward_data = svld1_u8(svptrue_b8(), (sz_u8_t *)source);
-            svuint8_t backward_data = svld1_u8(svptrue_b8(), (sz_u8_t *)source + body_length - vec_len);
-            svst1_u8(svptrue_b8(), (sz_u8_t *)target, forward_data);
-            svst1_u8(svptrue_b8(), (sz_u8_t *)target + body_length - vec_len, backward_data);
+        // Main loop: full vector copies
+        for (; length >= vec_len; source += vec_len, target += vec_len, length -= vec_len) {
+            svuint8_t data = svld1_u8(svptrue_b8(), (sz_u8_t const *)source);
+            svst1_u8(svptrue_b8(), (sz_u8_t *)target, data);
         }
-        // Up to (vec_len * 2 - 1) bytes of data may be left in the body,
-        // so we can unroll the last two optional loop iterations.
-        if (body_length > vec_len) {
-            svbool_t mask = svwhilelt_b8((sz_u64_t)0ull, (sz_u64_t)body_length);
-            svuint8_t data = svld1_u8(mask, (sz_u8_t *)source);
-            svst1_u8(mask, (sz_u8_t *)target, data);
-            body_length -= vec_len;
-            source += body_length;
-            target += body_length;
-        }
-        if (body_length) {
-            svbool_t mask = svwhilelt_b8((sz_u64_t)0ull, (sz_u64_t)body_length);
-            svuint8_t data = svld1_u8(mask, (sz_u8_t *)source);
+
+        // Tail: single masked copy for remainder
+        if (length) {
+            svbool_t mask = svwhilelt_b8((sz_u64_t)0ull, (sz_u64_t)length);
+            svuint8_t data = svld1_u8(mask, (sz_u8_t const *)source);
             svst1_u8(mask, (sz_u8_t *)target, data);
         }
     }
 }
 
 SZ_PUBLIC void sz_move_sve(sz_ptr_t target, sz_cptr_t source, sz_size_t length) {
-#if SZ_USE_NEON
-    sz_move_neon(target, source, length);
-#else
-    sz_move_serial(target, source, length);
-#endif
+    sz_size_t vec_len = svcntb(); // Vector length in bytes
+
+    // When the buffer is small, there isn't much to innovate.
+    if (length <= vec_len) {
+        // Small buffer case: use mask to handle small writes
+        svbool_t mask = svwhilelt_b8((sz_u64_t)0ull, (sz_u64_t)length);
+        svuint8_t data = svld1_u8(mask, (sz_u8_t *)source);
+        svst1_u8(mask, (sz_u8_t *)target, data);
+    }
+    // Slightly larger buffers
+    else if (2 * length <= vec_len) {
+        svbool_t mask_first = svptrue_b8();
+        svbool_t mask_second = svwhilelt_b8((sz_u64_t)vec_len, (sz_u64_t)length);
+        svuint8_t data_first = svld1_u8(mask_first, (sz_u8_t *)(source));
+        svuint8_t data_second = svld1_u8(mask_second, (sz_u8_t *)(source + vec_len));
+        svst1_u8(mask_first, (sz_u8_t *)(target), data_first);
+        svst1_u8(mask_second, (sz_u8_t *)(target + vec_len), data_second);
+    }
+    // For medium-sized buffers, check for overlap
+    else {
+        // Check if regions overlap with target after source
+        int const overlapping = (target > source && target < source + length);
+
+        if (overlapping) {
+            // Backward traversal to avoid overwriting source data
+            source += length;
+            target += length;
+
+            // Backward main loop
+            for (; length >= vec_len; length -= vec_len) {
+                source -= vec_len;
+                target -= vec_len;
+                svuint8_t data = svld1_u8(svptrue_b8(), (sz_u8_t const *)source);
+                svst1_u8(svptrue_b8(), (sz_u8_t *)target, data);
+            }
+
+            // Backward tail
+            if (length) {
+                source -= length;
+                target -= length;
+                svbool_t mask = svwhilelt_b8((sz_u64_t)0ull, (sz_u64_t)length);
+                svuint8_t data = svld1_u8(mask, (sz_u8_t const *)source);
+                svst1_u8(mask, (sz_u8_t *)target, data);
+            }
+        }
+        else {
+            // Forward traversal (safe for non-overlapping or target < source)
+            // Main loop: full vector copies
+            for (; length >= vec_len; source += vec_len, target += vec_len, length -= vec_len) {
+                svuint8_t data = svld1_u8(svptrue_b8(), (sz_u8_t const *)source);
+                svst1_u8(svptrue_b8(), (sz_u8_t *)target, data);
+            }
+
+            // Tail: single masked copy for remainder
+            if (length) {
+                svbool_t mask = svwhilelt_b8((sz_u64_t)0ull, (sz_u64_t)length);
+                svuint8_t data = svld1_u8(mask, (sz_u8_t const *)source);
+                svst1_u8(mask, (sz_u8_t *)target, data);
+            }
+        }
+    }
 }
 
+SZ_PUBLIC void sz_lookup_sve(sz_ptr_t target, sz_size_t length, sz_cptr_t source, char const lut[sz_at_least_(256)]) {
+
+    if (length <= 128) {
+        sz_lookup_serial(target, length, source, lut);
+        return;
+    }
+
+    // SVE vector length in bytes
+    sz_size_t vl = svcntb();
+
+    // Load the 256-byte lookup table into 4 SVE vectors
+    svuint8_t lut_0_to_63_vec = svld1_u8(svptrue_b8(), (sz_u8_t const *)(lut + 0));
+    svuint8_t lut_64_to_127_vec = svld1_u8(svptrue_b8(), (sz_u8_t const *)(lut + 64));
+    svuint8_t lut_128_to_191_vec = svld1_u8(svptrue_b8(), (sz_u8_t const *)(lut + 128));
+    svuint8_t lut_192_to_255_vec = svld1_u8(svptrue_b8(), (sz_u8_t const *)(lut + 192));
+
+    svuint8_t mask_0x3f = svdup_u8(0x3f);
+
+    sz_size_t i = 0;
+
+    // Main loop: process full vectors
+    while (i + vl <= length) {
+        svuint8_t source_vec = svld1_u8(svptrue_b8(), (sz_u8_t const *)(source + i));
+
+        // Create predicates based on top 2 bits (which 64-byte range)
+        svbool_t pred_0_63 = svcmplt_n_u8(svptrue_b8(), source_vec, 64);
+        svbool_t pred_64_127 = svcmpge_n_u8(svcmplt_n_u8(svptrue_b8(), source_vec, 128), source_vec, 64);
+        svbool_t pred_128_191 = svcmpge_n_u8(svcmplt_n_u8(svptrue_b8(), source_vec, 192), source_vec, 128);
+        svbool_t pred_192_255 = svcmpge_n_u8(svptrue_b8(), source_vec, 192);
+
+        // Mask indices to bottom 6 bits for indexing within each 64-byte table
+        svuint8_t idx = svand_u8_x(svptrue_b8(), source_vec, mask_0x3f);
+
+        // Perform lookups and blend results based on predicates
+        svuint8_t result = svsel_u8(pred_0_63, svtbl_u8(lut_0_to_63_vec, idx), svdup_u8(0));
+        result = svsel_u8(pred_64_127, svtbl_u8(lut_64_to_127_vec, idx), result);
+        result = svsel_u8(pred_128_191, svtbl_u8(lut_128_to_191_vec, idx), result);
+        result = svsel_u8(pred_192_255, svtbl_u8(lut_192_to_255_vec, idx), result);
+
+        svst1_u8(svptrue_b8(), (sz_u8_t *)target + i, result);
+        i += vl;
+    }
+
+    // Handle tail: process remaining elements with predicated operations
+    if (i < length) {
+        svbool_t pred = svwhilelt_b8_u64(i, length);
+        svuint8_t source_vec = svld1_u8(pred, (sz_u8_t const *)(source + i));
+
+        // Create predicates for each range (comparison already uses pred as governing predicate)
+        svbool_t pred_0_63 = svcmplt_n_u8(pred, source_vec, 64);
+        svbool_t pred_64_127 = svcmpge_n_u8(svcmplt_n_u8(pred, source_vec, 128), source_vec, 64);
+        svbool_t pred_128_191 = svcmpge_n_u8(svcmplt_n_u8(pred, source_vec, 192), source_vec, 128);
+        svbool_t pred_192_255 = svcmpge_n_u8(pred, source_vec, 192);
+
+        // Mask indices to bottom 6 bits
+        svuint8_t idx = svand_u8_x(pred, source_vec, mask_0x3f);
+
+        svuint8_t result = svsel_u8(pred_0_63, svtbl_u8(lut_0_to_63_vec, idx), svdup_u8(0));
+        result = svsel_u8(pred_64_127, svtbl_u8(lut_64_to_127_vec, idx), result);
+        result = svsel_u8(pred_128_191, svtbl_u8(lut_128_to_191_vec, idx), result);
+        result = svsel_u8(pred_192_255, svtbl_u8(lut_192_to_255_vec, idx), result);
+
+        svst1_u8(pred, (sz_u8_t *)target + i, result);
+    }
+}
 #if defined(__clang__)
 #pragma clang attribute pop
 #elif defined(__GNUC__)
@@ -1385,7 +1432,7 @@ SZ_DYNAMIC void sz_copy(sz_ptr_t target, sz_cptr_t source, sz_size_t length) {
     sz_copy_skylake(target, source, length);
 #elif SZ_USE_HASWELL
     sz_copy_haswell(target, source, length);
-#elif SZ_USE_SVE
+#elif SZ_USE_SVE && SZ_ENFORCE_SVE_OVER_NEON
     sz_copy_sve(target, source, length);
 #elif SZ_USE_NEON
     sz_copy_neon(target, source, length);
@@ -1399,7 +1446,7 @@ SZ_DYNAMIC void sz_move(sz_ptr_t target, sz_cptr_t source, sz_size_t length) {
     sz_move_skylake(target, source, length);
 #elif SZ_USE_HASWELL
     sz_move_haswell(target, source, length);
-#elif SZ_USE_SVE
+#elif SZ_USE_SVE && SZ_ENFORCE_SVE_OVER_NEON
     sz_move_sve(target, source, length);
 #elif SZ_USE_NEON
     sz_move_neon(target, source, length);
@@ -1413,7 +1460,7 @@ SZ_DYNAMIC void sz_fill(sz_ptr_t target, sz_size_t length, sz_u8_t value) {
     sz_fill_skylake(target, length, value);
 #elif SZ_USE_HASWELL
     sz_fill_haswell(target, length, value);
-#elif SZ_USE_SVE
+#elif SZ_USE_SVE && SZ_ENFORCE_SVE_OVER_NEON
     sz_fill_sve(target, length, value);
 #elif SZ_USE_NEON
     sz_fill_neon(target, length, value);
@@ -1422,11 +1469,13 @@ SZ_DYNAMIC void sz_fill(sz_ptr_t target, sz_size_t length, sz_u8_t value) {
 #endif
 }
 
-SZ_DYNAMIC void sz_lookup(sz_ptr_t target, sz_size_t length, sz_cptr_t source, sz_cptr_t lut) {
+SZ_DYNAMIC void sz_lookup(sz_ptr_t target, sz_size_t length, sz_cptr_t source, char const lut[sz_at_least_(256)]) {
 #if SZ_USE_ICE
     sz_lookup_ice(target, length, source, lut);
 #elif SZ_USE_HASWELL
     sz_lookup_haswell(target, length, source, lut);
+#elif SZ_USE_SVE && SZ_ENFORCE_SVE_OVER_NEON
+    sz_lookup_sve(target, length, source, lut);
 #elif SZ_USE_NEON
     sz_lookup_neon(target, length, source, lut);
 #else

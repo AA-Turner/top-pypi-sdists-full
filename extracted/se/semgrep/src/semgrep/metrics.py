@@ -40,6 +40,7 @@ from semgrep import __VERSION__
 from semgrep.constants import USER_FRIENDLY_PRODUCT_NAMES
 from semgrep.error import error_type_string
 from semgrep.error import SemgrepError
+from semgrep.mcp.models import SemgrepScanResult
 from semgrep.parsing_data import ParsingData
 from semgrep.profile_manager import ProfileManager
 from semgrep.rule import Rule
@@ -51,6 +52,7 @@ from semgrep.semgrep_interfaces.semgrep_metrics import Environment
 from semgrep.semgrep_interfaces.semgrep_metrics import Errors
 from semgrep.semgrep_interfaces.semgrep_metrics import Extension
 from semgrep.semgrep_interfaces.semgrep_metrics import FileStats
+from semgrep.semgrep_interfaces.semgrep_metrics import Finding
 from semgrep.semgrep_interfaces.semgrep_metrics import Interfile
 from semgrep.semgrep_interfaces.semgrep_metrics import Interprocedural
 from semgrep.semgrep_interfaces.semgrep_metrics import Intraprocedural
@@ -67,6 +69,7 @@ from semgrep.types import FilteredMatches
 from semgrep.types import TargetInfo
 from semgrep.verbose_logging import getLogger
 
+# Used below but can't be imported normally due to a circular dependency
 if TYPE_CHECKING:
     from semgrep.engine import EngineType
 
@@ -192,6 +195,10 @@ class Metrics:
         secrets: Optional[SecretsConfig],
         supply_chain: Optional[SupplyChainConfig],
     ) -> None:
+        # Needs to be imported with narrow scope due to a circular dependency if
+        # it is imported at the top level.
+        from semgrep.engine import EngineType
+
         """
         Assumes configs is list of arguments passed to semgrep using --config
         """
@@ -488,19 +495,103 @@ class Metrics:
         except Exception as e:
             self.log_exception("add_extension", e)
 
+    def clear_mcp(self) -> None:
+        self.payload.mcp = Mcp()
+        self.payload.performance.totalBytesScanned = None
+        self.payload.performance.numRules = None
+        self.payload.environment.deployment_id = None
+
     def add_mcp(
         self,
         deployment_id: Optional[int],
-        session_id: Optional[str],
-        num_findings: Optional[int],
+        session_id: str,
+        deployment_name: Optional[str],
+        tool_name: Optional[str],
     ) -> None:
         try:
+            self.payload.environment.deployment_id = deployment_id
             self.payload.mcp = Mcp(
+                deployment_name=deployment_name,
+                tool_name=tool_name,
                 session_id=session_id,
-                num_findings=num_findings,
+                errors=[],
             )
         except Exception as e:
             self.log_exception("add_mcp", e)
+
+    def cli_matches_to_findings(
+        self, matches: list[dict[str, Any]]
+    ) -> list[tuple[str, Finding]]:
+        return [
+            (
+                finding["check_id"],
+                Finding(
+                    path=finding["path"],
+                    line=finding["start"]["line"],
+                    col=finding["start"]["col"],
+                    offset=finding["start"]["offset"],
+                    severity=finding["extra"]["severity"],
+                ),
+            )
+            for finding in matches
+        ]
+
+    def add_mcp_scan_metrics(
+        self,
+        results: SemgrepScanResult,
+        num_lines_scanned: int,
+    ) -> None:
+        try:
+            total_bytes_scanned = int(
+                results.mcp_scan_results.get("total_bytes_scanned") or 0
+            )
+            rules = list(results.mcp_scan_results.get("rules") or [])
+            # Fill in the some of the performance fields from the MCP scan results that we actually use
+            self.payload.performance.totalBytesScanned = total_bytes_scanned
+            self.payload.performance.numRules = len(rules)
+            self.payload.mcp.num_skipped_rules = len(results.skipped_rules)
+            self.payload.mcp.rules = rules
+            self.payload.mcp.num_scanned_files = len(results.paths["scanned"])
+            self.payload.mcp.num_findings = len(results.results)
+            self.payload.mcp.findings = self.cli_matches_to_findings(results.results)
+            self.payload.mcp.errors = [error["message"] for error in results.errors]
+            self.payload.mcp.num_lines = num_lines_scanned
+        except Exception as e:
+            self.log_exception("add_mcp_scan", e)
+
+    def add_mcp_findings_metrics(
+        self,
+        tps: list[tuple[str, Finding]],
+        fps: list[tuple[str, Finding]],
+        skips: list[tuple[str, Finding]],
+    ) -> None:
+        try:
+            self.payload.mcp.num_tps = len(tps)
+            self.payload.mcp.tps = tps
+            self.payload.mcp.num_fps = len(fps)
+            self.payload.mcp.fps = fps
+            self.payload.mcp.num_skips = len(skips)
+            self.payload.mcp.skips = skips
+        except Exception as e:
+            self.log_exception("add_mcp_findings_metrics", e)
+
+    def add_mcp_git_info(self, git_info: Optional[dict[str, str]]) -> None:
+        try:
+            if git_info:
+                self.payload.mcp.git_username = git_info["username"]
+                self.payload.mcp.git_repo = git_info["repo"]
+                self.payload.mcp.git_branch = git_info["branch"]
+        except Exception as e:
+            self.log_exception("add_mcp_git_info", e)
+
+    def add_mcp_error(self, error: str) -> None:
+        try:
+            if self.payload.mcp.errors is None:
+                self.payload.mcp.errors = [error]
+            else:
+                self.payload.mcp.errors.append(error)
+        except Exception as e:
+            self.log_exception("add_mcp_error", e)
 
     def as_json(self) -> str:
         value = self.payload.to_json()

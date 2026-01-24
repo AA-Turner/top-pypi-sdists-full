@@ -70,20 +70,18 @@ class ImageAugmentationOptions(APIObject):
     """
 
     _get_path = "imageAugmentationOptions/{pid}"
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("name"): String(),
-            t.Key("project_id"): String(),
-            t.Key("min_transformation_probability"): t.Float(),
-            t.Key("max_transformation_probability"): t.Float(),
-            t.Key("current_transformation_probability"): t.Float(),
-            t.Key("min_number_of_new_images"): Int(),
-            t.Key("current_number_of_new_images"): Int(),
-            t.Key("max_number_of_new_images"): Int(),
-            t.Key("transformations", optional=True): t.List(t.Dict().allow_extra("*")),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("name"): String(),
+        t.Key("project_id"): String(),
+        t.Key("min_transformation_probability"): t.Float(),
+        t.Key("max_transformation_probability"): t.Float(),
+        t.Key("current_transformation_probability"): t.Float(),
+        t.Key("min_number_of_new_images"): Int(),
+        t.Key("current_number_of_new_images"): Int(),
+        t.Key("max_number_of_new_images"): Int(),
+        t.Key("transformations", optional=True): t.List(t.Dict().allow_extra("*")),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -172,20 +170,18 @@ class ImageAugmentationList(APIObject):
     _referenced_by_id_path = "imageAugmentationLists/{id}/"
     _create_path = "imageAugmentationLists/"
     _samples_path = "imageAugmentationLists/{id}/samples/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("name"): String(),
-            t.Key("project_id"): String(),
-            t.Key("feature_name", optional=True): String(),
-            t.Key("in_use", optional=True): t.Bool(),
-            t.Key("initial_list", optional=True): t.Bool(),
-            t.Key("transformation_probability", optional=True): t.Float(),
-            t.Key("number_of_new_images", optional=True, default=1): Int(),
-            t.Key("transformations", optional=True): t.List(t.Dict().allow_extra("*")),
-            t.Key("samples_id", optional=True): String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("name"): String(),
+        t.Key("project_id"): String(),
+        t.Key("feature_name", optional=True): String(),
+        t.Key("in_use", optional=True): t.Bool(),
+        t.Key("initial_list", optional=True): t.Bool(),
+        t.Key("transformation_probability", optional=True): t.Float(),
+        t.Key("number_of_new_images", optional=True, default=1): Int(),
+        t.Key("transformations", optional=True): t.List(t.Dict().allow_extra("*")),
+        t.Key("samples_id", optional=True): String(),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -284,9 +280,7 @@ class ImageAugmentationList(APIObject):
         cls._client.delete(path)
 
     @classmethod
-    def list(
-        cls, project_id: str, feature_name: Optional[str] = None
-    ) -> List["ImageAugmentationList"]:
+    def list(cls, project_id: str, feature_name: Optional[str] = None) -> List["ImageAugmentationList"]:
         """
         List Image Augmentation Lists present in a project.
 
@@ -415,16 +409,14 @@ class ImageAugmentationSample(APIObject):
     _compute_path = "imageAugmentationSamples/"
     _list_by_samples_path = "imageAugmentationSamples/{sample_id}/"
     _list_by_auglist_path = "imageAugmentationLists/{auglist_id}/samples/"
-    _converter = t.Dict(
-        {
-            t.Key("image_id"): String(),
-            t.Key("project_id"): String(),
-            t.Key("height"): Int(),
-            t.Key("width"): Int(),
-            t.Key("original_image_id", optional=True): String(),
-            t.Key("sample_id", optional=True): String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("image_id"): String(),
+        t.Key("project_id"): String(),
+        t.Key("height"): Int(),
+        t.Key("width"): Int(),
+        t.Key("original_image_id", optional=True): String(),
+        t.Key("sample_id", optional=True): String(),
+    }).ignore_extra("*")
 
     def __init__(
         self,

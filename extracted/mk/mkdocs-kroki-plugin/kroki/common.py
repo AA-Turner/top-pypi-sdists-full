@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Final
 
 from mkdocs.config.defaults import MkDocsConfig as _MkDocsConfig
 from mkdocs.structure.files import File, Files
@@ -9,6 +10,16 @@ MkDocsPage = Page
 MkDocsConfig = _MkDocsConfig
 MkDocsFiles = Files
 MkDocsFile = File
+
+PLUGIN_OPTIONS: Final[frozenset[str]] = frozenset(
+    {
+        "display-width",
+        "display-height",
+        "display-align",
+        "bg-light",
+        "bg-dark",
+    }
+)
 
 
 @dataclass
@@ -42,4 +53,5 @@ class KrokiImageContext:
 
     kroki_type: str
     options: dict
+    plugin_options: dict
     data: Result[str, ErrorResult]

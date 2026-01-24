@@ -114,11 +114,13 @@ def _gcp_subnet_has_enough_capacity(
     subnet: compute_v1.types.compute.Subnetwork, logger: CloudSetupLogger
 ) -> bool:
     """Verify if the subnet provided has a large enough IP address block."""
-    if GCP_SUBNET_CAPACITY.verify_network_capacity(
-        cidr_block_str=subnet.ip_cidr_range, resource_name=subnet.name, logger=logger,
-    ):
-        return True
-    return False
+    return bool(
+        GCP_SUBNET_CAPACITY.verify_network_capacity(
+            cidr_block_str=subnet.ip_cidr_range,
+            resource_name=subnet.name,
+            logger=logger,
+        )
+    )
 
 
 def _get_proxy_only_subnet_in_vpc(

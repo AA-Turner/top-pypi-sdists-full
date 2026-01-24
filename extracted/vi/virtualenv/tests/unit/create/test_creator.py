@@ -31,7 +31,6 @@ from virtualenv.create.via_global_ref.builtin.cpython.cpython3 import CPython3Po
 from virtualenv.discovery.py_info import PythonInfo
 from virtualenv.info import IS_PYPY, IS_WIN, fs_is_case_sensitive
 from virtualenv.run import cli_run, session_via_cli
-from virtualenv.run.plugin.creators import CreatorSelector
 
 CURRENT = PythonInfo.current_system()
 
@@ -94,9 +93,9 @@ def system(session_app_data):
     return get_env_debug_info(Path(CURRENT.system_executable), DEBUG_SCRIPT, session_app_data, os.environ)
 
 
-CURRENT_CREATORS = [i for i in CreatorSelector.for_interpreter(CURRENT).key_to_class if i != "builtin"]
+CURRENT_CREATORS = [i for i in CURRENT.creators().key_to_class if i != "builtin"]
 CREATE_METHODS = []
-for k, v in CreatorSelector.for_interpreter(CURRENT).key_to_meta.items():
+for k, v in CURRENT.creators().key_to_meta.items():
     if k in CURRENT_CREATORS:
         if v.can_copy:
             if k == "venv" and CURRENT.implementation == "PyPy" and CURRENT.pypy_version_info >= [7, 3, 13]:
@@ -401,10 +400,7 @@ def test_create_long_path(tmp_path):
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize(
-    "creator",
-    sorted(set(CreatorSelector.for_interpreter(PythonInfo.current_system()).key_to_class) - {"builtin"}),
-)
+@pytest.mark.parametrize("creator", sorted(set(PythonInfo.current_system().creators().key_to_class) - {"builtin"}))
 @pytest.mark.usefixtures("session_app_data")
 def test_create_distutils_cfg(creator, tmp_path, monkeypatch):
     result = cli_run(
@@ -444,7 +440,6 @@ def test_create_distutils_cfg(creator, tmp_path, monkeypatch):
         "--disable-pip-version-check",
         "install",
         str(dest),
-        "--no-use-pep517",
         "-vv",
     ]
     subprocess.check_call(install_demo_cmd)

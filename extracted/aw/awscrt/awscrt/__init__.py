@@ -4,10 +4,10 @@
 from weakref import WeakSet
 
 __all__ = [
+    'aio',
     'auth',
     'crypto',
     'http',
-    'aio.http',
     'io',
     'mqtt',
     'mqtt5',
@@ -16,7 +16,7 @@ __all__ = [
     'websocket',
 ]
 
-__version__ = '0.28.1'
+__version__ = '0.31.1'
 
 
 class NativeResource:

@@ -9,20 +9,25 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
-from typing_extensions import TypedDict
+from typing import Literal
+from typing_extensions import NotRequired, TypedDict
 
 
-class PullRequestPropLabelsItemsType(TypedDict):
-    """PullRequestPropLabelsItems"""
+class DeploymentBranchPolicyNamePatternWithTypeType(TypedDict):
+    """Deployment branch and tag policy name pattern"""
 
-    id: int
-    node_id: str
-    url: str
     name: str
-    description: Union[str, None]
-    color: str
-    default: bool
+    type: NotRequired[Literal["branch", "tag"]]
 
 
-__all__ = ("PullRequestPropLabelsItemsType",)
+class DeploymentBranchPolicyNamePatternWithTypeTypeForResponse(TypedDict):
+    """Deployment branch and tag policy name pattern"""
+
+    name: str
+    type: NotRequired[Literal["branch", "tag"]]
+
+
+__all__ = (
+    "DeploymentBranchPolicyNamePatternWithTypeType",
+    "DeploymentBranchPolicyNamePatternWithTypeTypeForResponse",
+)

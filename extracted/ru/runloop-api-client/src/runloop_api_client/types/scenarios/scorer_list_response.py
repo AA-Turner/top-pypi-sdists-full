@@ -6,11 +6,13 @@ __all__ = ["ScorerListResponse"]
 
 
 class ScorerListResponse(BaseModel):
+    """A ScenarioScorerView represents a custom scoring function for a Scenario."""
+
     id: str
     """ID for the scenario scorer."""
 
     bash_script: str
-    """Bash script that takes in $RL_TEST_CONTEXT as env variable and runs scoring."""
+    """Bash script that takes in $RL_SCORER_CONTEXT as env variable and runs scoring."""
 
     type: str
     """Name of the type of scenario scorer."""

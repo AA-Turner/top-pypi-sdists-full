@@ -14,14 +14,15 @@ from ..._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from ..._base_client import make_request_options
+from ...pagination import SyncDefaultPagination, AsyncDefaultPagination
+from ..._base_client import AsyncPaginator, make_request_options
 from ...types.sim_cards import (
     action_list_params,
     action_set_public_ip_params,
     action_bulk_set_public_ips_params,
     action_validate_registration_codes_params,
 )
-from ...types.sim_cards.action_list_response import ActionListResponse
+from ...types.sim_cards.sim_card_action import SimCardAction
 from ...types.sim_cards.action_enable_response import ActionEnableResponse
 from ...types.sim_cards.action_disable_response import ActionDisableResponse
 from ...types.sim_cards.action_retrieve_response import ActionRetrieveResponse
@@ -99,7 +100,7 @@ class ActionsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> ActionListResponse:
+    ) -> SyncDefaultPagination[SimCardAction]:
         """This API lists a paginated collection of SIM card actions.
 
         It enables exploring
@@ -121,8 +122,9 @@ class ActionsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return self._get(
+        return self._get_api_list(
             "/sim_card_actions",
+            page=SyncDefaultPagination[SimCardAction],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -136,7 +138,7 @@ class ActionsResource(SyncAPIResource):
                     action_list_params.ActionListParams,
                 ),
             ),
-            cast_to=ActionListResponse,
+            model=SimCardAction,
         )
 
     def bulk_set_public_ips(
@@ -154,7 +156,7 @@ class ActionsResource(SyncAPIResource):
         This API triggers an asynchronous operation to set a public IP for each of the
         specified SIM cards.<br/> For each SIM Card a SIM Card Action will be generated.
         The status of the SIM Card Action can be followed through the
-        [List SIM Card Action](https://developersdev.telnyx.com/docs/api/v2/wireless/SIM-Card-Actions#ListSIMCardActions)
+        [List SIM Card Action](https://developers.telnyx.com/api-reference/sim-card-actions/list-sim-card-actions)
         API.
 
         Args:
@@ -193,7 +195,7 @@ class ActionsResource(SyncAPIResource):
         impossible to consume data.<br/> The API will trigger an asynchronous operation
         called a SIM Card Action. Transitioning to the disabled state may take a period
         of time. The status of the SIM Card Action can be followed through the
-        [List SIM Card Action](https://developersdev.telnyx.com/docs/api/v2/wireless/SIM-Card-Actions#ListSIMCardActions)
+        [List SIM Card Action](https://developers.telnyx.com/api-reference/sim-card-actions/list-sim-card-actions)
         API.
 
         Args:
@@ -232,7 +234,7 @@ class ActionsResource(SyncAPIResource):
         card group.<br/> The API will trigger an asynchronous operation called a SIM
         Card Action. Transitioning to the enabled state may take a period of time. The
         status of the SIM Card Action can be followed through the
-        [List SIM Card Action](https://developersdev.telnyx.com/docs/api/v2/wireless/SIM-Card-Actions#ListSIMCardActions)
+        [List SIM Card Action](https://developers.telnyx.com/api-reference/sim-card-actions/list-sim-card-actions)
         API.
 
         Args:
@@ -270,7 +272,7 @@ class ActionsResource(SyncAPIResource):
         <br/><br/> The API will
         trigger an asynchronous operation called a SIM Card Action. The status of the
         SIM Card Action can be followed through the
-        [List SIM Card Action](https://developersdev.telnyx.com/docs/api/v2/wireless/SIM-Card-Actions#ListSIMCardActions)
+        [List SIM Card Action](https://developers.telnyx.com/api-reference/sim-card-actions/list-sim-card-actions)
         API.
 
         Args:
@@ -309,7 +311,7 @@ class ActionsResource(SyncAPIResource):
         public IP to the SIM card. <br/><br/> The API will trigger an asynchronous
         operation called a SIM Card Action. The status of the SIM Card Action can be
         followed through the
-        [List SIM Card Action](https://developersdev.telnyx.com/docs/api/v2/wireless/SIM-Card-Actions#ListSIMCardActions)
+        [List SIM Card Action](https://developers.telnyx.com/api-reference/sim-card-actions/list-sim-card-actions)
         API. <br/><br/> Setting a Public IP to a SIM Card incurs a charge and will only
         succeed if the account has sufficient funds.
 
@@ -359,7 +361,7 @@ class ActionsResource(SyncAPIResource):
         API will trigger an asynchronous operation called a SIM Card Action.
         Transitioning to the standby state may take a period of time. The status of the
         SIM Card Action can be followed through the
-        [List SIM Card Action](https://developersdev.telnyx.com/docs/api/v2/wireless/SIM-Card-Actions#ListSIMCardActions)
+        [List SIM Card Action](https://developers.telnyx.com/api-reference/sim-card-actions/list-sim-card-actions)
         API.
 
         Args:
@@ -471,7 +473,7 @@ class AsyncActionsResource(AsyncAPIResource):
             cast_to=ActionRetrieveResponse,
         )
 
-    async def list(
+    def list(
         self,
         *,
         filter: action_list_params.Filter | Omit = omit,
@@ -482,7 +484,7 @@ class AsyncActionsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> ActionListResponse:
+    ) -> AsyncPaginator[SimCardAction, AsyncDefaultPagination[SimCardAction]]:
         """This API lists a paginated collection of SIM card actions.
 
         It enables exploring
@@ -504,14 +506,15 @@ class AsyncActionsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return await self._get(
+        return self._get_api_list(
             "/sim_card_actions",
+            page=AsyncDefaultPagination[SimCardAction],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=await async_maybe_transform(
+                query=maybe_transform(
                     {
                         "filter": filter,
                         "page": page,
@@ -519,7 +522,7 @@ class AsyncActionsResource(AsyncAPIResource):
                     action_list_params.ActionListParams,
                 ),
             ),
-            cast_to=ActionListResponse,
+            model=SimCardAction,
         )
 
     async def bulk_set_public_ips(
@@ -537,7 +540,7 @@ class AsyncActionsResource(AsyncAPIResource):
         This API triggers an asynchronous operation to set a public IP for each of the
         specified SIM cards.<br/> For each SIM Card a SIM Card Action will be generated.
         The status of the SIM Card Action can be followed through the
-        [List SIM Card Action](https://developersdev.telnyx.com/docs/api/v2/wireless/SIM-Card-Actions#ListSIMCardActions)
+        [List SIM Card Action](https://developers.telnyx.com/api-reference/sim-card-actions/list-sim-card-actions)
         API.
 
         Args:
@@ -576,7 +579,7 @@ class AsyncActionsResource(AsyncAPIResource):
         impossible to consume data.<br/> The API will trigger an asynchronous operation
         called a SIM Card Action. Transitioning to the disabled state may take a period
         of time. The status of the SIM Card Action can be followed through the
-        [List SIM Card Action](https://developersdev.telnyx.com/docs/api/v2/wireless/SIM-Card-Actions#ListSIMCardActions)
+        [List SIM Card Action](https://developers.telnyx.com/api-reference/sim-card-actions/list-sim-card-actions)
         API.
 
         Args:
@@ -615,7 +618,7 @@ class AsyncActionsResource(AsyncAPIResource):
         card group.<br/> The API will trigger an asynchronous operation called a SIM
         Card Action. Transitioning to the enabled state may take a period of time. The
         status of the SIM Card Action can be followed through the
-        [List SIM Card Action](https://developersdev.telnyx.com/docs/api/v2/wireless/SIM-Card-Actions#ListSIMCardActions)
+        [List SIM Card Action](https://developers.telnyx.com/api-reference/sim-card-actions/list-sim-card-actions)
         API.
 
         Args:
@@ -653,7 +656,7 @@ class AsyncActionsResource(AsyncAPIResource):
         <br/><br/> The API will
         trigger an asynchronous operation called a SIM Card Action. The status of the
         SIM Card Action can be followed through the
-        [List SIM Card Action](https://developersdev.telnyx.com/docs/api/v2/wireless/SIM-Card-Actions#ListSIMCardActions)
+        [List SIM Card Action](https://developers.telnyx.com/api-reference/sim-card-actions/list-sim-card-actions)
         API.
 
         Args:
@@ -692,7 +695,7 @@ class AsyncActionsResource(AsyncAPIResource):
         public IP to the SIM card. <br/><br/> The API will trigger an asynchronous
         operation called a SIM Card Action. The status of the SIM Card Action can be
         followed through the
-        [List SIM Card Action](https://developersdev.telnyx.com/docs/api/v2/wireless/SIM-Card-Actions#ListSIMCardActions)
+        [List SIM Card Action](https://developers.telnyx.com/api-reference/sim-card-actions/list-sim-card-actions)
         API. <br/><br/> Setting a Public IP to a SIM Card incurs a charge and will only
         succeed if the account has sufficient funds.
 
@@ -742,7 +745,7 @@ class AsyncActionsResource(AsyncAPIResource):
         API will trigger an asynchronous operation called a SIM Card Action.
         Transitioning to the standby state may take a period of time. The status of the
         SIM Card Action can be followed through the
-        [List SIM Card Action](https://developersdev.telnyx.com/docs/api/v2/wireless/SIM-Card-Actions#ListSIMCardActions)
+        [List SIM Card Action](https://developers.telnyx.com/api-reference/sim-card-actions/list-sim-card-actions)
         API.
 
         Args:

@@ -1149,6 +1149,11 @@ class _PlyHeaderParser(object):
             self._error("early end-of-file")
 
         line = raw_line.strip()
+        if line == '':
+            # We silently skip empty header lines. This isn't strictly
+            # allowed in the spec, but this logic slightly improves
+            # interoperability with other tools.
+            return self._allowed
         try:
             keyword = line.split(None, 1)[0]
         except IndexError:

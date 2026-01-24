@@ -17,14 +17,9 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import Union
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -162,7 +157,7 @@ class PlayReadyDrmTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -247,7 +242,7 @@ class ListPresetsRequestTypeDef(TypedDict):
 class PermissionOutputTypeDef(TypedDict):
     GranteeType: NotRequired[str]
     Grantee: NotRequired[str]
-    Access: NotRequired[List[str]]
+    Access: NotRequired[list[str]]
 
 
 class PermissionTypeDef(TypedDict):
@@ -356,7 +351,7 @@ class CreateJobPlaylistTypeDef(TypedDict):
 class PlaylistTypeDef(TypedDict):
     Name: NotRequired[str]
     Format: NotRequired[str]
-    OutputKeys: NotRequired[List[str]]
+    OutputKeys: NotRequired[list[str]]
     HlsContentProtection: NotRequired[HlsContentProtectionTypeDef]
     PlayReadyDrm: NotRequired[PlayReadyDrmTypeDef]
     Status: NotRequired[str]
@@ -365,7 +360,7 @@ class PlaylistTypeDef(TypedDict):
 
 class TestRoleResponseTypeDef(TypedDict):
     Success: str
-    Messages: List[str]
+    Messages: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -399,7 +394,7 @@ class ListPresetsRequestPaginateTypeDef(TypedDict):
 class PipelineOutputConfigOutputTypeDef(TypedDict):
     Bucket: NotRequired[str]
     StorageClass: NotRequired[str]
-    Permissions: NotRequired[List[PermissionOutputTypeDef]]
+    Permissions: NotRequired[list[PermissionOutputTypeDef]]
 
 
 class PipelineOutputConfigTypeDef(TypedDict):
@@ -410,7 +405,7 @@ class PipelineOutputConfigTypeDef(TypedDict):
 
 class VideoParametersOutputTypeDef(TypedDict):
     Codec: NotRequired[str]
-    CodecOptions: NotRequired[Dict[str, str]]
+    CodecOptions: NotRequired[dict[str, str]]
     KeyframesMaxDist: NotRequired[str]
     FixedGOP: NotRequired[str]
     BitRate: NotRequired[str]
@@ -423,7 +418,7 @@ class VideoParametersOutputTypeDef(TypedDict):
     DisplayAspectRatio: NotRequired[str]
     SizingPolicy: NotRequired[str]
     PaddingPolicy: NotRequired[str]
-    Watermarks: NotRequired[List[PresetWatermarkTypeDef]]
+    Watermarks: NotRequired[list[PresetWatermarkTypeDef]]
 
 
 class VideoParametersTypeDef(TypedDict):
@@ -451,7 +446,7 @@ class ReadJobRequestWaitTypeDef(TypedDict):
 
 class JobAlbumArtOutputTypeDef(TypedDict):
     MergePolicy: NotRequired[str]
-    Artwork: NotRequired[List[ArtworkTypeDef]]
+    Artwork: NotRequired[list[ArtworkTypeDef]]
 
 
 class JobAlbumArtTypeDef(TypedDict):
@@ -461,8 +456,8 @@ class JobAlbumArtTypeDef(TypedDict):
 
 class CaptionsOutputTypeDef(TypedDict):
     MergePolicy: NotRequired[str]
-    CaptionSources: NotRequired[List[CaptionSourceTypeDef]]
-    CaptionFormats: NotRequired[List[CaptionFormatTypeDef]]
+    CaptionSources: NotRequired[list[CaptionSourceTypeDef]]
+    CaptionFormats: NotRequired[list[CaptionFormatTypeDef]]
 
 
 class CaptionsTypeDef(TypedDict):
@@ -473,7 +468,7 @@ class CaptionsTypeDef(TypedDict):
 
 class InputCaptionsOutputTypeDef(TypedDict):
     MergePolicy: NotRequired[str]
-    CaptionSources: NotRequired[List[CaptionSourceTypeDef]]
+    CaptionSources: NotRequired[list[CaptionSourceTypeDef]]
 
 
 class InputCaptionsTypeDef(TypedDict):
@@ -532,9 +527,9 @@ class JobOutputTypeDef(TypedDict):
     FrameRate: NotRequired[str]
     FileSize: NotRequired[int]
     DurationMillis: NotRequired[int]
-    Watermarks: NotRequired[List[JobWatermarkTypeDef]]
+    Watermarks: NotRequired[list[JobWatermarkTypeDef]]
     AlbumArt: NotRequired[JobAlbumArtOutputTypeDef]
-    Composition: NotRequired[List[ClipTypeDef]]
+    Composition: NotRequired[list[ClipTypeDef]]
     Captions: NotRequired[CaptionsOutputTypeDef]
     Encryption: NotRequired[EncryptionTypeDef]
     AppliedColorSpaceConversion: NotRequired[str]
@@ -561,19 +556,19 @@ InputCaptionsUnionTypeDef = Union[InputCaptionsTypeDef, InputCaptionsOutputTypeD
 
 class CreatePipelineResponseTypeDef(TypedDict):
     Pipeline: PipelineTypeDef
-    Warnings: List[WarningTypeDef]
+    Warnings: list[WarningTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListPipelinesResponseTypeDef(TypedDict):
-    Pipelines: List[PipelineTypeDef]
+    Pipelines: list[PipelineTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ReadPipelineResponseTypeDef(TypedDict):
     Pipeline: PipelineTypeDef
-    Warnings: List[WarningTypeDef]
+    Warnings: list[WarningTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -584,7 +579,7 @@ class UpdatePipelineNotificationsResponseTypeDef(TypedDict):
 
 class UpdatePipelineResponseTypeDef(TypedDict):
     Pipeline: PipelineTypeDef
-    Warnings: List[WarningTypeDef]
+    Warnings: list[WarningTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -626,7 +621,7 @@ CreatePresetResponseTypeDef = TypedDict(
 
 
 class ListPresetsResponseTypeDef(TypedDict):
-    Presets: List[PresetTypeDef]
+    Presets: list[PresetTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -668,13 +663,13 @@ class JobTypeDef(TypedDict):
     Arn: NotRequired[str]
     PipelineId: NotRequired[str]
     Input: NotRequired[JobInputOutputTypeDef]
-    Inputs: NotRequired[List[JobInputOutputTypeDef]]
+    Inputs: NotRequired[list[JobInputOutputTypeDef]]
     Output: NotRequired[JobOutputTypeDef]
-    Outputs: NotRequired[List[JobOutputTypeDef]]
+    Outputs: NotRequired[list[JobOutputTypeDef]]
     OutputKeyPrefix: NotRequired[str]
-    Playlists: NotRequired[List[PlaylistTypeDef]]
+    Playlists: NotRequired[list[PlaylistTypeDef]]
     Status: NotRequired[str]
-    UserMetadata: NotRequired[Dict[str, str]]
+    UserMetadata: NotRequired[dict[str, str]]
     Timing: NotRequired[TimingTypeDef]
 
 
@@ -701,13 +696,13 @@ class CreateJobResponseTypeDef(TypedDict):
 
 
 class ListJobsByPipelineResponseTypeDef(TypedDict):
-    Jobs: List[JobTypeDef]
+    Jobs: list[JobTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListJobsByStatusResponseTypeDef(TypedDict):
-    Jobs: List[JobTypeDef]
+    Jobs: list[JobTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 

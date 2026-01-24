@@ -20,6 +20,7 @@ from ddtrace._trace.processor import SpanAggregator
 from ddtrace._trace.processor import SpanProcessor
 from ddtrace._trace.processor import TopLevelSpanProcessor
 from ddtrace._trace.processor import TraceProcessor
+from ddtrace._trace.processor.resource_renaming import ResourceRenamingProcessor
 from ddtrace._trace.provider import BaseContextProvider
 from ddtrace._trace.provider import DefaultContextProvider
 from ddtrace._trace.span import Span
@@ -51,14 +52,14 @@ from ddtrace.internal.peer_service.processor import PeerServiceProcessor
 from ddtrace.internal.processor.endpoint_call_counter import EndpointCallCounterProcessor
 from ddtrace.internal.runtime import get_runtime_id
 from ddtrace.internal.schema.processor import BaseServiceProcessor
+from ddtrace.internal.settings._config import config
+from ddtrace.internal.settings.asm import config as asm_config
+from ddtrace.internal.settings.peer_service import _ps_config
 from ddtrace.internal.utils import _get_metas_to_propagate
 from ddtrace.internal.utils.formats import format_trace_id
 from ddtrace.internal.writer import AgentWriterInterface
 from ddtrace.internal.writer import HTTPWriter
-from ddtrace.settings._config import config
-from ddtrace.settings.asm import config as asm_config
-from ddtrace.settings.peer_service import _ps_config
-from ddtrace.version import get_version
+from ddtrace.version import __version__
 
 
 log = get_logger(__name__)
@@ -73,6 +74,9 @@ def _default_span_processors_factory(
     """Construct the default list of span processors to use."""
     span_processors: List[SpanProcessor] = []
     span_processors += [TopLevelSpanProcessor()]
+
+    if config._trace_resource_renaming_enabled:
+        span_processors.append(ResourceRenamingProcessor())
 
     # When using the NativeWriter stats are computed by the native code.
     if config._trace_compute_stats and not config._trace_writer_native:
@@ -161,11 +165,13 @@ class Tracer(object):
 
         metadata = PyTracerMetadata(
             runtime_id=get_runtime_id(),
-            tracer_version=get_version(),
+            tracer_version=__version__,
             hostname=get_hostname(),
             service_name=config.service or None,
             service_env=config.env or None,
             service_version=config.version or None,
+            process_tags=None,
+            container_id=None,
         )
         try:
             self._config_on_disk = store_metadata(metadata)
@@ -193,33 +199,10 @@ class Tracer(object):
         )
         self.shutdown(timeout=self.SHUTDOWN_TIMEOUT)
 
-    def on_start_span(self, func: Callable[[Span], None]) -> Callable[[Span], None]:
-        """Register a function to execute when a span start.
-
-        Can be used as a decorator.
-
-        :param func: The function to call when starting a span.
-                     The started span will be passed as argument.
-        """
-        core.on("trace.span_start", callback=func)
-        return func
-
-    def deregister_on_start_span(self, func: Callable[[Span], None]) -> Callable[[Span], None]:
-        """Unregister a function registered to execute when a span starts.
-
-        Can be used as a decorator.
-
-        :param func: The function to stop calling when starting a span.
-        """
-        core.reset_listeners("trace.span_start", callback=func)
-        return func
-
     def sample(self, span):
         self._sampler.sample(span)
 
     def _sample_before_fork(self) -> None:
-        if isinstance(self._span_aggregator.writer, AgentWriterInterface):
-            self._span_aggregator.writer.before_fork()
         span = self.current_root_span()
         if span is not None and span.context.sampling_priority is None:
             self.sample(span)
@@ -462,17 +445,19 @@ class Tracer(object):
                 child_of = new_ctx
 
         parent: Optional[Span] = None
+        context: Optional[Context] = None
+        trace_id: Optional[int] = None
+        parent_id: Optional[int] = None
+
         if child_of is not None:
             if isinstance(child_of, Context):
                 context = child_of
             else:
                 context = child_of.context
                 parent = child_of
-        else:
-            context = Context(is_remote=False)
 
-        trace_id = context.trace_id
-        parent_id = context.span_id
+            trace_id = context.trace_id
+            parent_id = context.span_id
 
         # The following precedence is used for a new span's service:
         # 1. Explicitly provided service name
@@ -489,8 +474,8 @@ class Tracer(object):
         # Update the service name based on any mapping
         service = config.service_mapping.get(service, service)
 
-        links = context._span_links if not parent else []
-        if trace_id or links or context._baggage:
+        links = context._span_links if not parent and context else []
+        if trace_id or links or (context and context._baggage):
             # child_of a non-empty context, so either a local child span or from a remote context
             span = Span(
                 name=name,
@@ -529,10 +514,10 @@ class Tracer(object):
                 on_finish=[self._on_span_finish],
             )
             if config._report_hostname:
-                span.set_tag_str(_HOSTNAME_KEY, hostname.get_hostname())
+                span._set_tag_str(_HOSTNAME_KEY, hostname.get_hostname())
 
         if not span._parent:
-            span.set_tag_str("runtime-id", get_runtime_id())
+            span._set_tag_str("runtime-id", get_runtime_id())
             span._metrics[PID] = self._pid
 
         # Apply default global tags.
@@ -540,7 +525,7 @@ class Tracer(object):
             span.set_tags(self._tags)
 
         if config.env:
-            span.set_tag_str(ENV_KEY, config.env)
+            span._set_tag_str(ENV_KEY, config.env)
 
         # Only set the version tag on internal spans.
         if config.version:
@@ -552,7 +537,7 @@ class Tracer(object):
             if (root_span is None and service == config.service) or (
                 root_span and root_span.service == service and root_span.get_tag(VERSION_KEY) is not None
             ):
-                span.set_tag_str(VERSION_KEY, config.version)
+                span._set_tag_str(VERSION_KEY, config.version)
 
         if activate:
             self.context_provider.activate(span)

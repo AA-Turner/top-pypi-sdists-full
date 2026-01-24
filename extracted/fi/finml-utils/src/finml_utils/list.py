@@ -18,7 +18,7 @@ def flatten_iterable(iterable: Sequence[Iterable] | Iterable) -> list:
     return list(_flatten_iterable(iterable))
 
 
-def group_by(input_list: Sequence[T], key_extractor: Callable) -> dict[str, list[T]]:
+def group_by[T](input_list: Sequence[T], key_extractor: Callable) -> dict[str, list[T]]:
     result = {}
     for item in input_list:
         key = key_extractor(item)
@@ -28,7 +28,7 @@ def group_by(input_list: Sequence[T], key_extractor: Callable) -> dict[str, list
     return result
 
 
-def group_by_transform(
+def group_by_transform[T](
     input_list: Sequence[T], key_extractor: Callable, value_transform: Callable
 ) -> dict[str, list[T]]:
     result = {}
@@ -61,7 +61,7 @@ def wrap_in_list(item: T | Sequence[T]) -> list[T]:
     return item if isinstance(item, list) else [item]
 
 
-def transform_range_to_list(input_range: range | Sequence[T]) -> list[T]:
+def transform_range_to_list[T](input_range: range | Sequence[T]) -> list[T]:
     return list(input_range) if isinstance(input_range, range) else input_range
 
 

@@ -1,11 +1,28 @@
 import logging
 import functools
-from typing import Optional, Any, List, Dict, Sequence, Set, TYPE_CHECKING
+import time
+from typing import (
+    Optional,
+    Any,
+    List,
+    Dict,
+    Sequence,
+    Set,
+    TYPE_CHECKING,
+    Callable,
+    Iterator,
+)
 
 from opik.api_objects import rest_stream_parser
 from opik.rest_api import client as rest_api_client
-from opik.rest_api.types import dataset_item_write as rest_dataset_item
+from opik.rest_api.types import (
+    dataset_item_write as rest_dataset_item,
+    dataset_item as rest_dataset_item_read,
+)
+from opik.rest_api.core.api_error import ApiError
 from opik.message_processing.batching import sequence_splitter
+from opik.rate_limit import rate_limit
+from opik import id_helpers
 import opik.exceptions as exceptions
 import opik.config as config
 from opik.rest_client_configurator import retry_decorator
@@ -18,12 +35,61 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
+def _ensure_rest_api_call_respecting_rate_limit(
+    rest_callable: Callable[[], Any],
+) -> Any:
+    """
+    Execute a REST API call with automatic retry on rate limit (429) errors.
+
+    This function handles HTTP 429 rate limit errors by waiting for the duration
+    specified in the response headers and retrying the request. Regular retries
+    for other errors are handled by the underlying rest client.
+
+    Args:
+        rest_callable: A callable that performs the REST API call.
+
+    Returns:
+        The result of the successful REST API call.
+
+    Raises:
+        ApiError: If the error is not a 429 rate limit error.
+    """
+    while True:
+        try:
+            result = rest_callable()
+            return result
+        except ApiError as exception:
+            if exception.status_code == 429:
+                # Parse rate limit headers to get retry delay
+                if exception.headers is not None:
+                    rate_limiter = rate_limit.parse_rate_limit(exception.headers)
+                    if rate_limiter is not None:
+                        retry_after = rate_limiter.retry_after()
+                        LOGGER.info(
+                            "Rate limited (HTTP 429), retrying in %s seconds",
+                            retry_after,
+                        )
+                        time.sleep(retry_after)
+                        continue
+
+                # Fallback: wait 1 second if no header available
+                LOGGER.info(
+                    "Rate limited (HTTP 429) with no retry-after header, retrying in 1 second"
+                )
+                time.sleep(1)
+                continue
+
+            # Re-raise if not a 429 error
+            raise
+
+
 class Dataset:
     def __init__(
         self,
         name: str,
         description: Optional[str],
         rest_client: rest_api_client.OpikApi,
+        dataset_items_count: Optional[int] = None,
     ) -> None:
         """
         A Dataset object. This object should not be created directly, instead use :meth:`opik.Opik.create_dataset` or :meth:`opik.Opik.get_dataset`.
@@ -31,6 +97,7 @@ class Dataset:
         self._name = name
         self._description = description
         self._rest_client = rest_client
+        self._dataset_items_count = dataset_items_count
 
         self._id_to_hash: Dict[str, str] = {}
         self._hashes: Set[str] = set()
@@ -51,6 +118,40 @@ class Dataset:
     def description(self) -> Optional[str]:
         """The description of the dataset."""
         return self._description
+
+    @property
+    def dataset_items_count(self) -> Optional[int]:
+        """
+        The total number of items in the dataset.
+
+        If the count is not cached locally, it will be fetched from the backend.
+        """
+        if self._dataset_items_count is None:
+            dataset_info = self._rest_client.datasets.get_dataset_by_identifier(
+                dataset_name=self._name
+            )
+            self._dataset_items_count = dataset_info.dataset_items_count
+        return self._dataset_items_count
+
+    def _insert_batch_with_retry(
+        self,
+        batch: List[rest_dataset_item.DatasetItemWrite],
+        batch_group_id: str,
+    ) -> None:
+        """Insert a batch of dataset items with automatic retry on rate limit errors.
+
+        Args:
+            batch: List of dataset items to insert.
+            batch_group_id: UUIDv7 identifier that groups all batches from a single
+                user operation together. All batches sent as part of one insert/update
+                call share the same batch_group_id.
+        """
+        _ensure_rest_api_call_respecting_rate_limit(
+            lambda: self._rest_client.datasets.create_or_update_dataset_items(
+                dataset_name=self._name, items=batch, batch_group_id=batch_group_id
+            )
+        )
+        LOGGER.debug("Successfully sent dataset items batch of size %d", len(batch))
 
     def __internal_api__insert_items_as_dataclasses__(
         self, items: List[dataset_item.DatasetItem]
@@ -88,15 +189,15 @@ class Dataset:
             max_length=constants.DATASET_ITEMS_MAX_BATCH_SIZE,
         )
 
+        batch_group_id = id_helpers.generate_id()
+
         for batch in batches:
             LOGGER.debug("Sending dataset items batch of size %d", len(batch))
-            self._rest_client.datasets.create_or_update_dataset_items(
-                dataset_name=self._name, items=batch
-            )
+            self._insert_batch_with_retry(batch, batch_group_id=batch_group_id)
 
     def insert(self, items: Sequence[Dict[str, Any]]) -> None:
         """
-        Insert new items into the dataset.
+        Insert new items into the dataset. A new dataset version will be created.
 
         Args:
             items: List of dicts (which will be converted to dataset items)
@@ -108,15 +209,17 @@ class Dataset:
         ]
         self.__internal_api__insert_items_as_dataclasses__(dataset_items)
 
+        # Invalidate the cached count so it will be fetched from backend on next access
+        self._dataset_items_count = None
+
     def __internal_api__sync_hashes__(self) -> None:
         """Updates all the hashes in the dataset"""
         LOGGER.debug("Start hash sync in dataset")
-        all_items = self.__internal_api__get_items_as_dataclasses__()
 
         self._id_to_hash = {}
         self._hashes = set()
 
-        for item in all_items:
+        for item in self.__internal_api__stream_items_as_dataclasses__():
             item_hash = item.content_hash()
             self._id_to_hash[item.id] = item_hash  # type: ignore
             self._hashes.add(item_hash)
@@ -141,9 +244,29 @@ class Dataset:
 
         self.insert(items)
 
+    def _delete_batch_with_retry(
+        self,
+        batch: List[str],
+        batch_group_id: str,
+    ) -> None:
+        """Delete a batch of dataset items with automatic retry on rate limit errors.
+
+        Args:
+            batch: List of item IDs to delete.
+            batch_group_id: UUIDv7 identifier that groups all batches from a single
+                user operation together. All batches sent as part of one delete
+                call share the same batch_group_id.
+        """
+        _ensure_rest_api_call_respecting_rate_limit(
+            lambda: self._rest_client.datasets.delete_dataset_items(
+                item_ids=batch, batch_group_id=batch_group_id
+            )
+        )
+        LOGGER.debug("Successfully deleted dataset items batch of size %d", len(batch))
+
     def delete(self, items_ids: List[str]) -> None:
         """
-        Delete items from the dataset.
+        Delete items from the dataset. A new dataset version will be created.
 
         Args:
             items_ids: List of item ids to delete.
@@ -152,9 +275,11 @@ class Dataset:
             items_ids, max_length=constants.DATASET_ITEMS_MAX_BATCH_SIZE
         )
 
+        batch_group_id = id_helpers.generate_id()
+
         for batch in batches:
             LOGGER.debug("Deleting dataset items batch: %s", batch)
-            self._rest_client.datasets.delete_dataset_items(item_ids=batch)
+            self._delete_batch_with_retry(batch, batch_group_id=batch_group_id)
 
             for item_id in batch:
                 if item_id in self._id_to_hash:
@@ -162,12 +287,18 @@ class Dataset:
                     self._hashes.discard(hash)
                     del self._id_to_hash[item_id]
 
+        # Invalidate the cached count so it will be fetched from backend on next access
+        self._dataset_items_count = None
+
     def clear(self) -> None:
         """
-        Delete all items from the given dataset.
+        Delete all items from the given dataset. A new dataset version will be created.
         """
-        all_items = self.__internal_api__get_items_as_dataclasses__()
-        item_ids = [item.id for item in all_items if item.id is not None]
+        item_ids = [
+            item.id
+            for item in self.__internal_api__stream_items_as_dataclasses__()
+            if item.id is not None
+        ]
 
         self.delete(item_ids)
 
@@ -180,7 +311,7 @@ class Dataset:
         Returns:
             A pandas DataFrame containing all items in the dataset.
         """
-        dataset_items = self.__internal_api__get_items_as_dataclasses__()
+        dataset_items = list(self.__internal_api__stream_items_as_dataclasses__())
 
         return converters.to_pandas(dataset_items, keys_mapping={})
 
@@ -191,7 +322,7 @@ class Dataset:
         Returns:
             A JSON string representation of all items in the dataset.
         """
-        dataset_items = self.__internal_api__get_items_as_dataclasses__()
+        dataset_items = list(self.__internal_api__stream_items_as_dataclasses__())
 
         return converters.to_json(dataset_items, keys_mapping={})
 
@@ -205,65 +336,88 @@ class Dataset:
         Returns:
             A list of dictionaries objects representing the samples.
         """
-        dataset_items_as_dataclasses = self.__internal_api__get_items_as_dataclasses__(
-            nb_samples
-        )
         dataset_items_as_dicts = [
             {"id": item.id, **item.get_content()}
-            for item in dataset_items_as_dataclasses
+            for item in self.__internal_api__stream_items_as_dataclasses__(nb_samples)
         ]
 
         return dataset_items_as_dicts
 
-    @retry_decorator.opik_rest_retry
-    def __internal_api__get_items_as_dataclasses__(
+    def __internal_api__stream_items_as_dataclasses__(
         self,
         nb_samples: Optional[int] = None,
+        batch_size: Optional[int] = None,
         dataset_item_ids: Optional[List[str]] = None,
-    ) -> List[dataset_item.DatasetItem]:
-        results: List[dataset_item.DatasetItem] = []
+    ) -> Iterator[dataset_item.DatasetItem]:
+        """
+        Stream dataset items as a generator instead of loading all at once.
+
+        This method yields dataset items one at a time, enabling evaluation to start
+        processing items before the entire dataset is downloaded. This is particularly
+        useful for large datasets with heavy payloads (images, videos, audio).
+
+        Args:
+            nb_samples: Maximum number of items to retrieve. If None, all items are streamed.
+            batch_size: Maximum number of items to fetch per batch from the backend.
+                        If None, uses the default value from constants.DATASET_STREAM_BATCH_SIZE.
+            dataset_item_ids: Optional list of specific item IDs to retrieve. If provided,
+                            only items with matching IDs will be yielded.
+
+        Yields:
+            DatasetItem objects one at a time
+        """
+        if batch_size is None:
+            batch_size = constants.DATASET_STREAM_BATCH_SIZE
+
         last_retrieved_id: Optional[str] = None
         should_retrieve_more_items = True
-
+        items_yielded = 0
         dataset_items_ids_left = set(dataset_item_ids) if dataset_item_ids else None
 
         while should_retrieve_more_items:
-            dataset_items = rest_stream_parser.read_and_parse_stream(
-                stream=self._rest_client.datasets.stream_dataset_items(
-                    dataset_name=self._name,
-                    last_retrieved_id=last_retrieved_id,
-                ),
-                item_class=dataset_item.DatasetItem,
-                nb_samples=nb_samples,
-            )
+            # Wrap the streaming call in retry logic so we can resume from last_retrieved_id
+            @retry_decorator.opik_rest_retry
+            def _fetch_batch() -> List[rest_dataset_item_read.DatasetItem]:
+                return rest_stream_parser.read_and_parse_stream(
+                    stream=self._rest_client.datasets.stream_dataset_items(
+                        dataset_name=self._name,
+                        last_retrieved_id=last_retrieved_id,
+                        steam_limit=batch_size,
+                    ),
+                    item_class=rest_dataset_item_read.DatasetItem,
+                    nb_samples=nb_samples,
+                )
+
+            dataset_items = _fetch_batch()
 
             if len(dataset_items) == 0:
                 should_retrieve_more_items = False
+                break
 
             for item in dataset_items:
                 dataset_item_id = item.id
                 last_retrieved_id = dataset_item_id
 
+                # Filter by dataset_item_ids if provided
                 if dataset_items_ids_left is not None:
                     if dataset_item_id not in dataset_items_ids_left:
                         continue
                     else:
                         dataset_items_ids_left.remove(dataset_item_id)
 
-                data_item_content = item.get_content().get("data", {})
-
                 reconstructed_item = dataset_item.DatasetItem(
                     id=item.id,
                     trace_id=item.trace_id,
                     span_id=item.span_id,
                     source=item.source,
-                    **data_item_content,
+                    **item.data,
                 )
 
-                results.append(reconstructed_item)
+                yield reconstructed_item
+                items_yielded += 1
 
                 # Stop retrieving if we have enough samples
-                if nb_samples is not None and len(results) == nb_samples:
+                if nb_samples is not None and items_yielded >= nb_samples:
                     should_retrieve_more_items = False
                     break
 
@@ -275,13 +429,12 @@ class Dataset:
                     should_retrieve_more_items = False
                     break
 
+        # Warn if some requested items were not found
         if dataset_items_ids_left and len(dataset_items_ids_left) > 0:
             LOGGER.warning(
                 "The following dataset items were not found in the dataset: %s",
                 dataset_items_ids_left,
             )
-
-        return results
 
     def insert_from_json(
         self,

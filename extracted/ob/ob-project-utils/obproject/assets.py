@@ -4,6 +4,30 @@ import requests
 from typing import Dict, List, Optional, Any
 
 
+def _sanitize_branch_name(branch: str) -> str:
+    """
+    Sanitize branch name for asset API compatibility.
+
+    The asset API only accepts lowercase letters, numbers, hyphens, and underscores.
+    Metaflow branch names may contain @ and . characters (e.g., user.alice@company.com).
+
+    Args:
+        branch: Raw Metaflow branch name
+
+    Returns:
+        Sanitized branch name safe for asset API
+    """
+    # Replace @ with _at_ for readability
+    sanitized = branch.replace("@", "_at_")
+    # Replace any remaining invalid characters with underscores
+    sanitized = re.sub(r"[^a-z0-9_-]", "_", sanitized.lower())
+    # Collapse multiple underscores
+    sanitized = re.sub(r"_+", "_", sanitized)
+    # Remove leading/trailing underscores
+    sanitized = sanitized.strip("_")
+    return sanitized
+
+
 def _make_request(
     base_url: str,
     service_headers: Dict[str, str],
@@ -64,11 +88,12 @@ def register_asset(
         payload["model_asset_kind"] = model_asset_kind
     # NOTE: we check "is not None" explicitly to allow for empty lists and dicts
     if tags is not None:
-        payload["tags"] = [{"key": k, "value": v} for k, v in tags.items()]
+        payload["tags"] = [{"key": k, "value": str(v)} for k, v in tags.items()]
     if blobs is not None:
         payload["blobs"] = blobs
     if annotations is not None:
-        payload["annotations"] = annotations
+        # Convert all annotation values to strings for API compatibility
+        payload["annotations"] = {k: str(v) for k, v in annotations.items()}
 
     return _make_request(base_url, service_headers, "PATCH", endpoint, payload)
 
@@ -193,7 +218,9 @@ class Asset:
         if project is None:
             project = current.project_name
         if branch is None:
-            branch = re.sub(r"[^a-z0-9_-]", "-", current.branch_name.lower())
+            branch = current.branch_name
+        # Always sanitize branch name for API compatibility
+        branch = _sanitize_branch_name(branch)
         if entity_ref is None:
             entity_ref = {"entity_kind": "task", "entity_id": current.pathspec}
 
@@ -279,31 +306,77 @@ class Asset:
             data_asset_kind=kind,
         )
 
-    def list_data_assets(self):
-        return list_data_assets(
+    def list_data_assets(self, tags=None):
+        """
+        List data assets, optionally filtered by tags.
+
+        Args:
+            tags: Dict of tag key-value pairs to filter by (client-side filtering)
+
+        Returns:
+            List of data asset metadata
+        """
+        assets = list_data_assets(
             self.base_url,
             self.service_headers,
             perimeter=self.perimeter,
             project=self.project,
             branch=self.branch,
         )
+        if tags:
+            # Client-side filtering by tags
+            filtered = []
+            for asset in assets.get("data", []):
+                asset_tags = {t["key"]: t["value"] for t in asset.get("tags", [])}
+                if all(asset_tags.get(k) == v for k, v in tags.items()):
+                    filtered.append(asset)
+            return {"data": filtered}
+        return assets
 
-    def list_model_assets(self):
-        return list_model_assets(
+    def list_model_assets(self, tags=None):
+        """
+        List model assets, optionally filtered by tags.
+
+        Args:
+            tags: Dict of tag key-value pairs to filter by (client-side filtering)
+
+        Returns:
+            List of model asset metadata
+        """
+        assets = list_model_assets(
             self.base_url,
             self.service_headers,
             perimeter=self.perimeter,
             project=self.project,
             branch=self.branch,
         )
+        if tags:
+            # Client-side filtering by tags
+            filtered = []
+            for asset in assets.get("models", []):
+                asset_tags = {t["key"]: t["value"] for t in asset.get("tags", [])}
+                if all(asset_tags.get(k) == v for k, v in tags.items()):
+                    filtered.append(asset)
+            return {"models": filtered}
+        return assets
 
-    def consume_data_asset(self, name):
+    def consume_data_asset(self, name, instance="latest"):
+        """
+        Consume a data asset instance.
+
+        Args:
+            name: Asset name/id
+            instance: Version to retrieve. Options:
+                - "latest" (default): Most recent version
+                - "v123": Specific version number
+                - "latest-1": Previous version (n versions back)
+        """
         common = {
             "perimeter": self.perimeter,
             "project": self.project,
             "branch": self.branch,
             "asset": name,
-            "instance": "latest",
+            "instance": instance,
         }
         args = (self.base_url, self.service_headers)
         if self.read_only:
@@ -311,13 +384,23 @@ class Asset:
         else:
             return consume_data_asset(*args, **common, entity_ref=self.entity_ref)
 
-    def consume_model_asset(self, name):
+    def consume_model_asset(self, name, instance="latest"):
+        """
+        Consume a model asset instance.
+
+        Args:
+            name: Asset name/id
+            instance: Version to retrieve. Options:
+                - "latest" (default): Most recent version
+                - "v123": Specific version number
+                - "latest-1": Previous version (n versions back)
+        """
         common = {
             "perimeter": self.perimeter,
             "project": self.project,
             "branch": self.branch,
             "asset": name,
-            "instance": "latest",
+            "instance": instance,
         }
         args = (self.base_url, self.service_headers)
         if self.read_only:

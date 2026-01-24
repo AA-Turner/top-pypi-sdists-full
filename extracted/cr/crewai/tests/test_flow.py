@@ -1,20 +1,22 @@
 """Test Flow creation and execution basic functionality."""
 
 import asyncio
+import threading
 from datetime import datetime
+from typing import Optional
 
 import pytest
 from pydantic import BaseModel
 
-from crewai.flow.flow import Flow, and_, listen, or_, router, start
 from crewai.events.event_bus import crewai_event_bus
 from crewai.events.types.flow_events import (
     FlowFinishedEvent,
-    FlowStartedEvent,
     FlowPlotEvent,
+    FlowStartedEvent,
     MethodExecutionFinishedEvent,
     MethodExecutionStartedEvent,
 )
+from crewai.flow.flow import Flow, and_, listen, or_, router, start
 
 
 def test_simple_sequential_flow():
@@ -440,20 +442,42 @@ def test_unstructured_flow_event_emission():
 
     flow = PoemFlow()
     received_events = []
+    lock = threading.Lock()
+    all_events_received = threading.Event()
+    expected_event_count = (
+        7  # 1 FlowStarted + 5 MethodExecutionStarted + 1 FlowFinished
+    )
 
     @crewai_event_bus.on(FlowStartedEvent)
     def handle_flow_start(source, event):
-        received_events.append(event)
+        with lock:
+            received_events.append(event)
+            if len(received_events) == expected_event_count:
+                all_events_received.set()
 
     @crewai_event_bus.on(MethodExecutionStartedEvent)
     def handle_method_start(source, event):
-        received_events.append(event)
+        with lock:
+            received_events.append(event)
+            if len(received_events) == expected_event_count:
+                all_events_received.set()
 
     @crewai_event_bus.on(FlowFinishedEvent)
     def handle_flow_end(source, event):
-        received_events.append(event)
+        with lock:
+            received_events.append(event)
+            if len(received_events) == expected_event_count:
+                all_events_received.set()
 
     flow.kickoff(inputs={"separator": ", "})
+
+    assert all_events_received.wait(timeout=5), "Timeout waiting for all flow events"
+
+    # Sort events by timestamp to ensure deterministic order
+    # (async handlers may append out of order)
+    with lock:
+        received_events.sort(key=lambda e: e.timestamp)
+
     assert isinstance(received_events[0], FlowStartedEvent)
     assert received_events[0].flow_name == "PoemFlow"
     assert received_events[0].inputs == {"separator": ", "}
@@ -643,27 +667,47 @@ def test_structured_flow_event_emission():
             return f"Welcome, {self.state.name}!"
 
     flow = OnboardingFlow()
-    flow.kickoff(inputs={"name": "Anakin"})
 
     received_events = []
+    lock = threading.Lock()
+    all_events_received = threading.Event()
+    expected_event_count = 6  # 1 FlowStarted + 2 MethodExecutionStarted + 2 MethodExecutionFinished + 1 FlowFinished
 
     @crewai_event_bus.on(FlowStartedEvent)
     def handle_flow_start(source, event):
-        received_events.append(event)
+        with lock:
+            received_events.append(event)
+            if len(received_events) == expected_event_count:
+                all_events_received.set()
 
     @crewai_event_bus.on(MethodExecutionStartedEvent)
     def handle_method_start(source, event):
-        received_events.append(event)
+        with lock:
+            received_events.append(event)
+            if len(received_events) == expected_event_count:
+                all_events_received.set()
 
     @crewai_event_bus.on(MethodExecutionFinishedEvent)
     def handle_method_end(source, event):
-        received_events.append(event)
+        with lock:
+            received_events.append(event)
+            if len(received_events) == expected_event_count:
+                all_events_received.set()
 
     @crewai_event_bus.on(FlowFinishedEvent)
     def handle_flow_end(source, event):
-        received_events.append(event)
+        with lock:
+            received_events.append(event)
+            if len(received_events) == expected_event_count:
+                all_events_received.set()
 
     flow.kickoff(inputs={"name": "Anakin"})
+
+    assert all_events_received.wait(timeout=5), "Timeout waiting for all flow events"
+
+    # Sort events by timestamp to ensure deterministic order
+    with lock:
+        received_events.sort(key=lambda e: e.timestamp)
 
     assert isinstance(received_events[0], FlowStartedEvent)
     assert received_events[0].flow_name == "OnboardingFlow"
@@ -679,11 +723,11 @@ def test_structured_flow_event_emission():
     assert isinstance(received_events[3], MethodExecutionStartedEvent)
     assert received_events[3].method_name == "send_welcome_message"
     assert received_events[3].params == {}
-    assert getattr(received_events[3].state, "sent") is False
+    assert received_events[3].state["sent"] is False
 
     assert isinstance(received_events[4], MethodExecutionFinishedEvent)
     assert received_events[4].method_name == "send_welcome_message"
-    assert getattr(received_events[4].state, "sent") is True
+    assert received_events[4].state["sent"] is True
     assert received_events[4].result == "Welcome, Anakin!"
 
     assert isinstance(received_events[5], FlowFinishedEvent)
@@ -712,24 +756,45 @@ def test_stateless_flow_event_emission():
 
     flow = StatelessFlow()
     received_events = []
+    lock = threading.Lock()
+    all_events_received = threading.Event()
+    expected_event_count = 6  # 1 FlowStarted + 2 MethodExecutionStarted + 2 MethodExecutionFinished + 1 FlowFinished
 
     @crewai_event_bus.on(FlowStartedEvent)
     def handle_flow_start(source, event):
-        received_events.append(event)
+        with lock:
+            received_events.append(event)
+            if len(received_events) == expected_event_count:
+                all_events_received.set()
 
     @crewai_event_bus.on(MethodExecutionStartedEvent)
     def handle_method_start(source, event):
-        received_events.append(event)
+        with lock:
+            received_events.append(event)
+            if len(received_events) == expected_event_count:
+                all_events_received.set()
 
     @crewai_event_bus.on(MethodExecutionFinishedEvent)
     def handle_method_end(source, event):
-        received_events.append(event)
+        with lock:
+            received_events.append(event)
+            if len(received_events) == expected_event_count:
+                all_events_received.set()
 
     @crewai_event_bus.on(FlowFinishedEvent)
     def handle_flow_end(source, event):
-        received_events.append(event)
+        with lock:
+            received_events.append(event)
+            if len(received_events) == expected_event_count:
+                all_events_received.set()
 
     flow.kickoff()
+
+    assert all_events_received.wait(timeout=5), "Timeout waiting for all flow events"
+
+    # Sort events by timestamp to ensure deterministic order
+    with lock:
+        received_events.sort(key=lambda e: e.timestamp)
 
     assert isinstance(received_events[0], FlowStartedEvent)
     assert received_events[0].flow_name == "StatelessFlow"
@@ -770,13 +835,16 @@ def test_flow_plotting():
     flow = StatelessFlow()
     flow.kickoff()
     received_events = []
+    event_received = threading.Event()
 
     @crewai_event_bus.on(FlowPlotEvent)
     def handle_flow_plot(source, event):
         received_events.append(event)
+        event_received.set()
 
     flow.plot("test_flow")
 
+    assert event_received.wait(timeout=5), "Timeout waiting for plot event"
     assert len(received_events) == 1
     assert isinstance(received_events[0], FlowPlotEvent)
     assert received_events[0].flow_name == "StatelessFlow"
@@ -894,3 +962,674 @@ def test_flow_name():
 
     flow = MyFlow()
     assert flow.name == "MyFlow"
+
+
+def test_nested_and_or_conditions():
+    """Test nested conditions like or_(and_(A, B), and_(C, D)).
+
+    Reproduces bug from issue #3719 where nested conditions are flattened,
+    causing premature execution.
+    """
+    execution_order = []
+
+    class NestedConditionFlow(Flow):
+        @start()
+        def method_1(self):
+            execution_order.append("method_1")
+
+        @listen(method_1)
+        def method_2(self):
+            execution_order.append("method_2")
+
+        @router(method_2)
+        def method_3(self):
+            execution_order.append("method_3")
+            # Choose b_condition path
+            return "b_condition"
+
+        @listen("b_condition")
+        def method_5(self):
+            execution_order.append("method_5")
+
+        @listen(method_5)
+        async def method_4(self):
+            execution_order.append("method_4")
+
+        @listen(or_("a_condition", "b_condition"))
+        async def method_6(self):
+            execution_order.append("method_6")
+
+        @listen(
+            or_(
+                and_("a_condition", method_6),
+                and_(method_6, method_4),
+            )
+        )
+        def method_7(self):
+            execution_order.append("method_7")
+
+        @listen(method_7)
+        async def method_8(self):
+            execution_order.append("method_8")
+
+    flow = NestedConditionFlow()
+    flow.kickoff()
+
+    # Verify execution happened
+    assert "method_1" in execution_order
+    assert "method_2" in execution_order
+    assert "method_3" in execution_order
+    assert "method_5" in execution_order
+    assert "method_4" in execution_order
+    assert "method_6" in execution_order
+    assert "method_7" in execution_order
+    assert "method_8" in execution_order
+
+    # Critical assertion: method_7 should only execute AFTER both method_6 AND method_4
+    # Since b_condition was returned, method_6 triggers on b_condition
+    # method_7 requires: (a_condition AND method_6) OR (method_6 AND method_4)
+    # The second condition (method_6 AND method_4) should be the one that triggers
+    assert execution_order.index("method_7") > execution_order.index("method_6")
+    assert execution_order.index("method_7") > execution_order.index("method_4")
+
+    # method_8 should execute after method_7
+    assert execution_order.index("method_8") > execution_order.index("method_7")
+
+
+def test_diamond_dependency_pattern():
+    """Test diamond pattern where two parallel paths converge at a final step."""
+    execution_order = []
+
+    class DiamondFlow(Flow):
+        @start()
+        def start(self):
+            execution_order.append("start")
+            return "started"
+
+        @listen(start)
+        def path_a(self):
+            execution_order.append("path_a")
+            return "a_done"
+
+        @listen(start)
+        def path_b(self):
+            execution_order.append("path_b")
+            return "b_done"
+
+        @listen(and_(path_a, path_b))
+        def converge(self):
+            execution_order.append("converge")
+            return "converged"
+
+    flow = DiamondFlow()
+    flow.kickoff()
+
+    # Start should execute first
+    assert execution_order[0] == "start"
+
+    # Both paths should execute after start
+    assert "path_a" in execution_order
+    assert "path_b" in execution_order
+    assert execution_order.index("path_a") > execution_order.index("start")
+    assert execution_order.index("path_b") > execution_order.index("start")
+
+    # Converge should be last and after both paths
+    assert execution_order[-1] == "converge"
+    assert execution_order.index("converge") > execution_order.index("path_a")
+    assert execution_order.index("converge") > execution_order.index("path_b")
+
+
+def test_router_cascade_chain():
+    """Test a chain of routers where each router triggers the next."""
+    execution_order = []
+
+    class RouterCascadeFlow(Flow):
+        def __init__(self):
+            super().__init__()
+            self.state["level"] = 1
+
+        @start()
+        def begin(self):
+            execution_order.append("begin")
+            return "started"
+
+        @router(begin)
+        def router_level_1(self):
+            execution_order.append("router_level_1")
+            return "level_1_path"
+
+        @listen("level_1_path")
+        def process_level_1(self):
+            execution_order.append("process_level_1")
+            self.state["level"] = 2
+            return "level_1_done"
+
+        @router(process_level_1)
+        def router_level_2(self):
+            execution_order.append("router_level_2")
+            return "level_2_path"
+
+        @listen("level_2_path")
+        def process_level_2(self):
+            execution_order.append("process_level_2")
+            self.state["level"] = 3
+            return "level_2_done"
+
+        @router(process_level_2)
+        def router_level_3(self):
+            execution_order.append("router_level_3")
+            return "final_path"
+
+        @listen("final_path")
+        def finalize(self):
+            execution_order.append("finalize")
+            return "complete"
+
+    flow = RouterCascadeFlow()
+    flow.kickoff()
+
+    expected_order = [
+        "begin",
+        "router_level_1",
+        "process_level_1",
+        "router_level_2",
+        "process_level_2",
+        "router_level_3",
+        "finalize",
+    ]
+
+    assert execution_order == expected_order
+    assert flow.state["level"] == 3
+
+
+def test_complex_and_or_branching():
+    """Test complex branching with multiple AND and OR conditions."""
+    execution_order = []
+
+    class ComplexBranchingFlow(Flow):
+        @start()
+        def init(self):
+            execution_order.append("init")
+
+        @listen(init)
+        def branch_1a(self):
+            execution_order.append("branch_1a")
+
+        @listen(init)
+        def branch_1b(self):
+            execution_order.append("branch_1b")
+
+        @listen(init)
+        def branch_1c(self):
+            execution_order.append("branch_1c")
+
+        # Requires 1a AND 1b (ignoring 1c)
+        @listen(and_(branch_1a, branch_1b))
+        def branch_2a(self):
+            execution_order.append("branch_2a")
+
+        # Requires any of 1a, 1b, or 1c
+        @listen(or_(branch_1a, branch_1b, branch_1c))
+        def branch_2b(self):
+            execution_order.append("branch_2b")
+
+        # Final step requires 2a AND 2b
+        @listen(and_(branch_2a, branch_2b))
+        def final(self):
+            execution_order.append("final")
+
+    flow = ComplexBranchingFlow()
+    flow.kickoff()
+
+    # Verify all branches executed
+    assert "init" in execution_order
+    assert "branch_1a" in execution_order
+    assert "branch_1b" in execution_order
+    assert "branch_1c" in execution_order
+    assert "branch_2a" in execution_order
+    assert "branch_2b" in execution_order
+    assert "final" in execution_order
+
+    # Verify order constraints
+    assert execution_order.index("branch_2a") > execution_order.index("branch_1a")
+    assert execution_order.index("branch_2a") > execution_order.index("branch_1b")
+
+    # branch_2b should trigger after at least one of 1a, 1b, or 1c
+    min_branch_1_index = min(
+        execution_order.index("branch_1a"),
+        execution_order.index("branch_1b"),
+        execution_order.index("branch_1c"),
+    )
+    assert execution_order.index("branch_2b") > min_branch_1_index
+
+    # Final should be last and after both 2a and 2b
+    assert execution_order[-1] == "final"
+    assert execution_order.index("final") > execution_order.index("branch_2a")
+    assert execution_order.index("final") > execution_order.index("branch_2b")
+
+
+def test_conditional_router_paths_exclusivity():
+    """Test that only the returned router path activates, not all paths."""
+    execution_order = []
+
+    class ConditionalRouterFlow(Flow):
+        def __init__(self):
+            super().__init__()
+            self.state["condition"] = "take_path_b"
+
+        @start()
+        def begin(self):
+            execution_order.append("begin")
+
+        @router(begin)
+        def decision_point(self):
+            execution_order.append("decision_point")
+            if self.state["condition"] == "take_path_a":
+                return "path_a"
+            elif self.state["condition"] == "take_path_b":
+                return "path_b"
+            else:
+                return "path_c"
+
+        @listen("path_a")
+        def handle_path_a(self):
+            execution_order.append("handle_path_a")
+
+        @listen("path_b")
+        def handle_path_b(self):
+            execution_order.append("handle_path_b")
+
+        @listen("path_c")
+        def handle_path_c(self):
+            execution_order.append("handle_path_c")
+
+    flow = ConditionalRouterFlow()
+    flow.kickoff()
+
+    # Should only execute path_b, not path_a or path_c
+    assert "begin" in execution_order
+    assert "decision_point" in execution_order
+    assert "handle_path_b" in execution_order
+    assert "handle_path_a" not in execution_order
+    assert "handle_path_c" not in execution_order
+
+
+def test_state_consistency_across_parallel_branches():
+    """Test that state remains consistent when branches execute sequentially.
+
+    Note: Branches triggered by the same parent execute sequentially, not in parallel.
+    This ensures predictable state mutations and prevents race conditions.
+    """
+    execution_order = []
+
+    class StateConsistencyFlow(Flow):
+        def __init__(self):
+            super().__init__()
+            self.state["counter"] = 0
+            self.state["branch_a_value"] = None
+            self.state["branch_b_value"] = None
+
+        @start()
+        def init(self):
+            execution_order.append("init")
+            self.state["counter"] = 10
+
+        @listen(init)
+        def branch_a(self):
+            execution_order.append("branch_a")
+            # Read counter value
+            self.state["branch_a_value"] = self.state["counter"]
+            self.state["counter"] += 1
+
+        @listen(init)
+        def branch_b(self):
+            execution_order.append("branch_b")
+            # Read counter value
+            self.state["branch_b_value"] = self.state["counter"]
+            self.state["counter"] += 5
+
+        @listen(and_(branch_a, branch_b))
+        def verify_state(self):
+            execution_order.append("verify_state")
+
+    flow = StateConsistencyFlow()
+    flow.kickoff()
+
+    # Branches execute sequentially, so branch_a runs first, then branch_b
+    assert flow.state["branch_a_value"] == 10  # Sees initial value
+    assert flow.state["branch_b_value"] == 11  # Sees value after branch_a increment
+
+    # Final counter should reflect both increments sequentially
+    assert flow.state["counter"] == 16  # 10 + 1 + 5
+
+
+def test_deeply_nested_conditions():
+    """Test deeply nested AND/OR conditions to ensure proper evaluation."""
+    execution_order = []
+
+    class DeeplyNestedFlow(Flow):
+        @start()
+        def a(self):
+            execution_order.append("a")
+
+        @start()
+        def b(self):
+            execution_order.append("b")
+
+        @start()
+        def c(self):
+            execution_order.append("c")
+
+        @start()
+        def d(self):
+            execution_order.append("d")
+
+        # Nested: (a AND b) OR (c AND d)
+        @listen(or_(and_(a, b), and_(c, d)))
+        def result(self):
+            execution_order.append("result")
+
+    flow = DeeplyNestedFlow()
+    flow.kickoff()
+
+    # All start methods should execute
+    assert "a" in execution_order
+    assert "b" in execution_order
+    assert "c" in execution_order
+    assert "d" in execution_order
+
+    # Result should execute after all starts
+    assert "result" in execution_order
+    assert execution_order.index("result") > execution_order.index("a")
+    assert execution_order.index("result") > execution_order.index("b")
+    assert execution_order.index("result") > execution_order.index("c")
+    assert execution_order.index("result") > execution_order.index("d")
+
+
+def test_mixed_sync_async_execution_order():
+    """Test that execution order is preserved with mixed sync/async methods."""
+    execution_order = []
+
+    class MixedSyncAsyncFlow(Flow):
+        @start()
+        def sync_start(self):
+            execution_order.append("sync_start")
+
+        @listen(sync_start)
+        async def async_step_1(self):
+            execution_order.append("async_step_1")
+            await asyncio.sleep(0.01)
+
+        @listen(async_step_1)
+        def sync_step_2(self):
+            execution_order.append("sync_step_2")
+
+        @listen(sync_step_2)
+        async def async_step_3(self):
+            execution_order.append("async_step_3")
+            await asyncio.sleep(0.01)
+
+        @listen(async_step_3)
+        def sync_final(self):
+            execution_order.append("sync_final")
+
+    flow = MixedSyncAsyncFlow()
+    asyncio.run(flow.kickoff_async())
+
+    expected_order = [
+        "sync_start",
+        "async_step_1",
+        "sync_step_2",
+        "async_step_3",
+        "sync_final",
+    ]
+
+    assert execution_order == expected_order
+
+
+def test_flow_copy_state_with_unpickleable_objects():
+    """Test that _copy_state handles unpickleable objects like RLock.
+
+    Regression test for issue #3828: Flow should not crash when state contains
+    objects that cannot be deep copied (like threading.RLock).
+    """
+
+    class StateWithRLock(BaseModel):
+        counter: int = 0
+        lock: Optional[threading.RLock] = None
+
+    class FlowWithRLock(Flow[StateWithRLock]):
+        @start()
+        def step_1(self):
+            self.state.counter += 1
+
+        @listen(step_1)
+        def step_2(self):
+            self.state.counter += 1
+
+    flow = FlowWithRLock(initial_state=StateWithRLock())
+    flow._state.lock = threading.RLock()
+
+    copied_state = flow._copy_state()
+    assert copied_state.counter == 0
+    assert copied_state.lock is not None
+
+
+def test_flow_copy_state_with_nested_unpickleable_objects():
+    """Test that _copy_state handles unpickleable objects nested in containers.
+
+    Regression test for issue #3828: Verifies that unpickleable objects
+    nested inside dicts/lists in state don't cause crashes.
+    """
+
+    class NestedState(BaseModel):
+        data: dict = {}
+        items: list = []
+
+    class FlowWithNestedUnpickleable(Flow[NestedState]):
+        @start()
+        def step_1(self):
+            self.state.data["lock"] = threading.RLock()
+            self.state.data["value"] = 42
+
+        @listen(step_1)
+        def step_2(self):
+            self.state.items.append(threading.Lock())
+            self.state.items.append("normal_value")
+
+    flow = FlowWithNestedUnpickleable(initial_state=NestedState())
+    flow.kickoff()
+
+    assert flow.state.data["value"] == 42
+    assert len(flow.state.items) == 2
+
+
+def test_flow_copy_state_without_unpickleable_objects():
+    """Test that _copy_state still works normally with pickleable objects.
+
+    Ensures that the fallback logic doesn't break normal deep copy behavior.
+    """
+
+    class NormalState(BaseModel):
+        counter: int = 0
+        data: str = ""
+        nested: dict = {}
+
+    class NormalFlow(Flow[NormalState]):
+        @start()
+        def step_1(self):
+            self.state.counter = 5
+            self.state.data = "test"
+            self.state.nested = {"key": "value"}
+
+    flow = NormalFlow(initial_state=NormalState())
+    flow.state.counter = 10
+    flow.state.data = "modified"
+    flow.state.nested["key"] = "modified"
+
+    copied_state = flow._copy_state()
+    assert copied_state.counter == 10
+    assert copied_state.data == "modified"
+    assert copied_state.nested["key"] == "modified"
+
+    flow.state.nested["key"] = "changed_after_copy"
+    assert copied_state.nested["key"] == "modified"
+
+
+def test_flow_copy_state_with_dict_state():
+    """Test that _copy_state works with dict-based states."""
+
+    class DictFlow(Flow[dict]):
+        @start()
+        def step_1(self):
+            self.state["counter"] = 1
+
+    flow = DictFlow()
+    flow.state["test"] = "value"
+
+    copied_state = flow._copy_state()
+    assert copied_state["test"] == "value"
+
+    flow.state["test"] = "modified"
+    assert copied_state["test"] == "value"
+
+
+class TestFlowAkickoff:
+    """Tests for the native async akickoff method."""
+
+    @pytest.mark.asyncio
+    async def test_akickoff_basic(self):
+        """Test basic akickoff execution."""
+        execution_order = []
+
+        class SimpleFlow(Flow):
+            @start()
+            def step_1(self):
+                execution_order.append("step_1")
+                return "step_1_result"
+
+            @listen(step_1)
+            def step_2(self, result):
+                execution_order.append("step_2")
+                return "final_result"
+
+        flow = SimpleFlow()
+        result = await flow.akickoff()
+
+        assert execution_order == ["step_1", "step_2"]
+        assert result == "final_result"
+
+    @pytest.mark.asyncio
+    async def test_akickoff_with_inputs(self):
+        """Test akickoff with inputs."""
+
+        class InputFlow(Flow):
+            @start()
+            def process_input(self):
+                return self.state.get("value", "default")
+
+        flow = InputFlow()
+        result = await flow.akickoff(inputs={"value": "custom_value"})
+
+        assert result == "custom_value"
+
+    @pytest.mark.asyncio
+    async def test_akickoff_with_async_methods(self):
+        """Test akickoff with async flow methods."""
+        execution_order = []
+
+        class AsyncMethodFlow(Flow):
+            @start()
+            async def async_step_1(self):
+                execution_order.append("async_step_1")
+                await asyncio.sleep(0.01)
+                return "async_result"
+
+            @listen(async_step_1)
+            async def async_step_2(self, result):
+                execution_order.append("async_step_2")
+                await asyncio.sleep(0.01)
+                return f"final_{result}"
+
+        flow = AsyncMethodFlow()
+        result = await flow.akickoff()
+
+        assert execution_order == ["async_step_1", "async_step_2"]
+        assert result == "final_async_result"
+
+    @pytest.mark.asyncio
+    async def test_akickoff_equivalent_to_kickoff_async(self):
+        """Test that akickoff produces the same results as kickoff_async."""
+        execution_order_akickoff = []
+        execution_order_kickoff_async = []
+
+        class TestFlow(Flow):
+            def __init__(self, execution_list):
+                super().__init__()
+                self._execution_list = execution_list
+
+            @start()
+            def step_1(self):
+                self._execution_list.append("step_1")
+                return "result_1"
+
+            @listen(step_1)
+            def step_2(self, result):
+                self._execution_list.append("step_2")
+                return "result_2"
+
+        flow1 = TestFlow(execution_order_akickoff)
+        result1 = await flow1.akickoff()
+
+        flow2 = TestFlow(execution_order_kickoff_async)
+        result2 = await flow2.kickoff_async()
+
+        assert execution_order_akickoff == execution_order_kickoff_async
+        assert result1 == result2
+
+    @pytest.mark.asyncio
+    async def test_akickoff_with_multiple_starts(self):
+        """Test akickoff with multiple start methods."""
+        execution_order = []
+
+        class MultiStartFlow(Flow):
+            @start()
+            def start_a(self):
+                execution_order.append("start_a")
+
+            @start()
+            def start_b(self):
+                execution_order.append("start_b")
+
+        flow = MultiStartFlow()
+        await flow.akickoff()
+
+        assert "start_a" in execution_order
+        assert "start_b" in execution_order
+
+    @pytest.mark.asyncio
+    async def test_akickoff_with_router(self):
+        """Test akickoff with router method."""
+        execution_order = []
+
+        class RouterFlow(Flow):
+            @start()
+            def begin(self):
+                execution_order.append("begin")
+                return "data"
+
+            @router(begin)
+            def route(self, data):
+                execution_order.append("route")
+                return "PATH_A"
+
+            @listen("PATH_A")
+            def handle_path_a(self):
+                execution_order.append("path_a")
+                return "path_a_result"
+
+        flow = RouterFlow()
+        result = await flow.akickoff()
+
+        assert execution_order == ["begin", "route", "path_a"]
+        assert result == "path_a_result"

@@ -11,12 +11,14 @@ from abstra_internals.server.routes import codebase as codebase_router
 from abstra_internals.server.routes import env_vars as envvars_router
 from abstra_internals.server.routes import executions as executions_router
 from abstra_internals.server.routes import forms as forms_router
+from abstra_internals.server.routes import git as git_router
 from abstra_internals.server.routes import hooks as hooks_router
 from abstra_internals.server.routes import jobs as jobs_router
 from abstra_internals.server.routes import linters as linters_router
 from abstra_internals.server.routes import login as login_router
 from abstra_internals.server.routes import logs as logs_router
 from abstra_internals.server.routes import mcp as mcp_router
+from abstra_internals.server.routes import modules as modules_router
 from abstra_internals.server.routes import pysa as pysa_router
 from abstra_internals.server.routes import requirements as requirements_router
 from abstra_internals.server.routes import roles as roles_router
@@ -103,6 +105,12 @@ def _get_api_bp(controller: MainController):
 
     web_editor_bp = web_editor_router.get_web_editor_bp(controller)
     bp.register_blueprint(web_editor_bp, url_prefix="/web-editor")
+
+    git_bp = git_router.get_editor_bp(controller)
+    bp.register_blueprint(git_bp, url_prefix="/git")
+
+    modules_bp = modules_router.get_editor_bp(controller)
+    bp.register_blueprint(modules_bp, url_prefix="/modules")
 
     return bp
 

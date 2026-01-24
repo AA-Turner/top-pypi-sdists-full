@@ -28,7 +28,7 @@ project(pyarrow)
 # which in turn meant that Py_GIL_DISABLED was not set.
 set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
 
-set(PYARROW_VERSION "21.0.0")
+set(PYARROW_VERSION "23.0.0")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
 # Generate SO version and full SO version
@@ -230,7 +230,7 @@ endif()
 # For any C code, use the same flags.
 set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
 
-# Add C++-only flags, like -std=c++17
+# Add C++-only flags, like -std=c++20
 set(CMAKE_CXX_FLAGS "${CXX_ONLY_FLAGS} ${CMAKE_CXX_FLAGS}")
 
 message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
@@ -350,10 +350,17 @@ endif()
 # PyArrow C++
 set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
+
+# Write out compile-time configuration constants
+string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_PYBUILD_TYPE)
+configure_file("${PYARROW_CPP_SOURCE_DIR}/config_internal.h.cmake"
+               "${PYARROW_CPP_SOURCE_DIR}/config_internal.h" ESCAPE_QUOTES)
+
 set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/arrow_to_pandas.cc
     ${PYARROW_CPP_SOURCE_DIR}/benchmark.cc
     ${PYARROW_CPP_SOURCE_DIR}/common.cc
+    ${PYARROW_CPP_SOURCE_DIR}/config.cc
     ${PYARROW_CPP_SOURCE_DIR}/datetime.cc
     ${PYARROW_CPP_SOURCE_DIR}/decimal.cc
     ${PYARROW_CPP_SOURCE_DIR}/extension_type.cc

@@ -1,5 +1,5 @@
-""" Wrappers over different abstract types
-"""
+"""Wrappers over different abstract types"""
+
 from inspect import isawaitable
 from typing import Optional
 
@@ -67,6 +67,9 @@ class BucketAsyncWrapper(AbstractBucket):
 
         assert isinstance(wait, int)
         return wait
+
+    def now(self) -> int:
+        return self.bucket.now()
 
     @property
     def failing_rate(self):

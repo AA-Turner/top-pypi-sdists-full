@@ -90,7 +90,8 @@ async def _get_url(
         original = parse_url(original_url.removesuffix("/"))
         url = parse_url(redirect_url.removesuffix("/")) if redirect_url else original
     except LocationParseError as exc:
-        raise HTTPValidationError(f"Invalid URL {redirect_url}") from exc
+        msg = f"Invalid URL {redirect_url}"
+        raise HTTPValidationError(msg) from exc
 
     if max_retries < 1:
         return format_redirected_url(original, url)
@@ -174,7 +175,7 @@ async def _execute_git_command(
     return stdout, _stderr, proc.returncode
 
 
-async def https_ls_remote(
+async def https_ls_remote(  # noqa: PLR0913
     *,
     repo_url: str,
     branch: str,
@@ -210,7 +211,7 @@ async def https_ls_remote(
     return None, stderr.decode("utf-8")
 
 
-async def call_https_ls_remote(
+async def call_https_ls_remote(  # noqa: PLR0913
     *,
     repo_url: str,
     user: str | None,

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: metricflow
-Version: 0.208.1
+Version: 0.209.0
 Summary: Translates a simple metric definition into reusable SQL and executes it against the SQL engine of your choice.
 Project-URL: Documentation, https://docs.getdbt.com/docs/build/about-metricflow
 Project-URL: Source Code, https://github.com/dbt-labs/metricflow
 Author: dbt Labs
-License-Expression: BUSL-1.1
+License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
@@ -16,24 +16,28 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: <3.13,>=3.9
-Requires-Dist: dbt-semantic-interfaces==0.9.0
-Requires-Dist: dbt-semantic-interfaces~=0.9.0
+Requires-Dist: dbt-semantic-interfaces==0.9.4.dev0
 Requires-Dist: graphviz<0.21,>=0.18.2
 Requires-Dist: jinja2<3.7.0,>=3.1.6
-Requires-Dist: more-itertools<10.2.0,>=8.10.0
+Requires-Dist: more-itertools<11.0.0,>=10.0.0
 Requires-Dist: pydantic<3.0,>=1.10.0
 Requires-Dist: python-dateutil<2.10.0,>=2.9.0
 Requires-Dist: rapidfuzz<4.0,>=3.0
 Requires-Dist: tabulate>=0.8.9
 Requires-Dist: typing-extensions<5.0,>=4.4
 Provides-Extra: dev-env-requirements
+Requires-Dist: black<24,>=23.3; extra == 'dev-env-requirements'
 Requires-Dist: click>=8.1.6; extra == 'dev-env-requirements'
 Requires-Dist: dbt-core<1.11.0,>=1.10.4; extra == 'dev-env-requirements'
 Requires-Dist: dbt-duckdb<1.9.0,>=1.8.0; extra == 'dev-env-requirements'
 Requires-Dist: duckdb!=1.2.1,<1.4.0; extra == 'dev-env-requirements'
 Requires-Dist: halo<0.1.0,>=0.0.31; extra == 'dev-env-requirements'
+Requires-Dist: httpx<0.25,>=0.24; extra == 'dev-env-requirements'
+Requires-Dist: hypothesis<7,>=6.87; extra == 'dev-env-requirements'
+Requires-Dist: isort<6,>=5.12; extra == 'dev-env-requirements'
 Requires-Dist: mypy<1.8.0,>=1.7.0; extra == 'dev-env-requirements'
 Requires-Dist: pre-commit<3.3.0,>=3.2.2; extra == 'dev-env-requirements'
+Requires-Dist: pydantic<2,>=1.10; extra == 'dev-env-requirements'
 Requires-Dist: pympler<=2.0,>=1.1; extra == 'dev-env-requirements'
 Requires-Dist: pytest-mock<3.15.0,>=3.14.0; extra == 'dev-env-requirements'
 Requires-Dist: pytest-xdist<3.7.0,>=3.6.0; extra == 'dev-env-requirements'
@@ -41,6 +45,8 @@ Requires-Dist: pytest<9.0.0,>=8.0.0; extra == 'dev-env-requirements'
 Requires-Dist: pyyaml<7.0.0,>=6.0; extra == 'dev-env-requirements'
 Requires-Dist: tabulate>=0.8.9; extra == 'dev-env-requirements'
 Requires-Dist: termcolor<4.0,>=3.0; extra == 'dev-env-requirements'
+Requires-Dist: types-jinja2<3,>=2.11; extra == 'dev-env-requirements'
+Requires-Dist: types-jsonschema<5,>=4.17; extra == 'dev-env-requirements'
 Requires-Dist: types-python-dateutil; extra == 'dev-env-requirements'
 Requires-Dist: types-pyyaml; extra == 'dev-env-requirements'
 Requires-Dist: types-tabulate; extra == 'dev-env-requirements'
@@ -100,7 +106,11 @@ To get up and running with your own metrics, you should rely on [MetricFlow’s 
 
 ## Licensing
 
-MetricFlow is distributed under a Business Source License (BUSL-1.1). For details on our additional use grant, change license, and change date please refer to our [licensing agreement](https://github.com/dbt-labs/metricflow/blob/main/LICENSE).
+MetricFlow is distributed under the Apache 2.0 license. For details, please refer to our [licensing agreement](https://github.com/dbt-labs/metricflow/blob/main/LICENSE).
+
+## Open Semantic Interchange (OSI) Initiative
+
+MetricFlow is developed and maintained as part of the [Open Semantic Interchange (OSI) initiative](https://www.snowflake.com/en/blog/open-semantic-interchange-ai-standard/). The OSI initiative is a collaborative effort among leading technology companies and data practitioners to establish a open standard for defining and exchanging semantic information, enabling AI/BI interoperability across different platforms and tools. 
 
 ## Getting Started
 
@@ -143,11 +153,12 @@ Please read our [code of conduct](https://docs.getdbt.com/community/resources/co
 
 To get started on direct contributions, head on over to our [contributor guide](https://github.com/dbt-labs/metricflow/blob/main/CONTRIBUTING.md).
 
-## License
+## License History
 
 MetricFlow is source-available software.
 
 Version 0 to 0.140.0 was covered by the Affero GPL license.
-Version 0.150.0 and greater is covered by the BSL license.
+Version 0.150.0 to 0.208.2 was covered by the BSL license.
+Version 0.209.0 and greater is covered by the Apache 2.0 license.
 
 MetricFlow is built by [dbt Labs](https://www.getdbt.com/).

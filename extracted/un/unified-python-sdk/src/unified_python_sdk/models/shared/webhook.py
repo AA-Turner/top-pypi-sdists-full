@@ -3,12 +3,12 @@
 from __future__ import annotations
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
-from typing import Any, Dict, List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from pydantic import field_serializer, model_serializer
+from typing import Dict, List, Optional
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class DbType(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -17,6 +17,7 @@ class DbType(str, Enum, metaclass=utils.OpenEnumMeta):
     POSTGRES = "postgres"
     MSSQL = "mssql"
     MARIADB = "mariadb"
+    SUPABASE = "supabase"
 
 
 class Event(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -43,6 +44,8 @@ class ObjectType(str, Enum, metaclass=utils.OpenEnumMeta):
     ACCOUNTING_PROFITLOSS = "accounting_profitloss"
     ACCOUNTING_TRIALBALANCE = "accounting_trialbalance"
     ACCOUNTING_CATEGORY = "accounting_category"
+    ACCOUNTING_EXPENSE = "accounting_expense"
+    ACCOUNTING_CASHFLOW = "accounting_cashflow"
     PAYMENT_PAYMENT = "payment_payment"
     PAYMENT_LINK = "payment_link"
     PAYMENT_PAYOUT = "payment_payout"
@@ -53,6 +56,8 @@ class ObjectType(str, Enum, metaclass=utils.OpenEnumMeta):
     COMMERCE_INVENTORY = "commerce_inventory"
     COMMERCE_LOCATION = "commerce_location"
     COMMERCE_REVIEW = "commerce_review"
+    COMMERCE_SALESCHANNEL = "commerce_saleschannel"
+    COMMERCE_ITEMVARIANT = "commerce_itemvariant"
     VERIFICATION_PACKAGE = "verification_package"
     VERIFICATION_REQUEST = "verification_request"
     ATS_ACTIVITY = "ats_activity"
@@ -78,6 +83,8 @@ class ObjectType(str, Enum, metaclass=utils.OpenEnumMeta):
     HRIS_LOCATION = "hris_location"
     HRIS_DEVICE = "hris_device"
     HRIS_TIMESHIFT = "hris_timeshift"
+    HRIS_DEDUCTION = "hris_deduction"
+    HRIS_BENEFIT = "hris_benefit"
     MARTECH_LIST = "martech_list"
     MARTECH_MEMBER = "martech_member"
     PASSTHROUGH = "passthrough"
@@ -97,6 +104,7 @@ class ObjectType(str, Enum, metaclass=utils.OpenEnumMeta):
     GENAI_EMBEDDING = "genai_embedding"
     MESSAGING_MESSAGE = "messaging_message"
     MESSAGING_CHANNEL = "messaging_channel"
+    MESSAGING_EVENT = "messaging_event"
     KMS_SPACE = "kms_space"
     KMS_PAGE = "kms_page"
     KMS_COMMENT = "kms_comment"
@@ -121,6 +129,20 @@ class ObjectType(str, Enum, metaclass=utils.OpenEnumMeta):
     CALENDAR_BUSY = "calendar_busy"
     CALENDAR_LINK = "calendar_link"
     CALENDAR_RECORDING = "calendar_recording"
+    ADS_ORGANIZATION = "ads_organization"
+    ADS_AD = "ads_ad"
+    ADS_CAMPAIGN = "ads_campaign"
+    ADS_REPORT = "ads_report"
+    ADS_GROUP = "ads_group"
+    ADS_CREATIVE = "ads_creative"
+    ADS_INSERTIONORDER = "ads_insertionorder"
+    FORMS_FORM = "forms_form"
+    FORMS_SUBMISSION = "forms_submission"
+    SHIPPING_CARRIER = "shipping_carrier"
+    SHIPPING_RATE = "shipping_rate"
+    SHIPPING_SHIPMENT = "shipping_shipment"
+    SHIPPING_LABEL = "shipping_label"
+    SHIPPING_TRACKING = "shipping_tracking"
 
 
 class WebhookType(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -142,14 +164,13 @@ class WebhookTypedDict(TypedDict):
     db_url: NotRequired[str]
     environment: NotRequired[str]
     fields: NotRequired[str]
-    filters: NotRequired[Dict[str, Any]]
+    filters: NotRequired[Dict[str, str]]
     hook_url: NotRequired[str]
     id: NotRequired[str]
     integration_type: NotRequired[str]
     interval: NotRequired[float]
     is_healthy: NotRequired[bool]
     is_paused: NotRequired[bool]
-    meta: NotRequired[Dict[str, Any]]
     page_max_limit: NotRequired[float]
     runs: NotRequired[List[str]]
     r"""An array of the most revent virtual webhook runs"""
@@ -163,9 +184,9 @@ class Webhook(BaseModel):
 
     connection_id: str
 
-    event: Annotated[Event, PlainValidator(validate_open_enum(False))]
+    event: Event
 
-    object_type: Annotated[ObjectType, PlainValidator(validate_open_enum(False))]
+    object_type: ObjectType
 
     checked_at: Optional[datetime] = None
 
@@ -175,9 +196,7 @@ class Webhook(BaseModel):
 
     db_schema: Optional[str] = None
 
-    db_type: Annotated[Optional[DbType], PlainValidator(validate_open_enum(False))] = (
-        None
-    )
+    db_type: Optional[DbType] = None
 
     db_url: Optional[str] = None
 
@@ -185,7 +204,7 @@ class Webhook(BaseModel):
 
     fields: Optional[str] = None
 
-    filters: Optional[Dict[str, Any]] = None
+    filters: Optional[Dict[str, str]] = None
 
     hook_url: Optional[str] = None
 
@@ -199,8 +218,6 @@ class Webhook(BaseModel):
 
     is_paused: Optional[bool] = None
 
-    meta: Optional[Dict[str, Any]] = None
-
     page_max_limit: Optional[float] = None
 
     runs: Optional[List[str]] = None
@@ -208,8 +225,81 @@ class Webhook(BaseModel):
 
     updated_at: Optional[datetime] = None
 
-    webhook_type: Annotated[
-        Optional[WebhookType], PlainValidator(validate_open_enum(False))
-    ] = None
+    webhook_type: Optional[WebhookType] = None
 
     workspace_id: Optional[str] = None
+
+    @field_serializer("db_type")
+    def serialize_db_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.DbType(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("event")
+    def serialize_event(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.Event(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("object_type")
+    def serialize_object_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.ObjectType(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("webhook_type")
+    def serialize_webhook_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.WebhookType(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "checked_at",
+                "created_at",
+                "db_name_prefix",
+                "db_schema",
+                "db_type",
+                "db_url",
+                "environment",
+                "fields",
+                "filters",
+                "hook_url",
+                "id",
+                "integration_type",
+                "interval",
+                "is_healthy",
+                "is_paused",
+                "page_max_limit",
+                "runs",
+                "updated_at",
+                "webhook_type",
+                "workspace_id",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

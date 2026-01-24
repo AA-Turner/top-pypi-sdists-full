@@ -494,7 +494,11 @@ class Task:
 
 
 class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
-    """Represents a reference to a Snowflake Task resource."""
+    """Represents a reference to a Snowflake Task resource.
+
+    With this task reference, you can fetch information about a task, as well as perform certain
+    actions on it.
+    """
 
     def __init__(self, name: str, collection: "TaskCollection") -> None:
         self.collection = collection

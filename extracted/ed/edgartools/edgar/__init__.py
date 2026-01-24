@@ -5,9 +5,22 @@ import re
 from functools import lru_cache, partial
 from typing import List, Optional, Union
 
-from edgar._filings import Attachment, Attachments, Filing, FilingHeader, FilingHomepage, Filings, get_by_accession_number, get_filings
+from edgar._filings import (
+    Attachment,
+    Attachments,
+    Filing,
+    FilingHeader,
+    FilingHomepage,
+    Filings,
+    get_by_accession_number,
+    get_by_accession_number_enriched,
+    get_filings,
+)
 from edgar.core import CAUTION, CRAWL, NORMAL, edgar_mode, get_identity, listify, set_identity
 from edgar.current_filings import CurrentFilings, get_all_current_filings, get_current_filings, iter_current_filings_pages
+
+# SSL diagnostic function
+from edgar.diagnose_ssl import diagnose_ssl
 from edgar.entity import (
     Company,
     CompanyData,
@@ -27,12 +40,52 @@ from edgar.entity import (
 )
 from edgar.files import detect_page_breaks, mark_page_breaks
 from edgar.files.html import Document
+from edgar.filesystem import is_cloud_storage_enabled, sync_to_cloud, use_cloud_storage
 from edgar.financials import Financials, MultiFinancials
 from edgar.funds import FundClass, FundCompany, FundSeries, find_fund
 from edgar.funds.reports import NPORT_FORMS, FundReport
+from edgar.bdc import BDCEntities, BDCEntity, get_bdc_list, get_active_bdc_ciks, is_bdc_cik
+
+# HTTP configuration functions for runtime SSL/proxy configuration
+from edgar.httpclient import configure_http, get_http_config
+from edgar.npx import NPX
+from edgar.paths import (
+    get_anchor_cache_directory,
+    get_cache_directory,
+    get_claude_skills_directory,
+    get_data_directory,
+    get_search_cache_directory,
+    get_test_directory,
+    set_cache_directory,
+    set_claude_skills_directory,
+    set_data_directory,
+    set_test_directory,
+)
+from edgar.proxy import PROXY_FORMS, ProxyStatement
 from edgar.storage import download_edgar_data, download_filings, is_using_local_storage, set_local_storage_path, use_local_storage
+from edgar.storage_management import (
+    StorageAnalysis,
+    StorageInfo,
+    analyze_storage,
+    availability_summary,
+    check_filing,
+    check_filings_batch,
+    cleanup_storage,
+    clear_cache,
+    optimize_storage,
+    storage_info,
+)
 from edgar.thirteenf import THIRTEENF_FORMS, ThirteenF
 from edgar.xbrl import XBRL
+
+# Fix for Issue #457: Clear locale-corrupted cache files on first import
+# This is a one-time operation that only runs if the marker file doesn't exist
+try:
+    from edgar.httpclient import clear_locale_corrupted_cache
+    clear_locale_corrupted_cache()
+except Exception:
+    # Silently continue if cache clearing fails - it's not critical
+    pass
 
 # Another name for get_current_filings
 get_latest_filings = get_current_filings
@@ -67,10 +120,10 @@ def find(search_id: Union[str, int]) -> Optional[Union[Filing, Entity, CompanySe
     if isinstance(search_id, int):
         return Entity(search_id)
     elif re.match(r"\d{10}-\d{2}-\d{6}", search_id):
-        return get_by_accession_number(search_id)
+        return get_by_accession_number_enriched(search_id)
     elif re.match(r"^\d{18}$", search_id): # accession number with no dashes
         accession_number = search_id[:10] + "-" + search_id[10:12] + "-" + search_id[12:]
-        return get_by_accession_number(accession_number)
+        return get_by_accession_number_enriched(accession_number)
     elif re.match(r"\d{4,10}$", search_id):
         return Entity(search_id)
     elif re.match(r"^[A-WYZ]{1,5}([.-][A-Z])?$", search_id):  # Ticker (including dot or hyphenated)
@@ -102,6 +155,61 @@ class DataObjectException(Exception):
         super().__init__(self.message)
 
 
+def get_obj_info(form: str) -> tuple[bool, Optional[str], Optional[str]]:
+    """
+    Get information about whether a form type has a structured data object.
+
+    Args:
+        form: The form type (e.g., '10-K', 'C', '8-K')
+
+    Returns:
+        Tuple of (has_obj, obj_type_name, description):
+        - has_obj: Whether this form type has a structured data object
+        - obj_type_name: The class name of the data object (e.g., 'TenK', 'FormC')
+        - description: Brief description of what the object contains
+    """
+    # Normalize form to handle amendments (e.g., 'C/A' -> 'C')
+    base_form = form.split('/')[0]
+
+    # Map of form types to (class_name, description)
+    form_map = {
+        '6-K': ('CurrentReport', 'current report with event details'),
+        '8-K': ('EightK', 'current report with event details'),
+        '10-Q': ('TenQ', 'quarterly report with financials'),
+        '10-K': ('TenK', 'annual report with financials'),
+        '10-D': ('TenD', 'ABS distribution report'),
+        '20-F': ('TwentyF', 'foreign issuer annual report'),
+        '13F-HR': ('ThirteenF', 'institutional holdings'),
+        '13F-HR/A': ('ThirteenF', 'institutional holdings'),
+        'SCHEDULE 13D': ('Schedule13D', 'beneficial ownership report (5%+ stake, active)'),
+        'SCHEDULE 13G': ('Schedule13G', 'beneficial ownership report (5%+ stake, passive)'),
+        '144': ('Form144', 'restricted stock sale notice'),
+        'MA-I': ('MunicipalAdvisorForm', 'municipal advisor registration'),
+        '3': ('Form3', 'initial insider ownership'),
+        '4': ('Form4', 'insider transaction'),
+        '5': ('Form5', 'annual insider transaction summary'),
+        'EFFECT': ('Effect', 'effectiveness notice'),
+        'D': ('FormD', 'private placement offering'),
+        'C': ('FormC', 'crowdfunding offering details'),
+        'C-U': ('FormC', 'crowdfunding progress update'),
+        'C-AR': ('FormC', 'crowdfunding annual report'),
+        'C-TR': ('FormC', 'crowdfunding termination'),
+        'NPORT-P': ('FundReport', 'fund portfolio holdings'),
+        'NPORT-EX': ('FundReport', 'fund portfolio holdings'),
+        'N-PX': ('NPX', 'annual proxy voting record'),
+        'DEF 14A': ('ProxyStatement', 'proxy statement with executive compensation'),
+        'DEFA14A': ('ProxyStatement', 'additional proxy soliciting materials'),
+        'DEFM14A': ('ProxyStatement', 'merger-related proxy statement'),
+    }
+
+    if base_form in form_map:
+        class_name, description = form_map[base_form]
+        return (True, class_name, description)
+
+    # Forms not in map might still have XBRL
+    return (False, None, None)
+
+
 def obj(sec_filing: Filing) -> Optional[object]:
     """
     Depending on the filing return the data object that contains the data for the filing
@@ -110,6 +218,7 @@ def obj(sec_filing: Filing) -> Optional[object]:
     :param sec_filing: The filing
     :return:
     """
+    from edgar.beneficial_ownership import Schedule13D, Schedule13G
     from edgar.company_reports import CurrentReport, EightK, TenK, TenQ, TwentyF
     from edgar.effect import Effect
     from edgar.form144 import Form144
@@ -125,11 +234,22 @@ def obj(sec_filing: Filing) -> Optional[object]:
         return TenQ(sec_filing)
     elif matches_form(sec_filing, "10-K"):
         return TenK(sec_filing)
+    elif matches_form(sec_filing, "10-D"):
+        # Only return TenD for CMBS filings (have EX-102 XML asset data)
+        # Non-CMBS 10-D filings don't have structured data worth extracting
+        attachments = sec_filing.attachments
+        has_cmbs_data = any(
+            a.document_type and 'EX-102' in a.document_type.upper()
+            for a in attachments
+        )
+        if has_cmbs_data:
+            from edgar.abs import TenD
+            return TenD(sec_filing)
     elif matches_form(sec_filing, "20-F"):
         return TwentyF(sec_filing)
     elif matches_form(sec_filing, THIRTEENF_FORMS):
-        if sec_filing.xml():
-            return ThirteenF(sec_filing)
+        # ThirteenF can work with either XML (2013+) or TXT (2012 and earlier) format
+        return ThirteenF(sec_filing)
     elif matches_form(sec_filing, "144"):
         return Form144.from_filing(sec_filing)
     elif matches_form(sec_filing, "MA-I"):
@@ -146,6 +266,10 @@ def obj(sec_filing: Filing) -> Optional[object]:
         xml = sec_filing.xml()
         if xml:
             return Form5(**Ownership.parse_xml(xml))
+    elif matches_form(sec_filing, ["SCHEDULE 13D"]):
+        return Schedule13D.from_filing(sec_filing)
+    elif matches_form(sec_filing, ["SCHEDULE 13G"]):
+        return Schedule13G.from_filing(sec_filing)
     elif matches_form(sec_filing, "EFFECT"):
         xml = sec_filing.xml()
         if xml:
@@ -155,12 +279,16 @@ def obj(sec_filing: Filing) -> Optional[object]:
         if xml:
             return FormD.from_xml(xml)
     elif matches_form(sec_filing, ["C", "C-U", "C-AR", "C-TR"]):
-        xml = sec_filing.xml()
-        if xml:
-            return FormC.from_xml(xml, form=sec_filing.form)
+        return FormC.from_filing(sec_filing)
 
     elif matches_form(sec_filing, ["NPORT-P", "NPORT-EX"]):
         return FundReport.from_filing(sec_filing)
+
+    elif matches_form(sec_filing, ["N-PX"]):
+        return NPX.from_filing(sec_filing)
+
+    elif matches_form(sec_filing, PROXY_FORMS):
+        return ProxyStatement.from_filing(sec_filing)
 
     filing_xbrl = sec_filing.xbrl()
     if filing_xbrl:

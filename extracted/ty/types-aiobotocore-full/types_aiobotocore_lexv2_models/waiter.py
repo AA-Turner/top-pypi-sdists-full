@@ -3,7 +3,7 @@ Type annotations for lexv2-models service client waiters.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lexv2_models/waiters/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

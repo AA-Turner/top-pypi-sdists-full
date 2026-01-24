@@ -43,19 +43,29 @@ def format_code(text, filename):
 
     if state().config.format_command:
         format_command = state().config.format_command.format(filename=filename)
-        result = sp.run(
-            format_command, shell=True, input=text.encode("utf-8"), capture_output=True
-        )
-        if result.returncode != 0:
-            raise_problem(
-                f"""\
+
+        # Split the command at | to handle pipelines properly
+        # https://github.com/15r10nk/inline-snapshot/issues/320
+        commands = [cmd.strip() for cmd in format_command.split("|")]
+
+        current_input = text.encode("utf-8")
+
+        for command in commands:
+            result = sp.run(
+                command, shell=True, input=current_input, capture_output=True
+            )
+            if result.returncode != 0:
+                raise_problem(
+                    f"""\
 [b]The format_command '{escape(format_command)}' caused the following error:[/b]
 """
-                + result.stdout.decode("utf-8")
-                + result.stderr.decode("utf-8")
-            )
-            return text
-        return result.stdout.decode("utf-8")
+                    + result.stdout.decode("utf-8")
+                    + result.stderr.decode("utf-8")
+                )
+                return text
+            current_input = result.stdout
+
+        return current_input.decode("utf-8")
 
     try:
         from black import format_str
@@ -76,7 +86,9 @@ This issue can be solved by:
         mode = file_mode_for_path(filename)
 
         try:
-            return format_str(text, mode=mode)
+            # "a\n" is a work around for https://github.com/15r10nk/inline-snapshot/issues/301
+            # it prevents that " " gets treated as a docstring and gets striped by black.
+            return format_str("a\n" + text, mode=mode)[2:].lstrip()
         except:
             raise_problem(
                 """\

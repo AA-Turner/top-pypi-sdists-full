@@ -23,170 +23,876 @@ Usage:
     # Stream logs from a job
     hf jobs logs <job-id>
 
+    # Stream resources usage stats and metrics from a job
+    hf jobs stats <job-id>
+
     # Inspect detailed information about a job
     hf jobs inspect <job-id>
 
     # Cancel a running job
     hf jobs cancel <job-id>
+
+    # List available hardware options
+    hf jobs hardware
+
+    # Run a UV script
+    hf jobs uv run <script>
+
+    # Schedule a job
+    hf jobs scheduled run <schedule> <image> <command>
+
+    # List scheduled jobs
+    hf jobs scheduled ps [-a] [-f key=value] [--format TEMPLATE]
+
+    # Inspect a scheduled job
+    hf jobs scheduled inspect <scheduled_job_id>
+
+    # Suspend a scheduled job
+    hf jobs scheduled suspend <scheduled_job_id>
+
+    # Resume a scheduled job
+    hf jobs scheduled resume <scheduled_job_id>
+
+    # Delete a scheduled job
+    hf jobs scheduled delete <scheduled_job_id>
+
 """
 
 import json
+import multiprocessing
+import multiprocessing.pool
 import os
 import re
-from argparse import Namespace, _SubParsersAction
+import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from queue import Empty, Queue
+from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, Union
 
-import requests
+import typer
 
-from huggingface_hub import HfApi, SpaceHardware, get_token
+from huggingface_hub import SpaceHardware, get_token
+from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.utils import logging
+from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._dotenv import load_dotenv
 
-from . import BaseHuggingfaceCLICommand
+from ._cli_utils import TokenOpt, get_hf_api, typer_factory
 
 
 logger = logging.get_logger(__name__)
 
 SUGGESTED_FLAVORS = [item.value for item in SpaceHardware if item.value != "zero-a10g"]
+STATS_UPDATE_MIN_INTERVAL = 0.1  # we set a limit here since there is one update per second per job
+
+# Common job-related options
+ImageArg = Annotated[
+    str,
+    typer.Argument(
+        help="The Docker image to use.",
+    ),
+]
+
+ImageOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="Use a custom Docker image with `uv` installed.",
+    ),
+]
+
+FlavorOpt = Annotated[
+    Optional[SpaceHardware],
+    typer.Option(
+        help="Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.",
+    ),
+]
+
+EnvOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-e",
+        "--env",
+        help="Set environment variables. E.g. --env ENV=value",
+    ),
+]
+
+SecretsOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-s",
+        "--secrets",
+        help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
+    ),
+]
+
+EnvFileOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        "--env-file",
+        help="Read in a file of environment variables.",
+    ),
+]
+
+SecretsFileOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="Read in a file of secret environment variables.",
+    ),
+]
+
+TimeoutOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
+    ),
+]
+
+DetachOpt = Annotated[
+    bool,
+    typer.Option(
+        "-d",
+        "--detach",
+        help="Run the Job in the background and print the Job ID.",
+    ),
+]
+
+NamespaceOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="The namespace where the job will be running. Defaults to the current user's namespace.",
+    ),
+]
+
+WithOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "--with",
+        help="Run with the given packages installed",
+    ),
+]
+
+PythonOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        "-p",
+        "--python",
+        help="The Python interpreter to use for the run environment",
+    ),
+]
+
+SuspendOpt = Annotated[
+    Optional[bool],
+    typer.Option(
+        help="Suspend (pause) the scheduled Job",
+    ),
+]
+
+ConcurrencyOpt = Annotated[
+    Optional[bool],
+    typer.Option(
+        help="Allow multiple instances of this Job to run concurrently",
+    ),
+]
+
+ScheduleArg = Annotated[
+    str,
+    typer.Argument(
+        help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
+    ),
+]
+
+ScriptArg = Annotated[
+    str,
+    typer.Argument(
+        help="UV script to run (local file or URL)",
+    ),
+]
+
+ScriptArgsArg = Annotated[
+    Optional[list[str]],
+    typer.Argument(
+        help="Arguments for the script",
+    ),
+]
+
+CommandArg = Annotated[
+    list[str],
+    typer.Argument(
+        help="The command to run.",
+    ),
+]
+
+JobIdArg = Annotated[
+    str,
+    typer.Argument(
+        help="Job ID",
+    ),
+]
+
+JobIdsArg = Annotated[
+    Optional[list[str]],
+    typer.Argument(
+        help="Job IDs",
+    ),
+]
+
+ScheduledJobIdArg = Annotated[
+    str,
+    typer.Argument(
+        help="Scheduled Job ID",
+    ),
+]
 
 
-class JobsCommands(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction):
-        jobs_parser = parser.add_parser("jobs", help="Run and manage Jobs on the Hub.")
-        jobs_subparsers = jobs_parser.add_subparsers(help="huggingface.co jobs related commands")
-
-        # Show help if no subcommand is provided
-        jobs_parser.set_defaults(func=lambda args: jobs_parser.print_help())
-
-        # Register commands
-        InspectCommand.register_subcommand(jobs_subparsers)
-        LogsCommand.register_subcommand(jobs_subparsers)
-        PsCommand.register_subcommand(jobs_subparsers)
-        RunCommand.register_subcommand(jobs_subparsers)
-        CancelCommand.register_subcommand(jobs_subparsers)
-        UvCommand.register_subcommand(jobs_subparsers)
-        ScheduledJobsCommands.register_subcommand(jobs_subparsers)
+jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
 
-class RunCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction) -> None:
-        run_parser = parser.add_parser("run", help="Run a Job")
-        run_parser.add_argument("image", type=str, help="The Docker image to use.")
-        run_parser.add_argument("-e", "--env", action="append", help="Set environment variables. E.g. --env ENV=value")
-        run_parser.add_argument(
-            "-s",
-            "--secrets",
-            action="append",
-            help=(
-                "Set secret environment variables. E.g. --secrets SECRET=value "
-                "or `--secrets HF_TOKEN` to pass your Hugging Face token."
-            ),
-        )
-        run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
-        run_parser.add_argument("--secrets-file", type=str, help="Read in a file of secret environment variables.")
-        run_parser.add_argument(
-            "--flavor",
-            type=str,
-            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
-        )
-        run_parser.add_argument(
-            "--timeout",
-            type=str,
-            help="Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
-        )
-        run_parser.add_argument(
-            "-d",
-            "--detach",
-            action="store_true",
-            help="Run the Job in the background and print the Job ID.",
-        )
-        run_parser.add_argument(
-            "--namespace",
-            type=str,
-            help="The namespace where the Job will be created. Defaults to the current user's namespace.",
-        )
-        run_parser.add_argument(
-            "--token",
-            type=str,
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        )
-        run_parser.add_argument("command", nargs="...", help="The command to run.")
-        run_parser.set_defaults(func=RunCommand)
+@jobs_cli.command("run", help="Run a Job", context_settings={"ignore_unknown_options": True})
+def jobs_run(
+    image: ImageArg,
+    command: CommandArg,
+    env: EnvOpt = None,
+    secrets: SecretsOpt = None,
+    env_file: EnvFileOpt = None,
+    secrets_file: SecretsFileOpt = None,
+    flavor: FlavorOpt = None,
+    timeout: TimeoutOpt = None,
+    detach: DetachOpt = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    env_map: dict[str, Optional[str]] = {}
+    if env_file:
+        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
+    for env_value in env or []:
+        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
 
-    def __init__(self, args: Namespace) -> None:
-        self.image: str = args.image
-        self.command: List[str] = args.command
-        self.env: dict[str, Optional[str]] = {}
-        if args.env_file:
-            self.env.update(load_dotenv(Path(args.env_file).read_text(), environ=os.environ.copy()))
-        for env_value in args.env or []:
-            self.env.update(load_dotenv(env_value, environ=os.environ.copy()))
-        self.secrets: dict[str, Optional[str]] = {}
-        extended_environ = _get_extended_environ()
-        if args.secrets_file:
-            self.secrets.update(load_dotenv(Path(args.secrets_file).read_text(), environ=extended_environ))
-        for secret in args.secrets or []:
-            self.secrets.update(load_dotenv(secret, environ=extended_environ))
-        self.flavor: Optional[SpaceHardware] = args.flavor
-        self.timeout: Optional[str] = args.timeout
-        self.detach: bool = args.detach
-        self.namespace: Optional[str] = args.namespace
-        self.token: Optional[str] = args.token
+    secrets_map: dict[str, Optional[str]] = {}
+    extended_environ = _get_extended_environ()
+    if secrets_file:
+        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
+    for secret in secrets or []:
+        secrets_map.update(load_dotenv(secret, environ=extended_environ))
 
-    def run(self) -> None:
-        api = HfApi(token=self.token)
-        job = api.run_job(
-            image=self.image,
-            command=self.command,
-            env=self.env,
-            secrets=self.secrets,
-            flavor=self.flavor,
-            timeout=self.timeout,
-            namespace=self.namespace,
-        )
-        # Always print the job ID to the user
-        print(f"Job started with ID: {job.id}")
-        print(f"View at: {job.url}")
+    api = get_hf_api(token=token)
+    job = api.run_job(
+        image=image,
+        command=command,
+        env=env_map,
+        secrets=secrets_map,
+        flavor=flavor,
+        timeout=timeout,
+        namespace=namespace,
+    )
+    # Always print the job ID to the user
+    print(f"Job started with ID: {job.id}")
+    print(f"View at: {job.url}")
 
-        if self.detach:
+    if detach:
+        return
+    # Now let's stream the logs
+    for log in api.fetch_job_logs(job_id=job.id):
+        print(log)
+
+
+@jobs_cli.command("logs", help="Fetch the logs of a Job")
+def jobs_logs(
+    job_id: JobIdArg,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    api = get_hf_api(token=token)
+    for log in api.fetch_job_logs(job_id=job_id, namespace=namespace):
+        print(log)
+
+
+def _matches_filters(job_properties: dict[str, str], filters: dict[str, str]) -> bool:
+    """Check if scheduled job matches all specified filters."""
+    for key, pattern in filters.items():
+        # Check if property exists
+        if key not in job_properties:
+            return False
+        # Support pattern matching with wildcards
+        if "*" in pattern or "?" in pattern:
+            # Convert glob pattern to regex
+            regex_pattern = pattern.replace("*", ".*").replace("?", ".")
+            if not re.search(f"^{regex_pattern}$", job_properties[key], re.IGNORECASE):
+                return False
+        # Simple substring matching
+        elif pattern.lower() not in job_properties[key].lower():
+            return False
+    return True
+
+
+def _print_output(
+    rows: list[list[Union[str, int]]], headers: list[str], aliases: list[str], fmt: Optional[str]
+) -> None:
+    """Print output according to the chosen format."""
+    if fmt:
+        # Use custom template if provided
+        template = fmt
+        for row in rows:
+            line = template
+            for i, field in enumerate(aliases):
+                placeholder = f"{{{{.{field}}}}}"
+                if placeholder in line:
+                    line = line.replace(placeholder, str(row[i]))
+            print(line)
+    else:
+        # Default tabular format
+        print(_tabulate(rows, headers=headers))
+
+
+def _clear_line(n: int) -> None:
+    LINE_UP = "\033[1A"
+    LINE_CLEAR = "\x1b[2K"
+    for i in range(n):
+        print(LINE_UP, end=LINE_CLEAR)
+
+
+def _get_jobs_stats_rows(
+    job_id: str, metrics_stream: Iterable[dict[str, Any]], table_headers: list[str]
+) -> Iterable[tuple[bool, str, list[list[Union[str, int]]]]]:
+    for metrics in metrics_stream:
+        row = [
+            job_id,
+            f"{metrics['cpu_usage_pct']}%",
+            round(metrics["cpu_millicores"] / 1000.0, 1),
+            f"{round(100 * metrics['memory_used_bytes'] / metrics['memory_total_bytes'], 2)}%",
+            f"{_format_size(metrics['memory_used_bytes'])}B / {_format_size(metrics['memory_total_bytes'])}B",
+            f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
+        ]
+        if metrics["gpus"] and isinstance(metrics["gpus"], dict):
+            rows = [row] + [[""] * len(row)] * (len(metrics["gpus"]) - 1)
+            for row, gpu_id in zip(rows, sorted(metrics["gpus"])):
+                gpu = metrics["gpus"][gpu_id]
+                row += [
+                    f"{gpu['utilization']}%",
+                    f"{round(100 * gpu['memory_used_bytes'] / gpu['memory_total_bytes'], 2)}%",
+                    f"{_format_size(gpu['memory_used_bytes'])}B / {_format_size(gpu['memory_total_bytes'])}B",
+                ]
+        else:
+            row += ["N/A"] * (len(table_headers) - len(row))
+            rows = [row]
+        yield False, job_id, rows
+    yield True, job_id, []
+
+
+@jobs_cli.command("stats", help="Fetch the resource usage statistics and metrics of Jobs")
+def jobs_stats(
+    job_ids: JobIdsArg = None,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    api = get_hf_api(token=token)
+    if namespace is None:
+        namespace = api.whoami()["name"]
+    if job_ids is None:
+        job_ids = [
+            job.id
+            for job in api.list_jobs(namespace=namespace)
+            if (job.status.stage if job.status else "UNKNOWN") in ("RUNNING", "UPDATING")
+        ]
+    if len(job_ids) == 0:
+        print("No running jobs found")
+        return
+    table_headers = [
+        "JOB ID",
+        "CPU %",
+        "NUM CPU",
+        "MEM %",
+        "MEM USAGE",
+        "NET I/O",
+        "GPU UTIL %",
+        "GPU MEM %",
+        "GPU MEM USAGE",
+    ]
+    headers_aliases = [
+        "id",
+        "cpu_usage_pct",
+        "cpu_millicores",
+        "memory_used_bytes_pct",
+        "memory_used_bytes_and_total_bytes",
+        "rx_bps_and_tx_bps",
+        "gpu_utilization",
+        "gpu_memory_used_bytes_pct",
+        "gpu_memory_used_bytes_and_total_bytes",
+    ]
+    with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
+        rows_per_job_id: dict[str, list[list[Union[str, int]]]] = {}
+        for job_id in job_ids:
+            row: list[Union[str, int]] = [job_id]
+            row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
+            rows_per_job_id[job_id] = [row]
+        last_update_time = time.time()
+        total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+        _print_output(total_rows, table_headers, headers_aliases, None)
+
+        kwargs_list = [
+            {
+                "job_id": job_id,
+                "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace),
+                "table_headers": table_headers,
+            }
+            for job_id in job_ids
+        ]
+        for done, job_id, rows in iflatmap_unordered(pool, _get_jobs_stats_rows, kwargs_list=kwargs_list):
+            if done:
+                rows_per_job_id.pop(job_id, None)
+            else:
+                rows_per_job_id[job_id] = rows
+            now = time.time()
+            if now - last_update_time >= STATS_UPDATE_MIN_INTERVAL:
+                _clear_line(2 + len(total_rows))
+                total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+                _print_output(total_rows, table_headers, headers_aliases, None)
+                last_update_time = now
+
+
+@jobs_cli.command("ps", help="List Jobs")
+def jobs_ps(
+    all: Annotated[
+        bool,
+        typer.Option(
+            "-a",
+            "--all",
+            help="Show all Jobs (default shows just running)",
+        ),
+    ] = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+    filter: Annotated[
+        Optional[list[str]],
+        typer.Option(
+            "-f",
+            "--filter",
+            help="Filter output based on conditions provided (format: key=value)",
+        ),
+    ] = None,
+    format: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Format output using a custom template",
+        ),
+    ] = None,
+) -> None:
+    try:
+        api = get_hf_api(token=token)
+        # Fetch jobs data
+        jobs = api.list_jobs(namespace=namespace)
+        # Define table headers
+        table_headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
+        headers_aliases = ["id", "image", "command", "created", "status"]
+        rows: list[list[Union[str, int]]] = []
+
+        filters: dict[str, str] = {}
+        for f in filter or []:
+            if "=" in f:
+                key, value = f.split("=", 1)
+                filters[key.lower()] = value
+            else:
+                print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
+        # Process jobs data
+        for job in jobs:
+            # Extract job data for filtering
+            status = job.status.stage if job.status else "UNKNOWN"
+            if not all and status not in ("RUNNING", "UPDATING"):
+                # Skip job if not all jobs should be shown and status doesn't match criteria
+                continue
+            # Extract job data for output
+            job_id = job.id
+
+            # Extract image or space information
+            image_or_space = job.docker_image or "N/A"
+
+            # Extract and format command
+            cmd = job.command or []
+            command_str = " ".join(cmd) if cmd else "N/A"
+
+            # Extract creation time
+            created_at = job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else "N/A"
+
+            # Create a dict with all job properties for filtering
+            props = {"id": job_id, "image": image_or_space, "status": status.lower(), "command": command_str}
+            if not _matches_filters(props, filters):
+                continue
+
+            # Create row
+            rows.append([job_id, image_or_space, command_str, created_at, status])
+
+        # Handle empty results
+        if not rows:
+            filters_msg = (
+                f" matching filters: {', '.join([f'{k}={v}' for k, v in filters.items()])}" if filters else ""
+            )
+            print(f"No jobs found{filters_msg}")
             return
+        # Apply custom format if provided or use default tabular format
+        _print_output(rows, table_headers, headers_aliases, format)
 
-        # Now let's stream the logs
-        for log in api.fetch_job_logs(job_id=job.id):
-            print(log)
-
-
-class LogsCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction) -> None:
-        run_parser = parser.add_parser("logs", help="Fetch the logs of a Job")
-        run_parser.add_argument("job_id", type=str, help="Job ID")
-        run_parser.add_argument(
-            "--namespace",
-            type=str,
-            help="The namespace where the job is running. Defaults to the current user's namespace.",
-        )
-        run_parser.add_argument(
-            "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
-        )
-        run_parser.set_defaults(func=LogsCommand)
-
-    def __init__(self, args: Namespace) -> None:
-        self.job_id: str = args.job_id
-        self.namespace: Optional[str] = args.namespace
-        self.token: Optional[str] = args.token
-
-    def run(self) -> None:
-        api = HfApi(token=self.token)
-        for log in api.fetch_job_logs(job_id=self.job_id, namespace=self.namespace):
-            print(log)
+    except HfHubHTTPError as e:
+        print(f"Error fetching jobs data: {e}")
+    except (KeyError, ValueError, TypeError) as e:
+        print(f"Error processing jobs data: {e}")
+    except Exception as e:
+        print(f"Unexpected error - {type(e).__name__}: {e}")
 
 
-def _tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
+@jobs_cli.command("hardware", help="List available hardware options for Jobs")
+def jobs_hardware() -> None:
+    try:
+        api = get_hf_api()
+        hardware_list = api.list_jobs_hardware()
+        table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
+        headers_aliases = ["name", "prettyName", "cpu", "ram", "accelerator", "costMin", "costHour"]
+        rows: list[list[Union[str, int]]] = []
+
+        for hw in hardware_list:
+            accelerator_info = "N/A"
+            if hw.accelerator:
+                accelerator_info = f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})"
+            cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd is not None else "N/A"
+            cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd is not None else "N/A"
+            rows.append([hw.name, hw.pretty_name or "N/A", hw.cpu, hw.ram, accelerator_info, cost_min, cost_hour])
+
+        if not rows:
+            print("No hardware options found")
+            return
+        _print_output(rows, table_headers, headers_aliases, None)
+
+    except HfHubHTTPError as e:
+        print(f"Error fetching hardware data: {e}")
+    except Exception as e:
+        print(f"Unexpected error - {type(e).__name__}: {e}")
+
+
+@jobs_cli.command("inspect", help="Display detailed information on one or more Jobs")
+def jobs_inspect(
+    job_ids: Annotated[
+        list[str],
+        typer.Argument(
+            help="The jobs to inspect",
+        ),
+    ],
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    api = get_hf_api(token=token)
+    jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
+    print(json.dumps([asdict(job) for job in jobs], indent=4, default=str))
+
+
+@jobs_cli.command("cancel", help="Cancel a Job")
+def jobs_cancel(
+    job_id: JobIdArg,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    api = get_hf_api(token=token)
+    api.cancel_job(job_id=job_id, namespace=namespace)
+
+
+uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure")
+jobs_cli.add_typer(uv_app, name="uv")
+
+
+@uv_app.command(
+    "run",
+    help="Run a UV script (local file or URL) on HF infrastructure",
+    context_settings={"ignore_unknown_options": True},
+)
+def jobs_uv_run(
+    script: ScriptArg,
+    script_args: ScriptArgsArg = None,
+    image: ImageOpt = None,
+    flavor: FlavorOpt = None,
+    env: EnvOpt = None,
+    secrets: SecretsOpt = None,
+    env_file: EnvFileOpt = None,
+    secrets_file: SecretsFileOpt = None,
+    timeout: TimeoutOpt = None,
+    detach: DetachOpt = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+    with_: WithOpt = None,
+    python: PythonOpt = None,
+) -> None:
+    env_map: dict[str, Optional[str]] = {}
+    if env_file:
+        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
+    for env_value in env or []:
+        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
+    secrets_map: dict[str, Optional[str]] = {}
+    extended_environ = _get_extended_environ()
+    if secrets_file:
+        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
+    for secret in secrets or []:
+        secrets_map.update(load_dotenv(secret, environ=extended_environ))
+
+    api = get_hf_api(token=token)
+    job = api.run_uv_job(
+        script=script,
+        script_args=script_args or [],
+        dependencies=with_,
+        python=python,
+        image=image,
+        env=env_map,
+        secrets=secrets_map,
+        flavor=flavor,  # type: ignore[arg-type]
+        timeout=timeout,
+        namespace=namespace,
+    )
+    # Always print the job ID to the user
+    print(f"Job started with ID: {job.id}")
+    print(f"View at: {job.url}")
+    if detach:
+        return
+    # Now let's stream the logs
+    for log in api.fetch_job_logs(job_id=job.id):
+        print(log)
+
+
+scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.")
+jobs_cli.add_typer(scheduled_app, name="scheduled")
+
+
+@scheduled_app.command("run", help="Schedule a Job", context_settings={"ignore_unknown_options": True})
+def scheduled_run(
+    schedule: ScheduleArg,
+    image: ImageArg,
+    command: CommandArg,
+    suspend: SuspendOpt = None,
+    concurrency: ConcurrencyOpt = None,
+    env: EnvOpt = None,
+    secrets: SecretsOpt = None,
+    env_file: EnvFileOpt = None,
+    secrets_file: SecretsFileOpt = None,
+    flavor: FlavorOpt = None,
+    timeout: TimeoutOpt = None,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    env_map: dict[str, Optional[str]] = {}
+    if env_file:
+        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
+    for env_value in env or []:
+        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
+    secrets_map: dict[str, Optional[str]] = {}
+    extended_environ = _get_extended_environ()
+    if secrets_file:
+        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
+    for secret in secrets or []:
+        secrets_map.update(load_dotenv(secret, environ=extended_environ))
+
+    api = get_hf_api(token=token)
+    scheduled_job = api.create_scheduled_job(
+        image=image,
+        command=command,
+        schedule=schedule,
+        suspend=suspend,
+        concurrency=concurrency,
+        env=env_map,
+        secrets=secrets_map,
+        flavor=flavor,
+        timeout=timeout,
+        namespace=namespace,
+    )
+    print(f"Scheduled Job created with ID: {scheduled_job.id}")
+
+
+@scheduled_app.command("ps", help="List scheduled Jobs")
+def scheduled_ps(
+    all: Annotated[
+        bool,
+        typer.Option(
+            "-a",
+            "--all",
+            help="Show all scheduled Jobs (default hides suspended)",
+        ),
+    ] = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+    filter: Annotated[
+        Optional[list[str]],
+        typer.Option(
+            "-f",
+            "--filter",
+            help="Filter output based on conditions provided (format: key=value)",
+        ),
+    ] = None,
+    format: Annotated[
+        Optional[str],
+        typer.Option(
+            "--format",
+            help="Format output using a custom template",
+        ),
+    ] = None,
+) -> None:
+    try:
+        api = get_hf_api(token=token)
+        scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
+        table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
+        headers_aliases = ["id", "schedule", "image", "command", "last", "next", "suspend"]
+        rows: list[list[Union[str, int]]] = []
+        filters: dict[str, str] = {}
+        for f in filter or []:
+            if "=" in f:
+                key, value = f.split("=", 1)
+                filters[key.lower()] = value
+            else:
+                print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
+
+        for scheduled_job in scheduled_jobs:
+            suspend = scheduled_job.suspend or False
+            if not all and suspend:
+                continue
+            sj_id = scheduled_job.id
+            schedule = scheduled_job.schedule or "N/A"
+            image_or_space = scheduled_job.job_spec.docker_image or "N/A"
+            cmd = scheduled_job.job_spec.command or []
+            command_str = " ".join(cmd) if cmd else "N/A"
+            last_job_at = (
+                scheduled_job.status.last_job.at.strftime("%Y-%m-%d %H:%M:%S")
+                if scheduled_job.status.last_job
+                else "N/A"
+            )
+            next_job_run_at = (
+                scheduled_job.status.next_job_run_at.strftime("%Y-%m-%d %H:%M:%S")
+                if scheduled_job.status.next_job_run_at
+                else "N/A"
+            )
+            props = {"id": sj_id, "image": image_or_space, "suspend": str(suspend), "command": command_str}
+            if not _matches_filters(props, filters):
+                continue
+            rows.append([sj_id, schedule, image_or_space, command_str, last_job_at, next_job_run_at, suspend])
+
+        if not rows:
+            filters_msg = (
+                f" matching filters: {', '.join([f'{k}={v}' for k, v in filters.items()])}" if filters else ""
+            )
+            print(f"No scheduled jobs found{filters_msg}")
+            return
+        _print_output(rows, table_headers, headers_aliases, format)
+
+    except HfHubHTTPError as e:
+        print(f"Error fetching scheduled jobs data: {e}")
+    except (KeyError, ValueError, TypeError) as e:
+        print(f"Error processing scheduled jobs data: {e}")
+    except Exception as e:
+        print(f"Unexpected error - {type(e).__name__}: {e}")
+
+
+@scheduled_app.command("inspect", help="Display detailed information on one or more scheduled Jobs")
+def scheduled_inspect(
+    scheduled_job_ids: Annotated[
+        list[str],
+        typer.Argument(
+            help="The scheduled jobs to inspect",
+        ),
+    ],
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    api = get_hf_api(token=token)
+    scheduled_jobs = [
+        api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
+        for scheduled_job_id in scheduled_job_ids
+    ]
+    print(json.dumps([asdict(scheduled_job) for scheduled_job in scheduled_jobs], indent=4, default=str))
+
+
+@scheduled_app.command("delete", help="Delete a scheduled Job")
+def scheduled_delete(
+    scheduled_job_id: ScheduledJobIdArg,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    api = get_hf_api(token=token)
+    api.delete_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
+
+
+@scheduled_app.command("suspend", help="Suspend (pause) a scheduled Job")
+def scheduled_suspend(
+    scheduled_job_id: ScheduledJobIdArg,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    api = get_hf_api(token=token)
+    api.suspend_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
+
+
+@scheduled_app.command("resume", help="Resume (unpause) a scheduled Job")
+def scheduled_resume(
+    scheduled_job_id: ScheduledJobIdArg,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    api = get_hf_api(token=token)
+    api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
+
+
+scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure")
+scheduled_app.add_typer(scheduled_uv_app, name="uv")
+
+
+@scheduled_uv_app.command(
+    "run",
+    help="Run a UV script (local file or URL) on HF infrastructure",
+    context_settings={"ignore_unknown_options": True},
+)
+def scheduled_uv_run(
+    schedule: ScheduleArg,
+    script: ScriptArg,
+    script_args: ScriptArgsArg = None,
+    suspend: SuspendOpt = None,
+    concurrency: ConcurrencyOpt = None,
+    image: ImageOpt = None,
+    flavor: FlavorOpt = None,
+    env: EnvOpt = None,
+    secrets: SecretsOpt = None,
+    env_file: EnvFileOpt = None,
+    secrets_file: SecretsFileOpt = None,
+    timeout: TimeoutOpt = None,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+    with_: WithOpt = None,
+    python: PythonOpt = None,
+) -> None:
+    env_map: dict[str, Optional[str]] = {}
+    if env_file:
+        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
+    for env_value in env or []:
+        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
+    secrets_map: dict[str, Optional[str]] = {}
+    extended_environ = _get_extended_environ()
+    if secrets_file:
+        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
+    for secret in secrets or []:
+        secrets_map.update(load_dotenv(secret, environ=extended_environ))
+
+    api = get_hf_api(token=token)
+    job = api.create_scheduled_uv_job(
+        script=script,
+        script_args=script_args or [],
+        schedule=schedule,
+        suspend=suspend,
+        concurrency=concurrency,
+        dependencies=with_,
+        python=python,
+        image=image,
+        env=env_map,
+        secrets=secrets_map,
+        flavor=flavor,  # type: ignore[arg-type]
+        timeout=timeout,
+        namespace=namespace,
+    )
+    print(f"Scheduled Job created with ID: {job.id}")
+
+
+### UTILS
+
+
+def _tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
     """
     Inspired by:
 
@@ -213,337 +919,6 @@ def _tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
     return "\n".join(lines)
 
 
-class PsCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction) -> None:
-        run_parser = parser.add_parser("ps", help="List Jobs")
-        run_parser.add_argument(
-            "-a",
-            "--all",
-            action="store_true",
-            help="Show all Jobs (default shows just running)",
-        )
-        run_parser.add_argument(
-            "--namespace",
-            type=str,
-            help="The namespace from where it lists the jobs. Defaults to the current user's namespace.",
-        )
-        run_parser.add_argument(
-            "--token",
-            type=str,
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        )
-        # Add Docker-style filtering argument
-        run_parser.add_argument(
-            "-f",
-            "--filter",
-            action="append",
-            default=[],
-            help="Filter output based on conditions provided (format: key=value)",
-        )
-        # Add option to format output
-        run_parser.add_argument(
-            "--format",
-            type=str,
-            help="Format output using a custom template",
-        )
-        run_parser.set_defaults(func=PsCommand)
-
-    def __init__(self, args: Namespace) -> None:
-        self.all: bool = args.all
-        self.namespace: Optional[str] = args.namespace
-        self.token: Optional[str] = args.token
-        self.format: Optional[str] = args.format
-        self.filters: Dict[str, str] = {}
-
-        # Parse filter arguments (key=value pairs)
-        for f in args.filter:
-            if "=" in f:
-                key, value = f.split("=", 1)
-                self.filters[key.lower()] = value
-            else:
-                print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
-
-    def run(self) -> None:
-        """
-        Fetch and display job information for the current user.
-        Uses Docker-style filtering with -f/--filter flag and key=value pairs.
-        """
-        try:
-            api = HfApi(token=self.token)
-
-            # Fetch jobs data
-            jobs = api.list_jobs(namespace=self.namespace)
-
-            # Define table headers
-            table_headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
-
-            # Process jobs data
-            rows = []
-
-            for job in jobs:
-                # Extract job data for filtering
-                status = job.status.stage if job.status else "UNKNOWN"
-
-                # Skip job if not all jobs should be shown and status doesn't match criteria
-                if not self.all and status not in ("RUNNING", "UPDATING"):
-                    continue
-
-                # Extract job ID
-                job_id = job.id
-
-                # Extract image or space information
-                image_or_space = job.docker_image or "N/A"
-
-                # Extract and format command
-                command = job.command or []
-                command_str = " ".join(command) if command else "N/A"
-
-                # Extract creation time
-                created_at = job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else "N/A"
-
-                # Create a dict with all job properties for filtering
-                job_properties = {
-                    "id": job_id,
-                    "image": image_or_space,
-                    "status": status.lower(),
-                    "command": command_str,
-                }
-
-                # Check if job matches all filters
-                if not self._matches_filters(job_properties):
-                    continue
-
-                # Create row
-                rows.append([job_id, image_or_space, command_str, created_at, status])
-
-            # Handle empty results
-            if not rows:
-                filters_msg = ""
-                if self.filters:
-                    filters_msg = f" matching filters: {', '.join([f'{k}={v}' for k, v in self.filters.items()])}"
-
-                print(f"No jobs found{filters_msg}")
-                return
-
-            # Apply custom format if provided or use default tabular format
-            self._print_output(rows, table_headers)
-
-        except requests.RequestException as e:
-            print(f"Error fetching jobs data: {e}")
-        except (KeyError, ValueError, TypeError) as e:
-            print(f"Error processing jobs data: {e}")
-        except Exception as e:
-            print(f"Unexpected error - {type(e).__name__}: {e}")
-
-    def _matches_filters(self, job_properties: Dict[str, str]) -> bool:
-        """Check if job matches all specified filters."""
-        for key, pattern in self.filters.items():
-            # Check if property exists
-            if key not in job_properties:
-                return False
-
-            # Support pattern matching with wildcards
-            if "*" in pattern or "?" in pattern:
-                # Convert glob pattern to regex
-                regex_pattern = pattern.replace("*", ".*").replace("?", ".")
-                if not re.search(f"^{regex_pattern}$", job_properties[key], re.IGNORECASE):
-                    return False
-            # Simple substring matching
-            elif pattern.lower() not in job_properties[key].lower():
-                return False
-
-        return True
-
-    def _print_output(self, rows, headers):
-        """Print output according to the chosen format."""
-        if self.format:
-            # Custom template formatting (simplified)
-            template = self.format
-            for row in rows:
-                line = template
-                for i, field in enumerate(["id", "image", "command", "created", "status"]):
-                    placeholder = f"{{{{.{field}}}}}"
-                    if placeholder in line:
-                        line = line.replace(placeholder, str(row[i]))
-                print(line)
-        else:
-            # Default tabular format
-            print(
-                _tabulate(
-                    rows,
-                    headers=headers,
-                )
-            )
-
-
-class InspectCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction) -> None:
-        run_parser = parser.add_parser("inspect", help="Display detailed information on one or more Jobs")
-        run_parser.add_argument(
-            "--namespace",
-            type=str,
-            help="The namespace where the job is running. Defaults to the current user's namespace.",
-        )
-        run_parser.add_argument(
-            "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
-        )
-        run_parser.add_argument("job_ids", nargs="...", help="The jobs to inspect")
-        run_parser.set_defaults(func=InspectCommand)
-
-    def __init__(self, args: Namespace) -> None:
-        self.namespace: Optional[str] = args.namespace
-        self.token: Optional[str] = args.token
-        self.job_ids: List[str] = args.job_ids
-
-    def run(self) -> None:
-        api = HfApi(token=self.token)
-        jobs = [api.inspect_job(job_id=job_id, namespace=self.namespace) for job_id in self.job_ids]
-        print(json.dumps([asdict(job) for job in jobs], indent=4, default=str))
-
-
-class CancelCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction) -> None:
-        run_parser = parser.add_parser("cancel", help="Cancel a Job")
-        run_parser.add_argument("job_id", type=str, help="Job ID")
-        run_parser.add_argument(
-            "--namespace",
-            type=str,
-            help="The namespace where the job is running. Defaults to the current user's namespace.",
-        )
-        run_parser.add_argument(
-            "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
-        )
-        run_parser.set_defaults(func=CancelCommand)
-
-    def __init__(self, args: Namespace) -> None:
-        self.job_id: str = args.job_id
-        self.namespace = args.namespace
-        self.token: Optional[str] = args.token
-
-    def run(self) -> None:
-        api = HfApi(token=self.token)
-        api.cancel_job(job_id=self.job_id, namespace=self.namespace)
-
-
-class UvCommand(BaseHuggingfaceCLICommand):
-    """Run UV scripts on Hugging Face infrastructure."""
-
-    @staticmethod
-    def register_subcommand(parser):
-        """Register UV run subcommand."""
-        uv_parser = parser.add_parser(
-            "uv",
-            help="Run UV scripts (Python with inline dependencies) on HF infrastructure",
-        )
-
-        subparsers = uv_parser.add_subparsers(dest="uv_command", help="UV commands", required=True)
-
-        # Run command only
-        run_parser = subparsers.add_parser(
-            "run",
-            help="Run a UV script (local file or URL) on HF infrastructure",
-        )
-        run_parser.add_argument("script", help="UV script to run (local file or URL)")
-        run_parser.add_argument("script_args", nargs="...", help="Arguments for the script", default=[])
-        run_parser.add_argument("--image", type=str, help="Use a custom Docker image with `uv` installed.")
-        run_parser.add_argument(
-            "--repo",
-            help="Repository name for the script (creates ephemeral if not specified)",
-        )
-        run_parser.add_argument(
-            "--flavor",
-            type=str,
-            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
-        )
-        run_parser.add_argument("-e", "--env", action="append", help="Environment variables")
-        run_parser.add_argument(
-            "-s",
-            "--secrets",
-            action="append",
-            help=(
-                "Set secret environment variables. E.g. --secrets SECRET=value "
-                "or `--secrets HF_TOKEN` to pass your Hugging Face token."
-            ),
-        )
-        run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
-        run_parser.add_argument(
-            "--secrets-file",
-            type=str,
-            help="Read in a file of secret environment variables.",
-        )
-        run_parser.add_argument("--timeout", type=str, help="Max duration (e.g., 30s, 5m, 1h)")
-        run_parser.add_argument("-d", "--detach", action="store_true", help="Run in background")
-        run_parser.add_argument(
-            "--namespace",
-            type=str,
-            help="The namespace where the Job will be created. Defaults to the current user's namespace.",
-        )
-        run_parser.add_argument("--token", type=str, help="HF token")
-        # UV options
-        run_parser.add_argument("--with", action="append", help="Run with the given packages installed", dest="with_")
-        run_parser.add_argument(
-            "-p", "--python", type=str, help="The Python interpreter to use for the run environment"
-        )
-        run_parser.set_defaults(func=UvCommand)
-
-    def __init__(self, args: Namespace) -> None:
-        """Initialize the command with parsed arguments."""
-        self.script = args.script
-        self.script_args = args.script_args
-        self.dependencies = args.with_
-        self.python = args.python
-        self.image = args.image
-        self.env: dict[str, Optional[str]] = {}
-        if args.env_file:
-            self.env.update(load_dotenv(Path(args.env_file).read_text(), environ=os.environ.copy()))
-        for env_value in args.env or []:
-            self.env.update(load_dotenv(env_value, environ=os.environ.copy()))
-        self.secrets: dict[str, Optional[str]] = {}
-        extended_environ = _get_extended_environ()
-        if args.secrets_file:
-            self.secrets.update(load_dotenv(Path(args.secrets_file).read_text(), environ=extended_environ))
-        for secret in args.secrets or []:
-            self.secrets.update(load_dotenv(secret, environ=extended_environ))
-        self.flavor: Optional[SpaceHardware] = args.flavor
-        self.timeout: Optional[str] = args.timeout
-        self.detach: bool = args.detach
-        self.namespace: Optional[str] = args.namespace
-        self.token: Optional[str] = args.token
-        self._repo = args.repo
-
-    def run(self) -> None:
-        """Execute UV command."""
-        logging.set_verbosity(logging.INFO)
-        api = HfApi(token=self.token)
-        job = api.run_uv_job(
-            script=self.script,
-            script_args=self.script_args,
-            dependencies=self.dependencies,
-            python=self.python,
-            image=self.image,
-            env=self.env,
-            secrets=self.secrets,
-            flavor=self.flavor,
-            timeout=self.timeout,
-            namespace=self.namespace,
-            _repo=self._repo,
-        )
-
-        # Always print the job ID to the user
-        print(f"Job started with ID: {job.id}")
-        print(f"View at: {job.url}")
-
-        if self.detach:
-            return
-
-        # Now let's stream the logs
-        for log in api.fetch_job_logs(job_id=job.id):
-            print(log)
-
-
 def _get_extended_environ() -> Dict[str, str]:
     extended_environ = os.environ.copy()
     if (token := get_token()) is not None:
@@ -551,550 +926,43 @@ def _get_extended_environ() -> Dict[str, str]:
     return extended_environ
 
 
-class ScheduledJobsCommands(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction):
-        scheduled_jobs_parser = parser.add_parser("scheduled", help="Create and manage scheduled Jobs on the Hub.")
-        scheduled_jobs_subparsers = scheduled_jobs_parser.add_subparsers(
-            help="huggingface.co scheduled jobs related commands"
-        )
-
-        # Show help if no subcommand is provided
-        scheduled_jobs_parser.set_defaults(func=lambda args: scheduled_jobs_subparsers.print_help())
-
-        # Register commands
-        ScheduledRunCommand.register_subcommand(scheduled_jobs_subparsers)
-        ScheduledPsCommand.register_subcommand(scheduled_jobs_subparsers)
-        ScheduledInspectCommand.register_subcommand(scheduled_jobs_subparsers)
-        ScheduledDeleteCommand.register_subcommand(scheduled_jobs_subparsers)
-        ScheduledSuspendCommand.register_subcommand(scheduled_jobs_subparsers)
-        ScheduledResumeCommand.register_subcommand(scheduled_jobs_subparsers)
-        ScheduledUvCommand.register_subcommand(scheduled_jobs_subparsers)
+T = TypeVar("T")
 
 
-class ScheduledRunCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction) -> None:
-        run_parser = parser.add_parser("run", help="Schedule a Job")
-        run_parser.add_argument(
-            "schedule",
-            type=str,
-            help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
-        )
-        run_parser.add_argument("image", type=str, help="The Docker image to use.")
-        run_parser.add_argument(
-            "--suspend",
-            action="store_true",
-            help="Suspend (pause) the scheduled Job",
-            default=None,
-        )
-        run_parser.add_argument(
-            "--concurrency",
-            action="store_true",
-            help="Allow multiple instances of this Job to run concurrently",
-            default=None,
-        )
-        run_parser.add_argument("-e", "--env", action="append", help="Set environment variables. E.g. --env ENV=value")
-        run_parser.add_argument(
-            "-s",
-            "--secrets",
-            action="append",
-            help=(
-                "Set secret environment variables. E.g. --secrets SECRET=value "
-                "or `--secrets HF_TOKEN` to pass your Hugging Face token."
-            ),
-        )
-        run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
-        run_parser.add_argument("--secrets-file", type=str, help="Read in a file of secret environment variables.")
-        run_parser.add_argument(
-            "--flavor",
-            type=str,
-            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
-        )
-        run_parser.add_argument(
-            "--timeout",
-            type=str,
-            help="Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
-        )
-        run_parser.add_argument(
-            "--namespace",
-            type=str,
-            help="The namespace where the scheduled Job will be created. Defaults to the current user's namespace.",
-        )
-        run_parser.add_argument(
-            "--token",
-            type=str,
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        )
-        run_parser.add_argument("command", nargs="...", help="The command to run.")
-        run_parser.set_defaults(func=ScheduledRunCommand)
-
-    def __init__(self, args: Namespace) -> None:
-        self.schedule: str = args.schedule
-        self.image: str = args.image
-        self.command: List[str] = args.command
-        self.suspend: Optional[bool] = args.suspend
-        self.concurrency: Optional[bool] = args.concurrency
-        self.env: dict[str, Optional[str]] = {}
-        if args.env_file:
-            self.env.update(load_dotenv(Path(args.env_file).read_text(), environ=os.environ.copy()))
-        for env_value in args.env or []:
-            self.env.update(load_dotenv(env_value, environ=os.environ.copy()))
-        self.secrets: dict[str, Optional[str]] = {}
-        extended_environ = _get_extended_environ()
-        if args.secrets_file:
-            self.secrets.update(load_dotenv(Path(args.secrets_file).read_text(), environ=extended_environ))
-        for secret in args.secrets or []:
-            self.secrets.update(load_dotenv(secret, environ=extended_environ))
-        self.flavor: Optional[SpaceHardware] = args.flavor
-        self.timeout: Optional[str] = args.timeout
-        self.namespace: Optional[str] = args.namespace
-        self.token: Optional[str] = args.token
-
-    def run(self) -> None:
-        api = HfApi(token=self.token)
-        scheduled_job = api.create_scheduled_job(
-            image=self.image,
-            command=self.command,
-            schedule=self.schedule,
-            suspend=self.suspend,
-            concurrency=self.concurrency,
-            env=self.env,
-            secrets=self.secrets,
-            flavor=self.flavor,
-            timeout=self.timeout,
-            namespace=self.namespace,
-        )
-        # Always print the scheduled job ID to the user
-        print(f"Scheduled Job created with ID: {scheduled_job.id}")
+def _write_generator_to_queue(queue: Queue[T], func: Callable[..., Iterable[T]], kwargs: dict) -> None:
+    for result in func(**kwargs):
+        queue.put(result)
 
 
-class ScheduledPsCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction) -> None:
-        run_parser = parser.add_parser("ps", help="List scheduled Jobs")
-        run_parser.add_argument(
-            "-a",
-            "--all",
-            action="store_true",
-            help="Show all scheduled Jobs (default hides suspended)",
-        )
-        run_parser.add_argument(
-            "--namespace",
-            type=str,
-            help="The namespace from where it lists the jobs. Defaults to the current user's namespace.",
-        )
-        run_parser.add_argument(
-            "--token",
-            type=str,
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        )
-        # Add Docker-style filtering argument
-        run_parser.add_argument(
-            "-f",
-            "--filter",
-            action="append",
-            default=[],
-            help="Filter output based on conditions provided (format: key=value)",
-        )
-        # Add option to format output
-        run_parser.add_argument(
-            "--format",
-            type=str,
-            help="Format output using a custom template",
-        )
-        run_parser.set_defaults(func=ScheduledPsCommand)
+def iflatmap_unordered(
+    pool: multiprocessing.pool.ThreadPool,
+    func: Callable[..., Iterable[T]],
+    *,
+    kwargs_list: list[dict],
+) -> Iterable[T]:
+    """
+    Takes a function that returns an iterable of items, and run it in parallel using threads to return the flattened iterable of items as they arrive.
 
-    def __init__(self, args: Namespace) -> None:
-        self.all: bool = args.all
-        self.namespace: Optional[str] = args.namespace
-        self.token: Optional[str] = args.token
-        self.format: Optional[str] = args.format
-        self.filters: Dict[str, str] = {}
+    This is inspired by those three `map()` variants, and is the mix of all three:
 
-        # Parse filter arguments (key=value pairs)
-        for f in args.filter:
-            if "=" in f:
-                key, value = f.split("=", 1)
-                self.filters[key.lower()] = value
-            else:
-                print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
-
-    def run(self) -> None:
-        """
-        Fetch and display scheduked job information for the current user.
-        Uses Docker-style filtering with -f/--filter flag and key=value pairs.
-        """
+    * `imap()`: like `map()` but returns an iterable instead of a list of results
+    * `imap_unordered()`: like `imap()` but the output is sorted by time of arrival
+    * `flatmap()`: like `map()` but given a function which returns a list, `flatmap()` returns the flattened list that is the concatenation of all the output lists
+    """
+    queue: Queue[T] = Queue()
+    async_results = [pool.apply_async(_write_generator_to_queue, (queue, func, kwargs)) for kwargs in kwargs_list]
+    try:
+        while True:
+            try:
+                yield queue.get(timeout=0.05)
+            except Empty:
+                if all(async_result.ready() for async_result in async_results) and queue.empty():
+                    break
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # we get the result in case there's an error to raise
         try:
-            api = HfApi(token=self.token)
-
-            # Fetch jobs data
-            scheduled_jobs = api.list_scheduled_jobs(namespace=self.namespace)
-
-            # Define table headers
-            table_headers = [
-                "ID",
-                "SCHEDULE",
-                "IMAGE/SPACE",
-                "COMMAND",
-                "LAST RUN",
-                "NEXT RUN",
-                "SUSPEND",
-            ]
-
-            # Process jobs data
-            rows = []
-
-            for scheduled_job in scheduled_jobs:
-                # Extract job data for filtering
-                suspend = scheduled_job.suspend
-
-                # Skip job if not all jobs should be shown and status doesn't match criteria
-                if not self.all and suspend:
-                    continue
-
-                # Extract job ID
-                scheduled_job_id = scheduled_job.id
-
-                # Extract schedule
-                schedule = scheduled_job.schedule
-
-                # Extract image or space information
-                image_or_space = scheduled_job.job_spec.docker_image or "N/A"
-
-                # Extract and format command
-                command = scheduled_job.job_spec.command or []
-                command_str = " ".join(command) if command else "N/A"
-
-                # Extract status
-                last_job_at = (
-                    scheduled_job.status.last_job.at.strftime("%Y-%m-%d %H:%M:%S")
-                    if scheduled_job.status.last_job
-                    else "N/A"
-                )
-                next_job_run_at = (
-                    scheduled_job.status.next_job_run_at.strftime("%Y-%m-%d %H:%M:%S")
-                    if scheduled_job.status.next_job_run_at
-                    else "N/A"
-                )
-
-                # Create a dict with all job properties for filtering
-                job_properties = {
-                    "id": scheduled_job_id,
-                    "image": image_or_space,
-                    "suspend": str(suspend),
-                    "command": command_str,
-                }
-
-                # Check if job matches all filters
-                if not self._matches_filters(job_properties):
-                    continue
-
-                # Create row
-                rows.append(
-                    [
-                        scheduled_job_id,
-                        schedule,
-                        image_or_space,
-                        command_str,
-                        last_job_at,
-                        next_job_run_at,
-                        suspend,
-                    ]
-                )
-
-            # Handle empty results
-            if not rows:
-                filters_msg = ""
-                if self.filters:
-                    filters_msg = f" matching filters: {', '.join([f'{k}={v}' for k, v in self.filters.items()])}"
-
-                print(f"No scheduled jobs found{filters_msg}")
-                return
-
-            # Apply custom format if provided or use default tabular format
-            self._print_output(rows, table_headers)
-
-        except requests.RequestException as e:
-            print(f"Error fetching scheduled jobs data: {e}")
-        except (KeyError, ValueError, TypeError) as e:
-            print(f"Error processing scheduled jobs data: {e}")
-        except Exception as e:
-            print(f"Unexpected error - {type(e).__name__}: {e}")
-
-    def _matches_filters(self, job_properties: Dict[str, str]) -> bool:
-        """Check if scheduled job matches all specified filters."""
-        for key, pattern in self.filters.items():
-            # Check if property exists
-            if key not in job_properties:
-                return False
-
-            # Support pattern matching with wildcards
-            if "*" in pattern or "?" in pattern:
-                # Convert glob pattern to regex
-                regex_pattern = pattern.replace("*", ".*").replace("?", ".")
-                if not re.search(f"^{regex_pattern}$", job_properties[key], re.IGNORECASE):
-                    return False
-            # Simple substring matching
-            elif pattern.lower() not in job_properties[key].lower():
-                return False
-
-        return True
-
-    def _print_output(self, rows, headers):
-        """Print output according to the chosen format."""
-        if self.format:
-            # Custom template formatting (simplified)
-            template = self.format
-            for row in rows:
-                line = template
-                for i, field in enumerate(
-                    ["id", "schedule", "image", "command", "last_job_at", "next_job_run_at", "suspend"]
-                ):
-                    placeholder = f"{{{{.{field}}}}}"
-                    if placeholder in line:
-                        line = line.replace(placeholder, str(row[i]))
-                print(line)
-        else:
-            # Default tabular format
-            print(
-                _tabulate(
-                    rows,
-                    headers=headers,
-                )
-            )
-
-
-class ScheduledInspectCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction) -> None:
-        run_parser = parser.add_parser("inspect", help="Display detailed information on one or more scheduled Jobs")
-        run_parser.add_argument(
-            "--namespace",
-            type=str,
-            help="The namespace where the scheduled job is. Defaults to the current user's namespace.",
-        )
-        run_parser.add_argument(
-            "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
-        )
-        run_parser.add_argument("scheduled_job_ids", nargs="...", help="The scheduled jobs to inspect")
-        run_parser.set_defaults(func=ScheduledInspectCommand)
-
-    def __init__(self, args: Namespace) -> None:
-        self.namespace: Optional[str] = args.namespace
-        self.token: Optional[str] = args.token
-        self.scheduled_job_ids: List[str] = args.scheduled_job_ids
-
-    def run(self) -> None:
-        api = HfApi(token=self.token)
-        scheduled_jobs = [
-            api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=self.namespace)
-            for scheduled_job_id in self.scheduled_job_ids
-        ]
-        print(json.dumps([asdict(scheduled_job) for scheduled_job in scheduled_jobs], indent=4, default=str))
-
-
-class ScheduledDeleteCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction) -> None:
-        run_parser = parser.add_parser("delete", help="Delete a scheduled Job")
-        run_parser.add_argument("scheduled_job_id", type=str, help="Scheduled Job ID")
-        run_parser.add_argument(
-            "--namespace",
-            type=str,
-            help="The namespace where the scheduled job is. Defaults to the current user's namespace.",
-        )
-        run_parser.add_argument(
-            "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
-        )
-        run_parser.set_defaults(func=ScheduledDeleteCommand)
-
-    def __init__(self, args: Namespace) -> None:
-        self.scheduled_job_id: str = args.scheduled_job_id
-        self.namespace = args.namespace
-        self.token: Optional[str] = args.token
-
-    def run(self) -> None:
-        api = HfApi(token=self.token)
-        api.delete_scheduled_job(scheduled_job_id=self.scheduled_job_id, namespace=self.namespace)
-
-
-class ScheduledSuspendCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction) -> None:
-        run_parser = parser.add_parser("suspend", help="Suspend (pause) a scheduled Job")
-        run_parser.add_argument("scheduled_job_id", type=str, help="Scheduled Job ID")
-        run_parser.add_argument(
-            "--namespace",
-            type=str,
-            help="The namespace where the scheduled job is. Defaults to the current user's namespace.",
-        )
-        run_parser.add_argument(
-            "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
-        )
-        run_parser.set_defaults(func=ScheduledSuspendCommand)
-
-    def __init__(self, args: Namespace) -> None:
-        self.scheduled_job_id: str = args.scheduled_job_id
-        self.namespace = args.namespace
-        self.token: Optional[str] = args.token
-
-    def run(self) -> None:
-        api = HfApi(token=self.token)
-        api.suspend_scheduled_job(scheduled_job_id=self.scheduled_job_id, namespace=self.namespace)
-
-
-class ScheduledResumeCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction) -> None:
-        run_parser = parser.add_parser("resume", help="Resume (unpause) a scheduled Job")
-        run_parser.add_argument("scheduled_job_id", type=str, help="Scheduled Job ID")
-        run_parser.add_argument(
-            "--namespace",
-            type=str,
-            help="The namespace where the scheduled job is. Defaults to the current user's namespace.",
-        )
-        run_parser.add_argument(
-            "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
-        )
-        run_parser.set_defaults(func=ScheduledResumeCommand)
-
-    def __init__(self, args: Namespace) -> None:
-        self.scheduled_job_id: str = args.scheduled_job_id
-        self.namespace = args.namespace
-        self.token: Optional[str] = args.token
-
-    def run(self) -> None:
-        api = HfApi(token=self.token)
-        api.resume_scheduled_job(scheduled_job_id=self.scheduled_job_id, namespace=self.namespace)
-
-
-class ScheduledUvCommand(BaseHuggingfaceCLICommand):
-    """Schedule UV scripts on Hugging Face infrastructure."""
-
-    @staticmethod
-    def register_subcommand(parser):
-        """Register UV run subcommand."""
-        uv_parser = parser.add_parser(
-            "uv",
-            help="Schedule UV scripts (Python with inline dependencies) on HF infrastructure",
-        )
-
-        subparsers = uv_parser.add_subparsers(dest="uv_command", help="UV commands", required=True)
-
-        # Run command only
-        run_parser = subparsers.add_parser(
-            "run",
-            help="Run a UV script (local file or URL) on HF infrastructure",
-        )
-        run_parser.add_argument(
-            "schedule",
-            type=str,
-            help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
-        )
-        run_parser.add_argument("script", help="UV script to run (local file or URL)")
-        run_parser.add_argument("script_args", nargs="...", help="Arguments for the script", default=[])
-        run_parser.add_argument(
-            "--suspend",
-            action="store_true",
-            help="Suspend (pause) the scheduled Job",
-            default=None,
-        )
-        run_parser.add_argument(
-            "--concurrency",
-            action="store_true",
-            help="Allow multiple instances of this Job to run concurrently",
-            default=None,
-        )
-        run_parser.add_argument("--image", type=str, help="Use a custom Docker image with `uv` installed.")
-        run_parser.add_argument(
-            "--repo",
-            help="Repository name for the script (creates ephemeral if not specified)",
-        )
-        run_parser.add_argument(
-            "--flavor",
-            type=str,
-            help=f"Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`. Possible values: {', '.join(SUGGESTED_FLAVORS)}.",
-        )
-        run_parser.add_argument("-e", "--env", action="append", help="Environment variables")
-        run_parser.add_argument(
-            "-s",
-            "--secrets",
-            action="append",
-            help=(
-                "Set secret environment variables. E.g. --secrets SECRET=value "
-                "or `--secrets HF_TOKEN` to pass your Hugging Face token."
-            ),
-        )
-        run_parser.add_argument("--env-file", type=str, help="Read in a file of environment variables.")
-        run_parser.add_argument(
-            "--secrets-file",
-            type=str,
-            help="Read in a file of secret environment variables.",
-        )
-        run_parser.add_argument("--timeout", type=str, help="Max duration (e.g., 30s, 5m, 1h)")
-        run_parser.add_argument("-d", "--detach", action="store_true", help="Run in background")
-        run_parser.add_argument(
-            "--namespace",
-            type=str,
-            help="The namespace where the Job will be created. Defaults to the current user's namespace.",
-        )
-        run_parser.add_argument("--token", type=str, help="HF token")
-        # UV options
-        run_parser.add_argument("--with", action="append", help="Run with the given packages installed", dest="with_")
-        run_parser.add_argument(
-            "-p", "--python", type=str, help="The Python interpreter to use for the run environment"
-        )
-        run_parser.set_defaults(func=ScheduledUvCommand)
-
-    def __init__(self, args: Namespace) -> None:
-        """Initialize the command with parsed arguments."""
-        self.schedule: str = args.schedule
-        self.script = args.script
-        self.script_args = args.script_args
-        self.suspend: Optional[bool] = args.suspend
-        self.concurrency: Optional[bool] = args.concurrency
-        self.dependencies = args.with_
-        self.python = args.python
-        self.image = args.image
-        self.env: dict[str, Optional[str]] = {}
-        if args.env_file:
-            self.env.update(load_dotenv(Path(args.env_file).read_text(), environ=os.environ.copy()))
-        for env_value in args.env or []:
-            self.env.update(load_dotenv(env_value, environ=os.environ.copy()))
-        self.secrets: dict[str, Optional[str]] = {}
-        extended_environ = _get_extended_environ()
-        if args.secrets_file:
-            self.secrets.update(load_dotenv(Path(args.secrets_file).read_text(), environ=extended_environ))
-        for secret in args.secrets or []:
-            self.secrets.update(load_dotenv(secret, environ=extended_environ))
-        self.flavor: Optional[SpaceHardware] = args.flavor
-        self.timeout: Optional[str] = args.timeout
-        self.detach: bool = args.detach
-        self.namespace: Optional[str] = args.namespace
-        self.token: Optional[str] = args.token
-        self._repo = args.repo
-
-    def run(self) -> None:
-        """Schedule UV command."""
-        logging.set_verbosity(logging.INFO)
-        api = HfApi(token=self.token)
-        job = api.create_scheduled_uv_job(
-            script=self.script,
-            script_args=self.script_args,
-            schedule=self.schedule,
-            suspend=self.suspend,
-            concurrency=self.concurrency,
-            dependencies=self.dependencies,
-            python=self.python,
-            image=self.image,
-            env=self.env,
-            secrets=self.secrets,
-            flavor=self.flavor,
-            timeout=self.timeout,
-            namespace=self.namespace,
-            _repo=self._repo,
-        )
-
-        # Always print the job ID to the user
-        print(f"Scheduled Job created with ID: {job.id}")
+            [async_result.get(timeout=0.05) for async_result in async_results]
+        except multiprocessing.TimeoutError:
+            pass

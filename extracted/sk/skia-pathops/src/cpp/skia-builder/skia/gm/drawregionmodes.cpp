@@ -28,13 +28,9 @@ public:
     DrawRegionModesGM() {}
 
 protected:
-    SkString onShortName() override {
-        return SkString("drawregionmodes");
-    }
+    SkString getName() const override { return SkString("drawregionmodes"); }
 
-    SkISize onISize() override {
-        return SkISize::Make(375, 500);
-    }
+    SkISize getISize() override { return SkISize::Make(375, 500); }
 
     void onOnceBeforeDraw() override {
         fRegion.op({50,  50, 100, 100}, SkRegion::kUnion_Op);
@@ -67,7 +63,7 @@ protected:
         paint.setMaskFilter(nullptr);
         paint.setStyle(SkPaint::kStroke_Style);
         float intervals[] = { 5.0f, 5.0f };
-        paint.setPathEffect(SkDashPathEffect::Make(intervals, 2, 2.5f));
+        paint.setPathEffect(SkDashPathEffect::Make(intervals, 2.5f));
         canvas->drawRegion(fRegion, paint);
 
         canvas->restore();

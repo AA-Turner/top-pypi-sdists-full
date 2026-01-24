@@ -541,3 +541,9 @@ class ArrowType(_message.Message):
 class EmptyMessage(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class TableParquetBytes(_message.Message):
+    __slots__ = ("encoded_parquet_bytes",)
+    ENCODED_PARQUET_BYTES_FIELD_NUMBER: _ClassVar[int]
+    encoded_parquet_bytes: bytes
+    def __init__(self, encoded_parquet_bytes: _Optional[bytes] = ...) -> None: ...

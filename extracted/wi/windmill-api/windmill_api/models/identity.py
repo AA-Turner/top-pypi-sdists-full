@@ -11,10 +11,11 @@ T = TypeVar("T", bound="Identity")
 
 @_attrs_define
 class Identity:
-    """
+    """Pass-through module that returns its input unchanged. Useful for flow structure or as a placeholder
+
     Attributes:
         type (IdentityType):
-        flow (Union[Unset, bool]):
+        flow (Union[Unset, bool]): If true, marks this as a flow identity (special handling)
     """
 
     type: IdentityType

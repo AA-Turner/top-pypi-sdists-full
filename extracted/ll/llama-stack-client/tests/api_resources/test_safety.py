@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
@@ -26,7 +32,7 @@ class TestSafety:
                     "role": "user",
                 }
             ],
-            params={"foo": True},
+            params={"foo": "bar"},
             shield_id="shield_id",
         )
         assert_matches_type(RunShieldResponse, safety, path=["response"])
@@ -40,7 +46,7 @@ class TestSafety:
                     "role": "user",
                 }
             ],
-            params={"foo": True},
+            params={"foo": "bar"},
             shield_id="shield_id",
         )
 
@@ -58,7 +64,7 @@ class TestSafety:
                     "role": "user",
                 }
             ],
-            params={"foo": True},
+            params={"foo": "bar"},
             shield_id="shield_id",
         ) as response:
             assert not response.is_closed
@@ -84,7 +90,7 @@ class TestAsyncSafety:
                     "role": "user",
                 }
             ],
-            params={"foo": True},
+            params={"foo": "bar"},
             shield_id="shield_id",
         )
         assert_matches_type(RunShieldResponse, safety, path=["response"])
@@ -98,7 +104,7 @@ class TestAsyncSafety:
                     "role": "user",
                 }
             ],
-            params={"foo": True},
+            params={"foo": "bar"},
             shield_id="shield_id",
         )
 
@@ -116,7 +122,7 @@ class TestAsyncSafety:
                     "role": "user",
                 }
             ],
-            params={"foo": True},
+            params={"foo": "bar"},
             shield_id="shield_id",
         ) as response:
             assert not response.is_closed

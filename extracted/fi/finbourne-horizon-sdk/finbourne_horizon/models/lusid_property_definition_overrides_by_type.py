@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist, constr 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 class LusidPropertyDefinitionOverridesByType(BaseModel):
     """
@@ -28,8 +30,8 @@ class LusidPropertyDefinitionOverridesByType(BaseModel):
     display_name_override:  Optional[StrictStr] = Field(None,alias="displayNameOverride") 
     description_override:  Optional[StrictStr] = Field(None,alias="descriptionOverride") 
     entity_type:  Optional[StrictStr] = Field(None,alias="entityType") 
-    entity_sub_type: Optional[conlist(StrictStr)] = Field(None, alias="entitySubType")
-    vendor_package: Optional[conlist(StrictStr)] = Field(None, alias="vendorPackage")
+    entity_sub_type: Optional[List[StrictStr]] = Field(default=None, alias="entitySubType")
+    vendor_package: Optional[List[StrictStr]] = Field(default=None, alias="vendorPackage")
     __properties = ["displayNameOverride", "descriptionOverride", "entityType", "entitySubType", "vendorPackage"]
 
     class Config:
@@ -108,3 +110,5 @@ class LusidPropertyDefinitionOverridesByType(BaseModel):
             "vendor_package": obj.get("vendorPackage")
         })
         return _obj
+
+LusidPropertyDefinitionOverridesByType.update_forward_refs()

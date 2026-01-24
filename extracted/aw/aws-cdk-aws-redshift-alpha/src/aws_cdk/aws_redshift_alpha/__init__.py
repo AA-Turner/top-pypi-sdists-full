@@ -21,6 +21,7 @@ To set up a Redshift cluster, define a `Cluster`. It will be launched in a VPC.
 You can specify a VPC, otherwise one will be created. The nodes are always launched in private subnets and are encrypted by default.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 
 
@@ -37,6 +38,7 @@ By default, the master password will be generated and stored in AWS Secrets Mana
 You can specify characters to not include in generated passwords by setting `excludeCharacters` property.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 
 
@@ -60,6 +62,7 @@ Depending on your use case, you can make the cluster publicly accessible with th
 Amazon Redshift logs information about connections and user activities in your database. These logs help you to monitor the database for security and troubleshooting purposes, a process called database auditing. To send these logs to an S3 bucket, specify the `loggingProperties` when creating a new cluster.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login, LoggingProperties
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_s3 as s3
 
@@ -88,6 +91,7 @@ To enable this feature, set the `availabilityZoneRelocation` property to `true`.
 
 ```python
 # Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 
 # vpc: ec2.IVpc
@@ -213,6 +217,7 @@ construct. This will make a query to the Redshift cluster to create a new databa
 with the supplied schema.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_columns=[Column(name="col1", data_type="varchar(4)"), Column(name="col2", data_type="float")],
     cluster=cluster,
@@ -225,6 +230,7 @@ Therefore, changing of table names for <= v2.114.1 have been disabled.
 
 ```python
 # Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_name="oldTableName",  # This value can be change for versions greater than v2.114.1
     table_columns=[Column(name="col1", data_type="varchar(4)"), Column(name="col2", data_type="float")],
@@ -236,6 +242,7 @@ Table(self, "Table",
 The table can be configured to have distStyle attribute and a distKey column:
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_columns=[Column(name="col1", data_type="varchar(4)", dist_key=True), Column(name="col2", data_type="float")
     ],
@@ -248,6 +255,7 @@ Table(self, "Table",
 The table can also be configured to have sortStyle attribute and sortKey columns:
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_columns=[Column(name="col1", data_type="varchar(4)", sort_key=True), Column(name="col2", data_type="float", sort_key=True)
     ],
@@ -260,6 +268,7 @@ Table(self, "Table",
 Tables and their respective columns can be configured to contain comments:
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_columns=[Column(name="col1", data_type="varchar(4)", comment="This is a column comment"), Column(name="col2", data_type="float", comment="This is a another column comment")
     ],
@@ -272,6 +281,7 @@ Table(self, "Table",
 Table columns can be configured to use a specific compression encoding:
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 from aws_cdk.aws_redshift_alpha import ColumnEncoding
 
 
@@ -288,6 +298,7 @@ Table columns can also contain an `id` attribute, which can allow table columns 
 **NOTE** To use the `id` attribute, you must also enable the `@aws-cdk/aws-redshift:columnId` feature flag.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_columns=[Column(id="col1", name="col1", data_type="varchar(4)"), Column(id="col2", name="col2", data_type="float")
     ],
@@ -301,6 +312,7 @@ Query execution duration is limited to 1 minute by default. You can change this 
 Valid timeout values are between 1 seconds and 15 minutes.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 from aws_cdk import Duration
 
 
@@ -319,6 +331,7 @@ You can give a user privileges to perform certain actions on a table by using th
 `Table.grant()` method.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 user = User(self, "User",
     cluster=cluster,
     database_name="databaseName"
@@ -339,6 +352,7 @@ to the same user and table. In application 1, the resources are created and the 
 given `INSERT` permissions on the table:
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 database_name = "databaseName"
 username = "myuser"
 table_name = "mytable"
@@ -360,6 +374,7 @@ In application 2, the resources are imported and the user is given `INSERT` perm
 the table:
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 database_name = "databaseName"
 username = "myuser"
 table_name = "mytable"
@@ -433,6 +448,7 @@ params.add_parameter("enable_user_activity_logging", "true")
 Additionally, you can add a parameter to the cluster's associated parameter group with `Cluster.addToParameterGroup()`. If the cluster does not have an associated parameter group, a new parameter group is created.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk as cdk
 # vpc: ec2.Vpc
@@ -454,6 +470,7 @@ cluster.add_to_parameter_group("enable_user_activity_logging", "true")
 In most cases, existing clusters [must be manually rebooted](https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-parameter-groups.html) to apply parameter changes. You can automate parameter related reboots by setting the cluster's `rebootForParameterChanges` property to `true` , or by using `Cluster.enableRebootForParameterChanges()`.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk as cdk
 # vpc: ec2.Vpc
@@ -478,6 +495,7 @@ including [pausing and resuming the cluster](https://docs.aws.amazon.com/redshif
 
 ```python
 # Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_redshift_alpha import Login, Login, Login
 import aws_cdk.aws_ec2 as ec2
 from aws_cdk.aws_redshift_alpha import ResourceAction
 
@@ -520,6 +538,7 @@ Cluster(self, "FailOverCluster",
 If you configure your cluster to be publicly accessible, you can optionally select an *elastic IP address* to use for the external IP address. An elastic IP address is a static IP address that is associated with your AWS account. You can use an elastic IP address to connect to your cluster from outside the VPC. An elastic IP address gives you the ability to change your underlying configuration without affecting the IP address that clients use to connect to your cluster. This approach can be helpful for situations such as recovery after a failure.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk as cdk
 # vpc: ec2.Vpc
@@ -562,6 +581,7 @@ In some cases, you might want to associate the cluster with an elastic IP addres
 When you use Amazon Redshift enhanced VPC routing, Amazon Redshift forces all COPY and UNLOAD traffic between your cluster and your data repositories through your virtual private cloud (VPC) based on the Amazon VPC service. By using enhanced VPC routing, you can use standard VPC features, such as VPC security groups, network access control lists (ACLs), VPC endpoints, VPC endpoint policies, internet gateways, and Domain Name System (DNS) servers, as described in the Amazon VPC User Guide. You use these features to tightly manage the flow of data between your Amazon Redshift cluster and other resources. When you use enhanced VPC routing to route traffic through your VPC, you can also use VPC flow logs to monitor COPY and UNLOAD traffic.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk as cdk
 # vpc: ec2.Vpc
@@ -586,6 +606,7 @@ Some Amazon Redshift features require Amazon Redshift to access other AWS servic
 When you create an IAM role and set it as the default for the cluster using console, you don't have to provide the IAM role's Amazon Resource Name (ARN) to perform authentication and authorization.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_iam as iam
 # vpc: ec2.Vpc
@@ -608,6 +629,7 @@ Cluster(self, "Redshift",
 A default role can also be added to a cluster using the `addDefaultIamRole` method.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_iam as iam
 # vpc: ec2.Vpc
@@ -633,6 +655,7 @@ redshift_cluster.add_default_iam_role(default_role)
 Attaching IAM roles to a Redshift Cluster grants permissions to the Redshift service to perform actions on your behalf.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_iam as iam
 # vpc: ec2.Vpc
@@ -653,6 +676,7 @@ cluster = Cluster(self, "Redshift",
 Additional IAM roles can be attached to a cluster using the `addIamRole` method.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_iam as iam
 # vpc: ec2.Vpc
@@ -782,6 +806,7 @@ import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
 import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
 import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
 import aws_cdk.aws_secretsmanager as _aws_cdk_aws_secretsmanager_ceddda9d
+import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
 import constructs as _constructs_77d1e7e8
 
 
@@ -802,7 +827,7 @@ class ClusterAttributes:
         cluster_endpoint_address: builtins.str,
         cluster_endpoint_port: jsii.Number,
         cluster_name: builtins.str,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
     ) -> None:
         '''(experimental) Properties that describe an existing cluster instance.
 
@@ -879,7 +904,7 @@ class ClusterAttributes:
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
         '''(experimental) The security groups of the redshift cluster.
 
         :default: no security groups will be attached to the import
@@ -887,7 +912,7 @@ class ClusterAttributes:
         :stability: experimental
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1017,16 +1042,16 @@ class ClusterProps:
         self,
         *,
         master_user: typing.Union["Login", typing.Dict[builtins.str, typing.Any]],
-        vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
         availability_zone_relocation: typing.Optional[builtins.bool] = None,
         classic_resizing: typing.Optional[builtins.bool] = None,
         cluster_name: typing.Optional[builtins.str] = None,
         cluster_type: typing.Optional["ClusterType"] = None,
         default_database_name: typing.Optional[builtins.str] = None,
-        default_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        default_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         elastic_ip: typing.Optional[builtins.str] = None,
         encrypted: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+        encryption_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
         enhanced_vpc_routing: typing.Optional[builtins.bool] = None,
         logging_properties: typing.Optional[typing.Union["LoggingProperties", typing.Dict[builtins.str, typing.Any]]] = None,
         maintenance_track_name: typing.Optional["MaintenanceTrackName"] = None,
@@ -1038,12 +1063,12 @@ class ClusterProps:
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
         publicly_accessible: typing.Optional[builtins.bool] = None,
         reboot_for_parameter_changes: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         resource_action: typing.Optional["ResourceAction"] = None,
-        roles: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IRole]] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
+        roles: typing.Optional[typing.Sequence["_aws_cdk_aws_iam_ceddda9d.IRole"]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         subnet_group: typing.Optional["IClusterSubnetGroup"] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Properties for a new database cluster.
 
@@ -1081,6 +1106,7 @@ class ClusterProps:
 
         Example::
 
+            from aws_cdk.aws_redshift_alpha import Login
             import aws_cdk.aws_ec2 as ec2
             import aws_cdk.aws_iam as iam
             # vpc: ec2.Vpc
@@ -1203,14 +1229,14 @@ class ClusterProps:
         return typing.cast("Login", result)
 
     @builtins.property
-    def vpc(self) -> _aws_cdk_aws_ec2_ceddda9d.IVpc:
+    def vpc(self) -> "_aws_cdk_aws_ec2_ceddda9d.IVpc":
         '''(experimental) The VPC to place the cluster in.
 
         :stability: experimental
         '''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IVpc, result)
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IVpc", result)
 
     @builtins.property
     def availability_zone_relocation(self) -> typing.Optional[builtins.bool]:
@@ -1275,7 +1301,7 @@ class ClusterProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def default_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def default_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) A single AWS Identity and Access Management (IAM) role to be used as the default role for the cluster.
 
         The default role must be included in the roles list.
@@ -1285,7 +1311,7 @@ class ClusterProps:
         :stability: experimental
         '''
         result = self._values.get("default_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def elastic_ip(self) -> typing.Optional[builtins.str]:
@@ -1311,7 +1337,9 @@ class ClusterProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
+    def encryption_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
         '''(experimental) The KMS key to use for encryption of data at rest.
 
         :default: - AWS-managed key, if encryption at rest is enabled
@@ -1319,7 +1347,7 @@ class ClusterProps:
         :stability: experimental
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], result)
 
     @builtins.property
     def enhanced_vpc_routing(self) -> typing.Optional[builtins.bool]:
@@ -1453,7 +1481,7 @@ class ClusterProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
         '''(experimental) The removal policy to apply when the cluster and its instances are removed from the stack or replaced during an update.
 
         :default: RemovalPolicy.RETAIN
@@ -1461,7 +1489,7 @@ class ClusterProps:
         :stability: experimental
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
 
     @builtins.property
     def resource_action(self) -> typing.Optional["ResourceAction"]:
@@ -1475,7 +1503,7 @@ class ClusterProps:
         return typing.cast(typing.Optional["ResourceAction"], result)
 
     @builtins.property
-    def roles(self) -> typing.Optional[typing.List[_aws_cdk_aws_iam_ceddda9d.IRole]]:
+    def roles(self) -> typing.Optional[typing.List["_aws_cdk_aws_iam_ceddda9d.IRole"]]:
         '''(experimental) A list of AWS Identity and Access Management (IAM) role that can be used by the cluster to access other AWS services.
 
         The maximum number of roles to attach to a cluster is subject to a quota.
@@ -1485,12 +1513,12 @@ class ClusterProps:
         :stability: experimental
         '''
         result = self._values.get("roles")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_iam_ceddda9d.IRole]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_iam_ceddda9d.IRole"]], result)
 
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
         '''(experimental) Security group.
 
         :default: - a new security group is created.
@@ -1498,7 +1526,7 @@ class ClusterProps:
         :stability: experimental
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
 
     @builtins.property
     def subnet_group(self) -> typing.Optional["IClusterSubnetGroup"]:
@@ -1512,7 +1540,9 @@ class ClusterProps:
         return typing.cast(typing.Optional["IClusterSubnetGroup"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
         '''(experimental) Where to place the instances within the VPC.
 
         :default: - private subnets
@@ -1520,7 +1550,7 @@ class ClusterProps:
         :stability: experimental
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1549,9 +1579,9 @@ class ClusterSubnetGroupProps:
         self,
         *,
         description: builtins.str,
-        vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Properties for creating a ClusterSubnetGroup.
 
@@ -1619,17 +1649,17 @@ class ClusterSubnetGroupProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def vpc(self) -> _aws_cdk_aws_ec2_ceddda9d.IVpc:
+    def vpc(self) -> "_aws_cdk_aws_ec2_ceddda9d.IVpc":
         '''(experimental) The VPC to place the subnet group in.
 
         :stability: experimental
         '''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IVpc, result)
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IVpc", result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
         '''(experimental) The removal policy to apply when the subnet group are removed from the stack or replaced during an update.
 
         :default: RemovalPolicy.RETAIN
@@ -1637,10 +1667,12 @@ class ClusterSubnetGroupProps:
         :stability: experimental
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
         '''(experimental) Which subnets within the VPC to associate with this group.
 
         :default: - private subnets
@@ -1648,7 +1680,7 @@ class ClusterSubnetGroupProps:
         :stability: experimental
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1866,6 +1898,7 @@ class ColumnEncoding(enum.Enum):
 
     Example::
 
+        from aws_cdk.aws_redshift_alpha import Column, Column
         from aws_cdk.aws_redshift_alpha import ColumnEncoding
         
         
@@ -1989,7 +2022,7 @@ class DatabaseOptions:
         *,
         cluster: "ICluster",
         database_name: builtins.str,
-        admin_user: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
+        admin_user: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
     ) -> None:
         '''(experimental) Properties for accessing a Redshift database.
 
@@ -2053,7 +2086,7 @@ class DatabaseOptions:
     @builtins.property
     def admin_user(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret]:
+    ) -> typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"]:
         '''(experimental) The secret containing credentials to a Redshift user with administrator privileges.
 
         Secret JSON schema: ``{ username: string; password: string }``.
@@ -2063,7 +2096,7 @@ class DatabaseOptions:
         :stability: experimental
         '''
         result = self._values.get("admin_user")
-        return typing.cast(typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2108,11 +2141,11 @@ class DatabaseSecret(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         username: builtins.str,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
         exclude_characters: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -2160,7 +2193,7 @@ class DatabaseSecretProps:
         self,
         *,
         username: builtins.str,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
         exclude_characters: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Construction properties for a DatabaseSecret.
@@ -2213,7 +2246,7 @@ class DatabaseSecretProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
         '''(experimental) The KMS key to use to encrypt the secret.
 
         :default: default master key
@@ -2221,7 +2254,7 @@ class DatabaseSecretProps:
         :stability: experimental
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
 
     @builtins.property
     def exclude_characters(self) -> typing.Optional[builtins.str]:
@@ -2323,7 +2356,7 @@ class ICluster(
 
     @builtins.property
     @jsii.member(jsii_name="clusterEndpoint")
-    def cluster_endpoint(self) -> Endpoint:
+    def cluster_endpoint(self) -> "Endpoint":
         '''(experimental) The endpoint to use for read/write operations.
 
         :stability: experimental
@@ -2358,13 +2391,13 @@ class _IClusterProxy(
 
     @builtins.property
     @jsii.member(jsii_name="clusterEndpoint")
-    def cluster_endpoint(self) -> Endpoint:
+    def cluster_endpoint(self) -> "Endpoint":
         '''(experimental) The endpoint to use for read/write operations.
 
         :stability: experimental
         :attribute: EndpointAddress,EndpointPort
         '''
-        return typing.cast(Endpoint, jsii.get(self, "clusterEndpoint"))
+        return typing.cast("Endpoint", jsii.get(self, "clusterEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterName")
@@ -2473,7 +2506,7 @@ class ITable(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def cluster(self) -> ICluster:
+    def cluster(self) -> "ICluster":
         '''(experimental) The cluster where the table is located.
 
         :stability: experimental
@@ -2491,7 +2524,7 @@ class ITable(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="tableColumns")
-    def table_columns(self) -> typing.List[Column]:
+    def table_columns(self) -> typing.List["Column"]:
         '''(experimental) The columns of the table.
 
         :stability: experimental
@@ -2531,12 +2564,12 @@ class _ITableProxy(
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def cluster(self) -> ICluster:
+    def cluster(self) -> "ICluster":
         '''(experimental) The cluster where the table is located.
 
         :stability: experimental
         '''
-        return typing.cast(ICluster, jsii.get(self, "cluster"))
+        return typing.cast("ICluster", jsii.get(self, "cluster"))
 
     @builtins.property
     @jsii.member(jsii_name="databaseName")
@@ -2549,12 +2582,12 @@ class _ITableProxy(
 
     @builtins.property
     @jsii.member(jsii_name="tableColumns")
-    def table_columns(self) -> typing.List[Column]:
+    def table_columns(self) -> typing.List["Column"]:
         '''(experimental) The columns of the table.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List[Column], jsii.get(self, "tableColumns"))
+        return typing.cast(typing.List["Column"], jsii.get(self, "tableColumns"))
 
     @builtins.property
     @jsii.member(jsii_name="tableName")
@@ -2593,7 +2626,7 @@ class IUser(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def cluster(self) -> ICluster:
+    def cluster(self) -> "ICluster":
         '''(experimental) The cluster where the table is located.
 
         :stability: experimental
@@ -2611,7 +2644,7 @@ class IUser(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="password")
-    def password(self) -> _aws_cdk_ceddda9d.SecretValue:
+    def password(self) -> "_aws_cdk_ceddda9d.SecretValue":
         '''(experimental) The password of the user.
 
         :stability: experimental
@@ -2628,7 +2661,7 @@ class IUser(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="addTablePrivileges")
-    def add_table_privileges(self, table: ITable, *actions: "TableAction") -> None:
+    def add_table_privileges(self, table: "ITable", *actions: "TableAction") -> None:
         '''(experimental) Grant this user privilege to access a table.
 
         :param table: -
@@ -2651,12 +2684,12 @@ class _IUserProxy(
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def cluster(self) -> ICluster:
+    def cluster(self) -> "ICluster":
         '''(experimental) The cluster where the table is located.
 
         :stability: experimental
         '''
-        return typing.cast(ICluster, jsii.get(self, "cluster"))
+        return typing.cast("ICluster", jsii.get(self, "cluster"))
 
     @builtins.property
     @jsii.member(jsii_name="databaseName")
@@ -2669,12 +2702,12 @@ class _IUserProxy(
 
     @builtins.property
     @jsii.member(jsii_name="password")
-    def password(self) -> _aws_cdk_ceddda9d.SecretValue:
+    def password(self) -> "_aws_cdk_ceddda9d.SecretValue":
         '''(experimental) The password of the user.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_ceddda9d.SecretValue, jsii.get(self, "password"))
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", jsii.get(self, "password"))
 
     @builtins.property
     @jsii.member(jsii_name="username")
@@ -2686,7 +2719,7 @@ class _IUserProxy(
         return typing.cast(builtins.str, jsii.get(self, "username"))
 
     @jsii.member(jsii_name="addTablePrivileges")
-    def add_table_privileges(self, table: ITable, *actions: "TableAction") -> None:
+    def add_table_privileges(self, table: "ITable", *actions: "TableAction") -> None:
         '''(experimental) Grant this user privilege to access a table.
 
         :param table: -
@@ -2716,7 +2749,7 @@ class LoggingProperties:
     def __init__(
         self,
         *,
-        logging_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        logging_bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
         logging_key_prefix: builtins.str,
     ) -> None:
         '''(experimental) Logging bucket and S3 prefix combination.
@@ -2729,6 +2762,7 @@ class LoggingProperties:
 
         Example::
 
+            from aws_cdk.aws_redshift_alpha import Login, LoggingProperties
             import aws_cdk.aws_ec2 as ec2
             import aws_cdk.aws_s3 as s3
             
@@ -2757,7 +2791,7 @@ class LoggingProperties:
         }
 
     @builtins.property
-    def logging_bucket(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+    def logging_bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
         '''(experimental) Bucket to send logs to.
 
         Logging information includes queries and connection attempts, for the specified Amazon Redshift cluster.
@@ -2766,7 +2800,7 @@ class LoggingProperties:
         '''
         result = self._values.get("logging_bucket")
         assert result is not None, "Required property 'logging_bucket' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", result)
 
     @builtins.property
     def logging_key_prefix(self) -> builtins.str:
@@ -2805,9 +2839,9 @@ class Login:
         self,
         *,
         master_username: builtins.str,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
         exclude_characters: typing.Optional[builtins.str] = None,
-        master_password: typing.Optional[_aws_cdk_ceddda9d.SecretValue] = None,
+        master_password: typing.Optional["_aws_cdk_ceddda9d.SecretValue"] = None,
     ) -> None:
         '''(experimental) Username and password combination.
 
@@ -2821,6 +2855,7 @@ class Login:
 
         Example::
 
+            from aws_cdk.aws_redshift_alpha import Login
             import aws_cdk.aws_ec2 as ec2
             import aws_cdk as cdk
             # vpc: ec2.Vpc
@@ -2863,7 +2898,7 @@ class Login:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
         '''(experimental) KMS encryption key to encrypt the generated secret.
 
         :default: - default master key
@@ -2871,7 +2906,7 @@ class Login:
         :stability: experimental
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
 
     @builtins.property
     def exclude_characters(self) -> typing.Optional[builtins.str]:
@@ -2885,7 +2920,7 @@ class Login:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def master_password(self) -> typing.Optional[_aws_cdk_ceddda9d.SecretValue]:
+    def master_password(self) -> typing.Optional["_aws_cdk_ceddda9d.SecretValue"]:
         '''(experimental) Password.
 
         Do not put passwords in your CDK code directly.
@@ -2895,7 +2930,7 @@ class Login:
         :stability: experimental
         '''
         result = self._values.get("master_password")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.SecretValue], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.SecretValue"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2939,6 +2974,7 @@ class NodeType(enum.Enum):
     Example::
 
         # Example automatically generated from non-compiling source. May contain errors.
+        from aws_cdk.aws_redshift_alpha import Login
         import aws_cdk.aws_ec2 as ec2
         
         # vpc: ec2.IVpc
@@ -3016,6 +3052,7 @@ class ResourceAction(enum.Enum):
     Example::
 
         # Example automatically generated from non-compiling source. May contain errors.
+        from aws_cdk.aws_redshift_alpha import Login, Login, Login
         import aws_cdk.aws_ec2 as ec2
         from aws_cdk.aws_redshift_alpha import ResourceAction
         
@@ -3080,8 +3117,8 @@ class RotationMultiUserOptions:
     def __init__(
         self,
         *,
-        secret: _aws_cdk_aws_secretsmanager_ceddda9d.ISecret,
-        automatically_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        secret: "_aws_cdk_aws_secretsmanager_ceddda9d.ISecret",
+        automatically_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''(experimental) Options to add the multi user rotation.
 
@@ -3112,7 +3149,7 @@ class RotationMultiUserOptions:
             self._values["automatically_after"] = automatically_after
 
     @builtins.property
-    def secret(self) -> _aws_cdk_aws_secretsmanager_ceddda9d.ISecret:
+    def secret(self) -> "_aws_cdk_aws_secretsmanager_ceddda9d.ISecret":
         '''(experimental) The secret to rotate.
 
         It must be a JSON string with the following format::
@@ -3131,10 +3168,10 @@ class RotationMultiUserOptions:
         '''
         result = self._values.get("secret")
         assert result is not None, "Required property 'secret' is missing"
-        return typing.cast(_aws_cdk_aws_secretsmanager_ceddda9d.ISecret, result)
+        return typing.cast("_aws_cdk_aws_secretsmanager_ceddda9d.ISecret", result)
 
     @builtins.property
-    def automatically_after(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def automatically_after(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Specifies the number of days after the previous rotation before Secrets Manager triggers the next automatic rotation.
 
         :default: Duration.days(30)
@@ -3142,7 +3179,7 @@ class RotationMultiUserOptions:
         :stability: experimental
         '''
         result = self._values.get("automatically_after")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3169,6 +3206,7 @@ class Table(
 
     Example::
 
+        from aws_cdk.aws_redshift_alpha import Column, Column
         Table(self, "Table",
             table_columns=[Column(name="col1", data_type="varchar(4)", dist_key=True), Column(name="col2", data_type="float")
             ],
@@ -3180,19 +3218,19 @@ class Table(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        table_columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
+        table_columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
         dist_style: typing.Optional["TableDistStyle"] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         sort_style: typing.Optional["TableSortStyle"] = None,
         table_comment: typing.Optional[builtins.str] = None,
         table_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        cluster: ICluster,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        cluster: "ICluster",
         database_name: builtins.str,
-        admin_user: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
+        admin_user: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -3233,14 +3271,14 @@ class Table(
     @builtins.classmethod
     def from_table_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        cluster: ICluster,
+        cluster: "ICluster",
         database_name: builtins.str,
-        table_columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
+        table_columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
         table_name: builtins.str,
-    ) -> ITable:
+    ) -> "ITable":
         '''(experimental) Specify a Redshift table using a table name and schema that already exists.
 
         :param scope: -
@@ -3263,10 +3301,10 @@ class Table(
             table_name=table_name,
         )
 
-        return typing.cast(ITable, jsii.sinvoke(cls, "fromTableAttributes", [scope, id, attrs]))
+        return typing.cast("ITable", jsii.sinvoke(cls, "fromTableAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="applyRemovalPolicy")
-    def apply_removal_policy(self, policy: _aws_cdk_ceddda9d.RemovalPolicy) -> None:
+    def apply_removal_policy(self, policy: "_aws_cdk_ceddda9d.RemovalPolicy") -> None:
         '''(experimental) Apply the given removal policy to this resource.
 
         The Removal Policy controls what happens to this resource when it stops
@@ -3289,7 +3327,7 @@ class Table(
         return typing.cast(None, jsii.invoke(self, "applyRemovalPolicy", [policy]))
 
     @jsii.member(jsii_name="grant")
-    def grant(self, user: IUser, *actions: "TableAction") -> None:
+    def grant(self, user: "IUser", *actions: "TableAction") -> None:
         '''(experimental) Grant a user privilege to access this table.
 
         :param user: -
@@ -3305,12 +3343,12 @@ class Table(
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def cluster(self) -> ICluster:
+    def cluster(self) -> "ICluster":
         '''(experimental) The cluster where the table is located.
 
         :stability: experimental
         '''
-        return typing.cast(ICluster, jsii.get(self, "cluster"))
+        return typing.cast("ICluster", jsii.get(self, "cluster"))
 
     @builtins.property
     @jsii.member(jsii_name="databaseName")
@@ -3323,12 +3361,12 @@ class Table(
 
     @builtins.property
     @jsii.member(jsii_name="tableColumns")
-    def table_columns(self) -> typing.List[Column]:
+    def table_columns(self) -> typing.List["Column"]:
         '''(experimental) The columns of the table.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List[Column], jsii.get(self, "tableColumns"))
+        return typing.cast(typing.List["Column"], jsii.get(self, "tableColumns"))
 
     @builtins.property
     @jsii.member(jsii_name="tableName")
@@ -3349,6 +3387,7 @@ class TableAction(enum.Enum):
 
     Example::
 
+        from aws_cdk.aws_redshift_alpha import Column, Column
         database_name = "databaseName"
         username = "myuser"
         table_name = "mytable"
@@ -3419,9 +3458,9 @@ class TableAttributes:
     def __init__(
         self,
         *,
-        cluster: ICluster,
+        cluster: "ICluster",
         database_name: builtins.str,
-        table_columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
+        table_columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
         table_name: builtins.str,
     ) -> None:
         '''(experimental) A full specification of a Redshift table that can be used to import it fluently into the CDK application.
@@ -3436,6 +3475,7 @@ class TableAttributes:
 
         Example::
 
+            from aws_cdk.aws_redshift_alpha import Column, Column
             database_name = "databaseName"
             username = "myuser"
             table_name = "mytable"
@@ -3468,14 +3508,14 @@ class TableAttributes:
         }
 
     @builtins.property
-    def cluster(self) -> ICluster:
+    def cluster(self) -> "ICluster":
         '''(experimental) The cluster where the table is located.
 
         :stability: experimental
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
-        return typing.cast(ICluster, result)
+        return typing.cast("ICluster", result)
 
     @builtins.property
     def database_name(self) -> builtins.str:
@@ -3488,14 +3528,14 @@ class TableAttributes:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def table_columns(self) -> typing.List[Column]:
+    def table_columns(self) -> typing.List["Column"]:
         '''(experimental) The columns of the table.
 
         :stability: experimental
         '''
         result = self._values.get("table_columns")
         assert result is not None, "Required property 'table_columns' is missing"
-        return typing.cast(typing.List[Column], result)
+        return typing.cast(typing.List["Column"], result)
 
     @builtins.property
     def table_name(self) -> builtins.str:
@@ -3528,6 +3568,7 @@ class TableDistStyle(enum.Enum):
 
     Example::
 
+        from aws_cdk.aws_redshift_alpha import Column, Column
         Table(self, "Table",
             table_columns=[Column(name="col1", data_type="varchar(4)", dist_key=True), Column(name="col2", data_type="float")
             ],
@@ -3579,16 +3620,16 @@ class TableProps(DatabaseOptions):
     def __init__(
         self,
         *,
-        cluster: ICluster,
+        cluster: "ICluster",
         database_name: builtins.str,
-        admin_user: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
-        table_columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
-        dist_style: typing.Optional[TableDistStyle] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
+        admin_user: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
+        table_columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
+        dist_style: typing.Optional["TableDistStyle"] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         sort_style: typing.Optional["TableSortStyle"] = None,
         table_comment: typing.Optional[builtins.str] = None,
         table_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''(experimental) Properties for configuring a Redshift table.
 
@@ -3608,6 +3649,7 @@ class TableProps(DatabaseOptions):
 
         Example::
 
+            from aws_cdk.aws_redshift_alpha import Column, Column
             Table(self, "Table",
                 table_columns=[Column(name="col1", data_type="varchar(4)", dist_key=True), Column(name="col2", data_type="float")
                 ],
@@ -3649,14 +3691,14 @@ class TableProps(DatabaseOptions):
             self._values["timeout"] = timeout
 
     @builtins.property
-    def cluster(self) -> ICluster:
+    def cluster(self) -> "ICluster":
         '''(experimental) The cluster containing the database.
 
         :stability: experimental
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
-        return typing.cast(ICluster, result)
+        return typing.cast("ICluster", result)
 
     @builtins.property
     def database_name(self) -> builtins.str:
@@ -3671,7 +3713,7 @@ class TableProps(DatabaseOptions):
     @builtins.property
     def admin_user(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret]:
+    ) -> typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"]:
         '''(experimental) The secret containing credentials to a Redshift user with administrator privileges.
 
         Secret JSON schema: ``{ username: string; password: string }``.
@@ -3681,20 +3723,20 @@ class TableProps(DatabaseOptions):
         :stability: experimental
         '''
         result = self._values.get("admin_user")
-        return typing.cast(typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"], result)
 
     @builtins.property
-    def table_columns(self) -> typing.List[Column]:
+    def table_columns(self) -> typing.List["Column"]:
         '''(experimental) The columns of the table.
 
         :stability: experimental
         '''
         result = self._values.get("table_columns")
         assert result is not None, "Required property 'table_columns' is missing"
-        return typing.cast(typing.List[Column], result)
+        return typing.cast(typing.List["Column"], result)
 
     @builtins.property
-    def dist_style(self) -> typing.Optional[TableDistStyle]:
+    def dist_style(self) -> typing.Optional["TableDistStyle"]:
         '''(experimental) The distribution style of the table.
 
         :default: TableDistStyle.AUTO
@@ -3702,10 +3744,10 @@ class TableProps(DatabaseOptions):
         :stability: experimental
         '''
         result = self._values.get("dist_style")
-        return typing.cast(typing.Optional[TableDistStyle], result)
+        return typing.cast(typing.Optional["TableDistStyle"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
         '''(experimental) The policy to apply when this resource is removed from the application.
 
         :default: cdk.RemovalPolicy.Retain
@@ -3713,7 +3755,7 @@ class TableProps(DatabaseOptions):
         :stability: experimental
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
 
     @builtins.property
     def sort_style(self) -> typing.Optional["TableSortStyle"]:
@@ -3749,7 +3791,7 @@ class TableProps(DatabaseOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Handler timeout duration.
 
         Valid values are between 1 second and 15 minutes.
@@ -3759,7 +3801,7 @@ class TableProps(DatabaseOptions):
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3782,6 +3824,7 @@ class TableSortStyle(enum.Enum):
 
     Example::
 
+        from aws_cdk.aws_redshift_alpha import Column, Column
         Table(self, "Table",
             table_columns=[Column(name="col1", data_type="varchar(4)", sort_key=True), Column(name="col2", data_type="float", sort_key=True)
             ],
@@ -3832,16 +3875,16 @@ class User(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
         exclude_characters: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         username: typing.Optional[builtins.str] = None,
-        cluster: ICluster,
+        cluster: "ICluster",
         database_name: builtins.str,
-        admin_user: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
+        admin_user: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -3876,15 +3919,15 @@ class User(
     @builtins.classmethod
     def from_user_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        password: _aws_cdk_ceddda9d.SecretValue,
+        password: "_aws_cdk_ceddda9d.SecretValue",
         username: builtins.str,
-        cluster: ICluster,
+        cluster: "ICluster",
         database_name: builtins.str,
-        admin_user: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
-    ) -> IUser:
+        admin_user: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
+    ) -> "IUser":
         '''(experimental) Specify a Redshift user using credentials that already exist.
 
         :param scope: -
@@ -3909,10 +3952,10 @@ class User(
             admin_user=admin_user,
         )
 
-        return typing.cast(IUser, jsii.sinvoke(cls, "fromUserAttributes", [scope, id, attrs]))
+        return typing.cast("IUser", jsii.sinvoke(cls, "fromUserAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="addTablePrivileges")
-    def add_table_privileges(self, table: ITable, *actions: TableAction) -> None:
+    def add_table_privileges(self, table: "ITable", *actions: "TableAction") -> None:
         '''(experimental) Grant this user privilege to access a table.
 
         :param table: -
@@ -3927,7 +3970,7 @@ class User(
         return typing.cast(None, jsii.invoke(self, "addTablePrivileges", [table, *actions]))
 
     @jsii.member(jsii_name="applyRemovalPolicy")
-    def apply_removal_policy(self, policy: _aws_cdk_ceddda9d.RemovalPolicy) -> None:
+    def apply_removal_policy(self, policy: "_aws_cdk_ceddda9d.RemovalPolicy") -> None:
         '''(experimental) Apply the given removal policy to this resource.
 
         The Removal Policy controls what happens to this resource when it stops
@@ -3951,12 +3994,12 @@ class User(
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def cluster(self) -> ICluster:
+    def cluster(self) -> "ICluster":
         '''(experimental) The cluster where the table is located.
 
         :stability: experimental
         '''
-        return typing.cast(ICluster, jsii.get(self, "cluster"))
+        return typing.cast("ICluster", jsii.get(self, "cluster"))
 
     @builtins.property
     @jsii.member(jsii_name="databaseName")
@@ -3969,22 +4012,22 @@ class User(
 
     @builtins.property
     @jsii.member(jsii_name="password")
-    def password(self) -> _aws_cdk_ceddda9d.SecretValue:
+    def password(self) -> "_aws_cdk_ceddda9d.SecretValue":
         '''(experimental) The password of the user.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_ceddda9d.SecretValue, jsii.get(self, "password"))
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", jsii.get(self, "password"))
 
     @builtins.property
     @jsii.member(jsii_name="secret")
-    def secret(self) -> _aws_cdk_aws_secretsmanager_ceddda9d.ISecret:
+    def secret(self) -> "_aws_cdk_aws_secretsmanager_ceddda9d.ISecret":
         '''(experimental) The Secrets Manager secret of the user.
 
         :stability: experimental
         :attribute: true
         '''
-        return typing.cast(_aws_cdk_aws_secretsmanager_ceddda9d.ISecret, jsii.get(self, "secret"))
+        return typing.cast("_aws_cdk_aws_secretsmanager_ceddda9d.ISecret", jsii.get(self, "secret"))
 
     @builtins.property
     @jsii.member(jsii_name="username")
@@ -3997,14 +4040,14 @@ class User(
 
     @builtins.property
     @jsii.member(jsii_name="databaseProps")
-    def _database_props(self) -> DatabaseOptions:
+    def _database_props(self) -> "DatabaseOptions":
         '''
         :stability: experimental
         '''
-        return typing.cast(DatabaseOptions, jsii.get(self, "databaseProps"))
+        return typing.cast("DatabaseOptions", jsii.get(self, "databaseProps"))
 
     @_database_props.setter
-    def _database_props(self, value: DatabaseOptions) -> None:
+    def _database_props(self, value: "DatabaseOptions") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__215d4d48a362ca590c122ef61d7450d160371decc86d4e5977bce6a23d0ca17f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -4026,10 +4069,10 @@ class UserAttributes(DatabaseOptions):
     def __init__(
         self,
         *,
-        cluster: ICluster,
+        cluster: "ICluster",
         database_name: builtins.str,
-        admin_user: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
-        password: _aws_cdk_ceddda9d.SecretValue,
+        admin_user: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
+        password: "_aws_cdk_ceddda9d.SecretValue",
         username: builtins.str,
     ) -> None:
         '''(experimental) A full specification of a Redshift user that can be used to import it fluently into the CDK application.
@@ -4045,6 +4088,7 @@ class UserAttributes(DatabaseOptions):
 
         Example::
 
+            from aws_cdk.aws_redshift_alpha import Column, Column
             database_name = "databaseName"
             username = "myuser"
             table_name = "mytable"
@@ -4080,14 +4124,14 @@ class UserAttributes(DatabaseOptions):
             self._values["admin_user"] = admin_user
 
     @builtins.property
-    def cluster(self) -> ICluster:
+    def cluster(self) -> "ICluster":
         '''(experimental) The cluster containing the database.
 
         :stability: experimental
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
-        return typing.cast(ICluster, result)
+        return typing.cast("ICluster", result)
 
     @builtins.property
     def database_name(self) -> builtins.str:
@@ -4102,7 +4146,7 @@ class UserAttributes(DatabaseOptions):
     @builtins.property
     def admin_user(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret]:
+    ) -> typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"]:
         '''(experimental) The secret containing credentials to a Redshift user with administrator privileges.
 
         Secret JSON schema: ``{ username: string; password: string }``.
@@ -4112,10 +4156,10 @@ class UserAttributes(DatabaseOptions):
         :stability: experimental
         '''
         result = self._values.get("admin_user")
-        return typing.cast(typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"], result)
 
     @builtins.property
-    def password(self) -> _aws_cdk_ceddda9d.SecretValue:
+    def password(self) -> "_aws_cdk_ceddda9d.SecretValue":
         '''(experimental) The password of the user.
 
         Do not put passwords in CDK code directly.
@@ -4124,7 +4168,7 @@ class UserAttributes(DatabaseOptions):
         '''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
-        return typing.cast(_aws_cdk_ceddda9d.SecretValue, result)
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
 
     @builtins.property
     def username(self) -> builtins.str:
@@ -4165,12 +4209,12 @@ class UserProps(DatabaseOptions):
     def __init__(
         self,
         *,
-        cluster: ICluster,
+        cluster: "ICluster",
         database_name: builtins.str,
-        admin_user: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        admin_user: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
         exclude_characters: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Properties for configuring a Redshift user.
@@ -4221,14 +4265,14 @@ class UserProps(DatabaseOptions):
             self._values["username"] = username
 
     @builtins.property
-    def cluster(self) -> ICluster:
+    def cluster(self) -> "ICluster":
         '''(experimental) The cluster containing the database.
 
         :stability: experimental
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
-        return typing.cast(ICluster, result)
+        return typing.cast("ICluster", result)
 
     @builtins.property
     def database_name(self) -> builtins.str:
@@ -4243,7 +4287,7 @@ class UserProps(DatabaseOptions):
     @builtins.property
     def admin_user(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret]:
+    ) -> typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"]:
         '''(experimental) The secret containing credentials to a Redshift user with administrator privileges.
 
         Secret JSON schema: ``{ username: string; password: string }``.
@@ -4253,10 +4297,10 @@ class UserProps(DatabaseOptions):
         :stability: experimental
         '''
         result = self._values.get("admin_user")
-        return typing.cast(typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
         '''(experimental) KMS key to encrypt the generated secret.
 
         :default: - the default AWS managed key is used
@@ -4264,7 +4308,7 @@ class UserProps(DatabaseOptions):
         :stability: experimental
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
 
     @builtins.property
     def exclude_characters(self) -> typing.Optional[builtins.str]:
@@ -4278,7 +4322,7 @@ class UserProps(DatabaseOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
         '''(experimental) The policy to apply when this resource is removed from the application.
 
         :default: cdk.RemovalPolicy.Destroy
@@ -4286,7 +4330,7 @@ class UserProps(DatabaseOptions):
         :stability: experimental
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
 
     @builtins.property
     def username(self) -> typing.Optional[builtins.str]:
@@ -4327,6 +4371,7 @@ class Cluster(
 
     Example::
 
+        from aws_cdk.aws_redshift_alpha import Login
         import aws_cdk.aws_ec2 as ec2
         import aws_cdk.aws_iam as iam
         # vpc: ec2.Vpc
@@ -4348,37 +4393,37 @@ class Cluster(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        master_user: typing.Union[Login, typing.Dict[builtins.str, typing.Any]],
-        vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
+        master_user: typing.Union["Login", typing.Dict[builtins.str, typing.Any]],
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
         availability_zone_relocation: typing.Optional[builtins.bool] = None,
         classic_resizing: typing.Optional[builtins.bool] = None,
         cluster_name: typing.Optional[builtins.str] = None,
-        cluster_type: typing.Optional[ClusterType] = None,
+        cluster_type: typing.Optional["ClusterType"] = None,
         default_database_name: typing.Optional[builtins.str] = None,
-        default_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        default_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         elastic_ip: typing.Optional[builtins.str] = None,
         encrypted: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+        encryption_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
         enhanced_vpc_routing: typing.Optional[builtins.bool] = None,
-        logging_properties: typing.Optional[typing.Union[LoggingProperties, typing.Dict[builtins.str, typing.Any]]] = None,
-        maintenance_track_name: typing.Optional[MaintenanceTrackName] = None,
+        logging_properties: typing.Optional[typing.Union["LoggingProperties", typing.Dict[builtins.str, typing.Any]]] = None,
+        maintenance_track_name: typing.Optional["MaintenanceTrackName"] = None,
         multi_az: typing.Optional[builtins.bool] = None,
-        node_type: typing.Optional[NodeType] = None,
+        node_type: typing.Optional["NodeType"] = None,
         number_of_nodes: typing.Optional[jsii.Number] = None,
-        parameter_group: typing.Optional[IClusterParameterGroup] = None,
+        parameter_group: typing.Optional["IClusterParameterGroup"] = None,
         port: typing.Optional[jsii.Number] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
         publicly_accessible: typing.Optional[builtins.bool] = None,
         reboot_for_parameter_changes: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
-        resource_action: typing.Optional[ResourceAction] = None,
-        roles: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IRole]] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-        subnet_group: typing.Optional[IClusterSubnetGroup] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
+        resource_action: typing.Optional["ResourceAction"] = None,
+        roles: typing.Optional[typing.Sequence["_aws_cdk_aws_iam_ceddda9d.IRole"]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
+        subnet_group: typing.Optional["IClusterSubnetGroup"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -4455,14 +4500,14 @@ class Cluster(
     @builtins.classmethod
     def from_cluster_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         cluster_endpoint_address: builtins.str,
         cluster_endpoint_port: jsii.Number,
         cluster_name: builtins.str,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-    ) -> ICluster:
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
+    ) -> "ICluster":
         '''(experimental) Import an existing DatabaseCluster from properties.
 
         :param scope: -
@@ -4485,12 +4530,12 @@ class Cluster(
             security_groups=security_groups,
         )
 
-        return typing.cast(ICluster, jsii.sinvoke(cls, "fromClusterAttributes", [scope, id, attrs]))
+        return typing.cast("ICluster", jsii.sinvoke(cls, "fromClusterAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="addDefaultIamRole")
     def add_default_iam_role(
         self,
-        default_iam_role: _aws_cdk_aws_iam_ceddda9d.IRole,
+        default_iam_role: "_aws_cdk_aws_iam_ceddda9d.IRole",
     ) -> None:
         '''(experimental) Adds default IAM role to cluster.
 
@@ -4506,7 +4551,7 @@ class Cluster(
         return typing.cast(None, jsii.invoke(self, "addDefaultIamRole", [default_iam_role]))
 
     @jsii.member(jsii_name="addIamRole")
-    def add_iam_role(self, role: _aws_cdk_aws_iam_ceddda9d.IRole) -> None:
+    def add_iam_role(self, role: "_aws_cdk_aws_iam_ceddda9d.IRole") -> None:
         '''(experimental) Adds a role to the cluster.
 
         :param role: the role to add.
@@ -4523,9 +4568,9 @@ class Cluster(
         self,
         id: builtins.str,
         *,
-        secret: _aws_cdk_aws_secretsmanager_ceddda9d.ISecret,
-        automatically_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    ) -> _aws_cdk_aws_secretsmanager_ceddda9d.SecretRotation:
+        secret: "_aws_cdk_aws_secretsmanager_ceddda9d.ISecret",
+        automatically_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> "_aws_cdk_aws_secretsmanager_ceddda9d.SecretRotation":
         '''(experimental) Adds the multi user rotation to this cluster.
 
         :param id: -
@@ -4541,13 +4586,13 @@ class Cluster(
             secret=secret, automatically_after=automatically_after
         )
 
-        return typing.cast(_aws_cdk_aws_secretsmanager_ceddda9d.SecretRotation, jsii.invoke(self, "addRotationMultiUser", [id, options]))
+        return typing.cast("_aws_cdk_aws_secretsmanager_ceddda9d.SecretRotation", jsii.invoke(self, "addRotationMultiUser", [id, options]))
 
     @jsii.member(jsii_name="addRotationSingleUser")
     def add_rotation_single_user(
         self,
-        automatically_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    ) -> _aws_cdk_aws_secretsmanager_ceddda9d.SecretRotation:
+        automatically_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> "_aws_cdk_aws_secretsmanager_ceddda9d.SecretRotation":
         '''(experimental) Adds the single user rotation of the master password to this cluster.
 
         :param automatically_after: Specifies the number of days after the previous rotation before Secrets Manager triggers the next automatic rotation.
@@ -4557,7 +4602,7 @@ class Cluster(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__03bb70e95fdd5ebb0b8ad627b50473d40ac5415a6c45f903e9795e6077987222)
             check_type(argname="argument automatically_after", value=automatically_after, expected_type=type_hints["automatically_after"])
-        return typing.cast(_aws_cdk_aws_secretsmanager_ceddda9d.SecretRotation, jsii.invoke(self, "addRotationSingleUser", [automatically_after]))
+        return typing.cast("_aws_cdk_aws_secretsmanager_ceddda9d.SecretRotation", jsii.invoke(self, "addRotationSingleUser", [automatically_after]))
 
     @jsii.member(jsii_name="addToParameterGroup")
     def add_to_parameter_group(self, name: builtins.str, value: builtins.str) -> None:
@@ -4577,12 +4622,12 @@ class Cluster(
     @jsii.member(jsii_name="asSecretAttachmentTarget")
     def as_secret_attachment_target(
         self,
-    ) -> _aws_cdk_aws_secretsmanager_ceddda9d.SecretAttachmentTargetProps:
+    ) -> "_aws_cdk_aws_secretsmanager_ceddda9d.SecretAttachmentTargetProps":
         '''(experimental) Renders the secret attachment target specifications.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_secretsmanager_ceddda9d.SecretAttachmentTargetProps, jsii.invoke(self, "asSecretAttachmentTarget", []))
+        return typing.cast("_aws_cdk_aws_secretsmanager_ceddda9d.SecretAttachmentTargetProps", jsii.invoke(self, "asSecretAttachmentTarget", []))
 
     @jsii.member(jsii_name="enableRebootForParameterChanges")
     def enable_reboot_for_parameter_changes(self) -> None:
@@ -4603,12 +4648,12 @@ class Cluster(
 
     @builtins.property
     @jsii.member(jsii_name="clusterEndpoint")
-    def cluster_endpoint(self) -> Endpoint:
+    def cluster_endpoint(self) -> "Endpoint":
         '''(experimental) The endpoint to use for read/write operations.
 
         :stability: experimental
         '''
-        return typing.cast(Endpoint, jsii.get(self, "clusterEndpoint"))
+        return typing.cast("Endpoint", jsii.get(self, "clusterEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterName")
@@ -4621,33 +4666,36 @@ class Cluster(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> _aws_cdk_aws_ec2_ceddda9d.Connections:
+    def connections(self) -> "_aws_cdk_aws_ec2_ceddda9d.Connections":
         '''(experimental) Access to the network connections.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.Connections, jsii.get(self, "connections"))
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="secret")
-    def secret(self) -> typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret]:
+    def secret(self) -> typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"]:
         '''(experimental) The secret attached to this cluster.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret], jsii.get(self, "secret"))
+        return typing.cast(typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"], jsii.get(self, "secret"))
 
     @builtins.property
     @jsii.member(jsii_name="parameterGroup")
-    def _parameter_group(self) -> typing.Optional[IClusterParameterGroup]:
+    def _parameter_group(self) -> typing.Optional["IClusterParameterGroup"]:
         '''(experimental) The cluster's parameter group.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[IClusterParameterGroup], jsii.get(self, "parameterGroup"))
+        return typing.cast(typing.Optional["IClusterParameterGroup"], jsii.get(self, "parameterGroup"))
 
     @_parameter_group.setter
-    def _parameter_group(self, value: typing.Optional[IClusterParameterGroup]) -> None:
+    def _parameter_group(
+        self,
+        value: typing.Optional["IClusterParameterGroup"],
+    ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c00f21b389b078f00b9e115501d7de9d004e75c209153d409b6968d062b1b36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -4683,7 +4731,7 @@ class ClusterParameterGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         parameters: typing.Mapping[builtins.str, builtins.str],
@@ -4711,10 +4759,10 @@ class ClusterParameterGroup(
     @builtins.classmethod
     def from_cluster_parameter_group_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         cluster_parameter_group_name: builtins.str,
-    ) -> IClusterParameterGroup:
+    ) -> "IClusterParameterGroup":
         '''(experimental) Imports a parameter group.
 
         :param scope: -
@@ -4728,7 +4776,7 @@ class ClusterParameterGroup(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument cluster_parameter_group_name", value=cluster_parameter_group_name, expected_type=type_hints["cluster_parameter_group_name"])
-        return typing.cast(IClusterParameterGroup, jsii.sinvoke(cls, "fromClusterParameterGroupName", [scope, id, cluster_parameter_group_name]))
+        return typing.cast("IClusterParameterGroup", jsii.sinvoke(cls, "fromClusterParameterGroupName", [scope, id, cluster_parameter_group_name]))
 
     @jsii.member(jsii_name="addParameter")
     def add_parameter(self, name: builtins.str, value: builtins.str) -> None:
@@ -4816,13 +4864,13 @@ class ClusterSubnetGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         description: builtins.str,
-        vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -4851,10 +4899,10 @@ class ClusterSubnetGroup(
     @builtins.classmethod
     def from_cluster_subnet_group_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         cluster_subnet_group_name: builtins.str,
-    ) -> IClusterSubnetGroup:
+    ) -> "IClusterSubnetGroup":
         '''(experimental) Imports an existing subnet group by name.
 
         :param scope: -
@@ -4868,7 +4916,7 @@ class ClusterSubnetGroup(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument cluster_subnet_group_name", value=cluster_subnet_group_name, expected_type=type_hints["cluster_subnet_group_name"])
-        return typing.cast(IClusterSubnetGroup, jsii.sinvoke(cls, "fromClusterSubnetGroupName", [scope, id, cluster_subnet_group_name]))
+        return typing.cast("IClusterSubnetGroup", jsii.sinvoke(cls, "fromClusterSubnetGroupName", [scope, id, cluster_subnet_group_name]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -4958,7 +5006,7 @@ def _typecheckingstub__8184b6f381b827fb337da7fe46dcdf07d3411d00c00a966acf72f7524
     default_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     elastic_ip: typing.Optional[builtins.str] = None,
     encrypted: typing.Optional[builtins.bool] = None,
-    encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+    encryption_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
     enhanced_vpc_routing: typing.Optional[builtins.bool] = None,
     logging_properties: typing.Optional[typing.Union[LoggingProperties, typing.Dict[builtins.str, typing.Any]]] = None,
     maintenance_track_name: typing.Optional[MaintenanceTrackName] = None,
@@ -5233,7 +5281,7 @@ def _typecheckingstub__fccc3c17caf7412d05e4b1ec5aea8d78637d84be2037a887553088f51
     default_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     elastic_ip: typing.Optional[builtins.str] = None,
     encrypted: typing.Optional[builtins.bool] = None,
-    encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+    encryption_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
     enhanced_vpc_routing: typing.Optional[builtins.bool] = None,
     logging_properties: typing.Optional[typing.Union[LoggingProperties, typing.Dict[builtins.str, typing.Any]]] = None,
     maintenance_track_name: typing.Optional[MaintenanceTrackName] = None,
@@ -5351,3 +5399,6 @@ def _typecheckingstub__97ed1ec988c1a6d07ef8bd188169b6e2968b52d6809c0d69c1300f758
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [ICluster, IClusterParameterGroup, IClusterSubnetGroup, ITable, IUser]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2025 LlamaIndex Inc.
+# Copyright (c) 2026 LlamaIndex Inc.
 
 from __future__ import annotations
 
 from _collections_abc import dict_items, dict_keys, dict_values
-from typing import Any, Type, Optional
+from enum import Enum
+from typing import Any, Type
 
 from pydantic import (
     BaseModel,
@@ -13,7 +14,6 @@ from pydantic import (
     PrivateAttr,
     model_serializer,
 )
-from enum import Enum
 
 
 class DictLikeModel(BaseModel):
@@ -190,6 +190,97 @@ class StopEvent(Event):
     def result(self) -> Any:
         return self._get_result()
 
+    @model_serializer(mode="wrap")
+    def custom_model_dump(self, handler: Any) -> dict[str, Any]:
+        data = handler(self)
+        # include _result in serialization for base StopEvent
+        if self._result is not None:
+            data["result"] = self._result
+        return data
+
+    def __repr__(self) -> str:
+        dict_items = {**self._data, **self.model_dump()}
+        # Format as key=value pairs
+        parts = [f"{k}={v!r}" for k, v in dict_items.items()]
+        dict_str = ", ".join(parts)
+        return f"{self.__class__.__name__}({dict_str})"
+
+    def __str__(self) -> str:
+        return str(self._result)
+
+
+class WorkflowTimedOutEvent(StopEvent):
+    """Published when a workflow exceeds its configured timeout.
+
+    This event is published to the event stream when a workflow times out,
+    allowing consumers to understand why the workflow ended before the
+    WorkflowTimeoutError exception is raised.
+
+    Attributes:
+        timeout: The timeout duration in seconds that was exceeded.
+        active_steps: List of step names that were still active when the timeout occurred.
+
+    Examples:
+        ```python
+        async for event in handler.stream_events():
+            if isinstance(event, WorkflowTimedOutEvent):
+                print(f"Workflow timed out after {event.timeout}s")
+                print(f"Active steps: {event.active_steps}")
+        ```
+    """
+
+    timeout: float
+    active_steps: list[str]
+
+
+class WorkflowCancelledEvent(StopEvent):
+    """Published when a workflow is cancelled by the user.
+
+    This event is published to the event stream when a workflow is cancelled
+    via the handler or programmatically, allowing consumers to understand why
+    the workflow ended before the WorkflowCancelledByUser exception is raised.
+
+    Examples:
+        ```python
+        async for event in handler.stream_events():
+            if isinstance(event, WorkflowCancelledEvent):
+                print("Workflow was cancelled by user")
+        ```
+    """
+
+
+class WorkflowFailedEvent(StopEvent):
+    """Published when a workflow step fails permanently.
+
+    This event is published to the event stream when a step fails and all
+    retries are exhausted, allowing consumers to understand why the workflow
+    ended before the exception is raised.
+
+    Attributes:
+        step_name: The name of the step that failed.
+        exception_type: The fully qualified type name of the exception that caused the failure.
+        exception_message: The string representation of the exception message.
+        traceback: The formatted stack trace of the exception.
+        attempts: The total number of attempts made before giving up.
+        elapsed_seconds: Time in seconds from first attempt to final failure.
+
+    Examples:
+        ```python
+        async for event in handler.stream_events():
+            if isinstance(event, WorkflowFailedEvent):
+                print(f"Step '{event.step_name}' failed after {event.attempts} attempts")
+                print(f"Total time: {event.elapsed_seconds:.2f}s")
+                print(event.traceback)
+        ```
+    """
+
+    step_name: str
+    exception_type: str
+    exception_message: str
+    traceback: str
+    attempts: int
+    elapsed_seconds: float
+
 
 class InputRequiredEvent(Event):
     """Emitted when human input is required to proceed.
@@ -259,13 +350,45 @@ class InternalDispatchEvent(Event):
     pass
 
 
+class WorkflowIdleEvent(InternalDispatchEvent):
+    """Emitted when workflow transitions to idle (waiting on external input).
+
+    A workflow is idle when:
+    1. The workflow is running (hasn't completed/failed/cancelled)
+    2. All steps have no pending events in their queues
+    3. All steps have no workers currently executing
+    4. At least one step has an active waiter (from ctx.wait_for_event())
+
+    This event is intentionally minimal - no metadata beyond the event type.
+    Resumption from idle is signaled by StepStateChanged with StepState.RUNNING.
+    """
+
+    pass
+
+
+class UnhandledEvent(InternalDispatchEvent):
+    """Emitted when an incoming event is not handled by any step or waiter.
+
+    This helps callers understand when an external event is ignored and whether
+    the workflow is idle after processing the event.
+    """
+
+    event_type: str = Field(description="Class name of the unhandled event.")
+    qualified_name: str = Field(description="Fully qualified name of the event type.")
+    step_name: str | None = Field(
+        default=None,
+        description="Target step name if the event was addressed to a step.",
+    )
+    idle: bool = Field(description="Whether the workflow is idle after processing.")
+
+
 class StepState(Enum):
+    # is enqueued, but no capacity yet available to run
     PREPARING = "preparing"
+    # is running now on a worker. Skips PREPARING if there is capacity available.
     RUNNING = "running"
-    IN_PROGRESS = "in_progress"
+    # is no longer running.
     NOT_RUNNING = "not_running"
-    NOT_IN_PROGRESS = "not_in_progress"
-    EXITED = "exited"
 
 
 class StepStateChanged(InternalDispatchEvent):
@@ -287,25 +410,9 @@ class StepStateChanged(InternalDispatchEvent):
     )
     worker_id: str = Field(description="ID of the worker that the step is running on")
     input_event_name: str = Field(description="Name of the input event")
-    output_event_name: Optional[str] = Field(
+    output_event_name: str | None = Field(
         description="Name of the output event", default=None
     )
-    context_state: Optional[dict[str, Any]] = Field(
-        description="Snapshot of the current workflow state", default=None
-    )
-
-
-class EventsQueueChanged(InternalDispatchEvent):
-    """
-    A special event that reports the state of internal queues.
-
-    Attributes:
-        name (str): Name of the queue
-        size (int): Size of the queue
-    """
-
-    name: str = Field(description="Name of the queue")
-    size: int = Field(description="Size of the queue")
 
 
 EventType = Type[Event]

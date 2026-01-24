@@ -11,6 +11,7 @@ from hyperliquid.utils.constants import MAINNET_API_URL
 from hyperliquid.utils.signing import (
     CancelByCloidRequest,
     CancelRequest,
+    Grouping,
     ModifyRequest,
     OidOrCloid,
     OrderRequest,
@@ -31,6 +32,7 @@ from hyperliquid.utils.signing import (
     sign_token_delegate_action,
     sign_usd_class_transfer_action,
     sign_usd_transfer_action,
+    sign_user_dex_abstraction_action,
     sign_withdraw_from_bridge_action,
 )
 from hyperliquid.utils.types import (
@@ -45,6 +47,10 @@ from hyperliquid.utils.types import (
     SpotMeta,
     Tuple,
 )
+
+
+def _get_dex(coin: str) -> str:
+    return coin.split(":")[0] if ":" in coin else ""
 
 
 class Exchange(API):
@@ -90,7 +96,8 @@ class Exchange(API):
         coin = self.info.name_to_coin[name]
         if not px:
             # Get midprice
-            px = float(self.info.all_mids()[coin])
+            dex = _get_dex(coin)
+            px = float(self.info.all_mids(dex)[coin])
 
         asset = self.info.coin_to_asset[coin]
         # spot assets start at 10000
@@ -130,7 +137,9 @@ class Exchange(API):
             order["cloid"] = cloid
         return self.bulk_orders([order], builder)
 
-    def bulk_orders(self, order_requests: List[OrderRequest], builder: Optional[BuilderInfo] = None) -> Any:
+    def bulk_orders(
+        self, order_requests: List[OrderRequest], builder: Optional[BuilderInfo] = None, grouping: Grouping = "na"
+    ) -> Any:
         order_wires: List[OrderWire] = [
             order_request_to_order_wire(order, self.info.name_to_asset(order["coin"])) for order in order_requests
         ]
@@ -138,7 +147,7 @@ class Exchange(API):
 
         if builder:
             builder["b"] = builder["b"].lower()
-        order_action = order_wires_to_order_action(order_wires, builder)
+        order_action = order_wires_to_order_action(order_wires, builder, grouping)
 
         signature = sign_l1_action(
             self.wallet,
@@ -241,7 +250,8 @@ class Exchange(API):
             address = self.account_address
         if self.vault_address:
             address = self.vault_address
-        positions = self.info.user_state(address)["assetPositions"]
+        dex = _get_dex(coin)
+        positions = self.info.user_state(address, dex)["assetPositions"]
         for position in positions:
             item = position["position"]
             if coin != item["coin"]:
@@ -1104,6 +1114,40 @@ class Exchange(API):
             self.expires_after,
             self.base_url == MAINNET_API_URL,
         )
+        return self._post_action(
+            action,
+            signature,
+            timestamp,
+        )
+
+    def agent_enable_dex_abstraction(self) -> Any:
+        timestamp = get_timestamp_ms()
+        action = {
+            "type": "agentEnableDexAbstraction",
+        }
+        signature = sign_l1_action(
+            self.wallet,
+            action,
+            self.vault_address,
+            timestamp,
+            self.expires_after,
+            self.base_url == MAINNET_API_URL,
+        )
+        return self._post_action(
+            action,
+            signature,
+            timestamp,
+        )
+
+    def user_dex_abstraction(self, user: str, enabled: bool) -> Any:
+        timestamp = get_timestamp_ms()
+        action = {
+            "type": "userDexAbstraction",
+            "user": user.lower(),
+            "enabled": enabled,
+            "nonce": timestamp,
+        }
+        signature = sign_user_dex_abstraction_action(self.wallet, action, self.base_url == MAINNET_API_URL)
         return self._post_action(
             action,
             signature,

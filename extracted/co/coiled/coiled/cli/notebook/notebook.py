@@ -237,6 +237,12 @@ def check_jupyter() -> bool:
     ),
     hidden=True,
 )
+@click.option(
+    "--private",
+    default=False,
+    is_flag=True,
+    help="Make this notebook private to you (other workspace members cannot access it).",
+)
 def start_notebook(
     name: str | None,
     account: str | None,
@@ -262,6 +268,7 @@ def start_notebook(
     mount_bucket: List[str] | None,
     host_setup_script: str | None,
     resumable: bool = False,
+    private: bool = False,
 ):
     """
     Launch or re-open a notebook session, with optional file syncing.
@@ -299,6 +306,7 @@ def start_notebook(
         mount_bucket=mount_bucket,
         host_setup_script=host_setup_script,
         resumable=resumable,
+        private=private,
     )
 
 
@@ -329,6 +337,7 @@ def _start_notebook(
     mount_bucket: List[str] | None = None,
     host_setup_script: str | None = None,
     resumable: bool = False,
+    private: bool = False,
 ) -> coiled.Cluster | None:
     """
     Launch or re-open a notebook session, with optional file syncing.
@@ -418,6 +427,7 @@ def _start_notebook(
                 shutdown_on_close=False,
                 unset_single_threading_variables=True,
                 pause_on_exit=resumable,
+                private_to_creator=private,
             )
             info["cluster_id"] = cluster.cluster_id
 

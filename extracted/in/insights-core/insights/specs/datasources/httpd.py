@@ -12,6 +12,7 @@ from insights.core.exceptions import SkipComponent
 from insights.core.plugins import datasource
 from insights.core.spec_factory import DatasourceProvider
 from insights.parsers.mount import ProcMounts
+from insights.specs import Specs
 from insights.specs.datasources import get_running_commands
 
 
@@ -69,8 +70,13 @@ def httpd_on_nfs(broker):
                 "nfs_mounts": nfs_mounts,
                 "open_nfs_files": open_nfs_files,
             }
-            relative_path = 'insights_datasources/httpd_on_nfs'
-            return DatasourceProvider(content=json.dumps(result_dict), relative_path=relative_path)
+            return DatasourceProvider(
+                content=json.dumps(result_dict),
+                relative_path='insights_datasources/httpd_on_nfs',
+                ds=Specs.httpd_on_nfs,
+                ctx=broker.get(HostContext),
+                cleaner=broker.get("cleaner"),
+            )
     raise SkipComponent
 
 

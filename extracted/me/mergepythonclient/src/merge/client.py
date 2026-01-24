@@ -11,9 +11,11 @@ from .environment import MergeEnvironment
 if typing.TYPE_CHECKING:
     from .resources.accounting.client import AccountingClient, AsyncAccountingClient
     from .resources.ats.client import AsyncAtsClient, AtsClient
+    from .resources.chat.client import AsyncChatClient, ChatClient
     from .resources.crm.client import AsyncCrmClient, CrmClient
     from .resources.filestorage.client import AsyncFilestorageClient, FilestorageClient
     from .resources.hris.client import AsyncHrisClient, HrisClient
+    from .resources.knowledgebase.client import AsyncKnowledgebaseClient, KnowledgebaseClient
     from .resources.ticketing.client import AsyncTicketingClient, TicketingClient
 
 
@@ -87,10 +89,12 @@ class Merge:
             timeout=_defaulted_timeout,
         )
         self._ats: typing.Optional[AtsClient] = None
+        self._chat: typing.Optional[ChatClient] = None
         self._crm: typing.Optional[CrmClient] = None
         self._filestorage: typing.Optional[FilestorageClient] = None
-        self._ticketing: typing.Optional[TicketingClient] = None
         self._hris: typing.Optional[HrisClient] = None
+        self._knowledgebase: typing.Optional[KnowledgebaseClient] = None
+        self._ticketing: typing.Optional[TicketingClient] = None
         self._accounting: typing.Optional[AccountingClient] = None
 
     @property
@@ -100,6 +104,14 @@ class Merge:
 
             self._ats = AtsClient(client_wrapper=self._client_wrapper)
         return self._ats
+
+    @property
+    def chat(self):
+        if self._chat is None:
+            from .resources.chat.client import ChatClient  # noqa: E402
+
+            self._chat = ChatClient(client_wrapper=self._client_wrapper)
+        return self._chat
 
     @property
     def crm(self):
@@ -118,20 +130,28 @@ class Merge:
         return self._filestorage
 
     @property
-    def ticketing(self):
-        if self._ticketing is None:
-            from .resources.ticketing.client import TicketingClient  # noqa: E402
-
-            self._ticketing = TicketingClient(client_wrapper=self._client_wrapper)
-        return self._ticketing
-
-    @property
     def hris(self):
         if self._hris is None:
             from .resources.hris.client import HrisClient  # noqa: E402
 
             self._hris = HrisClient(client_wrapper=self._client_wrapper)
         return self._hris
+
+    @property
+    def knowledgebase(self):
+        if self._knowledgebase is None:
+            from .resources.knowledgebase.client import KnowledgebaseClient  # noqa: E402
+
+            self._knowledgebase = KnowledgebaseClient(client_wrapper=self._client_wrapper)
+        return self._knowledgebase
+
+    @property
+    def ticketing(self):
+        if self._ticketing is None:
+            from .resources.ticketing.client import TicketingClient  # noqa: E402
+
+            self._ticketing = TicketingClient(client_wrapper=self._client_wrapper)
+        return self._ticketing
 
     @property
     def accounting(self):
@@ -212,10 +232,12 @@ class AsyncMerge:
             timeout=_defaulted_timeout,
         )
         self._ats: typing.Optional[AsyncAtsClient] = None
+        self._chat: typing.Optional[AsyncChatClient] = None
         self._crm: typing.Optional[AsyncCrmClient] = None
         self._filestorage: typing.Optional[AsyncFilestorageClient] = None
-        self._ticketing: typing.Optional[AsyncTicketingClient] = None
         self._hris: typing.Optional[AsyncHrisClient] = None
+        self._knowledgebase: typing.Optional[AsyncKnowledgebaseClient] = None
+        self._ticketing: typing.Optional[AsyncTicketingClient] = None
         self._accounting: typing.Optional[AsyncAccountingClient] = None
 
     @property
@@ -225,6 +247,14 @@ class AsyncMerge:
 
             self._ats = AsyncAtsClient(client_wrapper=self._client_wrapper)
         return self._ats
+
+    @property
+    def chat(self):
+        if self._chat is None:
+            from .resources.chat.client import AsyncChatClient  # noqa: E402
+
+            self._chat = AsyncChatClient(client_wrapper=self._client_wrapper)
+        return self._chat
 
     @property
     def crm(self):
@@ -243,20 +273,28 @@ class AsyncMerge:
         return self._filestorage
 
     @property
-    def ticketing(self):
-        if self._ticketing is None:
-            from .resources.ticketing.client import AsyncTicketingClient  # noqa: E402
-
-            self._ticketing = AsyncTicketingClient(client_wrapper=self._client_wrapper)
-        return self._ticketing
-
-    @property
     def hris(self):
         if self._hris is None:
             from .resources.hris.client import AsyncHrisClient  # noqa: E402
 
             self._hris = AsyncHrisClient(client_wrapper=self._client_wrapper)
         return self._hris
+
+    @property
+    def knowledgebase(self):
+        if self._knowledgebase is None:
+            from .resources.knowledgebase.client import AsyncKnowledgebaseClient  # noqa: E402
+
+            self._knowledgebase = AsyncKnowledgebaseClient(client_wrapper=self._client_wrapper)
+        return self._knowledgebase
+
+    @property
+    def ticketing(self):
+        if self._ticketing is None:
+            from .resources.ticketing.client import AsyncTicketingClient  # noqa: E402
+
+            self._ticketing = AsyncTicketingClient(client_wrapper=self._client_wrapper)
+        return self._ticketing
 
     @property
     def accounting(self):

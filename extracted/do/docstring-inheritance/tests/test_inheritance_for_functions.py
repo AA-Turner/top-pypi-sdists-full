@@ -23,9 +23,11 @@ import inspect
 
 import pytest
 
-from docstring_inheritance import inherit_google_docstring
-from docstring_inheritance import inherit_numpy_docstring
-from docstring_inheritance.class_docstrings_inheritor import ClassDocstringsInheritor
+from docstring_inheritance._internal import inherit_google_docstring
+from docstring_inheritance._internal import inherit_numpy_docstring
+from docstring_inheritance._internal.class_docstrings_inheritor import (
+    _create_dummy_func_with_doc,
+)
 
 
 def test_side_effect():
@@ -66,6 +68,12 @@ def test_google():
     def child(x, missing_doc, *child_varargs, **child_kwargs):
         """Child summary.
 
+        Args:
+            x: X
+            child_varargs: Not *args
+            *child_varargs: Child *args
+            **child_kwargs: Child **kwargs
+
         Yields:
             Child yields
 
@@ -83,12 +91,6 @@ def test_google():
 
         Warnings:
             Child warnings
-
-        Args:
-            x: X
-            child_varargs: Not *args
-            *child_varargs: Child *args
-            **child_kwargs: Child **kwargs
         """
 
     expected = """Child summary.
@@ -99,8 +101,17 @@ Args:
     *child_varargs: Child *args
     **child_kwargs: Child **kwargs
 
+Examples:
+    Child examples
+
 Returns:
     Parent returns
+
+See Also:
+    Parent see also
+
+References:
+    Parent references
 
 Yields:
     Child yields
@@ -108,23 +119,14 @@ Yields:
 Raises:
     Child raises
 
+Notes:
+    Child notes
+
 Warns:
     Child warns
 
 Warnings:
     Child warnings
-
-See Also:
-    Parent see also
-
-Notes:
-    Child notes
-
-References:
-    Parent references
-
-Examples:
-    Child examples
 """
 
     inherit_google_docstring(parent.__doc__, child)
@@ -141,6 +143,6 @@ Examples:
 def test_simple(
     inherit_docstring, parent_docstring, child_docstring, expected_docstring
 ):
-    dummy_func = ClassDocstringsInheritor._create_dummy_func_with_doc(child_docstring)
+    dummy_func = _create_dummy_func_with_doc(child_docstring)
     inherit_docstring(parent_docstring, dummy_func)
     assert dummy_func.__doc__ == expected_docstring

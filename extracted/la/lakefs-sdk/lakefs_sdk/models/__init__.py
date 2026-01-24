@@ -20,13 +20,16 @@ from lakefs_sdk.models.abort_presign_multipart_upload import AbortPresignMultipa
 from lakefs_sdk.models.access_key_credentials import AccessKeyCredentials
 from lakefs_sdk.models.action_run import ActionRun
 from lakefs_sdk.models.action_run_list import ActionRunList
+from lakefs_sdk.models.async_task_status import AsyncTaskStatus
 from lakefs_sdk.models.auth_capabilities import AuthCapabilities
 from lakefs_sdk.models.authentication_token import AuthenticationToken
 from lakefs_sdk.models.branch_creation import BranchCreation
 from lakefs_sdk.models.branch_protection_rule import BranchProtectionRule
+from lakefs_sdk.models.capabilities_config import CapabilitiesConfig
 from lakefs_sdk.models.cherry_pick_creation import CherryPickCreation
 from lakefs_sdk.models.comm_prefs_input import CommPrefsInput
 from lakefs_sdk.models.commit import Commit
+from lakefs_sdk.models.commit_async_status import CommitAsyncStatus
 from lakefs_sdk.models.commit_creation import CommitCreation
 from lakefs_sdk.models.commit_list import CommitList
 from lakefs_sdk.models.commit_overrides import CommitOverrides
@@ -58,6 +61,10 @@ from lakefs_sdk.models.group_creation import GroupCreation
 from lakefs_sdk.models.group_list import GroupList
 from lakefs_sdk.models.hook_run import HookRun
 from lakefs_sdk.models.hook_run_list import HookRunList
+from lakefs_sdk.models.iceberg_local_table import IcebergLocalTable
+from lakefs_sdk.models.iceberg_pull_request import IcebergPullRequest
+from lakefs_sdk.models.iceberg_push_request import IcebergPushRequest
+from lakefs_sdk.models.iceberg_remote_table import IcebergRemoteTable
 from lakefs_sdk.models.import_creation import ImportCreation
 from lakefs_sdk.models.import_creation_response import ImportCreationResponse
 from lakefs_sdk.models.import_location import ImportLocation
@@ -68,6 +75,7 @@ from lakefs_sdk.models.license import License
 from lakefs_sdk.models.login_config import LoginConfig
 from lakefs_sdk.models.login_information import LoginInformation
 from lakefs_sdk.models.merge import Merge
+from lakefs_sdk.models.merge_async_status import MergeAsyncStatus
 from lakefs_sdk.models.merge_result import MergeResult
 from lakefs_sdk.models.meta_range_creation import MetaRangeCreation
 from lakefs_sdk.models.meta_range_creation_response import MetaRangeCreationResponse
@@ -83,6 +91,7 @@ from lakefs_sdk.models.policy import Policy
 from lakefs_sdk.models.policy_list import PolicyList
 from lakefs_sdk.models.prepare_gc_uncommitted_request import PrepareGCUncommittedRequest
 from lakefs_sdk.models.prepare_gc_uncommitted_response import PrepareGCUncommittedResponse
+from lakefs_sdk.models.prepare_garbage_collection_commits_status import PrepareGarbageCollectionCommitsStatus
 from lakefs_sdk.models.presign_multipart_upload import PresignMultipartUpload
 from lakefs_sdk.models.pull_request import PullRequest
 from lakefs_sdk.models.pull_request_basic import PullRequestBasic
@@ -114,6 +123,7 @@ from lakefs_sdk.models.storage_config import StorageConfig
 from lakefs_sdk.models.storage_uri import StorageURI
 from lakefs_sdk.models.sts_auth_request import StsAuthRequest
 from lakefs_sdk.models.tag_creation import TagCreation
+from lakefs_sdk.models.task_creation import TaskCreation
 from lakefs_sdk.models.task_info import TaskInfo
 from lakefs_sdk.models.ui_config import UIConfig
 from lakefs_sdk.models.underlying_object_properties import UnderlyingObjectProperties

@@ -62,6 +62,18 @@ class _GpuTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTy
     """a100.xl"""
     NVIDIA_V100_4_32_208: _GpuType.ValueType  # 12
     """v100.4xl"""
+    NVIDIA_H100_NVL: _GpuType.ValueType  # 13
+    """H100 NVL XLarge"""
+    NVIDIA_A10: _GpuType.ValueType  # 14
+    """A10 Small"""
+    NVIDIA_H100_SXM: _GpuType.ValueType  # 15
+    """H100 SXM 8XLarge"""
+    NVIDIA_H100_40GB: _GpuType.ValueType  # 16
+    """H100 40GB 8XLarge"""
+    NVIDIA_H100_80GB: _GpuType.ValueType  # 17
+    """H100 80GB 8XLarge"""
+    NVIDIA_M60: _GpuType.ValueType  # 18
+    """M60 XLarge"""
 
 class GpuType(_GpuType, metaclass=_GpuTypeEnumTypeWrapper): ...
 
@@ -86,6 +98,18 @@ NVIDIA_V100_1_8_52: GpuType.ValueType  # 11
 """a100.xl"""
 NVIDIA_V100_4_32_208: GpuType.ValueType  # 12
 """v100.4xl"""
+NVIDIA_H100_NVL: GpuType.ValueType  # 13
+"""H100 NVL XLarge"""
+NVIDIA_A10: GpuType.ValueType  # 14
+"""A10 Small"""
+NVIDIA_H100_SXM: GpuType.ValueType  # 15
+"""H100 SXM 8XLarge"""
+NVIDIA_H100_40GB: GpuType.ValueType  # 16
+"""H100 40GB 8XLarge"""
+NVIDIA_H100_80GB: GpuType.ValueType  # 17
+"""H100 80GB 8XLarge"""
+NVIDIA_M60: GpuType.ValueType  # 18
+"""M60 XLarge"""
 global___GpuType = GpuType
 
 class BuildProperties(google.protobuf.message.Message):

@@ -6,7 +6,7 @@ except ImportError:
     from distutils.core import setup
 import sys
 
-VERSION = "1.5"
+VERSION = "1.6"
 
 copy_args = sys.argv[1:]
 
@@ -20,7 +20,7 @@ setup(name='modelcif',
       long_description=long_description,
       long_description_content_type="text/markdown",
       author='Ben Webb',
-      author_email='ben@salilab.org',
+      author_email='benmwebb@gmail.com',
       url='https://github.com/ihmwg/python-modelcif',
       packages=['modelcif', 'modelcif.util'],
       install_requires=['ihm>=2.6'],

@@ -1,17 +1,23 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generator, Literal, overload
+from pathlib import Path
+from typing import TYPE_CHECKING, Generator, Literal
 from warnings import catch_warnings, simplefilter, warn
 
 from ibm_watsonx_ai.foundation_models.inference import ModelInference
+from ibm_watsonx_ai.foundation_models.inference.base_model_inference import (
+    BaseModelInference,
+)
 from ibm_watsonx_ai.foundation_models.schema import (
+    Crypto,
     TextChatParameters,
     TextGenParameters,
 )
+from ibm_watsonx_ai.utils.utils import is_lib_installed
 from ibm_watsonx_ai.wml_client_error import MissingExtension
 
 if TYPE_CHECKING:
@@ -50,7 +56,7 @@ class Model(ModelInference):
         * the path of a directory with certificates of trusted CAs
         * `True` - default path to truststore will be taken
         * `False` - no verification will be made
-    :type verify: bool or str, optional
+    :type verify: bool | str | Path, optional
 
     :param validate: model ID validation, defaults to True
     :type validate: bool, optional
@@ -67,23 +73,24 @@ class Model(ModelInference):
 
         from ibm_watsonx_ai.foundation_models import Model
         from ibm_watsonx_ai.metanames import GenTextParamsMetaNames as GenParams
-        from ibm_watsonx_ai.foundation_models.utils.enums import ModelTypes, DecodingMethods
+        from ibm_watsonx_ai.foundation_models.utils.enums import (
+            ModelTypes,
+            DecodingMethods,
+        )
 
         # To display example params enter
         GenParams().get_example_values()
 
-        generate_params = {
-            GenParams.MAX_NEW_TOKENS: 25
-        }
+        generate_params = {GenParams.MAX_NEW_TOKENS: 25}
 
         model = Model(
             model_id=ModelTypes.FLAN_UL2,
             params=generate_params,
             credentials=Credentials(
-                api_key = IAM_API_KEY,
-                url = "https://us-south.ml.cloud.ibm.com"),
-            project_id="*****"
-            )
+                api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+            ),
+            project_id="*****",
+        )
     """
 
     def __init__(
@@ -93,7 +100,7 @@ class Model(ModelInference):
         params: dict | TextChatParameters | TextGenParameters | None = None,
         project_id: str | None = None,
         space_id: str | None = None,
-        verify: str | bool | None = None,
+        verify: str | Path | bool | None = None,
         validate: bool = True,
     ) -> None:
         with catch_warnings():
@@ -149,62 +156,26 @@ class Model(ModelInference):
             flan_ul2_model = Model(
                 model_id=ModelTypes.FLAN_UL2,
                 credentials=Credentials(
-                            api_key = IAM_API_KEY,
-                            url = "https://us-south.ml.cloud.ibm.com"),
-                project_id="*****"
-                )
+                    api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+                ),
+                project_id="*****",
+            )
 
             prompt_template = "What color is the {flower}?"
 
-            llm_chain = LLMChain(llm=flan_ul2_model.to_langchain(), prompt=PromptTemplate.from_template(prompt_template))
-            llm_chain.invoke('sunflower')
+            llm_chain = LLMChain(
+                llm=flan_ul2_model.to_langchain(),
+                prompt=PromptTemplate.from_template(prompt_template),
+            )
+            llm_chain.invoke("sunflower")
 
         """
-        try:
-            from langchain_ibm import WatsonxLLM
-        except ImportError:
-            raise MissingExtension("langchain_ibm")
+        if not is_lib_installed(ext := "langchain-ibm"):
+            raise MissingExtension(ext, extra_info="rag")
+
+        from langchain_ibm import WatsonxLLM
 
         return WatsonxLLM(watsonx_model=self)
-
-    @overload  # type: ignore[override]
-    def generate(
-        self,
-        prompt: str | list | None = ...,
-        params: dict | TextGenParameters | None = ...,
-        guardrails: bool = ...,
-        guardrails_hap_params: dict | None = ...,
-        guardrails_pii_params: dict | None = ...,
-        concurrency_limit: int = ...,
-        async_mode: Literal[False] = ...,
-        guardrails_granite_guardian_params: dict | None = ...,
-    ) -> dict | list[dict]: ...
-
-    @overload  # type: ignore[override]
-    def generate(
-        self,
-        prompt: str | list | None,
-        params: dict | TextGenParameters | None,
-        guardrails: bool,
-        guardrails_hap_params: dict | None,
-        guardrails_pii_params: dict | None,
-        concurrency_limit: int,
-        async_mode: Literal[True],
-        guardrails_granite_guardian_params: dict | None,
-    ) -> Generator: ...
-
-    @overload  # type: ignore[override]
-    def generate(
-        self,
-        prompt: str | list | None = ...,
-        params: dict | TextGenParameters | None = ...,
-        guardrails: bool = ...,
-        guardrails_hap_params: dict | None = ...,
-        guardrails_pii_params: dict | None = ...,
-        concurrency_limit: int = ...,
-        async_mode: bool = ...,
-        guardrails_granite_guardian_params: dict | None = ...,
-    ) -> dict | list[dict] | Generator: ...
 
     def generate(  # type: ignore[override]
         self,
@@ -213,9 +184,10 @@ class Model(ModelInference):
         guardrails: bool = False,
         guardrails_hap_params: dict | None = None,
         guardrails_pii_params: dict | None = None,
-        concurrency_limit: int = ModelInference.DEFAULT_CONCURRENCY_LIMIT,
+        concurrency_limit: int = BaseModelInference.DEFAULT_CONCURRENCY_LIMIT,
         async_mode: bool = False,
         guardrails_granite_guardian_params: dict | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict | list[dict] | Generator:
         """Generates a completion text as generated_text after getting
         a text prompt as input and parameters for the selected model (model_id).
@@ -226,7 +198,7 @@ class Model(ModelInference):
         :param concurrency_limit: number of requests that will be sent in parallel, max is 10
         :type concurrency_limit: int
 
-        :param prompt: the prompt string or list of strings. If a list of strings is passed, requests will be managed in parallel with the rate of concurency_limit
+        :param prompt: the prompt string or list of strings. If a list of strings is passed, requests will be managed in parallel with the rate of concurrency_limit
         :type prompt: str, list
 
         :param guardrails: if True, the detection filter for potentially hateful, abusive, and/or profane language (HAP)
@@ -245,6 +217,9 @@ class Model(ModelInference):
         :param guardrails_granite_guardian_params: parameters for Granite Guardian moderations
         :type guardrails_granite_guardian_params: dict, optional
 
+        :param crypto: configuration for tenant-level encryption
+        :type crypto: dict, Crypto, optional
+
         :return: scoring result that contains the generated content
         :rtype: dict
 
@@ -254,7 +229,7 @@ class Model(ModelInference):
 
             q = "What is 1 + 1?"
             generated_response = model.generate(prompt=q)
-            print(generated_response['results'][0]['generated_text'])
+            print(generated_response["results"][0]["generated_text"])
 
         """
         return super().generate(
@@ -267,59 +242,8 @@ class Model(ModelInference):
             async_mode=async_mode,
             validate_prompt_variables=True,  # keep default value, changing not permitted
             guardrails_granite_guardian_params=guardrails_granite_guardian_params,
+            crypto=crypto,
         )
-
-    @overload  # type: ignore[override]
-    def generate_text(
-        self,
-        prompt: str | None = ...,
-        params: dict | TextGenParameters | None = ...,
-        raw_response: Literal[False] = ...,
-        guardrails: bool = ...,
-        guardrails_hap_params: dict | None = ...,
-        guardrails_pii_params: dict | None = ...,
-        concurrency_limit: int = ...,
-        guardrails_granite_guardian_params: dict | None = None,
-    ) -> str: ...
-
-    @overload  # type: ignore[override]
-    def generate_text(
-        self,
-        prompt: list,
-        params: dict | TextGenParameters | None = ...,
-        raw_response: Literal[False] = ...,
-        guardrails: bool = ...,
-        guardrails_hap_params: dict | None = ...,
-        guardrails_pii_params: dict | None = ...,
-        concurrency_limit: int = ...,
-        guardrails_granite_guardian_params: dict | None = ...,
-    ) -> list[str]: ...
-
-    @overload  # type: ignore[override]
-    def generate_text(
-        self,
-        prompt: str | list | None,
-        params: dict | TextGenParameters | None,
-        raw_response: Literal[True],
-        guardrails: bool,
-        guardrails_hap_params: dict | None,
-        guardrails_pii_params: dict | None,
-        concurrency_limit: int,
-        guardrails_granite_guardian_params: dict | None,
-    ) -> list[dict] | dict: ...
-
-    @overload  # type: ignore[override]
-    def generate_text(
-        self,
-        prompt: str | list | None,
-        params: dict | TextGenParameters | None,
-        raw_response: bool,
-        guardrails: bool,
-        guardrails_hap_params: dict | None,
-        guardrails_pii_params: dict | None,
-        concurrency_limit: int,
-        guardrails_granite_guardian_params: dict | None,
-    ) -> str | list | dict: ...
 
     def generate_text(  # type: ignore[override]
         self,
@@ -329,9 +253,10 @@ class Model(ModelInference):
         guardrails: bool = False,
         guardrails_hap_params: dict | None = None,
         guardrails_pii_params: dict | None = None,
-        concurrency_limit: int = ModelInference.DEFAULT_CONCURRENCY_LIMIT,
+        concurrency_limit: int = BaseModelInference.DEFAULT_CONCURRENCY_LIMIT,
         guardrails_granite_guardian_params: dict | None = None,
-    ) -> str | list | dict:
+        crypto: dict | Crypto | None = None,
+    ) -> str | list[str | dict] | dict:
         """Generates a completion text as generated_text after getting
         a text prompt as input and parameters for the selected model (model_id).
 
@@ -341,7 +266,7 @@ class Model(ModelInference):
         :param concurrency_limit: number of requests to be sent in parallel, max is 10
         :type concurrency_limit: int
 
-        :param prompt: the prompt string or list of strings. If a list of strings is passed, requests will be managed in parallel with the rate of concurency_limit
+        :param prompt: the prompt string or list of strings. If a list of strings is passed, requests will be managed in parallel with the rate of concurrency_limit
         :type prompt: str, list
 
         :param raw_response: return the whole response object
@@ -357,6 +282,9 @@ class Model(ModelInference):
 
         :param guardrails_granite_guardian_params: parameters for Granite Guardian moderations
         :type guardrails_granite_guardian_params: dict, optional
+
+        :param crypto: configuration for tenant-level encryption
+        :type crypto: dict, Crypto, optional
 
         :return: generated content
         :rtype: str or dict
@@ -380,6 +308,7 @@ class Model(ModelInference):
             concurrency_limit=concurrency_limit,
             validate_prompt_variables=True,  # keep default value, changing not permitted in this scenario
             guardrails_granite_guardian_params=guardrails_granite_guardian_params,
+            crypto=crypto,
         )
 
     def generate_text_stream(  # type: ignore[override]
@@ -426,7 +355,7 @@ class Model(ModelInference):
             generated_response = model.generate_text_stream(prompt=q)
 
             for chunk in generated_response:
-                print(chunk, end='', flush=True)
+                print(chunk, end="", flush=True)
 
         """
         return super().generate_text_stream(
@@ -440,7 +369,12 @@ class Model(ModelInference):
             guardrails_granite_guardian_params=guardrails_granite_guardian_params,
         )
 
-    def tokenize(self, prompt: str, return_tokens: bool = False) -> dict:
+    def tokenize(
+        self,
+        prompt: str,
+        return_tokens: bool = False,
+        crypto: dict | Crypto | None = None,
+    ) -> dict:
         """
         The text tokenize operation allows you to check the conversion of provided input to tokens for a given model.
         It splits text into words or sub-words, which are are converted to IDs through a look-up table (vocabulary).
@@ -472,8 +406,9 @@ class Model(ModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
         """
         Given a list of messages comprising a conversation, the model will return a response.
@@ -493,6 +428,9 @@ class Model(ModelInference):
         :param tool_choice_option: Tool choice option
         :type tool_choice_option: Literal["none", "auto"], optional
 
+        :param crypto: configuration for tenant-level encryption.
+        :type crypto: dict, Crypto, optional
+
         :return: scoring result containing generated chat content.
         :rtype: dict
 
@@ -502,7 +440,7 @@ class Model(ModelInference):
 
             messages = [
                 {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "Who won the world series in 2020?"}
+                {"role": "user", "content": "Who won the world series in 2020?"},
             ]
             generated_response = model.chat(messages=messages)
 
@@ -510,7 +448,7 @@ class Model(ModelInference):
             print(generated_response)
 
             # Print only content
-            print(response['choices'][0]['message']['content'])
+            print(response["choices"][0]["message"]["content"])
 
         """
         return super().chat(
@@ -528,7 +466,7 @@ class Model(ModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
     ) -> Generator:
         """
@@ -558,12 +496,16 @@ class Model(ModelInference):
 
             messages = [
                 {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "Who won the world series in 2020?"}
+                {"role": "user", "content": "Who won the world series in 2020?"},
             ]
             generated_response = model.chat_stream(messages=messages)
 
             for chunk in generated_response:
-                print(chunk['choices'][0]['delta'].get('content', ''), end='', flush=True)
+                print(
+                    chunk["choices"][0]["delta"].get("content", ""),
+                    end="",
+                    flush=True,
+                )
 
         """
         return super().chat_stream(

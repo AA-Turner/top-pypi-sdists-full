@@ -48,7 +48,7 @@ options:
     - The C(type) choice is available since Ansible version 2.10.
     - The C(procedure) is supported since collection version 1.3.0 and PostgreSQL 11.
     - The C(parameter) is supported since collection version 3.1.0 and PostgreSQL 15.
-    - The C(table) is inclusive of foreign tables since collection version 3.6.0.
+    - The C(table) also includes views and materialized views. It is inclusive of foreign tables since collection version 3.6.0.
     type: str
     default: table
     choices: [ database, default_privs, foreign_data_wrapper, foreign_server, function,
@@ -417,7 +417,7 @@ queries:
 
 import traceback
 
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 # import module snippets
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.community.postgresql.plugins.module_utils.database import (
@@ -443,8 +443,9 @@ elif HAS_PSYCOPG:
     from psycopg import Error as PsycopgError
 
 VALID_PRIVS = frozenset(('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER', 'CREATE',
-                         'CONNECT', 'TEMPORARY', 'TEMP', 'EXECUTE', 'USAGE', 'ALL', 'SET', 'ALTER_SYSTEM'))
-VALID_DEFAULT_OBJS = {'TABLES': ('ALL', 'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'),
+                         'CONNECT', 'TEMPORARY', 'TEMP', 'EXECUTE', 'USAGE', 'ALL', 'SET', 'ALTER_SYSTEM',
+                         'MAINTAIN'))
+VALID_DEFAULT_OBJS = {'TABLES': ('ALL', 'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN'),
                       'SEQUENCES': ('ALL', 'SELECT', 'UPDATE', 'USAGE'),
                       'FUNCTIONS': ('ALL', 'EXECUTE'),
                       'TYPES': ('ALL', 'USAGE'),

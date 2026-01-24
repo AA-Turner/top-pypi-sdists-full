@@ -221,7 +221,7 @@ class PlateService(BaseService):
             )
 
         def results_extractor(body: PlatesPaginatedList) -> Optional[List[Plate]]:
-            return unset_as_none(body.plates)
+            return unset_as_none(lambda: body.plates)
 
         return PageIterator(api_call, results_extractor)
 

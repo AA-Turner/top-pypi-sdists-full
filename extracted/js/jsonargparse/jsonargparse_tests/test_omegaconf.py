@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import multiprocessing
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,19 +11,20 @@ from unittest.mock import patch
 import pytest
 
 from jsonargparse import ArgumentParser, Namespace
-from jsonargparse._common import parser_context
+from jsonargparse._common import parser_context, set_parsing_settings
 from jsonargparse._loaders_dumpers import loaders, yaml_dump
-from jsonargparse._optionals import omegaconf_support
+from jsonargparse._optionals import omegaconf_absolute_to_relative_paths, omegaconf_support
 from jsonargparse.typing import Path_fr
-from jsonargparse_tests.conftest import get_parser_help
+from jsonargparse_tests.conftest import get_parser_help, skip_if_omegaconf_unavailable
 
 if omegaconf_support:
-    from omegaconf import OmegaConf
+    from omegaconf import OmegaConf, errors
 
-skip_if_omegaconf_unavailable = pytest.mark.skipif(
-    not omegaconf_support,
-    reason="omegaconf package is required",
-)
+
+@pytest.fixture(autouse=True)
+def patch_loaders():
+    with patch.dict("jsonargparse._loaders_dumpers.loaders"):
+        yield
 
 
 @pytest.mark.skipif(
@@ -57,20 +59,27 @@ def test_omegaconf_interpolation(mode):
 
 
 @skip_if_omegaconf_unavailable
-@pytest.mark.parametrize("mode", ["omegaconf", "omegaconf+"])
+@pytest.mark.parametrize("mode", ["omegaconf", "omegaconf+", "omegaconf+absolute"])
+@patch.dict("jsonargparse._common.parsing_settings")
 def test_omegaconf_interpolation_in_subcommands(mode, parser, subparser):
     subparser.add_argument("--config", action="config")
     subparser.add_argument("--source", type=str)
     subparser.add_argument("--target", type=str)
 
-    parser.parser_mode = mode
+    parser.parser_mode = mode.replace("absolute", "")
     subcommands = parser.add_subcommands()
     subcommands.add_subcommand("sub", subparser)
 
     config = {
         "source": "hello",
-        "target": "${source}" if mode == "omegaconf" else "${.source}",
+        "target": "${.source}" if mode == "omegaconf+" else "${source}",
     }
+
+    if mode == "omegaconf+absolute":
+        with pytest.raises(errors.InterpolationKeyError):
+            parser.parse_args(["sub", f"--config={yaml_dump(config)}"])
+        set_parsing_settings(omegaconf_absolute_to_relative_paths=True)
+
     cfg = parser.parse_args(["sub", f"--config={yaml_dump(config)}"])
     assert cfg.sub.target == "hello"
 
@@ -176,3 +185,65 @@ def test_omegaconf_global_path_preserve_relative(parser, tmp_cwd):
     with parser_context(path_dump_preserve_relative=True):
         dump = yaml.safe_load(parser.dump(cfg))["nested"]["path"]
     assert dump == {"relative": "file", "cwd": str(tmp_cwd / subdir)}
+
+
+@skip_if_omegaconf_unavailable
+def test_omegaconf_inf_nan(parser):
+    parser.parser_mode = "omegaconf+"
+    parser.add_argument("--a", type=float, default=0.0)
+    parser.add_argument("--b", type=float, default=1.0)
+    parser.add_argument("--c", type=float, default=float("nan"))
+    parser.add_argument("--d", type=float, default=float("inf"))
+    parser.add_argument("--e", type=float, default=float("-inf"))
+
+    cfg = parser.parse_args(["--a=2.5", "--b=${a}"])
+    assert cfg.a == 2.5
+    assert cfg.b == 2.5
+    assert math.isnan(cfg.c)
+    assert cfg.d == float("inf")
+    assert cfg.e == float("-inf")
+
+
+@skip_if_omegaconf_unavailable
+def test_omegaconf_absolute_to_relative_paths():
+    data = {
+        "a": "x",
+        "b": "prefix ${a} suffix",
+        "c": {"d": "${b}", "e": "${c.d}"},
+        "f": [10, "${c.e}", "${..b}"],
+        "g": "${env:USER}",
+        "h": "${f[0]}",
+    }
+    expected = {
+        "a": "x",
+        "b": "prefix ${.a} suffix",
+        "c": {"d": "${..b}", "e": "${.d}"},
+        "f": [10, "${..c.e}", "${..b}"],
+        "g": "${env:USER}",
+        "h": "${.f[0]}",
+    }
+    assert omegaconf_absolute_to_relative_paths(data) == expected
+
+
+def parse_in_spawned_process(queue, parser, args):
+    try:
+        cfg = parser.parse_args(args)
+        queue.put(cfg)
+    except Exception as ex:
+        queue.put(ex)
+
+
+@skip_if_omegaconf_unavailable
+def test_omegaconf_in_spawned_process(parser):
+    parser.parser_mode = "omegaconf"
+    parser.add_argument("--dict", type=dict)
+    assert parser.parse_args(['--dict={"x":1}']).dict == {"x": 1}
+
+    ctx = multiprocessing.get_context("spawn")
+    queue = ctx.Queue()
+    process = ctx.Process(target=parse_in_spawned_process, args=(queue, parser, ['--dict={"x":2}']))
+    process.start()
+    process.join()
+
+    cfg = queue.get()
+    assert cfg.dict == {"x": 2}

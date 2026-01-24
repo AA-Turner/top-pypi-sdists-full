@@ -16,6 +16,7 @@ import tempfile
 from typing import Any, Dict
 
 import comet_ml
+from comet_ml import convert_utils
 
 from fastai import basics, learner
 from fastai.callback import hook
@@ -49,13 +50,18 @@ class CometFastAICallback(learner.Callback):
         self.experiment.set_step(self._comet_step)
         if self.experiment.auto_metric_logging:
             try:
-                self.experiment.log_metric("batch__smooth_loss", self.smooth_loss)
-                self.experiment.log_metric("batch__loss", self.loss)
-                self.experiment.log_metric("batch__train_iter", self.train_iter)
+                self.experiment.log_metric(
+                    "batch__smooth_loss",
+                    value=convert_utils.try_move_to_cpu(self.smooth_loss),
+                )
+                self.experiment.log_metric(
+                    "batch__loss", value=convert_utils.try_move_to_cpu(self.loss)
+                )
+                self.experiment.log_metric("batch__train_iter", value=self.train_iter)
                 for hypers in self.opt.hypers:
                     for hyper_key, hyper_value in hypers.items():
                         self.experiment.log_metric(
-                            f"batch__opt.hypers.{hyper_key}", hyper_value
+                            f"batch__opt.hypers.{hyper_key}", value=hyper_value
                         )
             except Exception:
                 LOGGER.warning("Failed to log batch metrics", exc_info=True)
@@ -81,9 +87,12 @@ class CometFastAICallback(learner.Callback):
 
         try:
             with tempfile.NamedTemporaryFile(mode="w") as model_file:
-                self.learn.save(model_file.name)
-                model_path = "%s.pth" % model_file.name
-                self.experiment.log_model("FastAI_model", model_path, file_name="model")
+                model_path = self.learn.save(model_file.name)
+                self.experiment.log_model(
+                    name="FastAI_model",
+                    file_or_folder=str(model_path),
+                    file_name="model",
+                )
         except Exception:
             LOGGER.warning("Failed to log the model to Comet", exc_info=True)
 

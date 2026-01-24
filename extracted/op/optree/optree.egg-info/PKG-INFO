@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optree
-Version: 0.17.0
+Version: 0.18.0
 Summary: Optimized PyTree Utilities.
 Author: OpTree Contributors
 License-Expression: Apache-2.0
@@ -18,11 +18,15 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Free Threading :: 4 - Resilient
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: iOS
+Classifier: Operating System :: Android
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Science/Research
@@ -31,6 +35,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing-extensions>=4.6.0
+Requires-Dist: typing-extensions>=4.12.0; python_version >= "3.13"
 Provides-Extra: jax
 Requires-Dist: jax; extra == "jax"
 Provides-Extra: numpy
@@ -51,6 +56,12 @@ Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: covdefaults; extra == "test"
 Requires-Dist: rich; extra == "test"
+Requires-Dist: typing-extensions==4.6.0; (python_version < "3.13" and platform_system == "Linux") and extra == "test"
+Requires-Dist: typing-extensions==4.6.0; (python_version < "3.13" and platform_system == "Darwin") and extra == "test"
+Requires-Dist: typing-extensions==4.6.0; (python_version < "3.13" and platform_system == "Windows") and extra == "test"
+Requires-Dist: typing-extensions==4.12.0; (python_version >= "3.13" and platform_system == "Linux") and extra == "test"
+Requires-Dist: typing-extensions==4.12.0; (python_version >= "3.13" and platform_system == "Darwin") and extra == "test"
+Requires-Dist: typing-extensions==4.12.0; (python_version >= "3.13" and platform_system == "Windows") and extra == "test"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-autoapi; extra == "docs"
@@ -374,7 +385,7 @@ from collections import UserDict
 class MyDict(UserDict):
     TREE_PATH_ENTRY_TYPE = optree.MappingEntry  # used by accessor APIs
 
-    def tree_flatten(self):  # -> (children, metadata, entries)
+    def __tree_flatten__(self):  # -> (children, metadata, entries)
         reversed_keys = sorted(self.keys(), reverse=True)
         return (
             [self[key] for key in reversed_keys],  # children
@@ -383,7 +394,7 @@ class MyDict(UserDict):
         )
 
     @classmethod
-    def tree_unflatten(cls, metadata, children):
+    def __tree_unflatten__(cls, metadata, children):
         return cls(zip(metadata, children))
 ```
 
@@ -454,7 +465,7 @@ There are several key attributes of the pytree type registry:
             # Register a subclass to namespace 'mydict'
             optree.register_pytree_node_class(cls, namespace='mydict')
 
-        def tree_flatten(self):  # -> (children, metadata, entries)
+        def __tree_flatten__(self):  # -> (children, metadata, entries)
             reversed_keys = sorted(self.keys(), reverse=True)
             return (
                 [self[key] for key in reversed_keys],  # children
@@ -463,7 +474,7 @@ There are several key attributes of the pytree type registry:
             )
 
         @classmethod
-        def tree_unflatten(cls, metadata, children):
+        def __tree_unflatten__(cls, metadata, children):
             return cls(zip(metadata, children))
 
     # Subclasses will be automatically registered in namespace 'mydict'

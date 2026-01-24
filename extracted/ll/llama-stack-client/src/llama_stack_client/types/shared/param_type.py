@@ -1,6 +1,12 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Union
+from typing import Union, Optional
 from typing_extensions import Literal, Annotated, TypeAlias
 
 from ..._utils import PropertyInfo
@@ -17,58 +23,61 @@ __all__ = [
     "UnionType",
     "ChatCompletionInputType",
     "CompletionInputType",
-    "AgentTurnInputType",
 ]
 
 
 class StringType(BaseModel):
-    type: Literal["string"]
-    """Discriminator type. Always "string" """
+    """Parameter type for string values."""
+
+    type: Optional[Literal["string"]] = None
 
 
 class NumberType(BaseModel):
-    type: Literal["number"]
-    """Discriminator type. Always "number" """
+    """Parameter type for numeric values."""
+
+    type: Optional[Literal["number"]] = None
 
 
 class BooleanType(BaseModel):
-    type: Literal["boolean"]
-    """Discriminator type. Always "boolean" """
+    """Parameter type for boolean values."""
+
+    type: Optional[Literal["boolean"]] = None
 
 
 class ArrayType(BaseModel):
-    type: Literal["array"]
-    """Discriminator type. Always "array" """
+    """Parameter type for array values."""
+
+    type: Optional[Literal["array"]] = None
 
 
 class ObjectType(BaseModel):
-    type: Literal["object"]
-    """Discriminator type. Always "object" """
+    """Parameter type for object values."""
+
+    type: Optional[Literal["object"]] = None
 
 
 class JsonType(BaseModel):
-    type: Literal["json"]
-    """Discriminator type. Always "json" """
+    """Parameter type for JSON values."""
+
+    type: Optional[Literal["json"]] = None
 
 
 class UnionType(BaseModel):
-    type: Literal["union"]
-    """Discriminator type. Always "union" """
+    """Parameter type for union values."""
+
+    type: Optional[Literal["union"]] = None
 
 
 class ChatCompletionInputType(BaseModel):
-    type: Literal["chat_completion_input"]
-    """Discriminator type. Always "chat_completion_input" """
+    """Parameter type for chat completion input."""
+
+    type: Optional[Literal["chat_completion_input"]] = None
 
 
 class CompletionInputType(BaseModel):
-    type: Literal["completion_input"]
-    """Discriminator type. Always "completion_input" """
+    """Parameter type for completion input."""
 
-
-class AgentTurnInputType(BaseModel):
-    type: Literal["agent_turn_input"]
-    """Discriminator type. Always "agent_turn_input" """
+    type: Optional[Literal["completion_input"]] = None
 
 
 ParamType: TypeAlias = Annotated[
@@ -82,7 +91,6 @@ ParamType: TypeAlias = Annotated[
         UnionType,
         ChatCompletionInputType,
         CompletionInputType,
-        AgentTurnInputType,
     ],
     PropertyInfo(discriminator="type"),
 ]

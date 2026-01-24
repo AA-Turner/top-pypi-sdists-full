@@ -40,9 +40,17 @@ KNOWN_EXCEPTIONS = [
 def handle_exception(exc_type, exception, traceback, hook=sys.excepthook):
     from pipenv import environments
 
-    if environments.Setting().is_verbose() or not issubclass(exc_type, ClickException):
+    is_verbose = environments.Setting().is_verbose()
+
+    if is_verbose or not issubclass(exc_type, ClickException):
         hook(exc_type, exception, traceback)
+    elif issubclass(exc_type, PipenvException):
+        # For PipenvException and subclasses (ResolutionFailure, etc.),
+        # just show the clean error message without any traceback.
+        # The exception's show() method provides user-friendly output.
+        exception.show()
     else:
+        # For other ClickExceptions, show a minimal traceback
         tb = format_tb(traceback, limit=-6)
         lines = itertools.chain.from_iterable([frame.splitlines() for frame in tb])
         formatted_lines = []
@@ -315,10 +323,21 @@ class ResolutionFailure(PipenvException):
             "[yellow]$ pipenv graph[/yellow] to inspect the versions actually installed in the virtualenv.\n"
             "Hint: try [yellow]$ pipenv lock --pre[/yellow] if it is a pre-release dependency."
         )
-        if "no version found at all" in str(message):
+        message_str = str(message)
+        if "no version found at all" in message_str:
             message += (
                 "[cyan]Please check your version specifier and version number. "
                 "See PEP440 for more information.[/cyan]"
+            )
+        # Detect build wheel failures and provide more helpful hints
+        # See: https://github.com/pypa/pipenv/issues/6058
+        if "getting requirements to build wheel" in message_str.lower():
+            extra += (
+                "\n\n[cyan]Hint:[/cyan] The error 'Getting requirements to build wheel' often indicates:\n"
+                "  • Invalid pyproject.toml syntax or configuration\n"
+                "  • Encoding issues in files referenced by pyproject.toml (e.g., README.md with special characters)\n"
+                "  • Missing or incompatible build dependencies\n"
+                "Try running [yellow]$ pip install . -v[/yellow] for more detailed error output."
             )
         PipenvException.__init__(self, message, extra=extra)
 

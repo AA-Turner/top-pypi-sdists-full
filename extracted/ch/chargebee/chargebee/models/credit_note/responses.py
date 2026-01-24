@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from chargebee.model import Model
 from typing import Dict, List, Any
 from chargebee.response import Response
-from chargebee.models import invoice, transaction, transaction, invoice, download
+from chargebee.models import invoice, transaction, transaction, download, invoice
 
 
 @dataclass
@@ -106,6 +106,7 @@ class DiscountResponse(Model):
     raw_data: Dict[Any, Any] = None
     amount: int = None
     description: str = None
+    line_item_id: str = None
     entity_type: str = None
     discount_type: str = None
     entity_id: str = None
@@ -167,7 +168,6 @@ class ShippingAddressResponse(Model):
     country: str = None
     zip: str = None
     validation_status: str = None
-    index: int = None
 
 
 @dataclass
@@ -229,6 +229,7 @@ class CreditNoteResponse(Model):
     resource_version: int = None
     updated_at: int = None
     channel: str = None
+    line_items_next_offset: str = None
     sub_total: int = None
     sub_total_in_local_currency: int = None
     total_in_local_currency: int = None

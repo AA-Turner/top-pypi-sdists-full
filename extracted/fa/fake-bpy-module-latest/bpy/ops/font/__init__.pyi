@@ -12,10 +12,7 @@ def case_set(
 ) -> None:
     """Set font case
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param case: Case, Lower or upper case
-    :type case: typing.Literal['LOWER','UPPER'] | None
     """
 
 def case_toggle(
@@ -23,11 +20,7 @@ def case_toggle(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle font case
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle font case"""
 
 def change_character(
     execution_context: int | str | None = None,
@@ -38,10 +31,7 @@ def change_character(
 ) -> None:
     """Change font character code
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param delta: Delta, Number to increase or decrease character code with
-    :type delta: int | None
     """
 
 def change_spacing(
@@ -53,10 +43,7 @@ def change_spacing(
 ) -> None:
     """Change font spacing
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param delta: Delta, Amount to decrease or increase character spacing with
-    :type delta: float | None
     """
 
 def delete(
@@ -77,10 +64,7 @@ def delete(
 ) -> None:
     """Delete text by cursor position
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type, Which part of the text to delete
-    :type type: typing.Literal['NEXT_CHARACTER','PREVIOUS_CHARACTER','NEXT_WORD','PREVIOUS_WORD','SELECTION','NEXT_OR_SELECTION','PREVIOUS_OR_SELECTION'] | None
     """
 
 def line_break(
@@ -88,11 +72,7 @@ def line_break(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Insert line break at cursor position
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Insert line break at cursor position"""
 
 def move(
     execution_context: int | str | None = None,
@@ -117,10 +97,7 @@ def move(
 ) -> None:
     """Move cursor to position type
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type, Where to move cursor to
-    :type type: typing.Literal['LINE_BEGIN','LINE_END','TEXT_BEGIN','TEXT_END','PREVIOUS_CHARACTER','NEXT_CHARACTER','PREVIOUS_WORD','NEXT_WORD','PREVIOUS_LINE','NEXT_LINE','PREVIOUS_PAGE','NEXT_PAGE'] | None
     """
 
 def move_select(
@@ -146,10 +123,7 @@ def move_select(
 ) -> None:
     """Move the cursor while selecting
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type, Where to move cursor to, to make a selection
-    :type type: typing.Literal['LINE_BEGIN','LINE_END','TEXT_BEGIN','TEXT_END','PREVIOUS_CHARACTER','NEXT_CHARACTER','PREVIOUS_WORD','NEXT_WORD','PREVIOUS_LINE','NEXT_LINE','PREVIOUS_PAGE','NEXT_PAGE'] | None
     """
 
 def open(
@@ -186,50 +160,27 @@ def open(
 ) -> None:
     """Load a new font from a file
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -243,9 +194,7 @@ def open(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
     """
 
 def select_all(
@@ -253,33 +202,21 @@ def select_all(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select all text
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select all text"""
 
 def select_word(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select word under cursor
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select word under cursor"""
 
 def selection_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set cursor selection
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set cursor selection"""
 
 def style_set(
     execution_context: int | str | None = None,
@@ -291,12 +228,8 @@ def style_set(
 ) -> None:
     """Set font style
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param style: Style, Style to set selection to
-    :type style: typing.Literal['BOLD','ITALIC','UNDERLINE','SMALL_CAPS'] | None
     :param clear: Clear, Clear style rather than setting it
-    :type clear: bool | None
     """
 
 def style_toggle(
@@ -308,10 +241,7 @@ def style_toggle(
 ) -> None:
     """Toggle font style
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param style: Style, Style to set selection to
-    :type style: typing.Literal['BOLD','ITALIC','UNDERLINE','SMALL_CAPS'] | None
     """
 
 def text_copy(
@@ -319,22 +249,14 @@ def text_copy(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy selected text to clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy selected text to clipboard"""
 
 def text_cut(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Cut selected text to clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Cut selected text to clipboard"""
 
 def text_insert(
     execution_context: int | str | None = None,
@@ -346,12 +268,8 @@ def text_insert(
 ) -> None:
     """Insert text at cursor position
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param text: Text, Text to insert at the cursor position
-    :type text: str
     :param accent: Accent Mode, Next typed character will strike through previous, for special character input
-    :type accent: bool | None
     """
 
 def text_insert_unicode(
@@ -359,11 +277,7 @@ def text_insert_unicode(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Insert Unicode Character
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Insert Unicode Character"""
 
 def text_paste(
     execution_context: int | str | None = None,
@@ -374,10 +288,7 @@ def text_paste(
 ) -> None:
     """Paste text from clipboard
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param selection: Selection, Paste text selected elsewhere rather than copied (X11/Wayland only)
-    :type selection: bool | None
     """
 
 def text_paste_from_file(
@@ -413,48 +324,26 @@ def text_paste_from_file(
 ) -> None:
     """Paste contents from file
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -468,9 +357,7 @@ def text_paste_from_file(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
     """
 
 def textbox_add(
@@ -478,11 +365,7 @@ def textbox_add(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a new text box
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a new text box"""
 
 def textbox_remove(
     execution_context: int | str | None = None,
@@ -493,10 +376,7 @@ def textbox_remove(
 ) -> None:
     """Remove the text box
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: Index, The current text box
-    :type index: int | None
     """
 
 def unlink(
@@ -504,8 +384,4 @@ def unlink(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Unlink active font data-block
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Unlink active font data-block"""

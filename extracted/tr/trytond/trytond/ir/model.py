@@ -12,8 +12,8 @@ from sql.aggregate import Max
 from sql.conditionals import Case
 from sql.operators import Equal
 
+import trytond.config as config
 from trytond.cache import Cache
-from trytond.config import config
 from trytond.i18n import gettext
 from trytond.model import (
     DeactivableMixin, EvalEnvironment, Exclude, Index, ModelSingleton,
@@ -27,12 +27,12 @@ from trytond.rpc import RPC
 from trytond.tools import cursor_dict, grouped_slice, is_instance_method
 from trytond.tools.string_ import StringMatcher
 from trytond.transaction import Transaction, without_check_access
-from trytond.wizard import Button, StateAction, StateView, Wizard
+from trytond.wizard import (
+    Button, StateAction, StateTransition, StateView, Wizard)
 
 from .resource import ResourceAccessMixin
 
 logger = logging.getLogger(__name__)
-_request_timeout = config.getint('request', 'timeout', default=0)
 
 
 class ConditionError(ValidationError):
@@ -76,7 +76,8 @@ class Model(
                 'list_history': RPC(),
                 'get_notification': RPC(),
                 'get_names': RPC(),
-                'global_search': RPC(timeout=_request_timeout),
+                'global_search': RPC(
+                    timeout=config.getint('request', 'timeout', default=0)),
                 })
 
     @classmethod
@@ -186,6 +187,8 @@ class Model(
                     if issubclass(pool_get(m), classes))
             items = list(items)
             cls._get_names_cache.set(key, items)
+        else:
+            items = list(items)
         return items
 
     @classmethod
@@ -239,6 +242,13 @@ class Model(
     @classmethod
     def get_name(cls, model):
         return cls.get_names().get(model, model)
+
+    @classmethod
+    def refresh_materialized(cls):
+        pool = Pool()
+        for _, Model in pool.iterobject():
+            if hasattr(Model, '_table_query_refresh'):
+                Model._table_query_refresh()
 
 
 class ModelField(
@@ -965,7 +975,10 @@ class ModelButton(
             ])
     _reset_cache = Cache('ir.model.button.reset')
     groups = fields.Many2Many(
-        'ir.model.button-res.group', 'button', 'group', "Groups")
+        'ir.model.button-res.group', 'button', 'group', "Groups",
+        filter=[
+            ('active', '=', True),
+            ])
     _groups_cache = Cache('ir.model.button.groups')
     _view_attributes_cache = Cache(
         'ir.model.button.view_attributes', context=False)
@@ -1722,3 +1735,15 @@ class ModelWorkflowGraph(Report):
                         f'"{record.name}--{to}"',
                         arrowhead='normal')
                 subgraph.add_edge(edge)
+
+
+class RefreshMaterialized(Wizard):
+    __name__ = "ir.model.refresh_materialized"
+    start = StateTransition()
+
+    def transition_start(self):
+        pool = Pool()
+        Model = pool.get(Transaction().context['active_model'])
+        if hasattr(Model, '_table_query_refresh'):
+            Model._table_query_refresh(force=True)
+        return 'end'

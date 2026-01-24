@@ -5,6 +5,7 @@ from attrs import field as _attrs_field
 
 from ..models.update_http_trigger_json_body_authentication_method import UpdateHttpTriggerJsonBodyAuthenticationMethod
 from ..models.update_http_trigger_json_body_http_method import UpdateHttpTriggerJsonBodyHttpMethod
+from ..models.update_http_trigger_json_body_request_type import UpdateHttpTriggerJsonBodyRequestType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -24,7 +25,6 @@ class UpdateHttpTriggerJsonBody:
         script_path (str):
         is_flow (bool):
         http_method (UpdateHttpTriggerJsonBodyHttpMethod):
-        is_async (bool):
         authentication_method (UpdateHttpTriggerJsonBodyAuthenticationMethod):
         is_static_website (bool):
         route_path (Union[Unset, str]):
@@ -33,19 +33,20 @@ class UpdateHttpTriggerJsonBody:
         workspaced_route (Union[Unset, bool]):
         static_asset_config (Union[Unset, UpdateHttpTriggerJsonBodyStaticAssetConfig]):
         authentication_resource_path (Union[Unset, str]):
+        is_async (Union[Unset, bool]): Deprecated, use request_type instead
+        request_type (Union[Unset, UpdateHttpTriggerJsonBodyRequestType]):
         wrap_body (Union[Unset, bool]):
         raw_string (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, UpdateHttpTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, UpdateHttpTriggerJsonBodyRetry]):
+        retry (Union[Unset, UpdateHttpTriggerJsonBodyRetry]): Retry configuration for failed module executions
     """
 
     path: str
     script_path: str
     is_flow: bool
     http_method: UpdateHttpTriggerJsonBodyHttpMethod
-    is_async: bool
     authentication_method: UpdateHttpTriggerJsonBodyAuthenticationMethod
     is_static_website: bool
     route_path: Union[Unset, str] = UNSET
@@ -54,6 +55,8 @@ class UpdateHttpTriggerJsonBody:
     workspaced_route: Union[Unset, bool] = UNSET
     static_asset_config: Union[Unset, "UpdateHttpTriggerJsonBodyStaticAssetConfig"] = UNSET
     authentication_resource_path: Union[Unset, str] = UNSET
+    is_async: Union[Unset, bool] = UNSET
+    request_type: Union[Unset, UpdateHttpTriggerJsonBodyRequestType] = UNSET
     wrap_body: Union[Unset, bool] = UNSET
     raw_string: Union[Unset, bool] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
@@ -67,7 +70,6 @@ class UpdateHttpTriggerJsonBody:
         is_flow = self.is_flow
         http_method = self.http_method.value
 
-        is_async = self.is_async
         authentication_method = self.authentication_method.value
 
         is_static_website = self.is_static_website
@@ -80,6 +82,11 @@ class UpdateHttpTriggerJsonBody:
             static_asset_config = self.static_asset_config.to_dict()
 
         authentication_resource_path = self.authentication_resource_path
+        is_async = self.is_async
+        request_type: Union[Unset, str] = UNSET
+        if not isinstance(self.request_type, Unset):
+            request_type = self.request_type.value
+
         wrap_body = self.wrap_body
         raw_string = self.raw_string
         error_handler_path = self.error_handler_path
@@ -99,7 +106,6 @@ class UpdateHttpTriggerJsonBody:
                 "script_path": script_path,
                 "is_flow": is_flow,
                 "http_method": http_method,
-                "is_async": is_async,
                 "authentication_method": authentication_method,
                 "is_static_website": is_static_website,
             }
@@ -116,6 +122,10 @@ class UpdateHttpTriggerJsonBody:
             field_dict["static_asset_config"] = static_asset_config
         if authentication_resource_path is not UNSET:
             field_dict["authentication_resource_path"] = authentication_resource_path
+        if is_async is not UNSET:
+            field_dict["is_async"] = is_async
+        if request_type is not UNSET:
+            field_dict["request_type"] = request_type
         if wrap_body is not UNSET:
             field_dict["wrap_body"] = wrap_body
         if raw_string is not UNSET:
@@ -146,8 +156,6 @@ class UpdateHttpTriggerJsonBody:
 
         http_method = UpdateHttpTriggerJsonBodyHttpMethod(d.pop("http_method"))
 
-        is_async = d.pop("is_async")
-
         authentication_method = UpdateHttpTriggerJsonBodyAuthenticationMethod(d.pop("authentication_method"))
 
         is_static_website = d.pop("is_static_website")
@@ -168,6 +176,15 @@ class UpdateHttpTriggerJsonBody:
             static_asset_config = UpdateHttpTriggerJsonBodyStaticAssetConfig.from_dict(_static_asset_config)
 
         authentication_resource_path = d.pop("authentication_resource_path", UNSET)
+
+        is_async = d.pop("is_async", UNSET)
+
+        _request_type = d.pop("request_type", UNSET)
+        request_type: Union[Unset, UpdateHttpTriggerJsonBodyRequestType]
+        if isinstance(_request_type, Unset):
+            request_type = UNSET
+        else:
+            request_type = UpdateHttpTriggerJsonBodyRequestType(_request_type)
 
         wrap_body = d.pop("wrap_body", UNSET)
 
@@ -194,7 +211,6 @@ class UpdateHttpTriggerJsonBody:
             script_path=script_path,
             is_flow=is_flow,
             http_method=http_method,
-            is_async=is_async,
             authentication_method=authentication_method,
             is_static_website=is_static_website,
             route_path=route_path,
@@ -203,6 +219,8 @@ class UpdateHttpTriggerJsonBody:
             workspaced_route=workspaced_route,
             static_asset_config=static_asset_config,
             authentication_resource_path=authentication_resource_path,
+            is_async=is_async,
+            request_type=request_type,
             wrap_body=wrap_body,
             raw_string=raw_string,
             error_handler_path=error_handler_path,

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import shlex
 from typing import TYPE_CHECKING
 
@@ -9,6 +11,7 @@ if TYPE_CHECKING:
     from ..config import PoeConfig
     from ..context import RunContext
     from ..env.manager import EnvVarsManager
+    from ..executor.task_run import PoeTaskRun
     from .base import TaskSpecFactory
 
 
@@ -24,6 +27,7 @@ class ScriptTask(PoeTask):
     class TaskOptions(PoeTask.TaskOptions):
         use_exec: bool = False
         print_result: bool = False
+        ignore_fail: bool | list[int] = False
 
         def validate(self):
             super().validate()
@@ -35,9 +39,9 @@ class ScriptTask(PoeTask):
 
     class TaskSpec(PoeTask.TaskSpec):
         content: str
-        options: "ScriptTask.TaskOptions"
+        options: ScriptTask.TaskOptions
 
-        def _task_validations(self, config: "PoeConfig", task_specs: "TaskSpecFactory"):
+        def _task_validations(self, config: PoeConfig, task_specs: TaskSpecFactory):
             """
             Perform validations on this TaskSpec that apply to a specific task type
             """
@@ -54,20 +58,21 @@ class ScriptTask(PoeTask):
 
     spec: TaskSpec
 
-    def _handle_run(
-        self,
-        context: "RunContext",
-        env: "EnvVarsManager",
-    ) -> int:
+    async def _handle_run(
+        self, context: RunContext, env: EnvVarsManager, task_state: PoeTaskRun
+    ):
         from ..helpers.python import format_class
 
-        named_arg_values, extra_args = self.get_parsed_arguments(env)
+        if ignore_fail := self.spec.options.ignore_fail:
+            task_state.ignore_failure(ignore_fail)
+
+        named_arg_values, _ = self.get_parsed_arguments(env)
         env.update(named_arg_values)
 
         # TODO: do something about extra_args, like raise an error?
 
         if ":" not in self.spec.content:
-            return self._run_module(context, env)
+            return await self._run_module(context, env, task_state)
 
         target_module, function_call = parse_script_reference(
             self.spec.content,
@@ -109,14 +114,16 @@ class ScriptTask(PoeTask):
         cmd = ("python", "-c", "".join(script))
 
         self._print_action(shlex.join(argv), context.dry)
-        return self._get_executor(
+        executor = self._get_executor(
             context, env, delegate_dry_run=has_dry_run_ref, resolve_python=True
-        ).execute(cmd, use_exec=self.spec.options.get("use_exec", False))
+        )
+        process = await executor.execute(
+            cmd, use_exec=self.spec.options.get("use_exec", False)
+        )
+        await task_state.add_process(process, finalize=True)
 
-    def _run_module(
-        self,
-        context: "RunContext",
-        env: "EnvVarsManager",
+    async def _run_module(
+        self, context: RunContext, env: EnvVarsManager, task_state: PoeTaskRun
     ):
         """
         Execute the python module referenced by the task content
@@ -130,6 +137,8 @@ class ScriptTask(PoeTask):
         action_summary = self.name + (f" {shlex.join(argv)}" if argv else "")
         self._print_action(action_summary, context.dry)
 
-        return self._get_executor(context, env, resolve_python=True).execute(
+        executor = self._get_executor(context, env, resolve_python=True)
+        process = await executor.execute(
             cmd, use_exec=self.spec.options.get("use_exec", False)
         )
+        await task_state.add_process(process, finalize=True)

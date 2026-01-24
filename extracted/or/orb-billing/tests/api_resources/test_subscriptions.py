@@ -68,6 +68,15 @@ class TestSubscriptions:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
                     "discounts": [
                         {
@@ -89,7 +98,7 @@ class TestSubscriptions:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
@@ -191,6 +200,15 @@ class TestSubscriptions:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
                     "discounts": [
                         {
@@ -211,7 +229,7 @@ class TestSubscriptions:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
@@ -334,7 +352,9 @@ class TestSubscriptions:
             cursor="cursor",
             customer_id=["string"],
             external_customer_id=["string"],
+            external_plan_id="external_plan_id",
             limit=1,
+            plan_id="plan_id",
             status="active",
         )
         assert_matches_type(SyncPage[Subscription], subscription, path=["response"])
@@ -634,7 +654,17 @@ class TestSubscriptions:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
+                    "can_defer_billing": True,
                     "discounts": [
                         {
                             "amount_discount": 0,
@@ -660,7 +690,7 @@ class TestSubscriptions:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
@@ -716,10 +746,12 @@ class TestSubscriptions:
                 }
             ],
             allow_invoice_credit_or_void=True,
+            can_defer_billing=True,
             edit=[
                 {
                     "price_interval_id": "sdfs6wdjvn7ujokd",
                     "billing_cycle_day": 0,
+                    "can_defer_billing": True,
                     "end_date": parse_datetime("2019-12-27T18:11:19.117Z"),
                     "filter": "my_property > 100 AND my_other_property = 'bar'",
                     "fixed_fee_quantity_transitions": [
@@ -878,6 +910,15 @@ class TestSubscriptions:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
                     "discounts": [
                         {
@@ -899,7 +940,7 @@ class TestSubscriptions:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
@@ -994,6 +1035,15 @@ class TestSubscriptions:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
                     "discounts": [
                         {
@@ -1014,7 +1064,7 @@ class TestSubscriptions:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
@@ -1408,6 +1458,15 @@ class TestAsyncSubscriptions:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
                     "discounts": [
                         {
@@ -1429,7 +1488,7 @@ class TestAsyncSubscriptions:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
@@ -1531,6 +1590,15 @@ class TestAsyncSubscriptions:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
                     "discounts": [
                         {
@@ -1551,7 +1619,7 @@ class TestAsyncSubscriptions:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
@@ -1674,7 +1742,9 @@ class TestAsyncSubscriptions:
             cursor="cursor",
             customer_id=["string"],
             external_customer_id=["string"],
+            external_plan_id="external_plan_id",
             limit=1,
+            plan_id="plan_id",
             status="active",
         )
         assert_matches_type(AsyncPage[Subscription], subscription, path=["response"])
@@ -1974,7 +2044,17 @@ class TestAsyncSubscriptions:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
+                    "can_defer_billing": True,
                     "discounts": [
                         {
                             "amount_discount": 0,
@@ -2000,7 +2080,7 @@ class TestAsyncSubscriptions:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
@@ -2056,10 +2136,12 @@ class TestAsyncSubscriptions:
                 }
             ],
             allow_invoice_credit_or_void=True,
+            can_defer_billing=True,
             edit=[
                 {
                     "price_interval_id": "sdfs6wdjvn7ujokd",
                     "billing_cycle_day": 0,
+                    "can_defer_billing": True,
                     "end_date": parse_datetime("2019-12-27T18:11:19.117Z"),
                     "filter": "my_property > 100 AND my_other_property = 'bar'",
                     "fixed_fee_quantity_transitions": [
@@ -2218,6 +2300,15 @@ class TestAsyncSubscriptions:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
                     "discounts": [
                         {
@@ -2239,7 +2330,7 @@ class TestAsyncSubscriptions:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
@@ -2334,6 +2425,15 @@ class TestAsyncSubscriptions:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
                     "discounts": [
                         {
@@ -2354,7 +2454,7 @@ class TestAsyncSubscriptions:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,

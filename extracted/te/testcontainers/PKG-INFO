@@ -1,13 +1,15 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: testcontainers
-Version: 4.13.0
+Version: 4.14.0
 Summary: Python library for throwaway instances of anything that can run in a Docker container
+License: Apache-2.0
+License-File: LICENSE.txt
 Keywords: testing,logging,docker,test automation
 Author: Sergey Pirogov
 Author-email: automationremarks@gmail.com
 Maintainer: Balint Bartha
 Maintainer-email: totallyzen@users.noreply.github.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: Apache Software License
@@ -16,11 +18,12 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: arangodb
 Provides-Extra: aws
@@ -67,44 +70,43 @@ Provides-Extra: test-module-import
 Provides-Extra: trino
 Provides-Extra: vault
 Provides-Extra: weaviate
-Requires-Dist: azure-cosmos ; extra == "cosmosdb"
-Requires-Dist: azure-storage-blob (>=12.19,<13.0) ; extra == "azurite"
-Requires-Dist: bcrypt ; extra == "registry"
-Requires-Dist: boto3 ; extra == "aws" or extra == "localstack"
-Requires-Dist: cassandra-driver (==3.29.1) ; extra == "scylla"
-Requires-Dist: chromadb-client (>=1.0.0,<2.0.0) ; extra == "chroma"
-Requires-Dist: clickhouse-driver ; extra == "clickhouse"
+Requires-Dist: azure-cosmos (>=4,<5) ; extra == "cosmosdb"
+Requires-Dist: azure-storage-blob (>=12,<13) ; extra == "azurite"
+Requires-Dist: bcrypt (>=5,<6) ; extra == "registry"
+Requires-Dist: boto3 (>=1,<2) ; extra == "aws" or extra == "localstack"
+Requires-Dist: cassandra-driver (>=3,<4) ; extra == "scylla"
+Requires-Dist: chromadb-client (>=1,<2) ; extra == "chroma"
 Requires-Dist: cryptography ; extra == "mailpit" or extra == "sftp"
 Requires-Dist: docker
-Requires-Dist: google-cloud-datastore (>=2) ; extra == "google"
-Requires-Dist: google-cloud-pubsub (>=2) ; extra == "google"
+Requires-Dist: google-cloud-datastore (>=2,<3) ; extra == "google"
+Requires-Dist: google-cloud-pubsub (>=2,<3) ; extra == "google"
 Requires-Dist: httpx ; extra == "aws" or extra == "generic" or extra == "test-module-import"
 Requires-Dist: ibm_db_sa ; (platform_machine != "aarch64" and platform_machine != "arm64") and (extra == "db2")
-Requires-Dist: influxdb ; extra == "influxdb"
-Requires-Dist: influxdb-client ; extra == "influxdb"
+Requires-Dist: influxdb (>=5,<6) ; extra == "influxdb"
+Requires-Dist: influxdb-client (>=1,<2) ; extra == "influxdb"
 Requires-Dist: kubernetes ; extra == "k3s"
-Requires-Dist: minio ; extra == "minio"
-Requires-Dist: nats-py ; extra == "nats"
-Requires-Dist: neo4j ; extra == "neo4j"
-Requires-Dist: openfga-sdk ; (python_version >= "3.10") and (extra == "openfga")
-Requires-Dist: opensearch-py ; extra == "opensearch"
-Requires-Dist: oracledb ; extra == "oracle" or extra == "oracle-free"
-Requires-Dist: pika ; extra == "rabbitmq"
-Requires-Dist: pymongo ; extra == "mongodb"
-Requires-Dist: pymssql ; (platform_machine != "arm64" or python_version >= "3.10") and (extra == "mssql")
-Requires-Dist: pymysql[rsa] ; extra == "mysql"
-Requires-Dist: python-arango (>=7.8,<8.0) ; extra == "arangodb"
+Requires-Dist: minio (>=7,<8) ; extra == "minio"
+Requires-Dist: nats-py (>=2,<3) ; extra == "nats"
+Requires-Dist: neo4j (>=6,<7) ; extra == "neo4j"
+Requires-Dist: openfga-sdk ; extra == "openfga"
+Requires-Dist: opensearch-py (>=3,<4) ; (python_version < "4.0") and (extra == "opensearch")
+Requires-Dist: oracledb (>=3,<4) ; extra == "oracle" or extra == "oracle-free"
+Requires-Dist: pika (>=1,<2) ; extra == "rabbitmq"
+Requires-Dist: pymongo (>=4,<5) ; extra == "mongodb"
+Requires-Dist: pymssql (>=2,<3) ; extra == "mssql"
+Requires-Dist: pymysql[rsa] (>=1,<2) ; extra == "mysql"
+Requires-Dist: python-arango (>=8,<9) ; extra == "arangodb"
 Requires-Dist: python-dotenv
-Requires-Dist: python-keycloak ; extra == "keycloak"
-Requires-Dist: pyyaml ; extra == "k3s"
-Requires-Dist: qdrant-client ; extra == "qdrant"
-Requires-Dist: redis ; extra == "generic" or extra == "redis"
-Requires-Dist: selenium ; extra == "selenium"
-Requires-Dist: sqlalchemy ; extra == "db2" or extra == "mssql" or extra == "mysql" or extra == "oracle" or extra == "oracle-free"
+Requires-Dist: python-keycloak (>=6,<7) ; (python_version < "4.0") and (extra == "keycloak")
+Requires-Dist: pyyaml (>=6.0.3) ; extra == "k3s"
+Requires-Dist: qdrant-client (>=1,<2) ; extra == "qdrant"
+Requires-Dist: redis (>=7,<8) ; extra == "generic" or extra == "redis"
+Requires-Dist: selenium (>=4,<5) ; extra == "selenium"
+Requires-Dist: sqlalchemy (>=2,<3) ; extra == "db2" or extra == "mssql" or extra == "mysql" or extra == "oracle" or extra == "oracle-free"
 Requires-Dist: trino ; extra == "trino"
 Requires-Dist: typing-extensions
 Requires-Dist: urllib3
-Requires-Dist: weaviate-client (>=4.5.4,<5.0.0) ; extra == "weaviate"
+Requires-Dist: weaviate-client (>=4,<5) ; extra == "weaviate"
 Requires-Dist: wrapt
 Project-URL: GitHub, https://github.com/testcontainers/testcontainers-python
 Project-URL: Issue Tracker, https://github.com/testcontainers/testcontainers-python/issues

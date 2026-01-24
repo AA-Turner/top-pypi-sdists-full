@@ -18,19 +18,15 @@ import trafaret as t
 from datarobot._compat import String, TypedDict
 from datarobot.models.api_object import APIObject
 
-LiftChartBinsTrafaret = t.Dict(
-    {
-        t.Key("bins"): t.List(
-            t.Dict(
-                {
-                    t.Key("actual"): t.Float,
-                    t.Key("predicted"): t.Float,
-                    t.Key("bin_weight"): t.Float,
-                }
-            ).ignore_extra("*")
-        )
-    }
-)
+LiftChartBinsTrafaret = t.Dict({
+    t.Key("bins"): t.List(
+        t.Dict({
+            t.Key("actual"): t.Float,
+            t.Key("predicted"): t.Float,
+            t.Key("bin_weight"): t.Float,
+        }).ignore_extra("*")
+    )
+})
 
 
 class LiftChartBin(TypedDict):
@@ -81,14 +77,13 @@ class LiftChart(APIObject):
     """
 
     _converter = (
-        t.Dict(
-            {
-                t.Key("source"): String,
-                t.Key("source_model_id"): String,
-                t.Key("target_class", optional=True, default=None): t.Or(String, t.Null),
-                t.Key("data_slice_id", optional=True): t.Or(String, t.Null),
-            }
-        )
+        t
+        .Dict({
+            t.Key("source"): String,
+            t.Key("source_model_id"): String,
+            t.Key("target_class", optional=True, default=None): t.Or(String, t.Null),
+            t.Key("data_slice_id", optional=True): t.Or(String, t.Null),
+        })
         .merge(LiftChartBinsTrafaret)
         .ignore_extra("*")
     )

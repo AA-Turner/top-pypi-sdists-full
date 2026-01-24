@@ -5,15 +5,12 @@ This module handles parsing of XBRL calculation linkbases and building
 calculation trees with weights for validation.
 """
 
-import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from lxml import etree as ET
-
-from edgar.core import log
 from edgar.xbrl.core import NAMESPACES, extract_element_id
 from edgar.xbrl.models import CalculationNode, CalculationTree, ElementCatalog, Fact, XBRLProcessingError
+
 from .base import BaseParser
 
 
@@ -145,7 +142,9 @@ class CalculationParser(BaseParser):
             to_map[to_element].append(rel)
 
         # Find root elements (appear as 'from' but not as 'to')
-        root_elements = set(from_map.keys()) - set(to_map.keys())
+        # Issue #601: Sort to ensure deterministic ordering across Python processes
+        # (set iteration order depends on hash randomization which varies per process)
+        root_elements = sorted(set(from_map.keys()) - set(to_map.keys()))
 
         if not root_elements:
             return  # No root elements found
@@ -154,7 +153,7 @@ class CalculationParser(BaseParser):
         tree = CalculationTree(
             role_uri=role,
             definition=self.calculation_roles[role]['definition'],
-            root_element_id=next(iter(root_elements)),
+            root_element_id=root_elements[0],  # Use first sorted element
             all_nodes={}
         )
 
@@ -224,173 +223,3 @@ class CalculationParser(BaseParser):
                 if child_id in all_nodes:
                     all_nodes[child_id].weight = weight
                     all_nodes[child_id].order = rel['order']
-
-    def apply_calculation_weights(self) -> None:
-        """
-        Apply calculation weights to facts based on calculation linkbase information.
-
-        This method handles the application of negative weights from calculation arcs.
-        Per XBRL specification, a negative weight should flip the sign of a fact value
-        when used in calculations.
-
-        However, for certain expense concepts that should be consistently positive across
-        companies (e.g., R&D expenses), we preserve the original values to ensure
-        consistency with the SEC CompanyFacts API and proper cross-company comparisons.
-
-        This addresses issue #334: Inconsistent signs for R&D expenses across companies.
-        """
-        try:
-            # Create a mapping of normalized element IDs to their calculation nodes
-            element_to_calc_node = {}
-
-            # Populate the mapping from all calculation trees
-            for _role_uri, calc_tree in self.calculation_trees.items():
-                for element_id, node in calc_tree.all_nodes.items():
-                    # Always store with normalized element ID (underscore format)
-                    normalized_element_id = element_id.replace(':', '_') if ':' in element_id else element_id
-                    element_to_calc_node[normalized_element_id] = node
-
-            # Concepts that should remain consistently positive across companies
-            # These are expense concepts that represent costs/spending amounts
-            consistent_positive_concepts = {
-                # Research and Development Expenses
-                'us-gaap_ResearchAndDevelopmentExpense',
-                'us_gaap_ResearchAndDevelopmentExpense',
-                'ResearchAndDevelopmentExpense',
-
-                # Selling, General & Administrative Expenses
-                'us-gaap_SellingGeneralAndAdministrativeExpense',
-                'us_gaap_SellingGeneralAndAdministrativeExpense',
-                'SellingGeneralAndAdministrativeExpense',
-
-                # General and Administrative Expenses (separate from SG&A)
-                'us-gaap_GeneralAndAdministrativeExpense',
-                'us_gaap_GeneralAndAdministrativeExpense',
-                'GeneralAndAdministrativeExpense',
-
-                # Selling Expenses
-                'us-gaap_SellingExpense',
-                'us_gaap_SellingExpense',
-                'SellingExpense',
-
-                # Marketing and Advertising Expenses
-                'us-gaap_SellingAndMarketingExpense',
-                'us_gaap_SellingAndMarketingExpense',
-                'SellingAndMarketingExpense',
-                'us-gaap_MarketingExpense',
-                'us_gaap_MarketingExpense',
-                'MarketingExpense',
-                'us-gaap_AdvertisingExpense',
-                'us_gaap_AdvertisingExpense',
-                'AdvertisingExpense',
-
-                # Share-based Compensation Expenses
-                'us-gaap_AllocatedShareBasedCompensationExpense',
-                'us_gaap_AllocatedShareBasedCompensationExpense',
-                'AllocatedShareBasedCompensationExpense',
-                'us-gaap_ShareBasedCompensationArrangementByShareBasedPaymentAwardExpenseRecognized',
-                'us_gaap_ShareBasedCompensationArrangementByShareBasedPaymentAwardExpenseRecognized',
-                'ShareBasedCompensationArrangementByShareBasedPaymentAwardExpenseRecognized',
-
-                # Operating Expenses (general)
-                'us-gaap_OperatingExpenses',
-                'us_gaap_OperatingExpenses',
-                'OperatingExpenses',
-
-                # Professional Services Expenses
-                'us-gaap_ProfessionalServiceFees',
-                'us_gaap_ProfessionalServiceFees',
-                'ProfessionalServiceFees',
-
-                # Compensation and Benefits
-                'us-gaap_LaborAndRelatedExpense',
-                'us_gaap_LaborAndRelatedExpense',
-                'LaborAndRelatedExpense',
-                'us-gaap_EmployeeBenefitsExpense',
-                'us_gaap_EmployeeBenefitsExpense',
-                'EmployeeBenefitsExpense'
-            }
-
-            # Concepts that can legitimately be negative (benefits, credits, reversals)
-            # These should NOT be forced positive even if they have negative calculation weights
-            legitimate_negative_concepts = {
-                # Tax benefits and credits
-                'us-gaap_IncomeTaxExpenseBenefit',
-                'us_gaap_IncomeTaxExpenseBenefit',
-                'IncomeTaxExpenseBenefit',
-                'us-gaap_IncomeTaxRecoveryExpense',
-                'us_gaap_IncomeTaxRecoveryExpense',
-                'IncomeTaxRecoveryExpense',
-
-                # Interest expense/income that can be net negative
-                'us-gaap_InterestIncomeExpenseNet',
-                'us_gaap_InterestIncomeExpenseNet',
-                'InterestIncomeExpenseNet',
-
-                # Foreign exchange gains/losses
-                'us-gaap_ForeignCurrencyTransactionGainLossBeforeTax',
-                'us_gaap_ForeignCurrencyTransactionGainLossBeforeTax',
-                'ForeignCurrencyTransactionGainLossBeforeTax',
-
-                # Restructuring reversals/credits
-                'us-gaap_RestructuringChargesAndReversals',
-                'us_gaap_RestructuringChargesAndReversals',
-                'RestructuringChargesAndReversals'
-            }
-
-            # Apply calculation weights to facts
-            adjusted_count = 0
-            preserved_count = 0
-
-            # Find and adjust facts with negative weights
-            for fact_key, fact in list(self.facts.items()):
-                # Normalize the element ID for lookup
-                element_id = fact.element_id
-                normalized_element_id = element_id.replace(':', '_') if ':' in element_id else element_id
-
-                # Look up the calculation node using the normalized element ID
-                calc_node = element_to_calc_node.get(normalized_element_id)
-
-                # Apply negative weights if found
-                if calc_node and calc_node.weight < 0:
-                    # Check if this is a concept that can legitimately be negative
-                    if normalized_element_id in legitimate_negative_concepts:
-                        # Allow normal calculation weight processing for legitimate negatives
-                        pass
-                    # Check if this is a concept that should remain consistently positive
-                    elif normalized_element_id in consistent_positive_concepts:
-                        # Preserve the original positive value for consistency
-                        preserved_count += 1
-                        log.debug(f"Preserved positive value for {fact.element_id}: {fact.numeric_value} "
-                                f"(ignoring calculation weight {calc_node.weight})")
-                        continue
-
-                    if fact.numeric_value is not None:
-                        # Store original for logging
-                        original_value = fact.numeric_value
-
-                        # Apply the weight (negate the value)
-                        fact.numeric_value = -fact.numeric_value
-
-                        # Also update the string value if present
-                        if fact.value:
-                            # Handle positive values
-                            if not fact.value.startswith('-'):
-                                fact.value = f"-{fact.value}"
-                            # Handle negative values
-                            else:
-                                fact.value = fact.value[1:]
-
-                        # Update fact in the dictionary
-                        self.facts[fact_key] = fact
-                        adjusted_count += 1
-
-                        log.debug(f"Adjusted fact {fact.element_id}: {original_value} -> {fact.numeric_value}")
-
-            log.debug(f"Applied calculation weights to {adjusted_count} facts, preserved {preserved_count} facts")
-
-        except Exception as e:
-            # Log the error but don't fail the entire parsing process
-            log.warning(f"Warning: Error applying calculation weights: {str(e)}")
-            # Include stack trace for debugging
-            log.debug(traceback.format_exc())

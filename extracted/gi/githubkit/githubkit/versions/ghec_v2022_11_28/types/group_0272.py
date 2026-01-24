@@ -9,33 +9,39 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+from typing import Union
 from typing_extensions import NotRequired, TypedDict
 
 
-class ActionsCacheListType(TypedDict):
-    """Repository actions caches
+class ApiInsightsUserStatsItemsType(TypedDict):
+    """ApiInsightsUserStatsItems"""
 
-    Repository actions caches
-    """
+    actor_type: NotRequired[str]
+    actor_name: NotRequired[str]
+    actor_id: NotRequired[int]
+    integration_id: NotRequired[Union[int, None]]
+    oauth_application_id: NotRequired[Union[int, None]]
+    total_request_count: NotRequired[int]
+    rate_limited_request_count: NotRequired[int]
+    last_rate_limited_timestamp: NotRequired[Union[str, None]]
+    last_request_timestamp: NotRequired[str]
 
-    total_count: int
-    actions_caches: list[ActionsCacheListPropActionsCachesItemsType]
 
+class ApiInsightsUserStatsItemsTypeForResponse(TypedDict):
+    """ApiInsightsUserStatsItems"""
 
-class ActionsCacheListPropActionsCachesItemsType(TypedDict):
-    """ActionsCacheListPropActionsCachesItems"""
-
-    id: NotRequired[int]
-    ref: NotRequired[str]
-    key: NotRequired[str]
-    version: NotRequired[str]
-    last_accessed_at: NotRequired[datetime]
-    created_at: NotRequired[datetime]
-    size_in_bytes: NotRequired[int]
+    actor_type: NotRequired[str]
+    actor_name: NotRequired[str]
+    actor_id: NotRequired[int]
+    integration_id: NotRequired[Union[int, None]]
+    oauth_application_id: NotRequired[Union[int, None]]
+    total_request_count: NotRequired[int]
+    rate_limited_request_count: NotRequired[int]
+    last_rate_limited_timestamp: NotRequired[Union[str, None]]
+    last_request_timestamp: NotRequired[str]
 
 
 __all__ = (
-    "ActionsCacheListPropActionsCachesItemsType",
-    "ActionsCacheListType",
+    "ApiInsightsUserStatsItemsType",
+    "ApiInsightsUserStatsItemsTypeForResponse",
 )

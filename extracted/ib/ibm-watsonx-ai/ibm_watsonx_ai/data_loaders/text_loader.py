@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -9,11 +9,12 @@ __all__ = ["TextLoader"]
 import io
 import json
 import logging
-from queue import Empty
-from typing import TYPE_CHECKING, Any, Iterator
+from queue import Empty, Queue
+from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 from ibm_watsonx_ai.helpers.remote_document import RemoteDocument
 from ibm_watsonx_ai.utils import DisableWarningsLogger
+from ibm_watsonx_ai.utils.utils import is_lib_installed
 from ibm_watsonx_ai.wml_client_error import (
     LoadingDocumentError,
     MissingExtension,
@@ -36,10 +37,14 @@ def _prepare_iterator(el: Any) -> Iterator[Any]:
         yield el
 
 
-def _asynch_download(load_doc):
+def _asynch_download(
+    load_doc: Callable[[RemoteDocument], Any],
+) -> Callable[[tuple[Queue[tuple[int, RemoteDocument]], list[Queue[Any]]]], None]:
     """Helper function for parallel downloading documents (full asynchronous version)."""
 
-    def asynch_download(args):
+    def asynch_download(
+        args: tuple[Queue[tuple[int, RemoteDocument]], list[Queue[Any]]],
+    ) -> None:
         (q_input, qs_output) = args
 
         while True:
@@ -55,15 +60,18 @@ def _asynch_download(load_doc):
                         "End"
                     )  # send signal that no more data will be sent via this queue
                 except Exception as e:
+                    error_msg: Exception = e
                     if "cryptography>=3.1 is required for AES algorithm" in str(e):
-                        e = "Encrypted files are not supported. Please decrypt your file and try again."
+                        error_msg = Exception(
+                            "Encrypted files are not supported. Please decrypt your file and try again."
+                        )
                     elif "cipher" in str(e) and "not supported" in str(e):
-                        e = (
+                        error_msg = Exception(
                             "Legacy cryptographic algorithm usage detected. To proceed with their use, "
                             "clear the CRYPTOGRAPHY_OPENSSL_NO_LEGACY environment variable before importing "
                             "ibm_watsonx_ai. Support for these algorithms is being phased out, use at your own risk."
                         )
-                    qs_output[i].put(LoadingDocumentError(doc.document_id, e))
+                    qs_output[i].put(LoadingDocumentError(doc.document_id, error_msg))
             except Empty:
                 return
 
@@ -86,13 +94,17 @@ class TextLoader:
         """
         Load text from bytearray data.
         """
-        try:
-            from langchain_core.documents import Document as LCDocument
-        except ImportError:
-            raise MissingExtension("langchain-core")
+        if not is_lib_installed(ext := "langchain-core"):
+            raise MissingExtension(ext, extra_info="rag")
 
-        file_content = getattr(self.file, "content", None)
-        document_id = getattr(self.file, "document_id", None)
+        from langchain_core.documents import Document as LCDocument
+
+        file_content: bytes | None = getattr(self.file, "content", None)
+        if file_content is None:
+            raise WMLClientError("File content is required.")
+        document_id: str | None = getattr(self.file, "document_id", None)
+        if document_id is None:
+            raise WMLClientError("Document ID is required.")
         file_type = self.identify_file_type(document_id)
 
         file_type_handlers = {
@@ -164,10 +176,10 @@ class TextLoader:
 
     @staticmethod
     def _docs_to_string(binary_data: bytes) -> str:
-        try:
-            from docx import Document as DocxDocument
-        except ImportError:
-            raise MissingExtension("python-docx")
+        if not is_lib_installed(ext := "python-docx"):
+            raise MissingExtension(ext, extra_info="rag")
+
+        from docx import Document as DocxDocument
 
         with io.BytesIO(binary_data) as open_docx_file:
             doc = DocxDocument(open_docx_file)
@@ -176,10 +188,10 @@ class TextLoader:
 
     @staticmethod
     def _pdf_to_string(binary_data: bytes) -> str:
-        try:
-            from pypdf import PdfReader
-        except ImportError:
-            raise MissingExtension("pypdf")
+        if not is_lib_installed(ext := "pypdf"):
+            raise MissingExtension(ext, extra_info="rag")
+
+        from pypdf import PdfReader
 
         with io.BytesIO(binary_data) as open_pdf_file:
             with DisableWarningsLogger():
@@ -189,24 +201,25 @@ class TextLoader:
 
     @staticmethod
     def _html_to_string(binary_data: bytes) -> str:
-        try:
-            from bs4 import BeautifulSoup
-        except ImportError:
-            raise MissingExtension("beautifulsoup4")
+        if not is_lib_installed(ext := "beautifulsoup4"):
+            raise MissingExtension(ext, extra_info="rag")
+
+        from bs4 import BeautifulSoup
 
         soup = BeautifulSoup(binary_data, "html.parser")
         return soup.get_text()
 
     @staticmethod
     def _md_to_string(binary_data: bytes) -> str:
-        try:
-            from markdown import markdown
-        except ImportError:
-            raise MissingExtension("markdown")
-        try:
-            from bs4 import BeautifulSoup
-        except ImportError:
-            raise MissingExtension("beautifulsoup4")
+        if not is_lib_installed(ext := "markdown"):
+            raise MissingExtension(ext, extra_info="rag")
+
+        from markdown import markdown
+
+        if not is_lib_installed(ext := "beautifulsoup4"):
+            raise MissingExtension(ext, extra_info="rag")
+
+        from bs4 import BeautifulSoup
 
         md = binary_data.decode("utf-8", errors="ignore")
         html = markdown(md)
@@ -215,10 +228,10 @@ class TextLoader:
 
     @staticmethod
     def _pptx_to_string(binary_data: bytes) -> str:
-        try:
-            from pptx import Presentation
-        except ImportError:
-            raise MissingExtension("python-pptx")
+        if not is_lib_installed(ext := "python-pptx"):
+            raise MissingExtension(ext, extra_info="rag")
+
+        from pptx import Presentation
 
         prs = Presentation(io.BytesIO(binary_data))
         result = [
@@ -272,22 +285,26 @@ class TextLoader:
     def _xml_to_string(cls, binary_data: bytes) -> str:
         from xml.etree import ElementTree
 
-        def xml_element_parser(elem: ElementTree.Element) -> list[dict | str]:
-            result = [dict(elem.attrib), {}]
+        def xml_element_parser(elem: ElementTree.Element) -> list[dict[str, Any] | str]:
+            result: list[dict[str, Any] | str] = [dict(elem.attrib), {}]
 
             children = list(elem)
             if children:
+                children_first_element: dict[str, Any] = result[1]  # type:ignore[assignment]
                 for child in children:
                     child_tag = child.tag
                     child_data = xml_element_parser(child)
 
-                    if child_tag in result[1]:
-                        if isinstance(result[1][child_tag], list):
-                            result[1][child_tag].append(child_data)
+                    if child_tag in children_first_element:
+                        if isinstance(children_first_element[child_tag], list):
+                            children_first_element[child_tag].append(child_data)
                         else:
-                            result[1][child_tag] = [result[1][child_tag], child_data]
+                            children_first_element[child_tag] = [
+                                children_first_element[child_tag],
+                                child_data,
+                            ]
                     else:
-                        result[1][child_tag] = child_data
+                        children_first_element[child_tag] = child_data
 
             # Add element text to the result list if exists, at 2nd place after attribute
             if text := (elem.text or "").strip():
@@ -296,7 +313,7 @@ class TextLoader:
             return result
 
         root = ElementTree.fromstring(binary_data)
-        root_result = []
+        root_result: list[dict[str, Any] | str] = []
 
         if root.attrib:
             root_result.append(root.attrib)
@@ -307,7 +324,7 @@ class TextLoader:
             parsed_child = xml_element_parser(child)
             root_result.append({child.tag: parsed_child})
 
-        result = {root.tag: root_result}
+        result: dict[str, Any] = {root.tag: root_result}
 
         return "\n\n".join(cls._extract_content_from_py_structure(result))
 
@@ -315,7 +332,7 @@ class TextLoader:
     def _df_to_key_value_str(cls, df: "DataFrame") -> str:
         selected_dtypes = df.select_dtypes(
             include=["datetime64", "datetime"]
-        )  # for readibility of converted columns
+        )  # for readability of converted columns
         df[selected_dtypes.columns] = selected_dtypes.astype(str)
 
         return "\n".join(

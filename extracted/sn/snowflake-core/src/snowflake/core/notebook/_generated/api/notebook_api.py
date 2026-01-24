@@ -466,7 +466,7 @@ class NotebookApi:
         # process the body parameter
         _body_params = None
 
-        if _params["notebook"]:
+        if _params["notebook"] is not None:
             _body_params = _params["notebook"]
 
         # set the HTTP header `Accept`

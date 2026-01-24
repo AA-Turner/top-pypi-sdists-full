@@ -19,8 +19,15 @@ from typing import (
     Union,
 )
 
-from llama_stack_client.types import CompletionMessage, Message, ToolResponse
-from llama_stack_client.types.tool_def_param import Parameter, ToolDefParam
+from typing_extensions import TypedDict
+
+from .types import CompletionMessage, Message, ToolDefinition, ToolResponse
+
+
+class JSONSchema(TypedDict, total=False):
+    type: str
+    properties: Dict[str, Any]
+    required: List[str]
 
 
 class ClientTool:
@@ -46,29 +53,19 @@ class ClientTool:
         raise NotImplementedError
 
     @abstractmethod
-    def get_params_definition(self) -> Dict[str, Parameter]:
+    def get_input_schema(self) -> JSONSchema:
         raise NotImplementedError
 
     def get_instruction_string(self) -> str:
         return f"Use the function '{self.get_name()}' to: {self.get_description()}"
 
-    def parameters_for_system_prompt(self) -> str:
-        return json.dumps(
-            {
-                "name": self.get_name(),
-                "description": self.get_description(),
-                "parameters": {name: definition for name, definition in self.get_params_definition().items()},
-            }
-        )
-
-    def get_tool_definition(self) -> ToolDefParam:
-        return ToolDefParam(
-            name=self.get_name(),
-            description=self.get_description(),
-            parameters=list(self.get_params_definition().values()),
-            metadata={},
-            tool_prompt_format="python_list",
-        )
+    def get_tool_definition(self) -> ToolDefinition:
+        return {
+            "type": "function",
+            "name": self.get_name(),
+            "description": self.get_description(),
+            "parameters": self.get_input_schema(),
+        }
 
     def run(
         self,
@@ -82,13 +79,7 @@ class ClientTool:
 
         metadata = {}
         try:
-            if tool_call.arguments_json is not None:
-                params = json.loads(tool_call.arguments_json)
-            elif isinstance(tool_call.arguments, str):
-                params = json.loads(tool_call.arguments)
-            else:
-                params = tool_call.arguments
-
+            params = json.loads(tool_call.arguments)
             response = self.run_impl(**params)
             if isinstance(response, dict) and "content" in response:
                 content = json.dumps(response["content"], ensure_ascii=False)
@@ -114,7 +105,8 @@ class ClientTool:
         tool_call = last_message.tool_calls[0]
         metadata = {}
         try:
-            response = await self.async_run_impl(**tool_call.arguments)
+            params = json.loads(tool_call.arguments)
+            response = await self.async_run_impl(**params)
             if isinstance(response, dict) and "content" in response:
                 content = json.dumps(response["content"], ensure_ascii=False)
                 metadata = response.get("metadata", {})
@@ -145,6 +137,37 @@ class ClientTool:
 
 
 T = TypeVar("T", bound=Callable)
+
+
+def _python_type_to_json_schema_type(type_hint: Any) -> str:
+    """Convert Python type hints to JSON Schema type strings."""
+    # Handle Union types (e.g., Optional[str])
+    origin = get_origin(type_hint)
+    if origin is Union:
+        # Get non-None types from Union
+        args = [arg for arg in get_args(type_hint) if arg is not type(None)]
+        if args:
+            type_hint = args[0]  # Use first non-None type
+
+    # Get the actual type if it's a generic
+    if hasattr(type_hint, "__origin__"):
+        type_hint = type_hint.__origin__
+
+    # Map Python types to JSON Schema types
+    type_name = getattr(type_hint, "__name__", str(type_hint))
+
+    type_mapping = {
+        "bool": "boolean",
+        "int": "integer",
+        "float": "number",
+        "str": "string",
+        "list": "array",
+        "dict": "object",
+        "List": "array",
+        "Dict": "object",
+    }
+
+    return type_mapping.get(type_name, "string")  # Default to string if unknown
 
 
 def client_tool(func: T) -> ClientTool:
@@ -187,13 +210,14 @@ def client_tool(func: T) -> ClientTool:
                     f"No description found for client tool {__name__}. Please provide a RST-style docstring with description and :param tags for each parameter."
                 )
 
-        def get_params_definition(self) -> Dict[str, Parameter]:
+        def get_input_schema(self) -> JSONSchema:
             hints = get_type_hints(func)
             # Remove return annotation if present
             hints.pop("return", None)
 
             # Get parameter descriptions from docstring
-            params = {}
+            properties = {}
+            required = []
             sig = inspect.signature(func)
             doc = inspect.getdoc(func) or ""
 
@@ -211,15 +235,20 @@ def client_tool(func: T) -> ClientTool:
                 param = sig.parameters[name]
                 is_optional_type = get_origin(type_hint) is Union and type(None) in get_args(type_hint)
                 is_required = param.default == inspect.Parameter.empty and not is_optional_type
-                params[name] = Parameter(
-                    name=name,
-                    description=param_doc or f"Parameter {name}",
-                    parameter_type=type_hint.__name__,
-                    default=(param.default if param.default != inspect.Parameter.empty else None),
-                    required=is_required,
-                )
 
-            return params
+                properties[name] = {
+                    "type": _python_type_to_json_schema_type(type_hint),
+                    "description": param_doc,
+                }
+
+                if is_required:
+                    required.append(name)
+
+            return {
+                "type": "object",
+                "properties": properties,
+                "required": required,
+            }
 
         def run_impl(self, **kwargs) -> Any:
             if inspect.iscoroutinefunction(func):

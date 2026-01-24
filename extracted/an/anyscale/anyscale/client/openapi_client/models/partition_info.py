@@ -34,25 +34,29 @@ class PartitionInfo(object):
     """
     openapi_types = {
         'partition_name': 'str',
+        'machine_type': 'str',
         'allocation_states': 'dict(str, int)'
     }
 
     attribute_map = {
         'partition_name': 'partition_name',
+        'machine_type': 'machine_type',
         'allocation_states': 'allocation_states'
     }
 
-    def __init__(self, partition_name=None, allocation_states=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, partition_name=None, machine_type=None, allocation_states=None, local_vars_configuration=None):  # noqa: E501
         """PartitionInfo - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._partition_name = None
+        self._machine_type = None
         self._allocation_states = None
         self.discriminator = None
 
         self.partition_name = partition_name
+        self.machine_type = machine_type
         self.allocation_states = allocation_states
 
     @property
@@ -79,6 +83,31 @@ class PartitionInfo(object):
             raise ValueError("Invalid value for `partition_name`, must not be `None`")  # noqa: E501
 
         self._partition_name = partition_name
+
+    @property
+    def machine_type(self):
+        """Gets the machine_type of this PartitionInfo.  # noqa: E501
+
+        The type of the machine.  # noqa: E501
+
+        :return: The machine_type of this PartitionInfo.  # noqa: E501
+        :rtype: str
+        """
+        return self._machine_type
+
+    @machine_type.setter
+    def machine_type(self, machine_type):
+        """Sets the machine_type of this PartitionInfo.
+
+        The type of the machine.  # noqa: E501
+
+        :param machine_type: The machine_type of this PartitionInfo.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and machine_type is None:  # noqa: E501
+            raise ValueError("Invalid value for `machine_type`, must not be `None`")  # noqa: E501
+
+        self._machine_type = machine_type
 
     @property
     def allocation_states(self):

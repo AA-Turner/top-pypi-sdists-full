@@ -3,14 +3,15 @@ use crate::{
     abstraction::{
         AutosarAbstractionError, ByteOrder, abstraction_err_to_pyerr,
         communication::{
-            ContainedIPduProps, ISignal, ISignalGroup, PduTriggering, TransferProperty,
+            CommunicationDirection, ContainedIPduProps, ISignal, ISignalGroup, PduTriggering,
+            TransferProperty,
         },
     },
     iterator_wrapper,
 };
 use autosar_data_abstraction::{
     self, AbstractionElement, IdentifiableAbstractionElement,
-    communication::{AbstractIpdu, AbstractPdu},
+    communication::{AbstractIpdu, AbstractPdu, SignalPdu},
 };
 use pyo3::prelude::*;
 
@@ -33,6 +34,15 @@ impl ISignalIPdu {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -178,6 +188,15 @@ impl ISignalToIPduMapping {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -278,7 +297,7 @@ pub(crate) struct IpduTiming {
 
 impl From<autosar_data_abstraction::communication::IpduTiming> for IpduTiming {
     fn from(timing: autosar_data_abstraction::communication::IpduTiming) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             minimum_delay: timing.minimum_delay,
             transmission_mode_true_timing: timing
                 .transmission_mode_true_timing
@@ -292,7 +311,7 @@ impl From<autosar_data_abstraction::communication::IpduTiming> for IpduTiming {
 
 impl From<&IpduTiming> for autosar_data_abstraction::communication::IpduTiming {
     fn from(timing: &IpduTiming) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             minimum_delay: timing.minimum_delay,
             transmission_mode_true_timing: timing
                 .transmission_mode_true_timing
@@ -332,7 +351,7 @@ impl IpduTiming {
 
 impl std::fmt::Debug for IpduTiming {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let mut ds = f.debug_struct("IpduTiming");
             match &self.minimum_delay {
                 Some(value) => {
@@ -365,7 +384,7 @@ impl std::fmt::Debug for IpduTiming {
 
 impl PartialEq for IpduTiming {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py|
+        Python::attach(|py|
         match (&self.transmission_mode_true_timing, &other.transmission_mode_true_timing) {
             (Some(a), Some(b)) => *a.borrow(py) == *b.borrow(py),
             (None, None) => true,
@@ -399,7 +418,7 @@ impl From<autosar_data_abstraction::communication::TransmissionModeTiming>
     for TransmissionModeTiming
 {
     fn from(timing: autosar_data_abstraction::communication::TransmissionModeTiming) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             cyclic_timing: timing
                 .cyclic_timing
                 .map(|value| Py::new(py, CyclicTiming::from(value)).unwrap()),
@@ -414,7 +433,7 @@ impl From<&TransmissionModeTiming>
     for autosar_data_abstraction::communication::TransmissionModeTiming
 {
     fn from(timing: &TransmissionModeTiming) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             cyclic_timing: timing
                 .cyclic_timing
                 .as_ref()
@@ -451,7 +470,7 @@ impl TransmissionModeTiming {
 
 impl std::fmt::Debug for TransmissionModeTiming {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let mut ds = f.debug_struct("TransmissionModeTiming");
             match &self.cyclic_timing {
                 Some(value) => {
@@ -476,7 +495,7 @@ impl std::fmt::Debug for TransmissionModeTiming {
 
 impl PartialEq for TransmissionModeTiming {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py|
+        Python::attach(|py|
         match (&self.cyclic_timing, &other.cyclic_timing) {
             (Some(a), Some(b)) => *a.borrow(py) == *b.borrow(py),
             (None, None) => true,
@@ -614,3 +633,87 @@ impl EventControlledTiming {
         format!("{self:#?}")
     }
 }
+
+//##################################################################
+
+/// `ISignalIPduGroup`
+#[pyclass(
+    frozen,
+    eq,
+    module = "autosar_data._autosar_data._abstraction._communication"
+)]
+#[derive(Clone, PartialEq)]
+pub(crate) struct ISignalIPduGroup(
+    pub(crate) autosar_data_abstraction::communication::ISignalIPduGroup,
+);
+
+#[pymethods]
+impl ISignalIPduGroup {
+    #[new]
+    fn new(element: &Element) -> PyResult<Self> {
+        match autosar_data_abstraction::communication::ISignalIPduGroup::try_from(element.0.clone())
+        {
+            Ok(value) => Ok(Self(value)),
+            Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
+        }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
+    #[setter]
+    fn set_name(&self, name: &str) -> PyResult<()> {
+        self.0.set_name(name).map_err(abstraction_err_to_pyerr)
+    }
+
+    #[getter]
+    fn name(&self) -> Option<String> {
+        self.0.name()
+    }
+
+    #[getter]
+    fn element(&self) -> Element {
+        Element(self.0.element().clone())
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:#?}", self.0)
+    }
+
+    /// Set the communication direction
+    #[setter]
+    fn set_communication_direction(
+        &self,
+        communication_direction: CommunicationDirection,
+    ) -> PyResult<()> {
+        self.0
+            .set_communication_direction(communication_direction.into())
+            .map_err(abstraction_err_to_pyerr)
+    }
+
+    /// Get the communication direction
+    #[getter]
+    fn communication_direction(&self) -> Option<CommunicationDirection> {
+        self.0.communication_direction().map(Into::into)
+    }
+
+    /// add a PDU to the PDU group
+    fn add_pdu(&self, pdu: &ISignalIPdu) -> PyResult<()> {
+        self.0.add_pdu(&pdu.0).map_err(abstraction_err_to_pyerr)
+    }
+
+    /// get an iterator over all PDUs in the PDU group
+    fn pdus(&self) -> ISignalIPduIterator {
+        ISignalIPduIterator::new(self.0.pdus().map(ISignalIPdu))
+    }
+}
+
+//##################################################################
+
+iterator_wrapper!(ISignalIPduIterator, ISignalIPdu);

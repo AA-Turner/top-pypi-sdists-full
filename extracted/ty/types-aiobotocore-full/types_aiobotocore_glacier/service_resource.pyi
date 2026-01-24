@@ -3,7 +3,7 @@ Type annotations for glacier service ServiceResource.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glacier/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -29,6 +29,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import AsyncIterator, Awaitable, Sequence
 from typing import NoReturn
 
 from aioboto3.resources.base import AIOBoto3ServiceResource
@@ -60,11 +61,6 @@ try:
     from boto3.resources.base import ResourceMeta
 except ImportError:
     from builtins import object as ResourceMeta  # type: ignore[assignment]
-if sys.version_info >= (3, 9):
-    from builtins import list as List
-    from collections.abc import AsyncIterator, Awaitable, Sequence
-else:
-    from typing import AsyncIterator, Awaitable, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -133,7 +129,7 @@ class ServiceResourceVaultsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Vault]]:
+    ) -> AsyncIterator[list[Vault]]:
         """
         A generator which yields pages of Vaults.
 
@@ -201,7 +197,7 @@ class AccountVaultsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Vault]]:
+    ) -> AsyncIterator[list[Vault]]:
         """
         A generator which yields pages of Vaults.
 
@@ -269,7 +265,7 @@ class VaultCompletedJobsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Job]]:
+    ) -> AsyncIterator[list[Job]]:
         """
         A generator which yields pages of Jobs.
 
@@ -337,7 +333,7 @@ class VaultFailedJobsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Job]]:
+    ) -> AsyncIterator[list[Job]]:
         """
         A generator which yields pages of Jobs.
 
@@ -405,7 +401,7 @@ class VaultJobsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Job]]:
+    ) -> AsyncIterator[list[Job]]:
         """
         A generator which yields pages of Jobs.
 
@@ -473,7 +469,7 @@ class VaultJobsInProgressCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Job]]:
+    ) -> AsyncIterator[list[Job]]:
         """
         A generator which yields pages of Jobs.
 
@@ -541,7 +537,7 @@ class VaultMultipartUplaodsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[MultipartUpload]]:
+    ) -> AsyncIterator[list[MultipartUpload]]:
         """
         A generator which yields pages of MultipartUploads.
 
@@ -609,7 +605,7 @@ class VaultMultipartUploadsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[MultipartUpload]]:
+    ) -> AsyncIterator[list[MultipartUpload]]:
         """
         A generator which yields pages of MultipartUploads.
 
@@ -677,7 +673,7 @@ class VaultSucceededJobsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Job]]:
+    ) -> AsyncIterator[list[Job]]:
         """
         A generator which yields pages of Jobs.
 
@@ -894,9 +890,9 @@ class MultipartUpload(AIOBoto3ServiceResource):
         self, **kwargs: Unpack[CompleteMultipartUploadInputMultipartUploadCompleteTypeDef]
     ) -> ArchiveCreationOutputTypeDef:
         """
-        You call this operation to inform Amazon S3 Glacier (Glacier) that all the
-        archive parts have been uploaded and that Glacier can now assemble the archive
-        from the uploaded parts.
+        You call this operation to inform Amazon Glacier (Glacier) that all the archive
+        parts have been uploaded and that Glacier can now assemble the archive from the
+        uploaded parts.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glacier/multipartupload/complete.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glacier/service_resource/#multipartuploadcomplete-method)
@@ -942,7 +938,7 @@ class Notification(AIOBoto3ServiceResource):
     account_id: str
     vault_name: str
     sns_topic: Awaitable[str]
-    events: Awaitable[List[str]]
+    events: Awaitable[list[str]]
     meta: GlacierResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:

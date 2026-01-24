@@ -1,7 +1,8 @@
 import inspect
 import warnings
 
-from traitlets import TraitType, TraitError, Undefined, Sentinel
+from traitlets import TraitType, TraitError, Undefined
+from .utils import Sentinel
 
 class _DelayedImportError(object):
     def __init__(self, package_name):
@@ -154,18 +155,20 @@ class PandasType(SciType):
                 not old_value.equals(new_value)):
             obj._notify_trait(self.name, old_value, new_value)
 
-    def __init__(self, default_value=Empty, allow_none=False, klass=None, **kwargs):
+    def __init__(self, default_value=Empty, allow_none=False, klass=None, klass_kwargs=None, **kwargs):
         if klass is None:
             klass = self.klass
+        if klass_kwargs is None:
+            klass_kwargs = {}
         if (klass is not None) and inspect.isclass(klass):
             self.klass = klass
         else:
             raise TraitError('The klass attribute must be a class'
                                 ' not: %r' % klass)
         if default_value is Empty:
-            default_value = klass()
+            default_value = klass(**klass_kwargs)
         elif default_value is not None and default_value is not Undefined:
-            default_value = klass(default_value)
+            default_value = klass(default_value, **klass_kwargs)
         super(PandasType, self).__init__(default_value=default_value, allow_none=allow_none, **kwargs)
 
     def make_dynamic_default(self):
@@ -186,7 +189,8 @@ class DataFrame(PandasType):
             import pandas as pd
             kwargs['klass'] = pd.DataFrame
         super(DataFrame, self).__init__(
-            default_value=default_value, allow_none=allow_none, dtype=dtype, **kwargs)
+            default_value=default_value, allow_none=allow_none, **kwargs)
+        self.tag(dtype=dtype)
 
 
 class Series(PandasType):
@@ -200,8 +204,11 @@ class Series(PandasType):
         if 'klass' not in kwargs and self.klass is None:
             import pandas as pd
             kwargs['klass'] = pd.Series
+        if dtype is None:
+            dtype = np.float64
         super(Series, self).__init__(
-            default_value=default_value, allow_none=allow_none, dtype=dtype, **kwargs)
+            default_value=default_value, allow_none=allow_none, klass_kwargs={"dtype": dtype}, **kwargs)
+        self.tag(dtype=dtype)
         self.dtype = dtype
 
 
@@ -265,7 +272,8 @@ class Dataset(XarrayType):
             import xarray as xr
             kwargs['klass'] = xr.Dataset
         super(Dataset, self).__init__(
-            default_value=default_value, allow_none=allow_none, dtype=dtype, **kwargs)
+            default_value=default_value, allow_none=allow_none, **kwargs)
+        self.tag(dtype=dtype)
 
 
 class DataArray(XarrayType):
@@ -280,5 +288,6 @@ class DataArray(XarrayType):
             import xarray as xr
             kwargs['klass'] = xr.DataArray
         super(DataArray, self).__init__(
-            default_value=default_value, allow_none=allow_none, dtype=dtype, **kwargs)
+            default_value=default_value, allow_none=allow_none, **kwargs)
+        self.tag(dtype=dtype)
         self.dtype = dtype

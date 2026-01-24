@@ -60,7 +60,7 @@ class Eth2Swap(object):
     def side(self):
         """Gets the side of this Eth2Swap.  # noqa: E501
 
-        1-Forward Swap (ETH -> ETH2), 2-Reverse Swap (ETH2 -> ETH)  # noqa: E501
+        1-Forward Swap (ETH -> GTETH), 2-Reverse Swap (GTETH -> ETH)  # noqa: E501
 
         :return: The side of this Eth2Swap.  # noqa: E501
         :rtype: str
@@ -71,7 +71,7 @@ class Eth2Swap(object):
     def side(self, side):
         """Sets the side of this Eth2Swap.
 
-        1-Forward Swap (ETH -> ETH2), 2-Reverse Swap (ETH2 -> ETH)  # noqa: E501
+        1-Forward Swap (ETH -> GTETH), 2-Reverse Swap (GTETH -> ETH)  # noqa: E501
 
         :param side: The side of this Eth2Swap.  # noqa: E501
         :type: str

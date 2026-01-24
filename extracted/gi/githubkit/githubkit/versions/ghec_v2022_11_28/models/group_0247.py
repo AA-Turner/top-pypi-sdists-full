@@ -9,37 +9,27 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
 
+class ActionsPublicKey(GitHubModel):
+    """ActionsPublicKey
 
-class ProjectsV2DraftIssue(GitHubModel):
-    """Draft Issue
-
-    A draft issue in a project
+    The public key used for setting Actions Secrets.
     """
 
-    id: float = Field(description="The ID of the draft issue")
-    node_id: str = Field(description="The node ID of the draft issue")
-    title: str = Field(description="The title of the draft issue")
-    body: Missing[Union[str, None]] = Field(
-        default=UNSET, description="The body content of the draft issue"
-    )
-    user: Union[None, SimpleUser] = Field()
-    created_at: datetime = Field(description="The time the draft issue was created")
-    updated_at: datetime = Field(
-        description="The time the draft issue was last updated"
-    )
+    key_id: str = Field(description="The identifier for the key.")
+    key: str = Field(description="The Base64 encoded public key.")
+    id: Missing[int] = Field(default=UNSET)
+    url: Missing[str] = Field(default=UNSET)
+    title: Missing[str] = Field(default=UNSET)
+    created_at: Missing[str] = Field(default=UNSET)
 
 
-model_rebuild(ProjectsV2DraftIssue)
+model_rebuild(ActionsPublicKey)
 
-__all__ = ("ProjectsV2DraftIssue",)
+__all__ = ("ActionsPublicKey",)

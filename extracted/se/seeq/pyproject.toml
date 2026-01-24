@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=65.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "seeq"
+version = "66.96.0.20260118"
+description = "The Seeq SDK for Python"
+readme = "README.md"
+requires-python = ">=2.7"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Seeq Corporation", email = "support@seeq.com" }
+]
+classifiers = [
+    "Programming Language :: Python :: 2",
+    "Programming Language :: Python :: 3",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "certifi >= 14.05.14",
+    "six >= 1.10",
+    "urllib3 >= 1.15.1, < 3.0.0",
+    "requests >= 2.21.0",
+    "cryptography >= 3.2",
+]
+[project.urls]
+Homepage = "https://www.seeq.com"
+Documentation = "https://python-docs.seeq.com/"
+Changelog = "https://python-docs.seeq.com/changelog.html"
+
+[tool.setuptools]
+# Package discovery configuration
+# Metadata comes from [project] section above to prevent Dynamic fields
+packages = { find = { include = ["seeq.sdk", "seeq.sdk.*"] } }
+# A bug exists in setuptools where license-files is incorrectly marked as dynamic. Rely on `license` above, which
+# inlines the file, but is at least valid. https://github.com/pypa/setuptools/issues/4960
+license-files = []
+
+# Explicitly declare no dynamic fields to prevent setuptools from marking fields as dynamic
+# when setup.py is present
+[tool.setuptools.dynamic]
+# Empty - no dynamic fields
+

@@ -301,6 +301,12 @@ __all__ = [
     'HumanTaskUIUiTemplateArgsDict',
     'ModelContainerArgs',
     'ModelContainerArgsDict',
+    'ModelContainerAdditionalModelDataSourceArgs',
+    'ModelContainerAdditionalModelDataSourceArgsDict',
+    'ModelContainerAdditionalModelDataSourceS3DataSourceArgs',
+    'ModelContainerAdditionalModelDataSourceS3DataSourceArgsDict',
+    'ModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgs',
+    'ModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgsDict',
     'ModelContainerImageConfigArgs',
     'ModelContainerImageConfigArgsDict',
     'ModelContainerImageConfigRepositoryAuthConfigArgs',
@@ -317,6 +323,12 @@ __all__ = [
     'ModelInferenceExecutionConfigArgsDict',
     'ModelPrimaryContainerArgs',
     'ModelPrimaryContainerArgsDict',
+    'ModelPrimaryContainerAdditionalModelDataSourceArgs',
+    'ModelPrimaryContainerAdditionalModelDataSourceArgsDict',
+    'ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceArgs',
+    'ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceArgsDict',
+    'ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgs',
+    'ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgsDict',
     'ModelPrimaryContainerImageConfigArgs',
     'ModelPrimaryContainerImageConfigArgsDict',
     'ModelPrimaryContainerImageConfigRepositoryAuthConfigArgs',
@@ -7285,11 +7297,11 @@ if not MYPY:
     class EndpointConfigurationAsyncInferenceConfigArgsDict(TypedDict):
         output_config: pulumi.Input['EndpointConfigurationAsyncInferenceConfigOutputConfigArgsDict']
         """
-        Specifies the configuration for asynchronous inference invocation outputs.
+        Configuration for asynchronous inference invocation outputs.
         """
         client_config: NotRequired[pulumi.Input['EndpointConfigurationAsyncInferenceConfigClientConfigArgsDict']]
         """
-        Configures the behavior of the client used by Amazon SageMaker AI to interact with the model container during asynchronous inference.
+        Configures the behavior of the client used by SageMaker AI to interact with the model container during asynchronous inference.
         """
 elif False:
     EndpointConfigurationAsyncInferenceConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -7300,8 +7312,8 @@ class EndpointConfigurationAsyncInferenceConfigArgs:
                  output_config: pulumi.Input['EndpointConfigurationAsyncInferenceConfigOutputConfigArgs'],
                  client_config: Optional[pulumi.Input['EndpointConfigurationAsyncInferenceConfigClientConfigArgs']] = None):
         """
-        :param pulumi.Input['EndpointConfigurationAsyncInferenceConfigOutputConfigArgs'] output_config: Specifies the configuration for asynchronous inference invocation outputs.
-        :param pulumi.Input['EndpointConfigurationAsyncInferenceConfigClientConfigArgs'] client_config: Configures the behavior of the client used by Amazon SageMaker AI to interact with the model container during asynchronous inference.
+        :param pulumi.Input['EndpointConfigurationAsyncInferenceConfigOutputConfigArgs'] output_config: Configuration for asynchronous inference invocation outputs.
+        :param pulumi.Input['EndpointConfigurationAsyncInferenceConfigClientConfigArgs'] client_config: Configures the behavior of the client used by SageMaker AI to interact with the model container during asynchronous inference.
         """
         pulumi.set(__self__, "output_config", output_config)
         if client_config is not None:
@@ -7311,7 +7323,7 @@ class EndpointConfigurationAsyncInferenceConfigArgs:
     @pulumi.getter(name="outputConfig")
     def output_config(self) -> pulumi.Input['EndpointConfigurationAsyncInferenceConfigOutputConfigArgs']:
         """
-        Specifies the configuration for asynchronous inference invocation outputs.
+        Configuration for asynchronous inference invocation outputs.
         """
         return pulumi.get(self, "output_config")
 
@@ -7323,7 +7335,7 @@ class EndpointConfigurationAsyncInferenceConfigArgs:
     @pulumi.getter(name="clientConfig")
     def client_config(self) -> Optional[pulumi.Input['EndpointConfigurationAsyncInferenceConfigClientConfigArgs']]:
         """
-        Configures the behavior of the client used by Amazon SageMaker AI to interact with the model container during asynchronous inference.
+        Configures the behavior of the client used by SageMaker AI to interact with the model container during asynchronous inference.
         """
         return pulumi.get(self, "client_config")
 
@@ -7336,7 +7348,7 @@ if not MYPY:
     class EndpointConfigurationAsyncInferenceConfigClientConfigArgsDict(TypedDict):
         max_concurrent_invocations_per_instance: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The maximum number of concurrent requests sent by the SageMaker AI client to the model container. If no value is provided, Amazon SageMaker AI will choose an optimal value for you.
+        Maximum number of concurrent requests sent by the SageMaker AI client to the model container. If no value is provided, SageMaker AI will choose an optimal value for you.
         """
 elif False:
     EndpointConfigurationAsyncInferenceConfigClientConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -7346,7 +7358,7 @@ class EndpointConfigurationAsyncInferenceConfigClientConfigArgs:
     def __init__(__self__, *,
                  max_concurrent_invocations_per_instance: Optional[pulumi.Input[_builtins.int]] = None):
         """
-        :param pulumi.Input[_builtins.int] max_concurrent_invocations_per_instance: The maximum number of concurrent requests sent by the SageMaker AI client to the model container. If no value is provided, Amazon SageMaker AI will choose an optimal value for you.
+        :param pulumi.Input[_builtins.int] max_concurrent_invocations_per_instance: Maximum number of concurrent requests sent by the SageMaker AI client to the model container. If no value is provided, SageMaker AI will choose an optimal value for you.
         """
         if max_concurrent_invocations_per_instance is not None:
             pulumi.set(__self__, "max_concurrent_invocations_per_instance", max_concurrent_invocations_per_instance)
@@ -7355,7 +7367,7 @@ class EndpointConfigurationAsyncInferenceConfigClientConfigArgs:
     @pulumi.getter(name="maxConcurrentInvocationsPerInstance")
     def max_concurrent_invocations_per_instance(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The maximum number of concurrent requests sent by the SageMaker AI client to the model container. If no value is provided, Amazon SageMaker AI will choose an optimal value for you.
+        Maximum number of concurrent requests sent by the SageMaker AI client to the model container. If no value is provided, SageMaker AI will choose an optimal value for you.
         """
         return pulumi.get(self, "max_concurrent_invocations_per_instance")
 
@@ -7368,19 +7380,19 @@ if not MYPY:
     class EndpointConfigurationAsyncInferenceConfigOutputConfigArgsDict(TypedDict):
         s3_output_path: pulumi.Input[_builtins.str]
         """
-        The Amazon S3 location to upload inference responses to.
+        S3 location to upload inference responses to.
         """
         kms_key_id: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The Amazon Web Services Key Management Service (Amazon Web Services KMS) key that Amazon SageMaker AI uses to encrypt the asynchronous inference output in Amazon S3.
+        KMS key that SageMaker AI uses to encrypt the asynchronous inference output in S3.
         """
         notification_config: NotRequired[pulumi.Input['EndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfigArgsDict']]
         """
-        Specifies the configuration for notifications of inference results for asynchronous inference.
+        Configuration for notifications of inference results for asynchronous inference.
         """
         s3_failure_path: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The Amazon S3 location to upload failure inference responses to.
+        S3 location to upload failure inference responses to.
         """
 elif False:
     EndpointConfigurationAsyncInferenceConfigOutputConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -7393,10 +7405,10 @@ class EndpointConfigurationAsyncInferenceConfigOutputConfigArgs:
                  notification_config: Optional[pulumi.Input['EndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfigArgs']] = None,
                  s3_failure_path: Optional[pulumi.Input[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] s3_output_path: The Amazon S3 location to upload inference responses to.
-        :param pulumi.Input[_builtins.str] kms_key_id: The Amazon Web Services Key Management Service (Amazon Web Services KMS) key that Amazon SageMaker AI uses to encrypt the asynchronous inference output in Amazon S3.
-        :param pulumi.Input['EndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfigArgs'] notification_config: Specifies the configuration for notifications of inference results for asynchronous inference.
-        :param pulumi.Input[_builtins.str] s3_failure_path: The Amazon S3 location to upload failure inference responses to.
+        :param pulumi.Input[_builtins.str] s3_output_path: S3 location to upload inference responses to.
+        :param pulumi.Input[_builtins.str] kms_key_id: KMS key that SageMaker AI uses to encrypt the asynchronous inference output in S3.
+        :param pulumi.Input['EndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfigArgs'] notification_config: Configuration for notifications of inference results for asynchronous inference.
+        :param pulumi.Input[_builtins.str] s3_failure_path: S3 location to upload failure inference responses to.
         """
         pulumi.set(__self__, "s3_output_path", s3_output_path)
         if kms_key_id is not None:
@@ -7410,7 +7422,7 @@ class EndpointConfigurationAsyncInferenceConfigOutputConfigArgs:
     @pulumi.getter(name="s3OutputPath")
     def s3_output_path(self) -> pulumi.Input[_builtins.str]:
         """
-        The Amazon S3 location to upload inference responses to.
+        S3 location to upload inference responses to.
         """
         return pulumi.get(self, "s3_output_path")
 
@@ -7422,7 +7434,7 @@ class EndpointConfigurationAsyncInferenceConfigOutputConfigArgs:
     @pulumi.getter(name="kmsKeyId")
     def kms_key_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Amazon Web Services Key Management Service (Amazon Web Services KMS) key that Amazon SageMaker AI uses to encrypt the asynchronous inference output in Amazon S3.
+        KMS key that SageMaker AI uses to encrypt the asynchronous inference output in S3.
         """
         return pulumi.get(self, "kms_key_id")
 
@@ -7434,7 +7446,7 @@ class EndpointConfigurationAsyncInferenceConfigOutputConfigArgs:
     @pulumi.getter(name="notificationConfig")
     def notification_config(self) -> Optional[pulumi.Input['EndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfigArgs']]:
         """
-        Specifies the configuration for notifications of inference results for asynchronous inference.
+        Configuration for notifications of inference results for asynchronous inference.
         """
         return pulumi.get(self, "notification_config")
 
@@ -7446,7 +7458,7 @@ class EndpointConfigurationAsyncInferenceConfigOutputConfigArgs:
     @pulumi.getter(name="s3FailurePath")
     def s3_failure_path(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Amazon S3 location to upload failure inference responses to.
+        S3 location to upload failure inference responses to.
         """
         return pulumi.get(self, "s3_failure_path")
 
@@ -7459,15 +7471,15 @@ if not MYPY:
     class EndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfigArgsDict(TypedDict):
         error_topic: NotRequired[pulumi.Input[_builtins.str]]
         """
-        Amazon SNS topic to post a notification to when inference fails. If no topic is provided, no notification is sent on failure.
+        SNS topic to post a notification to when inference fails. If no topic is provided, no notification is sent on failure.
         """
         include_inference_response_ins: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
         """
-        The Amazon SNS topics where you want the inference response to be included. Valid values are `SUCCESS_NOTIFICATION_TOPIC` and `ERROR_NOTIFICATION_TOPIC`.
+        SNS topics where you want the inference response to be included. Valid values are `SUCCESS_NOTIFICATION_TOPIC` and `ERROR_NOTIFICATION_TOPIC`.
         """
         success_topic: NotRequired[pulumi.Input[_builtins.str]]
         """
-        Amazon SNS topic to post a notification to when inference completes successfully. If no topic is provided, no notification is sent on success.
+        SNS topic to post a notification to when inference completes successfully. If no topic is provided, no notification is sent on success.
         """
 elif False:
     EndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -7479,9 +7491,9 @@ class EndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfigArg
                  include_inference_response_ins: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  success_topic: Optional[pulumi.Input[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] error_topic: Amazon SNS topic to post a notification to when inference fails. If no topic is provided, no notification is sent on failure.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] include_inference_response_ins: The Amazon SNS topics where you want the inference response to be included. Valid values are `SUCCESS_NOTIFICATION_TOPIC` and `ERROR_NOTIFICATION_TOPIC`.
-        :param pulumi.Input[_builtins.str] success_topic: Amazon SNS topic to post a notification to when inference completes successfully. If no topic is provided, no notification is sent on success.
+        :param pulumi.Input[_builtins.str] error_topic: SNS topic to post a notification to when inference fails. If no topic is provided, no notification is sent on failure.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] include_inference_response_ins: SNS topics where you want the inference response to be included. Valid values are `SUCCESS_NOTIFICATION_TOPIC` and `ERROR_NOTIFICATION_TOPIC`.
+        :param pulumi.Input[_builtins.str] success_topic: SNS topic to post a notification to when inference completes successfully. If no topic is provided, no notification is sent on success.
         """
         if error_topic is not None:
             pulumi.set(__self__, "error_topic", error_topic)
@@ -7494,7 +7506,7 @@ class EndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfigArg
     @pulumi.getter(name="errorTopic")
     def error_topic(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Amazon SNS topic to post a notification to when inference fails. If no topic is provided, no notification is sent on failure.
+        SNS topic to post a notification to when inference fails. If no topic is provided, no notification is sent on failure.
         """
         return pulumi.get(self, "error_topic")
 
@@ -7506,7 +7518,7 @@ class EndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfigArg
     @pulumi.getter(name="includeInferenceResponseIns")
     def include_inference_response_ins(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        The Amazon SNS topics where you want the inference response to be included. Valid values are `SUCCESS_NOTIFICATION_TOPIC` and `ERROR_NOTIFICATION_TOPIC`.
+        SNS topics where you want the inference response to be included. Valid values are `SUCCESS_NOTIFICATION_TOPIC` and `ERROR_NOTIFICATION_TOPIC`.
         """
         return pulumi.get(self, "include_inference_response_ins")
 
@@ -7518,7 +7530,7 @@ class EndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfigArg
     @pulumi.getter(name="successTopic")
     def success_topic(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Amazon SNS topic to post a notification to when inference completes successfully. If no topic is provided, no notification is sent on success.
+        SNS topic to post a notification to when inference completes successfully. If no topic is provided, no notification is sent on success.
         """
         return pulumi.get(self, "success_topic")
 
@@ -7531,11 +7543,11 @@ if not MYPY:
     class EndpointConfigurationDataCaptureConfigArgsDict(TypedDict):
         capture_options: pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationDataCaptureConfigCaptureOptionArgsDict']]]
         """
-        Specifies what data to capture. Fields are documented below.
+        What data to capture. Fields are documented below.
         """
         destination_s3_uri: pulumi.Input[_builtins.str]
         """
-        The URL for S3 location where the captured data is stored.
+        URL for S3 location where the captured data is stored.
         """
         initial_sampling_percentage: pulumi.Input[_builtins.int]
         """
@@ -7543,8 +7555,7 @@ if not MYPY:
         """
         capture_content_type_header: NotRequired[pulumi.Input['EndpointConfigurationDataCaptureConfigCaptureContentTypeHeaderArgsDict']]
         """
-        The content type headers to capture.
-        See `capture_content_type_header` below.
+        Content type headers to capture. See `capture_content_type_header` below.
         """
         enable_capture: NotRequired[pulumi.Input[_builtins.bool]]
         """
@@ -7552,7 +7563,7 @@ if not MYPY:
         """
         kms_key_id: NotRequired[pulumi.Input[_builtins.str]]
         """
-        Amazon Resource Name (ARN) of a AWS Key Management Service key that Amazon SageMaker AI uses to encrypt the captured data on Amazon S3.
+        ARN of a KMS key that SageMaker AI uses to encrypt the captured data on S3.
         """
 elif False:
     EndpointConfigurationDataCaptureConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -7567,13 +7578,12 @@ class EndpointConfigurationDataCaptureConfigArgs:
                  enable_capture: Optional[pulumi.Input[_builtins.bool]] = None,
                  kms_key_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
-        :param pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationDataCaptureConfigCaptureOptionArgs']]] capture_options: Specifies what data to capture. Fields are documented below.
-        :param pulumi.Input[_builtins.str] destination_s3_uri: The URL for S3 location where the captured data is stored.
+        :param pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationDataCaptureConfigCaptureOptionArgs']]] capture_options: What data to capture. Fields are documented below.
+        :param pulumi.Input[_builtins.str] destination_s3_uri: URL for S3 location where the captured data is stored.
         :param pulumi.Input[_builtins.int] initial_sampling_percentage: Portion of data to capture. Should be between 0 and 100.
-        :param pulumi.Input['EndpointConfigurationDataCaptureConfigCaptureContentTypeHeaderArgs'] capture_content_type_header: The content type headers to capture.
-               See `capture_content_type_header` below.
+        :param pulumi.Input['EndpointConfigurationDataCaptureConfigCaptureContentTypeHeaderArgs'] capture_content_type_header: Content type headers to capture. See `capture_content_type_header` below.
         :param pulumi.Input[_builtins.bool] enable_capture: Flag to enable data capture. Defaults to `false`.
-        :param pulumi.Input[_builtins.str] kms_key_id: Amazon Resource Name (ARN) of a AWS Key Management Service key that Amazon SageMaker AI uses to encrypt the captured data on Amazon S3.
+        :param pulumi.Input[_builtins.str] kms_key_id: ARN of a KMS key that SageMaker AI uses to encrypt the captured data on S3.
         """
         pulumi.set(__self__, "capture_options", capture_options)
         pulumi.set(__self__, "destination_s3_uri", destination_s3_uri)
@@ -7589,7 +7599,7 @@ class EndpointConfigurationDataCaptureConfigArgs:
     @pulumi.getter(name="captureOptions")
     def capture_options(self) -> pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationDataCaptureConfigCaptureOptionArgs']]]:
         """
-        Specifies what data to capture. Fields are documented below.
+        What data to capture. Fields are documented below.
         """
         return pulumi.get(self, "capture_options")
 
@@ -7601,7 +7611,7 @@ class EndpointConfigurationDataCaptureConfigArgs:
     @pulumi.getter(name="destinationS3Uri")
     def destination_s3_uri(self) -> pulumi.Input[_builtins.str]:
         """
-        The URL for S3 location where the captured data is stored.
+        URL for S3 location where the captured data is stored.
         """
         return pulumi.get(self, "destination_s3_uri")
 
@@ -7625,8 +7635,7 @@ class EndpointConfigurationDataCaptureConfigArgs:
     @pulumi.getter(name="captureContentTypeHeader")
     def capture_content_type_header(self) -> Optional[pulumi.Input['EndpointConfigurationDataCaptureConfigCaptureContentTypeHeaderArgs']]:
         """
-        The content type headers to capture.
-        See `capture_content_type_header` below.
+        Content type headers to capture. See `capture_content_type_header` below.
         """
         return pulumi.get(self, "capture_content_type_header")
 
@@ -7650,7 +7659,7 @@ class EndpointConfigurationDataCaptureConfigArgs:
     @pulumi.getter(name="kmsKeyId")
     def kms_key_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Amazon Resource Name (ARN) of a AWS Key Management Service key that Amazon SageMaker AI uses to encrypt the captured data on Amazon S3.
+        ARN of a KMS key that SageMaker AI uses to encrypt the captured data on S3.
         """
         return pulumi.get(self, "kms_key_id")
 
@@ -7663,13 +7672,11 @@ if not MYPY:
     class EndpointConfigurationDataCaptureConfigCaptureContentTypeHeaderArgsDict(TypedDict):
         csv_content_types: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
         """
-        The CSV content type headers to capture.
-        One of `csv_content_types` or `json_content_types` is required.
+        CSV content type headers to capture. One of `csv_content_types` or `json_content_types` is required.
         """
         json_content_types: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
         """
-        The JSON content type headers to capture.
-        One of `json_content_types` or `csv_content_types` is required.
+        The JSON content type headers to capture. One of `json_content_types` or `csv_content_types` is required.
         """
 elif False:
     EndpointConfigurationDataCaptureConfigCaptureContentTypeHeaderArgsDict: TypeAlias = Mapping[str, Any]
@@ -7680,10 +7687,8 @@ class EndpointConfigurationDataCaptureConfigCaptureContentTypeHeaderArgs:
                  csv_content_types: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  json_content_types: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] csv_content_types: The CSV content type headers to capture.
-               One of `csv_content_types` or `json_content_types` is required.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] json_content_types: The JSON content type headers to capture.
-               One of `json_content_types` or `csv_content_types` is required.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] csv_content_types: CSV content type headers to capture. One of `csv_content_types` or `json_content_types` is required.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] json_content_types: The JSON content type headers to capture. One of `json_content_types` or `csv_content_types` is required.
         """
         if csv_content_types is not None:
             pulumi.set(__self__, "csv_content_types", csv_content_types)
@@ -7694,8 +7699,7 @@ class EndpointConfigurationDataCaptureConfigCaptureContentTypeHeaderArgs:
     @pulumi.getter(name="csvContentTypes")
     def csv_content_types(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        The CSV content type headers to capture.
-        One of `csv_content_types` or `json_content_types` is required.
+        CSV content type headers to capture. One of `csv_content_types` or `json_content_types` is required.
         """
         return pulumi.get(self, "csv_content_types")
 
@@ -7707,8 +7711,7 @@ class EndpointConfigurationDataCaptureConfigCaptureContentTypeHeaderArgs:
     @pulumi.getter(name="jsonContentTypes")
     def json_content_types(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        The JSON content type headers to capture.
-        One of `json_content_types` or `csv_content_types` is required.
+        The JSON content type headers to capture. One of `json_content_types` or `csv_content_types` is required.
         """
         return pulumi.get(self, "json_content_types")
 
@@ -7721,7 +7724,7 @@ if not MYPY:
     class EndpointConfigurationDataCaptureConfigCaptureOptionArgsDict(TypedDict):
         capture_mode: pulumi.Input[_builtins.str]
         """
-        Specifies the data to be captured. Should be one of `Input`, `Output` or `InputAndOutput`.
+        Data to be captured. Should be one of `Input`, `Output` or `InputAndOutput`.
         """
 elif False:
     EndpointConfigurationDataCaptureConfigCaptureOptionArgsDict: TypeAlias = Mapping[str, Any]
@@ -7731,7 +7734,7 @@ class EndpointConfigurationDataCaptureConfigCaptureOptionArgs:
     def __init__(__self__, *,
                  capture_mode: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] capture_mode: Specifies the data to be captured. Should be one of `Input`, `Output` or `InputAndOutput`.
+        :param pulumi.Input[_builtins.str] capture_mode: Data to be captured. Should be one of `Input`, `Output` or `InputAndOutput`.
         """
         pulumi.set(__self__, "capture_mode", capture_mode)
 
@@ -7739,7 +7742,7 @@ class EndpointConfigurationDataCaptureConfigCaptureOptionArgs:
     @pulumi.getter(name="captureMode")
     def capture_mode(self) -> pulumi.Input[_builtins.str]:
         """
-        Specifies the data to be captured. Should be one of `Input`, `Output` or `InputAndOutput`.
+        Data to be captured. Should be one of `Input`, `Output` or `InputAndOutput`.
         """
         return pulumi.get(self, "capture_mode")
 
@@ -7750,29 +7753,25 @@ class EndpointConfigurationDataCaptureConfigCaptureOptionArgs:
 
 if not MYPY:
     class EndpointConfigurationProductionVariantArgsDict(TypedDict):
-        model_name: pulumi.Input[_builtins.str]
-        """
-        The name of the model to use.
-        """
         accelerator_type: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The size of the Elastic Inference (EI) instance to use for the production variant.
+        Size of the Elastic Inference (EI) instance to use for the production variant.
         """
         container_startup_health_check_timeout_in_seconds: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The timeout value, in seconds, for your inference container to pass health check by SageMaker AI Hosting. For more information about health check, see [How Your Container Should Respond to Health Check (Ping) Requests](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests). Valid values between `60` and `3600`.
+        Timeout value, in seconds, for your inference container to pass health check by SageMaker AI Hosting. For more information about health check, see [How Your Container Should Respond to Health Check (Ping) Requests](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests). Valid values between `60` and `3600`.
         """
         core_dump_config: NotRequired[pulumi.Input['EndpointConfigurationProductionVariantCoreDumpConfigArgsDict']]
         """
-        Specifies configuration for a core dump from the model container when the process crashes. Fields are documented below.
+        Core dump configuration from the model container when the process crashes. Fields are documented below.
         """
         enable_ssm_access: NotRequired[pulumi.Input[_builtins.bool]]
         """
-        You can use this parameter to turn on native Amazon Web Services Systems Manager (SSM) access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind an endpoints.
+        Whether to turn on native AWS SSM access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind endpoints. Ignored if `model_name` is not set (Inference Components endpoint).
         """
         inference_ami_version: NotRequired[pulumi.Input[_builtins.str]]
         """
-        Specifies an option from a collection of preconfigured Amazon Machine Image (AMI) images. Each image is configured by Amazon Web Services with a set of software and driver versions. Amazon Web Services optimizes these configurations for different machine learning workloads.
+        Option from a collection of preconfigured AMI images. Each image is configured by AWS with a set of software and driver versions. AWS optimizes these configurations for different machine learning workloads.
         """
         initial_instance_count: NotRequired[pulumi.Input[_builtins.int]]
         """
@@ -7780,35 +7779,39 @@ if not MYPY:
         """
         initial_variant_weight: NotRequired[pulumi.Input[_builtins.float]]
         """
-        Determines initial traffic distribution among all of the models that you specify in the endpoint configuration. If unspecified, it defaults to `1.0`.
+        Initial traffic distribution among all of the models that you specify in the endpoint configuration. If unspecified, defaults to `1.0`. Ignored if `model_name` is not set (Inference Components endpoint).
         """
         instance_type: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The type of instance to start.
+        Type of instance to start.
         """
         managed_instance_scaling: NotRequired[pulumi.Input['EndpointConfigurationProductionVariantManagedInstanceScalingArgsDict']]
         """
-        Settings that control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
+        Control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
         """
         model_data_download_timeout_in_seconds: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The timeout value, in seconds, to download and extract the model that you want to host from Amazon S3 to the individual inference instance associated with this production variant. Valid values between `60` and `3600`.
+        Timeout value, in seconds, to download and extract the model that you want to host from S3 to the individual inference instance associated with this production variant. Valid values between `60` and `3600`.
+        """
+        model_name: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Name of the model to use. Required unless using Inference Components (in which case `execution_role_arn` must be specified at the endpoint configuration level).
         """
         routing_configs: NotRequired[pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationProductionVariantRoutingConfigArgsDict']]]]
         """
-        Sets how the endpoint routes incoming traffic. See routing_config below.
+        How the endpoint routes incoming traffic. See routing_config below.
         """
         serverless_config: NotRequired[pulumi.Input['EndpointConfigurationProductionVariantServerlessConfigArgsDict']]
         """
-        Specifies configuration for how an endpoint performs asynchronous inference.
+        How an endpoint performs asynchronous inference.
         """
         variant_name: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The name of the variant. If omitted, this provider will assign a random, unique name.
+        Name of the variant. If omitted, the provider will assign a random, unique name.
         """
         volume_size_in_gb: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Valid values between `1` and `512`.
+        Size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Valid values between `1` and `512`.
         """
 elif False:
     EndpointConfigurationProductionVariantArgsDict: TypeAlias = Mapping[str, Any]
@@ -7816,7 +7819,6 @@ elif False:
 @pulumi.input_type
 class EndpointConfigurationProductionVariantArgs:
     def __init__(__self__, *,
-                 model_name: pulumi.Input[_builtins.str],
                  accelerator_type: Optional[pulumi.Input[_builtins.str]] = None,
                  container_startup_health_check_timeout_in_seconds: Optional[pulumi.Input[_builtins.int]] = None,
                  core_dump_config: Optional[pulumi.Input['EndpointConfigurationProductionVariantCoreDumpConfigArgs']] = None,
@@ -7827,28 +7829,28 @@ class EndpointConfigurationProductionVariantArgs:
                  instance_type: Optional[pulumi.Input[_builtins.str]] = None,
                  managed_instance_scaling: Optional[pulumi.Input['EndpointConfigurationProductionVariantManagedInstanceScalingArgs']] = None,
                  model_data_download_timeout_in_seconds: Optional[pulumi.Input[_builtins.int]] = None,
+                 model_name: Optional[pulumi.Input[_builtins.str]] = None,
                  routing_configs: Optional[pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationProductionVariantRoutingConfigArgs']]]] = None,
                  serverless_config: Optional[pulumi.Input['EndpointConfigurationProductionVariantServerlessConfigArgs']] = None,
                  variant_name: Optional[pulumi.Input[_builtins.str]] = None,
                  volume_size_in_gb: Optional[pulumi.Input[_builtins.int]] = None):
         """
-        :param pulumi.Input[_builtins.str] model_name: The name of the model to use.
-        :param pulumi.Input[_builtins.str] accelerator_type: The size of the Elastic Inference (EI) instance to use for the production variant.
-        :param pulumi.Input[_builtins.int] container_startup_health_check_timeout_in_seconds: The timeout value, in seconds, for your inference container to pass health check by SageMaker AI Hosting. For more information about health check, see [How Your Container Should Respond to Health Check (Ping) Requests](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests). Valid values between `60` and `3600`.
-        :param pulumi.Input['EndpointConfigurationProductionVariantCoreDumpConfigArgs'] core_dump_config: Specifies configuration for a core dump from the model container when the process crashes. Fields are documented below.
-        :param pulumi.Input[_builtins.bool] enable_ssm_access: You can use this parameter to turn on native Amazon Web Services Systems Manager (SSM) access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind an endpoints.
-        :param pulumi.Input[_builtins.str] inference_ami_version: Specifies an option from a collection of preconfigured Amazon Machine Image (AMI) images. Each image is configured by Amazon Web Services with a set of software and driver versions. Amazon Web Services optimizes these configurations for different machine learning workloads.
+        :param pulumi.Input[_builtins.str] accelerator_type: Size of the Elastic Inference (EI) instance to use for the production variant.
+        :param pulumi.Input[_builtins.int] container_startup_health_check_timeout_in_seconds: Timeout value, in seconds, for your inference container to pass health check by SageMaker AI Hosting. For more information about health check, see [How Your Container Should Respond to Health Check (Ping) Requests](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests). Valid values between `60` and `3600`.
+        :param pulumi.Input['EndpointConfigurationProductionVariantCoreDumpConfigArgs'] core_dump_config: Core dump configuration from the model container when the process crashes. Fields are documented below.
+        :param pulumi.Input[_builtins.bool] enable_ssm_access: Whether to turn on native AWS SSM access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind endpoints. Ignored if `model_name` is not set (Inference Components endpoint).
+        :param pulumi.Input[_builtins.str] inference_ami_version: Option from a collection of preconfigured AMI images. Each image is configured by AWS with a set of software and driver versions. AWS optimizes these configurations for different machine learning workloads.
         :param pulumi.Input[_builtins.int] initial_instance_count: Initial number of instances used for auto-scaling.
-        :param pulumi.Input[_builtins.float] initial_variant_weight: Determines initial traffic distribution among all of the models that you specify in the endpoint configuration. If unspecified, it defaults to `1.0`.
-        :param pulumi.Input[_builtins.str] instance_type: The type of instance to start.
-        :param pulumi.Input['EndpointConfigurationProductionVariantManagedInstanceScalingArgs'] managed_instance_scaling: Settings that control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
-        :param pulumi.Input[_builtins.int] model_data_download_timeout_in_seconds: The timeout value, in seconds, to download and extract the model that you want to host from Amazon S3 to the individual inference instance associated with this production variant. Valid values between `60` and `3600`.
-        :param pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationProductionVariantRoutingConfigArgs']]] routing_configs: Sets how the endpoint routes incoming traffic. See routing_config below.
-        :param pulumi.Input['EndpointConfigurationProductionVariantServerlessConfigArgs'] serverless_config: Specifies configuration for how an endpoint performs asynchronous inference.
-        :param pulumi.Input[_builtins.str] variant_name: The name of the variant. If omitted, this provider will assign a random, unique name.
-        :param pulumi.Input[_builtins.int] volume_size_in_gb: The size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Valid values between `1` and `512`.
+        :param pulumi.Input[_builtins.float] initial_variant_weight: Initial traffic distribution among all of the models that you specify in the endpoint configuration. If unspecified, defaults to `1.0`. Ignored if `model_name` is not set (Inference Components endpoint).
+        :param pulumi.Input[_builtins.str] instance_type: Type of instance to start.
+        :param pulumi.Input['EndpointConfigurationProductionVariantManagedInstanceScalingArgs'] managed_instance_scaling: Control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
+        :param pulumi.Input[_builtins.int] model_data_download_timeout_in_seconds: Timeout value, in seconds, to download and extract the model that you want to host from S3 to the individual inference instance associated with this production variant. Valid values between `60` and `3600`.
+        :param pulumi.Input[_builtins.str] model_name: Name of the model to use. Required unless using Inference Components (in which case `execution_role_arn` must be specified at the endpoint configuration level).
+        :param pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationProductionVariantRoutingConfigArgs']]] routing_configs: How the endpoint routes incoming traffic. See routing_config below.
+        :param pulumi.Input['EndpointConfigurationProductionVariantServerlessConfigArgs'] serverless_config: How an endpoint performs asynchronous inference.
+        :param pulumi.Input[_builtins.str] variant_name: Name of the variant. If omitted, the provider will assign a random, unique name.
+        :param pulumi.Input[_builtins.int] volume_size_in_gb: Size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Valid values between `1` and `512`.
         """
-        pulumi.set(__self__, "model_name", model_name)
         if accelerator_type is not None:
             pulumi.set(__self__, "accelerator_type", accelerator_type)
         if container_startup_health_check_timeout_in_seconds is not None:
@@ -7869,6 +7871,8 @@ class EndpointConfigurationProductionVariantArgs:
             pulumi.set(__self__, "managed_instance_scaling", managed_instance_scaling)
         if model_data_download_timeout_in_seconds is not None:
             pulumi.set(__self__, "model_data_download_timeout_in_seconds", model_data_download_timeout_in_seconds)
+        if model_name is not None:
+            pulumi.set(__self__, "model_name", model_name)
         if routing_configs is not None:
             pulumi.set(__self__, "routing_configs", routing_configs)
         if serverless_config is not None:
@@ -7879,22 +7883,10 @@ class EndpointConfigurationProductionVariantArgs:
             pulumi.set(__self__, "volume_size_in_gb", volume_size_in_gb)
 
     @_builtins.property
-    @pulumi.getter(name="modelName")
-    def model_name(self) -> pulumi.Input[_builtins.str]:
-        """
-        The name of the model to use.
-        """
-        return pulumi.get(self, "model_name")
-
-    @model_name.setter
-    def model_name(self, value: pulumi.Input[_builtins.str]):
-        pulumi.set(self, "model_name", value)
-
-    @_builtins.property
     @pulumi.getter(name="acceleratorType")
     def accelerator_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The size of the Elastic Inference (EI) instance to use for the production variant.
+        Size of the Elastic Inference (EI) instance to use for the production variant.
         """
         return pulumi.get(self, "accelerator_type")
 
@@ -7906,7 +7898,7 @@ class EndpointConfigurationProductionVariantArgs:
     @pulumi.getter(name="containerStartupHealthCheckTimeoutInSeconds")
     def container_startup_health_check_timeout_in_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The timeout value, in seconds, for your inference container to pass health check by SageMaker AI Hosting. For more information about health check, see [How Your Container Should Respond to Health Check (Ping) Requests](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests). Valid values between `60` and `3600`.
+        Timeout value, in seconds, for your inference container to pass health check by SageMaker AI Hosting. For more information about health check, see [How Your Container Should Respond to Health Check (Ping) Requests](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests). Valid values between `60` and `3600`.
         """
         return pulumi.get(self, "container_startup_health_check_timeout_in_seconds")
 
@@ -7918,7 +7910,7 @@ class EndpointConfigurationProductionVariantArgs:
     @pulumi.getter(name="coreDumpConfig")
     def core_dump_config(self) -> Optional[pulumi.Input['EndpointConfigurationProductionVariantCoreDumpConfigArgs']]:
         """
-        Specifies configuration for a core dump from the model container when the process crashes. Fields are documented below.
+        Core dump configuration from the model container when the process crashes. Fields are documented below.
         """
         return pulumi.get(self, "core_dump_config")
 
@@ -7930,7 +7922,7 @@ class EndpointConfigurationProductionVariantArgs:
     @pulumi.getter(name="enableSsmAccess")
     def enable_ssm_access(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        You can use this parameter to turn on native Amazon Web Services Systems Manager (SSM) access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind an endpoints.
+        Whether to turn on native AWS SSM access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind endpoints. Ignored if `model_name` is not set (Inference Components endpoint).
         """
         return pulumi.get(self, "enable_ssm_access")
 
@@ -7942,7 +7934,7 @@ class EndpointConfigurationProductionVariantArgs:
     @pulumi.getter(name="inferenceAmiVersion")
     def inference_ami_version(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Specifies an option from a collection of preconfigured Amazon Machine Image (AMI) images. Each image is configured by Amazon Web Services with a set of software and driver versions. Amazon Web Services optimizes these configurations for different machine learning workloads.
+        Option from a collection of preconfigured AMI images. Each image is configured by AWS with a set of software and driver versions. AWS optimizes these configurations for different machine learning workloads.
         """
         return pulumi.get(self, "inference_ami_version")
 
@@ -7966,7 +7958,7 @@ class EndpointConfigurationProductionVariantArgs:
     @pulumi.getter(name="initialVariantWeight")
     def initial_variant_weight(self) -> Optional[pulumi.Input[_builtins.float]]:
         """
-        Determines initial traffic distribution among all of the models that you specify in the endpoint configuration. If unspecified, it defaults to `1.0`.
+        Initial traffic distribution among all of the models that you specify in the endpoint configuration. If unspecified, defaults to `1.0`. Ignored if `model_name` is not set (Inference Components endpoint).
         """
         return pulumi.get(self, "initial_variant_weight")
 
@@ -7978,7 +7970,7 @@ class EndpointConfigurationProductionVariantArgs:
     @pulumi.getter(name="instanceType")
     def instance_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The type of instance to start.
+        Type of instance to start.
         """
         return pulumi.get(self, "instance_type")
 
@@ -7990,7 +7982,7 @@ class EndpointConfigurationProductionVariantArgs:
     @pulumi.getter(name="managedInstanceScaling")
     def managed_instance_scaling(self) -> Optional[pulumi.Input['EndpointConfigurationProductionVariantManagedInstanceScalingArgs']]:
         """
-        Settings that control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
+        Control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
         """
         return pulumi.get(self, "managed_instance_scaling")
 
@@ -8002,7 +7994,7 @@ class EndpointConfigurationProductionVariantArgs:
     @pulumi.getter(name="modelDataDownloadTimeoutInSeconds")
     def model_data_download_timeout_in_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The timeout value, in seconds, to download and extract the model that you want to host from Amazon S3 to the individual inference instance associated with this production variant. Valid values between `60` and `3600`.
+        Timeout value, in seconds, to download and extract the model that you want to host from S3 to the individual inference instance associated with this production variant. Valid values between `60` and `3600`.
         """
         return pulumi.get(self, "model_data_download_timeout_in_seconds")
 
@@ -8011,10 +8003,22 @@ class EndpointConfigurationProductionVariantArgs:
         pulumi.set(self, "model_data_download_timeout_in_seconds", value)
 
     @_builtins.property
+    @pulumi.getter(name="modelName")
+    def model_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Name of the model to use. Required unless using Inference Components (in which case `execution_role_arn` must be specified at the endpoint configuration level).
+        """
+        return pulumi.get(self, "model_name")
+
+    @model_name.setter
+    def model_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "model_name", value)
+
+    @_builtins.property
     @pulumi.getter(name="routingConfigs")
     def routing_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationProductionVariantRoutingConfigArgs']]]]:
         """
-        Sets how the endpoint routes incoming traffic. See routing_config below.
+        How the endpoint routes incoming traffic. See routing_config below.
         """
         return pulumi.get(self, "routing_configs")
 
@@ -8026,7 +8030,7 @@ class EndpointConfigurationProductionVariantArgs:
     @pulumi.getter(name="serverlessConfig")
     def serverless_config(self) -> Optional[pulumi.Input['EndpointConfigurationProductionVariantServerlessConfigArgs']]:
         """
-        Specifies configuration for how an endpoint performs asynchronous inference.
+        How an endpoint performs asynchronous inference.
         """
         return pulumi.get(self, "serverless_config")
 
@@ -8038,7 +8042,7 @@ class EndpointConfigurationProductionVariantArgs:
     @pulumi.getter(name="variantName")
     def variant_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The name of the variant. If omitted, this provider will assign a random, unique name.
+        Name of the variant. If omitted, the provider will assign a random, unique name.
         """
         return pulumi.get(self, "variant_name")
 
@@ -8050,7 +8054,7 @@ class EndpointConfigurationProductionVariantArgs:
     @pulumi.getter(name="volumeSizeInGb")
     def volume_size_in_gb(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Valid values between `1` and `512`.
+        Size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Valid values between `1` and `512`.
         """
         return pulumi.get(self, "volume_size_in_gb")
 
@@ -8063,11 +8067,11 @@ if not MYPY:
     class EndpointConfigurationProductionVariantCoreDumpConfigArgsDict(TypedDict):
         destination_s3_uri: pulumi.Input[_builtins.str]
         """
-        The Amazon S3 bucket to send the core dump to.
+        S3 bucket to send the core dump to.
         """
         kms_key_id: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The Amazon Web Services Key Management Service (Amazon Web Services KMS) key that SageMaker AI uses to encrypt the core dump data at rest using Amazon S3 server-side encryption.
+        KMS key that SageMaker AI uses to encrypt the core dump data at rest using S3 server-side encryption.
         """
 elif False:
     EndpointConfigurationProductionVariantCoreDumpConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -8078,8 +8082,8 @@ class EndpointConfigurationProductionVariantCoreDumpConfigArgs:
                  destination_s3_uri: pulumi.Input[_builtins.str],
                  kms_key_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] destination_s3_uri: The Amazon S3 bucket to send the core dump to.
-        :param pulumi.Input[_builtins.str] kms_key_id: The Amazon Web Services Key Management Service (Amazon Web Services KMS) key that SageMaker AI uses to encrypt the core dump data at rest using Amazon S3 server-side encryption.
+        :param pulumi.Input[_builtins.str] destination_s3_uri: S3 bucket to send the core dump to.
+        :param pulumi.Input[_builtins.str] kms_key_id: KMS key that SageMaker AI uses to encrypt the core dump data at rest using S3 server-side encryption.
         """
         pulumi.set(__self__, "destination_s3_uri", destination_s3_uri)
         if kms_key_id is not None:
@@ -8089,7 +8093,7 @@ class EndpointConfigurationProductionVariantCoreDumpConfigArgs:
     @pulumi.getter(name="destinationS3Uri")
     def destination_s3_uri(self) -> pulumi.Input[_builtins.str]:
         """
-        The Amazon S3 bucket to send the core dump to.
+        S3 bucket to send the core dump to.
         """
         return pulumi.get(self, "destination_s3_uri")
 
@@ -8101,7 +8105,7 @@ class EndpointConfigurationProductionVariantCoreDumpConfigArgs:
     @pulumi.getter(name="kmsKeyId")
     def kms_key_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Amazon Web Services Key Management Service (Amazon Web Services KMS) key that SageMaker AI uses to encrypt the core dump data at rest using Amazon S3 server-side encryption.
+        KMS key that SageMaker AI uses to encrypt the core dump data at rest using S3 server-side encryption.
         """
         return pulumi.get(self, "kms_key_id")
 
@@ -8114,15 +8118,15 @@ if not MYPY:
     class EndpointConfigurationProductionVariantManagedInstanceScalingArgsDict(TypedDict):
         max_instance_count: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
+        Maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
         """
         min_instance_count: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
+        Minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
         """
         status: NotRequired[pulumi.Input[_builtins.str]]
         """
-        Indicates whether managed instance scaling is enabled. Valid values are `ENABLED` and `DISABLED`.
+        Whether managed instance scaling is enabled. Valid values are `ENABLED` and `DISABLED`.
         """
 elif False:
     EndpointConfigurationProductionVariantManagedInstanceScalingArgsDict: TypeAlias = Mapping[str, Any]
@@ -8134,9 +8138,9 @@ class EndpointConfigurationProductionVariantManagedInstanceScalingArgs:
                  min_instance_count: Optional[pulumi.Input[_builtins.int]] = None,
                  status: Optional[pulumi.Input[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.int] max_instance_count: The maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
-        :param pulumi.Input[_builtins.int] min_instance_count: The minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
-        :param pulumi.Input[_builtins.str] status: Indicates whether managed instance scaling is enabled. Valid values are `ENABLED` and `DISABLED`.
+        :param pulumi.Input[_builtins.int] max_instance_count: Maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
+        :param pulumi.Input[_builtins.int] min_instance_count: Minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
+        :param pulumi.Input[_builtins.str] status: Whether managed instance scaling is enabled. Valid values are `ENABLED` and `DISABLED`.
         """
         if max_instance_count is not None:
             pulumi.set(__self__, "max_instance_count", max_instance_count)
@@ -8149,7 +8153,7 @@ class EndpointConfigurationProductionVariantManagedInstanceScalingArgs:
     @pulumi.getter(name="maxInstanceCount")
     def max_instance_count(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
+        Maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
         """
         return pulumi.get(self, "max_instance_count")
 
@@ -8161,7 +8165,7 @@ class EndpointConfigurationProductionVariantManagedInstanceScalingArgs:
     @pulumi.getter(name="minInstanceCount")
     def min_instance_count(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
+        Minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
         """
         return pulumi.get(self, "min_instance_count")
 
@@ -8173,7 +8177,7 @@ class EndpointConfigurationProductionVariantManagedInstanceScalingArgs:
     @pulumi.getter
     def status(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Indicates whether managed instance scaling is enabled. Valid values are `ENABLED` and `DISABLED`.
+        Whether managed instance scaling is enabled. Valid values are `ENABLED` and `DISABLED`.
         """
         return pulumi.get(self, "status")
 
@@ -8186,7 +8190,7 @@ if not MYPY:
     class EndpointConfigurationProductionVariantRoutingConfigArgsDict(TypedDict):
         routing_strategy: pulumi.Input[_builtins.str]
         """
-        Sets how the endpoint routes incoming traffic. Valid values are `LEAST_OUTSTANDING_REQUESTS` and `RANDOM`. `LEAST_OUTSTANDING_REQUESTS` routes requests to the specific instances that have more capacity to process them. `RANDOM` routes each request to a randomly chosen instance.
+        How the endpoint routes incoming traffic. Valid values are `LEAST_OUTSTANDING_REQUESTS` and `RANDOM`. `LEAST_OUTSTANDING_REQUESTS` routes requests to the specific instances that have more capacity to process them. `RANDOM` routes each request to a randomly chosen instance.
         """
 elif False:
     EndpointConfigurationProductionVariantRoutingConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -8196,7 +8200,7 @@ class EndpointConfigurationProductionVariantRoutingConfigArgs:
     def __init__(__self__, *,
                  routing_strategy: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] routing_strategy: Sets how the endpoint routes incoming traffic. Valid values are `LEAST_OUTSTANDING_REQUESTS` and `RANDOM`. `LEAST_OUTSTANDING_REQUESTS` routes requests to the specific instances that have more capacity to process them. `RANDOM` routes each request to a randomly chosen instance.
+        :param pulumi.Input[_builtins.str] routing_strategy: How the endpoint routes incoming traffic. Valid values are `LEAST_OUTSTANDING_REQUESTS` and `RANDOM`. `LEAST_OUTSTANDING_REQUESTS` routes requests to the specific instances that have more capacity to process them. `RANDOM` routes each request to a randomly chosen instance.
         """
         pulumi.set(__self__, "routing_strategy", routing_strategy)
 
@@ -8204,7 +8208,7 @@ class EndpointConfigurationProductionVariantRoutingConfigArgs:
     @pulumi.getter(name="routingStrategy")
     def routing_strategy(self) -> pulumi.Input[_builtins.str]:
         """
-        Sets how the endpoint routes incoming traffic. Valid values are `LEAST_OUTSTANDING_REQUESTS` and `RANDOM`. `LEAST_OUTSTANDING_REQUESTS` routes requests to the specific instances that have more capacity to process them. `RANDOM` routes each request to a randomly chosen instance.
+        How the endpoint routes incoming traffic. Valid values are `LEAST_OUTSTANDING_REQUESTS` and `RANDOM`. `LEAST_OUTSTANDING_REQUESTS` routes requests to the specific instances that have more capacity to process them. `RANDOM` routes each request to a randomly chosen instance.
         """
         return pulumi.get(self, "routing_strategy")
 
@@ -8217,15 +8221,15 @@ if not MYPY:
     class EndpointConfigurationProductionVariantServerlessConfigArgsDict(TypedDict):
         max_concurrency: pulumi.Input[_builtins.int]
         """
-        The maximum number of concurrent invocations your serverless endpoint can process. Valid values are between `1` and `200`.
+        Maximum number of concurrent invocations your serverless endpoint can process. Valid values are between `1` and `200`.
         """
         memory_size_in_mb: pulumi.Input[_builtins.int]
         """
-        The memory size of your serverless endpoint. Valid values are in 1 GB increments: `1024` MB, `2048` MB, `3072` MB, `4096` MB, `5120` MB, or `6144` MB.
+        Memory size of your serverless endpoint. Valid values are in 1 GB increments: `1024` MB, `2048` MB, `3072` MB, `4096` MB, `5120` MB, or `6144` MB.
         """
         provisioned_concurrency: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The amount of provisioned concurrency to allocate for the serverless endpoint. Should be less than or equal to `max_concurrency`. Valid values are between `1` and `200`.
+        Amount of provisioned concurrency to allocate for the serverless endpoint. Should be less than or equal to `max_concurrency`. Valid values are between `1` and `200`.
         """
 elif False:
     EndpointConfigurationProductionVariantServerlessConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -8237,9 +8241,9 @@ class EndpointConfigurationProductionVariantServerlessConfigArgs:
                  memory_size_in_mb: pulumi.Input[_builtins.int],
                  provisioned_concurrency: Optional[pulumi.Input[_builtins.int]] = None):
         """
-        :param pulumi.Input[_builtins.int] max_concurrency: The maximum number of concurrent invocations your serverless endpoint can process. Valid values are between `1` and `200`.
-        :param pulumi.Input[_builtins.int] memory_size_in_mb: The memory size of your serverless endpoint. Valid values are in 1 GB increments: `1024` MB, `2048` MB, `3072` MB, `4096` MB, `5120` MB, or `6144` MB.
-        :param pulumi.Input[_builtins.int] provisioned_concurrency: The amount of provisioned concurrency to allocate for the serverless endpoint. Should be less than or equal to `max_concurrency`. Valid values are between `1` and `200`.
+        :param pulumi.Input[_builtins.int] max_concurrency: Maximum number of concurrent invocations your serverless endpoint can process. Valid values are between `1` and `200`.
+        :param pulumi.Input[_builtins.int] memory_size_in_mb: Memory size of your serverless endpoint. Valid values are in 1 GB increments: `1024` MB, `2048` MB, `3072` MB, `4096` MB, `5120` MB, or `6144` MB.
+        :param pulumi.Input[_builtins.int] provisioned_concurrency: Amount of provisioned concurrency to allocate for the serverless endpoint. Should be less than or equal to `max_concurrency`. Valid values are between `1` and `200`.
         """
         pulumi.set(__self__, "max_concurrency", max_concurrency)
         pulumi.set(__self__, "memory_size_in_mb", memory_size_in_mb)
@@ -8250,7 +8254,7 @@ class EndpointConfigurationProductionVariantServerlessConfigArgs:
     @pulumi.getter(name="maxConcurrency")
     def max_concurrency(self) -> pulumi.Input[_builtins.int]:
         """
-        The maximum number of concurrent invocations your serverless endpoint can process. Valid values are between `1` and `200`.
+        Maximum number of concurrent invocations your serverless endpoint can process. Valid values are between `1` and `200`.
         """
         return pulumi.get(self, "max_concurrency")
 
@@ -8262,7 +8266,7 @@ class EndpointConfigurationProductionVariantServerlessConfigArgs:
     @pulumi.getter(name="memorySizeInMb")
     def memory_size_in_mb(self) -> pulumi.Input[_builtins.int]:
         """
-        The memory size of your serverless endpoint. Valid values are in 1 GB increments: `1024` MB, `2048` MB, `3072` MB, `4096` MB, `5120` MB, or `6144` MB.
+        Memory size of your serverless endpoint. Valid values are in 1 GB increments: `1024` MB, `2048` MB, `3072` MB, `4096` MB, `5120` MB, or `6144` MB.
         """
         return pulumi.get(self, "memory_size_in_mb")
 
@@ -8274,7 +8278,7 @@ class EndpointConfigurationProductionVariantServerlessConfigArgs:
     @pulumi.getter(name="provisionedConcurrency")
     def provisioned_concurrency(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The amount of provisioned concurrency to allocate for the serverless endpoint. Should be less than or equal to `max_concurrency`. Valid values are between `1` and `200`.
+        Amount of provisioned concurrency to allocate for the serverless endpoint. Should be less than or equal to `max_concurrency`. Valid values are between `1` and `200`.
         """
         return pulumi.get(self, "provisioned_concurrency")
 
@@ -8285,29 +8289,25 @@ class EndpointConfigurationProductionVariantServerlessConfigArgs:
 
 if not MYPY:
     class EndpointConfigurationShadowProductionVariantArgsDict(TypedDict):
-        model_name: pulumi.Input[_builtins.str]
-        """
-        The name of the model to use.
-        """
         accelerator_type: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The size of the Elastic Inference (EI) instance to use for the production variant.
+        Size of the Elastic Inference (EI) instance to use for the production variant.
         """
         container_startup_health_check_timeout_in_seconds: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The timeout value, in seconds, for your inference container to pass health check by SageMaker AI Hosting. For more information about health check, see [How Your Container Should Respond to Health Check (Ping) Requests](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests). Valid values between `60` and `3600`.
+        Timeout value, in seconds, for your inference container to pass health check by SageMaker AI Hosting. For more information about health check, see [How Your Container Should Respond to Health Check (Ping) Requests](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests). Valid values between `60` and `3600`.
         """
         core_dump_config: NotRequired[pulumi.Input['EndpointConfigurationShadowProductionVariantCoreDumpConfigArgsDict']]
         """
-        Specifies configuration for a core dump from the model container when the process crashes. Fields are documented below.
+        Core dump configuration from the model container when the process crashes. Fields are documented below.
         """
         enable_ssm_access: NotRequired[pulumi.Input[_builtins.bool]]
         """
-        You can use this parameter to turn on native Amazon Web Services Systems Manager (SSM) access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind an endpoints.
+        Whether to turn on native AWS SSM access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind endpoints. Ignored if `model_name` is not set (Inference Components endpoint).
         """
         inference_ami_version: NotRequired[pulumi.Input[_builtins.str]]
         """
-        Specifies an option from a collection of preconfigured Amazon Machine Image (AMI) images. Each image is configured by Amazon Web Services with a set of software and driver versions. Amazon Web Services optimizes these configurations for different machine learning workloads.
+        Option from a collection of preconfigured AMI images. Each image is configured by AWS with a set of software and driver versions. AWS optimizes these configurations for different machine learning workloads.
         """
         initial_instance_count: NotRequired[pulumi.Input[_builtins.int]]
         """
@@ -8315,35 +8315,39 @@ if not MYPY:
         """
         initial_variant_weight: NotRequired[pulumi.Input[_builtins.float]]
         """
-        Determines initial traffic distribution among all of the models that you specify in the endpoint configuration. If unspecified, it defaults to `1.0`.
+        Initial traffic distribution among all of the models that you specify in the endpoint configuration. If unspecified, defaults to `1.0`. Ignored if `model_name` is not set (Inference Components endpoint).
         """
         instance_type: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The type of instance to start.
+        Type of instance to start.
         """
         managed_instance_scaling: NotRequired[pulumi.Input['EndpointConfigurationShadowProductionVariantManagedInstanceScalingArgsDict']]
         """
-        Settings that control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
+        Control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
         """
         model_data_download_timeout_in_seconds: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The timeout value, in seconds, to download and extract the model that you want to host from Amazon S3 to the individual inference instance associated with this production variant. Valid values between `60` and `3600`.
+        Timeout value, in seconds, to download and extract the model that you want to host from S3 to the individual inference instance associated with this production variant. Valid values between `60` and `3600`.
+        """
+        model_name: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Name of the model to use. Required unless using Inference Components (in which case `execution_role_arn` must be specified at the endpoint configuration level).
         """
         routing_configs: NotRequired[pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationShadowProductionVariantRoutingConfigArgsDict']]]]
         """
-        Sets how the endpoint routes incoming traffic. See routing_config below.
+        How the endpoint routes incoming traffic. See routing_config below.
         """
         serverless_config: NotRequired[pulumi.Input['EndpointConfigurationShadowProductionVariantServerlessConfigArgsDict']]
         """
-        Specifies configuration for how an endpoint performs asynchronous inference.
+        How an endpoint performs asynchronous inference.
         """
         variant_name: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The name of the variant. If omitted, this provider will assign a random, unique name.
+        Name of the variant. If omitted, the provider will assign a random, unique name.
         """
         volume_size_in_gb: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Valid values between `1` and `512`.
+        Size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Valid values between `1` and `512`.
         """
 elif False:
     EndpointConfigurationShadowProductionVariantArgsDict: TypeAlias = Mapping[str, Any]
@@ -8351,7 +8355,6 @@ elif False:
 @pulumi.input_type
 class EndpointConfigurationShadowProductionVariantArgs:
     def __init__(__self__, *,
-                 model_name: pulumi.Input[_builtins.str],
                  accelerator_type: Optional[pulumi.Input[_builtins.str]] = None,
                  container_startup_health_check_timeout_in_seconds: Optional[pulumi.Input[_builtins.int]] = None,
                  core_dump_config: Optional[pulumi.Input['EndpointConfigurationShadowProductionVariantCoreDumpConfigArgs']] = None,
@@ -8362,28 +8365,28 @@ class EndpointConfigurationShadowProductionVariantArgs:
                  instance_type: Optional[pulumi.Input[_builtins.str]] = None,
                  managed_instance_scaling: Optional[pulumi.Input['EndpointConfigurationShadowProductionVariantManagedInstanceScalingArgs']] = None,
                  model_data_download_timeout_in_seconds: Optional[pulumi.Input[_builtins.int]] = None,
+                 model_name: Optional[pulumi.Input[_builtins.str]] = None,
                  routing_configs: Optional[pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationShadowProductionVariantRoutingConfigArgs']]]] = None,
                  serverless_config: Optional[pulumi.Input['EndpointConfigurationShadowProductionVariantServerlessConfigArgs']] = None,
                  variant_name: Optional[pulumi.Input[_builtins.str]] = None,
                  volume_size_in_gb: Optional[pulumi.Input[_builtins.int]] = None):
         """
-        :param pulumi.Input[_builtins.str] model_name: The name of the model to use.
-        :param pulumi.Input[_builtins.str] accelerator_type: The size of the Elastic Inference (EI) instance to use for the production variant.
-        :param pulumi.Input[_builtins.int] container_startup_health_check_timeout_in_seconds: The timeout value, in seconds, for your inference container to pass health check by SageMaker AI Hosting. For more information about health check, see [How Your Container Should Respond to Health Check (Ping) Requests](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests). Valid values between `60` and `3600`.
-        :param pulumi.Input['EndpointConfigurationShadowProductionVariantCoreDumpConfigArgs'] core_dump_config: Specifies configuration for a core dump from the model container when the process crashes. Fields are documented below.
-        :param pulumi.Input[_builtins.bool] enable_ssm_access: You can use this parameter to turn on native Amazon Web Services Systems Manager (SSM) access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind an endpoints.
-        :param pulumi.Input[_builtins.str] inference_ami_version: Specifies an option from a collection of preconfigured Amazon Machine Image (AMI) images. Each image is configured by Amazon Web Services with a set of software and driver versions. Amazon Web Services optimizes these configurations for different machine learning workloads.
+        :param pulumi.Input[_builtins.str] accelerator_type: Size of the Elastic Inference (EI) instance to use for the production variant.
+        :param pulumi.Input[_builtins.int] container_startup_health_check_timeout_in_seconds: Timeout value, in seconds, for your inference container to pass health check by SageMaker AI Hosting. For more information about health check, see [How Your Container Should Respond to Health Check (Ping) Requests](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests). Valid values between `60` and `3600`.
+        :param pulumi.Input['EndpointConfigurationShadowProductionVariantCoreDumpConfigArgs'] core_dump_config: Core dump configuration from the model container when the process crashes. Fields are documented below.
+        :param pulumi.Input[_builtins.bool] enable_ssm_access: Whether to turn on native AWS SSM access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind endpoints. Ignored if `model_name` is not set (Inference Components endpoint).
+        :param pulumi.Input[_builtins.str] inference_ami_version: Option from a collection of preconfigured AMI images. Each image is configured by AWS with a set of software and driver versions. AWS optimizes these configurations for different machine learning workloads.
         :param pulumi.Input[_builtins.int] initial_instance_count: Initial number of instances used for auto-scaling.
-        :param pulumi.Input[_builtins.float] initial_variant_weight: Determines initial traffic distribution among all of the models that you specify in the endpoint configuration. If unspecified, it defaults to `1.0`.
-        :param pulumi.Input[_builtins.str] instance_type: The type of instance to start.
-        :param pulumi.Input['EndpointConfigurationShadowProductionVariantManagedInstanceScalingArgs'] managed_instance_scaling: Settings that control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
-        :param pulumi.Input[_builtins.int] model_data_download_timeout_in_seconds: The timeout value, in seconds, to download and extract the model that you want to host from Amazon S3 to the individual inference instance associated with this production variant. Valid values between `60` and `3600`.
-        :param pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationShadowProductionVariantRoutingConfigArgs']]] routing_configs: Sets how the endpoint routes incoming traffic. See routing_config below.
-        :param pulumi.Input['EndpointConfigurationShadowProductionVariantServerlessConfigArgs'] serverless_config: Specifies configuration for how an endpoint performs asynchronous inference.
-        :param pulumi.Input[_builtins.str] variant_name: The name of the variant. If omitted, this provider will assign a random, unique name.
-        :param pulumi.Input[_builtins.int] volume_size_in_gb: The size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Valid values between `1` and `512`.
+        :param pulumi.Input[_builtins.float] initial_variant_weight: Initial traffic distribution among all of the models that you specify in the endpoint configuration. If unspecified, defaults to `1.0`. Ignored if `model_name` is not set (Inference Components endpoint).
+        :param pulumi.Input[_builtins.str] instance_type: Type of instance to start.
+        :param pulumi.Input['EndpointConfigurationShadowProductionVariantManagedInstanceScalingArgs'] managed_instance_scaling: Control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
+        :param pulumi.Input[_builtins.int] model_data_download_timeout_in_seconds: Timeout value, in seconds, to download and extract the model that you want to host from S3 to the individual inference instance associated with this production variant. Valid values between `60` and `3600`.
+        :param pulumi.Input[_builtins.str] model_name: Name of the model to use. Required unless using Inference Components (in which case `execution_role_arn` must be specified at the endpoint configuration level).
+        :param pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationShadowProductionVariantRoutingConfigArgs']]] routing_configs: How the endpoint routes incoming traffic. See routing_config below.
+        :param pulumi.Input['EndpointConfigurationShadowProductionVariantServerlessConfigArgs'] serverless_config: How an endpoint performs asynchronous inference.
+        :param pulumi.Input[_builtins.str] variant_name: Name of the variant. If omitted, the provider will assign a random, unique name.
+        :param pulumi.Input[_builtins.int] volume_size_in_gb: Size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Valid values between `1` and `512`.
         """
-        pulumi.set(__self__, "model_name", model_name)
         if accelerator_type is not None:
             pulumi.set(__self__, "accelerator_type", accelerator_type)
         if container_startup_health_check_timeout_in_seconds is not None:
@@ -8404,6 +8407,8 @@ class EndpointConfigurationShadowProductionVariantArgs:
             pulumi.set(__self__, "managed_instance_scaling", managed_instance_scaling)
         if model_data_download_timeout_in_seconds is not None:
             pulumi.set(__self__, "model_data_download_timeout_in_seconds", model_data_download_timeout_in_seconds)
+        if model_name is not None:
+            pulumi.set(__self__, "model_name", model_name)
         if routing_configs is not None:
             pulumi.set(__self__, "routing_configs", routing_configs)
         if serverless_config is not None:
@@ -8414,22 +8419,10 @@ class EndpointConfigurationShadowProductionVariantArgs:
             pulumi.set(__self__, "volume_size_in_gb", volume_size_in_gb)
 
     @_builtins.property
-    @pulumi.getter(name="modelName")
-    def model_name(self) -> pulumi.Input[_builtins.str]:
-        """
-        The name of the model to use.
-        """
-        return pulumi.get(self, "model_name")
-
-    @model_name.setter
-    def model_name(self, value: pulumi.Input[_builtins.str]):
-        pulumi.set(self, "model_name", value)
-
-    @_builtins.property
     @pulumi.getter(name="acceleratorType")
     def accelerator_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The size of the Elastic Inference (EI) instance to use for the production variant.
+        Size of the Elastic Inference (EI) instance to use for the production variant.
         """
         return pulumi.get(self, "accelerator_type")
 
@@ -8441,7 +8434,7 @@ class EndpointConfigurationShadowProductionVariantArgs:
     @pulumi.getter(name="containerStartupHealthCheckTimeoutInSeconds")
     def container_startup_health_check_timeout_in_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The timeout value, in seconds, for your inference container to pass health check by SageMaker AI Hosting. For more information about health check, see [How Your Container Should Respond to Health Check (Ping) Requests](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests). Valid values between `60` and `3600`.
+        Timeout value, in seconds, for your inference container to pass health check by SageMaker AI Hosting. For more information about health check, see [How Your Container Should Respond to Health Check (Ping) Requests](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests). Valid values between `60` and `3600`.
         """
         return pulumi.get(self, "container_startup_health_check_timeout_in_seconds")
 
@@ -8453,7 +8446,7 @@ class EndpointConfigurationShadowProductionVariantArgs:
     @pulumi.getter(name="coreDumpConfig")
     def core_dump_config(self) -> Optional[pulumi.Input['EndpointConfigurationShadowProductionVariantCoreDumpConfigArgs']]:
         """
-        Specifies configuration for a core dump from the model container when the process crashes. Fields are documented below.
+        Core dump configuration from the model container when the process crashes. Fields are documented below.
         """
         return pulumi.get(self, "core_dump_config")
 
@@ -8465,7 +8458,7 @@ class EndpointConfigurationShadowProductionVariantArgs:
     @pulumi.getter(name="enableSsmAccess")
     def enable_ssm_access(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        You can use this parameter to turn on native Amazon Web Services Systems Manager (SSM) access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind an endpoints.
+        Whether to turn on native AWS SSM access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind endpoints. Ignored if `model_name` is not set (Inference Components endpoint).
         """
         return pulumi.get(self, "enable_ssm_access")
 
@@ -8477,7 +8470,7 @@ class EndpointConfigurationShadowProductionVariantArgs:
     @pulumi.getter(name="inferenceAmiVersion")
     def inference_ami_version(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Specifies an option from a collection of preconfigured Amazon Machine Image (AMI) images. Each image is configured by Amazon Web Services with a set of software and driver versions. Amazon Web Services optimizes these configurations for different machine learning workloads.
+        Option from a collection of preconfigured AMI images. Each image is configured by AWS with a set of software and driver versions. AWS optimizes these configurations for different machine learning workloads.
         """
         return pulumi.get(self, "inference_ami_version")
 
@@ -8501,7 +8494,7 @@ class EndpointConfigurationShadowProductionVariantArgs:
     @pulumi.getter(name="initialVariantWeight")
     def initial_variant_weight(self) -> Optional[pulumi.Input[_builtins.float]]:
         """
-        Determines initial traffic distribution among all of the models that you specify in the endpoint configuration. If unspecified, it defaults to `1.0`.
+        Initial traffic distribution among all of the models that you specify in the endpoint configuration. If unspecified, defaults to `1.0`. Ignored if `model_name` is not set (Inference Components endpoint).
         """
         return pulumi.get(self, "initial_variant_weight")
 
@@ -8513,7 +8506,7 @@ class EndpointConfigurationShadowProductionVariantArgs:
     @pulumi.getter(name="instanceType")
     def instance_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The type of instance to start.
+        Type of instance to start.
         """
         return pulumi.get(self, "instance_type")
 
@@ -8525,7 +8518,7 @@ class EndpointConfigurationShadowProductionVariantArgs:
     @pulumi.getter(name="managedInstanceScaling")
     def managed_instance_scaling(self) -> Optional[pulumi.Input['EndpointConfigurationShadowProductionVariantManagedInstanceScalingArgs']]:
         """
-        Settings that control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
+        Control the range in the number of instances that the endpoint provisions as it scales up or down to accommodate traffic.
         """
         return pulumi.get(self, "managed_instance_scaling")
 
@@ -8537,7 +8530,7 @@ class EndpointConfigurationShadowProductionVariantArgs:
     @pulumi.getter(name="modelDataDownloadTimeoutInSeconds")
     def model_data_download_timeout_in_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The timeout value, in seconds, to download and extract the model that you want to host from Amazon S3 to the individual inference instance associated with this production variant. Valid values between `60` and `3600`.
+        Timeout value, in seconds, to download and extract the model that you want to host from S3 to the individual inference instance associated with this production variant. Valid values between `60` and `3600`.
         """
         return pulumi.get(self, "model_data_download_timeout_in_seconds")
 
@@ -8546,10 +8539,22 @@ class EndpointConfigurationShadowProductionVariantArgs:
         pulumi.set(self, "model_data_download_timeout_in_seconds", value)
 
     @_builtins.property
+    @pulumi.getter(name="modelName")
+    def model_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Name of the model to use. Required unless using Inference Components (in which case `execution_role_arn` must be specified at the endpoint configuration level).
+        """
+        return pulumi.get(self, "model_name")
+
+    @model_name.setter
+    def model_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "model_name", value)
+
+    @_builtins.property
     @pulumi.getter(name="routingConfigs")
     def routing_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['EndpointConfigurationShadowProductionVariantRoutingConfigArgs']]]]:
         """
-        Sets how the endpoint routes incoming traffic. See routing_config below.
+        How the endpoint routes incoming traffic. See routing_config below.
         """
         return pulumi.get(self, "routing_configs")
 
@@ -8561,7 +8566,7 @@ class EndpointConfigurationShadowProductionVariantArgs:
     @pulumi.getter(name="serverlessConfig")
     def serverless_config(self) -> Optional[pulumi.Input['EndpointConfigurationShadowProductionVariantServerlessConfigArgs']]:
         """
-        Specifies configuration for how an endpoint performs asynchronous inference.
+        How an endpoint performs asynchronous inference.
         """
         return pulumi.get(self, "serverless_config")
 
@@ -8573,7 +8578,7 @@ class EndpointConfigurationShadowProductionVariantArgs:
     @pulumi.getter(name="variantName")
     def variant_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The name of the variant. If omitted, this provider will assign a random, unique name.
+        Name of the variant. If omitted, the provider will assign a random, unique name.
         """
         return pulumi.get(self, "variant_name")
 
@@ -8585,7 +8590,7 @@ class EndpointConfigurationShadowProductionVariantArgs:
     @pulumi.getter(name="volumeSizeInGb")
     def volume_size_in_gb(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Valid values between `1` and `512`.
+        Size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Valid values between `1` and `512`.
         """
         return pulumi.get(self, "volume_size_in_gb")
 
@@ -8598,11 +8603,11 @@ if not MYPY:
     class EndpointConfigurationShadowProductionVariantCoreDumpConfigArgsDict(TypedDict):
         destination_s3_uri: pulumi.Input[_builtins.str]
         """
-        The Amazon S3 bucket to send the core dump to.
+        S3 bucket to send the core dump to.
         """
         kms_key_id: pulumi.Input[_builtins.str]
         """
-        The Amazon Web Services Key Management Service (Amazon Web Services KMS) key that SageMaker AI uses to encrypt the core dump data at rest using Amazon S3 server-side encryption.
+        KMS key that SageMaker AI uses to encrypt the core dump data at rest using S3 server-side encryption.
         """
 elif False:
     EndpointConfigurationShadowProductionVariantCoreDumpConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -8613,8 +8618,8 @@ class EndpointConfigurationShadowProductionVariantCoreDumpConfigArgs:
                  destination_s3_uri: pulumi.Input[_builtins.str],
                  kms_key_id: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] destination_s3_uri: The Amazon S3 bucket to send the core dump to.
-        :param pulumi.Input[_builtins.str] kms_key_id: The Amazon Web Services Key Management Service (Amazon Web Services KMS) key that SageMaker AI uses to encrypt the core dump data at rest using Amazon S3 server-side encryption.
+        :param pulumi.Input[_builtins.str] destination_s3_uri: S3 bucket to send the core dump to.
+        :param pulumi.Input[_builtins.str] kms_key_id: KMS key that SageMaker AI uses to encrypt the core dump data at rest using S3 server-side encryption.
         """
         pulumi.set(__self__, "destination_s3_uri", destination_s3_uri)
         pulumi.set(__self__, "kms_key_id", kms_key_id)
@@ -8623,7 +8628,7 @@ class EndpointConfigurationShadowProductionVariantCoreDumpConfigArgs:
     @pulumi.getter(name="destinationS3Uri")
     def destination_s3_uri(self) -> pulumi.Input[_builtins.str]:
         """
-        The Amazon S3 bucket to send the core dump to.
+        S3 bucket to send the core dump to.
         """
         return pulumi.get(self, "destination_s3_uri")
 
@@ -8635,7 +8640,7 @@ class EndpointConfigurationShadowProductionVariantCoreDumpConfigArgs:
     @pulumi.getter(name="kmsKeyId")
     def kms_key_id(self) -> pulumi.Input[_builtins.str]:
         """
-        The Amazon Web Services Key Management Service (Amazon Web Services KMS) key that SageMaker AI uses to encrypt the core dump data at rest using Amazon S3 server-side encryption.
+        KMS key that SageMaker AI uses to encrypt the core dump data at rest using S3 server-side encryption.
         """
         return pulumi.get(self, "kms_key_id")
 
@@ -8648,15 +8653,15 @@ if not MYPY:
     class EndpointConfigurationShadowProductionVariantManagedInstanceScalingArgsDict(TypedDict):
         max_instance_count: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
+        Maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
         """
         min_instance_count: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
+        Minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
         """
         status: NotRequired[pulumi.Input[_builtins.str]]
         """
-        Indicates whether managed instance scaling is enabled. Valid values are `ENABLED` and `DISABLED`.
+        Whether managed instance scaling is enabled. Valid values are `ENABLED` and `DISABLED`.
         """
 elif False:
     EndpointConfigurationShadowProductionVariantManagedInstanceScalingArgsDict: TypeAlias = Mapping[str, Any]
@@ -8668,9 +8673,9 @@ class EndpointConfigurationShadowProductionVariantManagedInstanceScalingArgs:
                  min_instance_count: Optional[pulumi.Input[_builtins.int]] = None,
                  status: Optional[pulumi.Input[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.int] max_instance_count: The maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
-        :param pulumi.Input[_builtins.int] min_instance_count: The minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
-        :param pulumi.Input[_builtins.str] status: Indicates whether managed instance scaling is enabled. Valid values are `ENABLED` and `DISABLED`.
+        :param pulumi.Input[_builtins.int] max_instance_count: Maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
+        :param pulumi.Input[_builtins.int] min_instance_count: Minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
+        :param pulumi.Input[_builtins.str] status: Whether managed instance scaling is enabled. Valid values are `ENABLED` and `DISABLED`.
         """
         if max_instance_count is not None:
             pulumi.set(__self__, "max_instance_count", max_instance_count)
@@ -8683,7 +8688,7 @@ class EndpointConfigurationShadowProductionVariantManagedInstanceScalingArgs:
     @pulumi.getter(name="maxInstanceCount")
     def max_instance_count(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
+        Maximum number of instances that the endpoint can provision when it scales up to accommodate an increase in traffic.
         """
         return pulumi.get(self, "max_instance_count")
 
@@ -8695,7 +8700,7 @@ class EndpointConfigurationShadowProductionVariantManagedInstanceScalingArgs:
     @pulumi.getter(name="minInstanceCount")
     def min_instance_count(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
+        Minimum number of instances that the endpoint must retain when it scales down to accommodate a decrease in traffic.
         """
         return pulumi.get(self, "min_instance_count")
 
@@ -8707,7 +8712,7 @@ class EndpointConfigurationShadowProductionVariantManagedInstanceScalingArgs:
     @pulumi.getter
     def status(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Indicates whether managed instance scaling is enabled. Valid values are `ENABLED` and `DISABLED`.
+        Whether managed instance scaling is enabled. Valid values are `ENABLED` and `DISABLED`.
         """
         return pulumi.get(self, "status")
 
@@ -8720,7 +8725,7 @@ if not MYPY:
     class EndpointConfigurationShadowProductionVariantRoutingConfigArgsDict(TypedDict):
         routing_strategy: pulumi.Input[_builtins.str]
         """
-        Sets how the endpoint routes incoming traffic. Valid values are `LEAST_OUTSTANDING_REQUESTS` and `RANDOM`. `LEAST_OUTSTANDING_REQUESTS` routes requests to the specific instances that have more capacity to process them. `RANDOM` routes each request to a randomly chosen instance.
+        How the endpoint routes incoming traffic. Valid values are `LEAST_OUTSTANDING_REQUESTS` and `RANDOM`. `LEAST_OUTSTANDING_REQUESTS` routes requests to the specific instances that have more capacity to process them. `RANDOM` routes each request to a randomly chosen instance.
         """
 elif False:
     EndpointConfigurationShadowProductionVariantRoutingConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -8730,7 +8735,7 @@ class EndpointConfigurationShadowProductionVariantRoutingConfigArgs:
     def __init__(__self__, *,
                  routing_strategy: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] routing_strategy: Sets how the endpoint routes incoming traffic. Valid values are `LEAST_OUTSTANDING_REQUESTS` and `RANDOM`. `LEAST_OUTSTANDING_REQUESTS` routes requests to the specific instances that have more capacity to process them. `RANDOM` routes each request to a randomly chosen instance.
+        :param pulumi.Input[_builtins.str] routing_strategy: How the endpoint routes incoming traffic. Valid values are `LEAST_OUTSTANDING_REQUESTS` and `RANDOM`. `LEAST_OUTSTANDING_REQUESTS` routes requests to the specific instances that have more capacity to process them. `RANDOM` routes each request to a randomly chosen instance.
         """
         pulumi.set(__self__, "routing_strategy", routing_strategy)
 
@@ -8738,7 +8743,7 @@ class EndpointConfigurationShadowProductionVariantRoutingConfigArgs:
     @pulumi.getter(name="routingStrategy")
     def routing_strategy(self) -> pulumi.Input[_builtins.str]:
         """
-        Sets how the endpoint routes incoming traffic. Valid values are `LEAST_OUTSTANDING_REQUESTS` and `RANDOM`. `LEAST_OUTSTANDING_REQUESTS` routes requests to the specific instances that have more capacity to process them. `RANDOM` routes each request to a randomly chosen instance.
+        How the endpoint routes incoming traffic. Valid values are `LEAST_OUTSTANDING_REQUESTS` and `RANDOM`. `LEAST_OUTSTANDING_REQUESTS` routes requests to the specific instances that have more capacity to process them. `RANDOM` routes each request to a randomly chosen instance.
         """
         return pulumi.get(self, "routing_strategy")
 
@@ -8751,15 +8756,15 @@ if not MYPY:
     class EndpointConfigurationShadowProductionVariantServerlessConfigArgsDict(TypedDict):
         max_concurrency: pulumi.Input[_builtins.int]
         """
-        The maximum number of concurrent invocations your serverless endpoint can process. Valid values are between `1` and `200`.
+        Maximum number of concurrent invocations your serverless endpoint can process. Valid values are between `1` and `200`.
         """
         memory_size_in_mb: pulumi.Input[_builtins.int]
         """
-        The memory size of your serverless endpoint. Valid values are in 1 GB increments: `1024` MB, `2048` MB, `3072` MB, `4096` MB, `5120` MB, or `6144` MB.
+        Memory size of your serverless endpoint. Valid values are in 1 GB increments: `1024` MB, `2048` MB, `3072` MB, `4096` MB, `5120` MB, or `6144` MB.
         """
         provisioned_concurrency: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The amount of provisioned concurrency to allocate for the serverless endpoint. Should be less than or equal to `max_concurrency`. Valid values are between `1` and `200`.
+        Amount of provisioned concurrency to allocate for the serverless endpoint. Should be less than or equal to `max_concurrency`. Valid values are between `1` and `200`.
         """
 elif False:
     EndpointConfigurationShadowProductionVariantServerlessConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -8771,9 +8776,9 @@ class EndpointConfigurationShadowProductionVariantServerlessConfigArgs:
                  memory_size_in_mb: pulumi.Input[_builtins.int],
                  provisioned_concurrency: Optional[pulumi.Input[_builtins.int]] = None):
         """
-        :param pulumi.Input[_builtins.int] max_concurrency: The maximum number of concurrent invocations your serverless endpoint can process. Valid values are between `1` and `200`.
-        :param pulumi.Input[_builtins.int] memory_size_in_mb: The memory size of your serverless endpoint. Valid values are in 1 GB increments: `1024` MB, `2048` MB, `3072` MB, `4096` MB, `5120` MB, or `6144` MB.
-        :param pulumi.Input[_builtins.int] provisioned_concurrency: The amount of provisioned concurrency to allocate for the serverless endpoint. Should be less than or equal to `max_concurrency`. Valid values are between `1` and `200`.
+        :param pulumi.Input[_builtins.int] max_concurrency: Maximum number of concurrent invocations your serverless endpoint can process. Valid values are between `1` and `200`.
+        :param pulumi.Input[_builtins.int] memory_size_in_mb: Memory size of your serverless endpoint. Valid values are in 1 GB increments: `1024` MB, `2048` MB, `3072` MB, `4096` MB, `5120` MB, or `6144` MB.
+        :param pulumi.Input[_builtins.int] provisioned_concurrency: Amount of provisioned concurrency to allocate for the serverless endpoint. Should be less than or equal to `max_concurrency`. Valid values are between `1` and `200`.
         """
         pulumi.set(__self__, "max_concurrency", max_concurrency)
         pulumi.set(__self__, "memory_size_in_mb", memory_size_in_mb)
@@ -8784,7 +8789,7 @@ class EndpointConfigurationShadowProductionVariantServerlessConfigArgs:
     @pulumi.getter(name="maxConcurrency")
     def max_concurrency(self) -> pulumi.Input[_builtins.int]:
         """
-        The maximum number of concurrent invocations your serverless endpoint can process. Valid values are between `1` and `200`.
+        Maximum number of concurrent invocations your serverless endpoint can process. Valid values are between `1` and `200`.
         """
         return pulumi.get(self, "max_concurrency")
 
@@ -8796,7 +8801,7 @@ class EndpointConfigurationShadowProductionVariantServerlessConfigArgs:
     @pulumi.getter(name="memorySizeInMb")
     def memory_size_in_mb(self) -> pulumi.Input[_builtins.int]:
         """
-        The memory size of your serverless endpoint. Valid values are in 1 GB increments: `1024` MB, `2048` MB, `3072` MB, `4096` MB, `5120` MB, or `6144` MB.
+        Memory size of your serverless endpoint. Valid values are in 1 GB increments: `1024` MB, `2048` MB, `3072` MB, `4096` MB, `5120` MB, or `6144` MB.
         """
         return pulumi.get(self, "memory_size_in_mb")
 
@@ -8808,7 +8813,7 @@ class EndpointConfigurationShadowProductionVariantServerlessConfigArgs:
     @pulumi.getter(name="provisionedConcurrency")
     def provisioned_concurrency(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The amount of provisioned concurrency to allocate for the serverless endpoint. Should be less than or equal to `max_concurrency`. Valid values are between `1` and `200`.
+        Amount of provisioned concurrency to allocate for the serverless endpoint. Should be less than or equal to `max_concurrency`. Valid values are between `1` and `200`.
         """
         return pulumi.get(self, "provisioned_concurrency")
 
@@ -10521,18 +10526,21 @@ class HumanTaskUIUiTemplateArgs:
 
 if not MYPY:
     class ModelContainerArgsDict(TypedDict):
+        additional_model_data_sources: NotRequired[pulumi.Input[Sequence[pulumi.Input['ModelContainerAdditionalModelDataSourceArgsDict']]]]
+        """
+        Additional data sources that are available to the model in addition to those specified in `model_data_source`. See Additional Model Data Source.
+        """
         container_hostname: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The DNS host name for the container.
+        DNS host name for the container.
         """
         environment: NotRequired[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]
         """
         Environment variables for the Docker container.
-        A list of key value pairs.
         """
         image: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The registry path where the inference code image is stored in Amazon ECR.
+        Registry path where the inference code image is stored in Amazon ECR.
         """
         image_config: NotRequired[pulumi.Input['ModelContainerImageConfigArgsDict']]
         """
@@ -10540,23 +10548,24 @@ if not MYPY:
         """
         inference_specification_name: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The inference specification name in the model package version.
+        Inference specification name in the model package version.
         """
         mode: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The container hosts value `SingleModel/MultiModel`. The default value is `SingleModel`.
+        Container hosts value. Allowed values are: `SingleModel` and `MultiModel`. The default value is `SingleModel`.
         """
         model_data_source: NotRequired[pulumi.Input['ModelContainerModelDataSourceArgsDict']]
         """
-        The location of model data to deploy. Use this for uncompressed model deployment. For information about how to deploy an uncompressed model, see [Deploying uncompressed models](https://docs.aws.amazon.com/sagemaker/latest/dg/large-model-inference-uncompressed.html) in the _AWS SageMaker AI Developer Guide_.
+        Location of model data to deploy. Use this for uncompressed model deployment. For information about how to deploy an uncompressed model, see [Deploying uncompressed models](https://docs.aws.amazon.com/sagemaker/latest/dg/large-model-inference-uncompressed.html) in the _AWS SageMaker AI Developer Guide_.
         """
         model_data_url: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The URL for the S3 location where model artifacts are stored.
+        URL for the S3 location where model artifacts are stored.
         """
         model_package_name: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The Amazon Resource Name (ARN) of the model package to use to create the model.
+        Amazon Resource Name (ARN) of the model package to use to create the model.
+        A list of key value pairs.
         """
         multi_model_config: NotRequired[pulumi.Input['ModelContainerMultiModelConfigArgsDict']]
         """
@@ -10568,6 +10577,7 @@ elif False:
 @pulumi.input_type
 class ModelContainerArgs:
     def __init__(__self__, *,
+                 additional_model_data_sources: Optional[pulumi.Input[Sequence[pulumi.Input['ModelContainerAdditionalModelDataSourceArgs']]]] = None,
                  container_hostname: Optional[pulumi.Input[_builtins.str]] = None,
                  environment: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  image: Optional[pulumi.Input[_builtins.str]] = None,
@@ -10579,18 +10589,21 @@ class ModelContainerArgs:
                  model_package_name: Optional[pulumi.Input[_builtins.str]] = None,
                  multi_model_config: Optional[pulumi.Input['ModelContainerMultiModelConfigArgs']] = None):
         """
-        :param pulumi.Input[_builtins.str] container_hostname: The DNS host name for the container.
+        :param pulumi.Input[Sequence[pulumi.Input['ModelContainerAdditionalModelDataSourceArgs']]] additional_model_data_sources: Additional data sources that are available to the model in addition to those specified in `model_data_source`. See Additional Model Data Source.
+        :param pulumi.Input[_builtins.str] container_hostname: DNS host name for the container.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] environment: Environment variables for the Docker container.
-               A list of key value pairs.
-        :param pulumi.Input[_builtins.str] image: The registry path where the inference code image is stored in Amazon ECR.
+        :param pulumi.Input[_builtins.str] image: Registry path where the inference code image is stored in Amazon ECR.
         :param pulumi.Input['ModelContainerImageConfigArgs'] image_config: Specifies whether the model container is in Amazon ECR or a private Docker registry accessible from your Amazon Virtual Private Cloud (VPC). For more information see [Using a Private Docker Registry for Real-Time Inference Containers](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-containers-inference-private.html). see Image Config.
-        :param pulumi.Input[_builtins.str] inference_specification_name: The inference specification name in the model package version.
-        :param pulumi.Input[_builtins.str] mode: The container hosts value `SingleModel/MultiModel`. The default value is `SingleModel`.
-        :param pulumi.Input['ModelContainerModelDataSourceArgs'] model_data_source: The location of model data to deploy. Use this for uncompressed model deployment. For information about how to deploy an uncompressed model, see [Deploying uncompressed models](https://docs.aws.amazon.com/sagemaker/latest/dg/large-model-inference-uncompressed.html) in the _AWS SageMaker AI Developer Guide_.
-        :param pulumi.Input[_builtins.str] model_data_url: The URL for the S3 location where model artifacts are stored.
-        :param pulumi.Input[_builtins.str] model_package_name: The Amazon Resource Name (ARN) of the model package to use to create the model.
+        :param pulumi.Input[_builtins.str] inference_specification_name: Inference specification name in the model package version.
+        :param pulumi.Input[_builtins.str] mode: Container hosts value. Allowed values are: `SingleModel` and `MultiModel`. The default value is `SingleModel`.
+        :param pulumi.Input['ModelContainerModelDataSourceArgs'] model_data_source: Location of model data to deploy. Use this for uncompressed model deployment. For information about how to deploy an uncompressed model, see [Deploying uncompressed models](https://docs.aws.amazon.com/sagemaker/latest/dg/large-model-inference-uncompressed.html) in the _AWS SageMaker AI Developer Guide_.
+        :param pulumi.Input[_builtins.str] model_data_url: URL for the S3 location where model artifacts are stored.
+        :param pulumi.Input[_builtins.str] model_package_name: Amazon Resource Name (ARN) of the model package to use to create the model.
+               A list of key value pairs.
         :param pulumi.Input['ModelContainerMultiModelConfigArgs'] multi_model_config: Specifies additional configuration for multi-model endpoints. see Multi Model Config.
         """
+        if additional_model_data_sources is not None:
+            pulumi.set(__self__, "additional_model_data_sources", additional_model_data_sources)
         if container_hostname is not None:
             pulumi.set(__self__, "container_hostname", container_hostname)
         if environment is not None:
@@ -10613,10 +10626,22 @@ class ModelContainerArgs:
             pulumi.set(__self__, "multi_model_config", multi_model_config)
 
     @_builtins.property
+    @pulumi.getter(name="additionalModelDataSources")
+    def additional_model_data_sources(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ModelContainerAdditionalModelDataSourceArgs']]]]:
+        """
+        Additional data sources that are available to the model in addition to those specified in `model_data_source`. See Additional Model Data Source.
+        """
+        return pulumi.get(self, "additional_model_data_sources")
+
+    @additional_model_data_sources.setter
+    def additional_model_data_sources(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ModelContainerAdditionalModelDataSourceArgs']]]]):
+        pulumi.set(self, "additional_model_data_sources", value)
+
+    @_builtins.property
     @pulumi.getter(name="containerHostname")
     def container_hostname(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The DNS host name for the container.
+        DNS host name for the container.
         """
         return pulumi.get(self, "container_hostname")
 
@@ -10629,7 +10654,6 @@ class ModelContainerArgs:
     def environment(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Environment variables for the Docker container.
-        A list of key value pairs.
         """
         return pulumi.get(self, "environment")
 
@@ -10641,7 +10665,7 @@ class ModelContainerArgs:
     @pulumi.getter
     def image(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The registry path where the inference code image is stored in Amazon ECR.
+        Registry path where the inference code image is stored in Amazon ECR.
         """
         return pulumi.get(self, "image")
 
@@ -10665,7 +10689,7 @@ class ModelContainerArgs:
     @pulumi.getter(name="inferenceSpecificationName")
     def inference_specification_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The inference specification name in the model package version.
+        Inference specification name in the model package version.
         """
         return pulumi.get(self, "inference_specification_name")
 
@@ -10677,7 +10701,7 @@ class ModelContainerArgs:
     @pulumi.getter
     def mode(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The container hosts value `SingleModel/MultiModel`. The default value is `SingleModel`.
+        Container hosts value. Allowed values are: `SingleModel` and `MultiModel`. The default value is `SingleModel`.
         """
         return pulumi.get(self, "mode")
 
@@ -10689,7 +10713,7 @@ class ModelContainerArgs:
     @pulumi.getter(name="modelDataSource")
     def model_data_source(self) -> Optional[pulumi.Input['ModelContainerModelDataSourceArgs']]:
         """
-        The location of model data to deploy. Use this for uncompressed model deployment. For information about how to deploy an uncompressed model, see [Deploying uncompressed models](https://docs.aws.amazon.com/sagemaker/latest/dg/large-model-inference-uncompressed.html) in the _AWS SageMaker AI Developer Guide_.
+        Location of model data to deploy. Use this for uncompressed model deployment. For information about how to deploy an uncompressed model, see [Deploying uncompressed models](https://docs.aws.amazon.com/sagemaker/latest/dg/large-model-inference-uncompressed.html) in the _AWS SageMaker AI Developer Guide_.
         """
         return pulumi.get(self, "model_data_source")
 
@@ -10701,7 +10725,7 @@ class ModelContainerArgs:
     @pulumi.getter(name="modelDataUrl")
     def model_data_url(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The URL for the S3 location where model artifacts are stored.
+        URL for the S3 location where model artifacts are stored.
         """
         return pulumi.get(self, "model_data_url")
 
@@ -10713,7 +10737,8 @@ class ModelContainerArgs:
     @pulumi.getter(name="modelPackageName")
     def model_package_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Amazon Resource Name (ARN) of the model package to use to create the model.
+        Amazon Resource Name (ARN) of the model package to use to create the model.
+        A list of key value pairs.
         """
         return pulumi.get(self, "model_package_name")
 
@@ -10732,6 +10757,176 @@ class ModelContainerArgs:
     @multi_model_config.setter
     def multi_model_config(self, value: Optional[pulumi.Input['ModelContainerMultiModelConfigArgs']]):
         pulumi.set(self, "multi_model_config", value)
+
+
+if not MYPY:
+    class ModelContainerAdditionalModelDataSourceArgsDict(TypedDict):
+        channel_name: pulumi.Input[_builtins.str]
+        """
+        Custom name for the additional model data source object. It will be stored in `/opt/ml/additional-model-data-sources/<channel_name>/`.
+        """
+        s3_data_sources: pulumi.Input[Sequence[pulumi.Input['ModelContainerAdditionalModelDataSourceS3DataSourceArgsDict']]]
+        """
+        S3 location of model data to deploy. See S3 Data Source.
+        """
+elif False:
+    ModelContainerAdditionalModelDataSourceArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ModelContainerAdditionalModelDataSourceArgs:
+    def __init__(__self__, *,
+                 channel_name: pulumi.Input[_builtins.str],
+                 s3_data_sources: pulumi.Input[Sequence[pulumi.Input['ModelContainerAdditionalModelDataSourceS3DataSourceArgs']]]):
+        """
+        :param pulumi.Input[_builtins.str] channel_name: Custom name for the additional model data source object. It will be stored in `/opt/ml/additional-model-data-sources/<channel_name>/`.
+        :param pulumi.Input[Sequence[pulumi.Input['ModelContainerAdditionalModelDataSourceS3DataSourceArgs']]] s3_data_sources: S3 location of model data to deploy. See S3 Data Source.
+        """
+        pulumi.set(__self__, "channel_name", channel_name)
+        pulumi.set(__self__, "s3_data_sources", s3_data_sources)
+
+    @_builtins.property
+    @pulumi.getter(name="channelName")
+    def channel_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        Custom name for the additional model data source object. It will be stored in `/opt/ml/additional-model-data-sources/<channel_name>/`.
+        """
+        return pulumi.get(self, "channel_name")
+
+    @channel_name.setter
+    def channel_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "channel_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="s3DataSources")
+    def s3_data_sources(self) -> pulumi.Input[Sequence[pulumi.Input['ModelContainerAdditionalModelDataSourceS3DataSourceArgs']]]:
+        """
+        S3 location of model data to deploy. See S3 Data Source.
+        """
+        return pulumi.get(self, "s3_data_sources")
+
+    @s3_data_sources.setter
+    def s3_data_sources(self, value: pulumi.Input[Sequence[pulumi.Input['ModelContainerAdditionalModelDataSourceS3DataSourceArgs']]]):
+        pulumi.set(self, "s3_data_sources", value)
+
+
+if not MYPY:
+    class ModelContainerAdditionalModelDataSourceS3DataSourceArgsDict(TypedDict):
+        compression_type: pulumi.Input[_builtins.str]
+        """
+        How the model data is prepared. Allowed values are: `None` and `Gzip`.
+        """
+        s3_data_type: pulumi.Input[_builtins.str]
+        """
+        Type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
+        """
+        s3_uri: pulumi.Input[_builtins.str]
+        """
+        The S3 path of model data to deploy.
+        """
+        model_access_config: NotRequired[pulumi.Input['ModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgsDict']]
+        """
+        Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. See Model Access Config.
+        """
+elif False:
+    ModelContainerAdditionalModelDataSourceS3DataSourceArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ModelContainerAdditionalModelDataSourceS3DataSourceArgs:
+    def __init__(__self__, *,
+                 compression_type: pulumi.Input[_builtins.str],
+                 s3_data_type: pulumi.Input[_builtins.str],
+                 s3_uri: pulumi.Input[_builtins.str],
+                 model_access_config: Optional[pulumi.Input['ModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgs']] = None):
+        """
+        :param pulumi.Input[_builtins.str] compression_type: How the model data is prepared. Allowed values are: `None` and `Gzip`.
+        :param pulumi.Input[_builtins.str] s3_data_type: Type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
+        :param pulumi.Input[_builtins.str] s3_uri: The S3 path of model data to deploy.
+        :param pulumi.Input['ModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgs'] model_access_config: Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. See Model Access Config.
+        """
+        pulumi.set(__self__, "compression_type", compression_type)
+        pulumi.set(__self__, "s3_data_type", s3_data_type)
+        pulumi.set(__self__, "s3_uri", s3_uri)
+        if model_access_config is not None:
+            pulumi.set(__self__, "model_access_config", model_access_config)
+
+    @_builtins.property
+    @pulumi.getter(name="compressionType")
+    def compression_type(self) -> pulumi.Input[_builtins.str]:
+        """
+        How the model data is prepared. Allowed values are: `None` and `Gzip`.
+        """
+        return pulumi.get(self, "compression_type")
+
+    @compression_type.setter
+    def compression_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "compression_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="s3DataType")
+    def s3_data_type(self) -> pulumi.Input[_builtins.str]:
+        """
+        Type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
+        """
+        return pulumi.get(self, "s3_data_type")
+
+    @s3_data_type.setter
+    def s3_data_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "s3_data_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="s3Uri")
+    def s3_uri(self) -> pulumi.Input[_builtins.str]:
+        """
+        The S3 path of model data to deploy.
+        """
+        return pulumi.get(self, "s3_uri")
+
+    @s3_uri.setter
+    def s3_uri(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "s3_uri", value)
+
+    @_builtins.property
+    @pulumi.getter(name="modelAccessConfig")
+    def model_access_config(self) -> Optional[pulumi.Input['ModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgs']]:
+        """
+        Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. See Model Access Config.
+        """
+        return pulumi.get(self, "model_access_config")
+
+    @model_access_config.setter
+    def model_access_config(self, value: Optional[pulumi.Input['ModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgs']]):
+        pulumi.set(self, "model_access_config", value)
+
+
+if not MYPY:
+    class ModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgsDict(TypedDict):
+        accept_eula: pulumi.Input[_builtins.bool]
+        """
+        Specifies agreement to the model end-user license agreement (EULA). The value must be set to `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
+        """
+elif False:
+    ModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgs:
+    def __init__(__self__, *,
+                 accept_eula: pulumi.Input[_builtins.bool]):
+        """
+        :param pulumi.Input[_builtins.bool] accept_eula: Specifies agreement to the model end-user license agreement (EULA). The value must be set to `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
+        """
+        pulumi.set(__self__, "accept_eula", accept_eula)
+
+    @_builtins.property
+    @pulumi.getter(name="acceptEula")
+    def accept_eula(self) -> pulumi.Input[_builtins.bool]:
+        """
+        Specifies agreement to the model end-user license agreement (EULA). The value must be set to `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
+        """
+        return pulumi.get(self, "accept_eula")
+
+    @accept_eula.setter
+    def accept_eula(self, value: pulumi.Input[_builtins.bool]):
+        pulumi.set(self, "accept_eula", value)
 
 
 if not MYPY:
@@ -10789,7 +10984,7 @@ if not MYPY:
     class ModelContainerImageConfigRepositoryAuthConfigArgsDict(TypedDict):
         repository_credentials_provider_arn: pulumi.Input[_builtins.str]
         """
-        The Amazon Resource Name (ARN) of an AWS Lambda function that provides credentials to authenticate to the private Docker registry where your model image is hosted. For information about how to create an AWS Lambda function, see [Create a Lambda function with the console](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html) in the _AWS Lambda Developer Guide_.
+        Amazon Resource Name (ARN) of an AWS Lambda function that provides credentials to authenticate to the private Docker registry where your model image is hosted. For information about how to create an AWS Lambda function, see [Create a Lambda function with the console](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html) in the _AWS Lambda Developer Guide_.
         """
 elif False:
     ModelContainerImageConfigRepositoryAuthConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -10799,7 +10994,7 @@ class ModelContainerImageConfigRepositoryAuthConfigArgs:
     def __init__(__self__, *,
                  repository_credentials_provider_arn: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] repository_credentials_provider_arn: The Amazon Resource Name (ARN) of an AWS Lambda function that provides credentials to authenticate to the private Docker registry where your model image is hosted. For information about how to create an AWS Lambda function, see [Create a Lambda function with the console](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html) in the _AWS Lambda Developer Guide_.
+        :param pulumi.Input[_builtins.str] repository_credentials_provider_arn: Amazon Resource Name (ARN) of an AWS Lambda function that provides credentials to authenticate to the private Docker registry where your model image is hosted. For information about how to create an AWS Lambda function, see [Create a Lambda function with the console](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html) in the _AWS Lambda Developer Guide_.
         """
         pulumi.set(__self__, "repository_credentials_provider_arn", repository_credentials_provider_arn)
 
@@ -10807,7 +11002,7 @@ class ModelContainerImageConfigRepositoryAuthConfigArgs:
     @pulumi.getter(name="repositoryCredentialsProviderArn")
     def repository_credentials_provider_arn(self) -> pulumi.Input[_builtins.str]:
         """
-        The Amazon Resource Name (ARN) of an AWS Lambda function that provides credentials to authenticate to the private Docker registry where your model image is hosted. For information about how to create an AWS Lambda function, see [Create a Lambda function with the console](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html) in the _AWS Lambda Developer Guide_.
+        Amazon Resource Name (ARN) of an AWS Lambda function that provides credentials to authenticate to the private Docker registry where your model image is hosted. For information about how to create an AWS Lambda function, see [Create a Lambda function with the console](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html) in the _AWS Lambda Developer Guide_.
         """
         return pulumi.get(self, "repository_credentials_provider_arn")
 
@@ -10820,7 +11015,7 @@ if not MYPY:
     class ModelContainerModelDataSourceArgsDict(TypedDict):
         s3_data_sources: pulumi.Input[Sequence[pulumi.Input['ModelContainerModelDataSourceS3DataSourceArgsDict']]]
         """
-        The S3 location of model data to deploy.
+        S3 location of model data to deploy. See S3 Data Source.
         """
 elif False:
     ModelContainerModelDataSourceArgsDict: TypeAlias = Mapping[str, Any]
@@ -10830,7 +11025,7 @@ class ModelContainerModelDataSourceArgs:
     def __init__(__self__, *,
                  s3_data_sources: pulumi.Input[Sequence[pulumi.Input['ModelContainerModelDataSourceS3DataSourceArgs']]]):
         """
-        :param pulumi.Input[Sequence[pulumi.Input['ModelContainerModelDataSourceS3DataSourceArgs']]] s3_data_sources: The S3 location of model data to deploy.
+        :param pulumi.Input[Sequence[pulumi.Input['ModelContainerModelDataSourceS3DataSourceArgs']]] s3_data_sources: S3 location of model data to deploy. See S3 Data Source.
         """
         pulumi.set(__self__, "s3_data_sources", s3_data_sources)
 
@@ -10838,7 +11033,7 @@ class ModelContainerModelDataSourceArgs:
     @pulumi.getter(name="s3DataSources")
     def s3_data_sources(self) -> pulumi.Input[Sequence[pulumi.Input['ModelContainerModelDataSourceS3DataSourceArgs']]]:
         """
-        The S3 location of model data to deploy.
+        S3 location of model data to deploy. See S3 Data Source.
         """
         return pulumi.get(self, "s3_data_sources")
 
@@ -10855,7 +11050,7 @@ if not MYPY:
         """
         s3_data_type: pulumi.Input[_builtins.str]
         """
-        The type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
+        Type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
         """
         s3_uri: pulumi.Input[_builtins.str]
         """
@@ -10863,7 +11058,7 @@ if not MYPY:
         """
         model_access_config: NotRequired[pulumi.Input['ModelContainerModelDataSourceS3DataSourceModelAccessConfigArgsDict']]
         """
-        Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. see Model Access Config.
+        Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. See Model Access Config.
         """
 elif False:
     ModelContainerModelDataSourceS3DataSourceArgsDict: TypeAlias = Mapping[str, Any]
@@ -10877,9 +11072,9 @@ class ModelContainerModelDataSourceS3DataSourceArgs:
                  model_access_config: Optional[pulumi.Input['ModelContainerModelDataSourceS3DataSourceModelAccessConfigArgs']] = None):
         """
         :param pulumi.Input[_builtins.str] compression_type: How the model data is prepared. Allowed values are: `None` and `Gzip`.
-        :param pulumi.Input[_builtins.str] s3_data_type: The type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
+        :param pulumi.Input[_builtins.str] s3_data_type: Type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
         :param pulumi.Input[_builtins.str] s3_uri: The S3 path of model data to deploy.
-        :param pulumi.Input['ModelContainerModelDataSourceS3DataSourceModelAccessConfigArgs'] model_access_config: Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. see Model Access Config.
+        :param pulumi.Input['ModelContainerModelDataSourceS3DataSourceModelAccessConfigArgs'] model_access_config: Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. See Model Access Config.
         """
         pulumi.set(__self__, "compression_type", compression_type)
         pulumi.set(__self__, "s3_data_type", s3_data_type)
@@ -10903,7 +11098,7 @@ class ModelContainerModelDataSourceS3DataSourceArgs:
     @pulumi.getter(name="s3DataType")
     def s3_data_type(self) -> pulumi.Input[_builtins.str]:
         """
-        The type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
+        Type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
         """
         return pulumi.get(self, "s3_data_type")
 
@@ -10927,7 +11122,7 @@ class ModelContainerModelDataSourceS3DataSourceArgs:
     @pulumi.getter(name="modelAccessConfig")
     def model_access_config(self) -> Optional[pulumi.Input['ModelContainerModelDataSourceS3DataSourceModelAccessConfigArgs']]:
         """
-        Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. see Model Access Config.
+        Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. See Model Access Config.
         """
         return pulumi.get(self, "model_access_config")
 
@@ -10940,7 +11135,7 @@ if not MYPY:
     class ModelContainerModelDataSourceS3DataSourceModelAccessConfigArgsDict(TypedDict):
         accept_eula: pulumi.Input[_builtins.bool]
         """
-        Specifies agreement to the model end-user license agreement (EULA). The AcceptEula value must be explicitly defined as `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
+        Specifies agreement to the model end-user license agreement (EULA). The value must be set to `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
         """
 elif False:
     ModelContainerModelDataSourceS3DataSourceModelAccessConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -10950,7 +11145,7 @@ class ModelContainerModelDataSourceS3DataSourceModelAccessConfigArgs:
     def __init__(__self__, *,
                  accept_eula: pulumi.Input[_builtins.bool]):
         """
-        :param pulumi.Input[_builtins.bool] accept_eula: Specifies agreement to the model end-user license agreement (EULA). The AcceptEula value must be explicitly defined as `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
+        :param pulumi.Input[_builtins.bool] accept_eula: Specifies agreement to the model end-user license agreement (EULA). The value must be set to `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
         """
         pulumi.set(__self__, "accept_eula", accept_eula)
 
@@ -10958,7 +11153,7 @@ class ModelContainerModelDataSourceS3DataSourceModelAccessConfigArgs:
     @pulumi.getter(name="acceptEula")
     def accept_eula(self) -> pulumi.Input[_builtins.bool]:
         """
-        Specifies agreement to the model end-user license agreement (EULA). The AcceptEula value must be explicitly defined as `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
+        Specifies agreement to the model end-user license agreement (EULA). The value must be set to `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
         """
         return pulumi.get(self, "accept_eula")
 
@@ -11003,7 +11198,7 @@ if not MYPY:
     class ModelInferenceExecutionConfigArgsDict(TypedDict):
         mode: pulumi.Input[_builtins.str]
         """
-        The container hosts value `SingleModel/MultiModel`. The default value is `SingleModel`.
+        How containers in a multi-container are run. Allowed values are: `Serial` and `Direct`.
         """
 elif False:
     ModelInferenceExecutionConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -11013,7 +11208,7 @@ class ModelInferenceExecutionConfigArgs:
     def __init__(__self__, *,
                  mode: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] mode: The container hosts value `SingleModel/MultiModel`. The default value is `SingleModel`.
+        :param pulumi.Input[_builtins.str] mode: How containers in a multi-container are run. Allowed values are: `Serial` and `Direct`.
         """
         pulumi.set(__self__, "mode", mode)
 
@@ -11021,7 +11216,7 @@ class ModelInferenceExecutionConfigArgs:
     @pulumi.getter
     def mode(self) -> pulumi.Input[_builtins.str]:
         """
-        The container hosts value `SingleModel/MultiModel`. The default value is `SingleModel`.
+        How containers in a multi-container are run. Allowed values are: `Serial` and `Direct`.
         """
         return pulumi.get(self, "mode")
 
@@ -11032,18 +11227,21 @@ class ModelInferenceExecutionConfigArgs:
 
 if not MYPY:
     class ModelPrimaryContainerArgsDict(TypedDict):
+        additional_model_data_sources: NotRequired[pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceArgsDict']]]]
+        """
+        Additional data sources that are available to the model in addition to those specified in `model_data_source`. See Additional Model Data Source.
+        """
         container_hostname: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The DNS host name for the container.
+        DNS host name for the container.
         """
         environment: NotRequired[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]
         """
         Environment variables for the Docker container.
-        A list of key value pairs.
         """
         image: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The registry path where the inference code image is stored in Amazon ECR.
+        Registry path where the inference code image is stored in Amazon ECR.
         """
         image_config: NotRequired[pulumi.Input['ModelPrimaryContainerImageConfigArgsDict']]
         """
@@ -11051,23 +11249,21 @@ if not MYPY:
         """
         inference_specification_name: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The inference specification name in the model package version.
+        Inference specification name in the model package version.
         """
         mode: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The container hosts value `SingleModel/MultiModel`. The default value is `SingleModel`.
-        """
         model_data_source: NotRequired[pulumi.Input['ModelPrimaryContainerModelDataSourceArgsDict']]
         """
-        The location of model data to deploy. Use this for uncompressed model deployment. For information about how to deploy an uncompressed model, see [Deploying uncompressed models](https://docs.aws.amazon.com/sagemaker/latest/dg/large-model-inference-uncompressed.html) in the _AWS SageMaker AI Developer Guide_.
+        Location of model data to deploy. Use this for uncompressed model deployment. For information about how to deploy an uncompressed model, see [Deploying uncompressed models](https://docs.aws.amazon.com/sagemaker/latest/dg/large-model-inference-uncompressed.html) in the _AWS SageMaker AI Developer Guide_.
         """
         model_data_url: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The URL for the S3 location where model artifacts are stored.
+        URL for the S3 location where model artifacts are stored.
         """
         model_package_name: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The Amazon Resource Name (ARN) of the model package to use to create the model.
+        Amazon Resource Name (ARN) of the model package to use to create the model.
+        A list of key value pairs.
         """
         multi_model_config: NotRequired[pulumi.Input['ModelPrimaryContainerMultiModelConfigArgsDict']]
         """
@@ -11079,6 +11275,7 @@ elif False:
 @pulumi.input_type
 class ModelPrimaryContainerArgs:
     def __init__(__self__, *,
+                 additional_model_data_sources: Optional[pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceArgs']]]] = None,
                  container_hostname: Optional[pulumi.Input[_builtins.str]] = None,
                  environment: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  image: Optional[pulumi.Input[_builtins.str]] = None,
@@ -11090,18 +11287,20 @@ class ModelPrimaryContainerArgs:
                  model_package_name: Optional[pulumi.Input[_builtins.str]] = None,
                  multi_model_config: Optional[pulumi.Input['ModelPrimaryContainerMultiModelConfigArgs']] = None):
         """
-        :param pulumi.Input[_builtins.str] container_hostname: The DNS host name for the container.
+        :param pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceArgs']]] additional_model_data_sources: Additional data sources that are available to the model in addition to those specified in `model_data_source`. See Additional Model Data Source.
+        :param pulumi.Input[_builtins.str] container_hostname: DNS host name for the container.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] environment: Environment variables for the Docker container.
-               A list of key value pairs.
-        :param pulumi.Input[_builtins.str] image: The registry path where the inference code image is stored in Amazon ECR.
+        :param pulumi.Input[_builtins.str] image: Registry path where the inference code image is stored in Amazon ECR.
         :param pulumi.Input['ModelPrimaryContainerImageConfigArgs'] image_config: Specifies whether the model container is in Amazon ECR or a private Docker registry accessible from your Amazon Virtual Private Cloud (VPC). For more information see [Using a Private Docker Registry for Real-Time Inference Containers](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-containers-inference-private.html). see Image Config.
-        :param pulumi.Input[_builtins.str] inference_specification_name: The inference specification name in the model package version.
-        :param pulumi.Input[_builtins.str] mode: The container hosts value `SingleModel/MultiModel`. The default value is `SingleModel`.
-        :param pulumi.Input['ModelPrimaryContainerModelDataSourceArgs'] model_data_source: The location of model data to deploy. Use this for uncompressed model deployment. For information about how to deploy an uncompressed model, see [Deploying uncompressed models](https://docs.aws.amazon.com/sagemaker/latest/dg/large-model-inference-uncompressed.html) in the _AWS SageMaker AI Developer Guide_.
-        :param pulumi.Input[_builtins.str] model_data_url: The URL for the S3 location where model artifacts are stored.
-        :param pulumi.Input[_builtins.str] model_package_name: The Amazon Resource Name (ARN) of the model package to use to create the model.
+        :param pulumi.Input[_builtins.str] inference_specification_name: Inference specification name in the model package version.
+        :param pulumi.Input['ModelPrimaryContainerModelDataSourceArgs'] model_data_source: Location of model data to deploy. Use this for uncompressed model deployment. For information about how to deploy an uncompressed model, see [Deploying uncompressed models](https://docs.aws.amazon.com/sagemaker/latest/dg/large-model-inference-uncompressed.html) in the _AWS SageMaker AI Developer Guide_.
+        :param pulumi.Input[_builtins.str] model_data_url: URL for the S3 location where model artifacts are stored.
+        :param pulumi.Input[_builtins.str] model_package_name: Amazon Resource Name (ARN) of the model package to use to create the model.
+               A list of key value pairs.
         :param pulumi.Input['ModelPrimaryContainerMultiModelConfigArgs'] multi_model_config: Specifies additional configuration for multi-model endpoints. see Multi Model Config.
         """
+        if additional_model_data_sources is not None:
+            pulumi.set(__self__, "additional_model_data_sources", additional_model_data_sources)
         if container_hostname is not None:
             pulumi.set(__self__, "container_hostname", container_hostname)
         if environment is not None:
@@ -11124,10 +11323,22 @@ class ModelPrimaryContainerArgs:
             pulumi.set(__self__, "multi_model_config", multi_model_config)
 
     @_builtins.property
+    @pulumi.getter(name="additionalModelDataSources")
+    def additional_model_data_sources(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceArgs']]]]:
+        """
+        Additional data sources that are available to the model in addition to those specified in `model_data_source`. See Additional Model Data Source.
+        """
+        return pulumi.get(self, "additional_model_data_sources")
+
+    @additional_model_data_sources.setter
+    def additional_model_data_sources(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceArgs']]]]):
+        pulumi.set(self, "additional_model_data_sources", value)
+
+    @_builtins.property
     @pulumi.getter(name="containerHostname")
     def container_hostname(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The DNS host name for the container.
+        DNS host name for the container.
         """
         return pulumi.get(self, "container_hostname")
 
@@ -11140,7 +11351,6 @@ class ModelPrimaryContainerArgs:
     def environment(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Environment variables for the Docker container.
-        A list of key value pairs.
         """
         return pulumi.get(self, "environment")
 
@@ -11152,7 +11362,7 @@ class ModelPrimaryContainerArgs:
     @pulumi.getter
     def image(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The registry path where the inference code image is stored in Amazon ECR.
+        Registry path where the inference code image is stored in Amazon ECR.
         """
         return pulumi.get(self, "image")
 
@@ -11176,7 +11386,7 @@ class ModelPrimaryContainerArgs:
     @pulumi.getter(name="inferenceSpecificationName")
     def inference_specification_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The inference specification name in the model package version.
+        Inference specification name in the model package version.
         """
         return pulumi.get(self, "inference_specification_name")
 
@@ -11187,9 +11397,6 @@ class ModelPrimaryContainerArgs:
     @_builtins.property
     @pulumi.getter
     def mode(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        The container hosts value `SingleModel/MultiModel`. The default value is `SingleModel`.
-        """
         return pulumi.get(self, "mode")
 
     @mode.setter
@@ -11200,7 +11407,7 @@ class ModelPrimaryContainerArgs:
     @pulumi.getter(name="modelDataSource")
     def model_data_source(self) -> Optional[pulumi.Input['ModelPrimaryContainerModelDataSourceArgs']]:
         """
-        The location of model data to deploy. Use this for uncompressed model deployment. For information about how to deploy an uncompressed model, see [Deploying uncompressed models](https://docs.aws.amazon.com/sagemaker/latest/dg/large-model-inference-uncompressed.html) in the _AWS SageMaker AI Developer Guide_.
+        Location of model data to deploy. Use this for uncompressed model deployment. For information about how to deploy an uncompressed model, see [Deploying uncompressed models](https://docs.aws.amazon.com/sagemaker/latest/dg/large-model-inference-uncompressed.html) in the _AWS SageMaker AI Developer Guide_.
         """
         return pulumi.get(self, "model_data_source")
 
@@ -11212,7 +11419,7 @@ class ModelPrimaryContainerArgs:
     @pulumi.getter(name="modelDataUrl")
     def model_data_url(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The URL for the S3 location where model artifacts are stored.
+        URL for the S3 location where model artifacts are stored.
         """
         return pulumi.get(self, "model_data_url")
 
@@ -11224,7 +11431,8 @@ class ModelPrimaryContainerArgs:
     @pulumi.getter(name="modelPackageName")
     def model_package_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Amazon Resource Name (ARN) of the model package to use to create the model.
+        Amazon Resource Name (ARN) of the model package to use to create the model.
+        A list of key value pairs.
         """
         return pulumi.get(self, "model_package_name")
 
@@ -11243,6 +11451,176 @@ class ModelPrimaryContainerArgs:
     @multi_model_config.setter
     def multi_model_config(self, value: Optional[pulumi.Input['ModelPrimaryContainerMultiModelConfigArgs']]):
         pulumi.set(self, "multi_model_config", value)
+
+
+if not MYPY:
+    class ModelPrimaryContainerAdditionalModelDataSourceArgsDict(TypedDict):
+        channel_name: pulumi.Input[_builtins.str]
+        """
+        Custom name for the additional model data source object. It will be stored in `/opt/ml/additional-model-data-sources/<channel_name>/`.
+        """
+        s3_data_sources: pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceArgsDict']]]
+        """
+        S3 location of model data to deploy. See S3 Data Source.
+        """
+elif False:
+    ModelPrimaryContainerAdditionalModelDataSourceArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ModelPrimaryContainerAdditionalModelDataSourceArgs:
+    def __init__(__self__, *,
+                 channel_name: pulumi.Input[_builtins.str],
+                 s3_data_sources: pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceArgs']]]):
+        """
+        :param pulumi.Input[_builtins.str] channel_name: Custom name for the additional model data source object. It will be stored in `/opt/ml/additional-model-data-sources/<channel_name>/`.
+        :param pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceArgs']]] s3_data_sources: S3 location of model data to deploy. See S3 Data Source.
+        """
+        pulumi.set(__self__, "channel_name", channel_name)
+        pulumi.set(__self__, "s3_data_sources", s3_data_sources)
+
+    @_builtins.property
+    @pulumi.getter(name="channelName")
+    def channel_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        Custom name for the additional model data source object. It will be stored in `/opt/ml/additional-model-data-sources/<channel_name>/`.
+        """
+        return pulumi.get(self, "channel_name")
+
+    @channel_name.setter
+    def channel_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "channel_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="s3DataSources")
+    def s3_data_sources(self) -> pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceArgs']]]:
+        """
+        S3 location of model data to deploy. See S3 Data Source.
+        """
+        return pulumi.get(self, "s3_data_sources")
+
+    @s3_data_sources.setter
+    def s3_data_sources(self, value: pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceArgs']]]):
+        pulumi.set(self, "s3_data_sources", value)
+
+
+if not MYPY:
+    class ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceArgsDict(TypedDict):
+        compression_type: pulumi.Input[_builtins.str]
+        """
+        How the model data is prepared. Allowed values are: `None` and `Gzip`.
+        """
+        s3_data_type: pulumi.Input[_builtins.str]
+        """
+        Type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
+        """
+        s3_uri: pulumi.Input[_builtins.str]
+        """
+        The S3 path of model data to deploy.
+        """
+        model_access_config: NotRequired[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgsDict']]
+        """
+        Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. See Model Access Config.
+        """
+elif False:
+    ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceArgs:
+    def __init__(__self__, *,
+                 compression_type: pulumi.Input[_builtins.str],
+                 s3_data_type: pulumi.Input[_builtins.str],
+                 s3_uri: pulumi.Input[_builtins.str],
+                 model_access_config: Optional[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgs']] = None):
+        """
+        :param pulumi.Input[_builtins.str] compression_type: How the model data is prepared. Allowed values are: `None` and `Gzip`.
+        :param pulumi.Input[_builtins.str] s3_data_type: Type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
+        :param pulumi.Input[_builtins.str] s3_uri: The S3 path of model data to deploy.
+        :param pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgs'] model_access_config: Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. See Model Access Config.
+        """
+        pulumi.set(__self__, "compression_type", compression_type)
+        pulumi.set(__self__, "s3_data_type", s3_data_type)
+        pulumi.set(__self__, "s3_uri", s3_uri)
+        if model_access_config is not None:
+            pulumi.set(__self__, "model_access_config", model_access_config)
+
+    @_builtins.property
+    @pulumi.getter(name="compressionType")
+    def compression_type(self) -> pulumi.Input[_builtins.str]:
+        """
+        How the model data is prepared. Allowed values are: `None` and `Gzip`.
+        """
+        return pulumi.get(self, "compression_type")
+
+    @compression_type.setter
+    def compression_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "compression_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="s3DataType")
+    def s3_data_type(self) -> pulumi.Input[_builtins.str]:
+        """
+        Type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
+        """
+        return pulumi.get(self, "s3_data_type")
+
+    @s3_data_type.setter
+    def s3_data_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "s3_data_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="s3Uri")
+    def s3_uri(self) -> pulumi.Input[_builtins.str]:
+        """
+        The S3 path of model data to deploy.
+        """
+        return pulumi.get(self, "s3_uri")
+
+    @s3_uri.setter
+    def s3_uri(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "s3_uri", value)
+
+    @_builtins.property
+    @pulumi.getter(name="modelAccessConfig")
+    def model_access_config(self) -> Optional[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgs']]:
+        """
+        Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. See Model Access Config.
+        """
+        return pulumi.get(self, "model_access_config")
+
+    @model_access_config.setter
+    def model_access_config(self, value: Optional[pulumi.Input['ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgs']]):
+        pulumi.set(self, "model_access_config", value)
+
+
+if not MYPY:
+    class ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgsDict(TypedDict):
+        accept_eula: pulumi.Input[_builtins.bool]
+        """
+        Specifies agreement to the model end-user license agreement (EULA). The value must be set to `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
+        """
+elif False:
+    ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigArgs:
+    def __init__(__self__, *,
+                 accept_eula: pulumi.Input[_builtins.bool]):
+        """
+        :param pulumi.Input[_builtins.bool] accept_eula: Specifies agreement to the model end-user license agreement (EULA). The value must be set to `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
+        """
+        pulumi.set(__self__, "accept_eula", accept_eula)
+
+    @_builtins.property
+    @pulumi.getter(name="acceptEula")
+    def accept_eula(self) -> pulumi.Input[_builtins.bool]:
+        """
+        Specifies agreement to the model end-user license agreement (EULA). The value must be set to `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
+        """
+        return pulumi.get(self, "accept_eula")
+
+    @accept_eula.setter
+    def accept_eula(self, value: pulumi.Input[_builtins.bool]):
+        pulumi.set(self, "accept_eula", value)
 
 
 if not MYPY:
@@ -11300,7 +11678,7 @@ if not MYPY:
     class ModelPrimaryContainerImageConfigRepositoryAuthConfigArgsDict(TypedDict):
         repository_credentials_provider_arn: pulumi.Input[_builtins.str]
         """
-        The Amazon Resource Name (ARN) of an AWS Lambda function that provides credentials to authenticate to the private Docker registry where your model image is hosted. For information about how to create an AWS Lambda function, see [Create a Lambda function with the console](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html) in the _AWS Lambda Developer Guide_.
+        Amazon Resource Name (ARN) of an AWS Lambda function that provides credentials to authenticate to the private Docker registry where your model image is hosted. For information about how to create an AWS Lambda function, see [Create a Lambda function with the console](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html) in the _AWS Lambda Developer Guide_.
         """
 elif False:
     ModelPrimaryContainerImageConfigRepositoryAuthConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -11310,7 +11688,7 @@ class ModelPrimaryContainerImageConfigRepositoryAuthConfigArgs:
     def __init__(__self__, *,
                  repository_credentials_provider_arn: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] repository_credentials_provider_arn: The Amazon Resource Name (ARN) of an AWS Lambda function that provides credentials to authenticate to the private Docker registry where your model image is hosted. For information about how to create an AWS Lambda function, see [Create a Lambda function with the console](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html) in the _AWS Lambda Developer Guide_.
+        :param pulumi.Input[_builtins.str] repository_credentials_provider_arn: Amazon Resource Name (ARN) of an AWS Lambda function that provides credentials to authenticate to the private Docker registry where your model image is hosted. For information about how to create an AWS Lambda function, see [Create a Lambda function with the console](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html) in the _AWS Lambda Developer Guide_.
         """
         pulumi.set(__self__, "repository_credentials_provider_arn", repository_credentials_provider_arn)
 
@@ -11318,7 +11696,7 @@ class ModelPrimaryContainerImageConfigRepositoryAuthConfigArgs:
     @pulumi.getter(name="repositoryCredentialsProviderArn")
     def repository_credentials_provider_arn(self) -> pulumi.Input[_builtins.str]:
         """
-        The Amazon Resource Name (ARN) of an AWS Lambda function that provides credentials to authenticate to the private Docker registry where your model image is hosted. For information about how to create an AWS Lambda function, see [Create a Lambda function with the console](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html) in the _AWS Lambda Developer Guide_.
+        Amazon Resource Name (ARN) of an AWS Lambda function that provides credentials to authenticate to the private Docker registry where your model image is hosted. For information about how to create an AWS Lambda function, see [Create a Lambda function with the console](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html) in the _AWS Lambda Developer Guide_.
         """
         return pulumi.get(self, "repository_credentials_provider_arn")
 
@@ -11331,7 +11709,7 @@ if not MYPY:
     class ModelPrimaryContainerModelDataSourceArgsDict(TypedDict):
         s3_data_sources: pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerModelDataSourceS3DataSourceArgsDict']]]
         """
-        The S3 location of model data to deploy.
+        S3 location of model data to deploy. See S3 Data Source.
         """
 elif False:
     ModelPrimaryContainerModelDataSourceArgsDict: TypeAlias = Mapping[str, Any]
@@ -11341,7 +11719,7 @@ class ModelPrimaryContainerModelDataSourceArgs:
     def __init__(__self__, *,
                  s3_data_sources: pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerModelDataSourceS3DataSourceArgs']]]):
         """
-        :param pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerModelDataSourceS3DataSourceArgs']]] s3_data_sources: The S3 location of model data to deploy.
+        :param pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerModelDataSourceS3DataSourceArgs']]] s3_data_sources: S3 location of model data to deploy. See S3 Data Source.
         """
         pulumi.set(__self__, "s3_data_sources", s3_data_sources)
 
@@ -11349,7 +11727,7 @@ class ModelPrimaryContainerModelDataSourceArgs:
     @pulumi.getter(name="s3DataSources")
     def s3_data_sources(self) -> pulumi.Input[Sequence[pulumi.Input['ModelPrimaryContainerModelDataSourceS3DataSourceArgs']]]:
         """
-        The S3 location of model data to deploy.
+        S3 location of model data to deploy. See S3 Data Source.
         """
         return pulumi.get(self, "s3_data_sources")
 
@@ -11366,7 +11744,7 @@ if not MYPY:
         """
         s3_data_type: pulumi.Input[_builtins.str]
         """
-        The type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
+        Type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
         """
         s3_uri: pulumi.Input[_builtins.str]
         """
@@ -11374,7 +11752,7 @@ if not MYPY:
         """
         model_access_config: NotRequired[pulumi.Input['ModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfigArgsDict']]
         """
-        Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. see Model Access Config.
+        Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. See Model Access Config.
         """
 elif False:
     ModelPrimaryContainerModelDataSourceS3DataSourceArgsDict: TypeAlias = Mapping[str, Any]
@@ -11388,9 +11766,9 @@ class ModelPrimaryContainerModelDataSourceS3DataSourceArgs:
                  model_access_config: Optional[pulumi.Input['ModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfigArgs']] = None):
         """
         :param pulumi.Input[_builtins.str] compression_type: How the model data is prepared. Allowed values are: `None` and `Gzip`.
-        :param pulumi.Input[_builtins.str] s3_data_type: The type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
+        :param pulumi.Input[_builtins.str] s3_data_type: Type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
         :param pulumi.Input[_builtins.str] s3_uri: The S3 path of model data to deploy.
-        :param pulumi.Input['ModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfigArgs'] model_access_config: Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. see Model Access Config.
+        :param pulumi.Input['ModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfigArgs'] model_access_config: Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. See Model Access Config.
         """
         pulumi.set(__self__, "compression_type", compression_type)
         pulumi.set(__self__, "s3_data_type", s3_data_type)
@@ -11414,7 +11792,7 @@ class ModelPrimaryContainerModelDataSourceS3DataSourceArgs:
     @pulumi.getter(name="s3DataType")
     def s3_data_type(self) -> pulumi.Input[_builtins.str]:
         """
-        The type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
+        Type of model data to deploy. Allowed values are: `S3Object` and `S3Prefix`.
         """
         return pulumi.get(self, "s3_data_type")
 
@@ -11438,7 +11816,7 @@ class ModelPrimaryContainerModelDataSourceS3DataSourceArgs:
     @pulumi.getter(name="modelAccessConfig")
     def model_access_config(self) -> Optional[pulumi.Input['ModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfigArgs']]:
         """
-        Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. see Model Access Config.
+        Specifies the access configuration file for the ML model. You can explicitly accept the model end-user license agreement (EULA) within the [`model_access_config` configuration block]. See Model Access Config.
         """
         return pulumi.get(self, "model_access_config")
 
@@ -11451,7 +11829,7 @@ if not MYPY:
     class ModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfigArgsDict(TypedDict):
         accept_eula: pulumi.Input[_builtins.bool]
         """
-        Specifies agreement to the model end-user license agreement (EULA). The AcceptEula value must be explicitly defined as `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
+        Specifies agreement to the model end-user license agreement (EULA). The value must be set to `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
         """
 elif False:
     ModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -11461,7 +11839,7 @@ class ModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfigArgs:
     def __init__(__self__, *,
                  accept_eula: pulumi.Input[_builtins.bool]):
         """
-        :param pulumi.Input[_builtins.bool] accept_eula: Specifies agreement to the model end-user license agreement (EULA). The AcceptEula value must be explicitly defined as `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
+        :param pulumi.Input[_builtins.bool] accept_eula: Specifies agreement to the model end-user license agreement (EULA). The value must be set to `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
         """
         pulumi.set(__self__, "accept_eula", accept_eula)
 
@@ -11469,7 +11847,7 @@ class ModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfigArgs:
     @pulumi.getter(name="acceptEula")
     def accept_eula(self) -> pulumi.Input[_builtins.bool]:
         """
-        Specifies agreement to the model end-user license agreement (EULA). The AcceptEula value must be explicitly defined as `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
+        Specifies agreement to the model end-user license agreement (EULA). The value must be set to `true` in order to accept the EULA that this model requires. You are responsible for reviewing and complying with any applicable license terms and making sure they are acceptable for your use case before downloading or using a model.
         """
         return pulumi.get(self, "accept_eula")
 
@@ -11513,7 +11891,13 @@ class ModelPrimaryContainerMultiModelConfigArgs:
 if not MYPY:
     class ModelVpcConfigArgsDict(TypedDict):
         security_group_ids: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
+        """
+        List of security group IDs you want to be applied to your training job or model. Specify the security groups for the VPC that is specified in the Subnets field.
+        """
         subnets: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
+        """
+        List of subnet IDs in the VPC to which you want to connect your training job or model.
+        """
 elif False:
     ModelVpcConfigArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -11522,12 +11906,19 @@ class ModelVpcConfigArgs:
     def __init__(__self__, *,
                  security_group_ids: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]],
                  subnets: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] security_group_ids: List of security group IDs you want to be applied to your training job or model. Specify the security groups for the VPC that is specified in the Subnets field.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] subnets: List of subnet IDs in the VPC to which you want to connect your training job or model.
+        """
         pulumi.set(__self__, "security_group_ids", security_group_ids)
         pulumi.set(__self__, "subnets", subnets)
 
     @_builtins.property
     @pulumi.getter(name="securityGroupIds")
     def security_group_ids(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
+        """
+        List of security group IDs you want to be applied to your training job or model. Specify the security groups for the VPC that is specified in the Subnets field.
+        """
         return pulumi.get(self, "security_group_ids")
 
     @security_group_ids.setter
@@ -11537,6 +11928,9 @@ class ModelVpcConfigArgs:
     @_builtins.property
     @pulumi.getter
     def subnets(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
+        """
+        List of subnet IDs in the VPC to which you want to connect your training job or model.
+        """
         return pulumi.get(self, "subnets")
 
     @subnets.setter

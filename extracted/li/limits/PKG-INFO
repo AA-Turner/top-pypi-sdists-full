@@ -1,69 +1,49 @@
 Metadata-Version: 2.4
 Name: limits
-Version: 5.5.0
+Version: 5.6.0
 Summary: Rate limiting utilities
-Home-page: https://limits.readthedocs.org
-Author: Ali-Akber Saifee
-Author-email: ali@indydevs.org
-License: MIT
+Project-URL: Homepage, https://limits.readthedocs.org
 Project-URL: Source, https://github.com/alisaifee/limits
+Project-URL: Documentation, https://limits.readthedocs.org
+Author-email: Ali-Akber Saifee <ali@indydevs.org>
+Maintainer-email: Ali-Akber Saifee <ali@indydevs.org>
+License-Expression: MIT
+License-File: LICENSE.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
-Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: OS Independent
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-License-File: LICENSE.txt
 Requires-Dist: deprecated>=1.2
 Requires-Dist: packaging>=21
-Requires-Dist: typing_extensions
-Provides-Extra: redis
-Requires-Dist: redis!=4.5.2,!=4.5.3,<7.0.0,>3; extra == "redis"
-Provides-Extra: rediscluster
-Requires-Dist: redis!=4.5.2,!=4.5.3,>=4.2.0; extra == "rediscluster"
-Provides-Extra: memcached
-Requires-Dist: pymemcache<5.0.0,>3; extra == "memcached"
-Provides-Extra: mongodb
-Requires-Dist: pymongo<5,>4.1; extra == "mongodb"
-Provides-Extra: valkey
-Requires-Dist: valkey>=6; extra == "valkey"
-Provides-Extra: async-redis
-Requires-Dist: coredis<6,>=3.4.0; extra == "async-redis"
+Requires-Dist: typing-extensions
 Provides-Extra: async-memcached
-Requires-Dist: memcachio>=0.3; extra == "async-memcached"
+Requires-Dist: memcachio>=0.3; extra == 'async-memcached'
 Provides-Extra: async-mongodb
-Requires-Dist: motor<4,>=3; extra == "async-mongodb"
+Requires-Dist: motor<4,>=3; extra == 'async-mongodb'
+Provides-Extra: async-redis
+Requires-Dist: coredis<6,>=3.4.0; extra == 'async-redis'
 Provides-Extra: async-valkey
-Requires-Dist: valkey>=6; extra == "async-valkey"
-Provides-Extra: all
-Requires-Dist: redis!=4.5.2,!=4.5.3,<7.0.0,>3; extra == "all"
-Requires-Dist: redis!=4.5.2,!=4.5.3,>=4.2.0; extra == "all"
-Requires-Dist: pymemcache<5.0.0,>3; extra == "all"
-Requires-Dist: pymongo<5,>4.1; extra == "all"
-Requires-Dist: valkey>=6; extra == "all"
-Requires-Dist: coredis<6,>=3.4.0; extra == "all"
-Requires-Dist: memcachio>=0.3; extra == "all"
-Requires-Dist: motor<4,>=3; extra == "all"
-Requires-Dist: valkey>=6; extra == "all"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
-Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: valkey>=6; extra == 'async-valkey'
+Provides-Extra: memcached
+Requires-Dist: pymemcache<5.0.0,>3; extra == 'memcached'
+Provides-Extra: mongodb
+Requires-Dist: pymongo<5,>4.1; extra == 'mongodb'
+Provides-Extra: redis
+Requires-Dist: redis!=4.5.2,!=4.5.3,<7.0.0,>3; extra == 'redis'
+Provides-Extra: rediscluster
+Requires-Dist: redis!=4.5.2,!=4.5.3,>=4.2.0; extra == 'rediscluster'
+Provides-Extra: valkey
+Requires-Dist: valkey>=6; extra == 'valkey'
+Description-Content-Type: text/x-rst
 
 .. |ci| image:: https://github.com/alisaifee/limits/actions/workflows/main.yml/badge.svg?branch=master
     :target: https://github.com/alisaifee/limits/actions?query=branch%3Amaster+workflow%3ACI

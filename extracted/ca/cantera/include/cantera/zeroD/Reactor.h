@@ -47,6 +47,9 @@ class Reactor : public ReactorBase
 {
 public:
     Reactor(shared_ptr<Solution> sol, const string& name="(none)");
+    Reactor(shared_ptr<Solution> sol, bool clone, const string& name="(none)");
+    //! TODO: Remove after %Cantera 3.2 -- all derived classes should use Solution-based
+    //! constructors.
     using ReactorBase::ReactorBase; // inherit constructors
 
     string type() const override {
@@ -66,40 +69,23 @@ public:
         return true;
     }
 
-    /**
-     * Insert something into the reactor. The 'something' must belong to a class
-     * that is a subclass of both ThermoPhase and Kinetics.
-     * @deprecated Unused; to be removed after %Cantera 3.1.
-     */
-    template<class G>
-    void insert(G& contents) {
-        warn_deprecated("Reactor::insert", "Unused; to be removed after Cantera 3.1.");
-        setThermo(contents);
-        setKinetics(contents);
+    void setInitialVolume(double vol) override {
+        m_vol = vol;
     }
 
-    using ReactorBase::insert;
-
-    void setChemistry(bool cflag=true) override {
+    void setChemistryEnabled(bool cflag=true) override {
         m_chem = cflag;
     }
 
-    //! Returns `true` if changes in the reactor composition due to chemical reactions
-    //! are enabled.
-    bool chemistryEnabled() const {
+    bool chemistryEnabled() const override {
         return m_chem;
     }
 
-    void setEnergy(int eflag=1) override {
-        if (eflag > 0) {
-            m_energy = true;
-        } else {
-            m_energy = false;
-        }
+    void setEnergyEnabled(bool eflag=true) override {
+        m_energy = eflag;
     }
 
-    //! Returns `true` if solution of the energy equation is enabled.
-    bool energyEnabled() const {
+    bool energyEnabled() const override {
         return m_energy;
     }
 
@@ -154,18 +140,22 @@ public:
         throw NotImplementedError("Reactor::getConstraints");
     }
 
-    void syncState() override;
+    //! Get the indices of equations that are algebraic constraints when solving the
+    //! steady-state problem.
+    //!
+    //! @warning  This method is an experimental part of the %Cantera API and may be
+    //!     changed or removed without notice.
+    //! @since New in %Cantera 3.2.
+    virtual vector<size_t> steadyConstraints() const;
 
     //! Set the state of the reactor to correspond to the state vector *y*.
     virtual void updateState(double* y);
 
-    //! Number of sensitivity parameters associated with this reactor
+    //! Number of sensitivity parameters associated with this reactor.
     //! (including walls)
-    virtual size_t nSensParams() const;
+    size_t nSensParams() const override;
 
-    //! Add a sensitivity parameter associated with the reaction number *rxn*
-    //! (in the homogeneous phase).
-    virtual void addSensitivityReaction(size_t rxn);
+    void addSensitivityReaction(size_t rxn) override;
 
     //! Add a sensitivity parameter associated with the enthalpy formation of
     //! species *k* (in the homogeneous phase)
@@ -180,6 +170,17 @@ public:
     //! Return the name of the solution component with index *i*.
     //! @see componentIndex()
     virtual string componentName(size_t k);
+
+    //! Get the upper bound on the k-th component of the local state vector.
+    virtual double upperBound(size_t k) const;
+
+    //! Get the lower bound on the k-th component of the local state vector.
+    virtual double lowerBound(size_t k) const;
+
+    //! Reset physically or mathematically problematic values, such as negative species
+    //! concentrations.
+    //! @param[inout] y  current state vector, to be updated; length neq()
+    virtual void resetBadValues(double* y);
 
     //! Set absolute step size limits during advance
     //! @param limits array of step size limits with length neq
@@ -242,6 +243,8 @@ public:
     virtual bool preconditionerSupported() const {return false;};
 
 protected:
+    //! @deprecated To be removed after %Cantera 3.2. Use constructor with
+    //!     Solution object instead.
     void setKinetics(Kinetics& kin) override;
 
     //! Return the index in the solution vector for this reactor of the species
@@ -286,7 +289,6 @@ protected:
 
     double m_Qdot = 0.0; //!< net heat transfer into the reactor, through walls [W]
 
-    double m_mass = 0.0; //!< total mass
     vector<double> m_work;
 
     //! Production rates of gas phase species on surfaces [kmol/s]
@@ -300,9 +302,6 @@ protected:
     size_t m_nv_surf; //!!< Number of variables associated with reactor surfaces
 
     vector<double> m_advancelimits; //!< Advance step limit
-
-    // Data associated each sensitivity parameter
-    vector<SensitivityParameter> m_sensParams;
 
     //! Vector of triplets representing the jacobian
     vector<Eigen::Triplet<double>> m_jac_trips;

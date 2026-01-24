@@ -15,6 +15,7 @@
 
 namespace slang::ast {
 
+class AssertionPortSymbol;
 class NetType;
 class TimingControl;
 
@@ -116,7 +117,6 @@ public:
         defaultValSyntax = nullptr;
     }
 
-    const syntax::ExpressionSyntax* getDefaultValueSyntax() const { return defaultValSyntax; }
     const Expression* getDefaultValue() const;
 
     FormalArgumentSymbol& clone(Compilation& compilation) const;
@@ -290,10 +290,14 @@ public:
 /// such as a sequence or property.
 class SLANG_EXPORT LocalAssertionVarSymbol final : public VariableSymbol {
 public:
+    const AssertionPortSymbol* formalPort = nullptr;
+
     LocalAssertionVarSymbol(std::string_view name, SourceLocation loc);
 
     static void fromSyntax(const Scope& scope, const syntax::LocalVariableDeclarationSyntax& syntax,
                            SmallVectorBase<const LocalAssertionVarSymbol*>& results);
+
+    static LocalAssertionVarSymbol& fromPort(const Scope& scope, const AssertionPortSymbol& port);
 
     static bool isKind(SymbolKind kind) { return kind == SymbolKind::LocalAssertionVar; }
 };

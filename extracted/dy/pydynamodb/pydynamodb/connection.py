@@ -10,7 +10,6 @@ from .cursor import BaseCursor, Cursor
 from .error import NotSupportedError
 from .util import RetryConfig, retry_api_call
 
-
 if TYPE_CHECKING:
     from botocore.client import BaseClient
 
@@ -144,8 +143,8 @@ class Connection:
         self._converter = converter
         self._retry_config = retry_config if retry_config else RetryConfig()
         self.cursor_class = cursor_class
-        self.cursor_kwargs = cursor_kwargs if cursor_kwargs else dict()
-        self._cursor_pool = list()
+        self.cursor_kwargs = cursor_kwargs if cursor_kwargs else {}
+        self._cursor_pool = []
         self._autocommit = True
         self._in_transaction = False
 

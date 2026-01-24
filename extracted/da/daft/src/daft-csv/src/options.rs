@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use {
     daft_core::python::PySchema,
     daft_dsl::python::PyExpr,
-    pyo3::{PyObject, PyResult, Python, pyclass, pyclass::CompareOp, pymethods},
+    pyo3::{PyResult, Python, pyclass, pyclass::CompareOp, pymethods},
 };
 
 /// Options for converting CSV data to Daft data.
@@ -369,7 +369,7 @@ impl CsvReadOptions {
     /// # Arguments:
     ///
     /// * `buffer_size` - Size of the buffer (in bytes) used by the streaming reader.
-    /// * `chunk_size` - Size of the chunks (in bytes) deserialized in parallel by the streaming reader.
+    /// * `chunk_size` - Size of the chunks (in rows) deserialized in parallel by the streaming reader.
     #[new]
     #[pyo3(signature = (buffer_size=None, chunk_size=None))]
     #[must_use]

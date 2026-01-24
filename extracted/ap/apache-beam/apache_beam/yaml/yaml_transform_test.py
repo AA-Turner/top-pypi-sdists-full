@@ -29,6 +29,11 @@ from apache_beam.utils import python_callable
 from apache_beam.yaml import yaml_provider
 from apache_beam.yaml.yaml_transform import YamlTransform
 
+try:
+  import jsonschema
+except ImportError:
+  jsonschema = None
+
 
 class CreateTimestamped(beam.PTransform):
   _yaml_requires_inputs = False
@@ -83,6 +88,7 @@ TEST_PROVIDERS = {
 }
 
 
+@unittest.skipIf(jsonschema is None, "Yaml dependencies not installed")
 class YamlTransformE2ETest(unittest.TestCase):
   def test_composite(self):
     with beam.Pipeline(options=beam.options.pipeline_options.PipelineOptions(
@@ -687,6 +693,120 @@ class YamlTransformE2ETest(unittest.TestCase):
                        categories: []}
           ''')
 
+  def test_output_schema_success(self):
+    """Test that optional output_schema works."""
+    with beam.Pipeline(options=beam.options.pipeline_options.PipelineOptions(
+        pickle_library='cloudpickle')) as p:
+      _ = p | YamlTransform(
+          '''
+            type: composite
+            transforms:
+              - type: Create
+                name: MyCreate
+                config:
+                  elements:
+                    - {sdk: 'Beam', year: 2016}
+                    - {sdk: 'Flink', year: 2015}
+                  output_schema:
+                    type: object
+                    properties:
+                      sdk: 
+                        type: string
+                      year: 
+                        type: integer
+              - type: AssertEqual
+                name: CheckGood
+                input: MyCreate
+                config:
+                  elements:
+                    - {sdk: 'Beam', year: 2016}
+                    - {sdk: 'Flink', year: 2015}
+          ''')
+
+  def test_output_schema_fails(self):
+    """
+    Test that optional output_schema works by failing the pipeline since main
+    transform doesn't have error_handling config.
+    """
+    with self.assertRaises(Exception) as e:
+      with beam.Pipeline(options=beam.options.pipeline_options.PipelineOptions(
+          pickle_library='cloudpickle')) as p:
+        _ = p | YamlTransform(
+            '''
+                type: composite
+                transforms:
+                  - type: Create
+                    name: MyCreate
+                    config:
+                      elements:
+                        - {sdk: 'Beam', year: 2016}
+                        - {sdk: 'Spark', year: 'date'}
+                        - {sdk: 'Flink', year: 2015}
+                      output_schema:
+                        type: object
+                        properties:
+                          sdk: 
+                            type: string
+                          year: 
+                            type: integer
+                  - type: AssertEqual
+                    name: CheckGood
+                    input: MyCreate
+                    config:
+                      elements:
+                        - {sdk: 'Beam', year: 2016}
+                        - {sdk: 'Flink', year: 2015}
+              ''')
+    self.assertIn("'date' is not of type 'integer'", str(e.exception))
+
+  def test_output_schema_with_main_transform_error_handling_success(self):
+    """Test that optional output_schema works in conjunction with main transform
+    error handling."""
+    with beam.Pipeline(options=beam.options.pipeline_options.PipelineOptions(
+        pickle_library='cloudpickle')) as p:
+      _ = p | YamlTransform(
+          '''
+            type: composite
+            transforms:
+              - type: Create
+                name: CreateVisits
+                config:
+                  elements:
+                    - {user: alice, timestamp: "not-valid"}
+                    - {user: bob, timestamp: 3}
+              - type: AssignTimestamps
+                input: CreateVisits
+                config:
+                  timestamp: timestamp
+                  error_handling:
+                    output: invalid_rows
+                  output_schema:
+                    type: object
+                    properties:
+                      user:
+                        type: string
+                      timestamp:
+                        type: boolean
+              - type: MapToFields
+                name: ExtractInvalidTimestamp
+                input: AssignTimestamps.invalid_rows
+                config:
+                  language: python
+                  fields:
+                    user: "element.user"
+                    timestamp: "element.timestamp"
+              - type: AssertEqual
+                input: ExtractInvalidTimestamp
+                config:
+                  elements:
+                    - {user: "alice", timestamp: "not-valid"}
+                    - {user: bob, timestamp: 3}
+              - type: AssertEqual
+                input: AssignTimestamps
+                config:
+                  elements: []
+          ''')
+
 
 class ErrorHandlingTest(unittest.TestCase):
   def test_error_handling_outputs(self):
@@ -872,6 +992,61 @@ class YamlWindowingTest(unittest.TestCase):
           ''',
           providers=TEST_PROVIDERS)
       assert_that(result, equal_to([6, 9]))
+
+  def test_explicit_window_into_with_json_string_config_one_line(self):
+    with beam.Pipeline(options=beam.options.pipeline_options.PipelineOptions(
+        pickle_library='cloudpickle')) as p:
+      result = p | YamlTransform(
+          '''
+          type: chain
+          transforms:
+            - type: CreateTimestamped
+              config:
+                  elements: [0, 1, 2, 3, 4, 5]
+            - type: WindowInto
+              config:
+                windowing: {"type": "fixed", "size": "4s"}
+            - type: SumGlobally
+          ''',
+          providers=TEST_PROVIDERS)
+      assert_that(result, equal_to([6, 9]))
+
+  def test_explicit_window_into_with_json_string_config_multi_line(self):
+    with beam.Pipeline(options=beam.options.pipeline_options.PipelineOptions(
+        pickle_library='cloudpickle')) as p:
+      result = p | YamlTransform(
+          '''
+          type: chain
+          transforms:
+            - type: CreateTimestamped
+              config:
+                  elements: [0, 1, 2, 3, 4, 5]
+            - type: WindowInto
+              config:
+                windowing: |
+                  {"type": "fixed", "size": "4s"}
+            - type: SumGlobally
+          ''',
+          providers=TEST_PROVIDERS)
+      assert_that(result, equal_to([6, 9]))
+
+  def test_explicit_window_into_with_string_config_fails(self):
+    with self.assertRaisesRegex(ValueError, 'Error parsing windowing config'):
+      with beam.Pipeline(options=beam.options.pipeline_options.PipelineOptions(
+          pickle_library='cloudpickle')) as p:
+        _ = p | YamlTransform(
+            '''
+            type: chain
+            transforms:
+              - type: CreateTimestamped
+                config:
+                    elements: [0, 1, 2, 3, 4, 5]
+              - type: WindowInto
+                config:
+                  windowing: |
+                    'not a valid yaml'
+            ''',
+            providers=TEST_PROVIDERS)
 
   def test_windowing_on_input(self):
     with beam.Pipeline(options=beam.options.pipeline_options.PipelineOptions(

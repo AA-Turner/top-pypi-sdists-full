@@ -1,7 +1,7 @@
 r'''
 # `github_issue`
 
-Refer to the Terraform Registry for docs: [`github_issue`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue).
+Refer to the Terraform Registry for docs: [`github_issue`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Issue(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.issue.Issue",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue github_issue}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue github_issue}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class Issue(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue github_issue} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue github_issue} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#repository Issue#repository}
-        :param title: Title of the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#title Issue#title}
-        :param assignees: List of Logins to assign to the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#assignees Issue#assignees}
-        :param body: Body of the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#body Issue#body}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#id Issue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: List of labels to attach to the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#labels Issue#labels}
-        :param milestone_number: Milestone number to assign to the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#milestone_number Issue#milestone_number}
+        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#repository Issue#repository}
+        :param title: Title of the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#title Issue#title}
+        :param assignees: List of Logins to assign to the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#assignees Issue#assignees}
+        :param body: Body of the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#body Issue#body}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#id Issue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: List of labels to attach to the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#labels Issue#labels}
+        :param milestone_number: Milestone number to assign to the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#milestone_number Issue#milestone_number}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class Issue(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Issue to import.
-        :param import_from_id: The id of the existing Issue that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Issue that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Issue to import is found.
         '''
         if __debug__:
@@ -347,13 +347,13 @@ class IssueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#repository Issue#repository}
-        :param title: Title of the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#title Issue#title}
-        :param assignees: List of Logins to assign to the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#assignees Issue#assignees}
-        :param body: Body of the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#body Issue#body}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#id Issue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: List of labels to attach to the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#labels Issue#labels}
-        :param milestone_number: Milestone number to assign to the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#milestone_number Issue#milestone_number}
+        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#repository Issue#repository}
+        :param title: Title of the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#title Issue#title}
+        :param assignees: List of Logins to assign to the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#assignees Issue#assignees}
+        :param body: Body of the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#body Issue#body}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#id Issue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: List of labels to attach to the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#labels Issue#labels}
+        :param milestone_number: Milestone number to assign to the issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#milestone_number Issue#milestone_number}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -470,7 +470,7 @@ class IssueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository(self) -> builtins.str:
         '''The GitHub repository name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#repository Issue#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#repository Issue#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -480,7 +480,7 @@ class IssueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def title(self) -> builtins.str:
         '''Title of the issue.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#title Issue#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#title Issue#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -490,7 +490,7 @@ class IssueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def assignees(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of Logins to assign to the issue.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#assignees Issue#assignees}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#assignees Issue#assignees}
         '''
         result = self._values.get("assignees")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -499,14 +499,14 @@ class IssueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def body(self) -> typing.Optional[builtins.str]:
         '''Body of the issue.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#body Issue#body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#body Issue#body}
         '''
         result = self._values.get("body")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#id Issue#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#id Issue#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -518,7 +518,7 @@ class IssueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def labels(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of labels to attach to the issue.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#labels Issue#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#labels Issue#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -527,7 +527,7 @@ class IssueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def milestone_number(self) -> typing.Optional[jsii.Number]:
         '''Milestone number to assign to the issue.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue#milestone_number Issue#milestone_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue#milestone_number Issue#milestone_number}
         '''
         result = self._values.get("milestone_number")
         return typing.cast(typing.Optional[jsii.Number], result)

@@ -104,9 +104,13 @@ skip_unless_py312 = unittest.skipUnless(
     "needs Python 3.12"
 )
 
-skip_if_py313_on_windows = unittest.skipIf(
-     utils.PYVERSION == (3, 13) and sys.platform.startswith('win'),
-     "Not supported on Python 3.13 on Windows"
+skip_if_py313plus_on_windows = unittest.skipIf(
+     utils.PYVERSION >= (3, 13) and sys.platform.startswith('win'),
+     "Not supported on Python 3.13+ on Windows"
+ )
+
+skip_if_py314= unittest.skipIf(
+     utils.PYVERSION == (3, 14), "Test unstable on 3.14"
  )
 
 skip_if_linux_aarch64 = unittest.skipIf(
@@ -130,6 +134,15 @@ skip_if_reduced_testing = unittest.skipIf(REDUCED_TESTING,
                                           "Skipped for reduced testing")
 
 
+_free_threading = not getattr(sys, "_is_gil_enabled", lambda: True)()
+
+
+skip_if_freethreading = unittest.skipIf(_free_threading,
+                                        ("Skipped [NOT APPLICABLE] if using a "
+                                         "free-threading build and "
+                                         "free-threading is enabled."))
+
+
 def expected_failure_py311(fn):
     if utils.PYVERSION == (3, 11):
         return unittest.expectedFailure(fn)
@@ -146,6 +159,12 @@ def expected_failure_py312(fn):
 
 def expected_failure_py313(fn):
     if utils.PYVERSION == (3, 13):
+        return unittest.expectedFailure(fn)
+    else:
+        return fn
+
+def expected_failure_py314(fn):
+    if utils.PYVERSION == (3, 14):
         return unittest.expectedFailure(fn)
     else:
         return fn
@@ -301,8 +320,14 @@ class TestCase(unittest.TestCase):
         same reference counts before and after executing the
         enclosed block.
         """
+        # Collect before counting references. Note that in free-threading builds
+        # there are some object types that are only collected during garbage
+        # collection e.g. classes and code objects.
+        gc.collect()
         old_refcounts = [sys.getrefcount(x) for x in objects]
+        # Yield to test code
         yield
+        # Collect again before counting references.
         gc.collect()
         new_refcounts = [sys.getrefcount(x) for x in objects]
         for old, new, obj in zip(old_refcounts, new_refcounts, objects):

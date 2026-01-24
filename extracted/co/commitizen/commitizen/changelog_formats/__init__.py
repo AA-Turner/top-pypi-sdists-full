@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import sys
-from typing import Callable, ClassVar, Protocol
+from importlib import metadata
+from typing import TYPE_CHECKING, ClassVar, Protocol
 
-if sys.version_info >= (3, 10):
-    from importlib import metadata
-else:
-    import importlib_metadata as metadata
-
-from commitizen.changelog import Metadata
-from commitizen.config.base_config import BaseConfig
 from commitizen.exceptions import ChangelogFormatUnknown
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from commitizen.changelog import IncrementalMergeInfo, Metadata
+    from commitizen.config.base_config import BaseConfig
 
 CHANGELOG_FORMAT_ENTRYPOINT = "commitizen.changelog_format"
 TEMPLATE_EXTENSION = "j2"
@@ -45,6 +44,12 @@ class ChangelogFormat(Protocol):
     def get_metadata(self, filepath: str) -> Metadata:
         """
         Extract the changelog metadata.
+        """
+        raise NotImplementedError
+
+    def get_latest_full_release(self, filepath: str) -> IncrementalMergeInfo:
+        """
+        Extract metadata for the last non-pre-release.
         """
         raise NotImplementedError
 

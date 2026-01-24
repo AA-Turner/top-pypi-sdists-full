@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, Sequence, cast
+from collections.abc import Sequence
 
 import pyarrow as pa
 import somacore
@@ -20,6 +20,7 @@ from ._constants import (
     SOMA_JOINID,
     SPATIAL_DISCLAIMER,
 )
+from ._coordinate_selection import CoordinateValueFilters
 from ._dataframe import (
     Domain,
     _canonicalize_schema,
@@ -27,22 +28,19 @@ from ._dataframe import (
     _find_extent_for_domain,
     _revise_domain_for_extent,
 )
-from ._exception import SOMAError, map_exception_for_create
-from ._read_iters import ManagedQuery, TableReadIter
+from ._exception import DoesNotExistError, SOMAError, is_does_not_exist_error, map_exception_for_create
+from ._query_condition import QueryCondition
+from ._read_iters import TableReadIter
 from ._spatial_dataframe import SpatialDataFrame
 from ._spatial_util import (
     coordinate_space_from_json,
     coordinate_space_to_json,
     process_spatial_df_region,
 )
-from ._tdb_handles import PointCloudDataFrameWrapper
 from ._types import OpenTimestamp
-from .options import SOMATileDBContext
+from .options import SOMATileDBContext, TileDBCreateOptions, TileDBDeleteOptions, TileDBWriteOptions
 from .options._soma_tiledb_context import _validate_soma_tiledb_context
-from .options._tiledb_create_write_options import (
-    TileDBCreateOptions,
-    TileDBWriteOptions,
-)
+from .options._util import build_clib_platform_config
 
 _UNBATCHED = options.BatchSize()
 
@@ -60,7 +58,7 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
     """
 
     __slots__ = ("_coord_space",)
-    _wrapper_type = PointCloudDataFrameWrapper
+    _handle_type = clib.SOMAPointCloudDataFrame
 
     @classmethod
     def create(
@@ -88,28 +86,16 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
 
         Args:
             uri: The URI where the dataframe will be created.
-            schema: Arrow schema defining the per-column schema. This schema
-                must define all columns, including columns to be named as index
-                columns.  If the schema includes types unsupported by the SOMA
+            schema: Arrow schema defining the per-column schema. This schema must define all columns, including
+                columns to be named as index columns.  If the schema includes types unsupported by the SOMA
                 implementation, a ValueError will be raised.
-            coordinate_space: Either the coordinate space or the axis names for the
-                coordinate space the point cloud is defined on.
-            domain:
-                An optional sequence of tuples specifying the domain of each
-                index column. Each tuple must be a pair consisting of the
-                minimum and maximum values storable in the index column. For
-                example, if there is a single int64-valued index column, then
-                ``domain`` might be ``[(100, 200)]`` to indicate that values
-                between 100 and 200, inclusive, can be stored in that column.
-                If provided, this sequence must have the same length as
-                ``index_column_names``, and the index-column domain will be as
-                specified.  If omitted entirely, or if ``None`` in a given
-                dimension, the corresponding index-column domain will use an
-                empty range, and data writes after that will fail with "A range
-                was set outside of the current domain". Unless you have a
-                particular reason not to, you should always provide the desired
-                `domain` at create time: this is an optional but strongly
-                recommended parameter.
+            coordinate_space: Either the coordinate space or the axis names for the coordinate space the point
+                cloud is defined on.
+            domain: A sequence of tuples, each specifying the range of storable values for an index column. Must contain
+                a domain for each axis and the ``soma_joinid``. For example, for a floating-pointing 2D coordinate space
+                the domain ``domain=[(-10.5, 10.5), (0, 5.5), (0, 10_0000)]`` indicates values in the 2D region
+                ``(-10.5, 10.5) x (0, 5.5)`` with `soma_joinid` in the range ``(0, 10_000)`` (inclusive) are valid. Leaving
+                the domain as ``None`` is deprecated.
 
         Returns:
             The newly created point cloud, opened for writing.
@@ -117,7 +103,7 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
         Lifecycle:
             Experimental.
         """
-        warnings.warn(SPATIAL_DISCLAIMER)
+        warnings.warn(SPATIAL_DISCLAIMER, stacklevel=2)
 
         axis_dtype: pa.DataType | None = None
 
@@ -135,28 +121,20 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
                 try:
                     axis_dtype = schema.field(column_name).type
                 except KeyError as ke:
-                    raise ValueError(
-                        f"Coordinate system axis '{column_name}' must be a column in the "
-                        f"schema."
-                    ) from ke
-                if not (
-                    pa.types.is_integer(axis_dtype) or pa.types.is_floating(axis_dtype)
-                ):
+                    raise ValueError(f"Coordinate system axis '{column_name}' must be a column in the schema.") from ke
+                if not (pa.types.is_integer(axis_dtype) or pa.types.is_floating(axis_dtype)):
                     raise ValueError(
                         f"Spatial column '{column_name}' must have an integer or "
-                        f"floating-point type. Column type is {axis_dtype!r}"
+                        f"floating-point type. Column type is {axis_dtype!r}",
                     )
             else:
                 try:
                     column_dtype = schema.field(column_name).type
                 except KeyError as ke:
-                    raise ValueError(
-                        f"Coordinate system axis '{column_name}' must be a column in the "
-                        f"schema."
-                    ) from ke
+                    raise ValueError(f"Coordinate system axis '{column_name}' must be a column in the schema.") from ke
                 if column_dtype != axis_dtype:
                     raise ValueError("All spatial axes must have the same datatype.")
-        index_column_names = axis_names + (SOMA_JOINID,)
+        index_column_names = (*axis_names, SOMA_JOINID)
 
         context = _validate_soma_tiledb_context(context)
         schema = _canonicalize_schema(schema, index_column_names)
@@ -184,14 +162,18 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
         domain = None
 
         if soma_domain is None:
+            warnings.warn(
+                "Setting ``domain=None`` is deprecated. Please specify the desired domain for the point cloud dataframe.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             soma_domain = tuple(None for _ in index_column_names)
         else:
             ndom = len(soma_domain)
             nidx = len(index_column_names)
             if ndom != nidx:
                 raise ValueError(
-                    f"if domain is specified, it must have the same length as "
-                    f"index_column_names; got {ndom} != {nidx}"
+                    f"if domain is specified, it must have the same length as index_column_names; got {ndom} != {nidx}",
                 )
 
         index_column_schema = []
@@ -199,15 +181,21 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
 
         for index_column_name, slot_soma_domain in zip(index_column_names, soma_domain):
             pa_field = schema.field(index_column_name)
-            dtype = _arrow_types.tiledb_type_from_arrow_type(
-                pa_field.type, is_indexed_column=True
-            )
+            dtype = _arrow_types.tiledb_type_from_arrow_type(pa_field.type, is_indexed_column=True)
 
             (slot_core_current_domain, saturated_cd) = _fill_out_slot_soma_domain(
-                slot_soma_domain, False, index_column_name, pa_field.type, dtype
+                slot_soma_domain,
+                False,
+                index_column_name,
+                pa_field.type,
+                dtype,
             )
             (slot_core_max_domain, saturated_md) = _fill_out_slot_soma_domain(
-                None, True, index_column_name, pa_field.type, dtype
+                None,
+                True,
+                index_column_name,
+                pa_field.type,
+                dtype,
             )
 
             extent = _find_extent_for_domain(
@@ -219,12 +207,8 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
 
             # Necessary to avoid core array-creation error "Reduce domain max by
             # 1 tile extent to allow for expansion."
-            slot_core_current_domain = _revise_domain_for_extent(
-                slot_core_current_domain, extent, saturated_cd
-            )
-            slot_core_max_domain = _revise_domain_for_extent(
-                slot_core_max_domain, extent, saturated_md
-            )
+            slot_core_current_domain = _revise_domain_for_extent(slot_core_current_domain, extent, saturated_cd)
+            slot_core_max_domain = _revise_domain_for_extent(slot_core_max_domain, extent, saturated_md)
 
             # Here is our Arrow data API for communicating schema info between
             # Python/R and C++ libtiledbsoma:
@@ -244,11 +228,9 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
                 *slot_core_current_domain,
             ]
 
-        index_column_info = pa.RecordBatch.from_pydict(
-            index_column_data, schema=pa.schema(index_column_schema)
-        )
+        index_column_info = pa.RecordBatch.from_pydict(index_column_data, schema=pa.schema(index_column_schema))
 
-        plt_cfg = _util.build_clib_platform_config(platform_config)
+        plt_cfg = build_clib_platform_config(platform_config)
         timestamp_ms = context._open_timestamp_ms(tiledb_timestamp)
         try:
             clib.SOMAPointCloudDataFrame.create(
@@ -264,18 +246,24 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
         except SOMAError as e:
             raise map_exception_for_create(e, uri) from None
 
+        try:
+            timestamp_ms = context._open_timestamp_ms(tiledb_timestamp)
+            handle = clib.SOMAPointCloudDataFrame.open(
+                uri,
+                mode=clib.OpenMode.soma_write,
+                context=context.native_context,
+                timestamp=(0, timestamp_ms),
+            )
+
+        except (RuntimeError, SOMAError) as tdbe:
+            if is_does_not_exist_error(tdbe):
+                raise DoesNotExistError(tdbe) from tdbe
+            raise SOMAError(tdbe) from tdbe
         return cls(
-            cls._wrapper_type.open(uri, "w", context, tiledb_timestamp),
-            _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code",
+            handle, uri=uri, context=context, _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code"
         )
 
-    def __init__(
-        self,
-        handle: PointCloudDataFrameWrapper,
-        **kwargs: Any,
-    ):
-        super().__init__(handle, **kwargs)
-
+    def _parse_special_metadata(self) -> None:
         # Get and validate coordinate space.
         try:
             coord_space = self.metadata[SOMA_COORDINATE_SPACE_METADATA_KEY]
@@ -284,10 +272,7 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
         self._coord_space = coordinate_space_from_json(coord_space)
         for name in self._coord_space.axis_names:
             if name not in self.index_column_names:
-                raise SOMAError(
-                    f"Point cloud dataframe axis '{name}' does not match any of the "
-                    f"index column names."
-                )
+                raise SOMAError(f"Point cloud dataframe axis '{name}' does not match any of the index column names.")
 
     # Data operations
 
@@ -299,8 +284,56 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
     def count(self) -> int:
         """Returns the number of rows in the dataframe."""
         self._verify_open_for_reading()
-        # if is it in read open mode, then it is a PointCloudDataFrameWrapper
-        return cast(PointCloudDataFrameWrapper, self._handle).count
+        return int(self._handle.count)
+
+    def delete_cells(
+        self,
+        coords: options.SparseDFCoords = (),
+        *,
+        value_filter: str | None = None,
+        platform_config: options.PlatformConfig | None = None,
+    ) -> None:
+        """Deletes cells at the specified coordinates.
+
+        Either ``coords`` or ``value_filter`` must be provided. When both ``coords`` and ``value_filter`` are provided,
+        the cells that match both constraints will be removed.
+
+        Examples:
+        * Delete all values not in a tissue:
+            >>> with tiledbsoma.PointCloudDataFrame(loc_uri, mode="d") as loc:
+            ...     loc.delete_cells(value_filter="in_tissue == 0")
+
+        * Delete a sequence of ``soma_joinid`` values from a two-dimensional point cloud:
+            >>> with tiledbsoma.PointCloudDataFrame(loc_uri, mode="d") as loc:
+            ...     loc.delete_cells((slice(None, None), slice(None, None), (12001, 12003, 12004, 12007)))
+
+        * Delete points from region ``x > 3000, y > 3000`` and ``array_row == 1"
+            >>> with tiledbsoma.PointCloudDataFrame(loc_uri, mode="d") as loc:
+            ...     loc.delete_cells((slice(3000, None), slice(3000, None)), value_filter="array_row == 1")
+
+
+        Note: Deleting cells does not change the current domain or possible enumeration values.
+
+        Args:
+            coords:
+                A per-dimension ``Sequence`` of scalar, slice, sequence of scalar or
+                `Arrow IntegerArray <https://arrow.apache.org/docs/python/generated/pyarrow.IntegerArray.html>` values
+                defining the region to read.
+            value_filter:
+                An optional [value filter] to apply to the results.
+                Defaults to no filter.
+        """
+        if platform_config is not None and not isinstance(platform_config, TileDBDeleteOptions):
+            raise TypeError(
+                f"Invalid PlatformConfig with type {type(platform_config)}. Must have type {TileDBDeleteOptions.__name__}."
+            )
+        coord_filter = CoordinateValueFilters.create(self, coords)
+        qc_handle = None
+        if value_filter is not None:
+            qc = QueryCondition(value_filter)
+            qc.init_query_condition(self.schema, [])
+            qc_handle = qc.c_obj
+        self._handle.delete_cells(coord_filter._handle, qc_handle)
 
     def read(
         self,
@@ -396,38 +429,31 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
         """
         # Set/check transform and region coordinate space.
         if region_transform is None:
-            region_transform = somacore.IdentityTransform(
-                self.axis_names, self.axis_names
-            )
+            region_transform = somacore.IdentityTransform(self.axis_names, self.axis_names)
             if region_coord_space is not None:
-                raise ValueError(
-                    "Cannot specify the output coordinate space when region transform i"
-                    "is ``None``."
-                )
+                raise ValueError("Cannot specify the output coordinate space when region transform is ``None``.")
             region_coord_space = self._coord_space
         else:
             if region_coord_space is None:
-                region_coord_space = CoordinateSpace.from_axis_names(
-                    region_transform.input_axes
-                )
+                region_coord_space = CoordinateSpace.from_axis_names(region_transform.input_axes)
             elif region_transform.input_axes != region_coord_space.axis_names:
                 raise ValueError(
                     f"The input axes '{region_transform.input_axes}' of the region "
                     f"transform must match the axes '{region_coord_space.axis_names}' "
-                    f"of the coordinate space the requested region is defined in."
+                    f"of the coordinate space the requested region is defined in.",
                 )
             if region_transform.output_axes != self._coord_space.axis_names:
                 raise ValueError(
                     f"The output axes of '{region_transform.output_axes}' of the "
                     f"transform must match the axes '{self._coord_space.axis_names}' "
-                    f"of the coordinate space of this point cloud dataframe."
+                    f"of the coordinate space of this point cloud dataframe.",
                 )
 
         # Process the user provided region.
-        coords, data_region, inv_transform = process_spatial_df_region(
+        coords, _, inv_transform = process_spatial_df_region(
             region,
             region_transform,
-            dict(),  # Move index value_filters into this dict to optimize queries
+            {},  # Move index value_filters into this dict to optimize queries
             self._tiledb_dim_names(),
             self._coord_space.axis_names,
             self._handle.schema,
@@ -475,21 +501,14 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
         sort_coords = None
         if isinstance(platform_config, TileDBCreateOptions):
             raise ValueError(
-                "As of TileDB-SOMA 1.13, the write method takes "
-                "TileDBWriteOptions instead of TileDBCreateOptions"
+                "As of TileDB-SOMA 1.13, the write method takes TileDBWriteOptions instead of TileDBCreateOptions",
             )
         write_options = TileDBWriteOptions.from_platform_config(platform_config)
         sort_coords = write_options.sort_coords
-
-        clib_dataframe = self._handle._handle
-
-        for batch in values.to_batches():
-            mq = ManagedQuery(self, None)
-            mq._handle.set_array_data(batch)
-            mq._handle.submit_write(sort_coords or False)
+        self._write_table(values, sort_coords)
 
         if write_options.consolidate_and_vacuum:
-            clib_dataframe.consolidate_and_vacuum()
+            self._handle.consolidate_and_vacuum()
 
         return self
 
@@ -511,16 +530,13 @@ class PointCloudDataFrame(SpatialDataFrame, somacore.PointCloudDataFrame):
         Lifecycle:
             Experimental.
         """
-        if self._coord_space is not None:
-            if value.axis_names != self._coord_space.axis_names:
-                raise ValueError(
-                    f"Cannot change axis names of a point cloud dataframe. Existing "
-                    f"axis names are {self._coord_space.axis_names}. New coordinate "
-                    f"space has axis names {value.axis_names}."
-                )
-        self.metadata[SOMA_COORDINATE_SPACE_METADATA_KEY] = coordinate_space_to_json(
-            value
-        )
+        if self._coord_space is not None and value.axis_names != self._coord_space.axis_names:
+            raise ValueError(
+                f"Cannot change axis names of a point cloud dataframe. Existing "
+                f"axis names are {self._coord_space.axis_names}. New coordinate "
+                f"space has axis names {value.axis_names}.",
+            )
+        self.metadata[SOMA_COORDINATE_SPACE_METADATA_KEY] = coordinate_space_to_json(value)
         self._coord_space = value
 
     @property

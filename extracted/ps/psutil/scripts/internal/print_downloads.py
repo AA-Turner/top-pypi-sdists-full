@@ -11,7 +11,6 @@ Useful sites:
 * https://hugovk.github.io/top-pypi-packages/.
 """
 
-
 import json
 import os
 import shlex
@@ -75,11 +74,9 @@ def top_packages():
 
 def ranking():
     data = top_packages()
-    i = 1
-    for name, downloads in data:
+    for i, (name, downloads) in enumerate(data, start=1):
         if name == PKGNAME:
             return i
-        i += 1
     raise ValueError(f"can't find {PKGNAME}")
 
 

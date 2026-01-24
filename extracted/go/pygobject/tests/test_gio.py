@@ -61,21 +61,26 @@ class TestGioPlatform(unittest.TestCase):
 Version=1.0
 Type=Application
 Name=Some Application
-Exec={GLib.find_program_in_path("sh")}
+Exec={GLib.find_program_in_path("true")} %u
+Actions=act;
+Categories=Development;Profiling;
+GenericName=Test
+Hidden=true
+Keywords=test;example;
+NoDisplay=true
+OnlyShowIn=GNOME;
+StartupWMClass=testTest
+X-Bool=true
+
+[Desktop Action act]
+Name=Take action!
+Exec={GLib.find_program_in_path("true")} action
 """
 
     def setUp(self):
         super().setUp()
 
-        required_glib = GLib.MAJOR_VERSION > 2 or (
-            GLib.MAJOR_VERSION == 2
-            and (
-                GLib.MINOR_VERSION > 85
-                or (GLib.MINOR_VERSION == 85 and GLib.MICRO_VERSION >= 5)
-            )
-        )
-
-        if not required_glib:
+        if (GLib.MAJOR_VERSION, GLib.MINOR_VERSION) < (2, 80):
             self.skipTest("Installed Gio is not new enough for this test")
 
         if GioUnix:
@@ -86,49 +91,146 @@ Exec={GLib.find_program_in_path("sh")}
                 GLib.KeyFileFlags.NONE,
             )
 
-    @unittest.skipIf(GioUnix is None, "Not supported")
+    def assert_expected_desktop_app_info(self, app_info):
+        # All functionality is available as ordinary methods, without
+        # needing extraneous arguments
+        # https://gitlab.gnome.org/GNOME/pygobject/-/issues/719
+        self.assertEqual(app_info.get_action_name("act"), "Take action!")
+        self.assertEqual(app_info.get_boolean("X-Bool"), True)
+        self.assertEqual(app_info.get_categories(), "Development;Profiling;")
+        self.assertIsNone(app_info.get_filename())
+        self.assertEqual(app_info.get_generic_name(), "Test")
+        self.assertEqual(app_info.get_is_hidden(), True)
+        self.assertEqual(app_info.get_keywords(), ["test", "example"])
+        self.assertEqual(app_info.get_locale_string("Keywords"), "test;example;")
+        self.assertEqual(app_info.get_nodisplay(), True)
+        self.assertEqual(app_info.get_show_in("GNOME"), True)
+        self.assertEqual(app_info.get_show_in("KDE"), False)
+        # get_show_in() can be called without an argument, which means NULL
+        self.assertIn(app_info.get_show_in(), [True, False])
+        self.assertIn(app_info.get_show_in(None), [True, False])
+        self.assertEqual(app_info.get_startup_wm_class(), "testTest")
+        self.assertEqual(app_info.get_string("StartupWMClass"), "testTest")
+        self.assertEqual(app_info.get_string_list("Keywords"), ["test", "example"])
+        self.assertEqual(app_info.has_key("Keywords"), True)
+        self.assertEqual(app_info.list_actions(), ["act"])
+
+        # All functionality is also available via unbound methods:
+        # for example Cinnamon relies on this as of October 2025
+        self.assertEqual(
+            GioUnix.DesktopAppInfo.get_action_name(app_info, "act"), "Take action!"
+        )
+        self.assertEqual(
+            Gio.DesktopAppInfo.get_action_name(app_info, "act"), "Take action!"
+        )
+
+        # Exercise methods that actually launch something
+        app_info.launch_action("act")
+        app_info.launch_action("act", None)
+        self.assertTrue(
+            app_info.launch_uris_as_manager(
+                ["about:blank"],
+                None,
+                GLib.SpawnFlags.DEFAULT,
+                None,
+                None,
+                None,
+                None,
+            ),
+        )
+        self.assertTrue(
+            app_info.launch_uris_as_manager(
+                ["about:blank"],
+                None,
+                GLib.SpawnFlags.DEFAULT,
+            ),
+        )
+        self.assertTrue(
+            app_info.launch_uris_as_manager_with_fds(
+                ["about:blank"],
+                None,
+                GLib.SpawnFlags.DEFAULT,
+                None,
+                None,
+                None,
+                None,
+                -1,
+                -1,
+                -1,
+            ),
+        )
+
+    @unittest.skipIf(
+        GioUnix is None or "DesktopAppInfo" not in dir(GioUnix), "Not supported"
+    )
     def test_desktop_app_info_can_be_created_from_gio_unix(self):
         app_info = GioUnix.DesktopAppInfo.new_from_keyfile(self.key_file)
         self.assertIsNotNone(app_info)
         self.assertIsInstance(app_info, GioUnix.DesktopAppInfo)
         self.assertIsInstance(app_info, Gio.AppInfo)
+        self.assert_expected_desktop_app_info(app_info)
 
-    @unittest.skipIf(GioUnix is None, "Not supported")
+    @unittest.skipIf(
+        GioUnix is None or "DesktopAppInfo" not in dir(GioUnix), "Not supported"
+    )
     def test_desktop_app_info_can_be_created_from_gio(self):
         with warnings.catch_warnings(record=True) as warn:
             warnings.simplefilter("always")
             app_info = Gio.DesktopAppInfo.new_from_keyfile(self.key_file)
 
-            self.assertEqual(len(warn), 1)
-            self.assertTrue(issubclass(warn[0].category, PyGIDeprecationWarning))
-            self.assertEqual(
-                str(warn[0].message),
-                "Gio.DesktopAppInfo is deprecated; "
-                + "use GioUnix.DesktopAppInfo instead",
-            )
+            if (GLib.MAJOR_VERSION, GLib.MINOR_VERSION) >= (2, 86):
+                self.assertEqual(len(warn), 1)
+                self.assertTrue(issubclass(warn[0].category, PyGIDeprecationWarning))
+                self.assertEqual(
+                    str(warn[0].message),
+                    "Gio.DesktopAppInfo is deprecated; "
+                    + "use GioUnix.DesktopAppInfo instead",
+                )
 
             self.assertIsNotNone(app_info)
             self.assertIsInstance(app_info, Gio.DesktopAppInfo)
             self.assertIsInstance(app_info, Gio.AppInfo)
 
-    @unittest.skipIf(GioUnix is None, "Not supported")
+    @unittest.skipIf(
+        GioUnix is None or "FDMessage" not in dir(GioUnix), "Not supported"
+    )
+    def test_fd_message(self):
+        message = GioUnix.FDMessage.new()
+        self.assertIsNotNone(message)
+
+        with open("/dev/null", "r+b") as devnull:
+            self.assertTrue(message.append_fd(devnull.fileno()))
+            self.assertIsNotNone(message.get_fd_list())
+            fds = message.steal_fds()
+            self.assertEqual(len(fds), 1)
+            os.close(fds[0])
+
+    @unittest.skipIf(
+        GioUnix is None or "DesktopAppInfo" not in dir(GioUnix), "Not supported"
+    )
     def test_gio_unix_desktop_app_info_provides_platform_independent_functions(self):
         app_info = GioUnix.DesktopAppInfo.new_from_keyfile(self.key_file)
         self.assertEqual(app_info.get_name(), "Some Application")
 
-    @unittest.skipIf(GioUnix is None, "Not supported")
+    @unittest.skipIf(
+        GioUnix is None or "DesktopAppInfo" not in dir(GioUnix), "Not supported"
+    )
     @ignore_gi_deprecation_warnings
     def test_gio_desktop_app_info_provides_platform_independent_functions(self):
         app_info = Gio.DesktopAppInfo.new_from_keyfile(self.key_file)
         self.assertEqual(app_info.get_name(), "Some Application")
 
-    @unittest.skipIf(GioUnix is None, "Not supported")
+    @unittest.skipIf(
+        GioUnix is None or "DesktopAppInfo" not in dir(GioUnix), "Not supported"
+    )
     def test_gio_unix_desktop_app_info_provides_unix_only_functions(self):
         app_info = GioUnix.DesktopAppInfo.new_from_keyfile(self.key_file)
         self.assertTrue(app_info.has_key("Name"))
         self.assertEqual(app_info.get_string("Name"), "Some Application")
 
-    @unittest.skipIf(GioUnix is None, "Not supported")
+    @unittest.skipIf(
+        GioUnix is None or "DesktopAppInfo" not in dir(GioUnix), "Not supported"
+    )
     @ignore_gi_deprecation_warnings
     def test_gio_desktop_app_info_provides_unix_only_functions(self):
         app_info = Gio.DesktopAppInfo.new_from_keyfile(self.key_file)
@@ -141,16 +243,53 @@ Exec={GLib.find_program_in_path("sh")}
             warnings.simplefilter("always")
             mount_points = Gio.unix_mount_points_get()
 
-            self.assertEqual(len(warn), 1)
-            self.assertTrue(issubclass(warn[0].category, PyGIDeprecationWarning))
-            self.assertEqual(
-                str(warn[0].message),
-                "Gio.unix_mount_points_get is deprecated; "
-                + "use GioUnix.mount_points_get instead",
-            )
+            if (GLib.MAJOR_VERSION, GLib.MINOR_VERSION) >= (2, 86):
+                self.assertEqual(len(warn), 1)
+                self.assertTrue(issubclass(warn[0].category, PyGIDeprecationWarning))
+                self.assertEqual(
+                    str(warn[0].message),
+                    "Gio.unix_mount_points_get is deprecated; "
+                    + "use GioUnix.mount_points_get instead",
+                )
 
             self.assertIsNotNone(mount_points)
-            self.assertEqual(GioUnix.mount_points_get, Gio.unix_mount_points_get)
+
+            if (GLib.MAJOR_VERSION, GLib.MINOR_VERSION) >= (2, 86):
+                self.assertEqual(GioUnix.mount_points_get, Gio.unix_mount_points_get)
+
+    def assert_expected_unix_stream_type(self, stream_type):
+        with open("/dev/null", "r+b") as devnull:
+            stream = stream_type.new(devnull.fileno(), False)
+            self.assertIsNotNone(stream)
+            self.assertEqual(stream.get_close_fd(), False)
+            stream.set_close_fd(False)
+            self.assertNotEqual(stream.get_fd(), -1)
+
+    @unittest.skipIf(GioUnix is None, "Not supported")
+    def test_deprecated_unix_type_can_be_used_if_equal_exists_in_gio(self):
+        with warnings.catch_warnings(record=True) as warn:
+            warnings.simplefilter("always")
+
+            input_stream = Gio.UnixInputStream
+
+            if (GLib.MAJOR_VERSION, GLib.MINOR_VERSION) >= (2, 86):
+                self.assertEqual(len(warn), 1)
+                self.assertTrue(issubclass(warn[0].category, PyGIDeprecationWarning))
+                self.assertEqual(
+                    str(warn[0].message),
+                    "Gio.UnixInputStream is deprecated; "
+                    + "use GioUnix.InputStream instead",
+                )
+
+            self.assertIsNotNone(input_stream)
+            self.assertEqual(Gio.UnixInputStream, GioUnix.InputStream)
+            self.assertNotEqual(Gio.InputStream, GioUnix.InputStream)
+
+            self.assert_expected_unix_stream_type(Gio.UnixInputStream)
+            self.assert_expected_unix_stream_type(GioUnix.InputStream)
+
+            self.assert_expected_unix_stream_type(Gio.UnixOutputStream)
+            self.assert_expected_unix_stream_type(GioUnix.OutputStream)
 
     @unittest.skipIf(GioUnix is None, "Not supported")
     def test_deprecated_unix_class_can_be_used_from_gio(self):
@@ -158,16 +297,40 @@ Exec={GLib.find_program_in_path("sh")}
             warnings.simplefilter("always")
             monitor = Gio.UnixMountMonitor.get()
 
-            self.assertEqual(len(warn), 1)
-            self.assertTrue(issubclass(warn[0].category, PyGIDeprecationWarning))
-            self.assertEqual(
-                str(warn[0].message),
-                "Gio.UnixMountMonitor is deprecated; "
-                + "use GioUnix.MountMonitor instead",
-            )
+            if (GLib.MAJOR_VERSION, GLib.MINOR_VERSION) >= (2, 86):
+                self.assertEqual(len(warn), 1)
+                self.assertTrue(issubclass(warn[0].category, PyGIDeprecationWarning))
+                self.assertEqual(
+                    str(warn[0].message),
+                    "Gio.UnixMountMonitor is deprecated; "
+                    + "use GioUnix.MountMonitor instead",
+                )
 
             self.assertIsNotNone(monitor)
             self.assertEqual(Gio.UnixMountMonitor.get, GioUnix.MountMonitor.get)
+
+    @unittest.skipIf(GioUnix is None, "Not supported")
+    def test_deprecated_unix_gobject_class_can_be_used_from_gio(self):
+        with warnings.catch_warnings(record=True) as warn:
+            warnings.simplefilter("always")
+
+            input_stream_class = Gio.UnixInputStreamClass
+
+            if (GLib.MAJOR_VERSION, GLib.MINOR_VERSION) >= (2, 86):
+                self.assertEqual(len(warn), 1)
+                self.assertTrue(issubclass(warn[0].category, PyGIDeprecationWarning))
+                self.assertEqual(
+                    str(warn[0].message),
+                    "Gio.UnixInputStreamClass is deprecated; "
+                    + "use GioUnix.InputStreamClass instead",
+                )
+
+            self.assertIsNotNone(input_stream_class)
+
+            if (GLib.MAJOR_VERSION, GLib.MINOR_VERSION) >= (2, 86):
+                self.assertEqual(Gio.UnixInputStreamClass, GioUnix.InputStreamClass)
+
+            self.assertNotEqual(Gio.InputStreamClass, GioUnix.InputStreamClass)
 
 
 class TestGSettings(unittest.TestCase):

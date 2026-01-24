@@ -118,15 +118,17 @@ class Authenticator(dns_common.DNSAuthenticator):
                     txt_values = custom_resolver.resolve(duckdns_domain, "TXT")
                 else:
                     txt_values = custom_resolver.query(duckdns_domain, "TXT")
+
+                # there should only be one single TXT record
+                if len(txt_values) != 1:
+                    raise errors.PluginError("issue resoling TXT record")
+
+                # remove the additional quotes around the TXT value
+                self._old_txt_value = txt_values[0].to_text()[1:-1]
+            except dns.resolver.NoAnswer:
+                self._old_txt_value = ""
             except Exception as e:
                 raise errors.PluginError(e)
-
-            # there should only be one single TXT record
-            if len(txt_values) != 1:
-                raise errors.PluginError("issue resoling TXT record")
-
-            # remove the additional quotes around the TXT value
-            self._old_txt_value = txt_values[0].to_text()[1:-1]
 
         try:
             self._get_duckdns_client().set_txt_record(duckdns_domain, validation)
@@ -164,10 +166,11 @@ class Authenticator(dns_common.DNSAuthenticator):
 
         :return: the created DuckDNSClient object
         """
-        token = self.conf("token")
-        if not token and self._credentials is not None:
-            token = self._credentials.conf("token")
-        else:
+
+        token = self.conf("token") or (
+            self._credentials.conf("token") if self._credentials else None
+        )
+        if not token:
             token = self._token
 
         return DuckDNSClient(token)

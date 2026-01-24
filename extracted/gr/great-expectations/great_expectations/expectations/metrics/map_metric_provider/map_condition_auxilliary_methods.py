@@ -32,7 +32,7 @@ from great_expectations.expectations.metrics.util import (
     compute_unexpected_pandas_indices,
     get_dbms_compatible_metric_domain_kwargs,
     get_sqlalchemy_source_table_and_schema,
-    sql_statement_with_post_compile_to_string,
+    sqlalchemy_select_to_sql_string,
 )
 from great_expectations.util import (
     convert_to_json_serializable,  # noqa: TID251 # FIXME CoP
@@ -62,7 +62,7 @@ def _pandas_map_condition_unexpected_count(
     **kwargs,
 ) -> int:
     """Returns unexpected count for MapExpectations"""
-    return np.count_nonzero(metrics["unexpected_condition"][0])
+    return int(np.count_nonzero(metrics["unexpected_condition"][0]))
 
 
 def _pandas_map_condition_index(
@@ -376,6 +376,7 @@ def _sqlalchemy_map_condition_rows(
     Returns all rows of the metric values which do not meet an expected Expectation condition for instances
     of ColumnMapExpectation.
     """  # noqa: E501 # FIXME CoP
+
     unexpected_condition, compute_domain_kwargs, accessor_domain_kwargs = metrics[
         "unexpected_condition"
     ]
@@ -398,7 +399,10 @@ def _sqlalchemy_map_condition_rows(
         limit = min(result_format["partial_unexpected_count"], MAX_RESULT_RECORDS)
         query = query.limit(limit)
     try:
-        return execution_engine.execute_query(query).fetchmany(MAX_RESULT_RECORDS)
+        return [
+            val._asdict()
+            for val in execution_engine.execute_query(query).fetchmany(MAX_RESULT_RECORDS)
+        ]
     except sqlalchemy.OperationalError as oe:
         exception_message: str = f"An SQL execution Exception occurred: {oe!s}."
         raise gx_exceptions.InvalidMetricAccessorDomainKwargsKeyError(message=exception_message)
@@ -484,7 +488,7 @@ def _sqlalchemy_map_condition_query(  # noqa: C901 #  too complex
         )
     )
 
-    query_as_string: str = sql_statement_with_post_compile_to_string(
+    query_as_string: str = sqlalchemy_select_to_sql_string(
         engine=execution_engine, select_statement=final_select_statement
     )
     return query_as_string
@@ -632,7 +636,7 @@ def _spark_map_condition_rows(
     metric_value_kwargs: dict,
     metrics: Dict[str, Any],
     **kwargs,
-) -> list[pyspark.Row]:
+) -> list[dict]:
     unexpected_condition, compute_domain_kwargs, accessor_domain_kwargs = metrics[
         "unexpected_condition"
     ]
@@ -652,10 +656,12 @@ def _spark_map_condition_rows(
     result_format = metric_value_kwargs["result_format"]
 
     if result_format["result_format"] == "COMPLETE":
-        return filtered.limit(MAX_RESULT_RECORDS).collect()
+        rows = filtered.limit(MAX_RESULT_RECORDS).collect()
+    else:
+        limit = min(result_format["partial_unexpected_count"], MAX_RESULT_RECORDS)
+        rows = filtered.limit(limit).collect()
 
-    limit = min(result_format["partial_unexpected_count"], MAX_RESULT_RECORDS)
-    return filtered.limit(limit).collect()
+    return [row.asDict() for row in rows]
 
 
 def _spark_map_condition_index(  # noqa: C901 #  too complex

@@ -21,12 +21,9 @@
 # THE SOFTWARE.
 
 import re
-from typing import Optional, Pattern, Match, Optional, Iterator
-
-try:
-    from functools import cached_property
-except ImportError:
-    from backports.cached_property import cached_property  # type: ignore [no-redef]
+from collections.abc import Iterator
+from functools import cached_property
+from re import Pattern, Match
 
 
 class LazyReCompile:
@@ -46,10 +43,10 @@ class LazyReCompile:
     def finditer(self, *args, **kwargs) -> Iterator[Match[str]]:
         return self.compiled.finditer(*args, **kwargs)
 
-    def search(self, *args, **kwargs) -> Optional[Match[str]]:
+    def search(self, *args, **kwargs) -> Match[str] | None:
         return self.compiled.search(*args, **kwargs)
 
-    def match(self, *args, **kwargs) -> Optional[Match[str]]:
+    def match(self, *args, **kwargs) -> Match[str] | None:
         return self.compiled.match(*args, **kwargs)
 
     def sub(self, *args, **kwargs) -> str:

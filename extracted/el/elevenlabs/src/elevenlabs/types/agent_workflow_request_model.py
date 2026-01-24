@@ -8,12 +8,16 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, update_forward_refs
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .agent_workflow_request_model_nodes_value import AgentWorkflowRequestModelNodesValue
-from .workflow_edge_model import WorkflowEdgeModel
+from .workflow_edge_model_input import WorkflowEdgeModelInput
 
 
 class AgentWorkflowRequestModel(UncheckedBaseModel):
-    edges: typing.Optional[typing.Dict[str, WorkflowEdgeModel]] = None
+    edges: typing.Optional[typing.Dict[str, WorkflowEdgeModelInput]] = None
     nodes: typing.Optional[typing.Dict[str, AgentWorkflowRequestModelNodesValue]] = None
+    prevent_subagent_loops: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether to prevent loops in the workflow execution.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
@@ -24,8 +28,5 @@ class AgentWorkflowRequestModel(UncheckedBaseModel):
             smart_union = True
             extra = pydantic.Extra.allow
 
-
-from .array_json_schema_property_input import ArrayJsonSchemaPropertyInput  # noqa: E402, F401, I001
-from .object_json_schema_property_input import ObjectJsonSchemaPropertyInput  # noqa: E402, F401, I001
 
 update_forward_refs(AgentWorkflowRequestModel)

@@ -299,22 +299,15 @@ done:
     return credentials;
 }
 
-static bool s_is_transient_network_error(int error_code) {
-    return error_code == AWS_ERROR_HTTP_CONNECTION_CLOSED || error_code == AWS_ERROR_HTTP_SERVER_CLOSED ||
-           error_code == AWS_IO_SOCKET_CLOSED || error_code == AWS_IO_SOCKET_CONNECT_ABORTED ||
-           error_code == AWS_IO_SOCKET_CONNECTION_REFUSED || error_code == AWS_IO_SOCKET_NETWORK_DOWN ||
-           error_code == AWS_IO_DNS_QUERY_FAILED || error_code == AWS_IO_DNS_NO_ADDRESS_FOR_HOST ||
-           error_code == AWS_IO_SOCKET_TIMEOUT || error_code == AWS_IO_TLS_NEGOTIATION_TIMEOUT ||
-           error_code == AWS_HTTP_STATUS_CODE_408_REQUEST_TIMEOUT;
-}
-
 enum aws_retry_error_type aws_credentials_provider_compute_retry_error_type(int response_code, int error_code) {
 
     enum aws_retry_error_type error_type = response_code >= 400 && response_code < 500
                                                ? AWS_RETRY_ERROR_TYPE_CLIENT_ERROR
                                                : AWS_RETRY_ERROR_TYPE_SERVER_ERROR;
 
-    if (s_is_transient_network_error(error_code)) {
+    // We are removing few error codes a legacy method used to assume as transient errors.
+    // Any retryable error from the http layer is a transient error for auth and other downstream libraries.
+    if (aws_http_error_code_is_retryable(error_code)) {
         error_type = AWS_RETRY_ERROR_TYPE_TRANSIENT;
     }
 
@@ -480,7 +473,9 @@ int aws_credentials_provider_construct_endpoint(
     const struct aws_string *service_name_env,
     const struct aws_string *service_name_property,
     const struct aws_profile_collection *profile_collection,
-    const struct aws_profile *profile) {
+    const struct aws_profile *profile,
+    const struct aws_byte_cursor *suffix_override,
+    bool swap_region_and_service_name) {
 
     *out_endpoint =
         s_get_override_endpoint(allocator, service_name_env, service_name_property, profile_collection, profile);
@@ -501,16 +496,29 @@ int aws_credentials_provider_construct_endpoint(
     struct aws_byte_cursor service_cursor = aws_byte_cursor_from_string(service_name_host);
     struct aws_byte_cursor region_cursor = aws_byte_cursor_from_string(region);
 
-    if (aws_byte_buf_append_dynamic(&endpoint, &service_cursor) ||
-        aws_byte_buf_append_dynamic(&endpoint, &s_dot_cursor) ||
-        aws_byte_buf_append_dynamic(&endpoint, &region_cursor) ||
-        aws_byte_buf_append_dynamic(&endpoint, &s_dot_cursor)) {
-        goto on_error;
+    if (swap_region_and_service_name) {
+        if (aws_byte_buf_append_dynamic(&endpoint, &region_cursor) ||
+            aws_byte_buf_append_dynamic(&endpoint, &s_dot_cursor) ||
+            aws_byte_buf_append_dynamic(&endpoint, &service_cursor) ||
+            aws_byte_buf_append_dynamic(&endpoint, &s_dot_cursor)) {
+            goto on_error;
+        }
+    } else {
+        if (aws_byte_buf_append_dynamic(&endpoint, &service_cursor) ||
+            aws_byte_buf_append_dynamic(&endpoint, &s_dot_cursor) ||
+            aws_byte_buf_append_dynamic(&endpoint, &region_cursor) ||
+            aws_byte_buf_append_dynamic(&endpoint, &s_dot_cursor)) {
+            goto on_error;
+        }
     }
 
     const struct aws_byte_cursor region_cur = aws_byte_cursor_from_string(region);
 
-    if (aws_byte_cursor_starts_with(&region_cur, &s_cn_region_prefix)) { /* AWS CN partition */
+    if (suffix_override) {
+        if (aws_byte_buf_append_dynamic(&endpoint, suffix_override)) {
+            goto on_error;
+        }
+    } else if (aws_byte_cursor_starts_with(&region_cur, &s_cn_region_prefix)) { /* AWS CN partition */
         if (aws_byte_buf_append_dynamic(&endpoint, &s_aws_cn_dns_suffix)) {
             goto on_error;
         }

@@ -1,29 +1,30 @@
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::LazyLock;
 
-lazy_static! {
-    // Front matter detection
-    static ref FRONT_MATTER_DELIM: Regex = Regex::new(r"^---\s*$").unwrap();
+// Better detection of inline code with support for multiple backticks
+static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(`+)([^`]|[^`].*?[^`])(`+)").unwrap());
 
-    // Better detection of inline code with support for multiple backticks
-    static ref INLINE_CODE: Regex = Regex::new(r"(`+)([^`]|[^`].*?[^`])(`+)").unwrap();
+// Inline math pattern - matches both $...$ and $$...$$ syntax
+// The pattern allows zero or more characters between delimiters to handle empty math spans
+static INLINE_MATH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$\$[^$]*\$\$|\$[^$\n]*\$").unwrap());
 
-    // List markers pattern - used to avoid confusion with emphasis
-    static ref LIST_MARKER: Regex = Regex::new(r"^\s*[*+-]\s+").unwrap();
+// List markers pattern - used to avoid confusion with emphasis
+static LIST_MARKER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*[*+-]\s+").unwrap());
 
-    // Valid emphasis at start of line that should not be treated as lists
-    static ref VALID_START_EMPHASIS: Regex = Regex::new(r"^(\*\*[^*\s]|\*[^*\s]|__[^_\s]|_[^_\s])").unwrap();
+// Documentation style patterns
+static DOC_METADATA_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*\*?\s*\*\*[^*]+\*\*\s*:").unwrap());
 
-    // Documentation style patterns
-    static ref DOC_METADATA_PATTERN: Regex = Regex::new(r"^\s*\*?\s*\*\*[^*]+\*\*\s*:").unwrap();
+// Bold text pattern (for preserving bold text in documentation) - only match valid bold without spaces
+static BOLD_TEXT_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\*\*[^*\s][^*]*[^*\s]\*\*|\*\*[^*\s]\*\*").unwrap());
 
-    // Bold text pattern (for preserving bold text in documentation) - only match valid bold without spaces
-    static ref BOLD_TEXT_PATTERN: Regex = Regex::new(r"\*\*[^*\s][^*]*[^*\s]\*\*|\*\*[^*\s]\*\*").unwrap();
+// Pre-compiled patterns for quick checks
+static QUICK_DOC_CHECK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*\*\s+\*").unwrap());
+static QUICK_BOLD_CHECK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\*\*[^*\s]").unwrap());
 
-    // Pre-compiled patterns for quick checks
-    static ref QUICK_DOC_CHECK: Regex = Regex::new(r"^\s*\*\s+\*").unwrap();
-    static ref QUICK_BOLD_CHECK: Regex = Regex::new(r"\*\*[^*\s]").unwrap();
-}
+// Template/shortcode syntax pattern - {* ... *} used by documentation systems like FastAPI/MkDocs
+// These are not emphasis markers but template directives for code inclusion/highlighting
+static TEMPLATE_SHORTCODE_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{\*.*\*\}").unwrap());
 
 /// Represents an emphasis marker found in text
 #[derive(Debug, Clone, PartialEq)]
@@ -79,6 +80,32 @@ pub fn replace_inline_code(line: &str) -> String {
             result.replace_range(match_start + offset..match_end + offset, &placeholder);
             offset += placeholder.len() - (match_end - match_start);
         }
+    }
+
+    result
+}
+
+/// Replace inline math ($...$ and $$...$$) with placeholder characters
+/// This prevents math content from being mistaken for emphasis markers
+pub fn replace_inline_math(line: &str) -> String {
+    // Quick check: if no dollar signs, return original
+    if !line.contains('$') {
+        return line.to_string();
+    }
+
+    let mut result = line.to_string();
+    let mut offset: isize = 0;
+
+    for m in INLINE_MATH.find_iter(line) {
+        let match_start = m.start();
+        let match_end = m.end();
+        // Use 'M' instead of spaces or asterisks to avoid affecting emphasis detection
+        let placeholder = "M".repeat(match_end - match_start);
+
+        let adjusted_start = (match_start as isize + offset) as usize;
+        let adjusted_end = (match_end as isize + offset) as usize;
+        result.replace_range(adjusted_start..adjusted_end, &placeholder);
+        offset += placeholder.len() as isize - (match_end - match_start) as isize;
     }
 
     result
@@ -328,6 +355,12 @@ pub fn is_likely_list_line(line: &str) -> bool {
 
 /// Check if line has documentation patterns that should be preserved
 pub fn has_doc_patterns(line: &str) -> bool {
+    // Check for template/shortcode syntax like {* ... *} used by FastAPI/MkDocs
+    // These contain asterisks that are not emphasis markers
+    if line.contains("{*") && TEMPLATE_SHORTCODE_PATTERN.is_match(line) {
+        return true;
+    }
+
     (QUICK_DOC_CHECK.is_match(line) || QUICK_BOLD_CHECK.is_match(line))
         && (DOC_METADATA_PATTERN.is_match(line) || BOLD_TEXT_PATTERN.is_match(line))
 }
@@ -372,5 +405,26 @@ mod tests {
         assert_eq!(spans.len(), 2);
         assert_eq!(spans[0].opening.as_char(), '*');
         assert_eq!(spans[1].opening.as_char(), '_');
+    }
+
+    #[test]
+    fn test_template_shortcode_detection() {
+        // FastAPI/MkDocs style template syntax should be detected as doc pattern
+        assert!(has_doc_patterns(
+            "{* ../../docs_src/cookie_param_models/tutorial001.py hl[9:12,16] *}"
+        ));
+        assert!(has_doc_patterns(
+            "{* ../../docs_src/conditional_openapi/tutorial001.py hl[6,11] *}"
+        ));
+        // Simple shortcode
+        assert!(has_doc_patterns("{* file.py *}"));
+        // With path and options
+        assert!(has_doc_patterns("{* ../path/to/file.py ln[1-10] *}"));
+
+        // Regular emphasis should NOT match
+        assert!(!has_doc_patterns("This has *emphasis* text"));
+        assert!(!has_doc_patterns("This has * spaces * in emphasis"));
+        // Only opening brace without closing should not match
+        assert!(!has_doc_patterns("{* incomplete"));
     }
 }

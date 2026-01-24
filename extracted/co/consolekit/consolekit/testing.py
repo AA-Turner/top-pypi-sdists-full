@@ -99,6 +99,7 @@ class Result(click.testing.Result):
 	:param exit_code: The command's exit code.
 	:param exception: The exception that occurred, if any.
 	:param exc_info: The traceback, if an exception occurred.
+	:param output_bytes:
 	"""
 
 	runner: click.testing.CliRunner
@@ -149,7 +150,7 @@ class Result(click.testing.Result):
 				exit_code=exit_code,
 				exception=exception,
 				exc_info=exc_info,
-				)
+			)
 
 	@property
 	def output(self) -> str:
@@ -263,7 +264,7 @@ class CliRunner(click.testing.CliRunner):
 		catch_exceptions: bool = False,
 		color: bool = False,
 		**extra,
-		) -> Result:
+	) -> Result:
 		r"""
 		Invokes a command in an isolated environment.
 
@@ -306,3 +307,8 @@ def cli_runner() -> CliRunner:
 	"""
 
 	return CliRunner()
+
+
+# Helpers for tests whose output depends on Click major version.
+click_8_only = pytest.mark.skipif(_click_major == 8, reason="Output differs on click 8")
+not_click_8 = pytest.mark.skipif(_click_major != 8, reason="Output differs on click 8")

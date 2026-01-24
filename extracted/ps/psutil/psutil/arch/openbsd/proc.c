@@ -15,96 +15,6 @@
 
 #include "../../arch/all/init.h"
 
-#define PSUTIL_KPT2DOUBLE(t) (t ## _sec + t ## _usec / 1000000.0)
-// #define PSUTIL_TV2DOUBLE(t) ((t).tv_sec + (t).tv_usec / 1000000.0)
-
-
-// ============================================================================
-// Utility functions
-// ============================================================================
-
-
-int
-psutil_kinfo_proc(pid_t pid, struct kinfo_proc *proc) {
-    // Fills a kinfo_proc struct based on process pid.
-    int ret;
-    int mib[6];
-    size_t size = sizeof(struct kinfo_proc);
-
-    mib[0] = CTL_KERN;
-    mib[1] = KERN_PROC;
-    mib[2] = KERN_PROC_PID;
-    mib[3] = pid;
-    mib[4] = size;
-    mib[5] = 1;
-
-    ret = sysctl((int*)mib, 6, proc, &size, NULL, 0);
-    if (ret == -1) {
-        psutil_PyErr_SetFromOSErrnoWithSyscall("sysctl(kinfo_proc)");
-        return -1;
-    }
-    // sysctl stores 0 in the size if we can't find the process information.
-    if (size == 0) {
-        NoSuchProcess("sysctl (size = 0)");
-        return -1;
-    }
-    return 0;
-}
-
-
-// ============================================================================
-// APIS
-// ============================================================================
-
-int
-psutil_get_proc_list(struct kinfo_proc **procList, size_t *procCount) {
-    // Returns a list of all BSD processes on the system.  This routine
-    // allocates the list and puts it in *procList and a count of the
-    // number of entries in *procCount.  You are responsible for freeing
-    // this list (use "free" from System framework).
-    // On success, the function returns 0.
-    // On error, the function returns a BSD errno value.
-    struct kinfo_proc *result;
-    // Declaring name as const requires us to cast it when passing it to
-    // sysctl because the prototype doesn't include the const modifier.
-    char errbuf[_POSIX2_LINE_MAX];
-    int cnt;
-    kvm_t *kd;
-
-    assert(procList != NULL);
-    assert(*procList == NULL);
-    assert(procCount != NULL);
-
-    kd = kvm_openfiles(NULL, NULL, NULL, KVM_NO_FILES, errbuf);
-    if (! kd) {
-        convert_kvm_err("kvm_openfiles", errbuf);
-        return 1;
-    }
-
-    result = kvm_getprocs(kd, KERN_PROC_ALL, 0, sizeof(struct kinfo_proc), &cnt);
-    if (result == NULL) {
-        PyErr_Format(PyExc_RuntimeError, "kvm_getprocs syscall failed");
-        kvm_close(kd);
-        return 1;
-    }
-
-    *procCount = (size_t)cnt;
-
-    size_t mlen = cnt * sizeof(struct kinfo_proc);
-
-    if ((*procList = malloc(mlen)) == NULL) {
-        PyErr_NoMemory();
-        kvm_close(kd);
-        return 1;
-    }
-
-    memcpy(*procList, result, mlen);
-    assert(*procList != NULL);
-    kvm_close(kd);
-
-    return 0;
-}
-
 
 // TODO: refactor this (it's clunky)
 PyObject *
@@ -120,7 +30,7 @@ psutil_proc_cmdline(PyObject *self, PyObject *args) {
 
     if (py_retlist == NULL)
         return NULL;
-    if (! PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
+    if (!PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
         goto error;
 
     mib[0] = CTL_KERN;
@@ -170,30 +80,34 @@ psutil_proc_threads(PyObject *self, PyObject *args) {
 
     if (py_retlist == NULL)
         return NULL;
-    if (! PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
+    if (!PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
         goto error;
 
     kd = kvm_openfiles(0, 0, 0, O_RDONLY, errbuf);
-    if (! kd) {
+    if (!kd) {
         // Usually fails due to EPERM against /dev/mem. We retry with
         // KVM_NO_FILES which apparently has the same effect.
         // https://stackoverflow.com/questions/22369736/
         psutil_debug("kvm_openfiles(O_RDONLY) failed");
         kd = kvm_openfiles(NULL, NULL, NULL, KVM_NO_FILES, errbuf);
-        if (! kd) {
+        if (!kd) {
             convert_kvm_err("kvm_openfiles()", errbuf);
             goto error;
         }
     }
 
     kp = kvm_getprocs(
-        kd, KERN_PROC_PID | KERN_PROC_SHOW_THREADS | KERN_PROC_KTHREAD, pid,
-        sizeof(*kp), &nentries);
-    if (! kp) {
+        kd,
+        KERN_PROC_PID | KERN_PROC_SHOW_THREADS | KERN_PROC_KTHREAD,
+        pid,
+        sizeof(*kp),
+        &nentries
+    );
+    if (!kp) {
         if (strstr(errbuf, "Permission denied") != NULL)
-            AccessDenied("kvm_getprocs");
+            psutil_oserror_ad("kvm_getprocs");
         else
-            PyErr_Format(PyExc_RuntimeError, "kvm_getprocs() syscall failed");
+            psutil_runtime_error("kvm_getprocs() syscall failed");
         goto error;
     }
 
@@ -205,7 +119,8 @@ psutil_proc_threads(PyObject *self, PyObject *args) {
                 _Py_PARSE_PID "dd",
                 kp[i].p_tid,
                 PSUTIL_KPT2DOUBLE(kp[i].p_uutime),
-                PSUTIL_KPT2DOUBLE(kp[i].p_ustime));
+                PSUTIL_KPT2DOUBLE(kp[i].p_ustime)
+            );
             if (py_tuple == NULL)
                 goto error;
             if (PyList_Append(py_retlist, py_tuple))
@@ -234,7 +149,7 @@ psutil_proc_num_fds(PyObject *self, PyObject *args) {
     struct kinfo_file *freep;
     struct kinfo_proc kipp;
 
-    if (! PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
+    if (!PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
         return NULL;
 
     if (psutil_kinfo_proc(pid, &kipp) == -1)
@@ -270,19 +185,19 @@ psutil_proc_cwd(PyObject *self, PyObject *args) {
     char path[MAXPATHLEN];
     size_t pathlen = sizeof path;
 
-    if (! PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
+    if (!PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
         return NULL;
     if (psutil_kinfo_proc(pid, &kp) == -1)
         return NULL;
 
-    int name[] = { CTL_KERN, KERN_PROC_CWD, pid };
+    int name[] = {CTL_KERN, KERN_PROC_CWD, pid};
     if (sysctl(name, 3, path, &pathlen, NULL, 0) != 0) {
         if (errno == ENOENT) {
             psutil_debug("sysctl(KERN_PROC_CWD) -> ENOENT converted to ''");
             return Py_BuildValue("s", "");
         }
         else {
-            PyErr_SetFromErrno(PyExc_OSError);
+            psutil_oserror();
             return NULL;
         }
     }

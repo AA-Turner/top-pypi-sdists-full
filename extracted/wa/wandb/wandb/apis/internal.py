@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any
 
 from wandb.sdk.internal.internal_api import Api as InternalApi
@@ -59,10 +61,6 @@ class Api:
     def default_entity(self):
         return self.api.default_entity
 
-    @property
-    def git(self):
-        return self.api.git
-
     def validate_api_key(self) -> bool:
         """Returns whether the API key stored on initialization is valid."""
         return self.api.validate_api_key()
@@ -105,15 +103,11 @@ class Api:
     def settings(self, *args, **kwargs):
         return self.api.settings(*args, **kwargs)
 
-    def clear_setting(
-        self, key: str, globally: bool = False, persist: bool = False
-    ) -> None:
-        return self.api.clear_setting(key, globally, persist)
+    def clear_setting(self, key: str) -> None:
+        return self.api.clear_setting(key)
 
-    def set_setting(
-        self, key: str, value: Any, globally: bool = False, persist: bool = False
-    ) -> None:
-        return self.api.set_setting(key, value, globally, persist)
+    def set_setting(self, key: str, value: Any) -> None:
+        return self.api.set_setting(key, value)
 
     def parse_slug(self, *args, **kwargs):
         return self.api.parse_slug(*args, **kwargs)
@@ -123,9 +117,6 @@ class Api:
 
     def download_urls(self, *args, **kwargs):
         return self.api.download_urls(*args, **kwargs)
-
-    def create_anonymous_api_key(self) -> str:
-        return self.api.create_anonymous_api_key()
 
     def push(self, *args, **kwargs):
         return self.api.push(*args, **kwargs)

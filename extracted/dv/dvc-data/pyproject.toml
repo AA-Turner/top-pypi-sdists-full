@@ -9,6 +9,7 @@ name = "dvc-data"
 description = "DVC's data management subsystem"
 readme = "README.rst"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "Iterative", email = "support@dvc.org" }]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -26,7 +27,7 @@ dependencies = [
     "attrs>=21.3.0",
     "dictdiffer>=0.8.1",
     "diskcache>=5.2.1",
-    "dvc-objects>=4.0.1,<6",
+    "dvc-objects>=5.2,<6",
     "fsspec>=2024.2.0",
     "funcy>=1.14; python_version < '3.12'",
     "pygtrie>=2.3.2",
@@ -47,17 +48,15 @@ all = [
     "dvc-data[cli]",
 ]
 tests = [
-    "pytest>=7,<9",
-    "pytest-sugar",
+    "pytest>=7,<10",
     "pytest-cov>=4.1.0",
     "pytest-mock",
     "pytest-benchmark>=4",
-    "pytest-servers==0.5.12",
 ]
 dev = [
     "dvc-data[all]",
     "dvc-data[tests]",
-    "mypy==1.17.1",
+    "mypy==1.19.1",
     "types-tqdm",
 ]
 
@@ -76,6 +75,7 @@ addopts = "-ra --benchmark-skip"
 filterwarnings = [
     "error",
     "ignore:datetime.datetime.*:DeprecationWarning",
+    "default:^Benchmark machine_info is different\\..*:pytest_benchmark.logger.PytestBenchmarkWarning",
 ]
 
 [tool.coverage.run]

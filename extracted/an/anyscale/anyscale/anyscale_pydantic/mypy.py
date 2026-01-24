@@ -68,10 +68,10 @@ from mypy.version import __version__ as mypy_version
 from pydantic.utils import is_valid_field
 
 try:
-    from mypy.types import TypeVarDef  # type: ignore[attr-defined]
+    from mypy.types import TypeVarDef  # type: ignore[attr-defined] # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 except ImportError:  # pragma: no cover
     # Backward-compatible with TypeVarDef from Mypy 0.910.
-    from mypy.types import TypeVarType as TypeVarDef
+    from mypy.types import TypeVarType as TypeVarDef # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
 CONFIGFILE_KEY = 'pydantic-mypy'
 METADATA_KEY = 'pydantic-mypy-metadata'
@@ -924,17 +924,17 @@ def parse_toml(config_file: str) -> Optional[Dict[str, Any]]:
 
     read_mode = 'rb'
     if sys.version_info >= (3, 11):
-        import tomllib as toml_
+        import tomllib as toml_ # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
     else:
         try:
-            import tomli as toml_
+            import tomli as toml_ # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
         except ImportError:
             # older versions of mypy have toml as a dependency, not tomli
             read_mode = 'r'
             try:
-                import toml as toml_  # type: ignore[no-redef]
+                import toml as toml_  # type: ignore[no-redef] # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
             except ImportError:  # pragma: no cover
-                import warnings
+                import warnings # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
                 warnings.warn('No TOML parser installed, cannot read configuration from `pyproject.toml`.')
                 return None

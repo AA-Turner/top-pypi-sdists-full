@@ -5,9 +5,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from base64 import b64encode
-from ipaddress import IPv4Address, IPv6Address
+from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network
 
 from mimesis.datasets import (
+    CLOUD_REGION_DIRECTIONS,
+    CLOUD_REGION_PREFIXES,
     CONTENT_ENCODING_DIRECTIVES,
     CORS_OPENER_POLICIES,
     CORS_RESOURCE_POLICIES,
@@ -178,6 +180,57 @@ class Internet(BaseProvider):
             2001:c244:cf9d:1fb1:c56d:f52c:8a04:94f3
         """
         return str(self.ip_v6_object())
+
+    def ip_v4_cidr(self) -> str:
+        """Generates a random valid IPv4 CIDR notation.
+
+        The generated CIDR represents a valid network address where
+        host bits are properly zeroed according to the prefix length.
+
+        :return: IPv4 CIDR notation.
+
+        :Example:
+            192.168.1.0/24
+        """
+        ip = self.ip_v4_object()
+        prefix_length = self.random.randint(0, 32)
+        network = IPv4Network(f"{ip}/{prefix_length}", strict=False)
+        return str(network)
+
+    def ip_v6_cidr(self) -> str:
+        """Generates a random valid IPv6 CIDR notation.
+
+        The generated CIDR represents a valid network address where
+        host bits are properly zeroed according to the prefix length.
+
+        :return: IPv6 CIDR notation.
+
+        :Example:
+            2001:db8::/32
+        """
+        ip = self.ip_v6_object()
+        prefix_length = self.random.randint(0, 128)
+        network = IPv6Network(f"{ip}/{prefix_length}", strict=False)
+        return str(network)
+
+    def cloud_region(self, separator: str = "-") -> str:
+        """Generates a random cloud provider region identifier.
+
+        This generates region identifiers commonly used by cloud providers
+        like AWS, Azure, GCP, etc.
+
+        :param separator: Separator between parts (default is "-").
+        :return: Cloud region identifier.
+
+        :Example:
+            eu-west-1
+            us-east-2
+            ap-southeast-3
+        """
+        prefix = self.random.choice(CLOUD_REGION_PREFIXES)
+        direction = self.random.choice(CLOUD_REGION_DIRECTIONS)
+        zone_number = self.random.randint(1, 5)
+        return f"{prefix}{separator}{direction}{separator}{zone_number}"
 
     def asn(self) -> str:
         """Generates a random 4-byte ASN.

@@ -19,6 +19,7 @@
 #include "include/core/SkTileMode.h"
 #include "include/core/SkTypes.h"
 #include "include/effects/SkGradientShader.h"
+#include "include/private/base/SkFloatingPoint.h"
 
 #include <string.h>
 
@@ -47,22 +48,22 @@ static sk_sp<SkShader> MakeLinear(const SkPoint pts[2], const GradData& data, Sk
 
 static sk_sp<SkShader> MakeRadial(const SkPoint pts[2], const GradData& data, SkTileMode tm) {
     SkPoint center;
-    center.set(SkScalarAve(pts[0].fX, pts[1].fX),
-               SkScalarAve(pts[0].fY, pts[1].fY));
+    center.set(sk_float_midpoint(pts[0].fX, pts[1].fX),
+               sk_float_midpoint(pts[0].fY, pts[1].fY));
     return SkGradientShader::MakeRadial(center, center.fX, data.fColors, data.fPos, data.fCount, tm);
 }
 
 static sk_sp<SkShader> MakeSweep(const SkPoint pts[2], const GradData& data, SkTileMode) {
     SkPoint center;
-    center.set(SkScalarAve(pts[0].fX, pts[1].fX),
-               SkScalarAve(pts[0].fY, pts[1].fY));
+    center.set(sk_float_midpoint(pts[0].fX, pts[1].fX),
+               sk_float_midpoint(pts[0].fY, pts[1].fY));
     return SkGradientShader::MakeSweep(center.fX, center.fY, data.fColors, data.fPos, data.fCount);
 }
 
 static sk_sp<SkShader> Make2Radial(const SkPoint pts[2], const GradData& data, SkTileMode tm) {
     SkPoint center0, center1;
-    center0.set(SkScalarAve(pts[0].fX, pts[1].fX),
-                SkScalarAve(pts[0].fY, pts[1].fY));
+    center0.set(sk_float_midpoint(pts[0].fX, pts[1].fX),
+                sk_float_midpoint(pts[0].fY, pts[1].fY));
     center1.set(SkScalarInterp(pts[0].fX, pts[1].fX, SkIntToScalar(3)/5),
                 SkScalarInterp(pts[0].fY, pts[1].fY, SkIntToScalar(1)/4));
     return SkGradientShader::MakeTwoPointConical(
@@ -99,12 +100,11 @@ public:
     }
 
 protected:
-
-    SkString onShortName() override {
+    SkString getName() const override {
         return SkString(fDither ? "gradients_no_texture" : "gradients_no_texture_nodither");
     }
 
-    SkISize onISize() override { return SkISize::Make(640, 615); }
+    SkISize getISize() override { return SkISize::Make(640, 615); }
 
     void onDraw(SkCanvas* canvas) override {
         constexpr SkPoint kPts[2] = { { 0, 0 },
@@ -237,12 +237,11 @@ public:
     GradientsManyColorsGM(bool dither) : fDither(dither) {}
 
 protected:
-
-    SkString onShortName() override {
+    SkString getName() const override {
         return SkString(fDither ? "gradients_many" : "gradients_many_nodither");
     }
 
-    SkISize onISize() override { return SkISize::Make(880, 400); }
+    SkISize getISize() override { return SkISize::Make(880, 400); }
 
     void onDraw(SkCanvas* canvas) override {
         const Proc procs[] = {

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-github",
-    "version": "15.0.0",
+    "version": "15.3.1",
     "description": "Prebuilt github Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-github.git",
@@ -25,10 +25,12 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_github._jsii",
         "cdktf_cdktf_provider_github.actions_environment_secret",
         "cdktf_cdktf_provider_github.actions_environment_variable",
+        "cdktf_cdktf_provider_github.actions_hosted_runner",
         "cdktf_cdktf_provider_github.actions_organization_oidc_subject_claim_customization_template",
         "cdktf_cdktf_provider_github.actions_organization_permissions",
         "cdktf_cdktf_provider_github.actions_organization_secret",
         "cdktf_cdktf_provider_github.actions_organization_secret_repositories",
+        "cdktf_cdktf_provider_github.actions_organization_secret_repository",
         "cdktf_cdktf_provider_github.actions_organization_variable",
         "cdktf_cdktf_provider_github.actions_repository_access_level",
         "cdktf_cdktf_provider_github.actions_repository_oidc_subject_claim_customization_template",
@@ -46,6 +48,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_github.codespaces_organization_secret_repositories",
         "cdktf_cdktf_provider_github.codespaces_secret",
         "cdktf_cdktf_provider_github.codespaces_user_secret",
+        "cdktf_cdktf_provider_github.data_github_actions_environment_public_key",
         "cdktf_cdktf_provider_github.data_github_actions_environment_secrets",
         "cdktf_cdktf_provider_github.data_github_actions_environment_variables",
         "cdktf_cdktf_provider_github.data_github_actions_organization_oidc_subject_claim_customization_template",
@@ -79,9 +82,17 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_github.data_github_issue_labels",
         "cdktf_cdktf_provider_github.data_github_membership",
         "cdktf_cdktf_provider_github.data_github_organization",
+        "cdktf_cdktf_provider_github.data_github_organization_custom_properties",
         "cdktf_cdktf_provider_github.data_github_organization_custom_role",
         "cdktf_cdktf_provider_github.data_github_organization_external_identities",
         "cdktf_cdktf_provider_github.data_github_organization_ip_allow_list",
+        "cdktf_cdktf_provider_github.data_github_organization_repository_role",
+        "cdktf_cdktf_provider_github.data_github_organization_repository_roles",
+        "cdktf_cdktf_provider_github.data_github_organization_role",
+        "cdktf_cdktf_provider_github.data_github_organization_role_teams",
+        "cdktf_cdktf_provider_github.data_github_organization_role_users",
+        "cdktf_cdktf_provider_github.data_github_organization_roles",
+        "cdktf_cdktf_provider_github.data_github_organization_security_managers",
         "cdktf_cdktf_provider_github.data_github_organization_team_sync_groups",
         "cdktf_cdktf_provider_github.data_github_organization_teams",
         "cdktf_cdktf_provider_github.data_github_organization_webhooks",
@@ -94,6 +105,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_github.data_github_repository_custom_properties",
         "cdktf_cdktf_provider_github.data_github_repository_deploy_keys",
         "cdktf_cdktf_provider_github.data_github_repository_deployment_branch_policies",
+        "cdktf_cdktf_provider_github.data_github_repository_environment_deployment_policies",
         "cdktf_cdktf_provider_github.data_github_repository_environments",
         "cdktf_cdktf_provider_github.data_github_repository_file",
         "cdktf_cdktf_provider_github.data_github_repository_milestone",
@@ -114,14 +126,22 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_github.emu_group_mapping",
         "cdktf_cdktf_provider_github.enterprise_actions_permissions",
         "cdktf_cdktf_provider_github.enterprise_actions_runner_group",
+        "cdktf_cdktf_provider_github.enterprise_actions_workflow_permissions",
         "cdktf_cdktf_provider_github.enterprise_organization",
+        "cdktf_cdktf_provider_github.enterprise_security_analysis_settings",
         "cdktf_cdktf_provider_github.issue",
         "cdktf_cdktf_provider_github.issue_label",
         "cdktf_cdktf_provider_github.issue_labels",
         "cdktf_cdktf_provider_github.membership",
         "cdktf_cdktf_provider_github.organization_block",
+        "cdktf_cdktf_provider_github.organization_custom_properties",
         "cdktf_cdktf_provider_github.organization_custom_role",
         "cdktf_cdktf_provider_github.organization_project",
+        "cdktf_cdktf_provider_github.organization_repository_role",
+        "cdktf_cdktf_provider_github.organization_role",
+        "cdktf_cdktf_provider_github.organization_role_team",
+        "cdktf_cdktf_provider_github.organization_role_team_assignment",
+        "cdktf_cdktf_provider_github.organization_role_user",
         "cdktf_cdktf_provider_github.organization_ruleset",
         "cdktf_cdktf_provider_github.organization_security_manager",
         "cdktf_cdktf_provider_github.organization_settings",
@@ -155,11 +175,12 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_github.team_sync_group_mapping",
         "cdktf_cdktf_provider_github.user_gpg_key",
         "cdktf_cdktf_provider_github.user_invitation_accepter",
-        "cdktf_cdktf_provider_github.user_ssh_key"
+        "cdktf_cdktf_provider_github.user_ssh_key",
+        "cdktf_cdktf_provider_github.workflow_repository_permissions"
     ],
     "package_data": {
         "cdktf_cdktf_provider_github._jsii": [
-            "provider-github@15.0.0.jsii.tgz"
+            "provider-github@15.3.1.jsii.tgz"
         ],
         "cdktf_cdktf_provider_github": [
             "py.typed"
@@ -169,7 +190,7 @@ kwargs = json.loads(
     "install_requires": [
         "cdktf>=0.21.0, <0.22.0",
         "constructs>=10.4.2, <11.0.0",
-        "jsii>=1.111.0, <2.0.0",
+        "jsii>=1.119.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard>=2.13.3,<4.3.0"
     ],

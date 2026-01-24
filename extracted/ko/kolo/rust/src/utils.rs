@@ -59,7 +59,7 @@ impl<'a, 'py> Arg<'a, 'py> {
 
 #[derive(Default)]
 pub struct CallFrames {
-    frames: Vec<(PyObject, String)>,
+    frames: Vec<(Py<PyAny>, String)>,
 }
 
 impl CallFrames {
@@ -237,7 +237,7 @@ pub fn get_qualname(frame: &Bound<'_, PyFrame>, py: Python) -> Result<Option<Str
             let globals = frame.getattr(intern!(py, "f_globals"))?;
             let module = globals
                 .get_item("__name__")
-                .unwrap_or_else(|_| "<unknown>".to_object(py).into_bound(py));
+                .unwrap_or_else(|_| "<unknown>".into_pyobject(py).unwrap().into_any());
             return Ok(Some(format!("{}.{}", module, qualname)));
         }
         Err(err) if err.is_instance_of::<PyAttributeError>(py) => {}
@@ -251,7 +251,7 @@ pub fn get_qualname(frame: &Bound<'_, PyFrame>, py: Python) -> Result<Option<Str
         let globals = frame.getattr(intern!(py, "f_globals"))?;
         let module = globals
             .get_item("__name__")
-            .unwrap_or_else(|_| "<unknown>".to_object(py).into_bound(py));
+            .unwrap_or_else(|_| "<unknown>".into_pyobject(py).unwrap().into_any());
         return Ok(Some(format!("{}.<module>", module)));
     }
 
@@ -284,12 +284,12 @@ fn _get_qualname_inner(
     }
 
     let locals = frame.getattr(intern!(py, "f_locals"))?;
-    let inspect = PyModule::import_bound(py, "inspect")?;
+    let inspect = PyModule::import(py, "inspect")?;
     let getattr_static = inspect.getattr(intern!(py, "getattr_static"))?;
     match locals.get_item("self") {
         Ok(locals_self) => {
             let function = getattr_static.call1((locals_self, co_name))?;
-            let builtins = py.import_bound("builtins")?;
+            let builtins = py.import("builtins")?;
             let property = builtins.getattr(intern!(py, "property"))?;
             let property = property.downcast()?;
             let function = match function.is_instance(property)? {
@@ -320,7 +320,7 @@ fn _get_qualname_inner(
         Ok(qualname) => {
             let module = globals
                 .get_item("__name__")
-                .unwrap_or_else(|_| "<unknown>".to_object(py).into_bound(py));
+                .unwrap_or_else(|_| "<unknown>".into_pyobject(py).unwrap().into_any());
             Ok(Some(format!("{}.{}", module, qualname)))
         }
         Err(err) if err.is_instance_of::<PyKeyError>(py) => {
@@ -340,8 +340,8 @@ pub fn dump_msgpack(
     data: &Bound<'_, PyAny>,
     lightweight_repr: bool,
 ) -> Result<Vec<u8>, PyErr> {
-    let serialize = PyModule::import_bound(py, "kolo.serialize")?;
-    let args = PyTuple::new_bound(py, [&data]);
+    let serialize = PyModule::import(py, "kolo.serialize")?;
+    let args = PyTuple::new(py, [&data])?;
     let data = match lightweight_repr {
         false => serialize.call_method1("dump_msgpack", args)?,
         true => serialize.call_method1("dump_msgpack_lightweight_repr", args)?,
@@ -447,7 +447,7 @@ fn write_frames(buf: &mut Vec<u8>, frames: HashMap<String, Vec<SerializedFrame>>
 fn write_threads(
     py: Python,
     buf: &mut Vec<u8>,
-    threads: &HashMap<String, PyObject>,
+    threads: &HashMap<String, Py<PyAny>>,
     frames_by_thread: &HashMap<String, Vec<SerializedFrame>>,
 ) {
     rmp::encode::write_str(buf, "threads").expect("Writing to memory, not I/O");
@@ -586,6 +586,7 @@ pub fn build_trace(
     current_thread_id: String,
     timestamp: f64,
     config: &config::Config,
+    use_monitoring: bool,
 ) -> Result<Py<PyBytes>, PyErr> {
     let version = kolo_version(py)?;
     let commit_sha = git_commit_sha(py)?;
@@ -595,7 +596,7 @@ pub fn build_trace(
     let environment = collect_environment(py)?;
 
     // Collect and filter configuration
-    let filtered_config = collect_config(py, config)?;
+    let filtered_config = collect_config(py, config, use_monitoring)?;
 
     let mut buf: Vec<u8> = vec![];
 
@@ -617,13 +618,13 @@ pub fn build_trace(
     write_frames_of_interest(&mut buf, vec![]); // empty frames_of_interest list
     write_frames(&mut buf, HashMap::new()); // empty frames dictionary 
 
-    Ok(PyBytes::new_bound(py, &buf).unbind())
+    Ok(PyBytes::new(py, &buf).unbind())
 }
 
 /// Collect environment information similar to the Python `environment` dict.
 pub fn collect_environment(py: Python) -> Result<HashMap<String, String>, PyErr> {
-    let sys = PyModule::import_bound(py, "sys")?;
-    let platform_mod = PyModule::import_bound(py, "platform")?;
+    let sys = PyModule::import(py, "sys")?;
+    let platform_mod = PyModule::import(py, "platform")?;
 
     let py_version = platform_mod.call_method0("python_version")?.extract::<String>()?;
     let py_version_full = sys.getattr(intern!(py, "version"))?.extract::<String>()?;
@@ -643,7 +644,7 @@ pub fn collect_environment(py: Python) -> Result<HashMap<String, String>, PyErr>
     Ok(environment)
 }
 
-pub fn collect_config(py: Python, config: &config::Config) -> Result<HashMap<String, RmpvValue>, PyErr> {
+pub fn collect_config(py: Python, config: &config::Config, use_monitoring: bool) -> Result<HashMap<String, RmpvValue>, PyErr> {
     let raw_config = config.to_dict(py)?;
     let mut filtered_config = HashMap::new();
 
@@ -651,7 +652,7 @@ pub fn collect_config(py: Python, config: &config::Config) -> Result<HashMap<Str
         filtered_config.insert(key, value.into()); // Convert PyAny to RmpvValue
     }
 
-    filtered_config.insert("use_monitoring".to_string(), RmpvValue::Boolean(config.get_or(py, "use_monitoring", false)?));
+    filtered_config.insert("use_monitoring".to_string(), RmpvValue::Boolean(use_monitoring));
     filtered_config.insert("use_rust".to_string(), RmpvValue::Boolean(true));
 
     Ok(filtered_config)
@@ -715,8 +716,8 @@ impl UserCodeCallSite {
         ])
     }
 
-    pub fn into_pydict(self, py: Python) -> Bound<'_, PyDict> {
-        let call_site = PyDict::new_bound(py);
+    pub fn into_pydict(self, py: Python<'_>) -> Bound<'_, PyDict> {
+        let call_site = PyDict::new(py);
         call_site
             .set_item("call_frame_id", self.call_frame_id)
             .expect(STRING_KEY);
@@ -756,21 +757,21 @@ pub fn user_code_call_site(
 
 /// Load Kolo's version from Python.
 fn kolo_version(py: Python) -> Result<String, PyErr> {
-    PyModule::import_bound(py, "kolo.version")?
+    PyModule::import(py, "kolo.version")?
         .getattr(intern!(py, "__version__"))?
         .extract::<String>()
 }
 
 /// Get the current git commit sha from Python.
 fn git_commit_sha(py: Python) -> Result<Option<String>, PyErr> {
-    PyModule::import_bound(py, "kolo.git")?
+    PyModule::import(py, "kolo.git")?
         .getattr(intern!(py, "COMMIT_SHA"))?
         .extract::<Option<String>>()
 }
 
 /// Get the command line arguments of the traced program from Python.
 fn get_argv(py: Python) -> Result<Vec<String>, PyErr> {
-    PyModule::import_bound(py, "sys")?
+    PyModule::import(py, "sys")?
         .getattr(intern!(py, "argv"))?
         .extract::<Vec<String>>()
 }
@@ -790,7 +791,18 @@ fn get_locals<'py>(
     }
 
     let locals = frame.getattr(intern!(py, "f_locals"))?;
-    let locals = locals.downcast_into::<PyDict>().unwrap();
+
+    // In Python 3.13+, f_locals might be a proxy object (FrameLocalsProxy) instead of a dict
+    // Try to downcast to PyDict, if that fails, convert to dict
+    let locals = match locals.downcast::<PyDict>() {
+        Ok(dict) => dict.clone(),
+        Err(_) => {
+            // Convert to dict by calling dict() constructor on the proxy
+            let dict_type = py.get_type::<PyDict>();
+            dict_type.call1((&locals,))?.downcast_into::<PyDict>()?
+        }
+    };
+
     let result = match locals
         .get_item("__builtins__")
         .expect("locals.get(\"__builtins__\") should not raise.")
@@ -843,7 +855,7 @@ pub fn get_thread_id(thread: &Bound<'_, PyAny>, py: Python) -> Result<String, Py
 }
 
 pub fn get_current_thread_id(py: Python) -> Result<String, PyErr> {
-    let threading = PyModule::import_bound(py, "threading")?;
+    let threading = PyModule::import(py, "threading")?;
     let thread = threading.call_method0("current_thread")?;
 
     get_thread_id(thread.as_ref(), py)

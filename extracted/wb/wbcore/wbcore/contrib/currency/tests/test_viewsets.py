@@ -50,7 +50,7 @@ class TestCurrencyRepresentationViewSets:
         assert response.status_code == status.HTTP_200_OK
         assert instance.get("id") == euro.id
         assert instance.get("key") == euro.key
-        assert instance.get("title") == euro.title
+        assert instance.get("name_repr") == f"{euro.title} ({euro.symbol})"
 
 
 @pytest.mark.viewset_tests

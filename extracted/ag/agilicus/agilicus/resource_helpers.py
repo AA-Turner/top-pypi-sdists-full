@@ -4,6 +4,13 @@ from agilicus.agilicus_api import (
     ResourceConfig,
 )
 
+standard_page_fields = [
+    "id",
+    "name",
+    "created",
+    "org_id",
+]
+
 
 def map_resource_published(mapping, published):
     if published is not None:

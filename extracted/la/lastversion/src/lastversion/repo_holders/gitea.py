@@ -10,16 +10,12 @@ import time
 from bs4 import BeautifulSoup
 from dateutil import parser
 
-from lastversion.repo_holders.base import BaseProjectHolder
 from lastversion.exceptions import ApiCredentialsError, BadProjectError
-
+from lastversion.repo_holders.base import BaseProjectHolder
 
 log = logging.getLogger(__name__)
 
-TOKEN_PRO_TIP = (
-    "ProTip: set GITHUB_API_TOKEN env var as per "
-    "https://github.com/dvershinin/lastversion#tips"
-)
+TOKEN_PRO_TIP = "ProTip: set GITHUB_API_TOKEN env var as per " "https://github.com/dvershinin/lastversion#tips"
 
 
 def asset_matches(asset, search, regex_matching):
@@ -42,16 +38,18 @@ def asset_matches(asset, search, regex_matching):
 
 
 class GiteaRepoSession(BaseProjectHolder):
-    """A class to represent a GitHub project holder."""
+    """A class to represent a Gitea-based project holder (Gitea, Codeberg, etc.)."""
 
     DEFAULT_HOSTNAME = "gitea.com"
+    # Additional known Gitea-based forges
+    KNOWN_HOSTNAMES = ["gitea.com", "codeberg.org"]
     CAN_BE_SELF_HOSTED = True
     """ The following format will benefit from:
     1) not using API, so is not subject to its rate limits
     2) likely has been accessed by someone in CDN and thus faster
     3) provides more or less unique filenames once the stuff is downloaded
     See https://fedoraproject.org/wiki/Packaging:SourceURL#Git_Tags
-    We use variation of this: it does not need a parsed version (works for 
+    We use variation of this: it does not need a parsed version (works for
     --pre better) and it is not broken on fancy release tags like v1.2.3-stable
     https://github.com/OWNER/PROJECT/archive/%{git_tag}/%{git_tag}-%{version}.tar.gz
     """
@@ -69,30 +67,20 @@ class GiteaRepoSession(BaseProjectHolder):
         except (IOError, ValueError):
             cache = {}
         try:
-            if (
-                repo in cache
-                and time.time() - cache[repo]["updated_at"] < 3600 * 24 * 30
-            ):
+            if repo in cache and time.time() - cache[repo]["updated_at"] < 3600 * 24 * 30:
                 log.info("Found %s in repo short name cache", repo)
                 if not cache[repo]["repo"]:
-                    raise BadProjectError(
-                        f"No project found on GitHub for search query: {repo}"
-                    )
+                    raise BadProjectError(f"No project found on GitHub for search query: {repo}")
         except TypeError:
             pass
         log.info("Making query against GitHub API to search repo %s", repo)
-        r = self.get(
-            f"{self.api_base}/search/repositories", params={"q": f"{repo} in:name"}
-        )
+        r = self.get(f"{self.api_base}/search/repositories", params={"q": f"{repo} in:name"})
         if r.status_code == 404:
             # when not found, skip using this holder in the factory by not
             # setting self.repo
             return None
         if r.status_code != 200:
-            raise BadProjectError(
-                f"Error while identifying full repository on GitHub for "
-                f"search query: {repo}"
-            )
+            raise BadProjectError(f"Error while identifying full repository on GitHub for " f"search query: {repo}")
         data = r.json()
         full_name = ""
         if data["items"]:
@@ -104,10 +92,20 @@ class GiteaRepoSession(BaseProjectHolder):
         except (IOError, ValueError):
             pass
         if not full_name:
-            raise BadProjectError(
-                f"No project found on GitHub for search query: {repo}"
-            )
+            raise BadProjectError(f"No project found on GitHub for search query: {repo}")
         return full_name
+
+    @classmethod
+    def is_matching_hostname(cls, hostname):
+        """Check if given hostname matches known Gitea-based forges."""
+        if not hostname:
+            return None
+        # Extract hostname without port for comparison
+        hostname_only = hostname.rsplit(":", 1)[0] if ":" in hostname else hostname
+        # Check against known hostnames
+        if hostname_only in cls.KNOWN_HOSTNAMES:
+            return True
+        return False
 
     def is_instance(self):
         """
@@ -168,23 +166,15 @@ class GiteaRepoSession(BaseProjectHolder):
         log.info("Got HTTP status code %s from %s", r.status_code, url)
         if r.status_code == 401:
             if self.api_token:
-                raise ApiCredentialsError(
-                    "API request was denied despite using an API token. "
-                    "Missing scopes?"
-                )
+                raise ApiCredentialsError("API request was denied despite using an API token. " "Missing scopes?")
             raise ApiCredentialsError(
                 "Denied API access. Please set GITHUB_API_TOKEN env var as "
                 "per https://github.com/dvershinin/lastversion#tips"
             )
-        if (
-            r.status_code == 403
-            and "X-RateLimit-Reset" in r.headers
-            and "X-RateLimit-Remaining" in r.headers
-        ):
+        if r.status_code == 403 and "X-RateLimit-Reset" in r.headers and "X-RateLimit-Remaining" in r.headers:
             if self.rate_limited_count > 2:
                 raise ApiCredentialsError(
-                    f"API requests were denied after retrying "
-                    f"{self.rate_limited_count} times"
+                    f"API requests were denied after retrying " f"{self.rate_limited_count} times"
                 )
             remaining = int(r.headers["X-RateLimit-Remaining"])
             # One sec to account for skewed clock between GitHub and client
@@ -194,24 +184,16 @@ class GiteaRepoSession(BaseProjectHolder):
                 # got 403, likely due to used quota
                 if wait_for < 300:
                     if wait_for < 0:
-                        log.warning(
-                            "Exceeded API quota. Repeating request because quota is about to "
-                            "be reinstated"
-                        )
+                        log.warning("Exceeded API quota. Repeating request because quota is about to " "be reinstated")
                     else:
                         w = f"Waiting {wait_for} seconds for API quota reinstatement."
-                        if (
-                            "GITHUB_API_TOKEN" not in os.environ
-                            and "GITHUB_TOKEN" not in os.environ
-                        ):
+                        if "GITHUB_API_TOKEN" not in os.environ and "GITHUB_TOKEN" not in os.environ:
                             w = f"{w} {TOKEN_PRO_TIP}"
                         log.warning(w)
                         time.sleep(wait_for)
                     self.rate_limited_count = self.rate_limited_count + 1
                     return self.get(url)
-                raise ApiCredentialsError(
-                    f'Exceeded API rate limit after waiting: {r.json()["message"]}'
-                )
+                raise ApiCredentialsError(f'Exceeded API rate limit after waiting: {r.json()["message"]}')
             return self.get(url)
 
         if r.status_code == 403 and url != self.rate_limit_url:
@@ -283,9 +265,7 @@ class GiteaRepoSession(BaseProjectHolder):
                 # TODO handle API failure here as it may result in "false positive"?
                 release_for_tag = self.get_formal_release_for_tag(tag_name)
                 if release_for_tag:
-                    ret = self.set_matching_formal_release(
-                        ret, release_for_tag, version, pre_ok
-                    )
+                    ret = self.set_matching_formal_release(ret, release_for_tag, version, pre_ok)
                 else:
                     ret = t
                     ret["tag_name"] = tag_name
@@ -312,14 +292,11 @@ class GiteaRepoSession(BaseProjectHolder):
 
         return ret
 
-    def set_matching_formal_release(
-        self, ret, formal_release, version, pre_ok, data_type="release"
-    ):
+    def set_matching_formal_release(self, ret, formal_release, version, pre_ok, data_type="release"):
         """Set the current release selection to this formal release if matching conditions."""
         if not pre_ok and formal_release["prerelease"]:
             log.info(
-                "Found formal release for this tag which is unwanted "
-                "pre-release: %s.",
+                "Found formal release for this tag which is unwanted " "pre-release: %s.",
                 version,
             )
             return ret
@@ -344,9 +321,7 @@ class GiteaRepoSession(BaseProjectHolder):
         formal_release["tag_date"] = parser.parse(formal_release["published_at"])
         formal_release["version"] = version
         formal_release["type"] = data_type
-        log.info(
-            "Selected version as current selection: %s.", formal_release["version"]
-        )
+        log.info("Selected version as current selection: %s.", formal_release["version"])
         return formal_release
 
     def try_get_official(self, repo):
@@ -357,9 +332,7 @@ class GiteaRepoSession(BaseProjectHolder):
         """
         official_repo = f"{repo}/{repo}"
         log.info("Checking existence of %s", official_repo)
-        r = self.get_feed_response(
-            f"https://{self.hostname}/{official_repo}/releases.atom"
-        )
+        r = self.get_feed_response(f"https://{self.hostname}/{official_repo}/releases.atom")
         # API requests are varied by cookie, we don't want serializer for
         # cache fail because of that
         self.cookies.clear()

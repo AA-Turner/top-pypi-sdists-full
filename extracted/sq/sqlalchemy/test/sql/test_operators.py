@@ -1,5 +1,6 @@
 import collections.abc as collections_abc
 import datetime
+import enum
 import operator
 import pickle
 import re
@@ -7,8 +8,10 @@ import re
 from sqlalchemy import and_
 from sqlalchemy import between
 from sqlalchemy import bindparam
+from sqlalchemy import Enum
 from sqlalchemy import exc
 from sqlalchemy import Integer
+from sqlalchemy import intersect
 from sqlalchemy import join
 from sqlalchemy import LargeBinary
 from sqlalchemy import literal_column
@@ -2386,6 +2389,51 @@ class InTest(fixtures.TestBase, testing.AssertsCompiledSQL):
                 literal_binds=True,
             )
 
+    def test_in_scalar_grouping(self):
+        """test for :ticket:`12987`
+
+        Test that using in_() with a nested CompoundSelect works correctly.
+        This occurs when a CompoundSelect is the first argument to another
+        CompoundSelect.
+
+        """
+
+        t = self.table1
+
+        # Create nested compound selects
+        inner_compound_stmt = union(
+            select(t.c.myid).where(t.c.myid == 5),
+            select(t.c.myid).where(t.c.myid == 6),
+        )
+        simple_stmt = select(t.c.myid).where(t.c.myid == 7)
+
+        # When simple statement is first, should work
+        outer_compound_stmt = intersect(simple_stmt, inner_compound_stmt)
+        self.assert_compile(
+            select(t).where(t.c.myid.in_(outer_compound_stmt)),
+            "SELECT mytable.myid FROM mytable "
+            "WHERE mytable.myid IN ("
+            "SELECT mytable.myid FROM mytable WHERE mytable.myid = :myid_1 "
+            "INTERSECT (SELECT mytable.myid FROM mytable "
+            "WHERE mytable.myid = :myid_2 "
+            "UNION SELECT mytable.myid FROM mytable "
+            "WHERE mytable.myid = :myid_3))",
+        )
+
+        # When compound statement is first, previously raised
+        # NotImplementedError
+        outer_compound_stmt = intersect(inner_compound_stmt, simple_stmt)
+        self.assert_compile(
+            select(t).where(t.c.myid.in_(outer_compound_stmt)),
+            "SELECT mytable.myid FROM mytable "
+            "WHERE mytable.myid IN ("
+            "(SELECT mytable.myid FROM mytable WHERE mytable.myid = :myid_1 "
+            "UNION SELECT mytable.myid FROM mytable "
+            "WHERE mytable.myid = :myid_2) "
+            "INTERSECT SELECT mytable.myid FROM mytable "
+            "WHERE mytable.myid = :myid_3)",
+        )
+
     @testing.combinations(True, False, argnames="is_in")
     @testing.combinations(True, False, argnames="negate")
     def test_in_empty_tuple(self, is_in, negate):
@@ -4577,6 +4625,12 @@ class InSelectableTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         )
 
 
+class MyEnum(enum.Enum):
+    ONE = enum.auto()
+    TWO = enum.auto()
+    THREE = enum.auto()
+
+
 class AnyAllTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     __dialect__ = "default"
 
@@ -4588,6 +4642,8 @@ class AnyAllTest(fixtures.TestBase, testing.AssertsCompiledSQL):
             "tab1",
             m,
             Column("arrval", ARRAY(Integer)),
+            Column("arrenum", ARRAY(Enum(MyEnum))),
+            Column("arrstring", ARRAY(String)),
             Column("data", Integer),
         )
         return t
@@ -4619,6 +4675,82 @@ class AnyAllTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         self.assert_compile(
             ~expr(col), "NOT (NULL = ANY (tab1.%s))" % col.name
         )
+
+    @testing.variation("operator", ["any", "all"])
+    @testing.variation(
+        "datatype", ["int", "array", "arraystring", "arrayenum"]
+    )
+    def test_what_type_is_any_all(
+        self,
+        datatype: testing.Variation,
+        t_fixture,
+        operator: testing.Variation,
+    ):
+        """test for #12874"""
+
+        if datatype.int:
+            col = t_fixture.c.data
+            value = 5
+            expected_type_affinity = Integer
+        elif datatype.array:
+            col = t_fixture.c.arrval
+            value = 25
+            expected_type_affinity = Integer
+        elif datatype.arraystring:
+            col = t_fixture.c.arrstring
+            value = "a string"
+            expected_type_affinity = String
+        elif datatype.arrayenum:
+            col = t_fixture.c.arrenum
+            value = MyEnum.TWO
+            expected_type_affinity = Enum
+        else:
+            datatype.fail()
+
+        if operator.any:
+            boolean_expr = value == any_(col)
+        elif operator.all:
+            boolean_expr = value == all_(col)
+        else:
+            operator.fail()
+
+        # using isinstance so things work out for Enum which has type affinity
+        # of String
+        assert isinstance(boolean_expr.left.type, expected_type_affinity)
+
+    @testing.variation("operator", ["any", "all"])
+    @testing.variation("datatype", ["array", "arraystring", "arrayenum"])
+    def test_what_type_is_legacy_any_all(
+        self,
+        datatype: testing.Variation,
+        t_fixture,
+        operator: testing.Variation,
+    ):
+        if datatype.array:
+            col = t_fixture.c.arrval
+            value = 25
+            expected_type_affinity = Integer
+        elif datatype.arraystring:
+            col = t_fixture.c.arrstring
+            value = "a string"
+            expected_type_affinity = String
+        elif datatype.arrayenum:
+            col = t_fixture.c.arrenum
+            value = MyEnum.TWO
+            expected_type_affinity = Enum
+        else:
+            datatype.fail()
+
+        if operator.any:
+            boolean_expr = col.any(value)
+        elif operator.all:
+            boolean_expr = col.all(value)
+        else:
+            operator.fail()
+
+        # using isinstance so things work out for Enum which has type affinity
+        # of String
+        assert isinstance(boolean_expr.left.type, expected_type_affinity)
 
     @testing.fixture(
         params=[

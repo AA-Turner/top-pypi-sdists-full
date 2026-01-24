@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright 2019 ARM Ltd.
+# Copyright 2019 Linaro Ltd.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mbox/mbox-consumer.yaml#
+$schema: http://devicetree.org/meta-schemas/base.yaml#
+
+title: Mailbox Consumer Common Properties
+
+maintainers:
+  - Rob Herring <robh@kernel.org>
+
+# always select the core schema
+select: true
+
+properties:
+  mboxes:
+    $ref: /schemas/types.yaml#/definitions/phandle-array
+
+  mbox-names:
+    $ref: /schemas/types.yaml#/definitions/string-array
+
+  shmem:
+    $ref: /schemas/types.yaml#/definitions/phandle-array
+    items:
+      maxItems: 1
+
+dependencies:
+  mbox-names: [ mboxes ]
+
+additionalProperties: true

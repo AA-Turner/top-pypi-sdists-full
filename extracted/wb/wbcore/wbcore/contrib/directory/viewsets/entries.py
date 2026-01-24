@@ -11,6 +11,7 @@ from wbcore.contrib.directory.models import (
     Person,
 )
 from wbcore.contrib.i18n.viewsets import ModelTranslateMixin
+from wbcore.utils.views import MergeMixin
 
 from ...authentication.models import UserActivity
 from ..filters import CompanyFilter, EntryFilter, PersonFilter, UserIsManagerFilter
@@ -40,7 +41,9 @@ from .display.entries import (
 )
 from .endpoints.entries import (
     CompanyModelEndpointConfig,
+    CompanyRepresentationEndpointConfig,
     PersonModelEndpointConfig,
+    PersonRepresentationEndpointConfig,
     UserIsManagerEndpointConfig,
 )
 from .mixins import EntryPermissionMixin
@@ -66,7 +69,8 @@ class PersonRepresentationViewSet(EntryRepresentationViewSet):
     queryset = Person.objects.annotate_all()
     serializer_class = PersonRepresentationSerializer
     filterset_class = PersonFilter
-
+    ONLY_READ_ONLY_ENDPOINT = False
+    endpoint_config_class = PersonRepresentationEndpointConfig
     ordering_fields = ("last_name", "first_name")
     ordering = ("last_name", "first_name", "id")
 
@@ -79,12 +83,15 @@ class PersonInChargeRepresentationViewSet(PersonRepresentationViewSet):
 class CompanyRepresentationViewSet(EntryRepresentationViewSet):
     queryset = Company.objects.annotate_all()
     serializer_class = CompanyRepresentationSerializer
+    ONLY_READ_ONLY_ENDPOINT = False
+    endpoint_config_class = CompanyRepresentationEndpointConfig
+
     filterset_class = CompanyFilter
     ordering_fields = ("name",)
     ordering = ("name", "id")
 
 
-class EntryModelViewSet(EntryPermissionMixin, TransparencyMixin, viewsets.ModelViewSet):
+class EntryModelViewSet(MergeMixin, EntryPermissionMixin, TransparencyMixin, viewsets.ModelViewSet):
     min_rank = 0.25
     search_fields = ("computed_str", "slugify_computed_str", "emails__address")
     ordering = ["computed_str", "id"]
@@ -150,11 +157,10 @@ class PersonModelViewSet(ModelTranslateMixin, EntryModelViewSet):
         return super().get_serializer_class()
 
     def get_queryset(self):
-        return (
-            super()
-            .get_queryset()
-            .annotate(last_connection=Coalesce(UserActivity.get_latest_login_datetime_subquery(), None))
-        )
+        qs = super().get_queryset()
+        if "pk" in self.kwargs:
+            qs = qs.annotate(last_connection=Coalesce(UserActivity.get_latest_login_datetime_subquery(), None))
+        return qs
 
 
 class CompanyModelViewSet(EntryModelViewSet):

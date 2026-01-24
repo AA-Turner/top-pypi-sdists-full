@@ -14,33 +14,30 @@
 """Tests for tensorstore.downsample."""
 
 import numpy as np
-import pytest
 import tensorstore as ts
 
-pytestmark = pytest.mark.asyncio
 
-
-async def test_downsample_store_float32():
+async def test_downsample_store_float32() -> None:
   t = ts.array(np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32))
 
   downsampled = ts.downsample(t, [1, 2], method='mean')
 
   np.testing.assert_equal(
-      np.array([[1.5, 3], [4.5, 6]], dtype=np.float32), await
-      downsampled.read())
+      np.array([[1.5, 3], [4.5, 6]], dtype=np.float32), await downsampled.read()
+  )
 
 
-async def test_downsample_store_uint32():
+async def test_downsample_store_uint32() -> None:
   t = ts.array(np.array([[1, 2, 3], [4, 5, 6]], dtype=np.uint32))
 
   downsampled = ts.downsample(t, [2, 2], method='mean')
 
   np.testing.assert_equal(
-      np.array([[3, 4]], dtype=np.uint32), await
-      downsampled.read())
+      np.array([[3, 4]], dtype=np.uint32), await downsampled.read()
+  )
 
 
-async def test_downsample_spec():
+async def test_downsample_spec() -> None:
 
   t = ts.array(np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32))
   spec = t.spec()
@@ -49,5 +46,5 @@ async def test_downsample_spec():
   downsampled = await ts.open(downsampled_spec)
 
   np.testing.assert_equal(
-      np.array([[1.5, 3], [4.5, 6]], dtype=np.float32), await
-      downsampled.read())
+      np.array([[1.5, 3], [4.5, 6]], dtype=np.float32), await downsampled.read()
+  )

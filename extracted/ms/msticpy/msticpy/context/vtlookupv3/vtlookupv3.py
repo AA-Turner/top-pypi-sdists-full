@@ -1,3 +1,4 @@
+# pylint:disable=too-many-lines
 """VirusTotal v3 API."""
 
 from __future__ import annotations
@@ -31,18 +32,17 @@ try:
         from vt.object import Object
 
 except ImportError as imp_err:
-    err_msg: str = (
+    ERR_MSG: str = (
         "Cannot use this feature without vt-py, vt-graph-api and "
         "nest_asyncio packages installed."
     )
     raise MsticpyImportExtraError(
-        err_msg,
+        ERR_MSG,
         title="Error importing VirusTotal modules.",
         extra="vt3",
     ) from imp_err
 
 logger: logging.Logger = logging.getLogger(__name__)
-# pylint: disable=too-many-lines
 
 
 class MsticpyVTNoDataError(Exception):

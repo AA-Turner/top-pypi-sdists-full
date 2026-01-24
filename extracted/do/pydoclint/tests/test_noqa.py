@@ -1,0 +1,111 @@
+from textwrap import dedent
+
+import pytest
+
+from pydoclint.utils.noqa import (
+    codeIsSuppressed,
+    collectNoqaCodesByLine,
+    parseNoqaComment,
+)
+
+
+@pytest.mark.parametrize(
+    ('comment', 'expected'),
+    [
+        (
+            '# explanation noqa: doc101, DOC202, f401 trailing',
+            {'DOC101', 'DOC202'},
+        ),
+        (
+            '# NOQA: DOC105',
+            {'DOC105'},
+        ),
+        (
+            '# noqa: DOC1',
+            {'DOC1'},
+        ),
+        (
+            '# noqa: DOC10',
+            {'DOC10'},
+        ),
+        (
+            '# comment before NOQA : DOC301 extra DOC302',
+            {'DOC301', 'DOC302'},
+        ),
+        (
+            '# comment before NOQA : DOC301 extra DOC302, and DOC5',
+            {'DOC301', 'DOC302', 'DOC5'},
+        ),
+        (
+            '# noqa: F401, W503',
+            set(),
+        ),
+        (
+            '# noqa DOC101',
+            set(),
+        ),
+        (
+            '# nothing interesting here',
+            set(),
+        ),
+    ],
+)
+def testParseNoqaComment(comment: str, expected: set[str]) -> None:
+    assert parseNoqaComment(comment) == expected
+
+
+@pytest.mark.parametrize(
+    ('src', 'expected'),
+    [
+        (
+            dedent(
+                """
+                def funcOne():
+                    pass  # noqa: DOC101
+                def funcTwo():
+                    pass  # comment noqa: doc202 extra
+                """
+            ).strip(),
+            {
+                2: {'DOC101'},
+                4: {'DOC202'},
+            },
+        ),
+        (
+            dedent(
+                """
+                def funcOne():  # NOQA: DOC101, DOC102
+                    pass
+                def funcTwo():
+                    pass  # random text NOQA: DOC201 doc202 trailing
+                """
+            ).strip(),
+            {
+                1: {'DOC101', 'DOC102'},
+                4: {'DOC201', 'DOC202'},
+            },
+        ),
+    ],
+)
+def testCollectNoqaCodesByLine(
+        src: str, expected: dict[int, set[str]]
+) -> None:
+    assert collectNoqaCodesByLine(src) == expected
+
+
+@pytest.mark.parametrize(
+    ('suppressedCodes', 'code', 'expected'),
+    [
+        (set(), 'DOC101', False),
+        ({'DOC101'}, 'DOC101', True),
+        ({'DOC1'}, 'DOC101', True),
+        ({'DOC10'}, 'DOC107', True),
+        ({'DOC10'}, 'DOC107535789513587abcde', True),
+        ({'DOC102'}, 'DOC101', False),
+        ({'DOC2'}, 'DOC101', False),
+    ],
+)
+def testCodeIsSuppressed(
+        suppressedCodes: set[str], code: str, expected: bool
+) -> None:
+    assert codeIsSuppressed(code, suppressedCodes) is expected

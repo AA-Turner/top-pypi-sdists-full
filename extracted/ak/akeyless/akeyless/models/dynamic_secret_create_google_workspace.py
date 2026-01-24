@@ -42,11 +42,13 @@ class DynamicSecretCreateGoogleWorkspace(object):
         'gcp_key': 'str',
         'group_email': 'str',
         'group_role': 'str',
+        'item_custom_fields': 'dict(str, str)',
         'json': 'bool',
         'name': 'str',
         'producer_encryption_key_name': 'str',
         'role_name': 'str',
         'role_scope': 'str',
+        'secure_access_delay': 'int',
         'secure_access_enable': 'str',
         'secure_access_url': 'str',
         'secure_access_web': 'bool',
@@ -68,11 +70,13 @@ class DynamicSecretCreateGoogleWorkspace(object):
         'gcp_key': 'gcp-key',
         'group_email': 'group-email',
         'group_role': 'group-role',
+        'item_custom_fields': 'item-custom-fields',
         'json': 'json',
         'name': 'name',
         'producer_encryption_key_name': 'producer-encryption-key-name',
         'role_name': 'role-name',
         'role_scope': 'role-scope',
+        'secure_access_delay': 'secure-access-delay',
         'secure_access_enable': 'secure-access-enable',
         'secure_access_url': 'secure-access-url',
         'secure_access_web': 'secure-access-web',
@@ -85,7 +89,7 @@ class DynamicSecretCreateGoogleWorkspace(object):
         'user_ttl': 'user-ttl'
     }
 
-    def __init__(self, access_mode=None, admin_email=None, delete_protection=None, description=None, fixed_user_claim_keyname='ext_email', gcp_key=None, group_email=None, group_role=None, json=False, name=None, producer_encryption_key_name=None, role_name=None, role_scope=None, secure_access_enable=None, secure_access_url=None, secure_access_web=True, secure_access_web_browsing=False, secure_access_web_proxy=False, tags=None, target_name=None, token=None, uid_token=None, user_ttl='60m', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, access_mode=None, admin_email=None, delete_protection=None, description=None, fixed_user_claim_keyname='ext_email', gcp_key=None, group_email=None, group_role=None, item_custom_fields=None, json=False, name=None, producer_encryption_key_name=None, role_name=None, role_scope=None, secure_access_delay=None, secure_access_enable=None, secure_access_url=None, secure_access_web=True, secure_access_web_browsing=False, secure_access_web_proxy=False, tags=None, target_name=None, token=None, uid_token=None, user_ttl='60m', local_vars_configuration=None):  # noqa: E501
         """DynamicSecretCreateGoogleWorkspace - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -99,11 +103,13 @@ class DynamicSecretCreateGoogleWorkspace(object):
         self._gcp_key = None
         self._group_email = None
         self._group_role = None
+        self._item_custom_fields = None
         self._json = None
         self._name = None
         self._producer_encryption_key_name = None
         self._role_name = None
         self._role_scope = None
+        self._secure_access_delay = None
         self._secure_access_enable = None
         self._secure_access_url = None
         self._secure_access_web = None
@@ -130,6 +136,8 @@ class DynamicSecretCreateGoogleWorkspace(object):
             self.group_email = group_email
         if group_role is not None:
             self.group_role = group_role
+        if item_custom_fields is not None:
+            self.item_custom_fields = item_custom_fields
         if json is not None:
             self.json = json
         self.name = name
@@ -139,6 +147,8 @@ class DynamicSecretCreateGoogleWorkspace(object):
             self.role_name = role_name
         if role_scope is not None:
             self.role_scope = role_scope
+        if secure_access_delay is not None:
+            self.secure_access_delay = secure_access_delay
         if secure_access_enable is not None:
             self.secure_access_enable = secure_access_enable
         if secure_access_url is not None:
@@ -345,6 +355,29 @@ class DynamicSecretCreateGoogleWorkspace(object):
         self._group_role = group_role
 
     @property
+    def item_custom_fields(self):
+        """Gets the item_custom_fields of this DynamicSecretCreateGoogleWorkspace.  # noqa: E501
+
+        Additional custom fields to associate with the item  # noqa: E501
+
+        :return: The item_custom_fields of this DynamicSecretCreateGoogleWorkspace.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._item_custom_fields
+
+    @item_custom_fields.setter
+    def item_custom_fields(self, item_custom_fields):
+        """Sets the item_custom_fields of this DynamicSecretCreateGoogleWorkspace.
+
+        Additional custom fields to associate with the item  # noqa: E501
+
+        :param item_custom_fields: The item_custom_fields of this DynamicSecretCreateGoogleWorkspace.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._item_custom_fields = item_custom_fields
+
+    @property
     def json(self):
         """Gets the json of this DynamicSecretCreateGoogleWorkspace.  # noqa: E501
 
@@ -458,6 +491,29 @@ class DynamicSecretCreateGoogleWorkspace(object):
         """
 
         self._role_scope = role_scope
+
+    @property
+    def secure_access_delay(self):
+        """Gets the secure_access_delay of this DynamicSecretCreateGoogleWorkspace.  # noqa: E501
+
+        The delay duration, in seconds, to wait after generating just-in-time credentials. Accepted range: 0-120 seconds  # noqa: E501
+
+        :return: The secure_access_delay of this DynamicSecretCreateGoogleWorkspace.  # noqa: E501
+        :rtype: int
+        """
+        return self._secure_access_delay
+
+    @secure_access_delay.setter
+    def secure_access_delay(self, secure_access_delay):
+        """Sets the secure_access_delay of this DynamicSecretCreateGoogleWorkspace.
+
+        The delay duration, in seconds, to wait after generating just-in-time credentials. Accepted range: 0-120 seconds  # noqa: E501
+
+        :param secure_access_delay: The secure_access_delay of this DynamicSecretCreateGoogleWorkspace.  # noqa: E501
+        :type: int
+        """
+
+        self._secure_access_delay = secure_access_delay
 
     @property
     def secure_access_enable(self):

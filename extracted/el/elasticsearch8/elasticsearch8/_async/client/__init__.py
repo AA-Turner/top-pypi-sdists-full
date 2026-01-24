@@ -75,6 +75,7 @@ from .slm import SlmClient
 from .snapshot import SnapshotClient
 from .sql import SqlClient
 from .ssl import SslClient
+from .streams import StreamsClient
 from .synonyms import SynonymsClient
 from .tasks import TasksClient
 from .text_structure import TextStructureClient
@@ -84,9 +85,9 @@ from .utils import (
     CLIENT_META_SERVICE,
     SKIP_IN_PATH,
     Stability,
+    _availability_warning,
     _quote,
     _rewrite_parameters,
-    _stability_warning,
     client_node_configs,
     is_requests_http_auth,
     is_requests_node_class,
@@ -470,6 +471,7 @@ class AsyncElasticsearch(BaseClient):
         self.shutdown = ShutdownClient(self)
         self.sql = SqlClient(self)
         self.ssl = SslClient(self)
+        self.streams = StreamsClient(self)
         self.synonyms = SynonymsClient(self)
         self.text_structure = TextStructureClient(self)
         self.transform = TransformClient(self)
@@ -592,6 +594,7 @@ class AsyncElasticsearch(BaseClient):
         """
         __path = "/"
         __query: t.Dict[str, t.Any] = {}
+        __path_parts: t.Dict[str, str] = {}
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -603,7 +606,12 @@ class AsyncElasticsearch(BaseClient):
         __headers = {"accept": "application/json"}
         try:
             await self.perform_request(
-                "HEAD", __path, params=__query, headers=__headers
+                "HEAD",
+                __path,
+                params=__query,
+                headers=__headers,
+                endpoint_id="ping",
+                path_parts=__path_parts,
             )
             return True
         except (ApiError, TransportError):
@@ -698,6 +706,7 @@ class AsyncElasticsearch(BaseClient):
           <li>Perl: Check out <code>Search::Elasticsearch::Client::5_0::Bulk</code> and <code>Search::Elasticsearch::Client::5_0::Scroll</code></li>
           <li>Python: Check out <code>elasticsearch.helpers.*</code></li>
           <li>JavaScript: Check out <code>client.helpers.*</code></li>
+          <li>Java: Check out <code>co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester</code></li>
           <li>.NET: Check out <code>BulkAllObservable</code></li>
           <li>PHP: Check out bulk indexing.</li>
           <li>Ruby: Check out <code>Elasticsearch::Helpers::BulkHelper</code></li>
@@ -935,11 +944,7 @@ class AsyncElasticsearch(BaseClient):
         if not __body:
             if id is not None:
                 __body["id"] = id
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "DELETE",
             __path,
@@ -1012,8 +1017,8 @@ class AsyncElasticsearch(BaseClient):
             This parameter can be used only when the `q` query string parameter is specified.
         :param analyzer: The analyzer to use for the query string. This parameter can
             be used only when the `q` query string parameter is specified.
-        :param default_operator: The default operator for query string query: `AND` or
-            `OR`. This parameter can be used only when the `q` query string parameter
+        :param default_operator: The default operator for query string query: `and` or
+            `or`. This parameter can be used only when the `q` query string parameter
             is specified.
         :param df: The field to use as a default when no field prefix is given in the
             query string. This parameter can be used only when the `q` query string parameter
@@ -1134,7 +1139,7 @@ class AsyncElasticsearch(BaseClient):
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
         wait_for_active_shards: t.Optional[
             t.Union[int, t.Union[str, t.Literal["all", "index-setting"]]]
@@ -1313,7 +1318,7 @@ class AsyncElasticsearch(BaseClient):
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
         wait_for_active_shards: t.Optional[
             t.Union[int, t.Union[str, t.Literal["all", "index-setting"]]]
@@ -1558,8 +1563,8 @@ class AsyncElasticsearch(BaseClient):
             used only when the `q` query string parameter is specified.
         :param conflicts: What to do if delete by query hits version conflicts: `abort`
             or `proceed`.
-        :param default_operator: The default operator for query string query: `AND` or
-            `OR`. This parameter can be used only when the `q` query string parameter
+        :param default_operator: The default operator for query string query: `and` or
+            `or`. This parameter can be used only when the `q` query string parameter
             is specified.
         :param df: The field to use as default where no field prefix is given in the
             query string. This parameter can be used only when the `q` query string parameter
@@ -1725,11 +1730,11 @@ class AsyncElasticsearch(BaseClient):
         self,
         *,
         task_id: t.Union[int, str],
+        requests_per_second: float,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
-        requests_per_second: t.Optional[float] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
         .. raw:: html
@@ -1747,9 +1752,13 @@ class AsyncElasticsearch(BaseClient):
         """
         if task_id in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'task_id'")
+        if requests_per_second is None:
+            raise ValueError("Empty value passed for parameter 'requests_per_second'")
         __path_parts: t.Dict[str, str] = {"task_id": _quote(task_id)}
         __path = f'/_delete_by_query/{__path_parts["task_id"]}/_rethrottle'
         __query: t.Dict[str, t.Any] = {}
+        if requests_per_second is not None:
+            __query["requests_per_second"] = requests_per_second
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -1758,8 +1767,6 @@ class AsyncElasticsearch(BaseClient):
             __query["human"] = human
         if pretty is not None:
             __query["pretty"] = pretty
-        if requests_per_second is not None:
-            __query["requests_per_second"] = requests_per_second
         __headers = {"accept": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
@@ -1853,7 +1860,7 @@ class AsyncElasticsearch(BaseClient):
         stored_fields: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
     ) -> HeadApiResponse:
         """
@@ -1982,7 +1989,7 @@ class AsyncElasticsearch(BaseClient):
         source_includes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
     ) -> HeadApiResponse:
         """
@@ -2111,8 +2118,8 @@ class AsyncElasticsearch(BaseClient):
             This parameter can be used only when the `q` query string parameter is specified.
         :param analyzer: The analyzer to use for the query string. This parameter can
             be used only when the `q` query string parameter is specified.
-        :param default_operator: The default operator for query string query: `AND` or
-            `OR`. This parameter can be used only when the `q` query string parameter
+        :param default_operator: The default operator for query string query: `and` or
+            `or`. This parameter can be used only when the `q` query string parameter
             is specified.
         :param df: The field to use as default where no field prefix is given in the
             query string. This parameter can be used only when the `q` query string parameter
@@ -2354,7 +2361,7 @@ class AsyncElasticsearch(BaseClient):
         stored_fields: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -2641,7 +2648,7 @@ class AsyncElasticsearch(BaseClient):
         source_includes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -2821,7 +2828,7 @@ class AsyncElasticsearch(BaseClient):
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
         wait_for_active_shards: t.Optional[
             t.Union[int, t.Union[str, t.Literal["all", "index-setting"]]]
@@ -3090,7 +3097,7 @@ class AsyncElasticsearch(BaseClient):
         ),
         parameter_aliases={"_source": "source"},
     )
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     async def knn_search(
         self,
         *,
@@ -3185,11 +3192,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["_source"] = source
             if stored_fields is not None:
                 __body["stored_fields"] = stored_fields
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -3614,7 +3617,7 @@ class AsyncElasticsearch(BaseClient):
         term_statistics: t.Optional[bool] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
@@ -4024,7 +4027,7 @@ class AsyncElasticsearch(BaseClient):
         )
 
     @_rewrite_parameters(
-        body_fields=("dest", "source", "conflicts", "max_docs", "script", "size"),
+        body_fields=("dest", "source", "conflicts", "max_docs", "script"),
     )
     async def reindex(
         self,
@@ -4042,7 +4045,6 @@ class AsyncElasticsearch(BaseClient):
         require_alias: t.Optional[bool] = None,
         script: t.Optional[t.Mapping[str, t.Any]] = None,
         scroll: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
-        size: t.Optional[int] = None,
         slices: t.Optional[t.Union[int, t.Union[str, t.Literal["auto"]]]] = None,
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         wait_for_active_shards: t.Optional[
@@ -4214,7 +4216,6 @@ class AsyncElasticsearch(BaseClient):
             reindexing.
         :param scroll: The period of time that a consistent view of the index should
             be maintained for scrolled search.
-        :param size:
         :param slices: The number of slices this task should be divided into. It defaults
             to one slice, which means the task isn't sliced into subtasks. Reindex supports
             sliced scroll to parallelize the reindexing process. This parallelization
@@ -4279,8 +4280,6 @@ class AsyncElasticsearch(BaseClient):
                 __body["max_docs"] = max_docs
             if script is not None:
                 __body["script"] = script
-            if size is not None:
-                __body["size"] = size
         __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
@@ -4297,11 +4296,11 @@ class AsyncElasticsearch(BaseClient):
         self,
         *,
         task_id: str,
+        requests_per_second: float,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
-        requests_per_second: t.Optional[float] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
         .. raw:: html
@@ -4325,9 +4324,13 @@ class AsyncElasticsearch(BaseClient):
         """
         if task_id in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'task_id'")
+        if requests_per_second is None:
+            raise ValueError("Empty value passed for parameter 'requests_per_second'")
         __path_parts: t.Dict[str, str] = {"task_id": _quote(task_id)}
         __path = f'/_reindex/{__path_parts["task_id"]}/_rethrottle'
         __query: t.Dict[str, t.Any] = {}
+        if requests_per_second is not None:
+            __query["requests_per_second"] = requests_per_second
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -4336,8 +4339,6 @@ class AsyncElasticsearch(BaseClient):
             __query["human"] = human
         if pretty is not None:
             __query["pretty"] = pretty
-        if requests_per_second is not None:
-            __query["requests_per_second"] = requests_per_second
         __headers = {"accept": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
@@ -4407,11 +4408,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["params"] = params
             if source is not None:
                 __body["source"] = source
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -4425,7 +4422,7 @@ class AsyncElasticsearch(BaseClient):
     @_rewrite_parameters(
         body_fields=("context", "context_setup", "script"),
     )
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     async def scripts_painless_execute(
         self,
         *,
@@ -4494,11 +4491,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["context_setup"] = context_setup
             if script is not None:
                 __body["script"] = script
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -4774,8 +4767,8 @@ class AsyncElasticsearch(BaseClient):
             node and the remote clusters are minimized when running cross-cluster search
             (CCS) requests.
         :param collapse: Collapses search results the values of the specified field.
-        :param default_operator: The default operator for the query string query: `AND`
-            or `OR`. This parameter can be used only when the `q` query string parameter
+        :param default_operator: The default operator for the query string query: `and`
+            or `or`. This parameter can be used only when the `q` query string parameter
             is specified.
         :param df: The field to use as a default when no field prefix is given in the
             query string. This parameter can be used only when the `q` query string parameter
@@ -5498,11 +5491,19 @@ class AsyncElasticsearch(BaseClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/search-vector-tile-api.html>`_
 
-        :param index: Comma-separated list of data streams, indices, or aliases to search
-        :param field: Field containing geospatial data to return
-        :param zoom: Zoom level for the vector tile to search
-        :param x: X coordinate for the vector tile to search
-        :param y: Y coordinate for the vector tile to search
+        :param index: A list of indices, data streams, or aliases to search. It supports
+            wildcards (`*`). To search all data streams and indices, omit this parameter
+            or use `*` or `_all`. To search a remote cluster, use the `<cluster>:<target>`
+            syntax.
+        :param field: A field that contains the geospatial data to return. It must be
+            a `geo_point` or `geo_shape` field. The field must have doc values enabled.
+            It cannot be a nested field. NOTE: Vector tiles do not natively support geometry
+            collections. For `geometrycollection` values in a `geo_shape` field, the
+            API returns a hits layer feature for each element of the collection. This
+            behavior may change in a future release.
+        :param zoom: The zoom level of the vector tile to search. It accepts `0` to `29`.
+        :param x: The X coordinate for the vector tile to search.
+        :param y: The Y coordinate for the vector tile to search.
         :param aggs: Sub-aggregations for the geotile_grid. It supports the following
             aggregation types: - `avg` - `boxplot` - `cardinality` - `extended stats`
             - `max` - `median absolute deviation` - `min` - `percentile` - `percentile-rank`
@@ -5977,11 +5978,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["string"] = string
             if timeout is not None:
                 __body["timeout"] = timeout
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -6031,7 +6028,7 @@ class AsyncElasticsearch(BaseClient):
         term_statistics: t.Optional[bool] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
@@ -6497,8 +6494,8 @@ class AsyncElasticsearch(BaseClient):
             be used only when the `q` query string parameter is specified.
         :param conflicts: The preferred behavior when update by query hits version conflicts:
             `abort` or `proceed`.
-        :param default_operator: The default operator for query string query: `AND` or
-            `OR`. This parameter can be used only when the `q` query string parameter
+        :param default_operator: The default operator for query string query: `and` or
+            `or`. This parameter can be used only when the `q` query string parameter
             is specified.
         :param df: The field to use as default where no field prefix is given in the
             query string. This parameter can be used only when the `q` query string parameter
@@ -6686,11 +6683,11 @@ class AsyncElasticsearch(BaseClient):
         self,
         *,
         task_id: str,
+        requests_per_second: float,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
-        requests_per_second: t.Optional[float] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
         .. raw:: html
@@ -6708,9 +6705,13 @@ class AsyncElasticsearch(BaseClient):
         """
         if task_id in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'task_id'")
+        if requests_per_second is None:
+            raise ValueError("Empty value passed for parameter 'requests_per_second'")
         __path_parts: t.Dict[str, str] = {"task_id": _quote(task_id)}
         __path = f'/_update_by_query/{__path_parts["task_id"]}/_rethrottle'
         __query: t.Dict[str, t.Any] = {}
+        if requests_per_second is not None:
+            __query["requests_per_second"] = requests_per_second
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -6719,8 +6720,6 @@ class AsyncElasticsearch(BaseClient):
             __query["human"] = human
         if pretty is not None:
             __query["pretty"] = pretty
-        if requests_per_second is not None:
-            __query["requests_per_second"] = requests_per_second
         __headers = {"accept": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",

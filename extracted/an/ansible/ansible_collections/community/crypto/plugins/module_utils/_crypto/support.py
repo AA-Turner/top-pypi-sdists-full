@@ -14,6 +14,7 @@ import os
 import typing as t
 
 from ansible.module_utils.common.text.converters import to_bytes
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.cryptography_support import (
     is_potential_certificate_issuer_private_key,
     is_potential_certificate_private_key,
@@ -21,7 +22,6 @@ from ansible_collections.community.crypto.plugins.module_utils._crypto.cryptogra
 from ansible_collections.community.crypto.plugins.module_utils._crypto.pem import (
     identify_pem_format,
 )
-
 
 try:
     from cryptography import x509
@@ -37,16 +37,16 @@ from ansible_collections.community.crypto.plugins.module_utils._crypto.basic imp
     OpenSSLObjectError,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
-    from ansible_collections.community.crypto.plugins.module_utils._crypto.cryptography_support import (  # pragma: no cover
-        CertificatePrivateKeyTypes,
-    )
     from cryptography.hazmat.primitives.asymmetric.types import (  # pragma: no cover
         CertificateIssuerPrivateKeyTypes,
         PrivateKeyTypes,
         PublicKeyTypes,
+    )
+
+    from ansible_collections.community.crypto.plugins.module_utils._crypto.cryptography_support import (  # pragma: no cover
+        CertificatePrivateKeyTypes,
     )
 
 
@@ -465,17 +465,17 @@ class OpenSSLObject(metaclass=abc.ABCMeta):
 
 
 __all__ = (
+    "OpenSSLObject",
+    "get_fingerprint",
     "get_fingerprint_of_bytes",
     "get_fingerprint_of_privatekey",
-    "get_fingerprint",
-    "load_privatekey",
-    "load_certificate_privatekey",
-    "load_certificate_issuer_privatekey",
-    "load_publickey",
     "load_certificate",
+    "load_certificate_issuer_privatekey",
+    "load_certificate_privatekey",
     "load_certificate_request",
+    "load_privatekey",
+    "load_publickey",
     "parse_name_field",
     "parse_ordered_name_field",
     "select_message_digest",
-    "OpenSSLObject",
 )

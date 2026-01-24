@@ -1,33 +1,36 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mdformat-toc
-Version: 0.3.0
+Version: 0.5.0
 Summary: Mdformat plugin to generate table of contents
-Home-page: https://github.com/hukkinj1/mdformat-toc
 License: MIT
+License-File: LICENSE
 Keywords: mdformat,markdown,commonmark,formatter
 Author: Taneli Hukkinen
-Author-email: hukkinj1@users.noreply.github.com
-Requires-Python: >=3.7,<4.0
+Author-email: hukkin@users.noreply.github.com
+Requires-Python: >=3.9
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Text Processing :: Markup
 Classifier: Typing :: Typed
-Requires-Dist: mdformat (>=0.7.1,<0.8.0)
-Project-URL: Repository, https://github.com/hukkinj1/mdformat-toc
+Requires-Dist: mdformat (>=0.7.5)
+Project-URL: Repository, https://github.com/hukkin/mdformat-toc
 Description-Content-Type: text/markdown
 
-[![Build Status](https://github.com/hukkinj1/mdformat-toc/workflows/Tests/badge.svg?branch=master)](https://github.com/hukkinj1/mdformat-toc/actions?query=workflow%3ATests+branch%3Amaster+event%3Apush)
+[![Build Status](https://github.com/hukkin/mdformat-toc/actions/workflows/tests.yaml/badge.svg?branch=master)](https://github.com/hukkin/mdformat-toc/actions?query=workflow%3ATests+branch%3Amaster+event%3Apush)
 [![PyPI version](https://img.shields.io/pypi/v/mdformat-toc)](https://pypi.org/project/mdformat-toc)
 
 # mdformat-toc
 
 > Mdformat plugin to generate a table of contents
 
-**Table of Contents**  *generated with [mdformat-toc](https://github.com/hukkinj1/mdformat-toc)*
+**Table of Contents**  *generated with [mdformat-toc](https://github.com/hukkin/mdformat-toc)*
 
 <!-- mdformat-toc start --slug=github --no-anchors --maxlevel=6 --minlevel=2 -->
 

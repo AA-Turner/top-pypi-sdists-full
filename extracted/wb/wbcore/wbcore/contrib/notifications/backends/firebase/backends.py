@@ -71,7 +71,7 @@ class NotificationBackend(AbstractNotificationBackend):
             )
             try:
                 messaging.send(message, False, app)
-            except (messaging.UnregisteredError, messaging.QuotaExceededError):
+            except (messaging.UnregisteredError, messaging.QuotaExceededError, messaging.ThirdPartyAuthError):
                 expired_tokens.append(token)
             except InvalidArgumentError:  # this happens if the body is too big for the mobile push
                 pass
@@ -92,7 +92,7 @@ class NotificationBackend(AbstractNotificationBackend):
             )
             try:
                 messaging.send(message, False, app)
-            except (messaging.UnregisteredError, messaging.QuotaExceededError):
+            except (messaging.UnregisteredError, messaging.QuotaExceededError, messaging.ThirdPartyAuthError):
                 expired_tokens.append(token)
 
         for expired_token in expired_tokens:

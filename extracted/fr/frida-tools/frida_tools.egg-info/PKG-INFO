@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: frida-tools
-Version: 14.4.5
+Version: 14.5.1
 Summary: Frida CLI tools
 Home-page: https://frida.re
 Author: Frida Developers
@@ -28,5 +28,21 @@ Classifier: Topic :: Software Development :: Debuggers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Description-Content-Type: text/markdown
 License-File: COPYING
+Requires-Dist: colorama<1.0.0,>=0.2.7
+Requires-Dist: frida<18.0.0,>=17.5.0
+Requires-Dist: prompt-toolkit<4.0.0,>=2.0.0
+Requires-Dist: pygments<3.0.0,>=2.0.2
+Requires-Dist: websockets<14.0.0,>=13.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 CLI tools for [Frida](https://frida.re).

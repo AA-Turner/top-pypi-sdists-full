@@ -4,12 +4,14 @@ from decimal import Decimal
 from io import BytesIO, StringIO
 from zipfile import ZipFile
 
-from sqlalchemy import text
+import requests
+
+from sqlalchemy import select, text
 
 from werkzeug.exceptions import BadRequest
 from werkzeug.http import parse_options_header
 
-from chellow.models import Contract, Party
+from chellow.models import Contract, MarketRole, Participant, Party
 from chellow.rate_server import download
 from chellow.utils import hh_after, to_ct, to_utc
 
@@ -19,15 +21,13 @@ def _process(sess, log, set_progress, file_like):
     name_list = zip_file.namelist()
     if len(name_list) != 1:
         raise BadRequest("The zip archive must contain exactly one file.")
-    stmt = text(
-        """
+    stmt = text("""
 INSERT INTO laf (llfc_id, timestamp, value) VALUES
 (unnest(CAST(:llfc_ids AS INTEGER[])), unnest(CAST(:timestamps AS TIMESTAMPTZ[])),
 unnest(CAST(:values AS NUMERIC[])))
 ON CONFLICT ON CONSTRAINT laf_llfc_id_timestamp_key
 DO UPDATE SET (llfc_id, timestamp, value) =
-(EXCLUDED.llfc_id, EXCLUDED.timestamp, EXCLUDED.value)"""
-    )
+(EXCLUDED.llfc_id, EXCLUDED.timestamp, EXCLUDED.value)""")
     fname = name_list[0]
     csv_file = StringIO(zip_file.read(fname).decode("utf-8"))
     try:
@@ -115,13 +115,9 @@ LAF_START = "llf"
 LAF_END = "ptf.zip"
 
 
-def elexon_import(sess, log, set_progress, s, scripting_key):
-    log(
-        "Starting to check for new LAF files for participant codes in "
-        "configuration.properties.laf_importer.participant_codes"
-    )
+def elexon_import(sess, log, set_progress, scripting_key):
+    log("Starting to check for new LAF files for dno participant codes.")
     conf = Contract.get_non_core_by_name(sess, "configuration")
-    props = conf.make_properties()
     state = conf.make_state()
 
     try:
@@ -131,16 +127,19 @@ def elexon_import(sess, log, set_progress, s, scripting_key):
 
     url = "https://downloads.elexonportal.co.uk/svallf/download"
 
-    laf_props = props.get("laf_importer", {})
-    for participant_code in laf_props.get("participant_codes", []):
-        params = {"key": scripting_key, "ldso": participant_code, "format": "PTF"}
+    for participant in sess.scalars(
+        select(Participant).join(Party).join(MarketRole).where(MarketRole.code == "R")
+    ):
+        pcode = participant.code.lower()
+        params = {
+            "key": scripting_key,
+            "ldso": pcode,
+            "format": "PTF",
+        }
 
-        log(
-            f"Downloading from {url}?key={scripting_key}&ldso={participant_code}&"
-            f"format=PTF"
-        )
+        log(f"Downloading from {url}?key={scripting_key}&ldso={pcode}&format=PTF")
         sess.rollback()  # Avoid long-running transactions
-        res = s.get(url, params=params)
+        res = requests.get(url, params=params)
         log(f"Received {res.status_code} {res.reason}")
         res.raise_for_status()
         try:
@@ -202,7 +201,7 @@ def find_participant_entries(paths, laf_state):
     return participant_entries
 
 
-def rate_server_import(sess, log, set_progress, s, paths):
+def rate_server_import(sess, log, set_progress, paths):
     log("Starting to check for new LAF files")
     conf = Contract.get_non_core_by_name(sess, "configuration")
     state = conf.make_state()
@@ -219,7 +218,7 @@ def rate_server_import(sess, log, set_progress, s, paths):
         for timestamp, url in sorted(fl_entries.items()):
             log(f"Importing file with timestamp {timestamp}")
 
-            fl = BytesIO(download(s, url))
+            fl = BytesIO(download(url))
             _process(sess, log, set_progress, fl)
             laf_state[participant_code] = timestamp
             conf.update_state(state)

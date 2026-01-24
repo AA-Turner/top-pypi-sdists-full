@@ -6,7 +6,6 @@ from .models import UserActivity
 
 class UserActivityChartFilter(wb_filters.FilterSet):
     date = wb_filters.DateTimeRangeFilter(
-        method=wb_filters.DateRangeFilter.base_date_range_filter_method,
         label="Date Range",
         required=True,
         clearable=False,

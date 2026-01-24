@@ -24,8 +24,8 @@ import inspect
 import sys
 import types
 import typing
-from collections.abc import Collection
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from collections.abc import Collection, Mapping
+from typing import TYPE_CHECKING, Any, Callable, Iterable, TypeVar
 
 import typing_extensions
 
@@ -337,7 +337,7 @@ def chz_make_class(cls, version: str | None, typecheck: bool | None) -> type:
                 raise TypeError("Cannot use custom metaclass")
 
     user_module = cls.__module__
-    cls_annotations = cls.__dict__.get("__annotations__", {})
+    cls_annotations = typing_extensions.get_annotations(cls)
 
     fields: dict[str, Field] = {}
 
@@ -568,32 +568,84 @@ def replace(obj: _T, /, **changes) -> _T:
 # ==============================
 
 
-def asdict(obj: object) -> dict[str, Any]:
+def asdict(
+    obj: object,
+    shallow: bool = False,
+    include_type: bool = False,
+    exclude: Collection[str] | None = None,
+) -> dict[str, Any]:
     """Recursively convert a chz object to a dict.
 
     This works similarly to dataclasses.asdict. Note no computed properties will be included
     in the output.
 
     See also: beta_to_blueprint_values
+
+    Args:
+    - shallow: if True, only take shallow copies of inner values. Otherwise,
+        deep copies are made.
+    - include_type: If True, include the type of the object in the output dict for each
+        chz object. Useful for debugging and identity.
+    - exclude: Iterable of field names to omit from the resulting dict at the top level.
     """
 
-    def inner(x: Any):
+    exclude_set = set(exclude) if exclude is not None else None
+
+    def inner(x: Any, current_exclude: Collection[str] | None = None):
         if hasattr(x, "__chz_fields__"):
-            return {k: inner(getattr(x, k)) for k in x.__chz_fields__}
+            result = {
+                k: inner(getattr(x, k))
+                for k in x.__chz_fields__
+                if not current_exclude or k not in current_exclude
+            }
+            if include_type:
+                result["__chz_type__"] = type_repr(type(x))
+            return result
         if isinstance(x, dict):
             return {k: inner(v) for k, v in x.items()}
         if isinstance(x, list):
             return [inner(x) for x in x]
         if isinstance(x, tuple):
             return tuple(inner(x) for x in x)
-        return copy.deepcopy(x)
+        if shallow:
+            return x
+        else:
+            return copy.deepcopy(x)
 
     if not hasattr(obj, "__chz_fields__"):
         raise RuntimeError(f"{obj} is not a chz object")
 
-    result = inner(obj)
+    result = inner(obj, exclude_set)
     assert type(result) is dict
     return result
+
+
+def traverse(obj: Any, obj_path: str = "") -> Iterable[tuple[str, Any]]:
+    """Traverses the chz object and yields (path, value) pairs for all sub attributes recursively."""
+    assert is_chz(obj)
+
+    yield obj_path, obj
+
+    for f in obj.__chz_fields__.values():
+        value = getattr(obj, f.logical_name)
+        field_path = f"{obj_path}.{f.logical_name}" if obj_path else f.logical_name
+
+        yield field_path, value
+
+        if is_chz(value):
+            yield from traverse(value, field_path)
+        if isinstance(value, Mapping):
+            for k, v in value.items():
+                if is_chz(v):
+                    yield from traverse(v, f"{field_path}.{k}")
+                else:
+                    yield f"{field_path}.{k}", v
+        elif isinstance(value, (list, tuple)):
+            for i, v in enumerate(value):
+                if is_chz(v):
+                    yield from traverse(v, f"{field_path}.{i}")
+                else:
+                    yield f"{field_path}.{i}", v
 
 
 # ==============================
@@ -601,8 +653,13 @@ def asdict(obj: object) -> dict[str, Any]:
 # ==============================
 
 
-def beta_to_blueprint_values(obj) -> Any:
+def beta_to_blueprint_values(obj, skip_defaults: bool = False) -> Any:
     """Return a dict which can be used to recreate the same object via blueprint.
+
+    Args:
+    - obj: The object to convert to blueprint values.
+    - skip_defaults: If True, fields whose values are equal to their default values will be
+        omitted from the output dict. If False (default), all fields are included.
 
     Example:
     ```
@@ -630,6 +687,8 @@ def beta_to_blueprint_values(obj) -> Any:
         if hasattr(obj, "__chz_fields__"):
             for field_name, field_info in obj.__chz_fields__.items():
                 value = getattr(obj, field_info.x_name)
+                if skip_defaults and field_info._default == value:
+                    continue
                 param_path = join_arg_path(path, field_name)
                 if field_info.meta_factory is not None and (
                     type(value)

@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, Literal, TypeVar
 
 from pydantic import BaseModel
 
-from crawlee import service_locator
+from crawlee._utils.raise_if_too_many_kwargs import raise_if_too_many_kwargs
 from crawlee.events._types import Event, EventPersistStateData
-from crawlee.storages._key_value_store import KeyValueStore
 
 if TYPE_CHECKING:
     import logging
+    from collections.abc import Callable, Coroutine
+
+    from crawlee.storages import KeyValueStore
 
 TStateModel = TypeVar('TStateModel', bound=BaseModel)
 
@@ -34,31 +36,57 @@ class RecoverableState(Generic[TStateModel]):
         *,
         default_state: TStateModel,
         persist_state_key: str,
-        persistence_enabled: bool = False,
+        persistence_enabled: Literal[True, False, 'explicit_only'] = False,
         persist_state_kvs_name: str | None = None,
         persist_state_kvs_id: str | None = None,
+        persist_state_kvs_factory: Callable[[], Coroutine[None, None, KeyValueStore]] | None = None,
         logger: logging.Logger,
     ) -> None:
         """Initialize a new recoverable state object.
 
         Args:
             default_state: The default state model instance to use when no persisted state is found.
-                           A deep copy is made each time the state is used.
+                A deep copy is made each time the state is used.
             persist_state_key: The key under which the state is stored in the KeyValueStore
-            persistence_enabled: Flag to enable or disable state persistence
+            persistence_enabled: Flag to enable or disable state persistence. Use 'explicit_only' if you want to be able
+                to save the state manually, but without any automatic persistence.
             persist_state_kvs_name: The name of the KeyValueStore to use for persistence.
-                                    If neither a name nor and id are supplied, the default store will be used.
+                If neither a name nor and id are supplied, the default store will be used.
             persist_state_kvs_id: The identifier of the KeyValueStore to use for persistence.
-                                    If neither a name nor and id are supplied, the default store will be used.
+                If neither a name nor and id are supplied, the default store will be used.
+            persist_state_kvs_factory: Factory that can be awaited to create KeyValueStore to use for persistence. If
+                not provided, a system-wide KeyValueStore will be used, based on service locator configuration.
             logger: A logger instance for logging operations related to state persistence
         """
+        raise_if_too_many_kwargs(
+            persist_state_kvs_name=persist_state_kvs_name,
+            persist_state_kvs_id=persist_state_kvs_id,
+            persist_state_kvs_factory=persist_state_kvs_factory,
+        )
+        if not persist_state_kvs_factory:
+            logger.debug(
+                'No explicit key_value_store set for recoverable state. Recovery will use a system-wide KeyValueStore '
+                'based on service_locator configuration, potentially calling service_locator.set_storage_client in the '
+                'process. It is recommended to initialize RecoverableState with explicit key_value_store to avoid '
+                'global side effects.'
+            )
+
         self._default_state = default_state
         self._state_type: type[TStateModel] = self._default_state.__class__
         self._state: TStateModel | None = None
         self._persistence_enabled = persistence_enabled
         self._persist_state_key = persist_state_key
-        self._persist_state_kvs_name = persist_state_kvs_name
-        self._persist_state_kvs_id = persist_state_kvs_id
+        if persist_state_kvs_factory is None:
+
+            async def kvs_factory() -> KeyValueStore:
+                from crawlee.storages import KeyValueStore  # noqa: PLC0415 avoid circular import
+
+                return await KeyValueStore.open(name=persist_state_kvs_name, id=persist_state_kvs_id)
+
+            self._persist_state_kvs_factory = kvs_factory
+        else:
+            self._persist_state_kvs_factory = persist_state_kvs_factory
+
         self._key_value_store: KeyValueStore | None = None
         self._log = logger
 
@@ -71,18 +99,22 @@ class RecoverableState(Generic[TStateModel]):
         Returns:
             The loaded state model
         """
-        if not self._persistence_enabled:
+        if self._persistence_enabled is False:
             self._state = self._default_state.model_copy(deep=True)
             return self.current_value
 
-        self._key_value_store = await KeyValueStore.open(
-            name=self._persist_state_kvs_name, id=self._persist_state_kvs_id
-        )
+        # Import here to avoid circular imports.
+
+        self._key_value_store = await self._persist_state_kvs_factory()
 
         await self._load_saved_state()
 
-        event_manager = service_locator.get_event_manager()
-        event_manager.on(event=Event.PERSIST_STATE, listener=self.persist_state)
+        if self._persistence_enabled is True:
+            # Import here to avoid circular imports.
+            from crawlee import service_locator  # noqa: PLC0415
+
+            event_manager = service_locator.get_event_manager()
+            event_manager.on(event=Event.PERSIST_STATE, listener=self.persist_state)
 
         return self.current_value
 
@@ -95,9 +127,13 @@ class RecoverableState(Generic[TStateModel]):
         if not self._persistence_enabled:
             return
 
-        event_manager = service_locator.get_event_manager()
-        event_manager.off(event=Event.PERSIST_STATE, listener=self.persist_state)
-        await self.persist_state()
+        if self._persistence_enabled is True:
+            # Import here to avoid circular imports.
+            from crawlee import service_locator  # noqa: PLC0415
+
+            event_manager = service_locator.get_event_manager()
+            event_manager.off(event=Event.PERSIST_STATE, listener=self.persist_state)
+            await self.persist_state()
 
     @property
     def current_value(self) -> TStateModel:
@@ -106,6 +142,21 @@ class RecoverableState(Generic[TStateModel]):
             raise RuntimeError('Recoverable state has not yet been loaded')
 
         return self._state
+
+    @property
+    def is_initialized(self) -> bool:
+        """Check if the state has already been initialized."""
+        return self._state is not None
+
+    async def has_persisted_state(self) -> bool:
+        """Check if there is any persisted state in the key-value store."""
+        if not self._persistence_enabled:
+            return False
+
+        if self._key_value_store is None:
+            raise RuntimeError('Recoverable state has not yet been initialized')
+
+        return await self._key_value_store.record_exists(self._persist_state_key)
 
     async def reset(self) -> None:
         """Reset the state to the default values and clear any persisted state.
@@ -130,17 +181,21 @@ class RecoverableState(Generic[TStateModel]):
         Args:
             event_data: Optional data associated with a PERSIST_STATE event
         """
-        self._log.debug(f'Persisting state of the Statistics (event_data={event_data}).')
+        self._log.debug(
+            f'Persisting RecoverableState (model={self._default_state.__class__.__name__}, event_data={event_data}).'
+        )
 
         if self._key_value_store is None or self._state is None:
             raise RuntimeError('Recoverable state has not yet been initialized')
 
-        if self._persistence_enabled:
+        if self._persistence_enabled is True or self._persistence_enabled == 'explicit_only':
             await self._key_value_store.set_value(
                 self._persist_state_key,
                 self._state.model_dump(mode='json', by_alias=True),
                 'application/json',
             )
+        else:
+            self._log.debug('Persistence is not enabled - not doing anything')
 
     async def _load_saved_state(self) -> None:
         if self._key_value_store is None:

@@ -89,6 +89,9 @@ def assert_stuff(m):
     assert type(m.mygenexpr) is type(x for x in [1, 2, 3])
     assert list(itertools.islice(m.mygenexpr, 5)) == [1, 3, 1, 3, 1]
 
+    assert (m.unpacked1, m.repacked, m.unpacked2) == ("W", ["X", "Y"], "Z")
+    assert m.chained1 == m.chained2 == m.chained3 == 77
+
     assert m.attr_ref is str.upper
     assert m.subscript == "l"
     assert m.myslice == "el"
@@ -151,6 +154,7 @@ def assert_stuff(m):
 
     assert type(m.C1) is type(C)
 
+    assert m.C2.newattr == "class decorator"
     assert m.C2.__doc__ == "class docstring"
     assert issubclass(m.C2, m.C1)
     assert (m.C2.attr1, m.C2.attr2) == (5, 6)

@@ -9,12 +9,12 @@ MY_DIR=$(dirname "${BASH_SOURCE[0]}")
 # Get build utilities
 source $MY_DIR/build_utils.sh
 
-LIBFFI_SHA256="72fba7922703ddfa7a028d513ac15a85c8d54c8d67f55fa5a4802885dc652056"
-LIBFFI_VERSION="3.3"
+LIBFFI_SHA256="bc9842a18898bfacb0ed1252c4febcc7e78fa139fd27fdc7a3e30d9d9356119b"
+LIBFFI_VERSION="3.4.8"
 
-fetch_source "libffi_${LIBFFI_VERSION}.orig.tar.gz" "https://mirrors.ocf.berkeley.edu/debian/pool/main/libf/libffi"
-check_sha256sum "libffi_${LIBFFI_VERSION}.orig.tar.gz" ${LIBFFI_SHA256}
-tar zxf libffi_${LIBFFI_VERSION}.orig.tar.gz
+fetch_source "libffi-${LIBFFI_VERSION}.tar.gz" "https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/"
+check_sha256sum "libffi-${LIBFFI_VERSION}.tar.gz" ${LIBFFI_SHA256}
+tar zxf libffi-${LIBFFI_VERSION}.tar.gz
 
 pushd libffi*/
 if [[ "$1" =~ '^manylinux1_.*$' ]]; then

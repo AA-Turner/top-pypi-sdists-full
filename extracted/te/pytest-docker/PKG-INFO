@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-docker
-Version: 3.2.3
+Version: 3.2.5
 Summary: Simple pytest fixtures for Docker and Docker Compose based tests
 Home-page: https://github.com/avast/pytest-docker
 Author: Max K., Andre Caron
@@ -23,7 +23,7 @@ Classifier: Operating System :: Microsoft :: Windows
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: pytest<9.0,>=4.0
+Requires-Dist: pytest<10.0,>=4.0
 Requires-Dist: attrs>=19.2.0
 Provides-Extra: docker-compose-v1
 Requires-Dist: docker-compose<2.0,>=1.27.3; extra == "docker-compose-v1"
@@ -133,6 +133,10 @@ def test_status_code(http_service):
     assert response.status_code == status
 ```
 
+> The default `docker_setup` command includes `--wait`, which respects either the
+> image `HEALTHCHECK` or the compose `healthcheck`. Generally, if those
+> are configured properly, `wait_until_responsive` should not be required. 
+
 By default, this plugin will try to open `docker-compose.yml` in your
 `tests` directory. If you need to use a custom location, override the
 `docker_compose_file` fixture inside your `conftest.py` file:
@@ -177,7 +181,7 @@ def docker_compose_project_name() -> str:
 # Stop the stack before starting a new one
 @pytest.fixture(scope="session")
 def docker_setup():
-    return ["down -v", "up --build -d"]
+    return ["down -v", "up --build --wait"]
 ```
 
 

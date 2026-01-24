@@ -1,24 +1,20 @@
 Metadata-Version: 2.1
 Name: langfuse
-Version: 3.5.0
+Version: 3.12.0
 Summary: A client library for accessing langfuse
 License: MIT
 Author: langfuse
 Author-email: developers@langfuse.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Provides-Extra: langchain
-Provides-Extra: openai
 Requires-Dist: backoff (>=1.10.0)
 Requires-Dist: httpx (>=0.15.4,<1.0)
-Requires-Dist: langchain (>=0.0.309) ; extra == "langchain"
-Requires-Dist: openai (>=0.27.8) ; extra == "openai"
+Requires-Dist: openai (>=0.27.8)
 Requires-Dist: opentelemetry-api (>=1.33.1,<2.0.0)
 Requires-Dist: opentelemetry-exporter-otlp-proto-http (>=1.33.1,<2.0.0)
 Requires-Dist: opentelemetry-sdk (>=1.33.1,<2.0.0)

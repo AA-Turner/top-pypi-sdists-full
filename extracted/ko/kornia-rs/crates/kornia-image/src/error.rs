@@ -1,4 +1,4 @@
-/// An error typr for the io module.
+/// An error type for the image module.
 #[derive(thiserror::Error, Debug)]
 pub enum ImageError {
     /// Error when the pixels type are not compatible.
@@ -48,4 +48,12 @@ pub enum ImageError {
     /// Error when the kernel length is invalid.
     #[error("Invalid kernel length {0} and {1}")]
     InvalidKernelLength(usize, usize),
+
+    /// Error when the sigma value is invalid.
+    #[error("Invalid sigma values {0} and {1}")]
+    InvalidSigmaValue(f32, f32),
+
+    /// Error when the channel count is unsupported.
+    #[error("Unsupported channel count {0}")]
+    UnsupportedChannelCount(usize),
 }

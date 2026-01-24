@@ -44,20 +44,18 @@ if TYPE_CHECKING:
 
 _file_exists = os.path.isfile
 
-_converter = t.Dict(
-    {
-        t.Key("endpoint"): String(),
-        t.Key("token"): String(),
-        t.Key("connect_timeout", optional=True): Int(),
-        t.Key("ssl_verify", optional=True): t.Or(t.Bool(), String()),
-        t.Key("max_retries", optional=True): Int(),
-        t.Key("token_type", optional=True): String(),
-        t.Key("default_use_case", optional=True): String(),
-        t.Key("enable_api_consumer_tracking", optional=True): t.Bool(),
-        t.Key("trace_context", optional=True): String(),
-        t.Key("use_tcp_keepalive", optional=True): t.Bool(),
-    }
-).allow_extra("*")
+_converter = t.Dict({
+    t.Key("endpoint"): String(),
+    t.Key("token"): String(),
+    t.Key("connect_timeout", optional=True): Int(),
+    t.Key("ssl_verify", optional=True): t.Or(t.Bool(), String()),
+    t.Key("max_retries", optional=True): Int(),
+    t.Key("token_type", optional=True): String(),
+    t.Key("default_use_case", optional=True): String(),
+    t.Key("enable_api_consumer_tracking", optional=True): t.Bool(),
+    t.Key("trace_context", optional=True): String(),
+    t.Key("use_tcp_keepalive", optional=True): t.Bool(),
+}).allow_extra("*")
 
 _fields = {k.to_name or k.name for k in _converter.keys}
 
@@ -68,9 +66,7 @@ def _get_first_non_none_value(*args: Any) -> Union[Any, None]:
 
 # Custom function to get the first non-none value and its source
 def _get_value_and_source(*values: Any) -> Union[tuple[Any, int], tuple[None, None]]:
-    return next(
-        ((value, index) for index, value in enumerate(values) if value is not None), (None, None)
-    )
+    return next(((value, index) for index, value in enumerate(values) if value is not None), (None, None))
 
 
 def _config_dict_from_data(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -128,9 +124,7 @@ def _config_from_env() -> ConfigDict:
     if max_retries is not None:
         max_retries = int(max_retries)
     use_case_id: Optional[str] = os.environ.get("DATAROBOT_DEFAULT_USE_CASE")
-    enable_api_consumer_tracking: Optional[Union[str, bool]] = os.environ.get(
-        "DATAROBOT_API_CONSUMER_TRACKING_ENABLED"
-    )
+    enable_api_consumer_tracking: Optional[Union[str, bool]] = os.environ.get("DATAROBOT_API_CONSUMER_TRACKING_ENABLED")
     if enable_api_consumer_tracking is not None:
         enable_api_consumer_tracking = env_to_bool(enable_api_consumer_tracking)
     use_tcp_keepalive: Optional[Union[str, bool]] = os.environ.get("DATAROBOT_USE_TCP_KEEPALIVE")
@@ -264,18 +258,14 @@ def create_drconfig(
     default_config_path = _get_default_config_file()
     if default_config_path is not None:
         default_config = _config_from_file(default_config_path)
-    token, token_source = _get_value_and_source(
-        token, config.get("token"), default_config.get("token")
-    )
-    endpoint, endpoint_source = _get_value_and_source(
-        endpoint, config.get("endpoint"), default_config.get("endpoint")
-    )
+    token, token_source = _get_value_and_source(token, config.get("token"), default_config.get("token"))
+    endpoint, endpoint_source = _get_value_and_source(endpoint, config.get("endpoint"), default_config.get("endpoint"))
     # Raise an error if no endpoint or token is specified
     if endpoint is None or token is None:
         e_msg = (
-            "No valid configuration found"
-            "enpoint and token must be specified"
-            "Can be specified via arguments, environment variables or a config file"
+            "No valid configuration found, "
+            "endpoint and token must be specified. "
+            "Can be specified via arguments, environment variables or a config file."
         )
         raise ValueError(e_msg)
 
@@ -284,13 +274,9 @@ def create_drconfig(
     if token_source != endpoint_source:
         raise ValueError("Endpoint and token must come from the same configuration source")
 
-    ssl_verify = _get_first_non_none_value(
-        ssl_verify, config.get("ssl_verify"), default_config.get("ssl_verify")
-    )
+    ssl_verify = _get_first_non_none_value(ssl_verify, config.get("ssl_verify"), default_config.get("ssl_verify"))
 
-    max_retries = _get_first_non_none_value(
-        max_retries, config.get("max_retries"), default_config.get("max_retries")
-    )
+    max_retries = _get_first_non_none_value(max_retries, config.get("max_retries"), default_config.get("max_retries"))
 
     connect_timeout = _get_first_non_none_value(
         connect_timeout,

@@ -1,15 +1,17 @@
-import substrait.gen.proto.type_pb2 as stt
-import substrait.gen.proto.plan_pb2 as stp
 import substrait.gen.proto.algebra_pb2 as stalg
-from substrait.builders.type import boolean, i64
-from substrait.builders.plan import read_named_table, sort
+import substrait.gen.proto.plan_pb2 as stp
+import substrait.gen.proto.type_pb2 as stt
 from substrait.builders.extended_expression import column
-from substrait.type_inference import infer_plan_schema
+from substrait.builders.plan import default_version, read_named_table, sort
+from substrait.builders.type import boolean, i64
 from substrait.extension_registry import ExtensionRegistry
+from substrait.type_inference import infer_plan_schema
 
 registry = ExtensionRegistry(load_default_extensions=False)
 
-struct = stt.Type.Struct(types=[i64(nullable=False), boolean()])
+struct = stt.Type.Struct(
+    types=[i64(nullable=False), boolean()], nullability=stt.Type.NULLABILITY_REQUIRED
+)
 
 named_struct = stt.NamedStruct(names=["id", "is_applicable"], struct=struct)
 
@@ -22,6 +24,7 @@ def test_sort_no_direction():
     actual = sort(table, expressions=[col])(registry)
 
     expected = stp.Plan(
+        version=default_version,
         relations=[
             stp.PlanRel(
                 root=stalg.RelRoot(
@@ -41,7 +44,7 @@ def test_sort_no_direction():
                     names=["id", "is_applicable"],
                 )
             )
-        ]
+        ],
     )
 
     assert actual == expected
@@ -57,6 +60,7 @@ def test_sort_direction():
     )(registry)
 
     expected = stp.Plan(
+        version=default_version,
         relations=[
             stp.PlanRel(
                 root=stalg.RelRoot(
@@ -76,7 +80,7 @@ def test_sort_direction():
                     names=["id", "is_applicable"],
                 )
             )
-        ]
+        ],
     )
 
     assert actual == expected

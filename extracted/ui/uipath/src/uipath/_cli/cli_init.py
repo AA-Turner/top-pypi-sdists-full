@@ -1,23 +1,39 @@
-# type: ignore
+import asyncio
 import importlib.resources
 import json
+import logging
 import os
 import shutil
 import uuid
 from pathlib import Path
-from typing import Any, Dict, Optional
 
 import click
+from mermaid_builder.flowchart import (  # type: ignore[import-untyped]
+    Chart,
+    ChartDir,
+    Link,
+    Node,
+    Subgraph,
+)
+from uipath.runtime import (
+    UiPathRuntimeContext,
+    UiPathRuntimeFactoryProtocol,
+    UiPathRuntimeFactoryRegistry,
+    UiPathRuntimeProtocol,
+)
+from uipath.runtime.schema import UiPathRuntimeGraph, UiPathRuntimeSchema
+
+from uipath.platform.common import UiPathConfig
 
 from .._utils.constants import ENV_TELEMETRY_ENABLED
-from ..telemetry import track
 from ..telemetry._constants import _PROJECT_KEY, _TELEMETRY_CONFIG_FILE
 from ._utils._console import ConsoleLogger
-from ._utils._input_args import generate_args
-from ._utils._parse_ast import generate_bindings_json
 from .middlewares import Middlewares
+from .models.runtime_schema import Bindings
+from .models.uipath_json_schema import UiPathJsonConfig
 
 console = ConsoleLogger()
+logger = logging.getLogger(__name__)
 
 CONFIG_PATH = "uipath.json"
 
@@ -40,9 +56,7 @@ def create_telemetry_config_file(target_directory: str) -> None:
         return
 
     os.makedirs(uipath_dir, exist_ok=True)
-    telemetry_data = {
-        _PROJECT_KEY: os.getenv("UIPATH_PROJECT_ID", None) or str(uuid.uuid4())
-    }
+    telemetry_data = {_PROJECT_KEY: UiPathConfig.project_id or str(uuid.uuid4())}
 
     with open(telemetry_file, "w") as f:
         json.dump(telemetry_data, f, indent=4)
@@ -55,118 +69,272 @@ def generate_env_file(target_directory):
         relative_path = os.path.relpath(env_path, target_directory)
         with open(env_path, "w"):
             pass
-        console.success(f" Created '{relative_path}' file.")
+        console.success(f"Created '{relative_path}' file.")
 
 
-def generate_agents_md(target_directory: str) -> None:
-    """Generate AGENTS.md file from the packaged resource.
+def generate_agent_md_file(
+    target_directory: str, file_name: str, no_agents_md_override: bool
+) -> bool:
+    """Generate an agent-specific file from the packaged resource.
 
     Args:
-        target_directory: The directory where AGENTS.md should be created.
+        target_directory: The directory where the file should be created.
+        file_name: The name of the file should be created.
+        no_agents_md_override: Whether to override existing files.
     """
-    target_path = os.path.join(target_directory, "AGENTS.md")
+    target_path = os.path.join(target_directory, file_name)
 
-    # Skip if file already exists
-    if os.path.exists(target_path):
-        console.info("Skipping 'AGENTS.md' creation as it already exists.")
-        return
+    will_override = os.path.exists(target_path)
+
+    if will_override and no_agents_md_override:
+        console.success(
+            f"File {click.style(target_path, fg='cyan')} already exists. Skipping."
+        )
+        return False
 
     try:
-        # Get the resource path using importlib.resources
-        source_path = importlib.resources.files("uipath._resources").joinpath(
-            "AGENTS.md"
-        )
+        source_path = importlib.resources.files("uipath._resources").joinpath(file_name)
 
-        # Copy the file to the target directory
         with importlib.resources.as_file(source_path) as s_path:
             shutil.copy(s_path, target_path)
 
-        console.success(" Created 'AGENTS.md' file.")
+        if will_override:
+            logger.debug(f"File '{target_path}' has been overridden.")
+
+        return will_override
+
     except Exception as e:
-        console.warning(f"Could not create AGENTS.md: {e}")
+        console.warning(f"Could not create {file_name}: {e}")
+
+    return False
 
 
-def get_existing_settings(config_path: str) -> Optional[Dict[str, Any]]:
-    """Read existing settings from uipath.json if it exists.
+def generate_agent_md_files(target_directory: str, no_agents_md_override: bool) -> None:
+    """Generate AGENTS.md related files and Claude Code skills.
 
     Args:
-        config_path: Path to the uipath.json file.
+        target_directory: The directory where the files should be created.
+        no_agents_md_override: Whether to override existing files.
+    """
+    agent_dir = os.path.join(target_directory, ".agent")
+    os.makedirs(agent_dir, exist_ok=True)
+    claude_commands_dir = os.path.join(target_directory, ".claude", "commands")
+    os.makedirs(claude_commands_dir, exist_ok=True)
+
+    files_to_create = {
+        target_directory: ["AGENTS.md", "CLAUDE.md"],
+        agent_dir: ["CLI_REFERENCE.md", "REQUIRED_STRUCTURE.md", "SDK_REFERENCE.md"],
+        claude_commands_dir: ["new-agent.md", "eval.md"],
+    }
+
+    any_overridden = False
+    for directory, filenames in files_to_create.items():
+        for filename in filenames:
+            if generate_agent_md_file(directory, filename, no_agents_md_override):
+                any_overridden = True
+
+    if any_overridden:
+        console.success(
+            f"Updated {click.style('AGENTS.md', fg='cyan')} files and Claude Code skills."
+        )
+        return
+
+    console.success(
+        f"Created {click.style('AGENTS.md', fg='cyan')} files and Claude Code skills."
+    )
+
+
+def write_bindings_file(bindings: Bindings) -> Path:
+    """Write bindings to a JSON file.
+
+    Args:
+        bindings: The Bindings object to write to file
 
     Returns:
-        The settings dictionary if it exists, None otherwise.
+        str: The path to the written bindings file
     """
-    if not os.path.exists(config_path):
-        return None
+    bindings_file_path = UiPathConfig.bindings_file_path
+    with open(bindings_file_path, "w") as bindings_file:
+        json_object = bindings.model_dump(by_alias=True, exclude_unset=True)
+        json.dump(json_object, bindings_file, indent=4)
 
-    try:
-        with open(config_path, "r") as config_file:
-            existing_config = json.load(config_file)
-            return existing_config.get("settings")
-    except (json.JSONDecodeError, IOError):
-        return None
+    return bindings_file_path
 
 
-def get_user_script(directory: str, entrypoint: Optional[str] = None) -> Optional[str]:
-    """Find the Python script to process."""
-    if entrypoint:
-        script_path = os.path.join(directory, entrypoint)
-        if not os.path.isfile(script_path):
-            console.error(
-                f"The {entrypoint} file does not exist in the current directory."
+def write_entry_points_file(entry_points: list[UiPathRuntimeSchema]) -> Path:
+    """Write entrypoints to a JSON file.
+
+    Args:
+        entry_points: The entrypoints list
+
+    Returns:
+        str: The path to the written entry_points file
+    """
+    json_object = {
+        "$schema": "https://cloud.uipath.com/draft/2024-12/entry-point",
+        "$id": "entry-points.json",
+        "entryPoints": [
+            ep.model_dump(
+                by_alias=True,
+                exclude_unset=True,
             )
-            return None
-        return script_path
+            for ep in entry_points
+        ],
+    }
 
-    python_files = [f for f in os.listdir(directory) if f.endswith(".py")]
+    entry_points_file_path = UiPathConfig.entry_points_file_path
+    with open(entry_points_file_path, "w") as entry_points_file:
+        json.dump(json_object, entry_points_file, indent=4)
 
-    if not python_files:
-        console.error(
-            "No python files found in the current directory.\nPlease specify the entrypoint: `uipath init <entrypoint_path>`"
+    return entry_points_file_path
+
+
+def write_mermaid_files(entry_points: list[UiPathRuntimeSchema]) -> list[Path]:
+    """Write mermaid diagram files for each entrypoint.
+
+    Args:
+        entry_points: The entrypoints list with graph data
+
+    Returns:
+        list[Path]: List of paths to the written mermaid files
+    """
+    mermaid_paths = []
+
+    for ep in entry_points:
+        if not ep.graph:
+            continue
+
+        chart = Chart(direction=ChartDir.TB)
+
+        _add_graph_to_chart(chart, ep.graph)
+
+        mermaid_file_path = Path(os.getcwd()) / f"{ep.file_path}.mermaid"
+
+        with open(mermaid_file_path, "w") as f:
+            f.write(str(chart))
+
+        mermaid_paths.append(mermaid_file_path)
+
+    return mermaid_paths
+
+
+def _add_graph_to_chart(chart: Chart | Subgraph, graph: UiPathRuntimeGraph) -> None:
+    """Recursively add nodes and edges from UiPathRuntimeGraph to mermaid chart.
+
+    Args:
+        chart: The Chart or Subgraph to add nodes to
+        graph: UiPathRuntimeGraph instance
+    """
+    node_objects = {}
+
+    for node in graph.nodes:
+        if node.subgraph:
+            subgraph = Subgraph(title=node.name, direction=ChartDir.LR)
+            _add_graph_to_chart(subgraph, node.subgraph)
+            chart.add_subgraph(subgraph)
+        else:
+            mermaid_node = Node(title=node.name, id=node.id)
+            chart.add_node(mermaid_node)
+            node_objects[node.id] = mermaid_node
+
+    for edge in graph.edges:
+        link = Link(
+            src=edge.source, dest=edge.target, text=edge.label if edge.label else None
         )
-        return None
-    elif len(python_files) == 1:
-        return os.path.join(directory, python_files[0])
-    else:
-        console.error(
-            "Multiple python files found in the current directory.\nPlease specify the entrypoint: `uipath init <entrypoint_path>`"
-        )
-        return None
-
-
-def write_config_file(config_data: Dict[str, Any]) -> None:
-    existing_settings = get_existing_settings(CONFIG_PATH)
-    if existing_settings is not None:
-        config_data["settings"] = existing_settings
-
-    with open(CONFIG_PATH, "w") as config_file:
-        json.dump(config_data, config_file, indent=4)
-
-    return CONFIG_PATH
+        chart.add_link(link)
 
 
 @click.command()
-@click.argument("entrypoint", required=False, default=None)
 @click.option(
-    "--infer-bindings/--no-infer-bindings",
+    "--no-agents-md-override",
     is_flag=True,
     required=False,
-    default=True,
-    help="Infer bindings from the script.",
+    default=False,
+    help="Won't override existing .agent files and AGENTS.md file.",
 )
-@track
-def init(entrypoint: str, infer_bindings: bool) -> None:
-    """Create uipath.json with input/output schemas and bindings."""
+def init(no_agents_md_override: bool) -> None:
+    """Initialize the project."""
     with console.spinner("Initializing UiPath project ..."):
         current_directory = os.getcwd()
         generate_env_file(current_directory)
         create_telemetry_config_file(current_directory)
-        generate_agents_md(current_directory)
+
+        async def initialize() -> None:
+            try:
+                # Create uipath.json if it doesn't exist
+                config_path = UiPathConfig.config_file_path
+                if not config_path.exists():
+                    config = UiPathJsonConfig.create_default()
+                    config.save_to_file(config_path)
+                    console.success(f"Created '{config_path}' file.")
+                else:
+                    console.info(f"'{config_path}' already exists, skipping.")
+
+                # Create bindings.json if it doesn't exist
+                bindings_path = UiPathConfig.bindings_file_path
+                if not bindings_path.exists():
+                    bindings_path = write_bindings_file(
+                        Bindings(version="2.0", resources=[])
+                    )
+                    console.success(f"Created '{bindings_path}' file.")
+                else:
+                    console.info(f"'{bindings_path}' already exists, skipping.")
+
+                # Always create/update entry-points.json from runtime schemas
+                factory: UiPathRuntimeFactoryProtocol = (
+                    UiPathRuntimeFactoryRegistry.get(
+                        context=UiPathRuntimeContext(command="init")
+                    )
+                )
+                entry_point_schemas: list[UiPathRuntimeSchema] = []
+
+                try:
+                    entrypoints = factory.discover_entrypoints()
+
+                    if not entrypoints:
+                        console.warning(
+                            'No function entrypoints found. Add them to `uipath.json` under "functions": {"my_function": "src/main.py:main"}'
+                        )
+
+                    # Gather schemas from all discovered runtimes
+                    for entrypoint_name in entrypoints:
+                        runtime: UiPathRuntimeProtocol | None = None
+                        try:
+                            runtime = await factory.new_runtime(
+                                entrypoint_name, runtime_id="default"
+                            )
+                            schema = await runtime.get_schema()
+
+                            entry_point_schemas.append(schema)
+                        finally:
+                            if runtime:
+                                await runtime.dispose()
+                finally:
+                    await factory.dispose()
+
+                # Write entry-points.json with all schemas
+                entry_points_path = write_entry_points_file(entry_point_schemas)
+                console.success(
+                    f"Created '{entry_points_path}' file with {len(entry_point_schemas)} entrypoint(s)."
+                )
+
+                # Write mermaid diagrams for each entrypoint
+                mermaid_paths = write_mermaid_files(entry_point_schemas)
+                if mermaid_paths and len(mermaid_paths) > 0:
+                    console.success(
+                        f"Created {len(mermaid_paths)} mermaid diagram file(s)."
+                    )
+
+            except Exception as e:
+                console.error(f"Error during initialization:\n{e}")
+
+        asyncio.run(initialize())
 
         result = Middlewares.next(
             "init",
-            entrypoint,
-            options={"infer_bindings": infer_bindings},
-            write_config=write_config_file,
+            options={
+                "no_agents_md_override": no_agents_md_override,
+            },
         )
 
         if result.error_message:
@@ -180,41 +348,4 @@ def init(entrypoint: str, infer_bindings: bool) -> None:
         if not result.should_continue:
             return
 
-        script_path = get_user_script(current_directory, entrypoint=entrypoint)
-
-        if not script_path:
-            return
-
-        try:
-            args = generate_args(script_path)
-
-            relative_path = Path(script_path).relative_to(current_directory).as_posix()
-
-            config_data = {
-                "entryPoints": [
-                    {
-                        "filePath": relative_path,
-                        "uniqueId": str(uuid.uuid4()),
-                        # "type": "process", OR BE doesn't offer json schema support for type: Process
-                        "type": "agent",
-                        "input": args["input"],
-                        "output": args["output"],
-                    }
-                ]
-            }
-
-            # Generate bindings JSON based on the script path
-            try:
-                if infer_bindings:
-                    bindings_data = generate_bindings_json(script_path)
-                else:
-                    bindings_data = {}
-                # Add bindings to the config data
-                config_data["bindings"] = bindings_data
-            except Exception as e:
-                console.warning(f"Warning: Could not generate bindings: {str(e)}")
-
-            config_path = write_config_file(config_data)
-            console.success(f"Created '{config_path}' file.")
-        except Exception as e:
-            console.error(f"Error creating configuration file:\n {str(e)}")
+        generate_agent_md_files(current_directory, no_agents_md_override)

@@ -4,18 +4,18 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#ifndef _DEVICE_CLASS_H_
-#define _DEVICE_CLASS_H_
+#pragma once
 
-#include <boost/python.hpp>
-#include <tango/tango.h>
+#include "common_header.h"
+#include "function_call_macros.h"
+#include "convertors/vector_wrappers.h"
 
-class CppDeviceClass : public Tango::DeviceClass
-{
+class DeviceClassTrampoline : public Tango::DeviceClass {
   public:
-    CppDeviceClass(const std::string &);
+    DeviceClassTrampoline(const std::string &new_name) :
+        Tango::DeviceClass(const_cast<std::string &>(new_name)) { }
 
-    virtual ~CppDeviceClass();
+    ~DeviceClassTrampoline() override = default;
 
     /**
      * Export a device.
@@ -29,29 +29,8 @@ class CppDeviceClass : public Tango::DeviceClass
      *                           cases and has a default value. It is used for special
      *                           device server like the database device server.
      */
-    inline void export_device(Tango::DeviceImpl *dev, const char *corba_dev_nam = "Unused")
-    {
+    void export_device(Tango::DeviceImpl *dev, const char *corba_dev_nam = "Unused") {
         Tango::DeviceClass::export_device(dev, corba_dev_nam);
-    }
-
-    /**
-     * Returns the python interpreter state
-     *
-     * @return python interpreter state pointer
-     */
-    inline PyInterpreterState *get_py_interp()
-    {
-        return interp;
-    }
-
-    /**
-     * Sets the python interpreter state
-     *
-     * @param[in] in python interpreter state
-     */
-    inline void set_py_interp(PyInterpreterState *in)
-    {
-        interp = in;
     }
 
     /**
@@ -70,6 +49,13 @@ class CppDeviceClass : public Tango::DeviceClass
                           long polling_period,
                           bool memorized,
                           bool hw_memorized,
+                          bool alarm_event_implemented,
+                          bool alarm_event_detect,
+                          bool archive_event_implemented,
+                          bool archive_event_detect,
+                          bool change_event_implemented,
+                          bool change_event_detect,
+                          bool data_ready_event_implemented,
                           const std::string &read_method_name,
                           const std::string &write_method_name,
                           const std::string &is_allowed_name,
@@ -78,20 +64,6 @@ class CppDeviceClass : public Tango::DeviceClass
     void create_fwd_attribute(std::vector<Tango::Attr *> &att_list,
                               const std::string &attr_name,
                               Tango::UserDefaultFwdAttrProp *att_prop);
-
-    /**
-     * Creates an pipe and adds it to the att_list.
-     * This method is intended to be called by python to register a new
-     * pipe.
-     */
-    void create_pipe(std::vector<Tango::Pipe *> &pipe_list,
-                     const std::string &name,
-                     Tango::PipeWriteType access,
-                     Tango::DispLevel display_level,
-                     const std::string &read_method_name,
-                     const std::string &write_method_name,
-                     const std::string &is_allowed_name,
-                     Tango::UserDefaultPipeProp *prop);
 
     /**
      * Creates a command.
@@ -108,44 +80,43 @@ class CppDeviceClass : public Tango::DeviceClass
                         long polling_period,
                         const std::string &is_allowed);
 
-  protected:
-    PyInterpreterState *interp;
-};
-
-class CppDeviceClassWrap : public CppDeviceClass
-{
-  public:
-    /** a reference to itself */
-    PyObject *m_self;
-
-    /**
-     * Constructor
-     *
-     * @param[in] self A reference to the python device class object
-     * @param[in] name the class name
-     */
-    CppDeviceClassWrap(PyObject *self, const std::string &name);
-
-    /**
-     * Destructor
-     */
-    virtual ~CppDeviceClassWrap();
-
     /**
      * This method forward a C++ call to the device_factory method to the
      * Python method
      *
      * @param[in] dev_list The device name list
      */
-    virtual void device_factory(const Tango::DevVarStringArray *dev_list);
+    void device_factory(const Tango::DevVarStringArray *dev_list) override {
+        CALL_PURE_VOID_METHOD(device_factory,
+                              dev_list);
+    }
 
     /**
      * This method forward a C++ call to the attribute_factory method to the
      * Python method
      *
      * @param[in] att_list attribute list
+     *
+     * Note! Due to pybind11 does not allow to bind vectors of raw pointers in a way,
+     * that they will be directly manipulated in Python.
+     * We do here some trick, and sending to python not a list but a wrapper.
+     * However, functionally in Python is not guaranteed!
      */
-    virtual void attribute_factory(std::vector<Tango::Attr *> &att_list);
+
+    void attribute_factory(std::vector<Tango::Attr *> &att_list) override {
+        py::gil_scoped_acquire gil; // Ensure GIL is acquired
+        py::function override = py::get_override(this, "_attribute_factory");
+        if(override) {
+            try {
+                auto py_attr_list = std::make_shared<VectorWrapper<Tango::Attr>>(&att_list);
+                override(py_attr_list);
+                attr_vector_wrapper = py_attr_list;
+            }
+            CATCH_PY_EXCEPTION
+        } else {
+            Tango::DeviceClass::attribute_factory(att_list);
+        }
+    }
 
     /**
      * This method forward a C++ call to the pipe_factory method to the
@@ -153,19 +124,25 @@ class CppDeviceClassWrap : public CppDeviceClass
      *
      * @param[in] pipe_list pipe list
      */
-    virtual void pipe_factory();
+    void pipe_factory() override { }
 
     /**
      * This method forward a C++ call to the command_factory method to the
      * Python method
      */
-    virtual void command_factory();
+    void command_factory() override {
+        CALL_PURE_VOID_METHOD(_command_factory, );
+    }
 
     /**
      * This method forward a C++ call to the device_name_factory method to the
      * Python method
      */
-    virtual void device_name_factory(std::vector<std::string> &dev_list);
+    void device_name_factory(StdStringVector &dev_list) override {
+        CALL_VOID_METHOD(device_name_factory,
+                         Tango::DeviceClass,
+                         dev_list)
+    }
 
     /**
      * This method forward a C++ call to the signal_handler method to the
@@ -174,27 +151,18 @@ class CppDeviceClassWrap : public CppDeviceClass
      *
      * @param[in] signo signal identifier
      */
-    virtual void signal_handler(long signo);
+    void signal_handler(long signo) override {
+        CALL_VOID_METHOD(signal_handler,
+                         Tango::DeviceClass,
+                         signo)
+    }
 
-    /**
-     * Default signal handler implementation
+  private:
+    /* Keep the wrappers alive
      *
-     * @param[in] signo signal identifier
+     * NOTE: We do it to provide opportunity of manipulating these cpp vectors from Python code
+     * However, this is a potential source of both SEGFAULTS and memory leaks simultaneously....
      */
-    void default_signal_handler(long signo);
 
-  protected:
-    /**
-     * Initializes the class. Registers as a python DeviceClass to tango,
-     * determines existence of a signal handler among other things
-     */
-    void init_class();
-
-    /**
-     * flag containing the information about the existence of a signal_handler
-     * method in the python class
-     */
-    bool signal_handler_defined;
+    std::shared_ptr<VectorWrapper<Tango::Attr>> attr_vector_wrapper;
 };
-
-#endif // _DEVICE_CLASS_H_

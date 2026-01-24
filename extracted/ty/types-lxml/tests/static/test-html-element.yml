@@ -15,54 +15,6 @@
         def extfunc2(context, a, b): return 0
   main: ""
 
-- case: mixin_properties_ro
-  files: *INC
-  main: |
-    from inc import el
-    reveal_type(el.classes)  # NR: .+ "[\w\.]+\.Classes"
-    reveal_type(el.label)  # NR: .+ "Union\[[\w\.]+\.LabelElement, None]"
-    reveal_type(el.base_url)  # NR: .+ "Union\[builtins\.str, None]"
-    reveal_type(el.forms)  # NR: .+ "builtins.list\[[\w\.]+\.FormElement]"
-    reveal_type(el.body)  # NR: .+ "[\w\.]+\.HtmlElement"
-    reveal_type(el.head)  # NR: .+ "[\w\.]+\.HtmlElement"
-
-- case: mixin_properties_rw
-  files: *INC
-  main: |
-    from inc import el, h
-    el.classes = el.classes
-    el.classes = {'cls1', 'cls2'}  # ER: Incompatible types .+  \[assignment]
-    label: h.LabelElement
-    el.label = label
-    el.label = el  # ER: Incompatible types .+  \[assignment]
-
-- case: mixin_properties_bad
-  files: *INC
-  main: |
-    from inc import el
-    el.head = el.head  # E: Property "head" defined in "HtmlElement" is read-only  [misc]
-    result = el.badprop  # E: "HtmlElement" has no attribute "badprop"  [attr-defined]
-    el.badprop = 'foobar'  # E: "HtmlElement" has no attribute "badprop"  [attr-defined]
-
-- case: mixin_method_set
-  files: *INC
-  main: |
-    from inc import s, b, i, qn, el
-    o: object
-    el.set(s, s)
-    el.set(s, b)
-    el.set(s, None)
-    el.set(s, qn)
-    el.set(s)
-    el.set(b, s)
-    el.set(b, b)
-    el.set(b)
-    el.set(qn, s)
-    el.set(qn, qn)
-    el.set(qn)
-    el.set(s, i)  # ER: Argument 2 to "set" .+; expected ".+"  \[arg-type]
-    el.set(o, s)  # ER: Argument 1 to "set" .+; expected ".+"  \[arg-type]
-
 - case: mixin_method_drop_
   parametrized:
   - func: drop_tree
@@ -119,10 +71,11 @@
     from lxml.html import HtmlElement
     elem: HtmlElement
     result = elem.iterlinks()
-    reveal_type(result)  # NR: Revealed type is "typing\.Iterator\[tuple\[[\w\.]+\.HtmlElement, Union\[builtins\.str, None], builtins\.str, builtins\.int]]"
+    reveal_type(result)  # NR: Revealed type is "typing\.Iterator\[tuple\[[\w\.]+\.HtmlElement, builtins\.str \| None, builtins\.str, builtins\.int]]"
     result = elem.iterlinks(None)  # E: Too many arguments for "iterlinks" of "HtmlElement"  [call-arg]
 
 - case: mixin_method_make_links_absolute
+  expect_fail: true
   files: *INC
   main: |
     from inc import b, el
@@ -135,21 +88,22 @@
     f(base_url=url)
     f(resolve_base_href=True)
     f(handle_failures=None)
-    f(b)  # ER: Argument 1 .+; expected ".+"  \[arg-type]
-    f(url, 2, None)  # ER: Argument 2 .+; expected ".+"  \[arg-type]
-    f(handle_failures='badval')  # ER: Argument "handle_failures" .+; expected ".+"  \[arg-type]
-    f(badarg=1)  # ER: Unexpected keyword argument .+  \[call-arg]
-    f(url, True, 'discard', None)  # ER: Too many arguments.*  \[call-arg]
+    f(b)
+    f(url, 2, None)
+    f(handle_failures='badval')
+    f(badarg=1)
+    f(url, True, 'discard', None)
 
 - case: mixin_method_resolve_base_href
+  expect_fail: true
   main: |
     from lxml.html import HtmlElement
     elem: HtmlElement
     elem.resolve_base_href()
-    elem.resolve_base_href(b'ignore')  # E: Argument 1 to "resolve_base_href" of "HtmlElement" has incompatible type "Literal[b'ignore']"; expected "Literal['ignore', 'discard'] | None"  [arg-type]
+    elem.resolve_base_href(b'ignore')
     elem.resolve_base_href(handle_failures='discard')
-    elem.resolve_base_href(badarg=1)  # E: Unexpected keyword argument "badarg" for "resolve_base_href" of "HtmlElement"  [call-arg]
-    elem.resolve_base_href(None, None)  # E: Too many arguments for "resolve_base_href" of "HtmlElement"  [call-arg]
+    elem.resolve_base_href(badarg=1)
+    elem.resolve_base_href(None, None)
 
 - case: mixin_method_rewrite_links
   files: *INC

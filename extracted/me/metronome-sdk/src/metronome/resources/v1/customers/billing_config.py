@@ -6,7 +6,7 @@ from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
+from ...._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
 from ...._utils import maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
@@ -56,9 +56,12 @@ class BillingConfigResource(SyncAPIResource):
             "quickbooks_online",
             "workday",
             "gcp_marketplace",
+            "metronome",
         ],
         billing_provider_customer_id: str,
-        aws_product_code: str | NotGiven = NOT_GIVEN,
+        aws_customer_account_id: str | Omit = omit,
+        aws_customer_id: str | Omit = omit,
+        aws_product_code: str | Omit = omit,
         aws_region: Literal[
             "af-south-1",
             "ap-east-1",
@@ -86,24 +89,30 @@ class BillingConfigResource(SyncAPIResource):
             "us-west-1",
             "us-west-2",
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         stripe_collection_method: Literal[
             "charge_automatically", "send_invoice", "auto_charge_payment_intent", "manually_charge_payment_intent"
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
-        """
-        Set the billing configuration for a given customer.
+        """Set the billing configuration for a given customer.
+
+        This is a Plans (deprecated)
+        endpoint. New clients should implement using Contracts.
 
         Args:
           billing_provider_customer_id: The customer ID in the billing provider's system. For Azure, this is the
               subscription ID.
+
+          stripe_collection_method:
+              The collection method for the customer's invoices. NOTE:
+              `auto_charge_payment_intent` and `manually_charge_payment_intent` are in beta.
 
           extra_headers: Send extra headers
 
@@ -125,6 +134,8 @@ class BillingConfigResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "billing_provider_customer_id": billing_provider_customer_id,
+                    "aws_customer_account_id": aws_customer_account_id,
+                    "aws_customer_id": aws_customer_id,
                     "aws_product_code": aws_product_code,
                     "aws_region": aws_region,
                     "stripe_collection_method": stripe_collection_method,
@@ -150,16 +161,19 @@ class BillingConfigResource(SyncAPIResource):
             "quickbooks_online",
             "workday",
             "gcp_marketplace",
+            "metronome",
         ],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BillingConfigRetrieveResponse:
-        """
-        Fetch the billing configuration for the given customer.
+        """Fetch the billing configuration for the given customer.
+
+        This is a Plans
+        (deprecated) endpoint. New clients should implement using Contracts.
 
         Args:
           extra_headers: Send extra headers
@@ -197,18 +211,20 @@ class BillingConfigResource(SyncAPIResource):
             "quickbooks_online",
             "workday",
             "gcp_marketplace",
+            "metronome",
         ],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """Delete the billing configuration for a given customer.
 
         Note: this is unsupported
-        for Azure and AWS Marketplace customers.
+        for Azure and AWS Marketplace customers. This is a Plans (deprecated) endpoint.
+        New clients should implement using Contracts.
 
         Args:
           extra_headers: Send extra headers
@@ -268,9 +284,12 @@ class AsyncBillingConfigResource(AsyncAPIResource):
             "quickbooks_online",
             "workday",
             "gcp_marketplace",
+            "metronome",
         ],
         billing_provider_customer_id: str,
-        aws_product_code: str | NotGiven = NOT_GIVEN,
+        aws_customer_account_id: str | Omit = omit,
+        aws_customer_id: str | Omit = omit,
+        aws_product_code: str | Omit = omit,
         aws_region: Literal[
             "af-south-1",
             "ap-east-1",
@@ -298,24 +317,30 @@ class AsyncBillingConfigResource(AsyncAPIResource):
             "us-west-1",
             "us-west-2",
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         stripe_collection_method: Literal[
             "charge_automatically", "send_invoice", "auto_charge_payment_intent", "manually_charge_payment_intent"
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
-        """
-        Set the billing configuration for a given customer.
+        """Set the billing configuration for a given customer.
+
+        This is a Plans (deprecated)
+        endpoint. New clients should implement using Contracts.
 
         Args:
           billing_provider_customer_id: The customer ID in the billing provider's system. For Azure, this is the
               subscription ID.
+
+          stripe_collection_method:
+              The collection method for the customer's invoices. NOTE:
+              `auto_charge_payment_intent` and `manually_charge_payment_intent` are in beta.
 
           extra_headers: Send extra headers
 
@@ -337,6 +362,8 @@ class AsyncBillingConfigResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "billing_provider_customer_id": billing_provider_customer_id,
+                    "aws_customer_account_id": aws_customer_account_id,
+                    "aws_customer_id": aws_customer_id,
                     "aws_product_code": aws_product_code,
                     "aws_region": aws_region,
                     "stripe_collection_method": stripe_collection_method,
@@ -362,16 +389,19 @@ class AsyncBillingConfigResource(AsyncAPIResource):
             "quickbooks_online",
             "workday",
             "gcp_marketplace",
+            "metronome",
         ],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BillingConfigRetrieveResponse:
-        """
-        Fetch the billing configuration for the given customer.
+        """Fetch the billing configuration for the given customer.
+
+        This is a Plans
+        (deprecated) endpoint. New clients should implement using Contracts.
 
         Args:
           extra_headers: Send extra headers
@@ -409,18 +439,20 @@ class AsyncBillingConfigResource(AsyncAPIResource):
             "quickbooks_online",
             "workday",
             "gcp_marketplace",
+            "metronome",
         ],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """Delete the billing configuration for a given customer.
 
         Note: this is unsupported
-        for Azure and AWS Marketplace customers.
+        for Azure and AWS Marketplace customers. This is a Plans (deprecated) endpoint.
+        New clients should implement using Contracts.
 
         Args:
           extra_headers: Send extra headers

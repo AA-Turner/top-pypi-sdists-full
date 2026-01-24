@@ -13,7 +13,6 @@ from wbcore.contrib.documents.models import (
 class ShareableLinkFilter(wb_filters.FilterSet):
     valid = wb_filters.BooleanFilter(label=_("Valid"), method="boolean_is_valid")
     valid_until = wb_filters.DateTimeRangeFilter(
-        method=wb_filters.DateRangeFilter.base_date_range_filter_method,
         label="Valid Until",
     )
     link = wb_filters.CharFilter(label=_("Link"), method="filter_uuid")
@@ -36,7 +35,6 @@ class ShareableLinkFilter(wb_filters.FilterSet):
 class ShareableLinkAccessFilter(wb_filters.FilterSet):
     clearable = (False,)
     accessed = wb_filters.DateTimeRangeFilter(
-        method=wb_filters.DateRangeFilter.base_date_range_filter_method,
         label="Accessed between date",
     )
 

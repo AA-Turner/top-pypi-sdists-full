@@ -3,7 +3,7 @@ Type annotations for odb service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -27,6 +28,7 @@ from .literals import (
     DbNodeResourceStatusType,
     DbServerPatchingStatusType,
     DiskRedundancyType,
+    IamRoleStatusType,
     IormLifecycleStateType,
     LicenseModelType,
     ManagedResourceStatusType,
@@ -39,12 +41,6 @@ from .literals import (
     ShapeTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -52,6 +48,7 @@ else:
 
 __all__ = (
     "AcceptMarketplaceRegistrationInputTypeDef",
+    "AssociateIamRoleToResourceInputTypeDef",
     "AutonomousVirtualMachineSummaryTypeDef",
     "CloudAutonomousVmClusterResourceDetailsTypeDef",
     "CloudAutonomousVmClusterSummaryTypeDef",
@@ -71,6 +68,7 @@ __all__ = (
     "CreateOdbNetworkOutputTypeDef",
     "CreateOdbPeeringConnectionInputTypeDef",
     "CreateOdbPeeringConnectionOutputTypeDef",
+    "CrossRegionS3RestoreSourcesAccessTypeDef",
     "CustomerContactTypeDef",
     "DataCollectionOptionsTypeDef",
     "DayOfWeekTypeDef",
@@ -86,6 +84,7 @@ __all__ = (
     "DeleteCloudVmClusterInputTypeDef",
     "DeleteOdbNetworkInputTypeDef",
     "DeleteOdbPeeringConnectionInputTypeDef",
+    "DisassociateIamRoleFromResourceInputTypeDef",
     "ExadataIormConfigTypeDef",
     "GetCloudAutonomousVmClusterInputTypeDef",
     "GetCloudAutonomousVmClusterOutputTypeDef",
@@ -105,6 +104,9 @@ __all__ = (
     "GetOdbPeeringConnectionInputTypeDef",
     "GetOdbPeeringConnectionOutputTypeDef",
     "GiVersionSummaryTypeDef",
+    "IamRoleTypeDef",
+    "InitializeServiceInputTypeDef",
+    "KmsAccessTypeDef",
     "ListAutonomousVirtualMachinesInputPaginateTypeDef",
     "ListAutonomousVirtualMachinesInputTypeDef",
     "ListAutonomousVirtualMachinesOutputTypeDef",
@@ -147,6 +149,7 @@ __all__ = (
     "ManagedServicesTypeDef",
     "MonthTypeDef",
     "OciDnsForwardingConfigTypeDef",
+    "OciIdentityDomainTypeDef",
     "OdbNetworkSummaryTypeDef",
     "OdbNetworkTypeDef",
     "OdbPeeringConnectionSummaryTypeDef",
@@ -161,6 +164,7 @@ __all__ = (
     "StartDbNodeOutputTypeDef",
     "StopDbNodeInputTypeDef",
     "StopDbNodeOutputTypeDef",
+    "StsAccessTypeDef",
     "SystemVersionSummaryTypeDef",
     "TagResourceRequestTypeDef",
     "UntagResourceRequestTypeDef",
@@ -168,11 +172,18 @@ __all__ = (
     "UpdateCloudExadataInfrastructureOutputTypeDef",
     "UpdateOdbNetworkInputTypeDef",
     "UpdateOdbNetworkOutputTypeDef",
+    "UpdateOdbPeeringConnectionInputTypeDef",
+    "UpdateOdbPeeringConnectionOutputTypeDef",
     "ZeroEtlAccessTypeDef",
 )
 
 class AcceptMarketplaceRegistrationInputTypeDef(TypedDict):
     marketplaceRegistrationToken: str
+
+class AssociateIamRoleToResourceInputTypeDef(TypedDict):
+    iamRoleArn: str
+    awsIntegration: Literal["KmsTde"]
+    resourceArn: str
 
 class AutonomousVirtualMachineSummaryTypeDef(TypedDict):
     autonomousVirtualMachineId: NotRequired[str]
@@ -193,6 +204,12 @@ class CloudAutonomousVmClusterResourceDetailsTypeDef(TypedDict):
     cloudAutonomousVmClusterId: NotRequired[str]
     unallocatedAdbStorageInTBs: NotRequired[float]
 
+class IamRoleTypeDef(TypedDict):
+    iamRoleArn: NotRequired[str]
+    status: NotRequired[IamRoleStatusType]
+    statusReason: NotRequired[str]
+    awsIntegration: NotRequired[Literal["KmsTde"]]
+
 class CustomerContactTypeDef(TypedDict):
     email: NotRequired[str]
 
@@ -204,7 +221,7 @@ class DataCollectionOptionsTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -219,15 +236,26 @@ class CreateOdbNetworkInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
     s3Access: NotRequired[AccessType]
     zeroEtlAccess: NotRequired[AccessType]
+    stsAccess: NotRequired[AccessType]
+    kmsAccess: NotRequired[AccessType]
     s3PolicyDocument: NotRequired[str]
+    stsPolicyDocument: NotRequired[str]
+    kmsPolicyDocument: NotRequired[str]
+    crossRegionS3RestoreSourcesToEnable: NotRequired[Sequence[str]]
     tags: NotRequired[Mapping[str, str]]
 
 class CreateOdbPeeringConnectionInputTypeDef(TypedDict):
     odbNetworkId: str
     peerNetworkId: str
     displayName: NotRequired[str]
+    peerNetworkCidrsToBeAdded: NotRequired[Sequence[str]]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+
+class CrossRegionS3RestoreSourcesAccessTypeDef(TypedDict):
+    region: NotRequired[str]
+    ipv4Addresses: NotRequired[list[str]]
+    status: NotRequired[ManagedResourceStatusType]
 
 class DayOfWeekTypeDef(TypedDict):
     name: NotRequired[DayOfWeekNameType]
@@ -343,6 +371,11 @@ class DeleteOdbNetworkInputTypeDef(TypedDict):
 class DeleteOdbPeeringConnectionInputTypeDef(TypedDict):
     odbPeeringConnectionId: str
 
+class DisassociateIamRoleFromResourceInputTypeDef(TypedDict):
+    iamRoleArn: str
+    awsIntegration: Literal["KmsTde"]
+    resourceArn: str
+
 class GetCloudAutonomousVmClusterInputTypeDef(TypedDict):
     cloudAutonomousVmClusterId: str
 
@@ -364,6 +397,14 @@ class GetDbServerInputTypeDef(TypedDict):
     cloudExadataInfrastructureId: str
     dbServerId: str
 
+class OciIdentityDomainTypeDef(TypedDict):
+    ociIdentityDomainId: NotRequired[str]
+    ociIdentityDomainResourceUrl: NotRequired[str]
+    ociIdentityDomainUrl: NotRequired[str]
+    status: NotRequired[ResourceStatusType]
+    statusReason: NotRequired[str]
+    accountSetupCloudFormationUrl: NotRequired[str]
+
 class GetOdbNetworkInputTypeDef(TypedDict):
     odbNetworkId: str
 
@@ -379,11 +420,21 @@ class OdbPeeringConnectionTypeDef(TypedDict):
     odbNetworkArn: NotRequired[str]
     peerNetworkArn: NotRequired[str]
     odbPeeringConnectionType: NotRequired[str]
+    peerNetworkCidrs: NotRequired[list[str]]
     createdAt: NotRequired[datetime]
     percentProgress: NotRequired[float]
 
 class GiVersionSummaryTypeDef(TypedDict):
     version: NotRequired[str]
+
+class InitializeServiceInputTypeDef(TypedDict):
+    ociIdentityDomain: NotRequired[bool]
+
+class KmsAccessTypeDef(TypedDict):
+    status: NotRequired[ManagedResourceStatusType]
+    ipv4Addresses: NotRequired[list[str]]
+    domainName: NotRequired[str]
+    kmsPolicyDocument: NotRequired[str]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -448,6 +499,7 @@ class OdbPeeringConnectionSummaryTypeDef(TypedDict):
     odbNetworkArn: NotRequired[str]
     peerNetworkArn: NotRequired[str]
     odbPeeringConnectionType: NotRequired[str]
+    peerNetworkCidrs: NotRequired[list[str]]
     createdAt: NotRequired[datetime]
     percentProgress: NotRequired[float]
 
@@ -460,7 +512,7 @@ class ListSystemVersionsInputTypeDef(TypedDict):
 class SystemVersionSummaryTypeDef(TypedDict):
     giVersion: NotRequired[str]
     shape: NotRequired[str]
-    systemVersions: NotRequired[List[str]]
+    systemVersions: NotRequired[list[str]]
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
@@ -470,17 +522,23 @@ class MonthTypeDef(TypedDict):
 
 class ManagedS3BackupAccessTypeDef(TypedDict):
     status: NotRequired[ManagedResourceStatusType]
-    ipv4Addresses: NotRequired[List[str]]
+    ipv4Addresses: NotRequired[list[str]]
 
 class S3AccessTypeDef(TypedDict):
     status: NotRequired[ManagedResourceStatusType]
-    ipv4Addresses: NotRequired[List[str]]
+    ipv4Addresses: NotRequired[list[str]]
     domainName: NotRequired[str]
     s3PolicyDocument: NotRequired[str]
 
 class ServiceNetworkEndpointTypeDef(TypedDict):
     vpcEndpointId: NotRequired[str]
     vpcEndpointType: NotRequired[Literal["SERVICENETWORK"]]
+
+class StsAccessTypeDef(TypedDict):
+    status: NotRequired[ManagedResourceStatusType]
+    ipv4Addresses: NotRequired[list[str]]
+    domainName: NotRequired[str]
+    stsPolicyDocument: NotRequired[str]
 
 class ZeroEtlAccessTypeDef(TypedDict):
     status: NotRequired[ManagedResourceStatusType]
@@ -517,10 +575,22 @@ class UpdateOdbNetworkInputTypeDef(TypedDict):
     peeredCidrsToBeRemoved: NotRequired[Sequence[str]]
     s3Access: NotRequired[AccessType]
     zeroEtlAccess: NotRequired[AccessType]
+    stsAccess: NotRequired[AccessType]
+    kmsAccess: NotRequired[AccessType]
     s3PolicyDocument: NotRequired[str]
+    stsPolicyDocument: NotRequired[str]
+    kmsPolicyDocument: NotRequired[str]
+    crossRegionS3RestoreSourcesToEnable: NotRequired[Sequence[str]]
+    crossRegionS3RestoreSourcesToDisable: NotRequired[Sequence[str]]
+
+class UpdateOdbPeeringConnectionInputTypeDef(TypedDict):
+    odbPeeringConnectionId: str
+    displayName: NotRequired[str]
+    peerNetworkCidrsToBeAdded: NotRequired[Sequence[str]]
+    peerNetworkCidrsToBeRemoved: NotRequired[Sequence[str]]
 
 class CloudExadataInfrastructureUnallocatedResourcesTypeDef(TypedDict):
-    cloudAutonomousVmClusters: NotRequired[List[CloudAutonomousVmClusterResourceDetailsTypeDef]]
+    cloudAutonomousVmClusters: NotRequired[list[CloudAutonomousVmClusterResourceDetailsTypeDef]]
     cloudExadataInfrastructureDisplayName: NotRequired[str]
     exadataStorageInTBs: NotRequired[float]
     cloudExadataInfrastructureId: NotRequired[str]
@@ -586,19 +656,13 @@ class CreateOdbPeeringConnectionOutputTypeDef(TypedDict):
     odbPeeringConnectionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
-class GetOciOnboardingStatusOutputTypeDef(TypedDict):
-    status: OciOnboardingStatusType
-    existingTenancyActivationLink: str
-    newTenancyActivationLink: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class ListAutonomousVirtualMachinesOutputTypeDef(TypedDict):
-    autonomousVirtualMachines: List[AutonomousVirtualMachineSummaryTypeDef]
+    autonomousVirtualMachines: list[AutonomousVirtualMachineSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RebootDbNodeOutputTypeDef(TypedDict):
@@ -633,14 +697,21 @@ class UpdateOdbNetworkOutputTypeDef(TypedDict):
     odbNetworkId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateOdbPeeringConnectionOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    odbPeeringConnectionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ExadataIormConfigTypeDef(TypedDict):
-    dbPlans: NotRequired[List[DbIormConfigTypeDef]]
+    dbPlans: NotRequired[list[DbIormConfigTypeDef]]
     lifecycleDetails: NotRequired[str]
     lifecycleState: NotRequired[IormLifecycleStateType]
     objective: NotRequired[ObjectiveType]
 
 class ListDbNodesOutputTypeDef(TypedDict):
-    dbNodes: List[DbNodeSummaryTypeDef]
+    dbNodes: list[DbNodeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -665,10 +736,10 @@ class DbServerSummaryTypeDef(TypedDict):
     memorySizeInGBs: NotRequired[int]
     shape: NotRequired[str]
     createdAt: NotRequired[datetime]
-    vmClusterIds: NotRequired[List[str]]
+    vmClusterIds: NotRequired[list[str]]
     computeModel: NotRequired[ComputeModelType]
-    autonomousVmClusterIds: NotRequired[List[str]]
-    autonomousVirtualMachineIds: NotRequired[List[str]]
+    autonomousVmClusterIds: NotRequired[list[str]]
+    autonomousVirtualMachineIds: NotRequired[list[str]]
 
 class DbServerTypeDef(TypedDict):
     dbServerId: NotRequired[str]
@@ -687,22 +758,29 @@ class DbServerTypeDef(TypedDict):
     memorySizeInGBs: NotRequired[int]
     shape: NotRequired[str]
     createdAt: NotRequired[datetime]
-    vmClusterIds: NotRequired[List[str]]
+    vmClusterIds: NotRequired[list[str]]
     computeModel: NotRequired[ComputeModelType]
-    autonomousVmClusterIds: NotRequired[List[str]]
-    autonomousVirtualMachineIds: NotRequired[List[str]]
+    autonomousVmClusterIds: NotRequired[list[str]]
+    autonomousVirtualMachineIds: NotRequired[list[str]]
 
 class ListDbSystemShapesOutputTypeDef(TypedDict):
-    dbSystemShapes: List[DbSystemShapeSummaryTypeDef]
+    dbSystemShapes: list[DbSystemShapeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class GetOciOnboardingStatusOutputTypeDef(TypedDict):
+    status: OciOnboardingStatusType
+    existingTenancyActivationLink: str
+    newTenancyActivationLink: str
+    ociIdentityDomain: OciIdentityDomainTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetOdbPeeringConnectionOutputTypeDef(TypedDict):
     odbPeeringConnection: OdbPeeringConnectionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListGiVersionsOutputTypeDef(TypedDict):
-    giVersions: List[GiVersionSummaryTypeDef]
+    giVersions: list[GiVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -751,26 +829,26 @@ class ListSystemVersionsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListOdbPeeringConnectionsOutputTypeDef(TypedDict):
-    odbPeeringConnections: List[OdbPeeringConnectionSummaryTypeDef]
+    odbPeeringConnections: list[OdbPeeringConnectionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListSystemVersionsOutputTypeDef(TypedDict):
-    systemVersions: List[SystemVersionSummaryTypeDef]
+    systemVersions: list[SystemVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class MaintenanceWindowOutputTypeDef(TypedDict):
     customActionTimeoutInMins: NotRequired[int]
-    daysOfWeek: NotRequired[List[DayOfWeekTypeDef]]
-    hoursOfDay: NotRequired[List[int]]
+    daysOfWeek: NotRequired[list[DayOfWeekTypeDef]]
+    hoursOfDay: NotRequired[list[int]]
     isCustomActionTimeoutEnabled: NotRequired[bool]
     leadTimeInWeeks: NotRequired[int]
-    months: NotRequired[List[MonthTypeDef]]
+    months: NotRequired[list[MonthTypeDef]]
     patchingMode: NotRequired[PatchingModeTypeType]
     preference: NotRequired[PreferenceTypeType]
     skipRu: NotRequired[bool]
-    weeksOfMonth: NotRequired[List[int]]
+    weeksOfMonth: NotRequired[list[int]]
 
 class MaintenanceWindowTypeDef(TypedDict):
     customActionTimeoutInMins: NotRequired[int]
@@ -787,11 +865,14 @@ class MaintenanceWindowTypeDef(TypedDict):
 class ManagedServicesTypeDef(TypedDict):
     serviceNetworkArn: NotRequired[str]
     resourceGatewayArn: NotRequired[str]
-    managedServicesIpv4Cidrs: NotRequired[List[str]]
+    managedServicesIpv4Cidrs: NotRequired[list[str]]
     serviceNetworkEndpoint: NotRequired[ServiceNetworkEndpointTypeDef]
     managedS3BackupAccess: NotRequired[ManagedS3BackupAccessTypeDef]
     zeroEtlAccess: NotRequired[ZeroEtlAccessTypeDef]
     s3Access: NotRequired[S3AccessTypeDef]
+    stsAccess: NotRequired[StsAccessTypeDef]
+    kmsAccess: NotRequired[KmsAccessTypeDef]
+    crossRegionS3RestoreSourcesAccess: NotRequired[list[CrossRegionS3RestoreSourcesAccessTypeDef]]
 
 class GetCloudExadataInfrastructureUnallocatedResourcesOutputTypeDef(TypedDict):
     cloudExadataInfrastructureUnallocatedResources: (
@@ -806,12 +887,13 @@ class CloudVmClusterSummaryTypeDef(TypedDict):
     statusReason: NotRequired[str]
     cloudVmClusterArn: NotRequired[str]
     cloudExadataInfrastructureId: NotRequired[str]
+    cloudExadataInfrastructureArn: NotRequired[str]
     clusterName: NotRequired[str]
     cpuCoreCount: NotRequired[int]
     dataCollectionOptions: NotRequired[DataCollectionOptionsTypeDef]
     dataStorageSizeInTBs: NotRequired[float]
     dbNodeStorageSizeInGBs: NotRequired[int]
-    dbServers: NotRequired[List[str]]
+    dbServers: NotRequired[list[str]]
     diskRedundancy: NotRequired[DiskRedundancyType]
     giVersion: NotRequired[str]
     hostname: NotRequired[str]
@@ -829,17 +911,19 @@ class CloudVmClusterSummaryTypeDef(TypedDict):
     domain: NotRequired[str]
     scanDnsName: NotRequired[str]
     scanDnsRecordId: NotRequired[str]
-    scanIpIds: NotRequired[List[str]]
+    scanIpIds: NotRequired[list[str]]
     shape: NotRequired[str]
-    sshPublicKeys: NotRequired[List[str]]
+    sshPublicKeys: NotRequired[list[str]]
     storageSizeInGBs: NotRequired[int]
     systemVersion: NotRequired[str]
     createdAt: NotRequired[datetime]
     timeZone: NotRequired[str]
-    vipIds: NotRequired[List[str]]
+    vipIds: NotRequired[list[str]]
     odbNetworkId: NotRequired[str]
+    odbNetworkArn: NotRequired[str]
     percentProgress: NotRequired[float]
     computeModel: NotRequired[ComputeModelType]
+    iamRoles: NotRequired[list[IamRoleTypeDef]]
 
 class CloudVmClusterTypeDef(TypedDict):
     cloudVmClusterId: str
@@ -848,12 +932,13 @@ class CloudVmClusterTypeDef(TypedDict):
     statusReason: NotRequired[str]
     cloudVmClusterArn: NotRequired[str]
     cloudExadataInfrastructureId: NotRequired[str]
+    cloudExadataInfrastructureArn: NotRequired[str]
     clusterName: NotRequired[str]
     cpuCoreCount: NotRequired[int]
     dataCollectionOptions: NotRequired[DataCollectionOptionsTypeDef]
     dataStorageSizeInTBs: NotRequired[float]
     dbNodeStorageSizeInGBs: NotRequired[int]
-    dbServers: NotRequired[List[str]]
+    dbServers: NotRequired[list[str]]
     diskRedundancy: NotRequired[DiskRedundancyType]
     giVersion: NotRequired[str]
     hostname: NotRequired[str]
@@ -871,20 +956,22 @@ class CloudVmClusterTypeDef(TypedDict):
     domain: NotRequired[str]
     scanDnsName: NotRequired[str]
     scanDnsRecordId: NotRequired[str]
-    scanIpIds: NotRequired[List[str]]
+    scanIpIds: NotRequired[list[str]]
     shape: NotRequired[str]
-    sshPublicKeys: NotRequired[List[str]]
+    sshPublicKeys: NotRequired[list[str]]
     storageSizeInGBs: NotRequired[int]
     systemVersion: NotRequired[str]
     createdAt: NotRequired[datetime]
     timeZone: NotRequired[str]
-    vipIds: NotRequired[List[str]]
+    vipIds: NotRequired[list[str]]
     odbNetworkId: NotRequired[str]
+    odbNetworkArn: NotRequired[str]
     percentProgress: NotRequired[float]
     computeModel: NotRequired[ComputeModelType]
+    iamRoles: NotRequired[list[IamRoleTypeDef]]
 
 class ListDbServersOutputTypeDef(TypedDict):
-    dbServers: List[DbServerSummaryTypeDef]
+    dbServers: list[DbServerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -896,12 +983,14 @@ class CloudAutonomousVmClusterSummaryTypeDef(TypedDict):
     cloudAutonomousVmClusterId: str
     cloudAutonomousVmClusterArn: NotRequired[str]
     odbNetworkId: NotRequired[str]
+    odbNetworkArn: NotRequired[str]
     ociResourceAnchorName: NotRequired[str]
     percentProgress: NotRequired[float]
     displayName: NotRequired[str]
     status: NotRequired[ResourceStatusType]
     statusReason: NotRequired[str]
     cloudExadataInfrastructureId: NotRequired[str]
+    cloudExadataInfrastructureArn: NotRequired[str]
     autonomousDataStoragePercentage: NotRequired[float]
     autonomousDataStorageSizeInTBs: NotRequired[float]
     availableAutonomousDataStorageSizeInTBs: NotRequired[float]
@@ -914,7 +1003,7 @@ class CloudAutonomousVmClusterSummaryTypeDef(TypedDict):
     dataStorageSizeInGBs: NotRequired[float]
     dataStorageSizeInTBs: NotRequired[float]
     dbNodeStorageSizeInGBs: NotRequired[int]
-    dbServers: NotRequired[List[str]]
+    dbServers: NotRequired[list[str]]
     description: NotRequired[str]
     domain: NotRequired[str]
     exadataStorageInTBsLowestScaledValue: NotRequired[float]
@@ -942,17 +1031,20 @@ class CloudAutonomousVmClusterSummaryTypeDef(TypedDict):
     timeOrdsCertificateExpires: NotRequired[datetime]
     timeZone: NotRequired[str]
     totalContainerDatabases: NotRequired[int]
+    iamRoles: NotRequired[list[IamRoleTypeDef]]
 
 class CloudAutonomousVmClusterTypeDef(TypedDict):
     cloudAutonomousVmClusterId: str
     cloudAutonomousVmClusterArn: NotRequired[str]
     odbNetworkId: NotRequired[str]
+    odbNetworkArn: NotRequired[str]
     ociResourceAnchorName: NotRequired[str]
     percentProgress: NotRequired[float]
     displayName: NotRequired[str]
     status: NotRequired[ResourceStatusType]
     statusReason: NotRequired[str]
     cloudExadataInfrastructureId: NotRequired[str]
+    cloudExadataInfrastructureArn: NotRequired[str]
     autonomousDataStoragePercentage: NotRequired[float]
     autonomousDataStorageSizeInTBs: NotRequired[float]
     availableAutonomousDataStorageSizeInTBs: NotRequired[float]
@@ -965,7 +1057,7 @@ class CloudAutonomousVmClusterTypeDef(TypedDict):
     dataStorageSizeInGBs: NotRequired[float]
     dataStorageSizeInTBs: NotRequired[float]
     dbNodeStorageSizeInGBs: NotRequired[int]
-    dbServers: NotRequired[List[str]]
+    dbServers: NotRequired[list[str]]
     description: NotRequired[str]
     domain: NotRequired[str]
     exadataStorageInTBsLowestScaledValue: NotRequired[float]
@@ -993,6 +1085,7 @@ class CloudAutonomousVmClusterTypeDef(TypedDict):
     timeOrdsCertificateExpires: NotRequired[datetime]
     timeZone: NotRequired[str]
     totalContainerDatabases: NotRequired[int]
+    iamRoles: NotRequired[list[IamRoleTypeDef]]
 
 class CloudExadataInfrastructureSummaryTypeDef(TypedDict):
     cloudExadataInfrastructureId: str
@@ -1007,7 +1100,7 @@ class CloudExadataInfrastructureSummaryTypeDef(TypedDict):
     availabilityZoneId: NotRequired[str]
     computeCount: NotRequired[int]
     cpuCount: NotRequired[int]
-    customerContactsToSendToOCI: NotRequired[List[CustomerContactTypeDef]]
+    customerContactsToSendToOCI: NotRequired[list[CustomerContactTypeDef]]
     dataStorageSizeInTBs: NotRequired[float]
     dbNodeStorageSizeInGBs: NotRequired[int]
     dbServerVersion: NotRequired[str]
@@ -1047,7 +1140,7 @@ class CloudExadataInfrastructureTypeDef(TypedDict):
     availabilityZoneId: NotRequired[str]
     computeCount: NotRequired[int]
     cpuCount: NotRequired[int]
-    customerContactsToSendToOCI: NotRequired[List[CustomerContactTypeDef]]
+    customerContactsToSendToOCI: NotRequired[list[CustomerContactTypeDef]]
     dataStorageSizeInTBs: NotRequired[float]
     dbNodeStorageSizeInGBs: NotRequired[int]
     dbServerVersion: NotRequired[str]
@@ -1088,13 +1181,13 @@ class OdbNetworkSummaryTypeDef(TypedDict):
     backupSubnetCidr: NotRequired[str]
     customDomainName: NotRequired[str]
     defaultDnsPrefix: NotRequired[str]
-    peeredCidrs: NotRequired[List[str]]
+    peeredCidrs: NotRequired[list[str]]
     ociNetworkAnchorId: NotRequired[str]
     ociNetworkAnchorUrl: NotRequired[str]
     ociResourceAnchorName: NotRequired[str]
     ociVcnId: NotRequired[str]
     ociVcnUrl: NotRequired[str]
-    ociDnsForwardingConfigs: NotRequired[List[OciDnsForwardingConfigTypeDef]]
+    ociDnsForwardingConfigs: NotRequired[list[OciDnsForwardingConfigTypeDef]]
     createdAt: NotRequired[datetime]
     percentProgress: NotRequired[float]
     managedServices: NotRequired[ManagedServicesTypeDef]
@@ -1111,19 +1204,19 @@ class OdbNetworkTypeDef(TypedDict):
     backupSubnetCidr: NotRequired[str]
     customDomainName: NotRequired[str]
     defaultDnsPrefix: NotRequired[str]
-    peeredCidrs: NotRequired[List[str]]
+    peeredCidrs: NotRequired[list[str]]
     ociNetworkAnchorId: NotRequired[str]
     ociNetworkAnchorUrl: NotRequired[str]
     ociResourceAnchorName: NotRequired[str]
     ociVcnId: NotRequired[str]
     ociVcnUrl: NotRequired[str]
-    ociDnsForwardingConfigs: NotRequired[List[OciDnsForwardingConfigTypeDef]]
+    ociDnsForwardingConfigs: NotRequired[list[OciDnsForwardingConfigTypeDef]]
     createdAt: NotRequired[datetime]
     percentProgress: NotRequired[float]
     managedServices: NotRequired[ManagedServicesTypeDef]
 
 class ListCloudVmClustersOutputTypeDef(TypedDict):
-    cloudVmClusters: List[CloudVmClusterSummaryTypeDef]
+    cloudVmClusters: list[CloudVmClusterSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1132,7 +1225,7 @@ class GetCloudVmClusterOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCloudAutonomousVmClustersOutputTypeDef(TypedDict):
-    cloudAutonomousVmClusters: List[CloudAutonomousVmClusterSummaryTypeDef]
+    cloudAutonomousVmClusters: list[CloudAutonomousVmClusterSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1141,7 +1234,7 @@ class GetCloudAutonomousVmClusterOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCloudExadataInfrastructuresOutputTypeDef(TypedDict):
-    cloudExadataInfrastructures: List[CloudExadataInfrastructureSummaryTypeDef]
+    cloudExadataInfrastructures: list[CloudExadataInfrastructureSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1187,7 +1280,7 @@ class UpdateCloudExadataInfrastructureInputTypeDef(TypedDict):
     maintenanceWindow: NotRequired[MaintenanceWindowUnionTypeDef]
 
 class ListOdbNetworksOutputTypeDef(TypedDict):
-    odbNetworks: List[OdbNetworkSummaryTypeDef]
+    odbNetworks: list[OdbNetworkSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

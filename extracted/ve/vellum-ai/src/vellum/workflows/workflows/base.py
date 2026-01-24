@@ -4,7 +4,8 @@ from functools import lru_cache
 import importlib
 import inspect
 import logging
-from threading import Event as ThreadingEvent
+import sys
+import traceback
 from uuid import UUID, uuid4
 from typing import (
     Any,
@@ -16,6 +17,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Literal,
     Optional,
     Set,
     Tuple,
@@ -27,6 +29,9 @@ from typing import (
     overload,
 )
 
+from pydantic import ValidationError
+
+from vellum.utils.uuid import is_valid_uuid
 from vellum.workflows.edges import Edge
 from vellum.workflows.emitters.base import BaseWorkflowEmitter
 from vellum.workflows.errors import WorkflowError, WorkflowErrorCode
@@ -36,6 +41,8 @@ from vellum.workflows.events.node import (
     NodeExecutionFulfilledEvent,
     NodeExecutionInitiatedBody,
     NodeExecutionInitiatedEvent,
+    NodeExecutionLogBody,
+    NodeExecutionLogEvent,
     NodeExecutionPausedBody,
     NodeExecutionPausedEvent,
     NodeExecutionRejectedBody,
@@ -63,20 +70,27 @@ from vellum.workflows.events.workflow import (
     WorkflowExecutionStreamingBody,
     WorkflowExecutionStreamingEvent,
 )
+from vellum.workflows.exceptions import WorkflowInitializationException
 from vellum.workflows.executable import BaseExecutable
 from vellum.workflows.graph import Graph
 from vellum.workflows.inputs.base import BaseInputs
+from vellum.workflows.loaders.base import BaseWorkflowFinder
 from vellum.workflows.nodes.bases import BaseNode
 from vellum.workflows.nodes.mocks import MockNodeExecutionArg
+from vellum.workflows.nodes.utils import get_unadorned_node
 from vellum.workflows.outputs import BaseOutputs
+from vellum.workflows.references.trigger import TriggerAttributeReference
 from vellum.workflows.resolvers.base import BaseWorkflowResolver
 from vellum.workflows.runner import WorkflowRunner
 from vellum.workflows.runner.runner import ExternalInputsArg, RunFromNodeArg
 from vellum.workflows.state.base import BaseState, StateMeta
 from vellum.workflows.state.context import WorkflowContext
 from vellum.workflows.state.store import Store
+from vellum.workflows.triggers.base import BaseTrigger
+from vellum.workflows.types import CancelSignal
 from vellum.workflows.types.generics import InputsType, StateType
 from vellum.workflows.types.utils import get_original_base
+from vellum.workflows.utils.module_path import normalize_module_path
 from vellum.workflows.utils.uuids import uuid4_from_hash
 from vellum.workflows.workflows.event_filters import workflow_event_filter
 
@@ -220,18 +234,23 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
     resolvers: List[BaseWorkflowResolver]
     is_dynamic: ClassVar[bool] = False
 
+    class Display:
+        """Optional display metadata for visual representation."""
+
+        layout: Optional[Literal["auto"]] = None
+
     class Outputs(BaseOutputs):
         __parent_class__: Type["BaseWorkflow"] = field(init=False)
 
     WorkflowEvent = Union[  # type: ignore
         GenericWorkflowEvent,
         WorkflowExecutionInitiatedEvent[InputsType, StateType],  # type: ignore[valid-type]
-        WorkflowExecutionFulfilledEvent[Outputs],
+        WorkflowExecutionFulfilledEvent[Outputs, StateType],  # type: ignore[valid-type]
         WorkflowExecutionSnapshottedEvent[StateType],  # type: ignore[valid-type]
     ]
 
     TerminalWorkflowEvent = Union[
-        WorkflowExecutionFulfilledEvent[Outputs],
+        WorkflowExecutionFulfilledEvent[Outputs, StateType],  # type: ignore[valid-type]
         WorkflowExecutionRejectedEvent,
         WorkflowExecutionPausedEvent,
     ]
@@ -251,7 +270,9 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
         self._context = context or WorkflowContext()
         self.emitters = emitters or (self.emitters if hasattr(self, "emitters") else [])
         self.resolvers = resolvers or (self.resolvers if hasattr(self, "resolvers") else [])
-        self._store = store or Store()
+        # Prioritize store type from WorkflowContext to allow subworkflows to inherit EmptyStore
+        # TODO(v2.0.0): Remove the concept of an internal store altogether (important-comment)
+        self._store = store or self._context.store_class()
         self._execution_context = self._context.execution_context
         self._current_runner: Optional[WorkflowRunner] = None
 
@@ -261,8 +282,6 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
 
         for resolver in self.resolvers:
             resolver.register_workflow_instance(self)
-
-        self.validate()
 
     @property
     def context(self) -> WorkflowContext:
@@ -280,12 +299,12 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
             for item in graph:
                 if isinstance(item, Graph):
                     graphs.append(item)
-                elif issubclass(item, BaseNode):
+                elif inspect.isclass(item) and issubclass(item, BaseNode):
                     graphs.append(Graph.from_node(item))
                 else:
                     raise ValueError(f"Unexpected graph type: {type(item)}")
             return graphs
-        if issubclass(graph, BaseNode):
+        if inspect.isclass(graph) and issubclass(graph, BaseNode):
             return [Graph.from_node(graph)]
         raise ValueError(f"Unexpected graph type: {type(graph)}")
 
@@ -373,9 +392,12 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
         entrypoint_nodes: Optional[RunFromNodeArg] = None,
         external_inputs: Optional[ExternalInputsArg] = None,
         previous_execution_id: Optional[Union[str, UUID]] = None,
-        cancel_signal: Optional[ThreadingEvent] = None,
+        execution_id: Optional[UUID] = None,
+        cancel_signal: Optional[CancelSignal] = None,
         node_output_mocks: Optional[MockNodeExecutionArg] = None,
         max_concurrency: Optional[int] = None,
+        timeout: Optional[float] = None,
+        trigger: Optional[BaseTrigger] = None,
     ) -> TerminalWorkflowEvent:
         """
         Invoke a Workflow, returning the last event emitted, which should be one of:
@@ -401,8 +423,11 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
         previous_execution_id: Optional[Union[str, UUID]] = None
             The execution ID of the previous execution to resume from.
 
-        cancel_signal: Optional[ThreadingEvent] = None
-            A threading event that can be used to cancel the Workflow Execution.
+        execution_id: Optional[UUID] = None
+            The execution ID to use for this workflow run. Sets the initial state's span_id for fresh runs.
+
+        cancel_signal: Optional[CancelSignal] = None
+            A cancel signal that can be used to cancel the Workflow Execution.
 
         node_output_mocks: Optional[MockNodeExecutionArg] = None
             A list of Outputs to mock for Nodes during Workflow Execution. Each mock can include a `when_condition`
@@ -412,6 +437,16 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
             The max number of concurrent threads to run the Workflow with. If not provided, the Workflow will run
             without limiting concurrency. This configuration only applies to the current Workflow and not to any
             subworkflows or nodes that utilizes threads.
+
+        timeout: Optional[float] = None
+            The maximum time in seconds to allow the Workflow to run. If the timeout is exceeded, the Workflow
+            will be rejected with a WORKFLOW_TIMEOUT error code and any nodes in flight will be rejected.
+
+        trigger: Optional[BaseTrigger] = None
+            A trigger instance for workflows with triggers (e.g., IntegrationTrigger, ManualTrigger, ScheduledTrigger).
+            The trigger instance is bound to the workflow state, making its attributes accessible to downstream nodes.
+            Required for workflows that only have IntegrationTrigger; optional for workflows with both ManualTrigger
+            and IntegrationTrigger.
         """
 
         runner = WorkflowRunner(
@@ -424,7 +459,10 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
             cancel_signal=cancel_signal,
             node_output_mocks=node_output_mocks,
             max_concurrency=max_concurrency,
+            timeout=timeout,
             init_execution_context=self._execution_context,
+            trigger=trigger,
+            execution_id=execution_id,
         )
         self._current_runner = runner
         events = runner.stream()
@@ -492,9 +530,13 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
         entrypoint_nodes: Optional[RunFromNodeArg] = None,
         external_inputs: Optional[ExternalInputsArg] = None,
         previous_execution_id: Optional[Union[str, UUID]] = None,
-        cancel_signal: Optional[ThreadingEvent] = None,
+        execution_id: Optional[UUID] = None,
+        cancel_signal: Optional[CancelSignal] = None,
         node_output_mocks: Optional[MockNodeExecutionArg] = None,
         max_concurrency: Optional[int] = None,
+        timeout: Optional[float] = None,
+        trigger: Optional[BaseTrigger] = None,
+        event_max_size: Optional[int] = None,
     ) -> WorkflowEventStream:
         """
         Invoke a Workflow, yielding events as they are emitted.
@@ -521,8 +563,11 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
         previous_execution_id: Optional[Union[str, UUID]] = None
             The execution ID of the previous execution to resume from.
 
-        cancel_signal: Optional[ThreadingEvent] = None
-            A threading event that can be used to cancel the Workflow Execution.
+        execution_id: Optional[UUID] = None
+            The execution ID to use for this workflow run. Sets the initial state's span_id for fresh runs.
+
+        cancel_signal: Optional[CancelSignal] = None
+            A cancel signal that can be used to cancel the Workflow Execution.
 
         node_output_mocks: Optional[MockNodeExecutionArg] = None
             A list of Outputs to mock for Nodes during Workflow Execution. Each mock can include a `when_condition`
@@ -532,6 +577,20 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
             The max number of concurrent threads to run the Workflow with. If not provided, the Workflow will run
             without limiting concurrency. This configuration only applies to the current Workflow and not to any
             subworkflows or nodes that utilizes threads.
+
+        timeout: Optional[float] = None
+            The maximum time in seconds to allow the Workflow to run. If the timeout is exceeded, the Workflow
+            will be rejected with a WORKFLOW_TIMEOUT error code and any nodes in flight will be rejected.
+
+        trigger: Optional[BaseTrigger] = None
+            A trigger instance for workflows with triggers (e.g., IntegrationTrigger, ManualTrigger, ScheduledTrigger).
+            The trigger instance is bound to the workflow state, making its attributes accessible to downstream nodes.
+            Required for workflows that only have IntegrationTrigger; optional for workflows with both ManualTrigger
+            and IntegrationTrigger.
+
+        event_max_size: Optional[int] = None
+            The maximum size in bytes for serialized events. If an event's serialized size exceeds this value,
+            the outputs will be set to an empty dict.
         """
 
         should_yield = event_filter or workflow_event_filter
@@ -545,7 +604,11 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
             cancel_signal=cancel_signal,
             node_output_mocks=node_output_mocks,
             max_concurrency=max_concurrency,
+            timeout=timeout,
             init_execution_context=self._execution_context,
+            trigger=trigger,
+            execution_id=execution_id,
+            event_max_size=event_max_size,
         )
         self._current_runner = runner
         runner_stream = runner.stream()
@@ -557,20 +620,116 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
 
         return WorkflowEventGenerator(_generate_filtered_events(), runner_stream.span_id)
 
-    def validate(self) -> None:
+    @classmethod
+    def validate(cls) -> None:
         """
         Validates the Workflow, by running through our list of linter rules.
         """
-        # TODO: Implement rule that all entrypoints are non empty
-        # https://app.shortcut.com/vellum/story/4327
-        pass
+
+        cls._validate_no_self_edges()
+
+    @classmethod
+    def get_all_nodes_recursive(cls) -> Iterator[Type[BaseNode]]:
+        """
+        Returns an iterator over all nodes in the Workflow, including nodes nested in subworkflows.
+        """
+        for node in cls.get_all_nodes():
+            yield node
+            for node_ref in node:
+                attr_value = node_ref.instance
+                if inspect.isclass(attr_value) and issubclass(attr_value, BaseWorkflow):
+                    yield from attr_value.get_all_nodes_recursive()
+
+    @classmethod
+    def resolve_node_ref(cls, node_ref: Union[Type[BaseNode], UUID, str]) -> Type[BaseNode]:
+        """
+        Resolve a node reference (class, UUID, or string) to a node class.
+
+        Args:
+            node_ref: Either a node class, a UUID, or a fully qualified string
+                     in the format "module.ClassName"
+
+        Returns:
+            The resolved node class
+
+        Raises:
+            WorkflowInitializationException: If the node reference cannot be resolved
+        """
+        if inspect.isclass(node_ref) and issubclass(node_ref, BaseNode):
+            return node_ref
+
+        candidate_nodes: List[Type[BaseNode]] = []
+        for node in cls.get_all_nodes_recursive():
+            candidate_nodes.append(node)
+            wrapped_node = get_unadorned_node(node)
+            if wrapped_node != node:
+                candidate_nodes.append(wrapped_node)
+
+        if isinstance(node_ref, UUID):
+            node_uuid = node_ref
+        elif is_valid_uuid(node_ref):
+            node_uuid = UUID(node_ref)
+        else:
+            node_uuid = None
+
+        if node_uuid:
+            for node in candidate_nodes:
+                if node.__id__ == node_uuid:
+                    return node
+            raise WorkflowInitializationException(
+                message=f"Node '{node_uuid}' not found in workflow",
+                raw_data={"node_ref": str(node_uuid)},
+            )
+
+        if isinstance(node_ref, str):
+            try:
+                module_path, class_name = node_ref.rsplit(".", 1)
+                module = importlib.import_module(module_path)
+                node_class = getattr(module, class_name)
+                if inspect.isclass(node_class) and issubclass(node_class, BaseNode):
+                    return node_class
+                raise WorkflowInitializationException(
+                    message=f"Node '{node_ref}' not found in workflow",
+                    raw_data={"node_ref": node_ref},
+                )
+            except (ValueError, ModuleNotFoundError, AttributeError):
+                for node in candidate_nodes:
+                    full_path = f"{node.__module__}.{node.__name__}"
+                    # Normalize the path to strip ephemeral namespace prefix from dynamically loaded workflows
+                    normalized_path = normalize_module_path(full_path)
+                    if normalized_path == node_ref:
+                        return node
+                raise WorkflowInitializationException(
+                    message=f"Node '{node_ref}' not found in workflow",
+                    raw_data={"node_ref": node_ref},
+                )
+
+        raise WorkflowInitializationException(
+            message=f"Node '{node_ref}' not found in workflow",
+            raw_data={"node_ref": str(node_ref)},
+        )
 
     def run_node(
-        self, node: Type[BaseNode], *, inputs: Optional[Dict[str, Any]] = None
+        self, node: Union[Type[BaseNode], UUID, str], *, inputs: Optional[Dict[str, Any]] = None
     ) -> Generator[NodeEvent, None, None]:
+        """
+        Execute a single node and yield node execution events.
+
+        Args:
+            node: Either a node class, a UUID, or a fully qualified string
+                 in the format "module.ClassName"
+            inputs: Optional inputs to pass to the node
+
+        Yields:
+            NodeEvent: Events emitted during node execution
+
+        Raises:
+            ValueError: If the node reference cannot be resolved
+        """
+        resolved_node = self.resolve_node_ref(node)
         runner = WorkflowRunner(self)
         span_id = uuid4()
-        node_instance = node(state=self.get_default_state(), context=self._context, inputs=inputs)
+        node_instance = resolved_node(state=self.get_default_state(), context=self._context, inputs=inputs)
 
         return runner.run_node(node=node_instance, span_id=span_id)
 
@@ -607,16 +766,37 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
     def get_default_inputs(self) -> InputsType:
         return self.get_inputs_class()()
 
-    def get_default_state(self, workflow_inputs: Optional[InputsType] = None) -> StateType:
-        return self.get_state_class()(
-            meta=StateMeta(
-                parent=self._parent_state,
-                workflow_inputs=workflow_inputs or self.get_default_inputs(),
-                workflow_definition=self.__class__,
-            )
+    def get_default_state(
+        self,
+        workflow_inputs: Optional[InputsType] = None,
+        execution_id: Optional[UUID] = None,
+        *,
+        trigger_attributes: Optional[Dict[TriggerAttributeReference, Any]] = None,
+    ) -> StateType:
+        resolved_inputs: Optional[InputsType] = workflow_inputs
+
+        meta_payload: Dict[str, Any] = {
+            "parent": self._parent_state,
+            "workflow_definition": self.__class__,
+            "workflow_inputs": resolved_inputs,
+        }
+        if trigger_attributes is not None:
+            meta_payload["trigger_attributes"] = trigger_attributes
+
+        meta = StateMeta.model_validate(
+            meta_payload,
+            context={
+                "workflow_definition": self.__class__,
+            },
         )
 
-    def get_state_at_node(self, node: Type[BaseNode]) -> StateType:
+        # Makes the uuid factory mocker work this way instead of setting in cosntructor
+        if execution_id:
+            meta.span_id = execution_id
+
+        return self.get_state_class()(meta=meta)
+
+    def get_state_at_node(self, node: Type[BaseNode], execution_id: Optional[UUID] = None) -> StateType:
         event_ts = datetime.min
         for event in self._store.events:
             if event.name == "node.execution.initiated" and event.node_definition == node:
@@ -630,11 +810,11 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
             most_recent_state_snapshot = cast(StateType, snapshot)
 
         if not most_recent_state_snapshot:
-            return self.get_default_state()
+            return self.get_default_state(execution_id=execution_id)
 
         return most_recent_state_snapshot
 
-    def get_most_recent_state(self) -> StateType:
+    def get_most_recent_state(self, execution_id: Optional[UUID] = None) -> StateType:
         most_recent_state_snapshot: Optional[StateType] = None
 
         for snapshot in self._store.state_snapshots:
@@ -645,7 +825,7 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
                 most_recent_state_snapshot = next_state
 
         if not most_recent_state_snapshot:
-            return self.get_default_state()
+            return self.get_default_state(execution_id=execution_id)
 
         return most_recent_state_snapshot
 
@@ -666,11 +846,13 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
 
         state_class = cls.get_state_class()
         if "meta" in state:
+            meta_payload = dict(state["meta"])
+            if workflow_inputs is not None:
+                meta_payload["workflow_inputs"] = workflow_inputs
+            meta_payload.setdefault("workflow_definition", cls)
+
             state["meta"] = StateMeta.model_validate(
-                {
-                    **state["meta"],
-                    "workflow_inputs": workflow_inputs,
-                },
+                meta_payload,
                 context={
                     "workflow_definition": cls,
                 },
@@ -678,10 +860,156 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
 
         return state_class(**state)
 
+    @classmethod
+    def deserialize_trigger(
+        cls, trigger_id: Optional[Union[str, UUID]], inputs: dict
+    ) -> Union[InputsType, BaseTrigger]:
+        """
+        Deserialize a trigger from a trigger_id and inputs dict.
+
+        If trigger_id is None, returns an instance of the workflow's Inputs class.
+        Otherwise, finds a trigger class that matches the trigger_id and creates an instance of that.
+
+        Parameters
+        ----------
+        trigger_id: Optional[Union[str, UUID]]
+            The identifier of the trigger class to instantiate. Can be:
+            - None: Returns workflow Inputs
+            - UUID: Matches by trigger class __id__
+            - str (valid UUID): Matches by trigger class __id__
+            - str (non-UUID): Matches by trigger name (from __trigger_name__)
+
+        inputs: dict
+            The inputs to pass to the trigger or Inputs constructor.
+
+        Returns
+        -------
+        Union[InputsType, BaseTrigger]
+            Either an instance of the workflow's Inputs class (if trigger_id is None)
+            or an instance of the matching trigger class.
+
+        Raises
+        ------
+        WorkflowInitializationException
+            If trigger_id is provided but no matching trigger class is found in the workflow.
+        """
+        if trigger_id is None:
+            inputs_class = cls.get_inputs_class()
+            return inputs_class(**inputs)
+
+        # Determine if trigger_id is a UUID or a name string
+        resolved_trigger_id: Optional[UUID] = None
+        trigger_name: Optional[str] = None
+
+        if isinstance(trigger_id, UUID):
+            resolved_trigger_id = trigger_id
+        elif is_valid_uuid(trigger_id):
+            resolved_trigger_id = UUID(trigger_id)
+        else:
+            trigger_name = trigger_id
+
+        trigger_classes = []
+        for subgraph in cls.get_subgraphs():
+            for trigger_class in subgraph.triggers:
+                # Match by UUID
+                if resolved_trigger_id is not None and trigger_class.__id__ == resolved_trigger_id:
+                    try:
+                        return trigger_class(**inputs)
+                    except Exception as e:
+                        raise WorkflowInitializationException(
+                            message=f"Failed to instantiate trigger {trigger_class.__name__}: {e}",
+                            workflow_definition=cls,
+                        ) from e
+
+                # Match by name
+                if trigger_name is not None and trigger_class.__trigger_name__ == trigger_name:
+                    try:
+                        return trigger_class(**inputs)
+                    except Exception as e:
+                        raise WorkflowInitializationException(
+                            message=f"Failed to instantiate trigger {trigger_class.__name__}: {e}",
+                            workflow_definition=cls,
+                        ) from e
+
+                trigger_classes.append(trigger_class)
+
+        # Build helpful error message
+        if trigger_name is not None:
+            available_names = [trigger_class.__trigger_name__ for trigger_class in trigger_classes]
+            raise WorkflowInitializationException(
+                message=f"No trigger class found with name '{trigger_name}' in workflow {cls.__name__}. "
+                f"Available trigger names: {available_names}"
+            )
+        else:
+            raise WorkflowInitializationException(
+                message=f"No trigger class found with id {trigger_id} in workflow {cls.__name__}. "
+                f"Available trigger classes: {[trigger_class.__name__ for trigger_class in trigger_classes]}"
+            )
+
     @staticmethod
     def load_from_module(module_path: str) -> Type["BaseWorkflow"]:
         workflow_path = f"{module_path}.workflow"
-        module = importlib.import_module(workflow_path)
+        try:
+            module = importlib.import_module(workflow_path)
+        except ValidationError as e:
+            raise WorkflowInitializationException(
+                message=f"Pydantic Model Validation defined in Workflow Failed: {e}"
+            ) from e
+        except TypeError as e:
+            if "Unexpected graph type" in str(e) or "unhashable type: 'set'" in str(e):
+                raise WorkflowInitializationException(
+                    message="Invalid graph structure detected. Nested sets or unsupported graph types are not allowed. "
+                    "Please contact Vellum support for assistance with Workflow configuration."
+                ) from e
+            else:
+                raise WorkflowInitializationException(message=f"Type Error raised while loading Workflow: {e}") from e
+        except SyntaxError as e:
+            raise WorkflowInitializationException(message=f"Syntax Error raised while loading Workflow: {e}") from e
+        except ModuleNotFoundError as e:
+            error_message = f"Workflow module not found: {e}"
+            raw_data: Optional[Dict[str, Any]] = None
+            has_namespace_match = False
+            for finder in sys.meta_path:
+                if isinstance(finder, BaseWorkflowFinder):
+                    error_message = finder.format_error_message(error_message)
+                    if hasattr(finder, "namespace") and e.name and finder.namespace in e.name:
+                        has_namespace_match = True
+            if not has_namespace_match:
+                raw_data = {"vellum_on_error_action": "CREATE_CUSTOM_IMAGE"}
+
+            stacktrace = traceback.format_exc()
+            tb = e.__traceback__
+            if tb is not None:
+                tb_entries = traceback.extract_tb(tb)
+                if tb_entries:
+                    last_entry = tb_entries[-1]
+                    if raw_data is None:
+                        raw_data = {}
+                    raw_data["file"] = last_entry.filename
+                    raw_data["lineno"] = last_entry.lineno
+
+            raise WorkflowInitializationException(
+                message=error_message, raw_data=raw_data, stacktrace=stacktrace
+            ) from e
+        except ImportError as e:
+            raise WorkflowInitializationException(message=f"Invalid import found while loading Workflow: {e}") from e
+        except NameError as e:
+            raise WorkflowInitializationException(message=f"Invalid variable reference: {e}") from e
+        except Exception as e:
+            raise WorkflowInitializationException(message=f"Unexpected failure while loading module: {e}") from e
+
+        # Attempt to load optional display sidecar module to trigger node ID annotations
+        display_path = f"{module_path}.display"
+        try:
+            importlib.import_module(display_path)
+        except ModuleNotFoundError:
+            # No display package for this workflow; that's fine.
+            pass
+        except Exception as e:
+            raise WorkflowInitializationException(
+                message=f"Unexpected failure while loading display module '{display_path}': {e}"
+            ) from e
+
         workflows: List[Type[BaseWorkflow]] = []
         for name in dir(module):
             if name.startswith("__"):
@@ -697,9 +1025,9 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
                 workflows.append(attr)
 
         if len(workflows) == 0:
-            raise ValueError(f"No workflows found in {module_path}")
+            raise WorkflowInitializationException(f"No workflows found in {module_path}")
         elif len(workflows) > 1:
-            raise ValueError(f"Multiple workflows found in {module_path}")
+            raise WorkflowInitializationException(f"Multiple workflows found in {module_path}")
         return workflows[0]
 
     def join(self) -> None:
@@ -712,6 +1040,35 @@ class BaseWorkflow(Generic[InputsType, StateType], BaseExecutable, metaclass=_Ba
 
         for emitter in self.emitters:
             emitter.join()
+
+    @classmethod
+    def _validate_no_self_edges(cls) -> None:
+        """
+        Validate that the workflow graph doesn't contain unconditional self-edges (infinite loops).
+
+        A node is considered to have an unconditional self-edge if all of its ports target itself.
+
+        Args:
+            edges: List of edge dictionaries from the serialized workflow
+
+        Raises:
+            WorkflowInitializationException: If an unconditional self-edge is detected
+        """
+
+        for node in cls.get_all_nodes():
+            node_ports = [list(port.edges) for port in node.Ports]
+            if (
+                all(
+                    all(edge.to_node == node for edge in port_edges) and len(port_edges) > 0
+                    for port_edges in node_ports
+                )
+                and len(node_ports) > 0
+            ):
+                raise WorkflowInitializationException(
+                    message=f"Graph contains a self-edge ({node.__name__} >> {node.__name__}).",
+                    workflow_definition=cls,
+                    code=WorkflowErrorCode.INVALID_WORKFLOW,
+                )
 
 
 WorkflowExecutionInitiatedBody.model_rebuild()
@@ -728,6 +1085,7 @@ NodeExecutionRejectedBody.model_rebuild()
 NodeExecutionPausedBody.model_rebuild()
 NodeExecutionResumedBody.model_rebuild()
 NodeExecutionStreamingBody.model_rebuild()
+NodeExecutionLogBody.model_rebuild()
 
 WorkflowExecutionInitiatedEvent.model_rebuild()
 WorkflowExecutionFulfilledEvent.model_rebuild()
@@ -743,5 +1101,6 @@ NodeExecutionRejectedEvent.model_rebuild()
 NodeExecutionPausedEvent.model_rebuild()
 NodeExecutionResumedEvent.model_rebuild()
 NodeExecutionStreamingEvent.model_rebuild()
+NodeExecutionLogEvent.model_rebuild()
 
 StateMeta.model_rebuild()

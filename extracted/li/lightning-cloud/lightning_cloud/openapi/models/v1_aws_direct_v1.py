@@ -41,44 +41,131 @@ class V1AWSDirectV1(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'ami_owner_id': 'str',
+        'bucket_endpoint': 'str',
         'bucket_name': 'str',
+        'cloud_formation_disabled': 'bool',
+        'efs_enabled': 'bool',
         'external_id': 'str',
+        'inventory_database': 'str',
+        'inventory_table': 'str',
         'primary_region': 'str',
+        'regional_load_balancers': 'list[V1RegionalLoadBalancer]',
         'regions': 'list[str]',
         'role_arn': 'str',
-        'source_cidr_ips': 'list[str]'
+        'source_cidr_ips': 'list[str]',
+        'subnet_cidr_prefix': 'str',
+        'use_launch_templates': 'bool'
     }
 
     attribute_map = {
+        'ami_owner_id': 'amiOwnerId',
+        'bucket_endpoint': 'bucketEndpoint',
         'bucket_name': 'bucketName',
+        'cloud_formation_disabled': 'cloudFormationDisabled',
+        'efs_enabled': 'efsEnabled',
         'external_id': 'externalId',
+        'inventory_database': 'inventoryDatabase',
+        'inventory_table': 'inventoryTable',
         'primary_region': 'primaryRegion',
+        'regional_load_balancers': 'regionalLoadBalancers',
         'regions': 'regions',
         'role_arn': 'roleArn',
-        'source_cidr_ips': 'sourceCidrIps'
+        'source_cidr_ips': 'sourceCidrIps',
+        'subnet_cidr_prefix': 'subnetCIDRPrefix',
+        'use_launch_templates': 'useLaunchTemplates'
     }
 
-    def __init__(self, bucket_name: 'str' =None, external_id: 'str' =None, primary_region: 'str' =None, regions: 'list[str]' =None, role_arn: 'str' =None, source_cidr_ips: 'list[str]' =None):  # noqa: E501
+    def __init__(self, ami_owner_id: 'str' =None, bucket_endpoint: 'str' =None, bucket_name: 'str' =None, cloud_formation_disabled: 'bool' =None, efs_enabled: 'bool' =None, external_id: 'str' =None, inventory_database: 'str' =None, inventory_table: 'str' =None, primary_region: 'str' =None, regional_load_balancers: 'list[V1RegionalLoadBalancer]' =None, regions: 'list[str]' =None, role_arn: 'str' =None, source_cidr_ips: 'list[str]' =None, subnet_cidr_prefix: 'str' =None, use_launch_templates: 'bool' =None):  # noqa: E501
         """V1AWSDirectV1 - a model defined in Swagger"""  # noqa: E501
+        self._ami_owner_id = None
+        self._bucket_endpoint = None
         self._bucket_name = None
+        self._cloud_formation_disabled = None
+        self._efs_enabled = None
         self._external_id = None
+        self._inventory_database = None
+        self._inventory_table = None
         self._primary_region = None
+        self._regional_load_balancers = None
         self._regions = None
         self._role_arn = None
         self._source_cidr_ips = None
+        self._subnet_cidr_prefix = None
+        self._use_launch_templates = None
         self.discriminator = None
+        if ami_owner_id is not None:
+            self.ami_owner_id = ami_owner_id
+        if bucket_endpoint is not None:
+            self.bucket_endpoint = bucket_endpoint
         if bucket_name is not None:
             self.bucket_name = bucket_name
+        if cloud_formation_disabled is not None:
+            self.cloud_formation_disabled = cloud_formation_disabled
+        if efs_enabled is not None:
+            self.efs_enabled = efs_enabled
         if external_id is not None:
             self.external_id = external_id
+        if inventory_database is not None:
+            self.inventory_database = inventory_database
+        if inventory_table is not None:
+            self.inventory_table = inventory_table
         if primary_region is not None:
             self.primary_region = primary_region
+        if regional_load_balancers is not None:
+            self.regional_load_balancers = regional_load_balancers
         if regions is not None:
             self.regions = regions
         if role_arn is not None:
             self.role_arn = role_arn
         if source_cidr_ips is not None:
             self.source_cidr_ips = source_cidr_ips
+        if subnet_cidr_prefix is not None:
+            self.subnet_cidr_prefix = subnet_cidr_prefix
+        if use_launch_templates is not None:
+            self.use_launch_templates = use_launch_templates
+
+    @property
+    def ami_owner_id(self) -> 'str':
+        """Gets the ami_owner_id of this V1AWSDirectV1.  # noqa: E501
+
+
+        :return: The ami_owner_id of this V1AWSDirectV1.  # noqa: E501
+        :rtype: str
+        """
+        return self._ami_owner_id
+
+    @ami_owner_id.setter
+    def ami_owner_id(self, ami_owner_id: 'str'):
+        """Sets the ami_owner_id of this V1AWSDirectV1.
+
+
+        :param ami_owner_id: The ami_owner_id of this V1AWSDirectV1.  # noqa: E501
+        :type: str
+        """
+
+        self._ami_owner_id = ami_owner_id
+
+    @property
+    def bucket_endpoint(self) -> 'str':
+        """Gets the bucket_endpoint of this V1AWSDirectV1.  # noqa: E501
+
+
+        :return: The bucket_endpoint of this V1AWSDirectV1.  # noqa: E501
+        :rtype: str
+        """
+        return self._bucket_endpoint
+
+    @bucket_endpoint.setter
+    def bucket_endpoint(self, bucket_endpoint: 'str'):
+        """Sets the bucket_endpoint of this V1AWSDirectV1.
+
+
+        :param bucket_endpoint: The bucket_endpoint of this V1AWSDirectV1.  # noqa: E501
+        :type: str
+        """
+
+        self._bucket_endpoint = bucket_endpoint
 
     @property
     def bucket_name(self) -> 'str':
@@ -102,6 +189,48 @@ class V1AWSDirectV1(object):
         self._bucket_name = bucket_name
 
     @property
+    def cloud_formation_disabled(self) -> 'bool':
+        """Gets the cloud_formation_disabled of this V1AWSDirectV1.  # noqa: E501
+
+
+        :return: The cloud_formation_disabled of this V1AWSDirectV1.  # noqa: E501
+        :rtype: bool
+        """
+        return self._cloud_formation_disabled
+
+    @cloud_formation_disabled.setter
+    def cloud_formation_disabled(self, cloud_formation_disabled: 'bool'):
+        """Sets the cloud_formation_disabled of this V1AWSDirectV1.
+
+
+        :param cloud_formation_disabled: The cloud_formation_disabled of this V1AWSDirectV1.  # noqa: E501
+        :type: bool
+        """
+
+        self._cloud_formation_disabled = cloud_formation_disabled
+
+    @property
+    def efs_enabled(self) -> 'bool':
+        """Gets the efs_enabled of this V1AWSDirectV1.  # noqa: E501
+
+
+        :return: The efs_enabled of this V1AWSDirectV1.  # noqa: E501
+        :rtype: bool
+        """
+        return self._efs_enabled
+
+    @efs_enabled.setter
+    def efs_enabled(self, efs_enabled: 'bool'):
+        """Sets the efs_enabled of this V1AWSDirectV1.
+
+
+        :param efs_enabled: The efs_enabled of this V1AWSDirectV1.  # noqa: E501
+        :type: bool
+        """
+
+        self._efs_enabled = efs_enabled
+
+    @property
     def external_id(self) -> 'str':
         """Gets the external_id of this V1AWSDirectV1.  # noqa: E501
 
@@ -123,6 +252,48 @@ class V1AWSDirectV1(object):
         self._external_id = external_id
 
     @property
+    def inventory_database(self) -> 'str':
+        """Gets the inventory_database of this V1AWSDirectV1.  # noqa: E501
+
+
+        :return: The inventory_database of this V1AWSDirectV1.  # noqa: E501
+        :rtype: str
+        """
+        return self._inventory_database
+
+    @inventory_database.setter
+    def inventory_database(self, inventory_database: 'str'):
+        """Sets the inventory_database of this V1AWSDirectV1.
+
+
+        :param inventory_database: The inventory_database of this V1AWSDirectV1.  # noqa: E501
+        :type: str
+        """
+
+        self._inventory_database = inventory_database
+
+    @property
+    def inventory_table(self) -> 'str':
+        """Gets the inventory_table of this V1AWSDirectV1.  # noqa: E501
+
+
+        :return: The inventory_table of this V1AWSDirectV1.  # noqa: E501
+        :rtype: str
+        """
+        return self._inventory_table
+
+    @inventory_table.setter
+    def inventory_table(self, inventory_table: 'str'):
+        """Sets the inventory_table of this V1AWSDirectV1.
+
+
+        :param inventory_table: The inventory_table of this V1AWSDirectV1.  # noqa: E501
+        :type: str
+        """
+
+        self._inventory_table = inventory_table
+
+    @property
     def primary_region(self) -> 'str':
         """Gets the primary_region of this V1AWSDirectV1.  # noqa: E501
 
@@ -142,6 +313,27 @@ class V1AWSDirectV1(object):
         """
 
         self._primary_region = primary_region
+
+    @property
+    def regional_load_balancers(self) -> 'list[V1RegionalLoadBalancer]':
+        """Gets the regional_load_balancers of this V1AWSDirectV1.  # noqa: E501
+
+
+        :return: The regional_load_balancers of this V1AWSDirectV1.  # noqa: E501
+        :rtype: list[V1RegionalLoadBalancer]
+        """
+        return self._regional_load_balancers
+
+    @regional_load_balancers.setter
+    def regional_load_balancers(self, regional_load_balancers: 'list[V1RegionalLoadBalancer]'):
+        """Sets the regional_load_balancers of this V1AWSDirectV1.
+
+
+        :param regional_load_balancers: The regional_load_balancers of this V1AWSDirectV1.  # noqa: E501
+        :type: list[V1RegionalLoadBalancer]
+        """
+
+        self._regional_load_balancers = regional_load_balancers
 
     @property
     def regions(self) -> 'list[str]':
@@ -207,6 +399,48 @@ class V1AWSDirectV1(object):
         """
 
         self._source_cidr_ips = source_cidr_ips
+
+    @property
+    def subnet_cidr_prefix(self) -> 'str':
+        """Gets the subnet_cidr_prefix of this V1AWSDirectV1.  # noqa: E501
+
+
+        :return: The subnet_cidr_prefix of this V1AWSDirectV1.  # noqa: E501
+        :rtype: str
+        """
+        return self._subnet_cidr_prefix
+
+    @subnet_cidr_prefix.setter
+    def subnet_cidr_prefix(self, subnet_cidr_prefix: 'str'):
+        """Sets the subnet_cidr_prefix of this V1AWSDirectV1.
+
+
+        :param subnet_cidr_prefix: The subnet_cidr_prefix of this V1AWSDirectV1.  # noqa: E501
+        :type: str
+        """
+
+        self._subnet_cidr_prefix = subnet_cidr_prefix
+
+    @property
+    def use_launch_templates(self) -> 'bool':
+        """Gets the use_launch_templates of this V1AWSDirectV1.  # noqa: E501
+
+
+        :return: The use_launch_templates of this V1AWSDirectV1.  # noqa: E501
+        :rtype: bool
+        """
+        return self._use_launch_templates
+
+    @use_launch_templates.setter
+    def use_launch_templates(self, use_launch_templates: 'bool'):
+        """Sets the use_launch_templates of this V1AWSDirectV1.
+
+
+        :param use_launch_templates: The use_launch_templates of this V1AWSDirectV1.  # noqa: E501
+        :type: bool
+        """
+
+        self._use_launch_templates = use_launch_templates
 
     def to_dict(self) -> dict:
         """Returns the model properties as a dict"""

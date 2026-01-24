@@ -264,32 +264,48 @@ def set_log_levels(
     """Sets the overall log level for internal log console"""
 
     def level_of(level: str | int) -> int:
+        """Returns numeral representation of provided level"""
         return (
             int(logging.getLevelName(level.split("_")[-1]))
             if isinstance(level, str)
             else level
         )
 
+    match levels:
+        case (level_spec,) if isinstance(level_spec, (str, int)):
+            levels_spec = {"trickkiste": level_spec}
+        case ((_logger, _level_spec), *_rest):
+            assert isinstance(levels, tuple)
+            levels_spec = {
+                s[0] if isinstance(s[0], str) else s[0].name: s[1]
+                for s in levels
+                if isinstance(s, tuple)
+            }
+        case (others, (_logger, _level_spec), *_rest) if isinstance(
+            others, (str, int)
+        ):
+            others_level = others
+            levels_spec = {
+                s[0] if isinstance(s[0], str) else s[0].name: s[1]
+                for s in levels
+                if isinstance(s, tuple)
+            }
+        case _:
+            raise TypeError(f"unsupported arguments: {levels}")
+
     named_levels: dict[str | None, int] = {
-        None: logging.DEBUG
-        if "ALL_DEBUG" in levels
-        else level_of(others_level),
-        "trickkiste": logging.INFO,
-        **dict(
-            (
-                ("trickkiste", level_of(level_spec))
-                if isinstance(level_spec, (int, str))
-                else (
-                    (
-                        level_spec[0].name
-                        if isinstance(level_spec[0], logging.Logger)
-                        else level_spec[0]
-                    ),
-                    level_of(level_spec[1]),
-                )
-            )
-            for level_spec in levels
+        None: (
+            logging.DEBUG
+            if "ALL_DEBUG" in levels_spec.values()
+            else level_of(others_level)
         ),
+        "trickkiste": logging.DEBUG
+        if "ALL_DEBUG" in levels_spec.values()
+        else logging.INFO,
+        **{
+            logger_name: level_of(level_spec)
+            for logger_name, level_spec in levels_spec.items()
+        },
     }
 
     for handler in logging.getLogger().handlers:

@@ -40,7 +40,13 @@ from redisvl.query import FilterQuery
 from redisvl.query.filter import Num, Tag
 from ulid import ULID
 
-from langgraph.checkpoint.redis.base import BaseRedisSaver
+from langgraph.checkpoint.redis.base import (
+    CHECKPOINT_BLOB_PREFIX,
+    CHECKPOINT_PREFIX,
+    CHECKPOINT_WRITE_PREFIX,
+    REDIS_KEY_SEPARATOR,
+    BaseRedisSaver,
+)
 from langgraph.checkpoint.redis.key_registry import (
     AsyncCheckpointKeyRegistry as AsyncKeyRegistry,
 )
@@ -81,12 +87,18 @@ class AsyncRedisSaver(
         redis_client: Optional[Union[AsyncRedis, AsyncRedisCluster]] = None,
         connection_args: Optional[Dict[str, Any]] = None,
         ttl: Optional[Dict[str, Any]] = None,
+        checkpoint_prefix: str = CHECKPOINT_PREFIX,
+        checkpoint_blob_prefix: str = CHECKPOINT_BLOB_PREFIX,
+        checkpoint_write_prefix: str = CHECKPOINT_WRITE_PREFIX,
     ) -> None:
         super().__init__(
             redis_url=redis_url,
             redis_client=redis_client,
             connection_args=connection_args,
             ttl=ttl,
+            checkpoint_prefix=checkpoint_prefix,
+            checkpoint_blob_prefix=checkpoint_blob_prefix,
+            checkpoint_write_prefix=checkpoint_write_prefix,
         )
         self.loop = asyncio.get_running_loop()
 
@@ -94,17 +106,6 @@ class AsyncRedisSaver(
         self._key_cache: Dict[str, str] = {}
         self._key_cache_max_size = 1000  # Configurable limit
 
-        # Pre-compute common prefixes for performance
-        from langgraph.checkpoint.redis.base import (
-            CHECKPOINT_BLOB_PREFIX,
-            CHECKPOINT_PREFIX,
-            CHECKPOINT_WRITE_PREFIX,
-            REDIS_KEY_SEPARATOR,
-        )
-
-        self._checkpoint_prefix = CHECKPOINT_PREFIX
-        self._checkpoint_blob_prefix = CHECKPOINT_BLOB_PREFIX
-        self._checkpoint_write_prefix = CHECKPOINT_WRITE_PREFIX
         self._separator = REDIS_KEY_SEPARATOR
 
     def configure_client(
@@ -128,13 +129,13 @@ class AsyncRedisSaver(
     def create_indexes(self) -> None:
         """Create indexes without connecting to Redis."""
         self.checkpoints_index = AsyncSearchIndex.from_dict(
-            self.SCHEMAS[0], redis_client=self._redis
+            self.checkpoints_schema, redis_client=self._redis
         )
         self.checkpoint_blobs_index = AsyncSearchIndex.from_dict(
-            self.SCHEMAS[1], redis_client=self._redis
+            self.blobs_schema, redis_client=self._redis
         )
         self.checkpoint_writes_index = AsyncSearchIndex.from_dict(
-            self.SCHEMAS[2], redis_client=self._redis
+            self.writes_schema, redis_client=self._redis
         )
 
     def _make_redis_checkpoint_key_cached(
@@ -375,7 +376,7 @@ class AsyncRedisSaver(
             storage_safe_checkpoint_id = to_storage_safe_id(checkpoint_id)
 
             # Construct direct key for checkpoint data
-            checkpoint_key = BaseRedisSaver._make_redis_checkpoint_key(
+            checkpoint_key = self._make_redis_checkpoint_key(
                 storage_safe_thread_id,
                 storage_safe_checkpoint_ns,
                 storage_safe_checkpoint_id,
@@ -476,18 +477,19 @@ class AsyncRedisSaver(
             # If we didn't get TTL from pipeline (i.e., came from else branch), fetch it now
             if "current_ttl" not in locals():
                 # Get the checkpoint key
-                checkpoint_key = BaseRedisSaver._make_redis_checkpoint_key(
+                checkpoint_key = self._make_redis_checkpoint_key(
                     to_storage_safe_id(doc_thread_id),
                     to_storage_safe_str(doc_checkpoint_ns),
                     to_storage_safe_id(doc_checkpoint_id),
                 )
                 current_ttl = await self._redis.ttl(checkpoint_key)
 
-            default_ttl_minutes = self.ttl_config.get("default_ttl", 60)
-            ttl_threshold = int(default_ttl_minutes * 60 * 0.6)  # 60% of original TTL
+            # Always refresh TTL when refresh_on_read is enabled
+            # This ensures all related keys maintain synchronized TTLs
 
-            # Only refresh if TTL is below threshold (or key doesn't exist)
-            if current_ttl == -2 or (current_ttl > 0 and current_ttl <= ttl_threshold):
+            # Only refresh if key exists and has TTL (skip keys with no expiry)
+            # TTL states: -2 = key doesn't exist, -1 = key exists but no TTL, 0 = expired, >0 = seconds remaining
+            if current_ttl > 0:
                 # Get all blob keys related to this checkpoint
                 from langgraph.checkpoint.redis.base import (
                     CHECKPOINT_BLOB_PREFIX,
@@ -653,6 +655,8 @@ class AsyncRedisSaver(
                 Tag("thread_id")
                 == to_storage_safe_id(config["configurable"]["thread_id"])
             )
+            if run_id := config["configurable"].get("run_id"):
+                filter_expression.append(Tag("run_id") == to_storage_safe_id(run_id))
 
             # Search for checkpoints with any namespace, including an empty
             # string, while `checkpoint_id` has to have a value.
@@ -671,6 +675,10 @@ class AsyncRedisSaver(
                     filter_expression.append(Tag("source") == v)
                 elif k == "step":
                     filter_expression.append(Num("step") == v)
+                elif k == "thread_id":
+                    filter_expression.append(Tag("thread_id") == to_storage_safe_id(v))
+                elif k == "run_id":
+                    filter_expression.append(Tag("run_id") == to_storage_safe_id(v))
                 else:
                     raise ValueError(f"Unsupported filter key: {k}")
 
@@ -692,6 +700,7 @@ class AsyncRedisSaver(
             combined_filter &= expr
 
         # Construct the Redis query
+        # Sort by checkpoint_id in descending order to get most recent checkpoints first
         query = FilterQuery(
             filter_expression=combined_filter,
             return_fields=[
@@ -704,6 +713,7 @@ class AsyncRedisSaver(
                 "has_writes",  # Include has_writes to optimize pending_writes loading
             ],
             num_results=limit or 10000,
+            sort_by=("checkpoint_id", "DESC"),
         )
 
         # Execute the query asynchronously
@@ -908,6 +918,7 @@ class AsyncRedisSaver(
         """
         configurable = config["configurable"].copy()
 
+        run_id = configurable.pop("run_id", metadata.get("run_id"))
         thread_id = configurable.pop("thread_id")
         checkpoint_ns = configurable.pop("checkpoint_ns")
         # Get checkpoint_id from config - this will be parent if saving a child
@@ -964,6 +975,7 @@ class AsyncRedisSaver(
 
             checkpoint_data = {
                 "thread_id": storage_safe_thread_id,
+                "run_id": to_storage_safe_id(run_id) if run_id else "",
                 "checkpoint_ns": storage_safe_checkpoint_ns,
                 "checkpoint_id": storage_safe_checkpoint_id,
                 "parent_checkpoint_id": (
@@ -1030,6 +1042,7 @@ class AsyncRedisSaver(
                     # Store minimal checkpoint data
                     checkpoint_data = {
                         "thread_id": storage_safe_thread_id,
+                        "run_id": to_storage_safe_id(run_id) if run_id else "",
                         "checkpoint_ns": storage_safe_checkpoint_ns,
                         "checkpoint_id": storage_safe_checkpoint_id,
                         "parent_checkpoint_id": (
@@ -1051,7 +1064,7 @@ class AsyncRedisSaver(
                     }
 
                     # Prepare checkpoint key
-                    checkpoint_key = BaseRedisSaver._make_redis_checkpoint_key(
+                    checkpoint_key = self._make_redis_checkpoint_key(
                         storage_safe_thread_id,
                         storage_safe_checkpoint_ns,
                         storage_safe_checkpoint_id,
@@ -1119,7 +1132,9 @@ class AsyncRedisSaver(
                 "idx": WRITES_IDX_MAP.get(channel, idx),
                 "channel": channel,
                 "type": type_,
-                "blob": blob,
+                "blob": self._encode_blob(
+                    blob
+                ),  # Encode bytes to base64 string for Redis
             }
             writes_objects.append(write_obj)
 
@@ -1140,7 +1155,7 @@ class AsyncRedisSaver(
                     )
 
                     # Redis JSON.SET is an UPSERT by default
-                    await self._redis.json().set(key, "$", write_obj)  # type: ignore[misc]
+                    await self._redis.json().set(key, "$", cast(Any, write_obj))  # type: ignore[misc]
                     created_keys.append(key)
 
                 # Apply TTL to newly created keys
@@ -1175,7 +1190,7 @@ class AsyncRedisSaver(
 
                         # Add all write keys with their index as score for ordering
                         zadd_mapping = {key: idx for idx, key in enumerate(write_keys)}
-                        await self._redis.zadd(zset_key, zadd_mapping)
+                        await self._redis.zadd(zset_key, zadd_mapping)  # type: ignore[arg-type]
 
                         # Apply TTL to registry key if configured
                         if self.ttl_config and "default_ttl" in self.ttl_config:
@@ -1196,7 +1211,7 @@ class AsyncRedisSaver(
                         write_obj["idx"],  # type: ignore[arg-type]
                     )
 
-                    pipeline.json().set(key, "$", write_obj)
+                    pipeline.json().set(key, "$", cast(Any, write_obj))
                     created_keys.append(key)
 
                 # Add TTL operations to the pipeline if configured
@@ -1237,7 +1252,7 @@ class AsyncRedisSaver(
 
                     # Add all write keys with their index as score for ordering
                     zadd_mapping = {key: idx for idx, key in enumerate(write_keys)}
-                    pipeline.zadd(zset_key, zadd_mapping)
+                    pipeline.zadd(zset_key, zadd_mapping)  # type: ignore[arg-type]
 
                     # Apply TTL to registry key if configured
                     if self.ttl_config and "default_ttl" in self.ttl_config:
@@ -1263,7 +1278,9 @@ class AsyncRedisSaver(
                                     task_id,
                                     write_obj["idx"],  # type: ignore[arg-type]
                                 )
-                                fallback_pipeline.json().set(key, "$", write_obj)
+                                fallback_pipeline.json().set(
+                                    key, "$", cast(Any, write_obj)
+                                )
 
                             # Add TTL operations if configured
                             if (
@@ -1283,7 +1300,7 @@ class AsyncRedisSaver(
                                 zadd_mapping = {
                                     key: idx for idx, key in enumerate(write_keys)
                                 }
-                                fallback_pipeline.zadd(zset_key, zadd_mapping)
+                                fallback_pipeline.zadd(zset_key, zadd_mapping)  # type: ignore[arg-type]
                                 if self.ttl_config and "default_ttl" in self.ttl_config:
                                     ttl_seconds = int(
                                         self.ttl_config.get("default_ttl") * 60
@@ -1296,14 +1313,16 @@ class AsyncRedisSaver(
                             # Update has_writes flag separately for older Redis
                             if checkpoint_key:
                                 try:
-                                    checkpoint_data = await self._redis.json().get(checkpoint_key)  # type: ignore[misc]
+                                    checkpoint_data = await self._redis.json().get(  # type: ignore[misc]
+                                        checkpoint_key
+                                    )
                                     if isinstance(
                                         checkpoint_data, dict
                                     ) and not checkpoint_data.get("has_writes"):
                                         checkpoint_data["has_writes"] = True
-                                        await self._redis.json().set(
+                                        await self._redis.json().set(  # type: ignore[misc]
                                             checkpoint_key, "$", checkpoint_data
-                                        )  # type: ignore[misc]
+                                        )
                                 except Exception:
                                     # If this fails, it's not critical - the writes are still saved
                                     pass
@@ -1434,12 +1453,18 @@ class AsyncRedisSaver(
         redis_client: Optional[Union[AsyncRedis, AsyncRedisCluster]] = None,
         connection_args: Optional[Dict[str, Any]] = None,
         ttl: Optional[Dict[str, Any]] = None,
+        checkpoint_prefix: str = CHECKPOINT_PREFIX,
+        checkpoint_blob_prefix: str = CHECKPOINT_BLOB_PREFIX,
+        checkpoint_write_prefix: str = CHECKPOINT_WRITE_PREFIX,
     ) -> AsyncIterator[AsyncRedisSaver]:
         async with cls(
             redis_url=redis_url,
             redis_client=redis_client,
             connection_args=connection_args,
             ttl=ttl,
+            checkpoint_prefix=checkpoint_prefix,
+            checkpoint_blob_prefix=checkpoint_blob_prefix,
+            checkpoint_write_prefix=checkpoint_write_prefix,
         ) as saver:
             yield saver
 
@@ -1719,7 +1744,7 @@ class AsyncRedisSaver(
                 return_fields=[
                     "checkpoint_id",
                     "type",
-                    "blob",
+                    "$.blob",
                     "task_path",
                     "task_id",
                     "idx",
@@ -1740,20 +1765,27 @@ class AsyncRedisSaver(
             # Sort and format results for each parent checkpoint
             for parent_checkpoint_id in parent_checkpoint_ids:
                 batch_key = (thread_id, checkpoint_ns, parent_checkpoint_id)
-                docs = writes_by_checkpoint.get(parent_checkpoint_id, [])
+                writes = writes_by_checkpoint.get(parent_checkpoint_id, [])
 
-                # Sort for deterministic order
-                sorted_docs = sorted(
-                    docs,
-                    key=lambda d: (
-                        getattr(d, "task_path", ""),
-                        getattr(d, "task_id", ""),
-                        getattr(d, "idx", 0),
+                # Sort results by task_path, task_id, idx
+                sorted_writes = sorted(
+                    writes,
+                    key=lambda x: (
+                        getattr(x, "task_path", ""),
+                        getattr(x, "task_id", ""),
+                        getattr(x, "idx", 0),
                     ),
                 )
 
-                # Convert to expected format
-                results_map[batch_key] = [(d.type, d.blob) for d in sorted_docs]
+                # Extract type and blob pairs
+                # Handle both direct attribute access and JSON path access
+                results_map[batch_key] = [
+                    (
+                        getattr(doc, "type", ""),
+                        getattr(doc, "$.blob", getattr(doc, "blob", b"")),
+                    )
+                    for doc in sorted_writes
+                ]
 
         return results_map
 
@@ -1966,7 +1998,7 @@ class AsyncRedisSaver(
             checkpoint_namespaces.add(checkpoint_ns)
 
             # Delete checkpoint key
-            checkpoint_key = BaseRedisSaver._make_redis_checkpoint_key(
+            checkpoint_key = self._make_redis_checkpoint_key(
                 storage_safe_thread_id, checkpoint_ns, checkpoint_id
             )
             keys_to_delete.append(checkpoint_key)
@@ -1990,7 +2022,7 @@ class AsyncRedisSaver(
             channel = getattr(doc, "channel", "")
             version = getattr(doc, "version", "")
 
-            blob_key = BaseRedisSaver._make_redis_checkpoint_blob_key(
+            blob_key = self._make_redis_checkpoint_blob_key(
                 storage_safe_thread_id, checkpoint_ns, channel, version
             )
             keys_to_delete.append(blob_key)
@@ -2010,7 +2042,7 @@ class AsyncRedisSaver(
             task_id = getattr(doc, "task_id", "")
             idx = getattr(doc, "idx", 0)
 
-            write_key = BaseRedisSaver._make_redis_checkpoint_writes_key(
+            write_key = self._make_redis_checkpoint_writes_key(
                 storage_safe_thread_id, checkpoint_ns, checkpoint_id, task_id, idx
             )
             keys_to_delete.append(write_key)

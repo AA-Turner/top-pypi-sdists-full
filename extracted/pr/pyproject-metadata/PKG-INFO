@@ -1,36 +1,24 @@
 Metadata-Version: 2.4
 Name: pyproject-metadata
-Version: 0.9.1
+Version: 0.10.0
 Summary: PEP 621 metadata parsing
 Author-email: Filipe Laíns <lains@riseup.net>
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Classifier: License :: OSI Approved :: MIT License
+License-Expression: MIT
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
-Requires-Dist: packaging>=19.0
-Requires-Dist: typing_extensions; python_version<'3.8'
-Requires-Dist: furo>=2023.9.10 ; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints>=1.10.0 ; extra == "docs"
-Requires-Dist: sphinx>=7.0 ; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints ; extra == "docs"
-Requires-Dist: myst-parser ; extra == "docs"
-Requires-Dist: pytest-cov[toml]>=2 ; extra == "test"
-Requires-Dist: pytest>=6.2.4 ; extra == "test"
-Requires-Dist: tomli>=1.0.0 ; extra == "test" and (python_version<"3.11")
-Requires-Dist: exceptiongroup ; extra == "test" and (python_version<"3.11")
+Requires-Dist: packaging>=23.2
 Project-URL: changelog, https://pep621.readthedocs.io/en/stable/changelog.html
 Project-URL: homepage, https://github.com/pypa/pyproject-metadata
-Provides-Extra: docs
-Provides-Extra: test
 
 # pyproject-metadata
 
@@ -81,7 +69,7 @@ if isinstance(metadata.license, str):
     )
 ```
 
-A backend is also expected to copy entries from `project.licence_files`, which
+A backend is also expected to copy entries from `project.license_files`, which
 are paths relative to the project directory, into the `dist-info/licenses`
 folder, preserving the original source structure.
 

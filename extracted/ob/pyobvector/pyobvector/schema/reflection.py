@@ -35,17 +35,17 @@ class OceanBaseTableDefinitionParser(MySQLTableDefinitionParser):
 
         self._re_array_column = _re_compile(
             r"\s*"
-            r"%(iq)s(?P<name>(?:%(esc_fq)s|[^%(fq)s])+)%(fq)s\s+"
+            r"{iq}(?P<name>(?:{esc_fq}|[^{fq}])+){fq}\s+"
             r"(?P<coltype_with_args>(?i:(?<!\w)array(?!\w))\s*\([^()]*(?:\([^()]*\)[^()]*)*\))"
             r"(?:\s+(?P<notnull>(?:NOT\s+)?NULL))?"
             r"(?:\s+DEFAULT\s+(?P<default>(?:NULL|'(?:''|[^'])*'|\(.+?\)|[\-\w\.\(\)]+)))?"
             r"(?:\s+COMMENT\s+'(?P<comment>(?:''|[^'])*)')?"
-            r"\s*,?\s*$" % quotes
+            r"\s*,?\s*$".format(**quotes)
         )
 
         self._re_key = _re_compile(
             r"  "
-            r"(?:(FULLTEXT|SPATIAL|VECTOR|(?P<type>\S+)) )?KEY"
+            r"(?:(FULLTEXT|SPATIAL|VECTOR|SPARSEVECTOR|(?P<type>\S+)) )?KEY"
             # r"(?:(?P<type>\S+) )?KEY"
             r"(?: +{iq}(?P<name>(?:{esc_fq}|[^{fq}])+){fq})?"
             r"(?: +USING +(?P<using_pre>\S+))?"

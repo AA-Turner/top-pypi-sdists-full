@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ansible-runner
-Version: 2.4.1
+Version: 2.4.2
 Summary: "Consistent Ansible Python API and CLI with container and process isolation runtime capabilities"
 Home-page: https://ansible-runner.readthedocs.io
 Author: Ansible, Inc.

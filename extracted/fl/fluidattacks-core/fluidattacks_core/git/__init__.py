@@ -131,9 +131,9 @@ async def get_line_author(
         OSError,
         SubprocessError,
         UnicodeDecodeError,
-    ) as exc:
+    ):
         LOGGER.exception(
-            exc,
+            "An error occurred while getting the line author",
             extra={
                 "extra": {
                     "repo_path": repo_path,
@@ -200,7 +200,7 @@ async def is_commit_in_branch(
     return branch in stdout.decode()
 
 
-def rebase(
+def rebase(  # noqa: PLR0913
     repo: Repo,
     *,
     path: str,
@@ -223,9 +223,9 @@ def rebase(
             M=True,
             C=True,
         ).splitlines()
-    except GitError as exc:
+    except GitError:
         if ignore_errors:
-            LOGGER.exception(exc)
+            LOGGER.exception("A git error occurred while rebasing")
             return None
 
         raise
@@ -240,10 +240,10 @@ def rebase(
         new_path = (
             new_path.encode("latin-1").decode("unicode-escape").encode("latin-1").decode("utf-8")
         ).strip('"')
-    except (UnicodeDecodeError, UnicodeEncodeError) as exc:
+    except (UnicodeDecodeError, UnicodeEncodeError):
         if ignore_errors:
             LOGGER.exception(
-                exc,
+                "Error decoding the new path",
                 extra={
                     "extra": {
                         "path": path,
@@ -263,11 +263,11 @@ def get_head_commit(path_to_repo: Path, branch: str) -> str | None:
         return (
             Repo(path_to_repo.resolve(), search_parent_directories=True).heads[branch].object.hexsha
         )
-    except GitError:
+    except (GitError, AttributeError, IndexError):
         return None
 
 
-async def clone(
+async def clone(  # noqa: PLR0913
     repo_url: str,
     repo_branch: str,
     *,

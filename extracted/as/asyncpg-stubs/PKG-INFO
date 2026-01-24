@@ -1,23 +1,24 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: asyncpg-stubs
-Version: 0.30.2
+Version: 0.31.1
 Summary: asyncpg stubs
 License: BSD-3-Clause
+License-File: LICENSE
 Author: Bryan Forbes
 Author-email: bryan@reigndropsfall.net
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Dist: asyncpg (>=0.30,<0.31)
+Requires-Dist: asyncpg (>=0.31,<0.32)
 Requires-Dist: typing-extensions (>=4.13.0,<5.0.0)
 Project-URL: Homepage, https://github.com/bryanforbes/asyncpg-stubs
 Description-Content-Type: text/markdown

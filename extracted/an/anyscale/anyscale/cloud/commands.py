@@ -1,11 +1,48 @@
 from typing import List, Optional
 
+from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk import sdk_command
 from anyscale.cloud._private.cloud_sdk import Cloud, PrivateCloudSDK
 from anyscale.cloud.models import CreateCloudCollaborator
 
 
 _CLOUD_SDK_SINGLETON_KEY = "cloud_sdk"
+
+_LIST_EXAMPLE = """
+import anyscale
+
+# Example: Get the first 50 clouds
+for cloud in anyscale.cloud.list(max_items=50):
+    print(cloud.name)
+"""
+
+_LIST_ARG_DOCSTRINGS = {
+    "cloud_id": "If provided, returns just the cloud with this ID wrapped in a one-page iterator.",
+    "name": "Substring or exact name to match against the cloud name.",
+    "max_items": "Maximum total number of items to yield (default: iterate all).",
+    "page_size": "Number of items to fetch per API request (default: API default).",
+}
+
+
+@sdk_command(
+    _CLOUD_SDK_SINGLETON_KEY,
+    PrivateCloudSDK,
+    doc_py_example=_LIST_EXAMPLE,
+    arg_docstrings=_LIST_ARG_DOCSTRINGS,
+)
+def list(  # noqa: A001
+    *,
+    cloud_id: Optional[str] = None,
+    name: Optional[str] = None,
+    max_items: Optional[int] = None,
+    page_size: Optional[int] = None,
+    _private_sdk: Optional[PrivateCloudSDK] = None,
+) -> ResultIterator[Cloud]:
+    """List clouds or fetch a single cloud by ID/name."""
+    return _private_sdk.list(  # type: ignore
+        cloud_id=cloud_id, name=name, max_items=max_items, page_size=page_size
+    )
+
 
 _ADD_COLLABORATORS_EXAMPLE = """
 import anyscale

@@ -21,6 +21,8 @@ class Task(CamelBase):
     enqueued_at: datetime
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
+    network: Optional[Dict[str, Any]] = None
+    custom_metadata: Optional[str] = None
 
     if is_pydantic_2():
 
@@ -110,7 +112,7 @@ class TaskResults(CamelBase):
     results: List[Task]
     limit: int
     total: int
-    from_: int
+    from_: Optional[int]
     next_: Optional[int]
 
 

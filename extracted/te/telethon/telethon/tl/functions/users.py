@@ -6,7 +6,7 @@ import os
 import struct
 from datetime import datetime
 if TYPE_CHECKING:
-    from ...tl.types import TypeInputDocument, TypeInputUser, TypeSecureValueError
+    from ...tl.types import TypeBirthday, TypeInputDocument, TypeInputUser, TypeSecureValueError
 
 
 
@@ -247,4 +247,39 @@ class SetSecureValueErrorsRequest(TLRequest):
             _errors.append(_x)
 
         return cls(id=_id, errors=_errors)
+
+
+class SuggestBirthdayRequest(TLRequest):
+    CONSTRUCTOR_ID = 0xfc533372
+    SUBCLASS_OF_ID = 0x8af52aac
+
+    def __init__(self, id: 'TypeInputUser', birthday: 'TypeBirthday'):
+        """
+        :returns Updates: Instance of either UpdatesTooLong, UpdateShortMessage, UpdateShortChatMessage, UpdateShort, UpdatesCombined, Updates, UpdateShortSentMessage.
+        """
+        self.id = id
+        self.birthday = birthday
+
+    async def resolve(self, client, utils):
+        self.id = utils.get_input_user(await client.get_input_entity(self.id))
+
+    def to_dict(self):
+        return {
+            '_': 'SuggestBirthdayRequest',
+            'id': self.id.to_dict() if isinstance(self.id, TLObject) else self.id,
+            'birthday': self.birthday.to_dict() if isinstance(self.birthday, TLObject) else self.birthday
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'r3S\xfc',
+            self.id._bytes(),
+            self.birthday._bytes(),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _id = reader.tgread_object()
+        _birthday = reader.tgread_object()
+        return cls(id=_id, birthday=_birthday)
 

@@ -31,9 +31,13 @@ from typing import Sequence, Union, Optional, Dict
 logger = RankedLogger(__name__, rank_zero_only=True)
 
 
-def _allegro_docstring(header: str) -> str:
-    """Generate common docstring for Allegro models with customizable header."""
-    return f"""{header}
+@model_builder
+def AllegroModel(
+    l_max: int,
+    parity: bool = True,
+    **kwargs,
+):
+    """Allegro model that predicts energies and forces (and stresses if cell is provided).
 
     Args:
         seed (int): seed for reproducibility
@@ -64,15 +68,8 @@ def _allegro_docstring(header: str) -> str:
         per_type_energy_scales_trainable (bool): whether the per-atom energy scales are trainable (default ``False``)
         per_type_energy_shifts_trainable (bool): whether the per-atom energy shifts are trainable (default ``False``)
         pair_potential (torch.nn.Module): additional pair potential term, e.g. :class:``nequip.nn.pair_potential.ZBL`` (default ``None``)
+        do_derivatives (bool): whether to compute forces and stresses via autograd (default ``True``)
     """
-
-
-@model_builder
-def AllegroEnergyModel(
-    l_max: int,
-    parity: bool = True,
-    **kwargs,
-):
     irreps_edge_sh = repr(o3.Irreps.spherical_harmonics(l_max, p=-1))
     # set tensor_track_allowed_irreps
     # note that it is treated as a set, so order doesn't really matter
@@ -85,32 +82,15 @@ def AllegroEnergyModel(
         # we want only irreps that show up in the original SH
         tensor_track_allowed_irreps = irreps_edge_sh
 
-    return FullAllegroEnergyModel(
+    return FullAllegroModel(
         irreps_edge_sh=irreps_edge_sh,
         tensor_track_allowed_irreps=tensor_track_allowed_irreps,
         **kwargs,
     )
 
 
-# assign docstrings using the shared function
-AllegroEnergyModel.__doc__ = _allegro_docstring(
-    "Allegro model that predicts energies only."
-)
-
-
 @model_builder
-def AllegroModel(**kwargs):
-    return ForceStressOutput(AllegroEnergyModel(**kwargs))
-
-
-# assign docstring for the force+energy model
-AllegroModel.__doc__ = _allegro_docstring(
-    "Allegro model that predicts energies and forces (and stresses if cell is provided)."
-)
-
-
-@model_builder
-def FullAllegroEnergyModel(
+def FullAllegroModel(
     r_max: float,
     type_names: Sequence[str],
     # irreps
@@ -146,6 +126,8 @@ def FullAllegroEnergyModel(
     per_type_energy_scales_trainable: Optional[bool] = False,
     per_type_energy_shifts_trainable: Optional[bool] = False,
     pair_potential: Optional[Dict] = None,
+    # derivatives
+    do_derivatives: bool = True,
     # weight initialization and normalization
     forward_normalize: bool = True,
 ):
@@ -297,9 +279,5 @@ def FullAllegroEnergyModel(
     modules.update({"total_energy_sum": total_energy_sum})
 
     # === finalize model ===
-    return SequentialGraphNetwork(modules)
-
-
-@model_builder
-def FullAllegroModel(**kwargs):
-    return ForceStressOutput(FullAllegroEnergyModel(**kwargs))
+    energy_model = SequentialGraphNetwork(modules)
+    return ForceStressOutput(energy_model, do_derivatives)

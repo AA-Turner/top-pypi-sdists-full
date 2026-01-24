@@ -13,9 +13,17 @@
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkSurface.h"
 #include "include/core/SkTypes.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/vk/GrVkBackendContext.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
+#include "include/gpu/ganesh/vk/GrVkDirectContext.h"
+#include "include/gpu/vk/VulkanBackendContext.h"
 #include "include/gpu/vk/VulkanExtensions.h"
+#include "include/gpu/vk/VulkanMemoryAllocator.h"
+
+// These are private files. Clients would need to look at these and implement
+// similar solutions.
+#include "src/gpu/vk/vulkanmemoryallocator/VulkanMemoryAllocatorPriv.h"
+#include "src/gpu/GpuTypesPriv.h"
 #include "tools/gpu/vk/VkTestUtils.h"
 
 #include <string.h>
@@ -34,55 +42,57 @@
     } while(false)
 
 int main(int argc, char** argv) {
-    GrVkBackendContext backendContext;
-    VkDebugReportCallbackEXT debugCallback;
+    skgpu::VulkanBackendContext backendContext;
+    VkDebugUtilsMessengerEXT debugMessenger;
     std::unique_ptr<skgpu::VulkanExtensions> extensions(new skgpu::VulkanExtensions());
-    std::unique_ptr<VkPhysicalDeviceFeatures2> features(new VkPhysicalDeviceFeatures2);
+    std::unique_ptr<sk_gpu_test::TestVkFeatures> features(new sk_gpu_test::TestVkFeatures);
 
-    // First we need to create a GrVkBackendContext so that we can make a Vulkan GrDirectContext.
+    // First we need to create a VulkanBackendContext so that we can make a Vulkan GrDirectContext.
     // The vast majority of this chunk of code is setting up the VkInstance and VkDevice objects.
     // Normally a client will have their own way of creating these objects. This example uses Skia's
     // test helper sk_gpu_test::CreateVkBackendContext to aid in this. Clients can look at this
     // function as a guide on things to consider when setting up Vulkan for themselves, but they
     // should not depend on that function. We may arbitrarily change it as it is meant only for Skia
     // internal testing. Additionally it may do some odd things that a normal Vulkan user wouldn't
-    // do because it is againt meant for Skia testing.
+    // do because it is only meant for Skia testing.
+    //
+    // When creating a device on your own, make sure to use skgpu::VulkanPreferredFeatures to let
+    // Skia add features and extensions it would like to take advantage of. Performance may suffer
+    // otherwise, or some functionality may not be accessible.
     {
         PFN_vkGetInstanceProcAddr instProc;
         if (!sk_gpu_test::LoadVkLibraryAndGetProcAddrFuncs(&instProc)) {
             return 1;
         }
 
-        memset(features.get(), 0, sizeof(VkPhysicalDeviceFeatures2));
-        features->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-        features->pNext = nullptr;
-        // Fill in features you want to enable here
-
         backendContext.fInstance = VK_NULL_HANDLE;
         backendContext.fDevice = VK_NULL_HANDLE;
 
-        if (!sk_gpu_test::CreateVkBackendContext(instProc, &backendContext, extensions.get(),
-                                                 features.get(), &debugCallback)) {
+        if (!sk_gpu_test::CreateVkBackendContext(
+                    instProc, &backendContext, extensions.get(), features.get(), &debugMessenger)) {
             return 1;
         }
     }
 
     auto getProc = backendContext.fGetProc;
     PFN_vkDestroyInstance fVkDestroyInstance;
-    PFN_vkDestroyDebugReportCallbackEXT fVkDestroyDebugReportCallbackEXT = nullptr;
+    PFN_vkDestroyDebugUtilsMessengerEXT fVkDestroyDebugUtilsMessengerEXT = nullptr;
     PFN_vkDestroyDevice fVkDestroyDevice;
     ACQUIRE_INST_VK_PROC(DestroyInstance);
-    if (debugCallback != VK_NULL_HANDLE) {
-        ACQUIRE_INST_VK_PROC(DestroyDebugReportCallbackEXT);
+    if (debugMessenger != VK_NULL_HANDLE) {
+        ACQUIRE_INST_VK_PROC(DestroyDebugUtilsMessengerEXT);
     }
     ACQUIRE_INST_VK_PROC(DestroyDevice);
 
-    // Create a GrDirectContext with our GrVkBackendContext
-    sk_sp<GrDirectContext> context = GrDirectContext::MakeVulkan(backendContext);
+    backendContext.fMemoryAllocator = skgpu::VulkanMemoryAllocators::Make(
+            backendContext, skgpu::ThreadSafe::kNo, std::nullopt);
+
+    // Create a GrDirectContext with our VulkanBackendContext
+    sk_sp<GrDirectContext> context = GrDirectContexts::MakeVulkan(backendContext);
     if (!context) {
         fVkDestroyDevice(backendContext.fDevice, nullptr);
-        if (debugCallback != VK_NULL_HANDLE) {
-            fVkDestroyDebugReportCallbackEXT(backendContext.fInstance, debugCallback, nullptr);
+        if (debugMessenger != VK_NULL_HANDLE) {
+            fVkDestroyDebugUtilsMessengerEXT(backendContext.fInstance, debugMessenger, nullptr);
         }
         fVkDestroyInstance(backendContext.fInstance, nullptr);
         return 1;
@@ -91,17 +101,18 @@ int main(int argc, char** argv) {
     SkImageInfo imageInfo = SkImageInfo::Make(16, 16, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
     // Create an SkSurface backed by a Vulkan VkImage. Often clients will be getting VkImages from
-    // swapchains. In those cases they should use SkSurface::MakeFromBackendTexture or
-    // SkSurface::MakeFromBackendRenderTarget to wrap those premade VkImages in Skia. See the
+    // swapchains. In those cases they should use SkSurfaces::WrapBackendTexture or
+    // SkSurfaces::WrapBackendRenderTarget to wrap those premade VkImages in Skia. See the
     // HelloWorld example app to see how this is done.
     sk_sp<SkSurface> surface =
-            SkSurface::MakeRenderTarget(context.get(), skgpu::Budgeted::kYes, imageInfo);
+            SkSurfaces::RenderTarget(context.get(), skgpu::Budgeted::kYes, imageInfo);
     if (!surface) {
         context.reset();
         fVkDestroyDevice(backendContext.fDevice, nullptr);
-        if (debugCallback != VK_NULL_HANDLE) {
-            fVkDestroyDebugReportCallbackEXT(backendContext.fInstance, debugCallback, nullptr);
-        }        fVkDestroyInstance(backendContext.fInstance, nullptr);
+        if (debugMessenger != VK_NULL_HANDLE) {
+            fVkDestroyDebugUtilsMessengerEXT(backendContext.fInstance, debugMessenger, nullptr);
+        }
+        fVkDestroyInstance(backendContext.fInstance, nullptr);
         return 1;
     }
 
@@ -110,7 +121,7 @@ int main(int argc, char** argv) {
     // After drawing to our surface, we must first flush the recorded work (i.e. convert all our
     // recorded SkCanvas calls into a VkCommandBuffer). Then we call submit to submit our
     // VkCommandBuffers to the gpu queue.
-    surface->flush();
+    context->flush(surface.get());
     context->submit();
 
     surface.reset();
@@ -120,8 +131,9 @@ int main(int argc, char** argv) {
     // client must not delete these objects until cleaning up all Skia objects that may have used
     // them first.
     fVkDestroyDevice(backendContext.fDevice, nullptr);
-    if (debugCallback != VK_NULL_HANDLE) {
-        fVkDestroyDebugReportCallbackEXT(backendContext.fInstance, debugCallback, nullptr);
-    }    fVkDestroyInstance(backendContext.fInstance, nullptr);
+    if (debugMessenger != VK_NULL_HANDLE) {
+        fVkDestroyDebugUtilsMessengerEXT(backendContext.fInstance, debugMessenger, nullptr);
+    }
+    fVkDestroyInstance(backendContext.fInstance, nullptr);
     return 0;
 }

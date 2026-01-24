@@ -1,24 +1,20 @@
+from __future__ import annotations
+
 import inspect
 import logging
 import os
 import pathlib
 import sys
-from types import ModuleType
-from typing import Any
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Set
-from typing import Tuple
-from typing import Union
-
-from sphinx.util.logging import OnceFilter
-from sphinx.util.logging import SphinxLogRecord
-from sphinx.util.logging import WarningLogRecordTranslator
+import typing
 
 from . import types
+from .types import Uri
 from .util import logger
-from .util import send_message
+
+if typing.TYPE_CHECKING:
+    from types import ModuleType
+    from typing import Any
+
 
 DIAGNOSTIC_SEVERITY = {
     logging.ERROR: types.DiagnosticSeverity.Error,
@@ -27,106 +23,30 @@ DIAGNOSTIC_SEVERITY = {
 }
 
 
-class SphinxLogHandler(logging.Handler):
+class DiagnosticFilter(logging.Filter):
     """A logging handler that can extract errors from Sphinx's build output."""
 
     def __init__(self, app, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.app = app
-        self.translator = WarningLogRecordTranslator(app)
-        self.only_once = OnceFilter()
-        self.diagnostics: Dict[str, Set[types.Diagnostic]] = {}
 
-    def get_location(self, location: str) -> Tuple[str, Optional[int]]:
-        if not location:
-            conf = pathlib.Path(self.app.confdir, "conf.py")
-            return (str(conf), None)
-
-        lineno = None
-        path, parts = self.get_location_path(location)
-
-        if len(parts) == 1:
-            try:
-                lineno = int(parts[0])
-            except ValueError:
-                pass
-
-        if len(parts) == 2 and parts[0].startswith("docstring of "):
-            target = parts[0].replace("docstring of ", "")
-            lineno = self.get_docstring_location(target, parts[1])
-
-        return (path, lineno)
-
-    def get_location_path(self, location: str) -> Tuple[str, List[str]]:
-        """Determine the filepath from the given location."""
-
-        if location.startswith("internal padding before "):
-            location = location.replace("internal padding before ", "")
-
-        if location.startswith("internal padding after "):
-            location = location.replace("internal padding after ", "")
-
-        path, *parts = location.split(":")
-
-        # On windows the rest of the path will be the first element of parts
-        if pathlib.Path(location).drive:
-            path += f":{parts.pop(0)}"
-
-        # Diagnostics in .. included:: files are reported relative to the process'
-        # working directory, so ensure the path is absolute.
-        path = os.path.abspath(path)
-
-        return path, parts
-
-    def get_docstring_location(self, target: str, offset: str) -> Optional[int]:
-        # The containing module will be the longest substring we can find in target
-        candidates = [m for m in sys.modules.keys() if target.startswith(m)] + [""]
-        module = sys.modules.get(sorted(candidates, key=len, reverse=True)[0], None)
-
-        if module is None:
-            return None
-
-        obj: Union[ModuleType, Any, None] = module
-        dotted_name = target.replace(module.__name__ + ".", "")
-
-        for name in dotted_name.split("."):
-            obj = getattr(obj, name, None)
-            if obj is None:
-                return None
-
-        try:
-            _, line = inspect.getsourcelines(obj)  # type: ignore
-
-            # Correct off by one error for docstrings that don't start with a newline.
-            nl = (obj.__doc__ or "").startswith("\n")
-            return line + int(offset) - (not nl)
-        except Exception:
-            logger.debug("Unable to determine diagnostic location\n%s", exc_info=True)
-            return None
-
-    def emit(self, record: logging.LogRecord) -> None:
+    def filter(self, record: logging.LogRecord) -> bool:
         conditions = [
             "sphinx" not in record.name,
             record.levelno not in {logging.WARNING, logging.ERROR},
         ]
 
         if any(conditions):
-            # Log the record as normal
-            self.do_emit(record)
-            return
+            return True
 
-        # Let sphinx extract location info for warning/error messages
-        self.translator.filter(record)  # type: ignore
+        loc = getattr(record, "location", "")
+        uri, lineno = source_to_uri_and_linum(loc)
 
-        # Only process errors/warnings once.
-        # Note: This isn't a silver bullet as it only catches messages that are explicitly
-        #       marked as to be logged only once e.g. logger.warning(..., once=True).
-        if not self.only_once.filter(record):
-            return
+        if uri is None:
+            conf = pathlib.Path(self.app.confdir, "conf.py")
+            uri, lineno = (Uri.for_file(conf), None)
 
-        loc = record.location if isinstance(record, SphinxLogRecord) else ""
-        doc, lineno = self.get_location(loc)
         line = lineno or 1
 
         try:
@@ -155,9 +75,88 @@ class SphinxLogHandler(logging.Handler):
             ),
         )
 
-        self.diagnostics.setdefault(doc, set()).add(diagnostic)
-        self.do_emit(record)
+        self.app.esbonio.diagnostics.setdefault(uri, set()).add(diagnostic)
+        return True
 
-    def do_emit(self, record):
-        params = types.LogMessageParams(message=self.format(record).strip(), type=4)
-        send_message(types.LogMessage(params=params))
+
+def source_to_uri_and_linum(
+    location: str | None,
+) -> tuple[Uri | None, int | None]:
+    """Convert the given source location to a uri and corresponding line number
+
+    Parameters
+    ----------
+    location
+       The location to convert
+
+    Returns
+    -------
+    Tuple[Optional[Uri], Optional[int]]
+       The corresponding uri and line number, if known
+    """
+    if location is None:
+        return None, None
+
+    lineno = None
+    path, parts = _get_location_path(location)
+
+    if len(parts) == 1:
+        try:
+            lineno = int(parts[0])
+        except ValueError:
+            pass
+
+    if len(parts) == 2 and parts[0].startswith("docstring of "):
+        target = parts[0].replace("docstring of ", "")
+        lineno = _get_docstring_linum(target, parts[1])
+
+    return Uri.for_file(path), lineno
+
+
+def _get_location_path(location: str) -> tuple[str, list[str]]:
+    """Determine the filepath from the given location."""
+
+    if location.startswith("internal padding before "):
+        location = location.replace("internal padding before ", "")
+
+    if location.startswith("internal padding after "):
+        location = location.replace("internal padding after ", "")
+
+    path, *parts = location.split(":")
+
+    # On windows the rest of the path will be the first element of parts
+    if pathlib.Path(location).drive:
+        path += f":{parts.pop(0)}"
+
+    # Diagnostics in .. included:: files are reported relative to the process'
+    # working directory, so ensure the path is absolute.
+    path = os.path.abspath(path)
+
+    return path, parts
+
+
+def _get_docstring_linum(target: str, offset: str) -> int | None:
+    # The containing module will be the longest substring we can find in target
+    candidates = [m for m in sys.modules.keys() if target.startswith(m)] + [""]
+    module = sys.modules.get(sorted(candidates, key=len, reverse=True)[0], None)
+
+    if module is None:
+        return None
+
+    obj: ModuleType | Any | None = module
+    dotted_name = target.replace(module.__name__ + ".", "")
+
+    for name in dotted_name.split("."):
+        obj = getattr(obj, name, None)
+        if obj is None:
+            return None
+
+    try:
+        _, line = inspect.getsourcelines(obj)  # type: ignore
+
+        # Correct off by one error for docstrings that don't start with a newline.
+        nl = (obj.__doc__ or "").startswith("\n")
+        return line + int(offset) - (not nl)
+    except Exception:
+        logger.debug("Unable to determine diagnostic location\n%s", exc_info=True)
+        return None

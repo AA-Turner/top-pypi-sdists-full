@@ -3,7 +3,7 @@ Type annotations for lambda service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -26,13 +27,18 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    GetDurableExecutionHistoryPaginator,
+    GetDurableExecutionStatePaginator,
     ListAliasesPaginator,
+    ListCapacityProvidersPaginator,
     ListCodeSigningConfigsPaginator,
+    ListDurableExecutionsByFunctionPaginator,
     ListEventSourceMappingsPaginator,
     ListFunctionEventInvokeConfigsPaginator,
     ListFunctionsByCodeSigningConfigPaginator,
     ListFunctionsPaginator,
     ListFunctionUrlConfigsPaginator,
+    ListFunctionVersionsByCapacityProviderPaginator,
     ListLayersPaginator,
     ListLayerVersionsPaginator,
     ListProvisionedConcurrencyConfigsPaginator,
@@ -44,8 +50,12 @@ from .type_defs import (
     AddPermissionRequestTypeDef,
     AddPermissionResponseTypeDef,
     AliasConfigurationResponseTypeDef,
+    CheckpointDurableExecutionRequestTypeDef,
+    CheckpointDurableExecutionResponseTypeDef,
     ConcurrencyResponseTypeDef,
     CreateAliasRequestTypeDef,
+    CreateCapacityProviderRequestTypeDef,
+    CreateCapacityProviderResponseTypeDef,
     CreateCodeSigningConfigRequestTypeDef,
     CreateCodeSigningConfigResponseTypeDef,
     CreateEventSourceMappingRequestTypeDef,
@@ -53,12 +63,15 @@ from .type_defs import (
     CreateFunctionUrlConfigRequestTypeDef,
     CreateFunctionUrlConfigResponseTypeDef,
     DeleteAliasRequestTypeDef,
+    DeleteCapacityProviderRequestTypeDef,
+    DeleteCapacityProviderResponseTypeDef,
     DeleteCodeSigningConfigRequestTypeDef,
     DeleteEventSourceMappingRequestTypeDef,
     DeleteFunctionCodeSigningConfigRequestTypeDef,
     DeleteFunctionConcurrencyRequestTypeDef,
     DeleteFunctionEventInvokeConfigRequestTypeDef,
     DeleteFunctionRequestTypeDef,
+    DeleteFunctionResponseTypeDef,
     DeleteFunctionUrlConfigRequestTypeDef,
     DeleteLayerVersionRequestTypeDef,
     DeleteProvisionedConcurrencyConfigRequestTypeDef,
@@ -68,8 +81,16 @@ from .type_defs import (
     FunctionEventInvokeConfigResponseTypeDef,
     GetAccountSettingsResponseTypeDef,
     GetAliasRequestTypeDef,
+    GetCapacityProviderRequestTypeDef,
+    GetCapacityProviderResponseTypeDef,
     GetCodeSigningConfigRequestTypeDef,
     GetCodeSigningConfigResponseTypeDef,
+    GetDurableExecutionHistoryRequestTypeDef,
+    GetDurableExecutionHistoryResponseTypeDef,
+    GetDurableExecutionRequestTypeDef,
+    GetDurableExecutionResponseTypeDef,
+    GetDurableExecutionStateRequestTypeDef,
+    GetDurableExecutionStateResponseTypeDef,
     GetEventSourceMappingRequestTypeDef,
     GetFunctionCodeSigningConfigRequestTypeDef,
     GetFunctionCodeSigningConfigResponseTypeDef,
@@ -81,6 +102,8 @@ from .type_defs import (
     GetFunctionRecursionConfigResponseTypeDef,
     GetFunctionRequestTypeDef,
     GetFunctionResponseTypeDef,
+    GetFunctionScalingConfigRequestTypeDef,
+    GetFunctionScalingConfigResponseTypeDef,
     GetFunctionUrlConfigRequestTypeDef,
     GetFunctionUrlConfigResponseTypeDef,
     GetLayerVersionByArnRequestTypeDef,
@@ -102,8 +125,12 @@ from .type_defs import (
     InvokeWithResponseStreamResponseTypeDef,
     ListAliasesRequestTypeDef,
     ListAliasesResponseTypeDef,
+    ListCapacityProvidersRequestTypeDef,
+    ListCapacityProvidersResponseTypeDef,
     ListCodeSigningConfigsRequestTypeDef,
     ListCodeSigningConfigsResponseTypeDef,
+    ListDurableExecutionsByFunctionRequestTypeDef,
+    ListDurableExecutionsByFunctionResponseTypeDef,
     ListEventSourceMappingsRequestTypeDef,
     ListEventSourceMappingsResponseTypeDef,
     ListFunctionEventInvokeConfigsRequestTypeDef,
@@ -114,6 +141,8 @@ from .type_defs import (
     ListFunctionsResponseTypeDef,
     ListFunctionUrlConfigsRequestTypeDef,
     ListFunctionUrlConfigsResponseTypeDef,
+    ListFunctionVersionsByCapacityProviderRequestTypeDef,
+    ListFunctionVersionsByCapacityProviderResponseTypeDef,
     ListLayersRequestTypeDef,
     ListLayersResponseTypeDef,
     ListLayerVersionsRequestTypeDef,
@@ -133,15 +162,24 @@ from .type_defs import (
     PutFunctionEventInvokeConfigRequestTypeDef,
     PutFunctionRecursionConfigRequestTypeDef,
     PutFunctionRecursionConfigResponseTypeDef,
+    PutFunctionScalingConfigRequestTypeDef,
+    PutFunctionScalingConfigResponseTypeDef,
     PutProvisionedConcurrencyConfigRequestTypeDef,
     PutProvisionedConcurrencyConfigResponseTypeDef,
     PutRuntimeManagementConfigRequestTypeDef,
     PutRuntimeManagementConfigResponseTypeDef,
     RemoveLayerVersionPermissionRequestTypeDef,
     RemovePermissionRequestTypeDef,
+    SendDurableExecutionCallbackFailureRequestTypeDef,
+    SendDurableExecutionCallbackHeartbeatRequestTypeDef,
+    SendDurableExecutionCallbackSuccessRequestTypeDef,
+    StopDurableExecutionRequestTypeDef,
+    StopDurableExecutionResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateAliasRequestTypeDef,
+    UpdateCapacityProviderRequestTypeDef,
+    UpdateCapacityProviderResponseTypeDef,
     UpdateCodeSigningConfigRequestTypeDef,
     UpdateCodeSigningConfigResponseTypeDef,
     UpdateEventSourceMappingRequestTypeDef,
@@ -160,12 +198,6 @@ from .waiter import (
     PublishedVersionActiveWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -174,45 +206,51 @@ else:
 __all__ = ("LambdaClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    CodeSigningConfigNotFoundException: Type[BotocoreClientError]
-    CodeStorageExceededException: Type[BotocoreClientError]
-    CodeVerificationFailedException: Type[BotocoreClientError]
-    EC2AccessDeniedException: Type[BotocoreClientError]
-    EC2ThrottledException: Type[BotocoreClientError]
-    EC2UnexpectedException: Type[BotocoreClientError]
-    EFSIOException: Type[BotocoreClientError]
-    EFSMountConnectivityException: Type[BotocoreClientError]
-    EFSMountFailureException: Type[BotocoreClientError]
-    EFSMountTimeoutException: Type[BotocoreClientError]
-    ENILimitReachedException: Type[BotocoreClientError]
-    InvalidCodeSignatureException: Type[BotocoreClientError]
-    InvalidParameterValueException: Type[BotocoreClientError]
-    InvalidRequestContentException: Type[BotocoreClientError]
-    InvalidRuntimeException: Type[BotocoreClientError]
-    InvalidSecurityGroupIDException: Type[BotocoreClientError]
-    InvalidSubnetIDException: Type[BotocoreClientError]
-    InvalidZipFileException: Type[BotocoreClientError]
-    KMSAccessDeniedException: Type[BotocoreClientError]
-    KMSDisabledException: Type[BotocoreClientError]
-    KMSInvalidStateException: Type[BotocoreClientError]
-    KMSNotFoundException: Type[BotocoreClientError]
-    PolicyLengthExceededException: Type[BotocoreClientError]
-    PreconditionFailedException: Type[BotocoreClientError]
-    ProvisionedConcurrencyConfigNotFoundException: Type[BotocoreClientError]
-    RecursiveInvocationException: Type[BotocoreClientError]
-    RequestTooLargeException: Type[BotocoreClientError]
-    ResourceConflictException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceNotReadyException: Type[BotocoreClientError]
-    ServiceException: Type[BotocoreClientError]
-    SnapStartException: Type[BotocoreClientError]
-    SnapStartNotReadyException: Type[BotocoreClientError]
-    SnapStartTimeoutException: Type[BotocoreClientError]
-    SubnetIPAddressLimitReachedException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UnsupportedMediaTypeException: Type[BotocoreClientError]
+    CallbackTimeoutException: type[BotocoreClientError]
+    CapacityProviderLimitExceededException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CodeSigningConfigNotFoundException: type[BotocoreClientError]
+    CodeStorageExceededException: type[BotocoreClientError]
+    CodeVerificationFailedException: type[BotocoreClientError]
+    DurableExecutionAlreadyStartedException: type[BotocoreClientError]
+    EC2AccessDeniedException: type[BotocoreClientError]
+    EC2ThrottledException: type[BotocoreClientError]
+    EC2UnexpectedException: type[BotocoreClientError]
+    EFSIOException: type[BotocoreClientError]
+    EFSMountConnectivityException: type[BotocoreClientError]
+    EFSMountFailureException: type[BotocoreClientError]
+    EFSMountTimeoutException: type[BotocoreClientError]
+    ENILimitReachedException: type[BotocoreClientError]
+    FunctionVersionsPerCapacityProviderLimitExceededException: type[BotocoreClientError]
+    InvalidCodeSignatureException: type[BotocoreClientError]
+    InvalidParameterValueException: type[BotocoreClientError]
+    InvalidRequestContentException: type[BotocoreClientError]
+    InvalidRuntimeException: type[BotocoreClientError]
+    InvalidSecurityGroupIDException: type[BotocoreClientError]
+    InvalidSubnetIDException: type[BotocoreClientError]
+    InvalidZipFileException: type[BotocoreClientError]
+    KMSAccessDeniedException: type[BotocoreClientError]
+    KMSDisabledException: type[BotocoreClientError]
+    KMSInvalidStateException: type[BotocoreClientError]
+    KMSNotFoundException: type[BotocoreClientError]
+    NoPublishedVersionException: type[BotocoreClientError]
+    PolicyLengthExceededException: type[BotocoreClientError]
+    PreconditionFailedException: type[BotocoreClientError]
+    ProvisionedConcurrencyConfigNotFoundException: type[BotocoreClientError]
+    RecursiveInvocationException: type[BotocoreClientError]
+    RequestTooLargeException: type[BotocoreClientError]
+    ResourceConflictException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceNotReadyException: type[BotocoreClientError]
+    SerializedRequestEntityTooLargeException: type[BotocoreClientError]
+    ServiceException: type[BotocoreClientError]
+    SnapStartException: type[BotocoreClientError]
+    SnapStartNotReadyException: type[BotocoreClientError]
+    SnapStartTimeoutException: type[BotocoreClientError]
+    SubnetIPAddressLimitReachedException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UnsupportedMediaTypeException: type[BotocoreClientError]
 
 class LambdaClient(BaseClient):
     """
@@ -273,6 +311,18 @@ class LambdaClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#add_permission)
         """
 
+    def checkpoint_durable_execution(
+        self, **kwargs: Unpack[CheckpointDurableExecutionRequestTypeDef]
+    ) -> CheckpointDurableExecutionResponseTypeDef:
+        """
+        Saves the progress of a <a
+        href="https://docs.aws.amazon.com/lambda/latest/dg/durable-functions.html">durable
+        function</a> execution during runtime.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/checkpoint_durable_execution.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#checkpoint_durable_execution)
+        """
+
     def create_alias(
         self, **kwargs: Unpack[CreateAliasRequestTypeDef]
     ) -> AliasConfigurationResponseTypeDef:
@@ -283,6 +333,16 @@ class LambdaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/create_alias.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#create_alias)
+        """
+
+    def create_capacity_provider(
+        self, **kwargs: Unpack[CreateCapacityProviderRequestTypeDef]
+    ) -> CreateCapacityProviderResponseTypeDef:
+        """
+        Creates a capacity provider that manages compute resources for Lambda functions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/create_capacity_provider.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#create_capacity_provider)
         """
 
     def create_code_signing_config(
@@ -336,9 +396,19 @@ class LambdaClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#delete_alias)
         """
 
+    def delete_capacity_provider(
+        self, **kwargs: Unpack[DeleteCapacityProviderRequestTypeDef]
+    ) -> DeleteCapacityProviderResponseTypeDef:
+        """
+        Deletes a capacity provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/delete_capacity_provider.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#delete_capacity_provider)
+        """
+
     def delete_code_signing_config(
         self, **kwargs: Unpack[DeleteCodeSigningConfigRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the code signing configuration.
 
@@ -360,7 +430,7 @@ class LambdaClient(BaseClient):
 
     def delete_function(
         self, **kwargs: Unpack[DeleteFunctionRequestTypeDef]
-    ) -> EmptyResponseMetadataTypeDef:
+    ) -> DeleteFunctionResponseTypeDef:
         """
         Deletes a Lambda function.
 
@@ -452,6 +522,17 @@ class LambdaClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#get_alias)
         """
 
+    def get_capacity_provider(
+        self, **kwargs: Unpack[GetCapacityProviderRequestTypeDef]
+    ) -> GetCapacityProviderResponseTypeDef:
+        """
+        Retrieves information about a specific capacity provider, including its
+        configuration, state, and associated resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_capacity_provider.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#get_capacity_provider)
+        """
+
     def get_code_signing_config(
         self, **kwargs: Unpack[GetCodeSigningConfigRequestTypeDef]
     ) -> GetCodeSigningConfigResponseTypeDef:
@@ -460,6 +541,44 @@ class LambdaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_code_signing_config.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#get_code_signing_config)
+        """
+
+    def get_durable_execution(
+        self, **kwargs: Unpack[GetDurableExecutionRequestTypeDef]
+    ) -> GetDurableExecutionResponseTypeDef:
+        """
+        Retrieves detailed information about a specific <a
+        href="https://docs.aws.amazon.com/lambda/latest/dg/durable-functions.html">durable
+        execution</a>, including its current status, input payload, result or error
+        information, and execution metadata such as start time and usage statistics.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_durable_execution.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#get_durable_execution)
+        """
+
+    def get_durable_execution_history(
+        self, **kwargs: Unpack[GetDurableExecutionHistoryRequestTypeDef]
+    ) -> GetDurableExecutionHistoryResponseTypeDef:
+        """
+        Retrieves the execution history for a <a
+        href="https://docs.aws.amazon.com/lambda/latest/dg/durable-functions.html">durable
+        execution</a>, showing all the steps, callbacks, and events that occurred
+        during the execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_durable_execution_history.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#get_durable_execution_history)
+        """
+
+    def get_durable_execution_state(
+        self, **kwargs: Unpack[GetDurableExecutionStateRequestTypeDef]
+    ) -> GetDurableExecutionStateResponseTypeDef:
+        """
+        Retrieves the current execution state required for the replay process during <a
+        href="https://docs.aws.amazon.com/lambda/latest/dg/durable-functions.html">durable
+        function</a> execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_durable_execution_state.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#get_durable_execution_state)
         """
 
     def get_event_source_mapping(
@@ -534,6 +653,16 @@ class LambdaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_function_recursion_config.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#get_function_recursion_config)
+        """
+
+    def get_function_scaling_config(
+        self, **kwargs: Unpack[GetFunctionScalingConfigRequestTypeDef]
+    ) -> GetFunctionScalingConfigResponseTypeDef:
+        """
+        Retrieves the scaling configuration for a Lambda Managed Instances function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_function_scaling_config.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#get_function_scaling_config)
         """
 
     def get_function_url_config(
@@ -627,7 +756,7 @@ class LambdaClient(BaseClient):
         self, **kwargs: Unpack[InvokeAsyncRequestTypeDef]
     ) -> InvokeAsyncResponseTypeDef:
         """
-        <important> <p>For asynchronous function invocation, use <a>Invoke</a>.
+        <note> <p>For asynchronous function invocation, use <a>Invoke</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/invoke_async.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#invoke_async)
@@ -655,6 +784,16 @@ class LambdaClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#list_aliases)
         """
 
+    def list_capacity_providers(
+        self, **kwargs: Unpack[ListCapacityProvidersRequestTypeDef]
+    ) -> ListCapacityProvidersResponseTypeDef:
+        """
+        Returns a list of capacity providers in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/list_capacity_providers.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#list_capacity_providers)
+        """
+
     def list_code_signing_configs(
         self, **kwargs: Unpack[ListCodeSigningConfigsRequestTypeDef]
     ) -> ListCodeSigningConfigsResponseTypeDef:
@@ -665,6 +804,18 @@ class LambdaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/list_code_signing_configs.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#list_code_signing_configs)
+        """
+
+    def list_durable_executions_by_function(
+        self, **kwargs: Unpack[ListDurableExecutionsByFunctionRequestTypeDef]
+    ) -> ListDurableExecutionsByFunctionResponseTypeDef:
+        """
+        Returns a list of <a
+        href="https://docs.aws.amazon.com/lambda/latest/dg/durable-functions.html">durable
+        executions</a> for a specified Lambda function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/list_durable_executions_by_function.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#list_durable_executions_by_function)
         """
 
     def list_event_source_mappings(
@@ -695,6 +846,17 @@ class LambdaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/list_function_url_configs.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#list_function_url_configs)
+        """
+
+    def list_function_versions_by_capacity_provider(
+        self, **kwargs: Unpack[ListFunctionVersionsByCapacityProviderRequestTypeDef]
+    ) -> ListFunctionVersionsByCapacityProviderResponseTypeDef:
+        """
+        Returns a list of function versions that are configured to use a specific
+        capacity provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/list_function_versions_by_capacity_provider.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#list_function_versions_by_capacity_provider)
         """
 
     def list_functions(
@@ -840,6 +1002,16 @@ class LambdaClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#put_function_recursion_config)
         """
 
+    def put_function_scaling_config(
+        self, **kwargs: Unpack[PutFunctionScalingConfigRequestTypeDef]
+    ) -> PutFunctionScalingConfigResponseTypeDef:
+        """
+        Sets the scaling configuration for a Lambda Managed Instances function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/put_function_scaling_config.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#put_function_scaling_config)
+        """
+
     def put_provisioned_concurrency_config(
         self, **kwargs: Unpack[PutProvisionedConcurrencyConfigRequestTypeDef]
     ) -> PutProvisionedConcurrencyConfigResponseTypeDef:
@@ -883,6 +1055,50 @@ class LambdaClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#remove_permission)
         """
 
+    def send_durable_execution_callback_failure(
+        self, **kwargs: Unpack[SendDurableExecutionCallbackFailureRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Sends a failure response for a callback operation in a durable execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/send_durable_execution_callback_failure.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#send_durable_execution_callback_failure)
+        """
+
+    def send_durable_execution_callback_heartbeat(
+        self, **kwargs: Unpack[SendDurableExecutionCallbackHeartbeatRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Sends a heartbeat signal for a long-running callback operation to prevent
+        timeout.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/send_durable_execution_callback_heartbeat.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#send_durable_execution_callback_heartbeat)
+        """
+
+    def send_durable_execution_callback_success(
+        self, **kwargs: Unpack[SendDurableExecutionCallbackSuccessRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Sends a successful completion response for a callback operation in a durable
+        execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/send_durable_execution_callback_success.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#send_durable_execution_callback_success)
+        """
+
+    def stop_durable_execution(
+        self, **kwargs: Unpack[StopDurableExecutionRequestTypeDef]
+    ) -> StopDurableExecutionResponseTypeDef:
+        """
+        Stops a running <a
+        href="https://docs.aws.amazon.com/lambda/latest/dg/durable-functions.html">durable
+        execution</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/stop_durable_execution.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#stop_durable_execution)
+        """
+
     def tag_resource(
         self, **kwargs: Unpack[TagResourceRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -916,6 +1132,16 @@ class LambdaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/update_alias.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#update_alias)
+        """
+
+    def update_capacity_provider(
+        self, **kwargs: Unpack[UpdateCapacityProviderRequestTypeDef]
+    ) -> UpdateCapacityProviderResponseTypeDef:
+        """
+        Updates the configuration of an existing capacity provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/update_capacity_provider.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#update_capacity_provider)
         """
 
     def update_code_signing_config(
@@ -981,6 +1207,28 @@ class LambdaClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_durable_execution_history"]
+    ) -> GetDurableExecutionHistoryPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_durable_execution_state"]
+    ) -> GetDurableExecutionStatePaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_aliases"]
     ) -> ListAliasesPaginator:
         """
@@ -992,8 +1240,30 @@ class LambdaClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_capacity_providers"]
+    ) -> ListCapacityProvidersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_code_signing_configs"]
     ) -> ListCodeSigningConfigsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_durable_executions_by_function"]
+    ) -> ListDurableExecutionsByFunctionPaginator:
         """
         Create a paginator for an operation.
 
@@ -1027,6 +1297,17 @@ class LambdaClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_function_url_configs"]
     ) -> ListFunctionUrlConfigsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_function_versions_by_capacity_provider"]
+    ) -> ListFunctionVersionsByCapacityProviderPaginator:
         """
         Create a paginator for an operation.
 

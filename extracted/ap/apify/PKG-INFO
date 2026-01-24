@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apify
-Version: 2.7.3
+Version: 3.1.0
 Summary: Apify SDK for Python
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Changelog, https://docs.apify.com/sdk/python/docs/changelog
@@ -219,27 +219,44 @@ Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.9
-Requires-Dist: apify-client<2.0.0
-Requires-Dist: apify-shared<2.0.0
-Requires-Dist: crawlee~=0.6.0
+Requires-Python: >=3.10
+Requires-Dist: apify-client<3.0.0,>=2.3.0
+Requires-Dist: apify-shared<3.0.0,>=2.0.0
+Requires-Dist: cachetools>=5.5.0
+Requires-Dist: crawlee<2.0.0,>=1.0.4
 Requires-Dist: cryptography>=42.0.0
-Requires-Dist: httpx>=0.27.0
-Requires-Dist: lazy-object-proxy<1.11.0
+Requires-Dist: impit>=0.8.0
+Requires-Dist: lazy-object-proxy>=1.11.0
 Requires-Dist: more-itertools>=10.2.0
 Requires-Dist: typing-extensions>=4.1.0
 Requires-Dist: websockets>=14.0
+Requires-Dist: yarl>=1.18.0
 Provides-Extra: scrapy
 Requires-Dist: scrapy>=2.11.0; extra == 'scrapy'
 Description-Content-Type: text/markdown
 
-# Apify SDK for Python
+<h1 align=center>Apify SDK for Python</h1>
+
+<p align=center>
+    <a href="https://badge.fury.io/py/apify" rel="nofollow">
+        <img src="https://badge.fury.io/py/apify.svg" alt="PyPI version" style="max-width: 100%;">
+    </a>
+    <a href="https://pypi.org/project/apify/" rel="nofollow">
+        <img src="https://img.shields.io/pypi/dm/apify" alt="PyPI - Downloads" style="max-width: 100%;">
+    </a>
+    <a href="https://pypi.org/project/apify/" rel="nofollow">
+        <img src="https://img.shields.io/pypi/pyversions/apify" alt="PyPI - Python Version" style="max-width: 100%;">
+    </a>
+    <a href="https://discord.gg/jyEM2PRvMU" rel="nofollow">
+        <img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on discord" style="max-width: 100%;">
+    </a>
+</p>
 
 The Apify SDK for Python is the official library to create [Apify Actors](https://docs.apify.com/platform/actors)
 in Python. It provides useful features like Actor lifecycle management, local storage emulation, and Actor

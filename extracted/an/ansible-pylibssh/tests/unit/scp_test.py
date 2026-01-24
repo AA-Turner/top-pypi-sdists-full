@@ -5,11 +5,11 @@
 import os
 import random
 import string
-import uuid
 
 import pytest
 
 from pylibsshext.errors import LibsshSCPException
+from pylibsshext.scp import SCP_MAX_CHUNK
 
 
 @pytest.fixture
@@ -22,11 +22,22 @@ def ssh_scp(ssh_client_session):
         del scp  # noqa: WPS420
 
 
-@pytest.fixture
-def transmit_payload():
-    """Generate a binary test payload."""
-    uuid_name = uuid.uuid4()
-    return 'Hello, {name!s}'.format(name=uuid_name).encode()
+@pytest.fixture(
+    params=(32, SCP_MAX_CHUNK + 1),
+    ids=('small-payload', 'large-payload'),
+)
+def transmit_payload(request: pytest.FixtureRequest):
+    """Generate a binary test payload.
+
+    The choice 32 is arbitrary small value.
+
+    The choice SCP_CHUNK_SIZE + 1 (64kB + 1B) is meant to be 1B larger than the chunk
+    size used in :file:`scp.pyx` to make sure we excercise at least two rounds of
+    reading/writing.
+    """
+    payload_len = request.param
+    random_bytes = [ord(random.choice(string.printable)) for _ in range(payload_len)]
+    return bytes(random_bytes)
 
 
 @pytest.fixture
@@ -91,32 +102,3 @@ def test_get_existing_local(pre_existing_file_path, src_path, ssh_scp, transmit_
     """Check that SCP file download works and overwrites local file if it exists."""
     ssh_scp.get(str(src_path), str(pre_existing_file_path))
     assert pre_existing_file_path.read_bytes() == transmit_payload
-
-
-@pytest.fixture
-def large_payload():
-    """Generate a large 65537 byte (64kB+1B) test payload."""
-    random_char_kilobyte = [ord(random.choice(string.printable)) for _ in range(1024)]
-    full_bytes_number = 64
-    a_64kB_chunk = bytes(random_char_kilobyte * full_bytes_number)
-    the_last_byte = random.choice(random_char_kilobyte).to_bytes(length=1, byteorder='big')
-    return a_64kB_chunk + the_last_byte
-
-
-@pytest.fixture
-def src_path_large(tmp_path, large_payload):
-    """Return a remote path that to a 65537 byte-sized file.
-
-    Typical single-read chunk size is 64kB in ``libssh`` so
-    the test needs a file that would overflow that to trigger
-    the read loop.
-    """
-    path = tmp_path / 'large.txt'
-    path.write_bytes(large_payload)
-    return path
-
-
-def test_get_large(dst_path, src_path_large, ssh_scp, large_payload):
-    """Check that SCP file download gets over 64kB of data."""
-    ssh_scp.get(str(src_path_large), str(dst_path))
-    assert dst_path.read_bytes() == large_payload

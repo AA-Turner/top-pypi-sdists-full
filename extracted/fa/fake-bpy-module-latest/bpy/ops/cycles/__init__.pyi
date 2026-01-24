@@ -13,12 +13,8 @@ def denoise_animation(
 ) -> None:
     """Denoise rendered animation sequence using current scene and view layer settings. Requires denoising data passes and output to OpenEXR multilayer files
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param input_filepath: Input Filepath, File path for image to denoise. If not specified, uses the render file path and frame range from the scene
-    :type input_filepath: str
     :param output_filepath: Output Filepath, If not specified, renders will be denoised in-place
-    :type output_filepath: str
     """
 
 def merge_images(
@@ -32,14 +28,9 @@ def merge_images(
 ) -> None:
     """Combine OpenEXR multi-layer images rendered with different sample ranges into one image with reduced noise
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param input_filepath1: Input Filepath, File path for image to merge
-    :type input_filepath1: str
     :param input_filepath2: Input Filepath, File path for image to merge
-    :type input_filepath2: str
     :param output_filepath: Output Filepath, File path for merged image
-    :type output_filepath: str
     """
 
 def use_shading_nodes(
@@ -47,8 +38,4 @@ def use_shading_nodes(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Enable nodes on a light
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Enable nodes on a light"""

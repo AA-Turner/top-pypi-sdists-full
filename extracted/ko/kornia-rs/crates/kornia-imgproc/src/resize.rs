@@ -3,7 +3,7 @@ use crate::{
     parallel,
 };
 use fast_image_resize::{self as fr};
-use kornia_image::{Image, ImageError};
+use kornia_image::{allocator::ImageAllocator, Image, ImageError};
 
 /// Resize an image to a new size.
 ///
@@ -24,15 +24,17 @@ use kornia_image::{Image, ImageError};
 ///
 /// ```
 /// use kornia_image::{Image, ImageSize};
+/// use kornia_image::allocator::CpuAllocator;
 /// use kornia_imgproc::resize::resize_native;
 /// use kornia_imgproc::interpolation::InterpolationMode;
 ///
-/// let image = Image::<_, 3>::new(
+/// let image = Image::<_, 3, _>::new(
 ///     ImageSize {
 ///         width: 4,
 ///         height: 5,
 ///     },
 ///     vec![0f32; 4 * 5 * 3],
+///     CpuAllocator
 /// )
 /// .unwrap();
 ///
@@ -41,7 +43,7 @@ use kornia_image::{Image, ImageError};
 ///     height: 3,
 /// };
 ///
-/// let mut image_resized = Image::<_, 3>::from_size_val(new_size, 0.0).unwrap();
+/// let mut image_resized = Image::<_, 3, _>::from_size_val(new_size, 0.0, CpuAllocator).unwrap();
 ///
 /// resize_native(
 ///     &image,
@@ -54,9 +56,9 @@ use kornia_image::{Image, ImageError};
 /// assert_eq!(image_resized.size().width, 2);
 /// assert_eq!(image_resized.size().height, 3);
 /// ```
-pub fn resize_native<const C: usize>(
-    src: &Image<f32, C>,
-    dst: &mut Image<f32, C>,
+pub fn resize_native<const C: usize, A1: ImageAllocator, A2: ImageAllocator>(
+    src: &Image<f32, C, A1>,
+    dst: &mut Image<f32, C, A2>,
     interpolation: InterpolationMode,
 ) -> Result<(), ImageError>
 where
@@ -107,15 +109,17 @@ where
 ///
 /// ```
 /// use kornia_image::{Image, ImageSize};
-/// use kornia_imgproc::resize::resize_fast;
+/// use kornia_image::allocator::CpuAllocator;
+/// use kornia_imgproc::resize::resize_fast_rgb;
 /// use kornia_imgproc::interpolation::InterpolationMode;
 ///
-/// let image = Image::<_, 3>::new(
-///    ImageSize {
-///       width: 4,
-///      height: 5,
-/// },
-/// vec![0u8; 4 * 5 * 3],
+/// let image = Image::<_, 3, _>::new(
+///     ImageSize {
+///         width: 4,
+///         height: 5,
+///     },
+///     vec![0u8; 4 * 5 * 3],
+///     CpuAllocator
 /// )
 /// .unwrap();
 ///
@@ -124,9 +128,9 @@ where
 ///   height: 3,
 /// };
 ///
-/// let mut image_resized = Image::<_, 3>::from_size_val(new_size, 0).unwrap();
+/// let mut image_resized = Image::<_, 3, _>::from_size_val(new_size, 0, CpuAllocator).unwrap();
 ///
-/// resize_fast(
+/// resize_fast_rgb(
 ///   &image,
 ///   &mut image_resized,
 ///   InterpolationMode::Nearest,
@@ -141,31 +145,60 @@ where
 /// # Errors
 ///
 /// The function returns an error if the image cannot be resized.
-pub fn resize_fast(
-    src: &Image<u8, 3>,
-    dst: &mut Image<u8, 3>,
+pub fn resize_fast_rgb<A1: ImageAllocator, A2: ImageAllocator>(
+    src: &Image<u8, 3, A1>,
+    dst: &mut Image<u8, 3, A2>,
     interpolation: InterpolationMode,
 ) -> Result<(), ImageError> {
-    if dst.size() != dst.size() {
-        return Err(ImageError::InvalidImageSize(
-            src.size().width,
-            src.size().height,
-            dst.size().width,
-            dst.size().height,
-        ));
-    }
+    resize_fast_impl(src, dst, interpolation)
+}
 
+/// Resize a grayscale (single-channel) image to a new size using the [fast_image_resize](https://crates.io/crates/fast_image_resize) crate.
+///
+/// The function resizes a grayscale image to a new size using the specified interpolation mode.
+/// It supports only 1-channel images and u8 data type.
+///
+/// # Arguments
+///
+/// * `src` - The input grayscale image container with 1 channel.
+/// * `dst` - The output grayscale image container with 1 channel.
+/// * `interpolation` - The interpolation mode to use.
+///
+/// # Returns
+///
+/// The resized image with the new size.
+///
+/// # Errors
+///
+/// The function returns an error if the image cannot be resized.
+pub fn resize_fast_mono<A1: ImageAllocator, A2: ImageAllocator>(
+    src: &Image<u8, 1, A1>,
+    dst: &mut Image<u8, 1, A2>,
+    interpolation: InterpolationMode,
+) -> Result<(), ImageError> {
+    resize_fast_impl(src, dst, interpolation)
+}
+
+fn resize_fast_impl<const C: usize, A1: ImageAllocator, A2: ImageAllocator>(
+    src: &Image<u8, C, A1>,
+    dst: &mut Image<u8, C, A2>,
+    interpolation: InterpolationMode,
+) -> Result<(), ImageError> {
     // prepare the input image for the fast_image_resize crate
     let (src_cols, src_rows) = (src.cols(), src.rows());
     let src_data_len = src.as_slice().len();
 
-    let src_image = fr::images::ImageRef::new(
-        src_cols as u32,
-        src_rows as u32,
-        src.as_slice(),
-        fr::PixelType::U8x3,
-    )
-    .map_err(|_| ImageError::InvalidChannelShape(src_data_len, src_cols * src_rows * 3))?;
+    let pixel_type = match C {
+        4 => fr::PixelType::U8x4,
+        3 => fr::PixelType::U8x3,
+        1 => fr::PixelType::U8,
+        // TODO: Find a way to generalise it further by supporting multiple types other than u8
+        _ => return Err(ImageError::UnsupportedChannelCount(C)),
+    };
+
+    let src_image =
+        fr::images::ImageRef::new(src_cols as u32, src_rows as u32, src.as_slice(), pixel_type)
+            .map_err(|_| ImageError::InvalidChannelShape(src_data_len, src_cols * src_rows * C))?;
 
     // prepare the output image for the fast_image_resize crate
     let (dst_cols, dst_rows) = (dst.cols(), dst.rows());
@@ -175,14 +208,16 @@ pub fn resize_fast(
         dst_cols as u32,
         dst_rows as u32,
         dst.as_slice_mut(),
-        fr::PixelType::U8x3,
+        pixel_type,
     )
-    .map_err(|_| ImageError::InvalidChannelShape(dst_data_len, dst_cols * dst_rows * 3))?;
+    .map_err(|_| ImageError::InvalidChannelShape(dst_data_len, dst_cols * dst_rows * C))?;
 
     let mut options = fr::ResizeOptions::new();
     options.algorithm = match interpolation {
         InterpolationMode::Bilinear => fr::ResizeAlg::Convolution(fr::FilterType::Bilinear),
         InterpolationMode::Nearest => fr::ResizeAlg::Nearest,
+        InterpolationMode::Lanczos => fr::ResizeAlg::Convolution(fr::FilterType::Lanczos3),
+        InterpolationMode::Bicubic => fr::ResizeAlg::Convolution(fr::FilterType::CatmullRom),
     };
 
     let mut resizer = fr::Resizer::new();
@@ -196,16 +231,17 @@ pub fn resize_fast(
 #[cfg(test)]
 mod tests {
     use kornia_image::{Image, ImageError, ImageSize};
-    use kornia_tensor::TensorError;
+    use kornia_tensor::{CpuAllocator, TensorError};
 
     #[test]
     fn resize_smoke_ch3() -> Result<(), ImageError> {
-        let image = Image::<_, 3>::new(
+        let image = Image::<_, 3, _>::new(
             ImageSize {
                 width: 3,
                 height: 4,
             },
             (0..3 * 4 * 3).map(|x| x as f32).collect::<Vec<f32>>(),
+            CpuAllocator,
         )?;
 
         let new_size = ImageSize {
@@ -213,7 +249,7 @@ mod tests {
             height: 3,
         };
 
-        let mut image_resized = Image::<_, 3>::from_size_val(new_size, 0.0)?;
+        let mut image_resized = Image::<_, 3, _>::from_size_val(new_size, 0.0, CpuAllocator)?;
 
         super::resize_native(
             &image,
@@ -239,12 +275,13 @@ mod tests {
     #[test]
     fn resize_smoke_ch1() -> Result<(), ImageError> {
         use kornia_image::{Image, ImageSize};
-        let image = Image::<_, 1>::new(
+        let image = Image::<_, 1, _>::new(
             ImageSize {
                 width: 2,
                 height: 3,
             },
             vec![0.0f32, 1.0, 2.0, 3.0, 4.0, 5.0],
+            CpuAllocator,
         )?;
 
         let new_size = ImageSize {
@@ -252,7 +289,7 @@ mod tests {
             height: 3,
         };
 
-        let mut image_resized = Image::<_, 1>::from_size_val(new_size, 0.0f32)?;
+        let mut image_resized = Image::<_, 1, _>::from_size_val(new_size, 0.0f32, CpuAllocator)?;
 
         super::resize_native(
             &image,
@@ -287,12 +324,13 @@ mod tests {
     #[test]
     fn resize_fast() -> Result<(), ImageError> {
         use kornia_image::{Image, ImageSize};
-        let image = Image::<_, 3>::new(
+        let image = Image::<_, 3, _>::new(
             ImageSize {
                 width: 4,
                 height: 5,
             },
             vec![0u8; 4 * 5 * 3],
+            CpuAllocator,
         )?;
 
         let new_size = ImageSize {
@@ -300,9 +338,9 @@ mod tests {
             height: 3,
         };
 
-        let mut image_resized = Image::<_, 3>::from_size_val(new_size, 0)?;
+        let mut image_resized = Image::<_, 3, _>::from_size_val(new_size, 0, CpuAllocator)?;
 
-        super::resize_fast(
+        super::resize_fast_rgb(
             &image,
             &mut image_resized,
             super::InterpolationMode::Nearest,

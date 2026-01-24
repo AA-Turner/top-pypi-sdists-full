@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 
 class StageFile(BaseModel):
@@ -31,11 +31,11 @@ class StageFile(BaseModel):
     name : str, optional
         Name of the file.
     size : str, optional
-        Size of the file.
+        Size of the file — **Read-only:** *any user-provided value will be ignored.*
     md5 : str, optional
-        md5 hash of the file.
+        md5 hash of the file — **Read-only:** *any user-provided value will be ignored.*
     last_modified : str, optional
-        Date and time when the file was last modified.
+        Date and time when the file was last modified — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Optional[StrictStr] = None
@@ -48,9 +48,10 @@ class StageFile(BaseModel):
 
     __properties = ["name", "size", "md5", "last_modified"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -81,7 +82,7 @@ class StageFile(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -96,9 +97,9 @@ class StageFile(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return StageFile.parse_obj(obj)
+            return StageFile.model_validate(obj)
 
-        _obj = StageFile.parse_obj(
+        _obj = StageFile.model_validate(
             {
                 "name": obj.get("name"),
                 "size": obj.get("size"),

@@ -16,7 +16,6 @@ short_description: Configure AntiSpam profiles.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "1.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -340,8 +342,8 @@ EXAMPLES = '''
     - name: Configure AntiSpam profiles.
       fortinet.fortimanager.fmgr_spamfilter_profile:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -466,16 +468,17 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'spamfilter_profile': {
             'type': 'dict',
-            'v_range': [['6.0.0', '7.2.1']],
+            'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']],
             'options': {
-                'comment': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'},
-                'external': {'v_range': [['6.0.0', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'flow-based': {'v_range': [['6.0.0', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'name': {'v_range': [['6.0.0', '7.2.1']], 'required': True, 'type': 'str'},
+                'comment': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
+                'external': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'flow-based': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'name': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'required': True, 'type': 'str'},
                 'options': {
-                    'v_range': [['6.0.0', '7.2.1']],
+                    'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']],
                     'type': 'list',
                     'choices': [
                         'bannedword', 'spamemailbwl', 'spamfsip', 'spamfssubmit', 'spamfschksum', 'spamfsurl', 'spamhelodns', 'spamipbwl',
@@ -483,30 +486,32 @@ def main():
                     ],
                     'elements': 'str'
                 },
-                'replacemsg-group': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'},
-                'spam-bwl-table': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'},
-                'spam-bword-table': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'},
-                'spam-bword-threshold': {'v_range': [['6.0.0', '7.2.1']], 'type': 'int'},
-                'spam-filtering': {'v_range': [['6.0.0', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'spam-iptrust-table': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'},
-                'spam-log': {'v_range': [['6.0.0', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'spam-log-fortiguard-response': {'v_range': [['6.0.0', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'spam-mheader-table': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'},
-                'spam-rbl-table': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'},
+                'replacemsg-group': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
+                'spam-bwl-table': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
+                'spam-bword-table': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
+                'spam-bword-threshold': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'int'},
+                'spam-filtering': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'spam-iptrust-table': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
+                'spam-log': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'spam-log-fortiguard-response': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'spam-mheader-table': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
+                'spam-rbl-table': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
                 'gmail': {
-                    'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']],
-                    'type': 'dict',
-                    'options': {'log': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'}}
-                },
-                'imap': {
-                    'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']],
+                    'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']],
                     'type': 'dict',
                     'options': {
-                        'action': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'choices': ['pass', 'tag'], 'type': 'str'},
-                        'log': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'tag-msg': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'type': 'str'},
+                        'log': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                    }
+                },
+                'imap': {
+                    'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']],
+                    'type': 'dict',
+                    'options': {
+                        'action': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['pass', 'tag'], 'type': 'str'},
+                        'log': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'tag-msg': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
                         'tag-type': {
-                            'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']],
+                            'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']],
                             'type': 'list',
                             'choices': ['subject', 'header', 'spaminfo'],
                             'elements': 'str'
@@ -514,27 +519,33 @@ def main():
                     }
                 },
                 'mapi': {
-                    'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']],
+                    'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']],
                     'type': 'dict',
                     'options': {
-                        'action': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'choices': ['pass', 'discard'], 'type': 'str'},
-                        'log': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                        'action': {
+                            'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']],
+                            'choices': ['pass', 'discard'],
+                            'type': 'str'
+                        },
+                        'log': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'}
                     }
                 },
                 'msn-hotmail': {
-                    'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']],
-                    'type': 'dict',
-                    'options': {'log': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'}}
-                },
-                'pop3': {
-                    'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']],
+                    'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']],
                     'type': 'dict',
                     'options': {
-                        'action': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'choices': ['pass', 'tag'], 'type': 'str'},
-                        'log': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'tag-msg': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'type': 'str'},
+                        'log': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                    }
+                },
+                'pop3': {
+                    'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']],
+                    'type': 'dict',
+                    'options': {
+                        'action': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['pass', 'tag'], 'type': 'str'},
+                        'log': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'tag-msg': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
                         'tag-type': {
-                            'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']],
+                            'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']],
                             'type': 'list',
                             'choices': ['subject', 'header', 'spaminfo'],
                             'elements': 'str'
@@ -542,16 +553,28 @@ def main():
                     }
                 },
                 'smtp': {
-                    'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']],
+                    'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']],
                     'type': 'dict',
                     'options': {
-                        'action': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'choices': ['pass', 'tag', 'discard'], 'type': 'str'},
-                        'hdrip': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'local-override': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'log': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'tag-msg': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']], 'type': 'str'},
+                        'action': {
+                            'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']],
+                            'choices': ['pass', 'tag', 'discard'],
+                            'type': 'str'
+                        },
+                        'hdrip': {
+                            'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']],
+                            'choices': ['disable', 'enable'],
+                            'type': 'str'
+                        },
+                        'local-override': {
+                            'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']],
+                            'choices': ['disable', 'enable'],
+                            'type': 'str'
+                        },
+                        'log': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'tag-msg': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
                         'tag-type': {
-                            'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1']],
+                            'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.2.1'], ['7.4.8', '7.4.8']],
                             'type': 'list',
                             'choices': ['subject', 'header', 'spaminfo'],
                             'elements': 'str'

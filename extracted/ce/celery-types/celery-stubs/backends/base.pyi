@@ -1,8 +1,10 @@
+from collections.abc import Callable
 from datetime import timedelta
-from typing import Any, Callable, NamedTuple
+from typing import Any, NamedTuple
 
 from celery.app.task import Context
 from celery.result import ResultSet
+from typing_extensions import override
 
 class pending_results_t(NamedTuple):
     concrete: dict[Any, Any]
@@ -28,7 +30,7 @@ class Backend:
         expires: float | timedelta | None = ...,
         expires_type: Callable[[Any], Any] | None = ...,
         url: str | None = ...,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> None: ...
     def as_uri(self, include_password: bool = ...) -> str: ...
     def mark_as_started(self, task_id: str, **meta: Any) -> None: ...
@@ -74,7 +76,7 @@ class Backend:
         state: str,
         traceback: str | None = ...,
         request: Any = ...,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Any: ...
     def forget(self, task_id: str) -> None: ...
     def get_state(self, task_id: str) -> str: ...
@@ -121,8 +123,7 @@ class SyncBackendMixin:
         on_interval: Callable[[], None] | None = ...,
     ) -> Any: ...
 
-class BaseBackend(Backend, SyncBackendMixin):
-    """Base (synchronous) result backend."""
+class BaseBackend(Backend, SyncBackendMixin): ...
 
 class BaseKeyValueStoreBackend(Backend):
     def get(self, key: str) -> Any: ...
@@ -131,10 +132,8 @@ class BaseKeyValueStoreBackend(Backend):
     def delete(self, key: str) -> None: ...
     def incr(self, key: str) -> int: ...
 
-class KeyValueStoreBackend(BaseKeyValueStoreBackend, SyncBackendMixin):
-    """Result backend base class for key/value stores."""
+class KeyValueStoreBackend(BaseKeyValueStoreBackend, SyncBackendMixin): ...
 
 class DisabledBackend(BaseBackend):
-    """Dummy result backend."""
-
+    @override
     def store_result(self, *args: Any, **kwargs: Any) -> None: ...

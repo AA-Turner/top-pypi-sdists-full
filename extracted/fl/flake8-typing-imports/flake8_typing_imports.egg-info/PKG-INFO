@@ -1,17 +1,16 @@
 Metadata-Version: 2.1
 Name: flake8_typing_imports
-Version: 1.16.0
+Version: 1.17.0
 Summary: flake8 plugin which checks that typing imports are properly guarded
 Home-page: https://github.com/asottile/flake8-typing-imports
 Author: Anthony Sottile
 Author-email: asottile@umich.edu
 License: MIT
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: flake8>=5.0

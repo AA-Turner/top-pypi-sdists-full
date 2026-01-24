@@ -12,20 +12,28 @@ class Error(Exception):
     """
 
     def __init__(
-        self, message=None, context=None, session_id_hex=None, *args, **kwargs
+        self,
+        message=None,
+        context=None,
+        host_url=None,
+        *args,
+        session_id_hex=None,
+        **kwargs,
     ):
         super().__init__(message, *args, **kwargs)
         self.message = message
         self.context = context or {}
 
         error_name = self.__class__.__name__
-        if session_id_hex:
+        if host_url:
             from databricks.sql.telemetry.telemetry_client import TelemetryClientFactory
 
             telemetry_client = TelemetryClientFactory.get_telemetry_client(
-                session_id_hex
+                host_url=host_url
             )
-            telemetry_client.export_failure_log(error_name, self.message)
+            telemetry_client.export_failure_log(
+                error_name, self.message, session_id=session_id_hex
+            )
 
     def __str__(self):
         return self.message
@@ -67,6 +75,23 @@ class DataError(DatabaseError):
 
 
 class NotSupportedError(DatabaseError):
+    pass
+
+
+class TransactionError(DatabaseError):
+    """
+    Exception raised for transaction-specific errors.
+
+    This exception is used when transaction control operations fail, such as:
+    - Setting autocommit mode (AUTOCOMMIT_SET_DURING_ACTIVE_TRANSACTION)
+    - Committing a transaction (MULTI_STATEMENT_TRANSACTION_NO_ACTIVE_TRANSACTION)
+    - Rolling back a transaction
+    - Setting transaction isolation level
+
+    The exception includes context about which transaction operation failed
+    and preserves the underlying cause via exception chaining.
+    """
+
     pass
 
 
@@ -126,3 +151,24 @@ class SessionAlreadyClosedError(RequestError):
 
 class CursorAlreadyClosedError(RequestError):
     """Thrown if CancelOperation receives a code 404. ThriftBackend should gracefully proceed as this is expected."""
+
+
+class TelemetryRateLimitError(Exception):
+    """Raised when telemetry endpoint returns 429 or 503, indicating rate limiting or service unavailable.
+    This exception is used exclusively by the circuit breaker to track telemetry rate limiting events."""
+
+
+class TelemetryNonRateLimitError(Exception):
+    """Wrapper for telemetry errors that should NOT trigger circuit breaker.
+
+    This exception wraps non-rate-limiting errors (network errors, timeouts, server errors, etc.)
+    and is excluded from circuit breaker failure counting. Only TelemetryRateLimitError should
+    open the circuit breaker.
+
+    Attributes:
+        original_exception: The actual exception that occurred
+    """
+
+    def __init__(self, original_exception: Exception):
+        self.original_exception = original_exception
+        super().__init__(f"Non-rate-limit telemetry error: {original_exception}")

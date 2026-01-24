@@ -12,12 +12,14 @@ from dify_plugin.config.logger_format import plugin_logger_handler
 from dify_plugin.core.entities.message import InitializeMessage
 from dify_plugin.core.entities.plugin.request import (
     AgentActions,
+    DatasourceActions,
     DynamicParameterActions,
     EndpointActions,
     ModelActions,
     OAuthActions,
     PluginInvokeType,
     ToolActions,
+    TriggerActions,
 )
 from dify_plugin.core.plugin_executor import PluginExecutor
 from dify_plugin.core.plugin_registration import PluginRegistration
@@ -149,6 +151,24 @@ class Plugin(IOServer, Router):
                 + "\n\n"
             )
 
+        if self.registration.datasource_configuration:
+            tcp_stream.write(
+                InitializeMessage(
+                    type=InitializeMessage.Type.DATASOURCE_DECLARATION,
+                    data=List(root=self.registration.datasource_configuration).model_dump(),
+                ).model_dump_json()
+                + "\n\n"
+            )
+
+        if self.registration.triggers_configuration:
+            tcp_stream.write(
+                InitializeMessage(
+                    type=InitializeMessage.Type.TRIGGER_DECLARATION,
+                    data=List(root=self.registration.triggers_configuration).model_dump(),
+                ).model_dump_json()
+                + "\n\n"
+            )
+
         for file in self.registration.files:
             # divide the file into chunks
             chunks = [file.data[i : i + 8192] for i in range(0, len(file.data), 8192)]
@@ -180,12 +200,13 @@ class Plugin(IOServer, Router):
         Launch Serverless stream
         """
         serverless = ServerlessRequestReader(
-            config.SERVERLESS_HOST,
-            config.SERVERLESS_PORT,
-            config.SERVERLESS_WORKER_CLASS,
-            config.SERVERLESS_WORKERS,
-            config.SERVERLESS_THREADS,
-            config.MAX_REQUEST_TIMEOUT,
+            host=config.SERVERLESS_HOST,
+            port=config.SERVERLESS_PORT,
+            worker_class=config.SERVERLESS_WORKER_CLASS,
+            workers=config.SERVERLESS_WORKERS,
+            worker_connections=config.SERVERLESS_WORKER_CONNECTIONS,
+            threads=config.SERVERLESS_THREADS,
+            max_single_connection_lifetime=config.MAX_REQUEST_TIMEOUT,
         )
         serverless.launch()
 
@@ -203,6 +224,8 @@ class Plugin(IOServer, Router):
             logger.info(f"Installed endpoint: {[e.path for e in endpoint.endpoints]}")
         for agent in self.registration.agent_strategies_configuration:
             logger.info(f"Installed agent: {agent.identity.name}")
+        for trigger_provider in self.registration.triggers_configuration:
+            logger.info(f"Installed trigger provider: {trigger_provider.identity.name}")
 
     def _register_request_routes(self):
         """
@@ -245,6 +268,12 @@ class Plugin(IOServer, Router):
         )
 
         self.register_route(
+            self.plugin_executer.invoke_multimodal_embedding,
+            lambda data: data.get("type") == PluginInvokeType.Model.value
+            and data.get("action") == ModelActions.InvokeMultimodalEmbedding.value,
+        )
+
+        self.register_route(
             self.plugin_executer.get_text_embedding_num_tokens,
             lambda data: data.get("type") == PluginInvokeType.Model.value
             and data.get("action") == ModelActions.GetTextEmbeddingNumTokens.value,
@@ -254,6 +283,12 @@ class Plugin(IOServer, Router):
             self.plugin_executer.invoke_rerank,
             lambda data: data.get("type") == PluginInvokeType.Model.value
             and data.get("action") == ModelActions.InvokeRerank.value,
+        )
+
+        self.register_route(
+            self.plugin_executer.invoke_multimodal_rerank,
+            lambda data: data.get("type") == PluginInvokeType.Model.value
+            and data.get("action") == ModelActions.InvokeMultimodalRerank.value,
         )
 
         self.register_route(
@@ -305,9 +340,27 @@ class Plugin(IOServer, Router):
         )
 
         self.register_route(
-            self.plugin_executer.fetch_parameter_options,
-            lambda data: data.get("type") == PluginInvokeType.DynamicParameter.value
-            and data.get("action") == DynamicParameterActions.FetchParameterOptions.value,
+            self.plugin_executer.validate_datasource_credentials,
+            lambda data: data.get("type") == PluginInvokeType.Datasource.value
+            and data.get("action") == DatasourceActions.ValidateCredentials.value,
+        )
+
+        self.register_route(
+            self.plugin_executer.datasource_crawl_website,
+            lambda data: data.get("type") == PluginInvokeType.Datasource.value
+            and data.get("action") == DatasourceActions.InvokeWebsiteDatasourceGetCrawl.value,
+        )
+
+        self.register_route(
+            self.plugin_executer.datasource_get_page_content,
+            lambda data: data.get("type") == PluginInvokeType.Datasource.value
+            and data.get("action") == DatasourceActions.InvokeOnlineDocumentDatasourceGetPageContent.value,
+        )
+
+        self.register_route(
+            self.plugin_executer.datasource_get_pages,
+            lambda data: data.get("type") == PluginInvokeType.Datasource.value
+            and data.get("action") == DatasourceActions.InvokeOnlineDocumentDatasourceGetPages.value,
         )
 
         self.register_route(
@@ -326,6 +379,58 @@ class Plugin(IOServer, Router):
             self.plugin_executer.refresh_oauth_credentials,
             lambda data: data.get("type") == PluginInvokeType.OAuth.value
             and data.get("action") == OAuthActions.RefreshCredentials.value,
+        )
+
+        self.register_route(
+            self.plugin_executer.datasource_online_drive_browse_files,
+            lambda data: data.get("type") == PluginInvokeType.Datasource.value
+            and data.get("action") == DatasourceActions.InvokeOnlineDriveBrowseFiles.value,
+        )
+
+        self.register_route(
+            self.plugin_executer.datasource_online_drive_download_file,
+            lambda data: data.get("type") == PluginInvokeType.Datasource.value
+            and data.get("action") == DatasourceActions.InvokeOnlineDriveDownloadFile.value,
+        )
+
+        self.register_route(
+            self.plugin_executer.fetch_parameter_options,
+            lambda data: data.get("type") == PluginInvokeType.DynamicParameter.value
+            and data.get("action") == DynamicParameterActions.FetchParameterOptions.value,
+        )
+
+        # Trigger routes
+        self.register_route(
+            self.plugin_executer.invoke_trigger_event,
+            lambda data: data.get("type") == PluginInvokeType.Trigger.value
+            and data.get("action") == TriggerActions.InvokeTriggerEvent.value,
+        )
+
+        self.register_route(
+            self.plugin_executer.validate_trigger_provider_credentials,
+            lambda data: data.get("type") == PluginInvokeType.Trigger.value
+            and data.get("action") == TriggerActions.ValidateProviderCredentials.value,
+        )
+
+        self.register_route(
+            self.plugin_executer.dispatch_trigger_event,
+            lambda data: data.get("type") == PluginInvokeType.Trigger.value
+            and data.get("action") == TriggerActions.DispatchTriggerEvent.value,
+        )
+        self.register_route(
+            self.plugin_executer.subscribe_trigger,
+            lambda data: data.get("type") == PluginInvokeType.Trigger.value
+            and data.get("action") == TriggerActions.SubscribeTrigger.value,
+        )
+        self.register_route(
+            self.plugin_executer.unsubscribe_trigger,
+            lambda data: data.get("type") == PluginInvokeType.Trigger.value
+            and data.get("action") == TriggerActions.UnsubscribeTrigger.value,
+        )
+        self.register_route(
+            self.plugin_executer.refresh_trigger,
+            lambda data: data.get("type") == PluginInvokeType.Trigger.value
+            and data.get("action") == TriggerActions.RefreshTrigger.value,
         )
 
     def _execute_request(
@@ -358,6 +463,7 @@ class Plugin(IOServer, Router):
             app_id=app_id,
             endpoint_id=endpoint_id,
             context=context,
+            max_invocation_timeout=self.config.MAX_INVOCATION_TIMEOUT,
         )
         response = self.dispatch(session, data)
         if response:

@@ -3,7 +3,7 @@ Type annotations for ec2 service ServiceResource.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -44,6 +44,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator, Sequence
 from datetime import datetime
 
 from boto3.resources.base import ResourceMeta, ServiceResource
@@ -298,11 +299,6 @@ from .type_defs import (
     VpcPeeringConnectionVpcInfoTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import list as List
-    from collections.abc import Iterator, Sequence
-else:
-    from typing import Iterator, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -413,7 +409,7 @@ class ServiceResourceClassicAddressesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourceclassicaddressescollection)
         """
 
-    def pages(self) -> Iterator[List[ClassicAddress]]:
+    def pages(self) -> Iterator[list[ClassicAddress]]:
         """
         A generator which yields pages of ClassicAddresss.
 
@@ -477,7 +473,7 @@ class ServiceResourceDhcpOptionsSetsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourcedhcpoptionssetscollection)
         """
 
-    def pages(self) -> Iterator[List[DhcpOptions]]:
+    def pages(self) -> Iterator[list[DhcpOptions]]:
         """
         A generator which yields pages of DhcpOptionss.
 
@@ -545,7 +541,7 @@ class ServiceResourceImagesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourceimagescollection)
         """
 
-    def pages(self) -> Iterator[List[Image]]:
+    def pages(self) -> Iterator[list[Image]]:
         """
         A generator which yields pages of Images.
 
@@ -601,7 +597,7 @@ class ServiceResourceInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourceinstancescollection)
         """
 
-    def monitor(self, *, DryRun: bool = ...) -> List[MonitorInstancesResultTypeDef]:
+    def monitor(self, *, DryRun: bool = ...) -> list[MonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -619,7 +615,7 @@ class ServiceResourceInstancesCollection(ResourceCollection):
 
     def start(
         self, *, AdditionalInfo: str = ..., DryRun: bool = ...
-    ) -> List[StartInstancesResultTypeDef]:
+    ) -> list[StartInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -634,7 +630,7 @@ class ServiceResourceInstancesCollection(ResourceCollection):
         SkipOsShutdown: bool = ...,
         DryRun: bool = ...,
         Force: bool = ...,
-    ) -> List[StopInstancesResultTypeDef]:
+    ) -> list[StopInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -644,7 +640,7 @@ class ServiceResourceInstancesCollection(ResourceCollection):
 
     def terminate(
         self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
-    ) -> List[TerminateInstancesResultTypeDef]:
+    ) -> list[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -652,7 +648,7 @@ class ServiceResourceInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourceinstancescollection)
         """
 
-    def unmonitor(self, *, DryRun: bool = ...) -> List[UnmonitorInstancesResultTypeDef]:
+    def unmonitor(self, *, DryRun: bool = ...) -> list[UnmonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -676,7 +672,7 @@ class ServiceResourceInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourceinstancescollection)
         """
 
-    def pages(self) -> Iterator[List[Instance]]:
+    def pages(self) -> Iterator[list[Instance]]:
         """
         A generator which yields pages of Instances.
 
@@ -740,7 +736,7 @@ class ServiceResourceInternetGatewaysCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourceinternetgatewayscollection)
         """
 
-    def pages(self) -> Iterator[List[InternetGateway]]:
+    def pages(self) -> Iterator[list[InternetGateway]]:
         """
         A generator which yields pages of InternetGateways.
 
@@ -804,7 +800,7 @@ class ServiceResourceKeyPairsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourcekeypairscollection)
         """
 
-    def pages(self) -> Iterator[List[KeyPairInfo]]:
+    def pages(self) -> Iterator[list[KeyPairInfo]]:
         """
         A generator which yields pages of KeyPairInfos.
 
@@ -868,7 +864,7 @@ class ServiceResourceNetworkAclsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourcenetworkaclscollection)
         """
 
-    def pages(self) -> Iterator[List[NetworkAcl]]:
+    def pages(self) -> Iterator[list[NetworkAcl]]:
         """
         A generator which yields pages of NetworkAcls.
 
@@ -932,7 +928,7 @@ class ServiceResourceNetworkInterfacesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourcenetworkinterfacescollection)
         """
 
-    def pages(self) -> Iterator[List[NetworkInterface]]:
+    def pages(self) -> Iterator[list[NetworkInterface]]:
         """
         A generator which yields pages of NetworkInterfaces.
 
@@ -995,7 +991,7 @@ class ServiceResourcePlacementGroupsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourceplacementgroupscollection)
         """
 
-    def pages(self) -> Iterator[List[PlacementGroup]]:
+    def pages(self) -> Iterator[list[PlacementGroup]]:
         """
         A generator which yields pages of PlacementGroups.
 
@@ -1059,7 +1055,7 @@ class ServiceResourceRouteTablesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourceroutetablescollection)
         """
 
-    def pages(self) -> Iterator[List[RouteTable]]:
+    def pages(self) -> Iterator[list[RouteTable]]:
         """
         A generator which yields pages of RouteTables.
 
@@ -1124,7 +1120,7 @@ class ServiceResourceSecurityGroupsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourcesecuritygroupscollection)
         """
 
-    def pages(self) -> Iterator[List[SecurityGroup]]:
+    def pages(self) -> Iterator[list[SecurityGroup]]:
         """
         A generator which yields pages of SecurityGroups.
 
@@ -1190,7 +1186,7 @@ class ServiceResourceSnapshotsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourcesnapshotscollection)
         """
 
-    def pages(self) -> Iterator[List[Snapshot]]:
+    def pages(self) -> Iterator[list[Snapshot]]:
         """
         A generator which yields pages of Snapshots.
 
@@ -1254,7 +1250,7 @@ class ServiceResourceSubnetsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourcesubnetscollection)
         """
 
-    def pages(self) -> Iterator[List[Subnet]]:
+    def pages(self) -> Iterator[list[Subnet]]:
         """
         A generator which yields pages of Subnets.
 
@@ -1318,7 +1314,7 @@ class ServiceResourceVolumesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourcevolumescollection)
         """
 
-    def pages(self) -> Iterator[List[Volume]]:
+    def pages(self) -> Iterator[list[Volume]]:
         """
         A generator which yields pages of Volumes.
 
@@ -1381,7 +1377,7 @@ class ServiceResourceVpcAddressesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourcevpcaddressescollection)
         """
 
-    def pages(self) -> Iterator[List[VpcAddress]]:
+    def pages(self) -> Iterator[list[VpcAddress]]:
         """
         A generator which yields pages of VpcAddresss.
 
@@ -1445,7 +1441,7 @@ class ServiceResourceVpcPeeringConnectionsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourcevpcpeeringconnectionscollection)
         """
 
-    def pages(self) -> Iterator[List[VpcPeeringConnection]]:
+    def pages(self) -> Iterator[list[VpcPeeringConnection]]:
         """
         A generator which yields pages of VpcPeeringConnections.
 
@@ -1509,7 +1505,7 @@ class ServiceResourceVpcsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourcevpcscollection)
         """
 
-    def pages(self) -> Iterator[List[Vpc]]:
+    def pages(self) -> Iterator[list[Vpc]]:
         """
         A generator which yields pages of Vpcs.
 
@@ -1573,7 +1569,7 @@ class InstanceVolumesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#instancevolumes)
         """
 
-    def pages(self) -> Iterator[List[Volume]]:
+    def pages(self) -> Iterator[list[Volume]]:
         """
         A generator which yields pages of Volumes.
 
@@ -1636,7 +1632,7 @@ class InstanceVpcAddressesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#instancevpc_addresses)
         """
 
-    def pages(self) -> Iterator[List[VpcAddress]]:
+    def pages(self) -> Iterator[list[VpcAddress]]:
         """
         A generator which yields pages of VpcAddresss.
 
@@ -1692,7 +1688,7 @@ class PlacementGroupInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#placementgroupinstances)
         """
 
-    def monitor(self, *, DryRun: bool = ...) -> List[MonitorInstancesResultTypeDef]:
+    def monitor(self, *, DryRun: bool = ...) -> list[MonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1710,7 +1706,7 @@ class PlacementGroupInstancesCollection(ResourceCollection):
 
     def start(
         self, *, AdditionalInfo: str = ..., DryRun: bool = ...
-    ) -> List[StartInstancesResultTypeDef]:
+    ) -> list[StartInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1725,7 +1721,7 @@ class PlacementGroupInstancesCollection(ResourceCollection):
         SkipOsShutdown: bool = ...,
         DryRun: bool = ...,
         Force: bool = ...,
-    ) -> List[StopInstancesResultTypeDef]:
+    ) -> list[StopInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1735,7 +1731,7 @@ class PlacementGroupInstancesCollection(ResourceCollection):
 
     def terminate(
         self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
-    ) -> List[TerminateInstancesResultTypeDef]:
+    ) -> list[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1743,7 +1739,7 @@ class PlacementGroupInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#placementgroupinstances)
         """
 
-    def unmonitor(self, *, DryRun: bool = ...) -> List[UnmonitorInstancesResultTypeDef]:
+    def unmonitor(self, *, DryRun: bool = ...) -> list[UnmonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1767,7 +1763,7 @@ class PlacementGroupInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#placementgroupinstances)
         """
 
-    def pages(self) -> Iterator[List[Instance]]:
+    def pages(self) -> Iterator[list[Instance]]:
         """
         A generator which yields pages of Instances.
 
@@ -1823,7 +1819,7 @@ class SubnetInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#subnetinstances)
         """
 
-    def monitor(self, *, DryRun: bool = ...) -> List[MonitorInstancesResultTypeDef]:
+    def monitor(self, *, DryRun: bool = ...) -> list[MonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1841,7 +1837,7 @@ class SubnetInstancesCollection(ResourceCollection):
 
     def start(
         self, *, AdditionalInfo: str = ..., DryRun: bool = ...
-    ) -> List[StartInstancesResultTypeDef]:
+    ) -> list[StartInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1856,7 +1852,7 @@ class SubnetInstancesCollection(ResourceCollection):
         SkipOsShutdown: bool = ...,
         DryRun: bool = ...,
         Force: bool = ...,
-    ) -> List[StopInstancesResultTypeDef]:
+    ) -> list[StopInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1866,7 +1862,7 @@ class SubnetInstancesCollection(ResourceCollection):
 
     def terminate(
         self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
-    ) -> List[TerminateInstancesResultTypeDef]:
+    ) -> list[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1874,7 +1870,7 @@ class SubnetInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#subnetinstances)
         """
 
-    def unmonitor(self, *, DryRun: bool = ...) -> List[UnmonitorInstancesResultTypeDef]:
+    def unmonitor(self, *, DryRun: bool = ...) -> list[UnmonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1898,7 +1894,7 @@ class SubnetInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#subnetinstances)
         """
 
-    def pages(self) -> Iterator[List[Instance]]:
+    def pages(self) -> Iterator[list[Instance]]:
         """
         A generator which yields pages of Instances.
 
@@ -1962,7 +1958,7 @@ class SubnetNetworkInterfacesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#subnetnetwork_interfaces)
         """
 
-    def pages(self) -> Iterator[List[NetworkInterface]]:
+    def pages(self) -> Iterator[list[NetworkInterface]]:
         """
         A generator which yields pages of NetworkInterfaces.
 
@@ -2028,7 +2024,7 @@ class VolumeSnapshotsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#volumesnapshots)
         """
 
-    def pages(self) -> Iterator[List[Snapshot]]:
+    def pages(self) -> Iterator[list[Snapshot]]:
         """
         A generator which yields pages of Snapshots.
 
@@ -2092,7 +2088,7 @@ class VpcAcceptedVpcPeeringConnectionsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcaccepted_vpc_peering_connections)
         """
 
-    def pages(self) -> Iterator[List[VpcPeeringConnection]]:
+    def pages(self) -> Iterator[list[VpcPeeringConnection]]:
         """
         A generator which yields pages of VpcPeeringConnections.
 
@@ -2148,7 +2144,7 @@ class VpcInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcinstances)
         """
 
-    def monitor(self, *, DryRun: bool = ...) -> List[MonitorInstancesResultTypeDef]:
+    def monitor(self, *, DryRun: bool = ...) -> list[MonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2166,7 +2162,7 @@ class VpcInstancesCollection(ResourceCollection):
 
     def start(
         self, *, AdditionalInfo: str = ..., DryRun: bool = ...
-    ) -> List[StartInstancesResultTypeDef]:
+    ) -> list[StartInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2181,7 +2177,7 @@ class VpcInstancesCollection(ResourceCollection):
         SkipOsShutdown: bool = ...,
         DryRun: bool = ...,
         Force: bool = ...,
-    ) -> List[StopInstancesResultTypeDef]:
+    ) -> list[StopInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2191,7 +2187,7 @@ class VpcInstancesCollection(ResourceCollection):
 
     def terminate(
         self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
-    ) -> List[TerminateInstancesResultTypeDef]:
+    ) -> list[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2199,7 +2195,7 @@ class VpcInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcinstances)
         """
 
-    def unmonitor(self, *, DryRun: bool = ...) -> List[UnmonitorInstancesResultTypeDef]:
+    def unmonitor(self, *, DryRun: bool = ...) -> list[UnmonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2223,7 +2219,7 @@ class VpcInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcinstances)
         """
 
-    def pages(self) -> Iterator[List[Instance]]:
+    def pages(self) -> Iterator[list[Instance]]:
         """
         A generator which yields pages of Instances.
 
@@ -2287,7 +2283,7 @@ class VpcInternetGatewaysCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcinternet_gateways)
         """
 
-    def pages(self) -> Iterator[List[InternetGateway]]:
+    def pages(self) -> Iterator[list[InternetGateway]]:
         """
         A generator which yields pages of InternetGateways.
 
@@ -2351,7 +2347,7 @@ class VpcNetworkAclsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcnetwork_acls)
         """
 
-    def pages(self) -> Iterator[List[NetworkAcl]]:
+    def pages(self) -> Iterator[list[NetworkAcl]]:
         """
         A generator which yields pages of NetworkAcls.
 
@@ -2415,7 +2411,7 @@ class VpcNetworkInterfacesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcnetwork_interfaces)
         """
 
-    def pages(self) -> Iterator[List[NetworkInterface]]:
+    def pages(self) -> Iterator[list[NetworkInterface]]:
         """
         A generator which yields pages of NetworkInterfaces.
 
@@ -2479,7 +2475,7 @@ class VpcRequestedVpcPeeringConnectionsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcrequested_vpc_peering_connections)
         """
 
-    def pages(self) -> Iterator[List[VpcPeeringConnection]]:
+    def pages(self) -> Iterator[list[VpcPeeringConnection]]:
         """
         A generator which yields pages of VpcPeeringConnections.
 
@@ -2543,7 +2539,7 @@ class VpcRouteTablesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcroute_tables)
         """
 
-    def pages(self) -> Iterator[List[RouteTable]]:
+    def pages(self) -> Iterator[list[RouteTable]]:
         """
         A generator which yields pages of RouteTables.
 
@@ -2608,7 +2604,7 @@ class VpcSecurityGroupsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcsecurity_groups)
         """
 
-    def pages(self) -> Iterator[List[SecurityGroup]]:
+    def pages(self) -> Iterator[list[SecurityGroup]]:
         """
         A generator which yields pages of SecurityGroups.
 
@@ -2672,7 +2668,7 @@ class VpcSubnetsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcsubnets)
         """
 
-    def pages(self) -> Iterator[List[Subnet]]:
+    def pages(self) -> Iterator[list[Subnet]]:
         """
         A generator which yields pages of Subnets.
 
@@ -2701,7 +2697,7 @@ class ClassicAddress(ServiceResource):
     network_interface_id: str
     network_interface_owner_id: str
     private_ip_address: str
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     public_ipv4_pool: str
     network_border_group: str
     customer_owned_ip: str
@@ -2772,9 +2768,9 @@ class DhcpOptions(ServiceResource):
 
     id: str
     owner_id: str
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     dhcp_options_id: str
-    dhcp_configurations: List[DhcpConfigurationTypeDef]
+    dhcp_configurations: list[DhcpConfigurationTypeDef]
     meta: EC2ResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -2836,7 +2832,7 @@ class Image(ServiceResource):
     id: str
     platform_details: str
     usage_operation: str
-    block_device_mappings: List[BlockDeviceMappingTypeDef]
+    block_device_mappings: list[BlockDeviceMappingTypeDef]
     description: str
     ena_support: bool
     hypervisor: HypervisorTypeType
@@ -2846,7 +2842,7 @@ class Image(ServiceResource):
     root_device_type: DeviceTypeType
     sriov_net_support: str
     state_reason: StateReasonTypeDef
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     virtualization_type: VirtualizationTypeType
     boot_mode: BootModeValuesType
     tpm_support: Literal["v2.0"]
@@ -2865,7 +2861,7 @@ class Image(ServiceResource):
     owner_id: str
     creation_date: str
     public: bool
-    product_codes: List[ProductCodeTypeDef]
+    product_codes: list[ProductCodeTypeDef]
     architecture: ArchitectureValuesType
     image_type: ImageTypeValuesType
     kernel_id: str
@@ -2962,39 +2958,39 @@ class Instance(ServiceResource):
     classic_address: ClassicAddress
     image: Image
     key_pair: KeyPairInfo
-    network_interfaces: List[NetworkInterface]
+    network_interfaces: list[NetworkInterface]
     placement_group: PlacementGroup
     subnet: Subnet
     vpc: Vpc
     volumes: InstanceVolumesCollection
     vpc_addresses: InstanceVpcAddressesCollection
     architecture: ArchitectureValuesType
-    block_device_mappings: List[InstanceBlockDeviceMappingTypeDef]
+    block_device_mappings: list[InstanceBlockDeviceMappingTypeDef]
     client_token: str
     ebs_optimized: bool
     ena_support: bool
     hypervisor: HypervisorTypeType
     iam_instance_profile: IamInstanceProfileTypeDef
     instance_lifecycle: InstanceLifecycleTypeType
-    elastic_gpu_associations: List[ElasticGpuAssociationTypeDef]
-    elastic_inference_accelerator_associations: List[ElasticInferenceAcceleratorAssociationTypeDef]
-    network_interfaces_attribute: List[InstanceNetworkInterfaceTypeDef]
+    elastic_gpu_associations: list[ElasticGpuAssociationTypeDef]
+    elastic_inference_accelerator_associations: list[ElasticInferenceAcceleratorAssociationTypeDef]
+    network_interfaces_attribute: list[InstanceNetworkInterfaceTypeDef]
     outpost_arn: str
     root_device_name: str
     root_device_type: DeviceTypeType
-    security_groups: List[GroupIdentifierTypeDef]
+    security_groups: list[GroupIdentifierTypeDef]
     source_dest_check: bool
     spot_instance_request_id: str
     sriov_net_support: str
     state_reason: StateReasonTypeDef
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     virtualization_type: VirtualizationTypeType
     cpu_options: CpuOptionsTypeDef
     capacity_block_id: str
     capacity_reservation_id: str
     capacity_reservation_specification: CapacityReservationSpecificationResponseTypeDef
     hibernation_options: HibernationOptionsTypeDef
-    licenses: List[LicenseConfigurationTypeDef]
+    licenses: list[LicenseConfigurationTypeDef]
     metadata_options: InstanceMetadataOptionsResponseTypeDef
     enclave_options: EnclaveOptionsTypeDef
     boot_mode: BootModeValuesType
@@ -3016,7 +3012,7 @@ class Instance(ServiceResource):
     state_transition_reason: str
     key_name: str
     ami_launch_index: int
-    product_codes: List[ProductCodeTypeDef]
+    product_codes: list[ProductCodeTypeDef]
     instance_type: InstanceTypeType
     launch_time: datetime
     placement: PlacementTypeDef
@@ -3231,7 +3227,7 @@ class Instance(ServiceResource):
         self, **kwargs: Unpack[TerminateInstancesRequestInstanceTerminateTypeDef]
     ) -> TerminateInstancesResultTypeDef:
         """
-        Shuts down the specified instances.
+        Terminates (deletes) the specified instances.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/instance/terminate.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#instanceterminate-method)
@@ -3308,10 +3304,10 @@ class InternetGateway(ServiceResource):
     """
 
     id: str
-    attachments: List[InternetGatewayAttachmentTypeDef]
+    attachments: list[InternetGatewayAttachmentTypeDef]
     internet_gateway_id: str
     owner_id: str
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     meta: EC2ResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -3385,7 +3381,7 @@ class KeyPair(ServiceResource):
 
     name: str
     key_pair_id: str
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     key_name: str
     key_fingerprint: str
     key_material: str
@@ -3420,7 +3416,7 @@ class KeyPairInfo(ServiceResource):
     name: str
     key_pair_id: str
     key_type: KeyTypeType
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     public_key: str
     create_time: datetime
     key_name: str
@@ -3467,11 +3463,11 @@ class NetworkAcl(ServiceResource):
 
     id: str
     vpc: Vpc
-    associations: List[NetworkAclAssociationTypeDef]
-    entries: List[NetworkAclEntryTypeDef]
+    associations: list[NetworkAclAssociationTypeDef]
+    entries: list[NetworkAclEntryTypeDef]
     is_default: bool
     network_acl_id: str
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     vpc_id: str
     owner_id: str
     meta: EC2ResourceMeta  # type: ignore[override]
@@ -3572,9 +3568,9 @@ class NetworkInterface(ServiceResource):
     availability_zone: str
     connection_tracking_configuration: ConnectionTrackingConfigurationTypeDef
     description: str
-    groups: List[GroupIdentifierTypeDef]
+    groups: list[GroupIdentifierTypeDef]
     interface_type: NetworkInterfaceTypeType
-    ipv6_addresses: List[NetworkInterfaceIpv6AddressTypeDef]
+    ipv6_addresses: list[NetworkInterfaceIpv6AddressTypeDef]
     mac_address: str
     network_interface_id: str
     outpost_arn: str
@@ -3583,21 +3579,22 @@ class NetworkInterface(ServiceResource):
     public_dns_name: str
     public_ip_dns_name_options: PublicIpDnsNameOptionsTypeDef
     private_ip_address: str
-    private_ip_addresses: List[NetworkInterfacePrivateIpAddressTypeDef]
-    ipv4_prefixes: List[Ipv4PrefixSpecificationTypeDef]
-    ipv6_prefixes: List[Ipv6PrefixSpecificationTypeDef]
+    private_ip_addresses: list[NetworkInterfacePrivateIpAddressTypeDef]
+    ipv4_prefixes: list[Ipv4PrefixSpecificationTypeDef]
+    ipv6_prefixes: list[Ipv6PrefixSpecificationTypeDef]
     requester_id: str
     requester_managed: bool
     source_dest_check: bool
     status: NetworkInterfaceStatusType
     subnet_id: str
-    tag_set: List[TagTypeDef]
+    tag_set: list[TagTypeDef]
     vpc_id: str
     deny_all_igw_traffic: bool
     ipv6_native: bool
     ipv6_address: str
     operator: OperatorResponseTypeDef
-    associated_subnets: List[str]
+    associated_subnets: list[str]
+    availability_zone_id: str
     meta: EC2ResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -3790,9 +3787,10 @@ class PlacementGroup(ServiceResource):
     strategy: PlacementStrategyType
     partition_count: int
     group_id: str
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     group_arn: str
     spread_level: SpreadLevelType
+    linked_group_id: str
     meta: EC2ResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -3895,14 +3893,14 @@ class RouteTable(ServiceResource):
     """
 
     id: str
-    associations: List[RouteTableAssociation]
-    routes: List[Route]
+    associations: list[RouteTableAssociation]
+    routes: list[Route]
     vpc: Vpc
-    associations_attribute: List[RouteTableAssociationTypeDef]
-    propagating_vgws: List[PropagatingVgwTypeDef]
+    associations_attribute: list[RouteTableAssociationTypeDef]
+    propagating_vgws: list[PropagatingVgwTypeDef]
     route_table_id: str
-    routes_attribute: List[RouteTypeDef]
-    tags: List[TagTypeDef]
+    routes_attribute: list[RouteTypeDef]
+    tags: list[TagTypeDef]
     vpc_id: str
     owner_id: str
     meta: EC2ResourceMeta  # type: ignore[override]
@@ -4028,14 +4026,14 @@ class SecurityGroup(ServiceResource):
 
     id: str
     group_id: str
-    ip_permissions_egress: List[IpPermissionOutputTypeDef]
-    tags: List[TagTypeDef]
+    ip_permissions_egress: list[IpPermissionOutputTypeDef]
+    tags: list[TagTypeDef]
     vpc_id: str
     security_group_arn: str
     owner_id: str
     group_name: str
     description: str
-    ip_permissions: List[IpPermissionOutputTypeDef]
+    ip_permissions: list[IpPermissionOutputTypeDef]
     meta: EC2ResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -4131,7 +4129,7 @@ class Snapshot(ServiceResource):
     volume: Volume
     owner_alias: str
     outpost_arn: str
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     storage_tier: StorageTierType
     restore_expiry_time: datetime
     sse_type: SSETypeType
@@ -4257,8 +4255,8 @@ class Subnet(ServiceResource):
     customer_owned_ipv4_pool: str
     owner_id: str
     assign_ipv6_address_on_creation: bool
-    ipv6_cidr_block_association_set: List[SubnetIpv6CidrBlockAssociationTypeDef]
-    tags: List[TagTypeDef]
+    ipv6_cidr_block_association_set: list[SubnetIpv6CidrBlockAssociationTypeDef]
+    tags: list[TagTypeDef]
     subnet_arn: str
     outpost_arn: str
     enable_dns64: bool
@@ -4286,7 +4284,7 @@ class Subnet(ServiceResource):
 
     def create_instances(
         self, **kwargs: Unpack[RunInstancesRequestSubnetCreateInstancesTypeDef]
-    ) -> List[_Instance]:
+    ) -> list[_Instance]:
         """
         Launches the specified number of instances using an AMI for which you have
         permissions.
@@ -4388,8 +4386,9 @@ class Volume(ServiceResource):
     snapshots: VolumeSnapshotsCollection
     availability_zone_id: str
     outpost_arn: str
+    source_volume_id: str
     iops: int
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     volume_type: VolumeTypeType
     fast_restored: bool
     multi_attach_enabled: bool
@@ -4403,7 +4402,7 @@ class Volume(ServiceResource):
     availability_zone: str
     state: VolumeStateType
     create_time: datetime
-    attachments: List[VolumeAttachmentTypeDef]
+    attachments: list[VolumeAttachmentTypeDef]
     encrypted: bool
     kms_key_id: str
     meta: EC2ResourceMeta  # type: ignore[override]
@@ -4536,11 +4535,11 @@ class Vpc(ServiceResource):
     subnets: VpcSubnetsCollection
     owner_id: str
     instance_tenancy: TenancyType
-    ipv6_cidr_block_association_set: List[VpcIpv6CidrBlockAssociationTypeDef]
-    cidr_block_association_set: List[VpcCidrBlockAssociationTypeDef]
+    ipv6_cidr_block_association_set: list[VpcIpv6CidrBlockAssociationTypeDef]
+    cidr_block_association_set: list[VpcCidrBlockAssociationTypeDef]
     is_default: bool
     encryption_control: VpcEncryptionControlTypeDef
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     block_public_access_states: BlockPublicAccessStatesTypeDef
     vpc_id: str
     state: VpcStateType
@@ -4759,7 +4758,7 @@ class VpcPeeringConnection(ServiceResource):
     expiration_time: datetime
     requester_vpc_info: VpcPeeringConnectionVpcInfoTypeDef
     status: VpcPeeringConnectionStateReasonTypeDef
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     vpc_peering_connection_id: str
     meta: EC2ResourceMeta  # type: ignore[override]
 
@@ -4836,7 +4835,7 @@ class VpcAddress(ServiceResource):
     network_interface_id: str
     network_interface_owner_id: str
     private_ip_address: str
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     public_ipv4_pool: str
     network_border_group: str
     customer_owned_ip: str
@@ -4937,7 +4936,7 @@ class EC2ServiceResource(ServiceResource):
 
     def create_instances(
         self, **kwargs: Unpack[RunInstancesRequestServiceResourceCreateInstancesTypeDef]
-    ) -> List[_Instance]:
+    ) -> list[_Instance]:
         """
         Launches the specified number of instances using an AMI for which you have
         permissions.

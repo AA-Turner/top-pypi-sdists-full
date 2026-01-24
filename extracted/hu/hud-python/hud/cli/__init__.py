@@ -3,32 +3,29 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import json
 import sys
 from pathlib import Path
 
+import httpx
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from hud.utils.hud_console import HUDConsole
+
 from . import list_func as list_module
-from .analyze import (
-    analyze_environment,
-    analyze_environment_from_config,
-    analyze_environment_from_mcp_config,
-)
 from .build import build_command
 from .clone import clone_repository, get_clone_message, print_error, print_tutorial
 from .debug import debug_mcp_stdio
 from .dev import run_mcp_dev_server
-
-# Import new commands
-from .init import create_environment
+from .eval import eval_command
 from .pull import pull_command
 from .push import push_command
 from .remove import remove_command
+from .rft import rft_command
+from .rft_status import rft_status_command
 from .utils.config import set_env_values
 from .utils.cursor import get_cursor_config_path, list_cursor_servers, parse_cursor_config
 from .utils.logging import CaptureLogger
@@ -39,6 +36,7 @@ app = typer.Typer(
     help="🚀 HUD CLI for MCP environment analysis and debugging",
     add_completion=False,
     rich_markup_mode="rich",
+    pretty_exceptions_enable=False,  # Disable Rich's verbose tracebacks
 )
 
 console = Console()
@@ -91,15 +89,22 @@ def analyze(
 ) -> None:
     """🔍 Analyze MCP environment - discover tools, resources, and capabilities.
 
-    By default, uses cached metadata for instant results.
+    [not dim]By default, uses cached metadata for instant results.
     Use --live to run the container for real-time analysis.
 
     Examples:
         hud analyze hudpython/test_init      # Fast metadata inspection
         hud analyze my-env --live            # Full container analysis
         hud analyze --config mcp-config.json # From MCP config
-        hud analyze --cursor text-2048-dev   # From Cursor config
+        hud analyze --cursor text-2048-dev   # From Cursor config[/not dim]
     """
+    # Lazy import to avoid loading mcp_use on simple CLI commands
+    from .analyze import (
+        analyze_environment,
+        analyze_environment_from_config,
+        analyze_environment_from_mcp_config,
+    )
+
     if config:
         # Load config from JSON file (always live for configs)
         asyncio.run(analyze_environment_from_config(config, output_format, verbose))
@@ -144,7 +149,7 @@ def debug(
         None,
         help="Docker image, environment directory, or config file followed by optional Docker arguments",  # noqa: E501
     ),
-    config: Path = typer.Option(  # noqa: B008
+    config: Path | None = typer.Option(  # noqa: B008
         None,
         "--config",
         "-c",
@@ -175,7 +180,7 @@ def debug(
 ) -> None:
     """🐛 Debug MCP environment - test initialization, tools, and readiness.
 
-    Examples:
+    [not dim]Examples:
         hud debug .                              # Debug current directory
         hud debug environments/browser           # Debug specific directory
         hud debug . --build                      # Build then debug
@@ -183,10 +188,9 @@ def debug(
         hud debug my-mcp-server:v1 -e API_KEY=xxx
         hud debug --config mcp-config.json
         hud debug --cursor text-2048-dev
-        hud debug . --max-phase 3               # Stop after phase 3
+        hud debug . --max-phase 3               # Stop after phase 3[/not dim]
     """
     # Import here to avoid circular imports
-    from hud.utils.hud_console import HUDConsole
 
     from .utils.environment import (
         build_environment,
@@ -220,8 +224,9 @@ def debug(
         first_param = params[0]
         docker_args = params[1:] if len(params) > 1 else []
 
-        # Check if it's a directory
-        if Path(first_param).exists() and is_environment_directory(first_param):
+        # Check if it's a valid environment directory (Dockerfile + pyproject.toml)
+        p = Path(first_param)
+        if is_environment_directory(p):
             # Directory mode - like hud dev
             directory = first_param
 
@@ -242,16 +247,32 @@ def debug(
                 if build and not build_environment(directory, image_name):
                     raise typer.Exit(1)
 
-            # Build Docker command
-            from .utils.docker import build_run_command
+            # Build Docker command with folder-mode envs
+            from .utils.docker import create_docker_run_command
 
-            command = build_run_command(image_name, docker_args)
+            command = create_docker_run_command(
+                image_name, docker_args=docker_args, env_dir=directory
+            )
         else:
             # Assume it's an image name
             image = first_param
-            from .utils.docker import build_run_command
+            from .utils.docker import create_docker_run_command
 
-            command = build_run_command(image, docker_args)
+            # For image mode, check if there's a .env file in current directory
+            # and use it if available (similar to hud dev behavior)
+            cwd = Path.cwd()
+            if (cwd / ".env").exists():
+                # Use create_docker_run_command to load .env from current directory
+                command = create_docker_run_command(
+                    image,
+                    docker_args=docker_args,
+                    env_dir=cwd,  # Load .env from current directory
+                )
+            else:
+                # No .env file, use basic command without env loading
+                from .utils.docker import build_run_command
+
+                command = build_run_command(image, docker_args)
     else:
         console.print(
             "[red]Error: Must specify a directory, Docker image, --config, or --cursor[/red]"
@@ -269,8 +290,6 @@ def debug(
     phases_completed = asyncio.run(debug_mcp_stdio(command, logger, max_phase=max_phase))
 
     # Show summary using design system
-    from hud.utils.hud_console import HUDConsole
-
     hud_console = HUDConsole()
 
     hud_console.info("")  # Empty line
@@ -348,80 +367,152 @@ def version() -> None:
         console.print("HUD CLI version: [cyan]unknown[/cyan]")
 
 
+@app.command()
+def models(
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """📋 List available models from HUD inference gateway.
+
+    [not dim]Shows models available via the HUD inference gateway at inference.hud.ai.
+
+    Examples:
+        hud models              # List all models
+        hud models --json       # Output as JSON[/not dim]
+    """
+    from hud.settings import settings
+
+    try:
+        response = httpx.get(
+            f"{settings.hud_gateway_url}/models",
+            headers={"Authorization": f"Bearer {settings.api_key}"} if settings.api_key else {},
+            timeout=30.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        if json_output:
+            console.print_json(json.dumps(data, indent=2))
+            return
+
+        # Parse and display models
+        models_list = data.get("data", data) if isinstance(data, dict) else data
+
+        if not models_list:
+            console.print("[yellow]No models found[/yellow]")
+            return
+
+        console.print(Panel.fit("📋 [bold cyan]Available Models[/bold cyan]", border_style="cyan"))
+
+        table = Table()
+        table.add_column("Name", style="cyan")
+        table.add_column("Model (API)", style="green")
+        table.add_column("Routes", style="yellow")
+
+        for model in models_list:
+            if isinstance(model, dict):
+                name = model.get("name", "-")
+                api_model = model.get("model", model.get("id", "-"))
+                routes = model.get("routes", [])
+                routes_str = ", ".join(routes) if routes else "-"
+                table.add_row(name, api_model, routes_str)
+            else:
+                table.add_row(str(model), "-", "-")
+
+        console.print(table)
+        console.print(f"\n[dim]Gateway: {settings.hud_gateway_url}[/dim]")
+
+    except httpx.HTTPStatusError as e:
+        console.print(f"[red]❌ API error: {e.response.status_code}[/red]")
+        console.print(f"[dim]{e.response.text}[/dim]")
+        raise typer.Exit(1) from e
+    except Exception as e:
+        console.print(f"[red]❌ Failed to fetch models: {e}[/red]")
+        raise typer.Exit(1) from e
+
+
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 def dev(
     params: list[str] = typer.Argument(  # type: ignore[arg-type]  # noqa: B008
         None,
-        help="Environment directory followed by optional Docker arguments (e.g., '. -e KEY=value')",
+        help="Module path or extra Docker args (when using --docker)",
     ),
-    image: str | None = typer.Option(
-        None, "--image", "-i", help="Docker image name (overrides auto-detection)"
+    docker: bool = typer.Option(
+        False,
+        "--docker",
+        help="Run in Docker with volume mounts for hot-reload (for complex environments)",
     ),
-    build: bool = typer.Option(False, "--build", "-b", help="Build image before starting"),
-    no_cache: bool = typer.Option(False, "--no-cache", help="Force rebuild without cache"),
-    transport: str = typer.Option(
-        "http", "--transport", "-t", help="Transport protocol: http (default) or stdio"
+    stdio: bool = typer.Option(
+        False,
+        "--stdio",
+        help="Use stdio transport (default: HTTP)",
     ),
     port: int = typer.Option(8765, "--port", "-p", help="HTTP server port (ignored for stdio)"),
-    no_reload: bool = typer.Option(False, "--no-reload", help="Disable hot-reload"),
-    full_reload: bool = typer.Option(
-        False,
-        "--full-reload",
-        help="Restart entire container on file changes (instead of just server process)",
-    ),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show server logs"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed logs"),
     inspector: bool = typer.Option(
         False, "--inspector", help="Launch MCP Inspector (HTTP mode only)"
     ),
-    no_logs: bool = typer.Option(False, "--no-logs", help="Disable streaming Docker logs"),
     interactive: bool = typer.Option(
         False, "--interactive", help="Launch interactive testing mode (HTTP mode only)"
     ),
+    watch: list[str] = typer.Option(  # noqa: B008
+        [],
+        "--watch",
+        "-w",
+        help="Paths to watch for hot-reload (repeatable: -w tools -w env.py)",
+    ),
+    new: bool = typer.Option(
+        False,
+        "--new",
+        help="Create a new dev trace on hud.ai (opens in browser)",
+    ),
 ) -> None:
-    """🔥 Development mode - interactive MCP environment.
+    """🔥 Development mode - run MCP server with hot-reload.
 
-    Runs your MCP environment in Docker with mounted source for development.
-    The container's CMD determines reload behavior.
+    [not dim]TWO MODES:
+
+    1. Python Module:
+       hud dev                    # Auto-detects module
+       hud dev env:env            # Explicit module:attribute
+       hud dev -w .               # Watch current directory
+
+    2. Docker (Complex environments):
+       hud dev                        # Auto-detects Dockerfile, no hot-reload
+       hud dev -w tools -w env.py     # Mount & watch specific paths
+       hud dev -w tools               # Just watch tools folder
+
+    For Docker mode, use --watch to specify which folders to mount and watch.
+    Paths not in --watch stay in the built image (no hot-reload).
 
     Examples:
-        hud dev                      # Auto-detect in current directory
-        hud dev environments/browser # Specific directory
-        hud dev . --build            # Build image first
-        hud dev . --image custom:tag # Use specific image
-        hud dev . --no-cache         # Force clean rebuild
-        hud dev . --verbose          # Show detailed logs
-        hud dev . --transport stdio  # Use stdio proxy for multiple connections
-        hud dev . --inspector        # Launch MCP Inspector (HTTP mode only)
-        hud dev . --interactive      # Launch interactive testing mode (HTTP mode only)
-        hud dev . --no-logs          # Disable Docker log streaming
+        hud dev                      # Auto-detect mode
+        hud dev --new                # Create live dev trace on hud.ai
+        hud dev env:env              # Run specific module
+        hud dev --inspector          # Launch MCP Inspector
+        hud dev --interactive        # Launch interactive testing mode
+        hud dev -w 'tools env.py'    # Docker: hot-reload tools/ and env.py
 
-        # With Docker arguments (after all options):
-        hud dev . -e BROWSER_PROVIDER=anchorbrowser -e ANCHOR_API_KEY=xxx
-        hud dev . -e API_KEY=secret -v /tmp/data:/data --network host
-        hud dev . --build -e DEBUG=true --memory 2g
+    Local development pattern (Docker + local scenarios):
+        Terminal 1: hud dev -w 'tools env.py' --port 8000
+        Terminal 2: python local_test.py  # Uses connect_url()[/not dim]
     """
-    # Parse directory and Docker arguments
-    if params:
-        directory = params[0]
-        docker_args = params[1:] if len(params) > 1 else []
-    else:
-        directory = "."
-        docker_args = []
+    # Extract module from params if provided (first param when not --docker)
+    module = params[0] if params and not docker else None
+    docker_args = params if docker else []
+
+    # Convert empty list to None for run_mcp_dev_server
+    watch_paths = watch if watch else None
 
     run_mcp_dev_server(
-        directory,
-        image,
-        build,
-        no_cache,
-        transport,
+        module,
+        stdio,
         port,
-        no_reload,
-        full_reload,
         verbose,
         inspector,
-        no_logs,
         interactive,
-        docker_args,
+        watch_paths,
+        docker=docker,
+        docker_args=docker_args,
+        new_trace=new,
     )
 
 
@@ -429,17 +520,13 @@ def dev(
 def run(
     params: list[str] = typer.Argument(  # type: ignore[arg-type]  # noqa: B008
         None,
-        help="Python file/module/package or Docker image followed by optional arguments",
+        help="Docker image followed by optional Docker run arguments "
+        "(e.g., 'my-image:latest -e KEY=value')",
     ),
     local: bool = typer.Option(
         False,
         "--local",
-        help="Run locally with Docker (default: remote via mcp.hud.so)",
-    ),
-    remote: bool = typer.Option(
-        False,
-        "--remote",
-        help="Run remotely via mcp.hud.so (default)",
+        help="Run locally with Docker (default: remote via mcp.hud.ai)",
     ),
     transport: str = typer.Option(
         "stdio",
@@ -456,7 +543,7 @@ def run(
     url: str = typer.Option(
         None,
         "--url",
-        help="Remote MCP server URL (default: HUD_MCP_URL or mcp.hud.so)",
+        help="Remote MCP server URL (default: HUD_MCP_URL or mcp.hud.ai)",
     ),
     api_key: str | None = typer.Option(
         None,
@@ -474,180 +561,54 @@ def run(
         "-v",
         help="Show detailed output",
     ),
-    interactive: bool = typer.Option(
-        False,
-        "--interactive",
-        help="Launch interactive testing mode (HTTP transport only)",
-    ),
-    reload: bool = typer.Option(
-        False,
-        "--reload",
-        help="Enable auto-reload on file changes (local Python files only)",
-    ),
-    watch: list[str] = typer.Option(  # noqa: B008
-        None,
-        "--watch",
-        help="Directories to watch for changes (can be used multiple times). Defaults to current directory.",  # noqa: E501
-    ),
-    cmd: str | None = typer.Option(
-        None,
-        "--cmd",
-        help="Command to run as MCP server (e.g., 'python -m controller')",
-    ),
 ) -> None:
-    """🚀 Run MCP server.
+    """🚀 Run Docker image as MCP server.
 
-    Modes:
-    - Python (decorator-based): pass a dotted module path. Example: hud run controller
-      The module is imported, decorators register implicitly, and the server runs.
-      Use --reload to watch the module/package directory.
+    [not dim]A simple wrapper around 'docker run' that can launch images locally or remotely.
+    By default, runs remotely via mcp.hud.ai. Use --local to run with local Docker.
 
-    - Command: use --cmd to run any command as an MCP server. Example: hud run --cmd "python -m controller"
-      Works with Docker, binaries, or any executable. Supports --reload.
+    For local Python development with hot-reload, use 'hud dev' instead.
 
-    - Docker image: pass a Docker image name (optionally with --local to run locally).
-    """  # noqa: E501
-    if not params and not cmd:
-        typer.echo("❌ Dotted module path, Docker image, or --cmd is required")
+    Examples:
+        hud run my-image:latest                    # Run remotely (default)
+        hud run my-image:latest --local            # Run with local Docker
+        hud run my-image:latest -e KEY=value       # Remote with env vars
+        hud run my-image:latest --local -e KEY=val # Local with env vars
+        hud run my-image:latest --transport http   # Use HTTP transport[/not dim]
+    """
+    if not params:
+        console.print("[red]❌ Docker image is required[/red]")
+        console.print("\nExamples:")
+        console.print("  hud run my-image:latest              # Run remotely (default)")
+        console.print("  hud run my-image:latest --local      # Run with local Docker")
+        console.print("\n[yellow]For local Python development:[/yellow]")
+        console.print("  hud dev                              # Run with hot-reload")
         raise typer.Exit(1)
 
-    # Handle --cmd mode
-    if cmd:
-        import asyncio
+    image = params[0]
+    docker_args = params[1:] if len(params) > 1 else []
 
-        from .utils.package_runner import run_package_as_mcp
+    # Check if user accidentally passed a module path
+    from pathlib import Path
 
-        asyncio.run(
-            run_package_as_mcp(
-                cmd,  # Pass command string
-                transport=transport,
-                port=port,
-                verbose=verbose,
-                reload=reload,
-                watch_paths=watch if watch else None,
-            )
-        )
-        return
-
-    first_param = params[0]
-    extra_args = params[1:] if len(params) > 1 else []
-
-    # Guard: strip accidental nested 'run' token from positional args,
-    # which can happen with nested invocations or reload wrappers.
-    if first_param == "run" and extra_args:
-        first_param, extra_args = extra_args[0], extra_args[1:]
-
-    # Try to interpret first_param as module[:attr] or file[:attr]
-    target = first_param
-    server_attr = "mcp"
-    if ":" in target:
-        target, server_attr = target.split(":", 1)
-
-    # Only allow dotted import paths or python files for Python mode
-    import importlib.util as _importlib_util
-
-    # Ensure current working directory is importable for local packages like 'controller'
-    try:
-        import sys as _sys
-        from pathlib import Path as _Path
-
-        cwd_str = str(_Path.cwd())
-        if cwd_str not in _sys.path:
-            _sys.path.insert(0, cwd_str)
-    except Exception:  # noqa: S110
-        pass
-    try:
-        # If given a file path, detect and import via file spec
-        from pathlib import Path as _Path
-
-        if target.endswith(".py") and _Path(target).exists():
-            spec = _importlib_util.spec_from_file_location("_hud_module", target)
-        else:
-            spec = _importlib_util.find_spec(target)
-    except Exception:
-        spec = None
-
-    # Fallback: treat a local package directory (e.g. 'controller') as a module target
-    from pathlib import Path as _Path
-
-    pkg_dir = _Path(target)
-    is_pkg_dir = pkg_dir.is_dir() and (pkg_dir / "__init__.py").exists()
-
-    is_python_target = (spec is not None) or is_pkg_dir
-
-    if is_python_target and not (local or remote):
-        # Python file/package mode - use implicit MCP server
-        import asyncio
-
-        from .utils.package_runner import run_package_as_mcp, run_with_reload
-
-        if reload:
-            # Run with watchfiles reload
-            # Use user-provided watch paths or compute from module
-            if watch:
-                watch_paths = watch
-            else:
-                # Compute a watch path that works for dotted modules as well
-                watch_paths = [target]
-                if spec is not None:
-                    origin = getattr(spec, "origin", None)
-                    sublocs = getattr(spec, "submodule_search_locations", None)
-                    if origin:
-                        p = _Path(origin)
-                        # If package __init__.py, watch the package directory
-                        watch_paths = [str(p.parent if p.name == "__init__.py" else p)]
-                    elif sublocs:
-                        with contextlib.suppress(Exception):
-                            watch_paths = [next(iter(sublocs))]
-
-            # Always run as subprocess when using reload to enable proper file watching
-            # This ensures the parent process can watch files while the child runs the server
-            run_with_reload(
-                None,  # This forces subprocess mode for both stdio and http
-                watch_paths,
-                verbose=verbose,
-            )
-        else:
-            # Run normally (but still pass reload=False for consistency)
-            asyncio.run(
-                run_package_as_mcp(
-                    target,
-                    transport=transport,
-                    port=port,
-                    verbose=verbose,
-                    server_attr=server_attr,
-                    reload=False,  # Explicitly pass reload state
-                    watch_paths=None,
-                )
-            )
-        return
-
-    # Docker image mode
-    image = first_param
-    docker_args = extra_args
-
-    # Handle conflicting flags
-    if local and remote:
-        typer.echo("❌ Cannot use both --local and --remote")
+    if not any(c in image for c in [":", "/"]) and (
+        Path(image).is_dir() or Path(image).is_file() or "." in image
+    ):
+        console.print(f"[yellow]⚠️  '{image}' looks like a module path, not a Docker image[/yellow]")
+        console.print("\n[green]For local Python development, use:[/green]")
+        console.print(f"  hud dev {image}")
+        console.print("\n[green]For Docker images:[/green]")
+        console.print("  hud run my-image:latest")
         raise typer.Exit(1)
 
     # Default to remote if not explicitly local
-    is_local = local and not remote
-
-    # Check for interactive mode restrictions
-    if interactive:
-        if transport != "http":
-            typer.echo("❌ Interactive mode requires HTTP transport (use --transport http)")
-            raise typer.Exit(1)
-        if not is_local:
-            typer.echo("❌ Interactive mode is only available for local execution (use --local)")
-            raise typer.Exit(1)
+    is_local = local
 
     if is_local:
         # Local Docker execution
         from .utils.runner import run_mcp_server
 
-        run_mcp_server(image, docker_args, transport, port, verbose, interactive)
+        run_mcp_server(image, docker_args, transport, port, verbose, interactive=False)
     else:
         # Remote execution via proxy
         from .utils.remote_runner import run_remote_server
@@ -661,6 +622,74 @@ def run(
         run_remote_server(image, docker_args, transport, port, url, api_key, run_id, verbose)
 
 
+# Create RFT subcommand app
+rft_app = typer.Typer(help="🚀 Reinforcement Fine-Tuning (RFT) commands")
+
+
+@rft_app.command("run")
+def rft_run(
+    tasks_file: str = typer.Argument(
+        ...,
+        help="Path to tasks file (JSON/JSONL)",
+    ),
+    model_id: str | None = typer.Option(
+        None,
+        "--model-id",
+        "-m",
+        help="Model ID to train (skip interactive selection)",
+    ),
+    reasoning_effort: str = typer.Option(
+        "medium",
+        "--reasoning-effort",
+        help="Reasoning effort level (low, medium, high)",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Enable verbose output",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="Auto-accept all prompts",
+    ),
+) -> None:
+    """Launch an RFT training job."""
+    rft_command(
+        tasks_file=tasks_file,
+        reasoning_effort=reasoning_effort,
+        verbose=verbose,
+        yes=yes,
+        model_id=model_id,
+    )
+
+
+@rft_app.command("status")
+def rft_status(
+    model_id: str = typer.Argument(
+        ...,
+        help="Model ID or job ID to check status for",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show full status details",
+    ),
+) -> None:
+    """Check the status of an RFT job."""
+    rft_status_command(
+        model_id=model_id,
+        verbose=verbose,
+    )
+
+
+# Add RFT app as a command group
+app.add_typer(rft_app, name="rft")
+
+
 @app.command()
 def clone(
     url: str = typer.Argument(
@@ -670,7 +699,7 @@ def clone(
 ) -> None:
     """🚀 Clone a git repository quietly with a pretty output.
 
-    This command wraps 'git clone' with the --quiet flag and displays
+    [not dim]This command wraps 'git clone' with the --quiet flag and displays
     a rich formatted success message. If the repository contains a clone
     message in pyproject.toml, it will be displayed as a tutorial.
 
@@ -685,7 +714,7 @@ def clone(
     # style = "cyan"
 
     Examples:
-        hud clone https://github.com/user/repo.git
+        hud clone https://github.com/user/repo.git[/not dim]
     """
     # Run the clone
     success, result = clone_repository(url)
@@ -713,10 +742,18 @@ def build(
     platform: str | None = typer.Option(
         None, "--platform", help="Set Docker target platform (e.g., linux/amd64)"
     ),
+    secrets: list[str] | None = typer.Option(  # noqa: B008
+        None,
+        "--secret",
+        help=("Docker build secret (repeatable), e.g. --secret id=GITHUB_TOKEN,env=GITHUB_TOKEN"),
+    ),
+    remote_cache: str | None = typer.Option(
+        None, "--remote-cache", help="Enable remote cache using Amazon ECR with specified repo name"
+    ),
 ) -> None:
     """🏗️ Build a HUD environment and generate lock file.
 
-    This command:
+    [not dim]This command:
     - Builds a Docker image from your environment
     - Analyzes the MCP server to extract metadata
     - Generates a hud.lock.yaml file for reproducibility
@@ -726,7 +763,9 @@ def build(
         hud build environments/text_2048 -e API_KEY=secret
         hud build . --tag my-env:v1.0 -e VAR1=value1 -e VAR2=value2
         hud build . --no-cache       # Force rebuild
-    """
+        hud build . --remote-cache my-cache-repo   # Use ECR remote cache (requires AWS_ACCOUNT_ID and AWS_DEFAULT_REGION)
+        hud build . --build-arg NODE_ENV=production  # Pass Docker build args[/not dim]
+    """  # noqa: E501
     # Parse directory and extra arguments
     if params:
         directory = params[0]
@@ -735,8 +774,9 @@ def build(
         directory = "."
         extra_args = []
 
-    # Parse environment variables from extra args
+    # Parse environment variables and build args from extra args
     env_vars = {}
+    build_args = {}
     i = 0
     while i < len(extra_args):
         if extra_args[i] == "-e" and i + 1 < len(extra_args):
@@ -760,10 +800,34 @@ def build(
                 key, value = env_arg.split("=", 1)
                 env_vars[key] = value
             i += 2
+        elif extra_args[i] == "--build-arg" and i + 1 < len(extra_args):
+            # Parse --build-arg KEY=VALUE format
+            build_arg = extra_args[i + 1]
+            if "=" in build_arg:
+                key, value = build_arg.split("=", 1)
+                build_args[key] = value
+            i += 2
+        elif extra_args[i].startswith("--build-arg="):
+            # Parse --build-arg=KEY=VALUE format
+            build_arg = extra_args[i][12:]  # Remove --build-arg=
+            if "=" in build_arg:
+                key, value = build_arg.split("=", 1)
+                build_args[key] = value
+            i += 1
         else:
             i += 1
 
-    build_command(directory, tag, no_cache, verbose, env_vars, platform)
+    build_command(
+        directory,
+        tag,
+        no_cache,
+        verbose,
+        env_vars,
+        platform,
+        secrets,
+        remote_cache,
+        build_args or None,
+    )
 
 
 @app.command()
@@ -781,14 +845,14 @@ def push(
 ) -> None:
     """📤 Push HUD environment to registry.
 
-    Reads hud.lock.yaml from the directory and pushes to registry.
+    [not dim]Reads hud.lock.yaml from the directory and pushes to registry.
     Auto-detects your Docker username if --image not specified.
 
     Examples:
         hud push                     # Push with auto-detected name
         hud push --tag v1.0          # Push with specific tag
         hud push . --image myuser/myenv:v1.0
-        hud push --yes               # Skip confirmation
+        hud push --yes               # Skip confirmation[/not dim]
     """
     push_command(directory, image, tag, sign, yes, verbose)
 
@@ -807,12 +871,12 @@ def pull(
 ) -> None:
     """📥 Pull HUD environment from registry with metadata preview.
 
-    Shows environment details before downloading.
+    [not dim]Shows environment details before downloading.
 
     Examples:
         hud pull hud.lock.yaml               # Pull from lock file
         hud pull myuser/myenv:latest        # Pull by image reference
-        hud pull myuser/myenv --verify-only # Check metadata only
+        hud pull myuser/myenv --verify-only # Check metadata only[/not dim]
     """
     pull_command(target, lock_file, yes, verify_only, verbose)
 
@@ -828,14 +892,14 @@ def list_environments(
 ) -> None:
     """📋 List all HUD environments in local registry.
 
-    Shows environments pulled with 'hud pull' stored in ~/.hud/envs/
+    [not dim]Shows environments pulled with 'hud pull' stored in ~/.hud/envs/
 
     Examples:
         hud list                    # List all environments
         hud list --filter text      # Filter by name
         hud list --json            # Output as JSON
         hud list --all             # Show digest column
-        hud list --verbose         # Show full descriptions
+        hud list --verbose         # Show full descriptions[/not dim]
     """
     list_module.list_command(filter_name, json_output, show_all, verbose)
 
@@ -850,7 +914,7 @@ def remove(
 ) -> None:
     """🗑️ Remove HUD environments from local registry.
 
-    Removes environment metadata from ~/.hud/envs/
+    [not dim]Removes environment metadata from ~/.hud/envs/
     Note: This does not remove the Docker images.
 
     Examples:
@@ -858,37 +922,44 @@ def remove(
         hud remove text_2048           # Remove by name
         hud remove hudpython/test_init # Remove by full name
         hud remove all                 # Remove all environments
-        hud remove all --yes           # Remove all without confirmation
+        hud remove all --yes           # Remove all without confirmation[/not dim]
     """
     remove_command(target, yes, verbose)
 
 
 @app.command()
 def init(
-    name: str = typer.Argument(None, help="Environment name (default: current directory name)"),
+    name: str = typer.Argument(None, help="Environment name (default: directory name)"),
+    directory: str = typer.Option(".", "--dir", "-d", help="Target directory"),
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files"),
     preset: str | None = typer.Option(
         None,
         "--preset",
         "-p",
-        help="Preset to use: blank, deep-research, browser. If omitted, you'll choose interactively.",  # noqa: E501
+        help="Download a preset: blank, deep-research, browser, rubrics",
     ),
-    directory: str = typer.Option(".", "--dir", "-d", help="Target directory"),
-    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files"),
 ) -> None:
-    """🚀 Initialize a new HUD environment with minimal boilerplate.
+    """🚀 Initialize a HUD environment.
 
-    Creates a working MCP environment with:
-    - Dockerfile for containerization
-    - pyproject.toml for dependencies
-    - Minimal MCP server with context
-    - Required setup/evaluate tools
+    [not dim]• Empty directory: Choose a preset interactively
+    • Existing project: Add Dockerfile.hud and hud.py
+
+    Use --preset to skip selection and download a specific template.
 
     Examples:
-        hud init                    # Use current directory name
-        hud init my-env             # Create in ./my-env/
-        hud init my-env --dir /tmp  # Create in /tmp/my-env/
+        hud init                    # Auto-detect mode
+        hud init my-env             # Initialize with custom name
+        hud init --preset browser   # Download browser preset[/not dim]
+
     """
-    create_environment(name, directory, force, preset)
+    if preset:
+        from hud.cli.init import create_environment
+
+        create_environment(name, directory, force, preset)
+    else:
+        from hud.cli.flows.init import smart_init
+
+        smart_init(name, directory, force)
 
 
 @app.command()
@@ -900,187 +971,7 @@ def quickstart() -> None:
     clone("https://github.com/hud-evals/quickstart.git")
 
 
-@app.command()
-def eval(
-    source: str | None = typer.Argument(
-        None,
-        help=(
-            "HuggingFace dataset (e.g. 'hud-evals/SheetBench-50') or task JSON file. "
-            "If not provided, looks for task.json in current directory."
-        ),
-    ),
-    agent: str | None = typer.Argument(
-        None,
-        help=(
-            "Agent backend to use (claude, openai, vllm, or litellm). If not provided, will prompt interactively."  # noqa: E501
-        ),
-    ),
-    full: bool = typer.Option(
-        False,
-        "--full",
-        help="Run the entire dataset (omit for single-task debug mode)",
-    ),
-    model: str | None = typer.Option(
-        None,
-        "--model",
-        help="Model name for the chosen agent",
-    ),
-    allowed_tools: str | None = typer.Option(
-        None,
-        "--allowed-tools",
-        help="Comma-separated list of allowed tools",
-    ),
-    max_concurrent: int = typer.Option(
-        50,
-        "--max-concurrent",
-        help="Max concurrent tasks (prevents rate limits in both asyncio and parallel modes)",
-    ),
-    max_steps: int = typer.Option(
-        30,
-        "--max-steps",
-        help="Maximum steps per task (default: 10 for single, 50 for full)",
-    ),
-    parallel: bool = typer.Option(
-        False,
-        "--parallel",
-        help="Use process-based parallel execution for large datasets (100+ tasks)",
-    ),
-    max_workers: int | None = typer.Option(
-        None,
-        "--max-workers",
-        help="Number of worker processes for parallel mode (auto-optimized if not set)",
-    ),
-    max_concurrent_per_worker: int = typer.Option(
-        20,
-        "--max-concurrent-per-worker",
-        help="Maximum concurrent tasks per worker in parallel mode",
-    ),
-    verbose: bool = typer.Option(
-        False,
-        "--verbose",
-        help="Enable verbose output from the agent",
-    ),
-    very_verbose: bool = typer.Option(
-        False,
-        "--very-verbose",
-        "-vv",
-        help="Enable debug-level logs for maximum visibility",
-    ),
-    vllm_base_url: str | None = typer.Option(
-        None,
-        "--vllm-base-url",
-        help="Base URL for vLLM server (when using --agent vllm)",
-    ),
-    group_size: int = typer.Option(
-        1,
-        "--group-size",
-        help="Number of times to run each task (similar to RL training)",
-    ),
-) -> None:
-    """🚀 Run evaluation on datasets or individual tasks with agents."""
-    from hud.settings import settings
-    from hud.utils.hud_console import HUDConsole
-
-    hud_console = HUDConsole()
-
-    # If no source provided, reuse RL helper to find a tasks file interactively
-    if source is None:
-        try:
-            from hud.cli.utils.tasks import find_tasks_file
-
-            source = find_tasks_file(None, msg="Select a tasks file to run")
-            hud_console.success(f"Selected: {source}")
-        except Exception as e:
-            hud_console.error(
-                "No source provided and no task/eval JSON files found in current directory"
-            )
-            hud_console.info(
-                "Usage: hud eval <source> or create a task JSON file (e.g., task.json, tasks.jsonl)"
-            )
-            raise typer.Exit(1) from e
-
-    # Import eval_command lazily to avoid importing agent dependencies
-    try:
-        from .eval import eval_command, get_available_models
-    except ImportError as e:
-        hud_console.error(
-            "Evaluation dependencies are not installed. "
-            "Please install with: pip install 'hud-python[agent]'"
-        )
-        raise typer.Exit(1) from e
-
-    # If no agent specified, fetch available models and prompt for selection
-    base_model = None
-    if agent is None:
-        # Get available HUD models first
-        hud_models = get_available_models()
-
-        # Build choices starting with HUD models
-        choices = []
-
-        # Add HUD models as agent choices
-        for hud_model in hud_models:
-            model_name = hud_model["name"]
-            base_model = hud_model["base_model"]
-            vllm_status = " ⚡" if hud_model.get("vllm_url") else ""
-            choices.append({"name": f"{model_name}{vllm_status}", "value": f"{model_name}"})
-
-        # Add standard agent choices
-        choices.extend(
-            [
-                {"name": "Claude 4 Sonnet", "value": "claude"},
-                {"name": "OpenAI Computer Use", "value": "openai"},
-                {"name": "vLLM (Local Server)", "value": "vllm"},
-                {"name": "LiteLLM (Multi-provider)", "value": "litellm"},
-            ]
-        )
-
-        agent = hud_console.select("Select an agent to use:", choices=choices, default=0)
-
-    # Handle HUD model selection
-    if agent and agent not in ["claude", "openai", "vllm", "litellm"]:
-        # Find remote model name
-        model = agent
-        if not vllm_base_url:
-            vllm_base_url = f"{settings.hud_rl_url}/models/{model}/vllm"
-
-        # Set model to base model for the vllm endpoint
-        if not base_model:
-            hud_models = get_available_models()
-            for hud_model in hud_models:
-                if hud_model["name"] == model:
-                    base_model = hud_model["base_model"]
-                    break
-        if not base_model:
-            hud_console.error(f"Model {model} not found")
-            raise typer.Exit(1)
-        model = base_model
-        agent = "vllm"  # Use vLLM backend for HUD models
-        hud_console.info(f"Using HUD model: {model} (trained on {base_model})")
-
-    # Validate agent choice
-    valid_agents = ["claude", "openai", "vllm", "litellm"]
-    if agent not in valid_agents:
-        hud_console.error(f"Invalid agent: {agent}. Must be one of: {', '.join(valid_agents)}")
-        raise typer.Exit(1)
-
-    # Run the command
-    eval_command(
-        source=source,
-        full=full,
-        agent=agent,  # type: ignore
-        model=model,
-        allowed_tools=allowed_tools,
-        max_concurrent=max_concurrent,
-        max_steps=max_steps,
-        parallel=parallel,
-        max_workers=max_workers,
-        max_concurrent_per_worker=max_concurrent_per_worker,
-        verbose=verbose,
-        very_verbose=very_verbose,
-        vllm_base_url=vllm_base_url,
-        group_size=group_size,
-    )
+app.command(name="eval")(eval_command)
 
 
 @app.command()
@@ -1105,7 +996,7 @@ def get(
     ),
 ) -> None:
     """📥 Download a HuggingFace dataset and save it as JSONL."""
-    from .get import get_command
+    from hud.cli.get import get_command
 
     get_command(
         dataset_name=dataset_name,
@@ -1117,91 +1008,161 @@ def get(
 
 
 @app.command()
-def rl(
-    tasks_file: str | None = typer.Argument(
-        None,
-        help=(
-            "Path to tasks file (JSON/JSONL) or HuggingFace dataset name. "
-            "If not provided, looks for tasks.json or tasks.jsonl in current directory."
-        ),
-    ),
-    model: str | None = typer.Argument(
-        None,
-        help="Model to train from https://hud.so/models (default: interactive selection)",
-    ),
-    config_file: Path | None = typer.Option(  # noqa: B008
-        None,
-        "--config",
-        "-c",
-        help="Path to existing configuration file",
-    ),
-    output_dir: str = typer.Option(
-        "checkpoints",
-        "--output-dir",
-        "-o",
-        help="Output directory for checkpoints",
-    ),
-    restart: bool = typer.Option(
-        False,
-        "--restart",
-        help="Restart the vLLM server before training",
-    ),
-    verbose: bool = typer.Option(
-        False,
-        "--verbose",
-        "-v",
-        help="Enable verbose output",
-    ),
-    local: bool = typer.Option(
-        False,
-        "--local",
-        help="Run training locally instead of using remote API server",
-    ),
-    no_ddp: bool = typer.Option(
-        False,
-        "--no-ddp",
-        help="Disable DDP even with multiple GPUs",
-    ),
-    ddp_gpus: str | None = typer.Option(
-        None,
-        "--ddp-gpus",
-        help="Specific GPUs for DDP (e.g., '0,1,2,3')",
-    ),
-    yes: bool = typer.Option(
-        False,
-        "--yes",
-        "-y",
-        help="Auto-accept all prompts and use defaults (lazy mode)",
-    ),
-    vllm_gpu: int | None = typer.Option(
-        None,
-        "--vllm-gpu",
-        help="Specific GPU for vLLM server",
-    ),
-    skip_vllm_startup: bool = typer.Option(
-        False,
-        "--skip-vllm-startup",
-        help="Skip the vLLM server startup",
+def convert(
+    tasks_file: str = typer.Argument(
+        ..., help="Path to tasks file (JSON/JSONL) to convert to remote MCP configuration"
     ),
 ) -> None:
-    """🎯 Run GRPO reinforcement learning training on tasks."""
-    # Import from the rl module
-    from .rl import rl_command
+    """Convert local MCP task configs to remote (mcp.hud.ai) format.
 
-    rl_command(
-        tasks_file=tasks_file,
-        model=model,
-        config_file=config_file,
-        output_dir=output_dir,
-        restart=restart,
-        verbose=verbose,
-        local=local,
-        no_ddp=no_ddp,
-        ddp_gpus=ddp_gpus,
-        vllm_gpu=vllm_gpu,
-        yes=yes,
-        skip_vllm_startup=skip_vllm_startup,
-    )
+    This mirrors the implicit conversion flow used by 'hud rl' and writes a new
+    remote_<name>.json next to the source file when needed.
+    """
+    from pathlib import Path
+
+    hud_console = HUDConsole()
+
+    try:
+        from .flows.tasks import convert_tasks_to_remote
+
+        result_path = convert_tasks_to_remote(tasks_file)
+
+        # If nothing changed, inform the user
+        try:
+            if Path(result_path).resolve() == Path(tasks_file).resolve():
+                hud_console.success(
+                    "Tasks already reference remote MCP URLs. No conversion needed."
+                )
+                hud_console.hint("You can run them directly with: hud eval <tasks_file> --full")
+                return
+        except Exception as e:
+            # Best effort; continue with success message
+            hud_console.debug(f"Path comparison failed, continuing: {e}")
+
+        hud_console.success(f"Converted tasks written to: {result_path}")
+        hud_console.hint(
+            "You can now run remote flows: hud rl <converted_file> or hud eval <converted_file>"
+        )
+    except typer.Exit:
+        raise
+    except Exception as e:
+        hud_console.error(f"Failed to convert tasks: {e}")
+        raise typer.Exit(1) from e
+
+
+@app.command()
+def cancel(
+    job_id: str | None = typer.Argument(
+        None, help="Job ID to cancel. Omit to cancel all active jobs with --all."
+    ),
+    task_id: str | None = typer.Option(
+        None, "--task", "-t", help="Specific task ID within the job to cancel."
+    ),
+    all_jobs: bool = typer.Option(
+        False, "--all", "-a", help="Cancel ALL active jobs for your account (panic button)."
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
+) -> None:
+    """Cancel remote rollouts.
+
+    Examples:
+        hud cancel <job_id>              # Cancel all tasks in a job
+        hud cancel <job_id> --task <id>  # Cancel specific task
+        hud cancel --all                 # Cancel ALL active jobs (panic button)
+    """
+    import asyncio
+
+    import questionary
+
+    hud_console = HUDConsole()
+
+    if not job_id and not all_jobs:
+        hud_console.error("Provide a job_id or use --all to cancel all active jobs.")
+        raise typer.Exit(1)
+
+    if job_id and all_jobs:
+        hud_console.error("Cannot specify both job_id and --all.")
+        raise typer.Exit(1)
+
+    # Handle confirmations BEFORE entering async context (questionary uses asyncio internally)
+    if (
+        all_jobs
+        and not yes
+        and not questionary.confirm(
+            "⚠️  This will cancel ALL your active jobs. Continue?",
+            default=False,
+        ).ask()
+    ):
+        hud_console.info("Cancelled.")
+        raise typer.Exit(0)
+
+    if (
+        job_id
+        and not task_id
+        and not yes
+        and not questionary.confirm(
+            f"Cancel all tasks in job {job_id}?",
+            default=True,
+        ).ask()
+    ):
+        hud_console.info("Cancelled.")
+        raise typer.Exit(0)
+
+    async def _cancel() -> None:
+        from hud.datasets.utils import cancel_all_jobs, cancel_job, cancel_task
+
+        if all_jobs:
+            hud_console.info("Cancelling all active jobs...")
+            result = await cancel_all_jobs()
+
+            jobs_cancelled = result.get("jobs_cancelled", 0)
+            tasks_cancelled = result.get("total_tasks_cancelled", 0)
+
+            if jobs_cancelled == 0:
+                hud_console.info("No active jobs found.")
+            else:
+                hud_console.success(
+                    f"Cancelled {jobs_cancelled} job(s), {tasks_cancelled} task(s) total."
+                )
+                for job in result.get("job_details", []):
+                    hud_console.info(f"  • {job['job_id']}: {job['cancelled']} tasks cancelled")
+
+        elif task_id:
+            hud_console.info(f"Cancelling task {task_id} in job {job_id}...")
+            result = await cancel_task(job_id, task_id)  # type: ignore[arg-type]
+
+            status = result.get("status", "unknown")
+            if status in ("revoked", "terminated"):
+                hud_console.success(f"Task cancelled: {result.get('message', '')}")
+            elif status == "not_found":
+                hud_console.warning(f"Task not found: {result.get('message', '')}")
+            else:
+                hud_console.info(f"Status: {status} - {result.get('message', '')}")
+
+        else:
+            hud_console.info(f"Cancelling job {job_id}...")
+            result = await cancel_job(job_id)  # type: ignore[arg-type]
+
+            total = result.get("total_found", 0)
+            cancelled = result.get("cancelled", 0)
+
+            if total == 0:
+                hud_console.warning(f"No tasks found for job {job_id}")
+            else:
+                hud_console.success(
+                    f"Cancelled {cancelled}/{total} tasks "
+                    f"({result.get('running_terminated', 0)} running, "
+                    f"{result.get('queued_revoked', 0)} queued)"
+                )
+
+    try:
+        asyncio.run(_cancel())
+    except httpx.HTTPStatusError as e:
+        hud_console.error(f"API error: {e.response.status_code} - {e.response.text}")
+        raise typer.Exit(1) from e
+    except Exception as e:
+        hud_console.error(f"Failed to cancel: {e}")
+        raise typer.Exit(1) from e
 
 
 @app.command()
@@ -1212,13 +1173,12 @@ def set(
 ) -> None:
     """Persist API keys or other variables for HUD to use by default.
 
-    Examples:
+    [not dim]Examples:
         hud set ANTHROPIC_API_KEY=sk-... OPENAI_API_KEY=sk-...
 
     Values are stored in ~/.hud/.env and are loaded by hud.settings with
-    the lowest precedence (overridden by process env and project .env).
+    the lowest precedence (overridden by process env and project .env).[/not dim]
     """
-    from hud.utils.hud_console import HUDConsole
 
     hud_console = HUDConsole()
 
@@ -1242,6 +1202,13 @@ def set(
 
 def main() -> None:
     """Main entry point for the CLI."""
+    # Check for updates (including on --version command)
+    # Skip only on help-only commands
+    if not (len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ["--help", "-h"])):
+        from .utils.version_check import display_update_prompt
+
+        display_update_prompt()
+
     # Handle --version flag before Typer parses args
     if "--version" in sys.argv:
         try:

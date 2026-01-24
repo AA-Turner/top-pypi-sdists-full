@@ -21,9 +21,9 @@ def create_signature_patch(signature, old_class):
         options = get("options")
         one_value_keywords = get("one_value_keywords")
         multi_value_keywords = get("multi_value_keywords")
-        sections = get("sections", dict())
-        keyword_formatters = get("keyword_formatters", dict())
-        keyword_preprocessors = get("keyword_preprocessors", dict())
+        sections = get("sections", {})
+        keyword_formatters = get("keyword_formatters", {})
+        keyword_preprocessors = get("keyword_preprocessors", {})
 
     return Impl
 
@@ -46,8 +46,7 @@ class MultipleSignatureCommandInvocationDumper(ArgumentAwareCommandInvocationDum
 
     def _get_signature_matcher(self, keyword):
         for item in self.signatures:
-            matcher = is_one_of_keywords([item])
-            if matcher(keyword):
+            if is_one_of_keywords([item], keyword):
                 return item
         return None
 
@@ -67,15 +66,19 @@ class MultipleSignatureCommandInvocationDumper(ArgumentAwareCommandInvocationDum
             return []
 
         signature_node, *rest = arguments
-        if isinstance(signature_node, Tree):
-            if len(signature_node.children) > 0:
-                signature_node_as_value = str(signature_node.children[0])
-                if (
-                    (signature_node_as_value in self.options)
-                    or (signature_node_as_value in self.one_value_keywords)
-                    or (signature_node_as_value in self.multi_value_keywords)
-                ):
-                    return super()._split_arguments(arguments)
+        if (
+            isinstance(signature_node, Tree)
+            and signature_node.children
+            and any(
+                is_one_of_keywords(keywords, signature_node)
+                for keywords in (
+                    self.options,
+                    self.one_value_keywords,
+                    self.multi_value_keywords,
+                )
+            )
+        ):
+            return super()._split_arguments(arguments)
 
         return [
             Tree("positional_arguments", [signature_node]),

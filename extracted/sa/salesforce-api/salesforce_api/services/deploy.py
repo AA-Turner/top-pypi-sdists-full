@@ -1,5 +1,7 @@
 import time
 from base64 import b64encode
+from pathlib import Path
+
 from .. import exceptions, const, config
 from ..utils import misc
 from ..models import deploy as models
@@ -8,11 +10,11 @@ from . import base
 
 class Deploy(base.SoapService):
     def _get_zip_content(self, input_file) -> str:
-        if isinstance(input_file, str):
-            input_file = open(input_file, 'rb')
-        return b64encode(
-            input_file.read()
-        ).decode('utf-8')
+        try:
+            s = input_file.read()
+        except AttributeError:
+            s = Path(input_file).read_bytes()
+        return b64encode(s).decode()
 
     def deploy(self, input_zip, options: models.Options = models.Options()) -> 'Deployment':
         result = self._post(action='deploy', message_path='deploy/deploy.msg', message_attributes={

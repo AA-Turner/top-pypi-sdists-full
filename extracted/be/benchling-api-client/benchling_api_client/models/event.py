@@ -29,12 +29,14 @@ from ..models.automation_transform_status_succeeded_event_v2_event import (
 )
 from ..models.entity_registered_event import EntityRegisteredEvent
 from ..models.entry_created_event import EntryCreatedEvent
+from ..models.entry_updated_assigned_reviewers_event import EntryUpdatedAssignedReviewersEvent
 from ..models.entry_updated_fields_event import EntryUpdatedFieldsEvent
 from ..models.entry_updated_review_record_event import EntryUpdatedReviewRecordEvent
 from ..models.entry_updated_review_snapshot_beta_event import EntryUpdatedReviewSnapshotBetaEvent
 from ..models.request_created_event import RequestCreatedEvent
 from ..models.request_updated_fields_event import RequestUpdatedFieldsEvent
 from ..models.stage_entry_created_event import StageEntryCreatedEvent
+from ..models.stage_entry_updated_assigned_reviewers_event import StageEntryUpdatedAssignedReviewersEvent
 from ..models.stage_entry_updated_fields_event import StageEntryUpdatedFieldsEvent
 from ..models.stage_entry_updated_review_record_event import StageEntryUpdatedReviewRecordEvent
 from ..models.workflow_output_created_event import WorkflowOutputCreatedEvent
@@ -47,16 +49,19 @@ from ..models.workflow_task_updated_assignee_event import WorkflowTaskUpdatedAss
 from ..models.workflow_task_updated_fields_event import WorkflowTaskUpdatedFieldsEvent
 from ..models.workflow_task_updated_scheduled_on_event import WorkflowTaskUpdatedScheduledOnEvent
 from ..models.workflow_task_updated_status_event import WorkflowTaskUpdatedStatusEvent
+from ..models.worksheet_updated_review_snapshot_beta_event import WorksheetUpdatedReviewSnapshotBetaEvent
 
 Event = Union[
     EntityRegisteredEvent,
     EntryCreatedEvent,
     EntryUpdatedFieldsEvent,
     EntryUpdatedReviewRecordEvent,
+    EntryUpdatedAssignedReviewersEvent,
     EntryUpdatedReviewSnapshotBetaEvent,
     StageEntryCreatedEvent,
     StageEntryUpdatedFieldsEvent,
     StageEntryUpdatedReviewRecordEvent,
+    StageEntryUpdatedAssignedReviewersEvent,
     RequestCreatedEvent,
     RequestUpdatedFieldsEvent,
     AssayRunCreatedEvent,
@@ -81,5 +86,6 @@ Event = Union[
     WorkflowTaskGroupUpdatedWatchersEvent,
     WorkflowOutputCreatedEvent,
     WorkflowOutputUpdatedFieldsEvent,
+    WorksheetUpdatedReviewSnapshotBetaEvent,
     UnknownType,
 ]

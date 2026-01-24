@@ -29,7 +29,7 @@ from nox._resolver import CycleError
 from nox._version import InvalidVersionSpecifier, VersionCheckFailed, check_nox_version
 from nox.logger import logger
 from nox.manifest import WARN_PYTHONS_IGNORED, Manifest
-from nox.sessions import Result, Status
+from nox.sessions import Result, Status, _duration_str
 
 if TYPE_CHECKING:
     import types
@@ -68,7 +68,7 @@ def _load_and_exec_nox_module(global_config: Namespace) -> types.ModuleType:
         types.ModuleType: The initialised Nox module.
     """
     spec = importlib.util.spec_from_file_location(
-        "user_nox_module", global_config.noxfile
+        "user_nox_module", str(global_config.noxfile)
     )
     assert spec is not None  # If None, fatal importlib error, would crash anyway
 
@@ -107,8 +107,9 @@ def load_nox_module(global_config: Namespace) -> types.ModuleType | int:
     # Save the absolute path to the Noxfile.
     # This will inoculate it if Nox changes paths because of an implicit
     # or explicit chdir (like the one below).
-    global_config.noxfile = os.path.join(
-        noxfile_parent_dir, os.path.basename(global_config_noxfile)
+    # Keeps the class of the original string
+    global_config.noxfile = global_config.noxfile.__class__(
+        os.path.join(noxfile_parent_dir, os.path.basename(global_config_noxfile))
     )
 
     try:
@@ -313,7 +314,7 @@ def _produce_json_listing(manifest: Manifest, global_config: Namespace) -> None:
                     "call_spec": getattr(session.func, "call_spec", {}),
                 }
             )
-    print(json.dumps(report))
+    print(json.dumps(report, default=str))
 
 
 def honor_list_request(manifest: Manifest, global_config: Namespace) -> Manifest | int:
@@ -376,7 +377,7 @@ def run_manifest(manifest: Manifest, global_config: Namespace) -> list[Result]:
         results.append(result)
 
         # Sanity check: If we are supposed to stop on the first error case,
-        # the abort now.
+        # then abort now.
         if not result and global_config.stop_on_first_error:
             return results
 
@@ -407,14 +408,17 @@ def print_summary(
 
     # Iterate over the results and print the result for each in a
     # human-readable way.
-    logger.warning("Ran multiple sessions:")
+    total_duration = sum(result.duration for result in results)
+    duration_str = _duration_str(total_duration, " in {time}")
+    logger.session_info(f"Ran {len(results)} sessions{duration_str}:")
     for result in results:
         name = result.session.friendly_name
         status = result.status.name.lower()
+        duration_str = _duration_str(result.duration, ", took {time}")
         if result.status is Status.SKIPPED and result.reason:
-            result.log(f"* {name}: {status} ({result.reason})")
+            result.log(f"* {name}: {status} ({result.reason}){duration_str}")
         else:
-            result.log(f"* {name}: {status}")
+            result.log(f"* {name}: {status}{duration_str}")
 
     # Return the results that were sent to this function.
     return results

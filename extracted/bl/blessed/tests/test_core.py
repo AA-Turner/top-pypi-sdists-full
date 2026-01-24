@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Core blessed Terminal() tests."""
 
 # std imports
@@ -9,32 +8,21 @@ import math
 import time
 import platform
 import warnings
+import importlib
+from io import StringIO
+from unittest import mock
 
 # 3rd party
 import pytest
 
 # local
-from blessed._compat import StringIO
-from .accessories import TestTerminal, unicode_cap, as_subprocess
 from .conftest import IS_WINDOWS
-
-try:
-    from unittest import mock
-except ImportError:
-    import mock
-
-
-# reload was a built-in in PY2, then moved to imp in PY3, then moved to importlib in PY34
-if sys.version_info[:2] >= (3, 4):
-    from importlib import reload as reload_module
-elif sys.version_info[0] >= 3:
-    from imp import reload as reload_module  # pylint: disable=deprecated-module
-else:
-    reload_module = reload  # pylint: disable=undefined-variable  # noqa: F821
+from .accessories import TestTerminal, unicode_cap, as_subprocess, pty_test
 
 
 def test_export_only_Terminal():
     "Ensure only Terminal instance is exported for import * statements."
+    # local
     import blessed
     assert blessed.__all__ == ('Terminal',)
 
@@ -46,9 +34,9 @@ def test_null_location(all_terms):
         t = TestTerminal(stream=StringIO(), force_styling=True)
         with t.location():
             pass
-        expected_output = u''.join(
+        expected_output = ''.join(
             (unicode_cap('sc'), unicode_cap('rc')))
-        assert (t.stream.getvalue() == expected_output)
+        assert t.stream.getvalue() == expected_output
 
     child(all_terms)
 
@@ -60,8 +48,8 @@ def test_location_to_move_xy(all_terms):
         buf = StringIO()
         t = TestTerminal(stream=buf, force_styling=True)
         x, y = 12, 34
-        with t.location(y, x):
-            xy_val_from_move_xy = t.move_xy(y, x)
+        with t.location(x, y):
+            xy_val_from_move_xy = t.move_xy(x, y)
             xy_val_from_location = buf.getvalue()[len(t.sc):]
             assert xy_val_from_move_xy == xy_val_from_location
 
@@ -74,14 +62,14 @@ def test_yield_keypad():
     def child(kind):
         # given,
         t = TestTerminal(stream=StringIO(), force_styling=True)
-        expected_output = u''.join((t.smkx, t.rmkx))
+        expected_output = ''.join((t.smkx, t.rmkx))
 
         # exercise,
         with t.keypad():
             pass
 
         # verify.
-        assert (t.stream.getvalue() == expected_output)
+        assert t.stream.getvalue() == expected_output
 
     child(kind='xterm')
 
@@ -94,7 +82,7 @@ def test_null_fileno():
         out = StringIO()
         out.fileno = None
         t = TestTerminal(stream=out)
-        assert (t.save == u'')
+        assert t.save == ''
 
     child()
 
@@ -108,12 +96,12 @@ def test_number_of_colors_without_tty():
     @as_subprocess
     def child_256_nostyle():
         t = TestTerminal(stream=StringIO())
-        assert (t.number_of_colors == 0)
+        assert t.number_of_colors == 0
 
     @as_subprocess
     def child_256_forcestyle():
         t = TestTerminal(stream=StringIO(), force_styling=True)
-        assert (t.number_of_colors == 256)
+        assert t.number_of_colors == 256
 
     @as_subprocess
     def child_8_forcestyle():
@@ -121,20 +109,20 @@ def test_number_of_colors_without_tty():
         kind = 'cons25' if platform.system().lower() == 'freebsd' else 'ansi'
         t = TestTerminal(kind=kind, stream=StringIO(),
                          force_styling=True)
-        assert (t.number_of_colors == 8)
+        assert t.number_of_colors == 8
 
     @as_subprocess
     def child_0_forcestyle():
         t = TestTerminal(kind='vt220', stream=StringIO(),
                          force_styling=True)
-        assert (t.number_of_colors == 0)
+        assert t.number_of_colors == 0
 
     @as_subprocess
     def child_24bit_forcestyle_with_colorterm():
         os.environ['COLORTERM'] = 'truecolor'
         t = TestTerminal(kind='vt220', stream=StringIO(),
                          force_styling=True)
-        assert (t.number_of_colors == 1 << 24)
+        assert t.number_of_colors == 1 << 24
 
     child_0_forcestyle()
     child_8_forcestyle()
@@ -148,19 +136,19 @@ def test_number_of_colors_with_tty():
     @as_subprocess
     def child_256():
         t = TestTerminal()
-        assert (t.number_of_colors == 256)
+        assert t.number_of_colors == 256
 
     @as_subprocess
     def child_8():
         # 'ansi' on freebsd returns 0 colors. We use 'cons25', compatible with its kernel tty.c
         kind = 'cons25' if platform.system().lower() == 'freebsd' else 'ansi'
         t = TestTerminal(kind=kind)
-        assert (t.number_of_colors == 8)
+        assert t.number_of_colors == 8
 
     @as_subprocess
     def child_0():
         t = TestTerminal(kind='vt220')
-        assert (t.number_of_colors == 0)
+        assert t.number_of_colors == 0
 
     child_0()
     child_8()
@@ -173,8 +161,8 @@ def test_init_descriptor_always_initted(all_terms):
     def child(kind):
         t = TestTerminal(kind=kind, stream=StringIO())
         assert t._init_descriptor == sys.__stdout__.fileno()
-        assert (isinstance(t.height, int))
-        assert (isinstance(t.width, int))
+        assert isinstance(t.height, int)
+        assert isinstance(t.width, int)
         assert t.height == t._height_and_width()[0]
         assert t.width == t._height_and_width()[1]
 
@@ -185,12 +173,63 @@ def test_force_styling_none(all_terms):
     """If ``force_styling=None`` is used, don't ever do styling."""
     @as_subprocess
     def child(kind):
-        t = TestTerminal(kind=kind, force_styling=None)
-        assert (t.save == '')
-        assert (t.color(9) == '')
-        assert (t.bold('oi') == 'oi')
+        t = TestTerminal(force_styling=None)
+        assert not t.does_styling
 
     child(all_terms)
+
+
+def test_force_styling_none_but_FORCE_COLOR(all_terms):
+    """``force_styling=None``, but FORCE_COLOR or CLICOLOR_FORCE is non-empty, does styling."""
+    @as_subprocess
+    def child(envkey):
+        os.environ[envkey] = '1'
+        t = TestTerminal(force_styling=None)
+        assert t.does_styling
+        del os.environ[envkey]
+
+    child('FORCE_COLOR')
+    child('CLICOLOR_FORCE')
+
+
+def test_force_styling_none_and_unset_FORCE_COLOR(all_terms):
+    """
+    ``force_styling=None``, but FORCE_COLOR/CLICOLOR_FORCE is set, but empty, do not style.
+    """
+    @as_subprocess
+    def child(envkey):
+        os.environ[envkey] = ''
+        t = TestTerminal(force_styling=None)
+        assert not t.does_styling
+        del os.environ[envkey]
+
+    child('FORCE_COLOR')
+    child('CLICOLOR_FORCE')
+
+
+def test_force_styling_False_but_FORCE_COLOR():
+    """``force_styling=False``, but FORCE_COLOR or CLICOLOR_FORCE is non-empty, do styling."""
+    @as_subprocess
+    def child(envkey):
+        os.environ[envkey] = '1'
+        t = TestTerminal(force_styling=False)
+        assert t.does_styling
+        del os.environ[envkey]
+
+    child('FORCE_COLOR')
+    child('CLICOLOR_FORCE')
+
+
+def test_force_styling_True_but_NO_COLOR():
+    """``force_styling=True``, but NO_COLOR is non-empty, do not style."""
+    @as_subprocess
+    def child(envkey):
+        os.environ[envkey] = '1'
+        t = TestTerminal(force_styling=True)
+        assert not t.does_styling
+        del os.environ[envkey]
+
+    child('NO_COLOR')
 
 
 def test_setupterm_singleton_issue_33():
@@ -209,10 +248,11 @@ def test_setupterm_singleton_issue_33():
             term = TestTerminal(kind=next_kind, force_styling=True)
         except UserWarning as err:
             assert (err.args[0].startswith(
-                    'A terminal of kind "' + next_kind + '" has been requested')
-                    ), err.args[0]
-            assert ('a terminal of kind "' + first_kind + '" will '
-                    'continue to be returned' in err.args[0]), err.args[0]
+                f'A terminal of kind "{next_kind}" has been requested')
+            ), err.args[0]
+            assert (
+                f'a terminal of kind "{first_kind}" will continue to be returned' in err.args[0]
+            ), err.args[0]
         else:
             # unless term is not a tty and setupterm() is not called
             assert not term.is_a_tty, 'Should have thrown exception'
@@ -235,12 +275,12 @@ def test_setupterm_invalid_issue39():
         try:
             term = TestTerminal(kind='unknown', force_styling=True)
         except UserWarning as err:
-            assert err.args[0] in (
+            assert err.args[0] in {
                 "Failed to setupterm(kind='unknown'): "
                 "setupterm: could not find terminal",
                 "Failed to setupterm(kind='unknown'): "
                 "Could not find terminal unknown",
-            )
+            }
         else:
             if platform.system().lower() != 'freebsd':
                 assert not term.is_a_tty and not term.does_styling, (
@@ -269,26 +309,9 @@ def test_setupterm_invalid_has_no_styling():
     child()
 
 
-def test_python3_2_raises_exception(monkeypatch):
-    """Test python version 3.0 through 3.2 raises an exception."""
-    import blessed
-
-    monkeypatch.setattr('sys.version_info', (3, 2, 2, 'final', 0))
-
-    try:
-        reload_module(blessed)
-    except ImportError as err:
-        assert err.args[0] == (
-            'Blessed needs Python 3.2.3 or greater for Python 3 '
-            'support due to http://bugs.python.org/issue10570.')
-        monkeypatch.undo()
-        reload_module(blessed)
-    else:
-        assert False, 'Exception should have been raised'
-
-
 def test_without_dunder():
     """Ensure dunder does not remain in module (py2x InterruptedError test."""
+    # local
     import blessed.terminal
     assert '_' not in dir(blessed.terminal)
 
@@ -313,13 +336,29 @@ def test_IOUnsupportedOperation():
     child()
 
 
+def test_stream_no_fileno():
+    """Handle custom stream objects gracefully"""
+    @as_subprocess
+    def child():
+        stream = object()
+        term = TestTerminal(stream=stream)
+        assert term._stream is stream
+        assert 'stream has no fileno method' in term.errors
+        assert 'Output stream is not a default stream' in term.errors
+        assert term._init_descriptor is sys.__stdout__.fileno()
+        assert term._keyboard_fd is None
+        assert term.is_a_tty is False
+
+    child()
+
+
 @pytest.mark.skipif(IS_WINDOWS, reason="has process-wide side-effects")
 def test_winsize_IOError_returns_environ():
     """When _winsize raises IOError, defaults from os.environ given."""
     @as_subprocess
     def child():
         def side_effect(fd):
-            raise IOError
+            raise OSError
 
         term = TestTerminal()
         term._winsize = side_effect
@@ -335,12 +374,12 @@ def test_yield_fullscreen(all_terms):
     @as_subprocess
     def child(kind):
         t = TestTerminal(stream=StringIO(), force_styling=True)
-        t.enter_fullscreen = u'BEGIN'
-        t.exit_fullscreen = u'END'
+        t.enter_fullscreen = 'BEGIN'
+        t.exit_fullscreen = 'END'
         with t.fullscreen():
             pass
-        expected_output = u''.join((t.enter_fullscreen, t.exit_fullscreen))
-        assert (t.stream.getvalue() == expected_output)
+        expected_output = ''.join((t.enter_fullscreen, t.exit_fullscreen))
+        assert t.stream.getvalue() == expected_output
 
     child(all_terms)
 
@@ -350,14 +389,33 @@ def test_yield_hidden_cursor(all_terms):
     @as_subprocess
     def child(kind):
         t = TestTerminal(stream=StringIO(), force_styling=True)
-        t.hide_cursor = u'BEGIN'
-        t.normal_cursor = u'END'
+        t.hide_cursor = 'BEGIN'
+        t.normal_cursor = 'END'
         with t.hidden_cursor():
             pass
-        expected_output = u''.join((t.hide_cursor, t.normal_cursor))
-        assert (t.stream.getvalue() == expected_output)
+        expected_output = ''.join((t.hide_cursor, t.normal_cursor))
+        assert t.stream.getvalue() == expected_output
 
     child(all_terms)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="windows lacks disable_line_wrap capability")
+# see https://github.com/Rockhopper-Technologies/jinxed/blob/main/jinxed/terminfo/vtwin10.py
+# "Removed - These do not appear to be supported" for rmam + smam
+def test_yield_no_line_wrap():
+    """Ensure ``no_line_wrap()`` writes disable and enable VT100 line wrap sequence."""
+    @as_subprocess
+    def child():
+        t = TestTerminal(stream=StringIO(), force_styling=True)
+        with t.no_line_wrap():
+            pass
+        result = t.stream.getvalue()
+        assert t.disable_line_wrap and t.enable_line_wrap
+        assert result == t.disable_line_wrap + t.enable_line_wrap
+        assert result == t.rmam + t.smam
+        assert result == '\x1b[?7l' + '\x1b[?7h'
+
+    child()
 
 
 @pytest.mark.skipif(IS_WINDOWS, reason="windows doesn't work like this")
@@ -366,7 +424,7 @@ def test_no_preferredencoding_fallback():
     @as_subprocess
     def child():
         with mock.patch('locale.getpreferredencoding') as get_enc:
-            get_enc.return_value = u''
+            get_enc.return_value = ''
             t = TestTerminal()
             assert t._encoding == 'UTF-8'
 
@@ -418,14 +476,16 @@ def test_win32_missing_tty_modules(monkeypatch):
             else:
                 __builtins__['__import__'] = __import__
             try:
+                # local
                 import blessed.terminal
-                reload_module(blessed.terminal)
+                importlib.reload(blessed.terminal)
             except UserWarning as err:
                 assert err.args[0] == blessed.terminal._MSG_NOSUPPORT
 
             warnings.filterwarnings("ignore", category=UserWarning)
+            # local
             import blessed.terminal
-            reload_module(blessed.terminal)
+            importlib.reload(blessed.terminal)
             assert not blessed.terminal.HAS_TTY
             term = blessed.terminal.Terminal('ansi')
             # https://en.wikipedia.org/wiki/VGA-compatible_text_mode
@@ -439,18 +499,20 @@ def test_win32_missing_tty_modules(monkeypatch):
             else:
                 __builtins__['__import__'] = original_import
             warnings.resetwarnings()
+            # local
             import blessed.terminal
-            reload_module(blessed.terminal)
+            importlib.reload(blessed.terminal)
 
     child()
 
 
 def test_time_left():
     """test '_time_left' routine returns correct positive delta difference."""
+    # local
     from blessed.keyboard import _time_left
 
     # given stime =~ "10 seconds ago"
-    stime = (time.time() - 10)
+    stime = time.time() - 10
 
     # timeleft(now, 15s) = 5s remaining
     timeout = 15
@@ -462,6 +524,7 @@ def test_time_left():
 
 def test_time_left_infinite_None():
     """keyboard '_time_left' routine returns None when given None."""
+    # local
     from blessed.keyboard import _time_left
     assert _time_left(stime=time.time(), timeout=None) is None
 
@@ -474,13 +537,93 @@ def test_termcap_repr():
     given_capname = 'cursor_up'
     expected = [r"<Termcap cursor_up:'\x1b\\[A'>",
                 r"<Termcap cursor_up:'\\\x1b\\[A'>",
-                r"<Termcap cursor_up:u'\\\x1b\\[A'>"]
+                r"<Termcap cursor_up:'\\\x1b\\[A'>"]
 
     @as_subprocess
     def child():
+        # local
         import blessed
         term = blessed.Terminal(given_ttype)
         given = repr(term.caps[given_capname])
         assert given in expected
 
     child()
+
+
+@pytest.mark.parametrize("force_styling,is_a_tty", [
+    (False, True),
+    (True, False),
+])
+def test_query_methods_respect_does_styling_and_is_a_tty(force_styling, is_a_tty):
+    """Test that all query methods respect does_styling and is_a_tty guardrails."""
+    @as_subprocess
+    def child():
+        stream = StringIO()
+        term = TestTerminal(stream=stream, force_styling=force_styling)
+        if not is_a_tty:
+            term._is_a_tty = False
+
+        result_location = term.get_location(timeout=0.01)
+        assert result_location == (-1, -1)
+
+        result_fgcolor = term.get_fgcolor(timeout=0.01)
+        assert result_fgcolor == (-1, -1, -1)
+
+        result_bgcolor = term.get_bgcolor(timeout=0.01)
+        assert result_bgcolor == (-1, -1, -1)
+
+        result_device_attributes = term.get_device_attributes(timeout=0.01)
+        assert result_device_attributes is None
+
+        result_does_sixel = term.does_sixel(timeout=0.01)
+        assert result_does_sixel is False
+
+        result_sixel_hw = term.get_sixel_height_and_width(timeout=0.01)
+        assert result_sixel_hw == (-1, -1)
+
+        result_sixel_colors = term.get_sixel_colors(timeout=0.01)
+        assert result_sixel_colors == -1
+
+        result_cell_hw = term.get_cell_height_and_width(timeout=0.01)
+        assert result_cell_hw == (-1, -1)
+
+        assert stream.getvalue() == ''
+
+    child()
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="PTY tests not supported on Windows")
+def test_scroll_region_context_manager():
+    """Test scroll_region context manager sets and resets scroll region."""
+    def child(term):
+        stream = io.StringIO()
+        term._stream = stream
+        with term.scroll_region(top=5, height=10):
+            pass
+        return stream.getvalue()
+
+    output = pty_test(child, rows=24, cols=80)
+    assert output == '\x1b[6;15r\x1b[1;24r'
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="PTY tests not supported on Windows")
+def test_scroll_region_context_manager_defaults():
+    """Test scroll_region context manager with default arguments."""
+    def child(term):
+        stream = io.StringIO()
+        term._stream = stream
+        with term.scroll_region():
+            pass
+        return stream.getvalue()
+
+    output = pty_test(child, rows=24, cols=80)
+    assert output == '\x1b[1;24r\x1b[1;24r'
+
+
+def test_get_fgcolor_bgcolor_invalid_bits():
+    """Test get_fg/bgcolor raises ValueError for invalid bits parameter."""
+    term = TestTerminal(stream=StringIO())
+    with pytest.raises(ValueError, match=r"bits must be 8 or 16, got 24"):
+        term.get_fgcolor(bits=24)
+    with pytest.raises(ValueError, match=r"bits must be 8 or 16, got 32"):
+        term.get_bgcolor(bits=32)

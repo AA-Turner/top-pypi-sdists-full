@@ -3,7 +3,7 @@ Type annotations for mediapackagev2 service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediapackagev2/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -86,12 +87,6 @@ from .type_defs import (
 )
 from .waiter import HarvestJobFinishedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -100,14 +95,14 @@ else:
 __all__ = ("Mediapackagev2Client",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class Mediapackagev2Client(BaseClient):
     """
@@ -146,7 +141,7 @@ class Mediapackagev2Client(BaseClient):
 
     def cancel_harvest_job(
         self, **kwargs: Unpack[CancelHarvestJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels an in-progress harvest job.
 
@@ -196,7 +191,7 @@ class Mediapackagev2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediapackagev2/client/#create_origin_endpoint)
         """
 
-    def delete_channel(self, **kwargs: Unpack[DeleteChannelRequestTypeDef]) -> Dict[str, Any]:
+    def delete_channel(self, **kwargs: Unpack[DeleteChannelRequestTypeDef]) -> dict[str, Any]:
         """
         Delete a channel to stop AWS Elemental MediaPackage from receiving further
         content.
@@ -207,7 +202,7 @@ class Mediapackagev2Client(BaseClient):
 
     def delete_channel_group(
         self, **kwargs: Unpack[DeleteChannelGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a channel group.
 
@@ -217,7 +212,7 @@ class Mediapackagev2Client(BaseClient):
 
     def delete_channel_policy(
         self, **kwargs: Unpack[DeleteChannelPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a channel policy.
 
@@ -227,7 +222,7 @@ class Mediapackagev2Client(BaseClient):
 
     def delete_origin_endpoint(
         self, **kwargs: Unpack[DeleteOriginEndpointRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Origin endpoints can serve content until they're deleted.
 
@@ -237,7 +232,7 @@ class Mediapackagev2Client(BaseClient):
 
     def delete_origin_endpoint_policy(
         self, **kwargs: Unpack[DeleteOriginEndpointPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete an origin endpoint policy.
 
@@ -362,7 +357,7 @@ class Mediapackagev2Client(BaseClient):
 
     def put_channel_policy(
         self, **kwargs: Unpack[PutChannelPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attaches an IAM policy to the specified channel.
 
@@ -372,7 +367,7 @@ class Mediapackagev2Client(BaseClient):
 
     def put_origin_endpoint_policy(
         self, **kwargs: Unpack[PutOriginEndpointPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attaches an IAM policy to the specified origin endpoint.
 

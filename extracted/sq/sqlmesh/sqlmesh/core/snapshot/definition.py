@@ -185,6 +185,8 @@ class SnapshotIntervals(PydanticModel):
     intervals: Intervals = []
     dev_intervals: Intervals = []
     pending_restatement_intervals: Intervals = []
+    last_altered_ts: t.Optional[int] = None
+    dev_last_altered_ts: t.Optional[int] = None
 
     @property
     def snapshot_id(self) -> t.Optional[SnapshotId]:
@@ -205,6 +207,12 @@ class SnapshotIntervals(PydanticModel):
     def add_pending_restatement_interval(self, start: int, end: int) -> None:
         self._add_interval(start, end, "pending_restatement_intervals")
 
+    def update_last_altered_ts(self, last_altered_ts: t.Optional[int]) -> None:
+        self._update_last_altered_ts(last_altered_ts, "last_altered_ts")
+
+    def update_dev_last_altered_ts(self, last_altered_ts: t.Optional[int]) -> None:
+        self._update_last_altered_ts(last_altered_ts, "dev_last_altered_ts")
+
     def remove_interval(self, start: int, end: int) -> None:
         self._remove_interval(start, end, "intervals")
 
@@ -223,6 +231,13 @@ class SnapshotIntervals(PydanticModel):
         target_intervals = getattr(self, interval_attr)
         target_intervals = merge_intervals([*target_intervals, (start, end)])
         setattr(self, interval_attr, target_intervals)
+
+    def _update_last_altered_ts(
+        self, last_altered_ts: t.Optional[int], last_altered_attr: str
+    ) -> None:
+        if last_altered_ts:
+            existing_last_altered_ts = getattr(self, last_altered_attr)
+            setattr(self, last_altered_attr, max(existing_last_altered_ts or 0, last_altered_ts))
 
     def _remove_interval(self, start: int, end: int, interval_attr: str) -> None:
         target_intervals = getattr(self, interval_attr)
@@ -713,6 +728,10 @@ class Snapshot(PydanticModel, SnapshotInfoMixin):
     dev_table_suffix: str = "dev"
     table_naming_convention: TableNamingConvention = TableNamingConvention.default
     forward_only: bool = False
+    # Physical table last modified timestamp, not to be confused with the "updated_ts" field
+    # which is for the snapshot record itself
+    last_altered_ts: t.Optional[int] = None
+    dev_last_altered_ts: t.Optional[int] = None
 
     @field_validator("ttl")
     @classmethod
@@ -751,6 +770,7 @@ class Snapshot(PydanticModel, SnapshotInfoMixin):
             )
             for interval in snapshot_intervals:
                 snapshot.merge_intervals(interval)
+
             result.append(snapshot)
 
         return result
@@ -957,11 +977,19 @@ class Snapshot(PydanticModel, SnapshotInfoMixin):
             if not apply_effective_from or end <= effective_from_ts:
                 self.add_interval(start, end)
 
+        if other.last_altered_ts:
+            self.last_altered_ts = max(self.last_altered_ts or 0, other.last_altered_ts)
+
         if self.dev_version == other.dev_version:
             # Merge dev intervals if the dev versions match which would mean
             # that this and the other snapshot are pointing to the same dev table.
             for start, end in other.dev_intervals:
                 self.add_interval(start, end, is_dev=True)
+
+            if other.dev_last_altered_ts:
+                self.dev_last_altered_ts = max(
+                    self.dev_last_altered_ts or 0, other.dev_last_altered_ts
+                )
 
         self.pending_restatement_intervals = merge_intervals(
             [*self.pending_restatement_intervals, *other.pending_restatement_intervals]
@@ -1081,6 +1109,7 @@ class Snapshot(PydanticModel, SnapshotInfoMixin):
                     python_env=signals.python_env,
                     dialect=self.model.dialect,
                     path=self.model._path,
+                    snapshot=self,
                     kwargs=kwargs,
                 )
             except SQLMeshError as e:
@@ -2052,16 +2081,20 @@ def missing_intervals(
                 continue
             snapshot_end_date = existing_interval_end
 
+        snapshot_start_date = max(
+            to_datetime(snapshot_start_date),
+            to_datetime(start_date(snapshot, snapshots, cache, relative_to=snapshot_end_date)),
+        )
+        if snapshot_start_date > to_datetime(snapshot_end_date):
+            continue
+
         missing_interval_end_date = snapshot_end_date
         node_end_date = snapshot.node.end
         if node_end_date and (to_datetime(node_end_date) < to_datetime(snapshot_end_date)):
             missing_interval_end_date = node_end_date
 
         intervals = snapshot.missing_intervals(
-            max(
-                to_datetime(snapshot_start_date),
-                to_datetime(start_date(snapshot, snapshots, cache, relative_to=snapshot_end_date)),
-            ),
+            snapshot_start_date,
             missing_interval_end_date,
             execution_time=execution_time,
             deployability_index=deployability_index,
@@ -2266,14 +2299,16 @@ def start_date(
     if not isinstance(snapshots, dict):
         snapshots = {snapshot.snapshot_id: snapshot for snapshot in snapshots}
 
-    earliest = snapshot.node.cron_prev(snapshot.node.cron_floor(relative_to or now()))
-
-    for parent in snapshot.parents:
-        if parent in snapshots:
-            earliest = min(
-                earliest,
-                start_date(snapshots[parent], snapshots, cache=cache, relative_to=relative_to),
-            )
+    parent_starts = [
+        start_date(snapshots[parent], snapshots, cache=cache, relative_to=relative_to)
+        for parent in snapshot.parents
+        if parent in snapshots
+    ]
+    earliest = (
+        min(parent_starts)
+        if parent_starts
+        else snapshot.node.cron_prev(snapshot.node.cron_floor(relative_to or now()))
+    )
 
     cache[key] = earliest
     return earliest
@@ -2421,6 +2456,7 @@ def check_ready_intervals(
     python_env: t.Dict[str, Executable],
     dialect: DialectType = None,
     path: t.Optional[Path] = None,
+    snapshot: t.Optional[Snapshot] = None,
     kwargs: t.Optional[t.Dict] = None,
 ) -> Intervals:
     checked_intervals: Intervals = []
@@ -2436,6 +2472,7 @@ def check_ready_intervals(
                 provided_args=(batch,),
                 provided_kwargs=(kwargs or {}),
                 context=context,
+                snapshot=snapshot,
             )
         except Exception as ex:
             raise SignalEvalError(format_evaluated_code_exception(ex, python_env))

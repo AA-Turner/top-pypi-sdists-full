@@ -1,8 +1,12 @@
 from typing import (
+    Any,
     Callable,
     Final,
     Optional,
+    Tuple,
+    TypeAlias,
     Union,
+    cast,
 )
 
 from cchecksum import (
@@ -15,11 +19,14 @@ from hypothesis import (
     strategies as st,
 )
 
-from faster_eth_abi.grammar import (
+from faster_eth_abi._grammar import (
     ABIType,
+    Arrlist,
     BasicType,
     TupleType,
     normalize,
+)
+from faster_eth_abi.grammar import (
     parse,
 )
 from faster_eth_abi.registry import (
@@ -34,13 +41,15 @@ from faster_eth_abi.utils.numeric import (
     scale_places,
 )
 
-StrategyFactory = Callable[[ABIType, "StrategyRegistry"], st.SearchStrategy]
-StrategyRegistration = Union[st.SearchStrategy, StrategyFactory]
+StrategyFactory: TypeAlias = Callable[[ABIType, "StrategyRegistry"], st.SearchStrategy]
+StrategyRegistration: TypeAlias = Union[st.SearchStrategy, StrategyFactory]
+StrategyMapping: TypeAlias = PredicateMapping[StrategyRegistration]
 
 
 class StrategyRegistry(BaseRegistry):
     def __init__(self) -> None:
-        self._strategies = PredicateMapping("strategy registry")
+        strategies: StrategyMapping = PredicateMapping("strategy registry")
+        self._strategies: Final = strategies
 
     def register_strategy(
         self,
@@ -79,9 +88,9 @@ class StrategyRegistry(BaseRegistry):
 
 
 def get_uint_strategy(
-    abi_type: BasicType, registry: StrategyRegistry
+    abi_type: BasicType[Any], registry: StrategyRegistry
 ) -> st.SearchStrategy:
-    bits = abi_type.sub
+    bits = cast(int, abi_type.sub)
 
     return st.integers(
         min_value=0,
@@ -90,9 +99,9 @@ def get_uint_strategy(
 
 
 def get_int_strategy(
-    abi_type: BasicType, registry: StrategyRegistry
+    abi_type: BasicType[Any], registry: StrategyRegistry
 ) -> st.SearchStrategy:
-    bits = abi_type.sub
+    bits = cast(int, abi_type.sub)
 
     return st.integers(
         min_value=-(2 ** (bits - 1)),
@@ -105,9 +114,9 @@ bool_strategy: Final = st.booleans()
 
 
 def get_ufixed_strategy(
-    abi_type: BasicType, registry: StrategyRegistry
+    abi_type: BasicType[Any], registry: StrategyRegistry
 ) -> st.SearchStrategy:
-    bits, places = abi_type.sub
+    bits, places = cast(Tuple[int, int], abi_type.sub)
 
     return st.decimals(
         min_value=0,
@@ -117,9 +126,9 @@ def get_ufixed_strategy(
 
 
 def get_fixed_strategy(
-    abi_type: BasicType, registry: StrategyRegistry
+    abi_type: BasicType[Any], registry: StrategyRegistry
 ) -> st.SearchStrategy:
-    bits, places = abi_type.sub
+    bits, places = cast(Tuple[int, int], abi_type.sub)
 
     return st.decimals(
         min_value=-(2 ** (bits - 1)),
@@ -129,7 +138,7 @@ def get_fixed_strategy(
 
 
 def get_bytes_strategy(
-    abi_type: BasicType, registry: StrategyRegistry
+    abi_type: BasicType[Any], registry: StrategyRegistry
 ) -> st.SearchStrategy:
     num_bytes = abi_type.sub
 
@@ -150,7 +159,8 @@ def get_array_strategy(
     item_type_str = item_type.to_type_str()
     item_strategy = registry.get_strategy(item_type_str)
 
-    last_dim = abi_type.arrlist[-1]  # type: ignore [index]
+    arrlist = cast(Arrlist, abi_type.arrlist)
+    last_dim = cast(Tuple[int, ...], arrlist[-1])
     if len(last_dim) == 0:
         # Is dynamic list.  Don't restrict length.
         return st.lists(item_strategy)

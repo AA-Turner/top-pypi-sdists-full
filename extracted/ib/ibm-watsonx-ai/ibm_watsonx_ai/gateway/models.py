@@ -1,8 +1,9 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 import datetime
+from typing import Any
 
 import pandas as pd
 
@@ -41,7 +42,7 @@ class Models(WMLResource):
         :returns: model details
         :rtype: dict
         """
-        request_json = {"id": model}
+        request_json: dict[str, Any] = {"id": model}
 
         if alias:
             request_json["alias"] = alias

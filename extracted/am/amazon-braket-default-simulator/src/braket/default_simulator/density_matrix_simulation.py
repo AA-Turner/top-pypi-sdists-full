@@ -15,6 +15,7 @@ import numpy as np
 
 from braket.default_simulator.linalg_utils import (
     QuantumGateDispatcher,
+    controlled_matrix,
     multiply_matrix,
     partial_trace,
 )
@@ -139,8 +140,8 @@ class DensityMatrixSimulation(Simulation):
         Args:
             state (np.ndarray): initial density matrix
             qubit_count (int): number of qubits in the circuit
-            operations (list[Union[GateOperation, KrausOperation, Observable]]): list of GateOperation and
-                KrausOperation to be applied to the density matrix
+            operations (list[GateOperation | KrausOperation | Observable]): operations to be applied
+                to the density matrix
 
         Returns:
             np.ndarray: output density matrix
@@ -158,7 +159,7 @@ class DensityMatrixSimulation(Simulation):
         for operation in operations:
             if isinstance(operation, (GateOperation, Observable)):
                 targets = operation.targets
-                num_ctrl = len(operation._ctrl_modifiers)
+                num_ctrl = len(operation.control_state)
                 # Extract gate_type if available
                 result, temp = DensityMatrixSimulation._apply_gate(
                     result,
@@ -167,7 +168,7 @@ class DensityMatrixSimulation(Simulation):
                     operation.matrix,
                     targets[num_ctrl:],
                     targets[:num_ctrl],
-                    operation._ctrl_modifiers,
+                    operation.control_state,
                     dispatcher,
                     getattr(operation, "gate_type"),
                 )
@@ -244,16 +245,14 @@ class DensityMatrixSimulation(Simulation):
             dispatcher=dispatcher,
             gate_type=gate_type,
         )
-
         if needs_swap1:
             result, temp = temp, result
 
         multiply_matrix(
             state=result,
-            matrix=matrix.conj(),
-            targets=tuple(t + qubit_count for t in targets),
-            controls=tuple(c + qubit_count for c in controls),
-            control_state=control_state,
+            # TODO: Fix control slicing for right multiplication
+            matrix=controlled_matrix(matrix, control_state).conj(),
+            targets=tuple(t + qubit_count for t in controls + targets),
             out=temp,
             return_swap_info=True,
             dispatcher=dispatcher,

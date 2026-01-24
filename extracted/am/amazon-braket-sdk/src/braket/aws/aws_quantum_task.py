@@ -64,6 +64,10 @@ from braket.circuits.serialization import (
     SerializableProgram,
 )
 from braket.error_mitigation import ErrorMitigation
+from braket.experimental_capabilities.experimental_capability_context import (
+    EXPERIMENTAL_CAPABILITIES_ALL,
+    GLOBAL_EXPERIMENTAL_CAPABILITY_CONTEXT,
+)
 from braket.program_sets import ProgramSet
 from braket.pulse.pulse_sequence import PulseSequence
 from braket.tasks import (
@@ -107,6 +111,7 @@ class AwsQuantumTask(QuantumTask):
         gate_definitions: dict[tuple[Gate, QubitSet], PulseSequence] | None = None,
         quiet: bool = False,
         reservation_arn: str | None = None,
+        experimental_capabilities: str | None = None,
         *args,
         **kwargs,
     ) -> AwsQuantumTask:
@@ -160,6 +165,11 @@ class AwsQuantumTask(QuantumTask):
                 those tasks do not need to be created with the reservation ARN.
                 Default: None.
 
+            experimental_capabilities (str | None): Experimental capabilities
+                to enable for the quantum task. Supported values are "ALL" to enable all
+                experimental capabilities. If `None`, the setting from the experimental
+                capability context will be used if active. Default: None.
+
         Returns:
             AwsQuantumTask: AwsQuantumTask tracking the quantum task execution on the device.
 
@@ -198,6 +208,14 @@ class AwsQuantumTask(QuantumTask):
                     }
                 ]
             })
+
+        if (
+            GLOBAL_EXPERIMENTAL_CAPABILITY_CONTEXT.is_enabled()
+            or experimental_capabilities == EXPERIMENTAL_CAPABILITIES_ALL
+        ):
+            create_task_kwargs.update({"experimentalCapabilities": {"enabled": "ALL"}})
+        elif experimental_capabilities:
+            raise ValueError("Invalid experimental capabilities options provided.")
 
         if isinstance(task_specification, Circuit):
             param_names = {param.name for param in task_specification.parameters}
@@ -245,7 +263,7 @@ class AwsQuantumTask(QuantumTask):
                 `getLogger(__name__)`
             quiet (bool): Sets the verbosity of the logger to low and does not report queue
                 position. Default is `False`.
-            task_specification (Optional[TaskSpecification]): The specification the task
+            task_specification (TaskSpecification | None): The specification the task
                 was run with
 
         Examples:
@@ -389,13 +407,14 @@ class AwsQuantumTask(QuantumTask):
     def _status(self, use_cached_value: bool = False) -> str:
         metadata = self.metadata(use_cached_value)
         status = metadata.get("status")
-        if not use_cached_value and status in self.NO_RESULT_TERMINAL_STATES:
-            if status == "FAILED" and self.action_type == DeviceActionType.OPENQASM_PROGRAM_SET:
+        if status == "FAILED" and self.action_type == DeviceActionType.OPENQASM_PROGRAM_SET:
+            if not use_cached_value:
                 self._logger.warning(
                     f"Task is in terminal state {status}; see result for more details"
                 )
-                self._result_available = True
-                return status
+            self._result_available = True
+            return status
+        if not use_cached_value and status in self.NO_RESULT_TERMINAL_STATES:
             self._logger.warning(f"Task is in terminal state {status} and no result is available.")
             if status == "FAILED":
                 failure_reason = metadata.get("failureReason", "unknown")
@@ -425,12 +444,13 @@ class AwsQuantumTask(QuantumTask):
             returns `None` if the quantum task did not complete successfully
             or the future timed out.
         """
-        if self._result or (
-            self._metadata and self._status(True) in self.NO_RESULT_TERMINAL_STATES
-        ):
+        if self._result:
             return self._result
-        if self._metadata and self._status(True) in self.RESULTS_READY_STATES:
+        status = self._update_status_if_nonterminal()
+        if self._result_available:
             return self._download_result()
+        if status in self.NO_RESULT_TERMINAL_STATES:
+            return self._result
         try:
             async_result = self.async_result()
             return async_result.get_loop().run_until_complete(async_result)

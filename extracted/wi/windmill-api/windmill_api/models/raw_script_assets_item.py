@@ -15,10 +15,10 @@ T = TypeVar("T", bound="RawScriptAssetsItem")
 class RawScriptAssetsItem:
     """
     Attributes:
-        path (str):
-        kind (RawScriptAssetsItemKind):
-        access_type (Union[Unset, RawScriptAssetsItemAccessType]):
-        alt_access_type (Union[Unset, RawScriptAssetsItemAltAccessType]):
+        path (str): Path to the asset
+        kind (RawScriptAssetsItemKind): Type of asset
+        access_type (Union[Unset, RawScriptAssetsItemAccessType]): Access level for this asset
+        alt_access_type (Union[Unset, RawScriptAssetsItemAltAccessType]): Alternative access level
     """
 
     path: str

@@ -539,7 +539,7 @@ Keyword arguments:
 
 - zIndex (string | number; optional):
     Tooltip z-index, `300` by default."""
-    _children_props = ['label']
+    _children_props: typing.List[str] = ['label']
     _base_nodes = ['label', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Tooltip'

@@ -9,59 +9,54 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
 
+class ExternalGroup(GitHubModel):
+    """ExternalGroup
 
-class TeamProject(GitHubModel):
-    """Team Project
-
-    A team's access to a project.
+    Information about an external group's usage and its members
     """
 
-    owner_url: str = Field()
-    url: str = Field()
-    html_url: str = Field()
-    columns_url: str = Field()
-    id: int = Field()
-    node_id: str = Field()
-    name: str = Field()
-    body: Union[str, None] = Field()
-    number: int = Field()
-    state: str = Field()
-    creator: SimpleUser = Field(title="Simple User", description="A GitHub user.")
-    created_at: str = Field()
-    updated_at: str = Field()
-    organization_permission: Missing[str] = Field(
-        default=UNSET,
-        description="The organization permission for this project. Only present when owner is an organization.",
+    group_id: int = Field(description="The internal ID of the group")
+    group_name: str = Field(description="The display name for the group")
+    updated_at: Missing[str] = Field(
+        default=UNSET, description="The date when the group was last updated_at"
     )
-    private: Missing[bool] = Field(
-        default=UNSET,
-        description="Whether the project is private or not. Only present when owner is an organization.",
+    teams: list[ExternalGroupPropTeamsItems] = Field(
+        description="An array of teams linked to this group"
     )
-    permissions: TeamProjectPropPermissions = Field()
+    members: list[ExternalGroupPropMembersItems] = Field(
+        description="An array of external members linked to this group"
+    )
 
 
-class TeamProjectPropPermissions(GitHubModel):
-    """TeamProjectPropPermissions"""
+class ExternalGroupPropTeamsItems(GitHubModel):
+    """ExternalGroupPropTeamsItems"""
 
-    read: bool = Field()
-    write: bool = Field()
-    admin: bool = Field()
+    team_id: int = Field(description="The id for a team")
+    team_name: str = Field(description="The name of the team")
 
 
-model_rebuild(TeamProject)
-model_rebuild(TeamProjectPropPermissions)
+class ExternalGroupPropMembersItems(GitHubModel):
+    """ExternalGroupPropMembersItems"""
+
+    member_id: int = Field(description="The internal user ID of the identity")
+    member_login: str = Field(description="The handle/login for the user")
+    member_name: str = Field(description="The user display name/profile name")
+    member_email: str = Field(description="An email attached to a user")
+
+
+model_rebuild(ExternalGroup)
+model_rebuild(ExternalGroupPropTeamsItems)
+model_rebuild(ExternalGroupPropMembersItems)
 
 __all__ = (
-    "TeamProject",
-    "TeamProjectPropPermissions",
+    "ExternalGroup",
+    "ExternalGroupPropMembersItems",
+    "ExternalGroupPropTeamsItems",
 )

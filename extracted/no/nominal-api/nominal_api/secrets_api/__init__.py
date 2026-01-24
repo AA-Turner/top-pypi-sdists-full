@@ -1,8 +1,10 @@
 # coding=utf-8
 from .._impl import (
     secrets_api_CreateSecretRequest as CreateSecretRequest,
+    secrets_api_DecryptedSecret as DecryptedSecret,
     secrets_api_GetSecretsRequest as GetSecretsRequest,
     secrets_api_GetSecretsResponse as GetSecretsResponse,
+    secrets_api_InternalSecretService as InternalSecretService,
     secrets_api_SearchSecretsQuery as SearchSecretsQuery,
     secrets_api_SearchSecretsQueryVisitor as SearchSecretsQueryVisitor,
     secrets_api_SearchSecretsRequest as SearchSecretsRequest,
@@ -17,6 +19,7 @@ from .._impl import (
 
 __all__ = [
     'CreateSecretRequest',
+    'DecryptedSecret',
     'GetSecretsRequest',
     'GetSecretsResponse',
     'SearchSecretsQuery',
@@ -28,6 +31,7 @@ __all__ = [
     'SortField',
     'SortOptions',
     'UpdateSecretRequest',
+    'InternalSecretService',
     'SecretService',
 ]
 

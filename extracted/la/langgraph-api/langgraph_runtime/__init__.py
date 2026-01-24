@@ -35,5 +35,6 @@ for module_name in (
     "retry",
     "store",
     "metrics",
+    "routes",
 ):
     sys.modules["langgraph_runtime." + module_name] = getattr(backend, module_name)

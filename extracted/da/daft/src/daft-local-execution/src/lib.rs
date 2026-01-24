@@ -1,8 +1,7 @@
 mod buffer;
 mod channel;
-mod dispatcher;
+mod dynamic_batching;
 mod intermediate_ops;
-mod ops;
 mod pipeline;
 mod resource_manager;
 mod run;
@@ -11,7 +10,6 @@ mod sinks;
 mod sources;
 mod state_bridge;
 mod streaming_sink;
-
 use std::{
     future::Future,
     pin::Pin,
@@ -21,13 +19,30 @@ use std::{
 
 use arc_swap::ArcSwap;
 use common_error::{DaftError, DaftResult};
-use common_runtime::{RuntimeRef, RuntimeTask};
+use common_runtime::{JoinSet, RuntimeRef, RuntimeTask};
 use console::style;
 use resource_manager::MemoryManager;
 pub use run::{ExecutionEngineResult, NativeExecutor};
 use runtime_stats::{RuntimeStats, RuntimeStatsManagerHandle, TimedFuture};
 use snafu::{ResultExt, Snafu, futures::TryFutureExt};
 use tracing::Instrument;
+
+/// Control flow indicator for processing loops.
+/// Used to signal whether processing should continue or break out of a loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OperatorControlFlow {
+    /// Continue processing - caller should proceed with the next iteration
+    Continue,
+    /// Break processing - caller should exit the loop immediately
+    Break,
+}
+
+impl OperatorControlFlow {
+    /// Returns true if processing should continue
+    pub(crate) fn should_continue(&self) -> bool {
+        matches!(self, Self::Continue)
+    }
+}
 
 /// The `OperatorOutput` enum represents the output of an operator.
 /// It can be either `Ready` or `Pending`.
@@ -65,44 +80,6 @@ impl<T: Send + Sync + 'static> From<RuntimeTask<T>> for OperatorOutput<T> {
     }
 }
 
-pub(crate) struct TaskSet<T> {
-    inner: tokio::task::JoinSet<T>,
-}
-
-impl<T: 'static> TaskSet<T> {
-    fn new() -> Self {
-        Self {
-            inner: tokio::task::JoinSet::new(),
-        }
-    }
-
-    fn spawn_local<F>(&mut self, future: F)
-    where
-        F: std::future::Future<Output = T> + 'static,
-    {
-        self.inner.spawn_local(future);
-    }
-
-    fn spawn<F>(&mut self, future: F)
-    where
-        F: std::future::Future<Output = T> + Send + 'static,
-        T: Send,
-    {
-        self.inner.spawn(future);
-    }
-
-    async fn join_next(&mut self) -> Option<Result<T, Error>> {
-        self.inner
-            .join_next()
-            .await
-            .map(|r| r.map_err(|e| Error::JoinError { source: e }))
-    }
-
-    async fn shutdown(&mut self) {
-        self.inner.shutdown().await;
-    }
-}
-
 #[pin_project::pin_project]
 struct SpawnedTask<T>(#[pin] tokio::task::JoinHandle<T>);
 impl<T> Future for SpawnedTask<T> {
@@ -113,20 +90,8 @@ impl<T> Future for SpawnedTask<T> {
     }
 }
 
-struct RuntimeHandle(tokio::runtime::Handle);
-impl RuntimeHandle {
-    fn spawn<F>(&self, future: F) -> SpawnedTask<F::Output>
-    where
-        F: Future + Send + 'static,
-        F::Output: Send + 'static,
-    {
-        let join_handle = self.0.spawn(future);
-        SpawnedTask(join_handle)
-    }
-}
-
 pub(crate) struct ExecutionRuntimeContext {
-    worker_set: TaskSet<crate::Result<()>>,
+    worker_set: JoinSet<Result<()>>,
     memory_manager: Arc<MemoryManager>,
     stats_manager: RuntimeStatsManagerHandle,
 }
@@ -138,32 +103,41 @@ impl ExecutionRuntimeContext {
         stats_manager: RuntimeStatsManagerHandle,
     ) -> Self {
         Self {
-            worker_set: TaskSet::new(),
+            worker_set: JoinSet::new(),
             memory_manager,
             stats_manager,
         }
     }
 
-    pub fn spawn_local(
+    pub fn spawn(
         &mut self,
-        task: impl std::future::Future<Output = DaftResult<()>> + 'static,
+        task: impl std::future::Future<Output = DaftResult<()>> + Send + 'static,
         node_name: &str,
     ) {
         let node_name = node_name.to_string();
         self.worker_set
-            .spawn_local(task.with_context(|_| PipelineExecutionSnafu { node_name }));
+            .spawn(task.with_context(|_| PipelineExecutionSnafu { node_name }));
     }
 
-    pub async fn join_next(&mut self) -> Option<Result<crate::Result<()>, Error>> {
-        self.worker_set.join_next().await
-    }
+    pub async fn shutdown(&mut self) -> DaftResult<()> {
+        self.worker_set.abort_all();
+        while let Some(result) = self.worker_set.join_next().await {
+            match result {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => return Err(e.into()),
+                Err(e) => {
+                    // Only suppress errors that are JoinError caused by cancellation
+                    if let DaftError::JoinError(ref join_err) = e
+                        && join_err.is_cancelled()
+                    {
+                        continue;
+                    }
 
-    pub async fn shutdown(&mut self) {
-        self.worker_set.shutdown().await;
-    }
-
-    pub(crate) fn handle(&self) -> RuntimeHandle {
-        RuntimeHandle(tokio::runtime::Handle::current())
+                    return Err(e.into());
+                }
+            }
+        }
+        Ok(())
     }
 
     #[must_use]
@@ -177,6 +151,7 @@ impl ExecutionRuntimeContext {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct ExecutionTaskSpawner {
     runtime_ref: RuntimeRef,
     memory_manager: Arc<MemoryManager>,
@@ -308,6 +283,8 @@ pub enum Error {
         source: DaftError,
         node_name: String,
     },
+    #[snafu(display("ValueError: {}", message))]
+    ValueError { message: String },
 }
 
 impl From<Error> for DaftError {
@@ -321,6 +298,7 @@ impl From<Error> for DaftError {
                 log::error!("Error when running pipeline node {}", node_name);
                 source
             }
+            Error::ValueError { message } => Self::ValueError(message),
             _ => Self::External(err.into()),
         }
     }

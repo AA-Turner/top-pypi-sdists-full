@@ -1,31 +1,30 @@
 Metadata-Version: 2.1
 Name: cdk-monitoring-constructs
-Version: 9.15.2
+Version: 9.19.0
 Summary: cdk-monitoring-constructs
 Home-page: https://github.com/cdklabs/cdk-monitoring-constructs
-Author: CDK Monitoring Constructs Team<monitoring-cdk-constructs@amazon.com>
+Author: Amazon Web Services<aws-cdk-dev@amazon.com>
 License: Apache-2.0
 Project-URL: Source, https://github.com/cdklabs/cdk-monitoring-constructs
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: JavaScript
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Typing :: Typed
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved
-Requires-Python: ~=3.8
+Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.160.0
 Requires-Dist: constructs<11.0.0,>=10.0.5
-Requires-Dist: jsii<2.0.0,>=1.106.0
+Requires-Dist: jsii<2.0.0,>=1.120.0
 Requires-Dist: publication>=0.0.3
-Requires-Dist: typeguard<4.3.0,>=2.13.3
+Requires-Dist: typeguard==2.13.3
 
 # CDK Monitoring Constructs
 
@@ -137,32 +136,21 @@ You can browse the documentation at https://constructs.dev/packages/cdk-monitori
 For examples of monitoring different resources, refer to [the unit tests](https://github.com/cdklabs/cdk-monitoring-constructs/tree/main/test/monitoring).
 
 ```python
-export interface MonitoringStackProps extends DeploymentStackProps {
-  // ...
-}
+# Example automatically generated from non-compiling source. May contain errors.
+# This could be in the same stack as your resources, as a nested stack, or a separate stack as you see fit
+class MonitoringStack(DeploymentStack):
+    def __init__(self, parent, name, *):
+        super().__init__(parent, name)
 
-// This could be in the same stack as your resources, as a nested stack, or a separate stack as you see fit
-export class MonitoringStack extends DeploymentStack {
-  constructor(parent: App, name: string, props: MonitoringStackProps) {
-    super(parent, name, props);
+        monitoring = MonitoringFacade(self, "Monitoring",
+            # Defaults are provided for these, but they can be customized as desired
+            metric_factory_defaults={...},
+            alarm_factory_defaults={...},
+            dashboard_factory={...}
+        )
 
-    const monitoring = new MonitoringFacade(this, "Monitoring", {
-      // Defaults are provided for these, but they can be customized as desired
-      metricFactoryDefaults: { ... },
-      alarmFactoryDefaults: { ... },
-      dashboardFactory: { ... },
-    });
-
-    // Monitor your resources
-    monitoring
-      .addLargeHeader("Storage")
-      .monitorDynamoTable({ /* Monitor a DynamoDB table */ })
-      .monitorDynamoTable({ /* and a different table */ })
-      .monitorLambdaFunction({ /* and a Lambda function */ })
-      .monitorCustom({ /* and some arbitrary metrics in CloudWatch */ })
-      // ... etc.
-  }
-}
+        # Monitor your resources
+        monitoring.add_large_header("Storage").monitor_dynamo_table().monitor_dynamo_table().monitor_lambda_function().monitor_custom()
 ```
 
 ### Customize actions
@@ -172,30 +160,32 @@ Alarms should have actions set up, otherwise they are not very useful.
 Example of notifying an SNS topic:
 
 ```python
-declare const onAlarmTopic: ITopic;
+# Example automatically generated from non-compiling source. May contain errors.
+# on_alarm_topic: ITopic
 
-const monitoring = new MonitoringFacade(this, "Monitoring", {
-  // ...other props
-  alarmFactoryDefaults: {
-    // ....other props
-    action: new SnsAlarmActionStrategy({ onAlarmTopic }),
-  },
-});
+
+monitoring = MonitoringFacade(self, "Monitoring",
+    # ...other props
+    alarm_factory_defaults={
+        # ....other props
+        "action": SnsAlarmActionStrategy(on_alarm_topic=on_alarm_topic)
+    }
+)
 ```
 
 You can override the default topic for any alarm like this:
 
 ```python
-monitoring
-  .monitorSomething(something, {
-    addSomeAlarm: {
-      Warning: {
-        // ...other props
-        threshold: 42,
-        actionOverride: new SnsAlarmActionStrategy({ onAlarmTopic }),
-      }
+# Example automatically generated from non-compiling source. May contain errors.
+monitoring.monitor_something(something,
+    add_some_alarm={
+        "Warning": {
+            # ...other props
+            "threshold": 42,
+            "action_override": SnsAlarmActionStrategy(on_alarm_topic=on_alarm_topic)
+        }
     }
-  });
+)
 ```
 
 Supported actions can be found [here](https://github.com/cdklabs/cdk-monitoring-constructs/tree/main/lib/common/alarm/action), including SNS and Lambda.
@@ -203,10 +193,12 @@ Supported actions can be found [here](https://github.com/cdklabs/cdk-monitoring-
 You can also compose multiple actions using `multipleActions`:
 
 ```python
-declare const onAlarmTopic: ITopic;
-declare const onAlarmFunction: IFunction;
+# Example automatically generated from non-compiling source. May contain errors.
+# on_alarm_topic: ITopic
+# on_alarm_function: IFunction
 
-const action: IAlarmActionStrategy = multipleActions(notifySns(onAlarmTopic), triggerLambda(onAlarmFunction));
+
+action = multiple_actions(notify_sns(on_alarm_topic), trigger_lambda(on_alarm_function))
 ```
 
 ### Custom metrics
@@ -223,15 +215,17 @@ They can either be created by hand (`new Metric({...})`) or (preferably) by usin
 The advantage of using the shared `metricFactory` is that you do not need to worry about period, etc.
 
 ```python
-// create metrics manually
-const m1 = new Metric(/* ... */);
+# Example automatically generated from non-compiling source. May contain errors.
+# create metrics manually
+m1 = Metric()
 ```
 
 ```python
-const metricFactory = monitoringFacade.createMetricFactory();
+# Example automatically generated from non-compiling source. May contain errors.
+metric_factory = monitoring_facade.create_metric_factory()
 
-// create metrics using metric factory
-const m1 = metricFactory.createMetric(/* ... */);
+# create metrics using metric factory
+m1 = metric_factory.create_metric()
 ```
 
 #### Example: metric with anomaly detection
@@ -240,56 +234,56 @@ In this case, only one metric is supported.
 Multiple metrics cannot be rendered with anomaly detection in a single widget due to a CloudWatch limitation.
 
 ```python
-monitorCustom({
-  title: "Metric with anomaly detection",
-  metricGroups: [
-    {
-      metric: m1,
-      anomalyDetectionStandardDeviationToRender: 3
+# Example automatically generated from non-compiling source. May contain errors.
+monitor_custom(
+    title="Metric with anomaly detection",
+    metric_groups=[{
+        "metric": m1,
+        "anomaly_detection_standard_deviation_to_render": 3
     }
-  ]
-})
+    ]
+)
 ```
 
 Adding an alarm:
 
 ```python
-monitorCustom({
-  title: "Metric with anomaly detection and alarm",
-  metricGroups: [
-    {
-      metric: m1,
-      alarmFriendlyName: "MetricWithAnomalyDetectionAlarm",
-      anomalyDetectionStandardDeviationToRender: 3,
-      addAlarmOnAnomaly: {
-        Warning: {
-          standardDeviationForAlarm: 4,
-          alarmWhenAboveTheBand: true,
-          alarmWhenBelowTheBand: true
+# Example automatically generated from non-compiling source. May contain errors.
+monitor_custom(
+    title="Metric with anomaly detection and alarm",
+    metric_groups=[{
+        "metric": m1,
+        "alarm_friendly_name": "MetricWithAnomalyDetectionAlarm",
+        "anomaly_detection_standard_deviation_to_render": 3,
+        "add_alarm_on_anomaly": {
+            "Warning": {
+                "standard_deviation_for_alarm": 4,
+                "alarm_when_above_the_band": True,
+                "alarm_when_below_the_band": True
+            }
         }
-      }
     }
-  ]
-})
+    ]
+)
 ```
 
 #### Example: search metrics
 
 ```python
-monitorCustom({
-  title: "Metric search",
-  metricGroups: [
-    {
-      searchQuery: "My.Prefix.",
-      dimensionsMap: {
-        FirstDimension: "FirstDimensionValue",
-        // Allow any value for the given dimension (pardon the weird typing to satisfy DimensionsMap)
-        SecondDimension: undefined as unknown as string
-      }
-      statistic: MetricStatistic.SUM,
+# Example automatically generated from non-compiling source. May contain errors.
+monitor_custom(
+    title="Metric search",
+    metric_groups=[{
+        "search_query": "My.Prefix.",
+        "dimensions_map": {
+            "FirstDimension": "FirstDimensionValue",
+            # Allow any value for the given dimension (pardon the weird typing to satisfy DimensionsMap)
+            "SecondDimension": undefined
+        },
+        "statistic": MetricStatistic.SUM
     }
-  ]
-})
+    ]
+)
 ```
 
 Search metrics do not support setting an alarm, which is a CloudWatch limitation.
@@ -300,50 +294,51 @@ Route53 has [strict requirements](https://docs.aws.amazon.com/Route53/latest/Dev
 You adjust the metric for an alarm so that it can be used in a Route53 Health Checks as follows:
 
 ```python
-monitoring
-  .monitorSomething(something, {
-    addSomeAlarm: {
-      Warning: {
-        // ...other props
-        metricAdjuster: Route53HealthCheckMetricAdjuster.INSTANCE,
-      }
+# Example automatically generated from non-compiling source. May contain errors.
+monitoring.monitor_something(something,
+    add_some_alarm={
+        "Warning": {
+            # ...other props
+            "metric_adjuster": Route53HealthCheckMetricAdjuster.INSTANCE
+        }
     }
-  });
+)
 ```
 
 This will ensure the alarm can be used on a Route53 Health Check or otherwise throw an `Error` indicating why the alarm can't be used.
 In order to easily find your Route53 Health Check alarms later on, you can apply a custom tag to them as follows:
 
 ```python
-import { CfnHealthCheck } from "aws-cdk-lib/aws-route53";
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_route53 import CfnHealthCheck
 
-monitoring
-  .monitorSomething(something, {
-    addSomeAlarm: {
-      Warning: {
-        // ...other props
-        customTags: ["route53-health-check"],
-        metricAdjuster: Route53HealthCheckMetricAdjuster.INSTANCE,
-      }
+
+monitoring.monitor_something(something,
+    add_some_alarm={
+        "Warning": {
+            # ...other props
+            "custom_tags": ["route53-health-check"],
+            "metric_adjuster": Route53HealthCheckMetricAdjuster.INSTANCE
+        }
     }
-  });
+)
 
-const alarms = monitoring.createdAlarmsWithTag("route53-health-check");
+alarms = monitoring.created_alarms_with_tag("route53-health-check")
 
-const healthChecks = alarms.map(({ alarm }) => {
-  const id = getHealthCheckConstructId(alarm);
+health_checks = alarms.map(({ alarm }) => {
+      const id = getHealthCheckConstructId(alarm);
 
-  return new CfnHealthCheck(scope, id, {
-    healthCheckConfig: {
-      // ...other props
-      type: "CLOUDWATCH_METRIC",
-      alarmIdentifier: {
-        name: alarm.alarmName,
-        region: alarm.stack.region,
-      },
-    },
-  });
-});
+      return new CfnHealthCheck(scope, id, {
+        healthCheckConfig: {
+          // ...other props
+          type: "CLOUDWATCH_METRIC",
+          alarmIdentifier: {
+            name: alarm.alarmName,
+            region: alarm.stack.region,
+          },
+        },
+      });
+    })
 ```
 
 ### Custom monitoring segments
@@ -368,22 +363,19 @@ To modify the widgets:
 1. Extend the appropriate `Monitoring` class (e.g., `LambdaFunctionMonitoring` for `monitorLambdaFunction`) and override the relevant methods (e.g., `widgets`):
 
    ```python
-   export class MyCustomizedLambdaFunctionMonitoring extends LambdaFunctionMonitoring {
-     widgets(): IWidget[] {
-       return [
-         // Whatever widgets you want instead of what LambdaFunctionMonitoring has
-       ];
-     }
-   }
+   # Example automatically generated from non-compiling source. May contain errors.
+   class MyCustomizedLambdaFunctionMonitoring(LambdaFunctionMonitoring):
+       def widgets(self):
+           return []
    ```
 2. Use the facade's `addSegment` method with your custom class:
 
    ```python
-   declare const facade: MonitoringFacade;
+   # Example automatically generated from non-compiling source. May contain errors.
+   # facade: MonitoringFacade
 
-   facade.addSegment(new MyCustomizedLambdaFunctionMonitoring(facade, {
-     // Props for LambdaFunctionMonitoring
-   }));
+
+   facade.add_segment(MyCustomizedLambdaFunctionMonitoring(facade))
    ```
 
 ### Custom dashboards
@@ -402,21 +394,18 @@ The below code sample will generate two dashboards with the following names:
 * ExampleDashboards-Infrastructure
 
 ```python
-// create the dynamic dashboard factory.
-const factory = new DynamicDashboardFactory(stack, "DynamicDashboards", {
-  dashboardNamePrefix: "ExampleDashboards",
-  dashboardConfigs: [
-    // 'name' is the minimum required configuration
-    { name: "HostedService" },
-    // below is an example of additional dashboard-specific config options
-    {
-      name: "Infrastructure",
-      range: Duration.hours(3),
-      periodOverride: PeriodOverride.AUTO,
-      renderingPreference: DashboardRenderingPreference.BITMAP_ONLY
-    },
-  ],
-});
+# Example automatically generated from non-compiling source. May contain errors.
+# create the dynamic dashboard factory.
+factory = DynamicDashboardFactory(stack, "DynamicDashboards",
+    dashboard_name_prefix="ExampleDashboards",
+    dashboard_configs=[{"name": "HostedService"}, {
+        "name": "Infrastructure",
+        "range": Duration.hours(3),
+        "period_override": PeriodOverride.AUTO,
+        "rendering_preference": DashboardRenderingPreference.BITMAP_ONLY
+    }
+    ]
+)
 ```
 
 #### Create `IDynamicDashboardSegment` implementations
@@ -424,25 +413,21 @@ const factory = new DynamicDashboardFactory(stack, "DynamicDashboards", {
 For each construct you want monitored, you will need to create an implementation of an `IDynamicDashboardSegment`. The following is a basic reference implementation as an example:
 
 ```python
+# Example automatically generated from non-compiling source. May contain errors.
 export enum DashboardTypes {
   HostedService = "HostedService",
   Infrastructure = "Infrastructure",
 }
 
-class ExampleSegment implements IDynamicDashboardSegment {
-  widgetsForDashboard(name: string): IWidget[] {
-    // this logic is what's responsible for allowing your dynamic segment to return
-    // different widgets for different dashboards
-    switch (name) {
-      case DashboardTypes.HostedService:
-        return [new TextWidget({ markdown: "This shows metrics for your service hosted on AWS Infrastructure" })];
-      case DashboardTypes.Infrastructure:
-        return [new TextWidget({ markdown: "This shows metrics for the AWS Infrastructure supporting your hosted service" })];
-      default:
-        throw new Error("Unexpected dashboard name!");
-    }
-  }
-}
+class ExampleSegment(IDynamicDashboardSegment):
+    def widgets_for_dashboard(self, name): switch (name) {
+              case DashboardTypes.HostedService:
+                return [new TextWidget({ markdown: "This shows metrics for your service hosted on AWS Infrastructure" })];
+              case DashboardTypes.Infrastructure:
+                return [new TextWidget({ markdown: "This shows metrics for the AWS Infrastructure supporting your hosted service" })];
+              default:
+                throw new Error("Unexpected dashboard name!");
+            }
 ```
 
 #### Add Dynamic Segments to MonitoringFacade
@@ -450,7 +435,8 @@ class ExampleSegment implements IDynamicDashboardSegment {
 When you have instances of an `IDynamicDashboardSegment` to use, they can be added to your dashboard like this:
 
 ```python
-monitoring.addDynamicSegment(new ExampleSegment());
+# Example automatically generated from non-compiling source. May contain errors.
+monitoring.add_dynamic_segment(ExampleSegment())
 ```
 
 Now, this widget will be added to both dashboards and will show different content depending on the dashboard. Using the above example code, two dashboards will be generated with the following content:
@@ -467,33 +453,29 @@ Now, this widget will be added to both dashboards and will show different conten
 Facades can be configured for different regions/accounts as a whole:
 
 ```python
-new MonitoringFacade(stack, "Monitoring", {
-  metricFactoryDefaults: {
-    // Different region/account than what you're deploying to
-    region: "us-west-2",
-    account: "01234567890",
-  }
-});
+# Example automatically generated from non-compiling source. May contain errors.
+MonitoringFacade(stack, "Monitoring",
+    metric_factory_defaults={
+        # Different region/account than what you're deploying to
+        "region": "us-west-2",
+        "account": "01234567890"
+    }
+)
 ```
 
 Or at a more granular level:
 
 ```python
-monitoring
-  .monitorDynamoTable({
-    // Table from the same account/region
-    table: Table.fromTableName(stack, "ImportedTable", "MyTableName"),
-  })
-  .monitorDynamoTable({
-    // Table from another account/region
-    table: Table.fromTableArn(
-      stack,
-      "XaXrImportedTable",
-      "arn:aws:dynamodb:us-west-2:01234567890:table/my-other-table",
-    ),
-    region: "us-west-2",
-    account: "01234567890",
-  });
+# Example automatically generated from non-compiling source. May contain errors.
+monitoring.monitor_dynamo_table(
+    # Table from the same account/region
+    table=Table.from_table_name(stack, "ImportedTable", "MyTableName")
+).monitor_dynamo_table(
+    # Table from another account/region
+    table=Table.from_table_arn(stack, "XaXrImportedTable", "arn:aws:dynamodb:us-west-2:01234567890:table/my-other-table"),
+    region="us-west-2",
+    account="01234567890"
+)
 ```
 
 The order of precedence of the region/account values is:
@@ -509,22 +491,23 @@ Note that while this allows for cross-account cross-Region dashboarding, cross-R
 You can monitor complete CDK construct scopes using an aspect. It will automatically discover all monitorable resources within the scope recursively and add them to your dashboard.
 
 ```python
-monitoring.monitorScope(stack, {
-  // With optional configuration
-  lambda: {
-    props: {
-      addLatencyP50Alarm: {
-        Critical: { maxLatency: Duration.seconds(10) },
-      },
+# Example automatically generated from non-compiling source. May contain errors.
+monitoring.monitor_scope(stack,
+    # With optional configuration
+    lambda_={
+        "props": {
+            "add_latency_p50_alarm": {
+                "Critical": {"max_latency": Duration.seconds(10)}
+            }
+        }
     },
-  },
 
-  // Some resources that aren't dependent on nodes (e.g. general metrics across instances/account) may be included
-  // by default, which can be explicitly disabled.
-  billing: { enabled: false },
-  ec2: { enabled: false },
-  elasticCache: { enabled: false },
-});
+    # Some resources that aren't dependent on nodes (e.g. general metrics across instances/account) may be included
+    # by default, which can be explicitly disabled.
+    billing={"enabled": False},
+    ec2={"enabled": False},
+    elastic_cache={"enabled": False}
+)
 ```
 
 ### Cloning alarms
@@ -535,24 +518,25 @@ user-supplied function on each, generating new alarms with customizations from t
 function.
 
 ```python
-// Clone alarms using a cloning-function
-const criticalAlarms = monitoring.createdAlarmsWithDisambiguator("Critical");
-const clones = monitoring.cloneAlarms(criticalAlarms, (a) => {
-   // Define a new alarm that has values inspired by the original alarm
-   // Adjust some of those values using arbitrary, user-provided logic
-   return {
-      ...a.alarmDefinition.addAlarmProps,
-      actionsEnabled: false,
-      disambiguator: "ClonedCritical",
-      alarmDescription: "Cloned alarm of " + a.alarmDescription,
-      // Bump the threshold a bit
-      threshold: a.alarmDefinition.addAlarmProps.threshold * 1.1,
-      // Tighten the number of datapoints a bit
-      datapointsToAlarm: a.alarmDefinition.datapointsToAlarm - 1,
-      // Keep the same number of evaluation periods
-      evaluationPeriods: a.alarmDefinition.evaluationPeriods,
-   }
-});
+# Example automatically generated from non-compiling source. May contain errors.
+# Clone alarms using a cloning-function
+critical_alarms = monitoring.created_alarms_with_disambiguator("Critical")
+clones = monitoring.clone_alarms(critical_alarms, (a) => {
+       // Define a new alarm that has values inspired by the original alarm
+       // Adjust some of those values using arbitrary, user-provided logic
+       return {
+          ...a.alarmDefinition.addAlarmProps,
+          actionsEnabled: false,
+          disambiguator: "ClonedCritical",
+          alarmDescription: "Cloned alarm of " + a.alarmDescription,
+          // Bump the threshold a bit
+          threshold: a.alarmDefinition.addAlarmProps.threshold * 1.1,
+          // Tighten the number of datapoints a bit
+          datapointsToAlarm: a.alarmDefinition.datapointsToAlarm - 1,
+          // Keep the same number of evaluation periods
+          evaluationPeriods: a.alarmDefinition.evaluationPeriods,
+       }
+    })
 ```
 
 This technique is particularly useful when you are using alarms for multiple purposes.
@@ -568,14 +552,15 @@ create the companion alarms by cloning with a scaling function. This library pro
 and 1.0 will generate more aggressive alarms.
 
 ```python
-// Clone critical alarms using a tighting scaling function
-const criticalAlarms = monitoring.createdAlarmsWithDisambiguator("Critical");
-const rollbackAlarms = monitoring.cloneAlarms(criticalAlarms, ScaleAlarms({
-   disambiguator: "Rollback",
-   thresholdMultiplier: 0.8,
-   datapointsToAlarmMultiplier: 0.3,
-   evaluationPeriodsMultiplier: 0.5,
-}));
+# Example automatically generated from non-compiling source. May contain errors.
+# Clone critical alarms using a tighting scaling function
+critical_alarms = monitoring.created_alarms_with_disambiguator("Critical")
+rollback_alarms = monitoring.clone_alarms(critical_alarms, ScaleAlarms(
+    disambiguator="Rollback",
+    threshold_multiplier=0.8,
+    datapoints_to_alarm_multiplier=0.3,
+    evaluation_periods_multiplier=0.5
+))
 ```
 
 ## Contributing

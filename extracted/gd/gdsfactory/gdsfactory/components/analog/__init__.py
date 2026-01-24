@@ -1,5 +1,4 @@
-from gdsfactory.components.analog.interdigital_capacitor import (
-    interdigital_capacitor,
-)
+from .inductors import *
+from .interdigital_capacitor import *
 
-__all__ = ["interdigital_capacitor"]
+__all__ = ["inductor", "interdigital_capacitor"]

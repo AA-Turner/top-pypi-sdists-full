@@ -3,19 +3,27 @@
 # Imports
 import asyncio
 import time
+
+import concurrent.futures
 from concurrent.futures import Future
+
+from dataclasses import dataclass
+from typing import Union
 
 import pytest
 
 from tango import (
     ApiUtil,
+    AttrReadEvent,
     AttrWriteType,
+    AttrWrittenEvent,
+    CmdDoneEvent,
     DevFailed,
     GreenMode,
     cb_sub_model,
     get_device_proxy,
 )
-from tango.server import Device, command, attribute
+from tango.server import Device, attribute, command
 from tango.test_utils import DeviceTestContext, assert_close
 
 A_BIT = 0.1
@@ -120,6 +128,36 @@ async def test_green_mode_kwarg_for_proxy_methods():
         assert value == attr[0].value
 
 
+def test_async_write_with_attr_info():
+    with DeviceTestContext(ServerTest) as proxy:
+
+        attr_info = proxy.get_attribute_config_ex(["attr1", "attr2"])
+        # reading single attribute with attr_info (no additional IO to fetch attr info during write method)
+        value = 12
+        async_single_write_id = proxy.write_attribute_asynch(attr_info[0], value)
+        time.sleep(A_BIT)
+        proxy.write_attribute_reply(async_single_write_id)
+
+        async_single_read_id = proxy.read_attribute_asynch("attr1")
+        time.sleep(A_BIT)
+        attr = proxy.read_attribute_reply(async_single_read_id)
+        assert value == attr.value
+
+        # standard behavior for multiple attributes
+        values = [34, 56]
+        async_multiple_write_id = proxy.write_attributes_asynch(
+            [(attr_info[0], values[0]), [attr_info[1], values[1]]]
+        )
+        time.sleep(A_BIT)
+        proxy.write_attributes_reply(async_multiple_write_id)
+
+        async_multiple_read_id = proxy.read_attributes_asynch(["attr1", "attr2"])
+        time.sleep(A_BIT)
+        attr = proxy.read_attributes_reply(async_multiple_read_id)
+        assert values[0] == attr[0].value
+        assert values[1] == attr[1].value
+
+
 def test_async_attribute_polled():
     with DeviceTestContext(ServerTest) as proxy:
         # asynchronous write/read of single attribute
@@ -171,13 +209,13 @@ def test_async_attribute_polled_no_return_value_or_exception():
 def test_async_attribute_with_callback(model):
     callbacks = []
 
-    def write_callback(attr_written_event):
+    def write_callback(attr_written_event: AttrWrittenEvent):
         assert_close(attr_written_event.attr_names, ["attr1", "attr2"])
         assert attr_written_event.device == proxy
         assert not attr_written_event.err
         callbacks.append(attr_written_event)
 
-    def read_callback(attr_read_event):
+    def read_callback(attr_read_event: AttrReadEvent):
         assert_close(attr_read_event.attr_names, ["attr1", "attr2"])
         assert_close([attr.value for attr in attr_read_event.argout], [123, 456])
         assert attr_read_event.device == proxy
@@ -256,14 +294,14 @@ class ServerForAsynchClients(Device):
 
 
 @pytest.mark.parametrize(
-    "cmd,argin,argout,err",
+    "cmd,argin,argout,err,err_str",
     [
-        ("cmd_ok", 123, 123, False),
-        ("cmd_timeout", 123, None, True),
-        ("cmd_exception", 123, None, True),
+        ("cmd_ok", 123, 123, False, ""),
+        ("cmd_timeout", 123, None, True, "TRANSIENT_CallTimedout"),
+        ("cmd_exception", 123, None, True, "Intentional exception"),
     ],
 )
-def test_async_command_with_polled_callback(cmd, argin, argout, err):
+def test_async_command_with_polled_callback(cmd, argin, argout, err, err_str):
     api_util = ApiUtil.instance()
     api_util.set_asynch_cb_sub_model(cb_sub_model.PULL_CALLBACK)
 
@@ -274,23 +312,29 @@ def test_async_command_with_polled_callback(cmd, argin, argout, err):
         )  # this timeout does not have any influence on get_asynch_replies behaviour
         proxy.command_inout_asynch(cmd, argin, future.set_result)
         api_util.get_asynch_replies(500)  # this timeout is the one that matters
-        result = future.result()
-        assert result.argout == argout
+        result: CmdDoneEvent = future.result()
         assert result.err == err
+        if not err:
+            assert result.argout == argout
+            assert len(result.errors) == 0
+        else:
+            with pytest.raises(DevFailed, match="API_EmptyDeviceData"):
+                _ = result.argout
+            assert err_str in str(result.errors[0])
+
+
+@dataclass
+class AttrReading:
+    has_failed: bool
+    value: Union[int, None]
 
 
 @pytest.mark.parametrize(
     "attr,argout,err",
     [
-        ("attr_ok", [123], False),
-        ("attr_timeout", None, True),
-        # This will fail, possibly because of a CppTango bug that returns err inconsistently
-        # ("attr_exception", None, True),
-        (
-            "attr_exception",
-            [None],
-            False,
-        ),  # This passes instead. Should not be like that...
+        ("attr_ok", [AttrReading(has_failed=False, value=123)], False),
+        ("attr_timeout", [], True),
+        ("attr_exception", [AttrReading(has_failed=True, value=None)], True),
     ],
 )
 def test_async_attribute_read_with_polled_callback(attr, argout, err):
@@ -302,48 +346,53 @@ def test_async_attribute_read_with_polled_callback(attr, argout, err):
         proxy.set_timeout_millis(150)
         proxy.read_attribute_asynch(attr, future.set_result)
         api_util.get_asynch_replies(500)
-        result = future.result()
+        result: AttrReadEvent = future.result()
         assert result.err == err
-        if argout and len(argout):
-            # compare values of returned attributes
-            for a, value in zip(result.argout, argout):
-                assert a.value == value
-        else:
-            assert result.argout == argout
+        assert len(result.argout) == len(argout)
+        # compare values of returned attributes
+        for actual, expected in zip(result.argout, argout):
+            assert actual.has_failed == expected.has_failed
+            assert actual.value == expected.value
 
 
 @pytest.mark.parametrize(
-    "attr,err",
+    "attr,err,num_errors,err_str",
     [
-        ("attr_ok", False),
-        ("attr_timeout", True),
-        # This will fail, possibly because of a CppTango bug that returns err inconsistently
-        # (attr_exception", True),
-        ("attr_exception", False),  # This passes instead. Should not be like that...
+        ("attr_ok", False, 0, ""),
+        ("attr_timeout", True, 0, ""),
+        ("attr_exception", True, 1, "Intentional exception"),
     ],
 )
-def test_async_attribute_write_with_polled_callback(attr, err):
+def test_async_attribute_write_with_polled_callback(attr, err, num_errors, err_str):
     api_util = ApiUtil.instance()
-    api_util.set_asynch_cb_sub_model(cb_sub_model.PUSH_CALLBACK)
+    api_util.set_asynch_cb_sub_model(cb_sub_model.PULL_CALLBACK)
 
     with DeviceTestContext(ServerForAsynchClients, process=True) as proxy:
         future = Future()
         proxy.set_timeout_millis(150)
         proxy.write_attribute_asynch(attr, 123, future.set_result)
+        # Future should be emtpy if we have not pulled replies
+        with pytest.raises((concurrent.futures.TimeoutError, TimeoutError)):
+            _ = future.result(timeout=0.1)
+
         api_util.get_asynch_replies(500)
-        result = future.result()
+        result: AttrWrittenEvent = future.result(timeout=0.1)
+
         assert result.err == err
+        assert len(result.errors.err_list) == num_errors
+        if num_errors > 0:
+            assert err_str in str(result.errors.err_list[0].err_stack[0])
 
 
 @pytest.mark.parametrize(
-    "cmd,argin,argout,err",
+    "cmd,argin,argout,err,err_str",
     [
-        ("cmd_ok", 123, 123, False),
-        ("cmd_timeout", 123, None, True),
-        ("cmd_exception", 123, None, True),
+        ("cmd_ok", 123, 123, False, ""),
+        ("cmd_timeout", 123, None, True, "TRANSIENT_CallTimedout"),
+        ("cmd_exception", 123, None, True, "Intentional exception"),
     ],
 )
-def test_async_command_with_pushed_callback(cmd, argin, argout, err):
+def test_async_command_with_pushed_callback(cmd, argin, argout, err, err_str):
     api_util = ApiUtil.instance()
     api_util.set_asynch_cb_sub_model(cb_sub_model.PUSH_CALLBACK)
 
@@ -351,23 +400,23 @@ def test_async_command_with_pushed_callback(cmd, argin, argout, err):
         future = Future()
         proxy.set_timeout_millis(100)
         proxy.command_inout_asynch(cmd, argin, future.set_result)
-        result = future.result(timeout=5)
+        result: CmdDoneEvent = future.result(timeout=5)
         assert result.err == err
-        assert result.argout == argout
+        if not err:
+            assert result.argout == argout
+            assert len(result.errors) == 0
+        else:
+            with pytest.raises(DevFailed, match="API_EmptyDeviceData"):
+                _ = result.argout
+            assert err_str in str(result.errors[0])
 
 
 @pytest.mark.parametrize(
     "attr,argout,err",
     [
-        ("attr_ok", [123], False),
-        ("attr_timeout", None, True),
-        # This will fail, possibly because of a CppTango bug that returns err inconsistently
-        # (attr_exception", None, True),
-        (
-            "attr_exception",
-            [None],
-            False,
-        ),  # This passes instead. Should not be like that...
+        ("attr_ok", [AttrReading(has_failed=False, value=123)], False),
+        ("attr_timeout", [], True),
+        ("attr_exception", [AttrReading(has_failed=True, value=None)], True),
     ],
 )
 def test_async_attribute_read_with_pushed_callback(attr, argout, err):
@@ -378,27 +427,24 @@ def test_async_attribute_read_with_pushed_callback(attr, argout, err):
         future = Future()
         proxy.set_timeout_millis(150)
         proxy.read_attribute_asynch(attr, future.set_result)
-        result = future.result(timeout=5)
+        result: AttrReadEvent = future.result(timeout=5)
         assert result.err == err
-        if argout and len(argout):
-            # compare values of returned attributes
-            for a, value in zip(result.argout, argout):
-                assert a.value == value
-        else:
-            assert result.argout == argout
+        assert len(result.argout) == len(argout)
+        # compare values of returned attributes
+        for actual, expected in zip(result.argout, argout):
+            assert actual.has_failed == expected.has_failed
+            assert actual.value == expected.value
 
 
 @pytest.mark.parametrize(
-    "attr,err",
+    "attr,err,num_errors,err_str",
     [
-        ("attr_ok", False),
-        ("attr_timeout", True),
-        # This will fail, possibly because of a CppTango bug that returns err inconsistently
-        # ("attr_exception", True),
-        ("attr_exception", False),  # This passes instead. Should not be like that...
+        ("attr_ok", False, 0, ""),
+        ("attr_timeout", True, 0, ""),
+        ("attr_exception", True, 1, "Intentional exception"),
     ],
 )
-def test_async_attribute_write_with_pushed_callback(attr, err):
+def test_async_attribute_write_with_pushed_callback(attr, err, num_errors, err_str):
     api_util = ApiUtil.instance()
     api_util.set_asynch_cb_sub_model(cb_sub_model.PUSH_CALLBACK)
 
@@ -406,15 +452,18 @@ def test_async_attribute_write_with_pushed_callback(attr, err):
         future = Future()
         proxy.set_timeout_millis(150)
         proxy.write_attribute_asynch(attr, 123, future.set_result)
-        result = future.result(timeout=5)
+        result: AttrWrittenEvent = future.result(timeout=5)
         assert result.err == err
+        assert len(result.errors.err_list) == num_errors
+        if num_errors > 0:
+            assert err_str in str(result.errors.err_list[0].err_stack[0])
 
 
 def test_async_exception_in_callback():
     api_util = ApiUtil.instance()
     api_util.set_asynch_cb_sub_model(cb_sub_model.PUSH_CALLBACK)
 
-    def callback(event):
+    def callback(_event):
         raise Exception("Some exception")
 
     with DeviceTestContext(ServerForAsynchClients) as proxy:

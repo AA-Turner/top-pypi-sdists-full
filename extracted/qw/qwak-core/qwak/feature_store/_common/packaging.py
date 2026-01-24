@@ -16,6 +16,7 @@ from qwak.feature_store._common.value import (
     UPDATE_QWAK_SDK_WITH_FEATURE_STORE_EXTRA_MSG,
 )
 from requests import HTTPError, Response
+from urllib.parse import urlparse, ParseResult
 
 ZIP_FUNCTION_CONTENT_TYPE = "text/plain"
 
@@ -220,17 +221,22 @@ def put_files_content(
 
 
 def upload_to_s3(presign_url: str, in_memory_zip: bytes, content_type: str) -> str:
+    parsed_url: ParseResult = urlparse(presign_url)
+    extra_headers: Dict[str, str] = (
+        {"x-ms-blob-type": "BlockBlob"}
+        if parsed_url.hostname.endswith(".blob.core.windows.net")
+        else None
+    )
     put_files_content(
         url=presign_url,
         content=in_memory_zip,
         content_type=content_type,
+        extra_headers=extra_headers,
     )
-    from urllib.parse import urlparse
 
-    parsed_url = urlparse(presign_url)
-    postfix = parsed_url.path
-    bucket = parsed_url.hostname.split(".s3.")[0]
-    s3_path = f"s3://{bucket}{postfix}"  # noqa: E231
+    postfix: str = parsed_url.path
+    bucket: str = parsed_url.hostname.split(".s3.")[0]
+    s3_path: str = f"s3://{bucket}{postfix}"  # noqa: E231
     return s3_path
 
 

@@ -30,10 +30,11 @@ class AuthCacheEntry(TypedDict):
 
 
 class LangsmithAuthBackend(AuthenticationBackend):
-    def __init__(self):
+    def __init__(self, *, base_url: str | None = None):
         from langgraph_api.utils.cache import LRUCache
 
         self._cache = LRUCache[AuthCacheEntry](max_size=1000, ttl=60)
+        self._base_url = base_url
 
     def _get_cache_key(self, headers):
         """Generate cache key from authentication headers"""
@@ -61,7 +62,7 @@ class LangsmithAuthBackend(AuthenticationBackend):
         if cached_entry := await self._cache.get(cache_key):
             return cached_entry["credentials"], cached_entry["user"]
 
-        async with auth_client() as auth:
+        async with auth_client(base_url=self._base_url) as auth:
             if not LANGSMITH_AUTH_VERIFY_TENANT_ID and not conn.headers.get(
                 "x-api-key"
             ):

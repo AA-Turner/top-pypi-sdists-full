@@ -19,24 +19,76 @@ ignore_errors = true
 
 [tool.ruff]
 fix = true
+preview = true  # enables "beta" rules: https://docs.astral.sh/ruff/preview/
 exclude = ["*.cc"]
 target-version = "py39"
-line-length = 88
+line-length = 120
 
 [tool.ruff.lint]
-extend-select = ["I001"]  # unsorted-imports
-
-# Enable all `pydocstyle` rules, limiting to those that adhere to the
-# Google convention via `convention = "google"`, below.
-select = ["D"]
-ignore = [
-    "D417",  # disable documentation for every function parameter
-    "D205",  # disable blank line requirement between summary and description
+select = [  # see https://docs.astral.sh/ruff/rules/
+    # consider adding:  A (flake8-builtins) and TC (flake8-type-checking)
+    "ANN",  # flake8-annotations
+    "ARG",  # flake8-unused-arguments
+    "B",    # flake8-bugbear
+    "BLE",  # flake8-blind-exception
+    "C4",   # flake8-comprehensions
+    "COM",  # flake8-commas
+    "CPY",  # flake8-copyright
+    "D",    # pydocstyle (Google convention, see setting below)
+    "E",    # pycodestyle
+    "ERA",  # eradicate
+    "F",    # Pyflakes
+    "FA",   # flake8-future-annotations
+    "FLY",  # flynt
+    "I",    # isort
+    "ICN",  # flake8-import-conventions
+    "INP",  # flake8-no-pep420
+    "ISC",  # flake8-implicit-str-concat
+    "LOG",  # flake8-logging
+    "NPY",  # numpy-specific rules
+    "PD",   # pandas-vet
+    "PERF", # perflint
+    "PIE",  # flake8-pie
+    "PLC",  # pylint-convention
+    "PLE",  # pylint-error
+    "PLW",  # pylint-warning
+    "PTH",  # flake8-use-pathlib
+    "S",    # flake8-bandit
+    "T10",  # flake8-debugger
+    "T20",  # flake8-print
+    "Q",    # flake8-quotes
+    "RET",  # flake8-return
+    "RSE",  # flake8-raise
+    "RUF",  # Ruff-specific rules
+    "SLOT", # flake8-slots
+    "SIM",  # flake8-simplify
+    "TID",  # flake8-tidy-imports
+    "W",    # pycodestyle warnings
+    "YTT",  # flake8-2020
+    "UP",   # pyupgrade
 ]
+ignore = [
+    "E501",     # line too long
+    "D417",     # disable documentation for every function parameter
+    "D205",     # disable blank line requirement between summary and description
+    "S101",     # Use of `assert` detected
+    "COM812",   # Ignore recommended by Ruff
+    "SIM105",   # contextlib.suppress
+    "PLC0415",  # inport-outside-top-level
+    "PLC2701",  # import-private-name
+    "PLW1514",  # unspecified-encoding
+    "PLW2901",  # redefined-loop-name
+    "PD002",    # pandas-use-of-inplace-argument
+]
+extend-select = []
 
 [tool.ruff.lint.per-file-ignores]
-# Ignore `D` rules everywhere except for the `src/` directory.
-"!apis/python/src/**.py" = ["D"]
+# Ignore these rules everywhere except for the `src/` directory.
+# Over time, we should enforce these rules more broadly.
+"!apis/python/src/**.py" = ["ANN", "ARG", "BLE", "C4", "CPY", "D", "ERA", "B", "INP", "S", "T20", "NPY002", "PTH"]
+
+# Ignore in notebooks
+"apis/python/**/*.ipynb" = ["COM"]
 
 # Temporarily disable checks in the io and io.spatial modules.
 "apis/python/src/tiledbsoma/io/**/*.py" = [
@@ -60,13 +112,24 @@ no-lines-before = ["tiledb"]
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.ruff.lint.flake8-copyright]
+author = "TileDB, Inc. and The Chan Zuckerberg Initiative Foundation"
+notice-rgx = "(?i)Copyright \\(C\\)"  # do not require year
+min-file-size = 1   # don't require copyright on empty files, e.g., __init__.py
+
+[tool.ruff.lint.flake8-import-conventions.extend-aliases]
+# additional import aliases to be enforced
+anndata = "ad"
+scanpy = "sc"
+
 [tool.pytest.ini_options]
-filterwarnings = ["ignore:Support for spatial types is experimental"]
+filterwarnings = [
+    "ignore:Support for spatial types is experimental",
+    "ignore:.*this looks like a string-form forward reference imported from another module.*"
+]
 markers = [
     "slow: mark test as slow",
     "spatialdata: test of SpatialData integration",
+    "medium_runner: tests that are too large for the MacOS GitHub runners",
+    "carrara: carrara-related tests",
 ]
-
-[tool.black]
-line-length = 88
-target-version = ["py39"]

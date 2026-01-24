@@ -28,40 +28,35 @@ classifiers = [
 ]
 dependencies = [
     "bottle>=0.13.0",
-    "optuna>=3.1.0",
-    "packaging",
-    "scikit-learn",
+    "optuna>=3.6.0",
+    "tomli; python_version<'3.11'",
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
+preferential = [
+    "torch",
+    "botorch",
+]
+# This field is referrenced by .readthedocs.yaml.
 docs = [
     "boto3",
-    "botorch",
+    "torch; python_version>='3.9'",
+    "botorch; python_version>='3.9'",
+    "openai",
     "streamlit",
     "sphinx",
     "sphinx_rtd_theme",
 ]
 
-test = [
-    "coverage",
-    "plotly",
-    "pytest",
-    "moto[s3]",
-]
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
-optional = [
-    "streamlit",
-    "boto3",
-    "botorch>=0.8.1; python_version>='3.8'",
-]
-
-preferential = [
-    "botorch>=0.8.1",
-]
-
-plotlypy = [
-    "plotly",
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu" },
 ]
 
 [project.scripts]
@@ -119,4 +114,29 @@ disallow_untyped_defs = true
 addopts = "--color=yes"
 markers = [
   "slow: marks tests as slow",
+]
+
+[dependency-groups]
+test = [
+    "torch; python_version>='3.9'",
+    "botorch; python_version>='3.9'",
+    "httpx",
+    "streamlit",
+    "boto3",
+    "coverage",
+    "openai",
+    "packaging",
+    "plotly",
+    "pytest",
+    "respx",
+    "streamlit",
+    "scikit-learn",
+    "moto[s3]",
+    "pytest-playwright>=0.4.4",
+]
+lint = [
+    "ruff",
+    "mypy",
+    "mypy-boto3-s3",
+    "openai",
 ]

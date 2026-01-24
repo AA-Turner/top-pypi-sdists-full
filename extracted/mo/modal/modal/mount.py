@@ -13,19 +13,22 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, Optional, Sequence, Union
 
 from google.protobuf.message import Message
-from grpclib import GRPCError
 
 import modal.exception
 import modal.file_pattern_matcher
 from modal_proto import api_pb2
 from modal_version import __version__
 
-from ._object import _get_environment_name, _Object
+from ._load_context import LoadContext
+from ._object import _Object
 from ._resolver import Resolver
 from ._utils.async_utils import TaskContext, aclosing, async_map, synchronize_api
-from ._utils.blob_utils import FileUploadSpec, blob_upload_file, get_file_upload_spec_from_path
-from ._utils.deprecation import deprecation_warning
-from ._utils.grpc_utils import retry_transient_errors
+from ._utils.blob_utils import (
+    FileUploadSpec,
+    blob_upload_file,
+    get_file_upload_spec_from_path,
+)
+from ._utils.grpc_utils import Retry
 from ._utils.name_utils import check_object_name
 from ._utils.package_utils import get_module_mount_info
 from .client import _Client
@@ -41,11 +44,12 @@ MOUNT_PUT_FILE_CLIENT_TIMEOUT = 10 * 60  # 10 min max for transferring files
 # These can be updated safely, but changes will trigger a rebuild for all images
 # that rely on `add_python()` in their constructor.
 PYTHON_STANDALONE_VERSIONS: dict[str, tuple[str, str]] = {
-    "3.9": ("20230826", "3.9.18"),
     "3.10": ("20230826", "3.10.13"),
     "3.11": ("20230826", "3.11.5"),
     "3.12": ("20240107", "3.12.1"),
     "3.13": ("20241008", "3.13.0"),
+    "3.14": ("20251205", "3.14.2"),
+    "3.14t": ("20251209", "3.14.2t"),
 }
 
 MOUNT_DEPRECATION_MESSAGE_PATTERN = """modal.Mount usage will soon be deprecated.
@@ -311,7 +315,7 @@ class _Mount(_Object, type_prefix="mo"):
     _entries: Optional[list[_MountEntry]] = None
     _deployment_name: Optional[str] = None
     _namespace: Optional[int] = None
-    _environment_name: Optional[str] = None
+
     _allow_overwrite: bool = False
     _content_checksum_sha256_hex: Optional[str] = None
 
@@ -326,7 +330,12 @@ class _Mount(_Object, type_prefix="mo"):
                 return None
             return (_Mount._type_prefix, "local", frozenset(included_files))
 
-        obj = _Mount._from_loader(_Mount._load_mount, rep, deduplication_key=mount_content_deduplication_key)
+        obj = _Mount._from_loader(
+            _Mount._load_mount,
+            rep,
+            deduplication_key=mount_content_deduplication_key,
+            load_context_overrides=LoadContext.empty(),
+        )
         obj._entries = entries
         obj._is_local = True
         return obj
@@ -413,39 +422,6 @@ class _Mount(_Object, type_prefix="mo"):
         )
 
     @staticmethod
-    def from_local_dir(
-        local_path: Union[str, Path],
-        *,
-        # Where the directory is placed within in the mount
-        remote_path: Union[str, PurePosixPath, None] = None,
-        # Predicate filter function for file selection, which should accept a filepath and return `True` for inclusion.
-        # Defaults to including all files.
-        condition: Optional[Callable[[str], bool]] = None,
-        # add files from subdirectories as well
-        recursive: bool = True,
-    ) -> "_Mount":
-        """
-        **Deprecated:** Use image.add_local_dir() instead
-
-        Create a `Mount` from a local directory.
-
-        **Usage**
-
-        ```python notest
-        assets = modal.Mount.from_local_dir(
-            "~/assets",
-            condition=lambda pth: not ".venv" in pth,
-            remote_path="/assets",
-        )
-        ```
-        """
-        deprecation_warning(
-            (2025, 1, 8),
-            MOUNT_DEPRECATION_MESSAGE_PATTERN.format(replacement="image.add_local_dir"),
-        )
-        return _Mount._from_local_dir(local_path, remote_path=remote_path, condition=condition, recursive=recursive)
-
-    @staticmethod
     def _from_local_dir(
         local_path: Union[str, Path],
         *,
@@ -481,29 +457,6 @@ class _Mount(_Object, type_prefix="mo"):
         )
 
     @staticmethod
-    def from_local_file(local_path: Union[str, Path], remote_path: Union[str, PurePosixPath, None] = None) -> "_Mount":
-        """
-        **Deprecated**: Use image.add_local_file() instead
-
-        Create a `Mount` mounting a single local file.
-
-        **Usage**
-
-        ```python notest
-        # Mount the DBT profile in user's home directory into container.
-        dbt_profiles = modal.Mount.from_local_file(
-            local_path="~/profiles.yml",
-            remote_path="/root/dbt_profile/profiles.yml",
-        )
-        ```
-        """
-        deprecation_warning(
-            (2025, 1, 8),
-            MOUNT_DEPRECATION_MESSAGE_PATTERN.format(replacement="image.add_local_file"),
-        )
-        return _Mount._from_local_file(local_path, remote_path)
-
-    @staticmethod
     def _from_local_file(local_path: Union[str, Path], remote_path: Union[str, PurePosixPath, None] = None) -> "_Mount":
         return _Mount._new().add_local_file(local_path, remote_path=remote_path)
 
@@ -517,16 +470,18 @@ class _Mount(_Object, type_prefix="mo"):
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor() as exe:
             all_files = await loop.run_in_executor(exe, _select_files, entries)
+            logger.debug(f"Computing checksums for {len(all_files)} files using {exe._max_workers} worker threads")
 
-            futs = []
+            # Yield FileUploadSpec objects lazily as they're consumed by async_map downstream.
+            # async_map's concurrency limit provides natural backpressure, so we don't need
+            # a separate semaphore here. This keeps memory bounded without creating all tasks upfront.
             for local_filename, remote_filename in all_files:
-                logger.debug(f"Mounting {local_filename} as {remote_filename}")
-                futs.append(loop.run_in_executor(exe, get_file_upload_spec_from_path, local_filename, remote_filename))
-
-            logger.debug(f"Computing checksums for {len(futs)} files using {exe._max_workers} worker threads")
-            for fut in asyncio.as_completed(futs):
                 try:
-                    yield await fut
+                    logger.debug(f"Mounting {local_filename} as {remote_filename}")
+                    file_spec = await loop.run_in_executor(
+                        exe, get_file_upload_spec_from_path, local_filename, remote_filename
+                    )
+                    yield file_spec
                 except FileNotFoundError as exc:
                     # Can happen with temporary files (e.g. emacs will write temp files and delete them quickly)
                     logger.info(f"Ignoring file not found: {exc}")
@@ -534,6 +489,7 @@ class _Mount(_Object, type_prefix="mo"):
     async def _load_mount(
         self: "_Mount",
         resolver: Resolver,
+        load_context: LoadContext,
         existing_object_id: Optional[str],
     ):
         t0 = time.monotonic()
@@ -575,7 +531,7 @@ class _Mount(_Object, type_prefix="mo"):
 
             request = api_pb2.MountPutFileRequest(sha256_hex=file_spec.sha256_hex)
             accounted_hashes.add(file_spec.sha256_hex)
-            response = await retry_transient_errors(resolver.client.stub.MountPutFile, request, base_delay=1)
+            response = await load_context.client.stub.MountPutFile(request, retry=Retry(base_delay=1))
 
             if response.exists:
                 n_finished += 1
@@ -589,7 +545,7 @@ class _Mount(_Object, type_prefix="mo"):
                 async with blob_upload_concurrency:
                     with file_spec.source() as fp:
                         blob_id = await blob_upload_file(
-                            fp, resolver.client.stub, sha256_hex=file_spec.sha256_hex, md5_hex=file_spec.md5_hex
+                            fp, load_context.client.stub, sha256_hex=file_spec.sha256_hex, md5_hex=file_spec.md5_hex
                         )
                 logger.debug(f"Uploading blob file {file_spec.source_description} as {remote_filename}")
                 request2 = api_pb2.MountPutFileRequest(data_blob_id=blob_id, sha256_hex=file_spec.sha256_hex)
@@ -597,11 +553,15 @@ class _Mount(_Object, type_prefix="mo"):
                 logger.debug(
                     f"Uploading file {file_spec.source_description} to {remote_filename} ({file_spec.size} bytes)"
                 )
-                request2 = api_pb2.MountPutFileRequest(data=file_spec.content, sha256_hex=file_spec.sha256_hex)
+                if file_spec.content is None:
+                    content = await asyncio.to_thread(file_spec.read_content)
+                else:
+                    content = file_spec.content
+                request2 = api_pb2.MountPutFileRequest(data=content, sha256_hex=file_spec.sha256_hex)
 
             start_time = time.monotonic()
             while time.monotonic() - start_time < MOUNT_PUT_FILE_CLIENT_TIMEOUT:
-                response = await retry_transient_errors(resolver.client.stub.MountPutFile, request2, base_delay=1)
+                response = await load_context.client.stub.MountPutFile(request2, retry=Retry(base_delay=1))
                 if response.exists:
                     n_finished += 1
                     return mount_file
@@ -609,7 +569,7 @@ class _Mount(_Object, type_prefix="mo"):
             raise modal.exception.MountUploadTimeoutError(f"Mounting of {file_spec.source_description} timed out")
 
         # Upload files, or check if they already exist.
-        n_concurrent_uploads = 512
+        n_concurrent_uploads = 64
         files: list[api_pb2.MountFile] = []
         async with aclosing(
             async_map(_Mount._get_files(self._entries), _put_file, concurrency=n_concurrent_uploads)
@@ -631,67 +591,28 @@ class _Mount(_Object, type_prefix="mo"):
             req = api_pb2.MountGetOrCreateRequest(
                 deployment_name=self._deployment_name,
                 namespace=self._namespace,
-                environment_name=self._environment_name,
+                environment_name=load_context.environment_name,
                 object_creation_type=creation_type,
                 files=files,
             )
-        elif resolver.app_id is not None:
+        elif load_context.app_id is not None:
             req = api_pb2.MountGetOrCreateRequest(
                 object_creation_type=api_pb2.OBJECT_CREATION_TYPE_ANONYMOUS_OWNED_BY_APP,
                 files=files,
-                app_id=resolver.app_id,
+                app_id=load_context.app_id,
             )
         else:
             req = api_pb2.MountGetOrCreateRequest(
                 object_creation_type=api_pb2.OBJECT_CREATION_TYPE_EPHEMERAL,
                 files=files,
-                environment_name=resolver.environment_name,
+                environment_name=load_context.environment_name,
             )
 
-        resp = await retry_transient_errors(resolver.client.stub.MountGetOrCreate, req, base_delay=1)
+        resp = await load_context.client.stub.MountGetOrCreate(req, retry=Retry(base_delay=1))
         status_row.finish(f"Created mount {message_label}")
 
         logger.debug(f"Uploaded {total_uploads} new files and {total_bytes} bytes in {time.monotonic() - t0}s")
-        self._hydrate(resp.mount_id, resolver.client, resp.handle_metadata)
-
-    @staticmethod
-    def from_local_python_packages(
-        *module_names: str,
-        remote_dir: Union[str, PurePosixPath] = ROOT_DIR.as_posix(),
-        # Predicate filter function for file selection, which should accept a filepath and return `True` for inclusion.
-        # Defaults to including all files.
-        condition: Optional[Callable[[str], bool]] = None,
-        ignore: Optional[Union[Sequence[str], Callable[[Path], bool]]] = None,
-    ) -> "_Mount":
-        """
-        **Deprecated**: Use image.add_local_python_source instead
-
-        Returns a `modal.Mount` that makes local modules listed in `module_names` available inside the container.
-        This works by mounting the local path of each module's package to a directory inside the container
-        that's on `PYTHONPATH`.
-
-        **Usage**
-
-        ```python notest
-        import modal
-        import my_local_module
-
-        app = modal.App()
-
-        @app.function(mounts=[
-            modal.Mount.from_local_python_packages("my_local_module", "my_other_module"),
-        ])
-        def f():
-            my_local_module.do_stuff()
-        ```
-        """
-        deprecation_warning(
-            (2025, 1, 8),
-            MOUNT_DEPRECATION_MESSAGE_PATTERN.format(replacement="image.add_local_python_source"),
-        )
-        return _Mount._from_local_python_packages(
-            *module_names, remote_dir=remote_dir, condition=condition, ignore=ignore
-        )
+        self._hydrate(resp.mount_id, load_context.client, resp.handle_metadata)
 
     @staticmethod
     def _from_local_python_packages(
@@ -724,41 +645,25 @@ class _Mount(_Object, type_prefix="mo"):
         *,
         namespace=api_pb2.DEPLOYMENT_NAMESPACE_WORKSPACE,
         environment_name: Optional[str] = None,
+        client: Optional[_Client] = None,
     ) -> "_Mount":
         """mdmd:hidden"""
 
-        async def _load(provider: _Mount, resolver: Resolver, existing_object_id: Optional[str]):
+        async def _load(provider: _Mount, resolver: Resolver, load_context, existing_object_id: Optional[str]):
             req = api_pb2.MountGetOrCreateRequest(
                 deployment_name=name,
                 namespace=namespace,
-                environment_name=_get_environment_name(environment_name, resolver),
+                environment_name=load_context.environment_name,
             )
-            response = await resolver.client.stub.MountGetOrCreate(req)
-            provider._hydrate(response.mount_id, resolver.client, response.handle_metadata)
+            response = await load_context.client.stub.MountGetOrCreate(req)
+            provider._hydrate(response.mount_id, load_context.client, response.handle_metadata)
 
-        return _Mount._from_loader(_load, "Mount()", hydrate_lazily=True)
-
-    @classmethod
-    async def lookup(
-        cls: type["_Mount"],
-        name: str,
-        namespace=api_pb2.DEPLOYMENT_NAMESPACE_WORKSPACE,
-        client: Optional[_Client] = None,
-        environment_name: Optional[str] = None,
-    ) -> "_Mount":
-        """mdmd:hidden"""
-        deprecation_warning(
-            (2025, 1, 27),
-            "`modal.Mount.lookup` is deprecated and will be removed in a future release."
-            " It can be replaced with `modal.Mount.from_name`."
-            "\n\nSee https://modal.com/docs/guide/modal-1-0-migration for more information.",
+        return _Mount._from_loader(
+            _load,
+            "Mount()",
+            hydrate_lazily=True,
+            load_context_overrides=LoadContext(environment_name=environment_name, client=client),
         )
-        obj = _Mount.from_name(name, namespace=namespace, environment_name=environment_name)
-        if client is None:
-            client = await _Client.from_env()
-        resolver = Resolver(client=client)
-        await resolver.load(obj)
-        return obj
 
     async def _deploy(
         self: "_Mount",
@@ -770,15 +675,13 @@ class _Mount(_Object, type_prefix="mo"):
         client: Optional[_Client] = None,
     ) -> None:
         check_object_name(deployment_name, "Mount")
-        environment_name = _get_environment_name(environment_name, resolver=None)
         self._deployment_name = deployment_name
         self._namespace = namespace
-        self._environment_name = environment_name
         self._allow_overwrite = allow_overwrite
-        if client is None:
-            client = await _Client.from_env()
-        resolver = Resolver(client=client, environment_name=environment_name)
-        await resolver.load(self)
+        resolver = Resolver()
+        async with TaskContext() as tc:
+            load_context = LoadContext(client=client, environment_name=environment_name, task_context=tc)
+            await resolver.load(self, load_context)
 
     def _get_metadata(self) -> api_pb2.MountHandleMetadata:
         if self._content_checksum_sha256_hex is None:
@@ -877,13 +780,13 @@ async def _create_single_client_dependency_mount(
     if check_if_exists:
         try:
             await Mount.from_name(mount_name, namespace=api_pb2.DEPLOYMENT_NAMESPACE_GLOBAL).hydrate.aio(client)
-            print(f"➖ Found existing mount {mount_name} in global namespace.")
+            print(f"➖ Found existing mount {mount_name} in global namespace.")  # noqa: T201
             return
         except modal.exception.NotFoundError:
             pass
 
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpd:
-        print(f"📦 Building {mount_name}.")
+        print(f"📦 Building {mount_name}.")  # noqa: T201
         requirements = os.path.join(os.path.dirname(__file__), f"builder/{builder_version}.txt")
         cmd = " ".join(
             [
@@ -900,7 +803,7 @@ async def _create_single_client_dependency_mount(
                 tmpd,
                 "--python-platform",
                 uv_python_platform,
-                "--python-version",
+                "--python",
                 python_version,
             ]
         )
@@ -912,11 +815,11 @@ async def _create_single_client_dependency_mount(
         await proc.wait()
         if proc.returncode:
             stdout, stderr = await proc.communicate()
-            print(stdout.decode("utf-8"))
-            print(stderr.decode("utf-8"))
+            print(stdout.decode("utf-8"))  # noqa: T201
+            print(stderr.decode("utf-8"))  # noqa: T201
             raise RuntimeError(f"Subprocess failed with {proc.returncode}")
 
-        print(f"🌐 Downloaded and unpacked {mount_name} packages to {tmpd}.")
+        print(f"🌐 Downloaded and unpacked {mount_name} packages to {tmpd}.")  # noqa: T201
 
         python_mount = Mount._from_local_dir(tmpd, remote_path=REMOTE_PACKAGES_PATH)
 
@@ -940,11 +843,11 @@ async def _create_single_client_dependency_mount(
                         allow_overwrite=allow_overwrite,
                         client=client,
                     )
-                    print(f"✅ Deployed mount {mount_name} to global namespace.")
-                except GRPCError as e:
-                    print(f"⚠️ Mount creation failed with {e.status}: {e.message}")
+                    print(f"✅ Deployed mount {mount_name} to global namespace.")  # noqa: T201
+                except modal.exception.Error as e:
+                    print(f"⚠️ Mount creation failed with {type(e).__name__}: {e}")  # noqa: T201
             else:
-                print(f"Dry run - skipping deployment of mount {mount_name}")
+                print(f"Dry run - skipping deployment of mount {mount_name}")  # noqa: T201
 
 
 async def _create_client_dependency_mounts(

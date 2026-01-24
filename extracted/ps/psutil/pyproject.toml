@@ -74,6 +74,7 @@ ignore = [
     "PTH",  # flake8-use-pathlib
     "PYI",  # flake8-pyi (python types stuff)
     "Q000",  # Single quotes found but double quotes preferred
+    "RET502",  # Do not implicitly `return None` in function able to return non-`None` value
     "RET503",  # Missing explicit `return` at the end of function able to return non-`None` value
     "RET504",  # Unnecessary assignment to `result` before `return` statement
     "RET505",  # [*] Unnecessary `else` after `return` statement
@@ -104,8 +105,8 @@ ignore = [
 # T203 == pprint()
 # TRY003 == raise-vanilla-args
 ".github/workflows/*" = ["B904", "EM101", "EM102", "EM103", "T201", "T203"]
-"psutil/tests/*" = ["B904", "EM101", "EM102", "EM103", "PLC1901", "TRY003"]
-"psutil/tests/test_sudo.py" = ["PT009"]
+"tests/*" = ["B904", "EM101", "EM102", "EM103", "PLC1901", "TRY003"]
+"tests/test_sudo.py" = ["PT009"]
 "scripts/*" = ["B904", "EM101", "EM102", "EM103", "T201", "T203"]
 "scripts/internal/*" = ["B904", "EM101", "EM102", "EM103", "T201", "T203", "TRY003"]
 "setup.py" = [
@@ -149,8 +150,8 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 omit = [
-    "psutil/tests/*",
     "setup.py",
+    "tests/*",
 ]
 
 [tool.pylint.messages_control]
@@ -194,8 +195,7 @@ disable = [
 [tool.vulture]
 exclude = [
     "docs/conf.py",
-    "psutil/tests/",
-    "scripts/internal/winmake.py",
+    "tests/",
 ]
 ignore_decorators = [
     "@_common.deprecated_method",
@@ -207,7 +207,9 @@ ignore_decorators = [
 ignore_messages = [
     "Duplicate explicit target name",
     "Duplicate implicit target name",
+    "Duplicate name \"development guide\" for external target",
     "Hyperlink target \".*?\" is not referenced",
+    "Target name overrides implicit target name \"development guide\"",
 ]
 
 [tool.tomlsort]
@@ -220,40 +222,42 @@ trailing_comma_inline_array = true
 
 [tool.cibuildwheel]
 skip = [
-    "*-musllinux*",
-    "cp36-*",
-    "cp37-*",
-    "cp3{7,8,9,10,11,12}-*linux_{ppc64le,s390x}",  # Only test cp36/cp313 on qemu tested architectures
-    "pp*",
+    "cp3{8,9,10,11,12}-*linux_{ppc64le,s390x} cp3*t-musllinux*",
 ]
-test-skip = [
-    "cp313-macosx*",  # Hangs on macOS for some reason
-    "cp3{6,7,8,9,10,11,12}-*",  # Only run tests for minor (3.8) and major (3.13) Python versions
-]
+test-extras = ["test"]  # same as doing `pip install .[test]`
+test-command = "make -C {project} PYTHON=python PSUTIL_ROOT_DIR=\"{project}\" ci-test-cibuildwheel"
+
+# Run tests on Python 3.13. On all other Python versions do a lightweight
+# import test.
+[[tool.cibuildwheel.overrides]]
+select = "cp3{8,9,10,11,12,13t,14,14t}-* cp313-macosx* *-musllinux*"
+test-extras = []
+test-command = "python -c \"import psutil; print(psutil.__version__)\""
+
+[[tool.cibuildwheel.overrides]]
+select = "cp38-macosx*"  # In macOS use Python 3.8: higher Python version hang for some reason.
 test-extras = ["test"]
-test-command = "make -C {project} PYTHON=python PSUTIL_SCRIPTS_DIR=\"{project}/scripts\" test-cibuildwheel"
+test-command = "make -C {project} PYTHON=python PSUTIL_ROOT_DIR=\"{project}\" ci-test-cibuildwheel"
 
-[tool.cibuildwheel.macos]
-archs = ["arm64", "x86_64"]
-
-[tool.pytest.ini_options]
-addopts = '''
-    --verbose
-    --capture=no
-    --no-header
-    --tb=short
-    --strict-config
-    --strict-markers
-    --instafail
-    -p no:junitxml
-    -p no:doctest
-    -p no:nose
-    -p no:pastebin
-    -p instafail
-    -p subtests
-    -p xdist
-    '''
-testpaths = ["psutil/tests/"]
+[tool.pytest]
+addopts = [
+    "--capture=no",
+    "--instafail",
+    "--no-header",
+    "--strict-config",
+    "--strict-markers",
+    "--tb=short",
+    "--verbose",
+    "-p instafail",
+    "-p no:doctest",
+    "-p no:junitxml",
+    "-p no:nose",
+    "-p no:pastebin",
+    "-p xdist",
+]
+verbosity_subtests = "0"
+testpaths = ["tests/"]
+python_files = ["test_*.py"]
 
 [build-system]
 build-backend = "setuptools.build_meta"

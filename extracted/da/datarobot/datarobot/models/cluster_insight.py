@@ -22,110 +22,86 @@ from datarobot.utils import pagination
 from datarobot.utils.waiters import wait_for_async_resolution
 
 # Numeric features.
-numeric_insight = t.Dict(
-    {t.Key("statistic", optional=True): t.Float(), t.Key("cluster_name"): String()}
-)
+numeric_insight = t.Dict({t.Key("statistic", optional=True): t.Float(), t.Key("cluster_name"): String()})
 
-numeric_insight_per_cluster = t.Dict(
-    {
-        t.Key("all_data", optional=True): t.Float(),
-        t.Key("per_cluster"): t.List(numeric_insight),
-        t.Key("insight_name"): String(),
-    }
-)
+numeric_insight_per_cluster = t.Dict({
+    t.Key("all_data", optional=True): t.Float(),
+    t.Key("per_cluster"): t.List(numeric_insight),
+    t.Key("insight_name"): String(),
+})
 
 # Categorical features.
 
-categorical_per_value_statistic = t.Dict(
-    {t.Key("category_level"): String(), t.Key("frequency"): t.Float()}
-)
+categorical_per_value_statistic = t.Dict({t.Key("category_level"): String(), t.Key("frequency"): t.Float()})
 
-categorical_per_value_statistic_list = t.Dict(
-    {
+categorical_per_value_statistic_list = t.Dict({
+    t.Key("all_other"): t.Float(),
+    t.Key("missing_rows_percent"): t.Float(),
+    t.Key("per_value_statistics"): t.List(categorical_per_value_statistic),
+    t.Key("cluster_name"): String(),
+})
+
+categorical_insight_per_cluster = t.Dict({
+    t.Key("all_data"): t.Dict({
         t.Key("all_other"): t.Float(),
         t.Key("missing_rows_percent"): t.Float(),
         t.Key("per_value_statistics"): t.List(categorical_per_value_statistic),
-        t.Key("cluster_name"): String(),
-    }
-)
-
-categorical_insight_per_cluster = t.Dict(
-    {
-        t.Key("all_data"): t.Dict(
-            {
-                t.Key("all_other"): t.Float(),
-                t.Key("missing_rows_percent"): t.Float(),
-                t.Key("per_value_statistics"): t.List(categorical_per_value_statistic),
-            }
-        ),
-        t.Key("per_cluster"): t.List(categorical_per_value_statistic_list),
-        t.Key("insight_name"): String(),
-    }
-)
+    }),
+    t.Key("per_cluster"): t.List(categorical_per_value_statistic_list),
+    t.Key("insight_name"): String(),
+})
 
 # Text feature.
 
-text_per_ngram_statistic = t.Dict(
-    {
-        t.Key("ngram"): String(),
-        t.Key("importance"): t.Float(),
-        t.Key("contextual_extracts"): t.List(String()),
-    }
-)
+text_per_ngram_statistic = t.Dict({
+    t.Key("ngram"): String(),
+    t.Key("importance"): t.Float(),
+    t.Key("contextual_extracts"): t.List(String()),
+})
 
-text_per_ngram_statistic_list = t.Dict(
-    {
+text_per_ngram_statistic_list = t.Dict({
+    t.Key("missing_rows_percent"): t.Or(t.Float(), t.Null),
+    t.Key("per_value_statistics"): t.List(text_per_ngram_statistic),
+    t.Key("cluster_name"): String(),
+})
+
+text_important_ngram_insight_per_cluster = t.Dict({
+    t.Key("all_data"): t.Dict({
         t.Key("missing_rows_percent"): t.Or(t.Float(), t.Null),
         t.Key("per_value_statistics"): t.List(text_per_ngram_statistic),
-        t.Key("cluster_name"): String(),
-    }
-)
-
-text_important_ngram_insight_per_cluster = t.Dict(
-    {
-        t.Key("all_data"): t.Dict(
-            {
-                t.Key("missing_rows_percent"): t.Or(t.Float(), t.Null),
-                t.Key("per_value_statistics"): t.List(text_per_ngram_statistic),
-            }
-        ),
-        t.Key("per_cluster"): t.List(text_per_ngram_statistic_list),
-        t.Key("insight_name"): String(),
-    }
-)
+    }),
+    t.Key("per_cluster"): t.List(text_per_ngram_statistic_list),
+    t.Key("insight_name"): String(),
+})
 
 # Image feature.
 
-image_insight_statistic = t.Dict(
-    {
-        t.Key("images"): t.List(String()),
-        t.Key("percentage_of_missing_images"): t.Float(),
-        t.Key("cluster_name"): String(),
-    }
-)
+image_insight_statistic = t.Dict({
+    t.Key("images"): t.List(String()),
+    t.Key("percentage_of_missing_images"): t.Float(),
+    t.Key("cluster_name"): String(),
+})
 
-image_insight_per_cluster = t.Dict(
-    {
-        t.Key("all_data"): t.Dict(
-            {
-                t.Key("image_entities"): t.List(String()),
-                t.Key("percentage_of_missing_images"): t.Float(),
-            }
-        ),
-        t.Key("per_cluster"): t.List(image_insight_statistic),
-        t.Key("insight_name"): String(),
-    }
-)
+image_insight_per_cluster = t.Dict({
+    t.Key("all_data"): t.Dict({
+        t.Key("image_entities"): t.List(String()),
+        t.Key("percentage_of_missing_images"): t.Float(),
+    }),
+    t.Key("per_cluster"): t.List(image_insight_statistic),
+    t.Key("insight_name"): String(),
+})
 
 # Geospatial feature.
 
-geospatial_insight_values = t.Dict(
-    {t.Key("representative_locations"): t.List(t.List(t.Float())), t.Key("cluster_name"): String()}
-)
+geospatial_insight_values = t.Dict({
+    t.Key("representative_locations"): t.List(t.List(t.Float())),
+    t.Key("cluster_name"): String(),
+})
 
-geospatial_insight_per_cluster = t.Dict(
-    {t.Key("per_cluster"): t.List(geospatial_insight_values), t.Key("insight_name"): String()}
-)
+geospatial_insight_per_cluster = t.Dict({
+    t.Key("per_cluster"): t.List(geospatial_insight_values),
+    t.Key("insight_name"): String(),
+})
 
 
 class ClusterInsight(APIObject):
@@ -147,22 +123,20 @@ class ClusterInsight(APIObject):
 
     _compute_path = "projects/{project_id}/models/{model_id}/clusterInsights/"
     _retrieve_path = "projects/{project_id}/models/{model_id}/clusterInsights/"
-    _converter = t.Dict(
-        {
-            t.Key("feature_name"): String(),
-            t.Key("feature_type"): String(),
-            t.Key("feature_impact", optional=True): t.Float(),
-            t.Key("insights"): t.List(
-                t.Or(
-                    numeric_insight_per_cluster,
-                    categorical_insight_per_cluster,
-                    text_important_ngram_insight_per_cluster,
-                    image_insight_per_cluster,
-                    geospatial_insight_per_cluster,
-                )
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("feature_name"): String(),
+        t.Key("feature_type"): String(),
+        t.Key("feature_impact", optional=True): t.Float(),
+        t.Key("insights"): t.List(
+            t.Or(
+                numeric_insight_per_cluster,
+                categorical_insight_per_cluster,
+                text_important_ngram_insight_per_cluster,
+                image_insight_per_cluster,
+                geospatial_insight_per_cluster,
+            )
+        ),
+    }).ignore_extra("*")
 
     def __init__(self, **kwargs: Any) -> None:
         self.feature_name = kwargs.get("feature_name")
@@ -184,9 +158,7 @@ class ClusterInsight(APIObject):
         return [cls.from_server_data(x) for x in pagination.unpaginate(path, {}, cls._client)]
 
     @classmethod
-    def compute(
-        cls, project_id: str, model_id: str, max_wait: int = DEFAULT_MAX_WAIT
-    ) -> List[ClusterInsight]:
+    def compute(cls, project_id: str, model_id: str, max_wait: int = DEFAULT_MAX_WAIT) -> List[ClusterInsight]:
         """Starts creation of cluster insights for the model and if successful, returns computed
         ClusterInsights. This method allows calculation to continue for a specified time and
         if not complete, cancels the request.

@@ -4,6 +4,7 @@ Built-in block-level token classes.
 
 import re
 from itertools import zip_longest
+from typing import Iterable, Union
 import mistletoe.block_tokenizer as tokenizer
 from mistletoe import token, span_token
 from mistletoe.core_tokens import (
@@ -136,7 +137,19 @@ class Document(BlockToken):
         footnotes (dictionary): link reference definitions.
     """
 
-    def __init__(self, lines):
+    def __init__(self, lines: Union[str, Iterable[str]]):
+        """
+        Instantiates this token and its content by parsing the input lines.
+
+        Args:
+            lines: input markdown to be tokenized. If a string is provided,
+                it will be split into lines.
+
+                CAUTION: If the input lines end with Windows line endings (``\\r\\n``),
+                the parsing process will not work correctly. For performance reasons,
+                clients need to normalize such line endings themselves, before passing
+                them to this function, e.g. by calling ``lines.replace('\\r', '')``.
+        """
         if isinstance(lines, str):
             lines = lines.splitlines(keepends=True)
         lines = [line if line.endswith('\n') else '{}\n'.format(line) for line in lines]
@@ -739,23 +752,33 @@ class Table(BlockToken):
 
     @classmethod
     def check_interrupts_paragraph(cls, lines):
-        if not cls.interrupt_paragraph:
+        if not cls.interrupt_paragraph or not cls.start(lines.peek()):
             return False
-        anchor = lines.get_pos()
-        result = cls.read(lines)
-        lines.set_pos(anchor)
-        return result
+        return cls.read(lines, check_only=True)
 
     @classmethod
-    def read(cls, lines):
+    def read(cls, lines, check_only=False):
         anchor = lines.get_pos()
-        line_buffer = [next(lines)]
+
+        # read the first line (header row)
+        header_row = next(lines)
         start_line = lines.line_number()
-        while lines.peek() is not None and '|' in lines.peek():
-            line_buffer.append(next(lines))
-        if len(line_buffer) < 2 or not cls.delimiter_row_pattern.fullmatch(line_buffer[1]):
+
+        # read the second line (delimiter row)
+        delimiter_row = next(lines, None)
+        if delimiter_row is None or not cls.delimiter_row_pattern.fullmatch(delimiter_row):
             lines.set_pos(anchor)
             return None
+
+        if check_only:
+            lines.set_pos(anchor)
+            return True
+
+        line_buffer = [header_row, delimiter_row]
+        # read remaining lines (table body)
+        while lines.peek() is not None and '|' in lines.peek():
+            line_buffer.append(next(lines))
+
         return line_buffer, start_line
 
 

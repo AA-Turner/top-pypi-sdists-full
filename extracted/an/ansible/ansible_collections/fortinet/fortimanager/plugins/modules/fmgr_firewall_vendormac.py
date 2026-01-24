@@ -16,7 +16,6 @@ short_description: Show vendor and the MAC address they have.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.3.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -64,6 +63,9 @@ options:
         description: The rc codes list with which the conditions to fail will be overriden.
         type: list
         elements: int
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -108,8 +110,8 @@ EXAMPLES = '''
     - name: Show vendor and the MAC address they have.
       fortinet.fortimanager.fmgr_firewall_vendormac:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -174,14 +176,15 @@ def main():
     module_primary_key = None
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_vendormac': {
             'type': 'dict',
-            'v_range': [['7.2.4', '7.2.9'], ['7.4.1', '']],
+            'v_range': [['7.2.4', '7.2.11'], ['7.4.1', '']],
             'options': {
-                'id': {'v_range': [['7.2.4', '7.2.9'], ['7.4.1', '']], 'type': 'int'},
-                'mac-number': {'v_range': [['7.2.4', '7.2.9'], ['7.4.1', '']], 'type': 'int'},
-                'name': {'v_range': [['7.2.4', '7.2.9'], ['7.4.1', '']], 'type': 'str'},
-                'obsolete': {'v_range': [['7.2.4', '7.2.9'], ['7.4.1', '']], 'type': 'int'}
+                'id': {'v_range': [['7.2.4', '7.2.11'], ['7.4.1', '']], 'type': 'int'},
+                'mac-number': {'v_range': [['7.2.4', '7.2.11'], ['7.4.1', '']], 'type': 'int'},
+                'name': {'v_range': [['7.2.4', '7.2.11'], ['7.4.1', '']], 'type': 'str'},
+                'obsolete': {'v_range': [['7.2.4', '7.2.11'], ['7.4.1', '']], 'type': 'int'}
             }
         }
     }

@@ -83,7 +83,7 @@ class GradioMCPServer:
         self._local_url: str | None = None
         self._client_instance: Client | None = None
 
-        manager = self.StreamableHTTPSessionManager(
+        manager = self.StreamableHTTPSessionManager(  # type: ignore
             app=self.mcp_server, json_response=False, stateless=True
         )
 
@@ -125,7 +125,7 @@ class GradioMCPServer:
     def local_url(self) -> str | None:
         return self._local_url
 
-    def get_route_path(self, request: Request) -> str:
+    def get_route_path(self, request: Request) -> str:  # type: ignore
         """
         Gets the route path of the MCP server based on the incoming request.
         Can be different depending on whether the request is coming from the MCP SSE transport or the HTTP transport.
@@ -177,24 +177,23 @@ class GradioMCPServer:
         creates a mapping from the tool names to the endpoint names in the API docs.
         """
         tool_to_endpoint = {}
-        for endpoint_name, endpoint_info in self.api_info["named_endpoints"].items():
-            if endpoint_info["show_api"]:
-                block_fn = self.get_block_fn_from_endpoint_name(endpoint_name)
-                if block_fn is None or block_fn.fn is None:
-                    continue
-                fn_name = (
-                    getattr(block_fn.fn, "__name__", None)
-                    or (
-                        hasattr(block_fn.fn, "__class__")
-                        and getattr(block_fn.fn.__class__, "__name__", None)
-                    )
-                    or endpoint_name.lstrip("/")
+        for endpoint_name in self.api_info["named_endpoints"]:
+            block_fn = self.get_block_fn_from_endpoint_name(endpoint_name)
+            if block_fn is None or block_fn.fn is None:
+                continue
+            fn_name = (
+                getattr(block_fn.fn, "__name__", None)
+                or (
+                    hasattr(block_fn.fn, "__class__")
+                    and getattr(block_fn.fn.__class__, "__name__", None)
                 )
-                tool_name = self.tool_prefix + fn_name
-                tool_name = self.valid_and_unique_tool_name(
-                    tool_name, set(tool_to_endpoint.keys())
-                )
-                tool_to_endpoint[tool_name] = endpoint_name
+                or endpoint_name.lstrip("/")
+            )
+            tool_name = self.tool_prefix + fn_name
+            tool_name = self.valid_and_unique_tool_name(
+                tool_name, set(tool_to_endpoint.keys())
+            )
+            tool_to_endpoint[tool_name] = endpoint_name
         return tool_to_endpoint
 
     def warn_about_state_inputs(self) -> None:
@@ -224,9 +223,153 @@ class GradioMCPServer:
                 root_path=self.root_path,
             )
             self._client_instance = Client(
-                self.local_url or root_url, download_files=False, verbose=False
+                self.local_url or root_url,
+                download_files=False,
+                verbose=False,
+                analytics_enabled=False,
+                ssl_verify=False,
+                _skip_components=False,
+                headers={"x-gradio-user": "mcp"},
             )
         return self._client_instance
+
+    def _prepare_tool_call_args(
+        self, name: str, arguments: dict[str, Any]
+    ) -> tuple[str, list[Any], dict[str, str], "BlockFunction"]:
+        """
+        Prepare and validate arguments for a tool call.
+
+        Returns:
+            A tuple of (endpoint_name, processed_args, request_headers, block_fn)
+        """
+        selected_tools = self.get_selected_tools_from_request()
+        _, filedata_positions = self.get_input_schema(name)
+        processed_kwargs = self.convert_strings_to_filedata(
+            arguments, filedata_positions
+        )
+        endpoint_name = self.tool_to_endpoint.get(name)
+        if endpoint_name is None:
+            raise ValueError(f"Unknown tool for this Gradio app: {name}")
+
+        if selected_tools is not None and name not in selected_tools:
+            raise ValueError(f"Tool '{name}' is not in the selected tools list")
+
+        block_fn = self.get_block_fn_from_endpoint_name(endpoint_name)
+        assert block_fn is not None  # noqa: S101
+
+        if endpoint_name in self.api_info["named_endpoints"]:
+            parameters_info = self.api_info["named_endpoints"][endpoint_name][
+                "parameters"
+            ]
+            processed_args = client_utils.construct_args(
+                parameters_info,
+                (),
+                processed_kwargs,
+            )
+        else:
+            processed_args = []
+
+        context_request: Request | None = self.mcp_server.request_context.request
+        if context_request is None:
+            raise ValueError(
+                "Could not find the request object in the MCP server context. This is not expected to happen. Please raise an issue: https://github.com/gradio-app/gradio."
+            )
+        request_headers = dict(context_request.headers.items())
+        request_headers.pop("content-length", None)
+        request_headers.pop("x-gradio-user", None)
+
+        return endpoint_name, processed_args, request_headers, block_fn
+
+    async def _execute_tool_without_progress(self, job: Any) -> list[Any]:
+        """
+        Execute a tool call without progress tracking (fast path).
+
+        Calls job.result() to get the final output without processing
+        intermediate status updates.
+
+        Returns:
+            The output data as a list.
+        """
+        result = await run_sync(job.result)
+        return [result]
+
+    @staticmethod
+    def _format_progress_message(update: StatusUpdate) -> str | None:
+        """
+        Format a status update into a human-readable progress message.
+
+        Returns:
+            A formatted message string, or None if no message should be shown.
+        """
+        if update.code in [Status.JOINING_QUEUE, Status.STARTING]:
+            return "Joined server queue."
+        elif update.code in [Status.IN_QUEUE]:
+            message = f"In queue. Position {update.rank} out of {update.queue_size}."
+            if update.eta is not None:
+                message += f" Estimated time remaining: {update.eta} seconds."
+            return message
+        elif update.code in [Status.PROGRESS]:
+            for progress_unit in update.progress_data or []:
+                title = (
+                    "Progress"
+                    if progress_unit.desc is None
+                    else f"Progress {progress_unit.desc}"
+                )
+                if progress_unit.index is not None and progress_unit.length is not None:
+                    return (
+                        f"{title}: Step {progress_unit.index} of {progress_unit.length}"
+                    )
+                elif progress_unit.index is not None and progress_unit.length is None:
+                    return f"{title}: Step {progress_unit.index}"
+        elif update.code in [Status.PROCESSING, Status.ITERATING]:
+            return "Processing"
+        return None
+
+    async def _execute_tool_with_progress(  # type: ignore
+        self, job: Any, progress_token: str
+    ) -> dict[str, Any]:
+        """
+        Execute a tool call with progress tracking (streaming path).
+
+        Iterates through job updates to send progress notifications to the client.
+
+        Returns:
+            The output data as a list.
+        """
+        step = 0
+        async for update in job:
+            if update.type == "status":
+                update = cast(StatusUpdate, update)
+                message = self._format_progress_message(update)
+
+                await (
+                    self.mcp_server.request_context.session.send_progress_notification(
+                        progress_token=progress_token,
+                        progress=step,
+                        message=message,  # type: ignore
+                        related_request_id=str(
+                            self.mcp_server.request_context.request_id
+                        ),
+                    )
+                )
+                step += 1
+            elif update.type == "output" and update.final:
+                output = update.outputs
+                if not update.success:
+                    error_title = output.get("title")
+                    error_message = output.get("error")
+                    if error_title and error_message:
+                        msg = f"{error_title}: {error_message}"
+                    elif error_message:
+                        msg = error_message
+                    elif error_title:
+                        msg = error_title
+                    else:
+                        msg = "Error!"
+                    raise RuntimeError(msg)
+        if job.exception():
+            raise job.exception()
+        return output["data"]
 
     def create_mcp_server(self) -> "Server":
         """
@@ -238,12 +381,12 @@ class GradioMCPServer:
         Returns:
             The MCP server.
         """
-        server = self.Server(str(self.blocks.title or "Gradio App"))
+        server = self.Server(str(self.blocks.title or "Gradio App"))  # type: ignore
 
         @server.call_tool()
         async def call_tool(
             name: str, arguments: dict[str, Any]
-        ) -> list[self.types.TextContent | self.types.ImageContent]:
+        ) -> self.types.CallToolResult:  # type: ignore
             """
             Call a tool on the Gradio app.
 
@@ -254,113 +397,46 @@ class GradioMCPServer:
             progress_token = None
             if self.mcp_server.request_context.meta is not None:
                 progress_token = self.mcp_server.request_context.meta.progressToken
-            selected_tools = self.get_selected_tools_from_request()
+
             client = await run_sync(self._get_or_create_client)
-            _, filedata_positions = self.get_input_schema(name)
-            processed_kwargs = self.convert_strings_to_filedata(
-                arguments, filedata_positions
+            endpoint_name, processed_args, request_headers, block_fn = (
+                self._prepare_tool_call_args(name, arguments)
             )
-            endpoint_name = self.tool_to_endpoint.get(name)
-            if endpoint_name is None:
-                raise ValueError(f"Unknown tool for this Gradio app: {name}")
-
-            if selected_tools is not None and name not in selected_tools:
-                raise ValueError(f"Tool '{name}' is not in the selected tools list")
-
-            block_fn = self.get_block_fn_from_endpoint_name(endpoint_name)
-            assert block_fn is not None  # noqa: S101
-
-            if endpoint_name in self.api_info["named_endpoints"]:
-                parameters_info = self.api_info["named_endpoints"][endpoint_name][
-                    "parameters"
-                ]
-                processed_args = client_utils.construct_args(
-                    parameters_info,
-                    (),
-                    processed_kwargs,
-                )
-            else:
-                processed_args = []
-            context_request: Request | None = self.mcp_server.request_context.request
-            if context_request is None:
-                raise ValueError(
-                    "Could not find the request object in the MCP server context. This is not expected to happen. Please raise an issue: https://github.com/gradio-app/gradio."
-                )
-            request_headers = dict(context_request.headers.items())
-            request_headers.pop("content-length", None)
-            step = 0
-            output = {"data": []}
+            processed_args = self.insert_empty_state(block_fn.inputs, processed_args)
             job = client.submit(
                 *processed_args, api_name=endpoint_name, headers=request_headers
             )
-            async for update in job:
-                if update.type == "status" and progress_token is not None:
-                    update = cast(StatusUpdate, update)
 
-                    if update.code in [Status.JOINING_QUEUE, Status.STARTING]:
-                        message = "Joined server queue."
-                    elif update.code in [Status.IN_QUEUE]:
-                        message = f"In queue. Position {update.rank} out of {update.queue_size}."
-                        if update.eta is not None:
-                            message += (
-                                f" Estimated time remaining: {update.eta} seconds."
-                            )
-                    elif update.code in [Status.PROGRESS]:
-                        for progress_unit in update.progress_data or []:
-                            title = (
-                                "Progress"
-                                if progress_unit.desc is None
-                                else f"Progress {progress_unit.desc}"
-                            )
-                            if (
-                                progress_unit.index is not None
-                                and progress_unit.length is not None
-                            ):
-                                message = f"{title}: Step {progress_unit.index} of {progress_unit.length}"
-                            elif (
-                                progress_unit.index is not None
-                                and progress_unit.length is None
-                            ):
-                                message = f"{title}: Step {progress_unit.index}"
-                    elif update.code in [Status.PROCESSING, Status.ITERATING]:
-                        message = "Processing"
-                    else:
-                        message = None
+            if progress_token is None or not block_fn.queue:
+                output_data = await self._execute_tool_without_progress(job)
+            else:
+                output_data = await self._execute_tool_with_progress(  # type: ignore
+                    job,
+                    progress_token,  # type: ignore
+                )
 
-                    await self.mcp_server.request_context.session.send_progress_notification(
-                        progress_token=progress_token,
-                        progress=step,
-                        message=message,  # type: ignore
-                    )
-                    step += 1
-                elif update.type == "output" and update.final:
-                    output = update.outputs
-                    if not update.success:
-                        error_title = output.get("title")
-                        error_message = output.get("error")
-                        if error_title and error_message:
-                            msg = f"{error_title}: {error_message}"
-                        elif error_message:
-                            msg = error_message
-                        elif error_title:
-                            msg = error_title
-                        else:
-                            msg = "Error!"
-                        # Need to raise an error so that call_tool returns an error payload
-                        raise RuntimeError(msg)
-            if job.exception():
-                raise job.exception()
-            processed_args = self.pop_returned_state(block_fn.inputs, processed_args)
-            route_path = self.get_route_path(context_request)
-            root_url = route_utils.get_root_url(
-                request=context_request,
-                route_path=route_path,
-                root_path=self.root_path,
+            output_data = self.pop_returned_state(block_fn.outputs, output_data)
+
+            context_request: Request | None = self.mcp_server.request_context.request
+            route_path = self.get_route_path(context_request)  # type: ignore
+            root_url = route_utils.get_root_url(  # type: ignore
+                request=context_request,  # type: ignore
+                route_path=route_path,  # type: ignore
+                root_path=self.root_path,  # type: ignore
             )
-            return self.postprocess_output_data(output["data"], root_url)
+            content = self.postprocess_output_data(output_data, root_url)
+            if getattr(block_fn.fn, "_mcp_structured_output", False):
+                structured_content = {"result": content}
+            else:
+                structured_content = None
+            return self.types.CallToolResult(  # type: ignore
+                content=content,  # type: ignore
+                structuredContent=structured_content,  # type: ignore
+                _meta=getattr(block_fn.fn, "_mcp_meta", None),  # type: ignore
+            )
 
         @server.list_tools()
-        async def list_tools() -> list[self.types.Tool]:
+        async def list_tools() -> list[self.types.Tool]:  # type: ignore
             """
             List all tools on the Gradio app.
             """
@@ -384,21 +460,25 @@ class GradioMCPServer:
 
                 description, parameters = self.get_fn_description(block_fn, tool_name)
                 schema, _ = self.get_input_schema(tool_name, parameters)
+                tool_meta = getattr(block_fn.fn, "_mcp_meta", None)
+
                 tools.append(
-                    self.types.Tool(
+                    self.types.Tool(  # type: ignore
                         name=tool_name,
                         description=description,
                         inputSchema=schema,
+                        _meta=tool_meta,  # type: ignore
                     )
                 )
             return tools
 
         @server.list_resources()
-        async def list_resources() -> list[self.types.Resource]:
+        async def list_resources() -> list[self.types.Resource]:  # type: ignore
             """
             List all available resources.
             """
             resources = []
+
             selected_tools = self.get_selected_tools_from_request()
             for tool_name, endpoint_name in self.tool_to_endpoint.items():
                 if selected_tools is not None and tool_name not in selected_tools:
@@ -411,24 +491,24 @@ class GradioMCPServer:
                     and hasattr(block_fn.fn, "_mcp_type")
                     and block_fn.fn._mcp_type == "resource"
                 ):
-                    uri_template = block_fn.fn._mcp_uri_template
+                    uri_template = block_fn.fn._mcp_uri_template  # type: ignore
                     parameters = re.findall(r"\{([^}]+)\}", uri_template)
                     description, parameters, _ = utils.get_function_description(
                         block_fn.fn
                     )
                     if not parameters:
                         resources.append(
-                            self.types.Resource(
+                            self.types.Resource(  # type: ignore
                                 uri=uri_template,
-                                name=block_fn.fn.__name__,
+                                name=block_fn.fn.__name__,  # type: ignore
                                 description=description,
-                                mimeType=block_fn.fn._mcp_mime_type,
+                                mimeType=block_fn.fn._mcp_mime_type,  # type: ignore
                             )
                         )
             return resources
 
         @server.list_resource_templates()
-        async def list_resource_templates() -> list[self.types.ResourceTemplate]:
+        async def list_resource_templates() -> list[self.types.ResourceTemplate]:  # type: ignore
             """
             List all available resource templates.
             """
@@ -445,24 +525,24 @@ class GradioMCPServer:
                     and hasattr(block_fn.fn, "_mcp_type")
                     and block_fn.fn._mcp_type == "resource"
                 ):
-                    uri_template = block_fn.fn._mcp_uri_template
+                    uri_template = block_fn.fn._mcp_uri_template  # type: ignore
                     parameters = re.findall(r"\{([^}]+)\}", uri_template)
                     description, parameters, _ = utils.get_function_description(
                         block_fn.fn
                     )
                     if parameters:
                         templates.append(
-                            self.types.ResourceTemplate(
+                            self.types.ResourceTemplate(  # type: ignore
                                 uriTemplate=uri_template,
-                                name=block_fn.fn.__name__,
+                                name=block_fn.fn.__name__,  # type: ignore
                                 description=description,
-                                mimeType=block_fn.fn._mcp_mime_type,
+                                mimeType=block_fn.fn._mcp_mime_type,  # type: ignore
                             )
                         )
             return templates
 
         @server.read_resource()
-        async def read_resource(uri: AnyUrl | str) -> list[self.ReadResourceContents]:
+        async def read_resource(uri: AnyUrl | str) -> list[self.ReadResourceContents]:  # type: ignore
             """
             Read a specific resource by URI.
             """
@@ -477,8 +557,8 @@ class GradioMCPServer:
                     and hasattr(block_fn.fn, "_mcp_type")
                     and block_fn.fn._mcp_type == "resource"
                 ):
-                    uri_template = block_fn.fn._mcp_uri_template
-                    parameters = re.findall(r"\{([^}]+)\}", uri_template)
+                    uri_template = block_fn.fn._mcp_uri_template  # type: ignore
+                    parameters = re.findall(r"\{([^}]+)\}", uri_template)  # type: ignore
 
                     kwargs = {}
                     matched = False
@@ -512,16 +592,16 @@ class GradioMCPServer:
                         async for update in client.submit(
                             *processed_args, api_name=endpoint_name
                         ):
-                            if update.type == "output" and update.final:
-                                output = update.outputs
+                            if update.type == "output" and update.final:  # type: ignore
+                                output = update.outputs  # type: ignore
                                 result = output["data"][0]
                                 break
 
-                        mime_type = block_fn.fn._mcp_mime_type
-                        if mime_type != "text/plain":
+                        mime_type = block_fn.fn._mcp_mime_type  # type: ignore
+                        if mime_type and not mime_type.startswith("text/"):
                             result = base64.b64decode(result.encode("ascii"))
                         return [
-                            self.ReadResourceContents(
+                            self.ReadResourceContents(  # type: ignore
                                 content=result, mime_type=mime_type
                             )
                         ]
@@ -529,7 +609,7 @@ class GradioMCPServer:
             raise ValueError(f"Resource not found: {uri}")
 
         @server.list_prompts()
-        async def list_prompts() -> list[self.types.Prompt]:
+        async def list_prompts() -> list[self.types.Prompt]:  # type: ignore
             """
             List all available prompts.
             """
@@ -551,7 +631,7 @@ class GradioMCPServer:
                     )
                     function_params = utils.get_function_params(block_fn.fn)
                     arguments = [
-                        self.types.PromptArgument(
+                        self.types.PromptArgument(  # type: ignore
                             name=param_name,
                             description=parameters.get(param_name, ""),
                             required=not has_default,
@@ -559,7 +639,7 @@ class GradioMCPServer:
                         for param_name, has_default, _, _ in function_params
                     ]
                     prompts.append(
-                        self.types.Prompt(
+                        self.types.Prompt(  # type: ignore
                             name=tool_name,
                             description=description,
                             arguments=arguments,
@@ -570,7 +650,7 @@ class GradioMCPServer:
         @server.get_prompt()
         async def get_prompt(
             name: str, arguments: dict[str, Any] | None = None
-        ) -> self.types.GetPromptResult:
+        ) -> self.types.GetPromptResult:  # type: ignore
             """
             Get a specific prompt with filled-in arguments.
             """
@@ -584,7 +664,7 @@ class GradioMCPServer:
                     and block_fn.fn
                     and hasattr(block_fn.fn, "_mcp_type")
                     and block_fn.fn._mcp_type == "prompt"
-                    and block_fn.fn._mcp_name == name
+                    and block_fn.fn._mcp_name == name  # type: ignore
                 ):
                     break
 
@@ -609,16 +689,16 @@ class GradioMCPServer:
                 processed_args = list(arguments.values())
 
             async for update in client.submit(*processed_args, api_name=endpoint_name):
-                if update.type == "output" and update.final:
-                    output = update.outputs
+                if update.type == "output" and update.final:  # type: ignore
+                    output = update.outputs  # type: ignore
                     result = output["data"][0]
                     break
 
-            return self.types.GetPromptResult(
+            return self.types.GetPromptResult(  # type: ignore
                 messages=[
-                    self.types.PromptMessage(
+                    self.types.PromptMessage(  # type: ignore
                         role="user",
-                        content=self.types.TextContent(type="text", text=str(result)),
+                        content=self.types.TextContent(type="text", text=str(result)),  # type: ignore
                     )
                 ]
             )
@@ -635,7 +715,7 @@ class GradioMCPServer:
             root_path: The root path of the Gradio Blocks app.
         """
         messages_path = "/messages/"
-        sse = self.SseServerTransport(messages_path)
+        sse = self.SseServerTransport(messages_path)  # type: ignore
         self.root_path = root_path
 
         async def handle_sse(request):
@@ -739,14 +819,14 @@ class GradioMCPServer:
 
     @staticmethod
     def pop_returned_state(
-        inputs: Sequence["Component | BlockContext"], data: list
+        components: Sequence["Component | BlockContext"], data: Any
     ) -> list:
         """
         Remove any values corresponding to State output components from the data
         as State outputs are not included in the endpoint schema.
         """
-        for i, input_component_type in enumerate(inputs):
-            if isinstance(input_component_type, State):
+        for i, component_type in enumerate(components):
+            if isinstance(component_type, State):
                 data.pop(i)
         return data
 
@@ -1059,10 +1139,10 @@ class GradioMCPServer:
                 )
                 svg_url = f"{root_url}/gradio_api/file={svg_path}"
                 return_value = [
-                    self.types.ImageContent(
+                    self.types.ImageContent(  # type: ignore
                         type="image", data=base64_data, mimeType=mimetype
                     ),
-                    self.types.TextContent(
+                    self.types.TextContent(  # type: ignore
                         type="text",
                         text=f"SVG Image URL: {svg_url}",
                     ),
@@ -1073,22 +1153,22 @@ class GradioMCPServer:
                     base64_data = self.get_base64_data(image, image_format)
                     mimetype = f"image/{image_format.lower()}"
                     return_value = [
-                        self.types.ImageContent(
+                        self.types.ImageContent(  # type: ignore
                             type="image", data=base64_data, mimeType=mimetype
                         ),
-                        self.types.TextContent(
+                        self.types.TextContent(  # type: ignore
                             type="text",
                             text=f"Image URL: {output['url'] or output['path']}",
                         ),
                     ]
                 else:
                     return_value = [
-                        self.types.TextContent(
+                        self.types.TextContent(  # type: ignore
                             type="text", text=str(output["url"] or output["path"])
                         )
                     ]
             else:
-                return_value = [self.types.TextContent(type="text", text=str(output))]
+                return_value = [self.types.TextContent(type="text", text=str(output))]  # type: ignore
             return_values.extend(return_value)
         return return_values
 
@@ -1125,13 +1205,29 @@ def prompt(name: str | None = None, description: str | None = None):
     return decorator
 
 
-def tool(name: str | None = None, description: str | None = None):
-    """Decorator to mark a function as an MCP tool (optional, since functions are registered as tools by default)."""
+def tool(
+    name: str | None = None,
+    description: str | None = None,
+    structured_output: bool = False,
+    _meta: dict[str, Any] | None = None,
+):
+    """
+    Decorator to mark a function as an MCP tool (optional, since functions are registered as tools by default).
+    Can be used to configure various aspects of the tool.
+
+    Parameters:
+        name: The name of the tool. Overrides the default name of the function.
+        description: The description of the tool. Overrides the default description from the function's docstring.
+        structured_output: Whether the tool should return structured output (implementation is quite limited at the moment). If True, the output will be wrapped in a dictionary with the key "result" and the value being the output of the function. Recommended to keep this False unless you have a specific reason to need the structured output.
+        _meta: Additional metadata for the tool.
+    """
 
     def decorator(fn):
         fn._mcp_type = "tool"
         fn._mcp_name = name
+        fn._mcp_structured_output = structured_output
         fn._mcp_description = description
+        fn._mcp_meta = _meta
         return fn
 
     return decorator

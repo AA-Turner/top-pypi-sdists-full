@@ -3,6 +3,7 @@ Utility functions for xAPI.
 """
 
 import logging
+import time
 
 from enterprise.tpa_pipeline import get_user_social_auth
 from channel_integrations.exceptions import ClientError
@@ -62,6 +63,7 @@ def _send_statement(statement, object_type, event_type, lrs_configuration,
         )
     )
 
+    LOGGER.info(f"status:{response_fields['status']} error message:{response_fields['error_message']}")
     return response_fields
 
 
@@ -117,6 +119,19 @@ def send_course_completion_statement(lrs_configuration,
     username = user.username if user else 'Unavailable'
     user_social_auth = get_user_social_auth(user, lrs_configuration.enterprise_customer)
 
+    LOGGER.info(
+        '[Integrated Channel][xAPI] Sending '
+        'event_type: {event_type}, '
+        'course_id: {course_id}, '
+        'username: {username}, '
+        'user_social_auth: {user_social_auth}'.format(
+            event_type='completion',
+            course_id=course_overview.course_key if object_type == 'course' else str(course_overview.id),
+            username=user.username if user else 'Unavailable',
+            user_social_auth=get_user_social_auth(user, lrs_configuration.enterprise_customer),
+        )
+    )
+
     statement = LearnerCourseCompletionStatement(
         lrs_configuration.enterprise_customer.site,
         user,
@@ -124,6 +139,22 @@ def send_course_completion_statement(lrs_configuration,
         course_overview,
         course_grade,
         object_type,
+    )
+    LOGGER.info(
+        '[Integrated Channel][xAPI] Created LearnerCourseCompletionStatement: {statement}'.format(
+            statement=statement,
+        )
+    )
+
+    start_time = time.perf_counter()
+    LOGGER.info(
+        '[Integrated Channel][xAPI] Sending {object_type} {event_type} statement to xAPI LRS for user: {username} for '
+        '{object_type}: {course_id}'.format(
+            object_type=object_type,
+            event_type=event_type,
+            username=username,
+            course_id=course_id,
+        )
     )
 
     response_fields = _send_statement(
@@ -136,6 +167,11 @@ def send_course_completion_statement(lrs_configuration,
         course_id,
         response_fields,
     )
+
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    LOGGER.info(f"_send_statement took {elapsed_time:.4f} seconds")
+    LOGGER.info(f"status:{response_fields['status']} error message:{response_fields['error_message']}")
 
     return response_fields
 

@@ -1,0 +1,19 @@
+[package]
+name = "atomicx"
+version = "0.0.15"
+edition = "2021"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "atomicx"
+crate-type = ["cdylib"]
+
+[dependencies]
+num = "0.4.3"
+portable-atomic = { version = "1.9.0", features = ["std", "float"] }
+pyo3 = { version = "0.23", default-features = false, features = ["extension-module", "macros"] }
+
+[features]
+default = ["gil-abi3"]
+gil-abi3 = ["pyo3/abi3", "pyo3/abi3-py38"]

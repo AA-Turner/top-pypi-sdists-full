@@ -74,11 +74,13 @@ def test_vq_mask():
 @pytest.mark.parametrize('implicit_neural_codebook, use_cosine_sim', ((True, False), (False, True), (False, False)))
 @pytest.mark.parametrize('train', (True, False))
 @pytest.mark.parametrize('shared_codebook', (True, False))
+@pytest.mark.parametrize('quant_grad_frac', (0., 0.1))
 def test_residual_vq(
     implicit_neural_codebook,
     use_cosine_sim,
     train,
-    shared_codebook
+    shared_codebook,
+    quant_grad_frac
 ):
     from vector_quantize_pytorch import ResidualVQ
 
@@ -88,7 +90,8 @@ def test_residual_vq(
         codebook_size = 128,
         implicit_neural_codebook = implicit_neural_codebook,
         use_cosine_sim = use_cosine_sim,
-        shared_codebook = shared_codebook
+        shared_codebook = shared_codebook,
+        quant_grad_frac = quant_grad_frac
     )
 
     x = torch.randn(1, 256, 32)
@@ -224,14 +227,38 @@ def test_tiger():
 
     assert torch.allclose(quantized, quantized_out, atol = 1e-5)
 
+def test_directional_reparam():
+    from vector_quantize_pytorch import VectorQuantize, ResidualVQ
+
+    vq = VectorQuantize(
+        dim = 256,
+        codebook_size = 512,                # codebook size
+        directional_reparam = True
+    )
+
+    x = torch.randn(1, 1024, 256).requires_grad_()
+
+    quantized, indices, _ = vq(x)
+
+    rq = ResidualVQ(
+        dim = 256,
+        num_quantizers = 8,
+        codebook_size = 128,
+        directional_reparam = True
+    )
+
+    quantized, indices, _ = rq(x)
+
 @pytest.mark.parametrize('preserve_symmetry', (True, False))
+@pytest.mark.parametrize('bound_hard_clamp', (True, False))
 def test_fsq(
-    preserve_symmetry
+    preserve_symmetry,
+    bound_hard_clamp
 ):
     from vector_quantize_pytorch import FSQ
 
     levels = [8,5,5,5] # see 4.1 and A.4.1 in the paper
-    quantizer = FSQ(levels, preserve_symmetry = preserve_symmetry)
+    quantizer = FSQ(levels, preserve_symmetry = preserve_symmetry, bound_hard_clamp = bound_hard_clamp)
 
     x = torch.randn(1, 1024, 4) # 4 since there are 4 levels
     xhat, indices = quantizer(x)
@@ -360,7 +387,7 @@ def test_latent_q():
     quantizer = LatentQuantize(
         levels = [5, 5, 8],      # number of levels per codebook dimension
         dim = 16,                   # input dim
-        commitment_loss_weight=0.1,  
+        commitment_loss_weight=0.1,
         quantization_loss_weight=0.1,
     )
 
@@ -461,3 +488,21 @@ def test_accum_ema_update():
     _ = vq(x)
 
     assert not torch.allclose(codebook_before, vq.codebook, atol = 1e-6)
+
+def test_vq_3d():
+    from vector_quantize_pytorch import VectorQuantize
+
+    quantizer = VectorQuantize(
+        dim = 64,
+        codebook_size = 512,                # codebook size
+        accept_3d_fmap=True,
+    )
+
+    x = torch.randn(1, 64, 16, 16, 16)  # (B, C, D, H, W)
+    quantizer.eval()
+
+    quantized, indices, commit_loss = quantizer(x)
+
+    assert x.shape == quantized.shape
+    assert indices.shape == (1, 16, 16, 16)
+    assert torch.allclose(quantized, quantizer.get_output_from_indices(indices))

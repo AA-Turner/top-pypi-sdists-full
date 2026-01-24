@@ -20,7 +20,11 @@ import typing as t
 from elastic_transport import ObjectApiResponse
 
 from ._base import NamespacedClient
-from .utils import SKIP_IN_PATH, _quote, _rewrite_parameters
+from .utils import (
+    SKIP_IN_PATH,
+    _quote,
+    _rewrite_parameters,
+)
 
 
 class AutoscalingClient(NamespacedClient):
@@ -46,7 +50,7 @@ class AutoscalingClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/autoscaling-delete-autoscaling-policy.html>`_
 
-        :param name: the name of the autoscaling policy
+        :param name: Name of the autoscaling policy
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
@@ -153,7 +157,7 @@ class AutoscalingClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/autoscaling-get-autoscaling-capacity.html>`_
 
-        :param name: the name of the autoscaling policy
+        :param name: Name of the autoscaling policy
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
@@ -208,7 +212,7 @@ class AutoscalingClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/autoscaling-put-autoscaling-policy.html>`_
 
-        :param name: the name of the autoscaling policy
+        :param name: Name of the autoscaling policy
         :param policy:
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and

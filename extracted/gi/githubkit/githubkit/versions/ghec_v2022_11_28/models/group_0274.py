@@ -9,6 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
@@ -16,21 +18,23 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class OidcCustomSubRepo(GitHubModel):
-    """Actions OIDC subject customization for a repository
+class InteractionLimit(GitHubModel):
+    """Interaction Restrictions
 
-    Actions OIDC subject customization for a repository
+    Limit interactions to a specific type of user for a specified duration
     """
 
-    use_default: bool = Field(
-        description="Whether to use the default template or not. If `true`, the `include_claim_keys` field is ignored."
+    limit: Literal["existing_users", "contributors_only", "collaborators_only"] = Field(
+        description="The type of GitHub user that can comment, open issues, or create pull requests while the interaction limit is in effect."
     )
-    include_claim_keys: Missing[list[str]] = Field(
+    expiry: Missing[
+        Literal["one_day", "three_days", "one_week", "one_month", "six_months"]
+    ] = Field(
         default=UNSET,
-        description="Array of unique strings. Each claim key can only contain alphanumeric characters and underscores.",
+        description="The duration of the interaction restriction. Default: `one_day`.",
     )
 
 
-model_rebuild(OidcCustomSubRepo)
+model_rebuild(InteractionLimit)
 
-__all__ = ("OidcCustomSubRepo",)
+__all__ = ("InteractionLimit",)

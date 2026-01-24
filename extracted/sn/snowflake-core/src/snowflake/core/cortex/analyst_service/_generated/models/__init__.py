@@ -30,9 +30,21 @@ from snowflake.core.cortex.analyst_service._generated.models.create_agentic_opti
 from snowflake.core.cortex.analyst_service._generated.models.create_agentic_optimization_response import (
     CreateAgenticOptimizationResponse,
 )
+from snowflake.core.cortex.analyst_service._generated.models.create_analyst_eval_optimization_request import (
+    CreateAnalystEvalOptimizationRequest,
+)
+from snowflake.core.cortex.analyst_service._generated.models.create_analyst_eval_optimization_response import (
+    CreateAnalystEvalOptimizationResponse,
+)
 from snowflake.core.cortex.analyst_service._generated.models.error_response import ErrorResponse
 from snowflake.core.cortex.analyst_service._generated.models.fast_generation_request import FastGenerationRequest
 from snowflake.core.cortex.analyst_service._generated.models.fast_generation_response import FastGenerationResponse
+from snowflake.core.cortex.analyst_service._generated.models.generate_filters_and_metrics_suggestions_request import (
+    GenerateFiltersAndMetricsSuggestionsRequest,
+)
+from snowflake.core.cortex.analyst_service._generated.models.generate_filters_and_metrics_suggestions_response import (
+    GenerateFiltersAndMetricsSuggestionsResponse,
+)
 from snowflake.core.cortex.analyst_service._generated.models.generate_verified_query_suggestions_request import (
     GenerateVerifiedQuerySuggestionsRequest,
 )
@@ -76,8 +88,15 @@ from snowflake.core.cortex.analyst_service._generated.models.message_content_tex
 from snowflake.core.cortex.analyst_service._generated.models.message_object import MessageObject
 from snowflake.core.cortex.analyst_service._generated.models.pre_selection_request import PreSelectionRequest
 from snowflake.core.cortex.analyst_service._generated.models.pre_selection_response import PreSelectionResponse
+from snowflake.core.cortex.analyst_service._generated.models.semantic_model_change import SemanticModelChange
+from snowflake.core.cortex.analyst_service._generated.models.semantic_model_change_operation import (
+    SemanticModelChangeOperation,
+)
 from snowflake.core.cortex.analyst_service._generated.models.semantic_model_object import SemanticModelObject
 from snowflake.core.cortex.analyst_service._generated.models.semantic_model_selection import SemanticModelSelection
+from snowflake.core.cortex.analyst_service._generated.models.semantic_model_update_suggestion import (
+    SemanticModelUpdateSuggestion,
+)
 from snowflake.core.cortex.analyst_service._generated.models.send_feedback_request import SendFeedbackRequest
 from snowflake.core.cortex.analyst_service._generated.models.send_message_request import SendMessageRequest
 from snowflake.core.cortex.analyst_service._generated.models.send_message_response import SendMessageResponse
@@ -107,9 +126,13 @@ __all__ = [
     "Confidence",
     "CreateAgenticOptimizationRequest",
     "CreateAgenticOptimizationResponse",
+    "CreateAnalystEvalOptimizationRequest",
+    "CreateAnalystEvalOptimizationResponse",
     "ErrorResponse",
     "FastGenerationRequest",
     "FastGenerationResponse",
+    "GenerateFiltersAndMetricsSuggestionsRequest",
+    "GenerateFiltersAndMetricsSuggestionsResponse",
     "GenerateVerifiedQuerySuggestionsRequest",
     "GenerateVerifiedQuerySuggestionsResponse",
     "GetAgenticOptimizationResponse",
@@ -129,8 +152,11 @@ __all__ = [
     "MessageObject",
     "PreSelectionRequest",
     "PreSelectionResponse",
+    "SemanticModelChange",
+    "SemanticModelChangeOperation",
     "SemanticModelObject",
     "SemanticModelSelection",
+    "SemanticModelUpdateSuggestion",
     "SendFeedbackRequest",
     "SendMessageRequest",
     "SendMessageResponse",

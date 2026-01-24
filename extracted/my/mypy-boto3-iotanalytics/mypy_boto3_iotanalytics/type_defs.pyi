@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -33,12 +34,6 @@ from .literals import (
     ReprocessingStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -213,7 +208,7 @@ AddAttributesActivityOutputTypeDef = TypedDict(
     "AddAttributesActivityOutputTypeDef",
     {
         "name": str,
-        "attributes": Dict[str, str],
+        "attributes": dict[str, str],
         "next": NotRequired[str],
     },
 )
@@ -234,7 +229,7 @@ class BatchPutMessageErrorEntryTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -484,7 +479,7 @@ RemoveAttributesActivityOutputTypeDef = TypedDict(
     "RemoveAttributesActivityOutputTypeDef",
     {
         "name": str,
-        "attributes": List[str],
+        "attributes": list[str],
         "next": NotRequired[str],
     },
 )
@@ -492,7 +487,7 @@ SelectAttributesActivityOutputTypeDef = TypedDict(
     "SelectAttributesActivityOutputTypeDef",
     {
         "name": str,
-        "attributes": List[str],
+        "attributes": list[str],
         "next": NotRequired[str],
     },
 )
@@ -530,7 +525,7 @@ AddAttributesActivityUnionTypeDef = Union[
 ]
 
 class BatchPutMessageResponseTypeDef(TypedDict):
-    batchPutMessageErrorEntries: List[BatchPutMessageErrorEntryTypeDef]
+    batchPutMessageErrorEntries: list[BatchPutMessageErrorEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateDatasetContentResponseTypeDef(TypedDict):
@@ -546,12 +541,12 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RunPipelineActivityResponseTypeDef(TypedDict):
-    payloads: List[bytes]
+    payloads: list[bytes]
     logResult: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SampleChannelDataResponseTypeDef(TypedDict):
-    payloads: List[bytes]
+    payloads: list[bytes]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartPipelineReprocessingResponseTypeDef(TypedDict):
@@ -569,7 +564,7 @@ class DatastoreStatisticsTypeDef(TypedDict):
     size: NotRequired[EstimatedResourceSizeTypeDef]
 
 class ChannelStorageOutputTypeDef(TypedDict):
-    serviceManagedS3: NotRequired[Dict[str, Any]]
+    serviceManagedS3: NotRequired[dict[str, Any]]
     customerManagedS3: NotRequired[CustomerManagedChannelS3StorageTypeDef]
 
 class ChannelStorageTypeDef(TypedDict):
@@ -577,7 +572,7 @@ class ChannelStorageTypeDef(TypedDict):
     customerManagedS3: NotRequired[CustomerManagedChannelS3StorageTypeDef]
 
 class ChannelStorageSummaryTypeDef(TypedDict):
-    serviceManagedS3: NotRequired[Dict[str, Any]]
+    serviceManagedS3: NotRequired[dict[str, Any]]
     customerManagedS3: NotRequired[CustomerManagedChannelS3StorageSummaryTypeDef]
 
 class CreateChannelResponseTypeDef(TypedDict):
@@ -599,13 +594,13 @@ class CreateDatastoreResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SchemaDefinitionOutputTypeDef(TypedDict):
-    columns: NotRequired[List[ColumnTypeDef]]
+    columns: NotRequired[list[ColumnTypeDef]]
 
 class SchemaDefinitionTypeDef(TypedDict):
     columns: NotRequired[Sequence[ColumnTypeDef]]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -620,7 +615,7 @@ class DatasetContentSummaryTypeDef(TypedDict):
     completionTime: NotRequired[datetime]
 
 class GetDatasetContentResponseTypeDef(TypedDict):
-    entries: List[DatasetEntryTypeDef]
+    entries: list[DatasetEntryTypeDef]
     timestamp: datetime
     status: DatasetContentStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -722,7 +717,7 @@ PipelineActivityOutputTypeDef = TypedDict(
 
 class PipelineSummaryTypeDef(TypedDict):
     pipelineName: NotRequired[str]
-    reprocessingSummaries: NotRequired[List[ReprocessingSummaryTypeDef]]
+    reprocessingSummaries: NotRequired[list[ReprocessingSummaryTypeDef]]
     creationTime: NotRequired[datetime]
     lastUpdateTime: NotRequired[datetime]
 
@@ -764,7 +759,7 @@ class ParquetConfigurationTypeDef(TypedDict):
     schemaDefinition: NotRequired[SchemaDefinitionTypeDef]
 
 class ListDatasetContentsResponseTypeDef(TypedDict):
-    datasetContentSummaries: List[DatasetContentSummaryTypeDef]
+    datasetContentSummaries: list[DatasetContentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -773,16 +768,16 @@ class DatasetSummaryTypeDef(TypedDict):
     status: NotRequired[DatasetStatusType]
     creationTime: NotRequired[datetime]
     lastUpdateTime: NotRequired[datetime]
-    triggers: NotRequired[List[DatasetTriggerTypeDef]]
-    actions: NotRequired[List[DatasetActionSummaryTypeDef]]
+    triggers: NotRequired[list[DatasetTriggerTypeDef]]
+    actions: NotRequired[list[DatasetActionSummaryTypeDef]]
 
 class DatastoreStorageSummaryTypeDef(TypedDict):
-    serviceManagedS3: NotRequired[Dict[str, Any]]
+    serviceManagedS3: NotRequired[dict[str, Any]]
     customerManagedS3: NotRequired[CustomerManagedDatastoreS3StorageSummaryTypeDef]
     iotSiteWiseMultiLayerStorage: NotRequired[DatastoreIotSiteWiseMultiLayerStorageSummaryTypeDef]
 
 class DatastoreStorageOutputTypeDef(TypedDict):
-    serviceManagedS3: NotRequired[Dict[str, Any]]
+    serviceManagedS3: NotRequired[dict[str, Any]]
     customerManagedS3: NotRequired[CustomerManagedDatastoreS3StorageTypeDef]
     iotSiteWiseMultiLayerStorage: NotRequired[DatastoreIotSiteWiseMultiLayerStorageTypeDef]
 
@@ -792,7 +787,7 @@ class DatastoreStorageTypeDef(TypedDict):
     iotSiteWiseMultiLayerStorage: NotRequired[DatastoreIotSiteWiseMultiLayerStorageTypeDef]
 
 class DatastorePartitionsOutputTypeDef(TypedDict):
-    partitions: NotRequired[List[DatastorePartitionTypeDef]]
+    partitions: NotRequired[list[DatastorePartitionTypeDef]]
 
 class DatastorePartitionsTypeDef(TypedDict):
     partitions: NotRequired[Sequence[DatastorePartitionTypeDef]]
@@ -803,7 +798,7 @@ class LateDataRuleTypeDef(TypedDict):
 
 class SqlQueryDatasetActionOutputTypeDef(TypedDict):
     sqlQuery: str
-    filters: NotRequired[List[QueryFilterTypeDef]]
+    filters: NotRequired[list[QueryFilterTypeDef]]
 
 class SqlQueryDatasetActionTypeDef(TypedDict):
     sqlQuery: str
@@ -817,7 +812,7 @@ class ContainerDatasetActionOutputTypeDef(TypedDict):
     image: str
     executionRoleArn: str
     resourceConfiguration: ResourceConfigurationTypeDef
-    variables: NotRequired[List[VariableTypeDef]]
+    variables: NotRequired[list[VariableTypeDef]]
 
 class ContainerDatasetActionTypeDef(TypedDict):
     image: str
@@ -828,13 +823,13 @@ class ContainerDatasetActionTypeDef(TypedDict):
 class PipelineTypeDef(TypedDict):
     name: NotRequired[str]
     arn: NotRequired[str]
-    activities: NotRequired[List[PipelineActivityOutputTypeDef]]
-    reprocessingSummaries: NotRequired[List[ReprocessingSummaryTypeDef]]
+    activities: NotRequired[list[PipelineActivityOutputTypeDef]]
+    reprocessingSummaries: NotRequired[list[ReprocessingSummaryTypeDef]]
     creationTime: NotRequired[datetime]
     lastUpdateTime: NotRequired[datetime]
 
 class ListPipelinesResponseTypeDef(TypedDict):
-    pipelineSummaries: List[PipelineSummaryTypeDef]
+    pipelineSummaries: list[PipelineSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -871,12 +866,12 @@ class UpdateChannelRequestTypeDef(TypedDict):
     retentionPeriod: NotRequired[RetentionPeriodTypeDef]
 
 class ListChannelsResponseTypeDef(TypedDict):
-    channelSummaries: List[ChannelSummaryTypeDef]
+    channelSummaries: list[ChannelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class FileFormatConfigurationOutputTypeDef(TypedDict):
-    jsonConfiguration: NotRequired[Dict[str, Any]]
+    jsonConfiguration: NotRequired[dict[str, Any]]
     parquetConfiguration: NotRequired[ParquetConfigurationOutputTypeDef]
 
 class FileFormatConfigurationTypeDef(TypedDict):
@@ -884,7 +879,7 @@ class FileFormatConfigurationTypeDef(TypedDict):
     parquetConfiguration: NotRequired[ParquetConfigurationTypeDef]
 
 class ListDatasetsResponseTypeDef(TypedDict):
-    datasetSummaries: List[DatasetSummaryTypeDef]
+    datasetSummaries: list[DatasetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -943,22 +938,22 @@ FileFormatConfigurationUnionTypeDef = Union[
 ]
 
 class ListDatastoresResponseTypeDef(TypedDict):
-    datastoreSummaries: List[DatastoreSummaryTypeDef]
+    datastoreSummaries: list[DatastoreSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class DatasetTypeDef(TypedDict):
     name: NotRequired[str]
     arn: NotRequired[str]
-    actions: NotRequired[List[DatasetActionOutputTypeDef]]
-    triggers: NotRequired[List[DatasetTriggerTypeDef]]
-    contentDeliveryRules: NotRequired[List[DatasetContentDeliveryRuleTypeDef]]
+    actions: NotRequired[list[DatasetActionOutputTypeDef]]
+    triggers: NotRequired[list[DatasetTriggerTypeDef]]
+    contentDeliveryRules: NotRequired[list[DatasetContentDeliveryRuleTypeDef]]
     status: NotRequired[DatasetStatusType]
     creationTime: NotRequired[datetime]
     lastUpdateTime: NotRequired[datetime]
     retentionPeriod: NotRequired[RetentionPeriodTypeDef]
     versioningConfiguration: NotRequired[VersioningConfigurationTypeDef]
-    lateDataRules: NotRequired[List[LateDataRuleTypeDef]]
+    lateDataRules: NotRequired[list[LateDataRuleTypeDef]]
 
 class DatasetActionTypeDef(TypedDict):
     actionName: NotRequired[str]

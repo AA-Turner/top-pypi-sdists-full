@@ -38,8 +38,8 @@ protected:
         }
     }
 
-    SkString onShortName() final { return fName; }
-    SkISize onISize() override { return SkISize::Make(500, 500); }
+    SkString getName() const override { return fName; }
+    SkISize getISize() override { return SkISize::Make(500, 500); }
 
     void onOnceBeforeDraw() override {
         fShapes.push_back().setOval(SkRect::MakeXYWH(-5, 25, 200, 100));
@@ -170,8 +170,7 @@ private:
                 innerXform.preScale(s, s);
             }
             innerXform.preTranslate(-inner.rect().centerX(), -inner.rect().centerY());
-            SkRRect xformedInner;
-            inner.transform(innerXform, &xformedInner);
+            auto xformedInner = inner.transform(innerXform).value_or(SkRRect());
             SkPaint paint(fPaint);
             paint.setColor(rand.nextU() & ~0x808080);
             paint.setAlphaf(0.5f);  // Use alpha to detect double blends.

@@ -965,9 +965,10 @@ class SMTBasicTests(unittest.TestCase):
             (set-logic QF_DTSLIA)
             (set-option :produce-models true)
 
-            (declare-datatype Kitten ((Kitten__cons
-              (legs Int)
-              (name String))))
+            (declare-datatype Kitten (
+              (Kitten__cons
+                (legs Int)
+                (name String))))
             (declare-const a Kitten)
             (assert (= (legs a) 4))
             (assert (= (name a) "fuzzy"))
@@ -978,6 +979,165 @@ class SMTBasicTests(unittest.TestCase):
         )
         self.assertValue("a", {"name": "fuzzy",
                                "legs": 4})
+
+    def test_Recursive_Tree(self):
+        sort_a = smt.Record("a")
+        sort_b = smt.Record("b")
+
+        sort_a.add_component("wibble", sort_b)
+        sort_b.add_component("wobble", sort_a)
+        with self.assertRaises(smt.Recursion):
+            self.script.add_statement(smt.Record_Declaration(sort_a))
+            self.script.add_statement(smt.Record_Declaration(sort_b))
+
+    def test_Recursive_Record(self):
+        s_sort = smt.Record("List")
+        s_sort.add_component("value", smt.BUILTIN_INTEGER)
+        s_sort.add_component("next", s_sort)
+        self.script.add_statement(smt.Record_Declaration(s_sort))
+
+        sym_a = smt.Constant(s_sort, "a")
+        self.script.add_statement(
+            smt.Constant_Declaration(sym_a,
+                                     relevant=True))
+        sym_b = smt.Constant(s_sort, "b")
+        self.script.add_statement(
+            smt.Constant_Declaration(sym_b,
+                                     relevant=True))
+
+        self.script.add_statement(
+            smt.Assertion(
+                smt.Comparison("=",
+                               smt.Record_Access(smt.Record_Access(sym_a,
+                                                                   "next"),
+                                                 "value"),
+                               smt.Integer_Literal(42))))
+
+        self.script.add_statement(
+            smt.Assertion(smt.Boolean_Negation(smt.Record_Null_Check(sym_b))))
+
+        self.assertResult(
+            "sat",
+            """
+            (set-logic QF_DTLIA)
+            (set-option :produce-models true)
+
+            (declare-datatype List (
+              (List__null)
+              (List__cons
+                (value Int)
+                (next List))))
+            (declare-const a List)
+            (declare-const b List)
+            (assert (= (value (next a)) 42))
+            (assert (not ((_ is List__null) b)))
+            (check-sat)
+            (get-value (a))
+            (get-value (b))
+            (exit)
+            """
+        )
+
+    def test_Recursive_Record_Loop(self):
+        s_sort = smt.Record("List")
+        s_sort.add_component("value", smt.BUILTIN_INTEGER)
+        s_sort.add_component("next", s_sort)
+        self.script.add_statement(smt.Record_Declaration(s_sort))
+
+        sym_a = smt.Constant(s_sort, "a")
+        self.script.add_statement(
+            smt.Constant_Declaration(sym_a,
+                                     relevant=True))
+        sym_b = smt.Constant(s_sort, "b")
+        self.script.add_statement(
+            smt.Constant_Declaration(sym_b,
+                                     relevant=True))
+        sym_c = smt.Constant(s_sort, "c")
+        self.script.add_statement(
+            smt.Constant_Declaration(sym_c,
+                                     relevant=True))
+
+        self.script.add_statement(
+            smt.Assertion(
+                smt.Boolean_Negation(
+                    smt.Record_Null_Check(sym_a))))
+        self.script.add_statement(
+            smt.Assertion(
+                smt.Boolean_Negation(
+                    smt.Record_Null_Check(sym_b))))
+        self.script.add_statement(
+            smt.Assertion(
+                smt.Boolean_Negation(
+                    smt.Record_Null_Check(sym_c))))
+
+        self.script.add_statement(
+            smt.Assertion(
+                smt.Comparison("=",
+                               smt.Record_Access(sym_a, "next"),
+                               sym_b)))
+        self.script.add_statement(
+            smt.Assertion(
+                smt.Comparison("=",
+                               smt.Record_Access(sym_b, "next"),
+                               sym_c)))
+        self.script.add_statement(
+            smt.Assertion(
+                smt.Comparison("=",
+                               smt.Record_Access(sym_c, "next"),
+                               sym_a)))
+
+        self.assertResult(
+            "unsat",
+            """
+            (set-logic QF_DTLIA)
+            (set-option :produce-models true)
+
+            (declare-datatype List (
+              (List__null)
+              (List__cons
+                (value Int)
+                (next List))))
+            (declare-const a List)
+            (declare-const b List)
+            (declare-const c List)
+            (assert (not ((_ is List__null) a)))
+            (assert (not ((_ is List__null) b)))
+            (assert (not ((_ is List__null) c)))
+            (assert (= (next a) b))
+            (assert (= (next b) c))
+            (assert (= (next c) a))
+            (check-sat)
+            (get-value (a))
+            (get-value (b))
+            (get-value (c))
+            (exit)
+            """
+        )
+
+    def test_Void_Records(self):
+        s_sort = smt.Record("Foo")
+        self.script.add_statement(smt.Record_Declaration(s_sort))
+
+        sym_a = smt.Constant(s_sort, "a")
+        self.script.add_statement(
+            smt.Constant_Declaration(sym_a,
+                                     relevant=True))
+
+        self.assertResult(
+            "sat",
+            """
+            (set-logic QF_DT)
+            (set-option :produce-models true)
+
+            (declare-datatype Foo (
+              (Foo__cons)))
+            (declare-const a Foo)
+            (check-sat)
+            (get-value (a))
+            (exit)
+            """
+        )
+        self.assertValue("a", {})
 
     def test_UF_No_Body(self):
         s_par = smt.Bound_Variable(smt.BUILTIN_INTEGER, "x")
@@ -1167,3 +1327,52 @@ class SMTBasicTests(unittest.TestCase):
         )
         # Algebraic number not supported yet
         self.assertValue("a", None)
+
+    def test_optionals(self):
+        sort = smt.Optional(smt.BUILTIN_INTEGER)
+        self.script.add_statement(smt.Optional_Declaration(sort))
+
+        sym_a = smt.Constant(sort, "a")
+        self.script.add_statement(
+            smt.Constant_Declaration(sym_a,
+                                     relevant=True))
+        sym_b = smt.Constant(sort, "b")
+        self.script.add_statement(
+            smt.Constant_Declaration(sym_b,
+                                     relevant=True))
+
+        self.script.add_statement(
+            smt.Assertion(smt.Optional_Null_Check(sym_a)))
+        self.script.add_statement(
+            smt.Assertion(
+                smt.Boolean_Negation(smt.Optional_Null_Check(sym_b))))
+        self.script.add_statement(
+            smt.Assertion(
+                smt.Comparison(">",
+                               smt.Optional_Value(sym_b),
+                               smt.Integer_Literal(5))))
+
+        self.assertResult(
+            "sat",
+            """
+            (set-logic QF_DTLIA)
+            (set-option :produce-models true)
+
+            (declare-datatype optional__Int (
+              (optional__Int__null)
+              (optional__Int__cons
+                (value Int))))
+            (declare-const a optional__Int)
+            (declare-const b optional__Int)
+            (assert ((_ is optional__Int__null) a))
+            (assert (not ((_ is optional__Int__null) b)))
+            (assert (> (value b) 5))
+            (check-sat)
+            (get-value (a))
+            (get-value (b))
+            (exit)
+            """
+        )
+
+        self.assertValue("a", None)
+        self.assertValue("b", 6)

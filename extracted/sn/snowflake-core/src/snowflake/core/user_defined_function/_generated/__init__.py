@@ -38,3 +38,6 @@ from snowflake.core.user_defined_function._generated.models.scala_function impor
 from snowflake.core.user_defined_function._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.user_defined_function._generated.models.success_response import SuccessResponse
 from snowflake.core.user_defined_function._generated.models.user_defined_function import UserDefinedFunction
+from snowflake.core.user_defined_function._generated.models.user_defined_function_argument import (
+    UserDefinedFunctionArgument,
+)

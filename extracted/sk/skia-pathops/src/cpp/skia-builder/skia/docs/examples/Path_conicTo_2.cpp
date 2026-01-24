@@ -1,14 +1,13 @@
 // Copyright 2019 Google LLC.
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 #include "tools/fiddle/examples.h"
-// HASH=22d25e03b19d5bae92118877e462361b
 REG_FIDDLE(Path_conicTo_2, 256, 128, false, 0) {
 void draw(SkCanvas* canvas) {
     SkPaint paint;
     paint.setAntiAlias(true);
     paint.setStyle(SkPaint::kStroke_Style);
     SkRect oval = {0, 20, 120, 140};
-    SkPath path;
+    SkPathBuilder path;
     for (int i = 0; i < 4; ++i) {
         path.moveTo(oval.centerX(), oval.fTop);
         path.arcTo(oval, -90, 90 - 20 * i, false);
@@ -24,6 +23,6 @@ void draw(SkCanvas* canvas) {
          path.moveTo(conicPts[i][0]);
          path.conicTo(conicPts[i][1], conicPts[i][2], conicWeights[i]);
     }
-    canvas->drawPath(path, paint);
+    canvas->drawPath(path.detach(), paint);
 }
 }  // END FIDDLE

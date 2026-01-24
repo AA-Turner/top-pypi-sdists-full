@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__all__ = ["ring_double"]
+
 import gdsfactory as gf
 from gdsfactory.component import Component
 from gdsfactory.typings import ComponentSpec, CrossSectionSpec
@@ -106,4 +108,5 @@ def ring_double(
     c.add_port("o2", port=cb.ports["o4"])
     c.add_port("o3", port=ct.ports["o4"])
     c.add_port("o4", port=ct.ports["o1"])
+    c.info["radius"] = coupler_component_bot.info["radius"]
     return c

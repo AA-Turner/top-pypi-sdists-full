@@ -45,14 +45,18 @@ lazy mechanism for function call, supporting any function. Eg, to call the
 """
 
 import datetime as dt
+import hashlib
 import os
 import re
 import warnings
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO, open
 from os.path import commonprefix
-from urllib.parse import parse_qs, unquote, urlencode
+from typing import Iterable, List, Optional, Set
+from urllib.parse import parse_qs, parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
+import numpy as np
 import requests
 from requests.exceptions import (
     ConnectionError,
@@ -68,12 +72,14 @@ from pydap.handlers.dap import (
     unpack_dap2_data,
 )
 from pydap.lib import DEFAULT_TIMEOUT as DEFAULT_TIMEOUT
-from pydap.lib import encode
-from pydap.model import DapType
+from pydap.lib import encode, walk
+from pydap.model import BaseType, BatchPromise, DapType
 from pydap.net import GET, create_session
 from pydap.parsers.das import add_attributes, parse_das
 from pydap.parsers.dds import dds_to_dataset
 from pydap.parsers.dmr import DMRParser, dmr_to_dataset
+
+VARPATH_RE = re.compile(r"^\s*/([^[]+)\s*\[")
 
 
 def open_url(
@@ -146,6 +152,7 @@ def open_url(
             session_kwargs=session_kwargs,
             cache_kwargs=cache_kwargs,
         )
+
     handler = DAPHandler(
         url,
         application,
@@ -160,9 +167,16 @@ def open_url(
     )
     dataset = handler.dataset
     dataset._session = session
-    if handler.protocol == "dap4" and application is None and batch:  # and batch
-        # always enable batch mode for dap4 datasets
+
+    if batch:
+        if handler.protocol == "dap2" or application:
+            raise RuntimeError(
+                "Multi-variable download within single response "
+                "is currently only supported in DAP4."
+            )
+
         dataset.enable_batch_mode()
+
     # attach server-side functions
     dataset.functions = Functions(url, application, session, timeout=timeout)
 
@@ -176,7 +190,9 @@ def consolidate_metadata(
     safe_mode=True,
     set_maps=False,
     verbose=False,
+    shared_dimensions=False,
     checksums=True,
+    batch=False,
 ):
     """Consolidates the metadata of a collection of OPeNDAP DAP4 URLs belonging to
     data cube, i.e. urls share identical variables and dimensions. This is done
@@ -211,10 +227,19 @@ def consolidate_metadata(
         coords in xarray) that exist in the first remote url dataset. Then
         downloads all these within a single url. The url address is then
         stored in the session's headers as `Maps`.
+    shared_dimensions: bool (False default)
+        Takes the dimensions, and downloads all data in each data url at once
+        as opendap native dap response.
     verbose: bool, optional (default=False)
         For debugging purposes. If `True`, prints various URLs, normalized
         cache-keys, and other information.
-
+    checksums: bool, optional (default=True)
+        Whether to request checksums in the DAP4 request. This is currently
+        required for ALL NASA datasets, but will be optional in a future release.
+    batch: bool (default: False)
+        Whether to enable batch mode when downloading the dap responses. When False,
+        each dimension of a granule is downloaded with a separate dap response. When
+        True, all dimensions are downloaded with a single dap response.
     """
 
     if not isinstance(session, CachedSession):
@@ -247,18 +272,19 @@ def consolidate_metadata(
     dmr_urls = [
         url + ".dmr" if "?" not in url else url.replace("?", ".dmr?") for url in URLs
     ]
-    session.headers["consolidated"] = "True"
     if safe_mode:
-        with session as Session:  # Authenticate once
-            with ThreadPoolExecutor(max_workers=ncores) as executor:
-                results = list(
-                    executor.map(lambda url: open_dmr(url, session=Session), dmr_urls)
-                )
-        _dim_check = results[0].dimensions
-        if not all(d == _dim_check for d in [ds.dimensions for ds in results]):
+        with ThreadPoolExecutor(max_workers=ncores) as executor:
+            results = list(
+                executor.map(lambda url: open_dmr(url, session=session), dmr_urls)
+            )
+        _dim_check = {k: v for k, v in results[0].dimensions.items() if k != concat_dim}
+        if not all(
+            {k: v for k, v in d.dimensions.items() if k != concat_dim} == _dim_check
+            for d in results
+        ):
             warnings.warn(
-                "The dimensions of the datasets are not identical across all remote "
-                "dataset. Please check the URLs and try again."
+                "The dimensions of the datasets are not identical across all datasets"
+                ". Please check the URLs and try again."
             )
             return None
     else:
@@ -283,37 +309,81 @@ def consolidate_metadata(
             stacklevel=2,
         )
     _check = "&dap4.checksum=true"
-    if concat_dim is not None and set([concat_dim]).issubset(dims):
-        dims.remove(concat_dim)
-        concat_dim_urls = [
-            url.split("?")[0]
-            + ".dap?dap4.ce="
-            + concat_dim
-            + "%5B0:1:"
-            + str(results[0].dimensions[concat_dim] - 1)
-            + "%5D"
-            + _check
-            for i, url in enumerate(URLs)
-        ]
+
+    if shared_dimensions:
+        shared_dimension_urls = []
+        for i, url in enumerate(URLs):
+            _ces = url.split("?dap4.ce=")[-1].split(";")
+            ndims = ["/" + dim for dim in sorted(list(dims))]
+            _updated = sorted(list(set(_ces) - set(ndims)))
+            _ces = "%3B".join([dim for dim in ndims + _updated])
+            cdims_ce = "%3B".join(
+                [
+                    "/"
+                    + cdim
+                    + "%3D%5B0:1:"
+                    + str(results[i].dimensions[cdim] - 1)
+                    + "%5D"
+                    for cdim in sorted(dims)
+                ]
+            )
+            shared_dimension_urls.append(
+                url.split("?")[0] + ".dap?dap4.ce=" + cdims_ce + ";" + _ces + _check
+            )
+        with session as Session:
+            _ = download_all_urls(Session, shared_dimension_urls, ncores=ncores)
+        return shared_dimension_urls
+
+    session.headers["consolidated"] = "True"
+
+    if concat_dim and isinstance(concat_dim, str):
+        concat_dim = [concat_dim]
+    if concat_dim is not None and set(concat_dim).issubset(dims):
+        dims = dims - set(list(concat_dim))
+        concat_dim_urls = []
+        for i, url in enumerate(URLs):
+            cdims_ce = ";".join(
+                [
+                    cdim + "%5B0:1:" + str(results[i].dimensions[cdim] - 1) + "%5D"
+                    for cdim in sorted(concat_dim)
+                ]
+            )
+            concat_dim_urls.append(
+                url.split("?")[0] + ".dap?dap4.ce=/" + cdims_ce + _check
+            )
     else:
         concat_dim_urls = []
 
     # check for named dimensions
-    pyds = open_url(dmr_urls[0], session=session, protocol="dap4", batch=False)
+    pyds = open_url(dmr_urls[0], session=session, protocol="dap4")
     var_names = list(pyds.variables())
     new_dims = set.intersection(dims, var_names)
     named_dims = set.difference(dims, new_dims)
     dims = sorted(list(new_dims))
 
-    constrains_dims = [
-        dim + "%5B0%3A1%3A" + str(results[0].dimensions[dim] - 1) + "%5D"
-        for dim in dims
-        if dim != concat_dim
-    ]
-    if len(constrains_dims) > 0:
-        new_urls = [base_url + ".dap?dap4.ce=" + "%3B".join(constrains_dims) + _check]
+    if batch:
+        constrains_dims = [
+            dim + "%5B0%3A1%3A" + str(results[0].dimensions[dim] - 1) + "%5D"
+            for dim in dims
+            if dim != concat_dim
+        ]
+        if len(constrains_dims) > 0:
+            new_urls = [
+                base_url + ".dap?dap4.ce=" + "%3B".join(constrains_dims) + _check
+            ]
+        else:
+            new_urls = []
     else:
-        new_urls = []
+        new_urls = [
+            base_url
+            + ".dap?dap4.ce=/"
+            + dim
+            + "[0:1:"
+            + str(results[0].dimensions[dim] - 1)
+            + "]"
+            + _check
+            for dim in dims
+        ]
     new_urls.extend(concat_dim_urls)
     dim_ces = set(
         [
@@ -351,32 +421,65 @@ def consolidate_metadata(
         maps.update(coords)
         if maps:
             # may be 2 or 3D!
-            map_urls = [
-                var
+            _maps = [
+                "/"
+                + var
                 + "".join(
                     ["%5B0:1:" + str(length - 1) + "%5D" for length in pyds[var].shape]
                 )
                 for var in sorted(maps)
             ]
-            map_urls = [base_url + ".dap?dap4.ce=" + ";".join(map_urls) + _check]
-            maps_ces = set(
-                [
-                    coord + "[0:1:" + str(len(pyds[coord]) - 1) + "]"
-                    for coord in list(maps)
-                ]
-            )
+            if batch:
+                map_urls = [base_url + ".dap?dap4.ce=" + ";".join(_maps) + _check]
+            else:
+                map_urls = [base_url + ".dap?dap4.ce=" + coord for coord in _maps]
+            maps_ces = set([_map.split("%5B")[0] for _map in _maps])
             new_urls.extend(map_urls)
     if dims or concat_dim:
+        dim_ces.update(add_dims)
         print(
             "datacube has dimensions",
             list(dim_ces)[0].split(";"),
             f", and concat dim: `{concat_dim}`",
         )
-        dim_ces.update(add_dims)
-        if maps_ces:
-            dim_ces.update(maps_ces)
-        with session as Session:
-            _ = download_all_urls(Session, new_urls, ncores=ncores)
+        if not batch:
+            if maps_ces:
+                dim_ces = [
+                    ";".join(list(dim_ces) + [_map.split("/")[-1] for _map in maps_ces])
+                ]
+            collapse_vars = set(
+                [var.split("[")[0] for var in list(dim_ces)[0].split(";")]
+            )
+            key_fn = make_key_fn(
+                collapse_vars=collapse_vars,
+                concat_dim=concat_dim,
+                url_list=URLs,
+            )
+            if concat_dim and results[0].dimensions[concat_dim[0]] > 1:
+                size = results[0].dimensions[concat_dim[0]] - 1
+                add_urls = [
+                    url.split("?")[0]
+                    + ".dap?dap4.ce=/"
+                    + concat_dim[0]
+                    + "%5B0:1:0%5D"
+                    + _check
+                    for url in URLs
+                ]
+                add_urls += [
+                    url.split("?")[0]
+                    + ".dap?dap4.ce=/"
+                    + concat_dim[0]
+                    + "%5B"
+                    + str(size)
+                    + ":1:"
+                    + str(size)
+                    + "%5D"
+                    + _check
+                    for url in URLs
+                ]
+                new_urls += add_urls
+            session.settings.key_fn = key_fn
+        _ = download_all_urls(session, new_urls, ncores=ncores)
     return None
 
 
@@ -439,7 +542,7 @@ def open_dmr(path, session=None):
         if session is None:
             session = create_session()
         try:
-            r = session.get(path)
+            r = GET(path, session=session)
         except (ConnectionError, SSLError) as e:
             parsed = urlparse(path)
             if parsed.scheme == "https":
@@ -1068,14 +1171,466 @@ def get_cmr_urls(
     ]
     granules_urls = []
     for item in items:
+        granule_1, granule_2 = None, None
         for i in range(len(item)):
             if (
                 item[i].get("Description") == "OPeNDAP request URL"
                 or item[i].get("Subtype") == "OPENDAP DATA"
             ):
-                granules_urls.append(item[i]["URL"])
+                granule_1 = item[i]["URL"]
+                # break
 
+            if (
+                item[i].get("Type") == "VIEW RELATED INFORMATION"
+                and item[i]["URL"].startswith("https")
+                and not item[i]["URL"].endswith(".iso.xml")
+            ):
+                if (
+                    max(
+                        len(item[i]["URL"].split("thredds")),
+                        len(item[i]["URL"].split("opendap")),
+                    )
+                    > 1
+                ):
+                    granule_2 = item[i]["URL"]
+                    # break
+        granule = granule_1 if granule_1 else granule_2
+        if granule:
+            granules_urls.append(granule)
+        else:
+            warnings.warn(
+                f"Failed to find opendap urls with {ccid}. Try again, and make sure "
+                "the parameters are correct. If you think this is an issue with pydap"
+                " or the cmr, consider opening an issue on the pydap github repository"
+            )
     return granules_urls
+
+
+def get_batch_data(array, cache_urls=None, checksums=True, key=None):
+    """
+    parent object - either a dataset or Group type (dap4)
+    """
+    if array._is_data_loaded():
+        return
+    # import pydap
+
+    ds = array.parent
+    if array.name in ds.dimensions:
+        set_dims = True
+    else:
+        set_dims = False
+
+    if "consolidated" in ds.dataset.session.headers and set_dims:
+        # need to add a check that consolidated has
+        # been performed on that collection.
+        fetch_consolidated(ds, cache_urls=cache_urls, checksums=checksums)
+    else:
+        if set_dims:
+            Variables = [
+                ds[name].id
+                for name in ds.dimensions
+                if name in ds.keys() and isinstance(ds[name], BaseType)
+            ]  # fully qualified names
+        if not set_dims:
+            Variables = [
+                ds[var_name].id
+                for var_name in sorted(ds.variables())
+                if isinstance(ds[var_name], BaseType)
+                and not ds[var_name]._is_data_loaded()
+                and var_name not in ds.dimensions
+            ]
+        dataset = ds.dataset
+        dataset.register_dim_slices(array, key=key)  # here slices are recorded
+        register_all_for_batch(dataset, Variables, checksums=checksums)
+        fetch_batched(dataset, Variables)
+
+
+def data_check(_array: np.ndarray, key: tuple) -> np.ndarray:
+    """
+    Checks that the array has the shape that matches key. It does not, this
+    means that the shared dimension url did not make use of at least one
+    of the dimensions in the array. Along that dimension, the array retains its
+    original (remote) size. Thus function then slices that dimension.
+    This is only used after get_batch_data.
+
+    Parameters:
+    -----------
+        _array: np.ndarray.
+        key: Tuple
+            e.g. slice(None, 1, None), slice(10, 21, None), slice(10, 20, None)
+
+    """
+    if key == tuple(_array.ndim * [slice(None)]):
+        narray = _array
+    else:
+        oshape = _array.shape
+        elements = [
+            (
+                key[i]
+                if isinstance(key[i], int)
+                else (key[i].start or 0, key[i].stop, key[i].step or 1)
+            )
+            for i in range(len(key))
+        ]
+        int_indexes = [
+            index for index, element in enumerate(elements) if isinstance(element, int)
+        ]
+        eshape = [
+            (
+                1
+                if isinstance(key[i], int)
+                else (key[i].stop or _array.shape[i])
+                - (key[i].start or 0) // (key[i].step or 1)
+            )
+            for i in range(len(key))
+        ]
+        idiffs = [
+            i for i, (e1, e2) in enumerate(zip(list(_array.shape), eshape)) if e1 != e2
+        ]
+        slices = _array.ndim * [slice(None)]
+        for i in idiffs:
+            slices[i] = (
+                elements[i]
+                if isinstance(elements[i], int)
+                else slice(elements[i][0], elements[i][1], elements[i][2])
+            )
+        narray = _array[tuple(slices)]
+        # when evaluating the slice above, if an element of slices is an integer
+        # it inmediately reduces the size of the array. Attempting to squeeze
+        # along this dimension will result in a ValueError. Squeezing must
+        # only happen when the array has more than one element along this
+        # dimension
+        if len(int_indexes) > 0:
+            axis = [int_ for int_ in int_indexes if oshape[int_] == 1]
+            narray = np.squeeze(narray, axis=tuple(axis))
+    return narray
+
+
+def register_all_for_batch(ds, Variables, checksums=True) -> None:
+    """
+    Used to register all dimension array when pydap
+    dataset has been initialized with batch=True.
+
+    Parameters:
+    ----------
+        ds: dataset (dap4)
+        Variables: list
+            List of fully qualifying dimension names in `ds` that will be processed
+        checksums: bool | True (default)
+    """
+
+    for name in Variables:
+        if not ds[name]._is_data_loaded():
+            # initialize a pending batch slice below with None
+            ds[name]._pending_batch_slice = slice(None)
+            ds.register_for_batch(ds[name], checksums=checksums)
+            ds[name]._is_registered_for_batch = True
+
+
+def fetch_batched(ds, Variables) -> None:
+    """
+    Helper function that fetched dimensions within a pydap dataset
+    or Group, that have been registered for batched download. Only compatible
+    with DAP4 protocol, and batch=True parameter when intializating the
+    pydap dataset.
+
+    Parameters:
+    ----------
+        ds: pydap dataset | GroupType (dap4)
+        Variables: list
+            items within the ds or Group.
+    """
+    promise = ds._current_batch_promise
+    promise._event.wait()
+
+    for var in Variables:
+        var = ds[var]
+        data = promise.wait_for_result(var.id)
+        ds[var.id].data = np.asarray(data)
+
+    ds.dataset._current_batch_promise = None
+
+
+def fetch_consolidated(ds, cache_urls=None, checksums=True) -> None:
+    """
+    Helper function that makes it easier to process previously download
+    dap responses of dimension data, i.e. after `consolidated_metadata`
+    is executed. This helper processes dimension array data that was
+    downloaded / batched together in a single dap response.
+    when the urls for the dap responses are cached.
+
+    This function needs to be run after executing `consolidated_metadata` since
+    in that function, the cache_session object contains special metadata in its
+    headers. It also requires that the pydap dataset associated with the BaseType
+    `var`, is in Batch=True mode.
+
+    Parameters:
+    ----------
+        ds: Dataset | GroupType (DAP4)
+            Must `batch=True` and point to remote data.
+        cache_urls: dict
+            Where dimension array data will be stored.
+        checksums: bool (Default=True)
+            Whether the dap response was requested with checksum=true. If true,
+            there is a checksum value inbetween each variable within the dap
+            response. when `checksum=False`, the dap response was created without the
+            checksum per variable. Important info for decoding
+
+    """
+
+    # import pydap
+
+    var_name = list(ds.variables())[0]
+    baseurl = ds[var_name].data.baseurl
+    session = ds.dataset.session
+    if not cache_urls and isinstance(session, CachedSession):
+        # gets them from cache
+        cache_urls = session.cache.urls()
+    miss_url, curr_url = recover_missing_url(cache_urls, baseurl)
+    dap_urls = miss_url + curr_url
+    for URL in set(dap_urls):
+        # print("[pydap.lib.fetch_consolidated] Fetching:", URL)
+        r = session.get(URL, stream=True)
+        # create temp dataset
+        pyds = UNPACKDAP4DATA(r, checksums=checksums).dataset
+        for name in [name for name in pyds.keys() if isinstance(ds[name], BaseType)]:
+            var = pyds[name]
+            ds.dataset[var.id].data = np.asarray(var.data)
+        del pyds
+
+
+def resolve_batch_for_all_variables(array, key=None, checksums=True):
+    """
+    Resolves a batch promise for all non-dimension variables within the
+    parent container.
+    """
+    # import pydap
+
+    dataset = array.dataset
+    # get the fully qualifying name of all variables in dataset
+    Variables = [
+        var.id
+        for var in walk(dataset, BaseType)
+        if var.name not in var.parent.dimensions
+    ]
+
+    if dataset._current_batch_promise is None:
+        dataset._current_batch_promise = BatchPromise()
+        _slice = slice(None) if not key else key
+        for name in Variables:
+            var = dataset[name]
+            if not var._is_data_loaded():
+                var._pending_batch_slice = _slice
+                var._batch_promise = dataset._current_batch_promise
+                dataset.register_for_batch(var, checksums=checksums)
+
+        dataset._start_batch_timer()
+
+
+def recover_missing_url(cached_urls, baseurl):
+    """
+    given a list of opendap (dap4) urls, it reconstructs missing dap url
+    along with its constraints, that matches the corresponding cached url that
+    fetches identical data.
+
+    Returns:
+
+
+    """
+    # import pydap.client as client
+
+    dap_urls = [url for url in cached_urls if url.split("?")[0].endswith(".dap")]
+    common_prefix = compute_base_url_prefix(dap_urls)
+    # the following is a test on its own it len(dap_ulrs)=0 then there is something
+    # wrong (for example - some of the cached urls contain urls from different
+    # collection)
+    dap_urls = [
+        url
+        for url in dap_urls
+        if url.split("?")[0][: len(common_prefix)] == common_prefix
+    ]
+
+    base_urls = [url.split(".dap")[0] for url in dap_urls]
+
+    # find all currently matching dap url that have been cached
+    current_dap_urls = [
+        url for url in cached_urls if url.split(".dap")[0] == baseurl.split(".dap")[0]
+    ]
+
+    duplicate = [item for item, count in Counter(base_urls).items() if count > 1]
+    if len(duplicate) == 1:
+        # assume there is only one repeated base url - produce of
+        # consolidate metadata with freshly created session object
+        duplicate = duplicate[0]
+    else:
+        warnings.warn(
+            "Could not figure out dap urls. Clear your session cache and start again"
+        )
+
+    queries = [
+        url.split("?")[-1]
+        for url in dap_urls
+        if url.split("?")[0] == duplicate + ".dap"
+    ]
+
+    new_dap_urls = [baseurl + ".dap?" + query for query in queries]
+    missing_dap_urls = [url for url in new_dap_urls if url not in cached_urls]
+    paired_urls = [
+        duplicate + ".dap" + url.split(".dap")[1] for url in missing_dap_urls
+    ]
+
+    return paired_urls, current_dap_urls
+
+
+def _extract_ce_varpath_single(value: Optional[str]) -> Optional[str]:
+    """'/THETA[... ]' -> 'THETA', '/Group1/var[... ]' -> 'Group1/var'."""
+    if not value:
+        return None
+    m = VARPATH_RE.match(value)
+    return m.group(1) if m else None
+
+
+def _normalize_ce_single(value: str, var_path: str, collapse_vars: Set[str]) -> str:
+    """
+    If the base name of var_path is in collapse_vars, strip the slice:
+      '/i[0:1:89]' -> '/i'
+      '/tile[...]' -> '/tile'
+    Otherwise, leave CE as-is.
+    """
+    base = var_path.split("/")[-1]
+    if base in collapse_vars:
+        # replace exactly the '/<var_path>[...]' occurrence
+        return re.sub(
+            rf"(\s*/){re.escape(var_path)}\s*\[[^\]]*\]", rf"\1{base}", value, count=1
+        )
+    return value
+
+
+def _normalize_granule_path(path: str, common_path: str) -> str:
+    """
+    Collapse the segment after '/granules/' -> 'ANY' (preserving .dap if present).
+    """
+    _, _, new_path, _, _ = urlsplit(common_path)
+    if not path.startswith(new_path):
+        raise ValueError(
+            f"Path '{path}' does not start with common prefix '{new_path}'"
+        )
+    else:
+        path = new_path
+    parts = path.split("/")[:-1]
+    ext = ".dap"
+    path = "/".join(parts + ["ANY" + ext])
+    return path
+
+
+def make_key_fn(
+    *,
+    collapse_vars: Iterable[str] = ("i", "j", "k", "tile"),
+    ignored_parameters: Iterable[str] = (),
+    concat_dim: Optional[str] = None,  # <- single string or None
+    url_list: Optional[List[str]] = None,
+):
+    collapse_vars = set(collapse_vars or ())
+    ignored_parameters = list(ignored_parameters or ())
+
+    def key_fn(request, **_):
+        return create_key(
+            request,
+            collapse_vars=collapse_vars,
+            ignored_parameters=ignored_parameters,
+            concat_dim=concat_dim,  # pass the single string straight through
+            url_list=url_list,
+        )
+
+    # Introspectable metadata
+    key_fn._collapse_vars = collapse_vars
+    key_fn._ignored_parameters = set(ignored_parameters)
+    key_fn._concat_dim = concat_dim  # e.g., "time" or "Group1/time" (or None)
+    return key_fn
+
+
+def create_key(
+    request: requests.PreparedRequest,
+    *,
+    ignored_parameters: Iterable[str] = (),
+    collapse_vars: Iterable[str] = ("i", "j", "k", "tile"),
+    concat_dim: Optional[str] = None,  # <- single string or None
+    url_list: Optional[List[str]] = None,
+    **kwargs,
+) -> str:
+    """
+    Single-var CE policy:
+
+    - If CE variable matches `concat_dim` (full path or base name), keep URL as-is.
+    - Else if CE variable's base is in `collapse_vars`:
+        * drop ignored params (including dap4.checksum),
+        * normalize CE to '/<base>',
+        * collapse granule filename to 'ANY(.dap)',
+        * sort params.
+    - Else (normal data vars like THETA/SALT):
+        * drop ignored params,
+        * keep CE as-is,
+        * DO NOT collapse granule path.
+    """
+    collapse_vars = set(collapse_vars or ())
+    ignored_parameters = set(ignored_parameters or ())
+    ignored_parameters.add("dap4.checksum")
+
+    common_path = compute_base_url_prefix(url_list)
+
+    parts = urlsplit(request.url)
+    scheme, netloc, path, query, _ = parts
+
+    # Parse query / CE
+    raw_params = parse_qsl(query, keep_blank_values=True)
+    ce_value = next((v for (k, v) in raw_params if k.lower() == "dap4.ce"), None)
+    var_path = _extract_ce_varpath_single(ce_value)  # e.g., 'THETA' or 'Group1/var'
+    var_base = var_path.split("/")[-1] if var_path else None
+
+    # concat_dim short-circuit
+    concat_match = (
+        concat_dim is not None
+        and var_path is not None
+        and (var_path == concat_dim or var_base == concat_dim)
+    )
+    if concat_match:
+        norm_url = request.url  # preserve completely
+    else:
+        # normalize params
+        norm_params = []
+        for k, v in raw_params:
+            lk = k.lower()
+            if lk in ignored_parameters:
+                continue
+            if lk == "dap4.ce" and var_path:
+                v = _normalize_ce_single(v, var_path, collapse_vars)
+            norm_params.append((k, v))
+        norm_params.sort(key=lambda kv: (kv[0].lower(), kv[1]))
+        norm_query = urlencode(norm_params, doseq=True)
+
+        # collapse path only for collapse-vars
+        if var_base and var_base in collapse_vars:
+            norm_path = _normalize_granule_path(path, common_path)
+        else:
+            norm_path = path
+
+        norm_url = urlunsplit((scheme, netloc, norm_path, norm_query, ""))
+
+    # method + body (headers excluded)
+    method = (request.method or "GET").upper()
+    body = request.body or b""
+    if isinstance(body, str):
+        body = body.encode("utf-8")
+
+    key_material = repr(
+        {
+            "method": method,
+            "url": norm_url,
+            "body_sha256": hashlib.sha256(body).hexdigest(),
+        }
+    ).encode("utf-8")
+
+    return hashlib.sha256(key_material).hexdigest()
 
 
 if __name__ == "__main__":

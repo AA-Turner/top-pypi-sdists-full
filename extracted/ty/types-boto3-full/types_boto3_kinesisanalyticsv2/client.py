@@ -3,7 +3,7 @@ Type annotations for kinesisanalyticsv2 service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesisanalyticsv2/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -95,12 +96,6 @@ from .type_defs import (
     UpdateApplicationResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -111,20 +106,20 @@ __all__ = ("KinesisAnalyticsV2Client",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    CodeValidationException: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    InvalidApplicationConfigurationException: Type[BotocoreClientError]
-    InvalidArgumentException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceProvisionedThroughputExceededException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    UnableToDetectSchemaException: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CodeValidationException: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    InvalidApplicationConfigurationException: type[BotocoreClientError]
+    InvalidArgumentException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceProvisionedThroughputExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    UnableToDetectSchemaException: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
 
 
 class KinesisAnalyticsV2Client(BaseClient):
@@ -249,7 +244,7 @@ class KinesisAnalyticsV2Client(BaseClient):
 
     def create_application_snapshot(
         self, **kwargs: Unpack[CreateApplicationSnapshotRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a snapshot of the application's state data.
 
@@ -259,7 +254,7 @@ class KinesisAnalyticsV2Client(BaseClient):
 
     def delete_application(
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified application.
 
@@ -312,7 +307,7 @@ class KinesisAnalyticsV2Client(BaseClient):
 
     def delete_application_snapshot(
         self, **kwargs: Unpack[DeleteApplicationSnapshotRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a snapshot of application state.
 
@@ -465,7 +460,7 @@ class KinesisAnalyticsV2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesisanalyticsv2/client/#stop_application)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds one or more key-value tags to a Managed Service for Apache Flink
         application.
@@ -474,7 +469,7 @@ class KinesisAnalyticsV2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesisanalyticsv2/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from a Managed Service for Apache Flink application.
 

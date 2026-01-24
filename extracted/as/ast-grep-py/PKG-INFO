@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ast-grep-py
-Version: 0.39.5
+Version: 0.40.5
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -20,9 +20,9 @@ Maintainer-email: Herrington Darkholme <2883231+HerringtonDarkholme@users.norepl
 License: MIT
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Repository, https://github.com/ast-grep/ast-grep
-Project-URL: Documentation, https://ast-grep.github.io/
 Project-URL: Changelog, https://github.com/ast-grep/ast-grep/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://ast-grep.github.io/
+Project-URL: Repository, https://github.com/ast-grep/ast-grep
 
 # ast-grep python binding
 

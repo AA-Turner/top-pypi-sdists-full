@@ -1,6 +1,6 @@
-import threading
 from collections.abc import Callable
-from typing import Final, Literal, TypeAlias, TypeVar, TypeVarTuple, TypedDict, overload, type_check_only
+from typing import Literal, TypedDict, overload, type_check_only
+from typing_extensions import TypeAliasType, TypeVar, TypeVarTuple
 
 import numpy as np
 import optype.numpy as onp
@@ -10,8 +10,8 @@ __all__ = ["ODEintWarning", "odeint"]
 _Ts = TypeVarTuple("_Ts")
 _R = TypeVar("_R")
 
-_FuncYT: TypeAlias = Callable[[onp.Array1D[np.float64], float, *_Ts], _R]
-_FuncTY: TypeAlias = Callable[[float, onp.Array1D[np.float64], *_Ts], _R]
+_FuncYT = TypeAliasType("_FuncYT", Callable[[onp.Array1D[np.float64], float, *_Ts], _R], type_params=(_Ts, _R))
+_FuncTY = TypeAliasType("_FuncTY", Callable[[float, onp.Array1D[np.float64], *_Ts], _R], type_params=(_Ts, _R))
 
 @type_check_only
 class _InfoDict(TypedDict):
@@ -30,8 +30,6 @@ class _InfoDict(TypedDict):
     message: str
 
 ###
-
-ODE_LOCK: Final[threading.Lock] = ...
 
 class ODEintWarning(Warning): ...
 

@@ -19,6 +19,7 @@ from ...types.get_tests_page_response_model import GetTestsPageResponseModel
 from ...types.get_tests_summaries_by_ids_response_model import GetTestsSummariesByIdsResponseModel
 from ...types.get_unit_test_response_model import GetUnitTestResponseModel
 from ...types.http_validation_error import HttpValidationError
+from ...types.test_from_conversation_metadata_input import TestFromConversationMetadataInput
 from ...types.unit_test_common_model_type import UnitTestCommonModelType
 from ...types.unit_test_tool_call_evaluation_model_input import UnitTestToolCallEvaluationModelInput
 from .types.create_unit_test_request_dynamic_variables_value import CreateUnitTestRequestDynamicVariablesValue
@@ -45,6 +46,7 @@ class RawTestsClient:
             typing.Dict[str, typing.Optional[CreateUnitTestRequestDynamicVariablesValue]]
         ] = OMIT,
         type: typing.Optional[UnitTestCommonModelType] = OMIT,
+        from_conversation_metadata: typing.Optional[TestFromConversationMetadataInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateUnitTestResponseModel]:
         """
@@ -72,6 +74,9 @@ class RawTestsClient:
             Dynamic variables to replace in the agent config during testing
 
         type : typing.Optional[UnitTestCommonModelType]
+
+        from_conversation_metadata : typing.Optional[TestFromConversationMetadataInput]
+            Metadata of a conversation this test was created from (if applicable).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -108,6 +113,9 @@ class RawTestsClient:
                     direction="write",
                 ),
                 "type": type,
+                "from_conversation_metadata": convert_and_respect_annotation_metadata(
+                    object_=from_conversation_metadata, annotation=TestFromConversationMetadataInput, direction="write"
+                ),
                 "name": name,
             },
             headers={
@@ -206,6 +214,7 @@ class RawTestsClient:
             typing.Dict[str, typing.Optional[UpdateUnitTestRequestDynamicVariablesValue]]
         ] = OMIT,
         type: typing.Optional[UnitTestCommonModelType] = OMIT,
+        from_conversation_metadata: typing.Optional[TestFromConversationMetadataInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetUnitTestResponseModel]:
         """
@@ -236,6 +245,9 @@ class RawTestsClient:
             Dynamic variables to replace in the agent config during testing
 
         type : typing.Optional[UnitTestCommonModelType]
+
+        from_conversation_metadata : typing.Optional[TestFromConversationMetadataInput]
+            Metadata of a conversation this test was created from (if applicable).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -272,6 +284,9 @@ class RawTestsClient:
                     direction="write",
                 ),
                 "type": type,
+                "from_conversation_metadata": convert_and_respect_annotation_metadata(
+                    object_=from_conversation_metadata, annotation=TestFromConversationMetadataInput, direction="write"
+                ),
                 "name": name,
             },
             headers={
@@ -308,7 +323,7 @@ class RawTestsClient:
 
     def delete(
         self, test_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[typing.Optional[typing.Any]]:
+    ) -> HttpResponse[typing.Any]:
         """
         Deletes an agent response test by ID.
 
@@ -322,7 +337,7 @@ class RawTestsClient:
 
         Returns
         -------
-        HttpResponse[typing.Optional[typing.Any]]
+        HttpResponse[typing.Any]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -335,9 +350,9 @@ class RawTestsClient:
                 return HttpResponse(response=_response, data=None)
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    typing.Any,
                     construct_type(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=typing.Any,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -499,6 +514,7 @@ class AsyncRawTestsClient:
             typing.Dict[str, typing.Optional[CreateUnitTestRequestDynamicVariablesValue]]
         ] = OMIT,
         type: typing.Optional[UnitTestCommonModelType] = OMIT,
+        from_conversation_metadata: typing.Optional[TestFromConversationMetadataInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateUnitTestResponseModel]:
         """
@@ -526,6 +542,9 @@ class AsyncRawTestsClient:
             Dynamic variables to replace in the agent config during testing
 
         type : typing.Optional[UnitTestCommonModelType]
+
+        from_conversation_metadata : typing.Optional[TestFromConversationMetadataInput]
+            Metadata of a conversation this test was created from (if applicable).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -562,6 +581,9 @@ class AsyncRawTestsClient:
                     direction="write",
                 ),
                 "type": type,
+                "from_conversation_metadata": convert_and_respect_annotation_metadata(
+                    object_=from_conversation_metadata, annotation=TestFromConversationMetadataInput, direction="write"
+                ),
                 "name": name,
             },
             headers={
@@ -660,6 +682,7 @@ class AsyncRawTestsClient:
             typing.Dict[str, typing.Optional[UpdateUnitTestRequestDynamicVariablesValue]]
         ] = OMIT,
         type: typing.Optional[UnitTestCommonModelType] = OMIT,
+        from_conversation_metadata: typing.Optional[TestFromConversationMetadataInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetUnitTestResponseModel]:
         """
@@ -690,6 +713,9 @@ class AsyncRawTestsClient:
             Dynamic variables to replace in the agent config during testing
 
         type : typing.Optional[UnitTestCommonModelType]
+
+        from_conversation_metadata : typing.Optional[TestFromConversationMetadataInput]
+            Metadata of a conversation this test was created from (if applicable).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -726,6 +752,9 @@ class AsyncRawTestsClient:
                     direction="write",
                 ),
                 "type": type,
+                "from_conversation_metadata": convert_and_respect_annotation_metadata(
+                    object_=from_conversation_metadata, annotation=TestFromConversationMetadataInput, direction="write"
+                ),
                 "name": name,
             },
             headers={
@@ -762,7 +791,7 @@ class AsyncRawTestsClient:
 
     async def delete(
         self, test_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+    ) -> AsyncHttpResponse[typing.Any]:
         """
         Deletes an agent response test by ID.
 
@@ -776,7 +805,7 @@ class AsyncRawTestsClient:
 
         Returns
         -------
-        AsyncHttpResponse[typing.Optional[typing.Any]]
+        AsyncHttpResponse[typing.Any]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -789,9 +818,9 @@ class AsyncRawTestsClient:
                 return AsyncHttpResponse(response=_response, data=None)
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    typing.Any,
                     construct_type(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=typing.Any,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

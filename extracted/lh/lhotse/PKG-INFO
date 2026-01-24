@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lhotse
-Version: 1.31.1
+Version: 1.32.2
 Summary: Data preparation for speech processing models training.
 Author: The Lhotse Development Team
 Author-email: pzelasko@jhu.edu
@@ -56,19 +56,19 @@ Requires-Dist: sphinx==7.1.2; extra == "docs"
 Requires-Dist: sphinx-click==5.1.0; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints==2.0.0; extra == "docs"
 Provides-Extra: tests
-Requires-Dist: pytest==7.1.3; extra == "tests"
-Requires-Dist: pytest-forked==1.4.0; extra == "tests"
-Requires-Dist: pytest-xdist==2.5.0; extra == "tests"
-Requires-Dist: pytest-cov==4.0.0; extra == "tests"
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-forked; extra == "tests"
+Requires-Dist: pytest-xdist; extra == "tests"
+Requires-Dist: pytest-cov; extra == "tests"
 Requires-Dist: flake8==5.0.4; extra == "tests"
-Requires-Dist: coverage==6.5.0; extra == "tests"
+Requires-Dist: coverage; extra == "tests"
 Requires-Dist: hypothesis==6.56.0; extra == "tests"
 Requires-Dist: black==22.3.0; extra == "tests"
 Requires-Dist: isort==5.10.1; extra == "tests"
 Requires-Dist: pre-commit<=2.19.0,>=2.17.0; extra == "tests"
 Provides-Extra: dev
 Requires-Dist: black==22.3.0; extra == "dev"
-Requires-Dist: coverage==6.5.0; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
 Requires-Dist: dill; extra == "dev"
 Requires-Dist: flake8==5.0.4; extra == "dev"
 Requires-Dist: hypothesis==6.56.0; extra == "dev"
@@ -79,10 +79,10 @@ Requires-Dist: numpy>=1.18.1; extra == "dev"
 Requires-Dist: orjson>=3.6.6; extra == "dev"
 Requires-Dist: pillow; extra == "dev"
 Requires-Dist: pre-commit<=2.19.0,>=2.17.0; extra == "dev"
-Requires-Dist: pytest-cov==4.0.0; extra == "dev"
-Requires-Dist: pytest-forked==1.4.0; extra == "dev"
-Requires-Dist: pytest-xdist==2.5.0; extra == "dev"
-Requires-Dist: pytest==7.1.3; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pytest-forked; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: scipy; extra == "dev"
 Requires-Dist: sphinx-autodoc-typehints==2.0.0; extra == "dev"
 Requires-Dist: sphinx-click==5.1.0; extra == "dev"
@@ -91,7 +91,7 @@ Requires-Dist: sphinx_rtd_theme==2.0.0; extra == "dev"
 Requires-Dist: webdataset==0.2.5; extra == "dev"
 Provides-Extra: all
 Requires-Dist: black==22.3.0; extra == "all"
-Requires-Dist: coverage==6.5.0; extra == "all"
+Requires-Dist: coverage; extra == "all"
 Requires-Dist: dill; extra == "all"
 Requires-Dist: flake8==5.0.4; extra == "all"
 Requires-Dist: hypothesis==6.56.0; extra == "all"
@@ -102,16 +102,27 @@ Requires-Dist: numpy>=1.18.1; extra == "all"
 Requires-Dist: orjson>=3.6.6; extra == "all"
 Requires-Dist: pillow; extra == "all"
 Requires-Dist: pre-commit<=2.19.0,>=2.17.0; extra == "all"
-Requires-Dist: pytest-cov==4.0.0; extra == "all"
-Requires-Dist: pytest-forked==1.4.0; extra == "all"
-Requires-Dist: pytest-xdist==2.5.0; extra == "all"
-Requires-Dist: pytest==7.1.3; extra == "all"
+Requires-Dist: pytest; extra == "all"
+Requires-Dist: pytest-cov; extra == "all"
+Requires-Dist: pytest-forked; extra == "all"
+Requires-Dist: pytest-xdist; extra == "all"
 Requires-Dist: scipy; extra == "all"
 Requires-Dist: sphinx-autodoc-typehints==2.0.0; extra == "all"
 Requires-Dist: sphinx-click==5.1.0; extra == "all"
 Requires-Dist: sphinx==7.1.2; extra == "all"
 Requires-Dist: sphinx_rtd_theme==2.0.0; extra == "all"
 Requires-Dist: webdataset==0.2.5; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <div align="center">
 <img src="https://raw.githubusercontent.com/lhotse-speech/lhotse/master/docs/logo.png" width=376>
@@ -223,6 +234,7 @@ Lhotse uses several environment variables to customize it's behavior. They are a
 - `LHOTSE_REQUIRE_TORCHAUDIO` - when it's set and not any of `1|True|true|yes`, we'll not check for torchaudio being installed and remove it from the requirements. It will disable many functionalities of Lhotse but the basic capabilities will remain (including reading audio with `soundfile`).
 - `LHOTSE_AUDIO_DURATION_MISMATCH_TOLERANCE` - used when we load audio from a file and receive a different number of samples than declared in `Recording.num_samples`. This is sometimes necessary because different codecs (or even different versions of the same codec) may use different padding when decoding compressed audio. Typically values up to 0.1, or even 0.3 (second) are still reasonable, and anything beyond that indicates a serious issue.
 - `LHOTSE_AUDIO_BACKEND` - may be set to any of the values returned from CLI `lhotse list-audio-backends` to override the default behavior of trial-and-error and always use a specific audio backend.
+- `LHOTSE_RESAMPLING_BACKEND` - may be set to any of the value returned from CLI `lhotse list-resampling-backends` to override the default behaviour.
 - `LHOTSE_AUDIO_LOADING_EXCEPTION_VERBOSE` - when set to `1` we'll emit full exception stack traces when every available audio backend fails to load a given file (they might be very large).
 - `LHOTSE_DILL_ENABLED` - when it's set to `1|True|true|yes`, we will enable `dill`-based serialization of `CutSet` and `Sampler` across processes (it's disabled by default even when `dill` is installed).
 - `LHOTSE_LEGACY_OPUS_LOADING` - (`=1`) reverts to a legacy OPUS loading mechanism that triggered a new ffmpeg subprocess for each OPUS file.
@@ -309,3 +321,7 @@ The `VadDataset` will yield a batch with pairs of feature and supervision tensor
 starts roughly at the first second (100 frames):
 
 ![image](https://raw.githubusercontent.com/lhotse-speech/lhotse/master/docs/vad_sample.png)
+
+# Acknowledgment
+
+Some contributions to this project were supported by National Science Foundation CCRI award 2120435.

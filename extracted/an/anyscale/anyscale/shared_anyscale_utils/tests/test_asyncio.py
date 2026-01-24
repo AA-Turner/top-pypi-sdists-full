@@ -38,4 +38,4 @@ async def test_chain_future_cancellation():
     #       raise it instead of returning it
     e = (await asyncio.gather(other, return_exceptions=True))[0]
 
-    assert type(e) == asyncio.CancelledError
+    assert type(e) is asyncio.CancelledError

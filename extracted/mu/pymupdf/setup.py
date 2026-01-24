@@ -39,6 +39,9 @@ Environmental variables:
             Directory containing MuPDF libraries, (libmupdf.so,
             libmupdfcpp.so).
     
+    PIPCL_SHOW_ENV
+        If '0', we do not show environment variables on startup.
+    
     PYMUPDF_SETUP_DEVENV
         Location of devenv.com on Windows. If unset we search for it - see
         wdev.py. if that fails we use just 'devenv.com'.
@@ -88,11 +91,12 @@ Environmental variables:
             Empty string:
                 Build PyMuPDF with the system MuPDF.
             A string starting with 'git:':
-                Use `git clone` to get a MuPDF checkout. We use the
-                string in the git clone command; it must contain the git
-                URL from which to clone, and can also contain other `git
-                clone` args, for example:
-                    PYMUPDF_SETUP_MUPDF_BUILD="git:--branch master https://github.com/ArtifexSoftware/mupdf.git"
+                We use `git` commands to clone/update a local MuPDF checkout.
+                Should match `git:[--branch <branch>][--tag <tag>][<remote>]`.
+                If <remote> is omitted we use a default.
+                For example:
+                    PYMUPDF_SETUP_MUPDF_BUILD="git:--branch master"
+                Passed as <text> arg to pipcl.git_get().
             Otherwise:
                 Location of mupdf directory.
     
@@ -425,7 +429,7 @@ def git_patch(directory, patch, hard=False):
 
 mupdf_tgz = os.path.abspath( f'{__file__}/../mupdf.tgz')
 
-def get_mupdf_internal(out, location=None, sha=None, local_tgz=None):
+def get_mupdf_internal(out, location=None, local_tgz=None):
     '''
     Gets MuPDF as either a .tgz or a local directory.
     
@@ -438,8 +442,6 @@ def get_mupdf_internal(out, location=None, sha=None, local_tgz=None):
             If starts with 'git:', should be remote git location.
             Otherwise if containing '://' should be URL for .tgz.
             Otherwise should path of local mupdf checkout.
-        sha:
-            If not None and we use git clone, we checkout this sha.
         local_tgz:
             If not None, must be local .tgz file.
     Returns:
@@ -451,7 +453,7 @@ def get_mupdf_internal(out, location=None, sha=None, local_tgz=None):
             default location.
                 
     '''
-    log(f'get_mupdf_internal(): {out=} {location=} {sha=}')
+    log(f'get_mupdf_internal(): {out=} {location=}')
     assert out in ('dir', 'tgz')
     if location is None:
         location = f'https://mupdf.com/downloads/archive/mupdf-{version_mupdf}-source.tar.gz'
@@ -465,21 +467,15 @@ def get_mupdf_internal(out, location=None, sha=None, local_tgz=None):
     if local_tgz:
         assert os.path.isfile(local_tgz)
     elif location.startswith( 'git:'):
-        location_git = location[4:]
         local_dir = 'mupdf-git'
+        pipcl.git_get(local_dir, text=location, remote='https://github.com/ArtifexSoftware/mupdf.git')
         
-        # Try to update existing checkout.
-        e = run(f'cd {local_dir} && git pull && git submodule update --init', check=False)
-        if e:
-            # No existing git checkout, so do a fresh clone.
-            _fs_remove(local_dir)
-            gitargs = location[4:]
-            run(f'git clone --recursive --depth 1 --shallow-submodules {gitargs} {local_dir}')
-
         # Show sha of checkout.
-        run( f'cd {local_dir} && git show --pretty=oneline|head -n 1', check=False)
-        if sha:
-            run( f'cd {local_dir} && git checkout {sha}')
+        run(
+                f'cd {local_dir} && git show --pretty=oneline|head -n 1',
+                check = False,
+                prefix = 'mupdf git id: ',
+                )
     elif '://' in location:
         # Download .tgz.
         local_tgz = os.path.basename( location)
@@ -574,14 +570,10 @@ darwin = sys.platform.startswith( 'darwin')
 windows = platform.system() == 'Windows' or platform.system().startswith('CYGWIN')
 msys2 = platform.system().startswith('MSYS_NT-')
 
-pyodide_flags = '-fwasm-exceptions'
-
 if os.environ.get('PYODIDE') == '1':
     if os.environ.get('OS') != 'pyodide':
         log('PYODIDE=1, setting OS=pyodide.')
         os.environ['OS'] = 'pyodide'
-        os.environ['XCFLAGS'] = pyodide_flags
-        os.environ['XCXXFLAGS'] = pyodide_flags
 
 pyodide = os.environ.get('OS') == 'pyodide'
 
@@ -704,8 +696,8 @@ def build():
             add('d', f'{mupdf_build_dir}/libmupdf-threads.a', f'{to_dir_d}/lib/')
         elif pyodide:
             add('p', f'{mupdf_build_dir}/_mupdf.so', to_dir)
-            add('b', f'{mupdf_build_dir}/libmupdfcpp.so', 'PyMuPDF.libs/')
-            add('b', f'{mupdf_build_dir}/libmupdf.so', 'PyMuPDF.libs/')
+            add('b', f'{mupdf_build_dir}/libmupdfcpp.so', to_dir)
+            add('b', f'{mupdf_build_dir}/libmupdf.so', to_dir)
         else:
             add('p', f'{mupdf_build_dir}/_mupdf.so', to_dir)
             add('b', pipcl.get_soname(f'{mupdf_build_dir}/libmupdfcpp.so'), to_dir)
@@ -737,7 +729,7 @@ def build():
         log(f'Failed to get git information: {e}')
         sha, comment, diff, branch = (None, None, None, None)
     swig = PYMUPDF_SETUP_SWIG or 'swig'
-    swig_version_text = run(f'{swig} --version', capture=1)
+    swig_version_text = run(f'{swig} -version', capture=1)
     m = re.search('\nSWIG Version ([^\n]+)', swig_version_text)
     log(f'{swig_version_text=}')
     assert m, f'Unrecognised {swig_version_text=}'
@@ -748,15 +740,18 @@ def build():
         except Exception:
             return 0
     swig_version_tuple = tuple(int_or_0(i) for i in swig_version.split('.'))
+    version_p_tuple = tuple(int_or_0(i) for i in version_p.split('.'))
     log(f'{swig_version=}')
     text = ''
     text += f'mupdf_location = {mupdf_location!r}\n'
     text += f'pymupdf_version = {version_p!r}\n'
+    text += f'pymupdf_version_tuple = {version_p_tuple!r}\n'
     text += f'pymupdf_git_sha = {sha!r}\n'
     text += f'pymupdf_git_diff = {diff!r}\n'
     text += f'pymupdf_git_branch = {branch!r}\n'
     text += f'swig_version = {swig_version!r}\n'
     text += f'swig_version_tuple = {swig_version_tuple!r}\n'
+    log(f'_build.py is:\n{textwrap.indent(text, "    ")}')
     add('p', text.encode(), f'{to_dir}/_build.py')
     
     # Add single README file.
@@ -1031,7 +1026,12 @@ def build_mupdf_unix(
     if PYMUPDF_SETUP_SWIG:
         command += f' --swig {shlex.quote(PYMUPDF_SETUP_SWIG)}'
     command += f' -d build/{build_prefix}{build_type} -b'
-    #command += f' --m-target libs'
+    if sys.implementation.name == 'graalpy':
+        # Force rerun of swig.
+        pipcl.run(f'ls -l {mupdf_local}/platform/python/')
+        for p in glob.glob(f'{mupdf_local}/platform/python/mupdfcpp*.i.cpp'):
+            pipcl.log(f'Graal, deleting: {p!r}')
+            pipcl.fs_remove(p)
     if PYMUPDF_SETUP_MUPDF_REFCHECK_IF:
         command += f' --refcheck-if "{PYMUPDF_SETUP_MUPDF_REFCHECK_IF}"'
     if PYMUPDF_SETUP_MUPDF_TRACE_IF:
@@ -1211,10 +1211,6 @@ def _extension_flags( mupdf_local, mupdf_build_dir, build_type):
         if cxxflags:
             compiler_extra += f' {cxxflags}'
 
-    if pyodide:
-        compiler_extra += f' {pyodide_flags}'
-        linker_extra += f' {pyodide_flags}'
-        
     return compiler_extra, linker_extra, includes, defines, optimise, debug, libpaths, libs, libraries, 
 
 
@@ -1280,9 +1276,9 @@ classifier = [
 #
 
 # PyMuPDF version.
-version_p = '1.26.4'
+version_p = '1.26.7'
 
-version_mupdf = '1.26.7'
+version_mupdf = '1.26.12'
 
 # PyMuPDFb version. This is the PyMuPDF version whose PyMuPDFb wheels we will
 # (re)use if generating separate PyMuPDFb wheels. Though as of PyMuPDF-1.24.11
@@ -1370,7 +1366,7 @@ else:
             author = 'Artifex',
             author_email = 'support@artifex.com',
             requires_dist = requires_dist,
-            requires_python = '>=3.9',
+            requires_python = '>=3.10',
             license = 'Dual Licensed - GNU AFFERO GPL 3.0 or Artifex Commercial License',
             project_url = [
                 ('Documentation, https://pymupdf.readthedocs.io/'),
@@ -1413,9 +1409,6 @@ else:
             ret.append(libclang)
         elif openbsd:
             print(f'OpenBSD: libclang not available via pip; assuming `pkg_add py3-llvm`.')
-        elif darwin and platform.machine() == 'arm64':
-            print(f'MacOS/arm64: forcing use of libclang 16.0.6 because 18.1.1 known to fail with `clang.cindex.TranslationUnitLoadError: Error parsing translation unit.`')
-            ret.append('libclang==16.0.6')
         elif darwin and platform_release_tuple() < (18,):
             # There are still of problems when building on old macos.
             ret.append('libclang==14.0.6')
@@ -1425,8 +1418,14 @@ else:
             print(f'msys2: pip install of swig does not build; assuming `pacman -S swig`.')
         elif openbsd:
             print(f'OpenBSD: pip install of swig does not build; assuming `pkg_add swig`.')
+        elif PYMUPDF_SETUP_SWIG:
+            pass
+        elif darwin or os.environ.get('PYODIDE_ROOT'):
+            # 2025-10-27: new swig-4.4.0 fails badly at runtime on macos.
+            # 2025-11-06: similar for pyodide.
+            ret.append('swig==4.3.1')
         else:
-            ret.append( 'swig')
+            ret.append('swig')
         return ret
 
 

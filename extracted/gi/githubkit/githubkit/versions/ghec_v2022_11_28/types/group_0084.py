@@ -9,44 +9,54 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
+import datetime as _dt
+from typing import Union
 from typing_extensions import NotRequired, TypedDict
 
-from .group_0003 import SimpleUserType
-from .group_0068 import SimpleRepositoryType
-from .group_0082 import DependabotAlertSecurityVulnerabilityType
-from .group_0083 import DependabotAlertSecurityAdvisoryType
-from .group_0085 import DependabotAlertWithRepositoryPropDependencyType
 
+class EnterpriseTeamType(TypedDict):
+    """Enterprise Team
 
-class DependabotAlertWithRepositoryType(TypedDict):
-    """DependabotAlertWithRepository
-
-    A Dependabot alert.
+    Group of enterprise owners and/or members
     """
 
-    number: int
-    state: Literal["auto_dismissed", "dismissed", "fixed", "open"]
-    dependency: DependabotAlertWithRepositoryPropDependencyType
-    security_advisory: DependabotAlertSecurityAdvisoryType
-    security_vulnerability: DependabotAlertSecurityVulnerabilityType
+    id: int
+    name: str
+    description: NotRequired[str]
+    slug: str
     url: str
+    sync_to_organizations: NotRequired[str]
+    organization_selection_type: NotRequired[str]
+    group_id: Union[str, None]
+    group_name: NotRequired[Union[str, None]]
     html_url: str
-    created_at: datetime
-    updated_at: datetime
-    dismissed_at: Union[datetime, None]
-    dismissed_by: Union[None, SimpleUserType]
-    dismissed_reason: Union[
-        None,
-        Literal[
-            "fix_started", "inaccurate", "no_bandwidth", "not_used", "tolerable_risk"
-        ],
-    ]
-    dismissed_comment: Union[str, None]
-    fixed_at: Union[datetime, None]
-    auto_dismissed_at: NotRequired[Union[datetime, None]]
-    repository: SimpleRepositoryType
+    members_url: str
+    created_at: _dt.datetime
+    updated_at: _dt.datetime
 
 
-__all__ = ("DependabotAlertWithRepositoryType",)
+class EnterpriseTeamTypeForResponse(TypedDict):
+    """Enterprise Team
+
+    Group of enterprise owners and/or members
+    """
+
+    id: int
+    name: str
+    description: NotRequired[str]
+    slug: str
+    url: str
+    sync_to_organizations: NotRequired[str]
+    organization_selection_type: NotRequired[str]
+    group_id: Union[str, None]
+    group_name: NotRequired[Union[str, None]]
+    html_url: str
+    members_url: str
+    created_at: str
+    updated_at: str
+
+
+__all__ = (
+    "EnterpriseTeamType",
+    "EnterpriseTeamTypeForResponse",
+)

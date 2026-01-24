@@ -9,7 +9,6 @@ from angr.utils.bits import s2u
 from angr.analyses.decompiler.stack_item import StackItem, StackItemType
 from .optimization_pass import OptimizationPass, OptimizationPassStage
 
-
 _l = logging.getLogger(name=__name__)
 
 
@@ -151,7 +150,7 @@ class StackCanarySimplifier(OptimizationPass):
                 pred_copy.statements[-1] = ailment.Stmt.Jump(
                     len(pred_copy.statements) - 1,
                     ailment.Expr.Const(None, None, ret_node.addr, self.project.arch.bits),
-                    ins_addr=pred_copy.statements[-1].ins_addr,
+                    ins_addr=pred_copy.statements[-1].tags["ins_addr"],
                 )
 
                 self._graph.remove_edge(pred, stack_chk_fail_caller)

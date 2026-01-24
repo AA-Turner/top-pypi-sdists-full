@@ -290,6 +290,8 @@ class MetaQueryRun(_message.Message):
         "deployment_id",
         "has_plan_stages",
         "duration",
+        "trace_id",
+        "resource_group",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     META_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
@@ -303,6 +305,8 @@ class MetaQueryRun(_message.Message):
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     HAS_PLAN_STAGES_FIELD_NUMBER: _ClassVar[int]
     DURATION_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     id: str
     meta_query_id: str
     external_id: str
@@ -315,6 +319,8 @@ class MetaQueryRun(_message.Message):
     deployment_id: str
     has_plan_stages: bool
     duration: float
+    trace_id: str
+    resource_group: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -329,6 +335,8 @@ class MetaQueryRun(_message.Message):
         deployment_id: _Optional[str] = ...,
         has_plan_stages: bool = ...,
         duration: _Optional[float] = ...,
+        trace_id: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
     ) -> None: ...
 
 class MetaQueryRunWithMeta(_message.Message):
@@ -362,6 +370,9 @@ class ListMetaQueryRunsRequest(_message.Message):
         "start",
         "end",
         "has_errors",
+        "has_trace",
+        "trace_id",
+        "resource_group",
     )
     INCLUDE_LATENCY_FIELD_NUMBER: _ClassVar[int]
     MIN_LATENCY_MS_FIELD_NUMBER: _ClassVar[int]
@@ -377,6 +388,9 @@ class ListMetaQueryRunsRequest(_message.Message):
     START_FIELD_NUMBER: _ClassVar[int]
     END_FIELD_NUMBER: _ClassVar[int]
     HAS_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    HAS_TRACE_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     include_latency: bool
     min_latency_ms: float
     query_plan_id: str
@@ -391,6 +405,9 @@ class ListMetaQueryRunsRequest(_message.Message):
     start: _timestamp_pb2.Timestamp
     end: _timestamp_pb2.Timestamp
     has_errors: bool
+    has_trace: bool
+    trace_id: str
+    resource_group: str
     def __init__(
         self,
         include_latency: bool = ...,
@@ -407,13 +424,22 @@ class ListMetaQueryRunsRequest(_message.Message):
         start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         has_errors: bool = ...,
+        has_trace: bool = ...,
+        trace_id: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
     ) -> None: ...
 
 class ListMetaQueryRunsResponse(_message.Message):
-    __slots__ = ("query_runs",)
+    __slots__ = ("query_runs", "next_cursor")
     QUERY_RUNS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     query_runs: _containers.RepeatedCompositeFieldContainer[MetaQueryRunWithMeta]
-    def __init__(self, query_runs: _Optional[_Iterable[_Union[MetaQueryRunWithMeta, _Mapping]]] = ...) -> None: ...
+    next_cursor: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        query_runs: _Optional[_Iterable[_Union[MetaQueryRunWithMeta, _Mapping]]] = ...,
+        next_cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
 
 class MetaQuery(_message.Message):
     __slots__ = (
@@ -430,6 +456,7 @@ class MetaQuery(_message.Message):
         "created_at",
         "archived_at",
         "query_hash",
+        "input_feature_root_fqns",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -444,6 +471,7 @@ class MetaQuery(_message.Message):
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     ARCHIVED_AT_FIELD_NUMBER: _ClassVar[int]
     QUERY_HASH_FIELD_NUMBER: _ClassVar[int]
+    INPUT_FEATURE_ROOT_FQNS_FIELD_NUMBER: _ClassVar[int]
     id: str
     query_name: str
     input_features: _containers.RepeatedScalarFieldContainer[str]
@@ -457,6 +485,7 @@ class MetaQuery(_message.Message):
     created_at: _timestamp_pb2.Timestamp
     archived_at: _timestamp_pb2.Timestamp
     query_hash: str
+    input_feature_root_fqns: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -472,6 +501,7 @@ class MetaQuery(_message.Message):
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         archived_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         query_hash: _Optional[str] = ...,
+        input_feature_root_fqns: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class ListMetaQueriesRequest(_message.Message):
@@ -606,3 +636,126 @@ class ListMetaQueryVersionsResponse(_message.Message):
     META_QUERY_VERSIONS_FIELD_NUMBER: _ClassVar[int]
     meta_query_versions: _containers.RepeatedCompositeFieldContainer[MetaQuery]
     def __init__(self, meta_query_versions: _Optional[_Iterable[_Union[MetaQuery, _Mapping]]] = ...) -> None: ...
+
+class QueryRun(_message.Message):
+    __slots__ = (
+        "id",
+        "meta_query_id",
+        "external_id",
+        "created_at",
+        "query_plan_id",
+        "correlation_id",
+        "has_errors",
+        "agent_id",
+        "branch_name",
+        "deployment_id",
+        "has_plan_stages",
+        "duration",
+        "trace_id",
+        "resource_group",
+    )
+    ID_FIELD_NUMBER: _ClassVar[int]
+    META_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    EXTERNAL_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_PLAN_ID_FIELD_NUMBER: _ClassVar[int]
+    CORRELATION_ID_FIELD_NUMBER: _ClassVar[int]
+    HAS_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    AGENT_ID_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    HAS_PLAN_STAGES_FIELD_NUMBER: _ClassVar[int]
+    DURATION_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    meta_query_id: str
+    external_id: str
+    created_at: _timestamp_pb2.Timestamp
+    query_plan_id: str
+    correlation_id: str
+    has_errors: bool
+    agent_id: str
+    branch_name: str
+    deployment_id: str
+    has_plan_stages: bool
+    duration: float
+    trace_id: str
+    resource_group: str
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        meta_query_id: _Optional[str] = ...,
+        external_id: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        query_plan_id: _Optional[str] = ...,
+        correlation_id: _Optional[str] = ...,
+        has_errors: bool = ...,
+        agent_id: _Optional[str] = ...,
+        branch_name: _Optional[str] = ...,
+        deployment_id: _Optional[str] = ...,
+        has_plan_stages: bool = ...,
+        duration: _Optional[float] = ...,
+        trace_id: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetQueryRunRequest(_message.Message):
+    __slots__ = ("operation_id", "approximate_timestamp")
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    APPROXIMATE_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    operation_id: str
+    approximate_timestamp: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        operation_id: _Optional[str] = ...,
+        approximate_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetQueryRunResponse(_message.Message):
+    __slots__ = ("query_run",)
+    QUERY_RUN_FIELD_NUMBER: _ClassVar[int]
+    query_run: QueryRun
+    def __init__(self, query_run: _Optional[_Union[QueryRun, _Mapping]] = ...) -> None: ...
+
+class GetStreamingResolverMappingPlanRequest(_message.Message):
+    __slots__ = ("resolver_fqn", "deployment_id")
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    deployment_id: str
+    def __init__(self, resolver_fqn: _Optional[str] = ..., deployment_id: _Optional[str] = ...) -> None: ...
+
+class GetStreamingResolverMappingPlanResponse(_message.Message):
+    __slots__ = ("query_plan",)
+    QUERY_PLAN_FIELD_NUMBER: _ClassVar[int]
+    query_plan: QueryPlan
+    def __init__(self, query_plan: _Optional[_Union[QueryPlan, _Mapping]] = ...) -> None: ...
+
+class GetStreamingResolverSinkPlanRequest(_message.Message):
+    __slots__ = ("resolver_fqn", "deployment_id")
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    deployment_id: str
+    def __init__(self, resolver_fqn: _Optional[str] = ..., deployment_id: _Optional[str] = ...) -> None: ...
+
+class GetStreamingResolverSinkPlanResponse(_message.Message):
+    __slots__ = ("query_plan",)
+    QUERY_PLAN_FIELD_NUMBER: _ClassVar[int]
+    query_plan: QueryPlan
+    def __init__(self, query_plan: _Optional[_Union[QueryPlan, _Mapping]] = ...) -> None: ...
+
+class GetStreamingResolverMaterializedAggregationPlanRequest(_message.Message):
+    __slots__ = ("resolver_fqn", "deployment_id")
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    deployment_id: str
+    def __init__(self, resolver_fqn: _Optional[str] = ..., deployment_id: _Optional[str] = ...) -> None: ...
+
+class GetStreamingResolverMaterializedAggregationPlanResponse(_message.Message):
+    __slots__ = ("query_plan",)
+    QUERY_PLAN_FIELD_NUMBER: _ClassVar[int]
+    query_plan: QueryPlan
+    def __init__(self, query_plan: _Optional[_Union[QueryPlan, _Mapping]] = ...) -> None: ...

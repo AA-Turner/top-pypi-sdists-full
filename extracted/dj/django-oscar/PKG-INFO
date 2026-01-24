@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-oscar
-Version: 4.0
+Version: 4.1
 Summary: A domain-driven e-commerce framework for Django
 Author-email: David Winterbottom <david.winterbottom@gmail.com>
 License: BSD
@@ -24,7 +24,7 @@ License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: django<5.3,>=4.2
 Requires-Dist: pillow>=6.0
-Requires-Dist: django-extra-views<0.16,>=0.13
+Requires-Dist: django-extra-views<0.17,>=0.13
 Requires-Dist: django-haystack>=3.0b1
 Requires-Dist: django-treebeard>=4.3.0
 Requires-Dist: Babel<3.0,>=1.0
@@ -38,7 +38,7 @@ Provides-Extra: docs
 Requires-Dist: Sphinx>=5.0; extra == "docs"
 Requires-Dist: sphinxcontrib-spelling==8.0.1; extra == "docs"
 Requires-Dist: sphinx_rtd_theme==3.0.2; extra == "docs"
-Requires-Dist: sphinx-issues==5.0.0; extra == "docs"
+Requires-Dist: sphinx-issues==5.0.1; extra == "docs"
 Requires-Dist: sorl-thumbnail<13.0.0,>=12.10.0; extra == "docs"
 Requires-Dist: easy-thumbnails<2.11,>=2.9; extra == "docs"
 Provides-Extra: test
@@ -59,8 +59,8 @@ Requires-Dist: black>=24.4.2; extra == "test"
 Requires-Dist: psycopg2-binary<2.10,>=2.8; extra == "test"
 Requires-Dist: sorl-thumbnail<13.0.0,>=12.10.0; extra == "test"
 Requires-Dist: easy-thumbnails<2.11,>=2.9; extra == "test"
-Requires-Dist: django-environ<0.12,>=0.4; extra == "test"
-Requires-Dist: whitenoise<6.9,>=6.7.0; extra == "test"
+Requires-Dist: django-environ<0.13,>=0.4; extra == "test"
+Requires-Dist: whitenoise<6.10,>=6.7.0; extra == "test"
 Requires-Dist: pycountry; extra == "test"
 Provides-Extra: sorl-thumbnail
 Requires-Dist: sorl-thumbnail<13.0.0,>=12.10.0; extra == "sorl-thumbnail"

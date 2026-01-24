@@ -1,15 +1,19 @@
 import sys
-from _typeshed import SupportsWrite
+from collections.abc import (
+    Callable,
+    Iterable,
+)
+from contextlib import (
+    AbstractAsyncContextManager,
+    AbstractContextManager,
+)
 from types import TracebackType
 from typing import (
     Any,
-    AsyncContextManager,
-    Callable,
-    ContextManager,
-    Iterable,
     final,
     overload,
 )
+from typing_extensions import disjoint_base
 
 from .._types import (
     _AttrMapping,
@@ -36,10 +40,16 @@ if sys.version_info >= (3, 13):
 else:
     from typing_extensions import deprecated
 
+if sys.version_info >= (3, 14):
+    from io import Writer
+else:
+    from typing_extensions import Writer
+
 class SerialisationError(LxmlError): ...
 
 # Usage identical to custom target parser, but canonicalized output
 # is written during various stages before calling .close()
+# Not marking disjoint_base, overload unsupported
 class C14NWriterTarget(ParserTarget[None]):
     """Canonicalization writer target for the XMLParser. Serialises parse events
     to XML C14N 2.0.
@@ -180,7 +190,7 @@ class C14NWriterTarget(ParserTarget[None]):
 def canonicalize(
     xml_data: str | _ElementOrTree,
     *,
-    out: SupportsWrite[str],
+    out: Writer[str],
     from_file: None = None,
     with_comments: bool = False,
     strip_text: bool = False,
@@ -194,7 +204,7 @@ def canonicalize(
 def canonicalize(
     xml_data: None = None,
     *,
-    out: SupportsWrite[str],
+    out: Writer[str],
     from_file: _FileReadSource,
     with_comments: bool = False,
     strip_text: bool = False,
@@ -260,7 +270,9 @@ class _IncrementalFileWriter:
         method: _OutputMethodArg | None = None,
     ) -> None: ...
     def flush(self) -> None: ...
-    def method(self, method: _OutputMethodArg | None) -> ContextManager[None]: ...
+    def method(
+        self, method: _OutputMethodArg | None
+    ) -> AbstractContextManager[None]: ...
     def element(
         self,
         tag: _TagName,
@@ -268,7 +280,7 @@ class _IncrementalFileWriter:
         nsmap: _NSMapArg | None = None,
         method: _OutputMethodArg | None = None,
         **_extra: _AttrVal,
-    ) -> ContextManager[None]: ...
+    ) -> AbstractContextManager[None]: ...
 
 @final
 class _AsyncIncrementalFileWriter:
@@ -287,7 +299,9 @@ class _AsyncIncrementalFileWriter:
         method: _OutputMethodArg | None = None,
     ) -> None: ...
     async def flush(self) -> None: ...
-    def method(self, method: _OutputMethodArg | None) -> AsyncContextManager[None]: ...
+    def method(
+        self, method: _OutputMethodArg | None
+    ) -> AbstractAsyncContextManager[None]: ...
     def element(
         self,
         tag: _TagName,
@@ -295,11 +309,12 @@ class _AsyncIncrementalFileWriter:
         nsmap: _NSMapArg | None = None,
         method: _OutputMethodArg | None = None,
         **_extra: _AttrVal,
-    ) -> AsyncContextManager[None]: ...
+    ) -> AbstractAsyncContextManager[None]: ...
 
+@disjoint_base
 class xmlfile(
-    AsyncContextManager[_AsyncIncrementalFileWriter],
-    ContextManager[_IncrementalFileWriter],
+    AbstractAsyncContextManager[_AsyncIncrementalFileWriter],
+    AbstractContextManager[_IncrementalFileWriter],
 ):
     def __init__(
         self,

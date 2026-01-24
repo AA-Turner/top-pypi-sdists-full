@@ -1,0 +1,106 @@
+[project]
+name = "pgvecto-rs"
+version = "0.2.2"
+description = "Python binding for pgvecto.rs"
+authors = [
+    { name = "TensorChord", email = "envd-maintainers@tensorchord.ai" },
+    { name = "盐粒 Yanli", email = "mail@yanli.one" },
+    { name = "cutecutecat", email = "junyuchen@tensorchord.ai" },
+]
+dependencies = [
+    "numpy>=1.23",
+    "toml>=0.10",
+]
+requires-python = "<3.13,>=3.8"
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.license]
+text = "Apache-2.0"
+
+[project.optional-dependencies]
+psycopg3 = [
+    "psycopg[binary]>=3.1.12",
+]
+sdk = [
+    "openai>=1.2.2",
+    "pgvecto_rs[sqlalchemy]",
+]
+sqlalchemy = [
+    "SQLAlchemy>=2.0.23",
+]
+django = [
+    "Django>=4.2",
+]
+
+[build-system]
+build-backend = "pdm.backend"
+requires = [
+    "pdm-backend",
+]
+
+[tool.pdm.dev-dependencies]
+lint = [
+    "ruff>=0.1.5",
+]
+test = [
+    "pytest>=7.4.3",
+]
+scipy-sparse = [
+    "Cython==0.29.34",
+    "setuptools>=70",
+    "wheel>=0.43",
+    "pdm-backend>=2.3.2",
+    "editables>=0.5",
+    "scipy>=1.13; python_version >= '3.9'",
+    "scipy>=1.10,<1.13; python_version == '3.8'",
+]
+
+[tool.pdm.scripts]
+test = "pytest tests/"
+format = "ruff format ."
+fix = "ruff --fix ."
+
+[tool.pdm.scripts.check]
+composite = [
+    "ruff format . --check",
+    "ruff check .",
+]
+
+[tool.ruff]
+src = [
+    "src",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "TID",
+    "S",
+    "B",
+    "SIM",
+    "N",
+    "PT",
+    "TRY",
+    "FLY",
+    "PL",
+    "NPY",
+    "RUF",
+]
+ignore = [
+    "S101",
+    "E731",
+    "E501",
+]
+
+[tool.pytest.ini_options]
+addopts = "-r aR"

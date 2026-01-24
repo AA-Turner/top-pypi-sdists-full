@@ -9,31 +9,29 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
-from .group_0003 import SimpleUserType
-from .group_0189 import MinimalRepositoryType
+from .group_0202 import IssueType, IssueTypeForResponse
+from .group_0203 import IssueCommentType, IssueCommentTypeForResponse
 
 
-class PackageType(TypedDict):
-    """Package
+class IssueCommentEventType(TypedDict):
+    """IssueCommentEvent"""
 
-    A software package
-    """
-
-    id: int
-    name: str
-    package_type: Literal["npm", "maven", "rubygems", "docker", "nuget", "container"]
-    url: str
-    html_url: str
-    version_count: int
-    visibility: Literal["private", "public"]
-    owner: NotRequired[Union[None, SimpleUserType]]
-    repository: NotRequired[Union[None, MinimalRepositoryType]]
-    created_at: datetime
-    updated_at: datetime
+    action: str
+    issue: IssueType
+    comment: IssueCommentType
 
 
-__all__ = ("PackageType",)
+class IssueCommentEventTypeForResponse(TypedDict):
+    """IssueCommentEvent"""
+
+    action: str
+    issue: IssueTypeForResponse
+    comment: IssueCommentTypeForResponse
+
+
+__all__ = (
+    "IssueCommentEventType",
+    "IssueCommentEventTypeForResponse",
+)

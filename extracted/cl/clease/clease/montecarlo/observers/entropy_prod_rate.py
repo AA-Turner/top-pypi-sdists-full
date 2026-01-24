@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List, Union
 
 import numpy as np
 
@@ -32,7 +31,7 @@ class EntropyProductionRate:
     :param logfile: Filename of the file used when the buffer is flushed
     """
 
-    def __init__(self, buffer_length: int = 10000, logfile: Union[str, Path] = "epr.txt"):
+    def __init__(self, buffer_length: int = 10000, logfile: str | Path = "epr.txt"):
         self._buffer = BufferedArray(size=buffer_length, fname=logfile)
         self.prev_swap = -1
         self.prob_forw = 0.0
@@ -55,7 +54,7 @@ class EntropyProductionRate:
             return cumulative_rates[0]
         return cumulative_rates[choice] - cumulative_rates[choice - 1]
 
-    def update(self, current: int, choice: int, cumulative_rates: np.ndarray, swaps: List[int]):
+    def update(self, current: int, choice: int, cumulative_rates: np.ndarray, swaps: list[int]):
         """
         Update the buffer
 

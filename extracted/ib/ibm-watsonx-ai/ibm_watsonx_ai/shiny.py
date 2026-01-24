@@ -1,21 +1,20 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeAlias
 from warnings import warn
 
-import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.metanames import ShinyMetaNames
 from ibm_watsonx_ai.utils import (
     DATA_ASSETS_DETAILS_TYPE,
     modify_details_for_script_and_shiny,
 )
-from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
+from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid, get_from_json
 from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
     ForbiddenActionForGitBasedProject,
@@ -37,7 +36,7 @@ class Shiny(WMLResource):
     ConfigurationMetaNames = ShinyMetaNames()
     """MetaNames for Shiny Assets creation."""
 
-    def __init__(self, client: APIClient):
+    def __init__(self, client: APIClient) -> None:
         WMLResource.__init__(self, __name__, client)
 
     def get_details(
@@ -84,14 +83,16 @@ class Shiny(WMLResource):
             shiny_id, "shiny_asset", get_required_elements, limit=limit, get_all=get_all
         )
 
-    def store(self, meta_props: dict, file_path: str) -> dict:
+    def store(
+        self, meta_props: dict[str, Any], file_path: str | Path
+    ) -> dict[str, Any]:
         """Create a shiny asset and upload content to it.
 
         :param meta_props: metadata of the shiny asset
         :type meta_props: dict
 
         :param file_path: path to the content file to be uploaded
-        :type file_path: str
+        :type file_path: str | Path
 
         :return: metadata of the stored shiny asset
         :rtype: dict
@@ -104,14 +105,18 @@ class Shiny(WMLResource):
                 client.shiny.ConfigurationMetaNames.NAME: "shiny app name"
             }
 
-            shiny_details = client.shiny.store(meta_props, file_path="/path/to/file")
+            shiny_details = client.shiny.store(
+                meta_props, file_path="/path/to/file"
+            )
         """
-        if self._client.project_type == "local_git_storage":
+        if self._client.is_git_based_project:
             raise ForbiddenActionForGitBasedProject(
                 reason="Storing Shiny apps is not supported for git based project."
             )
 
-        Shiny._validate_type(file_path, "file_path", str, True)
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+        Shiny._validate_type(file_path, "file_path", [str, Path], True, True)
 
         shiny_meta = self.ConfigurationMetaNames._generate_resource_metadata(
             meta_props, with_validation=True, client=self._client
@@ -124,7 +129,7 @@ class Shiny(WMLResource):
         return final_response
 
     def _create_asset(
-        self, shiny_meta: dict[str, Any], file_path: str
+        self, shiny_meta: dict[str, Any], file_path: Path
     ) -> dict[str, Any]:
         # Step1: Create a shiny asset
         name = shiny_meta["metadata"]["name"]
@@ -140,30 +145,18 @@ class Shiny(WMLResource):
         shiny_sw_specs = []
         deprecated_shiny_sw_specs = []
 
-        if self._client.CPD_version >= 4.8:
-            for sw_spec in self._client.software_specifications.get_details()[
-                "resources"
-            ]:
-                if sw_spec.get("metadata", {}).get("life_cycle", {}):
-                    if (
-                        "shiny" in sw_spec["metadata"]["name"]
-                        or "rstudio" in sw_spec["metadata"]["name"]
-                    ):
-                        if ("retired" or "deprecated" or "constricted") not in sw_spec[
-                            "metadata"
-                        ]["life_cycle"]:
-                            shiny_sw_specs.append(sw_spec["metadata"]["name"])
-                        elif "deprecated" in sw_spec["metadata"]["life_cycle"]:
-                            deprecated_shiny_sw_specs.append(
-                                sw_spec["metadata"]["name"]
-                            )
-
-        elif self._client.CPD_version >= 4.6:
-            shiny_sw_specs = ["rstudio_r4.2"]
-            deprecated_shiny_sw_specs = ["shiny-r3.6"]
-        else:
-            shiny_sw_specs = ["shiny-r3.6"]
-            deprecated_shiny_sw_specs = []
+        for sw_spec in self._client.software_specifications.get_details()["resources"]:
+            if get_from_json(sw_spec, ["metadata", "life_cycle"], {}) and (
+                "shiny" in sw_spec["metadata"]["name"]
+                or "rstudio" in sw_spec["metadata"]["name"]
+            ):
+                if all(
+                    item not in sw_spec["metadata"]["life_cycle"]
+                    for item in ["retired", "deprecated", "constricted"]
+                ):
+                    shiny_sw_specs.append(sw_spec["metadata"]["name"])
+                elif "deprecated" in sw_spec["metadata"]["life_cycle"]:
+                    deprecated_shiny_sw_specs.append(sw_spec["metadata"]["name"])
         shiny_sw_spec_ids = [
             self._client.software_specifications.get_id_by_name(sw_name)
             for sw_name in shiny_sw_specs
@@ -210,8 +203,8 @@ class Shiny(WMLResource):
         # Step1: Create an asset
         print("Creating Shiny asset...")
 
-        creation_response = requests.post(
-            self._client._href_definitions.get_data_assets_href(),
+        creation_response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_data_assets_href(),
             headers=self._client._get_headers(),
             params=self._client._params(),
             json=asset_meta,
@@ -228,8 +221,8 @@ class Shiny(WMLResource):
                 "name": "attachment_" + asset_id,
             }
 
-            attachment_response = requests.post(
-                self._client._href_definitions.get_attachments_href(asset_id),
+            attachment_response = self._client.httpx_client.post(
+                url=self._client._href_definitions.get_attachments_href(asset_id),
                 headers=self._client._get_headers(),
                 params=self._client._params(),
                 json=attachment_meta,
@@ -243,30 +236,32 @@ class Shiny(WMLResource):
 
                 # Step3: Put content to attachment
                 try:
-                    with open(file_path, "rb") as f:
+                    with file_path.open("rb") as f:
                         if not self._client.ICP_PLATFORM_SPACES:
-                            put_response = requests.put(
-                                attachment_url,
-                                data=f.read(),
+                            put_response = self._client.httpx_client.put(
+                                url=attachment_url,
+                                content=f.read(),
                             )
                         else:
-                            put_response = requests.put(
-                                self._credentials.url + attachment_url,
+                            put_response = self._client.httpx_client.put(
+                                url=self._credentials.url + attachment_url,
                                 files={"file": (name, f, "application/octet-stream")},
                             )
                 except Exception as e:
-                    deletion_response = requests.delete(
-                        self._client._href_definitions.get_data_asset_href(asset_id),
+                    deletion_response = self._client.httpx_client.delete(
+                        url=self._client._href_definitions.get_data_asset_href(
+                            asset_id
+                        ),
                         params=self._client._params(),
                         headers=self._client._get_headers(),
                     )
                     print(deletion_response.status_code)
-                    raise WMLClientError("Failed while reading a file", e)
+                    raise WMLClientError("Failed while reading a file", str(e)) from e
 
                 if put_response.status_code == 201 or put_response.status_code == 200:
                     # Step4: Complete attachment
-                    complete_response = requests.post(
-                        self._client._href_definitions.get_attachment_complete_href(
+                    complete_response = self._client.httpx_client.post(
+                        url=self._client._href_definitions.get_attachment_complete_href(
                             asset_id, attachment_id
                         ),
                         headers=self._client._get_headers(),
@@ -321,8 +316,8 @@ class Shiny(WMLResource):
         if limit is not None:
             data.update({"limit": limit})
 
-        response = requests.post(
-            href,
+        response = self._client.httpx_client.post(
+            url=href,
             params=self._client._params(),
             headers=self._client._get_headers(),
             json=data,
@@ -344,7 +339,7 @@ class Shiny(WMLResource):
     def download(
         self,
         shiny_id: str | None = None,
-        filename: str | None = None,
+        filename: str | Path | None = None,
         rev_id: str | None = None,
         **kwargs: Any,
     ) -> str:
@@ -354,7 +349,7 @@ class Shiny(WMLResource):
         :type shiny_id: str
 
         :param filename: filename to be used for the downloaded file
-        :type filename: str
+        :type filename: str | Path
 
         :param rev_id: ID of the revision
         :type rev_id: str, optional
@@ -373,6 +368,8 @@ class Shiny(WMLResource):
             raise TypeError(
                 "download() missing 1 required positional argument: 'filename'"
             )
+        if isinstance(filename, str):
+            filename = Path(filename)
 
         shiny_id = _get_id_from_deprecated_uid(
             kwargs, shiny_id, "shiny", can_be_none=False
@@ -391,29 +388,33 @@ class Shiny(WMLResource):
         if rev_id is not None:
             params.update({"revision_id": rev_id})
 
-        asset_response = requests.get(
-            self._client._href_definitions.get_data_asset_href(shiny_id),
+        asset_response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_data_asset_href(shiny_id),
             params=params,
             headers=self._client._get_headers(),
         )
         shiny_details = self._handle_response(200, "get shiny assets", asset_response)
 
         attachment_id = shiny_details["attachments"][0]["id"]
-        response = requests.get(
-            self._client._href_definitions.get_attachment_href(shiny_id, attachment_id),
+        response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_attachment_href(
+                shiny_id, attachment_id
+            ),
             params=params,
             headers=self._client._get_headers(),
         )
         if response.status_code == 200:
             attachment_signed_url = response.json()["url"]
             if "connection_id" in shiny_details["attachments"][0]:
-                att_response = requests.get(attachment_signed_url)
+                att_response = self._client.httpx_client.get(url=attachment_signed_url)
             else:
                 if not self._client.ICP_PLATFORM_SPACES:
-                    att_response = requests.get(attachment_signed_url)
+                    att_response = self._client.httpx_client.get(
+                        url=attachment_signed_url
+                    )
                 else:
-                    att_response = requests.get(
-                        self._credentials.url + attachment_signed_url
+                    att_response = self._client.httpx_client.get(
+                        url=self._credentials.url + attachment_signed_url
                     )
 
             if att_response.status_code != 200:
@@ -423,26 +424,23 @@ class Shiny(WMLResource):
 
             downloaded_asset = att_response.content
             try:
-                with open(filename, "wb") as f:
-                    f.write(downloaded_asset)
+                filename.write_bytes(downloaded_asset)
                 print(
                     "Successfully saved shiny asset content to file: '{}'".format(
                         filename
                     )
                 )
-                return os.getcwd() + "/" + filename
+                return str(Path.cwd() / filename)
             except IOError as e:
                 raise WMLClientError(
-                    "Saving shiny asset with artifact_url to local file: '{}' failed.".format(
-                        filename
-                    ),
-                    e,
-                )
+                    f"Saving shiny asset with artifact_url to local file: '{filename}' failed.",
+                    str(e),
+                ) from e
         else:
-            raise WMLClientError("Failed while downloading the shiny asset " + shiny_id)  # type: ignore
+            raise WMLClientError("Failed while downloading the shiny asset " + shiny_id)
 
     @staticmethod
-    def get_id(shiny_details: dict) -> str:
+    def get_id(shiny_details: dict[str, Any]) -> str:
         """Get the unique ID of a stored shiny asset.
 
         :param shiny_details: metadata of the stored shiny asset
@@ -462,11 +460,11 @@ class Shiny(WMLResource):
         Shiny._validate_type_of_details(shiny_details, DATA_ASSETS_DETAILS_TYPE)
 
         return WMLResource._get_required_element_from_dict(
-            shiny_details, "data_assets_details", ["metadata", "guid"]
+            shiny_details, "data_assets_details", ["metadata", "guid"], str
         )
 
     @staticmethod
-    def get_uid(shiny_details: dict) -> str:
+    def get_uid(shiny_details: dict[str, Any]) -> str:
         """Get the Unique ID of a stored shiny asset.
 
         *Deprecated:* Use ``get_id(shiny_details)`` instead.
@@ -487,7 +485,7 @@ class Shiny(WMLResource):
         return Shiny.get_id(shiny_details)
 
     @staticmethod
-    def get_href(shiny_details: dict) -> str:
+    def get_href(shiny_details: dict[str, Any]) -> str:
         """Get the URL of a stored shiny asset.
 
         :param shiny_details: details of the stored shiny asset
@@ -507,14 +505,14 @@ class Shiny(WMLResource):
         Shiny._validate_type_of_details(shiny_details, DATA_ASSETS_DETAILS_TYPE)
 
         return WMLResource._get_required_element_from_dict(
-            shiny_details, "shiny_details", ["metadata", "href"]
+            shiny_details, "shiny_details", ["metadata", "href"], str
         )
 
     def update(
         self,
         shiny_id: str | None = None,
         meta_props: dict | None = None,
-        file_path: str | None = None,
+        file_path: str | Path | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Update a shiny asset with metadata, attachment, or both.
@@ -526,7 +524,7 @@ class Shiny(WMLResource):
         :type meta_props: dict, optional
 
         :param file_path: file path to the new attachment
-        :type file_path: str, optional
+        :type file_path: str | Path, optional
 
         :return: updated metadata of the shiny asset
         :rtype: dict
@@ -537,6 +535,9 @@ class Shiny(WMLResource):
 
             shiny_details = client.shiny.update(shiny_id, meta, content_path)
         """
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
         shiny_id = _get_id_from_deprecated_uid(
             kwargs, shiny_id, "shiny", can_be_none=False
         )
@@ -564,8 +565,8 @@ class Shiny(WMLResource):
         # STEP 4. Get the updated script record and return
 
         # STEP 1
-        response = requests.get(
-            url, params=self._client._params(), headers=self._client._get_headers()
+        response = self._client.httpx_client.get(
+            url=url, params=self._client._params(), headers=self._client._get_headers()
         )
 
         if response.status_code != 200:
@@ -606,8 +607,8 @@ class Shiny(WMLResource):
             if meta_patch_payload:
                 meta_patch_url = self._client._href_definitions.get_asset_href(shiny_id)
 
-                response_patch = requests.patch(
-                    meta_patch_url,
+                response_patch = self._client.httpx_client.patch(
+                    url=meta_patch_url,
                     json=meta_patch_payload,
                     params=self._client._params(),
                     headers=self._client._get_headers(),
@@ -634,8 +635,8 @@ class Shiny(WMLResource):
         # Have to fetch again to reflect updated asset and attachment ids
         url = self._client._href_definitions.get_asset_href(shiny_id)
 
-        response = requests.get(
-            url, params=self._client._params(), headers=self._client._get_headers()
+        response = self._client.httpx_client.get(
+            url=url, params=self._client._params(), headers=self._client._get_headers()
         )
 
         if response.status_code != 200:
@@ -648,15 +649,15 @@ class Shiny(WMLResource):
                     "Failure during {}.".format("getting shiny to update"), response
                 )
 
-        response = self._get_required_element_from_response(
+        response_dict = self._get_required_element_from_response(
             self._handle_response(200, "Get shiny details", response)
         )
 
-        final_response = {"metadata": response["metadata"], "entity": {}}
+        final_response = {"metadata": response_dict["metadata"], "entity": {}}
 
         return final_response
 
-    def _update_msg(self, updated_details: Any) -> None:
+    def _update_msg(self, updated_details: dict[str, Any] | None) -> None:
         if updated_details is not None:
             print(
                 "Could not update the attachment because of server error."
@@ -698,8 +699,8 @@ class Shiny(WMLResource):
                 "Cannot delete shiny asset that has existing deployments. Please delete all associated deployments and try again"
             )
 
-        response = requests.delete(
-            self._client._href_definitions.get_asset_href(shiny_id),
+        response = self._client.httpx_client.delete(
+            url=self._client._href_definitions.get_asset_href(shiny_id),
             params=self._client._params(),
             headers=self._client._get_headers(),
         )
@@ -709,7 +710,9 @@ class Shiny(WMLResource):
         else:
             return self._handle_response(204, "delete assets", response)
 
-    def create_revision(self, shiny_id: str | None = None, **kwargs: Any) -> dict:
+    def create_revision(
+        self, shiny_id: str | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
         """Create a revision for the given shiny asset. Revisions are immutable once created.
         The metadata and attachment at `script_id` is taken and a revision is created out of it.
 
@@ -858,7 +861,9 @@ class Shiny(WMLResource):
 
         return final_responses
 
-    def _get_required_element_from_response(self, response_data: dict) -> dict:
+    def _get_required_element_from_response(
+        self, response_data: dict[str, Any]
+    ) -> dict[str, Any]:
         WMLResource._validate_type(response_data, "shiny", dict)
 
         revision_id = None

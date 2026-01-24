@@ -282,6 +282,8 @@
 //! - `lz4`: enables support for the LZ4 compression algorithm for mcap files. Enabled by default.
 //! - `schemars`: provides a blanket implementation of the [`Encode`] trait for types that
 //!   implement [`Serialize`](serde::Serialize) and [`JsonSchema`][jsonschema-trait].
+//! - `serde`: derives [`Serialize`](serde::Serialize) and [`Deserialize`](serde::Deserialize) for
+//!   all [schema types](crate::schemas).
 //! - `unstable`: features which are under active development and likely to change in an upcoming
 //!   version.
 //! - `zstd`: enables support for the zstd compression algorithm for mcap files. Enabled by
@@ -300,7 +302,7 @@
 //! [tokio]: https://docs.rs/tokio/latest/tokio/
 
 #![warn(missing_docs)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 use thiserror::Error;
 
@@ -324,6 +326,7 @@ mod schema;
 pub mod schemas;
 mod schemas_wkt;
 mod sink;
+mod sink_channel_filter;
 
 #[cfg(test)]
 mod tests;
@@ -332,21 +335,36 @@ mod testutil;
 mod throttler;
 mod time;
 
+#[cfg(feature = "stream")]
+pub mod stream;
+
+#[cfg(feature = "img2yuv-core")]
+#[allow(unused)]
+mod img2yuv;
+
 pub use app_url::AppUrl;
 // Re-export bytes crate for convenience when implementing the `Encode` trait
 pub use bytes;
-pub use channel::{Channel, ChannelId, LazyChannel, LazyRawChannel, RawChannel};
+pub use channel::{Channel, ChannelDescriptor, ChannelId, LazyChannel, LazyRawChannel, RawChannel};
 pub use channel_builder::ChannelBuilder;
 pub use context::{Context, LazyContext};
 #[doc(hidden)]
 pub use decode::Decode;
 pub use encode::Encode;
-pub use mcap_writer::{McapCompression, McapWriteOptions, McapWriter, McapWriterHandle};
+pub use mcap_writer::{
+    McapAttachment, McapCompression, McapWriteOptions, McapWriter, McapWriterHandle,
+};
 pub use metadata::{Metadata, PartialMetadata, ToUnixNanos};
 pub use schema::Schema;
 pub use sink::{Sink, SinkId};
+pub use sink_channel_filter::SinkChannelFilter;
+pub use std::collections::BTreeMap;
 pub(crate) use time::nanoseconds_since_epoch;
 
+#[cfg(feature = "agent")]
+mod cloud_sink;
+#[cfg(feature = "live_visualization")]
+mod protocol;
 #[cfg(feature = "live_visualization")]
 mod runtime;
 #[cfg(feature = "live_visualization")]
@@ -355,6 +373,8 @@ pub mod websocket;
 mod websocket_client;
 #[cfg(feature = "live_visualization")]
 mod websocket_server;
+#[cfg(feature = "agent")]
+pub use cloud_sink::{CloudSink, CloudSinkHandle, CloudSinkListener};
 #[cfg(feature = "live_visualization")]
 pub(crate) use runtime::get_runtime_handle;
 #[cfg(feature = "live_visualization")]

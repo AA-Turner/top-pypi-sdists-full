@@ -1,6 +1,7 @@
+from typing import Any, Dict, Iterator, List
+
+from . import base, bulk
 from .. import core
-from . import base
-from . import bulk
 
 
 class SObjects(base.RestService):
@@ -11,18 +12,20 @@ class SObjects(base.RestService):
         return self._get()
 
     def _query(self, query_string: str, include_deleted: bool = False):
-        return self._get('../queryAll' if include_deleted else '../query', {'q': query_string})
+        return self._get('../queryAll' if include_deleted else '../query', params={'q': query_string})
 
     def _query_more(self, next_url: str):
-        return self._get_url(self.connection.instance_url + next_url)
+        return self._get(url=f'{self.connection.instance_url}{next_url}')
 
-    def query(self, query_string: str, include_deleted: bool = False):
+    def query_iter(self, query_string: str, include_deleted: bool = False) -> Iterator[Dict[str, Any]]:
         result = self._query(query_string, include_deleted)
-        output = result['records']
+        yield from result['records']
         while not result['done']:
             result = self._query_more(result['nextRecordsUrl'])
-            output += result['records']
-        return output
+            yield from result['records']
+
+    def query(self, query_string: str, include_deleted: bool = False) -> List[Dict[str, Any]]:
+        return list(self.query_iter(query_string, include_deleted))
 
     def __getattr__(self, name: str):
         return SObject(self.connection, name)
@@ -30,7 +33,7 @@ class SObjects(base.RestService):
 
 class SObject(base.RestService):
     def __init__(self, connection: core.Connection, object_name: str):
-        super().__init__(connection, 'sobjects/' + object_name)
+        super().__init__(connection, f'sobjects/{object_name}')
         self.bulk = bulk.BulkObject(object_name, connection)
 
     def metadata(self):
@@ -46,7 +49,7 @@ class SObject(base.RestService):
         return self._post(json=data)
 
     def upsert(self, external_id_field: str, external_id_value: str, data: dict):
-        self._patch(external_id_field + '/' + external_id_value, json=data)
+        self._patch(f'{external_id_field}/{external_id_value}', json=data)
         return True
 
     def update(self, record_id: str, data: dict):

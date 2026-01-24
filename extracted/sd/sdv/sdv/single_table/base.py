@@ -309,15 +309,23 @@ class BaseSynthesizer:
             msg = 'For this change to take effect, please refit the synthesizer using `fit`.'
             warnings.warn(msg, RefitWarning)
 
+    def _resolve_gpu_parameters(self, parameters):
+        if parameters.get('cuda') is not None and parameters.get('enable_gpu') is None:
+            parameters.pop('enable_gpu', None)  # Ensure backward-compatibility
+        elif 'cuda' in parameters:  # Removed because deprecated
+            del parameters['cuda']
+
+        return parameters
+
     def get_parameters(self):
         """Return the parameters used to instantiate the synthesizer."""
         parameters = inspect.signature(self.__init__).parameters
         instantiated_parameters = {}
         for parameter_name in parameters:
-            if parameter_name != 'metadata':
+            if parameter_name not in ['metadata']:
                 instantiated_parameters[parameter_name] = self.__dict__.get(parameter_name)
 
-        return instantiated_parameters
+        return self._resolve_gpu_parameters(instantiated_parameters)
 
     def get_metadata(self, version='original'):
         """Get the metadata, either original or modified after applying constraints.
@@ -466,6 +474,7 @@ class BaseSynthesizer:
                 except ConstraintNotMetError:
                     raise e
 
+        self.metadata.validate()
         self._data_processor = DataProcessor(
             metadata=self.metadata._convert_to_single_table(),
             enforce_rounding=self.enforce_rounding,
@@ -561,7 +570,18 @@ class BaseSynthesizer:
             data (pandas.DataFrame):
                 The data to validate.
         """
-        self._original_metadata.validate_data({self._table_name: data})
+        # Suppress duplicate datetime_format warning only when this single-table synthesizer
+        # is embedded inside a multi-table synthesizer
+        if getattr(self, '_suppress_datetime_format_warning', False):
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    'ignore',
+                    message=r"No 'datetime_format' is present.*",
+                    category=UserWarning,
+                )
+                self._original_metadata.validate_data({self._table_name: data})
+        else:
+            self._original_metadata.validate_data({self._table_name: data})
         self._validate_transform_constraints(data, enforce_constraint_fitting=True)
 
         # Retaining the logic of returning errors and raising them here to maintain consistency

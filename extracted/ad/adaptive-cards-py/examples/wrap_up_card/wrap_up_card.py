@@ -7,19 +7,27 @@ import sys
 from requests import Response
 
 sys.path.append("../../")
-import adaptive_cards.card_types as types
-from adaptive_cards.actions import ActionToggleVisibility, TargetElement
-from adaptive_cards.card import AdaptiveCard
-from adaptive_cards.client import TeamsClient
-from adaptive_cards.containers import Column, ColumnSet, Container, ContainerTypes
-from adaptive_cards.elements import Image, TextBlock
-from adaptive_cards.validation import CardValidator, CardValidatorFactory
 from result import Result, is_ok
 
-containers: list[ContainerTypes] = []
+import adaptive_cards.types as types
+from adaptive_cards.card import (
+    ActionToggleVisibility,
+    AdaptiveCard,
+    Column,
+    ColumnSet,
+    Container,
+    Image,
+    TargetElement,
+    TextBlock,
+)
+from adaptive_cards.client import TeamsClient
+from adaptive_cards.validation import CardValidator, CardValidatorFactory
+
+containers: list[Container | ColumnSet] = []
 
 icon_source: str = "https://icons8.com/icon/vNXFqyQtOSbb/launch"
 icon_url: str = "https://img.icons8.com/3d-fluency/94/launched-rocket.png"
+
 
 header_column_set: ColumnSet = ColumnSet(
     columns=[
@@ -37,6 +45,7 @@ containers.append(
         items=[header_column_set], style=types.ContainerStyle.EMPHASIS, bleed=True
     )
 )
+
 
 containers.append(
     Container(

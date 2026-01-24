@@ -479,7 +479,10 @@ class Transaction(_SnapshotBase, _BatchBase):
             request_options = RequestOptions(request_options)
         request_options.transaction_tag = self.transaction_tag
 
-        trace_attributes = {"db.statement": dml}
+        trace_attributes = {
+            "db.statement": dml,
+            "request_options": request_options,
+        }
 
         # If this request begins the transaction, we need to lock
         # the transaction until the transaction ID is updated.
@@ -629,7 +632,8 @@ class Transaction(_SnapshotBase, _BatchBase):
 
         trace_attributes = {
             # Get just the queries from the DML statement batch
-            "db.statement": ";".join([statement.sql for statement in parsed])
+            "db.statement": ";".join([statement.sql for statement in parsed]),
+            "request_options": request_options,
         }
 
         # If this request begins the transaction, we need to lock
@@ -710,7 +714,9 @@ class Transaction(_SnapshotBase, _BatchBase):
         if self.rolled_back:
             raise ValueError("Transaction is already rolled back")
 
-        return super(Transaction, self)._begin_transaction(mutation=mutation)
+        return super(Transaction, self)._begin_transaction(
+            mutation=mutation, transaction_tag=self.transaction_tag
+        )
 
     def _begin_mutations_only_transaction(self) -> None:
         """Begins a mutations-only transaction on the database."""

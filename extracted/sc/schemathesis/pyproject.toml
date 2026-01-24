@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemathesis"
-version = "4.1.4"
+version = "4.9.4"
 description = "Property-based testing framework for Open API and GraphQL based apps"
 keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
 maintainers = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 readme = "README.md"
 include = ["src/schemathesis/py.typed"]
@@ -22,20 +22,19 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Topic :: Software Development :: Testing",
 ]
 dependencies = [
-  "backoff>=2.1.2,<3.0",
   "click>=8.0,<9",
   "colorama>=0.4,<1.0",
-  "harfile>=0.3.1,<1.0",
+  "harfile>=0.4.0,<1.0",
   "httpx>=0.22.0,<1.0",
   "hypothesis>=6.108.0,<7",
   "hypothesis_graphql>=0.11.1,<1",
@@ -43,13 +42,14 @@ dependencies = [
   "jsonschema[format]>=4.18.0,<5.0",
   "junit-xml>=1.9,<2.0",
   "pyrate-limiter>=3.0,<4.0",
-  "pytest-subtests>=0.11,<0.15.0",
-  "pytest>=8,<9",
+  "pytest-subtests>=0.11,<0.16.0",
+  "pytest>=8,<10",
   "PyYAML>=5.1,<7.0",
   "requests>=2.22,<3",
   "rich>=13.9.4",
   "starlette-testclient>=0.4.1,<1",
-  "tomli>=2.2.1",
+  "tomli>=2.2.1; python_version < '3.11'",
+  "tenacity>=9.1.2,<10.0",
   "typing-extensions>=4.12.2",
   "werkzeug>=0.16.0,<4",
 ]
@@ -61,18 +61,18 @@ tests = [
   "Flask>=2.1.1,<3.0",
   "hypothesis-openapi>=0.2,<1; python_version >= '3.10'",
   "pydantic>=1.10.2",
-  "pytest-asyncio>=0.18.0,<1.0",
+  "pytest-asyncio>=1.0,<2.0",
   "pytest-httpserver>=1.0,<2.0",
   "pytest-mock>=3.7.0,<4.0",
   "pytest-trio>=0.8,<1.0",
   "pytest-xdist>=3,<4.0",
   "strawberry-graphql[fastapi]>=0.109.0",
-  "syrupy>=2,<5.0",
+  "syrupy>=4,<6.0",
   "tomli-w>=1.2.0",
   "trustme>=0.9.0,<1.0",
 ]
 cov = ["coverage-enable-subprocess", "coverage[toml]>=5.3"]
-bench = ["pytest-codspeed==2.2.1"]
+bench = ["pytest-codspeed==4.2.0"]
 docs = ["mkdocs-material", "mkdocstrings[python]"]
 dev = ["schemathesis[tests,cov,bench,docs]"]
 
@@ -95,6 +95,10 @@ addopts = ["-ra", "--strict-markers", "--strict-config"]
 xfail_strict = true
 testpaths = "tests"
 norecursedirs = ".hypothesis .idea .git src docs .pytest_cache .mypy_cache .tox"
+filterwarnings = [
+    # anyio streams not closed during aiohttp test server teardown (flaky on Python 3.13+)
+    "ignore:Unclosed <MemoryObject.*:ResourceWarning",
+]
 
 [tool.coverage.run]
 parallel = true
@@ -116,33 +120,38 @@ exclude_lines = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
-  "E", # pycodestyle errors
-  "W", # pycodestyle warnings
-  "F", # pyflakes
-  "C", # flake8-comprehensions
-  "B", # flake8-bugbear
-  "D", # pydocstyle
-  "T201",
-  "I",
+  "E",      # pycodestyle errors
+  "W",      # pycodestyle warnings
+  "F",      # pyflakes
+  "C",      # flake8-comprehensions
+  "B",      # flake8-bugbear
+  "D",      # pydocstyle
+  "T201",   # flake8-print
+  "I",      # isort
+  "FURB",   # refurb
+  "PGH003", # blanket-type-ignore
+  "UP",     # pyupgrade
 ]
 ignore = [
-  "E501", # Line too long
-  "B008", # Do not perform function calls in argument defaults
-  "C901", # Too complex
-  "D100", # Missing docstring in public module
-  "D101", # Missing docstring in public class
-  "D102", # Missing docstring in public method
-  "D103", # Missing docstring in public function
-  "D104", # Missing docstring in public package
-  "D105", # Missing docstring in magic method
-  "D107", # Missing docstring in `__init__`
-  "D203", # One blank line before class
-  "D213", # Multiline summary second line
-  "D401", # Imperative mood
+  "E501",   # Line too long
+  "B008",   # Do not perform function calls in argument defaults
+  "C901",   # Too complex
+  "D100",   # Missing docstring in public module
+  "D101",   # Missing docstring in public class
+  "D102",   # Missing docstring in public method
+  "D103",   # Missing docstring in public function
+  "D104",   # Missing docstring in public package
+  "D105",   # Missing docstring in magic method
+  "D107",   # Missing docstring in `__init__`
+  "D203",   # One blank line before class
+  "D213",   # Multiline summary second line
+  "D401",   # Imperative mood
+  "COM812", # twice "," in dict/tuple/list
+  "SIM910", # delete default arguments in .get() in some cases
 ]
 
 [tool.ruff.lint.isort]

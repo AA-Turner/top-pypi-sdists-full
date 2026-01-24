@@ -265,13 +265,16 @@ def get_global_job_id(job_timestamp: str,
 
 class Backoff:
     """Exponential backoff with jittering."""
-    MULTIPLIER = 1.6
     JITTER = 0.4
 
-    def __init__(self, initial_backoff: float = 5, max_backoff_factor: int = 5):
+    def __init__(self,
+                 initial_backoff: float = 5,
+                 max_backoff_factor: int = 5,
+                 multiplier: float = 1.6):
         self._initial = True
         self._backoff = 0.0
         self._initial_backoff = initial_backoff
+        self._multiplier = multiplier
         self._max_backoff = max_backoff_factor * self._initial_backoff
 
     # https://github.com/grpc/grpc/blob/2d4f3c56001cd1e1f85734b2f7c5ce5f2797c38a/doc/connection-backoff.md
@@ -283,7 +286,7 @@ class Backoff:
             self._initial = False
             self._backoff = min(self._initial_backoff, self._max_backoff)
         else:
-            self._backoff = min(self._backoff * self.MULTIPLIER,
+            self._backoff = min(self._backoff * self._multiplier,
                                 self._max_backoff)
         self._backoff += random.uniform(-self.JITTER * self._backoff,
                                         self.JITTER * self._backoff)
@@ -297,6 +300,7 @@ _current_user: Optional['models.User'] = None
 _current_request_id: Optional[str] = None
 
 
+# TODO(aylei,hailong): request context should be contextual
 def set_request_context(client_entrypoint: Optional[str],
                         client_command: Optional[str],
                         using_remote_api_server: bool,
@@ -338,15 +342,28 @@ def get_current_command() -> str:
 
 
 def get_current_user() -> 'models.User':
-    """Returns the current user."""
+    """Returns the user in current server session."""
     if _current_user is not None:
         return _current_user
     return models.User.get_current_user()
 
 
 def get_current_user_name() -> str:
-    """Returns the current user name."""
+    """Returns the user name in current server session."""
     name = get_current_user().name
+    assert name is not None
+    return name
+
+
+def get_local_user_name() -> str:
+    """Returns the user name in local environment.
+
+    This is for backward compatibility where anonymous access is implicitly
+    allowed when no authentication method at server-side is configured and
+    the username from client environment variable will be used to identify the
+    user.
+    """
+    name = os.getenv(constants.USER_ENV_VAR, getpass.getuser())
     assert name is not None
     return name
 
@@ -996,7 +1013,17 @@ def get_mem_size_gb() -> float:
         except ValueError as e:
             with ux_utils.print_exception_no_traceback():
                 raise ValueError(
-                    f'Failed to parse the memory size from {mem_size}') from e
+                    f'Failed to parse the memory size from {mem_size} (GB)'
+                ) from e
+    mem_size = os.getenv('SKYPILOT_POD_MEMORY_BYTES_LIMIT')
+    if mem_size is not None:
+        try:
+            return float(mem_size) / (1024**3)
+        except ValueError as e:
+            with ux_utils.print_exception_no_traceback():
+                raise ValueError(
+                    f'Failed to parse the memory size from {mem_size} (bytes)'
+                ) from e
     return _mem_size_gb()
 
 
@@ -1102,7 +1129,7 @@ def release_memory():
         gc.collect()
         if sys.platform.startswith('linux'):
             # Will fail on musl (alpine), but at least it works on our
-            # offical docker images.
+            # official docker images.
             libc = ctypes.CDLL('libc.so.6')
             return libc.malloc_trim(0)
         return 0

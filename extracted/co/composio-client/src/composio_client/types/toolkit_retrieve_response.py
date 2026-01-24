@@ -19,6 +19,7 @@ __all__ = [
     "AuthConfigDetailFieldsConnectedAccountInitiation",
     "AuthConfigDetailFieldsConnectedAccountInitiationOptional",
     "AuthConfigDetailFieldsConnectedAccountInitiationRequired",
+    "AuthConfigDetailDeprecatedAuthProviderDetails",
     "AuthConfigDetailProxy",
 ]
 
@@ -40,6 +41,13 @@ class MetaCategory(BaseModel):
 
 
 class Meta(BaseModel):
+    """
+    Comprehensive metadata for the toolkit including dates, descriptions, and statistics
+    """
+
+    available_versions: List[str]
+    """Available versions of the toolkit"""
+
     categories: List[MetaCategory]
     """List of categories associated with this toolkit"""
 
@@ -60,6 +68,9 @@ class Meta(BaseModel):
 
     updated_at: str
     """Last modification date and time of the toolkit"""
+
+    version: str
+    """Version of the toolkit"""
 
     app_url: Optional[str] = None
     """Link to the toolkit's main application or service website"""
@@ -98,6 +109,8 @@ class AuthConfigDetailFieldsAuthConfigCreationRequired(BaseModel):
 
 
 class AuthConfigDetailFieldsAuthConfigCreation(BaseModel):
+    """Form fields needed when creating an authentication configuration"""
+
     optional: List[AuthConfigDetailFieldsAuthConfigCreationOptional]
 
     required: List[AuthConfigDetailFieldsAuthConfigCreationRequired]
@@ -136,12 +149,18 @@ class AuthConfigDetailFieldsConnectedAccountInitiationRequired(BaseModel):
 
 
 class AuthConfigDetailFieldsConnectedAccountInitiation(BaseModel):
+    """
+    Form fields needed when connecting a user account with this authentication method
+    """
+
     optional: List[AuthConfigDetailFieldsConnectedAccountInitiationOptional]
 
     required: List[AuthConfigDetailFieldsConnectedAccountInitiationRequired]
 
 
 class AuthConfigDetailFields(BaseModel):
+    """Field groups required for different authentication stages"""
+
     auth_config_creation: AuthConfigDetailFieldsAuthConfigCreation
     """Form fields needed when creating an authentication configuration"""
 
@@ -152,12 +171,27 @@ class AuthConfigDetailFields(BaseModel):
     """
 
 
+class AuthConfigDetailDeprecatedAuthProviderDetails(BaseModel):
+    """Authentication URL fields for OAuth 2.0 and OAuth 1.0.
+
+    We don't recommend using this field for authentication and might break post Aug 31 2025.
+    """
+
+    authorization_url: Optional[str] = None
+
+    token_url: Optional[str] = None
+
+
 class AuthConfigDetailProxy(BaseModel):
+    """Configuration for proxying authentication requests to external services"""
+
     base_url: str
     """URL to which authentication requests will be proxied"""
 
 
 class AuthConfigDetail(BaseModel):
+    """Detailed configuration for an authentication method"""
+
     fields: AuthConfigDetailFields
     """Field groups required for different authentication stages"""
 
@@ -167,20 +201,30 @@ class AuthConfigDetail(BaseModel):
     name: str
     """Display name for this authentication method"""
 
+    deprecated_auth_provider_details: Optional[AuthConfigDetailDeprecatedAuthProviderDetails] = None
+    """Authentication URL fields for OAuth 2.0 and OAuth 1.0.
+
+    We don't recommend using this field for authentication and might break post Aug
+    31 2025.
+    """
+
     proxy: Optional[AuthConfigDetailProxy] = None
     """Configuration for proxying authentication requests to external services"""
 
 
 class ToolkitRetrieveResponse(BaseModel):
+    """Detailed information about a single toolkit"""
+
     deprecated: Deprecated
 
     enabled: bool
     """Indicates if this toolkit is currently enabled and available for use"""
 
     is_local_toolkit: bool
-    """
-    Indicates if this toolkit is specific to the current project or globally
-    available
+    """DEPRECATED: This field is no longer meaningful and will always return false.
+
+    It was previously used to indicate if a toolkit is specific to the current
+    project.
     """
 
     meta: Meta
@@ -194,6 +238,9 @@ class ToolkitRetrieveResponse(BaseModel):
 
     slug: str
     """URL-friendly unique identifier for the toolkit"""
+
+    status: str
+    """Lifecycle status of the toolkit"""
 
     auth_config_details: Optional[List[AuthConfigDetail]] = None
     """Complete authentication configuration details for each supported auth method"""
@@ -209,3 +256,6 @@ class ToolkitRetrieveResponse(BaseModel):
 
     get_current_user_endpoint: Optional[str] = None
     """Endpoint to get the current user"""
+
+    get_current_user_endpoint_method: Optional[str] = None
+    """HTTP method to use when calling the get current user endpoint (e.g., GET, POST)"""

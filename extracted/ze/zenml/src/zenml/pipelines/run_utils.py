@@ -1,31 +1,55 @@
+#  Copyright (c) ZenML GmbH 2025. All Rights Reserved.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at:
+#
+#       https://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+#  or implied. See the License for the specific language governing
+#  permissions and limitations under the License.
 """Utility functions for running pipelines."""
 
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Union,
+)
 from uuid import UUID
 
 from pydantic import BaseModel
 
-from zenml import constants
 from zenml.client import Client
 from zenml.config.pipeline_run_configuration import PipelineRunConfiguration
 from zenml.config.source import Source, SourceType
 from zenml.config.step_configurations import StepConfigurationUpdate
 from zenml.enums import ExecutionStatus
-from zenml.exceptions import RunMonitoringError
 from zenml.logger import get_logger
 from zenml.models import (
     FlavorFilter,
     LogsRequest,
-    PipelineDeploymentBase,
-    PipelineDeploymentResponse,
     PipelineRunRequest,
     PipelineRunResponse,
+    PipelineRunTriggerInfo,
+    PipelineSnapshotBase,
+    PipelineSnapshotResponse,
     StackResponse,
 )
-from zenml.orchestrators.publish_utils import publish_failed_pipeline_run
 from zenml.stack import Flavor, Stack
-from zenml.utils import code_utils, notebook_utils, source_utils, string_utils
+from zenml.utils import (
+    code_utils,
+    notebook_utils,
+    source_utils,
+    string_utils,
+)
 from zenml.utils.time_utils import utc_now
 from zenml.zen_stores.base_zen_store import BaseZenStore
 
@@ -50,16 +74,18 @@ def get_default_run_name(pipeline_name: str) -> str:
 
 
 def create_placeholder_run(
-    deployment: "PipelineDeploymentResponse",
+    snapshot: "PipelineSnapshotResponse",
     orchestrator_run_id: Optional[str] = None,
     logs: Optional["LogsRequest"] = None,
+    trigger_info: Optional[PipelineRunTriggerInfo] = None,
 ) -> "PipelineRunResponse":
-    """Create a placeholder run for the deployment.
+    """Create a placeholder run for the snapshot.
 
     Args:
-        deployment: The deployment for which to create the placeholder run.
+        snapshot: The snapshot for which to create the placeholder run.
         orchestrator_run_id: The orchestrator run ID for the run.
         logs: The logs for the run.
+        trigger_info: The trigger information for the run.
 
     Returns:
         The placeholder run.
@@ -67,8 +93,8 @@ def create_placeholder_run(
     start_time = utc_now()
     run_request = PipelineRunRequest(
         name=string_utils.format_name_template(
-            name_template=deployment.run_name_template,
-            substitutions=deployment.pipeline_configuration.finalize_substitutions(
+            name_template=snapshot.run_name_template,
+            substitutions=snapshot.pipeline_configuration.finalize_substitutions(
                 start_time=start_time,
             ),
         ),
@@ -80,62 +106,15 @@ def create_placeholder_run(
         # running.
         start_time=start_time,
         orchestrator_run_id=orchestrator_run_id,
-        project=deployment.project_id,
-        deployment=deployment.id,
-        pipeline=deployment.pipeline.id if deployment.pipeline else None,
+        project=snapshot.project_id,
+        snapshot=snapshot.id,
         status=ExecutionStatus.INITIALIZING,
-        tags=deployment.pipeline_configuration.tags,
+        tags=snapshot.pipeline_configuration.tags,
         logs=logs,
+        trigger_info=trigger_info,
     )
     run, _ = Client().zen_store.get_or_create_run(run_request)
     return run
-
-
-def deploy_pipeline(
-    deployment: "PipelineDeploymentResponse",
-    stack: "Stack",
-    placeholder_run: Optional["PipelineRunResponse"] = None,
-) -> None:
-    """Run a deployment.
-
-    Args:
-        deployment: The deployment to run.
-        stack: The stack on which to run the deployment.
-        placeholder_run: An optional placeholder run for the deployment.
-
-    # noqa: DAR401
-    Raises:
-        BaseException: Any exception that happened while deploying or running
-            (in case it happens synchronously) the pipeline.
-    """
-    # Prevent execution of nested pipelines which might lead to
-    # unexpected behavior
-    previous_value = constants.SHOULD_PREVENT_PIPELINE_EXECUTION
-    constants.SHOULD_PREVENT_PIPELINE_EXECUTION = True
-    try:
-        stack.prepare_pipeline_deployment(deployment=deployment)
-        stack.deploy_pipeline(
-            deployment=deployment,
-            placeholder_run=placeholder_run,
-        )
-    except RunMonitoringError as e:
-        # Don't mark the run as failed if the error happened during monitoring
-        # of the run.
-        raise e.original_exception from None
-    except BaseException as e:
-        if (
-            placeholder_run
-            and not Client()
-            .get_pipeline_run(placeholder_run.id, hydrate=False)
-            .status.is_finished
-        ):
-            # We failed during/before the submission of the run, so we mark the
-            # run as failed if it is still in an initializing/running state.
-            publish_failed_pipeline_run(placeholder_run.id)
-
-        raise e
-    finally:
-        constants.SHOULD_PREVENT_PIPELINE_EXECUTION = previous_value
 
 
 def wait_for_pipeline_run_to_finish(run_id: UUID) -> "PipelineRunResponse":
@@ -189,38 +168,49 @@ def validate_stack_is_runnable_from_server(
         flavor_model = flavors[0]
 
         if flavor_model.is_custom:
-            raise ValueError("No custom stack component flavors allowed.")
+            raise ValueError(
+                "Unable to run pipeline from the server on a stack that "
+                "includes stack components with a custom flavor."
+            )
 
         flavor = Flavor.from_model(flavor_model)
         component_config = flavor.config_class(**component.configuration)
 
         if component_config.is_local:
-            raise ValueError("No local stack components allowed.")
+            raise ValueError(
+                "Unable to run pipeline from the server on a stack that "
+                "includes local stack components."
+            )
 
 
 def validate_run_config_is_runnable_from_server(
     run_configuration: "PipelineRunConfiguration",
+    is_dynamic: bool,
 ) -> None:
     """Validates that the run configuration can be used to run from the server.
 
     Args:
         run_configuration: The run configuration to validate.
+        is_dynamic: Whether the snapshot to run is dynamic.
 
     Raises:
         ValueError: If there are values in the run configuration that are not
             allowed when running a pipeline from the server.
     """
-    if run_configuration.parameters:
+    if run_configuration.parameters and not is_dynamic:
         raise ValueError(
-            "Can't set pipeline parameters when running pipeline via Rest API. "
-            "This likely requires refactoring your pipeline code to use step parameters "
-            "instead of pipeline parameters. For example, instead of: "
+            "Can't set pipeline parameters when running a static pipeline via "
+            "the REST API. You can either use dynamic pipelines for which you "
+            "can pass pipeline parameters, or refactore your pipeline code to "
+            "use step parameters instead of pipeline parameters. For example, "
+            "instead of: "
             "```yaml "
             "parameters: "
             "  param1: 1 "
             "  param2: 2 "
             "``` "
-            "You'll need to modify your pipeline code to pass parameters directly to steps: "
+            "You'll need to modify your pipeline code to pass parameters "
+            "directly to steps: "
             "```yaml "
             "steps: "
             "  step1: "
@@ -253,7 +243,7 @@ def validate_run_config_is_runnable_from_server(
 
 
 def upload_notebook_cell_code_if_necessary(
-    deployment: "PipelineDeploymentBase", stack: "Stack"
+    snapshot: "PipelineSnapshotBase", stack: "Stack"
 ) -> None:
     """Upload notebook cell code if necessary.
 
@@ -263,8 +253,8 @@ def upload_notebook_cell_code_if_necessary(
     an archive of all the necessary files to the artifact store.
 
     Args:
-        deployment: The deployment.
-        stack: The stack on which the deployment will happen.
+        snapshot: The snapshot.
+        stack: The stack on which the snapshot will happen.
 
     Raises:
         RuntimeError: If the code for one of the steps that will run out of
@@ -273,7 +263,7 @@ def upload_notebook_cell_code_if_necessary(
     should_upload = False
     resolved_notebook_sources = source_utils.get_resolved_notebook_sources()
 
-    for step in deployment.step_configurations.values():
+    for step in snapshot.step_configurations.values():
         source = step.spec.source
 
         if source.type == SourceType.NOTEBOOK:
@@ -316,9 +306,9 @@ def upload_notebook_cell_code_if_necessary(
                 file_name=file_name,
             )
 
-        all_deployment_sources = get_all_sources_from_value(deployment)
+        all_snapshot_sources = get_all_sources_from_value(snapshot)
 
-        for source in all_deployment_sources:
+        for source in all_snapshot_sources:
             if source.type == SourceType.NOTEBOOK:
                 setattr(source, "artifact_store_id", stack.artifact_store.id)
 

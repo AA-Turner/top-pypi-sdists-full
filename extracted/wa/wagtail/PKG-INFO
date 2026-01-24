@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wagtail
-Version: 7.1.1
+Version: 7.2.1
 Summary: A Django content management system.
 Author-email: Wagtail core team + contributors <hello@wagtail.org>
 License-Expression: BSD-3-Clause
@@ -16,11 +16,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
@@ -28,7 +28,7 @@ Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Wagtail
 Classifier: Topic :: Internet :: WWW/HTTP :: Site Management
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Django>=4.2
@@ -39,7 +39,7 @@ Requires-Dist: django-treebeard<5.0,>=4.5.1
 Requires-Dist: djangorestframework<4.0,>=3.15.1
 Requires-Dist: django-filter>=23.3
 Requires-Dist: draftjs_exporter<6.0,>=2.1.5
-Requires-Dist: Pillow<12.0.0,>=9.1.0
+Requires-Dist: Pillow>=9.1.0
 Requires-Dist: beautifulsoup4<5,>=4.8
 Requires-Dist: Willow[heif]<2,>=1.11.0
 Requires-Dist: requests<3.0,>=2.11.1
@@ -47,7 +47,8 @@ Requires-Dist: openpyxl<4.0,>=3.0.10
 Requires-Dist: anyascii>=0.1.5
 Requires-Dist: telepath<1,>=0.3.1
 Requires-Dist: laces<0.2,>=0.1
-Requires-Dist: django-tasks<0.9,>=0.8
+Requires-Dist: django-tasks<0.10,>=0.8
+Requires-Dist: modelsearch<1.2,>=1.1
 Provides-Extra: testing
 Requires-Dist: python-dateutil>=2.7; extra == "testing"
 Requires-Dist: Jinja2<3.2,>=3.0; extra == "testing"
@@ -60,7 +61,7 @@ Requires-Dist: responses<1,>=0.25; extra == "testing"
 Requires-Dist: coverage>=3.7.0; extra == "testing"
 Requires-Dist: doc8==1.1.2; extra == "testing"
 Requires-Dist: ruff==0.9.6; extra == "testing"
-Requires-Dist: semgrep==1.40.0; extra == "testing"
+Requires-Dist: semgrep==1.132.0; extra == "testing"
 Requires-Dist: curlylint==0.13.1; extra == "testing"
 Requires-Dist: djhtml==3.0.6; extra == "testing"
 Requires-Dist: polib<2.0,>=1.1; extra == "testing"
@@ -162,7 +163,7 @@ _(If you are reading this on GitHub, the details here may not be indicative of t
 Wagtail supports:
 
 -   Django 4.2.x and 5.1.x
--   Python 3.9, 3.10, 3.11, 3.12 and 3.13
+-   Python 3.10, 3.11, 3.12, 3.13, and 3.14
 -   PostgreSQL, MySQL, MariaDB and SQLite (with JSON1) as database backends
 
 [Previous versions of Wagtail](https://docs.wagtail.org/en/stable/releases/upgrading.html#compatible-django-python-versions) additionally supported Python 2.7, 3.8 and earlier Django versions.

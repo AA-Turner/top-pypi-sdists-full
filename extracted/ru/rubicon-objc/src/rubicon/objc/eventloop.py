@@ -33,10 +33,19 @@ elif sys.version_info < (3, 16):
     # with an underscore; that was reverted for RC1. See
     # https://github.com/python/cpython/issues/127949 and
     # https://github.com/python/cpython/issues/134657 for details.
-    from asyncio import (  # noqa: I001
-        AbstractEventLoopPolicy,
-        DefaultEventLoopPolicy,
-    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=(
+                r"'.*?EventLoopPolicy' is deprecated and slated for removal "
+                r"in Python 3.16"
+            ),
+            category=DeprecationWarning,
+        )
+        from asyncio import (  # noqa: I001
+            AbstractEventLoopPolicy,
+            DefaultEventLoopPolicy,
+        )
 
 __all__ = [
     "EventLoopPolicy",
@@ -217,9 +226,6 @@ class CFTimerHandle(events.TimerHandle):
 
         self._timeout = timeout
 
-        # Retain a reference to the Handle
-        self._loop._timers.add(self)
-
         # Create the timer event, and add it to the run loop.
         self._timer = libcf.CFRunLoopTimerCreate(
             kCFAllocatorDefault,
@@ -234,6 +240,11 @@ class CFTimerHandle(events.TimerHandle):
         libcf.CFRunLoopAddTimer(
             self._loop._cfrunloop, self._timer, kCFRunLoopCommonModes
         )
+
+        # Retain a reference to the Handle. This is done last to ensure that the
+        # CFTimerHandle isn't put on the loop's cancellation list unless the
+        # timer is fully created and added.
+        self._loop._timers.add(self)
 
     def cancel(self):
         """Cancel the Timer handle."""
@@ -479,9 +490,12 @@ class CFEventLoop(unix_events.SelectorEventLoop):
 
         If the argument is a coroutine, it is wrapped in a Task.
 
-        WARNING: It would be disastrous to call run_until_complete()
-        with the same coroutine twice -- it would wrap it in two
-        different Tasks and that can't be good.
+        /// warning | Warning
+
+        It would be disastrous to call run_until_complete() with the same coroutine
+        twice -- it would wrap it in two different Tasks and that can't be good.
+
+        ///
 
         Return the Future's result, or raise its exception.
         """
@@ -520,7 +534,8 @@ class CFEventLoop(unix_events.SelectorEventLoop):
             self.stop()
 
     def run_forever_cooperatively(self, lifecycle=None):
-        """A non-blocking version of :meth:`run_forever`.
+        """A non-blocking version of
+        [`run_forever()`][rubicon.objc.eventloop.run_forever].
 
         This may seem like nonsense; however, an iOS app is not expected to invoke a
         blocking "main event loop" method. As a result, we need to be able to *start*
@@ -528,7 +543,8 @@ class CFEventLoop(unix_events.SelectorEventLoop):
         actual event loop.
 
         The implementation is effectively all the parts of a call to
-        :meth:`run_forever()`, but without any of the shutdown/cleanup logic.
+        [`run_forever()`][rubicon.objc.eventloop.run_forever], but without any of the
+        shutdown/cleanup logic.
         """
         if not self._lifecycle:
             self._set_lifecycle(
@@ -685,8 +701,8 @@ if sys.version_info < (3, 16):
         threads by default have no event loop.
 
         **DEPRECATED** - Python 3.14 deprecated the concept of manually creating
-        EventLoopPolicies. Create and use a ``RubiconEventLoop`` instance instead of
-        installing an event loop policy and calling ``asyncio.new_event_loop()``.
+        EventLoopPolicies. Create and use a `RubiconEventLoop` instance instead of
+        installing an event loop policy and calling `asyncio.new_event_loop()`.
         """
 
         def __init__(self):
@@ -745,11 +761,15 @@ if sys.version_info < (3, 16):
             def get_child_watcher(self):
                 """Get the watcher for child processes.
 
-                If not yet set, a :class:`~asyncio.SafeChildWatcher` object is
-                automatically created.
+                If not yet set, a
+                [`SafeChildWatcher`](https://docs.python.org/3.13/library/asyncio-policy.html#asyncio.set_child_watcher)
+                object is automatically created.
 
-                .. note::
-                    Child watcher support was removed in Python 3.14
+                /// note | Note
+
+                Child watcher support was removed in Python 3.14
+
+                ///
                 """
                 if self._watcher is None:
                     self._init_watcher()
@@ -759,8 +779,11 @@ if sys.version_info < (3, 16):
             def set_child_watcher(self, watcher):
                 """Set the watcher for child processes.
 
-                .. note::
-                    Child watcher support was removed in Python 3.14
+                /// note | Note
+
+                Child watcher support was removed in Python 3.14
+
+                ///
                 """
                 if self._watcher is not None:
                     self._watcher.close()
@@ -804,7 +827,7 @@ class CFLifecycle:
 
 
 class CocoaLifecycle:
-    """A life cycle manager for Cocoa (``NSApplication``) apps."""
+    """A life cycle manager for Cocoa (`NSApplication`) apps."""
 
     def __init__(self, application):
         self._application = application
@@ -817,7 +840,7 @@ class CocoaLifecycle:
 
 
 class iOSLifecycle:
-    """A life cycle manager for iOS (``UIApplication``) apps."""
+    """A life cycle manager for iOS (`UIApplication`) apps."""
 
     def start(self):
         NSRunLoop.currentRunLoop.run()

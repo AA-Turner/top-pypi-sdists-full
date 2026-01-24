@@ -10,8 +10,9 @@ from scrapy import Spider
 from scrapy.http.headers import Headers
 from scrapy.utils.request import request_from_dict
 
-from crawlee import Request as ApifyRequest
 from crawlee._types import HttpHeaders
+
+from apify import Request as ApifyRequest
 
 logger = getLogger(__name__)
 
@@ -121,7 +122,7 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
 
         # Update the meta field with the meta field from the apify_request
         meta = scrapy_request.meta or {}
-        meta.update({'apify_request_id': apify_request.id, 'apify_request_unique_key': apify_request.unique_key})
+        meta.update({'apify_request_unique_key': apify_request.unique_key})
         # scrapy_request.meta is a property, so we have to set it like this
         scrapy_request._meta = meta  # noqa: SLF001
 
@@ -133,7 +134,6 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
             url=apify_request.url,
             method=apify_request.method,
             meta={
-                'apify_request_id': apify_request.id,
                 'apify_request_unique_key': apify_request.unique_key,
             },
         )

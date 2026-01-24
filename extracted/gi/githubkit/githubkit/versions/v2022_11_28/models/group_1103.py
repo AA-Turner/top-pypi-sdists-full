@@ -9,83 +9,117 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+from typing import Literal
 
 from pydantic import Field
 
-from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.compat import PYDANTIC_V2, GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class ReposOwnerRepoGitCommitsPostBody(GitHubModel):
-    """ReposOwnerRepoGitCommitsPostBody"""
+class ReposOwnerRepoCheckRunsPostBodyPropOutput(GitHubModel):
+    """ReposOwnerRepoCheckRunsPostBodyPropOutput
 
-    message: str = Field(description="The commit message")
-    tree: str = Field(description="The SHA of the tree object this commit points to")
-    parents: Missing[list[str]] = Field(
-        default=UNSET,
-        description="The full SHAs of the commits that were the parents of this commit. If omitted or empty, the commit will be written as a root commit. For a single parent, an array of one SHA should be provided; for a merge commit, an array of more than one should be provided.",
-    )
-    author: Missing[ReposOwnerRepoGitCommitsPostBodyPropAuthor] = Field(
-        default=UNSET,
-        description="Information about the author of the commit. By default, the `author` will be the authenticated user and the current date. See the `author` and `committer` object below for details.",
-    )
-    committer: Missing[ReposOwnerRepoGitCommitsPostBodyPropCommitter] = Field(
-        default=UNSET,
-        description="Information about the person who is making the commit. By default, `committer` will use the information set in `author`. See the `author` and `committer` object below for details.",
-    )
-    signature: Missing[str] = Field(
-        default=UNSET,
-        description="The [PGP signature](https://en.wikipedia.org/wiki/Pretty_Good_Privacy) of the commit. GitHub adds the signature to the `gpgsig` header of the created commit. For a commit signature to be verifiable by Git or GitHub, it must be an ASCII-armored detached PGP signature over the string commit as it would be written to the object database. To pass a `signature` parameter, you need to first manually create a valid PGP signature, which can be complicated. You may find it easier to [use the command line](https://git-scm.com/book/id/v2/Git-Tools-Signing-Your-Work) to create signed commits.",
-    )
-
-
-class ReposOwnerRepoGitCommitsPostBodyPropAuthor(GitHubModel):
-    """ReposOwnerRepoGitCommitsPostBodyPropAuthor
-
-    Information about the author of the commit. By default, the `author` will be the
-    authenticated user and the current date. See the `author` and `committer` object
-    below for details.
+    Check runs can accept a variety of data in the `output` object, including a
+    `title` and `summary` and can optionally provide descriptive details about the
+    run.
     """
 
-    name: str = Field(description="The name of the author (or committer) of the commit")
-    email: str = Field(
-        description="The email of the author (or committer) of the commit"
+    title: str = Field(description="The title of the check run.")
+    summary: str = Field(
+        max_length=65535,
+        description="The summary of the check run. This parameter supports Markdown. **Maximum length**: 65535 characters.",
     )
-    date: Missing[datetime] = Field(
+    text: Missing[str] = Field(
+        max_length=65535,
         default=UNSET,
-        description="Indicates when this commit was authored (or committed). This is a timestamp in [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format: `YYYY-MM-DDTHH:MM:SSZ`.",
+        description="The details of the check run. This parameter supports Markdown. **Maximum length**: 65535 characters.",
     )
-
-
-class ReposOwnerRepoGitCommitsPostBodyPropCommitter(GitHubModel):
-    """ReposOwnerRepoGitCommitsPostBodyPropCommitter
-
-    Information about the person who is making the commit. By default, `committer`
-    will use the information set in `author`. See the `author` and `committer`
-    object below for details.
-    """
-
-    name: Missing[str] = Field(
-        default=UNSET, description="The name of the author (or committer) of the commit"
-    )
-    email: Missing[str] = Field(
+    annotations: Missing[
+        list[ReposOwnerRepoCheckRunsPostBodyPropOutputPropAnnotationsItems]
+    ] = Field(
+        max_length=50 if PYDANTIC_V2 else None,
         default=UNSET,
-        description="The email of the author (or committer) of the commit",
+        description='Adds information from your analysis to specific lines of code. Annotations are visible on GitHub in the **Checks** and **Files changed** tab of the pull request. The Checks API limits the number of annotations to a maximum of 50 per API request. To create more than 50 annotations, you have to make multiple requests to the [Update a check run](https://docs.github.com/rest/checks/runs#update-a-check-run) endpoint. Each time you update the check run, annotations are appended to the list of annotations that already exist for the check run. GitHub Actions are limited to 10 warning annotations and 10 error annotations per step. For details about how you can view annotations on GitHub, see "[About status checks](https://docs.github.com/articles/about-status-checks#checks)".',
     )
-    date: Missing[datetime] = Field(
+    images: Missing[list[ReposOwnerRepoCheckRunsPostBodyPropOutputPropImagesItems]] = (
+        Field(
+            default=UNSET,
+            description="Adds images to the output displayed in the GitHub pull request UI.",
+        )
+    )
+
+
+class ReposOwnerRepoCheckRunsPostBodyPropOutputPropAnnotationsItems(GitHubModel):
+    """ReposOwnerRepoCheckRunsPostBodyPropOutputPropAnnotationsItems"""
+
+    path: str = Field(
+        description="The path of the file to add an annotation to. For example, `assets/css/main.css`."
+    )
+    start_line: int = Field(
+        description="The start line of the annotation. Line numbers start at 1."
+    )
+    end_line: int = Field(description="The end line of the annotation.")
+    start_column: Missing[int] = Field(
         default=UNSET,
-        description="Indicates when this commit was authored (or committed). This is a timestamp in [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format: `YYYY-MM-DDTHH:MM:SSZ`.",
+        description="The start column of the annotation. Annotations only support `start_column` and `end_column` on the same line. Omit this parameter if `start_line` and `end_line` have different values. Column numbers start at 1.",
+    )
+    end_column: Missing[int] = Field(
+        default=UNSET,
+        description="The end column of the annotation. Annotations only support `start_column` and `end_column` on the same line. Omit this parameter if `start_line` and `end_line` have different values.",
+    )
+    annotation_level: Literal["notice", "warning", "failure"] = Field(
+        description="The level of the annotation."
+    )
+    message: str = Field(
+        description="A short description of the feedback for these lines of code. The maximum size is 64 KB."
+    )
+    title: Missing[str] = Field(
+        default=UNSET,
+        description="The title that represents the annotation. The maximum size is 255 characters.",
+    )
+    raw_details: Missing[str] = Field(
+        default=UNSET,
+        description="Details about this annotation. The maximum size is 64 KB.",
     )
 
 
-model_rebuild(ReposOwnerRepoGitCommitsPostBody)
-model_rebuild(ReposOwnerRepoGitCommitsPostBodyPropAuthor)
-model_rebuild(ReposOwnerRepoGitCommitsPostBodyPropCommitter)
+class ReposOwnerRepoCheckRunsPostBodyPropOutputPropImagesItems(GitHubModel):
+    """ReposOwnerRepoCheckRunsPostBodyPropOutputPropImagesItems"""
+
+    alt: str = Field(description="The alternative text for the image.")
+    image_url: str = Field(description="The full URL of the image.")
+    caption: Missing[str] = Field(
+        default=UNSET, description="A short image description."
+    )
+
+
+class ReposOwnerRepoCheckRunsPostBodyPropActionsItems(GitHubModel):
+    """ReposOwnerRepoCheckRunsPostBodyPropActionsItems"""
+
+    label: str = Field(
+        max_length=20,
+        description="The text to be displayed on a button in the web UI. The maximum size is 20 characters.",
+    )
+    description: str = Field(
+        max_length=40,
+        description="A short explanation of what this action would do. The maximum size is 40 characters.",
+    )
+    identifier: str = Field(
+        max_length=20,
+        description="A reference for the action on the integrator's system. The maximum size is 20 characters.",
+    )
+
+
+model_rebuild(ReposOwnerRepoCheckRunsPostBodyPropOutput)
+model_rebuild(ReposOwnerRepoCheckRunsPostBodyPropOutputPropAnnotationsItems)
+model_rebuild(ReposOwnerRepoCheckRunsPostBodyPropOutputPropImagesItems)
+model_rebuild(ReposOwnerRepoCheckRunsPostBodyPropActionsItems)
 
 __all__ = (
-    "ReposOwnerRepoGitCommitsPostBody",
-    "ReposOwnerRepoGitCommitsPostBodyPropAuthor",
-    "ReposOwnerRepoGitCommitsPostBodyPropCommitter",
+    "ReposOwnerRepoCheckRunsPostBodyPropActionsItems",
+    "ReposOwnerRepoCheckRunsPostBodyPropOutput",
+    "ReposOwnerRepoCheckRunsPostBodyPropOutputPropAnnotationsItems",
+    "ReposOwnerRepoCheckRunsPostBodyPropOutputPropImagesItems",
 )

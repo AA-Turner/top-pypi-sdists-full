@@ -10,8 +10,6 @@
 #  Website: https://github.com/vacanza/holidays
 #  License: MIT (see LICENSE file)
 
-# ruff: noqa: F401
-
 from holidays.calendars.gregorian import (
     JAN,
     FEB,
@@ -40,6 +38,7 @@ HOLIDAY_NAME_DELIMITER = "; "  # Holiday names separator.
 # Supported holiday categories.
 ARMED_FORCES = "armed_forces"
 BANK = "bank"
+DE_FACTO = "de_facto"
 GOVERNMENT = "government"
 HALF_DAY = "half_day"
 OPTIONAL = "optional"

@@ -1,0 +1,44 @@
+Metadata-Version: 2.4
+Name: mergify_cli
+Version: 2026.1.19.1
+Summary: Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub
+Author-email: Mehdi Abaakouk <sileht@mergify.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Requires-Python: >=3.13
+Requires-Dist: aiofiles==25.1.0
+Requires-Dist: click-default-group==1.2.4
+Requires-Dist: click==8.3.1
+Requires-Dist: httpx==0.28.1
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.39.1
+Requires-Dist: opentelemetry-sdk==1.39.1
+Requires-Dist: pydantic==2.12.5
+Requires-Dist: pyyaml==6.0.3
+Requires-Dist: rich==14.2.0
+Requires-Dist: tenacity==9.1.2
+Description-Content-Type: text/markdown
+
+# Mergify CLI
+
+## Introduction
+
+Mergify CLI is a powerful tool designed to simplify and automate the creation
+and management of stacked pull requests on GitHub as well as handling CI
+results upload.
+
+### Stacks
+
+Before diving into its functionalities, let's grasp the concept of stacked pull
+requests and why they matter in the
+[documentation](https://docs.mergify.com/stacks/).
+
+### CI
+
+You can learn more about [CI Insights in the
+documentation](https://docs.mergify.com/ci-insights/).
+
+## Contributing
+
+We welcome and appreciate contributions from the open-source community to make
+this project better. Whether you're a developer, designer, tester, or just
+someone with a good idea, we encourage you to get involved.

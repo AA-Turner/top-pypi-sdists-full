@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -48,12 +49,6 @@ from .literals import (
     UpdateResourceCollectionActionType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -247,7 +242,7 @@ class AccountInsightHealthTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -282,11 +277,11 @@ class AnomalyTimeRangeTypeDef(TypedDict):
 
 
 class CloudFormationCollectionFilterTypeDef(TypedDict):
-    StackNames: NotRequired[List[str]]
+    StackNames: NotRequired[list[str]]
 
 
 class CloudFormationCollectionOutputTypeDef(TypedDict):
-    StackNames: NotRequired[List[str]]
+    StackNames: NotRequired[list[str]]
 
 
 class CloudFormationCollectionTypeDef(TypedDict):
@@ -294,7 +289,7 @@ class CloudFormationCollectionTypeDef(TypedDict):
 
 
 class CloudFormationCostEstimationResourceCollectionFilterOutputTypeDef(TypedDict):
-    StackNames: NotRequired[List[str]]
+    StackNames: NotRequired[list[str]]
 
 
 class CloudFormationCostEstimationResourceCollectionFilterTypeDef(TypedDict):
@@ -319,7 +314,7 @@ class CloudWatchMetricsDimensionTypeDef(TypedDict):
 
 class TagCostEstimationResourceCollectionFilterOutputTypeDef(TypedDict):
     AppBoundaryKey: str
-    TagValues: List[str]
+    TagValues: list[str]
 
 
 class TagCostEstimationResourceCollectionFilterTypeDef(TypedDict):
@@ -485,8 +480,8 @@ class LogsAnomalyDetectionIntegrationTypeDef(TypedDict):
 
 
 class NotificationFilterConfigOutputTypeDef(TypedDict):
-    Severities: NotRequired[List[InsightSeverityType]]
-    MessageTypes: NotRequired[List[NotificationMessageTypeType]]
+    Severities: NotRequired[list[InsightSeverityType]]
+    MessageTypes: NotRequired[list[NotificationMessageTypeType]]
 
 
 class SnsChannelConfigTypeDef(TypedDict):
@@ -508,7 +503,7 @@ class OpsCenterIntegrationTypeDef(TypedDict):
 
 class PerformanceInsightsMetricDimensionGroupTypeDef(TypedDict):
     Group: NotRequired[str]
-    Dimensions: NotRequired[List[str]]
+    Dimensions: NotRequired[list[str]]
     Limit: NotRequired[int]
 
 
@@ -531,7 +526,7 @@ class PredictionTimeRangeTypeDef(TypedDict):
 
 
 class ServiceCollectionOutputTypeDef(TypedDict):
-    ServiceNames: NotRequired[List[ServiceNameType]]
+    ServiceNames: NotRequired[list[ServiceNameType]]
 
 
 RecommendationRelatedAnomalyResourceTypeDef = TypedDict(
@@ -563,12 +558,12 @@ class RemoveNotificationChannelRequestTypeDef(TypedDict):
 
 class TagCollectionFilterTypeDef(TypedDict):
     AppBoundaryKey: str
-    TagValues: List[str]
+    TagValues: list[str]
 
 
 class TagCollectionOutputTypeDef(TypedDict):
     AppBoundaryKey: str
-    TagValues: List[str]
+    TagValues: list[str]
 
 
 class ServiceCollectionTypeDef(TypedDict):
@@ -657,13 +652,13 @@ class TagHealthTypeDef(TypedDict):
 
 
 class CloudWatchMetricsDataSummaryTypeDef(TypedDict):
-    TimestampMetricValuePairList: NotRequired[List[TimestampMetricValuePairTypeDef]]
+    TimestampMetricValuePairList: NotRequired[list[TimestampMetricValuePairTypeDef]]
     StatusCode: NotRequired[CloudWatchMetricDataStatusCodeType]
 
 
 class CostEstimationResourceCollectionFilterOutputTypeDef(TypedDict):
     CloudFormation: NotRequired[CloudFormationCostEstimationResourceCollectionFilterOutputTypeDef]
-    Tags: NotRequired[List[TagCostEstimationResourceCollectionFilterOutputTypeDef]]
+    Tags: NotRequired[list[TagCostEstimationResourceCollectionFilterOutputTypeDef]]
 
 
 class CostEstimationResourceCollectionFilterTypeDef(TypedDict):
@@ -757,7 +752,7 @@ class ListMonitoredResourcesRequestTypeDef(TypedDict):
 
 
 class LogAnomalyShowcaseTypeDef(TypedDict):
-    LogAnomalyClasses: NotRequired[List[LogAnomalyClassTypeDef]]
+    LogAnomalyClasses: NotRequired[list[LogAnomalyClassTypeDef]]
 
 
 class NotificationChannelConfigOutputTypeDef(TypedDict):
@@ -785,26 +780,26 @@ class ServiceIntegrationConfigTypeDef(TypedDict):
 class PerformanceInsightsMetricQueryTypeDef(TypedDict):
     Metric: NotRequired[str]
     GroupBy: NotRequired[PerformanceInsightsMetricDimensionGroupTypeDef]
-    Filter: NotRequired[Dict[str, str]]
+    Filter: NotRequired[dict[str, str]]
 
 
 class RecommendationRelatedAnomalySourceDetailTypeDef(TypedDict):
-    CloudWatchMetrics: NotRequired[List[RecommendationRelatedCloudWatchMetricsSourceDetailTypeDef]]
+    CloudWatchMetrics: NotRequired[list[RecommendationRelatedCloudWatchMetricsSourceDetailTypeDef]]
 
 
 class RecommendationRelatedEventTypeDef(TypedDict):
     Name: NotRequired[str]
-    Resources: NotRequired[List[RecommendationRelatedEventResourceTypeDef]]
+    Resources: NotRequired[list[RecommendationRelatedEventResourceTypeDef]]
 
 
 class ResourceCollectionFilterTypeDef(TypedDict):
     CloudFormation: NotRequired[CloudFormationCollectionFilterTypeDef]
-    Tags: NotRequired[List[TagCollectionFilterTypeDef]]
+    Tags: NotRequired[list[TagCollectionFilterTypeDef]]
 
 
 class ResourceCollectionOutputTypeDef(TypedDict):
     CloudFormation: NotRequired[CloudFormationCollectionOutputTypeDef]
-    Tags: NotRequired[List[TagCollectionOutputTypeDef]]
+    Tags: NotRequired[list[TagCollectionOutputTypeDef]]
 
 
 ServiceCollectionUnionTypeDef = Union[ServiceCollectionTypeDef, ServiceCollectionOutputTypeDef]
@@ -836,7 +831,7 @@ class UpdateEventSourcesConfigRequestTypeDef(TypedDict):
 class CloudWatchMetricsDetailTypeDef(TypedDict):
     MetricName: NotRequired[str]
     Namespace: NotRequired[str]
-    Dimensions: NotRequired[List[CloudWatchMetricsDimensionTypeDef]]
+    Dimensions: NotRequired[list[CloudWatchMetricsDimensionTypeDef]]
     Stat: NotRequired[CloudWatchMetricsStatType]
     Unit: NotRequired[str]
     Period: NotRequired[int]
@@ -846,7 +841,7 @@ class CloudWatchMetricsDetailTypeDef(TypedDict):
 class GetCostEstimationResponseTypeDef(TypedDict):
     ResourceCollection: CostEstimationResourceCollectionFilterOutputTypeDef
     Status: CostEstimationStatusType
-    Costs: List[ServiceResourceCostTypeDef]
+    Costs: list[ServiceResourceCostTypeDef]
     TimeRange: CostEstimationTimeRangeTypeDef
     TotalCost: float
     ResponseMetadata: ResponseMetadataTypeDef
@@ -878,7 +873,7 @@ class AnomalousLogGroupTypeDef(TypedDict):
     ImpactStartTime: NotRequired[datetime]
     ImpactEndTime: NotRequired[datetime]
     NumberOfLogLinesScanned: NotRequired[int]
-    LogAnomalyShowcases: NotRequired[List[LogAnomalyShowcaseTypeDef]]
+    LogAnomalyShowcases: NotRequired[list[LogAnomalyShowcaseTypeDef]]
 
 
 class NotificationChannelTypeDef(TypedDict):
@@ -905,8 +900,8 @@ class PerformanceInsightsReferenceMetricTypeDef(TypedDict):
 
 
 class RecommendationRelatedAnomalyTypeDef(TypedDict):
-    Resources: NotRequired[List[RecommendationRelatedAnomalyResourceTypeDef]]
-    SourceDetails: NotRequired[List[RecommendationRelatedAnomalySourceDetailTypeDef]]
+    Resources: NotRequired[list[RecommendationRelatedAnomalyResourceTypeDef]]
+    SourceDetails: NotRequired[list[RecommendationRelatedAnomalySourceDetailTypeDef]]
     AnomalyId: NotRequired[str]
 
 
@@ -924,7 +919,7 @@ class EventTypeDef(TypedDict):
     Name: NotRequired[str]
     DataSource: NotRequired[EventDataSourceType]
     EventClass: NotRequired[EventClassType]
-    Resources: NotRequired[List[EventResourceTypeDef]]
+    Resources: NotRequired[list[EventResourceTypeDef]]
 
 
 MonitoredResourceIdentifierTypeDef = TypedDict(
@@ -948,7 +943,7 @@ class ProactiveInsightSummaryTypeDef(TypedDict):
     PredictionTimeRange: NotRequired[PredictionTimeRangeTypeDef]
     ResourceCollection: NotRequired[ResourceCollectionOutputTypeDef]
     ServiceCollection: NotRequired[ServiceCollectionOutputTypeDef]
-    AssociatedResourceArns: NotRequired[List[str]]
+    AssociatedResourceArns: NotRequired[list[str]]
 
 
 class ProactiveInsightTypeDef(TypedDict):
@@ -984,7 +979,7 @@ class ReactiveInsightSummaryTypeDef(TypedDict):
     InsightTimeRange: NotRequired[InsightTimeRangeTypeDef]
     ResourceCollection: NotRequired[ResourceCollectionOutputTypeDef]
     ServiceCollection: NotRequired[ServiceCollectionOutputTypeDef]
-    AssociatedResourceArns: NotRequired[List[str]]
+    AssociatedResourceArns: NotRequired[list[str]]
 
 
 class ReactiveInsightTypeDef(TypedDict):
@@ -1015,18 +1010,18 @@ class ListAnomaliesForInsightFiltersTypeDef(TypedDict):
 
 
 class DescribeOrganizationResourceCollectionHealthResponseTypeDef(TypedDict):
-    CloudFormation: List[CloudFormationHealthTypeDef]
-    Service: List[ServiceHealthTypeDef]
-    Account: List[AccountHealthTypeDef]
-    Tags: List[TagHealthTypeDef]
+    CloudFormation: list[CloudFormationHealthTypeDef]
+    Service: list[ServiceHealthTypeDef]
+    Account: list[AccountHealthTypeDef]
+    Tags: list[TagHealthTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeResourceCollectionHealthResponseTypeDef(TypedDict):
-    CloudFormation: List[CloudFormationHealthTypeDef]
-    Service: List[ServiceHealthTypeDef]
-    Tags: List[TagHealthTypeDef]
+    CloudFormation: list[CloudFormationHealthTypeDef]
+    Service: list[ServiceHealthTypeDef]
+    Tags: list[TagHealthTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1058,13 +1053,13 @@ ListInsightsStatusFilterTypeDef = TypedDict(
 
 class ListAnomalousLogGroupsResponseTypeDef(TypedDict):
     InsightId: str
-    AnomalousLogGroups: List[AnomalousLogGroupTypeDef]
+    AnomalousLogGroups: list[AnomalousLogGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListNotificationChannelsResponseTypeDef(TypedDict):
-    Channels: List[NotificationChannelTypeDef]
+    Channels: list[NotificationChannelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1083,40 +1078,40 @@ class RecommendationTypeDef(TypedDict):
     Link: NotRequired[str]
     Name: NotRequired[str]
     Reason: NotRequired[str]
-    RelatedEvents: NotRequired[List[RecommendationRelatedEventTypeDef]]
-    RelatedAnomalies: NotRequired[List[RecommendationRelatedAnomalyTypeDef]]
+    RelatedEvents: NotRequired[list[RecommendationRelatedEventTypeDef]]
+    RelatedAnomalies: NotRequired[list[RecommendationRelatedAnomalyTypeDef]]
     Category: NotRequired[str]
 
 
 class ListEventsResponseTypeDef(TypedDict):
-    Events: List[EventTypeDef]
+    Events: list[EventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListMonitoredResourcesResponseTypeDef(TypedDict):
-    MonitoredResourceIdentifiers: List[MonitoredResourceIdentifierTypeDef]
+    MonitoredResourceIdentifiers: list[MonitoredResourceIdentifierTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListInsightsResponseTypeDef(TypedDict):
-    ProactiveInsights: List[ProactiveInsightSummaryTypeDef]
-    ReactiveInsights: List[ReactiveInsightSummaryTypeDef]
+    ProactiveInsights: list[ProactiveInsightSummaryTypeDef]
+    ReactiveInsights: list[ReactiveInsightSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class SearchInsightsResponseTypeDef(TypedDict):
-    ProactiveInsights: List[ProactiveInsightSummaryTypeDef]
-    ReactiveInsights: List[ReactiveInsightSummaryTypeDef]
+    ProactiveInsights: list[ProactiveInsightSummaryTypeDef]
+    ReactiveInsights: list[ReactiveInsightSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class SearchOrganizationInsightsResponseTypeDef(TypedDict):
-    ProactiveInsights: List[ProactiveInsightSummaryTypeDef]
-    ReactiveInsights: List[ReactiveInsightSummaryTypeDef]
+    ProactiveInsights: list[ProactiveInsightSummaryTypeDef]
+    ReactiveInsights: list[ReactiveInsightSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1128,8 +1123,8 @@ class DescribeInsightResponseTypeDef(TypedDict):
 
 
 class ListOrganizationInsightsResponseTypeDef(TypedDict):
-    ProactiveInsights: List[ProactiveOrganizationInsightSummaryTypeDef]
-    ReactiveInsights: List[ReactiveOrganizationInsightSummaryTypeDef]
+    ProactiveInsights: list[ProactiveOrganizationInsightSummaryTypeDef]
+    ReactiveInsights: list[ReactiveOrganizationInsightSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1186,7 +1181,7 @@ class PerformanceInsightsReferenceDataTypeDef(TypedDict):
 
 
 class ListRecommendationsResponseTypeDef(TypedDict):
-    Recommendations: List[RecommendationTypeDef]
+    Recommendations: list[RecommendationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1218,9 +1213,9 @@ class PerformanceInsightsMetricsDetailTypeDef(TypedDict):
     MetricDisplayName: NotRequired[str]
     Unit: NotRequired[str]
     MetricQuery: NotRequired[PerformanceInsightsMetricQueryTypeDef]
-    ReferenceData: NotRequired[List[PerformanceInsightsReferenceDataTypeDef]]
-    StatsAtAnomaly: NotRequired[List[PerformanceInsightsStatTypeDef]]
-    StatsAtBaseline: NotRequired[List[PerformanceInsightsStatTypeDef]]
+    ReferenceData: NotRequired[list[PerformanceInsightsReferenceDataTypeDef]]
+    StatsAtAnomaly: NotRequired[list[PerformanceInsightsStatTypeDef]]
+    StatsAtBaseline: NotRequired[list[PerformanceInsightsStatTypeDef]]
 
 
 class ListEventsRequestPaginateTypeDef(TypedDict):
@@ -1279,8 +1274,8 @@ SearchOrganizationInsightsRequestTypeDef = TypedDict(
 
 
 class AnomalySourceDetailsTypeDef(TypedDict):
-    CloudWatchMetrics: NotRequired[List[CloudWatchMetricsDetailTypeDef]]
-    PerformanceInsightsMetrics: NotRequired[List[PerformanceInsightsMetricsDetailTypeDef]]
+    CloudWatchMetrics: NotRequired[list[CloudWatchMetricsDetailTypeDef]]
+    PerformanceInsightsMetrics: NotRequired[list[PerformanceInsightsMetricsDetailTypeDef]]
 
 
 class ProactiveAnomalySummaryTypeDef(TypedDict):
@@ -1296,7 +1291,7 @@ class ProactiveAnomalySummaryTypeDef(TypedDict):
     ResourceCollection: NotRequired[ResourceCollectionOutputTypeDef]
     Limit: NotRequired[float]
     SourceMetadata: NotRequired[AnomalySourceMetadataTypeDef]
-    AnomalyResources: NotRequired[List[AnomalyResourceTypeDef]]
+    AnomalyResources: NotRequired[list[AnomalyResourceTypeDef]]
     Description: NotRequired[str]
 
 
@@ -1313,7 +1308,7 @@ class ProactiveAnomalyTypeDef(TypedDict):
     ResourceCollection: NotRequired[ResourceCollectionOutputTypeDef]
     Limit: NotRequired[float]
     SourceMetadata: NotRequired[AnomalySourceMetadataTypeDef]
-    AnomalyResources: NotRequired[List[AnomalyResourceTypeDef]]
+    AnomalyResources: NotRequired[list[AnomalyResourceTypeDef]]
     Description: NotRequired[str]
 
 
@@ -1332,7 +1327,7 @@ ReactiveAnomalySummaryTypeDef = TypedDict(
         "Name": NotRequired[str],
         "Description": NotRequired[str],
         "CausalAnomalyId": NotRequired[str],
-        "AnomalyResources": NotRequired[List[AnomalyResourceTypeDef]],
+        "AnomalyResources": NotRequired[list[AnomalyResourceTypeDef]],
     },
 )
 ReactiveAnomalyTypeDef = TypedDict(
@@ -1350,14 +1345,14 @@ ReactiveAnomalyTypeDef = TypedDict(
         "Name": NotRequired[str],
         "Description": NotRequired[str],
         "CausalAnomalyId": NotRequired[str],
-        "AnomalyResources": NotRequired[List[AnomalyResourceTypeDef]],
+        "AnomalyResources": NotRequired[list[AnomalyResourceTypeDef]],
     },
 )
 
 
 class ListAnomaliesForInsightResponseTypeDef(TypedDict):
-    ProactiveAnomalies: List[ProactiveAnomalySummaryTypeDef]
-    ReactiveAnomalies: List[ReactiveAnomalySummaryTypeDef]
+    ProactiveAnomalies: list[ProactiveAnomalySummaryTypeDef]
+    ReactiveAnomalies: list[ReactiveAnomalySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

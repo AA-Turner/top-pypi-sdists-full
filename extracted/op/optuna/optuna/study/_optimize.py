@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from collections.abc import Iterable
-from collections.abc import Sequence
 from concurrent.futures import FIRST_COMPLETED
-from concurrent.futures import Future
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import wait
 import copy
@@ -13,20 +9,29 @@ import gc
 import itertools
 import os
 import sys
-from typing import Any
+from typing import TYPE_CHECKING
 import warnings
 
 import optuna
 from optuna import exceptions
 from optuna import logging
 from optuna import progress_bar as pbar_module
+from optuna._warnings import optuna_warn
 from optuna.exceptions import ExperimentalWarning
 from optuna.storages._heartbeat import get_heartbeat_thread
 from optuna.storages._heartbeat import is_heartbeat_enabled
 from optuna.study._tell import _tell_with_warning
-from optuna.trial import FrozenTrial
 from optuna.trial import TrialState
 
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Iterable
+    from collections.abc import Sequence
+    from concurrent.futures import Future
+    from typing import Any
+
+    from optuna.trial import FrozenTrial
 
 _logger = logging.get_logger(__name__)
 
@@ -44,14 +49,14 @@ def _optimize(
 ) -> None:
     if not isinstance(catch, tuple):
         raise TypeError(
-            "The catch argument is of type '{}' but must be a tuple.".format(type(catch).__name__)
+            f"The catch argument is of type '{type(catch).__name__}' but must be a tuple."
         )
 
     if study._thread_local.in_optimize_loop:
         raise RuntimeError("Nested invocation of `Study.optimize` method isn't allowed.")
 
     if show_progress_bar and n_trials is None and timeout is not None and n_jobs != 1:
-        warnings.warn("The timeout-based progress bar is not supported with n_jobs != 1.")
+        optuna_warn("The timeout-based progress bar is not supported with n_jobs != 1.")
         show_progress_bar = False
 
     progress_bar = pbar_module._ProgressBar(show_progress_bar, n_trials, timeout)
@@ -228,7 +233,7 @@ def _run_trial(
             assert values is not None
             study._log_completed_trial(values, trial.number, trial.params)
         elif updated_state == TrialState.PRUNED:
-            _logger.info("Trial {} pruned. {}".format(trial.number, str(func_err)))
+            _logger.info(f"Trial {trial.number} pruned. {str(func_err)}")
         elif updated_state == TrialState.FAIL:
             if func_err is not None:
                 _log_failed_trial(
@@ -267,10 +272,11 @@ def _log_failed_trial(
     value_or_values: Any = None,
 ) -> None:
     _logger.warning(
-        "Trial {} failed with parameters: {} because of the following error: {}.".format(
-            trial_number, trial_params, message
+        (
+            f"Trial {trial_number} failed with parameters: {trial_params} "
+            f"because of the following error: {message}."
         ),
         exc_info=exc_info,
     )
 
-    _logger.warning("Trial {} failed with value {}.".format(trial_number, repr(value_or_values)))
+    _logger.warning(f"Trial {trial_number} failed with value {repr(value_or_values)}.")

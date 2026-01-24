@@ -1,0 +1,46 @@
+name: CF-Table
+
+on:
+  schedule:
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+
+jobs:
+  update-cftable:
+    if: github.repository == 'ioos/compliance-checker'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+
+    - name: Get table version
+      id: extract_version
+      run: >
+        sudo apt-get update && sudo apt-get install -y libxml2-utils
+        && wget https://cfconventions.org/Data/cf-standard-names/current/src/cf-standard-name-table.xml
+        && echo "version=$(xmllint --xpath 'string(//version_number)' cf-standard-name-table.xml)" >> $GITHUB_OUTPUT
+
+    - name: Check for changes
+      id: check_changes
+      run: >
+        mv cf-standard-name-table.xml compliance_checker/data/cf-standard-name-table.xml
+        && git diff --quiet origin/main -- "compliance_checker/data/cf-standard-name-table.xml" || echo "changed=true" >> $GITHUB_OUTPUT
+
+    - name: Create PR if file changed
+      if: steps.check_changes.outputs.changed == 'true'
+      uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e  #v7.0.8
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "Update CF-Table to the latest version"
+        branch: "cf-table-v${{ steps.extract_version.outputs.version }}"
+        title: "Update CF-Table to version ${{ steps.extract_version.outputs.version }}"
+        body: "This PR updates the standard_name_table xml file to version ${{ steps.extract_version.outputs.version }}."
+        delete-branch: true
+        labels: Bot

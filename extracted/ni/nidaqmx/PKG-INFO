@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nidaqmx
-Version: 1.2.0
+Version: 1.4.0
 Summary: NI-DAQmx Python API
 License: MIT
 Keywords: nidaqmx,nidaq,daqmx,daq
@@ -22,22 +22,25 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: System :: Hardware :: Hardware Drivers
 Provides-Extra: grpc
-Requires-Dist: click (>=8.0.0) ; python_version >= "3.10" and python_version < "4.0"
-Requires-Dist: click (>=8.0.0,<8.2.0) ; python_version == "3.9"
+Requires-Dist: click (>=8.0.0)
 Requires-Dist: deprecation (>=2.1)
 Requires-Dist: distro (>=1.9.0) ; sys_platform == "linux"
 Requires-Dist: grpcio (>=1.49.0,<2.0) ; extra == "grpc"
 Requires-Dist: hightime (>=0.2.2)
-Requires-Dist: numpy (>=1.22) ; python_version >= "3.9" and python_version < "3.12"
-Requires-Dist: numpy (>=1.26) ; python_version == "3.12"
+Requires-Dist: ni-grpcdevice-v1-proto (>=1.0.0) ; extra == "grpc"
+Requires-Dist: ni-protobuf-types (>=1.0.0) ; extra == "grpc"
+Requires-Dist: nitypes (>=1.0.1)
+Requires-Dist: numpy (>=1.22) ; python_version >= "3.9" and python_version < "3.13"
 Requires-Dist: numpy (>=2.1) ; python_version >= "3.13" and python_version < "4.0"
 Requires-Dist: protobuf (>=4.21) ; extra == "grpc"
 Requires-Dist: python-decouple (>=3.8)
 Requires-Dist: requests (>=2.25.0)
+Requires-Dist: typing_extensions (>=4.0.0)
 Requires-Dist: tzlocal (>=5.0,<6.0)
 Project-URL: Documentation, https://nidaqmx-python.readthedocs.io
 Project-URL: Repository, https://github.com/ni/nidaqmx-python
@@ -100,7 +103,10 @@ system.
 Python Version Support
 ----------------------
 
-**nidaqmx** supports CPython 3.9+ and PyPy3.
+**nidaqmx** supports CPython 3.9+.
+
+**nidaqmx** supports PyPy3 for non-gRPC use cases. For the status of PyPy support for gRPC,
+see `PyPy support (grpc/grpc#4221) <https://github.com/grpc/grpc/issues/4221>`_.
 
 Installation
 ============

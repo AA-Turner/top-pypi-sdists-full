@@ -24,7 +24,7 @@ class ScpiEnum:
             self._custom_values = {}
             for x in self.enum_type:
                 item = x.value if isinstance(x.value, str) else x.name
-                if self.has_quotes is False:
+                if not self.has_quotes:
                     self.has_quotes = ("'" in item or '"' in item)
                 self.members.append(item)
                 self._custom_values[x.name] = item
@@ -37,7 +37,7 @@ class ScpiEnum:
             return enum_value
         return self._custom_values[enum_value]
 
-    def find_in_enum_members(self, item: str, force_comma_remove: bool) -> Enum or None:
+    def find_in_enum_members(self, item: str, force_comma_remove: bool) -> Enum | None:
         """Returns either an EnumMember item or null if not found.
         The matching is done against the Members, and if unsuccessful, then against the _members_special
         The response is always a _members_raw item or None."""
@@ -72,7 +72,7 @@ class ScpiEnum:
         Returns found index in the enum_members list."""
         if ',' in item:
             trim_comma = True
-            if force_comma_remove is False:
+            if not force_comma_remove:
                 for x in enum_members:
                     if '_cma_' in x or ',' in x:
                         trim_comma = False

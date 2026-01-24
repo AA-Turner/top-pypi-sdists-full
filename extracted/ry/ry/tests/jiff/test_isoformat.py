@@ -16,7 +16,6 @@ from ..strategies import st_timezones
 @given(st.datetimes(timezones=st.none()))
 def test_datetime_isoformat(dt: pydt.datetime) -> None:
     """Test that datetime.isoformat() produces the expected string."""
-
     py_isoformat = dt.isoformat()
     ry_dt = ry.DateTime.from_pydatetime(dt)
     ry_isoformat = ry_dt.isoformat()
@@ -73,7 +72,7 @@ def datetime_does_not_exist(value: pydt.datetime) -> bool:
     from UTC.  It is an exact inverse of (and very similar to) the dateutil method
     https://dateutil.readthedocs.io/en/stable/tz.html#dateutil.tz.datetime_exists
 
-    NOTE: Taken from `hypothesis.strategies._internal.datetime`
+    **NOTE**: Taken from `hypothesis.strategies._internal.datetime`
     """
     # Naive datetimes cannot be imaginary, but we need this special case because
     # chaining .astimezone() ends with *the system local timezone*, not None.
@@ -104,17 +103,22 @@ def datetime_does_not_exist(value: pydt.datetime) -> bool:
     return value != roundtrip
 
 
-@given(st.datetimes(timezones=st_timezones(), allow_imaginary=False))
+@given(
+    st.datetimes(
+        timezones=st_timezones(),
+        allow_imaginary=False,
+        min_value=pydt.datetime(1970, 1, 1),
+        max_value=pydt.datetime(2030, 12, 31),
+    )
+)
 def test_zoned_datetime_isoformat(dt: pydt.datetime) -> None:
     """Test that ZondedDateTime.isoformat() produces the expected string."""
-
     assume(dt.tzinfo is not None)  # Ensure the datetime is timezone-aware
 
     py_isoformat = dt.isoformat()
     ry_zdt = ry.ZonedDateTime.from_pydatetime(dt)
     ry_isoformat = ry_zdt.isoformat()
     assert ry_isoformat == py_isoformat
-
     _test_zoned_datetime_isoformat(dt)
 
 

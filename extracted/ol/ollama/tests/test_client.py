@@ -61,6 +61,44 @@ def test_client_chat(httpserver: HTTPServer):
   assert response['message']['content'] == "I don't know."
 
 
+def test_client_chat_with_logprobs(httpserver: HTTPServer):
+  httpserver.expect_ordered_request(
+    '/api/chat',
+    method='POST',
+    json={
+      'model': 'dummy',
+      'messages': [{'role': 'user', 'content': 'Hi'}],
+      'tools': [],
+      'stream': False,
+      'logprobs': True,
+      'top_logprobs': 3,
+    },
+  ).respond_with_json(
+    {
+      'model': 'dummy',
+      'message': {
+        'role': 'assistant',
+        'content': 'Hello',
+      },
+      'logprobs': [
+        {
+          'token': 'Hello',
+          'logprob': -0.1,
+          'top_logprobs': [
+            {'token': 'Hello', 'logprob': -0.1},
+            {'token': 'Hi', 'logprob': -1.0},
+          ],
+        }
+      ],
+    }
+  )
+
+  client = Client(httpserver.url_for('/'))
+  response = client.chat('dummy', messages=[{'role': 'user', 'content': 'Hi'}], logprobs=True, top_logprobs=3)
+  assert response['logprobs'][0]['token'] == 'Hello'
+  assert response['logprobs'][0]['top_logprobs'][1]['token'] == 'Hi'
+
+
 def test_client_chat_stream(httpserver: HTTPServer):
   def stream_handler(_: Request):
     def generate():
@@ -292,6 +330,40 @@ def test_client_generate(httpserver: HTTPServer):
   response = client.generate('dummy', 'Why is the sky blue?')
   assert response['model'] == 'dummy'
   assert response['response'] == 'Because it is.'
+
+
+def test_client_generate_with_logprobs(httpserver: HTTPServer):
+  httpserver.expect_ordered_request(
+    '/api/generate',
+    method='POST',
+    json={
+      'model': 'dummy',
+      'prompt': 'Why',
+      'stream': False,
+      'logprobs': True,
+      'top_logprobs': 2,
+    },
+  ).respond_with_json(
+    {
+      'model': 'dummy',
+      'response': 'Hello',
+      'logprobs': [
+        {
+          'token': 'Hello',
+          'logprob': -0.2,
+          'top_logprobs': [
+            {'token': 'Hello', 'logprob': -0.2},
+            {'token': 'Hi', 'logprob': -1.5},
+          ],
+        }
+      ],
+    }
+  )
+
+  client = Client(httpserver.url_for('/'))
+  response = client.generate('dummy', 'Why', logprobs=True, top_logprobs=2)
+  assert response['logprobs'][0]['token'] == 'Hello'
+  assert response['logprobs'][0]['top_logprobs'][1]['token'] == 'Hi'
 
 
 def test_client_generate_with_image_type(httpserver: HTTPServer):
@@ -1195,3 +1267,83 @@ async def test_arbitrary_roles_accepted_in_message_request_async(monkeypatch: py
   client = AsyncClient()
 
   await client.chat(model='llama3.1', messages=[{'role': 'somerandomrole', 'content': "I'm ok with you adding any role message now!"}, {'role': 'user', 'content': 'Hello world!'}])
+
+
+def test_client_web_search_requires_bearer_auth_header(monkeypatch: pytest.MonkeyPatch):
+  monkeypatch.delenv('OLLAMA_API_KEY', raising=False)
+
+  client = Client()
+
+  with pytest.raises(ValueError, match='Authorization header with Bearer token is required for web search'):
+    client.web_search('test query')
+
+
+def test_client_web_fetch_requires_bearer_auth_header(monkeypatch: pytest.MonkeyPatch):
+  monkeypatch.delenv('OLLAMA_API_KEY', raising=False)
+
+  client = Client()
+
+  with pytest.raises(ValueError, match='Authorization header with Bearer token is required for web fetch'):
+    client.web_fetch('https://example.com')
+
+
+def _mock_request_web_search(self, cls, method, url, json=None, **kwargs):
+  assert method == 'POST'
+  assert url == 'https://ollama.com/api/web_search'
+  assert json is not None and 'query' in json and 'max_results' in json
+  return httpxResponse(status_code=200, content='{"results": {}, "success": true}')
+
+
+def _mock_request_web_fetch(self, cls, method, url, json=None, **kwargs):
+  assert method == 'POST'
+  assert url == 'https://ollama.com/api/web_fetch'
+  assert json is not None and 'url' in json
+  return httpxResponse(status_code=200, content='{"results": {}, "success": true}')
+
+
+def test_client_web_search_with_env_api_key(monkeypatch: pytest.MonkeyPatch):
+  monkeypatch.setenv('OLLAMA_API_KEY', 'test-key')
+  monkeypatch.setattr(Client, '_request', _mock_request_web_search)
+
+  client = Client()
+  client.web_search('what is ollama?', max_results=2)
+
+
+def test_client_web_fetch_with_env_api_key(monkeypatch: pytest.MonkeyPatch):
+  monkeypatch.setenv('OLLAMA_API_KEY', 'test-key')
+  monkeypatch.setattr(Client, '_request', _mock_request_web_fetch)
+
+  client = Client()
+  client.web_fetch('https://example.com')
+
+
+def test_client_web_search_with_explicit_bearer_header(monkeypatch: pytest.MonkeyPatch):
+  monkeypatch.delenv('OLLAMA_API_KEY', raising=False)
+  monkeypatch.setattr(Client, '_request', _mock_request_web_search)
+
+  client = Client(headers={'Authorization': 'Bearer custom-token'})
+  client.web_search('what is ollama?', max_results=1)
+
+
+def test_client_web_fetch_with_explicit_bearer_header(monkeypatch: pytest.MonkeyPatch):
+  monkeypatch.delenv('OLLAMA_API_KEY', raising=False)
+  monkeypatch.setattr(Client, '_request', _mock_request_web_fetch)
+
+  client = Client(headers={'Authorization': 'Bearer custom-token'})
+  client.web_fetch('https://example.com')
+
+
+def test_client_bearer_header_from_env(monkeypatch: pytest.MonkeyPatch):
+  monkeypatch.setenv('OLLAMA_API_KEY', 'env-token')
+
+  client = Client()
+  assert client._client.headers['authorization'] == 'Bearer env-token'
+
+
+def test_client_explicit_bearer_header_overrides_env(monkeypatch: pytest.MonkeyPatch):
+  monkeypatch.setenv('OLLAMA_API_KEY', 'env-token')
+  monkeypatch.setattr(Client, '_request', _mock_request_web_search)
+
+  client = Client(headers={'Authorization': 'Bearer explicit-token'})
+  assert client._client.headers['authorization'] == 'Bearer explicit-token'
+  client.web_search('override check')

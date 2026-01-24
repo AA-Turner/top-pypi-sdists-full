@@ -33,12 +33,7 @@ class Environment:
     The version is a string, consisting of an integer.
     """
 
-    jar_dependencies: VariableOrList[str] = field(default_factory=list)
-    """
-    :meta private: [EXPERIMENTAL]
-    
-    List of jar dependencies, should be string representing volume paths. For example: `/Volumes/path/to/test.jar`.
-    """
+    java_dependencies: VariableOrList[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, value: "EnvironmentDict") -> "Self":
@@ -68,12 +63,7 @@ class EnvironmentDict(TypedDict, total=False):
     The version is a string, consisting of an integer.
     """
 
-    jar_dependencies: VariableOrList[str]
-    """
-    :meta private: [EXPERIMENTAL]
-    
-    List of jar dependencies, should be string representing volume paths. For example: `/Volumes/path/to/test.jar`.
-    """
+    java_dependencies: VariableOrList[str]
 
 
 EnvironmentParam = EnvironmentDict | Environment

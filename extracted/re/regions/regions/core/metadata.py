@@ -50,14 +50,25 @@ class Meta(dict):
         return super().__getitem__(item)
 
     def update(self, *args, **kwargs):
+        """
+        Update the metadata with the input dictionary.
+
+        Parameters
+        ----------
+        *args : dict-like
+            A dictionary or other mapping object to update the metadata.
+
+        **kwargs : dict-like
+            Additional keyword arguments to update the metadata.
+        """
         if args:
             if len(args) > 1:
                 raise ValueError('Only one argument can be input')
             other = dict(args[0])
-            for key in other:
-                self[key] = other[key]
-        for key in kwargs:
-            self[key] = kwargs[key]
+            for key, value in other.items():
+                self[key] = value
+        for key, value in kwargs.items():
+            self[key] = value
 
     def setdefault(self, key, value=None):
         if key not in self:

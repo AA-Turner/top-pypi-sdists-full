@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import ast
 import asyncio
 import copy
 import functools
 import hashlib
 import importlib
+import importlib.metadata
 import importlib.resources
-import importlib.util
 import inspect
 import json
-import json.decoder
 import os
 import pkgutil
 import posixpath
@@ -61,9 +59,11 @@ import httpx
 import orjson
 from gradio_client.documentation import document
 from gradio_client.exceptions import AppError
+from packaging import version
 from typing_extensions import ParamSpec
 
 import gradio
+from gradio import themes
 from gradio.context import get_blocks_context
 from gradio.data_classes import (
     BlocksConfigDict,
@@ -72,15 +72,32 @@ from gradio.data_classes import (
     UserProvidedPath,
 )
 from gradio.exceptions import Error, InvalidPathError
+from gradio.themes import Default as DefaultTheme
+from gradio.themes import ThemeClass as Theme
 
 if TYPE_CHECKING:  # Only import for type checking (is False at runtime).
     from gradio.blocks import BlockContext, Blocks
     from gradio.components import Component
+    from gradio.components.button import Button
     from gradio.routes import App, Request
     from gradio.state_holder import SessionState
 
 P = ParamSpec("P")
 T = TypeVar("T")
+
+BUILT_IN_THEMES: dict[str, Theme] = {  # type: ignore
+    t.name: t
+    for t in [
+        themes.Base(),
+        themes.Default(),
+        themes.Monochrome(),
+        themes.Soft(),
+        themes.Glass(),
+        themes.Origin(),
+        themes.Citrus(),
+        themes.Ocean(),
+    ]
+}
 
 
 def get_package_version() -> str:
@@ -138,6 +155,17 @@ class BaseReloader(ABC):
     def running_app(self) -> App:
         pass
 
+    def get_attribute(self, attr: str, demo) -> Any:
+        if (
+            hasattr(demo, f"_deprecated_{attr}")
+            and getattr(demo, f"_deprecated_{attr}") is not None
+        ):
+            return getattr(demo, f"_deprecated_{attr}")
+        elif hasattr(demo, attr) and getattr(demo, attr) is not None:
+            return getattr(demo, attr)
+        else:
+            return getattr(self.running_app.blocks, attr)
+
     def swap_blocks(self, demo: Blocks):
         assert self.running_app.blocks  # noqa: S101
         # Copy over the blocks to get new components and events but
@@ -148,13 +176,91 @@ class BaseReloader(ABC):
         demo.is_running = True
         demo.allowed_paths = self.running_app.blocks.allowed_paths
         demo.blocked_paths = self.running_app.blocks.blocked_paths
+
+        demo.theme = self.get_attribute("theme", demo)
+        demo.css = self.get_attribute("css", demo)
+        demo.css_paths = self.get_attribute("css_paths", demo)
+        demo.js = self.get_attribute("js", demo)
+        demo.head = self.get_attribute("head", demo)
+        demo.head_paths = self.get_attribute("head_paths", demo)
+        demo._set_html_css_theme_variables()
         self.running_app.state_holder.set_blocks(demo)
         for session in self.running_app.state_holder.session_data.values():
             session.blocks_config = copy.copy(demo.default_config)
         self.running_app.blocks = demo
 
 
-class SourceFileReloader(BaseReloader):
+class ServerReloader(BaseReloader):
+    @property
+    @abstractmethod
+    def stop_event(self) -> threading.Event:
+        pass
+
+    def stop(self) -> None:
+        self.stop_event.set()
+
+    def get_demo_name(self, module: ModuleType, default_name: str) -> str:
+        def log(*args):
+            print("GRADIO_HOT_RELOAD:", *args)
+
+        if (demo := self.running_app.blocks) is None:
+            log("Unexpected undefined blocks in launching app")
+            return default_name
+        if default_name:
+            if module.__dict__.get(default_name) is not demo:
+                log(f"'{default_name}' in {module.__name__} is not the launched demo")
+            return default_name
+        for name, value in module.__dict__.copy().items():
+            if value is demo:
+                if name != "demo":
+                    log(f"Using '{name}' for demo name")
+                return name
+        log(f"Launching demo not found in {module.__name__}. Using 'demo'")
+        return "demo"
+
+
+class SpacesReloader(ServerReloader):
+    def __init__(
+        self,
+        app: App,
+        watch_dirs: list[str],
+        watch_module: ModuleType,
+        stop_event: threading.Event,
+        demo_name: str,
+    ):
+        from gradio.cli.commands.reload import reload_thread
+
+        self.app = app
+        self.demo_name = self.get_demo_name(watch_module, demo_name)
+        self.watch_dirs = watch_dirs
+        self.watch_module = watch_module
+        self.reload_thread = reload_thread
+        self._stop_event = stop_event
+
+    @property
+    def running_app(self) -> App:
+        return self.app
+
+    @property
+    def stop_event(self) -> threading.Event:
+        return self._stop_event
+
+    def prerun(self, *_args, **_kwargs):
+        NO_RELOAD.set(False)
+        self.reload_thread.running_reload = True
+
+    def postrun(self, *_args, **_kwargs):
+        NO_RELOAD.set(True)
+        demo = getattr(self.watch_module, self.demo_name)
+        if demo is not self.running_app.blocks:
+            self.swap_blocks(demo)
+            # TODO: re-assign keys?
+            # TODO: re-assign config?
+            return True
+        return False
+
+
+class SourceFileReloader(ServerReloader):
     def __init__(
         self,
         app: App,
@@ -163,15 +269,16 @@ class SourceFileReloader(BaseReloader):
         demo_file: str,
         watch_module: ModuleType,
         stop_event: threading.Event,
-        demo_name: str = "demo",
+        demo_name: str,
         encoding="utf-8",
     ) -> None:
         super().__init__()
         self.app = app
         self.watch_dirs = watch_dirs
         self.watch_module_name = watch_module_name
-        self.stop_event = stop_event
-        self.demo_name = demo_name
+        self._stop_event = stop_event
+        self.demo_name = self.get_demo_name(watch_module, demo_name)
+        print("Watching demo:", self.demo_name)
         self.demo_file = Path(demo_file)
         self.watch_module = watch_module
         self.encoding = encoding
@@ -180,11 +287,12 @@ class SourceFileReloader(BaseReloader):
     def running_app(self) -> App:
         return self.app
 
+    @property
+    def stop_event(self) -> threading.Event:
+        return self._stop_event
+
     def should_watch(self) -> bool:
         return not self.stop_event.is_set()
-
-    def stop(self) -> None:
-        self.stop_event.set()
 
     def alert_change(self, change_type: Literal["reload", "error"] = "reload"):
         self.app.change_type = change_type
@@ -199,52 +307,30 @@ class SourceFileReloader(BaseReloader):
         self.alert_change("reload")
 
 
-def _remove_if_name_main_codeblock(file_path: str, encoding: str = "utf-8"):
-    """Parse the file, remove the gr.no_reload code blocks, and write the file back to disk.
+def watchfn_spaces(reloader: SpacesReloader):
+    try:
+        spaces_version = importlib.metadata.version("spaces")
+    except importlib.metadata.PackageNotFoundError:
+        raise RuntimeError(
+            "`spaces` package is required to run hot-reloading in Spaces"
+        ) from None
 
-    Parameters:
-        file_path (str): The path to the file to remove the no_reload code blocks from.
-    """
+    min_version = version.parse("0.43.0")
+    if version.parse(spaces_version) < min_version:
+        raise RuntimeError(f"Spaces hot-reloading requires `spaces>{min_version}`")
 
-    with open(file_path, encoding=encoding) as file:
-        code = file.read()
+    from spaces.reloading import (  # ty: ignore[unresolved-import] # noqa: I001
+        start_reload_server,
+    )
 
-    tree = ast.parse(code)
-
-    def _is_if_name_main(expr: ast.AST) -> bool:
-        """Find the if __name__ == '__main__': block."""
-        return (
-            isinstance(expr, ast.If)
-            and isinstance(expr.test, ast.Compare)
-            and isinstance(expr.test.left, ast.Name)
-            and expr.test.left.id == "__name__"
-            and len(expr.test.ops) == 1
-            and isinstance(expr.test.ops[0], ast.Eq)
-            and isinstance(expr.test.comparators[0], ast.Constant)
-            and expr.test.comparators[0].s == "__main__"
-        )
-
-    # Find the positions of the code blocks to load
-    for node in ast.walk(tree):
-        if _is_if_name_main(node):
-            assert isinstance(node, ast.If)  # noqa: S101
-            node.body = [ast.Pass(lineno=node.lineno, col_offset=node.col_offset)]
-
-    # convert tree to string
-    code_removed = compile(tree, filename=file_path, mode="exec")
-    return code_removed
+    start_reload_server(
+        prerun=reloader.prerun,
+        postrun=reloader.postrun,
+        stop_event=reloader.stop_event,
+    )
 
 
-def _find_module(source_file: Path) -> ModuleType | None:
-    for s, v in sys.modules.items():
-        if s not in {"__main__", "__mp_main__"} and getattr(v, "__file__", None) == str(
-            source_file
-        ):
-            return v
-    return None
-
-
-def watchfn(reloader: SourceFileReloader):
+def watchfn(reloader: SourceFileReloader) -> None:
     """Watch python files in a given module.
 
     get_changes is taken from uvicorn's default file watcher.
@@ -306,8 +392,8 @@ def watchfn(reloader: SourceFileReloader):
     # Need to import the module in this thread so that the
     # module is available in the namespace of this thread
     module = reloader.watch_module
-    no_reload_source_code = _remove_if_name_main_codeblock(
-        str(reloader.demo_file), encoding=reloader.encoding
+    no_reload_source_code = Path(str(reloader.demo_file)).read_text(
+        encoding=reloader.encoding
     )
     # Reset the context to id 0 so that the loaded module is the same as the original
     # See https://github.com/gradio-app/gradio/issues/10253
@@ -340,8 +426,8 @@ def watchfn(reloader: SourceFileReloader):
 
                 NO_RELOAD.set(False)
                 # Remove the gr.no_reload code blocks and exec in the new module's dict
-                no_reload_source_code = _remove_if_name_main_codeblock(
-                    str(reloader.demo_file), encoding=reloader.encoding
+                no_reload_source_code = Path(str(reloader.demo_file)).read_text(
+                    encoding=reloader.encoding
                 )
                 exec(no_reload_source_code, module.__dict__)
 
@@ -470,6 +556,21 @@ def get_space() -> str | None:
 
 def is_zero_gpu_space() -> bool:
     return os.getenv("SPACES_ZERO_GPU") == "true"
+
+
+def get_theme(theme: Theme | str | None) -> Theme:
+    if theme is None:
+        theme = DefaultTheme()
+    elif isinstance(theme, str):
+        if theme.lower() in BUILT_IN_THEMES:
+            theme = BUILT_IN_THEMES[theme.lower()]
+        else:
+            try:
+                theme = Theme.from_hub(theme)
+            except Exception as e:
+                warnings.warn(f"Cannot load {theme}. Caught Exception: {str(e)}")
+                theme = DefaultTheme()
+    return theme
 
 
 def download_if_url(article: str) -> str:
@@ -785,14 +886,34 @@ def sanitize_value_for_csv(value: str | float) -> str | float:
     Sanitizes a value that is being written to a CSV file to prevent CSV injection attacks.
     Reference: https://owasp.org/www-community/attacks/CSV_Injection
     """
+    # Numbers are always safe in CSV context
     if isinstance(value, (float, int)):
         return value
+
+    # Coerce non-strings (e.g. tuples) to string defensively
+    if not isinstance(value, str):
+        value = str(value)
+
+    # Special handling for JSON-like values
+    if value.startswith(("{", "[")):
+        try:
+            parsed = json.loads(value)
+            # Return normalized, safe JSON
+            return json.dumps(parsed)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            # Not valid JSON → treat as normal string
+            pass
+
+    # Typical CSV injection protection
     unsafe_prefixes = ["=", "+", "-", "@", "\t", "\n"]
     unsafe_sequences = [",=", ",+", ",-", ",@", ",\t", ",\n"]
+
+    # If starts with any unsafe prefix or contains an unsafe sequence
     if any(value.startswith(prefix) for prefix in unsafe_prefixes) or any(
         sequence in value for sequence in unsafe_sequences
     ):
-        value = f"'{value}"
+        return f"'{value}"
+
     return value
 
 
@@ -1514,6 +1635,7 @@ def error_payload(
             content["title"] = error.title
         else:
             content["error"] = str(error)
+            content["visible"] = show_error
     return content
 
 
@@ -1813,3 +1935,16 @@ async def safe_aclose_iterator(iterator, timeout=60.0, retry_interval=0.05):
                     raise
     else:
         iterator.aclose()
+
+
+def set_default_buttons(
+    buttons: Sequence[str | Button] | None = None,
+    default_buttons: list[str] | None = None,
+) -> Sequence[str | Button]:
+    from gradio.components.button import Button
+
+    if buttons is None:
+        return default_buttons or []
+    else:
+        [btn.unrender() for btn in buttons if isinstance(btn, Button)]
+        return buttons

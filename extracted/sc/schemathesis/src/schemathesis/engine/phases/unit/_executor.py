@@ -3,12 +3,12 @@ from __future__ import annotations
 import time
 import unittest
 import uuid
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 from warnings import WarningMessage, catch_warnings
 
 import requests
 from hypothesis.errors import InvalidArgument
-from hypothesis_jsonschema._canonicalise import HypothesisRefResolutionError
 from jsonschema.exceptions import SchemaError as JsonSchemaError
 from jsonschema.exceptions import ValidationError
 from requests.exceptions import ChunkedEncodingError
@@ -20,12 +20,14 @@ from schemathesis.core.compat import BaseExceptionGroup
 from schemathesis.core.control import SkipTest
 from schemathesis.core.errors import (
     SERIALIZERS_SUGGESTION_MESSAGE,
+    AuthenticationError,
     InternalError,
     InvalidHeadersExample,
     InvalidRegexPattern,
     InvalidRegexType,
     InvalidSchema,
     MalformedMediaType,
+    SchemaLocation,
     SerializationNotPossible,
 )
 from schemathesis.core.failures import Failure, FailureGroup
@@ -37,7 +39,6 @@ from schemathesis.engine.errors import (
     TestingState,
     UnexpectedError,
     UnrecoverableNetworkError,
-    UnsupportedRecursiveReference,
     clear_hypothesis_notes,
     deduplicate_errors,
     is_unrecoverable_network_error,
@@ -47,13 +48,19 @@ from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.generation import metrics, overrides
 from schemathesis.generation.case import Case
 from schemathesis.generation.hypothesis.builder import (
+    InfiniteRecursiveReferenceMark,
     InvalidHeadersExampleMark,
     InvalidRegexMark,
     MissingPathParameters,
     NonSerializableMark,
+    UnresolvableReferenceMark,
     UnsatisfiableExampleMark,
 )
-from schemathesis.generation.hypothesis.reporting import ignore_hypothesis_output
+from schemathesis.generation.hypothesis.reporting import (
+    build_health_check_error,
+    build_unsatisfiable_error,
+    ignore_hypothesis_output,
+)
 
 if TYPE_CHECKING:
     from schemathesis.schemas import APIOperation
@@ -66,12 +73,11 @@ def run_test(
     ctx: EngineContext,
     phase: PhaseName,
     suite_id: uuid.UUID,
+    scenario_id: uuid.UUID,
 ) -> events.EventGenerator:
     """A single test run with all error handling needed."""
     import hypothesis.errors
 
-    scenario_started = events.ScenarioStarted(label=operation.label, phase=phase, suite_id=suite_id)
-    yield scenario_started
     errors: list[Exception] = []
     skip_reason = None
     error: Exception
@@ -86,7 +92,7 @@ def run_test(
 
     def scenario_finished(status: Status) -> events.ScenarioFinished:
         return events.ScenarioFinished(
-            id=scenario_started.id,
+            id=scenario_id,
             suite_id=suite_id,
             phase=phase,
             label=operation.label,
@@ -159,12 +165,24 @@ def run_test(
             status = Status.ERROR
         else:
             status = Status.FAILURE
-    except BaseExceptionGroup:
+    except BaseExceptionGroup as exc:
         status = Status.ERROR
+        # Check if any exception in the group is an unrecoverable network error
+        for sub_exc in exc.exceptions:
+            code_sample = state.get_code_sample_for(sub_exc)
+            if code_sample is not None:
+                clear_hypothesis_notes(sub_exc)
+                yield non_fatal_error(sub_exc, code_sample=code_sample)
+    except hypothesis.errors.FailedHealthCheck as exc:
+        status = Status.ERROR
+        yield non_fatal_error(build_health_check_error(operation, exc, with_tip=False))
     except hypothesis.errors.Unsatisfiable:
         # We need more clear error message here
         status = Status.ERROR
-        yield non_fatal_error(hypothesis.errors.Unsatisfiable("Failed to generate test cases for this API operation"))
+        yield non_fatal_error(build_unsatisfiable_error(operation, with_tip=False))
+    except AuthenticationError as exc:
+        status = Status.ERROR
+        yield non_fatal_error(exc)
     except KeyboardInterrupt:
         yield scenario_finished(Status.INTERRUPTED)
         yield events.Interrupted(phase=phase)
@@ -173,14 +191,24 @@ def run_test(
         status = Status.ERROR
         try:
             operation.schema.validate()
-            msg = "Unexpected error during testing of this API operation"
-            exc_msg = str(exc)
-            if exc_msg:
-                msg += f": {exc_msg}"
-            try:
-                raise InternalError(msg) from exc
-            except InternalError as exc:
-                yield non_fatal_error(exc)
+            # JSON Schema validation can miss it if there is `$ref` adjacent to `type` on older specifications
+            if str(exc).startswith("Unknown type"):
+                yield non_fatal_error(
+                    InvalidSchema(
+                        message=str(exc),
+                        path=operation.path,
+                        method=operation.method,
+                    )
+                )
+            else:
+                msg = "Unexpected error during testing of this API operation"
+                exc_msg = str(exc)
+                if exc_msg:
+                    msg += f": {exc_msg}"
+                try:
+                    raise InternalError(msg) from exc
+                except InternalError as exc:
+                    yield non_fatal_error(exc)
         except ValidationError as exc:
             yield non_fatal_error(
                 InvalidSchema.from_jsonschema_error(
@@ -188,11 +216,11 @@ def run_test(
                     path=operation.path,
                     method=operation.method,
                     config=ctx.config.output,
+                    location=SchemaLocation.maybe_from_error_path(
+                        list(exc.absolute_path), ctx.schema.specification.version
+                    ),
                 )
             )
-    except HypothesisRefResolutionError:
-        status = Status.ERROR
-        yield non_fatal_error(UnsupportedRecursiveReference())
     except InvalidArgument as exc:
         status = Status.ERROR
         message = get_invalid_regular_expression_message(warnings)
@@ -200,7 +228,11 @@ def run_test(
             # `hypothesis-jsonschema` emits a warning on invalid regular expression syntax
             yield non_fatal_error(InvalidRegexPattern.from_hypothesis_jsonschema_message(message))
         else:
-            yield non_fatal_error(exc)
+            health_check = build_health_check_error(operation, exc, with_tip=False)
+            if isinstance(health_check, hypothesis.errors.FailedHealthCheck):
+                yield non_fatal_error(health_check)
+            else:
+                yield non_fatal_error(exc)
     except hypothesis.errors.DeadlineExceeded as exc:
         status = Status.ERROR
         yield non_fatal_error(DeadlineExceeded.from_exc(exc))
@@ -219,9 +251,7 @@ def run_test(
                 )
             )
         else:
-            code_sample: str | None = None
-            if state.unrecoverable_network_error is not None and state.unrecoverable_network_error.error is exc:
-                code_sample = state.unrecoverable_network_error.code_sample
+            code_sample = state.get_code_sample_for(exc)
             yield non_fatal_error(exc, code_sample=code_sample)
     if (
         status == Status.SUCCESS
@@ -265,8 +295,39 @@ def run_test(
         status = Status.ERROR
         yield non_fatal_error(missing_path_parameters)
 
+    infinite_recursive_reference = InfiniteRecursiveReferenceMark.get(test_function)
+    if infinite_recursive_reference:
+        status = Status.ERROR
+        yield non_fatal_error(infinite_recursive_reference)
+
+    unresolvable_reference = UnresolvableReferenceMark.get(test_function)
+    if unresolvable_reference:
+        status = Status.ERROR
+        yield non_fatal_error(unresolvable_reference)
+
     for error in deduplicate_errors(errors):
         yield non_fatal_error(error)
+
+    # Collect successful responses to use in subsequent test generation
+    # In the future, collecting unsuccessful responses also could be useful
+    # to understand if some generated data is always rejected
+    phases_config = ctx.config.phases_for(operation=operation)
+    fuzzing_config = phases_config.fuzzing
+    # Record responses from ALL phases (examples, coverage, fuzzing) when fuzzing uses extra data sources.
+    # This creates a feedback loop: earlier phases discover valid IDs/tokens, fuzzing reuses them to test
+    # dependent operations. For example, POST /users creates user IDs that GET /users/{id} can reference.
+    extra_data_source = (
+        ctx.extra_data_source if fuzzing_config.enabled and fuzzing_config.extra_data_sources.is_enabled else None
+    )
+    if extra_data_source is not None:
+        for case_id, interaction in recorder.interactions.items():
+            response = interaction.response
+            if response is None:
+                continue
+            case = recorder.cases[case_id].value
+            # Record response data for operations that produce resources
+            if extra_data_source.should_record(operation=operation.label):
+                extra_data_source.record_response(operation=operation, response=response, case=case)
 
     yield scenario_finished(status)
 
@@ -276,7 +337,7 @@ def setup_hypothesis_database_key(test: Callable, operation: APIOperation) -> No
 
     It increases the effectiveness of the Hypothesis database in the CLI.
     """
-    test.hypothesis.inner_test._hypothesis_internal_add_digest = operation.label.encode("utf8")  # type: ignore
+    test.hypothesis.inner_test._hypothesis_internal_add_digest = operation.label.encode("utf8")  # type: ignore[attr-defined]
 
 
 def get_invalid_regular_expression_message(warnings: list[WarningMessage]) -> str | None:
@@ -311,6 +372,7 @@ def cached_test_func(f: Callable) -> Callable:
                     return None
                 try:
                     f(
+                        ctx=ctx,
                         case=case,
                         check_ctx=check_ctx,
                         recorder=recorder,
@@ -325,6 +387,7 @@ def cached_test_func(f: Callable) -> Callable:
                     ctx.cache_outcome(case, None)
             else:
                 f(
+                    ctx=ctx,
                     case=case,
                     check_ctx=check_ctx,
                     recorder=recorder,
@@ -336,18 +399,21 @@ def cached_test_func(f: Callable) -> Callable:
             raise
         except Exception as exc:
             if isinstance(
-                exc, (requests.ConnectionError, ChunkedEncodingError, requests.Timeout)
+                exc, requests.ConnectionError | ChunkedEncodingError | requests.Timeout
             ) and is_unrecoverable_network_error(exc):
                 # Server likely has crashed and does not accept any connections at all
                 # Don't report these error - only the original crash should be reported
                 if exc.request is not None:
-                    headers = {key: value[0] for key, value in exc.request.headers.items()}
+                    headers = dict(exc.request.headers)
                 else:
                     headers = {**dict(case.headers or {}), **transport_kwargs.get("headers", {})}
                 verify = transport_kwargs.get("verify", True)
-                state.unrecoverable_network_error = UnrecoverableNetworkError(
-                    error=exc,
-                    code_sample=case.as_curl_command(headers=headers, verify=verify),
+                code_sample = case.as_curl_command(headers=headers, verify=verify)
+                state.store_unrecoverable_network_error(
+                    UnrecoverableNetworkError(
+                        error=exc,
+                        code_sample=code_sample,
+                    )
                 )
                 raise
             errors.append(exc)
@@ -361,6 +427,7 @@ def cached_test_func(f: Callable) -> Callable:
 @cached_test_func
 def test_func(
     *,
+    ctx: EngineContext,
     case: Case,
     check_ctx: CheckContext,
     recorder: ScenarioRecorder,
@@ -368,7 +435,7 @@ def test_func(
     transport_kwargs: dict[str, Any],
     continue_on_failure: bool,
 ) -> None:
-    recorder.record_case(parent_id=None, transition=None, case=case)
+    recorder.record_case(parent_id=None, case=case, transition=None, is_transition_applied=False)
     try:
         response = case.call(**transport_kwargs)
     except (requests.Timeout, requests.ConnectionError, ChunkedEncodingError) as error:
@@ -378,6 +445,13 @@ def test_func(
             recorder.record_request(case_id=case.id, request=error.request)
         raise
     recorder.record_response(case_id=case.id, response=response)
+    # Record DELETE attempts immediately to influence subsequent strategy draws.
+    # Include both successful (2xx) and 404 responses - each attempt increases decay
+    # to avoid hammering the same resource repeatedly.
+    if ctx.extra_data_source is not None:
+        status = response.status_code
+        if 200 <= status < 300 or status == 404:
+            ctx.extra_data_source.record_successful_delete(operation=case.operation, case=case)
     metrics.maximize(generation.maximize, case=case, response=response)
     validate_response(
         case=case,

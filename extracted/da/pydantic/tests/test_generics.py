@@ -321,7 +321,7 @@ def test_parameter_count():
 
     # This error message, which comes from `typing`, changed 'parameters' to 'arguments' in 3.11
     error_message = str(exc_info.value)
-    assert error_message.startswith('Too many parameters') or error_message.startswith('Too many arguments')
+    assert error_message.startswith(('Too many parameters', 'Too many arguments'))
     assert error_message.endswith(
         " for <class 'tests.test_generics.test_parameter_count.<locals>.Model'>; actual 3, expected 2"
     )
@@ -1719,6 +1719,31 @@ def test_generic_recursive_models_parametrized_with_model() -> None:
         # In v2.0-2.10, this unexpectedly validated fine (The core schema of Base[Other].t was an empty model).
         # Since v2.11, building `Other` raised an unhandled exception.
         # Now, it works as expected.
+        Base[Other].model_validate({'t': {}})
+
+    Base[Other].model_validate({'t': {'child': {'t': {'child': None}}}})
+
+
+def test_generic_recursive_models_parametrized_with_model_subclass() -> None:
+    """https://github.com/pydantic/pydantic/issues/12396.
+
+    Follow up on `test_generic_recursive_models_parametrized_with_model()`.
+    """
+
+    # The code to check if `__pydantic_fields__` was set was wrongly
+    # checking for parent classes as well (and not in the class' `__dict__`):
+    class MyBaseModel(BaseModel):
+        pass
+
+    T = TypeVar('T')
+
+    class Base(MyBaseModel, Generic[T]):
+        t: T
+
+    class Other(MyBaseModel):
+        child: 'Optional[Base[Other]]'
+
+    with pytest.raises(ValidationError):
         Base[Other].model_validate({'t': {}})
 
     Base[Other].model_validate({'t': {'child': {'t': {'child': None}}}})

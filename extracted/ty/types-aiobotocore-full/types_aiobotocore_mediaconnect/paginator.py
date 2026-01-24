@@ -3,7 +3,7 @@ Type annotations for mediaconnect service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconnect/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,9 @@ Usage::
         ListGatewaysPaginator,
         ListOfferingsPaginator,
         ListReservationsPaginator,
+        ListRouterInputsPaginator,
+        ListRouterNetworkInterfacesPaginator,
+        ListRouterOutputsPaginator,
     )
 
     session = get_session()
@@ -32,6 +35,9 @@ Usage::
         list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gateways")
         list_offerings_paginator: ListOfferingsPaginator = client.get_paginator("list_offerings")
         list_reservations_paginator: ListReservationsPaginator = client.get_paginator("list_reservations")
+        list_router_inputs_paginator: ListRouterInputsPaginator = client.get_paginator("list_router_inputs")
+        list_router_network_interfaces_paginator: ListRouterNetworkInterfacesPaginator = client.get_paginator("list_router_network_interfaces")
+        list_router_outputs_paginator: ListRouterOutputsPaginator = client.get_paginator("list_router_outputs")
     ```
 """
 
@@ -57,6 +63,12 @@ from .type_defs import (
     ListOfferingsResponseTypeDef,
     ListReservationsRequestPaginateTypeDef,
     ListReservationsResponseTypeDef,
+    ListRouterInputsRequestPaginateTypeDef,
+    ListRouterInputsResponseTypeDef,
+    ListRouterNetworkInterfacesRequestPaginateTypeDef,
+    ListRouterNetworkInterfacesResponseTypeDef,
+    ListRouterOutputsRequestPaginateTypeDef,
+    ListRouterOutputsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -73,6 +85,9 @@ __all__ = (
     "ListGatewaysPaginator",
     "ListOfferingsPaginator",
     "ListReservationsPaginator",
+    "ListRouterInputsPaginator",
+    "ListRouterNetworkInterfacesPaginator",
+    "ListRouterOutputsPaginator",
 )
 
 
@@ -220,4 +235,69 @@ class ListReservationsPaginator(_ListReservationsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/paginator/ListReservations.html#MediaConnect.Paginator.ListReservations.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconnect/paginators/#listreservationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListRouterInputsPaginatorBase = AioPaginator[ListRouterInputsResponseTypeDef]
+else:
+    _ListRouterInputsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListRouterInputsPaginator(_ListRouterInputsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/paginator/ListRouterInputs.html#MediaConnect.Paginator.ListRouterInputs)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconnect/paginators/#listrouterinputspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRouterInputsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListRouterInputsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/paginator/ListRouterInputs.html#MediaConnect.Paginator.ListRouterInputs.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconnect/paginators/#listrouterinputspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListRouterNetworkInterfacesPaginatorBase = AioPaginator[
+        ListRouterNetworkInterfacesResponseTypeDef
+    ]
+else:
+    _ListRouterNetworkInterfacesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListRouterNetworkInterfacesPaginator(_ListRouterNetworkInterfacesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/paginator/ListRouterNetworkInterfaces.html#MediaConnect.Paginator.ListRouterNetworkInterfaces)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconnect/paginators/#listrouternetworkinterfacespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRouterNetworkInterfacesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListRouterNetworkInterfacesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/paginator/ListRouterNetworkInterfaces.html#MediaConnect.Paginator.ListRouterNetworkInterfaces.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconnect/paginators/#listrouternetworkinterfacespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListRouterOutputsPaginatorBase = AioPaginator[ListRouterOutputsResponseTypeDef]
+else:
+    _ListRouterOutputsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListRouterOutputsPaginator(_ListRouterOutputsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/paginator/ListRouterOutputs.html#MediaConnect.Paginator.ListRouterOutputs)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconnect/paginators/#listrouteroutputspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRouterOutputsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListRouterOutputsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/paginator/ListRouterOutputs.html#MediaConnect.Paginator.ListRouterOutputs.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconnect/paginators/#listrouteroutputspaginator)
         """

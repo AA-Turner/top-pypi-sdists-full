@@ -8,7 +8,7 @@ from langchain_experimental.agents.agent_toolkits.pandas.base import (
 )
 
 if TYPE_CHECKING:
-    from langchain.agents.agent import AgentExecutor
+    from langchain_classic.agents.agent import AgentExecutor
     from langchain_core.language_models import LanguageModelLike
 
 
@@ -38,7 +38,7 @@ def create_csv_agent(
             from langchain_experimental.agents import create_csv_agent
 
             llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
-            agent_executor = create_pandas_dataframe_agent(
+            agent_executor = create_csv_agent(
                 llm,
                 "titanic.csv",
                 agent_type="openai-tools",

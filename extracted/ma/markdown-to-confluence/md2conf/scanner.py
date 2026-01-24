@@ -1,63 +1,34 @@
 """
 Publish Markdown files to Confluence wiki.
 
-Copyright 2022-2025, Levente Hunyadi
+Copyright 2022-2026, Levente Hunyadi
 
 :see: https://github.com/hunyadi/md2conf
 """
 
-import re
-import typing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, Optional, TypeVar
+from typing import TypeVar
 
-import yaml
-from strong_typing.core import JsonType
-from strong_typing.serialization import DeserializerOptions, json_to_object
-
-from .mermaid import MermaidConfigProperties
+from .coalesce import coalesce
+from .frontmatter import extract_frontmatter_json, extract_value
+from .options import LayoutOptions
+from .serializer import JsonType, json_to_object
 
 T = TypeVar("T")
 
 
-def _json_to_object(
-    typ: type[T],
-    data: JsonType,
-) -> T:
-    return json_to_object(typ, data, options=DeserializerOptions(skip_unassigned=True))
+@dataclass
+class AliasProperties:
+    """
+    An object that holds properties extracted from the front-matter of a Markdown document.
 
+    :param confluence_page_id: Confluence page ID. (Alternative name for JSON de-serialization.)
+    :param confluence_space_key: Confluence space key. (Alternative name for JSON de-serialization.)
+    """
 
-def extract_value(pattern: str, text: str) -> tuple[Optional[str], str]:
-    values: list[str] = []
-
-    def _repl_func(matchobj: re.Match[str]) -> str:
-        values.append(matchobj.group(1))
-        return ""
-
-    text = re.sub(pattern, _repl_func, text, count=1, flags=re.ASCII)
-    value = values[0] if values else None
-    return value, text
-
-
-def extract_frontmatter_block(text: str) -> tuple[Optional[str], str]:
-    "Extracts the front-matter from a Markdown document as a blob of unparsed text."
-
-    return extract_value(r"(?ms)\A---$(.+?)^---$", text)
-
-
-def extract_frontmatter_properties(text: str) -> tuple[Optional[dict[str, JsonType]], str]:
-    "Extracts the front-matter from a Markdown document as a dictionary."
-
-    block, text = extract_frontmatter_block(text)
-
-    properties: Optional[dict[str, Any]] = None
-    if block is not None:
-        data = yaml.safe_load(block)
-        if isinstance(data, dict):
-            properties = typing.cast(dict[str, JsonType], data)
-
-    return properties, text
+    confluence_page_id: str | None = None
+    confluence_space_key: str | None = None
 
 
 @dataclass
@@ -67,26 +38,22 @@ class DocumentProperties:
 
     :param page_id: Confluence page ID.
     :param space_key: Confluence space key.
-    :param confluence_page_id: Confluence page ID. (Alternative name for JSON de-serialization.)
-    :param confluence_space_key: Confluence space key. (Alternative name for JSON de-serialization.)
     :param generated_by: Text identifying the tool that generated the document.
     :param title: The title extracted from front-matter.
     :param tags: A list of tags (content labels) extracted from front-matter.
     :param synchronized: True if the document content is parsed and synchronized with Confluence.
     :param properties: A dictionary of key-value pairs extracted from front-matter to apply as page properties.
-    :param alignment: Alignment for block-level images and formulas.
+    :param layout: Layout options for content on a Confluence page.
     """
 
-    page_id: Optional[str]
-    space_key: Optional[str]
-    confluence_page_id: Optional[str]
-    confluence_space_key: Optional[str]
-    generated_by: Optional[str]
-    title: Optional[str]
-    tags: Optional[list[str]]
-    synchronized: Optional[bool]
-    properties: Optional[dict[str, JsonType]]
-    alignment: Optional[Literal["center", "left", "right"]]
+    page_id: str | None = None
+    space_key: str | None = None
+    generated_by: str | None = None
+    title: str | None = None
+    tags: list[str] | None = None
+    synchronized: bool | None = None
+    properties: dict[str, JsonType] | None = None
+    layout: LayoutOptions | None = None
 
 
 @dataclass
@@ -94,25 +61,11 @@ class ScannedDocument:
     """
     An object that holds properties extracted from a Markdown document, including remaining source text.
 
-    :param page_id: Confluence page ID.
-    :param space_key: Confluence space key.
-    :param generated_by: Text identifying the tool that generated the document.
-    :param title: The title extracted from front-matter.
-    :param tags: A list of tags (content labels) extracted from front-matter.
-    :param synchronized: True if the document content is parsed and synchronized with Confluence.
-    :param properties: A dictionary of key-value pairs extracted from front-matter to apply as page properties.
-    :param alignment: Alignment for block-level images and formulas.
+    :param properties: Properties extracted from the front-matter of a Markdown document.
     :param text: Text that remains after front-matter and inline properties have been extracted.
     """
 
-    page_id: Optional[str]
-    space_key: Optional[str]
-    generated_by: Optional[str]
-    title: Optional[str]
-    tags: Optional[list[str]]
-    synchronized: Optional[bool]
-    properties: Optional[dict[str, JsonType]]
-    alignment: Optional[Literal["center", "left", "right"]]
+    properties: DocumentProperties
     text: str
 
 
@@ -122,9 +75,15 @@ class Scanner:
         Extracts essential properties from a Markdown document.
         """
 
-        # parse file
         with open(absolute_path, "r", encoding="utf-8") as f:
             text = f.read()
+
+        return self.parse(text)
+
+    def parse(self, text: str) -> ScannedDocument:
+        """
+        Extracts essential properties from a Markdown document.
+        """
 
         # extract Confluence page ID
         page_id, text = extract_value(r"<!--\s+confluence[-_]page[-_]id:\s*(\d+)\s+-->", text)
@@ -135,77 +94,19 @@ class Scanner:
         # extract 'generated-by' tag text
         generated_by, text = extract_value(r"<!--\s+generated[-_]by:\s*(.*)\s+-->", text)
 
-        title: Optional[str] = None
-        tags: Optional[list[str]] = None
-        synchronized: Optional[bool] = None
-        properties: Optional[dict[str, JsonType]] = None
-        alignment: Optional[Literal["center", "left", "right"]] = None
+        body_props = DocumentProperties(page_id=page_id, space_key=space_key, generated_by=generated_by)
 
         # extract front-matter
-        data, text = extract_frontmatter_properties(text)
+        data, text = extract_frontmatter_json(text)
         if data is not None:
-            p = _json_to_object(DocumentProperties, data)
-            page_id = page_id or p.confluence_page_id or p.page_id
-            space_key = space_key or p.confluence_space_key or p.space_key
-            generated_by = generated_by or p.generated_by
-            title = p.title
-            tags = p.tags
-            synchronized = p.synchronized
-            properties = p.properties
-            alignment = p.alignment
+            frontmatter_props = json_to_object(DocumentProperties, data)
+            alias_props = json_to_object(AliasProperties, data)
+            if alias_props.confluence_page_id is not None:
+                frontmatter_props.page_id = alias_props.confluence_page_id
+            if alias_props.confluence_space_key is not None:
+                frontmatter_props.space_key = alias_props.confluence_space_key
+            props = coalesce(body_props, frontmatter_props)
+        else:
+            props = body_props
 
-        return ScannedDocument(
-            page_id=page_id,
-            space_key=space_key,
-            generated_by=generated_by,
-            title=title,
-            tags=tags,
-            synchronized=synchronized,
-            properties=properties,
-            alignment=alignment,
-            text=text,
-        )
-
-
-@dataclass
-class MermaidProperties:
-    """
-    An object that holds the front-matter properties structure for Mermaid diagrams.
-
-    :param title: The title of the diagram.
-    :param config: Configuration options for rendering.
-    """
-
-    title: Optional[str] = None
-    config: Optional[MermaidConfigProperties] = None
-
-
-class MermaidScanner:
-    """
-    Extracts properties from the JSON/YAML front-matter of a Mermaid diagram.
-    """
-
-    def read(self, content: str) -> MermaidProperties:
-        """
-        Extracts rendering preferences from a Mermaid front-matter content.
-
-        ```
-        ---
-        title: Tiny flow diagram
-        config:
-            scale: 1
-        ---
-        flowchart LR
-            A[Component A] --> B[Component B]
-            B --> C[Component C]
-        ```
-        """
-
-        properties, _ = extract_frontmatter_properties(content)
-        if properties is not None:
-            front_matter = _json_to_object(MermaidProperties, properties)
-            config = front_matter.config or MermaidConfigProperties()
-
-            return MermaidProperties(title=front_matter.title, config=config)
-
-        return MermaidProperties()
+        return ScannedDocument(properties=props, text=text)

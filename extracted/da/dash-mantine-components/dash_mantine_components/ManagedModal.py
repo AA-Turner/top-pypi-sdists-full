@@ -775,7 +775,7 @@ Keyword arguments:
 
 - zIndex (string | number; optional):
     `z-index` CSS property of the root element, `200` by default."""
-    _children_props = ['title', 'overlayProps.children', 'closeButtonProps.children', 'closeButtonProps.icon']
+    _children_props: typing.List[str] = ['title', 'overlayProps.children', 'closeButtonProps.children', 'closeButtonProps.icon']
     _base_nodes = ['title', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'ManagedModal'

@@ -50,13 +50,18 @@ class SwiftCompiler(Compiler):
     def get_dependency_gen_args(self, outtarget: str, outfile: str) -> T.List[str]:
         return ['-emit-dependencies']
 
+    def get_dependency_compile_args(self, dep: 'Dependency') -> T.List[str]:
+        return [arg for arg in dep.get_compile_args() if arg != "-pthread"]
+
     def get_dependency_link_args(self, dep: 'Dependency') -> T.List[str]:
         result = []
         for arg in dep.get_link_args():
             if arg.startswith("-Wl,"):
                 for flag in arg[4:].split(","):
                     result += ["-Xlinker", flag]
-            else:
+            elif arg != '-pthread':
+                if arg.endswith('.a'):
+                    result.append('-Xlinker')
                 result.append(arg)
         return result
 

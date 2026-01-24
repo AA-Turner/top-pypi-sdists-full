@@ -39,11 +39,21 @@ class StrokeCollector:
 def angle_x_normal(it) -> None:
     """unsigned angle between a Points normal and the X axis, in radians"""
 
-def bound(lower, x, higher) -> None: ...
+def bound(lower, x, higher) -> None:
+    """Returns x bounded by a maximum and minimum value. Equivalent to:
+    return min(max(x, lower), higher)
+
+    """
+
 def bounding_box(stroke) -> None:
     """Returns the maximum and minimum coordinates (the bounding box) of the strokes vertices"""
 
-def curvature_from_stroke_vertex(svert) -> None: ...
+def curvature_from_stroke_vertex(svert) -> None:
+    """The 3D curvature of an stroke vertex underlying geometry
+    The result is None or in the range [-inf, inf]
+
+    """
+
 def find_matching_vertex(id, it) -> None:
     """Finds the matching vertex, or returns None."""
 
@@ -51,7 +61,6 @@ def getCurrentScene() -> bpy.types.Scene:
     """Returns the current scene.
 
     :return: The current scene.
-    :rtype: bpy.types.Scene
     """
 
 def get_chain_length(ve, orientation) -> None:
@@ -77,22 +86,17 @@ def integrate(
 
         :param func: The UnaryFunction0D used to compute a value at each
     Interface0D.
-        :type func: freestyle.types.UnaryFunction0D
         :param it: The Interface0DIterator used to iterate over the 0D
     elements of this 1D element. The integration will occur over
     the 0D elements starting from the one pointed by it.
-        :type it: freestyle.types.Interface0DIterator
         :param it_end: The Interface0DIterator pointing the end of the 0D
     elements of the 1D element.
-        :type it_end: freestyle.types.Interface0DIterator
         :param integration_type: The integration method used to compute a
     single value from a set of values.
-        :type integration_type: freestyle.types.IntegrationType
         :return: The single value obtained for the 1D element. The return
     value type is float if func is of the `UnaryFunction0DDouble`
     or `UnaryFunction0DFloat` type, and int if func is of the
     `UnaryFunction0DUnsigned` type.
-        :rtype: float
     """
 
 def is_poly_clockwise(stroke) -> None:
@@ -124,8 +128,13 @@ def iter_t2d_along_stroke(stroke) -> None:
 def material_from_fedge(fe) -> None:
     """get the diffuse RGBA color from an FEdge"""
 
-def normal_at_I0D(it) -> None: ...
-def pairwise(iterable, types={StrokeVertexIterator, Stroke}) -> None:
+def normal_at_I0D(it) -> None:
+    """Normal at an Interface0D object. In contrast to Normal2DF0D this
+    function uses the actual data instead of underlying Fedge objects.
+
+    """
+
+def pairwise(iterable, types={Stroke, StrokeVertexIterator}) -> None:
     """Yields a tuple containing the previous and current object"""
 
 def rgb_to_bw(r, g, b) -> None:

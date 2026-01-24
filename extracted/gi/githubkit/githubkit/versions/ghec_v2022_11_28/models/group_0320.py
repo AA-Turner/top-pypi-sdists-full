@@ -12,21 +12,22 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
-from .group_0319 import CodeScanningVariantAnalysisRepository
 
+class ActionsCacheStorageLimitForRepository(GitHubModel):
+    """Actions cache storage limit for a repository
 
-class CodeScanningVariantAnalysisSkippedRepoGroup(GitHubModel):
-    """CodeScanningVariantAnalysisSkippedRepoGroup"""
+    GitHub Actions cache storage policy for a repository.
+    """
 
-    repository_count: int = Field(
-        description="The total number of repositories that were skipped for this reason."
+    max_cache_size_gb: Missing[int] = Field(
+        default=UNSET,
+        description="The maximum total cache size for this repository, in gigabytes.",
     )
-    repositories: list[CodeScanningVariantAnalysisRepository] = Field(
-        description="A list of repositories that were skipped. This list may not include all repositories that were skipped. This is only available when the repository was found and the user has access to it."
-    )
 
 
-model_rebuild(CodeScanningVariantAnalysisSkippedRepoGroup)
+model_rebuild(ActionsCacheStorageLimitForRepository)
 
-__all__ = ("CodeScanningVariantAnalysisSkippedRepoGroup",)
+__all__ = ("ActionsCacheStorageLimitForRepository",)

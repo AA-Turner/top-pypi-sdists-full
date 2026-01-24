@@ -93,7 +93,7 @@ async def datasource_ls(ctx: Context, match: Optional[str], format_: str):
                 shared_from,
                 name,
                 humanfriendly.format_number(stats.get("row_count")) if stats.get("row_count", None) else "-",
-                humanfriendly.format_size(int(stats.get("bytes"))) if stats.get("bytes", None) else "-",
+                humanfriendly.format_size(int(stats.get("bytes"))) if stats.get("bytes", None) else "-",  # type: ignore
                 t["created_at"][:-7],
                 t["updated_at"][:-7],
                 t.get("service", ""),

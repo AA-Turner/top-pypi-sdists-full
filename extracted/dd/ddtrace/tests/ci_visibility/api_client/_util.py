@@ -13,10 +13,10 @@ from ddtrace.ext.test_visibility._test_visibility_base import TestSuiteId
 from ddtrace.internal.ci_visibility import CIVisibility
 from ddtrace.internal.ci_visibility._api_client import AgentlessTestVisibilityAPIClient
 from ddtrace.internal.ci_visibility._api_client import EVPProxyTestVisibilityAPIClient
-from ddtrace.internal.ci_visibility.constants import EVP_PROXY_AGENT_BASE_PATH_V4
 from ddtrace.internal.ci_visibility.constants import REQUESTS_MODE
 from ddtrace.internal.ci_visibility.git_client import CIVisibilityGitClient
 from ddtrace.internal.ci_visibility.git_data import GitData
+from ddtrace.internal.evp_proxy.constants import EVP_PROXY_AGENT_BASE_PATH_V4
 from ddtrace.internal.utils.http import Response
 
 
@@ -176,7 +176,7 @@ class TestTestVisibilityAPIClientBase:
         self,
         itr_skipping_level: ITR_SKIPPING_LEVEL = ITR_SKIPPING_LEVEL.TEST,
         requests_mode: REQUESTS_MODE = _AGENTLESS,
-        git_data: GitData = None,
+        git_data: t.Optional[GitData] = None,
         api_key: t.Optional[str] = "my_api_key",
         dd_site: t.Optional[str] = None,
         agentless_url: t.Optional[str] = None,
@@ -215,7 +215,7 @@ class TestTestVisibilityAPIClientBase:
     def _get_expected_do_request_setting_payload(
         self,
         itr_skipping_level: ITR_SKIPPING_LEVEL = ITR_SKIPPING_LEVEL.TEST,
-        git_data: GitData = None,
+        git_data: t.Optional[GitData] = None,
         dd_service: t.Optional[str] = None,
         dd_env: t.Optional[str] = None,
     ):
@@ -246,7 +246,7 @@ class TestTestVisibilityAPIClientBase:
     def _get_expected_do_request_skippable_payload(
         self,
         itr_skipping_level: ITR_SKIPPING_LEVEL = ITR_SKIPPING_LEVEL.TEST,
-        git_data: GitData = None,
+        git_data: t.Optional[GitData] = None,
         dd_service: t.Optional[str] = None,
         dd_env: t.Optional[str] = None,
     ):
@@ -275,7 +275,7 @@ class TestTestVisibilityAPIClientBase:
 
     def _get_expected_do_request_tests_payload(
         self,
-        repository_url: str = None,
+        repository_url: t.Optional[str] = None,
         dd_service: t.Optional[str] = None,
         dd_env: t.Optional[str] = None,
     ):
@@ -338,7 +338,9 @@ class TestTestVisibilityAPIClientBase:
 
     @pytest.fixture(scope="function", autouse=True)
     def _test_context_manager(self):
-        with mock.patch("ddtrace.internal.ci_visibility._api_client.uuid4", return_value="checkoutmyuuid4"), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.DEFAULT_TIMEOUT", 12.34
-        ), mock.patch("ddtrace.internal.ci_visibility._api_client.DEFAULT_ITR_SKIPPABLE_TIMEOUT", 43.21):
+        with (
+            mock.patch("ddtrace.internal.ci_visibility._api_client.uuid4", return_value="checkoutmyuuid4"),
+            mock.patch("ddtrace.internal.ci_visibility._api_client.DEFAULT_TIMEOUT", 12.34),
+            mock.patch("ddtrace.internal.ci_visibility._api_client.DEFAULT_ITR_SKIPPABLE_TIMEOUT", 43.21),
+        ):
             yield

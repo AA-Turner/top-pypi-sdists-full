@@ -28,17 +28,14 @@ jobs:
 
           # Linux - test different Sphinx versions
           - os: ubuntu-latest
-            python-version: 3.8
-            toxenv: py38-test-sphinx_oldest
+            python-version: '3.10'
+            toxenv: py310-test-sphinx_oldest
           - os: ubuntu-latest
-            python-version: 3.8
-            toxenv: py38-test-sphinx53
+            python-version: '3.10'
+            toxenv: py310-test-sphinx62
           - os: ubuntu-latest
-            python-version: 3.9
-            toxenv: py39-test-sphinx62
-          - os: ubuntu-latest
-            python-version: 3.9
-            toxenv: py39-test-sphinx70
+            python-version: '3.10'
+            toxenv: py310-test-sphinx70
           - os: ubuntu-latest
             python-version: '3.10'
             toxenv: py310-test-sphinx71
@@ -53,33 +50,39 @@ jobs:
             toxenv: py312-test-sphinx81
           - os: ubuntu-latest
             python-version: '3.13'
-            toxenv: py313-test-sphinxdev
+            toxenv: py313-test-sphinx82
+          - os: ubuntu-latest
+            python-version: '3.14'
+            toxenv: py314-test-sphinx90
+          - os: ubuntu-latest
+            python-version: '3.14'
+            toxenv: py314-test-sphinxdev
 
           # MacOS X - just the stable and dev
           - os: macos-latest
             python-version: '3.11'
-            toxenv: py311-test-sphinx81-clocale
+            toxenv: py311-test-sphinx90-clocale
           - os: macos-latest
-            python-version: '3.13'
-            toxenv: py313-test-sphinxdev
+            python-version: '3.14'
+            toxenv: py314-test-sphinxdev
 
           # Windows - just the oldest, stable, and dev
           - os: windows-latest
-            python-version: 3.8
-            toxenv: py38-test-sphinx_oldest
-          - os: windows-latest
             python-version: '3.10'
-            toxenv: py310-test-sphinx81
+            toxenv: py310-test-sphinx_oldest
           - os: windows-latest
             python-version: '3.13'
-            toxenv: py313-test-sphinxdev
+            toxenv: py313-test-sphinx90
+          - os: windows-latest
+            python-version: '3.14'
+            toxenv: py314-test-sphinxdev
 
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+    - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3  # v6.0.0
       with:
         fetch-depth: 0
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548  # v6.1.0
       with:
         python-version: ${{ matrix.python-version }}
         allow-prereleases: true
@@ -102,6 +105,6 @@ jobs:
       run: tox ${{ matrix.toxargs }} -v -e ${{ matrix.toxenv }}
     - name: Upload coverage to codecov
       if: ${{ contains(matrix.toxenv,'-cov') }}
-      uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24  # v5.4.3
+      uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7  # v5.5.1
       with:
         file: ./coverage.xml

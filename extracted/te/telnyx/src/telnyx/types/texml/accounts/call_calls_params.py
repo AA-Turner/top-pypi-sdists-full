@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Iterable
 from typing_extensions import Literal, Required, Annotated, TypedDict
 
 from ...._utils import PropertyInfo
 
-__all__ = ["CallCallsParams"]
+__all__ = ["CallCallsParams", "CustomHeader"]
 
 
 class CallCallsParams(TypedDict, total=False):
@@ -58,6 +59,12 @@ class CallCallsParams(TypedDict, total=False):
 
     cancel_playback_on_machine_detection: Annotated[bool, PropertyInfo(alias="CancelPlaybackOnMachineDetection")]
     """Whether to cancel ongoing playback on `machine` detection. Defaults to `true`."""
+
+    custom_headers: Annotated[Iterable[CustomHeader], PropertyInfo(alias="CustomHeaders")]
+    """Custom HTTP headers to be sent with the call.
+
+    Each header should be an object with 'name' and 'value' properties.
+    """
 
     detection_mode: Annotated[Literal["Premium", "Regular"], PropertyInfo(alias="DetectionMode")]
     """Allows you to chose between Premium and Standard detections."""
@@ -139,6 +146,11 @@ class CallCallsParams(TypedDict, total=False):
     sip_auth_username: Annotated[str, PropertyInfo(alias="SipAuthUsername")]
     """The username to use for SIP authentication."""
 
+    sip_region: Annotated[
+        Literal["US", "Europe", "Canada", "Australia", "Middle East"], PropertyInfo(alias="SipRegion")
+    ]
+    """Defines the SIP region to be used for the call."""
+
     status_callback: Annotated[str, PropertyInfo(alias="StatusCallback")]
     """URL destination for Telnyx to send status callback events to for the call."""
 
@@ -152,6 +164,21 @@ class CallCallsParams(TypedDict, total=False):
 
     status_callback_method: Annotated[Literal["GET", "POST"], PropertyInfo(alias="StatusCallbackMethod")]
     """HTTP request type used for `StatusCallback`."""
+
+    supervise_call_sid: Annotated[str, PropertyInfo(alias="SuperviseCallSid")]
+    """The call control ID of the existing call to supervise.
+
+    When provided, the created leg will be added to the specified call in
+    supervising mode. Status callbacks and action callbacks will NOT be sent for the
+    supervising leg.
+    """
+
+    supervising_role: Annotated[Literal["barge", "whisper", "monitor"], PropertyInfo(alias="SupervisingRole")]
+    """The supervising role for the new leg.
+
+    Determines the audio behavior: barge (hear both sides), whisper (only hear
+    supervisor), monitor (hear both sides but supervisor muted). Default: barge
+    """
 
     trim: Annotated[Literal["trim-silence", "do-not-trim"], PropertyInfo(alias="Trim")]
     """Whether to trim any leading and trailing silence from the recording.
@@ -167,3 +194,11 @@ class CallCallsParams(TypedDict, total=False):
 
     The default value is inherited from TeXML Application setting.
     """
+
+
+class CustomHeader(TypedDict, total=False):
+    name: Required[str]
+    """The name of the custom header"""
+
+    value: Required[str]
+    """The value of the custom header"""

@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: hdmf_zarr
-Version: 0.11.3
+Version: 0.12.0
 Summary: A package defining a Zarr I/O backend for HDMF
 Project-URL: Homepage, https://github.com/hdmf-dev/hdmf-zarr
 Project-URL: Bug Tracker, https://github.com/hdmf-dev/hdmf-zarr/issues
-Author-email: Oliver Ruebel <oruebel@lbl.gov>, Matthew Avaylon <mavaylon@lbl.gov>, Ryan Ly <rly@lbl.gov>
+Author-email: Oliver Ruebel <oruebel@lbl.gov>, Matthew Avaylon <mavaylon@lbl.gov>, Ryan Ly <rly@lbl.gov>, Stephanie Prince <smprince@lbl.gov>
 License: BSD
 License-File: LICENSE.txt
 Classifier: Development Status :: 4 - Beta
@@ -22,13 +22,14 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Medical Science Apps.
 Requires-Python: >=3.9
-Requires-Dist: hdmf>=3.14.5
-Requires-Dist: numcodecs<0.16.0,>=0.10.0
+Requires-Dist: hdmf>=4.1.0
+Requires-Dist: numcodecs<0.16.0,>=0.12.0
 Requires-Dist: numpy>=1.24.0
 Requires-Dist: pynwb>=2.8.3
 Requires-Dist: threadpoolctl>=3.1.0
 Requires-Dist: zarr<3.0,>=2.18.0
 Provides-Extra: all
+Requires-Dist: black; extra == 'all'
 Requires-Dist: codespell; extra == 'all'
 Requires-Dist: fsspec; extra == 'all'
 Requires-Dist: hdf5plugin; extra == 'all'
@@ -58,6 +59,7 @@ Requires-Dist: fsspec; extra == 'full'
 Requires-Dist: s3fs; extra == 'full'
 Requires-Dist: tqdm>=4.41.0; extra == 'full'
 Provides-Extra: test
+Requires-Dist: black; extra == 'test'
 Requires-Dist: codespell; extra == 'test'
 Requires-Dist: hdf5plugin; extra == 'test'
 Requires-Dist: pre-commit; extra == 'test'

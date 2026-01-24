@@ -3,7 +3,7 @@ Type annotations for organizations service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -84,6 +85,8 @@ from .type_defs import (
     DescribePolicyRequestTypeDef,
     DescribePolicyResponseTypeDef,
     DescribeResourcePolicyResponseTypeDef,
+    DescribeResponsibilityTransferRequestTypeDef,
+    DescribeResponsibilityTransferResponseTypeDef,
     DetachPolicyRequestTypeDef,
     DisableAWSServiceAccessRequestTypeDef,
     DisablePolicyTypeRequestTypeDef,
@@ -95,6 +98,8 @@ from .type_defs import (
     EnablePolicyTypeResponseTypeDef,
     InviteAccountToOrganizationRequestTypeDef,
     InviteAccountToOrganizationResponseTypeDef,
+    InviteOrganizationToTransferResponsibilityRequestTypeDef,
+    InviteOrganizationToTransferResponsibilityResponseTypeDef,
     ListAccountsForParentRequestTypeDef,
     ListAccountsForParentResponseTypeDef,
     ListAccountsRequestTypeDef,
@@ -117,8 +122,12 @@ from .type_defs import (
     ListHandshakesForAccountResponseTypeDef,
     ListHandshakesForOrganizationRequestTypeDef,
     ListHandshakesForOrganizationResponseTypeDef,
+    ListInboundResponsibilityTransfersRequestTypeDef,
+    ListInboundResponsibilityTransfersResponseTypeDef,
     ListOrganizationalUnitsForParentRequestTypeDef,
     ListOrganizationalUnitsForParentResponseTypeDef,
+    ListOutboundResponsibilityTransfersRequestTypeDef,
+    ListOutboundResponsibilityTransfersResponseTypeDef,
     ListParentsRequestTypeDef,
     ListParentsResponseTypeDef,
     ListPoliciesForTargetRequestTypeDef,
@@ -137,18 +146,17 @@ from .type_defs import (
     RegisterDelegatedAdministratorRequestTypeDef,
     RemoveAccountFromOrganizationRequestTypeDef,
     TagResourceRequestTypeDef,
+    TerminateResponsibilityTransferRequestTypeDef,
+    TerminateResponsibilityTransferResponseTypeDef,
     UntagResourceRequestTypeDef,
     UpdateOrganizationalUnitRequestTypeDef,
     UpdateOrganizationalUnitResponseTypeDef,
     UpdatePolicyRequestTypeDef,
     UpdatePolicyResponseTypeDef,
+    UpdateResponsibilityTransferRequestTypeDef,
+    UpdateResponsibilityTransferResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -159,54 +167,57 @@ __all__ = ("OrganizationsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AWSOrganizationsNotInUseException: Type[BotocoreClientError]
-    AccessDeniedException: Type[BotocoreClientError]
-    AccessDeniedForDependencyException: Type[BotocoreClientError]
-    AccountAlreadyClosedException: Type[BotocoreClientError]
-    AccountAlreadyRegisteredException: Type[BotocoreClientError]
-    AccountNotFoundException: Type[BotocoreClientError]
-    AccountNotRegisteredException: Type[BotocoreClientError]
-    AccountOwnerNotVerifiedException: Type[BotocoreClientError]
-    AlreadyInOrganizationException: Type[BotocoreClientError]
-    ChildNotFoundException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ConstraintViolationException: Type[BotocoreClientError]
-    CreateAccountStatusNotFoundException: Type[BotocoreClientError]
-    DestinationParentNotFoundException: Type[BotocoreClientError]
-    DuplicateAccountException: Type[BotocoreClientError]
-    DuplicateHandshakeException: Type[BotocoreClientError]
-    DuplicateOrganizationalUnitException: Type[BotocoreClientError]
-    DuplicatePolicyAttachmentException: Type[BotocoreClientError]
-    DuplicatePolicyException: Type[BotocoreClientError]
-    EffectivePolicyNotFoundException: Type[BotocoreClientError]
-    FinalizingOrganizationException: Type[BotocoreClientError]
-    HandshakeAlreadyInStateException: Type[BotocoreClientError]
-    HandshakeConstraintViolationException: Type[BotocoreClientError]
-    HandshakeNotFoundException: Type[BotocoreClientError]
-    InvalidHandshakeTransitionException: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    MalformedPolicyDocumentException: Type[BotocoreClientError]
-    MasterCannotLeaveOrganizationException: Type[BotocoreClientError]
-    OrganizationNotEmptyException: Type[BotocoreClientError]
-    OrganizationalUnitNotEmptyException: Type[BotocoreClientError]
-    OrganizationalUnitNotFoundException: Type[BotocoreClientError]
-    ParentNotFoundException: Type[BotocoreClientError]
-    PolicyChangesInProgressException: Type[BotocoreClientError]
-    PolicyInUseException: Type[BotocoreClientError]
-    PolicyNotAttachedException: Type[BotocoreClientError]
-    PolicyNotFoundException: Type[BotocoreClientError]
-    PolicyTypeAlreadyEnabledException: Type[BotocoreClientError]
-    PolicyTypeNotAvailableForOrganizationException: Type[BotocoreClientError]
-    PolicyTypeNotEnabledException: Type[BotocoreClientError]
-    ResourcePolicyNotFoundException: Type[BotocoreClientError]
-    RootNotFoundException: Type[BotocoreClientError]
-    ServiceException: Type[BotocoreClientError]
-    SourceParentNotFoundException: Type[BotocoreClientError]
-    TargetNotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UnsupportedAPIEndpointException: Type[BotocoreClientError]
+    AWSOrganizationsNotInUseException: type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AccessDeniedForDependencyException: type[BotocoreClientError]
+    AccountAlreadyClosedException: type[BotocoreClientError]
+    AccountAlreadyRegisteredException: type[BotocoreClientError]
+    AccountNotFoundException: type[BotocoreClientError]
+    AccountNotRegisteredException: type[BotocoreClientError]
+    AccountOwnerNotVerifiedException: type[BotocoreClientError]
+    AlreadyInOrganizationException: type[BotocoreClientError]
+    ChildNotFoundException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ConstraintViolationException: type[BotocoreClientError]
+    CreateAccountStatusNotFoundException: type[BotocoreClientError]
+    DestinationParentNotFoundException: type[BotocoreClientError]
+    DuplicateAccountException: type[BotocoreClientError]
+    DuplicateHandshakeException: type[BotocoreClientError]
+    DuplicateOrganizationalUnitException: type[BotocoreClientError]
+    DuplicatePolicyAttachmentException: type[BotocoreClientError]
+    DuplicatePolicyException: type[BotocoreClientError]
+    EffectivePolicyNotFoundException: type[BotocoreClientError]
+    FinalizingOrganizationException: type[BotocoreClientError]
+    HandshakeAlreadyInStateException: type[BotocoreClientError]
+    HandshakeConstraintViolationException: type[BotocoreClientError]
+    HandshakeNotFoundException: type[BotocoreClientError]
+    InvalidHandshakeTransitionException: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    InvalidResponsibilityTransferTransitionException: type[BotocoreClientError]
+    MalformedPolicyDocumentException: type[BotocoreClientError]
+    MasterCannotLeaveOrganizationException: type[BotocoreClientError]
+    OrganizationNotEmptyException: type[BotocoreClientError]
+    OrganizationalUnitNotEmptyException: type[BotocoreClientError]
+    OrganizationalUnitNotFoundException: type[BotocoreClientError]
+    ParentNotFoundException: type[BotocoreClientError]
+    PolicyChangesInProgressException: type[BotocoreClientError]
+    PolicyInUseException: type[BotocoreClientError]
+    PolicyNotAttachedException: type[BotocoreClientError]
+    PolicyNotFoundException: type[BotocoreClientError]
+    PolicyTypeAlreadyEnabledException: type[BotocoreClientError]
+    PolicyTypeNotAvailableForOrganizationException: type[BotocoreClientError]
+    PolicyTypeNotEnabledException: type[BotocoreClientError]
+    ResourcePolicyNotFoundException: type[BotocoreClientError]
+    ResponsibilityTransferAlreadyInStatusException: type[BotocoreClientError]
+    ResponsibilityTransferNotFoundException: type[BotocoreClientError]
+    RootNotFoundException: type[BotocoreClientError]
+    ServiceException: type[BotocoreClientError]
+    SourceParentNotFoundException: type[BotocoreClientError]
+    TargetNotFoundException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UnsupportedAPIEndpointException: type[BotocoreClientError]
 
 
 class OrganizationsClient(AioBaseClient):
@@ -248,8 +259,7 @@ class OrganizationsClient(AioBaseClient):
         self, **kwargs: Unpack[AcceptHandshakeRequestTypeDef]
     ) -> AcceptHandshakeResponseTypeDef:
         """
-        Sends a response to the originator of a handshake agreeing to the action
-        proposed by the handshake request.
+        Accepts a handshake by sending an <code>ACCEPTED</code> response to the sender.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/accept_handshake.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#accept_handshake)
@@ -270,7 +280,7 @@ class OrganizationsClient(AioBaseClient):
         self, **kwargs: Unpack[CancelHandshakeRequestTypeDef]
     ) -> CancelHandshakeResponseTypeDef:
         """
-        Cancels a handshake.
+        Cancels a <a>Handshake</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/cancel_handshake.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#cancel_handshake)
@@ -342,7 +352,7 @@ class OrganizationsClient(AioBaseClient):
         self, **kwargs: Unpack[DeclineHandshakeRequestTypeDef]
     ) -> DeclineHandshakeResponseTypeDef:
         """
-        Declines a handshake request.
+        Declines a <a>Handshake</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/decline_handshake.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#decline_handshake)
@@ -430,7 +440,7 @@ class OrganizationsClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeHandshakeRequestTypeDef]
     ) -> DescribeHandshakeResponseTypeDef:
         """
-        Retrieves information about a previously requested handshake.
+        Returns details for a handshake.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/describe_handshake.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#describe_handshake)
@@ -470,6 +480,16 @@ class OrganizationsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/describe_resource_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#describe_resource_policy)
+        """
+
+    async def describe_responsibility_transfer(
+        self, **kwargs: Unpack[DescribeResponsibilityTransferRequestTypeDef]
+    ) -> DescribeResponsibilityTransferResponseTypeDef:
+        """
+        Returns details for a transfer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/describe_responsibility_transfer.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#describe_responsibility_transfer)
         """
 
     async def detach_policy(
@@ -544,6 +564,17 @@ class OrganizationsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/invite_account_to_organization.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#invite_account_to_organization)
+        """
+
+    async def invite_organization_to_transfer_responsibility(
+        self, **kwargs: Unpack[InviteOrganizationToTransferResponsibilityRequestTypeDef]
+    ) -> InviteOrganizationToTransferResponsibilityResponseTypeDef:
+        """
+        Sends an invitation to another organization's management account to designate
+        your account with the specified responsibilities for their organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/invite_organization_to_transfer_responsibility.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#invite_organization_to_transfer_responsibility)
         """
 
     async def leave_organization(self) -> EmptyResponseMetadataTypeDef:
@@ -656,8 +687,7 @@ class OrganizationsClient(AioBaseClient):
         self, **kwargs: Unpack[ListHandshakesForAccountRequestTypeDef]
     ) -> ListHandshakesForAccountResponseTypeDef:
         """
-        Lists the current handshakes that are associated with the account of the
-        requesting user.
+        Lists the recent handshakes that you have received.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/list_handshakes_for_account.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#list_handshakes_for_account)
@@ -667,11 +697,21 @@ class OrganizationsClient(AioBaseClient):
         self, **kwargs: Unpack[ListHandshakesForOrganizationRequestTypeDef]
     ) -> ListHandshakesForOrganizationResponseTypeDef:
         """
-        Lists the handshakes that are associated with the organization that the
-        requesting user is part of.
+        Lists the recent handshakes that you have sent.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/list_handshakes_for_organization.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#list_handshakes_for_organization)
+        """
+
+    async def list_inbound_responsibility_transfers(
+        self, **kwargs: Unpack[ListInboundResponsibilityTransfersRequestTypeDef]
+    ) -> ListInboundResponsibilityTransfersResponseTypeDef:
+        """
+        Lists transfers that allow you to manage the specified responsibilities for
+        another organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/list_inbound_responsibility_transfers.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#list_inbound_responsibility_transfers)
         """
 
     async def list_organizational_units_for_parent(
@@ -682,6 +722,17 @@ class OrganizationsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/list_organizational_units_for_parent.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#list_organizational_units_for_parent)
+        """
+
+    async def list_outbound_responsibility_transfers(
+        self, **kwargs: Unpack[ListOutboundResponsibilityTransfersRequestTypeDef]
+    ) -> ListOutboundResponsibilityTransfersResponseTypeDef:
+        """
+        Lists transfers that allow an account outside your organization to manage the
+        specified responsibilities for your organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/list_outbound_responsibility_transfers.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#list_outbound_responsibility_transfers)
         """
 
     async def list_parents(
@@ -799,6 +850,16 @@ class OrganizationsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#tag_resource)
         """
 
+    async def terminate_responsibility_transfer(
+        self, **kwargs: Unpack[TerminateResponsibilityTransferRequestTypeDef]
+    ) -> TerminateResponsibilityTransferResponseTypeDef:
+        """
+        Ends a transfer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/terminate_responsibility_transfer.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#terminate_responsibility_transfer)
+        """
+
     async def untag_resource(
         self, **kwargs: Unpack[UntagResourceRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -827,6 +888,16 @@ class OrganizationsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/update_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#update_policy)
+        """
+
+    async def update_responsibility_transfer(
+        self, **kwargs: Unpack[UpdateResponsibilityTransferRequestTypeDef]
+    ) -> UpdateResponsibilityTransferResponseTypeDef:
+        """
+        Updates a transfer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/update_responsibility_transfer.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_organizations/client/#update_responsibility_transfer)
         """
 
     @overload  # type: ignore[override]
@@ -1035,7 +1106,7 @@ class OrganizationsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

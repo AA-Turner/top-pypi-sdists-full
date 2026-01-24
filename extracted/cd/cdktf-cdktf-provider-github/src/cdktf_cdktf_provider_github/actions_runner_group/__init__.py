@@ -1,7 +1,7 @@
 r'''
 # `github_actions_runner_group`
 
-Refer to the Terraform Registry for docs: [`github_actions_runner_group`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group).
+Refer to the Terraform Registry for docs: [`github_actions_runner_group`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ActionsRunnerGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.actionsRunnerGroup.ActionsRunnerGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group github_actions_runner_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group github_actions_runner_group}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class ActionsRunnerGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group github_actions_runner_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group github_actions_runner_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#name ActionsRunnerGroup#name}
-        :param visibility: The visibility of the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#visibility ActionsRunnerGroup#visibility}
-        :param allows_public_repositories: Whether public repositories can be added to the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#allows_public_repositories ActionsRunnerGroup#allows_public_repositories}
-        :param restricted_to_workflows: If 'true', the runner group will be restricted to running only the workflows specified in the 'selected_workflows' array. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#restricted_to_workflows ActionsRunnerGroup#restricted_to_workflows}
-        :param selected_repository_ids: List of repository IDs that can access the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#selected_repository_ids ActionsRunnerGroup#selected_repository_ids}
-        :param selected_workflows: List of workflows the runner group should be allowed to run. This setting will be ignored unless restricted_to_workflows is set to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#selected_workflows ActionsRunnerGroup#selected_workflows}
+        :param name: Name of the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#name ActionsRunnerGroup#name}
+        :param visibility: The visibility of the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#visibility ActionsRunnerGroup#visibility}
+        :param allows_public_repositories: Whether public repositories can be added to the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#allows_public_repositories ActionsRunnerGroup#allows_public_repositories}
+        :param restricted_to_workflows: If 'true', the runner group will be restricted to running only the workflows specified in the 'selected_workflows' array. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#restricted_to_workflows ActionsRunnerGroup#restricted_to_workflows}
+        :param selected_repository_ids: List of repository IDs that can access the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#selected_repository_ids ActionsRunnerGroup#selected_repository_ids}
+        :param selected_workflows: List of workflows the runner group should be allowed to run. This setting will be ignored unless restricted_to_workflows is set to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#selected_workflows ActionsRunnerGroup#selected_workflows}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class ActionsRunnerGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ActionsRunnerGroup to import.
-        :param import_from_id: The id of the existing ActionsRunnerGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ActionsRunnerGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ActionsRunnerGroup to import is found.
         '''
         if __debug__:
@@ -352,12 +352,12 @@ class ActionsRunnerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#name ActionsRunnerGroup#name}
-        :param visibility: The visibility of the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#visibility ActionsRunnerGroup#visibility}
-        :param allows_public_repositories: Whether public repositories can be added to the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#allows_public_repositories ActionsRunnerGroup#allows_public_repositories}
-        :param restricted_to_workflows: If 'true', the runner group will be restricted to running only the workflows specified in the 'selected_workflows' array. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#restricted_to_workflows ActionsRunnerGroup#restricted_to_workflows}
-        :param selected_repository_ids: List of repository IDs that can access the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#selected_repository_ids ActionsRunnerGroup#selected_repository_ids}
-        :param selected_workflows: List of workflows the runner group should be allowed to run. This setting will be ignored unless restricted_to_workflows is set to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#selected_workflows ActionsRunnerGroup#selected_workflows}
+        :param name: Name of the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#name ActionsRunnerGroup#name}
+        :param visibility: The visibility of the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#visibility ActionsRunnerGroup#visibility}
+        :param allows_public_repositories: Whether public repositories can be added to the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#allows_public_repositories ActionsRunnerGroup#allows_public_repositories}
+        :param restricted_to_workflows: If 'true', the runner group will be restricted to running only the workflows specified in the 'selected_workflows' array. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#restricted_to_workflows ActionsRunnerGroup#restricted_to_workflows}
+        :param selected_repository_ids: List of repository IDs that can access the runner group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#selected_repository_ids ActionsRunnerGroup#selected_repository_ids}
+        :param selected_workflows: List of workflows the runner group should be allowed to run. This setting will be ignored unless restricted_to_workflows is set to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#selected_workflows ActionsRunnerGroup#selected_workflows}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -471,7 +471,7 @@ class ActionsRunnerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the runner group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#name ActionsRunnerGroup#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#name ActionsRunnerGroup#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -481,7 +481,7 @@ class ActionsRunnerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def visibility(self) -> builtins.str:
         '''The visibility of the runner group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#visibility ActionsRunnerGroup#visibility}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#visibility ActionsRunnerGroup#visibility}
         '''
         result = self._values.get("visibility")
         assert result is not None, "Required property 'visibility' is missing"
@@ -493,7 +493,7 @@ class ActionsRunnerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether public repositories can be added to the runner group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#allows_public_repositories ActionsRunnerGroup#allows_public_repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#allows_public_repositories ActionsRunnerGroup#allows_public_repositories}
         '''
         result = self._values.get("allows_public_repositories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -506,7 +506,7 @@ class ActionsRunnerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Defaults to 'false'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#restricted_to_workflows ActionsRunnerGroup#restricted_to_workflows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#restricted_to_workflows ActionsRunnerGroup#restricted_to_workflows}
         '''
         result = self._values.get("restricted_to_workflows")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -515,7 +515,7 @@ class ActionsRunnerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def selected_repository_ids(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''List of repository IDs that can access the runner group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#selected_repository_ids ActionsRunnerGroup#selected_repository_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#selected_repository_ids ActionsRunnerGroup#selected_repository_ids}
         '''
         result = self._values.get("selected_repository_ids")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -526,7 +526,7 @@ class ActionsRunnerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This setting will be ignored unless restricted_to_workflows is set to 'true'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_runner_group#selected_workflows ActionsRunnerGroup#selected_workflows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_runner_group#selected_workflows ActionsRunnerGroup#selected_workflows}
         '''
         result = self._values.get("selected_workflows")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

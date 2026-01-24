@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edalize
-Version: 0.6.2
+Version: 0.6.5
 Summary: Library for interfacing EDA tools such as simulators, linters or synthesis tools, using a common interface
 Author-email: Olof Kindgren <olof@award-winning.me>
 Maintainer-email: Olof Kindgren <olof@award-winning.me>

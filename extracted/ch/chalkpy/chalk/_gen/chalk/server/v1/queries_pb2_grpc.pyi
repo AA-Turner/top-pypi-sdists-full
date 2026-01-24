@@ -20,6 +20,14 @@ from chalk._gen.chalk.server.v1.queries_pb2 import (
     GetQueryPerformanceSummaryResponse,
     GetQueryPlanRequest,
     GetQueryPlanResponse,
+    GetQueryRunRequest,
+    GetQueryRunResponse,
+    GetStreamingResolverMappingPlanRequest,
+    GetStreamingResolverMappingPlanResponse,
+    GetStreamingResolverMaterializedAggregationPlanRequest,
+    GetStreamingResolverMaterializedAggregationPlanResponse,
+    GetStreamingResolverSinkPlanRequest,
+    GetStreamingResolverSinkPlanResponse,
     ListArchivedMetaQueriesRequest,
     ListArchivedMetaQueriesResponse,
     ListLatestMetaQueriesRequest,
@@ -107,6 +115,22 @@ class QueriesServiceStub:
     ListMetaQueryVersions: UnaryUnaryMultiCallable[
         ListMetaQueryVersionsRequest,
         ListMetaQueryVersionsResponse,
+    ]
+    GetQueryRun: UnaryUnaryMultiCallable[
+        GetQueryRunRequest,
+        GetQueryRunResponse,
+    ]
+    GetStreamingResolverMappingPlan: UnaryUnaryMultiCallable[
+        GetStreamingResolverMappingPlanRequest,
+        GetStreamingResolverMappingPlanResponse,
+    ]
+    GetStreamingResolverSinkPlan: UnaryUnaryMultiCallable[
+        GetStreamingResolverSinkPlanRequest,
+        GetStreamingResolverSinkPlanResponse,
+    ]
+    GetStreamingResolverMaterializedAggregationPlan: UnaryUnaryMultiCallable[
+        GetStreamingResolverMaterializedAggregationPlanRequest,
+        GetStreamingResolverMaterializedAggregationPlanResponse,
     ]
 
 class QueriesServiceServicer(metaclass=ABCMeta):
@@ -200,5 +224,29 @@ class QueriesServiceServicer(metaclass=ABCMeta):
         request: ListMetaQueryVersionsRequest,
         context: ServicerContext,
     ) -> ListMetaQueryVersionsResponse: ...
+    @abstractmethod
+    def GetQueryRun(
+        self,
+        request: GetQueryRunRequest,
+        context: ServicerContext,
+    ) -> GetQueryRunResponse: ...
+    @abstractmethod
+    def GetStreamingResolverMappingPlan(
+        self,
+        request: GetStreamingResolverMappingPlanRequest,
+        context: ServicerContext,
+    ) -> GetStreamingResolverMappingPlanResponse: ...
+    @abstractmethod
+    def GetStreamingResolverSinkPlan(
+        self,
+        request: GetStreamingResolverSinkPlanRequest,
+        context: ServicerContext,
+    ) -> GetStreamingResolverSinkPlanResponse: ...
+    @abstractmethod
+    def GetStreamingResolverMaterializedAggregationPlan(
+        self,
+        request: GetStreamingResolverMaterializedAggregationPlanRequest,
+        context: ServicerContext,
+    ) -> GetStreamingResolverMaterializedAggregationPlanResponse: ...
 
 def add_QueriesServiceServicer_to_server(servicer: QueriesServiceServicer, server: Server) -> None: ...

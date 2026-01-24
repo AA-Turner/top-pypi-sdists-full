@@ -3685,11 +3685,11 @@ class StandardProtocols(google.protobuf.message.Message):
     class _EnumEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[StandardProtocols._Enum.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         LEGACY_PROGRESS_REPORTING: StandardProtocols._Enum.ValueType  # 0
-        """Indicates suport for progress reporting via the legacy Metrics proto."""
+        """Indicates support for progress reporting via the legacy Metrics proto."""
         PROGRESS_REPORTING: StandardProtocols._Enum.ValueType  # 1
-        """Indicates suport for progress reporting via the new MonitoringInfo proto."""
+        """Indicates support for progress reporting via the new MonitoringInfo proto."""
         WORKER_STATUS: StandardProtocols._Enum.ValueType  # 2
-        """Indicates suport for worker status protocol defined at
+        """Indicates support for worker status protocol defined at
         https://s.apache.org/beam-fn-api-harness-status.
         """
         MULTI_CORE_BUNDLE_PROCESSING: StandardProtocols._Enum.ValueType  # 3
@@ -3736,14 +3736,16 @@ class StandardProtocols(google.protobuf.message.Message):
         """Indicates whether the SDK supports ordered list state."""
         ELEMENT_METADATA: StandardProtocols._Enum.ValueType  # 11
         """Indicates support for reading, writing and propagating Element's metadata"""
+        MULTIMAP_STATE: StandardProtocols._Enum.ValueType  # 12
+        """Indicates whether the SDK supports multimap state."""
 
     class Enum(_Enum, metaclass=_EnumEnumTypeWrapper): ...
     LEGACY_PROGRESS_REPORTING: StandardProtocols.Enum.ValueType  # 0
-    """Indicates suport for progress reporting via the legacy Metrics proto."""
+    """Indicates support for progress reporting via the legacy Metrics proto."""
     PROGRESS_REPORTING: StandardProtocols.Enum.ValueType  # 1
-    """Indicates suport for progress reporting via the new MonitoringInfo proto."""
+    """Indicates support for progress reporting via the new MonitoringInfo proto."""
     WORKER_STATUS: StandardProtocols.Enum.ValueType  # 2
-    """Indicates suport for worker status protocol defined at
+    """Indicates support for worker status protocol defined at
     https://s.apache.org/beam-fn-api-harness-status.
     """
     MULTI_CORE_BUNDLE_PROCESSING: StandardProtocols.Enum.ValueType  # 3
@@ -3790,6 +3792,8 @@ class StandardProtocols(google.protobuf.message.Message):
     """Indicates whether the SDK supports ordered list state."""
     ELEMENT_METADATA: StandardProtocols.Enum.ValueType  # 11
     """Indicates support for reading, writing and propagating Element's metadata"""
+    MULTIMAP_STATE: StandardProtocols.Enum.ValueType  # 12
+    """Indicates whether the SDK supports multimap state."""
 
     def __init__(
         self,

@@ -1,7 +1,7 @@
 """
 Publish Markdown files to Confluence wiki.
 
-Copyright 2022-2025, Levente Hunyadi
+Copyright 2022-2026, Levente Hunyadi
 
 :see: https://github.com/hunyadi/md2conf
 """
@@ -11,24 +11,27 @@ import logging
 import os
 from abc import abstractmethod
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable
 
 from .collection import ConfluencePageCollection
 from .converter import ConfluenceDocument
-from .domain import ConfluenceDocumentOptions, ConfluencePageID
-from .environment import ArgumentError
+from .environment import ArgumentError, PageError
 from .matcher import DirectoryEntry, FileEntry, Matcher, MatcherOptions
 from .metadata import ConfluenceSiteMetadata
+from .options import ConfluencePageID, DocumentOptions
 from .scanner import Scanner
+from .toc import unique_title
 
 LOGGER = logging.getLogger(__name__)
 
 
 class DocumentNode:
+    "Represents a Markdown document in a hierarchy."
+
     absolute_path: Path
-    page_id: Optional[str]
-    space_key: Optional[str]
-    title: Optional[str]
+    page_id: str | None
+    space_key: str | None
+    title: str | None
     synchronized: bool
 
     _children: list["DocumentNode"]
@@ -36,9 +39,9 @@ class DocumentNode:
     def __init__(
         self,
         absolute_path: Path,
-        page_id: Optional[str],
-        space_key: Optional[str],
-        title: Optional[str],
+        page_id: str | None,
+        space_key: str | None,
+        title: str | None,
         synchronized: bool,
     ):
         self.absolute_path = absolute_path
@@ -49,24 +52,42 @@ class DocumentNode:
         self._children = []
 
     def count(self) -> int:
+        "Number of descendants in the sub-tree spanned by this node (excluding the top-level node)."
+
         c = len(self._children)
         for child in self._children:
             c += child.count()
         return c
 
     def add_child(self, child: "DocumentNode") -> None:
+        "Adds a new node to the list of direct children."
+
         self._children.append(child)
 
     def children(self) -> Iterable["DocumentNode"]:
+        "Direct children of this node."
+
         for child in self._children:
             yield child
 
     def descendants(self) -> Iterable["DocumentNode"]:
+        """
+        Descendants of this node, part of its sub-tree.
+
+        Traversal follows depth-first search.
+        """
+
         for child in self._children:
             yield child
             yield from child.descendants()
 
     def all(self) -> Iterable["DocumentNode"]:
+        """
+        Descendants of this node, part of the sub-tree including the top-level node.
+
+        Traversal follows depth-first search.
+        """
+
         yield self
         for child in self._children:
             yield from child.all()
@@ -77,7 +98,7 @@ class Processor:
     Processes a single Markdown page or a directory of Markdown pages.
     """
 
-    options: ConfluenceDocumentOptions
+    options: DocumentOptions
     site: ConfluenceSiteMetadata
     root_dir: Path
 
@@ -85,7 +106,7 @@ class Processor:
 
     def __init__(
         self,
-        options: ConfluenceDocumentOptions,
+        options: DocumentOptions,
         site: ConfluenceSiteMetadata,
         root_dir: Path,
     ) -> None:
@@ -123,6 +144,22 @@ class Processor:
         Processes a sub-tree rooted at an ancestor node.
         """
 
+        # verify if pages have a unique title to avoid overwrites within synchronized set
+        title_to_path: dict[str, Path] = {}
+        duplicates: set[Path] = set()
+        for node in root.all():
+            if node.title is not None:
+                path = title_to_path.get(node.title)
+                if path is not None:
+                    duplicates.add(path)
+                    duplicates.add(node.absolute_path)
+                else:
+                    title_to_path[node.title] = node.absolute_path
+        if duplicates:
+            raise PageError(
+                f"expected: each synchronized page to have a unique title but duplicates found in files: {', '.join(str(p) for p in sorted(list(duplicates)))}"
+            )
+
         # synchronize directory tree structure with page hierarchy in space (find matching pages in Confluence)
         self._synchronize_tree(root, self.options.root_page_id)
 
@@ -140,7 +177,7 @@ class Processor:
         self._update_page(page_id, document, path)
 
     @abstractmethod
-    def _synchronize_tree(self, root: DocumentNode, root_id: Optional[ConfluencePageID]) -> None:
+    def _synchronize_tree(self, tree: DocumentNode, root_id: ConfluencePageID | None) -> None:
         """
         Creates the cross-reference index and synchronizes the directory tree structure with the Confluence page hierarchy.
 
@@ -157,7 +194,7 @@ class Processor:
         """
         ...
 
-    def _index_directory(self, local_dir: Path, parent: Optional[DocumentNode]) -> DocumentNode:
+    def _index_directory(self, local_dir: Path, parent: DocumentNode | None) -> DocumentNode:
         """
         Indexes Markdown files in a directory hierarchy recursively.
         """
@@ -181,7 +218,7 @@ class Processor:
         directories.sort()
 
         # make page act as parent node
-        parent_doc: Optional[Path] = None
+        parent_doc: Path | None = None
         if FileEntry("index.md") in files:
             parent_doc = local_dir / "index.md"
         elif FileEntry("README.md") in files:
@@ -226,14 +263,19 @@ class Processor:
         LOGGER.info("Indexing file: %s", path)
 
         # extract information from a Markdown document found in a local directory.
-        document = Scanner().read(path)
+        with open(path, "r", encoding="utf-8") as f:
+            text = f.read()
+
+        document = Scanner().parse(text)
+        props = document.properties
+        title = props.title or unique_title(text)
 
         return DocumentNode(
             absolute_path=path,
-            page_id=document.page_id,
-            space_key=document.space_key,
-            title=document.title,
-            synchronized=document.synchronized if document.synchronized is not None else True,
+            page_id=props.page_id,
+            space_key=props.space_key,
+            title=title,
+            synchronized=props.synchronized if props.synchronized is not None else True,
         )
 
     def _generate_hash(self, absolute_path: Path) -> str:
@@ -247,10 +289,10 @@ class Processor:
 
 
 class ProcessorFactory:
-    options: ConfluenceDocumentOptions
+    options: DocumentOptions
     site: ConfluenceSiteMetadata
 
-    def __init__(self, options: ConfluenceDocumentOptions, site: ConfluenceSiteMetadata) -> None:
+    def __init__(self, options: DocumentOptions, site: ConfluenceSiteMetadata) -> None:
         self.options = options
         self.site = site
 
@@ -277,7 +319,7 @@ class Converter:
         else:
             raise ArgumentError(f"expected: valid file or directory path; got: {path}")
 
-    def process_directory(self, local_dir: Path, root_dir: Optional[Path] = None) -> None:
+    def process_directory(self, local_dir: Path, root_dir: Path | None = None) -> None:
         """
         Recursively scans a directory hierarchy for Markdown files, and processes each, resolving cross-references.
         """
@@ -290,7 +332,7 @@ class Converter:
 
         self.factory.create(root_dir).process_directory(local_dir)
 
-    def process_page(self, path: Path, root_dir: Optional[Path] = None) -> None:
+    def process_page(self, path: Path, root_dir: Path | None = None) -> None:
         """
         Processes a single Markdown file.
         """

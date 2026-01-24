@@ -13,7 +13,6 @@ from ansible_collections.community.crypto.plugins.module_utils._version import (
     LooseVersion as _LooseVersion,
 )
 
-
 try:
     import cryptography
     from cryptography import x509
@@ -32,7 +31,6 @@ from ansible_collections.community.crypto.plugins.module_utils._crypto.cryptogra
     cryptography_decode_name,
 )
 
-
 if t.TYPE_CHECKING:
     import datetime  # pragma: no cover
 
@@ -40,7 +38,7 @@ if t.TYPE_CHECKING:
 # TODO: once cryptography has a _utc variant of InvalidityDate.invalidity_date, set this
 #       to True and adjust get_invalidity_date() accordingly.
 #       (https://github.com/pyca/cryptography/issues/10818)
-CRYPTOGRAPHY_TIMEZONE_INVALIDITY_DATE = False
+CRYPTOGRAPHY_TIMEZONE_INVALIDITY_DATE = False  # pylint: disable=invalid-name
 if HAS_CRYPTOGRAPHY:
     CRYPTOGRAPHY_TIMEZONE_INVALIDITY_DATE = _LooseVersion(
         cryptography.__version__
@@ -200,11 +198,11 @@ __all__ = (
     "cryptography_decode_revoked_certificate",
     "cryptography_dump_revoked",
     "cryptography_get_signature_algorithm_oid_from_crl",
-    "get_next_update",
-    "get_last_update",
-    "get_revocation_date",
     "get_invalidity_date",
-    "set_next_update",
+    "get_last_update",
+    "get_next_update",
+    "get_revocation_date",
     "set_last_update",
+    "set_next_update",
     "set_revocation_date",
 )

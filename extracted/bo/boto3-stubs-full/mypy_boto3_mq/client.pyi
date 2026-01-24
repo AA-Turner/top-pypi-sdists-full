@@ -3,7 +3,7 @@ Type annotations for mq service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mq/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -72,12 +73,6 @@ from .type_defs import (
     UpdateUserRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -86,13 +81,13 @@ else:
 __all__ = ("MQClient",)
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
 
 class MQClient(BaseClient):
     """
@@ -159,7 +154,7 @@ class MQClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mq/client/#create_tags)
         """
 
-    def create_user(self, **kwargs: Unpack[CreateUserRequestTypeDef]) -> Dict[str, Any]:
+    def create_user(self, **kwargs: Unpack[CreateUserRequestTypeDef]) -> dict[str, Any]:
         """
         Creates an ActiveMQ user.
 
@@ -197,7 +192,7 @@ class MQClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mq/client/#delete_tags)
         """
 
-    def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> Dict[str, Any]:
+    def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an ActiveMQ user.
 
@@ -319,7 +314,7 @@ class MQClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mq/client/#promote)
         """
 
-    def reboot_broker(self, **kwargs: Unpack[RebootBrokerRequestTypeDef]) -> Dict[str, Any]:
+    def reboot_broker(self, **kwargs: Unpack[RebootBrokerRequestTypeDef]) -> dict[str, Any]:
         """
         Reboots a broker.
 
@@ -347,7 +342,7 @@ class MQClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mq/client/#update_configuration)
         """
 
-    def update_user(self, **kwargs: Unpack[UpdateUserRequestTypeDef]) -> Dict[str, Any]:
+    def update_user(self, **kwargs: Unpack[UpdateUserRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the information for an ActiveMQ user.
 

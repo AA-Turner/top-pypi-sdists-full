@@ -15,6 +15,8 @@ class Parallel:
         return_failed_examples: bool = False,
         provide_traceback: bool | None = None,
         disable_progress_bar: bool = False,
+        timeout: int = 120,
+        straggler_limit: int = 3,
     ):
         super().__init__()
         self.num_threads = num_threads or settings.num_threads
@@ -23,6 +25,8 @@ class Parallel:
         self.return_failed_examples = return_failed_examples
         self.provide_traceback = provide_traceback
         self.disable_progress_bar = disable_progress_bar
+        self.timeout = timeout
+        self.straggler_limit = straggler_limit
 
         self.error_count = 0
         self.error_lock = threading.Lock()
@@ -38,6 +42,8 @@ class Parallel:
             max_errors=self.max_errors,
             provide_traceback=self.provide_traceback,
             disable_progress_bar=self.disable_progress_bar,
+            timeout=self.timeout,
+            straggler_limit=self.straggler_limit,
         )
 
         def process_pair(pair):
@@ -64,7 +70,15 @@ class Parallel:
         # Execute the processing function over the execution pairs
         results = executor.execute(process_pair, exec_pairs)
 
+        # Populate failed examples and exceptions from the executor
         if self.return_failed_examples:
+            for failed_idx in executor.failed_indices:
+                if failed_idx < len(exec_pairs):
+                    _, original_example = exec_pairs[failed_idx]
+                    self.failed_examples.append(original_example)
+                    if exception := executor.exceptions_map.get(failed_idx):
+                        self.exceptions.append(exception)
+
             return results, self.failed_examples, self.exceptions
         else:
             return results

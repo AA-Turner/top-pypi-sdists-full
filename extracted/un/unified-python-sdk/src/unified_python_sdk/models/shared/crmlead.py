@@ -9,9 +9,10 @@ from .property_crmlead_address import (
     PropertyCrmLeadAddressTypedDict,
 )
 from datetime import datetime
+from pydantic import model_serializer
 from typing import Any, Dict, List, Optional
 from typing_extensions import NotRequired, TypedDict
-from unified_python_sdk.types import BaseModel
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class CrmLeadTypedDict(TypedDict):
@@ -22,8 +23,10 @@ class CrmLeadTypedDict(TypedDict):
     created_at: NotRequired[datetime]
     creator_user_id: NotRequired[str]
     emails: NotRequired[List[CrmEmailTypedDict]]
+    first_name: NotRequired[str]
     id: NotRequired[str]
     is_active: NotRequired[bool]
+    last_name: NotRequired[str]
     link_urls: NotRequired[List[str]]
     metadata: NotRequired[List[CrmMetadataTypedDict]]
     name: NotRequired[str]
@@ -50,9 +53,13 @@ class CrmLead(BaseModel):
 
     emails: Optional[List[CrmEmail]] = None
 
+    first_name: Optional[str] = None
+
     id: Optional[str] = None
 
     is_active: Optional[bool] = None
+
+    last_name: Optional[str] = None
 
     link_urls: Optional[List[str]] = None
 
@@ -71,3 +78,42 @@ class CrmLead(BaseModel):
     updated_at: Optional[datetime] = None
 
     user_id: Optional[str] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "address",
+                "company_id",
+                "company_name",
+                "contact_id",
+                "created_at",
+                "creator_user_id",
+                "emails",
+                "first_name",
+                "id",
+                "is_active",
+                "last_name",
+                "link_urls",
+                "metadata",
+                "name",
+                "raw",
+                "source",
+                "status",
+                "telephones",
+                "updated_at",
+                "user_id",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

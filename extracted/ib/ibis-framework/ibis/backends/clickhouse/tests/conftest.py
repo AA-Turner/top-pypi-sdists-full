@@ -4,19 +4,21 @@ import concurrent.futures
 import contextlib
 import os
 import subprocess
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
 import sqlglot as sg
+import sqlglot.expressions as sge
 
 import ibis
 import ibis.expr.types as ir
 from ibis import util
+from ibis.backends.sql.compilers.base import STAR
 from ibis.backends.tests.base import ServiceBackendTest
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
-    from pathlib import Path
 
 CLICKHOUSE_HOST = os.environ.get("IBIS_TEST_CLICKHOUSE_HOST", "localhost")
 CLICKHOUSE_PORT = int(os.environ.get("IBIS_TEST_CLICKHOUSE_PORT", "8123"))
@@ -159,20 +161,35 @@ class TestConf(ServiceBackendTest):
 
     def _load_tpc(self, *, suite, scale_factor):
         con = self.connection
+        compiler = con.compiler
+        f = compiler.f
+        quoted = compiler.quoted
+        dialect = con.dialect
+
         schema = f"tpc{suite}"
-        con.con.command(f"CREATE DATABASE IF NOT EXISTS {schema}")
+        con.create_database(schema, force=True)
+
         parquet_dir = self.data_dir.joinpath(schema, f"sf={scale_factor}", "parquet")
-        assert parquet_dir.exists(), parquet_dir
+        assert parquet_dir.exists(), f"{parquet_dir} doesn't exist"
+
+        properties = sge.Properties(
+            expressions=[sge.EngineProperty(this=sg.to_identifier("Memory"))]
+        )
+        # path in the container to which the test data has been copied
+        server_base = Path("ibis", f"tpc{suite}")
         for path in parquet_dir.glob("*.parquet"):
-            table_name = path.with_suffix("").name
-            con.con.command(
-                f"CREATE VIEW IF NOT EXISTS {schema}.{table_name} AS "
-                f"SELECT * FROM file('ibis/{schema}/{path.name}', 'Parquet')"
+            expr = sge.Create(
+                this=sg.table(path.stem, db=schema, quoted=quoted),
+                kind="TABLE",
+                expression=sg.select(STAR).from_(f.file(str(server_base / path.name))),
+                properties=properties,
+                exists=True,
             )
+            con.con.command(expr.sql(dialect))
 
     def _transform_tpc_sql(self, parsed, *, suite, leaves):
         def add_catalog_and_schema(node):
-            if isinstance(node, sg.exp.Table) and node.name in leaves:
+            if isinstance(node, sge.Table) and node.name in leaves:
                 return node.__class__(
                     catalog=f"tpc{suite}",
                     **{k: v for k, v in node.args.items() if k != "catalog"},

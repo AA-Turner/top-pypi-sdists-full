@@ -62,48 +62,48 @@ bool test_loop_if_b()
     return true;
 }
 
-float4 main(float2 _79)
+float4 main(float2 _80)
 {
     scratchVar = 0;
-    bool _85 = false;
+    bool _86 = false;
     if (test_flat_b())
     {
-        bool _84 = test_if_b();
-        _85 = _84;
+        bool _85 = test_if_b();
+        _86 = _85;
     }
     else
     {
-        _85 = false;
+        _86 = false;
     }
-    bool _89 = false;
-    if (_85)
+    bool _90 = false;
+    if (_86)
     {
-        _89 = test_else_b();
+        _90 = test_else_b();
     }
     else
     {
-        _89 = false;
+        _90 = false;
     }
-    bool _93 = false;
-    if (_89)
+    bool _94 = false;
+    if (_90)
     {
-        bool _92 = test_loop_if_b();
-        _93 = _92;
+        bool _93 = test_loop_if_b();
+        _94 = _93;
     }
     else
     {
-        _93 = false;
+        _94 = false;
     }
-    float4 _94 = 0.0f.xxxx;
-    if (_93)
+    float4 _95 = 0.0f.xxxx;
+    if (_94)
     {
-        _94 = _18_colorGreen;
+        _95 = _18_colorGreen;
     }
     else
     {
-        _94 = _18_colorRed;
+        _95 = _18_colorRed;
     }
-    return _94;
+    return _95;
 }
 
 void frag_main()

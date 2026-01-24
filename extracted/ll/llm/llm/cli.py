@@ -2,6 +2,7 @@ import asyncio
 import click
 from click_default_group import DefaultGroup
 from dataclasses import asdict
+from importlib.metadata import version
 import io
 import json
 import os
@@ -121,7 +122,11 @@ def resolve_fragments(
     resolved: List[Union[Fragment, Attachment]] = []
     for fragment in fragments:
         if fragment.startswith("http://") or fragment.startswith("https://"):
-            client = httpx.Client(follow_redirects=True, max_redirects=3)
+            llm_version = version("llm")
+            headers = {"User-Agent": f"llm/{llm_version} (https://llm.datasette.io/)"}
+            client = httpx.Client(
+                follow_redirects=True, max_redirects=3, headers=headers
+            )
             response = client.get(fragment)
             response.raise_for_status()
             resolved.append(Fragment(response.text, fragment))
@@ -1219,10 +1224,8 @@ def chat(
 
         response = conversation.chain(
             prompt,
-            fragments=[str(fragment) for fragment in fragments],
-            system_fragments=[
-                str(system_fragment) for system_fragment in argument_system_fragments
-            ],
+            fragments=fragments,
+            system_fragments=argument_system_fragments,
             attachments=attachments,
             system=system,
             **kwargs,

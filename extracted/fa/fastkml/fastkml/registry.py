@@ -25,11 +25,7 @@ with the registry acting as a central configuration for these mappings.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Dict
-from typing import List
 from typing import Optional
-from typing import Tuple
-from typing import Type
 
 from typing_extensions import Protocol
 
@@ -46,12 +42,26 @@ class GetKWArgs(Protocol):
         *,
         element: Element,
         ns: str,
-        name_spaces: Dict[str, str],
+        name_spaces: dict[str, str],
         node_name: str,
         kwarg: str,
-        classes: Tuple[Type[object], ...],
+        classes: tuple[type[object], ...],
         strict: bool,
-    ) -> Dict[str, Any]: ...
+    ) -> dict[str, Any]: ...
+
+
+class CustomGetKWArgs(Protocol):
+    def __call__(
+        self,
+        *,
+        element: Element,
+        ns_ids: tuple[str, ...],
+        name_spaces: dict[str, str],
+        node_name: str,
+        kwarg: str,
+        classes: tuple[type[object], ...],
+        strict: bool,
+    ) -> dict[str, Any]: ...
 
 
 class SetElement(Protocol):
@@ -85,16 +95,18 @@ class RegistryItem:
     - ``type``: The type of the XML object.
     - ``node_name``: The name of the XML node that the mapping applies to.
     - ``default``: An optional default value for the Python object attribute.
-
+    - ``custom_get_kwarg``: An optional custom function that retrieves keyword arguments
+      for the Python object.
     """
 
-    ns_ids: Tuple[str, ...]
-    classes: Tuple[Type[object], ...]
+    ns_ids: tuple[str, ...]
+    classes: tuple[type[object], ...]
     attr_name: str
     get_kwarg: GetKWArgs
     set_element: SetElement
     node_name: str
     default: Any = None
+    custom_get_kwarg: Optional[CustomGetKWArgs] = None
 
 
 class Registry:
@@ -119,11 +131,11 @@ class Registry:
 
     """
 
-    _registry: Dict[Type["_XMLObject"], List[RegistryItem]]
+    _registry: dict[type["_XMLObject"], list[RegistryItem]]
 
     def __init__(
         self,
-        registry: Optional[Dict[Type["_XMLObject"], List[RegistryItem]]] = None,
+        registry: Optional[dict[type["_XMLObject"], list[RegistryItem]]] = None,
     ) -> None:
         """Initialize the registry."""
         self._registry = registry or {}
@@ -134,7 +146,7 @@ class Registry:
             f"{self.__class__.__module__}.{self.__class__.__name__}({self._registry})"
         )
 
-    def register(self, cls: Type["_XMLObject"], item: RegistryItem) -> None:
+    def register(self, cls: type["_XMLObject"], item: RegistryItem) -> None:
         """
         Register a class.
 
@@ -155,7 +167,7 @@ class Registry:
         existing.append(item)
         self._registry[cls] = existing
 
-    def get(self, cls: Type["_XMLObject"]) -> List[RegistryItem]:
+    def get(self, cls: type["_XMLObject"]) -> list[RegistryItem]:
         """
         Get the registry items for a class and its ancestors.
 

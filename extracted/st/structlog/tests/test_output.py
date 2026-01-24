@@ -20,7 +20,7 @@ from structlog import (
 )
 from structlog._output import WRITE_LOCKS, stderr, stdout
 
-from .utils import stdlib_log_methods
+from .helpers import stdlib_log_methods
 
 
 class TestLoggers:
@@ -102,7 +102,7 @@ class TestLoggers:
         f.write("")
         pl = logger_cls(file=f.open())
 
-        with pytest.raises(pickle.PicklingError, match="Only (.+)Loggers to"):
+        with pytest.raises(pickle.PicklingError, match=r"Only (.+)Loggers to"):
             pickle.dumps(pl, proto)
 
     def test_deepcopy(self, logger_cls, capsys):

@@ -1,0 +1,80 @@
+Metadata-Version: 2.4
+Name: kas
+Version: 5.1
+Summary: Setup tool for bitbake based projects
+Maintainer-email: Jan Kiszka <jan.kiszka@siemens.com>
+License: MIT
+Project-URL: Documentation, https://kas.readthedocs.io/
+Project-URL: Homepage, https://github.com/siemens/kas
+Project-URL: Repository, https://github.com/siemens/kas.git
+Keywords: OpenEmbedded bitbake development
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Build Tools
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: distro<2,>=1
+Requires-Dist: gitpython<4,>=3.1
+Requires-Dist: jsonschema<5,>=3.2
+Requires-Dist: pyyaml<7,>=3
+Provides-Extra: tui
+Requires-Dist: kconfiglib<15,>=14.1; extra == "tui"
+Provides-Extra: verify
+Requires-Dist: python-gnupg<1,>=0.4.0; extra == "verify"
+Provides-Extra: test
+Requires-Dist: kas[tui]; extra == "test"
+Requires-Dist: kas[verify]; extra == "test"
+Requires-Dist: pytest<9,>=6; extra == "test"
+Dynamic: license-file
+
+Setup tool for bitbake based projects
+=====================================
+
++--------------------+
+|    Build Status    |
++====================+
+| |workflow-master|_ |
++--------------------+
+| |workflow-next|_   |
++--------------------+
+
+.. |workflow-master| image:: https://github.com/siemens/kas/workflows/master/badge.svg
+.. _workflow-master: https://github.com/siemens/kas/actions?query=workflow%3Amaster
+.. |workflow-next| image:: https://github.com/siemens/kas/workflows/next/badge.svg
+.. _workflow-next: https://github.com/siemens/kas/actions?query=workflow%3Anext
+
+This tool provides an easy mechanism to setup bitbake based
+projects.
+
+The OpenEmbedded tooling support starts at step 2 with bitbake. The
+downloading of sources and then configuration has to be done by
+hand. Usually, this is explained in a README. Instead kas is using a
+project configuration file and does the download and configuration
+phase.
+
+Key features provided by the build tool:
+
+- clone and checkout bitbake layers
+- create default bitbake settings (machine, arch, ...)
+- launch minimal build environment, reducing risk of host contamination
+- initiate bitbake build process
+
+See the `kas documentation <https://kas.readthedocs.io>`_ for further details.
+
+SECURITY NOTICE
+---------------
+
+At this stage, kas does not validate the integrity of fetched repositories.
+Make sure to only pull from trusted sources to ensure that the selected
+revisions are the expected ones, specifically when using mirrors. Later
+versions of kas may introduce integrity validation mechanisms such as
+cryptographic checksums to strengthen supply chain security.

@@ -1,7 +1,7 @@
 r'''
 # `aws_lb_listener_rule`
 
-Refer to the Terraform Registry for docs: [`aws_lb_listener_rule`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule).
+Refer to the Terraform Registry for docs: [`aws_lb_listener_rule`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LbListenerRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule aws_lb_listener_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule aws_lb_listener_rule}.'''
 
     def __init__(
         self,
@@ -59,6 +59,7 @@ class LbListenerRule(
         region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        transform: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LbListenerRuleTransform", typing.Dict[builtins.str, typing.Any]]]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -67,18 +68,19 @@ class LbListenerRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule aws_lb_listener_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule aws_lb_listener_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#action LbListenerRule#action}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#condition LbListenerRule#condition}
-        :param listener_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#listener_arn LbListenerRule#listener_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#id LbListenerRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#priority LbListenerRule#priority}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#region LbListenerRule#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#tags LbListenerRule#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#tags_all LbListenerRule#tags_all}.
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#action LbListenerRule#action}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#condition LbListenerRule#condition}
+        :param listener_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#listener_arn LbListenerRule#listener_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#id LbListenerRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#priority LbListenerRule#priority}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#region LbListenerRule#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#tags LbListenerRule#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#tags_all LbListenerRule#tags_all}.
+        :param transform: transform block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#transform LbListenerRule#transform}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -100,6 +102,7 @@ class LbListenerRule(
             region=region,
             tags=tags,
             tags_all=tags_all,
+            transform=transform,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -124,7 +127,7 @@ class LbListenerRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LbListenerRule to import.
-        :param import_from_id: The id of the existing LbListenerRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LbListenerRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LbListenerRule to import is found.
         '''
         if __debug__:
@@ -161,6 +164,19 @@ class LbListenerRule(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "putCondition", [value]))
 
+    @jsii.member(jsii_name="putTransform")
+    def put_transform(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LbListenerRuleTransform", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa14471004908d0895179f4edc84955c515b31f447dd517380f44b3a61066785)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putTransform", [value]))
+
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
@@ -180,6 +196,10 @@ class LbListenerRule(
     @jsii.member(jsii_name="resetTagsAll")
     def reset_tags_all(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetTagsAll", []))
+
+    @jsii.member(jsii_name="resetTransform")
+    def reset_transform(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTransform", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -208,6 +228,11 @@ class LbListenerRule(
     @jsii.member(jsii_name="condition")
     def condition(self) -> "LbListenerRuleConditionList":
         return typing.cast("LbListenerRuleConditionList", jsii.get(self, "condition"))
+
+    @builtins.property
+    @jsii.member(jsii_name="transform")
+    def transform(self) -> "LbListenerRuleTransformList":
+        return typing.cast("LbListenerRuleTransformList", jsii.get(self, "transform"))
 
     @builtins.property
     @jsii.member(jsii_name="actionInput")
@@ -254,6 +279,13 @@ class LbListenerRule(
     @jsii.member(jsii_name="tagsInput")
     def tags_input(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="transformInput")
+    def transform_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LbListenerRuleTransform"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LbListenerRuleTransform"]]], jsii.get(self, "transformInput"))
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -337,6 +369,7 @@ class LbListenerRule(
         "authenticate_oidc": "authenticateOidc",
         "fixed_response": "fixedResponse",
         "forward": "forward",
+        "jwt_validation": "jwtValidation",
         "order": "order",
         "redirect": "redirect",
         "target_group_arn": "targetGroupArn",
@@ -351,19 +384,21 @@ class LbListenerRuleAction:
         authenticate_oidc: typing.Optional[typing.Union["LbListenerRuleActionAuthenticateOidc", typing.Dict[builtins.str, typing.Any]]] = None,
         fixed_response: typing.Optional[typing.Union["LbListenerRuleActionFixedResponse", typing.Dict[builtins.str, typing.Any]]] = None,
         forward: typing.Optional[typing.Union["LbListenerRuleActionForward", typing.Dict[builtins.str, typing.Any]]] = None,
+        jwt_validation: typing.Optional[typing.Union["LbListenerRuleActionJwtValidation", typing.Dict[builtins.str, typing.Any]]] = None,
         order: typing.Optional[jsii.Number] = None,
         redirect: typing.Optional[typing.Union["LbListenerRuleActionRedirect", typing.Dict[builtins.str, typing.Any]]] = None,
         target_group_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#type LbListenerRule#type}.
-        :param authenticate_cognito: authenticate_cognito block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#authenticate_cognito LbListenerRule#authenticate_cognito}
-        :param authenticate_oidc: authenticate_oidc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#authenticate_oidc LbListenerRule#authenticate_oidc}
-        :param fixed_response: fixed_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#fixed_response LbListenerRule#fixed_response}
-        :param forward: forward block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#forward LbListenerRule#forward}
-        :param order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#order LbListenerRule#order}.
-        :param redirect: redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#redirect LbListenerRule#redirect}
-        :param target_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#target_group_arn LbListenerRule#target_group_arn}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#type LbListenerRule#type}.
+        :param authenticate_cognito: authenticate_cognito block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#authenticate_cognito LbListenerRule#authenticate_cognito}
+        :param authenticate_oidc: authenticate_oidc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#authenticate_oidc LbListenerRule#authenticate_oidc}
+        :param fixed_response: fixed_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#fixed_response LbListenerRule#fixed_response}
+        :param forward: forward block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#forward LbListenerRule#forward}
+        :param jwt_validation: jwt_validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#jwt_validation LbListenerRule#jwt_validation}
+        :param order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#order LbListenerRule#order}.
+        :param redirect: redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#redirect LbListenerRule#redirect}
+        :param target_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#target_group_arn LbListenerRule#target_group_arn}.
         '''
         if isinstance(authenticate_cognito, dict):
             authenticate_cognito = LbListenerRuleActionAuthenticateCognito(**authenticate_cognito)
@@ -373,6 +408,8 @@ class LbListenerRuleAction:
             fixed_response = LbListenerRuleActionFixedResponse(**fixed_response)
         if isinstance(forward, dict):
             forward = LbListenerRuleActionForward(**forward)
+        if isinstance(jwt_validation, dict):
+            jwt_validation = LbListenerRuleActionJwtValidation(**jwt_validation)
         if isinstance(redirect, dict):
             redirect = LbListenerRuleActionRedirect(**redirect)
         if __debug__:
@@ -382,6 +419,7 @@ class LbListenerRuleAction:
             check_type(argname="argument authenticate_oidc", value=authenticate_oidc, expected_type=type_hints["authenticate_oidc"])
             check_type(argname="argument fixed_response", value=fixed_response, expected_type=type_hints["fixed_response"])
             check_type(argname="argument forward", value=forward, expected_type=type_hints["forward"])
+            check_type(argname="argument jwt_validation", value=jwt_validation, expected_type=type_hints["jwt_validation"])
             check_type(argname="argument order", value=order, expected_type=type_hints["order"])
             check_type(argname="argument redirect", value=redirect, expected_type=type_hints["redirect"])
             check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
@@ -396,6 +434,8 @@ class LbListenerRuleAction:
             self._values["fixed_response"] = fixed_response
         if forward is not None:
             self._values["forward"] = forward
+        if jwt_validation is not None:
+            self._values["jwt_validation"] = jwt_validation
         if order is not None:
             self._values["order"] = order
         if redirect is not None:
@@ -405,7 +445,7 @@ class LbListenerRuleAction:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#type LbListenerRule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#type LbListenerRule#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -416,7 +456,7 @@ class LbListenerRuleAction:
     ) -> typing.Optional["LbListenerRuleActionAuthenticateCognito"]:
         '''authenticate_cognito block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#authenticate_cognito LbListenerRule#authenticate_cognito}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#authenticate_cognito LbListenerRule#authenticate_cognito}
         '''
         result = self._values.get("authenticate_cognito")
         return typing.cast(typing.Optional["LbListenerRuleActionAuthenticateCognito"], result)
@@ -427,7 +467,7 @@ class LbListenerRuleAction:
     ) -> typing.Optional["LbListenerRuleActionAuthenticateOidc"]:
         '''authenticate_oidc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#authenticate_oidc LbListenerRule#authenticate_oidc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#authenticate_oidc LbListenerRule#authenticate_oidc}
         '''
         result = self._values.get("authenticate_oidc")
         return typing.cast(typing.Optional["LbListenerRuleActionAuthenticateOidc"], result)
@@ -436,7 +476,7 @@ class LbListenerRuleAction:
     def fixed_response(self) -> typing.Optional["LbListenerRuleActionFixedResponse"]:
         '''fixed_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#fixed_response LbListenerRule#fixed_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#fixed_response LbListenerRule#fixed_response}
         '''
         result = self._values.get("fixed_response")
         return typing.cast(typing.Optional["LbListenerRuleActionFixedResponse"], result)
@@ -445,14 +485,23 @@ class LbListenerRuleAction:
     def forward(self) -> typing.Optional["LbListenerRuleActionForward"]:
         '''forward block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#forward LbListenerRule#forward}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#forward LbListenerRule#forward}
         '''
         result = self._values.get("forward")
         return typing.cast(typing.Optional["LbListenerRuleActionForward"], result)
 
     @builtins.property
+    def jwt_validation(self) -> typing.Optional["LbListenerRuleActionJwtValidation"]:
+        '''jwt_validation block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#jwt_validation LbListenerRule#jwt_validation}
+        '''
+        result = self._values.get("jwt_validation")
+        return typing.cast(typing.Optional["LbListenerRuleActionJwtValidation"], result)
+
+    @builtins.property
     def order(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#order LbListenerRule#order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#order LbListenerRule#order}.'''
         result = self._values.get("order")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -460,14 +509,14 @@ class LbListenerRuleAction:
     def redirect(self) -> typing.Optional["LbListenerRuleActionRedirect"]:
         '''redirect block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#redirect LbListenerRule#redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#redirect LbListenerRule#redirect}
         '''
         result = self._values.get("redirect")
         return typing.cast(typing.Optional["LbListenerRuleActionRedirect"], result)
 
     @builtins.property
     def target_group_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#target_group_arn LbListenerRule#target_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#target_group_arn LbListenerRule#target_group_arn}.'''
         result = self._values.get("target_group_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -511,14 +560,14 @@ class LbListenerRuleActionAuthenticateCognito:
         session_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param user_pool_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#user_pool_arn LbListenerRule#user_pool_arn}.
-        :param user_pool_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#user_pool_client_id LbListenerRule#user_pool_client_id}.
-        :param user_pool_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#user_pool_domain LbListenerRule#user_pool_domain}.
-        :param authentication_request_extra_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#authentication_request_extra_params LbListenerRule#authentication_request_extra_params}.
-        :param on_unauthenticated_request: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#on_unauthenticated_request LbListenerRule#on_unauthenticated_request}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#scope LbListenerRule#scope}.
-        :param session_cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#session_cookie_name LbListenerRule#session_cookie_name}.
-        :param session_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#session_timeout LbListenerRule#session_timeout}.
+        :param user_pool_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#user_pool_arn LbListenerRule#user_pool_arn}.
+        :param user_pool_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#user_pool_client_id LbListenerRule#user_pool_client_id}.
+        :param user_pool_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#user_pool_domain LbListenerRule#user_pool_domain}.
+        :param authentication_request_extra_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#authentication_request_extra_params LbListenerRule#authentication_request_extra_params}.
+        :param on_unauthenticated_request: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#on_unauthenticated_request LbListenerRule#on_unauthenticated_request}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#scope LbListenerRule#scope}.
+        :param session_cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#session_cookie_name LbListenerRule#session_cookie_name}.
+        :param session_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#session_timeout LbListenerRule#session_timeout}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__280003f8d7cc720550f731669d70159b0c563b7c4cd607bb9068c98a2e5ebad0)
@@ -548,21 +597,21 @@ class LbListenerRuleActionAuthenticateCognito:
 
     @builtins.property
     def user_pool_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#user_pool_arn LbListenerRule#user_pool_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#user_pool_arn LbListenerRule#user_pool_arn}.'''
         result = self._values.get("user_pool_arn")
         assert result is not None, "Required property 'user_pool_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_pool_client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#user_pool_client_id LbListenerRule#user_pool_client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#user_pool_client_id LbListenerRule#user_pool_client_id}.'''
         result = self._values.get("user_pool_client_id")
         assert result is not None, "Required property 'user_pool_client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_pool_domain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#user_pool_domain LbListenerRule#user_pool_domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#user_pool_domain LbListenerRule#user_pool_domain}.'''
         result = self._values.get("user_pool_domain")
         assert result is not None, "Required property 'user_pool_domain' is missing"
         return typing.cast(builtins.str, result)
@@ -571,31 +620,31 @@ class LbListenerRuleActionAuthenticateCognito:
     def authentication_request_extra_params(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#authentication_request_extra_params LbListenerRule#authentication_request_extra_params}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#authentication_request_extra_params LbListenerRule#authentication_request_extra_params}.'''
         result = self._values.get("authentication_request_extra_params")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#on_unauthenticated_request LbListenerRule#on_unauthenticated_request}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#on_unauthenticated_request LbListenerRule#on_unauthenticated_request}.'''
         result = self._values.get("on_unauthenticated_request")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scope(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#scope LbListenerRule#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#scope LbListenerRule#scope}.'''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def session_cookie_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#session_cookie_name LbListenerRule#session_cookie_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#session_cookie_name LbListenerRule#session_cookie_name}.'''
         result = self._values.get("session_cookie_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def session_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#session_timeout LbListenerRule#session_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#session_timeout LbListenerRule#session_timeout}.'''
         result = self._values.get("session_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -846,17 +895,17 @@ class LbListenerRuleActionAuthenticateOidc:
         session_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#authorization_endpoint LbListenerRule#authorization_endpoint}.
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#client_id LbListenerRule#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#client_secret LbListenerRule#client_secret}.
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#issuer LbListenerRule#issuer}.
-        :param token_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#token_endpoint LbListenerRule#token_endpoint}.
-        :param user_info_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#user_info_endpoint LbListenerRule#user_info_endpoint}.
-        :param authentication_request_extra_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#authentication_request_extra_params LbListenerRule#authentication_request_extra_params}.
-        :param on_unauthenticated_request: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#on_unauthenticated_request LbListenerRule#on_unauthenticated_request}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#scope LbListenerRule#scope}.
-        :param session_cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#session_cookie_name LbListenerRule#session_cookie_name}.
-        :param session_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#session_timeout LbListenerRule#session_timeout}.
+        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#authorization_endpoint LbListenerRule#authorization_endpoint}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#client_id LbListenerRule#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#client_secret LbListenerRule#client_secret}.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#issuer LbListenerRule#issuer}.
+        :param token_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#token_endpoint LbListenerRule#token_endpoint}.
+        :param user_info_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#user_info_endpoint LbListenerRule#user_info_endpoint}.
+        :param authentication_request_extra_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#authentication_request_extra_params LbListenerRule#authentication_request_extra_params}.
+        :param on_unauthenticated_request: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#on_unauthenticated_request LbListenerRule#on_unauthenticated_request}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#scope LbListenerRule#scope}.
+        :param session_cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#session_cookie_name LbListenerRule#session_cookie_name}.
+        :param session_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#session_timeout LbListenerRule#session_timeout}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff374a35f481049c03138b793a4f822eddd7480922bc8db75116a6084a714833)
@@ -892,42 +941,42 @@ class LbListenerRuleActionAuthenticateOidc:
 
     @builtins.property
     def authorization_endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#authorization_endpoint LbListenerRule#authorization_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#authorization_endpoint LbListenerRule#authorization_endpoint}.'''
         result = self._values.get("authorization_endpoint")
         assert result is not None, "Required property 'authorization_endpoint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#client_id LbListenerRule#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#client_id LbListenerRule#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#client_secret LbListenerRule#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#client_secret LbListenerRule#client_secret}.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def issuer(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#issuer LbListenerRule#issuer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#issuer LbListenerRule#issuer}.'''
         result = self._values.get("issuer")
         assert result is not None, "Required property 'issuer' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def token_endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#token_endpoint LbListenerRule#token_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#token_endpoint LbListenerRule#token_endpoint}.'''
         result = self._values.get("token_endpoint")
         assert result is not None, "Required property 'token_endpoint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_info_endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#user_info_endpoint LbListenerRule#user_info_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#user_info_endpoint LbListenerRule#user_info_endpoint}.'''
         result = self._values.get("user_info_endpoint")
         assert result is not None, "Required property 'user_info_endpoint' is missing"
         return typing.cast(builtins.str, result)
@@ -936,31 +985,31 @@ class LbListenerRuleActionAuthenticateOidc:
     def authentication_request_extra_params(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#authentication_request_extra_params LbListenerRule#authentication_request_extra_params}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#authentication_request_extra_params LbListenerRule#authentication_request_extra_params}.'''
         result = self._values.get("authentication_request_extra_params")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#on_unauthenticated_request LbListenerRule#on_unauthenticated_request}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#on_unauthenticated_request LbListenerRule#on_unauthenticated_request}.'''
         result = self._values.get("on_unauthenticated_request")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scope(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#scope LbListenerRule#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#scope LbListenerRule#scope}.'''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def session_cookie_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#session_cookie_name LbListenerRule#session_cookie_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#session_cookie_name LbListenerRule#session_cookie_name}.'''
         result = self._values.get("session_cookie_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def session_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#session_timeout LbListenerRule#session_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#session_timeout LbListenerRule#session_timeout}.'''
         result = self._values.get("session_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1244,9 +1293,9 @@ class LbListenerRuleActionFixedResponse:
         status_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#content_type LbListenerRule#content_type}.
-        :param message_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#message_body LbListenerRule#message_body}.
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#status_code LbListenerRule#status_code}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#content_type LbListenerRule#content_type}.
+        :param message_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#message_body LbListenerRule#message_body}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#status_code LbListenerRule#status_code}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e94c239bff56381742db9a71f8882f7cc09200f0c6f714318277f0d646b022ec)
@@ -1263,20 +1312,20 @@ class LbListenerRuleActionFixedResponse:
 
     @builtins.property
     def content_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#content_type LbListenerRule#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#content_type LbListenerRule#content_type}.'''
         result = self._values.get("content_type")
         assert result is not None, "Required property 'content_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def message_body(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#message_body LbListenerRule#message_body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#message_body LbListenerRule#message_body}.'''
         result = self._values.get("message_body")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def status_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#status_code LbListenerRule#status_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#status_code LbListenerRule#status_code}.'''
         result = self._values.get("status_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1400,8 +1449,8 @@ class LbListenerRuleActionForward:
         stickiness: typing.Optional[typing.Union["LbListenerRuleActionForwardStickiness", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param target_group: target_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#target_group LbListenerRule#target_group}
-        :param stickiness: stickiness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#stickiness LbListenerRule#stickiness}
+        :param target_group: target_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#target_group LbListenerRule#target_group}
+        :param stickiness: stickiness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#stickiness LbListenerRule#stickiness}
         '''
         if isinstance(stickiness, dict):
             stickiness = LbListenerRuleActionForwardStickiness(**stickiness)
@@ -1421,7 +1470,7 @@ class LbListenerRuleActionForward:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LbListenerRuleActionForwardTargetGroup"]]:
         '''target_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#target_group LbListenerRule#target_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#target_group LbListenerRule#target_group}
         '''
         result = self._values.get("target_group")
         assert result is not None, "Required property 'target_group' is missing"
@@ -1431,7 +1480,7 @@ class LbListenerRuleActionForward:
     def stickiness(self) -> typing.Optional["LbListenerRuleActionForwardStickiness"]:
         '''stickiness block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#stickiness LbListenerRule#stickiness}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#stickiness LbListenerRule#stickiness}
         '''
         result = self._values.get("stickiness")
         return typing.cast(typing.Optional["LbListenerRuleActionForwardStickiness"], result)
@@ -1476,8 +1525,8 @@ class LbListenerRuleActionForwardOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#duration LbListenerRule#duration}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#enabled LbListenerRule#enabled}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#duration LbListenerRule#duration}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#enabled LbListenerRule#enabled}.
         '''
         value = LbListenerRuleActionForwardStickiness(
             duration=duration, enabled=enabled
@@ -1555,8 +1604,8 @@ class LbListenerRuleActionForwardStickiness:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#duration LbListenerRule#duration}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#enabled LbListenerRule#enabled}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#duration LbListenerRule#duration}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#enabled LbListenerRule#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__572ac2e884d53ec6b085a772f0a7d0a0b8a402c2d9a0f6742fa98da1c3cdcdbe)
@@ -1570,7 +1619,7 @@ class LbListenerRuleActionForwardStickiness:
 
     @builtins.property
     def duration(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#duration LbListenerRule#duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#duration LbListenerRule#duration}.'''
         result = self._values.get("duration")
         assert result is not None, "Required property 'duration' is missing"
         return typing.cast(jsii.Number, result)
@@ -1579,7 +1628,7 @@ class LbListenerRuleActionForwardStickiness:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#enabled LbListenerRule#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#enabled LbListenerRule#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1687,8 +1736,8 @@ class LbListenerRuleActionForwardTargetGroup:
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#arn LbListenerRule#arn}.
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#weight LbListenerRule#weight}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#arn LbListenerRule#arn}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#weight LbListenerRule#weight}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__07ea379e3c14d5ade827030f613a569bbff1f7b68036e9773f58971609e176c5)
@@ -1702,14 +1751,14 @@ class LbListenerRuleActionForwardTargetGroup:
 
     @builtins.property
     def arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#arn LbListenerRule#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#arn LbListenerRule#arn}.'''
         result = self._values.get("arn")
         assert result is not None, "Required property 'arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#weight LbListenerRule#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#weight LbListenerRule#weight}.'''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1900,6 +1949,426 @@ class LbListenerRuleActionForwardTargetGroupOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleActionJwtValidation",
+    jsii_struct_bases=[],
+    name_mapping={
+        "issuer": "issuer",
+        "jwks_endpoint": "jwksEndpoint",
+        "additional_claim": "additionalClaim",
+    },
+)
+class LbListenerRuleActionJwtValidation:
+    def __init__(
+        self,
+        *,
+        issuer: builtins.str,
+        jwks_endpoint: builtins.str,
+        additional_claim: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LbListenerRuleActionJwtValidationAdditionalClaim", typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#issuer LbListenerRule#issuer}.
+        :param jwks_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#jwks_endpoint LbListenerRule#jwks_endpoint}.
+        :param additional_claim: additional_claim block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#additional_claim LbListenerRule#additional_claim}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__382497541632fc5688bc22c9142498e991dc858827c902e131190d206ca92b06)
+            check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
+            check_type(argname="argument jwks_endpoint", value=jwks_endpoint, expected_type=type_hints["jwks_endpoint"])
+            check_type(argname="argument additional_claim", value=additional_claim, expected_type=type_hints["additional_claim"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "issuer": issuer,
+            "jwks_endpoint": jwks_endpoint,
+        }
+        if additional_claim is not None:
+            self._values["additional_claim"] = additional_claim
+
+    @builtins.property
+    def issuer(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#issuer LbListenerRule#issuer}.'''
+        result = self._values.get("issuer")
+        assert result is not None, "Required property 'issuer' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def jwks_endpoint(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#jwks_endpoint LbListenerRule#jwks_endpoint}.'''
+        result = self._values.get("jwks_endpoint")
+        assert result is not None, "Required property 'jwks_endpoint' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def additional_claim(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LbListenerRuleActionJwtValidationAdditionalClaim"]]]:
+        '''additional_claim block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#additional_claim LbListenerRule#additional_claim}
+        '''
+        result = self._values.get("additional_claim")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LbListenerRuleActionJwtValidationAdditionalClaim"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LbListenerRuleActionJwtValidation(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleActionJwtValidationAdditionalClaim",
+    jsii_struct_bases=[],
+    name_mapping={"format": "format", "name": "name", "values": "values"},
+)
+class LbListenerRuleActionJwtValidationAdditionalClaim:
+    def __init__(
+        self,
+        *,
+        format: builtins.str,
+        name: builtins.str,
+        values: typing.Sequence[builtins.str],
+    ) -> None:
+        '''
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#format LbListenerRule#format}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#name LbListenerRule#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a0488378f378bb28b38694549666614b484997bedacb7fdb0d8c0ba1374019ed)
+            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "format": format,
+            "name": name,
+            "values": values,
+        }
+
+    @builtins.property
+    def format(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#format LbListenerRule#format}.'''
+        result = self._values.get("format")
+        assert result is not None, "Required property 'format' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#name LbListenerRule#name}.'''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def values(self) -> typing.List[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.'''
+        result = self._values.get("values")
+        assert result is not None, "Required property 'values' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LbListenerRuleActionJwtValidationAdditionalClaim(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class LbListenerRuleActionJwtValidationAdditionalClaimList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleActionJwtValidationAdditionalClaimList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e48ddf2e988beafa82c53282c262e0b634a401dd417542a7e3f0d9473cb200e6)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "LbListenerRuleActionJwtValidationAdditionalClaimOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f131ee9e9aff881425c8553def0de1bb67741c478cfc53bed1a21579655dfa55)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("LbListenerRuleActionJwtValidationAdditionalClaimOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3cf9e4754f883c3bb1cf323232326ca3cc90d3117a82c26082fab9812bec869b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7df0b7b80c40a302f8e40639890efc272d9a0467759f493a45ace8418bee4f85)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b04b3ff14f4044f73cb4f4d01c36d586e37c89c04923b541528c28fcc116542d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LbListenerRuleActionJwtValidationAdditionalClaim]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LbListenerRuleActionJwtValidationAdditionalClaim]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LbListenerRuleActionJwtValidationAdditionalClaim]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a32931757926d6ee9d9bd9a3eded94feae95a206114d2353af9fdb27f0377a4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class LbListenerRuleActionJwtValidationAdditionalClaimOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleActionJwtValidationAdditionalClaimOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__575532a0abb10ad4498dabd47057271e86e9b137ad9571d3f7e987ab8088f5bd)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="formatInput")
+    def format_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "formatInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nameInput")
+    def name_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="valuesInput")
+    def values_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "valuesInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="format")
+    def format(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "format"))
+
+    @format.setter
+    def format(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__75195b132c4493052da42cea9cb9b5243b7b818ff91d25b54c9b7e35d19a5cf5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "format", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__63d39aa7edf63a71d918d09c64d0c2ca1391617445d28f4c6eb3f1c6cd58b8b3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="values")
+    def values(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "values"))
+
+    @values.setter
+    def values(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96ca5ac638c2bf6b3f5fbb38a957a6b56a491707fc8a9995ed4c45b41eeb3e1f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "values", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LbListenerRuleActionJwtValidationAdditionalClaim]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LbListenerRuleActionJwtValidationAdditionalClaim]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LbListenerRuleActionJwtValidationAdditionalClaim]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7f31fbe2b0bdf67bc3d6845f8d187b075e8e1cc489f8bbe611a6b80df72ebba9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class LbListenerRuleActionJwtValidationOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleActionJwtValidationOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__064482fe92260e2b7cd3c2693594749afa65fd3050c61665e0ad0c530264088f)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putAdditionalClaim")
+    def put_additional_claim(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LbListenerRuleActionJwtValidationAdditionalClaim, typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e7332ef593460304cc9845cee6f0db2f335fa48c6920c965596c1b6afe5ac2d1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putAdditionalClaim", [value]))
+
+    @jsii.member(jsii_name="resetAdditionalClaim")
+    def reset_additional_claim(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAdditionalClaim", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="additionalClaim")
+    def additional_claim(self) -> LbListenerRuleActionJwtValidationAdditionalClaimList:
+        return typing.cast(LbListenerRuleActionJwtValidationAdditionalClaimList, jsii.get(self, "additionalClaim"))
+
+    @builtins.property
+    @jsii.member(jsii_name="additionalClaimInput")
+    def additional_claim_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LbListenerRuleActionJwtValidationAdditionalClaim]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LbListenerRuleActionJwtValidationAdditionalClaim]]], jsii.get(self, "additionalClaimInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="issuerInput")
+    def issuer_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "issuerInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="jwksEndpointInput")
+    def jwks_endpoint_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "jwksEndpointInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="issuer")
+    def issuer(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "issuer"))
+
+    @issuer.setter
+    def issuer(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d97f5cd6db597b9e35b6a7dcb08fd0dbb2735754dd45c5b14f56d897d92404f8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "issuer", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="jwksEndpoint")
+    def jwks_endpoint(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "jwksEndpoint"))
+
+    @jwks_endpoint.setter
+    def jwks_endpoint(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__929d4e835d884ce21ed1b2889c6b10473c432e4f7ed2a974ccedfdf6e70b0a7f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "jwksEndpoint", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[LbListenerRuleActionJwtValidation]:
+        return typing.cast(typing.Optional[LbListenerRuleActionJwtValidation], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[LbListenerRuleActionJwtValidation],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bbe1658393cc6012fc507f5d8eebe0d4ce3f37be3fc7cb8b717ccafeed74448e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 class LbListenerRuleActionList(
     _cdktf_9a9027ec.ComplexList,
     metaclass=jsii.JSIIMeta,
@@ -2030,14 +2499,14 @@ class LbListenerRuleActionOutputReference(
         session_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param user_pool_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#user_pool_arn LbListenerRule#user_pool_arn}.
-        :param user_pool_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#user_pool_client_id LbListenerRule#user_pool_client_id}.
-        :param user_pool_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#user_pool_domain LbListenerRule#user_pool_domain}.
-        :param authentication_request_extra_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#authentication_request_extra_params LbListenerRule#authentication_request_extra_params}.
-        :param on_unauthenticated_request: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#on_unauthenticated_request LbListenerRule#on_unauthenticated_request}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#scope LbListenerRule#scope}.
-        :param session_cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#session_cookie_name LbListenerRule#session_cookie_name}.
-        :param session_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#session_timeout LbListenerRule#session_timeout}.
+        :param user_pool_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#user_pool_arn LbListenerRule#user_pool_arn}.
+        :param user_pool_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#user_pool_client_id LbListenerRule#user_pool_client_id}.
+        :param user_pool_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#user_pool_domain LbListenerRule#user_pool_domain}.
+        :param authentication_request_extra_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#authentication_request_extra_params LbListenerRule#authentication_request_extra_params}.
+        :param on_unauthenticated_request: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#on_unauthenticated_request LbListenerRule#on_unauthenticated_request}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#scope LbListenerRule#scope}.
+        :param session_cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#session_cookie_name LbListenerRule#session_cookie_name}.
+        :param session_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#session_timeout LbListenerRule#session_timeout}.
         '''
         value = LbListenerRuleActionAuthenticateCognito(
             user_pool_arn=user_pool_arn,
@@ -2069,17 +2538,17 @@ class LbListenerRuleActionOutputReference(
         session_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#authorization_endpoint LbListenerRule#authorization_endpoint}.
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#client_id LbListenerRule#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#client_secret LbListenerRule#client_secret}.
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#issuer LbListenerRule#issuer}.
-        :param token_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#token_endpoint LbListenerRule#token_endpoint}.
-        :param user_info_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#user_info_endpoint LbListenerRule#user_info_endpoint}.
-        :param authentication_request_extra_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#authentication_request_extra_params LbListenerRule#authentication_request_extra_params}.
-        :param on_unauthenticated_request: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#on_unauthenticated_request LbListenerRule#on_unauthenticated_request}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#scope LbListenerRule#scope}.
-        :param session_cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#session_cookie_name LbListenerRule#session_cookie_name}.
-        :param session_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#session_timeout LbListenerRule#session_timeout}.
+        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#authorization_endpoint LbListenerRule#authorization_endpoint}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#client_id LbListenerRule#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#client_secret LbListenerRule#client_secret}.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#issuer LbListenerRule#issuer}.
+        :param token_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#token_endpoint LbListenerRule#token_endpoint}.
+        :param user_info_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#user_info_endpoint LbListenerRule#user_info_endpoint}.
+        :param authentication_request_extra_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#authentication_request_extra_params LbListenerRule#authentication_request_extra_params}.
+        :param on_unauthenticated_request: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#on_unauthenticated_request LbListenerRule#on_unauthenticated_request}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#scope LbListenerRule#scope}.
+        :param session_cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#session_cookie_name LbListenerRule#session_cookie_name}.
+        :param session_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#session_timeout LbListenerRule#session_timeout}.
         '''
         value = LbListenerRuleActionAuthenticateOidc(
             authorization_endpoint=authorization_endpoint,
@@ -2106,9 +2575,9 @@ class LbListenerRuleActionOutputReference(
         status_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#content_type LbListenerRule#content_type}.
-        :param message_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#message_body LbListenerRule#message_body}.
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#status_code LbListenerRule#status_code}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#content_type LbListenerRule#content_type}.
+        :param message_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#message_body LbListenerRule#message_body}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#status_code LbListenerRule#status_code}.
         '''
         value = LbListenerRuleActionFixedResponse(
             content_type=content_type,
@@ -2126,14 +2595,35 @@ class LbListenerRuleActionOutputReference(
         stickiness: typing.Optional[typing.Union[LbListenerRuleActionForwardStickiness, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param target_group: target_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#target_group LbListenerRule#target_group}
-        :param stickiness: stickiness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#stickiness LbListenerRule#stickiness}
+        :param target_group: target_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#target_group LbListenerRule#target_group}
+        :param stickiness: stickiness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#stickiness LbListenerRule#stickiness}
         '''
         value = LbListenerRuleActionForward(
             target_group=target_group, stickiness=stickiness
         )
 
         return typing.cast(None, jsii.invoke(self, "putForward", [value]))
+
+    @jsii.member(jsii_name="putJwtValidation")
+    def put_jwt_validation(
+        self,
+        *,
+        issuer: builtins.str,
+        jwks_endpoint: builtins.str,
+        additional_claim: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LbListenerRuleActionJwtValidationAdditionalClaim, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#issuer LbListenerRule#issuer}.
+        :param jwks_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#jwks_endpoint LbListenerRule#jwks_endpoint}.
+        :param additional_claim: additional_claim block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#additional_claim LbListenerRule#additional_claim}
+        '''
+        value = LbListenerRuleActionJwtValidation(
+            issuer=issuer,
+            jwks_endpoint=jwks_endpoint,
+            additional_claim=additional_claim,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putJwtValidation", [value]))
 
     @jsii.member(jsii_name="putRedirect")
     def put_redirect(
@@ -2147,12 +2637,12 @@ class LbListenerRuleActionOutputReference(
         query: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#status_code LbListenerRule#status_code}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#host LbListenerRule#host}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#path LbListenerRule#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#port LbListenerRule#port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#protocol LbListenerRule#protocol}.
-        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#query LbListenerRule#query}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#status_code LbListenerRule#status_code}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#host LbListenerRule#host}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#path LbListenerRule#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#port LbListenerRule#port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#protocol LbListenerRule#protocol}.
+        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#query LbListenerRule#query}.
         '''
         value = LbListenerRuleActionRedirect(
             status_code=status_code,
@@ -2180,6 +2670,10 @@ class LbListenerRuleActionOutputReference(
     @jsii.member(jsii_name="resetForward")
     def reset_forward(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetForward", []))
+
+    @jsii.member(jsii_name="resetJwtValidation")
+    def reset_jwt_validation(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetJwtValidation", []))
 
     @jsii.member(jsii_name="resetOrder")
     def reset_order(self) -> None:
@@ -2216,6 +2710,11 @@ class LbListenerRuleActionOutputReference(
         return typing.cast(LbListenerRuleActionForwardOutputReference, jsii.get(self, "forward"))
 
     @builtins.property
+    @jsii.member(jsii_name="jwtValidation")
+    def jwt_validation(self) -> LbListenerRuleActionJwtValidationOutputReference:
+        return typing.cast(LbListenerRuleActionJwtValidationOutputReference, jsii.get(self, "jwtValidation"))
+
+    @builtins.property
     @jsii.member(jsii_name="redirect")
     def redirect(self) -> "LbListenerRuleActionRedirectOutputReference":
         return typing.cast("LbListenerRuleActionRedirectOutputReference", jsii.get(self, "redirect"))
@@ -2245,6 +2744,13 @@ class LbListenerRuleActionOutputReference(
     @jsii.member(jsii_name="forwardInput")
     def forward_input(self) -> typing.Optional[LbListenerRuleActionForward]:
         return typing.cast(typing.Optional[LbListenerRuleActionForward], jsii.get(self, "forwardInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="jwtValidationInput")
+    def jwt_validation_input(
+        self,
+    ) -> typing.Optional[LbListenerRuleActionJwtValidation]:
+        return typing.cast(typing.Optional[LbListenerRuleActionJwtValidation], jsii.get(self, "jwtValidationInput"))
 
     @builtins.property
     @jsii.member(jsii_name="orderInput")
@@ -2344,12 +2850,12 @@ class LbListenerRuleActionRedirect:
         query: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#status_code LbListenerRule#status_code}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#host LbListenerRule#host}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#path LbListenerRule#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#port LbListenerRule#port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#protocol LbListenerRule#protocol}.
-        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#query LbListenerRule#query}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#status_code LbListenerRule#status_code}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#host LbListenerRule#host}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#path LbListenerRule#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#port LbListenerRule#port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#protocol LbListenerRule#protocol}.
+        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#query LbListenerRule#query}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f2b110b65200911609bc7ab8f347dfead7c8d6bac24b450bf4966254519f85e)
@@ -2375,38 +2881,38 @@ class LbListenerRuleActionRedirect:
 
     @builtins.property
     def status_code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#status_code LbListenerRule#status_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#status_code LbListenerRule#status_code}.'''
         result = self._values.get("status_code")
         assert result is not None, "Required property 'status_code' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#host LbListenerRule#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#host LbListenerRule#host}.'''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#path LbListenerRule#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#path LbListenerRule#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#port LbListenerRule#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#port LbListenerRule#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#protocol LbListenerRule#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#protocol LbListenerRule#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def query(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#query LbListenerRule#query}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#query LbListenerRule#query}.'''
         result = self._values.get("query")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2604,12 +3110,12 @@ class LbListenerRuleCondition:
         source_ip: typing.Optional[typing.Union["LbListenerRuleConditionSourceIp", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param host_header: host_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#host_header LbListenerRule#host_header}
-        :param http_header: http_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#http_header LbListenerRule#http_header}
-        :param http_request_method: http_request_method block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#http_request_method LbListenerRule#http_request_method}
-        :param path_pattern: path_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#path_pattern LbListenerRule#path_pattern}
-        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#query_string LbListenerRule#query_string}
-        :param source_ip: source_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#source_ip LbListenerRule#source_ip}
+        :param host_header: host_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#host_header LbListenerRule#host_header}
+        :param http_header: http_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#http_header LbListenerRule#http_header}
+        :param http_request_method: http_request_method block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#http_request_method LbListenerRule#http_request_method}
+        :param path_pattern: path_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#path_pattern LbListenerRule#path_pattern}
+        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#query_string LbListenerRule#query_string}
+        :param source_ip: source_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#source_ip LbListenerRule#source_ip}
         '''
         if isinstance(host_header, dict):
             host_header = LbListenerRuleConditionHostHeader(**host_header)
@@ -2647,7 +3153,7 @@ class LbListenerRuleCondition:
     def host_header(self) -> typing.Optional["LbListenerRuleConditionHostHeader"]:
         '''host_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#host_header LbListenerRule#host_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#host_header LbListenerRule#host_header}
         '''
         result = self._values.get("host_header")
         return typing.cast(typing.Optional["LbListenerRuleConditionHostHeader"], result)
@@ -2656,7 +3162,7 @@ class LbListenerRuleCondition:
     def http_header(self) -> typing.Optional["LbListenerRuleConditionHttpHeader"]:
         '''http_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#http_header LbListenerRule#http_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#http_header LbListenerRule#http_header}
         '''
         result = self._values.get("http_header")
         return typing.cast(typing.Optional["LbListenerRuleConditionHttpHeader"], result)
@@ -2667,7 +3173,7 @@ class LbListenerRuleCondition:
     ) -> typing.Optional["LbListenerRuleConditionHttpRequestMethod"]:
         '''http_request_method block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#http_request_method LbListenerRule#http_request_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#http_request_method LbListenerRule#http_request_method}
         '''
         result = self._values.get("http_request_method")
         return typing.cast(typing.Optional["LbListenerRuleConditionHttpRequestMethod"], result)
@@ -2676,7 +3182,7 @@ class LbListenerRuleCondition:
     def path_pattern(self) -> typing.Optional["LbListenerRuleConditionPathPattern"]:
         '''path_pattern block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#path_pattern LbListenerRule#path_pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#path_pattern LbListenerRule#path_pattern}
         '''
         result = self._values.get("path_pattern")
         return typing.cast(typing.Optional["LbListenerRuleConditionPathPattern"], result)
@@ -2687,7 +3193,7 @@ class LbListenerRuleCondition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LbListenerRuleConditionQueryString"]]]:
         '''query_string block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#query_string LbListenerRule#query_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#query_string LbListenerRule#query_string}
         '''
         result = self._values.get("query_string")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LbListenerRuleConditionQueryString"]]], result)
@@ -2696,7 +3202,7 @@ class LbListenerRuleCondition:
     def source_ip(self) -> typing.Optional["LbListenerRuleConditionSourceIp"]:
         '''source_ip block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#source_ip LbListenerRule#source_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#source_ip LbListenerRule#source_ip}
         '''
         result = self._values.get("source_ip")
         return typing.cast(typing.Optional["LbListenerRuleConditionSourceIp"], result)
@@ -2716,26 +3222,40 @@ class LbListenerRuleCondition:
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleConditionHostHeader",
     jsii_struct_bases=[],
-    name_mapping={"values": "values"},
+    name_mapping={"regex_values": "regexValues", "values": "values"},
 )
 class LbListenerRuleConditionHostHeader:
-    def __init__(self, *, values: typing.Sequence[builtins.str]) -> None:
+    def __init__(
+        self,
+        *,
+        regex_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        values: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
         '''
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.
+        :param regex_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex_values LbListenerRule#regex_values}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dbbdd521a8278dad6bab5fa1be3bd022eaf8caf7216aa91b49cd88dc9e032b50)
+            check_type(argname="argument regex_values", value=regex_values, expected_type=type_hints["regex_values"])
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "values": values,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if regex_values is not None:
+            self._values["regex_values"] = regex_values
+        if values is not None:
+            self._values["values"] = values
 
     @builtins.property
-    def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.'''
+    def regex_values(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex_values LbListenerRule#regex_values}.'''
+        result = self._values.get("regex_values")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def values(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.'''
         result = self._values.get("values")
-        assert result is not None, "Required property 'values' is missing"
-        return typing.cast(typing.List[builtins.str], result)
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2769,10 +3289,35 @@ class LbListenerRuleConditionHostHeaderOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="resetRegexValues")
+    def reset_regex_values(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegexValues", []))
+
+    @jsii.member(jsii_name="resetValues")
+    def reset_values(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetValues", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="regexValuesInput")
+    def regex_values_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "regexValuesInput"))
+
     @builtins.property
     @jsii.member(jsii_name="valuesInput")
     def values_input(self) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "valuesInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regexValues")
+    def regex_values(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "regexValues"))
+
+    @regex_values.setter
+    def regex_values(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__abae1a79638ac95ea9eddfe452fd03ef3da4b65c7dc3879955a829771fb475ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "regexValues", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="values")
@@ -2805,41 +3350,56 @@ class LbListenerRuleConditionHostHeaderOutputReference(
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleConditionHttpHeader",
     jsii_struct_bases=[],
-    name_mapping={"http_header_name": "httpHeaderName", "values": "values"},
+    name_mapping={
+        "http_header_name": "httpHeaderName",
+        "regex_values": "regexValues",
+        "values": "values",
+    },
 )
 class LbListenerRuleConditionHttpHeader:
     def __init__(
         self,
         *,
         http_header_name: builtins.str,
-        values: typing.Sequence[builtins.str],
+        regex_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param http_header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#http_header_name LbListenerRule#http_header_name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.
+        :param http_header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#http_header_name LbListenerRule#http_header_name}.
+        :param regex_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex_values LbListenerRule#regex_values}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__790ed3228cbad32607b2c2fa1ef2d90e0131ca2ef37a0d7f51eb3c0080bb97be)
             check_type(argname="argument http_header_name", value=http_header_name, expected_type=type_hints["http_header_name"])
+            check_type(argname="argument regex_values", value=regex_values, expected_type=type_hints["regex_values"])
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "http_header_name": http_header_name,
-            "values": values,
         }
+        if regex_values is not None:
+            self._values["regex_values"] = regex_values
+        if values is not None:
+            self._values["values"] = values
 
     @builtins.property
     def http_header_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#http_header_name LbListenerRule#http_header_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#http_header_name LbListenerRule#http_header_name}.'''
         result = self._values.get("http_header_name")
         assert result is not None, "Required property 'http_header_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.'''
+    def regex_values(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex_values LbListenerRule#regex_values}.'''
+        result = self._values.get("regex_values")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def values(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.'''
         result = self._values.get("values")
-        assert result is not None, "Required property 'values' is missing"
-        return typing.cast(typing.List[builtins.str], result)
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2873,10 +3433,23 @@ class LbListenerRuleConditionHttpHeaderOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="resetRegexValues")
+    def reset_regex_values(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegexValues", []))
+
+    @jsii.member(jsii_name="resetValues")
+    def reset_values(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetValues", []))
+
     @builtins.property
     @jsii.member(jsii_name="httpHeaderNameInput")
     def http_header_name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "httpHeaderNameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regexValuesInput")
+    def regex_values_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "regexValuesInput"))
 
     @builtins.property
     @jsii.member(jsii_name="valuesInput")
@@ -2894,6 +3467,18 @@ class LbListenerRuleConditionHttpHeaderOutputReference(
             type_hints = typing.get_type_hints(_typecheckingstub__1fab6a9273c340cc160365befe192f545afdd2651798a76e85567d59908e8dbb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "httpHeaderName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="regexValues")
+    def regex_values(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "regexValues"))
+
+    @regex_values.setter
+    def regex_values(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__738b0118a0835c0acb7a9c97642be1cb93c46cfa7c518dc551414ec53a4ff878)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "regexValues", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="values")
@@ -2931,7 +3516,7 @@ class LbListenerRuleConditionHttpHeaderOutputReference(
 class LbListenerRuleConditionHttpRequestMethod:
     def __init__(self, *, values: typing.Sequence[builtins.str]) -> None:
         '''
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1d709d4c7a1730da35aefd659cdcc039c65ca9514f1d5ff031746987da7138a1)
@@ -2942,7 +3527,7 @@ class LbListenerRuleConditionHttpRequestMethod:
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3131,11 +3716,19 @@ class LbListenerRuleConditionOutputReference(
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
     @jsii.member(jsii_name="putHostHeader")
-    def put_host_header(self, *, values: typing.Sequence[builtins.str]) -> None:
+    def put_host_header(
+        self,
+        *,
+        regex_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        values: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
         '''
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.
+        :param regex_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex_values LbListenerRule#regex_values}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.
         '''
-        value = LbListenerRuleConditionHostHeader(values=values)
+        value = LbListenerRuleConditionHostHeader(
+            regex_values=regex_values, values=values
+        )
 
         return typing.cast(None, jsii.invoke(self, "putHostHeader", [value]))
 
@@ -3144,14 +3737,16 @@ class LbListenerRuleConditionOutputReference(
         self,
         *,
         http_header_name: builtins.str,
-        values: typing.Sequence[builtins.str],
+        regex_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param http_header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#http_header_name LbListenerRule#http_header_name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.
+        :param http_header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#http_header_name LbListenerRule#http_header_name}.
+        :param regex_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex_values LbListenerRule#regex_values}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.
         '''
         value = LbListenerRuleConditionHttpHeader(
-            http_header_name=http_header_name, values=values
+            http_header_name=http_header_name, regex_values=regex_values, values=values
         )
 
         return typing.cast(None, jsii.invoke(self, "putHttpHeader", [value]))
@@ -3159,18 +3754,26 @@ class LbListenerRuleConditionOutputReference(
     @jsii.member(jsii_name="putHttpRequestMethod")
     def put_http_request_method(self, *, values: typing.Sequence[builtins.str]) -> None:
         '''
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.
         '''
         value = LbListenerRuleConditionHttpRequestMethod(values=values)
 
         return typing.cast(None, jsii.invoke(self, "putHttpRequestMethod", [value]))
 
     @jsii.member(jsii_name="putPathPattern")
-    def put_path_pattern(self, *, values: typing.Sequence[builtins.str]) -> None:
+    def put_path_pattern(
+        self,
+        *,
+        regex_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        values: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
         '''
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.
+        :param regex_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex_values LbListenerRule#regex_values}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.
         '''
-        value = LbListenerRuleConditionPathPattern(values=values)
+        value = LbListenerRuleConditionPathPattern(
+            regex_values=regex_values, values=values
+        )
 
         return typing.cast(None, jsii.invoke(self, "putPathPattern", [value]))
 
@@ -3190,7 +3793,7 @@ class LbListenerRuleConditionOutputReference(
     @jsii.member(jsii_name="putSourceIp")
     def put_source_ip(self, *, values: typing.Sequence[builtins.str]) -> None:
         '''
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.
         '''
         value = LbListenerRuleConditionSourceIp(values=values)
 
@@ -3309,26 +3912,40 @@ class LbListenerRuleConditionOutputReference(
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleConditionPathPattern",
     jsii_struct_bases=[],
-    name_mapping={"values": "values"},
+    name_mapping={"regex_values": "regexValues", "values": "values"},
 )
 class LbListenerRuleConditionPathPattern:
-    def __init__(self, *, values: typing.Sequence[builtins.str]) -> None:
+    def __init__(
+        self,
+        *,
+        regex_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        values: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
         '''
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.
+        :param regex_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex_values LbListenerRule#regex_values}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d809925d8c7b714854300399458c7c6b1502451412e1b2b5c7477971e7e920c3)
+            check_type(argname="argument regex_values", value=regex_values, expected_type=type_hints["regex_values"])
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "values": values,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if regex_values is not None:
+            self._values["regex_values"] = regex_values
+        if values is not None:
+            self._values["values"] = values
 
     @builtins.property
-    def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.'''
+    def regex_values(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex_values LbListenerRule#regex_values}.'''
+        result = self._values.get("regex_values")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def values(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.'''
         result = self._values.get("values")
-        assert result is not None, "Required property 'values' is missing"
-        return typing.cast(typing.List[builtins.str], result)
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3362,10 +3979,35 @@ class LbListenerRuleConditionPathPatternOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="resetRegexValues")
+    def reset_regex_values(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegexValues", []))
+
+    @jsii.member(jsii_name="resetValues")
+    def reset_values(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetValues", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="regexValuesInput")
+    def regex_values_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "regexValuesInput"))
+
     @builtins.property
     @jsii.member(jsii_name="valuesInput")
     def values_input(self) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "valuesInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regexValues")
+    def regex_values(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "regexValues"))
+
+    @regex_values.setter
+    def regex_values(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d4bad1451f8152c6729226f9bd6e22d14569dbdef1f6e89be617f1f9a0107b5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "regexValues", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="values")
@@ -3408,8 +4050,8 @@ class LbListenerRuleConditionQueryString:
         key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#value LbListenerRule#value}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#key LbListenerRule#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#value LbListenerRule#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#key LbListenerRule#key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__35c50ca5ffc8a80e4fb93c1e251e3f8b41e03731b5fb2fa7eb32e40123bca531)
@@ -3423,14 +4065,14 @@ class LbListenerRuleConditionQueryString:
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#value LbListenerRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#value LbListenerRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#key LbListenerRule#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#key LbListenerRule#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3629,7 +4271,7 @@ class LbListenerRuleConditionQueryStringOutputReference(
 class LbListenerRuleConditionSourceIp:
     def __init__(self, *, values: typing.Sequence[builtins.str]) -> None:
         '''
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a5888d679361f6135a244ade6902bbb5255ca679ea7f246fcb9dfe3f5e7d0fc)
@@ -3640,7 +4282,7 @@ class LbListenerRuleConditionSourceIp:
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#values LbListenerRule#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#values LbListenerRule#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3729,6 +4371,7 @@ class LbListenerRuleConditionSourceIpOutputReference(
         "region": "region",
         "tags": "tags",
         "tags_all": "tagsAll",
+        "transform": "transform",
     },
 )
 class LbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -3750,6 +4393,7 @@ class LbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        transform: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LbListenerRuleTransform", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
         :param connection: 
@@ -3759,14 +4403,15 @@ class LbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#action LbListenerRule#action}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#condition LbListenerRule#condition}
-        :param listener_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#listener_arn LbListenerRule#listener_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#id LbListenerRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#priority LbListenerRule#priority}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#region LbListenerRule#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#tags LbListenerRule#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#tags_all LbListenerRule#tags_all}.
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#action LbListenerRule#action}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#condition LbListenerRule#condition}
+        :param listener_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#listener_arn LbListenerRule#listener_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#id LbListenerRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#priority LbListenerRule#priority}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#region LbListenerRule#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#tags LbListenerRule#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#tags_all LbListenerRule#tags_all}.
+        :param transform: transform block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#transform LbListenerRule#transform}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -3787,6 +4432,7 @@ class LbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
+            check_type(argname="argument transform", value=transform, expected_type=type_hints["transform"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "action": action,
             "condition": condition,
@@ -3816,6 +4462,8 @@ class LbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["tags"] = tags
         if tags_all is not None:
             self._values["tags_all"] = tags_all
+        if transform is not None:
+            self._values["transform"] = transform
 
     @builtins.property
     def connection(
@@ -3887,7 +4535,7 @@ class LbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LbListenerRuleAction]]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#action LbListenerRule#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#action LbListenerRule#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -3899,7 +4547,7 @@ class LbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LbListenerRuleCondition]]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#condition LbListenerRule#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#condition LbListenerRule#condition}
         '''
         result = self._values.get("condition")
         assert result is not None, "Required property 'condition' is missing"
@@ -3907,14 +4555,14 @@ class LbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def listener_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#listener_arn LbListenerRule#listener_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#listener_arn LbListenerRule#listener_arn}.'''
         result = self._values.get("listener_arn")
         assert result is not None, "Required property 'listener_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#id LbListenerRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#id LbListenerRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3924,7 +4572,7 @@ class LbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#priority LbListenerRule#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#priority LbListenerRule#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3932,22 +4580,33 @@ class LbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#region LbListenerRule#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#region LbListenerRule#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#tags LbListenerRule#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#tags LbListenerRule#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lb_listener_rule#tags_all LbListenerRule#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#tags_all LbListenerRule#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def transform(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LbListenerRuleTransform"]]]:
+        '''transform block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#transform LbListenerRule#transform}
+        '''
+        result = self._values.get("transform")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LbListenerRuleTransform"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3959,6 +4618,763 @@ class LbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return "LbListenerRuleConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleTransform",
+    jsii_struct_bases=[],
+    name_mapping={
+        "type": "type",
+        "host_header_rewrite_config": "hostHeaderRewriteConfig",
+        "url_rewrite_config": "urlRewriteConfig",
+    },
+)
+class LbListenerRuleTransform:
+    def __init__(
+        self,
+        *,
+        type: builtins.str,
+        host_header_rewrite_config: typing.Optional[typing.Union["LbListenerRuleTransformHostHeaderRewriteConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        url_rewrite_config: typing.Optional[typing.Union["LbListenerRuleTransformUrlRewriteConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#type LbListenerRule#type}.
+        :param host_header_rewrite_config: host_header_rewrite_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#host_header_rewrite_config LbListenerRule#host_header_rewrite_config}
+        :param url_rewrite_config: url_rewrite_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#url_rewrite_config LbListenerRule#url_rewrite_config}
+        '''
+        if isinstance(host_header_rewrite_config, dict):
+            host_header_rewrite_config = LbListenerRuleTransformHostHeaderRewriteConfig(**host_header_rewrite_config)
+        if isinstance(url_rewrite_config, dict):
+            url_rewrite_config = LbListenerRuleTransformUrlRewriteConfig(**url_rewrite_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ddc1039f90820359b9f04716cf8e927daefbc3a3b8b33bad240c5aa91821c896)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument host_header_rewrite_config", value=host_header_rewrite_config, expected_type=type_hints["host_header_rewrite_config"])
+            check_type(argname="argument url_rewrite_config", value=url_rewrite_config, expected_type=type_hints["url_rewrite_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "type": type,
+        }
+        if host_header_rewrite_config is not None:
+            self._values["host_header_rewrite_config"] = host_header_rewrite_config
+        if url_rewrite_config is not None:
+            self._values["url_rewrite_config"] = url_rewrite_config
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#type LbListenerRule#type}.'''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def host_header_rewrite_config(
+        self,
+    ) -> typing.Optional["LbListenerRuleTransformHostHeaderRewriteConfig"]:
+        '''host_header_rewrite_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#host_header_rewrite_config LbListenerRule#host_header_rewrite_config}
+        '''
+        result = self._values.get("host_header_rewrite_config")
+        return typing.cast(typing.Optional["LbListenerRuleTransformHostHeaderRewriteConfig"], result)
+
+    @builtins.property
+    def url_rewrite_config(
+        self,
+    ) -> typing.Optional["LbListenerRuleTransformUrlRewriteConfig"]:
+        '''url_rewrite_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#url_rewrite_config LbListenerRule#url_rewrite_config}
+        '''
+        result = self._values.get("url_rewrite_config")
+        return typing.cast(typing.Optional["LbListenerRuleTransformUrlRewriteConfig"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LbListenerRuleTransform(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleTransformHostHeaderRewriteConfig",
+    jsii_struct_bases=[],
+    name_mapping={"rewrite": "rewrite"},
+)
+class LbListenerRuleTransformHostHeaderRewriteConfig:
+    def __init__(
+        self,
+        *,
+        rewrite: typing.Optional[typing.Union["LbListenerRuleTransformHostHeaderRewriteConfigRewrite", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#rewrite LbListenerRule#rewrite}
+        '''
+        if isinstance(rewrite, dict):
+            rewrite = LbListenerRuleTransformHostHeaderRewriteConfigRewrite(**rewrite)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a9caf4885c8f22e340b7826a7571415269c0ec88c13cd44e4e0d9ab2ab9ec970)
+            check_type(argname="argument rewrite", value=rewrite, expected_type=type_hints["rewrite"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if rewrite is not None:
+            self._values["rewrite"] = rewrite
+
+    @builtins.property
+    def rewrite(
+        self,
+    ) -> typing.Optional["LbListenerRuleTransformHostHeaderRewriteConfigRewrite"]:
+        '''rewrite block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#rewrite LbListenerRule#rewrite}
+        '''
+        result = self._values.get("rewrite")
+        return typing.cast(typing.Optional["LbListenerRuleTransformHostHeaderRewriteConfigRewrite"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LbListenerRuleTransformHostHeaderRewriteConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class LbListenerRuleTransformHostHeaderRewriteConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleTransformHostHeaderRewriteConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f73a15c5002430a0c3202b0b373104ae310d7e9b64050c5b1b8de3decacd53d)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putRewrite")
+    def put_rewrite(self, *, regex: builtins.str, replace: builtins.str) -> None:
+        '''
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex LbListenerRule#regex}.
+        :param replace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#replace LbListenerRule#replace}.
+        '''
+        value = LbListenerRuleTransformHostHeaderRewriteConfigRewrite(
+            regex=regex, replace=replace
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putRewrite", [value]))
+
+    @jsii.member(jsii_name="resetRewrite")
+    def reset_rewrite(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRewrite", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="rewrite")
+    def rewrite(
+        self,
+    ) -> "LbListenerRuleTransformHostHeaderRewriteConfigRewriteOutputReference":
+        return typing.cast("LbListenerRuleTransformHostHeaderRewriteConfigRewriteOutputReference", jsii.get(self, "rewrite"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rewriteInput")
+    def rewrite_input(
+        self,
+    ) -> typing.Optional["LbListenerRuleTransformHostHeaderRewriteConfigRewrite"]:
+        return typing.cast(typing.Optional["LbListenerRuleTransformHostHeaderRewriteConfigRewrite"], jsii.get(self, "rewriteInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[LbListenerRuleTransformHostHeaderRewriteConfig]:
+        return typing.cast(typing.Optional[LbListenerRuleTransformHostHeaderRewriteConfig], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[LbListenerRuleTransformHostHeaderRewriteConfig],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5dc0a2543e93ea81766b80a58825d5fa3bc3945edb7f9b273b79b2353de5539b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleTransformHostHeaderRewriteConfigRewrite",
+    jsii_struct_bases=[],
+    name_mapping={"regex": "regex", "replace": "replace"},
+)
+class LbListenerRuleTransformHostHeaderRewriteConfigRewrite:
+    def __init__(self, *, regex: builtins.str, replace: builtins.str) -> None:
+        '''
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex LbListenerRule#regex}.
+        :param replace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#replace LbListenerRule#replace}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__01282112565f50595da083695f3c59bdd9a11d7bd0f51f5d204eb49b7c90bd87)
+            check_type(argname="argument regex", value=regex, expected_type=type_hints["regex"])
+            check_type(argname="argument replace", value=replace, expected_type=type_hints["replace"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "regex": regex,
+            "replace": replace,
+        }
+
+    @builtins.property
+    def regex(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex LbListenerRule#regex}.'''
+        result = self._values.get("regex")
+        assert result is not None, "Required property 'regex' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def replace(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#replace LbListenerRule#replace}.'''
+        result = self._values.get("replace")
+        assert result is not None, "Required property 'replace' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LbListenerRuleTransformHostHeaderRewriteConfigRewrite(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class LbListenerRuleTransformHostHeaderRewriteConfigRewriteOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleTransformHostHeaderRewriteConfigRewriteOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__68ae2946648bf5a0df6dea205638ab430a315a866b2e7409da49d40c5fd991a5)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="regexInput")
+    def regex_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regexInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="replaceInput")
+    def replace_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "replaceInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regex")
+    def regex(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "regex"))
+
+    @regex.setter
+    def regex(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9a24c79ee21892c46831526a4dc117d1acbe514cc4135ce2576c9317a93ed346)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "regex", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="replace")
+    def replace(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "replace"))
+
+    @replace.setter
+    def replace(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__24d2b6047fbb5f93c8b6c840f144631c126d00d46e528785ad8deb8668022eba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replace", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[LbListenerRuleTransformHostHeaderRewriteConfigRewrite]:
+        return typing.cast(typing.Optional[LbListenerRuleTransformHostHeaderRewriteConfigRewrite], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[LbListenerRuleTransformHostHeaderRewriteConfigRewrite],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1fc2ab71712a79785abd8a3157efa00821770f588d9926d6f943946e55c760ab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class LbListenerRuleTransformList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleTransformList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__81f3e352b229ca79615302eaff57a2fe4f30b46e27875cb717ff431e30405a79)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(self, index: jsii.Number) -> "LbListenerRuleTransformOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__970d55cf5241c11addaedb567034bd422a79707aae2bcc4f70a15b897d31e31b)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("LbListenerRuleTransformOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__24d0d36616594afd5eaddd47bbd0da3ace8dde1f5186acb98845831bb3019194)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3e2a933bf22130d0a26c1fe8dedc3511c1e4770f4dac424b9ce15cda3d845af3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__327c5ae3f0a863cbeab76ce0ed8f3638c9fe2676d70fcdc9978dd7791447545c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LbListenerRuleTransform]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LbListenerRuleTransform]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LbListenerRuleTransform]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f6b23c5fe47e7c3847e902299ad6e31b805a5d11722a49cb39378417cf0c4f7b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class LbListenerRuleTransformOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleTransformOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__996bcfe0c5bfb46a78c64b62adcef7af3a8dddba225495cca31bb5316e9cea2d)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="putHostHeaderRewriteConfig")
+    def put_host_header_rewrite_config(
+        self,
+        *,
+        rewrite: typing.Optional[typing.Union[LbListenerRuleTransformHostHeaderRewriteConfigRewrite, typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#rewrite LbListenerRule#rewrite}
+        '''
+        value = LbListenerRuleTransformHostHeaderRewriteConfig(rewrite=rewrite)
+
+        return typing.cast(None, jsii.invoke(self, "putHostHeaderRewriteConfig", [value]))
+
+    @jsii.member(jsii_name="putUrlRewriteConfig")
+    def put_url_rewrite_config(
+        self,
+        *,
+        rewrite: typing.Optional[typing.Union["LbListenerRuleTransformUrlRewriteConfigRewrite", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#rewrite LbListenerRule#rewrite}
+        '''
+        value = LbListenerRuleTransformUrlRewriteConfig(rewrite=rewrite)
+
+        return typing.cast(None, jsii.invoke(self, "putUrlRewriteConfig", [value]))
+
+    @jsii.member(jsii_name="resetHostHeaderRewriteConfig")
+    def reset_host_header_rewrite_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetHostHeaderRewriteConfig", []))
+
+    @jsii.member(jsii_name="resetUrlRewriteConfig")
+    def reset_url_rewrite_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetUrlRewriteConfig", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="hostHeaderRewriteConfig")
+    def host_header_rewrite_config(
+        self,
+    ) -> LbListenerRuleTransformHostHeaderRewriteConfigOutputReference:
+        return typing.cast(LbListenerRuleTransformHostHeaderRewriteConfigOutputReference, jsii.get(self, "hostHeaderRewriteConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="urlRewriteConfig")
+    def url_rewrite_config(
+        self,
+    ) -> "LbListenerRuleTransformUrlRewriteConfigOutputReference":
+        return typing.cast("LbListenerRuleTransformUrlRewriteConfigOutputReference", jsii.get(self, "urlRewriteConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hostHeaderRewriteConfigInput")
+    def host_header_rewrite_config_input(
+        self,
+    ) -> typing.Optional[LbListenerRuleTransformHostHeaderRewriteConfig]:
+        return typing.cast(typing.Optional[LbListenerRuleTransformHostHeaderRewriteConfig], jsii.get(self, "hostHeaderRewriteConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="typeInput")
+    def type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "typeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="urlRewriteConfigInput")
+    def url_rewrite_config_input(
+        self,
+    ) -> typing.Optional["LbListenerRuleTransformUrlRewriteConfig"]:
+        return typing.cast(typing.Optional["LbListenerRuleTransformUrlRewriteConfig"], jsii.get(self, "urlRewriteConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__480724a0b27e71117e15133ff27055917232d46022f961db4f6dbd52a4e838cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LbListenerRuleTransform]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LbListenerRuleTransform]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LbListenerRuleTransform]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a4c82f939d40fbb6ae3f8a6c37911c4932ed05206b932ab73f6c1086055e22b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleTransformUrlRewriteConfig",
+    jsii_struct_bases=[],
+    name_mapping={"rewrite": "rewrite"},
+)
+class LbListenerRuleTransformUrlRewriteConfig:
+    def __init__(
+        self,
+        *,
+        rewrite: typing.Optional[typing.Union["LbListenerRuleTransformUrlRewriteConfigRewrite", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#rewrite LbListenerRule#rewrite}
+        '''
+        if isinstance(rewrite, dict):
+            rewrite = LbListenerRuleTransformUrlRewriteConfigRewrite(**rewrite)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d60fa1145cc60bdbf02ea22c4036530f5acf980a41c20318d64e9c10b7ff603)
+            check_type(argname="argument rewrite", value=rewrite, expected_type=type_hints["rewrite"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if rewrite is not None:
+            self._values["rewrite"] = rewrite
+
+    @builtins.property
+    def rewrite(
+        self,
+    ) -> typing.Optional["LbListenerRuleTransformUrlRewriteConfigRewrite"]:
+        '''rewrite block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#rewrite LbListenerRule#rewrite}
+        '''
+        result = self._values.get("rewrite")
+        return typing.cast(typing.Optional["LbListenerRuleTransformUrlRewriteConfigRewrite"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LbListenerRuleTransformUrlRewriteConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class LbListenerRuleTransformUrlRewriteConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleTransformUrlRewriteConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a468a7147324517efe0b979a0b711e126068f24f9b68efa1147e01a6d9210483)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putRewrite")
+    def put_rewrite(self, *, regex: builtins.str, replace: builtins.str) -> None:
+        '''
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex LbListenerRule#regex}.
+        :param replace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#replace LbListenerRule#replace}.
+        '''
+        value = LbListenerRuleTransformUrlRewriteConfigRewrite(
+            regex=regex, replace=replace
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putRewrite", [value]))
+
+    @jsii.member(jsii_name="resetRewrite")
+    def reset_rewrite(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRewrite", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="rewrite")
+    def rewrite(
+        self,
+    ) -> "LbListenerRuleTransformUrlRewriteConfigRewriteOutputReference":
+        return typing.cast("LbListenerRuleTransformUrlRewriteConfigRewriteOutputReference", jsii.get(self, "rewrite"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rewriteInput")
+    def rewrite_input(
+        self,
+    ) -> typing.Optional["LbListenerRuleTransformUrlRewriteConfigRewrite"]:
+        return typing.cast(typing.Optional["LbListenerRuleTransformUrlRewriteConfigRewrite"], jsii.get(self, "rewriteInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[LbListenerRuleTransformUrlRewriteConfig]:
+        return typing.cast(typing.Optional[LbListenerRuleTransformUrlRewriteConfig], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[LbListenerRuleTransformUrlRewriteConfig],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aabc7a87e9a18dbecb6a5f30c4381e6a0856774f933811393cd672e9de5b9fbc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleTransformUrlRewriteConfigRewrite",
+    jsii_struct_bases=[],
+    name_mapping={"regex": "regex", "replace": "replace"},
+)
+class LbListenerRuleTransformUrlRewriteConfigRewrite:
+    def __init__(self, *, regex: builtins.str, replace: builtins.str) -> None:
+        '''
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex LbListenerRule#regex}.
+        :param replace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#replace LbListenerRule#replace}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0148b89219557b6b5976d115e7b4e944ac9c2ad25d4fe09d892ad8ac69953195)
+            check_type(argname="argument regex", value=regex, expected_type=type_hints["regex"])
+            check_type(argname="argument replace", value=replace, expected_type=type_hints["replace"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "regex": regex,
+            "replace": replace,
+        }
+
+    @builtins.property
+    def regex(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#regex LbListenerRule#regex}.'''
+        result = self._values.get("regex")
+        assert result is not None, "Required property 'regex' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def replace(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lb_listener_rule#replace LbListenerRule#replace}.'''
+        result = self._values.get("replace")
+        assert result is not None, "Required property 'replace' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LbListenerRuleTransformUrlRewriteConfigRewrite(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class LbListenerRuleTransformUrlRewriteConfigRewriteOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lbListenerRule.LbListenerRuleTransformUrlRewriteConfigRewriteOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b345b052d70f03609cc033e6432629486c6f522503c1b7a4a032821a06362fe5)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="regexInput")
+    def regex_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regexInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="replaceInput")
+    def replace_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "replaceInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regex")
+    def regex(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "regex"))
+
+    @regex.setter
+    def regex(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43036d59f1d65f1cefc1b7d91165924f092dc435c6ebf62e1127765903bc8ef9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "regex", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="replace")
+    def replace(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "replace"))
+
+    @replace.setter
+    def replace(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ced0ec1f2220ae0414e2cf156cf9068be41d23b8dc415e34aeb8ab9a4831ca5a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replace", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[LbListenerRuleTransformUrlRewriteConfigRewrite]:
+        return typing.cast(typing.Optional[LbListenerRuleTransformUrlRewriteConfigRewrite], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[LbListenerRuleTransformUrlRewriteConfigRewrite],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa95e621a7679a5574a1d14eefa507d2d450e56729d4f0271936525f7caa26c7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 __all__ = [
@@ -3977,6 +5393,11 @@ __all__ = [
     "LbListenerRuleActionForwardTargetGroup",
     "LbListenerRuleActionForwardTargetGroupList",
     "LbListenerRuleActionForwardTargetGroupOutputReference",
+    "LbListenerRuleActionJwtValidation",
+    "LbListenerRuleActionJwtValidationAdditionalClaim",
+    "LbListenerRuleActionJwtValidationAdditionalClaimList",
+    "LbListenerRuleActionJwtValidationAdditionalClaimOutputReference",
+    "LbListenerRuleActionJwtValidationOutputReference",
     "LbListenerRuleActionList",
     "LbListenerRuleActionOutputReference",
     "LbListenerRuleActionRedirect",
@@ -3998,6 +5419,17 @@ __all__ = [
     "LbListenerRuleConditionSourceIp",
     "LbListenerRuleConditionSourceIpOutputReference",
     "LbListenerRuleConfig",
+    "LbListenerRuleTransform",
+    "LbListenerRuleTransformHostHeaderRewriteConfig",
+    "LbListenerRuleTransformHostHeaderRewriteConfigOutputReference",
+    "LbListenerRuleTransformHostHeaderRewriteConfigRewrite",
+    "LbListenerRuleTransformHostHeaderRewriteConfigRewriteOutputReference",
+    "LbListenerRuleTransformList",
+    "LbListenerRuleTransformOutputReference",
+    "LbListenerRuleTransformUrlRewriteConfig",
+    "LbListenerRuleTransformUrlRewriteConfigOutputReference",
+    "LbListenerRuleTransformUrlRewriteConfigRewrite",
+    "LbListenerRuleTransformUrlRewriteConfigRewriteOutputReference",
 ]
 
 publication.publish()
@@ -4014,6 +5446,7 @@ def _typecheckingstub__5914a42b0dd04507c82b09c115037edc11258f3208fa000b4cb48bfd3
     region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    transform: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LbListenerRuleTransform, typing.Dict[builtins.str, typing.Any]]]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -4042,6 +5475,12 @@ def _typecheckingstub__0b58c21e8e6e59779930a2a270cbac568891c4f3e247a7c8fa86f19fb
 
 def _typecheckingstub__3a623f8a4ec66c62cadae59bb9f7e7b02a62e8f4e67719e714219c8b04cd8952(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LbListenerRuleCondition, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa14471004908d0895179f4edc84955c515b31f447dd517380f44b3a61066785(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LbListenerRuleTransform, typing.Dict[builtins.str, typing.Any]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4089,6 +5528,7 @@ def _typecheckingstub__e9311f22bc35914e75a3eec1ffe05b7cb23265c8e38c8e6c6d4bd2a32
     authenticate_oidc: typing.Optional[typing.Union[LbListenerRuleActionAuthenticateOidc, typing.Dict[builtins.str, typing.Any]]] = None,
     fixed_response: typing.Optional[typing.Union[LbListenerRuleActionFixedResponse, typing.Dict[builtins.str, typing.Any]]] = None,
     forward: typing.Optional[typing.Union[LbListenerRuleActionForward, typing.Dict[builtins.str, typing.Any]]] = None,
+    jwt_validation: typing.Optional[typing.Union[LbListenerRuleActionJwtValidation, typing.Dict[builtins.str, typing.Any]]] = None,
     order: typing.Optional[jsii.Number] = None,
     redirect: typing.Optional[typing.Union[LbListenerRuleActionRedirect, typing.Dict[builtins.str, typing.Any]]] = None,
     target_group_arn: typing.Optional[builtins.str] = None,
@@ -4440,6 +5880,126 @@ def _typecheckingstub__f24335c362ba2a86a09f756119cd22cb92a593cffc135789082640f75
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__382497541632fc5688bc22c9142498e991dc858827c902e131190d206ca92b06(
+    *,
+    issuer: builtins.str,
+    jwks_endpoint: builtins.str,
+    additional_claim: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LbListenerRuleActionJwtValidationAdditionalClaim, typing.Dict[builtins.str, typing.Any]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0488378f378bb28b38694549666614b484997bedacb7fdb0d8c0ba1374019ed(
+    *,
+    format: builtins.str,
+    name: builtins.str,
+    values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e48ddf2e988beafa82c53282c262e0b634a401dd417542a7e3f0d9473cb200e6(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f131ee9e9aff881425c8553def0de1bb67741c478cfc53bed1a21579655dfa55(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3cf9e4754f883c3bb1cf323232326ca3cc90d3117a82c26082fab9812bec869b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7df0b7b80c40a302f8e40639890efc272d9a0467759f493a45ace8418bee4f85(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b04b3ff14f4044f73cb4f4d01c36d586e37c89c04923b541528c28fcc116542d(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a32931757926d6ee9d9bd9a3eded94feae95a206114d2353af9fdb27f0377a4(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LbListenerRuleActionJwtValidationAdditionalClaim]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__575532a0abb10ad4498dabd47057271e86e9b137ad9571d3f7e987ab8088f5bd(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75195b132c4493052da42cea9cb9b5243b7b818ff91d25b54c9b7e35d19a5cf5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63d39aa7edf63a71d918d09c64d0c2ca1391617445d28f4c6eb3f1c6cd58b8b3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96ca5ac638c2bf6b3f5fbb38a957a6b56a491707fc8a9995ed4c45b41eeb3e1f(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f31fbe2b0bdf67bc3d6845f8d187b075e8e1cc489f8bbe611a6b80df72ebba9(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LbListenerRuleActionJwtValidationAdditionalClaim]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__064482fe92260e2b7cd3c2693594749afa65fd3050c61665e0ad0c530264088f(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e7332ef593460304cc9845cee6f0db2f335fa48c6920c965596c1b6afe5ac2d1(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LbListenerRuleActionJwtValidationAdditionalClaim, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d97f5cd6db597b9e35b6a7dcb08fd0dbb2735754dd45c5b14f56d897d92404f8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__929d4e835d884ce21ed1b2889c6b10473c432e4f7ed2a974ccedfdf6e70b0a7f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbe1658393cc6012fc507f5d8eebe0d4ce3f37be3fc7cb8b717ccafeed74448e(
+    value: typing.Optional[LbListenerRuleActionJwtValidation],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f6733fd2efcdf9dbf6c649e6bb4a2356747525cfd8ffb700be79ac18f59f8a75(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -4586,7 +6146,8 @@ def _typecheckingstub__3f89134565380fdbfb2b6b6f66f4040b2dd25bea15abd7bf73efdc9e1
 
 def _typecheckingstub__dbbdd521a8278dad6bab5fa1be3bd022eaf8caf7216aa91b49cd88dc9e032b50(
     *,
-    values: typing.Sequence[builtins.str],
+    regex_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+    values: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4594,6 +6155,12 @@ def _typecheckingstub__dbbdd521a8278dad6bab5fa1be3bd022eaf8caf7216aa91b49cd88dc9
 def _typecheckingstub__56143076966e0bcea548261ed40f28cf3caa10aa515a343427696f8ec78f8efc(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__abae1a79638ac95ea9eddfe452fd03ef3da4b65c7dc3879955a829771fb475ad(
+    value: typing.List[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4613,7 +6180,8 @@ def _typecheckingstub__1f58395ff8c22e559580fb77e67604f7048dbfa69cf88ae9222616f5f
 def _typecheckingstub__790ed3228cbad32607b2c2fa1ef2d90e0131ca2ef37a0d7f51eb3c0080bb97be(
     *,
     http_header_name: builtins.str,
-    values: typing.Sequence[builtins.str],
+    regex_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+    values: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4627,6 +6195,12 @@ def _typecheckingstub__2efa16f47d8abf4672250ae38d4d9b2767b08b9e3d2511bc15afd276b
 
 def _typecheckingstub__1fab6a9273c340cc160365befe192f545afdd2651798a76e85567d59908e8dbb(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__738b0118a0835c0acb7a9c97642be1cb93c46cfa7c518dc551414ec53a4ff878(
+    value: typing.List[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4730,7 +6304,8 @@ def _typecheckingstub__b9367fb8ab05bfd116e6777b1f78fd32f37c652531a1ef2d9f4c2499b
 
 def _typecheckingstub__d809925d8c7b714854300399458c7c6b1502451412e1b2b5c7477971e7e920c3(
     *,
-    values: typing.Sequence[builtins.str],
+    regex_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+    values: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4738,6 +6313,12 @@ def _typecheckingstub__d809925d8c7b714854300399458c7c6b1502451412e1b2b5c7477971e
 def _typecheckingstub__6fc7ba6eea1382576c8643e08f5a737a85deb904620c844c6d7e16e10ae3cf6e(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d4bad1451f8152c6729226f9bd6e22d14569dbdef1f6e89be617f1f9a0107b5(
+    value: typing.List[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4870,6 +6451,181 @@ def _typecheckingstub__05879a774d2a242ef84796f9537c2d5375db13de9e9325846ab9f67a7
     region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    transform: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LbListenerRuleTransform, typing.Dict[builtins.str, typing.Any]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ddc1039f90820359b9f04716cf8e927daefbc3a3b8b33bad240c5aa91821c896(
+    *,
+    type: builtins.str,
+    host_header_rewrite_config: typing.Optional[typing.Union[LbListenerRuleTransformHostHeaderRewriteConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    url_rewrite_config: typing.Optional[typing.Union[LbListenerRuleTransformUrlRewriteConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9caf4885c8f22e340b7826a7571415269c0ec88c13cd44e4e0d9ab2ab9ec970(
+    *,
+    rewrite: typing.Optional[typing.Union[LbListenerRuleTransformHostHeaderRewriteConfigRewrite, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f73a15c5002430a0c3202b0b373104ae310d7e9b64050c5b1b8de3decacd53d(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5dc0a2543e93ea81766b80a58825d5fa3bc3945edb7f9b273b79b2353de5539b(
+    value: typing.Optional[LbListenerRuleTransformHostHeaderRewriteConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01282112565f50595da083695f3c59bdd9a11d7bd0f51f5d204eb49b7c90bd87(
+    *,
+    regex: builtins.str,
+    replace: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68ae2946648bf5a0df6dea205638ab430a315a866b2e7409da49d40c5fd991a5(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a24c79ee21892c46831526a4dc117d1acbe514cc4135ce2576c9317a93ed346(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24d2b6047fbb5f93c8b6c840f144631c126d00d46e528785ad8deb8668022eba(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1fc2ab71712a79785abd8a3157efa00821770f588d9926d6f943946e55c760ab(
+    value: typing.Optional[LbListenerRuleTransformHostHeaderRewriteConfigRewrite],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81f3e352b229ca79615302eaff57a2fe4f30b46e27875cb717ff431e30405a79(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__970d55cf5241c11addaedb567034bd422a79707aae2bcc4f70a15b897d31e31b(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24d0d36616594afd5eaddd47bbd0da3ace8dde1f5186acb98845831bb3019194(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e2a933bf22130d0a26c1fe8dedc3511c1e4770f4dac424b9ce15cda3d845af3(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__327c5ae3f0a863cbeab76ce0ed8f3638c9fe2676d70fcdc9978dd7791447545c(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6b23c5fe47e7c3847e902299ad6e31b805a5d11722a49cb39378417cf0c4f7b(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LbListenerRuleTransform]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__996bcfe0c5bfb46a78c64b62adcef7af3a8dddba225495cca31bb5316e9cea2d(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__480724a0b27e71117e15133ff27055917232d46022f961db4f6dbd52a4e838cd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a4c82f939d40fbb6ae3f8a6c37911c4932ed05206b932ab73f6c1086055e22b(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LbListenerRuleTransform]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d60fa1145cc60bdbf02ea22c4036530f5acf980a41c20318d64e9c10b7ff603(
+    *,
+    rewrite: typing.Optional[typing.Union[LbListenerRuleTransformUrlRewriteConfigRewrite, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a468a7147324517efe0b979a0b711e126068f24f9b68efa1147e01a6d9210483(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aabc7a87e9a18dbecb6a5f30c4381e6a0856774f933811393cd672e9de5b9fbc(
+    value: typing.Optional[LbListenerRuleTransformUrlRewriteConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0148b89219557b6b5976d115e7b4e944ac9c2ad25d4fe09d892ad8ac69953195(
+    *,
+    regex: builtins.str,
+    replace: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b345b052d70f03609cc033e6432629486c6f522503c1b7a4a032821a06362fe5(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43036d59f1d65f1cefc1b7d91165924f092dc435c6ebf62e1127765903bc8ef9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ced0ec1f2220ae0414e2cf156cf9068be41d23b8dc415e34aeb8ab9a4831ca5a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa95e621a7679a5574a1d14eefa507d2d450e56729d4f0271936525f7caa26c7(
+    value: typing.Optional[LbListenerRuleTransformUrlRewriteConfigRewrite],
 ) -> None:
     """Type checking stubs"""
     pass

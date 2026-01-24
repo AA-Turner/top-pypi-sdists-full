@@ -2,6 +2,7 @@
 """DIDL-Lite (Digital Item Declaration Language) tools for Python."""
 # pylint: disable=too-many-lines
 
+import re
 from typing import (
     Any,
     Dict,
@@ -86,7 +87,7 @@ class DidlObject:
         **properties: Any,
     ) -> None:
         """Initialize."""
-        # pylint: disable=invalid-name,redefined-builtin,too-many-arguments
+        # pylint: disable=invalid-name,redefined-builtin,too-many-arguments,too-many-positional-arguments
         properties["id"] = id
         properties["parent_id"] = parent_id
         properties["class"] = self.upnp_class
@@ -627,7 +628,7 @@ class Container(DidlObject, list):
         **properties: Any,
     ) -> None:
         """Initialize."""
-        # pylint: disable=redefined-builtin,too-many-arguments
+        # pylint: disable=redefined-builtin,too-many-arguments,too-many-positional-arguments
         super().__init__(id, parent_id, descriptors, xml_el, strict, **properties)
         self.extend(children)
 
@@ -929,7 +930,7 @@ class Resource:
         xml_el: Optional[ET.Element] = None,
     ) -> None:
         """Initialize."""
-        # pylint: disable=too-many-arguments
+        # pylint: disable=too-many-arguments,too-many-positional-arguments
         self.uri = uri
         self.protocol_info = protocol_info
         self.import_uri = import_uri
@@ -1007,7 +1008,7 @@ class Descriptor:
         xml_el: Optional[ET.Element] = None,
     ) -> None:
         """Initialize."""
-        # pylint: disable=invalid-name,redefined-builtin,too-many-arguments
+        # pylint: disable=invalid-name,redefined-builtin,too-many-arguments,too-many-positional-arguments
         self.id = id
         self.name_space = name_space
         self.type = type
@@ -1073,7 +1074,27 @@ def to_xml_string(*objects: DidlObject) -> bytes:
 def from_xml_string(
     xml_string: str, strict: bool = True
 ) -> List[Union[DidlObject, Descriptor]]:
-    """Convert XML string to DIDL Objects."""
+    """Parse DIDL-Lite XML string."""
+    if not strict:
+        # Find all prefixes used in tags, e.g., <prefix:tag ...>
+        used_prefixes = set(re.findall(r"<([a-zA-Z0-9]+):", xml_string))
+
+        # Find all defined namespaces, e.g., xmlns:prefix=...
+        defined_prefixes = set(re.findall(r"xmlns:([a-zA-Z0-9]+)=", xml_string))
+
+        # Identify prefixes used but not defined.
+        missing_prefixes = (
+            used_prefixes - defined_prefixes - {"DIDL-Lite", "dc", "upnp", "dlna"}
+        )
+
+        # Remove the "if missing_prefixes:" line and just keep the for loop
+        for prefix in missing_prefixes:
+            dlna_ns = 'xmlns:dlna="urn:schemas-dlna-org:metadata-1-0/"'
+            if dlna_ns in xml_string:
+                replacement = f'{dlna_ns} xmlns:{prefix}="http://tempuri.org/{prefix}/"'
+                xml_string = xml_string.replace(dlna_ns, replacement)
+
+    # Proceed with parsing using the (potentially) patched xml_string
     xml_el = defusedxml.ElementTree.fromstring(xml_string)
     return from_xml_el(xml_el, strict)
 

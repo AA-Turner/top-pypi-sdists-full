@@ -430,11 +430,10 @@ EXAMPLES = r'''
 '''
 
 from ansible.errors import AnsibleError, AnsibleParserError
-from ansible.module_utils._text import to_text, to_native
+from ansible.module_utils.common.text.converters import to_text, to_native
 from ansible.module_utils.common.dict_transformations import camel_dict_to_snake_dict
 from ansible.module_utils.common.dict_transformations import _snake_to_camel
 from ansible.utils.display import Display
-from ansible.module_utils.six import text_type
 from ansible_collections.community.vmware.plugins.plugin_utils.inventory import (
     to_nested_dict,
     to_flatten_dict,
@@ -466,7 +465,7 @@ except ImportError:
 
 from ansible.plugins.inventory import BaseInventoryPlugin, Constructable, Cacheable
 from ansible.parsing.yaml.objects import AnsibleVaultEncryptedUnicode
-from ansible_collections.community.vmware.plugins.module_utils.clients._vmware import PyvmomiClient
+from ansible_collections.vmware.vmware.plugins.module_utils.clients.pyvmomi import PyvmomiClient
 
 
 class BaseVMwareInventory:
@@ -947,7 +946,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
         if with_path:
             parents = host_properties['path'].split('/')
             if parents:
-                if isinstance(with_path, text_type):
+                if isinstance(with_path, str):
                     parents = [with_path] + parents
 
                 c_name = self._sanitize_group_name('/'.join(parents))

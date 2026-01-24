@@ -1,5 +1,5 @@
-# Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
-# Copyright (c) 2025 Munich Quantum Software Company GmbH
+# Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+# Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
 # All rights reserved.
 #
 # SPDX-License-Identifier: MIT
@@ -37,6 +37,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
   add_compile_options(-fcolor-diagnostics)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   add_compile_options(-fdiagnostics-color=always)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  add_compile_options(/diagnostics:color)
 else()
   message(STATUS "No colored compiler diagnostic set for '${CMAKE_CXX_COMPILER_ID}' compiler.")
 endif()
@@ -58,7 +60,7 @@ endif()
 if(DEPLOY)
   # set the macOS deployment target appropriately
   set(CMAKE_OSX_DEPLOYMENT_TARGET
-      "10.15"
+      "11.0"
       CACHE STRING "" FORCE)
 endif()
 
@@ -85,3 +87,15 @@ endif()
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS
     ON
     CACHE BOOL "Export all symbols on Windows")
+
+# on macOS with GCC, disable module scanning
+# https://www.reddit.com/r/cpp_questions/comments/1kwlkom/comment/ni5angh/
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
+    set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+  else()
+    message(WARNING "CMake 3.28+ is required to disable C++ module scanning on macOS with GCC. "
+                    "Current version: ${CMAKE_VERSION}. "
+                    "Consider upgrading CMake to avoid potential build issues.")
+  endif()
+endif()

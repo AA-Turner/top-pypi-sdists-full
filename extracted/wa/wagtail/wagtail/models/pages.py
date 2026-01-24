@@ -663,7 +663,7 @@ class Page(AbstractPage, index.Indexed, ClusterableModel, metaclass=PageBase):
             raise ValidationError(
                 {
                     "slug": _(
-                        "The slug '%(page_slug)s' is already in use within the parent page at '%(parent_url_path)s'"
+                        "The slug '%(page_slug)s' is already in use within the parent page at '%(parent_url_path)s'."
                     )
                     % {"page_slug": self.slug, "parent_url_path": parent_page.url}
                 }
@@ -719,10 +719,6 @@ class Page(AbstractPage, index.Indexed, ClusterableModel, metaclass=PageBase):
         :meth:`~django.db.models.Model.full_clean` before saving.
 
         If ``clean=True`` is passed, and the page has ``live=False`` set, only the title and slug fields are validated.
-
-        .. versionchanged:: 7.0
-           ``clean=True`` now only performs full validation when the page is live. When the page is not live, only
-           the title and slug fields are validated. Previously, full validation was always performed.
         """
         if clean:
             if self.live:
@@ -743,7 +739,9 @@ class Page(AbstractPage, index.Indexed, ClusterableModel, metaclass=PageBase):
             # Check that we are committing the slug to the database
             # Basically: If update_fields has been specified, and slug is not included, skip this step
             if not (
-                "update_fields" in kwargs and "slug" not in kwargs["update_fields"]
+                "update_fields" in kwargs
+                and kwargs["update_fields"] is not None
+                and "slug" not in kwargs["update_fields"]
             ):
                 # see if the slug has changed from the record in the db, in which case we need to
                 # update url_path of self and all descendants. Even though we might not need it,
@@ -903,7 +901,7 @@ class Page(AbstractPage, index.Indexed, ClusterableModel, metaclass=PageBase):
                 # Cache the parent page on the subpage to avoid another db query
                 # Treebeard's get_parent will use the `_cached_parent_obj` attribute if it exists
                 # And update = False
-                setattr(subpage, "_cached_parent_obj", self)
+                subpage._cached_parent_obj = self
 
             except Page.DoesNotExist:
                 raise Http404
@@ -2693,12 +2691,12 @@ class Comment(ClusterableModel):
             # comment applies to the field as a whole
             return True
 
-        if not isinstance(field, StreamField):
-            # only StreamField supports content paths that are deeper than one level
+        # e.g. StreamField supports content paths that are deeper than one level
+        if not hasattr(field, "get_block_by_content_path"):
             return False
 
-        stream_value = getattr(page, field_name)
-        block = field.get_block_by_content_path(stream_value, remainder)
+        field_value = getattr(page, field_name)
+        block = field.get_block_by_content_path(field_value, remainder)
         # content path is valid if this returns a BoundBlock rather than None
         return bool(block)
 

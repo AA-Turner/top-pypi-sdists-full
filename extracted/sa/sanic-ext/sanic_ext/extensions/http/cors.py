@@ -70,7 +70,7 @@ def add_cors(app: Sanic) -> None:
             _add_methods_header(request, response)
 
     @app.before_server_start(priority=PRIORITY)
-    async def _assign_cors_settings(app, _):
+    async def _assign_cors_settings(app):
         for group in app.router.groups.values():
             _cors = SimpleNamespace()
             for route in group:
@@ -288,12 +288,14 @@ def _add_methods_header(request: Request, response: HTTPResponse) -> None:
 
 
 def _add_vary_header(request: Request, response: HTTPResponse) -> None:
-    allow_origins = _get_from_cors_ctx(
-        request,
-        "_cors_allow_origins",
-        request.app.ctx.cors.allow_origins,
-    )
-    if len(allow_origins) > 1:
+    # Add Vary: Origin if the Access-Control-Allow-Origin header is not
+    # a wildcard '*'. This is necessary because the response varies based
+    # on the request Origin header when:
+    # 1. Multiple origins are configured
+    # 2. A regex pattern is used that can match multiple origins
+    # 3. Even with a single literal origin, the response varies based on
+    #    whether the Origin header matches (no CORS headers if no match)
+    if response.headers.get(ORIGIN_HEADER) != "*":
         response.headers[VARY_HEADER] = "origin"
 
 
@@ -321,7 +323,7 @@ def _parse_allow_origins(
     return tuple(
         pattern
         if isinstance(pattern, re.Pattern)
-        else re.compile(re.escape(pattern))
+        else re.compile(re.escape(pattern) + "$")
         for pattern in (origins or [])
     )
 

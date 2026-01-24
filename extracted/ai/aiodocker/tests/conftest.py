@@ -2,110 +2,104 @@ from __future__ import annotations
 
 import asyncio
 import os
+import secrets
+import subprocess
 import sys
-import traceback
-import uuid
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Dict,
-)
+import time
+from collections.abc import AsyncIterator, Iterator
+from pathlib import Path
+from typing import Any, Callable
 
 import pytest
 from packaging.version import parse as parse_version
+from testcontainers.core.container import DockerContainer as TempContainer
+from testcontainers.core.wait_strategies import HttpWaitStrategy
 
 from aiodocker.containers import DockerContainer
 from aiodocker.docker import Docker
 from aiodocker.exceptions import DockerError
-
-
-if TYPE_CHECKING:
-    if sys.version_info < (3, 10):
-        from typing_extensions import TypeAlias
-    else:
-        from typing import TypeAlias
-
-
-API_VERSIONS = {
-    "17.06": "v1.30",
-    "17.09": "v1.32",
-    "17.12": "v1.35",
-    "18.02": "v1.36",
-    "18.03": "v1.37",
-    "18.06": "v1.38",
-    "18.09": "v1.39",
-}
-
-
-def _random_name():
-    return "aiodocker-" + uuid.uuid4().hex[:7]
+from aiodocker.types import AsyncContainerFactory
 
 
 @pytest.fixture(scope="session")
 async def random_name():
-    yield _random_name
-
-    # If some test cases have used randomly-named temporary images,
-    # we need to clean up them!
-    if os.environ.get("CI") is not None:
-        # But inside the CI server, we don't need clean up!
-        return
+    random_image_name = "aiodocker-" + secrets.token_hex(4)
+    yield random_image_name
 
     docker = Docker()
-    images = await docker.images.list()
-    for img in images:
-        if not img["RepoTags"]:
-            continue
-        try:
-            if img["RepoTags"][0].startswith("aiodocker-"):
-                print("Deleting image id: {}".format(img["Id"]))
-                await docker.images.delete(img["Id"], force=True)
-        except DockerError:
-            traceback.print_exc()
-    await docker.close()
+    try:
+        image = await docker.images.inspect(random_image_name)
+        print(f"Deleting image: {random_image_name} ({image['Id']})")
+        await docker.images.delete(random_image_name, force=True)
+    except DockerError as e:
+        if e.status == 404:
+            pass
+        else:
+            raise
+    finally:
+        await docker.close()
+
+
+@pytest.fixture(scope="module")
+def plain_registry() -> Iterator[TempContainer]:
+    with TempContainer(
+        "registry:2",
+        name=f"aiodocker-test-registry-plain-{secrets.token_hex(4)}",
+        ports=[5000],
+        _wait_strategy=HttpWaitStrategy(5000).for_status_code(200),
+    ) as plain_registry:
+        yield plain_registry
+
+
+@pytest.fixture(scope="module")
+def secure_registry() -> Iterator[TempContainer]:
+    with TempContainer(
+        "registry:2",
+        name=f"aiodocker-test-registry-secure-{secrets.token_hex(4)}",
+        ports=[5001],
+        volumes=[(f"{os.getcwd()}/tests/certs", "/certs", "ro")],
+        env={
+            "REGISTRY_AUTH": "htpasswd",
+            "REGISTRY_AUTH_HTPASSWD_REALM": "Registry Realm",
+            "REGISTRY_AUTH_HTPASSWD_PATH": "/certs/htpasswd",
+            "REGISTRY_HTTP_ADDR": "0.0.0.0:5001",
+            "REGISTRY_HTTP_TLS_CERTIFICATE": "/certs/registry.crt",
+            "REGISTRY_HTTP_TLS_KEY": "/certs/registry.key",
+        },
+        _wait_strategy=(
+            HttpWaitStrategy(5001).using_tls(insecure=True).for_status_code(200)
+        ),
+    ) as secure_registry:
+        yield secure_registry
 
 
 @pytest.fixture(scope="session")
 def image_name() -> str:
     if sys.platform == "win32":
-        return "python:latest"
-    return "python:alpine"
+        return "python:3.13"
+    return "python:3.13-alpine"
 
 
 @pytest.fixture(scope="session")
-async def testing_images(image_name: str) -> None:
-    # Prepare a small Linux image shared by most test cases.
-    docker = Docker()
-    try:
-        required_images = [image_name]
-        for img in required_images:
-            try:
-                await docker.images.inspect(img)
-            except DockerError as e:
-                assert e.status == 404
-                print(f'Pulling "{img}" for the testing session...')
-                await docker.pull(img)
-    finally:
-        await docker.close()
+def image_name_updated() -> str:
+    if sys.platform == "win32":
+        return "python:3.14"
+    return "python:3.14-alpine"
+
+
+@pytest.fixture(scope="session")
+async def testing_images(image_name: str, image_name_updated: str) -> list[str]:
+    images = [image_name, image_name_updated]
+    for ref in images:
+        proc = await asyncio.create_subprocess_exec("docker", "pull", ref)
+        await proc.wait()
+    return images
 
 
 @pytest.fixture
 async def docker(testing_images):
-    kwargs = {}
-    version = os.environ.get("DOCKER_VERSION")
-    if version:
-        for k, v in API_VERSIONS.items():
-            if version.startswith(k):
-                kwargs["api_version"] = v
-                break
-        else:
-            raise RuntimeError(f"Cannot find docker API version for {version}")
-
-    docker = Docker(**kwargs)
-    print(asyncio.get_running_loop())
+    # Create a new Docker client with the default configuration.
+    docker = Docker()
     try:
         yield docker
     finally:
@@ -126,20 +120,133 @@ async def requires_api_version(
     yield check
 
 
-@pytest.fixture
-async def swarm(docker):
+@pytest.fixture(scope="module")
+def dind_docker_host() -> Iterator[str]:
+    """Start a Docker-in-Docker daemon for swarm/service tests."""
     if sys.platform == "win32":
         pytest.skip("swarm commands dont work on Windows")
-    assert await docker.swarm.init()
+
+    compose_file = Path(__file__).parent / "docker-compose.dind.yml"
+    project_name = f"aiodocker-dind-{secrets.token_hex(4)}"
+
+    # Start the DinD container
+    subprocess.run(
+        ["docker", "compose", "-f", str(compose_file), "-p", project_name, "up", "-d"],
+        check=True,
+        capture_output=True,
+    )
+
+    # Get the container ID
+    result = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(compose_file),
+            "-p",
+            project_name,
+            "ps",
+            "-q",
+            "docker-dind",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    container_id = result.stdout.decode().strip()
+
+    # Wait for Docker daemon to be ready
+    for _ in range(30):
+        result = subprocess.run(
+            ["docker", "exec", container_id, "docker", "info"],
+            capture_output=True,
+        )
+        if result.returncode == 0:
+            break
+        time.sleep(1)
+    else:
+        # Cleanup on failure
+        subprocess.run(
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_file),
+                "-p",
+                project_name,
+                "down",
+                "-v",
+            ],
+            check=False,
+        )
+        pytest.fail("Docker-in-Docker daemon failed to start in time")
+
+    # Get the mapped port for the DinD daemon
+    result = subprocess.run(
+        ["docker", "port", container_id, "2375"],
+        check=True,
+        capture_output=True,
+    )
+    # Take only the first line (IPv4) and clean it up
+    dind_host = (
+        result.stdout.decode().strip().split("\n")[0].replace("0.0.0.0", "localhost")
+    )
+    docker_host = f"tcp://{dind_host}"
+
     try:
-        yield docker
+        yield docker_host
     finally:
-        assert await docker.swarm.leave(force=True)
+        # Cleanup: stop and remove the DinD container and volumes
+        subprocess.run(
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_file),
+                "-p",
+                project_name,
+                "down",
+                "-v",
+            ],
+            check=True,
+            capture_output=True,
+        )
 
 
-AsyncContainerFactory: TypeAlias = Callable[
-    [Dict[str, Any], str], Awaitable[DockerContainer]
-]
+@pytest.fixture
+async def swarm(docker, dind_docker_host, testing_images):
+    """Initialize swarm in the DinD environment for service/swarm tests."""
+    if sys.platform == "win32":
+        pytest.skip("swarm commands dont work on Windows")
+
+    # Create a new Docker client connected to DinD
+    dind_docker = Docker(url=dind_docker_host)
+
+    try:
+        # Pull necessary images into DinD
+        for image in testing_images:
+            # Use a pipe via shell to transfer images
+            transfer_cmd = f"docker save {image} | docker -H {dind_docker_host} load"
+            proc = await asyncio.create_subprocess_shell(
+                transfer_cmd,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                raise RuntimeError(
+                    f"Failed to transfer image {image}: {stderr.decode()}"
+                )
+
+        # Initialize swarm in DinD
+        assert await dind_docker.swarm.init()
+        yield dind_docker
+    finally:
+        # Leave swarm and close the DinD client
+        try:
+            await dind_docker.swarm.leave(force=True)
+        except Exception:
+            pass  # Best effort cleanup
+        await dind_docker.close()
 
 
 @pytest.fixture
@@ -149,7 +256,7 @@ async def make_container(
     container: DockerContainer | None = None
 
     async def _spawn(
-        config: Dict[str, Any],
+        config: dict[str, Any],
         name: str,
     ) -> DockerContainer:
         nonlocal container
@@ -162,16 +269,15 @@ async def make_container(
         yield _spawn
     finally:
         if container is not None:
-            assert isinstance(container, DockerContainer)
             await container.delete(force=True)
 
 
 @pytest.fixture
 async def shell_container(
     docker: Docker,
-    make_container,
+    make_container: AsyncContainerFactory,
     image_name: str,
-) -> AsyncContainerFactory:
+) -> DockerContainer:
     config = {
         "Cmd": ["python"],
         "Image": image_name,
@@ -181,5 +287,4 @@ async def shell_container(
         "Tty": True,
         "OpenStdin": True,
     }
-
-    return await make_container(config, name="aiodocker-testing-shell")
+    return await make_container(config, "aiodocker-testing-shell")

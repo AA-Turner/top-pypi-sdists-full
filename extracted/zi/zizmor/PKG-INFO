@@ -1,10 +1,17 @@
 Metadata-Version: 2.4
 Name: zizmor
-Version: 1.13.0
+Version: 1.22.0
 License-File: LICENSE
+Summary: Static analysis for GitHub Actions
 Home-Page: https://docs.zizmor.sh
-Requires-Python: >=3.9
+Author: William Woodruff <william@yossarian.net>
+Author-email: William Woodruff <william@yossarian.net>
+License: MIT
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://docs.zizmor.sh
+Project-URL: Documentation, https://docs.zizmor.sh
+Project-URL: Source Code, https://github.com/zizmorcore/zizmor
 
 # 🌈 zizmor
 
@@ -56,7 +63,7 @@ See [our contributing guide!](./CONTRIBUTING.md)
 
 [Now you can have beautiful clean workflows!]: https://www.youtube.com/watch?v=ol7rxFCvpy8
 
-## Sponsors 💖
+## Sponsors
 
 `zizmor`'s development is supported by these amazing sponsors!
 
@@ -79,6 +86,13 @@ Grafana Labs
 Trail of Bits
 </a>
 </td>
+<td align="center" valign="top" width="15%">
+<a href="https://www.shipfox.io">
+<img src="https://avatars.githubusercontent.com/u/163036520?s=100&v=4" width="100px">
+<br>
+Shipfox
+</a>
+</td>
 </tr>
 </tbody>
 </table>
@@ -87,11 +101,6 @@ Trail of Bits
 <caption>Name-level sponsors</caption>
 <tbody>
 <tr>
-<td align="center" valign="top">
-<a href="http://tenki.cloud/">
-Tenki Cloud
-</a>
-</td>
 <td align="center" valign="top">
 <a href="https://github.com/ariccio">
 Alexander Riccio

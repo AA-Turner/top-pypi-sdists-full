@@ -180,7 +180,8 @@ import numpy as np
 import requests
 import requests_cache
 
-from pydap.lib import BatchPromise, _quote, decode_np_strings, tree, walk
+from pydap.lib import _quote, decode_np_strings, tree, walk
+from pydap.net import GET
 
 __all__ = [
     "BaseType",
@@ -292,6 +293,23 @@ class DapType(object):
         for child in self.children():
             child_path = f"{path}/{child.name}" if path else f"/{child.name}"
             child.assign_dataset_recursive(dataset, child_path)
+
+
+class BatchPromise:
+    def __init__(self):
+        self._event = threading.Event()
+        self._results = {}
+
+    def set_results(self, results):
+        self._results = results
+        self._event.set()
+
+    def wait_for_result(self, var_id):
+        self._event.wait()
+        return self._results[var_id]
+
+    def is_resolved(self):
+        return self._event.is_set()
 
 
 class SelfClearingArray:
@@ -670,18 +688,7 @@ class StructureType(DapType, Mapping):
         """Assume that key is a string type"""
         try:
             child = self._dict[_quote(key)]
-            if isinstance(child, BaseType):
-                if getattr(child, "dataset", None) and child.dataset.is_batch_mode():
-                    out = type(child).__new__(type(child))
-                    out.__dict__ = child.__dict__.copy()
-                    out._pending_batch_slice = None
-                    if hasattr(child, "_data") and child.is_remote_dapdata():
-                        out._data = child._data
-                    return out
-                else:
-                    return child
-            else:
-                return child
+            return child
         except KeyError:
             splitted = key.split(".")
             if len(splitted) > 1:
@@ -1078,7 +1085,6 @@ class DatasetType(StructureType):
     def _start_batch_timer(self):
         if self._current_batch_promise is None:
             self._current_batch_promise = BatchPromise()
-            # print("[Batch] New promise created:", id(self._current_batch_promise))
 
         if not self._batch_timer:
             promise_for_this_batch = self._current_batch_promise
@@ -1088,7 +1094,7 @@ class DatasetType(StructureType):
             )
             self._batch_timer.start()
 
-    def enable_batch_mode(self, timeout=0.2):
+    def enable_batch_mode(self, timeout=0.25):
         """Turn on batching with specified timeout window in seconds."""
         self._batch_mode = True
         self._batch_timeout = timeout
@@ -1097,6 +1103,7 @@ class DatasetType(StructureType):
         self._batch_results = {}
         self._dap_url = None
         self._checksums = True
+        self._slices = None
 
     def register_for_batch(self, var, checksums=True):
         """Register a key for batch processing."""
@@ -1107,7 +1114,7 @@ class DatasetType(StructureType):
 
         if not self._batch_timer:
             # Start the timer if not already running
-            self._batch_timer = self._start_batch_timer()
+            self._start_batch_timer()
 
         var._batch_promise = self._current_batch_promise
 
@@ -1126,11 +1133,7 @@ class DatasetType(StructureType):
             self._batch_timer = None
             return
 
-        constraint_expressions = [
-            _quote(var.build_ce().split("=")[-1])
-            for var in variables
-            if var.build_ce() is not None
-        ]
+        constraint_expressions = self.construct_shared_dim_ce(variables)
 
         base_url = variables[0]._data.baseurl if variables[0]._data else None
 
@@ -1140,7 +1143,7 @@ class DatasetType(StructureType):
             return
 
         # Build the single dap4.ce query parameter
-        ce_string = "?dap4.ce=" + ";".join(sorted(constraint_expressions))
+        ce_string = "?dap4.ce=" + constraint_expressions
         _dap_url = base_url + ".dap" + ce_string
         if not self._checksums:
             warnings.warn(
@@ -1150,32 +1153,22 @@ class DatasetType(StructureType):
             )
         _dap_url += "&dap4.checksum=true"
 
-        if _dap_url.startswith("https://test.opendap.org"):
-            _dap_url = _dap_url.replace("https", "http")
-
         # print("dap url:", _dap_url)
 
         if (
             isinstance(self._session, requests_cache.CachedSession)
-            and self._session.cache.cache_name != "debug"
+            and "debug" not in self._session.cache.cache_name
         ):
-            with self._session.cache_disabled():
-                r = self._session.get(
-                    _dap_url,
-                    timeout=512,
-                    verify=True,
-                    allow_redirects=True,
-                    stream=True,
-                )
+            cache_kwargs = {"skip": True}
         else:
-            r = self._session.get(
-                _dap_url,
-                timeout=512,
-                verify=True,
-                allow_redirects=True,
-                stream=True,
-            )
+            cache_kwargs = {}
 
+        r = GET(
+            _dap_url,
+            session=self._session,
+            get_kwargs={"stream": True},
+            cache_kwargs=cache_kwargs,
+        )
         parsed_dataset = UNPACKDAP4DATA(r, checksums=True, user_charset="ascii").dataset
 
         # Collect results
@@ -1212,6 +1205,57 @@ class DatasetType(StructureType):
         self._batch_registry = set()
         self._batch_timer = None
         self._batch_results = {}
+
+    def register_dim_slices(self, var, key=None) -> None:
+        """given a BaseType var, and an intended slice key (tuple) that matches its
+        dimension, register the slice for future re use.
+        Limitations:
+            - key is set by user, to match dimension of var. But no checks are done
+              to ensure this is correct.
+            - slice is stored/registered at dataset level, so any variable with same
+              dimension name will share the same slice.
+            - slices are not validated, so user must ensure they make sense.
+            - Intended only when in batch mode.
+        """
+        dataset = var.dataset
+        dims = [vdim for vdim in var.dims if isinstance(dataset[var.id], BaseType)]
+        var._pending_batch_slice = slice(key) if not key else key
+        slice_elements = var.build_ce().split(var.name)[-1]
+        dim_slices = dict(zip(dims, [sli + "]" for sli in slice_elements.split("]")]))
+
+        # the next check is to see if all dimensions lie within the variable hierarchy
+        uniformity_check = len(dims) * [True] == [
+            dataset[dims[i]].parent == var.parent for i in range(len(dims))
+        ]  # it is True only when all dims a share hierarchy with data
+        if not key or not uniformity_check:
+            self.clear_dim_slices()
+        else:
+            # only set the _slices if key is provided
+            self._slices = dim_slices
+
+    def clear_dim_slices(self) -> None:
+        """Clear any registered dimension slices."""
+        self._slices = None
+
+    def construct_shared_dim_ce(self, variables):
+        """Constructs the constraint expression for a set of variables
+        sharing multiple dimensions slices.
+        """
+        if not variables:
+            return None
+        if not self._slices:
+            ce_dims = [
+                _quote(var.build_ce().split("=")[-1])
+                for var in variables
+                if var.build_ce() is not None
+            ]
+            return ";".join(ce_dims)
+        else:
+            var_names = sorted([var.id for var in variables])
+            ce_dims = ";".join(
+                [key + "=" + value for key, value in self._slices.items()]
+            )
+            return ce_dims + ";" + ";".join(var_names)
 
 
 class SequenceType(StructureType):
@@ -1491,7 +1535,6 @@ class GroupType(StructureType):
         StructureType.__setitem__(self, key, item)
 
         # The Group name does (not) go into the children ids.
-
         item.id = item.name
         # self._dict[key] = item
 

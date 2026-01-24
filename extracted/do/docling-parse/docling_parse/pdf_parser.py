@@ -4,7 +4,7 @@ import hashlib
 import logging
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from docling_core.types.doc.base import BoundingBox, CoordOrigin
 from docling_core.types.doc.page import (
@@ -22,14 +22,49 @@ from docling_core.types.doc.page import (
     TextCell,
     TextDirection,
 )
+from pydantic import BaseModel, ConfigDict
 
 from docling_parse.pdf_parsers import pdf_parser_v2  # type: ignore[import]
 from docling_parse.pdf_parsers import pdf_sanitizer  # type: ignore[import]
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+_log = logging.getLogger(__name__)
+
+
+class PdfTocEntry(BaseModel):
+    """PDF table of contents entry (recursive structure).
+
+    Attributes:
+        title: The text of the TOC entry
+        level: Nesting level in the hierarchy (0 for top level)
+        page: Page number this entry points to (optional)
+        children: Nested TOC entries (optional)
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    title: str
+    level: Optional[int] = None
+    page: Optional[int] = None
+    children: Optional[List["PdfTocEntry"]] = None
+
+
+class PdfAnnotations(BaseModel):
+    """PDF document annotations including form fields, language, metadata, and table of contents.
+
+    Attributes:
+        form: AcroForm data containing interactive form fields (raw dict structure). None if no forms present.
+        language: Document language code (e.g., 'en-US', 'fr-FR'). None if not specified.
+        meta_xml: XMP metadata as XML string. None if no metadata present.
+        table_of_contents: Document outline/bookmark structure as list of entries. None if no TOC.
+    """
+
+    model_config = ConfigDict(validate_assignment=True, extra="allow")
+
+    form: Optional[Dict[str, Any]] = None
+    language: Optional[str] = None
+    meta_xml: Optional[str] = None
+    table_of_contents: Optional[List[PdfTocEntry]] = None
 
 
 class PdfDocument:
@@ -67,6 +102,7 @@ class PdfDocument:
         self._pages: Dict[int, SegmentedPdfPage] = {}
         self._toc: Optional[PdfTableOfContents] = None
         self._meta: Optional[PdfMetaData] = None
+        self._annotations: Optional[PdfAnnotations] = None
 
     def is_loaded(self) -> bool:
         return self._parser.is_loaded(key=self._key)
@@ -141,6 +177,52 @@ class PdfDocument:
             result.append(subtoc)
 
         return result
+
+    def _to_pdf_toc_entry(self, toc_list: List[Dict]) -> List[PdfTocEntry]:
+        """Convert raw TOC dict list to PdfTocEntry objects."""
+        result = []
+        for item in toc_list:
+            entry = PdfTocEntry(
+                title=item.get("title", ""),
+                level=item.get("level"),
+                page=item.get("page"),
+            )
+            if "children" in item and item["children"]:
+                entry.children = self._to_pdf_toc_entry(item["children"])
+            result.append(entry)
+        return result
+
+    def get_annotations(self) -> Optional[PdfAnnotations]:
+        """Get document annotations including form fields, language, metadata, and TOC.
+
+        Returns:
+            Optional[PdfAnnotations]: Annotations object with form, language, meta_xml,
+                and table_of_contents fields. None if document is not loaded or no annotations.
+        """
+        if self._annotations is not None:
+            return self._annotations
+
+        if self.is_loaded():
+            annots_dict = self._parser.get_annotations(key=self._key)
+
+            if annots_dict is None:
+                return self._annotations
+
+            # Convert table_of_contents list of dicts to PdfTocEntry objects if present
+            toc_entries = None
+            if annots_dict.get("table_of_contents"):
+                toc_entries = self._to_pdf_toc_entry(annots_dict["table_of_contents"])
+
+            self._annotations = PdfAnnotations(
+                form=annots_dict.get("form"),
+                language=annots_dict.get("language"),
+                meta_xml=annots_dict.get("meta_xml"),
+                table_of_contents=toc_entries,
+            )
+
+            return self._annotations
+        else:
+            raise RuntimeError("This document is not loaded.")
 
     def get_page(
         self,
@@ -442,25 +524,25 @@ class PdfDocument:
             segmented_page.word_cells = self._to_cells(page["word_cells"])
             segmented_page.has_words = len(segmented_page.word_cells) > 0
         elif keep_chars:
-            logging.warning(
+            _log.warning(
                 "`words` will be created for segmented_page in an inefficient way!"
             )
             self._create_word_cells(segmented_page, enforce_same_font=enforce_same_font)
         # else:
-        #    logging.warning("No `words` will be created for segmented_page")
+        #    _log.warning("No `words` will be created for segmented_page")
 
         if create_textlines and ("line_cells" in page):
             segmented_page.textline_cells = self._to_cells(page["line_cells"])
             segmented_page.has_lines = len(segmented_page.textline_cells) > 0
         elif keep_chars:
-            logging.warning(
+            _log.warning(
                 "`text_lines` will be created for segmented_page in an inefficient way!"
             )
             self._create_textline_cells(
                 segmented_page, enforce_same_font=enforce_same_font
             )
         # else:
-        #    logging.warning("No `text_lines` will be created for segmented_page")
+        #    _log.warning("No `text_lines` will be created for segmented_page")
 
         return segmented_page
 
@@ -601,6 +683,7 @@ class DoclingPdfParser:
         path_or_stream: Union[str, Path, BytesIO],
         lazy: bool = True,
         boundary_type: PdfPageBoundaryType = PdfPageBoundaryType.CROP_BOX,
+        password: Optional[str] = None,
     ) -> PdfDocument:
 
         if isinstance(path_or_stream, str):
@@ -608,7 +691,9 @@ class DoclingPdfParser:
 
         if isinstance(path_or_stream, Path):
             key = f"key={str(path_or_stream)}"  # use filepath as internal handle
-            success = self._load_document(key=key, filename=str(path_or_stream))
+            success = self._load_document(
+                key=key, filename=str(path_or_stream), password=password
+            )
 
         elif isinstance(path_or_stream, BytesIO):
             hasher = hashlib.sha256(usedforsecurity=False)
@@ -632,17 +717,22 @@ class DoclingPdfParser:
         else:
             raise RuntimeError(f"Failed to load document with key {key}")
 
-    def _load_document(self, key: str, filename: str) -> bool:
+    def _load_document(
+        self, key: str, filename: str, password: Optional[str] = None
+    ) -> bool:
         """Load a document by key and filename.
 
         Parameters:
             key (str): The unique key to identify the document.
             filename (str): The path to the document file to load.
+            password (str, optional): Optional password for password-protected files
 
         Returns:
             bool: True if the document was successfully loaded, False otherwise.)")
         """
-        return self.parser.load_document(key=key, filename=filename.encode("utf8"))
+        return self.parser.load_document(
+            key=key, filename=filename.encode("utf8"), password=password
+        )
 
     def _load_document_from_bytesio(self, key: str, data: BytesIO) -> bool:
         """Load a document by key from a BytesIO-like object.

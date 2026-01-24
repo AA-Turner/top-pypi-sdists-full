@@ -15,10 +15,18 @@ pub(crate) const TS_KEY_FIRST: TokenSet = TokenSet::new(&[
     LITERAL_STRING,
     // 1234 = "value"
     INTEGER_DEC,
+    // 0x96f = "value"
+    INTEGER_HEX,
+    // 0o755 = "value"
+    INTEGER_OCT,
+    // 0b1010 = "value"
+    INTEGER_BIN,
     // 3.14159 = "pi"
     FLOAT,
     // true = "value"
     BOOLEAN,
+    // 2001-02-08 = "value"
+    LOCAL_DATE,
 ]);
 
 /// A bit-set of `SyntaxKind`s

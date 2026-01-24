@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: foundationdb
+Version: 7.4.5
+Summary: Python bindings for the FoundationDB Database
+Author-email: FoundationDB Team <fdb-dist@apple.com>
+Project-URL: Homepage, https://www.foundationdb.org
+Project-URL: Repository, https://github.com/apple/foundationdb
+Keywords: database,key-value store,acid
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Database
+Classifier: Topic :: Database :: Front-Ends
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Dynamic: license-file
+
+Complete documentation of the FoundationDB Python API can be found at https://apple.github.io/foundationdb/api-python.html.
+
+These bindings require the FoundationDB client. The client can be obtained from https://github.com/apple/foundationdb/releases

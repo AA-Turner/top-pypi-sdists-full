@@ -70,9 +70,14 @@ from xonsh.platform import (
 
 
 @contextmanager
-def chdir(adir, mkdir=False):
+def chdir(adir, mkdir=False, expanduser=True):
+    """Context manager for switching current directory to another.
+    Note! You can use ``with p'/path'.cd(): $[ls]`` to achieve the same.
+    """
     adir = pathlib.Path(adir)
     old_dir = os.getcwd()
+    if expanduser:
+        adir = adir.expanduser()
     if mkdir:
         os.makedirs(adir, exist_ok=True)
     os.chdir(adir)
@@ -215,7 +220,7 @@ class EnvPath(cabc.MutableSequence):
                 # in order to be able to retrieve it later, for cases such as
                 # when a generator expression was passed as an argument
                 args = list(args)
-                if not all(isinstance(i, (str, bytes, pathlib.Path)) for i in args):
+                if not all(isinstance(i, str | bytes | pathlib.Path) for i in args):
                     # make TypeError's message as informative as possible
                     # when given an invalid initialization sequence
                     raise TypeError(
@@ -473,7 +478,7 @@ def subproc_toks(
     if maxcol is None:
         maxcol = len(line) + 1
     lexer.reset()
-    lexer.input(line)
+    lexer.input(line, is_subproc=True)
     toks = []
     lparens = []
     saw_macro = False
@@ -800,7 +805,7 @@ def fallback(cond, backup):
 # See the Python software license: https://docs.python.org/3/license.html
 # Copyright (c) Python Software Foundation. All rights reserved.
 class _RedirectStream:
-    _stream: tp.Optional[str] = None
+    _stream: str | None = None
 
     def __init__(self, new_target):
         self._new_target = new_target
@@ -861,7 +866,12 @@ def debian_command_not_found(cmd):
         stderr=subprocess.STDOUT,
         shell=True,
     )
-    s = "\n".join(s.rstrip().splitlines()).strip()
+    lines = [
+        line
+        for line in s.rstrip().splitlines()
+        if not line.endswith(": command not found")
+    ]
+    s = "\n".join(lines).strip()
     return s
 
 
@@ -1346,6 +1356,11 @@ def str_to_path(x):
         )
 
 
+def str_to_abs_path(x):
+    """Converts a string to an absolute path."""
+    return r.absolute() if (r := str_to_path(x)) is not None else r
+
+
 def str_to_env_path(x):
     """Converts a string to an environment path, ie a list of strings,
     splitting on the OS separator.
@@ -1357,6 +1372,11 @@ def str_to_env_path(x):
 def path_to_str(x):
     """Converts a path to a string."""
     return str(x) if x is not None else ""
+
+
+def abs_path_to_str(x):
+    """Converts an absolute path to a string."""
+    return path_to_str(x.absolute()) if x is not None else path_to_str(x)
 
 
 def env_path_to_str(x):
@@ -1457,7 +1477,7 @@ def to_itself(x):
     return x
 
 
-def to_int_or_none(x) -> tp.Optional[int]:
+def to_int_or_none(x) -> int | None:
     """Convert the given value to integer if possible. Otherwise return None"""
     if isinstance(x, str) and x.lower() == "none":
         return None
@@ -1753,7 +1773,7 @@ def ptk_cursor_shape_vi_modal():
 def to_ptk_cursor_shape(x):
     if not HAVE_CURSOR_SHAPE:
         return None
-    if isinstance(x, (CursorShape, CursorShapeConfig)):
+    if isinstance(x, CursorShape | CursorShapeConfig):
         return x
     if not isinstance(x, str):
         raise ValueError("invalid cursor shape")
@@ -1975,7 +1995,7 @@ def is_history_tuple(x):
     if (
         isinstance(x, cabc.Sequence)
         and len(x) == 2
-        and isinstance(x[0], (int, float))
+        and isinstance(x[0], int | float)
         and x[1].lower() in CANON_HISTORY_UNITS
     ):
         return True
@@ -2040,12 +2060,12 @@ RE_HISTORY_TUPLE = LazyObject(
 
 def to_history_tuple(x):
     """Converts to a canonical history tuple."""
-    if not isinstance(x, (cabc.Sequence, float, int)):
+    if not isinstance(x, cabc.Sequence | float | int):
         raise ValueError("history size must be given as a sequence or number")
     if isinstance(x, str):
         m = RE_HISTORY_TUPLE.match(x.strip().lower())
         return to_history_tuple((m.group(1), m.group(3)))
-    elif isinstance(x, (float, int)):
+    elif isinstance(x, float | int):
         return to_history_tuple((x, "commands"))
     units, converter = HISTORY_UNITS[x[1]]
     value = converter(x[0])
@@ -2683,7 +2703,7 @@ def iglobpath(s, ignore_case=False, sort_result=None, include_dotfiles=None):
 
 
 def ensure_timestamp(t, datetime_format=None):
-    if isinstance(t, (int, float)):
+    if isinstance(t, int | float):
         return t
     try:
         return float(t)

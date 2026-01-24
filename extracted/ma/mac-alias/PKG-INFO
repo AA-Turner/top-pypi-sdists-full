@@ -1,62 +1,56 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mac_alias
-Version: 2.2.2
-Summary: Generate/parse Mac OS Alias records from Python
-Home-page: http://alastairs-place.net/projects/mac_alias
-Author: Alastair Houghton
-Author-email: alastair@alastairs-place.net
-Maintainer: Russell Keith-Magee
-Maintainer-email: russell@keith-magee.com
-License: MIT License
-Project-URL: Source, https://github.com/al45stair/mac_alias
+Version: 2.2.3
+Summary: Generate/parse macOS Alias records from Python
+Author-email: Alastair Houghton <alastair@alastairs-place.net>
+Maintainer-email: Russell Keith-Magee <russell@keith-magee.com>
+License-Expression: MIT
+Project-URL: Documentation, https://mac-alias.readthedocs.io/en/latest/
+Project-URL: Homepage, https://github.com/dmgbuild/mac_alias
+Project-URL: Tracker, https://github.com/dmgbuild/mac_alias/issues
+Project-URL: Source, https://github.com/dmgbuild/mac_alias
 Keywords: mac_alias
-Platform: darwin
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Desktop Environment
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
-Description-Content-Type: text/x-rst; charset=UTF-8
-Provides-Extra: dev
-Provides-Extra: test
-Provides-Extra: docs
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 =========
 mac_alias
 =========
 
-.. image:: https://img.shields.io/pypi/pyversions/mac_alias.svg
+.. |pyversions| image:: https://img.shields.io/pypi/pyversions/mac_alias.svg
    :target: https://pypi.python.org/pypi/mac_alias
    :alt: Python Versions
 
-.. image:: https://img.shields.io/pypi/v/mac_alias.svg
+.. |version| image:: https://img.shields.io/pypi/v/mac_alias.svg
    :target: https://pypi.python.org/pypi/mac_alias
    :alt: PyPI Version
 
-.. image:: https://img.shields.io/pypi/status/mac_alias.svg
+.. |maturity| image:: https://img.shields.io/pypi/status/mac_alias.svg
    :target: https://pypi.python.org/pypi/mac_alias
    :alt: Maturity
 
-.. image:: https://img.shields.io/pypi/l/mac_alias.svg
+.. |license| image:: https://img.shields.io/pypi/l/mac_alias.svg
    :target: https://github.com/dmgbuild/mac_alias/blob/main/LICENSE
    :alt: MIT License
 
-.. image:: https://github.com/dmgbuild/mac_alias/workflows/CI/badge.svg?branch=main
+.. |ci| image:: https://github.com/dmgbuild/mac_alias/workflows/CI/badge.svg?branch=main
    :target: https://github.com/dmgbuild/mac_alias/actions
    :alt: Build Status
 
-.. image:: https://readthedocs.org/projects/mac_alias/badge/?version=latest
-   :target: http://mac_alias.readthedocs.io/en/latest/?badge=latest
-   :alt: Docs Build Status
+|pyversions| |version| |maturity| |license| |ci|
 
 What is this?
 -------------

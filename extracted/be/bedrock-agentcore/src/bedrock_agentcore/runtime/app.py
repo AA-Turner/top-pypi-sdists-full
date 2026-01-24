@@ -11,16 +11,22 @@ import logging
 import threading
 import time
 import uuid
+from collections.abc import Sequence
 from typing import Any, Callable, Dict, Optional
 
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
 from starlette.responses import JSONResponse, Response, StreamingResponse
-from starlette.routing import Route
+from starlette.routing import Route, WebSocketRoute
 from starlette.types import Lifespan
+from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from .context import BedrockAgentCoreContext, RequestContext
 from .models import (
     ACCESS_TOKEN_HEADER,
+    AUTHORIZATION_HEADER,
+    CUSTOM_HEADER_PREFIX,
+    OAUTH2_CALLBACK_URL_HEADER,
     REQUEST_ID_HEADER,
     SESSION_HEADER,
     TASK_ACTION_CLEAR_FORCED_STATUS,
@@ -70,15 +76,22 @@ class RequestContextFormatter(logging.Formatter):
 class BedrockAgentCoreApp(Starlette):
     """Bedrock AgentCore application class that extends Starlette for AI agent deployment."""
 
-    def __init__(self, debug: bool = False, lifespan: Optional[Lifespan] = None):
+    def __init__(
+        self,
+        debug: bool = False,
+        lifespan: Optional[Lifespan] = None,
+        middleware: Sequence[Middleware] | None = None,
+    ):
         """Initialize Bedrock AgentCore application.
 
         Args:
             debug: Enable debug actions for task management (default: False)
             lifespan: Optional lifespan context manager for startup/shutdown
+            middleware: Optional sequence of Starlette Middleware objects (or Middleware(...) entries)
         """
         self.handlers: Dict[str, Callable] = {}
         self._ping_handler: Optional[Callable] = None
+        self._websocket_handler: Optional[Callable] = None
         self._active_tasks: Dict[int, Dict[str, Any]] = {}
         self._task_counter_lock: threading.Lock = threading.Lock()
         self._forced_ping_status: Optional[PingStatus] = None
@@ -87,8 +100,9 @@ class BedrockAgentCoreApp(Starlette):
         routes = [
             Route("/invocations", self._handle_invocation, methods=["POST"]),
             Route("/ping", self._handle_ping, methods=["GET"]),
+            WebSocketRoute("/ws", self._handle_websocket),
         ]
-        super().__init__(routes=routes, lifespan=lifespan)
+        super().__init__(routes=routes, lifespan=lifespan, middleware=middleware)
         self.debug = debug  # Set after super().__init__ to avoid override
 
         self.logger = logging.getLogger("bedrock_agentcore.app")
@@ -122,6 +136,24 @@ class BedrockAgentCoreApp(Starlette):
             The decorated function
         """
         self._ping_handler = func
+        return func
+
+    def websocket(self, func: Callable) -> Callable:
+        """Decorator to register a WebSocket handler at /ws endpoint.
+
+        Args:
+            func: The function to register as WebSocket handler
+
+        Returns:
+            The decorated function
+
+        Example:
+            @app.websocket
+            async def handler(websocket, context):
+                await websocket.accept()
+                # ... handle messages ...
+        """
+        self._websocket_handler = func
         return func
 
     def async_task(self, func: Callable) -> Callable:
@@ -279,12 +311,40 @@ class BedrockAgentCoreApp(Starlette):
             if agent_identity_token:
                 BedrockAgentCoreContext.set_workload_access_token(agent_identity_token)
 
-            return RequestContext(session_id=session_id)
+            oauth2_callback_url = headers.get(OAUTH2_CALLBACK_URL_HEADER)
+            if oauth2_callback_url:
+                BedrockAgentCoreContext.set_oauth2_callback_url(oauth2_callback_url)
+
+            # Collect relevant request headers (Authorization + Custom headers)
+            request_headers = {}
+
+            # Add Authorization header if present
+            authorization_header = headers.get(AUTHORIZATION_HEADER)
+            if authorization_header is not None:
+                request_headers[AUTHORIZATION_HEADER] = authorization_header
+
+            # Add custom headers with the specified prefix
+            for header_name, header_value in headers.items():
+                if header_name.lower().startswith(CUSTOM_HEADER_PREFIX.lower()):
+                    request_headers[header_name] = header_value
+
+            # Set in context if any headers were found
+            if request_headers:
+                BedrockAgentCoreContext.set_request_headers(request_headers)
+
+            # Get the headers from context to pass to RequestContext
+            req_headers = BedrockAgentCoreContext.get_request_headers()
+
+            return RequestContext(
+                session_id=session_id,
+                request_headers=req_headers,
+                request=request,  # Pass through the Starlette request object
+            )
         except Exception as e:
             self.logger.warning("Failed to build request context: %s: %s", type(e).__name__, e)
             request_id = str(uuid.uuid4())
             BedrockAgentCoreContext.set_request_context(request_id, None)
-            return RequestContext(session_id=None)
+            return RequestContext(session_id=None, request=None)
 
     def _takes_context(self, handler: Callable) -> bool:
         try:
@@ -351,12 +411,36 @@ class BedrockAgentCoreApp(Starlette):
             self.logger.exception("Ping endpoint failed")
             return JSONResponse({"status": PingStatus.HEALTHY.value, "time_of_last_update": int(time.time())})
 
-    def run(self, port: int = 8080, host: Optional[str] = None):
+    async def _handle_websocket(self, websocket: WebSocket):
+        """Handle WebSocket connections."""
+        request_context = self._build_request_context(websocket)
+
+        try:
+            handler = self._websocket_handler
+            if not handler:
+                self.logger.error("No WebSocket handler defined")
+                await websocket.close(code=1011)
+                return
+
+            self.logger.debug("WebSocket connection established")
+            await handler(websocket, request_context)
+
+        except WebSocketDisconnect:
+            self.logger.debug("WebSocket disconnected")
+        except Exception:
+            self.logger.exception("WebSocket handler failed")
+            try:
+                await websocket.close(code=1011)
+            except Exception:
+                pass
+
+    def run(self, port: int = 8080, host: Optional[str] = None, **kwargs):
         """Start the Bedrock AgentCore server.
 
         Args:
             port: Port to serve on, defaults to 8080
             host: Host to bind to, auto-detected if None
+            **kwargs: Additional arguments passed to uvicorn.run()
         """
         import os
 
@@ -367,7 +451,17 @@ class BedrockAgentCoreApp(Starlette):
                 host = "0.0.0.0"  # nosec B104 - Docker needs this to expose the port
             else:
                 host = "127.0.0.1"
-        uvicorn.run(self, host=host, port=port, access_log=self.debug, log_level="info" if self.debug else "warning")
+
+        # Set default uvicorn parameters, allow kwargs to override
+        uvicorn_params = {
+            "host": host,
+            "port": port,
+            "access_log": self.debug,
+            "log_level": "info" if self.debug else "warning",
+        }
+        uvicorn_params.update(kwargs)
+
+        uvicorn.run(self, **uvicorn_params)
 
     async def _invoke_handler(self, handler, request_context, takes_context, payload):
         try:

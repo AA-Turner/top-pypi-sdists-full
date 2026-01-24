@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro-datasets
-Version: 8.1.0
+Version: 9.1.1
 Summary: Kedro-Datasets is where you can find all of Kedro's data connectors.
 Author: Kedro
 License: Apache Software License (Apache 2.0)
@@ -9,12 +9,13 @@ Project-URL: Documentation, https://docs.kedro.org
 Project-URL: Tracker, https://github.com/kedro-org/kedro-plugins/issues
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+Requires-Dist: backports.strenum; python_version < "3.11"
 Requires-Dist: kedro<2.0.0,>=1.0.0rc1
 Requires-Dist: lazy_loader
 Provides-Extra: pandas-base
 Requires-Dist: pandas<3.0,>=1.3; extra == "pandas-base"
 Provides-Extra: spark-base
-Requires-Dist: pyspark<4.0,>=2.2; extra == "spark-base"
+Requires-Dist: pyspark<5.0,>=2.2; extra == "spark-base"
 Provides-Extra: hdfs-base
 Requires-Dist: hdfs<3.0,>=2.5.8; extra == "hdfs-base"
 Provides-Extra: s3fs-base
@@ -24,9 +25,38 @@ Requires-Dist: polars>=0.18.0; extra == "polars-base"
 Provides-Extra: plotly-base
 Requires-Dist: plotly<6.0,>=4.8.0; extra == "plotly-base"
 Provides-Extra: delta-base
-Requires-Dist: delta-spark<4.0,>=1.0; extra == "delta-base"
+Requires-Dist: delta-spark<5.0,>=1.0; extra == "delta-base"
 Provides-Extra: networkx-base
 Requires-Dist: networkx~=3.4; extra == "networkx-base"
+Provides-Extra: spark-core
+Provides-Extra: spark-local
+Requires-Dist: pyspark<5.0,>=2.2; extra == "spark-local"
+Provides-Extra: spark-databricks
+Provides-Extra: spark-emr
+Provides-Extra: spark-s3
+Requires-Dist: s3fs>=2021.4; extra == "spark-s3"
+Provides-Extra: spark-gcs
+Requires-Dist: gcsfs<2023.7,>=2023.1; extra == "spark-gcs"
+Provides-Extra: spark-azure
+Requires-Dist: adlfs>=2023.1; extra == "spark-azure"
+Provides-Extra: spark-hdfs
+Requires-Dist: pyarrow>=7.0; extra == "spark-hdfs"
+Provides-Extra: spark
+Requires-Dist: kedro-datasets[spark-local,spark-s3]; extra == "spark"
+Provides-Extra: spark-cloud
+Requires-Dist: kedro-datasets[spark-azure,spark-gcs,spark-s3]; extra == "spark-cloud"
+Provides-Extra: spark-deltatabledataset
+Requires-Dist: kedro-datasets[delta-base,spark-core]; extra == "spark-deltatabledataset"
+Provides-Extra: spark-sparkdataset
+Requires-Dist: kedro-datasets[spark-core]; extra == "spark-sparkdataset"
+Provides-Extra: spark-sparkhivedataset
+Requires-Dist: kedro-datasets[spark-core]; extra == "spark-sparkhivedataset"
+Provides-Extra: spark-sparkjdbcdataset
+Requires-Dist: kedro-datasets[spark-core]; extra == "spark-sparkjdbcdataset"
+Provides-Extra: spark-sparkstreamingdataset
+Requires-Dist: kedro-datasets[spark-core]; extra == "spark-sparkstreamingdataset"
+Provides-Extra: spark-all
+Requires-Dist: kedro-datasets[spark-cloud,spark-deltatabledataset,spark-local,spark-sparkdataset,spark-sparkhivedataset,spark-sparkjdbcdataset,spark-sparkstreamingdataset]; extra == "spark-all"
 Provides-Extra: api-apidataset
 Requires-Dist: requests~=2.20; extra == "api-apidataset"
 Provides-Extra: api
@@ -112,16 +142,24 @@ Requires-Dist: ibis-framework; extra == "ibis"
 Provides-Extra: json-jsondataset
 Provides-Extra: json
 Requires-Dist: kedro-datasets[json-jsondataset]; extra == "json"
+Provides-Extra: langchain-chatopenaidataset
+Requires-Dist: langchain-openai>=0.1.7; extra == "langchain-chatopenaidataset"
+Provides-Extra: langchain-openaiembeddingsdataset
+Requires-Dist: langchain-openai>=0.1.7; extra == "langchain-openaiembeddingsdataset"
+Provides-Extra: langchain-chatanthropicdataset
+Requires-Dist: langchain-anthropic>=0.1.13; extra == "langchain-chatanthropicdataset"
+Requires-Dist: langchain-community>=0.2.0; extra == "langchain-chatanthropicdataset"
+Provides-Extra: langchain-chatcoheredataset
+Requires-Dist: langchain-cohere>=0.1.5; extra == "langchain-chatcoheredataset"
+Requires-Dist: langchain-community>=0.2.0; extra == "langchain-chatcoheredataset"
 Provides-Extra: matlab-matlabdataset
 Requires-Dist: scipy; extra == "matlab-matlabdataset"
 Provides-Extra: matlab
 Requires-Dist: kedro-datasets[matlab-matlabdataset]; extra == "matlab"
-Provides-Extra: matplotlib-matplotlibwriter
-Requires-Dist: matplotlib<4.0,>=3.0.3; extra == "matplotlib-matplotlibwriter"
 Provides-Extra: matplotlib-matplotlibdataset
 Requires-Dist: matplotlib<4.0,>=3.0.3; extra == "matplotlib-matplotlibdataset"
 Provides-Extra: matplotlib
-Requires-Dist: kedro-datasets[matplotlib-matplotlibdataset,matplotlib-matplotlibwriter]; extra == "matplotlib"
+Requires-Dist: kedro-datasets[matplotlib-matplotlibdataset]; extra == "matplotlib"
 Provides-Extra: networkx-gmldataset
 Requires-Dist: kedro-datasets[networkx-base]; extra == "networkx-gmldataset"
 Provides-Extra: networkx-graphmldataset
@@ -132,8 +170,11 @@ Provides-Extra: networkx
 Requires-Dist: kedro-datasets[networkx-base]; extra == "networkx"
 Provides-Extra: openxml-docxdataset
 Requires-Dist: python-docx; extra == "openxml-docxdataset"
+Provides-Extra: openxml-pptxdataset
+Requires-Dist: python-pptx; extra == "openxml-pptxdataset"
 Provides-Extra: openxml
 Requires-Dist: kedro-datasets[openxml-docxdataset]; extra == "openxml"
+Requires-Dist: kedro-datasets[openxml-pptxdataset]; extra == "openxml"
 Provides-Extra: optuna-studydataset
 Requires-Dist: optuna; extra == "optuna-studydataset"
 Provides-Extra: optuna
@@ -142,7 +183,7 @@ Provides-Extra: pandas-csvdataset
 Requires-Dist: kedro-datasets[pandas-base]; extra == "pandas-csvdataset"
 Provides-Extra: pandas-deltatabledataset
 Requires-Dist: kedro-datasets[pandas-base]; extra == "pandas-deltatabledataset"
-Requires-Dist: deltalake<1.0.0,>=0.10.0; extra == "pandas-deltatabledataset"
+Requires-Dist: deltalake>=0.10.0; extra == "pandas-deltatabledataset"
 Provides-Extra: pandas-exceldataset
 Requires-Dist: kedro-datasets[pandas-base]; extra == "pandas-exceldataset"
 Requires-Dist: openpyxl<4.0,>=3.0.6; extra == "pandas-exceldataset"
@@ -173,7 +214,8 @@ Requires-Dist: SQLAlchemy<3.0,>=1.4; extra == "pandas-sqlquerydataset"
 Requires-Dist: pyodbc>=4.0; extra == "pandas-sqlquerydataset"
 Provides-Extra: pandas-xmldataset
 Requires-Dist: kedro-datasets[pandas-base]; extra == "pandas-xmldataset"
-Requires-Dist: lxml~=4.6; extra == "pandas-xmldataset"
+Requires-Dist: lxml~=5.2; python_version >= "3.13" and extra == "pandas-xmldataset"
+Requires-Dist: lxml~=4.6; python_version < "3.13" and extra == "pandas-xmldataset"
 Provides-Extra: pandas
 Requires-Dist: kedro-datasets[pandas-csvdataset,pandas-deltatabledataset,pandas-exceldataset,pandas-featherdataset,pandas-gbqquerydataset,pandas-gbqtabledataset,pandas-genericdataset,pandas-hdfdataset,pandas-jsondataset,pandas-parquetdataset,pandas-sqlquerydataset,pandas-sqltabledataset,pandas-xmldataset]; extra == "pandas"
 Provides-Extra: pickle-pickledataset
@@ -198,11 +240,11 @@ Provides-Extra: polars-eagerpolarsdataset
 Requires-Dist: kedro-datasets[polars-base]; extra == "polars-eagerpolarsdataset"
 Requires-Dist: pyarrow>=4.0; extra == "polars-eagerpolarsdataset"
 Requires-Dist: xlsx2csv>=0.8.0; extra == "polars-eagerpolarsdataset"
-Requires-Dist: deltalake<1.0.0,>=0.6.2; extra == "polars-eagerpolarsdataset"
+Requires-Dist: deltalake>=0.6.2; extra == "polars-eagerpolarsdataset"
 Provides-Extra: polars-lazypolarsdataset
 Requires-Dist: kedro-datasets[polars-base]; extra == "polars-lazypolarsdataset"
 Requires-Dist: pyarrow>=4.0; extra == "polars-lazypolarsdataset"
-Requires-Dist: deltalake<1.0.0,>=0.6.2; extra == "polars-lazypolarsdataset"
+Requires-Dist: deltalake>=0.6.2; extra == "polars-lazypolarsdataset"
 Provides-Extra: polars
 Requires-Dist: kedro-datasets[polars-csvdataset,polars-eagerpolarsdataset,polars-lazypolarsdataset]; extra == "polars"
 Provides-Extra: redis-pickledataset
@@ -213,18 +255,6 @@ Provides-Extra: snowflake-snowparktabledataset
 Requires-Dist: snowflake-snowpark-python>=1.23; extra == "snowflake-snowparktabledataset"
 Provides-Extra: snowflake
 Requires-Dist: kedro-datasets[snowflake-snowparktabledataset]; extra == "snowflake"
-Provides-Extra: spark-deltatabledataset
-Requires-Dist: kedro-datasets[delta-base,hdfs-base,s3fs-base,spark-base]; extra == "spark-deltatabledataset"
-Provides-Extra: spark-sparkdataset
-Requires-Dist: kedro-datasets[hdfs-base,s3fs-base,spark-base]; extra == "spark-sparkdataset"
-Provides-Extra: spark-sparkhivedataset
-Requires-Dist: kedro-datasets[hdfs-base,s3fs-base,spark-base]; extra == "spark-sparkhivedataset"
-Provides-Extra: spark-sparkjdbcdataset
-Requires-Dist: kedro-datasets[spark-base]; extra == "spark-sparkjdbcdataset"
-Provides-Extra: spark-sparkstreamingdataset
-Requires-Dist: kedro-datasets[hdfs-base,s3fs-base,spark-base]; extra == "spark-sparkstreamingdataset"
-Provides-Extra: spark
-Requires-Dist: kedro-datasets[spark-deltatabledataset,spark-sparkdataset,spark-sparkhivedataset,spark-sparkjdbcdataset,spark-sparkstreamingdataset]; extra == "spark"
 Provides-Extra: svmlight-svmlightdataset
 Requires-Dist: scikit-learn>=1.0.2; extra == "svmlight-svmlightdataset"
 Requires-Dist: scipy>=1.7.3; extra == "svmlight-svmlightdataset"
@@ -243,30 +273,47 @@ Requires-Dist: kedro-datasets[pandas-base]; extra == "yaml-yamldataset"
 Requires-Dist: PyYAML<7.0,>=4.2; extra == "yaml-yamldataset"
 Provides-Extra: yaml
 Requires-Dist: kedro-datasets[yaml-yamldataset]; extra == "yaml"
+Provides-Extra: chromadb-chromadbdataset
+Requires-Dist: chromadb>=1.0.0; extra == "chromadb-chromadbdataset"
+Provides-Extra: chromadb
+Requires-Dist: kedro-datasets[chromadb-chromadbdataset]; extra == "chromadb"
 Provides-Extra: darts-torch-model-dataset
 Requires-Dist: u8darts-all; extra == "darts-torch-model-dataset"
 Provides-Extra: darts
 Requires-Dist: kedro-datasets[darts-torch-model-dataset]; extra == "darts"
 Provides-Extra: databricks-externaltabledataset
 Requires-Dist: kedro-datasets[hdfs-base,s3fs-base]; extra == "databricks-externaltabledataset"
-Provides-Extra: langchain-chatopenaidataset
-Requires-Dist: langchain-openai~=0.1.7; extra == "langchain-chatopenaidataset"
-Provides-Extra: langchain-openaiembeddingsdataset
-Requires-Dist: langchain-openai~=0.1.7; extra == "langchain-openaiembeddingsdataset"
-Provides-Extra: langchain-chatanthropicdataset
-Requires-Dist: langchain-anthropic~=0.1.13; extra == "langchain-chatanthropicdataset"
-Requires-Dist: langchain-community~=0.2.0; extra == "langchain-chatanthropicdataset"
-Provides-Extra: langchain-chatcoheredataset
-Requires-Dist: langchain-cohere~=0.1.5; extra == "langchain-chatcoheredataset"
-Requires-Dist: langchain-community~=0.2.0; extra == "langchain-chatcoheredataset"
+Provides-Extra: langchain-langchainpromptdataset
+Requires-Dist: langchain>=0.3.0; extra == "langchain-langchainpromptdataset"
 Provides-Extra: langchain
-Requires-Dist: kedro-datasets[langchain-chatanthropicdataset,langchain-chatcoheredataset,langchain-chatopenaidataset,langchain-openaiembeddingsdataset]; extra == "langchain"
+Requires-Dist: kedro-datasets[langchain-chatanthropicdataset,langchain-chatcoheredataset,langchain-chatopenaidataset,langchain-langchainpromptdataset,langchain-openaiembeddingsdataset]; extra == "langchain"
+Provides-Extra: langfuse-langfusepromptdataset
+Requires-Dist: langfuse>=2.0.0; extra == "langfuse-langfusepromptdataset"
+Provides-Extra: langfuse-langfusetracedataset
+Requires-Dist: langfuse>=2.0.0; extra == "langfuse-langfusetracedataset"
+Provides-Extra: langfuse
+Requires-Dist: kedro-datasets[langfuse-langfusepromptdataset,langfuse-langfusetracedataset]; extra == "langfuse"
+Requires-Dist: openai>=2.3.0; extra == "langfuse"
+Requires-Dist: langchain<1.0,>=0.2.0; extra == "langfuse"
+Provides-Extra: opik-opikpromptdataset
+Requires-Dist: opik>=1.8.0; extra == "opik-opikpromptdataset"
+Provides-Extra: opik-opiktracedataset
+Requires-Dist: opik>=1.8.0; extra == "opik-opiktracedataset"
+Provides-Extra: opik
+Requires-Dist: kedro-datasets[opik-opikpromptdataset,opik-opiktracedataset]; extra == "opik"
+Requires-Dist: openai>=2.3.0; extra == "opik"
+Requires-Dist: langchain>=0.2.0; extra == "opik"
 Provides-Extra: netcdf-netcdfdataset
 Requires-Dist: h5netcdf>=1.2.0; extra == "netcdf-netcdfdataset"
 Requires-Dist: netcdf4>=1.6.4; extra == "netcdf-netcdfdataset"
 Requires-Dist: xarray>=2023.1.0; extra == "netcdf-netcdfdataset"
 Provides-Extra: netcdf
 Requires-Dist: kedro-datasets[netcdf-netcdfdataset]; extra == "netcdf"
+Provides-Extra: pypdf-pdfdataset
+Requires-Dist: pypdf>=3.0.0; extra == "pypdf-pdfdataset"
+Requires-Dist: cryptography>=3.1; extra == "pypdf-pdfdataset"
+Provides-Extra: pypdf
+Requires-Dist: kedro-datasets[pypdf-pdfdataset]; extra == "pypdf"
 Provides-Extra: prophet-dataset
 Requires-Dist: prophet>=1.1.5; extra == "prophet-dataset"
 Provides-Extra: prophet
@@ -295,24 +342,25 @@ Requires-Dist: mkdocs-material-extensions>=1.3.1; extra == "docs"
 Requires-Dist: mkdocs-mermaid2-plugin>=1.2.1; extra == "docs"
 Requires-Dist: mkdocs-autorefs>=1.4.1; extra == "docs"
 Requires-Dist: mkdocs-get-deps>=0.2.0; extra == "docs"
-Requires-Dist: mkdocstrings>=0.29.1; extra == "docs"
 Requires-Dist: mkdocstrings-python>=0.29.1; extra == "docs"
 Requires-Dist: linkchecker>=10.2.1; extra == "docs"
 Requires-Dist: ipykernel<7.0,>=5.3; extra == "docs"
 Requires-Dist: Jinja2<3.2.0; extra == "docs"
 Requires-Dist: black; extra == "docs"
 Requires-Dist: ruff; extra == "docs"
+Requires-Dist: mkdocs-llmstxt; extra == "docs"
 Provides-Extra: test
 Requires-Dist: accelerate<0.32; extra == "test"
 Requires-Dist: adlfs~=2023.1; extra == "test"
-Requires-Dist: behave==1.2.6; extra == "test"
 Requires-Dist: biopython~=1.73; extra == "test"
+Requires-Dist: chromadb>=1.0.0; extra == "test"
 Requires-Dist: cloudpickle~=2.2.1; extra == "test"
 Requires-Dist: compress-pickle[lz4]~=2.1.0; extra == "test"
 Requires-Dist: coverage>=7.2.0; extra == "test"
 Requires-Dist: dask[complete]>=2021.10; extra == "test"
-Requires-Dist: delta-spark<3.0,>=1.0; extra == "test"
-Requires-Dist: deltalake<1.0.0,>=0.10.0; extra == "test"
+Requires-Dist: deltalake>=0.10.0; extra == "test"
+Requires-Dist: delta-spark<3.0,>=1.0; python_version <= "3.11" and extra == "test"
+Requires-Dist: delta-spark>=4.0; python_version >= "3.12" and extra == "test"
 Requires-Dist: dill~=0.3.1; extra == "test"
 Requires-Dist: filelock<4.0,>=3.4.0; extra == "test"
 Requires-Dist: fiona<2.0,>=1.8; extra == "test"
@@ -326,11 +374,15 @@ Requires-Dist: Jinja2<3.2.0; extra == "test"
 Requires-Dist: joblib>=0.14; extra == "test"
 Requires-Dist: jupyterlab>=3.0; extra == "test"
 Requires-Dist: jupyter~=1.0; extra == "test"
-Requires-Dist: lxml~=4.6; extra == "test"
+Requires-Dist: langchain-openai>=0.1.7; extra == "test"
+Requires-Dist: langchain-cohere>=0.1.5; extra == "test"
+Requires-Dist: langchain-anthropic>=0.1.13; extra == "test"
+Requires-Dist: langchain-community>=0.2.0; extra == "test"
+Requires-Dist: lxml~=5.0; extra == "test"
 Requires-Dist: matplotlib<4.0,>=3.5; extra == "test"
 Requires-Dist: memory_profiler<1.0,>=0.50.0; extra == "test"
 Requires-Dist: moto==5.0.0; extra == "test"
-Requires-Dist: networkx~=3.4; extra == "test"
+Requires-Dist: networkx==3.4; extra == "test"
 Requires-Dist: openpyxl<4.0,>=3.0.3; extra == "test"
 Requires-Dist: pandas-gbq>=0.12.0; extra == "test"
 Requires-Dist: pandas>=2.0; extra == "test"
@@ -340,14 +392,17 @@ Requires-Dist: polars[deltalake,xlsx2csv]>=1.0; extra == "test"
 Requires-Dist: pyarrow>=1.0; python_version < "3.11" and extra == "test"
 Requires-Dist: pyarrow>=7.0; python_version >= "3.11" and extra == "test"
 Requires-Dist: pyodbc~=5.0; extra == "test"
-Requires-Dist: pyspark>=3.0; python_version < "3.11" and extra == "test"
-Requires-Dist: pyspark>=3.4; python_version >= "3.11" and extra == "test"
+Requires-Dist: pyspark<4.0,>=3.0; python_version < "3.11" and extra == "test"
+Requires-Dist: pyspark<4.0,>=3.4; python_version == "3.11" and extra == "test"
+Requires-Dist: pyspark<4.1,>=4.0; python_version >= "3.12" and extra == "test"
 Requires-Dist: pytest-cov~=3.0; extra == "test"
 Requires-Dist: pytest-mock<2.0,>=1.7.1; extra == "test"
 Requires-Dist: pytest-xdist[psutil]~=2.2.1; extra == "test"
 Requires-Dist: pytest~=7.2; extra == "test"
 Requires-Dist: python-docx; extra == "test"
+Requires-Dist: python-pptx; extra == "test"
 Requires-Dist: redis~=4.1; extra == "test"
+Requires-Dist: reportlab>=3.6.0; extra == "test"
 Requires-Dist: requests-mock~=1.6; extra == "test"
 Requires-Dist: requests~=2.20; extra == "test"
 Requires-Dist: s3fs>=2021.04; extra == "test"
@@ -374,7 +429,7 @@ Requires-Dist: detect-secrets~=1.5.0; extra == "lint"
 Requires-Dist: import-linter[toml]==1.2.6; extra == "lint"
 Requires-Dist: mypy~=1.0; extra == "lint"
 Requires-Dist: pre-commit>=2.9.2; extra == "lint"
-Requires-Dist: ruff~=0.12.1; extra == "lint"
+Requires-Dist: ruff~=0.14.4; extra == "lint"
 Requires-Dist: types-cachetools; extra == "lint"
 Requires-Dist: types-PyYAML; extra == "lint"
 Requires-Dist: types-redis; extra == "lint"
@@ -387,6 +442,7 @@ Requires-Dist: langchain-openai; extra == "experimental"
 Requires-Dist: langchain-cohere; extra == "experimental"
 Requires-Dist: langchain-anthropic; extra == "experimental"
 Requires-Dist: langchain-community; extra == "experimental"
+Requires-Dist: langfuse; extra == "experimental"
 Requires-Dist: h5netcdf>=1.2.0; extra == "experimental"
 Requires-Dist: netcdf4>=1.6.4; extra == "experimental"
 Requires-Dist: xarray>=2023.1.0; extra == "experimental"
@@ -394,8 +450,10 @@ Requires-Dist: rioxarray; extra == "experimental"
 Requires-Dist: torch; extra == "experimental"
 Requires-Dist: opencv-python~=4.5.5.64; extra == "experimental"
 Requires-Dist: prophet>=1.1.5; extra == "experimental"
+Requires-Dist: opik; extra == "experimental"
 Requires-Dist: optuna; extra == "experimental"
 Requires-Dist: u8darts[all]; extra == "experimental"
+Requires-Dist: pypdf>=3.0.0; extra == "experimental"
 Provides-Extra: all
 Requires-Dist: kedro-datasets[docs,lint,test]; extra == "all"
 
@@ -404,7 +462,7 @@ Requires-Dist: kedro-datasets[docs,lint,test]; extra == "all"
 <!-- Note that the contents of this file are also used in the documentation, see docs/source/index.md -->
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/kedro-org/kedro-plugins/blob/main/LICENSE.md)
-[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://pypi.org/project/kedro-datasets/)
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/kedro-datasets/)
 [![PyPI Version](https://badge.fury.io/py/kedro-datasets.svg)](https://pypi.org/project/kedro-datasets/)
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-black.svg)](https://github.com/ambv/black)
 

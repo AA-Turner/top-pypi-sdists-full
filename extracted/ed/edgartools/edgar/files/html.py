@@ -1,5 +1,6 @@
 import re
 import textwrap
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
@@ -18,6 +19,15 @@ from edgar.files.html_documents import DocumentData, HtmlDocument
 from edgar.files.styles import StyleInfo, Width, get_heading_level, parse_style
 from edgar.files.tables import ColumnOptimizer, ProcessedTable, TableProcessor
 from edgar.richtools import repr_rich
+
+# Deprecation warning for legacy HTML parser
+warnings.warn(
+    "edgar.files.html module is deprecated and will be removed in v6.0. "
+    "Please use edgar.documents.HTMLParser instead. "
+    "See migration guide: https://edgartools.readthedocs.io/en/latest/migration/",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 __all__ = ['SECHTMLParser', 'Document', 'DocumentNode']
 
@@ -475,14 +485,14 @@ class DocumentNode:
         """Helper method for accessing text content"""
         if not is_text_content(self.content):
             raise ValueError(f"Cannot get text from {self.type} node")
-        return self.content
+        return self.content  # type: ignore[return-value]
 
     @property
     def rows(self) -> List[TableRow]:
         """Helper method for accessing table rows"""
         if not is_table_content(self.content):
             raise ValueError(f"Cannot get rows from {self.type} node")
-        return self.content
+        return self.content  # type: ignore[return-value]
 
 
 
@@ -1650,7 +1660,7 @@ class SECHTMLParser:
 
             # For alignment, if they differ, don't merge
             if style1.text_align != style2.text_align:
-                return None
+                return None  # type: ignore[return-value]
             merged.text_align = style1.text_align
 
             # Improved width handling

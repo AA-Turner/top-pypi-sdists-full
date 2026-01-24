@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from setuptools import Extension, setup
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeGuard
+    from typing import TypeGuard
 
 if os.name == "nt":
     warnings.warn(
@@ -149,8 +149,8 @@ setup(
     install_requires=[
         "requests >= 2.6.1",  # >= 2.6.1 to workaround
         # https://github.com/ionrock/cachecontrol/issues/137
-        "ruamel.yaml >= 0.16, < 0.19",
-        "rdflib >= 4.2.2, < 7.2.0",
+        "ruamel.yaml >= 0.16, < 0.20",
+        "rdflib >= 4.2.2, < 7.6.0",
         "schema-salad >= 8.9, < 9",
         "prov == 1.5.1",
         "mypy-extensions",
@@ -162,21 +162,22 @@ setup(
         "cwl-utils >= 0.32",
         "spython >= 0.3.0",
         "rich-argparse",
+        "typing-extensions >= 4.1.0",
     ],
     extras_require={
         "deps": [
-            "galaxy-tool-util>=22.1.2,!=23.0.1,!=23.0.2,!=23.0.3,!=23.0.4,!=23.0.5,<25.1",
-            "galaxy-util <25.1",
+            "galaxy-tool-util>=22.1.2,!=23.0.1,!=23.0.2,!=23.0.3,!=23.0.4,!=23.0.5,<25.2",
+            "galaxy-util <25.2",
             "pillow",  # workaround for https://github.com/galaxyproject/galaxy/pull/20525
         ],
     },
-    python_requires=">=3.9, <3.14",
+    python_requires=">=3.10, <3.15",
     use_scm_version=True,
-    setup_requires=PYTEST_RUNNER + ["setuptools_scm>=8.0.4,<9"],
+    setup_requires=PYTEST_RUNNER + ["setuptools_scm>=8.0.4,<10"],
     test_suite="tests",
     tests_require=[
         "bagit >= 1.6.4, < 1.10",
-        "pytest >= 6.2, < 8.5",
+        "pytest >= 6.2, < 9.1",
         "mock >= 2.0.0",
         "pytest-mock >= 1.10.0",
         "pytest-httpserver",
@@ -196,11 +197,11 @@ setup(
         "Operating System :: POSIX",
         "Operating System :: POSIX :: Linux",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "Topic :: Scientific/Engineering :: Astronomy",

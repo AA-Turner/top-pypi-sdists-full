@@ -21,7 +21,7 @@ function v4() {
   return out;
 }
 
-// node_modules/.pnpm/solid-js@1.9.5/node_modules/solid-js/dist/solid.js
+// node_modules/.pnpm/solid-js@1.9.10/node_modules/solid-js/dist/solid.js
 var sharedConfig = {
   context: void 0,
   registry: void 0,
@@ -247,11 +247,7 @@ function updateComputation(node) {
   if (!node.fn) return;
   cleanNode(node);
   const time = ExecCount;
-  runComputation(
-    node,
-    Transition && Transition.running && Transition.sources.has(node) ? node.tValue : node.value,
-    time
-  );
+  runComputation(node, Transition && Transition.running && Transition.sources.has(node) ? node.tValue : node.value, time);
   if (Transition && !Transition.running && Transition.sources.has(node)) {
     queueMicrotask(() => {
       runUpdates(() => {
@@ -482,8 +478,7 @@ function lookUpstream(node, ignore) {
     if (source.sources) {
       const state = runningTransition ? source.tState : source.state;
       if (state === STALE) {
-        if (source !== ignore && (!source.updatedAt || source.updatedAt < ExecCount))
-          runTop(source);
+        if (source !== ignore && (!source.updatedAt || source.updatedAt < ExecCount)) runTop(source);
       } else if (state === PENDING) lookUpstream(source, ignore);
     }
   }
@@ -559,13 +554,12 @@ function handleError(err, owner = Owner) {
   const fns = ERROR && owner && owner.context && owner.context[ERROR];
   const error = castError(err);
   if (!fns) throw error;
-  if (Effects)
-    Effects.push({
-      fn() {
-        runErrors(error, fns, owner);
-      },
-      state: STALE
-    });
+  if (Effects) Effects.push({
+    fn() {
+      runErrors(error, fns, owner);
+    },
+    state: STALE
+  });
   else runErrors(error, fns, owner);
 }
 var FALLBACK = Symbol("fallback");
@@ -878,7 +872,7 @@ var Runtime = class {
     });
   }
 };
-var version = "0.9.18";
+var version = "0.9.21";
 function widget_default({ DOMWidgetModel, DOMWidgetView }) {
   let RUNTIMES = /* @__PURE__ */ new WeakMap();
   class AnyModel extends DOMWidgetModel {

@@ -17,7 +17,6 @@ from tempfile import TemporaryDirectory
 import IPython
 import psutil
 import pytest
-from flaky import flaky
 from IPython.paths import locate_profile
 
 from .utils import (
@@ -35,8 +34,8 @@ from .utils import (
 def _check_master(kc, expected=True, stream="stdout"):
     execute(kc=kc, code="import sys")
     flush_channels(kc)
-    msg_id, content = execute(kc=kc, code="print(sys.%s._is_master_process())" % stream)
-    stdout, stderr = assemble_output(kc.get_iopub_msg)
+    _msg_id, _content = execute(kc=kc, code="print(sys.%s._is_master_process())" % stream)
+    stdout, _stderr = assemble_output(kc.get_iopub_msg)
     assert stdout.strip() == repr(expected)
 
 
@@ -52,43 +51,126 @@ def _check_status(content):
 def test_simple_print():
     """simple print statement in kernel"""
     with kernel() as kc:
-        msg_id, content = execute(kc=kc, code="print('hi')")
+        _msg_id, _content = execute(kc=kc, code="print('hi')")
         stdout, stderr = assemble_output(kc.get_iopub_msg)
         assert stdout == "hi\n"
         assert stderr == ""
         _check_master(kc, expected=True)
 
 
-def test_print_to_correct_cell_from_thread():
-    """should print to the cell that spawned the thread, not a subsequently run cell"""
-    iterations = 5
-    interval = 0.25
-    code = f"""\
-    from threading import Thread
-    from time import sleep
+def collect_outputs(get_iopub_msg, parent_msg_id, timeout=5):
+    """Collect outputs until we get an idle message
 
-    def thread_target():
-        for i in range({iterations}):
-            print(i, end='', flush=True)
-            sleep({interval})
-
-    Thread(target=thread_target).start()
+    Returns list of complete output messages.
     """
+    while True:
+        msg = get_iopub_msg(timeout=timeout)
+        msg_type = msg["msg_type"]
+        content = msg["content"]
+
+        if (
+            msg["parent_header"]["msg_id"] == parent_msg_id
+            and msg_type == "status"
+            and content["execution_state"] == "idle"
+        ):
+            # idle message signals end of output
+            break
+        elif msg["msg_type"] in {"stream", "display_data"}:
+            yield msg
+        elif msg["msg_type"] == "error":
+            tb = "\n".join(msg["content"]["traceback"])
+            raise RuntimeError(f"Error during execution: {tb}")
+        else:
+            # other output, ignored
+            print(msg["msg_type"])
+
+
+@pytest.mark.parametrize("explicit_parent", [True, False])
+def test_print_to_correct_cell_from_thread(explicit_parent: bool):
+    """should print to the current cell unless
+
+    get_ipython().set_parent sets the thread-local value,
+    which supersedes the default.
+
+    """
+    code = f"""\
+        from threading import Event, Thread
+        from time import sleep
+        from IPython.display import display
+
+        explicit_parent = {explicit_parent}
+        parent = get_ipython().get_parent()
+
+        cell_start_event = Event()
+        cell_end_event = Event()
+
+        def thread_target():
+            if explicit_parent:
+                get_ipython().set_parent(parent)
+
+            print("before", flush=True)
+            display(1)
+            cell_start_event.wait(timeout=10)
+            cell_start_event.clear()
+
+            print("during", flush=True)
+            display(2)
+            cell_end_event.set()
+            cell_start_event.wait(timeout=10)
+            cell_start_event.clear()
+            print("after", flush=True)
+            display(3)
+
+        thread = Thread(target=thread_target)
+        thread.start()
+    """
+    outputs = {}
+
+    def add_output(msg):
+        parent_id = msg["parent_header"]["msg_id"]
+        if parent_id not in outputs:
+            outputs[parent_id] = {
+                "stdout": "",
+                "stderr": "",
+                "display_data": [],
+            }
+        cell_outputs = outputs[parent_id]
+        msg_type = msg["header"]["msg_type"]
+        content = msg["content"]
+        if msg_type == "stream":
+            cell_outputs[content["name"]] += content["text"]
+        else:
+            cell_outputs[msg_type].append(msg["content"]["data"]["text/plain"])
+
     with kernel() as kc:
         thread_msg_id = kc.execute(code)
-        _ = kc.execute("pass")
+        for msg in collect_outputs(kc.get_iopub_msg, thread_msg_id):
+            add_output(msg)
 
-        received = 0
-        while received < iterations:
-            msg = kc.get_iopub_msg(timeout=interval * 2)
-            if msg["msg_type"] != "stream":
-                continue
-            content = msg["content"]
-            assert content["name"] == "stdout"
-            assert content["text"] == str(received)
-            # this is crucial as the parent header decides to which cell the output goes
-            assert msg["parent_header"]["msg_id"] == thread_msg_id
-            received += 1
+        next_cell_msg_id = kc.execute("cell_start_event.set()\ncell_end_event.wait(timeout=10)")
+        for msg in collect_outputs(kc.get_iopub_msg, next_cell_msg_id):
+            add_output(msg)
+
+        last_cell_msg_id = kc.execute("cell_start_event.set()\nthread.join()")
+        for msg in collect_outputs(kc.get_iopub_msg, last_cell_msg_id):
+            add_output(msg)
+    print(outputs)
+    if explicit_parent:
+        # assert next_cell_msg_id not in outputs
+        # assert last_cell_msg_id not in outputs
+        thread_cell_output = outputs[thread_msg_id]
+        assert thread_cell_output["stdout"] == "before\nduring\nafter\n"
+        assert thread_cell_output["display_data"] == ["1", "2", "3"]
+    else:
+        thread_cell_output = outputs[thread_msg_id]
+        assert thread_cell_output["stdout"] == "before\n"
+        assert thread_cell_output["display_data"] == ["1"]
+        next_cell_output = outputs[next_cell_msg_id]
+        assert next_cell_output["stdout"] == "during\n"
+        assert next_cell_output["display_data"] == ["2"]
+        last_cell_output = outputs[last_cell_msg_id]
+        assert last_cell_output["stdout"] == "after\n"
+        assert last_cell_output["display_data"] == ["3"]
 
 
 def test_print_to_correct_cell_from_child_thread():
@@ -99,14 +181,19 @@ def test_print_to_correct_cell_from_child_thread():
     from threading import Thread
     from time import sleep
 
+    parent = get_ipython().get_parent()
+
     def child_target():
+        get_ipython().set_parent(parent)
         for i in range({iterations}):
             print(i, end='', flush=True)
             sleep({interval})
 
     def parent_target():
         sleep({interval})
-        Thread(target=child_target).start()
+        thread = Thread(target=child_target)
+        thread.start()
+        thread.join()
 
     Thread(target=parent_target).start()
     """
@@ -164,7 +251,7 @@ def test_capture_fd():
     """simple print statement in kernel"""
     with kernel() as kc:
         iopub = kc.iopub_channel
-        msg_id, content = execute(kc=kc, code="import os; os.system('echo capsys')")
+        _msg_id, _content = execute(kc=kc, code="import os; os.system('echo capsys')")
         stdout, stderr = assemble_output(iopub)
         assert stdout == "capsys\n"
         assert stderr == ""
@@ -175,7 +262,7 @@ def test_capture_fd():
 def test_subprocess_peek_at_stream_fileno():
     with kernel() as kc:
         iopub = kc.iopub_channel
-        msg_id, content = execute(
+        _msg_id, _content = execute(
             kc=kc,
             code="import subprocess, sys; subprocess.run(['python', '-c', 'import os; os.system(\"echo CAP1\"); print(\"CAP2\")'], stderr=sys.stderr)",
         )
@@ -188,7 +275,7 @@ def test_subprocess_peek_at_stream_fileno():
 def test_sys_path():
     """test that sys.path doesn't get messed up by default"""
     with kernel() as kc:
-        msg_id, content = execute(kc=kc, code="import sys; print(repr(sys.path))")
+        _msg_id, _content = execute(kc=kc, code="import sys; print(repr(sys.path))")
         stdout, stderr = assemble_output(kc.get_iopub_msg)
     # for error-output on failure
     sys.stderr.write(stderr)
@@ -201,7 +288,7 @@ def test_sys_path_profile_dir():
     """test that sys.path doesn't get messed up when `--profile-dir` is specified"""
 
     with new_kernel(["--profile-dir", locate_profile("default")]) as kc:
-        msg_id, content = execute(kc=kc, code="import sys; print(repr(sys.path))")
+        _msg_id, _content = execute(kc=kc, code="import sys; print(repr(sys.path))")
         stdout, stderr = assemble_output(kc.get_iopub_msg)
     # for error-output on failure
     sys.stderr.write(stderr)
@@ -210,10 +297,14 @@ def test_sys_path_profile_dir():
     assert "" in sys_path
 
 
-@flaky(max_runs=3)
+# the subprocess print tests fail in pytest,
+# but manual tests in notebooks work fine...
+
+
+@pytest.mark.flaky(max_runs=3)
 @pytest.mark.skipif(
-    sys.platform == "win32" or (sys.platform == "darwin" and sys.version_info >= (3, 8)),
-    reason="subprocess prints fail on Windows and MacOS Python 3.8+",
+    sys.platform in {"win32", "darwin"} or sys.version_info >= (3, 14),
+    reason="test doesn't reliably reproduce subprocess output capture",
 )
 def test_subprocess_print():
     """printing from forked mp.Process"""
@@ -232,7 +323,7 @@ def test_subprocess_print():
             ]
         )
 
-        msg_id, content = execute(kc=kc, code=code)
+        _msg_id, _content = execute(kc=kc, code=code)
         stdout, stderr = assemble_output(kc.get_iopub_msg)
         assert stdout.count("hello") == np, stdout
         for n in range(np):
@@ -242,7 +333,7 @@ def test_subprocess_print():
         _check_master(kc, expected=True, stream="stderr")
 
 
-@flaky(max_runs=3)
+@pytest.mark.flaky(max_runs=3)
 def test_subprocess_noprint():
     """mp.Process without print doesn't trigger iostream mp_mode"""
     with kernel() as kc:
@@ -256,7 +347,7 @@ def test_subprocess_noprint():
             ]
         )
 
-        msg_id, content = execute(kc=kc, code=code)
+        _msg_id, _content = execute(kc=kc, code=code)
         stdout, stderr = assemble_output(kc.get_iopub_msg)
         assert stdout == ""
         assert stderr == ""
@@ -265,10 +356,10 @@ def test_subprocess_noprint():
         _check_master(kc, expected=True, stream="stderr")
 
 
-@flaky(max_runs=3)
+@pytest.mark.flaky(max_runs=3)
 @pytest.mark.skipif(
-    sys.platform == "win32" or (sys.platform == "darwin" and sys.version_info >= (3, 8)),
-    reason="subprocess prints fail on Windows and MacOS Python 3.8+",
+    sys.platform in {"win32", "darwin"} or sys.version_info >= (3, 14),
+    reason="test doesn't reliably reproduce subprocess output capture",
 )
 def test_subprocess_error():
     """error in mp.Process doesn't crash"""
@@ -282,7 +373,7 @@ def test_subprocess_error():
             ]
         )
 
-        msg_id, content = execute(kc=kc, code=code)
+        _msg_id, _content = execute(kc=kc, code=code)
         stdout, stderr = assemble_output(kc.get_iopub_msg)
         assert stdout == ""
         assert "ValueError" in stderr
@@ -309,7 +400,7 @@ def test_raw_input():
         kc.input(text)
         reply = kc.get_shell_msg(timeout=TIMEOUT)
         assert reply["content"]["status"] == "ok"
-        stdout, stderr = assemble_output(kc.get_iopub_msg)
+        stdout, _stderr = assemble_output(kc.get_iopub_msg)
         assert stdout == text + "\n"
 
 
@@ -457,14 +548,14 @@ def test_unc_paths():
         kc.execute(f"cd {unc_file_path:s}")
         reply = kc.get_shell_msg(timeout=TIMEOUT)
         assert reply["content"]["status"] == "ok"
-        out, err = assemble_output(kc.get_iopub_msg)
+        out, _err = assemble_output(kc.get_iopub_msg)
         assert unc_file_path in out
 
         flush_channels(kc)
         kc.execute(code="ls")
         reply = kc.get_shell_msg(timeout=TIMEOUT)
         assert reply["content"]["status"] == "ok"
-        out, err = assemble_output(kc.get_iopub_msg)
+        out, _err = assemble_output(kc.get_iopub_msg)
         assert "unc.txt" in out
 
         kc.execute(code="cd")
@@ -633,7 +724,7 @@ def test_sequential_control_messages():
 
         # Check messages are processed in order, one at a time, and of a sensible duration.
         previous_end = None
-        for reply, sleep in zip(replies, sleeps):
+        for reply, sleep in zip(replies, sleeps, strict=False):
             start = ensure_datetime(reply["metadata"]["started"])
             end = ensure_datetime(reply["header"]["date"])
 
@@ -683,7 +774,7 @@ def test_shutdown_subprocesses():
     """Kernel exits after polite shutdown_request"""
     with new_kernel() as kc:
         km = kc.parent
-        msg_id, reply = execute(
+        _msg_id, reply = execute(
             f"from {__name__} import _start_children\n_start_children()",
             kc=kc,
             user_expressions={
@@ -716,3 +807,74 @@ def test_shutdown_subprocesses():
             child_newpg.terminate()
         except psutil.NoSuchProcess:
             pass
+
+
+def test_parent_header_and_ident():
+    # Kernel._parent_ident is private but kept for backward compatibility,
+    # see https://github.com/jupyterlab/jupyterlab/issues/17785
+    with kernel() as kc:
+        # get_parent('shell')
+        msg_id, _ = execute(
+            kc=kc,
+            code="k=get_ipython().kernel; p=k.get_parent('shell'); print(p['header']['msg_id'], p['header']['session'])",
+        )
+        stdout, _ = assemble_output(kc.get_iopub_msg, parent_msg_id=msg_id)
+        check_msg_id, session = stdout.split()
+        assert check_msg_id == msg_id
+        assert check_msg_id.startswith(msg_id)
+
+        # _parent_ident['shell']
+        msg_id, _ = execute(kc=kc, code="print(k._parent_ident['shell'])")
+        stdout, _ = assemble_output(kc.get_iopub_msg, parent_msg_id=msg_id)
+        assert stdout == f"[b'{session}']\n"
+
+        # Send a control message
+        msg = kc.session.msg("kernel_info_request")
+        kc.control_channel.send(msg)
+        control_msg_id = msg["header"]["msg_id"]
+        assemble_output(kc.get_iopub_msg, parent_msg_id=control_msg_id)
+
+        # get_parent('control')
+        msg_id, _ = execute(
+            kc=kc,
+            code="p=k.get_parent('control'); print(p['header']['msg_id'], p['header']['session'])",
+        )
+        stdout, _ = assemble_output(kc.get_iopub_msg, parent_msg_id=msg_id)
+        check_msg_id, session = stdout.split()
+        assert check_msg_id == control_msg_id
+        assert check_msg_id.startswith(control_msg_id)
+
+        # _parent_ident['control']
+        msg_id, _ = execute(kc=kc, code="print(k._parent_ident['control'])")
+        stdout, _ = assemble_output(kc.get_iopub_msg, parent_msg_id=msg_id)
+        assert stdout == f"[b'{session}']\n"
+
+
+def test_context_vars():
+    with new_kernel() as kc:
+        msg_id, _ = execute(
+            kc=kc,
+            code="from contextvars import ContextVar, copy_context\nctxvar = ContextVar('var', default='default')",
+        )
+        stdout, _ = assemble_output(kc.get_iopub_msg, parent_msg_id=msg_id)
+
+        msg_id, _ = execute(
+            kc=kc,
+            code="print(ctxvar.get())",
+        )
+        stdout, _ = assemble_output(kc.get_iopub_msg, parent_msg_id=msg_id)
+        assert stdout.strip() == "default"
+
+        msg_id, _ = execute(
+            kc=kc,
+            code="ctxvar.set('set'); print(ctxvar.get())",
+        )
+        stdout, _ = assemble_output(kc.get_iopub_msg, parent_msg_id=msg_id)
+        assert stdout.strip() == "set"
+
+        msg_id, _ = execute(
+            kc=kc,
+            code="print(ctxvar.get())",
+        )
+        stdout, _ = assemble_output(kc.get_iopub_msg, parent_msg_id=msg_id)
+        assert stdout.strip() == "set"

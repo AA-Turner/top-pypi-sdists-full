@@ -25,9 +25,12 @@ if typing.TYPE_CHECKING:
     from .age import Age
     from .agent_call_limits import AgentCallLimits
     from .agent_config import AgentConfig
-    from .agent_config_api_model_workflow_override import AgentConfigApiModelWorkflowOverride
-    from .agent_config_override import AgentConfigOverride
+    from .agent_config_api_model_workflow_override_input import AgentConfigApiModelWorkflowOverrideInput
+    from .agent_config_api_model_workflow_override_output import AgentConfigApiModelWorkflowOverrideOutput
     from .agent_config_override_config import AgentConfigOverrideConfig
+    from .agent_config_override_input import AgentConfigOverrideInput
+    from .agent_config_override_output import AgentConfigOverrideOutput
+    from .agent_definition_source import AgentDefinitionSource
     from .agent_failure_response_example import AgentFailureResponseExample
     from .agent_metadata import AgentMetadata
     from .agent_metadata_response_model import AgentMetadataResponseModel
@@ -36,6 +39,7 @@ if typing.TYPE_CHECKING:
     from .agent_simulated_chat_test_response_model import AgentSimulatedChatTestResponseModel
     from .agent_sort_by import AgentSortBy
     from .agent_successful_response_example import AgentSuccessfulResponseExample
+    from .agent_summary_batch_successful_response_model import AgentSummaryBatchSuccessfulResponseModel
     from .agent_summary_response_model import AgentSummaryResponseModel
     from .agent_testing_settings import AgentTestingSettings
     from .agent_transfer import AgentTransfer
@@ -49,10 +53,30 @@ if typing.TYPE_CHECKING:
         AgentWorkflowRequestModelNodesValue_Start,
         AgentWorkflowRequestModelNodesValue_Tool,
     )
+    from .agent_workflow_response_model import AgentWorkflowResponseModel
+    from .agent_workflow_response_model_nodes_value import (
+        AgentWorkflowResponseModelNodesValue,
+        AgentWorkflowResponseModelNodesValue_End,
+        AgentWorkflowResponseModelNodesValue_OverrideAgent,
+        AgentWorkflowResponseModelNodesValue_PhoneNumber,
+        AgentWorkflowResponseModelNodesValue_StandaloneAgent,
+        AgentWorkflowResponseModelNodesValue_Start,
+        AgentWorkflowResponseModelNodesValue_Tool,
+    )
     from .agent_workspace_overrides_input import AgentWorkspaceOverridesInput
     from .agent_workspace_overrides_output import AgentWorkspaceOverridesOutput
-    from .alignment import Alignment
+    from .allowed_output_formats import AllowedOutputFormats
     from .allowlist_item import AllowlistItem
+    from .api_integration_webhook_overrides_input import ApiIntegrationWebhookOverridesInput
+    from .api_integration_webhook_overrides_input_request_headers_value import (
+        ApiIntegrationWebhookOverridesInputRequestHeadersValue,
+    )
+    from .api_integration_webhook_overrides_output import ApiIntegrationWebhookOverridesOutput
+    from .api_integration_webhook_overrides_output_request_headers_value import (
+        ApiIntegrationWebhookOverridesOutputRequestHeadersValue,
+    )
+    from .api_integration_webhook_tool_config_input import ApiIntegrationWebhookToolConfigInput
+    from .api_integration_webhook_tool_config_output import ApiIntegrationWebhookToolConfigOutput
     from .array_json_schema_property_input import ArrayJsonSchemaPropertyInput
     from .array_json_schema_property_input_items import ArrayJsonSchemaPropertyInputItems
     from .array_json_schema_property_output import ArrayJsonSchemaPropertyOutput
@@ -62,23 +86,506 @@ if typing.TYPE_CHECKING:
     from .asr_input_format import AsrInputFormat
     from .asr_provider import AsrProvider
     from .asr_quality import AsrQuality
+    from .ast_and_operator_node_input import AstAndOperatorNodeInput
+    from .ast_and_operator_node_input_children_item import (
+        AstAndOperatorNodeInputChildrenItem,
+        AstAndOperatorNodeInputChildrenItem_AndOperator,
+        AstAndOperatorNodeInputChildrenItem_BooleanLiteral,
+        AstAndOperatorNodeInputChildrenItem_DynamicVariable,
+        AstAndOperatorNodeInputChildrenItem_EqOperator,
+        AstAndOperatorNodeInputChildrenItem_GtOperator,
+        AstAndOperatorNodeInputChildrenItem_GteOperator,
+        AstAndOperatorNodeInputChildrenItem_Llm,
+        AstAndOperatorNodeInputChildrenItem_LtOperator,
+        AstAndOperatorNodeInputChildrenItem_LteOperator,
+        AstAndOperatorNodeInputChildrenItem_NeqOperator,
+        AstAndOperatorNodeInputChildrenItem_NumberLiteral,
+        AstAndOperatorNodeInputChildrenItem_OrOperator,
+        AstAndOperatorNodeInputChildrenItem_StringLiteral,
+    )
+    from .ast_and_operator_node_output import AstAndOperatorNodeOutput
+    from .ast_and_operator_node_output_children_item import (
+        AstAndOperatorNodeOutputChildrenItem,
+        AstAndOperatorNodeOutputChildrenItem_AndOperator,
+        AstAndOperatorNodeOutputChildrenItem_BooleanLiteral,
+        AstAndOperatorNodeOutputChildrenItem_DynamicVariable,
+        AstAndOperatorNodeOutputChildrenItem_EqOperator,
+        AstAndOperatorNodeOutputChildrenItem_GtOperator,
+        AstAndOperatorNodeOutputChildrenItem_GteOperator,
+        AstAndOperatorNodeOutputChildrenItem_Llm,
+        AstAndOperatorNodeOutputChildrenItem_LtOperator,
+        AstAndOperatorNodeOutputChildrenItem_LteOperator,
+        AstAndOperatorNodeOutputChildrenItem_NeqOperator,
+        AstAndOperatorNodeOutputChildrenItem_NumberLiteral,
+        AstAndOperatorNodeOutputChildrenItem_OrOperator,
+        AstAndOperatorNodeOutputChildrenItem_StringLiteral,
+    )
+    from .ast_boolean_node_input import AstBooleanNodeInput
+    from .ast_boolean_node_output import AstBooleanNodeOutput
+    from .ast_dynamic_variable_node_input import AstDynamicVariableNodeInput
+    from .ast_dynamic_variable_node_output import AstDynamicVariableNodeOutput
+    from .ast_equals_operator_node_input import AstEqualsOperatorNodeInput
+    from .ast_equals_operator_node_input_left import (
+        AstEqualsOperatorNodeInputLeft,
+        AstEqualsOperatorNodeInputLeft_AndOperator,
+        AstEqualsOperatorNodeInputLeft_BooleanLiteral,
+        AstEqualsOperatorNodeInputLeft_DynamicVariable,
+        AstEqualsOperatorNodeInputLeft_EqOperator,
+        AstEqualsOperatorNodeInputLeft_GtOperator,
+        AstEqualsOperatorNodeInputLeft_GteOperator,
+        AstEqualsOperatorNodeInputLeft_Llm,
+        AstEqualsOperatorNodeInputLeft_LtOperator,
+        AstEqualsOperatorNodeInputLeft_LteOperator,
+        AstEqualsOperatorNodeInputLeft_NeqOperator,
+        AstEqualsOperatorNodeInputLeft_NumberLiteral,
+        AstEqualsOperatorNodeInputLeft_OrOperator,
+        AstEqualsOperatorNodeInputLeft_StringLiteral,
+    )
+    from .ast_equals_operator_node_input_right import (
+        AstEqualsOperatorNodeInputRight,
+        AstEqualsOperatorNodeInputRight_AndOperator,
+        AstEqualsOperatorNodeInputRight_BooleanLiteral,
+        AstEqualsOperatorNodeInputRight_DynamicVariable,
+        AstEqualsOperatorNodeInputRight_EqOperator,
+        AstEqualsOperatorNodeInputRight_GtOperator,
+        AstEqualsOperatorNodeInputRight_GteOperator,
+        AstEqualsOperatorNodeInputRight_Llm,
+        AstEqualsOperatorNodeInputRight_LtOperator,
+        AstEqualsOperatorNodeInputRight_LteOperator,
+        AstEqualsOperatorNodeInputRight_NeqOperator,
+        AstEqualsOperatorNodeInputRight_NumberLiteral,
+        AstEqualsOperatorNodeInputRight_OrOperator,
+        AstEqualsOperatorNodeInputRight_StringLiteral,
+    )
+    from .ast_equals_operator_node_output import AstEqualsOperatorNodeOutput
+    from .ast_equals_operator_node_output_left import (
+        AstEqualsOperatorNodeOutputLeft,
+        AstEqualsOperatorNodeOutputLeft_AndOperator,
+        AstEqualsOperatorNodeOutputLeft_BooleanLiteral,
+        AstEqualsOperatorNodeOutputLeft_DynamicVariable,
+        AstEqualsOperatorNodeOutputLeft_EqOperator,
+        AstEqualsOperatorNodeOutputLeft_GtOperator,
+        AstEqualsOperatorNodeOutputLeft_GteOperator,
+        AstEqualsOperatorNodeOutputLeft_Llm,
+        AstEqualsOperatorNodeOutputLeft_LtOperator,
+        AstEqualsOperatorNodeOutputLeft_LteOperator,
+        AstEqualsOperatorNodeOutputLeft_NeqOperator,
+        AstEqualsOperatorNodeOutputLeft_NumberLiteral,
+        AstEqualsOperatorNodeOutputLeft_OrOperator,
+        AstEqualsOperatorNodeOutputLeft_StringLiteral,
+    )
+    from .ast_equals_operator_node_output_right import (
+        AstEqualsOperatorNodeOutputRight,
+        AstEqualsOperatorNodeOutputRight_AndOperator,
+        AstEqualsOperatorNodeOutputRight_BooleanLiteral,
+        AstEqualsOperatorNodeOutputRight_DynamicVariable,
+        AstEqualsOperatorNodeOutputRight_EqOperator,
+        AstEqualsOperatorNodeOutputRight_GtOperator,
+        AstEqualsOperatorNodeOutputRight_GteOperator,
+        AstEqualsOperatorNodeOutputRight_Llm,
+        AstEqualsOperatorNodeOutputRight_LtOperator,
+        AstEqualsOperatorNodeOutputRight_LteOperator,
+        AstEqualsOperatorNodeOutputRight_NeqOperator,
+        AstEqualsOperatorNodeOutputRight_NumberLiteral,
+        AstEqualsOperatorNodeOutputRight_OrOperator,
+        AstEqualsOperatorNodeOutputRight_StringLiteral,
+    )
+    from .ast_greater_than_operator_node_input import AstGreaterThanOperatorNodeInput
+    from .ast_greater_than_operator_node_input_left import (
+        AstGreaterThanOperatorNodeInputLeft,
+        AstGreaterThanOperatorNodeInputLeft_AndOperator,
+        AstGreaterThanOperatorNodeInputLeft_BooleanLiteral,
+        AstGreaterThanOperatorNodeInputLeft_DynamicVariable,
+        AstGreaterThanOperatorNodeInputLeft_EqOperator,
+        AstGreaterThanOperatorNodeInputLeft_GtOperator,
+        AstGreaterThanOperatorNodeInputLeft_GteOperator,
+        AstGreaterThanOperatorNodeInputLeft_Llm,
+        AstGreaterThanOperatorNodeInputLeft_LtOperator,
+        AstGreaterThanOperatorNodeInputLeft_LteOperator,
+        AstGreaterThanOperatorNodeInputLeft_NeqOperator,
+        AstGreaterThanOperatorNodeInputLeft_NumberLiteral,
+        AstGreaterThanOperatorNodeInputLeft_OrOperator,
+        AstGreaterThanOperatorNodeInputLeft_StringLiteral,
+    )
+    from .ast_greater_than_operator_node_input_right import (
+        AstGreaterThanOperatorNodeInputRight,
+        AstGreaterThanOperatorNodeInputRight_AndOperator,
+        AstGreaterThanOperatorNodeInputRight_BooleanLiteral,
+        AstGreaterThanOperatorNodeInputRight_DynamicVariable,
+        AstGreaterThanOperatorNodeInputRight_EqOperator,
+        AstGreaterThanOperatorNodeInputRight_GtOperator,
+        AstGreaterThanOperatorNodeInputRight_GteOperator,
+        AstGreaterThanOperatorNodeInputRight_Llm,
+        AstGreaterThanOperatorNodeInputRight_LtOperator,
+        AstGreaterThanOperatorNodeInputRight_LteOperator,
+        AstGreaterThanOperatorNodeInputRight_NeqOperator,
+        AstGreaterThanOperatorNodeInputRight_NumberLiteral,
+        AstGreaterThanOperatorNodeInputRight_OrOperator,
+        AstGreaterThanOperatorNodeInputRight_StringLiteral,
+    )
+    from .ast_greater_than_operator_node_output import AstGreaterThanOperatorNodeOutput
+    from .ast_greater_than_operator_node_output_left import (
+        AstGreaterThanOperatorNodeOutputLeft,
+        AstGreaterThanOperatorNodeOutputLeft_AndOperator,
+        AstGreaterThanOperatorNodeOutputLeft_BooleanLiteral,
+        AstGreaterThanOperatorNodeOutputLeft_DynamicVariable,
+        AstGreaterThanOperatorNodeOutputLeft_EqOperator,
+        AstGreaterThanOperatorNodeOutputLeft_GtOperator,
+        AstGreaterThanOperatorNodeOutputLeft_GteOperator,
+        AstGreaterThanOperatorNodeOutputLeft_Llm,
+        AstGreaterThanOperatorNodeOutputLeft_LtOperator,
+        AstGreaterThanOperatorNodeOutputLeft_LteOperator,
+        AstGreaterThanOperatorNodeOutputLeft_NeqOperator,
+        AstGreaterThanOperatorNodeOutputLeft_NumberLiteral,
+        AstGreaterThanOperatorNodeOutputLeft_OrOperator,
+        AstGreaterThanOperatorNodeOutputLeft_StringLiteral,
+    )
+    from .ast_greater_than_operator_node_output_right import (
+        AstGreaterThanOperatorNodeOutputRight,
+        AstGreaterThanOperatorNodeOutputRight_AndOperator,
+        AstGreaterThanOperatorNodeOutputRight_BooleanLiteral,
+        AstGreaterThanOperatorNodeOutputRight_DynamicVariable,
+        AstGreaterThanOperatorNodeOutputRight_EqOperator,
+        AstGreaterThanOperatorNodeOutputRight_GtOperator,
+        AstGreaterThanOperatorNodeOutputRight_GteOperator,
+        AstGreaterThanOperatorNodeOutputRight_Llm,
+        AstGreaterThanOperatorNodeOutputRight_LtOperator,
+        AstGreaterThanOperatorNodeOutputRight_LteOperator,
+        AstGreaterThanOperatorNodeOutputRight_NeqOperator,
+        AstGreaterThanOperatorNodeOutputRight_NumberLiteral,
+        AstGreaterThanOperatorNodeOutputRight_OrOperator,
+        AstGreaterThanOperatorNodeOutputRight_StringLiteral,
+    )
+    from .ast_greater_than_or_equals_operator_node_input import AstGreaterThanOrEqualsOperatorNodeInput
+    from .ast_greater_than_or_equals_operator_node_input_left import (
+        AstGreaterThanOrEqualsOperatorNodeInputLeft,
+        AstGreaterThanOrEqualsOperatorNodeInputLeft_AndOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputLeft_BooleanLiteral,
+        AstGreaterThanOrEqualsOperatorNodeInputLeft_DynamicVariable,
+        AstGreaterThanOrEqualsOperatorNodeInputLeft_EqOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputLeft_GtOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputLeft_GteOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputLeft_Llm,
+        AstGreaterThanOrEqualsOperatorNodeInputLeft_LtOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputLeft_LteOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputLeft_NeqOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputLeft_NumberLiteral,
+        AstGreaterThanOrEqualsOperatorNodeInputLeft_OrOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputLeft_StringLiteral,
+    )
+    from .ast_greater_than_or_equals_operator_node_input_right import (
+        AstGreaterThanOrEqualsOperatorNodeInputRight,
+        AstGreaterThanOrEqualsOperatorNodeInputRight_AndOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputRight_BooleanLiteral,
+        AstGreaterThanOrEqualsOperatorNodeInputRight_DynamicVariable,
+        AstGreaterThanOrEqualsOperatorNodeInputRight_EqOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputRight_GtOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputRight_GteOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputRight_Llm,
+        AstGreaterThanOrEqualsOperatorNodeInputRight_LtOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputRight_LteOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputRight_NeqOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputRight_NumberLiteral,
+        AstGreaterThanOrEqualsOperatorNodeInputRight_OrOperator,
+        AstGreaterThanOrEqualsOperatorNodeInputRight_StringLiteral,
+    )
+    from .ast_greater_than_or_equals_operator_node_output import AstGreaterThanOrEqualsOperatorNodeOutput
+    from .ast_greater_than_or_equals_operator_node_output_left import (
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft,
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft_AndOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft_BooleanLiteral,
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft_DynamicVariable,
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft_EqOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft_GtOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft_GteOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft_Llm,
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft_LtOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft_LteOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft_NeqOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft_NumberLiteral,
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft_OrOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputLeft_StringLiteral,
+    )
+    from .ast_greater_than_or_equals_operator_node_output_right import (
+        AstGreaterThanOrEqualsOperatorNodeOutputRight,
+        AstGreaterThanOrEqualsOperatorNodeOutputRight_AndOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputRight_BooleanLiteral,
+        AstGreaterThanOrEqualsOperatorNodeOutputRight_DynamicVariable,
+        AstGreaterThanOrEqualsOperatorNodeOutputRight_EqOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputRight_GtOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputRight_GteOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputRight_Llm,
+        AstGreaterThanOrEqualsOperatorNodeOutputRight_LtOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputRight_LteOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputRight_NeqOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputRight_NumberLiteral,
+        AstGreaterThanOrEqualsOperatorNodeOutputRight_OrOperator,
+        AstGreaterThanOrEqualsOperatorNodeOutputRight_StringLiteral,
+    )
+    from .ast_less_than_operator_node_input import AstLessThanOperatorNodeInput
+    from .ast_less_than_operator_node_input_left import (
+        AstLessThanOperatorNodeInputLeft,
+        AstLessThanOperatorNodeInputLeft_AndOperator,
+        AstLessThanOperatorNodeInputLeft_BooleanLiteral,
+        AstLessThanOperatorNodeInputLeft_DynamicVariable,
+        AstLessThanOperatorNodeInputLeft_EqOperator,
+        AstLessThanOperatorNodeInputLeft_GtOperator,
+        AstLessThanOperatorNodeInputLeft_GteOperator,
+        AstLessThanOperatorNodeInputLeft_Llm,
+        AstLessThanOperatorNodeInputLeft_LtOperator,
+        AstLessThanOperatorNodeInputLeft_LteOperator,
+        AstLessThanOperatorNodeInputLeft_NeqOperator,
+        AstLessThanOperatorNodeInputLeft_NumberLiteral,
+        AstLessThanOperatorNodeInputLeft_OrOperator,
+        AstLessThanOperatorNodeInputLeft_StringLiteral,
+    )
+    from .ast_less_than_operator_node_input_right import (
+        AstLessThanOperatorNodeInputRight,
+        AstLessThanOperatorNodeInputRight_AndOperator,
+        AstLessThanOperatorNodeInputRight_BooleanLiteral,
+        AstLessThanOperatorNodeInputRight_DynamicVariable,
+        AstLessThanOperatorNodeInputRight_EqOperator,
+        AstLessThanOperatorNodeInputRight_GtOperator,
+        AstLessThanOperatorNodeInputRight_GteOperator,
+        AstLessThanOperatorNodeInputRight_Llm,
+        AstLessThanOperatorNodeInputRight_LtOperator,
+        AstLessThanOperatorNodeInputRight_LteOperator,
+        AstLessThanOperatorNodeInputRight_NeqOperator,
+        AstLessThanOperatorNodeInputRight_NumberLiteral,
+        AstLessThanOperatorNodeInputRight_OrOperator,
+        AstLessThanOperatorNodeInputRight_StringLiteral,
+    )
+    from .ast_less_than_operator_node_output import AstLessThanOperatorNodeOutput
+    from .ast_less_than_operator_node_output_left import (
+        AstLessThanOperatorNodeOutputLeft,
+        AstLessThanOperatorNodeOutputLeft_AndOperator,
+        AstLessThanOperatorNodeOutputLeft_BooleanLiteral,
+        AstLessThanOperatorNodeOutputLeft_DynamicVariable,
+        AstLessThanOperatorNodeOutputLeft_EqOperator,
+        AstLessThanOperatorNodeOutputLeft_GtOperator,
+        AstLessThanOperatorNodeOutputLeft_GteOperator,
+        AstLessThanOperatorNodeOutputLeft_Llm,
+        AstLessThanOperatorNodeOutputLeft_LtOperator,
+        AstLessThanOperatorNodeOutputLeft_LteOperator,
+        AstLessThanOperatorNodeOutputLeft_NeqOperator,
+        AstLessThanOperatorNodeOutputLeft_NumberLiteral,
+        AstLessThanOperatorNodeOutputLeft_OrOperator,
+        AstLessThanOperatorNodeOutputLeft_StringLiteral,
+    )
+    from .ast_less_than_operator_node_output_right import (
+        AstLessThanOperatorNodeOutputRight,
+        AstLessThanOperatorNodeOutputRight_AndOperator,
+        AstLessThanOperatorNodeOutputRight_BooleanLiteral,
+        AstLessThanOperatorNodeOutputRight_DynamicVariable,
+        AstLessThanOperatorNodeOutputRight_EqOperator,
+        AstLessThanOperatorNodeOutputRight_GtOperator,
+        AstLessThanOperatorNodeOutputRight_GteOperator,
+        AstLessThanOperatorNodeOutputRight_Llm,
+        AstLessThanOperatorNodeOutputRight_LtOperator,
+        AstLessThanOperatorNodeOutputRight_LteOperator,
+        AstLessThanOperatorNodeOutputRight_NeqOperator,
+        AstLessThanOperatorNodeOutputRight_NumberLiteral,
+        AstLessThanOperatorNodeOutputRight_OrOperator,
+        AstLessThanOperatorNodeOutputRight_StringLiteral,
+    )
+    from .ast_less_than_or_equals_operator_node_input import AstLessThanOrEqualsOperatorNodeInput
+    from .ast_less_than_or_equals_operator_node_input_left import (
+        AstLessThanOrEqualsOperatorNodeInputLeft,
+        AstLessThanOrEqualsOperatorNodeInputLeft_AndOperator,
+        AstLessThanOrEqualsOperatorNodeInputLeft_BooleanLiteral,
+        AstLessThanOrEqualsOperatorNodeInputLeft_DynamicVariable,
+        AstLessThanOrEqualsOperatorNodeInputLeft_EqOperator,
+        AstLessThanOrEqualsOperatorNodeInputLeft_GtOperator,
+        AstLessThanOrEqualsOperatorNodeInputLeft_GteOperator,
+        AstLessThanOrEqualsOperatorNodeInputLeft_Llm,
+        AstLessThanOrEqualsOperatorNodeInputLeft_LtOperator,
+        AstLessThanOrEqualsOperatorNodeInputLeft_LteOperator,
+        AstLessThanOrEqualsOperatorNodeInputLeft_NeqOperator,
+        AstLessThanOrEqualsOperatorNodeInputLeft_NumberLiteral,
+        AstLessThanOrEqualsOperatorNodeInputLeft_OrOperator,
+        AstLessThanOrEqualsOperatorNodeInputLeft_StringLiteral,
+    )
+    from .ast_less_than_or_equals_operator_node_input_right import (
+        AstLessThanOrEqualsOperatorNodeInputRight,
+        AstLessThanOrEqualsOperatorNodeInputRight_AndOperator,
+        AstLessThanOrEqualsOperatorNodeInputRight_BooleanLiteral,
+        AstLessThanOrEqualsOperatorNodeInputRight_DynamicVariable,
+        AstLessThanOrEqualsOperatorNodeInputRight_EqOperator,
+        AstLessThanOrEqualsOperatorNodeInputRight_GtOperator,
+        AstLessThanOrEqualsOperatorNodeInputRight_GteOperator,
+        AstLessThanOrEqualsOperatorNodeInputRight_Llm,
+        AstLessThanOrEqualsOperatorNodeInputRight_LtOperator,
+        AstLessThanOrEqualsOperatorNodeInputRight_LteOperator,
+        AstLessThanOrEqualsOperatorNodeInputRight_NeqOperator,
+        AstLessThanOrEqualsOperatorNodeInputRight_NumberLiteral,
+        AstLessThanOrEqualsOperatorNodeInputRight_OrOperator,
+        AstLessThanOrEqualsOperatorNodeInputRight_StringLiteral,
+    )
+    from .ast_less_than_or_equals_operator_node_output import AstLessThanOrEqualsOperatorNodeOutput
+    from .ast_less_than_or_equals_operator_node_output_left import (
+        AstLessThanOrEqualsOperatorNodeOutputLeft,
+        AstLessThanOrEqualsOperatorNodeOutputLeft_AndOperator,
+        AstLessThanOrEqualsOperatorNodeOutputLeft_BooleanLiteral,
+        AstLessThanOrEqualsOperatorNodeOutputLeft_DynamicVariable,
+        AstLessThanOrEqualsOperatorNodeOutputLeft_EqOperator,
+        AstLessThanOrEqualsOperatorNodeOutputLeft_GtOperator,
+        AstLessThanOrEqualsOperatorNodeOutputLeft_GteOperator,
+        AstLessThanOrEqualsOperatorNodeOutputLeft_Llm,
+        AstLessThanOrEqualsOperatorNodeOutputLeft_LtOperator,
+        AstLessThanOrEqualsOperatorNodeOutputLeft_LteOperator,
+        AstLessThanOrEqualsOperatorNodeOutputLeft_NeqOperator,
+        AstLessThanOrEqualsOperatorNodeOutputLeft_NumberLiteral,
+        AstLessThanOrEqualsOperatorNodeOutputLeft_OrOperator,
+        AstLessThanOrEqualsOperatorNodeOutputLeft_StringLiteral,
+    )
+    from .ast_less_than_or_equals_operator_node_output_right import (
+        AstLessThanOrEqualsOperatorNodeOutputRight,
+        AstLessThanOrEqualsOperatorNodeOutputRight_AndOperator,
+        AstLessThanOrEqualsOperatorNodeOutputRight_BooleanLiteral,
+        AstLessThanOrEqualsOperatorNodeOutputRight_DynamicVariable,
+        AstLessThanOrEqualsOperatorNodeOutputRight_EqOperator,
+        AstLessThanOrEqualsOperatorNodeOutputRight_GtOperator,
+        AstLessThanOrEqualsOperatorNodeOutputRight_GteOperator,
+        AstLessThanOrEqualsOperatorNodeOutputRight_Llm,
+        AstLessThanOrEqualsOperatorNodeOutputRight_LtOperator,
+        AstLessThanOrEqualsOperatorNodeOutputRight_LteOperator,
+        AstLessThanOrEqualsOperatorNodeOutputRight_NeqOperator,
+        AstLessThanOrEqualsOperatorNodeOutputRight_NumberLiteral,
+        AstLessThanOrEqualsOperatorNodeOutputRight_OrOperator,
+        AstLessThanOrEqualsOperatorNodeOutputRight_StringLiteral,
+    )
+    from .ast_not_equals_operator_node_input import AstNotEqualsOperatorNodeInput
+    from .ast_not_equals_operator_node_input_left import (
+        AstNotEqualsOperatorNodeInputLeft,
+        AstNotEqualsOperatorNodeInputLeft_AndOperator,
+        AstNotEqualsOperatorNodeInputLeft_BooleanLiteral,
+        AstNotEqualsOperatorNodeInputLeft_DynamicVariable,
+        AstNotEqualsOperatorNodeInputLeft_EqOperator,
+        AstNotEqualsOperatorNodeInputLeft_GtOperator,
+        AstNotEqualsOperatorNodeInputLeft_GteOperator,
+        AstNotEqualsOperatorNodeInputLeft_Llm,
+        AstNotEqualsOperatorNodeInputLeft_LtOperator,
+        AstNotEqualsOperatorNodeInputLeft_LteOperator,
+        AstNotEqualsOperatorNodeInputLeft_NeqOperator,
+        AstNotEqualsOperatorNodeInputLeft_NumberLiteral,
+        AstNotEqualsOperatorNodeInputLeft_OrOperator,
+        AstNotEqualsOperatorNodeInputLeft_StringLiteral,
+    )
+    from .ast_not_equals_operator_node_input_right import (
+        AstNotEqualsOperatorNodeInputRight,
+        AstNotEqualsOperatorNodeInputRight_AndOperator,
+        AstNotEqualsOperatorNodeInputRight_BooleanLiteral,
+        AstNotEqualsOperatorNodeInputRight_DynamicVariable,
+        AstNotEqualsOperatorNodeInputRight_EqOperator,
+        AstNotEqualsOperatorNodeInputRight_GtOperator,
+        AstNotEqualsOperatorNodeInputRight_GteOperator,
+        AstNotEqualsOperatorNodeInputRight_Llm,
+        AstNotEqualsOperatorNodeInputRight_LtOperator,
+        AstNotEqualsOperatorNodeInputRight_LteOperator,
+        AstNotEqualsOperatorNodeInputRight_NeqOperator,
+        AstNotEqualsOperatorNodeInputRight_NumberLiteral,
+        AstNotEqualsOperatorNodeInputRight_OrOperator,
+        AstNotEqualsOperatorNodeInputRight_StringLiteral,
+    )
+    from .ast_not_equals_operator_node_output import AstNotEqualsOperatorNodeOutput
+    from .ast_not_equals_operator_node_output_left import (
+        AstNotEqualsOperatorNodeOutputLeft,
+        AstNotEqualsOperatorNodeOutputLeft_AndOperator,
+        AstNotEqualsOperatorNodeOutputLeft_BooleanLiteral,
+        AstNotEqualsOperatorNodeOutputLeft_DynamicVariable,
+        AstNotEqualsOperatorNodeOutputLeft_EqOperator,
+        AstNotEqualsOperatorNodeOutputLeft_GtOperator,
+        AstNotEqualsOperatorNodeOutputLeft_GteOperator,
+        AstNotEqualsOperatorNodeOutputLeft_Llm,
+        AstNotEqualsOperatorNodeOutputLeft_LtOperator,
+        AstNotEqualsOperatorNodeOutputLeft_LteOperator,
+        AstNotEqualsOperatorNodeOutputLeft_NeqOperator,
+        AstNotEqualsOperatorNodeOutputLeft_NumberLiteral,
+        AstNotEqualsOperatorNodeOutputLeft_OrOperator,
+        AstNotEqualsOperatorNodeOutputLeft_StringLiteral,
+    )
+    from .ast_not_equals_operator_node_output_right import (
+        AstNotEqualsOperatorNodeOutputRight,
+        AstNotEqualsOperatorNodeOutputRight_AndOperator,
+        AstNotEqualsOperatorNodeOutputRight_BooleanLiteral,
+        AstNotEqualsOperatorNodeOutputRight_DynamicVariable,
+        AstNotEqualsOperatorNodeOutputRight_EqOperator,
+        AstNotEqualsOperatorNodeOutputRight_GtOperator,
+        AstNotEqualsOperatorNodeOutputRight_GteOperator,
+        AstNotEqualsOperatorNodeOutputRight_Llm,
+        AstNotEqualsOperatorNodeOutputRight_LtOperator,
+        AstNotEqualsOperatorNodeOutputRight_LteOperator,
+        AstNotEqualsOperatorNodeOutputRight_NeqOperator,
+        AstNotEqualsOperatorNodeOutputRight_NumberLiteral,
+        AstNotEqualsOperatorNodeOutputRight_OrOperator,
+        AstNotEqualsOperatorNodeOutputRight_StringLiteral,
+    )
+    from .ast_number_node_input import AstNumberNodeInput
+    from .ast_number_node_output import AstNumberNodeOutput
+    from .ast_or_operator_node_input import AstOrOperatorNodeInput
+    from .ast_or_operator_node_input_children_item import (
+        AstOrOperatorNodeInputChildrenItem,
+        AstOrOperatorNodeInputChildrenItem_AndOperator,
+        AstOrOperatorNodeInputChildrenItem_BooleanLiteral,
+        AstOrOperatorNodeInputChildrenItem_DynamicVariable,
+        AstOrOperatorNodeInputChildrenItem_EqOperator,
+        AstOrOperatorNodeInputChildrenItem_GtOperator,
+        AstOrOperatorNodeInputChildrenItem_GteOperator,
+        AstOrOperatorNodeInputChildrenItem_Llm,
+        AstOrOperatorNodeInputChildrenItem_LtOperator,
+        AstOrOperatorNodeInputChildrenItem_LteOperator,
+        AstOrOperatorNodeInputChildrenItem_NeqOperator,
+        AstOrOperatorNodeInputChildrenItem_NumberLiteral,
+        AstOrOperatorNodeInputChildrenItem_OrOperator,
+        AstOrOperatorNodeInputChildrenItem_StringLiteral,
+    )
+    from .ast_or_operator_node_output import AstOrOperatorNodeOutput
+    from .ast_or_operator_node_output_children_item import (
+        AstOrOperatorNodeOutputChildrenItem,
+        AstOrOperatorNodeOutputChildrenItem_AndOperator,
+        AstOrOperatorNodeOutputChildrenItem_BooleanLiteral,
+        AstOrOperatorNodeOutputChildrenItem_DynamicVariable,
+        AstOrOperatorNodeOutputChildrenItem_EqOperator,
+        AstOrOperatorNodeOutputChildrenItem_GtOperator,
+        AstOrOperatorNodeOutputChildrenItem_GteOperator,
+        AstOrOperatorNodeOutputChildrenItem_Llm,
+        AstOrOperatorNodeOutputChildrenItem_LtOperator,
+        AstOrOperatorNodeOutputChildrenItem_LteOperator,
+        AstOrOperatorNodeOutputChildrenItem_NeqOperator,
+        AstOrOperatorNodeOutputChildrenItem_NumberLiteral,
+        AstOrOperatorNodeOutputChildrenItem_OrOperator,
+        AstOrOperatorNodeOutputChildrenItem_StringLiteral,
+    )
+    from .ast_string_node_input import AstStringNodeInput
+    from .ast_string_node_output import AstStringNodeOutput
+    from .astllm_node_input import AstllmNodeInput
+    from .astllm_node_output import AstllmNodeOutput
+    from .async_conversation_metadata import AsyncConversationMetadata
+    from .async_conversation_metadata_delivery_status import AsyncConversationMetadataDeliveryStatus
     from .attached_test_model import AttachedTestModel
     from .audio_native_create_project_response_model import AudioNativeCreateProjectResponseModel
     from .audio_native_edit_content_response_model import AudioNativeEditContentResponseModel
     from .audio_native_project_settings_response_model import AudioNativeProjectSettingsResponseModel
     from .audio_native_project_settings_response_model_status import AudioNativeProjectSettingsResponseModelStatus
-    from .audio_output import AudioOutput
-    from .audio_output_multi import AudioOutputMulti
+    from .audio_with_timestamps_and_voice_segments_response_model import (
+        AudioWithTimestampsAndVoiceSegmentsResponseModel,
+    )
     from .audio_with_timestamps_response import AudioWithTimestampsResponse
     from .auth_connection_locator import AuthConnectionLocator
     from .auth_settings import AuthSettings
     from .authorization_method import AuthorizationMethod
+    from .backup_llm_default import BackupLlmDefault
+    from .backup_llm_disabled import BackupLlmDisabled
+    from .backup_llm_override import BackupLlmOverride
     from .bad_request_error_body import BadRequestErrorBody
     from .ban_reason_type import BanReasonType
     from .batch_call_detailed_response import BatchCallDetailedResponse
     from .batch_call_recipient_status import BatchCallRecipientStatus
     from .batch_call_response import BatchCallResponse
     from .batch_call_status import BatchCallStatus
+    from .batch_call_whats_app_params import BatchCallWhatsAppParams
+    from .batch_failure_response_model import BatchFailureResponseModel
+    from .billing_period import BillingPeriod
     from .body_generate_a_random_voice_v_1_voice_generation_generate_voice_post_age import (
         BodyGenerateARandomVoiceV1VoiceGenerationGenerateVoicePostAge,
     )
@@ -88,7 +595,9 @@ if typing.TYPE_CHECKING:
     from .breakdown_types import BreakdownTypes
     from .built_in_tools_input import BuiltInToolsInput
     from .built_in_tools_output import BuiltInToolsOutput
-    from .built_in_tools_workflow_override import BuiltInToolsWorkflowOverride
+    from .built_in_tools_workflow_override_input import BuiltInToolsWorkflowOverrideInput
+    from .built_in_tools_workflow_override_output import BuiltInToolsWorkflowOverrideOutput
+    from .canvas_placement import CanvasPlacement
     from .caption_style_character_animation_model import CaptionStyleCharacterAnimationModel
     from .caption_style_character_animation_model_enter_type import CaptionStyleCharacterAnimationModelEnterType
     from .caption_style_character_animation_model_exit_type import CaptionStyleCharacterAnimationModelExitType
@@ -130,13 +639,12 @@ if typing.TYPE_CHECKING:
     from .chapter_with_content_response_model_state import ChapterWithContentResponseModelState
     from .character_alignment_model import CharacterAlignmentModel
     from .character_alignment_response_model import CharacterAlignmentResponseModel
+    from .character_refresh_period import CharacterRefreshPeriod
     from .character_usage_response import CharacterUsageResponse
     from .client_event import ClientEvent
     from .client_tool_config_input import ClientToolConfigInput
     from .client_tool_config_output import ClientToolConfigOutput
-    from .close_connection import CloseConnection
-    from .close_context import CloseContext
-    from .close_socket import CloseSocket
+    from .contributor import Contributor
     from .conv_ai_dynamic_variable import ConvAiDynamicVariable
     from .conv_ai_secret_locator import ConvAiSecretLocator
     from .conv_ai_stored_secret_dependencies import ConvAiStoredSecretDependencies
@@ -163,6 +671,7 @@ if typing.TYPE_CHECKING:
     from .conversation_config_override_config import ConversationConfigOverrideConfig
     from .conversation_config_workflow_override import ConversationConfigWorkflowOverride
     from .conversation_deletion_settings import ConversationDeletionSettings
+    from .conversation_feedback_type import ConversationFeedbackType
     from .conversation_history_analysis_common_model import ConversationHistoryAnalysisCommonModel
     from .conversation_history_batch_call_model import ConversationHistoryBatchCallModel
     from .conversation_history_eleven_assistant_common_model import ConversationHistoryElevenAssistantCommonModel
@@ -183,6 +692,9 @@ if typing.TYPE_CHECKING:
     from .conversation_history_sip_trunking_phone_call_model import ConversationHistorySipTrunkingPhoneCallModel
     from .conversation_history_sip_trunking_phone_call_model_direction import (
         ConversationHistorySipTrunkingPhoneCallModelDirection,
+    )
+    from .conversation_history_transcript_api_integration_webhook_tools_result_common_model import (
+        ConversationHistoryTranscriptApiIntegrationWebhookToolsResultCommonModel,
     )
     from .conversation_history_transcript_common_model_input import ConversationHistoryTranscriptCommonModelInput
     from .conversation_history_transcript_common_model_input_role import (
@@ -228,15 +740,31 @@ if typing.TYPE_CHECKING:
         ConversationHistoryTranscriptSystemToolResultCommonModelResult_TransferToNumberTwilioSuccess,
         ConversationHistoryTranscriptSystemToolResultCommonModelResult_VoicemailDetectionSuccess,
     )
+    from .conversation_history_transcript_tool_call_api_integration_webhook_details import (
+        ConversationHistoryTranscriptToolCallApiIntegrationWebhookDetails,
+    )
     from .conversation_history_transcript_tool_call_client_details import (
         ConversationHistoryTranscriptToolCallClientDetails,
     )
-    from .conversation_history_transcript_tool_call_common_model import ConversationHistoryTranscriptToolCallCommonModel
-    from .conversation_history_transcript_tool_call_common_model_tool_details import (
-        ConversationHistoryTranscriptToolCallCommonModelToolDetails,
-        ConversationHistoryTranscriptToolCallCommonModelToolDetails_Client,
-        ConversationHistoryTranscriptToolCallCommonModelToolDetails_Mcp,
-        ConversationHistoryTranscriptToolCallCommonModelToolDetails_Webhook,
+    from .conversation_history_transcript_tool_call_common_model_input import (
+        ConversationHistoryTranscriptToolCallCommonModelInput,
+    )
+    from .conversation_history_transcript_tool_call_common_model_input_tool_details import (
+        ConversationHistoryTranscriptToolCallCommonModelInputToolDetails,
+        ConversationHistoryTranscriptToolCallCommonModelInputToolDetails_ApiIntegrationWebhook,
+        ConversationHistoryTranscriptToolCallCommonModelInputToolDetails_Client,
+        ConversationHistoryTranscriptToolCallCommonModelInputToolDetails_Mcp,
+        ConversationHistoryTranscriptToolCallCommonModelInputToolDetails_Webhook,
+    )
+    from .conversation_history_transcript_tool_call_common_model_output import (
+        ConversationHistoryTranscriptToolCallCommonModelOutput,
+    )
+    from .conversation_history_transcript_tool_call_common_model_output_tool_details import (
+        ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails,
+        ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails_ApiIntegrationWebhook,
+        ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails_Client,
+        ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails_Mcp,
+        ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails_Webhook,
     )
     from .conversation_history_transcript_tool_call_mcp_details import ConversationHistoryTranscriptToolCallMcpDetails
     from .conversation_history_transcript_tool_call_webhook_details import (
@@ -282,7 +810,12 @@ if typing.TYPE_CHECKING:
     from .conversation_token_purpose import ConversationTokenPurpose
     from .conversation_turn_metrics import ConversationTurnMetrics
     from .conversational_config import ConversationalConfig
-    from .conversational_config_api_model_workflow_override import ConversationalConfigApiModelWorkflowOverride
+    from .conversational_config_api_model_workflow_override_input import (
+        ConversationalConfigApiModelWorkflowOverrideInput,
+    )
+    from .conversational_config_api_model_workflow_override_output import (
+        ConversationalConfigApiModelWorkflowOverrideOutput,
+    )
     from .convert_chapter_response_model import ConvertChapterResponseModel
     from .convert_project_response_model import ConvertProjectResponseModel
     from .create_agent_response_model import CreateAgentResponseModel
@@ -296,6 +829,9 @@ if typing.TYPE_CHECKING:
     from .create_unit_test_response_model import CreateUnitTestResponseModel
     from .custom_llm import CustomLlm
     from .custom_llm_request_headers_value import CustomLlmRequestHeadersValue
+    from .custom_llmapi_type import CustomLlmapiType
+    from .custom_sip_header import CustomSipHeader
+    from .custom_sip_header_with_dynamic_variable import CustomSipHeaderWithDynamicVariable
     from .dashboard_call_success_chart_model import DashboardCallSuccessChartModel
     from .dashboard_criteria_chart_model import DashboardCriteriaChartModel
     from .dashboard_data_collection_chart_model import DashboardDataCollectionChartModel
@@ -311,6 +847,7 @@ if typing.TYPE_CHECKING:
     from .delete_voice_sample_response_model import DeleteVoiceSampleResponseModel
     from .delete_workspace_group_member_response_model import DeleteWorkspaceGroupMemberResponseModel
     from .delete_workspace_invite_response_model import DeleteWorkspaceInviteResponseModel
+    from .delete_workspace_webhook_response_model import DeleteWorkspaceWebhookResponseModel
     from .dependent_available_agent_identifier import DependentAvailableAgentIdentifier
     from .dependent_available_agent_identifier_access_level import DependentAvailableAgentIdentifierAccessLevel
     from .dependent_available_tool_identifier import DependentAvailableToolIdentifier
@@ -319,8 +856,15 @@ if typing.TYPE_CHECKING:
     from .dependent_unknown_agent_identifier import DependentUnknownAgentIdentifier
     from .dependent_unknown_tool_identifier import DependentUnknownToolIdentifier
     from .detailed_music_response import DetailedMusicResponse
+    from .detected_entity import DetectedEntity
     from .dialogue_input import DialogueInput
     from .dialogue_input_response_model import DialogueInputResponseModel
+    from .direct_publishing_read_response_model import DirectPublishingReadResponseModel
+    from .direct_publishing_read_response_model_display_mode import DirectPublishingReadResponseModelDisplayMode
+    from .direct_publishing_read_response_model_genre_item import DirectPublishingReadResponseModelGenreItem
+    from .direct_publishing_read_response_model_payout_type import DirectPublishingReadResponseModelPayoutType
+    from .direct_publishing_read_response_model_target_audience import DirectPublishingReadResponseModelTargetAudience
+    from .discount_response_model import DiscountResponseModel
     from .do_dubbing_response import DoDubbingResponse
     from .document_usage_mode_enum import DocumentUsageModeEnum
     from .docx_export_options import DocxExportOptions
@@ -329,9 +873,17 @@ if typing.TYPE_CHECKING:
     from .dubbing_media_reference import DubbingMediaReference
     from .dubbing_metadata_page_response_model import DubbingMetadataPageResponseModel
     from .dubbing_metadata_response import DubbingMetadataResponse
+    from .dubbing_model import DubbingModel
     from .dubbing_release_channel import DubbingReleaseChannel
     from .dubbing_render_response_model import DubbingRenderResponseModel
     from .dubbing_resource import DubbingResource
+    from .dubbing_transcript import DubbingTranscript
+    from .dubbing_transcript_character import DubbingTranscriptCharacter
+    from .dubbing_transcript_response_model import DubbingTranscriptResponseModel
+    from .dubbing_transcript_utterance import DubbingTranscriptUtterance
+    from .dubbing_transcript_word import DubbingTranscriptWord
+    from .dubbing_transcripts_response_model import DubbingTranscriptsResponseModel
+    from .dubbing_transcripts_response_model_transcript_format import DubbingTranscriptsResponseModelTranscriptFormat
     from .dynamic_variable_assignment import DynamicVariableAssignment
     from .dynamic_variable_update_common_model import DynamicVariableUpdateCommonModel
     from .dynamic_variables_config import DynamicVariablesConfig
@@ -363,26 +915,18 @@ if typing.TYPE_CHECKING:
         ExportOptions_Srt,
         ExportOptions_Txt,
     )
-    from .extended_subscription_response_model_billing_period import ExtendedSubscriptionResponseModelBillingPeriod
-    from .extended_subscription_response_model_character_refresh_period import (
-        ExtendedSubscriptionResponseModelCharacterRefreshPeriod,
-    )
     from .extended_subscription_response_model_currency import ExtendedSubscriptionResponseModelCurrency
     from .extended_subscription_response_model_pending_change import ExtendedSubscriptionResponseModelPendingChange
     from .feature_status_common_model import FeatureStatusCommonModel
     from .features_usage_common_model import FeaturesUsageCommonModel
     from .feedback_item import FeedbackItem
-    from .final_output import FinalOutput
-    from .final_output_multi import FinalOutputMulti
     from .fine_tuning_response import FineTuningResponse
     from .fine_tuning_response_model_state_value import FineTuningResponseModelStateValue
-    from .flush_context import FlushContext
     from .forced_alignment_character_response_model import ForcedAlignmentCharacterResponseModel
     from .forced_alignment_response_model import ForcedAlignmentResponseModel
     from .forced_alignment_word_response_model import ForcedAlignmentWordResponseModel
     from .gender import Gender
     from .generate_voice_request import GenerateVoiceRequest
-    from .generation_config import GenerationConfig
     from .get_agent_embed_response_model import GetAgentEmbedResponseModel
     from .get_agent_knowledgebase_size_response_model import GetAgentKnowledgebaseSizeResponseModel
     from .get_agent_link_response_model import GetAgentLinkResponseModel
@@ -416,10 +960,12 @@ if typing.TYPE_CHECKING:
         GetKnowledgeBaseDependentAgentsResponseModelAgentsItem_Unknown,
     )
     from .get_knowledge_base_file_response_model import GetKnowledgeBaseFileResponseModel
+    from .get_knowledge_base_folder_response_model import GetKnowledgeBaseFolderResponseModel
     from .get_knowledge_base_list_response_model import GetKnowledgeBaseListResponseModel
     from .get_knowledge_base_list_response_model_documents_item import (
         GetKnowledgeBaseListResponseModelDocumentsItem,
         GetKnowledgeBaseListResponseModelDocumentsItem_File,
+        GetKnowledgeBaseListResponseModelDocumentsItem_Folder,
         GetKnowledgeBaseListResponseModelDocumentsItem_Text,
         GetKnowledgeBaseListResponseModelDocumentsItem_Url,
     )
@@ -428,6 +974,12 @@ if typing.TYPE_CHECKING:
         GetKnowledgeBaseSummaryFileResponseModelDependentAgentsItem,
         GetKnowledgeBaseSummaryFileResponseModelDependentAgentsItem_Available,
         GetKnowledgeBaseSummaryFileResponseModelDependentAgentsItem_Unknown,
+    )
+    from .get_knowledge_base_summary_folder_response_model import GetKnowledgeBaseSummaryFolderResponseModel
+    from .get_knowledge_base_summary_folder_response_model_dependent_agents_item import (
+        GetKnowledgeBaseSummaryFolderResponseModelDependentAgentsItem,
+        GetKnowledgeBaseSummaryFolderResponseModelDependentAgentsItem_Available,
+        GetKnowledgeBaseSummaryFolderResponseModelDependentAgentsItem_Unknown,
     )
     from .get_knowledge_base_summary_text_response_model import GetKnowledgeBaseSummaryTextResponseModel
     from .get_knowledge_base_summary_text_response_model_dependent_agents_item import (
@@ -444,6 +996,8 @@ if typing.TYPE_CHECKING:
     from .get_knowledge_base_text_response_model import GetKnowledgeBaseTextResponseModel
     from .get_knowledge_base_url_response_model import GetKnowledgeBaseUrlResponseModel
     from .get_library_voices_response import GetLibraryVoicesResponse
+    from .get_live_count_response import GetLiveCountResponse
+    from .get_or_create_rag_index_request_model import GetOrCreateRagIndexRequestModel
     from .get_phone_number_inbound_sip_trunk_config_response_model import (
         GetPhoneNumberInboundSipTrunkConfigResponseModel,
     )
@@ -466,6 +1020,7 @@ if typing.TYPE_CHECKING:
     )
     from .get_pronunciation_dictionary_response import GetPronunciationDictionaryResponse
     from .get_speech_history_response import GetSpeechHistoryResponse
+    from .get_test_invocations_page_response_model import GetTestInvocationsPageResponseModel
     from .get_test_suite_invocation_response_model import GetTestSuiteInvocationResponseModel
     from .get_tests_page_response_model import GetTestsPageResponseModel
     from .get_tests_summaries_by_ids_response_model import GetTestsSummariesByIdsResponseModel
@@ -479,26 +1034,41 @@ if typing.TYPE_CHECKING:
     from .get_unit_test_response_model_dynamic_variables_value import GetUnitTestResponseModelDynamicVariablesValue
     from .get_voices_response import GetVoicesResponse
     from .get_voices_v_2_response import GetVoicesV2Response
+    from .get_whats_app_account_response import GetWhatsAppAccountResponse
     from .get_workspace_secrets_response_model import GetWorkspaceSecretsResponseModel
+    from .guardrails_v_1_input import GuardrailsV1Input
+    from .guardrails_v_1_output import GuardrailsV1Output
     from .history_alignment_response_model import HistoryAlignmentResponseModel
     from .history_alignments_response_model import HistoryAlignmentsResponseModel
     from .history_item_response import HistoryItemResponse
     from .html_export_options import HtmlExportOptions
     from .http_validation_error import HttpValidationError
     from .image_avatar import ImageAvatar
+    from .import_whats_app_account_response import ImportWhatsAppAccountResponse
     from .inbound_sip_trunk_config_request_model import InboundSipTrunkConfigRequestModel
-    from .initialise_context import InitialiseContext
-    from .initialize_connection import InitializeConnection
-    from .initialize_connection_multi import InitializeConnectionMulti
     from .integration_type import IntegrationType
     from .invoice_response import InvoiceResponse
     from .invoice_response_model_payment_intent_status import InvoiceResponseModelPaymentIntentStatus
-    from .keep_context_alive import KeepContextAlive
+    from .invoice_response_model_payment_intent_statusses_item import InvoiceResponseModelPaymentIntentStatussesItem
+    from .knowledge_base_dependent_type import KnowledgeBaseDependentType
     from .knowledge_base_document_chunk_response_model import KnowledgeBaseDocumentChunkResponseModel
     from .knowledge_base_document_metadata_response_model import KnowledgeBaseDocumentMetadataResponseModel
     from .knowledge_base_document_type import KnowledgeBaseDocumentType
+    from .knowledge_base_folder_path_segment_response_model import KnowledgeBaseFolderPathSegmentResponseModel
+    from .knowledge_base_folder_path_segment_summary_response_model import (
+        KnowledgeBaseFolderPathSegmentSummaryResponseModel,
+    )
     from .knowledge_base_locator import KnowledgeBaseLocator
     from .knowledge_base_sort_by import KnowledgeBaseSortBy
+    from .knowledge_base_source_file_url_response_model import KnowledgeBaseSourceFileUrlResponseModel
+    from .knowledge_base_summary_batch_successful_response_model import KnowledgeBaseSummaryBatchSuccessfulResponseModel
+    from .knowledge_base_summary_batch_successful_response_model_data import (
+        KnowledgeBaseSummaryBatchSuccessfulResponseModelData,
+        KnowledgeBaseSummaryBatchSuccessfulResponseModelData_File,
+        KnowledgeBaseSummaryBatchSuccessfulResponseModelData_Folder,
+        KnowledgeBaseSummaryBatchSuccessfulResponseModelData_Text,
+        KnowledgeBaseSummaryBatchSuccessfulResponseModelData_Url,
+    )
     from .language_added_response import LanguageAddedResponse
     from .language_detection_tool_config import LanguageDetectionToolConfig
     from .language_detection_tool_result_model import LanguageDetectionToolResultModel
@@ -509,9 +1079,13 @@ if typing.TYPE_CHECKING:
     from .library_voice_response import LibraryVoiceResponse
     from .library_voice_response_model_category import LibraryVoiceResponseModelCategory
     from .list_mcp_tools_response_model import ListMcpToolsResponseModel
+    from .list_response_meta import ListResponseMeta
+    from .list_whats_app_accounts_response import ListWhatsAppAccountsResponse
     from .literal_json_schema_property import LiteralJsonSchemaProperty
     from .literal_json_schema_property_constant_value import LiteralJsonSchemaPropertyConstantValue
     from .literal_json_schema_property_type import LiteralJsonSchemaPropertyType
+    from .literal_override import LiteralOverride
+    from .literal_override_constant_value import LiteralOverrideConstantValue
     from .livekit_stack_type import LivekitStackType
     from .llm import Llm
     from .llm_category_usage import LlmCategoryUsage
@@ -546,38 +1120,52 @@ if typing.TYPE_CHECKING:
     from .mcp_servers_response_model import McpServersResponseModel
     from .mcp_tool_approval_hash import McpToolApprovalHash
     from .mcp_tool_approval_policy import McpToolApprovalPolicy
+    from .mcp_tool_config_override import McpToolConfigOverride
     from .metric_record import MetricRecord
     from .metric_type import MetricType
     from .model import Model
     from .model_rates_response_model import ModelRatesResponseModel
     from .model_settings_response_model import ModelSettingsResponseModel
-    from .moderation_status_response_model import ModerationStatusResponseModel
-    from .moderation_status_response_model_safety_status import ModerationStatusResponseModelSafetyStatus
-    from .moderation_status_response_model_warning_status import ModerationStatusResponseModelWarningStatus
+    from .moderation_config import ModerationConfig
+    from .moderation_guardrail_input import ModerationGuardrailInput
+    from .moderation_guardrail_output import ModerationGuardrailOutput
     from .multichannel_speech_to_text_response_model import MultichannelSpeechToTextResponseModel
     from .multipart_music_response import MultipartMusicResponse
     from .music_prompt import MusicPrompt
-    from .normalized_alignment import NormalizedAlignment
     from .object_json_schema_property_input import ObjectJsonSchemaPropertyInput
     from .object_json_schema_property_input_properties_value import ObjectJsonSchemaPropertyInputPropertiesValue
     from .object_json_schema_property_output import ObjectJsonSchemaPropertyOutput
     from .object_json_schema_property_output_properties_value import ObjectJsonSchemaPropertyOutputPropertiesValue
+    from .object_override_input import ObjectOverrideInput
+    from .object_override_input_properties_value import ObjectOverrideInputPropertiesValue
+    from .object_override_output import ObjectOverrideOutput
+    from .object_override_output_properties_value import ObjectOverrideOutputPropertiesValue
     from .orb_avatar import OrbAvatar
     from .outbound_call_recipient import OutboundCallRecipient
     from .outbound_call_recipient_response_model import OutboundCallRecipientResponseModel
     from .outbound_sip_trunk_config_request_model import OutboundSipTrunkConfigRequestModel
     from .output_format import OutputFormat
+    from .patch_workspace_webhook_response_model import PatchWorkspaceWebhookResponseModel
     from .pdf_export_options import PdfExportOptions
     from .pending_cancellation_response_model import PendingCancellationResponseModel
     from .pending_subscription_switch_response_model import PendingSubscriptionSwitchResponseModel
     from .pending_subscription_switch_response_model_next_tier import PendingSubscriptionSwitchResponseModelNextTier
+    from .permission_type import PermissionType
     from .phone_number_agent_info import PhoneNumberAgentInfo
+    from .phone_number_dynamic_variable_transfer_destination import PhoneNumberDynamicVariableTransferDestination
     from .phone_number_transfer import PhoneNumberTransfer
+    from .phone_number_transfer_custom_sip_headers_item import (
+        PhoneNumberTransferCustomSipHeadersItem,
+        PhoneNumberTransferCustomSipHeadersItem_Dynamic,
+        PhoneNumberTransferCustomSipHeadersItem_Static,
+    )
     from .phone_number_transfer_destination import PhoneNumberTransferDestination
     from .phone_number_transfer_transfer_destination import (
         PhoneNumberTransferTransferDestination,
         PhoneNumberTransferTransferDestination_Phone,
+        PhoneNumberTransferTransferDestination_PhoneDynamicVariable,
         PhoneNumberTransferTransferDestination_SipUri,
+        PhoneNumberTransferTransferDestination_SipUriDynamicVariable,
     )
     from .play_dtmf_result_error_model import PlayDtmfResultErrorModel
     from .play_dtmf_result_success_model import PlayDtmfResultSuccessModel
@@ -589,9 +1177,11 @@ if typing.TYPE_CHECKING:
     from .podcast_project_response_model import PodcastProjectResponseModel
     from .podcast_text_source import PodcastTextSource
     from .podcast_url_source import PodcastUrlSource
-    from .position import Position
+    from .position_input import PositionInput
+    from .position_output import PositionOutput
     from .post_agent_avatar_response_model import PostAgentAvatarResponseModel
     from .post_workspace_secret_response_model import PostWorkspaceSecretResponseModel
+    from .preview_audio_db_model import PreviewAudioDbModel
     from .privacy_config import PrivacyConfig
     from .project_creation_meta_response_model import ProjectCreationMetaResponseModel
     from .project_creation_meta_response_model_status import ProjectCreationMetaResponseModelStatus
@@ -601,12 +1191,22 @@ if typing.TYPE_CHECKING:
     from .project_extended_response_model_apply_text_normalization import (
         ProjectExtendedResponseModelApplyTextNormalization,
     )
+    from .project_extended_response_model_aspect_ratio import ProjectExtendedResponseModelAspectRatio
+    from .project_extended_response_model_assets_item import (
+        ProjectExtendedResponseModelAssetsItem,
+        ProjectExtendedResponseModelAssetsItem_Audio,
+        ProjectExtendedResponseModelAssetsItem_Image,
+        ProjectExtendedResponseModelAssetsItem_Video,
+    )
     from .project_extended_response_model_fiction import ProjectExtendedResponseModelFiction
     from .project_extended_response_model_quality_preset import ProjectExtendedResponseModelQualityPreset
     from .project_extended_response_model_source_type import ProjectExtendedResponseModelSourceType
     from .project_extended_response_model_target_audience import ProjectExtendedResponseModelTargetAudience
+    from .project_external_audio_response_model import ProjectExternalAudioResponseModel
+    from .project_image_response_model import ProjectImageResponseModel
     from .project_response import ProjectResponse
     from .project_response_model_access_level import ProjectResponseModelAccessLevel
+    from .project_response_model_aspect_ratio import ProjectResponseModelAspectRatio
     from .project_response_model_fiction import ProjectResponseModelFiction
     from .project_response_model_source_type import ProjectResponseModelSourceType
     from .project_response_model_target_audience import ProjectResponseModelTargetAudience
@@ -614,18 +1214,35 @@ if typing.TYPE_CHECKING:
     from .project_snapshot_response import ProjectSnapshotResponse
     from .project_snapshots_response import ProjectSnapshotsResponse
     from .project_state import ProjectState
+    from .project_video_response_model import ProjectVideoResponseModel
+    from .project_video_thumbnail_sheet_response_model import ProjectVideoThumbnailSheetResponseModel
+    from .project_voice_response_model import ProjectVoiceResponseModel
     from .prompt_agent import PromptAgent
     from .prompt_agent_api_model_input import PromptAgentApiModelInput
+    from .prompt_agent_api_model_input_backup_llm_config import (
+        PromptAgentApiModelInputBackupLlmConfig,
+        PromptAgentApiModelInputBackupLlmConfig_Default,
+        PromptAgentApiModelInputBackupLlmConfig_Disabled,
+        PromptAgentApiModelInputBackupLlmConfig_Override,
+    )
     from .prompt_agent_api_model_input_tools_item import (
         PromptAgentApiModelInputToolsItem,
+        PromptAgentApiModelInputToolsItem_ApiIntegrationWebhook,
         PromptAgentApiModelInputToolsItem_Client,
         PromptAgentApiModelInputToolsItem_Mcp,
         PromptAgentApiModelInputToolsItem_System,
         PromptAgentApiModelInputToolsItem_Webhook,
     )
     from .prompt_agent_api_model_output import PromptAgentApiModelOutput
+    from .prompt_agent_api_model_output_backup_llm_config import (
+        PromptAgentApiModelOutputBackupLlmConfig,
+        PromptAgentApiModelOutputBackupLlmConfig_Default,
+        PromptAgentApiModelOutputBackupLlmConfig_Disabled,
+        PromptAgentApiModelOutputBackupLlmConfig_Override,
+    )
     from .prompt_agent_api_model_output_tools_item import (
         PromptAgentApiModelOutputToolsItem,
+        PromptAgentApiModelOutputToolsItem_ApiIntegrationWebhook,
         PromptAgentApiModelOutputToolsItem_Client,
         PromptAgentApiModelOutputToolsItem_Mcp,
         PromptAgentApiModelOutputToolsItem_System,
@@ -633,18 +1250,33 @@ if typing.TYPE_CHECKING:
     )
     from .prompt_agent_api_model_override import PromptAgentApiModelOverride
     from .prompt_agent_api_model_override_config import PromptAgentApiModelOverrideConfig
-    from .prompt_agent_api_model_workflow_override import PromptAgentApiModelWorkflowOverride
-    from .prompt_agent_api_model_workflow_override_tools_item import (
-        PromptAgentApiModelWorkflowOverrideToolsItem,
-        PromptAgentApiModelWorkflowOverrideToolsItem_Client,
-        PromptAgentApiModelWorkflowOverrideToolsItem_Mcp,
-        PromptAgentApiModelWorkflowOverrideToolsItem_System,
-        PromptAgentApiModelWorkflowOverrideToolsItem_Webhook,
+    from .prompt_agent_api_model_workflow_override_input import PromptAgentApiModelWorkflowOverrideInput
+    from .prompt_agent_api_model_workflow_override_input_backup_llm_config import (
+        PromptAgentApiModelWorkflowOverrideInputBackupLlmConfig,
+    )
+    from .prompt_agent_api_model_workflow_override_input_tools_item import (
+        PromptAgentApiModelWorkflowOverrideInputToolsItem,
+        PromptAgentApiModelWorkflowOverrideInputToolsItem_ApiIntegrationWebhook,
+        PromptAgentApiModelWorkflowOverrideInputToolsItem_Client,
+        PromptAgentApiModelWorkflowOverrideInputToolsItem_Mcp,
+        PromptAgentApiModelWorkflowOverrideInputToolsItem_System,
+        PromptAgentApiModelWorkflowOverrideInputToolsItem_Webhook,
+    )
+    from .prompt_agent_api_model_workflow_override_output import PromptAgentApiModelWorkflowOverrideOutput
+    from .prompt_agent_api_model_workflow_override_output_backup_llm_config import (
+        PromptAgentApiModelWorkflowOverrideOutputBackupLlmConfig,
+    )
+    from .prompt_agent_api_model_workflow_override_output_tools_item import (
+        PromptAgentApiModelWorkflowOverrideOutputToolsItem,
+        PromptAgentApiModelWorkflowOverrideOutputToolsItem_ApiIntegrationWebhook,
+        PromptAgentApiModelWorkflowOverrideOutputToolsItem_Client,
+        PromptAgentApiModelWorkflowOverrideOutputToolsItem_Mcp,
+        PromptAgentApiModelWorkflowOverrideOutputToolsItem_System,
+        PromptAgentApiModelWorkflowOverrideOutputToolsItem_Webhook,
     )
     from .prompt_agent_db_model import PromptAgentDbModel
     from .prompt_evaluation_criteria import PromptEvaluationCriteria
     from .pronunciation_dictionary_alias_rule_request_model import PronunciationDictionaryAliasRuleRequestModel
-    from .pronunciation_dictionary_locator import PronunciationDictionaryLocator
     from .pronunciation_dictionary_locator_response_model import PronunciationDictionaryLocatorResponseModel
     from .pronunciation_dictionary_phoneme_rule_request_model import PronunciationDictionaryPhonemeRuleRequestModel
     from .pronunciation_dictionary_rules_response_model import PronunciationDictionaryRulesResponseModel
@@ -654,6 +1286,7 @@ if typing.TYPE_CHECKING:
         PronunciationDictionaryVersionResponseModelPermissionOnResource,
     )
     from .pydantic_pronunciation_dictionary_version_locator import PydanticPronunciationDictionaryVersionLocator
+    from .query_override import QueryOverride
     from .query_params_json_schema import QueryParamsJsonSchema
     from .rag_chunk_metadata import RagChunkMetadata
     from .rag_config import RagConfig
@@ -661,16 +1294,20 @@ if typing.TYPE_CHECKING:
     from .rag_document_index_response_model import RagDocumentIndexResponseModel
     from .rag_document_index_usage import RagDocumentIndexUsage
     from .rag_document_indexes_response_model import RagDocumentIndexesResponseModel
+    from .rag_index_batch_successful_response_model import RagIndexBatchSuccessfulResponseModel
     from .rag_index_overview_embedding_model_response_model import RagIndexOverviewEmbeddingModelResponseModel
     from .rag_index_overview_response_model import RagIndexOverviewResponseModel
     from .rag_index_status import RagIndexStatus
     from .rag_retrieval_info import RagRetrievalInfo
+    from .read_legal_terms import ReadLegalTerms
+    from .read_metadata_chapter_db_model import ReadMetadataChapterDbModel
     from .reader_resource_response_model import ReaderResourceResponseModel
     from .reader_resource_response_model_resource_type import ReaderResourceResponseModelResourceType
-    from .realtime_voice_settings import RealtimeVoiceSettings
     from .recording_response import RecordingResponse
     from .referenced_tool_common_model import ReferencedToolCommonModel
+    from .referenced_tool_common_model_type import ReferencedToolCommonModelType
     from .regex_parameter_evaluation_strategy import RegexParameterEvaluationStrategy
+    from .region_config_request import RegionConfigRequest
     from .remove_member_from_group_request import RemoveMemberFromGroupRequest
     from .render import Render
     from .render_status import RenderStatus
@@ -682,40 +1319,53 @@ if typing.TYPE_CHECKING:
     from .resource_metadata_response_model_anonymous_access_level_override import (
         ResourceMetadataResponseModelAnonymousAccessLevelOverride,
     )
+    from .review_response_model import ReviewResponseModel
+    from .review_response_model_reject_reasons_item import ReviewResponseModelRejectReasonsItem
+    from .review_response_model_review_status import ReviewResponseModelReviewStatus
     from .review_status import ReviewStatus
     from .safety_common_model import SafetyCommonModel
     from .safety_evaluation import SafetyEvaluation
     from .safety_response_model import SafetyResponseModel
     from .safety_rule import SafetyRule
+    from .sample_config_db_model import SampleConfigDbModel
+    from .sample_config_db_model_parent_type import SampleConfigDbModelParentType
     from .save_voice_preview_request import SaveVoicePreviewRequest
     from .secret_dependency_type import SecretDependencyType
+    from .section_source import SectionSource
     from .segment_create_response import SegmentCreateResponse
     from .segment_delete_response import SegmentDeleteResponse
     from .segment_dub_response import SegmentDubResponse
+    from .segment_migration_response import SegmentMigrationResponse
     from .segment_subtitle_frame import SegmentSubtitleFrame
     from .segment_transcription_response import SegmentTranscriptionResponse
     from .segment_translation_response import SegmentTranslationResponse
     from .segment_update_response import SegmentUpdateResponse
     from .segmented_json_export_options import SegmentedJsonExportOptions
-    from .send_text import SendText
-    from .send_text_multi import SendTextMulti
     from .share_option_response_model import ShareOptionResponseModel
     from .share_option_response_model_type import ShareOptionResponseModelType
     from .similar_voice import SimilarVoice
     from .similar_voice_category import SimilarVoiceCategory
     from .similar_voices_for_speaker_response import SimilarVoicesForSpeakerResponse
     from .single_test_run_request_model import SingleTestRunRequestModel
+    from .single_use_token_response_model import SingleUseTokenResponseModel
+    from .single_use_token_type import SingleUseTokenType
     from .sip_media_encryption_enum import SipMediaEncryptionEnum
     from .sip_trunk_credentials_request_model import SipTrunkCredentialsRequestModel
     from .sip_trunk_outbound_call_response import SipTrunkOutboundCallResponse
     from .sip_trunk_transport_enum import SipTrunkTransportEnum
+    from .sip_uri_dynamic_variable_transfer_destination import SipUriDynamicVariableTransferDestination
     from .sip_uri_transfer_destination import SipUriTransferDestination
     from .skip_turn_tool_config import SkipTurnToolConfig
     from .skip_turn_tool_response_model import SkipTurnToolResponseModel
+    from .soft_timeout_config import SoftTimeoutConfig
+    from .soft_timeout_config_override import SoftTimeoutConfigOverride
+    from .soft_timeout_config_override_config import SoftTimeoutConfigOverrideConfig
+    from .soft_timeout_config_workflow_override import SoftTimeoutConfigWorkflowOverride
     from .song_metadata import SongMetadata
     from .song_section import SongSection
     from .sort_direction import SortDirection
     from .speaker_audio_response_model import SpeakerAudioResponseModel
+    from .speaker_created_response import SpeakerCreatedResponse
     from .speaker_response_model import SpeakerResponseModel
     from .speaker_segment import SpeakerSegment
     from .speaker_separation_response_model import SpeakerSeparationResponseModel
@@ -730,18 +1380,19 @@ if typing.TYPE_CHECKING:
     from .speech_to_text_webhook_response_model import SpeechToTextWebhookResponseModel
     from .speech_to_text_word_response_model import SpeechToTextWordResponseModel
     from .speech_to_text_word_response_model_type import SpeechToTextWordResponseModelType
+    from .spelling_patience import SpellingPatience
     from .srt_export_options import SrtExportOptions
     from .start_pvc_voice_training_response_model import StartPvcVoiceTrainingResponseModel
     from .start_speaker_separation_response_model import StartSpeakerSeparationResponseModel
+    from .streaming_audio_chunk_with_timestamps_and_voice_segments_response_model import (
+        StreamingAudioChunkWithTimestampsAndVoiceSegmentsResponseModel,
+    )
     from .streaming_audio_chunk_with_timestamps_response import StreamingAudioChunkWithTimestampsResponse
     from .subscription import Subscription
-    from .subscription_extras_response_model import SubscriptionExtrasResponseModel
     from .subscription_response import SubscriptionResponse
-    from .subscription_response_model_billing_period import SubscriptionResponseModelBillingPeriod
-    from .subscription_response_model_character_refresh_period import SubscriptionResponseModelCharacterRefreshPeriod
     from .subscription_response_model_currency import SubscriptionResponseModelCurrency
     from .subscription_status_type import SubscriptionStatusType
-    from .subscription_usage_response_model import SubscriptionUsageResponseModel
+    from .suggested_audio_tag import SuggestedAudioTag
     from .supported_voice import SupportedVoice
     from .system_tool_config_input import SystemToolConfigInput
     from .system_tool_config_input_params import (
@@ -768,25 +1419,32 @@ if typing.TYPE_CHECKING:
     from .telephony_provider import TelephonyProvider
     from .test_condition_rationale_common_model import TestConditionRationaleCommonModel
     from .test_condition_result_common_model import TestConditionResultCommonModel
+    from .test_from_conversation_metadata_input import TestFromConversationMetadataInput
+    from .test_from_conversation_metadata_output import TestFromConversationMetadataOutput
+    from .test_invocation_summary_response_model import TestInvocationSummaryResponseModel
     from .test_run_metadata import TestRunMetadata
     from .test_run_metadata_test_type import TestRunMetadataTestType
     from .test_run_status import TestRunStatus
     from .test_tool_result_model import TestToolResultModel
     from .tests_feature_usage_common_model import TestsFeatureUsageCommonModel
-    from .text_to_speech_apply_text_normalization_enum import TextToSpeechApplyTextNormalizationEnum
-    from .text_to_speech_output_format_enum import TextToSpeechOutputFormatEnum
+    from .text_normalisation_type import TextNormalisationType
+    from .text_to_speech_request import TextToSpeechRequest
     from .text_to_speech_stream_request import TextToSpeechStreamRequest
     from .text_to_speech_stream_with_timestamps_request import TextToSpeechStreamWithTimestampsRequest
     from .text_to_speech_with_timestamps_request import TextToSpeechWithTimestampsRequest
+    from .threshold_guardrail import ThresholdGuardrail
+    from .time_range import TimeRange
     from .token_response_model import TokenResponseModel
     from .tool import Tool
     from .tool_annotations import ToolAnnotations
+    from .tool_call_sound_behavior import ToolCallSoundBehavior
+    from .tool_call_sound_type import ToolCallSoundType
+    from .tool_execution_mode import ToolExecutionMode
     from .tool_mock_config import ToolMockConfig
     from .tool_request_model import ToolRequestModel
     from .tool_request_model_tool_config import (
         ToolRequestModelToolConfig,
         ToolRequestModelToolConfig_Client,
-        ToolRequestModelToolConfig_Mcp,
         ToolRequestModelToolConfig_System,
         ToolRequestModelToolConfig_Webhook,
     )
@@ -794,7 +1452,6 @@ if typing.TYPE_CHECKING:
     from .tool_response_model_tool_config import (
         ToolResponseModelToolConfig,
         ToolResponseModelToolConfig_Client,
-        ToolResponseModelToolConfig_Mcp,
         ToolResponseModelToolConfig_System,
         ToolResponseModelToolConfig_Webhook,
     )
@@ -814,16 +1471,24 @@ if typing.TYPE_CHECKING:
     from .tts_conversational_config_output import TtsConversationalConfigOutput
     from .tts_conversational_config_override import TtsConversationalConfigOverride
     from .tts_conversational_config_override_config import TtsConversationalConfigOverrideConfig
-    from .tts_conversational_config_workflow_override import TtsConversationalConfigWorkflowOverride
+    from .tts_conversational_config_workflow_override_input import TtsConversationalConfigWorkflowOverrideInput
+    from .tts_conversational_config_workflow_override_output import TtsConversationalConfigWorkflowOverrideOutput
     from .tts_conversational_model import TtsConversationalModel
     from .tts_model_family import TtsModelFamily
     from .tts_optimize_streaming_latency import TtsOptimizeStreamingLatency
     from .tts_output_format import TtsOutputFormat
     from .turn_config import TurnConfig
+    from .turn_config_override import TurnConfigOverride
+    from .turn_config_override_config import TurnConfigOverrideConfig
     from .turn_config_workflow_override import TurnConfigWorkflowOverride
+    from .turn_eagerness import TurnEagerness
     from .turn_mode import TurnMode
+    from .twilio_edge_location import TwilioEdgeLocation
     from .twilio_outbound_call_response import TwilioOutboundCallResponse
+    from .twilio_region_id import TwilioRegionId
     from .txt_export_options import TxtExportOptions
+    from .unit_test_common_model import UnitTestCommonModel
+    from .unit_test_common_model_dynamic_variables_value import UnitTestCommonModelDynamicVariablesValue
     from .unit_test_common_model_type import UnitTestCommonModelType
     from .unit_test_run_response_model import UnitTestRunResponseModel
     from .unit_test_summary_response_model import UnitTestSummaryResponseModel
@@ -867,6 +1532,7 @@ if typing.TYPE_CHECKING:
     from .voice_sample import VoiceSample
     from .voice_sample_preview_response_model import VoiceSamplePreviewResponseModel
     from .voice_sample_visual_waveform_response_model import VoiceSampleVisualWaveformResponseModel
+    from .voice_segment import VoiceSegment
     from .voice_settings import VoiceSettings
     from .voice_sharing_moderation_check_response_model import VoiceSharingModerationCheckResponseModel
     from .voice_sharing_response import VoiceSharingResponse
@@ -875,12 +1541,16 @@ if typing.TYPE_CHECKING:
     from .voice_verification_response import VoiceVerificationResponse
     from .voicemail_detection_tool_config import VoicemailDetectionToolConfig
     from .webhook_auth_method_type import WebhookAuthMethodType
+    from .webhook_event_type import WebhookEventType
+    from .webhook_hmac_settings import WebhookHmacSettings
     from .webhook_tool_api_schema_config_input import WebhookToolApiSchemaConfigInput
+    from .webhook_tool_api_schema_config_input_content_type import WebhookToolApiSchemaConfigInputContentType
     from .webhook_tool_api_schema_config_input_method import WebhookToolApiSchemaConfigInputMethod
     from .webhook_tool_api_schema_config_input_request_headers_value import (
         WebhookToolApiSchemaConfigInputRequestHeadersValue,
     )
     from .webhook_tool_api_schema_config_output import WebhookToolApiSchemaConfigOutput
+    from .webhook_tool_api_schema_config_output_content_type import WebhookToolApiSchemaConfigOutputContentType
     from .webhook_tool_api_schema_config_output_method import WebhookToolApiSchemaConfigOutputMethod
     from .webhook_tool_api_schema_config_output_request_headers_value import (
         WebhookToolApiSchemaConfigOutputRequestHeadersValue,
@@ -888,8 +1558,9 @@ if typing.TYPE_CHECKING:
     from .webhook_tool_config_input import WebhookToolConfigInput
     from .webhook_tool_config_output import WebhookToolConfigOutput
     from .webhook_usage_type import WebhookUsageType
-    from .websocket_tts_client_message_multi import WebsocketTtsClientMessageMulti
-    from .websocket_tts_server_message_multi import WebsocketTtsServerMessageMulti
+    from .whats_app_conversation_info import WhatsAppConversationInfo
+    from .whats_app_conversation_info_direction import WhatsAppConversationInfoDirection
+    from .whats_app_outbound_call_response import WhatsAppOutboundCallResponse
     from .widget_config import WidgetConfig
     from .widget_config_input_avatar import (
         WidgetConfigInputAvatar,
@@ -910,39 +1581,120 @@ if typing.TYPE_CHECKING:
         WidgetConfigResponseModelAvatar_Orb,
         WidgetConfigResponseModelAvatar_Url,
     )
+    from .widget_end_feedback_config import WidgetEndFeedbackConfig
+    from .widget_end_feedback_type import WidgetEndFeedbackType
     from .widget_expandable import WidgetExpandable
     from .widget_feedback_mode import WidgetFeedbackMode
     from .widget_language_preset import WidgetLanguagePreset
     from .widget_language_preset_response import WidgetLanguagePresetResponse
     from .widget_placement import WidgetPlacement
     from .widget_styles import WidgetStyles
+    from .widget_terms_translation import WidgetTermsTranslation
     from .widget_text_contents import WidgetTextContents
-    from .workflow_edge_model import WorkflowEdgeModel
-    from .workflow_edge_model_backward_condition import (
-        WorkflowEdgeModelBackwardCondition,
-        WorkflowEdgeModelBackwardCondition_Llm,
-        WorkflowEdgeModelBackwardCondition_Result,
-        WorkflowEdgeModelBackwardCondition_Unconditional,
+    from .word_timestamp import WordTimestamp
+    from .workflow_edge_model_input import WorkflowEdgeModelInput
+    from .workflow_edge_model_input_backward_condition import (
+        WorkflowEdgeModelInputBackwardCondition,
+        WorkflowEdgeModelInputBackwardCondition_Expression,
+        WorkflowEdgeModelInputBackwardCondition_Llm,
+        WorkflowEdgeModelInputBackwardCondition_Result,
+        WorkflowEdgeModelInputBackwardCondition_Unconditional,
     )
-    from .workflow_edge_model_forward_condition import (
-        WorkflowEdgeModelForwardCondition,
-        WorkflowEdgeModelForwardCondition_Llm,
-        WorkflowEdgeModelForwardCondition_Result,
-        WorkflowEdgeModelForwardCondition_Unconditional,
+    from .workflow_edge_model_input_forward_condition import (
+        WorkflowEdgeModelInputForwardCondition,
+        WorkflowEdgeModelInputForwardCondition_Expression,
+        WorkflowEdgeModelInputForwardCondition_Llm,
+        WorkflowEdgeModelInputForwardCondition_Result,
+        WorkflowEdgeModelInputForwardCondition_Unconditional,
     )
-    from .workflow_end_node_model import WorkflowEndNodeModel
+    from .workflow_edge_model_output import WorkflowEdgeModelOutput
+    from .workflow_edge_model_output_backward_condition import (
+        WorkflowEdgeModelOutputBackwardCondition,
+        WorkflowEdgeModelOutputBackwardCondition_Expression,
+        WorkflowEdgeModelOutputBackwardCondition_Llm,
+        WorkflowEdgeModelOutputBackwardCondition_Result,
+        WorkflowEdgeModelOutputBackwardCondition_Unconditional,
+    )
+    from .workflow_edge_model_output_forward_condition import (
+        WorkflowEdgeModelOutputForwardCondition,
+        WorkflowEdgeModelOutputForwardCondition_Expression,
+        WorkflowEdgeModelOutputForwardCondition_Llm,
+        WorkflowEdgeModelOutputForwardCondition_Result,
+        WorkflowEdgeModelOutputForwardCondition_Unconditional,
+    )
+    from .workflow_end_node_model_input import WorkflowEndNodeModelInput
+    from .workflow_end_node_model_output import WorkflowEndNodeModelOutput
+    from .workflow_expression_condition_model_input import WorkflowExpressionConditionModelInput
+    from .workflow_expression_condition_model_input_expression import (
+        WorkflowExpressionConditionModelInputExpression,
+        WorkflowExpressionConditionModelInputExpression_AndOperator,
+        WorkflowExpressionConditionModelInputExpression_BooleanLiteral,
+        WorkflowExpressionConditionModelInputExpression_DynamicVariable,
+        WorkflowExpressionConditionModelInputExpression_EqOperator,
+        WorkflowExpressionConditionModelInputExpression_GtOperator,
+        WorkflowExpressionConditionModelInputExpression_GteOperator,
+        WorkflowExpressionConditionModelInputExpression_Llm,
+        WorkflowExpressionConditionModelInputExpression_LtOperator,
+        WorkflowExpressionConditionModelInputExpression_LteOperator,
+        WorkflowExpressionConditionModelInputExpression_NeqOperator,
+        WorkflowExpressionConditionModelInputExpression_NumberLiteral,
+        WorkflowExpressionConditionModelInputExpression_OrOperator,
+        WorkflowExpressionConditionModelInputExpression_StringLiteral,
+    )
+    from .workflow_expression_condition_model_output import WorkflowExpressionConditionModelOutput
+    from .workflow_expression_condition_model_output_expression import (
+        WorkflowExpressionConditionModelOutputExpression,
+        WorkflowExpressionConditionModelOutputExpression_AndOperator,
+        WorkflowExpressionConditionModelOutputExpression_BooleanLiteral,
+        WorkflowExpressionConditionModelOutputExpression_DynamicVariable,
+        WorkflowExpressionConditionModelOutputExpression_EqOperator,
+        WorkflowExpressionConditionModelOutputExpression_GtOperator,
+        WorkflowExpressionConditionModelOutputExpression_GteOperator,
+        WorkflowExpressionConditionModelOutputExpression_Llm,
+        WorkflowExpressionConditionModelOutputExpression_LtOperator,
+        WorkflowExpressionConditionModelOutputExpression_LteOperator,
+        WorkflowExpressionConditionModelOutputExpression_NeqOperator,
+        WorkflowExpressionConditionModelOutputExpression_NumberLiteral,
+        WorkflowExpressionConditionModelOutputExpression_OrOperator,
+        WorkflowExpressionConditionModelOutputExpression_StringLiteral,
+    )
     from .workflow_features_usage_common_model import WorkflowFeaturesUsageCommonModel
-    from .workflow_llm_condition_model import WorkflowLlmConditionModel
-    from .workflow_override_agent_node_model import WorkflowOverrideAgentNodeModel
-    from .workflow_phone_number_node_model import WorkflowPhoneNumberNodeModel
-    from .workflow_phone_number_node_model_transfer_destination import (
-        WorkflowPhoneNumberNodeModelTransferDestination,
-        WorkflowPhoneNumberNodeModelTransferDestination_Phone,
-        WorkflowPhoneNumberNodeModelTransferDestination_SipUri,
+    from .workflow_llm_condition_model_input import WorkflowLlmConditionModelInput
+    from .workflow_llm_condition_model_output import WorkflowLlmConditionModelOutput
+    from .workflow_override_agent_node_model_input import WorkflowOverrideAgentNodeModelInput
+    from .workflow_override_agent_node_model_output import WorkflowOverrideAgentNodeModelOutput
+    from .workflow_phone_number_node_model_input import WorkflowPhoneNumberNodeModelInput
+    from .workflow_phone_number_node_model_input_custom_sip_headers_item import (
+        WorkflowPhoneNumberNodeModelInputCustomSipHeadersItem,
+        WorkflowPhoneNumberNodeModelInputCustomSipHeadersItem_Dynamic,
+        WorkflowPhoneNumberNodeModelInputCustomSipHeadersItem_Static,
     )
-    from .workflow_result_condition_model import WorkflowResultConditionModel
-    from .workflow_standalone_agent_node_model import WorkflowStandaloneAgentNodeModel
-    from .workflow_start_node_model import WorkflowStartNodeModel
+    from .workflow_phone_number_node_model_input_transfer_destination import (
+        WorkflowPhoneNumberNodeModelInputTransferDestination,
+        WorkflowPhoneNumberNodeModelInputTransferDestination_Phone,
+        WorkflowPhoneNumberNodeModelInputTransferDestination_PhoneDynamicVariable,
+        WorkflowPhoneNumberNodeModelInputTransferDestination_SipUri,
+        WorkflowPhoneNumberNodeModelInputTransferDestination_SipUriDynamicVariable,
+    )
+    from .workflow_phone_number_node_model_output import WorkflowPhoneNumberNodeModelOutput
+    from .workflow_phone_number_node_model_output_custom_sip_headers_item import (
+        WorkflowPhoneNumberNodeModelOutputCustomSipHeadersItem,
+        WorkflowPhoneNumberNodeModelOutputCustomSipHeadersItem_Dynamic,
+        WorkflowPhoneNumberNodeModelOutputCustomSipHeadersItem_Static,
+    )
+    from .workflow_phone_number_node_model_output_transfer_destination import (
+        WorkflowPhoneNumberNodeModelOutputTransferDestination,
+        WorkflowPhoneNumberNodeModelOutputTransferDestination_Phone,
+        WorkflowPhoneNumberNodeModelOutputTransferDestination_PhoneDynamicVariable,
+        WorkflowPhoneNumberNodeModelOutputTransferDestination_SipUri,
+        WorkflowPhoneNumberNodeModelOutputTransferDestination_SipUriDynamicVariable,
+    )
+    from .workflow_result_condition_model_input import WorkflowResultConditionModelInput
+    from .workflow_result_condition_model_output import WorkflowResultConditionModelOutput
+    from .workflow_standalone_agent_node_model_input import WorkflowStandaloneAgentNodeModelInput
+    from .workflow_standalone_agent_node_model_output import WorkflowStandaloneAgentNodeModelOutput
+    from .workflow_start_node_model_input import WorkflowStartNodeModelInput
+    from .workflow_start_node_model_output import WorkflowStartNodeModelOutput
     from .workflow_tool_edge_step_model import WorkflowToolEdgeStepModel
     from .workflow_tool_locator import WorkflowToolLocator
     from .workflow_tool_max_iterations_exceeded_step_model import WorkflowToolMaxIterationsExceededStepModel
@@ -954,7 +1706,8 @@ if typing.TYPE_CHECKING:
     from .workflow_tool_nested_tools_step_model_output_results_item import (
         WorkflowToolNestedToolsStepModelOutputResultsItem,
     )
-    from .workflow_tool_node_model import WorkflowToolNodeModel
+    from .workflow_tool_node_model_input import WorkflowToolNodeModelInput
+    from .workflow_tool_node_model_output import WorkflowToolNodeModelOutput
     from .workflow_tool_response_model_input import WorkflowToolResponseModelInput
     from .workflow_tool_response_model_input_steps_item import (
         WorkflowToolResponseModelInputStepsItem,
@@ -969,12 +1722,13 @@ if typing.TYPE_CHECKING:
         WorkflowToolResponseModelOutputStepsItem_MaxIterationsExceeded,
         WorkflowToolResponseModelOutputStepsItem_NestedTools,
     )
-    from .workflow_unconditional_model import WorkflowUnconditionalModel
+    from .workflow_unconditional_model_input import WorkflowUnconditionalModelInput
+    from .workflow_unconditional_model_output import WorkflowUnconditionalModelOutput
     from .workspace_api_key_list_response_model import WorkspaceApiKeyListResponseModel
     from .workspace_api_key_response_model import WorkspaceApiKeyResponseModel
-    from .workspace_api_key_response_model_permissions_item import WorkspaceApiKeyResponseModelPermissionsItem
     from .workspace_batch_calls_response import WorkspaceBatchCallsResponse
     from .workspace_create_api_key_response_model import WorkspaceCreateApiKeyResponseModel
+    from .workspace_create_webhook_response_model import WorkspaceCreateWebhookResponseModel
     from .workspace_group_by_name_response_model import WorkspaceGroupByNameResponseModel
     from .workspace_resource_type import WorkspaceResourceType
     from .workspace_service_account_list_response_model import WorkspaceServiceAccountListResponseModel
@@ -1000,9 +1754,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Age": ".age",
     "AgentCallLimits": ".agent_call_limits",
     "AgentConfig": ".agent_config",
-    "AgentConfigApiModelWorkflowOverride": ".agent_config_api_model_workflow_override",
-    "AgentConfigOverride": ".agent_config_override",
+    "AgentConfigApiModelWorkflowOverrideInput": ".agent_config_api_model_workflow_override_input",
+    "AgentConfigApiModelWorkflowOverrideOutput": ".agent_config_api_model_workflow_override_output",
     "AgentConfigOverrideConfig": ".agent_config_override_config",
+    "AgentConfigOverrideInput": ".agent_config_override_input",
+    "AgentConfigOverrideOutput": ".agent_config_override_output",
+    "AgentDefinitionSource": ".agent_definition_source",
     "AgentFailureResponseExample": ".agent_failure_response_example",
     "AgentMetadata": ".agent_metadata",
     "AgentMetadataResponseModel": ".agent_metadata_response_model",
@@ -1011,6 +1768,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AgentSimulatedChatTestResponseModel": ".agent_simulated_chat_test_response_model",
     "AgentSortBy": ".agent_sort_by",
     "AgentSuccessfulResponseExample": ".agent_successful_response_example",
+    "AgentSummaryBatchSuccessfulResponseModel": ".agent_summary_batch_successful_response_model",
     "AgentSummaryResponseModel": ".agent_summary_response_model",
     "AgentTestingSettings": ".agent_testing_settings",
     "AgentTransfer": ".agent_transfer",
@@ -1022,10 +1780,24 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AgentWorkflowRequestModelNodesValue_StandaloneAgent": ".agent_workflow_request_model_nodes_value",
     "AgentWorkflowRequestModelNodesValue_Start": ".agent_workflow_request_model_nodes_value",
     "AgentWorkflowRequestModelNodesValue_Tool": ".agent_workflow_request_model_nodes_value",
+    "AgentWorkflowResponseModel": ".agent_workflow_response_model",
+    "AgentWorkflowResponseModelNodesValue": ".agent_workflow_response_model_nodes_value",
+    "AgentWorkflowResponseModelNodesValue_End": ".agent_workflow_response_model_nodes_value",
+    "AgentWorkflowResponseModelNodesValue_OverrideAgent": ".agent_workflow_response_model_nodes_value",
+    "AgentWorkflowResponseModelNodesValue_PhoneNumber": ".agent_workflow_response_model_nodes_value",
+    "AgentWorkflowResponseModelNodesValue_StandaloneAgent": ".agent_workflow_response_model_nodes_value",
+    "AgentWorkflowResponseModelNodesValue_Start": ".agent_workflow_response_model_nodes_value",
+    "AgentWorkflowResponseModelNodesValue_Tool": ".agent_workflow_response_model_nodes_value",
     "AgentWorkspaceOverridesInput": ".agent_workspace_overrides_input",
     "AgentWorkspaceOverridesOutput": ".agent_workspace_overrides_output",
-    "Alignment": ".alignment",
+    "AllowedOutputFormats": ".allowed_output_formats",
     "AllowlistItem": ".allowlist_item",
+    "ApiIntegrationWebhookOverridesInput": ".api_integration_webhook_overrides_input",
+    "ApiIntegrationWebhookOverridesInputRequestHeadersValue": ".api_integration_webhook_overrides_input_request_headers_value",
+    "ApiIntegrationWebhookOverridesOutput": ".api_integration_webhook_overrides_output",
+    "ApiIntegrationWebhookOverridesOutputRequestHeadersValue": ".api_integration_webhook_overrides_output_request_headers_value",
+    "ApiIntegrationWebhookToolConfigInput": ".api_integration_webhook_tool_config_input",
+    "ApiIntegrationWebhookToolConfigOutput": ".api_integration_webhook_tool_config_output",
     "ArrayJsonSchemaPropertyInput": ".array_json_schema_property_input",
     "ArrayJsonSchemaPropertyInputItems": ".array_json_schema_property_input_items",
     "ArrayJsonSchemaPropertyOutput": ".array_json_schema_property_output",
@@ -1035,29 +1807,456 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AsrInputFormat": ".asr_input_format",
     "AsrProvider": ".asr_provider",
     "AsrQuality": ".asr_quality",
+    "AstAndOperatorNodeInput": ".ast_and_operator_node_input",
+    "AstAndOperatorNodeInputChildrenItem": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeInputChildrenItem_AndOperator": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeInputChildrenItem_BooleanLiteral": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeInputChildrenItem_DynamicVariable": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeInputChildrenItem_EqOperator": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeInputChildrenItem_GtOperator": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeInputChildrenItem_GteOperator": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeInputChildrenItem_Llm": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeInputChildrenItem_LtOperator": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeInputChildrenItem_LteOperator": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeInputChildrenItem_NeqOperator": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeInputChildrenItem_NumberLiteral": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeInputChildrenItem_OrOperator": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeInputChildrenItem_StringLiteral": ".ast_and_operator_node_input_children_item",
+    "AstAndOperatorNodeOutput": ".ast_and_operator_node_output",
+    "AstAndOperatorNodeOutputChildrenItem": ".ast_and_operator_node_output_children_item",
+    "AstAndOperatorNodeOutputChildrenItem_AndOperator": ".ast_and_operator_node_output_children_item",
+    "AstAndOperatorNodeOutputChildrenItem_BooleanLiteral": ".ast_and_operator_node_output_children_item",
+    "AstAndOperatorNodeOutputChildrenItem_DynamicVariable": ".ast_and_operator_node_output_children_item",
+    "AstAndOperatorNodeOutputChildrenItem_EqOperator": ".ast_and_operator_node_output_children_item",
+    "AstAndOperatorNodeOutputChildrenItem_GtOperator": ".ast_and_operator_node_output_children_item",
+    "AstAndOperatorNodeOutputChildrenItem_GteOperator": ".ast_and_operator_node_output_children_item",
+    "AstAndOperatorNodeOutputChildrenItem_Llm": ".ast_and_operator_node_output_children_item",
+    "AstAndOperatorNodeOutputChildrenItem_LtOperator": ".ast_and_operator_node_output_children_item",
+    "AstAndOperatorNodeOutputChildrenItem_LteOperator": ".ast_and_operator_node_output_children_item",
+    "AstAndOperatorNodeOutputChildrenItem_NeqOperator": ".ast_and_operator_node_output_children_item",
+    "AstAndOperatorNodeOutputChildrenItem_NumberLiteral": ".ast_and_operator_node_output_children_item",
+    "AstAndOperatorNodeOutputChildrenItem_OrOperator": ".ast_and_operator_node_output_children_item",
+    "AstAndOperatorNodeOutputChildrenItem_StringLiteral": ".ast_and_operator_node_output_children_item",
+    "AstBooleanNodeInput": ".ast_boolean_node_input",
+    "AstBooleanNodeOutput": ".ast_boolean_node_output",
+    "AstDynamicVariableNodeInput": ".ast_dynamic_variable_node_input",
+    "AstDynamicVariableNodeOutput": ".ast_dynamic_variable_node_output",
+    "AstEqualsOperatorNodeInput": ".ast_equals_operator_node_input",
+    "AstEqualsOperatorNodeInputLeft": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputLeft_AndOperator": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputLeft_BooleanLiteral": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputLeft_DynamicVariable": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputLeft_EqOperator": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputLeft_GtOperator": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputLeft_GteOperator": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputLeft_Llm": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputLeft_LtOperator": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputLeft_LteOperator": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputLeft_NeqOperator": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputLeft_NumberLiteral": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputLeft_OrOperator": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputLeft_StringLiteral": ".ast_equals_operator_node_input_left",
+    "AstEqualsOperatorNodeInputRight": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeInputRight_AndOperator": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeInputRight_BooleanLiteral": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeInputRight_DynamicVariable": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeInputRight_EqOperator": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeInputRight_GtOperator": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeInputRight_GteOperator": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeInputRight_Llm": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeInputRight_LtOperator": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeInputRight_LteOperator": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeInputRight_NeqOperator": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeInputRight_NumberLiteral": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeInputRight_OrOperator": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeInputRight_StringLiteral": ".ast_equals_operator_node_input_right",
+    "AstEqualsOperatorNodeOutput": ".ast_equals_operator_node_output",
+    "AstEqualsOperatorNodeOutputLeft": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputLeft_AndOperator": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputLeft_BooleanLiteral": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputLeft_DynamicVariable": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputLeft_EqOperator": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputLeft_GtOperator": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputLeft_GteOperator": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputLeft_Llm": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputLeft_LtOperator": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputLeft_LteOperator": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputLeft_NeqOperator": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputLeft_NumberLiteral": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputLeft_OrOperator": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputLeft_StringLiteral": ".ast_equals_operator_node_output_left",
+    "AstEqualsOperatorNodeOutputRight": ".ast_equals_operator_node_output_right",
+    "AstEqualsOperatorNodeOutputRight_AndOperator": ".ast_equals_operator_node_output_right",
+    "AstEqualsOperatorNodeOutputRight_BooleanLiteral": ".ast_equals_operator_node_output_right",
+    "AstEqualsOperatorNodeOutputRight_DynamicVariable": ".ast_equals_operator_node_output_right",
+    "AstEqualsOperatorNodeOutputRight_EqOperator": ".ast_equals_operator_node_output_right",
+    "AstEqualsOperatorNodeOutputRight_GtOperator": ".ast_equals_operator_node_output_right",
+    "AstEqualsOperatorNodeOutputRight_GteOperator": ".ast_equals_operator_node_output_right",
+    "AstEqualsOperatorNodeOutputRight_Llm": ".ast_equals_operator_node_output_right",
+    "AstEqualsOperatorNodeOutputRight_LtOperator": ".ast_equals_operator_node_output_right",
+    "AstEqualsOperatorNodeOutputRight_LteOperator": ".ast_equals_operator_node_output_right",
+    "AstEqualsOperatorNodeOutputRight_NeqOperator": ".ast_equals_operator_node_output_right",
+    "AstEqualsOperatorNodeOutputRight_NumberLiteral": ".ast_equals_operator_node_output_right",
+    "AstEqualsOperatorNodeOutputRight_OrOperator": ".ast_equals_operator_node_output_right",
+    "AstEqualsOperatorNodeOutputRight_StringLiteral": ".ast_equals_operator_node_output_right",
+    "AstGreaterThanOperatorNodeInput": ".ast_greater_than_operator_node_input",
+    "AstGreaterThanOperatorNodeInputLeft": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputLeft_AndOperator": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputLeft_BooleanLiteral": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputLeft_DynamicVariable": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputLeft_EqOperator": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputLeft_GtOperator": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputLeft_GteOperator": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputLeft_Llm": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputLeft_LtOperator": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputLeft_LteOperator": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputLeft_NeqOperator": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputLeft_NumberLiteral": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputLeft_OrOperator": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputLeft_StringLiteral": ".ast_greater_than_operator_node_input_left",
+    "AstGreaterThanOperatorNodeInputRight": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeInputRight_AndOperator": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeInputRight_BooleanLiteral": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeInputRight_DynamicVariable": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeInputRight_EqOperator": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeInputRight_GtOperator": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeInputRight_GteOperator": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeInputRight_Llm": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeInputRight_LtOperator": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeInputRight_LteOperator": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeInputRight_NeqOperator": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeInputRight_NumberLiteral": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeInputRight_OrOperator": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeInputRight_StringLiteral": ".ast_greater_than_operator_node_input_right",
+    "AstGreaterThanOperatorNodeOutput": ".ast_greater_than_operator_node_output",
+    "AstGreaterThanOperatorNodeOutputLeft": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputLeft_AndOperator": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputLeft_BooleanLiteral": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputLeft_DynamicVariable": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputLeft_EqOperator": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputLeft_GtOperator": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputLeft_GteOperator": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputLeft_Llm": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputLeft_LtOperator": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputLeft_LteOperator": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputLeft_NeqOperator": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputLeft_NumberLiteral": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputLeft_OrOperator": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputLeft_StringLiteral": ".ast_greater_than_operator_node_output_left",
+    "AstGreaterThanOperatorNodeOutputRight": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOperatorNodeOutputRight_AndOperator": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOperatorNodeOutputRight_BooleanLiteral": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOperatorNodeOutputRight_DynamicVariable": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOperatorNodeOutputRight_EqOperator": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOperatorNodeOutputRight_GtOperator": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOperatorNodeOutputRight_GteOperator": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOperatorNodeOutputRight_Llm": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOperatorNodeOutputRight_LtOperator": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOperatorNodeOutputRight_LteOperator": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOperatorNodeOutputRight_NeqOperator": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOperatorNodeOutputRight_NumberLiteral": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOperatorNodeOutputRight_OrOperator": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOperatorNodeOutputRight_StringLiteral": ".ast_greater_than_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeInput": ".ast_greater_than_or_equals_operator_node_input",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_AndOperator": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_BooleanLiteral": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_DynamicVariable": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_EqOperator": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_GtOperator": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_GteOperator": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_Llm": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_LtOperator": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_LteOperator": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_NeqOperator": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_NumberLiteral": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_OrOperator": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_StringLiteral": ".ast_greater_than_or_equals_operator_node_input_left",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_AndOperator": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_BooleanLiteral": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_DynamicVariable": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_EqOperator": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_GtOperator": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_GteOperator": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_Llm": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_LtOperator": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_LteOperator": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_NeqOperator": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_NumberLiteral": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_OrOperator": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_StringLiteral": ".ast_greater_than_or_equals_operator_node_input_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutput": ".ast_greater_than_or_equals_operator_node_output",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_AndOperator": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_BooleanLiteral": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_DynamicVariable": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_EqOperator": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_GtOperator": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_GteOperator": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_Llm": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_LtOperator": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_LteOperator": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_NeqOperator": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_NumberLiteral": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_OrOperator": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_StringLiteral": ".ast_greater_than_or_equals_operator_node_output_left",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_AndOperator": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_BooleanLiteral": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_DynamicVariable": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_EqOperator": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_GtOperator": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_GteOperator": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_Llm": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_LtOperator": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_LteOperator": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_NeqOperator": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_NumberLiteral": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_OrOperator": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_StringLiteral": ".ast_greater_than_or_equals_operator_node_output_right",
+    "AstLessThanOperatorNodeInput": ".ast_less_than_operator_node_input",
+    "AstLessThanOperatorNodeInputLeft": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputLeft_AndOperator": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputLeft_BooleanLiteral": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputLeft_DynamicVariable": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputLeft_EqOperator": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputLeft_GtOperator": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputLeft_GteOperator": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputLeft_Llm": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputLeft_LtOperator": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputLeft_LteOperator": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputLeft_NeqOperator": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputLeft_NumberLiteral": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputLeft_OrOperator": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputLeft_StringLiteral": ".ast_less_than_operator_node_input_left",
+    "AstLessThanOperatorNodeInputRight": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeInputRight_AndOperator": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeInputRight_BooleanLiteral": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeInputRight_DynamicVariable": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeInputRight_EqOperator": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeInputRight_GtOperator": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeInputRight_GteOperator": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeInputRight_Llm": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeInputRight_LtOperator": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeInputRight_LteOperator": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeInputRight_NeqOperator": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeInputRight_NumberLiteral": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeInputRight_OrOperator": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeInputRight_StringLiteral": ".ast_less_than_operator_node_input_right",
+    "AstLessThanOperatorNodeOutput": ".ast_less_than_operator_node_output",
+    "AstLessThanOperatorNodeOutputLeft": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputLeft_AndOperator": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputLeft_BooleanLiteral": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputLeft_DynamicVariable": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputLeft_EqOperator": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputLeft_GtOperator": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputLeft_GteOperator": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputLeft_Llm": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputLeft_LtOperator": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputLeft_LteOperator": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputLeft_NeqOperator": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputLeft_NumberLiteral": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputLeft_OrOperator": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputLeft_StringLiteral": ".ast_less_than_operator_node_output_left",
+    "AstLessThanOperatorNodeOutputRight": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOperatorNodeOutputRight_AndOperator": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOperatorNodeOutputRight_BooleanLiteral": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOperatorNodeOutputRight_DynamicVariable": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOperatorNodeOutputRight_EqOperator": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOperatorNodeOutputRight_GtOperator": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOperatorNodeOutputRight_GteOperator": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOperatorNodeOutputRight_Llm": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOperatorNodeOutputRight_LtOperator": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOperatorNodeOutputRight_LteOperator": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOperatorNodeOutputRight_NeqOperator": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOperatorNodeOutputRight_NumberLiteral": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOperatorNodeOutputRight_OrOperator": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOperatorNodeOutputRight_StringLiteral": ".ast_less_than_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeInput": ".ast_less_than_or_equals_operator_node_input",
+    "AstLessThanOrEqualsOperatorNodeInputLeft": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_AndOperator": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_BooleanLiteral": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_DynamicVariable": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_EqOperator": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_GtOperator": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_GteOperator": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_Llm": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_LtOperator": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_LteOperator": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_NeqOperator": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_NumberLiteral": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_OrOperator": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_StringLiteral": ".ast_less_than_or_equals_operator_node_input_left",
+    "AstLessThanOrEqualsOperatorNodeInputRight": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeInputRight_AndOperator": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeInputRight_BooleanLiteral": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeInputRight_DynamicVariable": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeInputRight_EqOperator": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeInputRight_GtOperator": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeInputRight_GteOperator": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeInputRight_Llm": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeInputRight_LtOperator": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeInputRight_LteOperator": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeInputRight_NeqOperator": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeInputRight_NumberLiteral": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeInputRight_OrOperator": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeInputRight_StringLiteral": ".ast_less_than_or_equals_operator_node_input_right",
+    "AstLessThanOrEqualsOperatorNodeOutput": ".ast_less_than_or_equals_operator_node_output",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_AndOperator": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_BooleanLiteral": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_DynamicVariable": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_EqOperator": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_GtOperator": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_GteOperator": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_Llm": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_LtOperator": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_LteOperator": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_NeqOperator": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_NumberLiteral": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_OrOperator": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_StringLiteral": ".ast_less_than_or_equals_operator_node_output_left",
+    "AstLessThanOrEqualsOperatorNodeOutputRight": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_AndOperator": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_BooleanLiteral": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_DynamicVariable": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_EqOperator": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_GtOperator": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_GteOperator": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_Llm": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_LtOperator": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_LteOperator": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_NeqOperator": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_NumberLiteral": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_OrOperator": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_StringLiteral": ".ast_less_than_or_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeInput": ".ast_not_equals_operator_node_input",
+    "AstNotEqualsOperatorNodeInputLeft": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputLeft_AndOperator": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputLeft_BooleanLiteral": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputLeft_DynamicVariable": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputLeft_EqOperator": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputLeft_GtOperator": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputLeft_GteOperator": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputLeft_Llm": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputLeft_LtOperator": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputLeft_LteOperator": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputLeft_NeqOperator": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputLeft_NumberLiteral": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputLeft_OrOperator": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputLeft_StringLiteral": ".ast_not_equals_operator_node_input_left",
+    "AstNotEqualsOperatorNodeInputRight": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeInputRight_AndOperator": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeInputRight_BooleanLiteral": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeInputRight_DynamicVariable": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeInputRight_EqOperator": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeInputRight_GtOperator": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeInputRight_GteOperator": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeInputRight_Llm": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeInputRight_LtOperator": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeInputRight_LteOperator": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeInputRight_NeqOperator": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeInputRight_NumberLiteral": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeInputRight_OrOperator": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeInputRight_StringLiteral": ".ast_not_equals_operator_node_input_right",
+    "AstNotEqualsOperatorNodeOutput": ".ast_not_equals_operator_node_output",
+    "AstNotEqualsOperatorNodeOutputLeft": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputLeft_AndOperator": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputLeft_BooleanLiteral": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputLeft_DynamicVariable": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputLeft_EqOperator": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputLeft_GtOperator": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputLeft_GteOperator": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputLeft_Llm": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputLeft_LtOperator": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputLeft_LteOperator": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputLeft_NeqOperator": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputLeft_NumberLiteral": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputLeft_OrOperator": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputLeft_StringLiteral": ".ast_not_equals_operator_node_output_left",
+    "AstNotEqualsOperatorNodeOutputRight": ".ast_not_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeOutputRight_AndOperator": ".ast_not_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeOutputRight_BooleanLiteral": ".ast_not_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeOutputRight_DynamicVariable": ".ast_not_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeOutputRight_EqOperator": ".ast_not_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeOutputRight_GtOperator": ".ast_not_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeOutputRight_GteOperator": ".ast_not_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeOutputRight_Llm": ".ast_not_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeOutputRight_LtOperator": ".ast_not_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeOutputRight_LteOperator": ".ast_not_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeOutputRight_NeqOperator": ".ast_not_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeOutputRight_NumberLiteral": ".ast_not_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeOutputRight_OrOperator": ".ast_not_equals_operator_node_output_right",
+    "AstNotEqualsOperatorNodeOutputRight_StringLiteral": ".ast_not_equals_operator_node_output_right",
+    "AstNumberNodeInput": ".ast_number_node_input",
+    "AstNumberNodeOutput": ".ast_number_node_output",
+    "AstOrOperatorNodeInput": ".ast_or_operator_node_input",
+    "AstOrOperatorNodeInputChildrenItem": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeInputChildrenItem_AndOperator": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeInputChildrenItem_BooleanLiteral": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeInputChildrenItem_DynamicVariable": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeInputChildrenItem_EqOperator": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeInputChildrenItem_GtOperator": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeInputChildrenItem_GteOperator": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeInputChildrenItem_Llm": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeInputChildrenItem_LtOperator": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeInputChildrenItem_LteOperator": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeInputChildrenItem_NeqOperator": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeInputChildrenItem_NumberLiteral": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeInputChildrenItem_OrOperator": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeInputChildrenItem_StringLiteral": ".ast_or_operator_node_input_children_item",
+    "AstOrOperatorNodeOutput": ".ast_or_operator_node_output",
+    "AstOrOperatorNodeOutputChildrenItem": ".ast_or_operator_node_output_children_item",
+    "AstOrOperatorNodeOutputChildrenItem_AndOperator": ".ast_or_operator_node_output_children_item",
+    "AstOrOperatorNodeOutputChildrenItem_BooleanLiteral": ".ast_or_operator_node_output_children_item",
+    "AstOrOperatorNodeOutputChildrenItem_DynamicVariable": ".ast_or_operator_node_output_children_item",
+    "AstOrOperatorNodeOutputChildrenItem_EqOperator": ".ast_or_operator_node_output_children_item",
+    "AstOrOperatorNodeOutputChildrenItem_GtOperator": ".ast_or_operator_node_output_children_item",
+    "AstOrOperatorNodeOutputChildrenItem_GteOperator": ".ast_or_operator_node_output_children_item",
+    "AstOrOperatorNodeOutputChildrenItem_Llm": ".ast_or_operator_node_output_children_item",
+    "AstOrOperatorNodeOutputChildrenItem_LtOperator": ".ast_or_operator_node_output_children_item",
+    "AstOrOperatorNodeOutputChildrenItem_LteOperator": ".ast_or_operator_node_output_children_item",
+    "AstOrOperatorNodeOutputChildrenItem_NeqOperator": ".ast_or_operator_node_output_children_item",
+    "AstOrOperatorNodeOutputChildrenItem_NumberLiteral": ".ast_or_operator_node_output_children_item",
+    "AstOrOperatorNodeOutputChildrenItem_OrOperator": ".ast_or_operator_node_output_children_item",
+    "AstOrOperatorNodeOutputChildrenItem_StringLiteral": ".ast_or_operator_node_output_children_item",
+    "AstStringNodeInput": ".ast_string_node_input",
+    "AstStringNodeOutput": ".ast_string_node_output",
+    "AstllmNodeInput": ".astllm_node_input",
+    "AstllmNodeOutput": ".astllm_node_output",
+    "AsyncConversationMetadata": ".async_conversation_metadata",
+    "AsyncConversationMetadataDeliveryStatus": ".async_conversation_metadata_delivery_status",
     "AttachedTestModel": ".attached_test_model",
     "AudioNativeCreateProjectResponseModel": ".audio_native_create_project_response_model",
     "AudioNativeEditContentResponseModel": ".audio_native_edit_content_response_model",
     "AudioNativeProjectSettingsResponseModel": ".audio_native_project_settings_response_model",
     "AudioNativeProjectSettingsResponseModelStatus": ".audio_native_project_settings_response_model_status",
-    "AudioOutput": ".audio_output",
-    "AudioOutputMulti": ".audio_output_multi",
+    "AudioWithTimestampsAndVoiceSegmentsResponseModel": ".audio_with_timestamps_and_voice_segments_response_model",
     "AudioWithTimestampsResponse": ".audio_with_timestamps_response",
     "AuthConnectionLocator": ".auth_connection_locator",
     "AuthSettings": ".auth_settings",
     "AuthorizationMethod": ".authorization_method",
+    "BackupLlmDefault": ".backup_llm_default",
+    "BackupLlmDisabled": ".backup_llm_disabled",
+    "BackupLlmOverride": ".backup_llm_override",
     "BadRequestErrorBody": ".bad_request_error_body",
     "BanReasonType": ".ban_reason_type",
     "BatchCallDetailedResponse": ".batch_call_detailed_response",
     "BatchCallRecipientStatus": ".batch_call_recipient_status",
     "BatchCallResponse": ".batch_call_response",
     "BatchCallStatus": ".batch_call_status",
+    "BatchCallWhatsAppParams": ".batch_call_whats_app_params",
+    "BatchFailureResponseModel": ".batch_failure_response_model",
+    "BillingPeriod": ".billing_period",
     "BodyGenerateARandomVoiceV1VoiceGenerationGenerateVoicePostAge": ".body_generate_a_random_voice_v_1_voice_generation_generate_voice_post_age",
     "BodyGenerateARandomVoiceV1VoiceGenerationGenerateVoicePostGender": ".body_generate_a_random_voice_v_1_voice_generation_generate_voice_post_gender",
     "BreakdownTypes": ".breakdown_types",
     "BuiltInToolsInput": ".built_in_tools_input",
     "BuiltInToolsOutput": ".built_in_tools_output",
-    "BuiltInToolsWorkflowOverride": ".built_in_tools_workflow_override",
+    "BuiltInToolsWorkflowOverrideInput": ".built_in_tools_workflow_override_input",
+    "BuiltInToolsWorkflowOverrideOutput": ".built_in_tools_workflow_override_output",
+    "CanvasPlacement": ".canvas_placement",
     "CaptionStyleCharacterAnimationModel": ".caption_style_character_animation_model",
     "CaptionStyleCharacterAnimationModelEnterType": ".caption_style_character_animation_model_enter_type",
     "CaptionStyleCharacterAnimationModelExitType": ".caption_style_character_animation_model_exit_type",
@@ -1097,13 +2296,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChapterWithContentResponseModelState": ".chapter_with_content_response_model_state",
     "CharacterAlignmentModel": ".character_alignment_model",
     "CharacterAlignmentResponseModel": ".character_alignment_response_model",
+    "CharacterRefreshPeriod": ".character_refresh_period",
     "CharacterUsageResponse": ".character_usage_response",
     "ClientEvent": ".client_event",
     "ClientToolConfigInput": ".client_tool_config_input",
     "ClientToolConfigOutput": ".client_tool_config_output",
-    "CloseConnection": ".close_connection",
-    "CloseContext": ".close_context",
-    "CloseSocket": ".close_socket",
+    "Contributor": ".contributor",
     "ConvAiDynamicVariable": ".conv_ai_dynamic_variable",
     "ConvAiSecretLocator": ".conv_ai_secret_locator",
     "ConvAiStoredSecretDependencies": ".conv_ai_stored_secret_dependencies",
@@ -1126,6 +2324,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConversationConfigOverrideConfig": ".conversation_config_override_config",
     "ConversationConfigWorkflowOverride": ".conversation_config_workflow_override",
     "ConversationDeletionSettings": ".conversation_deletion_settings",
+    "ConversationFeedbackType": ".conversation_feedback_type",
     "ConversationHistoryAnalysisCommonModel": ".conversation_history_analysis_common_model",
     "ConversationHistoryBatchCallModel": ".conversation_history_batch_call_model",
     "ConversationHistoryElevenAssistantCommonModel": ".conversation_history_eleven_assistant_common_model",
@@ -1141,6 +2340,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConversationHistoryRagUsageCommonModel": ".conversation_history_rag_usage_common_model",
     "ConversationHistorySipTrunkingPhoneCallModel": ".conversation_history_sip_trunking_phone_call_model",
     "ConversationHistorySipTrunkingPhoneCallModelDirection": ".conversation_history_sip_trunking_phone_call_model_direction",
+    "ConversationHistoryTranscriptApiIntegrationWebhookToolsResultCommonModel": ".conversation_history_transcript_api_integration_webhook_tools_result_common_model",
     "ConversationHistoryTranscriptCommonModelInput": ".conversation_history_transcript_common_model_input",
     "ConversationHistoryTranscriptCommonModelInputRole": ".conversation_history_transcript_common_model_input_role",
     "ConversationHistoryTranscriptCommonModelInputSourceMedium": ".conversation_history_transcript_common_model_input_source_medium",
@@ -1165,12 +2365,20 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConversationHistoryTranscriptSystemToolResultCommonModelResult_TransferToNumberSipSuccess": ".conversation_history_transcript_system_tool_result_common_model_result",
     "ConversationHistoryTranscriptSystemToolResultCommonModelResult_TransferToNumberTwilioSuccess": ".conversation_history_transcript_system_tool_result_common_model_result",
     "ConversationHistoryTranscriptSystemToolResultCommonModelResult_VoicemailDetectionSuccess": ".conversation_history_transcript_system_tool_result_common_model_result",
+    "ConversationHistoryTranscriptToolCallApiIntegrationWebhookDetails": ".conversation_history_transcript_tool_call_api_integration_webhook_details",
     "ConversationHistoryTranscriptToolCallClientDetails": ".conversation_history_transcript_tool_call_client_details",
-    "ConversationHistoryTranscriptToolCallCommonModel": ".conversation_history_transcript_tool_call_common_model",
-    "ConversationHistoryTranscriptToolCallCommonModelToolDetails": ".conversation_history_transcript_tool_call_common_model_tool_details",
-    "ConversationHistoryTranscriptToolCallCommonModelToolDetails_Client": ".conversation_history_transcript_tool_call_common_model_tool_details",
-    "ConversationHistoryTranscriptToolCallCommonModelToolDetails_Mcp": ".conversation_history_transcript_tool_call_common_model_tool_details",
-    "ConversationHistoryTranscriptToolCallCommonModelToolDetails_Webhook": ".conversation_history_transcript_tool_call_common_model_tool_details",
+    "ConversationHistoryTranscriptToolCallCommonModelInput": ".conversation_history_transcript_tool_call_common_model_input",
+    "ConversationHistoryTranscriptToolCallCommonModelInputToolDetails": ".conversation_history_transcript_tool_call_common_model_input_tool_details",
+    "ConversationHistoryTranscriptToolCallCommonModelInputToolDetails_ApiIntegrationWebhook": ".conversation_history_transcript_tool_call_common_model_input_tool_details",
+    "ConversationHistoryTranscriptToolCallCommonModelInputToolDetails_Client": ".conversation_history_transcript_tool_call_common_model_input_tool_details",
+    "ConversationHistoryTranscriptToolCallCommonModelInputToolDetails_Mcp": ".conversation_history_transcript_tool_call_common_model_input_tool_details",
+    "ConversationHistoryTranscriptToolCallCommonModelInputToolDetails_Webhook": ".conversation_history_transcript_tool_call_common_model_input_tool_details",
+    "ConversationHistoryTranscriptToolCallCommonModelOutput": ".conversation_history_transcript_tool_call_common_model_output",
+    "ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails": ".conversation_history_transcript_tool_call_common_model_output_tool_details",
+    "ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails_ApiIntegrationWebhook": ".conversation_history_transcript_tool_call_common_model_output_tool_details",
+    "ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails_Client": ".conversation_history_transcript_tool_call_common_model_output_tool_details",
+    "ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails_Mcp": ".conversation_history_transcript_tool_call_common_model_output_tool_details",
+    "ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails_Webhook": ".conversation_history_transcript_tool_call_common_model_output_tool_details",
     "ConversationHistoryTranscriptToolCallMcpDetails": ".conversation_history_transcript_tool_call_mcp_details",
     "ConversationHistoryTranscriptToolCallWebhookDetails": ".conversation_history_transcript_tool_call_webhook_details",
     "ConversationHistoryTranscriptWorkflowToolsResultCommonModelInput": ".conversation_history_transcript_workflow_tools_result_common_model_input",
@@ -1199,7 +2407,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConversationTokenPurpose": ".conversation_token_purpose",
     "ConversationTurnMetrics": ".conversation_turn_metrics",
     "ConversationalConfig": ".conversational_config",
-    "ConversationalConfigApiModelWorkflowOverride": ".conversational_config_api_model_workflow_override",
+    "ConversationalConfigApiModelWorkflowOverrideInput": ".conversational_config_api_model_workflow_override_input",
+    "ConversationalConfigApiModelWorkflowOverrideOutput": ".conversational_config_api_model_workflow_override_output",
     "ConvertChapterResponseModel": ".convert_chapter_response_model",
     "ConvertProjectResponseModel": ".convert_project_response_model",
     "CreateAgentResponseModel": ".create_agent_response_model",
@@ -1213,6 +2422,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateUnitTestResponseModel": ".create_unit_test_response_model",
     "CustomLlm": ".custom_llm",
     "CustomLlmRequestHeadersValue": ".custom_llm_request_headers_value",
+    "CustomLlmapiType": ".custom_llmapi_type",
+    "CustomSipHeader": ".custom_sip_header",
+    "CustomSipHeaderWithDynamicVariable": ".custom_sip_header_with_dynamic_variable",
     "DashboardCallSuccessChartModel": ".dashboard_call_success_chart_model",
     "DashboardCriteriaChartModel": ".dashboard_criteria_chart_model",
     "DashboardDataCollectionChartModel": ".dashboard_data_collection_chart_model",
@@ -1228,6 +2440,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DeleteVoiceSampleResponseModel": ".delete_voice_sample_response_model",
     "DeleteWorkspaceGroupMemberResponseModel": ".delete_workspace_group_member_response_model",
     "DeleteWorkspaceInviteResponseModel": ".delete_workspace_invite_response_model",
+    "DeleteWorkspaceWebhookResponseModel": ".delete_workspace_webhook_response_model",
     "DependentAvailableAgentIdentifier": ".dependent_available_agent_identifier",
     "DependentAvailableAgentIdentifierAccessLevel": ".dependent_available_agent_identifier_access_level",
     "DependentAvailableToolIdentifier": ".dependent_available_tool_identifier",
@@ -1236,8 +2449,15 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DependentUnknownAgentIdentifier": ".dependent_unknown_agent_identifier",
     "DependentUnknownToolIdentifier": ".dependent_unknown_tool_identifier",
     "DetailedMusicResponse": ".detailed_music_response",
+    "DetectedEntity": ".detected_entity",
     "DialogueInput": ".dialogue_input",
     "DialogueInputResponseModel": ".dialogue_input_response_model",
+    "DirectPublishingReadResponseModel": ".direct_publishing_read_response_model",
+    "DirectPublishingReadResponseModelDisplayMode": ".direct_publishing_read_response_model_display_mode",
+    "DirectPublishingReadResponseModelGenreItem": ".direct_publishing_read_response_model_genre_item",
+    "DirectPublishingReadResponseModelPayoutType": ".direct_publishing_read_response_model_payout_type",
+    "DirectPublishingReadResponseModelTargetAudience": ".direct_publishing_read_response_model_target_audience",
+    "DiscountResponseModel": ".discount_response_model",
     "DoDubbingResponse": ".do_dubbing_response",
     "DocumentUsageModeEnum": ".document_usage_mode_enum",
     "DocxExportOptions": ".docx_export_options",
@@ -1246,9 +2466,17 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DubbingMediaReference": ".dubbing_media_reference",
     "DubbingMetadataPageResponseModel": ".dubbing_metadata_page_response_model",
     "DubbingMetadataResponse": ".dubbing_metadata_response",
+    "DubbingModel": ".dubbing_model",
     "DubbingReleaseChannel": ".dubbing_release_channel",
     "DubbingRenderResponseModel": ".dubbing_render_response_model",
     "DubbingResource": ".dubbing_resource",
+    "DubbingTranscript": ".dubbing_transcript",
+    "DubbingTranscriptCharacter": ".dubbing_transcript_character",
+    "DubbingTranscriptResponseModel": ".dubbing_transcript_response_model",
+    "DubbingTranscriptUtterance": ".dubbing_transcript_utterance",
+    "DubbingTranscriptWord": ".dubbing_transcript_word",
+    "DubbingTranscriptsResponseModel": ".dubbing_transcripts_response_model",
+    "DubbingTranscriptsResponseModelTranscriptFormat": ".dubbing_transcripts_response_model_transcript_format",
     "DynamicVariableAssignment": ".dynamic_variable_assignment",
     "DynamicVariableUpdateCommonModel": ".dynamic_variable_update_common_model",
     "DynamicVariablesConfig": ".dynamic_variables_config",
@@ -1274,24 +2502,18 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ExportOptions_SegmentedJson": ".export_options",
     "ExportOptions_Srt": ".export_options",
     "ExportOptions_Txt": ".export_options",
-    "ExtendedSubscriptionResponseModelBillingPeriod": ".extended_subscription_response_model_billing_period",
-    "ExtendedSubscriptionResponseModelCharacterRefreshPeriod": ".extended_subscription_response_model_character_refresh_period",
     "ExtendedSubscriptionResponseModelCurrency": ".extended_subscription_response_model_currency",
     "ExtendedSubscriptionResponseModelPendingChange": ".extended_subscription_response_model_pending_change",
     "FeatureStatusCommonModel": ".feature_status_common_model",
     "FeaturesUsageCommonModel": ".features_usage_common_model",
     "FeedbackItem": ".feedback_item",
-    "FinalOutput": ".final_output",
-    "FinalOutputMulti": ".final_output_multi",
     "FineTuningResponse": ".fine_tuning_response",
     "FineTuningResponseModelStateValue": ".fine_tuning_response_model_state_value",
-    "FlushContext": ".flush_context",
     "ForcedAlignmentCharacterResponseModel": ".forced_alignment_character_response_model",
     "ForcedAlignmentResponseModel": ".forced_alignment_response_model",
     "ForcedAlignmentWordResponseModel": ".forced_alignment_word_response_model",
     "Gender": ".gender",
     "GenerateVoiceRequest": ".generate_voice_request",
-    "GenerationConfig": ".generation_config",
     "GetAgentEmbedResponseModel": ".get_agent_embed_response_model",
     "GetAgentKnowledgebaseSizeResponseModel": ".get_agent_knowledgebase_size_response_model",
     "GetAgentLinkResponseModel": ".get_agent_link_response_model",
@@ -1319,15 +2541,21 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetKnowledgeBaseDependentAgentsResponseModelAgentsItem_Available": ".get_knowledge_base_dependent_agents_response_model_agents_item",
     "GetKnowledgeBaseDependentAgentsResponseModelAgentsItem_Unknown": ".get_knowledge_base_dependent_agents_response_model_agents_item",
     "GetKnowledgeBaseFileResponseModel": ".get_knowledge_base_file_response_model",
+    "GetKnowledgeBaseFolderResponseModel": ".get_knowledge_base_folder_response_model",
     "GetKnowledgeBaseListResponseModel": ".get_knowledge_base_list_response_model",
     "GetKnowledgeBaseListResponseModelDocumentsItem": ".get_knowledge_base_list_response_model_documents_item",
     "GetKnowledgeBaseListResponseModelDocumentsItem_File": ".get_knowledge_base_list_response_model_documents_item",
+    "GetKnowledgeBaseListResponseModelDocumentsItem_Folder": ".get_knowledge_base_list_response_model_documents_item",
     "GetKnowledgeBaseListResponseModelDocumentsItem_Text": ".get_knowledge_base_list_response_model_documents_item",
     "GetKnowledgeBaseListResponseModelDocumentsItem_Url": ".get_knowledge_base_list_response_model_documents_item",
     "GetKnowledgeBaseSummaryFileResponseModel": ".get_knowledge_base_summary_file_response_model",
     "GetKnowledgeBaseSummaryFileResponseModelDependentAgentsItem": ".get_knowledge_base_summary_file_response_model_dependent_agents_item",
     "GetKnowledgeBaseSummaryFileResponseModelDependentAgentsItem_Available": ".get_knowledge_base_summary_file_response_model_dependent_agents_item",
     "GetKnowledgeBaseSummaryFileResponseModelDependentAgentsItem_Unknown": ".get_knowledge_base_summary_file_response_model_dependent_agents_item",
+    "GetKnowledgeBaseSummaryFolderResponseModel": ".get_knowledge_base_summary_folder_response_model",
+    "GetKnowledgeBaseSummaryFolderResponseModelDependentAgentsItem": ".get_knowledge_base_summary_folder_response_model_dependent_agents_item",
+    "GetKnowledgeBaseSummaryFolderResponseModelDependentAgentsItem_Available": ".get_knowledge_base_summary_folder_response_model_dependent_agents_item",
+    "GetKnowledgeBaseSummaryFolderResponseModelDependentAgentsItem_Unknown": ".get_knowledge_base_summary_folder_response_model_dependent_agents_item",
     "GetKnowledgeBaseSummaryTextResponseModel": ".get_knowledge_base_summary_text_response_model",
     "GetKnowledgeBaseSummaryTextResponseModelDependentAgentsItem": ".get_knowledge_base_summary_text_response_model_dependent_agents_item",
     "GetKnowledgeBaseSummaryTextResponseModelDependentAgentsItem_Available": ".get_knowledge_base_summary_text_response_model_dependent_agents_item",
@@ -1339,6 +2567,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetKnowledgeBaseTextResponseModel": ".get_knowledge_base_text_response_model",
     "GetKnowledgeBaseUrlResponseModel": ".get_knowledge_base_url_response_model",
     "GetLibraryVoicesResponse": ".get_library_voices_response",
+    "GetLiveCountResponse": ".get_live_count_response",
+    "GetOrCreateRagIndexRequestModel": ".get_or_create_rag_index_request_model",
     "GetPhoneNumberInboundSipTrunkConfigResponseModel": ".get_phone_number_inbound_sip_trunk_config_response_model",
     "GetPhoneNumberOutboundSipTrunkConfigResponseModel": ".get_phone_number_outbound_sip_trunk_config_response_model",
     "GetPhoneNumberResponse": ".get_phone_number_response",
@@ -1353,6 +2583,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetPronunciationDictionaryMetadataResponseModelPermissionOnResource": ".get_pronunciation_dictionary_metadata_response_model_permission_on_resource",
     "GetPronunciationDictionaryResponse": ".get_pronunciation_dictionary_response",
     "GetSpeechHistoryResponse": ".get_speech_history_response",
+    "GetTestInvocationsPageResponseModel": ".get_test_invocations_page_response_model",
     "GetTestSuiteInvocationResponseModel": ".get_test_suite_invocation_response_model",
     "GetTestsPageResponseModel": ".get_tests_page_response_model",
     "GetTestsSummariesByIdsResponseModel": ".get_tests_summaries_by_ids_response_model",
@@ -1364,26 +2595,37 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetUnitTestResponseModelDynamicVariablesValue": ".get_unit_test_response_model_dynamic_variables_value",
     "GetVoicesResponse": ".get_voices_response",
     "GetVoicesV2Response": ".get_voices_v_2_response",
+    "GetWhatsAppAccountResponse": ".get_whats_app_account_response",
     "GetWorkspaceSecretsResponseModel": ".get_workspace_secrets_response_model",
+    "GuardrailsV1Input": ".guardrails_v_1_input",
+    "GuardrailsV1Output": ".guardrails_v_1_output",
     "HistoryAlignmentResponseModel": ".history_alignment_response_model",
     "HistoryAlignmentsResponseModel": ".history_alignments_response_model",
     "HistoryItemResponse": ".history_item_response",
     "HtmlExportOptions": ".html_export_options",
     "HttpValidationError": ".http_validation_error",
     "ImageAvatar": ".image_avatar",
+    "ImportWhatsAppAccountResponse": ".import_whats_app_account_response",
     "InboundSipTrunkConfigRequestModel": ".inbound_sip_trunk_config_request_model",
-    "InitialiseContext": ".initialise_context",
-    "InitializeConnection": ".initialize_connection",
-    "InitializeConnectionMulti": ".initialize_connection_multi",
     "IntegrationType": ".integration_type",
     "InvoiceResponse": ".invoice_response",
     "InvoiceResponseModelPaymentIntentStatus": ".invoice_response_model_payment_intent_status",
-    "KeepContextAlive": ".keep_context_alive",
+    "InvoiceResponseModelPaymentIntentStatussesItem": ".invoice_response_model_payment_intent_statusses_item",
+    "KnowledgeBaseDependentType": ".knowledge_base_dependent_type",
     "KnowledgeBaseDocumentChunkResponseModel": ".knowledge_base_document_chunk_response_model",
     "KnowledgeBaseDocumentMetadataResponseModel": ".knowledge_base_document_metadata_response_model",
     "KnowledgeBaseDocumentType": ".knowledge_base_document_type",
+    "KnowledgeBaseFolderPathSegmentResponseModel": ".knowledge_base_folder_path_segment_response_model",
+    "KnowledgeBaseFolderPathSegmentSummaryResponseModel": ".knowledge_base_folder_path_segment_summary_response_model",
     "KnowledgeBaseLocator": ".knowledge_base_locator",
     "KnowledgeBaseSortBy": ".knowledge_base_sort_by",
+    "KnowledgeBaseSourceFileUrlResponseModel": ".knowledge_base_source_file_url_response_model",
+    "KnowledgeBaseSummaryBatchSuccessfulResponseModel": ".knowledge_base_summary_batch_successful_response_model",
+    "KnowledgeBaseSummaryBatchSuccessfulResponseModelData": ".knowledge_base_summary_batch_successful_response_model_data",
+    "KnowledgeBaseSummaryBatchSuccessfulResponseModelData_File": ".knowledge_base_summary_batch_successful_response_model_data",
+    "KnowledgeBaseSummaryBatchSuccessfulResponseModelData_Folder": ".knowledge_base_summary_batch_successful_response_model_data",
+    "KnowledgeBaseSummaryBatchSuccessfulResponseModelData_Text": ".knowledge_base_summary_batch_successful_response_model_data",
+    "KnowledgeBaseSummaryBatchSuccessfulResponseModelData_Url": ".knowledge_base_summary_batch_successful_response_model_data",
     "LanguageAddedResponse": ".language_added_response",
     "LanguageDetectionToolConfig": ".language_detection_tool_config",
     "LanguageDetectionToolResultModel": ".language_detection_tool_result_model",
@@ -1394,9 +2636,13 @@ _dynamic_imports: typing.Dict[str, str] = {
     "LibraryVoiceResponse": ".library_voice_response",
     "LibraryVoiceResponseModelCategory": ".library_voice_response_model_category",
     "ListMcpToolsResponseModel": ".list_mcp_tools_response_model",
+    "ListResponseMeta": ".list_response_meta",
+    "ListWhatsAppAccountsResponse": ".list_whats_app_accounts_response",
     "LiteralJsonSchemaProperty": ".literal_json_schema_property",
     "LiteralJsonSchemaPropertyConstantValue": ".literal_json_schema_property_constant_value",
     "LiteralJsonSchemaPropertyType": ".literal_json_schema_property_type",
+    "LiteralOverride": ".literal_override",
+    "LiteralOverrideConstantValue": ".literal_override_constant_value",
     "LivekitStackType": ".livekit_stack_type",
     "Llm": ".llm",
     "LlmCategoryUsage": ".llm_category_usage",
@@ -1429,37 +2675,49 @@ _dynamic_imports: typing.Dict[str, str] = {
     "McpServersResponseModel": ".mcp_servers_response_model",
     "McpToolApprovalHash": ".mcp_tool_approval_hash",
     "McpToolApprovalPolicy": ".mcp_tool_approval_policy",
+    "McpToolConfigOverride": ".mcp_tool_config_override",
     "MetricRecord": ".metric_record",
     "MetricType": ".metric_type",
     "Model": ".model",
     "ModelRatesResponseModel": ".model_rates_response_model",
     "ModelSettingsResponseModel": ".model_settings_response_model",
-    "ModerationStatusResponseModel": ".moderation_status_response_model",
-    "ModerationStatusResponseModelSafetyStatus": ".moderation_status_response_model_safety_status",
-    "ModerationStatusResponseModelWarningStatus": ".moderation_status_response_model_warning_status",
+    "ModerationConfig": ".moderation_config",
+    "ModerationGuardrailInput": ".moderation_guardrail_input",
+    "ModerationGuardrailOutput": ".moderation_guardrail_output",
     "MultichannelSpeechToTextResponseModel": ".multichannel_speech_to_text_response_model",
     "MultipartMusicResponse": ".multipart_music_response",
     "MusicPrompt": ".music_prompt",
-    "NormalizedAlignment": ".normalized_alignment",
     "ObjectJsonSchemaPropertyInput": ".object_json_schema_property_input",
     "ObjectJsonSchemaPropertyInputPropertiesValue": ".object_json_schema_property_input_properties_value",
     "ObjectJsonSchemaPropertyOutput": ".object_json_schema_property_output",
     "ObjectJsonSchemaPropertyOutputPropertiesValue": ".object_json_schema_property_output_properties_value",
+    "ObjectOverrideInput": ".object_override_input",
+    "ObjectOverrideInputPropertiesValue": ".object_override_input_properties_value",
+    "ObjectOverrideOutput": ".object_override_output",
+    "ObjectOverrideOutputPropertiesValue": ".object_override_output_properties_value",
     "OrbAvatar": ".orb_avatar",
     "OutboundCallRecipient": ".outbound_call_recipient",
     "OutboundCallRecipientResponseModel": ".outbound_call_recipient_response_model",
     "OutboundSipTrunkConfigRequestModel": ".outbound_sip_trunk_config_request_model",
     "OutputFormat": ".output_format",
+    "PatchWorkspaceWebhookResponseModel": ".patch_workspace_webhook_response_model",
     "PdfExportOptions": ".pdf_export_options",
     "PendingCancellationResponseModel": ".pending_cancellation_response_model",
     "PendingSubscriptionSwitchResponseModel": ".pending_subscription_switch_response_model",
     "PendingSubscriptionSwitchResponseModelNextTier": ".pending_subscription_switch_response_model_next_tier",
+    "PermissionType": ".permission_type",
     "PhoneNumberAgentInfo": ".phone_number_agent_info",
+    "PhoneNumberDynamicVariableTransferDestination": ".phone_number_dynamic_variable_transfer_destination",
     "PhoneNumberTransfer": ".phone_number_transfer",
+    "PhoneNumberTransferCustomSipHeadersItem": ".phone_number_transfer_custom_sip_headers_item",
+    "PhoneNumberTransferCustomSipHeadersItem_Dynamic": ".phone_number_transfer_custom_sip_headers_item",
+    "PhoneNumberTransferCustomSipHeadersItem_Static": ".phone_number_transfer_custom_sip_headers_item",
     "PhoneNumberTransferDestination": ".phone_number_transfer_destination",
     "PhoneNumberTransferTransferDestination": ".phone_number_transfer_transfer_destination",
     "PhoneNumberTransferTransferDestination_Phone": ".phone_number_transfer_transfer_destination",
+    "PhoneNumberTransferTransferDestination_PhoneDynamicVariable": ".phone_number_transfer_transfer_destination",
     "PhoneNumberTransferTransferDestination_SipUri": ".phone_number_transfer_transfer_destination",
+    "PhoneNumberTransferTransferDestination_SipUriDynamicVariable": ".phone_number_transfer_transfer_destination",
     "PlayDtmfResultErrorModel": ".play_dtmf_result_error_model",
     "PlayDtmfResultSuccessModel": ".play_dtmf_result_success_model",
     "PlayDtmfToolConfig": ".play_dtmf_tool_config",
@@ -1470,9 +2728,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PodcastProjectResponseModel": ".podcast_project_response_model",
     "PodcastTextSource": ".podcast_text_source",
     "PodcastUrlSource": ".podcast_url_source",
-    "Position": ".position",
+    "PositionInput": ".position_input",
+    "PositionOutput": ".position_output",
     "PostAgentAvatarResponseModel": ".post_agent_avatar_response_model",
     "PostWorkspaceSecretResponseModel": ".post_workspace_secret_response_model",
+    "PreviewAudioDbModel": ".preview_audio_db_model",
     "PrivacyConfig": ".privacy_config",
     "ProjectCreationMetaResponseModel": ".project_creation_meta_response_model",
     "ProjectCreationMetaResponseModelStatus": ".project_creation_meta_response_model_status",
@@ -1480,12 +2740,20 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ProjectExtendedResponse": ".project_extended_response",
     "ProjectExtendedResponseModelAccessLevel": ".project_extended_response_model_access_level",
     "ProjectExtendedResponseModelApplyTextNormalization": ".project_extended_response_model_apply_text_normalization",
+    "ProjectExtendedResponseModelAspectRatio": ".project_extended_response_model_aspect_ratio",
+    "ProjectExtendedResponseModelAssetsItem": ".project_extended_response_model_assets_item",
+    "ProjectExtendedResponseModelAssetsItem_Audio": ".project_extended_response_model_assets_item",
+    "ProjectExtendedResponseModelAssetsItem_Image": ".project_extended_response_model_assets_item",
+    "ProjectExtendedResponseModelAssetsItem_Video": ".project_extended_response_model_assets_item",
     "ProjectExtendedResponseModelFiction": ".project_extended_response_model_fiction",
     "ProjectExtendedResponseModelQualityPreset": ".project_extended_response_model_quality_preset",
     "ProjectExtendedResponseModelSourceType": ".project_extended_response_model_source_type",
     "ProjectExtendedResponseModelTargetAudience": ".project_extended_response_model_target_audience",
+    "ProjectExternalAudioResponseModel": ".project_external_audio_response_model",
+    "ProjectImageResponseModel": ".project_image_response_model",
     "ProjectResponse": ".project_response",
     "ProjectResponseModelAccessLevel": ".project_response_model_access_level",
+    "ProjectResponseModelAspectRatio": ".project_response_model_aspect_ratio",
     "ProjectResponseModelFiction": ".project_response_model_fiction",
     "ProjectResponseModelSourceType": ".project_response_model_source_type",
     "ProjectResponseModelTargetAudience": ".project_response_model_target_audience",
@@ -1493,31 +2761,53 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ProjectSnapshotResponse": ".project_snapshot_response",
     "ProjectSnapshotsResponse": ".project_snapshots_response",
     "ProjectState": ".project_state",
+    "ProjectVideoResponseModel": ".project_video_response_model",
+    "ProjectVideoThumbnailSheetResponseModel": ".project_video_thumbnail_sheet_response_model",
+    "ProjectVoiceResponseModel": ".project_voice_response_model",
     "PromptAgent": ".prompt_agent",
     "PromptAgentApiModelInput": ".prompt_agent_api_model_input",
+    "PromptAgentApiModelInputBackupLlmConfig": ".prompt_agent_api_model_input_backup_llm_config",
+    "PromptAgentApiModelInputBackupLlmConfig_Default": ".prompt_agent_api_model_input_backup_llm_config",
+    "PromptAgentApiModelInputBackupLlmConfig_Disabled": ".prompt_agent_api_model_input_backup_llm_config",
+    "PromptAgentApiModelInputBackupLlmConfig_Override": ".prompt_agent_api_model_input_backup_llm_config",
     "PromptAgentApiModelInputToolsItem": ".prompt_agent_api_model_input_tools_item",
+    "PromptAgentApiModelInputToolsItem_ApiIntegrationWebhook": ".prompt_agent_api_model_input_tools_item",
     "PromptAgentApiModelInputToolsItem_Client": ".prompt_agent_api_model_input_tools_item",
     "PromptAgentApiModelInputToolsItem_Mcp": ".prompt_agent_api_model_input_tools_item",
     "PromptAgentApiModelInputToolsItem_System": ".prompt_agent_api_model_input_tools_item",
     "PromptAgentApiModelInputToolsItem_Webhook": ".prompt_agent_api_model_input_tools_item",
     "PromptAgentApiModelOutput": ".prompt_agent_api_model_output",
+    "PromptAgentApiModelOutputBackupLlmConfig": ".prompt_agent_api_model_output_backup_llm_config",
+    "PromptAgentApiModelOutputBackupLlmConfig_Default": ".prompt_agent_api_model_output_backup_llm_config",
+    "PromptAgentApiModelOutputBackupLlmConfig_Disabled": ".prompt_agent_api_model_output_backup_llm_config",
+    "PromptAgentApiModelOutputBackupLlmConfig_Override": ".prompt_agent_api_model_output_backup_llm_config",
     "PromptAgentApiModelOutputToolsItem": ".prompt_agent_api_model_output_tools_item",
+    "PromptAgentApiModelOutputToolsItem_ApiIntegrationWebhook": ".prompt_agent_api_model_output_tools_item",
     "PromptAgentApiModelOutputToolsItem_Client": ".prompt_agent_api_model_output_tools_item",
     "PromptAgentApiModelOutputToolsItem_Mcp": ".prompt_agent_api_model_output_tools_item",
     "PromptAgentApiModelOutputToolsItem_System": ".prompt_agent_api_model_output_tools_item",
     "PromptAgentApiModelOutputToolsItem_Webhook": ".prompt_agent_api_model_output_tools_item",
     "PromptAgentApiModelOverride": ".prompt_agent_api_model_override",
     "PromptAgentApiModelOverrideConfig": ".prompt_agent_api_model_override_config",
-    "PromptAgentApiModelWorkflowOverride": ".prompt_agent_api_model_workflow_override",
-    "PromptAgentApiModelWorkflowOverrideToolsItem": ".prompt_agent_api_model_workflow_override_tools_item",
-    "PromptAgentApiModelWorkflowOverrideToolsItem_Client": ".prompt_agent_api_model_workflow_override_tools_item",
-    "PromptAgentApiModelWorkflowOverrideToolsItem_Mcp": ".prompt_agent_api_model_workflow_override_tools_item",
-    "PromptAgentApiModelWorkflowOverrideToolsItem_System": ".prompt_agent_api_model_workflow_override_tools_item",
-    "PromptAgentApiModelWorkflowOverrideToolsItem_Webhook": ".prompt_agent_api_model_workflow_override_tools_item",
+    "PromptAgentApiModelWorkflowOverrideInput": ".prompt_agent_api_model_workflow_override_input",
+    "PromptAgentApiModelWorkflowOverrideInputBackupLlmConfig": ".prompt_agent_api_model_workflow_override_input_backup_llm_config",
+    "PromptAgentApiModelWorkflowOverrideInputToolsItem": ".prompt_agent_api_model_workflow_override_input_tools_item",
+    "PromptAgentApiModelWorkflowOverrideInputToolsItem_ApiIntegrationWebhook": ".prompt_agent_api_model_workflow_override_input_tools_item",
+    "PromptAgentApiModelWorkflowOverrideInputToolsItem_Client": ".prompt_agent_api_model_workflow_override_input_tools_item",
+    "PromptAgentApiModelWorkflowOverrideInputToolsItem_Mcp": ".prompt_agent_api_model_workflow_override_input_tools_item",
+    "PromptAgentApiModelWorkflowOverrideInputToolsItem_System": ".prompt_agent_api_model_workflow_override_input_tools_item",
+    "PromptAgentApiModelWorkflowOverrideInputToolsItem_Webhook": ".prompt_agent_api_model_workflow_override_input_tools_item",
+    "PromptAgentApiModelWorkflowOverrideOutput": ".prompt_agent_api_model_workflow_override_output",
+    "PromptAgentApiModelWorkflowOverrideOutputBackupLlmConfig": ".prompt_agent_api_model_workflow_override_output_backup_llm_config",
+    "PromptAgentApiModelWorkflowOverrideOutputToolsItem": ".prompt_agent_api_model_workflow_override_output_tools_item",
+    "PromptAgentApiModelWorkflowOverrideOutputToolsItem_ApiIntegrationWebhook": ".prompt_agent_api_model_workflow_override_output_tools_item",
+    "PromptAgentApiModelWorkflowOverrideOutputToolsItem_Client": ".prompt_agent_api_model_workflow_override_output_tools_item",
+    "PromptAgentApiModelWorkflowOverrideOutputToolsItem_Mcp": ".prompt_agent_api_model_workflow_override_output_tools_item",
+    "PromptAgentApiModelWorkflowOverrideOutputToolsItem_System": ".prompt_agent_api_model_workflow_override_output_tools_item",
+    "PromptAgentApiModelWorkflowOverrideOutputToolsItem_Webhook": ".prompt_agent_api_model_workflow_override_output_tools_item",
     "PromptAgentDbModel": ".prompt_agent_db_model",
     "PromptEvaluationCriteria": ".prompt_evaluation_criteria",
     "PronunciationDictionaryAliasRuleRequestModel": ".pronunciation_dictionary_alias_rule_request_model",
-    "PronunciationDictionaryLocator": ".pronunciation_dictionary_locator",
     "PronunciationDictionaryLocatorResponseModel": ".pronunciation_dictionary_locator_response_model",
     "PronunciationDictionaryPhonemeRuleRequestModel": ".pronunciation_dictionary_phoneme_rule_request_model",
     "PronunciationDictionaryRulesResponseModel": ".pronunciation_dictionary_rules_response_model",
@@ -1525,6 +2815,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PronunciationDictionaryVersionResponseModel": ".pronunciation_dictionary_version_response_model",
     "PronunciationDictionaryVersionResponseModelPermissionOnResource": ".pronunciation_dictionary_version_response_model_permission_on_resource",
     "PydanticPronunciationDictionaryVersionLocator": ".pydantic_pronunciation_dictionary_version_locator",
+    "QueryOverride": ".query_override",
     "QueryParamsJsonSchema": ".query_params_json_schema",
     "RagChunkMetadata": ".rag_chunk_metadata",
     "RagConfig": ".rag_config",
@@ -1532,16 +2823,20 @@ _dynamic_imports: typing.Dict[str, str] = {
     "RagDocumentIndexResponseModel": ".rag_document_index_response_model",
     "RagDocumentIndexUsage": ".rag_document_index_usage",
     "RagDocumentIndexesResponseModel": ".rag_document_indexes_response_model",
+    "RagIndexBatchSuccessfulResponseModel": ".rag_index_batch_successful_response_model",
     "RagIndexOverviewEmbeddingModelResponseModel": ".rag_index_overview_embedding_model_response_model",
     "RagIndexOverviewResponseModel": ".rag_index_overview_response_model",
     "RagIndexStatus": ".rag_index_status",
     "RagRetrievalInfo": ".rag_retrieval_info",
+    "ReadLegalTerms": ".read_legal_terms",
+    "ReadMetadataChapterDbModel": ".read_metadata_chapter_db_model",
     "ReaderResourceResponseModel": ".reader_resource_response_model",
     "ReaderResourceResponseModelResourceType": ".reader_resource_response_model_resource_type",
-    "RealtimeVoiceSettings": ".realtime_voice_settings",
     "RecordingResponse": ".recording_response",
     "ReferencedToolCommonModel": ".referenced_tool_common_model",
+    "ReferencedToolCommonModelType": ".referenced_tool_common_model_type",
     "RegexParameterEvaluationStrategy": ".regex_parameter_evaluation_strategy",
+    "RegionConfigRequest": ".region_config_request",
     "RemoveMemberFromGroupRequest": ".remove_member_from_group_request",
     "Render": ".render",
     "RenderStatus": ".render_status",
@@ -1551,40 +2846,53 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ResourceAccessInfoRole": ".resource_access_info_role",
     "ResourceMetadataResponseModel": ".resource_metadata_response_model",
     "ResourceMetadataResponseModelAnonymousAccessLevelOverride": ".resource_metadata_response_model_anonymous_access_level_override",
+    "ReviewResponseModel": ".review_response_model",
+    "ReviewResponseModelRejectReasonsItem": ".review_response_model_reject_reasons_item",
+    "ReviewResponseModelReviewStatus": ".review_response_model_review_status",
     "ReviewStatus": ".review_status",
     "SafetyCommonModel": ".safety_common_model",
     "SafetyEvaluation": ".safety_evaluation",
     "SafetyResponseModel": ".safety_response_model",
     "SafetyRule": ".safety_rule",
+    "SampleConfigDbModel": ".sample_config_db_model",
+    "SampleConfigDbModelParentType": ".sample_config_db_model_parent_type",
     "SaveVoicePreviewRequest": ".save_voice_preview_request",
     "SecretDependencyType": ".secret_dependency_type",
+    "SectionSource": ".section_source",
     "SegmentCreateResponse": ".segment_create_response",
     "SegmentDeleteResponse": ".segment_delete_response",
     "SegmentDubResponse": ".segment_dub_response",
+    "SegmentMigrationResponse": ".segment_migration_response",
     "SegmentSubtitleFrame": ".segment_subtitle_frame",
     "SegmentTranscriptionResponse": ".segment_transcription_response",
     "SegmentTranslationResponse": ".segment_translation_response",
     "SegmentUpdateResponse": ".segment_update_response",
     "SegmentedJsonExportOptions": ".segmented_json_export_options",
-    "SendText": ".send_text",
-    "SendTextMulti": ".send_text_multi",
     "ShareOptionResponseModel": ".share_option_response_model",
     "ShareOptionResponseModelType": ".share_option_response_model_type",
     "SimilarVoice": ".similar_voice",
     "SimilarVoiceCategory": ".similar_voice_category",
     "SimilarVoicesForSpeakerResponse": ".similar_voices_for_speaker_response",
     "SingleTestRunRequestModel": ".single_test_run_request_model",
+    "SingleUseTokenResponseModel": ".single_use_token_response_model",
+    "SingleUseTokenType": ".single_use_token_type",
     "SipMediaEncryptionEnum": ".sip_media_encryption_enum",
     "SipTrunkCredentialsRequestModel": ".sip_trunk_credentials_request_model",
     "SipTrunkOutboundCallResponse": ".sip_trunk_outbound_call_response",
     "SipTrunkTransportEnum": ".sip_trunk_transport_enum",
+    "SipUriDynamicVariableTransferDestination": ".sip_uri_dynamic_variable_transfer_destination",
     "SipUriTransferDestination": ".sip_uri_transfer_destination",
     "SkipTurnToolConfig": ".skip_turn_tool_config",
     "SkipTurnToolResponseModel": ".skip_turn_tool_response_model",
+    "SoftTimeoutConfig": ".soft_timeout_config",
+    "SoftTimeoutConfigOverride": ".soft_timeout_config_override",
+    "SoftTimeoutConfigOverrideConfig": ".soft_timeout_config_override_config",
+    "SoftTimeoutConfigWorkflowOverride": ".soft_timeout_config_workflow_override",
     "SongMetadata": ".song_metadata",
     "SongSection": ".song_section",
     "SortDirection": ".sort_direction",
     "SpeakerAudioResponseModel": ".speaker_audio_response_model",
+    "SpeakerCreatedResponse": ".speaker_created_response",
     "SpeakerResponseModel": ".speaker_response_model",
     "SpeakerSegment": ".speaker_segment",
     "SpeakerSeparationResponseModel": ".speaker_separation_response_model",
@@ -1599,18 +2907,17 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SpeechToTextWebhookResponseModel": ".speech_to_text_webhook_response_model",
     "SpeechToTextWordResponseModel": ".speech_to_text_word_response_model",
     "SpeechToTextWordResponseModelType": ".speech_to_text_word_response_model_type",
+    "SpellingPatience": ".spelling_patience",
     "SrtExportOptions": ".srt_export_options",
     "StartPvcVoiceTrainingResponseModel": ".start_pvc_voice_training_response_model",
     "StartSpeakerSeparationResponseModel": ".start_speaker_separation_response_model",
+    "StreamingAudioChunkWithTimestampsAndVoiceSegmentsResponseModel": ".streaming_audio_chunk_with_timestamps_and_voice_segments_response_model",
     "StreamingAudioChunkWithTimestampsResponse": ".streaming_audio_chunk_with_timestamps_response",
     "Subscription": ".subscription",
-    "SubscriptionExtrasResponseModel": ".subscription_extras_response_model",
     "SubscriptionResponse": ".subscription_response",
-    "SubscriptionResponseModelBillingPeriod": ".subscription_response_model_billing_period",
-    "SubscriptionResponseModelCharacterRefreshPeriod": ".subscription_response_model_character_refresh_period",
     "SubscriptionResponseModelCurrency": ".subscription_response_model_currency",
     "SubscriptionStatusType": ".subscription_status_type",
-    "SubscriptionUsageResponseModel": ".subscription_usage_response_model",
+    "SuggestedAudioTag": ".suggested_audio_tag",
     "SupportedVoice": ".supported_voice",
     "SystemToolConfigInput": ".system_tool_config_input",
     "SystemToolConfigInputParams": ".system_tool_config_input_params",
@@ -1633,30 +2940,36 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TelephonyProvider": ".telephony_provider",
     "TestConditionRationaleCommonModel": ".test_condition_rationale_common_model",
     "TestConditionResultCommonModel": ".test_condition_result_common_model",
+    "TestFromConversationMetadataInput": ".test_from_conversation_metadata_input",
+    "TestFromConversationMetadataOutput": ".test_from_conversation_metadata_output",
+    "TestInvocationSummaryResponseModel": ".test_invocation_summary_response_model",
     "TestRunMetadata": ".test_run_metadata",
     "TestRunMetadataTestType": ".test_run_metadata_test_type",
     "TestRunStatus": ".test_run_status",
     "TestToolResultModel": ".test_tool_result_model",
     "TestsFeatureUsageCommonModel": ".tests_feature_usage_common_model",
-    "TextToSpeechApplyTextNormalizationEnum": ".text_to_speech_apply_text_normalization_enum",
-    "TextToSpeechOutputFormatEnum": ".text_to_speech_output_format_enum",
+    "TextNormalisationType": ".text_normalisation_type",
+    "TextToSpeechRequest": ".text_to_speech_request",
     "TextToSpeechStreamRequest": ".text_to_speech_stream_request",
     "TextToSpeechStreamWithTimestampsRequest": ".text_to_speech_stream_with_timestamps_request",
     "TextToSpeechWithTimestampsRequest": ".text_to_speech_with_timestamps_request",
+    "ThresholdGuardrail": ".threshold_guardrail",
+    "TimeRange": ".time_range",
     "TokenResponseModel": ".token_response_model",
     "Tool": ".tool",
     "ToolAnnotations": ".tool_annotations",
+    "ToolCallSoundBehavior": ".tool_call_sound_behavior",
+    "ToolCallSoundType": ".tool_call_sound_type",
+    "ToolExecutionMode": ".tool_execution_mode",
     "ToolMockConfig": ".tool_mock_config",
     "ToolRequestModel": ".tool_request_model",
     "ToolRequestModelToolConfig": ".tool_request_model_tool_config",
     "ToolRequestModelToolConfig_Client": ".tool_request_model_tool_config",
-    "ToolRequestModelToolConfig_Mcp": ".tool_request_model_tool_config",
     "ToolRequestModelToolConfig_System": ".tool_request_model_tool_config",
     "ToolRequestModelToolConfig_Webhook": ".tool_request_model_tool_config",
     "ToolResponseModel": ".tool_response_model",
     "ToolResponseModelToolConfig": ".tool_response_model_tool_config",
     "ToolResponseModelToolConfig_Client": ".tool_response_model_tool_config",
-    "ToolResponseModelToolConfig_Mcp": ".tool_response_model_tool_config",
     "ToolResponseModelToolConfig_System": ".tool_response_model_tool_config",
     "ToolResponseModelToolConfig_Webhook": ".tool_response_model_tool_config",
     "ToolType": ".tool_type",
@@ -1675,16 +2988,24 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TtsConversationalConfigOutput": ".tts_conversational_config_output",
     "TtsConversationalConfigOverride": ".tts_conversational_config_override",
     "TtsConversationalConfigOverrideConfig": ".tts_conversational_config_override_config",
-    "TtsConversationalConfigWorkflowOverride": ".tts_conversational_config_workflow_override",
+    "TtsConversationalConfigWorkflowOverrideInput": ".tts_conversational_config_workflow_override_input",
+    "TtsConversationalConfigWorkflowOverrideOutput": ".tts_conversational_config_workflow_override_output",
     "TtsConversationalModel": ".tts_conversational_model",
     "TtsModelFamily": ".tts_model_family",
     "TtsOptimizeStreamingLatency": ".tts_optimize_streaming_latency",
     "TtsOutputFormat": ".tts_output_format",
     "TurnConfig": ".turn_config",
+    "TurnConfigOverride": ".turn_config_override",
+    "TurnConfigOverrideConfig": ".turn_config_override_config",
     "TurnConfigWorkflowOverride": ".turn_config_workflow_override",
+    "TurnEagerness": ".turn_eagerness",
     "TurnMode": ".turn_mode",
+    "TwilioEdgeLocation": ".twilio_edge_location",
     "TwilioOutboundCallResponse": ".twilio_outbound_call_response",
+    "TwilioRegionId": ".twilio_region_id",
     "TxtExportOptions": ".txt_export_options",
+    "UnitTestCommonModel": ".unit_test_common_model",
+    "UnitTestCommonModelDynamicVariablesValue": ".unit_test_common_model_dynamic_variables_value",
     "UnitTestCommonModelType": ".unit_test_common_model_type",
     "UnitTestRunResponseModel": ".unit_test_run_response_model",
     "UnitTestSummaryResponseModel": ".unit_test_summary_response_model",
@@ -1726,6 +3047,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "VoiceSample": ".voice_sample",
     "VoiceSamplePreviewResponseModel": ".voice_sample_preview_response_model",
     "VoiceSampleVisualWaveformResponseModel": ".voice_sample_visual_waveform_response_model",
+    "VoiceSegment": ".voice_segment",
     "VoiceSettings": ".voice_settings",
     "VoiceSharingModerationCheckResponseModel": ".voice_sharing_moderation_check_response_model",
     "VoiceSharingResponse": ".voice_sharing_response",
@@ -1734,17 +3056,22 @@ _dynamic_imports: typing.Dict[str, str] = {
     "VoiceVerificationResponse": ".voice_verification_response",
     "VoicemailDetectionToolConfig": ".voicemail_detection_tool_config",
     "WebhookAuthMethodType": ".webhook_auth_method_type",
+    "WebhookEventType": ".webhook_event_type",
+    "WebhookHmacSettings": ".webhook_hmac_settings",
     "WebhookToolApiSchemaConfigInput": ".webhook_tool_api_schema_config_input",
+    "WebhookToolApiSchemaConfigInputContentType": ".webhook_tool_api_schema_config_input_content_type",
     "WebhookToolApiSchemaConfigInputMethod": ".webhook_tool_api_schema_config_input_method",
     "WebhookToolApiSchemaConfigInputRequestHeadersValue": ".webhook_tool_api_schema_config_input_request_headers_value",
     "WebhookToolApiSchemaConfigOutput": ".webhook_tool_api_schema_config_output",
+    "WebhookToolApiSchemaConfigOutputContentType": ".webhook_tool_api_schema_config_output_content_type",
     "WebhookToolApiSchemaConfigOutputMethod": ".webhook_tool_api_schema_config_output_method",
     "WebhookToolApiSchemaConfigOutputRequestHeadersValue": ".webhook_tool_api_schema_config_output_request_headers_value",
     "WebhookToolConfigInput": ".webhook_tool_config_input",
     "WebhookToolConfigOutput": ".webhook_tool_config_output",
     "WebhookUsageType": ".webhook_usage_type",
-    "WebsocketTtsClientMessageMulti": ".websocket_tts_client_message_multi",
-    "WebsocketTtsServerMessageMulti": ".websocket_tts_server_message_multi",
+    "WhatsAppConversationInfo": ".whats_app_conversation_info",
+    "WhatsAppConversationInfoDirection": ".whats_app_conversation_info_direction",
+    "WhatsAppOutboundCallResponse": ".whats_app_outbound_call_response",
     "WidgetConfig": ".widget_config",
     "WidgetConfigInputAvatar": ".widget_config_input_avatar",
     "WidgetConfigInputAvatar_Image": ".widget_config_input_avatar",
@@ -1759,33 +3086,100 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WidgetConfigResponseModelAvatar_Image": ".widget_config_response_model_avatar",
     "WidgetConfigResponseModelAvatar_Orb": ".widget_config_response_model_avatar",
     "WidgetConfigResponseModelAvatar_Url": ".widget_config_response_model_avatar",
+    "WidgetEndFeedbackConfig": ".widget_end_feedback_config",
+    "WidgetEndFeedbackType": ".widget_end_feedback_type",
     "WidgetExpandable": ".widget_expandable",
     "WidgetFeedbackMode": ".widget_feedback_mode",
     "WidgetLanguagePreset": ".widget_language_preset",
     "WidgetLanguagePresetResponse": ".widget_language_preset_response",
     "WidgetPlacement": ".widget_placement",
     "WidgetStyles": ".widget_styles",
+    "WidgetTermsTranslation": ".widget_terms_translation",
     "WidgetTextContents": ".widget_text_contents",
-    "WorkflowEdgeModel": ".workflow_edge_model",
-    "WorkflowEdgeModelBackwardCondition": ".workflow_edge_model_backward_condition",
-    "WorkflowEdgeModelBackwardCondition_Llm": ".workflow_edge_model_backward_condition",
-    "WorkflowEdgeModelBackwardCondition_Result": ".workflow_edge_model_backward_condition",
-    "WorkflowEdgeModelBackwardCondition_Unconditional": ".workflow_edge_model_backward_condition",
-    "WorkflowEdgeModelForwardCondition": ".workflow_edge_model_forward_condition",
-    "WorkflowEdgeModelForwardCondition_Llm": ".workflow_edge_model_forward_condition",
-    "WorkflowEdgeModelForwardCondition_Result": ".workflow_edge_model_forward_condition",
-    "WorkflowEdgeModelForwardCondition_Unconditional": ".workflow_edge_model_forward_condition",
-    "WorkflowEndNodeModel": ".workflow_end_node_model",
+    "WordTimestamp": ".word_timestamp",
+    "WorkflowEdgeModelInput": ".workflow_edge_model_input",
+    "WorkflowEdgeModelInputBackwardCondition": ".workflow_edge_model_input_backward_condition",
+    "WorkflowEdgeModelInputBackwardCondition_Expression": ".workflow_edge_model_input_backward_condition",
+    "WorkflowEdgeModelInputBackwardCondition_Llm": ".workflow_edge_model_input_backward_condition",
+    "WorkflowEdgeModelInputBackwardCondition_Result": ".workflow_edge_model_input_backward_condition",
+    "WorkflowEdgeModelInputBackwardCondition_Unconditional": ".workflow_edge_model_input_backward_condition",
+    "WorkflowEdgeModelInputForwardCondition": ".workflow_edge_model_input_forward_condition",
+    "WorkflowEdgeModelInputForwardCondition_Expression": ".workflow_edge_model_input_forward_condition",
+    "WorkflowEdgeModelInputForwardCondition_Llm": ".workflow_edge_model_input_forward_condition",
+    "WorkflowEdgeModelInputForwardCondition_Result": ".workflow_edge_model_input_forward_condition",
+    "WorkflowEdgeModelInputForwardCondition_Unconditional": ".workflow_edge_model_input_forward_condition",
+    "WorkflowEdgeModelOutput": ".workflow_edge_model_output",
+    "WorkflowEdgeModelOutputBackwardCondition": ".workflow_edge_model_output_backward_condition",
+    "WorkflowEdgeModelOutputBackwardCondition_Expression": ".workflow_edge_model_output_backward_condition",
+    "WorkflowEdgeModelOutputBackwardCondition_Llm": ".workflow_edge_model_output_backward_condition",
+    "WorkflowEdgeModelOutputBackwardCondition_Result": ".workflow_edge_model_output_backward_condition",
+    "WorkflowEdgeModelOutputBackwardCondition_Unconditional": ".workflow_edge_model_output_backward_condition",
+    "WorkflowEdgeModelOutputForwardCondition": ".workflow_edge_model_output_forward_condition",
+    "WorkflowEdgeModelOutputForwardCondition_Expression": ".workflow_edge_model_output_forward_condition",
+    "WorkflowEdgeModelOutputForwardCondition_Llm": ".workflow_edge_model_output_forward_condition",
+    "WorkflowEdgeModelOutputForwardCondition_Result": ".workflow_edge_model_output_forward_condition",
+    "WorkflowEdgeModelOutputForwardCondition_Unconditional": ".workflow_edge_model_output_forward_condition",
+    "WorkflowEndNodeModelInput": ".workflow_end_node_model_input",
+    "WorkflowEndNodeModelOutput": ".workflow_end_node_model_output",
+    "WorkflowExpressionConditionModelInput": ".workflow_expression_condition_model_input",
+    "WorkflowExpressionConditionModelInputExpression": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelInputExpression_AndOperator": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelInputExpression_BooleanLiteral": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelInputExpression_DynamicVariable": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelInputExpression_EqOperator": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelInputExpression_GtOperator": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelInputExpression_GteOperator": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelInputExpression_Llm": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelInputExpression_LtOperator": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelInputExpression_LteOperator": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelInputExpression_NeqOperator": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelInputExpression_NumberLiteral": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelInputExpression_OrOperator": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelInputExpression_StringLiteral": ".workflow_expression_condition_model_input_expression",
+    "WorkflowExpressionConditionModelOutput": ".workflow_expression_condition_model_output",
+    "WorkflowExpressionConditionModelOutputExpression": ".workflow_expression_condition_model_output_expression",
+    "WorkflowExpressionConditionModelOutputExpression_AndOperator": ".workflow_expression_condition_model_output_expression",
+    "WorkflowExpressionConditionModelOutputExpression_BooleanLiteral": ".workflow_expression_condition_model_output_expression",
+    "WorkflowExpressionConditionModelOutputExpression_DynamicVariable": ".workflow_expression_condition_model_output_expression",
+    "WorkflowExpressionConditionModelOutputExpression_EqOperator": ".workflow_expression_condition_model_output_expression",
+    "WorkflowExpressionConditionModelOutputExpression_GtOperator": ".workflow_expression_condition_model_output_expression",
+    "WorkflowExpressionConditionModelOutputExpression_GteOperator": ".workflow_expression_condition_model_output_expression",
+    "WorkflowExpressionConditionModelOutputExpression_Llm": ".workflow_expression_condition_model_output_expression",
+    "WorkflowExpressionConditionModelOutputExpression_LtOperator": ".workflow_expression_condition_model_output_expression",
+    "WorkflowExpressionConditionModelOutputExpression_LteOperator": ".workflow_expression_condition_model_output_expression",
+    "WorkflowExpressionConditionModelOutputExpression_NeqOperator": ".workflow_expression_condition_model_output_expression",
+    "WorkflowExpressionConditionModelOutputExpression_NumberLiteral": ".workflow_expression_condition_model_output_expression",
+    "WorkflowExpressionConditionModelOutputExpression_OrOperator": ".workflow_expression_condition_model_output_expression",
+    "WorkflowExpressionConditionModelOutputExpression_StringLiteral": ".workflow_expression_condition_model_output_expression",
     "WorkflowFeaturesUsageCommonModel": ".workflow_features_usage_common_model",
-    "WorkflowLlmConditionModel": ".workflow_llm_condition_model",
-    "WorkflowOverrideAgentNodeModel": ".workflow_override_agent_node_model",
-    "WorkflowPhoneNumberNodeModel": ".workflow_phone_number_node_model",
-    "WorkflowPhoneNumberNodeModelTransferDestination": ".workflow_phone_number_node_model_transfer_destination",
-    "WorkflowPhoneNumberNodeModelTransferDestination_Phone": ".workflow_phone_number_node_model_transfer_destination",
-    "WorkflowPhoneNumberNodeModelTransferDestination_SipUri": ".workflow_phone_number_node_model_transfer_destination",
-    "WorkflowResultConditionModel": ".workflow_result_condition_model",
-    "WorkflowStandaloneAgentNodeModel": ".workflow_standalone_agent_node_model",
-    "WorkflowStartNodeModel": ".workflow_start_node_model",
+    "WorkflowLlmConditionModelInput": ".workflow_llm_condition_model_input",
+    "WorkflowLlmConditionModelOutput": ".workflow_llm_condition_model_output",
+    "WorkflowOverrideAgentNodeModelInput": ".workflow_override_agent_node_model_input",
+    "WorkflowOverrideAgentNodeModelOutput": ".workflow_override_agent_node_model_output",
+    "WorkflowPhoneNumberNodeModelInput": ".workflow_phone_number_node_model_input",
+    "WorkflowPhoneNumberNodeModelInputCustomSipHeadersItem": ".workflow_phone_number_node_model_input_custom_sip_headers_item",
+    "WorkflowPhoneNumberNodeModelInputCustomSipHeadersItem_Dynamic": ".workflow_phone_number_node_model_input_custom_sip_headers_item",
+    "WorkflowPhoneNumberNodeModelInputCustomSipHeadersItem_Static": ".workflow_phone_number_node_model_input_custom_sip_headers_item",
+    "WorkflowPhoneNumberNodeModelInputTransferDestination": ".workflow_phone_number_node_model_input_transfer_destination",
+    "WorkflowPhoneNumberNodeModelInputTransferDestination_Phone": ".workflow_phone_number_node_model_input_transfer_destination",
+    "WorkflowPhoneNumberNodeModelInputTransferDestination_PhoneDynamicVariable": ".workflow_phone_number_node_model_input_transfer_destination",
+    "WorkflowPhoneNumberNodeModelInputTransferDestination_SipUri": ".workflow_phone_number_node_model_input_transfer_destination",
+    "WorkflowPhoneNumberNodeModelInputTransferDestination_SipUriDynamicVariable": ".workflow_phone_number_node_model_input_transfer_destination",
+    "WorkflowPhoneNumberNodeModelOutput": ".workflow_phone_number_node_model_output",
+    "WorkflowPhoneNumberNodeModelOutputCustomSipHeadersItem": ".workflow_phone_number_node_model_output_custom_sip_headers_item",
+    "WorkflowPhoneNumberNodeModelOutputCustomSipHeadersItem_Dynamic": ".workflow_phone_number_node_model_output_custom_sip_headers_item",
+    "WorkflowPhoneNumberNodeModelOutputCustomSipHeadersItem_Static": ".workflow_phone_number_node_model_output_custom_sip_headers_item",
+    "WorkflowPhoneNumberNodeModelOutputTransferDestination": ".workflow_phone_number_node_model_output_transfer_destination",
+    "WorkflowPhoneNumberNodeModelOutputTransferDestination_Phone": ".workflow_phone_number_node_model_output_transfer_destination",
+    "WorkflowPhoneNumberNodeModelOutputTransferDestination_PhoneDynamicVariable": ".workflow_phone_number_node_model_output_transfer_destination",
+    "WorkflowPhoneNumberNodeModelOutputTransferDestination_SipUri": ".workflow_phone_number_node_model_output_transfer_destination",
+    "WorkflowPhoneNumberNodeModelOutputTransferDestination_SipUriDynamicVariable": ".workflow_phone_number_node_model_output_transfer_destination",
+    "WorkflowResultConditionModelInput": ".workflow_result_condition_model_input",
+    "WorkflowResultConditionModelOutput": ".workflow_result_condition_model_output",
+    "WorkflowStandaloneAgentNodeModelInput": ".workflow_standalone_agent_node_model_input",
+    "WorkflowStandaloneAgentNodeModelOutput": ".workflow_standalone_agent_node_model_output",
+    "WorkflowStartNodeModelInput": ".workflow_start_node_model_input",
+    "WorkflowStartNodeModelOutput": ".workflow_start_node_model_output",
     "WorkflowToolEdgeStepModel": ".workflow_tool_edge_step_model",
     "WorkflowToolLocator": ".workflow_tool_locator",
     "WorkflowToolMaxIterationsExceededStepModel": ".workflow_tool_max_iterations_exceeded_step_model",
@@ -1793,7 +3187,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WorkflowToolNestedToolsStepModelInputResultsItem": ".workflow_tool_nested_tools_step_model_input_results_item",
     "WorkflowToolNestedToolsStepModelOutput": ".workflow_tool_nested_tools_step_model_output",
     "WorkflowToolNestedToolsStepModelOutputResultsItem": ".workflow_tool_nested_tools_step_model_output_results_item",
-    "WorkflowToolNodeModel": ".workflow_tool_node_model",
+    "WorkflowToolNodeModelInput": ".workflow_tool_node_model_input",
+    "WorkflowToolNodeModelOutput": ".workflow_tool_node_model_output",
     "WorkflowToolResponseModelInput": ".workflow_tool_response_model_input",
     "WorkflowToolResponseModelInputStepsItem": ".workflow_tool_response_model_input_steps_item",
     "WorkflowToolResponseModelInputStepsItem_Edge": ".workflow_tool_response_model_input_steps_item",
@@ -1804,12 +3199,13 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WorkflowToolResponseModelOutputStepsItem_Edge": ".workflow_tool_response_model_output_steps_item",
     "WorkflowToolResponseModelOutputStepsItem_MaxIterationsExceeded": ".workflow_tool_response_model_output_steps_item",
     "WorkflowToolResponseModelOutputStepsItem_NestedTools": ".workflow_tool_response_model_output_steps_item",
-    "WorkflowUnconditionalModel": ".workflow_unconditional_model",
+    "WorkflowUnconditionalModelInput": ".workflow_unconditional_model_input",
+    "WorkflowUnconditionalModelOutput": ".workflow_unconditional_model_output",
     "WorkspaceApiKeyListResponseModel": ".workspace_api_key_list_response_model",
     "WorkspaceApiKeyResponseModel": ".workspace_api_key_response_model",
-    "WorkspaceApiKeyResponseModelPermissionsItem": ".workspace_api_key_response_model_permissions_item",
     "WorkspaceBatchCallsResponse": ".workspace_batch_calls_response",
     "WorkspaceCreateApiKeyResponseModel": ".workspace_create_api_key_response_model",
+    "WorkspaceCreateWebhookResponseModel": ".workspace_create_webhook_response_model",
     "WorkspaceGroupByNameResponseModel": ".workspace_group_by_name_response_model",
     "WorkspaceResourceType": ".workspace_resource_type",
     "WorkspaceServiceAccountListResponseModel": ".workspace_service_account_list_response_model",
@@ -1826,8 +3222,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -1857,9 +3255,12 @@ __all__ = [
     "Age",
     "AgentCallLimits",
     "AgentConfig",
-    "AgentConfigApiModelWorkflowOverride",
-    "AgentConfigOverride",
+    "AgentConfigApiModelWorkflowOverrideInput",
+    "AgentConfigApiModelWorkflowOverrideOutput",
     "AgentConfigOverrideConfig",
+    "AgentConfigOverrideInput",
+    "AgentConfigOverrideOutput",
+    "AgentDefinitionSource",
     "AgentFailureResponseExample",
     "AgentMetadata",
     "AgentMetadataResponseModel",
@@ -1868,6 +3269,7 @@ __all__ = [
     "AgentSimulatedChatTestResponseModel",
     "AgentSortBy",
     "AgentSuccessfulResponseExample",
+    "AgentSummaryBatchSuccessfulResponseModel",
     "AgentSummaryResponseModel",
     "AgentTestingSettings",
     "AgentTransfer",
@@ -1879,10 +3281,24 @@ __all__ = [
     "AgentWorkflowRequestModelNodesValue_StandaloneAgent",
     "AgentWorkflowRequestModelNodesValue_Start",
     "AgentWorkflowRequestModelNodesValue_Tool",
+    "AgentWorkflowResponseModel",
+    "AgentWorkflowResponseModelNodesValue",
+    "AgentWorkflowResponseModelNodesValue_End",
+    "AgentWorkflowResponseModelNodesValue_OverrideAgent",
+    "AgentWorkflowResponseModelNodesValue_PhoneNumber",
+    "AgentWorkflowResponseModelNodesValue_StandaloneAgent",
+    "AgentWorkflowResponseModelNodesValue_Start",
+    "AgentWorkflowResponseModelNodesValue_Tool",
     "AgentWorkspaceOverridesInput",
     "AgentWorkspaceOverridesOutput",
-    "Alignment",
+    "AllowedOutputFormats",
     "AllowlistItem",
+    "ApiIntegrationWebhookOverridesInput",
+    "ApiIntegrationWebhookOverridesInputRequestHeadersValue",
+    "ApiIntegrationWebhookOverridesOutput",
+    "ApiIntegrationWebhookOverridesOutputRequestHeadersValue",
+    "ApiIntegrationWebhookToolConfigInput",
+    "ApiIntegrationWebhookToolConfigOutput",
     "ArrayJsonSchemaPropertyInput",
     "ArrayJsonSchemaPropertyInputItems",
     "ArrayJsonSchemaPropertyOutput",
@@ -1892,29 +3308,456 @@ __all__ = [
     "AsrInputFormat",
     "AsrProvider",
     "AsrQuality",
+    "AstAndOperatorNodeInput",
+    "AstAndOperatorNodeInputChildrenItem",
+    "AstAndOperatorNodeInputChildrenItem_AndOperator",
+    "AstAndOperatorNodeInputChildrenItem_BooleanLiteral",
+    "AstAndOperatorNodeInputChildrenItem_DynamicVariable",
+    "AstAndOperatorNodeInputChildrenItem_EqOperator",
+    "AstAndOperatorNodeInputChildrenItem_GtOperator",
+    "AstAndOperatorNodeInputChildrenItem_GteOperator",
+    "AstAndOperatorNodeInputChildrenItem_Llm",
+    "AstAndOperatorNodeInputChildrenItem_LtOperator",
+    "AstAndOperatorNodeInputChildrenItem_LteOperator",
+    "AstAndOperatorNodeInputChildrenItem_NeqOperator",
+    "AstAndOperatorNodeInputChildrenItem_NumberLiteral",
+    "AstAndOperatorNodeInputChildrenItem_OrOperator",
+    "AstAndOperatorNodeInputChildrenItem_StringLiteral",
+    "AstAndOperatorNodeOutput",
+    "AstAndOperatorNodeOutputChildrenItem",
+    "AstAndOperatorNodeOutputChildrenItem_AndOperator",
+    "AstAndOperatorNodeOutputChildrenItem_BooleanLiteral",
+    "AstAndOperatorNodeOutputChildrenItem_DynamicVariable",
+    "AstAndOperatorNodeOutputChildrenItem_EqOperator",
+    "AstAndOperatorNodeOutputChildrenItem_GtOperator",
+    "AstAndOperatorNodeOutputChildrenItem_GteOperator",
+    "AstAndOperatorNodeOutputChildrenItem_Llm",
+    "AstAndOperatorNodeOutputChildrenItem_LtOperator",
+    "AstAndOperatorNodeOutputChildrenItem_LteOperator",
+    "AstAndOperatorNodeOutputChildrenItem_NeqOperator",
+    "AstAndOperatorNodeOutputChildrenItem_NumberLiteral",
+    "AstAndOperatorNodeOutputChildrenItem_OrOperator",
+    "AstAndOperatorNodeOutputChildrenItem_StringLiteral",
+    "AstBooleanNodeInput",
+    "AstBooleanNodeOutput",
+    "AstDynamicVariableNodeInput",
+    "AstDynamicVariableNodeOutput",
+    "AstEqualsOperatorNodeInput",
+    "AstEqualsOperatorNodeInputLeft",
+    "AstEqualsOperatorNodeInputLeft_AndOperator",
+    "AstEqualsOperatorNodeInputLeft_BooleanLiteral",
+    "AstEqualsOperatorNodeInputLeft_DynamicVariable",
+    "AstEqualsOperatorNodeInputLeft_EqOperator",
+    "AstEqualsOperatorNodeInputLeft_GtOperator",
+    "AstEqualsOperatorNodeInputLeft_GteOperator",
+    "AstEqualsOperatorNodeInputLeft_Llm",
+    "AstEqualsOperatorNodeInputLeft_LtOperator",
+    "AstEqualsOperatorNodeInputLeft_LteOperator",
+    "AstEqualsOperatorNodeInputLeft_NeqOperator",
+    "AstEqualsOperatorNodeInputLeft_NumberLiteral",
+    "AstEqualsOperatorNodeInputLeft_OrOperator",
+    "AstEqualsOperatorNodeInputLeft_StringLiteral",
+    "AstEqualsOperatorNodeInputRight",
+    "AstEqualsOperatorNodeInputRight_AndOperator",
+    "AstEqualsOperatorNodeInputRight_BooleanLiteral",
+    "AstEqualsOperatorNodeInputRight_DynamicVariable",
+    "AstEqualsOperatorNodeInputRight_EqOperator",
+    "AstEqualsOperatorNodeInputRight_GtOperator",
+    "AstEqualsOperatorNodeInputRight_GteOperator",
+    "AstEqualsOperatorNodeInputRight_Llm",
+    "AstEqualsOperatorNodeInputRight_LtOperator",
+    "AstEqualsOperatorNodeInputRight_LteOperator",
+    "AstEqualsOperatorNodeInputRight_NeqOperator",
+    "AstEqualsOperatorNodeInputRight_NumberLiteral",
+    "AstEqualsOperatorNodeInputRight_OrOperator",
+    "AstEqualsOperatorNodeInputRight_StringLiteral",
+    "AstEqualsOperatorNodeOutput",
+    "AstEqualsOperatorNodeOutputLeft",
+    "AstEqualsOperatorNodeOutputLeft_AndOperator",
+    "AstEqualsOperatorNodeOutputLeft_BooleanLiteral",
+    "AstEqualsOperatorNodeOutputLeft_DynamicVariable",
+    "AstEqualsOperatorNodeOutputLeft_EqOperator",
+    "AstEqualsOperatorNodeOutputLeft_GtOperator",
+    "AstEqualsOperatorNodeOutputLeft_GteOperator",
+    "AstEqualsOperatorNodeOutputLeft_Llm",
+    "AstEqualsOperatorNodeOutputLeft_LtOperator",
+    "AstEqualsOperatorNodeOutputLeft_LteOperator",
+    "AstEqualsOperatorNodeOutputLeft_NeqOperator",
+    "AstEqualsOperatorNodeOutputLeft_NumberLiteral",
+    "AstEqualsOperatorNodeOutputLeft_OrOperator",
+    "AstEqualsOperatorNodeOutputLeft_StringLiteral",
+    "AstEqualsOperatorNodeOutputRight",
+    "AstEqualsOperatorNodeOutputRight_AndOperator",
+    "AstEqualsOperatorNodeOutputRight_BooleanLiteral",
+    "AstEqualsOperatorNodeOutputRight_DynamicVariable",
+    "AstEqualsOperatorNodeOutputRight_EqOperator",
+    "AstEqualsOperatorNodeOutputRight_GtOperator",
+    "AstEqualsOperatorNodeOutputRight_GteOperator",
+    "AstEqualsOperatorNodeOutputRight_Llm",
+    "AstEqualsOperatorNodeOutputRight_LtOperator",
+    "AstEqualsOperatorNodeOutputRight_LteOperator",
+    "AstEqualsOperatorNodeOutputRight_NeqOperator",
+    "AstEqualsOperatorNodeOutputRight_NumberLiteral",
+    "AstEqualsOperatorNodeOutputRight_OrOperator",
+    "AstEqualsOperatorNodeOutputRight_StringLiteral",
+    "AstGreaterThanOperatorNodeInput",
+    "AstGreaterThanOperatorNodeInputLeft",
+    "AstGreaterThanOperatorNodeInputLeft_AndOperator",
+    "AstGreaterThanOperatorNodeInputLeft_BooleanLiteral",
+    "AstGreaterThanOperatorNodeInputLeft_DynamicVariable",
+    "AstGreaterThanOperatorNodeInputLeft_EqOperator",
+    "AstGreaterThanOperatorNodeInputLeft_GtOperator",
+    "AstGreaterThanOperatorNodeInputLeft_GteOperator",
+    "AstGreaterThanOperatorNodeInputLeft_Llm",
+    "AstGreaterThanOperatorNodeInputLeft_LtOperator",
+    "AstGreaterThanOperatorNodeInputLeft_LteOperator",
+    "AstGreaterThanOperatorNodeInputLeft_NeqOperator",
+    "AstGreaterThanOperatorNodeInputLeft_NumberLiteral",
+    "AstGreaterThanOperatorNodeInputLeft_OrOperator",
+    "AstGreaterThanOperatorNodeInputLeft_StringLiteral",
+    "AstGreaterThanOperatorNodeInputRight",
+    "AstGreaterThanOperatorNodeInputRight_AndOperator",
+    "AstGreaterThanOperatorNodeInputRight_BooleanLiteral",
+    "AstGreaterThanOperatorNodeInputRight_DynamicVariable",
+    "AstGreaterThanOperatorNodeInputRight_EqOperator",
+    "AstGreaterThanOperatorNodeInputRight_GtOperator",
+    "AstGreaterThanOperatorNodeInputRight_GteOperator",
+    "AstGreaterThanOperatorNodeInputRight_Llm",
+    "AstGreaterThanOperatorNodeInputRight_LtOperator",
+    "AstGreaterThanOperatorNodeInputRight_LteOperator",
+    "AstGreaterThanOperatorNodeInputRight_NeqOperator",
+    "AstGreaterThanOperatorNodeInputRight_NumberLiteral",
+    "AstGreaterThanOperatorNodeInputRight_OrOperator",
+    "AstGreaterThanOperatorNodeInputRight_StringLiteral",
+    "AstGreaterThanOperatorNodeOutput",
+    "AstGreaterThanOperatorNodeOutputLeft",
+    "AstGreaterThanOperatorNodeOutputLeft_AndOperator",
+    "AstGreaterThanOperatorNodeOutputLeft_BooleanLiteral",
+    "AstGreaterThanOperatorNodeOutputLeft_DynamicVariable",
+    "AstGreaterThanOperatorNodeOutputLeft_EqOperator",
+    "AstGreaterThanOperatorNodeOutputLeft_GtOperator",
+    "AstGreaterThanOperatorNodeOutputLeft_GteOperator",
+    "AstGreaterThanOperatorNodeOutputLeft_Llm",
+    "AstGreaterThanOperatorNodeOutputLeft_LtOperator",
+    "AstGreaterThanOperatorNodeOutputLeft_LteOperator",
+    "AstGreaterThanOperatorNodeOutputLeft_NeqOperator",
+    "AstGreaterThanOperatorNodeOutputLeft_NumberLiteral",
+    "AstGreaterThanOperatorNodeOutputLeft_OrOperator",
+    "AstGreaterThanOperatorNodeOutputLeft_StringLiteral",
+    "AstGreaterThanOperatorNodeOutputRight",
+    "AstGreaterThanOperatorNodeOutputRight_AndOperator",
+    "AstGreaterThanOperatorNodeOutputRight_BooleanLiteral",
+    "AstGreaterThanOperatorNodeOutputRight_DynamicVariable",
+    "AstGreaterThanOperatorNodeOutputRight_EqOperator",
+    "AstGreaterThanOperatorNodeOutputRight_GtOperator",
+    "AstGreaterThanOperatorNodeOutputRight_GteOperator",
+    "AstGreaterThanOperatorNodeOutputRight_Llm",
+    "AstGreaterThanOperatorNodeOutputRight_LtOperator",
+    "AstGreaterThanOperatorNodeOutputRight_LteOperator",
+    "AstGreaterThanOperatorNodeOutputRight_NeqOperator",
+    "AstGreaterThanOperatorNodeOutputRight_NumberLiteral",
+    "AstGreaterThanOperatorNodeOutputRight_OrOperator",
+    "AstGreaterThanOperatorNodeOutputRight_StringLiteral",
+    "AstGreaterThanOrEqualsOperatorNodeInput",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_AndOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_BooleanLiteral",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_DynamicVariable",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_EqOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_GtOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_GteOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_Llm",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_LtOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_LteOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_NeqOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_NumberLiteral",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_OrOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputLeft_StringLiteral",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_AndOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_BooleanLiteral",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_DynamicVariable",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_EqOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_GtOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_GteOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_Llm",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_LtOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_LteOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_NeqOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_NumberLiteral",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_OrOperator",
+    "AstGreaterThanOrEqualsOperatorNodeInputRight_StringLiteral",
+    "AstGreaterThanOrEqualsOperatorNodeOutput",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_AndOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_BooleanLiteral",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_DynamicVariable",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_EqOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_GtOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_GteOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_Llm",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_LtOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_LteOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_NeqOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_NumberLiteral",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_OrOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputLeft_StringLiteral",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_AndOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_BooleanLiteral",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_DynamicVariable",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_EqOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_GtOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_GteOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_Llm",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_LtOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_LteOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_NeqOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_NumberLiteral",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_OrOperator",
+    "AstGreaterThanOrEqualsOperatorNodeOutputRight_StringLiteral",
+    "AstLessThanOperatorNodeInput",
+    "AstLessThanOperatorNodeInputLeft",
+    "AstLessThanOperatorNodeInputLeft_AndOperator",
+    "AstLessThanOperatorNodeInputLeft_BooleanLiteral",
+    "AstLessThanOperatorNodeInputLeft_DynamicVariable",
+    "AstLessThanOperatorNodeInputLeft_EqOperator",
+    "AstLessThanOperatorNodeInputLeft_GtOperator",
+    "AstLessThanOperatorNodeInputLeft_GteOperator",
+    "AstLessThanOperatorNodeInputLeft_Llm",
+    "AstLessThanOperatorNodeInputLeft_LtOperator",
+    "AstLessThanOperatorNodeInputLeft_LteOperator",
+    "AstLessThanOperatorNodeInputLeft_NeqOperator",
+    "AstLessThanOperatorNodeInputLeft_NumberLiteral",
+    "AstLessThanOperatorNodeInputLeft_OrOperator",
+    "AstLessThanOperatorNodeInputLeft_StringLiteral",
+    "AstLessThanOperatorNodeInputRight",
+    "AstLessThanOperatorNodeInputRight_AndOperator",
+    "AstLessThanOperatorNodeInputRight_BooleanLiteral",
+    "AstLessThanOperatorNodeInputRight_DynamicVariable",
+    "AstLessThanOperatorNodeInputRight_EqOperator",
+    "AstLessThanOperatorNodeInputRight_GtOperator",
+    "AstLessThanOperatorNodeInputRight_GteOperator",
+    "AstLessThanOperatorNodeInputRight_Llm",
+    "AstLessThanOperatorNodeInputRight_LtOperator",
+    "AstLessThanOperatorNodeInputRight_LteOperator",
+    "AstLessThanOperatorNodeInputRight_NeqOperator",
+    "AstLessThanOperatorNodeInputRight_NumberLiteral",
+    "AstLessThanOperatorNodeInputRight_OrOperator",
+    "AstLessThanOperatorNodeInputRight_StringLiteral",
+    "AstLessThanOperatorNodeOutput",
+    "AstLessThanOperatorNodeOutputLeft",
+    "AstLessThanOperatorNodeOutputLeft_AndOperator",
+    "AstLessThanOperatorNodeOutputLeft_BooleanLiteral",
+    "AstLessThanOperatorNodeOutputLeft_DynamicVariable",
+    "AstLessThanOperatorNodeOutputLeft_EqOperator",
+    "AstLessThanOperatorNodeOutputLeft_GtOperator",
+    "AstLessThanOperatorNodeOutputLeft_GteOperator",
+    "AstLessThanOperatorNodeOutputLeft_Llm",
+    "AstLessThanOperatorNodeOutputLeft_LtOperator",
+    "AstLessThanOperatorNodeOutputLeft_LteOperator",
+    "AstLessThanOperatorNodeOutputLeft_NeqOperator",
+    "AstLessThanOperatorNodeOutputLeft_NumberLiteral",
+    "AstLessThanOperatorNodeOutputLeft_OrOperator",
+    "AstLessThanOperatorNodeOutputLeft_StringLiteral",
+    "AstLessThanOperatorNodeOutputRight",
+    "AstLessThanOperatorNodeOutputRight_AndOperator",
+    "AstLessThanOperatorNodeOutputRight_BooleanLiteral",
+    "AstLessThanOperatorNodeOutputRight_DynamicVariable",
+    "AstLessThanOperatorNodeOutputRight_EqOperator",
+    "AstLessThanOperatorNodeOutputRight_GtOperator",
+    "AstLessThanOperatorNodeOutputRight_GteOperator",
+    "AstLessThanOperatorNodeOutputRight_Llm",
+    "AstLessThanOperatorNodeOutputRight_LtOperator",
+    "AstLessThanOperatorNodeOutputRight_LteOperator",
+    "AstLessThanOperatorNodeOutputRight_NeqOperator",
+    "AstLessThanOperatorNodeOutputRight_NumberLiteral",
+    "AstLessThanOperatorNodeOutputRight_OrOperator",
+    "AstLessThanOperatorNodeOutputRight_StringLiteral",
+    "AstLessThanOrEqualsOperatorNodeInput",
+    "AstLessThanOrEqualsOperatorNodeInputLeft",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_AndOperator",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_BooleanLiteral",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_DynamicVariable",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_EqOperator",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_GtOperator",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_GteOperator",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_Llm",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_LtOperator",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_LteOperator",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_NeqOperator",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_NumberLiteral",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_OrOperator",
+    "AstLessThanOrEqualsOperatorNodeInputLeft_StringLiteral",
+    "AstLessThanOrEqualsOperatorNodeInputRight",
+    "AstLessThanOrEqualsOperatorNodeInputRight_AndOperator",
+    "AstLessThanOrEqualsOperatorNodeInputRight_BooleanLiteral",
+    "AstLessThanOrEqualsOperatorNodeInputRight_DynamicVariable",
+    "AstLessThanOrEqualsOperatorNodeInputRight_EqOperator",
+    "AstLessThanOrEqualsOperatorNodeInputRight_GtOperator",
+    "AstLessThanOrEqualsOperatorNodeInputRight_GteOperator",
+    "AstLessThanOrEqualsOperatorNodeInputRight_Llm",
+    "AstLessThanOrEqualsOperatorNodeInputRight_LtOperator",
+    "AstLessThanOrEqualsOperatorNodeInputRight_LteOperator",
+    "AstLessThanOrEqualsOperatorNodeInputRight_NeqOperator",
+    "AstLessThanOrEqualsOperatorNodeInputRight_NumberLiteral",
+    "AstLessThanOrEqualsOperatorNodeInputRight_OrOperator",
+    "AstLessThanOrEqualsOperatorNodeInputRight_StringLiteral",
+    "AstLessThanOrEqualsOperatorNodeOutput",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_AndOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_BooleanLiteral",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_DynamicVariable",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_EqOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_GtOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_GteOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_Llm",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_LtOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_LteOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_NeqOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_NumberLiteral",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_OrOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputLeft_StringLiteral",
+    "AstLessThanOrEqualsOperatorNodeOutputRight",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_AndOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_BooleanLiteral",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_DynamicVariable",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_EqOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_GtOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_GteOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_Llm",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_LtOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_LteOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_NeqOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_NumberLiteral",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_OrOperator",
+    "AstLessThanOrEqualsOperatorNodeOutputRight_StringLiteral",
+    "AstNotEqualsOperatorNodeInput",
+    "AstNotEqualsOperatorNodeInputLeft",
+    "AstNotEqualsOperatorNodeInputLeft_AndOperator",
+    "AstNotEqualsOperatorNodeInputLeft_BooleanLiteral",
+    "AstNotEqualsOperatorNodeInputLeft_DynamicVariable",
+    "AstNotEqualsOperatorNodeInputLeft_EqOperator",
+    "AstNotEqualsOperatorNodeInputLeft_GtOperator",
+    "AstNotEqualsOperatorNodeInputLeft_GteOperator",
+    "AstNotEqualsOperatorNodeInputLeft_Llm",
+    "AstNotEqualsOperatorNodeInputLeft_LtOperator",
+    "AstNotEqualsOperatorNodeInputLeft_LteOperator",
+    "AstNotEqualsOperatorNodeInputLeft_NeqOperator",
+    "AstNotEqualsOperatorNodeInputLeft_NumberLiteral",
+    "AstNotEqualsOperatorNodeInputLeft_OrOperator",
+    "AstNotEqualsOperatorNodeInputLeft_StringLiteral",
+    "AstNotEqualsOperatorNodeInputRight",
+    "AstNotEqualsOperatorNodeInputRight_AndOperator",
+    "AstNotEqualsOperatorNodeInputRight_BooleanLiteral",
+    "AstNotEqualsOperatorNodeInputRight_DynamicVariable",
+    "AstNotEqualsOperatorNodeInputRight_EqOperator",
+    "AstNotEqualsOperatorNodeInputRight_GtOperator",
+    "AstNotEqualsOperatorNodeInputRight_GteOperator",
+    "AstNotEqualsOperatorNodeInputRight_Llm",
+    "AstNotEqualsOperatorNodeInputRight_LtOperator",
+    "AstNotEqualsOperatorNodeInputRight_LteOperator",
+    "AstNotEqualsOperatorNodeInputRight_NeqOperator",
+    "AstNotEqualsOperatorNodeInputRight_NumberLiteral",
+    "AstNotEqualsOperatorNodeInputRight_OrOperator",
+    "AstNotEqualsOperatorNodeInputRight_StringLiteral",
+    "AstNotEqualsOperatorNodeOutput",
+    "AstNotEqualsOperatorNodeOutputLeft",
+    "AstNotEqualsOperatorNodeOutputLeft_AndOperator",
+    "AstNotEqualsOperatorNodeOutputLeft_BooleanLiteral",
+    "AstNotEqualsOperatorNodeOutputLeft_DynamicVariable",
+    "AstNotEqualsOperatorNodeOutputLeft_EqOperator",
+    "AstNotEqualsOperatorNodeOutputLeft_GtOperator",
+    "AstNotEqualsOperatorNodeOutputLeft_GteOperator",
+    "AstNotEqualsOperatorNodeOutputLeft_Llm",
+    "AstNotEqualsOperatorNodeOutputLeft_LtOperator",
+    "AstNotEqualsOperatorNodeOutputLeft_LteOperator",
+    "AstNotEqualsOperatorNodeOutputLeft_NeqOperator",
+    "AstNotEqualsOperatorNodeOutputLeft_NumberLiteral",
+    "AstNotEqualsOperatorNodeOutputLeft_OrOperator",
+    "AstNotEqualsOperatorNodeOutputLeft_StringLiteral",
+    "AstNotEqualsOperatorNodeOutputRight",
+    "AstNotEqualsOperatorNodeOutputRight_AndOperator",
+    "AstNotEqualsOperatorNodeOutputRight_BooleanLiteral",
+    "AstNotEqualsOperatorNodeOutputRight_DynamicVariable",
+    "AstNotEqualsOperatorNodeOutputRight_EqOperator",
+    "AstNotEqualsOperatorNodeOutputRight_GtOperator",
+    "AstNotEqualsOperatorNodeOutputRight_GteOperator",
+    "AstNotEqualsOperatorNodeOutputRight_Llm",
+    "AstNotEqualsOperatorNodeOutputRight_LtOperator",
+    "AstNotEqualsOperatorNodeOutputRight_LteOperator",
+    "AstNotEqualsOperatorNodeOutputRight_NeqOperator",
+    "AstNotEqualsOperatorNodeOutputRight_NumberLiteral",
+    "AstNotEqualsOperatorNodeOutputRight_OrOperator",
+    "AstNotEqualsOperatorNodeOutputRight_StringLiteral",
+    "AstNumberNodeInput",
+    "AstNumberNodeOutput",
+    "AstOrOperatorNodeInput",
+    "AstOrOperatorNodeInputChildrenItem",
+    "AstOrOperatorNodeInputChildrenItem_AndOperator",
+    "AstOrOperatorNodeInputChildrenItem_BooleanLiteral",
+    "AstOrOperatorNodeInputChildrenItem_DynamicVariable",
+    "AstOrOperatorNodeInputChildrenItem_EqOperator",
+    "AstOrOperatorNodeInputChildrenItem_GtOperator",
+    "AstOrOperatorNodeInputChildrenItem_GteOperator",
+    "AstOrOperatorNodeInputChildrenItem_Llm",
+    "AstOrOperatorNodeInputChildrenItem_LtOperator",
+    "AstOrOperatorNodeInputChildrenItem_LteOperator",
+    "AstOrOperatorNodeInputChildrenItem_NeqOperator",
+    "AstOrOperatorNodeInputChildrenItem_NumberLiteral",
+    "AstOrOperatorNodeInputChildrenItem_OrOperator",
+    "AstOrOperatorNodeInputChildrenItem_StringLiteral",
+    "AstOrOperatorNodeOutput",
+    "AstOrOperatorNodeOutputChildrenItem",
+    "AstOrOperatorNodeOutputChildrenItem_AndOperator",
+    "AstOrOperatorNodeOutputChildrenItem_BooleanLiteral",
+    "AstOrOperatorNodeOutputChildrenItem_DynamicVariable",
+    "AstOrOperatorNodeOutputChildrenItem_EqOperator",
+    "AstOrOperatorNodeOutputChildrenItem_GtOperator",
+    "AstOrOperatorNodeOutputChildrenItem_GteOperator",
+    "AstOrOperatorNodeOutputChildrenItem_Llm",
+    "AstOrOperatorNodeOutputChildrenItem_LtOperator",
+    "AstOrOperatorNodeOutputChildrenItem_LteOperator",
+    "AstOrOperatorNodeOutputChildrenItem_NeqOperator",
+    "AstOrOperatorNodeOutputChildrenItem_NumberLiteral",
+    "AstOrOperatorNodeOutputChildrenItem_OrOperator",
+    "AstOrOperatorNodeOutputChildrenItem_StringLiteral",
+    "AstStringNodeInput",
+    "AstStringNodeOutput",
+    "AstllmNodeInput",
+    "AstllmNodeOutput",
+    "AsyncConversationMetadata",
+    "AsyncConversationMetadataDeliveryStatus",
     "AttachedTestModel",
     "AudioNativeCreateProjectResponseModel",
     "AudioNativeEditContentResponseModel",
     "AudioNativeProjectSettingsResponseModel",
     "AudioNativeProjectSettingsResponseModelStatus",
-    "AudioOutput",
-    "AudioOutputMulti",
+    "AudioWithTimestampsAndVoiceSegmentsResponseModel",
     "AudioWithTimestampsResponse",
     "AuthConnectionLocator",
     "AuthSettings",
     "AuthorizationMethod",
+    "BackupLlmDefault",
+    "BackupLlmDisabled",
+    "BackupLlmOverride",
     "BadRequestErrorBody",
     "BanReasonType",
     "BatchCallDetailedResponse",
     "BatchCallRecipientStatus",
     "BatchCallResponse",
     "BatchCallStatus",
+    "BatchCallWhatsAppParams",
+    "BatchFailureResponseModel",
+    "BillingPeriod",
     "BodyGenerateARandomVoiceV1VoiceGenerationGenerateVoicePostAge",
     "BodyGenerateARandomVoiceV1VoiceGenerationGenerateVoicePostGender",
     "BreakdownTypes",
     "BuiltInToolsInput",
     "BuiltInToolsOutput",
-    "BuiltInToolsWorkflowOverride",
+    "BuiltInToolsWorkflowOverrideInput",
+    "BuiltInToolsWorkflowOverrideOutput",
+    "CanvasPlacement",
     "CaptionStyleCharacterAnimationModel",
     "CaptionStyleCharacterAnimationModelEnterType",
     "CaptionStyleCharacterAnimationModelExitType",
@@ -1954,13 +3797,12 @@ __all__ = [
     "ChapterWithContentResponseModelState",
     "CharacterAlignmentModel",
     "CharacterAlignmentResponseModel",
+    "CharacterRefreshPeriod",
     "CharacterUsageResponse",
     "ClientEvent",
     "ClientToolConfigInput",
     "ClientToolConfigOutput",
-    "CloseConnection",
-    "CloseContext",
-    "CloseSocket",
+    "Contributor",
     "ConvAiDynamicVariable",
     "ConvAiSecretLocator",
     "ConvAiStoredSecretDependencies",
@@ -1983,6 +3825,7 @@ __all__ = [
     "ConversationConfigOverrideConfig",
     "ConversationConfigWorkflowOverride",
     "ConversationDeletionSettings",
+    "ConversationFeedbackType",
     "ConversationHistoryAnalysisCommonModel",
     "ConversationHistoryBatchCallModel",
     "ConversationHistoryElevenAssistantCommonModel",
@@ -1998,6 +3841,7 @@ __all__ = [
     "ConversationHistoryRagUsageCommonModel",
     "ConversationHistorySipTrunkingPhoneCallModel",
     "ConversationHistorySipTrunkingPhoneCallModelDirection",
+    "ConversationHistoryTranscriptApiIntegrationWebhookToolsResultCommonModel",
     "ConversationHistoryTranscriptCommonModelInput",
     "ConversationHistoryTranscriptCommonModelInputRole",
     "ConversationHistoryTranscriptCommonModelInputSourceMedium",
@@ -2022,12 +3866,20 @@ __all__ = [
     "ConversationHistoryTranscriptSystemToolResultCommonModelResult_TransferToNumberSipSuccess",
     "ConversationHistoryTranscriptSystemToolResultCommonModelResult_TransferToNumberTwilioSuccess",
     "ConversationHistoryTranscriptSystemToolResultCommonModelResult_VoicemailDetectionSuccess",
+    "ConversationHistoryTranscriptToolCallApiIntegrationWebhookDetails",
     "ConversationHistoryTranscriptToolCallClientDetails",
-    "ConversationHistoryTranscriptToolCallCommonModel",
-    "ConversationHistoryTranscriptToolCallCommonModelToolDetails",
-    "ConversationHistoryTranscriptToolCallCommonModelToolDetails_Client",
-    "ConversationHistoryTranscriptToolCallCommonModelToolDetails_Mcp",
-    "ConversationHistoryTranscriptToolCallCommonModelToolDetails_Webhook",
+    "ConversationHistoryTranscriptToolCallCommonModelInput",
+    "ConversationHistoryTranscriptToolCallCommonModelInputToolDetails",
+    "ConversationHistoryTranscriptToolCallCommonModelInputToolDetails_ApiIntegrationWebhook",
+    "ConversationHistoryTranscriptToolCallCommonModelInputToolDetails_Client",
+    "ConversationHistoryTranscriptToolCallCommonModelInputToolDetails_Mcp",
+    "ConversationHistoryTranscriptToolCallCommonModelInputToolDetails_Webhook",
+    "ConversationHistoryTranscriptToolCallCommonModelOutput",
+    "ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails",
+    "ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails_ApiIntegrationWebhook",
+    "ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails_Client",
+    "ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails_Mcp",
+    "ConversationHistoryTranscriptToolCallCommonModelOutputToolDetails_Webhook",
     "ConversationHistoryTranscriptToolCallMcpDetails",
     "ConversationHistoryTranscriptToolCallWebhookDetails",
     "ConversationHistoryTranscriptWorkflowToolsResultCommonModelInput",
@@ -2056,7 +3908,8 @@ __all__ = [
     "ConversationTokenPurpose",
     "ConversationTurnMetrics",
     "ConversationalConfig",
-    "ConversationalConfigApiModelWorkflowOverride",
+    "ConversationalConfigApiModelWorkflowOverrideInput",
+    "ConversationalConfigApiModelWorkflowOverrideOutput",
     "ConvertChapterResponseModel",
     "ConvertProjectResponseModel",
     "CreateAgentResponseModel",
@@ -2070,6 +3923,9 @@ __all__ = [
     "CreateUnitTestResponseModel",
     "CustomLlm",
     "CustomLlmRequestHeadersValue",
+    "CustomLlmapiType",
+    "CustomSipHeader",
+    "CustomSipHeaderWithDynamicVariable",
     "DashboardCallSuccessChartModel",
     "DashboardCriteriaChartModel",
     "DashboardDataCollectionChartModel",
@@ -2085,6 +3941,7 @@ __all__ = [
     "DeleteVoiceSampleResponseModel",
     "DeleteWorkspaceGroupMemberResponseModel",
     "DeleteWorkspaceInviteResponseModel",
+    "DeleteWorkspaceWebhookResponseModel",
     "DependentAvailableAgentIdentifier",
     "DependentAvailableAgentIdentifierAccessLevel",
     "DependentAvailableToolIdentifier",
@@ -2093,8 +3950,15 @@ __all__ = [
     "DependentUnknownAgentIdentifier",
     "DependentUnknownToolIdentifier",
     "DetailedMusicResponse",
+    "DetectedEntity",
     "DialogueInput",
     "DialogueInputResponseModel",
+    "DirectPublishingReadResponseModel",
+    "DirectPublishingReadResponseModelDisplayMode",
+    "DirectPublishingReadResponseModelGenreItem",
+    "DirectPublishingReadResponseModelPayoutType",
+    "DirectPublishingReadResponseModelTargetAudience",
+    "DiscountResponseModel",
     "DoDubbingResponse",
     "DocumentUsageModeEnum",
     "DocxExportOptions",
@@ -2103,9 +3967,17 @@ __all__ = [
     "DubbingMediaReference",
     "DubbingMetadataPageResponseModel",
     "DubbingMetadataResponse",
+    "DubbingModel",
     "DubbingReleaseChannel",
     "DubbingRenderResponseModel",
     "DubbingResource",
+    "DubbingTranscript",
+    "DubbingTranscriptCharacter",
+    "DubbingTranscriptResponseModel",
+    "DubbingTranscriptUtterance",
+    "DubbingTranscriptWord",
+    "DubbingTranscriptsResponseModel",
+    "DubbingTranscriptsResponseModelTranscriptFormat",
     "DynamicVariableAssignment",
     "DynamicVariableUpdateCommonModel",
     "DynamicVariablesConfig",
@@ -2131,24 +4003,18 @@ __all__ = [
     "ExportOptions_SegmentedJson",
     "ExportOptions_Srt",
     "ExportOptions_Txt",
-    "ExtendedSubscriptionResponseModelBillingPeriod",
-    "ExtendedSubscriptionResponseModelCharacterRefreshPeriod",
     "ExtendedSubscriptionResponseModelCurrency",
     "ExtendedSubscriptionResponseModelPendingChange",
     "FeatureStatusCommonModel",
     "FeaturesUsageCommonModel",
     "FeedbackItem",
-    "FinalOutput",
-    "FinalOutputMulti",
     "FineTuningResponse",
     "FineTuningResponseModelStateValue",
-    "FlushContext",
     "ForcedAlignmentCharacterResponseModel",
     "ForcedAlignmentResponseModel",
     "ForcedAlignmentWordResponseModel",
     "Gender",
     "GenerateVoiceRequest",
-    "GenerationConfig",
     "GetAgentEmbedResponseModel",
     "GetAgentKnowledgebaseSizeResponseModel",
     "GetAgentLinkResponseModel",
@@ -2176,15 +4042,21 @@ __all__ = [
     "GetKnowledgeBaseDependentAgentsResponseModelAgentsItem_Available",
     "GetKnowledgeBaseDependentAgentsResponseModelAgentsItem_Unknown",
     "GetKnowledgeBaseFileResponseModel",
+    "GetKnowledgeBaseFolderResponseModel",
     "GetKnowledgeBaseListResponseModel",
     "GetKnowledgeBaseListResponseModelDocumentsItem",
     "GetKnowledgeBaseListResponseModelDocumentsItem_File",
+    "GetKnowledgeBaseListResponseModelDocumentsItem_Folder",
     "GetKnowledgeBaseListResponseModelDocumentsItem_Text",
     "GetKnowledgeBaseListResponseModelDocumentsItem_Url",
     "GetKnowledgeBaseSummaryFileResponseModel",
     "GetKnowledgeBaseSummaryFileResponseModelDependentAgentsItem",
     "GetKnowledgeBaseSummaryFileResponseModelDependentAgentsItem_Available",
     "GetKnowledgeBaseSummaryFileResponseModelDependentAgentsItem_Unknown",
+    "GetKnowledgeBaseSummaryFolderResponseModel",
+    "GetKnowledgeBaseSummaryFolderResponseModelDependentAgentsItem",
+    "GetKnowledgeBaseSummaryFolderResponseModelDependentAgentsItem_Available",
+    "GetKnowledgeBaseSummaryFolderResponseModelDependentAgentsItem_Unknown",
     "GetKnowledgeBaseSummaryTextResponseModel",
     "GetKnowledgeBaseSummaryTextResponseModelDependentAgentsItem",
     "GetKnowledgeBaseSummaryTextResponseModelDependentAgentsItem_Available",
@@ -2196,6 +4068,8 @@ __all__ = [
     "GetKnowledgeBaseTextResponseModel",
     "GetKnowledgeBaseUrlResponseModel",
     "GetLibraryVoicesResponse",
+    "GetLiveCountResponse",
+    "GetOrCreateRagIndexRequestModel",
     "GetPhoneNumberInboundSipTrunkConfigResponseModel",
     "GetPhoneNumberOutboundSipTrunkConfigResponseModel",
     "GetPhoneNumberResponse",
@@ -2210,6 +4084,7 @@ __all__ = [
     "GetPronunciationDictionaryMetadataResponseModelPermissionOnResource",
     "GetPronunciationDictionaryResponse",
     "GetSpeechHistoryResponse",
+    "GetTestInvocationsPageResponseModel",
     "GetTestSuiteInvocationResponseModel",
     "GetTestsPageResponseModel",
     "GetTestsSummariesByIdsResponseModel",
@@ -2221,26 +4096,37 @@ __all__ = [
     "GetUnitTestResponseModelDynamicVariablesValue",
     "GetVoicesResponse",
     "GetVoicesV2Response",
+    "GetWhatsAppAccountResponse",
     "GetWorkspaceSecretsResponseModel",
+    "GuardrailsV1Input",
+    "GuardrailsV1Output",
     "HistoryAlignmentResponseModel",
     "HistoryAlignmentsResponseModel",
     "HistoryItemResponse",
     "HtmlExportOptions",
     "HttpValidationError",
     "ImageAvatar",
+    "ImportWhatsAppAccountResponse",
     "InboundSipTrunkConfigRequestModel",
-    "InitialiseContext",
-    "InitializeConnection",
-    "InitializeConnectionMulti",
     "IntegrationType",
     "InvoiceResponse",
     "InvoiceResponseModelPaymentIntentStatus",
-    "KeepContextAlive",
+    "InvoiceResponseModelPaymentIntentStatussesItem",
+    "KnowledgeBaseDependentType",
     "KnowledgeBaseDocumentChunkResponseModel",
     "KnowledgeBaseDocumentMetadataResponseModel",
     "KnowledgeBaseDocumentType",
+    "KnowledgeBaseFolderPathSegmentResponseModel",
+    "KnowledgeBaseFolderPathSegmentSummaryResponseModel",
     "KnowledgeBaseLocator",
     "KnowledgeBaseSortBy",
+    "KnowledgeBaseSourceFileUrlResponseModel",
+    "KnowledgeBaseSummaryBatchSuccessfulResponseModel",
+    "KnowledgeBaseSummaryBatchSuccessfulResponseModelData",
+    "KnowledgeBaseSummaryBatchSuccessfulResponseModelData_File",
+    "KnowledgeBaseSummaryBatchSuccessfulResponseModelData_Folder",
+    "KnowledgeBaseSummaryBatchSuccessfulResponseModelData_Text",
+    "KnowledgeBaseSummaryBatchSuccessfulResponseModelData_Url",
     "LanguageAddedResponse",
     "LanguageDetectionToolConfig",
     "LanguageDetectionToolResultModel",
@@ -2251,9 +4137,13 @@ __all__ = [
     "LibraryVoiceResponse",
     "LibraryVoiceResponseModelCategory",
     "ListMcpToolsResponseModel",
+    "ListResponseMeta",
+    "ListWhatsAppAccountsResponse",
     "LiteralJsonSchemaProperty",
     "LiteralJsonSchemaPropertyConstantValue",
     "LiteralJsonSchemaPropertyType",
+    "LiteralOverride",
+    "LiteralOverrideConstantValue",
     "LivekitStackType",
     "Llm",
     "LlmCategoryUsage",
@@ -2286,37 +4176,49 @@ __all__ = [
     "McpServersResponseModel",
     "McpToolApprovalHash",
     "McpToolApprovalPolicy",
+    "McpToolConfigOverride",
     "MetricRecord",
     "MetricType",
     "Model",
     "ModelRatesResponseModel",
     "ModelSettingsResponseModel",
-    "ModerationStatusResponseModel",
-    "ModerationStatusResponseModelSafetyStatus",
-    "ModerationStatusResponseModelWarningStatus",
+    "ModerationConfig",
+    "ModerationGuardrailInput",
+    "ModerationGuardrailOutput",
     "MultichannelSpeechToTextResponseModel",
     "MultipartMusicResponse",
     "MusicPrompt",
-    "NormalizedAlignment",
     "ObjectJsonSchemaPropertyInput",
     "ObjectJsonSchemaPropertyInputPropertiesValue",
     "ObjectJsonSchemaPropertyOutput",
     "ObjectJsonSchemaPropertyOutputPropertiesValue",
+    "ObjectOverrideInput",
+    "ObjectOverrideInputPropertiesValue",
+    "ObjectOverrideOutput",
+    "ObjectOverrideOutputPropertiesValue",
     "OrbAvatar",
     "OutboundCallRecipient",
     "OutboundCallRecipientResponseModel",
     "OutboundSipTrunkConfigRequestModel",
     "OutputFormat",
+    "PatchWorkspaceWebhookResponseModel",
     "PdfExportOptions",
     "PendingCancellationResponseModel",
     "PendingSubscriptionSwitchResponseModel",
     "PendingSubscriptionSwitchResponseModelNextTier",
+    "PermissionType",
     "PhoneNumberAgentInfo",
+    "PhoneNumberDynamicVariableTransferDestination",
     "PhoneNumberTransfer",
+    "PhoneNumberTransferCustomSipHeadersItem",
+    "PhoneNumberTransferCustomSipHeadersItem_Dynamic",
+    "PhoneNumberTransferCustomSipHeadersItem_Static",
     "PhoneNumberTransferDestination",
     "PhoneNumberTransferTransferDestination",
     "PhoneNumberTransferTransferDestination_Phone",
+    "PhoneNumberTransferTransferDestination_PhoneDynamicVariable",
     "PhoneNumberTransferTransferDestination_SipUri",
+    "PhoneNumberTransferTransferDestination_SipUriDynamicVariable",
     "PlayDtmfResultErrorModel",
     "PlayDtmfResultSuccessModel",
     "PlayDtmfToolConfig",
@@ -2327,9 +4229,11 @@ __all__ = [
     "PodcastProjectResponseModel",
     "PodcastTextSource",
     "PodcastUrlSource",
-    "Position",
+    "PositionInput",
+    "PositionOutput",
     "PostAgentAvatarResponseModel",
     "PostWorkspaceSecretResponseModel",
+    "PreviewAudioDbModel",
     "PrivacyConfig",
     "ProjectCreationMetaResponseModel",
     "ProjectCreationMetaResponseModelStatus",
@@ -2337,12 +4241,20 @@ __all__ = [
     "ProjectExtendedResponse",
     "ProjectExtendedResponseModelAccessLevel",
     "ProjectExtendedResponseModelApplyTextNormalization",
+    "ProjectExtendedResponseModelAspectRatio",
+    "ProjectExtendedResponseModelAssetsItem",
+    "ProjectExtendedResponseModelAssetsItem_Audio",
+    "ProjectExtendedResponseModelAssetsItem_Image",
+    "ProjectExtendedResponseModelAssetsItem_Video",
     "ProjectExtendedResponseModelFiction",
     "ProjectExtendedResponseModelQualityPreset",
     "ProjectExtendedResponseModelSourceType",
     "ProjectExtendedResponseModelTargetAudience",
+    "ProjectExternalAudioResponseModel",
+    "ProjectImageResponseModel",
     "ProjectResponse",
     "ProjectResponseModelAccessLevel",
+    "ProjectResponseModelAspectRatio",
     "ProjectResponseModelFiction",
     "ProjectResponseModelSourceType",
     "ProjectResponseModelTargetAudience",
@@ -2350,31 +4262,53 @@ __all__ = [
     "ProjectSnapshotResponse",
     "ProjectSnapshotsResponse",
     "ProjectState",
+    "ProjectVideoResponseModel",
+    "ProjectVideoThumbnailSheetResponseModel",
+    "ProjectVoiceResponseModel",
     "PromptAgent",
     "PromptAgentApiModelInput",
+    "PromptAgentApiModelInputBackupLlmConfig",
+    "PromptAgentApiModelInputBackupLlmConfig_Default",
+    "PromptAgentApiModelInputBackupLlmConfig_Disabled",
+    "PromptAgentApiModelInputBackupLlmConfig_Override",
     "PromptAgentApiModelInputToolsItem",
+    "PromptAgentApiModelInputToolsItem_ApiIntegrationWebhook",
     "PromptAgentApiModelInputToolsItem_Client",
     "PromptAgentApiModelInputToolsItem_Mcp",
     "PromptAgentApiModelInputToolsItem_System",
     "PromptAgentApiModelInputToolsItem_Webhook",
     "PromptAgentApiModelOutput",
+    "PromptAgentApiModelOutputBackupLlmConfig",
+    "PromptAgentApiModelOutputBackupLlmConfig_Default",
+    "PromptAgentApiModelOutputBackupLlmConfig_Disabled",
+    "PromptAgentApiModelOutputBackupLlmConfig_Override",
     "PromptAgentApiModelOutputToolsItem",
+    "PromptAgentApiModelOutputToolsItem_ApiIntegrationWebhook",
     "PromptAgentApiModelOutputToolsItem_Client",
     "PromptAgentApiModelOutputToolsItem_Mcp",
     "PromptAgentApiModelOutputToolsItem_System",
     "PromptAgentApiModelOutputToolsItem_Webhook",
     "PromptAgentApiModelOverride",
     "PromptAgentApiModelOverrideConfig",
-    "PromptAgentApiModelWorkflowOverride",
-    "PromptAgentApiModelWorkflowOverrideToolsItem",
-    "PromptAgentApiModelWorkflowOverrideToolsItem_Client",
-    "PromptAgentApiModelWorkflowOverrideToolsItem_Mcp",
-    "PromptAgentApiModelWorkflowOverrideToolsItem_System",
-    "PromptAgentApiModelWorkflowOverrideToolsItem_Webhook",
+    "PromptAgentApiModelWorkflowOverrideInput",
+    "PromptAgentApiModelWorkflowOverrideInputBackupLlmConfig",
+    "PromptAgentApiModelWorkflowOverrideInputToolsItem",
+    "PromptAgentApiModelWorkflowOverrideInputToolsItem_ApiIntegrationWebhook",
+    "PromptAgentApiModelWorkflowOverrideInputToolsItem_Client",
+    "PromptAgentApiModelWorkflowOverrideInputToolsItem_Mcp",
+    "PromptAgentApiModelWorkflowOverrideInputToolsItem_System",
+    "PromptAgentApiModelWorkflowOverrideInputToolsItem_Webhook",
+    "PromptAgentApiModelWorkflowOverrideOutput",
+    "PromptAgentApiModelWorkflowOverrideOutputBackupLlmConfig",
+    "PromptAgentApiModelWorkflowOverrideOutputToolsItem",
+    "PromptAgentApiModelWorkflowOverrideOutputToolsItem_ApiIntegrationWebhook",
+    "PromptAgentApiModelWorkflowOverrideOutputToolsItem_Client",
+    "PromptAgentApiModelWorkflowOverrideOutputToolsItem_Mcp",
+    "PromptAgentApiModelWorkflowOverrideOutputToolsItem_System",
+    "PromptAgentApiModelWorkflowOverrideOutputToolsItem_Webhook",
     "PromptAgentDbModel",
     "PromptEvaluationCriteria",
     "PronunciationDictionaryAliasRuleRequestModel",
-    "PronunciationDictionaryLocator",
     "PronunciationDictionaryLocatorResponseModel",
     "PronunciationDictionaryPhonemeRuleRequestModel",
     "PronunciationDictionaryRulesResponseModel",
@@ -2382,6 +4316,7 @@ __all__ = [
     "PronunciationDictionaryVersionResponseModel",
     "PronunciationDictionaryVersionResponseModelPermissionOnResource",
     "PydanticPronunciationDictionaryVersionLocator",
+    "QueryOverride",
     "QueryParamsJsonSchema",
     "RagChunkMetadata",
     "RagConfig",
@@ -2389,16 +4324,20 @@ __all__ = [
     "RagDocumentIndexResponseModel",
     "RagDocumentIndexUsage",
     "RagDocumentIndexesResponseModel",
+    "RagIndexBatchSuccessfulResponseModel",
     "RagIndexOverviewEmbeddingModelResponseModel",
     "RagIndexOverviewResponseModel",
     "RagIndexStatus",
     "RagRetrievalInfo",
+    "ReadLegalTerms",
+    "ReadMetadataChapterDbModel",
     "ReaderResourceResponseModel",
     "ReaderResourceResponseModelResourceType",
-    "RealtimeVoiceSettings",
     "RecordingResponse",
     "ReferencedToolCommonModel",
+    "ReferencedToolCommonModelType",
     "RegexParameterEvaluationStrategy",
+    "RegionConfigRequest",
     "RemoveMemberFromGroupRequest",
     "Render",
     "RenderStatus",
@@ -2408,40 +4347,53 @@ __all__ = [
     "ResourceAccessInfoRole",
     "ResourceMetadataResponseModel",
     "ResourceMetadataResponseModelAnonymousAccessLevelOverride",
+    "ReviewResponseModel",
+    "ReviewResponseModelRejectReasonsItem",
+    "ReviewResponseModelReviewStatus",
     "ReviewStatus",
     "SafetyCommonModel",
     "SafetyEvaluation",
     "SafetyResponseModel",
     "SafetyRule",
+    "SampleConfigDbModel",
+    "SampleConfigDbModelParentType",
     "SaveVoicePreviewRequest",
     "SecretDependencyType",
+    "SectionSource",
     "SegmentCreateResponse",
     "SegmentDeleteResponse",
     "SegmentDubResponse",
+    "SegmentMigrationResponse",
     "SegmentSubtitleFrame",
     "SegmentTranscriptionResponse",
     "SegmentTranslationResponse",
     "SegmentUpdateResponse",
     "SegmentedJsonExportOptions",
-    "SendText",
-    "SendTextMulti",
     "ShareOptionResponseModel",
     "ShareOptionResponseModelType",
     "SimilarVoice",
     "SimilarVoiceCategory",
     "SimilarVoicesForSpeakerResponse",
     "SingleTestRunRequestModel",
+    "SingleUseTokenResponseModel",
+    "SingleUseTokenType",
     "SipMediaEncryptionEnum",
     "SipTrunkCredentialsRequestModel",
     "SipTrunkOutboundCallResponse",
     "SipTrunkTransportEnum",
+    "SipUriDynamicVariableTransferDestination",
     "SipUriTransferDestination",
     "SkipTurnToolConfig",
     "SkipTurnToolResponseModel",
+    "SoftTimeoutConfig",
+    "SoftTimeoutConfigOverride",
+    "SoftTimeoutConfigOverrideConfig",
+    "SoftTimeoutConfigWorkflowOverride",
     "SongMetadata",
     "SongSection",
     "SortDirection",
     "SpeakerAudioResponseModel",
+    "SpeakerCreatedResponse",
     "SpeakerResponseModel",
     "SpeakerSegment",
     "SpeakerSeparationResponseModel",
@@ -2456,18 +4408,17 @@ __all__ = [
     "SpeechToTextWebhookResponseModel",
     "SpeechToTextWordResponseModel",
     "SpeechToTextWordResponseModelType",
+    "SpellingPatience",
     "SrtExportOptions",
     "StartPvcVoiceTrainingResponseModel",
     "StartSpeakerSeparationResponseModel",
+    "StreamingAudioChunkWithTimestampsAndVoiceSegmentsResponseModel",
     "StreamingAudioChunkWithTimestampsResponse",
     "Subscription",
-    "SubscriptionExtrasResponseModel",
     "SubscriptionResponse",
-    "SubscriptionResponseModelBillingPeriod",
-    "SubscriptionResponseModelCharacterRefreshPeriod",
     "SubscriptionResponseModelCurrency",
     "SubscriptionStatusType",
-    "SubscriptionUsageResponseModel",
+    "SuggestedAudioTag",
     "SupportedVoice",
     "SystemToolConfigInput",
     "SystemToolConfigInputParams",
@@ -2490,30 +4441,36 @@ __all__ = [
     "TelephonyProvider",
     "TestConditionRationaleCommonModel",
     "TestConditionResultCommonModel",
+    "TestFromConversationMetadataInput",
+    "TestFromConversationMetadataOutput",
+    "TestInvocationSummaryResponseModel",
     "TestRunMetadata",
     "TestRunMetadataTestType",
     "TestRunStatus",
     "TestToolResultModel",
     "TestsFeatureUsageCommonModel",
-    "TextToSpeechApplyTextNormalizationEnum",
-    "TextToSpeechOutputFormatEnum",
+    "TextNormalisationType",
+    "TextToSpeechRequest",
     "TextToSpeechStreamRequest",
     "TextToSpeechStreamWithTimestampsRequest",
     "TextToSpeechWithTimestampsRequest",
+    "ThresholdGuardrail",
+    "TimeRange",
     "TokenResponseModel",
     "Tool",
     "ToolAnnotations",
+    "ToolCallSoundBehavior",
+    "ToolCallSoundType",
+    "ToolExecutionMode",
     "ToolMockConfig",
     "ToolRequestModel",
     "ToolRequestModelToolConfig",
     "ToolRequestModelToolConfig_Client",
-    "ToolRequestModelToolConfig_Mcp",
     "ToolRequestModelToolConfig_System",
     "ToolRequestModelToolConfig_Webhook",
     "ToolResponseModel",
     "ToolResponseModelToolConfig",
     "ToolResponseModelToolConfig_Client",
-    "ToolResponseModelToolConfig_Mcp",
     "ToolResponseModelToolConfig_System",
     "ToolResponseModelToolConfig_Webhook",
     "ToolType",
@@ -2532,16 +4489,24 @@ __all__ = [
     "TtsConversationalConfigOutput",
     "TtsConversationalConfigOverride",
     "TtsConversationalConfigOverrideConfig",
-    "TtsConversationalConfigWorkflowOverride",
+    "TtsConversationalConfigWorkflowOverrideInput",
+    "TtsConversationalConfigWorkflowOverrideOutput",
     "TtsConversationalModel",
     "TtsModelFamily",
     "TtsOptimizeStreamingLatency",
     "TtsOutputFormat",
     "TurnConfig",
+    "TurnConfigOverride",
+    "TurnConfigOverrideConfig",
     "TurnConfigWorkflowOverride",
+    "TurnEagerness",
     "TurnMode",
+    "TwilioEdgeLocation",
     "TwilioOutboundCallResponse",
+    "TwilioRegionId",
     "TxtExportOptions",
+    "UnitTestCommonModel",
+    "UnitTestCommonModelDynamicVariablesValue",
     "UnitTestCommonModelType",
     "UnitTestRunResponseModel",
     "UnitTestSummaryResponseModel",
@@ -2583,6 +4548,7 @@ __all__ = [
     "VoiceSample",
     "VoiceSamplePreviewResponseModel",
     "VoiceSampleVisualWaveformResponseModel",
+    "VoiceSegment",
     "VoiceSettings",
     "VoiceSharingModerationCheckResponseModel",
     "VoiceSharingResponse",
@@ -2591,17 +4557,22 @@ __all__ = [
     "VoiceVerificationResponse",
     "VoicemailDetectionToolConfig",
     "WebhookAuthMethodType",
+    "WebhookEventType",
+    "WebhookHmacSettings",
     "WebhookToolApiSchemaConfigInput",
+    "WebhookToolApiSchemaConfigInputContentType",
     "WebhookToolApiSchemaConfigInputMethod",
     "WebhookToolApiSchemaConfigInputRequestHeadersValue",
     "WebhookToolApiSchemaConfigOutput",
+    "WebhookToolApiSchemaConfigOutputContentType",
     "WebhookToolApiSchemaConfigOutputMethod",
     "WebhookToolApiSchemaConfigOutputRequestHeadersValue",
     "WebhookToolConfigInput",
     "WebhookToolConfigOutput",
     "WebhookUsageType",
-    "WebsocketTtsClientMessageMulti",
-    "WebsocketTtsServerMessageMulti",
+    "WhatsAppConversationInfo",
+    "WhatsAppConversationInfoDirection",
+    "WhatsAppOutboundCallResponse",
     "WidgetConfig",
     "WidgetConfigInputAvatar",
     "WidgetConfigInputAvatar_Image",
@@ -2616,33 +4587,100 @@ __all__ = [
     "WidgetConfigResponseModelAvatar_Image",
     "WidgetConfigResponseModelAvatar_Orb",
     "WidgetConfigResponseModelAvatar_Url",
+    "WidgetEndFeedbackConfig",
+    "WidgetEndFeedbackType",
     "WidgetExpandable",
     "WidgetFeedbackMode",
     "WidgetLanguagePreset",
     "WidgetLanguagePresetResponse",
     "WidgetPlacement",
     "WidgetStyles",
+    "WidgetTermsTranslation",
     "WidgetTextContents",
-    "WorkflowEdgeModel",
-    "WorkflowEdgeModelBackwardCondition",
-    "WorkflowEdgeModelBackwardCondition_Llm",
-    "WorkflowEdgeModelBackwardCondition_Result",
-    "WorkflowEdgeModelBackwardCondition_Unconditional",
-    "WorkflowEdgeModelForwardCondition",
-    "WorkflowEdgeModelForwardCondition_Llm",
-    "WorkflowEdgeModelForwardCondition_Result",
-    "WorkflowEdgeModelForwardCondition_Unconditional",
-    "WorkflowEndNodeModel",
+    "WordTimestamp",
+    "WorkflowEdgeModelInput",
+    "WorkflowEdgeModelInputBackwardCondition",
+    "WorkflowEdgeModelInputBackwardCondition_Expression",
+    "WorkflowEdgeModelInputBackwardCondition_Llm",
+    "WorkflowEdgeModelInputBackwardCondition_Result",
+    "WorkflowEdgeModelInputBackwardCondition_Unconditional",
+    "WorkflowEdgeModelInputForwardCondition",
+    "WorkflowEdgeModelInputForwardCondition_Expression",
+    "WorkflowEdgeModelInputForwardCondition_Llm",
+    "WorkflowEdgeModelInputForwardCondition_Result",
+    "WorkflowEdgeModelInputForwardCondition_Unconditional",
+    "WorkflowEdgeModelOutput",
+    "WorkflowEdgeModelOutputBackwardCondition",
+    "WorkflowEdgeModelOutputBackwardCondition_Expression",
+    "WorkflowEdgeModelOutputBackwardCondition_Llm",
+    "WorkflowEdgeModelOutputBackwardCondition_Result",
+    "WorkflowEdgeModelOutputBackwardCondition_Unconditional",
+    "WorkflowEdgeModelOutputForwardCondition",
+    "WorkflowEdgeModelOutputForwardCondition_Expression",
+    "WorkflowEdgeModelOutputForwardCondition_Llm",
+    "WorkflowEdgeModelOutputForwardCondition_Result",
+    "WorkflowEdgeModelOutputForwardCondition_Unconditional",
+    "WorkflowEndNodeModelInput",
+    "WorkflowEndNodeModelOutput",
+    "WorkflowExpressionConditionModelInput",
+    "WorkflowExpressionConditionModelInputExpression",
+    "WorkflowExpressionConditionModelInputExpression_AndOperator",
+    "WorkflowExpressionConditionModelInputExpression_BooleanLiteral",
+    "WorkflowExpressionConditionModelInputExpression_DynamicVariable",
+    "WorkflowExpressionConditionModelInputExpression_EqOperator",
+    "WorkflowExpressionConditionModelInputExpression_GtOperator",
+    "WorkflowExpressionConditionModelInputExpression_GteOperator",
+    "WorkflowExpressionConditionModelInputExpression_Llm",
+    "WorkflowExpressionConditionModelInputExpression_LtOperator",
+    "WorkflowExpressionConditionModelInputExpression_LteOperator",
+    "WorkflowExpressionConditionModelInputExpression_NeqOperator",
+    "WorkflowExpressionConditionModelInputExpression_NumberLiteral",
+    "WorkflowExpressionConditionModelInputExpression_OrOperator",
+    "WorkflowExpressionConditionModelInputExpression_StringLiteral",
+    "WorkflowExpressionConditionModelOutput",
+    "WorkflowExpressionConditionModelOutputExpression",
+    "WorkflowExpressionConditionModelOutputExpression_AndOperator",
+    "WorkflowExpressionConditionModelOutputExpression_BooleanLiteral",
+    "WorkflowExpressionConditionModelOutputExpression_DynamicVariable",
+    "WorkflowExpressionConditionModelOutputExpression_EqOperator",
+    "WorkflowExpressionConditionModelOutputExpression_GtOperator",
+    "WorkflowExpressionConditionModelOutputExpression_GteOperator",
+    "WorkflowExpressionConditionModelOutputExpression_Llm",
+    "WorkflowExpressionConditionModelOutputExpression_LtOperator",
+    "WorkflowExpressionConditionModelOutputExpression_LteOperator",
+    "WorkflowExpressionConditionModelOutputExpression_NeqOperator",
+    "WorkflowExpressionConditionModelOutputExpression_NumberLiteral",
+    "WorkflowExpressionConditionModelOutputExpression_OrOperator",
+    "WorkflowExpressionConditionModelOutputExpression_StringLiteral",
     "WorkflowFeaturesUsageCommonModel",
-    "WorkflowLlmConditionModel",
-    "WorkflowOverrideAgentNodeModel",
-    "WorkflowPhoneNumberNodeModel",
-    "WorkflowPhoneNumberNodeModelTransferDestination",
-    "WorkflowPhoneNumberNodeModelTransferDestination_Phone",
-    "WorkflowPhoneNumberNodeModelTransferDestination_SipUri",
-    "WorkflowResultConditionModel",
-    "WorkflowStandaloneAgentNodeModel",
-    "WorkflowStartNodeModel",
+    "WorkflowLlmConditionModelInput",
+    "WorkflowLlmConditionModelOutput",
+    "WorkflowOverrideAgentNodeModelInput",
+    "WorkflowOverrideAgentNodeModelOutput",
+    "WorkflowPhoneNumberNodeModelInput",
+    "WorkflowPhoneNumberNodeModelInputCustomSipHeadersItem",
+    "WorkflowPhoneNumberNodeModelInputCustomSipHeadersItem_Dynamic",
+    "WorkflowPhoneNumberNodeModelInputCustomSipHeadersItem_Static",
+    "WorkflowPhoneNumberNodeModelInputTransferDestination",
+    "WorkflowPhoneNumberNodeModelInputTransferDestination_Phone",
+    "WorkflowPhoneNumberNodeModelInputTransferDestination_PhoneDynamicVariable",
+    "WorkflowPhoneNumberNodeModelInputTransferDestination_SipUri",
+    "WorkflowPhoneNumberNodeModelInputTransferDestination_SipUriDynamicVariable",
+    "WorkflowPhoneNumberNodeModelOutput",
+    "WorkflowPhoneNumberNodeModelOutputCustomSipHeadersItem",
+    "WorkflowPhoneNumberNodeModelOutputCustomSipHeadersItem_Dynamic",
+    "WorkflowPhoneNumberNodeModelOutputCustomSipHeadersItem_Static",
+    "WorkflowPhoneNumberNodeModelOutputTransferDestination",
+    "WorkflowPhoneNumberNodeModelOutputTransferDestination_Phone",
+    "WorkflowPhoneNumberNodeModelOutputTransferDestination_PhoneDynamicVariable",
+    "WorkflowPhoneNumberNodeModelOutputTransferDestination_SipUri",
+    "WorkflowPhoneNumberNodeModelOutputTransferDestination_SipUriDynamicVariable",
+    "WorkflowResultConditionModelInput",
+    "WorkflowResultConditionModelOutput",
+    "WorkflowStandaloneAgentNodeModelInput",
+    "WorkflowStandaloneAgentNodeModelOutput",
+    "WorkflowStartNodeModelInput",
+    "WorkflowStartNodeModelOutput",
     "WorkflowToolEdgeStepModel",
     "WorkflowToolLocator",
     "WorkflowToolMaxIterationsExceededStepModel",
@@ -2650,7 +4688,8 @@ __all__ = [
     "WorkflowToolNestedToolsStepModelInputResultsItem",
     "WorkflowToolNestedToolsStepModelOutput",
     "WorkflowToolNestedToolsStepModelOutputResultsItem",
-    "WorkflowToolNodeModel",
+    "WorkflowToolNodeModelInput",
+    "WorkflowToolNodeModelOutput",
     "WorkflowToolResponseModelInput",
     "WorkflowToolResponseModelInputStepsItem",
     "WorkflowToolResponseModelInputStepsItem_Edge",
@@ -2661,12 +4700,13 @@ __all__ = [
     "WorkflowToolResponseModelOutputStepsItem_Edge",
     "WorkflowToolResponseModelOutputStepsItem_MaxIterationsExceeded",
     "WorkflowToolResponseModelOutputStepsItem_NestedTools",
-    "WorkflowUnconditionalModel",
+    "WorkflowUnconditionalModelInput",
+    "WorkflowUnconditionalModelOutput",
     "WorkspaceApiKeyListResponseModel",
     "WorkspaceApiKeyResponseModel",
-    "WorkspaceApiKeyResponseModelPermissionsItem",
     "WorkspaceBatchCallsResponse",
     "WorkspaceCreateApiKeyResponseModel",
+    "WorkspaceCreateWebhookResponseModel",
     "WorkspaceGroupByNameResponseModel",
     "WorkspaceResourceType",
     "WorkspaceServiceAccountListResponseModel",

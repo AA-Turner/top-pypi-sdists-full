@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: assemblyai
-Version: 0.44.3
+Version: 0.48.4
 Summary: AssemblyAI Python SDK
 Home-page: https://github.com/AssemblyAI/assemblyai-python-sdk
 Author: AssemblyAI
@@ -24,11 +24,16 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: httpx>=0.19.0
-Requires-Dist: pydantic>=1.10.17
+Requires-Dist: pydantic>=2.0; python_version >= "3.14"
+Requires-Dist: pydantic>=1.10.17; python_version < "3.14"
+Requires-Dist: pydantic-settings>=2.0; python_version >= "3.14"
 Requires-Dist: typing-extensions>=3.7
 Requires-Dist: websockets>=11.0
 Provides-Extra: extras

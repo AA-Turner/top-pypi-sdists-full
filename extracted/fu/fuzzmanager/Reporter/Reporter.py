@@ -24,6 +24,13 @@ import requests.exceptions
 
 from FTB.ConfigurationFiles import ConfigurationFiles
 
+try:
+    import sentry_fuzzing_config
+
+    HAVE_SENTRY = True
+except ImportError:
+    HAVE_SENTRY = False
+
 LOG = logging.getLogger(__name__)
 
 
@@ -127,6 +134,11 @@ def requests_retry(wrapped):
             return response
 
     return wrapper
+
+
+def sentry_init():
+    if HAVE_SENTRY:
+        sentry_fuzzing_config.init()
 
 
 class Reporter(ABC):

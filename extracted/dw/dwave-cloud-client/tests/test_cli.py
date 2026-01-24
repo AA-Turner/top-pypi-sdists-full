@@ -13,15 +13,16 @@
 # limitations under the License.
 
 import contextlib
-import importlib.metadata
 import json
 import os
 import tempfile
 import unittest
-from functools import partial
+import warnings
+from functools import partial, wraps
 from pathlib import Path
 from unittest import mock
 
+import diskcache
 from click.testing import CliRunner
 from parameterized import parameterized
 
@@ -30,12 +31,21 @@ from dwave.cloud.config import load_config
 from dwave.cloud.config.models import validate_config_v1
 from dwave.cloud.testing import isolated_environ
 from dwave.cloud.auth.creds import Credentials, CREDS_FILENAME
-from dwave.cloud.api.client import _create_default_cache_store
 from dwave.cloud.api.models import LeapProject
 from dwave.cloud.api.resources import Regions
 
 from tests import config, test_config_path, test_config_profile
 from tests.test_mock_solver_loading import solver_object
+
+
+def ignored_warnings(fn):
+    """Ignores warnings during the execution of the decorated function."""
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return fn(*args, **kwargs)
+    return wrapper
 
 
 def touch(path):
@@ -143,6 +153,7 @@ class TestConfigCreate(unittest.TestCase):
 
 class TestCli(unittest.TestCase):
 
+    @ignored_warnings
     def test_config_ls(self):
         runner = CliRunner()
         with runner.isolated_filesystem():
@@ -469,7 +480,7 @@ class TestAuthCli(unittest.TestCase):
 
     @mock.patch('dwave.cloud.auth.flows.LeapAuthFlow.from_config_model')
     def test_login(self, flow_factory):
-        flow = flow_factory.return_value
+        flow = flow_factory.return_value.__enter__.return_value
 
         with self.subTest('dwave auth login'):
             flow.reset_mock()
@@ -522,8 +533,9 @@ class TestAuthCli(unittest.TestCase):
             self.assertEqual(result.exit_code, 0)
 
     @mock.patch('dwave.cloud.auth.flows.LeapAuthFlow.from_config_model')
+    @ignored_warnings
     def test_get(self, flow_factory):
-        flow = flow_factory.return_value
+        flow = flow_factory.return_value.__enter__.return_value
         token = dict(access_token='123', refresh_token='456')
         type(flow).token = mock.PropertyMock(return_value=token)
 
@@ -556,7 +568,7 @@ class TestAuthCli(unittest.TestCase):
 
     @mock.patch('dwave.cloud.auth.flows.LeapAuthFlow.from_config_model')
     def test_refresh(self, flow_factory):
-        flow = flow_factory.return_value
+        flow = flow_factory.return_value.__enter__.return_value
         type(flow).token = mock.PropertyMock(return_value=dict(refresh_token='123'))
 
         with self.subTest('dwave auth refresh'):
@@ -579,7 +591,7 @@ class TestAuthCli(unittest.TestCase):
 
     @mock.patch('dwave.cloud.auth.flows.LeapAuthFlow.from_config_model')
     def test_revoke(self, flow_factory):
-        flow = flow_factory.return_value
+        flow = flow_factory.return_value.__enter__.return_value
         token = dict(access_token='123', refresh_token='456')
         type(flow).token = mock.PropertyMock(return_value=token)
 
@@ -612,7 +624,7 @@ class TestAuthCli(unittest.TestCase):
 
     @mock.patch('dwave.cloud.auth.flows.LeapAuthFlow.from_config_model')
     def test_revoke_failure_modes(self, flow_factory):
-        flow = flow_factory.return_value
+        flow = flow_factory.return_value.__enter__.return_value
         type(flow).token = mock.PropertyMock(return_value={})
 
         with self.subTest('dwave auth revoke: token missing'):
@@ -636,8 +648,8 @@ class TestAuthCli(unittest.TestCase):
     @mock.patch('dwave.cloud.api.resources.LeapAccount.from_config')
     @mock.patch('dwave.cloud.auth.flows.LeapAuthFlow.from_config_model')
     def test_leap_project_ls(self, flow_factory, account_factory):
-        flow = flow_factory.return_value
-        account = account_factory.return_value
+        flow = flow_factory.return_value.__enter__.return_value
+        account = account_factory.return_value.__enter__.return_value
 
         type(flow).token = mock.PropertyMock(return_value=dict(access_token='123'))
         flow.token_expires_soon.return_value = False
@@ -652,9 +664,10 @@ class TestAuthCli(unittest.TestCase):
 
     @mock.patch('dwave.cloud.api.resources.LeapAccount.from_config')
     @mock.patch('dwave.cloud.auth.flows.LeapAuthFlow.from_config_model')
+    @ignored_warnings
     def test_leap_project_token(self, flow_factory, account_factory):
-        flow = flow_factory.return_value
-        account = account_factory.return_value
+        flow = flow_factory.return_value.__enter__.return_value
+        account = account_factory.return_value.__enter__.return_value
 
         type(flow).token = mock.PropertyMock(return_value=dict(access_token='123'))
         flow.token_expires_soon.return_value = False
@@ -693,7 +706,7 @@ class TestCacheCli(unittest.TestCase):
 
     def setUp(self):
         self._tmpdir = tempfile.TemporaryDirectory()
-        self.tmpdir = Path(self._tmpdir.name)
+        self.tmpdir = Path(self._tmpdir.name).resolve()
 
     def tearDown(self):
         # suppress tmp dir cleanup failures on windows when files are still in use
@@ -717,8 +730,7 @@ class TestCacheCli(unittest.TestCase):
                 self.assertIn("Cache empty.", result.output)
 
             # populate api cache
-            store = partial(_create_default_cache_store, directory=str(self.tmpdir / 'api'))
-            with Regions(cache=dict(store=store)) as regions:
+            with Regions(cache=dict(enabled=True, home=str(self.tmpdir))) as regions:
                 regions.list_regions()
 
             with self.subTest('one api request cached (data+meta)'):
@@ -765,6 +777,7 @@ class TestCliLive(unittest.TestCase):
                                      '--profile', test_config_profile])
         self.assertEqual(result.exit_code, 0)
 
+    @ignored_warnings
     def test_ping_json(self):
         runner = CliRunner()
         result = runner.invoke(cli, ['ping',
@@ -779,6 +792,7 @@ class TestCliLive(unittest.TestCase):
         self.assertIn('code', res)
         self.assertEqual(result.exit_code, 0)
 
+    @ignored_warnings
     def test_ping_json_timeout_error(self):
         runner = CliRunner()
         result = runner.invoke(cli, ['ping',
@@ -814,17 +828,8 @@ class TestCliLive(unittest.TestCase):
 
 class TestLogging(unittest.TestCase):
 
-    # TODO: simplify the logic by requiring click>8.2 once we drop py39
-    @classmethod
-    def setUpClass(cls):
-        cls.clirunner_kwargs = {}
-        # in click<8.2 we need to use `mix_stderr=False` to split streams
-        # (`mix_stderr` is removed in click 8.2, and split streams are now the default)
-        click_version = tuple(map(int, importlib.metadata.version('click').split('.')))
-        if click_version < (8, 2, 0):
-            cls.clirunner_kwargs.update(mix_stderr=False)
-
     @isolated_environ(remove_dwave=True)
+    @ignored_warnings
     def test_json_logs(self):
         env = {
             'DWAVE_CONFIG_FILE': test_config_path,
@@ -832,7 +837,8 @@ class TestLogging(unittest.TestCase):
             'DWAVE_LOG_FORMAT': 'json',
         }
 
-        runner = CliRunner(env=env, **self.clirunner_kwargs)
+        # ensure warnings (on stderr) do not interfere with the expected output
+        runner = CliRunner(env=env)
         result = runner.invoke(cli, ['ping'])
 
         # ping will fail because API token is undefined

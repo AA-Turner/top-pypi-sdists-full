@@ -3,7 +3,7 @@ Type annotations for resource-explorer-2 service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resource_explorer_2/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -24,14 +24,19 @@ else:
 
 __all__ = (
     "AWSServiceAccessStatusType",
+    "GetResourceExplorerSetupPaginatorName",
     "IndexStateType",
     "IndexTypeType",
     "ListIndexesForMembersPaginatorName",
     "ListIndexesPaginatorName",
     "ListManagedViewsPaginatorName",
     "ListResourcesPaginatorName",
+    "ListServiceIndexesPaginatorName",
+    "ListServiceViewsPaginatorName",
+    "ListStreamingAccessForServicesPaginatorName",
     "ListSupportedResourceTypesPaginatorName",
     "ListViewsPaginatorName",
+    "OperationStatusType",
     "PaginatorName",
     "RegionName",
     "ResourceExplorerServiceName",
@@ -42,14 +47,19 @@ __all__ = (
 
 
 AWSServiceAccessStatusType = Literal["DISABLED", "ENABLED"]
+GetResourceExplorerSetupPaginatorName = Literal["get_resource_explorer_setup"]
 IndexStateType = Literal["ACTIVE", "CREATING", "DELETED", "DELETING", "UPDATING"]
 IndexTypeType = Literal["AGGREGATOR", "LOCAL"]
 ListIndexesForMembersPaginatorName = Literal["list_indexes_for_members"]
 ListIndexesPaginatorName = Literal["list_indexes"]
 ListManagedViewsPaginatorName = Literal["list_managed_views"]
 ListResourcesPaginatorName = Literal["list_resources"]
+ListServiceIndexesPaginatorName = Literal["list_service_indexes"]
+ListServiceViewsPaginatorName = Literal["list_service_views"]
+ListStreamingAccessForServicesPaginatorName = Literal["list_streaming_access_for_services"]
 ListSupportedResourceTypesPaginatorName = Literal["list_supported_resource_types"]
 ListViewsPaginatorName = Literal["list_views"]
+OperationStatusType = Literal["FAILED", "IN_PROGRESS", "SKIPPED", "SUCCEEDED"]
 SearchPaginatorName = Literal["search"]
 ResourceExplorerServiceName = Literal["resource-explorer-2"]
 ServiceName = Literal[
@@ -78,7 +88,7 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -90,8 +100,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -145,6 +157,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -190,7 +203,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -243,7 +255,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -282,8 +293,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -318,6 +327,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -327,18 +337,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -360,8 +372,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -376,15 +386,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -415,8 +426,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -456,6 +467,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -467,22 +479,17 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "get_resource_explorer_setup",
     "list_indexes",
     "list_indexes_for_members",
     "list_managed_views",
     "list_resources",
+    "list_service_indexes",
+    "list_service_views",
+    "list_streaming_access_for_services",
     "list_supported_resource_types",
     "list_views",
     "search",
@@ -490,6 +497,7 @@ PaginatorName = Literal[
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",
@@ -500,6 +508,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

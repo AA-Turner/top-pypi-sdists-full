@@ -32,9 +32,9 @@ class OrganizationRole(BaseModel):
     name: StrictStr = Field(description="Role name")
     description: StrictStr = Field(description="Role description")
     permissions: List[StrictStr] = Field(description="Roles assigned to the user")
-    is_global: StrictBool = Field(description="Global role flag", alias="isGlobal")
-    created_at: datetime = Field(description="Creation timestamp", alias="createdAt")
-    updated_at: datetime = Field(description="Last update timestamp", alias="updatedAt")
+    is_global: StrictBool = Field(description="Global role flag", serialization_alias="isGlobal")
+    created_at: datetime = Field(description="Creation timestamp", serialization_alias="createdAt")
+    updated_at: datetime = Field(description="Last update timestamp", serialization_alias="updatedAt")
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["id", "name", "description", "permissions", "isGlobal", "createdAt", "updatedAt"]
 
@@ -42,8 +42,8 @@ class OrganizationRole(BaseModel):
     def permissions_validate_enum(cls, value):
         """Validates the enum"""
         for i in value:
-            if i not in set(['write:registries', 'delete:registries', 'write:snapshots', 'delete:snapshots', 'write:sandboxes', 'delete:sandboxes', 'read:volumes', 'write:volumes', 'delete:volumes', 'read:audit_logs']):
-                raise ValueError("each list item must be one of ('write:registries', 'delete:registries', 'write:snapshots', 'delete:snapshots', 'write:sandboxes', 'delete:sandboxes', 'read:volumes', 'write:volumes', 'delete:volumes', 'read:audit_logs')")
+            if i not in set(['write:registries', 'delete:registries', 'write:snapshots', 'delete:snapshots', 'write:sandboxes', 'delete:sandboxes', 'read:volumes', 'write:volumes', 'delete:volumes', 'write:regions', 'delete:regions', 'read:runners', 'write:runners', 'delete:runners', 'read:audit_logs']):
+                raise ValueError("each list item must be one of ('write:registries', 'delete:registries', 'write:snapshots', 'delete:snapshots', 'write:sandboxes', 'delete:sandboxes', 'read:volumes', 'write:volumes', 'delete:volumes', 'write:regions', 'delete:regions', 'read:runners', 'write:runners', 'delete:runners', 'read:audit_logs')")
         return value
 
     model_config = ConfigDict(
@@ -108,9 +108,9 @@ class OrganizationRole(BaseModel):
             "name": obj.get("name"),
             "description": obj.get("description"),
             "permissions": obj.get("permissions"),
-            "isGlobal": obj.get("isGlobal"),
-            "createdAt": obj.get("createdAt"),
-            "updatedAt": obj.get("updatedAt")
+            "is_global": obj.get("isGlobal"),
+            "created_at": obj.get("createdAt"),
+            "updated_at": obj.get("updatedAt")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

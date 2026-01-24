@@ -1,27 +1,20 @@
 from __future__ import annotations
 
 import asyncio
+from asyncio import timeout as asyncio_timeout
 import functools
 import logging
-import sys
+from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
 
 import pytest
 import zigpy.config
 
 from bellows import config, uart
 from bellows.ash import NcpFailure
-from bellows.exception import EzspError, InvalidCommandError
+from bellows.exception import EzspError, InvalidCommandError, InvalidCommandPayload
 from bellows.ezsp import EZSP, EZSP_LATEST, xncp
-import bellows.types as t
-
-if sys.version_info[:2] < (3, 11):
-    from async_timeout import timeout as asyncio_timeout  # pragma: no cover
-else:
-    from asyncio import timeout as asyncio_timeout  # pragma: no cover
-
-from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
-
 from bellows.ezsp.v9.commands import GetTokenDataRsp
+import bellows.types as t
 
 DEVICE_CONFIG = {
     zigpy.config.CONF_DEVICE_PATH: "/dev/null",
@@ -306,9 +299,31 @@ async def test_ezsp_connect_failure(disconnect_mock, reset_mock, version_mock):
             await ezsp.connect()
 
     assert conn_mock.await_count == 1
-    assert reset_mock.await_count == 1
-    assert version_mock.await_count == 1
+    assert reset_mock.await_count == 3
+    assert version_mock.await_count == 3
     assert disconnect_mock.call_count == 1
+
+
+@pytest.mark.parametrize("failures_before_success", [1, 2])
+@patch.object(EZSP, "disconnect", new_callable=AsyncMock)
+async def test_ezsp_connect_retry_success(disconnect_mock, failures_before_success):
+    """Test connection succeeding after N failures."""
+    call_count = 0
+
+    async def startup_reset_mock():
+        nonlocal call_count
+        call_count += 1
+        if call_count <= failures_before_success:
+            raise RuntimeError(f"Startup failed (attempt {call_count})")
+
+    with patch("bellows.uart.connect"):
+        ezsp = make_ezsp(version=4)
+
+        with patch.object(ezsp, "_startup_reset", side_effect=startup_reset_mock):
+            await ezsp.connect()
+
+    assert call_count == failures_before_success + 1
+    assert disconnect_mock.call_count == 0
 
 
 async def test_ezsp_newer_version(ezsp_f):
@@ -447,7 +462,7 @@ async def test_leave_network_no_stack_status(ezsp_f):
 
     with patch.object(ezsp_f, "_command", new_callable=AsyncMock) as cmd_mock:
         cmd_mock.return_value = [t.EmberStatus.SUCCESS]
-        with pytest.raises(asyncio.TimeoutError):
+        with pytest.raises(TimeoutError):
             await ezsp_f.leaveNetwork(timeout=0.01)
 
 
@@ -779,7 +794,7 @@ async def test_wait_for_stack_status(ezsp_f):
 
     # Cancellation clears handlers
     with ezsp_f.wait_for_stack_status(t.sl_Status.NETWORK_DOWN) as stack_status:
-        with pytest.raises(asyncio.TimeoutError):
+        with pytest.raises(TimeoutError):
             async with asyncio_timeout(0.1):
                 assert ezsp_f._stack_status_listeners[t.sl_Status.NETWORK_DOWN]
                 await stack_status
@@ -936,6 +951,31 @@ async def test_cfg_initialize_skip():
         )
 
 
+async def test_unsupported_ezsp_version_startup(caplog):
+    """Test that startup works with an unsupported EZSP version."""
+    ezsp = make_ezsp(version=99)
+
+    with patch("bellows.uart.connect"):
+        await ezsp.connect()
+
+    # The EZSP version should be stored as the unsupported version
+    assert ezsp._ezsp_version == 99
+
+    # But the protocol should fall back to the latest
+    assert ezsp._protocol.VERSION == EZSP_LATEST
+
+    assert "Protocol version 99 is not supported" in caplog.text
+
+    ezsp.getConfigurationValue = AsyncMock(return_value=(t.EzspStatus.SUCCESS, 0))
+    ezsp.setConfigurationValue = AsyncMock(return_value=(t.EzspStatus.SUCCESS,))
+    ezsp.setValue = AsyncMock(return_value=(t.EzspStatus.SUCCESS,))
+    ezsp.getValue = AsyncMock(return_value=(t.EzspStatus.SUCCESS, b"\xFF"))
+
+    # Startup should not fail
+    await ezsp.write_config({})
+    assert len(ezsp.setConfigurationValue.mock_calls) > 0
+
+
 async def test_reset_custom_eui64(ezsp_f):
     """Test resetting custom EUI64."""
     # No NV3 interface
@@ -989,6 +1029,30 @@ async def test_xncp_get_chip_info(ezsp_f):
         result = await ezsp_f.xncp_get_chip_info()
 
     assert result == expected_response
+    assert mock_send.mock_calls == [call(xncp.GetChipInfoReq())]
+
+
+async def test_xncp_get_chip_info_invalid_payload_fallback(ezsp_f):
+    """Test graceful fallback when chip info command returns invalid payload."""
+    ezsp_f._xncp_features = xncp.FirmwareFeatures.CHIP_INFO
+
+    with patch.object(
+        ezsp_f,
+        "send_xncp_frame",
+        new=AsyncMock(
+            side_effect=InvalidCommandPayload(
+                "Invalid XNCP response: b'\\x05\\x80\\x02'", b"\x05\x80\x02"
+            )
+        ),
+    ) as mock_send:
+        result = await ezsp_f.xncp_get_chip_info()
+
+    # Should return fallback response for beta firmware bug
+    assert result == xncp.GetChipInfoRsp(
+        ram_size=262144,
+        part_number="EFR32MG24A420F1536IM40",
+    )
+
     assert mock_send.mock_calls == [call(xncp.GetChipInfoReq())]
 
 

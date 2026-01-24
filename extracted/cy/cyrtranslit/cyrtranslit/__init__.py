@@ -14,10 +14,12 @@ def __decode_utf8(_string):
     else:
         return _string
 
-def to_latin(string_to_transliterate, lang_code='sr'):
+def to_latin(string_to_transliterate, lang_code='sr', preserve_accents=False):
     ''' Transliterate cyrillic string of characters to latin string of characters.
     :param string_to_transliterate: The cyrillic string to transliterate into latin characters.
     :param lang_code: Indicates the cyrillic language code we are translating from. Defaults to Serbian (sr).
+    :param preserve_accents: If False (default), uses standard mappings (accented Cyrillic → unaccented Latin, e.g., Ѐ→E, ѝ→i).
+                             If True, merges accented mappings (accented Cyrillic → accented Latin, e.g., Ѐ→È, ѝ→ì).
     :return: A string of latin characters transliterated from the given cyrillic string.
     '''
 
@@ -34,7 +36,11 @@ def to_latin(string_to_transliterate, lang_code='sr'):
     else:
 
         # Get the character per character transliteration dictionary
-        transliteration_dict = TRANSLIT_DICT[lang_code.lower()]['tolatin']
+        transliteration_dict = TRANSLIT_DICT[lang_code.lower()]['tolatin'].copy()
+
+        # If preserve_accents=True and accented mappings exist, merge them (accented overrides standard)
+        if preserve_accents and 'tolatin_accented' in TRANSLIT_DICT[lang_code.lower()]:
+            transliteration_dict.update(TRANSLIT_DICT[lang_code.lower()]['tolatin_accented'])
 
         # Initialize the output latin string variable
         latinized_str = ''
@@ -59,10 +65,12 @@ def to_latin(string_to_transliterate, lang_code='sr'):
         return __encode_utf8(latinized_str)
 
 
-def to_cyrillic(string_to_transliterate, lang_code='sr'):
+def to_cyrillic(string_to_transliterate, lang_code='sr', preserve_accents=False):
     ''' Transliterate latin string of characters to cyrillic string of characters.
     :param string_to_transliterate: The latin string to transliterate into cyrillic characters.
     :param lang_code: Indicates the cyrillic language code we are translating to. Defaults to Serbian (sr).
+    :param preserve_accents: If False (default), uses standard mappings (accented Latin → unaccented Cyrillic, e.g., È→Е, ì→и).
+                             If True, merges accented mappings (accented Latin → accented Cyrillic, e.g., È→Ѐ, ì→ѝ).
     :return: A string of cyrillic characters transliterated from the given latin string.
     '''
 
@@ -77,7 +85,11 @@ def to_cyrillic(string_to_transliterate, lang_code='sr'):
 
     else:
         # Get the character per character transliteration dictionary
-        transliteration_dict = TRANSLIT_DICT[lang_code.lower()]['tocyrillic']
+        transliteration_dict = TRANSLIT_DICT[lang_code.lower()]['tocyrillic'].copy()
+
+        # If preserve_accents=True and accented mappings exist, merge them (accented overrides standard)
+        if preserve_accents and 'tocyrillic_accented' in TRANSLIT_DICT[lang_code.lower()]:
+            transliteration_dict.update(TRANSLIT_DICT[lang_code.lower()]['tocyrillic_accented'])
 
         # Initialize the output cyrillic string variable
         cyrillic_str = ''
@@ -131,15 +143,24 @@ def to_cyrillic(string_to_transliterate, lang_code='sr'):
                     (c == u'\'' and c_plus_1 == u'\'')  # ''
                )) or \
                (lang_code == 'ua' and (
-                    (c in u'Jj' and c_plus_1 in u'eau') or #je, ja, ju
-                    (c in u'Šš' and c_plus_1 in u'č')      #šč
+                    (c in u'Jj' and c_plus_1 in u'eEaAuUiI') or # je, ja, ju
+                    (c in u'Šš' and c_plus_1 in u'č')      # šč
+                )) or \
+               (lang_code == 'by' and (
+                    (c in u'Jj' and c_plus_1 in u'uUaA') or   # ju, ja
+                    (c == u'\'' and c_plus_1 == u'\'')         # '' for Ьь
                 )) or \
                (lang_code == "mn" and (
-                       (c in u'Kk' and c_plus_1 == u'h') or  # Х х
-                       (c in u'Ss' and c_plus_1 == u'h') or  # Ш ш
-                       (c in u'Tt' and c_plus_1 == u's') or  # Ц ц
-                       (c in u'Cc' and c_plus_1 == u'h') or  # Ч ч
-                       (c in u'Yy' and c_plus_1 in u'eoua')  # Е Ё Ю Я
+                    (c in u'Kk' and c_plus_1 in u'Hh') or  # Х х
+                    (c in u'Ss' and c_plus_1 in u'Hh') or  # Ш ш
+                    (c in u'Tt' and c_plus_1 in u'Ss') or  # Ц ц
+                    (c in u'Cc' and c_plus_1 in u'Hh') or  # Ч ч
+                    (c in u'Yy' and c_plus_1 in u'EeOoUuAa')  # Е Ё Ю Я
+                )) or \
+               (lang_code == "el" and (
+                    (c in u'Tt' and c_plus_1 in u'Hh') or  # Θ θ - Theta
+                    (c in u'Cc' and c_plus_1 in u'Hh') or  # Χ χ - Chi
+                    (c in u'Pp' and c_plus_1 in u'Ss')     # Ψ ψ - Psi
                 )):
                 index += 1
                 c += c_plus_1

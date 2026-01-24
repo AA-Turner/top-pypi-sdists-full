@@ -10,10 +10,11 @@ T = TypeVar("T", bound="UpdateScheduleJsonBodyRetryConstant")
 
 @_attrs_define
 class UpdateScheduleJsonBodyRetryConstant:
-    """
+    """Retry with constant delay between attempts
+
     Attributes:
-        attempts (Union[Unset, int]):
-        seconds (Union[Unset, int]):
+        attempts (Union[Unset, int]): Number of retry attempts
+        seconds (Union[Unset, int]): Seconds to wait between retries
     """
 
     attempts: Union[Unset, int] = UNSET

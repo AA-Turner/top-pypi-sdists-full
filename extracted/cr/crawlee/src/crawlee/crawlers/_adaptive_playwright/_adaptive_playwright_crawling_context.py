@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from playwright.async_api import Page, Response
     from typing_extensions import Self
 
-    from crawlee.crawlers._playwright._types import BlockRequestsFunction
+    from crawlee.crawlers._playwright._types import BlockRequestsFunction, GotoOptions
 
 
 TStaticParseResult = TypeVar('TStaticParseResult')
@@ -29,9 +29,10 @@ class AdaptiveContextError(RuntimeError):
 
 
 @dataclass(frozen=True)
-@docs_group('Data structures')
+@docs_group('Crawling contexts')
 class AdaptivePlaywrightCrawlingContext(
-    Generic[TStaticParseResult, TStaticSelectResult], ParsedHttpCrawlingContext[TStaticParseResult]
+    ParsedHttpCrawlingContext[TStaticParseResult],
+    Generic[TStaticParseResult, TStaticSelectResult],
 ):
     _static_parser: AbstractHttpParser[TStaticParseResult, TStaticSelectResult]
     """The crawling context used by `AdaptivePlaywrightCrawler`.
@@ -189,8 +190,9 @@ class AdaptivePlaywrightCrawlingContext(
         http_response = await PlaywrightHttpResponse.from_playwright_response(
             response=context.response, protocol=protocol_guess or ''
         )
-        # block_requests is useful only on pre-navigation contexts. It is useless here.
+        # block_requests and goto_options are useful only on pre-navigation contexts. It is useless here.
         context_kwargs.pop('block_requests')
+        context_kwargs.pop('goto_options')
         return cls(
             parsed_content=await parser.parse(http_response),
             http_response=http_response,
@@ -200,7 +202,7 @@ class AdaptivePlaywrightCrawlingContext(
 
 
 @dataclass(frozen=True)
-@docs_group('Data structures')
+@docs_group('Crawling contexts')
 class AdaptivePlaywrightPreNavCrawlingContext(BasicCrawlingContext):
     """A wrapper around BasicCrawlingContext or AdaptivePlaywrightCrawlingContext.
 
@@ -210,6 +212,9 @@ class AdaptivePlaywrightPreNavCrawlingContext(BasicCrawlingContext):
     _page: Page | None = None
     block_requests: BlockRequestsFunction | None = None
     """Blocks network requests matching specified URL patterns."""
+
+    goto_options: GotoOptions | None = None
+    """Additional options to pass to Playwright's `Page.goto()` method. The `timeout` option is not supported."""
 
     @property
     def page(self) -> Page:

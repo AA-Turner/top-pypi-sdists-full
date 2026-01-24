@@ -1,4 +1,3 @@
-
 # Copyright (c) [2025] [OpenAI]
 # Copyright (c) [2025] [ByteDance Ltd. and/or its affiliates.]
 # SPDX-License-Identifier: Apache-2.0
@@ -42,4 +41,13 @@ class CreateTaskContentImageParam(TypedDict):
     """Image data object containing image URL."""
 
 
-CreateTaskContentParam = Union[CreateTaskContentTextParam, CreateTaskContentImageParam]
+class CreateTaskContentDraftTaskParam(TypedDict):
+    type: Literal["draft_task"]
+    draft_task: CreateTaskContentDraftTaskDataParam
+    """ID of the draft task to be used for content generation."""
+
+class CreateTaskContentDraftTaskDataParam(TypedDict):
+    id: str
+    """ID of the draft task to be used for content generation."""
+
+CreateTaskContentParam = Union[CreateTaskContentTextParam, CreateTaskContentImageParam, CreateTaskContentDraftTaskParam]

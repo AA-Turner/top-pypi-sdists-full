@@ -24,3 +24,6 @@ class SchedulingState(str, Enum):
     """
     allowed enum values
     """
+
+
+SchedulingStateModel = SchedulingState

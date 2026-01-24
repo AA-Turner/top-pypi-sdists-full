@@ -13,6 +13,7 @@ class ArPackage:
     """
 
     def __init__(self, element: Element) -> ArPackage: ...
+    def remove(self, /, *, deep: bool = False) -> None: ...
     def create_application_array_data_type(
         self,
         name: str,
@@ -300,6 +301,7 @@ class EcuInstance:
     """
 
     def __init__(self, element: Element) -> EcuInstance: ...
+    def remove(self, /, *, deep: bool = False) -> None: ...
     def communication_controllers(self, /) -> Iterator[CommunicationController]:
         """return an interator over all communication controllers in this `EcuInstance`"""
         ...
@@ -333,6 +335,14 @@ class EcuInstance:
         For example, if it communicates on two CAN buses, then two CAN-COMMUNICATION-CONTROLLERs are needed.
         """
         ...
+
+    def add_associated_com_ipdu_group(self, group: ISignalIPduGroup) -> None:
+        """Add a reference to an associated COM IPdu group"""
+        ...
+
+    def associated_com_ipdu_groups(self) -> Iterator[ISignalIPduGroup]:
+        """Iterate over all associated COM IPdu groups"""
+        ...
     element: Element
     name: str
 
@@ -343,6 +353,7 @@ class SwcToEcuMapping:
     """
 
     def __init__(self, element: Element) -> SwcToEcuMapping: ...
+    def remove(self, /, *, deep: bool = False) -> None: ...
     ecu_instance: Optional[EcuInstance]
     """get the ECU instance which is the target of this mapping"""
     element: Element
@@ -360,6 +371,7 @@ class System:
     """
 
     def __init__(self, element: Element) -> System: ...
+    def remove(self, /, *, deep: bool = False) -> None: ...
     category: Optional[SystemCategory]
     """category of the system"""
     def clusters(self, /) -> Iterator[Cluster]:
@@ -410,7 +422,9 @@ class System:
         """create a [`ContainerIPdu`] in the [`System`]"""
         ...
 
-    def create_dcm_ipdu(self, name: str, package: ArPackage, length: int, /) -> DcmIPdu:
+    def create_dcm_ipdu(
+        self, name: str, package: ArPackage, length: int, diag_pdu_type: DiagPduType, /
+    ) -> DcmIPdu:
         """create a [`DcmIPdu`] in the [`System`]"""
         ...
 
@@ -562,6 +576,22 @@ class System:
         """create a [`SecuredIPdu`] in the [`System`]"""
         ...
 
+    def create_user_defined_pdu(
+        self,
+        name: str,
+        package: ArPackage,
+        length: int,
+        /,
+    ) -> UserDefinedPdu:
+        """create a [`UserDefinedPdu`] in the [`System`]"""
+        ...
+
+    def create_isignal_ipdu_group(
+        self, name: str, package: ArPackage, /
+    ) -> ISignalIPduGroup:
+        """create a new I-SIGNAL-IPDU-GROUP in the [`System`]"""
+        ...
+
     def create_service_instance_collection_set(
         self, name: str, package: ArPackage, /
     ) -> ServiceInstanceCollectionSet:
@@ -681,6 +711,7 @@ class SystemMapping:
     """
 
     def __init__(self, element: Element) -> SystemMapping: ...
+    def remove(self, /, *, deep: bool = False) -> None: ...
     element: Element
     def map_sender_receiver_to_signal(
         self,

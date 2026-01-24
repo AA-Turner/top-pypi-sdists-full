@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import partial
-from typing import Callable, Literal
+from typing import Literal
 
 import click
 
@@ -49,5 +50,5 @@ def with_filters(command: Callable) -> Callable:
     for by in _BY_VALUES:
         for mode in ("exclude", "include"):
             for modifier in ("regex", None):
-                command = _with_filter(by=by, mode=mode, modifier=modifier)(command)  # type: ignore[arg-type]
+                command = _with_filter(by=by, mode=mode, modifier=modifier)(command)
     return command

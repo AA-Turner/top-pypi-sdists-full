@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inflate64
-Version: 1.0.3
+Version: 1.0.4
 Summary: deflate64 compression/decompression library
 Author-email: Hiroshi Miura <miurahr@linux.com>
 License: LGPL-2.1-or-later
@@ -23,10 +23,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9, <3.14
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: COPYING
 Provides-Extra: test
@@ -47,7 +48,6 @@ Requires-Dist: pygments; extra == "check"
 Requires-Dist: readme-renderer; extra == "check"
 Requires-Dist: twine; extra == "check"
 Dynamic: license-file
-Dynamic: requires-python
 
 inflate64
 =========

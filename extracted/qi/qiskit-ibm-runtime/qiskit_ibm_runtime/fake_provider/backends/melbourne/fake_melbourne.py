@@ -11,7 +11,7 @@
 # that they have been altered from the originals.
 
 """
-Fake Melbourne device (14 qubit).
+Fake Melbourne device (15 qubit).
 """
 
 import os
@@ -20,9 +20,9 @@ from qiskit_ibm_runtime.fake_provider import fake_backend
 
 
 class FakeMelbourneV2(fake_backend.FakeBackendV2):
-    """A fake 14 qubit backend."""
+    """A fake 15 qubit backend."""
 
-    dirname = os.path.dirname(__file__)  # type: ignore
-    conf_filename = "conf_melbourne.json"  # type: ignore
-    props_filename = "props_melbourne.json"  # type: ignore
-    backend_name = "fake_melbourne"  # type: ignore
+    dirname = os.path.dirname(__file__)
+    conf_filename = "conf_melbourne.json"
+    props_filename = "props_melbourne.json"
+    backend_name = "fake_melbourne"

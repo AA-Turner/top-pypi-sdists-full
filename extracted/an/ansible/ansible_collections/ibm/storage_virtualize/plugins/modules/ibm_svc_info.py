@@ -75,7 +75,7 @@ options:
     type: str
   filtervalue:
     description:
-    - Specifies (key=value) combination that helps in returning a subset of objects satisfying the condition.
+    - Specifies a set of one or more (key=value) combination separated by a colon that helps in returning a subset of objects satisfying the condition.
     type: str
   gather_subset:
     type: list
@@ -161,10 +161,10 @@ options:
     - availablepatch - display the patches that are compatible with the SVC version.
     - patch - displays a list of all the patches on a specific node.
     - systempatches - displays patches installed on all the nodes in the system.
-    - flashgrid - displays the summarized view of flashsystem grid.
-    - flashgridmembers - displays the summarized view of flashsystem grid members.
-    - flashgridsystem - displays the information about all systems in the flashsystem grid.
-    - flashgridpartition - displays the information about all partitions in the flashsystem grid.
+    - grid - displays the summarized view of flashsystem grid.
+    - gridmembers - displays the summarized view of flashsystem grid members.
+    - gridsystem - displays the information about all systems in the flashsystem grid.
+    - gridpartition - displays the information about all partitions in the flashsystem grid.
     choices: [vol, pool, node, iog, host, hostvdiskmap, vdiskhostmap, hc, fcport
               , fabricport, iscsiport, fc, fcmap, fcconsistgrp, rcrelationship, rcconsistgrp
               , vdiskcopy, targetportfc, array, system, 'cloudaccount', 'cloudaccountusage',
@@ -177,7 +177,7 @@ options:
                'truststore', 'callhome', 'ip', 'portset', 'safeguardedpolicy',
                'mdisk', 'safeguardedpolicyschedule', 'cloudimportcandidate', 'eventlog', 'driveclass', 'security', 'partition',
                'volumegroupreplication', 'plugin', 'quorum', 'enclosure', 'snmpserver', 'testldapserver', 'availablepatch',
-               'patch', 'systempatches', 'flashgrid', 'flashgridmembers', 'flashgridsystem', 'flashgridpartition', all]
+               'patch', 'systempatches', 'grid', 'gridmembers', 'gridsystem', 'gridpartition', all]
   command_list:
     type: list
     elements: str
@@ -262,7 +262,7 @@ EXAMPLES = '''
     gather_subset: [vol, host]
     command_list: [lsvdiskcopy, lssite]
     objectname: all
-- name: Get list of candidate drives info using filtervale and gather_subset.
+- name: Get list of candidate drives info using filtervalue and gather_subset.
   ibm.storage_virtualize.ibm_svc_info:
     clustername: "{{ clustername }}"
     domain: "{{ domain }}"
@@ -270,7 +270,7 @@ EXAMPLES = '''
     password: "{{ password }}"
     log_path: /tmp/ansible.log
     gather_subset: drive
-    filtervalue: "use=candidate"
+    filtervalue: "use=candidate:status=online"
 - name: Get list of replication type portsets info using filtervalue and command_list.
   ibm.storage_virtualize.ibm_svc_info:
     clustername: "{{ clustername }}"
@@ -839,28 +839,28 @@ Systempatches:
     elements: dict
 FlashsystemGrid:
     description:
-        - Data will be populated when I(gather_subset=flashgrid) or I(gather_subset=all)
+        - Data will be populated when I(gather_subset=grid) or I(gather_subset=all)
         - Displays summarized view of flashsystem grid.
     returned: success
     type: list
     elements: dict
 FlashsystemGridMembers:
     description:
-        - Data will be populated when I(gather_subset=flashgridmembers) or I(gather_subset=all)
+        - Data will be populated when I(gather_subset=gridmembers) or I(gather_subset=all)
         - Displays summarized view of flashsystem grid members.
     returned: success
     type: list
     elements: dict
 FlashsystemGridSystem:
     description:
-        - Data will be populated when I(gather_subset=flashgridsystem) or I(gather_subset=all)
+        - Data will be populated when I(gather_subset=gridsystem) or I(gather_subset=all)
         - Displays the information about all systems in the flashsystem grid.
     returned: success
     type: list
     elements: dict
 FlashsystemGridPartition:
     description:
-        - Data will be populated when I(gather_subset=flashgridpartition) or I(gather_subset=all)
+        - Data will be populated when I(gather_subset=gridpartition) or I(gather_subset=all)
         - Displays the information about all partitions in the flashsystem grid.
     returned: success
     type: list
@@ -951,10 +951,10 @@ class IBMSVCGatherInfo(object):
                                             'availablepatch',
                                             'patch',
                                             'systempatches',
-                                            'flashgrid',
-                                            'flashgridmembers',
-                                            'flashgridsystem',
-                                            'flashgridpartition',
+                                            'grid',
+                                            'gridmembers',
+                                            'gridsystem',
+                                            'gridpartition',
                                             'all'
                                             ]),
                 command_list=dict(type='list', elements='str', required=False)
@@ -1157,7 +1157,7 @@ class IBMSVCGatherInfo(object):
                                 In few cases id is not mentioned or id is invalid with command lscommand <id>.
                                 (ex. lsauthmultifactorduo, lsauthmultifactorverify, lsauthsinglesignon, lscloudcallhome,
                                 lsencryption, lskeyserverisklm, lsldap, lslicense, lsnodestatus, lsproxy, lssecurity, lssra,
-                                lssystem, lssystemcert, lssystemethernet, lsflashgrid, lsflashgridmembers etc.)
+                                lssystem, lssystemcert, lssystemethernet, lsgrid, lsgridmembers etc.)
                                 '''
                                 return output
                     else:
@@ -1340,10 +1340,10 @@ class IBMSVCGatherInfo(object):
             'availablepatch': ('Availablepatch', 'lsavailablepatch', False, '8.7.0.0'),
             'patch': ('Patch', 'lspatch', False, '8.5.4.0'),
             'systempatches': ('Systempatches', 'lssystempatches', False, '8.5.4.0'),
-            'flashgrid': ('FlashsystemGrid', 'lsflashgrid', False, '8.7.1.0'),
-            'flashgridmembers': ('FlashsystemGridMembers', 'lsflashgridmembers', False, '8.7.2.0'),
-            'flashgridsystem': ('FlashsystemGridSystem', 'lsflashgridsystem', False, '8.7.3.0'),
-            'flashgridpartition': ('FlashsystemGridPartition', 'lsflashgridpartition', False, '8.7.2.0')
+            'grid': ('FlashsystemGrid', 'lsgrid', False, '8.7.1.0'),
+            'gridmembers': ('FlashsystemGridMembers', 'lsgridmembers', False, '8.7.2.0'),
+            'gridsystem': ('FlashsystemGridSystem', 'lsgridsystem', False, '8.7.3.0'),
+            'gridpartition': ('FlashsystemGridPartition', 'lsgridpartition', False, '8.7.2.0')
         }
         if command_list:
             for cmd in command_list:

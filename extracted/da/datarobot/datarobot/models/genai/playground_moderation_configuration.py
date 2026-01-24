@@ -20,34 +20,26 @@ from datarobot.enums import ModerationGuardAction, enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.models.moderation.intervention import GuardInterventionCondition
 
-moderation_configuration_without_id = t.Dict(
-    {
-        t.Key("guard_conditions"): t.List(
-            t.Dict(
-                {
-                    t.Key("comparator"): t.String,
-                    t.Key("comparand"): t.Or(t.Float, t.String, t.Bool, t.List(t.String)),
-                }
-            )
-        ),
-        t.Key("intervention"): t.Dict(
-            {
-                t.Key("action"): t.String,
-                t.Key("message"): t.String,
-            }
-        ),
-    }
-).ignore_extra("*")
+moderation_configuration_without_id = t.Dict({
+    t.Key("guard_conditions"): t.List(
+        t.Dict({
+            t.Key("comparator"): t.String,
+            t.Key("comparand"): t.Or(t.Float, t.String, t.Bool, t.List(t.String)),
+        })
+    ),
+    t.Key("intervention"): t.Dict({
+        t.Key("action"): t.String,
+        t.Key("message"): t.String,
+    }),
+}).ignore_extra("*")
 
 moderation_configuration_with_id = moderation_configuration_without_id + {"id": t.String}
 
 
-intervention = t.Dict(
-    {
-        t.Key("action"): t.Enum(*enum_to_list(ModerationGuardAction)),
-        t.Key("message"): t.String,
-    }
-).ignore_extra("*")
+intervention = t.Dict({
+    t.Key("action"): t.Enum(*enum_to_list(ModerationGuardAction)),
+    t.Key("message"): t.String,
+}).ignore_extra("*")
 
 
 class Intervention(APIObject):
@@ -91,9 +83,7 @@ class ModerationConfigurationWithoutId(APIObject):
     _converter = moderation_configuration_without_id
 
     def __init__(self, guard_conditions: list[Dict[str, Any]], intervention: Dict[str, str]):
-        self.guard_conditions = [
-            GuardInterventionCondition.from_server_data(gc) for gc in guard_conditions
-        ]
+        self.guard_conditions = [GuardInterventionCondition.from_server_data(gc) for gc in guard_conditions]
         self.intervention = Intervention.from_server_data(intervention)
 
     def to_dict(self) -> Dict[str, Any]:

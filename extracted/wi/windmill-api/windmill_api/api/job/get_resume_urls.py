@@ -15,11 +15,14 @@ def _get_kwargs(
     resume_id: int,
     *,
     approver: Union[Unset, None, str] = UNSET,
+    flow_level: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
     params: Dict[str, Any] = {}
     params["approver"] = approver
+
+    params["flow_level"] = flow_level
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -65,6 +68,7 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     approver: Union[Unset, None, str] = UNSET,
+    flow_level: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetResumeUrlsResponse200]:
     """get resume urls given a job_id, resume_id and a nonce to resume a flow
 
@@ -73,6 +77,7 @@ def sync_detailed(
         id (str):
         resume_id (int):
         approver (Union[Unset, None, str]):
+        flow_level (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -87,6 +92,7 @@ def sync_detailed(
         id=id,
         resume_id=resume_id,
         approver=approver,
+        flow_level=flow_level,
     )
 
     response = client.get_httpx_client().request(
@@ -103,6 +109,7 @@ def sync(
     *,
     client: Union[AuthenticatedClient, Client],
     approver: Union[Unset, None, str] = UNSET,
+    flow_level: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetResumeUrlsResponse200]:
     """get resume urls given a job_id, resume_id and a nonce to resume a flow
 
@@ -111,6 +118,7 @@ def sync(
         id (str):
         resume_id (int):
         approver (Union[Unset, None, str]):
+        flow_level (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -126,6 +134,7 @@ def sync(
         resume_id=resume_id,
         client=client,
         approver=approver,
+        flow_level=flow_level,
     ).parsed
 
 
@@ -136,6 +145,7 @@ async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     approver: Union[Unset, None, str] = UNSET,
+    flow_level: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetResumeUrlsResponse200]:
     """get resume urls given a job_id, resume_id and a nonce to resume a flow
 
@@ -144,6 +154,7 @@ async def asyncio_detailed(
         id (str):
         resume_id (int):
         approver (Union[Unset, None, str]):
+        flow_level (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -158,6 +169,7 @@ async def asyncio_detailed(
         id=id,
         resume_id=resume_id,
         approver=approver,
+        flow_level=flow_level,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -172,6 +184,7 @@ async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
     approver: Union[Unset, None, str] = UNSET,
+    flow_level: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetResumeUrlsResponse200]:
     """get resume urls given a job_id, resume_id and a nonce to resume a flow
 
@@ -180,6 +193,7 @@ async def asyncio(
         id (str):
         resume_id (int):
         approver (Union[Unset, None, str]):
+        flow_level (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -196,5 +210,6 @@ async def asyncio(
             resume_id=resume_id,
             client=client,
             approver=approver,
+            flow_level=flow_level,
         )
     ).parsed

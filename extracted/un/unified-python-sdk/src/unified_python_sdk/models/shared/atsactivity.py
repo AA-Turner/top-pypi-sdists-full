@@ -9,12 +9,12 @@ from .property_atsactivity_from import (
 from datetime import datetime
 from enum import Enum
 import pydantic
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated, NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class AtsActivityType(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -30,7 +30,6 @@ class AtsActivityTypedDict(TypedDict):
     cc: NotRequired[List[AtsEmailTypedDict]]
     created_at: NotRequired[datetime]
     description: NotRequired[str]
-    document_id: NotRequired[str]
     document_ids: NotRequired[List[str]]
     r"""IDs for AtsDocument.get"""
     from_: NotRequired[PropertyAtsActivityFromTypedDict]
@@ -61,8 +60,6 @@ class AtsActivity(BaseModel):
 
     description: Optional[str] = None
 
-    document_id: Optional[str] = None
-
     document_ids: Optional[List[str]] = None
     r"""IDs for AtsDocument.get"""
 
@@ -86,11 +83,56 @@ class AtsActivity(BaseModel):
 
     to: Optional[List[AtsEmail]] = None
 
-    type: Annotated[
-        Optional[AtsActivityType], PlainValidator(validate_open_enum(False))
-    ] = None
+    type: Optional[AtsActivityType] = None
 
     updated_at: Optional[datetime] = None
 
     user_ids: Optional[List[str]] = None
     r"""id values of the recruiters associated with the activity."""
+
+    @field_serializer("type")
+    def serialize_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.AtsActivityType(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "application_id",
+                "bcc",
+                "candidate_id",
+                "cc",
+                "created_at",
+                "description",
+                "document_ids",
+                "from",
+                "id",
+                "interview_id",
+                "is_private",
+                "job_id",
+                "raw",
+                "sub_type",
+                "title",
+                "to",
+                "type",
+                "updated_at",
+                "user_ids",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c), 2018-2024, SISSA (International School for Advanced Studies).
+# Copyright (c), 2018-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -40,6 +40,7 @@ DICT_TEMPLATE = """
 UNICODE_DATA_BASE_URL = "https://www.unicode.org/Public/"
 
 UNICODE_VERSIONS = {
+    '17.0.0': ('17.0.0/ucd/UnicodeData.txt', '17.0.0/ucd/Blocks.txt'),
     '16.0.0': ('16.0.0/ucd/UnicodeData.txt', '16.0.0/ucd/Blocks.txt'),
     '15.1.0': ('15.1.0/ucd/UnicodeData.txt', '15.1.0/ucd/Blocks.txt'),
     '15.0.0': ('15.0.0/ucd/UnicodeData.txt', '15.0.0/ucd/Blocks.txt'),
@@ -85,7 +86,7 @@ UNICODE_CATEGORIES = (
 )
 
 
-DEFAULT_CATEGORIES_VERSIONS = ['12.1.0', '13.0.0', '14.0.0', '15.0.0', '15.1.0', '16.0.0']
+DEFAULT_CATEGORIES_VERSIONS = ['13.0.0', '14.0.0', '15.0.0', '15.1.0', '16.0.0', '17.0.0']
 
 
 def version_number(value):

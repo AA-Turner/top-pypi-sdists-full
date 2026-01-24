@@ -6,6 +6,7 @@ handler implementations.
 from typing import Any, Callable
 
 import pytest
+from typing_extensions import dataclass_transform
 
 import nexusrpc
 from nexusrpc.handler import (
@@ -18,7 +19,12 @@ from nexusrpc.handler._decorators import operation_handler
 from nexusrpc.handler._operation_handler import OperationHandler
 
 
-class _TestCase:
+@dataclass_transform()
+class _BaseTestCase:
+    pass
+
+
+class _TestCase(_BaseTestCase):
     build: Callable[..., Any]
     error_message: str
 
@@ -33,7 +39,11 @@ class OperationHandlerOverridesNameInconsistentlyWithServiceDefinition(_TestCase
         @service_handler(service=SD)
         class SH:
             @sync_operation(name="foo")
-            async def my_op(self, ctx: StartOperationContext, input: None) -> None: ...
+            async def my_op(
+                self, _ctx: StartOperationContext, _input: None
+            ) -> None: ...
+
+        _ = SH
 
     error_message = "Operation handlers may not override the name of an operation in the service definition"
 
@@ -50,8 +60,10 @@ class ServiceDefinitionHasExtraOp(_TestCase):
         class SH:
             @sync_operation
             async def my_op_1(
-                self, ctx: StartOperationContext, input: None
+                self, _ctx: StartOperationContext, _input: None
             ) -> None: ...
+
+        _ = SH
 
     error_message = "does not implement an operation with method name 'my_op_2'"
 
@@ -67,13 +79,15 @@ class ServiceHandlerHasExtraOp(_TestCase):
         class SH:
             @sync_operation
             async def my_op_1(
-                self, ctx: StartOperationContext, input: None
+                self, _ctx: StartOperationContext, _input: None
             ) -> None: ...
 
             @sync_operation
             async def my_op_2(
-                self, ctx: StartOperationContext, input: None
+                self, _ctx: StartOperationContext, _input: None
             ) -> None: ...
+
+        _ = SH
 
     error_message = "does not match an operation method name in the service definition"
 
@@ -83,12 +97,16 @@ class ServiceDefinitionOperationHasNoTypeParams(_TestCase):
     def build():
         @nexusrpc.service
         class SD:
-            my_op: nexusrpc.Operation
+            my_op: nexusrpc.Operation  # type: ignore
 
         @service_handler(service=SD)
         class SH:
             @sync_operation
-            async def my_op(self, ctx: StartOperationContext, input: None) -> None: ...
+            async def my_op(
+                self, _ctx: StartOperationContext, _input: None
+            ) -> None: ...
+
+        _ = SH
 
     error_message = "has 0 type parameters"
 
@@ -99,9 +117,9 @@ class AsyncioHandlerWithSyncioOperation(_TestCase):
         @service_handler
         class SH:
             @sync_operation
-            def my_op(self, ctx: StartOperationContext, input: None) -> None: ...
+            def my_op(self, _ctx: StartOperationContext, _input: None) -> None: ...
 
-        Handler([SH()])
+        _ = Handler([SH()])
 
     error_message = "you have not supplied an executor"
 
@@ -124,6 +142,8 @@ class ServiceDefinitionHasDuplicateMethodNames(_TestCase):
                 output_type=None,
             )
 
+        _ = SD
+
     error_message = "Operation method name 'my_op' is not unique"
 
 
@@ -133,9 +153,11 @@ class OperationHandlerNoInputOutputTypeAnnotationsWithoutServiceDefinition(_Test
         @service_handler
         class SubclassingNoInputOutputTypeAnnotationsWithoutServiceDefinition:
             @operation_handler
-            def op(self) -> OperationHandler: ...
+            def op(self) -> OperationHandler: ...  # type: ignore
 
-    error_message = r"has no input type.+has no output type"
+        _ = SubclassingNoInputOutputTypeAnnotationsWithoutServiceDefinition
+
+    error_message = r"has no input type"
 
 
 @pytest.mark.parametrize(

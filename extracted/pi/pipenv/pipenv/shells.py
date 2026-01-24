@@ -69,6 +69,63 @@ def _get_activate_script(cmd, venv):
     return f" {command} {venv_location}/bin/activate{suffix}"
 
 
+def _get_deactivate_wrapper_script(cmd):
+    """Returns a script to wrap the deactivate function to also unset PIPENV_ACTIVE.
+
+    This ensures that when a user runs 'deactivate' in a pipenv shell, the
+    PIPENV_ACTIVE environment variable is also cleared, allowing subsequent
+    'pipenv shell' commands to work without the 'already activated' error.
+    """
+    if cmd.endswith("fish"):
+        # Fish shell uses 'functions' and 'set -e' to unset variables
+        return (
+            "functions -c deactivate _pipenv_old_deactivate; "
+            "function deactivate; _pipenv_old_deactivate; set -e PIPENV_ACTIVE; end"
+        )
+    elif cmd.endswith("csh"):
+        # C shell uses 'unsetenv'
+        return (
+            "alias _pipenv_old_deactivate deactivate; "
+            "alias deactivate '_pipenv_old_deactivate; unsetenv PIPENV_ACTIVE'"
+        )
+    elif cmd.endswith("xonsh"):
+        # Xonsh uses Python-like syntax
+        return (
+            "_pipenv_old_deactivate = deactivate; "
+            "def deactivate(): _pipenv_old_deactivate(); del $PIPENV_ACTIVE"
+        )
+    elif cmd.endswith("nu"):
+        # Nushell - deactivate is typically handled differently
+        # For now, return empty as nu has different paradigm
+        return ""
+    elif cmd.endswith(("pwsh", "powershell")):
+        # PowerShell
+        return (
+            "$_pipenv_old_deactivate = $function:deactivate; "
+            "function deactivate { & $_pipenv_old_deactivate; "
+            "Remove-Item Env:PIPENV_ACTIVE -ErrorAction SilentlyContinue }"
+        )
+    elif cmd.endswith("zsh"):
+        # Zsh uses 'functions -c' to copy function definitions
+        return (
+            "functions -c deactivate _pipenv_old_deactivate; "
+            "deactivate() { _pipenv_old_deactivate; unset PIPENV_ACTIVE; }"
+        )
+    elif cmd.endswith("bash"):
+        # Bash uses 'declare -f' to copy function definitions
+        return (
+            'eval "_pipenv_old_deactivate() { $(declare -f deactivate | tail -n +2) }"; '
+            "deactivate() { _pipenv_old_deactivate; unset PIPENV_ACTIVE; }"
+        )
+    elif cmd.endswith("sh"):
+        # Plain POSIX sh doesn't have 'declare -f', use a simpler approach
+        # Just redefine deactivate to call the original via sourcing and add unset
+        return "deactivate() { command deactivate 2>/dev/null; unset PIPENV_ACTIVE; }"
+    else:
+        # Unknown shell - return empty string
+        return ""
+
+
 def _handover(cmd, args):
     args = [cmd] + args
     if os.name != "nt":
@@ -108,17 +165,45 @@ class Shell:
             os.chdir(str(cwd) if isinstance(cwd, Path) else cwd)
             _handover(self.cmd, self.args + list(args))
 
-    def fork_compat(self, venv, cwd, args):
+    def fork_compat(self, venv, cwd, args, quiet=False):
         from .vendor import pexpect
 
         # Grab current terminal dimensions to replace the hardcoded default
         # dimensions of pexpect.
         dims = get_terminal_size()
         with temp_environ():
+            # Unset COLUMNS and LINES so the spawned shell can manage them.
+            # When these are exported, Bash treats them as read-only inherited
+            # values and doesn't update them on terminal resize, even with
+            # checkwinsize enabled. See: https://github.com/pypa/pipenv/issues/6169
+            os.environ.pop("COLUMNS", None)
+            os.environ.pop("LINES", None)
             c = pexpect.spawn(self.cmd, ["-i"], dimensions=(dims.lines, dims.columns))
+
+        # In quiet mode, disable echo to suppress activation command output
+        # See: https://github.com/pypa/pipenv/issues/5954
+        if quiet:
+            try:
+                c.setecho(False)
+            except Exception:
+                pass  # setecho may not be supported on all platforms
+
         c.sendline(_get_activate_script(self.cmd, venv))
+
+        # Wrap the deactivate function to also unset PIPENV_ACTIVE
+        deactivate_wrapper = _get_deactivate_wrapper_script(self.cmd)
+        if deactivate_wrapper:
+            c.sendline(deactivate_wrapper)
+
         if args:
             c.sendline(" ".join(args))
+
+        # Re-enable echo after sending activation commands
+        if quiet:
+            try:
+                c.setecho(True)
+            except Exception:
+                pass
 
         # Handler for terminal resizing events
         # Must be defined here to have the shell process in its context, since

@@ -9,9 +9,8 @@ For more details about this api, please refer to the documentation at
 https://gitlab.com/keatontaylor/alexapy
 """
 
-from functools import partial
 import logging
-from typing import Optional, Union
+from functools import partial
 
 import authcaptureproxy
 from bs4 import BeautifulSoup
@@ -50,7 +49,7 @@ class AlexaProxy(authcaptureproxy.AuthCaptureProxy):
             )
         }
 
-    async def test_amazon_url(self, resp, data, query) -> Optional[Union[URL, str]]:
+    async def test_amazon_url(self, resp, data, query) -> URL | str | None:
         """Test for Alexa success.
 
         Args
@@ -61,7 +60,7 @@ class AlexaProxy(authcaptureproxy.AuthCaptureProxy):
         Returns
             Optional[Union[URL, Text]]: URL for a http 302 redirect or Text to display on success. None indicates test did not pass.
 
-        """
+        """  # noqa: E501
         if URL(str(resp.url)).path in ["/ap/maplanding", "/spa/index.html"]:
             self._login.session.cookie_jar.update_cookies(self.session.cookies)
             self._login.authorization_code = URL(str(resp.url)).query.get(
@@ -73,11 +72,11 @@ class AlexaProxy(authcaptureproxy.AuthCaptureProxy):
             self._config_flow_id = self.init_query.get("config_flow_id")
             self._callback_url = self.init_query.get("callback_url")
             # Reset so proxy can be reused
-            # Unfortunately because the route has a handler bound and cannot be changed, we need to remove the modifiers for other proxies.
+            # Unfortunately because the route has a handler bound and cannot be changed, we need to remove the modifiers for other proxies. # noqa: E501
             await self.reset_data()
             if self._callback_url:
                 return URL(self._callback_url)
-            return f"Successfully logged in as {self._login.email} for flow {self._config_flow_id}. Please close the window."
+            return f"Successfully logged in as {self._login.email} for flow {self._config_flow_id}. Please close the window."  # noqa: E501
         if URL(str(resp.url)).path in [
             "/"
         ]:  # sometimes the redirect after the captcha fails, redirect manually
@@ -126,7 +125,9 @@ class AlexaProxy(authcaptureproxy.AuthCaptureProxy):
                                 (
                                     hide_password(value)
                                     if item == "password"
-                                    else hide_email(value) if item == "email" else value
+                                    else hide_email(value)
+                                    if item == "email"
+                                    else value
                                 ),
                             ),
                         )

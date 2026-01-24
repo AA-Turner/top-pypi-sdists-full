@@ -21,6 +21,7 @@
 #include <vector>
 
 #include <tiledb/tiledb>
+#include "../tiledb_adapter/platform_config.h"
 #include "soma_column.h"
 
 namespace tiledbsoma {
@@ -45,7 +46,28 @@ class SOMADimension : public SOMAColumn {
         ArrowArray* array,
         const std::string& soma_type,
         std::string_view type_metadata,
-        PlatformConfig platform_config);
+        const PlatformConfig& platform_config);
+
+    template <typename T>
+    static std::shared_ptr<SOMADimension> create(
+        std::shared_ptr<Context> ctx,
+        const std::string& name,
+        const std::string& soma_type,
+        const DimensionConfigAdapter<T>& dim_config,
+        const PlatformConfig& platform_config,
+        std::optional<tiledb_datatype_t> datatype = std::nullopt) {
+        FilterList filter_list = utils::create_dim_filter_list(name, platform_config, soma_type, ctx);
+        auto dim = datatype.has_value() ? dim_config.create_dimension(*ctx, name, datatype.value(), filter_list) :
+                                          dim_config.create_dimension(*ctx, name, filter_list);
+        return std::make_shared<SOMADimension>(SOMADimension(dim));
+    }
+
+    static std::shared_ptr<SOMADimension> create(
+        std::shared_ptr<Context> ctx,
+        const std::string& name,
+        const std::string& soma_type,
+        tiledb_datatype_t tiledb_type,
+        const PlatformConfig& platform_config);
 
     SOMADimension(Dimension dimension)
         : dimension(dimension) {
@@ -59,8 +81,7 @@ class SOMADimension : public SOMAColumn {
         return true;
     }
 
-    inline void select_columns(
-        ManagedQuery& query, bool if_not_empty = false) const override {
+    inline void select_columns(ManagedQuery& query, bool if_not_empty = false) const override {
         query.select_columns(std::vector({dimension.name()}), if_not_empty);
     };
 
@@ -84,45 +105,38 @@ class SOMADimension : public SOMAColumn {
         return std::nullopt;
     }
 
-    inline std::optional<std::vector<Enumeration>> tiledb_enumerations()
-        override {
+    inline std::optional<std::vector<Enumeration>> tiledb_enumerations() override {
         return std::nullopt;
     }
 
     std::pair<ArrowArray*, ArrowSchema*> arrow_domain_slot(
         const SOMAContext& ctx,
         Array& array,
-        enum Domainish kind) const override;
+        enum Domainish kind,
+        bool downcast_dict_of_large_var = false) const override;
 
     ArrowSchema* arrow_schema_slot(
-        const SOMAContext& ctx, Array& array) const override;
+        const SOMAContext& ctx, Array& array, bool downcast_dict_of_large_var = false) const override;
 
     void serialize(nlohmann::json&) const override;
 
    protected:
-    void _set_dim_points(
-        ManagedQuery& query, const std::any& ranges) const override;
+    void _set_dim_points(ManagedQuery& query, const std::any& ranges) const override;
 
-    void _set_dim_ranges(
-        ManagedQuery& query, const std::any& ranges) const override;
+    void _set_dim_ranges(ManagedQuery& query, const std::any& ranges) const override;
 
-    void _set_current_domain_slot(
-        NDRectangle& rectangle,
-        std::span<const std::any> domain) const override;
+    void _set_current_domain_slot(NDRectangle& rectangle, std::span<const std::any> domain) const override;
 
     std::pair<bool, std::string> _can_set_current_domain_slot(
-        std::optional<NDRectangle>& rectangle,
-        std::span<const std::any> new_domain) const override;
+        std::optional<NDRectangle>& rectangle, std::span<const std::any> new_domain) const override;
 
     std::any _core_domain_slot() const override;
 
     std::any _non_empty_domain_slot(Array& array) const override;
 
-    std::any _non_empty_domain_slot_opt(
-        const SOMAContext& ctx, Array& array) const override;
+    std::any _non_empty_domain_slot_opt(const SOMAContext& ctx, Array& array) const override;
 
-    std::any _core_current_domain_slot(
-        const SOMAContext& ctx, Array& array) const override;
+    std::any _core_current_domain_slot(const SOMAContext& ctx, Array& array) const override;
 
     std::any _core_current_domain_slot(NDRectangle& ndrect) const override;
 

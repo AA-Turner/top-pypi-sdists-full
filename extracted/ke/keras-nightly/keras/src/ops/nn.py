@@ -6,6 +6,7 @@ from keras.src import backend
 from keras.src.api_export import keras_export
 from keras.src.backend import KerasTensor
 from keras.src.backend import any_symbolic_tensors
+from keras.src.backend import config
 from keras.src.backend import standardize_data_format
 from keras.src.backend.common.backend_utils import (
     compute_conv_transpose_output_shape,
@@ -704,7 +705,15 @@ class Glu(Operation):
         return backend.nn.glu(x, axis=self.axis)
 
     def compute_output_spec(self, x):
-        return KerasTensor(x.shape, dtype=x.dtype)
+        output_shape = list(x.shape)
+        if output_shape[self.axis] is not None:
+            if output_shape[self.axis] % 2 != 0:
+                raise ValueError(
+                    "axis size must be divisible by 2. "
+                    f"Received: x.shape={x.shape} with axis={self.axis}"
+                )
+            output_shape[self.axis] = output_shape[self.axis] // 2
+        return KerasTensor(output_shape, dtype=x.dtype)
 
 
 @keras_export(["keras.ops.glu", "keras.ops.nn.glu"])
@@ -1154,6 +1163,87 @@ def max_pool(
     return backend.nn.max_pool(inputs, pool_size, strides, padding, data_format)
 
 
+class AdaptiveMaxPool(Operation):
+    """Adaptive max pooling operation."""
+
+    def __init__(self, output_size, data_format=None, *, name=None):
+        super().__init__(name=name)
+        self.output_size = output_size
+        self.data_format = data_format
+
+    def call(self, inputs):
+        return backend.nn.adaptive_max_pool(
+            inputs, output_size=self.output_size, data_format=self.data_format
+        )
+
+    def compute_output_spec(self, inputs):
+        if self.data_format == "channels_last":
+            spatial_dims = self.output_size
+            output_shape = (
+                inputs.shape[: -len(self.output_size)]
+                + spatial_dims
+                + (inputs.shape[-1],)
+            )
+        else:
+            spatial_dims = self.output_size
+            output_shape = (inputs.shape[0], inputs.shape[1]) + spatial_dims
+        return backend.KerasTensor(output_shape, dtype=inputs.dtype)
+
+
+@keras_export(["keras.ops.adaptive_max_pool", "keras.ops.nn.adaptive_max_pool"])
+def adaptive_max_pool(
+    inputs,
+    output_size,
+    data_format=None,
+):
+    """Adaptive max pooling operation.
+
+    Applies an adaptive max pooling operation that automatically computes the
+    kernel size and stride to pool the input to the specified `output_size`.
+    This operation is useful when you want a fixed output size regardless of
+    input size, commonly used in models like ResNet for global feature
+    extraction.
+    Args:
+        inputs: Tensor of rank 4. Input tensor of shape:
+            - If `data_format="channels_last"`:
+                `(batch_size, height, width, channels)`.
+            - If `data_format="channels_first"`:
+                `(batch_size, channels, height, width)`.
+        output_size: Integer or tuple/list of 2 integers, specifying the target
+            output spatial dimensions `(output_height, output_width)`. If a
+            single
+            integer is provided, the same value is used for both dimensions.
+        data_format: string, either `"channels_last"` or `"channels_first"`.
+            Defaults to the value found in your Keras config file at
+            `~/.keras/keras.json`. If never set, defaults to `"channels_last"`.
+
+    Returns:
+        A tensor of rank 4 representing the adaptive max pooled result.
+
+    Example:
+
+    >>> x = np.random.rand(2, 64, 64, 3)
+    >>> y = keras.ops.adaptive_max_pool(x, output_size=(32, 32))
+    >>> y.shape
+    (2, 32, 32, 3)
+
+    >>> # Works with any input size
+    >>> x = np.random.rand(2, 100, 80, 3)
+    >>> y = keras.ops.adaptive_max_pool(x, output_size=7)
+    >>> y.shape
+    (2, 7, 7, 3)
+    """
+    if data_format is None:
+        data_format = config.image_data_format()
+
+    if any_symbolic_tensors((inputs,)):
+        return AdaptiveMaxPool(output_size, data_format).symbolic_call(inputs)
+
+    return backend.nn.adaptive_max_pool(
+        inputs, output_size=output_size, data_format=data_format
+    )
+
+
 class AveragePool(Operation):
     def __init__(
         self,
@@ -1246,6 +1336,92 @@ def average_pool(
         ).symbolic_call(inputs)
     return backend.nn.average_pool(
         inputs, pool_size, strides, padding, data_format
+    )
+
+
+class AdaptiveAveragePool(Operation):
+    """Adaptive average pooling operation."""
+
+    def __init__(self, output_size, data_format=None, *, name=None):
+        super().__init__(name=name)
+        self.output_size = output_size
+        self.data_format = data_format
+
+    def call(self, inputs):
+        return backend.nn.adaptive_average_pool(
+            inputs, output_size=self.output_size, data_format=self.data_format
+        )
+
+    def compute_output_spec(self, inputs):
+        if self.data_format == "channels_last":
+            spatial_dims = self.output_size
+            output_shape = (
+                inputs.shape[: -len(self.output_size)]
+                + spatial_dims
+                + (inputs.shape[-1],)
+            )
+        else:
+            spatial_dims = self.output_size
+            output_shape = (inputs.shape[0], inputs.shape[1]) + spatial_dims
+        return backend.KerasTensor(output_shape, dtype=inputs.dtype)
+
+
+@keras_export(
+    ["keras.ops.adaptive_average_pool", "keras.ops.nn.adaptive_average_pool"]
+)
+def adaptive_average_pool(
+    inputs,
+    output_size,
+    data_format=None,
+):
+    """Adaptive average pooling operation.
+
+    Applies an adaptive average pooling operation that automatically
+    computes the kernel size and stride to pool the input to the
+    specified `output_size`. This operation is useful when you want a
+    fixed output size regardless of input size, commonly used in models
+    like ResNet for global feature extraction.
+
+    Args:
+        inputs: Tensor of rank 4. Input tensor of shape:
+            - If `data_format="channels_last"`:
+                `(batch_size, height, width, channels)`.
+            - If `data_format="channels_first"`:
+                `(batch_size, channels, height, width)`.
+        output_size: Integer or tuple/list of 2 integers, specifying the target
+            output spatial dimensions `(output_height, output_width)`. If a
+            single
+            integer is provided, the same value is used for both dimensions.
+        data_format: string, either `"channels_last"` or `"channels_first"`.
+            Defaults to the value found in your Keras config file at
+            `~/.keras/keras.json`. If never set, defaults to `"channels_last"`.
+
+    Returns:
+        A tensor of rank 4 representing the adaptive average pooled result.
+
+    Example:
+
+    >>> x = np.random.rand(2, 64, 64, 3)
+    >>> y = keras.ops.adaptive_average_pool(x, output_size=(32, 32))
+    >>> y.shape
+    (2, 32, 32, 3)
+
+    >>> # Works with any input size
+    >>> x = np.random.rand(2, 100, 80, 3)
+    >>> y = keras.ops.adaptive_average_pool(x, output_size=7)
+    >>> y.shape
+    (2, 7, 7, 3)
+    """
+    if data_format is None:
+        data_format = config.image_data_format()
+
+    if any_symbolic_tensors((inputs,)):
+        return AdaptiveAveragePool(output_size, data_format).symbolic_call(
+            inputs
+        )
+
+    return backend.nn.adaptive_average_pool(
+        inputs, output_size=output_size, data_format=data_format
     )
 
 
@@ -1435,7 +1611,7 @@ def depthwise_conv(
     """
     data_format = standardize_data_format(data_format)
     padding = padding.lower()
-    if any_symbolic_tensors((inputs,)):
+    if any_symbolic_tensors((inputs, kernel)):
         return DepthwiseConv(
             strides, padding, data_format, dilation_rate
         ).symbolic_call(inputs, kernel)
@@ -3047,3 +3223,93 @@ def _polar(abs_, angle):
     result = backend.math._get_complex_tensor_from_tuple((real, imaginary))
 
     return result
+
+
+class Unfold(Operation):
+    def __init__(
+        self, kernel_size, dilation=1, padding=0, stride=1, *, name=None
+    ):
+        super().__init__(name=name)
+        self.kernel_size = kernel_size
+        self.dilation = dilation
+        self.padding = padding
+        self.stride = stride
+
+    def compute_output_spec(self, x):
+        N, C, H, W = x.shape
+
+        def _pair(x):
+            return (x, x) if isinstance(x, int) else x
+
+        kH, kW = _pair(self.kernel_size)
+        dH, dW = _pair(self.dilation)
+        pH, pW = _pair(self.padding)
+        sH, sW = _pair(self.stride)
+
+        def out_size(L, k, d, p, s):
+            return (L + 2 * p - d * (k - 1) - 1) // s + 1
+
+        outH = out_size(H, kH, dH, pH, sH)
+        outW = out_size(W, kW, dW, pW, sW)
+        return KerasTensor(shape=(N, C * kH * kW, outH * outW), dtype=x.dtype)
+
+    def call(self, x):
+        return _unfold(
+            x, self.kernel_size, self.dilation, self.padding, self.stride
+        )
+
+
+@keras_export(["keras.ops.unfold", "keras.ops.nn.unfold"])
+def unfold(x, kernel_size, dilation=1, padding=0, stride=1):
+    """Extract sliding local blocks from a 4-D input (batched image).
+
+    This operation is known as **im2col** when used with convolution.
+    It rearranges the image into overlapping or non-overlapping patches
+    and returns a tensor whose *depth* (last axis) contains the flattened
+    patches.
+
+    Args:
+        x: A 4-D tensor of shape `(N, C, H, W)` (**channels-first** format).
+        kernel_size: int or tuple of two ints, the size of the sliding window
+            `(kH, kW)`.  If a single int is given, it is used for both
+            dimensions.
+        dilation: int or tuple of two ints, the spacing between kernel points
+            (a.k.a. **dilation** or **atrous** convolution). Default: 1.
+        padding: int or tuple of two ints, the amount of zero-padding to apply
+            to both spatial dimensions. Default: 0.
+        stride: int or tuple of two ints, the step size of the sliding window.
+            Default: 1.
+
+    Returns:
+        A 3-D tensor of shape `(N, C * kH * kW, L)` where
+        `L = num_patches_H * num_patches_W` is the total number of patches
+        extracted.
+
+    Example:
+
+    >>> x = keras.ops.ones((1, 2, 4, 4))
+    >>> patches = keras.ops.unfold(x, kernel_size=2, stride=2)
+    >>> patches.shape
+    (1, 8, 4)
+
+    """
+    input_shape = x.shape
+    ndims = len(input_shape)
+    if ndims != 4:
+        raise ValueError(
+            f"Input must be a 4D tensor. Received: input.shape={input_shape}"
+        )
+    if any_symbolic_tensors((x,)):
+        return Unfold(kernel_size, dilation, padding, stride).symbolic_call(x)
+    return _unfold(x, kernel_size, dilation, padding, stride)
+
+
+def _unfold(x, kernel_size, dilation=1, padding=0, stride=1):
+    """Internal implementation of unfold."""
+    return backend.nn.unfold(
+        x,
+        kernel_size=kernel_size,
+        dilation=dilation,
+        padding=padding,
+        stride=stride,
+    )

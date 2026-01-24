@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+
 from . import jaconv
+
 """jaconv
 
 This module provides Japanese and ASCII character interconverting between
@@ -30,8 +32,8 @@ Usage:
     jaconv.hiragana2julius(text)  # ひらがなをJuliusの音素表現に変換
 """
 
-VERSION = (0, 4, 0)
-__version__ = '0.4.0'
+VERSION = (0, 4, 1)
+__version__ = '0.4.1'
 __all__ = [
     'hira2kata', 'hira2hkata', 'kata2hira', 'h2z', 'z2h', 'hankaku2zenkaku',
     'zenkaku2hankaku', 'normalize', 'kana2alphabet', 'alphabet2kana',

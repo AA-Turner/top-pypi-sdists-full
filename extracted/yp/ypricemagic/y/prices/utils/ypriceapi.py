@@ -2,92 +2,79 @@
 import asyncio
 import logging
 import os
-from collections import defaultdict
-from http import HTTPStatus
 from random import randint
 from time import time
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Final, final
 
 import dank_mids
-from aiohttp import (
-    BasicAuth,
-    ClientResponse,
-    ClientSession,
-    ClientTimeout,
-    TCPConnector,
-)
-from aiohttp.client_exceptions import (
-    ClientConnectorSSLError,
-    ClientError,
-    ContentTypeError,
-)
+from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
+from aiohttp.client_exceptions import ClientConnectorSSLError, ClientError, ContentTypeError
 from async_lru import alru_cache
+from dank_mids.helpers._session import HTTPStatusExtended
 
 from y import ENVIRONMENT_VARIABLES as ENVS
 from y.classes.common import UsdPrice
 from y.constants import CHAINID, NETWORK_NAME
 from y.datatypes import Address, Block
 
-
-logger = logging.getLogger(__name__)
+logger: Final = logging.getLogger(__name__)
 
 # current
-header_env_names = {
+header_env_names: Final = {
     "X-Signer": "YPRICEAPI_SIGNER",
     "X-Signature": "YPRICEAPI_SIGNATURE",
 }
-AUTH_HEADERS = {header: os.environ.get(env) for header, env in header_env_names.items()}
-AUTH_HEADERS_PRESENT = all(AUTH_HEADERS.values())
+AUTH_HEADERS: Final = {header: os.environ.get(env) for header, env in header_env_names.items()}
+AUTH_HEADERS_PRESENT: Final = all(AUTH_HEADERS.values())
 
-# old
-YPRICEAPI_USER = os.environ.get("YPRICEAPI_USER")
-YPRICEAPI_PASS = os.environ.get("YPRICEAPI_PASS")
-OLD_AUTH = BasicAuth(YPRICEAPI_USER, YPRICEAPI_PASS) if YPRICEAPI_USER and YPRICEAPI_PASS else None
+# some arbitrary amount of time in case the header is missing on unexpected 5xx responses
+ONE_MINUTE: Final = 60
+FIVE_MINUTES: Final = ONE_MINUTE * 5
+ONE_HOUR: Final = ONE_MINUTE * 60
+FALLBACK_STR: Final = "Falling back to your node for pricing."
 
-ONE_MINUTE = (
-    60  # some arbitrary amount of time in case the header is missing on unexpected 5xx responses
+# Five minutes is the default timeout from aiohttp.
+YPRICEAPI_TIMEOUT: Final = ClientTimeout(int(os.environ.get("YPRICEAPI_TIMEOUT", FIVE_MINUTES)))
+
+YPRICEAPI_SEMAPHORE: Final = dank_mids.BlockSemaphore(
+    int(os.environ.get("YPRICEAPI_SEMAPHORE", 100))
 )
-ONE_HOUR = ONE_MINUTE * 60
-FALLBACK_STR = "Falling back to your node for pricing."
-
-YPRICEAPI_TIMEOUT = ClientTimeout(
-    int(os.environ.get("YPRICEAPI_TIMEOUT", 5 * ONE_MINUTE))
-)  # Five minutes is the default timeout from aiohttp.
-YPRICEAPI_SEMAPHORE = dank_mids.BlockSemaphore(int(os.environ.get("YPRICEAPI_SEMAPHORE", 100)))
 
 if any(AUTH_HEADERS.values()) and not AUTH_HEADERS_PRESENT:
     for header in AUTH_HEADERS:
         if not AUTH_HEADERS[header]:
-            raise EnvironmentError(
+            raise OSError(
                 f"You must also pass in a value for {header_env_names[header]} in order to use ypriceAPI."
             )
 
-should_use = not ENVS.SKIP_YPRICEAPI
-notified = set()
-auth_notifs = defaultdict(int)
+
+@final
+class BadResponse(Exception):
+    """Exception raised for bad responses from ypriceAPI."""
+
+
+should_use: Final = not ENVS.SKIP_YPRICEAPI
+notified: Final[set[HTTPStatusExtended]] = set()
 resume_at = 0
-get_retry_header: Callable[[ClientResponse], int] = lambda x: int(
-    x.headers.get("Retry-After", ONE_MINUTE)
-)
 
 # NOTE: if you want to bypass ypriceapi for specific tokens, have your program add the addresses to this set.
-skip_tokens = set()
-skip_ypriceapi = skip_tokens  # alias for backward compatability
+skip_tokens: Final = set()
+skip_ypriceapi: Final = skip_tokens  # alias for backward compatability
 
 #########################
 # YPRICEAPI PUBLIC BETA #
 #########################
 
-_you_get = [
+_you_get: Final = (
     "access to your desired price data more quickly...",
     "...from nodes run by yearn-affiliated big brains...",
     "...on all the networks Yearn supports.",
-]
-_testimonials = [
+)
+_testimonials: Final = (
     "I can now get prices for all of my useless shitcoins without waiting all day for ypricemagic to load logs.",
     "I don't need to maintain an archive node anymore and that's saving me money.",
     "Wow, so fast!",
-]
+)
 beta_announcement = "ypriceAPI is now in beta!\n\n"
 beta_announcement += "Head to ypriceapi-beta.yearn.finance and sign up for access. You get:\n"
 for you_get in _you_get:
@@ -115,24 +102,6 @@ def announce_beta() -> None:
     should_use = False
 
 
-# TODO: Remove this when enough time has passed.
-# Notify user if using old auth scheme
-if OLD_AUTH is not None:
-    announce_beta()
-    raise NotImplementedError(
-        "YPRICEAPI_USER and YPRICEAPI_PASS are no longer used.\n"
-        + "Please sign up for a plan (we have a free tier) at ypriceapi-beta.yearn.finance.\n"
-        + "Then, pass in the following env vars to continue using ypriceAPI:\n"
-        + " - YPRICEAPI_SIGNATURE, the signature you generated on the website"
-        + " - YPRICEAPI_SIGNER, the wallet you used to sign up\n"
-        + "You can unset the old envs to continue using ypricemagic."
-    )
-
-
-class BadResponse(Exception):
-    """Exception raised for bad responses from ypriceAPI."""
-
-
 @alru_cache(maxsize=1)
 async def get_session() -> ClientSession:
     """Get an aiohttp ClientSession for ypriceAPI.
@@ -154,7 +123,7 @@ async def get_session() -> ClientSession:
 
 
 @alru_cache(ttl=ONE_HOUR)
-async def get_chains() -> Dict[int, str]:
+async def get_chains() -> dict[int, str]:
     """Get the supported chains from ypriceAPI.
 
     Returns:
@@ -196,7 +165,7 @@ async def chain_supported(chainid: int) -> bool:
     return False
 
 
-async def get_price(token: Address, block: Optional[Block]) -> Optional[UsdPrice]:
+async def get_price(token: Address, block: Block | None) -> UsdPrice | None:
     """Get the price of a token from ypriceAPI.
 
     Args:
@@ -268,9 +237,9 @@ async def get_price(token: Address, block: Optional[Block]) -> Optional[UsdPrice
 
 async def read_response(
     response: ClientResponse,
-    token: Optional[Address] = None,
-    block: Optional[Block] = None,
-) -> Optional[Any]:
+    token: Address | None = None,
+    block: Block | None = None,
+) -> Any | None:
     """Read and process the response from ypriceAPI.
 
     Args:
@@ -289,7 +258,7 @@ async def read_response(
         >>> data = await read_response(response)
     """
     # 200
-    if response.status == HTTPStatus.OK:
+    if response.status == HTTPStatusExtended.OK:
         try:
             return await response.json()
         except ContentTypeError as e:
@@ -301,21 +270,24 @@ async def read_response(
             )
 
     # 401
-    elif response.status == HTTPStatus.UNAUTHORIZED:
-        if HTTPStatus.UNAUTHORIZED not in notified:
+    elif response.status == HTTPStatusExtended.UNAUTHORIZED:
+        if HTTPStatusExtended.UNAUTHORIZED not in notified:
             logger.error(
                 f"Your provided ypriceAPI credentials are not authorized for use.{FALLBACK_STR}"
             )
-            notified.add(HTTPStatus.UNAUTHORIZED)
+            notified.add(HTTPStatusExtended.UNAUTHORIZED)
 
     # 404
-    elif response.status == HTTPStatus.NOT_FOUND and token and block:
+    elif response.status == HTTPStatusExtended.NOT_FOUND and token and block:
         logger.debug("Failed to get price from API: %s at %s", token, block)
 
     # Server Errors
 
     # 502 & 503
-    elif response.status in {HTTPStatus.BAD_GATEWAY, HTTPStatus.SERVICE_UNAVAILABLE}:
+    elif response.status in {
+        HTTPStatusExtended.BAD_GATEWAY,
+        HTTPStatusExtended.SERVICE_UNAVAILABLE,
+    }:
         logger.warning("ypriceAPI returned status code %s", _get_err_reason(response))
         try:
             msg = await response.json(content_type=None) or await response.text()
@@ -329,7 +301,7 @@ async def read_response(
             msg = ""
         if msg:
             logger.warning(msg)
-        _set_resume_at(get_retry_header(response))
+        _set_resume_at(_get_retry_header(response))
 
     else:
         msg = f"ypriceAPI returned status code {_get_err_reason(response)}"
@@ -356,6 +328,11 @@ def _get_err_reason(response: ClientResponse) -> str:
         return f"[{response.status}]"
     ascii_encodable_reason = response.reason.encode("ascii", "backslashreplace").decode("ascii")
     return f"[{response.status} {ascii_encodable_reason}]"
+
+
+def _get_retry_header(response: ClientResponse) -> int:
+    retry_after: str | None = response.headers.get("Retry-After")
+    return ONE_MINUTE if retry_after is None else int(retry_after)
 
 
 def _set_resume_at(retry_after: float) -> None:

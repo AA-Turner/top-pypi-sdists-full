@@ -391,7 +391,7 @@ Keyword arguments:
 
 - wrapperProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Props passed down to the root element."""
-    _children_props = ['label', 'description', 'error', 'leftSection', 'rightSection']
+    _children_props: typing.List[str] = ['label', 'description', 'error', 'leftSection', 'rightSection']
     _base_nodes = ['label', 'description', 'error', 'leftSection', 'rightSection', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Textarea'

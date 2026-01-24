@@ -17,6 +17,7 @@ if typing.TYPE_CHECKING:
     from .update_assistant_dto_transcriber import UpdateAssistantDtoTranscriber
     from .update_assistant_dto_voice import UpdateAssistantDtoVoice
     from .update_assistant_dto_voicemail_detection import UpdateAssistantDtoVoicemailDetection
+    from .update_assistant_dto_voicemail_detection_zero import UpdateAssistantDtoVoicemailDetectionZero
 _dynamic_imports: typing.Dict[str, str] = {
     "UpdateAssistantDtoBackgroundSound": ".update_assistant_dto_background_sound",
     "UpdateAssistantDtoBackgroundSoundZero": ".update_assistant_dto_background_sound_zero",
@@ -29,6 +30,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UpdateAssistantDtoTranscriber": ".update_assistant_dto_transcriber",
     "UpdateAssistantDtoVoice": ".update_assistant_dto_voice",
     "UpdateAssistantDtoVoicemailDetection": ".update_assistant_dto_voicemail_detection",
+    "UpdateAssistantDtoVoicemailDetectionZero": ".update_assistant_dto_voicemail_detection_zero",
 }
 
 
@@ -38,8 +40,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -63,4 +67,5 @@ __all__ = [
     "UpdateAssistantDtoTranscriber",
     "UpdateAssistantDtoVoice",
     "UpdateAssistantDtoVoicemailDetection",
+    "UpdateAssistantDtoVoicemailDetectionZero",
 ]

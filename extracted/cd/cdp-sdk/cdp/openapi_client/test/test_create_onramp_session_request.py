@@ -40,11 +40,14 @@ class TestCreateOnrampSessionRequest(unittest.TestCase):
                 destination_network = 'base',
                 destination_address = '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
                 payment_amount = '100.00',
+                purchase_amount = '10.000000',
                 payment_currency = 'USD',
                 payment_method = 'CARD',
                 country = 'US',
                 subdivision = 'NY',
-                redirect_url = 'https://yourapp.com/success'
+                redirect_url = 'foo://bar',
+                client_ip = '127.0.0.1',
+                partner_user_ref = 'user-1234'
             )
         else:
             return CreateOnrampSessionRequest(

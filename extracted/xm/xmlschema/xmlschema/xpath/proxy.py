@@ -1,5 +1,5 @@
 #
-# Copyright (c), 2016-2024, SISSA (International School for Advanced Studies).
+# Copyright (c), 2016-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -18,8 +18,8 @@ from xmlschema.aliases import SchemaType
 from xmlschema.names import XSD_NAMESPACE
 
 if TYPE_CHECKING:
-    from xmlschema.validators import XsdElement, XsdAnyElement, XsdAssert
-    from .mixin import XPathElement
+    from xmlschema.validators import XsdElement, XsdAnyElement, XsdAssert  # noqa:F401
+    from .mixin import XPathElement  # noqa:F401
 
 BaseElementType = Union['XsdElement', 'XsdAnyElement', 'XsdAssert', 'XPathElement']
 
@@ -27,7 +27,7 @@ BaseElementType = Union['XsdElement', 'XsdAnyElement', 'XsdAssert', 'XPathElemen
 class XMLSchemaProxy(AbstractSchemaProxy):
     """XPath schema proxy for the *xmlschema* library."""
     _schema: SchemaType
-    _base_element: BaseElementType
+    _base_element: BaseElementType   # type: ignore[assignment, unused-ignore]
 
     def __init__(self, schema: Optional[SchemaType] = None,
                  base_element: Optional[BaseElementType] = None) -> None:
@@ -37,7 +37,7 @@ class XMLSchemaProxy(AbstractSchemaProxy):
             schema = getattr(XMLSchema10, 'meta_schema', None)
             assert schema is not None
 
-        super().__init__(schema, base_element)
+        super().__init__(schema, base_element)  # type: ignore[arg-type, unused-ignore]
 
         if base_element is not None:
             try:

@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gdrive_fsspec"
+dynamic = ["version"]
+description = "File system on GDrive"
+readme = {file = "README.md", content-type = "text/markdown"}
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+maintainers = [
+    {name = "Martin Durant", email = "martin.durant@alumni.utoronto.ca"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "fsspec",
+    "google-api-python-client",
+    "google-auth-httplib2",
+    "google-auth-oauthlib",
+    "pydata_google_auth"
+]
+
+[project.urls]
+Source = "http://github.com/fsspec/gdrive-fsspec"
+
+[tool.setuptools_scm]
+version_file = "gdrive_fsspec/_version.py"
+
+[tool.pytest.ini_options]
+addopts = """\
+    --strict-markers \
+    -m "not (integration)"
+    """
+
+markers = [
+    "integration: marks test as integration test consuming external resources (select with '-m integration')",
+]

@@ -1,36 +1,41 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lru-dict
-Version: 1.3.0
+Version: 1.4.1
 Summary: An Dict like LRU container.
 Author: Amit Dev
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/amitdev/lru-dict
 Keywords: lru,dict
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
+Dynamic: license-file
 
 .. image:: https://github.com/amitdev/lru-dict/actions/workflows/tests.yml/badge.svg
     :target: https://github.com/amitdev/lru-dict/actions/workflows/tests.yml
 
 .. image:: https://github.com/amitdev/lru-dict/actions/workflows/build-and-deploy.yml/badge.svg
     :target: https://github.com/amitdev/lru-dict/actions/workflows/build-and-deploy.yml
+
+.. image:: https://img.shields.io/badge/maintainers-wanted-red.svg
+
+**Note**: This project is stable and production ready, but looking for a lead maintainer. Preferably someone who uses this library and made contributions to it.
 
 LRU Dict
 ========
@@ -46,7 +51,7 @@ Usage
 
 This can be used to build a LRU cache. Usage is almost like a dict.
 
-.. code:: python
+.. code:: python3
 
   from lru import LRU
   l = LRU(5)         # Create an LRU container that can hold 5 items

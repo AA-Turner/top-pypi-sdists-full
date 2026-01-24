@@ -12,7 +12,7 @@ readme = "README.md"
 keywords = ["DuckDB", "Database", "SQL", "OLAP"]
 requires-python = ">=3.9.0"
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Database",
@@ -30,6 +30,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: C++",
 ]
 authors = [{name = "DuckDB Foundation"}]
@@ -39,7 +40,7 @@ maintainers = [{name = "DuckDB Foundation"}]
 Documentation = "https://duckdb.org/docs/stable/clients/python/overview"
 Source = "https://github.com/duckdb/duckdb-python"
 Issues = "https://github.com/duckdb/duckdb-python/issues"
-Changelog = "https://github.com/duckdb/duckdb/releases"
+Changelog = "https://github.com/duckdb/duckdb-python/releases"
 
 [project.optional-dependencies]
 all = [ # users can install duckdb with 'duckdb[all]', which will install this list
@@ -48,7 +49,7 @@ all = [ # users can install duckdb with 'duckdb[all]', which will install this l
     "numpy",   # used in duckdb.experimental.spark and in duckdb.fetchnumpy()
     "pandas",  # used for pandas dataframes all over the place
     "pyarrow", # used for pyarrow support
-    "adbc_driver_manager", # for the adbc driver (TODO: this should live under the duckdb package)
+    "adbc-driver-manager", # for the adbc driver
 ]
 
 ######################################################################################################
@@ -77,6 +78,8 @@ metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
 [tool.scikit-build.wheel]
 cmake = true
 packages.duckdb = "duckdb"
+packages.adbc_driver_duckdb = "adbc_driver_duckdb"
+packages._duckdb-stubs = "_duckdb-stubs"
 
 [tool.scikit-build.cmake.define]
 CORE_EXTENSIONS = "core_functions;json;parquet;icu;jemalloc"
@@ -123,7 +126,6 @@ if.env.COVERAGE = false
 inherit.cmake.define = "append"
 cmake.define.DISABLE_UNITY = "1"
 
-
 [tool.scikit-build.sdist]
 include = [
     "README.md",
@@ -134,11 +136,12 @@ include = [
     "CMakeLists.txt",
     "cmake/**",
 
-    # Source code
+    # Source code and stubs
     "src/**",
     "duckdb/**",
     "duckdb_packaging/**",
     "adbc_driver_duckdb/**",
+    "_duckdb-stubs/*.pyi",
 
     # Generated during sdist build, contains git describe string for duckdb
     "duckdb_packaging/duckdb_version.txt",
@@ -181,7 +184,8 @@ exclude = [
 # - numpy: tensorflow doesn't play nice with numpy>2 so for every platform that can run tensorflow (cp39-cp311) we use
 #          numpy<2. numpy<2 has no wheels for cp31[2|3], meaning an sdist will be used. However, on Windows amd64 +
 #          cp313 this results in a segfault / access violation. To get around this, we install numpy>=2 on all >=cp312
-#          platforms.
+#          platforms. Then for windows arm64, for which there is no tensorflow, we only allow numpy>=2.3 because that
+#          ships arm64 win32 wheels.
 ######################################################################################################
 
 [tool.uv]
@@ -194,6 +198,7 @@ environments = [ # no need to resolve packages beyond these platforms with uv...
     "python_version >= '3.9' and sys_platform == 'darwin' and platform_machine == 'arm64'",
     "python_version >= '3.9' and sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "python_version >= '3.9' and sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "python_version >= '3.11' and sys_platform == 'win32' and platform_machine == 'ARM64'",
     "python_version >= '3.9' and sys_platform == 'linux' and platform_machine == 'x86_64'",
     "python_version >= '3.9' and sys_platform == 'linux' and platform_machine == 'aarch64'",
 ]
@@ -201,6 +206,7 @@ required-environments = [ # ... but do always resolve for all of them
     "python_version >= '3.9' and sys_platform == 'darwin' and platform_machine == 'arm64'",
     "python_version >= '3.9' and sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "python_version >= '3.9' and sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "python_version >= '3.11' and sys_platform == 'win32' and platform_machine == 'ARM64'",
     "python_version >= '3.9' and sys_platform == 'linux' and platform_machine == 'x86_64'",
     "python_version >= '3.9' and sys_platform == 'linux' and platform_machine == 'aarch64'",
 ]
@@ -216,21 +222,26 @@ explicit = true
 torch = [ { index = "pytorch-cpu" } ]
 torchvision = [ { index = "pytorch-cpu" } ]
 
+# todo: adjust for windows arm64 while test dependencies become available
 [dependency-groups] # used for development only, requires pip >=25.1.0
 stubdeps = [ # dependencies used for typehints in the stubs
+    "pybind11-stubgen",
+    "mypy",
     "fsspec",
     "pandas",
     "polars",
-    "pyarrow",
+    "pyarrow; sys_platform != 'win32' or platform_machine != 'ARM64'",
+    "typing-extensions",
 ]
 test = [ # dependencies used for running tests
+    "adbc-driver-manager; sys_platform != 'win32' or platform_machine != 'ARM64'",
     "pytest",
     "pytest-reraise",
     "pytest-timeout",
-    "mypy",
+    "pytest-timestamper",
     "coverage",
     "gcovr",
-    "gcsfs",
+    "gcsfs; sys_platform != 'win32' or platform_machine != 'ARM64'",
     "packaging",
     "polars",
     "psutil",
@@ -240,16 +251,18 @@ test = [ # dependencies used for running tests
     "pytz",
     "requests",
     "urllib3",
-    "fsspec>=2022.11.0",
+    "fsspec>=2022.11.0; sys_platform != 'win32' or platform_machine != 'ARM64'",
     "pandas>=2.0.0",
-    "pyarrow>=18.0.0",
-    "torch>=2.2.2; sys_platform != 'darwin' or platform_machine != 'x86_64' or python_version < '3.13'",
+    "pyarrow>=18.0.0; sys_platform != 'win32' or platform_machine != 'ARM64'",
+    "torch>=2.2.2; python_version < '3.14' and ( sys_platform != 'darwin' or platform_machine != 'x86_64' or python_version < '3.13' ) and ( sys_platform != 'win32' or platform_machine != 'ARM64' or python_version > '3.11' )",
     "tensorflow==2.14.0; sys_platform == 'darwin' and python_version < '3.12'",
     "tensorflow-cpu>=2.14.0; sys_platform == 'linux' and platform_machine != 'aarch64' and python_version < '3.12'",
-    "tensorflow-cpu>=2.14.0; sys_platform == 'win32' and python_version < '3.12'",
+    "tensorflow-cpu>=2.14.0; sys_platform == 'win32' and platform_machine != 'ARM64' and python_version < '3.12'",
     "tensorflow-cpu-aws==2.15.1; sys_platform == 'linux' and platform_machine == 'aarch64' and python_version < '3.12'",
-    "numpy<2; python_version < '3.12'",
-    "numpy>=2; python_version >= '3.12'",
+    "typing-extensions",
+    "numpy<2; ( sys_platform != 'win32' or platform_machine != 'ARM64' ) and python_version < '3.12'",
+    "numpy>=2; ( sys_platform != 'win32' or platform_machine != 'ARM64' ) and python_version >= '3.12'",
+    "numpy>=2.3; sys_platform == 'win32' and platform_machine == 'ARM64' and python_version >= '3.11'",
 ]
 scripts = [ # dependencies used for running scripts
     "cxxheaderparser",
@@ -259,7 +272,7 @@ scripts = [ # dependencies used for running scripts
     "pandas",
     "pcpp",
     "polars",
-    "pyarrow",
+    "pyarrow; sys_platform != 'win32' or platform_machine != 'ARM64'",
     "pytz"
 ]
 pypi = [ # dependencies used by the pypi cleanup script
@@ -274,7 +287,9 @@ build = [
     "setuptools_scm>=8.0",
 ]
 dev = [ # tooling like uv will install this automatically when syncing the environment
-    "ruff>=0.11.13",
+    "pre-commit",
+    "mypy",
+    "ruff>=0.13.0",
     {include-group = "stubdeps"},
     {include-group = "build"},
     {include-group = "test"},
@@ -295,7 +310,7 @@ dev = [ # tooling like uv will install this automatically when syncing the envir
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q"
+addopts = "-ra --verbose"
 testpaths = ["tests"]
 filterwarnings = [
     "error",
@@ -307,19 +322,51 @@ filterwarnings = [
     "ignore:is_datetime64tz_dtype is deprecated:DeprecationWarning",
 ]
 
+[tool.mypy]
+packages = ["duckdb", "_duckdb"]
+strict = true
+warn_unreachable = true
+pretty = true
+python_version = "3.9"
+exclude = [
+    "duckdb/experimental/", # not checking the pyspark API
+    "duckdb/query_graph/",  # old and unmaintained (should probably remove)
+    "tests", "scripts",
+]
+
+[[tool.mypy.overrides]]
+module = "duckdb.experimental.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "fsspec.*",
+    "pandas",
+    "polars",
+    "pyarrow.*",
+    "torch",
+    "tensorflow",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "duckdb.filesystem"
+disallow_subclassing_any = false
+
 [tool.coverage.run]
 branch = true
 source = ["duckdb"]
 
 [tool.ruff]
-line-length = 88
+line-length = 120
 indent-width = 4
 target-version = "py39"
 fix = true
-fixable = ["ALL"]
-exclude = ['external/duckdb']
+exclude = ['external/duckdb', 'sqllogic']
 
 [tool.ruff.lint]
+fixable = ["ALL"]
+exclude = ['*.pyi']
 select = [
     "ANN", # flake8-annotations
     "B", # flake8-bugbear
@@ -328,10 +375,9 @@ select = [
     "E", # pycodestyle
     "EM", # flake8-errmsg
     "F", # pyflakes
-    "FA", # flake8-future-annotations
     "FBT001", # flake8-boolean-trap
     "I", # isort
-    "ICN", # flake8-import-conventions
+    #"ICN", # flake8-import-conventions
     "INT", # flake8-gettext
     "PERF", # perflint
     "PIE", # flake8-pie
@@ -342,15 +388,15 @@ select = [
     "SIM", # flake8-simplify
     "TCH", # flake8-type-checking
     "TD", # flake8-todos
-    "TID", # flake8-tidy-imports
+    #"TID", # flake8-tidy-imports
     "TRY", # tryceratops
     "UP", # pyupgrade
     "W", # pycodestyle
 ]
-ignore = []
-
-[tool.ruff.lint.pycodestyle]
-max-doc-length = 88
+ignore = [
+    "C901", # ignore function complexity
+    "ANN002", "ANN003", # don't require type annotations for *args and **kwargs
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -360,6 +406,35 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.flake8-type-checking]
 strict = true
+
+[tool.ruff.lint.per-file-ignores]
+"duckdb/experimental/spark/**.py" = [
+    # Ignore boolean positional args in the Spark API
+    'FBT001'
+]
+"duckdb_packaging/**.py" = [
+    # ignore all performance-related rules for duckdb_packaging
+    'PERF'
+]
+"tests/**.py" = [
+    # No need for package, module, class, function, init etc docstrings in tests
+    'D100', 'D101', 'D102', 'D103', 'D104', 'D105', 'D107',
+    # No need for type hinting in tests
+    'ANN001', 'ANN201', 'ANN202'
+]
+"tests/fast/spark/**.py" = [
+    "E402"
+]
+"tests/spark_namespace/**.py" = [
+    # we need * imports for Spark
+    'F403'
+]
+"scripts/**.py" = [
+    # No need for package, module, class, function, init etc docstrings in scripts
+    'D100', 'D101', 'D102', 'D103', 'D104', 'D105', 'D107', 'D205',
+    # No need for type hinting in scripts
+    'ANN001', 'ANN201'
+]
 
 [tool.ruff.format]
 docstring-code-format = true

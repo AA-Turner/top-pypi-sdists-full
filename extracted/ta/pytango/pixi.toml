@@ -1,6 +1,6 @@
-[project]
+[workspace]
 name = "pytango"
-channels = ["conda-forge", "conda-forge/label/cpptango_rc", "conda-forge/label/tango-test_rc"]
+channels = ["conda-forge", "conda-forge/label/cpptango_rc", "conda-forge/label/tango-test_rc", "tango-controls/label/dev", "tango-controls/label/tango-test_dev"]
 platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64"]
 
 [feature.base.tasks]
@@ -68,20 +68,23 @@ wheel = { cmd = "delvewheel repair dist/$PIXI_ENVIRONMENT_NAME/pytango*.whl; mv 
 [dependencies]
 # These are default dependencies, so not included if `no-default-feature = true`
 # (E.g., when we build cpptango from source, we don't want these conda packages)
-cpptango = { version = ">=10.0.2,<10.1", channel = "conda-forge" }
-tango-test = { version = "==3.10", channel = "conda-forge" }
+cpptango = { version = ">=10.1.1,<10.2" }
+tango-test = { version = "==3.12" }
 
 [feature.base.dependencies]
 # build dependencies
+cxx-compiler = "*"
 cmake = ">=3.18"
 ninja = ">=1.11"
 cppzmq = ">=4.10.0"
-libboost-python-devel = ">=1.87.0"
-python = ">=3.9"
+pybind11 = ">=3.0.1"
+python = ">=3.10"
 pip = "*"
+docstring_parser = "*"
 scikit-build-core = ">=0.10.0"
 pybind11-stubgen = "*"
-numpy = ">=1.19.3,<2.3"
+numpy = ">=1.19.3"
+ruff = "*"
 # run dependencies
 packaging = ">=24.0"
 psutil = ">=5.9"
@@ -95,15 +98,17 @@ opentelemetry-exporter-otlp-proto-http = "*"
 gevent = ">=20.0"
 pytest = "*"
 pytest-asyncio = ">=0.24"
-pytest-cov = "*"
+pytest-cov = ">=7.0.0"
+pytest-env = "*"
 pytest-forked = "*"
 pytest-timeout = "*"
 # build sdist and wheel
 python-build = "*"
 wheel = "*"
+# developer tool dependencies
+pixi-pycharm = "*"
 
 [feature.base.target.unix.dependencies]
-cxx-compiler = "*"
 pkg-config = "*"
 
 [feature.base.target.linux.dependencies]
@@ -113,12 +118,7 @@ auditwheel = "*"
 delocate = "*"
 
 [feature.base.target.win-64.dependencies]
-# cxx-compiler still installs vs2019 on windows
-vs2022_win-64 = "*"
 delvewheel = "*"
-
-[feature.py39.dependencies]
-python = "~=3.9.0"
 
 [feature.py310.dependencies]
 python = "~=3.10.0"
@@ -129,23 +129,32 @@ python = "~=3.11.0"
 [feature.py312.dependencies]
 python = "~=3.12.0"
 
+[feature.py313.dependencies]
+python = "~=3.13.0"
+
+[feature.py314.dependencies]
+python = "~=3.14.0"
+
 # Separate env to build the documentation
 [feature.doc]
 channels = ["conda-forge"]
 
 [feature.doc.tasks]
-doc = "python -m sphinx -W doc build/sphinx"
-doc_no_cache = "python -m sphinx -W -a -E doc build/sphinx"
-doc_live = "sphinx-autobuild -W doc build/sphinx"
+_install = { cmd = [
+    "pip",
+    "install",
+    "--no-build-isolation",
+    "--config-settings=build-dir=\"build/$PIXI_ENVIRONMENT_NAME/{wheel_tag}_{build_type}\"",
+    "-v",
+    "-e",
+    ".",
+] }
+doc = { cmd = "python -m sphinx -W doc build/sphinx", depends-on = ["_install",]}
+doc_no_cache = { cmd = "python -m sphinx -W -a -E doc build/sphinx", depends-on = ["_install",]}
+doc_live = { cmd = "sphinx-autobuild -W doc build/sphinx", depends-on = ["_install",]}
 
 [feature.doc.dependencies]
-python = "3.12.*"
-pip = "*"
-numpy = "<3"
-gevent = ">=20.0"
-packaging = ">=24.0"
-psutil = ">=5.9"
-typing_extensions = ">=4.5.0"
+# sphinx
 pillow = "*"
 sphinx = "8.1.*"
 sphinx-book-theme = "*"
@@ -214,7 +223,7 @@ _clone-tangotest = { cmd = "git clone --recurse-submodules --depth 1 -b $TANGO_T
     "_create-tmp-build-dir",
 ], outputs = [
     ".tmpbuild/TangoTest/CMakeLists.txt",
-], env = { TANGO_TEST_VERSION = "3.10" } }
+], env = { TANGO_TEST_VERSION = "3.11" } }
 _configure-tangotest = { cmd = [
     "cmake",
     "$CMAKE_ARGS",
@@ -279,9 +288,10 @@ macos = "12.0"
 
 [environments]
 default = ["base"]
-py39 = ["base", "py39"]
 py310 = ["base", "py310"]
 py311 = ["base", "py311"]
 py312 = ["base", "py312"]
-doc = { features = ["doc"], no-default-feature = true }
+py313 = ["base", "py313"]
+py314 = ["base", "py314"]
+doc = ["base", "doc"]
 cpptango = { features = ["base", "cpptango"], no-default-feature = true }

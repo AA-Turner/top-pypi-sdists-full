@@ -13,12 +13,11 @@ from typing import (
     Sequence,
     Tuple,
     Type,
+    TypeAlias,
     TypeVar,
     Union,
 )
 
-# os.PathLike/string/numpy.array/scipy.sparse/pd.DataFrame/dt.Frame/
-# cudf.DataFrame/cupy.array/dlpack
 import numpy as np
 
 DataType = Any
@@ -30,9 +29,15 @@ BoosterParam = Union[List, Dict[str, Any]]  # better be sequence
 
 ArrayLike = Any
 if TYPE_CHECKING:
+    import pyarrow as pa
+
     PathLike = Union[str, os.PathLike[str]]
 else:
     PathLike = Union[str, os.PathLike]
+
+ArrowCatCol: TypeAlias = Optional[Union["pa.StringArray", "pa.NumericArray"]]
+ArrowCatList: TypeAlias = List[Tuple[str, Optional[ArrowCatCol]]]
+
 CupyT = ArrayLike  # maybe need a stub for cupy arrays
 NumpyOrCupy = Any
 NumpyDType = Union[str, Type[np.number]]  # pylint: disable=invalid-name
@@ -109,10 +114,11 @@ else:
 # The second arg is actually Optional[List[cudf.Series]], skipped for easier type check.
 # The cudf Series is the obtained cat codes, preserved in the `DataIter` to prevent it
 # being freed.
-TransformedData = Tuple[
-    Any, Optional[List], Optional[FeatureNames], Optional[FeatureTypes]
-]
+TransformedData = Tuple[Any, Optional[FeatureNames], Optional[FeatureTypes]]
 
 # template parameter
 _T = TypeVar("_T")
 _F = TypeVar("_F", bound=Callable[..., Any])
+
+_ScoreList = Union[List[float], List[Tuple[float, float]]]
+EvalsLog: TypeAlias = Dict[str, Dict[str, _ScoreList]]

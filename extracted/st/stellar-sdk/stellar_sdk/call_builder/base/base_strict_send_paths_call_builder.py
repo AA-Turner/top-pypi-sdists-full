@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import List, Union
 
 from ...asset import Asset
 from ...call_builder.base.base_call_builder import BaseCallBuilder
@@ -28,7 +27,7 @@ class BaseStrictSendPathsCallBuilder(BaseCallBuilder):
     used to determine if there a given path can satisfy a payment of the desired
     amount.
 
-    See `List Strict Send Payment Paths <https://developers.stellar.org/api/aggregations/paths/strict-send/>`__ for more information.
+    See `List Strict Send Payment Paths <https://developers.stellar.org/docs/data/apis/horizon/api-reference/list-strict-send-payment-paths>`__ for more information.
 
     :param source_asset: The asset to be sent.
     :param source_amount: The amount, denominated in the source asset, that any returned path should be able to satisfy.
@@ -39,8 +38,8 @@ class BaseStrictSendPathsCallBuilder(BaseCallBuilder):
     def __init__(
         self,
         source_asset: Asset,
-        source_amount: Union[str, Decimal],
-        destination: Union[str, List[Asset]],
+        source_amount: str | Decimal,
+        destination: str | list[Asset],
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)

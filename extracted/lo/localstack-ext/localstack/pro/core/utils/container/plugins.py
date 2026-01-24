@@ -14,7 +14,7 @@ class CustomizableRegistryStrategyPlugin(ProPlatformPlugin):
 	name='customizable_registry_strategy';requires_license=False
 	def on_platform_start(B):from localstack.utils.docker_utils import DOCKER_CLIENT as A;A.registry_resolver_strategy=CustomizableRegistryStrategy()
 class ContainerRuntimePluginManager(PluginManager):
-	def __init__(A,listener=None):super().__init__(ContainerRuntimePlugin.namespace,listener=listener)
+	def __init__(A,listener:PluginLifecycleListener=None):super().__init__(ContainerRuntimePlugin.namespace,listener=listener)
 	@staticmethod
 	@singleton_factory
-	def get():return ContainerRuntimePluginManager(LicensedPluginLoaderGuard())
+	def get()->'ContainerRuntimePluginManager':return ContainerRuntimePluginManager(LicensedPluginLoaderGuard())

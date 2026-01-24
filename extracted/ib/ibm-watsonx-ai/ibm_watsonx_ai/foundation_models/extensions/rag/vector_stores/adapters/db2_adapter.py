@@ -1,36 +1,32 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 import copy
-from typing import Any, TypeAlias, cast
+import logging
+from typing import Any, TypeAlias
 
 from langchain_core.documents import Document
 
+from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vector_store_adapter import (
+    DEFAULT_CHUNK_SEQUENCE_NUMBER_FIELD,
+    DEFAULT_DOCUMENT_NAME_FIELD,
     LangChainVectorStoreAdapter,
 )
+from ibm_watsonx_ai.utils.utils import is_lib_installed
 from ibm_watsonx_ai.wml_client_error import (
     MissingExtension,
     VectorStoreSerializationError,
 )
 
-try:
-    from langchain_core.embeddings import Embeddings as LCEmbeddings
-    from langchain_db2 import DB2VS
-    from langchain_db2.db2vs import clear_table
-
-except ImportError as exc:
-    raise MissingExtension(
-        "langchain_db2",
-        reason="Please install `ibm-watsonx-ai` with flag `rag`: \n `pip install -U 'ibm-watsonx-ai[rag]'`",
-    ) from exc
-
-import logging
-
-from ibm_watsonx_ai import APIClient
+if not is_lib_installed(ext := "langchain-db2"):
+    raise MissingExtension(ext, extra_info="rag")
+from langchain_core.embeddings import Embeddings as LCEmbeddings
+from langchain_db2 import DB2VS
+from langchain_db2.db2vs import clear_table
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +52,15 @@ class DB2VectorStore(LangChainVectorStoreAdapter):
     :param table_name: name of the DB2 table name, defaults to None
     :type table_name: str, optional
 
+    :param document_name_field: mapping field for document name, defaults to `document_id`
+    :type document_name_field: str, optional
+
+    :param chunk_sequence_number_field: mapping field for chunk sequence number, defaults to `sequence_number`
+    :type chunk_sequence_number_field: str, optional
+
+    :param text_field: mapping field for text field
+    :type text_field: str, optional
+
     :param kwargs: keyword arguments that will be directly passed to `langchain_db2.DB2VS` constructor
     :type kwargs: Any, optional
 
@@ -67,35 +72,43 @@ class DB2VectorStore(LangChainVectorStoreAdapter):
     .. code-block:: python
 
         from ibm_watsonx_ai import APIClient, Credentials
-        from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores import DB2VectorStore
+        from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores import (
+            DB2VectorStore,
+        )
         from ibm_watsonx_ai.foundation_models.embeddings import Embeddings
 
         credentials = Credentials(
-            api_key = IAM_API_KEY,
-            url = "https://us-south.ml.cloud.ibm.com"
+            api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
         )
 
         api_client = APIClient(credentials, project_id="<PROJECT_ID>")
 
         embedding = Embeddings(
-            model_id=EmbeddingTypes.IBM_SLATE_30M_ENG,
-            api_client=api_client
+            model_id=EmbeddingTypes.IBM_SLATE_30M_ENG, api_client=api_client
         )
 
         vector_store = DB2VectorStore(
             api_client,
-            connection_id='***',
-            collection_name='my_test_collection',
-            embedding_function=embedding
+            connection_id="***",
+            collection_name="my_test_collection",
+            embedding_function=embedding,
         )
 
-        vector_store.add_documents([
-            {'content': 'document one content', 'metadata':{'url':'ibm.com'}},
-            {'content': 'document two content', 'metadata':{'url':'ibm.com'}}
-        ])
+        vector_store.add_documents(
+            [
+                {
+                    "content": "document one content",
+                    "metadata": {"url": "ibm.com"},
+                },
+                {
+                    "content": "document two content",
+                    "metadata": {"url": "ibm.com"},
+                },
+            ]
+        )
         # ['4CDDAF00329B3DF9', 'B8AE97421A8857E7']
 
-        vector_store.search('one', k=1)
+        vector_store.search("one", k=1)
         # [Document(metadata={'url': 'ibm.com'}, page_content='document one content')]
 
     """
@@ -108,10 +121,16 @@ class DB2VectorStore(LangChainVectorStoreAdapter):
         vector_store: DB2VS | None = None,
         embedding_function: EmbeddingType | None = None,
         table_name: str | None = None,
+        document_name_field: str = DEFAULT_DOCUMENT_NAME_FIELD,
+        chunk_sequence_number_field: str = DEFAULT_CHUNK_SEQUENCE_NUMBER_FIELD,
+        text_field: str | None = None,
         **kwargs: Any,
     ) -> None:
         self._connection_id = connection_id
         self._client = api_client
+        self._document_name_field = document_name_field
+        self._chunk_sequence_number_field = chunk_sequence_number_field
+        self._text_field = text_field
 
         self._is_serializable = not bool(vector_store)
         self._embedding_function = embedding_function
@@ -127,7 +146,7 @@ class DB2VectorStore(LangChainVectorStoreAdapter):
         if vector_store is None:
             if self._client is not None and self._connection_id is not None:
                 self._datasource_type, connection_properties = self._connect_by_type(
-                    cast(str, self._connection_id)
+                    self._connection_id
                 )
             else:
                 self._datasource_type, connection_properties = (
@@ -144,6 +163,9 @@ class DB2VectorStore(LangChainVectorStoreAdapter):
                 "table_name": self._table_name,
             }
 
+            if self._text_field is not None:
+                self._properties["text_field"] = self._text_field
+
             self._properties = VectorStoreConnector(
                 self._properties
             )._get_db2_connection_params()
@@ -153,9 +175,12 @@ class DB2VectorStore(LangChainVectorStoreAdapter):
             self._datasource_type = (
                 VectorStoreConnector.get_type_from_langchain_vector_store(vector_store)
             )
+        self._text_field = getattr(vector_store, "_text_field", None)
 
         super().__init__(
             vector_store=vector_store,
+            document_name_field=self._document_name_field,
+            chunk_sequence_number_field=self._chunk_sequence_number_field,
         )
 
     def get_client(self) -> DB2VS:
@@ -231,14 +256,20 @@ class DB2VectorStore(LangChainVectorStoreAdapter):
                     f"Cannot serialize embedding-function of type {type(embedding).__name__}; "
                     "expected `.watsonx_embed.to_dict()` or `.to_dict()`."
                 )
-
-        return {
+        data_dict = {
             "connection_id": self._connection_id,
             "embedding_function": embedding_f,
             "table_name": self._table_name,
             **self._additional_kwargs,
             "datasource_type": str(self._datasource_type),
+            "document_name_field": self._document_name_field,
+            "chunk_sequence_number_field": self._chunk_sequence_number_field,
         }
+
+        if self._text_field is not None:
+            data_dict["text_field"] = self._text_field
+
+        return data_dict
 
     @classmethod
     def from_dict(
@@ -274,3 +305,59 @@ class DB2VectorStore(LangChainVectorStoreAdapter):
         )
 
         return cls(api_client, **d)
+
+    def _get_window_documents(
+        self, doc_id: str, seq_nums_window: list[int]
+    ) -> list[Document]:
+        """
+        Receives a document ID and a list of chunks' sequence_numbers,
+        and searches the vector store according to the metadata.
+
+        :param doc_id: ID of document
+        :type doc_id: str
+
+        :param seq_nums_window: list of sequence numbers
+        :type seq_nums_window: list[int]
+
+        :return: list of documents from that document with these sequence_numbers
+        :rtype: list[Document]
+        """
+        table_name = self._langchain_vector_store.table_name
+
+        placeholders = ",".join("?" for _ in seq_nums_window)
+
+        sql = f"""
+            WITH extracted AS (
+              SELECT
+                JSON_VALUE(metadata, '$.{self._chunk_sequence_number_field}' RETURNING INTEGER) AS seq_num,
+                JSON_VALUE(metadata, '$.{self._document_name_field}') AS doc_id,
+                {self._text_field} AS page_content
+              FROM {table_name}
+            )
+            SELECT
+              seq_num,
+              doc_id,
+              page_content
+            FROM extracted
+            WHERE doc_id = ?
+              AND seq_num IN ({placeholders})
+            ORDER BY seq_num;
+        """
+
+        params = [doc_id] + seq_nums_window
+
+        cursor = self._langchain_vector_store.client.cursor()
+        cursor.execute(sql, tuple(params))
+        rows = cursor.fetchall()
+
+        window_documents = [
+            Document(
+                page_content=row[2],
+                metadata={
+                    self._chunk_sequence_number_field: row[0],
+                    self._document_name_field: row[1],
+                },
+            )
+            for row in rows
+        ]
+        return window_documents

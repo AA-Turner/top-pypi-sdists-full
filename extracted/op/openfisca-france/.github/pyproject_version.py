@@ -6,8 +6,8 @@ import re
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 PACKAGE_VERSION = 'X.X.X'
-CORE_VERSION = '>=43,<44'
-NUMPY_VERSION = '>=1.24.3,<2'
+CORE_VERSION = '>=43,<45'
+NUMPY_VERSION = '>=1.24.3,<3'
 
 
 def get_versions():
@@ -25,7 +25,7 @@ def get_versions():
     else:
         raise Exception('Package version not found in pyproject.toml')
     # Extract dependencies
-    version = re.search(r'openfisca-core\[web-api\]\s*(>=\s*[\d\.]*,\s*<\d*)"', content, re.MULTILINE)
+    version = re.search(r'"openfisca-core\[web-api\]\s*(>=\s*[\d.]+,\s*<\s*[\d.]+)"', content, re.MULTILINE)
     if version:
         openfisca_core_api = version.group(1)
     version = re.search(r'numpy\s*(>=\s*[\d\.]*,\s*<\d*)"', content, re.MULTILINE)

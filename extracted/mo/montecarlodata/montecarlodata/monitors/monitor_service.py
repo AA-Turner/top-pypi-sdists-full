@@ -1,8 +1,10 @@
+import json
 import textwrap
 from typing import Callable, Dict, List, Optional
 
 import click
 from pycarlo.core import Client, Query
+from pycarlo.features.circuit_breakers import CircuitBreakerService
 from tabulate import tabulate
 
 from montecarlodata.errors import manage_errors
@@ -100,3 +102,60 @@ class MonitorService:
 
         if more_ns_available:
             self._print_func(self.MORE_MONITOR_MESSAGE)
+
+    def run_circuit_breaker(
+        self,
+        namespace: Optional[str] = None,
+        name: Optional[str] = None,
+        uuid: Optional[str] = None,
+        runtime_variables: Optional[str] = None,
+    ):
+        """
+        Run a circuit breaker monitor and poll for the result.
+
+        Args:
+            namespace: Namespace of the monitor
+            name: Name of the monitor
+            uuid: UUID of the monitor (alternative to namespace/name)
+            runtime_variables: JSON string of runtime variables
+
+        Returns:
+            True if the circuit breaker passed (no breach), False if it breached
+        """
+        if not uuid and (not namespace or not name):
+            raise click.UsageError("You must provide either --uuid or both --namespace and --name")
+
+        if uuid and (namespace or name):
+            raise click.UsageError("Cannot use --uuid together with --namespace or --name")
+
+        runtime_vars = None
+        if runtime_variables:
+            try:
+                runtime_vars = json.loads(runtime_variables)
+            except json.JSONDecodeError as e:
+                raise click.UsageError(f"Invalid JSON for runtime variables: {e}")
+
+        service = CircuitBreakerService(
+            print_func=self._print_func,
+            mc_client=self._pycarlo_client,
+        )
+
+        kwargs = {}
+        if uuid:
+            kwargs["rule_uuid"] = uuid
+        else:
+            kwargs["namespace"] = namespace
+            kwargs["rule_name"] = name
+
+        if runtime_vars:
+            kwargs["runtime_variables"] = runtime_vars
+
+        self._print_func("Running circuit breaker...")
+        result = service.trigger_and_poll(**kwargs)
+
+        if result:
+            self._print_func("✗ Circuit breaker breached")
+            return True
+        else:
+            self._print_func("✓ Circuit breaker passed (no breach detected)")
+            return False

@@ -1,12 +1,21 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import Type, cast
+from typing import Type, Optional, cast
+from typing_extensions import Literal
 
 import httpx
 
-from .._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..types import route_list_params
+from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -45,14 +54,31 @@ class RoutesResource(SyncAPIResource):
     def list(
         self,
         *,
+        api_filter: Optional[Literal["v1", "v1alpha", "v1beta", "deprecated"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteListResponse:
-        """List all available API routes with their methods and implementing providers."""
+        """
+        List all available API routes with their methods and implementing providers.
+
+        Args:
+          api_filter: Optional filter to control which routes are returned. Can be an API level ('v1',
+              'v1alpha', 'v1beta') to show non-deprecated routes at that level, or
+              'deprecated' to show deprecated routes across all levels. If not specified,
+              returns all non-deprecated routes.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
         return self._get(
             "/v1/inspect/routes",
             options=make_request_options(
@@ -60,6 +86,7 @@ class RoutesResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
+                query=maybe_transform({"api_filter": api_filter}, route_list_params.RouteListParams),
                 post_parser=DataWrapper[RouteListResponse]._unwrapper,
             ),
             cast_to=cast(Type[RouteListResponse], DataWrapper[RouteListResponse]),
@@ -89,14 +116,31 @@ class AsyncRoutesResource(AsyncAPIResource):
     async def list(
         self,
         *,
+        api_filter: Optional[Literal["v1", "v1alpha", "v1beta", "deprecated"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteListResponse:
-        """List all available API routes with their methods and implementing providers."""
+        """
+        List all available API routes with their methods and implementing providers.
+
+        Args:
+          api_filter: Optional filter to control which routes are returned. Can be an API level ('v1',
+              'v1alpha', 'v1beta') to show non-deprecated routes at that level, or
+              'deprecated' to show deprecated routes across all levels. If not specified,
+              returns all non-deprecated routes.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
         return await self._get(
             "/v1/inspect/routes",
             options=make_request_options(
@@ -104,6 +148,7 @@ class AsyncRoutesResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
+                query=await async_maybe_transform({"api_filter": api_filter}, route_list_params.RouteListParams),
                 post_parser=DataWrapper[RouteListResponse]._unwrapper,
             ),
             cast_to=cast(Type[RouteListResponse], DataWrapper[RouteListResponse]),

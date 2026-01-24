@@ -81,7 +81,7 @@ class _AdversarialFairness(BaseEstimator):
     real-valued features, the network output is left as is, and the
     loss is a square loss.
 
-    The adversarial model for equalized odds additionaly takes
+    The adversarial model for equalized odds additionally takes
     :code:`y` as input. For multi-class classification, :code:`y` is
     transformed using one-hot encoding.
 
@@ -176,7 +176,7 @@ class _AdversarialFairness(BaseEstimator):
         Skip the validation of the data. Useful because validate_input is
         a costly operation, and we may instead pass all data to validate_input
         at an earlier stage. Note that not only checking :code:`X`
-        is skipped, but also no tranform is applied to :code:`y` and
+        is skipped, but also no transform is applied to :code:`y` and
         :code:`sensitive_features`.
 
     callbacks : callable
@@ -195,7 +195,7 @@ class _AdversarialFairness(BaseEstimator):
 
     warm_start : bool, default = False
         Normally, when set to False, a call to :code:`fit()` triggers reinitialization,
-        which discards the models and intializes them again. Setting to
+        which discards the models and initializes them again. Setting to
         True triggers reuse of these models. Note: if pre-initialized models
         are passed, the models (and their parameters) are never discarded.
 
@@ -203,10 +203,10 @@ class _AdversarialFairness(BaseEstimator):
         Controls the randomized aspects of this algorithm, such as shuffling.
         Useful to get reproducible output across multiple function calls.
 
-    References
-    ----------
-    .. footbibliography::
-
+    max_iter : int, default = -1
+        Maximum number of training iterations to perform. If set to -1, the number
+        of iterations is determined by epochs parameter. Either epochs or max_iter
+        must be positive.
     """  # noqa : E501
 
     def __init__(
@@ -514,8 +514,14 @@ class _AdversarialFairness(BaseEstimator):
                 if self.callbacks_:
                     stop = False
                     for cb in self.callbacks_:
+                        y_true = self._y_transform.inverse_transform(y)
                         result = cb(
-                            self, step=self.n_iter_, X=X, y=y, z=sensitive_features, pos_label=1
+                            self,
+                            step=self.n_iter_,
+                            X=X,
+                            y=y_true,
+                            z=sensitive_features,
+                            pos_label=self.classes_[1],
                         )
                         if result and not isinstance(result, bool):
                             raise RuntimeError(_CALLBACK_RETURNS_ERROR)
@@ -878,7 +884,7 @@ class AdversarialFairnessClassifier(ClassifierMixin, _AdversarialFairness):
     real-valued features, the network output is left as is, and the
     loss is a square loss.
 
-    The adversarial model for equalized odds additionaly takes
+    The adversarial model for equalized odds additionally takes
     :code:`y` as input. For multi-class classification, :code:`y` is
     transformed using one-hot encoding.
 
@@ -957,7 +963,7 @@ class AdversarialFairnessClassifier(ClassifierMixin, _AdversarialFairness):
         Skip the validation of the data. Useful because validate_input is
         a costly operation, and we may instead pass all data to validate_input
         at an earlier stage. Note that not only checking :code:`X`
-        is skipped, but also no tranform is applied to :code:`y` and
+        is skipped, but also no transform is applied to :code:`y` and
         :code:`sensitive_features`.
 
     callbacks : callable
@@ -982,18 +988,13 @@ class AdversarialFairnessClassifier(ClassifierMixin, _AdversarialFairness):
 
     warm_start : bool, default = False
         Normally, when set to False, a call to :code:`fit()` triggers reinitialization,
-        which discards the models and intializes them again. Setting to
+        which discards the models and initializes them again. Setting to
         True triggers reuse of these models. Note: if pre-initialized models
         are passed, the models (and their parameters) are never discarded.
 
     random_state : int, RandomState, default = None
         Controls the randomized aspects of this algorithm, such as shuffling.
         Useful to get reproducible output across multiple function calls.
-
-    References
-    ----------
-    .. footbibliography::
-
     """  # noqa : E501
 
     def __init__(
@@ -1018,7 +1019,6 @@ class AdversarialFairnessClassifier(ClassifierMixin, _AdversarialFairness):
         random_state=None,
     ):
         """Initialize model by setting the predictor loss and function."""
-        self._estimator_type = "classifier"
         super(AdversarialFairnessClassifier, self).__init__(
             backend=backend,
             predictor_model=predictor_model,
@@ -1083,7 +1083,7 @@ class AdversarialFairnessRegressor(RegressorMixin, _AdversarialFairness):
     real-valued features, the network output is left as is, and the
     loss is a square loss.
 
-    The adversarial model for equalized odds additionaly takes
+    The adversarial model for equalized odds additionally takes
     :code:`y` as input.
 
     Parameters
@@ -1161,7 +1161,7 @@ class AdversarialFairnessRegressor(RegressorMixin, _AdversarialFairness):
         Skip the validation of the data. Useful because validate_input is
         a costly operation, and we may instead pass all data to validate_input
         at an earlier stage. Note that not only checking :code:`X`
-        is skipped, but also no tranform is applied to :code:`y` and
+        is skipped, but also no transform is applied to :code:`y` and
         :code:`sensitive_features`.
 
     callbacks : callable
@@ -1180,18 +1180,13 @@ class AdversarialFairnessRegressor(RegressorMixin, _AdversarialFairness):
 
     warm_start : bool, default = False
         Normally, when set to False, a call to :code:`fit()` triggers reinitialization,
-        which discards the models and intializes them again. Setting to
+        which discards the models and initializes them again. Setting to
         True triggers reuse of these models. Note: if pre-initialized models
         are passed, the models (and their parameters) are never discarded.
 
     random_state : int, RandomState, default = None
         Controls the randomized aspects of this algorithm, such as shuffling.
         Useful to get reproducible output across multiple function calls.
-
-    References
-    ----------
-    .. footbibliography::
-
     """  # noqa : E501
 
     def __init__(
@@ -1216,7 +1211,6 @@ class AdversarialFairnessRegressor(RegressorMixin, _AdversarialFairness):
         random_state=None,
     ):
         """Initialize model by setting the predictor loss and function."""
-        self._estimator_type = "regressor"
         super(AdversarialFairnessRegressor, self).__init__(
             backend=backend,
             predictor_model=predictor_model,

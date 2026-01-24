@@ -16,8 +16,25 @@
 #include "include/core/SkPaint.h"
 #include "include/core/SkSize.h"
 #include "include/core/SkString.h"
-#include "include/gpu/GrDirectContext.h"
 #include "tools/gpu/vk/VkYcbcrSamplerHelper.h"
+
+#if defined(SK_GANESH)
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/SkImageGanesh.h"
+#endif
+
+#if defined(SK_GRAPHITE)
+#include "include/gpu/graphite/Image.h"
+#include "include/gpu/graphite/Recorder.h"
+#include "include/gpu/vk/VulkanBackendContext.h"
+#include "src/gpu/graphite/RecorderPriv.h"
+#include "src/gpu/graphite/vk/VulkanSharedContext.h"
+#include "tools/graphite/vk/GraphiteVulkanTestContext.h"
+
+using VulkanTestContext = skiatest::graphite::VulkanTestContext;
+using SharedContext = skgpu::graphite::SharedContext;
+using VulkanSharedContext = skgpu::graphite::VulkanSharedContext;
+#endif
 
 static void release_ycbcrhelper(void* releaseContext) {
     VkYcbcrSamplerHelper* ycbcrHelper = reinterpret_cast<VkYcbcrSamplerHelper*>(releaseContext);
@@ -34,15 +51,62 @@ public:
     }
 
 protected:
+    SkString getName() const override { return SkString("ycbcrimage"); }
 
-    SkString onShortName() override {
-        return SkString("ycbcrimage");
-    }
-
-    SkISize onISize() override {
+    SkISize getISize() override {
         return SkISize::Make(2*kPad+kImageSize, 2*kPad+kImageSize);
     }
 
+#if defined(SK_GRAPHITE)
+    DrawResult createYCbCrImage(skgpu::graphite::Recorder* recorder,
+                                SkString* errorMsg) {
+        if (!recorder) {
+            *errorMsg = "Cannot generate a YCbCr image without a valid GraphiteTestContext and "
+                        "recorder.";
+            return skiagm::DrawResult::kSkip;
+        }
+
+        SkASSERT_RELEASE(recorder->backend() == skgpu::BackendApi::kVulkan);
+
+        const VulkanSharedContext* vulkanSharedCtxt =
+                static_cast<const VulkanSharedContext*>(recorder->priv().sharedContext());
+        SkASSERT(vulkanSharedCtxt);
+
+        std::unique_ptr<VkYcbcrSamplerHelper> ycbcrHelper(
+                new VkYcbcrSamplerHelper(vulkanSharedCtxt));
+        if (!ycbcrHelper) {
+            *errorMsg = "Failed to create VkYcbcrSamplerHelper.";
+            return skiagm::DrawResult::kFail;
+        }
+        if (!ycbcrHelper->isYCbCrSupported()) {
+            *errorMsg = "YCbCr sampling is not supported.";
+            return skiagm::DrawResult::kSkip;
+        }
+        if (!ycbcrHelper->createBackendTexture(kImageSize, kImageSize)) {
+            *errorMsg = "Failed to create I420 backend texture.";
+            return skiagm::DrawResult::kFail;
+        }
+
+        SkASSERT(!fYCbCrImage);
+
+        fYCbCrImage = SkImages::WrapTexture(recorder,
+                                            ycbcrHelper->backendTexture(),
+                                            kRGB_888x_SkColorType,
+                                            kPremul_SkAlphaType,
+                                            /*colorSpace=*/nullptr,
+                                            release_ycbcrhelper,
+                                            ycbcrHelper.get());
+        SkASSERT(fYCbCrImage);
+        ycbcrHelper.release();
+        if (!fYCbCrImage) {
+            *errorMsg = "Failed to create I420 SkImage.";
+            return DrawResult::kFail;
+        }
+        return DrawResult::kOk;
+    }
+#endif // SK_GRAPHITE
+
+#if defined(SK_GANESH)
     DrawResult createYCbCrImage(GrDirectContext* dContext, SkString* errorMsg) {
         std::unique_ptr<VkYcbcrSamplerHelper> ycbcrHelper(new VkYcbcrSamplerHelper(dContext));
 
@@ -51,16 +115,20 @@ protected:
             return skiagm::DrawResult::kSkip;
         }
 
-        if (!ycbcrHelper->createBackendTexture(kImageSize, kImageSize)) {
+        if (!ycbcrHelper->createGrBackendTexture(kImageSize, kImageSize)) {
             *errorMsg = "Failed to create I420 backend texture.";
             return skiagm::DrawResult::kFail;
         }
 
         SkASSERT(!fYCbCrImage);
-        fYCbCrImage = SkImage::MakeFromTexture(dContext, ycbcrHelper->backendTexture(),
-                                               kTopLeft_GrSurfaceOrigin, kRGB_888x_SkColorType,
-                                               kPremul_SkAlphaType, nullptr,
-                                               release_ycbcrhelper, ycbcrHelper.get());
+        fYCbCrImage = SkImages::BorrowTextureFrom(dContext,
+                                                  ycbcrHelper->grBackendTexture(),
+                                                  kTopLeft_GrSurfaceOrigin,
+                                                  kRGB_888x_SkColorType,
+                                                  kPremul_SkAlphaType,
+                                                  nullptr,
+                                                  release_ycbcrhelper,
+                                                  ycbcrHelper.get());
         ycbcrHelper.release();
         if (!fYCbCrImage) {
             *errorMsg = "Failed to create I420 image.";
@@ -69,24 +137,43 @@ protected:
 
         return DrawResult::kOk;
     }
+#endif
 
-    DrawResult onGpuSetup(SkCanvas* canvas, SkString* errorMsg) override {
-        GrDirectContext* dContext = GrAsDirectContext(canvas->recordingContext());
-        if (!dContext || dContext->abandoned()) {
-            return DrawResult::kSkip;
+    DrawResult onGpuSetup(SkCanvas* canvas,
+                          SkString* errorMsg,
+                          GraphiteTestContext* graphiteTestContext) override {
+#if defined(SK_GRAPHITE)
+        skgpu::graphite::Recorder* recorder = canvas->recorder();
+
+        if (recorder) {
+            if (recorder->backend() != skgpu::BackendApi::kVulkan) {
+                *errorMsg = "This GM requires using Vulkan.";
+                return DrawResult::kSkip;
+            }
+
+            return this->createYCbCrImage(recorder, errorMsg);
         }
+#endif
+#if defined(SK_GANESH)
+        if (GrDirectContext* dContext = GrAsDirectContext(canvas->recordingContext())) {
+            if (dContext->abandoned()) {
+                return DrawResult::kSkip;
+            }
 
-        if (dContext->backend() != GrBackendApi::kVulkan) {
-            *errorMsg = "This GM requires a Vulkan context.";
-            return DrawResult::kSkip;
+            if (dContext->backend() != GrBackendApi::kVulkan) {
+                *errorMsg = "This GM requires a Vulkan context.";
+                return DrawResult::kSkip;
+            }
+
+            DrawResult result = this->createYCbCrImage(dContext, errorMsg);
+            if (result != DrawResult::kOk) {
+                return result;
+            }
+
+            return DrawResult::kOk;
         }
-
-        DrawResult result = this->createYCbCrImage(dContext, errorMsg);
-        if (result != DrawResult::kOk) {
-            return result;
-        }
-
-        return DrawResult::kOk;
+#endif
+        return DrawResult::kSkip;
     }
 
     void onGpuTeardown() override {
@@ -95,7 +182,6 @@ protected:
 
     DrawResult onDraw(SkCanvas* canvas, SkString*) override {
         SkASSERT(fYCbCrImage);
-
         canvas->drawImage(fYCbCrImage, kPad, kPad, SkSamplingOptions(SkFilterMode::kLinear));
         return DrawResult::kOk;
     }
@@ -106,7 +192,7 @@ private:
 
     sk_sp<SkImage> fYCbCrImage;
 
-    using INHERITED = GpuGM;
+    using INHERITED = GM;
 };
 
 //////////////////////////////////////////////////////////////////////////////

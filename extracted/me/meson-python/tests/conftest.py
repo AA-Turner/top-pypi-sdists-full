@@ -154,7 +154,7 @@ def generate_sdist_fixture(package):
 def generate_wheel_fixture(package):
     @pytest.fixture(scope='session')
     def fixture(tmp_path_session):
-        with chdir(package_dir / package), in_git_repo_context():
+        with chdir(package_dir / package):
             return tmp_path_session / mesonpy.build_wheel(tmp_path_session)
     return fixture
 
@@ -163,7 +163,7 @@ def generate_editable_fixture(package):
     @pytest.fixture(scope='session')
     def fixture(tmp_path_session):
         shutil.rmtree(package_dir / package / '.mesonpy' / 'editable', ignore_errors=True)
-        with chdir(package_dir / package), in_git_repo_context():
+        with chdir(package_dir / package):
             return tmp_path_session / mesonpy.build_editable(tmp_path_session)
     return fixture
 
@@ -183,3 +183,42 @@ def disable_pip_version_check():
     mpatch = pytest.MonkeyPatch()
     yield mpatch.setenv('PIP_DISABLE_PIP_VERSION_CHECK', '1')
     mpatch.undo()
+
+
+@pytest.fixture(autouse=True, scope='session')
+def cleanenv():
+    # Cannot use the 'monkeypatch' fixture because of scope mismatch.
+    mpatch = pytest.MonkeyPatch()
+    # $MACOSX_DEPLOYMENT_TARGET affects the computation of the platform tag on macOS.
+    yield mpatch.delenv('MACOSX_DEPLOYMENT_TARGET', raising=False)
+    mpatch.undo()
+
+
+@pytest.fixture(autouse=True, scope='session')
+def meson_fatal_warnings():
+    # Cannot use the 'monkeypatch' fixture because of scope mismatch.
+    mpatch = pytest.MonkeyPatch()
+    mesonpy_project_init = mesonpy.Project.__init__
+
+    def __init__(self, source_dir, build_dir, meson_args=None, editable_verbose=False):
+        if pathlib.Path(source_dir).absolute().name not in {
+
+                # The CMake subproject emits ``WARNING: CMake Toolchain:
+                # Failed to determine CMake compilers state`` on some
+                # systems. This is probably related to missing Rust or ObjC
+                # toolchains.
+                'cmake-subproject',
+
+                # The ``link-against-local-lib`` package uses linker arguments
+                # to add RPATH entries. This functionality is deprecated in
+                # Meson but it is used in the wild thus we should make sure it
+                # keeps working.
+                'link-against-local-lib',
+
+        }:
+            if meson_args is None:
+                meson_args = {}
+            meson_args.setdefault('setup', []).append('--fatal-meson-warnings')
+        mesonpy_project_init(self, source_dir, build_dir, meson_args, editable_verbose)
+
+    mpatch.setattr(mesonpy.Project, '__init__', __init__)

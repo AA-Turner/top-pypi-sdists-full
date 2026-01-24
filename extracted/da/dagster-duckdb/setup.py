@@ -23,23 +23,25 @@ setup(
     description="Package for DuckDB-specific Dagster framework op and resource components.",
     url="https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-duckb",
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_duckdb_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.14",
+    python_requires=">=3.10,<3.15",
     install_requires=[
         "duckdb",
-        "dagster==1.11.11",
+        "dagster==1.12.12",
     ],
     extras_require={
         "pandas": [
-            "pandas",
+            "pandas<3.0.0",
         ],
-        "pyspark": ["pyspark>=3,<4"],
+        "pyspark": [
+            "pyspark>=4.1; python_version>='3.14'",
+            "pyspark>=3.5,<4; python_version<'3.14'",
+        ],
     },
     zip_safe=False,
 )

@@ -47,7 +47,7 @@ class DriverValueError(RsInstrException):
 		super(DriverValueError, self).__init__(message)
 
 
-def get_instrument_status_errors(rsrc_name: str, errors: List[Tuple[int, str]], context: str = '') -> str or None:
+def get_instrument_status_errors(rsrc_name: str, errors: List[Tuple[int, str]], context: str = '') -> str | None:
 	"""Checks the errors list and of it contains at least one element, it returns the error message.
 	Otherwise, it returns None."""
 	if errors is None or len(errors) == 0:

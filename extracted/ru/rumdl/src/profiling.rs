@@ -1,15 +1,13 @@
 //!
 //! This module provides profiling utilities for measuring and reporting execution times in rumdl.
 
-use lazy_static::lazy_static;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 // Global profiler state
-lazy_static! {
-    static ref PROFILER: Mutex<Profiler> = Mutex::new(Profiler::new());
-}
+static PROFILER: LazyLock<Mutex<Profiler>> = LazyLock::new(|| Mutex::new(Profiler::new()));
 
 // Enable/disable profiling with a feature flag
 #[cfg(feature = "profiling")]
@@ -113,35 +111,42 @@ impl Profiler {
 }
 
 /// Start a timer for a section
+///
+/// If the mutex is poisoned, this is a no-op. Profiling failures should not crash the application.
 pub fn start_timer(section: &str) {
-    if PROFILING_ENABLED {
-        let mut profiler = PROFILER.lock().unwrap();
+    if PROFILING_ENABLED && let Ok(mut profiler) = PROFILER.lock() {
         profiler.start_timer(section);
     }
 }
 
 /// Stop a timer for a section
+///
+/// If the mutex is poisoned, this is a no-op. Profiling failures should not crash the application.
 pub fn stop_timer(section: &str) {
-    if PROFILING_ENABLED {
-        let mut profiler = PROFILER.lock().unwrap();
+    if PROFILING_ENABLED && let Ok(mut profiler) = PROFILER.lock() {
         profiler.stop_timer(section);
     }
 }
 
 /// Get a report of all measurements
+///
+/// If the mutex is poisoned, returns a message indicating the error rather than panicking.
 pub fn get_report() -> String {
     if PROFILING_ENABLED {
-        let profiler = PROFILER.lock().unwrap();
-        profiler.get_report()
+        match PROFILER.lock() {
+            Ok(profiler) => profiler.get_report(),
+            Err(_) => "Profiling report unavailable (mutex poisoned).".to_string(),
+        }
     } else {
         "Profiling is disabled.".to_string()
     }
 }
 
 /// Reset all measurements
+///
+/// If the mutex is poisoned, this is a no-op. Profiling failures should not crash the application.
 pub fn reset() {
-    if PROFILING_ENABLED {
-        let mut profiler = PROFILER.lock().unwrap();
+    if PROFILING_ENABLED && let Ok(mut profiler) = PROFILER.lock() {
         profiler.reset();
     }
 }
@@ -298,6 +303,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_global_start_stop_timer() {
         if PROFILING_ENABLED {
             reset(); // Clear any previous measurements
@@ -322,6 +328,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_global_reset() {
         if PROFILING_ENABLED {
             start_timer("test_reset");
@@ -334,6 +341,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_scoped_timer() {
         if PROFILING_ENABLED {
             reset();
@@ -396,6 +404,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_concurrent_access() {
         use std::sync::Arc;
         use std::sync::Barrier;

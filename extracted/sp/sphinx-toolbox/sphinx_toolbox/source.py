@@ -109,7 +109,7 @@ __all__ = ("source_role", "setup")
 _sphinx_version = sphinx.version_info[:3]
 
 
-def _make_viewcode_node(
+def _make_viewcode_node(  # noqa: PRM002
 		title: str,
 		pagename: str,
 		env: BuildEnvironment,
@@ -156,7 +156,7 @@ def source_role(
 		lineno: int,
 		inliner: Inliner,
 		options: Dict = {},
-		content: List[str] = []
+		content: List[str] = [],
 		) -> Tuple[Sequence[nodes.Node], List[system_message]]:
 	"""
 	Adds a link to the given Python source file in the documentation or on GitHub.

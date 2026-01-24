@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import os
 import warnings
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from json import JSONDecodeError
+from typing import TYPE_CHECKING, Any
 
 from schemathesis import graphql, openapi
 from schemathesis.config import ProjectConfig
@@ -35,7 +37,10 @@ def should_try_more(exc: LoaderError) -> bool:
     import requests
     from yaml.reader import ReaderError
 
-    if isinstance(exc.__cause__, ReaderError) and "characters are not allowed" in str(exc.__cause__):
+    if (isinstance(exc.__cause__, ReaderError) and "characters are not allowed" in str(exc.__cause__)) or (
+        isinstance(exc.__cause__, JSONDecodeError)
+        and ('"swagger"' in exc.__cause__.doc or '"openapi"' in exc.__cause__.doc)
+    ):
         return False
 
     # We should not try other loaders for cases when we can't even establish connection
@@ -49,8 +54,8 @@ def should_try_more(exc: LoaderError) -> bool:
 def detect_loader(location: str, module: Any) -> Callable:
     """Detect API schema loader."""
     if file_exists(location):
-        return module.from_path  # type: ignore
-    return module.from_url  # type: ignore
+        return module.from_path
+    return module.from_url
 
 
 def _try_load_schema(location: str, config: ProjectConfig, first_module: Any, second_module: Any) -> BaseSchema:
@@ -90,6 +95,9 @@ def _load_schema(location: str, config: ProjectConfig, module: Any) -> BaseSchem
         auth = config.auth_for()
         if auth is not None:
             kwargs["auth"] = auth
+        headers = config.headers_for()
+        if headers:
+            kwargs["headers"] = headers
 
     return loader(location, config=config._parent, **kwargs)
 

@@ -1,0 +1,283 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from typing import Any
+
+from pandas import DataFrame
+
+from graphdatascience.procedure_surface.api.base_result import BaseResult
+from graphdatascience.procedure_surface.api.catalog.graph_api import GraphV2
+from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
+from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
+
+
+class SllpaEndpoints(ABC):
+    @abstractmethod
+    def mutate(
+        self,
+        G: GraphV2,
+        mutate_property: str,
+        *,
+        max_iterations: int,
+        concurrency: int | None = None,
+        job_id: str | None = None,
+        log_progress: bool = True,
+        min_association_strength: float = 0.2,
+        node_labels: list[str] = ALL_LABELS,
+        partitioning: str = "RANGE",
+        relationship_types: list[str] = ALL_TYPES,
+        sudo: bool = False,
+        username: str | None = None,
+    ) -> SllpaMutateResult:
+        """
+        Executes the Speaker-Listener Label Propagation algorithm (SLLPA) and writes the results to the in-memory graph as node properties.
+
+        Parameters
+        ----------
+        G
+           Graph object to use
+        mutate_property
+            Name of the node property to store the results in.
+        max_iterations
+            Maximum number of iterations to run.
+        concurrency
+            Number of concurrent threads to use.
+        job_id
+            Identifier for the computation.
+        log_progress
+            Display progress logging.
+        min_association_strength : float | None, default=None
+            Minimum association strength for community assignment
+        node_labels
+            Filter the graph using the given node labels. Nodes with any of the given labels will be included.
+        partitioning : str | None
+            Partitioning configuration for the algorithm
+        relationship_types
+            Filter the graph using the given relationship types. Relationships with any of the given types will be included.
+        sudo
+            Disable the memory guard.
+        username
+            As an administrator, impersonate a different user for accessing their graphs.
+
+        Returns
+        -------
+        SllpaMutateResult
+            An object containing metadata about the algorithm execution and the mutation
+        """
+        ...
+
+    @abstractmethod
+    def stats(
+        self,
+        G: GraphV2,
+        *,
+        max_iterations: int,
+        concurrency: int | None = None,
+        job_id: str | None = None,
+        log_progress: bool = True,
+        min_association_strength: float = 0.2,
+        node_labels: list[str] = ALL_LABELS,
+        partitioning: str = "RANGE",
+        relationship_types: list[str] = ALL_TYPES,
+        sudo: bool = False,
+        username: str | None = None,
+    ) -> SllpaStatsResult:
+        """
+        Executes the Speaker-Listener Label Propagation algorithm (SLLPA) and returns statistics about the communities.
+
+        Parameters
+        ----------
+        G
+           Graph object to use
+        concurrency
+            Number of concurrent threads to use.
+        job_id
+            Identifier for the computation.
+        log_progress
+            Display progress logging.
+        min_association_strength : float | None, default=None
+            Minimum association strength for community assignment
+        node_labels
+            Filter the graph using the given node labels. Nodes with any of the given labels will be included.
+        partitioning : str | None
+            Partitioning configuration for the algorithm
+        relationship_types
+            Filter the graph using the given relationship types. Relationships with any of the given types will be included.
+        sudo
+            Disable the memory guard.
+        username
+            As an administrator, impersonate a different user for accessing their graphs.
+
+        Returns
+        -------
+        SllpaStatsResult
+            An object containing statistics about the algorithm execution
+        """
+        ...
+
+    @abstractmethod
+    def stream(
+        self,
+        G: GraphV2,
+        *,
+        max_iterations: int,
+        concurrency: int | None = None,
+        job_id: str | None = None,
+        log_progress: bool = True,
+        min_association_strength: float = 0.2,
+        node_labels: list[str] = ALL_LABELS,
+        partitioning: str = "RANGE",
+        relationship_types: list[str] = ALL_TYPES,
+        sudo: bool = False,
+        username: str | None = None,
+    ) -> DataFrame:
+        """
+        Executes the Speaker-Listener Label Propagation algorithm (SLLPA) and returns the results as a DataFrame.
+
+        Parameters
+        ----------
+        G
+           Graph object to use
+        concurrency
+            Number of concurrent threads to use.
+        job_id
+            Identifier for the computation.
+        log_progress
+            Display progress logging.
+        min_association_strength : float | None, default=None
+            Minimum association strength for community assignment
+        node_labels
+            Filter the graph using the given node labels. Nodes with any of the given labels will be included.
+        partitioning : str | None
+            Partitioning configuration for the algorithm
+        relationship_types
+            Filter the graph using the given relationship types. Relationships with any of the given types will be included.
+        sudo
+            Disable the memory guard.
+        username
+            As an administrator, impersonate a different user for accessing their graphs.
+
+        Returns
+        -------
+        DataFrame
+            DataFrame containing node IDs and their community values
+        """
+        ...
+
+    @abstractmethod
+    def write(
+        self,
+        G: GraphV2,
+        write_property: str,
+        *,
+        max_iterations: int,
+        concurrency: int | None = None,
+        job_id: str | None = None,
+        log_progress: bool = True,
+        min_association_strength: float = 0.2,
+        node_labels: list[str] = ALL_LABELS,
+        partitioning: str = "RANGE",
+        relationship_types: list[str] = ALL_TYPES,
+        sudo: bool = False,
+        username: str | None = None,
+        write_concurrency: int | None = None,
+    ) -> SllpaWriteResult:
+        """
+        Executes the Speaker-Listener Label Propagation algorithm (SLLPA) and writes the results back to the database.
+
+        Parameters
+        ----------
+        G
+           Graph object to use
+        write_property
+            Name of the node property to store the results in.
+        concurrency
+            Number of concurrent threads to use.
+        job_id
+            Identifier for the computation.
+        log_progress
+            Display progress logging.
+        min_association_strength : float | None, default=None
+            Minimum association strength for community assignment
+        node_labels
+            Filter the graph using the given node labels. Nodes with any of the given labels will be included.
+        partitioning : str | None
+            Partitioning configuration for the algorithm
+        relationship_types
+            Filter the graph using the given relationship types. Relationships with any of the given types will be included.
+        sudo
+            Disable the memory guard.
+        username
+            As an administrator, impersonate a different user for accessing their graphs.
+        write_concurrency
+            Number of concurrent threads to use for writing.Returns
+        -------
+        SllpaWriteResult
+            An object containing metadata about the algorithm execution and the write operation
+        """
+        ...
+
+    @abstractmethod
+    def estimate(
+        self,
+        G: GraphV2 | dict[str, Any],
+        *,
+        max_iterations: int,
+        concurrency: int | None = None,
+        min_association_strength: float = 0.2,
+        node_labels: list[str] = ALL_LABELS,
+        partitioning: str = "RANGE",
+        relationship_types: list[str] = ALL_TYPES,
+    ) -> EstimationResult:
+        """
+        Estimates the memory consumption for running the Speaker-Listener Label Propagation algorithm (SLLPA).
+
+        Parameters
+        ----------
+        G
+           Graph object to use or a dictionary representing the graph dimensions.
+        concurrency
+            Number of concurrent threads to use.
+        min_association_strength : float | None, default=None
+            Minimum association strength for community assignment
+        node_labels
+            Filter the graph using the given node labels. Nodes with any of the given labels will be included.
+        partitioning : str | None
+            Partitioning configuration for the algorithm
+        relationship_types
+            Filter the graph using the given relationship types. Relationships with any of the given types will be included.
+
+        Returns
+        -------
+        EstimationResult
+            An object containing the memory estimation
+        """
+        ...
+
+
+class SllpaMutateResult(BaseResult):
+    ran_iterations: int
+    did_converge: bool
+    pre_processing_millis: int
+    compute_millis: int
+    mutate_millis: int
+    node_properties_written: int
+    configuration: dict[str, Any]
+
+
+class SllpaStatsResult(BaseResult):
+    ran_iterations: int
+    did_converge: bool
+    pre_processing_millis: int
+    compute_millis: int
+    configuration: dict[str, Any]
+
+
+class SllpaWriteResult(BaseResult):
+    ran_iterations: int
+    did_converge: bool
+    pre_processing_millis: int
+    compute_millis: int
+    write_millis: int
+    node_properties_written: int
+    configuration: dict[str, Any]

@@ -11,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: "3.13"
 
       - name: Install dependencies
         run: python3 -m pip install --upgrade build
@@ -42,9 +42,9 @@ jobs:
           path: dist
 
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: "3.13"
 
       - name: Install twine
         run: python3 -m pip install --upgrade twine
@@ -53,9 +53,9 @@ jobs:
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_TOKEN }}
-        run: python3 -m twine upload --skip-existing --repository testpypi dist/*
+        run: python3 -m twine upload --skip-existing --repository testpypi dist/* --verbose
 
-      - name: Test pip install from test.pypi
+      - name: Test pip install from Test PyPI and verify version number
         run: |
           python -m venv venv-test-pypi
           venv-test-pypi/bin/python -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple bambi
@@ -73,9 +73,9 @@ jobs:
           path: dist
 
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: "3.13"
 
       - name: Install twine
         run: python3 -m pip install --upgrade twine
@@ -84,9 +84,9 @@ jobs:
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: python3 -m twine upload dist/*
+        run: python3 -m twine upload dist/* --verbose
 
 # See documentation on accesing the tag from the release
-# Look for 'github.ref' and 'github.ref_name' in https://docs.github.com/en/actions/learn-github-actions/contexts 
+# Look for 'github.ref' and 'github.ref_name' in https://docs.github.com/en/actions/learn-github-actions/contexts
 # On October, 2023 it says "For workflows triggered by release, this is the release tag created"
 # So 'github.ref_name' should be the version number of the release we're making.

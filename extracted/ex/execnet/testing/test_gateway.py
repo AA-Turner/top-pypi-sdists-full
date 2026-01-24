@@ -12,8 +12,9 @@ import sys
 from textwrap import dedent
 from typing import Callable
 
-import execnet
 import pytest
+
+import execnet
 from execnet import gateway_base
 from execnet import gateway_io
 from execnet.gateway import Gateway
@@ -502,15 +503,15 @@ class TestTracing:
         monkeypatch.setenv("EXECNET_DEBUG", "2")
         gw = makegateway("popen")
         pid = gw.remote_exec("import os ; channel.send(os.getpid())").receive()
-        out, err = capfd.readouterr()
+        _out, err = capfd.readouterr()
         worker_line = "[%s] creating workergateway" % pid
         assert worker_line in err
         gw.exit()
 
     def test_no_tracing_by_default(self):
-        assert (
-            gateway_base.trace == gateway_base.notrace
-        ), "trace does not to default to empty tracing"
+        assert gateway_base.trace == gateway_base.notrace, (
+            "trace does not to default to empty tracing"
+        )
 
 
 @pytest.mark.parametrize(

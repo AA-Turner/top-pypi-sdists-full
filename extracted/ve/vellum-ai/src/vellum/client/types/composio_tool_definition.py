@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .integration import Integration
 
 
 class ComposioToolDefinition(UniversalBaseModel):
@@ -12,9 +13,13 @@ class ComposioToolDefinition(UniversalBaseModel):
     """
 
     provider: typing.Literal["COMPOSIO"] = "COMPOSIO"
+    integration: Integration
     name: str
+    label: str
     description: str
-    parameters: typing.Dict[str, typing.Optional[typing.Any]]
+    input_parameters: typing.Dict[str, typing.Optional[typing.Any]]
+    output_parameters: typing.Dict[str, typing.Optional[typing.Any]]
+    toolkit_version: str
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

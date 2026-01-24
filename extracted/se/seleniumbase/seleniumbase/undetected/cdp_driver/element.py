@@ -372,7 +372,10 @@ class Element:
         arguments = [cdp.runtime.CallArgument(
             object_id=self._remote_object.object_id
         )]
-        await self.flash_async(0.25)
+        script = 'sessionStorage.getItem("pxsid") !== null;'
+        using_px = await self.tab.evaluate(script)
+        if not using_px:
+            await self.flash_async(0.25)
         await self._tab.send(
             cdp.runtime.call_function_on(
                 "(el) => el.click()",
@@ -484,17 +487,14 @@ class Element:
         buttons: typing.Optional[int] = 1,
         modifiers: typing.Optional[int] = 0,
         hold: bool = False,
-        _until_event: typing.Optional[type] = None,
     ):
         """
         Native click (on element).
-        Note: This likely does not work at the moment. Use click() instead.
         :param button: str (default = "left")
         :param buttons: which button (default 1 = left)
         :param modifiers: *(Optional)*
                 Bit field representing pressed modifier keys.
                 Alt=1, Ctrl=2, Meta/Command=4, Shift=8 (default: 0).
-        :param _until_event: Internal. Event to wait for before returning.
         """
         try:
             center = (await self.get_position_async()).center
@@ -504,7 +504,11 @@ class Element:
             logger.warning("Could not calculate box model for %s", self)
             return
         logger.debug("Clicking on location: %.2f, %.2f" % center)
-        await asyncio.gather(
+        script = 'sessionStorage.getItem("pxsid") !== null;'
+        using_px = await self.tab.evaluate(script)
+        if not using_px:
+            asyncio.create_task(self.flash_async(0.25))
+        asyncio.create_task(
             self._tab.send(
                 cdp.input_.dispatch_mouse_event(
                     "mousePressed",
@@ -516,6 +520,8 @@ class Element:
                     click_count=1,
                 )
             ),
+        )
+        asyncio.create_task(
             self._tab.send(
                 cdp.input_.dispatch_mouse_event(
                     "mouseReleased",
@@ -528,10 +534,73 @@ class Element:
                 )
             ),
         )
+
+    async def mouse_click_with_offset_async(
+        self,
+        x: typing.Union[float, int],
+        y: typing.Union[float, int],
+        center: bool = False,
+        button: str = "left",
+        buttons: typing.Optional[int] = 1,
+        modifiers: typing.Optional[int] = 0,
+    ):
+        x_offset = int(x)
+        y_offset = int(y)
         try:
-            await self.flash_async()
-        except BaseException:
-            pass
+            position = (await self.get_position_async())
+            width = position.width
+            height = position.height
+            x_pos = position.left
+            y_pos = position.top
+            center_pos = (await self.get_position_async()).center
+        except AttributeError:
+            return
+        if not center_pos:
+            logger.warning("Could not calculate box model for %s", self)
+            return
+        if center:
+            x_pos = center_pos[0]
+            y_pos = center_pos[1]
+            width = 0
+            height = 0
+            logger.debug("Clicking on location: %.2f, %.2f" % center_pos)
+        else:
+            logger.debug("Clicking on location: %.2f, %.2f" % (x_pos, y_pos))
+        script = 'sessionStorage.getItem("pxsid") !== null;'
+        using_px = await self.tab.evaluate(script)
+        if not using_px:
+            asyncio.create_task(
+                self.flash_async(
+                    x_offset=x_offset - (width / 2),
+                    y_offset=y_offset - (height / 2),
+                ),
+            )
+        asyncio.create_task(
+            self._tab.send(
+                cdp.input_.dispatch_mouse_event(
+                    "mousePressed",
+                    x=x_pos + x_offset,
+                    y=y_pos + y_offset,
+                    modifiers=modifiers,
+                    button=cdp.input_.MouseButton(button),
+                    buttons=buttons,
+                    click_count=1,
+                )
+            )
+        )
+        asyncio.create_task(
+            self._tab.send(
+                cdp.input_.dispatch_mouse_event(
+                    "mouseReleased",
+                    x=x_pos + x_offset,
+                    y=y_pos + y_offset,
+                    modifiers=modifiers,
+                    button=cdp.input_.MouseButton(button),
+                    buttons=buttons,
+                    click_count=1,
+                )
+            ),
+        )
 
     async def mouse_move_async(self):
         """
@@ -548,16 +617,13 @@ class Element:
             *center,
             self,
         )
-        await self._tab.send(
-            cdp.input_.dispatch_mouse_event(
-                "mouseMoved", x=center[0], y=center[1]
-            )
-        )
-        await self._tab.sleep(0.05)
-        await self._tab.send(
-            cdp.input_.dispatch_mouse_event(
-                "mouseReleased", x=center[0], y=center[1]
-            )
+        await asyncio.gather(
+            self._tab.send(
+                cdp.input_.dispatch_mouse_event(
+                    "mouseMoved", x=center[0], y=center[1]
+                )
+            ),
+            self._tab.sleep(0.05),
         )
 
     async def mouse_drag_async(
@@ -664,7 +730,7 @@ class Element:
             return
         # await self.apply("""(el) => el.scrollIntoView(false)""")
 
-    async def clear_input_async(self, _until_event: type = None):
+    async def clear_input_async(self):
         """Clears an input field."""
         try:
             await self.apply('function (element) { element.value = "" } ')
@@ -752,7 +818,10 @@ class Element:
 
     async def get_html_async(self):
         return await self._tab.send(
-            cdp.dom.get_outer_html(backend_node_id=self.backend_node_id)
+            cdp.dom.get_outer_html(
+                backend_node_id=self.backend_node_id,
+                include_shadow_dom=True,
+            )
         )
 
     @property
@@ -771,7 +840,7 @@ class Element:
         """
         with suppress(Exception):
             if self.node.node_name.lower() in ["input", "textarea"]:
-                input_node = self.node.shadow_roots[0].children[0].children[0]
+                input_node = self.node.shadow_roots[0].children[-1].children[0]
                 if input_node:
                     return input_node.node_value
         text_nodes = util.filter_recurse_all(
@@ -784,7 +853,7 @@ class Element:
         """Same as text(). Kept for backwards compatibility."""
         with suppress(Exception):
             if self.node.node_name.lower() in ["input", "textarea"]:
-                input_node = self.node.shadow_roots[0].children[0].children[0]
+                input_node = self.node.shadow_roots[0].children[-1].children[0]
                 if input_node:
                     return input_node.node_value
         text_nodes = util.filter_recurse_all(
@@ -952,18 +1021,21 @@ class Element:
             .replace("  ", "")
             .replace("\n", "")
         )
-        arguments = [cdp.runtime.CallArgument(
-            object_id=self._remote_object.object_id
-        )]
-        await self._tab.send(
-            cdp.runtime.call_function_on(
-                script,
-                object_id=self._remote_object.object_id,
-                arguments=arguments,
-                await_promise=True,
-                user_gesture=True,
+        try:
+            arguments = [cdp.runtime.CallArgument(
+                object_id=self._remote_object.object_id
+            )]
+            await self._tab.send(
+                cdp.runtime.call_function_on(
+                    script,
+                    object_id=self._remote_object.object_id,
+                    arguments=arguments,
+                    await_promise=True,
+                    user_gesture=True,
+                )
             )
-        )
+        except Exception:
+            pass
 
     async def highlight_overlay_async(self):
         """

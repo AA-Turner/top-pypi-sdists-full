@@ -1,0 +1,19 @@
+file:
+- statement:
+  - create_index_statement:
+    - keyword: CREATE
+    - keyword: INDEX
+    - keyword: IF
+    - keyword: NOT
+    - keyword: EXISTS
+    - database_reference:
+      - naked_identifier: transaction_updated
+    - keyword: ON
+    - table_reference:
+      - naked_identifier: transaction_master
+    - bracketed:
+      - start_bracket: (
+      - index_column_definition:
+        - naked_identifier: last_updated
+      - end_bracket: )
+- statement_terminator: ;

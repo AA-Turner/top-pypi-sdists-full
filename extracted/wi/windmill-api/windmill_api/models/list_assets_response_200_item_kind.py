@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class ListAssetsResponse200ItemKind(str, Enum):
+    DATATABLE = "datatable"
     DUCKLAKE = "ducklake"
     RESOURCE = "resource"
     S3OBJECT = "s3object"

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "heavyball"
 description = "Efficient Optimizers"
-version = "2.0.0"
+version = "2.2.3"
 authors = [{ name = "HeavyBall Authors", email = "github.heavyball@nestler.sh" }]
 classifiers = ["Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
@@ -15,8 +15,8 @@ classifiers = ["Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
 ]
 dependencies = ["opt-einsum>=3.4.0",
-    "torch>=2.7.0",
-    "numpy",
+    "torch>=2.2,<3.0",
+    "numpy>=2.3.4",
 ]
 keywords = ["torch",
     "optimizer",
@@ -28,7 +28,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 
 [project.optional-dependencies]
-dev = ["pre-commit", "pytest", "ruff", "matplotlib", "seaborn", "hyperopt", "pandas", "typer", "optuna", "optunahub", "botorch", "hebo"]
+dev = ["pre-commit", "pytest", "hypothesis", "ruff", "matplotlib", "seaborn", "pandas", "typer", "optuna", "optunahub", "hebo", "lightbench"]
 
 [project.urls]
 source = "https://github.com/HomebrewML/HeavyBall"

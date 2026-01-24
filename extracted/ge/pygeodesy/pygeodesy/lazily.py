@@ -30,8 +30,8 @@ and line number.
 from pygeodesy import internals as _internals, interns as _interns, \
                      _isfrozen  # DON'T _lazy_import2
 # from pygeodesy.errors import _error_init, _ImmutableError, _xkwds_item2  # _ALL_MODS
-from pygeodesy.internals import _caller3, _envPYGEODESY, _headof, printf, _tailof, \
-                                 typename, _versions  # _getenv, _PYGEODESY_ENV, \
+from pygeodesy.internals import _caller3, _envPYGEODESY, _headof, printf, _Property_RO, \
+                                _tailof, typename, _versions  # _getenv, _PYGEODESY_ENV, \
 #                               _MODS_Base, _MODS.sys_version_info2
 from pygeodesy.interns import _attribute_, _by_, _COLONSPACE_, _COMMASPACE_, _DALL_, \
                               _DMAIN_, _doesn_t_exist_, _DOT_, _EQUALSPACED_, _from_, \
@@ -179,6 +179,7 @@ _ALL_LAZY = _NamedEnum_RO(_name='_ALL_LAZY',
                          albers=_a('AlbersEqualArea', 'AlbersEqualArea2', 'AlbersEqualArea4',
                                    'AlbersEqualAreaCylindrical', 'AlbersEqualAreaNorth', 'AlbersEqualAreaSouth',
                                    'AlbersError', 'Albers7Tuple'),
+                         angles=_a('Ang', 'Deg', 'Lambertian', 'Rad', 'isAng'),
                        auxilats=_a(),  # module only
                       azimuthal=_a('AzimuthalError', 'Azimuthal7Tuple',
                                    'Equidistant', 'EquidistantExact', 'EquidistantGeodSolve', 'EquidistantKarney',
@@ -199,11 +200,11 @@ _ALL_LAZY = _NamedEnum_RO(_name='_ALL_LAZY',
                                    'clipCS4', 'clipFHP4', 'clipGH4', 'clipLB6', 'clipSH', 'clipSH3'),
                             css=_a('CassiniSoldner', 'Css', 'CSSError', 'toCss',
                                    'EasNorAziRk4Tuple', 'EasNorAziRkEqu6Tuple', 'LatLonAziRk4Tuple'),
-                      constants=_a('DIG', 'EPS', 'EPS0', 'EPS02', 'EPS1', 'EPS2', 'EPS4', 'EPS_2',
+                      constants=_a('DIG', 'EPS', 'EPS0', 'EPS02', 'EPS1', 'EPS2', 'EPS4', 'EPS8', 'EPS_2',
                                    'INF', 'INT0', 'MANT_DIG', 'MAX', 'MAX_EXP', 'MIN', 'MIN_EXP', 'NAN', 'NEG0', 'NINF',
-                                   'PI', 'PI2', 'PI_2', 'PI3', 'PI_3', 'PI3_2', 'PI4', 'PI_4', 'PI_6',
+                                   'OVERFLOW', 'PI', 'PI2', 'PI_2', 'PI3', 'PI_3', 'PI3_2', 'PI4', 'PI_4', 'PI_6',
                                    'R_FM', 'R_GM', 'R_KM', 'R_M', 'R_MA', 'R_MB', 'R_NM', 'R_QM', 'R_SM', 'R_VM',
-                                   'float_', 'float0_', 'isclose', 'isfinite', 'isinf', 'isint0',
+                                   'float_', 'float0_', 'floats_', 'isclose', 'isfinite', 'isinf', 'isint0',
                                    'isnan', 'isnear0', 'isnear1', 'isnear90', 'isneg', 'isneg0', 'isninf', 'isnon0',
                                    'remainder'),
                          datums=_a('Datum', 'Datums', 'Transform', 'Transforms'),
@@ -233,7 +234,8 @@ _ALL_LAZY = _NamedEnum_RO(_name='_ALL_LAZY',
                                    'a_f2b', 'a_f_2b', 'b_f2a', 'b_f_2a',
                                    'e2f', 'e22f',
                                    'f2e2', 'f2e22', 'f2e32', 'f_2f', 'f2f_', 'f2f2', 'f2n', 'n2e2', 'n2f', 'n2f_'),
-                       elliptic=_a('Elliptic', 'EllipticError', 'Elliptic3Tuple'),
+                       elliptic=_a('Elliperim', 'Elliptic', 'EllipticError', 'Elliptic3Tuple',
+                                   'elliperim', 'elliperim_'),
                            epsg=_a('Epsg', 'EPSGError'),
                          errors=_a('AuxError', 'ClipError', 'CrossError', 'GeodesicError', 'IntersectionError',
                                    'NumPyError', 'LenError', 'LimitError', 'MGRSError',
@@ -275,6 +277,7 @@ _ALL_LAZY = _NamedEnum_RO(_name='_ALL_LAZY',
                       geodesicx=_a('gx', 'gxarea', 'gxbases', 'gxline',  # modules
                                    'GeodesicAreaExact', 'GeodesicExact', 'GeodesicLineExact', 'PolygonArea'),
                       geodsolve=_a('GeodesicSolve', 'GeodesicLineSolve', 'GeodSolve12Tuple'),
+                     geod3solve=_a('Geodesic3Solve', 'GeodesicLine3Solve', 'Geod3Solve8Tuple', 'Geodesic3Error'),
                         geohash=_a('Geohash', 'Geohashed', 'GeohashError', 'Neighbors8Dict', 'Resolutions2Tuple', 'Sizes3Tuple'),
                          geoids=_a('GeoidError', 'GeoidEGM96', 'GeoidG2012B', 'GeoidKarney', 'GeoidPGM', 'egmGeoidHeights',
                                    'PGMError', 'GeoidHeight5Tuple'),
@@ -291,7 +294,7 @@ _ALL_LAZY = _NamedEnum_RO(_name='_ALL_LAZY',
                         interns=_interns.__all__,
                           iters=_a('LatLon2PsxyIter', 'PointsIter', 'points2',
                                    'isNumpy2', 'isPoints2', 'isTuple2', 'iterNumpy2', 'iterNumpy2over'),
-                         karney=_a('Area3Tuple', 'Caps', 'Direct9Tuple', 'GDict', 'Inverse10Tuple', 'Rhumb8Tuple'),
+                         karney=_a('Area3Tuple', 'Caps', 'Direct9Tuple', 'GDict', 'Inverse10Tuple'),
                             ktm=_a('KTMError', 'KTransverseMercator'),
                      latlonBase=_a('latlon2n_xyz', 'philam2n_xyz'),
                          lazily=_a('LazyAttributeError', 'LazyImportError', 'isLazy'),
@@ -336,7 +339,7 @@ _ALL_LAZY = _NamedEnum_RO(_name='_ALL_LAZY',
                           rhumb=_a(),  # module only
                      rhumb_aux_=_a('RhumbAux', 'RhumbLineAux'),
                       rhumb_ekx=_a('Rhumb', 'RhumbLine'),
-                    rhumb_solve=_a('RhumbSolve', 'RhumbLineSolve', 'RhumbSolve7Tuple'),
+                    rhumb_solve=_a('RhumbSolve', 'RhumbLineSolve', 'RhumbSolve7Tuple', 'Rhumb8Tuple'),  # in .karney
                   sphericalBase=_a(),  # module only
                sphericalNvector=_a(),  # module only
           sphericalTrigonometry=_a(),  # module only
@@ -346,9 +349,15 @@ _ALL_LAZY = _NamedEnum_RO(_name='_ALL_LAZY',
                                    'lrstrip', 'pairs', 'reprs', 'strs', 'unstr'),
                             trf=_a('RefFrame', 'RefFrames', 'TransformXform', 'TRFXform', 'TRFXform7Tuple',
                                    'date2epoch', 'epoch2date', 'trfTransform0', 'trfTransforms', 'trfXform'),
-                      triaxials=_a('BetaOmega2Tuple', 'BetaOmega3Tuple', 'Jacobi2Tuple',
-                                   'JacobiConformal', 'JacobiConformalSpherical',
-                                   'Triaxial', 'Triaxial_', 'TriaxialError', 'Triaxials', 'hartzell4'),
+                      triaxials=_a(),  # module only
+                triaxials_bases=_a('LLK', 'TriaxialError'),
+           triaxials_conformal3=_a('BetOmgGam5Tuple',
+                                   'Conformal3', 'Conformal3B', 'Conformal3Sphere', 'Conformal5Tuple'),
+            triaxials_triaxial3=_a('BetOmgAlp5Tuple', 'Cartesian5Tuple', 'PhiLamZet5Tuple',
+                                   'Triaxial3', 'Triaxial3B', 'Triaxial3s'),
+            triaxials_triaxial5=_a('BetaOmega2Tuple', 'BetaOmega3Tuple',
+                                   'Conformal', 'ConformalSphere', 'Conformal2Tuple',
+                                   'Triaxial', 'Triaxial_', 'Triaxials', 'hartzell4', 'height4'),
                           units=_a('Azimuth', 'Band', 'Bearing', 'Bearing_', 'Bool',
                                    'Degrees', 'Degrees_', 'Degrees2', 'Distance', 'Distance_', 'Easting', 'Epoch',
                                    'Feet', 'FIx', 'Float_', 'Height', 'Height_', 'HeightX', 'Int_',
@@ -394,6 +403,7 @@ _ALL_DEPRECATED = _NamedEnum_RO(_name='_ALL_DEPRECATED',
                                          'HausdorffCosineAndoyerLambert', 'HausdorffCosineForsytheAndoyerLambert',
                                          'HeightIDW', 'HeightIDW2', 'HeightIDW3', 'HeightIDWcosineAndoyerLambert',
                                          'HeightIDWcosineForsytheAndoyerLambert', 'Helmert7Tuple',
+                                         'JacobiConformal', 'JacobiConformalSpherical', 'Jacobi2Tuple',
                                          'Lam_', 'LatLonExact4Tuple', 'NearestOn4Tuple', 'Ned3Tuple',
                                          'Phi_', 'RefFrameError', 'Rhumb7Tuple', 'RhumbOrder2Tuple',
                                          'Transform7Tuple', 'TriAngle4Tuple', 'UtmUps4Tuple', 'XDist'),
@@ -508,10 +518,16 @@ class _ALL_MODS(_internals._MODS_Base):
             if _headof(n) == _pygeodesy_:
                 yield n, m
 
+    @_Property_RO
+    def _triaxials_triaxial5(self):
+        '''(INTERNAL) Get module C{triaxial.triaxials}.
+        '''
+        return self.triaxials.triaxial5
+
 _internals._MODS = _ALL_MODS = _ALL_MODS()  # PYCHOK singleton
 
 __all__ = _ALL_LAZY.lazily
-__version__ = '25.09.09'
+__version__ = '26.01.06'
 
 
 def _ALL_OTHER(*objs):
@@ -616,7 +632,7 @@ def _getmodinto(mod_DNAME, *Intos):
     assert isinstance(i, Intos)
     m = _MODS.getmodule(mod)
     setattr(d, _mod, m)  # overwrite C{d._mod}
-    if isLazy > 1:
+    if isLazy and isLazy > 1:
         t = _SPACE_(_HASH_, _imported_, m.__name__)  # typename(m)
         _hash_imported(t, _MODS.into.__name__)
     assert getattr(d, _mod, None) is m
@@ -636,7 +652,7 @@ def _getmodule(name, *parent):
 def _hash_imported(t, by_into, up=3):
     '''(INTERNAL) Helper for C{_lazy_import2} and C{_ALL_MODS.into}.
     '''
-    if isLazy > 2:
+    if isLazy and isLazy > 2:
         try:  # see C{internals._caller3}
             _, f, s = _caller3(up)
             t = _SPACE_(t, by_into, f, _line_, s)
@@ -906,6 +922,9 @@ if __name__ == _DMAIN_:
 
     _main()
 
+# % python3.14 -W ignore -m pygeodesy.lazily
+# 0.061219 import vs 0.047896 _ALL_MODS: 1.28X, pygeodesy 25.12.6 Python 3.14.0 64bit arm64 macOS 26.1
+
 # % python3.13 -W ignore -m pygeodesy.lazily
 # 0.054235 import vs 0.052469 _ALL_MODS: 1.03X, pygeodesy 25.4.24 Python 3.13.3 64bit arm64 macOS 15.4
 
@@ -932,7 +951,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2018-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2018-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

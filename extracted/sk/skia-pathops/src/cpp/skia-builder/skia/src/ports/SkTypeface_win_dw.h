@@ -10,6 +10,7 @@
 
 #include "include/core/SkFontArguments.h"
 #include "include/core/SkTypeface.h"
+#include "include/private/base/SkAPI.h"
 #include "src/base/SkLeanWindows.h"
 #include "src/core/SkAdvancedTypefaceMetrics.h"
 #include "src/core/SkTypefaceCache.h"
@@ -25,26 +26,14 @@
 class SkFontDescriptor;
 struct SkScalerContextRec;
 
-/* dwrite_3.h incorrectly uses NTDDI_VERSION to hide immutible interfaces (it should only be used to
+/* dwrite_3.h incorrectly uses NTDDI_VERSION to hide immutable interfaces (it should only be used to
    gate changes to public ABI). The implementation files can (and must) get away with including
    SkDWriteNTDDI_VERSION.h which simply unsets NTDDI_VERSION, but this doesn't work well for this
    header which can be included in SkTypeface.cpp. Instead, ensure that any declarations hidden
    behind the NTDDI_VERSION are forward (backward?) declared here in case dwrite_3.h did not declare
    them. */
 interface IDWriteFontFace4;
-
-static SkFontStyle get_style(IDWriteFont* font) {
-    int weight = font->GetWeight();
-    int width = font->GetStretch();
-    SkFontStyle::Slant slant = SkFontStyle::kUpright_Slant;
-    switch (font->GetStyle()) {
-        case DWRITE_FONT_STYLE_NORMAL: slant = SkFontStyle::kUpright_Slant; break;
-        case DWRITE_FONT_STYLE_OBLIQUE: slant = SkFontStyle::kOblique_Slant; break;
-        case DWRITE_FONT_STYLE_ITALIC: slant = SkFontStyle::kItalic_Slant; break;
-        default: SkASSERT(false); break;
-    }
-    return SkFontStyle(weight, width, slant);
-}
+interface IDWriteFontFace7;
 
 class DWriteFontTypeface : public SkTypeface {
 public:
@@ -68,7 +57,8 @@ public:
     };
 
     static constexpr SkTypeface::FactoryId FactoryId = SkSetFourByteTag('d','w','r','t');
-    static sk_sp<SkTypeface> MakeFromStream(std::unique_ptr<SkStreamAsset>, const SkFontArguments&);
+    static sk_sp<SkTypeface> SK_SPI MakeFromStream(std::unique_ptr<SkStreamAsset>,
+                                                   const SkFontArguments&);
 
     ~DWriteFontTypeface() override;
 private:
@@ -90,6 +80,15 @@ public:
     SkTScopedComPtr<IDWriteFontFace1> fDWriteFontFace1;
     SkTScopedComPtr<IDWriteFontFace2> fDWriteFontFace2;
     SkTScopedComPtr<IDWriteFontFace4> fDWriteFontFace4;
+    // Once WDK 10.0.25357.0 or newer is required to build, fDWriteFontFace7 can be a smart pointer.
+    // If a smart pointer is used then ~DWriteFontTypeface must call the smart pointer's destructor,
+    // which must include code to Release the IDWriteFontFace7, but there may be no IDWriteFontFace7
+    // other than the forward declaration. Skia should never declare an IDWriteFontFace7 (other than
+    // copying the entire interface) for ODR reasons. This header cannot detect if there will be a
+    // full declaration of IDWriteFontFace7 at the ~DWriteFontTypeface implementation because of
+    // NTDDI_VERSION shenanigains, otherwise this defintition could just be ifdef'ed.
+    //SkTScopedComPtr<IDWriteFontFace7> fDWriteFontFace7;
+    IDWriteFontFace7* fDWriteFontFace7 = nullptr;
     bool fIsColorFont;
 
     std::unique_ptr<SkFontArguments::Palette::Override> fRequestedPaletteEntryOverrides;
@@ -97,18 +96,16 @@ public:
 
     size_t fPaletteEntryCount;
     std::unique_ptr<SkColor[]> fPalette;
+    std::unique_ptr<DWRITE_COLOR_F[]> fDWPalette;
 
+    static SkFontStyle GetStyle(IDWriteFont* font, IDWriteFontFace* fontFace);
     static sk_sp<DWriteFontTypeface> Make(
         IDWriteFactory* factory,
         IDWriteFontFace* fontFace,
         IDWriteFont* font,
         IDWriteFontFamily* fontFamily,
         sk_sp<Loaders> loaders,
-        const SkFontArguments::Palette& palette)
-    {
-        return sk_sp<DWriteFontTypeface>(new DWriteFontTypeface(
-            get_style(font), factory, fontFace, font, fontFamily, std::move(loaders), palette));
-    }
+        const SkFontArguments::Palette& palette);
 
 protected:
     void weak_dispose() const override {
@@ -123,22 +120,22 @@ protected:
     std::unique_ptr<SkScalerContext> onCreateScalerContext(const SkScalerContextEffects&,
                                                            const SkDescriptor*) const override;
     void onFilterRec(SkScalerContextRec*) const override;
-    void getGlyphToUnicodeMap(SkUnichar* glyphToUnicode) const override;
+    void getGlyphToUnicodeMap(SkSpan<SkUnichar>) const override;
     std::unique_ptr<SkAdvancedTypefaceMetrics> onGetAdvancedMetrics() const override;
     void onGetFontDescriptor(SkFontDescriptor*, bool*) const override;
-    void onCharsToGlyphs(const SkUnichar* chars, int count, SkGlyphID glyphs[]) const override;
+    void onCharsToGlyphs(SkSpan<const SkUnichar>, SkSpan<SkGlyphID>) const override;
     int onCountGlyphs() const override;
     void getPostScriptGlyphNames(SkString*) const override;
     int onGetUPEM() const override;
     void onGetFamilyName(SkString* familyName) const override;
     bool onGetPostScriptName(SkString*) const override;
+    int onGetResourceName(SkString*) const override;
     SkTypeface::LocalizedStrings* onCreateFamilyNameIterator() const override;
     bool onGlyphMaskNeedsCurrentColor() const override;
-    int onGetVariationDesignPosition(SkFontArguments::VariationPosition::Coordinate coordinates[],
-                                     int coordinateCount) const override;
-    int onGetVariationDesignParameters(SkFontParameters::Variation::Axis parameters[],
-                                       int parameterCount) const override;
-    int onGetTableTags(SkFontTableTag tags[]) const override;
+    int onGetVariationDesignPosition(
+                             SkSpan<SkFontArguments::VariationPosition::Coordinate>) const override;
+    int onGetVariationDesignParameters(SkSpan<SkFontParameters::Variation::Axis>) const override;
+    int onGetTableTags(SkSpan<SkFontTableTag>) const override;
     size_t onGetTableData(SkFontTableTag, size_t offset, size_t length, void* data) const override;
     sk_sp<SkData> onCopyTableData(SkFontTableTag) const override;
 

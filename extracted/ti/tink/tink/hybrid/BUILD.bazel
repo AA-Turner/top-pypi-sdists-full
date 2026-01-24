@@ -68,6 +68,7 @@ py_library(
     deps = [
         ":_hybrid_decrypt",
         ":_hybrid_encrypt",
+        "//tink:_monitoring",
         "//tink/core",
     ],
 )
@@ -79,9 +80,13 @@ py_test(
     deps = [
         ":hybrid",
         requirement("absl-py"),
+        "//tink:_keyset_handle",
+        "//tink:_monitoring",
         "//tink:secret_key_access",
         "//tink:tink_python",
+        "//tink/core",
         "//tink/proto:tink_py_pb2",
+        "//tink/testing:fake_key_usage_monitor",
         "//tink/testing:keyset_builder",
     ],
 )

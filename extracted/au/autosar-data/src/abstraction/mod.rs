@@ -197,6 +197,7 @@ pub(crate) fn add_submodules(py: Python<'_>, parent: &Bound<'_, PyModule>) -> Py
     abstraction.add_class::<ByteOrder>()?;
     abstraction.add_class::<arpackage::ArPackage>()?;
     abstraction.add_class::<ecuinstance::EcuInstance>()?;
+    abstraction.add_class::<system::SenderReceiverToSignalMapping>()?;
     abstraction.add_class::<system::SwcToEcuMapping>()?;
     abstraction.add_class::<system::System>()?;
     abstraction.add_class::<system::SystemCategory>()?;
@@ -242,6 +243,7 @@ pub(crate) fn add_submodules(py: Python<'_>, parent: &Bound<'_, PyModule>) -> Py
     communication.add_class::<communication::DataTransformation>()?;
     communication.add_class::<communication::DataTransformationSet>()?;
     communication.add_class::<communication::DcmIPdu>()?;
+    communication.add_class::<communication::DiagPduType>()?;
     communication.add_class::<communication::DoIpLogicAddress>()?;
     communication.add_class::<communication::DoIpTpConfig>()?;
     communication.add_class::<communication::DoIpTpConnection>()?;
@@ -296,11 +298,22 @@ pub(crate) fn add_submodules(py: Python<'_>, parent: &Bound<'_, PyModule>) -> Py
     communication.add_class::<communication::ISignal>()?;
     communication.add_class::<communication::ISignalGroup>()?;
     communication.add_class::<communication::ISignalIPdu>()?;
+    communication.add_class::<communication::ISignalIPduGroup>()?;
     communication.add_class::<communication::ISignalPort>()?;
     communication.add_class::<communication::ISignalToIPduMapping>()?;
     communication.add_class::<communication::ISignalTriggering>()?;
     communication.add_class::<communication::InitialSdDelayConfig>()?;
     communication.add_class::<communication::IpduTiming>()?;
+    communication.add_class::<communication::LinCluster>()?;
+    communication.add_class::<communication::LinCommunicationConnector>()?;
+    communication.add_class::<communication::LinEventTriggeredFrame>()?;
+    communication.add_class::<communication::LinFrameTriggering>()?;
+    communication.add_class::<communication::LinFrameTriggeringIterator>()?;
+    communication.add_class::<communication::LinMaster>()?;
+    communication.add_class::<communication::LinPhysicalChannel>()?;
+    communication.add_class::<communication::LinSlave>()?;
+    communication.add_class::<communication::LinSporadicFrame>()?;
+    communication.add_class::<communication::LinUnconditionalFrame>()?;
     communication.add_class::<communication::LocalUnicastAddress>()?;
     communication.add_class::<communication::MaximumMessageLengthType>()?;
     communication.add_class::<communication::MultiplexedIPdu>()?;
@@ -354,6 +367,7 @@ pub(crate) fn add_submodules(py: Python<'_>, parent: &Bound<'_, PyModule>) -> Py
     communication.add_class::<communication::UdpNmClusterCoupling>()?;
     communication.add_class::<communication::UdpNmClusterSettings>()?;
     communication.add_class::<communication::UdpNmNode>()?;
+    communication.add_class::<communication::UserDefinedPdu>()?;
 
     let datatype = PyModule::new(py, "_datatype")?;
     abstraction.add_submodule(&datatype)?;

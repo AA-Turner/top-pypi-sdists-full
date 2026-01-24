@@ -11,11 +11,19 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        python-version: [3.8, 3.13]
+        include:
+          - python-version: 3.8
+            debian-version: bookworm
+          - python-version: 3.12
+            debian-version: trixie
+          - python-version: 3.13
+            debian-version: trixie
+          - python-version: 3.14
+            debian-version: trixie
     container:
-      image: python:${{ matrix.python-version }}-bookworm
+      image: python:${{ matrix.python-version }}-${{ matrix.debian-version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install dependencies
         run: |
           apt-get update
@@ -32,11 +40,11 @@ jobs:
     needs: []
     strategy:
       matrix:
-        python-version: [3.13]
+        python-version: [3.14]
     container:
-      image: python:3.13-bookworm
+      image: python:3.14-trixie
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install nox
         run: pip install nox
       - name: Build docs
@@ -47,11 +55,11 @@ jobs:
     needs: []
     strategy:
       matrix:
-        python-version: [3.13]
+        python-version: [3.14]
     container:
-      image: python:3.13-bookworm
+      image: python:3.14-trixie
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install nox
         run: pip install nox
       - name: Run linter
@@ -62,11 +70,11 @@ jobs:
     needs: []
     strategy:
       matrix:
-        python-version: [3.13]
+        python-version: [3.14]
     container:
-      image: node:22-bookworm
+      image: node:22-trixie
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install standardjs dependencies
         run: make ci-install-standardjs
       - name: Run standardjs

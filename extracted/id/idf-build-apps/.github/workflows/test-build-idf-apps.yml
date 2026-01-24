@@ -1,5 +1,9 @@
 name: Test Build IDF Apps
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.run_id }}
+  cancel-in-progress: false
+
 on:
   pull_request:
     paths:
@@ -20,8 +24,8 @@ jobs:
   build-python-packages:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.7'
       - run: |
@@ -29,7 +33,7 @@ jobs:
           pip install flit
           flit build
       - name: Upload built python packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wheel
           path: dist/idf_build_apps-*.whl
@@ -39,13 +43,13 @@ jobs:
     needs: build-python-packages
     strategy:
       matrix:
-        idf-branch: [ release-v5.0, release-v5.1, release-v5.2, release-v5.3 ]
+        idf-branch: [ release-v5.1, release-v5.2, release-v5.3, release-v5.4, release-v5.5 ]
     runs-on: ubuntu-latest
     container:
       image: espressif/idf:${{ matrix.idf-branch }}
     steps:
       - name: Download wheel
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: wheel
       - name: Build the Apps
@@ -67,7 +71,7 @@ jobs:
     env:
       FLIT_ROOT_INSTALL: 1
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Build the Apps
         run: |
           bash $IDF_PATH/install.sh
@@ -97,7 +101,7 @@ jobs:
         branch:
           - release/v3.4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install dependencies
         run: |
           apt update \

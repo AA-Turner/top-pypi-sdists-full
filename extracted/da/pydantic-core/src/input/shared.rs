@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use pyo3::prelude::*;
-use pyo3::sync::GILOnceCell;
+use pyo3::sync::PyOnceLock;
 use pyo3::{intern, Py, PyAny, Python};
 
 use jiter::{JsonErrorType, NumberInt};
@@ -9,7 +9,7 @@ use jiter::{JsonErrorType, NumberInt};
 use crate::errors::{ErrorTypeDefaults, ValError, ValResult};
 
 use super::{EitherFloat, EitherInt, Input};
-static ENUM_META_OBJECT: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+static ENUM_META_OBJECT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
 pub fn get_enum_meta_object(py: Python<'_>) -> &Bound<'_, PyAny> {
     ENUM_META_OBJECT
@@ -232,7 +232,7 @@ pub fn fraction_as_int<'py>(input: &Bound<'py, PyAny>) -> ValResult<EitherInt<'p
     #[cfg(Py_3_12)]
     let is_integer = input.call_method0("is_integer")?.extract::<bool>()?;
     #[cfg(not(Py_3_12))]
-    let is_integer = input.getattr("denominator")?.extract::<i64>().map_or(false, |d| d == 1);
+    let is_integer = input.getattr("denominator")?.extract::<i64>().is_ok_and(|d| d == 1);
 
     if is_integer {
         #[cfg(Py_3_11)]

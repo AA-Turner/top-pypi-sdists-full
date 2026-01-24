@@ -10,6 +10,7 @@ type Collection struct {
 	ID                         types.UniqueID
 	Name                       string
 	ConfigurationJsonStr       string
+	SchemaStr                  *string
 	Dimension                  *int32
 	Metadata                   *CollectionMetadata[CollectionMetadataValueType]
 	TenantID                   string
@@ -27,6 +28,7 @@ type Collection struct {
 	VersionFileName            string
 	CreatedAt                  time.Time
 	DatabaseId                 types.UniqueID
+	CompactionFailureCount     int32
 }
 
 type CollectionToGc struct {
@@ -41,6 +43,7 @@ type CreateCollection struct {
 	ID                         types.UniqueID
 	Name                       string
 	ConfigurationJsonStr       string
+	SchemaStr                  *string
 	Dimension                  *int32
 	Metadata                   *CollectionMetadata[CollectionMetadataValueType]
 	GetOrCreate                bool
@@ -89,12 +92,19 @@ type FlushCollectionCompaction struct {
 	FlushSegmentCompactions    []*FlushSegmentCompaction
 	TotalRecordsPostCompaction uint64
 	SizeBytesPostCompaction    uint64
+	SchemaStr                  *string
 }
 
 type FlushCollectionInfo struct {
 	ID                       string
 	CollectionVersion        int32
 	TenantLastCompactionTime int64
+	// Optional attached function fields (only populated for attached-function-based compactions)
+	AttachedFunctionCompletionOffset *int64
+}
+
+type ExtendedFlushCollectionInfo struct {
+	Collections []*FlushCollectionInfo
 }
 
 func FilterCollection(collection *Collection, collectionID types.UniqueID, collectionName *string) bool {

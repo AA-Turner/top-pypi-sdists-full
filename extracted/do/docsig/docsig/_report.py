@@ -5,6 +5,7 @@ docsig._report
 
 from __future__ import annotations as _
 
+import contextlib
 import typing as _t
 
 from astroid.nodes.scoped_nodes import scoped_nodes as _scoped_nodes
@@ -38,14 +39,12 @@ class Failed(_t.NamedTuple):
 
 
 class Failure(_t.List[Failed]):
-    """Compile and produce report.
+    """Compile and produce the report.
 
     :param func: Function object.
     :param target: List of errors to target.
     :param check_property_returns: Run return checks on properties.
     :param ignore_typechecker: Ignore checking return values.
-    :param enforce_capitalization: Ensure param descriptions are
-        capitalised.
     """
 
     # pylint: disable=too-many-arguments,too-many-positional-arguments
@@ -55,7 +54,6 @@ class Failure(_t.List[Failed]):
         target: _Messages,
         check_property_returns: bool,
         ignore_typechecker: bool,
-        enforce_capitalization: bool,
     ) -> None:
         super().__init__()
         self._retcode = 0
@@ -73,7 +71,6 @@ class Failure(_t.List[Failed]):
             self._name = f"{self._func.parent.name}.{self._func.name}"
 
         self._check_property_returns = check_property_returns
-        self._enforce_capitalization = enforce_capitalization
         if self._func.error is not None:
             self._sig9xx_error()
         else:
@@ -104,6 +101,42 @@ class Failure(_t.List[Failed]):
         )
         if value not in self._func.messages and failed not in self:
             super().append(failed)
+
+    @staticmethod
+    def _normalize_params(from_, to) -> None:
+        # inset the parameters that are missing in their corresponding
+        # index so that they are included in further analysis, that way
+        # there are no additional, and redundant, errors
+        # this will ensure that both signature and docstring are equal,
+        # with all parameters that are not documented accounted for
+        for count, arg in enumerate(from_):
+            try:
+                is_equal = _almost_equal(
+                    str(arg.name),
+                    str(to[count].name),
+                    _MIN_MATCH,
+                    _MAX_MATCH,
+                )
+            except IndexError:
+                is_equal = False
+
+            # need to make one more test to determine if equal in the
+            # case of very similar names, such as param1, param2 and
+            # param3 for the signature, and param2, param3 for the
+            # docstring, if we don't do this test, param1 is almost
+            # equal to param2, and so won't be inserted, but if we can
+            # determine param2 is already in signature's next index,
+            # then we know that they aren't almost equal, param1 is
+            # missing and does need to be inserted in the docstring
+            if is_equal:
+                with contextlib.suppress(IndexError):
+                    is_equal = to[count].name != from_[count + 1].name
+
+            if not is_equal:
+                to.insert(
+                    count,
+                    _Param(arg.kind, arg.name, _VALID_DESCRIPTION, 0),
+                )
 
     def _sig0xx_config(self) -> None:
         for comment in self._func.comments:
@@ -156,43 +189,31 @@ class Failure(_t.List[Failed]):
             self._add(_E[201])
         # there are non-existing params in the docstring
         elif len(self._func.docstring.args) > len(self._func.signature.args):
-            # pop the parameters that do not exist so that they are
-            # excluded from further analysis, that way there are no
-            # additional, and redundant, errors
-            # this will ensure that both signature and docstring are
-            # equal in length, with all parameters that do not exist
-            # accounted for
-            for count, __ in enumerate(self._func.docstring.args, 1):
-                if count > len(self._func.signature.args):
-                    self._func.docstring.args.pop(count - 1)
+            self._normalize_params(
+                self._func.docstring.args,
+                self._func.signature.args,
+            )
             # params-do-not-exist
             self._add(_E[202])
         # there are more args in sig than doc, so doc params missing
         elif len(self._func.signature.args) > len(self._func.docstring.args):
-            # append the parameters that are missing so that they are
-            # included in further analysis, that way there are no
-            # additional, and redundant, errors
-            # this will ensure that both signature and docstring are
-            # equal in length, with all parameters that are not
-            # documented accounted for
-            for count, arg in enumerate(self._func.signature.args, 1):
-                if count > len(self._func.docstring.args):
-                    self._func.docstring.args.append(
-                        _Param(arg.kind, arg.name, _VALID_DESCRIPTION, 0),
-                    )
+            self._normalize_params(
+                self._func.signature.args,
+                self._func.docstring.args,
+            )
             # params-missing
             self._add(_E[203])
 
     def _sig3xx_description(self, doc: _Param) -> None:
-        if doc.description is None:
+        if doc.description is None and doc.name is not None:
             self._add(_E[301])
         elif doc.description is not None and not doc.description.startswith(
             " ",
         ):
             # syntax-error-in-description
             self._add(_E[302])
-        # if the parameter does not have a name, but exists, then it
-        # must be incorrectly documented
+        # if the parameter does not have a name but exists, then it must
+        # be incorrectly documented
         elif doc.name == _UNNAMED:
             # param-incorrectly-documented
             self._add(_E[303])
@@ -203,16 +224,12 @@ class Failure(_t.List[Failed]):
                 token=doc.closing_token,
                 hint=True,
             )
-        if (
-            self._enforce_capitalization
-            and doc.description is not None
-            and not all(
-                i.strip()[0].isupper()
-                for i in _sentence_tokenizer(doc.description)
-                if i
-            )
+        if doc.description is not None and not all(
+            i.strip()[0].isupper()
+            for i in _sentence_tokenizer(doc.description)
+            if i and not any(i.startswith(x) for x in (":", ".", "`"))
         ):
-            # description is not capitalised
+            # description is not capitalized
             self._add(_E[305])
 
     def _sig4xx_parameters(self, doc: _Param, sig: _Param) -> None:
@@ -246,14 +263,14 @@ class Failure(_t.List[Failed]):
             if self._func.signature.rettype == _RetType.UNTYPED:
                 # confirm-return-needed
                 self._add(_E[501], hint=True)
-            # return type is none, so no return should be documented
+            # return-type is none, so no return should be documented
             elif self._func.docstring.returns:
                 if self._func.signature.rettype == _RetType.NONE:
                     # return-documented-for-none
                     self._add(_E[502])
                 if self._func.docstring.ret_description_missing:
                     self._add(_E[506])
-            # return type is some, so return should be documented
+            # return-type is some, so return should be documented
             elif self._func.signature.returns:
                 # return-missing
                 self._add(
@@ -261,7 +278,7 @@ class Failure(_t.List[Failed]):
                     hint=_has_bad_return(str(self._func.docstring.string)),
                 )
         elif self._func.docstring.returns:
-            # method is init, so no return should be documented
+            # this method is init, so no return should be documented
             if self._func.isinit:
                 # class-return-documented
                 self._add(_E[504], hint=True)

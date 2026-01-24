@@ -11,6 +11,27 @@ import sys
 import tempfile
 import time
 
+
+def setup_random_seed_before_main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--random_seed",
+        default=0,
+        type=int,
+        help="Random seed used for reproduce the same test parameter set",
+    )
+    args, _ = parser.parse_known_args()
+    random_seed = (
+        random.randint(1, 2**64) if args.random_seed == 0 else args.random_seed
+    )
+    print(f"Start with random seed {random_seed}")
+    random.seed(random_seed)
+
+
+# Random seed has to be setup before the rest of the script, so that the random
+# value selected in the global variable uses the random seed specified
+setup_random_seed_before_main()
+
 # params overwrite priority:
 #   for default:
 #       default_params < {blackbox,whitebox}_default_params < args
@@ -61,7 +82,7 @@ default_params = {
     ),
     "compression_max_dict_bytes": lambda: 16384 * random.randint(0, 1),
     "compression_zstd_max_train_bytes": lambda: 65536 * random.randint(0, 1),
-    "compression_parallel_threads": lambda: random.choice([1] * 3 + [4, 8, 16]),
+    "compression_parallel_threads": lambda: random.choice([1, 1, 2, 3, 4, 5, 8, 9, 16]),
     "compression_max_dict_buffer_bytes": lambda: (1 << random.randint(0, 40)) - 1,
     "compression_use_zstd_dict_trainer": lambda: random.randint(0, 1),
     "compression_checksum": lambda: random.randint(0, 1),
@@ -80,6 +101,7 @@ default_params = {
     "destroy_db_initially": 0,
     "enable_pipelined_write": lambda: random.randint(0, 1),
     "enable_compaction_filter": lambda: random.choice([0, 0, 0, 1]),
+    "enable_compaction_on_deletion_trigger": lambda: random.choice([0, 0, 0, 1]),
     # `inplace_update_support` is incompatible with DB that has delete
     # range data in memtables.
     # Such data can result from any of the previous db stress runs
@@ -114,7 +136,7 @@ default_params = {
     "max_key": random.choice([100000, 25000000]),
     "max_sequential_skip_in_iterations": lambda: random.choice([1, 2, 8, 16]),
     "max_write_buffer_number": 3,
-    "mmap_read": lambda: random.randint(0, 1),
+    "mmap_read": lambda: random.choice([0, 0, 1]),
     # Setting `nooverwritepercent > 0` is only possible because we do not vary
     # the random seed, so the same keys are chosen by every run for disallowing
     # overwrites.
@@ -326,13 +348,13 @@ default_params = {
     "enable_custom_split_merge": lambda: random.choice([0, 1]),
     "adm_policy": lambda: random.choice([0, 1, 2, 3]),
     "last_level_temperature": lambda: random.choice(
-        ["kUnknown", "kHot", "kWarm", "kCold"]
+        ["kUnknown", "kHot", "kWarm", "kCool", "kCold", "kIce"]
     ),
     "default_write_temperature": lambda: random.choice(
-        ["kUnknown", "kHot", "kWarm", "kCold"]
+        ["kUnknown", "kHot", "kWarm", "kCool", "kCold", "kIce"]
     ),
     "default_temperature": lambda: random.choice(
-        ["kUnknown", "kHot", "kWarm", "kCold"]
+        ["kUnknown", "kHot", "kWarm", "kCool", "kCold", "kIce"]
     ),
     # TODO(hx235): enable `enable_memtable_insert_with_hint_prefix_extractor`
     # after fixing the surfaced issue with delete range
@@ -342,8 +364,13 @@ default_params = {
     "use_timed_put_one_in": lambda: random.choice([0] * 7 + [1, 5, 10]),
     "universal_max_read_amp": lambda: random.choice([-1] * 3 + [0, 4, 10]),
     "paranoid_memory_checks": lambda: random.choice([0] * 7 + [1]),
+    "memtable_veirfy_per_key_checksum_on_seek": lambda: random.choice([0] * 7 + [1]),
     "allow_unprepared_value": lambda: random.choice([0, 1]),
-    "enable_remote_compaction": lambda: random.choice([0, 1]),
+    # TODO(hx235): enable `track_and_verify_wals` after stabalizing the stress test
+    "track_and_verify_wals": lambda: random.choice([0]),
+    "remote_compaction_worker_threads": lambda: random.choice([0, 8]),
+    # TODO(jaykorean): Change to lambda: random.choice([0, 1]) after addressing all remote compaction failures
+    "remote_compaction_failure_fall_back_to_local": 1,
     "auto_refresh_iterator_with_snapshot": lambda: random.choice([0, 1]),
     "memtable_op_scan_flush_trigger": lambda: random.choice([0, 10, 100, 1000]),
     "memtable_avg_op_scan_flush_trigger": lambda: random.choice([0, 2, 20, 200]),
@@ -356,6 +383,12 @@ default_params = {
         + ["randommixed"] * 2
         + ["custom"] * 3
     ),
+    # fixed within a run for easier debugging
+    # actual frequency is lower after option sanitization
+    "use_multiscan": random.choice([1] + [0] * 3),
+    # By default, `statistics` use kExceptDetailedTimers level
+    "statistics": random.choice([0, 1]),
+    "multiscan_use_async_io": random.randint(0, 1),
 }
 
 _TEST_DIR_ENV_VAR = "TEST_TMPDIR"
@@ -477,6 +510,8 @@ whitebox_default_params = {
     #
     # Second, we need to make sure disabling WAL works with `-reopen > 0`.
     "disable_wal": 0,
+    # TODO: Re-enable this once we fix WAL + Remote Compaction in Stress Test
+    "remote_compaction_worker_threads": 0,
     "duration": 10000,
     "log2_keys_per_lock": 10,
     "ops_per_thread": 200000,
@@ -535,9 +570,12 @@ txn_params = {
     # NOTE: often passed in from command line overriding this
     "txn_write_policy": random.randint(0, 2),
     "unordered_write": random.randint(0, 1),
+    "use_per_key_point_lock_mgr": lambda: random.choice([0, 1]),
     # TODO: there is such a thing as transactions with WAL disabled. We should
     # cover that case.
     "disable_wal": 0,
+    # TODO: Re-enable this once we fix WAL + Remote Compaction in Stress Test
+    "remote_compaction_worker_threads": 0,
     # OpenReadOnly after checkpoint is not currnetly compatible with WritePrepared txns
     "checkpoint_one_in": 0,
     # pipeline write is not currnetly compatible with WritePrepared txns
@@ -595,6 +633,8 @@ blob_params = {
     "use_shared_block_and_blob_cache": lambda: random.randint(0, 1),
     "blob_cache_size": lambda: random.choice([1048576, 2097152, 4194304, 8388608]),
     "prepopulate_blob_cache": lambda: random.randint(0, 1),
+    # TODO Fix races when both Remote Compaction + BlobDB enabled
+    "remote_compaction_worker_threads": 0,
 }
 
 ts_params = {
@@ -611,6 +651,9 @@ ts_params = {
     "use_put_entity_one_in": 0,
     # TimedPut is not compatible with user-defined timestamps yet.
     "use_timed_put_one_in": 0,
+    # when test_best_efforts_recovery == true, disable_wal becomes 0.
+    # TODO: Re-enable this once we fix WAL + Remote Compaction in Stress Test
+    "remote_compaction_worker_threads": 0,
 }
 
 tiered_params = {
@@ -620,10 +663,11 @@ tiered_params = {
     "preclude_last_level_data_seconds": lambda: random.choice(
         [-1, -1, 10, 60, 1200, 86400]
     ),
-    "last_level_temperature": "kCold",
+    "last_level_temperature": lambda: random.choice(["kCold", "kIce"]),
     # For FIFO compaction (ignored otherwise)
     "file_temperature_age_thresholds": lambda: random.choice(
         [
+            "{{temperature=kWarm;age=10}:{temperature=kCool;age=30}:{temperature=kCold;age=100}:{temperature=kIce;age=300}}",
             "{{temperature=kWarm;age=30}:{temperature=kCold;age=300}}",
             "{{temperature=kCold;age=100}}",
         ]
@@ -646,6 +690,8 @@ multiops_txn_params = {
     "two_write_queues": lambda: random.choice([0, 1]),
     # TODO: enable write-prepared
     "disable_wal": 0,
+    # TODO: Re-enable this once we fix WAL + Remote Compaction in Stress Test
+    "remote_compaction_worker_threads": 0,
     "use_only_the_last_commit_time_batch_for_recovery": lambda: random.choice([0, 1]),
     "clear_column_family_one_in": 0,
     "column_families": 1,
@@ -713,6 +759,7 @@ def finalize_and_sanitize(src_params):
     if dest_params["mmap_read"] == 1:
         dest_params["use_direct_io_for_flush_and_compaction"] = 0
         dest_params["use_direct_reads"] = 0
+        dest_params["multiscan_use_async_io"] = 0
     if (
         dest_params["use_direct_io_for_flush_and_compaction"] == 1
         or dest_params["use_direct_reads"] == 1
@@ -729,7 +776,11 @@ def finalize_and_sanitize(src_params):
 
     if dest_params.get("memtablerep") == "vector":
         dest_params["inplace_update_support"] = 0
+
+    # only skip list memtable representation supports paranoid memory checks
+    if dest_params.get("memtablerep") != "skip_list":
         dest_params["paranoid_memory_checks"] = 0
+        dest_params["memtable_veirfy_per_key_checksum_on_seek"] = 0
 
     if dest_params["test_batches_snapshots"] == 1:
         dest_params["enable_compaction_filter"] = 0
@@ -739,6 +790,7 @@ def finalize_and_sanitize(src_params):
         dest_params["metadata_write_fault_one_in"] = 0
         dest_params["read_fault_one_in"] = 0
         dest_params["metadata_read_fault_one_in"] = 0
+        dest_params["use_multiscan"] = 0
         if dest_params["prefix_size"] < 0:
             dest_params["prefix_size"] = 1
 
@@ -747,12 +799,26 @@ def finalize_and_sanitize(src_params):
     if dest_params.get("best_efforts_recovery") == 1:
         dest_params["inplace_update_support"] = 0
 
+    # Remote Compaction Incompatible Tests and Features
+    if dest_params.get("remote_compaction_worker_threads", 0) > 0:
+        # TODO Fix races when both Remote Compaction + BlobDB enabled
+        dest_params["enable_blob_files"] = 0
+        dest_params["enable_blob_garbage_collection"] = 0
+        dest_params["allow_setting_blob_options_dynamically"] = 0
+        # TODO Fix - Remote worker shouldn't recover from WAL
+        dest_params["disable_wal"] = 1
+        # Disable Incompatible Ones
+        dest_params["inplace_update_support"] = 0
+        dest_params["checkpoint_one_in"] = 0
+        dest_params["use_timed_put_one_in"] = 0
+        dest_params["test_secondary"] = 0
+
     # Multi-key operations are not currently compatible with transactions or
     # timestamp.
     if (
         dest_params.get("test_batches_snapshots") == 1
         or dest_params.get("use_txn") == 1
-        or dest_params.get("user_timestamp_size") > 0
+        or dest_params.get("user_timestamp_size", 0) > 0
     ):
         dest_params["ingest_external_file_one_in"] = 0
     if (
@@ -780,7 +846,7 @@ def finalize_and_sanitize(src_params):
     if (
         dest_params.get("sync_fault_injection") == 1
         or dest_params.get("disable_wal") == 1
-        or dest_params.get("manual_wal_flush_one_in") > 0
+        or dest_params.get("manual_wal_flush_one_in", 0) > 0
     ):
         # File ingestion does not guarantee prefix-recoverability when unsynced
         # data can be lost. Ingesting a file syncs data immediately that is
@@ -878,6 +944,8 @@ def finalize_and_sanitize(src_params):
         dest_params["use_multi_cf_iterator"] = 0
         # only works with write committed policy
         dest_params["commit_bypass_memtable_one_in"] = 0
+        # not compatible with Remote Compaction yet
+        dest_params["remote_compaction_worker_threads"] = 0
     # TODO(hx235): enable test_multi_ops_txns with fault injection after stabilizing the CI
     if dest_params.get("test_multi_ops_txns") == 1:
         dest_params["write_fault_one_in"] = 0
@@ -977,7 +1045,7 @@ def finalize_and_sanitize(src_params):
         dest_params["check_multiget_entity_consistency"] = 0
     if dest_params.get("disable_wal") == 0:
         if (
-            dest_params.get("reopen") > 0
+            dest_params.get("reopen", 0) > 0
             or (
                 dest_params.get("manual_wal_flush_one_in")
                 and dest_params.get("column_families") != 1
@@ -1008,6 +1076,9 @@ def finalize_and_sanitize(src_params):
             # have to disable metadata write fault injection to other file
             dest_params["exclude_wal_from_write_fault_injection"] = 1
             dest_params["metadata_write_fault_one_in"] = 0
+
+            # TODO Fix - Remote worker shouldn't recover from WAL
+            dest_params["remote_compaction_worker_threads"] = 0
     # Disabling block align if mixed manager is being used
     if dest_params.get("compression_manager") == "custom":
         if dest_params.get("block_align") == 1:
@@ -1043,7 +1114,7 @@ def finalize_and_sanitize(src_params):
     if dest_params.get("use_put_entity_one_in") == 1:
         dest_params["use_timed_put_one_in"] = 0
     elif (
-        dest_params.get("use_put_entity_one_in") > 1
+        dest_params.get("use_put_entity_one_in", 0) > 1
         and dest_params.get("use_timed_put_one_in") == 1
     ):
         dest_params["use_timed_put_one_in"] = 3
@@ -1084,6 +1155,15 @@ def finalize_and_sanitize(src_params):
     # Continuous verification fails with secondaries inside NonBatchedOpsStressTest
     if dest_params.get("test_secondary") == 1:
         dest_params["continuous_verification_interval"] = 0
+    if dest_params.get("use_multiscan") == 1:
+        dest_params["async_io"] = 0
+        dest_params["delpercent"] += dest_params["delrangepercent"]
+        dest_params["delrangepercent"] = 0
+        dest_params["prefix_size"] = -1
+        dest_params["iterpercent"] += dest_params["prefixpercent"]
+        dest_params["prefixpercent"] = 0
+        dest_params["read_fault_one_in"] = 0
+        dest_params["memtable_prefix_bloom_size_ratio"] = 0
     return dest_params
 
 
@@ -1152,6 +1232,7 @@ def gen_cmd(params, unknown_params):
             not in {
                 "test_type",
                 "simple",
+                "random_seed",
                 "duration",
                 "interval",
                 "random_kill_odd",

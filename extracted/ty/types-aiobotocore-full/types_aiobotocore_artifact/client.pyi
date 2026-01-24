@@ -3,7 +3,7 @@ Type annotations for artifact service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -28,7 +29,11 @@ from botocore.client import ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListCustomerAgreementsPaginator, ListReportsPaginator
+from .paginator import (
+    ListCustomerAgreementsPaginator,
+    ListReportsPaginator,
+    ListReportVersionsPaginator,
+)
 from .type_defs import (
     GetAccountSettingsResponseTypeDef,
     GetReportMetadataRequestTypeDef,
@@ -41,15 +46,12 @@ from .type_defs import (
     ListCustomerAgreementsResponseTypeDef,
     ListReportsRequestTypeDef,
     ListReportsResponseTypeDef,
+    ListReportVersionsRequestTypeDef,
+    ListReportVersionsResponseTypeDef,
     PutAccountSettingsRequestTypeDef,
     PutAccountSettingsResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -58,14 +60,14 @@ else:
 __all__ = ("ArtifactClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class ArtifactClient(AioBaseClient):
     """
@@ -150,6 +152,16 @@ class ArtifactClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#list_customer_agreements)
         """
 
+    async def list_report_versions(
+        self, **kwargs: Unpack[ListReportVersionsRequestTypeDef]
+    ) -> ListReportVersionsResponseTypeDef:
+        """
+        List available report versions for a given report.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/list_report_versions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#list_report_versions)
+        """
+
     async def list_reports(
         self, **kwargs: Unpack[ListReportsRequestTypeDef]
     ) -> ListReportsResponseTypeDef:
@@ -183,6 +195,17 @@ class ArtifactClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_report_versions"]
+    ) -> ListReportVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_reports"]
     ) -> ListReportsPaginator:
         """
@@ -200,7 +223,7 @@ class ArtifactClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

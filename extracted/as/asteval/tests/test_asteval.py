@@ -89,7 +89,6 @@ def check_error(interp, chk_type='', chk_msg=''):
         if chk_type:
             assert False
 
-
 def test_py3():
     assert version_info.major > 2
 
@@ -321,6 +320,39 @@ def test_while_break(nested):
             print( 'finish: n = ', n)
             """))
     isvalue(interp, 'n', 7)
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_while_return(nested):
+    interp = make_interpreter(nested_symtable=nested)
+    interp(textwrap.dedent("""
+            def func_while(nmax=10):
+                n = 0
+                while n < nmax:
+                    n += 1
+                    if n > 6:
+                        return 99
+                return n
+            o1 = func_while(3)
+            o2 = func_while(12)
+            """))
+    isvalue(interp, 'o1', 3)
+    isvalue(interp, 'o2', 99)
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_for_return(nested):
+    interp = make_interpreter(nested_symtable=nested)
+    interp(textwrap.dedent("""
+            def func_for(nmax=10):
+                for n in range(nmax):
+                    if n > 10:
+                        return -2
+                return n
+            o1 = func_for(7)
+            o2 = func_for(99)
+            """))
+    isvalue(interp, 'o1', 6)
+    isvalue(interp, 'o2', -2)
+
 
 @pytest.mark.parametrize("nested", [False, True])
 def test_with(nested):
@@ -1118,6 +1150,19 @@ def test_nested_functions(nested):
     isvalue(interp, 'o2', 1.5)
 
 @pytest.mark.parametrize("nested", [False, True])
+def test_lambda(nested):
+    """test using lambda definitions"""
+    interp = make_interpreter(nested_symtable=nested)
+
+    interp(textwrap.dedent("""
+    my_func = lambda x: 2 + 3*x
+    out = my_func(3)
+    """))
+    assert len(interp.error) == 0
+    isvalue(interp, 'out', 11.0)
+
+
+@pytest.mark.parametrize("nested", [False, True])
 def test_astdump(nested):
     """test ast parsing and dumping"""
     interp = make_interpreter(nested_symtable=nested)
@@ -1199,7 +1244,7 @@ def test_kaboom(nested):
     interp("""(lambda fc=(lambda n: [c for c in ().__class__.__bases__[0].__subclasses__() if c.__name__ == n][0]):
     fc("function")(fc("code")(0,0,0,0,"KABOOM",(),(),(),"","",0,""),{})()
 )()""")
-    check_error(interp, 'NotImplementedError')  # Safe, lambda is not supported
+    check_error(interp, 'AttributeError')  # Safe, unassigned lambda is not supported
 
     interp("""[print(c) for c in ().__class__.__bases__[0].__subclasses__()]""")  # Try a portion of the kaboom...
 
@@ -1586,7 +1631,7 @@ def test_unsafe_procedure_access(nested):
     etype, fullmsg = error.get_error()
     assert 'no safe attribute' in error.msg
     assert etype == 'AttributeError'
-    
+
 @pytest.mark.parametrize("nested", [False, True])
 def test_unsafe_format_string_access(nested):
     """
@@ -1602,7 +1647,7 @@ def test_unsafe_format_string_access(nested):
     etype, fullmsg = error.get_error()
     assert 'no safe attribute' in error.msg
     assert etype == 'AttributeError'
-    
+
 @pytest.mark.parametrize("nested", [False, True])
 def test_unsafe_attr_dtypes(nested):
     """
@@ -1617,12 +1662,12 @@ def test_unsafe_attr_dtypes(nested):
     etype, fullmsg = error.get_error()
     assert 'no safe attribute' in error.msg
     assert etype == 'AttributeError'
-    
+
     interp = make_interpreter(nested_symtable=nested)
     interp(textwrap.dedent("""
             str.format('{0}', dict)
      """),  raise_errors=False)
-    
+
     error = interp.error[0]
     etype, fullmsg = error.get_error()
     assert 'no safe attribute' in error.msg
@@ -1644,6 +1689,54 @@ def test_naming_exceptions(nested):
     out = read_stdout(interp)
     assert 'unsupported operand' in out
     assert len(interp.error) == 0
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_augassign_lineno(nested):
+    """test lineno on augassign operation"""
+    interp = make_interpreter(nested_symtable=nested)
+
+    interp(textwrap.dedent("""
+    x = 1
+    x /= 0
+    """))
+    check_error(interp, 'ZeroDivisionError', 'x /= 0')
+    assert interp.error[0].lineno == 3
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_unreachable_statement_while_loop(nested):
+    """unreachable statement inside while loop"""
+
+    interp = make_interpreter(nested_symtable=nested)
+    interp("""
+def f():
+    return "ok"
+
+x_before = 0
+x_after = 0
+while True:
+    x_before += 1
+    _ = f()
+    x_after += 1
+    if x_after >= 10:
+        break
+
+result = (x_before, x_after)
+
+xa = xb = 0
+for i in range(4):
+    xb += 1
+    _ = f()
+    xa += 1
+result2 = (xb, xa)
+
+""")
+
+    (x, y) = interp("result")
+    assert x == 10
+    assert y == 10
+    (x, y) = interp("result2")
+    assert x == 4
+    assert y == 4
 
 if __name__ == '__main__':
     pytest.main(['-v', '-x', '-s'])

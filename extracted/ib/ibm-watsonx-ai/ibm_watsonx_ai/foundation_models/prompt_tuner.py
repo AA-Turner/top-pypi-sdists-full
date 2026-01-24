@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -15,6 +15,7 @@ from ibm_watsonx_ai.helpers.connections import (
 )
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.utils.autoai.utils import is_ipython
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -436,7 +437,7 @@ class PromptTuner(BaseTuner):
 
         details = self.get_run_details(include_metrics=True)
 
-        metrics = details["entity"]["status"].get("metrics", [{}])[0]
+        metrics = get_from_json(details, ["entity", "status", "metrics", 0], {})
         is_ml_metrics = "data" in metrics or "ml_metrics" in metrics
 
         if not is_ml_metrics:
@@ -466,15 +467,17 @@ class PromptTuner(BaseTuner):
         else:
             if "data" in details["entity"]["status"]["metrics"][0]:
                 model_metrics = [
-                    details["entity"]["status"]
-                    .get("metrics", [{}])[-1]
-                    .get("data", {})[scoring]
+                    get_from_json(
+                        details,
+                        ["entity", "status", "metrics", -1, "data"],
+                    )[scoring]
                 ]
             else:
                 model_metrics = [
-                    details["entity"]["status"]
-                    .get("metrics", [{}])[-1]
-                    .get("ml_metrics", {})[scoring]
+                    get_from_json(
+                        details,
+                        ["entity", "status", "metrics", -1, "ml_metrics"],
+                    )[scoring]
                 ]
 
         if "prompt_tuning" in details["entity"]:
@@ -550,6 +553,7 @@ class PromptTuner(BaseTuner):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import TuneExperiment
+
             experiment = TuneExperiment(credentials, ...)
             prompt_tuner = experiment.prompt_tuner(...)
             prompt_tuner.run(...)

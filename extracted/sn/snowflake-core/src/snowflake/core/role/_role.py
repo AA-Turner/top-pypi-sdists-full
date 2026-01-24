@@ -171,7 +171,7 @@ class RoleCollection(AccountObjectCollectionParent["RoleResource"]):
 class RoleResource(ObjectReferenceMixin[RoleCollection]):
     """Represents a reference to a Snowflake role.
 
-    With this role reference, you can delete roles.
+    With this role reference, you can delete a role, as well as perform certain actions on it.
     """
 
     def __init__(self, name: str, collection: RoleCollection) -> None:

@@ -109,7 +109,7 @@ In file ``.gitattributes`` or ``.git/info/attributes`` add: ::
     *.ipynb diff=ipynb
 """
 
-from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from argparse import ArgumentParser, RawDescriptionHelpFormatter, Namespace
 import collections
 import copy
 import io
@@ -118,6 +118,7 @@ from os import devnull, environ, makedirs, path
 from pathlib import PureWindowsPath
 import re
 from subprocess import call, check_call, check_output, CalledProcessError, STDOUT
+from typing import List, Optional
 import sys
 import warnings
 
@@ -125,8 +126,8 @@ import nbformat
 
 from nbstripout._utils import strip_output, strip_zeppelin_output
 
-__all__ = ["install", "uninstall", "status", "main"]
-__version__ = '0.8.1'
+__all__ = ['install', 'uninstall', 'status', 'main']
+__version__ = '0.9.0'
 
 
 INSTALL_LOCATION_LOCAL = 'local'
@@ -134,15 +135,19 @@ INSTALL_LOCATION_GLOBAL = 'global'
 INSTALL_LOCATION_SYSTEM = 'system'
 
 
-def _get_system_gitconfig_folder():
+def _get_system_gitconfig_folder() -> str:
     try:
-        git_config_output = check_output(['git', 'config', '--system', '--list', '--show-origin'], universal_newlines=True, stderr=STDOUT).strip()
+        git_config_output = check_output(
+            ['git', 'config', '--system', '--list', '--show-origin'], universal_newlines=True, stderr=STDOUT
+        ).strip()
 
         # If the output is empty, it means the file exists but is empty, so we cannot get the path.
         # To still get it, we're setting a temporary config parameter.
         if git_config_output == '':
             check_call(['git', 'config', '--system', 'filter.nbstripoutput.test', 'test'])
-            git_config_output = check_output(['git', 'config', '--system', '--list', '--show-origin'], universal_newlines=True).strip()
+            git_config_output = check_output(
+                ['git', 'config', '--system', '--list', '--show-origin'], universal_newlines=True
+            ).strip()
             check_call(['git', 'config', '--system', '--unset', 'filter.nbstripoutput.test'])
 
         output_lines = git_config_output.split('\n')
@@ -156,7 +161,9 @@ def _get_system_gitconfig_folder():
     return path.abspath(path.dirname(system_gitconfig_file_path))
 
 
-def _get_attrfile(git_config, install_location=INSTALL_LOCATION_LOCAL, attrfile=None):
+def _get_attrfile(
+    git_config: str, install_location: str = INSTALL_LOCATION_LOCAL, attrfile: Optional[str] = None
+) -> str:
     if not attrfile:
         if install_location == INSTALL_LOCATION_SYSTEM:
             try:
@@ -181,7 +188,7 @@ def _get_attrfile(git_config, install_location=INSTALL_LOCATION_LOCAL, attrfile=
     return attrfile
 
 
-def _parse_size(num_str):
+def _parse_size(num_str: str) -> int:
     num_str = num_str.upper()
     if num_str[-1].isdigit():
         return int(num_str)
@@ -191,11 +198,15 @@ def _parse_size(num_str):
         return int(num_str[:-1]) * (10**6)
     elif num_str[-1] == 'G':
         return int(num_str[:-1]) * (10**9)
-    else:
-        raise ValueError(f"Unknown size identifier {num_str[-1]}")
+    raise ValueError(f'Unknown size identifier {num_str[-1]}')
 
 
-def install(git_config, install_location=INSTALL_LOCATION_LOCAL, python=None, attrfile=None):
+def install(
+    git_config: str,
+    install_location: str = INSTALL_LOCATION_LOCAL,
+    python: Optional[str] = None,
+    attrfile: Optional[str] = None,
+) -> int:
     """Install the git filter and set the git attributes."""
     try:
         filepath = f'"{PureWindowsPath(python or sys.executable).as_posix()}" -m nbstripout'
@@ -225,7 +236,7 @@ def install(git_config, install_location=INSTALL_LOCATION_LOCAL, python=None, at
         diff_exists = '*.ipynb diff' in attrs
 
         if filt_exists and diff_exists:
-            return
+            return 0
 
     try:
         with open(attrfile, 'a', newline='') as f:
@@ -238,6 +249,7 @@ def install(git_config, install_location=INSTALL_LOCATION_LOCAL, python=None, at
                 print('*.zpln filter=nbstripout', file=f)
             if not diff_exists:
                 print('*.ipynb diff=ipynb', file=f)
+        return 0
     except PermissionError:
         print(f'Installation failed: could not write to {attrfile}', file=sys.stderr)
 
@@ -247,7 +259,7 @@ def install(git_config, install_location=INSTALL_LOCATION_LOCAL, python=None, at
         return 1
 
 
-def uninstall(git_config, install_location=INSTALL_LOCATION_LOCAL, attrfile=None):
+def uninstall(git_config: str, install_location: str = INSTALL_LOCATION_LOCAL, attrfile: Optional[str] = None) -> int:
     """Uninstall the git filter and unset the git attributes."""
     try:
         call(git_config + ['--unset', 'filter.nbstripout.clean'], stdout=open(devnull, 'w'), stderr=STDOUT)
@@ -270,9 +282,10 @@ def uninstall(git_config, install_location=INSTALL_LOCATION_LOCAL, attrfile=None
             f.seek(0)
             f.write(''.join(lines))
             f.truncate()
+    return 0
 
 
-def status(git_config, install_location=INSTALL_LOCATION_LOCAL, verbose=False):
+def status(git_config: str, install_location: str = INSTALL_LOCATION_LOCAL, verbose: bool = False) -> int:
     """Return 0 if nbstripout is installed in the current repo, 1 otherwise"""
     try:
         if install_location == INSTALL_LOCATION_SYSTEM:
@@ -280,7 +293,9 @@ def status(git_config, install_location=INSTALL_LOCATION_LOCAL, verbose=False):
         elif install_location == INSTALL_LOCATION_GLOBAL:
             location = 'globally'
         else:
-            git_dir = path.dirname(path.abspath(check_output(['git', 'rev-parse', '--git-dir'], universal_newlines=True).strip()))
+            git_dir = path.dirname(
+                path.abspath(check_output(['git', 'rev-parse', '--git-dir'], universal_newlines=True).strip())
+            )
             location = f"in repository '{git_dir}'"
 
         clean = check_output(git_config + ['filter.nbstripout.clean'], universal_newlines=True).strip()
@@ -299,7 +314,9 @@ def status(git_config, install_location=INSTALL_LOCATION_LOCAL, verbose=False):
                 diff_attributes = ''.join(line for line in attrs if 'diff' in line).strip()
         else:
             attributes = check_output(['git', 'check-attr', 'filter', '--', '*.ipynb'], universal_newlines=True).strip()
-            diff_attributes = check_output(['git', 'check-attr', 'diff', '--', '*.ipynb'], universal_newlines=True).strip()
+            diff_attributes = check_output(
+                ['git', 'check-attr', 'diff', '--', '*.ipynb'], universal_newlines=True
+            ).strip()
 
         try:
             extra_keys = check_output(git_config + ['filter.nbstripout.extrakeys'], universal_newlines=True).strip()
@@ -333,16 +350,32 @@ def status(git_config, install_location=INSTALL_LOCATION_LOCAL, verbose=False):
 
         return 1
 
-def process_jupyter_notebook(input_stream, output_stream, args, extra_keys, filename='input from stdin'):
+
+def process_jupyter_notebook(
+    input_stream: io.IOBase,
+    output_stream: io.IOBase,
+    args: Namespace,
+    extra_keys: List[str],
+    filename: str = 'input from stdin',
+) -> bool:
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=UserWarning)
+        warnings.simplefilter('ignore', category=UserWarning)
         nb = nbformat.read(input_stream, as_version=nbformat.NO_CONVERT)
 
     nb_orig = copy.deepcopy(nb)
-    nb_stripped = strip_output(nb, args.keep_output, args.keep_count,
-                               args.keep_id, extra_keys, args.drop_empty_cells,
-                               args.drop_tagged_cells.split(),
-                               args.strip_init_cells, _parse_size(args.max_size))
+    nb_stripped = strip_output(
+        nb=nb,
+        keep_output=args.keep_output,
+        keep_count=args.keep_count,
+        keep_id=args.keep_id,
+        extra_keys=extra_keys,
+        drop_empty_cells=args.drop_empty_cells,
+        drop_tagged_cells=args.drop_tagged_cells.split(),
+        strip_init_cells=args.strip_init_cells,
+        drop_output_types=set(args.drop_output_type),
+        keep_output_types=set(args.keep_output_type),
+        max_size=_parse_size(args.max_size),
+    )
 
     any_change = nb_orig != nb_stripped
 
@@ -355,12 +388,23 @@ def process_jupyter_notebook(input_stream, output_stream, args, extra_keys, file
         output_stream.seek(0)
         output_stream.truncate()
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=UserWarning)
+        warnings.simplefilter('ignore', category=UserWarning)
         nbformat.write(nb_stripped, output_stream)
-    output_stream.flush()
+    try:
+        output_stream.flush()
+    except BrokenPipeError:
+        # Receiver closed their end of the pipe after reading the data
+        pass
     return any_change
 
-def process_zeppelin_notebook(input_stream, output_stream, args, extra_keys, filename='input from stdin'):
+
+def process_zeppelin_notebook(
+    input_stream: io.IOBase,
+    output_stream: io.IOBase,
+    args: Namespace,
+    extra_keys: List[str],
+    filename: str = 'input from stdin',
+):
     nb = json.load(input_stream, object_pairs_hook=collections.OrderedDict)
     nb_orig = copy.deepcopy(nb)
     nb_stripped = strip_zeppelin_output(nb)
@@ -380,66 +424,106 @@ def process_zeppelin_notebook(input_stream, output_stream, args, extra_keys, fil
     output_stream.flush()
     return any_change
 
+
 def main():
     parser = ArgumentParser(epilog=__doc__, formatter_class=RawDescriptionHelpFormatter)
     task = parser.add_mutually_exclusive_group()
-    task.add_argument('--dry-run', action='store_true',
-                      help='Print which notebooks would have been stripped')
-    task.add_argument('--install', action='store_true',
-                      help='Install nbstripout in the current repository (set '
-                      'up the git filter and attributes)')
-    task.add_argument('--uninstall', action='store_true',
-                      help='Uninstall nbstripout from the current repository '
-                      '(remove the git filter and attributes)')
-    task.add_argument('--is-installed', action='store_true',
-                      help='Check if nbstripout is installed in current repository')
-    task.add_argument('--status', action='store_true',
-                      help='Print status of nbstripout installation in current '
-                      'repository and configuration summary if installed')
-    task.add_argument('--version', action='store_true',
-                      help='Print version')
-    parser.add_argument("--verify", action="store_true",
-                        help="Return a non-zero exit code if any files were changed, Implies --dry-run")
-    parser.add_argument('--keep-count', action='store_true',
-                        help='Do not strip the execution count/prompt number')
-    parser.add_argument('--keep-output', action='store_true',
-                        help='Do not strip output', default=None)
-    parser.add_argument('--keep-id', action='store_true',
-                        help='Keep the randomly generated cell ids, '
-                        'which will be different after each execution.')
-    parser.add_argument('--extra-keys', default='',
-                        help='Space separated list of extra keys to strip '
-                        'from metadata, e.g. metadata.foo cell.metadata.bar')
-    parser.add_argument('--keep-metadata-keys', default='',
-                        help='Space separated list of metadata keys to keep'
-                        ', e.g. metadata.foo cell.metadata.bar')
-    parser.add_argument('--drop-empty-cells', action='store_true',
-                        help='Remove cells where `source` is empty or contains only whitepace')
-    parser.add_argument('--drop-tagged-cells', default='',
-                        help='Space separated list of cell-tags that remove an entire cell')
-    parser.add_argument('--strip-init-cells', action='store_true',
-                        help='Remove cells with `init_cell: true` metadata (default: False)')
-    parser.add_argument('--attributes', metavar='FILEPATH',
-                        help='Attributes file to add the filter to (in '
-                        'combination with --install/--uninstall), '
-                        'defaults to .git/info/attributes')
+    task.add_argument('--dry-run', action='store_true', help='Print which notebooks would have been stripped')
+    task.add_argument(
+        '--install',
+        action='store_true',
+        help='Install nbstripout in the current repository (set up the git filter and attributes)',
+    )
+    task.add_argument(
+        '--uninstall',
+        action='store_true',
+        help='Uninstall nbstripout from the current repository (remove the git filter and attributes)',
+    )
+    task.add_argument(
+        '--is-installed', action='store_true', help='Check if nbstripout is installed in current repository'
+    )
+    task.add_argument(
+        '--status',
+        action='store_true',
+        help='Print status of nbstripout installation in current repository and configuration summary if installed',
+    )
+    task.add_argument('--version', action='store_true', help='Print version')
+    parser.add_argument(
+        '--verify', action='store_true', help='Return a non-zero exit code if any files were changed, Implies --dry-run'
+    )
+    parser.add_argument('--keep-count', action='store_true', help='Do not strip the execution count/prompt number')
+    parser.add_argument('--keep-output', action='store_true', help='Do not strip output', default=None)
+    parser.add_argument(
+        '--drop-output-type',
+        help='Types of output cells to drop, e.g. "error" or "stream". Only has effect with --keep-output',
+        nargs='+',
+        default=[],
+    )
+    parser.add_argument(
+        '--keep-output-type',
+        help='Types of output cells to keep, e.g. "error" or "stream". Will take effect without --keep-output',
+        nargs='+',
+        default=[],
+    )
+    parser.add_argument(
+        '--keep-id',
+        action='store_true',
+        help='Keep the randomly generated cell ids, which will be different after each execution.',
+    )
+    parser.add_argument(
+        '--extra-keys',
+        default='',
+        help='Space separated list of extra keys to strip from metadata, e.g. metadata.foo cell.metadata.bar',
+    )
+    parser.add_argument(
+        '--keep-metadata-keys',
+        default='',
+        help='Space separated list of metadata keys to keep, e.g. metadata.foo cell.metadata.bar',
+    )
+    parser.add_argument(
+        '--drop-empty-cells',
+        action='store_true',
+        help='Remove cells where `source` is empty or contains only whitepace',
+    )
+    parser.add_argument(
+        '--drop-tagged-cells', default='', help='Space separated list of cell-tags that remove an entire cell'
+    )
+    parser.add_argument(
+        '--strip-init-cells', action='store_true', help='Remove cells with `init_cell: true` metadata (default: False)'
+    )
+    parser.add_argument(
+        '--attributes',
+        metavar='FILEPATH',
+        help='Attributes file to add the filter to (in '
+        'combination with --install/--uninstall), '
+        'defaults to .git/info/attributes',
+    )
     location = parser.add_mutually_exclusive_group()
-    location.add_argument('--global', dest='_global', action='store_true',
-                          help='Use global git config (default is local config)')
-    location.add_argument('--system', dest='_system', action='store_true',
-                          help='Use system git config (default is local config)')
-    location.add_argument('--python', dest='_python', metavar="PATH",
-                          help='Path to python executable to use when --install\'ing '
-                          '(default is deduced from `sys.executable`)')
-    parser.add_argument('--force', '-f', action='store_true',
-                        help='Strip output also from files with non ipynb extension')
-    parser.add_argument('--max-size', metavar='SIZE',
-                        help='Keep outputs smaller than SIZE', default='0')
-    parser.add_argument('--mode', '-m', default='jupyter', choices=['jupyter', 'zeppelin'],
-                        help='Specify mode between [jupyter (default) | zeppelin] (to be used in combination with -f)')
+    location.add_argument(
+        '--global', dest='_global', action='store_true', help='Use global git config (default is local config)'
+    )
+    location.add_argument(
+        '--system', dest='_system', action='store_true', help='Use system git config (default is local config)'
+    )
+    location.add_argument(
+        '--python',
+        dest='_python',
+        metavar='PATH',
+        help="Path to python executable to use when --install'ing (default is deduced from `sys.executable`)",
+    )
+    parser.add_argument(
+        '--force', '-f', action='store_true', help='Strip output also from files with non ipynb extension'
+    )
+    parser.add_argument('--max-size', metavar='SIZE', help='Keep outputs smaller than SIZE', default='0')
+    parser.add_argument(
+        '--mode',
+        '-m',
+        default='jupyter',
+        choices=['jupyter', 'zeppelin'],
+        help='Specify mode between [jupyter (default) | zeppelin] (to be used in combination with -f)',
+    )
 
-    parser.add_argument('--textconv', '-t', action='store_true',
-                        help='Prints stripped files to STDOUT')
+    parser.add_argument('--textconv', '-t', action='store_true', help='Prints stripped files to STDOUT')
 
     parser.add_argument('files', nargs='*', help='Files to strip output from')
     args = parser.parse_args()
@@ -482,17 +566,29 @@ def main():
     ]
 
     try:
-        extra_keys.extend(check_output((git_config if args._system or args._global else ['git', 'config']) + ['filter.nbstripout.extrakeys'], universal_newlines=True).strip().split())
+        extra_keys.extend(
+            check_output(
+                (git_config if args._system or args._global else ['git', 'config']) + ['filter.nbstripout.extrakeys'],
+                universal_newlines=True,
+            )
+            .strip()
+            .split()
+        )
     except (CalledProcessError, FileNotFoundError):
         pass
 
     extra_keys.extend(args.extra_keys.split())
 
     try:
-        keep_metadata_keys = check_output(
-            (git_config if args._system or args._global else ['git', 'config']) + ['filter.nbstripout.keepmetadatakeys'],
-            universal_newlines=True
-        ).strip().split()
+        keep_metadata_keys = (
+            check_output(
+                (git_config if args._system or args._global else ['git', 'config'])
+                + ['filter.nbstripout.keepmetadatakeys'],
+                universal_newlines=True,
+            )
+            .strip()
+            .split()
+        )
     except (CalledProcessError, FileNotFoundError):
         keep_metadata_keys = []
     keep_metadata_keys.extend(args.keep_metadata_keys.split())
@@ -510,9 +606,11 @@ def main():
             continue
 
         try:
-            with io.open(filename, 'r+', encoding='utf8', newline='') as f:
+            with io.open(filename, 'r+', encoding='utf8') as f:
                 out = output_stream if args.textconv or args.dry_run else f
-                if process_notebook(f, out, args, extra_keys, filename):
+                if process_notebook(
+                    input_stream=f, output_stream=out, args=args, extra_keys=extra_keys, filename=filename
+                ):
                     any_change = True
 
         except nbformat.reader.NotJSONError:
@@ -533,6 +631,6 @@ def main():
         except nbformat.reader.NotJSONError:
             print('No valid notebook detected on stdin', file=sys.stderr)
             raise SystemExit(1)
-        
+
     if args.verify and any_change:
         raise SystemExit(1)

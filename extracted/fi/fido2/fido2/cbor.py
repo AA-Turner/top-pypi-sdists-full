@@ -37,9 +37,13 @@ and decode objects to/from CBOR.
 from __future__ import annotations
 
 import struct
-from typing import Any, Callable, Mapping, Sequence
+from types import UnionType
+from typing import Any, Callable, Mapping, Sequence, TypeAlias
 
-CborType = int | bool | str | bytes | Sequence[Any] | Mapping[Any, Any]
+CborType: TypeAlias = int | bool | str | bytes | Sequence[Any] | Mapping[Any, Any]
+
+# TODO: Requires Python 3.12, replace with collections.abc.Buffer
+Buffer: TypeAlias = bytes | bytearray | memoryview
 
 
 def _dump_int(data: int, mt: int = 0) -> bytes:
@@ -48,17 +52,19 @@ def _dump_int(data: int, mt: int = 0) -> bytes:
         data = -1 - data
 
     mt = mt << 5
+    fmt: str
+    args: tuple[int, ...]
     if data <= 23:
-        args: Any = (">B", mt | data)
+        fmt, args = ">B", (mt | data,)
     elif data <= 0xFF:
-        args = (">BB", mt | 24, data)
+        fmt, args = ">BB", (mt | 24, data)
     elif data <= 0xFFFF:
-        args = (">BH", mt | 25, data)
+        fmt, args = ">BH", (mt | 25, data)
     elif data <= 0xFFFFFFFF:
-        args = (">BI", mt | 26, data)
+        fmt, args = ">BI", (mt | 26, data)
     else:
-        args = (">BQ", mt | 27, data)
-    return struct.pack(*args)
+        fmt, args = ">BQ", (mt | 27, data)
+    return struct.pack(fmt, *args)
 
 
 def _dump_bool(data: bool) -> bytes:
@@ -89,11 +95,11 @@ def _dump_text(data: str) -> bytes:
     return _dump_int(len(data_bytes), mt=3) + data_bytes
 
 
-_SERIALIZERS: Sequence[tuple[type, Callable[[Any], bytes]]] = [
+_SERIALIZERS: Sequence[tuple[type | UnionType, Callable[[Any], bytes]]] = [
     (bool, _dump_bool),
     (int, _dump_int),
     (str, _dump_text),
-    (bytes, _dump_bytes),
+    (Buffer, _dump_bytes),
     (Mapping, _dump_dict),
     (Sequence, _dump_list),
 ]

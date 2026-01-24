@@ -15,7 +15,6 @@ import json
 import ast
 from copy import copy
 from itertools import (count, groupby)
-from ansible.module_utils.six import iteritems
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.utils import (
     remove_empties
 )
@@ -250,28 +249,28 @@ def dict_to_set(sample_dict):
     # Generate a set with passed dictionary for comparison
     test_dict = dict()
     if isinstance(sample_dict, dict):
-        for k, v in iteritems(sample_dict):
+        for k, v in sample_dict.items():
             if v is not None:
                 if isinstance(v, list):
                     if isinstance(v[0], dict):
                         li = []
                         for each in v:
-                            for key, value in iteritems(each):
+                            for key, value in each.items():
                                 if isinstance(value, list):
                                     each[key] = tuple(value)
-                            li.append(tuple(iteritems(each)))
+                            li.append(tuple(each.items()))
                         v = tuple(li)
                     else:
                         v = tuple(v)
                 elif isinstance(v, dict):
                     li = []
-                    for key, value in iteritems(v):
+                    for key, value in v.items():
                         if isinstance(value, list):
                             v[key] = tuple(value)
-                    li.extend(tuple(iteritems(v)))
+                    li.extend(tuple(v.items()))
                     v = tuple(li)
                 test_dict.update({k: v})
-        return_set = set(tuple(iteritems(test_dict)))
+        return_set = set(tuple(test_dict.items()))
     else:
         return_set = set(sample_dict)
     return return_set
@@ -769,3 +768,17 @@ def get_ranges_in_list(num_list):
     """
     for key, group in groupby(num_list, lambda num, i=count(): num - next(i)):
         yield list(group)
+
+
+def sort_lists_by_interface_name(conf_list, key):
+    """
+    Sorts a list of dictionaries based on the value of a specified key.
+    """
+
+    def retrieve_sort_keys(name):
+        group = re.match(r"(.*)(\d+)$", name)
+        if group:
+            return group[1], int(group[2])
+        return name, name
+
+    conf_list.sort(key=lambda x: retrieve_sort_keys(x[key]))

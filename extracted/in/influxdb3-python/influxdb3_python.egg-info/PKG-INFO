@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: influxdb3-python
-Version: 0.16.0
+Version: 0.17.0
 Summary: Community Python client for InfluxDB 3.0
 Home-page: https://github.com/InfluxCommunity/influxdb3-python
 Author: InfluxData
@@ -33,6 +33,8 @@ Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pytest-httpserver; extra == "test"
+Requires-Dist: h2<5.0.0,>=4.0.0; extra == "test"
+Requires-Dist: cryptography>=3.4.0; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -181,14 +183,46 @@ print(f'DONE writing from csv in {callback.write_count} batch(es)')
 
 ```
 
-### Pandas DF
+### Pandas DataFrame
 ```python
-client._write_api.write(bucket="pokemon-codex", record=pd_df, data_frame_measurement_name='caught', data_frame_tag_columns=['trainer', 'id', 'num'], data_frame_timestamp_column='timestamp')
+import pandas as pd
+
+# Create a DataFrame with a timestamp column
+df = pd.DataFrame({
+    'time': pd.to_datetime(['2024-01-01', '2024-01-02', '2024-01-03']),
+    'trainer': ['Ash', 'Misty', 'Brock'],
+    'pokemon_id': [25, 120, 74],
+    'pokemon_name': ['Pikachu', 'Staryu', 'Geodude']
+})
+
+# Write the DataFrame - timestamp_column is required for consistency
+client.write_dataframe(
+    df,
+    measurement='caught',
+    timestamp_column='time',
+    tags=['trainer', 'pokemon_id']
+)
 ```
 
-### Polars DF
+### Polars DataFrame
 ```python
-client._write_api.write(bucket="pokemon-codex", record=pl_df, data_frame_measurement_name='caught', data_frame_tag_columns=['trainer', 'id', 'num'], data_frame_timestamp_column='timestamp')
+import polars as pl
+
+# Create a DataFrame with a timestamp column
+df = pl.DataFrame({
+    'time': ['2024-01-01T00:00:00Z', '2024-01-02T00:00:00Z'],
+    'trainer': ['Ash', 'Misty'],
+    'pokemon_id': [25, 120],
+    'pokemon_name': ['Pikachu', 'Staryu']
+})
+
+# Write the DataFrame - same API works for both pandas and polars
+client.write_dataframe(
+    df,
+    measurement='caught',
+    timestamp_column='time',
+    tags=['trainer', 'pokemon_id']
+)
 ```
 
 ## Querying
@@ -201,6 +235,15 @@ table = reader.read_all()
 print(table.to_pandas().to_markdown())
 ```
 
+### Querying to DataFrame
+```python
+# Query directly to a pandas DataFrame (default)
+df = client.query_dataframe("SELECT * FROM caught WHERE trainer = 'Ash'")
+
+# Query to a polars DataFrame
+df = client.query_dataframe("SELECT * FROM caught", frame_type="polars")
+```
+
 ### Querying with influxql
 ```python
 query = "select * from measurement"
@@ -210,9 +253,32 @@ print(table.to_pandas().to_markdown())
 ```
 
 ### gRPC compression
-The Python client supports gRPC response compression.  
-If the server chooses to compress query responses (e.g., with gzip), the client
-will automatically decompress them — no extra configuration is required.
+
+#### Request compression
+
+Request compression is not supported by InfluxDB 3 — the client sends uncompressed requests.
+
+#### Response compression
+
+Response compression is enabled by default. The client sends the `grpc-accept-encoding: identity, deflate, gzip`
+header, and the server returns gzip-compressed responses (if supported). The client automatically
+decompresses them — no configuration required.
+
+To **disable response compression**:
+
+```python
+# Via constructor parameter
+client = InfluxDBClient3(
+    host="your-host",
+    token="your-token",
+    database="your-database",
+    disable_grpc_compression=True
+)
+
+# Or via environment variable
+# INFLUX_DISABLE_GRPC_COMPRESSION=true
+client = InfluxDBClient3.from_env()
+```
 
 ## Windows Users
 Currently, Windows users require an extra installation when querying via Flight natively. This is due to the fact gRPC cannot locate Windows root certificates. To work around this please follow these steps:
@@ -245,7 +311,8 @@ table = client.query(
 
 print(table.to_pandas())
 ```
-You may also include your own root certificate via this manor aswell.
+
+You may include your own root certificate in this manner as well.
 
 If connecting to InfluxDB fails with error `DNS resolution failed` when using domain name, example `www.mydomain.com`, then try to set environment variable `GRPC_DNS_RESOLVER=native` to see if it works.
 

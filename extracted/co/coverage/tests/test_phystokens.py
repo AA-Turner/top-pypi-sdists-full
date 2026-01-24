@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests for coverage.py's improved tokenizer."""
 
@@ -56,7 +56,7 @@ MIXED_WS_TOKENS = [
     [("ws", "        "), ("nam", "b"), ("op", "="), ("str", '"indented"')],
 ]
 
-# https://github.com/nedbat/coveragepy/issues/822
+# https://github.com/coveragepy/coveragepy/issues/822
 BUG_822 = """\
 print( "Message 1" )
 array = [ 1,2,3,4,       # 4 numbers \\
@@ -108,7 +108,7 @@ class PhysTokensTest(CoverageTest):
         self.check_file_tokenization(real_file)
 
     def test_1828(self) -> None:
-        # https://github.com/nedbat/coveragepy/pull/1828
+        # https://github.com/coveragepy/coveragepy/pull/1828
         tokens = list(
             source_token_lines(
                 textwrap.dedent("""
@@ -181,7 +181,6 @@ class PhysTokensTest(CoverageTest):
             assert tokens == [[("str", "f'Look: {x} {{x}}!'")]]
 
 
-@pytest.mark.skipif(not env.PYBEHAVIOR.soft_keywords, reason="Soft keywords are new in Python 3.10")
 class SoftKeywordTest(CoverageTest):
     """Tests the tokenizer handling soft keywords."""
 

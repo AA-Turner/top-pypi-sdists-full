@@ -21,8 +21,8 @@ import torch
 from typing_extensions import override
 
 import pytorch_lightning as pl
-from lightning_fabric.accelerators import _AcceleratorRegistry
 from lightning_fabric.accelerators.cuda import _check_cuda_matmul_precision, _clear_cuda_memory, num_cuda_devices
+from lightning_fabric.accelerators.registry import _AcceleratorRegistry
 from lightning_fabric.utilities.device_parser import _parse_gpu_ids
 from lightning_fabric.utilities.types import _DEVICE
 from pytorch_lightning.accelerators.accelerator import Accelerator
@@ -104,11 +104,16 @@ class CUDAAccelerator(Accelerator):
     def is_available() -> bool:
         return num_cuda_devices() > 0
 
+    @staticmethod
+    @override
+    def name() -> str:
+        return "cuda"
+
     @classmethod
     @override
     def register_accelerators(cls, accelerator_registry: _AcceleratorRegistry) -> None:
         accelerator_registry.register(
-            "cuda",
+            cls.name(),
             cls,
             description=cls.__name__,
         )

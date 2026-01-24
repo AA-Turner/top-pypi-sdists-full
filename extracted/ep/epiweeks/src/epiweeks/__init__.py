@@ -1,24 +1,26 @@
-"""Epidemiological weeks calculation based on the US CDC (MMWR) and ISO week
-numbering systems.
+"""Epidemiological weeks calculation.
+
+Based on the US CDC (MMWR) and ISO week numbering systems.
 
 https://github.com/dralshehri/epiweeks
 """
 
-__version__ = "2.3.0"
-
+from collections.abc import Iterator
 from datetime import date, timedelta
-from typing import Iterator, Tuple
+
+__all__ = ["Week", "Year"]
 
 
 class Week:
     """A Week object represents a week in epidemiological week calendar."""
 
-    __slots__ = "_year", "_week", "_system"
+    __slots__ = "_system", "_week", "_year"
 
     def __init__(
-        self, year: int, week: int, system: str = "cdc", validate: bool = True
+        self, year: int, week: int, system: str = "cdc", *, validate: bool = True
     ):
-        """
+        """Initialize Week object.
+
         Args:
             year: Epidemiological year.
             week: Epidemiological week.
@@ -32,7 +34,6 @@ class Week:
             ValueError: When ``week`` is out of weeks range for year.
             ValueError: When ``system`` is not within supported systems.
         """
-
         if validate:
             _check_year(year)
             _check_system(system)
@@ -81,39 +82,35 @@ class Week:
         """Compare two Week objects after checking if they are comparable."""
         class_name = self.__class__.__name__
         if self._system != other.system:
-            raise TypeError(
+            message = (
                 f"Can not compare '{class_name}' objects with different "
                 f"numbering systems: '{self._system}' and '{other.system}'"
             )
+            raise TypeError(message)
         self_week = self.weektuple()
         other_week = other.weektuple()
-        return (
-            0
-            if self_week == other_week
-            else 1
-            if self_week > other_week
-            else -1
-        )
+        return 0 if self_week == other_week else 1 if self_week > other_week else -1
 
     def __add__(self, other: int) -> "Week":
         if not isinstance(other, int):
             other_type = type(other).__name__
-            raise TypeError(f"Second operand must be 'int': {other_type}")
+            message = f"Second operand must be 'int': {other_type}"
+            raise TypeError(message)
         new_date = self.startdate() + timedelta(weeks=other)
         return self.__class__.fromdate(new_date, self._system)
 
     def __sub__(self, other: int) -> "Week":
         if not isinstance(other, int):
             other_type = type(other).__name__
-            raise TypeError(f"Second operand must be 'int': {other_type}")
+            message = f"Second operand must be 'int': {other_type}"
+            raise TypeError(message)
         return self.__add__(-other)
 
     def __contains__(self, other: date) -> bool:
         if not isinstance(other, date):
             other_type = type(other).__name__
-            raise TypeError(
-                f"Tested operand must be 'datetime.date' object: {other_type}"
-            )
+            message = f"Tested operand must be 'datetime.date' object: {other_type}"
+            raise TypeError(message)
         return other in self.iterdates()
 
     @classmethod
@@ -126,8 +123,8 @@ class Week:
                 week starts on Sunday or ``iso`` where the week starts on
                 Monday.
         """
-
         _check_system(system)
+        min_weeks_per_year = 52
         year = date_object.year
         date_ordinal = date_object.toordinal()
         year_start_ordinal = _year_start(year, system)
@@ -136,7 +133,7 @@ class Week:
             year -= 1
             year_start_ordinal = _year_start(year, system)
             week = (date_ordinal - year_start_ordinal) // 7
-        elif week >= 52:
+        elif week >= min_weeks_per_year:
             year_start_ordinal = _year_start(year + 1, system)
             if date_ordinal >= year_start_ordinal:
                 year += 1
@@ -146,7 +143,7 @@ class Week:
 
     @classmethod
     def fromstring(
-        cls, week_string: str, system: str = "cdc", validate: bool = True
+        cls, week_string: str, system: str = "cdc", *, validate: bool = True
     ) -> "Week":
         """Construct Week object from a formatted string.
 
@@ -159,11 +156,10 @@ class Week:
                 Monday.
             validate: Whether to validate year, week and system or not.
         """
-
         week_string = week_string.replace("-", "").replace("W", "")
         year = int(week_string[0:4])
         week = int(week_string[4:6])
-        return cls(year, week, system, validate)
+        return cls(year, week, system, validate=validate)
 
     @classmethod
     def thisweek(cls, system: str = "cdc") -> "Week":
@@ -174,25 +170,24 @@ class Week:
                 week starts on Sunday or ``iso`` where the week starts on
                 Monday.
         """
-
         return cls.fromdate(date.today(), system)
 
     @property
     def year(self) -> int:
-        """Return year as an integer"""
+        """Return year as an integer."""
         return self._year
 
     @property
     def week(self) -> int:
-        """Return week number as an integer"""
+        """Return week number as an integer."""
         return self._week
 
     @property
     def system(self) -> str:
-        """Return week numbering system as a string"""
+        """Return week numbering system as a string."""
         return self._system
 
-    def weektuple(self) -> Tuple[int, int]:
+    def weektuple(self) -> tuple[int, int]:
         """Return week as a tuple of (year, week)."""
         return self._year, self._week
 
@@ -201,9 +196,7 @@ class Week:
         return f"{self._year:04}{self._week:02}"
 
     def isoformat(self) -> str:
-        """Return a string representing the week in ISO compact format
-        ``YYYYWww``.
-        """
+        """Return a string representing the week in ISO compact format ``YYYYWww``."""
         return f"{self._year:04}W{self._week:02}"
 
     def startdate(self) -> date:
@@ -231,7 +224,6 @@ class Week:
             weekday: Week day, which may be ``0..6`` where Monday is 0 and
                 Sunday is 6.
         """
-
         diff = (_system_adjustment(self._system) + weekday) % 7
         return self.startdate() + timedelta(days=diff)
 
@@ -239,10 +231,11 @@ class Week:
 class Year:
     """A Year object represents a year in epidemiological week calendar."""
 
-    __slots__ = "_year", "_system"
+    __slots__ = "_system", "_year"
 
     def __init__(self, year: int, system: str = "cdc"):
-        """
+        """Initialize Year object.
+
         Args:
             year: Epidemiological year.
             system: Week numbering system, which may be ``cdc`` where the
@@ -253,7 +246,6 @@ class Year:
             ValueError: When ``year`` is out of supported range.
             ValueError: When ``system`` is not within supported systems.
         """
-
         _check_year(year)
         _check_system(system)
         self._year = year
@@ -278,17 +270,16 @@ class Year:
                 week starts on Sunday or ``iso`` where the week starts on
                 Monday.
         """
-
         return cls(date.today().year, system)
 
     @property
     def year(self) -> int:
-        """Return year as an integer"""
+        """Return year as an integer."""
         return self._year
 
     @property
     def system(self) -> str:
-        """Return week numbering system as a string"""
+        """Return week numbering system as a string."""
         return self._system
 
     def totalweeks(self) -> int:
@@ -315,21 +306,24 @@ def _check_year(year: int) -> None:
     """Check value of year."""
     max_years = 9999
     if not 1 <= year <= max_years:
-        raise ValueError(f"Year must be in 1..{max_years}")
+        message = f"Year must be in 1..{max_years}"
+        raise ValueError(message)
 
 
 def _check_week(year: int, week: int, system: str) -> None:
     """Check value of week."""
     max_weeks = _year_total_weeks(year, system)
     if not 1 <= week <= max_weeks:
-        raise ValueError(f"Week must be in 1..{max_weeks} for year")
+        message = f"Week must be in 1..{max_weeks} for year"
+        raise ValueError(message)
 
 
 def _check_system(system: str) -> None:
     """Check value of week numbering system."""
     systems = ("cdc", "iso")
     if system.lower() not in systems:
-        raise ValueError(f"System must be in {systems}")
+        message = f"System must be in {systems}"
+        raise ValueError(message)
 
 
 def _system_adjustment(system: str) -> int:

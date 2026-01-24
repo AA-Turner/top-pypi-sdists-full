@@ -12,8 +12,10 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ TODO                               }....................
-#FIXME: Hah-hah! Finally figured out how to do recursive type hints... mostly.
-#It's a two-parter consisting of:
+#FIXME: Hah-hah! Finally figured out how to do PEP-noncompliant recursive type
+#hints... mostly. That said, since @beartype already supports PEP 695-compliant
+#recursive type aliases, it's unclear whether any of this is desirable.
+#Still, we specced it out. So, here it is. It's a two-parter consisting of:
 #* *PART I.* In the first part:
 #  * Refactor our code generation algorithm to additionally maintain a stack of
 #    all parent type hints of the currently visited type hint. Note that we need
@@ -30,7 +32,7 @@ This private submodule is *not* intended for importation by downstream callers.
 #        "(forwardref_expr, refs_type_basename, forwardref_parent_hints)",
 #        where "forwardref_parent_hints" is that stack.
 #* *PART II.* In the second part:
-#  * Refactor the beartype._decor.wrap.wrapmain._unmemoize_func_wrapper_code()
+#  * Refactor the beartype._decor._nontype._wrap.wrapmain._unmemoize_func_wrapper_code()
 #    function to additionally:
 #    * If the passed forward reference is relative *AND* the unqualified
 #      basename of an existing attribute in a local or global scope of the
@@ -69,12 +71,11 @@ from beartype._check.code.snip.codesnipstr import (
     CODE_HINT_REF_TYPE_BASENAME_PLACEHOLDER_SUFFIX,
 )
 from beartype._data.cls.datacls import TYPES_SET_OR_TUPLE
-from beartype._data.hint.datahinttyping import (
+from beartype._data.typing.datatyping import (
     LexicalScope,
     Pep484585ForwardRef,
     SetOrTupleTypes,
     TypeOrSetOrTupleTypes,
-    # TypeOrTupleTypes,
     TupleTypes,
 )
 from beartype._util.cls.pep.clspep3119 import (
@@ -548,7 +549,7 @@ def express_func_scope_type_ref(
     typically has yet to be declared) as a Python expression evaluating to this
     forward reference when accessed via the beartypistry singleton added as a
     new key-value pair of the passed dictionary, whose key is the string
-    :attr:`beartype._check.checkmagic.ARG_NAME_TYPISTRY` and whose value is the
+    :attr:`beartype._data.code.datacodename.ARG_NAME_TYPISTRY` and whose value is the
     beartypistry singleton.
 
     Parameters

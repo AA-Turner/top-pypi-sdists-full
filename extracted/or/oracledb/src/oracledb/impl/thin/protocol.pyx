@@ -176,8 +176,27 @@ cdef class BaseProtocol:
         the packet may indicate EOF for the initial connection that is
         established.
         """
+        cdef:
+            dict session_data = auth_message.session_data
+            ReadBuffer buf = self._read_buf
+        conn_impl._session_id = \
+                <uint32_t> int(session_data["AUTH_SESSION_ID"])
+        conn_impl._serial_num = \
+                <uint16_t> int(session_data["AUTH_SERIAL_NUM"])
+        conn_impl._db_domain = session_data.get("AUTH_SC_DB_DOMAIN")
+        conn_impl._db_name = session_data.get("AUTH_SC_DBUNIQUE_NAME")
+        conn_impl._max_open_cursors = \
+                int(session_data.get("AUTH_MAX_OPEN_CURSORS", 0))
+        conn_impl._service_name = session_data.get("AUTH_SC_SERVICE_NAME")
+        conn_impl._instance_name = session_data.get("AUTH_INSTANCENAME")
+        conn_impl._max_identifier_length = \
+                int(session_data.get("AUTH_MAX_IDEN_LENGTH", 30))
+        conn_impl.server_version = auth_message._get_version_tuple(buf)
+        conn_impl.supports_bool = \
+                buf._caps.ttc_field_version >= TNS_CCAP_FIELD_VERSION_23_1
+        conn_impl._edition = auth_message.edition
         conn_impl.warning = auth_message.warning
-        self._read_buf._pending_error_num = 0
+        buf._pending_error_num = 0
         self._in_connect = False
 
     cdef int _send_marker(self, WriteBuffer buf, uint8_t marker_type):
@@ -323,8 +342,8 @@ cdef class Protocol(BaseProtocol):
         auth_message = conn_impl._create_message(AuthMessage)
         auth_message._set_params(params, description)
 
-        # starting in 23ai, fast authentication is possible; see if the server
-        # supports it
+        # starting in Oracle Database version 23, fast authentication is
+        # possible; see if the server supports it
         if self._caps.supports_fast_auth:
             fast_auth_message = conn_impl._create_message(FastAuthMessage)
             fast_auth_message.protocol_message = protocol_message
@@ -441,7 +460,7 @@ cdef class Protocol(BaseProtocol):
         except MarkerDetected:
             self._reset()
             message.process(self._read_buf)
-        except Exception as e:
+        except BaseException as e:
             if not self._in_connect \
                     and self._write_buf._packet_sent \
                     and self._read_buf._transport is not None \
@@ -677,8 +696,8 @@ cdef class BaseAsyncProtocol(BaseProtocol):
         auth_message = conn_impl._create_message(AuthMessage)
         auth_message._set_params(params, description)
 
-        # starting in 23ai, fast authentication is possible; see if the server
-        # supports it
+        # starting in Oracle Database version 23, fast authentication is
+        # possible; see if the server supports it
         if self._caps.supports_fast_auth:
             fast_auth_message = conn_impl._create_message(FastAuthMessage)
             fast_auth_message.protocol_message = protocol_message

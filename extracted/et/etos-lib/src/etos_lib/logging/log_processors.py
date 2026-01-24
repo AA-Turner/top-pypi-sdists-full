@@ -15,15 +15,15 @@
 # limitations under the License.
 """Custom log processors for use with Open Telemetry logging signals."""
 
-from opentelemetry.sdk._logs import LogData, LogRecordProcessor
+from opentelemetry.sdk._logs import LogRecordProcessor, ReadWriteLogRecord
 
 
 class ToStringProcessor(LogRecordProcessor):
     """Simple log record processor to convert all log records to type string."""
 
-    def on_emit(self, log_data: LogData) -> None:
-        """Change record body to string and emit the `LogData`."""
-        record = log_data.log_record
+    def on_emit(self, log_record: ReadWriteLogRecord) -> None:
+        """Change record body to string and emit the log record."""
+        record = log_record.log_record
         if not isinstance(record.body, (str, bool, int, float)):
             record.body = str(record.body)
 

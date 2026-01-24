@@ -391,11 +391,14 @@ def shell(state, fancy=False, shell_args=None, anyway=False, quiet=False):
             )
             sys.exit(1)
 
-    # Use fancy mode for Windows or pwsh on *nix.
+    # Use fancy mode for Windows, pwsh, or when Oh My Posh is detected.
+    # Oh My Posh interferes with the VIRTUAL_ENV variable when using the
+    # pexpect-based compat mode. See: https://github.com/pypa/pipenv/issues/6226
     if (
         os.name == "nt"
         or Path(os.environ.get("PIPENV_SHELL") or "").name == "pwsh"
         or Path(os.environ.get("SHELL") or "").name == "pwsh"
+        or os.environ.get("POSH_THEME")  # Oh My Posh detected
     ):
         fancy = True
     do_shell(
@@ -409,9 +412,70 @@ def shell(state, fancy=False, shell_args=None, anyway=False, quiet=False):
 
 
 @cli.command(
+    short_help="Outputs the activation command for the virtualenv.",
+    context_settings=CONTEXT_SETTINGS,
+)
+@pypi_mirror_option
+@python_option
+@pass_state
+def activate(state):
+    """Outputs the shell command to activate the virtualenv.
+
+    Unlike 'pipenv shell' which spawns a subshell, this command prints
+    the activation command that can be evaluated in your current shell.
+
+    \b
+    Usage examples:
+        $ eval $(pipenv activate)          # Bash/Zsh
+        $ eval (pipenv activate)           # Fish
+        $ Invoke-Expression (pipenv activate)  # PowerShell
+
+    \b
+    You can create a shell alias for convenience:
+        alias penv='eval $(pipenv activate)'
+
+    This approach is similar to Poetry's 'poetry env activate' command.
+    """
+    from pipenv.shells import ShellDetectionFailure, _get_activate_script, detect_info
+    from pipenv.utils.project import ensure_project
+
+    # Ensure virtualenv exists
+    ensure_project(
+        state.project,
+        python=state.python,
+        validate=False,
+        pypi_mirror=state.pypi_mirror,
+    )
+
+    if not state.project.virtualenv_exists:
+        err.print(
+            "No virtualenv has been created for this project yet!\n"
+            "Run [green bold]pipenv install[/green bold] to create one.",
+            style="red bold",
+        )
+        sys.exit(1)
+
+    try:
+        shell_type, shell_cmd = detect_info(state.project)
+    except ShellDetectionFailure:
+        err.print(
+            "Unable to detect shell. Set PIPENV_SHELL environment variable.",
+            style="red bold",
+        )
+        sys.exit(1)
+
+    venv_path = state.project.virtualenv_location
+    activate_cmd = _get_activate_script(shell_cmd, venv_path)
+
+    # Output to stdout (strip leading space used for history hiding in shell command)
+    print(activate_cmd.strip())
+
+
+@cli.command(
     short_help="Spawns a command installed into the virtualenv.",
     context_settings=subcommand_context_no_interspersion,
 )
+@system_option
 @common_options
 @argument("command")
 @argument("args", nargs=-1)
@@ -426,6 +490,7 @@ def run(state, command, args):
         args=args,
         python=state.python,
         pypi_mirror=state.pypi_mirror,
+        system=state.system,
     )
 
 
@@ -530,10 +595,10 @@ def check(
 ):
     """DEPRECATED: Checks for PyUp Safety security vulnerabilities and against PEP 508 markers provided in Pipfile.
 
-    This command has been deprecated and will be replaced beyond 01 June 2025.
+    This command is deprecated. Please use 'pipenv audit' instead, which uses pip-audit
+    for vulnerability scanning and requires no API key.
 
-    Use the --scan option to run the new scan command instead of the deprecated check command.
-    In future versions, the check command will run the scan command by default.
+    Alternatively, use --scan to use Safety's scan command (requires API key).
     """
 
     from pipenv.routines.check import do_check
@@ -558,6 +623,160 @@ def check(
         categories=categories,
         auto_install=auto_install,
         scan=scan,
+    )
+
+
+@cli.command(
+    short_help="Audits packages for security vulnerabilities using pip-audit.",
+    context_settings=subcommand_context,
+)
+@option(
+    "--output",
+    "-f",
+    type=Choice(["columns", "json", "cyclonedx-json", "cyclonedx-xml", "markdown"]),
+    default="columns",
+    help="Output format for audit results.",
+)
+@option(
+    "--vulnerability-service",
+    "-s",
+    type=Choice(["pypi", "osv"]),
+    default="pypi",
+    help="Vulnerability service to query (pypi or osv).",
+)
+@option(
+    "--ignore",
+    "-i",
+    multiple=True,
+    help="Ignore a specific vulnerability by ID (can be used multiple times).",
+)
+@option(
+    "--fix",
+    is_flag=True,
+    default=False,
+    help="Automatically upgrade packages with known vulnerabilities.",
+)
+@option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Collect dependencies but do not audit (or with --fix: audit but do not fix).",
+)
+@option(
+    "--strict",
+    is_flag=True,
+    default=False,
+    help="Fail if dependency collection fails on any dependency.",
+)
+@option(
+    "--skip-editable",
+    is_flag=True,
+    default=False,
+    help="Skip auditing editable packages.",
+)
+@option(
+    "--no-deps",
+    is_flag=True,
+    default=False,
+    help="Don't perform dependency resolution (requires pinned requirements).",
+)
+@option(
+    "--local",
+    is_flag=True,
+    default=False,
+    help="Only audit packages in the local environment.",
+)
+@option(
+    "--desc",
+    is_flag=True,
+    default=False,
+    help="Include descriptions for each vulnerability.",
+)
+@option(
+    "--aliases",
+    is_flag=True,
+    default=False,
+    help="Include alias IDs (CVE, GHSA) for each vulnerability.",
+)
+@option(
+    "--output-file",
+    "-o",
+    default=None,
+    help="Output results to the given file.",
+)
+@option(
+    "--quiet",
+    is_flag=True,
+    default=False,
+    help="Quiet mode - minimal output.",
+)
+@option(
+    "--locked",
+    is_flag=True,
+    default=False,
+    help="Audit lockfiles (pyproject.toml/pylock.toml) instead of the environment.",
+)
+@common_options
+@system_option
+@pass_state
+def audit(
+    state,
+    output="columns",
+    vulnerability_service="pypi",
+    ignore=None,
+    fix=False,
+    dry_run=False,
+    strict=False,
+    skip_editable=False,
+    no_deps=False,
+    local=False,
+    desc=False,
+    aliases=False,
+    output_file=None,
+    quiet=False,
+    locked=False,
+    **kwargs,
+):
+    """Audit packages for known security vulnerabilities using pip-audit.
+
+    This command scans your environment for packages with known vulnerabilities
+    using the Python Packaging Advisory Database (PyPI) or Open Source
+    Vulnerabilities (OSV) database.
+
+    Examples:
+
+        pipenv audit
+
+        pipenv audit --fix
+
+        pipenv audit -f json
+
+        pipenv audit --ignore PYSEC-2021-123
+
+        pipenv audit --locked  # Audit pyproject.toml/pylock.toml
+    """
+    from pipenv.routines.audit import do_audit
+
+    do_audit(
+        state.project,
+        python=state.python,
+        system=state.system,
+        output=output,
+        quiet=quiet,
+        verbose=state.verbose,
+        strict=strict,
+        ignore=ignore,
+        fix=fix,
+        dry_run=dry_run,
+        skip_editable=skip_editable,
+        no_deps=no_deps,
+        local_only=local,
+        vulnerability_service=vulnerability_service,
+        descriptions=desc,
+        aliases=aliases,
+        output_file=output_file,
+        pypi_mirror=state.pypi_mirror,
+        use_lockfile=locked,
     )
 
 
@@ -769,7 +988,14 @@ def verify(state):
     "--from-pipfile",
     is_flag=True,
     default=False,
-    help="Only include dependencies from Pipfile.",
+    help="Only include dependencies from Pipfile (excludes transitive deps).",
+)
+@option(
+    "--no-lock",
+    is_flag=True,
+    default=False,
+    help="Use version specifiers from Pipfile instead of locked versions. "
+    "Useful for generating flexible requirements for libraries.",
 )
 @pass_state
 def requirements(
@@ -780,8 +1006,13 @@ def requirements(
     exclude_markers=False,
     categories="",
     from_pipfile=False,
+    no_lock=False,
 ):
     from pipenv.routines.requirements import generate_requirements
+
+    # --no-lock implies --from-pipfile (only direct deps make sense without lock)
+    if no_lock:
+        from_pipfile = True
 
     generate_requirements(
         project=state.project,
@@ -791,7 +1022,170 @@ def requirements(
         include_markers=not exclude_markers,
         categories=categories,
         from_pipfile=from_pipfile,
+        no_lock=no_lock,
     )
+
+
+@cli.command(
+    short_help="Manage PEP 751 pylock.toml files.",
+    context_settings=CONTEXT_SETTINGS,
+)
+@option(
+    "--generate",
+    is_flag=True,
+    default=False,
+    help="Generate pylock.toml from Pipfile.lock.",
+)
+@option(
+    "--from-pyproject",
+    is_flag=True,
+    default=False,
+    help="Generate pylock.toml skeleton from pyproject.toml.",
+)
+@option(
+    "--validate",
+    is_flag=True,
+    default=False,
+    help="Validate an existing pylock.toml file.",
+)
+@option(
+    "--output",
+    "-o",
+    default=None,
+    help="Output file path (default: pylock.toml in project directory).",
+)
+@option(
+    "--dev-groups",
+    default="dev",
+    help="Comma-separated list of dependency group names for dev packages.",
+)
+@common_options
+@pass_state
+def pylock(
+    state,
+    generate=False,
+    from_pyproject=False,
+    validate=False,
+    output=None,
+    dev_groups="dev",
+):
+    """Manage PEP 751 pylock.toml files.
+
+    Generate, validate, or convert pylock.toml files.
+
+    Examples:
+
+        pipenv pylock --generate
+
+        pipenv pylock --from-pyproject
+
+        pipenv pylock --validate
+    """
+    from pipenv.utils.pylock import PylockFile, PylockFormatError, PylockVersionError
+
+    project = state.project
+
+    # Parse dev_groups
+    groups = [g.strip() for g in dev_groups.split(",") if g.strip()]
+
+    if generate:
+        # Generate from Pipfile.lock
+        if not project.lockfile_exists:
+            err.print("[bold red]No Pipfile.lock found.[/bold red]")
+            sys.exit(1)
+
+        try:
+            output_path = output or project.pylock_output_path
+            pylock_file = PylockFile.from_lockfile(
+                lockfile_path=project.lockfile_location,
+                pylock_path=output_path,
+                dev_groups=groups,
+            )
+            pylock_file.write()
+            console.print(
+                f"[bold green]Generated pylock.toml at {output_path}[/bold green]"
+            )
+        except Exception as e:
+            err.print(f"[bold red]Error generating pylock.toml: {e}[/bold red]")
+            sys.exit(1)
+
+    elif from_pyproject:
+        # Generate skeleton from pyproject.toml
+        pyproject_path = Path(project.project_directory) / "pyproject.toml"
+        if not pyproject_path.exists():
+            err.print("[bold red]No pyproject.toml found.[/bold red]")
+            sys.exit(1)
+
+        try:
+            output_path = output or project.pylock_output_path
+            pylock_file = PylockFile.from_pyproject(
+                pyproject_path=pyproject_path,
+                pylock_path=output_path,
+            )
+            pylock_file.write()
+            console.print(
+                f"[bold green]Generated pylock.toml skeleton at {output_path}[/bold green]"
+            )
+            console.print(
+                "[yellow]Note: This is a skeleton file. Package versions and hashes "
+                "need to be resolved by running 'pipenv lock'.[/yellow]"
+            )
+        except Exception as e:
+            err.print(f"[bold red]Error generating pylock.toml: {e}[/bold red]")
+            sys.exit(1)
+
+    elif validate:
+        # Validate existing pylock.toml
+        pylock_path = project.pylock_location
+        if not pylock_path:
+            err.print("[bold red]No pylock.toml found.[/bold red]")
+            sys.exit(1)
+
+        try:
+            pylock_file = PylockFile.from_path(pylock_path)
+            console.print(
+                f"[bold green]✓ Valid pylock.toml (version {pylock_file.lock_version})[/bold green]"
+            )
+            console.print(f"  Created by: {pylock_file.created_by}")
+            console.print(f"  Packages: {len(pylock_file.packages)}")
+            if pylock_file.requires_python:
+                console.print(f"  Requires Python: {pylock_file.requires_python}")
+            if pylock_file.extras:
+                console.print(f"  Extras: {', '.join(pylock_file.extras)}")
+            if pylock_file.dependency_groups:
+                console.print(
+                    f"  Dependency Groups: {', '.join(pylock_file.dependency_groups)}"
+                )
+        except PylockVersionError as e:
+            err.print(f"[bold red]Version error: {e}[/bold red]")
+            sys.exit(1)
+        except PylockFormatError as e:
+            err.print(f"[bold red]Format error: {e}[/bold red]")
+            sys.exit(1)
+        except Exception as e:
+            err.print(f"[bold red]Error validating pylock.toml: {e}[/bold red]")
+            sys.exit(1)
+
+    else:
+        # Default: show status
+        pylock_path = project.pylock_location
+        if pylock_path:
+            try:
+                pylock_file = PylockFile.from_path(pylock_path)
+                console.print(f"[bold]pylock.toml[/bold]: {pylock_path}")
+                console.print(f"  Version: {pylock_file.lock_version}")
+                console.print(f"  Created by: {pylock_file.created_by}")
+                console.print(f"  Packages: {len(pylock_file.packages)}")
+            except Exception as e:
+                err.print(f"[yellow]Found pylock.toml but could not parse: {e}[/yellow]")
+        else:
+            console.print("[dim]No pylock.toml found.[/dim]")
+            console.print(
+                "Use [bold]pipenv pylock --generate[/bold] to create one from Pipfile.lock"
+            )
+            console.print(
+                "Use [bold]pipenv pylock --from-pyproject[/bold] to create from pyproject.toml"
+            )
 
 
 if __name__ == "__main__":

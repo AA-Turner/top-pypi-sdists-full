@@ -10,8 +10,10 @@
 from __future__ import annotations
 
 import typing as t
+from collections.abc import Callable
 
 from ansible.module_utils.common.text.converters import to_bytes, to_text
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.basic import (
     OpenSSLObjectError,
 )
@@ -31,20 +33,20 @@ from ansible_collections.community.crypto.plugins.module_utils._cryptography_dep
     assert_required_cryptography_version,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+    from cryptography.hazmat.primitives.asymmetric.types import (  # pragma: no cover
+        PrivateKeyTypes,
+    )
+
     from ansible_collections.community.crypto.plugins.plugin_utils._action_module import (  # pragma: no cover
         AnsibleActionModule,
     )
     from ansible_collections.community.crypto.plugins.plugin_utils._filter_module import (  # pragma: no cover
         FilterModuleMock,
     )
-    from cryptography.hazmat.primitives.asymmetric.types import (  # pragma: no cover
-        PrivateKeyTypes,
-    )
 
-    GeneralAnsibleModule = t.Union[
+    GeneralAnsibleModule = t.Union[  # noqa: UP007
         AnsibleModule, AnsibleActionModule, FilterModuleMock
     ]  # pragma: no cover
 
@@ -119,9 +121,7 @@ def _check_dsa_consistency(
     if binary_exp_mod(g, x, m=p) != y:
         return False
     # Check (quickly) whether p or q are not primes
-    if quick_is_not_prime(q) or quick_is_not_prime(p):
-        return False
-    return True
+    return not (quick_is_not_prime(q) or quick_is_not_prime(p))
 
 
 def _is_cryptography_key_consistent(
@@ -129,7 +129,7 @@ def _is_cryptography_key_consistent(
     *,
     key_public_data: dict[str, t.Any],
     key_private_data: dict[str, t.Any],
-    warn_func: t.Callable[[str], None] | None = None,
+    warn_func: Callable[[str], None] | None = None,
 ) -> bool | None:
     if isinstance(key, cryptography.hazmat.primitives.asymmetric.rsa.RSAPrivateKey):
         # key._backend was removed in cryptography 42.0.0
@@ -335,8 +335,8 @@ def select_backend(
 
 __all__ = (
     "PrivateKeyConsistencyError",
-    "PrivateKeyParseError",
     "PrivateKeyInfoRetrieval",
+    "PrivateKeyParseError",
     "get_privatekey_info",
     "select_backend",
 )

@@ -1,5 +1,5 @@
 from localstack.cli import console
-def print_diff(operations):
+def print_diff(operations:dict[str,list[dict]])->None:
 	F='MODIFICATION';B='operation_type';A=operations
 	if not A:console.print('This load operation does not affect the runtime state.');return
 	G=any(C.get(B)==F for A in A.values()for C in A)

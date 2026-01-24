@@ -1,4 +1,4 @@
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from .. import xdr as stellar_xdr
 from ..keypair import Keypair
@@ -15,11 +15,11 @@ class BeginSponsoringFutureReserves(Operation):
     operation on Stellar's network.
 
     Establishes the is-sponsoring-future-reserves-for relationship between the source account and sponsoredID.
-    See `Sponsored Reserves <https://developers.stellar.org/docs/glossary/sponsored-reserves/>`_ for more information.
+    See `Sponsored Reserves <https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves>`_ for more information.
 
     Threshold: Medium
 
-    See `Begin Sponsoring Future Reserves <https://developers.stellar.org/docs/start/list-of-operations/#begin-sponsoring-future-reserves>`_ for more information.
+    See `Begin Sponsoring Future Reserves <https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#begin-sponsoring-future-reserves>`_ for more information.
 
     :param sponsored_id: The sponsored account id.
     :param source: The source account for the operation. Defaults to the transaction's source account.
@@ -30,7 +30,7 @@ class BeginSponsoringFutureReserves(Operation):
     )
 
     def __init__(
-        self, sponsored_id: str, source: Optional[Union[MuxedAccount, str]] = None
+        self, sponsored_id: str, source: MuxedAccount | str | None = None
     ) -> None:
         super().__init__(source)
         self.sponsored_id: str = sponsored_id

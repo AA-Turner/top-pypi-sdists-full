@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-soft-delete
-Version: 1.0.21
+Version: 1.0.22
 Summary: Soft delete models, managers, queryset for Django
 Project-URL: Homepage, https://github.com/san4ezy/django_softdelete
 Author-email: Alexander Yudkin <san4ezy@gmail.com>

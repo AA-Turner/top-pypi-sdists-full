@@ -1,9 +1,17 @@
-from logging import Logger
+from logging import Logger, LogRecord
 from typing import Any
 
 from celery.app.base import Celery
-from celery.utils.log import LoggingProxy
-from celery.utils.term import colored as colored_
+from celery.local import class_property
+from celery.utils.log import ColorFormatter, LoggingProxy
+from celery.utils.term import colored
+from typing_extensions import override
+
+__all__ = ("Logging", "TaskFormatter")
+
+class TaskFormatter(ColorFormatter):
+    @override
+    def format(self, record: LogRecord) -> str: ...
 
 class Logging:
     app: Celery
@@ -29,7 +37,7 @@ class Logging:
         format: str | None = ...,
         colorize: bool | None = ...,
         hostname: str | None = ...,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Any: ...
     def setup_task_loggers(
         self,
@@ -38,7 +46,7 @@ class Logging:
         format: str | None = ...,
         colorize: bool | None = ...,
         propagate: bool = ...,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Logger: ...
     def redirect_stdouts_to_logger(
         self,
@@ -52,7 +60,7 @@ class Logging:
     ) -> bool: ...
     def colored(
         self, logfile: Any | None = ..., enabled: bool | None = ...
-    ) -> colored_: ...
+    ) -> colored: ...
     def setup_handlers(
         self,
         logger: Logger,
@@ -60,6 +68,10 @@ class Logging:
         format: str,
         colorize: bool,
         formatter: Any = ...,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Logger: ...
     def get_default_logger(self, name: str = ..., **kwargs: Any) -> Logger: ...
+    @class_property
+    def already_setup(self) -> bool: ...  # pyright: ignore[reportRedeclaration]
+    @already_setup.setter  # type: ignore[no-redef]
+    def already_setup(self, was_setup: bool) -> None: ...

@@ -5,20 +5,27 @@ import ctypes
 import os
 from functools import wraps
 import numpy as np
+from collections import namedtuple
 
-from numba import cuda, config
-from numba.core.runtime.nrt import _nrt_mstats
+from numba import cuda
+from numba.cuda import config, types
+
 from numba.cuda.cudadrv.driver import (
     _Linker,
     driver,
-    launch_kernel,
-    USE_NV_BINDING,
+    _to_core_stream,
     _have_nvjitlink,
 )
+from numba.cuda._compat import LaunchConfig, launch
 from numba.cuda.cudadrv import devices
 from numba.cuda.api import get_current_device
 from numba.cuda.utils import _readenv, cached_file_read
 from numba.cuda.cudadrv.linkable_code import CUSource
+from numba.cuda.typing.templates import signature
+
+from numba.cuda.extending import intrinsic, overload_classmethod
+
+_nrt_mstats = namedtuple("nrt_mstats", ["alloc", "free", "mi_alloc", "mi_free"])
 
 
 # Check environment variable or config for NRT statistics enablement
@@ -40,6 +47,34 @@ if not hasattr(config, "NUMBA_CUDA_ENABLE_NRT"):
 def get_include():
     """Return the include path for the NRT header"""
     return os.path.dirname(os.path.abspath(__file__))
+
+
+# Provide an implementation of Array._allocate() for the CUDA target (used
+# internally by Numba when generating the allocation of an array)
+
+
+@intrinsic
+def intrin_alloc(typingctx, allocsize, align):
+    """Intrinsic to call into the allocator for Array"""
+
+    def codegen(context, builder, signature, args):
+        allocsize, align = args
+        meminfo = context.nrt.meminfo_alloc_aligned(builder, allocsize, align)
+        return meminfo
+
+    mip = types.MemInfoPointer(types.voidptr)  # return untyped pointer
+    sig = signature(mip, allocsize, align)
+    return sig, codegen
+
+
+@overload_classmethod(types.Array, "_allocate", target="CUDA")
+def _ol_array_allocate(cls, allocsize, align):
+    """Implements a Numba-only CUDA-target classmethod on the array type."""
+
+    def impl(cls, allocsize, align):
+        return intrin_alloc(allocsize, align)
+
+    return impl
 
 
 # Protect method to ensure NRT memory allocation and initialization
@@ -69,9 +104,17 @@ class _Runtime:
 
     def __init__(self):
         """Initialize memsys module and variable"""
+        self._reset()
+
+    def _reset(self):
+        """Reset to the uninitialized state"""
         self._memsys_module = None
         self._memsys = None
         self._initialized = False
+
+    def close(self):
+        """Close and reset"""
+        self._reset()
 
     def _compile_memsys_module(self):
         """
@@ -84,7 +127,7 @@ class _Runtime:
         cc = get_current_device().compute_capability
 
         # Create a new linker instance and add the cu file
-        linker = _Linker.new(cc=cc, lto=_have_nvjitlink())
+        linker = _Linker(max_registers=0, cc=cc, lto=_have_nvjitlink())
         linker.add_cu_file(memsys_mod)
 
         # Complete the linker and create a module from it
@@ -120,8 +163,7 @@ class _Runtime:
         memsys_size = ctypes.c_uint64()
         ptr, nbytes = self._memsys_module.get_global_symbol("memsys_size")
         device_memsys_size = ptr.device_ctypes_pointer
-        if USE_NV_BINDING:
-            device_memsys_size = device_memsys_size.value
+        device_memsys_size = device_memsys_size.value
         driver.cuMemcpyDtoH(
             ctypes.addressof(memsys_size), device_memsys_size, nbytes
         )
@@ -138,19 +180,14 @@ class _Runtime:
             stream = cuda.default_stream()
 
         func = module.get_function(name)
-        launch_kernel(
-            func.handle,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            0,
-            stream.handle.value,
-            params,
-            cooperative=False,
+        config = LaunchConfig(
+            grid=(1, 1, 1),
+            block=(1, 1, 1),
+            shmem_size=0,
+            cooperative_launch=False,
         )
+
+        launch(_to_core_stream(stream), config, func.kernel, *params)
 
     def ensure_initialized(self, stream=None):
         """

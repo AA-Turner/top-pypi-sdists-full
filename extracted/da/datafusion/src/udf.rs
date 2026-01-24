@@ -17,30 +17,26 @@
 
 use std::sync::Arc;
 
-use datafusion_ffi::udf::{FFI_ScalarUDF, ForeignScalarUDF};
-use pyo3::types::PyCapsule;
-use pyo3::{prelude::*, types::PyTuple};
-
 use datafusion::arrow::array::{make_array, Array, ArrayData, ArrayRef};
 use datafusion::arrow::datatypes::DataType;
-use datafusion::arrow::pyarrow::FromPyArrow;
-use datafusion::arrow::pyarrow::{PyArrowType, ToPyArrow};
+use datafusion::arrow::pyarrow::{FromPyArrow, PyArrowType, ToPyArrow};
 use datafusion::error::DataFusionError;
 use datafusion::logical_expr::function::ScalarFunctionImplementation;
-use datafusion::logical_expr::ScalarUDF;
-use datafusion::logical_expr::{create_udf, ColumnarValue};
+use datafusion::logical_expr::{create_udf, ColumnarValue, ScalarUDF};
+use datafusion_ffi::udf::{FFI_ScalarUDF, ForeignScalarUDF};
+use pyo3::prelude::*;
+use pyo3::types::{PyCapsule, PyTuple};
 
-use crate::errors::to_datafusion_err;
-use crate::errors::{py_datafusion_err, PyDataFusionResult};
+use crate::errors::{py_datafusion_err, to_datafusion_err, PyDataFusionResult};
 use crate::expr::PyExpr;
 use crate::utils::{parse_volatility, validate_pycapsule};
 
 /// Create a Rust callable function from a python function that expects pyarrow arrays
 fn pyarrow_function_to_rust(
-    func: PyObject,
+    func: Py<PyAny>,
 ) -> impl Fn(&[ArrayRef]) -> Result<ArrayRef, DataFusionError> {
     move |args: &[ArrayRef]| -> Result<ArrayRef, DataFusionError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // 1. cast args to Pyarrow arrays
             let py_args = args
                 .iter()
@@ -68,7 +64,7 @@ fn pyarrow_function_to_rust(
 /// Create a DataFusion's UDF implementation from a python function
 /// that expects pyarrow arrays. This is more efficient as it performs
 /// a zero-copy of the contents.
-fn to_scalar_function_impl(func: PyObject) -> ScalarFunctionImplementation {
+fn to_scalar_function_impl(func: Py<PyAny>) -> ScalarFunctionImplementation {
     // Make the python function callable from rust
     let pyarrow_func = pyarrow_function_to_rust(func);
 
@@ -81,7 +77,7 @@ fn to_scalar_function_impl(func: PyObject) -> ScalarFunctionImplementation {
 }
 
 /// Represents a PyScalarUDF
-#[pyclass(name = "ScalarUDF", module = "datafusion", subclass)]
+#[pyclass(frozen, name = "ScalarUDF", module = "datafusion", subclass)]
 #[derive(Debug, Clone)]
 pub struct PyScalarUDF {
     pub(crate) function: ScalarUDF,
@@ -93,7 +89,7 @@ impl PyScalarUDF {
     #[pyo3(signature=(name, func, input_types, return_type, volatility))]
     fn new(
         name: &str,
-        func: PyObject,
+        func: Py<PyAny>,
         input_types: PyArrowType<Vec<DataType>>,
         return_type: PyArrowType<DataType>,
         volatility: &str,

@@ -23,6 +23,7 @@ from pyathena.result_set import AthenaResultSet
 from pyathena.util import RetryConfig, parse_output_location
 
 if TYPE_CHECKING:
+    import polars as pl
     from pyarrow import Table
 
     from pyathena.connection import Connection
@@ -94,6 +95,8 @@ class AthenaArrowResultSet(AthenaResultSet):
         block_size: Optional[int] = None,
         unload: bool = False,
         unload_location: Optional[str] = None,
+        connect_timeout: Optional[float] = None,
+        request_timeout: Optional[float] = None,
         **kwargs,
     ) -> None:
         super().__init__(
@@ -108,6 +111,8 @@ class AthenaArrowResultSet(AthenaResultSet):
         self._block_size = block_size if block_size else self.DEFAULT_BLOCK_SIZE
         self._unload = unload
         self._unload_location = unload_location
+        self._connect_timeout = connect_timeout
+        self._request_timeout = request_timeout
         self._kwargs = kwargs
         self._fs = self.__s3_file_system()
         if self.state == AthenaQueryExecution.STATE_SUCCEEDED and self.output_location:
@@ -122,6 +127,14 @@ class AthenaArrowResultSet(AthenaResultSet):
         from pyarrow import fs
 
         connection = self.connection
+
+        # Build timeout parameters dict
+        timeout_kwargs = {}
+        if self._connect_timeout is not None:
+            timeout_kwargs["connect_timeout"] = self._connect_timeout
+        if self._request_timeout is not None:
+            timeout_kwargs["request_timeout"] = self._request_timeout
+
         if "role_arn" in connection._kwargs and connection._kwargs["role_arn"]:
             external_id = connection._kwargs.get("external_id")
             fs = fs.S3FileSystem(
@@ -130,6 +143,7 @@ class AthenaArrowResultSet(AthenaResultSet):
                 external_id="" if external_id is None else external_id,
                 load_frequency=connection._kwargs["duration_seconds"],
                 region=connection.region_name,
+                **timeout_kwargs,
             )
         elif connection.profile_name:
             profile = connection.session._session.full_config["profiles"][connection.profile_name]
@@ -138,6 +152,7 @@ class AthenaArrowResultSet(AthenaResultSet):
                 secret_key=profile.get("aws_secret_access_key", None),
                 session_token=profile.get("aws_session_token", None),
                 region=connection.region_name,
+                **timeout_kwargs,
             )
         else:
             # Try explicit credentials first
@@ -151,6 +166,7 @@ class AthenaArrowResultSet(AthenaResultSet):
                     secret_key=explicit_secret_key,
                     session_token=connection._kwargs.get("aws_session_token"),
                     region=connection.region_name,
+                    **timeout_kwargs,
                 )
             else:
                 # Fall back to dynamic credentials from boto3 session
@@ -163,19 +179,16 @@ class AthenaArrowResultSet(AthenaResultSet):
                             secret_key=credentials.secret_key,
                             session_token=credentials.token,
                             region=connection.region_name,
+                            **timeout_kwargs,
                         )
                     else:
                         # Fall back to default (no explicit credentials)
-                        fs = fs.S3FileSystem(region=connection.region_name)
+                        fs = fs.S3FileSystem(region=connection.region_name, **timeout_kwargs)
                 except Exception:
                     # Fall back to default if credential retrieval fails
-                    fs = fs.S3FileSystem(region=connection.region_name)
+                    fs = fs.S3FileSystem(region=connection.region_name, **timeout_kwargs)
 
         return fs
-
-    @property
-    def is_unload(self):
-        return self._unload and self.query and self.query.strip().upper().startswith("UNLOAD")
 
     @property
     def timestamp_parsers(self) -> List[str]:
@@ -185,14 +198,11 @@ class AthenaArrowResultSet(AthenaResultSet):
 
     @property
     def column_types(self) -> Dict[str, Type[Any]]:
-        import pyarrow as pa
-
-        converter_types = self._converter.types
         description = self.description if self.description else []
         return {
-            d[0]: converter_types.get(d[1], pa.string())
+            d[0]: dtype
             for d in description
-            if d[1] in converter_types
+            if (dtype := self._converter.get_dtype(d[1], d[4], d[5])) is not None
         }
 
     @property
@@ -209,8 +219,8 @@ class AthenaArrowResultSet(AthenaResultSet):
             dict_rows = rows.to_pydict()
             column_names = dict_rows.keys()
             processed_rows = [
-                tuple(self.converters[k](v) for k, v in zip(column_names, row))
-                for row in zip(*dict_rows.values())
+                tuple(self.converters[k](v) for k, v in zip(column_names, row, strict=False))
+                for row in zip(*dict_rows.values(), strict=False)
             ]
             self._rows.extend(processed_rows)
 
@@ -338,6 +348,33 @@ class AthenaArrowResultSet(AthenaResultSet):
 
     def as_arrow(self) -> "Table":
         return self._table
+
+    def as_polars(self) -> "pl.DataFrame":
+        """Return query results as a Polars DataFrame.
+
+        Converts the Apache Arrow Table to a Polars DataFrame for
+        interoperability with the Polars data processing library.
+
+        Returns:
+            Polars DataFrame containing all query results.
+
+        Raises:
+            ImportError: If polars is not installed.
+
+        Example:
+            >>> cursor = connection.cursor(ArrowCursor)
+            >>> cursor.execute("SELECT * FROM my_table")
+            >>> df = cursor.as_polars()
+            >>> # Use with Polars operations
+        """
+        try:
+            import polars as pl
+
+            return pl.from_arrow(self._table)  # type: ignore[return-value]
+        except ImportError as e:
+            raise ImportError(
+                "polars is required for as_polars(). Install it with: pip install polars"
+            ) from e
 
     def close(self) -> None:
         import pyarrow as pa

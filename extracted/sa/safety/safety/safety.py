@@ -19,7 +19,7 @@ import requests
 from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import parse as parse_version, Version
-from pydantic.json import pydantic_encoder
+from pydantic_core import to_jsonable_python
 from filelock import FileLock
 
 from safety_schemas.models import Ecosystem, FileType
@@ -253,7 +253,7 @@ def fetch_database_url(
 
     telemetry_data = {
         "telemetry": json.dumps(
-            build_telemetry_data(telemetry=telemetry), default=pydantic_encoder
+            build_telemetry_data(telemetry=telemetry), default=to_jsonable_python
         )
     }
 
@@ -1830,6 +1830,46 @@ def get_announcements(
     return announcements
 
 
+def get_distribution_location(distribution):
+    """
+    Get the installation location of a distribution.
+    """
+    if hasattr(distribution, "_path") and distribution._path:
+        return str(distribution._path)
+
+    # Fallback: try to get location from metadata
+    try:
+        location = distribution.locate_file("")
+        if location:
+            return str(location)
+    except (AttributeError, Exception):
+        pass
+
+    return ""
+
+
+def get_distribution_version(distribution):
+    """
+    Safely get the version of a distribution (Python 3.9+ compatible).
+    """
+    try:
+        return distribution.version
+    except AttributeError:
+        return distribution.metadata.get("Version", "")
+
+
+def get_distribution_name(distribution):
+    """
+    Safely get the name of a distribution (Python 3.9+ compatible).
+    """
+    try:
+        # For Python 3.10+
+        return distribution.name
+    except AttributeError:
+        # Fallback for Python 3.9 PathDistribution objects
+        return distribution.metadata.get("Name", "")
+
+
 def get_packages(
     files: Optional[List[str]] = None, stdin: bool = False
 ) -> List[Package]:
@@ -1853,8 +1893,8 @@ def get_packages(
     if stdin:
         return list(read_requirements(sys.stdin))
 
-    # TODO: Migrate away from pkg_resources and use importlib
-    import pkg_resources
+    # Migrated from pkg_resources to importlib.metadata
+    import importlib.metadata
 
     def allowed_version(pkg: str, version: str) -> bool:
         try:
@@ -1871,26 +1911,48 @@ def get_packages(
 
         return True
 
-    w_set = pkg_resources.working_set
+    distributions = list(importlib.metadata.distributions())
 
-    SafetyContext().scanned_full_path.extend(w_set.entry_keys.keys())
+    paths = {
+        str(dist._path.parent)
+        for dist in distributions
+        if hasattr(dist, "_path") and dist._path
+    }
 
-    return [
-        Package(
-            name=d.key,
-            version=d.version,
-            requirements=[SafetyRequirement(f"{d.key}=={d.version}", found=d.location)],
-            found=d.location,
-            insecure_versions=[],
-            secure_versions=[],
-            latest_version=None,
-            latest_version_without_known_vulnerabilities=None,
-            more_info_url=None,
+    SafetyContext().scanned_full_path.extend(paths)
+
+    packages = []
+
+    for d in distributions:
+        name = get_distribution_name(d)
+        version = get_distribution_version(d)
+
+        # Skip if name or version couldn't be determined
+        if not name or not version:
+            continue
+
+        # Skip excluded packages
+        if name in {"python", "wsgiref", "argparse"} or not allowed_version(
+            name, version
+        ):
+            continue
+
+        location = get_distribution_location(d)
+
+        packages.append(
+            Package(
+                name=name,
+                version=version,
+                requirements=[SafetyRequirement(f"{name}=={version}", found=location)],
+                found=location,
+                insecure_versions=[],
+                secure_versions=[],
+                latest_version=None,
+                latest_version_without_known_vulnerabilities=None,
+                more_info_url=None,
+            )
         )
-        for d in w_set
-        if d.key not in {"python", "wsgiref", "argparse"}
-        and allowed_version(d.key, d.version)
-    ]
+    return packages
 
 
 def read_vulnerabilities(fh: Any) -> Dict[str, Any]:

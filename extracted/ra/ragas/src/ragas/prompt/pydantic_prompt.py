@@ -24,10 +24,12 @@ from .utils import extract_json, get_all_strings, update_strings
 if t.TYPE_CHECKING:
     from langchain_core.callbacks import Callbacks
 
-from ragas.llms.base import BaseRagasLLM
+from ragas.llms.base import BaseRagasLLM, InstructorBaseRagasLLM
 
 
-def is_langchain_llm(llm: t.Union[BaseRagasLLM, BaseLanguageModel]) -> bool:
+def is_langchain_llm(
+    llm: t.Union[BaseRagasLLM, InstructorBaseRagasLLM, BaseLanguageModel],
+) -> bool:
     """
     Detect if an LLM is a LangChain LLM or a Ragas LLM.
 
@@ -36,8 +38,38 @@ def is_langchain_llm(llm: t.Union[BaseRagasLLM, BaseLanguageModel]) -> bool:
 
     Returns:
         True if it's a LangChain LLM, False if it's a Ragas LLM
+
+    .. deprecated::
+        Direct usage of LangChain LLMs is deprecated. Use Ragas LLM interfaces instead:
+        from openai import OpenAI
+        from ragas.llms import llm_factory
+        client = OpenAI(api_key="...")
+        llm = llm_factory("gpt-4o-mini", client=client)
     """
-    return hasattr(llm, "agenerate") and not hasattr(llm, "run_config")
+    # If it's a BaseRagasLLM, it's definitely not a LangChain LLM
+    if isinstance(llm, BaseRagasLLM):
+        return False
+
+    # InstructorLLM and InstructorBaseRagasLLM are also not LangChain LLMs
+    if isinstance(llm, InstructorBaseRagasLLM):
+        return False
+
+    # If it's a LangChain LLM, return True
+    result = isinstance(llm, BaseLanguageModel)
+
+    if result:
+        import warnings
+
+        warnings.warn(
+            "Direct usage of LangChain LLMs with Ragas prompts is deprecated and will be removed in a future version. "
+            "Use Ragas LLM interfaces instead: "
+            "from openai import OpenAI; from ragas.llms import llm_factory; "
+            "client = OpenAI(api_key='...'); llm = llm_factory('gpt-4o-mini', client=client)",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+
+    return result
 
 
 logger = logging.getLogger(__name__)
@@ -103,7 +135,7 @@ class PydanticPrompt(BasePrompt, t.Generic[InputModel, OutputModel]):
 
     async def generate(
         self,
-        llm: t.Union[BaseRagasLLM, BaseLanguageModel],
+        llm: t.Union[BaseRagasLLM, InstructorBaseRagasLLM, BaseLanguageModel],
         data: InputModel,
         temperature: t.Optional[float] = None,
         stop: t.Optional[t.List[str]] = None,
@@ -155,7 +187,7 @@ class PydanticPrompt(BasePrompt, t.Generic[InputModel, OutputModel]):
 
     async def generate_multiple(
         self,
-        llm: t.Union[BaseRagasLLM, BaseLanguageModel],
+        llm: t.Union[BaseRagasLLM, InstructorBaseRagasLLM, BaseLanguageModel],
         data: InputModel,
         n: int = 1,
         temperature: t.Optional[float] = None,
@@ -204,9 +236,10 @@ class PydanticPrompt(BasePrompt, t.Generic[InputModel, OutputModel]):
         )
         prompt_value = PromptValue(text=self.to_string(processed_data))
 
-        # Handle both LangChain LLMs and Ragas LLMs
-        # LangChain LLMs have agenerate() for async, generate() for sync
-        # Ragas LLMs have generate() as async method
+        # Handle different LLM types with different interfaces
+        # 1. LangChain LLMs have agenerate_prompt() for async with specific signature
+        # 2. BaseRagasLLM have generate() with n, temperature, stop, callbacks
+        # 3. InstructorLLM has generate()/agenerate() with only prompt and response_model
         if is_langchain_llm(llm):
             # This is a LangChain LLM - use agenerate_prompt() with batch for multiple generations
             langchain_llm = t.cast(BaseLanguageModel, llm)
@@ -217,8 +250,29 @@ class PydanticPrompt(BasePrompt, t.Generic[InputModel, OutputModel]):
                 stop=stop,
                 callbacks=prompt_cb,
             )
+        elif isinstance(llm, InstructorBaseRagasLLM):
+            # This is an InstructorLLM - use its generate()/agenerate() method
+            # InstructorLLM.generate()/agenerate() only takes prompt and response_model parameters
+            from ragas.llms.base import InstructorLLM
+
+            instructor_llm = t.cast(InstructorLLM, llm)
+            if instructor_llm.is_async:
+                result = await llm.agenerate(
+                    prompt=prompt_value.text,
+                    response_model=self.output_model,
+                )
+            else:
+                result = llm.generate(
+                    prompt=prompt_value.text,
+                    response_model=self.output_model,
+                )
+            # Wrap the single response in an LLMResult-like structure for consistency
+            from langchain_core.outputs import Generation, LLMResult
+
+            generation = Generation(text=result.model_dump_json())
+            resp = LLMResult(generations=[[generation]])
         else:
-            # This is a Ragas LLM - use generate()
+            # This is a standard BaseRagasLLM - use generate()
             ragas_llm = t.cast(BaseRagasLLM, llm)
             resp = await ragas_llm.generate(
                 prompt_value,
@@ -230,16 +284,37 @@ class PydanticPrompt(BasePrompt, t.Generic[InputModel, OutputModel]):
 
         output_models = []
         parser = RagasOutputParser(pydantic_object=self.output_model)
-        for i in range(n):
-            if is_langchain_llm(llm):
-                # For LangChain LLMs, each generation is in a separate batch result
+
+        # Handle cases where LLM returns fewer generations than requested
+        if is_langchain_llm(llm) or isinstance(llm, InstructorBaseRagasLLM):
+            available_generations = len(resp.generations)
+        else:
+            available_generations = len(resp.generations[0]) if resp.generations else 0
+
+        actual_n = min(n, available_generations)
+
+        if actual_n == 0:
+            logger.error(
+                f"LLM returned no generations when {n} were requested. Cannot proceed."
+            )
+            raise ValueError(f"LLM returned no generations when {n} were requested")
+
+        if actual_n < n:
+            logger.warning(
+                f"LLM returned {actual_n} generations instead of requested {n}. "
+                f"Proceeding with {actual_n} generations."
+            )
+
+        for i in range(actual_n):
+            if is_langchain_llm(llm) or isinstance(llm, InstructorBaseRagasLLM):
+                # For LangChain LLMs and InstructorLLM, each generation is in a separate batch result
                 output_string = resp.generations[i][0].text
             else:
                 # For Ragas LLMs, all generations are in the first batch
                 output_string = resp.generations[0][i].text
             try:
                 # For the parser, we need a BaseRagasLLM, so if it's a LangChain LLM, we need to handle this
-                if is_langchain_llm(llm):
+                if is_langchain_llm(llm) or isinstance(llm, InstructorBaseRagasLLM):
                     # Skip parsing retry for LangChain LLMs since parser expects BaseRagasLLM
                     answer = self.output_model.model_validate_json(output_string)
                 else:
@@ -280,7 +355,10 @@ class PydanticPrompt(BasePrompt, t.Generic[InputModel, OutputModel]):
         return output
 
     async def adapt(
-        self, target_language: str, llm: BaseRagasLLM, adapt_instruction: bool = False
+        self,
+        target_language: str,
+        llm: t.Union[BaseRagasLLM, InstructorBaseRagasLLM],
+        adapt_instruction: bool = False,
     ) -> "PydanticPrompt[InputModel, OutputModel]":
         """
         Adapt the prompt to a new language.

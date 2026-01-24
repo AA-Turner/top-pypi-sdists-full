@@ -10,6 +10,7 @@ Alarms and Time zone objects does not have any class as for now.  Those are typi
 Users of the library should not need to construct any of those objects.  To add new content to the calendar, use ``calendar.save_event``, ``calendar.save_todo`` or ``calendar.save_journal``.  Those methods will return a CalendarObjectResource.
 """
 import logging
+import re
 import sys
 import uuid
 import warnings
@@ -175,20 +176,22 @@ class CalendarObjectResource(DAVObject):
         self.icalendar_component.add("organizer", principal.get_vcal_address())
 
     def split_expanded(self) -> List[Self]:
-        """This is used internally for processing search results.
+        """This was used internally for processing search results.
         Library users probably don't need to care about this one.
 
-        In the CalDAV protocol, a VCALENDAR object returned from the
-        server may contain only one event/task/journal - but if the object is
-        recurrent, it may contain several recurrences.  This method
-        will split the recurrences into several objects.
+        The logic is now handled directly in the search method.
 
-        It's meant to be used for expanded data, where each component
-        is a recurrence, and where the recurrence set is complete for
-        some given time range.  However, it will also work on a
-        non-expanded object, containing the "master" component first
-        followed by "special" recurrences.
+        This method is probably used by nobody and nothing, but
+        it can't be removed easily as it's exposed as part of the
+        public API
         """
+
+        warnings.warn(
+            "obj.split_expanded is likely to be removed in a future version of caldav.  Feel free to protest if you need it",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         i = self.icalendar_instance.subcomponents
         tz_ = [x for x in i if isinstance(x, icalendar.Timezone)]
         ntz = [x for x in i if not isinstance(x, icalendar.Timezone)]
@@ -222,6 +225,17 @@ class CalendarObjectResource(DAVObject):
         :param end: datetime
 
         """
+        ## TODO: this has been *copied* over to the icalendar-searcher package.
+        ## This code was previously used internally by the search.
+        ## By now it's probably dead code, used by nothing and nobody.
+        ## Since it's exposed as part of the API, I cannot delete it, but I can
+        ## deprecate it.
+        warnings.warn(
+            "obj.expand_rrule is likely to be removed in a future version of caldav.  Feel free to protest if you need it",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         import recurring_ical_events
 
         recurrings = recurring_ical_events.of(
@@ -451,6 +465,7 @@ class CalendarObjectResource(DAVObject):
         self.load(only_if_unloaded=True)
         if not self.icalendar_instance:
             return None
+        ## PERFORMANCE TODO: no point creating a big list here
         ret = [
             x
             for x in self.icalendar_instance.subcomponents
@@ -730,6 +745,7 @@ class CalendarObjectResource(DAVObject):
         if not path and getattr(self, "path", None):
             path = self.path
         if id is None and path is not None and str(path).endswith(".ics"):
+            ## TODO: do we ever get here?  Perhaps this if is completely moot?
             id = re.search("(/|^)([^/]*).ics", str(path)).group(2)
         if id is None:
             id = str(uuid.uuid1())
@@ -1009,8 +1025,10 @@ class CalendarObjectResource(DAVObject):
         potentially breaking couplings
         """
         return (
-            self._data or self._vobject_instance or self._icalendar_instance
-        ) and self.data.count("BEGIN:") > 1
+            (self._data and self._data.count("BEGIN:") > 1)
+            or self._vobject_instance
+            or self._icalendar_instance
+        )
 
     def has_component(self):
         """
@@ -1145,6 +1163,18 @@ class CalendarObjectResource(DAVObject):
     )
 
     def _set_icalendar_instance(self, inst):
+        if not isinstance(inst, icalendar.Calendar):
+            ## assume inst is an Event, Journal or Todo.
+            ## TODO: perhaps a bit better sanity checking here?
+            try:  ## DEPRECATION TODO: remove this try/except the future
+                ## icalendar 7.x behaviour (not released yet as of 2025-09
+                cal = icalendar.Calendar.new()
+            except:
+                cal = icalendar.Calendar()
+                cal.add("prodid", "-//python-caldav//caldav//en_DK")
+                cal.add("version", "2.0")
+            cal.add_component(inst)
+            inst = cal
         self._icalendar_instance = inst
         self._data = None
         self._vobject_instance = None

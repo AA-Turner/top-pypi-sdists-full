@@ -11,6 +11,7 @@ import os
 import re
 import time
 import types
+from collections import OrderedDict
 
 import salt.config
 import salt.defaults.events
@@ -22,7 +23,6 @@ import salt.utils.data
 import salt.utils.dictupdate
 import salt.utils.files
 import salt.utils.lazy
-import salt.utils.odict
 import salt.utils.platform
 import salt.utils.stringutils
 import salt.utils.versions
@@ -1202,7 +1202,8 @@ def grains(opts, force_refresh=False, proxy=None, context=None, loaded_base_name
         except Exception:  # pylint: disable=broad-except
             if salt.utils.platform.is_proxy():
                 log.info(
-                    "The following CRITICAL message may not be an error; the proxy may not be completely established yet."
+                    "The following CRITICAL message may not be an error; "
+                    "the proxy may not be completely established yet."
                 )
             log.critical(
                 "Failed to load grains defined in grain file %s in "
@@ -1279,6 +1280,10 @@ def grains(opts, force_refresh=False, proxy=None, context=None, loaded_base_name
         salt.utils.dictupdate.update(grains_data, opts["grains"])
     else:
         grains_data.update(opts["grains"])
+
+    # Clean up loaded grains modules from sys.modules to free memory
+    funcs.clean_modules()
+
     return salt.utils.data.decode(grains_data, preserve_tuples=True)
 
 

@@ -376,10 +376,18 @@ class Touchstone:
         if m:
             state.rank = int(m.group(1))
         elif extension != "ts":
-            msg = (f"{self.filename} does not have a s-parameter extension ({extension})."
-                    "Please, correct the extension to of form: 'sNp', where N is any integer for Touchstone v1,"
-                    "or ts for Touchstone v2.")
-            raise ValueError(msg)
+            for line in fid:
+                if re.search(r'^\s*\!', line) is not None:
+                    continue
+
+                if not re.search(r'^\[Version\]', line):
+                    msg = (f"{self.filename} does not have a s-parameter extension ({extension})."
+                            "Please, correct the extension to of form: 'sNp', where N is any integer for Touchstone v1,"
+                            "or make sure input file is Touchstone v2.")
+                    raise ValueError(msg)
+                else:
+                    fid.seek(0)
+                break
 
         # Lookup dictionary for parser
         # Dictionary has string keys and values contains functions which
@@ -428,15 +436,19 @@ class Touchstone:
             if not line:
                 break
 
-            line_l = line.lower()
+            # some malformed Touchstone files have leading spaces, strip them,
+            # otherwise we can't identify the keywords in option lines.
+            line_l = line.strip()
+            if not line_l:
+                continue
 
             is_data_line = True
             # Avoid traversing the self._parse_dict for each line by checking the first letter
             # {"!", "#", "["} covers all the first letters of the key of the current self._parse_dict
             if line_l[0] in {"!", "#", "["}:
                 for k, v in self._parse_dict.items():
-                    if line_l.startswith(k):
-                        v(line)
+                    if line_l.lower().startswith(k):
+                        v(line_l)
                         is_data_line = False
                         break
             if is_data_line:
@@ -607,7 +619,7 @@ class Touchstone:
         Returns the comments which appear anywhere in the file.
 
         Comment lines containing ignored comments are removed.
-        By default these are comments which contain special meaning withing
+        By default these are comments which contain special meaning within
         skrf and are not user comments.
 
         Returns
@@ -635,7 +647,7 @@ class Touchstone:
         Returns
         -------
         var_dict : dict (numbers, units)
-            Dictionnary containing the comments
+            Dictionary containing the comments
         """
         comments = self.comments
         p1 = re.compile(r"\w* = \w*.*")

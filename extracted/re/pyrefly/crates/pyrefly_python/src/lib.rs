@@ -14,15 +14,14 @@
 #![deny(clippy::inefficient_to_string)]
 #![deny(clippy::mem_replace_option_with_some)]
 #![deny(clippy::str_to_string)]
-#![deny(clippy::string_to_string)]
 #![deny(clippy::trivially_copy_pass_by_ref)]
 #![feature(if_let_guard)]
-#![feature(let_chains)]
 
 pub mod ast;
 pub mod display;
 pub mod docstring;
 pub mod dunder;
+pub mod folding;
 pub mod ignore;
 pub mod keywords;
 pub mod module;
@@ -34,8 +33,8 @@ pub mod short_identifier;
 pub mod symbol_kind;
 pub mod sys_info;
 
-/// Suffixes of python files that we can be processed.
-pub const PYTHON_EXTENSIONS: &[&str] = &["py", "pyi"];
+/// Suffixes of python files that can be processed.
+pub const PYTHON_EXTENSIONS: &[&str] = &["py", "pyi", "ipynb"];
 
 /// Suffixes of compiled python modules
 pub const COMPILED_FILE_SUFFIXES: &[&str] = &["pyc", "pyx", "pyd"];

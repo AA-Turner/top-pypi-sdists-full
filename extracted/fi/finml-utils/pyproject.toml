@@ -4,7 +4,7 @@ requires = ["hatchling"]
 
 [project]
 name = "finml-utils"
-version = "4.0.18"
+version = "5.0.1"
 authors = [
   { name="Mark Aron Szulyovszky", email="mark@dreamfaster.ai" },
   { name="Daniel Szemerey", email="daniel@dreamfaster.ai" },
@@ -19,19 +19,12 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 dependencies = [
-  "numpy==2.3.2",
-  "pandas==2.3.2",
-  "tqdm~=4.66.4",
-  "iteration_utilities~=0.13.0",
-  "more_itertools~=10.3.0",
-  "typing_extensions~=4.12.2",
-  "pathos~=0.3.2",
-  "scipy==1.15.3",
-  "scikit-learn==1.6.1",
-  "python-dotenv~=1.0.1",
-  "tabulate==0.9.0",
-  "matplotlib==3.9.2",
-  "seaborn==0.13.2"
+  "numpy==2.3.5",
+  "pandas==2.3.3",
+  "tqdm==4.67.1",
+  "iteration_utilities==0.13.0",
+  "pathos==0.3.4",
+  "python-dotenv==1.2.1",
 ]
 description = ""
 keywords = []
@@ -49,7 +42,7 @@ Source = "https://github.com/dream-faster/finml-utils"
 
 [project.optional-dependencies]
 quality = [
-  "ruff==0.1.11",
+  "ruff==0.14.1",
   "pre-commit~=2.20.0",
 ]
 tests = [
@@ -57,11 +50,19 @@ tests = [
   "pytest-cov>=4.0",
   "hypothesis~=6.112.4"
 ]
-
+plotting = [
+  "matplotlib==3.9.2",
+  "seaborn==0.13.2",
+  "tabulate==0.9.0",
+]
+modeling = [
+  "scipy==1.15.3",
+  "scikit-learn==1.6.1",
+]
 
 # bumpver command: ``bumpver update --patch``
 [tool.bumpver]
-current_version = "4.0.18"
+current_version = "5.0.1"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "chore(Release): Bump version from {old_version} -> {new_version}"
 commit = true
@@ -205,3 +206,5 @@ unsafe-fixes = true
 "__init__.py" = ["E", "F", "I", "N", "F403"]
 
 
+[tool.basedpyright]
+typeCheckingMode = "basic"

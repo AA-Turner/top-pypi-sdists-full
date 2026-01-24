@@ -56,6 +56,13 @@ def base_args(arg_parser: ArgumentParser) -> ArgumentParser:
         help="IP Fabric username (requires --password) or IPF_USERNAME env variable.",
     )
     arg_parser.add_argument("-p", "--password", help="IP Fabric password or IPF_PASSWORD env variable.")
+    arg_parser.add_argument(
+        "-k",
+        "--insecure",
+        help="Disable SSL Verification.",
+        action="store_true",
+        default=False,
+    )
     return arg_parser
 
 

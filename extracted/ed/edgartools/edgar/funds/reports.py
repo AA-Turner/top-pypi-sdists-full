@@ -1,11 +1,16 @@
 """
 Enhanced Fund reporting module with better derivative transaction handling.
 """
+from __future__ import annotations
+
 import logging
 from datetime import datetime
 from decimal import Decimal
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+
+if TYPE_CHECKING:
+    from edgar.funds.ticker_resolution import TickerResolutionResult
 
 import pandas as pd
 from bs4 import Tag
@@ -16,9 +21,8 @@ from rich.panel import Panel
 from rich.table import Table
 
 from edgar.core import get_bool
-from edgar.formatting import moneyfmt
+from edgar.display.formatting import moneyfmt
 from edgar.funds import FundCompany, FundSeries
-from edgar.reference import cusip_ticker_mapping
 from edgar.richtools import df_to_rich_table, repr_rich
 from edgar.xmltools import child_text, find_element, optional_decimal
 
@@ -62,8 +66,8 @@ class SeriesClassInfo(BaseModel):
     @classmethod
     def from_xml(cls, tag):
         if tag and tag.name == "seriesClassInfo":
-            return cls(series_id=child_text(tag, "seriesId"),
-                       class_id=child_text(tag, "classId"))
+            return cls(series_id=child_text(tag, "seriesId") or "",
+                       class_id=child_text(tag, "classId") or "")
 
 
 class FilerInfo(BaseModel):
@@ -113,13 +117,13 @@ class PeriodType(BaseModel):
     period30Yr: Decimal
 
     @classmethod
-    def from_xml(cls, tag: Tag = None):
+    def from_xml(cls, tag: Optional[Tag] = None):
         if tag:
-            return cls(period1Yr=Decimal(tag.attrs.get("period1Yr")),
-                       period3Mon=Decimal(tag.attrs.get("period3Mon")),
-                       period5Yr=Decimal(tag.attrs.get("period5Yr")),
-                       period10Yr=Decimal(tag.attrs.get("period10Yr")),
-                       period30Yr=Decimal(tag.attrs.get("period30Yr"))
+            return cls(period1Yr=Decimal(str(tag.attrs.get("period1Yr", "0"))),
+                       period3Mon=Decimal(str(tag.attrs.get("period3Mon", "0"))),
+                       period5Yr=Decimal(str(tag.attrs.get("period5Yr", "0"))),
+                       period10Yr=Decimal(str(tag.attrs.get("period10Yr", "0"))),
+                       period30Yr=Decimal(str(tag.attrs.get("period30Yr", "0")))
                        )
 
 
@@ -129,11 +133,15 @@ class CurrentMetric(BaseModel):
     intrstRtRiskdv100: PeriodType
 
 
-def decimal_or_na(value: str):
+def decimal_or_na(value: Optional[str]):
+    if value is None:
+        return "N/A"
     return value if value == "N/A" else Decimal(value)
 
 
-def datetime_or_na(value: str):
+def datetime_or_na(value: Optional[str]):
+    if value is None:
+        return "N/A"
     return value if value == "N/A" else datetime.strptime(value, "%Y-%m-%d")
 
 
@@ -152,10 +160,10 @@ class MonthlyTotalReturn(BaseModel):
     @classmethod
     def from_xml(cls, tag: Tag):
         return cls(
-            class_id=tag.attrs.get("classId"),
-            return1=decimal_or_na(tag.attrs.get("rtn1")),
-            return2=decimal_or_na(tag.attrs.get("rtn2")),
-            return3=decimal_or_na(tag.attrs.get("rtn3"))
+            class_id=str(tag.attrs.get("classId", "")),
+            return1=decimal_or_na(str(tag.attrs.get("rtn1", "N/A"))),
+            return2=decimal_or_na(str(tag.attrs.get("rtn2", "N/A"))),
+            return3=decimal_or_na(str(tag.attrs.get("rtn3", "N/A")))
         )
 
 
@@ -237,7 +245,7 @@ class DebtSecurity(BaseModel):
         if tag and tag.name == "debtSec":
             return cls(
                 maturity_date=datetime_or_na(child_text(tag, "maturityDt")),
-                coupon_kind=child_text(tag, "couponKind"),
+                coupon_kind=child_text(tag, "couponKind") or "",
                 annualized_rate=optional_decimal(tag, "annualizedRt"),
                 is_default=child_text(tag, "isDefault") == "Y",
                 are_instrument_payents_in_arrears=child_text(tag, "areIntrstPmntsInArrs") == "Y",
@@ -285,11 +293,6 @@ class Identifiers(BaseModel):
 # Import derivative models from separate module
 from edgar.funds.models.derivatives import (
     DerivativeInfo,
-    ForwardDerivative,
-    SwapDerivative,
-    FutureDerivative,
-    SwaptionDerivative,
-    OptionDerivative,
 )
 
 
@@ -319,8 +322,22 @@ class InvestmentOrSecurity(BaseModel):
     derivative_info: Optional[DerivativeInfo]  # New field
 
     @property
-    def ticker(self):
-        return self.identifiers.ticker
+    def ticker(self) -> Optional[str]:
+        """Return resolved ticker with fallback logic"""
+        result = self.ticker_resolution_info
+        return result.ticker
+
+    @property
+    def ticker_resolution_info(self) -> 'TickerResolutionResult':
+        """Provide full resolution metadata"""
+        from edgar.funds.ticker_resolution import TickerResolutionService
+
+        return TickerResolutionService.resolve_ticker(
+            ticker=self.identifiers.ticker,
+            cusip=self.cusip,
+            isin=self.identifiers.isin,
+            company_name=self.name
+        )
 
     @property
     def isin(self):
@@ -425,9 +442,27 @@ class FundReport:
                 )
 
     def get_fund_series(self) -> FundSeries:
-        return FundSeries(series_id=self.general_info.series_id,
-                          name=self.general_info.series_name,
+        return FundSeries(series_id=self.general_info.series_id or "",
+                          name=self.general_info.series_name or "",
                           fund_company=self.fund_company)
+
+    def get_ticker_for_series(self) -> Optional[str]:
+        """Get the ticker that corresponds to this report's series."""
+        if not self.general_info.series_id:
+            return None
+
+        from edgar.reference.tickers import get_mutual_fund_tickers
+        mf_data = get_mutual_fund_tickers()
+        matches = mf_data[mf_data['seriesId'] == self.general_info.series_id]
+
+        if len(matches) == 1:
+            return matches.iloc[0]['ticker']
+        return None
+
+    def matches_ticker(self, ticker: str) -> bool:
+        """Check if this report's series matches the given ticker."""
+        series_ticker = self.get_ticker_for_series()
+        return bool(series_ticker and series_ticker.upper() == ticker.upper())
 
     @property
     def reporting_period(self):
@@ -452,10 +487,16 @@ class FundReport:
         return [inv for inv in self.investments if not inv.is_derivative]
 
     @lru_cache(maxsize=2)
-    def investment_data(self, include_derivatives=True) -> pd.DataFrame:
+    def investment_data(self, include_derivatives=True, include_ticker_metadata=False) -> pd.DataFrame:
         """
-        :param include_derivatives: Whether to include derivative positions
-        :return: The investments as a pandas dataframe
+        Enhanced to optionally include ticker resolution information
+
+        Args:
+            include_derivatives: Whether to include derivative positions
+            include_ticker_metadata: Add columns for ticker resolution method and confidence
+
+        Returns:
+            DataFrame with investment data, optionally including ticker resolution metadata
         """
         if len(self.investments) == 0:
             return pd.DataFrame(columns=['name', 'title', 'cusip', 'ticker', 'balance', 'units'])
@@ -467,16 +508,16 @@ class FundReport:
         if len(investments_to_process) == 0:
             return pd.DataFrame(columns=['name', 'title', 'cusip', 'ticker', 'balance', 'units', 'value_usd'])
 
-        # This is for adding Ticker to the investments in case it is None
-        cusip_mapping = cusip_ticker_mapping(allow_duplicate_cusips=False)
 
-        investment_df = pd.DataFrame(
-            [{
+        # Build data rows
+        data = []
+        for investment in investments_to_process:
+            row_data = {
                 "name": investment.name,
                 "title": investment.title,
                 "lei": investment.lei,
                 "cusip": investment.cusip,
-                "ticker": investment.identifiers.ticker,
+                "ticker": investment.ticker,  # Now uses resolved ticker
                 "isin": investment.identifiers.isin,
                 "balance": investment.balance,
                 "units": investment.units,
@@ -502,9 +543,18 @@ class FundReport:
                 "notional_amount": self._get_notional_amount(investment),
                 "counterparty": self._get_counterparty(investment),
             }
-                for investment in investments_to_process
-            ]
-        )
+
+            # Add metadata columns if requested
+            if include_ticker_metadata:
+                ticker_info = investment.ticker_resolution_info
+                row_data.update({
+                    "ticker_resolution_method": ticker_info.method,
+                    "ticker_resolution_confidence": ticker_info.confidence
+                })
+
+            data.append(row_data)
+
+        investment_df = pd.DataFrame(data)
 
         # Sort by absolute value using a temporary column
         investment_df = pd.DataFrame(investment_df)
@@ -512,11 +562,6 @@ class FundReport:
         investment_df = investment_df.sort_values(['_sort_value', 'name', 'title'], ascending=[False, True, True]).reset_index(drop=True)
         investment_df = investment_df.drop(columns=['_sort_value'])
 
-        # Step 1: Map CUSIP to Ticker using the cusip_mapping
-        mapped_tickers = investment_df.cusip.map(cusip_mapping.Ticker)
-
-        # Step 2: Fill NaN values in the ticker column with mapped tickers
-        investment_df['ticker'] = investment_df['ticker'].astype(str).fillna(mapped_tickers).fillna("")
 
         return investment_df
 
@@ -535,13 +580,13 @@ class FundReport:
     def _get_notional_amount(self, investment: InvestmentOrSecurity) -> Optional[Decimal]:
         """Extract notional amount - check investment level first, then derivative-specific"""
         # First check if investment balance represents notional (when desc_other_units indicates it)
-        if (investment.desc_other_units and 
-            'notional' in investment.desc_other_units.lower() and 
+        if (investment.desc_other_units and
+            'notional' in investment.desc_other_units.lower() and
             investment.balance):
             return investment.balance
 
         if not investment.derivative_info:
-            return pd.NA
+            return None
 
         deriv = investment.derivative_info
         if deriv.swap_derivative:
@@ -550,18 +595,19 @@ class FundReport:
             # For swaptions, notional is from the underlying swap
             if deriv.swaption_derivative.nested_swap:
                 return deriv.swaption_derivative.nested_swap.notional_amount
-            return pd.NA
+            return None
         elif deriv.future_derivative:
             return deriv.future_derivative.notional_amount
         elif deriv.forward_derivative:
             # For forwards, use the larger absolute amount as notional
-            sold = abs(deriv.forward_derivative.amount_sold) if deriv.forward_derivative.amount_sold else 0
-            purchased = abs(deriv.forward_derivative.amount_purchased) if deriv.forward_derivative.amount_purchased else 0
-            return max(sold, purchased) if max(sold, purchased) > 0 else pd.NA
+            sold = abs(deriv.forward_derivative.amount_sold) if deriv.forward_derivative.amount_sold else Decimal(0)
+            purchased = abs(deriv.forward_derivative.amount_purchased) if deriv.forward_derivative.amount_purchased else Decimal(0)
+            max_val = max(sold, purchased)
+            return max_val if max_val > 0 else None
         elif deriv.option_derivative:
             # Options themselves don't have notional amounts at the derivative level
-            return pd.NA
-        return pd.NA
+            return None
+        return None
 
     def _get_payoff_profile(self, investment: InvestmentOrSecurity) -> Optional[str]:
         """Extract payoff profile from any derivative type"""
@@ -583,7 +629,7 @@ class FundReport:
     def _get_counterparty(self, investment: InvestmentOrSecurity) -> Optional[str]:
         """Extract counterparty name from any derivative type"""
         if not investment.derivative_info:
-            return pd.NA
+            return None
 
         deriv = investment.derivative_info
         if deriv.forward_derivative:
@@ -594,7 +640,7 @@ class FundReport:
             return deriv.future_derivative.counterparty_name
         elif deriv.option_derivative:
             return deriv.option_derivative.counterparty_name
-        return pd.NA
+        return None
 
     def _get_unrealized_pnl(self, investment: InvestmentOrSecurity) -> Optional[Decimal]:
         """Extract unrealized P&L from derivative, preferring derivative-specific fields"""

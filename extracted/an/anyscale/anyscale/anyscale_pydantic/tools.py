@@ -12,7 +12,7 @@ __all__ = ('parse_file_as', 'parse_obj_as', 'parse_raw_as', 'schema_of', 'schema
 NameFactory = Union[str, Callable[[Type[Any]], str]]
 
 if TYPE_CHECKING:
-    from .typing import DictStrAny
+    from .typing import DictStrAny # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
 
 def _generate_parsing_type_name(type_: Any) -> str:
@@ -21,7 +21,7 @@ def _generate_parsing_type_name(type_: Any) -> str:
 
 @lru_cache(maxsize=2048)
 def _get_parsing_type(type_: Any, *, type_name: Optional[NameFactory] = None) -> Any:
-    from .main import create_model
+    from .main import create_model # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
     if type_name is None:
         type_name = _generate_parsing_type_name

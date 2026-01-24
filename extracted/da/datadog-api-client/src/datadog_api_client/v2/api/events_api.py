@@ -55,6 +55,7 @@ class EventsApi:
                                     "us3.datadoghq.com",
                                     "us5.datadoghq.com",
                                     "ap1.datadoghq.com",
+                                    "ap2.datadoghq.com",
                                     "datadoghq.eu",
                                     "ddog-gov.com",
                                 ],
@@ -206,11 +207,11 @@ class EventsApi:
 
         **Note:** To utilize this endpoint with our client libraries, please ensure you are using the latest version released on or after July 1, 2025. Earlier versions do not support this functionality.
 
+        **Important:** Upgrade to the latest client library version to use the updated endpoint at ``https://event-management-intake.{site}/api/v2/events``. Older client library versions of the Post an event (v2) API send requests to a deprecated endpoint ( ``https://api.{site}/api/v2/events`` ).
+
         ✅ **Only events with the change or alert category** are in General Availability. For change events, see `Change Tracking <https://docs.datadoghq.com/change_tracking>`_ for more details.
 
         ❌ For use cases involving other event categories, use the V1 endpoint or reach out to `support <https://www.datadoghq.com/support/>`_.
-
-        ❌ Notifications are not yet supported for events sent to this endpoint. Use the V1 endpoint for notification functionality.
 
         :param body: Event creation request payload.
         :type body: EventCreateRequestPayload

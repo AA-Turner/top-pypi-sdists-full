@@ -185,7 +185,9 @@ def isTermuxPython():
 
 
 def isUninstalledPython():
-    # Debian package.
+    """Decide if this a Python that doesn't have a system wide DLL installation for its use."""
+    # return driven, pylint: disable=too-many-return-statements
+
     if isDebianPackagePython():
         return False
 
@@ -195,8 +197,8 @@ def isUninstalledPython():
     if isPythonBuildStandalonePython():
         return True
 
-    if isStaticallyLinkedPython():
-        return False
+    if isAnacondaPython() or isWinPython():
+        return True
 
     if os.name == "nt":
         import ctypes.wintypes
@@ -216,7 +218,10 @@ def isUninstalledPython():
             path=system_path, filename=getRunningPythonDLLPath()
         )
 
-    return isAnacondaPython() or "WinPython" in sys.version
+    if isStaticallyLinkedPython():
+        return False
+
+    return None
 
 
 _is_win_python = None

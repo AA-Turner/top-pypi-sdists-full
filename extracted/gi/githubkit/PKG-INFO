@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
-Name: githubkit
-Version: 0.13.3
+Name: GitHubKit
+Version: 0.14.3
 Summary: GitHub SDK for Python
 Keywords: github,octokit
 Author: yanyongyu
@@ -16,10 +16,10 @@ Requires-Dist: pyjwt[crypto]>=2.4.0,<3.0.0 ; extra == 'auth'
 Requires-Dist: pyjwt[crypto]>=2.4.0,<3.0.0 ; extra == 'auth-app'
 Requires-Dist: pyjwt[crypto]>=2.4.0,<3.0.0 ; extra == 'jwt'
 Requires-Python: >=3.9, <4.0
-Project-URL: Bug Tracker, https://github.com/yanyongyu/githubkit/issues
-Project-URL: Documentation, https://github.com/yanyongyu/githubkit
 Project-URL: Homepage, https://github.com/yanyongyu/githubkit
 Project-URL: Repository, https://github.com/yanyongyu/githubkit
+Project-URL: Documentation, https://github.com/yanyongyu/githubkit
+Project-URL: Bug Tracker, https://github.com/yanyongyu/githubkit/issues
 Provides-Extra: all
 Provides-Extra: auth
 Provides-Extra: auth-app

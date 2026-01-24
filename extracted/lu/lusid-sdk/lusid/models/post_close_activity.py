@@ -17,18 +17,21 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, constr, validator 
 
 class PostCloseActivity(BaseModel):
     """
     PostCloseActivity
     """
-    entity_type:  StrictStr = Field(...,alias="entityType") 
-    entity_unique_id:  StrictStr = Field(...,alias="entityUniqueId") 
-    as_at: datetime = Field(..., alias="asAt")
-    __properties = ["entityType", "entityUniqueId", "asAt"]
+    entity_type:  StrictStr = Field(...,alias="entityType", description="The type of the entity, possible values are: * `PortfolioTransaction`, * `Instrument`, * `InstrumentEvent`, * `InstrumentEventInstruction`, * `PortfolioSettlementInstruction`, and, * `Quote`.") 
+    entity_unique_id:  StrictStr = Field(...,alias="entityUniqueId", description="The entity unique ID. The expected format for each entity is: | entityType                       | entityUniqueId                                    | |----------------------------------|---------------------------------------------------| | `PortfolioTransaction`           | `portfolioUniqueId_transactionId`                 | | `Instrument`                     | `instrumentUniqueId`                              | | `InstrumentEvent`                | `corporateActionSourceUniqueId_instrumentEventId` | | `InstrumentEventInstruction`     | `portfolioUniqueId_instructionId`                 | | `PortfolioSettlementInstruction` | `portfolioUniqueId_settlementInstructionId`       | | `Quote`                          | `quoteSeriesUniqueId_quoteSeriesInstrumentId`     |") 
+    as_at: datetime = Field(description="The `AsAt` time of the event that needs to be added to the closed period.", alias="asAt")
+    effective_at:  Optional[StrictStr] = Field(None,alias="effectiveAt", description="The `EffectiveAt` time of the event that need to be added to the closed period. This can be a date or cut label. Only applicable for `Quote` post-close activities.") 
+    __properties = ["entityType", "entityUniqueId", "asAt", "effectiveAt"]
 
     class Config:
         """Pydantic configuration"""
@@ -62,6 +65,11 @@ class PostCloseActivity(BaseModel):
                           exclude={
                           },
                           exclude_none=True)
+        # set to None if effective_at (nullable) is None
+        # and __fields_set__ contains the field
+        if self.effective_at is None and "effective_at" in self.__fields_set__:
+            _dict['effectiveAt'] = None
+
         return _dict
 
     @classmethod
@@ -76,6 +84,9 @@ class PostCloseActivity(BaseModel):
         _obj = PostCloseActivity.parse_obj({
             "entity_type": obj.get("entityType"),
             "entity_unique_id": obj.get("entityUniqueId"),
-            "as_at": obj.get("asAt")
+            "as_at": obj.get("asAt"),
+            "effective_at": obj.get("effectiveAt")
         })
         return _obj
+
+PostCloseActivity.update_forward_refs()

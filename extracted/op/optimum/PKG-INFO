@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optimum
-Version: 1.27.0
+Version: 2.1.0
 Summary: Optimum Library is an extension of the Hugging Face Transformers library, providing a framework to integrate third-party libraries from Hardware Partners and interface with their specific functionality.
 Home-page: https://github.com/huggingface/optimum
 Author: HuggingFace Inc. Special Ops Team
@@ -26,70 +26,35 @@ Requires-Dist: torch>=1.11
 Requires-Dist: packaging
 Requires-Dist: numpy
 Requires-Dist: huggingface_hub>=0.8.0
-Provides-Extra: onnxruntime
-Requires-Dist: onnx; extra == "onnxruntime"
-Requires-Dist: datasets>=1.2.1; extra == "onnxruntime"
-Requires-Dist: protobuf>=3.20.1; extra == "onnxruntime"
-Requires-Dist: onnxruntime>=1.11.0; extra == "onnxruntime"
-Requires-Dist: transformers<4.54.0,>=4.36; extra == "onnxruntime"
-Provides-Extra: onnxruntime-gpu
-Requires-Dist: onnx; extra == "onnxruntime-gpu"
-Requires-Dist: datasets>=1.2.1; extra == "onnxruntime-gpu"
-Requires-Dist: protobuf>=3.20.1; extra == "onnxruntime-gpu"
-Requires-Dist: onnxruntime-gpu>=1.11.0; extra == "onnxruntime-gpu"
-Requires-Dist: transformers<4.54.0,>=4.36; extra == "onnxruntime-gpu"
-Provides-Extra: onnxruntime-training
-Requires-Dist: evaluate; extra == "onnxruntime-training"
-Requires-Dist: torch-ort; extra == "onnxruntime-training"
-Requires-Dist: accelerate; extra == "onnxruntime-training"
-Requires-Dist: datasets>=1.2.1; extra == "onnxruntime-training"
-Requires-Dist: protobuf>=3.20.1; extra == "onnxruntime-training"
-Requires-Dist: transformers<4.54.0,>=4.36; extra == "onnxruntime-training"
-Requires-Dist: onnxruntime-training>=1.11.0; extra == "onnxruntime-training"
-Provides-Extra: exporters
-Requires-Dist: onnx; extra == "exporters"
-Requires-Dist: onnxruntime; extra == "exporters"
-Requires-Dist: protobuf>=3.20.1; extra == "exporters"
-Requires-Dist: transformers<4.54.0,>=4.36; extra == "exporters"
-Provides-Extra: exporters-gpu
-Requires-Dist: onnx; extra == "exporters-gpu"
-Requires-Dist: onnxruntime-gpu; extra == "exporters-gpu"
-Requires-Dist: protobuf>=3.20.1; extra == "exporters-gpu"
-Requires-Dist: transformers<4.54.0,>=4.36; extra == "exporters-gpu"
-Provides-Extra: exporters-tf
-Requires-Dist: onnx; extra == "exporters-tf"
-Requires-Dist: h5py; extra == "exporters-tf"
-Requires-Dist: tf2onnx; extra == "exporters-tf"
-Requires-Dist: onnxruntime; extra == "exporters-tf"
-Requires-Dist: numpy<1.24.0; extra == "exporters-tf"
-Requires-Dist: datasets<=2.16; extra == "exporters-tf"
-Requires-Dist: tensorflow<=2.12.1,>=2.4; extra == "exporters-tf"
-Requires-Dist: transformers<4.38,>=4.36; extra == "exporters-tf"
+Provides-Extra: amd
+Requires-Dist: optimum-amd; extra == "amd"
+Provides-Extra: furiosa
+Requires-Dist: optimum-furiosa; extra == "furiosa"
+Provides-Extra: graphcore
+Requires-Dist: optimum-graphcore; extra == "graphcore"
+Provides-Extra: habana
+Requires-Dist: optimum-habana>=1.17.0; extra == "habana"
 Provides-Extra: intel
 Requires-Dist: optimum-intel>=1.23.0; extra == "intel"
-Provides-Extra: openvino
-Requires-Dist: optimum-intel[openvino]>=1.23.0; extra == "openvino"
+Provides-Extra: ipex
+Requires-Dist: optimum-intel[ipex]>=1.23.0; extra == "ipex"
 Provides-Extra: nncf
 Requires-Dist: optimum-intel[nncf]>=1.23.0; extra == "nncf"
 Provides-Extra: neural-compressor
 Requires-Dist: optimum-intel[neural-compressor]>=1.23.0; extra == "neural-compressor"
-Provides-Extra: ipex
-Requires-Dist: optimum-intel[ipex]>=1.23.0; extra == "ipex"
-Provides-Extra: habana
-Requires-Dist: optimum-habana>=1.17.0; extra == "habana"
-Provides-Extra: neuronx
-Requires-Dist: optimum-neuron[neuronx]>=0.0.28; extra == "neuronx"
-Provides-Extra: graphcore
-Requires-Dist: optimum-graphcore; extra == "graphcore"
-Provides-Extra: furiosa
-Requires-Dist: optimum-furiosa; extra == "furiosa"
-Provides-Extra: amd
-Requires-Dist: optimum-amd; extra == "amd"
+Provides-Extra: onnx
+Requires-Dist: optimum-onnx; extra == "onnx"
+Provides-Extra: onnxruntime
+Requires-Dist: optimum-onnx[onnxruntime]; extra == "onnxruntime"
+Provides-Extra: onnxruntime-gpu
+Requires-Dist: optimum-onnx[onnxruntime-gpu]; extra == "onnxruntime-gpu"
+Provides-Extra: openvino
+Requires-Dist: optimum-intel[openvino]>=1.23.0; extra == "openvino"
 Provides-Extra: quanto
 Requires-Dist: optimum-quanto>=0.2.4; extra == "quanto"
 Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
 Requires-Dist: accelerate; extra == "dev"
-Requires-Dist: pytest<=8.0.0; extra == "dev"
 Requires-Dist: requests; extra == "dev"
 Requires-Dist: parameterized; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
@@ -103,12 +68,11 @@ Requires-Dist: scikit-learn; extra == "dev"
 Requires-Dist: sentencepiece; extra == "dev"
 Requires-Dist: rjieba; extra == "dev"
 Requires-Dist: hf_xet; extra == "dev"
-Requires-Dist: onnxslim>=0.1.53; extra == "dev"
 Requires-Dist: black~=23.1; extra == "dev"
 Requires-Dist: ruff==0.1.5; extra == "dev"
 Provides-Extra: tests
+Requires-Dist: pytest; extra == "tests"
 Requires-Dist: accelerate; extra == "tests"
-Requires-Dist: pytest<=8.0.0; extra == "tests"
 Requires-Dist: requests; extra == "tests"
 Requires-Dist: parameterized; extra == "tests"
 Requires-Dist: pytest-xdist; extra == "tests"
@@ -122,7 +86,6 @@ Requires-Dist: scikit-learn; extra == "tests"
 Requires-Dist: sentencepiece; extra == "tests"
 Requires-Dist: rjieba; extra == "tests"
 Requires-Dist: hf_xet; extra == "tests"
-Requires-Dist: onnxslim>=0.1.53; extra == "tests"
 Provides-Extra: quality
 Requires-Dist: black~=23.1; extra == "quality"
 Requires-Dist: ruff==0.1.5; extra == "quality"
@@ -191,10 +154,12 @@ If you'd like to use the accelerator-specific features of Optimum, you can check
 
 | Accelerator                                                                         | Installation                                                                |
 | :---------------------------------------------------------------------------------- | :-------------------------------------------------------------------------- |
-| [ONNX Runtime](https://huggingface.co/docs/optimum/onnxruntime/overview)            | `pip install --upgrade --upgrade-strategy eager optimum[onnxruntime]`       |
+| [ONNX](https://huggingface.co/docs/optimum-onnx/en/index)                           | `pip install --upgrade --upgrade-strategy eager optimum[onnx]`              |
+| [ONNX Runtime](https://huggingface.co/docs/optimum-onnx/onnxruntime/overview)       | `pip install --upgrade --upgrade-strategy eager optimum[onnxruntime]`       |
+| [ONNX Runtime GPU](https://huggingface.co/docs/optimum-onnx/onnxruntime/overview)   | `pip install --upgrade --upgrade-strategy eager optimum[onnxruntime-gpu]`   |
 | [Intel Neural Compressor](https://huggingface.co/docs/optimum/intel/index)          | `pip install --upgrade --upgrade-strategy eager optimum[neural-compressor]` |
 | [OpenVINO](https://huggingface.co/docs/optimum/intel/index)                         | `pip install --upgrade --upgrade-strategy eager optimum[openvino]`          |
-| [IPEX](https://huggingface.co/docs/optimum/intel/ipex/inference)                    | `pip install --upgrade --upgrade-strategy eager optimum[ipex]`              |
+| [IPEX](https://huggingface.co/docs/optimum/intel/index)                             | `pip install --upgrade --upgrade-strategy eager optimum[ipex]`              |
 | [NVIDIA TensorRT-LLM](https://huggingface.co/docs/optimum/main/en/nvidia_overview)  | `docker run -it --gpus all --ipc host huggingface/optimum-nvidia`           |
 | [AMD Instinct GPUs and Ryzen AI NPU](https://huggingface.co/docs/optimum/amd/index) | `pip install --upgrade --upgrade-strategy eager optimum[amd]`               |
 | [AWS Trainum & Inferentia](https://huggingface.co/docs/optimum-neuron/index)        | `pip install --upgrade --upgrade-strategy eager optimum[neuronx]`           |
@@ -219,10 +184,9 @@ python -m pip install optimum[onnxruntime]@git+https://github.com/huggingface/op
 
 Optimum provides multiple tools to export and run optimized models on various ecosystems:
 
-- [ONNX](https://huggingface.co/docs/optimum/exporters/onnx/usage_guides/export_a_model) / [ONNX Runtime](https://huggingface.co/docs/optimum/onnxruntime/usage_guides/models), one of the most popular open formats for model export, and a high-performance inference engine for deployment.
+- [ONNX](https://huggingface.co/docs/optimum-onnx/en/onnx/usage_guides/export_a_model) / [ONNX Runtime](https://huggingface.co/docs/optimum-onnx/en/onnxruntime/usage_guides/models), one of the most popular open formats for model export, and a high-performance inference engine for deployment.
 - [OpenVINO](https://huggingface.co/docs/optimum/intel/inference), a toolkit for optimizing, quantizing and deploying deep learning models on Intel hardware.
 - [ExecuTorch](https://huggingface.co/docs/optimum-executorch/guides/export), PyTorch’s native solution for on-device inference across mobile and edge devices.
-- [TensorFlow Lite](https://huggingface.co/docs/optimum/exporters/tflite/usage_guides/export_a_model), a lightweight solution for running TensorFlow models on mobile and edge.
 - [Intel Gaudi Accelerators](https://huggingface.co/docs/optimum/main/en/habana/usage_guides/accelerate_inference) enabling optimal performance on first-gen Gaudi, Gaudi2 and Gaudi3.
 - [AWS Inferentia](https://huggingface.co/docs/optimum-neuron/en/guides/models) for accelerated inference on Inf2 and Inf1 instances.
 - [NVIDIA TensorRT-LLM](https://huggingface.co/blog/optimum-nvidia).
@@ -231,19 +195,23 @@ The [export](https://huggingface.co/docs/optimum/exporters/overview) and optimiz
 
 ### ONNX + ONNX Runtime
 
+🚨🚨🚨 ONNX integration was moved to [`optimum-onnx`](https://github.com/huggingface/optimum-onnx) so make sure to follow the installation instructions 🚨🚨🚨
+
 Before you begin, make sure you have all the necessary libraries installed :
 
 ```bash
-pip install optimum[exporters,onnxruntime]
+pip install --upgrade --upgrade-strategy eager optimum[onnx]
 ```
 
-It is possible to export Transformers and Diffusers models to the [ONNX](https://onnx.ai/) format and perform graph optimization as well as quantization easily.
+It is possible to export Transformers, Diffusers, Sentence Transformers and Timm models to the [ONNX](https://onnx.ai/) format and perform graph optimization as well as quantization easily.
 
-For more information on the ONNX export, please check the [documentation](https://huggingface.co/docs/optimum/exporters/onnx/usage_guides/export_a_model).
+For more information on the ONNX export, please check the [documentation](https://huggingface.co/docs/optimum-onnx/en/onnx/usage_guides/export_a_model).
 
-Once the model is exported to the ONNX format, we provide Python classes enabling you to run the exported ONNX model in a seemless manner using [ONNX Runtime](https://onnxruntime.ai/) in the backend.
+Once the model is exported to the ONNX format, we provide Python classes enabling you to run the exported ONNX model in a seamless manner using [ONNX Runtime](https://onnxruntime.ai/) in the backend.
 
-More details on how to run ONNX models with `ORTModelForXXX` classes [here](https://huggingface.co/docs/optimum/main/en/onnxruntime/usage_guides/models).
+For this make sure you have ONNX Runtime installed, fore more information check out the [installation instructions](https://onnxruntime.ai/docs/install/).
+
+More details on how to run ONNX models with `ORTModelForXXX` classes [here](https://huggingface.co/docs/optimum-onnx/en/onnxruntime/usage_guides/models).
 
 ### Intel (OpenVINO + Neural Compressor + IPEX)
 
@@ -262,17 +230,6 @@ pip install optimum-executorch@git+https://github.com/huggingface/optimum-execut
 Users can export Transformers models to [ExecuTorch](https://github.com/pytorch/executorch) and run inference on edge devices within PyTorch's ecosystem.
 
 For more information about export Transformers to ExecuTorch, please check the doc for [Optimum-ExecuTorch](https://huggingface.co/docs/optimum-executorch/guides/export).
-
-### TensorFlow Lite
-
-Before you begin, make sure you have all the necessary libraries installed :
-
-```bash
-pip install optimum[exporters-tf]
-```
-
-Just as for ONNX, it is possible to export models to [TensorFlow Lite](https://www.tensorflow.org/lite) and quantize them.
-You can find more information in our [documentation](https://huggingface.co/docs/optimum/main/exporters/tflite/usage_guides/export_a_model).
 
 ### Quanto
 
@@ -308,13 +265,3 @@ pip install --upgrade --upgrade-strategy eager optimum[neuronx]
 ```
 
 You can find examples in the [documentation](https://huggingface.co/docs/optimum-neuron/index) and in the [tutorials](https://huggingface.co/docs/optimum-neuron/tutorials/fine_tune_bert).
-
-### ONNX Runtime
-
-Before you begin, make sure you have all the necessary libraries installed :
-
-```bash
-pip install optimum[onnxruntime-training]
-```
-
-You can find examples in the [documentation](https://huggingface.co/docs/optimum/onnxruntime/usage_guides/trainer) and in the [examples](https://github.com/huggingface/optimum/tree/main/examples/onnxruntime/training).

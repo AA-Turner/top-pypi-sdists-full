@@ -10,7 +10,16 @@ import synchronicity.combined_types
 import typing
 import typing_extensions
 
+class _NoDefaultSentinel:
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+_NO_DEFAULT: _NoDefaultSentinel
+
 def _serialize_dict(data): ...
+def _deserialize_dict_key(dict: _Dict, data: bytes) -> typing.Any: ...
+def _deserialize_dict_value(dict: _Dict, data: bytes, key: typing.Any = ...) -> typing.Any: ...
 
 class DictInfo:
     """Information about a Dict object."""
@@ -215,7 +224,7 @@ class DictManager:
             """
             ...
 
-    create: __create_spec
+    create: typing.ClassVar[__create_spec]
 
     class __list_spec(typing_extensions.Protocol):
         def __call__(
@@ -288,7 +297,7 @@ class DictManager:
             """
             ...
 
-    list: __list_spec
+    list: typing.ClassVar[__list_spec]
 
     class __delete_spec(typing_extensions.Protocol):
         def __call__(
@@ -351,7 +360,7 @@ class DictManager:
             """
             ...
 
-    delete: __delete_spec
+    delete: typing.ClassVar[__delete_spec]
 
 class _Dict(modal._object._Object):
     """Distributed dictionary for storage in Modal apps.
@@ -441,6 +450,7 @@ class _Dict(modal._object._Object):
         namespace=None,
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
+        client: typing.Optional[modal.client._Client] = None,
     ) -> _Dict:
         """Reference a named Dict, creating if necessary.
 
@@ -451,30 +461,6 @@ class _Dict(modal._object._Object):
         ```python
         d = modal.Dict.from_name("my-dict", create_if_missing=True)
         d[123] = 456
-        ```
-        """
-        ...
-
-    @staticmethod
-    async def lookup(
-        name: str,
-        data: typing.Optional[dict] = None,
-        namespace=None,
-        client: typing.Optional[modal.client._Client] = None,
-        environment_name: typing.Optional[str] = None,
-        create_if_missing: bool = False,
-    ) -> _Dict:
-        """mdmd:hidden
-        Lookup a named Dict.
-
-        DEPRECATED: This method is deprecated in favor of `modal.Dict.from_name`.
-
-        In contrast to `modal.Dict.from_name`, this is an eager method
-        that will hydrate the local object with metadata from Modal servers.
-
-        ```python
-        d = modal.Dict.from_name("my-dict")
-        d["xyz"] = 123
         ```
         """
         ...
@@ -548,8 +534,11 @@ class _Dict(modal._object._Object):
         """
         ...
 
-    async def pop(self, key: typing.Any) -> typing.Any:
-        """Remove a key from the Dict, returning the value if it exists."""
+    async def pop(self, key: typing.Any, default: typing.Any = ...) -> typing.Any:
+        """Remove a key from the Dict, returning the value if it exists.
+
+        If key is not found, return default if provided, otherwise raise KeyError.
+        """
         ...
 
     async def __delitem__(self, key: typing.Any) -> typing.Any:
@@ -589,8 +578,6 @@ class _Dict(modal._object._Object):
         and results are unordered.
         """
         ...
-
-SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
 
 class Dict(modal.object.Object):
     """Distributed dictionary for storage in Modal apps.
@@ -647,30 +634,59 @@ class Dict(modal.object.Object):
     def name(self) -> typing.Optional[str]: ...
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _get_metadata(self) -> modal_proto.api_pb2.DictMetadata: ...
-    @classmethod
-    def ephemeral(
-        cls: type[Dict],
-        data: typing.Optional[dict] = None,
-        client: typing.Optional[modal.client.Client] = None,
-        environment_name: typing.Optional[str] = None,
-        _heartbeat_sleep: float = 300,
-    ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[Dict]:
-        """Creates a new ephemeral Dict within a context manager:
 
-        Usage:
-        ```python
-        from modal import Dict
+    class __ephemeral_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            data: typing.Optional[dict] = None,
+            client: typing.Optional[modal.client.Client] = None,
+            environment_name: typing.Optional[str] = None,
+            _heartbeat_sleep: float = 300,
+        ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[Dict]:
+            """Creates a new ephemeral Dict within a context manager:
 
-        with Dict.ephemeral() as d:
-            d["foo"] = "bar"
-        ```
+            Usage:
+            ```python
+            from modal import Dict
 
-        ```python notest
-        async with Dict.ephemeral() as d:
-            await d.put.aio("foo", "bar")
-        ```
-        """
-        ...
+            with Dict.ephemeral() as d:
+                d["foo"] = "bar"
+            ```
+
+            ```python notest
+            async with Dict.ephemeral() as d:
+                await d.put.aio("foo", "bar")
+            ```
+            """
+            ...
+
+        def aio(
+            self,
+            /,
+            data: typing.Optional[dict] = None,
+            client: typing.Optional[modal.client.Client] = None,
+            environment_name: typing.Optional[str] = None,
+            _heartbeat_sleep: float = 300,
+        ) -> typing.AsyncContextManager[Dict]:
+            """Creates a new ephemeral Dict within a context manager:
+
+            Usage:
+            ```python
+            from modal import Dict
+
+            with Dict.ephemeral() as d:
+                d["foo"] = "bar"
+            ```
+
+            ```python notest
+            async with Dict.ephemeral() as d:
+                await d.put.aio("foo", "bar")
+            ```
+            """
+            ...
+
+    ephemeral: typing.ClassVar[__ephemeral_spec]
 
     @staticmethod
     def from_name(
@@ -680,6 +696,7 @@ class Dict(modal.object.Object):
         namespace=None,
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
+        client: typing.Optional[modal.client.Client] = None,
     ) -> Dict:
         """Reference a named Dict, creating if necessary.
 
@@ -693,59 +710,6 @@ class Dict(modal.object.Object):
         ```
         """
         ...
-
-    class __lookup_spec(typing_extensions.Protocol):
-        def __call__(
-            self,
-            /,
-            name: str,
-            data: typing.Optional[dict] = None,
-            namespace=None,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-            create_if_missing: bool = False,
-        ) -> Dict:
-            """mdmd:hidden
-            Lookup a named Dict.
-
-            DEPRECATED: This method is deprecated in favor of `modal.Dict.from_name`.
-
-            In contrast to `modal.Dict.from_name`, this is an eager method
-            that will hydrate the local object with metadata from Modal servers.
-
-            ```python
-            d = modal.Dict.from_name("my-dict")
-            d["xyz"] = 123
-            ```
-            """
-            ...
-
-        async def aio(
-            self,
-            /,
-            name: str,
-            data: typing.Optional[dict] = None,
-            namespace=None,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-            create_if_missing: bool = False,
-        ) -> Dict:
-            """mdmd:hidden
-            Lookup a named Dict.
-
-            DEPRECATED: This method is deprecated in favor of `modal.Dict.from_name`.
-
-            In contrast to `modal.Dict.from_name`, this is an eager method
-            that will hydrate the local object with metadata from Modal servers.
-
-            ```python
-            d = modal.Dict.from_name("my-dict")
-            d["xyz"] = 123
-            ```
-            """
-            ...
-
-    lookup: __lookup_spec
 
     class __delete_spec(typing_extensions.Protocol):
         def __call__(
@@ -784,9 +748,9 @@ class Dict(modal.object.Object):
             """
             ...
 
-    delete: __delete_spec
+    delete: typing.ClassVar[__delete_spec]
 
-    class __info_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __info_spec(typing_extensions.Protocol):
         def __call__(self, /) -> DictInfo:
             """Return information about the Dict object."""
             ...
@@ -795,9 +759,9 @@ class Dict(modal.object.Object):
             """Return information about the Dict object."""
             ...
 
-    info: __info_spec[typing_extensions.Self]
+    info: __info_spec
 
-    class __clear_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __clear_spec(typing_extensions.Protocol):
         def __call__(self, /) -> None:
             """Remove all items from the Dict."""
             ...
@@ -806,9 +770,9 @@ class Dict(modal.object.Object):
             """Remove all items from the Dict."""
             ...
 
-    clear: __clear_spec[typing_extensions.Self]
+    clear: __clear_spec
 
-    class __get_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __get_spec(typing_extensions.Protocol):
         def __call__(self, /, key: typing.Any, default: typing.Optional[typing.Any] = None) -> typing.Any:
             """Get the value associated with a key.
 
@@ -823,9 +787,9 @@ class Dict(modal.object.Object):
             """
             ...
 
-    get: __get_spec[typing_extensions.Self]
+    get: __get_spec
 
-    class __contains_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __contains_spec(typing_extensions.Protocol):
         def __call__(self, /, key: typing.Any) -> bool:
             """Return if a key is present."""
             ...
@@ -834,9 +798,9 @@ class Dict(modal.object.Object):
             """Return if a key is present."""
             ...
 
-    contains: __contains_spec[typing_extensions.Self]
+    contains: __contains_spec
 
-    class __len_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __len_spec(typing_extensions.Protocol):
         def __call__(self, /) -> int:
             """Return the length of the Dict.
 
@@ -851,9 +815,9 @@ class Dict(modal.object.Object):
             """
             ...
 
-    len: __len_spec[typing_extensions.Self]
+    len: __len_spec
 
-    class ____getitem___spec(typing_extensions.Protocol[SUPERSELF]):
+    class ____getitem___spec(typing_extensions.Protocol):
         def __call__(self, /, key: typing.Any) -> typing.Any:
             """Get the value associated with a key.
 
@@ -868,9 +832,9 @@ class Dict(modal.object.Object):
             """
             ...
 
-    __getitem__: ____getitem___spec[typing_extensions.Self]
+    __getitem__: ____getitem___spec
 
-    class __update_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __update_spec(typing_extensions.Protocol):
         def __call__(self, other: typing.Optional[collections.abc.Mapping] = None, /, **kwargs) -> None:
             """Update the Dict with additional items."""
             ...
@@ -879,9 +843,9 @@ class Dict(modal.object.Object):
             """Update the Dict with additional items."""
             ...
 
-    update: __update_spec[typing_extensions.Self]
+    update: __update_spec
 
-    class __put_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __put_spec(typing_extensions.Protocol):
         def __call__(self, /, key: typing.Any, value: typing.Any, *, skip_if_exists: bool = False) -> bool:
             """Add a specific key-value pair to the Dict.
 
@@ -898,9 +862,9 @@ class Dict(modal.object.Object):
             """
             ...
 
-    put: __put_spec[typing_extensions.Self]
+    put: __put_spec
 
-    class ____setitem___spec(typing_extensions.Protocol[SUPERSELF]):
+    class ____setitem___spec(typing_extensions.Protocol):
         def __call__(self, /, key: typing.Any, value: typing.Any) -> None:
             """Set a specific key-value pair to the Dict.
 
@@ -915,20 +879,26 @@ class Dict(modal.object.Object):
             """
             ...
 
-    __setitem__: ____setitem___spec[typing_extensions.Self]
+    __setitem__: ____setitem___spec
 
-    class __pop_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, key: typing.Any) -> typing.Any:
-            """Remove a key from the Dict, returning the value if it exists."""
+    class __pop_spec(typing_extensions.Protocol):
+        def __call__(self, /, key: typing.Any, default: typing.Any = ...) -> typing.Any:
+            """Remove a key from the Dict, returning the value if it exists.
+
+            If key is not found, return default if provided, otherwise raise KeyError.
+            """
             ...
 
-        async def aio(self, /, key: typing.Any) -> typing.Any:
-            """Remove a key from the Dict, returning the value if it exists."""
+        async def aio(self, /, key: typing.Any, default: typing.Any = ...) -> typing.Any:
+            """Remove a key from the Dict, returning the value if it exists.
+
+            If key is not found, return default if provided, otherwise raise KeyError.
+            """
             ...
 
-    pop: __pop_spec[typing_extensions.Self]
+    pop: __pop_spec
 
-    class ____delitem___spec(typing_extensions.Protocol[SUPERSELF]):
+    class ____delitem___spec(typing_extensions.Protocol):
         def __call__(self, /, key: typing.Any) -> typing.Any:
             """Delete a key from the Dict.
 
@@ -943,9 +913,9 @@ class Dict(modal.object.Object):
             """
             ...
 
-    __delitem__: ____delitem___spec[typing_extensions.Self]
+    __delitem__: ____delitem___spec
 
-    class ____contains___spec(typing_extensions.Protocol[SUPERSELF]):
+    class ____contains___spec(typing_extensions.Protocol):
         def __call__(self, /, key: typing.Any) -> bool:
             """Return if a key is present.
 
@@ -960,9 +930,9 @@ class Dict(modal.object.Object):
             """
             ...
 
-    __contains__: ____contains___spec[typing_extensions.Self]
+    __contains__: ____contains___spec
 
-    class __keys_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __keys_spec(typing_extensions.Protocol):
         def __call__(self, /) -> typing.Iterator[typing.Any]:
             """Return an iterator over the keys in this Dict.
 
@@ -979,9 +949,9 @@ class Dict(modal.object.Object):
             """
             ...
 
-    keys: __keys_spec[typing_extensions.Self]
+    keys: __keys_spec
 
-    class __values_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __values_spec(typing_extensions.Protocol):
         def __call__(self, /) -> typing.Iterator[typing.Any]:
             """Return an iterator over the values in this Dict.
 
@@ -998,9 +968,9 @@ class Dict(modal.object.Object):
             """
             ...
 
-    values: __values_spec[typing_extensions.Self]
+    values: __values_spec
 
-    class __items_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __items_spec(typing_extensions.Protocol):
         def __call__(self, /) -> typing.Iterator[tuple[typing.Any, typing.Any]]:
             """Return an iterator over the (key, value) tuples in this Dict.
 
@@ -1017,4 +987,4 @@ class Dict(modal.object.Object):
             """
             ...
 
-    items: __items_spec[typing_extensions.Self]
+    items: __items_spec

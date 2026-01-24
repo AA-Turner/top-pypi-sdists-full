@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: M2Crypto
-Version: 0.45.1
+Version: 0.46.2
 Summary: A Python crypto and SSL toolkit
 Author: Ng Pheng Siong
 Author-email: ngps@sandbox.rulemaker.net
@@ -28,8 +28,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-License-File: LICENCE
-Requires-Dist: importlib-metadata; python_version < "3.8"
+Requires-Python: >=3.6
+Description-Content-Type: text/x-rst
+License-File: LICENSES/BSD-2-Clause.txt
 Dynamic: license-file
 
 ========
@@ -39,6 +40,7 @@ M2Crypto
 :Maintainer: Matěj Cepl
 :Web-Site: https://sr.ht/~mcepl/m2crypto/
 :Documentation: https://m2crypto.readthedocs.io/
+:IRC channel: irc://irc.ergo.chat/#m2crypto
 :Email list: https://lists.sr.ht/~mcepl/m2crypto (`subscribe via email`_)
 :Issue tracker: https://todo.sr.ht/~mcepl/m2crypto (R/O, please
                 report issues via the email list).
@@ -87,8 +89,8 @@ working for you.
 
 - And much more.
 
-M2Crypto is released under a very liberal MIT licence. See
-LICENCE for details.
+M2Crypto is released under a very liberal BSD-2-Clause licence. See
+LICENSES/BSD-2-Clause.txt for details.
 
 To install, see the file INSTALL.
 

@@ -38,7 +38,8 @@ class TestDAGRunCollectionResponse(unittest.TestCase):
                 dag_runs = [
                     airflow_client.client.models.dag_run_response.DAGRunResponse(
                         bundle_version = '', 
-                        conf = airflow_client.client.models.extra.extra(), 
+                        conf = { }, 
+                        dag_display_name = '', 
                         dag_id = '', 
                         dag_run_id = '', 
                         dag_versions = [
@@ -47,12 +48,14 @@ class TestDAGRunCollectionResponse(unittest.TestCase):
                                 bundle_url = '', 
                                 bundle_version = '', 
                                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                                dag_display_name = '', 
                                 dag_id = '', 
                                 id = '', 
                                 version_number = 56, )
                             ], 
                         data_interval_end = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         data_interval_start = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        duration = 1.337, 
                         end_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         last_scheduling_decision = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         logical_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
@@ -62,7 +65,8 @@ class TestDAGRunCollectionResponse(unittest.TestCase):
                         run_type = 'backfill', 
                         start_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         state = 'queued', 
-                        triggered_by = 'cli', )
+                        triggered_by = null, 
+                        triggering_user_name = '', )
                     ],
                 total_entries = 56
             )
@@ -71,7 +75,8 @@ class TestDAGRunCollectionResponse(unittest.TestCase):
                 dag_runs = [
                     airflow_client.client.models.dag_run_response.DAGRunResponse(
                         bundle_version = '', 
-                        conf = airflow_client.client.models.extra.extra(), 
+                        conf = { }, 
+                        dag_display_name = '', 
                         dag_id = '', 
                         dag_run_id = '', 
                         dag_versions = [
@@ -80,12 +85,14 @@ class TestDAGRunCollectionResponse(unittest.TestCase):
                                 bundle_url = '', 
                                 bundle_version = '', 
                                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                                dag_display_name = '', 
                                 dag_id = '', 
                                 id = '', 
                                 version_number = 56, )
                             ], 
                         data_interval_end = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         data_interval_start = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        duration = 1.337, 
                         end_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         last_scheduling_decision = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         logical_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
@@ -95,7 +102,8 @@ class TestDAGRunCollectionResponse(unittest.TestCase):
                         run_type = 'backfill', 
                         start_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         state = 'queued', 
-                        triggered_by = 'cli', )
+                        triggered_by = null, 
+                        triggering_user_name = '', )
                     ],
                 total_entries = 56,
         )

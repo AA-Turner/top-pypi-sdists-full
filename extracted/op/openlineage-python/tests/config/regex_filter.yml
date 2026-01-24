@@ -1,5 +1,0 @@
-filters:
-  - type: regex
-    regex: ^.*whatever.*$
-transport:
-  type: console

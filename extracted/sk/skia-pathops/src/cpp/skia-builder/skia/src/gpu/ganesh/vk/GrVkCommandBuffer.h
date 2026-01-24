@@ -8,19 +8,33 @@
 #ifndef GrVkCommandBuffer_DEFINED
 #define GrVkCommandBuffer_DEFINED
 
-#include "include/gpu/vk/GrVkTypes.h"
+#include "include/core/SkRefCnt.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkTArray.h"
+#include "include/private/base/SkTo.h"
+#include "include/private/gpu/vk/SkiaVulkan.h"
+#include "src/gpu/GpuRefCnt.h"
+#include "src/gpu/RefCntedCallback.h"
+#include "src/gpu/ganesh/GrBuffer.h"
 #include "src/gpu/ganesh/GrManagedResource.h"
-#include "src/gpu/ganesh/GrRefCnt.h"
-#include "src/gpu/ganesh/vk/GrVkGpu.h"
+#include "src/gpu/ganesh/GrSurface.h"
 #include "src/gpu/ganesh/vk/GrVkSemaphore.h"
-#include "src/gpu/ganesh/vk/GrVkUtil.h"
 
+#include <cstdint>
+#include <memory>
+#include <utility>
+
+class GrGpu;
+class GrGpuBuffer;
+class GrVkBuffer;
+class GrVkCommandPool;
 class GrVkFramebuffer;
+class GrVkGpu;
 class GrVkImage;
 class GrVkPipeline;
-class GrVkPipelineState;
 class GrVkRenderPass;
-class GrVkRenderTarget;
+struct GrSubmitInfo;
+struct SkIRect;
 
 class GrVkCommandBuffer {
 public:
@@ -159,11 +173,12 @@ private:
     static constexpr int kInitialTrackedResourcesCount = 32;
 
 protected:
-    template <typename T> using TrackedResourceArray = SkSTArray<kInitialTrackedResourcesCount, T>;
+    template <typename T>
+    using TrackedResourceArray = skia_private::STArray<kInitialTrackedResourcesCount, T>;
     TrackedResourceArray<sk_sp<const GrManagedResource>> fTrackedResources;
     TrackedResourceArray<gr_rp<const GrRecycledResource>> fTrackedRecycledResources;
-    SkSTArray<16, sk_sp<const GrBuffer>> fTrackedGpuBuffers;
-    SkSTArray<16, gr_cb<const GrSurface>> fTrackedGpuSurfaces;
+    skia_private::STArray<16, sk_sp<const GrBuffer>> fTrackedGpuBuffers;
+    skia_private::STArray<16, gr_cb<const GrSurface>> fTrackedGpuSurfaces;
 
     // Tracks whether we are in the middle of a command buffer begin/end calls and thus can add
     // new commands to the buffer;
@@ -191,8 +206,8 @@ protected:
     float      fCachedBlendConstant[4];
 
     // Tracking of memory barriers so that we can submit them all in a batch together.
-    SkSTArray<1, VkBufferMemoryBarrier> fBufferBarriers;
-    SkSTArray<2, VkImageMemoryBarrier> fImageBarriers;
+    skia_private::STArray<1, VkBufferMemoryBarrier> fBufferBarriers;
+    skia_private::STArray<2, VkImageMemoryBarrier> fImageBarriers;
     bool fBarriersByRegion = false;
     VkPipelineStageFlags fSrcStageMask = 0;
     VkPipelineStageFlags fDstStageMask = 0;
@@ -310,9 +325,11 @@ public:
                       uint32_t regionCount,
                       const VkImageResolve* regions);
 
-    bool submitToQueue(GrVkGpu* gpu, VkQueue queue,
-                       SkTArray<GrVkSemaphore::Resource*>& signalSemaphores,
-                       SkTArray<GrVkSemaphore::Resource*>& waitSemaphores);
+    bool submitToQueue(GrVkGpu* gpu,
+                       VkQueue queue,
+                       skia_private::TArray<GrVkSemaphore::Resource*>& signalSemaphores,
+                       skia_private::TArray<GrVkSemaphore::Resource*>& waitSemaphores,
+                       const GrSubmitInfo&);
 
     void forceSync(GrVkGpu* gpu);
 
@@ -335,9 +352,9 @@ private:
 
     void onReleaseResources() override;
 
-    SkTArray<std::unique_ptr<GrVkSecondaryCommandBuffer>, true> fSecondaryCommandBuffers;
+    skia_private::TArray<std::unique_ptr<GrVkSecondaryCommandBuffer>, true> fSecondaryCommandBuffers;
     VkFence                                                     fSubmitFence;
-    SkTArray<sk_sp<skgpu::RefCntedCallback>>                    fFinishedProcs;
+    skia_private::TArray<sk_sp<skgpu::RefCntedCallback>>                    fFinishedProcs;
 
     using INHERITED = GrVkCommandBuffer;
 };

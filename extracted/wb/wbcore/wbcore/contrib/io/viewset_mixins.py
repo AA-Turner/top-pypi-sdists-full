@@ -51,8 +51,8 @@ class ImportExportDRFMixin(ImportExportMixin):
     def model(self):
         try:
             return getattr(self.queryset, "model", None)
-        except AttributeError:
-            raise ParseError("Malformed Queryset")
+        except AttributeError as e:
+            raise ParseError("Malformed Queryset") from e
 
     @cached_property
     def opts(self):
@@ -84,12 +84,12 @@ class ImportExportDRFMixin(ImportExportMixin):
         with suppress(AttributeError, AssertionError):
             # we have to mocky patch the action to be "list" because sometime we differentiate the serializer to use
             previous_action = getattr(self, "action", "list")
-            setattr(self, "action", "list")
+            self.action = "list"
             serializer_class = getattr(
                 self, "serializer_class", self.get_serializer_class()
             )  # we prioritize the default serializer class attribute
             resource_kwargs["serializer_class_path"] = serializer_class.__module__ + "." + serializer_class.__name__
-            setattr(self, "action", previous_action)
+            self.action = previous_action
         return resource_kwargs
 
     def _get_data_for_export(self, request, queryset, *args, **kwargs) -> tablib.Dataset:

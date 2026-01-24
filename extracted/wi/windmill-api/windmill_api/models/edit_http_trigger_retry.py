@@ -16,11 +16,13 @@ T = TypeVar("T", bound="EditHttpTriggerRetry")
 
 @_attrs_define
 class EditHttpTriggerRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, EditHttpTriggerRetryConstant]):
-        exponential (Union[Unset, EditHttpTriggerRetryExponential]):
-        retry_if (Union[Unset, EditHttpTriggerRetryRetryIf]):
+        constant (Union[Unset, EditHttpTriggerRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, EditHttpTriggerRetryExponential]): Retry with exponential backoff (delay doubles each
+            time)
+        retry_if (Union[Unset, EditHttpTriggerRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "EditHttpTriggerRetryConstant"] = UNSET

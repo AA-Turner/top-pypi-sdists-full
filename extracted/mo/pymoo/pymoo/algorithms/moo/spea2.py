@@ -39,7 +39,7 @@ class SPEA2Survival(Survival):
         M = Dominator().calc_domination_matrix(F)
 
         # the number of solutions each individual dominates
-        S = (M == 1).sum(axis=0)
+        S = (M == 1).sum(axis=1)
 
         # the raw fitness of each solution - strength of its dominators
         R = ((M == -1) * S).sum(axis=1)
@@ -113,7 +113,7 @@ class SPEA2Survival(Survival):
 # ---------------------------------------------------------------------------------------------------------
 
 
-def spea_binary_tournament(pop, P, algorithm, **kwargs):
+def spea_binary_tournament(pop, P, algorithm, random_state=None, **kwargs):
     n_tournaments, n_parents = P.shape
 
     if n_parents != 2:
@@ -128,12 +128,13 @@ def spea_binary_tournament(pop, P, algorithm, **kwargs):
 
         # if at least one solution is infeasible
         if a_cv > 0.0 or b_cv > 0.0:
-            S[i] = compare(a, a_cv, b, b_cv, method='smaller_is_better', return_random_if_equal=True)
+            S[i] = compare(a, a_cv, b, b_cv, method='smaller_is_better',
+                           return_random_if_equal=True, random_state=random_state)
 
         # both solutions are feasible
         else:
             S[i] = compare(a, pop[a].get("SPEA_F"), b, pop[b].get("SPEA_F"), method='smaller_is_better',
-                           return_random_if_equal=True)
+                           return_random_if_equal=True, random_state=random_state)
 
     return S[:, None].astype(int, copy=False)
 

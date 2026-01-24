@@ -38,6 +38,9 @@ class TestConnectedAccounts:
             auth_config={"id": "id"},
             connection={
                 "callback_url": "https://example.com",
+                "data": {"foo": "bar"},
+                "deprecated_is_v1_rerouted": True,
+                "redirect_uri": "https://example.com",
                 "state": {
                     "auth_scheme": "OAUTH1",
                     "val": {
@@ -68,6 +71,7 @@ class TestConnectedAccounts:
                 },
                 "user_id": "user_id",
             },
+            validate_credentials=True,
         )
         assert_matches_type(ConnectedAccountCreateResponse, connected_account, path=["response"])
 
@@ -100,14 +104,14 @@ class TestConnectedAccounts:
     @parametrize
     def test_method_retrieve(self, client: Composio) -> None:
         connected_account = client.connected_accounts.retrieve(
-            "nanoid",
+            "con_1a2b3c4d5e6f",
         )
         assert_matches_type(ConnectedAccountRetrieveResponse, connected_account, path=["response"])
 
     @parametrize
     def test_raw_response_retrieve(self, client: Composio) -> None:
         response = client.connected_accounts.with_raw_response.retrieve(
-            "nanoid",
+            "con_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -118,7 +122,7 @@ class TestConnectedAccounts:
     @parametrize
     def test_streaming_response_retrieve(self, client: Composio) -> None:
         with client.connected_accounts.with_streaming_response.retrieve(
-            "nanoid",
+            "con_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -148,7 +152,6 @@ class TestConnectedAccounts:
             auth_config_ids=["string"],
             connected_account_ids=["string"],
             cursor="cursor",
-            labels=["string"],
             limit=0,
             order_by="created_at",
             order_direction="asc",
@@ -183,14 +186,14 @@ class TestConnectedAccounts:
     @parametrize
     def test_method_delete(self, client: Composio) -> None:
         connected_account = client.connected_accounts.delete(
-            "nanoid",
+            "con_1a2b3c4d5e6f",
         )
         assert_matches_type(ConnectedAccountDeleteResponse, connected_account, path=["response"])
 
     @parametrize
     def test_raw_response_delete(self, client: Composio) -> None:
         response = client.connected_accounts.with_raw_response.delete(
-            "nanoid",
+            "con_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -201,7 +204,7 @@ class TestConnectedAccounts:
     @parametrize
     def test_streaming_response_delete(self, client: Composio) -> None:
         with client.connected_accounts.with_streaming_response.delete(
-            "nanoid",
+            "con_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -231,6 +234,7 @@ class TestConnectedAccounts:
             nanoid="con_1a2b3c4d5e6f",
             query_redirect_url="redirect_url",
             body_redirect_url="redirect_url",
+            validate_credentials=True,
         )
         assert_matches_type(ConnectedAccountRefreshResponse, connected_account, path=["response"])
 
@@ -327,6 +331,9 @@ class TestAsyncConnectedAccounts:
             auth_config={"id": "id"},
             connection={
                 "callback_url": "https://example.com",
+                "data": {"foo": "bar"},
+                "deprecated_is_v1_rerouted": True,
+                "redirect_uri": "https://example.com",
                 "state": {
                     "auth_scheme": "OAUTH1",
                     "val": {
@@ -357,6 +364,7 @@ class TestAsyncConnectedAccounts:
                 },
                 "user_id": "user_id",
             },
+            validate_credentials=True,
         )
         assert_matches_type(ConnectedAccountCreateResponse, connected_account, path=["response"])
 
@@ -389,14 +397,14 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncComposio) -> None:
         connected_account = await async_client.connected_accounts.retrieve(
-            "nanoid",
+            "con_1a2b3c4d5e6f",
         )
         assert_matches_type(ConnectedAccountRetrieveResponse, connected_account, path=["response"])
 
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncComposio) -> None:
         response = await async_client.connected_accounts.with_raw_response.retrieve(
-            "nanoid",
+            "con_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -407,7 +415,7 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncComposio) -> None:
         async with async_client.connected_accounts.with_streaming_response.retrieve(
-            "nanoid",
+            "con_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -437,7 +445,6 @@ class TestAsyncConnectedAccounts:
             auth_config_ids=["string"],
             connected_account_ids=["string"],
             cursor="cursor",
-            labels=["string"],
             limit=0,
             order_by="created_at",
             order_direction="asc",
@@ -472,14 +479,14 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_method_delete(self, async_client: AsyncComposio) -> None:
         connected_account = await async_client.connected_accounts.delete(
-            "nanoid",
+            "con_1a2b3c4d5e6f",
         )
         assert_matches_type(ConnectedAccountDeleteResponse, connected_account, path=["response"])
 
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncComposio) -> None:
         response = await async_client.connected_accounts.with_raw_response.delete(
-            "nanoid",
+            "con_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -490,7 +497,7 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncComposio) -> None:
         async with async_client.connected_accounts.with_streaming_response.delete(
-            "nanoid",
+            "con_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -520,6 +527,7 @@ class TestAsyncConnectedAccounts:
             nanoid="con_1a2b3c4d5e6f",
             query_redirect_url="redirect_url",
             body_redirect_url="redirect_url",
+            validate_credentials=True,
         )
         assert_matches_type(ConnectedAccountRefreshResponse, connected_account, path=["response"])
 

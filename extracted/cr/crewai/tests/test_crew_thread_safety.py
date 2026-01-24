@@ -1,11 +1,10 @@
 import asyncio
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Any, Callable
+from typing import Any, Callable, Dict
 from unittest.mock import patch
 
 import pytest
-
 from crewai import Agent, Crew, Task
 from crewai.utilities.crew.crew_context import get_crew_context
 
@@ -105,28 +104,28 @@ class TestCrewThreadSafety:
             before_ctx = next(
                 ctx for ctx in result["contexts"] if ctx["stage"] == "before_kickoff"
             )
-            assert (
-                before_ctx["crew_id"] is None
-            ), f"Context should be None before kickoff for {result['crew_id']}"
+            assert before_ctx["crew_id"] is None, (
+                f"Context should be None before kickoff for {result['crew_id']}"
+            )
 
             task_ctx = next(
                 ctx for ctx in result["contexts"] if ctx["stage"] == "task_callback"
             )
-            assert (
-                task_ctx["crew_id"] == crew_uuid
-            ), f"Context mismatch during task for {result['crew_id']}"
+            assert task_ctx["crew_id"] == crew_uuid, (
+                f"Context mismatch during task for {result['crew_id']}"
+            )
 
             after_ctx = next(
                 ctx for ctx in result["contexts"] if ctx["stage"] == "after_kickoff"
             )
-            assert (
-                after_ctx["crew_id"] is None
-            ), f"Context should be None after kickoff for {result['crew_id']}"
+            assert after_ctx["crew_id"] is None, (
+                f"Context should be None after kickoff for {result['crew_id']}"
+            )
 
             thread_name = before_ctx["thread"]
-            assert (
-                "ThreadPoolExecutor" in thread_name
-            ), f"Should run in thread pool for {result['crew_id']}"
+            assert "ThreadPoolExecutor" in thread_name, (
+                f"Should run in thread pool for {result['crew_id']}"
+            )
 
     @pytest.mark.asyncio
     @patch("crewai.Agent.execute_task")
@@ -162,12 +161,12 @@ class TestCrewThreadSafety:
             crew_uuid = result["crew_uuid"]
             task_ctx = result["task_context"]["context"]
 
-            assert (
-                task_ctx is not None
-            ), f"Context should exist during task for {result['crew_id']}"
-            assert (
-                task_ctx["crew_id"] == crew_uuid
-            ), f"Context mismatch for {result['crew_id']}"
+            assert task_ctx is not None, (
+                f"Context should exist during task for {result['crew_id']}"
+            )
+            assert task_ctx["crew_id"] == crew_uuid, (
+                f"Context mismatch for {result['crew_id']}"
+            )
 
     @patch("crewai.Agent.execute_task")
     def test_concurrent_kickoff_for_each(self, mock_execute_task, crew_factory):
@@ -193,9 +192,9 @@ class TestCrewThreadSafety:
         assert len(contexts_captured) == len(inputs)
 
         context_ids = [ctx["context_id"] for ctx in contexts_captured]
-        assert len(set(context_ids)) == len(
-            inputs
-        ), "Each execution should have unique context"
+        assert len(set(context_ids)) == len(inputs), (
+            "Each execution should have unique context"
+        )
 
     @patch("crewai.Agent.execute_task")
     def test_no_context_leakage_between_crews(self, mock_execute_task, crew_factory):

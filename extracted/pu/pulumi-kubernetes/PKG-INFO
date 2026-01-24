@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_kubernetes
-Version: 4.23.0
+Version: 4.25.0
 Summary: A Pulumi package for creating and managing Kubernetes resources.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.com
@@ -14,7 +14,7 @@ Requires-Dist: requests<3.0,>=2.21
 Requires-Dist: semver>=2.8.1
 Requires-Dist: typing-extensions<5,>=4.11; python_version < "3.11"
 
-[![Build Status](https://travis-ci.com/pulumi/pulumi-kubernetes.svg?token=eHg7Zp5zdDDJfTjY8ejq&branch=master)](https://travis-ci.com/pulumi/pulumi-kubernetes)
+[![Actions Status](https://github.com/pulumi/pulumi-kubernetes/workflows/main/badge.svg)](https://github.com/pulumi/pulumi-kubernetes/actions)
 [![Slack](http://www.pulumi.com/images/docs/badges/slack.svg)](https://slack.pulumi.com)
 [![NPM version](https://badge.fury.io/js/%40pulumi%2Fkubernetes.svg)](https://www.npmjs.com/package/@pulumi/kubernetes)
 [![Python version](https://badge.fury.io/py/pulumi-kubernetes.svg)](https://pypi.org/project/pulumi-kubernetes/)

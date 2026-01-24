@@ -9,6 +9,7 @@ from ...requests.custom_attribute_definition import CustomAttributeDefinitionPar
 from ...types.create_booking_custom_attribute_definition_response import CreateBookingCustomAttributeDefinitionResponse
 from ...types.custom_attribute_definition import CustomAttributeDefinition
 from ...types.delete_booking_custom_attribute_definition_response import DeleteBookingCustomAttributeDefinitionResponse
+from ...types.list_booking_custom_attribute_definitions_response import ListBookingCustomAttributeDefinitionsResponse
 from ...types.retrieve_booking_custom_attribute_definition_response import (
     RetrieveBookingCustomAttributeDefinitionResponse,
 )
@@ -40,7 +41,7 @@ class CustomAttributeDefinitionsClient:
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[CustomAttributeDefinition]:
+    ) -> SyncPager[CustomAttributeDefinition, ListBookingCustomAttributeDefinitionsResponse]:
         """
         Get all bookings custom attribute definitions.
 
@@ -64,7 +65,7 @@ class CustomAttributeDefinitionsClient:
 
         Returns
         -------
-        SyncPager[CustomAttributeDefinition]
+        SyncPager[CustomAttributeDefinition, ListBookingCustomAttributeDefinitionsResponse]
             Success
 
         Examples
@@ -74,7 +75,10 @@ class CustomAttributeDefinitionsClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.bookings.custom_attribute_definitions.list()
+        response = client.bookings.custom_attribute_definitions.list(
+            limit=1,
+            cursor="cursor",
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -186,6 +190,7 @@ class CustomAttributeDefinitionsClient:
         )
         client.bookings.custom_attribute_definitions.get(
             key="key",
+            version=1,
         )
         """
         _response = self._raw_client.get(key, version=version, request_options=request_options)
@@ -320,7 +325,7 @@ class AsyncCustomAttributeDefinitionsClient:
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[CustomAttributeDefinition]:
+    ) -> AsyncPager[CustomAttributeDefinition, ListBookingCustomAttributeDefinitionsResponse]:
         """
         Get all bookings custom attribute definitions.
 
@@ -344,7 +349,7 @@ class AsyncCustomAttributeDefinitionsClient:
 
         Returns
         -------
-        AsyncPager[CustomAttributeDefinition]
+        AsyncPager[CustomAttributeDefinition, ListBookingCustomAttributeDefinitionsResponse]
             Success
 
         Examples
@@ -359,7 +364,10 @@ class AsyncCustomAttributeDefinitionsClient:
 
 
         async def main() -> None:
-            response = await client.bookings.custom_attribute_definitions.list()
+            response = await client.bookings.custom_attribute_definitions.list(
+                limit=1,
+                cursor="cursor",
+            )
             async for item in response:
                 yield item
 
@@ -488,6 +496,7 @@ class AsyncCustomAttributeDefinitionsClient:
         async def main() -> None:
             await client.bookings.custom_attribute_definitions.get(
                 key="key",
+                version=1,
             )
 
 

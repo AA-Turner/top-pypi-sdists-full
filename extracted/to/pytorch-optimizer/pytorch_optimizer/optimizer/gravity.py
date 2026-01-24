@@ -2,22 +2,23 @@ import torch
 
 from pytorch_optimizer.base.exception import NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Closure, Defaults, Loss, Parameters, ParamGroup
 
 
 class Gravity(BaseOptimizer):
-    r"""a Kinematic Approach on Optimization in Deep Learning.
+    """a Kinematic Approach on Optimization in Deep Learning.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param alpha: float. alpha controls the V initialization.
-    :param beta: float. beta will be used to compute running average of V.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        alpha (float): Alpha controls the V initialization.
+        beta (float): Beta will be used to compute running average of V.
+        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-2,
         alpha: float = 0.01,
         beta: float = 0.9,
@@ -30,14 +31,17 @@ class Gravity(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {'lr': lr, 'alpha': alpha, 'beta': beta}
+        defaults: Defaults = {'lr': lr, 'alpha': alpha, 'beta': beta}
 
         super().__init__(params, defaults)
 
     def __str__(self) -> str:
         return 'Gravity'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -52,18 +56,15 @@ class Gravity(BaseOptimizer):
                 state['v'] = torch.empty_like(p).normal_(mean=0.0, std=group['alpha'] / group['lr'])
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta_t: float = (group['beta'] * group['step'] + 1) / (group['step'] + 2)
 

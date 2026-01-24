@@ -33,6 +33,9 @@ from typing import TYPE_CHECKING, Sequence
 if TYPE_CHECKING:  # pragma: no cover
     from markdown import Markdown
 
+# Included for versions which do not have current comment fix
+commentclose = re.compile(r'--!?>')
+commentabruptclose = re.compile(r'-?>')
 
 # Import a copy of the html.parser lib as `htmlparser` so we can monkeypatch it.
 # Users can still do `from html import parser` and get the default behavior.
@@ -108,6 +111,7 @@ class HTMLExtractor(htmlparser.HTMLParser):
         self.lineno_start_cache = [0]
 
         self.override_comment_update = False
+        self.override_comment_start = 0
 
         # This calls self.reset
         super().__init__(*args, **kwargs)
@@ -121,6 +125,8 @@ class HTMLExtractor(htmlparser.HTMLParser):
         self._cache: list[str] = []
         self.cleandoc: list[str] = []
         self.lineno_start_cache = [0]
+        self.override_comment_start = 0
+        self.override_comment_update = False
 
         super().reset()
 
@@ -270,9 +276,11 @@ class HTMLExtractor(htmlparser.HTMLParser):
 
     def handle_comment(self, data: str):
         # Check if the comment is unclosed, if so, we need to override position
-        i = self.line_offset + self.offset + len(data) + 4
-        if self.rawdata[i:i + 3] != '-->':
+        j = len(self.rawdata) - len(data)
+        i = j - 2
+        if self.rawdata[i:j] == '</':
             self.handle_data('<')
+            self.override_comment_start = i
             self.override_comment_update = True
             return
         self.handle_empty_tag('<!--{}-->'.format(data), is_block=True)
@@ -280,8 +288,8 @@ class HTMLExtractor(htmlparser.HTMLParser):
     def updatepos(self, i: int, j: int) -> int:
         if self.override_comment_update:
             self.override_comment_update = False
-            i = 0
-            j = 1
+            i = self.override_comment_start
+            j = self.override_comment_start + 1
         return super().updatepos(i, j)
 
     def handle_decl(self, data: str):
@@ -301,6 +309,20 @@ class HTMLExtractor(htmlparser.HTMLParser):
         # and avoid consuming any tags which may follow (see #1066).
         self.handle_data('<?')
         return i + 2
+
+    # Internal -- parse comment, return length or -1 if not terminated
+    # see https://html.spec.whatwg.org/multipage/parsing.html#comment-start-state
+    def parse_comment(self, i, report=True):
+        rawdata = self.rawdata
+        assert rawdata.startswith('<!--', i), 'unexpected call to parse_comment()'
+        match = commentclose.search(rawdata, i+4)
+        if not match:
+            self.handle_data('<')
+            return i + 1
+        if report:
+            j = match.start()
+            self.handle_comment(rawdata[i+4: j])
+        return match.end()
 
     def parse_html_declaration(self, i: int) -> int:
         if self.at_line_start() or self.intail:

@@ -7,16 +7,15 @@ name = "resfo"
 description="A (lazy) parser and writer for reservoir simulator fortran output format."
 readme = "README.md"
 classifiers=[
-    "Development Status :: 1 - Planning",
-    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+    "Development Status :: 6 - Mature",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
-dependencies = ["numpy"]
+dependencies = ["numpy", "typing_extensions"]
 dynamic=["version"]
 
 authors = [
@@ -26,9 +25,7 @@ authors = [
 maintainers = [
     {name="Eivind Jahren", email="ejah@equinor.com"},
 ]
-
-[project.license]
-text = "LGPL-3.0"
+license = "LGPL-3.0-or-later"
 
 [project.urls]
 "Homepage" = "https://github.com/equinor/resfo"
@@ -49,6 +46,9 @@ dev = [
 ]
 
 [tool.setuptools_scm]
+
+[tool.setuptools.package-data]
+"resfo" = ["py.typed", "*.pyi", "**/*.pyi"]
 
 [tool.ruff]
 src = ["src"]

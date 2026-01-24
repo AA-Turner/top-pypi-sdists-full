@@ -1,0 +1,46 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.10
+    hooks:
+      - id: ruff-check
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 25.12.0
+    hooks:
+      - id: black
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      -   id: codespell
+          additional_dependencies:
+            - tomli
+          types_or: [rst, markdown]
+          files: docs
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.19.1
+    hooks:
+      - id: mypy
+        # Override default --ignore-missing-imports
+        # Use pyproject.toml if possible instead of adding command line parameters here
+        args: [--warn-unused-configs]
+        additional_dependencies:
+          # Type stubs
+          - pandas-stubs
+          - types-docutils
+          - types-requests
+          - types-paramiko
+          - types-PyYAML
+          - types-psutil
+          - types-setuptools
+          # Typed libraries
+          - click!=8.1.4  # https://github.com/pallets/click/issues/2558
+          - numpy
+          - pytest
+          - tornado
+          - pyarrow
+          - urllib3
+          - git+https://github.com/dask/dask
+          - git+https://github.com/dask/zict
+
+# Increase this value to clear the cache on GitHub actions if nothing else in this file
+# has changed. See also same variable in .github/workflows/test.yaml
+# CACHE_NUMBER: 1

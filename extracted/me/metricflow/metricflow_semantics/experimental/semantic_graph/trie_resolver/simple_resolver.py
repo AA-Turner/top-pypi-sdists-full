@@ -7,9 +7,9 @@ from typing import Optional
 from typing_extensions import override
 
 from metricflow_semantics.experimental.cache.mf_cache import ResultCache
-from metricflow_semantics.experimental.metricflow_exception import MetricflowInternalError
-from metricflow_semantics.experimental.mf_graph.graph_labeling import MetricflowGraphLabel
-from metricflow_semantics.experimental.mf_graph.path_finding.pathfinder import MetricflowPathfinder
+from metricflow_semantics.experimental.metricflow_exception import MetricFlowInternalError
+from metricflow_semantics.experimental.mf_graph.graph_labeling import MetricFlowGraphLabel
+from metricflow_semantics.experimental.mf_graph.path_finding.pathfinder import MetricFlowPathfinder
 from metricflow_semantics.experimental.mf_graph.path_finding.traversal_profile_differ import TraversalProfileDiffer
 from metricflow_semantics.experimental.ordered_set import OrderedSet
 from metricflow_semantics.experimental.semantic_graph.attribute_resolution.attribute_recipe import AttributeRecipe
@@ -36,23 +36,23 @@ from metricflow_semantics.experimental.semantic_graph.trie_resolver.dunder_name_
 )
 from metricflow_semantics.helpers.performance_helpers import ExecutionTimer
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
-from metricflow_semantics.model.linkable_element_property import LinkableElementProperty
-from metricflow_semantics.model.semantics.element_filter import LinkableElementFilter
+from metricflow_semantics.model.linkable_element_property import GroupByItemProperty
+from metricflow_semantics.model.semantics.element_filter import GroupByItemSetFilter
 from metricflow_semantics.model.semantics.semantic_model_join_evaluator import MAX_JOIN_HOPS
 
 logger = logging.getLogger(__name__)
 
 
 class SimpleTrieResolver(DunderNameTrieResolver):
-    """Resolves the dunder-name trie that represents the "simple" group-by items available for measures / metrics.
+    """Resolves the dunder-name trie that represents the "simple" group-by items available for metrics.
 
-    The set of simple group-by items does not include group-by metrics Those are handled in a separate resolver.
+    The set of simple group-by items does not include group-by metrics. Those are handled in a separate resolver.
     """
 
     def __init__(
         self,
         semantic_graph: SemanticGraph,
-        path_finder: MetricflowPathfinder[SemanticGraphNode, SemanticGraphEdge, AttributeRecipeWriterPath],
+        path_finder: MetricFlowPathfinder[SemanticGraphNode, SemanticGraphEdge, AttributeRecipeWriterPath],
         max_path_model_count: Optional[int] = None,
     ) -> None:
         """Initializer.
@@ -70,7 +70,7 @@ class SimpleTrieResolver(DunderNameTrieResolver):
 
     @override
     def resolve_trie(
-        self, source_nodes: OrderedSet[SemanticGraphNode], element_filter: Optional[LinkableElementFilter]
+        self, source_nodes: OrderedSet[SemanticGraphNode], element_filter: Optional[GroupByItemSetFilter]
     ) -> TrieResolutionResult:
         execution_timer = ExecutionTimer()
         traversal_stat_differ = TraversalProfileDiffer(self._path_finder)
@@ -86,7 +86,7 @@ class SimpleTrieResolver(DunderNameTrieResolver):
     def _resolve_trie_for_source_nodes(
         self,
         source_nodes: OrderedSet[SemanticGraphNode],
-        element_filter: Optional[LinkableElementFilter],
+        element_filter: Optional[GroupByItemSetFilter],
     ) -> DunderNameTrie:
         """Resolve the available group-by items for the given source nodes.
 
@@ -94,19 +94,18 @@ class SimpleTrieResolver(DunderNameTrieResolver):
         the set of group-by items that are available for the source nodes is the intersection of the items that are
         available for each node.
         """
-        # Find the set measures / local-model nodes that the given source nodes depend on. Generating the result for
+        # Find the set simple-metric inputs / local-model nodes that the given source nodes depend on. Generating the result for
         # the set of given source nodes requires intersecting the result produced from each node.
         find_descendants_result = self._path_finder.find_descendants(
             graph=self._semantic_graph,
             source_nodes=source_nodes,
             target_nodes=self._semantic_graph.nodes_with_labels(
-                self._measure_label,
+                self._simple_metric_label,
                 self._local_model_label,
                 self._metric_time_label,
             ),
             node_allow_set=self._semantic_graph.nodes_with_labels(
                 self._metric_label,
-                self._measure_label,
                 self._local_model_label,
                 self._metric_time_label,
             ),
@@ -119,9 +118,9 @@ class SimpleTrieResolver(DunderNameTrieResolver):
             source_nodes=source_nodes, collected_labels=find_descendants_result.labels_collected_during_traversal
         ):
             if element_filter is None:
-                element_filter = LinkableElementFilter()
+                element_filter = GroupByItemSetFilter.create()
             element_filter = element_filter.copy(
-                without_any_of=element_filter.without_any_of.union((LinkableElementProperty.DATE_PART,))
+                any_properties_denylist=element_filter.any_properties_denylist.union((GroupByItemProperty.DATE_PART,))
             )
 
         result_intersection_source_nodes = tuple(find_descendants_result.reachable_target_nodes)
@@ -134,7 +133,7 @@ class SimpleTrieResolver(DunderNameTrieResolver):
             )
 
         if len(result_intersection_source_nodes) == 0:
-            raise MetricflowInternalError(
+            raise MetricFlowInternalError(
                 LazyFormat("No applicable descendant nodes were found for intersection.", source_nodes=source_nodes)
             )
 
@@ -157,7 +156,7 @@ class SimpleTrieResolver(DunderNameTrieResolver):
     def _resolve_trie_from_node(
         self,
         source_node: SemanticGraphNode,
-        element_filter: Optional[LinkableElementFilter],
+        element_filter: Optional[GroupByItemSetFilter],
     ) -> DunderNameTrie:
         source_node_labels = source_node.labels
         if self._local_model_label in source_node_labels or self._metric_time_label in source_node_labels:
@@ -166,10 +165,10 @@ class SimpleTrieResolver(DunderNameTrieResolver):
                 element_filter=element_filter,
             )
 
-        # A measure node has 2 successors, a local-model node that represents where the measure is defined, and a
-        # metric-time node. Since many measure nodes point to the same local-model node, generate and cache results
-        # separately for each successor edge.
-        elif self._measure_label in source_node_labels:
+        # A simple-metric node has 2 successors, a local-model node that represents where the simple metric is defined,
+        # and a metric-time node. Since many simple-metric nodes point to the same local-model node, generate and
+        # cache results separately for each successor edge.
+        elif self._simple_metric_label in source_node_labels:
             successors = self._semantic_graph.successors(source_node)
             local_model_edge: Optional[SemanticGraphEdge] = None
             metric_time_edge: Optional[SemanticGraphEdge] = None
@@ -181,7 +180,7 @@ class SimpleTrieResolver(DunderNameTrieResolver):
                     metric_time_edge = edge
 
             if local_model_edge is None or metric_time_edge is None or len(successors) != 2:
-                raise MetricflowInternalError(
+                raise MetricFlowInternalError(
                     LazyFormat(
                         "A measure node should have exactly 2 successors: a local-model node and a metric-time node"
                         "\nbut it does not.",
@@ -217,7 +216,7 @@ class SimpleTrieResolver(DunderNameTrieResolver):
 
             return MutableDunderNameTrie.union_exclude_common((result_from_local_model_node, result_from_metric_time))
         else:
-            raise MetricflowInternalError(
+            raise MetricFlowInternalError(
                 LazyFormat(
                     "The given node is not a supported source node for resolving attribute names",
                     source_node=source_node,
@@ -227,7 +226,7 @@ class SimpleTrieResolver(DunderNameTrieResolver):
     def _resolve_trie_from_initial_path(
         self,
         initial_path: AttributeRecipeWriterPath,
-        element_filter: Optional[LinkableElementFilter],
+        element_filter: Optional[GroupByItemSetFilter],
     ) -> DunderNameTrie:
         """Resolve the available group-by items using the given initial path."""
         cache_key = TrieCacheKey(key_nodes=tuple(initial_path.nodes), element_filter=element_filter)
@@ -263,7 +262,7 @@ class SimpleTrieResolver(DunderNameTrieResolver):
             if self._verbose_debug_logs:
                 logger.debug(LazyFormat("Found path to target node", path_nodes=found_path.nodes, recipe=recipe))
             if recipe is None:
-                raise MetricflowInternalError(
+                raise MetricFlowInternalError(
                     LazyFormat(
                         "A path from a source node to a target node does not have a recipe. This indicates an error in "
                         "traversal."
@@ -297,7 +296,7 @@ class SimpleTrieResolver(DunderNameTrieResolver):
         return self._result_cache.set_and_get(cache_key, result_trie)
 
     def _should_exclude_date_part(
-        self, source_nodes: Set[SemanticGraphNode], collected_labels: OrderedSet[MetricflowGraphLabel]
+        self, source_nodes: Set[SemanticGraphNode], collected_labels: OrderedSet[MetricFlowGraphLabel]
     ) -> bool:
         """To handle a bug, check if we should exclude date part from the query.
 
@@ -310,6 +309,6 @@ class SimpleTrieResolver(DunderNameTrieResolver):
 
         for source_node in source_nodes:
             for successor_edge in self._semantic_graph.edges_with_tail_node(source_node):
-                if self._cumulative_measure_label in successor_edge.labels:
+                if self._cumulative_metric_label in successor_edge.labels:
                     return True
         return False

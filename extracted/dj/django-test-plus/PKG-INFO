@@ -1,31 +1,50 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-test-plus
-Version: 2.3.0
-Summary: "django-test-plus provides useful additions to Django's default TestCase"
-Home-page: https://github.com/revsys/django-test-plus/
-Author: Frank Wiles
-Author-email: frank@revsys.com
+Version: 2.4.1
+Summary: django-test-plus provides useful additions to Django's default TestCase
+Project-URL: Changelog, https://github.com/revsys/django-test-plus/blob/main/CHANGELOG.md
+Project-URL: Homepage, https://github.com/revsys/django-test-plus/
+Author-email: Frank Wiles <frank@revsys.com>, Jeff Triplett <jeff@revsys.com>
+License-File: AUTHORS.txt
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <3.14,>=3.9
-Description-Content-Type: text/markdown
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Requires-Dist: packaging
+Provides-Extra: docs
+Requires-Dist: furo; extra == 'docs'
+Requires-Dist: sphinx; extra == 'docs'
+Requires-Dist: sphinx-copybutton; extra == 'docs'
+Requires-Dist: sphinx-prompt; extra == 'docs'
+Provides-Extra: lint
+Requires-Dist: pre-commit; extra == 'lint'
 Provides-Extra: test
-License-File: LICENSE
-License-File: AUTHORS.txt
+Requires-Dist: factory-boy; extra == 'test'
+Requires-Dist: pytest; extra == 'test'
+Requires-Dist: pytest-cov; extra == 'test'
+Requires-Dist: pytest-django; extra == 'test'
+Provides-Extra: testing
+Requires-Dist: factory-boy; extra == 'testing'
+Requires-Dist: pytest; extra == 'testing'
+Requires-Dist: pytest-cov; extra == 'testing'
+Requires-Dist: pytest-django; extra == 'testing'
+Description-Content-Type: text/markdown
 
 # django-test-plus
 
@@ -48,9 +67,9 @@ to help your team dramatically improve your productivity.
 
 ## Support
 
-- Python 3.9, 3.10, 3.11, 3.12, and 3.13.
+- Python 3.10, 3.11, 3.12, 3.13, and 3.14.
 
-- Django 4.2 LTS, 5.1, and 5.2 LTS.
+- Django 4.2 LTS, 5.1, 5.2 LTS, and 6.0.
 
 ## Documentation
 

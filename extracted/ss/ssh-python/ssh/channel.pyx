@@ -1,18 +1,19 @@
-# This file is part of ssh-python.
-# Copyright (C) 2018 Panos Kittenis
+#  This file is part of ssh-python.
+#  Copyright (C) 2018-2025 Panos Kittenis.
+#  Copyright (C) 2018-2025 ssh-python Contributors.
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation, version 2.1.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
 #
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-130
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-130
 
 from libc.stdlib cimport malloc, free
 from libc.string cimport const_char
@@ -61,6 +62,40 @@ cdef class Channel:
         with nogil:
             rc = c_ssh.ssh_channel_get_exit_status(self._channel)
         return rc
+
+    def get_exit_state(self):
+        """
+        :rtype: (int, bytes, bool)
+        """
+        cdef int rc
+        cdef int exit_code
+        cdef bytes exit_signal = b""
+        cdef bint pcore_dumped
+        cdef int c_pcore_dumped = 0
+        cdef unsigned int c_exit_code = 0
+        # Libssh does not initialise exit signal, and there is no defined max.
+        # Assign a default size and clean up after libssh.
+        # Unless libssh re-allocates in case of larger strings, this will likely cause a segfault.
+        # Not much can be done our side.
+        cdef char *c_exit_signal = <char *>malloc(sizeof(char) * 32)
+        try:
+            with nogil:
+                rc = c_ssh.ssh_channel_get_exit_state(
+                    self._channel, &c_exit_code, &c_exit_signal, &c_pcore_dumped)
+            # This is essentially undefined libssh behaviour when get_exit_state returns an error code.
+            # Safeguard our side to protect against segfaults.
+            exit_signal = c_exit_signal if c_exit_signal is not NULL else b""
+        finally:
+            free(c_exit_signal)
+        handle_error_codes(rc, self._session._session)
+        exit_code = c_exit_code
+        pcore_dumped = c_pcore_dumped == 1
+        if rc == c_ssh.SSH_AGAIN:
+            # Return code for SSH_AGAIN needs to be handled separately to allow client to handle EAGAIN on their own
+            # when non-blocking mode is enabled.
+            # No, callbacks are not client side async handling, they're callbacks.
+            return (rc, b"", 0)
+        return (exit_code, exit_signal, pcore_dumped)
 
     def get_session(self):
         return self.session

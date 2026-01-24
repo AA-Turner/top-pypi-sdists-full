@@ -67,6 +67,9 @@ _SPECIFICATION_VERSION_IOS_17 = 8
 # New versions for iOS 18.0
 _SPECIFICATION_VERSION_IOS_18 = 9
 
+# New versions for iOS 26.0
+_SPECIFICATION_VERSION_IOS_26 = 10
+
 
 class ComputeUnit(_Enum):
     '''
@@ -110,6 +113,7 @@ _OPSET = {
     _SPECIFICATION_VERSION_IOS_16: "CoreML6",
     _SPECIFICATION_VERSION_IOS_17: "CoreML7",
     _SPECIFICATION_VERSION_IOS_18: "CoreML8",
+    _SPECIFICATION_VERSION_IOS_26: "CoreML9",
 }
 
 # Default specification version for each backend
@@ -145,3 +149,6 @@ _ENABLE_PROFILING = _os.environ.get("ENABLE_PROFILING", False)
 
 if _ENABLE_PROFILING:
     _sys.setprofile(_profiler)
+
+if (_sys.version_info.major, _sys.version_info.minor) == (3, 7):
+    _logger.warning("Coremltools will drop support for Python 3.7 in the next release.")

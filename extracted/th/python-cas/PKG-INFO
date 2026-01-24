@@ -1,14 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-cas
-Version: 1.6.0
+Version: 1.7.1
 Summary: Python CAS client library
 Home-page: https://github.com/python-cas/python-cas
+Download-URL: https://github.com/python-cas/python-cas/releases
 Author: Ming Chen
 Author-email: ming@djangocas.dev
 License: MIT
-Download-URL: https://github.com/python-cas/python-cas/releases
 Keywords: cas,cas2,cas3,client,sso,single sign-on,authentication,auth
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
@@ -16,16 +15,27 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*
+Requires-Python: >=3.10
 License-File: LICENSE.txt
+Requires-Dist: requests>=2.11.1
+Requires-Dist: lxml>=3.4
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 Python CAS
 ==========
@@ -45,7 +55,7 @@ Features
 --------
 
 - Support Client part of **CAS** version 1.0, 2.0 and 3.0.
-- Support Python 2.7, 3.5, 3.6, 3.7, 3.8
+- Support Python 3.10+
 
 
 Documentation
@@ -157,5 +167,3 @@ References
 .. _Mehdi Benadda: https://github.com/mbenadda
 .. _API Documentation: https://djangocas.dev/docs/latest/modules/python_cas.html
 .. _Sample integration with Flask: https://djangocas.dev/blog/python-cas-flask-example/
-
-

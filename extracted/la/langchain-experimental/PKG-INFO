@@ -1,21 +1,14 @@
 Metadata-Version: 2.1
 Name: langchain-experimental
-Version: 0.3.4
+Version: 0.4.1
 Summary: Building applications with LLMs through composability
-Home-page: https://github.com/langchain-ai/langchain-experimental
 License: MIT
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: langchain-community (>=0.3.0,<0.4.0)
-Requires-Dist: langchain-core (>=0.3.28,<0.4.0)
-Project-URL: Repository, https://github.com/langchain-ai/langchain-experimental
-Project-URL: Release Notes, https://github.com/langchain-ai/langchain-experimental/releases
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-experimental/tree/main/libs/experimental
+Project-URL: Release Notes, https://github.com/langchain-ai/langchain-experimental/releases
+Project-URL: repository, https://github.com/langchain-ai/langchain-experimental
+Requires-Python: <4.0,>=3.10
+Requires-Dist: langchain-core<2.0.0,>=1.0.0
+Requires-Dist: langchain-community<1.0.0,>=0.4.0
 Description-Content-Type: text/markdown
 
 # 🦜️🧪 LangChain Experimental

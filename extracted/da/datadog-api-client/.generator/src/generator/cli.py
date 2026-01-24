@@ -72,6 +72,8 @@ def cli(specs, output):
         "exceptions.py": env.get_template("exceptions.j2"),
         "model_utils.py": env.get_template("model_utils.j2"),
         "rest.py": env.get_template("rest.j2"),
+        "delegated_auth.py": env.get_template("delegated_auth.j2"),
+        "aws.py": env.get_template("aws.j2"),
     }
 
     top_package = output / PACKAGE_NAME
@@ -125,7 +127,7 @@ def cli(specs, output):
             api_path = package / "api" / filename
             api_path.parent.mkdir(parents=True, exist_ok=True)
             with api_path.open("w") as fp:
-                fp.write(api_j2.render(name=name, operations=operations, description=tags_by_name[name]["description"]))
+                fp.write(api_j2.render(name=name, operations=operations, description=tags_by_name[name].get("description")))
 
         api_init_path = package / "api" / "__init__.py"
         with api_init_path.open("w") as fp:

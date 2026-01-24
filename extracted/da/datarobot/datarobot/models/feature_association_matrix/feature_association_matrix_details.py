@@ -58,14 +58,12 @@ class FeatureAssociationMatrixDetails(APIObject):
     """
 
     _path = "projects/{}/featureAssociationMatrixDetails/"
-    _converter = t.Dict(
-        {
-            t.Key("chart_type"): String(),
-            t.Key("values"): t.List(t.Tuple(t.Any(), t.Any(), t.Float())),
-            t.Key("features"): t.List(String()),
-            t.Key("types"): t.List(String()),
-        }
-    )
+    _converter = t.Dict({
+        t.Key("chart_type"): String(),
+        t.Key("values"): t.List(t.Tuple(t.Any(), t.Any(), t.Float())),
+        t.Key("features"): t.List(String()),
+        t.Key("types"): t.List(String()),
+    })
 
     def __init__(
         self,

@@ -1,0 +1,70 @@
+Metadata-Version: 2.1
+Name: pyocd-pemicro
+Version: 1.1.5
+Summary: PyOCD debug probe plugin for PEMicro debug probes
+Home-page: https://github.com/pyocd/pyocd-pemicro
+Download-URL: https://pypi.org/project/pyocd-pemicro/
+Maintainer: Petr Gargulak, Chris Reed
+Maintainer-email: petr.gargulak@nxp.com, chris.reed@arm.com
+License: BSD-3-Clause
+Project-URL: Documentation, https://pyocd.io/docs
+Project-URL: Issues, https://github.com/pyocd/pyocd-pemicro/issues
+Project-URL: Discussions, https://github.com/pyocd/pyOCD/discussions
+Project-URL: Releases, https://github.com/pyocd/pyocd-pemicro/releases
+Keywords: PEMicro PyPEMicro PyOCD Plugin
+Platform: Windows
+Platform: Linux
+Platform: macOS
+Platform: BSD
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: POSIX :: BSD
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Debuggers
+Classifier: Topic :: Software Development :: Embedded Systems
+Classifier: Topic :: System :: Hardware
+Classifier: Topic :: Utilities
+Requires-Python: >=3.7.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+Python PyOCD_PEMicro plugin debug probes support
+================================================
+
+The simple PyOCD debug probe plugin for PEMicro debug probes - Multilink/FX, Cyclone/FX. The purpose of this plugin is 
+keep separately this support because is using PyPemicro package which is designed for Python 3.x without backward compatibility for Python2.x. 
+The PyOCD use this support only with Python 3.x and higher, for Python 2.x the PeMicro won't be supported.
+
+The package is tested only with Multilink/FX and Cyclone/FX probes on NXP ARM microcontrollers.
+
+The PEMicro company helps with this development, so big Thanks to them (www.pemicro.com).
+
+Author: Petr Gargulak, petr.gargulak@nxp.com (NXP 2020, www.nxp.com)
+
+Note
+----
+This package is just plugin to full PyOCD package - It doesn't work standalone!
+
+
+Dependencies
+------------
+six
+pypemicro
+logging
+time
+
+
+Installation
+------------
+Directly from www.pypi.org:
+
+``` bash
+    $ pip install pyocd_pemicro

@@ -156,7 +156,7 @@ def validate_grpc_status_is_valid_or_list_of_names(
     return True
 
 
-def to_grpc_status(value: Union[str, int]):
+def to_grpc_status(value: str | int):
     from grpc import StatusCode
 
     if isinstance(value, str):
@@ -363,7 +363,7 @@ def validate_timeout_tuple_or_float(value: Union[list, tuple], rule_obj, path) -
     return True
 
 
-def validate_verify_bool_or_str(value: Union[bool, str], rule_obj, path) -> bool:
+def validate_verify_bool_or_str(value: bool | str, rule_obj, path) -> bool:
     """Make sure the 'verify' key is either a bool or a str"""
 
     if not isinstance(value, bool | str) and not is_bool_like(value):
@@ -424,7 +424,7 @@ def validate_file_spec(value: dict, rule_obj, path) -> bool:
                 file_path = filespec["file_path"]
             except KeyError as e:
                 raise BadSchemaError(
-                    "When using 'long form' file uplaod spec, the file_path must be present"
+                    "When using 'long form' file upload spec, the file_path must be present"
                 ) from e
         else:
             raise BadSchemaError(

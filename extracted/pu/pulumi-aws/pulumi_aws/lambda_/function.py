@@ -24,10 +24,13 @@ class FunctionArgs:
     def __init__(__self__, *,
                  role: pulumi.Input[_builtins.str],
                  architectures: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 capacity_provider_config: Optional[pulumi.Input['FunctionCapacityProviderConfigArgs']] = None,
                  code: Optional[pulumi.Input[pulumi.Archive]] = None,
+                 code_sha256: Optional[pulumi.Input[_builtins.str]] = None,
                  code_signing_config_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  dead_letter_config: Optional[pulumi.Input['FunctionDeadLetterConfigArgs']] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
+                 durable_config: Optional[pulumi.Input['FunctionDurableConfigArgs']] = None,
                  environment: Optional[pulumi.Input['FunctionEnvironmentArgs']] = None,
                  ephemeral_storage: Optional[pulumi.Input['FunctionEphemeralStorageArgs']] = None,
                  file_system_config: Optional[pulumi.Input['FunctionFileSystemConfigArgs']] = None,
@@ -41,6 +44,7 @@ class FunctionArgs:
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  package_type: Optional[pulumi.Input[_builtins.str]] = None,
                  publish: Optional[pulumi.Input[_builtins.bool]] = None,
+                 publish_to: Optional[pulumi.Input[_builtins.str]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  replace_security_groups_on_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
                  replacement_security_group_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
@@ -52,7 +56,9 @@ class FunctionArgs:
                  skip_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
                  snap_start: Optional[pulumi.Input['FunctionSnapStartArgs']] = None,
                  source_code_hash: Optional[pulumi.Input[_builtins.str]] = None,
+                 source_kms_key_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 tenancy_config: Optional[pulumi.Input['FunctionTenancyConfigArgs']] = None,
                  timeout: Optional[pulumi.Input[_builtins.int]] = None,
                  tracing_config: Optional[pulumi.Input['FunctionTracingConfigArgs']] = None,
                  vpc_config: Optional[pulumi.Input['FunctionVpcConfigArgs']] = None):
@@ -62,10 +68,13 @@ class FunctionArgs:
                
                The following arguments are optional:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] architectures: Instruction set architecture for your Lambda function. Valid values are `["x86_64"]` and `["arm64"]`. Default is `["x86_64"]`. Removing this attribute, function's architecture stays the same.
+        :param pulumi.Input['FunctionCapacityProviderConfigArgs'] capacity_provider_config: Configuration block for Lambda Capacity Provider. See below.
         :param pulumi.Input[pulumi.Archive] code: Path to the function's deployment package within the local filesystem. Conflicts with `image_uri` and `s3_bucket`. One of `filename`, `image_uri`, or `s3_bucket` must be specified.
+        :param pulumi.Input[_builtins.str] code_sha256: Base64-encoded representation the source code package file. Use this argument to trigger updates when the function source code changes. For OCI, this value is relayed directly from the image digest. For zip files, this value is the Base64 encoded SHA-256 hash of the `.zip` file. Layers are not included in the calculation. To trigger updates using a non-standard hashing algorithm, use the `source_code_hash` argument instead.
         :param pulumi.Input[_builtins.str] code_signing_config_arn: ARN of a code-signing configuration to enable code signing for this function.
         :param pulumi.Input['FunctionDeadLetterConfigArgs'] dead_letter_config: Configuration block for dead letter queue. See below.
         :param pulumi.Input[_builtins.str] description: Description of what your Lambda Function does.
+        :param pulumi.Input['FunctionDurableConfigArgs'] durable_config: Configuration block for durable function settings. See below. `durable_config` may only be available in [limited regions](https://builder.aws.com/build/capabilities), including `us-east-2`.
         :param pulumi.Input['FunctionEnvironmentArgs'] environment: Configuration block for environment variables. See below.
         :param pulumi.Input['FunctionEphemeralStorageArgs'] ephemeral_storage: Amount of ephemeral storage (`/tmp`) to allocate for the Lambda Function. See below.
         :param pulumi.Input['FunctionFileSystemConfigArgs'] file_system_config: Configuration block for EFS file system. See below.
@@ -79,6 +88,7 @@ class FunctionArgs:
         :param pulumi.Input[_builtins.str] name: Unique name for your Lambda Function.
         :param pulumi.Input[_builtins.str] package_type: Lambda deployment package type. Valid values are `Zip` and `Image`. Defaults to `Zip`.
         :param pulumi.Input[_builtins.bool] publish: Whether to publish creation/change as new Lambda Function Version. Defaults to `false`.
+        :param pulumi.Input[_builtins.str] publish_to: Whether to publish to a alias or version number. Omit for regular version publishing. Option is `LATEST_PUBLISHED`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.bool] replace_security_groups_on_destroy: Whether to replace the security groups on the function's VPC configuration prior to destruction. Default is `false`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] replacement_security_group_ids: List of security group IDs to assign to the function's VPC configuration prior to destruction. Required if `replace_security_groups_on_destroy` is `true`.
@@ -89,8 +99,10 @@ class FunctionArgs:
         :param pulumi.Input[_builtins.str] s3_object_version: Object version containing the function's deployment package. Conflicts with `filename` and `image_uri`.
         :param pulumi.Input[_builtins.bool] skip_destroy: Whether to retain the old version of a previously deployed Lambda Layer. Default is `false`.
         :param pulumi.Input['FunctionSnapStartArgs'] snap_start: Configuration block for snap start settings. See below.
-        :param pulumi.Input[_builtins.str] source_code_hash: Base64-encoded SHA256 hash of the package file. Used to trigger updates when source code changes.
+        :param pulumi.Input[_builtins.str] source_code_hash: User-defined hash of the source code package file. Use this argument to trigger updates when the local function source code changes. This is a synthetic argument tracked only by the AWS provider and does not need to match the hashing algorithm used by Lambda to compute the `CodeSha256` response value. Out-of-band changes to the source code _will not_ be captured by this argument. To include out-of-band source code changes as an update trigger, use the `code_sha256` argument instead.
+        :param pulumi.Input[_builtins.str] source_kms_key_arn: ARN of the AWS Key Management Service key used to encrypt the function's `.zip` deployment package. Conflicts with `image_uri`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of tags for the Lambda function. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
+        :param pulumi.Input['FunctionTenancyConfigArgs'] tenancy_config: Configuration block for Tenancy. See below.
         :param pulumi.Input[_builtins.int] timeout: Amount of time your Lambda Function has to run in seconds. Defaults to 3. Valid between 1 and 900.
         :param pulumi.Input['FunctionTracingConfigArgs'] tracing_config: Configuration block for X-Ray tracing. See below.
         :param pulumi.Input['FunctionVpcConfigArgs'] vpc_config: Configuration block for VPC. See below.
@@ -98,14 +110,20 @@ class FunctionArgs:
         pulumi.set(__self__, "role", role)
         if architectures is not None:
             pulumi.set(__self__, "architectures", architectures)
+        if capacity_provider_config is not None:
+            pulumi.set(__self__, "capacity_provider_config", capacity_provider_config)
         if code is not None:
             pulumi.set(__self__, "code", code)
+        if code_sha256 is not None:
+            pulumi.set(__self__, "code_sha256", code_sha256)
         if code_signing_config_arn is not None:
             pulumi.set(__self__, "code_signing_config_arn", code_signing_config_arn)
         if dead_letter_config is not None:
             pulumi.set(__self__, "dead_letter_config", dead_letter_config)
         if description is not None:
             pulumi.set(__self__, "description", description)
+        if durable_config is not None:
+            pulumi.set(__self__, "durable_config", durable_config)
         if environment is not None:
             pulumi.set(__self__, "environment", environment)
         if ephemeral_storage is not None:
@@ -132,6 +150,8 @@ class FunctionArgs:
             pulumi.set(__self__, "package_type", package_type)
         if publish is not None:
             pulumi.set(__self__, "publish", publish)
+        if publish_to is not None:
+            pulumi.set(__self__, "publish_to", publish_to)
         if region is not None:
             pulumi.set(__self__, "region", region)
         if replace_security_groups_on_destroy is not None:
@@ -154,8 +174,12 @@ class FunctionArgs:
             pulumi.set(__self__, "snap_start", snap_start)
         if source_code_hash is not None:
             pulumi.set(__self__, "source_code_hash", source_code_hash)
+        if source_kms_key_arn is not None:
+            pulumi.set(__self__, "source_kms_key_arn", source_kms_key_arn)
         if tags is not None:
             pulumi.set(__self__, "tags", tags)
+        if tenancy_config is not None:
+            pulumi.set(__self__, "tenancy_config", tenancy_config)
         if timeout is not None:
             pulumi.set(__self__, "timeout", timeout)
         if tracing_config is not None:
@@ -190,6 +214,18 @@ class FunctionArgs:
         pulumi.set(self, "architectures", value)
 
     @_builtins.property
+    @pulumi.getter(name="capacityProviderConfig")
+    def capacity_provider_config(self) -> Optional[pulumi.Input['FunctionCapacityProviderConfigArgs']]:
+        """
+        Configuration block for Lambda Capacity Provider. See below.
+        """
+        return pulumi.get(self, "capacity_provider_config")
+
+    @capacity_provider_config.setter
+    def capacity_provider_config(self, value: Optional[pulumi.Input['FunctionCapacityProviderConfigArgs']]):
+        pulumi.set(self, "capacity_provider_config", value)
+
+    @_builtins.property
     @pulumi.getter
     def code(self) -> Optional[pulumi.Input[pulumi.Archive]]:
         """
@@ -200,6 +236,18 @@ class FunctionArgs:
     @code.setter
     def code(self, value: Optional[pulumi.Input[pulumi.Archive]]):
         pulumi.set(self, "code", value)
+
+    @_builtins.property
+    @pulumi.getter(name="codeSha256")
+    def code_sha256(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Base64-encoded representation the source code package file. Use this argument to trigger updates when the function source code changes. For OCI, this value is relayed directly from the image digest. For zip files, this value is the Base64 encoded SHA-256 hash of the `.zip` file. Layers are not included in the calculation. To trigger updates using a non-standard hashing algorithm, use the `source_code_hash` argument instead.
+        """
+        return pulumi.get(self, "code_sha256")
+
+    @code_sha256.setter
+    def code_sha256(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "code_sha256", value)
 
     @_builtins.property
     @pulumi.getter(name="codeSigningConfigArn")
@@ -236,6 +284,18 @@ class FunctionArgs:
     @description.setter
     def description(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "description", value)
+
+    @_builtins.property
+    @pulumi.getter(name="durableConfig")
+    def durable_config(self) -> Optional[pulumi.Input['FunctionDurableConfigArgs']]:
+        """
+        Configuration block for durable function settings. See below. `durable_config` may only be available in [limited regions](https://builder.aws.com/build/capabilities), including `us-east-2`.
+        """
+        return pulumi.get(self, "durable_config")
+
+    @durable_config.setter
+    def durable_config(self, value: Optional[pulumi.Input['FunctionDurableConfigArgs']]):
+        pulumi.set(self, "durable_config", value)
 
     @_builtins.property
     @pulumi.getter
@@ -394,6 +454,18 @@ class FunctionArgs:
         pulumi.set(self, "publish", value)
 
     @_builtins.property
+    @pulumi.getter(name="publishTo")
+    def publish_to(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Whether to publish to a alias or version number. Omit for regular version publishing. Option is `LATEST_PUBLISHED`.
+        """
+        return pulumi.get(self, "publish_to")
+
+    @publish_to.setter
+    def publish_to(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "publish_to", value)
+
+    @_builtins.property
     @pulumi.getter
     def region(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -517,13 +589,25 @@ class FunctionArgs:
     @pulumi.getter(name="sourceCodeHash")
     def source_code_hash(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Base64-encoded SHA256 hash of the package file. Used to trigger updates when source code changes.
+        User-defined hash of the source code package file. Use this argument to trigger updates when the local function source code changes. This is a synthetic argument tracked only by the AWS provider and does not need to match the hashing algorithm used by Lambda to compute the `CodeSha256` response value. Out-of-band changes to the source code _will not_ be captured by this argument. To include out-of-band source code changes as an update trigger, use the `code_sha256` argument instead.
         """
         return pulumi.get(self, "source_code_hash")
 
     @source_code_hash.setter
     def source_code_hash(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "source_code_hash", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sourceKmsKeyArn")
+    def source_kms_key_arn(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        ARN of the AWS Key Management Service key used to encrypt the function's `.zip` deployment package. Conflicts with `image_uri`.
+        """
+        return pulumi.get(self, "source_kms_key_arn")
+
+    @source_kms_key_arn.setter
+    def source_kms_key_arn(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "source_kms_key_arn", value)
 
     @_builtins.property
     @pulumi.getter
@@ -536,6 +620,18 @@ class FunctionArgs:
     @tags.setter
     def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
+
+    @_builtins.property
+    @pulumi.getter(name="tenancyConfig")
+    def tenancy_config(self) -> Optional[pulumi.Input['FunctionTenancyConfigArgs']]:
+        """
+        Configuration block for Tenancy. See below.
+        """
+        return pulumi.get(self, "tenancy_config")
+
+    @tenancy_config.setter
+    def tenancy_config(self, value: Optional[pulumi.Input['FunctionTenancyConfigArgs']]):
+        pulumi.set(self, "tenancy_config", value)
 
     @_builtins.property
     @pulumi.getter
@@ -579,11 +675,13 @@ class _FunctionState:
     def __init__(__self__, *,
                  architectures: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  arn: Optional[pulumi.Input[_builtins.str]] = None,
+                 capacity_provider_config: Optional[pulumi.Input['FunctionCapacityProviderConfigArgs']] = None,
                  code: Optional[pulumi.Input[pulumi.Archive]] = None,
                  code_sha256: Optional[pulumi.Input[_builtins.str]] = None,
                  code_signing_config_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  dead_letter_config: Optional[pulumi.Input['FunctionDeadLetterConfigArgs']] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
+                 durable_config: Optional[pulumi.Input['FunctionDurableConfigArgs']] = None,
                  environment: Optional[pulumi.Input['FunctionEnvironmentArgs']] = None,
                  ephemeral_storage: Optional[pulumi.Input['FunctionEphemeralStorageArgs']] = None,
                  file_system_config: Optional[pulumi.Input['FunctionFileSystemConfigArgs']] = None,
@@ -599,12 +697,14 @@ class _FunctionState:
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  package_type: Optional[pulumi.Input[_builtins.str]] = None,
                  publish: Optional[pulumi.Input[_builtins.bool]] = None,
+                 publish_to: Optional[pulumi.Input[_builtins.str]] = None,
                  qualified_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  qualified_invoke_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  replace_security_groups_on_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
                  replacement_security_group_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  reserved_concurrent_executions: Optional[pulumi.Input[_builtins.int]] = None,
+                 response_streaming_invoke_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  role: Optional[pulumi.Input[_builtins.str]] = None,
                  runtime: Optional[pulumi.Input[Union[_builtins.str, 'Runtime']]] = None,
                  s3_bucket: Optional[pulumi.Input[_builtins.str]] = None,
@@ -616,8 +716,10 @@ class _FunctionState:
                  snap_start: Optional[pulumi.Input['FunctionSnapStartArgs']] = None,
                  source_code_hash: Optional[pulumi.Input[_builtins.str]] = None,
                  source_code_size: Optional[pulumi.Input[_builtins.int]] = None,
+                 source_kms_key_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 tenancy_config: Optional[pulumi.Input['FunctionTenancyConfigArgs']] = None,
                  timeout: Optional[pulumi.Input[_builtins.int]] = None,
                  tracing_config: Optional[pulumi.Input['FunctionTracingConfigArgs']] = None,
                  version: Optional[pulumi.Input[_builtins.str]] = None,
@@ -626,11 +728,13 @@ class _FunctionState:
         Input properties used for looking up and filtering Function resources.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] architectures: Instruction set architecture for your Lambda function. Valid values are `["x86_64"]` and `["arm64"]`. Default is `["x86_64"]`. Removing this attribute, function's architecture stays the same.
         :param pulumi.Input[_builtins.str] arn: ARN identifying your Lambda Function.
+        :param pulumi.Input['FunctionCapacityProviderConfigArgs'] capacity_provider_config: Configuration block for Lambda Capacity Provider. See below.
         :param pulumi.Input[pulumi.Archive] code: Path to the function's deployment package within the local filesystem. Conflicts with `image_uri` and `s3_bucket`. One of `filename`, `image_uri`, or `s3_bucket` must be specified.
-        :param pulumi.Input[_builtins.str] code_sha256: Base64-encoded representation of raw SHA-256 sum of the zip file.
+        :param pulumi.Input[_builtins.str] code_sha256: Base64-encoded representation the source code package file. Use this argument to trigger updates when the function source code changes. For OCI, this value is relayed directly from the image digest. For zip files, this value is the Base64 encoded SHA-256 hash of the `.zip` file. Layers are not included in the calculation. To trigger updates using a non-standard hashing algorithm, use the `source_code_hash` argument instead.
         :param pulumi.Input[_builtins.str] code_signing_config_arn: ARN of a code-signing configuration to enable code signing for this function.
         :param pulumi.Input['FunctionDeadLetterConfigArgs'] dead_letter_config: Configuration block for dead letter queue. See below.
         :param pulumi.Input[_builtins.str] description: Description of what your Lambda Function does.
+        :param pulumi.Input['FunctionDurableConfigArgs'] durable_config: Configuration block for durable function settings. See below. `durable_config` may only be available in [limited regions](https://builder.aws.com/build/capabilities), including `us-east-2`.
         :param pulumi.Input['FunctionEnvironmentArgs'] environment: Configuration block for environment variables. See below.
         :param pulumi.Input['FunctionEphemeralStorageArgs'] ephemeral_storage: Amount of ephemeral storage (`/tmp`) to allocate for the Lambda Function. See below.
         :param pulumi.Input['FunctionFileSystemConfigArgs'] file_system_config: Configuration block for EFS file system. See below.
@@ -646,12 +750,14 @@ class _FunctionState:
         :param pulumi.Input[_builtins.str] name: Unique name for your Lambda Function.
         :param pulumi.Input[_builtins.str] package_type: Lambda deployment package type. Valid values are `Zip` and `Image`. Defaults to `Zip`.
         :param pulumi.Input[_builtins.bool] publish: Whether to publish creation/change as new Lambda Function Version. Defaults to `false`.
+        :param pulumi.Input[_builtins.str] publish_to: Whether to publish to a alias or version number. Omit for regular version publishing. Option is `LATEST_PUBLISHED`.
         :param pulumi.Input[_builtins.str] qualified_arn: ARN identifying your Lambda Function Version (if versioning is enabled via `publish = true`).
         :param pulumi.Input[_builtins.str] qualified_invoke_arn: Qualified ARN (ARN with lambda version number) to be used for invoking Lambda Function from API Gateway - to be used in `apigateway.Integration`'s `uri`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.bool] replace_security_groups_on_destroy: Whether to replace the security groups on the function's VPC configuration prior to destruction. Default is `false`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] replacement_security_group_ids: List of security group IDs to assign to the function's VPC configuration prior to destruction. Required if `replace_security_groups_on_destroy` is `true`.
         :param pulumi.Input[_builtins.int] reserved_concurrent_executions: Amount of reserved concurrent executions for this lambda function. A value of `0` disables lambda from being triggered and `-1` removes any concurrency limitations. Defaults to Unreserved Concurrency Limits `-1`.
+        :param pulumi.Input[_builtins.str] response_streaming_invoke_arn: ARN to be used for invoking Lambda Function from API Gateway with response streaming - to be used in `apigateway.Integration`'s `uri`.
         :param pulumi.Input[_builtins.str] role: ARN of the function's execution role. The role provides the function's identity and access to AWS services and resources.
                
                The following arguments are optional:
@@ -663,10 +769,12 @@ class _FunctionState:
         :param pulumi.Input[_builtins.str] signing_profile_version_arn: ARN of the signing profile version.
         :param pulumi.Input[_builtins.bool] skip_destroy: Whether to retain the old version of a previously deployed Lambda Layer. Default is `false`.
         :param pulumi.Input['FunctionSnapStartArgs'] snap_start: Configuration block for snap start settings. See below.
-        :param pulumi.Input[_builtins.str] source_code_hash: Base64-encoded SHA256 hash of the package file. Used to trigger updates when source code changes.
+        :param pulumi.Input[_builtins.str] source_code_hash: User-defined hash of the source code package file. Use this argument to trigger updates when the local function source code changes. This is a synthetic argument tracked only by the AWS provider and does not need to match the hashing algorithm used by Lambda to compute the `CodeSha256` response value. Out-of-band changes to the source code _will not_ be captured by this argument. To include out-of-band source code changes as an update trigger, use the `code_sha256` argument instead.
         :param pulumi.Input[_builtins.int] source_code_size: Size in bytes of the function .zip file.
+        :param pulumi.Input[_builtins.str] source_kms_key_arn: ARN of the AWS Key Management Service key used to encrypt the function's `.zip` deployment package. Conflicts with `image_uri`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of tags for the Lambda function. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: Map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
+        :param pulumi.Input['FunctionTenancyConfigArgs'] tenancy_config: Configuration block for Tenancy. See below.
         :param pulumi.Input[_builtins.int] timeout: Amount of time your Lambda Function has to run in seconds. Defaults to 3. Valid between 1 and 900.
         :param pulumi.Input['FunctionTracingConfigArgs'] tracing_config: Configuration block for X-Ray tracing. See below.
         :param pulumi.Input[_builtins.str] version: Latest published version of your Lambda Function.
@@ -676,6 +784,8 @@ class _FunctionState:
             pulumi.set(__self__, "architectures", architectures)
         if arn is not None:
             pulumi.set(__self__, "arn", arn)
+        if capacity_provider_config is not None:
+            pulumi.set(__self__, "capacity_provider_config", capacity_provider_config)
         if code is not None:
             pulumi.set(__self__, "code", code)
         if code_sha256 is not None:
@@ -686,6 +796,8 @@ class _FunctionState:
             pulumi.set(__self__, "dead_letter_config", dead_letter_config)
         if description is not None:
             pulumi.set(__self__, "description", description)
+        if durable_config is not None:
+            pulumi.set(__self__, "durable_config", durable_config)
         if environment is not None:
             pulumi.set(__self__, "environment", environment)
         if ephemeral_storage is not None:
@@ -716,6 +828,8 @@ class _FunctionState:
             pulumi.set(__self__, "package_type", package_type)
         if publish is not None:
             pulumi.set(__self__, "publish", publish)
+        if publish_to is not None:
+            pulumi.set(__self__, "publish_to", publish_to)
         if qualified_arn is not None:
             pulumi.set(__self__, "qualified_arn", qualified_arn)
         if qualified_invoke_arn is not None:
@@ -728,6 +842,8 @@ class _FunctionState:
             pulumi.set(__self__, "replacement_security_group_ids", replacement_security_group_ids)
         if reserved_concurrent_executions is not None:
             pulumi.set(__self__, "reserved_concurrent_executions", reserved_concurrent_executions)
+        if response_streaming_invoke_arn is not None:
+            pulumi.set(__self__, "response_streaming_invoke_arn", response_streaming_invoke_arn)
         if role is not None:
             pulumi.set(__self__, "role", role)
         if runtime is not None:
@@ -750,10 +866,14 @@ class _FunctionState:
             pulumi.set(__self__, "source_code_hash", source_code_hash)
         if source_code_size is not None:
             pulumi.set(__self__, "source_code_size", source_code_size)
+        if source_kms_key_arn is not None:
+            pulumi.set(__self__, "source_kms_key_arn", source_kms_key_arn)
         if tags is not None:
             pulumi.set(__self__, "tags", tags)
         if tags_all is not None:
             pulumi.set(__self__, "tags_all", tags_all)
+        if tenancy_config is not None:
+            pulumi.set(__self__, "tenancy_config", tenancy_config)
         if timeout is not None:
             pulumi.set(__self__, "timeout", timeout)
         if tracing_config is not None:
@@ -788,6 +908,18 @@ class _FunctionState:
         pulumi.set(self, "arn", value)
 
     @_builtins.property
+    @pulumi.getter(name="capacityProviderConfig")
+    def capacity_provider_config(self) -> Optional[pulumi.Input['FunctionCapacityProviderConfigArgs']]:
+        """
+        Configuration block for Lambda Capacity Provider. See below.
+        """
+        return pulumi.get(self, "capacity_provider_config")
+
+    @capacity_provider_config.setter
+    def capacity_provider_config(self, value: Optional[pulumi.Input['FunctionCapacityProviderConfigArgs']]):
+        pulumi.set(self, "capacity_provider_config", value)
+
+    @_builtins.property
     @pulumi.getter
     def code(self) -> Optional[pulumi.Input[pulumi.Archive]]:
         """
@@ -803,7 +935,7 @@ class _FunctionState:
     @pulumi.getter(name="codeSha256")
     def code_sha256(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Base64-encoded representation of raw SHA-256 sum of the zip file.
+        Base64-encoded representation the source code package file. Use this argument to trigger updates when the function source code changes. For OCI, this value is relayed directly from the image digest. For zip files, this value is the Base64 encoded SHA-256 hash of the `.zip` file. Layers are not included in the calculation. To trigger updates using a non-standard hashing algorithm, use the `source_code_hash` argument instead.
         """
         return pulumi.get(self, "code_sha256")
 
@@ -846,6 +978,18 @@ class _FunctionState:
     @description.setter
     def description(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "description", value)
+
+    @_builtins.property
+    @pulumi.getter(name="durableConfig")
+    def durable_config(self) -> Optional[pulumi.Input['FunctionDurableConfigArgs']]:
+        """
+        Configuration block for durable function settings. See below. `durable_config` may only be available in [limited regions](https://builder.aws.com/build/capabilities), including `us-east-2`.
+        """
+        return pulumi.get(self, "durable_config")
+
+    @durable_config.setter
+    def durable_config(self, value: Optional[pulumi.Input['FunctionDurableConfigArgs']]):
+        pulumi.set(self, "durable_config", value)
 
     @_builtins.property
     @pulumi.getter
@@ -1028,6 +1172,18 @@ class _FunctionState:
         pulumi.set(self, "publish", value)
 
     @_builtins.property
+    @pulumi.getter(name="publishTo")
+    def publish_to(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Whether to publish to a alias or version number. Omit for regular version publishing. Option is `LATEST_PUBLISHED`.
+        """
+        return pulumi.get(self, "publish_to")
+
+    @publish_to.setter
+    def publish_to(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "publish_to", value)
+
+    @_builtins.property
     @pulumi.getter(name="qualifiedArn")
     def qualified_arn(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -1098,6 +1254,18 @@ class _FunctionState:
     @reserved_concurrent_executions.setter
     def reserved_concurrent_executions(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "reserved_concurrent_executions", value)
+
+    @_builtins.property
+    @pulumi.getter(name="responseStreamingInvokeArn")
+    def response_streaming_invoke_arn(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        ARN to be used for invoking Lambda Function from API Gateway with response streaming - to be used in `apigateway.Integration`'s `uri`.
+        """
+        return pulumi.get(self, "response_streaming_invoke_arn")
+
+    @response_streaming_invoke_arn.setter
+    def response_streaming_invoke_arn(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "response_streaming_invoke_arn", value)
 
     @_builtins.property
     @pulumi.getter
@@ -1213,7 +1381,7 @@ class _FunctionState:
     @pulumi.getter(name="sourceCodeHash")
     def source_code_hash(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Base64-encoded SHA256 hash of the package file. Used to trigger updates when source code changes.
+        User-defined hash of the source code package file. Use this argument to trigger updates when the local function source code changes. This is a synthetic argument tracked only by the AWS provider and does not need to match the hashing algorithm used by Lambda to compute the `CodeSha256` response value. Out-of-band changes to the source code _will not_ be captured by this argument. To include out-of-band source code changes as an update trigger, use the `code_sha256` argument instead.
         """
         return pulumi.get(self, "source_code_hash")
 
@@ -1232,6 +1400,18 @@ class _FunctionState:
     @source_code_size.setter
     def source_code_size(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "source_code_size", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sourceKmsKeyArn")
+    def source_kms_key_arn(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        ARN of the AWS Key Management Service key used to encrypt the function's `.zip` deployment package. Conflicts with `image_uri`.
+        """
+        return pulumi.get(self, "source_kms_key_arn")
+
+    @source_kms_key_arn.setter
+    def source_kms_key_arn(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "source_kms_key_arn", value)
 
     @_builtins.property
     @pulumi.getter
@@ -1256,6 +1436,18 @@ class _FunctionState:
     @tags_all.setter
     def tags_all(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags_all", value)
+
+    @_builtins.property
+    @pulumi.getter(name="tenancyConfig")
+    def tenancy_config(self) -> Optional[pulumi.Input['FunctionTenancyConfigArgs']]:
+        """
+        Configuration block for Tenancy. See below.
+        """
+        return pulumi.get(self, "tenancy_config")
+
+    @tenancy_config.setter
+    def tenancy_config(self, value: Optional[pulumi.Input['FunctionTenancyConfigArgs']]):
+        pulumi.set(self, "tenancy_config", value)
 
     @_builtins.property
     @pulumi.getter
@@ -1313,10 +1505,13 @@ class Function(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  architectures: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 capacity_provider_config: Optional[pulumi.Input[Union['FunctionCapacityProviderConfigArgs', 'FunctionCapacityProviderConfigArgsDict']]] = None,
                  code: Optional[pulumi.Input[pulumi.Archive]] = None,
+                 code_sha256: Optional[pulumi.Input[_builtins.str]] = None,
                  code_signing_config_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  dead_letter_config: Optional[pulumi.Input[Union['FunctionDeadLetterConfigArgs', 'FunctionDeadLetterConfigArgsDict']]] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
+                 durable_config: Optional[pulumi.Input[Union['FunctionDurableConfigArgs', 'FunctionDurableConfigArgsDict']]] = None,
                  environment: Optional[pulumi.Input[Union['FunctionEnvironmentArgs', 'FunctionEnvironmentArgsDict']]] = None,
                  ephemeral_storage: Optional[pulumi.Input[Union['FunctionEphemeralStorageArgs', 'FunctionEphemeralStorageArgsDict']]] = None,
                  file_system_config: Optional[pulumi.Input[Union['FunctionFileSystemConfigArgs', 'FunctionFileSystemConfigArgsDict']]] = None,
@@ -1330,6 +1525,7 @@ class Function(pulumi.CustomResource):
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  package_type: Optional[pulumi.Input[_builtins.str]] = None,
                  publish: Optional[pulumi.Input[_builtins.bool]] = None,
+                 publish_to: Optional[pulumi.Input[_builtins.str]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  replace_security_groups_on_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
                  replacement_security_group_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
@@ -1342,7 +1538,9 @@ class Function(pulumi.CustomResource):
                  skip_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
                  snap_start: Optional[pulumi.Input[Union['FunctionSnapStartArgs', 'FunctionSnapStartArgsDict']]] = None,
                  source_code_hash: Optional[pulumi.Input[_builtins.str]] = None,
+                 source_kms_key_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 tenancy_config: Optional[pulumi.Input[Union['FunctionTenancyConfigArgs', 'FunctionTenancyConfigArgsDict']]] = None,
                  timeout: Optional[pulumi.Input[_builtins.int]] = None,
                  tracing_config: Optional[pulumi.Input[Union['FunctionTracingConfigArgs', 'FunctionTracingConfigArgsDict']]] = None,
                  vpc_config: Optional[pulumi.Input[Union['FunctionVpcConfigArgs', 'FunctionVpcConfigArgsDict']]] = None,
@@ -1705,6 +1903,67 @@ class Function(pulumi.CustomResource):
                 ]))
         ```
 
+        ### Function with Durable Configuration
+
+        Stopping durable executions and deleting the Lambda function may take up to `60m`. Use configured `timeouts` as shown below.
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        example = aws.lambda_.Function("example",
+            code=pulumi.FileArchive("function.zip"),
+            name="example_durable_function",
+            role=example_aws_iam_role["arn"],
+            handler="index.handler",
+            runtime=aws.lambda_.Runtime.NODE_JS22D_X,
+            memory_size=512,
+            timeout=30,
+            durable_config={
+                "execution_timeout": 3600,
+                "retention_period": 7,
+            },
+            environment={
+                "variables": {
+                    "DURABLE_MODE": "enabled",
+                },
+            },
+            tags={
+                "Environment": "production",
+                "Type": "durable",
+            })
+        ```
+
+        ### Capacity Provider Configuration
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        example_capacity_provider = aws.lambda_.CapacityProvider("example",
+            name="example",
+            vpc_config={
+                "subnet_ids": [example_aws_subnet["id"]],
+                "security_group_ids": [example_aws_security_group["id"]],
+            },
+            permissions_config={
+                "capacity_provider_operator_role_arn": example_aws_iam_role["arn"],
+            })
+        example = aws.lambda_.Function("example",
+            code=pulumi.FileArchive("function.zip"),
+            name="example",
+            role=example_aws_iam_role["arn"],
+            handler="index.handler",
+            runtime=aws.lambda_.Runtime.NODE_JS20D_X,
+            memory_size=2048,
+            publish=True,
+            capacity_provider_config={
+                "lambda_managed_instances_capacity_provider_config": {
+                    "capacity_provider_arn": example_capacity_provider.arn,
+                },
+            })
+        ```
+
         ## Specifying the Deployment Package
 
         AWS Lambda expects source code to be provided as a deployment package whose structure varies depending on which `runtime` is in use. See [Runtimes](https://docs.aws.amazon.com/lambda/latest/dg/API_CreateFunction.html#SSS-CreateFunction-request-Runtime) for the valid values of `runtime`. The expected structure of the deployment package can be found in [the AWS Lambda documentation for each runtime](https://docs.aws.amazon.com/lambda/latest/dg/deployment-package-v2.html).
@@ -1715,19 +1974,32 @@ class Function(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        * `function_name` (String) Name of the Lambda function.
+
+        #### Optional
+
+        * `account_id` (String) AWS Account where this resource is managed.
+
+        * `region` (String) Region where this resource is managed.
+
         Using `pulumi import`, import Lambda Functions using the `function_name`. For example:
 
-        ```sh
-        $ pulumi import aws:lambda/function:Function example example
-        ```
+        % pulumi import aws_lambda_function.example example
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] architectures: Instruction set architecture for your Lambda function. Valid values are `["x86_64"]` and `["arm64"]`. Default is `["x86_64"]`. Removing this attribute, function's architecture stays the same.
+        :param pulumi.Input[Union['FunctionCapacityProviderConfigArgs', 'FunctionCapacityProviderConfigArgsDict']] capacity_provider_config: Configuration block for Lambda Capacity Provider. See below.
         :param pulumi.Input[pulumi.Archive] code: Path to the function's deployment package within the local filesystem. Conflicts with `image_uri` and `s3_bucket`. One of `filename`, `image_uri`, or `s3_bucket` must be specified.
+        :param pulumi.Input[_builtins.str] code_sha256: Base64-encoded representation the source code package file. Use this argument to trigger updates when the function source code changes. For OCI, this value is relayed directly from the image digest. For zip files, this value is the Base64 encoded SHA-256 hash of the `.zip` file. Layers are not included in the calculation. To trigger updates using a non-standard hashing algorithm, use the `source_code_hash` argument instead.
         :param pulumi.Input[_builtins.str] code_signing_config_arn: ARN of a code-signing configuration to enable code signing for this function.
         :param pulumi.Input[Union['FunctionDeadLetterConfigArgs', 'FunctionDeadLetterConfigArgsDict']] dead_letter_config: Configuration block for dead letter queue. See below.
         :param pulumi.Input[_builtins.str] description: Description of what your Lambda Function does.
+        :param pulumi.Input[Union['FunctionDurableConfigArgs', 'FunctionDurableConfigArgsDict']] durable_config: Configuration block for durable function settings. See below. `durable_config` may only be available in [limited regions](https://builder.aws.com/build/capabilities), including `us-east-2`.
         :param pulumi.Input[Union['FunctionEnvironmentArgs', 'FunctionEnvironmentArgsDict']] environment: Configuration block for environment variables. See below.
         :param pulumi.Input[Union['FunctionEphemeralStorageArgs', 'FunctionEphemeralStorageArgsDict']] ephemeral_storage: Amount of ephemeral storage (`/tmp`) to allocate for the Lambda Function. See below.
         :param pulumi.Input[Union['FunctionFileSystemConfigArgs', 'FunctionFileSystemConfigArgsDict']] file_system_config: Configuration block for EFS file system. See below.
@@ -1741,6 +2013,7 @@ class Function(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] name: Unique name for your Lambda Function.
         :param pulumi.Input[_builtins.str] package_type: Lambda deployment package type. Valid values are `Zip` and `Image`. Defaults to `Zip`.
         :param pulumi.Input[_builtins.bool] publish: Whether to publish creation/change as new Lambda Function Version. Defaults to `false`.
+        :param pulumi.Input[_builtins.str] publish_to: Whether to publish to a alias or version number. Omit for regular version publishing. Option is `LATEST_PUBLISHED`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.bool] replace_security_groups_on_destroy: Whether to replace the security groups on the function's VPC configuration prior to destruction. Default is `false`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] replacement_security_group_ids: List of security group IDs to assign to the function's VPC configuration prior to destruction. Required if `replace_security_groups_on_destroy` is `true`.
@@ -1754,8 +2027,10 @@ class Function(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] s3_object_version: Object version containing the function's deployment package. Conflicts with `filename` and `image_uri`.
         :param pulumi.Input[_builtins.bool] skip_destroy: Whether to retain the old version of a previously deployed Lambda Layer. Default is `false`.
         :param pulumi.Input[Union['FunctionSnapStartArgs', 'FunctionSnapStartArgsDict']] snap_start: Configuration block for snap start settings. See below.
-        :param pulumi.Input[_builtins.str] source_code_hash: Base64-encoded SHA256 hash of the package file. Used to trigger updates when source code changes.
+        :param pulumi.Input[_builtins.str] source_code_hash: User-defined hash of the source code package file. Use this argument to trigger updates when the local function source code changes. This is a synthetic argument tracked only by the AWS provider and does not need to match the hashing algorithm used by Lambda to compute the `CodeSha256` response value. Out-of-band changes to the source code _will not_ be captured by this argument. To include out-of-band source code changes as an update trigger, use the `code_sha256` argument instead.
+        :param pulumi.Input[_builtins.str] source_kms_key_arn: ARN of the AWS Key Management Service key used to encrypt the function's `.zip` deployment package. Conflicts with `image_uri`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of tags for the Lambda function. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
+        :param pulumi.Input[Union['FunctionTenancyConfigArgs', 'FunctionTenancyConfigArgsDict']] tenancy_config: Configuration block for Tenancy. See below.
         :param pulumi.Input[_builtins.int] timeout: Amount of time your Lambda Function has to run in seconds. Defaults to 3. Valid between 1 and 900.
         :param pulumi.Input[Union['FunctionTracingConfigArgs', 'FunctionTracingConfigArgsDict']] tracing_config: Configuration block for X-Ray tracing. See below.
         :param pulumi.Input[Union['FunctionVpcConfigArgs', 'FunctionVpcConfigArgsDict']] vpc_config: Configuration block for VPC. See below.
@@ -2124,6 +2399,67 @@ class Function(pulumi.CustomResource):
                 ]))
         ```
 
+        ### Function with Durable Configuration
+
+        Stopping durable executions and deleting the Lambda function may take up to `60m`. Use configured `timeouts` as shown below.
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        example = aws.lambda_.Function("example",
+            code=pulumi.FileArchive("function.zip"),
+            name="example_durable_function",
+            role=example_aws_iam_role["arn"],
+            handler="index.handler",
+            runtime=aws.lambda_.Runtime.NODE_JS22D_X,
+            memory_size=512,
+            timeout=30,
+            durable_config={
+                "execution_timeout": 3600,
+                "retention_period": 7,
+            },
+            environment={
+                "variables": {
+                    "DURABLE_MODE": "enabled",
+                },
+            },
+            tags={
+                "Environment": "production",
+                "Type": "durable",
+            })
+        ```
+
+        ### Capacity Provider Configuration
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        example_capacity_provider = aws.lambda_.CapacityProvider("example",
+            name="example",
+            vpc_config={
+                "subnet_ids": [example_aws_subnet["id"]],
+                "security_group_ids": [example_aws_security_group["id"]],
+            },
+            permissions_config={
+                "capacity_provider_operator_role_arn": example_aws_iam_role["arn"],
+            })
+        example = aws.lambda_.Function("example",
+            code=pulumi.FileArchive("function.zip"),
+            name="example",
+            role=example_aws_iam_role["arn"],
+            handler="index.handler",
+            runtime=aws.lambda_.Runtime.NODE_JS20D_X,
+            memory_size=2048,
+            publish=True,
+            capacity_provider_config={
+                "lambda_managed_instances_capacity_provider_config": {
+                    "capacity_provider_arn": example_capacity_provider.arn,
+                },
+            })
+        ```
+
         ## Specifying the Deployment Package
 
         AWS Lambda expects source code to be provided as a deployment package whose structure varies depending on which `runtime` is in use. See [Runtimes](https://docs.aws.amazon.com/lambda/latest/dg/API_CreateFunction.html#SSS-CreateFunction-request-Runtime) for the valid values of `runtime`. The expected structure of the deployment package can be found in [the AWS Lambda documentation for each runtime](https://docs.aws.amazon.com/lambda/latest/dg/deployment-package-v2.html).
@@ -2134,11 +2470,21 @@ class Function(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        * `function_name` (String) Name of the Lambda function.
+
+        #### Optional
+
+        * `account_id` (String) AWS Account where this resource is managed.
+
+        * `region` (String) Region where this resource is managed.
+
         Using `pulumi import`, import Lambda Functions using the `function_name`. For example:
 
-        ```sh
-        $ pulumi import aws:lambda/function:Function example example
-        ```
+        % pulumi import aws_lambda_function.example example
 
         :param str resource_name: The name of the resource.
         :param FunctionArgs args: The arguments to use to populate this resource's properties.
@@ -2156,10 +2502,13 @@ class Function(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  architectures: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 capacity_provider_config: Optional[pulumi.Input[Union['FunctionCapacityProviderConfigArgs', 'FunctionCapacityProviderConfigArgsDict']]] = None,
                  code: Optional[pulumi.Input[pulumi.Archive]] = None,
+                 code_sha256: Optional[pulumi.Input[_builtins.str]] = None,
                  code_signing_config_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  dead_letter_config: Optional[pulumi.Input[Union['FunctionDeadLetterConfigArgs', 'FunctionDeadLetterConfigArgsDict']]] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
+                 durable_config: Optional[pulumi.Input[Union['FunctionDurableConfigArgs', 'FunctionDurableConfigArgsDict']]] = None,
                  environment: Optional[pulumi.Input[Union['FunctionEnvironmentArgs', 'FunctionEnvironmentArgsDict']]] = None,
                  ephemeral_storage: Optional[pulumi.Input[Union['FunctionEphemeralStorageArgs', 'FunctionEphemeralStorageArgsDict']]] = None,
                  file_system_config: Optional[pulumi.Input[Union['FunctionFileSystemConfigArgs', 'FunctionFileSystemConfigArgsDict']]] = None,
@@ -2173,6 +2522,7 @@ class Function(pulumi.CustomResource):
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  package_type: Optional[pulumi.Input[_builtins.str]] = None,
                  publish: Optional[pulumi.Input[_builtins.bool]] = None,
+                 publish_to: Optional[pulumi.Input[_builtins.str]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  replace_security_groups_on_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
                  replacement_security_group_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
@@ -2185,7 +2535,9 @@ class Function(pulumi.CustomResource):
                  skip_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
                  snap_start: Optional[pulumi.Input[Union['FunctionSnapStartArgs', 'FunctionSnapStartArgsDict']]] = None,
                  source_code_hash: Optional[pulumi.Input[_builtins.str]] = None,
+                 source_kms_key_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 tenancy_config: Optional[pulumi.Input[Union['FunctionTenancyConfigArgs', 'FunctionTenancyConfigArgsDict']]] = None,
                  timeout: Optional[pulumi.Input[_builtins.int]] = None,
                  tracing_config: Optional[pulumi.Input[Union['FunctionTracingConfigArgs', 'FunctionTracingConfigArgsDict']]] = None,
                  vpc_config: Optional[pulumi.Input[Union['FunctionVpcConfigArgs', 'FunctionVpcConfigArgsDict']]] = None,
@@ -2199,10 +2551,13 @@ class Function(pulumi.CustomResource):
             __props__ = FunctionArgs.__new__(FunctionArgs)
 
             __props__.__dict__["architectures"] = architectures
+            __props__.__dict__["capacity_provider_config"] = capacity_provider_config
             __props__.__dict__["code"] = code
+            __props__.__dict__["code_sha256"] = code_sha256
             __props__.__dict__["code_signing_config_arn"] = code_signing_config_arn
             __props__.__dict__["dead_letter_config"] = dead_letter_config
             __props__.__dict__["description"] = description
+            __props__.__dict__["durable_config"] = durable_config
             __props__.__dict__["environment"] = environment
             __props__.__dict__["ephemeral_storage"] = ephemeral_storage
             __props__.__dict__["file_system_config"] = file_system_config
@@ -2216,6 +2571,7 @@ class Function(pulumi.CustomResource):
             __props__.__dict__["name"] = name
             __props__.__dict__["package_type"] = package_type
             __props__.__dict__["publish"] = publish
+            __props__.__dict__["publish_to"] = publish_to
             __props__.__dict__["region"] = region
             __props__.__dict__["replace_security_groups_on_destroy"] = replace_security_groups_on_destroy
             __props__.__dict__["replacement_security_group_ids"] = replacement_security_group_ids
@@ -2230,16 +2586,18 @@ class Function(pulumi.CustomResource):
             __props__.__dict__["skip_destroy"] = skip_destroy
             __props__.__dict__["snap_start"] = snap_start
             __props__.__dict__["source_code_hash"] = source_code_hash
+            __props__.__dict__["source_kms_key_arn"] = source_kms_key_arn
             __props__.__dict__["tags"] = tags
+            __props__.__dict__["tenancy_config"] = tenancy_config
             __props__.__dict__["timeout"] = timeout
             __props__.__dict__["tracing_config"] = tracing_config
             __props__.__dict__["vpc_config"] = vpc_config
             __props__.__dict__["arn"] = None
-            __props__.__dict__["code_sha256"] = None
             __props__.__dict__["invoke_arn"] = None
             __props__.__dict__["last_modified"] = None
             __props__.__dict__["qualified_arn"] = None
             __props__.__dict__["qualified_invoke_arn"] = None
+            __props__.__dict__["response_streaming_invoke_arn"] = None
             __props__.__dict__["signing_job_arn"] = None
             __props__.__dict__["signing_profile_version_arn"] = None
             __props__.__dict__["source_code_size"] = None
@@ -2257,11 +2615,13 @@ class Function(pulumi.CustomResource):
             opts: Optional[pulumi.ResourceOptions] = None,
             architectures: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
             arn: Optional[pulumi.Input[_builtins.str]] = None,
+            capacity_provider_config: Optional[pulumi.Input[Union['FunctionCapacityProviderConfigArgs', 'FunctionCapacityProviderConfigArgsDict']]] = None,
             code: Optional[pulumi.Input[pulumi.Archive]] = None,
             code_sha256: Optional[pulumi.Input[_builtins.str]] = None,
             code_signing_config_arn: Optional[pulumi.Input[_builtins.str]] = None,
             dead_letter_config: Optional[pulumi.Input[Union['FunctionDeadLetterConfigArgs', 'FunctionDeadLetterConfigArgsDict']]] = None,
             description: Optional[pulumi.Input[_builtins.str]] = None,
+            durable_config: Optional[pulumi.Input[Union['FunctionDurableConfigArgs', 'FunctionDurableConfigArgsDict']]] = None,
             environment: Optional[pulumi.Input[Union['FunctionEnvironmentArgs', 'FunctionEnvironmentArgsDict']]] = None,
             ephemeral_storage: Optional[pulumi.Input[Union['FunctionEphemeralStorageArgs', 'FunctionEphemeralStorageArgsDict']]] = None,
             file_system_config: Optional[pulumi.Input[Union['FunctionFileSystemConfigArgs', 'FunctionFileSystemConfigArgsDict']]] = None,
@@ -2277,12 +2637,14 @@ class Function(pulumi.CustomResource):
             name: Optional[pulumi.Input[_builtins.str]] = None,
             package_type: Optional[pulumi.Input[_builtins.str]] = None,
             publish: Optional[pulumi.Input[_builtins.bool]] = None,
+            publish_to: Optional[pulumi.Input[_builtins.str]] = None,
             qualified_arn: Optional[pulumi.Input[_builtins.str]] = None,
             qualified_invoke_arn: Optional[pulumi.Input[_builtins.str]] = None,
             region: Optional[pulumi.Input[_builtins.str]] = None,
             replace_security_groups_on_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
             replacement_security_group_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
             reserved_concurrent_executions: Optional[pulumi.Input[_builtins.int]] = None,
+            response_streaming_invoke_arn: Optional[pulumi.Input[_builtins.str]] = None,
             role: Optional[pulumi.Input[_builtins.str]] = None,
             runtime: Optional[pulumi.Input[Union[_builtins.str, 'Runtime']]] = None,
             s3_bucket: Optional[pulumi.Input[_builtins.str]] = None,
@@ -2294,8 +2656,10 @@ class Function(pulumi.CustomResource):
             snap_start: Optional[pulumi.Input[Union['FunctionSnapStartArgs', 'FunctionSnapStartArgsDict']]] = None,
             source_code_hash: Optional[pulumi.Input[_builtins.str]] = None,
             source_code_size: Optional[pulumi.Input[_builtins.int]] = None,
+            source_kms_key_arn: Optional[pulumi.Input[_builtins.str]] = None,
             tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            tenancy_config: Optional[pulumi.Input[Union['FunctionTenancyConfigArgs', 'FunctionTenancyConfigArgsDict']]] = None,
             timeout: Optional[pulumi.Input[_builtins.int]] = None,
             tracing_config: Optional[pulumi.Input[Union['FunctionTracingConfigArgs', 'FunctionTracingConfigArgsDict']]] = None,
             version: Optional[pulumi.Input[_builtins.str]] = None,
@@ -2309,11 +2673,13 @@ class Function(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] architectures: Instruction set architecture for your Lambda function. Valid values are `["x86_64"]` and `["arm64"]`. Default is `["x86_64"]`. Removing this attribute, function's architecture stays the same.
         :param pulumi.Input[_builtins.str] arn: ARN identifying your Lambda Function.
+        :param pulumi.Input[Union['FunctionCapacityProviderConfigArgs', 'FunctionCapacityProviderConfigArgsDict']] capacity_provider_config: Configuration block for Lambda Capacity Provider. See below.
         :param pulumi.Input[pulumi.Archive] code: Path to the function's deployment package within the local filesystem. Conflicts with `image_uri` and `s3_bucket`. One of `filename`, `image_uri`, or `s3_bucket` must be specified.
-        :param pulumi.Input[_builtins.str] code_sha256: Base64-encoded representation of raw SHA-256 sum of the zip file.
+        :param pulumi.Input[_builtins.str] code_sha256: Base64-encoded representation the source code package file. Use this argument to trigger updates when the function source code changes. For OCI, this value is relayed directly from the image digest. For zip files, this value is the Base64 encoded SHA-256 hash of the `.zip` file. Layers are not included in the calculation. To trigger updates using a non-standard hashing algorithm, use the `source_code_hash` argument instead.
         :param pulumi.Input[_builtins.str] code_signing_config_arn: ARN of a code-signing configuration to enable code signing for this function.
         :param pulumi.Input[Union['FunctionDeadLetterConfigArgs', 'FunctionDeadLetterConfigArgsDict']] dead_letter_config: Configuration block for dead letter queue. See below.
         :param pulumi.Input[_builtins.str] description: Description of what your Lambda Function does.
+        :param pulumi.Input[Union['FunctionDurableConfigArgs', 'FunctionDurableConfigArgsDict']] durable_config: Configuration block for durable function settings. See below. `durable_config` may only be available in [limited regions](https://builder.aws.com/build/capabilities), including `us-east-2`.
         :param pulumi.Input[Union['FunctionEnvironmentArgs', 'FunctionEnvironmentArgsDict']] environment: Configuration block for environment variables. See below.
         :param pulumi.Input[Union['FunctionEphemeralStorageArgs', 'FunctionEphemeralStorageArgsDict']] ephemeral_storage: Amount of ephemeral storage (`/tmp`) to allocate for the Lambda Function. See below.
         :param pulumi.Input[Union['FunctionFileSystemConfigArgs', 'FunctionFileSystemConfigArgsDict']] file_system_config: Configuration block for EFS file system. See below.
@@ -2329,12 +2695,14 @@ class Function(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] name: Unique name for your Lambda Function.
         :param pulumi.Input[_builtins.str] package_type: Lambda deployment package type. Valid values are `Zip` and `Image`. Defaults to `Zip`.
         :param pulumi.Input[_builtins.bool] publish: Whether to publish creation/change as new Lambda Function Version. Defaults to `false`.
+        :param pulumi.Input[_builtins.str] publish_to: Whether to publish to a alias or version number. Omit for regular version publishing. Option is `LATEST_PUBLISHED`.
         :param pulumi.Input[_builtins.str] qualified_arn: ARN identifying your Lambda Function Version (if versioning is enabled via `publish = true`).
         :param pulumi.Input[_builtins.str] qualified_invoke_arn: Qualified ARN (ARN with lambda version number) to be used for invoking Lambda Function from API Gateway - to be used in `apigateway.Integration`'s `uri`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.bool] replace_security_groups_on_destroy: Whether to replace the security groups on the function's VPC configuration prior to destruction. Default is `false`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] replacement_security_group_ids: List of security group IDs to assign to the function's VPC configuration prior to destruction. Required if `replace_security_groups_on_destroy` is `true`.
         :param pulumi.Input[_builtins.int] reserved_concurrent_executions: Amount of reserved concurrent executions for this lambda function. A value of `0` disables lambda from being triggered and `-1` removes any concurrency limitations. Defaults to Unreserved Concurrency Limits `-1`.
+        :param pulumi.Input[_builtins.str] response_streaming_invoke_arn: ARN to be used for invoking Lambda Function from API Gateway with response streaming - to be used in `apigateway.Integration`'s `uri`.
         :param pulumi.Input[_builtins.str] role: ARN of the function's execution role. The role provides the function's identity and access to AWS services and resources.
                
                The following arguments are optional:
@@ -2346,10 +2714,12 @@ class Function(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] signing_profile_version_arn: ARN of the signing profile version.
         :param pulumi.Input[_builtins.bool] skip_destroy: Whether to retain the old version of a previously deployed Lambda Layer. Default is `false`.
         :param pulumi.Input[Union['FunctionSnapStartArgs', 'FunctionSnapStartArgsDict']] snap_start: Configuration block for snap start settings. See below.
-        :param pulumi.Input[_builtins.str] source_code_hash: Base64-encoded SHA256 hash of the package file. Used to trigger updates when source code changes.
+        :param pulumi.Input[_builtins.str] source_code_hash: User-defined hash of the source code package file. Use this argument to trigger updates when the local function source code changes. This is a synthetic argument tracked only by the AWS provider and does not need to match the hashing algorithm used by Lambda to compute the `CodeSha256` response value. Out-of-band changes to the source code _will not_ be captured by this argument. To include out-of-band source code changes as an update trigger, use the `code_sha256` argument instead.
         :param pulumi.Input[_builtins.int] source_code_size: Size in bytes of the function .zip file.
+        :param pulumi.Input[_builtins.str] source_kms_key_arn: ARN of the AWS Key Management Service key used to encrypt the function's `.zip` deployment package. Conflicts with `image_uri`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of tags for the Lambda function. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: Map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
+        :param pulumi.Input[Union['FunctionTenancyConfigArgs', 'FunctionTenancyConfigArgsDict']] tenancy_config: Configuration block for Tenancy. See below.
         :param pulumi.Input[_builtins.int] timeout: Amount of time your Lambda Function has to run in seconds. Defaults to 3. Valid between 1 and 900.
         :param pulumi.Input[Union['FunctionTracingConfigArgs', 'FunctionTracingConfigArgsDict']] tracing_config: Configuration block for X-Ray tracing. See below.
         :param pulumi.Input[_builtins.str] version: Latest published version of your Lambda Function.
@@ -2361,11 +2731,13 @@ class Function(pulumi.CustomResource):
 
         __props__.__dict__["architectures"] = architectures
         __props__.__dict__["arn"] = arn
+        __props__.__dict__["capacity_provider_config"] = capacity_provider_config
         __props__.__dict__["code"] = code
         __props__.__dict__["code_sha256"] = code_sha256
         __props__.__dict__["code_signing_config_arn"] = code_signing_config_arn
         __props__.__dict__["dead_letter_config"] = dead_letter_config
         __props__.__dict__["description"] = description
+        __props__.__dict__["durable_config"] = durable_config
         __props__.__dict__["environment"] = environment
         __props__.__dict__["ephemeral_storage"] = ephemeral_storage
         __props__.__dict__["file_system_config"] = file_system_config
@@ -2381,12 +2753,14 @@ class Function(pulumi.CustomResource):
         __props__.__dict__["name"] = name
         __props__.__dict__["package_type"] = package_type
         __props__.__dict__["publish"] = publish
+        __props__.__dict__["publish_to"] = publish_to
         __props__.__dict__["qualified_arn"] = qualified_arn
         __props__.__dict__["qualified_invoke_arn"] = qualified_invoke_arn
         __props__.__dict__["region"] = region
         __props__.__dict__["replace_security_groups_on_destroy"] = replace_security_groups_on_destroy
         __props__.__dict__["replacement_security_group_ids"] = replacement_security_group_ids
         __props__.__dict__["reserved_concurrent_executions"] = reserved_concurrent_executions
+        __props__.__dict__["response_streaming_invoke_arn"] = response_streaming_invoke_arn
         __props__.__dict__["role"] = role
         __props__.__dict__["runtime"] = runtime
         __props__.__dict__["s3_bucket"] = s3_bucket
@@ -2398,8 +2772,10 @@ class Function(pulumi.CustomResource):
         __props__.__dict__["snap_start"] = snap_start
         __props__.__dict__["source_code_hash"] = source_code_hash
         __props__.__dict__["source_code_size"] = source_code_size
+        __props__.__dict__["source_kms_key_arn"] = source_kms_key_arn
         __props__.__dict__["tags"] = tags
         __props__.__dict__["tags_all"] = tags_all
+        __props__.__dict__["tenancy_config"] = tenancy_config
         __props__.__dict__["timeout"] = timeout
         __props__.__dict__["tracing_config"] = tracing_config
         __props__.__dict__["version"] = version
@@ -2423,6 +2799,14 @@ class Function(pulumi.CustomResource):
         return pulumi.get(self, "arn")
 
     @_builtins.property
+    @pulumi.getter(name="capacityProviderConfig")
+    def capacity_provider_config(self) -> pulumi.Output[Optional['outputs.FunctionCapacityProviderConfig']]:
+        """
+        Configuration block for Lambda Capacity Provider. See below.
+        """
+        return pulumi.get(self, "capacity_provider_config")
+
+    @_builtins.property
     @pulumi.getter
     def code(self) -> pulumi.Output[Optional[pulumi.Archive]]:
         """
@@ -2434,7 +2818,7 @@ class Function(pulumi.CustomResource):
     @pulumi.getter(name="codeSha256")
     def code_sha256(self) -> pulumi.Output[_builtins.str]:
         """
-        Base64-encoded representation of raw SHA-256 sum of the zip file.
+        Base64-encoded representation the source code package file. Use this argument to trigger updates when the function source code changes. For OCI, this value is relayed directly from the image digest. For zip files, this value is the Base64 encoded SHA-256 hash of the `.zip` file. Layers are not included in the calculation. To trigger updates using a non-standard hashing algorithm, use the `source_code_hash` argument instead.
         """
         return pulumi.get(self, "code_sha256")
 
@@ -2461,6 +2845,14 @@ class Function(pulumi.CustomResource):
         Description of what your Lambda Function does.
         """
         return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="durableConfig")
+    def durable_config(self) -> pulumi.Output[Optional['outputs.FunctionDurableConfig']]:
+        """
+        Configuration block for durable function settings. See below. `durable_config` may only be available in [limited regions](https://builder.aws.com/build/capabilities), including `us-east-2`.
+        """
+        return pulumi.get(self, "durable_config")
 
     @_builtins.property
     @pulumi.getter
@@ -2583,6 +2975,14 @@ class Function(pulumi.CustomResource):
         return pulumi.get(self, "publish")
 
     @_builtins.property
+    @pulumi.getter(name="publishTo")
+    def publish_to(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        Whether to publish to a alias or version number. Omit for regular version publishing. Option is `LATEST_PUBLISHED`.
+        """
+        return pulumi.get(self, "publish_to")
+
+    @_builtins.property
     @pulumi.getter(name="qualifiedArn")
     def qualified_arn(self) -> pulumi.Output[_builtins.str]:
         """
@@ -2629,6 +3029,14 @@ class Function(pulumi.CustomResource):
         Amount of reserved concurrent executions for this lambda function. A value of `0` disables lambda from being triggered and `-1` removes any concurrency limitations. Defaults to Unreserved Concurrency Limits `-1`.
         """
         return pulumi.get(self, "reserved_concurrent_executions")
+
+    @_builtins.property
+    @pulumi.getter(name="responseStreamingInvokeArn")
+    def response_streaming_invoke_arn(self) -> pulumi.Output[_builtins.str]:
+        """
+        ARN to be used for invoking Lambda Function from API Gateway with response streaming - to be used in `apigateway.Integration`'s `uri`.
+        """
+        return pulumi.get(self, "response_streaming_invoke_arn")
 
     @_builtins.property
     @pulumi.getter
@@ -2708,7 +3116,7 @@ class Function(pulumi.CustomResource):
     @pulumi.getter(name="sourceCodeHash")
     def source_code_hash(self) -> pulumi.Output[_builtins.str]:
         """
-        Base64-encoded SHA256 hash of the package file. Used to trigger updates when source code changes.
+        User-defined hash of the source code package file. Use this argument to trigger updates when the local function source code changes. This is a synthetic argument tracked only by the AWS provider and does not need to match the hashing algorithm used by Lambda to compute the `CodeSha256` response value. Out-of-band changes to the source code _will not_ be captured by this argument. To include out-of-band source code changes as an update trigger, use the `code_sha256` argument instead.
         """
         return pulumi.get(self, "source_code_hash")
 
@@ -2719,6 +3127,14 @@ class Function(pulumi.CustomResource):
         Size in bytes of the function .zip file.
         """
         return pulumi.get(self, "source_code_size")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceKmsKeyArn")
+    def source_kms_key_arn(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        ARN of the AWS Key Management Service key used to encrypt the function's `.zip` deployment package. Conflicts with `image_uri`.
+        """
+        return pulumi.get(self, "source_kms_key_arn")
 
     @_builtins.property
     @pulumi.getter
@@ -2735,6 +3151,14 @@ class Function(pulumi.CustomResource):
         Map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
         """
         return pulumi.get(self, "tags_all")
+
+    @_builtins.property
+    @pulumi.getter(name="tenancyConfig")
+    def tenancy_config(self) -> pulumi.Output[Optional['outputs.FunctionTenancyConfig']]:
+        """
+        Configuration block for Tenancy. See below.
+        """
+        return pulumi.get(self, "tenancy_config")
 
     @_builtins.property
     @pulumi.getter

@@ -1,24 +1,15 @@
-import os
-from typing import Union
-
+from langchain.agents import create_agent
 from langchain_community.tools import DuckDuckGoSearchResults
-from langchain_community.tools.tavily_search import TavilySearchResults
 from langgraph.graph import END, START, MessagesState, StateGraph
-from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel
 
-from uipath_langchain.chat import UiPathAzureChatOpenAI, UiPathChat 
+from uipath_langchain.chat import UiPathChat
 
 # Configuration constants
-MAX_SEARCH_RESULTS = 5
-DEFAULT_MODEL = "gpt-4o-2024-08-06"
-ALTERNATIVE_MODEL = "claude-3-5-sonnet-latest"
 
 
-def get_search_tool() -> Union[TavilySearchResults, DuckDuckGoSearchResults]:
+def get_search_tool() -> DuckDuckGoSearchResults:
     """Get the appropriate search tool based on available API keys."""
-    if os.getenv("TAVILY_API_KEY"):
-        return TavilySearchResults(max_results=MAX_SEARCH_RESULTS)
     return DuckDuckGoSearchResults()
 
 
@@ -30,13 +21,14 @@ SYSTEM_PROMPT = """You are an advanced AI assistant specializing in corporate re
 4. Developing outreach strategies: Based on the gathered information, create tailored strategies for effective communication and engagement with the company and its key personnel.
 
 To accomplish these tasks, follow these steps:
-1. Use the TavilySearchResults tool to find recent and relevant information about the company.
+1. Use the search tool to find recent and relevant information about the company.
 2. Analyze the collected data to form insights about the company's structure, key decision-makers, and potential outreach strategies.
 
 When using the search tool:
 - Clearly state the purpose of each search.
 - Formulate effective search queries to find specific information about different aspects of the company.
-- If a search doesn't provide the expected information, try refining your query.
+- If a search doesn't provide the expected information, try refining your query up to 3 times maximum.
+- After 3 failed search attempts, stop trying and provide your response based on available information.
 
 When responding, structure your output as a comprehensive analysis. Use clear section headers to organize the information. Provide concise, actionable insights. If you need more information to complete any part of your analysis, clearly state what additional details would be helpful.
 
@@ -46,33 +38,33 @@ DO NOT do any math as specified in your instructions.
 """
 
 
-def create_llm() -> Union[UiPathAzureChatOpenAI, UiPathChat]:
-    """Create and configure the language model based on an environment variable."""
-    if os.getenv("USE_AZURE_CHAT", "false").lower() == "true":
-        return UiPathAzureChatOpenAI(model=DEFAULT_MODEL)
-    return UiPathChat(model=DEFAULT_MODEL)
+def create_llm() -> UiPathChat:
+    """Create and configure the language model."""
+    return UiPathChat(streaming=False)
 
 
 def create_research_agent():
     """Create the research agent with configured LLM and tools."""
     llm = create_llm()
     search_tool = get_search_tool()
-    return create_react_agent(llm, tools=[search_tool], prompt=SYSTEM_PROMPT)
+    return create_agent(llm, tools=[search_tool], system_prompt=SYSTEM_PROMPT)
 
 
 class GraphState(BaseModel):
     """State model for the research graph."""
+
     company_name: str
 
 
 class GraphOutput(BaseModel):
     """Output model for the research graph."""
+
     response: str
 
 
 def create_user_message(company_name: str) -> str:
     """Create a formatted user message for company research."""
-    return f"""Please provide a comprehensive analysis and outreach strategy for the company: {company_name}. Use the TavilySearchResults tool to gather information. Include detailed research on the company's background, organizational structure, key decision-makers, and a tailored outreach strategy. Format your response using the following section headers:
+    return f"""Please provide a comprehensive analysis and outreach strategy for the company: {company_name}. Use the DuckDuckGoSearchResults tool to gather information. Include detailed research on the company's background, organizational structure, key decision-makers, and a tailored outreach strategy. Format your response using the following section headers:
 
 1. Company Overview
 2. Organizational Structure
@@ -88,27 +80,27 @@ async def research_node(state: GraphState) -> GraphOutput:
     """Research node that performs company analysis."""
     research_agent = create_research_agent()
     user_message = create_user_message(state.company_name)
-    
+
     # Create message state for the agent
     message_state = MessagesState(messages=[{"role": "user", "content": user_message}])
-    
+
     # Invoke the research agent
     result = await research_agent.ainvoke(message_state)
-    
+
     return GraphOutput(response=result["messages"][-1].content)
 
 
 def build_research_graph() -> StateGraph:
     """Build and compile the research graph."""
     builder = StateGraph(GraphState, output=GraphOutput)
-    
+
     # Add nodes
     builder.add_node("researcher", research_node)
-    
+
     # Add edges
     builder.add_edge(START, "researcher")
     builder.add_edge("researcher", END)
-    
+
     return builder.compile()
 
 

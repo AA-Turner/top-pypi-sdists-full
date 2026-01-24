@@ -9,12 +9,16 @@ from __future__ import annotations
 import logging.config
 import os
 from json import JSONDecodeError
-from typing import Any, Dict, List, Optional, Union, IO
+from typing import IO, TYPE_CHECKING, Any
 
+from deprecated import deprecated
 from requests import Response, Session
 from requests.adapters import HTTPAdapter, Retry
 
 from dune_client.util import get_package_version
+
+if TYPE_CHECKING:
+    from dune_client.types import QueryParameters
 
 # Headers used for pagination in CSV results
 DUNE_CSV_NEXT_URI_HEADER = "x-dune-next-uri"
@@ -23,28 +27,31 @@ DUNE_CSV_NEXT_OFFSET_HEADER = "x-dune-next-offset"
 MAX_NUM_ROWS_PER_BATCH = 32_000
 
 
-# pylint: disable=too-few-public-methods
 class BaseDuneClient:
     """
     A Base Client for Dune which sets up default values
     and provides some convenient functions to use in other clients
     """
 
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(
         self,
-        api_key: str,
-        base_url: str = "https://api.dune.com",
-        request_timeout: float = 10,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        request_timeout: float | None = None,
         client_version: str = "v1",
         performance: str = "medium",
     ):
+        # Read from environment variables if not provided
+        api_key = api_key or os.environ["DUNE_API_KEY"]
+        base_url = base_url or os.environ.get("DUNE_API_BASE_URL", "https://api.dune.com")
+        request_timeout = request_timeout or float(os.environ.get("DUNE_API_REQUEST_TIMEOUT", "10"))
+
         self.token = api_key
         self.base_url = base_url
         self.request_timeout = request_timeout
         self.client_version = client_version
         self.performance = performance
         self.logger = logging.getLogger(__name__)
-        logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s %(message)s")
         retry_strategy = Retry(
             total=5,
             backoff_factor=0.5,
@@ -58,24 +65,24 @@ class BaseDuneClient:
         self.http.mount("http://", adapter)
 
     @classmethod
+    @deprecated(
+        version="1.8.0",
+        reason="Use DuneClient() without any arguments instead, which will automatically read from environment variables",
+    )
     def from_env(cls) -> BaseDuneClient:
         """
         Constructor allowing user to instantiate a client from environment variable
         without having to import dotenv or os manually
         We use `DUNE_API_KEY` as the environment variable that holds the API key.
         """
-        return cls(
-            api_key=os.environ["DUNE_API_KEY"],
-            base_url=os.environ.get("DUNE_API_BASE_URL", "https://api.dune.com"),
-            request_timeout=float(os.environ.get("DUNE_API_REQUEST_TIMEOUT", 10)),
-        )
+        return cls()
 
     @property
     def api_version(self) -> str:
         """Returns client version string"""
         return f"/api/{self.client_version}"
 
-    def default_headers(self) -> Dict[str, str]:
+    def default_headers(self) -> dict[str, str]:
         """Return default headers containing Dune Api token"""
         client_version = get_package_version("dune-client") or "1.3.0"
         return {
@@ -89,15 +96,15 @@ class BaseDuneClient:
 
     def _build_parameters(
         self,
-        params: Optional[Dict[str, Union[str, int]]] = None,
-        columns: Optional[List[str]] = None,
-        sample_count: Optional[int] = None,
-        filters: Optional[str] = None,
-        sort_by: Optional[List[str]] = None,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
+        params: QueryParameters | None = None,
+        columns: list[str] | None = None,
+        sample_count: int | None = None,
+        filters: str | None = None,
+        sort_by: list[str] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         allow_partial_results: str = "true",
-    ) -> Dict[str, Union[str, int]]:
+    ) -> QueryParameters:
         """
         Utility function that builds a dictionary of parameters to be used
         when retrieving advanced results (filters, pagination, sorting, etc.).
@@ -109,24 +116,24 @@ class BaseDuneClient:
             sample_count is None
             # We are sampling and don't use filters or pagination
             or (limit is None and offset is None and filters is None)
-        ), "sampling cannot be combined with filters or pagination"
+        ), "sapling cannot be combined with filters or pagination"
 
-        params = params or {}
-        params["allow_partial_results"] = allow_partial_results
-        if columns is not None and len(columns) > 0:
-            params["columns"] = ",".join(columns)
+        result: QueryParameters = dict(params) if params else {}
+        result["allow_partial_results"] = allow_partial_results
+        if columns:
+            result["columns"] = ",".join(columns)
         if sample_count is not None:
-            params["sample_count"] = sample_count
+            result["sample_count"] = sample_count
         if filters is not None:
-            params["filters"] = filters
-        if sort_by is not None and len(sort_by) > 0:
-            params["sort_by"] = ",".join(sort_by)
+            result["filters"] = filters
+        if sort_by:
+            result["sort_by"] = ",".join(sort_by)
         if limit is not None:
-            params["limit"] = limit
+            result["limit"] = limit
         if offset is not None:
-            params["offset"] = offset
+            result["offset"] = offset
 
-        return params
+        return result
 
 
 class BaseRouter(BaseDuneClient):
@@ -138,13 +145,17 @@ class BaseRouter(BaseDuneClient):
             # Some responses can be decoded and converted to DuneErrors
             response_json = response.json()
             self.logger.debug(f"received response {response_json}")
-            return response_json
         except JSONDecodeError as err:
             # Others can't. Only raise HTTP error for not decodable errors
             response.raise_for_status()
             raise ValueError("Unreachable since previous line raises") from err
+        else:
+            # Check status code even for valid JSON responses
+            # Error responses (4xx, 5xx) can have JSON bodies
+            response.raise_for_status()
+            return response_json
 
-    def _route_url(self, route: Optional[str] = None, url: Optional[str] = None) -> str:
+    def _route_url(self, route: str | None = None, url: str | None = None) -> str:
         if route is not None:
             final_url = f"{self.base_url}{self.api_version}{route}"
         elif url is not None:
@@ -156,10 +167,10 @@ class BaseRouter(BaseDuneClient):
 
     def _get(
         self,
-        route: Optional[str] = None,
-        params: Optional[Any] = None,
+        route: str | None = None,
+        params: Any | None = None,
         raw: bool = False,
-        url: Optional[str] = None,
+        url: str | None = None,
     ) -> Any:
         """Generic interface for the GET method of a Dune API request"""
         final_url = self._route_url(route=route, url=url)
@@ -178,9 +189,9 @@ class BaseRouter(BaseDuneClient):
     def _post(
         self,
         route: str,
-        params: Optional[Any] = None,
-        data: Optional[IO[bytes]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        params: Any | None = None,
+        data: IO[bytes] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> Any:
         """Generic interface for the POST method of a Dune API request"""
         url = self._route_url(route)

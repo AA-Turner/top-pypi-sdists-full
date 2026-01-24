@@ -1,36 +1,32 @@
-from typing import Literal, TextIO
+from typing import TextIO
 
-from .constants import STRING_DELIMITERS, JSONReturnType
-from .json_context import JsonContext
-from .object_comparer import ObjectComparer
 from .parse_array import parse_array as _parse_array
-from .parse_boolean_or_null import parse_boolean_or_null as _parse_boolean_or_null
 from .parse_comment import parse_comment as _parse_comment
 from .parse_number import parse_number as _parse_number
 from .parse_object import parse_object as _parse_object
 from .parse_string import parse_string as _parse_string
-from .string_file_wrapper import StringFileWrapper
+from .utils.constants import STRING_DELIMITERS, JSONReturnType
+from .utils.json_context import JsonContext
+from .utils.object_comparer import ObjectComparer
+from .utils.string_file_wrapper import StringFileWrapper
 
 
 class JSONParser:
     # Split the parse methods into separate files because this one was like 3000 lines
-    def parse_array(self, *args, **kwargs):
-        return _parse_array(self, *args, **kwargs)
+    def parse_array(self) -> list[JSONReturnType]:
+        return _parse_array(self)
 
-    def parse_boolean_or_null(self, *args, **kwargs):
-        return _parse_boolean_or_null(self, *args, **kwargs)
+    def parse_comment(self) -> JSONReturnType:
+        return _parse_comment(self)
 
-    def parse_comment(self, *args, **kwargs):
-        return _parse_comment(self, *args, **kwargs)
+    def parse_number(self) -> JSONReturnType:
+        return _parse_number(self)
 
-    def parse_number(self, *args, **kwargs):
-        return _parse_number(self, *args, **kwargs)
+    def parse_object(self) -> JSONReturnType:
+        return _parse_object(self)
 
-    def parse_object(self, *args, **kwargs):
-        return _parse_object(self, *args, **kwargs)
-
-    def parse_string(self, *args, **kwargs):
-        return _parse_string(self, *args, **kwargs)
+    def parse_string(self) -> JSONReturnType:
+        return _parse_string(self)
 
     def __init__(
         self,
@@ -39,6 +35,7 @@ class JSONParser:
         logging: bool | None,
         json_fd_chunk_length: int = 0,
         stream_stable: bool = False,
+        strict: bool = False,
     ) -> None:
         # The string to parse
         self.json_str: str | StringFileWrapper = json_str
@@ -70,6 +67,10 @@ class JSONParser:
         #   case 3:  '{"key": "val\\n123,`key2:value2' => '{"key": "val\\n123,`key2:value2"}'
         #   case 4:  '{"key": "val\\n123,`key2:value2`"}' => '{"key": "val\\n123,`key2:value2`"}'
         self.stream_stable = stream_stable
+        # Over time the library got more and more complex heuristics to repair JSON. Some of these heuristics
+        # may not be desirable in some use cases and the user would prefer json_repair to return an exception.
+        # So strict mode was added to disable some of those heuristics.
+        self.strict = strict
 
     def parse(
         self,
@@ -81,11 +82,15 @@ class JSONParser:
             )
             json = [json]
             while self.index < len(self.json_str):
+                self.context.reset()
                 j = self.parse_json()
-                if j != "":
+                if j:
                     if ObjectComparer.is_same_object(json[-1], j):
                         # replace the last entry with the new one since the new one seems an update
                         json.pop()
+                    else:
+                        if not json[-1]:
+                            json.pop()
                     json.append(j)
                 else:
                     # this was a bust, move the index
@@ -96,6 +101,11 @@ class JSONParser:
                     "There were no more elements, returning the element without the array",
                 )
                 json = json[0]
+            elif self.strict:
+                self.log(
+                    "Multiple top-level JSON elements found in strict mode, raising an error",
+                )
+                raise ValueError("Multiple top-level JSON elements found in strict mode.")
         if self.logging:
             return json, self.logger
         else:
@@ -106,8 +116,8 @@ class JSONParser:
     ) -> JSONReturnType:
         while True:
             char = self.get_char_at()
-            # False means that we are at the end of the string provided
-            if char is False:
+            # None means that we are at the end of the string provided
+            if char is None:
                 return ""
             # <object> starts with '{'
             elif char == "{":
@@ -129,51 +139,66 @@ class JSONParser:
             else:
                 self.index += 1
 
-    def get_char_at(self, count: int = 0) -> str | Literal[False]:
+    def get_char_at(self, count: int = 0) -> str | None:
         # Why not use something simpler? Because try/except in python is a faster alternative to an "if" statement that is often True
         try:
             return self.json_str[self.index + count]
         except IndexError:
-            return False
+            return None
 
-    def skip_whitespaces_at(self, idx: int = 0, move_main_index=True) -> int:
+    def skip_whitespaces(self) -> None:
         """
-        This function quickly iterates on whitespaces, syntactic sugar to make the code more concise
+        This function quickly iterates on whitespaces, moving the self.index forward
         """
         try:
-            char = self.json_str[self.index + idx]
-        except IndexError:
-            return idx
-        while char.isspace():
-            if move_main_index:
+            char = self.json_str[self.index]
+            while char.isspace():
                 self.index += 1
-            else:
-                idx += 1
-            try:
-                char = self.json_str[self.index + idx]
-            except IndexError:
-                return idx
-        return idx
+                char = self.json_str[self.index]
+        except IndexError:
+            pass
 
-    def skip_to_character(self, character: str | list, idx: int = 0) -> int:
+    def scroll_whitespaces(self, idx: int = 0) -> int:
         """
-        This function quickly iterates to find a character, syntactic sugar to make the code more concise
+        This function quickly iterates on whitespaces. Doesn't move the self.index and returns the offset from self.index
         """
         try:
             char = self.json_str[self.index + idx]
-        except IndexError:
-            return idx
-        character_list = character if isinstance(character, list) else [character]
-        while char not in character_list:
-            idx += 1
-            try:
+            while char.isspace():
+                idx += 1
                 char = self.json_str[self.index + idx]
-            except IndexError:
-                return idx
-        if self.json_str[self.index + idx - 1] == "\\":
-            # Ah shoot this was actually escaped, continue
-            return self.skip_to_character(character, idx + 1)
+        except IndexError:
+            pass
         return idx
+
+    def skip_to_character(self, character: str | list[str], idx: int = 0) -> int:
+        """
+        Advance from (self.index + idx) until we hit an *unescaped* target character.
+        Returns the offset (idx) from self.index to that position, or the distance to the end if not found.
+        """
+        targets = set(character) if isinstance(character, list) else {character}
+        i = self.index + idx
+        n = len(self.json_str)
+        backslashes = 0  # count of consecutive '\' immediately before current char
+
+        while i < n:
+            ch = self.json_str[i]
+
+            if ch == "\\":
+                backslashes += 1
+                i += 1
+                continue
+
+            # ch is not a backslash; if it's a target and not escaped (even backslashes), we're done
+            if ch in targets and (backslashes % 2 == 0):
+                return i - self.index
+
+            # reset backslash run when we see a non-backslash
+            backslashes = 0
+            i += 1
+
+        # not found; return distance to end
+        return n - self.index
 
     def _log(self, text: str) -> None:
         window: int = 10

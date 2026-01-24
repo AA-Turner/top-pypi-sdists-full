@@ -1,18 +1,19 @@
 Metadata-Version: 2.1
 Name: langchain-pinecone
-Version: 0.2.12
+Version: 0.2.13
 Summary: An integration package connecting Pinecone and LangChain
 License: MIT
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-pinecone/tree/main/libs/pinecone
 Project-URL: Release Notes, https://github.com/langchain-ai/langchain/releases?q=tag%3A%22langchain-pinecone%3D%3D0%22&expanded=true
 Project-URL: repository, https://github.com/langchain-ai/langchain-pinecone
 Requires-Python: <3.14,>=3.9
-Requires-Dist: langchain-core<1.0.0,>=0.3.34
+Requires-Dist: langchain-core<2.0.0,>=0.3.34
 Requires-Dist: pinecone[asyncio]<8.0.0,>=6.0.0
-Requires-Dist: numpy>=1.26.4
+Requires-Dist: numpy!=2.0.2,>=1.26.4
 Requires-Dist: langchain-openai>=0.3.11
 Requires-Dist: httpx>=0.28.0
 Requires-Dist: simsimd>=5.9.11
+Requires-Dist: pydantic>=2.11.1
 Description-Content-Type: text/markdown
 
 # langchain-pinecone

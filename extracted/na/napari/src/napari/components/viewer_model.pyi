@@ -1222,6 +1222,7 @@ class ViewerModel(
         features=None,
         graph=None,
         head_length: int = 0,
+        hide_completed_tracks: bool = False,
         metadata=None,
         name=None,
         opacity=1.0,
@@ -1286,6 +1287,9 @@ class ViewerModel(
             See examples/tracks_3d_with_graph.py
         head_length : float
             Length of the positive (forward in time) tails in units of time.
+        hide_completed_tracks : bool
+            If True, tracks that have completed before the current time point are not
+            displayed, regardless of the value of `tail_length`.
         metadata : dict
             Layer metadata.
         name : str

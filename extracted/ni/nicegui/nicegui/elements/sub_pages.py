@@ -3,13 +3,13 @@ from __future__ import annotations
 import asyncio
 import inspect
 import re
-from typing import Any, Callable, Dict, Optional, Set
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 from starlette.datastructures import QueryParams
 from typing_extensions import Self
 
-from .. import background_tasks
+from .. import background_tasks, json
 from ..context import context
 from ..element import Element
 from ..elements.label import Label
@@ -21,10 +21,10 @@ from ..page_arguments import PageArguments, RouteMatch
 class SubPages(Element, component='sub_pages.js', default_classes='nicegui-sub-pages'):
 
     def __init__(self,
-                 routes: Optional[Dict[str, Callable]] = None,
+                 routes: dict[str, Callable] | None = None,
                  *,
-                 root_path: Optional[str] = None,
-                 data: Optional[Dict[str, Any]] = None,
+                 root_path: str | None = None,
+                 data: dict[str, Any] | None = None,
                  show_404: bool = True,
                  ) -> None:
         """Create a container for client-side routing within a page.
@@ -32,8 +32,6 @@ class SubPages(Element, component='sub_pages.js', default_classes='nicegui-sub-p
         Provides URL-based navigation between different views to build single page applications (SPAs).
         Routes are defined as path patterns mapping to page builder functions.
         Path parameters like "/user/{id}" are extracted and passed to the builder function.
-
-        **This is an experimental feature, and the API is subject to change.**
 
         *Added in version 2.22.0*
 
@@ -44,18 +42,14 @@ class SubPages(Element, component='sub_pages.js', default_classes='nicegui-sub-p
             (can be useful for dynamically created nested sub pages) (default: ``True``)
         """
         super().__init__()
-        assert not context.client.shared, (
-            'ui.sub_pages cannot be used with the auto-index client or other shared clients. '
-            'Please use a function with ui.page decorator instead. See https://nicegui.io/documentation/sub_pages.'
-        )
         self._router = context.client.sub_pages_router
         self._routes = routes or {}
         parent_sub_pages_element = next((el for el in self.ancestors() if isinstance(el, SubPages)), None)
         self._rendered_path = ''
         self._root_path = parent_sub_pages_element._rendered_path if parent_sub_pages_element else root_path
         self._data = data or {}
-        self._match: Optional[RouteMatch] = None
-        self._active_tasks: Set[asyncio.Task] = set()
+        self._match: RouteMatch | None = None
+        self._active_tasks: set[asyncio.Task] = set()
         self._404_enabled = show_404
         self.has_404 = False
         self._show()
@@ -70,6 +64,14 @@ class SubPages(Element, component='sub_pages.js', default_classes='nicegui-sub-p
         self._routes[path] = page
         self._show()
         return self
+
+    def refresh(self) -> None:
+        """Rebuild this sub pages element.
+
+        *Added in version 3.1.0*
+        """
+        self._reset_match()
+        self._show()
 
     def _show(self) -> None:
         """Display the page matching the current URL path."""
@@ -91,8 +93,7 @@ class SubPages(Element, component='sub_pages.js', default_classes='nicegui-sub-p
                 self._set_match(match)
         else:
             self._cancel_active_tasks()
-            self.clear()
-            with self:
+            with self.clear():
                 if match is not None and self._render_page(match):
                     self._set_match(match)
                 else:
@@ -106,13 +107,18 @@ class SubPages(Element, component='sub_pages.js', default_classes='nicegui-sub-p
         except Exception as e:
             self.clear()  # NOTE: clear partial content created before the exception
             self._render_error(e)
+            self.client.handle_exception(e)
             return True
 
         self._handle_scrolling(match, behavior='instant')
         if asyncio.iscoroutine(result):
             async def background_task():
                 with self:
-                    await result
+                    try:
+                        await result
+                    except Exception as e:
+                        self.client.handle_exception(e)
+                        raise
 
             task = background_tasks.create(background_task(), name=f'building sub_page {match.pattern}')
             self._active_tasks.add(task)
@@ -134,41 +140,38 @@ class SubPages(Element, component='sub_pages.js', default_classes='nicegui-sub-p
         Label(f'500: {msg}')
         log.error(msg, exc_info=True)
 
-    def _set_match(self, match: Optional[RouteMatch]) -> None:
+    def _set_match(self, match: RouteMatch | None) -> None:
         self._match = match
-        if match is None:
-            if self._404_enabled:
-                self.has_404 = True
-                self.clear()
-                with self:
-                    self._render_404()
-        else:
-            self.has_404 = False
+        self.has_404 = match is None
+        if self.has_404 and self._404_enabled:
+            with self.clear():
+                self._render_404()
 
     def _reset_match(self) -> None:
         self._match = None
 
-    def _find_matching_path(self) -> Optional[RouteMatch]:
-        match: Optional[RouteMatch] = None
+    def _find_matching_path(self) -> RouteMatch | None:
+        match: RouteMatch | None = None
         relative_path = self._router.current_path[len(self._root_path or ''):]
         if not relative_path.startswith('/'):
             relative_path = '/' + relative_path
         segments = relative_path.split('/')
+        query_params: QueryParams | None = None
         while segments:
             path = '/'.join(segments)
             if not path:
                 path = '/'
-            match = self._match_route(path)
+            match, query_params = self._match_route(path, query_params)
             if match is not None:
                 match.remaining_path = urlparse(relative_path).path.rstrip('/')[len(match.path):]
                 break
             segments.pop()
         return match
 
-    def _match_route(self, path: str) -> Optional[RouteMatch]:
+    def _match_route(self, path: str, query_params: QueryParams | None) -> tuple[RouteMatch | None, QueryParams | None]:
         parsed_url = urlparse(path)
         path_only = parsed_url.path.rstrip('/')
-        query_params = QueryParams(parsed_url.query) if parsed_url.query else QueryParams()
+        query_params = query_params or QueryParams(parsed_url.query)
         fragment = parsed_url.fragment
         if not path_only.startswith('/'):
             path_only = '/' + path_only
@@ -183,11 +186,11 @@ class SubPages(Element, component='sub_pages.js', default_classes='nicegui-sub-p
                     parameters=parameters,
                     query_params=query_params,
                     fragment=fragment,
-                )
-        return None
+                ), query_params
+        return None, query_params
 
     @staticmethod
-    def _match_path(pattern: str, path: str) -> Optional[Dict[str, str]]:
+    def _match_path(pattern: str, path: str) -> dict[str, str] | None:
         if '{' not in pattern:
             return {} if pattern == path else None
 
@@ -214,7 +217,9 @@ class SubPages(Element, component='sub_pages.js', default_classes='nicegui-sub-p
     def _scroll_to_fragment(self, fragment: str, *, behavior: str) -> None:
         run_javascript(f'''
             requestAnimationFrame(() => {{
-                document.querySelector('#{fragment}, a[name="{fragment}"]')?.scrollIntoView({{ behavior: "{behavior}" }});
+                const frag = {json.dumps(fragment)};
+                const el = document.getElementById(frag) || document.querySelector("a[name=" + JSON.stringify(frag) + "]");
+                el?.scrollIntoView({{ behavior: "{behavior}" }});
             }});
         ''')
 

@@ -1,17 +1,26 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from decimal import Decimal
 from logging import getLogger
+from pathlib import Path
 from typing import Annotated, Any
 
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
 from typing_extensions import Self, deprecated
 
+from crawlee import service_locator
 from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 from crawlee.configuration import Configuration as CrawleeConfiguration
 
+from apify._models import (
+    FlatPricePerMonthActorPricingInfo,
+    FreeActorPricingInfo,
+    PayPerEventActorPricingInfo,
+    PricePerDatasetItemActorPricingInfo,
+)
 from apify._utils import docs_group
 
 logger = getLogger(__name__)
@@ -25,7 +34,7 @@ def _transform_to_list(value: Any) -> list[str] | None:
     return value if isinstance(value, list) else str(value).split(',')
 
 
-@docs_group('Classes')
+@docs_group('Configuration')
 class Configuration(CrawleeConfiguration):
     """A class for specifying the configuration of an Actor.
 
@@ -49,6 +58,13 @@ class Configuration(CrawleeConfiguration):
         str | None,
         Field(
             description='Full name of the Actor',
+        ),
+    ] = None
+
+    actor_permission_level: Annotated[
+        str | None,
+        Field(
+            description='Permission level the Actor is run under.',
         ),
     ] = None
 
@@ -137,6 +153,39 @@ class Configuration(CrawleeConfiguration):
         Field(
             alias='apify_dedicated_cpus',
             description='Number of CPU cores reserved for the actor, based on allocated memory',
+        ),
+    ] = None
+
+    default_dataset_id: Annotated[
+        str | None,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_default_dataset_id',
+                'apify_default_dataset_id',
+            ),
+            description='Default dataset ID used by the Apify storage client when no ID or name is provided.',
+        ),
+    ] = None
+
+    default_key_value_store_id: Annotated[
+        str | None,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_default_key_value_store_id',
+                'apify_default_key_value_store_id',
+            ),
+            description='Default key-value store ID for the Apify storage client when no ID or name is provided.',
+        ),
+    ] = None
+
+    default_request_queue_id: Annotated[
+        str | None,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_default_request_queue_id',
+                'apify_default_request_queue_id',
+            ),
+            description='Default request queue ID for the Apify storage client when no ID or name is provided.',
         ),
     ] = None
 
@@ -374,6 +423,29 @@ class Configuration(CrawleeConfiguration):
         ),
     ] = None
 
+    actor_pricing_info: Annotated[
+        FreeActorPricingInfo
+        | FlatPricePerMonthActorPricingInfo
+        | PricePerDatasetItemActorPricingInfo
+        | PayPerEventActorPricingInfo
+        | None,
+        Field(
+            alias='apify_actor_pricing_info',
+            description='JSON string with prising info of the actor',
+            discriminator='pricing_model',
+        ),
+        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data if data else None),
+    ] = None
+
+    charged_event_counts: Annotated[
+        dict[str, int] | None,
+        Field(
+            alias='apify_charged_actor_event_counts',
+            description='Counts of events that were charged for the actor',
+        ),
+        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data if data else None),
+    ] = None
+
     @model_validator(mode='after')
     def disable_browser_sandbox_on_platform(self) -> Self:
         """Disable the browser sandbox mode when running on the Apify platform.
@@ -387,15 +459,53 @@ class Configuration(CrawleeConfiguration):
             logger.warning('Actor is running on the Apify platform, `disable_browser_sandbox` was changed to True.')
         return self
 
+    @property
+    def canonical_input_key(self) -> str:
+        return str(Path(self.input_key).with_suffix('.json'))
+
+    @property
+    def input_key_candidates(self) -> set[str]:
+        return {self.input_key, self.canonical_input_key, Path(self.canonical_input_key).stem}
+
     @classmethod
     def get_global_configuration(cls) -> Configuration:
         """Retrieve the global instance of the configuration.
 
-        Mostly for the backwards compatibility. It is recommended to use the `service_locator.get_configuration()`
-        instead.
+        This method ensures that ApifyConfiguration is returned, even if CrawleeConfiguration was set in the
+        service locator.
         """
-        return cls()
+        global_configuration = service_locator.get_configuration()
 
+        if isinstance(global_configuration, Configuration):
+            # If Apify configuration was already stored in service locator, return it.
+            return global_configuration
 
-# Monkey-patch the base class so that it works with the extended configuration
-CrawleeConfiguration.get_global_configuration = Configuration.get_global_configuration  # type: ignore[method-assign]
+        logger.warning(
+            'Non Apify Configuration is set in the `service_locator` in the SDK context. '
+            'It is recommended to set `apify.Configuration` explicitly as early as possible by using '
+            'service_locator.set_configuration'
+        )
+
+        return cls.from_configuration(global_configuration)
+
+    @classmethod
+    def from_configuration(cls, configuration: CrawleeConfiguration) -> Configuration:
+        """Create Apify Configuration from existing Crawlee Configuration.
+
+        Args:
+            configuration: The existing Crawlee Configuration.
+
+        Returns:
+            The created Apify Configuration.
+        """
+        apify_configuration = cls()
+
+        # Ensure the returned configuration is of type Apify Configuration.
+        # Most likely crawlee configuration was already set. Create Apify configuration from it.
+        # Due to known Pydantic issue https://github.com/pydantic/pydantic/issues/9516, creating new instance of
+        # Configuration from existing one in situation where environment can have some fields set by alias is very
+        # unpredictable. Use the stable workaround.
+        for name in configuration.model_fields:
+            setattr(apify_configuration, name, getattr(configuration, name))
+
+        return apify_configuration

@@ -300,6 +300,8 @@ Keyword arguments:
 
     - strokeDasharray (string | number; optional)
 
+    - curveType (a value equal to: 'bump', 'linear', 'natural', 'monotone', 'step', 'stepBefore', 'stepAfter'; optional)
+
     - name (string; required)
 
     - color (optional)
@@ -405,7 +407,7 @@ Keyword arguments:
 
 - yAxisProps (dict; optional):
     Props passed down to the `YAxis` recharts component."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'LineChart'
@@ -413,6 +415,7 @@ Keyword arguments:
         "Series",
             {
             "strokeDasharray": NotRequired[typing.Union[str, NumberType]],
+            "curveType": NotRequired[Literal["bump", "linear", "natural", "monotone", "step", "stepBefore", "stepAfter"]],
             "name": str,
             "color": NotRequired[typing.Union[Literal["dark"], Literal["gray"], Literal["red"], Literal["pink"], Literal["grape"], Literal["violet"], Literal["indigo"], Literal["blue"], Literal["cyan"], Literal["green"], Literal["lime"], Literal["yellow"], Literal["orange"], Literal["teal"]]],
             "label": NotRequired[str],

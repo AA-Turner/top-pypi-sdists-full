@@ -309,7 +309,7 @@ class FlaskRequestTestCase(BaseFlaskTestCase):
                 api_gateway_resource="GET /",
                 method="GET",
                 status_code="200",
-                url="local/",
+                url="https://local/",
                 start=1736973768,
             )
 
@@ -330,7 +330,7 @@ class FlaskRequestTestCase(BaseFlaskTestCase):
                 api_gateway_resource="GET /",
                 method="GET",
                 status_code="500",
-                url="local/",
+                url="https://local/",
                 start=1736973768,
             )
 
@@ -351,7 +351,7 @@ class FlaskRequestTestCase(BaseFlaskTestCase):
                 api_gateway_resource="GET /",
                 method="GET",
                 status_code="599",
-                url="local/",
+                url="https://local/",
                 start=1736973768,
             )
 
@@ -405,7 +405,7 @@ class FlaskRequestTestCase(BaseFlaskTestCase):
                 api_gateway_resource="GET /",
                 method="GET",
                 status_code="200",
-                url="local/",
+                url="https://local/",
                 start=1736973768,
                 is_distributed=True,
                 distributed_trace_id=1,
@@ -1170,9 +1170,7 @@ class TestCase(BaseFlaskTestCase):
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main(["-x", __file__]))
-    """.format(
-        expected_service_name
-    )
+    """.format(expected_service_name)
     env = os.environ.copy()
     if schema_version:
         env["DD_TRACE_SPAN_ATTRIBUTE_SCHEMA"] = schema_version
@@ -1214,9 +1212,7 @@ class TestCase(BaseFlaskTestCase):
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main(["-x", __file__]))
-    """.format(
-        expected_operation_name
-    )
+    """.format(expected_operation_name)
     env = os.environ.copy()
     if schema_version:
         env["DD_TRACE_SPAN_ATTRIBUTE_SCHEMA"] = schema_version

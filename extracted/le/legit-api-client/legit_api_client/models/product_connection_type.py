@@ -46,6 +46,10 @@ class ProductConnectionType(str, Enum):
     AGGREGATEDHOST = 'AggregatedHost'
     CLOUDCOMPUTERESOURCEQUERY = 'CloudComputeResourceQuery'
     CLOUDCOMPUTERESOURCE = 'CloudComputeResource'
+    CIWORKFLOWS = 'CiWorkflows'
+    CIWORKFLOWSQUERY = 'CiWorkflowsQuery'
+    CONTAINERIMAGE = 'ContainerImage'
+    HOST = 'Host'
     NESTEDPRODUCTREPOSITORY = 'NestedProductRepository'
 
     @classmethod

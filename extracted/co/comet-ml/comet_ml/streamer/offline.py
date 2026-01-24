@@ -64,7 +64,7 @@ class OfflineStreamer(BaseStreamer):
         progress_callback_interval: float = PROGRESS_CALLBACK_INTERVAL,
         wait_for_finish_sleep_interval: float = DEFAULT_WAIT_FOR_FINISH_SLEEP_INTERVAL,
     ) -> None:
-        super().__init__(initial_offset=0, queue_timeout=1)
+        super().__init__(queue_timeout=1)
 
         self.daemon = True
         if experiment_key is not None:

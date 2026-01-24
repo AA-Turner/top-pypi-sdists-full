@@ -6,7 +6,6 @@ from gersemi.custom_command_definition_finder import (
 from gersemi.dumper import Dumper
 from .tests_generator import generate_input_only_tests
 
-
 custom_command_to_format = """
 seven_samurai(
 three standalone arguments
@@ -37,10 +36,8 @@ def create_dumper(custom_command_definitions):
     )
 
 
-def test_custom_command_generated_dumper(
-    parser_with_postprocessing, case
-):  # pylint: disable=redefined-outer-name
-    parsed_function_def = parser_with_postprocessing.parse(case.content)
+def test_custom_command_generated_dumper(parser_with_postprocessing, parser, case):  # pylint: disable=redefined-outer-name
+    parsed_function_def = parser.parse(case.content)
     definitions = get_just_definitions(
         find_custom_command_definitions(parsed_function_def)
     )

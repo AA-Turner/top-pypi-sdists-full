@@ -11,7 +11,10 @@ from .bitbucket_constants import create_pr_data
 from .cloud_api_wrapper import BitbucketCloudApi, BitbucketServerApi
 from pydantic.fields import PrivateAttr
 
-from ..elitea_base import BaseCodeToolApiWrapper
+from ..code_indexer_toolkit import CodeIndexerToolkit
+from ..utils.available_tools_decorator import extend_with_parent_available_tools
+from ..elitea_base import extend_with_file_operations, BaseCodeToolApiWrapper
+from ..utils.tool_prompts import EDIT_FILE_DESCRIPTION, UPDATE_FILE_PROMPT_NO_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +39,7 @@ CreateFileModel = create_model(
 UpdateFileModel = create_model(
     "UpdateFileModel",
     file_path=(str, Field(description="The path of the file")),
-    update_query=(str, Field(description="Contains the file contents required to be updated. "
-                                       "The old file contents is wrapped in OLD <<<< and >>>> OLD. "
-                                       "The new file contents is wrapped in NEW <<<< and >>>> NEW")),
+    update_query=(str, Field(description=UPDATE_FILE_PROMPT_NO_PATH)),
     branch=(str, Field(description="The branch to update the file in")),
 )
 
@@ -55,7 +56,7 @@ SetActiveBranchModel = create_model(
 
 ListBranchesInRepoModel = create_model(
     "ListBranchesInRepoModel",
-    limit=(Optional[int], Field(default=20, description="Maximum number of branches to return. If not provided, all branches will be returned.")),
+    limit=(Optional[int], Field(default=20, description="Maximum number of branches to return. If not provided, all branches will be returned.", gt=0)),
     branch_wildcard=(Optional[str], Field(default=None, description="Wildcard pattern to filter branches by name. If not provided, all branches will be returned."))
 )
 
@@ -92,7 +93,7 @@ DeleteFileModel = create_model(
     "DeleteFileModel",
     file_path=(str, Field(description="The path of the file")),
     branch=(str, Field(description="The branch to delete the file from")),
-    commit_message=(str, Field(default=None, description="Commit message for deleting the file. Optional.")),
+    commit_message=(Optional[str], Field(default=None, description="Commit message for deleting the file. Optional.")),
 )
 
 AppendFileModel = create_model(
@@ -117,11 +118,17 @@ CommentOnIssueModel = create_model(
 )
 
 
-class BitbucketAPIWrapper(BaseCodeToolApiWrapper):
+class BitbucketAPIWrapper(CodeIndexerToolkit):
     """Wrapper for Bitbucket API."""
 
     _bitbucket: Any = PrivateAttr()
     _active_branch: Any = PrivateAttr()
+    
+    # Import file operation methods from BaseCodeToolApiWrapper
+    read_file_chunk = BaseCodeToolApiWrapper.read_file_chunk
+    read_multiple_files = BaseCodeToolApiWrapper.read_multiple_files
+    search_file = BaseCodeToolApiWrapper.search_file
+    edit_file = BaseCodeToolApiWrapper.edit_file
     url: str = ''
     project: str = ''
     """The key of the project this repo belongs to"""
@@ -167,12 +174,43 @@ class BitbucketAPIWrapper(BaseCodeToolApiWrapper):
             repository=values['repository']
         )
         cls._active_branch = values.get('branch')
-        return values
+        return super().validate_toolkit(values)
 
     def set_active_branch(self, branch_name: str) -> str:
-        """Set the active branch for the bot."""
-        self._active_branch = branch_name
-        return f"Active branch set to `{branch_name}`"
+        """
+        Switches the active branch to the specified branch.
+
+        Parameters:
+            branch_name (str): The name of the branch to be the current branch
+
+        Returns:
+            str: Success message if branch exists, or ToolException if branch doesn't exist
+        """
+        try:
+            # Fetch all branches from the repository (no caching)
+            branches = self._bitbucket.list_branches()
+
+            # Check if the requested branch exists
+            if branch_name in branches:
+                self._active_branch = branch_name
+                return f"Switched to branch `{branch_name}`"
+            else:
+                # Format branch list for error message
+                if len(branches) <= 30:
+                    branch_list = str(branches)
+                else:
+                    # Show first 30 branches and indicate there are more
+                    remaining_count = len(branches) - 30
+                    branch_list = str(branches[:30])[:-1] + f", and {remaining_count} more]"
+
+                msg = (
+                    f"Error branch `{branch_name}` does not exist, "
+                    f"in repo with current branches: {branch_list}"
+                )
+                return ToolException(msg)
+        except Exception as e:
+            # Handle unexpected errors during branch fetching
+            return ToolException(f"Failed to validate branch '{branch_name}': {str(e)}")
 
     def list_branches_in_repo(self, limit: Optional[int] = 20, branch_wildcard: Optional[str] = None) -> List[str]:
         """
@@ -250,9 +288,11 @@ class BitbucketAPIWrapper(BaseCodeToolApiWrapper):
         Updates file on the bitbucket repo
         Parameters:
             file_path(str): a string which contains the file path (example: "hello_world.md").
-            update_query(str): Contains the file contents requried to be updated.
+            update_query(str): Contains the file contents required to be updated.
                 The old file contents is wrapped in OLD <<<< and >>>> OLD
                 The new file contents is wrapped in NEW <<<< and >>>> NEW
+                IMPORTANT: Markers must be on their own dedicated line (not inline with content).
+                Multiple OLD/NEW pairs are supported for multiple edits.
                 For example:
                 OLD <<<<
                 Hello Earth!
@@ -262,11 +302,20 @@ class BitbucketAPIWrapper(BaseCodeToolApiWrapper):
                 >>>> NEW
             branch(str): branch name (by default: active_branch)
         Returns:
-            str: A success or failure message
+            str | ToolException: A success message or a ToolException on failure.
         """
         try:
-            result = self._bitbucket.update_file(file_path=file_path, update_query=update_query, branch=branch)
-            return result if isinstance(result, ToolException) else f"File has been updated: {file_path}."
+            # Use the shared edit_file logic from BaseCodeToolApiWrapper, operating on
+            # this wrapper instance, which provides _read_file and _write_file.
+            result = self.edit_file(
+                file_path=file_path,
+                branch=branch,
+                file_query=update_query,
+            )
+            return result
+        except ToolException as e:
+            # Pass through ToolExceptions as-is so callers can handle them uniformly.
+            return e
         except Exception as e:
             return ToolException(f"File was not updated due to error: {str(e)}")
 
@@ -333,16 +382,17 @@ class BitbucketAPIWrapper(BaseCodeToolApiWrapper):
         except Exception as e:
             return ToolException(f"Can't add comment to pull request `{pr_id}` due to error:\n{str(e)}")
 
-    def _get_files(self, path: str, branch: str) -> str:
+    def _get_files(self, path: str, branch: str, recursive: bool = True) -> str:
         """
         Get files from the bitbucket repo
         Parameters:
             path(str): the file path
             branch(str): branch name (by default: active_branch)
+            recursive(bool): whether to list files recursively
         Returns:
             str: List of the files
         """
-        return str(self._bitbucket.get_files_list(file_path=path if path else '', branch=branch if branch else self._active_branch))
+        return str(self._bitbucket.get_files_list(file_path=path if path else '', branch=branch if branch else self._active_branch, recursive=recursive))
 
     # TODO: review this method, it may not work as expected
     # def _file_commit_hash(self, file_path: str, branch: str):
@@ -359,12 +409,15 @@ class BitbucketAPIWrapper(BaseCodeToolApiWrapper):
     #     except Exception as e:
     #         raise ToolException(f"Can't extract file commit hash (`{file_path}`) due to error:\n{str(e)}")
 
-    def _read_file(self, file_path: str, branch: str) -> str:
+    def _read_file(self, file_path: str, branch: str, **kwargs) -> str:
         """
-        Reads a file from the gitlab repo
+        Reads a file from the bitbucket repo with optional partial read support.
+        
         Parameters:
             file_path(str): the file path
             branch(str): branch name (by default: active_branch)
+            **kwargs: Additional parameters (offset, limit, head, tail) - currently ignored,
+                     partial read handled client-side by base class methods
         Returns:
             str: The file decoded as a string
         """
@@ -377,7 +430,7 @@ class BitbucketAPIWrapper(BaseCodeToolApiWrapper):
         """List files in the repository with optional path, recursive search, and branch."""
         branch = branch if branch else self._active_branch
         try:
-            files_str = self._get_files(path, branch)
+            files_str = self._get_files(path, branch, recursive)
             # Parse the string response to extract file paths
             # This is a simplified implementation - might need adjustment based on actual response format
             import ast
@@ -398,7 +451,38 @@ class BitbucketAPIWrapper(BaseCodeToolApiWrapper):
             return self._read_file(file_path, branch)
         except Exception as e:
             return f"Failed to read file {file_path}: {str(e)}"
+    
+    def _write_file(
+        self,
+        file_path: str,
+        content: str,
+        branch: str = None,
+        commit_message: str = None,
+    ) -> str:
+        """Write content to a file (create or update) via the underlying Bitbucket client.
 
+        This delegates to the low-level BitbucketServerApi/BitbucketCloudApi `_write_file`
+        implementations, so all backend-specific commit behavior (server vs cloud) is
+        centralized there. Used by BaseCodeToolApiWrapper.edit_file.
+        """
+        branch = branch or self._active_branch
+        try:
+            # Delegate actual write/commit to the underlying API wrapper, which
+            # implements _write_file(file_path, content, branch, commit_message).
+            self._bitbucket._write_file(
+                file_path=file_path,
+                content=content,
+                branch=branch,
+                commit_message=commit_message or f"Update {file_path}",
+            )
+            return f"Update {file_path}"
+        except ToolException:
+            raise
+        except Exception as e:
+            raise ToolException(f"Unable to write file {file_path} on branch {branch}: {str(e)}")
+
+    @extend_with_parent_available_tools
+    @extend_with_file_operations
     def get_available_tools(self):
         return [
             {
@@ -440,7 +524,7 @@ class BitbucketAPIWrapper(BaseCodeToolApiWrapper):
             {
                 "name": "update_file",
                 "ref": self.update_file,
-                "description": self.update_file.__doc__ or "Update the contents of a file in the repository.",
+                "description": EDIT_FILE_DESCRIPTION,
                 "args_schema": UpdateFileModel,
             },
             {
@@ -473,4 +557,4 @@ class BitbucketAPIWrapper(BaseCodeToolApiWrapper):
                 "description": self.add_pull_request_comment.__doc__ or "Add a comment to a pull request in the repository.",
                 "args_schema": AddPullRequestCommentModel,
             }
-        ] + self._get_vector_search_tools()
+        ]

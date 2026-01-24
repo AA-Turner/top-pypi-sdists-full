@@ -1,6 +1,5 @@
 """Core definition of a Molecule Document"""
 
-from collections.abc import Mapping
 from typing import Any
 
 from pydantic import Field
@@ -8,12 +7,13 @@ from pymatgen.analysis.molecule_matcher import MoleculeMatcher
 from pymatgen.core.structure import Molecule
 from pymatgen.io.babel import BabelMolAdaptor
 
-from emmet.core.material import CoreMoleculeDoc, PropertyOrigin
+from emmet.core.material import CoreMoleculeDoc
+from emmet.core.molecules import MolPropertyOrigin
 from emmet.core.mpid import MPculeID
 from emmet.core.qchem.calc_types import CalcType, LevelOfTheory, TaskType
 from emmet.core.qchem.task import TaskDocument
 from emmet.core.settings import EmmetSettings
-from emmet.core.utils import get_molecule_id
+from emmet.core.utils import arrow_incompatible, get_molecule_id
 
 try:
     import openbabel
@@ -140,6 +140,7 @@ def evaluate_task_entry(
     )
 
 
+@arrow_incompatible
 class MoleculeDoc(CoreMoleculeDoc):
     species: list[str] | None = Field(
         None, description="Ordered list of elements/species in this Molecule."
@@ -162,23 +163,23 @@ class MoleculeDoc(CoreMoleculeDoc):
         None, description="Standardized hash of the InChI for this molecule"
     )
 
-    calc_types: Mapping[str, CalcType] | None = Field(  # type: ignore
+    calc_types: dict[str, CalcType] | None = Field(  # type: ignore
         None,
         description="Calculation types for all the calculations that make up this molecule",
     )
-    task_types: Mapping[str, TaskType] | None = Field(
+    task_types: dict[str, TaskType] | None = Field(
         None,
         description="Task types for all the calculations that make up this molecule",
     )
-    levels_of_theory: Mapping[str, LevelOfTheory] | None = Field(
+    levels_of_theory: dict[str, LevelOfTheory] | None = Field(
         None,
         description="Levels of theory types for all the calculations that make up this molecule",
     )
-    solvents: Mapping[str, str] | None = Field(
+    solvents: dict[str, str] | None = Field(
         None,
         description="Solvents (solvent parameters) for all the calculations that make up this molecule",
     )
-    lot_solvents: Mapping[str, str] | None = Field(
+    lot_solvents: dict[str, str] | None = Field(
         None,
         description="Combinations of level of theory and solvent for all calculations that make up this molecule",
     )
@@ -208,7 +209,7 @@ class MoleculeDoc(CoreMoleculeDoc):
         description="Collection of all unique combinations of level of theory and solvent used for this molecule",
     )
 
-    origins: list[PropertyOrigin] | None = Field(
+    origins: list[MolPropertyOrigin] | None = Field(
         None,
         description="List of property origins for tracking the provenance of properties",
     )
@@ -218,7 +219,7 @@ class MoleculeDoc(CoreMoleculeDoc):
         description="Dictionary representations of all task documents for this molecule",
     )
 
-    best_entries: Mapping[str, dict[str, Any]] | None = Field(
+    best_entries: dict[str, dict[str, Any]] | None = Field(
         None,
         description="Mapping for tracking the best entries at each level of theory (+ solvent) for Q-Chem calculations",
     )
@@ -293,7 +294,7 @@ class MoleculeDoc(CoreMoleculeDoc):
 
             # Origins
             origins = [
-                PropertyOrigin(
+                MolPropertyOrigin(
                     name="molecule",
                     task_id=sorted_tasks[0].task_id,
                     last_updated=sorted_tasks[0].last_updated,
@@ -361,7 +362,7 @@ class MoleculeDoc(CoreMoleculeDoc):
 
             # Origins
             origins = [
-                PropertyOrigin(
+                MolPropertyOrigin(
                     name="molecule",
                     task_id=best_molecule_calc.task_id,
                     last_updated=best_molecule_calc.last_updated,

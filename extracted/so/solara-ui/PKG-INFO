@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: solara-ui
-Version: 1.51.1
+Version: 1.57.1
 Dynamic: Summary
 Project-URL: Home, https://www.github.com/widgetti/solara
 Project-URL: Documentation, https://solara.dev
@@ -27,7 +27,7 @@ License: The MIT License (MIT)
         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
         THE SOFTWARE.
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Requires-Dist: humanize
 Requires-Dist: ipyvue>=1.9.0
 Requires-Dist: ipyvuetify>=1.6.10
@@ -40,7 +40,6 @@ Requires-Dist: markdown; extra == 'all'
 Requires-Dist: numpy; extra == 'all'
 Requires-Dist: pillow; extra == 'all'
 Requires-Dist: pygments; extra == 'all'
-Requires-Dist: pygments==2.10; (python_version < '3.7') and extra == 'all'
 Requires-Dist: pymdown-extensions; extra == 'all'
 Provides-Extra: cache
 Requires-Dist: cachetools; extra == 'cache'
@@ -50,7 +49,6 @@ Requires-Dist: pillow; extra == 'extra'
 Provides-Extra: markdown
 Requires-Dist: markdown; extra == 'markdown'
 Requires-Dist: pygments; extra == 'markdown'
-Requires-Dist: pygments==2.10; (python_version < '3.7') and extra == 'markdown'
 Requires-Dist: pymdown-extensions; extra == 'markdown'
 Description-Content-Type: text/markdown
 

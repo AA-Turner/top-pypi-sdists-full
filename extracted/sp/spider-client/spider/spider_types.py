@@ -28,6 +28,37 @@ class ClickPoint:
     y: float = 0
 
 @dataclass
+class ClickHold:
+    type: Literal["ClickHold"] = "ClickHold"
+    selector: str = ""          # Rust: ClickHold { selector: String, hold_for_ms: u64 }
+    hold_for_ms: int = 0        # duration in ms
+
+@dataclass
+class ClickHoldPoint:
+    type: Literal["ClickHoldPoint"] = "ClickHoldPoint"
+    x: float = 0                # Rust: ClickHoldPoint { x: f64, y: f64, hold_for_ms: u64 }
+    y: float = 0
+    hold_for_ms: int = 0        # duration in ms
+
+@dataclass
+class ClickDrag:
+    type: Literal["ClickDrag"] = "ClickDrag"
+    # NOTE: Python can't use 'from'/'to' as field names; these map to Rust/TS `from` and `to`.
+    from_selector: str = ""     # maps to Rust: from (selector)
+    to_selector: str = ""       # maps to Rust: to (selector)
+    modifier: Optional[int] = None  # Rust: Option<i64>
+
+@dataclass
+class ClickDragPoint:
+    type: Literal["ClickDragPoint"] = "ClickDragPoint"
+    # Rust: ClickDragPoint { from_x, from_y, to_x, to_y, modifier: Option<i64> }
+    from_x: float = 0
+    from_y: float = 0
+    to_x: float = 0
+    to_y: float = 0
+    modifier: Optional[int] = None
+
+@dataclass
 class Wait:
     type: Literal["Wait"] = "Wait"
     ms: int = 0  # Rust: Wait(u64)
@@ -106,6 +137,10 @@ WebAutomation = Union[
     ClickAll,
     ClickAllClickable,
     ClickPoint,
+    ClickHold,
+    ClickHoldPoint,
+    ClickDrag,
+    ClickDragPoint,
     Wait,
     WaitForNavigation,
     WaitForDom,
@@ -170,6 +205,8 @@ class DelayDict(TypedDict):
 
 class WaitForDict(TypedDict, total=False):
     idle_network: Optional[IdleNetworkDict]
+    idle_network0: Optional[IdleNetworkDict]
+    almost_idle_network0: Optional[IdleNetworkDict]
     selector: Optional[SelectorDict]
     dom: Optional[SelectorDict]
     delay: Optional[DelayDict]
@@ -217,6 +254,23 @@ class Proxy(str, Enum):
     residential_premium = "residential_premium"      # Low-latency premium pool
     residential_core = "residential_core"            # Balanced core plan
     residential_plus = "residential_plus"            # Extended core pool
+
+class LinkRewriteReplace(TypedDict):
+    type: Literal["replace"]
+    host: Optional[str]
+    find: str
+    replace_with: str
+
+
+class LinkRewriteRegex(TypedDict):
+    type: Literal["regex"]
+    host: Optional[str]
+    pattern: str
+    replace_with: str
+
+
+LinkRewriteRule = Union[LinkRewriteReplace, LinkRewriteRegex]
+
 
 class RequestParamsDict(TypedDict, total=False):
     # The URL to be crawled.
@@ -266,9 +320,6 @@ class RequestParamsDict(TypedDict, total=False):
     # The headers to be used for the request.
     headers: Optional[Dict[str, str]]
 
-    # Specifies whether anti-bot measures should be used.
-    anti_bot: Optional[bool]
-
     # Specifies whether to include metadata in the response.
     metadata: Optional[bool]
 
@@ -283,6 +334,9 @@ class RequestParamsDict(TypedDict, total=False):
 
     # The user agent string to be used for the request.
     user_agent: Optional[str]
+
+    # URL rewrite rule applied to every discovered link before it's crawled.
+    link_rewrite: Optional[LinkRewriteRule]
 
     # The two letter country code for the request geo-location.
     country_code: Optional[str]
@@ -350,6 +404,11 @@ class RequestParamsDict(TypedDict, total=False):
     # The chunking algorithm to use.
     chunking_alg: Optional[ChunkingAlgDict]
 
+  
+    # Disables service-provided hints that add request optimizations to improve crawl outcomes,
+    # such as network blacklists, request-type selection, geo handling, and more.
+    disable_hints: Optional[bool]
+
     # Disable request interception when running 'request' as 'chrome' or 'smart'. This can help when the page uses 3rd party or external scripts to load content.
     disable_intercept: Optional[bool]
 
@@ -387,13 +446,8 @@ class RequestParamsDict(TypedDict, total=False):
     # Proxy pool selection for outbound request routing.
     # Choose a pool based on your use case (e.g., stealth, speed, or stability).
     # - 'residential'           → cost-effective entry-level residential pool
-    # - 'residential_fast'      → faster residential pool for higher throughput
-    # - 'residential_static'    → static residential IPs, rotated daily
     # - 'mobile'                → 4G/5G mobile proxies for maximum evasion
     # - 'isp'                   → ISP-grade residential (alias: 'datacenter')
-    # - 'residential_premium'   → low-latency premium IPs
-    # - 'residential_core'      → balanced plan (quality vs. cost)
-    # - 'residential_plus'      → largest and highest quality core pool
     proxy: Optional[Proxy]
 
     # Use a remote proxy at ~50% reduced cost for file downloads - bring your own proxy.

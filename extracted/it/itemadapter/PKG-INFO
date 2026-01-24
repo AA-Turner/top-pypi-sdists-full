@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: itemadapter
-Version: 0.12.2
+Version: 0.13.1
 Summary: Common interface for data container classes
 Project-URL: Homepage, https://github.com/scrapy/itemadapter
 Project-URL: Source, https://github.com/scrapy/itemadapter
@@ -325,7 +325,7 @@ level:
     ...     name: str = Field(json_schema_extra={"minLength": 1})
     ...
     >>> ItemAdapter.get_json_schema(MyItem)
-    {'type': 'object', 'additionalProperties': False, 'properties': {'name': {'minLength': 1, 'type': 'string'}}, 'required': ['name']}
+    {'type': 'object', 'additionalProperties': False, 'properties': {'name': {'minLength': 1, 'type': 'string'}}}
 
     ```
 

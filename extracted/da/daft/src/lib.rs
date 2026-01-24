@@ -33,23 +33,12 @@ pub static malloc_conf: Option<&'static libc::c_char> = Some(unsafe {
     .y
 });
 
-fn should_enable_chrome_trace() -> bool {
-    let chrome_trace_var_name = "DAFT_DEV_ENABLE_CHROME_TRACE";
-    if let Ok(val) = std::env::var(chrome_trace_var_name)
-        && matches!(val.trim().to_lowercase().as_str(), "1" | "true")
-    {
-        true
-    } else {
-        false
-    }
-}
-
 #[cfg(feature = "python")]
 pub mod pylib {
     use std::sync::LazyLock;
 
     use common_logging::GLOBAL_LOGGER;
-    use common_tracing::{init_opentelemetry_providers, init_tracing};
+    use common_tracing::init_opentelemetry_providers;
     use pyo3::prelude::*;
 
     static LOG_RESET_HANDLE: LazyLock<pyo3_log::ResetHandle> = LazyLock::new(|| {
@@ -101,7 +90,8 @@ pub mod pylib {
                 1..=10 => LevelFilter::Debug,
                 11..=20 => LevelFilter::Info,
                 21..=30 => LevelFilter::Warn,
-                _ => LevelFilter::Error,
+                31..=40 => LevelFilter::Error,
+                _ => LevelFilter::Error, // CRITICAL or anything above also becomes Error
             }
         };
 
@@ -119,7 +109,6 @@ pub mod pylib {
     #[pymodule]
     fn daft(py: Python, m: &Bound<PyModule>) -> PyResult<()> {
         refresh_logger(py)?;
-        init_tracing(crate::should_enable_chrome_trace());
         init_opentelemetry_providers();
 
         common_daft_config::register_modules(m)?;
@@ -127,9 +116,9 @@ pub mod pylib {
         common_resource_request::register_modules(m)?;
         common_file_formats::python::register_modules(m)?;
         common_scan_info::register_modules(m)?;
+        common_metrics::register_modules(m)?;
         daft_ai::register_modules(m)?;
         daft_catalog::register_modules(m)?;
-        daft_connect::register_modules(m)?;
         daft_context::register_modules(m)?;
         daft_runners::register_modules(m)?;
         daft_core::register_modules(m)?;
@@ -139,7 +128,6 @@ pub mod pylib {
         daft_dsl::register_modules(m)?;
         daft_functions::register_modules(m)?;
         daft_io::register_modules(m)?;
-        daft_ir::register_modules(m)?;
         daft_json::register_modules(m)?;
         daft_local_execution::register_modules(m)?;
         daft_local_plan::register_modules(m)?;
@@ -148,7 +136,6 @@ pub mod pylib {
         daft_micropartition::register_modules(m)?;
         daft_recordbatch::register_modules(m)?;
         daft_scan::register_modules(m)?;
-        daft_scheduler::register_modules(m)?;
         daft_session::register_modules(m)?;
         daft_sql::register_modules(m)?;
         daft_shuffles::python::register_modules(m)?;
@@ -187,6 +174,10 @@ pub mod pylib {
 
         functions_registry.add_fn(daft_functions::coalesce::Coalesce);
         functions_registry.add_fn(daft_file::File);
+        functions_registry.add_fn(daft_file::Size);
+        functions_registry.add_fn(daft_file::VideoFile);
+        functions_registry.add_fn(daft_file::AudioFile);
+        functions_registry.add_fn(daft_file::GuessMimeType);
         functions_registry
             .add_fn(daft_functions::monotonically_increasing_id::MonotonicallyIncreasingId);
         functions_registry.register::<daft_functions::distance::DistanceFunctions>();

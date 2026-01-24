@@ -30,7 +30,14 @@ from dagster._utils.merger import merge_dicts
 from dagster._utils.typed_dict import init_optional_typeddict
 from dagster_cloud_cli.core.errors import DagsterCloudHTTPError, raise_http_error
 from dagster_cloud_cli.core.workspace import CodeLocationDeployData
+from dagster_shared.record import replace
 
+from dagster_cloud.agent.queries import (
+    ADD_AGENT_HEARTBEATS_MUTATION,
+    DEPLOYMENTS_QUERY,
+    GET_USER_CLOUD_REQUESTS_QUERY,
+    WORKSPACE_ENTRIES_QUERY,
+)
 from dagster_cloud.api.dagster_cloud_api import (
     AgentHeartbeat,
     AgentUtilizationMetrics,
@@ -48,25 +55,13 @@ from dagster_cloud.api.dagster_cloud_api import (
 )
 from dagster_cloud.batching import Batcher
 from dagster_cloud.instance import DagsterCloudAgentInstance
+from dagster_cloud.util import SERVER_HANDLE_TAG, compressed_namedtuple_upload_file, is_isolated_run
+from dagster_cloud.version import __version__
 from dagster_cloud.workspace.user_code_launcher import (
     DagsterCloudUserCodeLauncher,
     UserCodeLauncherEntry,
 )
 from dagster_cloud.workspace.user_code_launcher.utils import get_instance_ref_for_user_code
-
-from ..opentelemetry.observers.execution_observer import observe_execution
-from ..util import SERVER_HANDLE_TAG, compressed_namedtuple_upload_file, is_isolated_run
-from ..version import __version__
-from .instrumentation.constants import DAGSTER_CLOUD_AGENT_METRIC_PREFIX
-from .instrumentation.run_launch import extract_run_attributes
-from .instrumentation.schedule import inspect_schedule_result
-from .instrumentation.sensor import inspect_sensor_result
-from .queries import (
-    ADD_AGENT_HEARTBEATS_MUTATION,
-    DEPLOYMENTS_QUERY,
-    GET_USER_CLOUD_REQUESTS_QUERY,
-    WORKSPACE_ENTRIES_QUERY,
-)
 
 if TYPE_CHECKING:
     import datetime
@@ -163,6 +158,8 @@ class DagsterCloudAgent:
         )
 
         self._last_liveness_check_time = None
+
+        self._warned_about_long_in_progress_reconcile = False
 
     def __enter__(self):
         return self
@@ -367,6 +364,8 @@ class DagsterCloudAgent:
                 except Exception:
                     self._logger.exception("Failed to add heartbeat")
 
+            self._check_for_long_running_reconcile(user_code_launcher)
+
             # Check for any received interrupts
             with raise_interrupts_as(KeyboardInterrupt):
                 pass
@@ -408,6 +407,26 @@ class DagsterCloudAgent:
         except Exception as e:
             self._logger.error(f"Failed to write liveness sentinel and disabling it: {e}")
             self._last_liveness_check_time = False
+
+    def _check_for_long_running_reconcile(self, user_code_launcher):
+        """Detect from the main thread if the background reconcile thread is running behind or has gotten stuck."""
+        in_progress_reconcile_start_time = user_code_launcher.in_progress_reconcile_start_time
+
+        reconcile_start_time_warning = int(
+            os.getenv("DAGSTER_CLOUD_AGENT_RECONCILE_START_TIME_WARNING", "3600")
+        )
+
+        if (
+            in_progress_reconcile_start_time is not None
+            and (time.time() - in_progress_reconcile_start_time) >= reconcile_start_time_warning
+        ):
+            if not self._warned_about_long_in_progress_reconcile:
+                self._logger.warning(
+                    f"Agent has been redeploying code servers for more than {reconcile_start_time_warning} seconds. This may indicate the background thread that performs the redeploys is stuck."
+                )
+                self._warned_about_long_in_progress_reconcile = True
+        else:
+            self._warned_about_long_in_progress_reconcile = False
 
     def _check_update_workspace(self, user_code_launcher, upload_all):
         curr_time = get_current_datetime()
@@ -481,6 +500,16 @@ class DagsterCloudAgent:
                         "utilization_metrics": self._utilization_metrics
                         if self._instance.user_code_launcher.agent_metrics_enabled
                         else {}
+                    },
+                    {
+                        "allowed_full_deployment_locations": self._instance.allowed_full_deployment_locations
+                        if self._instance.allowed_full_deployment_locations
+                        else {},
+                    },
+                    {
+                        "allowed_branch_deployment_locations": self._instance.allowed_branch_deployment_locations
+                        if self._instance.allowed_branch_deployment_locations
+                        else [],
                     },
                 ),
                 run_worker_statuses=run_worker_statuses_dict[deployment_name],
@@ -576,6 +605,23 @@ class DagsterCloudAgent:
 
         for entry in entries:
             location_name = entry["locationName"]
+
+            # Skip locations not in the allowed list if configured
+            if not self._instance.is_location_allowed(
+                deployment_name, location_name, is_branch_deployment
+            ):
+                deployment_type = (
+                    "for branch deployments"
+                    if is_branch_deployment
+                    else f"in deployment {deployment_name}"
+                )
+                self._logger.error(
+                    f"Skipping location {location_name} {deployment_type} - not in allowed locations list. "
+                    "Either configure this location's dagster_cloud.yaml file to use a different queue, "
+                    "or redeploy this agent with this location in the list of allowed locations."
+                )
+                continue
+
             code_location_deploy_data = deserialize_value(
                 entry["serializedDeploymentMetadata"], CodeLocationDeployData
             )
@@ -707,6 +753,22 @@ class DagsterCloudAgent:
                 for entry in entries:
                     location_name = entry["locationName"]
 
+                    # Skip locations not in the allowed list if configured
+                    if not self._instance.is_location_allowed(
+                        deployment_name, location_name, is_branch_deployment
+                    ):
+                        deployment_type = (
+                            "for branch deployments"
+                            if is_branch_deployment
+                            else f"in deployment {deployment_name}"
+                        )
+                        self._logger.error(
+                            f"Skipping location {location_name} {deployment_type} - not in allowed locations list. "
+                            "Either configure this location's dagster_cloud.yaml file to use a different queue, "
+                            "or redeploy this agent with this location in the list of allowed locations."
+                        )
+                        continue
+
                     location_key = (deployment_name, location_name)
 
                     all_locations.add(location_key)
@@ -810,6 +872,22 @@ class DagsterCloudAgent:
         code_location_origin = self._get_location_origin_from_request(request)
         location_name = code_location_origin.location_name if code_location_origin else None
 
+        # Validate that the location is in the allowed list if configured
+        if location_name and not self._instance.is_location_allowed(
+            deployment_name, location_name, is_branch_deployment
+        ):
+            deployment_type = (
+                "for branch deployments"
+                if is_branch_deployment
+                else f"in deployment '{deployment_name}'"
+            )
+            raise Exception(
+                f"Agent is not allowed to serve location '{location_name}' {deployment_type}. "
+                f"Location is not in the allowed locations list configured for this agent. "
+                "Either configure this location's dagster_cloud.yaml file to use a different queue, "
+                "or redeploy this agent with this location in the list of allowed locations."
+            )
+
         if api_name == DagsterCloudApi.PING_LOCATION:
             # Do nothing - this request only exists to bump TTL for the location
             return DagsterCloudApiSuccess()
@@ -825,8 +903,9 @@ class DagsterCloudAgent:
                 user_code_launcher, deployment_name, cast("str", location_name)
             )
             serialized_snapshot_or_error = client.execution_plan_snapshot(
-                execution_plan_snapshot_args=request.request_args._replace(
-                    instance_ref=self._get_user_code_instance_ref(deployment_name)
+                execution_plan_snapshot_args=replace(
+                    request.request_args,
+                    instance_ref=self._get_user_code_instance_ref(deployment_name),
                 )
             )
             return DagsterCloudApiGrpcResponse(
@@ -892,64 +971,34 @@ class DagsterCloudAgent:
                 user_code_launcher, deployment_name, cast("str", location_name)
             )
 
-            args = request.request_args._replace(
-                instance_ref=self._get_user_code_instance_ref(deployment_name)
+            args = replace(
+                request.request_args,
+                instance_ref=self._get_user_code_instance_ref(deployment_name),
             )
 
-            schedule_attributes = {
-                "schedule": args.schedule_name,
-                "repository": args.repository_origin.repository_name,
-                "location": args.repository_origin.code_location_origin.location_name,
-                "deployment": deployment_name,
-            }
-
-            with observe_execution(
-                opentelemetry=self._instance.opentelemetry,
-                event_key=f"{DAGSTER_CLOUD_AGENT_METRIC_PREFIX}.schedule.evaluation",
-                short_description="schedule evaluation requests",
-                attributes=schedule_attributes,
-                result_evaluator_callback=inspect_schedule_result,
-            ) as observer:
-                serialized_schedule_data_or_error = client.external_schedule_execution(
-                    external_schedule_execution_args=args,
-                )
-                observer.evaluate_result(
-                    serialized_data_or_error=serialized_schedule_data_or_error,
-                )
-                return DagsterCloudApiGrpcResponse(
-                    serialized_response_or_error=serialized_schedule_data_or_error
-                )
+            serialized_schedule_data_or_error = client.external_schedule_execution(
+                external_schedule_execution_args=args,
+            )
+            return DagsterCloudApiGrpcResponse(
+                serialized_response_or_error=serialized_schedule_data_or_error
+            )
 
         elif api_name == DagsterCloudApi.GET_EXTERNAL_SENSOR_EXECUTION_DATA:
             client = self._get_grpc_client(
                 user_code_launcher, deployment_name, cast("str", location_name)
             )
 
-            args = request.request_args._replace(
-                instance_ref=self._get_user_code_instance_ref(deployment_name)
+            args = replace(
+                request.request_args,
+                instance_ref=self._get_user_code_instance_ref(deployment_name),
             )
 
-            sensor_attributes = {
-                "sensor": args.sensor_name,
-                "repository": args.repository_origin.repository_name,
-                "location": args.repository_origin.code_location_origin.location_name,
-                "deployment": deployment_name,
-            }
-
-            with observe_execution(
-                opentelemetry=self._instance.opentelemetry,
-                event_key=f"{DAGSTER_CLOUD_AGENT_METRIC_PREFIX}.sensor.evaluation",
-                short_description="sensor evaluation requests",
-                attributes=sensor_attributes,
-                result_evaluator_callback=inspect_sensor_result,
-            ) as observer:
-                serialized_sensor_data_or_error = client.external_sensor_execution(
-                    sensor_execution_args=args,
-                )
-                observer.evaluate_result(serialized_sensor_data_or_error)
-                return DagsterCloudApiGrpcResponse(
-                    serialized_response_or_error=serialized_sensor_data_or_error
-                )
+            serialized_sensor_data_or_error = client.external_sensor_execution(
+                sensor_execution_args=args,
+            )
+            return DagsterCloudApiGrpcResponse(
+                serialized_response_or_error=serialized_sensor_data_or_error
+            )
         elif api_name == DagsterCloudApi.GET_EXTERNAL_NOTEBOOK_DATA:
             client = self._get_grpc_client(
                 user_code_launcher, deployment_name, cast("str", location_name)
@@ -980,42 +1029,32 @@ class DagsterCloudAgent:
                     ),
                 )
 
-                run_attributes = extract_run_attributes(deployment_name, run)
-                with observe_execution(
-                    opentelemetry=self._instance.opentelemetry,
-                    event_key=f"{DAGSTER_CLOUD_AGENT_METRIC_PREFIX}.run.launches",
-                    short_description="run execution requests",
-                    attributes=run_attributes,
-                ) as observer:
-                    launcher = scoped_instance.get_run_launcher_for_run(run)  # type: ignore  # (instance subclass)
+                launcher = scoped_instance.get_run_launcher_for_run(run)  # type: ignore  # (instance subclass)
 
-                    if is_isolated_run(run):
-                        launcher.launch_run(LaunchRunContext(dagster_run=run, workspace=None))
-                    else:
-                        scoped_instance.report_engine_event(
-                            f"Launching {run.run_id} without an isolated run environment.",
-                            run,
-                            cls=self.__class__,
-                        )
+                if is_isolated_run(run):
+                    launcher.launch_run(LaunchRunContext(dagster_run=run, workspace=None))
+                else:
+                    scoped_instance.report_engine_event(
+                        f"Launching {run.run_id} without an isolated run environment.",
+                        run,
+                        cls=self.__class__,
+                    )
 
-                        run_location_name = cast(
-                            "str",
-                            run.remote_job_origin.repository_origin.code_location_origin.location_name,
-                        )
+                    run_location_name = cast(
+                        "str",
+                        run.remote_job_origin.repository_origin.code_location_origin.location_name,
+                    )
 
-                        server = user_code_launcher.get_grpc_server(
-                            deployment_name, run_location_name
-                        )
+                    server = user_code_launcher.get_grpc_server(deployment_name, run_location_name)
 
-                        # Record the server handle that we launched it on to for run monitoring
-                        scoped_instance.add_run_tags(
-                            run.run_id, new_tags={SERVER_HANDLE_TAG: str(server.server_handle)}
-                        )
+                    # Record the server handle that we launched it on to for run monitoring
+                    scoped_instance.add_run_tags(
+                        run.run_id, new_tags={SERVER_HANDLE_TAG: str(server.server_handle)}
+                    )
 
-                        launcher.launch_run_from_grpc_client(
-                            scoped_instance, run, server.server_endpoint.create_client()
-                        )
-                    observer.evaluate_result(run=run)
+                    launcher.launch_run_from_grpc_client(
+                        scoped_instance, run, server.server_endpoint.create_client()
+                    )
 
                 return DagsterCloudApiSuccess()
         elif api_name == DagsterCloudApi.TERMINATE_RUN:
@@ -1210,7 +1249,9 @@ class DagsterCloudAgent:
                     (deployment_name, location_name, is_branch_deployment)
                 ] = time.time()
 
-                if not user_code_launcher.has_grpc_endpoint(deployment_name, location_name):
+                if self._instance.is_location_allowed(
+                    deployment_name, location_name, is_branch_deployment
+                ) and not user_code_launcher.has_grpc_endpoint(deployment_name, location_name):
                     # Next completed periodic workspace update will make the location up to date
                     # - keep this in the queue until then
                     invalid_requests.append(json_request)

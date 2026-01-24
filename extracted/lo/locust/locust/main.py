@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import locust
+from locust.opentelemetry import setup_opentelemetry
 
 import atexit
 import errno
 import gc
-import importlib.metadata
 import inspect
 import itertools
 import logging
@@ -22,8 +22,8 @@ import gevent
 from . import log, stats
 from .argument_parser import (
     get_locustfiles_locally,
+    get_parser,
     parse_locustfile_option,
-    parse_options,
 )
 from .env import Environment
 from .html import get_html_report, process_html_filename
@@ -37,25 +37,6 @@ try:
     import locust_plugins  # pyright: ignore[reportMissingImports] # noqa: F401
 except ModuleNotFoundError as e:
     if e.msg != "No module named 'locust_plugins'":
-        raise
-try:
-    # remove in future release
-    import locust_cloud  # pyright: ignore[reportMissingImports] # noqa: F401
-
-    locust_cloud_version = f" (locust-cloud {importlib.metadata.version('locust-cloud')})"
-except ModuleNotFoundError as e:
-    locust_cloud_version = ""
-    locust_cloud = None
-    if e.msg != "No module named 'locust_cloud'":
-        raise
-try:
-    import locust_exporter  # pyright: ignore[reportMissingImports] # noqa: F401
-
-    locust_exporter_version = f" (locust_exporter {importlib.metadata.version('locust-exporter')})"
-except ModuleNotFoundError as e:
-    locust_exporter_version = ""
-    locust_exporter = None
-    if e.msg != "No module named 'locust_exporter'":
         raise
 
 if TYPE_CHECKING:
@@ -167,10 +148,7 @@ def merge_locustfiles_content(
 def main():
     # find specified locustfile(s) and make sure it exists, using a very simplified
     # command line parser that is only used to parse the -f option.
-    options, unknown = parse_locustfile_option()
-
-    if any([flag for flag in ["--login", "--logout", "--delete"] if flag in unknown]):
-        sys.exit(locust_cloud.main())
+    options = parse_locustfile_option()
 
     locustfiles = get_locustfiles_locally(options)
 
@@ -183,10 +161,8 @@ def main():
     ) = merge_locustfiles_content(locustfiles)
 
     # parse all command line options
-    options = parse_options()
-
-    if getattr(options, "cloud", None):
-        sys.exit(locust_cloud.main(locustfiles=locustfiles))
+    parser = get_parser()
+    options = parser.parse_args()
 
     stats.validate_stats_configuration()
 
@@ -201,10 +177,16 @@ def main():
     if not options.skip_log_setup:
         setup_logging(options.loglevel, options.logfile)
 
+    start_message = f"Starting Locust {version}"
+
+    if options.otel:
+        if setup_opentelemetry():
+            start_message += ", OpenTelemetry enabled"
+
     children = []
     logger = logging.getLogger(__name__)
 
-    logger.info(f"Starting Locust {version}{locust_exporter_version}")
+    logger.info(start_message)
 
     if options.processes:
         if os.name == "nt":
@@ -437,7 +419,7 @@ See https://github.com/locustio/locust/wiki/Installation#increasing-maximum-numb
 
     if options.run_time:
         if options.worker:
-            logger.info("--run-time specified for a worker node will be ignored.")
+            logger.debug("--run-time specified for a worker node will be ignored.")
 
     if options.csv_prefix:
         base_csv_file = os.path.basename(options.csv_prefix)
@@ -491,7 +473,7 @@ See https://github.com/locustio/locust/wiki/Installation#increasing-maximum-numb
         logger.info("The --autostart argument is implied by --headless, no need to set both.")
 
     if options.autostart and options.worker:
-        logger.info("The --autostart argument has no meaning on a worker.")
+        logger.debug("The --autostart argument has no meaning on a worker.")
 
     def assign_equal_weights(environment, **kwargs):
         environment.assign_equal_weights()
@@ -584,14 +566,16 @@ See https://github.com/locustio/locust/wiki/Installation#increasing-maximum-numb
                 headless_master_greenlet = gevent.spawn(runner.start, options.num_users, options.spawn_rate)
                 headless_master_greenlet.link_exception(greenlet_exception_handler)
 
-        if options.run_time:
-            logger.info(f"Run time limit set to {options.run_time} seconds")
-            spawn_run_time_quit_greenlet()
-        elif not options.worker and not environment.shape_class:
-            logger.info("No run time limit set, use CTRL+C to interrupt")
+            if options.run_time:
+                logger.info(f"Run time limit set to {options.run_time} seconds")
+                spawn_run_time_quit_greenlet()
+            elif not environment.shape_class:
+                logger.info("No run time limit set, use CTRL+C to interrupt")
 
     if options.csv_prefix:
         gevent.spawn(stats_csv_writer.stats_writer).link_exception(greenlet_exception_handler)
+    if options.stats_history_enabled and (options.csv_prefix is None):
+        parser.error("'--csv-full-history' requires '--csv'.")
 
     if options.headless:
         start_automatic_run()

@@ -9,26 +9,40 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
+from typing import Union
 from typing_extensions import TypedDict
 
 
-class HovercardType(TypedDict):
-    """Hovercard
+class RepositorySubscriptionType(TypedDict):
+    """Repository Invitation
 
-    Hovercard
+    Repository invitations let you manage who you collaborate with.
     """
 
-    contexts: list[HovercardPropContextsItemsType]
+    subscribed: bool
+    ignored: bool
+    reason: Union[str, None]
+    created_at: _dt.datetime
+    url: str
+    repository_url: str
 
 
-class HovercardPropContextsItemsType(TypedDict):
-    """HovercardPropContextsItems"""
+class RepositorySubscriptionTypeForResponse(TypedDict):
+    """Repository Invitation
 
-    message: str
-    octicon: str
+    Repository invitations let you manage who you collaborate with.
+    """
+
+    subscribed: bool
+    ignored: bool
+    reason: Union[str, None]
+    created_at: str
+    url: str
+    repository_url: str
 
 
 __all__ = (
-    "HovercardPropContextsItemsType",
-    "HovercardType",
+    "RepositorySubscriptionType",
+    "RepositorySubscriptionTypeForResponse",
 )

@@ -140,7 +140,7 @@ class ReftableCompatTestCase(CompatTestCase):
 
     def test_git_creates_valid_reftable_format(self):
         """Test that git creates reftable files with valid format."""
-        sha1, sha2 = self._create_git_repo_with_reftable()
+        _sha1, _sha2 = self._create_git_repo_with_reftable()
 
         # Check that reftable files were created
         reftable_files = self._get_reftable_files()
@@ -292,7 +292,7 @@ class ReftableCompatTestCase(CompatTestCase):
 
     def test_multiple_table_files_compatibility(self):
         """Test compatibility when multiple reftable files exist."""
-        sha1, sha2 = self._create_git_repo_with_reftable()
+        _sha1, _sha2 = self._create_git_repo_with_reftable()
 
         # Add more refs to potentially create multiple table files
         for i in range(10):
@@ -498,7 +498,7 @@ class ReftableCompatTestCase(CompatTestCase):
 
         # Delete a ref using dulwich
         with repo.refs.batch_update():
-            repo.refs.set_if_equals(b"refs/heads/feature", commit_sha2, None)
+            repo.refs.remove_if_equals(b"refs/heads/feature", commit_sha2)
 
         repo.close()
 
@@ -706,6 +706,8 @@ class ReftableCompatTestCase(CompatTestCase):
             repo.refs.set_if_equals(b"refs/heads/develop", None, commits[1])
             repo.refs.set_symbolic_ref(b"HEAD", b"refs/heads/master")
 
+        repo.refs._update_tables_list()
+
         # Second batch: Update some refs and add new ones
         with repo.refs.batch_update():
             repo.refs.set_if_equals(
@@ -716,17 +718,21 @@ class ReftableCompatTestCase(CompatTestCase):
             )  # Add feature
             repo.refs.set_if_equals(b"refs/tags/v1.0", None, commits[0])  # Add tag
 
+        repo.refs._update_tables_list()
+
         # Third batch: More complex operations
         with repo.refs.batch_update():
             repo.refs.set_if_equals(
                 b"refs/heads/develop", commits[1], commits[4]
             )  # Update develop
-            repo.refs.set_if_equals(
-                b"refs/heads/feature", commits[3], None
+            repo.refs.remove_if_equals(
+                b"refs/heads/feature", commits[3]
             )  # Delete feature
             repo.refs.set_symbolic_ref(
                 b"HEAD", b"refs/heads/develop"
             )  # Change HEAD target
+
+        repo.refs._update_tables_list()
 
         repo.close()
 

@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-2-Clause
 
-from numba.core.tracing import event
+from numba.cuda.core.tracing import event
 
-from numba.core import callconv, bytecode, config, errors
-from numba.core.errors import CompilerError
-from numba.parfors.parfor import ParforDiagnostics
+from numba.cuda.core import errors
+from numba.cuda.core.errors import CompilerError
 
-from numba.core.untyped_passes import ExtractByteCode, FixupArgs
-from numba.core.targetconfig import ConfigStack
+from numba.cuda.core import callconv, config, bytecode
+from numba.cuda.core.untyped_passes import ExtractByteCode, FixupArgs
+from numba.cuda.core.targetconfig import ConfigStack
 
 
 class _CompileStatus(object):
@@ -23,10 +23,9 @@ class _CompileStatus(object):
         self.can_fallback = can_fallback
 
     def __repr__(self):
-        vals = []
-        for k in self.__slots__:
-            vals.append("{k}={v}".format(k=k, v=getattr(self, k)))
-        return ", ".join(vals)
+        return ", ".join(
+            "{k}={v}".format(k=k, v=getattr(self, k)) for k in self.__slots__
+        )
 
 
 class StateDict(dict):
@@ -65,8 +64,6 @@ def _make_subtarget(targetctx, flags):
         subtargetoptions["enable_boundscheck"] = True
     if flags.nrt:
         subtargetoptions["enable_nrt"] = True
-    if flags.auto_parallel:
-        subtargetoptions["auto_parallel"] = flags.auto_parallel
     if flags.fastmath:
         subtargetoptions["fastmath"] = flags.fastmath
     error_model = callconv.create_error_model(flags.error_model, targetctx)
@@ -112,13 +109,6 @@ class CompilerBase(object):
         self.state.reload_init = []
         # hold this for e.g. with_lifting, null out on exit
         self.state.pipeline = self
-
-        # parfor diagnostics info, add to metadata
-        self.state.parfor_diagnostics = ParforDiagnostics()
-        self.state.metadata["parfor_diagnostics"] = (
-            self.state.parfor_diagnostics
-        )
-        self.state.metadata["parfors"] = {}
 
         self.state.status = _CompileStatus(
             can_fallback=self.state.flags.enable_pyobject

@@ -1,8 +1,8 @@
 import glob
 import os
+import sys
 from platform import python_version
 from textwrap import dedent
-import sys
 
 from packaging.version import Version
 
@@ -13,16 +13,15 @@ from pytest_doctestplus.output_checker import OutputChecker, FLOAT_CMP
 
 try:
     import pytest_asyncio  # noqa: F401
-    has_pytest_asyncio = True
+    if Version(pytest_asyncio.__version__) < Version('1.0'):
+        main_pytest_asyncio_xfails = True
+    else:
+        main_pytest_asyncio_xfails = False
 except ImportError:
-    has_pytest_asyncio = False
-
+    main_pytest_asyncio_xfails = False
 
 
 pytest_plugins = ['pytester']
-
-
-PYTEST_LT_6 = Version(pytest.__version__) < Version('6.0.0')
 
 
 def test_ignored_whitespace(testdir):
@@ -448,6 +447,7 @@ def test_requires_all(testdir):
         """
         .. doctest-requires-all:: foobar
 
+        .. code-block::
             >>> import foobar
 
         This is a narrative line, before another doctest snippet
@@ -767,6 +767,8 @@ def test_ignore_glob_option(testdir):
     ).assertoutcome(passed=2)
 
 
+# We see unclosed file ResourceWarning on windows with python 3.14
+@pytest.mark.filterwarnings('ignore:unclosed file:ResourceWarning')
 def test_doctest_only(testdir, makepyfile, maketestfile, makerstfile):
     # regular python files with doctests
     makepyfile(p1='>>> 1 + 1\n2')
@@ -858,8 +860,6 @@ SUBPACKAGE_REQUIRES_PYPROJECT = (
 
 @pytest.fixture()
 def subpackage_requires_testdir(testdir, request):
-    if request.param[0] == 'makepyprojecttoml' and PYTEST_LT_6:
-        return None, None
 
     config_file = getattr(testdir, request.param[0])(request.param[1])
 
@@ -897,7 +897,6 @@ def test_doctest_subpackage_requires(subpackage_requires_testdir, caplog):
 
 
 @pytest.mark.parametrize(('import_mode', 'expected'), [
-    pytest.param('importlib', dict(passed=2), marks=pytest.mark.skipif(PYTEST_LT_6, reason="importlib import mode not supported on Pytest <6"), id="importlib"),
     pytest.param('append', dict(failed=1), id="append"),
     pytest.param('prepend', dict(failed=1), id="prepend"),
 ])
@@ -958,6 +957,8 @@ def test_remote_data_all(testdir):
             Test
 
         .. doctest-remote-data-all::
+
+        .. code-block::
 
             >>> from contextlib import closing
             >>> from urllib.request import urlopen
@@ -1189,7 +1190,7 @@ def test_fail_data_dependency(testdir, cont_on_fail):
 
 
 @pytest.mark.xfail(
-        has_pytest_asyncio,
+        main_pytest_asyncio_xfails,
         reason='pytest_asyncio monkey-patches .collect()')
 def test_main(testdir):
     pkg = testdir.mkdir('pkg')
@@ -1210,7 +1211,7 @@ def test_main(testdir):
 
 
 @pytest.mark.xfail(
-        python_version() in ('3.11.9', '3.11.10', '3.11.11', '3.12.3'),
+        python_version() in ('3.11.9', '3.11.10', '3.11.11', '3.11.12', '3.11.13', '3.11.14', '3.12.3'),
         reason='broken by https://github.com/python/cpython/pull/115440')
 def test_ufunc(testdir):
     pytest.importorskip('numpy')
@@ -1383,8 +1384,6 @@ NORCURSEDIRS_PYPROJECT = (
 
 @pytest.fixture()
 def norecursedirs_testdir(testdir, request):
-    if request.param[0] == 'makepyprojecttoml' and PYTEST_LT_6:
-        return None, None
 
     config_file = getattr(testdir, request.param[0])(request.param[1])
 
@@ -1538,3 +1537,51 @@ def test_generate_diff_multiline(testdir, capsys):
 
     original_fixed = original.replace("1\n    2", "\n    ".join(["0", "1", "2", "3"]))
     assert result == original_fixed
+
+
+def test_skip_module_variable(testdir):
+    p = testdir.makepyfile("""
+        __doctest_skip__ = ["f"]
+
+        def f():
+            '''
+            >>> 1 + 2
+            5
+            '''
+            pass
+
+        def g():
+            '''
+            >>> 1 + 1
+            2
+            '''
+            pass
+        """)
+    testdir.inline_run(p, '--doctest-plus').assertoutcome(passed=1, skipped=1)
+
+
+def test_requires_module_variable(testdir):
+    p = testdir.makepyfile("""
+        __doctest_requires__ = {
+            ("f",): ["module_that_is_not_availabe"],
+            ("g",): ["pytest"],
+        }
+
+        def f():
+            '''
+            >>> import module_that_is_not_availabe
+            '''
+            pass
+
+        def g():
+            '''
+            Test that call to `pytest.importorskip` is not visible
+
+            >>> assert "pytest" not in locals()
+            >>> assert "___" not in locals()
+            >>> 1 + 1
+            2
+            '''
+            pass
+        """)
+    testdir.inline_run(p, '--doctest-plus').assertoutcome(passed=1, skipped=1)

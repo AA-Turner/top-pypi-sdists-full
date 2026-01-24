@@ -34,13 +34,18 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import annotations
+
 import gzip
 import lzma
 import sys
+from collections.abc import Sequence
 
 import numpy as np
+from numpy.typing import NDArray
 
 from phonopy.gruneisen.core import GruneisenBase
+from phonopy.harmonic.dynamical_matrix import DynamicalMatrix
 from phonopy.physical_units import get_physical_units
 from phonopy.structure.grid_points import get_qpoints
 
@@ -50,17 +55,17 @@ class GruneisenMesh(GruneisenBase):
 
     def __init__(
         self,
-        dynmat,
-        dynmat_plus,
-        dynmat_minus,
-        mesh,
-        delta_strain=None,
-        shift=None,
-        is_time_reversal=True,
-        is_gamma_center=False,
-        is_mesh_symmetry=True,
-        rotations=None,  # Point group operations in real space
-        factor=None,
+        dynmat: DynamicalMatrix,
+        dynmat_plus: DynamicalMatrix,
+        dynmat_minus: DynamicalMatrix,
+        mesh: Sequence[int] | NDArray,
+        delta_strain: float | None = None,
+        shift: Sequence[float] | NDArray | None = None,
+        is_time_reversal: bool = True,
+        is_gamma_center: bool = False,
+        is_mesh_symmetry: bool = True,
+        rotations: Sequence | NDArray | None = None,
+        factor: float | None = None,
     ):
         """Init method."""
         super().__init__(dynmat, dynmat_plus, dynmat_minus, delta_strain=delta_strain)
@@ -141,19 +146,19 @@ class GruneisenMesh(GruneisenBase):
         text.append("mesh: [ %5d, %5d, %5d ]" % tuple(self._mesh))
         text.append("nqpoint: %d" % len(self._qpoints))
         text.append("reciprocal_lattice:")
-        for vec, axis in zip(rec_lattice.T, ("a*", "b*", "c*")):
+        for vec, axis in zip(rec_lattice.T, ("a*", "b*", "c*"), strict=True):
             text.append("- [ %12.8f, %12.8f, %12.8f ] # %2s" % (tuple(vec) + (axis,)))
         text.append("natom:   %-7d" % natom)
         text.append(str(self._cell))
         text.append("")
         text.append("phonon:")
         for q, m, gs, freqs in zip(
-            self._qpoints, self._weights, self._gamma, self._frequencies
+            self._qpoints, self._weights, self._gamma, self._frequencies, strict=True
         ):
             text.append("- q-position: [ %10.7f, %10.7f, %10.7f ]" % tuple(q))
             text.append("  multiplicity: %d" % m)
             text.append("  band:")
-            for j, (g, freq) in enumerate(zip(gs, freqs)):
+            for j, (g, freq) in enumerate(zip(gs, freqs, strict=True)):
                 text.append("  - # %d" % (j + 1))
                 text.append("    gruneisen: %15.10f" % g)
                 text.append("    frequency: %15.10f" % freq)
@@ -188,7 +193,9 @@ class GruneisenMesh(GruneisenBase):
     ):
         """Return pyplot of calculation results."""
         n = len(self._gamma.T) - 1
-        for i, (g, freqs) in enumerate(zip(self._gamma.T, self._frequencies.T)):
+        for i, (g, freqs) in enumerate(
+            zip(self._gamma.T, self._frequencies.T, strict=True)
+        ):
             if cutoff_frequency:
                 g = np.extract(freqs > cutoff_frequency, g)
                 freqs = np.extract(freqs > cutoff_frequency, freqs)

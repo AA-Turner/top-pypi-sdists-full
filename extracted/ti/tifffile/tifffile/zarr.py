@@ -1,6 +1,6 @@
 # tifffile/zarr.py
 
-# Copyright (c) 2008-2025, Christoph Gohlke
+# Copyright (c) 2008-2026, Christoph Gohlke
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,13 +33,11 @@
 
 from __future__ import annotations
 
-__all__ = ['ZarrStore', 'ZarrTiffStore', 'ZarrFileSequenceStore']
+__all__ = ['ZarrFileSequenceStore', 'ZarrStore', 'ZarrTiffStore']
 
 import asyncio
 import json
-import os
 import sys
-import threading
 from typing import TYPE_CHECKING
 
 import numpy
@@ -50,7 +48,8 @@ try:
     from zarr.core.buffer.cpu import NDBuffer
     from zarr.core.chunk_grids import RegularChunkGrid
 except ImportError as exc:
-    raise ValueError(f'zarr {zarr.__version__} < 3 is not supported') from exc
+    msg = f'zarr {zarr.__version__} < 3 is not supported'
+    raise ValueError(msg) from exc
 
 from .tifffile import (
     CHUNKMODE,
@@ -70,6 +69,8 @@ from .tifffile import (
 )
 
 if TYPE_CHECKING:
+    import os
+    import threading
     from collections.abc import (
         AsyncIterator,
         Callable,
@@ -107,14 +108,14 @@ class ZarrStore(Store):
 
     _read_only: bool
     _store: dict[str, Any]
-    _fillvalue: int | float
+    _fillvalue: float
     _chunkmode: int
 
     def __init__(
         self,
         /,
         *,
-        fillvalue: int | float | None = None,
+        fillvalue: float | None = None,
         chunkmode: CHUNKMODE | int | str | None = None,
         read_only: bool = True,
     ) -> None:
@@ -127,8 +128,11 @@ class ZarrStore(Store):
         else:
             self._chunkmode = enumarg(CHUNKMODE, chunkmode)
 
+    def __hash__(self) -> int:
+        return hash((self._store.items(), self._fillvalue, self._chunkmode))
+
     def __eq__(self, other: object) -> bool:
-        """Return if objects are equal."""
+        """Return whether objects are equal."""
         return (
             isinstance(other, type(self))
             and self._store == other._store
@@ -168,7 +172,8 @@ class ZarrStore(Store):
 
     async def delete(self, key: str) -> None:
         """Remove key from store."""
-        raise PermissionError('ZarrStore does not support deletes')
+        msg = 'ZarrStore does not support deletes'
+        raise PermissionError(msg)
 
     @property
     def supports_listing(self) -> bool:
@@ -211,7 +216,7 @@ class ZarrStore(Store):
 
     @property
     def is_multiscales(self) -> bool:
-        """Return if ZarrStore is multi-scales."""
+        """Return whether ZarrStore contains multiscales."""
         return b'multiscales' in self._store['.zattrs']
 
     def __repr__(self) -> str:
@@ -251,7 +256,7 @@ class ZarrTiffStore(ZarrStore):
         zattrs:
             Additional attributes to store in `.zattrs`.
         multiscales:
-            Create a multiscales compatible Zarr group store.
+            Create a multiscales-compatible Zarr group store.
             By default, create a Zarr array store for pages and non-pyramidal
             series.
         lock:
@@ -291,7 +296,7 @@ class ZarrTiffStore(ZarrStore):
         *,
         level: int | None = None,
         chunkmode: CHUNKMODE | int | str | None = None,
-        fillvalue: int | float | None = None,
+        fillvalue: float | None = None,
         zattrs: dict[str, Any] | None = None,
         multiscales: bool | None = None,
         lock: threading.RLock | NullContext | None = None,
@@ -308,7 +313,8 @@ class ZarrTiffStore(ZarrStore):
             self._chunkmode = enumarg(CHUNKMODE, chunkmode)
 
         if self._chunkmode not in {0, 2}:
-            raise NotImplementedError(f'{self._chunkmode!r} not implemented')
+            msg = f'{self._chunkmode!r} not implemented'
+            raise NotImplementedError(msg)
 
         self._squeeze = None if squeeze is None else bool(squeeze)
         self._buffersize = buffersize
@@ -380,21 +386,18 @@ class ZarrTiffStore(ZarrStore):
             shape0 = self._data[0].get_shape(squeeze)
             for level, series in enumerate(self._data):
                 keyframe = series.keyframe
-                keyframe.decode  # cache decode function
+                keyframe.decode  # noqa: B018 - cache decode function
                 shape = series.get_shape(squeeze)
                 dtype = series.dtype
                 if fillvalue is None:
                     self._fillvalue = fillvalue = keyframe.nodata
-                if self._chunkmode:
-                    chunks = keyframe.shape
-                else:
-                    chunks = keyframe.chunks
+                chunks = keyframe.shape if self._chunkmode else keyframe.chunks
                 self._store[f'{level}/.zattrs'] = _json_dumps(
                     {
                         '_ARRAY_DIMENSIONS': [
                             (f'{ax}{level}' if i != j else ax)
                             for ax, i, j in zip(
-                                array_dimensions, shape, shape0
+                                array_dimensions, shape, shape0, strict=True
                             )
                         ]
                     }
@@ -417,15 +420,12 @@ class ZarrTiffStore(ZarrStore):
             self._multiscales = False
             series = self._data[0]
             keyframe = series.keyframe
-            keyframe.decode  # cache decode function
+            keyframe.decode  # noqa: B018 - cache decode function
             shape = series.get_shape(squeeze)
             dtype = series.dtype
             if fillvalue is None:
                 self._fillvalue = fillvalue = keyframe.nodata
-            if self._chunkmode:
-                chunks = keyframe.shape
-            else:
-                chunks = keyframe.chunks
+            chunks = keyframe.shape if self._chunkmode else keyframe.chunks
             if '_ARRAY_DIMENSIONS' not in zattrs:
                 zattrs['_ARRAY_DIMENSIONS'] = list(series.get_axes(squeeze))
             self._store['.zattrs'] = _json_dumps(zattrs)
@@ -615,11 +615,13 @@ class ZarrTiffStore(ZarrStore):
         _shape = [] if _shape is None else list(_shape)
         _axes = [] if _axes is None else list(_axes)
         if len(_shape) != len(_axes):
-            raise ValueError('len(_shape) != len(_axes)')
+            msg = 'len(_shape) != len(_axes)'
+            raise ValueError(msg)
         if _index is None:
             index = ''
         elif len(_shape) != len(_index):
-            raise ValueError('len(_shape) != len(_index)')
+            msg = 'len(_shape) != len(_index)'
+            raise ValueError(msg)
         elif _index:
             index = '.'.join(str(i) for i in _index)
             index += '.'
@@ -628,7 +630,8 @@ class ZarrTiffStore(ZarrStore):
         refzarr: dict[str, Any]
         if version == 1:
             if _append:
-                raise ValueError('cannot append to version 1')
+                msg = 'cannot append to version 1'
+                raise ValueError(msg)
             if templatename is None:
                 templatename = 'u'
             refs['version'] = 1
@@ -662,7 +665,8 @@ class ZarrTiffStore(ZarrStore):
                 # TODO: support nested groups
                 refzarr['.zgroup'] = _json_dumps({'zarr_format': 2}).decode()
 
-            for key, value in self._store.items():
+            for item in self._store.items():
+                key, value = item
                 if '.zattrs' in key and _axes:
                     value = json.loads(value)
                     if '_ARRAY_DIMENSIONS' in value:
@@ -671,9 +675,9 @@ class ZarrTiffStore(ZarrStore):
                         )
                     value = _json_dumps(value)
                 elif '.zarray' in key:
+                    value = json.loads(value)
                     level = int(key.split('/')[0]) if '/' in key else 0
                     keyframe = self._data[level].keyframe
-                    value = json.loads(value)
                     if _shape:
                         value['shape'] = _shape + value['shape']
                         value['chunks'] = [1] * len(_shape) + value['chunks']
@@ -720,24 +724,22 @@ class ZarrTiffStore(ZarrStore):
                             'hasalpha': True,
                         }
                     elif codec_id == 'imagecodecs_eer':
+                        horzbits = vertbits = 2
                         if keyframe.compression == 65002:
-                            rlebits = int(keyframe.tags.valueof(65007, 7))
+                            skipbits = int(keyframe.tags.valueof(65007, 7))
                             horzbits = int(keyframe.tags.valueof(65008, 2))
                             vertbits = int(keyframe.tags.valueof(65009, 2))
                         elif keyframe.compression == 65001:
-                            rlebits = 7
-                            horzbits = 2
-                            vertbits = 2
+                            skipbits = 7
                         else:
-                            rlebits = 8
-                            horzbits = 2
-                            vertbits = 2
+                            skipbits = 8
                         value['compressor'] = {
                             'id': codec_id,
                             'shape': keyframe.chunks,
-                            'rlebits': rlebits,
+                            'skipbits': skipbits,
                             'horzbits': horzbits,
                             'vertbits': vertbits,
+                            'superres': keyframe.parent._superres,
                         }
                     elif codec_id is not None:
                         value['compressor'] = {'id': codec_id}
@@ -773,6 +775,8 @@ class ZarrTiffStore(ZarrStore):
                             }
                         ]
                     value = _json_dumps(value)
+                # else:
+                #     pass through value
 
                 refzarr[groupname + key] = value.decode()
 
@@ -780,7 +784,7 @@ class ZarrTiffStore(ZarrStore):
         if hasattr(jsonfile, 'write'):
             fh = jsonfile  # type: ignore[assignment]
         else:
-            fh = open(jsonfile, 'w', encoding='utf-8')
+            fh = open(jsonfile, 'w', encoding='utf-8')  # noqa: SIM115
 
         if version == 1:
             fh.write(json.dumps(refs, indent=1).rsplit('}"', 1)[0] + '}"')
@@ -792,7 +796,8 @@ class ZarrTiffStore(ZarrStore):
             indent = ' '
 
         offset: int | None
-        for key, value in self._store.items():
+        for item in self._store.items():
+            key, value = item
             if '.zarray' in key:
                 value = json.loads(value)
                 shape = value['shape']
@@ -833,7 +838,8 @@ class ZarrTiffStore(ZarrStore):
         """Return value associated with key."""
         # print(f'get({key=}, {byte_range=})')
         if byte_range is not None:
-            raise NotImplementedError(f'{byte_range=!r} not supported')
+            msg = f'{byte_range=!r} not supported'
+            raise NotImplementedError(msg)
 
         if key in self._store:
             return prototype.buffer.from_bytes(self._store[key])
@@ -878,7 +884,8 @@ class ZarrTiffStore(ZarrStore):
                 chunk = self._transform(chunk)
             return prototype.buffer(chunk.reshape(-1).view('B'))
 
-        assert offset is not None and bytecount is not None
+        assert offset is not None
+        assert bytecount is not None
         chunk_bytes = self._filecache.read(fh, offset, bytecount)
 
         decodeargs: dict[str, Any] = {'_fullsize': True}
@@ -888,7 +895,7 @@ class ZarrTiffStore(ZarrStore):
             decodeargs['jpegheader'] = keyframe.jpegheader
 
         assert chunkindex is not None
-        keyframe.decode  # cache decode function
+        keyframe.decode  # noqa: B018 - cache decode function
         if self._maxworkers > 1:
             decoded = await asyncio.to_thread(
                 keyframe.decode, chunk_bytes, chunkindex, **decodeargs
@@ -901,16 +908,17 @@ class ZarrTiffStore(ZarrStore):
         if self._transform is not None:
             chunk = self._transform(chunk)
 
-        if self._chunkmode:
+        if self._chunkmode:  # noqa: SIM108
             chunks = keyframe.shape  # type: ignore[unreachable]
         else:
             chunks = keyframe.chunks
         if chunk.size != product(chunks):
-            raise RuntimeError(f'{chunk.size} != {product(chunks)}')
+            msg = f'{chunk.size} != {product(chunks)}'
+            raise RuntimeError(msg)
         return prototype.buffer(chunk.reshape(-1).view('B'))
 
     async def exists(self, key: str) -> bool:
-        """Return if key exists in store."""
+        """Return whether key exists in store."""
         # print(f'exists({key=})')
         if key in self._store:
             return True
@@ -932,7 +940,8 @@ class ZarrTiffStore(ZarrStore):
     async def set(self, key: str, value: Buffer) -> None:
         """Store (key, value) pair."""
         if self._read_only:
-            raise PermissionError('ZarrTiffStore is read-only')
+            msg = 'ZarrTiffStore is read-only'
+            raise PermissionError(msg)
 
         if (
             key in self._store
@@ -942,9 +951,9 @@ class ZarrTiffStore(ZarrStore):
             or key[-7:] == '.zgroup'
         ):
             # catch '.zarray' and 'attribute/.zarray'
-            return None
+            return
 
-        keyframe, page, chunkindex, offset, bytecount = self._parse_key(key)
+        _keyframe, page, _chunkindex, offset, bytecount = self._parse_key(key)
         if (
             page is None
             or offset is None
@@ -1030,10 +1039,10 @@ class ZarrTiffStore(ZarrStore):
         else:
             chunked = keyframe.chunked
         p = 1
-        for i, s in enumerate(shape[::-1]):
+        for index, s in enumerate(shape[::-1]):
             p *= s
             if p == keyframe.size:
-                i = len(indices) - i - 1
+                i = len(indices) - index - 1
                 frames_indices = indices[:i]
                 strile_indices = indices[i:]
                 frames_chunked = shape[:i]
@@ -1055,7 +1064,8 @@ class ZarrTiffStore(ZarrStore):
                 elif strile_chunked[i] == 1:
                     i -= 1
                 else:
-                    raise RuntimeError('shape does not match page shape')
+                    msg = 'shape does not match page shape'
+                    raise RuntimeError(msg)
                 if i < 0 or j < 0:
                     break
             assert product(strile_chunked) == product(chunked)
@@ -1130,7 +1140,7 @@ class ZarrFileSequenceStore(ZarrStore):
         filesequence: FileSequence,
         /,
         *,
-        fillvalue: int | float | None = None,
+        fillvalue: float | None = None,
         chunkmode: CHUNKMODE | int | str | None = None,
         chunkshape: Sequence[int] | None = None,
         chunkdtype: DTypeLike | None = None,
@@ -1146,13 +1156,16 @@ class ZarrFileSequenceStore(ZarrStore):
         )
 
         if self._chunkmode not in {0, 3}:
-            raise ValueError(f'invalid chunkmode {self._chunkmode!r}')
+            msg = f'invalid chunkmode {self._chunkmode!r}'
+            raise ValueError(msg)
 
         if not isinstance(filesequence, FileSequence):
-            raise TypeError('not a FileSequence')
+            msg = 'not a FileSequence'  # type: ignore[unreachable]
+            raise TypeError(msg)
 
         if filesequence._container:
-            raise NotImplementedError('cannot open container as Zarr store')
+            msg = 'cannot open container as Zarr store'
+            raise NotImplementedError(msg)
 
         # TODO: deprecate kwargs?
         if imreadargs is not None:
@@ -1177,7 +1190,11 @@ class ZarrFileSequenceStore(ZarrStore):
             filesequence.shape, self._chunks, axestiled=axestiled
         )
         self._lookup = dict(
-            zip(self._tiled.indices(filesequence.indices), filesequence)
+            zip(
+                self._tiled.indices(filesequence.indices),
+                filesequence,
+                strict=True,
+            )
         )
 
         zattrs = {} if zattrs is None else dict(zattrs)
@@ -1200,7 +1217,7 @@ class ZarrFileSequenceStore(ZarrStore):
         )
 
     async def exists(self, key: str) -> bool:
-        """Return if key exists in store."""
+        """Return whether key exists in store."""
         # print(f'exists({key=})')
         if key in self._store:
             return True
@@ -1219,7 +1236,8 @@ class ZarrFileSequenceStore(ZarrStore):
     ) -> Buffer | None:
         """Return value associated with key."""
         if byte_range is not None:
-            raise NotImplementedError(f'{byte_range=!r} not supported')
+            msg = f'{byte_range=!r} not supported'
+            raise NotImplementedError(msg)
 
         if key in self._store:
             return prototype.buffer.from_bytes(self._store[key])
@@ -1298,7 +1316,8 @@ class ZarrFileSequenceStore(ZarrStore):
                 self._imread.__name__ != 'imread'
                 or 'codec' not in self._kwargs
             ):
-                raise ValueError('cannot determine codec_id')
+                msg = 'cannot determine codec_id'
+                raise ValueError(msg)
             codec = kwargs.pop('codec')
             if isinstance(codec, (list, tuple)):
                 codec = codec[0]
@@ -1327,7 +1346,8 @@ class ZarrFileSequenceStore(ZarrStore):
             }[codec]
         else:
             # TODO: choose codec from filename
-            raise ValueError('cannot determine codec_id')
+            msg = 'cannot determine codec_id'
+            raise ValueError(msg)
 
         if url is None:
             url = ''
@@ -1342,7 +1362,8 @@ class ZarrFileSequenceStore(ZarrStore):
         refs: dict[str, Any] = {}
         if version == 1:
             if _append:
-                raise ValueError('cannot append to version 1 files')
+                msg = 'cannot append to version 1 files'
+                raise ValueError(msg)
             if templatename is None:
                 templatename = 'u'
             refs['version'] = 1
@@ -1356,7 +1377,8 @@ class ZarrFileSequenceStore(ZarrStore):
         if groupname and not _append:
             refzarr['.zgroup'] = _json_dumps({'zarr_format': 2}).decode()
 
-        for key, value in self._store.items():
+        for item in self._store.items():
+            key, value = item
             if '.zarray' in key:
                 value = json.loads(value)
                 # TODO: make kwargs serializable
@@ -1368,7 +1390,7 @@ class ZarrFileSequenceStore(ZarrStore):
         if hasattr(jsonfile, 'write'):
             fh = jsonfile  # type: ignore[assignment]
         else:
-            fh = open(jsonfile, 'w', encoding='utf-8')
+            fh = open(jsonfile, 'w', encoding='utf-8')  # noqa: SIM115
 
         if version == 1:
             fh.write(json.dumps(refs, indent=1).rsplit('}"', 1)[0] + '}"')
@@ -1383,13 +1405,14 @@ class ZarrFileSequenceStore(ZarrStore):
 
         prefix = len(self._commonpath)
 
-        for key, value in self._store.items():
+        for item in self._store.items():
+            key, value = item
             if '.zarray' in key:
                 value = json.loads(value)
-                for index, filename in sorted(
+                for index, fname in sorted(
                     self._lookup.items(), key=lambda x: x[0]
                 ):
-                    filename = filename[prefix:].replace('\\', '/')
+                    filename = fname[prefix:].replace('\\', '/')
                     if quote is None or quote:
                         filename = quote_(filename)
                     if filename[0] == '/':
@@ -1444,7 +1467,7 @@ def zarr_selection(
     import zarr
     from zarr.core.indexing import BasicIndexer
 
-    zarray: zarr.Array
+    zarray: zarr.Array[Any]
 
     z = zarr.open(store, mode='r', zarr_format=2)
     try:
@@ -1475,8 +1498,8 @@ def zarr_selection(
 
 def _empty_chunk(
     shape: tuple[int, ...],
-    dtype: DTypeLike,
-    fillvalue: int | float | None,
+    dtype: DTypeLike | None,
+    fillvalue: float | None,
     /,
 ) -> NDArray[Any]:
     """Return empty chunk."""
@@ -1539,7 +1562,8 @@ def _ndindex(
     """Return iterator over all chunk index strings."""
     assert len(shape) == len(chunks)
     chunked = tuple(
-        i // j + (1 if i % j else 0) for i, j in zip(shape, chunks)
+        i // j + (1 if i % j else 0)
+        for i, j in zip(shape, chunks, strict=True)
     )
     for indices in numpy.ndindex(chunked):
         yield '.'.join(str(index) for index in indices)
@@ -1581,14 +1605,17 @@ def _chunks(
         and shape[-i:] == shaped[-i:]
     ):
         # planarconfig=contig with one sample
-        chunks = chunks + (1,)
+        chunks = (*chunks, 1)
     if ndim < len(chunks):
         # remove leading dimensions of size 1 from chunks
-        for i, size in enumerate(chunks):
+        i = 0
+        for size in chunks:
             if size > 1:
                 break
+            i += 1
         chunks = chunks[i:]
         if ndim < len(chunks):
-            raise ValueError(f'{shape=!r} is shorter than {chunks=!r}')
+            msg = f'{shape=!r} is shorter than {chunks=!r}'
+            raise ValueError(msg)
     # prepend size 1 dimensions to chunks to match length of shape
     return tuple([1] * (ndim - len(chunks)) + list(chunks))

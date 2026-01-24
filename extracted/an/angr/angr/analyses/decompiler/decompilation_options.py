@@ -2,29 +2,32 @@
 from __future__ import annotations
 from collections.abc import Callable
 from collections import defaultdict
+from typing import Generic, TypeVar
 
 from .structuring import structurer_class_from_name
 from .structuring.phoenix import MultiStmtExprMode
 
+T = TypeVar("T")
 
-class DecompilationOption:
+
+class DecompilationOption(Generic[T]):
     """
     Describes a decompilation option.
     """
 
     def __init__(
         self,
-        name,
-        description,
-        value_type,
-        cls,
-        param,
+        name: str,
+        description: str,
+        value_type: type[T],
+        cls: str,
+        param: str,
         value_range=None,
-        category="General",
-        default_value=None,
-        clears_cache=True,
-        candidate_values: list | None = None,
-        convert: Callable | None = None,
+        category: str = "General",
+        default_value: T | None = None,
+        clears_cache: bool = True,
+        candidate_values: list[T] | None = None,
+        convert: Callable[[str], T] | None = None,
     ):
         self.NAME = name
         self.DESCRIPTION = description
@@ -75,6 +78,25 @@ options = [
         "clinic",
         "rewrite_ites_to_diamonds",
         category="Graph",
+        default_value=True,
+    ),
+    O(
+        "Name variables based on usage",
+        "Enable variable naming based on usage patterns. This usually results in more meaningful variable names for "
+        "unnamed variables.",
+        bool,
+        "clinic",
+        "semvar_naming",
+        category="Variables",
+        default_value=True,
+    ),
+    O(
+        "Identify and name loop counters",
+        "Identify and name loop counter variables using common naming patterns (e.g., i, j, k).",
+        bool,
+        "region_simplifier",
+        "loopctr_naming",
+        category="Variables",
         default_value=True,
     ),
     O(
@@ -241,13 +263,34 @@ options = [
     ),
     O(
         "Display decompilation notes as comments",
-        "Display decompilation notes in the outpu as function comments.",
+        "Display decompilation notes in the output as function comments.",
         bool,
         "codegen",
         "display_notes",
         category="Display",
-        default_value=False,
+        default_value=True,
         clears_cache=False,
+    ),
+    O(
+        "Truncate long constant strings",
+        "Truncate long constant strings in the decompilation output.",
+        int,
+        "codegen",
+        "max_str_len",
+        category="Display",
+        default_value=50,
+        clears_cache=True,
+    ),
+    O(
+        "Prettify C++/Rust method calls",
+        "Prettify method calls in C++ and Rust code by using (1) class constructors and destructors, (2) the '->' or "
+        "'.' operator, and (3) shorter method names where applicable.",
+        bool,
+        "codegen",
+        "prettify_thiscall",
+        category="Display",
+        default_value=False,
+        clears_cache=True,
     ),
     O(
         "Multi-expression statements generation",

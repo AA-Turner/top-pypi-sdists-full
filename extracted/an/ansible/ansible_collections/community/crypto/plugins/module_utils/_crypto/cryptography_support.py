@@ -20,13 +20,13 @@ from urllib.parse import (
 )
 
 from ansible.module_utils.common.text.converters import to_bytes, to_text
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto._asn1 import (
     serialize_asn1_string_as_der,
 )
 from ansible_collections.community.crypto.plugins.module_utils._version import (
     LooseVersion,
 )
-
 
 try:
     import cryptography
@@ -71,6 +71,7 @@ except ImportError:
     IDNA_IMP_ERROR = traceback.format_exc()
 
 from ansible.module_utils.basic import missing_required_lib
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto._obj2txt import (
     obj2txt,
 )
@@ -83,7 +84,6 @@ from ansible_collections.community.crypto.plugins.module_utils._crypto._objects 
 from ansible_collections.community.crypto.plugins.module_utils._crypto.basic import (
     OpenSSLObjectError,
 )
-
 
 if t.TYPE_CHECKING:
     import datetime  # pragma: no cover
@@ -112,19 +112,16 @@ if t.TYPE_CHECKING:
         PrivateKeyTypes,
         PublicKeyTypes,
     )
-    from cryptography.hazmat.primitives.serialization.pkcs12 import (  # pragma: no cover
-        PKCS12KeyAndCertificates,
-    )
 
-    CertificatePrivateKeyTypes = t.Union[
+    CertificatePrivateKeyTypes = t.Union[  # noqa: UP007
         CertificateIssuerPrivateKeyTypes,
         cryptography.hazmat.primitives.asymmetric.x25519.X25519PrivateKey,
         cryptography.hazmat.primitives.asymmetric.x448.X448PrivateKey,
     ]  # pragma: no cover
-    PublicKeyTypesWOEdwards = t.Union[  # pylint: disable=invalid-name
+    PublicKeyTypesWOEdwards = t.Union[  # noqa: UP007 # pylint: disable=invalid-name
         DHPublicKey, DSAPublicKey, EllipticCurvePublicKey, RSAPublicKey
     ]  # pragma: no cover
-    PrivateKeyTypesWOEdwards = t.Union[  # pylint: disable=invalid-name
+    PrivateKeyTypesWOEdwards = t.Union[  # noqa: UP007 # pylint: disable=invalid-name
         DHPrivateKey, DSAPrivateKey, EllipticCurvePrivateKey, RSAPrivateKey
     ]  # pragma: no cover
 else:
@@ -132,8 +129,8 @@ else:
     PrivateKeyTypesWOEdwards = None  # pylint: disable=invalid-name
 
 
-CRYPTOGRAPHY_TIMEZONE = False
-_CRYPTOGRAPHY_36_0_OR_NEWER = False
+CRYPTOGRAPHY_TIMEZONE = False  # pylint: disable=invalid-name
+_CRYPTOGRAPHY_36_0_OR_NEWER = False  # pylint: disable=invalid-name
 if _HAS_CRYPTOGRAPHY:
     CRYPTOGRAPHY_TIMEZONE = LooseVersion(cryptography.__version__) >= LooseVersion(
         "42.0.0"
@@ -725,9 +722,9 @@ def cryptography_key_needs_digest_for_signing(
         key, cryptography.hazmat.primitives.asymmetric.ed25519.Ed25519PrivateKey
     ):
         return False
-    if isinstance(key, cryptography.hazmat.primitives.asymmetric.ed448.Ed448PrivateKey):
-        return False
-    return True
+    return not isinstance(
+        key, cryptography.hazmat.primitives.asymmetric.ed448.Ed448PrivateKey
+    )
 
 
 def _compare_public_keys(
@@ -1109,27 +1106,27 @@ def is_potential_certificate_issuer_public_key(
 
 __all__ = (
     "CRYPTOGRAPHY_TIMEZONE",
+    "cryptography_compare_private_keys",
+    "cryptography_compare_public_keys",
+    "cryptography_decode_name",
+    "cryptography_get_basic_constraints",
     "cryptography_get_extensions_from_cert",
     "cryptography_get_extensions_from_csr",
+    "cryptography_get_name",
+    "cryptography_key_needs_digest_for_signing",
     "cryptography_name_to_oid",
     "cryptography_oid_to_name",
-    "cryptography_parse_relative_distinguished_name",
-    "cryptography_get_name",
-    "cryptography_decode_name",
     "cryptography_parse_key_usage_params",
-    "cryptography_get_basic_constraints",
-    "cryptography_key_needs_digest_for_signing",
-    "cryptography_compare_public_keys",
-    "cryptography_compare_private_keys",
-    "parse_pkcs12",
-    "cryptography_verify_signature",
+    "cryptography_parse_relative_distinguished_name",
     "cryptography_verify_certificate_signature",
+    "cryptography_verify_signature",
     "get_not_valid_after",
     "get_not_valid_before",
+    "is_potential_certificate_issuer_private_key",
+    "is_potential_certificate_issuer_public_key",
+    "is_potential_certificate_private_key",
+    "is_potential_certificate_public_key",
+    "parse_pkcs12",
     "set_not_valid_after",
     "set_not_valid_before",
-    "is_potential_certificate_private_key",
-    "is_potential_certificate_issuer_private_key",
-    "is_potential_certificate_public_key",
-    "is_potential_certificate_issuer_public_key",
 )

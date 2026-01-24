@@ -3,8 +3,9 @@ Tests for "typed_settings.cli.click".
 """
 
 import unittest.mock as mock
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Generic, Optional, TypeVar, Union
+from typing import Any, Generic, Literal, TypeVar
 
 import attrs
 import click
@@ -34,7 +35,7 @@ Invoke = Callable[..., click.testing.Result]
 class CliResult(click.testing.Result, Generic[T]):
     """A container for the settings passed to a test CLI."""
 
-    settings: Optional[T]
+    settings: T | None
 
 
 Cli = Callable[..., CliResult[T]]
@@ -75,12 +76,9 @@ def test_unkown_type(invoke: Invoke) -> None:
 
     @settings
     class Settings:
-        o: Union[int, str]
+        o: int | str
 
-    with pytest.raises(
-        TypeError,
-        match=r"Cannot create CLI option for: typing.Union\[int, str\]",
-    ):
+    with pytest.raises(TypeError, match=r"Cannot create CLI option for: int | str"):
 
         @click.command()  # pragma: no cover
         @click_options(Settings, "test")
@@ -140,7 +138,7 @@ class TestDefaultsLoading:
 
     def test_help_text(self, invoke: Invoke) -> None:
         """
-        cli_options/secrets can specify a help text for click cli_options.
+        options/secrets can specify a help text for click cli_options.
         """
 
         @settings
@@ -159,6 +157,35 @@ class TestDefaultsLoading:
             "Options:\n"
             "  --a TEXT  Help for 'a'  [default: spam]\n"
             "  --b TEXT  bbb  [default: (*******)]\n"
+            "  --help    Show this message and exit.\n"
+        )
+        assert result.exit_code == 0
+
+    def test_help_from_docstring(self, invoke: Invoke) -> None:
+        """
+        If docstrings are defined, they are used as help text, but they can be
+        overriden.
+        """
+
+        @settings
+        class Settings:
+            a: str = "spam"
+            """Help for 'a' from docstring."""
+
+            b: str = option(default="spam", help="Help for 'b' from option.")
+            """Help for 'b' from docstring."""
+
+        @click.command()
+        @click_options(Settings, default_loaders("test"))
+        def cli(settings: Settings) -> None: ...
+
+        result = invoke(cli, "--help")
+        assert result.output == (
+            "Usage: cli [OPTIONS]\n"
+            "\n"
+            "Options:\n"
+            "  --a TEXT  Help for 'a' from docstring.  [default: spam]\n"
+            "  --b TEXT  Help for 'b' from option.  [default: spam]\n"
             "  --help    Show this message and exit.\n"
         )
         assert result.exit_code == 0
@@ -610,8 +637,8 @@ class TestClickConfig:
     def test_default_for_flag_has_on_and_off_switch(
         self,
         invoke: Invoke,
-        click_config: Optional[dict],
-        flag: Optional[str],
+        click_config: dict | None,
+        flag: str | None,
         value: bool,
     ) -> None:
         """
@@ -638,7 +665,7 @@ class TestClickConfig:
         "flag, value", [(None, False), ("--opt", True), ("--no-opt", False)]
     )
     def test_create_a_flag_without_off_switch(
-        self, invoke: Invoke, flag: Optional[str], value: bool
+        self, invoke: Invoke, flag: str | None, value: bool
     ) -> None:
         """
         The "off"-flag for flag options can be removed.
@@ -668,7 +695,7 @@ class TestClickConfig:
         "flag, value", [(None, False), ("-x", True), ("--exitfirst", True)]
     )
     def test_create_a_short_handle_for_a_flag(
-        self, invoke: Invoke, flag: Optional[str], value: bool
+        self, invoke: Invoke, flag: str | None, value: bool
     ) -> None:
         """
         Create a shorter handle for a command similar to pytest's -x.
@@ -810,7 +837,7 @@ class TestDecoratorFactory:
     [None, cli_click.ClickOptionFactory(), cli_click.OptionGroupFactory()],
 )
 def test_show_envvar_in_help(
-    factory: Optional[cli_click.DecoratorFactory], invoke: Invoke
+    factory: cli_click.DecoratorFactory | None, invoke: Invoke
 ) -> None:
     """
     An option's help can optionally show the env var that will be loaded.
@@ -859,7 +886,7 @@ def test_show_envvar_in_help(
     [None, cli_click.ClickOptionFactory(), cli_click.OptionGroupFactory()],
 )
 def test_click_no_load_envvar(
-    factory: Optional[cli_click.DecoratorFactory],
+    factory: cli_click.DecoratorFactory | None,
     invoke: Invoke,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1028,3 +1055,83 @@ def test_lazy_load_defaults(invoke: Invoke, monkeypatch: pytest.MonkeyPatch) -> 
     invoke(cli, "--o1=0")
 
     assert loaded_settings == [Settings(0, 1), Settings(0, 2)]
+
+
+def test_aliases(invoke: Invoke) -> None:
+    """
+    Aliases are used instead of names when defined.
+    """
+
+    @settings
+    class Settings:
+        o1: int = option(alias="o2")
+
+    @click.command()
+    @click_options(Settings, "test")
+    def cli(settings: Settings) -> None:
+        assert settings == Settings(3)
+
+    result = invoke(cli, "--o2=3")
+    assert result.exit_code == 0
+
+    result = invoke(cli, "--o1=3")
+    assert result.exit_code == 2
+
+
+def test_invalid_literal(invoke: Invoke) -> None:
+    """
+    Literals must only use string values.
+    """
+
+    @settings
+    class Settings:
+        o1: Literal["spam", 42]
+
+    with pytest.raises(
+        ValueError, match=r"All Literal values must be strings: \('spam', 42\)"
+    ):
+
+        @click.command()
+        @click_options(Settings, "test")
+        def cli(settings: Settings) -> None: ...
+
+
+@pytest.mark.parametrize(
+    "opts",
+    [
+        pytest.param([], id="trigger_in_new_func"),
+        pytest.param(["--o1", "1"], id="trigger_in_make_callback"),
+    ],
+)
+def test_ctx_is_not_dict(opts: list[str], invoke: Invoke) -> None:
+    """
+    When Typed Settings is used, the click context object must be a dict.  If not,
+    an error is raised explaining the situation.
+    """
+
+    class AppContext:
+        """
+        Custom application context object.
+        """
+
+    @settings
+    class Settings:
+        o1: int = 0
+
+    @click.group()
+    @click.pass_context
+    def cli(ctx: click.Context):
+        # Store custom object in parent context.  This is forbidden!
+        ctx.ensure_object(AppContext)
+
+    @cli.command()
+    @click_options(Settings, [])
+    def sub(settings: Settings):
+        """
+        Sub command using Typed Settings.
+        """
+
+    with pytest.raises(
+        RuntimeError, match=r"'ctx.obj' must be a dict .* got: AppContext"
+    ):
+        invoke(cli, "sub", *opts)

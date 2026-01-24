@@ -1,28 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: throttled-py
-Version: 2.2.3
+Version: 3.1.1
 Summary: 🔧 High-performance Python rate limiting library with multiple algorithms (Fixed Window, Sliding Window, Token Bucket, Leaky Bucket & GCRA) and storage backends (Redis, In-Memory).
-Home-page: https://github.com/ZhuoZhuoCrayon/throttled-py
+Project-URL: Homepage, https://github.com/ZhuoZhuoCrayon/throttled-py
+Project-URL: Repository, https://github.com/ZhuoZhuoCrayon/throttled-py
+Project-URL: Documentation, https://throttled-py.readthedocs.io
+Project-URL: Changes, https://github.com/ZhuoZhuoCrayon/throttled-py/releases
+Project-URL: Bug Tracker, https://github.com/ZhuoZhuoCrayon/throttled-py/issues
+Author-email: ZhuoZhuoCrayon <crayon.ccxx@gmail.com>
 License: MIT
-Author: ZhuoZhuoCrayon
-Author-email: crayon.ccxx@gmail.com
-Requires-Python: >=3.8,<4.0
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Provides-Extra: all
-Provides-Extra: in-memory
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Provides-Extra: memory
 Provides-Extra: redis
-Requires-Dist: redis (>=5.2.1,<6.0.0) ; extra == "redis" or extra == "all"
-Project-URL: Bug Tracker, https://github.com/ZhuoZhuoCrayon/throttled-py/issues
-Project-URL: Changes, https://github.com/ZhuoZhuoCrayon/throttled-py/releases
-Project-URL: Documentation, https://throttled-py.readthedocs.io
-Project-URL: Repository, https://github.com/ZhuoZhuoCrayon/throttled-py
+Requires-Dist: redis!=4.5.2,!=4.5.3,<8.0.0,>3; extra == 'redis'
 Description-Content-Type: text/markdown
 
 <h1 align="center">throttled-py</h1>
@@ -32,7 +36,7 @@ Description-Content-Type: text/markdown
 
 <p align="center">
     <a href="https://github.com/ZhuoZhuoCrayon/throttled-py">
-        <img src="https://badgen.net/badge/python/%3E=3.8/green?icon=python" alt="Python">
+        <img src="https://img.shields.io/badge/python-%3E%3D3.8-green?logo=python" alt="Python">
     </a>
      <a href="https://github.com/ZhuoZhuoCrayon/throttled-py">
         <img src="https://codecov.io/gh/ZhuoZhuoCrayon/throttled-py/graph/badge.svg" alt="Coverage Status">
@@ -56,7 +60,7 @@ Description-Content-Type: text/markdown
 ## ✨ Features
 
 * Supports both synchronous and [asynchronous](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#3-asynchronous) (`async / await`).
-* Provides thread-safe storage backends: [Redis](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#redis), [In-Memory (with support for key expiration and eviction)](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#in-memory).
+* Provides thread-safe storage backends: [Redis(Standalone/Sentinel/Cluster)](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#redis), [In-Memory (with support for key expiration and eviction)](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#in-memory).
 * Supports multiple rate limiting algorithms: [Fixed Window](https://github.com/ZhuoZhuoCrayon/throttled-py/tree/main/docs/basic#21-%E5%9B%BA%E5%AE%9A%E7%AA%97%E5%8F%A3%E8%AE%A1%E6%95%B0%E5%99%A8), [Sliding Window](https://github.com/ZhuoZhuoCrayon/throttled-py/blob/main/docs/basic/readme.md#22-%E6%BB%91%E5%8A%A8%E7%AA%97%E5%8F%A3), [Token Bucket](https://github.com/ZhuoZhuoCrayon/throttled-py/blob/main/docs/basic/readme.md#23-%E4%BB%A4%E7%89%8C%E6%A1%B6), [Leaky Bucket](https://github.com/ZhuoZhuoCrayon/throttled-py/blob/main/docs/basic/readme.md#24-%E6%BC%8F%E6%A1%B6) & [Generic Cell Rate Algorithm (GCRA)](https://github.com/ZhuoZhuoCrayon/throttled-py/blob/main/docs/basic/readme.md#25-gcra).
 * Supports [configuration of rate limiting algorithms](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#3-algorithms) and provides flexible [quota configuration](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#4-quota-configuration).
 * Supports immediate response and [wait-retry](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#wait--retry) modes, and provides [function call](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#function-call), [decorator](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#decorator), and [context manager](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#context-manager) modes.
@@ -101,15 +105,14 @@ $ pip install "throttled-py[redis,in-memory]"
 ### 2) Example
 
 ```python
-from throttled import RateLimiterType, Throttled, rate_limiter, store, utils
+from throttled import RateLimiterType, Throttled, rate_limiter, utils
 
 throttle = Throttled(
     # 📈 Use Token Bucket algorithm
     using=RateLimiterType.TOKEN_BUCKET.value,
     # 🪣 Set quota: 1,000 tokens per second (limit), bucket size 1,000 (burst)
     quota=rate_limiter.per_sec(1_000, burst=1_000),
-    # 📁 Use In-Memory storage
-    store=store.MemoryStore(),
+    # 📁 By default, global MemoryStore is used as the storage backend.
 )
 
 def call_api() -> bool:
@@ -134,12 +137,11 @@ For example, rewrite `2) Example` to asynchronous:
 
 ```python
 import asyncio
-from throttled.asyncio import RateLimiterType, Throttled, rate_limiter, store, utils
+from throttled.asyncio import RateLimiterType, Throttled, rate_limiter, utils
 
 throttle = Throttled(
     using=RateLimiterType.TOKEN_BUCKET.value,
-    quota=rate_limiter.per_sec(1_000, burst=1_000),
-    store=store.MemoryStore(),
+    quota=rate_limiter.per_sec(1_000, burst=1_000)
 )
 
 
@@ -258,6 +260,8 @@ if __name__ == "__main__":
 
 #### Redis
 
+You only need very simple configuration, and it supports connecting to Redis standalone, sentinel, and cluster modes.
+
 The following example uses Redis as the storage backend, `options` supports all Redis configuration items, see [RedisStore Options](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#redisstore-options).
 
 ```python
@@ -267,7 +271,15 @@ from throttled import RateLimiterType, Throttled, rate_limiter, store
     key="/api/products",
     using=RateLimiterType.TOKEN_BUCKET.value,
     quota=rate_limiter.per_min(1),
-    store=store.RedisStore(server="redis://127.0.0.1:6379/0", options={"PASSWORD": ""}),
+    store=store.RedisStore(
+        # Standalone mode
+        server="redis://127.0.0.1:6379/0",
+        # Sentinel mode
+        # server="redis+sentinel://:yourpassword@host1:26379,host2:26379/mymaster"
+        # Cluster mode
+        # server="redis+cluster://:yourpassword@host1:6379,host2:6379",
+        options={}
+    ),
 )
 def products() -> list:
     return [{"name": "iPhone"}, {"name": "MacBook"}]
@@ -278,7 +290,9 @@ products()  # Raises LimitedError
 
 #### In-Memory
 
-If you want to throttle the same Key at different locations in your program, make sure that Throttled receives the same MemoryStore and uses a consistent [`Quota`](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#3-quota).
+By default, a global `MemoryStore` instance with a maximum capacity of 1024 is used as the storage backend when no storage backend is specified. Therefore, **it is usually not necessary to manually create** a `MemoryStore` instance.
+
+Different instances mean different storage spaces, if you want to throttle the same Key at different locations in your program, make sure that Throttled receives the same MemoryStore and uses a consistent [`Quota`](https://github.com/ZhuoZhuoCrayon/throttled-py?tab=readme-ov-file#3-quota).
 
 The following example uses memory as the storage backend and throttles the same Key on ping and pong:
 
@@ -308,13 +322,12 @@ The rate limiting algorithm is specified by the **`using`** parameter. The suppo
 * [Generic Cell Rate Algorithm, GCRA](https://github.com/ZhuoZhuoCrayon/throttled-py/blob/main/docs/basic/readme.md#25-gcra): `RateLimiterType.GCRA.value`
 
 ```python
-from throttled import RateLimiterType, Throttled, rate_limiter, store
+from throttled import RateLimiterType, Throttled, rate_limiter
 
 throttle = Throttled(
     # 🌟Specifying a current limiting algorithm
     using=RateLimiterType.FIXED_WINDOW.value, 
-    quota=rate_limiter.per_min(1),
-    store=store.MemoryStore()
+    quota=rate_limiter.per_min(1)
 )
 assert throttle.limit("key", 2).limited is True
 ```
@@ -404,10 +417,10 @@ Rate represents the rate limit configuration.
 
 #### Common Parameters
 
-| Param     | Description                     | Default                      |
-|-----------|---------------------------------|------------------------------|
-| `server`  | Redis connection URL            | `"redis://localhost:6379/0"` |
-| `options` | Storage-specific configurations | `{}`                         |
+| Param     | Description                                                                      | Default                      |
+|-----------|----------------------------------------------------------------------------------|------------------------------|
+| `server`  | Redis connection URL, you can use it to connect to Redis in any deployment mode. | `"redis://localhost:6379/0"` |
+| `options` | Storage-specific configurations                                                  | `{}`                         |
 
 #### RedisStore Options
 
@@ -415,18 +428,17 @@ RedisStore is developed based on the Redis API provided by [redis-py](https://gi
 
 In terms of Redis connection configuration management, the configuration naming of [django-redis](https://github.com/jazzband/django-redis) is basically used to reduce the learning cost.
 
-| Parameter                  | Description                                                                                                                                                    | Default                               |
-|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------|
-| `CONNECTION_FACTORY_CLASS` | ConnectionFactory is used to create and maintain [ConnectionPool](https://redis-py.readthedocs.io/en/stable/connections.html#redis.connection.ConnectionPool). | `"throttled.store.ConnectionFactory"` |
-| `CONNECTION_POOL_CLASS`    | ConnectionPool import path.                                                                                                                                    | `"redis.connection.ConnectionPool"`   |
-| `CONNECTION_POOL_KWARGS`   | [ConnectionPool construction parameters](https://redis-py.readthedocs.io/en/stable/connections.html#connectionpool).                                           | `{}`                                  |
-| `REDIS_CLIENT_CLASS`       | RedisClient import path, uses [redis.client.Redis](https://redis-py.readthedocs.io/en/stable/connections.html#redis.Redis) by default.                         | `"redis.client.Redis"`                |
-| `REDIS_CLIENT_KWARGS`      | [RedisClient construction parameters](https://redis-py.readthedocs.io/en/stable/connections.html#redis.Redis).                                                 | `{}`                                  |
-| `PASSWORD`                 | Password.                                                                                                                                                      | `null`                                |
-| `SOCKET_TIMEOUT`           | ConnectionPool parameters.                                                                                                                                     | `null`                                |
-| `SOCKET_CONNECT_TIMEOUT`   | ConnectionPool parameters.                                                                                                                                     | `null`                                |
-| `SENTINELS`                | `(host, port)` tuple list, for sentinel mode, please use `SentinelConnectionFactory` and provide this configuration.                                           | `[]`                                  |
-| `SENTINEL_KWARGS`          | [Sentinel construction parameters](https://redis-py.readthedocs.io/en/stable/connections.html#id1).                                                            | `{}`                                  |
+| Parameter                  | Description                                                                                                                                                 | Default                                                                                                                                                                                                                                                                                                                                                                       |
+|----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `SOCKET_TIMEOUT`           | ConnectionPool parameters.                                                                                                                                  | `null`                                                                                                                                                                                                                                                                                                                                                                        |
+| `SOCKET_CONNECT_TIMEOUT`   | ConnectionPool parameters.                                                                                                                                  | `null`                                                                                                                                                                                                                                                                                                                                                                        |
+| `CONNECTION_POOL_KWARGS`   | [ConnectionPool construction parameters](https://redis.readthedocs.io/en/stable/connections.html#connectionpool).                                           | `{}`                                                                                                                                                                                                                                                                                                                                                                          |
+| `REDIS_CLIENT_KWARGS`      | [RedisClient construction parameters](https://redis.readthedocs.io/en/stable/connections.html#redis.Redis).                                                 | `{}`                                                                                                                                                                                                                                                                                                                                                                          |
+| `SENTINEL_KWARGS`          | [Sentinel construction parameters](https://redis.readthedocs.io/en/stable/connections.html#id1).                                                            | `{}`                                                                                                                                                                                                                                                                                                                                                                          |
+| `CONNECTION_FACTORY_CLASS` | ConnectionFactory is used to create and maintain [ConnectionPool](https://redis.readthedocs.io/en/stable/connections.html#redis.connection.ConnectionPool). | Automatically select via the `server` scheme by default. <br />Standalone: `"throttled.store.ConnectionFactory"` <br />Sentinel:`"throttled.store.SentinelConnectionFactory"`<br />Cluster: `"throttled.store.ClusterConnectionFactory"`                                                                                                                                      |
+| `REDIS_CLIENT_CLASS`       | RedisClient import path.                                                                                                                                    | Automatically select sync/async mode by default.<br />Sync(Standalone/Sentinel): `"redis.client.Redis"`<br />Async(Standalone/Sentinel): `"redis.asyncio.client.Redis"`<br />Sync(Cluster): ``"redis.cluster.RedisCluster"``<br />Async(Cluster): ``"redis.asyncio.cluster.RedisCluster"``                                                                                    |
+| `CONNECTION_POOL_CLASS`    | ConnectionPool import path.                                                                                                                                 | Automatically select via the `server` scheme and sync/async mode by default.<br />Sync(Standalone): `"redis.connection.ConnectionPool"`<br />Async(Standalone): `"redis.asyncio.connection.ConnectionPool"`<br />Sync(Sentinel): `"redis.sentinel.SentinelConnectionPool"`<br />Async(Sentinel): `"redis.asyncio.sentinel.SentinelConnectionPool"`<br />Cluster: `"Disabled"` |
+| `SENTINEL_CLASS`           | Sentinel import path.                                                                                                                                       | Automatically select sync/async mode by default.<br />Sync: `"redis.Sentinel"`<br />Async: `"redis.asyncio.Sentinel"`                                                                                                                                                                                                                                                         |
 
 #### MemoryStore Options
 
@@ -491,4 +503,3 @@ Thrown when the parameter is invalid, such as: `Invalid key: None, must be a non
 ## 📄 License
 
 [The MIT License](https://github.com/ZhuoZhuoCrayon/throttled-py/blob/main/LICENSE)
-

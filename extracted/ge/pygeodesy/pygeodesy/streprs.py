@@ -22,7 +22,7 @@ from pygeodesy.lazily import _ALL_LAZY, _ALL_MODS as _MODS
 from math import fabs, log10 as _log10
 
 __all__ = _ALL_LAZY.streprs
-__version__ = '25.04.14'
+__version__ = '25.11.24'
 
 _at_        = 'at'         # PYCHOK used!
 _EN_PREC    =  6           # max MGRS/OSGR precision, 1 micrometer
@@ -321,9 +321,11 @@ def fstr(floats, prec=6, fmt=Fmt.F, ints=False, sep=_COMMASPACE_, strepr=None, f
                 C{strs((floats,), ...)} (C{str}) if B{C{floats}} is C{scalar}.
     '''
     if isscalar(floats):  # see Fstr.__call__ above
-        return next(_streprs(prec, (floats,), fmt, ints, force, strepr))
+        t =  next(_streprs(prec, (floats,), fmt, ints, force, strepr))
     else:
-        return sep.join(_streprs(prec, floats, fmt, ints, force, strepr))
+        t = _streprs(prec, floats, fmt, ints, force, strepr)
+        t =  sep.join(t) if sep else tuple(t)
+    return t
 
 
 def _fstrENH2(inst, prec, m, fmt=Fmt.F):  # in .css, .lcc, .utmupsBase
@@ -545,22 +547,22 @@ def unstr(where, *args, **kwds_):
        @arg where: Class, function, method (C{type}) or name (C{str}).
        @arg args: Optional positional arguments.
        @kwarg kwds_: Optional keyword arguments, except C{B{_Cdot}=None},
-                     C{B{_ELLIPSIS}=False} and C{B{_fmt}=Fmt.g}.
+                     C{B{_ELLIPSIS}=False}, C{B{_fmt}=Fmt.g} and C{B{_prec}=6}.
 
        @return: Representation (C{str}).
     '''
-    def _C_e_g_kwds3(_Cdot=None, _ELLIPSIS=0, _fmt=Fmt.g, **kwds):
-        return _Cdot, _ELLIPSIS, _fmt, kwds
+    def _C_e_fmt_prec_kwds(_Cdot=None, _ELLIPSIS=0, _fmt=Fmt.g, _prec=6, **kwds):
+        return _Cdot, _ELLIPSIS, dict(fmt=_fmt, prec=_prec), kwds
 
-    C, e, g, kwds = _C_e_g_kwds3(**kwds_)
+    C, e, fmt_prec, kwds = _C_e_fmt_prec_kwds(**kwds_)
     if e and len(args) > (e + 1):
-        t  =  reprs(args[:e], fmt=g)
+        t  =  reprs(args[:e], **fmt_prec)
         t += _ELLIPSIS_,
-        t +=  reprs(args[-1:], fmt=g)
+        t +=  reprs(args[-1:], **fmt_prec)
     else:
-        t  =  reprs(args, fmt=g) if args else ()
+        t  =  reprs(args, **fmt_prec) if args else ()
     if kwds:
-        t += pairs(itemsorted(kwds), fmt=g)
+        t += pairs(itemsorted(kwds), **fmt_prec)
     n = where if isstr(where) else typename(where)  # _NN_
     if C and hasattr(C, n):
         try:  # bound method of class C?
@@ -605,7 +607,7 @@ def _xzipairs(names, values, sep=_COMMASPACE_, fmt=NN, pair_fmt=Fmt.COLON):
 
 # **) MIT License
 #
-# Copyright (C) 2016-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

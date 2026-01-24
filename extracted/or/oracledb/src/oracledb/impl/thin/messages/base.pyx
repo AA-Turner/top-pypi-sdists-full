@@ -330,7 +330,14 @@ cdef class Message:
         buf.skip_ub2()                      # version
         buf.skip_ub2()                      # character set id
         buf.read_ub1(&csfrm)                # character set form
-        metadata.dbtype = DbType._from_ora_type_and_csfrm(ora_type_num, csfrm)
+        # in some cases the metadata returned contains an invalid character
+        # set form for data types that do not actually require it; if the
+        # lookup fails, try again with a zero character set form
+        try:
+            metadata.dbtype = \
+                    DbType._from_ora_type_and_csfrm(ora_type_num, csfrm)
+        except:
+            metadata.dbtype = DbType._from_ora_type_and_csfrm(ora_type_num, 0)
         buf.read_ub4(&metadata.max_size)
         if ora_type_num == ORA_TYPE_NUM_RAW:
             metadata.max_size = metadata.buffer_size
@@ -964,12 +971,14 @@ cdef class MessageWithData(Message):
         # variables in order to take the new type handler into account
         conn = self.cursor.connection
         type_handler = cursor_impl._get_output_type_handler(&uses_metadata)
-        if type_handler is not statement._last_output_type_handler:
+        if type_handler is not statement._last_output_type_handler \
+                or cursor_impl.schema_impl is not statement._last_schema_impl:
             for i, var_impl in enumerate(cursor_impl.fetch_var_impls):
                 cursor_impl._create_fetch_var(conn, self.cursor, type_handler,
                                               uses_metadata, i,
                                               var_impl._fetch_metadata)
             statement._last_output_type_handler = type_handler
+            statement._last_schema_impl = cursor_impl.schema_impl
 
         # create Arrow arrays if fetching arrow is enabled
         if cursor_impl.fetching_arrow:
@@ -1065,7 +1074,10 @@ cdef class MessageWithData(Message):
                     else:
                         column_value = PY_TYPE_DB_OBJECT._from_impl(obj_impl)
         else:
-            buf.read_oracle_data(metadata, &data, from_dbobject=False)
+            column_value = buf.read_oracle_data(
+                metadata, &data, from_dbobject=False,
+                decode_str=self.cursor_impl.fetching_arrow
+            )
             if metadata.dbtype._csfrm == CS_FORM_NCHAR:
                 buf._caps._check_ncharset_id()
             if self.cursor_impl.fetching_arrow:
@@ -1140,6 +1152,7 @@ cdef class MessageWithData(Message):
         stmt._fetch_var_impls = cursor_impl.fetch_var_impls
         stmt._num_columns = cursor_impl._num_columns
         stmt._last_output_type_handler = type_handler
+        stmt._last_schema_impl = cursor_impl.schema_impl
 
     cdef int _process_error_info(self, ReadBuffer buf) except -1:
         cdef:

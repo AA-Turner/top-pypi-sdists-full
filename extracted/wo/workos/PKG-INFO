@@ -1,25 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: workos
-Version: 5.28.0
+Version: 5.40.0
 Summary: WorkOS Python Client
-Home-page: https://github.com/workos-inc/workos-python
 Author: WorkOS
-Author-email: team@workos.com
-License: MIT
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
+Author-email: WorkOS <team@workos.com>
+License-Expression: MIT
+Requires-Dist: cryptography>=44.0.2
+Requires-Dist: httpx~=0.28.1
+Requires-Dist: pydantic>=2.10.4
+Requires-Dist: pyjwt>=2.10.0 ; python_full_version >= '3.9'
+Requires-Dist: pyjwt>=2.9.0,<2.10 ; python_full_version == '3.8.*'
+Requires-Python: >=3.8
+Project-URL: Changelog, https://workos.com/docs/sdks/python
+Project-URL: Documentation, https://workos.com/docs/reference
+Project-URL: Homepage, https://workos.com/docs/sdks/python
 Description-Content-Type: text/markdown
-Provides-Extra: dev
-License-File: LICENSE
 
 # WorkOS Python Library
 
@@ -43,7 +38,7 @@ pip install workos
 To install from source, clone the repo and run the following:
 
 ```
-python setup.py install
+python -m pip install .
 ```
 
 ## Configuration

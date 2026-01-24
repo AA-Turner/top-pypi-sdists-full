@@ -128,6 +128,8 @@ class LinuxContainer(DeveloperEnvironmentInterface[LinuxContainerConfig]):
                 "-e",
                 AppEnvVars.TELEMETRY_API_KEY,
                 "-e",
+                AppEnvVars.TELEMETRY_USER_MACHINE_ID,
+                "-e",
                 GitEnvVars.AUTHOR_NAME,
                 "-e",
                 GitEnvVars.AUTHOR_EMAIL,
@@ -158,6 +160,7 @@ class LinuxContainer(DeveloperEnvironmentInterface[LinuxContainerConfig]):
 
             env = EnvVars()
             env["DD_SHELL"] = self.config.shell
+            env[AppEnvVars.TELEMETRY_USER_MACHINE_ID] = self.app.telemetry.user.machine_id
             if self.app.telemetry.api_key is not None:
                 env[AppEnvVars.TELEMETRY_API_KEY] = self.app.telemetry.api_key
             if self.app.config.tools.git.author.name:
@@ -202,7 +205,7 @@ class LinuxContainer(DeveloperEnvironmentInterface[LinuxContainerConfig]):
 
         from dda.env.models import EnvironmentState, EnvironmentStatus
 
-        output = self.docker.capture(["inspect", self.container_name], check=False, cross_streams=False)
+        output = self.docker.capture(["inspect", self.container_name], check=False)
         items = json.loads(output)
         if not items:
             return EnvironmentStatus(state=EnvironmentState.NONEXISTENT)
@@ -377,9 +380,11 @@ class LinuxContainer(DeveloperEnvironmentInterface[LinuxContainerConfig]):
         return ssh_command
 
     def check_readiness(self) -> None:
-        output = self.docker.capture(["logs", self.container_name])
+        # The `docker logs` command outputs to stderr
+        output = self.docker.capture(["logs", self.container_name], cross_streams=True)
         if "Server listening on :: port 22" not in output:
-            raise RuntimeError
+            msg = f"Container `{self.container_name}` is not ready: {output}"
+            raise RuntimeError(msg)
 
     def ssh_base_command(self) -> list[str]:
         from dda.utils.ssh import ssh_base_command

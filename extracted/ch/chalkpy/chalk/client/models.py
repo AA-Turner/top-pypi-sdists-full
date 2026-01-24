@@ -7,10 +7,9 @@ import traceback
 import uuid
 from datetime import datetime, timedelta
 from enum import Enum, IntEnum
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, Optional, Sequence, Tuple, TypeAlias, Union
 
 import numpy as np
-from typing_extensions import TypeAlias
 
 from chalk.byte_transmit.model import ByteBaseModel, ByteDict
 from chalk.client._internal_models.models import OfflineQueryGivensVersion
@@ -461,6 +460,15 @@ class OfflineQueryInput(BaseModel):
     values: List[List[Any]]  # Values should be of type TJSON
 
 
+class OfflineQueryInputSql(BaseModel):
+    """Input to an offline query specified as a ChalkSQL query instead
+    of literal data.
+
+    Alternative to OfflineQueryInput or OfflineQueryInputUri."""
+
+    input_sql: str
+
+
 class OnlineQueryRequest(BaseModel):
     inputs: Mapping[str, Any]  # Values should be of type TJSON
     outputs: List[str]
@@ -470,10 +478,6 @@ class OnlineQueryRequest(BaseModel):
     context: Optional[OnlineQueryContext] = None
     include_meta: bool = True
     explain: Union[bool, Literal["only"]] = False
-    skip_online_storage: Optional[bool] = False
-    skip_offline_storage: Optional[bool] = False
-    skip_metrics_storage: Optional[bool] = False
-    skip_cache_lookups: Optional[bool] = False
     correlation_id: Optional[str] = None
     query_name: Optional[str] = None
     query_name_version: Optional[str] = None
@@ -508,10 +512,6 @@ class OnlineQueryManyRequest(BaseModel):
     context: Optional[OnlineQueryContext] = None
     include_meta: bool = True
     explain: bool = False
-    skip_online_storage: Optional[bool] = False
-    skip_offline_storage: Optional[bool] = False
-    skip_metrics_storage: Optional[bool] = False
-    skip_cache_lookups: Optional[bool] = False
     correlation_id: Optional[str] = None
     query_name: Optional[str] = None
     query_name_version: Optional[str] = None
@@ -847,6 +847,7 @@ class CreateOfflineQueryJobRequest(BaseModel):
         None,
         UploadedParquetShardedOfflineQueryInput,
         OfflineQueryInputUri,
+        OfflineQueryInputSql,
     ] = None
     """Any givens"""
 
@@ -1667,6 +1668,7 @@ class PlanQueryResponse(BaseModel):
     output_schema: List[FeatureSchema]
     errors: List[ChalkError]
     structured_plan: Optional[str] = None
+    serialized_plan_proto_bytes: Optional[str] = None
 
 
 class IngestDatasetRequest(BaseModel):
@@ -1754,6 +1756,14 @@ class RegisterModelVersionResponse(BaseModel):
     model_version: int
     artifact: Any
     aliases: List[str]
+    created_by: str
+    created_at: Optional[datetime] = None
+
+
+class RegisterModelArtifactResponse(BaseModel):
+    artifact_id: str
+    path: str
+    spec: Any
     metadata: Mapping[str, Any]
     created_by: str
     created_at: Optional[datetime] = None
@@ -1774,7 +1784,6 @@ class GetRegisteredModelResponse(BaseModel):
 class GetRegisteredModelVersionResponse(BaseModel):
     model_id: str
     model_name: str
-    metadata: Mapping[str, Any]
     created_by: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -1784,3 +1793,90 @@ class GetRegisteredModelVersionResponse(BaseModel):
 
 class CreateModelTrainingJobResponse(BaseModel):
     success: bool
+
+
+class ScheduledQueryRunStatus(str, Enum):
+    """Status of a scheduled query run."""
+
+    UNSPECIFIED = "UNSPECIFIED"
+    INITIALIZING = "INITIALIZING"
+    INIT_FAILED = "INIT_FAILED"
+    SKIPPED = "SKIPPED"
+    QUEUED = "QUEUED"
+    WORKING = "WORKING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELED = "CANCELED"
+
+
+@dataclasses.dataclass
+class ScheduledQueryRun:
+    """A single scheduled query run."""
+
+    id: int
+    environment_id: str
+    deployment_id: str
+    run_id: str
+    cron_query_id: int
+    cron_query_schedule_id: int
+    cron_name: str
+    gcr_execution_id: str
+    gcr_job_name: str
+    offline_query_id: str
+    created_at: datetime
+    updated_at: datetime
+    status: ScheduledQueryRunStatus
+    blocker_operation_id: str
+
+    @staticmethod
+    def from_proto(proto_run: Any) -> "ScheduledQueryRun":
+        """Convert a proto ScheduledQueryRun to the dataclass version."""
+        from datetime import timezone
+
+        # Map proto status enum to our enum
+        status_map = {
+            0: ScheduledQueryRunStatus.UNSPECIFIED,
+            1: ScheduledQueryRunStatus.INITIALIZING,
+            2: ScheduledQueryRunStatus.INIT_FAILED,
+            3: ScheduledQueryRunStatus.SKIPPED,
+            4: ScheduledQueryRunStatus.QUEUED,
+            5: ScheduledQueryRunStatus.WORKING,
+            6: ScheduledQueryRunStatus.COMPLETED,
+            7: ScheduledQueryRunStatus.FAILED,
+            8: ScheduledQueryRunStatus.CANCELED,
+        }
+
+        # Helper to convert proto Timestamp to datetime
+        def _timestamp_to_datetime(ts: Any) -> datetime:
+            return datetime.fromtimestamp(ts.seconds + ts.nanos / 1e9, tz=timezone.utc)
+
+        return ScheduledQueryRun(
+            id=proto_run.id,
+            environment_id=proto_run.environment_id,
+            deployment_id=proto_run.deployment_id,
+            run_id=proto_run.run_id,
+            cron_query_id=proto_run.cron_query_id,
+            cron_query_schedule_id=proto_run.cron_query_schedule_id,
+            cron_name=proto_run.cron_name,
+            gcr_execution_id=proto_run.gcr_execution_id,
+            gcr_job_name=proto_run.gcr_job_name,
+            offline_query_id=proto_run.offline_query_id,
+            created_at=_timestamp_to_datetime(proto_run.created_at),
+            updated_at=_timestamp_to_datetime(proto_run.updated_at),
+            status=status_map.get(proto_run.status, ScheduledQueryRunStatus.UNSPECIFIED),
+            blocker_operation_id=proto_run.blocker_operation_id,
+        )
+
+
+@dataclasses.dataclass
+class ManualTriggerScheduledQueryResponse:
+    """Response from manually triggering a scheduled query."""
+
+    scheduled_query_run: ScheduledQueryRun
+
+    @staticmethod
+    def from_proto(proto_response: Any) -> "ManualTriggerScheduledQueryResponse":
+        """Convert a proto ManualTriggerScheduledQueryResponse to the dataclass version."""
+        return ManualTriggerScheduledQueryResponse(
+            scheduled_query_run=ScheduledQueryRun.from_proto(proto_response.scheduled_query_run),
+        )

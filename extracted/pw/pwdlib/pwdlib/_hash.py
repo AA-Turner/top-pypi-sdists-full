@@ -1,7 +1,8 @@
-import typing
+import collections.abc
 
 from . import exceptions
 from .hashers import HasherProtocol
+from .hashers.base import validate_str_or_bytes
 
 
 class PasswordHash:
@@ -9,7 +10,7 @@ class PasswordHash:
     Represents a password hashing utility.
     """
 
-    def __init__(self, hashers: typing.Sequence[HasherProtocol]) -> None:
+    def __init__(self, hashers: collections.abc.Sequence[HasherProtocol]) -> None:
         """
         Args:
             hashers: A sequence of hashers to be used for password hashing.
@@ -38,12 +39,7 @@ class PasswordHash:
 
         return cls((Argon2Hasher(),))
 
-    def hash(
-        self,
-        password: typing.Union[str, bytes],
-        *,
-        salt: typing.Union[bytes, None] = None,
-    ) -> str:
+    def hash(self, password: str | bytes, *, salt: bytes | None = None) -> str:
         """
         Hashes a password using the current hasher.
 
@@ -57,11 +53,10 @@ class PasswordHash:
         Examples:
             >>> hash = password_hash.hash("herminetincture")
         """
+        validate_str_or_bytes(password, "password")
         return self.current_hasher.hash(password, salt=salt)
 
-    def verify(
-        self, password: typing.Union[str, bytes], hash: typing.Union[str, bytes]
-    ) -> bool:
+    def verify(self, password: str | bytes, hash: str | bytes) -> bool:
         """
         Verifies if a password matches a given hash.
 
@@ -82,14 +77,16 @@ class PasswordHash:
             >>> password_hash.verify("INVALID_PASSWORD", hash)
             False
         """
+        validate_str_or_bytes(password, "password")
+        validate_str_or_bytes(hash, "hash")
         for hasher in self.hashers:
             if hasher.identify(hash):
                 return hasher.verify(password, hash)
         raise exceptions.UnknownHashError(hash)
 
     def verify_and_update(
-        self, password: typing.Union[str, bytes], hash: typing.Union[str, bytes]
-    ) -> typing.Tuple[bool, typing.Union[str, None]]:
+        self, password: str | bytes, hash: str | bytes
+    ) -> tuple[bool, str | None]:
         """
         Verifies if a password matches a given hash and updates the hash if necessary.
 
@@ -107,12 +104,14 @@ class PasswordHash:
         Examples:
             >>> valid, updated_hash = password_hash.verify_and_update("herminetincture", hash)
         """
+        validate_str_or_bytes(password, "password")
+        validate_str_or_bytes(hash, "hash")
         for hasher in self.hashers:
             if hasher.identify(hash):
                 if not hasher.verify(password, hash):
                     return False, None
                 else:
-                    updated_hash: typing.Union[str, None] = None
+                    updated_hash: str | None = None
                     if hasher != self.current_hasher or hasher.check_needs_rehash(hash):
                         updated_hash = self.current_hasher.hash(password)
                     return True, updated_hash

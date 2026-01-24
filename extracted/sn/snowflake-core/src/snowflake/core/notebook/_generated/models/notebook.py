@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.notebook._generated.models.version_details import VersionDetails, VersionDetailsModel
@@ -33,7 +33,7 @@ class Notebook(BaseModel):
     Parameters
     __________
     name : str
-        Name of the notebook
+        Name of the Notebook
     version : str, optional
         User specified version alias
     from_location : str, optional
@@ -45,35 +45,35 @@ class Notebook(BaseModel):
     default_version : str, optional
         The default version name of a file based entity.
     query_warehouse : str, optional
-        Warehouse against which the queries issued by the Streamlit app are run against
+        Warehouse against which the queries issued by the Notebook app are run against
     created_on : datetime, optional
-        Date and time when the notebook was created.
+        Date and time when the Notebook was created — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
-        Database in which the notebook is stored
+        Database in which the Notebook is stored — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str, optional
-        Schema in which the notebook is stored
+        Schema in which the Notebook is stored — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the notebook
+        Role that owns the Notebook — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the notebook
+        The type of role that owns the Notebook — **Read-only:** *any user-provided value will be ignored.*
     url_id : str, optional
-        Unique ID associated with the notebook object.
+        A unique ID associated with the Notebook object's URL — **Read-only:** *any user-provided value will be ignored.*
     title : str, optional
-        User facing title of the Streamlit app or an Organization Profile
+        User facing title of the Notebook app
     default_packages : str, optional
-        Default packages of the notebook
+        Default packages for Notebook apps — **Read-only:** *any user-provided value will be ignored.*
     user_packages : str, optional
-        User packages of the notebook
+        User packages of the Notebook — **Read-only:** *any user-provided value will be ignored.*
     runtime_name : str, optional
-        The runtime to run the Streamlit or Notebook on.  If this is not set, the warehouse is assumed
+        The runtime to run the Notebook on. If this is not set, the Warehouse Runtime is assumed
     compute_pool : str, optional
-        Compute pool name where the snowservice runs
+        Compute pool name where the Notebook runs. Required when runtime_name is set to SYSTEM$BASIC_RUNTIME or SYSTEM$GPU_RUNTIME
     import_urls : list[str], optional
-        List of urls
+        List of files to be imported from a stage.
     external_access_integrations : list[str], optional
-        List of external access integrations attached to this function
+        List of external access integrations attached to this Notebook
     external_access_secrets : str, optional
-        Secrets to be used with this function for external access
+        Secrets to be used with this function for external access — **Read-only:** *any user-provided value will be ignored.*
     idle_auto_shutdown_time_seconds : int, optional
         Sets the time in seconds for when to shutdown an idle Notebook.
     default_version_details : VersionDetails, optional
@@ -81,9 +81,9 @@ class Notebook(BaseModel):
     last_version_details : VersionDetails, optional
 
     live_version_location_uri : str, optional
-        The current version location
+        The current version location — **Read-only:** *any user-provided value will be ignored.*
     budget : str, optional
-        Name of the budget if the notebook is monitored by a budget
+        Name of the budget if the Notebook is monitored by a budget — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -213,9 +213,10 @@ class Notebook(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -246,21 +247,15 @@ class Notebook(BaseModel):
                     "owner",
                     "owner_role_type",
                     "url_id",
-                    "title",
                     "default_packages",
                     "user_packages",
-                    "runtime_name",
-                    "compute_pool",
-                    "import_urls",
-                    "external_access_integrations",
                     "external_access_secrets",
-                    "idle_auto_shutdown_time_seconds",
                     "live_version_location_uri",
                     "budget",
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of default_version_details
         if self.default_version_details:
@@ -283,9 +278,9 @@ class Notebook(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Notebook.parse_obj(obj)
+            return Notebook.model_validate(obj)
 
-        _obj = Notebook.parse_obj(
+        _obj = Notebook.model_validate(
             {
                 "name": obj.get("name"),
                 "version": obj.get("version"),
@@ -361,7 +356,7 @@ class NotebookModel:
         Parameters
         __________
         name : str
-            Name of the notebook
+            Name of the Notebook
         version : str, optional
             User specified version alias
         from_location : str, optional
@@ -373,33 +368,33 @@ class NotebookModel:
         default_version : str, optional
             The default version name of a file based entity.
         query_warehouse : str, optional
-            Warehouse against which the queries issued by the Streamlit app are run against
+            Warehouse against which the queries issued by the Notebook app are run against
         created_on : datetime, optional
-            Date and time when the notebook was created.
+            Date and time when the Notebook was created.
         database_name : str, optional
-            Database in which the notebook is stored
+            Database in which the Notebook is stored
         schema_name : str, optional
-            Schema in which the notebook is stored
+            Schema in which the Notebook is stored
         owner : str, optional
-            Role that owns the notebook
+            Role that owns the Notebook
         owner_role_type : str, optional
-            The type of role that owns the notebook
+            The type of role that owns the Notebook
         url_id : str, optional
-            Unique ID associated with the notebook object.
+            A unique ID associated with the Notebook object's URL.
         title : str, optional
-            User facing title of the Streamlit app or an Organization Profile
+            User facing title of the Notebook app
         default_packages : str, optional
-            Default packages of the notebook
+            Default packages for Notebook apps.
         user_packages : str, optional
-            User packages of the notebook
+            User packages of the Notebook
         runtime_name : str, optional
-            The runtime to run the Streamlit or Notebook on.  If this is not set, the warehouse is assumed
+            The runtime to run the Notebook on. If this is not set, the Warehouse Runtime is assumed
         compute_pool : str, optional
-            Compute pool name where the snowservice runs
+            Compute pool name where the Notebook runs. Required when runtime_name is set to SYSTEM$BASIC_RUNTIME or SYSTEM$GPU_RUNTIME
         import_urls : list[str], optional
-            List of urls
+            List of files to be imported from a stage.
         external_access_integrations : list[str], optional
-            List of external access integrations attached to this function
+            List of external access integrations attached to this Notebook
         external_access_secrets : str, optional
             Secrets to be used with this function for external access
         idle_auto_shutdown_time_seconds : int, optional
@@ -411,7 +406,7 @@ class NotebookModel:
         live_version_location_uri : str, optional
             The current version location
         budget : str, optional
-            Name of the budget if the notebook is monitored by a budget
+            Name of the budget if the Notebook is monitored by a budget
         """
         self.name = name
         self.version = version

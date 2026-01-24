@@ -15,6 +15,7 @@
 
 import unittest
 from datetime import datetime
+from uuid import UUID
 
 from hamcrest import *
 from test.utils.env_variables import *
@@ -40,20 +41,21 @@ from bandwidth.models.tfv_submission_wrapper import TfvSubmissionWrapper
 class TestTollFreeVerificationApi(unittest.TestCase):
     """TollFreeVerificationApi unit test stubs"""
 
-    def setUp(self) -> None:
+    @classmethod
+    def setUpClass(cls) -> None:
         configuration = Configuration(
-            username=BW_USERNAME,
-            password=BW_PASSWORD,
+            client_id=BW_CLIENT_ID,
+            client_secret=BW_CLIENT_SECRET,
             host='http://127.0.0.1:4010',
             ignore_operation_servers=True
         )
         api_client = ApiClient(configuration)
-        self.tfv_api_instance = TollFreeVerificationApi(api_client)
+        cls.tfv_api_instance = TollFreeVerificationApi(api_client)
 
-        self.subscription_id = 'test-id-1234'
-        self.tf_phone_number = '+18005551234'
+        cls.subscription_id = 'test-id-1234'
+        cls.tf_phone_number = '+18005551234'
 
-        self.webhook_subscription_request_schema = WebhookSubscriptionRequestSchema(
+        cls.webhook_subscription_request_schema = WebhookSubscriptionRequestSchema(
             basic_authentication=TfvBasicAuthentication(
                 username='username',
                 password='password'
@@ -62,7 +64,7 @@ class TestTollFreeVerificationApi(unittest.TestCase):
             shared_secret_key='shared-secret-key'
         )
 
-        self.verification = {
+        cls.verification = {
             'businessAddress': Address(
                 name='name',
                 addr1='addr1',
@@ -130,7 +132,7 @@ class TestTollFreeVerificationApi(unittest.TestCase):
         assert_that(response.data, instance_of(TfvStatus))
         assert_that(response.data.phone_number, instance_of(str))
         assert_that(response.data.status, is_in(TfvStatusEnum))
-        assert_that(response.data.internal_ticket_number, instance_of(str))
+        assert_that(response.data.internal_ticket_number, instance_of(UUID))
         assert_that(response.data.decline_reason_description, instance_of(str))
         assert_that(response.data.resubmit_allowed, instance_of(bool))
         assert_that(response.data.created_date_time, instance_of(datetime))

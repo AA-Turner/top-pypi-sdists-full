@@ -31,6 +31,15 @@ To convert the fr-ku files back to en-ku::
 
     poswap --reverse -i fr/ -t fr-ku -o en-ku
 
+To translate Quechua (qu) through Spanish (es) using intermediate mode::
+
+    poswap --intermediate -t en/ es/ es-qu/
+
+Intermediate mode keeps the original source language (English) and adds the
+intermediate language translation (Spanish) as a translator comment, making it
+easier to translate through an intermediate language while keeping both
+languages visible.
+
 See: http://docs.translatehouse.org/projects/translate-toolkit/en/latest/commands/poswap.html
 for examples and usage instructions.
 """
@@ -39,7 +48,7 @@ from translate.convert import convert
 from translate.storage import po
 
 
-def swapdir(store):
+def swapdir(store) -> None:
     """Swap the source and target of each unit."""
     for unit in store.units:
         if unit.isheader():
@@ -50,7 +59,20 @@ def swapdir(store):
             unit.source, unit.target = unit.target, unit.source
 
 
-def convertpo(inputpofile, outputpotfile, template, reverse=False):
+def add_missing_translation_note(unit, inputpo) -> None:
+    """Add a note indicating no translation was found."""
+    if inputpo.filename:
+        unit.addnote(f"No translation found in {inputpo.filename}", origin="programmer")
+    else:
+        unit.addnote(
+            "No translation found in the supplied source language",
+            origin="programmer",
+        )
+
+
+def convertpo(
+    inputpofile, outputpotfile, template, reverse=False, intermediate=False
+) -> int:
     """Reads in inputpofile, removes the header, writes to outputpotfile."""
     inputpo = po.pofile(inputpofile)
     templatepo = po.pofile(template)
@@ -70,18 +92,17 @@ def convertpo(inputpofile, outputpotfile, template, reverse=False):
             templateunit = templatepo.findunit(unit.source)
 
         unit.othercomments = []
-        if unit.target and not unit.isfuzzy():
+        if intermediate:
+            # In intermediate mode, keep original source and add target as translator comment
+            if unit.target and not unit.isfuzzy():
+                unit.addnote(unit.target, origin="translator")
+            elif not reverse:
+                add_missing_translation_note(unit, inputpo)
+        # Original behavior: swap target to source
+        elif unit.target and not unit.isfuzzy():
             unit.source = unit.target
         elif not reverse:
-            if inputpo.filename:
-                unit.addnote(
-                    f"No translation found in {inputpo.filename}", origin="programmer"
-                )
-            else:
-                unit.addnote(
-                    "No translation found in the supplied source language",
-                    origin="programmer",
-                )
+            add_missing_translation_note(unit, inputpo)
         unit.target = ""
         unit.markfuzzy(False)
         if templateunit:
@@ -89,12 +110,13 @@ def convertpo(inputpofile, outputpotfile, template, reverse=False):
             unit.markfuzzy(templateunit.isfuzzy())
             unit.target = templateunit.target
         if unit.isobsolete():
-            del inputpo.units[i]
+            # TODO: should not modify loop variable
+            del inputpo.units[i]  # noqa: B909
     inputpo.serialize(outputpotfile)
     return 1
 
 
-def main(argv=None):
+def main(argv=None) -> None:
     formats = {
         ("po", "po"): ("po", convertpo),
         ("po", "pot"): ("po", convertpo),
@@ -111,7 +133,16 @@ def main(argv=None):
         action="store_true",
         help="reverse the process of intermediate language conversion",
     )
+    parser.add_option(
+        "",
+        "--intermediate",
+        dest="intermediate",
+        default=False,
+        action="store_true",
+        help="use intermediate language mode: keep original source and add target as translator comment",
+    )
     parser.passthrough.append("reverse")
+    parser.passthrough.append("intermediate")
     parser.run(argv)
 
 

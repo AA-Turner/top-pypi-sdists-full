@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: zope.sqlalchemy
-Version: 4.0
+Version: 4.1
 Summary: Minimal Zope/SQLAlchemy transaction integration
 Home-page: https://github.com/zopefoundation/zope.sqlalchemy
 Author: Laurence Rowe
 Author-email: laurence@lrowe.co.uk
-License: ZPL 2.1
+License: ZPL-2.1
 Keywords: zope zope3 sqlalchemy
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Pyramid
@@ -15,19 +15,18 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 License-File: LICENSE.txt
 Requires-Dist: packaging
-Requires-Dist: setuptools
-Requires-Dist: SQLAlchemy!=1.4.0,!=1.4.1,!=1.4.2,!=1.4.3,!=1.4.4,!=1.4.5,!=1.4.6,!=2.0.32,!=2.0.33,!=2.0.34,!=2.0.35,>=1.1
+Requires-Dist: SQLAlchemy!=1.4.0,!=1.4.1,!=1.4.2,!=1.4.3,!=1.4.4,!=1.4.5,!=1.4.6,!=2.0.32,!=2.0.33,!=2.0.34,!=2.0.35,>=1.2
 Requires-Dist: transaction>=1.6.0
 Requires-Dist: zope.interface>=3.6.0
 Provides-Extra: test
@@ -143,7 +142,7 @@ Full Example
 This example is lifted directly from the SQLAlchemy declarative documentation.
 First the necessary imports.
 
-    >>> from sqlalchemy import *
+    >>> from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
     >>> from sqlalchemy.orm import declarative_base, scoped_session, sessionmaker, relationship
     >>> from sqlalchemy.sql import text
     >>> from zope.sqlalchemy import register
@@ -194,8 +193,10 @@ machinery, just as Zope's publisher would.
 
 Engine level connections are outside the scope of the transaction integration.
 
-    >>> engine.connect().execute(text('SELECT * FROM test_users')).fetchall()
+    >>> conn = engine.connect()
+    >>> conn.execute(text('SELECT * FROM test_users')).fetchall()
     [(1, ...'bob')]
+    >>> conn.close()
 
 A new transaction requires a new session. Let's add an address.
 
@@ -317,6 +318,16 @@ Development version
 
 Changes
 =======
+
+4.1 (2025-11-25)
+----------------
+
+- Add support for Python 3.12, 3.13, 3.14.
+
+- Drop support for Python 3.7, 3.8, 3.9.
+
+- Remove no longer necessary ``setuptools`` runtime dependency.
+
 
 4.0 (2025-09-12)
 ----------------

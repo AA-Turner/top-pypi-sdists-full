@@ -12,17 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import numpy as np
 from PIL import Image
 
-from pilgram.util import fill, invert
+from pilgram.types import RGBColor, Size
+from pilgram.util.fill import fill
+from pilgram.util.invert import invert
 
 
-def _prepared_linear_gradient_mask(size, start, end, is_horizontal=True):
+def _prepared_linear_gradient_mask(
+    size: Size,
+    start: float,
+    end: float,
+    is_horizontal: bool = True,
+) -> Image.Image:
     """Returns prepared linear gradient mask."""
     assert end >= 1
 
-    mask = invert(Image.linear_gradient('L'))
+    mask = invert(Image.linear_gradient("L"))
     w, h = mask.size
     box = (0, round(h * start), w, round(h / end))
     resized_mask = mask.resize(size, box=box)
@@ -33,15 +41,20 @@ def _prepared_linear_gradient_mask(size, start, end, is_horizontal=True):
         return resized_mask
 
 
-def linear_gradient_mask(size, start=0, end=1, is_horizontal=True):
+def linear_gradient_mask(
+    size: Size,
+    start: float = 0,
+    end: float = 1,
+    is_horizontal: bool = True,
+) -> Image.Image:
     """Creates mask image for linear gradient image.
 
     Arguments:
-        size: A tuple/list of 2 integers. The size of output image.
-        start: An optional integer/float. The starting point start.
+        size: A tuple of 2 integers. The size of output image.
+        start: An optional number. The starting point start.
             The point is left-side when `is_horizontal` is True, top otherwise.
             Defaults to 0.
-        end: An optional integer/float. The ending point.
+        end: An optional number. The ending point.
             The point is right-side when `is_horizontal` is True,
             bottom otherwise. Defaults to 1.
         is_horizontal: A optional boolean. The direction of gradient line.
@@ -57,8 +70,7 @@ def linear_gradient_mask(size, start=0, end=1, is_horizontal=True):
     assert len(size) == 2
 
     if end >= 1:
-        return _prepared_linear_gradient_mask(
-                size, start, end, is_horizontal)
+        return _prepared_linear_gradient_mask(size, start, end, is_horizontal)
 
     w, h = size
     start *= 255
@@ -74,14 +86,19 @@ def linear_gradient_mask(size, start=0, end=1, is_horizontal=True):
     return Image.fromarray(mask)
 
 
-def linear_gradient(size, start, end, is_horizontal=True):
+def linear_gradient(
+    size: Size,
+    start: RGBColor,
+    end: RGBColor,
+    is_horizontal: bool = True,
+) -> Image.Image:
     """Creates linear gradient image.
 
     Arguments:
-        size: A tuple/list of 2 integers. The size of output image.
-        start: A tuple/list of 3 integers. The starting point color.
+        size: A tuple of 2 integers. The size of output image.
+        start: A tuple of 3 integers. The starting point color.
             The point is left-side when `is_horizontal` is True, top otherwise.
-        end: A tuple/list of 3 integers. The ending point color.
+        end: A tuple of 3 integers. The ending point color.
             The point is right-side when `is_horizontal` is True,
             the bottom otherwise.
         is_horizontal: An optional boolean. The direction of gradient line.

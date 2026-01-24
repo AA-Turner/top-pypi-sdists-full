@@ -21,6 +21,8 @@ from typing import Any, Dict, List, Optional, Union
 
 from comet_ml import cloud_storage_utils, semantic_version, utils
 
+import requests
+
 from ...api_objects import setup_client
 from ...api_objects.api_objects_helpers import experiment_key_from_uri
 from ...assets import data_writers
@@ -32,6 +34,8 @@ from ...file_downloader import (
     FileDownloadManager,
     FileDownloadManagerMonitor,
 )
+from ...flatten_dict import flattener
+from ...flatten_dict.flattener import PARAMETERS_DELIMITER
 from ...logging_messages import (
     ASSET_DOWNLOAD_FAILED_WITH_ERROR,
     DEPRECATED_EXPAND_MODEL_DOWNLOAD,
@@ -47,8 +51,13 @@ from .model_helpers import (
     download_s3_model_asset,
     has_direct_s3_download_enabled,
 )
+from .status_configuration import ModelStatusConfiguration
 
 LOGGER = logging.getLogger(__name__)
+
+
+UPDATE_METADATA_COMPATIBLE_BACKEND_VERSION = "4.18.133"
+STATUS_CONFIGURATION_COMPATIBLE_BACKEND_VERSION = "4.20.477"
 
 
 class Model:
@@ -78,9 +87,9 @@ class Model:
     @classmethod
     def from_registry(
         cls, workspace: str, model_name: str, *, api_key: Optional[str] = None
-    ):
+    ) -> "Model":
         """
-        Obtain a Model object from the model registry.
+        Get a Model object from the model registry.
 
         Args:
             workspace: Name of the workspace to which the model belongs.
@@ -109,24 +118,24 @@ class Model:
 
     @property
     @functools.lru_cache()
-    def _client(self):
+    def _client(self) -> Any:
         client = setup_client.setup(api_key=self._api_key, use_cache=False)
         return client
 
     @classmethod
     @functools.lru_cache()
-    def __internal_api_compatible_backend__(cls, client):
+    def __internal_api_compatible_backend__(cls, client) -> bool:
         actual_backend = client.get_api_backend_version()
         if actual_backend is None:
             raise CometException("could not parse backend version")
         return actual_backend >= cls.minimal_backend()
 
-    def _load_compact_details(self):
+    def _load_compact_details(self) -> None:
         params = {"workspaceName": self._workspace, "modelName": self._model_name}
         data = self._client.get_from_endpoint("registry-model/compact-details", params)
         self._registry_model_id = data["registryModelId"]
 
-    def tags(self, version: str):
+    def tags(self, version: str) -> List[str]:
         """
         Returns the tags for a given version of the model.
 
@@ -136,7 +145,7 @@ class Model:
         details = self.get_details(version)
         return details["tags"]
 
-    def status(self, version: str):
+    def status(self, version: str) -> str:
         """
         Returns the status for a given version of the model, e.g. "Production"
 
@@ -146,10 +155,10 @@ class Model:
         details = self.get_details(version)
         return details["status"]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "Model(%s, %s)" % (repr(self._workspace), repr(self._model_name))
 
-    def delete_tag(self, version: str, tag: str):
+    def delete_tag(self, version: str, tag: str) -> None:
         """
         Deletes a tag from a given version of the model
 
@@ -161,7 +170,7 @@ class Model:
             self._workspace, self._model_name, version, stage=tag
         )
 
-    def add_tag(self, version: str, tag: str):
+    def add_tag(self, version: str, tag: str) -> None:
         """
         Add a tag to a given version of the model
 
@@ -169,22 +178,13 @@ class Model:
             version: the model version
             tag: the tag to add
         """
-        self._enforce_type("version", version, str)
-        self._enforce_type("tag", tag, str)
+        _enforce_type("version", version, str)
+        _enforce_type("tag", tag, str)
         self._client.add_registry_model_version_stage(
             self._workspace, self._model_name, version, stage=tag
         )
 
-    def _enforce_type(self, name, thing, expected_type):
-        actual_type = type(thing)
-        if actual_type is not expected_type:
-            raise TypeError(
-                '"{name}" must be of type {expected_type}, not {actual_type}'.format(
-                    name=name, expected_type=expected_type, actual_type=actual_type
-                )
-            )
-
-    def set_status(self, version, status):
+    def set_status(self, version: str, status: str) -> None:
         """
         Set the status of a given version of the model
 
@@ -196,7 +196,7 @@ class Model:
         [comet_ml.API.model_registry_allowed_status_values][]
         on the API class.
         """
-        self._enforce_type("status", status, str)
+        _enforce_type("status", status, str)
         model_item_id = self.get_details(version)["registryModelItemId"]
         payload = {"status": status, "modelItemId": model_item_id}
         self._client.post_from_endpoint(
@@ -204,23 +204,28 @@ class Model:
         )
 
     @property
-    def name(self):
+    def name(self) -> str:
         """
         Returns the model name
         """
         return self._model_name
 
-    def find_versions(self, version_prefix="", status=None, tag=None):
+    def find_versions(
+        self,
+        version_prefix: str = "",
+        status: Optional[str] = None,
+        tag: Optional[str] = None,
+    ) -> List[str]:
         """
-        Return a list of matching versions for the model, sorted in descending order (latest version
-        is first).
+        Return a list of matching versions for the model, sorted in descending order (the latest version
+        is the first).
 
         Args:
-            version_prefix (str): If specified, return only those versions that start with
+            version_prefix: If specified, return only those versions that start with
                 version_prefix, e.g. "3" may find "3.2" but not "4.0", and "2.1" will find "2.1.0"
                 and "2.1.1" but not "2.0.0" or "2.2.3".
-            status (str): If specified, return only versions with the given status.
-            tag (str): If specified, return only versions with the given tag.
+            status: If specified, return only versions with the given status.
+            tag: If specified, return only versions with the given tag.
         """
         response = self._client.get_from_endpoint(
             "registry-model/items",
@@ -235,10 +240,10 @@ class Model:
         items = response["items"]
         return [item["version"] for item in items]
 
-    def get_version_history(self, version: str):
+    def get_version_history(self, version: str) -> Dict[str, Any]:
         """
-        Return the history of changes for a given Model version. This method returns a dictionary of
-        list of changes per day, see below for an example:
+        Return the history of changes for a given Model version. This method returns a dictionary with
+        a list of changes per day, see below for an example:
 
         Args:
             version: the model version
@@ -345,16 +350,16 @@ class Model:
     ) -> None:
         """
         Download the files for a given version of the model. This method downloads assets and remote
-        assets that were synced from a compatible cloud object storage (AWS S3 or GCP GCS). Other
-        remote assets are not downloaded and you can access their uri with the
+        assets synced from a compatible cloud object storage (AWS S3 or GCP GCS). Other
+        remote assets are not downloaded, and you can access their uri with the
         [comet_ml.Model.get_assets][] method.
 
         Args:
             version: the model version
-            output_folder: files will be saved in this folder. If not provided, will download to a
+            output_folder: files will be saved in this folder. If not provided, it will download to a
                 temporary directory.
-            expand (DEPRECATED): if True (the default), model files will be saved to the given folder. If False,
-                it has no difference from True.
+            expand: if True (the default), model files will be saved to the given folder. If False,
+                it has no difference from True (DEPRECATED).
         """
 
         if not expand:
@@ -659,9 +664,9 @@ class Model:
             asset_remote_uri=remote_uri,
         )
 
-    def get_assets(self, version: str) -> List[dict]:
+    def get_assets(self, version: str) -> List[Dict[str, Any]]:
         """
-        Returns the assets list for the given version. Remote assets have the key `remote` set to `True`.
+        Returns the asset list for the given version. Remote assets have the key `remote` set to `True`.
 
         Args:
             version: The model version.
@@ -776,8 +781,10 @@ class Model:
         tags: List[str],
         status: str,
         *,
-        api_key=None
-    ):
+        api_key: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        status_configuration: Optional[ModelStatusConfiguration] = None,
+    ) -> "Model":
         payload = {
             "experimentKey": experiment_id,
             "experimentModelName": model_name,
@@ -790,16 +797,63 @@ class Model:
             "publicModel": public,
         }
         model = Model(workspace, registry_name, api_key=api_key)
-        model._client.post_from_endpoint(
+        response = model._client.post_from_endpoint(
             "write/registry-model/item/create", payload=payload
         )
+        # parse response to get details
+        data = response.json()
+        model_item_id = data.get("registryModelItemId")
+
+        # update model item with metadata
+        if metadata is not None:
+            if model_item_id is None:
+                LOGGER.error(
+                    "Cannot update model item's metadata because model item id is not found in response: %s",
+                    data,
+                )
+            else:
+                try:
+                    model.update_registry_model_metadata(
+                        model_item_id=model_item_id,
+                        metadata=metadata,
+                    )
+                except Exception as e:
+                    LOGGER.error(
+                        "Failed to update model item's [%s] metadata, reason: '%s'",
+                        model_item_id,
+                        e,
+                        exc_info=True,
+                    )
+
+        # update status configuration
+        if status_configuration is not None:
+            if model_item_id is None:
+                LOGGER.error(
+                    "Cannot update model item's status configuration because model item id is not found in response: %s",
+                    data,
+                )
+            else:
+                status_configuration.model_item_id = model_item_id
+                try:
+                    model.update_registry_model_status_configuration(
+                        status_configuration=status_configuration
+                    )
+                except Exception as e:
+                    LOGGER.error(
+                        "Failed to update model item's [%s] status configuration, reason: '%s'",
+                        model_item_id,
+                        e,
+                        exc_info=True,
+                    )
+
         return model
 
-    def get_details(self, version: str):
+    def get_details(self, version: str) -> Dict[str, Any]:
         """
         Returns a dict with various details about the given model version.
 
-        The exact details returned may vary by backend version, but they include e.g. experimentKey, comment, createdAt timestamp, updatedAt timestamp.
+        The exact details returned may vary by backend version, but they include e.g.,
+        experimentKey, comment, createdAt timestamp, updatedAt timestamp.
 
         Args:
             version: the model version
@@ -810,6 +864,237 @@ class Model:
             "version": version,
         }
         response = self._client.get_from_endpoint(
-            "registry-model/item/details", params=params
+            "registry-model/item/details", params=params, return_type="json"
         )
         return response
+
+    def get_registry_model_metadata(
+        self,
+        version: Optional[str] = None,
+        model_item_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetches metadata for a specific registry model identified by its ID or version.
+
+        Retrieves metadata associated with a registry model from the relevant
+        endpoint using the provided model ID.
+
+        Args:
+            model_item_id : The identifier of the registry model item whose metadata is to be retrieved.
+                If missed, then the provided `version` of the registry model will be used to get model item ID.
+            version: The version identifier of the model item in the registry. If specified, it is used to retrieve the
+                corresponding model item ID.
+
+        Returns:
+            A list of dictionaries with metadata items like: [{'key': 'foo', 'value': 'bar'}, ...]
+        """
+        if (
+            self._client.get_api_backend_version()
+            < semantic_version.SemanticVersion.parse(
+                UPDATE_METADATA_COMPATIBLE_BACKEND_VERSION
+            )
+        ):
+            raise CometException(
+                "Model.get_registry_model_metadata method is supported on backend version %s and above"
+                % UPDATE_METADATA_COMPATIBLE_BACKEND_VERSION
+            )
+
+        if model_item_id is None:
+            if version is None:
+                raise ValueError("version should be provided if model_item_id is None")
+            model_item_id = self.get_details(version)["registryModelItemId"]
+
+        url = f"registry-model/item/{model_item_id}/metadata"
+        response = self._client.get_from_endpoint(url, return_type="json", params=None)
+        return response["metadata"]
+
+    def update_registry_model_metadata(
+        self,
+        metadata: Dict[str, Any],
+        version: Optional[str] = None,
+        model_item_id: Optional[str] = None,
+    ) -> requests.Response:
+        """
+        Updates the metadata of a model in the registry.
+
+        This method supports the modification of metadata associated with a model
+        item in the registry, either by specifying the item ID directly or by
+        specifying its version within the registry. The metadata provided will be
+        validated and flattened to ensure compatibility with the backend.
+
+        Raises an exception if the backend version does not support the
+        `update_registry_model_metadata` method.
+
+        Arguments:
+            metadata: A dictionary containing the metadata to be
+                updated for the model.
+            model_item_id: The unique identifier of the model item
+                in the registry to update. If not provided, the latest
+                version of the model will be used.
+            version: The version identifier of the model in
+                the registry to update. If specified, it is used to retrieve the
+                corresponding model item ID. Defaults to None.
+
+        Returns:
+            requests.Response: A response object containing the result of the
+            update operation.
+
+        Raises:
+            CometException: If the backend version does not support this method.
+        """
+        if (
+            self._client.get_api_backend_version()
+            < semantic_version.SemanticVersion.parse(
+                UPDATE_METADATA_COMPATIBLE_BACKEND_VERSION
+            )
+        ):
+            raise CometException(
+                "Model.update_registry_model_metadata method is supported on backend version %s and above"
+                % UPDATE_METADATA_COMPATIBLE_BACKEND_VERSION
+            )
+
+        if model_item_id is None and version is None:
+            raise ValueError("either version or model_item_id should be provided")
+
+        # flatten the metadata dictionary
+        flatten_op_result = flattener.flatten_dict(
+            d=metadata,
+            separator=PARAMETERS_DELIMITER,
+            max_depth=1,
+        )
+        if flatten_op_result.has_nested_dictionary():
+            LOGGER.info(
+                "Model's metadata dictionary was flattened: %s",
+                flatten_op_result.flattened,
+            )
+
+        # create a list of metadata entities
+        metadata_entities = prepare_metadata_entities(flatten_op_result.flattened)
+
+        # update metadata by model item id
+        if model_item_id is not None:
+            return self._update_registry_model_metadata(
+                metadata_entities=metadata_entities,
+                model_item_id=model_item_id,
+            )
+
+        # update metadata by workspace, registry name, and version
+        registry_model_item_id = self.get_details(version)["registryModelItemId"]
+        return self._update_registry_model_metadata(
+            metadata_entities=metadata_entities,
+            model_item_id=registry_model_item_id,
+        )
+
+    def update_registry_model_status_configuration(
+        self,
+        status_configuration: ModelStatusConfiguration,
+        version: Optional[str] = None,
+    ) -> requests.Response:
+        """
+        Updates the status configuration of a model in the registry.
+
+        This method allows the user to update a model's item status configuration in the
+        registry, provided the backend version supports this operation. The method also
+        takes care of fetching the model's item ID based on the provided version, if
+        not already set in the status configuration.
+
+        Arguments:
+            status_configuration: The status configuration
+                object detailing the changes to apply.
+            version: The version number of the model. This is required
+                if `status_configuration.model_item_id` is not already set.
+
+        Returns:
+            The response object from the update status configuration request.
+
+        Raises:
+            CometException: If the backend version doesn't support this method.
+            ValueError: If the `status_configuration.model_item_id` is None, and the
+                `version` parameter is not provided.
+        """
+        if (
+            self._client.get_api_backend_version()
+            < semantic_version.SemanticVersion.parse(
+                STATUS_CONFIGURATION_COMPATIBLE_BACKEND_VERSION
+            )
+        ):
+            raise CometException(
+                "Model.update_registry_model_status_configuration method is supported on backend version %s and above"
+                % STATUS_CONFIGURATION_COMPATIBLE_BACKEND_VERSION
+            )
+
+        if status_configuration.model_item_id is None:
+            if version is None:
+                raise ValueError(
+                    "version should be provided if status_configuration.model_item_id is None"
+                )
+            status_configuration.model_item_id = self.get_details(version)[
+                "registryModelItemId"
+            ]
+
+        payload = status_configuration.to_payload_dict()
+        response = self._client.post_from_endpoint(
+            f"write/registry-model/item/{status_configuration.model_item_id}/status-configuration",
+            payload=payload,
+        )
+        return response
+
+    def get_registry_model_status_configuration(
+        self,
+        version: Optional[str] = None,
+        model_item_id: Optional[str] = None,
+    ) -> Optional[ModelStatusConfiguration]:
+        if (
+            self._client.get_api_backend_version()
+            < semantic_version.SemanticVersion.parse(
+                STATUS_CONFIGURATION_COMPATIBLE_BACKEND_VERSION
+            )
+        ):
+            raise CometException(
+                "Model.get_registry_model_status_configuration method is supported on backend version %s and above"
+                % STATUS_CONFIGURATION_COMPATIBLE_BACKEND_VERSION
+            )
+
+        if model_item_id is None:
+            if version is None:
+                raise ValueError("version should be provided if model_item_id is None")
+            model_item_id = self.get_details(version)["registryModelItemId"]
+
+        url = f"registry-model/item/{model_item_id}/status-configuration"
+        response = self._client.get_from_endpoint(url, return_type="json", params=None)
+        if len(response) == 0 or response.get("status") is None:
+            return None
+        return ModelStatusConfiguration.from_payload_dict(response)
+
+    def _update_registry_model_metadata(
+        self, metadata_entities: List[Dict[str, Any]], model_item_id: str
+    ) -> requests.Response:
+        payload = {
+            "metadata": metadata_entities,
+        }
+        response = self._client.post_from_endpoint(
+            f"write/registry-model/item/{model_item_id}/metadata", payload=payload
+        )
+        return response
+
+
+def prepare_metadata_entities(metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
+    metadata_entities = []
+    for key, value in metadata.items():
+        metadata_entities.append(
+            {
+                "key": key,
+                "value": value,
+            }
+        )
+    return metadata_entities
+
+
+def _enforce_type(name, thing, expected_type):
+    actual_type = type(thing)
+    if actual_type is not expected_type:
+        raise TypeError(
+            '"{name}" must be of type {expected_type}, not {actual_type}'.format(
+                name=name, expected_type=expected_type, actual_type=actual_type
+            )
+        )

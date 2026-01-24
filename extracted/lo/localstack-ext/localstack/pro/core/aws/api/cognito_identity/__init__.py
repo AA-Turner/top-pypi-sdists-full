@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -170,16 +170,16 @@ class TooManyRequestsException(ServiceException):
 class CognitoIdentityProvider(TypedDict, total=False):
     """A provider representing an Amazon Cognito user pool and its client ID."""
 
-    ProviderName: Optional[CognitoIdentityProviderName]
-    ClientId: Optional[CognitoIdentityProviderClientId]
-    ServerSideTokenCheck: Optional[CognitoIdentityProviderTokenCheck]
+    ProviderName: CognitoIdentityProviderName | None
+    ClientId: CognitoIdentityProviderClientId | None
+    ServerSideTokenCheck: CognitoIdentityProviderTokenCheck | None
 
 
-CognitoIdentityProviderList = List[CognitoIdentityProvider]
-IdentityPoolTagsType = Dict[TagKeysType, TagValueType]
-SAMLProviderList = List[ARNString]
-OIDCProviderList = List[ARNString]
-IdentityProviders = Dict[IdentityProviderName, IdentityProviderId]
+CognitoIdentityProviderList = list[CognitoIdentityProvider]
+IdentityPoolTagsType = dict[TagKeysType, TagValueType]
+SAMLProviderList = list[ARNString]
+OIDCProviderList = list[ARNString]
+IdentityProviders = dict[IdentityProviderName, IdentityProviderId]
 
 
 class CreateIdentityPoolInput(ServiceRequest):
@@ -187,13 +187,13 @@ class CreateIdentityPoolInput(ServiceRequest):
 
     IdentityPoolName: IdentityPoolName
     AllowUnauthenticatedIdentities: IdentityPoolUnauthenticated
-    AllowClassicFlow: Optional[ClassicFlow]
-    SupportedLoginProviders: Optional[IdentityProviders]
-    DeveloperProviderName: Optional[DeveloperProviderName]
-    OpenIdConnectProviderARNs: Optional[OIDCProviderList]
-    CognitoIdentityProviders: Optional[CognitoIdentityProviderList]
-    SamlProviderARNs: Optional[SAMLProviderList]
-    IdentityPoolTags: Optional[IdentityPoolTagsType]
+    AllowClassicFlow: ClassicFlow | None
+    SupportedLoginProviders: IdentityProviders | None
+    DeveloperProviderName: DeveloperProviderName | None
+    OpenIdConnectProviderARNs: OIDCProviderList | None
+    CognitoIdentityProviders: CognitoIdentityProviderList | None
+    SamlProviderARNs: SAMLProviderList | None
+    IdentityPoolTags: IdentityPoolTagsType | None
 
 
 DateType = datetime
@@ -202,13 +202,13 @@ DateType = datetime
 class Credentials(TypedDict, total=False):
     """Credentials for the provided identity ID."""
 
-    AccessKeyId: Optional[AccessKeyString]
-    SecretKey: Optional[SecretKeyString]
-    SessionToken: Optional[SessionTokenString]
-    Expiration: Optional[DateType]
+    AccessKeyId: AccessKeyString | None
+    SecretKey: SecretKeyString | None
+    SessionToken: SessionTokenString | None
+    Expiration: DateType | None
 
 
-IdentityIdList = List[IdentityId]
+IdentityIdList = list[IdentityId]
 
 
 class DeleteIdentitiesInput(ServiceRequest):
@@ -222,17 +222,17 @@ class UnprocessedIdentityId(TypedDict, total=False):
     ErrorCode and IdentityId.
     """
 
-    IdentityId: Optional[IdentityId]
-    ErrorCode: Optional[ErrorCode]
+    IdentityId: IdentityId | None
+    ErrorCode: ErrorCode | None
 
 
-UnprocessedIdentityIdList = List[UnprocessedIdentityId]
+UnprocessedIdentityIdList = list[UnprocessedIdentityId]
 
 
 class DeleteIdentitiesResponse(TypedDict, total=False):
     """Returned in response to a successful ``DeleteIdentities`` operation."""
 
-    UnprocessedIdentityIds: Optional[UnprocessedIdentityIdList]
+    UnprocessedIdentityIds: UnprocessedIdentityIdList | None
 
 
 class DeleteIdentityPoolInput(ServiceRequest):
@@ -253,16 +253,16 @@ class DescribeIdentityPoolInput(ServiceRequest):
     IdentityPoolId: IdentityPoolId
 
 
-DeveloperUserIdentifierList = List[DeveloperUserIdentifier]
-LoginsMap = Dict[IdentityProviderName, IdentityProviderToken]
+DeveloperUserIdentifierList = list[DeveloperUserIdentifier]
+LoginsMap = dict[IdentityProviderName, IdentityProviderToken]
 
 
 class GetCredentialsForIdentityInput(ServiceRequest):
     """Input to the ``GetCredentialsForIdentity`` action."""
 
     IdentityId: IdentityId
-    Logins: Optional[LoginsMap]
-    CustomRoleArn: Optional[ARNString]
+    Logins: LoginsMap | None
+    CustomRoleArn: ARNString | None
 
 
 class GetCredentialsForIdentityResponse(TypedDict, total=False):
@@ -270,22 +270,22 @@ class GetCredentialsForIdentityResponse(TypedDict, total=False):
     operation.
     """
 
-    IdentityId: Optional[IdentityId]
-    Credentials: Optional[Credentials]
+    IdentityId: IdentityId | None
+    Credentials: Credentials | None
 
 
 class GetIdInput(ServiceRequest):
     """Input to the GetId action."""
 
-    AccountId: Optional[AccountId]
+    AccountId: AccountId | None
     IdentityPoolId: IdentityPoolId
-    Logins: Optional[LoginsMap]
+    Logins: LoginsMap | None
 
 
 class GetIdResponse(TypedDict, total=False):
     """Returned in response to a GetId request."""
 
-    IdentityId: Optional[IdentityId]
+    IdentityId: IdentityId | None
 
 
 class GetIdentityPoolRolesInput(ServiceRequest):
@@ -305,7 +305,7 @@ class MappingRule(TypedDict, total=False):
     RoleARN: ARNString
 
 
-MappingRulesList = List[MappingRule]
+MappingRulesList = list[MappingRule]
 
 
 class RulesConfigurationType(TypedDict, total=False):
@@ -318,34 +318,34 @@ class RoleMapping(TypedDict, total=False):
     """A role mapping."""
 
     Type: RoleMappingType
-    AmbiguousRoleResolution: Optional[AmbiguousRoleResolutionType]
-    RulesConfiguration: Optional[RulesConfigurationType]
+    AmbiguousRoleResolution: AmbiguousRoleResolutionType | None
+    RulesConfiguration: RulesConfigurationType | None
 
 
-RoleMappingMap = Dict[IdentityProviderName, RoleMapping]
-RolesMap = Dict[RoleType, ARNString]
+RoleMappingMap = dict[IdentityProviderName, RoleMapping]
+RolesMap = dict[RoleType, ARNString]
 
 
 class GetIdentityPoolRolesResponse(TypedDict, total=False):
     """Returned in response to a successful ``GetIdentityPoolRoles`` operation."""
 
-    IdentityPoolId: Optional[IdentityPoolId]
-    Roles: Optional[RolesMap]
-    RoleMappings: Optional[RoleMappingMap]
+    IdentityPoolId: IdentityPoolId | None
+    Roles: RolesMap | None
+    RoleMappings: RoleMappingMap | None
 
 
 TokenDuration = int
-PrincipalTags = Dict[PrincipalTagID, PrincipalTagValue]
+PrincipalTags = dict[PrincipalTagID, PrincipalTagValue]
 
 
 class GetOpenIdTokenForDeveloperIdentityInput(ServiceRequest):
     """Input to the ``GetOpenIdTokenForDeveloperIdentity`` action."""
 
     IdentityPoolId: IdentityPoolId
-    IdentityId: Optional[IdentityId]
+    IdentityId: IdentityId | None
     Logins: LoginsMap
-    PrincipalTags: Optional[PrincipalTags]
-    TokenDuration: Optional[TokenDuration]
+    PrincipalTags: PrincipalTags | None
+    TokenDuration: TokenDuration | None
 
 
 class GetOpenIdTokenForDeveloperIdentityResponse(TypedDict, total=False):
@@ -353,22 +353,22 @@ class GetOpenIdTokenForDeveloperIdentityResponse(TypedDict, total=False):
     ``GetOpenIdTokenForDeveloperIdentity`` request.
     """
 
-    IdentityId: Optional[IdentityId]
-    Token: Optional[OIDCToken]
+    IdentityId: IdentityId | None
+    Token: OIDCToken | None
 
 
 class GetOpenIdTokenInput(ServiceRequest):
     """Input to the GetOpenIdToken action."""
 
     IdentityId: IdentityId
-    Logins: Optional[LoginsMap]
+    Logins: LoginsMap | None
 
 
 class GetOpenIdTokenResponse(TypedDict, total=False):
     """Returned in response to a successful GetOpenIdToken request."""
 
-    IdentityId: Optional[IdentityId]
-    Token: Optional[OIDCToken]
+    IdentityId: IdentityId | None
+    Token: OIDCToken | None
 
 
 class GetPrincipalTagAttributeMapInput(ServiceRequest):
@@ -377,25 +377,25 @@ class GetPrincipalTagAttributeMapInput(ServiceRequest):
 
 
 class GetPrincipalTagAttributeMapResponse(TypedDict, total=False):
-    IdentityPoolId: Optional[IdentityPoolId]
-    IdentityProviderName: Optional[IdentityProviderName]
-    UseDefaults: Optional[UseDefaults]
-    PrincipalTags: Optional[PrincipalTags]
+    IdentityPoolId: IdentityPoolId | None
+    IdentityProviderName: IdentityProviderName | None
+    UseDefaults: UseDefaults | None
+    PrincipalTags: PrincipalTags | None
 
 
-LoginsList = List[IdentityProviderName]
+LoginsList = list[IdentityProviderName]
 
 
 class IdentityDescription(TypedDict, total=False):
     """A description of the identity."""
 
-    IdentityId: Optional[IdentityId]
-    Logins: Optional[LoginsList]
-    CreationDate: Optional[DateType]
-    LastModifiedDate: Optional[DateType]
+    IdentityId: IdentityId | None
+    Logins: LoginsList | None
+    CreationDate: DateType | None
+    LastModifiedDate: DateType | None
 
 
-IdentitiesList = List[IdentityDescription]
+IdentitiesList = list[IdentityDescription]
 
 
 class IdentityPool(ServiceRequest):
@@ -404,24 +404,24 @@ class IdentityPool(ServiceRequest):
     IdentityPoolId: IdentityPoolId
     IdentityPoolName: IdentityPoolName
     AllowUnauthenticatedIdentities: IdentityPoolUnauthenticated
-    AllowClassicFlow: Optional[ClassicFlow]
-    SupportedLoginProviders: Optional[IdentityProviders]
-    DeveloperProviderName: Optional[DeveloperProviderName]
-    OpenIdConnectProviderARNs: Optional[OIDCProviderList]
-    CognitoIdentityProviders: Optional[CognitoIdentityProviderList]
-    SamlProviderARNs: Optional[SAMLProviderList]
-    IdentityPoolTags: Optional[IdentityPoolTagsType]
+    AllowClassicFlow: ClassicFlow | None
+    SupportedLoginProviders: IdentityProviders | None
+    DeveloperProviderName: DeveloperProviderName | None
+    OpenIdConnectProviderARNs: OIDCProviderList | None
+    CognitoIdentityProviders: CognitoIdentityProviderList | None
+    SamlProviderARNs: SAMLProviderList | None
+    IdentityPoolTags: IdentityPoolTagsType | None
 
 
 class IdentityPoolShortDescription(TypedDict, total=False):
     """A description of the identity pool."""
 
-    IdentityPoolId: Optional[IdentityPoolId]
-    IdentityPoolName: Optional[IdentityPoolName]
+    IdentityPoolId: IdentityPoolId | None
+    IdentityPoolName: IdentityPoolName | None
 
 
-IdentityPoolTagsListType = List[TagKeysType]
-IdentityPoolsList = List[IdentityPoolShortDescription]
+IdentityPoolTagsListType = list[TagKeysType]
+IdentityPoolsList = list[IdentityPoolShortDescription]
 
 
 class ListIdentitiesInput(ServiceRequest):
@@ -429,30 +429,30 @@ class ListIdentitiesInput(ServiceRequest):
 
     IdentityPoolId: IdentityPoolId
     MaxResults: QueryLimit
-    NextToken: Optional[PaginationKey]
-    HideDisabled: Optional[HideDisabled]
+    NextToken: PaginationKey | None
+    HideDisabled: HideDisabled | None
 
 
 class ListIdentitiesResponse(TypedDict, total=False):
     """The response to a ListIdentities request."""
 
-    IdentityPoolId: Optional[IdentityPoolId]
-    Identities: Optional[IdentitiesList]
-    NextToken: Optional[PaginationKey]
+    IdentityPoolId: IdentityPoolId | None
+    Identities: IdentitiesList | None
+    NextToken: PaginationKey | None
 
 
 class ListIdentityPoolsInput(ServiceRequest):
     """Input to the ListIdentityPools action."""
 
     MaxResults: QueryLimit
-    NextToken: Optional[PaginationKey]
+    NextToken: PaginationKey | None
 
 
 class ListIdentityPoolsResponse(TypedDict, total=False):
     """The result of a successful ListIdentityPools action."""
 
-    IdentityPools: Optional[IdentityPoolsList]
-    NextToken: Optional[PaginationKey]
+    IdentityPools: IdentityPoolsList | None
+    NextToken: PaginationKey | None
 
 
 class ListTagsForResourceInput(ServiceRequest):
@@ -460,25 +460,25 @@ class ListTagsForResourceInput(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[IdentityPoolTagsType]
+    Tags: IdentityPoolTagsType | None
 
 
 class LookupDeveloperIdentityInput(ServiceRequest):
     """Input to the ``LookupDeveloperIdentityInput`` action."""
 
     IdentityPoolId: IdentityPoolId
-    IdentityId: Optional[IdentityId]
-    DeveloperUserIdentifier: Optional[DeveloperUserIdentifier]
-    MaxResults: Optional[QueryLimit]
-    NextToken: Optional[PaginationKey]
+    IdentityId: IdentityId | None
+    DeveloperUserIdentifier: DeveloperUserIdentifier | None
+    MaxResults: QueryLimit | None
+    NextToken: PaginationKey | None
 
 
 class LookupDeveloperIdentityResponse(TypedDict, total=False):
     """Returned in response to a successful ``LookupDeveloperIdentity`` action."""
 
-    IdentityId: Optional[IdentityId]
-    DeveloperUserIdentifierList: Optional[DeveloperUserIdentifierList]
-    NextToken: Optional[PaginationKey]
+    IdentityId: IdentityId | None
+    DeveloperUserIdentifierList: DeveloperUserIdentifierList | None
+    NextToken: PaginationKey | None
 
 
 class MergeDeveloperIdentitiesInput(ServiceRequest):
@@ -495,7 +495,7 @@ class MergeDeveloperIdentitiesResponse(TypedDict, total=False):
     action.
     """
 
-    IdentityId: Optional[IdentityId]
+    IdentityId: IdentityId | None
 
 
 class SetIdentityPoolRolesInput(ServiceRequest):
@@ -503,21 +503,21 @@ class SetIdentityPoolRolesInput(ServiceRequest):
 
     IdentityPoolId: IdentityPoolId
     Roles: RolesMap
-    RoleMappings: Optional[RoleMappingMap]
+    RoleMappings: RoleMappingMap | None
 
 
 class SetPrincipalTagAttributeMapInput(ServiceRequest):
     IdentityPoolId: IdentityPoolId
     IdentityProviderName: IdentityProviderName
-    UseDefaults: Optional[UseDefaults]
-    PrincipalTags: Optional[PrincipalTags]
+    UseDefaults: UseDefaults | None
+    PrincipalTags: PrincipalTags | None
 
 
 class SetPrincipalTagAttributeMapResponse(TypedDict, total=False):
-    IdentityPoolId: Optional[IdentityPoolId]
-    IdentityProviderName: Optional[IdentityProviderName]
-    UseDefaults: Optional[UseDefaults]
-    PrincipalTags: Optional[PrincipalTags]
+    IdentityPoolId: IdentityPoolId | None
+    IdentityProviderName: IdentityProviderName | None
+    UseDefaults: UseDefaults | None
+    PrincipalTags: PrincipalTags | None
 
 
 class TagResourceInput(ServiceRequest):
@@ -556,8 +556,8 @@ class UntagResourceResponse(TypedDict, total=False):
 
 
 class CognitoIdentityApi:
-    service = "cognito-identity"
-    version = "2014-06-30"
+    service: str = "cognito-identity"
+    version: str = "2014-06-30"
 
     @handler("CreateIdentityPool")
     def create_identity_pool(

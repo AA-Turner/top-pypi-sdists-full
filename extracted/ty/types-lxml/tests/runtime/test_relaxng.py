@@ -25,6 +25,7 @@ from ._testutils.errors import (
     raise_no_attribute,
     raise_wrong_pos_arg_count,
 )
+from ._testutils.marker import github_fail_marker
 
 if sys.version_info >= (3, 11):
     from typing import reveal_type
@@ -113,7 +114,7 @@ class TestRelaxNGInput:
         reveal_type(rng)
         assert rng(xml2_root) is True
 
-    @pytest.mark.skip(reason="Unknown crash under specific conditions")
+    @github_fail_marker
     @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=300)
     @given(thing=_st.all_instances_except_of_type(str))
     @pytest.mark.slow
@@ -125,9 +126,13 @@ class TestRelaxNGInput:
             )
         else:
             # too diversified
-            raise_cm = pytest.raises((TypeError, AttributeError))  # type: ignore[arg-type]
+            # pyrefly: ignore[no-matching-overload]
+            raise_cm = pytest.raises((
+                TypeError,
+                AttributeError,
+            ))
         with raise_cm:
-            _ = RelaxNG.from_rnc_string(src=cast(Any, thing))
+            _ = RelaxNG.from_rnc_string(src=cast(Any, thing))  # ty: ignore[redundant-cast]
 
     @settings(max_examples=5)
     @given(iterable_of=_st.fixed_item_iterables())
@@ -146,7 +151,7 @@ class TestRelaxNGInput:
     @pytest.mark.slow
     def test_from_rnc_baseurl_bad_1(self, rnc_str: str, thing: Any) -> None:
         # Falsy values evaluated as None in _parseDocFromFileLike
-        assume(thing is NotImplemented or bool(thing))
+        assume(thing is not NotImplemented and bool(thing))
         with raise_invalid_filename_type:
             _ = RelaxNG.from_rnc_string(rnc_str, base_url=thing)
 

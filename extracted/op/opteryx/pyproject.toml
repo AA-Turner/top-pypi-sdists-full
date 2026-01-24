@@ -1,6 +1,24 @@
+[project]
+name = "opteryx"
+version = "0.26.7"
+description = "Query your data, where it lives"
+requires-python = '>=3.11'
+readme = {file = "README.md", content-type = "text/markdown"}
+authors = [{name='Justin Joyce', email='justin.joyce@joocer.com'}]
+maintainers = [{name='Justin Joyce', email='justin.joyce@joocer.com'}]
+dependencies = ['aiohttp', 'numpy>=2.0.0', 'orjson', 'orso>=0.0.204', 'psutil', 'pyarrow>=20.0.0', 'requests']
+
+[project.scripts]
+opteryx = "opteryx.command:main"
+
+[project.urls]
+Homepage = "https://opteryx.dev/"
+Documentation = "https://opteryx.dev/"
+Repository = "https://github.com/mabel-dev/opteryx.git"
+
 [tool.black]
 line-length = 100
-target-version = ['py310']
+target-version = ['py312']
 fast = true
 
 [tool.isort]
@@ -28,13 +46,13 @@ skips = ["B101", "B105", "B324", "B608"]
 # B608 - Hardcoded SQL
 
 [build-system]
-requires = ["setuptools>=42", "wheel", "cython==3.1.3", "numpy"]
+requires = ["setuptools>=42", "wheel", "cython", "numpy", "setuptools_rust"]
 build-backend = "setuptools.build_meta"
 
 [tool.ruff]
 line-length = 100
 indent-width = 4
-target-version = 'py310'
+target-version = 'py311'
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -47,12 +65,15 @@ exclude = '**/containers.pxd'
 
 [tool.ruff.lint]
 select = ["SIM", "NPY201"]
-ignore = []
+ignore = ["SIM105"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/optimizer/**" = ["SIM102"]
 "opteryx/managers/expression/ops.py" = ["SIM118"]
 "**/third_party/**" = ["SIM115", "SIM110", "SIM109", "SIM108", "SIM105", "SIM103", "SIM102"]
+
+[tool.setuptools.package-data]
+"opteryx.virtual_datasets" = ["*.zst"]
 
 [tool.coverage.run]
 branch = true
@@ -74,3 +95,9 @@ directory = "coverage_html_report"  # Output directory for HTML reports
 
 [tool.coverage.xml]
 output = "coverage.xml"  # XML output (useful for CI)
+
+[tool.pytest.ini_options]
+# Exclude scratch directory - contains debugging scripts, not actual tests
+# These files run queries at module import time, slowing collection by 2+ minutes!
+testpaths = ["tests"]
+norecursedirs = ["scratch", ".*", "build", "dist", "tmp", "third_party"]

@@ -30,6 +30,11 @@ disableAutoRetries: Optional[bool]
 Automatic retries were introduced to solve some eventual consistency problems but it also introduced performance issues on destroy operations.
 """
 
+dualStackEndpointEnabled: Optional[bool]
+"""
+(Optional) flags to enable Dual Stack endpoint.
+"""
+
 fingerprint: Optional[str]
 """
 (Optional) The fingerprint for the user's RSA key. This can be found in user settings in the Oracle Cloud Infrastructure console. Required if auth is set to 'ApiKey', ignored otherwise.
@@ -62,6 +67,11 @@ realmSpecificServiceEndpointTemplateEnabled: Optional[bool]
 region: Optional[str]
 """
 (Required) The region for API connections (e.g. us-ashburn-1).
+"""
+
+retriesConfigFile: Optional[str]
+"""
+(Optional) Config file which has the configuration for 4xx and 5xx retries in JSON format
 """
 
 retryDurationSeconds: Optional[int]

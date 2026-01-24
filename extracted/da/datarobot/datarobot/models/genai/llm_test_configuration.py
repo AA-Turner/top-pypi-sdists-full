@@ -101,82 +101,64 @@ class DatasetsCompatibilityDict(TypedDict):
     incompatible_datasets: List[DatasetIdentifierDict]
 
 
-ootb_dataset_trafaret = t.Dict(
-    {
-        t.Key("dataset_url", optional=True): t.Or(t.String, t.Null),
-        t.Key("dataset_name"): t.String,
-        t.Key("prompt_column_name"): t.String,
-        t.Key("response_column_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("rows_count"): t.Int,
-        t.Key("warning", optional=True): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+ootb_dataset_trafaret = t.Dict({
+    t.Key("dataset_url", optional=True): t.Or(t.String, t.Null),
+    t.Key("dataset_name"): t.String,
+    t.Key("prompt_column_name"): t.String,
+    t.Key("response_column_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("rows_count"): t.Int,
+    t.Key("warning", optional=True): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
 
-insight_grading_criteria_trafaret = t.Dict(
-    {
-        t.Key("pass_threshold"): t.Int,
-    }
-).ignore_extra("*")
+insight_grading_criteria_trafaret = t.Dict({
+    t.Key("pass_threshold"): t.Int,
+}).ignore_extra("*")
 
-llm_test_grading_criteria_trafaret = t.Dict(
-    {
-        t.Key("pass_threshold"): t.Int,
-    }
-).ignore_extra("*")
+llm_test_grading_criteria_trafaret = t.Dict({
+    t.Key("pass_threshold"): t.Int,
+}).ignore_extra("*")
 
 
-dataset_evaluation_trafaret = t.Dict(
-    {
-        t.Key("evaluation_name"): t.String(allow_blank=True),
-        t.Key("evaluation_dataset_configuration_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("evaluation_dataset_name"): t.String(allow_blank=True),
-        t.Key("ootb_dataset", optional=True): t.Or(ootb_dataset_trafaret, t.Null),
-        t.Key("insight_configuration"): insight_configuration_trafaret,
-        t.Key("insight_grading_criteria"): insight_grading_criteria_trafaret,
-        t.Key("max_num_prompts", optional=True): t.Or(t.Int, t.Null),
-        t.Key("prompt_sampling_strategy", optional=True): t.Or(
-            t.Enum(*enum_to_list(PromptSamplingStrategy)), t.Null
-        ),
-    }
-).ignore_extra("*")
+dataset_evaluation_trafaret = t.Dict({
+    t.Key("evaluation_name"): t.String(allow_blank=True),
+    t.Key("evaluation_dataset_configuration_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("evaluation_dataset_name"): t.String(allow_blank=True),
+    t.Key("ootb_dataset", optional=True): t.Or(ootb_dataset_trafaret, t.Null),
+    t.Key("insight_configuration"): insight_configuration_trafaret,
+    t.Key("insight_grading_criteria"): insight_grading_criteria_trafaret,
+    t.Key("max_num_prompts", optional=True): t.Or(t.Int, t.Null),
+    t.Key("prompt_sampling_strategy", optional=True): t.Or(t.Enum(*enum_to_list(PromptSamplingStrategy)), t.Null),
+}).ignore_extra("*")
 
 
-llm_test_configuration_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String(allow_blank=True),
-        t.Key("description"): t.String(allow_blank=True),
-        t.Key("dataset_evaluations"): t.List(dataset_evaluation_trafaret),
-        t.Key("use_case_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("creation_date", optional=True): t.Or(t.String, t.Null),
-        t.Key("creation_user_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("llm_test_grading_criteria"): llm_test_grading_criteria_trafaret,
-        t.Key("is_out_of_the_box_test_configuration"): t.Bool,
-        t.Key("warnings", optional=True): t.List(t.Dict().allow_extra("*")),
-    }
-).ignore_extra("*")
+llm_test_configuration_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String(allow_blank=True),
+    t.Key("description"): t.String(allow_blank=True),
+    t.Key("dataset_evaluations"): t.List(dataset_evaluation_trafaret),
+    t.Key("use_case_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("creation_date", optional=True): t.Or(t.String, t.Null),
+    t.Key("creation_user_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("llm_test_grading_criteria"): llm_test_grading_criteria_trafaret,
+    t.Key("is_out_of_the_box_test_configuration"): t.Bool,
+    t.Key("warnings", optional=True): t.List(t.Dict().allow_extra("*")),
+}).ignore_extra("*")
 
-dataset_identifier_trafaret = t.Dict(
-    {
-        t.Key("dataset_name"): t.String(allow_blank=True),
-        t.Key("dataset_id", optional=True): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+dataset_identifier_trafaret = t.Dict({
+    t.Key("dataset_name"): t.String(allow_blank=True),
+    t.Key("dataset_id", optional=True): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
-insight_to_eval_datasets_compatibility_trafaret = t.Dict(
-    {
-        t.Key("insight_name"): t.String,
-        t.Key("incompatible_datasets"): t.List(dataset_identifier_trafaret),
-    }
-).ignore_extra("*")
+insight_to_eval_datasets_compatibility_trafaret = t.Dict({
+    t.Key("insight_name"): t.String,
+    t.Key("incompatible_datasets"): t.List(dataset_identifier_trafaret),
+}).ignore_extra("*")
 
-llm_test_configuration_supported_insights_trafaret = t.Dict(
-    {
-        t.Key("supported_insight_configurations"): t.List(insight_configuration_trafaret),
-        t.Key("datasets_compatibility"): t.List(insight_to_eval_datasets_compatibility_trafaret),
-    }
-).ignore_extra("*")
+llm_test_configuration_supported_insights_trafaret = t.Dict({
+    t.Key("supported_insight_configurations"): t.List(insight_configuration_trafaret),
+    t.Key("datasets_compatibility"): t.List(insight_to_eval_datasets_compatibility_trafaret),
+}).ignore_extra("*")
 
 
 class DatasetIdentifier(APIObject):
@@ -232,8 +214,7 @@ class DatasetsCompatibility(APIObject):
     ):
         self.insight_name = insight_name
         self.incompatible_datasets = [
-            DatasetIdentifier.from_server_data(dataset_identifier)
-            for dataset_identifier in incompatible_datasets
+            DatasetIdentifier.from_server_data(dataset_identifier) for dataset_identifier in incompatible_datasets
         ]
 
     def __repr__(self) -> str:
@@ -263,8 +244,7 @@ class NonOOTBDataset(APIObject):
 
     def __repr__(self) -> str:
         return (
-            f"{self.__class__.__name__}(id={self.non_ootb_dataset.id}, "
-            f"dataset_id={self.non_ootb_dataset.dataset_id})"
+            f"{self.__class__.__name__}(id={self.non_ootb_dataset.id}, dataset_id={self.non_ootb_dataset.dataset_id})"
         )
 
     @classmethod
@@ -452,9 +432,7 @@ class DatasetEvaluation(APIObject):
         self.evaluation_dataset_configuration_id = evaluation_dataset_configuration_id
         self.ootb_dataset = OOTBDataset.from_server_data(ootb_dataset) if ootb_dataset else None
         self.insight_configuration = InsightsConfiguration.from_server_data(insight_configuration)
-        self.insight_grading_criteria = InsightGradingCriteria.from_server_data(
-            insight_grading_criteria
-        )
+        self.insight_grading_criteria = InsightGradingCriteria.from_server_data(insight_grading_criteria)
         self.max_num_prompts = max_num_prompts
         self.prompt_sampling_strategy = prompt_sampling_strategy
 
@@ -590,12 +568,9 @@ class LLMTestConfiguration(APIObject):
         self.description = description
         self.use_case_id = use_case_id
         self.dataset_evaluations = [
-            DatasetEvaluation.from_server_data(dataset_evaluation)
-            for dataset_evaluation in dataset_evaluations
+            DatasetEvaluation.from_server_data(dataset_evaluation) for dataset_evaluation in dataset_evaluations
         ]
-        self.llm_test_grading_criteria = LLMTestGradingCriteria.from_server_data(
-            llm_test_grading_criteria
-        )
+        self.llm_test_grading_criteria = LLMTestGradingCriteria.from_server_data(llm_test_grading_criteria)
         self.creation_date = creation_date
         self.creation_user_id = creation_user_id
         self.is_out_of_the_box_test_configuration = is_out_of_the_box_test_configuration

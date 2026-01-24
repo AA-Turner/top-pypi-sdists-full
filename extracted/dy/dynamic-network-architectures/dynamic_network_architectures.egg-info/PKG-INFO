@@ -1,18 +1,11 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: dynamic_network_architectures
-Version: 0.4.2
+Version: 0.4.3
 Summary: none
-Author: Fabian Isensee
-Author-email: f.isensee@dkfz.de
-License: private
+Author-email: Fabian Isensee <f.isensee@dkfz.de>
+Requires-Python: >=3.8
 License-File: LICENCE
 Requires-Dist: torch>=1.6.0a
 Requires-Dist: numpy
-Requires-Dist: timm
+Requires-Dist: timm<1.0.23
 Requires-Dist: einops
-Dynamic: author
-Dynamic: author-email
-Dynamic: license
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary

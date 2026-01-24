@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: nbdime
-Version: 4.0.2
+Version: 4.0.3
 Summary: Diff and merge of Jupyter Notebooks
 Project-URL: Homepage, https://nbdime.readthedocs.io
 Project-URL: Bug Tracker, https://github.com/jupyter/nbdime/issues
@@ -123,7 +123,7 @@ Description-Content-Type: text/markdown
 # [nbdime](https://github.com/jupyter/nbdime) Jupyter Notebook Diff and Merge tools
 
 [![Test](https://github.com/jupyter/nbdime/actions/workflows/tests.yml/badge.svg)](https://github.com/jupyter/nbdime/actions/workflows/tests.yml)
-[![codecov.io](https://codecov.io/github/jupyter/nbdime/coverage.svg?branch=master)](https://codecov.io/github/jupyter/nbdime?branch=master)
+[![codecov.io](https://codecov.io/github/jupyter/nbdime/coverage.svg?branch=main)](https://codecov.io/github/jupyter/nbdime?branch=main)
 [![Documentation Status](https://readthedocs.org/projects/nbdime/badge/?version=latest)](http://nbdime.readthedocs.io/en/latest/?badge=latest)
 [![Google Group](https://img.shields.io/badge/-Google%20Group-lightgrey.svg)](https://groups.google.com/forum/#!forum/jupyter)
 

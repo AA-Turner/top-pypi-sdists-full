@@ -410,6 +410,11 @@ def test_key_any():
         },
         "required": [],
         "type": "object",
+        "anyOf": [
+            {"required": ["hours"]},
+            {"required": ["minutes"]},
+            {"required": ["seconds"]},
+        ],
     } == convert(
         {
             vol.Required(vol.Any("hours", "minutes", "seconds")): int,
@@ -830,3 +835,184 @@ def test_convert_to_voluptuous_nullable_number_with_range():
 
     with pytest.raises(vol.Invalid):
         validator(101.0)  # too high
+
+
+TEST_TASK_ITEM = {"content": "a task ", "description": "a description"}
+TASK_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "tasks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "string",
+                        "description": "The content of the task to create.",
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "The description of the task.",
+                    },
+                },
+                "required": ["content"],
+                "additionalProperties": False,
+            },
+        }
+    },
+}
+
+
+@pytest.mark.parametrize(
+    "extra_tasks_data, input_data",
+    [
+        ({"minItems": 1, "maxItems": 2}, {"tasks": [TEST_TASK_ITEM]}),
+        ({"minItems": 1, "maxItems": 2}, {"tasks": [TEST_TASK_ITEM, TEST_TASK_ITEM]}),
+        ({"minItems": 1}, {"tasks": [TEST_TASK_ITEM]}),
+        ({"maxItems": 2}, {"tasks": [TEST_TASK_ITEM, TEST_TASK_ITEM]}),
+    ],
+)
+def test_with_min_max_items_success(extra_tasks_data, input_data):
+    task_schema = TASK_SCHEMA.copy()
+    task_schema["properties"]["tasks"].update(extra_tasks_data)
+
+    validator = convert_to_voluptuous(task_schema)
+
+    validator(input_data)
+
+
+@pytest.mark.parametrize(
+    "extra_tasks_data, input_data",
+    [
+        ({"minItems": 1, "maxItems": 2}, {"tasks": []}),
+        (
+            {"minItems": 1, "maxItems": 2},
+            {"tasks": [TEST_TASK_ITEM, TEST_TASK_ITEM, TEST_TASK_ITEM]},
+        ),
+        ({"minItems": 1}, {"tasks": []}),
+        ({"maxItems": 2}, {"tasks": [TEST_TASK_ITEM, TEST_TASK_ITEM, TEST_TASK_ITEM]}),
+    ],
+)
+def test_with_min_max_items_fails_validation(extra_tasks_data, input_data):
+    task_schema = TASK_SCHEMA.copy()
+    task_schema["properties"]["tasks"].update(extra_tasks_data)
+
+    validator = convert_to_voluptuous(task_schema)
+
+    with pytest.raises(vol.Invalid):
+        validator(input_data)
+
+
+def test_required_any_of():
+    """Test schemas with Required(Any(...)) constraints."""
+    assert {
+        "properties": {
+            "color": {"type": "string"},
+            "temperature": {"type": "integer"},
+            "brightness": {"type": "integer"},
+        },
+        "required": [],
+        "type": "object",
+        "anyOf": [
+            {"required": ["color"]},
+            {"required": ["temperature"]},
+            {"required": ["brightness"]},
+        ],
+    } == convert(
+        {
+            vol.Required(vol.Any("color", "temperature", "brightness")): object,
+            vol.Optional("color"): str,
+            vol.Optional("temperature"): int,
+            vol.Optional("brightness"): int,
+        }
+    )
+
+    assert {
+        "properties": {
+            "color": {"type": "string"},
+            "temperature": {"type": "integer"},
+            "brightness": {"type": "integer"},
+            "mode": {"type": "string"},
+            "preset": {"type": "string"},
+        },
+        "required": [],
+        "type": "object",
+        "anyOf": [
+            {"required": ["color", "mode"]},
+            {"required": ["color", "preset"]},
+            {"required": ["temperature", "mode"]},
+            {"required": ["temperature", "preset"]},
+            {"required": ["brightness", "mode"]},
+            {"required": ["brightness", "preset"]},
+        ],
+    } == convert(
+        {
+            vol.Required(vol.Any("color", "temperature", "brightness")): object,
+            vol.Required(vol.Any("mode", "preset")): str,
+            vol.Optional("color"): str,
+            vol.Optional("temperature"): int,
+            vol.Optional("brightness"): int,
+            vol.Optional("mode"): str,
+            vol.Optional("preset"): str,
+        }
+    )
+
+    assert {
+        "properties": {
+            "entity_id": {"type": "string"},
+            "color": {"type": "string"},
+            "temperature": {"type": "integer"},
+        },
+        "required": ["entity_id"],
+        "type": "object",
+        "anyOf": [{"required": ["color"]}, {"required": ["temperature"]}],
+    } == convert(
+        {
+            vol.Required("entity_id"): str,
+            vol.Required(vol.Any("color", "temperature")): str,
+            vol.Optional("color"): str,
+            vol.Optional("temperature"): int,
+        }
+    )
+
+
+def test_required_any_of_description():
+    """Test that the description is preserved in a Required(Any(...)) constraint."""
+    assert {
+        "properties": {
+            "color": {"type": "string", "description": "Light appearance"},
+            "temperature": {"type": "string", "description": "Light appearance"},
+        },
+        "required": [],
+        "type": "object",
+        "anyOf": [{"required": ["color"]}, {"required": ["temperature"]}],
+    } == convert(
+        {
+            vol.Required(
+                vol.Any("color", "temperature"), description="Light appearance"
+            ): str,
+        }
+    )
+
+
+def test_required_any_of_inner_description():
+    """Test that inner descriptions are preferred in a Required(Any(...)) constraint."""
+    assert {
+        "properties": {
+            "color": {"type": "string", "description": "Inner color description"},
+            "temperature": {"type": "string", "description": "Outer description"},
+        },
+        "required": [],
+        "type": "object",
+        "anyOf": [{"required": ["color"]}, {"required": ["temperature"]}],
+    } == convert(
+        {
+            vol.Required(
+                vol.Any(
+                    vol.Optional("color", description="Inner color description"),
+                    "temperature",
+                ),
+                description="Outer description",
+            ): str,
+        }
+    )

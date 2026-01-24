@@ -31,6 +31,10 @@ class TestSerializers:
         return currency_fx_rate
 
     @pytest.fixture
+    def expected_representation_data(self, currency):
+        return {"id": currency.id, "name_repr": f"{currency.title} ({currency.symbol})", "key": currency.key}
+
+    @pytest.fixture
     def expected_data(self, currency):
         return {"id": currency.id, "title": currency.title, "key": currency.key, "symbol": currency.symbol}
 
@@ -43,12 +47,12 @@ class TestSerializers:
             "currency": currency_fx_rate.currency_id,
         }
 
-    def test_currency_representation_serializer(self, mocker: MockerFixture, currency, expected_data):
+    def test_currency_representation_serializer(self, mocker: MockerFixture, currency, expected_representation_data):
         detail = f"/wbcore/currency/currency/{currency.id}/"
         mocker.patch("wbcore.serializers.fields.fields.HyperlinkField", return_value=detail)
         serializer = CurrencyRepresentationSerializer(instance=currency)
-        expected_data["_detail"] = detail
-        assert serializer.data == expected_data
+        expected_representation_data["_detail"] = detail
+        assert serializer.data == expected_representation_data
 
     def test_currency_model_serializer(self, mocker: MockerFixture, currency, expected_data):
         mocker.patch(

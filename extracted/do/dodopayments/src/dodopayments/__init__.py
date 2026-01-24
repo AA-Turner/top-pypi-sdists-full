@@ -3,7 +3,7 @@
 import typing as _t
 
 from . import types
-from ._types import NOT_GIVEN, Omit, NoneType, NotGiven, Transport, ProxiesTypes
+from ._types import NOT_GIVEN, Omit, NoneType, NotGiven, Transport, ProxiesTypes, omit, not_given
 from ._utils import file_from_path
 from ._client import (
     ENVIRONMENTS,
@@ -35,6 +35,7 @@ from ._exceptions import (
     InternalServerError,
     PermissionDeniedError,
     UnprocessableEntityError,
+    APIWebhookValidationError,
     APIResponseValidationError,
 )
 from ._base_client import DefaultHttpxClient, DefaultAioHttpClient, DefaultAsyncHttpxClient
@@ -49,13 +50,16 @@ __all__ = [
     "ProxiesTypes",
     "NotGiven",
     "NOT_GIVEN",
+    "not_given",
     "Omit",
+    "omit",
     "DodoPaymentsError",
     "APIError",
     "APIStatusError",
     "APITimeoutError",
     "APIConnectionError",
     "APIResponseValidationError",
+    "APIWebhookValidationError",
     "BadRequestError",
     "AuthenticationError",
     "PermissionDeniedError",

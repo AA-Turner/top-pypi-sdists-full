@@ -177,7 +177,15 @@ class Resource(object):
 
     def __del__(self) -> None:
         if self._session is not None:
-            self.close()
+            try:
+                self.close()
+            except Exception:
+                # Exceptions must be suppressed during __del__, because they
+                # can't be caught by normal exception handling techniques and
+                # get printed to stderr instead
+                logger.warning(
+                    "Exception suppressed while destroying a resource", exc_info=True
+                )
 
     def __str__(self) -> str:
         return "%s at %s" % (self.__class__.__name__, self._resource_name)
@@ -317,16 +325,15 @@ class Resource(object):
             logger.debug("%s - closing", self._resource_name, extra=self._logging_extra)
             self.before_close()
             self.visalib.close(self.session)
-            logger.debug(
-                "%s - is closed", self._resource_name, extra=self._logging_extra
-            )
             # Mypy is confused by the idea that we can set a value we cannot get
             self.session = None  # type: ignore
         except errors.InvalidSession:
             pass
 
+        logger.debug("%s - is closed", self._resource_name, extra=self._logging_extra)
+
     def __switch_events_off(self) -> None:
-        """Switch off and discrads all events."""
+        """Switch off and discards all events."""
         self.disable_event(
             constants.EventType.all_enabled, constants.EventMechanism.all
         )

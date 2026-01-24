@@ -41,6 +41,8 @@ MAPPER_ALIAS_OPTION = "__alias__"
 MAPPER_KEY_PROPERTIES_OPTION = "__key_properties__"
 NULL_STRING = "__NULL__"
 
+logger = logging.getLogger(__name__)
+
 
 def md5(string: str) -> str:
     """Digest a string using MD5. This is a function for inline calculations.
@@ -105,7 +107,7 @@ class StreamMap(metaclass=abc.ABCMeta):
         """
         return (
             self.flattening_options is not None
-            and self.flattening_options.flattening_enabled
+            and self.flattening_options.enabled
             and self.flattening_options.max_level > 0
         )
 
@@ -128,6 +130,7 @@ class StreamMap(metaclass=abc.ABCMeta):
             flattened_schema=self.transformed_schema,
             max_level=self.flattening_options.max_level,
             separator=self.flattening_options.separator,
+            max_key_length=self.flattening_options.max_key_length,
         )
 
     def flatten_schema(self, raw_schema: dict) -> dict:
@@ -146,6 +149,7 @@ class StreamMap(metaclass=abc.ABCMeta):
             raw_schema,
             separator=self.flattening_options.separator,
             max_level=self.flattening_options.max_level,
+            max_key_length=self.flattening_options.max_key_length,
         )
 
     @abc.abstractmethod
@@ -366,7 +370,7 @@ class CustomStreamMap(StreamMap):
             msg = f"Failed to evaluate simpleeval expressions {expr}."
             raise MapExpressionError(msg) from ex
 
-        logging.debug("Eval result: %s = %s", expr, result)
+        logger.debug("Eval result: %s = %s", expr, result)
 
         return result
 
@@ -441,17 +445,16 @@ class CustomStreamMap(StreamMap):
         """
         stream_map = copy.copy(stream_map)
 
-        filter_rule: str | None = None
+        filter_rule: str | None = stream_map.pop(MAPPER_FILTER_OPTION, None)
         include_by_default = True
-        if stream_map and MAPPER_FILTER_OPTION in stream_map:
-            filter_rule = stream_map.pop(MAPPER_FILTER_OPTION)
+        if filter_rule is not None:
             try:
                 filter_rule_parsed: ast.Expr = ast.parse(filter_rule).body[0]  # type: ignore[assignment]
             except (SyntaxError, IndexError) as ex:
                 msg = f"Failed to parse expression {filter_rule}."
                 raise MapExpressionError(msg) from ex
 
-            logging.info(
+            logger.info(
                 "Found '%s' filter rule: %s",
                 self.stream_alias,
                 filter_rule,
@@ -461,7 +464,7 @@ class CustomStreamMap(StreamMap):
             self.transformed_key_properties: list[str] = stream_map.pop(
                 MAPPER_KEY_PROPERTIES_OPTION,
             )
-            logging.info(
+            logger.info(
                 "Found stream map override for '%s' key properties: %s",
                 self.stream_alias,
                 self.transformed_key_properties,
@@ -469,7 +472,7 @@ class CustomStreamMap(StreamMap):
 
         if stream_map and MAPPER_ELSE_OPTION in stream_map:
             if stream_map[MAPPER_ELSE_OPTION] in {None, NULL_STRING}:
-                logging.info(
+                logger.info(
                     "Detected `%s=None` rule. "
                     "Unmapped, non-key properties will be excluded from output.",
                     MAPPER_ELSE_OPTION,
@@ -570,13 +573,13 @@ class CustomStreamMap(StreamMap):
                     record=record,
                     property_name=None,
                 )
-                logging.debug(
+                logger.debug(
                     "Filter result for '%s' in '{self.name}' stream: %s",
                     filter_rule,
                     filter_result,
                 )
                 if not filter_result:
-                    logging.debug("Excluding record due to filter.")
+                    logger.debug("Excluding record due to filter")
                     return False
 
                 return True
@@ -678,14 +681,14 @@ class PluginMapper:
         self.stream_maps: dict[str, list[StreamMap]] = {}
         self.map_config = plugin_config.get("stream_map_config", {})
         self.faker_config = plugin_config.get("faker_config", {})
-        self.flattening_options = get_flattening_options(plugin_config)
+        self.flattening_options = get_flattening_options(plugin_config)  # type: ignore[arg-type]
         self.default_mapper_type: type[DefaultStreamMap] = SameRecordTransform
         self.logger = logger
 
         self.stream_maps_dict: StreamMapsDict = plugin_config.get("stream_maps", {})
         if MAPPER_ELSE_OPTION in self.stream_maps_dict:
             if self.stream_maps_dict[MAPPER_ELSE_OPTION] in {None, NULL_STRING}:
-                logging.info(
+                logger.info(
                     "Found '%s=None' default mapper. "
                     "Unmapped streams will be excluded from output.",
                     MAPPER_ELSE_OPTION,
@@ -699,7 +702,7 @@ class PluginMapper:
                 )
                 raise StreamMapConfigError(msg)
         else:
-            logging.debug(
+            logger.debug(
                 "Operator '%s=None' was not found. "
                 "Unmapped streams will be included in output.",
                 MAPPER_ELSE_OPTION,
@@ -820,7 +823,7 @@ class PluginMapper:
                     key_properties=None,
                     flattening_options=self.flattening_options,
                 )
-                logging.info("Set null transform as default for '%s'", stream_name)
+                logger.info("Set null transform as default for '%s'", stream_name)
 
             elif isinstance(stream_def, str):
                 # Non-NULL string values are not currently supported
@@ -865,7 +868,7 @@ class PluginMapper:
             expr_evaluator = simpleeval.EvalWithCompoundTypes(names=names)
             result = expr_evaluator.eval(expr)
         except simpleeval.NameNotDefined:
-            logging.debug(
+            logger.debug(
                 "Failed to evaluate simpleeval expression %(expr) - "
                 "falling back to original expression",
                 extra={"expr": expr},
@@ -875,6 +878,6 @@ class PluginMapper:
             msg = f"Failed to evaluate simpleeval expressions {expr}."
             raise MapExpressionError(msg) from ex
 
-        logging.debug("Stream eval result: %s = %s", expr, result)
+        logger.debug("Stream eval result: %s = %s", expr, result)
 
         return result

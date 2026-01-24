@@ -1,11 +1,12 @@
 """A collection of miscellaneous functions used for Cluster Expansion."""
-from collections.abc import Iterable
+
+from collections.abc import Iterable, Sequence
+from collections.abc import Iterable as tIterable
 from itertools import chain, combinations, filterfalse, permutations, product
 import logging
 from pathlib import Path
 import re
-from typing import Dict, List, Optional, Sequence, Set, Tuple, Union
-from typing import Iterable as tIterable
+from typing import Protocol
 
 import ase
 import ase.build.supercells as ase_sc
@@ -16,7 +17,6 @@ from numpy.random import sample, shuffle
 from packaging.version import Version, parse
 from scipy.optimize import linprog
 from scipy.spatial import cKDTree as KDTree
-from typing_extensions import Protocol
 
 ASE_VERSION = parse(ase.__version__)
 
@@ -51,7 +51,7 @@ class ApproxEqualityList:
         return False
 
 
-def index_by_position(atoms: ase.Atoms) -> List[int]:
+def index_by_position(atoms: ase.Atoms) -> list[int]:
     """Set atomic indices by its position."""
     # add zero to avoid negative zeros
     tags = atoms.get_positions() + 0
@@ -173,8 +173,8 @@ def update_db(
     uid_initial=None,
     final_struct=None,
     db_name=None,
-    custom_kvp_init: Optional[dict] = None,
-    custom_kvp_final: Optional[dict] = None,
+    custom_kvp_init: dict | None = None,
+    custom_kvp_final: dict | None = None,
 ):
     """Update the database.
 
@@ -282,7 +282,7 @@ def reconfigure(settings, **kwargs) -> None:
 
 def split_dataset(
     X: np.ndarray, y: np.ndarray, nsplits: int = 10, groups: Sequence[int] = ()
-) -> List[Dict[str, np.ndarray]]:
+) -> list[dict[str, np.ndarray]]:
     """Split the dataset such that it can be used for k-fold
         cross validation.
 
@@ -342,7 +342,7 @@ def split_dataset(
 
 
 def random_validation_set(
-    num: int = 10, select_cond: Optional[list] = None, db_name: Optional[str] = None
+    num: int = 10, select_cond: list | None = None, db_name: str | None = None
 ):
     """
     Construct a random test set.
@@ -363,7 +363,7 @@ def random_validation_set(
     return sample(all_ids, num)
 
 
-def exclude_ids(ids: List[int]) -> List[tuple]:
+def exclude_ids(ids: list[int]) -> list[tuple]:
     """
     Construct a select condition based on the ids passed.
 
@@ -445,7 +445,7 @@ def min_distance_from_facet(x, cell):
         dists.append(dist)
 
         # Opposite facet
-        remaining = list(set([0, 1, 2]) - set(plane))[0]
+        remaining = next(iter(set([0, 1, 2]) - set(plane)))
         vec = cell[remaining, :]
         dist = np.abs(n.dot(x - vec))
         dists.append(dist)
@@ -862,7 +862,7 @@ def bic(mse, num_features, num_data_points):
     return np.log(num_data_points) * num_features + num_data_points * np.log(mse)
 
 
-def get_extension(fname: Union[str, Path]) -> str:
+def get_extension(fname: str | Path) -> str:
     """
     Return the file extension of a filename
 
@@ -874,7 +874,7 @@ def get_extension(fname: Union[str, Path]) -> str:
     return Path(fname).suffix
 
 
-def add_file_extension(fname: Union[str, Path], ext: str) -> str:
+def add_file_extension(fname: str | Path, ext: str) -> str:
     """
     Adds the wanted file extension to a filename. If a file extension
     is already present and it matches the wanted file extension, nothing
@@ -921,7 +921,7 @@ def get_diameter_from_cf_name(cf_name: str) -> int:
     return int(dia_str[1:])
 
 
-def sort_cf_names(cf_names: tIterable[str]) -> List[str]:
+def sort_cf_names(cf_names: tIterable[str]) -> list[str]:
     """
     Return a sorted list of correlation function names. The names are
     sorted according to the following criteria
@@ -938,7 +938,7 @@ def sort_cf_names(cf_names: tIterable[str]) -> List[str]:
     return sorted(cf_names, key=_sort_ordering)
 
 
-def get_ids(select_cond: List[tuple], db_name: str) -> List[int]:
+def get_ids(select_cond: list[tuple], db_name: str) -> list[int]:
     """
     Return ids in the datase that correspond to the passed selection.
 
@@ -963,14 +963,14 @@ def get_ids(select_cond: List[tuple], db_name: str) -> List[int]:
 
 
 class SQLCursor(Protocol):
-    def execute(self, sql: str, placeholder: Tuple[str]) -> None:
+    def execute(self, sql: str, placeholder: tuple[str]) -> None:
         pass
 
     def fetchall(self) -> tuple:
         pass
 
 
-def get_attribute(ids: List[int], cur: SQLCursor, key: str, table: str) -> list:
+def get_attribute(ids: list[int], cur: SQLCursor, key: str, table: str) -> list:
     """
     Retrieve the value of the given key for the rows with the given ID of
     the database entry.
@@ -999,7 +999,7 @@ def get_attribute(ids: List[int], cur: SQLCursor, key: str, table: str) -> list:
     return [row_id_value[k] for k in ids]
 
 
-def common_cf_names(ids: Set[int], cur: SQLCursor, table: str) -> Set[str]:
+def common_cf_names(ids: set[int], cur: SQLCursor, table: str) -> set[str]:
     """
     Extracts all correlation function names that are present for all
     ids
@@ -1030,8 +1030,8 @@ def constraint_is_redundant(
     b_lb: np.ndarray,
     c_lb: np.ndarray,
     d: float,
-    A_eq: Optional[np.ndarray] = None,
-    b_eq: Optional[np.ndarray] = None,
+    A_eq: np.ndarray | None = None,
+    b_eq: np.ndarray | None = None,
 ) -> bool:
     """
     The method considers the following system
@@ -1067,9 +1067,9 @@ def constraint_is_redundant(
 def remove_redundant_constraints(
     A_lb: np.ndarray,
     b_lb: np.ndarray,
-    A_eq: Optional[np.ndarray] = None,
-    b_eq: Optional[np.ndarray] = None,
-) -> Tuple[np.ndarray, np.ndarray]:
+    A_eq: np.ndarray | None = None,
+    b_eq: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Remove all redundant constraints from A_lb and b_lb.
 
@@ -1214,7 +1214,7 @@ def _make_supercell(prim, P, wrap=True, tol=1e-5):
     # check number of atoms is correct
     n_target = abs(int(np.round(np.linalg.det(supercell_matrix) * len(prim))))
     if n_target != len(superatoms):
-        msg = "Number of atoms in supercell: {}, expected: {}".format(n_target, len(superatoms))
+        msg = f"Number of atoms in supercell: {n_target}, expected: {len(superatoms)}"
         raise ase_sc.SupercellError(msg)
 
     if wrap:
@@ -1278,7 +1278,7 @@ def wrap_positions_3d(
     positions: np.ndarray,
     cell: np.ndarray,
     center=(0.5, 0.5, 0.5),
-    cell_T_inv: Optional[np.ndarray] = None,
+    cell_T_inv: np.ndarray | None = None,
     eps: float = 1e-7,
 ) -> np.ndarray:
     """Similar to the ase.geometry.wrap_positions but this implementation assumes that the

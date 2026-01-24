@@ -77,8 +77,19 @@ def get_policies(filter: Optional[_builtins.str] = None,
 
     ## Example Usage
 
+    ### Basic Usage
 
-    :param _builtins.str filter: The type of policies to be returned in the response. Valid values are `AISERVICES_OPT_OUT_POLICY | BACKUP_POLICY | RESOURCE_CONTROL_POLICY | SERVICE_CONTROL_POLICY | TAG_POLICY`
+    ```python
+    import pulumi
+    import pulumi_aws as aws
+    import pulumi_std as std
+
+    example = aws.organizations.get_policies(filter="SERVICE_CONTROL_POLICY")
+    example_get_policy = {__key: aws.organizations.get_policy(policy_id=__value) for __key, __value in std.toset(input=example.ids).result}
+    ```
+
+
+    :param _builtins.str filter: The type of policies to be returned in the response. Valid values are `AISERVICES_OPT_OUT_POLICY | BACKUP_POLICY | CHATBOT_POLICY | DECLARATIVE_POLICY_EC2 | RESOURCE_CONTROL_POLICY | SERVICE_CONTROL_POLICY | TAG_POLICY`
     """
     __args__ = dict()
     __args__['filter'] = filter
@@ -96,8 +107,19 @@ def get_policies_output(filter: Optional[pulumi.Input[_builtins.str]] = None,
 
     ## Example Usage
 
+    ### Basic Usage
 
-    :param _builtins.str filter: The type of policies to be returned in the response. Valid values are `AISERVICES_OPT_OUT_POLICY | BACKUP_POLICY | RESOURCE_CONTROL_POLICY | SERVICE_CONTROL_POLICY | TAG_POLICY`
+    ```python
+    import pulumi
+    import pulumi_aws as aws
+    import pulumi_std as std
+
+    example = aws.organizations.get_policies(filter="SERVICE_CONTROL_POLICY")
+    example_get_policy = {__key: aws.organizations.get_policy(policy_id=__value) for __key, __value in std.toset(input=example.ids).result}
+    ```
+
+
+    :param _builtins.str filter: The type of policies to be returned in the response. Valid values are `AISERVICES_OPT_OUT_POLICY | BACKUP_POLICY | CHATBOT_POLICY | DECLARATIVE_POLICY_EC2 | RESOURCE_CONTROL_POLICY | SERVICE_CONTROL_POLICY | TAG_POLICY`
     """
     __args__ = dict()
     __args__['filter'] = filter

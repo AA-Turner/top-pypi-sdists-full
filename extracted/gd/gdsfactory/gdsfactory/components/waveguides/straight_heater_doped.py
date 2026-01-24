@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__all__ = ["straight_heater_doped_rib", "straight_heater_doped_strip"]
+
 import gdsfactory as gf
 from gdsfactory.component import Component, ComponentReference
 from gdsfactory.snap import snap_to_grid
@@ -217,6 +219,7 @@ def straight_heater_doped_strip(
         xoffset_tip2: distance in um from output taper to via_stack.
 
     .. code::
+
                               length
           <-|--------|--------------------------------->
             |        | length_section
@@ -233,8 +236,11 @@ def straight_heater_doped_strip(
                                           |          |
                                           |          |
                                           |__________|
+
     cross_section
+
     .. code::
+
                                   |<------width------>|
           ____________             ___________________               ______________
          |            |           |     undoped Si    |             |              |

@@ -16,10 +16,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with mirakuru.  If not, see <http://www.gnu.org/licenses/>.
 """Executor that awaits for appearance of a predefined banner in output."""
+
 import platform
 import re
 import select
-from typing import IO, Any, List, Optional, Tuple, TypeVar, Union
+from typing import IO, Any, TypeVar
 
 from mirakuru.base import SimpleExecutor
 
@@ -34,7 +35,7 @@ class OutputExecutor(SimpleExecutor):
 
     def __init__(
         self,
-        command: Union[str, List[str], Tuple[str, ...]],
+        command: str | list[str] | tuple[str, ...],
         banner: str,
         **kwargs: Any,
     ) -> None:
@@ -55,24 +56,27 @@ class OutputExecutor(SimpleExecutor):
         """
         super().__init__(command, **kwargs)
         self._banner = re.compile(banner)
+        # Also keep a bytes-compiled regex to operate on raw peeked bytes.
+        try:
+            self._banner_bytes = re.compile(self._banner.pattern.encode("utf-8"))
+        except Exception:
+            # Fallback: a simple utf-8 encode of provided banner string
+            self._banner_bytes = re.compile(str(banner).encode("utf-8"))
         if not any((self._stdout, self._stderr)):
             raise TypeError("At least one of stdout or stderr has to be initialized")
 
     def start(self: OutputExecutorType) -> OutputExecutorType:
-        """Start process.
-
-        :returns: itself
-        :rtype: OutputExecutor
+        """Start the process.
 
         .. note::
 
-            Process will be considered started, when defined banner will appear
-            in process output.
+            Process will be considered started when a defined banner appears
+            in the process output.
         """
         super().start()
 
         if not IS_DARWIN:
-            polls: List[Tuple[select.poll, IO[Any]]] = []
+            polls: list[tuple[select.poll, IO[Any]]] = []
             for output_handle, output_method in (
                 (self._stdout, self.output),
                 (self._stderr, self.err_output),
@@ -101,7 +105,8 @@ class OutputExecutor(SimpleExecutor):
                     # and delete the polling object
                     poll.unregister(output)
             finally:
-                for poll_and_output in polls:
+                while len(polls) > 0:
+                    poll_and_output = polls.pop()
                     del poll_and_output
         else:
             outputs = []
@@ -119,30 +124,94 @@ class OutputExecutor(SimpleExecutor):
 
         return self
 
-    def _wait_for_darwin_output(self, *fds: Optional[IO[Any]]) -> bool:
-        """Select implementation to be used on MacOSX."""
-        rlist, _, _ = select.select(fds, [], [], 0)
-        for output in rlist:
-            line = output.readline()
-            if self._banner.match(line):
-                return True
-        return False
+    def _consume_until_banner_or_block(self, output: IO[Any]) -> tuple[bool, bool]:
+        """Consume available data from a ready stream and check for banner.
 
-    def _wait_for_output(self, *polls: Tuple["select.poll", IO[Any]]) -> bool:
+        Returns a pair (found, should_break):
+        - found: banner was detected and consumed up to end-of-line.
+        - should_break: no more data immediately available for this descriptor,
+          so the caller's inner draining loop should break.
+        """
+        raw = getattr(output, "buffer", None)
+        if raw is None:
+            # Fallback to safe line reads on text wrappers
+            line = output.readline()
+            if not line:
+                return False, True
+            if self._banner.match(line):
+                return True, True
+            return False, False
+        preview = raw.peek(65536)  # 64KB
+        if not preview:
+            return False, True
+        m = self._banner_bytes.search(preview)
+        if m is None:
+            to_read = min(len(preview), 8192)  # 8KB
+            _ = raw.read(to_read)
+            return False, False
+        nl_pos = preview.find(b"\n", m.end())
+        if nl_pos == -1:
+            _ = raw.read(len(preview))
+            return False, False
+        _ = raw.read(nl_pos + 1)
+        return True, True
+
+    def _wait_for_darwin_output(self, *fds: IO[Any] | None) -> bool:
+        """Select an implementation to be used on macOS using select().
+
+        Drain all immediately available data in small chunks from ready
+        descriptors and look for the banner using regex.search on a rolling
+        buffer. This avoids blocking on TextIOWrapper.readline() with partial
+        data and prevents pipe backpressure under heavy pre-banner output.
+        """
+        # Filter out Nones defensively
+        valid_fds = tuple(fd for fd in fds if fd is not None)
+        if not valid_fds:
+            return False
+
+        found = False
+        # Keep draining while there is data immediately available.
+        while True:
+            rlist, _, _ = select.select(valid_fds, [], [], 0)
+            if not rlist:
+                break
+            for output in rlist:
+                while True:
+                    rready, _, _ = select.select([output], [], [], 0)
+                    if not rready:
+                        break
+                    found, should_break = self._consume_until_banner_or_block(output)
+                    if found:
+                        return True
+                    if should_break:
+                        break
+                    # else continue draining
+        return found
+
+    def _wait_for_output(self, *polls: tuple["select.poll", IO[Any]]) -> bool:
         """Check if output matches banner.
+
+        Drain as much data as available from ready descriptors in bursts using
+        non-blocking chunked reads to avoid stalling on text line buffering.
+        Returns True as soon as the banner is detected using regex.search().
 
         .. warning::
             Waiting for I/O completion. It does not work on Windows. Sorry.
         """
-        for poll, output in polls:
-            # Here we should get an empty list or list with a tuple
-            # [(fd, event)]. When we get list with a tuple we can use readline
-            # method on the file descriptor.
-            poll_result = poll.poll(0)
-
-            if poll_result:
-                line = output.readline()
-                if self._banner.match(line):
-                    return True
-
-        return False
+        found = False
+        any_ready = True
+        # Keep draining while something is ready; exit when nothing is immediately ready.
+        while any_ready:
+            any_ready = False
+            for p, output in polls:
+                # Poll for readiness; when ready, drain in a controlled manner.
+                while p.poll(0):
+                    any_ready = True
+                    found, should_break = self._consume_until_banner_or_block(output)
+                    if found:
+                        return True
+                    if should_break:
+                        break
+                    # else continue draining
+            # loop continues if any_ready set
+        return found

@@ -44,10 +44,10 @@ TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
     from sqlite3 import Cursor
-    from typing import Final
+    from typing import Final, TypeAlias
 
     from _typeshed import SupportsRichComparison
-    from typing_extensions import Self, TypeAlias
+    from typing_extensions import Self
 
 
 class HRuleStyle(IntEnum):
@@ -94,7 +94,7 @@ BASE_ALIGN_VALUE: Final = "base_align_value"
 RowType: TypeAlias = list[Any]
 AlignType: TypeAlias = Literal["l", "c", "r"]
 VAlignType: TypeAlias = Literal["t", "m", "b"]
-HeaderStyleType: TypeAlias = Literal["cap", "title", "upper", "lower", None]
+HeaderStyleType: TypeAlias = Literal["cap", "title", "upper", "lower"] | None
 
 
 class OptionsType(TypedDict):
@@ -440,7 +440,7 @@ class PrettyTable:
         else:
             self._break_on_hyphens = True
 
-    def _column_specific_args(self):
+    def _column_specific_args(self) -> None:
         # Column specific arguments, use property.setters
         for attr in (
             "align",
@@ -771,23 +771,35 @@ class PrettyTable:
         self._xhtml = val
 
     @property
-    def none_format(self):
+    def none_format(self) -> dict[str, str | None]:
         return self._none_format
 
     @none_format.setter
-    def none_format(self, val):
+    def none_format(self, val: str | dict[str, str | None] | None):
+        """Representation of None values:
+
+        Arguments:
+
+        val - The alternative representation to be used for None values
+        """
         if not self._field_names:
             self._none_format = {}
-        elif val is None or (isinstance(val, dict) and len(val) == 0):
+        elif isinstance(val, str):
             for field in self._field_names:
                 self._none_format[field] = None
-        else:
             self._validate_none_format(val)
             for field in self._field_names:
                 self._none_format[field] = val
+        elif isinstance(val, dict) and val:
+            for field, fval in val.items():
+                self._validate_none_format(fval)
+                self._none_format[field] = fval
+        else:
+            for field in self._field_names:
+                self._none_format[field] = None
 
     @property
-    def field_names(self):
+    def field_names(self) -> list[str]:
         """List or tuple of field names
 
         When setting field_names, if there are already field names the new list
@@ -796,8 +808,8 @@ class PrettyTable:
         return self._field_names
 
     @field_names.setter
-    def field_names(self, val) -> None:
-        val = [str(x) for x in val]
+    def field_names(self, val: Sequence[Any]) -> None:
+        val = cast("list[str]", [str(x) for x in val])
         self._validate_option("field_names", val)
         old_names = None
         if self._field_names:
@@ -827,7 +839,7 @@ class PrettyTable:
             self.valign = "t"
 
     @property
-    def align(self):
+    def align(self) -> dict[str, AlignType]:
         """Controls alignment of fields
         Arguments:
 
@@ -835,23 +847,27 @@ class PrettyTable:
         return self._align
 
     @align.setter
-    def align(self, val) -> None:
-        if val is None or (isinstance(val, dict) and len(val) == 0):
-            if not self._field_names:
-                self._align = {BASE_ALIGN_VALUE: "c"}
-            else:
-                for field in self._field_names:
-                    self._align[field] = "c"
-        else:
+    def align(self, val: AlignType | dict[str, AlignType] | None) -> None:
+        if isinstance(val, str):
             self._validate_align(val)
             if not self._field_names:
                 self._align = {BASE_ALIGN_VALUE: val}
             else:
                 for field in self._field_names:
                     self._align[field] = val
+        elif isinstance(val, dict) and val:
+            for field, fval in val.items():
+                self._validate_align(fval)
+                self._align[field] = fval
+        else:
+            if not self._field_names:
+                self._align = {BASE_ALIGN_VALUE: "c"}
+            else:
+                for field in self._field_names:
+                    self._align[field] = "c"
 
     @property
-    def valign(self):
+    def valign(self) -> dict[str, VAlignType]:
         """Controls vertical alignment of fields
         Arguments:
 
@@ -859,19 +875,23 @@ class PrettyTable:
         return self._valign
 
     @valign.setter
-    def valign(self, val) -> None:
+    def valign(self, val: VAlignType | dict[str, VAlignType] | None) -> None:
         if not self._field_names:
             self._valign = {}
-        elif val is None or (isinstance(val, dict) and len(val) == 0):
-            for field in self._field_names:
-                self._valign[field] = "t"
-        else:
+        if isinstance(val, str):
             self._validate_valign(val)
             for field in self._field_names:
                 self._valign[field] = val
+        elif isinstance(val, dict) and val:
+            for field, fval in val.items():
+                self._validate_valign(fval)
+                self._valign[field] = fval
+        else:
+            for field in self._field_names:
+                self._valign[field] = "t"
 
     @property
-    def max_width(self):
+    def max_width(self) -> dict[str, int]:
         """Controls maximum width of fields
         Arguments:
 
@@ -879,16 +899,20 @@ class PrettyTable:
         return self._max_width
 
     @max_width.setter
-    def max_width(self, val) -> None:
-        if val is None or (isinstance(val, dict) and len(val) == 0):
-            self._max_width = {}
-        else:
+    def max_width(self, val: int | dict[str, int] | None) -> None:
+        if isinstance(val, int):
             self._validate_option("max_width", val)
             for field in self._field_names:
                 self._max_width[field] = val
+        elif isinstance(val, dict) and val:
+            for field, fval in val.items():
+                self._validate_option("max_width", fval)
+                self._max_width[field] = fval
+        else:
+            self._max_width = {}
 
     @property
-    def min_width(self):
+    def min_width(self) -> dict[str, int]:
         """Controls minimum width of fields
         Arguments:
 
@@ -896,13 +920,17 @@ class PrettyTable:
         return self._min_width
 
     @min_width.setter
-    def min_width(self, val) -> None:
-        if val is None or (isinstance(val, dict) and len(val) == 0):
-            self._min_width = {}
-        else:
+    def min_width(self, val: int | dict[str, int] | None) -> None:
+        if isinstance(val, int):
             self._validate_option("min_width", val)
             for field in self._field_names:
                 self._min_width[field] = val
+        elif isinstance(val, dict) and val:
+            for field, fval in val.items():
+                self._validate_option("min_width", fval)
+                self._min_width[field] = fval
+        else:
+            self._min_width = {}
 
     @property
     def min_table_width(self) -> int | None:
@@ -1134,7 +1162,7 @@ class PrettyTable:
         self._vrules = val
 
     @property
-    def int_format(self):
+    def int_format(self) -> dict[str, str]:
         """Controls formatting of integer data
         Arguments:
 
@@ -1142,16 +1170,20 @@ class PrettyTable:
         return self._int_format
 
     @int_format.setter
-    def int_format(self, val) -> None:
-        if val is None or (isinstance(val, dict) and len(val) == 0):
-            self._int_format = {}
-        else:
+    def int_format(self, val: str | dict[str, str] | None) -> None:
+        if isinstance(val, str):
             self._validate_option("int_format", val)
             for field in self._field_names:
                 self._int_format[field] = val
+        elif isinstance(val, dict) and val:
+            for field, fval in val.items():
+                self._validate_option("int_format", fval)
+                self._int_format[field] = fval
+        else:
+            self._int_format = {}
 
     @property
-    def float_format(self):
+    def float_format(self) -> dict[str, str]:
         """Controls formatting of floating point data
         Arguments:
 
@@ -1159,16 +1191,20 @@ class PrettyTable:
         return self._float_format
 
     @float_format.setter
-    def float_format(self, val) -> None:
-        if val is None or (isinstance(val, dict) and len(val) == 0):
-            self._float_format = {}
-        else:
+    def float_format(self, val: str | dict[str, str] | None) -> None:
+        if isinstance(val, str):
             self._validate_option("float_format", val)
             for field in self._field_names:
                 self._float_format[field] = val
+        elif isinstance(val, dict) and val:
+            for field, fval in val.items():
+                self._validate_option("float_format", fval)
+                self._float_format[field] = fval
+        else:
+            self._float_format = {}
 
     @property
-    def custom_format(self):
+    def custom_format(self) -> dict[str, Callable[[str, Any], str]]:
         """Controls formatting of any column using callable
         Arguments:
 
@@ -1176,7 +1212,10 @@ class PrettyTable:
         return self._custom_format
 
     @custom_format.setter
-    def custom_format(self, val):
+    def custom_format(
+        self,
+        val: Callable[[str, Any], str] | dict[str, Callable[[str, Any], str]] | None,
+    ):
         if val is None:
             self._custom_format = {}
         elif isinstance(val, dict):
@@ -1655,7 +1694,7 @@ class PrettyTable:
         for row in rows[:-1]:
             self.add_row(row)
 
-        if rows:
+        if len(rows) > 0:
             self.add_row(rows[-1], divider=divider)
 
     def add_row(self, row: RowType, *, divider: bool = False) -> None:
@@ -2856,7 +2895,7 @@ class PrettyTable:
 
 @lru_cache
 def _str_block_width(val: str) -> int:
-    import wcwidth  # type: ignore[import-untyped]
+    import wcwidth
 
     val = _osc8_re.sub(r"\1", val)
     return wcwidth.wcswidth(_re.sub("", val))

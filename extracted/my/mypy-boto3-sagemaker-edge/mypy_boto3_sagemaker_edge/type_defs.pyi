@@ -17,17 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import DeploymentStatusType, FailureHandlingPolicyType, ModelStateType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -74,7 +69,7 @@ TimestampTypeDef = Union[datetime, str]
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -120,7 +115,7 @@ EdgeDeploymentTypeDef = TypedDict(
         "DeploymentName": NotRequired[str],
         "Type": NotRequired[Literal["Model"]],
         "FailureHandlingPolicy": NotRequired[FailureHandlingPolicyType],
-        "Definitions": NotRequired[List[DefinitionTypeDef]],
+        "Definitions": NotRequired[list[DefinitionTypeDef]],
     },
 )
 
@@ -132,7 +127,7 @@ class ModelTypeDef(TypedDict):
     ModelMetrics: NotRequired[Sequence[EdgeMetricTypeDef]]
 
 class GetDeploymentsResultTypeDef(TypedDict):
-    Deployments: List[EdgeDeploymentTypeDef]
+    Deployments: list[EdgeDeploymentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SendHeartbeatRequestTypeDef(TypedDict):

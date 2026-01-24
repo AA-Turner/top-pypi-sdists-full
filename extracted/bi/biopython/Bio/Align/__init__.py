@@ -13,7 +13,6 @@ class, used in the Bio.AlignIO module.
 
 """
 
-import collections
 import copy
 import importlib
 import numbers
@@ -38,6 +37,7 @@ from Bio import BiopythonDeprecationWarning
 from Bio.Align import _aligncore  # type: ignore
 from Bio.Align import _codonaligner  # type: ignore
 from Bio.Align import _pairwisealigner  # type: ignore
+from Bio.Align import _alignmentcounts  # type: ignore
 from Bio.Align import substitution_matrices
 from Bio.Data import CodonTable
 from Bio.Seq import MutableSeq
@@ -45,19 +45,16 @@ from Bio.Seq import reverse_complement
 from Bio.Seq import Seq
 from Bio.Seq import translate
 from Bio.Seq import UndefinedSequenceError
+from Bio.Seq import SequenceDataAbstractBaseClass
 from Bio.SeqRecord import _RestrictedDict
 from Bio.SeqRecord import SeqRecord
+
 
 # Import errors may occur here if a compiled _pairwisealigner.c file or
 # compiled _codonaligner.c file (_pairwisealigner.pyd or _pairwisealigner.so,
 # or _codonaligner.pyd or _codonaligner.so) is missing or if the user is
 # importing from within the Biopython source tree, see PR #2007:
 # https://github.com/biopython/biopython/pull/2007
-
-
-AlignmentCounts = collections.namedtuple(
-    "AlignmentCounts", ["gaps", "identities", "mismatches"]
-)
 
 
 class MultipleSeqAlignment:
@@ -1017,48 +1014,6 @@ class Alignment:
     """
 
     @classmethod
-    def infer_coordinates(cls, lines):
-        """Infer the coordinates from a printed alignment (DEPRECATED).
-
-        This method is primarily employed in Biopython's alignment parsers,
-        though it may be useful for other purposes.
-
-        For an alignment consisting of N sequences, printed as N lines with
-        the same number of columns, where gaps are represented by dashes,
-        this method will calculate the sequence coordinates that define the
-        alignment. The coordinates are returned as a NumPy array of integers,
-        and can be used to create an Alignment object.
-
-        This is an example for the alignment of three sequences TAGGCATACGTG,
-        AACGTACGT, and ACGCATACTTG, with gaps in the second and third sequence:
-
-        >>> from Bio.Align import Alignment
-        >>> lines = ["TAGGCATACGTG",
-        ...          "AACG--TACGT-",
-        ...          "-ACGCATACTTG",
-        ...         ]
-        >>> sequences = [line.replace("-", "") for line in lines]
-        >>> sequences
-        ['TAGGCATACGTG', 'AACGTACGT', 'ACGCATACTTG']
-        >>> coordinates = Alignment.infer_coordinates(lines)
-        >>> print(coordinates)
-        [[ 0  1  4  6 11 12]
-         [ 0  1  4  4  9  9]
-         [ 0  0  3  5 10 11]]
-        >>> alignment = Alignment(sequences, coordinates)
-        """
-        warnings.warn(
-            "The method infer_coordinates is deprecated; please use the "
-            "method parse_printed_alignment instead. This method is much "
-            "faster than infer_coordinates, and returns both the sequences "
-            "after removal of the gaps and the coordinates.",
-            BiopythonDeprecationWarning,
-        )
-        lines = [line.encode() for line in lines]
-        seqdata, coordinates = cls.parse_printed_alignment(lines)
-        return coordinates
-
-    @classmethod
     def parse_printed_alignment(cls, lines):
         """Infer the sequences and coordinates from a printed alignment.
 
@@ -1106,9 +1061,198 @@ class Alignment:
             nbytes, sequence = parser.feed(line)
             sequences.append(sequence)
         shape = parser.shape
-        coordinates = np.empty(shape, np.int64)
+        coordinates = np.empty(shape, np.intp)
         parser.fill(coordinates)
         return sequences, coordinates
+
+    @classmethod
+    def from_alignments_with_same_reference(
+        cls, alignments: list["Alignment"] | tuple["Alignment"]
+    ) -> "Alignment":
+        """Create an Alignment from a list of alignments in which the first sequence is the same (reference sequence).
+
+        This method combines multiple alignments into a single multiple sequence alignment.
+        All alignments must share the same reference sequence (ignoring gaps).
+
+        Args:
+            alignments: A list or tuple of Alignment objects.
+
+        Returns:
+            An Alignment object representing a multiple sequence alignment.
+
+        Raises:
+            ValueError: If no alignments are provided or if the reference
+            sequences do not match across all alignments.
+
+        Example 1: Basic Usage with Strings
+            >>> from Bio.Seq import Seq
+            >>> from Bio.SeqRecord import SeqRecord
+            >>> from Bio.Align import PairwiseAligner, Alignment
+            >>> import numpy as np
+
+            Consider the following reference and sequences:
+            >>> reference_str = "ACGT"
+            >>> seq1_str = "ACT"
+            >>> seq2_str = "ACGGT"
+            >>> seq3_str = "AT"
+
+            To produce a pairwise alignment:
+            >>> aligner = PairwiseAligner()
+            >>> pwa = next(aligner.align(reference_str, seq1_str))
+
+            To produce a three sequence alignment:
+            >>> coords = np.array([
+            ...     [0, 1, 2, 3, 3, 4],
+            ...     [0, 1, 2, 3, 4, 5],
+            ...     [0, 1, 1, 1, 1, 2]
+            ... ])
+
+            >>> not_pwa = Alignment([reference_str, seq2_str, seq3_str], coords)
+
+            The pairwise alignment would look like
+            >>> print(f"Reference: {pwa[0]}")
+            Reference: ACGT
+            >>> print(f"Seq1:      {pwa[1]}")
+            Seq1:      AC-T
+
+            The three sequence alignment would look like
+            >>> str(not_pwa[0])
+            'ACG-T'
+            >>> str(not_pwa[1])
+            'ACGGT'
+            >>> str(not_pwa[2])
+            'A---T'
+
+            Now, we can combine these alignments into a multiple sequence alignment:
+            >>> msa = Alignment.from_alignments_with_same_reference([pwa, not_pwa])
+            >>> str(msa[0])
+            'ACG-T'
+            >>> str(msa[1])
+            'AC--T'
+            >>> str(msa[2])
+            'ACGGT'
+            >>> str(msa[3])
+            'A---T'
+
+        Example 2: Using SeqRecord Objects with Metadata
+            Consider the following reference and sequences with metadata:
+            >>> reference_seqr = SeqRecord(Seq("ACGT"), id="reference", description="desc 1")
+            >>> seq1 = SeqRecord(Seq("ACGGT"), id="seq1", description="desc 2")
+            >>> seq2 = SeqRecord(Seq("AT"), id="seq2", description="desc 3")
+
+            To produce pairwise alignments:
+            >>> aligner = PairwiseAligner()
+            >>> pwa1 = next(aligner.align(reference_seqr, seq1))
+            >>> pwa2 = next(aligner.align(reference_seqr, seq2))
+
+            The msa retains the metadata from the original SeqRecord objects:
+            >>> msa = Alignment.from_alignments_with_same_reference([pwa1, pwa2])
+            >>> print(msa.format("fasta"))
+            >reference desc 1
+            ACG-T
+            >seq1 desc 2
+            ACGGT
+            >seq2 desc 3
+            A---T
+            <BLANKLINE>
+
+        """
+
+        if len(alignments) == 0:
+            raise ValueError("No pairwise alignments provided.")
+
+        # Validate that all pairwise alignments share the same reference
+        first_seqs = [alignment.sequences[0] for alignment in alignments]
+        # Same length (all types of references)
+        if not all(len(first_seq) == len(first_seqs[0]) for first_seq in first_seqs):
+            raise ValueError("All reference sequences must have the same length.")
+
+        # Same sequence (defined sequences only)
+        string_first_seqs = set()
+        for first_seq in first_seqs:
+            try:
+                # Extract Seq from SeqRecord
+                first_seq = first_seq.seq
+            except AttributeError:  # Seq or string
+                pass
+            try:
+                # Convert Seq or string to uppercase string
+                string_first_seqs.add(str(first_seq).upper())
+            except UndefinedSequenceError:
+                continue
+
+        if len(string_first_seqs) > 1:
+            raise ValueError("All reference sequences must match (excluding gaps).")
+
+        # Collect sequences
+        reference_seq = alignments[0].sequences[0]
+        other_sequences = [
+            seq for alignment in alignments for seq in alignment.sequences[1:]
+        ]
+        sequences = [reference_seq] + other_sequences
+
+        # Build per-query pairwise coordinate arrays of reference vs query.
+        paired_coordinates = []
+        for alignment in alignments:
+            coords = alignment.coordinates
+            for row_index in range(1, coords.shape[0]):
+                paired_coordinates.append(coords[[0, row_index], :].transpose())
+
+        # Validate that reference coordinate start and end positions are the same
+        reference_starts = {c[0, 0] for c in paired_coordinates}
+        reference_ends = {c[-1, 0] for c in paired_coordinates}
+        if len(reference_starts) != 1 or len(reference_ends) != 1:
+            raise ValueError(
+                "Reference coordinates do not align consistently across pairwise alignments."
+            )
+
+        reference_position = reference_starts.pop()
+        # Create iterators for each pairwise coordinate array
+        coordinates = [iter(c) for c in paired_coordinates]
+
+        msa_coordinates = []
+        # Initialize positions and next_positions arrays
+        positions = np.array([next(c) for c in coordinates])
+        next_positions = np.array([next(c) for c in coordinates])
+        # Add initial positions
+        msa_coordinates.append([reference_position] + list(positions[:, 1]))
+
+        while True:
+            # Iterate until all sequences are fully processed
+            if (next_positions == sys.maxsize).all():
+                break
+            # For each sequence, determine the step size to the next reference position
+            target_steps = next_positions[:, 0] - reference_position
+            # Find the minimum positive step size
+            index = np.argmin(target_steps)
+            target_step = target_steps[index]
+            # For each sequence, determine the step size to the next non-reference position
+            query_steps = next_positions[:, 1] - positions[:, 1]
+            query_step = query_steps[index]
+            # Move the reference position forward to the next
+            reference_position += target_step
+            # Update positions and next_positions for the sequence with the minimum step
+            positions[index, :] = next_positions[index, :]
+            next_positions[index, :] = next(coordinates[index], sys.maxsize)
+            # If the reference and query both didn't advance, don't change positions
+            if target_step == 0:
+                if query_step == 0:
+                    continue
+            else:
+                # The reference did advance
+                for i, query_step in enumerate(query_steps):
+                    if i != index:  # Skip the sequence that just advanced
+                        if query_step > 0:
+                            # The query also advanced, so move both reference and query positions
+                            positions[i, :] += target_step
+                        else:
+                            # The query did not advance, so move only the reference position
+                            positions[i, 0] += target_step
+            # Append the current positions to msa_coordinates
+            msa_coordinates.append([reference_position] + list(positions[:, 1]))
+
+        msa_coordinates = np.array(msa_coordinates).transpose()
+        return cls(sequences, msa_coordinates)
 
     def __init__(self, sequences, coordinates=None):
         """Initialize a new Alignment object.
@@ -1131,17 +1275,21 @@ class Alignment:
                 pass
             else:
                 if len(lengths) == 0:
-                    coordinates = np.empty((0, 0), dtype=int)
+                    coordinates = np.empty((0, 0), np.intp)
                 elif len(lengths) == 1:
                     length = lengths.pop()
-                    coordinates = np.array([[0, length]] * len(sequences))
+                    coordinates = np.array([[0, length]] * len(sequences), np.intp)
                 else:
                     raise ValueError(
                         "sequences must have the same length if coordinates is None"
                     )
         self.coordinates = coordinates
 
-    def __array__(self, dtype=None):
+    def __array__(self, dtype=None, copy=None):
+        if copy is False:
+            raise ValueError(
+                "As calling array on an alignment must return a new array, the copy argument cannot be False"
+            )
         coordinates = self.coordinates.copy()
         sequences = list(self.sequences)
         steps = np.diff(self.coordinates, 1)
@@ -1329,22 +1477,22 @@ class Alignment:
         >>> alignments = aligner.align("GACCTG", "CGATCG")
         >>> alignment = alignments[0]
         >>> print(alignment)
-        target            0 -GACCT-G 6
-                          0 -||--|-| 8
-        query             0 CGA--TCG 6
+        target            0 -GACCTG 6
+                          0 -||.|-| 7
+        query             0 CGATC-G 6
         <BLANKLINE>
         >>> alignment.frequencies
-        {'-': array([1., 0., 0., 1., 1., 0., 1., 0.]), 'G': array([0., 2., 0., 0., 0., 0., 0., 2.]), 'A': array([0., 0., 2., 0., 0., 0., 0., 0.]), 'C': array([1., 0., 0., 1., 1., 0., 1., 0.]), 'T': array([0., 0., 0., 0., 0., 2., 0., 0.])}
+        {'-': array([1., 0., 0., 0., 0., 1., 0.]), 'G': array([0., 2., 0., 0., 0., 0., 2.]), 'A': array([0., 0., 2., 0., 0., 0., 0.]), 'C': array([1., 0., 0., 1., 2., 0., 0.]), 'T': array([0., 0., 0., 1., 0., 1., 0.])}
         >>> aligner.mode = "local"
         >>> alignments = aligner.align("GACCTG", "CGATCG")
         >>> alignment = alignments[0]
         >>> print(alignment)
-        target            0 GACCT-G 6
-                          0 ||--|-| 7
-        query             1 GA--TCG 6
+        target            0 GACC 4
+                          0 ||.| 4
+        query             1 GATC 5
         <BLANKLINE>
         >>> alignment.frequencies
-        {'G': array([2., 0., 0., 0., 0., 0., 2.]), 'A': array([0., 2., 0., 0., 0., 0., 0.]), 'C': array([0., 0., 1., 1., 0., 1., 0.]), 'T': array([0., 0., 0., 0., 2., 0., 0.]), '-': array([0., 0., 1., 1., 0., 1., 0.])}
+        {'G': array([2., 0., 0., 0.]), 'A': array([0., 2., 0., 0.]), 'C': array([0., 0., 1., 2.]), 'T': array([0., 0., 1., 0.])}
         """
         coordinates = self.coordinates.copy()
         sequences = list(self.sequences)
@@ -1708,7 +1856,9 @@ class Alignment:
                 if steps[i] == 0:
                     line = "-" * length
                 else:
-                    start = coordinate[i] + start_index - indices[i - 1]
+                    start = coordinate[i] + start_index
+                    if i > 0:
+                        start -= indices[i - 1]
                     stop = start + length
                     line = str(sequence[start:stop])
             else:
@@ -1743,7 +1893,9 @@ class Alignment:
                 if steps[i] == 0:
                     line = [None] * length
                 else:
-                    start = coordinate[i] + start_index - indices[i - 1]
+                    start = coordinate[i] + start_index
+                    if i > 0:
+                        start -= indices[i - 1]
                     stop = start + length
                     line = sequence[start:stop]
             else:
@@ -1999,68 +2151,68 @@ class Alignment:
         >>> alignments = aligner.align("ACCGGTTT", "ACGGGTT")
         >>> alignment = alignments[0]
         >>> print(alignment)
-        target            0 ACCGG-TTT 8
-                          0 ||-||-||- 9
-        query             0 AC-GGGTT- 7
+        target            0 ACCGGTTT 8
+                          0 ||.||||- 8
+        query             0 ACGGGTT- 7
         <BLANKLINE>
         >>> alignment[0, :]
-        'ACCGG-TTT'
+        'ACCGGTTT'
         >>> alignment[1, :]
-        'AC-GGGTT-'
+        'ACGGGTT-'
         >>> alignment[0]
-        'ACCGG-TTT'
+        'ACCGGTTT'
         >>> alignment[1]
-        'AC-GGGTT-'
+        'ACGGGTT-'
         >>> alignment[0, 1:-2]
-        'CCGG-T'
+        'CCGGT'
         >>> alignment[1, 1:-2]
-        'C-GGGT'
-        >>> alignment[0, (1, 5, 2)]
-        'C-C'
+        'CGGGT'
+        >>> alignment[1, (1, 7, 2)]
+        'C-G'
         >>> alignment[1, ::2]
-        'A-GT-'
-        >>> alignment[1, range(0, 9, 2)]
-        'A-GT-'
+        'AGGT'
+        >>> alignment[1, range(0, 8, 2)]
+        'AGGT'
         >>> alignment[:, 0]
         'AA'
         >>> alignment[:, 5]
-        '-G'
+        'TT'
         >>> alignment[:, 1:]  # doctest:+ELLIPSIS
-        <Alignment object (2 rows x 8 columns) at 0x...>
+        <Alignment object (2 rows x 7 columns) at 0x...>
         >>> print(alignment[:, 1:])
-        target            1 CCGG-TTT 8
-                          0 |-||-||- 8
-        query             1 C-GGGTT- 7
+        target            1 CCGGTTT 8
+                          0 |.||||- 7
+        query             1 CGGGTT- 7
         <BLANKLINE>
         >>> print(alignment[:, 2:])
-        target            2 CGG-TTT 8
-                          0 -||-||- 7
-        query             2 -GGGTT- 7
-        <BLANKLINE>
-        >>> print(alignment[:, 3:])
-        target            3 GG-TTT 8
-                          0 ||-||- 6
+        target            2 CGGTTT 8
+                          0 .||||- 6
         query             2 GGGTT- 7
         <BLANKLINE>
+        >>> print(alignment[:, 3:])
+        target            3 GGTTT 8
+                          0 ||||- 5
+        query             3 GGTT- 7
+        <BLANKLINE>
         >>> print(alignment[:, 3:-1])
-        target            3 GG-TT 7
-                          0 ||-|| 5
-        query             2 GGGTT 7
+        target            3 GGTT 7
+                          0 |||| 4
+        query             3 GGTT 7
         <BLANKLINE>
         >>> print(alignment[:, ::2])
-        target            0 ACGTT 5
-                          0 |-||- 5
-        query             0 A-GT- 3
+        target            0 ACGT 4
+                          0 |.|| 4
+        query             0 AGGT 4
         <BLANKLINE>
-        >>> print(alignment[:, range(1, 9, 2)])
-        target            0 CG-T 3
-                          0 ||-| 4
-        query             0 CGGT 4
+        >>> print(alignment[:, range(1, 8, 2)])
+        target            0 CGTT 4
+                          0 |||- 4
+        query             0 CGT- 3
         <BLANKLINE>
         >>> print(alignment[:, (2, 7, 3)])
         target            0 CTG 3
-                          0 -|| 3
-        query             0 -TG 2
+                          0 .-| 3
+        query             0 G-G 2
         <BLANKLINE>
         """
         if isinstance(key, numbers.Integral):
@@ -2183,6 +2335,16 @@ class Alignment:
                        create a human-readable representation of the alignment,
                        or any of the alignment file formats supported by
                        `Bio.Align` (some have not yet been implemented).
+         - scoring  - Optional keyword-only parameter; default=None.
+                       If provided, can be:
+
+                     - A substitution matrix (typically from the
+                        `Bio.Align.substitution_matrices` submodule)
+                         used to mark positive matches (:) in the alignment string
+                         when two different residues have a positive score.
+
+                     - A PairwiseAligner object, in which case its substitution
+                         matrix and settings are used for determining positive matches.
 
         All other arguments are passed to the format-specific writer functions:
          - mask      - PSL format only. Specify if repeat regions in the target
@@ -2201,8 +2363,23 @@ class Alignment:
                        the alignment and include it in the output. If False
                        (default), do not include the MD tag in the output.
         """
+        scoring = kwargs.pop("scoring", None)
+        substitution_matrix = None
+        if scoring is None and args:
+            first = args[0]
+            if isinstance(first, PairwiseAligner):
+                substitution_matrix = first.substitution_matrix
+                args = args[1:]
+            elif isinstance(first, (np.ndarray, substitution_matrices.Array)):
+                substitution_matrix = first
+                args = args[1:]
+        if substitution_matrix is None and scoring is not None:
+            if isinstance(scoring, PairwiseAligner):
+                substitution_matrix = scoring.substitution_matrix
+            elif isinstance(scoring, (np.ndarray, substitution_matrices.Array)):
+                substitution_matrix = scoring
         if fmt == "":
-            return self._format_pretty()
+            return self._format_pretty(substitution_matrix)
         module = _load(fmt)
         if module.AlignmentIterator.mode == "b":
             raise ValueError(f"{fmt} is a binary file format")
@@ -2214,10 +2391,17 @@ class Alignment:
             ) from None
         return writer.format_alignment(self)
 
-    def _format_pretty(self):
+    def _format_pretty(self, matrix=None):
         """Return default string representation (PRIVATE).
 
         Helper for self.format().
+
+        Arguments:
+         - matrix  - Optional; default=None
+                     A substitution matrix (typically from the
+                     `Bio.Align.substitution_matrices` submodule)
+                     used to mark positive matches (:) in the alignment string
+                     when two different residues have a positive score.
         """
         n = len(self.sequences)
         if n == 2:
@@ -2230,7 +2414,7 @@ class Alignment:
         name_width = 10
         names = []
         seqs = []
-        indices = np.zeros(self.coordinates.shape, int)
+        indices = np.zeros(self.coordinates.shape, np.intp)
         for i, (seq, positions, row) in enumerate(
             zip(self.sequences, self.coordinates, indices)
         ):
@@ -2270,7 +2454,7 @@ class Alignment:
                 row[:] = end - positions
             if isinstance(seq, str):
                 if not seq.isascii():
-                    return self._format_unicode()
+                    return self._format_unicode(matrix)
             elif isinstance(seq, (Seq, MutableSeq)):
                 try:
                     seq = bytes(seq)
@@ -2281,7 +2465,7 @@ class Alignment:
                     seq = s
                 seq = seq.decode()
             else:
-                return self._format_generalized()
+                return self._format_generalized(matrix)
             seqs.append(seq)
         minstep = steps.min(0)
         maxstep = steps.max(0)
@@ -2380,6 +2564,10 @@ class Alignment:
                         c = "-"
                     else:
                         c = "."
+                        if matrix is not None and c1 != " " and c2 != " ":
+                            c1u, c2u = c1.upper(), c2.upper()
+                            if matrix[c1u, c2u] > 0:
+                                c = ":"
                     pattern += c
                 pattern_line = "          %9d %s" % (position, pattern)
                 pattern_lines.append(pattern_line)
@@ -2425,10 +2613,17 @@ class Alignment:
                 blocks.append(block)
             return "\n".join(blocks)
 
-    def _format_unicode(self):
+    def _format_unicode(self, matrix=None):
         """Return default string representation (PRIVATE).
 
         Helper for self.format().
+
+        Arguments:
+         - matrix  - Optional; default=None
+                     A substitution matrix (typically from the
+                     `Bio.Align.substitution_matrices` submodule)
+                     used to mark positive matches (:) in the alignment string
+                     when two different residues have a positive score.
         """
         seqs = []
         names = []
@@ -2436,7 +2631,7 @@ class Alignment:
         for seq, row in zip(self.sequences, coordinates):
             seq = self._convert_sequence_string(seq)
             if seq is None:
-                return self._format_generalized()
+                return self._format_generalized(matrix)
             if row[0] > row[-1]:  # mapped to reverse strand
                 row[:] = len(seq) - row[:]
                 seq = reverse_complement(seq)
@@ -2478,13 +2673,24 @@ class Alignment:
                 c = "-"
             else:
                 c = "."
+                if matrix is not None and c1 != " " and c2 != " ":
+                    c1u, c2u = c1.upper(), c2.upper()
+                    if matrix[c1u, c2u] > 0:
+                        c = ":"
             pattern += c
         return f"{aligned_seq1}\n{pattern}\n{aligned_seq2}\n"
 
-    def _format_generalized(self):
+    def _format_generalized(self, matrix=None):
         """Return generalized string representation (PRIVATE).
 
         Helper for self._format_pretty().
+
+        Arguments:
+         - matrix  - Optional; default=None
+                     A substitution matrix (typically from the
+                     `Bio.Align.substitution_matrices` submodule)
+                     used to mark positive matches (:) in the alignment string
+                     when two different residues have a positive score.
         """
         seq1, seq2 = self.sequences
         aligned_seq1 = []
@@ -2539,6 +2745,10 @@ class Alignment:
                         p = "|"
                     else:
                         p = "."
+                        if matrix is not None:
+                            c1u, c2u = c1.upper(), c2.upper()
+                            if matrix[c1u, c2u] > 0:
+                                p = ":"
                     if m1 < m2:
                         space = (m2 - m1) * " "
                         s1 += space
@@ -2589,12 +2799,24 @@ class Alignment:
 
         >>> alignments = aligner.align(seqA, seqB)
         >>> len(alignments)
-        1
+        3
         >>> alignment = alignments[0]
         >>> print(alignment)
-        target            0 TTAA-CCCCATTTG 13
-                          0 --||-||||-|||- 14
-        query             0 --AAGCCCC-TTT- 10
+        target            0 TTAACCCCATTTG 13
+                          0 .-|.||||-|||- 13
+        query             0 A-AGCCCC-TTT- 10
+        <BLANKLINE>
+        >>> alignment = alignments[1]
+        >>> print(alignment)
+        target            0 TTAACCCCATTTG 13
+                          0 -.|.||||-|||- 13
+        query             0 -AAGCCCC-TTT- 10
+        <BLANKLINE>
+        >>> alignment = alignments[2]
+        >>> print(alignment)
+        target            0 TTAACCCCATTTG 13
+                          0 --||.|||.|||- 13
+        query             0 --AAGCCCCTTT- 10
         <BLANKLINE>
 
         Note that seqC is the reverse complement of seqB. Aligning it to the
@@ -2603,12 +2825,24 @@ class Alignment:
 
         >>> alignments = aligner.align(seqA, seqC, strand="-")
         >>> len(alignments)
-        1
+        3
         >>> alignment = alignments[0]
         >>> print(alignment)
-        target            0 TTAA-CCCCATTTG 13
-                          0 --||-||||-|||- 14
-        query            10 --AAGCCCC-TTT-  0
+        target            0 TTAACCCCATTTG 13
+                          0 .-|.||||-|||- 13
+        query            10 A-AGCCCC-TTT-  0
+        <BLANKLINE>
+        >>> alignment = alignments[1]
+        >>> print(alignment)
+        target            0 TTAACCCCATTTG 13
+                          0 -.|.||||-|||- 13
+        query            10 -AAGCCCC-TTT-  0
+        <BLANKLINE>
+        >>> alignment = alignments[2]
+        >>> print(alignment)
+        target            0 TTAACCCCATTTG 13
+                          0 --||.|||.|||- 13
+        query            10 --AAGCCCCTTT-  0
         <BLANKLINE>
 
         """
@@ -2675,24 +2909,24 @@ class Alignment:
         >>> alignments = aligner.align("GACCTG", "CGATCG")
         >>> alignment = alignments[0]
         >>> print(alignment)
-        target            0 -GACCT-G 6
-                          0 -||--|-| 8
-        query             0 CGA--TCG 6
+        target            0 -GACCTG 6
+                          0 -||.|-| 7
+        query             0 CGATC-G 6
         <BLANKLINE>
         >>> alignment.length
-        8
+        7
         >>> aligner.mode = "local"
         >>> alignments = aligner.align("GACCTG", "CGATCG")
         >>> alignment = alignments[0]
         >>> print(alignment)
-        target            0 GACCT-G 6
-                          0 ||--|-| 7
-        query             1 GA--TCG 6
+        target            0 GACC 4
+                          0 ||.| 4
+        query             1 GATC 5
         <BLANKLINE>
         >>> len(alignment)
         2
         >>> alignment.length
-        7
+        4
         """
         n = len(self.coordinates)
         if n == 0:  # no sequences
@@ -2734,26 +2968,26 @@ class Alignment:
         >>> alignments = aligner.align("GACCTG", "CGATCG")
         >>> alignment = alignments[0]
         >>> print(alignment)
-        target            0 -GACCT-G 6
-                          0 -||--|-| 8
-        query             0 CGA--TCG 6
-        <BLANKLINE>
-        >>> len(alignment)
-        2
-        >>> alignment.shape
-        (2, 8)
-        >>> aligner.mode = "local"
-        >>> alignments = aligner.align("GACCTG", "CGATCG")
-        >>> alignment = alignments[0]
-        >>> print(alignment)
-        target            0 GACCT-G 6
-                          0 ||--|-| 7
-        query             1 GA--TCG 6
+        target            0 -GACCTG 6
+                          0 -||.|-| 7
+        query             0 CGATC-G 6
         <BLANKLINE>
         >>> len(alignment)
         2
         >>> alignment.shape
         (2, 7)
+        >>> aligner.mode = "local"
+        >>> alignments = aligner.align("GACCTG", "CGATCG")
+        >>> alignment = alignments[0]
+        >>> print(alignment)
+        target            0 GACC 4
+                          0 ||.| 4
+        query             1 GATC 5
+        <BLANKLINE>
+        >>> len(alignment)
+        2
+        >>> alignment.shape
+        (2, 4)
         """
         n = len(self.coordinates)
         m = self.length
@@ -2899,13 +3133,13 @@ class Alignment:
                [ 0,  1, -1,  2,  3]])
         >>> alignment = alignments[1]
         >>> print(alignment)
-        target            1 AACTGG 7
-                          0 ||-|-| 6
-        query             0 AA-T-G 4
+        target            2 ACTG 6
+                          0 |.|| 4
+        query             0 AATG 4
         <BLANKLINE>
         >>> alignment.indices
-        array([[ 1,  2,  3,  4,  5,  6],
-               [ 0,  1, -1,  2, -1,  3]])
+        array([[2, 3, 4, 5],
+               [0, 1, 2, 3]])
 
         >>> alignments = aligner.align("GAACTGG", "CATT", strand="-")
         >>> alignment = alignments[0]
@@ -2919,13 +3153,13 @@ class Alignment:
                [ 3,  2, -1,  1,  0]])
         >>> alignment = alignments[1]
         >>> print(alignment)
-        target            1 AACTGG 7
-                          0 ||-|-| 6
-        query             4 AA-T-G 0
+        target            2 ACTG 6
+                          0 |.|| 4
+        query             4 AATG 0
         <BLANKLINE>
         >>> alignment.indices
-        array([[ 1,  2,  3,  4,  5,  6],
-               [ 3,  2, -1,  1, -1,  0]])
+        array([[2, 3, 4, 5],
+               [3, 2, 1, 0]])
 
         """
         a = -np.ones(self.shape, int)
@@ -2986,12 +3220,12 @@ class Alignment:
         [array([-1,  0,  1,  2,  3,  4, -1]), array([0, 1, 3, 4])]
         >>> alignment = alignments[1]
         >>> print(alignment)
-        target            1 AACTGG 7
-                          0 ||-|-| 6
-        query             0 AA-T-G 4
+        target            2 ACTG 6
+                          0 |.|| 4
+        query             0 AATG 4
         <BLANKLINE>
         >>> alignment.inverse_indices
-        [array([-1,  0,  1,  2,  3,  4,  5]), array([0, 1, 3, 5])]
+        [array([-1, -1,  0,  1,  2,  3, -1]), array([0, 1, 2, 3])]
         >>> alignments = aligner.align("GAACTGG", "CATT", strand="-")
         >>> alignment = alignments[0]
         >>> print(alignment)
@@ -3003,12 +3237,12 @@ class Alignment:
         [array([-1,  0,  1,  2,  3,  4, -1]), array([4, 3, 1, 0])]
         >>> alignment = alignments[1]
         >>> print(alignment)
-        target            1 AACTGG 7
-                          0 ||-|-| 6
-        query             4 AA-T-G 0
+        target            2 ACTG 6
+                          0 |.|| 4
+        query             4 AATG 0
         <BLANKLINE>
         >>> alignment.inverse_indices
-        [array([-1,  0,  1,  2,  3,  4,  5]), array([5, 3, 1, 0])]
+        [array([-1, -1,  0,  1,  2,  3, -1]), array([3, 2, 1, 0])]
 
         """
         a = [-np.ones(len(sequence), int) for sequence in self.sequences]
@@ -3342,7 +3576,7 @@ class Alignment:
                 qStart2 += size
                 tStart2 += size
             tStart2, qStart2 = tEnd2, qEnd2
-        coordinates = np.array(path).transpose()
+        coordinates = np.array(path, dtype=np.intp).transpose()
         if strand1 != strand2:
             coordinates[1, :] = n2 - coordinates[1, :]
         sequences = [target, query]
@@ -3371,7 +3605,7 @@ class Alignment:
             elif factor != step:
                 raise ValueError("inconsistent step sizes in alignments")
         steps = abs(self.coordinates[:, 1:] - self.coordinates[:, :-1]).max(0).clip(0)
-        coordinates = np.empty((2, len(steps) + 1), int)
+        coordinates = np.empty((2, len(steps) + 1), np.intp)
         coordinates[0, 0] = 0
         coordinates[0, 1:] = factor * np.cumsum(steps)
         sequences = [Seq(None, length=coordinates[0, -1]), None]
@@ -3414,7 +3648,7 @@ class Alignment:
                     raise Exception
             previous = position
         sequences = [alignment.sequences[1] for alignment in alignments]
-        coordinates = np.array(coordinates)
+        coordinates = np.array(coordinates, np.intp)
         alignment = Alignment(sequences, coordinates)
         return alignment
 
@@ -3543,50 +3777,202 @@ class Alignment:
                     start1, start2 = end1, end2
         return m
 
-    def counts(self):
-        """Return number of identities, mismatches, and gaps of a pairwise alignment.
+    def counts(self, scoring=None):
+        """Count the number of identities, mismatches, and gaps of an alignment.
+
+        This method takes a single optional argument named scoring, which can be either None
+        (default), a substitution matrix, a wildcard character, or a pairwise
+        aligner object:
+
+         - If the argument is a substitution matrix, (typically from the
+           ``Bio.Align.substitution_matrices`` submodule), then use it to
+           calculate the total substitution score for the alignment, as well as
+           the number of positive matches.
+         - If the argument is a single character, then it is interpreted as the
+           wildcard character. This character is ignored in the calculation of
+           the number of matches, mismatches, and positives.
+         - If the argument is pairwise aligner object, then use it to set the
+           wildcard character (if set) and also calculate the alignment score,
+           the gap scores, and the total substitution score. If the aligner has
+           an associated substitution matrix, then use it to calculate these
+           scores, and also calculate the number of positive matches.
 
         >>> aligner = PairwiseAligner(mode='global', match_score=2, mismatch_score=-1)
         >>> for alignment in aligner.align("TACCG", "ACG"):
         ...     print("Score = %.1f:" % alignment.score)
-        ...     c = alignment.counts()  # namedtuple
+        ...     c = alignment.counts()
         ...     print(f"{c.gaps} gaps, {c.identities} identities, {c.mismatches} mismatches")
         ...     print(alignment)
         ...
-        Score = 6.0:
+        Score = 4.0:
         2 gaps, 3 identities, 0 mismatches
         target            0 TACCG 5
                           0 -||-| 5
         query             0 -AC-G 3
         <BLANKLINE>
-        Score = 6.0:
+        Score = 4.0:
         2 gaps, 3 identities, 0 mismatches
         target            0 TACCG 5
                           0 -|-|| 5
         query             0 -A-CG 3
         <BLANKLINE>
 
-        This classifies each pair of letters in a pairwise alignment into gaps,
-        perfect matches, or mismatches. It has been defined as a method (not a
-        property) so that it may in future take optional argument(s) allowing
-        the behavior to be customized. These three values are returned as a
-        namedtuple. This is calculated for all the pairs of sequences in the
+        The counts are calculated by summing over all pairs of sequences in the
         alignment.
+
+        An `AlignmentCounts` object has the following properties:
+
+         - score                      - the alignment score (calculated only if the
+                                        argument is a pairwise aligner, and set to None
+                                        otherwise);
+         - aligned                    - the number of letters aligned to each other in
+                                        the alignment;
+         - substitution_score         - the total substitution score of letters aligned
+                                        to each other (calculated only if the argument
+                                        is a pairwise aligner or a substitution matrix,
+                                        and set to None otherwise);
+         - identities                 - the number of identical letters in the
+                                        alignment;
+         - mismatches                 - the number of mismatched letters in the
+                                        alignment;
+         - positives                  - the number of aligned letters with a positive
+                                        score (set to None if no substitution matrix is
+                                        defined);
+         - gap_score                  - the total gap score (calculated only if the
+                                        argument is a pairwise aligner, and set to None
+                                        otherwise);
+         - gaps                       - the total gap length;
+         - open_gaps                  - the number of gaps opened in the alignment;
+         - extend_gaps                - the number of gap extensions in the alignment;
+         - open_left_gaps             - the number of gaps opened on the left side of
+                                        the alignment;
+         - open_right_gaps            - the number of gaps opened on the right side of
+                                        the alignment;
+         - open_internal_gaps         - the number of gaps opened in the interior of the
+                                        alignment;
+         - extend_left_gaps           - the number of gap extensions on the left side of
+                                        the alignment;
+         - extend_right_gaps          - the number of gap extensions on the right side
+                                        of the alignment;
+         - extend_internal_gaps       - the number of gap extensions in the interior of
+                                        the alignment;
+         - open_left_insertions       - the number of insertion gaps opened on the left
+                                        side of the alignment;
+         - open_left_deletions        - the number of deletion gaps opened on the left
+                                        side of the alignment;
+         - open_right_insertions      - the number of insertion gaps opened on the right
+                                        side of the alignment;
+         - open_right_deletions       - the number of deletion gaps opened on the right
+                                        side of the alignment;
+         - open_internal_insertions   - the number of insertion gaps opened in the
+                                        interior of the alignment;
+         - open_internal_deletions    - the number of deletion gaps opened in the
+                                        interior of the alignment;
+         - extend_left_insertions     - the number of insertion gap extensions on the
+                                        left side of the alignment;
+         - extend_left_deletions      - the number of deletion gap extensions on the
+                                        left side of the alignment;
+         - extend_right_insertions    - the number of insertion gap extensions on the
+                                        right side of the alignment;
+         - extend_right_deletions     - the number of deletion gap extensions on the
+                                        right side of the alignment;
+         - extend_internal_insertions - the number of insertion gap extensions in the
+                                        interior of the alignment;
+         - extend_internal_deletions  - the number of deletion gap extensions in the
+                                        interior of the alignment;
+         - left_insertions            - the number of letters inserted on the left side
+                                        of the alignment;
+         - left_deletions             - the number of letters deleted on the left side
+                                        of the alignment;
+         - right_insertions           - the number of letters inserted on the right side
+                                        of the alignment;
+         - right_deletions            - the number of letters deleted on the right side
+                                        of the alignment;
+         - internal_insertions        - the number of letters inserted in the interior
+                                        of the alignment;
+         - internal_deletions         - the number of letters deleted in the interior of
+                                        the alignment;
+         - insertions                 - the total number of letters inserted;
+         - deletions                  - the total number of letters deleted;
+         - left_gaps                  - the total gap length on the left side of the
+                                        alignment;
+         - right_gaps                 - the total gap length on the right side of the
+                                        alignment;
+         - internal_gaps              - the total gap length in the interior of the
+                                        alignment.
         """
-        gaps = identities = mismatches = 0
-        for i, seq1 in enumerate(self):
-            for j, seq2 in enumerate(self):
-                if i == j:
-                    # Don't count seq1 vs seq2 and seq2 vs seq1
-                    break
-                for a, b in zip(seq1, seq2):
-                    if a == "-" or b == "-":
-                        gaps += 1
-                    elif a == b:
-                        identities += 1
-                    else:
-                        mismatches += 1
-        return AlignmentCounts(gaps, identities, mismatches)
+        aligner = None
+        wildcard = None
+        substitution_matrix = None
+        if isinstance(scoring, PairwiseAligner):
+            aligner = scoring
+            substitution_matrix = aligner.substitution_matrix
+        elif isinstance(scoring, str):
+            wildcard = scoring
+        elif isinstance(scoring, (np.ndarray, substitution_matrices.Array)):
+            substitution_matrix = scoring
+        elif scoring is not None:
+            raise ValueError(f"unexpected argument {scoring!r}")
+        if substitution_matrix is None:
+            alphabet = []
+        codec = "utf-32-le" if sys.byteorder == "little" else "utf-32-be"
+        n = len(self.sequences)
+        sequences = [None] * n
+        strands = np.zeros(n, bool)
+        coordinates = self.coordinates.copy()
+        steps = np.diff(coordinates, 1)
+        aligned_flags = sum(steps != 0, 0) > 1
+        # True for steps in which at least two sequences align, False if a gap
+        for i, sequence in enumerate(self.sequences):
+            aligned_steps = steps[i, aligned_flags]
+            if sum(aligned_steps > 0) < sum(aligned_steps < 0):
+                sequence = reverse_complement(sequence)
+                coordinates[i, :] = len(sequence) - coordinates[i, :]
+                strands[i] = True
+            try:
+                sequence = sequence.seq  # stupid SeqRecord
+            except AttributeError:
+                pass
+            try:
+                data = sequence._data
+            except AttributeError:
+                data = sequence
+            if isinstance(data, (bytes, bytearray)):
+                sequences[i] = data
+            elif isinstance(data, str):
+                sequences[i] = np.frombuffer(bytearray(data, codec), dtype="i")
+            elif isinstance(data, SequenceDataAbstractBaseClass):
+                sequences[i] = data
+            elif isinstance(data, np.ndarray):
+                # data is a numpy array of int32
+                # (to be checked in the C code)
+                sequences[i] = data
+            elif data is None:
+                sequences[i] = data
+            else:
+                if substitution_matrix is None:
+                    for item in data:
+                        if not any(item == letter for letter in alphabet):
+                            alphabet.append(item)
+                else:
+                    alphabet = substitution_matrix.alphabet
+                sequences[i] = np.fromiter(
+                    map(alphabet.index, data), dtype="i", count=len(data)
+                )
+        if aligner is not None:
+            return _alignmentcounts.AlignmentCounts(
+                sequences, coordinates, strands, aligner
+            )
+        elif wildcard is not None:
+            return _alignmentcounts.AlignmentCounts(
+                sequences, coordinates, strands, wildcard
+            )
+        elif substitution_matrix is not None:
+            return _alignmentcounts.AlignmentCounts(
+                sequences, coordinates, strands, substitution_matrix
+            )
+        else:
+            return _alignmentcounts.AlignmentCounts(sequences, coordinates, strands)
 
     def reverse_complement(self):
         """Reverse-complement the alignment and return it.
@@ -3619,7 +4005,8 @@ class Alignment:
             [
                 len(sequence) - row[::-1]
                 for sequence, row in zip(sequences, self.coordinates)
-            ]
+            ],
+            dtype=np.intp,
         )
         alignment = Alignment(sequences, coordinates)
         try:
@@ -3723,6 +4110,20 @@ class PairwiseAlignments(AlignmentsAbstractBaseClass):
     def __len__(self):
         return len(self._paths)
 
+    def __repr__(self):
+        try:
+            length = len(self._paths)
+        except OverflowError:
+            length = f">{sys.maxsize} alignments"
+        else:
+            if length == 1:
+                length = "1 alignment"
+            else:
+                length = f"{length} alignments"
+        pointer = hex(id(self))
+        score = format(self.score, "g")
+        return f"<PairwiseAlignments object ({length}; score={score}) at {pointer}>"
+
     def __getitem__(self, index):
         if not isinstance(index, int):
             raise TypeError(f"index must be an integer, not {index.__class__.__name__}")
@@ -3745,7 +4146,7 @@ class PairwiseAlignments(AlignmentsAbstractBaseClass):
     def __next__(self):
         path = next(self._paths)
         self._index += 1
-        coordinates = np.array(path)
+        coordinates = np.array(path, dtype=np.intp)
         alignment = Alignment(self.sequences, coordinates)
         alignment.score = self.score
         self._alignment = alignment
@@ -3797,12 +4198,12 @@ class PairwiseAligner(_pairwisealigner.PairwiseAligner):
     ...     print("Score = %.1f:" % alignment.score)
     ...     print(alignment)
     ...
-    Score = 3.0:
+    Score = 1.0:
     target            0 TACCG 5
                       0 -|-|| 5
     query             0 -A-CG 3
     <BLANKLINE>
-    Score = 3.0:
+    Score = 1.0:
     target            0 TACCG 5
                       0 -||-| 5
     query             0 -AC-G 3
@@ -3816,15 +4217,15 @@ class PairwiseAligner(_pairwisealigner.PairwiseAligner):
     ...     print("Score = %.1f:" % alignment.score)
     ...     print(alignment)
     ...
-    Score = 3.0:
-    target            1 ACCG 5
-                      0 |-|| 4
-    query             0 A-CG 3
+    Score = 2.0:
+    target            1 AC 3
+                      0 || 2
+    query             0 AC 2
     <BLANKLINE>
-    Score = 3.0:
-    target            1 ACCG 5
-                      0 ||-| 4
-    query             0 AC-G 3
+    Score = 2.0:
+    target            3 CG 5
+                      0 || 2
+    query             1 CG 3
     <BLANKLINE>
 
     Do a global alignment.  Identical characters are given 2 points,
@@ -3837,12 +4238,12 @@ class PairwiseAligner(_pairwisealigner.PairwiseAligner):
     ...     print("Score = %.1f:" % alignment.score)
     ...     print(alignment)
     ...
-    Score = 6.0:
+    Score = 4.0:
     target            0 TACCG 5
                       0 -||-| 5
     query             0 -AC-G 3
     <BLANKLINE>
-    Score = 6.0:
+    Score = 4.0:
     target            0 TACCG 5
                       0 -|-|| 5
     query             0 -A-CG 3
@@ -3853,8 +4254,7 @@ class PairwiseAligner(_pairwisealigner.PairwiseAligner):
 
     >>> aligner.open_gap_score = -0.5
     >>> aligner.extend_gap_score = -0.1
-    >>> aligner.target_end_gap_score = 0.0
-    >>> aligner.query_end_gap_score = 0.0
+    >>> aligner.end_gap_score = 0.0
     >>> for alignment in aligner.align("TACCG", "ACG"):
     ...     print("Score = %.1f:" % alignment.score)
     ...     print(alignment)
@@ -3882,7 +4282,7 @@ class PairwiseAligner(_pairwisealigner.PairwiseAligner):
     Number of alignments: 1
     >>> alignment = alignments[0]
     >>> print("Score = %.1f" % alignment.score)
-    Score = 13.0
+    Score = 11.0
     >>> print(alignment)
     target            0 KEVLA 5
                       0 -|||- 5
@@ -3897,18 +4297,20 @@ class PairwiseAligner(_pairwisealigner.PairwiseAligner):
     ...     print("Score = %.1f:" % alignment.score)
     ...     print(alignment)
     ...
-    Score = 6.0:
+    Score = 4.0:
     target            0 TACCG 5
                       0 -||-| 5
     query             0 -AC-G 3
     <BLANKLINE>
-    Score = 6.0:
+    Score = 4.0:
     target            0 TACCG 5
                       0 -|-|| 5
     query             0 -A-CG 3
     <BLANKLINE>
 
     """
+
+    codec = "utf-32-le" if sys.byteorder == "little" else "utf-32-be"
 
     def __init__(self, scoring=None, **kwargs):
         """Initialize a PairwiseAligner as specified by the keyword arguments.
@@ -3927,7 +4329,7 @@ class PairwiseAligner(_pairwisealigner.PairwiseAligner):
             # use default values:
             # match = 1.0
             # mismatch = 0.0
-            # gap_score = 0.0
+            # gap_score = -1.0
             pass
         elif scoring == "blastn":
             self.substitution_matrix = substitution_matrices.load("BLASTN")
@@ -3946,56 +4348,229 @@ class PairwiseAligner(_pairwisealigner.PairwiseAligner):
         for name, value in kwargs.items():
             setattr(self, name, value)
 
+    _new_keys = {
+        "target_internal_open_gap_score": "open_internal_insertion_score",
+        "target_internal_extend_gap_score": "extend_internal_insertion_score",
+        "target_internal_gap_score": "internal_insertion_score",
+        "target_left_open_gap_score": "open_left_insertion_score",
+        "target_left_extend_gap_score": "extend_left_insertion_score",
+        "target_left_gap_score": "left_insertion_score",
+        "target_right_open_gap_score": "open_right_insertion_score",
+        "target_right_extend_gap_score": "extend_right_insertion_score",
+        "target_right_gap_score": "right_insertion_score",
+        "query_internal_open_gap_score": "open_internal_deletion_score",
+        "query_internal_extend_gap_score": "extend_internal_deletion_score",
+        "query_left_open_gap_score": "open_left_deletion_score",
+        "query_left_extend_gap_score": "extend_left_deletion_score",
+        "query_right_open_gap_score": "open_right_deletion_score",
+        "query_right_extend_gap_score": "extend_right_deletion_score",
+        "target_gap_function": "insertion_score_function",
+        "query_gap_function": "deletion_score_function",
+        "internal_open_gap_score": "open_internal_gap_score",
+        "internal_extend_gap_score": "extend_internal_gap_score",
+        "left_open_gap_score": "open_left_gap_score",
+        "left_extend_gap_score": "extend_left_gap_score",
+        "right_open_gap_score": "open_right_gap_score",
+        "right_extend_gap_score": "extend_right_gap_score",
+        "end_open_gap_score": "open_end_gap_score",
+        "end_extend_gap_score": "extend_end_gap_score",
+        "target_gap_score": "insertion_score",
+        "target_open_gap_score": "open_insertion_score",
+        "target_extend_gap_score": "extend_insertion_score",
+        "target_end_gap_score": "end_insertion_score",
+        "target_end_open_gap_score": "open_end_insertion_score",
+        "target_end_extend_gap_score": "extend_end_insertion_score",
+        "query_gap_score": "deletion_score",
+        "query_open_gap_score": "open_deletion_score",
+        "query_extend_gap_score": "extend_deletion_score",
+        "query_end_gap_score": "end_deletion_score",
+        "query_end_open_gap_score": "open_end_deletion_score",
+        "query_end_extend_gap_score": "extend_end_deletion_score",
+        "query_internal_gap_score": "internal_deletion_score",
+        "query_left_gap_score": "left_deletion_score",
+        "query_right_gap_score": "right_deletion_score",
+    }
+
     def __setattr__(self, key, value):
-        if key not in dir(_pairwisealigner.PairwiseAligner):
-            # To prevent confusion, don't allow users to create new attributes.
-            # On CPython, __slots__ can be used for this, but currently
-            # __slots__ does not behave the same way on PyPy at least.
-            raise AttributeError("'PairwiseAligner' object has no attribute '%s'" % key)
+        try:
+            new_key = self._new_keys[key]
+        except KeyError:
+            if key == "alphabet":
+                warnings.warn(
+                    "The alphabet property is deprecated. The current "
+                    "implementation stores the alphabet, but does not use it.",
+                    BiopythonDeprecationWarning,
+                )
+                _pairwisealigner.PairwiseAligner.__setattr__(self, key, value)
+                return
+            if key not in dir(_pairwisealigner.PairwiseAligner):
+                # To prevent confusion, don't allow users to create new attributes.
+                # On CPython, __slots__ can be used for this, but currently
+                # __slots__ does not behave the same way on PyPy at least.
+                raise AttributeError(
+                    "'PairwiseAligner' object has no attribute '%s'" % key
+                )
+        else:
+            warnings.warn(
+                """\
+The attribute '%s' was renamed to '%s'. This was done to be consistent with the
+AlignmentCounts object returned by the .counts method of an Alignment object."""
+                % (key, new_key),
+                BiopythonDeprecationWarning,
+            )
+            key = new_key
         _pairwisealigner.PairwiseAligner.__setattr__(self, key, value)
+
+    def __getattr__(self, key):
+        try:
+            new_key = self._new_keys[key]
+        except KeyError:
+            if key == "alphabet":
+                warnings.warn(
+                    "The alphabet property is deprecated. The current "
+                    "implementation stores the alphabet, but does not use it.",
+                    BiopythonDeprecationWarning,
+                )
+                try:
+                    return _pairwisealigner.PairwiseAligner.__getattr__(self, key)
+                except AttributeError:
+                    return None
+        else:
+            warnings.warn(
+                """\
+The attribute '%s' was renamed to '%s'. This was done to be consistent with the
+AlignmentCounts object returned by the .counts method of an Alignment object."""
+                % (key, new_key),
+                BiopythonDeprecationWarning,
+            )
+            key = new_key
+        return _pairwisealigner.PairwiseAligner.__getattribute__(self, key)
 
     def align(self, seqA, seqB, strand="+"):
         """Return the alignments of two sequences using PairwiseAligner."""
-        if isinstance(seqA, (Seq, MutableSeq, SeqRecord)):
+        # self.warn_defaults_changed()  # FIXME remove this after 1.87 is out
+        if isinstance(seqA, (bytes, Seq, MutableSeq, SeqRecord)):
             sA = bytes(seqA)
+            sA = np.frombuffer(sA, dtype=np.uint8).astype(np.int32)
+        elif isinstance(seqA, str):
+            sA = np.frombuffer(bytearray(seqA, self.codec), dtype=np.int32)
         else:
-            sA = seqA
+            try:
+                memoryview(seqA)
+            except TypeError:
+                substitution_matrix = self.substitution_matrix
+                if substitution_matrix is None:
+                    alphabet = []
+                    for item in seqA:
+                        if not any(item == letter for letter in alphabet):
+                            alphabet.append(item)
+                else:
+                    alphabet = substitution_matrix.alphabet
+                sA = np.fromiter(
+                    map(alphabet.index, seqA), dtype=np.int32, count=len(seqA)
+                )
+            else:
+                sA = seqA  # C code will check the dtype
         if strand == "+":
             sB = seqB
         else:  # strand == "-":
             sB = reverse_complement(seqB)
-        if isinstance(seqB, (Seq, MutableSeq, SeqRecord)):
+        if isinstance(seqB, (bytes, Seq, MutableSeq, SeqRecord)):
             sB = bytes(sB)
+            sB = np.frombuffer(sB, dtype=np.uint8).astype(np.int32)
+        elif isinstance(seqB, str):
+            sB = np.frombuffer(bytearray(sB, self.codec), dtype=np.int32)
+        else:
+            try:
+                memoryview(seqB)
+            except TypeError:
+                substitution_matrix = self.substitution_matrix
+                if substitution_matrix is None:
+                    try:
+                        alphabet
+                    except NameError:
+                        alphabet = []
+                    for item in seqB:
+                        if not any(item == letter for letter in alphabet):
+                            alphabet.append(item)
+                else:
+                    alphabet = substitution_matrix.alphabet
+                sB = np.fromiter(
+                    map(alphabet.index, seqB), dtype=np.int32, count=len(seqB)
+                )
+            else:
+                sB = seqB  # C code will test the dtype
         score, paths = super().align(sA, sB, strand)
         alignments = PairwiseAlignments(seqA, seqB, score, paths)
         return alignments
 
     def score(self, seqA, seqB, strand="+"):
         """Return the alignment score of two sequences using PairwiseAligner."""
-        if isinstance(seqA, (Seq, MutableSeq, SeqRecord)):
+        # self.warn_defaults_changed()  # FIXME remove this after 1.87 is out
+        if isinstance(seqA, (bytes, Seq, MutableSeq, SeqRecord)):
             seqA = bytes(seqA)
+            seqA = np.frombuffer(seqA, dtype=np.uint8).astype(np.int32)
+        elif isinstance(seqA, str):
+            seqA = np.frombuffer(bytearray(seqA, self.codec), dtype="i")
+        else:
+            try:
+                memoryview(seqA)
+            except TypeError:
+                substitution_matrix = self.substitution_matrix
+                if substitution_matrix is None:
+                    alphabet = []
+                    for item in seqA:
+                        if not any(item == letter for letter in alphabet):
+                            alphabet.append(item)
+                else:
+                    alphabet = substitution_matrix.alphabet
+                seqA = np.fromiter(
+                    map(alphabet.index, seqA), dtype=np.int32, count=len(seqA)
+                )
         if strand == "-":
             seqB = reverse_complement(seqB)
-        if isinstance(seqB, (Seq, MutableSeq, SeqRecord)):
+        if isinstance(seqB, (bytes, Seq, MutableSeq, SeqRecord)):
             seqB = bytes(seqB)
+            seqB = np.frombuffer(seqB, dtype=np.uint8).astype(np.int32)
+        elif isinstance(seqB, str):
+            seqB = np.frombuffer(bytearray(seqB, self.codec), dtype="i")
+        else:
+            try:
+                memoryview(seqB)
+            except TypeError:
+                substitution_matrix = self.substitution_matrix
+                if substitution_matrix is None:
+                    try:
+                        alphabet
+                    except NameError:
+                        alphabet = []
+                    for item in seqB:
+                        if not any(item == letter for letter in alphabet):
+                            alphabet.append(item)
+                else:
+                    alphabet = substitution_matrix.alphabet
+                seqB = np.fromiter(
+                    map(alphabet.index, seqB), dtype=np.int32, count=len(seqB)
+                )
         return super().score(seqA, seqB, strand)
 
     def __getstate__(self):
         state = {
             "wildcard": self.wildcard,
-            "target_internal_open_gap_score": self.target_internal_open_gap_score,
-            "target_internal_extend_gap_score": self.target_internal_extend_gap_score,
-            "target_left_open_gap_score": self.target_left_open_gap_score,
-            "target_left_extend_gap_score": self.target_left_extend_gap_score,
-            "target_right_open_gap_score": self.target_right_open_gap_score,
-            "target_right_extend_gap_score": self.target_right_extend_gap_score,
-            "query_internal_open_gap_score": self.query_internal_open_gap_score,
-            "query_internal_extend_gap_score": self.query_internal_extend_gap_score,
-            "query_left_open_gap_score": self.query_left_open_gap_score,
-            "query_left_extend_gap_score": self.query_left_extend_gap_score,
-            "query_right_open_gap_score": self.query_right_open_gap_score,
-            "query_right_extend_gap_score": self.query_right_extend_gap_score,
+            "open_internal_insertion_score": self.open_internal_insertion_score,
+            "extend_internal_insertion_score": self.extend_internal_insertion_score,
+            "open_left_insertion_score": self.open_left_insertion_score,
+            "extend_left_insertion_score": self.extend_left_insertion_score,
+            "open_right_insertion_score": self.open_right_insertion_score,
+            "extend_right_insertion_score": self.extend_right_insertion_score,
+            "open_internal_deletion_score": self.open_internal_deletion_score,
+            "extend_internal_deletion_score": self.extend_internal_deletion_score,
+            "open_left_deletion_score": self.open_left_deletion_score,
+            "extend_left_deletion_score": self.extend_left_deletion_score,
+            "open_right_deletion_score": self.open_right_deletion_score,
+            "extend_right_deletion_score": self.extend_right_deletion_score,
             "mode": self.mode,
+            "epsilon": self.epsilon,
         }
         if self.substitution_matrix is None:
             state["match_score"] = self.match_score
@@ -4006,21 +4581,20 @@ class PairwiseAligner(_pairwisealigner.PairwiseAligner):
 
     def __setstate__(self, state):
         self.wildcard = state["wildcard"]
-        self.target_internal_open_gap_score = state["target_internal_open_gap_score"]
-        self.target_internal_extend_gap_score = state[
-            "target_internal_extend_gap_score"
-        ]
-        self.target_left_open_gap_score = state["target_left_open_gap_score"]
-        self.target_left_extend_gap_score = state["target_left_extend_gap_score"]
-        self.target_right_open_gap_score = state["target_right_open_gap_score"]
-        self.target_right_extend_gap_score = state["target_right_extend_gap_score"]
-        self.query_internal_open_gap_score = state["query_internal_open_gap_score"]
-        self.query_internal_extend_gap_score = state["query_internal_extend_gap_score"]
-        self.query_left_open_gap_score = state["query_left_open_gap_score"]
-        self.query_left_extend_gap_score = state["query_left_extend_gap_score"]
-        self.query_right_open_gap_score = state["query_right_open_gap_score"]
-        self.query_right_extend_gap_score = state["query_right_extend_gap_score"]
+        self.open_internal_insertion_score = state["open_internal_insertion_score"]
+        self.extend_internal_insertion_score = state["extend_internal_insertion_score"]
+        self.open_left_insertion_score = state["open_left_insertion_score"]
+        self.extend_left_insertion_score = state["extend_left_insertion_score"]
+        self.open_right_insertion_score = state["open_right_insertion_score"]
+        self.extend_right_insertion_score = state["extend_right_insertion_score"]
+        self.open_internal_deletion_score = state["open_internal_deletion_score"]
+        self.extend_internal_deletion_score = state["extend_internal_deletion_score"]
+        self.open_left_deletion_score = state["open_left_deletion_score"]
+        self.extend_left_deletion_score = state["extend_left_deletion_score"]
+        self.open_right_deletion_score = state["open_right_deletion_score"]
+        self.extend_right_deletion_score = state["extend_right_deletion_score"]
         self.mode = state["mode"]
+        self.epsilon = state["epsilon"]
         substitution_matrix = state.get("substitution_matrix")
         if substitution_matrix is None:
             self.match_score = state["match_score"]

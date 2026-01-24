@@ -8,8 +8,10 @@ from PyQt5.QtGui import QImage
 class BrightnessContrastDialog(QtWidgets.QDialog):
     _base_value = 50
 
-    def __init__(self, img, callback, parent=None):
-        super(BrightnessContrastDialog, self).__init__(parent)
+    img: PIL.Image.Image
+
+    def __init__(self, img: PIL.Image.Image, callback, parent=None):
+        super().__init__(parent)
         self.setModal(True)
         self.setWindowTitle("Brightness/Contrast")
 
@@ -21,18 +23,22 @@ class BrightnessContrastDialog(QtWidgets.QDialog):
             title_label.setFixedWidth(75)
             layout.addWidget(title_label)
             #
-            slider = QtWidgets.QSlider(Qt.Horizontal)  # type: ignore[attr-defined]
+            slider = QtWidgets.QSlider(Qt.Horizontal)
             slider.setRange(0, 3 * self._base_value)
             slider.setValue(self._base_value)
             layout.addWidget(slider)
             #
             value_label = QtWidgets.QLabel(f"{slider.value() / self._base_value:.2f}")
-            value_label.setAlignment(Qt.AlignRight)  # type: ignore[attr-defined]
+            value_label.setAlignment(Qt.AlignRight)
             layout.addWidget(value_label)
             #
             slider.valueChanged.connect(self.onNewValue)
             slider.valueChanged.connect(
-                lambda: value_label.setText(f"{slider.value() / self._base_value:.2f}")
+                lambda _,
+                value_label_=value_label,
+                slider_=slider: value_label_.setText(
+                    f"{slider_.value() / self._base_value:.2f}"
+                )
             )
             layouts[title] = layout
             sliders[title] = slider
@@ -41,13 +47,14 @@ class BrightnessContrastDialog(QtWidgets.QDialog):
         self.slider_contrast = sliders["Contrast:"]
         del sliders
 
-        layout = QtWidgets.QVBoxLayout()  # type: ignore[assignment]
-        layout.addLayout(layouts["Brightness:"])
-        layout.addLayout(layouts["Contrast:"])
+        v_layout = QtWidgets.QVBoxLayout()
+        v_layout.addLayout(layouts["Brightness:"])
+        v_layout.addLayout(layouts["Contrast:"])
         del layouts
-        self.setLayout(layout)
+        self.setLayout(v_layout)
 
-        assert isinstance(img, PIL.Image.Image)
+        if img.mode != "RGB":
+            raise ValueError("Image mode must be RGB")
         self.img = img
         self.callback = callback
 
@@ -55,7 +62,7 @@ class BrightnessContrastDialog(QtWidgets.QDialog):
         brightness = self.slider_brightness.value() / self._base_value
         contrast = self.slider_contrast.value() / self._base_value
 
-        img = self.img
+        img: PIL.Image.Image = self.img
         if brightness != 1:
             img = PIL.ImageEnhance.Brightness(img).enhance(brightness)
         if contrast != 1:

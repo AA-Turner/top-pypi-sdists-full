@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tinyaes
-Version: 1.1.1
+Version: 1.1.2
 Summary: tiny-AES-c wrapper in Cython
 Home-page: https://github.com/naufraghi/tinyaes-py
 Author: Matteo Bertini
@@ -15,6 +15,16 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Cython
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 # tiny-AES-c Cython wrapper
 [![PyPI version](https://badge.fury.io/py/tinyaes.svg)](https://pypi.org/project/tinyaes/)
@@ -71,6 +81,8 @@ print(unpad(text)) # b'hello' decrypted, original text
 
 ## Release notes
 
+- **1.1.2** (Oct 27, 2024)
+  - Add Python 3.14 to the matrix
 - **1.1.1** (Sept 13, 2024)
   - Final release with Python 3.13
 - **1.1.1rc1** (Sept 13, 2024)

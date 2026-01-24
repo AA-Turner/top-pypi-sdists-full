@@ -4,8 +4,9 @@ import os
 import re
 from argparse import _SubParsersAction, Namespace
 from collections import OrderedDict
+from collections.abc import Callable
 from http import HTTPStatus
-from typing import Callable, Any, List
+from typing import Any
 
 from cloudfoundry_client.client import CloudFoundryClient
 from cloudfoundry_client.errors import InvalidStatusCode
@@ -60,7 +61,7 @@ class CommandDomain(object):
                 self.commands[command[0].entry] = command[0]
                 self.extra_description[command[0].entry] = command[1]
 
-    def description(self) -> List[str]:
+    def description(self) -> list[str]:
         description = [
             " %s" % self.display_name,
             "   %s : List %ss" % (self._list_entry(), self.entity_name),

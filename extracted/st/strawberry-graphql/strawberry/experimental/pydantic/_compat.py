@@ -1,8 +1,9 @@
 import dataclasses
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
 import pydantic
@@ -24,12 +25,12 @@ class CompatModelField:
     type_: Any
     outer_type_: Any
     default: Any
-    default_factory: Optional[Callable[[], Any]]
+    default_factory: Callable[[], Any] | None
     required: bool
-    alias: Optional[str]
+    alias: str | None
     allow_none: bool
     has_alias: bool
-    description: Optional[str]
+    description: str | None
     _missing_type: Any
     is_v1: bool
 
@@ -43,8 +44,8 @@ class CompatModelField:
 
 
 ATTR_TO_TYPE_MAP = {
-    "NoneStr": Optional[str],
-    "NoneBytes": Optional[bytes],
+    "NoneStr": Optional[str],  # noqa: UP045
+    "NoneBytes": Optional[bytes],  # noqa: UP045
     "StrBytes": None,
     "NoneStrBytes": None,
     "StrictStr": str,
@@ -253,13 +254,13 @@ class PydanticV1Compat:
             ConstrainedStr = pydantic.v1.ConstrainedStr
             ConstrainedList = pydantic.v1.ConstrainedList
 
-        if lenient_issubclass(type_, ConstrainedInt):  # type: ignore
+        if lenient_issubclass(type_, ConstrainedInt):
             return int
-        if lenient_issubclass(type_, ConstrainedFloat):  # type: ignore
+        if lenient_issubclass(type_, ConstrainedFloat):
             return float
-        if lenient_issubclass(type_, ConstrainedStr):  # type: ignore
+        if lenient_issubclass(type_, ConstrainedStr):
             return str
-        if lenient_issubclass(type_, ConstrainedList):  # type: ignore
+        if lenient_issubclass(type_, ConstrainedList):
             return list[self.get_basic_type(type_.item_type)]  # type: ignore
 
         if type_ in self.fields_map:
@@ -296,10 +297,12 @@ class PydanticCompat:
 
 
 if IS_PYDANTIC_V2:
-    from typing_extensions import get_args, get_origin
+    from typing import get_args, get_origin
 
-    from pydantic.v1.typing import is_new_type
-    from pydantic.v1.utils import lenient_issubclass, smart_deepcopy
+    from pydantic._internal._utils import lenient_issubclass, smart_deepcopy
+
+    def is_new_type(type_: Any) -> bool:
+        return callable(type_) and hasattr(type_, "__supertype__")
 
     def new_type_supertype(type_: Any) -> Any:
         return type_.__supertype__

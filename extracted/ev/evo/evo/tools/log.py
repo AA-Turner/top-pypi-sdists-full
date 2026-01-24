@@ -21,7 +21,6 @@ along with evo.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
 import sys
-import typing
 
 import colorama
 from colorama import Fore
@@ -31,11 +30,16 @@ from evo.tools._typing import PathStr
 
 colorama.init()
 
-CONSOLE_ERROR_FMT = "{}[%(levelname)s]{} %(message)s".format(
-    Fore.LIGHTRED_EX, Fore.RESET)
-CONSOLE_WARN_FMT = "{}[%(levelname)s]{} %(message)s".format(
-    Fore.LIGHTYELLOW_EX, Fore.RESET)
-DEFAULT_LONG_FMT = "[%(levelname)s][%(asctime)s][%(module)s.%(funcName)s():%(lineno)s]\n%(message)s"
+CONSOLE_ERROR_FMT = (
+    f"{Fore.LIGHTRED_EX}[%(levelname)s]{Fore.RESET} %(message)s"
+)
+CONSOLE_WARN_FMT = (
+    f"{Fore.LIGHTYELLOW_EX}[%(levelname)s]{Fore.RESET} %(message)s"
+)
+DEFAULT_LONG_FMT = (
+    "[%(levelname)s][%(asctime)s]"
+    "[%(module)s.%(funcName)s():%(lineno)s]\n%(message)s"
+)
 
 
 class ConsoleFormatter(logging.Formatter):
@@ -64,11 +68,14 @@ class ConsoleFormatter(logging.Formatter):
 
 
 # configures the package's root logger (see __init__.py)
-def configure_logging(verbose: bool = False, silent: bool = False,
-                      debug: bool = False,
-                      console_fmt: typing.Optional[str] = None,
-                      file_fmt: str = DEFAULT_LONG_FMT,
-                      local_logfile: typing.Optional[PathStr] = None) -> None:
+def configure_logging(
+    verbose: bool = False,
+    silent: bool = False,
+    debug: bool = False,
+    console_fmt: str | None = None,
+    file_fmt: str = DEFAULT_LONG_FMT,
+    local_logfile: PathStr | None = None,
+) -> None:
 
     logger = logging.getLogger("evo")
     logger.setLevel(logging.DEBUG)
@@ -77,7 +84,7 @@ def configure_logging(verbose: bool = False, silent: bool = False,
     if len(logger.handlers) > 0:
         logger.removeHandler(logger.handlers[0])
 
-    logfiles: typing.List[PathStr] = []
+    logfiles: list[PathStr] = []
     if SETTINGS.global_logfile_enabled:
         logfiles.append(GLOBAL_LOGFILE_PATH)
     if local_logfile is not None:
@@ -110,7 +117,8 @@ def configure_logging(verbose: bool = False, silent: bool = False,
     if debug:
         import getpass as gp
         import platform as pf
+
         logger.debug(
-            "System info:\nPython {pyversion}\n{platform}\n{user}\n".format(
-                pyversion=pf.python_version(), platform=pf.platform(),
-                user=gp.getuser() + "@" + pf.node()))
+            f"System info:\nPython {pf.python_version()}\n{pf.platform()}"
+            f"\n{gp.getuser()}@{pf.node()}\n"
+        )

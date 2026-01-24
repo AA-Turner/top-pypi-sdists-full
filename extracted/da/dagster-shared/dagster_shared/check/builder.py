@@ -1,12 +1,12 @@
 import collections.abc
 import sys
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
+from types import UnionType
 from typing import (
     Annotated,
     Any,
-    Callable,
     ForwardRef,
     Generic,
     Literal,
@@ -19,12 +19,6 @@ from typing import (
 )
 
 from dagster_shared.check.functions import CheckError, TypeOrTupleOfTypes, failed, invariant
-
-try:
-    # this type only exists in python 3.10+
-    from types import UnionType  # type: ignore
-except ImportError:
-    UnionType = Union
 
 NoneType = type(None)
 
@@ -131,11 +125,17 @@ class EvalContext(NamedTuple):
                     localns={},
                     recursive_guard=frozenset(),
                 )
-            else:  # type_params added in 3.12.4
+            elif sys.version_info < (3, 14):  # type_params added in 3.12.4
                 return ref._evaluate(  # noqa
                     globalns=self.get_merged_ns(),
                     localns={},
                     recursive_guard=frozenset(),
+                    type_params=(),
+                )
+            else:  # changed to ForwardRef.evaluate in 3.14
+                return ref.evaluate(
+                    globals=self.get_merged_ns(),
+                    locals={},
                     type_params=(),
                 )
         except NameError as e:

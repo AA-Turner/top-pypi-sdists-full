@@ -22,7 +22,7 @@ jobs:
     strategy:
       matrix:
         os:             ["ubuntu-latest", "macos-latest", "windows-latest"]
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         extra-args:     ["", "--concat"]
 
     env:
@@ -33,9 +33,9 @@ jobs:
       ENV_DIR:        ./test.env
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Create test environment
@@ -106,11 +106,11 @@ jobs:
       ENV_DIR:        ./test.env
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - name: Create test environment
         run:  bash ./.ci/create_test_env.sh "$ENV_DIR"
       - name: Log test environment
@@ -208,7 +208,7 @@ jobs:
 
     env:
       PLATFORM:       ${{ matrix.os }}
-      PYTHON_VERSION: "3.11"
+      PYTHON_VERSION: "3.12"
       TEST_SUITE:     "zran_test"
       TEST_PATTERN:   ${{ matrix.test-pattern }}
       EXTRA_ARGS:     ${{ matrix.extra-args }}
@@ -217,11 +217,11 @@ jobs:
       ENV_DIR:        ./test.env
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - name: Create test environment
         run:  bash ./.ci/create_test_env.sh "$ENV_DIR"
       - name: Log test environment

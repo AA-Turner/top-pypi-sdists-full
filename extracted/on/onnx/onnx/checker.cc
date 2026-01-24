@@ -10,10 +10,8 @@
 #include <vector>
 
 #include "onnx/common/file_utils.h"
-#include "onnx/defs/schema.h"
 #include "onnx/defs/tensor_proto_util.h"
 #include "onnx/shape_inference/implementation.h"
-#include "onnx/string_utils.h"
 
 #ifdef _WIN32
 #include "onnx/common/path.h"
@@ -180,6 +178,8 @@ void check_tensor(const TensorProto& tensor, const CheckerContext& ctx) {
       case TensorProto::FLOAT8E8M0:
       case TensorProto::UINT4:
       case TensorProto::INT4:
+      case TensorProto::UINT2:
+      case TensorProto::INT2:
       case TensorProto::FLOAT4E2M1:
         check_field(int32_data);
         break;

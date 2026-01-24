@@ -12,22 +12,18 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
+
+from .group_0157 import Link
 
 
-class SecretScanningScanHistoryPropCustomPatternBackfillScansItemsAllof1(GitHubModel):
-    """SecretScanningScanHistoryPropCustomPatternBackfillScansItemsAllof1"""
+class ReviewCommentPropLinks(GitHubModel):
+    """ReviewCommentPropLinks"""
 
-    pattern_name: Missing[str] = Field(
-        default=UNSET, description="Name of the custom pattern for custom pattern scans"
-    )
-    pattern_scope: Missing[str] = Field(
-        default=UNSET,
-        description='Level at which the custom pattern is defined, one of "repository", "organization", or "enterprise"',
-    )
+    self_: Link = Field(alias="self", title="Link", description="Hypermedia Link")
+    html: Link = Field(title="Link", description="Hypermedia Link")
+    pull_request: Link = Field(title="Link", description="Hypermedia Link")
 
 
-model_rebuild(SecretScanningScanHistoryPropCustomPatternBackfillScansItemsAllof1)
+model_rebuild(ReviewCommentPropLinks)
 
-__all__ = ("SecretScanningScanHistoryPropCustomPatternBackfillScansItemsAllof1",)
+__all__ = ("ReviewCommentPropLinks",)

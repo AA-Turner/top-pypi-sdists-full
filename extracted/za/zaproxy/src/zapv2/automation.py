@@ -29,18 +29,28 @@ class automation(object):
 
     def plan_progress(self, planid):
         """
+        Returns the progress details for the specified planId
         This component is optional and therefore the API will only work if it is installed
         """
         return (self.zap._request(self.zap.base + 'automation/view/planProgress/', {'planId': planid}))
 
     def run_plan(self, filepath, apikey=''):
         """
+        Loads and asynchronously runs the plan in the specified file, returning a planId
         This component is optional and therefore the API will only work if it is installed
         """
         return six.next(six.itervalues(self.zap._request(self.zap.base + 'automation/action/runPlan/', {'filePath': filepath})))
 
+    def stop_plan(self, planid, apikey=''):
+        """
+        Stops the running plan identified by the planId
+        This component is optional and therefore the API will only work if it is installed
+        """
+        return six.next(six.itervalues(self.zap._request(self.zap.base + 'automation/action/stopPlan/', {'planId': planid})))
+
     def end_delay_job(self, apikey=''):
         """
+        Ends the currently running delay job, if any
         This component is optional and therefore the API will only work if it is installed
         """
         return six.next(six.itervalues(self.zap._request(self.zap.base + 'automation/action/endDelayJob/', {})))

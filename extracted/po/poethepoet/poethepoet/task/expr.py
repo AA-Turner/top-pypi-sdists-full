@@ -1,14 +1,19 @@
+from __future__ import annotations
+
 import re
-from collections.abc import Iterable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Annotated, Any
 
 from ..exceptions import ConfigValidationError, ExpressionParseError
+from ..options.annotations import Metadata
 from .base import PoeTask
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping, Sequence
+
     from ..config import PoeConfig
     from ..context import RunContext
     from ..env.manager import EnvVarsManager
+    from ..executor.task_run import PoeTaskRun
     from .base import TaskSpecFactory
 
 
@@ -22,9 +27,10 @@ class ExprTask(PoeTask):
     __key__ = "expr"
 
     class TaskOptions(PoeTask.TaskOptions):
-        imports: Sequence[str] = tuple()
-        assert_: Union[bool, int] = False
+        imports: Sequence[str] = ()
+        assert_: Annotated[bool | int, Metadata(config_name="assert")] = False
         use_exec: bool = False
+        ignore_fail: bool | list[int] = False
 
         def validate(self):
             super().validate()
@@ -36,28 +42,28 @@ class ExprTask(PoeTask):
 
     class TaskSpec(PoeTask.TaskSpec):
         content: str
-        options: "ExprTask.TaskOptions"
+        options: ExprTask.TaskOptions
 
-        def _task_validations(self, config: "PoeConfig", task_specs: "TaskSpecFactory"):
+        def _task_validations(self, config: PoeConfig, task_specs: TaskSpecFactory):
             """
             Perform validations on this TaskSpec that apply to a specific task type
             """
             try:
-                # ruff: noqa: E501
                 self.task_type._substitute_env_vars(self.content.strip(), {})  # type: ignore[attr-defined]
             except (ValueError, ExpressionParseError) as error:
                 raise ConfigValidationError(f"Invalid expression: {error}")
 
     spec: TaskSpec
 
-    def _handle_run(
-        self,
-        context: "RunContext",
-        env: "EnvVarsManager",
-    ) -> int:
+    async def _handle_run(
+        self, context: RunContext, env: EnvVarsManager, task_state: PoeTaskRun
+    ):
         from ..helpers.python import format_class
 
-        named_arg_values, extra_args = self.get_parsed_arguments(env)
+        if ignore_fail := self.spec.options.ignore_fail:
+            task_state.ignore_failure(ignore_fail)
+
+        named_arg_values, _ = self.get_parsed_arguments(env)
         env.update(named_arg_values)
 
         imports = self.spec.options.imports
@@ -69,7 +75,7 @@ class ExprTask(PoeTask):
         ]
 
         script = [
-            f"import sys;" f"sys.path.append('src');" f"sys.argv = {argv!r};",
+            f"import sys;sys.path.append('src');sys.argv = {argv!r};",
             (f"import {', '.join(imports)}; " if imports else ""),
             f"{format_class(named_arg_values)}",
             f"{format_class(env_values, classname='__env')}",
@@ -87,14 +93,14 @@ class ExprTask(PoeTask):
         cmd = ("python", "-c", "".join(script))
 
         self._print_action(self.spec.content.strip(), context.dry)
-        return self._get_executor(context, env, resolve_python=True).execute(
-            cmd, use_exec=self.spec.options.use_exec
-        )
+        executor = self._get_executor(context, env, resolve_python=True)
+        process = await executor.execute(cmd, use_exec=self.spec.options.use_exec)
+        await task_state.add_process(process, finalize=True)
 
     def parse_content(
         self,
-        args: Optional[dict[str, Any]],
-        env: "EnvVarsManager",
+        args: dict[str, Any] | None,
+        env: EnvVarsManager,
         imports: Iterable[str],
     ) -> tuple[str, dict[str, str]]:
         """
@@ -114,7 +120,7 @@ class ExprTask(PoeTask):
 
         expression = resolve_expression(
             source=expression,
-            arguments=set(args or tuple()),
+            arguments=set(args or ()),
             allowed_vars={"sys", "__env", *imports},
         )
         # Strip out any new lines because they can be problematic on windows

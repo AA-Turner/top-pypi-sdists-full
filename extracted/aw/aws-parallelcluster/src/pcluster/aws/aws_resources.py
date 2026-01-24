@@ -255,17 +255,21 @@ class InstanceTypeInfo:
 
         return cores
 
+    def network_cards(self) -> list:
+        """Return the list of network cards."""
+        try:
+            return self.instance_type_data["NetworkInfo"]["NetworkCards"]
+        except KeyError:
+            instance_type = self.instance_type_data.get("InstanceType", "unknown")
+            raise RuntimeError(f"Could not determine network cards for instance type {instance_type}.")
+
     def max_network_cards(self) -> int:
         """Max number of NICs for the instance."""
-        return len(self.instance_type_data.get("NetworkInfo", {}).get("NetworkCards"))
+        return len(self.network_cards())
 
     def network_cards_list(self) -> list:
         """List of NICs for the instance."""
-        return [
-            NetworkCardInfo(nic)
-            for nic in self.instance_type_data.get("NetworkInfo", {}).get("NetworkCards")
-            if nic.get("NetworkCardIndex") is not None
-        ]
+        return [NetworkCardInfo(nic) for nic in self.network_cards() if nic.get("NetworkCardIndex") is not None]
 
     def default_threads_per_core(self):
         """Return the default threads per core for the given instance type."""
@@ -571,6 +575,10 @@ class CapacityReservationInfo:
         """Return the instance type associated to the Capacity Reservation."""
         return self.capacity_reservation_data.get("InstanceType")
 
+    def instance_platform(self):
+        """Return the instance platform associated to the Capacity Reservation."""
+        return self.capacity_reservation_data.get("InstancePlatform")
+
     def availability_zone(self):
         """Return the availability zone associated to the Capacity Reservation."""
         return self.capacity_reservation_data.get("AvailabilityZone")
@@ -592,6 +600,10 @@ class CapacityReservationInfo:
     def total_instance_count(self):
         """Return the total instance count, if present, 0 otherwise."""
         return self.capacity_reservation_data.get("TotalInstanceCount", 0)
+
+    def available_instance_count(self):
+        """Return the available instance count, if present, 0 otherwise."""
+        return self.capacity_reservation_data.get("AvailableInstanceCount", 0)
 
     def get_tag(self, tag_key: str):
         """Get stack tag by tag key."""

@@ -340,16 +340,6 @@ cdef class BaseThinConnImpl(BaseConnImpl):
                 get_dbobject_type_cache(self._dbobject_type_cache_num)
         return cache.get_type(conn, name)
 
-    def ping(self):
-        cdef Message message
-        message = self._create_message(PingMessage)
-        self._protocol._process_single_message(message)
-
-    def rollback(self):
-        cdef Message message
-        message = self._create_message(RollbackMessage)
-        self._protocol._process_single_message(message)
-
     def set_action(self, str value):
         self._action = value
         self._action_modified = True
@@ -546,6 +536,45 @@ cdef class ThinConnImpl(BaseThinConnImpl):
         lob_impl.create_temp()
         return lob_impl
 
+    def direct_path_load(self, str schema_name, str table_name,
+                         list column_names, object data,
+                         uint32_t batch_size):
+        cdef:
+            Protocol protocol = <Protocol> self._protocol
+            DirectPathPrepareMessage prepare_message
+            DirectPathLoadStreamMessage load_message
+            DirectPathOpMessage op_message
+            BatchLoadManager manager
+
+        # prepare message
+        prepare_message = self._create_message(DirectPathPrepareMessage)
+        prepare_message.schema_name = schema_name
+        prepare_message.table_name = table_name
+        prepare_message.column_names = column_names
+        protocol._process_single_message(prepare_message)
+
+        # setup op message
+        op_message = self._create_message(DirectPathOpMessage)
+        op_message.prepare(prepare_message.cursor_id, TNS_DP_OP_ABORT)
+
+        # load message
+        load_message = self._create_message(DirectPathLoadStreamMessage)
+        try:
+            manager = BatchLoadManager.create_for_direct_path_load(
+                data, prepare_message.column_metadata, batch_size
+            )
+            while manager.num_rows > 0:
+                load_message.prepare(
+                    prepare_message.cursor_id,
+                    manager,
+                    prepare_message.column_metadata
+                )
+                protocol._process_single_message(load_message)
+                manager.next_batch()
+            op_message.op_code = TNS_DP_OP_FINISH
+        finally:
+            protocol._process_single_message(op_message)
+
     def get_type(self, object conn, str name):
         cdef ThinDbObjectTypeCache cache = \
                 get_dbobject_type_cache(self._dbobject_type_cache_num)
@@ -682,6 +711,7 @@ cdef class AsyncThinConnImpl(BaseThinConnImpl):
             PipelineOpImpl op_impl = result_impl.operation
             uint8_t op_type = op_impl.op_type
             AsyncThinCursorImpl cursor_impl
+            BindVar bind_var
 
         # all operations other than commit make use of a cursor
         if op_type == PIPELINE_OP_TYPE_COMMIT:
@@ -693,23 +723,27 @@ cdef class AsyncThinConnImpl(BaseThinConnImpl):
 
         # resend the message if that is required (for operations that fetch
         # LOBS, for example)
-        cursor_impl = message_with_data.cursor_impl
+        cursor_impl = <AsyncThinCursorImpl> message_with_data.cursor_impl
         if message.resend:
             await protocol._process_message(message)
-            await message.postprocess_async()
-            if op_type in (
-                PIPELINE_OP_TYPE_FETCH_ONE,
-                PIPELINE_OP_TYPE_FETCH_MANY,
-                PIPELINE_OP_TYPE_FETCH_ALL,
-            ):
-                result_impl.rows = []
-                while cursor_impl._buffer_rowcount > 0:
-                    result_impl.rows.append(cursor_impl._create_row())
+        await message.postprocess_async()
+        if op_impl.op_type == PIPELINE_OP_TYPE_CALL_FUNC:
+            bind_var = <BindVar> cursor_impl.bind_vars[0]
+            result_impl.return_value = bind_var.var_impl.get_value(0)
+        elif op_type in (
+            PIPELINE_OP_TYPE_FETCH_ONE,
+            PIPELINE_OP_TYPE_FETCH_MANY,
+            PIPELINE_OP_TYPE_FETCH_ALL,
+        ):
+            result_impl.rows = []
+            while cursor_impl._buffer_rowcount > 0:
+                result_impl.rows.append(cursor_impl._create_row())
         result_impl.fetch_metadata = cursor_impl.fetch_metadata
 
         # for fetchall(), perform as many round trips as are required to
         # complete the fetch
-        if op_type == PIPELINE_OP_TYPE_FETCH_ALL:
+        if op_type == PIPELINE_OP_TYPE_FETCH_ALL \
+                and cursor_impl._more_rows_to_fetch:
             fetch_message = cursor_impl._create_message(
                 FetchMessage, message_with_data.cursor
             )
@@ -871,27 +905,36 @@ cdef class AsyncThinConnImpl(BaseThinConnImpl):
         elif op_impl.op_type == PIPELINE_OP_TYPE_EXECUTE:
             cursor._prepare_for_execute(op_impl.statement, op_impl.parameters)
         elif op_impl.op_type == PIPELINE_OP_TYPE_EXECUTE_MANY:
-            num_execs = cursor_impl._prepare_for_executemany(
-                cursor, op_impl.statement, op_impl.parameters
+            op_impl.batch_load_manager = cursor_impl._prepare_for_executemany(
+                cursor,
+                op_impl.statement,
+                op_impl.parameters,
+                2 ** 32 - 1
             )
-            op_impl.num_execs = num_execs
-            if cursor_impl._statement.requires_single_execute():
-                num_execs = 1
+            op_impl.num_execs = op_impl.batch_load_manager.num_rows
+            if not cursor_impl._statement.requires_single_execute():
+                num_execs = op_impl.num_execs
         elif op_impl.op_type == PIPELINE_OP_TYPE_FETCH_ONE:
             cursor._prepare_for_execute(op_impl.statement, op_impl.parameters)
             cursor_impl.prefetchrows = 1
             cursor_impl.arraysize = 1
             cursor_impl.rowfactory = op_impl.rowfactory
+            cursor_impl.fetch_lobs = op_impl.fetch_lobs
+            cursor_impl.fetch_decimals = op_impl.fetch_decimals
         elif op_impl.op_type == PIPELINE_OP_TYPE_FETCH_MANY:
             cursor._prepare_for_execute(op_impl.statement, op_impl.parameters)
             cursor_impl.prefetchrows = op_impl.num_rows
             cursor_impl.arraysize = op_impl.num_rows
             cursor_impl.rowfactory = op_impl.rowfactory
+            cursor_impl.fetch_lobs = op_impl.fetch_lobs
+            cursor_impl.fetch_decimals = op_impl.fetch_decimals
         elif op_impl.op_type == PIPELINE_OP_TYPE_FETCH_ALL:
             cursor._prepare_for_execute(op_impl.statement, op_impl.parameters)
             cursor_impl.prefetchrows = op_impl.arraysize
             cursor_impl.arraysize = op_impl.arraysize
             cursor_impl.rowfactory = op_impl.rowfactory
+            cursor_impl.fetch_lobs = op_impl.fetch_lobs
+            cursor_impl.fetch_decimals = op_impl.fetch_decimals
         else:
             errors._raise_err(errors.ERR_UNSUPPORTED_PIPELINE_OPERATION,
                               op_type=op_impl.op_type)
@@ -931,55 +974,6 @@ cdef class AsyncThinConnImpl(BaseThinConnImpl):
             token_num += 1
             messages.append(message)
         return messages
-
-    cdef int _populate_pipeline_op_result(self, Message message) except -1:
-        """
-        Populates the pipeline operation result object.
-        """
-        cdef:
-            MessageWithData message_with_data
-            AsyncThinCursorImpl cursor_impl
-            PipelineOpResultImpl result_impl
-            PipelineOpImpl op_impl
-            BindVar bind_var
-        result_impl = message.pipeline_result_impl
-        op_impl = result_impl.operation
-        if op_impl.op_type == PIPELINE_OP_TYPE_COMMIT:
-            return 0
-        message_with_data = <MessageWithData> message
-        cursor_impl = <AsyncThinCursorImpl> message_with_data.cursor_impl
-        if op_impl.op_type == PIPELINE_OP_TYPE_CALL_FUNC:
-            bind_var = <BindVar> cursor_impl.bind_vars[0]
-            result_impl.return_value = bind_var.var_impl.get_value(0)
-        elif op_impl.op_type in (
-            PIPELINE_OP_TYPE_FETCH_ONE,
-            PIPELINE_OP_TYPE_FETCH_MANY,
-            PIPELINE_OP_TYPE_FETCH_ALL,
-        ):
-            result_impl.rows = []
-            while cursor_impl._buffer_rowcount > 0:
-                result_impl.rows.append(cursor_impl._create_row())
-
-    cdef int _populate_pipeline_op_results(
-        self, list messages, bint continue_on_error
-    ) except -1:
-        """
-        Populates the pipeline operation result objects associated with the
-        messages that were processed on the database.
-        """
-        cdef:
-            PipelineOpResultImpl result_impl
-            Message message
-        for message in messages:
-            result_impl = message.pipeline_result_impl
-            if result_impl.error is not None or message.resend:
-                continue
-            try:
-                self._populate_pipeline_op_result(message)
-            except Exception as e:
-                if not continue_on_error:
-                    raise
-                result_impl._capture_err(e)
 
     async def _run_pipeline_op_without_pipelining(
         self, object conn, PipelineOpResultImpl result_impl
@@ -1115,6 +1109,45 @@ cdef class AsyncThinConnImpl(BaseThinConnImpl):
         await lob_impl.create_temp()
         return lob_impl
 
+    async def direct_path_load(self, str schema_name, str table_name,
+                               list column_names, object data,
+                               uint32_t batch_size):
+        cdef:
+            BaseAsyncProtocol protocol = <BaseAsyncProtocol> self._protocol
+            DirectPathPrepareMessage prepare_message
+            DirectPathLoadStreamMessage load_message
+            DirectPathOpMessage op_message
+            BatchLoadManager manager
+
+        # prepare message
+        prepare_message = self._create_message(DirectPathPrepareMessage)
+        prepare_message.schema_name = schema_name
+        prepare_message.table_name = table_name
+        prepare_message.column_names = column_names
+        await protocol._process_single_message(prepare_message)
+
+        # setup op message
+        op_message = self._create_message(DirectPathOpMessage)
+        op_message.prepare(prepare_message.cursor_id, TNS_DP_OP_ABORT)
+
+        # load message
+        load_message = self._create_message(DirectPathLoadStreamMessage)
+        try:
+            manager = BatchLoadManager.create_for_direct_path_load(
+                data, prepare_message.column_metadata, batch_size
+            )
+            while manager.num_rows > 0:
+                load_message.prepare(
+                    prepare_message.cursor_id,
+                    manager,
+                    prepare_message.column_metadata
+                )
+                await protocol._process_single_message(load_message)
+                manager.next_batch()
+            op_message.op_code = TNS_DP_OP_FINISH
+        finally:
+            await protocol._process_single_message(op_message)
+
     async def get_type(self, object conn, str name):
         cdef AsyncThinDbObjectTypeCache cache = \
                 get_dbobject_type_cache(self._dbobject_type_cache_num)
@@ -1175,7 +1208,6 @@ cdef class AsyncThinConnImpl(BaseThinConnImpl):
                 self.pipeline_mode = TNS_PIPELINE_MODE_ABORT_ON_ERROR
             self._send_messages_for_pipeline(messages, continue_on_error)
             await protocol.end_pipeline(self, messages, continue_on_error)
-            self._populate_pipeline_op_results(messages, continue_on_error)
             await self._complete_pipeline_ops(messages, continue_on_error)
 
     async def run_pipeline_without_pipelining(
@@ -1210,7 +1242,7 @@ cdef class AsyncThinConnImpl(BaseThinConnImpl):
     def supports_pipelining(self):
         """
         Returns whether the connection supports pipelining. Currently this is
-        only supported with asyncio and Oracle Database 23ai and later.
+        only supported with asyncio and Oracle Database version 23, and later.
         """
         return self._protocol._caps.supports_pipelining
 

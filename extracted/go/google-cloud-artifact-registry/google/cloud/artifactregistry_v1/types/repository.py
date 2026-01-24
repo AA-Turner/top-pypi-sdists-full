@@ -976,8 +976,8 @@ class Repository(proto.Message):
             public preview  use this to calculate storage
             costs.
         satisfies_pzs (bool):
-            Output only. If set, the repository satisfies
-            physical zone separation.
+            Output only. Whether or not this repository
+            satisfies PZS.
         cleanup_policy_dry_run (bool):
             Optional. If true, the cleanup pipeline is
             prevented from deleting versions in this
@@ -990,8 +990,8 @@ class Repository(proto.Message):
             repo type will be treated as error rather than
             defaulting to standard.
         satisfies_pzi (bool):
-            Output only. If set, the repository satisfies
-            physical zone isolation.
+            Output only. Whether or not this repository
+            satisfies PZI.
         registry_uri (str):
             Output only. The repository endpoint, for example:
             ``us-docker.pkg.dev/my-proj/my-repo``.
@@ -1021,6 +1021,8 @@ class Repository(proto.Message):
                 Go package format.
             GENERIC (11):
                 Generic package format.
+            RUBY (12):
+                Ruby package format.
         """
         FORMAT_UNSPECIFIED = 0
         DOCKER = 1
@@ -1032,6 +1034,7 @@ class Repository(proto.Message):
         KFP = 9
         GO = 10
         GENERIC = 11
+        RUBY = 12
 
     class Mode(proto.Enum):
         r"""The mode configures the repository to serve artifacts from
@@ -1141,7 +1144,9 @@ class Repository(proto.Message):
 
             Values:
                 ENABLEMENT_CONFIG_UNSPECIFIED (0):
-                    Not set. This will be treated as INHERITED.
+                    Not set. This will be treated as INHERITED
+                    for Docker repositories and DISABLED for
+                    non-Docker repositories.
                 INHERITED (1):
                     Scanning is Enabled, but dependent on API
                     enablement.
@@ -1316,7 +1321,7 @@ class ListRepositoriesRequest(proto.Message):
             request. Filter rules are case insensitive. The fields
             eligible for filtering are:
 
-            -  ``name``
+            - ``name``
 
             Examples of using a filter:
 
@@ -1325,14 +1330,14 @@ class ListRepositoriesRequest(proto.Message):
             ``us-central`` region, append the following filter
             expression to your request:
 
-            -  ``name="projects/my-project/locations/us-central1/repositories/my-repo"``
+            - ``name="projects/my-project/locations/us-central1/repositories/my-repo"``
 
             You can also use wildcards to match any number of characters
             before or after the value:
 
-            -  ``name="projects/my-project/locations/us-central1/repositories/my-*"``
-            -  ``name="projects/my-project/locations/us-central1/repositories/*repo"``
-            -  ``name="projects/my-project/locations/us-central1/repositories/*repo*"``
+            - ``name="projects/my-project/locations/us-central1/repositories/my-*"``
+            - ``name="projects/my-project/locations/us-central1/repositories/*repo"``
+            - ``name="projects/my-project/locations/us-central1/repositories/*repo*"``
         order_by (str):
             Optional. The field to order the results by.
     """

@@ -1,16 +1,17 @@
+from functools import partial
 import threading
 import time
 
 from adam.commands.command import Command
-from .reaper_session import ReaperSession
+from adam.commands.reaper.reaper_forward_session import ReaperForwardSession
+from adam.commands.reaper.utils_reaper import Reapers, port_forwarding
 from adam.config import Config
 from adam.repl_session import ReplSession
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import lines_to_tabular, log2
+from adam.utils import tabulize, log2
 
 class ReaperForward(Command):
     COMMAND = 'reaper forward'
-    reaper_login = None
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):
@@ -31,70 +32,62 @@ class ReaperForward(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state):
-            return state
+        with self.validate(args, state) as (args, state):
+            if not Reapers.pod_name(state):
+                return state
 
-        if not(reaper := ReaperSession.create(state)):
-            return state
+            spec = Reapers.reaper_spec(state)
+            if state.in_repl:
+                if ReaperForwardSession.is_forwarding:
+                    log2("Another port-forward is already running.")
 
-        spec = reaper.reaper_spec(state)
-        if state.in_repl:
-            if ReaperSession.is_forwarding:
-                log2("Another port-forward is already running.")
+                    return "already-running"
 
-                return "already-running"
+                # make it a daemon to exit with a Ctrl-D
+                thread = threading.Thread(target=self.loop, args=(state,), daemon=True)
+                thread.start()
 
-            # make it a daemon to exit with a Ctrl-D
-            thread = threading.Thread(target=self.loop, args=(state, reaper), daemon=True)
-            thread.start()
+                while not ReaperForwardSession.is_forwarding:
+                    time.sleep(1)
 
-            while not ReaperSession.is_forwarding:
-                time.sleep(1)
-
-            d = {
-                'reaper-ui': spec["web-uri"],
-                'reaper-username': spec["username"],
-                'reaper-password': spec["password"]
-            }
-            log2()
-            log2(lines_to_tabular([f'{k},{v}' for k, v in d.items()], separator=','))
-
-            for k, v in d.items():
-                ReplSession().prompt_session.history.append_string(f'cp {k}')
-            log2()
-            log2(f'Use <Up> arrow key to copy the values to clipboard.')
-        else:
-            try:
-                log2(f'Click: {spec["web-uri"]}')
-                log2(f'username: {spec["username"]}')
-                log2(f'password: {spec["password"]}')
+                d = {
+                    'reaper-ui': spec["web-uri"],
+                    'reaper-username': spec["username"],
+                    'reaper-password': spec["password"]
+                }
                 log2()
-                log2(f"Press Ctrl+C to break.")
+                tabulize(d.items(), lambda a: f'{a[0]},{a[1]}', separator=',')
 
-                time.sleep(Config().get('reaper.port-forward.timeout', 3600 * 24))
-            except KeyboardInterrupt:
-                pass
+                for k, v in d.items():
+                    ReplSession().prompt_session.history.append_string(f'cp {k}')
+                log2()
+                log2(f'Use <Up> arrow key to copy the values to clipboard.')
+            else:
+                try:
+                    log2(f'Click: {spec["web-uri"]}')
+                    log2(f'username: {spec["username"]}')
+                    log2(f'password: {spec["password"]}')
+                    log2()
+                    log2(f"Press Ctrl+C to break.")
 
-        return state
+                    time.sleep(Config().get('reaper.port-forward.timeout', 3600 * 24))
+                except KeyboardInterrupt:
+                    pass
 
-    def loop(self, state: ReplState, reaper: ReaperSession):
-        def body(uri: str, _: dict[str, str]):
-            ReaperSession.is_forwarding = True
+            return state
+
+    def loop(self, state: ReplState):
+        with port_forwarding(state, Reapers.local_port(), partial(Reapers.svc_or_pod, state), Reapers.target_port()):
+            ReaperForwardSession.is_forwarding = True
             try:
-                while not ReaperSession.stopping.is_set():
+                while not ReaperForwardSession.stopping.is_set():
                     time.sleep(1)
             finally:
-                ReaperSession.stopping.clear()
-                ReaperSession.is_forwarding = False
-
-        return reaper.port_forwarded(state, 'webui', body)
+                ReaperForwardSession.stopping.clear()
+                ReaperForwardSession.is_forwarding = False
 
     def completion(self, state: ReplState):
-        if state.sts:
-            return super().completion(state)
+        return super().completion(state)
 
-        return {}
-
-    def help(self, _: ReplState):
-        return f'{ReaperForward.COMMAND}\t port-forward to reaper'
+    def help(self, state: ReplState):
+        return super().help(state, 'port-forward to reaper')

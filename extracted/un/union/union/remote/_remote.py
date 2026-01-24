@@ -17,7 +17,7 @@ from flyteidl.service.identity_pb2 import UserInfoRequest, UserInfoResponse
 from flyteidl.service.identity_pb2_grpc import IdentityServiceStub
 from flytekit import BlobType, ImageSpec, Resources
 from flytekit.clients.friendly import SynchronousFlyteClient
-from flytekit.configuration import Config
+from flytekit.configuration import Config, TaskConfig
 from flytekit.core.artifact import ArtifactQuery, Partitions, TimePartition
 from flytekit.core.type_engine import LiteralsResolver, TypeEngine
 from flytekit.exceptions import user as user_exceptions
@@ -48,6 +48,7 @@ from union.artifacts._utils import construct_search_artifact_request
 from union.internal.app.app_definition_pb2 import App as AppIDL
 from union.internal.artifacts import artifacts_pb2, artifacts_pb2_grpc
 from union.internal.authorizer.authorizer_pb2_grpc import AuthorizerServiceStub
+from union.internal.common.identifier_pb2 import ProjectIdentifier
 from union.internal.hooks.hooks_pb2_grpc import HooksServiceStub
 from union.internal.hooks.payload_pb2 import (
     AcknowledgeEventRequest,
@@ -67,6 +68,7 @@ from union.internal.secret.definition_pb2 import Secret, SecretIdentifier
 from union.internal.secret.payload_pb2 import GetSecretRequest, ListSecretsRequest
 from union.internal.secret.secret_pb2_grpc import SecretServiceStub
 from union.remote._app_template_factory import AppTemplate, HuggingFaceModelInfo, get_app_templates_for_model
+from union.ucimage._image_builder import FLYTE_IMAGE_BUILD_IN_SYSTEM
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +98,15 @@ _DOMAIN_ENV_VARS = ["UNION_CURRENT_DOMAIN", "FLYTE_INTERNAL_EXECUTION_DOMAIN"]
 
 _get_default_project_from_env = partial(_get_env_var, env_vars=_PROJECT_ENV_VARS)
 _get_default_domain_from_env = partial(_get_env_var, env_vars=_DOMAIN_ENV_VARS)
+
+
+@dataclass
+class CommonInit:
+    project: Optional[str] = None
+    domain: Optional[str] = None
+
+
+common_init = CommonInit()
 
 
 class UnionRemote(FlyteRemote):
@@ -130,6 +141,9 @@ class UnionRemote(FlyteRemote):
 
         if default_domain is None:
             default_domain = _DEFAULT_DOMAIN
+
+        common_init.project = default_project
+        common_init.domain = default_domain
 
         # register Union image builder when getting remote so it's available for
         # jupyter notebook task and workflow execution.
@@ -681,9 +695,53 @@ class UnionRemote(FlyteRemote):
             raise FlyteEntityNotExistException("Running in sandbox")
         image_id = image_definition__pb2.ImageIdentifier(name=name)
         org = _get_organization(self.config.platform, channel=self.sync_channel)
-        req = image_payload__pb2.GetImageRequest(id=image_id, organization=org)
+        if FLYTE_IMAGE_BUILD_IN_SYSTEM:
+            project_id = None
+        else:
+            if org is None and self.config.platform.endpoint is not None:
+                # If running on byoc, infer org from endpoint
+                endpoint = self.config.platform.endpoint
+                org = self._org_from_endpoint(endpoint) if endpoint else None
+            cfg = TaskConfig.auto()
+            project_id = ProjectIdentifier(
+                organization=cfg.org if (cfg.org and cfg.org != "None") else org,
+                domain=cfg.domain or self.default_domain,
+                name=cfg.project or self.default_project,
+            )
+        req = image_payload__pb2.GetImageRequest(id=image_id, organization=org, project_id=project_id)
         resp = self.images_client.GetImage(req)
         return resp.image.fqin
+
+    def _hostname_from_url(self, url: str) -> str:
+        """Parse a URL and return the hostname part."""
+
+        # Handle dns:/// format specifically (gRPC convention)
+        if url.startswith("dns:///"):
+            return url[7:]  # Skip the "dns:///" prefix
+
+        # Handle standard URL formats
+        import urllib.parse
+
+        parsed = urllib.parse.urlparse(url)
+        return parsed.netloc or parsed.path.lstrip("/").rsplit("/")[0]
+
+    def _org_from_endpoint(self, endpoint: str | None) -> str | None:
+        """
+        Extracts the organization from the endpoint URL. The organization is assumed to be the first part of the domain.
+        This is temporary until we have a proper organization discovery mechanism through APIs.
+
+        :param endpoint: The endpoint URL
+        :return: The organization name or None if not found
+        """
+        if not endpoint:
+            return None
+
+        hostname = self._hostname_from_url(endpoint)
+        domain_parts = hostname.split(".")
+        if len(domain_parts) > 2:
+            # Assuming the organization is the first part of the domain
+            return domain_parts[0]
+        return None
 
     def _get_hf_hub_download_image(self) -> ImageSpec:
         # TODO: The backend should provide the hfhub-cache image

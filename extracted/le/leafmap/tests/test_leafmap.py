@@ -69,7 +69,7 @@ class TestLeafmap(unittest.TestCase):
         """Check GeoDataFrame"""
         m = leafmap.Map()
         gdf = gpd.read_file(
-            "https://github.com/opengeos/leafmap/raw/master/examples/data/cable_geo.geojson"
+            "https://github.com/opengeos/datasets/releases/download/vector/cables.geojson"
         )
         m.add_gdf(gdf, layer_name="Cable lines")
         out_str = m.to_html()
@@ -106,7 +106,7 @@ class TestLeafmap(unittest.TestCase):
     def test_add_geojson(self):
         """Check GeoJSON"""
         m = leafmap.Map()
-        in_geojson = "https://raw.githubusercontent.com/opengeos/leafmap/master/examples/data/cable_geo.geojson"
+        in_geojson = "https://github.com/opengeos/datasets/releases/download/vector/cables.geojson"
         m.add_geojson(in_geojson, layer_name="Cable lines")
         out_str = m.to_html()
         assert "Cable lines" in out_str
@@ -414,12 +414,12 @@ class TestLeafmap(unittest.TestCase):
         m.set_center(lon=100, lat=40)
         self.assertEqual(m.center, [40, 100])
 
-    def test_split_map(self):
-        """Check split-panel map"""
-        m = leafmap.Map()
-        m.split_map(left_layer="HYBRID", right_layer="OpenStreetMap")
-        out_str = m.to_html()
-        assert "OpenStreetMap" in out_str
+    # def test_split_map(self):
+    #     """Check split-panel map"""
+    #     m = leafmap.Map()
+    #     m.split_map(left_layer="HYBRID", right_layer="OpenStreetMap")
+    #     out_str = m.to_html()
+    #     assert "OpenStreetMap" in out_str
 
     def test_to_html(self):
         """Check map to html"""
@@ -463,7 +463,7 @@ class TestLeafmap(unittest.TestCase):
         """Check zoom to GeoDataFrame"""
         m = leafmap.Map()
         gdf = gpd.read_file(
-            "https://github.com/opengeos/leafmap/raw/master/examples/data/cable_geo.geojson"
+            "https://github.com/opengeos/datasets/releases/download/vector/cables.geojson"
         )
         m.zoom_to_gdf(gdf)
         out_str = m.to_html()

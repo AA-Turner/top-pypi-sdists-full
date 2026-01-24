@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zfit
-Version: 0.27.1
+Version: 0.28.0
 Summary: scalable pythonic model fitting for high energy physics
 Project-URL: Homepage, https://github.com/zfit/zfit
 Author-email: Jonas Eschle <Jonas.Eschle@cern.ch>, Albert Puig <apuignav@gmail.com>, Rafael Silva Coutinho <rsilvaco@cern.ch>, Matthieu Marinangeli <matthieu.marinangeli@cern.ch>
@@ -20,8 +20,9 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Physics
-Requires-Python: <3.13,>=3.10
+Requires-Python: <3.14,>=3.10
 Requires-Dist: attrs
 Requires-Dist: boost-histogram
 Requires-Dist: colorama
@@ -42,25 +43,29 @@ Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pyyaml
 Requires-Dist: scipy>=1.2
 Requires-Dist: tabulate
-Requires-Dist: tensorflow-probability[tf]<0.27,>=0.24
-Requires-Dist: tensorflow<2.20,>=2.16.2
+Requires-Dist: tensorflow-probability[tf]<1.0,>=0.24
+Requires-Dist: tensorflow<3.0,>=2.16.2
 Requires-Dist: texttable
 Requires-Dist: uhi
 Requires-Dist: uproot>=4
 Requires-Dist: xxhash
 Requires-Dist: zfit-interface
 Provides-Extra: all
+Requires-Dist: arviz>=0.14.0; extra == 'all'
 Requires-Dist: asdf<4.0.0; extra == 'all'
 Requires-Dist: awkward-pandas; extra == 'all'
+Requires-Dist: emcee>=3.0.0; extra == 'all'
 Requires-Dist: ipyopt>=0.12; (sys_platform == 'linux') and extra == 'all'
 Requires-Dist: matplotlib; extra == 'all'
 Requires-Dist: mplhep; extra == 'all'
 Requires-Dist: nlopt>=2.7.1; (sys_platform == 'linux' or sys_platform == 'darwin' and platform_machine != 'arm64' or sys_platform == 'win32') and extra == 'all'
 Provides-Extra: alldev
+Requires-Dist: arviz>=0.14.0; extra == 'alldev'
 Requires-Dist: asdf<4.0.0; extra == 'alldev'
 Requires-Dist: awkward-pandas; extra == 'alldev'
 Requires-Dist: coverage-lcov; extra == 'alldev'
 Requires-Dist: coverage>=4.5.1; extra == 'alldev'
+Requires-Dist: emcee>=3.0.0; extra == 'alldev'
 Requires-Dist: ipyopt>=0.12; (sys_platform == 'linux') and extra == 'alldev'
 Requires-Dist: jax; (sys_platform != 'win32') and extra == 'alldev'
 Requires-Dist: jaxlib; (sys_platform != 'win32') and extra == 'alldev'
@@ -89,6 +94,7 @@ Requires-Dist: pytest>=3.4.2; extra == 'alldev'
 Requires-Dist: pyyaml; extra == 'alldev'
 Requires-Dist: ray; extra == 'alldev'
 Requires-Dist: scikit-hep-testdata; extra == 'alldev'
+Requires-Dist: scikit-image; extra == 'alldev'
 Requires-Dist: setupext-janitor; extra == 'alldev'
 Requires-Dist: sphinx-autodoc-typehints; extra == 'alldev'
 Requires-Dist: sphinx-copybutton; extra == 'alldev'
@@ -102,11 +108,16 @@ Requires-Dist: tqdm; extra == 'alldev'
 Requires-Dist: twine>=1.10.0; extra == 'alldev'
 Requires-Dist: wheel>=0.29.0; extra == 'alldev'
 Requires-Dist: zfit-physics>=0.6.0; extra == 'alldev'
+Provides-Extra: bayes
+Requires-Dist: arviz>=0.14.0; extra == 'bayes'
+Requires-Dist: emcee>=3.0.0; extra == 'bayes'
 Provides-Extra: dev
+Requires-Dist: arviz>=0.14.0; extra == 'dev'
 Requires-Dist: asdf<4.0.0; extra == 'dev'
 Requires-Dist: awkward-pandas; extra == 'dev'
 Requires-Dist: coverage-lcov; extra == 'dev'
 Requires-Dist: coverage>=4.5.1; extra == 'dev'
+Requires-Dist: emcee>=3.0.0; extra == 'dev'
 Requires-Dist: ipyopt>=0.12; (sys_platform == 'linux') and extra == 'dev'
 Requires-Dist: jax; (sys_platform != 'win32') and extra == 'dev'
 Requires-Dist: jaxlib; (sys_platform != 'win32') and extra == 'dev'
@@ -135,6 +146,7 @@ Requires-Dist: pytest>=3.4.2; extra == 'dev'
 Requires-Dist: pyyaml; extra == 'dev'
 Requires-Dist: ray; extra == 'dev'
 Requires-Dist: scikit-hep-testdata; extra == 'dev'
+Requires-Dist: scikit-image; extra == 'dev'
 Requires-Dist: setupext-janitor; extra == 'dev'
 Requires-Dist: sphinx-autodoc-typehints; extra == 'dev'
 Requires-Dist: sphinx-copybutton; extra == 'dev'
@@ -149,8 +161,10 @@ Requires-Dist: twine>=1.10.0; extra == 'dev'
 Requires-Dist: wheel>=0.29.0; extra == 'dev'
 Requires-Dist: zfit-physics>=0.6.0; extra == 'dev'
 Provides-Extra: doc
+Requires-Dist: arviz>=0.14.0; extra == 'doc'
 Requires-Dist: asdf<4.0.0; extra == 'doc'
 Requires-Dist: awkward-pandas; extra == 'doc'
+Requires-Dist: emcee>=3.0.0; extra == 'doc'
 Requires-Dist: ipyopt>=0.12; (sys_platform == 'linux') and extra == 'doc'
 Requires-Dist: jinja2; extra == 'doc'
 Requires-Dist: jupyter-sphinx; extra == 'doc'
@@ -172,8 +186,10 @@ Requires-Dist: sphinxcontrib-youtube>=1.0.0; extra == 'doc'
 Requires-Dist: tqdm; extra == 'doc'
 Requires-Dist: zfit-physics>=0.6.0; extra == 'doc'
 Provides-Extra: docs
+Requires-Dist: arviz>=0.14.0; extra == 'docs'
 Requires-Dist: asdf<4.0.0; extra == 'docs'
 Requires-Dist: awkward-pandas; extra == 'docs'
+Requires-Dist: emcee>=3.0.0; extra == 'docs'
 Requires-Dist: ipyopt>=0.12; (sys_platform == 'linux') and extra == 'docs'
 Requires-Dist: jinja2; extra == 'docs'
 Requires-Dist: jupyter-sphinx; extra == 'docs'
@@ -194,6 +210,8 @@ Requires-Dist: sphinxcontrib-bibtex; extra == 'docs'
 Requires-Dist: sphinxcontrib-youtube>=1.0.0; extra == 'docs'
 Requires-Dist: tqdm; extra == 'docs'
 Requires-Dist: zfit-physics>=0.6.0; extra == 'docs'
+Provides-Extra: emcee
+Requires-Dist: emcee>=3.0.0; extra == 'emcee'
 Provides-Extra: hs3
 Requires-Dist: asdf<4.0.0; extra == 'hs3'
 Provides-Extra: ipyopt
@@ -204,10 +222,12 @@ Provides-Extra: plot
 Requires-Dist: matplotlib; extra == 'plot'
 Requires-Dist: mplhep; extra == 'plot'
 Provides-Extra: test
+Requires-Dist: arviz>=0.14.0; extra == 'test'
 Requires-Dist: asdf<4.0.0; extra == 'test'
 Requires-Dist: awkward-pandas; extra == 'test'
 Requires-Dist: coverage-lcov; extra == 'test'
 Requires-Dist: coverage>=4.5.1; extra == 'test'
+Requires-Dist: emcee>=3.0.0; extra == 'test'
 Requires-Dist: ipyopt>=0.12; (sys_platform == 'linux') and extra == 'test'
 Requires-Dist: jax; (sys_platform != 'win32') and extra == 'test'
 Requires-Dist: jaxlib; (sys_platform != 'win32') and extra == 'test'
@@ -228,11 +248,14 @@ Requires-Dist: pytest-xdist; extra == 'test'
 Requires-Dist: pytest>=3.4.2; extra == 'test'
 Requires-Dist: pyyaml; extra == 'test'
 Requires-Dist: scikit-hep-testdata; extra == 'test'
+Requires-Dist: scikit-image; extra == 'test'
 Provides-Extra: tests
+Requires-Dist: arviz>=0.14.0; extra == 'tests'
 Requires-Dist: asdf<4.0.0; extra == 'tests'
 Requires-Dist: awkward-pandas; extra == 'tests'
 Requires-Dist: coverage-lcov; extra == 'tests'
 Requires-Dist: coverage>=4.5.1; extra == 'tests'
+Requires-Dist: emcee>=3.0.0; extra == 'tests'
 Requires-Dist: ipyopt>=0.12; (sys_platform == 'linux') and extra == 'tests'
 Requires-Dist: jax; (sys_platform != 'win32') and extra == 'tests'
 Requires-Dist: jaxlib; (sys_platform != 'win32') and extra == 'tests'
@@ -253,6 +276,7 @@ Requires-Dist: pytest-xdist; extra == 'tests'
 Requires-Dist: pytest>=3.4.2; extra == 'tests'
 Requires-Dist: pyyaml; extra == 'tests'
 Requires-Dist: scikit-hep-testdata; extra == 'tests'
+Requires-Dist: scikit-image; extra == 'tests'
 Provides-Extra: uproot
 Requires-Dist: awkward-pandas; extra == 'uproot'
 Description-Content-Type: text/x-rst
@@ -489,7 +513,7 @@ These core ideas are supported by two basic pillars:
 Prerequisites
 =============
 
-``zfit`` works with Python versions 3.10 and above.
+``zfit`` works with Python versions 3.10 to 3.13.
 The main dependency is `tensorflow <https://www.tensorflow.org/>`_: zfit follows a close version compatibility with TensorFlow.
 
 

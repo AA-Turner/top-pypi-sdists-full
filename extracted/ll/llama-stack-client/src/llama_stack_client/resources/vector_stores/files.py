@@ -1,13 +1,19 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import Dict, Union, Iterable
+from typing import Dict, Optional
 from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ..._utils import maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -19,7 +25,7 @@ from ..._response import (
 )
 from ...pagination import SyncOpenAICursorPage, AsyncOpenAICursorPage
 from ..._base_client import AsyncPaginator, make_request_options
-from ...types.vector_stores import file_list_params, file_create_params, file_update_params
+from ...types.vector_stores import file_list_params, file_create_params, file_update_params, file_content_params
 from ...types.vector_stores.vector_store_file import VectorStoreFile
 from ...types.vector_stores.file_delete_response import FileDeleteResponse
 from ...types.vector_stores.file_content_response import FileContentResponse
@@ -52,24 +58,20 @@ class FilesResource(SyncAPIResource):
         vector_store_id: str,
         *,
         file_id: str,
-        attributes: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        chunking_strategy: file_create_params.ChunkingStrategy | NotGiven = NOT_GIVEN,
+        attributes: Optional[Dict[str, object]] | Omit = omit,
+        chunking_strategy: Optional[file_create_params.ChunkingStrategy] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStoreFile:
         """
         Attach a file to a vector store.
 
         Args:
-          file_id: The ID of the file to attach to the vector store.
-
-          attributes: The key-value attributes stored with the file, which can be used for filtering.
-
-          chunking_strategy: The chunking strategy to use for the file.
+          chunking_strategy: Automatic chunking strategy for vector store files.
 
           extra_headers: Send extra headers
 
@@ -82,7 +84,7 @@ class FilesResource(SyncAPIResource):
         if not vector_store_id:
             raise ValueError(f"Expected a non-empty value for `vector_store_id` but received {vector_store_id!r}")
         return self._post(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/files",
+            f"/v1/vector_stores/{vector_store_id}/files",
             body=maybe_transform(
                 {
                     "file_id": file_id,
@@ -107,7 +109,7 @@ class FilesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStoreFile:
         """
         Retrieves a vector store file.
@@ -126,7 +128,7 @@ class FilesResource(SyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return self._get(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/files/{file_id}",
+            f"/v1/vector_stores/{vector_store_id}/files/{file_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -138,20 +140,18 @@ class FilesResource(SyncAPIResource):
         file_id: str,
         *,
         vector_store_id: str,
-        attributes: Dict[str, Union[bool, float, str, Iterable[object], object, None]],
+        attributes: Dict[str, object],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStoreFile:
         """
         Updates a vector store file.
 
         Args:
-          attributes: The updated key-value attributes to store with the file.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -165,7 +165,7 @@ class FilesResource(SyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return self._post(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/files/{file_id}",
+            f"/v1/vector_stores/{vector_store_id}/files/{file_id}",
             body=maybe_transform({"attributes": attributes}, file_update_params.FileUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -177,36 +177,22 @@ class FilesResource(SyncAPIResource):
         self,
         vector_store_id: str,
         *,
-        after: str | NotGiven = NOT_GIVEN,
-        before: str | NotGiven = NOT_GIVEN,
-        filter: Literal["completed", "in_progress", "cancelled", "failed"] | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        order: str | NotGiven = NOT_GIVEN,
+        after: Optional[str] | Omit = omit,
+        before: Optional[str] | Omit = omit,
+        filter: Optional[Literal["completed", "in_progress", "cancelled", "failed"]] | Omit = omit,
+        limit: Optional[int] | Omit = omit,
+        order: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncOpenAICursorPage[VectorStoreFile]:
         """
         List files in a vector store.
 
         Args:
-          after: (Optional) A cursor for use in pagination. `after` is an object ID that defines
-              your place in the list.
-
-          before: (Optional) A cursor for use in pagination. `before` is an object ID that defines
-              your place in the list.
-
-          filter: (Optional) Filter by file status to only return files with the specified status.
-
-          limit: (Optional) A limit on the number of objects to be returned. Limit can range
-              between 1 and 100, and the default is 20.
-
-          order: (Optional) Sort order by the `created_at` timestamp of the objects. `asc` for
-              ascending order and `desc` for descending order.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -218,7 +204,7 @@ class FilesResource(SyncAPIResource):
         if not vector_store_id:
             raise ValueError(f"Expected a non-empty value for `vector_store_id` but received {vector_store_id!r}")
         return self._get_api_list(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/files",
+            f"/v1/vector_stores/{vector_store_id}/files",
             page=SyncOpenAICursorPage[VectorStoreFile],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -249,7 +235,7 @@ class FilesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FileDeleteResponse:
         """
         Delete a vector store file.
@@ -268,7 +254,7 @@ class FilesResource(SyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return self._delete(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/files/{file_id}",
+            f"/v1/vector_stores/{vector_store_id}/files/{file_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -280,12 +266,14 @@ class FilesResource(SyncAPIResource):
         file_id: str,
         *,
         vector_store_id: str,
+        include_embeddings: Optional[bool] | Omit = omit,
+        include_metadata: Optional[bool] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FileContentResponse:
         """
         Retrieves the contents of a vector store file.
@@ -304,9 +292,19 @@ class FilesResource(SyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return self._get(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/files/{file_id}/content",
+            f"/v1/vector_stores/{vector_store_id}/files/{file_id}/content",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "include_embeddings": include_embeddings,
+                        "include_metadata": include_metadata,
+                    },
+                    file_content_params.FileContentParams,
+                ),
             ),
             cast_to=FileContentResponse,
         )
@@ -337,24 +335,20 @@ class AsyncFilesResource(AsyncAPIResource):
         vector_store_id: str,
         *,
         file_id: str,
-        attributes: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        chunking_strategy: file_create_params.ChunkingStrategy | NotGiven = NOT_GIVEN,
+        attributes: Optional[Dict[str, object]] | Omit = omit,
+        chunking_strategy: Optional[file_create_params.ChunkingStrategy] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStoreFile:
         """
         Attach a file to a vector store.
 
         Args:
-          file_id: The ID of the file to attach to the vector store.
-
-          attributes: The key-value attributes stored with the file, which can be used for filtering.
-
-          chunking_strategy: The chunking strategy to use for the file.
+          chunking_strategy: Automatic chunking strategy for vector store files.
 
           extra_headers: Send extra headers
 
@@ -367,7 +361,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not vector_store_id:
             raise ValueError(f"Expected a non-empty value for `vector_store_id` but received {vector_store_id!r}")
         return await self._post(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/files",
+            f"/v1/vector_stores/{vector_store_id}/files",
             body=await async_maybe_transform(
                 {
                     "file_id": file_id,
@@ -392,7 +386,7 @@ class AsyncFilesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStoreFile:
         """
         Retrieves a vector store file.
@@ -411,7 +405,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return await self._get(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/files/{file_id}",
+            f"/v1/vector_stores/{vector_store_id}/files/{file_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -423,20 +417,18 @@ class AsyncFilesResource(AsyncAPIResource):
         file_id: str,
         *,
         vector_store_id: str,
-        attributes: Dict[str, Union[bool, float, str, Iterable[object], object, None]],
+        attributes: Dict[str, object],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStoreFile:
         """
         Updates a vector store file.
 
         Args:
-          attributes: The updated key-value attributes to store with the file.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -450,7 +442,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return await self._post(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/files/{file_id}",
+            f"/v1/vector_stores/{vector_store_id}/files/{file_id}",
             body=await async_maybe_transform({"attributes": attributes}, file_update_params.FileUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -462,36 +454,22 @@ class AsyncFilesResource(AsyncAPIResource):
         self,
         vector_store_id: str,
         *,
-        after: str | NotGiven = NOT_GIVEN,
-        before: str | NotGiven = NOT_GIVEN,
-        filter: Literal["completed", "in_progress", "cancelled", "failed"] | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        order: str | NotGiven = NOT_GIVEN,
+        after: Optional[str] | Omit = omit,
+        before: Optional[str] | Omit = omit,
+        filter: Optional[Literal["completed", "in_progress", "cancelled", "failed"]] | Omit = omit,
+        limit: Optional[int] | Omit = omit,
+        order: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[VectorStoreFile, AsyncOpenAICursorPage[VectorStoreFile]]:
         """
         List files in a vector store.
 
         Args:
-          after: (Optional) A cursor for use in pagination. `after` is an object ID that defines
-              your place in the list.
-
-          before: (Optional) A cursor for use in pagination. `before` is an object ID that defines
-              your place in the list.
-
-          filter: (Optional) Filter by file status to only return files with the specified status.
-
-          limit: (Optional) A limit on the number of objects to be returned. Limit can range
-              between 1 and 100, and the default is 20.
-
-          order: (Optional) Sort order by the `created_at` timestamp of the objects. `asc` for
-              ascending order and `desc` for descending order.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -503,7 +481,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not vector_store_id:
             raise ValueError(f"Expected a non-empty value for `vector_store_id` but received {vector_store_id!r}")
         return self._get_api_list(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/files",
+            f"/v1/vector_stores/{vector_store_id}/files",
             page=AsyncOpenAICursorPage[VectorStoreFile],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -534,7 +512,7 @@ class AsyncFilesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FileDeleteResponse:
         """
         Delete a vector store file.
@@ -553,7 +531,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return await self._delete(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/files/{file_id}",
+            f"/v1/vector_stores/{vector_store_id}/files/{file_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -565,12 +543,14 @@ class AsyncFilesResource(AsyncAPIResource):
         file_id: str,
         *,
         vector_store_id: str,
+        include_embeddings: Optional[bool] | Omit = omit,
+        include_metadata: Optional[bool] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FileContentResponse:
         """
         Retrieves the contents of a vector store file.
@@ -589,9 +569,19 @@ class AsyncFilesResource(AsyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return await self._get(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/files/{file_id}/content",
+            f"/v1/vector_stores/{vector_store_id}/files/{file_id}/content",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform(
+                    {
+                        "include_embeddings": include_embeddings,
+                        "include_metadata": include_metadata,
+                    },
+                    file_content_params.FileContentParams,
+                ),
             ),
             cast_to=FileContentResponse,
         )

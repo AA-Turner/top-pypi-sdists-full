@@ -127,8 +127,20 @@ def metric_loss_score(
             import datasets
 
             datasets_metric_name = huggingface_submetric_to_metric.get(metric_name, metric_name.split(":")[0])
-            metric = datasets.load_metric(datasets_metric_name, trust_remote_code=True)
             metric_mode = huggingface_metric_to_mode[datasets_metric_name]
+
+            # datasets>=3 removed load_metric; prefer evaluate if available
+            try:
+                import evaluate
+
+                metric = evaluate.load(datasets_metric_name, trust_remote_code=True)
+            except Exception:
+                if hasattr(datasets, "load_metric"):
+                    metric = datasets.load_metric(datasets_metric_name, trust_remote_code=True)
+                else:
+                    from datasets import load_metric as _load_metric  # older datasets
+
+                    metric = _load_metric(datasets_metric_name, trust_remote_code=True)
 
             if metric_name.startswith("seqeval"):
                 y_processed_true = [[labels[tr] for tr in each_list] for each_list in y_processed_true]
@@ -299,14 +311,14 @@ def get_y_pred(estimator, X, eval_metric, task: Task):
     else:
         y_pred = estimator.predict(X)
 
-    if isinstance(y_pred, Series) or isinstance(y_pred, DataFrame):
+    if isinstance(y_pred, (Series, DataFrame)):
         y_pred = y_pred.values
 
     return y_pred
 
 
 def to_numpy(x):
-    if isinstance(x, Series or isinstance(x, DataFrame)):
+    if isinstance(x, (Series, DataFrame)):
         x = x.values
     else:
         x = np.ndarray(x)
@@ -574,7 +586,7 @@ def _eval_estimator(
 
         # TODO: why are integer labels being cast to str in the first place?
 
-        if isinstance(val_pred_y, Series) or isinstance(val_pred_y, DataFrame) or isinstance(val_pred_y, np.ndarray):
+        if isinstance(val_pred_y, (Series, DataFrame, np.ndarray)):
             test = val_pred_y if isinstance(val_pred_y, np.ndarray) else val_pred_y.values
             if not np.issubdtype(test.dtype, np.number):
                 # some NLP models return a list
@@ -604,7 +616,12 @@ def _eval_estimator(
             logger.warning(f"ValueError {e} happened in `metric_loss_score`, set `val_loss` to `np.inf`")
         metric_for_logging = {"pred_time": pred_time}
         if log_training_metric:
-            train_pred_y = get_y_pred(estimator, X_train, eval_metric, task)
+            # For time series forecasting, X_train may be a sampled dataset whose
+            # test partition can be empty. Use the training partition from X_val
+            # (which is the dataset used to define y_train above) to keep shapes
+            # aligned and avoid empty prediction inputs.
+            X_train_for_metric = X_val.X_train if isinstance(X_val, TimeSeriesDataset) else X_train
+            train_pred_y = get_y_pred(estimator, X_train_for_metric, eval_metric, task)
             metric_for_logging["train_loss"] = metric_loss_score(
                 eval_metric,
                 train_pred_y,

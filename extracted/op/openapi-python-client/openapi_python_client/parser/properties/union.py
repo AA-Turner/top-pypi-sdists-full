@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from itertools import chain
 from typing import Any, ClassVar, cast
 
@@ -88,22 +89,26 @@ class UnionProperty(PropertyProtocol):
                 )
             sub_properties.append(sub_prop)
 
-        def flatten_union_properties(sub_properties: list[PropertyProtocol]) -> list[PropertyProtocol]:
-            flattened = []
-            for sub_prop in sub_properties:
-                if isinstance(sub_prop, UnionProperty):
-                    flattened.extend(flatten_union_properties(sub_prop.inner_properties))
+        def flatten_union_properties(possibly_nested: list[PropertyProtocol]) -> Iterator[PropertyProtocol]:
+            for to_flatten in possibly_nested:
+                if isinstance(to_flatten, UnionProperty):
+                    yield from flatten_union_properties(to_flatten.inner_properties)
                 else:
-                    flattened.append(sub_prop)
-            return flattened
+                    yield to_flatten
 
-        sub_properties = flatten_union_properties(sub_properties)
+        seen_types = set()
+        inner_properties: list[PropertyProtocol] = []
+        for flattened in flatten_union_properties(sub_properties):
+            type_string = flattened.get_type_string(no_optional=True)
+            if type_string not in seen_types:
+                seen_types.add(type_string)
+                inner_properties.append(flattened)
 
         prop = UnionProperty(
             name=name,
             required=required,
             default=None,
-            inner_properties=sub_properties,
+            inner_properties=inner_properties,
             python_name=PythonIdentifier(value=name, prefix=config.field_prefix),
             description=data.description,
             example=data.example,
@@ -132,7 +137,6 @@ class UnionProperty(PropertyProtocol):
             p.get_type_string(
                 no_optional=True,
                 json=json,
-                quoted=not p.is_base_type,
             )
             for p in self.inner_properties
         }
@@ -141,12 +145,12 @@ class UnionProperty(PropertyProtocol):
     def _get_type_string_from_inner_type_strings(inner_types: set[str]) -> str:
         if len(inner_types) == 1:
             return inner_types.pop()
-        return f"Union[{', '.join(sorted(inner_types))}]"
+        return " | ".join(sorted(inner_types, key=lambda x: x.lower()))
 
-    def get_base_type_string(self, *, quoted: bool = False) -> str:
+    def get_base_type_string(self) -> str:
         return self._get_type_string_from_inner_type_strings(self._get_inner_type_strings(json=False))
 
-    def get_base_json_type_string(self, *, quoted: bool = False) -> str:
+    def get_base_json_type_string(self) -> str:
         return self._get_type_string_from_inner_type_strings(self._get_inner_type_strings(json=True))
 
     def get_type_strings_in_union(self, *, no_optional: bool = False, json: bool) -> set[str]:
@@ -173,8 +177,6 @@ class UnionProperty(PropertyProtocol):
         self,
         no_optional: bool = False,
         json: bool = False,
-        *,
-        quoted: bool = False,
     ) -> str:
         """
         Get a string representation of type that should be used when declaring this property.
@@ -195,7 +197,7 @@ class UnionProperty(PropertyProtocol):
         imports = super().get_imports(prefix=prefix)
         for inner_prop in self.inner_properties:
             imports.update(inner_prop.get_imports(prefix=prefix))
-        imports.add("from typing import cast, Union")
+        imports.add("from typing import cast")
         return imports
 
     def get_lazy_imports(self, *, prefix: str) -> set[str]:

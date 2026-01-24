@@ -22,7 +22,10 @@ complex-format images.
 """
 
 import abc
+from collections.abc import Callable, Generator
 import struct
+from typing import cast, Any, IO, TypedDict
+from collections.abc import Iterator
 
 import logging
 from oslo_utils._i18n import _
@@ -31,7 +34,9 @@ from oslo_utils import units
 LOG = logging.getLogger(__name__)
 
 
-def _chunked_reader(fileobj, chunk_size=512):
+def _chunked_reader(
+    fileobj: IO[bytes] | 'InspectWrapper', chunk_size: int = 512
+) -> Generator[bytes, None, None]:
     while True:
         chunk = fileobj.read(chunk_size)
         if not chunk:
@@ -56,21 +61,23 @@ class CaptureRegion:
                        variable data structures.
     """
 
-    def __init__(self, offset, length, min_length=None):
+    def __init__(
+        self, offset: int, length: int, min_length: int | None = None
+    ) -> None:
         self.offset = offset
         self.length = length
-        self.data = b''
+        self.data: bytes | bytearray = b''
         self.min_length = min_length
 
     @property
-    def complete(self):
+    def complete(self) -> bool:
         """Returns True when we have captured the desired data."""
         if self.min_length is not None:
             return self.min_length <= len(self.data)
         else:
             return self.length == len(self.data)
 
-    def capture(self, chunk, current_position):
+    def capture(self, chunk: bytes, current_position: int) -> bytes:
         """Process a chunk of data.
 
         This should be called for each chunk in the read loop, at least
@@ -83,14 +90,17 @@ class CaptureRegion:
                                  being presented.
         """
         read_start = current_position - len(chunk)
-        if (read_start <= self.offset <= current_position or
-                self.offset <= read_start <= (self.offset + self.length)):
+        if (
+            read_start <= self.offset <= current_position
+            or self.offset <= read_start <= (self.offset + self.length)
+        ):
             if read_start < self.offset:
                 lead_gap = self.offset - read_start
             else:
                 lead_gap = 0
             self.data += chunk[lead_gap:]
-            self.data = self.data[:self.length]
+            self.data = self.data[: self.length]
+        return b''
 
 
 class EndCaptureRegion(CaptureRegion):
@@ -103,22 +113,24 @@ class EndCaptureRegion(CaptureRegion):
     :param offset: Byte offset from the end of the stream to capture (which
                    will also be the region length)
     """
-    def __init__(self, offset):
+
+    def __init__(self, offset: int) -> None:
         super().__init__(offset, offset)
         # We don't want to indicate completeness until we have the data we
         # want *and* have reached EOF
         self._complete = False
 
-    def capture(self, chunk, current_position):
+    def capture(self, chunk: bytes, current_position: int) -> bytes:
         self.data += chunk
-        self.data = self.data[0 - self.length:]
+        self.data = self.data[0 - self.length :]
         self.offset = current_position - len(self.data)
+        return b''
 
     @property
-    def complete(self):
+    def complete(self) -> bool:
         return super().complete and self._complete
 
-    def finish(self):
+    def finish(self) -> None:
         """Indicate that the entire stream has been read."""
         self._complete = True
 
@@ -126,72 +138,89 @@ class EndCaptureRegion(CaptureRegion):
 class SafetyCheck:
     """Represents a named safety check on an inspector"""
 
-    def __init__(self, name, target_fn, description=None):
+    def __init__(
+        self,
+        name: str,
+        target_fn: Callable[[], None],
+        description: str | None = None,
+    ) -> None:
         """A safety check, it's meta info, and result.
 
-        @name should be a short name of the check (ideally no spaces)
-        @target_fn is the implementation we run (no args) which returns either
-                   None if the check passes, or a string reason why it failed.
-        @description is a optional longer-format human-readable string that
-                     describes the check.
+        :param name: Should be a short name of the check (ideally no spaces)
+        :param target_fn: The implementation we run (no args) which returns
+            either None if the check passes, or a string reason why it failed.
+        :param description: An optional longer-format human-readable string
+            that describes the check.
         """
         self.name = name
         self.target_fn = target_fn
         self.description = description
 
-    def __call__(self):
+    def __call__(self) -> None:
         """Executes the target check function, records the result.
 
-        Returns True if the check succeeded (i.e. no failure reason) or
-        False if it did not.
+        :raises SafetyViolation: If an error check fails
         """
         try:
             self.target_fn()
         except SafetyViolation:
             raise
         except Exception as e:
-            LOG.error('Failed to run safety check %s on %s inspector: %s',
-                      self.name, self, e)
+            LOG.error(
+                'Failed to run safety check %s on %s inspector: %s',
+                self.name,
+                self,
+                e,
+            )
             raise SafetyViolation(_('Unexpected error'))
 
     @classmethod
-    def null(cls):
+    def null(cls) -> 'SafetyCheck':
         """The "null" safety check always returns True.
 
         This should only be used if there is no meaningful checks that can
         be done for a given format.
         """
-        return cls('null', lambda: None,
-                   _('This file format has no meaningful safety check'))
+        return cls(
+            'null',
+            lambda: None,
+            _('This file format has no meaningful safety check'),
+        )
 
     @classmethod
-    def banned(cls):
+    def banned(cls) -> 'SafetyCheck':
         """The "banned" safety check always returns False.
 
         This should be used for formats we want to identify but never allow,
         generally because they are unsupported by any of our users and/or
         we are unable to check for safety.
         """
-        def fail():
+
+        def fail() -> None:
             raise SafetyViolation(_('This file format is not allowed'))
+
         return cls('banned', fail, _('This file format is not allowed'))
 
 
 class ImageFormatError(Exception):
     """An unrecoverable image format error that aborts the process."""
+
     pass
 
 
 class SafetyViolation(Exception):
     """Indicates a failure of a single safety violation."""
+
     pass
 
 
 class SafetyCheckFailed(Exception):
     """Indictes that one or more of a series of safety checks failed."""
-    def __init__(self, failures):
-        super().__init__(_('Safety checks failed: %s') % ','.join(
-            failures.keys()))
+
+    def __init__(self, failures: dict[str, Any]) -> None:
+        super().__init__(
+            _('Safety checks failed: %s') % ','.join(failures.keys())
+        )
         self.failures = failures
 
 
@@ -208,7 +237,7 @@ class FileInspector(abc.ABC):
     # This should match what qemu-img thinks this format is
     NAME = ''
 
-    def __init__(self, tracing=False):
+    def __init__(self, tracing: bool = False) -> None:
         self._total_count = 0
 
         # NOTE(danms): The logging in here is extremely verbose for a reason,
@@ -216,28 +245,29 @@ class FileInspector(abc.ABC):
         # retain all that work and assist in future debug, we have a separate
         # debug flag that can be passed from a manual tool to turn it on.
         self._tracing = tracing
-        self._capture_regions = {}
-        self._safety_checks = {}
+        self._capture_regions: dict[str, CaptureRegion] = {}
+        self._safety_checks: dict[str, SafetyCheck] = {}
         self._finished = False
         self._initialize()
         if not self._safety_checks:
             # Make sure we actively declare some safety check, even if it
             # is a no-op.
             raise RuntimeError(
-                'All inspectors must define at least one safety check')
+                'All inspectors must define at least one safety check'
+            )
 
-    def _trace(self, *args, **kwargs):
+    def _trace(self, *args: Any, **kwargs: Any) -> None:
         if self._tracing:
             LOG.debug(*args, **kwargs)
 
     @abc.abstractmethod
-    def _initialize(self):
+    def _initialize(self) -> None:
         """Set up inspector before we start processing data.
 
         This should add the initial set of capture regions and safety checks.
         """
 
-    def finish(self):
+    def finish(self) -> None:
         """Indicate that the entire stream has been read.
 
         This should be called when the entire stream has been completely read,
@@ -248,21 +278,26 @@ class FileInspector(abc.ABC):
             if isinstance(region, EndCaptureRegion):
                 region.finish()
 
-    def _capture(self, chunk, only=None):
+    def _capture(self, chunk: bytes, only: list[str] | None = None) -> None:
         if self._finished:
-            raise RuntimeError('Inspector has been marked finished, '
-                               'no more data processing allowed')
+            raise RuntimeError(
+                'Inspector has been marked finished, '
+                'no more data processing allowed'
+            )
         for name, region in self._capture_regions.items():
             if only and name not in only:
                 continue
             if isinstance(region, EndCaptureRegion) or not region.complete:
                 region.capture(chunk, self._total_count)
 
-    def eat_chunk(self, chunk):
+    def eat_chunk(self, chunk: bytes) -> None:
         """Call this to present chunks of the file to the inspector."""
         pre_regions = set(self._capture_regions.values())
-        pre_complete = {region for region in self._capture_regions.values()
-                        if region.complete}
+        pre_complete = {
+            region
+            for region in self._capture_regions.values()
+            if region.complete
+        }
 
         # Increment our position-in-file counter
         self._total_count += len(chunk)
@@ -278,16 +313,20 @@ class FileInspector(abc.ABC):
         # which may require the current chunk.
         new_regions = set(self._capture_regions.values()) - pre_regions
         if new_regions:
-            self._capture(chunk, only=[self.region_name(r)
-                                       for r in new_regions])
+            self._capture(
+                chunk, only=[self.region_name(r) for r in new_regions]
+            )
 
-        post_complete = {region for region in self._capture_regions.values()
-                         if region.complete}
+        post_complete = {
+            region
+            for region in self._capture_regions.values()
+            if region.complete
+        }
         # Call the handler for any regions that are newly complete
         for region in post_complete - pre_complete:
             self.region_complete(self.region_name(region))
 
-    def post_process(self):
+    def post_process(self) -> None:
         """Post-read hook to process what has been read so far.
 
         This will be called after each chunk is read and potentially captured
@@ -297,36 +336,36 @@ class FileInspector(abc.ABC):
         """
         pass
 
-    def region(self, name):
+    def region(self, name: str) -> CaptureRegion:
         """Get a CaptureRegion by name."""
         return self._capture_regions[name]
 
-    def region_name(self, region):
+    def region_name(self, region: CaptureRegion) -> str:
         """Return the region name for a region object."""
         for name in self._capture_regions:
             if self._capture_regions[name] is region:
                 return name
         raise ValueError('No such region')
 
-    def new_region(self, name, region):
+    def new_region(self, name: str, region: CaptureRegion) -> None:
         """Add a new CaptureRegion by name."""
         if self.has_region(name):
             # This is a bug, we tried to add the same region twice
-            raise ImageFormatError('Inspector re-added region %s' % name)
+            raise ImageFormatError(f'Inspector re-added region {name}')
         self._capture_regions[name] = region
 
-    def has_region(self, name):
+    def has_region(self, name: str) -> bool:
         """Returns True if named region has been defined."""
         return name in self._capture_regions
 
-    def delete_region(self, name):
+    def delete_region(self, name: str) -> None:
         """Remove a capture region by name.
 
         This will raise KeyError if the region does not exist.
         """
         del self._capture_regions[name]
 
-    def region_complete(self, region_name):
+    def region_complete(self, region_name: str) -> None:
         """Called when a region becomes complete.
 
         Subclasses may implement this if they need to do one-time processing
@@ -334,26 +373,28 @@ class FileInspector(abc.ABC):
         """
         pass
 
-    def add_safety_check(self, check):
+    def add_safety_check(self, check: SafetyCheck) -> None:
         if not isinstance(check, SafetyCheck):
-            raise RuntimeError(_('Unable to add safety check of type %s') % (
-                type(check).__name__))
+            raise RuntimeError(
+                _('Unable to add safety check of type %s')
+                % (type(check).__name__)
+            )
         if check.name in self._safety_checks:
             raise RuntimeError(_('Duplicate check of name %s') % check.name)
         self._safety_checks[check.name] = check
 
     @property
     @abc.abstractmethod
-    def format_match(self):
+    def format_match(self) -> bool:
         """Returns True if the file appears to be the expected format."""
 
     @property
-    def virtual_size(self):
+    def virtual_size(self) -> int:
         """Returns the virtual size of the disk image, or zero if unknown."""
         return self._total_count
 
     @property
-    def actual_size(self):
+    def actual_size(self) -> int:
         """Returns the total size of the file, usually smaller than
         virtual_size. NOTE: this will only be accurate if the entire
         file is read and processed.
@@ -361,33 +402,35 @@ class FileInspector(abc.ABC):
         return self._total_count
 
     @property
-    def complete(self):
+    def complete(self) -> bool:
         """Returns True if we have all the information needed."""
         return all(r.complete for r in self._capture_regions.values())
 
-    def __str__(self):
+    def __str__(self) -> str:
         """The string name of this file format."""
         return self.NAME
 
     @property
-    def context_info(self):
+    def context_info(self) -> dict[str, int]:
         """Return info on amount of data held in memory for auditing.
 
         This is a dict of region:sizeinbytes items that the inspector
         uses to examine the file.
         """
-        return {name: len(region.data) for name, region in
-                self._capture_regions.items()}
+        return {
+            name: len(region.data)
+            for name, region in self._capture_regions.items()
+        }
 
     @classmethod
-    def from_file(cls, filename):
+    def from_file(cls, filename: str) -> 'FileInspector':
         """Read as much of a file as necessary to complete inspection.
 
         NOTE: Because we only read as much of the file as necessary, the
         actual_size property will not reflect the size of the file, but the
         amount of data we read before we satisfied the inspector.
 
-        Raises ImageFormatError if we cannot parse the file.
+        :raises ImageFormatError: If we cannot parse the file.
         """
         inspector = cls()
         with open(filename, 'rb') as f:
@@ -401,31 +444,38 @@ class FileInspector(abc.ABC):
             raise ImageFormatError('File is not in requested format')
         return inspector
 
-    def safety_check(self):
+    def safety_check(self) -> None:
         """Perform all checks to determine if this file is safe.
 
-        Returns if safe, raises otherwise. It may raise ImageFormatError
-        if safety cannot be guaranteed because of parsing or other errors.
-        It will raise SafetyCheckFailed if one or more checks fails.
+        :raises ImageFormatError: If safety cannot be guaranteed because of
+            parsing or other errors.
+        :raises SafetyCheckFailed: If one or more checks fails.
         """
         if not self.complete:
             raise ImageFormatError(
-                _('Incomplete file cannot be safety checked'))
+                _('Incomplete file cannot be safety checked')
+            )
         if not self.format_match:
             raise ImageFormatError(
-                _('Unable to safety check format %s '
-                  'because content does not match') % self)
+                _(
+                    'Unable to safety check format %s '
+                    'because content does not match'
+                )
+                % self
+            )
         failures = {}
         for check in self._safety_checks.values():
             try:
-                result = check()
-                if result is not None:
-                    raise RuntimeError('check returned result')
+                check()
             except SafetyViolation as exc:
-                exc.check = check
+                exc.check = check  # type: ignore[attr-defined]
                 failures[check.name] = exc
-                LOG.warning('Safety check %s on %s failed because %s',
-                            check.name, self, exc)
+                LOG.warning(
+                    'Safety check %s on %s failed because %s',
+                    check.name,
+                    self,
+                    exc,
+                )
         if failures:
             raise SafetyCheckFailed(failures)
 
@@ -433,12 +483,12 @@ class FileInspector(abc.ABC):
 class RawFileInspector(FileInspector):
     NAME = 'raw'
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         """Raw files have nothing to capture and no safety checks."""
         self.add_safety_check(SafetyCheck.null())
 
     @property
-    def format_match(self):
+    def format_match(self) -> bool:
         # By definition, raw files are unformatted and thus we always match
         return True
 
@@ -456,6 +506,15 @@ class RawFileInspector(FileInspector):
 #  72  0x48   Incompatible features bitfield (6 bytes)
 #
 # https://gitlab.com/qemu-project/qemu/-/blob/master/docs/interop/qcow2.txt
+class QEMUHeader(TypedDict, total=False):
+    magic: bytes
+    version: int
+    bf_offset: int
+    bf_sz: int
+    cluster_bits: int
+    size: int
+
+
 class QcowInspector(FileInspector):
     """QEMU QCOW Format
 
@@ -465,6 +524,7 @@ class QcowInspector(FileInspector):
     This recognizes the (very) old v1 format but will raise a SafetyViolation
     for it, as it should definitely not be in production use at this point.
     """
+
     NAME = 'qcow2'
     BF_OFFSET = 0x08
     BF_OFFSET_LEN = 8
@@ -473,42 +533,57 @@ class QcowInspector(FileInspector):
     I_FEATURES_DATAFILE_BIT = 3
     I_FEATURES_MAX_BIT = 4
 
-    def _initialize(self):
-        self.qemu_header_info = {}
+    def _initialize(self) -> None:
+        self.qemu_header_info: QEMUHeader = {}
         self.new_region('header', CaptureRegion(0, 512))
         self.add_safety_check(
-            SafetyCheck('backing_file', self.check_backing_file))
+            SafetyCheck('backing_file', self.check_backing_file)
+        )
+        self.add_safety_check(SafetyCheck('data_file', self.check_data_file))
         self.add_safety_check(
-            SafetyCheck('data_file', self.check_data_file))
-        self.add_safety_check(
-            SafetyCheck('unknown_features', self.check_unknown_features))
+            SafetyCheck('unknown_features', self.check_unknown_features)
+        )
 
-    def region_complete(self, region):
-        self.qemu_header_info = dict(zip(
-            ('magic', 'version', 'bf_offset', 'bf_sz', 'cluster_bits', 'size'),
-            struct.unpack('>4sIQIIQ', self.region('header').data[:32])))
+    def region_complete(self, region_name: str) -> None:
+        self.qemu_header_info = cast(
+            QEMUHeader,
+            dict(
+                zip(
+                    (
+                        'magic',
+                        'version',
+                        'bf_offset',
+                        'bf_sz',
+                        'cluster_bits',
+                        'size',
+                    ),
+                    struct.unpack('>4sIQIIQ', self.region('header').data[:32]),
+                )
+            ),
+        )
         if not self.format_match:
             self.qemu_header_info = {}
 
     @property
-    def virtual_size(self):
+    def virtual_size(self) -> int:
         return self.qemu_header_info.get('size', 0)
 
     @property
-    def format_match(self):
+    def format_match(self) -> bool:
         if not self.region('header').complete:
             return False
-        return self.qemu_header_info.get('magic') == b'QFI\xFB'
+        return self.qemu_header_info.get('magic') == b'QFI\xfb'
 
-    def check_backing_file(self):
+    def check_backing_file(self) -> None:
         bf_offset_bytes = self.region('header').data[
-            self.BF_OFFSET:self.BF_OFFSET + self.BF_OFFSET_LEN]
+            self.BF_OFFSET : self.BF_OFFSET + self.BF_OFFSET_LEN
+        ]
         # nonzero means "has a backing file"
-        bf_offset, = struct.unpack('>Q', bf_offset_bytes)
+        (bf_offset,) = struct.unpack('>Q', bf_offset_bytes)
         if bf_offset != 0:
             raise SafetyViolation('Image has a backing file')
 
-    def check_unknown_features(self):
+    def check_unknown_features(self) -> None:
         ver = self.qemu_header_info.get('version')
         if ver == 2:
             # Version 2 did not have the feature flag array, so no need to
@@ -518,7 +593,8 @@ class QcowInspector(FileInspector):
             raise SafetyViolation('Unsupported qcow2 version')
 
         i_features = self.region('header').data[
-            self.I_FEATURES:self.I_FEATURES + self.I_FEATURES_LEN]
+            self.I_FEATURES : self.I_FEATURES + self.I_FEATURES_LEN
+        ]
 
         # This is the maximum byte number we should expect any bits to be set
         max_byte = self.I_FEATURES_MAX_BIT // 8
@@ -529,7 +605,7 @@ class QcowInspector(FileInspector):
             if byte_num == max_byte:
                 # If we're in the max-allowed byte, allow any bits less than
                 # the maximum-known feature flag bit to be set
-                allow_mask = ((1 << (self.I_FEATURES_MAX_BIT % 8)) - 1)
+                allow_mask = (1 << (self.I_FEATURES_MAX_BIT % 8)) - 1
             elif byte_num > max_byte:
                 # If we're above the byte with the maximum known feature flag
                 # bit, then we expect all zeroes
@@ -540,14 +616,18 @@ class QcowInspector(FileInspector):
                 allow_mask = 0xFF
 
             if i_features[i] & ~allow_mask:
-                LOG.warning('Found unknown feature bit in byte %i: %s/%s',
-                            byte_num, bin(i_features[byte_num] & ~allow_mask),
-                            bin(allow_mask))
+                LOG.warning(
+                    'Found unknown feature bit in byte %i: %s/%s',
+                    byte_num,
+                    bin(i_features[byte_num] & ~allow_mask),
+                    bin(allow_mask),
+                )
                 raise SafetyViolation('Unknown QCOW2 features found')
 
-    def check_data_file(self):
+    def check_data_file(self) -> None:
         i_features = self.region('header').data[
-            self.I_FEATURES:self.I_FEATURES + self.I_FEATURES_LEN]
+            self.I_FEATURES : self.I_FEATURES + self.I_FEATURES_LEN
+        ]
 
         # First byte of bitfield, which is i_features[7]
         byte = self.I_FEATURES_LEN - 1 - self.I_FEATURES_DATAFILE_BIT // 8
@@ -560,14 +640,14 @@ class QcowInspector(FileInspector):
 class QEDInspector(FileInspector):
     NAME = 'qed'
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         self.new_region('header', CaptureRegion(0, 512))
         # QED format is not supported by anyone, but we want to detect it
         # and mark it as just always unsafe.
         self.add_safety_check(SafetyCheck.banned())
 
     @property
-    def format_match(self):
+    def format_match(self) -> bool:
         if not self.region('header').complete:
             return False
         return self.region('header').data.startswith(b'QED\x00')
@@ -588,25 +668,28 @@ class VHDInspector(FileInspector):
     This should only require about 512 bytes of the beginning of the file
     to determine the virtual size.
     """
+
     NAME = 'vhd'
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         self.new_region('header', CaptureRegion(0, 512))
         self.add_safety_check(SafetyCheck.null())
 
     @property
-    def format_match(self):
+    def format_match(self) -> bool:
         return self.region('header').data.startswith(b'conectix')
 
     @property
-    def virtual_size(self):
+    def virtual_size(self) -> int:
         if not self.region('header').complete:
             return 0
 
         if not self.format_match:
             return 0
 
-        return struct.unpack('>Q', self.region('header').data[40:48])[0]
+        return cast(
+            int, struct.unpack('>Q', self.region('header').data[40:48])[0]
+        )
 
 
 # The VHDX format consists of a complex dynamic little-endian
@@ -675,17 +758,18 @@ class VHDXInspector(FileInspector):
     actual VDS uint64.
 
     """
+
     NAME = 'vhdx'
     METAREGION = '8B7CA206-4790-4B9A-B8FE-575F050F886E'
     VIRTUAL_DISK_SIZE = '2FA54224-CD1B-4876-B211-5DBED83BF4B8'
     VHDX_METADATA_TABLE_MAX_SIZE = 32 * 2048  # From qemu
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         self.new_region('ident', CaptureRegion(0, 32))
         self.new_region('header', CaptureRegion(192 * 1024, 64 * 1024))
         self.add_safety_check(SafetyCheck.null())
 
-    def post_process(self):
+    def post_process(self) -> None:
         # After reading a chunk, we may have the following conditions:
         #
         # 1. We may have just completed the header region, and if so,
@@ -706,29 +790,34 @@ class VHDXInspector(FileInspector):
                 self.new_region('vds', region)
 
     @property
-    def format_match(self):
+    def format_match(self) -> bool:
         return self.region('ident').data.startswith(b'vhdxfile')
 
     @staticmethod
-    def _guid(buf):
+    def _guid(buf: bytes | bytearray) -> str:
         """Format a MSFT GUID from the 16-byte input buffer."""
         guid_format = '<IHHBBBBBBBB'
-        return '%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X' % (
-            struct.unpack(guid_format, buf))
+        return '{:08X}-{:04X}-{:04X}-{:02X}{:02X}-{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}'.format(
+            *struct.unpack(guid_format, buf)
+        )
 
-    def _find_meta_region(self):
+    def _find_meta_region(self) -> CaptureRegion | None:
         # The region table entries start after a 16-byte table header
         region_entry_first = 16
 
         # Parse the region table header to find the number of regions
         regi, cksum, count, reserved = struct.unpack(
-            '<IIII', self.region('header').data[:16])
+            '<IIII', self.region('header').data[:16]
+        )
         if regi != 0x69676572:
-            raise ImageFormatError('Region signature not found at %x' % (
-                self.region('header').offset))
+            raise ImageFormatError(
+                'Region signature not found at {:x}'.format(
+                    self.region('header').offset
+                )
+            )
 
         if count >= 2048:
-            raise ImageFormatError('Region count is %i (limit 2047)' % count)
+            raise ImageFormatError('Region count is {int(count)} (limit 2047)')
 
         # Process the regions until we find the metadata one; grab the
         # offset and return
@@ -746,9 +835,11 @@ class VHDXInspector(FileInspector):
             if guid == self.METAREGION:
                 # This entry is the metadata region entry
                 meta_offset, meta_len, meta_req = struct.unpack(
-                    '<QII', entry[16:])
-                self._trace('Meta entry %i specifies offset: %x',
-                            i, meta_offset)
+                    '<QII', entry[16:]
+                )
+                self._trace(
+                    'Meta entry %i specifies offset: %x', i, meta_offset
+                )
                 # NOTE(danms): The meta_len in the region descriptor is the
                 # entire size of the metadata table and data. This can be
                 # very large, so we should only capture the size required
@@ -760,7 +851,7 @@ class VHDXInspector(FileInspector):
         self._trace('Did not find metadata region')
         return None
 
-    def _find_meta_entry(self, desired_guid):
+    def _find_meta_entry(self, desired_guid: str) -> CaptureRegion | None:
         meta_buffer = self.region('metadata').data
         if len(meta_buffer) < 32:
             # Not enough data yet for full header
@@ -770,7 +861,8 @@ class VHDXInspector(FileInspector):
         sig, reserved, count = struct.unpack('<8sHH', meta_buffer[:12])
         if sig != b'metadata':
             raise ImageFormatError(
-                'Invalid signature for metadata region: %r' % sig)
+                f'Invalid signature for metadata region: {sig!r}'
+            )
 
         entries_size = 32 + (count * 32)
         if len(meta_buffer) < entries_size:
@@ -782,39 +874,41 @@ class VHDXInspector(FileInspector):
 
         if count >= 2048:
             raise ImageFormatError(
-                'Metadata item count is %i (limit 2047)' % count)
+                'Metadata item count is {int(count)} (limit 2047)'
+            )
 
         for i in range(0, count):
             entry_offset = 32 + (i * 32)
-            guid = self._guid(meta_buffer[entry_offset:entry_offset + 16])
+            guid = self._guid(meta_buffer[entry_offset : entry_offset + 16])
             if guid == desired_guid:
                 # Found the item we are looking for by id.
                 # Stop our region from capturing
                 item_offset, item_length, _reserved = struct.unpack(
-                    '<III',
-                    meta_buffer[entry_offset + 16:entry_offset + 28])
-                item_length = min(item_length,
-                                  self.VHDX_METADATA_TABLE_MAX_SIZE)
+                    '<III', meta_buffer[entry_offset + 16 : entry_offset + 28]
+                )
+                item_length = min(
+                    item_length, self.VHDX_METADATA_TABLE_MAX_SIZE
+                )
                 self.region('metadata').length = len(meta_buffer)
                 self._trace('Found entry at offset %x', item_offset)
                 # Metadata item offset is from the beginning of the metadata
                 # region, not the file.
                 return CaptureRegion(
-                    self.region('metadata').offset + item_offset,
-                    item_length)
+                    self.region('metadata').offset + item_offset, item_length
+                )
 
         self._trace('Did not find guid %s', desired_guid)
         return None
 
     @property
-    def virtual_size(self):
+    def virtual_size(self) -> int:
         # Until we have found the offset and have enough metadata buffered
         # to read it, return "unknown"
         if not self.has_region('vds') or not self.region('vds').complete:
             return 0
 
-        size, = struct.unpack('<Q', self.region('vds').data)
-        return size
+        (size,) = struct.unpack('<Q', self.region('vds').data)
+        return cast(int, size)
 
 
 # The VMDK format comes in a large number of variations, but the
@@ -858,38 +952,51 @@ class VMDKInspector(FileInspector):
     # at 0x200 and 1MB - 1
     DESC_OFFSET = 0x200
     DESC_MAX_SIZE = (1 << 20) - 1
-    GD_AT_END = 0xffffffffffffffff
+    GD_AT_END = 0xFFFFFFFFFFFFFFFF
     # This is the minimum amount of data we need to read to recognize and
     # process a "Hosted Sparse Extent" header
     MIN_SPARSE_HEADER = 64
     MARKER_EOS = 0
     MARKER_FOOTER = 3
 
-    def _initialize(self):
-        self.desc_text = None
+    def _initialize(self) -> None:
+        self.desc_text: str | None = None
         # This is the header for "Hosted Sparse Extent" type files. It may
         # or may not be used, depending on what kind of VMDK we are about to
         # read.
-        self.new_region('header',
-                        CaptureRegion(0, 512,
-                                      min_length=self.MIN_SPARSE_HEADER))
+        self.new_region(
+            'header', CaptureRegion(0, 512, min_length=self.MIN_SPARSE_HEADER)
+        )
         # The descriptor starts from the beginning in the some of the older
         # formats, but we do not know which one we are reading yet. This
         # will be deleted and re-created if we are reading one of the formats
         # that embeds it later.
-        self.new_region('descriptor',
-                        CaptureRegion(0, self.DESC_MAX_SIZE, min_length=4))
-        self.add_safety_check(
-            SafetyCheck('descriptor', self.check_descriptor))
+        self.new_region(
+            'descriptor', CaptureRegion(0, self.DESC_MAX_SIZE, min_length=4)
+        )
+        self.add_safety_check(SafetyCheck('descriptor', self.check_descriptor))
 
-    def _parse_sparse_header(self, region, offset=0):
-        (sig, ver, _flags, _sectors, _grain, desc_sec, desc_num,
-            _numGTEsperGT, _rgdOffset, gdOffset) = struct.unpack(
+    def _parse_sparse_header(
+        self, region: str, offset: int = 0
+    ) -> tuple[bytes, int, int, int, int]:
+        (
+            sig,
+            ver,
+            _flags,
+            _sectors,
+            _grain,
+            desc_sec,
+            desc_num,
+            _numGTEsperGT,
+            _rgdOffset,
+            gdOffset,
+        ) = struct.unpack(
             '<4sIIQQQQIQQ',
-            self.region(region).data[offset:offset + self.MIN_SPARSE_HEADER])
+            self.region(region).data[offset : offset + self.MIN_SPARSE_HEADER],
+        )
         return sig, ver, desc_sec, desc_num, gdOffset
 
-    def post_process(self):
+    def post_process(self) -> None:
         # If we have just completed the header region, we need to calculate
         # the location and length of the descriptor, which should immediately
         # follow and may have been partially-read in this read. If the header
@@ -898,8 +1005,9 @@ class VMDKInspector(FileInspector):
         if not self.has_region('header') or not self.region('header').complete:
             return
 
-        sig, ver, desc_sec, desc_num, gdOffset = (
-            self._parse_sparse_header('header'))
+        sig, ver, desc_sec, desc_num, gdOffset = self._parse_sparse_header(
+            'header'
+        )
 
         try:
             is_text = True
@@ -919,10 +1027,10 @@ class VMDKInspector(FileInspector):
                 # support it.
                 self.delete_region('header')
                 return
-            raise ImageFormatError('Signature KDMV not found: %r' % sig)
+            raise ImageFormatError(f'Signature KDMV not found: {sig!r}')
 
         if ver not in (1, 2, 3):
-            raise ImageFormatError('Unsupported format version %i' % ver)
+            raise ImageFormatError('Unsupported format version {int(ver)}')
 
         if gdOffset == self.GD_AT_END and not self.has_region('footer'):
             # This means we have a footer, which takes precedence over the
@@ -944,14 +1052,15 @@ class VMDKInspector(FileInspector):
         # embedded one.
         if self.region('descriptor').offset == 0:
             self.delete_region('descriptor')
-            self.new_region('descriptor',
-                            CaptureRegion(desc_offset, desc_size))
+            self.new_region(
+                'descriptor', CaptureRegion(desc_offset, desc_size)
+            )
 
-    def region_complete(self, region_name):
+    def region_complete(self, region_name: str) -> None:
         if region_name == 'descriptor':
             self._parse_descriptor()
 
-    def _parse_descriptor(self):
+    def _parse_descriptor(self) -> None:
         try:
             # The sparse descriptor is null-padded to 512 bytes. Find the
             # first one and use it as the end of the text string.
@@ -987,14 +1096,14 @@ class VMDKInspector(FileInspector):
         self.vmdktype = vmdktype
 
     @property
-    def format_match(self):
+    def format_match(self) -> bool:
         if self.has_region('header'):
             return self.region('header').data.startswith(b'KDMV')
         else:
             return self.vmdktype != 'formatnotfound'
 
     @property
-    def virtual_size(self):
+    def virtual_size(self) -> int:
         if not self.desc_text:
             # Not enough data yet
             return 0
@@ -1003,13 +1112,16 @@ class VMDKInspector(FileInspector):
             LOG.warning('Unsupported VMDK format %r', self.vmdktype)
             return 0
 
+        sectors: int
+
         # If we have the descriptor, we definitely have the header
         _sig, _ver, _flags, sectors, _grain, _desc_sec, _desc_num = (
-            struct.unpack('<IIIQQQQ', self.region('header').data[:44]))
+            struct.unpack('<IIIQQQQ', self.region('header').data[:44])
+        )
 
         return sectors * 512
 
-    def check_descriptor(self):
+    def check_descriptor(self) -> None:
         if not self.desc_text:
             raise SafetyViolation(_('No descriptor found'))
 
@@ -1046,41 +1158,46 @@ class VMDKInspector(FileInspector):
         # Check all the extent lines for concerning content
         for extent_line in extents:
             if '/' in extent_line:
-                LOG.error('Extent line %r contains unsafe characters',
-                          extent_line)
+                LOG.error(
+                    'Extent line %r contains unsafe characters', extent_line
+                )
                 raise SafetyViolation(_('Invalid extent filenames found'))
 
         if not extents:
             LOG.error('VMDK file specified no extents')
             raise SafetyViolation(_('No extents found'))
 
-    def check_footer(self):
+    def check_footer(self) -> None:
         h_sig, h_ver, h_desc_sec, h_desc_num, h_goff = (
-            self._parse_sparse_header('header'))
+            self._parse_sparse_header('header')
+        )
         f_sig, f_ver, f_desc_sec, f_desc_num, f_goff = (
-            self._parse_sparse_header('footer', 512))
+            self._parse_sparse_header('footer', 512)
+        )
 
         if h_sig != f_sig:
             raise SafetyViolation(
-                _('Header and footer signature do not match'))
+                _('Header and footer signature do not match')
+            )
         if h_ver != f_ver:
             raise SafetyViolation(_('Header and footer versions do not match'))
         if h_desc_sec != f_desc_sec or h_desc_num != f_desc_num:
             raise SafetyViolation(
-                _('Footer specifies a different descriptor than header'))
+                _('Footer specifies a different descriptor than header')
+            )
         if f_goff == self.GD_AT_END:
             raise SafetyViolation(_('Footer indicates another footer'))
 
         pad = b'\x00' * 496
         val, size, typ, zero = struct.unpack(
-            '<QII496s',
-            self.region('footer').data[:512])
+            '<QII496s', self.region('footer').data[:512]
+        )
         if size != 0 or typ != self.MARKER_FOOTER or zero != pad:
             raise SafetyViolation(_('Footer marker is invalid'))
 
         val, size, typ, zero = struct.unpack(
-            '<QII496s',
-            self.region('footer').data[-512:])
+            '<QII496s', self.region('footer').data[-512:]
+        )
         if val != 0 or size != 0 or typ != self.MARKER_EOS or zero != pad:
             raise SafetyViolation(_('End-of-stream marker is invalid'))
 
@@ -1099,28 +1216,34 @@ class VDIInspector(FileInspector):
 
     This only needs to store the first 512 bytes of the image.
     """
+
     NAME = 'vdi'
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         self.new_region('header', CaptureRegion(0, 512))
         self.add_safety_check(SafetyCheck.null())
 
     @property
-    def format_match(self):
+    def format_match(self) -> bool:
         if not self.region('header').complete:
             return False
 
-        signature, = struct.unpack('<I', self.region('header').data[0x40:0x44])
-        return signature == 0xbeda107f
+        signature: int
+
+        (signature,) = struct.unpack(
+            '<I', self.region('header').data[0x40:0x44]
+        )
+        return signature == 0xBEDA107F
 
     @property
-    def virtual_size(self):
+    def virtual_size(self) -> int:
         if not self.region('header').complete:
             return 0
         if not self.format_match:
             return 0
 
-        size, = struct.unpack('<Q', self.region('header').data[0x170:0x178])
+        size: int
+        (size,) = struct.unpack('<Q', self.region('header').data[0x170:0x178])
         return size
 
 
@@ -1152,22 +1275,23 @@ class ISOInspector(FileInspector):
     located at the beginning of the image, which contains the volume size.
 
     """
+
     NAME = 'iso'
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         self.new_region('system_area', CaptureRegion(0, 32 * units.Ki))
         self.new_region('header', CaptureRegion(32 * units.Ki, 2 * units.Ki))
         self.add_safety_check(SafetyCheck.null())
 
     @property
-    def format_match(self):
+    def format_match(self) -> bool:
         if not self.complete:
             return False
         signature = self.region('header').data[1:6]
         return signature in (b'CD001', b'NSR02', b'NSR03')
 
     @property
-    def virtual_size(self):
+    def virtual_size(self) -> int:
         if not self.complete:
             return 0
         if not self.format_match:
@@ -1185,6 +1309,10 @@ class ISOInspector(FileInspector):
         descriptor_type = self.region('header').data[0]
         if descriptor_type != 1:
             return 0
+
+        logical_block_size_data: bytes | bytearray
+        logical_block_size: int
+
         # The size in bytes of a logical block is stored at offset 128
         # and is 2 bytes long encoded in both little and big endian
         # int16_LSB-MSB so the field is 4 bytes long
@@ -1193,7 +1321,13 @@ class ISOInspector(FileInspector):
         # can use the first 2 bytes which are the little endian part
         # this is normally 2048 or 2KB but we need to check as it can be
         # different according to the ISO 9660 standard.
-        logical_block_size, = struct.unpack('<H', logical_block_size_data[:2])
+        (logical_block_size,) = struct.unpack(
+            '<H', logical_block_size_data[:2]
+        )
+
+        volume_space_size_data: bytes | bytearray
+        volume_space_size: int
+
         # The volume space size is the total number of logical blocks
         # and is stored at offset 80 and is 8 bytes long
         # as with the logical block size the field is encoded in both
@@ -1201,7 +1335,7 @@ class ISOInspector(FileInspector):
         volume_space_size_data = self.region('header').data[80:88]
         # given the encoding we only need to read half the field so we
         # can use the first 4 bytes which are the little endian part
-        volume_space_size, = struct.unpack('<L', volume_space_size_data[:4])
+        (volume_space_size,) = struct.unpack('<L', volume_space_size_data[:4])
         # the virtual size is the volume space size * logical block size
         return volume_space_size * logical_block_size
 
@@ -1216,7 +1350,7 @@ class GPTInspector(FileInspector):
     MBR_PTE_START = 446
     MEDIA_TYPE_FDISK = 0xF8
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         self.new_region('mbr', CaptureRegion(0, 512))
         # TODO(danms): If we start inspecting the contents of the GPT
         # structures themselves, we need to realize that they are block-aligned
@@ -1228,7 +1362,7 @@ class GPTInspector(FileInspector):
         # self.new_region('gpt_backup', EndCaptureRegion(512))
         self.add_safety_check(SafetyCheck('mbr', self.check_mbr_partitions))
 
-    def _check_for_fat(self):
+    def _check_for_fat(self) -> bool:
         # A FAT filesystem looks like an MBR, but actually starts with a VBR,
         # which has the same signature as an MBR, but with more specifics in
         # the BPB (BIOS Parameter Block).
@@ -1239,29 +1373,40 @@ class GPTInspector(FileInspector):
         # Media descriptor will basically always be "a fixed disk" for any of
         # our purposes, not a floppy disk
         media_desc = boot_sector[0x15]
-        return (num_fats == 2 and media_desc == self.MEDIA_TYPE_FDISK)
+        return num_fats == 2 and media_desc == self.MEDIA_TYPE_FDISK
 
     @property
-    def format_match(self):
+    def format_match(self) -> bool:
         if not self.region('mbr').complete:
             return False
         # Check to see if this looks like a VBR from a FAT filesystem so we
         # can exclude it
         is_fat = self._check_for_fat()
-        mbr_sig, = struct.unpack('<H', self.region('mbr').data[510:512])
+        (mbr_sig,) = struct.unpack('<H', self.region('mbr').data[510:512])
         return mbr_sig == self.MBR_SIGNATURE and not is_fat
 
-    def check_mbr_partitions(self):
+    def check_mbr_partitions(self) -> None:
         valid_partitions = []
         found_gpt = False
         for i in range(4):
             pte_start = self.MBR_PTE_START + (16 * i)
-            pte = self.region('mbr').data[pte_start:pte_start + 16]
-            (boot, starth, starts, startt, ostype,
-             endh, ehds, endt, startlba, sizelba) = struct.unpack(
-                '<B3BB3BII', pte)
+            pte = self.region('mbr').data[pte_start : pte_start + 16]
+            (
+                boot,
+                starth,
+                starts,
+                startt,
+                ostype,
+                endh,
+                ehds,
+                endt,
+                startlba,
+                sizelba,
+            ) = struct.unpack('<B3BB3BII', pte)
             if boot not in (0x00, 0x80):
-                raise SafetyViolation('MBR PTE %i has invalid boot flag' % i)
+                raise SafetyViolation(
+                    f'MBR PTE {int(i)} has invalid boot flag'
+                )
             if ostype != 0:
                 valid_partitions.append(i)
             if ostype == 0xEE:
@@ -1282,33 +1427,50 @@ class GPTInspector(FileInspector):
 # https://gitlab.com/cryptsetup/cryptsetup/-/wikis/LUKS-standard/on-disk-format.pdf
 # LUKSv2 is a different but similar spec, which is not yet covered here (or
 # in qemu).
+class LUKSHeader(TypedDict, total=False):
+    magic: bytes
+    version: int
+    cipher_alg: bytes
+    cipher_mode: bytes
+    hash: bytes
+    payload_offset: int
+
+
 class LUKSInspector(FileInspector):
     NAME = 'luks'
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         self.new_region('header', CaptureRegion(0, 592))
         self.add_safety_check(SafetyCheck('version', self.check_version))
 
     @property
-    def format_match(self):
-        return self.region('header').data[:6] == b'LUKS\xBA\xBE'
+    def format_match(self) -> bool:
+        return self.region('header').data[:6] == b'LUKS\xba\xbe'
 
     @property
-    def header_items(self):
-        fields = struct.unpack('>6sh32s32s32sI',
-                               self.region('header').data[:108])
-        names = ['magic', 'version', 'cipher_alg', 'cipher_mode', 'hash',
-                 'payload_offset']
-        return dict(zip(names, fields))
+    def header_items(self) -> LUKSHeader:
+        fields = struct.unpack(
+            '>6sh32s32s32sI', self.region('header').data[:108]
+        )
+        names = [
+            'magic',
+            'version',
+            'cipher_alg',
+            'cipher_mode',
+            'hash',
+            'payload_offset',
+        ]
+        return cast(LUKSHeader, dict(zip(names, fields)))
 
-    def check_version(self):
+    def check_version(self) -> None:
         header = self.header_items
         if header['version'] != 1:
             raise SafetyViolation(
-                'LUKS version %i is not supported' % header['version'])
+                f'LUKS version {int(header["version"])} is not supported'
+            )
 
     @property
-    def virtual_size(self):
+    def virtual_size(self) -> int:
         # NOTE(danms): This will not be correct until/unless the whole stream
         # has been read, since all we have is (effectively the size of the
         # header. This is similar to how RawFileInspector works.
@@ -1335,20 +1497,30 @@ class InspectWrapper:
                             hole if used improperly, but may be used to limit
                             the detected formats to some smaller scope.
     """
-    def __init__(self, source, expected_format=None, allowed_formats=None):
+
+    def __init__(
+        self,
+        source: IO[bytes],
+        expected_format: str | None = None,
+        allowed_formats: list[str] | None = None,
+    ) -> None:
         self._source = source
         self._expected_format = expected_format
-        self._errored_inspectors = set()
-        self._inspectors = {v() for k, v in ALL_FORMATS.items()
-                            if not allowed_formats or k in allowed_formats}
+        self._errored_inspectors: set[FileInspector] = set()
+        self._inspectors = {
+            v()
+            for k, v in ALL_FORMATS.items()
+            if not allowed_formats or k in allowed_formats
+        }
         self._finished = False
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[bytes]:
         return self
 
-    def _process_chunk(self, chunk):
-        for inspector in [i for i in self._inspectors
-                          if i not in self._errored_inspectors]:
+    def _process_chunk(self, chunk: bytes) -> None:
+        for inspector in [
+            i for i in self._inspectors if i not in self._errored_inspectors
+        ]:
             try:
                 inspector.eat_chunk(chunk)
             except Exception as e:
@@ -1362,22 +1534,28 @@ class InspectWrapper:
                     # If we are expecting to parse a specific format, we do
                     # not need to log scary messages about the other formats
                     # failing to parse the data as expected.
-                    LOG.debug('Format inspector for %s does not match, '
-                              'excluding from consideration (%s)',
-                              inspector.NAME, e)
+                    LOG.debug(
+                        'Format inspector for %s does not match, '
+                        'excluding from consideration (%s)',
+                        inspector.NAME,
+                        e,
+                    )
                 self._errored_inspectors.add(inspector)
             else:
                 # If we are expecting a format, have read enough data to
                 # satisfy that format's inspector, and no match is detected,
                 # abort the stream immediately to save having to read the
                 # entire thing before we signal the mismatch.
-                if (inspector.NAME == self._expected_format and
-                        inspector.complete and not inspector.format_match):
+                if (
+                    inspector.NAME == self._expected_format
+                    and inspector.complete
+                    and not inspector.format_match
+                ):
                     raise ImageFormatError(
-                        'Content does not match expected format %r' % (
-                            inspector.NAME))
+                        f'Content does not match expected format {inspector.NAME!r}'
+                    )
 
-    def __next__(self):
+    def __next__(self) -> bytes:
         try:
             chunk = next(self._source)
         except StopIteration:
@@ -1386,23 +1564,23 @@ class InspectWrapper:
         self._process_chunk(chunk)
         return chunk
 
-    def read(self, size):
+    def read(self, size: int) -> bytes:
         chunk = self._source.read(size)
         self._process_chunk(chunk)
         return chunk
 
-    def _finish(self):
+    def _finish(self) -> None:
         for inspector in self._inspectors:
             inspector.finish()
         self._finished = True
 
-    def close(self):
+    def close(self) -> None:
         if hasattr(self._source, 'close'):
             self._source.close()
         self._finish()
 
     @property
-    def formats(self):
+    def formats(self) -> list[FileInspector] | None:
         """The formats (potentially multiple) determined from the content.
 
         This is just like format, but returns a list of formats that matched,
@@ -1432,11 +1610,12 @@ class InspectWrapper:
                 return [x for x in self._inspectors if str(x) == 'raw']
             except IndexError:
                 raise ImageFormatError(
-                    'Content does not match any allowed format')
+                    'Content does not match any allowed format'
+                )
         return matches
 
     @property
-    def format(self):
+    def format(self) -> FileInspector | None:
         """The format determined from the content.
 
         If this is None, a decision has not been reached. Otherwise,
@@ -1454,8 +1633,11 @@ class InspectWrapper:
             # Multiple format matches mean that not only can we not return a
             # decision here, but also means that there may be something
             # nefarious going on (i.e. hiding one header in another).
-            raise ImageFormatError('Multiple formats detected: %s' % ','.join(
-                str(i) for i in matches))
+            raise ImageFormatError(
+                'Multiple formats detected: {}'.format(
+                    ','.join(str(i) for i in matches)
+                )
+            )
         else:
             try:
                 # The expected outcome of this is a single match of something
@@ -1463,10 +1645,11 @@ class InspectWrapper:
                 return matches[0]
             except IndexError:
                 raise ImageFormatError(
-                    'Content does not match any allowed format')
+                    'Content does not match any allowed format'
+                )
 
 
-ALL_FORMATS = {
+ALL_FORMATS: dict[str, type[FileInspector]] = {
     'raw': RawFileInspector,
     'qcow2': QcowInspector,
     'vhd': VHDInspector,
@@ -1480,7 +1663,7 @@ ALL_FORMATS = {
 }
 
 
-def get_inspector(format_name):
+def get_inspector(format_name: str) -> type[FileInspector] | None:
     """Returns a FormatInspector class based on the given name.
 
     :param format_name: The name of the disk_format (raw, qcow2, etc).
@@ -1490,7 +1673,7 @@ def get_inspector(format_name):
     return ALL_FORMATS.get(format_name)
 
 
-def detect_file_format(filename):
+def detect_file_format(filename: str) -> FileInspector | None:
     """Attempts to detect the format of a file.
 
     This runs through a file one time, running all the known inspectors in

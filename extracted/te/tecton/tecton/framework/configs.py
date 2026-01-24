@@ -82,6 +82,7 @@ class SparkVersions(str, Enum):
     Emr6_9_1 = "emr-6.9.1"
     Emr6_12 = "emr-6.12.0"
     Emr7_0 = "emr-7.0.0"
+    Emr7_1 = "emr-7.1.0"
     Dbr10_4 = "10.4.x-scala2.12"
     Dbr11_3 = "11.3.x-scala2.12"
     Dbr12_2 = "12.2.x-scala2.12"
@@ -108,6 +109,7 @@ EMR_SUPPORTED_SPARK = {
     SparkVersions.Emr6_9_1,
     SparkVersions.Emr6_12,
     SparkVersions.Emr7_0,
+    SparkVersions.Emr7_1,
 }
 DATABRICKS_SUPPORTED_SPARK = {
     SparkVersions.Dbr11_3,

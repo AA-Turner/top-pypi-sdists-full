@@ -6,7 +6,7 @@ from wbcore.test.signals import custom_update_kwargs, get_custom_factory
 from ..factories import (
     BankFactory,
     ParentRelationshipTypeFactory,
-    Random_ClientFactory,
+    RandomClientFactory,
     UserIsManagerEntryFactory,
 )
 from ..viewsets import (
@@ -27,7 +27,7 @@ from ..viewsets import (
 
 @receiver(get_custom_factory, sender=PersonInChargeRepresentationViewSet)
 def receive_factory_person_in_charge(sender, *args, **kwargs):
-    return Random_ClientFactory
+    return RandomClientFactory
 
 
 @receiver(get_custom_factory, sender=RelationshipTypeModelViewSet)

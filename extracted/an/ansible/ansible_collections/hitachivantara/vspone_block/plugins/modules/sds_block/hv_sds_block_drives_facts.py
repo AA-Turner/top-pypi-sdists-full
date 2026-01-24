@@ -10,7 +10,7 @@ __metaclass__ = type
 DOCUMENTATION = """
 ---
 module: hv_sds_block_drives_facts
-short_description: Get drives from storage system
+short_description: Retrieves information about storage drives.
 description:
   - Get drives from storage system with various filtering options
   - For examples, go to URL
@@ -32,6 +32,9 @@ options:
     type: dict
     required: false
     suboptions:
+      id:
+        description: Unique identifier for the drive.
+        type: str
       status_summary:
         description: Filter drives by status summary
         choices: [ 'Normal', 'Warning', 'Error' ]
@@ -77,7 +80,7 @@ ansible_facts:
   returned: always
   type: dict
   contains:
-    data:
+    drives:
       description: List of drive entries.
       type: list
       elements: dict
@@ -85,55 +88,55 @@ ansible_facts:
         id:
           description: Unique identifier for the drive.
           type: str
-          sample: "126f360e-c79e-4e75-8f7c-7d91bfd2f0b8"
+          sample: "f41a9fa2-180e-4776-bbc4-9c536870c247"
         wwid:
           description: World Wide Identifier of the drive.
           type: str
-          sample: "naa.50000f0b00c060c0"
-        statusSummary:
+          sample: "naa.5000cca0a602a4f4"
+        status_summary:
           description: Summary of the drive's status.
           type: str
           sample: "Normal"
         status:
           description: Current operational status of the drive.
           type: str
-          sample: "Normal"
-        typeCode:
+          sample: "TemporaryBlockage"
+        type_code:
           description: Manufacturer-specific type code.
           type: str
-          sample: "VO001600JWZJQ"
-        serialNumber:
+          sample: "MO000800JWUFU"
+        serial_number:
           description: Serial number of the drive.
           type: str
-          sample: "S5KWNE0NC01548"
-        storageNodeId:
+          sample: "V6V1G2LA"
+        storage_node_id:
           description: UUID of the storage node associated with the drive.
           type: str
-          sample: "9d36c162-e379-4c85-bcc2-ccf98fe774a6"
-        deviceFileName:
+          sample: "152d2d10-4e18-44aa-86a4-fbd4f7e4cb08"
+        device_file_name:
           description: Device file name as recognized by the OS.
           type: str
-          sample: "sdb"
-        vendorName:
+          sample: "sdh"
+        vendor_name:
           description: Vendor or manufacturer name.
           type: str
           sample: "HP"
-        firmwareRevision:
+        firmware_revision:
           description: Firmware version of the drive.
           type: str
-          sample: "HPD2"
-        locatorLedStatus:
+          sample: "HPD3"
+        locator_led_status:
           description: Current status of the locator LED on the drive.
           type: str
           sample: "Off"
-        driveType:
+        drive_type:
           description: Type of the drive (e.g., SSD, HDD).
           type: str
           sample: "SSD"
-        driveCapacity:
+        drive_capacity:
           description: Capacity of the drive in GB.
           type: int
-          sample: 195
+          sample: 800
 """
 
 from ansible.module_utils.basic import AnsibleModule
@@ -146,7 +149,7 @@ from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common
     Log,
 )
 
-from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.reconciler.sdsb_block_drives_reconciler import (
+from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.reconciler.sdsb_drives_reconciler import (
     SDSBBlockDrivesReconciler,
 )
 from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common.ansible_common import (

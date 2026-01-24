@@ -1,10 +1,9 @@
 
 """
-    Implements a new custom Distutils command for handling library
+    Implements a new custom setuptools command for handling library
     configuration.
 
-    The "configure" command here doesn't directly affect things like
-    config.pxi; rather, it exists to provide a set of attributes that are
+    The "configure" command exists to provide a set of attributes that are
     used by the build_ext replacement in setup_build.py.
 
     Options from the command line and environment variables are stored
@@ -45,7 +44,7 @@ def stash_config(dct):
 def validate_version(s):
     """Ensure that s contains an X.Y.Z format version string, or ValueError."""
     # HDF5 tags can have a patch version, which we'll ignore for now.
-    m = re.match('(\d+)\.(\d+)\.(\d+)(?:\.\d+)?$', s)
+    m = re.match(r'(\d+)\.(\d+)\.(\d+)(?:\.\d+)?$', s)
     if m:
         return tuple(int(x) for x in m.groups())
     raise ValueError(f"HDF5 version string {s!r} not in X.Y.Z[.P] format")

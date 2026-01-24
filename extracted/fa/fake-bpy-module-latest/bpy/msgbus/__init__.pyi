@@ -78,7 +78,6 @@ def publish_rna(
     - A property instance.
     - A struct type.
     - A tuple representing a (struct, property name) pair.
-        :type key: bpy.types.Property | bpy.types.Struct | tuple[bpy.types.Struct, str] | None
     """
 
 def subscribe_rna(
@@ -87,7 +86,7 @@ def subscribe_rna(
     args,
     notify,
     *,
-    options=set(),
+    options: set[str] | None = set(),
 ) -> None:
     """Register a message bus subscription. It will be cleared when another blend file is
     loaded, or can be cleared explicitly via `bpy.msgbus.clear_by_owner`.
@@ -98,9 +97,7 @@ def subscribe_rna(
     - A property instance.
     - A struct type.
     - A tuple representing a (struct, property name) pair.
-        :type key: bpy.types.Property | bpy.types.Struct | tuple[bpy.types.Struct, str] | None
         :param owner: Handle for this subscription (compared by identity).
-        :type owner: typing.Any | None
         :param options: Change the behavior of the subscriber.
 
     PERSISTENT when set, the subscriber will be kept when remapping ID data.

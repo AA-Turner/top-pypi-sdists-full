@@ -48,7 +48,7 @@ class ReceiptRequestBuilder(object):
         Устанавливает send модели ReceiptRequestBuilder.
 
         :param value: send модели ReceiptRequestBuilder.
-        :type value: str
+        :type value: bool
         :rtype: ReceiptRequestBuilder
         """
         self.__request.send = value
@@ -107,6 +107,28 @@ class ReceiptRequestBuilder(object):
         :rtype: ReceiptRequestBuilder
         """
         self.__request.items = value
+        return self
+
+    def set_internet(self, value):
+        """
+        Устанавливает internet модели ReceiptRequestBuilder.
+
+        :param value: internet модели ReceiptRequestBuilder.
+        :type value: bool
+        :rtype: ReceiptRequestBuilder
+        """
+        self.__request.internet = value
+        return self
+
+    def set_timezone(self, value):
+        """
+        Устанавливает timezone модели ReceiptRequestBuilder.
+
+        :param value: timezone модели ReceiptRequestBuilder.
+        :type value: int
+        :rtype: ReceiptRequestBuilder
+        """
+        self.__request.timezone = value
         return self
 
     def set_settlements(self, value):

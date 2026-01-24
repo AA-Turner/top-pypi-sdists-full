@@ -397,60 +397,6 @@ class JwtPayload(BaseModel):
     )
 
 
-class JwtAuthenticator(BaseModel):
-    type: Literal["JwtAuthenticator"]
-    secret_key: str = Field(
-        ...,
-        description="Secret used to sign the JSON web token.",
-        examples=["{{ config['secret_key'] }}"],
-        title="Secret Key",
-    )
-    base64_encode_secret_key: Optional[bool] = Field(
-        False,
-        description='When set to true, the secret key will be base64 encoded prior to being encoded as part of the JWT. Only set to "true" when required by the API.',
-        title="Base64-encode Secret Key",
-    )
-    algorithm: Algorithm = Field(
-        ...,
-        description="Algorithm used to sign the JSON web token.",
-        examples=["ES256", "HS256", "RS256", "{{ config['algorithm'] }}"],
-        title="Algorithm",
-    )
-    token_duration: Optional[int] = Field(
-        1200,
-        description="The amount of time in seconds a JWT token can be valid after being issued.",
-        examples=[1200, 3600],
-        title="Token Duration",
-    )
-    header_prefix: Optional[str] = Field(
-        None,
-        description="The prefix to be used within the Authentication header.",
-        examples=["Bearer", "Basic"],
-        title="Header Prefix",
-    )
-    jwt_headers: Optional[JwtHeaders] = Field(
-        None,
-        description="JWT headers used when signing JSON web token.",
-        title="JWT Headers",
-    )
-    additional_jwt_headers: Optional[Dict[str, Any]] = Field(
-        None,
-        description="Additional headers to be included with the JWT headers object.",
-        title="Additional JWT Headers",
-    )
-    jwt_payload: Optional[JwtPayload] = Field(
-        None,
-        description="JWT Payload used when signing JSON web token.",
-        title="JWT Payload",
-    )
-    additional_jwt_payload: Optional[Dict[str, Any]] = Field(
-        None,
-        description="Additional properties to be added to the JWT payload.",
-        title="Additional JWT Payload Properties",
-    )
-    parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
-
-
 class RefreshTokenUpdater(BaseModel):
     refresh_token_name: Optional[str] = Field(
         "refresh_token",
@@ -480,162 +426,20 @@ class RefreshTokenUpdater(BaseModel):
         [],
         description="Status Codes to Identify refresh token error in response (Refresh Token Error Key and Refresh Token Error Values should be also specified). Responses with one of the error status code and containing an error value will be flagged as a config error",
         examples=[[400, 500]],
-        title="Refresh Token Error Status Codes",
+        title="(Deprecated - Use the same field on the OAuthAuthenticator level) Refresh Token Error Status Codes",
     )
     refresh_token_error_key: Optional[str] = Field(
         "",
         description="Key to Identify refresh token error in response (Refresh Token Error Status Codes and Refresh Token Error Values should be also specified).",
         examples=["error"],
-        title="Refresh Token Error Key",
+        title="(Deprecated - Use the same field on the OAuthAuthenticator level) Refresh Token Error Key",
     )
     refresh_token_error_values: Optional[List[str]] = Field(
         [],
         description='List of values to check for exception during token refresh process. Used to check if the error found in the response matches the key from the Refresh Token Error Key field (e.g. response={"error": "invalid_grant"}). Only responses with one of the error status code and containing an error value will be flagged as a config error',
         examples=[["invalid_grant", "invalid_permissions"]],
-        title="Refresh Token Error Values",
+        title="(Deprecated - Use the same field on the OAuthAuthenticator level) Refresh Token Error Values",
     )
-
-
-class OAuthAuthenticator(BaseModel):
-    type: Literal["OAuthAuthenticator"]
-    client_id_name: Optional[str] = Field(
-        "client_id",
-        description="The name of the property to use to refresh the `access_token`.",
-        examples=["custom_app_id"],
-        title="Client ID Property Name",
-    )
-    client_id: Optional[str] = Field(
-        None,
-        description="The OAuth client ID. Fill it in the user inputs.",
-        examples=[
-            "{{ config['client_id'] }}",
-            "{{ config['credentials']['client_id }}",
-        ],
-        title="Client ID",
-    )
-    client_secret_name: Optional[str] = Field(
-        "client_secret",
-        description="The name of the property to use to refresh the `access_token`.",
-        examples=["custom_app_secret"],
-        title="Client Secret Property Name",
-    )
-    client_secret: Optional[str] = Field(
-        None,
-        description="The OAuth client secret. Fill it in the user inputs.",
-        examples=[
-            "{{ config['client_secret'] }}",
-            "{{ config['credentials']['client_secret }}",
-        ],
-        title="Client Secret",
-    )
-    refresh_token_name: Optional[str] = Field(
-        "refresh_token",
-        description="The name of the property to use to refresh the `access_token`.",
-        examples=["custom_app_refresh_value"],
-        title="Refresh Token Property Name",
-    )
-    refresh_token: Optional[str] = Field(
-        None,
-        description="Credential artifact used to get a new access token.",
-        examples=[
-            "{{ config['refresh_token'] }}",
-            "{{ config['credentials]['refresh_token'] }}",
-        ],
-        title="Refresh Token",
-    )
-    token_refresh_endpoint: Optional[str] = Field(
-        None,
-        description="The full URL to call to obtain a new access token.",
-        examples=["https://connect.squareup.com/oauth2/token"],
-        title="Token Refresh Endpoint",
-    )
-    access_token_name: Optional[str] = Field(
-        "access_token",
-        description="The name of the property which contains the access token in the response from the token refresh endpoint.",
-        examples=["access_token"],
-        title="Access Token Property Name",
-    )
-    access_token_value: Optional[str] = Field(
-        None,
-        description="The value of the access_token to bypass the token refreshing using `refresh_token`.",
-        examples=["secret_access_token_value"],
-        title="Access Token Value",
-    )
-    expires_in_name: Optional[str] = Field(
-        "expires_in",
-        description="The name of the property which contains the expiry date in the response from the token refresh endpoint.",
-        examples=["expires_in"],
-        title="Token Expiry Property Name",
-    )
-    grant_type_name: Optional[str] = Field(
-        "grant_type",
-        description="The name of the property to use to refresh the `access_token`.",
-        examples=["custom_grant_type"],
-        title="Grant Type Property Name",
-    )
-    grant_type: Optional[str] = Field(
-        "refresh_token",
-        description="Specifies the OAuth2 grant type. If set to refresh_token, the refresh_token needs to be provided as well. For client_credentials, only client id and secret are required. Other grant types are not officially supported.",
-        examples=["refresh_token", "client_credentials"],
-        title="Grant Type",
-    )
-    refresh_request_body: Optional[Dict[str, Any]] = Field(
-        None,
-        description="Body of the request sent to get a new access token.",
-        examples=[
-            {
-                "applicationId": "{{ config['application_id'] }}",
-                "applicationSecret": "{{ config['application_secret'] }}",
-                "token": "{{ config['token'] }}",
-            }
-        ],
-        title="Refresh Request Body",
-    )
-    refresh_request_headers: Optional[Dict[str, Any]] = Field(
-        None,
-        description="Headers of the request sent to get a new access token.",
-        examples=[
-            {
-                "Authorization": "<AUTH_TOKEN>",
-                "Content-Type": "application/x-www-form-urlencoded",
-            }
-        ],
-        title="Refresh Request Headers",
-    )
-    scopes: Optional[List[str]] = Field(
-        None,
-        description="List of scopes that should be granted to the access token.",
-        examples=[["crm.list.read", "crm.objects.contacts.read", "crm.schema.contacts.read"]],
-        title="Scopes",
-    )
-    token_expiry_date: Optional[str] = Field(
-        None,
-        description="The access token expiry date.",
-        examples=["2023-04-06T07:12:10.421833+00:00", 1680842386],
-        title="Token Expiry Date",
-    )
-    token_expiry_date_format: Optional[str] = Field(
-        None,
-        description="The format of the time to expiration datetime. Provide it if the time is returned as a date-time string instead of seconds.",
-        examples=["%Y-%m-%d %H:%M:%S.%f+00:00"],
-        title="Token Expiry Date Format",
-    )
-    refresh_token_updater: Optional[RefreshTokenUpdater] = Field(
-        None,
-        description="When the refresh token updater is defined, new refresh tokens, access tokens and the access token expiry date are written back from the authentication response to the config object. This is important if the refresh token can only used once.",
-        title="Refresh Token Updater",
-    )
-    profile_assertion: Optional[JwtAuthenticator] = Field(
-        None,
-        description="The authenticator being used to authenticate the client authenticator.",
-        title="Profile Assertion",
-    )
-    use_profile_assertion: Optional[bool] = Field(
-        False,
-        description="Enable using profile assertion as a flow for OAuth authorization.",
-        title="Use Profile Assertion",
-    )
-    parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
 class Rate(BaseModel):
@@ -737,6 +541,7 @@ class Action(Enum):
     FAIL = "FAIL"
     RETRY = "RETRY"
     IGNORE = "IGNORE"
+    RESET_PAGINATION = "RESET_PAGINATION"
     RATE_LIMITED = "RATE_LIMITED"
 
 
@@ -751,7 +556,14 @@ class HttpResponseFilter(BaseModel):
     action: Optional[Action] = Field(
         None,
         description="Action to execute if a response matches the filter.",
-        examples=["SUCCESS", "FAIL", "RETRY", "IGNORE", "RATE_LIMITED"],
+        examples=[
+            "SUCCESS",
+            "FAIL",
+            "RETRY",
+            "IGNORE",
+            "RESET_PAGINATION",
+            "RATE_LIMITED",
+        ],
         title="Action",
     )
     failure_type: Optional[FailureType] = Field(
@@ -1371,6 +1183,16 @@ class LegacySessionTokenAuthenticator(BaseModel):
     parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
+class Action1(Enum):
+    SPLIT_USING_CURSOR = "SPLIT_USING_CURSOR"
+    RESET = "RESET"
+
+
+class PaginationResetLimits(BaseModel):
+    type: Literal["PaginationResetLimits"]
+    number_of_records: Optional[int] = None
+
+
 class CsvDecoder(BaseModel):
     type: Literal["CsvDecoder"]
     encoding: Optional[str] = "utf-8"
@@ -1764,6 +1586,11 @@ class IncrementingCountCursor(BaseModel):
         examples=["created_at", "{{ config['record_cursor'] }}"],
         title="Cursor Field",
     )
+    allow_catalog_defined_cursor_field: Optional[bool] = Field(
+        None,
+        description="Whether the cursor allows users to override the default cursor_field when configuring their connection. The user defined cursor field will be specified from within the configured catalog.",
+        title="Allow Catalog Defined Cursor Field",
+    )
     start_value: Optional[Union[str, int]] = Field(
         None,
         description="The value that determines the earliest record that should be synced.",
@@ -1790,6 +1617,11 @@ class DatetimeBasedCursor(BaseModel):
         description="The location of the value on a record that will be used as a bookmark during sync. To ensure no data loss, the API must return records in ascending order based on the cursor field. Nested fields are not supported, so the field must be at the top level of the record. You can use a combination of Add Field and Remove Field transformations to move the nested field to the top.",
         examples=["created_at", "{{ config['record_cursor'] }}"],
         title="Cursor Field",
+    )
+    allow_catalog_defined_cursor_field: Optional[bool] = Field(
+        None,
+        description="Whether the cursor allows users to override the default cursor_field when configuring their connection. The user defined cursor field will be specified from within the configured catalog.",
+        title="Allow Catalog Defined Cursor Field",
     )
     cursor_datetime_formats: Optional[List[str]] = Field(
         None,
@@ -1885,6 +1717,231 @@ class DatetimeBasedCursor(BaseModel):
         description="The size of the time window (ISO8601 duration). Given this field is provided, `cursor_granularity` needs to be provided as well.\n  * **PT1H**: 1 hour\n  * **P1D**: 1 day\n  * **P1W**: 1 week\n  * **P1M**: 1 month\n  * **P1Y**: 1 year\n",
         examples=["P1W", "{{ config['step_increment'] }}"],
         title="Step",
+    )
+    parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
+
+
+class JwtAuthenticator(BaseModel):
+    type: Literal["JwtAuthenticator"]
+    secret_key: str = Field(
+        ...,
+        description="Secret used to sign the JSON web token.",
+        examples=["{{ config['secret_key'] }}"],
+        title="Secret Key",
+    )
+    base64_encode_secret_key: Optional[bool] = Field(
+        False,
+        description='When set to true, the secret key will be base64 encoded prior to being encoded as part of the JWT. Only set to "true" when required by the API.',
+        title="Base64-encode Secret Key",
+    )
+    algorithm: Algorithm = Field(
+        ...,
+        description="Algorithm used to sign the JSON web token.",
+        examples=["ES256", "HS256", "RS256", "{{ config['algorithm'] }}"],
+        title="Algorithm",
+    )
+    token_duration: Optional[int] = Field(
+        1200,
+        description="The amount of time in seconds a JWT token can be valid after being issued.",
+        examples=[1200, 3600],
+        title="Token Duration",
+    )
+    header_prefix: Optional[str] = Field(
+        None,
+        description="The prefix to be used within the Authentication header.",
+        examples=["Bearer", "Basic"],
+        title="Header Prefix",
+    )
+    jwt_headers: Optional[JwtHeaders] = Field(
+        None,
+        description="JWT headers used when signing JSON web token.",
+        title="JWT Headers",
+    )
+    additional_jwt_headers: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Additional headers to be included with the JWT headers object.",
+        title="Additional JWT Headers",
+    )
+    jwt_payload: Optional[JwtPayload] = Field(
+        None,
+        description="JWT Payload used when signing JSON web token.",
+        title="JWT Payload",
+    )
+    additional_jwt_payload: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Additional properties to be added to the JWT payload.",
+        title="Additional JWT Payload Properties",
+    )
+    passphrase: Optional[str] = Field(
+        None,
+        description="A passphrase/password used to encrypt the private key. Only provide a passphrase if required by the API for JWT authentication. The API will typically provide the passphrase when generating the public/private key pair.",
+        examples=["{{ config['passphrase'] }}"],
+        title="Passphrase",
+    )
+    request_option: Optional[RequestOption] = Field(
+        None,
+        description="A request option describing where the signed JWT token that is generated should be injected into the outbound API request.",
+        title="Request Option",
+    )
+    parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
+
+
+class OAuthAuthenticator(BaseModel):
+    type: Literal["OAuthAuthenticator"]
+    client_id_name: Optional[str] = Field(
+        "client_id",
+        description="The name of the property to use to refresh the `access_token`.",
+        examples=["custom_app_id"],
+        title="Client ID Property Name",
+    )
+    client_id: Optional[str] = Field(
+        None,
+        description="The OAuth client ID. Fill it in the user inputs.",
+        examples=[
+            "{{ config['client_id'] }}",
+            "{{ config['credentials']['client_id }}",
+        ],
+        title="Client ID",
+    )
+    client_secret_name: Optional[str] = Field(
+        "client_secret",
+        description="The name of the property to use to refresh the `access_token`.",
+        examples=["custom_app_secret"],
+        title="Client Secret Property Name",
+    )
+    client_secret: Optional[str] = Field(
+        None,
+        description="The OAuth client secret. Fill it in the user inputs.",
+        examples=[
+            "{{ config['client_secret'] }}",
+            "{{ config['credentials']['client_secret }}",
+        ],
+        title="Client Secret",
+    )
+    refresh_token_name: Optional[str] = Field(
+        "refresh_token",
+        description="The name of the property to use to refresh the `access_token`.",
+        examples=["custom_app_refresh_value"],
+        title="Refresh Token Property Name",
+    )
+    refresh_token: Optional[str] = Field(
+        None,
+        description="Credential artifact used to get a new access token.",
+        examples=[
+            "{{ config['refresh_token'] }}",
+            "{{ config['credentials]['refresh_token'] }}",
+        ],
+        title="Refresh Token",
+    )
+    token_refresh_endpoint: Optional[str] = Field(
+        None,
+        description="The full URL to call to obtain a new access token.",
+        examples=["https://connect.squareup.com/oauth2/token"],
+        title="Token Refresh Endpoint",
+    )
+    access_token_name: Optional[str] = Field(
+        "access_token",
+        description="The name of the property which contains the access token in the response from the token refresh endpoint.",
+        examples=["access_token"],
+        title="Access Token Property Name",
+    )
+    access_token_value: Optional[str] = Field(
+        None,
+        description="The value of the access_token to bypass the token refreshing using `refresh_token`.",
+        examples=["secret_access_token_value"],
+        title="Access Token Value",
+    )
+    expires_in_name: Optional[str] = Field(
+        "expires_in",
+        description="The name of the property which contains the expiry date in the response from the token refresh endpoint.",
+        examples=["expires_in"],
+        title="Token Expiry Property Name",
+    )
+    grant_type_name: Optional[str] = Field(
+        "grant_type",
+        description="The name of the property to use to refresh the `access_token`.",
+        examples=["custom_grant_type"],
+        title="Grant Type Property Name",
+    )
+    grant_type: Optional[str] = Field(
+        "refresh_token",
+        description="Specifies the OAuth2 grant type. If set to refresh_token, the refresh_token needs to be provided as well. For client_credentials, only client id and secret are required. Other grant types are not officially supported.",
+        examples=["refresh_token", "client_credentials"],
+        title="Grant Type",
+    )
+    refresh_request_body: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Body of the request sent to get a new access token.",
+        examples=[
+            {
+                "applicationId": "{{ config['application_id'] }}",
+                "applicationSecret": "{{ config['application_secret'] }}",
+                "token": "{{ config['token'] }}",
+            }
+        ],
+        title="Refresh Request Body",
+    )
+    refresh_request_headers: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Headers of the request sent to get a new access token.",
+        examples=[
+            {
+                "Authorization": "<AUTH_TOKEN>",
+                "Content-Type": "application/x-www-form-urlencoded",
+            }
+        ],
+        title="Refresh Request Headers",
+    )
+    scopes: Optional[List[str]] = Field(
+        None,
+        description="List of scopes that should be granted to the access token.",
+        examples=[["crm.list.read", "crm.objects.contacts.read", "crm.schema.contacts.read"]],
+        title="Scopes",
+    )
+    token_expiry_date: Optional[str] = Field(
+        None,
+        description="The access token expiry date.",
+        examples=["2023-04-06T07:12:10.421833+00:00", 1680842386],
+        title="Token Expiry Date",
+    )
+    token_expiry_date_format: Optional[str] = Field(
+        None,
+        description="The format of the time to expiration datetime. Provide it if the time is returned as a date-time string instead of seconds.",
+        examples=["%Y-%m-%d %H:%M:%S.%f+00:00"],
+        title="Token Expiry Date Format",
+    )
+    refresh_token_error_status_codes: Optional[List[int]] = Field(
+        None,
+        description="Status Codes to Identify refresh token error in response (Refresh Token Error Key and Refresh Token Error Values should be also specified). Responses with one of the error status code and containing an error value will be flagged as a config error",
+        examples=[[400, 500]],
+        title="Refresh Token Error Status Codes",
+    )
+    refresh_token_error_key: Optional[str] = Field(
+        None,
+        description="Key to Identify refresh token error in response (Refresh Token Error Status Codes and Refresh Token Error Values should be also specified).",
+        examples=["error"],
+        title="Refresh Token Error Key",
+    )
+    refresh_token_error_values: Optional[List[str]] = Field(
+        None,
+        description='List of values to check for exception during token refresh process. Used to check if the error found in the response matches the key from the Refresh Token Error Key field (e.g. response={"error": "invalid_grant"}). Only responses with one of the error status code and containing an error value will be flagged as a config error',
+        examples=[["invalid_grant", "invalid_permissions"]],
+        title="Refresh Token Error Values",
+    )
+    refresh_token_updater: Optional[RefreshTokenUpdater] = Field(
+        None,
+        description="When the refresh token updater is defined, new refresh tokens, access tokens and the access token expiry date are written back from the authentication response to the config object. This is important if the refresh token can only used once.",
+        title="Refresh Token Updater",
+    )
+    profile_assertion: Optional[JwtAuthenticator] = Field(
+        None,
+        description="The authenticator being used to authenticate the client authenticator.",
+        title="Profile Assertion",
+    )
+    use_profile_assertion: Optional[bool] = Field(
+        False,
+        description="Enable using profile assertion as a flow for OAuth authorization.",
+        title="Use Profile Assertion",
     )
     parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
@@ -2002,6 +2059,29 @@ class SessionTokenRequestApiKeyAuthenticator(BaseModel):
     )
 
 
+class JsonSchemaPropertySelector(BaseModel):
+    type: Literal["JsonSchemaPropertySelector"]
+    transformations: Optional[
+        List[
+            Union[
+                AddFields,
+                RemoveFields,
+                KeysToLower,
+                KeysToSnakeCase,
+                FlattenFields,
+                DpathFlattenFields,
+                KeysReplace,
+                CustomTransformation,
+            ]
+        ]
+    ] = Field(
+        None,
+        description="A list of transformations to be applied on the customer configured schema that will be used to filter out unselected fields when specifying query properties for API requests.",
+        title="Transformations",
+    )
+    parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
+
+
 class ListPartitionRouter(BaseModel):
     type: Literal["ListPartitionRouter"]
     cursor_field: str = Field(
@@ -2043,6 +2123,12 @@ class RecordSelector(BaseModel):
         title="Transform Before Filtering",
     )
     parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
+
+
+class PaginationReset(BaseModel):
+    type: Literal["PaginationReset"]
+    action: Action1
+    limits: Optional[PaginationResetLimits] = None
 
 
 class GzipDecoder(BaseModel):
@@ -2116,10 +2202,12 @@ class ConfigAddFields(BaseModel):
 
 class CompositeErrorHandler(BaseModel):
     type: Literal["CompositeErrorHandler"]
-    error_handlers: List[Union[CompositeErrorHandler, DefaultErrorHandler]] = Field(
-        ...,
-        description="List of error handlers to iterate on to determine how to handle a failed response.",
-        title="Error Handlers",
+    error_handlers: List[Union[CompositeErrorHandler, DefaultErrorHandler, CustomErrorHandler]] = (
+        Field(
+            ...,
+            description="List of error handlers to iterate on to determine how to handle a failed response.",
+            title="Error Handlers",
+        )
     )
     parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
@@ -2764,6 +2852,11 @@ class QueryProperties(BaseModel):
         description="Defines how query properties will be grouped into smaller sets for APIs with limitations on the number of properties fetched per API request.",
         title="Property Chunking",
     )
+    property_selector: Optional[JsonSchemaPropertySelector] = Field(
+        None,
+        description="Defines where to look for and which query properties that should be sent in outbound API requests. For example, you can specify that only the selected columns of a stream should be in the request.",
+        title="Property Selector",
+    )
     parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
@@ -2812,6 +2905,10 @@ class SimpleRetriever(BaseModel):
     paginator: Optional[Union[DefaultPaginator, NoPagination]] = Field(
         None,
         description="Paginator component that describes how to navigate through the API's pages.",
+    )
+    pagination_reset: Optional[PaginationReset] = Field(
+        None,
+        description="Describes what triggers pagination reset and how to handle it.",
     )
     ignore_stream_slicer_parameters_on_paginated_requests: Optional[bool] = Field(
         False,

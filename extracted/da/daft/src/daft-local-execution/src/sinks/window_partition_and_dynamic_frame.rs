@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use common_error::{DaftError, DaftResult};
+use common_metrics::ops::NodeType;
 use daft_core::{array::ops::IntoGroups, datatypes::UInt64Array, prelude::*};
 use daft_dsl::{
     WindowFrame,
@@ -14,11 +15,11 @@ use tracing::{Span, instrument};
 use super::{
     blocking_sink::{
         BlockingSink, BlockingSinkFinalizeOutput, BlockingSinkFinalizeResult,
-        BlockingSinkSinkResult, BlockingSinkStatus,
+        BlockingSinkSinkResult,
     },
     window_base::{WindowBaseState, WindowSinkParams},
 };
-use crate::{ExecutionTaskSpawner, ops::NodeType, pipeline::NodeName};
+use crate::{ExecutionTaskSpawner, pipeline::NodeName};
 
 struct WindowPartitionAndDynamicFrameParams {
     aggregations: Vec<BoundAggExpr>,
@@ -101,7 +102,7 @@ impl BlockingSink for WindowPartitionAndDynamicFrameSink {
             .spawn(
                 async move {
                     state.push(input, params.partition_by(), &sink_name)?;
-                    Ok(BlockingSinkStatus::NeedMoreInput(state))
+                    Ok(state)
                 },
                 Span::current(),
             )
@@ -167,10 +168,9 @@ impl BlockingSink for WindowPartitionAndDynamicFrameSink {
                             let mut partitions = partitionvals_indices
                                 .iter()
                                 .map(|indices| {
-                                    let indices_series =
-                                        UInt64Array::from(("indices", indices.clone()))
-                                            .into_series();
-                                    input_data.take(&indices_series).unwrap()
+                                    let indices_arr =
+                                        UInt64Array::from(("indices", indices.clone()));
+                                    input_data.take(&indices_arr).unwrap()
                                 })
                                 .collect::<Vec<_>>();
 

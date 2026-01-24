@@ -5,7 +5,7 @@ since your modifications would be overwritten.
 """
 
 
-from keras_tuner.src.tuners.bayesian import BayesianOptimizationOracle
-from keras_tuner.src.tuners.gridsearch import GridSearchOracle
-from keras_tuner.src.tuners.hyperband import HyperbandOracle
-from keras_tuner.src.tuners.randomsearch import RandomSearchOracle
+from keras_tuner.src.tuners.bayesian import BayesianOptimizationOracle as BayesianOptimizationOracle
+from keras_tuner.src.tuners.gridsearch import GridSearchOracle as GridSearchOracle
+from keras_tuner.src.tuners.hyperband import HyperbandOracle as HyperbandOracle
+from keras_tuner.src.tuners.randomsearch import RandomSearchOracle as RandomSearchOracle

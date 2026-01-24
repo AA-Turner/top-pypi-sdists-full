@@ -24,7 +24,7 @@ import bigframes_vendored.ibis.expr.datatypes as ibis_dtypes
 import bigframes_vendored.ibis.expr.types as ibis_types
 
 from bigframes import dtypes, operations
-from bigframes.core import expression, pyarrow_utils
+from bigframes.core import bq_data, expression, pyarrow_utils
 import bigframes.core.compile.compiled as compiled
 import bigframes.core.compile.concat as concat_impl
 import bigframes.core.compile.configs as configs
@@ -128,7 +128,7 @@ def compile_isin(
     return left.isin_join(
         right=right,
         indicator_col=node.indicator_col.sql,
-        conditions=(node.left_col.id.sql, node.right_col.id.sql),
+        conditions=(node.left_col.id.sql, list(node.right_child.ids)[0].sql),
         join_nulls=node.joins_nulls,
     )
 
@@ -186,7 +186,7 @@ def compile_readtable(node: nodes.ReadTableNode, *args):
     # TODO(b/395912450): Remove workaround solution once b/374784249 got resolved.
     for scan_item in node.scan_list.items:
         if (
-            scan_item.dtype == dtypes.JSON_DTYPE
+            node.source.schema.get_type(scan_item.source_id) == dtypes.JSON_DTYPE
             and ibis_table[scan_item.source_id].type() == ibis_dtypes.string
         ):
             json_column = scalar_op_registry.parse_json(
@@ -204,7 +204,7 @@ def compile_readtable(node: nodes.ReadTableNode, *args):
 
 
 def _table_to_ibis(
-    source: nodes.BigqueryDataSource,
+    source: bq_data.BigqueryDataSource,
     scan_cols: typing.Sequence[str],
 ) -> ibis_types.Table:
     full_table_name = (
@@ -265,12 +265,13 @@ def compile_aggregate(node: nodes.AggregateNode, child: compiled.UnorderedIR):
 
 @_compile_node.register
 def compile_window(node: nodes.WindowOpNode, child: compiled.UnorderedIR):
-    result = child.project_window_op(
-        node.expression,
-        node.window_spec,
-        node.output_name.sql,
-        never_skip_nulls=node.never_skip_nulls,
-    )
+    result = child
+    for cdef in node.agg_exprs:
+        result = result.project_window_op(
+            cdef.expression,  # type: ignore
+            node.window_spec,
+            cdef.id.sql,
+        )
     return result
 
 

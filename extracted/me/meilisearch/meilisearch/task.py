@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from time import sleep
-from typing import Any, MutableMapping, Optional
+from typing import Any, Mapping, MutableMapping, Optional
 from urllib import parse
 
 from meilisearch._httprequests import HttpRequests
@@ -19,13 +19,13 @@ class TaskHandler:
     https://www.meilisearch.com/docs/reference/api/tasks
     """
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, custom_headers: Optional[Mapping[str, str]] = None):
         """Parameters
         ----------
             config: Config object containing permission and location of Meilisearch.
         """
         self.config = config
-        self.http = HttpRequests(config)
+        self.http = HttpRequests(config, custom_headers)
 
     def get_batches(self, parameters: Optional[MutableMapping[str, Any]] = None) -> BatchResults:
         """Get all task batches.
@@ -122,13 +122,17 @@ class TaskHandler:
         task = self.http.get(f"{self.config.paths.task}/{uid}")
         return Task(**task)
 
-    def cancel_tasks(self, parameters: MutableMapping[str, Any]) -> TaskInfo:
+    def cancel_tasks(
+        self, parameters: MutableMapping[str, Any], *, metadata: Optional[str] = None
+    ) -> TaskInfo:
         """Cancel a list of enqueued or processing tasks.
 
         Parameters
         ----------
         parameters:
             parameters accepted by the cancel tasks https://www.meilisearch.com/docs/reference/api/tasks#cancel-task.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -144,10 +148,14 @@ class TaskHandler:
         for param in parameters:
             if isinstance(parameters[param], (list, tuple)):
                 parameters[param] = ",".join(parameters[param])
+        if metadata is not None:
+            parameters["customMetadata"] = metadata
         response = self.http.post(f"{self.config.paths.task}/cancel?{parse.urlencode(parameters)}")
         return TaskInfo(**response)
 
-    def delete_tasks(self, parameters: MutableMapping[str, Any]) -> TaskInfo:
+    def delete_tasks(
+        self, parameters: MutableMapping[str, Any], *, metadata: Optional[str] = None
+    ) -> TaskInfo:
         """Delete a list of enqueued or processing tasks.
         Parameters
         ----------
@@ -155,6 +163,8 @@ class TaskHandler:
             Config object containing permission and location of Meilisearch.
         parameters:
             parameters accepted by the delete tasks route:https://www.meilisearch.com/docs/reference/api/tasks#delete-task.
+        metadata (optional):
+            Custom metadata string to attach to the task.
         Returns
         -------
         task_info:
@@ -168,6 +178,8 @@ class TaskHandler:
         for param in parameters:
             if isinstance(parameters[param], (list, tuple)):
                 parameters[param] = ",".join(parameters[param])
+        if metadata is not None:
+            parameters["customMetadata"] = metadata
         response = self.http.delete(f"{self.config.paths.task}?{parse.urlencode(parameters)}")
         return TaskInfo(**response)
 

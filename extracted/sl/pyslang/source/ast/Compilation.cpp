@@ -21,7 +21,6 @@
 #include "slang/parsing/Preprocessor.h"
 #include "slang/syntax/SyntaxTree.h"
 #include "slang/text/CharInfo.h"
-#include "slang/text/SourceManager.h"
 #include "slang/util/TimeTrace.h"
 
 using namespace slang::parsing;
@@ -42,7 +41,7 @@ Compilation::Compilation(const Bag& options, const SourceLibrary* defaultLib) :
     defaultLibPtr(defaultLib) {
 
     // Construct all built-in types.
-    auto& bi = slang::ast::builtins::Builtins::Instance;
+    auto& bi = builtins::Builtins::Instance;
     bitType = &bi.bitType;
     logicType = &bi.logicType;
     intType = &bi.intType;
@@ -52,12 +51,9 @@ Compilation::Compilation(const Bag& options, const SourceLibrary* defaultLib) :
     shortRealType = &bi.shortRealType;
     stringType = &bi.stringType;
     voidType = &bi.voidType;
-    errorType = &bi.errorType;
+    errorType = &ErrorType::Instance;
 
     auto regType = &bi.regType;
-    auto signedBitType = &bi.signedBitType;
-    auto signedLogicType = &bi.signedLogicType;
-    auto signedRegType = &bi.signedRegType;
     auto shortIntType = &bi.shortIntType;
     auto longIntType = &bi.longIntType;
     auto timeType = &bi.timeType;
@@ -121,17 +117,6 @@ Compilation::Compilation(const Bag& options, const SourceLibrary* defaultLib) :
     wireNetType = knownNetTypes[TokenKind::WireKeyword].get();
 
 #undef MAKE_NETTYPE
-
-    // Scalar types are indexed by bit flags.
-    auto registerScalar = [this](auto type) {
-        scalarTypeTable[type->getIntegralFlags().bits() & 0x7] = type;
-    };
-    registerScalar(bitType);
-    registerScalar(logicType);
-    registerScalar(regType);
-    registerScalar(signedBitType);
-    registerScalar(signedLogicType);
-    registerScalar(signedRegType);
 
     root = std::make_unique<RootSymbol>(*this);
 
@@ -213,7 +198,7 @@ void Compilation::addSyntaxTree(std::shared_ptr<SyntaxTree> tree) {
     root->addMember(*unit);
     compilationUnits.push_back(unit);
 
-    for (auto& [n, meta] : tree->getMetadata().nodeMap) {
+    for (auto& [n, meta] : tree->getMetadata().nodeMeta) {
         SyntaxMetadata result;
         result.tree = tree.get();
         result.defaultNetType = &getNetType(meta.defaultNetType);
@@ -236,8 +221,8 @@ void Compilation::addSyntaxTree(std::shared_ptr<SyntaxTree> tree) {
         syntaxMetadata[n] = result;
     }
 
-    for (auto& name : tree->getMetadata().globalInstances)
-        globalInstantiations.emplace(name);
+    for (auto& inst : tree->getMetadata().globalInstances)
+        globalInstantiations.emplace(inst->type.valueText());
 
     if (node.kind == SyntaxKind::CompilationUnit) {
         for (auto member : node.as<CompilationUnitSyntax>().members)
@@ -704,15 +689,7 @@ Compilation::DefinitionLookupResult Compilation::getDefinition(
 const DefinitionSymbol* Compilation::getDefinition(const Scope& scope,
                                                    const ModuleDeclarationSyntax& syntax) const {
     if (auto it = definitionFromSyntax.find(&syntax); it != definitionFromSyntax.end()) {
-        SmallMap<const Scope*, const DefinitionSymbol*, 4> scopeMap;
-        for (auto def : it->second) {
-            auto insertScope = def->getParentScope();
-            if (insertScope && insertScope->asSymbol().kind == SymbolKind::CompilationUnit)
-                insertScope = root.get();
-
-            scopeMap[insertScope] = def;
-        }
-
+        auto& scopeMap = it->second;
         auto lookupScope = &scope;
         do {
             if (auto scopeIt = scopeMap.find(lookupScope); scopeIt != scopeMap.end())
@@ -822,11 +799,12 @@ void Compilation::createDefinition(const Scope& scope, LookupLocation location,
                        scope, location, syntax, *metadata.defaultNetType, metadata.unconnectedDrive,
                        metadata.cellDefine, metadata.timeScale, metadata.tree))
                    .get();
-    definitionFromSyntax[&syntax].push_back(def);
 
     insertDefinition(*def, scope);
 
     auto targetScope = scope.asSymbol().kind == SymbolKind::CompilationUnit ? root.get() : &scope;
+    definitionFromSyntax[&syntax][targetScope] = def;
+
     const bool isRoot = targetScope == root.get();
     if (isRoot)
         checkElemTimeScale(def->timeScale, syntax.header->name.range());
@@ -959,7 +937,7 @@ const PackageSymbol& Compilation::createPackage(const Scope& scope,
     auto [it, inserted] = packageMap.emplace(package.name, &package);
     if (!inserted && !package.name.empty() &&
         scope.asSymbol().kind == SymbolKind::CompilationUnit) {
-        auto& diag = scope.addDiag(diag::Redefinition, package.location);
+        auto& diag = scope.addDiag(diag::DuplicateDefinition, package.location);
         diag << package.name;
         diag.addNote(diag::NotePreviousDefinition, it->second->location);
     }
@@ -1357,9 +1335,16 @@ void Compilation::noteHierarchicalAssignment(const HierarchicalReference& ref) {
     hierarchicalAssignments.push_back(&ref);
 }
 
-void Compilation::noteVirtualIfaceInstance(const InstanceSymbol& symbol) {
-    SLANG_ASSERT(!isFrozen());
-    virtualInterfaceInstances.push_back(&symbol);
+const InstanceSymbol& Compilation::getOrAddVirtualIface(const InstanceSymbol& symbol) {
+    bool valid = true;
+    SmallSet<const InstanceSymbol*, 2> visited;
+    InstanceCacheKey key(symbol, valid, visited);
+
+    auto [it, inserted] = virtualIfaceCache.try_emplace(std::move(key), &symbol);
+    if (inserted)
+        virtualIfaceInstances.push_back(it->second);
+
+    return *it->second;
 }
 
 const Expression* Compilation::getDefaultDisable(const Scope& scope) const {
@@ -1447,17 +1432,16 @@ const NameSyntax& Compilation::parseName(std::string_view name) {
     auto& result = tryParseName(name, localDiags);
 
     if (!localDiags.empty()) {
-        SourceManager& sourceMan = SyntaxTree::getDefaultSourceManager();
-        localDiags.sort(sourceMan);
-        SLANG_THROW(std::runtime_error(DiagnosticEngine::reportAll(sourceMan, localDiags)));
+        localDiags.sort(*sourceManager);
+        SLANG_THROW(std::runtime_error(DiagnosticEngine::reportAll(*sourceManager, localDiags)));
     }
 
     return result;
 }
 
 const NameSyntax& Compilation::tryParseName(std::string_view name, Diagnostics& localDiags) {
-    SourceManager& sourceMan = SyntaxTree::getDefaultSourceManager();
-    Preprocessor preprocessor(sourceMan, *this, localDiags);
+    SLANG_ASSERT(sourceManager);
+    Preprocessor preprocessor(*sourceManager, *this, localDiags);
     preprocessor.pushSource(name);
 
     Parser parser(preprocessor);
@@ -1475,18 +1459,26 @@ CompilationUnitSymbol& Compilation::createScriptScope() {
 void Compilation::elaborate() {
     SLANG_ASSERT(!isFrozen());
 
+    // Make sure our root is created. It's possible that this results in a fatal
+    // error if defparam resolution sees an infinitely recursive hierarchy,
+    // in which case we should get out early.
+    auto& rootSym = getRoot();
+    if (sawFatalError)
+        return;
+
     // Touch every symbol, scope, statement, and expression tree so that
     // we can be sure we have all the diagnostics.
     uint32_t errorLimit = options.errorLimit == 0 ? UINT32_MAX : options.errorLimit;
     DiagnosticVisitor elabVisitor(*this, numErrors, errorLimit);
-    getRoot().visit(elabVisitor);
+    rootSym.visit(elabVisitor);
+
+    if (!elabVisitor.finishedEarly())
+        elabVisitor.finalize();
 
     if (elabVisitor.finishedEarly()) {
         sawFatalError = true;
         return;
     }
-
-    elabVisitor.finalize();
 
     // Note for the following checks here: anything that depends on a list
     // stored in the compilation object should think carefully about taking
@@ -1757,7 +1749,7 @@ const Type& Compilation::getType(bitwidth_t width, bitmask<IntegralFlags> flags)
 }
 
 const Type& Compilation::getScalarType(bitmask<IntegralFlags> flags) const {
-    Type* ptr = scalarTypeTable[flags.bits() & 0x7];
+    auto ptr = builtins::Builtins::Instance.scalarTypeTable[flags.bits() & 0x7];
     SLANG_ASSERT(ptr);
     return *ptr;
 }
@@ -2026,7 +2018,9 @@ void Compilation::checkModportExports(
         SLANG_ASSERT(def);
 
         for (auto& method : modport->membersOfType<MethodPrototypeSymbol>()) {
-            if (method.flags.has(MethodFlags::ModportExport)) {
+            if (method.flags.has(MethodFlags::ModportExport) && !method.name.empty() &&
+                !def->name.empty()) {
+
                 bool found = false;
                 auto impl = method.getFirstExternImpl();
                 while (impl) {
@@ -2413,6 +2407,7 @@ void Compilation::resolveDefParamsAndBinds() {
                                        visitor.hierarchyProblem->location);
             diag << visitor.hierarchyProblem->getDefinition().getKindString();
             diag << options.maxInstanceDepth;
+            sawFatalError = true;
             return true;
         }
         return false;
@@ -2449,7 +2444,7 @@ void Compilation::resolveDefParamsAndBinds() {
         };
 
         while (true) {
-            DefParamVisitor v(options.maxInstanceDepth, generateLevel);
+            DefParamVisitor v(options.maxInstanceDepth, options.maxDefParamBlocks, generateLevel);
             initialClone.getRoot(/* skipDefParamsAndBinds */ true).visit(v);
             if (checkProblem(v))
                 return;
@@ -2464,7 +2459,7 @@ void Compilation::resolveDefParamsAndBinds() {
 
             // We didn't find any more binds or defparams so increase
             // our generate level and try again.
-            if (nextIt()) {
+            if (nextIt() || !v.skippedAnything) {
                 saveState(v, initialClone);
                 break;
             }
@@ -2480,6 +2475,10 @@ void Compilation::resolveDefParamsAndBinds() {
             continue;
         }
 
+        // If we found no defparams we're done.
+        if (numDefParamsSeen == 0)
+            break;
+
         // defparams can change the value of parameters, further affecting the value of
         // other defparams elsewhere in the design. This means we need to iterate,
         // reevaluating defparams until they all settle to a stable value or until we
@@ -2489,7 +2488,7 @@ void Compilation::resolveDefParamsAndBinds() {
             Compilation c({}, defaultLibPtr);
             cloneInto(c);
 
-            DefParamVisitor v(options.maxInstanceDepth, generateLevel);
+            DefParamVisitor v(options.maxInstanceDepth, options.maxDefParamBlocks, generateLevel);
             c.getRoot(/* skipDefParamsAndBinds */ true).visit(v);
             if (checkProblem(v))
                 return;

@@ -10,7 +10,7 @@ import sys
 from enum import Enum, auto
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Type, cast
+from typing import TYPE_CHECKING, cast
 
 from piplicenses_lib import FromArg, NoValueEnum
 
@@ -31,9 +31,9 @@ open = open  # To allow monkey-patching.
 
 
 class CustomNamespace(argparse.Namespace):
-    from_: "FromArg"
-    order: "OrderArg"
-    format_: "FormatArg"
+    from_: FromArg
+    order: OrderArg
+    format_: FormatArg
     summary: bool
     output_file: str
     ignore_packages: list[str]
@@ -43,13 +43,16 @@ class CustomNamespace(argparse.Namespace):
     with_urls: bool
     with_description: bool
     with_license_file: bool
+    with_license_files: bool
     no_license_path: bool
     with_notice_file: bool
+    with_notice_files: bool
+    with_other_files: bool
     filter_strings: bool
     filter_code_page: str
     partial_match: bool
-    fail_on: Optional[str]
-    allow_only: Optional[str]
+    fail_on: str | None
+    allow_only: str | None
     collect_all_failures: bool
 
 
@@ -80,16 +83,25 @@ def get_output_fields(args: CustomNamespace) -> list[str]:
     if args.no_version:
         output_fields.remove("Version")
 
-    if args.with_license_file:
+    if args.with_license_files and args.format_ not in [FormatArg.JSON, FormatArg.PLAIN_VERTICAL]:
+        args.with_license_files = False
+        args.with_notice_files = False
+        args.with_other_files = False
+
+    if args.with_license_file or args.with_license_files:
         if not args.no_license_path:
-            output_fields.append("LicenseFile")
+            output_fields.append("LicenseFiles" if args.with_license_files else "LicenseFile")
 
-        output_fields.append("LicenseText")
+        output_fields.append("LicenseTexts" if args.with_license_files else "LicenseText")
 
-        if args.with_notice_file:
-            output_fields.append("NoticeText")
+        if args.with_notice_file or args.with_notice_files:
             if not args.no_license_path:
-                output_fields.append("NoticeFile")
+                output_fields.append("NoticeFiles" if args.with_notice_files else "NoticeFile")
+            output_fields.append("NoticeTexts" if args.with_notice_files else "NoticeText")
+        if args.with_other_files:
+            if not args.no_license_path:
+                output_fields.append("OtherFiles")
+            output_fields.append("OtherTexts")
 
     return output_fields
 
@@ -136,12 +148,14 @@ def create_warn_string(args: CustomNamespace) -> str:
         message = warn("Due to the length of these fields, this option is best paired with --format=json.")
         warn_messages.append(message)
 
+    if args.with_license_files and args.format_ not in [FormatArg.JSON, FormatArg.PLAIN_VERTICAL]:
+        message = warn("Ignoring request to output multiple files due to unsupported output format.")
+        warn_messages.append(message)
+
     if args.summary and (args.with_authors or args.with_urls):
         message = warn(
-            (
-                "When using this option, only --order=count or --order=license has an effect for the --order "
-                "option. And using --with-authors and --with-urls will be ignored."
-            )
+            "When using this option, only --order=count or --order=license has an effect for the --order "
+            "option. And using --with-authors and --with-urls will be ignored."
         )
         warn_messages.append(message)
 
@@ -154,7 +168,7 @@ class CustomHelpFormatter(argparse.HelpFormatter):  # pragma: no cover
         prog: str,
         indent_increment: int = 2,
         max_help_position: int = 24,
-        width: Optional[int] = None,
+        width: int | None = None,
     ) -> None:
         max_help_position = 30
         super().__init__(
@@ -203,8 +217,11 @@ class CompatibleArgumentParser(argparse.ArgumentParser):
         return args_
 
     def _verify_args(self, args: CustomNamespace) -> None:
-        if args.with_license_file is False and (args.no_license_path is True or args.with_notice_file is True):
-            self.error("'--no-license-path' and '--with-notice-file' require the '--with-license-file' option to be set")
+        if args.with_license_file is False and args.with_license_files is False:
+            if args.no_license_path is True or args.with_notice_file is True or args.with_notice_files is True or args.with_other_files is True:
+                self.error(
+                    "'--no-license-path' and '--with-notice-file[s]' as well as '--with-other-files' require the '--with-license-file[s]' option to be set"
+                )
         if args.filter_strings is False and args.filter_code_page != "latin1":
             self.error("'--filter-code-page' requires the '--filter-strings' option to be set")
         try:
@@ -245,11 +262,11 @@ def enum_key_to_value(enum_key: Enum) -> str:
     return enum_key.name.replace("_", "-").lower()
 
 
-def choices_from_enum(enum_cls: Type[NoValueEnum]) -> list[str]:
+def choices_from_enum(enum_cls: type[NoValueEnum]) -> list[str]:
     return [key.replace("_", "-").lower() for key in enum_cls.__members__.keys()]
 
 
-def get_value_from_enum(enum_cls: Type[NoValueEnum], value: str) -> NoValueEnum:
+def get_value_from_enum(enum_cls: type[NoValueEnum], value: str) -> NoValueEnum:
     return getattr(enum_cls, value_to_enum_key(value))
 
 
@@ -266,7 +283,7 @@ class SelectAction(argparse.Action):
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
         values: str,
-        option_string: Optional[str] = None,
+        option_string: str | None = None,
     ) -> None:
         enum_cls = MAP_DEST_TO_ENUM[self.dest]
         setattr(namespace, self.dest, get_value_from_enum(enum_cls, values))
@@ -425,6 +442,12 @@ def create_parser(
         help="dump with location of license file and contents, most useful with JSON output",
     )
     format_options.add_argument(
+        "--with-license-files",
+        action="store_true",
+        default=config_from_file.get("with-license-files", False),
+        help="dump with location of license files and contents, most useful with JSON output",
+    )
+    format_options.add_argument(
         "--no-license-path",
         action="store_true",
         default=config_from_file.get("no-license-path", False),
@@ -434,7 +457,19 @@ def create_parser(
         "--with-notice-file",
         action="store_true",
         default=config_from_file.get("with-notice-file", False),
-        help="I|when specified together with option -l, dump with location of license file and contents",
+        help="I|when specified together with option -l, dump with location of notice files and contents",
+    )
+    format_options.add_argument(
+        "--with-notice-files",
+        action="store_true",
+        default=config_from_file.get("with-notice-files", False),
+        help="I|when specified together with option -l or --with-license-files, dump with location of notice files and contents",
+    )
+    format_options.add_argument(
+        "--with-other-files",
+        action="store_true",
+        default=config_from_file.get("with-other-files", False),
+        help="I|when specified together with option -l or --with-license-files, dump with location of other licensing-related files and contents",
     )
     format_options.add_argument(
         "--filter-strings",

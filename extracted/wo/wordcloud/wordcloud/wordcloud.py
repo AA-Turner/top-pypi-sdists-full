@@ -32,7 +32,8 @@ from .tokenization import unigrams_and_bigrams, process_tokens
 
 FILE = os.path.dirname(__file__)
 FONT_PATH = os.environ.get('FONT_PATH', os.path.join(FILE, 'DroidSansMono.ttf'))
-STOPWORDS = set(map(str.strip, open(os.path.join(FILE, 'stopwords')).readlines()))
+with open(os.path.join(FILE, 'stopwords')) as f:
+    STOPWORDS = set(map(str.strip, f.readlines()))
 
 
 class IntegralOccupancyMap(object):
@@ -729,25 +730,47 @@ class WordCloud(object):
         img.save(filename, optimize=True)
         return self
 
-    def to_array(self):
+    def to_array(self, copy=None):
         """Convert to numpy array.
+
+        Parameters
+        ----------
+        copy : bool
+            If `True`, then the object is copied. If `None` then the object is copied
+            only if needed. For `False` it raises a ValueError if a copy cannot be
+            avoided. Default: `None`. `copy` is passed directly to `np.asarray`
+            which is supported on NumPy>=2.0. For older NumPy versions `copy` is
+            ignored.
 
         Returns
         -------
         image : nd-array size (width, height, 3)
             Word cloud image as numpy matrix.
         """
-        return np.array(self.to_image())
+        image = self.to_image()
+        if copy is None:
+            return np.asarray(image)
+        try:
+            return np.asarray(image, copy=copy)
+        except TypeError:
+            return np.asarray(image)
 
-    def __array__(self):
+    def __array__(self, copy=None):
         """Convert to numpy array.
+
+        Parameters
+        ----------
+        copy : bool
+            If `True`, then the object is copied. If `None` then the object is copied
+            only if needed. For `False` it raises a ValueError if a copy cannot be
+            avoided. Default: `None`.
 
         Returns
         -------
         image : nd-array size (width, height, 3)
             Word cloud image as numpy matrix.
         """
-        return self.to_array()
+        return self.to_array(copy=copy)
 
     def to_svg(self, embed_font=False, optimize_embedded_font=True, embed_image=False):
         """Export to SVG.

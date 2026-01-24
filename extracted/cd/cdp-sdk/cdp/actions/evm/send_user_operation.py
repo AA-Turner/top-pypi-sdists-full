@@ -21,6 +21,7 @@ async def send_user_operation(
     calls: list[ContractCall],
     network: str,
     paymaster_url: str | None = None,
+    data_suffix: str | None = None,
 ) -> EvmUserOperation:
     """Send a user operation.
 
@@ -31,6 +32,7 @@ async def send_user_operation(
         calls (List[EVMCall]): The calls to send.
         network (str): The network.
         paymaster_url (str): The paymaster URL.
+        data_suffix (str): Optional data suffix (EIP-8021) to enable transaction attribution.
 
     Returns:
         UserOperation: The user operation object.
@@ -45,16 +47,31 @@ async def send_user_operation(
             contract = Web3().eth.contract(address=call.to, abi=call.abi)
             data = contract.encode_abi(call.function_name, args=call.args)
             value = "0" if call.value is None else str(call.value)
-            encoded_calls.append(EvmCall(to=str(call.to), data=data, value=value))
+            encoded_calls.append(
+                EvmCall(
+                    to=str(call.to),
+                    data=data,
+                    value=value,
+                    override_gas_limit=call.override_gas_limit if call.override_gas_limit else None,
+                )
+            )
         else:
             value = "0" if call.value is None else str(call.value)
             data = "0x" if call.data is None else call.data
-            encoded_calls.append(EvmCall(to=str(call.to), data=data, value=value))
+            encoded_calls.append(
+                EvmCall(
+                    to=str(call.to),
+                    data=data,
+                    value=value,
+                    override_gas_limit=call.override_gas_limit if call.override_gas_limit else None,
+                )
+            )
 
     prepare_user_operation_request = PrepareUserOperationRequest(
         network=network,
         calls=encoded_calls,
         paymaster_url=paymaster_url,
+        data_suffix=data_suffix,
     )
     user_operation_model = await api_clients.evm_smart_accounts.prepare_user_operation(
         address, prepare_user_operation_request

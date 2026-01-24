@@ -3,7 +3,7 @@ Type annotations for greengrassv2 service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_greengrassv2/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -45,12 +46,6 @@ from .literals import (
     VendorGuidanceType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -184,7 +179,7 @@ class AssociateServiceRoleToAccountRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -208,7 +203,7 @@ class CancelDeploymentRequestTypeDef(TypedDict):
 class CloudComponentStatusTypeDef(TypedDict):
     componentState: NotRequired[CloudComponentStateType]
     message: NotRequired[str]
-    errors: NotRequired[Dict[str, str]]
+    errors: NotRequired[dict[str, str]]
     vendorGuidance: NotRequired[VendorGuidanceType]
     vendorGuidanceMessage: NotRequired[str]
 
@@ -219,7 +214,7 @@ class ComponentCandidateTypeDef(TypedDict):
 
 class ComponentConfigurationUpdateOutputTypeDef(TypedDict):
     merge: NotRequired[str]
-    reset: NotRequired[List[str]]
+    reset: NotRequired[list[str]]
 
 class ComponentConfigurationUpdateTypeDef(TypedDict):
     merge: NotRequired[str]
@@ -231,7 +226,7 @@ class ComponentDependencyRequirementTypeDef(TypedDict):
 
 class ComponentPlatformOutputTypeDef(TypedDict):
     name: NotRequired[str]
-    attributes: NotRequired[Dict[str, str]]
+    attributes: NotRequired[dict[str, str]]
 
 class ComponentPlatformTypeDef(TypedDict):
     name: NotRequired[str]
@@ -297,8 +292,8 @@ class DescribeComponentRequestTypeDef(TypedDict):
     arn: str
 
 class EffectiveDeploymentStatusDetailsTypeDef(TypedDict):
-    errorStack: NotRequired[List[str]]
-    errorTypes: NotRequired[List[str]]
+    errorStack: NotRequired[list[str]]
+    errorTypes: NotRequired[list[str]]
 
 class GetComponentRequestTypeDef(TypedDict):
     arn: str
@@ -328,7 +323,7 @@ class InstalledComponentTypeDef(TypedDict):
     lastStatusChangeTimestamp: NotRequired[datetime]
     lastReportedTimestamp: NotRequired[datetime]
     lastInstallationSource: NotRequired[str]
-    lifecycleStatusCodes: NotRequired[List[str]]
+    lifecycleStatusCodes: NotRequired[list[str]]
 
 class IoTJobAbortCriteriaTypeDef(TypedDict):
     failureType: IoTJobExecutionFailureTypeType
@@ -432,7 +427,7 @@ class AssociateServiceRoleToAccountResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchAssociateClientDeviceWithCoreDeviceResponseTypeDef(TypedDict):
-    errorEntries: List[AssociateClientDeviceWithCoreDeviceErrorEntryTypeDef]
+    errorEntries: list[AssociateClientDeviceWithCoreDeviceErrorEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CancelDeploymentResponseTypeDef(TypedDict):
@@ -455,7 +450,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 class GetComponentResponseTypeDef(TypedDict):
     recipeOutputFormat: RecipeOutputFormatType
     recipe: bytes
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetComponentVersionArtifactResponseTypeDef(TypedDict):
@@ -470,7 +465,7 @@ class GetCoreDeviceResponseTypeDef(TypedDict):
     runtime: str
     status: CoreDeviceStatusType
     lastStatusUpdateTimestamp: datetime
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetServiceRoleForAccountResponseTypeDef(TypedDict):
@@ -479,7 +474,7 @@ class GetServiceRoleForAccountResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateConnectivityInfoResponseTypeDef(TypedDict):
@@ -488,7 +483,7 @@ class UpdateConnectivityInfoResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListClientDevicesAssociatedWithCoreDeviceResponseTypeDef(TypedDict):
-    associatedClientDevices: List[AssociatedClientDeviceTypeDef]
+    associatedClientDevices: list[AssociatedClientDeviceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -497,7 +492,7 @@ class BatchDisassociateClientDeviceFromCoreDeviceRequestTypeDef(TypedDict):
     entries: NotRequired[Sequence[DisassociateClientDeviceFromCoreDeviceEntryTypeDef]]
 
 class BatchDisassociateClientDeviceFromCoreDeviceResponseTypeDef(TypedDict):
-    errorEntries: List[DisassociateClientDeviceFromCoreDeviceErrorEntryTypeDef]
+    errorEntries: list[DisassociateClientDeviceFromCoreDeviceErrorEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateComponentVersionResponseTypeDef(TypedDict):
@@ -518,7 +513,7 @@ class ComponentLatestVersionTypeDef(TypedDict):
     creationTimestamp: NotRequired[datetime]
     description: NotRequired[str]
     publisher: NotRequired[str]
-    platforms: NotRequired[List[ComponentPlatformOutputTypeDef]]
+    platforms: NotRequired[list[ComponentPlatformOutputTypeDef]]
 
 class DescribeComponentResponseTypeDef(TypedDict):
     arn: str
@@ -528,8 +523,8 @@ class DescribeComponentResponseTypeDef(TypedDict):
     publisher: str
     description: str
     status: CloudComponentStatusTypeDef
-    platforms: List[ComponentPlatformOutputTypeDef]
-    tags: Dict[str, str]
+    platforms: list[ComponentPlatformOutputTypeDef]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 ComponentPlatformUnionTypeDef = Union[ComponentPlatformTypeDef, ComponentPlatformOutputTypeDef]
@@ -540,12 +535,12 @@ class ComponentRunWithTypeDef(TypedDict):
     windowsUser: NotRequired[str]
 
 class ListComponentVersionsResponseTypeDef(TypedDict):
-    componentVersions: List[ComponentVersionListItemTypeDef]
+    componentVersions: list[ComponentVersionListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetConnectivityInfoResponseTypeDef(TypedDict):
-    connectivityInfo: List[ConnectivityInfoTypeDef]
+    connectivityInfo: list[ConnectivityInfoTypeDef]
     message: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -554,7 +549,7 @@ class UpdateConnectivityInfoRequestTypeDef(TypedDict):
     connectivityInfo: Sequence[ConnectivityInfoTypeDef]
 
 class ListCoreDevicesResponseTypeDef(TypedDict):
-    coreDevices: List[CoreDeviceTypeDef]
+    coreDevices: list[CoreDeviceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -564,7 +559,7 @@ class DeploymentPoliciesTypeDef(TypedDict):
     configurationValidationPolicy: NotRequired[DeploymentConfigurationValidationPolicyTypeDef]
 
 class ListDeploymentsResponseTypeDef(TypedDict):
-    deployments: List[DeploymentTypeDef]
+    deployments: list[DeploymentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -582,12 +577,12 @@ class EffectiveDeploymentTypeDef(TypedDict):
     statusDetails: NotRequired[EffectiveDeploymentStatusDetailsTypeDef]
 
 class ListInstalledComponentsResponseTypeDef(TypedDict):
-    installedComponents: List[InstalledComponentTypeDef]
+    installedComponents: list[InstalledComponentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class IoTJobAbortConfigOutputTypeDef(TypedDict):
-    criteriaList: List[IoTJobAbortCriteriaTypeDef]
+    criteriaList: list[IoTJobAbortCriteriaTypeDef]
 
 class IoTJobAbortConfigTypeDef(TypedDict):
     criteriaList: Sequence[IoTJobAbortCriteriaTypeDef]
@@ -637,7 +632,7 @@ class ListInstalledComponentsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ResolveComponentCandidatesResponseTypeDef(TypedDict):
-    resolvedComponentVersions: List[ResolvedComponentVersionTypeDef]
+    resolvedComponentVersions: list[ResolvedComponentVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ComponentTypeDef(TypedDict):
@@ -660,7 +655,7 @@ class ComponentDeploymentSpecificationTypeDef(TypedDict):
     runWith: NotRequired[ComponentRunWithTypeDef]
 
 class ListEffectiveDeploymentsResponseTypeDef(TypedDict):
-    effectiveDeployments: List[EffectiveDeploymentTypeDef]
+    effectiveDeployments: list[EffectiveDeploymentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -673,7 +668,7 @@ class LambdaLinuxProcessParamsTypeDef(TypedDict):
     containerParams: NotRequired[LambdaContainerParamsTypeDef]
 
 class ListComponentsResponseTypeDef(TypedDict):
-    components: List[ComponentTypeDef]
+    components: list[ComponentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -712,13 +707,13 @@ class GetDeploymentResponseTypeDef(TypedDict):
     deploymentStatus: DeploymentStatusType
     iotJobId: str
     iotJobArn: str
-    components: Dict[str, ComponentDeploymentSpecificationOutputTypeDef]
+    components: dict[str, ComponentDeploymentSpecificationOutputTypeDef]
     deploymentPolicies: DeploymentPoliciesTypeDef
     iotJobConfiguration: DeploymentIoTJobConfigurationOutputTypeDef
     creationTimestamp: datetime
     isLatestForTarget: bool
     parentTargetArn: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 DeploymentIoTJobConfigurationUnionTypeDef = Union[

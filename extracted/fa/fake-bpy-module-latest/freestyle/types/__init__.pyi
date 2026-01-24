@@ -85,16 +85,10 @@ class AdjacencyIterator:
 
     is_incoming: bool
     """ True if the current ViewEdge is coming towards the iteration vertex, and
-False otherwise.
-
-    :type: bool
-    """
+False otherwise."""
 
     object: ViewEdge
-    """ The ViewEdge object currently pointed to by this iterator.
-
-    :type: ViewEdge
-    """
+    """ The ViewEdge object currently pointed to by this iterator."""
 
     def __init__(self) -> None:
         """Builds an `AdjacencyIterator` using the default constructor,
@@ -107,7 +101,6 @@ False otherwise.
         copy constructor or the overloaded constructor.
 
                 :param brother: An AdjacencyIterator object.
-                :type brother: typing_extensions.Self
         """
 
     def __init__(
@@ -120,13 +113,10 @@ False otherwise.
         copy constructor or the overloaded constructor.
 
                 :param vertex: The vertex which is the next crossing.
-                :type vertex: ViewVertex
                 :param restrict_to_selection: Indicates whether to force the chaining
         to stay within the set of selected ViewEdges or not.
-                :type restrict_to_selection: bool
                 :param restrict_to_unvisited: Indicates whether a ViewEdge that has
         already been chained must be ignored ot not.
-                :type restrict_to_unvisited: bool
         """
 
 class BBox:
@@ -144,10 +134,7 @@ class BinaryPredicate0D:
     """
 
     name: str
-    """ The name of the binary 0D predicate.
-
-    :type: str
-    """
+    """ The name of the binary 0D predicate."""
 
     def __init__(self) -> None:
         """Default constructor."""
@@ -157,11 +144,8 @@ class BinaryPredicate0D:
         between two Interface0D objects.
 
                 :param inter1: The first Interface0D object.
-                :type inter1: Interface0D
                 :param inter2: The second Interface0D object.
-                :type inter2: Interface0D
                 :return: True or false.
-                :rtype: bool
         """
 
 class BinaryPredicate1D:
@@ -173,10 +157,7 @@ class BinaryPredicate1D:
     """
 
     name: str
-    """ The name of the binary 1D predicate.
-
-    :type: str
-    """
+    """ The name of the binary 1D predicate."""
 
     def __init__(self) -> None:
         """Default constructor."""
@@ -186,11 +167,8 @@ class BinaryPredicate1D:
         between two Interface1D objects.
 
                 :param inter1: The first Interface1D object.
-                :type inter1: Interface1D
                 :param inter2: The second Interface1D object.
-                :type inter2: Interface1D
                 :return: True or false.
-                :rtype: bool
         """
 
 class Chain:
@@ -210,7 +188,6 @@ class Chain:
         copy constructor or from an `Id`.
 
                 :param brother: A Chain object.
-                :type brother: typing_extensions.Self
         """
 
     def __init__(self, id: Id) -> None:
@@ -218,26 +195,21 @@ class Chain:
         copy constructor or from an `Id`.
 
                 :param id: An Id object.
-                :type id: Id
         """
 
     def push_viewedge_back(self, viewedge: ViewEdge, orientation: bool) -> None:
         """Adds a ViewEdge at the end of the Chain.
 
         :param viewedge: The ViewEdge that must be added.
-        :type viewedge: ViewEdge
         :param orientation: The orientation with which the ViewEdge must be processed.
-        :type orientation: bool
         """
 
     def push_viewedge_front(self, viewedge: ViewEdge, orientation: bool) -> None:
         """Adds a ViewEdge at the beginning of the Chain.
 
                 :param viewedge: The ViewEdge that must be added.
-                :type viewedge: ViewEdge
                 :param orientation: The orientation with which the ViewEdge must be
         processed.
-                :type orientation: bool
         """
 
 class ChainingIterator:
@@ -252,22 +224,13 @@ class ChainingIterator:
     """
 
     is_incrementing: bool
-    """ True if the current iteration is an incrementation.
-
-    :type: bool
-    """
+    """ True if the current iteration is an incrementation."""
 
     next_vertex: ViewVertex
-    """ The ViewVertex that is the next crossing.
-
-    :type: ViewVertex
-    """
+    """ The ViewVertex that is the next crossing."""
 
     object: ViewEdge
-    """ The ViewEdge object currently pointed by this iterator.
-
-    :type: ViewEdge
-    """
+    """ The ViewEdge object currently pointed by this iterator."""
 
     def __init__(
         self,
@@ -281,15 +244,11 @@ class ChainingIterator:
 
                 :param restrict_to_selection: Indicates whether to force the chaining
         to stay within the set of selected ViewEdges or not.
-                :type restrict_to_selection: bool
                 :param restrict_to_unvisited: Indicates whether a ViewEdge that has
         already been chained must be ignored ot not.
-                :type restrict_to_unvisited: bool
                 :param begin: The ViewEdge from which to start the chain.
-                :type begin: None | ViewEdge | None
                 :param orientation: The direction to follow to explore the graph. If
         true, the direction indicated by the first ViewEdge is used.
-                :type orientation: bool
         """
 
     def __init__(self, brother: typing_extensions.Self) -> None:
@@ -297,7 +256,6 @@ class ChainingIterator:
         iteration and its orientation or by using the copy constructor.
 
                 :param brother:
-                :type brother: typing_extensions.Self
         """
 
     def init(self) -> None:
@@ -315,9 +273,7 @@ class ChainingIterator:
                 :param it: The iterator over the ViewEdges adjacent to the end vertex
         of the current ViewEdge. The adjacency iterator reflects the
         restriction rules by only iterating over the valid ViewEdges.
-                :type it: AdjacencyIterator
                 :return: Returns the next ViewEdge to follow, or None if chaining ends.
-                :rtype: None | ViewEdge
         """
 
 class Curve:
@@ -327,16 +283,10 @@ class Curve:
     """
 
     is_empty: bool
-    """ True if the Curve doesn't have any Vertex yet.
-
-    :type: bool
-    """
+    """ True if the Curve doesn't have any Vertex yet."""
 
     segments_size: int
-    """ The number of segments in the polyline constituting the Curve.
-
-    :type: int
-    """
+    """ The number of segments in the polyline constituting the Curve."""
 
     def __init__(self) -> None:
         """Builds a `FrsCurve` using a default constructor,
@@ -349,7 +299,6 @@ class Curve:
         copy constructor or from an `Id`.
 
                 :param brother: A Curve object.
-                :type brother: typing_extensions.Self
         """
 
     def __init__(self, id: Id) -> None:
@@ -357,21 +306,18 @@ class Curve:
         copy constructor or from an `Id`.
 
                 :param id: An Id object.
-                :type id: Id
         """
 
     def push_vertex_back(self, vertex: CurvePoint | SVertex) -> None:
         """Adds a single vertex at the end of the Curve.
 
         :param vertex: A vertex object.
-        :type vertex: CurvePoint | SVertex
         """
 
     def push_vertex_front(self, vertex: CurvePoint | SVertex) -> None:
         """Adds a single vertex at the front of the Curve.
 
         :param vertex: A vertex object.
-        :type vertex: CurvePoint | SVertex
         """
 
 class CurvePoint:
@@ -387,28 +333,16 @@ class CurvePoint:
 
     fedge: FEdge
     """ Gets the FEdge for the two SVertices that given CurvePoints consists out of.
-A shortcut for CurvePoint.first_svertex.get_fedge(CurvePoint.second_svertex).
-
-    :type: FEdge
-    """
+A shortcut for CurvePoint.first_svertex.get_fedge(CurvePoint.second_svertex)."""
 
     first_svertex: SVertex
-    """ The first SVertex upon which the CurvePoint is built.
-
-    :type: SVertex
-    """
+    """ The first SVertex upon which the CurvePoint is built."""
 
     second_svertex: SVertex
-    """ The second SVertex upon which the CurvePoint is built.
-
-    :type: SVertex
-    """
+    """ The second SVertex upon which the CurvePoint is built."""
 
     t2d: float
-    """ The 2D interpolation parameter.
-
-    :type: float
-    """
+    """ The 2D interpolation parameter."""
 
     def __init__(self) -> None:
         """Builds a CurvePoint using the default constructor, copy constructor,
@@ -425,7 +359,6 @@ A shortcut for CurvePoint.first_svertex.get_fedge(CurvePoint.second_svertex).
         objects and an interpolation parameter
 
                 :param brother: A CurvePoint object.
-                :type brother: typing_extensions.Self
         """
 
     def __init__(
@@ -437,12 +370,9 @@ A shortcut for CurvePoint.first_svertex.get_fedge(CurvePoint.second_svertex).
         objects and an interpolation parameter
 
                 :param first_vertex: The first SVertex.
-                :type first_vertex: SVertex
                 :param second_vertex: The second SVertex.
-                :type second_vertex: SVertex
                 :param t2d: A 2D interpolation parameter used to linearly interpolate
         first_vertex and second_vertex or first_point and second_point.
-                :type t2d: float
         """
 
     def __init__(
@@ -457,12 +387,9 @@ A shortcut for CurvePoint.first_svertex.get_fedge(CurvePoint.second_svertex).
         objects and an interpolation parameter
 
                 :param first_point: The first CurvePoint.
-                :type first_point: typing_extensions.Self
                 :param second_point: The second CurvePoint.
-                :type second_point: typing_extensions.Self
                 :param t2d: A 2D interpolation parameter used to linearly interpolate
         first_vertex and second_vertex or first_point and second_point.
-                :type t2d: float
         """
 
 class CurvePointIterator:
@@ -472,22 +399,13 @@ class CurvePointIterator:
     """
 
     object: CurvePoint
-    """ The CurvePoint object currently pointed by this iterator.
-
-    :type: CurvePoint
-    """
+    """ The CurvePoint object currently pointed by this iterator."""
 
     t: float
-    """ The curvilinear abscissa of the current point.
-
-    :type: float
-    """
+    """ The curvilinear abscissa of the current point."""
 
     u: float
-    """ The point parameter at the current point in the stroke (0 <= u <= 1).
-
-    :type: float
-    """
+    """ The point parameter at the current point in the stroke (0 <= u <= 1)."""
 
     def __init__(self) -> None:
         """Builds a CurvePointIterator object using either the default constructor,
@@ -500,7 +418,6 @@ class CurvePointIterator:
         copy constructor, or the overloaded constructor.
 
                 :param brother: A CurvePointIterator object.
-                :type brother: typing_extensions.Self
         """
 
     def __init__(self, step: float = 0.0) -> None:
@@ -510,7 +427,6 @@ class CurvePointIterator:
                 :param step: A resampling resolution with which the curve is resampled.
         If zero, no resampling is done (i.e., the iterator iterates over
         initial vertices).
-                :type step: float
         """
 
 class FEdge:
@@ -526,54 +442,30 @@ class FEdge:
     """
 
     first_svertex: SVertex
-    """ The first SVertex constituting this FEdge.
-
-    :type: SVertex
-    """
+    """ The first SVertex constituting this FEdge."""
 
     id: Id
-    """ The Id of this FEdge.
-
-    :type: Id
-    """
+    """ The Id of this FEdge."""
 
     is_smooth: bool
-    """ True if this FEdge is a smooth FEdge.
-
-    :type: bool
-    """
+    """ True if this FEdge is a smooth FEdge."""
 
     nature: Nature
-    """ The nature of this FEdge.
-
-    :type: Nature
-    """
+    """ The nature of this FEdge."""
 
     next_fedge: typing_extensions.Self
     """ The FEdge following this one in the ViewEdge. The value is None if
-this FEdge is the last of the ViewEdge.
-
-    :type: typing_extensions.Self
-    """
+this FEdge is the last of the ViewEdge."""
 
     previous_fedge: typing_extensions.Self
     """ The FEdge preceding this one in the ViewEdge. The value is None if
-this FEdge is the first one of the ViewEdge.
-
-    :type: typing_extensions.Self
-    """
+this FEdge is the first one of the ViewEdge."""
 
     second_svertex: SVertex
-    """ The second SVertex constituting this FEdge.
-
-    :type: SVertex
-    """
+    """ The second SVertex constituting this FEdge."""
 
     viewedge: ViewEdge
-    """ The ViewEdge to which this FEdge belongs to.
-
-    :type: ViewEdge
-    """
+    """ The ViewEdge to which this FEdge belongs to."""
 
     def FEdge(self) -> None:
         """Builds an `FEdge` using the default constructor,
@@ -586,7 +478,6 @@ this FEdge is the first one of the ViewEdge.
         copy constructor, or between two `SVertex` objects.
 
                 :param brother: An FEdge object.
-                :type brother: typing_extensions.Self
         """
 
 class FEdgeSharp:
@@ -599,58 +490,34 @@ class FEdgeSharp:
     """
 
     face_mark_left: bool
-    """ The face mark of the face lying on the left of the FEdge.
-
-    :type: bool
-    """
+    """ The face mark of the face lying on the left of the FEdge."""
 
     face_mark_right: bool
     """ The face mark of the face lying on the right of the FEdge. If this FEdge
 is a border, it has no face on the right and thus this property is set to
-false.
-
-    :type: bool
-    """
+false."""
 
     material_index_left: int
-    """ The index of the material of the face lying on the left of the FEdge.
-
-    :type: int
-    """
+    """ The index of the material of the face lying on the left of the FEdge."""
 
     material_index_right: int
     """ The index of the material of the face lying on the right of the FEdge.
 If this FEdge is a border, it has no Face on its right and therefore
-no material.
-
-    :type: int
-    """
+no material."""
 
     material_left: Material
-    """ The material of the face lying on the left of the FEdge.
-
-    :type: Material
-    """
+    """ The material of the face lying on the left of the FEdge."""
 
     material_right: Material
     """ The material of the face lying on the right of the FEdge. If this FEdge
-is a border, it has no Face on its right and therefore no material.
-
-    :type: Material
-    """
+is a border, it has no Face on its right and therefore no material."""
 
     normal_left: mathutils.Vector
-    """ The normal to the face lying on the left of the FEdge.
-
-    :type: mathutils.Vector
-    """
+    """ The normal to the face lying on the left of the FEdge."""
 
     normal_right: mathutils.Vector
     """ The normal to the face lying on the right of the FEdge. If this FEdge
-is a border, it has no Face on its right and therefore no normal.
-
-    :type: mathutils.Vector
-    """
+is a border, it has no Face on its right and therefore no normal."""
 
     def __init__(self) -> None:
         """Builds an `FEdgeSharp` using the default constructor,
@@ -663,7 +530,6 @@ is a border, it has no Face on its right and therefore no normal.
         copy constructor, or between two `SVertex` objects.
 
                 :param brother: An FEdgeSharp object.
-                :type brother: typing_extensions.Self
         """
 
     def __init__(self, first_vertex: SVertex, second_vertex: SVertex) -> None:
@@ -671,9 +537,7 @@ is a border, it has no Face on its right and therefore no normal.
         copy constructor, or between two `SVertex` objects.
 
                 :param first_vertex: The first SVertex object.
-                :type first_vertex: SVertex
                 :param second_vertex: The second SVertex object.
-                :type second_vertex: SVertex
         """
 
 class FEdgeSmooth:
@@ -683,28 +547,16 @@ class FEdgeSmooth:
     """
 
     face_mark: bool
-    """ The face mark of the face that this FEdge is running across.
-
-    :type: bool
-    """
+    """ The face mark of the face that this FEdge is running across."""
 
     material: Material
-    """ The material of the face that this FEdge is running across.
-
-    :type: Material
-    """
+    """ The material of the face that this FEdge is running across."""
 
     material_index: int
-    """ The index of the material of the face that this FEdge is running across.
-
-    :type: int
-    """
+    """ The index of the material of the face that this FEdge is running across."""
 
     normal: mathutils.Vector
-    """ The normal of the face that this FEdge is running across.
-
-    :type: mathutils.Vector
-    """
+    """ The normal of the face that this FEdge is running across."""
 
     def __init__(self) -> None:
         """Builds an `FEdgeSmooth` using the default constructor,
@@ -717,7 +569,6 @@ class FEdgeSmooth:
         copy constructor, or between two `SVertex`.
 
                 :param brother: An FEdgeSmooth object.
-                :type brother: typing_extensions.Self
         """
 
     def __init__(self, first_vertex: SVertex, second_vertex: SVertex) -> None:
@@ -725,25 +576,17 @@ class FEdgeSmooth:
         copy constructor, or between two `SVertex`.
 
                 :param first_vertex: The first SVertex object.
-                :type first_vertex: SVertex
                 :param second_vertex: The second SVertex object.
-                :type second_vertex: SVertex
         """
 
 class Id:
     """Class for representing an object Id."""
 
     first: int
-    """ The first number constituting the Id.
-
-    :type: int
-    """
+    """ The first number constituting the Id."""
 
     second: int
-    """ The second number constituting the Id.
-
-    :type: int
-    """
+    """ The second number constituting the Id."""
 
     def __init__(self, brother) -> None:
         """Build the Id from two numbers or another `Id` using the copy constructor.
@@ -755,9 +598,7 @@ class Id:
         """Build the Id from two numbers or another `Id` using the copy constructor.
 
         :param first:
-        :type first: int
         :param second: The second number.
-        :type second: int
         """
 
 class IntegrationType:
@@ -770,52 +611,28 @@ class Interface0D:
     """Base class for any 0D element."""
 
     id: Id
-    """ The Id of this 0D element.
-
-    :type: Id
-    """
+    """ The Id of this 0D element."""
 
     name: str
-    """ The string of the name of this 0D element.
-
-    :type: str
-    """
+    """ The string of the name of this 0D element."""
 
     nature: Nature
-    """ The nature of this 0D element.
-
-    :type: Nature
-    """
+    """ The nature of this 0D element."""
 
     point_2d: mathutils.Vector
-    """ The 2D point of this 0D element.
-
-    :type: mathutils.Vector
-    """
+    """ The 2D point of this 0D element."""
 
     point_3d: mathutils.Vector
-    """ The 3D point of this 0D element.
-
-    :type: mathutils.Vector
-    """
+    """ The 3D point of this 0D element."""
 
     projected_x: float
-    """ The X coordinate of the projected 3D point of this 0D element.
-
-    :type: float
-    """
+    """ The X coordinate of the projected 3D point of this 0D element."""
 
     projected_y: float
-    """ The Y coordinate of the projected 3D point of this 0D element.
-
-    :type: float
-    """
+    """ The Y coordinate of the projected 3D point of this 0D element."""
 
     projected_z: float
-    """ The Z coordinate of the projected 3D point of this 0D element.
-
-    :type: float
-    """
+    """ The Z coordinate of the projected 3D point of this 0D element."""
 
     def __init__(self) -> None:
         """Default constructor."""
@@ -825,9 +642,7 @@ class Interface0D:
         element given as the argument.
 
                 :param inter: A 0D element.
-                :type inter: typing_extensions.Self
                 :return: The FEdge lying between the two 0D elements.
-                :rtype: FEdge
         """
 
 class Interface0DIterator:
@@ -837,38 +652,25 @@ class Interface0DIterator:
 
     at_last: bool
     """ True if the iterator points to the last valid element.
-For its counterpart (pointing to the first valid element), use it.is_begin.
-
-    :type: bool
-    """
+For its counterpart (pointing to the first valid element), use it.is_begin."""
 
     object: Interface0D
     """ The 0D object currently pointed to by this iterator. Note that the object
 may be an instance of an Interface0D subclass. For example if the iterator
 has been created from the vertices_begin() method of the `Stroke`
-class, the .object property refers to a `StrokeVertex` object.
-
-    :type: Interface0D
-    """
+class, the .object property refers to a `StrokeVertex` object."""
 
     t: float
-    """ The curvilinear abscissa of the current point.
-
-    :type: float
-    """
+    """ The curvilinear abscissa of the current point."""
 
     u: float
-    """ The point parameter at the current point in the 1D element (0 <= u <= 1).
-
-    :type: float
-    """
+    """ The point parameter at the current point in the 1D element (0 <= u <= 1)."""
 
     def __init__(self, brother: typing_extensions.Self) -> None:
         """Construct a nested Interface0DIterator using either the copy constructor
         or the constructor that takes an argument of a Function0D.
 
                 :param brother: An Interface0DIterator object.
-                :type brother: typing_extensions.Self
         """
 
     def __init__(
@@ -878,41 +680,25 @@ class, the .object property refers to a `StrokeVertex` object.
         or the constructor that takes an argument of a Function0D.
 
                 :param it: An iterator object to be nested.
-                :type it: CurvePointIterator | SVertexIterator | StrokeVertexIterator
         """
 
 class Interface1D:
     """Base class for any 1D element."""
 
     id: Id
-    """ The Id of this Interface1D.
-
-    :type: Id
-    """
+    """ The Id of this Interface1D."""
 
     length_2d: float
-    """ The 2D length of this Interface1D.
-
-    :type: float
-    """
+    """ The 2D length of this Interface1D."""
 
     name: str
-    """ The string of the name of the 1D element.
-
-    :type: str
-    """
+    """ The string of the name of the 1D element."""
 
     nature: Nature
-    """ The nature of this Interface1D.
-
-    :type: Nature
-    """
+    """ The nature of this Interface1D."""
 
     time_stamp: int
-    """ The time stamp of the 1D element, mainly used for selection.
-
-    :type: int
-    """
+    """ The time stamp of the 1D element, mainly used for selection."""
 
     def __init__(self) -> None:
         """Default constructor."""
@@ -925,9 +711,7 @@ class Interface1D:
 
                 :param t: A sampling with which we want to iterate over points of
         this 1D element.
-                :type t: float
                 :return: An Interface0DIterator pointing to the first point.
-                :rtype: Interface0DIterator
         """
 
     def points_end(self, t: float = 0.0) -> Interface0DIterator:
@@ -938,9 +722,7 @@ class Interface1D:
 
                 :param t: A sampling with which we want to iterate over points of
         this 1D element.
-                :type t: float
                 :return: An Interface0DIterator pointing after the last point.
-                :rtype: Interface0DIterator
         """
 
     def vertices_begin(self) -> Interface0DIterator:
@@ -948,7 +730,6 @@ class Interface1D:
         first vertex.
 
                 :return: An Interface0DIterator pointing to the first vertex.
-                :rtype: Interface0DIterator
         """
 
     def vertices_end(self) -> Interface0DIterator:
@@ -956,29 +737,19 @@ class Interface1D:
         the last vertex.
 
                 :return: An Interface0DIterator pointing after the last vertex.
-                :rtype: Interface0DIterator
         """
 
 class Iterator:
     """Base class to define iterators."""
 
     is_begin: bool
-    """ True if the iterator points to the first element.
-
-    :type: bool
-    """
+    """ True if the iterator points to the first element."""
 
     is_end: bool
-    """ True if the iterator points to the last element.
-
-    :type: bool
-    """
+    """ True if the iterator points to the last element."""
 
     name: str
-    """ The string of the name of this iterator.
-
-    :type: str
-    """
+    """ The string of the name of this iterator."""
 
     def __init__(self) -> None:
         """Default constructor."""
@@ -993,46 +764,25 @@ class Material:
     """Class defining a material."""
 
     ambient: mathutils.Color
-    """ RGBA components of the ambient color of the material.
-
-    :type: mathutils.Color
-    """
+    """ RGBA components of the ambient color of the material."""
 
     diffuse: mathutils.Vector
-    """ RGBA components of the diffuse color of the material.
-
-    :type: mathutils.Vector
-    """
+    """ RGBA components of the diffuse color of the material."""
 
     emission: mathutils.Color
-    """ RGBA components of the emissive color of the material.
-
-    :type: mathutils.Color
-    """
+    """ RGBA components of the emissive color of the material."""
 
     line: mathutils.Vector
-    """ RGBA components of the line color of the material.
-
-    :type: mathutils.Vector
-    """
+    """ RGBA components of the line color of the material."""
 
     priority: int
-    """ Line color priority of the material.
-
-    :type: int
-    """
+    """ Line color priority of the material."""
 
     shininess: float
-    """ Shininess coefficient of the material.
-
-    :type: float
-    """
+    """ Shininess coefficient of the material."""
 
     specular: mathutils.Vector
-    """ RGBA components of the specular color of the material.
-
-    :type: mathutils.Vector
-    """
+    """ RGBA components of the specular color of the material."""
 
     def __init__(self) -> None:
         """Creates a `FrsMaterial` using either default constructor,
@@ -1045,7 +795,6 @@ class Material:
         copy constructor, or an overloaded constructor
 
                 :param brother: A Material object to be used as a copy constructor.
-                :type brother: typing_extensions.Self
         """
 
     def __init__(
@@ -1074,19 +823,12 @@ class Material:
         copy constructor, or an overloaded constructor
 
                 :param line: The line color.
-                :type line: collections.abc.Sequence[float] | list[float] | mathutils.Vector | tuple[float, float, float, float]
                 :param diffuse: The diffuse color.
-                :type diffuse: typing.Any
                 :param ambient: The ambient color.
-                :type ambient: collections.abc.Sequence[float] | list[float] | mathutils.Vector | tuple[float, float, float, float]
                 :param specular: The specular color.
-                :type specular: collections.abc.Sequence[float] | list[float] | mathutils.Vector | tuple[float, float, float, float]
                 :param emission: The emissive color.
-                :type emission: collections.abc.Sequence[float] | list[float] | mathutils.Vector | tuple[float, float, float, float]
                 :param shininess: The shininess coefficient.
-                :type shininess: float
                 :param priority: The line color priority.
-                :type priority: int
         """
 
 class MediumType:
@@ -1106,16 +848,13 @@ class Noise:
         otherwise, time is used as a seed.
 
                 :param seed: Seed for random number generation.
-                :type seed: int
         """
 
     def smoothNoise1(self, v: float) -> float:
         """Returns a smooth noise value for a 1D element.
 
         :param v: One-dimensional sample point.
-        :type v: float
         :return: A smooth noise value.
-        :rtype: float
         """
 
     def smoothNoise2(
@@ -1128,9 +867,7 @@ class Noise:
         """Returns a smooth noise value for a 2D element.
 
         :param v: Two-dimensional sample point.
-        :type v: collections.abc.Sequence[float] | list[float] | mathutils.Vector | tuple[float, float]
         :return: A smooth noise value.
-        :rtype: float
         """
 
     def smoothNoise3(
@@ -1143,24 +880,17 @@ class Noise:
         """Returns a smooth noise value for a 3D element.
 
         :param v: Three-dimensional sample point.
-        :type v: collections.abc.Sequence[float] | list[float] | mathutils.Vector | tuple[float, float, float]
         :return: A smooth noise value.
-        :rtype: float
         """
 
     def turbulence1(self, v: float, freq: float, amp: float, oct: int = 4) -> float:
         """Returns a noise value for a 1D element.
 
         :param v: One-dimensional sample point.
-        :type v: float
         :param freq: Noise frequency.
-        :type freq: float
         :param amp: Amplitude.
-        :type amp: float
         :param oct: Number of octaves.
-        :type oct: int
         :return: A noise value.
-        :rtype: float
         """
 
     def turbulence2(
@@ -1176,15 +906,10 @@ class Noise:
         """Returns a noise value for a 2D element.
 
         :param v: Two-dimensional sample point.
-        :type v: collections.abc.Sequence[float] | list[float] | mathutils.Vector | tuple[float, float]
         :param freq: Noise frequency.
-        :type freq: float
         :param amp: Amplitude.
-        :type amp: float
         :param oct: Number of octaves.
-        :type oct: int
         :return: A noise value.
-        :rtype: float
         """
 
     def turbulence3(
@@ -1200,15 +925,10 @@ class Noise:
         """Returns a noise value for a 3D element.
 
         :param v: Three-dimensional sample point.
-        :type v: collections.abc.Sequence[float] | list[float] | mathutils.Vector | tuple[float, float, float]
         :param freq: Noise frequency.
-        :type freq: float
         :param amp: Amplitude.
-        :type amp: float
         :param oct: Number of octaves.
-        :type oct: int
         :return: A noise value.
-        :rtype: float
         """
 
 class NonTVertex:
@@ -1217,10 +937,7 @@ class NonTVertex:
     """
 
     svertex: SVertex
-    """ The SVertex on top of which this NonTVertex is built.
-
-    :type: SVertex
-    """
+    """ The SVertex on top of which this NonTVertex is built."""
 
     def __init__(self) -> None:
         """Builds a `NonTVertex` using the default constructor or a `SVertex`."""
@@ -1229,7 +946,6 @@ class NonTVertex:
         """Builds a `NonTVertex` using the default constructor or a `SVertex`.
 
         :param svertex: An SVertex object.
-        :type svertex: SVertex
         """
 
 class Operators:
@@ -1255,11 +971,9 @@ class Operators:
 
                 :param it: The ChainingIterator on the ViewEdges of the ViewMap. It
         contains the chaining rule.
-                :type it: ChainingIterator
                 :param pred: The predicate on the ViewEdge that expresses the stopping condition.
         This parameter is optional, you make not want to pass a stopping criterion
         when the stopping criterion is already contained in the iterator definition.
-                :type pred: UnaryPredicate1D
         """
 
     @staticmethod
@@ -1278,7 +992,6 @@ class Operators:
 
                 :param it: The ChainingIterator on the ViewEdges of the ViewMap. It
         contains the chaining rule.
-                :type it: ChainingIterator
         """
 
     @staticmethod
@@ -1293,15 +1006,12 @@ class Operators:
 
                 :param it: The iterator on the ViewEdges of the ViewMap. It contains
         the chaining rule.
-                :type it: ViewEdgeIterator
                 :param pred: The predicate on the ViewEdge that expresses the
         stopping condition.
-                :type pred: UnaryPredicate1D
                 :param modifier: A function that takes a ViewEdge as argument and
         that is used to modify the processed ViewEdge state (the
         timestamp incrementation is a typical illustration of such a modifier).
         If this argument is not given, the time stamp is automatically managed.
-                :type modifier: UnaryFunction1DVoid
         """
 
     @staticmethod
@@ -1314,10 +1024,8 @@ class Operators:
 
                 :param it: The iterator on the ViewEdges of the ViewMap. It contains
         the chaining rule.
-                :type it: ViewEdgeIterator
                 :param pred: The predicate on the ViewEdge that expresses the
         stopping condition.
-                :type pred: UnaryPredicate1D
         """
 
     @staticmethod
@@ -1327,9 +1035,7 @@ class Operators:
 
                 :param pred: The predicate that a chain must verify in order to be
         transform as a stroke.
-                :type pred: UnaryPredicate1D
                 :param shaders: The list of shaders used to shade the strokes.
-                :type shaders: list[StrokeShader]
         """
 
     @staticmethod
@@ -1337,9 +1043,7 @@ class Operators:
         """Returns the Chain at the index in the current set of Chains.
 
         :param i: index (0 <= i < Operators.get_chains_size()).
-        :type i: int
         :return: The Chain object.
-        :rtype: Chain
         """
 
     @staticmethod
@@ -1347,7 +1051,6 @@ class Operators:
         """Returns the number of Chains.
 
         :return: The number of Chains.
-        :rtype: int
         """
 
     @staticmethod
@@ -1355,9 +1058,7 @@ class Operators:
         """Returns the Stroke at the index in the current set of Strokes.
 
         :param i: index (0 <= i < Operators.get_strokes_size()).
-        :type i: int
         :return: The Stroke object.
-        :rtype: Stroke
         """
 
     @staticmethod
@@ -1365,7 +1066,6 @@ class Operators:
         """Returns the number of Strokes.
 
         :return: The number of Strokes.
-        :rtype: int
         """
 
     @staticmethod
@@ -1373,7 +1073,6 @@ class Operators:
         """Returns the number of ViewEdges.
 
         :return: The number of ViewEdges.
-        :rtype: int
         """
 
     @staticmethod
@@ -1381,9 +1080,7 @@ class Operators:
         """Returns the ViewEdge at the index in the current set of ViewEdges.
 
         :param i: index (0 <= i < Operators.get_view_edges_size()).
-        :type i: int
         :return: The ViewEdge object.
-        :rtype: ViewEdge
         """
 
     @staticmethod
@@ -1401,17 +1098,14 @@ class Operators:
 
                 :param func: The Unary Function evaluated at each point of the chain.
         The splitting point is the point minimizing this function.
-                :type func: UnaryFunction0DDouble
                 :param pred_1d: The Unary Predicate expressing the recursivity stopping
         condition. This predicate is evaluated for each curve before it
         actually gets split. If pred_1d(chain) is true, the curve wont be
         split anymore.
-                :type pred_1d: UnaryPredicate1D
                 :param sampling: The resolution used to sample the chain for the
         predicates evaluation. (The chain is not actually resampled; a
         virtual point only progresses along the curve using this
         resolution.)
-                :type sampling: float
         """
 
     @staticmethod
@@ -1432,23 +1126,19 @@ class Operators:
 
                 :param func: The Unary Function evaluated at each point of the chain.
         The splitting point is the point minimizing this function.
-                :type func: UnaryFunction0DDouble
                 :param pred_0d: The Unary Predicate 0D used to select the candidate
         points where the split can occur. For example, it is very likely
         that would rather have your chain splitting around its middle
         point than around one of its extremities. A 0D predicate working
         on the curvilinear abscissa allows to add this kind of constraints.
-                :type pred_0d: UnaryPredicate0D
                 :param pred_1d: The Unary Predicate expressing the recursivity stopping
         condition. This predicate is evaluated for each curve before it
         actually gets split. If pred_1d(chain) is true, the curve wont be
         split anymore.
-                :type pred_1d: UnaryPredicate1D
                 :param sampling: The resolution used to sample the chain for the
         predicates evaluation. (The chain is not actually resampled; a
         virtual point only progresses along the curve using this
         resolution.)
-                :type sampling: float
         """
 
     @staticmethod
@@ -1457,7 +1147,6 @@ class Operators:
         stroke creation are accumulated if delete_strokes is set to False.
 
                 :param delete_strokes: Delete the strokes that are currently stored.
-                :type delete_strokes: bool
         """
 
     @staticmethod
@@ -1466,7 +1155,6 @@ class Operators:
         condition.
 
                 :param pred: The predicate expressing this condition.
-                :type pred: UnaryPredicate1D
         """
 
     @staticmethod
@@ -1483,15 +1171,12 @@ class Operators:
 
                 :param starting_pred: The predicate on a point that expresses the
         starting condition. Each time this condition is verified, a new chain begins
-                :type starting_pred: UnaryPredicate0D
                 :param stopping_pred: The predicate on a point that expresses the
         stopping condition. The chain ends as soon as this predicate is verified.
-                :type stopping_pred: UnaryPredicate0D
                 :param sampling: The resolution used to sample the chain for the
         predicates evaluation. (The chain is not actually resampled;
         a virtual point only progresses along the curve using this
         resolution.)
-                :type sampling: float
         """
 
     @staticmethod
@@ -1505,12 +1190,10 @@ class Operators:
                 :param pred: The predicate on a point that expresses the splitting condition.
         Each time the condition is verified, the chain is split into two chains.
         The resulting set of chains is a partition of the initial chain
-                :type pred: UnaryPredicate0D
                 :param sampling: The resolution used to sample the chain for the
         predicates evaluation. (The chain is not actually resampled;
         a virtual point only progresses along the curve using this
         resolution.)
-                :type sampling: float
         """
 
     @staticmethod
@@ -1519,7 +1202,6 @@ class Operators:
         comparison predicate given as argument.
 
                 :param pred: The binary predicate used for the comparison.
-                :type pred: BinaryPredicate1D
         """
 
 class SShape:
@@ -1528,34 +1210,19 @@ class SShape:
     """
 
     bbox: BBox
-    """ The bounding box of the SShape.
-
-    :type: BBox
-    """
+    """ The bounding box of the SShape."""
 
     edges: list[FEdge]
-    """ The list of edges constituting this SShape.
-
-    :type: list[FEdge]
-    """
+    """ The list of edges constituting this SShape."""
 
     id: Id
-    """ The Id of this SShape.
-
-    :type: Id
-    """
+    """ The Id of this SShape."""
 
     name: str
-    """ The name of the SShape.
-
-    :type: str
-    """
+    """ The name of the SShape."""
 
     vertices: list[SVertex]
-    """ The list of vertices constituting this SShape.
-
-    :type: list[SVertex]
-    """
+    """ The list of vertices constituting this SShape."""
 
     def __init__(self) -> None:
         """Creates a `SShape` class using either a default constructor or copy constructor."""
@@ -1564,14 +1231,12 @@ class SShape:
         """Creates a `SShape` class using either a default constructor or copy constructor.
 
         :param brother: An SShape object.
-        :type brother: typing_extensions.Self
         """
 
     def add_edge(self, edge: FEdge) -> None:
         """Adds an FEdge to the list of FEdges.
 
         :param edge: An FEdge object.
-        :type edge: FEdge
         """
 
     def add_vertex(self, vertex: SVertex) -> None:
@@ -1579,7 +1244,6 @@ class SShape:
         attribute of the SVertex is also set to this SShape.
 
                 :param vertex: An SVertex object.
-                :type vertex: SVertex
         """
 
     def compute_bbox(self) -> None:
@@ -1597,49 +1261,28 @@ three-dimensional vectors representing the first and second principal
 directions, i.e. the directions of the normal plane where the
 curvature takes its maximum and minimum values, respectively; and Kr,
 er and dKr are the radial curvature, radial direction, and the
-derivative of the radial curvature at this SVertex, respectively.
-
-    :type: tuple
-    """
+derivative of the radial curvature at this SVertex, respectively."""
 
     id: Id
-    """ The Id of this SVertex.
-
-    :type: Id
-    """
+    """ The Id of this SVertex."""
 
     normals: list[mathutils.Vector]
     """ The normals for this Vertex as a list. In a sharp surface, an SVertex
 has exactly one normal. In a smooth surface, an SVertex can have any
-number of normals.
-
-    :type: list[mathutils.Vector]
-    """
+number of normals."""
 
     normals_size: int
-    """ The number of different normals for this SVertex.
-
-    :type: int
-    """
+    """ The number of different normals for this SVertex."""
 
     point_2d: mathutils.Vector
-    """ The projected 3D coordinates of the SVertex.
-
-    :type: mathutils.Vector
-    """
+    """ The projected 3D coordinates of the SVertex."""
 
     point_3d: mathutils.Vector
-    """ The 3D coordinates of the SVertex.
-
-    :type: mathutils.Vector
-    """
+    """ The 3D coordinates of the SVertex."""
 
     viewvertex: ViewVertex
     """ If this SVertex is also a ViewVertex, this property refers to the
-ViewVertex, and None otherwise.
-
-    :type: ViewVertex
-    """
+ViewVertex, and None otherwise."""
 
     def __init__(self) -> None:
         """Builds a `SVertex` using the default constructor,
@@ -1652,7 +1295,6 @@ ViewVertex, and None otherwise.
         copy constructor or the overloaded constructor which builds   a `SVertex` from 3D coordinates and an Id.
 
                 :param brother: A SVertex object.
-                :type brother: typing_extensions.Self
         """
 
     def __init__(
@@ -1662,16 +1304,13 @@ ViewVertex, and None otherwise.
         copy constructor or the overloaded constructor which builds   a `SVertex` from 3D coordinates and an Id.
 
                 :param point_3d: A three-dimensional vector.
-                :type point_3d: collections.abc.Sequence[float] | mathutils.Vector
                 :param id: An Id object.
-                :type id: Id
         """
 
     def add_fedge(self, fedge: FEdge) -> None:
         """Add an FEdge to the list of edges emanating from this SVertex.
 
         :param fedge: An FEdge.
-        :type fedge: FEdge
         """
 
     def add_normal(
@@ -1685,7 +1324,6 @@ ViewVertex, and None otherwise.
         is already in the set, nothing changes.
 
                 :param normal: A three-dimensional vector.
-                :type normal: collections.abc.Sequence[float] | list[float] | mathutils.Vector | tuple[float, float, float]
         """
 
 class SVertexIterator:
@@ -1695,22 +1333,13 @@ class SVertexIterator:
     """
 
     object: SVertex
-    """ The SVertex object currently pointed by this iterator.
-
-    :type: SVertex
-    """
+    """ The SVertex object currently pointed by this iterator."""
 
     t: float
-    """ The curvilinear abscissa of the current point.
-
-    :type: float
-    """
+    """ The curvilinear abscissa of the current point."""
 
     u: float
-    """ The point parameter at the current point in the 1D element (0 <= u <= 1).
-
-    :type: float
-    """
+    """ The point parameter at the current point in the 1D element (0 <= u <= 1)."""
 
     def __init__(self) -> None:
         """Build an SVertexIterator using either the default constructor, copy constructor,or the overloaded constructor that starts iteration from an SVertex object vertex."""
@@ -1719,7 +1348,6 @@ class SVertexIterator:
         """Build an SVertexIterator using either the default constructor, copy constructor,or the overloaded constructor that starts iteration from an SVertex object vertex.
 
         :param brother: An SVertexIterator object.
-        :type brother: typing_extensions.Self
         """
 
     def __init__(
@@ -1733,15 +1361,10 @@ class SVertexIterator:
         """Build an SVertexIterator using either the default constructor, copy constructor,or the overloaded constructor that starts iteration from an SVertex object vertex.
 
         :param vertex: The SVertex from which the iterator starts iteration.
-        :type vertex: SVertex
         :param begin: The first SVertex of a ViewEdge.
-        :type begin: SVertex
         :param previous_edge: The previous FEdge coming to vertex.
-        :type previous_edge: FEdge
         :param next_edge: The next FEdge going out from vertex.
-        :type next_edge: FEdge
         :param t: The curvilinear abscissa at vertex.
-        :type t: float
         """
 
 class Stroke:
@@ -1752,34 +1375,19 @@ class Stroke:
     """
 
     id: Id
-    """ The Id of this Stroke.
-
-    :type: Id
-    """
+    """ The Id of this Stroke."""
 
     length_2d: float
-    """ The 2D length of the Stroke.
-
-    :type: float
-    """
+    """ The 2D length of the Stroke."""
 
     medium_type: MediumType
-    """ The MediumType used for this Stroke.
-
-    :type: MediumType
-    """
+    """ The MediumType used for this Stroke."""
 
     texture_id: int
-    """ The ID of the texture used to simulate th marks system for this Stroke.
-
-    :type: int
-    """
+    """ The ID of the texture used to simulate th marks system for this Stroke."""
 
     tips: bool
-    """ True if this Stroke uses a texture with tips, and false otherwise.
-
-    :type: bool
-    """
+    """ True if this Stroke uses a texture with tips, and false otherwise."""
 
     def Stroke(self) -> None:
         """Creates a `Stroke` using the default constructor or copy constructor"""
@@ -1798,10 +1406,8 @@ class Stroke:
 
                 :param n: The number of stroke vertices we eventually want
         in our Stroke.
-                :type n: int
                 :return: The sampling that must be used in the Resample(float)
         method.
-                :rtype: float
         """
 
     def insert_vertex(self, vertex: StrokeVertex, next: StrokeVertexIterator) -> None:
@@ -1810,10 +1416,8 @@ class Stroke:
         updated consequently.
 
                 :param vertex: The StrokeVertex to insert in the Stroke.
-                :type vertex: StrokeVertex
                 :param next: A StrokeVertexIterator pointing to the StrokeVertex
         before which vertex must be inserted.
-                :type next: StrokeVertexIterator
         """
 
     def remove_all_vertices(self) -> None:
@@ -1824,7 +1428,6 @@ class Stroke:
         and curvilinear abscissa are updated consequently.
 
                 :param vertex: the StrokeVertex to remove from the Stroke.
-                :type vertex: StrokeVertex
         """
 
     def resample(self, n: int) -> None:
@@ -1835,7 +1438,6 @@ class Stroke:
         it is going to add N-vertices_size, where vertices_size is the
         number of points we already have. If vertices_size >= N, no
         resampling is done.
-                :type n: int
         """
 
     def resample(self, sampling: float) -> None:
@@ -1844,7 +1446,6 @@ class Stroke:
 
                 :param sampling: Resamples the stroke with a given sampling value. If the
         sampling is smaller than the actual sampling value, no resampling is done.
-                :type sampling: float
         """
 
     def stroke_vertices_begin(self, t: float = 0.0) -> StrokeVertexIterator:
@@ -1854,9 +1455,7 @@ class Stroke:
 
                 :param t: The resampling value with which we want our Stroke to be
         resampled. If 0 is specified, no resampling is done.
-                :type t: float
                 :return: A StrokeVertexIterator pointing on the first StrokeVertex.
-                :rtype: StrokeVertexIterator
         """
 
     def stroke_vertices_end(self) -> StrokeVertexIterator:
@@ -1864,14 +1463,12 @@ class Stroke:
         of the Stroke.
 
                 :return: A StrokeVertexIterator pointing after the last StrokeVertex.
-                :rtype: StrokeVertexIterator
         """
 
     def stroke_vertices_size(self) -> int:
         """Returns the number of StrokeVertex constituting the Stroke.
 
         :return: The number of stroke vertices.
-        :rtype: int
         """
 
     def update_length(self) -> None:
@@ -1884,30 +1481,18 @@ class StrokeAttribute:
     """
 
     alpha: float
-    """ Alpha component of the stroke color.
-
-    :type: float
-    """
+    """ Alpha component of the stroke color."""
 
     color: mathutils.Color
-    """ RGB components of the stroke color.
-
-    :type: mathutils.Color
-    """
+    """ RGB components of the stroke color."""
 
     thickness: mathutils.Vector
     """ Right and left components of the stroke thickness.
 The right (left) component is the thickness on the right (left) of the vertex
-when following the stroke.
-
-    :type: mathutils.Vector
-    """
+when following the stroke."""
 
     visible: bool
-    """ The visibility flag. True if the StrokeVertex is visible.
-
-    :type: bool
-    """
+    """ The visibility flag. True if the StrokeVertex is visible."""
 
     def __init__(self) -> None:
         """Creates a `StrokeAttribute` object using either a default constructor,
@@ -1922,7 +1507,6 @@ when following the stroke.
         to interpolate between two `StrokeAttribute` objects.
 
                 :param brother: A StrokeAttribute object to be used as a copy constructor.
-                :type brother: typing_extensions.Self
         """
 
     def __init__(
@@ -1939,17 +1523,11 @@ when following the stroke.
         to interpolate between two `StrokeAttribute` objects.
 
                 :param red: Red component of a stroke color.
-                :type red: float
                 :param green: Green component of a stroke color.
-                :type green: float
                 :param blue: Blue component of a stroke color.
-                :type blue: float
                 :param alpha: Alpha component of a stroke color.
-                :type alpha: float
                 :param thickness_right: Stroke thickness on the right.
-                :type thickness_right: float
                 :param thickness_left: Stroke thickness on the left.
-                :type thickness_left: float
         """
 
     def __init__(
@@ -1963,47 +1541,36 @@ when following the stroke.
         to interpolate between two `StrokeAttribute` objects.
 
                 :param attribute1: The first StrokeAttribute object.
-                :type attribute1: typing_extensions.Self
                 :param attribute2: The second StrokeAttribute object.
-                :type attribute2: typing_extensions.Self
                 :param t: The interpolation parameter (0 <= t <= 1).
-                :type t: float
         """
 
     def get_attribute_real(self, name: str) -> float:
         """Returns an attribute of float type.
 
         :param name: The name of the attribute.
-        :type name: str
         :return: The attribute value.
-        :rtype: float
         """
 
     def get_attribute_vec2(self, name: str) -> mathutils.Vector:
         """Returns an attribute of two-dimensional vector type.
 
         :param name: The name of the attribute.
-        :type name: str
         :return: The attribute value.
-        :rtype: mathutils.Vector
         """
 
     def get_attribute_vec3(self, name: str) -> mathutils.Vector:
         """Returns an attribute of three-dimensional vector type.
 
         :param name: The name of the attribute.
-        :type name: str
         :return: The attribute value.
-        :rtype: mathutils.Vector
         """
 
     def has_attribute_real(self, name: str) -> bool:
         """Checks whether the attribute name of float type is available.
 
         :param name: The name of the attribute.
-        :type name: str
         :return: True if the attribute is available.
-        :rtype: bool
         """
 
     def has_attribute_vec2(self, name: str) -> bool:
@@ -2011,9 +1578,7 @@ when following the stroke.
         is available.
 
                 :param name: The name of the attribute.
-                :type name: str
                 :return: True if the attribute is available.
-                :rtype: bool
         """
 
     def has_attribute_vec3(self, name: str) -> bool:
@@ -2021,9 +1586,7 @@ when following the stroke.
         type is available.
 
                 :param name: The name of the attribute.
-                :type name: str
                 :return: True if the attribute is available.
-                :rtype: bool
         """
 
     def set_attribute_real(self, name: str, value: float) -> None:
@@ -2032,9 +1595,7 @@ when following the stroke.
         replaces the old one.
 
                 :param name: The name of the attribute.
-                :type name: str
                 :param value: The attribute value.
-                :type value: float
         """
 
     def set_attribute_vec2(
@@ -2050,9 +1611,7 @@ when following the stroke.
         the new value replaces the old one.
 
                 :param name: The name of the attribute.
-                :type name: str
                 :param value: The attribute value.
-                :type value: collections.abc.Sequence[float] | list[float] | mathutils.Vector | tuple[float, float, float]
         """
 
     def set_attribute_vec3(
@@ -2068,9 +1627,7 @@ when following the stroke.
         Otherwise, the new value replaces the old one.
 
                 :param name: The name of the attribute.
-                :type name: str
                 :param value: The attribute value as a 3D vector.
-                :type value: collections.abc.Sequence[float] | list[float] | mathutils.Vector | tuple[float, float, float]
         """
 
 class StrokeShader:
@@ -2084,10 +1641,7 @@ class StrokeShader:
     """
 
     name: str
-    """ The name of the stroke shader.
-
-    :type: str
-    """
+    """ The name of the stroke shader."""
 
     def __init__(self) -> None:
         """Default constructor."""
@@ -2096,42 +1650,26 @@ class StrokeShader:
         """The shading method. Must be overloaded by inherited classes.
 
         :param stroke: A Stroke object.
-        :type stroke: Stroke
         """
 
 class StrokeVertex:
     """Class hierarchy: `Interface0D` > `CurvePoint` > `StrokeVertex`Class to define a stroke vertex."""
 
     attribute: StrokeAttribute
-    """ StrokeAttribute for this StrokeVertex.
-
-    :type: StrokeAttribute
-    """
+    """ StrokeAttribute for this StrokeVertex."""
 
     curvilinear_abscissa: float
-    """ Curvilinear abscissa of this StrokeVertex in the Stroke.
-
-    :type: float
-    """
+    """ Curvilinear abscissa of this StrokeVertex in the Stroke."""
 
     point: mathutils.Vector
-    """ 2D point coordinates.
-
-    :type: mathutils.Vector
-    """
+    """ 2D point coordinates."""
 
     stroke_length: float
     """ Stroke length (it is only a value retained by the StrokeVertex,
-and it won't change the real stroke length).
-
-    :type: float
-    """
+and it won't change the real stroke length)."""
 
     u: float
-    """ Curvilinear abscissa of this StrokeVertex in the Stroke.
-
-    :type: float
-    """
+    """ Curvilinear abscissa of this StrokeVertex in the Stroke."""
 
     def __init__(self) -> None:
         """Builds a `StrokeVertex` using the default constructor,
@@ -2146,7 +1684,6 @@ and it won't change the real stroke length).
         from a CurvePoint, from a SVertex, or a `SVertex`   and a `StrokeAttribute` object.
 
                 :param brother: A StrokeVertex object.
-                :type brother: typing_extensions.Self
         """
 
     def __init__(
@@ -2160,11 +1697,8 @@ and it won't change the real stroke length).
         from a CurvePoint, from a SVertex, or a `SVertex`   and a `StrokeAttribute` object.
 
                 :param first_vertex: The first StrokeVertex.
-                :type first_vertex: typing_extensions.Self
                 :param second_vertex: The second StrokeVertex.
-                :type second_vertex: typing_extensions.Self
                 :param t3d: An interpolation parameter.
-                :type t3d: float
         """
 
     def __init__(self, point: CurvePoint) -> None:
@@ -2173,7 +1707,6 @@ and it won't change the real stroke length).
         from a CurvePoint, from a SVertex, or a `SVertex`   and a `StrokeAttribute` object.
 
                 :param point: A CurvePoint object.
-                :type point: CurvePoint
         """
 
     def __init__(self, svertex: SVertex) -> None:
@@ -2182,7 +1715,6 @@ and it won't change the real stroke length).
         from a CurvePoint, from a SVertex, or a `SVertex`   and a `StrokeAttribute` object.
 
                 :param svertex: An SVertex object.An SVertex object.
-                :type svertex: SVertex
         """
 
     def __init__(self, svertex: SVertex, attribute: StrokeAttribute) -> None:
@@ -2191,9 +1723,7 @@ and it won't change the real stroke length).
         from a CurvePoint, from a SVertex, or a `SVertex`   and a `StrokeAttribute` object.
 
                 :param svertex: An SVertex object.An SVertex object.
-                :type svertex: SVertex
                 :param attribute: A StrokeAttribute object.
-                :type attribute: StrokeAttribute
         """
 
 class StrokeVertexIterator:
@@ -2212,28 +1742,16 @@ class StrokeVertexIterator:
 
     at_last: bool
     """ True if the iterator points to the last valid element.
-For its counterpart (pointing to the first valid element), use it.is_begin.
-
-    :type: bool
-    """
+For its counterpart (pointing to the first valid element), use it.is_begin."""
 
     object: StrokeVertex
-    """ The StrokeVertex object currently pointed to by this iterator.
-
-    :type: StrokeVertex
-    """
+    """ The StrokeVertex object currently pointed to by this iterator."""
 
     t: float
-    """ The curvilinear abscissa of the current point.
-
-    :type: float
-    """
+    """ The curvilinear abscissa of the current point."""
 
     u: float
-    """ The point parameter at the current point in the stroke (0 <= u <= 1).
-
-    :type: float
-    """
+    """ The point parameter at the current point in the stroke (0 <= u <= 1)."""
 
     def __init__(self) -> None:
         """Creates a `StrokeVertexIterator` using either the
@@ -2246,21 +1764,18 @@ For its counterpart (pointing to the first valid element), use it.is_begin.
         default constructor or the copy constructor.
 
                 :param brother: A StrokeVertexIterator object.
-                :type brother: typing_extensions.Self
         """
 
     def decremented(self) -> typing_extensions.Self:
         """Returns a copy of a decremented StrokeVertexIterator.
 
         :return: A StrokeVertexIterator pointing the previous StrokeVertex.
-        :rtype: typing_extensions.Self
         """
 
     def incremented(self) -> typing_extensions.Self:
         """Returns a copy of an incremented StrokeVertexIterator.
 
         :return: A StrokeVertexIterator pointing the next StrokeVertex.
-        :rtype: typing_extensions.Self
         """
 
     def reversed(self) -> typing_extensions.Self:
@@ -2268,7 +1783,6 @@ For its counterpart (pointing to the first valid element), use it.is_begin.
         reversed order.
 
                 :return: A StrokeVertexIterator traversing stroke vertices backward.
-                :rtype: typing_extensions.Self
         """
 
 class TVertex:
@@ -2280,22 +1794,13 @@ class TVertex:
     """
 
     back_svertex: SVertex
-    """ The SVertex that is further away from the viewpoint.
-
-    :type: SVertex
-    """
+    """ The SVertex that is further away from the viewpoint."""
 
     front_svertex: SVertex
-    """ The SVertex that is closer to the viewpoint.
-
-    :type: SVertex
-    """
+    """ The SVertex that is closer to the viewpoint."""
 
     id: Id
-    """ The Id of this TVertex.
-
-    :type: Id
-    """
+    """ The Id of this TVertex."""
 
     def __init__(self) -> None:
         """Default constructor."""
@@ -2306,18 +1811,14 @@ class TVertex:
         frontEdgeB, frontEdgeA is returned. Same for back edges.
 
                 :param viewedge: A ViewEdge object.
-                :type viewedge: ViewEdge
                 :return: The mate edge of the given ViewEdge.
-                :rtype: ViewEdge
         """
 
     def get_svertex(self, fedge: FEdge) -> SVertex:
         """Returns the SVertex (among the 2) belonging to the given FEdge.
 
         :param fedge: An FEdge object.
-        :type fedge: FEdge
         :return: The SVertex belonging to the given FEdge.
-        :rtype: SVertex
         """
 
 class UnaryFunction0D:
@@ -2331,10 +1832,7 @@ class UnaryFunction0D:
     """
 
     name: str
-    """ The name of the unary 0D function.
-
-    :type: str
-    """
+    """ The name of the unary 0D function."""
 
 class UnaryFunction0DDouble:
     """Class hierarchy: `UnaryFunction0D` > `UnaryFunction0DDouble`Base class for unary functions (functors) that work on
@@ -2428,10 +1926,7 @@ class UnaryFunction1D:
     """
 
     name: str
-    """ The name of the unary 1D function.
-
-    :type: str
-    """
+    """ The name of the unary 1D function."""
 
 class UnaryFunction1DDouble:
     """Class hierarchy: `UnaryFunction1D` > `UnaryFunction1DDouble`Base class for unary functions (functors) that work on
@@ -2439,10 +1934,7 @@ class UnaryFunction1DDouble:
     """
 
     integration_type: IntegrationType
-    """ The integration method.
-
-    :type: IntegrationType
-    """
+    """ The integration method."""
 
     def __init__(self) -> None:
         """Builds a unary 1D function using the default constructor
@@ -2455,7 +1947,6 @@ class UnaryFunction1DDouble:
         or the integration method given as an argument.
 
                 :param integration_type: An integration method.
-                :type integration_type: IntegrationType
         """
 
 class UnaryFunction1DEdgeNature:
@@ -2464,10 +1955,7 @@ class UnaryFunction1DEdgeNature:
     """
 
     integration_type: IntegrationType
-    """ The integration method.
-
-    :type: IntegrationType
-    """
+    """ The integration method."""
 
     def __init__(self) -> None:
         """Builds a unary 1D function using the default constructor
@@ -2480,7 +1968,6 @@ class UnaryFunction1DEdgeNature:
         or the integration method given as an argument.
 
                 :param integration_type: An integration method.
-                :type integration_type: IntegrationType
         """
 
 class UnaryFunction1DFloat:
@@ -2489,10 +1976,7 @@ class UnaryFunction1DFloat:
     """
 
     integration_type: IntegrationType
-    """ The integration method.
-
-    :type: IntegrationType
-    """
+    """ The integration method."""
 
     def __init__(self) -> None:
         """Builds a unary 1D function using the default constructor
@@ -2505,7 +1989,6 @@ class UnaryFunction1DFloat:
         or the integration method given as an argument.
 
                 :param integration_type: An integration method.
-                :type integration_type: IntegrationType
         """
 
 class UnaryFunction1DUnsigned:
@@ -2514,10 +1997,7 @@ class UnaryFunction1DUnsigned:
     """
 
     integration_type: IntegrationType
-    """ The integration method.
-
-    :type: IntegrationType
-    """
+    """ The integration method."""
 
     def __init__(self) -> None:
         """Builds a unary 1D function using the default constructor
@@ -2530,7 +2010,6 @@ class UnaryFunction1DUnsigned:
         or the integration method given as an argument.
 
                 :param integration_type: An integration method.
-                :type integration_type: IntegrationType
         """
 
 class UnaryFunction1DVec2f:
@@ -2539,10 +2018,7 @@ class UnaryFunction1DVec2f:
     """
 
     integration_type: IntegrationType
-    """ The integration method.
-
-    :type: IntegrationType
-    """
+    """ The integration method."""
 
     def __init__(self) -> None:
         """Builds a unary 1D function using the default constructor
@@ -2555,7 +2031,6 @@ class UnaryFunction1DVec2f:
         or the integration method given as an argument.
 
                 :param integration_type: An integration method.
-                :type integration_type: IntegrationType
         """
 
 class UnaryFunction1DVec3f:
@@ -2564,10 +2039,7 @@ class UnaryFunction1DVec3f:
     """
 
     integration_type: IntegrationType
-    """ The integration method.
-
-    :type: IntegrationType
-    """
+    """ The integration method."""
 
     def __init__(self) -> None:
         """Builds a unary 1D function using the default constructor
@@ -2580,7 +2052,6 @@ class UnaryFunction1DVec3f:
         or the integration method given as an argument.
 
                 :param integration_type: An integration method.
-                :type integration_type: IntegrationType
         """
 
 class UnaryFunction1DVectorViewShape:
@@ -2590,10 +2061,7 @@ class UnaryFunction1DVectorViewShape:
     """
 
     integration_type: IntegrationType
-    """ The integration method.
-
-    :type: IntegrationType
-    """
+    """ The integration method."""
 
     def __init__(self) -> None:
         """Builds a unary 1D function using the default constructor
@@ -2606,7 +2074,6 @@ class UnaryFunction1DVectorViewShape:
         or the integration method given as an argument.
 
                 :param integration_type: An integration method.
-                :type integration_type: IntegrationType
         """
 
 class UnaryFunction1DVoid:
@@ -2615,10 +2082,7 @@ class UnaryFunction1DVoid:
     """
 
     integration_type: IntegrationType
-    """ The integration method.
-
-    :type: IntegrationType
-    """
+    """ The integration method."""
 
     def __init__(self) -> None:
         """Builds a unary 1D function using either a default constructor
@@ -2631,7 +2095,6 @@ class UnaryFunction1DVoid:
         or the integration method given as an argument.
 
                 :param integration_type: An integration method.
-                :type integration_type: IntegrationType
         """
 
 class UnaryPredicate0D:
@@ -2644,10 +2107,7 @@ class UnaryPredicate0D:
     """
 
     name: str
-    """ The name of the unary 0D predicate.
-
-    :type: str
-    """
+    """ The name of the unary 0D predicate."""
 
     def __init__(self) -> None:
         """Default constructor."""
@@ -2657,9 +2117,7 @@ class UnaryPredicate0D:
 
                 :param it: The Interface0DIterator pointing onto the Interface0D at
         which we wish to evaluate the predicate.
-                :type it: Interface0DIterator
                 :return: True if the condition is satisfied, false otherwise.
-                :rtype: bool
         """
 
 class UnaryPredicate1D:
@@ -2672,10 +2130,7 @@ class UnaryPredicate1D:
     """
 
     name: str
-    """ The name of the unary 1D predicate.
-
-    :type: str
-    """
+    """ The name of the unary 1D predicate."""
 
     def __init__(self) -> None:
         """Default constructor."""
@@ -2684,9 +2139,7 @@ class UnaryPredicate1D:
         """Must be overload by inherited classes.
 
         :param inter: The Interface1D on which we wish to evaluate the predicate.
-        :type inter: Interface1D
         :return: True if the condition is satisfied, false otherwise.
-        :rtype: bool
         """
 
 class ViewEdge:
@@ -2696,71 +2149,38 @@ class ViewEdge:
     """
 
     chaining_time_stamp: int
-    """ The time stamp of this ViewEdge.
-
-    :type: int
-    """
+    """ The time stamp of this ViewEdge."""
 
     first_fedge: FEdge
-    """ The first FEdge that constitutes this ViewEdge.
-
-    :type: FEdge
-    """
+    """ The first FEdge that constitutes this ViewEdge."""
 
     first_viewvertex: ViewVertex
-    """ The first ViewVertex.
-
-    :type: ViewVertex
-    """
+    """ The first ViewVertex."""
 
     id: Id
-    """ The Id of this ViewEdge.
-
-    :type: Id
-    """
+    """ The Id of this ViewEdge."""
 
     is_closed: bool
-    """ True if this ViewEdge forms a closed loop.
-
-    :type: bool
-    """
+    """ True if this ViewEdge forms a closed loop."""
 
     last_fedge: FEdge
-    """ The last FEdge that constitutes this ViewEdge.
-
-    :type: FEdge
-    """
+    """ The last FEdge that constitutes this ViewEdge."""
 
     last_viewvertex: ViewVertex
-    """ The second ViewVertex.
-
-    :type: ViewVertex
-    """
+    """ The second ViewVertex."""
 
     nature: Nature
-    """ The nature of this ViewEdge.
-
-    :type: Nature
-    """
+    """ The nature of this ViewEdge."""
 
     occludee: ViewShape
     """ The shape that is occluded by the ViewShape to which this ViewEdge
-belongs to. If no object is occluded, this property is set to None.
-
-    :type: ViewShape
-    """
+belongs to. If no object is occluded, this property is set to None."""
 
     qi: int
-    """ The quantitative invisibility.
-
-    :type: int
-    """
+    """ The quantitative invisibility."""
 
     viewshape: ViewShape
-    """ The ViewShape to which this ViewEdge belongs to.
-
-    :type: ViewShape
-    """
+    """ The ViewShape to which this ViewEdge belongs to."""
 
     def __init__(self) -> None:
         """Builds a `ViewEdge` using the default constructor or the copy constructor."""
@@ -2769,7 +2189,6 @@ belongs to. If no object is occluded, this property is set to None.
         """Builds a `ViewEdge` using the default constructor or the copy constructor.
 
         :param brother: A ViewEdge object.
-        :type brother: typing_extensions.Self
         """
 
     def update_fedges(self) -> None:
@@ -2783,32 +2202,20 @@ class ViewEdgeIterator:
     """
 
     begin: ViewEdge
-    """ The first ViewEdge used for the iteration.
-
-    :type: ViewEdge
-    """
+    """ The first ViewEdge used for the iteration."""
 
     current_edge: ViewEdge
-    """ The ViewEdge object currently pointed by this iterator.
-
-    :type: ViewEdge
-    """
+    """ The ViewEdge object currently pointed by this iterator."""
 
     object: ViewEdge
-    """ The ViewEdge object currently pointed by this iterator.
-
-    :type: ViewEdge
-    """
+    """ The ViewEdge object currently pointed by this iterator."""
 
     orientation: bool
     """ The orientation of the pointed ViewEdge in the iteration.
 If true, the iterator looks for the next ViewEdge among those ViewEdges
 that surround the ending ViewVertex of the "begin" ViewEdge. If false,
 the iterator searches over the ViewEdges surrounding the ending ViewVertex
-of the "begin" ViewEdge.
-
-    :type: bool
-    """
+of the "begin" ViewEdge."""
 
     def __init__(
         self, begin: None | ViewEdge | None = None, orientation: bool = True
@@ -2817,12 +2224,10 @@ of the "begin" ViewEdge.
         orientation or the copy constructor.
 
                 :param begin: The ViewEdge from where to start the iteration.
-                :type begin: None | ViewEdge | None
                 :param orientation: If true, well look for the next ViewEdge among
         the ViewEdges that surround the ending ViewVertex of begin. If
         false, well search over the ViewEdges surrounding the ending
         ViewVertex of begin.
-                :type orientation: bool
         """
 
     def __init__(self, brother: typing_extensions.Self) -> None:
@@ -2830,7 +2235,6 @@ of the "begin" ViewEdge.
         orientation or the copy constructor.
 
                 :param brother: A ViewEdgeIterator object.
-                :type brother: typing_extensions.Self
         """
 
     def change_orientation(self) -> None:
@@ -2840,10 +2244,7 @@ class ViewMap:
     """Class defining the ViewMap."""
 
     scene_bbox: BBox
-    """ The 3D bounding box of the scene.
-
-    :type: BBox
-    """
+    """ The 3D bounding box of the scene."""
 
     def __init__(self) -> None:
         """Default constructor."""
@@ -2852,22 +2253,16 @@ class ViewMap:
         """Gets the FEdge nearest to the 2D point specified as arguments.
 
         :param x: X coordinate of a 2D point.
-        :type x: float
         :param y: Y coordinate of a 2D point.
-        :type y: float
         :return: The FEdge nearest to the specified 2D point.
-        :rtype: FEdge
         """
 
     def get_closest_viewedge(self, x: float, y: float) -> ViewEdge:
         """Gets the ViewEdge nearest to the 2D point specified as arguments.
 
         :param x: X coordinate of a 2D point.
-        :type x: float
         :param y: Y coordinate of a 2D point.
-        :type y: float
         :return: The ViewEdge nearest to the specified 2D point.
-        :rtype: ViewEdge
         """
 
 class ViewShape:
@@ -2876,40 +2271,22 @@ class ViewShape:
     """
 
     edges: list[ViewEdge]
-    """ The list of ViewEdge objects contained in this ViewShape.
-
-    :type: list[ViewEdge]
-    """
+    """ The list of ViewEdge objects contained in this ViewShape."""
 
     id: Id
-    """ The Id of this ViewShape.
-
-    :type: Id
-    """
+    """ The Id of this ViewShape."""
 
     library_path: str | typing.Any
-    """ The library path of the ViewShape.
-
-    :type: str | typing.Any
-    """
+    """ The library path of the ViewShape."""
 
     name: str
-    """ The name of the ViewShape.
-
-    :type: str
-    """
+    """ The name of the ViewShape."""
 
     sshape: SShape
-    """ The SShape on top of which this ViewShape is built.
-
-    :type: SShape
-    """
+    """ The SShape on top of which this ViewShape is built."""
 
     vertices: list[ViewVertex]
-    """ The list of ViewVertex objects contained in this ViewShape.
-
-    :type: list[ViewVertex]
-    """
+    """ The list of ViewVertex objects contained in this ViewShape."""
 
     def __init__(self) -> None:
         """Builds a `ViewShape` using the default constructor,
@@ -2922,7 +2299,6 @@ class ViewShape:
         copy constructor, or from a `SShape`.
 
                 :param brother: A ViewShape object.
-                :type brother: typing_extensions.Self
         """
 
     def __init__(self, sshape: SShape) -> None:
@@ -2930,21 +2306,18 @@ class ViewShape:
         copy constructor, or from a `SShape`.
 
                 :param sshape: An SShape object.
-                :type sshape: SShape
         """
 
     def add_edge(self, edge: ViewEdge) -> None:
         """Adds a ViewEdge to the list of ViewEdge objects.
 
         :param edge: A ViewEdge object.
-        :type edge: ViewEdge
         """
 
     def add_vertex(self, vertex: ViewVertex) -> None:
         """Adds a ViewVertex to the list of the ViewVertex objects.
 
         :param vertex: A ViewVertex object.
-        :type vertex: ViewVertex
         """
 
 class ViewVertex:
@@ -2960,10 +2333,7 @@ class ViewVertex:
     """
 
     nature: Nature
-    """ The nature of this ViewVertex.
-
-    :type: Nature
-    """
+    """ The nature of this ViewVertex."""
 
     def edges_begin(self) -> orientedViewEdgeIterator:
         """Returns an iterator over the ViewEdges that goes to or comes from
@@ -2973,7 +2343,6 @@ class ViewVertex:
         (incoming/outgoing).
 
                 :return: An orientedViewEdgeIterator pointing to the first ViewEdge.
-                :rtype: orientedViewEdgeIterator
         """
 
     def edges_end(self) -> orientedViewEdgeIterator:
@@ -2981,7 +2350,6 @@ class ViewVertex:
         ViewVertex, pointing after the last ViewEdge.
 
                 :return: An orientedViewEdgeIterator pointing after the last ViewEdge.
-                :rtype: orientedViewEdgeIterator
         """
 
     def edges_iterator(self, edge: ViewEdge) -> orientedViewEdgeIterator:
@@ -2989,9 +2357,7 @@ class ViewVertex:
         as argument.
 
                 :param edge: A ViewEdge object.
-                :type edge: ViewEdge
                 :return: An orientedViewEdgeIterator pointing to the given ViewEdge.
-                :rtype: orientedViewEdgeIterator
         """
 
 class orientedViewEdgeIterator:
@@ -3004,10 +2370,7 @@ class orientedViewEdgeIterator:
     object: tuple[ViewEdge, bool]
     """ The oriented ViewEdge (i.e., a tuple of the pointed ViewEdge and a boolean
 value) currently pointed to by this iterator. If the boolean value is true,
-the ViewEdge is incoming.
-
-    :type: tuple[ViewEdge, bool]
-    """
+the ViewEdge is incoming."""
 
     def __init__(self) -> None:
         """Creates an `orientedViewEdgeIterator` using either the
@@ -3020,5 +2383,4 @@ the ViewEdge is incoming.
         default constructor or the copy constructor.
 
                 :param iBrother: An orientedViewEdgeIterator object.
-                :type iBrother: typing_extensions.Self
         """

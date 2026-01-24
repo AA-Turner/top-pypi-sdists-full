@@ -32,6 +32,7 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
+"""XMP I/O wrapping Exempi"""
 
 import ctypes
 import ctypes.util
@@ -56,4 +57,3 @@ __all__ = ['XMPMeta', 'XMPFiles', 'XMPError', 'ExempiLoadError', 'files',
            'core']
 
 from . import exempi
-exempi.init()

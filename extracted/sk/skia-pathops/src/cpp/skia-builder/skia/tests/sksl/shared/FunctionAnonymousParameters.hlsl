@@ -5,8 +5,8 @@ struct S
 
 cbuffer _UniformBuffer : register(b0, space0)
 {
-    float4 _12_colorGreen : packoffset(c0);
-    float4 _12_colorRed : packoffset(c1);
+    float4 _13_colorGreen : packoffset(c0);
+    float4 _13_colorRed : packoffset(c1);
 };
 
 
@@ -17,40 +17,40 @@ struct SPIRV_Cross_Output
     float4 sk_FragColor : SV_Target0;
 };
 
-float4 fnGreen_h4bf2(bool _27, float2 _28)
+float4 fnGreen_h4bf2(bool _29, float2 _30)
 {
-    return _12_colorGreen;
+    return _13_colorGreen;
 }
 
-float4 fnRed_h4ifS(int _40, float _41, S _42)
+float4 fnRed_h4ifS(int _41, float _42, S _43)
 {
-    return _12_colorRed;
+    return _13_colorRed;
 }
 
-float4 main(float2 _48)
+float4 main(float2 _49)
 {
-    float4 _54 = 0.0f.xxxx;
-    if (_12_colorGreen.y != 0.0f)
+    float4 _55 = 0.0f.xxxx;
+    if (_13_colorGreen.y != 0.0f)
     {
-        bool _60 = true;
-        float2 _62 = _48;
-        _54 = fnGreen_h4bf2(_60, _62);
+        bool _61 = true;
+        float2 _63 = _49;
+        _55 = fnGreen_h4bf2(_61, _63);
     }
     else
     {
-        int _65 = 123;
-        float _67 = 3.1400001049041748046875f;
-        S _68 = { 0 };
-        S _69 = _68;
-        _54 = fnRed_h4ifS(_65, _67, _69);
+        int _66 = 123;
+        float _68 = 3.1400001049041748046875f;
+        S _69 = { 0 };
+        S _70 = _69;
+        _55 = fnRed_h4ifS(_66, _68, _70);
     }
-    return _54;
+    return _55;
 }
 
 void frag_main()
 {
-    float2 _22 = 0.0f.xx;
-    sk_FragColor = main(_22);
+    float2 _23 = 0.0f.xx;
+    sk_FragColor = main(_23);
 }
 
 SPIRV_Cross_Output main()

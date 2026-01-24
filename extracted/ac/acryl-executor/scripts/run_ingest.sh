@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# DEPRECATED: This script is deprecated and will be removed in a future release.
+# Use run_ingest_with_masking.py instead, which provides secret masking support.
+echo "WARNING: run_ingest.sh is DEPRECATED. Use run_ingest_with_masking.py instead." >&2
+
 # Simplified ingestion runner that just handles memory limits and executes datahub
 # All venv setup is handled in Python before calling this script
 
@@ -49,4 +53,4 @@ fi
 
 # Execute DataHub recipe (show command with set -x like original)
 set -x
-exec datahub ${debug_option} ingest run -c "${recipe_file}" ${report_option} 
+exec datahub ${debug_option} ingest run -c "${recipe_file}" ${report_option}

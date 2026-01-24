@@ -37,6 +37,7 @@ class IntegrationKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     INTEGRATION_KIND_SNOWFLAKE: _ClassVar[IntegrationKind]
     INTEGRATION_KIND_SPANNER: _ClassVar[IntegrationKind]
     INTEGRATION_KIND_TRINO: _ClassVar[IntegrationKind]
+    INTEGRATION_KIND_MSSQL: _ClassVar[IntegrationKind]
 
 INTEGRATION_KIND_UNSPECIFIED: IntegrationKind
 INTEGRATION_KIND_ATHENA: IntegrationKind
@@ -57,6 +58,7 @@ INTEGRATION_KIND_REDSHIFT: IntegrationKind
 INTEGRATION_KIND_SNOWFLAKE: IntegrationKind
 INTEGRATION_KIND_SPANNER: IntegrationKind
 INTEGRATION_KIND_TRINO: IntegrationKind
+INTEGRATION_KIND_MSSQL: IntegrationKind
 
 class Integration(_message.Message):
     __slots__ = ("id", "name", "kind", "environment_id", "created_at", "updated_at")
@@ -218,8 +220,32 @@ class DeleteIntegrationResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class PreviewedMessage(_message.Message):
+    __slots__ = ("value_base64", "key_base64", "topic", "partition", "offset", "timestamp_ms")
+    VALUE_BASE64_FIELD_NUMBER: _ClassVar[int]
+    KEY_BASE64_FIELD_NUMBER: _ClassVar[int]
+    TOPIC_FIELD_NUMBER: _ClassVar[int]
+    PARTITION_FIELD_NUMBER: _ClassVar[int]
+    OFFSET_FIELD_NUMBER: _ClassVar[int]
+    TIMESTAMP_MS_FIELD_NUMBER: _ClassVar[int]
+    value_base64: str
+    key_base64: str
+    topic: str
+    partition: str
+    offset: str
+    timestamp_ms: int
+    def __init__(
+        self,
+        value_base64: _Optional[str] = ...,
+        key_base64: _Optional[str] = ...,
+        topic: _Optional[str] = ...,
+        partition: _Optional[str] = ...,
+        offset: _Optional[str] = ...,
+        timestamp_ms: _Optional[int] = ...,
+    ) -> None: ...
+
 class TestIntegrationRequest(_message.Message):
-    __slots__ = ("kind", "environment_variables", "integration_id")
+    __slots__ = ("kind", "environment_variables", "integration_id", "include_preview")
     class EnvironmentVariablesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -231,30 +257,36 @@ class TestIntegrationRequest(_message.Message):
     KIND_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_VARIABLES_FIELD_NUMBER: _ClassVar[int]
     INTEGRATION_ID_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_PREVIEW_FIELD_NUMBER: _ClassVar[int]
     kind: IntegrationKind
     environment_variables: _containers.ScalarMap[str, str]
     integration_id: str
+    include_preview: bool
     def __init__(
         self,
         kind: _Optional[_Union[IntegrationKind, str]] = ...,
         environment_variables: _Optional[_Mapping[str, str]] = ...,
         integration_id: _Optional[str] = ...,
+        include_preview: bool = ...,
     ) -> None: ...
 
 class TestIntegrationResponse(_message.Message):
-    __slots__ = ("kind", "success", "message", "latency_seconds")
+    __slots__ = ("kind", "success", "message", "latency_seconds", "preview_messages")
     KIND_FIELD_NUMBER: _ClassVar[int]
     SUCCESS_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     LATENCY_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    PREVIEW_MESSAGES_FIELD_NUMBER: _ClassVar[int]
     kind: str
     success: bool
     message: str
     latency_seconds: float
+    preview_messages: _containers.RepeatedCompositeFieldContainer[PreviewedMessage]
     def __init__(
         self,
         kind: _Optional[str] = ...,
         success: bool = ...,
         message: _Optional[str] = ...,
         latency_seconds: _Optional[float] = ...,
+        preview_messages: _Optional[_Iterable[_Union[PreviewedMessage, _Mapping]]] = ...,
     ) -> None: ...

@@ -1,5 +1,4 @@
 import uuid
-from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -9,7 +8,7 @@ app = FastAPI(title="Booking API", version="1.0.0")
 BOOKINGS: dict[str, dict] = {}
 
 
-def verify_token(authorization: Optional[str] = Header(None)) -> bool:
+def verify_token(authorization: str | None = Header(None)) -> bool:
     if not authorization or authorization != "Bearer secret-token":
         raise HTTPException(status_code=401, detail="Invalid or missing token")
     return True
@@ -31,7 +30,7 @@ class BookingResponse(BaseModel):
     total_price: float
 
 
-@app.post("/bookings", response_model=BookingResponse, responses={400: {"description": "Invalid booking"}})  # type: ignore[misc]
+@app.post("/bookings", response_model=BookingResponse, responses={400: {"description": "Invalid booking"}})  # type: ignore[untyped-decorator]
 def create_booking(booking: BookingRequest, _: bool = Depends(verify_token)) -> BookingResponse:
     # Calculate price based on room type
     room_prices = {"standard": 99.99, "deluxe": 149.99, "suite": 299.99}
@@ -53,7 +52,7 @@ def create_booking(booking: BookingRequest, _: bool = Depends(verify_token)) -> 
     return BookingResponse(**booking_data)
 
 
-@app.get(  # type: ignore[misc]
+@app.get(  # type: ignore[untyped-decorator]
     "/bookings/{booking_id}", response_model=BookingResponse, responses={404: {"description": "Booking not found"}}
 )
 def get_booking(booking_id: str, _: bool = Depends(verify_token)) -> BookingResponse:
@@ -62,6 +61,6 @@ def get_booking(booking_id: str, _: bool = Depends(verify_token)) -> BookingResp
     return BookingResponse(**BOOKINGS[booking_id])
 
 
-@app.get("/health")  # type: ignore[misc]
+@app.get("/health")  # type: ignore[untyped-decorator]
 def health_check() -> dict:
     return {"status": "healthy"}

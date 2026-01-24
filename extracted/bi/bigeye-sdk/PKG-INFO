@@ -1,17 +1,16 @@
 Metadata-Version: 2.1
 Name: bigeye-sdk
-Version: 0.6.10
+Version: 0.8.5
 Summary: Bigeye SDK offers developer tools and clients to interact with Bigeye programmatically.
 Home-page: https://docs.bigeye.com/docs
 License: Proprietary
 Author: Bigeye
 Author-email: support@bigeye.com
-Requires-Python: >=3.9.0,<4.0.0
+Requires-Python: >=3.11.0,<4.0.0
 Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Requires-Dist: PyYAML (>=6.0,<7.0)
 Requires-Dist: betterproto[compiler] (>=1.2.5,<2.0.0)
 Requires-Dist: boto3 (>=1.38.42,<2.0.0)
@@ -29,7 +28,7 @@ Requires-Dist: secretstorage (>=3.3.3,<4.0.0)
 Requires-Dist: setuptools (>=65.5.0)
 Requires-Dist: slack_sdk (>=3.2.7,<4.0.0)
 Requires-Dist: smart-open (>=6.1.0,<7.0.0)
-Requires-Dist: typer (>=0.15.4,<0.16.0)
+Requires-Dist: typer (>=0.19.2,<0.20.0)
 Requires-Dist: types-PyYAML (>=6.0.11,<7.0.0)
 Description-Content-Type: text/markdown
 

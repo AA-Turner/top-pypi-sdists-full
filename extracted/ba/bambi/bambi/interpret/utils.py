@@ -1,7 +1,6 @@
 # pylint: disable = too-many-function-args
 # pylint: disable = too-many-nested-blocks
 from dataclasses import dataclass, field
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -49,14 +48,14 @@ class VariableInfo:
     """
 
     model: Model
-    variable: Union[str, dict, list]
+    variable: str | dict | list
     kind: str
-    grid: Union[bool, None] = False
-    eps: Union[float, None] = None
+    grid: bool | None = False
+    eps: float | None = None
     user_passed: bool = False
     name: str = field(init=False)
-    values: Union[int, float, np.ndarray] = field(init=False)
-    passed_values: Union[int, float, np.ndarray] = field(init=False)
+    values: int | float | np.ndarray = field(init=False)
+    passed_values: int | float | np.ndarray = field(init=False)
 
     def __post_init__(self):
         """
@@ -152,7 +151,7 @@ class ConditionalInfo:
     """
 
     model: Model
-    conditional: Union[str, dict, list, None]
+    conditional: str | dict | list | None
     covariates: dict = field(init=False)
     user_passed: bool = field(init=False)
 
@@ -168,11 +167,7 @@ class ConditionalInfo:
         """
         covariate_kinds = ("main", "group", "panel")
 
-        if not isinstance(self.conditional, dict):
-            self.conditional = listify(self.conditional)
-            covariate_names = self.conditional
-            self.user_passed = False
-        elif isinstance(self.conditional, dict):
+        if isinstance(self.conditional, dict):
             covariate_names = list(self.conditional.keys())
             for key, value in self.conditional.items():
                 if not isinstance(value, (list, np.ndarray)):
@@ -181,6 +176,10 @@ class ConditionalInfo:
             # sort values b/c of matplotlib plotting behavior when calling `plot_categorical`
             self.conditional = {key: sorted(value) for key, value in self.conditional.items()}
             self.user_passed = True
+        else:
+            self.conditional = listify(self.conditional)
+            covariate_names = self.conditional
+            self.user_passed = False
 
         self.covariates = dict(zip(covariate_kinds, self.conditional))
 
@@ -199,11 +198,11 @@ class Covariates:
     """
 
     main: str
-    group: Union[str, None]
-    panel: Union[str, None]
+    group: str | None
+    panel: str | None
 
 
-def average_over(data: pd.DataFrame, covariate: Union[str, list]) -> pd.DataFrame:
+def average_over(data: pd.DataFrame, covariate: str | list[str]) -> pd.DataFrame:
     """
     Average estimates by specified covariate in the model. data.columns[-3:] are
     the columns: 'estimate', 'lower', and 'upper'.
@@ -211,7 +210,7 @@ def average_over(data: pd.DataFrame, covariate: Union[str, list]) -> pd.DataFram
     if covariate == "all":
         return pd.DataFrame(data[data.columns[-3:]].mean()).T
     else:
-        return data.groupby(covariate, as_index=False)[data.columns[-3:]].mean()
+        return data.groupby(covariate, as_index=False, observed=False)[data.columns[-3:]].mean()
 
 
 def get_model_terms(model: Model) -> dict:
@@ -266,6 +265,7 @@ def get_model_covariates(model: Model) -> np.ndarray:
     return np.unique(flatten_covariates)
 
 
+# pylint: disable=possibly-used-before-assignment
 def get_covariates(covariates: dict) -> Covariates:
     """
     Obtain the main, group, and panel covariates from the user's
@@ -281,6 +281,7 @@ def get_covariates(covariates: dict) -> Covariates:
         # assign main, group, panel based on the number of variables
         # passed by the user in their conditional dict
         length = len(covariates.keys())
+        assert 1 <= length <= 3
         if length == 1:
             main = covariates.keys()
             group = None
@@ -288,7 +289,7 @@ def get_covariates(covariates: dict) -> Covariates:
         elif length == 2:
             main, group = covariates.keys()
             panel = None
-        elif length == 3:
+        else:
             main, group, panel = covariates.keys()
 
     return Covariates(main, group, panel)

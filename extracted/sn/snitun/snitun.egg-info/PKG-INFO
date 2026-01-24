@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snitun
-Version: 0.45.0
+Version: 0.45.1
 Summary: SNI proxy with TCP multiplexer
 Author-email: "Nabu Casa, Inc." <opensource@nabucasa.com>
 License: GPL v3
@@ -23,7 +23,7 @@ License-File: LICENSE
 Requires-Dist: aiohttp>=3.9.3
 Requires-Dist: cryptography>=2.5
 Provides-Extra: lint
-Requires-Dist: ruff==0.12.7; extra == "lint"
+Requires-Dist: ruff==0.12.11; extra == "lint"
 Provides-Extra: test
 Requires-Dist: covdefaults==2.3.0; extra == "test"
 Requires-Dist: pytest-aiohttp==1.1.0; extra == "test"

@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+pub mod baseline;
 pub mod collector;
 pub mod context;
 pub mod display;
@@ -12,5 +13,5 @@ pub mod error;
 pub mod expectation;
 pub mod legacy;
 pub mod style;
-pub mod summarise;
+pub mod summarize;
 pub mod suppress;

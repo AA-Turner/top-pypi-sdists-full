@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: SCons
-Version: 4.9.1
+Version: 4.10.1
 Summary: Open Source next-generation build tool.
 Author-email: William Deegan <bill@baddogconsulting.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://www.scons.org/
 Project-URL: Documentation, https://scons.org/documentation.html
 Project-URL: Twitter, https://twitter.com/SConsProject
@@ -25,7 +25,6 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
@@ -33,6 +32,21 @@ Classifier: Operating System :: Microsoft :: Windows
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+License-File: SCons/Tool/docbook/docbook-xsl-1.76.1/COPYING
+Provides-Extra: dev
+Requires-Dist: ninja; extra == "dev"
+Requires-Dist: psutil; extra == "dev"
+Requires-Dist: lxml<5; (sys_platform != "win32" and python_version < "3.13") and extra == "dev"
+Provides-Extra: pkg
+Requires-Dist: ninja; extra == "pkg"
+Requires-Dist: psutil; extra == "pkg"
+Requires-Dist: readme-renderer; extra == "pkg"
+Requires-Dist: sphinx; extra == "pkg"
+Requires-Dist: sphinx-book-theme; extra == "pkg"
+Requires-Dist: rst2pdf; extra == "pkg"
+Requires-Dist: build; extra == "pkg"
+Requires-Dist: twine; extra == "pkg"
+Requires-Dist: packaging; extra == "pkg"
 Dynamic: license-file
 
 SCons - a Software Construction Tool
@@ -117,8 +131,10 @@ http://www.scons.org/documentation.html.
 Execution Requirements
 ======================
 
-Running SCons requires Python 3.6 or higher. There should be no other
+Running SCons requires Python 3.7 or higher. There should be no other
 dependencies or requirements to run standard SCons.
+
+The last release to support Python 3.6 was 4.8.1.
 The last release to support Python 3.5 was 4.2.0.
 
 Some experimental features may require additional Python packages

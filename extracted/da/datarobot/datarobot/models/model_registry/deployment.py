@@ -59,22 +59,18 @@ class VersionAssociatedDeployment(APIObject):
         The prediction environment of the deployment.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String,
-            t.Key("currently_deployed"): t.Bool,
-            t.Key("registered_model_version"): t.Int,
-            t.Key("is_challenger"): t.Bool,
-            t.Key("status"): t.String,
-            t.Key("label", optional=True): t.Or(t.String, t.Null),
-            t.Key("first_deployed_at", optional=True): t.Or(
-                t.String() >> dateutil.parser.parse, t.Null
-            ),
-            t.Key("first_deployed_by", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
-            t.Key("created_by", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
-            t.Key("prediction_environment", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String,
+        t.Key("currently_deployed"): t.Bool,
+        t.Key("registered_model_version"): t.Int,
+        t.Key("is_challenger"): t.Bool,
+        t.Key("status"): t.String,
+        t.Key("label", optional=True): t.Or(t.String, t.Null),
+        t.Key("first_deployed_at", optional=True): t.Or(t.String() >> dateutil.parser.parse, t.Null),
+        t.Key("first_deployed_by", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+        t.Key("created_by", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+        t.Key("prediction_environment", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+    }).allow_extra("*")
 
     def __init__(
         self,

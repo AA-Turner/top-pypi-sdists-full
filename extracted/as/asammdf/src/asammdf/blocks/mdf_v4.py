@@ -67,7 +67,7 @@ from typing_extensions import (
 
 from .. import tool
 from ..signal import InvalidationArray, Signal
-from . import bus_logging_utils, mdf_common, utils
+from . import bus_logging_utils, mdf_common
 from . import v4_constants as v4c
 from .conversion_utils import conversion_transfer
 from .cutils import (
@@ -113,7 +113,6 @@ from .utils import (
     SignalDataBlockInfo,
     Terminated,
     THREAD_COUNT,
-    TxMap,
     UINT8_uf,
     UINT16_uf,
     UINT32_p,
@@ -318,7 +317,6 @@ class MDF4(MDF_Common[Group]):
         self._cg_map: dict[int, int] = {}
         self._cn_data_map: dict[int, tuple[int, int]] = {}
         self._dbc_cache: dict[int, CanMatrix] = {}
-        self._interned_strings: TxMap = {}
 
         self._closed = False
 
@@ -346,6 +344,10 @@ class MDF4(MDF_Common[Group]):
             "fill_0_for_missing_computation_channels",
             GLOBAL_OPTIONS["fill_0_for_missing_computation_channels"],
         )
+        self._ignore_invalidation_bits = kwargs.get(
+            "ignore_invalidation_bits",
+            GLOBAL_OPTIONS["ignore_invalidation_bits"],
+        )
 
         self._remove_source_from_channel_names = kwargs.get("remove_source_from_channel_names", False)
         self._password = kwargs.get("password", None)
@@ -371,6 +373,8 @@ class MDF4(MDF_Common[Group]):
         progress = kwargs.get("progress", None)
 
         self._column_storage = False
+
+        self._units_map = {}
 
         super().__init__(kwargs.get("raise_on_multiple_occurrences", GLOBAL_OPTIONS["raise_on_multiple_occurrences"]))
 
@@ -567,7 +571,6 @@ class MDF4(MDF_Common[Group]):
                     stream=stream,
                     mapped=mapped,
                     si_map=self._si_map,
-                    tx_map=self._interned_strings,
                     file_limit=self.file_limit,
                 )
                 self._cg_map[cg_addr] = dg_cntr
@@ -623,20 +626,17 @@ class MDF4(MDF_Common[Group]):
 
             total_size = 0
             inval_total_size = 0
-            block_type = b"##DT"
             record_size = 0
 
             for new_group in new_groups:
                 channel_group = new_group.channel_group
                 if channel_group.flags & v4c.FLAG_CG_REMOTE_MASTER:
-                    block_type = b"##DV"
                     total_size += channel_group.samples_byte_nr * channel_group.cycles_nr
                     inval_total_size += channel_group.invalidation_bytes_nr * channel_group.cycles_nr
                     record_size = channel_group.samples_byte_nr
                 else:
-                    block_type = b"##DT"
                     total_size += (
-                        channel_group.samples_byte_nr + channel_group.invalidation_bytes_nr
+                        channel_group.samples_byte_nr + channel_group.invalidation_bytes_nr + record_id_nr
                     ) * channel_group.cycles_nr
 
                     record_size = channel_group.samples_byte_nr + channel_group.invalidation_bytes_nr
@@ -648,7 +648,6 @@ class MDF4(MDF_Common[Group]):
             data_blocks_info = self._get_data_blocks_info(
                 address=address,
                 stream=stream,
-                block_type=block_type,
                 mapped=mapped,
                 total_size=total_size,
                 inval_total_size=inval_total_size,
@@ -658,7 +657,6 @@ class MDF4(MDF_Common[Group]):
             uses_ld = self._uses_ld(
                 address=address,
                 stream=stream,
-                block_type=block_type,
                 mapped=mapped,
             )
 
@@ -742,7 +740,6 @@ class MDF4(MDF_Common[Group]):
                                         stream=stream,
                                         address=cc_addr,
                                         mapped=mapped,
-                                        tx_map={},
                                         file_limit=self.file_limit,
                                     )
                                     dep.axis_conversions.append(conv)
@@ -811,8 +808,8 @@ class MDF4(MDF_Common[Group]):
         self._si_map.clear()
         self._ch_map.clear()
         self._cc_map.clear()
+        self._units_map.clear()
 
-        self._interned_strings.clear()
         self._attachments_map.clear()
 
         if progress is not None:
@@ -883,7 +880,7 @@ class MDF4(MDF_Common[Group]):
                 break
 
             if filter_channels:
-                if utils.stream_is_mmap(stream, mapped):
+                if mapped:
                     (
                         id_,
                         links_nr,
@@ -894,14 +891,13 @@ class MDF4(MDF_Common[Group]):
                     ) = v4c.CHANNEL_FILTER_uf(stream, ch_addr)
                     channel_type = stream[ch_addr + v4c.COMMON_SIZE + links_nr * 8]
                     name = get_text_v4(
-                        name_addr, stream, mapped=mapped, tx_map=self._interned_strings, file_limit=self.file_limit
+                        name_addr, stream, mapped=mapped, file_limit=self.file_limit
                     )
                     if use_display_names:
                         comment = get_text_v4(
                             comment_addr,
                             stream,
                             mapped=mapped,
-                            tx_map=self._interned_strings,
                             file_limit=self.file_limit,
                         )
                         display_names = extract_display_names(comment)
@@ -922,7 +918,7 @@ class MDF4(MDF_Common[Group]):
                     stream.seek(ch_addr + v4c.COMMON_SIZE + links_nr * 8)
                     channel_type = stream.read(1)[0]
                     name = get_text_v4(
-                        name_addr, stream, mapped=mapped, tx_map=self._interned_strings, file_limit=self.file_limit
+                        name_addr, stream, mapped=mapped, file_limit=self.file_limit
                     )
 
                     if use_display_names:
@@ -930,7 +926,6 @@ class MDF4(MDF_Common[Group]):
                             comment_addr,
                             stream,
                             mapped=mapped,
-                            tx_map=self._interned_strings,
                             file_limit=self.file_limit,
                         )
                         display_names = extract_display_names(comment)
@@ -957,7 +952,6 @@ class MDF4(MDF_Common[Group]):
                             comment_addr,
                             stream,
                             mapped=mapped,
-                            tx_map=self._interned_strings,
                             file_limit=self.file_limit,
                         )
                     channel = Channel(
@@ -968,7 +962,6 @@ class MDF4(MDF_Common[Group]):
                         at_map=self._attachments_map,
                         use_display_names=use_display_names,
                         mapped=mapped,
-                        tx_map=self._interned_strings,
                         parsed_strings=(name, display_names, comment),
                         file_limit=self.file_limit,
                     )
@@ -1018,9 +1011,9 @@ class MDF4(MDF_Common[Group]):
                     at_map=self._attachments_map,
                     use_display_names=use_display_names,
                     mapped=mapped,
-                    tx_map=self._interned_strings,
                     parsed_strings=None,
                     file_limit=self.file_limit,
+                    units_map=self._units_map
                 )
 
             if channel.data_type not in VALID_DATA_TYPES:
@@ -1919,13 +1912,12 @@ class MDF4(MDF_Common[Group]):
         self,
         address: int,
         stream: FileLike | mmap.mmap,
-        block_type: bytes = b"##DT",
         mapped: bool = False,
     ) -> bool:
         mapped = mapped or not is_file_like(stream)
         uses_ld = False
 
-        if utils.stream_is_mmap(stream, mapped):
+        if mapped:
             if address:
                 if address + COMMON_SHORT_SIZE > self.file_limit:
                     handle_incomplete_block(address, self.original_name)
@@ -1943,7 +1935,6 @@ class MDF4(MDF_Common[Group]):
                     uses_ld = self._uses_ld(
                         address,
                         stream,
-                        block_type,
                         mapped,
                     )
         else:
@@ -1967,7 +1958,6 @@ class MDF4(MDF_Common[Group]):
                     uses_ld = self._uses_ld(
                         address,
                         stream,
-                        block_type,
                         mapped,
                     )
 
@@ -1977,7 +1967,6 @@ class MDF4(MDF_Common[Group]):
         self,
         address: int,
         stream: FileLike | mmap.mmap,
-        block_type: bytes = b"##DT",
         mapped: bool = False,
         total_size: int = 0,
         inval_total_size: int = 0,
@@ -1994,7 +1983,7 @@ class MDF4(MDF_Common[Group]):
 
         READ_CHUNK_SIZE = min(READ_CHUNK_SIZE, total_size)
 
-        if utils.stream_is_mmap(stream, mapped):
+        if mapped:
             if original_address := address:
                 if address + COMMON_SHORT_SIZE > self.file_limit:
                     return handle_incomplete_block(original_address, self.original_name)
@@ -2005,7 +1994,7 @@ class MDF4(MDF_Common[Group]):
                     return handle_incomplete_block(original_address, self.original_name)
 
                 # can be a DataBlock
-                if id_string == block_type:
+                if id_string in (b"##DT", b"##DV"):
                     size = block_len - 24
                     if size:
                         size = min(size, total_size)
@@ -2089,7 +2078,7 @@ class MDF4(MDF_Common[Group]):
                                 return handle_incomplete_block(original_address, self.original_name)
 
                             # can be a DataBlock
-                            if id_string == block_type:
+                            if id_string != b'##DZ':
                                 size = block_len - 24
                                 if size:
                                     size = min(size, total_size)
@@ -2302,7 +2291,6 @@ class MDF4(MDF_Common[Group]):
                     yield from self._get_data_blocks_info(
                         address,
                         stream,
-                        block_type,
                         mapped,
                         total_size,
                         inval_total_size,
@@ -2318,9 +2306,9 @@ class MDF4(MDF_Common[Group]):
 
                 if original_address + block_len > self.file_limit:
                     return handle_incomplete_block(original_address, self.original_name)
-
+                
                 # can be a DataBlock
-                if id_string == block_type:
+                if id_string in (b"##DT", b"##DV"):
                     size = block_len - 24
                     if size:
                         size = min(size, total_size)
@@ -2404,7 +2392,7 @@ class MDF4(MDF_Common[Group]):
                                 return handle_incomplete_block(original_address, self.original_name)
 
                             # can be a DataBlock
-                            if id_string == block_type:
+                            if id_string != b"##DZ":
                                 size = block_len - 24
                                 if size:
                                     addr = addr + COMMON_SIZE
@@ -2443,7 +2431,7 @@ class MDF4(MDF_Common[Group]):
                                             break
 
                             # or a DataZippedBlock
-                            elif id_string == b"##DZ":
+                            else:
                                 stream.seek(addr + v4c.DZ_INFO_COMMON_OFFSET)
                                 (
                                     zip_type,
@@ -2617,7 +2605,6 @@ class MDF4(MDF_Common[Group]):
                     yield from self._get_data_blocks_info(
                         address,
                         stream,
-                        block_type,
                         mapped,
                         total_size,
                         inval_total_size,
@@ -7401,7 +7388,7 @@ class MDF4(MDF_Common[Group]):
 
         groups = self.groups
 
-        channel_invalidation_present = channel.flags & (v4c.FLAG_CN_ALL_INVALID | v4c.FLAG_CN_INVALIDATION_PRESENT)
+        channel_invalidation_present = (not self._ignore_invalidation_bits) and channel.flags & (v4c.FLAG_CN_ALL_INVALID | v4c.FLAG_CN_INVALIDATION_PRESENT)
 
         _dtype = np.dtype(channel.dtype_fmt)
         conditions = [
@@ -7729,7 +7716,7 @@ class MDF4(MDF_Common[Group]):
             ]
         )
 
-        channel_invalidation_present = channel.flags & (v4c.FLAG_CN_ALL_INVALID | v4c.FLAG_CN_INVALIDATION_PRESENT)
+        channel_invalidation_present = (not self._ignore_invalidation_bits) and channel.flags & (v4c.FLAG_CN_ALL_INVALID | v4c.FLAG_CN_INVALIDATION_PRESENT)
 
         channel_group = grp.channel_group
         samples_size = channel_group.samples_byte_nr + channel_group.invalidation_bytes_nr
@@ -8143,7 +8130,7 @@ class MDF4(MDF_Common[Group]):
         gp_nr = group_index
         ch_nr = channel_index
 
-        channel_invalidation_present = channel.flags & (v4c.FLAG_CN_ALL_INVALID | v4c.FLAG_CN_INVALIDATION_PRESENT)
+        channel_invalidation_present = (not self._ignore_invalidation_bits) and channel.flags & (v4c.FLAG_CN_ALL_INVALID | v4c.FLAG_CN_INVALIDATION_PRESENT)
 
         data_type = channel.data_type
         channel_type = channel.channel_type
@@ -8538,6 +8525,8 @@ class MDF4(MDF_Common[Group]):
                     v4c.DATA_TYPE_BYTEARRAY,
                     v4c.DATA_TYPE_UNSIGNED_INTEL,
                     v4c.DATA_TYPE_UNSIGNED_MOTOROLA,
+                    v4c.DATA_TYPE_SIGNED_INTEL,
+                    v4c.DATA_TYPE_SIGNED_MOTOROLA,
                     v4c.DATA_TYPE_MIME_SAMPLE,
                     v4c.DATA_TYPE_MIME_STREAM,
                 ):
@@ -8562,6 +8551,8 @@ class MDF4(MDF_Common[Group]):
                     v4c.DATA_TYPE_BYTEARRAY,
                     v4c.DATA_TYPE_UNSIGNED_INTEL,
                     v4c.DATA_TYPE_UNSIGNED_MOTOROLA,
+                    v4c.DATA_TYPE_SIGNED_INTEL,
+                    v4c.DATA_TYPE_SIGNED_MOTOROLA,
                     v4c.DATA_TYPE_MIME_SAMPLE,
                     v4c.DATA_TYPE_MIME_STREAM,
                 ):
@@ -9059,7 +9050,7 @@ class MDF4(MDF_Common[Group]):
         while True:
             try:
                 fragments = [next(stream) for stream in data_streams]
-            except:
+            except Exception:
                 break
             #
             # if perf_counter() - tt > 120:
@@ -11457,16 +11448,6 @@ class MDF4(MDF_Common[Group]):
                 Path.rename(destination, self.name)
             except:
                 pass
-
-            self.groups.clear()
-            del self.header
-            del self.identification
-            self.file_history.clear()
-            self.channels_db.clear()
-            self.masters_db.clear()
-            self.attachments.clear()
-
-            self._ch_map.clear()
 
             self._tempfile = NamedTemporaryFile(dir=self.temporary_folder)
             self._file = open(self.name, "rb")

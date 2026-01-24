@@ -4,8 +4,10 @@ import logging
 import typing as t
 import uuid
 
-from globus_sdk import MISSING, GlobusHTTPResponse, MissingType, client, utils
-from globus_sdk.scopes import ComputeScopes, Scope
+from globus_sdk import GlobusHTTPResponse, client
+from globus_sdk._internal.remarshal import strseq_listify
+from globus_sdk._missing import MISSING, MissingType
+from globus_sdk.scopes import ComputeScopes
 
 from .errors import ComputeAPIError
 
@@ -24,9 +26,9 @@ class ComputeClientV2(client.BaseClient):
     error_class = ComputeAPIError
     service_name = "compute"
     scopes = ComputeScopes
-    default_scope_requirements = [Scope(ComputeScopes.all)]
+    default_scope_requirements = [ComputeScopes.all]
 
-    def get_version(self, service: str | None = None) -> GlobusHTTPResponse:
+    def get_version(self, service: str | MissingType = MISSING) -> GlobusHTTPResponse:
         """Get the current version of the API and other services.
 
         :param service: Service for which to get version information.
@@ -39,7 +41,7 @@ class ComputeClientV2(client.BaseClient):
                     :service: compute
                     :ref: Root/operation/get_version_v2_version_get
         """
-        query_params = {"service": service} if service else None
+        query_params = {"service": service}
         return self.get("/v2/version", query_params=query_params)
 
     def get_result_amqp_url(self) -> GlobusHTTPResponse:
@@ -147,13 +149,10 @@ class ComputeClientV2(client.BaseClient):
         """  # noqa: E501
         return self.post(f"/v2/endpoints/{endpoint_id}/lock")
 
-    def register_function(
-        self,
-        function_data: dict[str, t.Any],
-    ) -> GlobusHTTPResponse:
+    def register_function(self, data: dict[str, t.Any]) -> GlobusHTTPResponse:
         """Register a new function.
 
-        :param function_data: A function registration document.
+        :param data: A function registration document.
 
         .. tab-set::
 
@@ -163,7 +162,7 @@ class ComputeClientV2(client.BaseClient):
                     :service: compute
                     :ref: Functions/operation/register_function_v2_functions_post
         """  # noqa: E501
-        return self.post("/v2/functions", data=function_data)
+        return self.post("/v2/functions", data=data)
 
     def get_function(self, function_id: uuid.UUID | str) -> GlobusHTTPResponse:
         """Get information about a registered function.
@@ -225,8 +224,9 @@ class ComputeClientV2(client.BaseClient):
                     :service: compute
                     :ref: Root/operation/get_batch_status_v2_batch_status_post
         """
-        task_ids = list(utils.safe_strseq_iter(task_ids))
-        return self.post("/v2/batch_status", data={"task_ids": task_ids})
+        return self.post(
+            "/v2/batch_status", data={"task_ids": strseq_listify(task_ids)}
+        )
 
     def get_task_group(self, task_group_id: uuid.UUID | str) -> GlobusHTTPResponse:
         """Get a list of task IDs associated with a task group.
@@ -269,7 +269,7 @@ class ComputeClientV3(client.BaseClient):
     error_class = ComputeAPIError
     service_name = "compute"
     scopes = ComputeScopes
-    default_scope_requirements = [Scope(ComputeScopes.all)]
+    default_scope_requirements = [ComputeScopes.all]
 
     def register_endpoint(self, data: dict[str, t.Any]) -> GlobusHTTPResponse:
         """Register a new endpoint.

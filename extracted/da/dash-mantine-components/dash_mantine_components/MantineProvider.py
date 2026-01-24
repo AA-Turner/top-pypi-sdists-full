@@ -66,8 +66,8 @@ Keyword arguments:
 
 
 - cssVariablesSelector (string; optional):
-    CSS selector to which CSS variables should be added, `:root` by
-    default.
+    CSS selector to which CSS variables should be added, by default
+    variables are applied to `:root` and `:host`.
 
 - deduplicateCssVariables (boolean; optional):
     Determines whether CSS variables should be deduplicated: if CSS
@@ -343,7 +343,7 @@ Keyword arguments:
 - withStaticClasses (boolean; optional):
     Determines whether components should have static classes, for
     example, `mantine-Button-root`. @,default,`True`."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'MantineProvider'

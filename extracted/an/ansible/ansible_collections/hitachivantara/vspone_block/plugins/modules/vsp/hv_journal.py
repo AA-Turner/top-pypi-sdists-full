@@ -45,50 +45,67 @@ options:
         type: str
         required: false
   spec:
-    description: Specification for creating Journal .
+    description: Specification for creating Journal.
     type: dict
     required: false
     suboptions:
       journal_id:
-        description: Journal ID of the Journal .
+        description: Journal ID of the Journal.
+          Required for the Create a Journal using required details
+          /Update a Journal using more details
+          /Expand journal
+          /Shrink journal
+          /Delete Journal by ID tasks.
         type: int
         required: false
-      startLdevId:
-        description: Start LDEV ID of the Journal .
-        type: int
+      start_ldev_id:
+        description: Start LDEV ID of the Journal.
+        type: str
         required: false
-      endLdevId:
-        description: End LDEV ID of the Journal .
-        type: int
+        aliases: ["startLdevId"]
+      end_ldev_id:
+        description: End LDEV ID of the Journal.
+        type: str
         required: false
+        aliases: ["endLdevId"]
       is_cache_mode_enabled:
         description: Cache mode enabled or not.
+          Required for the Update a Journal using more details task.
         type: bool
         required: false
-      data_overflow_watchIn_seconds:
+      data_overflow_watch_in_seconds:
         description: Data overflow watch in seconds.
+          Required for the Update a Journal using more details task.
         type: int
         required: false
+        aliases: ["data_overflow_watchIn_seconds"]
       mp_blade_id:
-        description: MP Blade ID of the Journal .
+        description: MP Blade ID of the Journal.
+          Required for the Update a Journal using more details task.
         type: int
         required: false
       ldev_ids:
         description: List of LDEVs.
+          Required for the Create a Journal using required details
+          /Expand journal
+          /Shrink journal task.
         type: list
         required: false
-        elements: int
+        elements: str
       mirror_unit_number:
         description: Mirror unit number.
+          Required for the Update a Journal using more details task.
         type: int
         required: false
       copy_pace:
         description: Copy pace.
+          Required for the Update a Journal using more details task.
         type: str
         required: false
         choices: ['SLOW', 'MEDIUM', 'FAST']
       path_blockade_watch_in_minutes:
         description: Path blockade watch in minutes.
+          Required for the Update a Journal using more details task.
         type: int
         required: false
 """
@@ -113,96 +130,97 @@ data:
   returned: always
   type: dict
   contains:
-    journal_volume:
-      description: List of Journal managed by the module.
-      returned: success
-      type: dict
+    data_overflow_watch_seconds:
+      description: Data overflow watch in seconds.
+      type: int
+      sample: 60
+    is_cache_mode_enabled:
+      description: Indicates if cache mode is enabled.
+      type: bool
+      sample: true
+    journal_pool_id:
+      description: Journal pool ID.
+      type: int
+      sample: 116
+    journal_status:
+      description: Status of the Journal.
+      type: str
+      sample: "SMPL"
+    ldev_ids:
+      description: List of LDEV IDs.
+      type: list
+      elements: int
+      sample: [142]
+    ldev_ids_hex:
+      description: List of LDEV IDs in hexadecimal format.
+      type: list
+      elements: str
+      sample: ["00:00:8E"]
+    mirrors:
+      description: List of mirror units.
+      type: list
+      elements: dict
       contains:
-        data_overflow_watch_seconds:
-          description: Data overflow watch in seconds.
-          type: int
-          sample: 60
-        first_ldev_id:
-          description: First LDEV ID of the Journal .
-          type: int
-          sample: 1992
-        is_cache_mode_enabled:
-          description: Indicates if cache mode is enabled.
-          type: bool
-          sample: true
-        is_inflow_control_enabled:
-          description: Indicates if inflow control is enabled.
-          type: bool
-          sample: false
-        journal_id:
-          description: Journal ID of the Journal .
-          type: int
-          sample: 37
-        journal_status:
-          description: Status of the Journal .
-          type: str
-          sample: "PJNN"
-        mirror_unit_ids:
-          description: List of mirror unit IDs.
-          type: list
-          elements: dict
-          contains:
-            consistency_group_id:
-              description: Consistency group ID.
-              type: int
-              sample: 0
-            copy_pace:
-              description: Copy pace.
-              type: str
-              sample: "L"
-            copy_speed:
-              description: Copy speed.
-              type: int
-              sample: 256
-            is_data_copying:
-              description: Indicates if data copying is in progress.
-              type: bool
-              sample: true
-            journal_status:
-              description: Status of the journal.
-              type: str
-              sample: "SMPL"
-            mu_number:
-              description: Mirror unit number.
-              type: int
-              sample: 0
-            path_blockade_watch_in_minutes:
-              description: Path blockade watch in minutes.
-              type: int
-              sample: 5
-        mp_blade_id:
-          description: MP Blade ID of the Journal .
-          type: int
-          sample: 1
-        num_of_active_paths:
+        active_path_count:
           description: Number of active paths.
           type: int
-          sample: 2
-        num_of_ldevs:
-          description: Number of LDEVs.
+          sample: -1
+        active_path_watch_seconds:
+          description: Active path watch in seconds.
           type: int
-          sample: 1
+          sample: -1
+        consistency_group_id:
+          description: Consistency group ID.
+          type: int
+          sample: 0
+        copy_pace:
+          description: Copy pace setting.
+          type: str
+          sample: "LOW"
+        is_delta_resync_failure_full_copy:
+          description: Indicates if delta resync failure triggers full copy.
+          type: bool
+          sample: null
+        mirror_unit_id:
+          description: Mirror unit ID.
+          type: int
+          sample: 0
+        path_blockade_watch_seconds:
+          description: Path blockade watch in seconds.
+          type: int
+          sample: 300
         q_count:
           description: Queue count.
           type: int
-          sample: 0
+          sample: -1
         q_marker:
           description: Queue marker.
+          type: int
+          sample: -1
+        status:
+          description: Mirror unit status.
           type: str
-          sample: "00000002"
-        total_capacity_mb:
-          description: Total capacity in MB.
+          sample: "SMPL"
+        transfer_speed_mbps:
+          description: Transfer speed in Mbps.
           type: int
-          sample: 19
-        usage_rate:
-          description: Usage rate.
-          type: int
-          sample: 0
+          sample: 256
+    mp_blade_id:
+      description: MP Blade ID of the Journal.
+      type: int
+      sample: 1
+    timer_type:
+      description: Timer type configuration.
+      type: str
+      sample: ""
+    total_capacity:
+      description: Total capacity with units.
+      type: str
+      sample: "29.03 GB"
+    type:
+      description: Journal type.
+      type: str
+      sample: ""
 """
 
 from ansible.module_utils.basic import AnsibleModule

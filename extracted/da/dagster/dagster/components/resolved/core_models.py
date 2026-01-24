@@ -1,8 +1,7 @@
-from collections.abc import Mapping, Sequence
-from typing import Annotated, Any, Callable, Literal, Optional, Union
+from collections.abc import Callable, Mapping, Sequence
+from typing import Annotated, Any, Literal, Optional, TypeAlias, Union
 
 from dagster_shared.record import record
-from typing_extensions import TypeAlias
 
 import dagster._check as check
 from dagster._core.definitions.asset_checks.asset_check_spec import AssetCheckSpec
@@ -13,6 +12,7 @@ from dagster._core.definitions.declarative_automation.automation_condition impor
     AutomationCondition,
 )
 from dagster._core.definitions.definitions_class import Definitions
+from dagster._core.definitions.freshness import FreshnessPolicy
 from dagster._core.definitions.partitions.definition import (
     DailyPartitionsDefinition,
     HourlyPartitionsDefinition,
@@ -255,6 +255,14 @@ class SharedAssetKwargs(Resolvable):
                 TimeWindowPartitionsDefinitionModel,
                 StaticPartitionsDefinitionModel,
             ],
+        ),
+    ] = None
+    freshness_policy: Annotated[
+        Optional[FreshnessPolicy],
+        Resolver.default(
+            model_field_type=Optional[str],
+            description="The freshness policy for the asset.",
+            examples=["{{ custom_freshness_template_var() }}"],
         ),
     ] = None
 

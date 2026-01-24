@@ -6,14 +6,15 @@ from ..base.tool import BaseAction
 from pydantic import create_model, BaseModel, ConfigDict, Field
 
 from ..elitea_base import filter_missconfigured_index_tools
-from ..utils import clean_string, TOOLKIT_SPLITTER, get_max_toolkit_length, parse_list, check_connection_response
+from ..utils import clean_string, get_max_toolkit_length, parse_list, check_connection_response
 from ...configurations.confluence import ConfluenceConfiguration
 from ...configurations.pgvector import PgVectorConfiguration
 import requests
+from ...runtime.utils.constants import TOOLKIT_NAME_META, TOOL_NAME_META, TOOLKIT_TYPE_META
 
 name = "confluence"
 
-def get_tools(tool):
+def get_toolkit(tool):
     return ConfluenceToolkit().get_toolkit(
         selected_tools=tool['settings'].get('selected_tools', []),
         space=tool['settings'].get('space', None),
@@ -33,18 +34,19 @@ def get_tools(tool):
         doctype='doc',
         embedding_model=tool['settings'].get('embedding_model'),
         vectorstore_type="PGVector"
-    ).get_tools()
+    )
+
+def get_tools(tool):
+    return get_toolkit(tool).get_tools()
 
 
 class ConfluenceToolkit(BaseToolkit):
     tools: List[BaseTool] = []
-    toolkit_max_length: int = 0
 
     @staticmethod
     def toolkit_config_schema() -> BaseModel:
         selected_tools = {x['name']: x['args_schema'].schema() for x in
                           ConfluenceAPIWrapper.model_construct().get_available_tools()}
-        ConfluenceToolkit.toolkit_max_length = get_max_toolkit_length(selected_tools)
 
         @check_connection_response
         def check_connection(self):
@@ -67,19 +69,18 @@ class ConfluenceToolkit(BaseToolkit):
 
         model = create_model(
             name,
-            space=(str, Field(description="Space", json_schema_extra={'toolkit_name': True,
-                                                                                    'max_toolkit_length': ConfluenceToolkit.toolkit_max_length})),
+            space=(str, Field(description="Space")),
             cloud=(bool, Field(description="Hosting Option", json_schema_extra={'configuration': True})),
-            limit=(int, Field(description="Pages limit per request", default=5)),
+            limit=(int, Field(description="Pages limit per request", default=5, gt=0)),
             labels=(Optional[str], Field(
                 description="List of comma separated labels used for labeling of agent's created or updated entities",
                 default=None,
                 examples="alita,elitea;another-label"
             )),
-            max_pages=(int, Field(description="Max total pages", default=10)),
-            number_of_retries=(int, Field(description="Number of retries", default=2)),
-            min_retry_seconds=(int, Field(description="Min retry, sec", default=10)),
-            max_retry_seconds=(int, Field(description="Max retry, sec", default=60)),
+            max_pages=(int, Field(description="Max total pages", default=10, gt=0)),
+            number_of_retries=(int, Field(description="Number of retries", default=2, ge=0)),
+            min_retry_seconds=(int, Field(description="Min retry, sec", default=10, ge=0)),
+            max_retry_seconds=(int, Field(description="Max retry, sec", default=60, ge=0)),
             # optional field for custom headers as dictionary
             custom_headers=(Optional[dict], Field(description="Custom headers for API requests", default={})),
             confluence_configuration=(ConfluenceConfiguration, Field(description="Confluence Configuration", json_schema_extra={'configuration_types': ['confluence']})),
@@ -115,18 +116,23 @@ class ConfluenceToolkit(BaseToolkit):
             **(kwargs.get('pgvector_configuration') or {}),
         }
         confluence_api_wrapper = ConfluenceAPIWrapper(**wrapper_payload)
-        prefix = clean_string(toolkit_name, ConfluenceToolkit.toolkit_max_length) + TOOLKIT_SPLITTER if toolkit_name else ''
         available_tools = confluence_api_wrapper.get_available_tools()
         tools = []
         for tool in available_tools:
             if selected_tools:
                 if tool["name"] not in selected_tools:
                     continue
+            description = tool["description"]
+            if toolkit_name:
+                description = f"Toolkit: {toolkit_name}\n{description}"
+            description = f"Confluence space: {confluence_api_wrapper.space}\n{description}"
+            description = description[:1000]
             tools.append(BaseAction(
                 api_wrapper=confluence_api_wrapper,
-                name=prefix + tool["name"],
-                description=f"Confluence space: {confluence_api_wrapper.space}" + tool["description"],
-                args_schema=tool["args_schema"]
+                name=tool["name"],
+                description=description,
+                args_schema=tool["args_schema"],
+                metadata={TOOLKIT_NAME_META: toolkit_name, TOOLKIT_TYPE_META: name, TOOL_NAME_META: tool["name"]} if toolkit_name else {TOOL_NAME_META: tool["name"]}
             ))
         return cls(tools=tools)
 

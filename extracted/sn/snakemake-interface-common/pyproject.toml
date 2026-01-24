@@ -1,6 +1,6 @@
 [project]
 name = "snakemake-interface-common"
-version = "1.21.0"
+version = "1.22.0"
 description = "Common functions and classes for Snakemake and its plugins"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -12,8 +12,6 @@ email = "johannes.koester@uni-due.de"
 
 [tool.coverage.run]
 omit = ["**/tests.py"]
-
-[tool.coverage.report]
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]

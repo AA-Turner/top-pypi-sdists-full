@@ -1,31 +1,15 @@
 Metadata-Version: 2.4
 Name: icechunk
-Version: 1.1.5
+Version: 1.1.16
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: zarr>=3,!=3.0.3
-Requires-Dist: boto3 ; extra == 'test'
-Requires-Dist: coverage ; extra == 'test'
-Requires-Dist: mypy ; extra == 'test'
-Requires-Dist: object-store-python ; extra == 'test'
-Requires-Dist: pytest ; extra == 'test'
-Requires-Dist: pytest-cov ; extra == 'test'
-Requires-Dist: pytest-asyncio ; extra == 'test'
-Requires-Dist: pytest-xdist ; extra == 'test'
-Requires-Dist: ruff ; extra == 'test'
-Requires-Dist: dask>=2024.11.0 ; extra == 'test'
-Requires-Dist: distributed>=2024.11.0 ; extra == 'test'
-Requires-Dist: xarray>=2025.1.2 ; extra == 'test'
-Requires-Dist: hypothesis ; extra == 'test'
-Requires-Dist: pandas-stubs ; extra == 'test'
-Requires-Dist: boto3-stubs[s3] ; extra == 'test'
-Requires-Dist: termcolor ; extra == 'test'
-Requires-Dist: pooch ; extra == 'test'
-Requires-Dist: netcdf4 ; extra == 'test'
 Requires-Dist: pytest-benchmark[histogram] ; extra == 'benchmark'
 Requires-Dist: pytest-xdist ; extra == 'benchmark'
 Requires-Dist: s3fs ; extra == 'benchmark'
@@ -66,9 +50,27 @@ Requires-Dist: sphinx-copybutton ; extra == 'docs'
 Requires-Dist: sphinx-design ; extra == 'docs'
 Requires-Dist: sphinx-togglebutton ; extra == 'docs'
 Requires-Dist: sphinx-autodoc-typehints ; extra == 'docs'
-Provides-Extra: test
+Requires-Dist: boto3 ; extra == 'test'
+Requires-Dist: coverage ; extra == 'test'
+Requires-Dist: mypy ; extra == 'test'
+Requires-Dist: object-store-python ; extra == 'test'
+Requires-Dist: pytest ; extra == 'test'
+Requires-Dist: pytest-cov ; extra == 'test'
+Requires-Dist: pytest-asyncio ; extra == 'test'
+Requires-Dist: pytest-xdist ; extra == 'test'
+Requires-Dist: ruff ; extra == 'test'
+Requires-Dist: dask>=2024.11.0 ; extra == 'test'
+Requires-Dist: distributed>=2024.11.0 ; extra == 'test'
+Requires-Dist: xarray>=2025.1.2 ; extra == 'test'
+Requires-Dist: hypothesis ; extra == 'test'
+Requires-Dist: pandas-stubs ; extra == 'test'
+Requires-Dist: boto3-stubs[s3] ; extra == 'test'
+Requires-Dist: termcolor ; extra == 'test'
+Requires-Dist: pooch ; extra == 'test'
+Requires-Dist: netcdf4 ; extra == 'test'
 Provides-Extra: benchmark
 Provides-Extra: docs
+Provides-Extra: test
 License-File: LICENSE
 Summary: Icechunk Python
 Home-Page: https://icechunk.io

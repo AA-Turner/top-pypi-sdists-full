@@ -178,6 +178,8 @@ def web_terminal_server(
     working_dir: str,
     session_id: str,
 ) -> None:
-    from anyscale.webterminal.webterminal import main
+    from anyscale.webterminal.webterminal import (  # noqa: PLC0415 - codex_reason("gpt5.2", "lazy import to avoid heavy webterminal deps in normal CLI usage")
+        main,
+    )
 
     main(deploy_environment, use_debugger, cli_token, host, working_dir, session_id)

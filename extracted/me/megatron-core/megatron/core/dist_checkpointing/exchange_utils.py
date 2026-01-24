@@ -19,6 +19,7 @@ from .utils import _sharded_tensor_shard_id, _ShardId, debug_time
 
 # TODO: remove TE references once the TE bug is fixed
 # Check if Transformer Engine has Float8Tensor class
+
 try:
     from transformer_engine.pytorch.float8_tensor import Float8Tensor
 
@@ -345,6 +346,8 @@ def exchange_loaded_tensors_gather_rounds(
                         # It's ok to keep the nominal dtype after exchange, because TE will handle
                         # this during state dict load.
                         # TODO: remove it once the bug is fixed
+                        from ..fp8_utils import is_float8tensor  # Avoid circular import
+
                         if is_float8tensor(local_ten):
                             try:
                                 local_ten = local_ten.from_float8()
@@ -506,6 +509,8 @@ def exchange_loaded_tensors_broadcast(
         # It's ok to keep the nominal dtype after exchange, because TE will handle
         # this during state dict load.
         # TODO: remove it once the bug is fixed
+        from ..fp8_utils import is_float8tensor  # Avoid circular import
+
         if is_float8tensor(local_ten):
             try:
                 local_ten = local_ten.from_float8()

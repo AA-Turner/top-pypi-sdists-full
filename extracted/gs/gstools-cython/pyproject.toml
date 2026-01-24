@@ -1,0 +1,148 @@
+[build-system]
+requires = [
+    "setuptools>=77",
+    "setuptools_scm>=7",
+    "numpy>=2",
+    "Cython>=3",
+    "extension-helpers>=1",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+requires-python = ">=3.10"
+name = "gstools_cython"
+description = "Cython backend for GSTools."
+authors = [
+    {name = "Sebastian Müller, Lennart Schüler", email = "info@geostat-framework.org"},
+]
+readme = "README.md"
+license = "LGPL-3.0-or-later"
+license-files = ["LICENSE"]
+dynamic = ["version"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "Natural Language :: English",
+    "Operating System :: Unix",
+    "Operating System :: Microsoft",
+    "Operating System :: MacOS",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Hydrology",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "numpy>=1.20.0",
+]
+
+[project.optional-dependencies]
+doc = [
+    "myst_parser",
+    "numpydoc",
+    "sphinx>=7",
+    "sphinx-rtd-theme>=3",
+]
+test = [
+    "pytest-cov>=3",
+     "Cython>=3",
+]
+lint = [
+    "black>=24",
+    "pylint",
+    "isort[colors]",
+    "cython-lint",
+]
+
+[project.urls]
+Changelog = "https://github.com/GeoStat-Framework/GSTools-Cython/blob/main/CHANGELOG.md"
+Conda-Forge = "https://anaconda.org/conda-forge/gstools"
+Documentation = "https://gstools.readthedocs.io"
+Homepage = "https://geostat-framework.org/#gstools"
+Source = "https://github.com/GeoStat-Framework/GSTools-Cython"
+Tracker = "https://github.com/GeoStat-Framework/GSTools-Cython/issues"
+
+[tool.setuptools_scm]
+write_to = "src/gstools_cython/_version.py"
+write_to_template = "__version__ = '{version}'"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0.dev0"
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.black]
+target-version = [
+    "py310",
+    "py311",
+    "py312",
+    "py313",
+    "py314",
+]
+
+[tool.coverage]
+    [tool.coverage.run]
+    plugins = ["Cython.Coverage"]
+    source = ["gstools_cython"]
+    omit = [
+        "*docs*",
+        "*examples*",
+        "*tests*",
+    ]
+
+    [tool.coverage.report]
+    exclude_lines = [
+        "pragma: no cover",
+        "def __repr__",
+        "def __str__",
+    ]
+
+[tool.pylint]
+    [tool.pylint.main]
+    extension-pkg-whitelist = [
+        "numpy",
+    ]
+    ignore = "_version.py"
+    load-plugins = [
+        "pylint.extensions.no_self_use",
+    ]
+
+    [tool.pylint.message_control]
+    disable = [
+        "R0801",
+    ]
+
+    [tool.pylint.reports]
+    output-format = "colorized"
+
+    [tool.pylint.design]
+    max-args = 20
+    max-locals = 50
+    max-branches = 30
+    max-statements = 85
+    max-attributes = 25
+    max-public-methods = 80
+
+[tool.cibuildwheel]
+# Switch to using build
+build-frontend = "build"
+# explicitly enable pypy
+enable = ["pypy"]
+# Disable building py3.8/9, 32bit linux, and arm64 windows wheels for python 3.10 (no numpy support)
+skip = ["cp38-*", "cp39-*", "*_i686", "cp310-win_arm64"]
+# Run the package tests using `pytest`
+test-extras = "test"
+test-command = "pytest -v {package}/tests"

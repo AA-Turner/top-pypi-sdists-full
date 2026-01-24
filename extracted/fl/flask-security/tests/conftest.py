@@ -11,6 +11,7 @@ Test fixtures and what not
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import sqlite3
 import gc
 import os
@@ -26,7 +27,7 @@ from passlib.registry import register_crypt_handler
 import pytest
 from flask import Flask, Response, jsonify, render_template
 from flask import request as flask_request
-from flask_mailman import Mail
+from flask_mail import Mail
 from flask_wtf import CSRFProtect
 
 try:
@@ -64,6 +65,12 @@ try:
     from flask_babel import Babel
 except ImportError:
     NO_BABEL = True
+
+# enable testing both register form options
+v2_param = [
+    pytest.param(dict(use_register_v2=True), id="use_register_v2-True"),
+    pytest.param(dict(use_register_v2=False), id="use_register_v2-False"),
+]
 
 
 class FastHash(PasswordHash):
@@ -171,6 +178,11 @@ def app(request):
     flask_async_test = marker_getter("flask_async")
     if flask_async_test is not None:
         pytest.importorskip("asgiref")  # from flask[async]
+
+    # allow parameterized tests to set security config variables
+    if hasattr(request, "param") and isinstance(request.param, Mapping):
+        for key, value in request.param.items():
+            app.config["SECURITY_" + key.upper()] = value
 
     # Override config settings as requested for this test
     settings = marker_getter("settings")
@@ -370,6 +382,12 @@ def app(request):
 
 
 @pytest.fixture()
+def outbox(app):
+    with app.mail.record_messages() as outbox:
+        yield outbox
+
+
+@pytest.fixture()
 def mongoengine_datastore(app, tmpdir, realmongodburl):
     ds, td = mongoengine_setup(app, tmpdir, realmongodburl)
     yield ds
@@ -533,6 +551,7 @@ def sqlalchemy_setup(app, tmpdir, realdburl):
         with app.app_context():
             if realdburl:
                 db.drop_all()
+                db.engine.dispose()  # make sure Flask-SQLAlchemy connections are closed
                 _teardown_realdb(db_info)
             engine = db.engine
             engine.dispose()
@@ -1034,15 +1053,13 @@ def datastore(request, app, tmpdir, realdburl, realmongodburl):
     if request.param == "sqlalchemy":
         ds, td = sqlalchemy_setup(app, tmpdir, realdburl)
     elif request.param == "sqlalchemy-session":
-        if sys.version_info < (3, 10):
-            pytest.skip("sqlalchemy-session requires python3.10 or higher")
         ds, td = sqlalchemy_session_setup(app, tmpdir, realdburl)
     elif request.param == "mongoengine":
         ds, td = mongoengine_setup(app, tmpdir, realmongodburl)
     elif request.param == "peewee":
         ds, td = peewee_setup(app, tmpdir, realdburl)
     elif request.param == "pony":
-        if sys.version_info > (3, 12):
+        if sys.version_info >= (3, 13):
             pytest.skip("pony requires python3.12 or lower")
         ds, td = pony_setup(app, tmpdir, realdburl)
     elif request.param == "fsqlalite":

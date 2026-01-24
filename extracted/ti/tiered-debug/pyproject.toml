@@ -1,0 +1,115 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tiered-debug"
+dynamic = ["version"]
+description = 'A Python logging helper module that allows multiple levels of debug logging'
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text='Apache-2.0' }
+keywords = ['debug', 'logging', 'tiered-debug']
+authors = [
+  { name = "Aaron Mildenstein", email = "aaron@mildensteins.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+
+dependencies = []
+
+[project.optional-dependencies]
+test = [
+    'pytest>=7.2.1',
+    'pytest-cov',
+]
+doc = ['sphinx', 'sphinx_rtd_theme']
+
+[project.urls]
+Homepage = "https://github.com/untergeek/tiered-debug"
+"Bug Tracker" = "https://github.com/untergeek/tiered-debug/issues"
+Issues = "https://github.com/untergeek/tiered-debug/issues"
+Documentation = "https://tiered-debug.readthedocs.io/"
+Source = "https://github.com/untergeek/tiered-debug"
+"Release Notes" = "https://github.com/untergeek/tiered-debug/releases"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    'dist',
+    'docs',
+    'tests',
+    'pytest.ini',
+]
+
+[tool.hatch.version]
+path = "src/tiered_debug/__init__.py"
+
+[tool.hatch.envs.test]
+dependencies = [
+    'pytest >=7.2.1',
+    'pytest-cov',
+]
+
+# Test environment
+[[tool.hatch.envs.test.matrix]]
+python = ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
+
+[tool.hatch.envs.test.scripts]
+test = 'pytest'
+test-cov = 'pytest --cov=tiered_debug'
+cov-report = 'pytest --cov=tiered_debug --cov-report html:cov_html'
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/tiered_debug tests}"
+
+[tool.coverage.run]
+source_pkgs = ["tiered_debug"]
+branch = true
+parallel = true
+omit = [
+  "src/tiered_debug/__init__.py",
+]
+
+[tool.coverage.paths]
+tiered_debug = ["src/tiered_debug", "*/tiered-debug/src/tiered_debug"]
+tests = ["tests", "*/tiered-debug/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
+[tool.black]
+target-version = ['py38']
+line-length = 88
+skip-string-normalization = false
+include = '\.pyi?$'
+
+[tool.pylint.format]
+max-line-length = "88"
+
+[tool.pytest.ini_options]
+pythonpath = ['.', 'src/tiered_debug']
+minversion = '7.2'
+addopts = '-ra -q'
+testpaths = ['tests']
+
+# Lint environment
+[tool.hatch.envs.lint.scripts]
+run-black = 'black --quiet --check --diff {args:.}'
+python = ['run-black']
+all = ['python']

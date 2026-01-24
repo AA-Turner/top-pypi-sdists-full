@@ -8,6 +8,8 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.serialization import FieldMetadata
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .chunk_plan import ChunkPlan
+from .fallback_hume_voice_model import FallbackHumeVoiceModel
+from .fallback_hume_voice_provider import FallbackHumeVoiceProvider
 
 
 class FallbackHumeVoice(UncheckedBaseModel):
@@ -18,12 +20,12 @@ class FallbackHumeVoice(UncheckedBaseModel):
     This is the flag to toggle voice caching for the assistant.
     """
 
-    provider: typing.Literal["hume"] = pydantic.Field(default="hume")
+    provider: FallbackHumeVoiceProvider = pydantic.Field()
     """
     This is the voice provider that will be used.
     """
 
-    model: typing.Optional[typing.Literal["octave"]] = pydantic.Field(default=None)
+    model: typing.Optional[FallbackHumeVoiceModel] = pydantic.Field(default=None)
     """
     This is the model that will be used.
     """

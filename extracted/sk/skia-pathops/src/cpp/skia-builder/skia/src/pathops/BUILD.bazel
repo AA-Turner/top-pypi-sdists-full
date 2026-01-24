@@ -1,8 +1,10 @@
-load("//bazel:skia_rules.bzl", "exports_files_legacy", "skia_filegroup", "split_srcs_and_hdrs")
+load("//bazel:skia_rules.bzl", "skia_cc_library", "split_srcs_and_hdrs")
+
+package(
+    default_applicable_licenses = ["//:license"],
+)
 
 licenses(["notice"])
-
-exports_files_legacy()
 
 PATHOPS_FILES = [
     "SkAddIntersections.cpp",
@@ -65,22 +67,24 @@ PATHOPS_FILES = [
 ]
 
 split_srcs_and_hdrs(
-    name = "pathops",
+    name = "_pathops",
     files = PATHOPS_FILES,
 )
 
-skia_filegroup(
-    name = "srcs",
+skia_cc_library(
+    name = "pathops",
     srcs = [
-        ":pathops_srcs",
+        ":_pathops_hdrs",
+        ":_pathops_srcs",
     ],
-    visibility = ["//src:__pkg__"],
-)
-
-skia_filegroup(
-    name = "private_hdrs",
-    srcs = [
-        ":pathops_hdrs",
+    hdrs = [
+        "//include/pathops:public_hdrs",
     ],
-    visibility = ["//src:__pkg__"],
+    features = ["layering_check"],
+    visibility = ["//:__pkg__"],
+    deps = [
+        "//src/base",
+        "//src/core",
+        "//src/core:core_priv",
+    ],
 )

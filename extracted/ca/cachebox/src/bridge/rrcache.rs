@@ -3,20 +3,24 @@ use crate::common::Entry;
 use crate::common::ObservedIterator;
 use crate::common::PreHashObject;
 
-#[pyo3::pyclass(module = "cachebox._core", frozen)]
+#[cfg_attr(Py_3_9, pyo3::pyclass(module = "cachebox._core", frozen))]
+#[cfg_attr(
+    not(Py_3_9),
+    pyo3::pyclass(module = "cachebox._core", frozen, immutable_type)
+)]
 pub struct RRCache {
-    raw: crate::mutex::Mutex<crate::policies::random::RandomPolicy>,
+    raw: crate::common::Mutex<crate::policies::random::RandomPolicy>,
 }
 
 #[pyo3::pymethods]
 impl RRCache {
     #[new]
-    #[pyo3(signature=(maxsize, *, capacity=0))]
-    fn __new__(maxsize: usize, capacity: usize) -> pyo3::PyResult<Self> {
-        let raw = crate::policies::random::RandomPolicy::new(maxsize, capacity)?;
+    #[pyo3(signature=(maxsize, *, capacity=0, maxmemory=0))]
+    fn __new__(maxsize: usize, capacity: usize, maxmemory: usize) -> pyo3::PyResult<Self> {
+        let raw = crate::policies::random::RandomPolicy::new(maxsize, capacity, maxmemory)?;
 
         let self_ = Self {
-            raw: crate::mutex::Mutex::new(raw),
+            raw: crate::common::Mutex::new(raw),
         };
         Ok(self_)
     }
@@ -29,6 +33,14 @@ impl RRCache {
         self.raw.lock().maxsize()
     }
 
+    fn maxmemory(&self) -> usize {
+        self.raw.lock().maxmemory()
+    }
+
+    fn memory(&self) -> usize {
+        self.raw.lock().memory()
+    }
+
     fn capacity(&self) -> usize {
         self.raw.lock().capacity()
     }
@@ -39,7 +51,8 @@ impl RRCache {
 
     fn __sizeof__(&self) -> usize {
         let lock = self.raw.lock();
-        lock.capacity() * (size_of::<PreHashObject>() + size_of::<pyo3::ffi::PyObject>())
+        lock.capacity()
+            * (size_of::<PreHashObject>() + size_of::<pyo3::ffi::PyObject>() + size_of::<usize>())
     }
 
     fn __contains__(
@@ -74,9 +87,9 @@ impl RRCache {
         let mut lock = self.raw.lock();
 
         match lock.entry_with_slot(py, &key)? {
-            Entry::Occupied(entry) => Ok(Some(entry.update(value)?)),
+            Entry::Occupied(entry) => Ok(Some(entry.update(py, value)?)),
             Entry::Absent(entry) => {
-                entry.insert(key, value)?;
+                entry.insert(py, key, value)?;
                 Ok(None)
             }
         }
@@ -150,7 +163,7 @@ impl RRCache {
 
         match lock.entry(py, &key)? {
             Entry::Occupied(entry) => {
-                let (_, value) = entry.remove();
+                let (_, value, _) = entry.remove();
                 Ok(value)
             }
             Entry::Absent(_) => Err(pyo3::PyErr::new::<super::CoreKeyError, _>(key.obj)),
@@ -161,7 +174,7 @@ impl RRCache {
         let mut lock = self.raw.lock();
 
         match lock.popitem()? {
-            Some((key, val)) => Ok((key.obj, val)),
+            Some((key, val, _)) => Ok((key.obj, val)),
             None => Err(pyo3::PyErr::new::<super::CoreKeyError, _>(())),
         }
     }
@@ -191,11 +204,11 @@ impl RRCache {
 
         match lock.entry(py, &key)? {
             Entry::Occupied(entry) => {
-                let (_, ref value) = entry.into_value();
+                let (_, ref value, _) = entry.into_value();
                 Ok(value.clone_ref(py))
             }
             Entry::Absent(entry) => {
-                entry.insert(key, default.clone_ref(py))?;
+                entry.insert(py, key, default.clone_ref(py))?;
                 Ok(default)
             }
         }
@@ -208,7 +221,7 @@ impl RRCache {
 
         let result = cache_items {
             ptr: ObservedIterator::new(slf.as_ptr(), state),
-            iter: crate::mutex::Mutex::new(iter),
+            iter: crate::common::Mutex::new(iter),
         };
 
         pyo3::Py::new(slf.py(), result)
@@ -237,20 +250,22 @@ impl RRCache {
                 }
 
                 for bucket in lock.iter() {
-                    let (key, val) = bucket.as_ref();
+                    let (key, val, _) = bucket.as_ref();
                     // SAFETY: we don't need to check error because we sure about key that is hashable.
                     pyo3::ffi::PyDict_SetItem(mp, key.obj.as_ptr(), val.as_ptr());
                 }
 
                 let maxsize = pyo3::ffi::PyLong_FromSize_t(lock.maxsize());
                 let capacity = pyo3::ffi::PyLong_FromSize_t(lock.capacity());
+                let maxmemory = pyo3::ffi::PyLong_FromSize_t(lock.maxmemory());
 
                 tuple!(
                     py,
-                    3,
+                    4,
                     0 => maxsize,
                     1 => mp,
                     2 => capacity,
+                    3 => maxmemory,
                 )?
             };
             Ok(pyo3::Py::from_owned_ptr(py, state))
@@ -268,7 +283,7 @@ impl RRCache {
 
     pub fn __traverse__(&self, visit: pyo3::PyVisit<'_>) -> Result<(), pyo3::PyTraverseError> {
         for value in self.raw.lock().iter() {
-            let (key, value) = unsafe { value.as_ref() };
+            let (key, value, _) = unsafe { value.as_ref() };
             visit.call(&key.obj)?;
             visit.call(value)?;
         }

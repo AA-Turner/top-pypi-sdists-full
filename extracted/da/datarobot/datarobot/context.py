@@ -79,9 +79,7 @@ class _ContextGlobals:
     """
 
     _use_case: DefaultUseCase = field(init=False, default=None)
-    _enable_api_consumer_tracking: bool = field(
-        init=False, default=ENABLE_API_CONSUMER_TRACKING_DEFAULT
-    )
+    _enable_api_consumer_tracking: bool = field(init=False, default=ENABLE_API_CONSUMER_TRACKING_DEFAULT)
     _trace_context: Optional[str] = field(init=False, default=None)
 
     @property
@@ -123,9 +121,7 @@ class _ContextGlobals:
         return self._enable_api_consumer_tracking
 
     @enable_api_consumer_tracking.setter
-    def enable_api_consumer_tracking(
-        self, value: bool = ENABLE_API_CONSUMER_TRACKING_DEFAULT
-    ) -> None:
+    def enable_api_consumer_tracking(self, value: bool = ENABLE_API_CONSUMER_TRACKING_DEFAULT) -> None:
         self._enable_api_consumer_tracking = value
 
     @property

@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) TorchGeo Contributors. All rights reserved.
 # Licensed under the MIT License.
 
 """HySpecNet dataset."""
@@ -150,14 +150,14 @@ class HySpecNet11k(NonGeoDataset):
         assert match
         mint, maxt = disambiguate_timestamp(match.group('date'), EnMAP.date_format)
 
-        with rio.open(os.path.join(self.root, 'hyspecnet-11k', 'patches', file)) as src:
+        with rio.open(os.path.join(self.root, 'hyspecnet-11k', 'patches', path)) as src:
             minx, maxx = src.bounds.left, src.bounds.right
             miny, maxy = src.bounds.bottom, src.bounds.top
             sample = {
                 'image': torch.tensor(src.read(self.band_indices).astype('float32')),
                 'x': torch.tensor((minx + maxx) / 2),
                 'y': torch.tensor((miny + maxy) / 2),
-                't': torch.tensor((mint + maxt) / 2),
+                't': torch.tensor((mint.timestamp() + maxt.timestamp()) / 2),
                 'wavelength': self.wavelengths,
                 'res': torch.tensor(30),
             }

@@ -4,9 +4,11 @@ from collections.abc import Iterable, Mapping
 import decimal
 from enum import Enum
 from functools import partial
+import json
 import locale
 import typing as t
 import warnings
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -14,46 +16,87 @@ from pandas.core.dtypes.common import (
     is_datetime64_any_dtype,
     is_timedelta64_dtype,
 )
-import pytz
 
 from .internals import (
     deserialize_to_dataframe,
     IgnoreWarnings,
     to_pandas_datetime_format
 )
+from .tokenizing import (
+    HowsoTokenizer,
+    TokenizerProtocol,
+)
 from .utilities import (
     DATETIME_TIMEZONE_PATTERN,
+    destringify_json,
     LocaleOverride,
     seconds_to_time,
     serialize_datetimes,
+    stringify_json,
+    tokenize_strings,
 )
 
 
 __all__ = [
-    'FeatureSerializer',
-    'FeatureType',
-    'deserialize_cases',
-    'format_dataframe',
-    'serialize_cases',
+    "cast_primitive_from_feature_type",
+    "convert_primitive_to_feature_type",
+    "FeatureSerializer",
+    "FeatureType",
+    "deserialize_cases",
+    "format_dataframe",
+    "serialize_cases",
 ]
 
 
 class FeatureType(Enum):
     """Feature type enum."""
 
-    UNKNOWN = 'object'
-    STRING = 'string'
-    NUMERIC = 'numeric'
-    INTEGER = 'integer'
-    BOOLEAN = 'boolean'
-    DATETIME = 'datetime'
-    DATE = 'date'
-    TIME = 'time'
-    TIMEDELTA = 'timedelta'
+    UNKNOWN = "object"
+    STRING = "string"
+    TOKENIZABLE_STRING = "tokenizable_string"
+    NUMERIC = "numeric"
+    INTEGER = "integer"
+    BOOLEAN = "boolean"
+    DATETIME = "datetime"
+    DATE = "date"
+    TIME = "time"
+    TIMEDELTA = "timedelta"
+    CONTAINER = "container"
 
     def __str__(self):
         """Return a string representation."""
         return str(self.value)
+
+
+def cast_primitive_from_feature_type(data: int | float | str | bool, new_type: str):
+    """Cast a primitive value to the provided FeatureType value if it does not match."""
+    try:
+        if new_type == FeatureType.STRING.value and not isinstance(data, str):
+            return str(data)
+        elif new_type == FeatureType.BOOLEAN.value and not isinstance(data, bool):
+            return bool(data)
+        elif new_type == FeatureType.INTEGER.value and not isinstance(data, int):
+            return int(data)
+        elif new_type == FeatureType.FLOAT.value and not isinstance(data, float):
+            return float(data)
+    except Exception:  # noqa: Intentionally broad
+        # This is a QoL operation and it should not stop execution if there is a problem
+        pass
+    return data
+
+
+def convert_primitive_to_feature_type(value: t.Any):
+    """Convert a primitive value's data type to FeatureType. Returns 'object' if not primitive."""
+    if isinstance(value, str):
+        return FeatureType.STRING.value
+    elif isinstance(value, bool):
+        return FeatureType.BOOLEAN.value
+    elif isinstance(value, int):
+        return FeatureType.INTEGER.value
+    elif isinstance(value, float):
+        return FeatureType.NUMERIC.value
+    # A non-primitive type
+    return FeatureType.UNKNOWN
 
 
 class FeatureSerializer:
@@ -66,6 +109,7 @@ class FeatureSerializer:
         columns: Iterable[str] | None,
         features: Mapping,
         *,
+        tokenizer: TokenizerProtocol = None,
         warn: bool = False
     ) -> list[list[t.Any]] | None:
         """
@@ -80,6 +124,10 @@ class FeatureSerializer:
             `columns` must be provided for non-DataFrame Iterables.
         features : Mapping
             The dictionary of feature name to feature attributes.
+        tokenizer : TokenizerProtocol, default None
+            An object that satisfies :class:`howso.client.protocols.TokenizerProtocol`. Provides a tokenizer and
+            `detokenize` method for processing tokenizable strings. If not specified, defaults to using
+            :class:`howso.utilities.HowsoTokenizer`.
         warn : bool, default False
             If warnings should be raised by serializer.
 
@@ -167,14 +215,21 @@ class FeatureSerializer:
         # Serialize datetime objects
         serialize_datetimes(result, columns, features, warn=warn)
 
+        # Tokenize any tokenizable strings
+        tokenize_strings(result, columns, features, tokenizer=tokenizer or HowsoTokenizer())
+
+        # Stringify any raw JSONs
+        stringify_json(result, columns, features)
+
         return result
 
     @classmethod
     def deserialize(
         cls,
         data: Iterable[Iterable[t.Any] | Mapping[str, t.Any]],
-        columns: Iterable[str],
-        features: t.Optional[Mapping] = None
+        columns: t.Optional[Iterable[str]] = None,
+        features: t.Optional[Mapping] = None,
+        tokenizer: t.Optional[TokenizerProtocol] = None,
     ) -> pd.DataFrame:
         """
         Deserialize case data into a DataFrame.
@@ -186,7 +241,7 @@ class FeatureSerializer:
         ----------
         data : list of list or list of dict
             The context data.
-        columns : Iterable of str
+        columns : Iterable of str, optional
             The case column mapping. The order corresponds to the order of cases in output.
             `columns` must be provided for non-DataFrame Iterables.
 
@@ -197,6 +252,10 @@ class FeatureSerializer:
             (Optional) The dictionary of feature name to feature attributes.
 
             If not specified, no column typing will be attempted.
+        tokenizer : TokenizerProtocol, default None
+            An object that satisfies :class:`howso.client.protocols.TokenizerProtocol`. Provides a tokenizer and
+            `detokenize` method for processing tokenizable strings. If not specified, defaults to using
+            :class:`howso.utilities.HowsoTokenizer`.
 
         Returns
         -------
@@ -205,12 +264,12 @@ class FeatureSerializer:
         """
         df = deserialize_to_dataframe(data, columns)
         if features is not None:
-            cls.format_dataframe(df, features)
+            df = cls.format_dataframe(df, features, tokenizer=tokenizer)
         return df
 
     @classmethod
-    def format_dataframe(cls, df: pd.DataFrame, features: Mapping
-                         ) -> pd.DataFrame:
+    def format_dataframe(cls, df: pd.DataFrame, features: Mapping,
+                         tokenizer: t.Optional[TokenizerProtocol] = None) -> pd.DataFrame:
         """
         Format DataFrame columns to original type using feature attributes.
 
@@ -224,24 +283,32 @@ class FeatureSerializer:
             The DataFrame to format columns of.
         features : Mapping
             The dictionary of feature name to feature attributes.
+        tokenizer : TokenizerProtocol, default None
+            An object that satisfies :class:`howso.client.protocols.TokenizerProtocol`. Provides a tokenizer and
+            `detokenize` method for processing tokenizable strings. If not specified, defaults to using
+            :class:`howso.utilities.HowsoTokenizer`.
 
         Returns
         -------
         pandas.DataFrame
             The formatted data.
         """
-        for col in df.columns.tolist():
+        original_feature_order = df.columns.tolist()
+        for col in original_feature_order:
             try:
                 attributes = features[col]
             except (TypeError, KeyError):
                 # Column not in feature attributes, skip column
                 continue
-            df[col] = cls.format_column(df[col], attributes)
-        return df
+            new_values = cls.format_column(df[col], attributes, tokenizer=tokenizer)
+            df = df.drop(columns=col)
+            df[col] = new_values
+            
+        return df[original_feature_order]
 
     @classmethod
     def format_column(cls, column: pd.Series,  # noqa: C901
-                      feature: Mapping) -> pd.Series:
+                      feature: Mapping, tokenizer: t.Optional[TokenizerProtocol] = None) -> pd.Series:
         """
         Format column based on feature typing information.
 
@@ -251,6 +318,10 @@ class FeatureSerializer:
             The column to format.
         feature : Mapping
             The feature attributes for the column.
+        tokenizer : TokenizerProtocol, default None
+            An object that satisfies :class:`howso.client.protocols.TokenizerProtocol`. Provides a tokenizer and
+            `detokenize` method for processing tokenizable strings. If not specified, defaults to using
+            :class:`howso.utilities.HowsoTokenizer`.
 
         Returns
         -------
@@ -267,6 +338,8 @@ class FeatureSerializer:
             return cls.format_integer_column(column, feature)
         elif data_type == FeatureType.STRING.value:
             return cls.format_string_column(column, feature)
+        elif data_type == FeatureType.TOKENIZABLE_STRING.value:
+            return cls.format_tokenizable_string_column(column, feature, tokenizer=tokenizer)
         elif data_type == FeatureType.DATETIME.value:
             return cls.format_datetime_column(column, feature)
         elif data_type == FeatureType.DATE.value:
@@ -277,6 +350,8 @@ class FeatureSerializer:
             return cls.format_timedelta_column(column, feature)
         elif data_type == FeatureType.BOOLEAN.value:
             return cls.format_boolean_column(column, feature)
+        elif data_type == FeatureType.CONTAINER.value:
+            return cls.format_container_column(column, feature)
         else:
             return cls.format_unknown_column(column, feature)
 
@@ -350,8 +425,8 @@ class FeatureSerializer:
         tz = typing_info.get('timezone')
         if tz is not None:
             try:
-                tz = pytz.timezone(tz)
-            except pytz.UnknownTimeZoneError:
+                tz = ZoneInfo(tz)
+            except KeyError:
                 warnings.warn(
                     f'Unknown timezone "{tz}" for feature "{column.name}", '
                     'datetime column may not contain original timezone '
@@ -459,17 +534,18 @@ class FeatureSerializer:
             return cls.format_datetime_column(column, feature)
         else:
             # Time feature does not use a date_time_format, treat as seconds
+            tz = None
             try:
-                tz = typing_info['timezone']
-                if tz is not None:
-                    tz = pytz.timezone(tz)
-            except pytz.UnknownTimeZoneError:
-                tz = None
-                warnings.warn(
-                    f'Unknown timezone defined for column "{column.name}", '
-                    'column will not be timezone aware.')
+                tz_name = typing_info['timezone']
+                if tz_name is not None:
+                    try:
+                        tz = ZoneInfo(tz_name)
+                    except KeyError:
+                        warnings.warn(
+                            f'Unknown timezone defined for column "{column.name}", '
+                            'column will not be timezone aware.')
             except (TypeError, KeyError):
-                tz = None
+                pass
 
             return column.apply(partial(seconds_to_time, tzinfo=tz))
 
@@ -629,6 +705,31 @@ class FeatureSerializer:
         return column
 
     @classmethod
+    def format_tokenizable_string_column(cls, column: pd.Series, feature: Mapping,
+                                         tokenizer: t.Optional[TokenizerProtocol]) -> pd.Series:
+        """
+        Format tokenizable string column.
+
+        Parameters
+        ----------
+        column : pandas.Series
+            The column to format.
+        feature : Mapping
+            The feature attributes for the column.
+        tokenizer : TokenizerProtocol, default None
+            An object that satisfies :class:`howso.client.protocols.TokenizerProtocol`. Provides a tokenizer and
+            `detokenize` method for processing tokenizable strings. If not specified, defaults to using
+            :class:`howso.utilities.HowsoTokenizer`.
+
+        Returns
+        -------
+        pandas.Series
+            The formatted column.
+        """
+        tokenizer = tokenizer or HowsoTokenizer()
+        return pd.Series(tokenizer.detokenize(json.loads(case)) for case in column)
+
+    @classmethod
     def format_unknown_column(cls, column: pd.Series, feature: Mapping
                               ) -> pd.Series:
         """
@@ -648,6 +749,25 @@ class FeatureSerializer:
         """
         # Unknown original type, don't modify column
         return column
+
+    @classmethod
+    def format_container_column(cls, column: pd.Series, feature: Mapping) -> pd.Series:
+        """
+        Format a container column (a Python Mapping/Sequence).
+
+        Parameters
+        ----------
+        column : pandas.Series
+            The column to format.
+        feature : Mapping
+            The feature attributes for the column.
+
+        Returns
+        -------
+        pandas.Series
+            The formatted column.
+        """
+        return destringify_json(column, feature)
 
     @staticmethod
     def _get_typing_info(feature: t.Optional[Mapping]) -> dict:
@@ -673,4 +793,5 @@ class FeatureSerializer:
 
 serialize_cases = FeatureSerializer.serialize
 deserialize_cases = FeatureSerializer.deserialize
+format_column = FeatureSerializer.format_column
 format_dataframe = FeatureSerializer.format_dataframe

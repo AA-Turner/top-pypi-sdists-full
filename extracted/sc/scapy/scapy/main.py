@@ -9,20 +9,19 @@ Main module for interactive startup.
 
 
 import builtins
-import pathlib
-import sys
-import os
-import getopt
 import code
-import gzip
+import getopt
 import glob
 import importlib
 import io
-from itertools import zip_longest
 import logging
-import pickle
-import types
+import os
+import pathlib
+import shutil
+import sys
 import warnings
+
+from itertools import zip_longest
 from random import choice
 
 # Never add any global import, in main.py, that would trigger a
@@ -68,17 +67,18 @@ QUOTES = [
 def _probe_xdg_folder(var, default, *cf):
     # type: (str, str, *str) -> Optional[pathlib.Path]
     path = pathlib.Path(os.environ.get(var, default))
-    if not path.exists():
-        # ~ folder doesn't exist. Create according to spec
-        # https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
-        # "If, when attempting to write a file, the destination directory is
-        # non-existent an attempt should be made to create it with permission 0700."
-        try:
+    try:
+        if not path.exists():
+            # ~ folder doesn't exist. Create according to spec
+            # https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+            # "If, when attempting to write a file, the destination directory is
+            # non-existent an attempt should be made to create it with permission 0700."
             path.mkdir(mode=0o700, exist_ok=True)
-        except Exception:
-            # There is a gazillion ways this can fail. Most notably,
-            # a read-only fs.
-            return None
+    except Exception:
+        # There is a gazillion ways this can fail. Most notably, a read-only fs or no
+        # permissions to even check for folder to exist (e.x. privileges were dropped
+        # before scapy was started).
+        return None
     return path.joinpath(*cf).resolve()
 
 
@@ -98,6 +98,35 @@ def _probe_cache_folder(*cf):
         os.path.join(os.path.expanduser("~"), ".cache"),
         *cf
     )
+
+
+def _probe_share_folder(*cf):
+    # type: (str) -> Optional[pathlib.Path]
+    return _probe_xdg_folder(
+        "XDG_DATA_HOME",
+        os.path.join(os.path.expanduser("~"), ".local", "share"),
+        *cf
+    )
+
+
+def _check_perms(file: Union[pathlib.Path, str]) -> None:
+    """
+    Checks that the permissions of a file are properly user-specific, if sudo is used.
+    """
+    if (
+        not WINDOWS and
+        "SUDO_UID" in os.environ and
+        "SUDO_GID" in os.environ
+    ):
+        # Was started with sudo. Still, chown to the user.
+        try:
+            os.chown(
+                file,
+                int(os.environ["SUDO_UID"]),
+                int(os.environ["SUDO_GID"]),
+            )
+        except Exception:
+            pass
 
 
 def _read_config_file(cf, _globals=globals(), _locals=locals(),
@@ -136,36 +165,12 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
         try:
             if not cf_path.parent.exists():
                 cf_path.parent.mkdir(parents=True, exist_ok=True)
-                if (
-                    not WINDOWS and
-                    "SUDO_UID" in os.environ and
-                    "SUDO_GID" in os.environ
-                ):
-                    # Was started with sudo. Still, chown to the user.
-                    try:
-                        os.chown(
-                            cf_path.parent,
-                            int(os.environ["SUDO_UID"]),
-                            int(os.environ["SUDO_GID"]),
-                        )
-                    except Exception:
-                        pass
+                _check_perms(cf_path.parent)
+
             with cf_path.open("w") as fd:
                 fd.write(default)
-            if (
-                not WINDOWS and
-                "SUDO_UID" in os.environ and
-                "SUDO_GID" in os.environ
-            ):
-                # Was started with sudo. Still, chown to the user.
-                try:
-                    os.chown(
-                        cf_path,
-                        int(os.environ["SUDO_UID"]),
-                        int(os.environ["SUDO_GID"]),
-                    )
-                except Exception:
-                    pass
+
+            _check_perms(cf_path)
             log_loading.debug("Config file [%s] created with default.", cf)
         except OSError:
             log_loading.warning("Config file [%s] could not be created.", cf,
@@ -206,6 +211,22 @@ else:
     DEFAULT_PRESTART_FILE = None
     DEFAULT_STARTUP_FILE = None
 
+# https://github.com/scop/bash-completion/blob/main/README.md#faq
+if "BASH_COMPLETION_USER_DIR" in os.environ:
+    BASH_COMPLETION_USER_DIR: Optional[pathlib.Path] = pathlib.Path(
+        os.environ["BASH_COMPLETION_USER_DIR"]
+    )
+else:
+    BASH_COMPLETION_USER_DIR = _probe_share_folder("bash-completion")
+
+if BASH_COMPLETION_USER_DIR:
+    BASH_COMPLETION_FOLDER: Optional[pathlib.Path] = (
+        BASH_COMPLETION_USER_DIR / "completions"
+    )
+else:
+    BASH_COMPLETION_FOLDER = None
+
+
 # Default scapy prestart.py config file
 
 DEFAULT_PRESTART = """
@@ -222,6 +243,12 @@ conf.color_theme = DefaultTheme()
 # disable INFO: tags related to dependencies missing
 # log_loading.setLevel(logging.WARNING)
 
+# extensions to load by default
+conf.load_extensions = [
+    # "scapy-red",
+    # "scapy-rpc",
+]
+
 # force-use libpcap
 # conf.use_pcap = True
 """.strip()
@@ -230,7 +257,7 @@ conf.color_theme = DefaultTheme()
 def _usage():
     # type: () -> None
     print(
-        "Usage: scapy.py [-s sessionfile] [-c new_startup_file] "
+        "Usage: scapy.py [-c new_startup_file] "
         "[-p new_prestart_file] [-C] [-P] [-H]\n"
         "Args:\n"
         "\t-H: header-less start\n"
@@ -238,6 +265,31 @@ def _usage():
         "\t-P: do not read pre-startup file\n"
     )
     sys.exit(0)
+
+
+def _add_bash_autocompletion(fname: str, script: pathlib.Path) -> None:
+    """
+    Util function used most notably in setup.py to add a bash autocompletion script.
+    """
+    try:
+        if BASH_COMPLETION_FOLDER is None:
+            raise OSError()
+
+        # If already defined, exit.
+        dest = BASH_COMPLETION_FOLDER / fname
+        if dest.exists():
+            return
+
+        # Check that bash autocompletion folder exists
+        if not BASH_COMPLETION_FOLDER.exists():
+            BASH_COMPLETION_FOLDER.mkdir(parents=True, exist_ok=True)
+            _check_perms(BASH_COMPLETION_FOLDER)
+
+        # Copy file
+        shutil.copy(script, BASH_COMPLETION_FOLDER)
+    except OSError:
+        log_loading.warning("Bash autocompletion script could not be copied.",
+                            exc_info=True)
 
 
 ######################
@@ -439,116 +491,8 @@ def _scapy_exts():
     return res
 
 
-def save_session(fname="", session=None, pickleProto=-1):
-    # type: (str, Optional[Dict[str, Any]], int) -> None
-    """Save current Scapy session to the file specified in the fname arg.
-
-    params:
-     - fname: file to save the scapy session in
-     - session: scapy session to use. If None, the console one will be used
-     - pickleProto: pickle proto version (default: -1 = latest)"""
-    from scapy import utils
-    from scapy.config import conf, ConfClass
-    if not fname:
-        fname = conf.session
-        if not fname:
-            conf.session = fname = utils.get_temp_file(keep=True)
-    log_interactive.info("Saving session into [%s]", fname)
-
-    if not session:
-        if conf.interactive_shell in ["ipython", "ptipython"]:
-            from IPython import get_ipython
-            session = get_ipython().user_ns
-        else:
-            session = builtins.__dict__["scapy_session"]
-
-    if not session:
-        log_interactive.error("No session found ?!")
-        return
-
-    ignore = session.get("_scpybuiltins", [])
-    hard_ignore = ["scapy_session", "In", "Out", "open"]
-    to_be_saved = session.copy()
-
-    for k in list(to_be_saved):
-        i = to_be_saved[k]
-        if k[0] == "_":
-            del to_be_saved[k]
-        elif hasattr(i, "__module__") and i.__module__.startswith("IPython"):
-            del to_be_saved[k]
-        elif isinstance(i, ConfClass):
-            del to_be_saved[k]
-        elif k in ignore or k in hard_ignore:
-            del to_be_saved[k]
-        elif isinstance(i, (type, types.ModuleType, types.FunctionType)):
-            if k[0] != "_":
-                log_interactive.warning("[%s] (%s) can't be saved.", k, type(i))
-            del to_be_saved[k]
-        else:
-            try:
-                pickle.dumps(i)
-            except Exception:
-                log_interactive.warning("[%s] (%s) can't be saved.", k, type(i))
-
-    try:
-        os.rename(fname, fname + ".bak")
-    except OSError:
-        pass
-
-    f = gzip.open(fname, "wb")
-    pickle.dump(to_be_saved, f, pickleProto)
-    f.close()
-
-
-def load_session(fname=None):
-    # type: (Optional[Union[str, None]]) -> None
-    """Load current Scapy session from the file specified in the fname arg.
-    This will erase any existing session.
-
-    params:
-     - fname: file to load the scapy session from"""
-    from scapy.config import conf
-    if fname is None:
-        fname = conf.session
-    try:
-        s = pickle.load(gzip.open(fname, "rb"))
-    except IOError:
-        try:
-            s = pickle.load(open(fname, "rb"))
-        except IOError:
-            # Raise "No such file exception"
-            raise
-
-    scapy_session = builtins.__dict__["scapy_session"]
-    s.update({k: scapy_session[k] for k in scapy_session["_scpybuiltins"]})
-    scapy_session.clear()
-    scapy_session.update(s)
-    update_ipython_session(scapy_session)
-
-    log_loading.info("Loaded session [%s]", fname)
-
-
-def update_session(fname=None):
-    # type: (Optional[Union[str, None]]) -> None
-    """Update current Scapy session from the file specified in the fname arg.
-
-    params:
-     - fname: file to load the scapy session from"""
-    from scapy.config import conf
-    if fname is None:
-        fname = conf.session
-    try:
-        s = pickle.load(gzip.open(fname, "rb"))
-    except IOError:
-        s = pickle.load(open(fname, "rb"))
-    scapy_session = builtins.__dict__["scapy_session"]
-    scapy_session.update(s)
-    update_ipython_session(scapy_session)
-
-
 @overload
-def init_session(session_name,  # type: Optional[Union[str, None]]
-                 mydict,  # type: Optional[Union[Dict[str, Any], None]]
+def init_session(mydict,  # type: Optional[Union[Dict[str, Any], None]]
                  ret,  # type: Literal[True]
                  ):
     # type: (...) -> Dict[str, Any]
@@ -556,21 +500,18 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
 
 
 @overload
-def init_session(session_name,  # type: Optional[Union[str, None]]
-                 mydict=None,  # type: Optional[Union[Dict[str, Any], None]]
+def init_session(mydict=None,  # type: Optional[Union[Dict[str, Any], None]]
                  ret=False,  # type: Literal[False]
                  ):
     # type: (...) -> None
     pass
 
 
-def init_session(session_name,  # type: Optional[Union[str, None]]
-                 mydict=None,  # type: Optional[Union[Dict[str, Any], None]]
+def init_session(mydict=None,  # type: Optional[Union[Dict[str, Any], None]]
                  ret=False,  # type: bool
                  ):
     # type: (...) -> Union[Dict[str, Any], None]
     from scapy.config import conf
-    SESSION = {}  # type: Optional[Dict[str, Any]]
 
     # Load Scapy
     scapy_builtins = _scapy_builtins()
@@ -578,39 +519,7 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
     # Load exts
     scapy_builtins.update(_scapy_exts())
 
-    if session_name:
-        try:
-            os.stat(session_name)
-        except OSError:
-            log_loading.info("New session [%s]", session_name)
-        else:
-            try:
-                try:
-                    SESSION = pickle.load(gzip.open(session_name, "rb"))
-                except IOError:
-                    SESSION = pickle.load(open(session_name, "rb"))
-                log_loading.info("Using existing session [%s]", session_name)
-            except ValueError:
-                msg = "Error opening Python3 pickled session on Python2 [%s]"
-                log_loading.error(msg, session_name)
-            except EOFError:
-                log_loading.error("Error opening session [%s]", session_name)
-            except AttributeError:
-                log_loading.error("Error opening session [%s]. "
-                                  "Attribute missing", session_name)
-
-        if SESSION:
-            if "conf" in SESSION:
-                conf.configure(SESSION["conf"])
-                conf.session = session_name
-                SESSION["conf"] = conf
-            else:
-                conf.session = session_name
-        else:
-            conf.session = session_name
-            SESSION = {"conf": conf}
-    else:
-        SESSION = {"conf": conf}
+    SESSION = {"conf": conf}  # type: Dict[str, Any]
 
     SESSION.update(scapy_builtins)
     SESSION["_scpybuiltins"] = scapy_builtins.keys()
@@ -622,6 +531,7 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
     if ret:
         return SESSION
     return None
+
 
 ################
 #     Main     #
@@ -733,8 +643,12 @@ def get_fancy_banner(mini: Optional[bool] = None) -> str:
     )
 
 
-def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
-    # type: (Optional[Any], Optional[Any], Optional[Any], int) -> None
+def interact(mydict=None,
+             argv=None,
+             mybanner=None,
+             mybanneronly=False,
+             loglevel=logging.INFO):
+    # type: (Optional[Any], Optional[Any], Optional[Any], bool, int) -> None
     """
     Starts Scapy's console.
     """
@@ -751,8 +665,6 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
     STARTUP_FILE = DEFAULT_STARTUP_FILE
     PRESTART_FILE = DEFAULT_PRESTART_FILE
 
-    session_name = None
-
     if argv is None:
         argv = sys.argv
 
@@ -765,8 +677,6 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
                 conf.fancy_banner = False
                 conf.verb = 1
                 conf.logLevel = logging.WARNING
-            elif opt == "-s":
-                session_name = param
             elif opt == "-c":
                 STARTUP_FILE = param
             elif opt == "-C":
@@ -798,7 +708,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
             default=DEFAULT_PRESTART,
         )
 
-    SESSION = init_session(session_name, mydict=mydict, ret=True)
+    SESSION = init_session(mydict=mydict, ret=True)
 
     if STARTUP_FILE:
         _read_config_file(
@@ -807,13 +717,22 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
             _locals=SESSION
         )
 
+    # Load extensions (Python 3.8 Only)
+    if sys.version_info >= (3, 8):
+        conf.exts.loadall()
+
     if conf.fancy_banner:
         banner_text = get_fancy_banner()
     else:
         banner_text = "Welcome to Scapy (%s)" % conf.version
-    if mybanner is not None:
-        banner_text += "\n"
-        banner_text += mybanner
+
+    # Make sure the history file has proper permissions
+    try:
+        if not pathlib.Path(conf.histfile).exists():
+            pathlib.Path(conf.histfile).touch()
+            _check_perms(conf.histfile)
+    except OSError:
+        pass
 
     # Configure interactive terminal
 
@@ -932,6 +851,12 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         import bpython
         banner = banner_text + " using bpython %s" % bpython.__version__
 
+    if mybanner is not None:
+        if mybanneronly:
+            banner = ""
+        banner += "\n"
+        banner += mybanner
+
     # Start IPython or ptipython
     if conf.interactive_shell in ["ipython", "ptipython"]:
         banner += "\n"
@@ -980,6 +905,8 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
                 cfg.InteractiveShellEmbed.term_title = False
             cfg.HistoryAccessor.hist_file = conf.histfile
             cfg.InteractiveShell.banner1 = banner
+            if conf.verb < 2:
+                cfg.InteractiveShellEmbed.enable_tip = False
             # configuration can thus be specified here.
             _kwargs = {}
             if conf.interactive_shell == "ptipython":
@@ -1017,9 +944,6 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         code.interact(banner=banner_text, local=SESSION)
     else:
         raise ValueError("Invalid conf.interactive_shell")
-
-    if conf.session:
-        save_session(conf.session, SESSION)
 
 
 if __name__ == "__main__":

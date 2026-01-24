@@ -22,6 +22,7 @@ import Cython
 from Cython.Build import cythonize
 
 PY_MAJOR_VERSION = sys.version_info[0]
+PY_MINOR_VERSION = sys.version_info[1]
 
 if PY_MAJOR_VERSION < 3 and os.name == 'nt':
     raise Exception("Python 2 is not supported on Windows.")
@@ -79,6 +80,11 @@ def is_ubuntu():
         
     return False
 
+def is_python_lt_14():
+    if PY_MAJOR_VERSION >= 3 and PY_MINOR_VERSION < 14:
+        return True
+    return False
+
 data_files = []
 libraries = []
 include_dirs = [source_dir_root] + source_dirs + ["pyreadstat", "."]
@@ -104,7 +110,7 @@ else:
     libraries.extend(["m", "z"])
     _platform = sys.platform
     # Mac and ubuntu: iconv needs to be linked statically
-    if _platform.lower().startswith("darwin") or is_ubuntu():
+    if _platform.lower().startswith("darwin") or (is_ubuntu() and is_python_lt_14()):
         libraries.append("iconv")
 
 # Extensions
@@ -150,7 +156,7 @@ short_description = "Reads and Writes SAS, SPSS and Stata files into/from pandas
 
 setup(
     name='pyreadstat',
-    version='1.3.1',
+    version='1.3.3',
     description=short_description,
     author="Otto Fajardo",
     author_email="pleasecontactviagithub@notvalid.com",
@@ -169,6 +175,6 @@ setup(
     ext_modules=extensions,
     packages=["pyreadstat"],
     data_files=data_files,
-    install_requires=['narwhals>=2.0', 'numpy'],
+    install_requires=['narwhals>=2.10.1', 'numpy'],
     license="Apache-2.0",
 )

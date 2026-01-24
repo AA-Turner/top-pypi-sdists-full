@@ -3,7 +3,7 @@ Type annotations for opensearch service type definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,8 +17,9 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Union
+from typing import Any, Union
 
 from .literals import (
     ActionSeverityType,
@@ -40,6 +41,7 @@ from .literals import (
     DryRunModeType,
     EngineTypeType,
     InboundConnectionStatusCodeType,
+    IndexStatusType,
     InitiatedByType,
     IPAddressTypeType,
     LogTypeType,
@@ -79,12 +81,6 @@ from .literals import (
     ZoneStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -152,6 +148,8 @@ __all__ = (
     "CreateApplicationResponseTypeDef",
     "CreateDomainRequestTypeDef",
     "CreateDomainResponseTypeDef",
+    "CreateIndexRequestTypeDef",
+    "CreateIndexResponseTypeDef",
     "CreateOutboundConnectionRequestTypeDef",
     "CreateOutboundConnectionResponseTypeDef",
     "CreatePackageRequestTypeDef",
@@ -170,6 +168,8 @@ __all__ = (
     "DeleteDomainResponseTypeDef",
     "DeleteInboundConnectionRequestTypeDef",
     "DeleteInboundConnectionResponseTypeDef",
+    "DeleteIndexRequestTypeDef",
+    "DeleteIndexResponseTypeDef",
     "DeleteOutboundConnectionRequestTypeDef",
     "DeleteOutboundConnectionResponseTypeDef",
     "DeletePackageRequestTypeDef",
@@ -239,10 +239,13 @@ __all__ = (
     "GetCompatibleVersionsResponseTypeDef",
     "GetDataSourceRequestTypeDef",
     "GetDataSourceResponseTypeDef",
+    "GetDefaultApplicationSettingResponseTypeDef",
     "GetDirectQueryDataSourceRequestTypeDef",
     "GetDirectQueryDataSourceResponseTypeDef",
     "GetDomainMaintenanceStatusRequestTypeDef",
     "GetDomainMaintenanceStatusResponseTypeDef",
+    "GetIndexRequestTypeDef",
+    "GetIndexResponseTypeDef",
     "GetPackageVersionHistoryRequestTypeDef",
     "GetPackageVersionHistoryResponseTypeDef",
     "GetUpgradeHistoryRequestTypeDef",
@@ -323,6 +326,8 @@ __all__ = (
     "PluginPropertiesTypeDef",
     "PurchaseReservedInstanceOfferingRequestTypeDef",
     "PurchaseReservedInstanceOfferingResponseTypeDef",
+    "PutDefaultApplicationSettingRequestTypeDef",
+    "PutDefaultApplicationSettingResponseTypeDef",
     "RecurringChargeTypeDef",
     "RejectInboundConnectionRequestTypeDef",
     "RejectInboundConnectionResponseTypeDef",
@@ -339,6 +344,7 @@ __all__ = (
     "ScheduledActionTypeDef",
     "ScheduledAutoTuneDetailsTypeDef",
     "SecurityLakeDirectQueryDataSourceTypeDef",
+    "ServerlessVectorAccelerationTypeDef",
     "ServiceSoftwareOptionsTypeDef",
     "SnapshotOptionsStatusTypeDef",
     "SnapshotOptionsTypeDef",
@@ -360,6 +366,8 @@ __all__ = (
     "UpdateDirectQueryDataSourceResponseTypeDef",
     "UpdateDomainConfigRequestTypeDef",
     "UpdateDomainConfigResponseTypeDef",
+    "UpdateIndexRequestTypeDef",
+    "UpdateIndexResponseTypeDef",
     "UpdatePackageRequestTypeDef",
     "UpdatePackageResponseTypeDef",
     "UpdatePackageScopeRequestTypeDef",
@@ -390,6 +398,9 @@ class NaturalLanguageQueryGenerationOptionsInputTypeDef(TypedDict):
 class S3VectorsEngineTypeDef(TypedDict):
     Enabled: NotRequired[bool]
 
+class ServerlessVectorAccelerationTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+
 class NaturalLanguageQueryGenerationOptionsOutputTypeDef(TypedDict):
     DesiredState: NotRequired[NaturalLanguageQueryGenerationDesiredStateType]
     CurrentState: NotRequired[NaturalLanguageQueryGenerationCurrentStateType]
@@ -412,7 +423,7 @@ class AcceptInboundConnectionRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -422,7 +433,7 @@ class TagTypeDef(TypedDict):
 
 class AdditionalLimitTypeDef(TypedDict):
     LimitName: NotRequired[str]
-    LimitValues: NotRequired[List[str]]
+    LimitValues: NotRequired[list[str]]
 
 class IAMFederationOptionsInputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
@@ -563,7 +574,7 @@ class CognitoOptionsTypeDef(TypedDict):
 
 class CompatibleVersionsMapTypeDef(TypedDict):
     SourceVersion: NotRequired[str]
-    TargetVersions: NotRequired[List[str]]
+    TargetVersions: NotRequired[list[str]]
 
 class CrossClusterSearchConnectionPropertiesTypeDef(TypedDict):
     SkipUnavailable: NotRequired[SkipUnavailableStatusType]
@@ -624,6 +635,11 @@ class VPCOptionsTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
     SecurityGroupIds: NotRequired[Sequence[str]]
 
+class CreateIndexRequestTypeDef(TypedDict):
+    DomainName: str
+    IndexName: str
+    IndexSchema: Mapping[str, Any]
+
 class OutboundConnectionStatusTypeDef(TypedDict):
     StatusCode: NotRequired[OutboundConnectionStatusCodeType]
     Message: NotRequired[str]
@@ -667,6 +683,10 @@ class DeleteDomainRequestTypeDef(TypedDict):
 
 class DeleteInboundConnectionRequestTypeDef(TypedDict):
     ConnectionId: str
+
+class DeleteIndexRequestTypeDef(TypedDict):
+    DomainName: str
+    IndexName: str
 
 class DeleteOutboundConnectionRequestTypeDef(TypedDict):
     ConnectionId: str
@@ -802,9 +822,9 @@ class IdentityCenterOptionsTypeDef(TypedDict):
 
 class VPCDerivedInfoTypeDef(TypedDict):
     VPCId: NotRequired[str]
-    SubnetIds: NotRequired[List[str]]
-    AvailabilityZones: NotRequired[List[str]]
-    SecurityGroupIds: NotRequired[List[str]]
+    SubnetIds: NotRequired[list[str]]
+    AvailabilityZones: NotRequired[list[str]]
+    SecurityGroupIds: NotRequired[list[str]]
 
 class ValidationFailureTypeDef(TypedDict):
     Code: NotRequired[str]
@@ -830,6 +850,10 @@ class GetDirectQueryDataSourceRequestTypeDef(TypedDict):
 class GetDomainMaintenanceStatusRequestTypeDef(TypedDict):
     DomainName: str
     MaintenanceId: str
+
+class GetIndexRequestTypeDef(TypedDict):
+    DomainName: str
+    IndexName: str
 
 class GetPackageVersionHistoryRequestTypeDef(TypedDict):
     PackageID: str
@@ -859,8 +883,8 @@ class InstanceTypeDetailsTypeDef(TypedDict):
     AppLogsEnabled: NotRequired[bool]
     AdvancedSecurityEnabled: NotRequired[bool]
     WarmEnabled: NotRequired[bool]
-    InstanceRole: NotRequired[List[str]]
-    AvailabilityZones: NotRequired[List[str]]
+    InstanceRole: NotRequired[list[str]]
+    AvailabilityZones: NotRequired[list[str]]
 
 class KeyStoreAccessOptionTypeDef(TypedDict):
     KeyStoreAccessEnabled: bool
@@ -973,6 +997,10 @@ class PurchaseReservedInstanceOfferingRequestTypeDef(TypedDict):
     ReservationName: str
     InstanceCount: NotRequired[int]
 
+class PutDefaultApplicationSettingRequestTypeDef(TypedDict):
+    applicationArn: str
+    setAsDefault: bool
+
 class RecurringChargeTypeDef(TypedDict):
     RecurringChargeAmount: NotRequired[float]
     RecurringChargeFrequency: NotRequired[str]
@@ -1005,7 +1033,12 @@ class StartServiceSoftwareUpdateRequestTypeDef(TypedDict):
 
 class StorageTypeLimitTypeDef(TypedDict):
     LimitName: NotRequired[str]
-    LimitValues: NotRequired[List[str]]
+    LimitValues: NotRequired[list[str]]
+
+class UpdateIndexRequestTypeDef(TypedDict):
+    DomainName: str
+    IndexName: str
+    IndexSchema: Mapping[str, Any]
 
 class UpdatePackageScopeRequestTypeDef(TypedDict):
     PackageID: str
@@ -1028,7 +1061,7 @@ class UpgradeDomainRequestTypeDef(TypedDict):
 class UpgradeStepItemTypeDef(TypedDict):
     UpgradeStep: NotRequired[UpgradeStepType]
     UpgradeStepStatus: NotRequired[UpgradeStatusType]
-    Issues: NotRequired[List[str]]
+    Issues: NotRequired[list[str]]
     ProgressPercent: NotRequired[float]
 
 class AIMLOptionsInputTypeDef(TypedDict):
@@ -1036,19 +1069,21 @@ class AIMLOptionsInputTypeDef(TypedDict):
         NaturalLanguageQueryGenerationOptionsInputTypeDef
     ]
     S3VectorsEngine: NotRequired[S3VectorsEngineTypeDef]
+    ServerlessVectorAcceleration: NotRequired[ServerlessVectorAccelerationTypeDef]
 
 class AIMLOptionsOutputTypeDef(TypedDict):
     NaturalLanguageQueryGenerationOptions: NotRequired[
         NaturalLanguageQueryGenerationOptionsOutputTypeDef
     ]
     S3VectorsEngine: NotRequired[S3VectorsEngineTypeDef]
+    ServerlessVectorAcceleration: NotRequired[ServerlessVectorAccelerationTypeDef]
 
 class AccessPoliciesStatusTypeDef(TypedDict):
     Options: str
     Status: OptionStatusTypeDef
 
 class AdvancedOptionsStatusTypeDef(TypedDict):
-    Options: Dict[str, str]
+    Options: dict[str, str]
     Status: OptionStatusTypeDef
 
 class IPAddressTypeStatusTypeDef(TypedDict):
@@ -1070,11 +1105,23 @@ class AddDirectQueryDataSourceResponseTypeDef(TypedDict):
     DataSourceArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateIndexResponseTypeDef(TypedDict):
+    Status: IndexStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteDataSourceResponseTypeDef(TypedDict):
     Message: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeleteIndexResponseTypeDef(TypedDict):
+    Status: IndexStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class EmptyResponseMetadataTypeDef(TypedDict):
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetDefaultApplicationSettingResponseTypeDef(TypedDict):
+    applicationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetDomainMaintenanceStatusResponseTypeDef(TypedDict):
@@ -1086,6 +1133,10 @@ class GetDomainMaintenanceStatusResponseTypeDef(TypedDict):
     UpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetIndexResponseTypeDef(TypedDict):
+    IndexSchema: dict[str, Any]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetUpgradeStatusResponseTypeDef(TypedDict):
     UpgradeStep: UpgradeStepType
     StepStatus: UpgradeStatusType
@@ -1093,13 +1144,17 @@ class GetUpgradeStatusResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListVersionsResponseTypeDef(TypedDict):
-    Versions: List[str]
+    Versions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class PurchaseReservedInstanceOfferingResponseTypeDef(TypedDict):
     ReservedInstanceId: str
     ReservationName: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutDefaultApplicationSettingResponseTypeDef(TypedDict):
+    applicationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartDomainMaintenanceResponseTypeDef(TypedDict):
@@ -1114,10 +1169,14 @@ class UpdateDirectQueryDataSourceResponseTypeDef(TypedDict):
     DataSourceArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateIndexResponseTypeDef(TypedDict):
+    Status: IndexStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdatePackageScopeResponseTypeDef(TypedDict):
     PackageID: str
     Operation: PackageScopeOperationEnumType
-    PackageUserList: List[str]
+    PackageUserList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AddTagsRequestTypeDef(TypedDict):
@@ -1125,11 +1184,11 @@ class AddTagsRequestTypeDef(TypedDict):
     TagList: Sequence[TagTypeDef]
 
 class ListTagsResponseTypeDef(TypedDict):
-    TagList: List[TagTypeDef]
+    TagList: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListApplicationsResponseTypeDef(TypedDict):
-    ApplicationSummaries: List[ApplicationSummaryTypeDef]
+    ApplicationSummaries: list[ApplicationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1138,7 +1197,7 @@ class AuthorizeVpcEndpointAccessResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListVpcEndpointAccessResponseTypeDef(TypedDict):
-    AuthorizedPrincipalList: List[AuthorizedPrincipalTypeDef]
+    AuthorizedPrincipalList: list[AuthorizedPrincipalTypeDef]
     NextToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1156,11 +1215,11 @@ class AutoTuneMaintenanceScheduleTypeDef(TypedDict):
     CronExpressionForRecurrence: NotRequired[str]
 
 class EnvironmentInfoTypeDef(TypedDict):
-    AvailabilityZoneInformation: NotRequired[List[AvailabilityZoneInfoTypeDef]]
+    AvailabilityZoneInformation: NotRequired[list[AvailabilityZoneInfoTypeDef]]
 
 class CancelDomainConfigChangeResponseTypeDef(TypedDict):
-    CancelledChangeIds: List[str]
-    CancelledChangeProperties: List[CancelledChangePropertyTypeDef]
+    CancelledChangeIds: list[str]
+    CancelledChangeProperties: list[CancelledChangePropertyTypeDef]
     DryRun: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1177,7 +1236,7 @@ class UpgradeDomainResponseTypeDef(TypedDict):
     DomainName: str
     TargetVersion: str
     PerformCheckOnly: bool
-    AdvancedOptions: Dict[str, str]
+    AdvancedOptions: dict[str, str]
     ChangeProgressDetails: ChangeProgressDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1185,10 +1244,10 @@ class ChangeProgressStatusDetailsTypeDef(TypedDict):
     ChangeId: NotRequired[str]
     StartTime: NotRequired[datetime]
     Status: NotRequired[OverallChangeStatusType]
-    PendingProperties: NotRequired[List[str]]
-    CompletedProperties: NotRequired[List[str]]
+    PendingProperties: NotRequired[list[str]]
+    CompletedProperties: NotRequired[list[str]]
     TotalNumberOfStages: NotRequired[int]
-    ChangeProgressStages: NotRequired[List[ChangeProgressStageTypeDef]]
+    ChangeProgressStages: NotRequired[list[ChangeProgressStageTypeDef]]
     LastUpdatedTime: NotRequired[datetime]
     ConfigChangeStatus: NotRequired[ConfigChangeStatusType]
     InitiatedBy: NotRequired[InitiatedByType]
@@ -1198,7 +1257,7 @@ class CognitoOptionsStatusTypeDef(TypedDict):
     Status: OptionStatusTypeDef
 
 class GetCompatibleVersionsResponseTypeDef(TypedDict):
-    CompatibleVersions: List[CompatibleVersionsMapTypeDef]
+    CompatibleVersions: list[CompatibleVersionsMapTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ConnectionPropertiesTypeDef(TypedDict):
@@ -1221,6 +1280,7 @@ class CreateApplicationRequestTypeDef(TypedDict):
     iamIdentityCenterOptions: NotRequired[IamIdentityCenterOptionsInputTypeDef]
     appConfigs: NotRequired[Sequence[AppConfigTypeDef]]
     tagList: NotRequired[Sequence[TagTypeDef]]
+    kmsKeyArn: NotRequired[str]
 
 CreateApplicationResponseTypeDef = TypedDict(
     "CreateApplicationResponseTypeDef",
@@ -1228,11 +1288,12 @@ CreateApplicationResponseTypeDef = TypedDict(
         "id": str,
         "name": str,
         "arn": str,
-        "dataSources": List[DataSourceTypeDef],
+        "dataSources": list[DataSourceTypeDef],
         "iamIdentityCenterOptions": IamIdentityCenterOptionsTypeDef,
-        "appConfigs": List[AppConfigTypeDef],
-        "tagList": List[TagTypeDef],
+        "appConfigs": list[AppConfigTypeDef],
+        "tagList": list[TagTypeDef],
         "createdAt": datetime,
+        "kmsKeyArn": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1245,10 +1306,11 @@ GetApplicationResponseTypeDef = TypedDict(
         "endpoint": str,
         "status": ApplicationStatusType,
         "iamIdentityCenterOptions": IamIdentityCenterOptionsTypeDef,
-        "dataSources": List[DataSourceTypeDef],
-        "appConfigs": List[AppConfigTypeDef],
+        "dataSources": list[DataSourceTypeDef],
+        "appConfigs": list[AppConfigTypeDef],
         "createdAt": datetime,
         "lastUpdatedAt": datetime,
+        "kmsKeyArn": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1258,9 +1320,9 @@ UpdateApplicationResponseTypeDef = TypedDict(
         "id": str,
         "name": str,
         "arn": str,
-        "dataSources": List[DataSourceTypeDef],
+        "dataSources": list[DataSourceTypeDef],
         "iamIdentityCenterOptions": IamIdentityCenterOptionsTypeDef,
-        "appConfigs": List[AppConfigTypeDef],
+        "appConfigs": list[AppConfigTypeDef],
         "createdAt": datetime,
         "lastUpdatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -1280,7 +1342,7 @@ class EncryptionAtRestOptionsStatusTypeDef(TypedDict):
     Status: OptionStatusTypeDef
 
 class LogPublishingOptionsStatusTypeDef(TypedDict):
-    Options: NotRequired[Dict[LogTypeType, LogPublishingOptionTypeDef]]
+    Options: NotRequired[dict[LogTypeType, LogPublishingOptionTypeDef]]
     Status: NotRequired[OptionStatusTypeDef]
 
 class NodeToNodeEncryptionOptionsStatusTypeDef(TypedDict):
@@ -1330,17 +1392,17 @@ class DeleteVpcEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListVpcEndpointsForDomainResponseTypeDef(TypedDict):
-    VpcEndpointSummaryList: List[VpcEndpointSummaryTypeDef]
+    VpcEndpointSummaryList: list[VpcEndpointSummaryTypeDef]
     NextToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListVpcEndpointsResponseTypeDef(TypedDict):
-    VpcEndpointSummaryList: List[VpcEndpointSummaryTypeDef]
+    VpcEndpointSummaryList: list[VpcEndpointSummaryTypeDef]
     NextToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeDomainNodesResponseTypeDef(TypedDict):
-    DomainNodesStatusList: List[DomainNodesStatusTypeDef]
+    DomainNodesStatusList: list[DomainNodesStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeInboundConnectionsRequestTypeDef(TypedDict):
@@ -1363,11 +1425,11 @@ class DirectQueryDataSourceTypeTypeDef(TypedDict):
     SecurityLake: NotRequired[SecurityLakeDirectQueryDataSourceTypeDef]
 
 class ListDomainNamesResponseTypeDef(TypedDict):
-    DomainNames: List[DomainInfoTypeDef]
+    DomainNames: list[DomainInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDomainMaintenancesResponseTypeDef(TypedDict):
-    DomainMaintenances: List[DomainMaintenanceDetailsTypeDef]
+    DomainMaintenances: list[DomainMaintenanceDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1392,13 +1454,13 @@ class DryRunProgressStatusTypeDef(TypedDict):
     DryRunStatus: str
     CreationDate: str
     UpdateDate: str
-    ValidationFailures: NotRequired[List[ValidationFailureTypeDef]]
+    ValidationFailures: NotRequired[list[ValidationFailureTypeDef]]
 
 class InstanceLimitsTypeDef(TypedDict):
     InstanceCountLimits: NotRequired[InstanceCountLimitsTypeDef]
 
 class ListInstanceTypeDetailsResponseTypeDef(TypedDict):
-    InstanceTypeDetails: List[InstanceTypeDetailsTypeDef]
+    InstanceTypeDetails: list[InstanceTypeDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1410,7 +1472,7 @@ class ListApplicationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListScheduledActionsResponseTypeDef(TypedDict):
-    ScheduledActions: List[ScheduledActionTypeDef]
+    ScheduledActions: list[ScheduledActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1438,7 +1500,7 @@ class PackageDetailsTypeDef(TypedDict):
     EngineVersion: NotRequired[str]
     AvailablePluginProperties: NotRequired[PluginPropertiesTypeDef]
     AvailablePackageConfiguration: NotRequired[PackageConfigurationTypeDef]
-    AllowListedUserList: NotRequired[List[str]]
+    AllowListedUserList: NotRequired[list[str]]
     PackageOwner: NotRequired[str]
     PackageVendingOptions: NotRequired[PackageVendingOptionsTypeDef]
     PackageEncryptionOptions: NotRequired[PackageEncryptionOptionsTypeDef]
@@ -1458,7 +1520,7 @@ class ReservedInstanceOfferingTypeDef(TypedDict):
     UsagePrice: NotRequired[float]
     CurrencyCode: NotRequired[str]
     PaymentOption: NotRequired[ReservedInstancePaymentOptionType]
-    RecurringCharges: NotRequired[List[RecurringChargeTypeDef]]
+    RecurringCharges: NotRequired[list[RecurringChargeTypeDef]]
 
 class ReservedInstanceTypeDef(TypedDict):
     ReservationName: NotRequired[str]
@@ -1474,7 +1536,7 @@ class ReservedInstanceTypeDef(TypedDict):
     InstanceCount: NotRequired[int]
     State: NotRequired[str]
     PaymentOption: NotRequired[ReservedInstancePaymentOptionType]
-    RecurringCharges: NotRequired[List[RecurringChargeTypeDef]]
+    RecurringCharges: NotRequired[list[RecurringChargeTypeDef]]
 
 class SAMLOptionsInputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
@@ -1495,13 +1557,13 @@ class SAMLOptionsOutputTypeDef(TypedDict):
 class StorageTypeTypeDef(TypedDict):
     StorageTypeName: NotRequired[str]
     StorageSubTypeName: NotRequired[str]
-    StorageTypeLimits: NotRequired[List[StorageTypeLimitTypeDef]]
+    StorageTypeLimits: NotRequired[list[StorageTypeLimitTypeDef]]
 
 class UpgradeHistoryTypeDef(TypedDict):
     UpgradeName: NotRequired[str]
     StartTimestamp: NotRequired[datetime]
     UpgradeStatus: NotRequired[UpgradeStatusType]
-    StepsList: NotRequired[List[UpgradeStepItemTypeDef]]
+    StepsList: NotRequired[list[UpgradeStepItemTypeDef]]
 
 class AIMLOptionsStatusTypeDef(TypedDict):
     Options: NotRequired[AIMLOptionsOutputTypeDef]
@@ -1521,7 +1583,7 @@ class AutoTuneTypeDef(TypedDict):
 class AutoTuneOptionsExtraTypeDef(TypedDict):
     DesiredState: NotRequired[AutoTuneDesiredStateType]
     RollbackOnDisable: NotRequired[RollbackOnDisableType]
-    MaintenanceSchedules: NotRequired[List[AutoTuneMaintenanceScheduleOutputTypeDef]]
+    MaintenanceSchedules: NotRequired[list[AutoTuneMaintenanceScheduleOutputTypeDef]]
     UseOffPeakWindow: NotRequired[bool]
 
 AutoTuneMaintenanceScheduleUnionTypeDef = Union[
@@ -1547,7 +1609,7 @@ class DescribeDomainHealthResponseTypeDef(TypedDict):
     ClusterHealth: DomainHealthType
     TotalShards: str
     TotalUnAssignedShards: str
-    EnvironmentInformation: List[EnvironmentInfoTypeDef]
+    EnvironmentInformation: list[EnvironmentInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeDomainChangeProgressResponseTypeDef(TypedDict):
@@ -1617,15 +1679,15 @@ class DirectQueryDataSourceTypeDef(TypedDict):
     DataSourceName: NotRequired[str]
     DataSourceType: NotRequired[DirectQueryDataSourceTypeTypeDef]
     Description: NotRequired[str]
-    OpenSearchArns: NotRequired[List[str]]
+    OpenSearchArns: NotRequired[list[str]]
     DataSourceArn: NotRequired[str]
-    TagList: NotRequired[List[TagTypeDef]]
+    TagList: NotRequired[list[TagTypeDef]]
 
 class GetDirectQueryDataSourceResponseTypeDef(TypedDict):
     DataSourceName: str
     DataSourceType: DirectQueryDataSourceTypeTypeDef
     Description: str
-    OpenSearchArns: List[str]
+    OpenSearchArns: list[str]
     DataSourceArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1640,8 +1702,8 @@ class CreateVpcEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeVpcEndpointsResponseTypeDef(TypedDict):
-    VpcEndpoints: List[VpcEndpointTypeDef]
-    VpcEndpointErrors: List[VpcEndpointErrorTypeDef]
+    VpcEndpoints: list[VpcEndpointTypeDef]
+    VpcEndpointErrors: list[VpcEndpointErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateVpcEndpointResponseTypeDef(TypedDict):
@@ -1662,7 +1724,7 @@ class DomainPackageDetailsTypeDef(TypedDict):
     DomainName: NotRequired[str]
     DomainPackageStatus: NotRequired[DomainPackageStatusType]
     PackageVersion: NotRequired[str]
-    PrerequisitePackageIDList: NotRequired[List[str]]
+    PrerequisitePackageIDList: NotRequired[list[str]]
     ReferencePath: NotRequired[str]
     ErrorDetails: NotRequired[ErrorDetailsTypeDef]
     AssociationConfiguration: NotRequired[PackageAssociationConfigurationTypeDef]
@@ -1685,7 +1747,7 @@ class ClusterConfigOutputTypeDef(TypedDict):
     WarmCount: NotRequired[int]
     ColdStorageOptions: NotRequired[ColdStorageOptionsTypeDef]
     MultiAZWithStandbyEnabled: NotRequired[bool]
-    NodeOptions: NotRequired[List[NodeOptionTypeDef]]
+    NodeOptions: NotRequired[list[NodeOptionTypeDef]]
 
 class ClusterConfigTypeDef(TypedDict):
     InstanceType: NotRequired[OpenSearchPartitionInstanceTypeType]
@@ -1715,7 +1777,7 @@ class DeletePackageResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribePackagesResponseTypeDef(TypedDict):
-    PackageDetailsList: List[PackageDetailsTypeDef]
+    PackageDetailsList: list[PackageDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1725,17 +1787,17 @@ class UpdatePackageResponseTypeDef(TypedDict):
 
 class GetPackageVersionHistoryResponseTypeDef(TypedDict):
     PackageID: str
-    PackageVersionHistoryList: List[PackageVersionHistoryTypeDef]
+    PackageVersionHistoryList: list[PackageVersionHistoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DescribeReservedInstanceOfferingsResponseTypeDef(TypedDict):
-    ReservedInstanceOfferings: List[ReservedInstanceOfferingTypeDef]
+    ReservedInstanceOfferings: list[ReservedInstanceOfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DescribeReservedInstancesResponseTypeDef(TypedDict):
-    ReservedInstances: List[ReservedInstanceTypeDef]
+    ReservedInstances: list[ReservedInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1758,12 +1820,12 @@ class AdvancedSecurityOptionsTypeDef(TypedDict):
     AnonymousAuthEnabled: NotRequired[bool]
 
 class LimitsTypeDef(TypedDict):
-    StorageTypes: NotRequired[List[StorageTypeTypeDef]]
+    StorageTypes: NotRequired[list[StorageTypeTypeDef]]
     InstanceLimits: NotRequired[InstanceLimitsTypeDef]
-    AdditionalLimits: NotRequired[List[AdditionalLimitTypeDef]]
+    AdditionalLimits: NotRequired[list[AdditionalLimitTypeDef]]
 
 class GetUpgradeHistoryResponseTypeDef(TypedDict):
-    UpgradeHistories: List[UpgradeHistoryTypeDef]
+    UpgradeHistories: list[UpgradeHistoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1776,7 +1838,7 @@ class DeleteInboundConnectionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeInboundConnectionsResponseTypeDef(TypedDict):
-    Connections: List[InboundConnectionTypeDef]
+    Connections: list[InboundConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1785,7 +1847,7 @@ class RejectInboundConnectionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeDomainAutoTunesResponseTypeDef(TypedDict):
-    AutoTunes: List[AutoTuneTypeDef]
+    AutoTunes: list[AutoTuneTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1805,16 +1867,16 @@ class DeleteOutboundConnectionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeOutboundConnectionsResponseTypeDef(TypedDict):
-    Connections: List[OutboundConnectionTypeDef]
+    Connections: list[OutboundConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListDataSourcesResponseTypeDef(TypedDict):
-    DataSources: List[DataSourceDetailsTypeDef]
+    DataSources: list[DataSourceDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDirectQueryDataSourcesResponseTypeDef(TypedDict):
-    DirectQueryDataSources: List[DirectQueryDataSourceTypeDef]
+    DirectQueryDataSources: list[DirectQueryDataSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1823,7 +1885,7 @@ class AssociatePackageResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssociatePackagesResponseTypeDef(TypedDict):
-    DomainPackageDetailsList: List[DomainPackageDetailsTypeDef]
+    DomainPackageDetailsList: list[DomainPackageDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DissociatePackageResponseTypeDef(TypedDict):
@@ -1831,16 +1893,16 @@ class DissociatePackageResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DissociatePackagesResponseTypeDef(TypedDict):
-    DomainPackageDetailsList: List[DomainPackageDetailsTypeDef]
+    DomainPackageDetailsList: list[DomainPackageDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDomainsForPackageResponseTypeDef(TypedDict):
-    DomainPackageDetailsList: List[DomainPackageDetailsTypeDef]
+    DomainPackageDetailsList: list[DomainPackageDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListPackagesForDomainResponseTypeDef(TypedDict):
-    DomainPackageDetailsList: List[DomainPackageDetailsTypeDef]
+    DomainPackageDetailsList: list[DomainPackageDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1871,7 +1933,7 @@ class DomainStatusTypeDef(TypedDict):
     Deleted: NotRequired[bool]
     Endpoint: NotRequired[str]
     EndpointV2: NotRequired[str]
-    Endpoints: NotRequired[Dict[str, str]]
+    Endpoints: NotRequired[dict[str, str]]
     DomainEndpointV2HostedZoneId: NotRequired[str]
     Processing: NotRequired[bool]
     UpgradeProcessing: NotRequired[bool]
@@ -1884,8 +1946,8 @@ class DomainStatusTypeDef(TypedDict):
     CognitoOptions: NotRequired[CognitoOptionsTypeDef]
     EncryptionAtRestOptions: NotRequired[EncryptionAtRestOptionsTypeDef]
     NodeToNodeEncryptionOptions: NotRequired[NodeToNodeEncryptionOptionsTypeDef]
-    AdvancedOptions: NotRequired[Dict[str, str]]
-    LogPublishingOptions: NotRequired[Dict[LogTypeType, LogPublishingOptionTypeDef]]
+    AdvancedOptions: NotRequired[dict[str, str]]
+    LogPublishingOptions: NotRequired[dict[LogTypeType, LogPublishingOptionTypeDef]]
     ServiceSoftwareOptions: NotRequired[ServiceSoftwareOptionsTypeDef]
     DomainEndpointOptions: NotRequired[DomainEndpointOptionsTypeDef]
     AdvancedSecurityOptions: NotRequired[AdvancedSecurityOptionsTypeDef]
@@ -1895,11 +1957,11 @@ class DomainStatusTypeDef(TypedDict):
     OffPeakWindowOptions: NotRequired[OffPeakWindowOptionsTypeDef]
     SoftwareUpdateOptions: NotRequired[SoftwareUpdateOptionsTypeDef]
     DomainProcessingStatus: NotRequired[DomainProcessingStatusTypeType]
-    ModifyingProperties: NotRequired[List[ModifyingPropertiesTypeDef]]
+    ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
     AIMLOptions: NotRequired[AIMLOptionsOutputTypeDef]
 
 class DescribeInstanceTypeLimitsResponseTypeDef(TypedDict):
-    LimitsByRole: Dict[str, LimitsTypeDef]
+    LimitsByRole: dict[str, LimitsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateDomainRequestTypeDef(TypedDict):
@@ -1968,7 +2030,7 @@ class DomainConfigTypeDef(TypedDict):
     ChangeProgressDetails: NotRequired[ChangeProgressDetailsTypeDef]
     OffPeakWindowOptions: NotRequired[OffPeakWindowOptionsStatusTypeDef]
     SoftwareUpdateOptions: NotRequired[SoftwareUpdateOptionsStatusTypeDef]
-    ModifyingProperties: NotRequired[List[ModifyingPropertiesTypeDef]]
+    ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
     AIMLOptions: NotRequired[AIMLOptionsStatusTypeDef]
 
 class CreateDomainResponseTypeDef(TypedDict):
@@ -1984,7 +2046,7 @@ class DescribeDomainResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeDomainsResponseTypeDef(TypedDict):
-    DomainStatusList: List[DomainStatusTypeDef]
+    DomainStatusList: list[DomainStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeDryRunProgressResponseTypeDef(TypedDict):

@@ -48,6 +48,7 @@ from glide_shared.exceptions import (
 from glide_shared.protobuf.command_request_pb2 import (
     Command,
     CommandRequest,
+    RefreshIamToken,
     RequestType,
 )
 from glide_shared.protobuf.connection_request_pb2 import ConnectionRequest
@@ -338,7 +339,7 @@ class BaseClient(CoreCommands):
                     request.callback_idx if isinstance(request, CommandRequest) else 0
                 )
                 res_future = self._available_futures.pop(callback_idx, None)
-                if res_future:
+                if res_future and not res_future.done():
                     res_future.set_exception(e)
                 else:
                     ClientLogger.log(
@@ -355,7 +356,10 @@ class BaseClient(CoreCommands):
         b_arr = bytearray()
         for request in requests:
             ProtobufCodec.encode_delimited(b_arr, request)
-        await self._stream.send(b_arr)
+        try:
+            await self._stream.send(b_arr)
+        except (anyio.ClosedResourceError, anyio.EndOfStream):
+            raise ClosingError("The communication layer was unexpectedly closed.")
 
     def _encode_arg(self, arg: TEncodable) -> bytes:
         """
@@ -420,7 +424,7 @@ class BaseClient(CoreCommands):
             bytes(elem, encoding="utf8") if isinstance(elem, str) else elem
             for elem in args
         ]
-        (encoded_args, args_size) = self._encode_and_sum_size(args)
+        encoded_args, args_size = self._encode_and_sum_size(args)
         if args_size < MAX_REQUEST_ARGS_LEN:
             request.single_command.args_array.args[:] = encoded_args
         else:
@@ -465,7 +469,7 @@ class BaseClient(CoreCommands):
             command.request_type = requst_type
             # For now, we allow the user to pass the command as array of strings
             # we convert them here into bytes (the datatype that our rust core expects)
-            (encoded_args, args_size) = self._encode_and_sum_size(args)
+            encoded_args, args_size = self._encode_and_sum_size(args)
             if args_size < MAX_REQUEST_ARGS_LEN:
                 command.args_array.args[:] = encoded_args
             else:
@@ -499,8 +503,8 @@ class BaseClient(CoreCommands):
             )
         request = CommandRequest()
         request.callback_idx = self._get_callback_index()
-        (encoded_keys, keys_size) = self._encode_and_sum_size(keys)
-        (encoded_args, args_size) = self._encode_and_sum_size(args)
+        encoded_keys, keys_size = self._encode_and_sum_size(keys)
+        encoded_args, args_size = self._encode_and_sum_size(args)
         if (keys_size + args_size) < MAX_REQUEST_ARGS_LEN:
             request.script_invocation.hash = hash
             request.script_invocation.keys[:] = encoded_keys
@@ -752,6 +756,15 @@ class BaseClient(CoreCommands):
             if self.config.credentials is None:
                 self.config.credentials = ServerCredentials(password=password or "")
                 self.config.credentials.password = password or ""
+        return response
+
+    async def _refresh_iam_token(self) -> TResult:
+        request = CommandRequest()
+        request.callback_idx = self._get_callback_index()
+        request.refresh_iam_token.CopyFrom(
+            RefreshIamToken()
+        )  # Empty message, just triggers the refresh
+        response = await self._write_request_await_response(request)
         return response
 
 

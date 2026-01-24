@@ -24,7 +24,6 @@ from .expression import (
 )
 from .converter_common import SkipConversionNotice, Converter
 
-
 log = logging.getLogger(name=__name__)
 
 
@@ -55,7 +54,13 @@ class VEXExprConverter(Converter):
             except UnsupportedIROpError:
                 log.warning("VEXExprConverter: Unsupported IROp %s.", expr.op)
                 return DirtyExpression(
-                    manager.next_atom(), f"unsupported_{expr.op}", [], bits=expr.result_size(manager.tyenv)
+                    manager.next_atom(),
+                    f"unsupported_{expr.op}",
+                    [],
+                    bits=expr.result_size(manager.tyenv),
+                    ins_addr=manager.ins_addr,
+                    vex_block_addr=manager.block_addr,
+                    vex_stmt_idx=manager.vex_stmt_idx,
                 )
 
         log.warning("VEXExprConverter: Unsupported VEX expression of type %s.", type(expr))
@@ -64,7 +69,15 @@ class VEXExprConverter(Converter):
         except ValueError:
             # e.g., "ValueError: Type Ity_INVALID does not have size"
             bits = 0
-        return DirtyExpression(manager.next_atom(), f"unsupported_{type(expr)!s}", [], bits=bits)
+        return DirtyExpression(
+            manager.next_atom(),
+            f"unsupported_{type(expr)!s}",
+            [],
+            bits=bits,
+            ins_addr=manager.ins_addr,
+            vex_block_addr=manager.block_addr,
+            vex_stmt_idx=manager.vex_stmt_idx,
+        )
 
     @staticmethod
     def convert_list(exprs, manager):
@@ -479,8 +492,22 @@ class VEXStmtConverter(Converter):
         try:
             func = STATEMENT_MAPPINGS[type(stmt)]
         except KeyError:
-            dirty = DirtyExpression(manager.next_atom(), str(stmt), [], bits=0)
-            return DirtyStatement(idx, dirty, ins_addr=manager.ins_addr)
+            dirty = DirtyExpression(
+                manager.next_atom(),
+                str(stmt),
+                [],
+                bits=0,
+                ins_addr=manager.ins_addr,
+                vex_block_addr=manager.block_addr,
+                vex_stmt_idx=manager.vex_stmt_idx,
+            )
+            return DirtyStatement(
+                idx,
+                dirty,
+                ins_addr=manager.ins_addr,
+                vex_block_addr=manager.block_addr,
+                vex_stmt_idx=manager.vex_stmt_idx,
+            )
 
         return func(idx, stmt, manager)
 
@@ -631,6 +658,9 @@ class VEXStmtConverter(Converter):
             maddr=maddr,
             msize=stmt.mSize,
             bits=bits,
+            ins_addr=manager.ins_addr,
+            vex_block_addr=manager.block_addr,
+            vex_stmt_idx=manager.vex_stmt_idx,
         )
 
         if stmt.tmp == 0xFFFFFFFF:

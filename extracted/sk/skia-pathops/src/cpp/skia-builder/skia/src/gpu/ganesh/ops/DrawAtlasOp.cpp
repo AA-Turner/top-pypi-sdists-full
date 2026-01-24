@@ -4,21 +4,58 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-
 #include "src/gpu/ganesh/ops/DrawAtlasOp.h"
 
+#include "include/core/SkMatrix.h"
 #include "include/core/SkRSXform.h"
-#include "include/gpu/GrRecordingContext.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkScalar.h"
+#include "include/core/SkString.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkDebug.h"
+#include "include/private/base/SkMath.h"
+#include "include/private/base/SkPoint_impl.h"
+#include "include/private/base/SkTArray.h"
+#include "include/private/base/SkTo.h"
+#include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/base/SkRandom.h"
+#include "src/base/SkSafeMath.h"
+#include "src/core/SkColorData.h"
 #include "src/core/SkMatrixPriv.h"
 #include "src/core/SkRectPriv.h"
+#include "src/gpu/ganesh/GrAppliedClip.h"
 #include "src/gpu/ganesh/GrCaps.h"
+#include "src/gpu/ganesh/GrColor.h"
 #include "src/gpu/ganesh/GrDefaultGeoProcFactory.h"
+#include "src/gpu/ganesh/GrDrawOpTest.h"
+#include "src/gpu/ganesh/GrGeometryProcessor.h"
 #include "src/gpu/ganesh/GrOpFlushState.h"
+#include "src/gpu/ganesh/GrPaint.h"
+#include "src/gpu/ganesh/GrProcessorAnalysis.h"
+#include "src/gpu/ganesh/GrProcessorSet.h"
 #include "src/gpu/ganesh/GrProgramInfo.h"
-#include "src/gpu/ganesh/GrRecordingContextPriv.h"
+#include "src/gpu/ganesh/GrTestUtils.h"
 #include "src/gpu/ganesh/SkGr.h"
+#include "src/gpu/ganesh/ops/GrDrawOp.h"
+#include "src/gpu/ganesh/ops/GrMeshDrawOp.h"
 #include "src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelper.h"
+
+#include <cstdint>
+#include <cstring>
+#include <utility>
+
+class GrDstProxyView;
+class GrMeshDrawTarget;
+class GrSurfaceProxyView;
+class SkArenaAlloc;
+enum class GrXferBarrierFlags;
+struct GrSimpleMesh;
+
+namespace skgpu::ganesh {
+class SurfaceDrawContext;
+}
+
+using namespace skia_private;
 
 namespace {
 
@@ -61,7 +98,7 @@ private:
 
     void onPrepareDraws(GrMeshDrawTarget*) override;
     void onExecute(GrOpFlushState*, const SkRect& chainBounds) override;
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
     SkString onDumpInfo() const override;
 #endif
 
@@ -74,10 +111,10 @@ private:
 
     struct Geometry {
         SkPMColor4f fColor;
-        SkTArray<uint8_t, true> fVerts;
+        TArray<uint8_t, true> fVerts;
     };
 
-    SkSTArray<1, Geometry, true> fGeoData;
+    STArray<1, Geometry, true> fGeoData;
     Helper fHelper;
     SkMatrix fViewMatrix;
     SkPMColor4f fColor;
@@ -109,6 +146,7 @@ DrawAtlasOpImpl::DrawAtlasOpImpl(GrProcessorSet* processorSet, const SkPMColor4f
         : GrMeshDrawOp(ClassID()), fHelper(processorSet, aaType), fColor(color) {
     SkASSERT(xforms);
     SkASSERT(rects);
+    SkASSERT(spriteCount >= 0);
 
     fViewMatrix = viewMatrix;
     Geometry& installedGeo = fGeoData.push_back();
@@ -122,6 +160,11 @@ DrawAtlasOpImpl::DrawAtlasOpImpl(GrProcessorSet* processorSet, const SkPMColor4f
     if (colors) {
         texOffset += sizeof(GrColor);
         vertexStride += sizeof(GrColor);
+    }
+
+    // Bail out if we'd overflow from a really large draw
+    if (spriteCount > SK_MaxS32 / static_cast<int>(4 * vertexStride)) {
+        return;
     }
 
     // Compute buffer size and alloc buffer
@@ -186,7 +229,7 @@ DrawAtlasOpImpl::DrawAtlasOpImpl(GrProcessorSet* processorSet, const SkPMColor4f
     this->setTransformedBounds(bounds, viewMatrix, HasAABloat::kNo, IsHairline::kNo);
 }
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
 SkString DrawAtlasOpImpl::onDumpInfo() const {
     SkString string;
     for (const auto& geo : fGeoData) {
@@ -278,8 +321,14 @@ GrOp::CombineResult DrawAtlasOpImpl::onCombineIfPossible(GrOp* t,
         return CombineResult::kCannotCombine;
     }
 
+    SkSafeMath safeMath;
+    int newQuadCount = safeMath.addInt(fQuadCount, that->quadCount());
+    if (!safeMath) {
+        return CombineResult::kCannotCombine;
+    }
+
     fGeoData.push_back_n(that->fGeoData.size(), that->fGeoData.begin());
-    fQuadCount += that->quadCount();
+    fQuadCount = newQuadCount;
 
     return CombineResult::kMerged;
 }
@@ -325,8 +374,7 @@ GrOp::Owner Make(GrRecordingContext* context,
 
 }  // namespace skgpu::ganesh::DrawAtlasOp
 
-#if GR_TEST_UTILS
-#include "src/gpu/ganesh/GrDrawOpTest.h"
+#if defined(GPU_TEST_UTILS)
 
 static SkRSXform random_xform(SkRandom* random) {
     static const SkScalar kMinExtent = -100.f;
@@ -357,8 +405,8 @@ static SkRect random_texRect(SkRandom* random) {
     return texRect;
 }
 
-static void randomize_params(uint32_t count, SkRandom* random, SkTArray<SkRSXform>* xforms,
-                             SkTArray<SkRect>* texRects, SkTArray<GrColor>* colors,
+static void randomize_params(uint32_t count, SkRandom* random, TArray<SkRSXform>* xforms,
+                             TArray<SkRect>* texRects, TArray<GrColor>* colors,
                              bool hasColors) {
     for (uint32_t v = 0; v < count; v++) {
         xforms->push_back(random_xform(random));
@@ -372,9 +420,9 @@ static void randomize_params(uint32_t count, SkRandom* random, SkTArray<SkRSXfor
 GR_DRAW_OP_TEST_DEFINE(DrawAtlasOp) {
     uint32_t spriteCount = random->nextRangeU(1, 100);
 
-    SkTArray<SkRSXform> xforms(spriteCount);
-    SkTArray<SkRect> texRects(spriteCount);
-    SkTArray<GrColor> colors;
+    TArray<SkRSXform> xforms(spriteCount);
+    TArray<SkRect> texRects(spriteCount);
+    TArray<GrColor> colors;
 
     bool hasColors = random->nextBool();
 

@@ -74,6 +74,8 @@ class PayloadVisitor:
     async def _visit_temporal_api_failure_v1_Failure(self, fs, o):
         if o.HasField("encoded_attributes"):
             await self._visit_temporal_api_common_v1_Payload(fs, o.encoded_attributes)
+        if o.HasField("cause"):
+            await self._visit_temporal_api_failure_v1_Failure(fs, o.cause)
         if o.HasField("application_failure_info"):
             await self._visit_temporal_api_failure_v1_ApplicationFailureInfo(
                 fs, o.application_failure_info
@@ -320,8 +322,9 @@ class PayloadVisitor:
         if not self.skip_headers:
             for v in o.headers.values():
                 await self._visit_temporal_api_common_v1_Payload(fs, v)
-        for v in o.search_attributes.values():
-            await self._visit_temporal_api_common_v1_Payload(fs, v)
+        if not self.skip_search_attributes:
+            for v in o.search_attributes.values():
+                await self._visit_temporal_api_common_v1_Payload(fs, v)
 
     async def _visit_coresdk_workflow_commands_StartChildWorkflowExecution(self, fs, o):
         await self._visit_payload_container(fs, o.input)
@@ -330,8 +333,9 @@ class PayloadVisitor:
                 await self._visit_temporal_api_common_v1_Payload(fs, v)
         for v in o.memo.values():
             await self._visit_temporal_api_common_v1_Payload(fs, v)
-        for v in o.search_attributes.values():
-            await self._visit_temporal_api_common_v1_Payload(fs, v)
+        if not self.skip_search_attributes:
+            for v in o.search_attributes.values():
+                await self._visit_temporal_api_common_v1_Payload(fs, v)
 
     async def _visit_coresdk_workflow_commands_SignalExternalWorkflowExecution(
         self, fs, o
@@ -350,8 +354,9 @@ class PayloadVisitor:
     async def _visit_coresdk_workflow_commands_UpsertWorkflowSearchAttributes(
         self, fs, o
     ):
-        for v in o.search_attributes.values():
-            await self._visit_temporal_api_common_v1_Payload(fs, v)
+        if not self.skip_search_attributes:
+            for v in o.search_attributes.values():
+                await self._visit_temporal_api_common_v1_Payload(fs, v)
 
     async def _visit_coresdk_workflow_commands_ModifyWorkflowProperties(self, fs, o):
         if o.HasField("upserted_memo"):

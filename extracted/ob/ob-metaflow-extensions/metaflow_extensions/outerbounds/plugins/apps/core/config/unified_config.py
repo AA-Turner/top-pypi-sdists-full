@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Union, Type
 import re
 
 from .config_utils import (
+    ConfigFieldContext,
     ConfigField,
     ConfigMeta,
     JsonFriendlyKeyValuePairType,
@@ -32,14 +33,41 @@ from .config_utils import (
     commit_owner_names_across_tree,
 )
 
+from collections import namedtuple
+
+
+# Result of image baking operation
+# - image: The fully qualified Docker image URL
+# - python_path: Path to the Python executable in the baked image
+BakedImage = namedtuple("BakedImage", ["image", "python_path"])
+
+# Result of code packaging operation
+# - url: The package URL in object storage
+# - key: Unique content-addressed key identifying this package
+PackagedCode = namedtuple("PackagedCode", ["url", "key"])
+
+
+class classproperty(property):
+    def __get__(self, owner_self, owner_cls):
+        return self.fget(owner_cls)
+
 
 class AuthType:
     BROWSER = "Browser"
     API = "API"
+    BROWSER_AND_API = "BrowserAndApi"
+
+    @classmethod
+    def enums(cls):
+        return [cls.BROWSER, cls.API, cls.BROWSER_AND_API]
+
+    @classproperty
+    def default(cls):
+        return cls.BROWSER
 
     @classmethod
     def choices(cls):
-        return [cls.BROWSER, cls.API]
+        return [cls.BROWSER, cls.API, cls.BROWSER_AND_API]
 
 
 class UnitParser:
@@ -179,9 +207,9 @@ class ResourceConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="cpu",
             cli_option_str="--cpu",
-            help="CPU resource request and limit.",
         ),
         field_type=str,
+        help="CPU requests",
         example="500m",
         validation_fn=UnitParser.validation_wrapper_fn("cpu"),
         parsing_fn=UnitParser("cpu").parse,
@@ -191,9 +219,9 @@ class ResourceConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="memory",
             cli_option_str="--memory",
-            help="Memory resource request and limit.",
         ),
         field_type=str,
+        help="Memory requests",
         example="512Mi",
         validation_fn=UnitParser.validation_wrapper_fn("memory"),
         parsing_fn=UnitParser("memory").parse,
@@ -202,9 +230,9 @@ class ResourceConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="gpu",
             cli_option_str="--gpu",
-            help="GPU resource request and limit.",
         ),
         field_type=str,
+        help="GPU requests",
         example="1",
         validation_fn=UnitParser.validation_wrapper_fn("gpu"),
         parsing_fn=UnitParser("gpu").parse,
@@ -214,9 +242,9 @@ class ResourceConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="disk",
             cli_option_str="--disk",
-            help="Storage resource request and limit.",
         ),
         field_type=str,
+        help="Storage disk size.",
         example="1Gi",
         validation_fn=UnitParser.validation_wrapper_fn("disk"),
         parsing_fn=UnitParser("disk").parse,
@@ -226,9 +254,9 @@ class ResourceConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="shared_memory",
             cli_option_str="--shared-memory",
-            help="Shared memory resource request and limit.",
         ),
         field_type=str,
+        help="Shared memory",
         example="1Gi",
         validation_fn=UnitParser.validation_wrapper_fn("memory"),
         parsing_fn=UnitParser("memory").parse,
@@ -243,37 +271,37 @@ class HealthCheckConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="health_check_enabled",
             cli_option_str="--health-check-enabled",
-            help="Whether to enable health checks.",
             is_flag=True,
         ),
         field_type=bool,
+        help="Whether to enable health checks.",
         example=True,
     )
     path = ConfigField(
         cli_meta=CLIOption(
             name="health_check_path",
             cli_option_str="--health-check-path",
-            help="The path for health checks.",
         ),
         field_type=str,
+        help="The path for health checks.",
         example="/health",
     )
     initial_delay_seconds = ConfigField(
         cli_meta=CLIOption(
             name="health_check_initial_delay",
             cli_option_str="--health-check-initial-delay",
-            help="Number of seconds to wait before performing the first health check.",
         ),
         field_type=int,
+        help="Number of seconds to wait before performing the first health check.",
         example=10,
     )
     period_seconds = ConfigField(
         cli_meta=CLIOption(
             name="health_check_period",
             cli_option_str="--health-check-period",
-            help="How often to perform the health check.",
         ),
         field_type=int,
+        help="How often to perform the health check.",
         example=30,
     )
 
@@ -286,10 +314,10 @@ class AuthConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="auth_type",
             cli_option_str="--auth-type",
-            help="The type of authentication to use for the app.",
             choices=AuthType.choices(),
         ),
         field_type=str,
+        help="The type of authentication to use for the app.",
         example="Browser",
     )
     public = ConfigField(
@@ -297,10 +325,10 @@ class AuthConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="auth_public",
             cli_option_str="--public-access/--private-access",
-            help="Whether the app is public or not.",
             is_flag=True,
         ),
         field_type=bool,
+        help="Whether the app is public or not.",
         example=True,
     )
 
@@ -322,15 +350,14 @@ class ScalingPolicyConfig(metaclass=ConfigMeta):
     # TODO Change the defaulting if we have more autoscaling policies.
     rpm = ConfigField(
         field_type=int,
-        # TODO: Add a little more to the docstring where we explain the behavior.
         cli_meta=CLIOption(
             name="scaling_rpm",
             cli_option_str="--scaling-rpm",
-            help=(
-                "Scale up replicas when the requests per minute crosses this threshold. "
-                "If nothing is provided and the replicas.max and replicas.min is set then  "
-                "the default rpm would be 60."
-            ),
+        ),
+        help=(
+            "Scale up replicas when the requests per minute crosses this threshold. "
+            "If nothing is provided and the replicas.max and replicas.min is set then "
+            "the default rpm would be 60."
         ),
         default=60,
     )
@@ -343,9 +370,9 @@ class ReplicaConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="fixed_replicas",
             cli_option_str="--fixed-replicas",
-            help="The fixed number of replicas to deploy the app with. If min and max are set, this will raise an error.",
         ),
         field_type=int,
+        help="The fixed number of replicas to deploy the app with. If min and max are set, this will raise an error.",
         example=1,
     )
 
@@ -353,18 +380,18 @@ class ReplicaConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="min_replicas",
             cli_option_str="--min-replicas",
-            help="The minimum number of replicas to deploy the app with.",
         ),
         field_type=int,
+        help="The minimum number of replicas to deploy the app with.",
         example=1,
     )
     max = ConfigField(
         cli_meta=CLIOption(
             name="max_replicas",
             cli_option_str="--max-replicas",
-            help="The maximum number of replicas to deploy the app with.",
         ),
         field_type=int,
+        help="The maximum number of replicas to deploy the app with.",
         example=10,
     )
 
@@ -469,9 +496,9 @@ class DependencyConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="dep_from_requirements",
             cli_option_str="--dep-from-requirements",
-            help="The path to the requirements.txt file to attach to the app.",
         ),
         field_type=str,
+        help="The path to the requirements.txt file to attach to the app.",
         behavior=FieldBehavior.NOT_ALLOWED,
         example="requirements.txt",
     )
@@ -479,9 +506,9 @@ class DependencyConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="dep_from_pyproject",
             cli_option_str="--dep-from-pyproject",
-            help="The path to the pyproject.toml file to attach to the app.",
         ),
         field_type=str,
+        help="The path to the pyproject.toml file to attach to the app.",
         behavior=FieldBehavior.NOT_ALLOWED,
         example="pyproject.toml",
     )
@@ -489,9 +516,9 @@ class DependencyConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="python",
             cli_option_str="--python",
-            help="The Python version to use for the app.",
         ),
         field_type=str,
+        help="The Python version to use for the app.",
         behavior=FieldBehavior.UNION,
         example="3.10",
     )
@@ -499,10 +526,10 @@ class DependencyConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(
             name="pypi",  # TODO: Can set CLI meta to None
             cli_option_str="--pypi",
-            help="A dictionary of pypi dependencies to attach to the app. The key is the package name and the value is the version.",
             hidden=True,  # Complex structure, better handled in config file
         ),
         field_type=dict,
+        help="A dictionary of pypi dependencies to attach to the app. The key is the package name and the value is the version.",
         behavior=FieldBehavior.NOT_ALLOWED,
         example={"numpy": "1.23.0", "pandas": ""},
     )
@@ -510,10 +537,10 @@ class DependencyConfig(metaclass=ConfigMeta):
         cli_meta=CLIOption(  # TODO: Can set CLI meta to None
             name="conda",
             cli_option_str="--conda",
-            help="A dictionary of conda dependencies to attach to the app. The key is the package name and the value is the version.",
             hidden=True,  # Complex structure, better handled in config file
         ),
         field_type=dict,
+        help="A dictionary of conda dependencies to attach to the app. The key is the package name and the value is the version.",
         behavior=FieldBehavior.NOT_ALLOWED,
         example={"numpy": "1.23.0", "pandas": ""},
     )
@@ -558,19 +585,19 @@ class PackageConfig(metaclass=ConfigMeta):
             name="package_src_path",
             cli_option_str="--package-src-path",
             multiple=True,
-            help="The path to the source code to deploy with the App.",
             click_type=str,
         ),
         field_type=list,
+        help="The path to the source code to deploy with the App.",
         example=["./"],
     )
     suffixes = ConfigField(
         cli_meta=CLIOption(
             name="package_suffixes",
             cli_option_str="--package-suffixes",
-            help="A list of suffixes to add to the source code to deploy with the App.",
         ),
         field_type=list,
+        help="A list of suffixes to add to the source code to deploy with the App.",
         example=[".py", ".ipynb"],
     )
 
@@ -608,7 +635,7 @@ class BasicAppValidations:
             return True
         regex = r"^[a-z0-9-]+$"  # Only allow lowercase letters, numbers, and hyphens
         validator = BasicValidations(CoreConfig, "name")
-        return validator.length_validation(15, name) and validator.regex_validation(
+        return validator.length_validation(150, name) and validator.regex_validation(
             regex, name
         )
 
@@ -777,27 +804,27 @@ How to read this schema:
         cli_meta=CLIOption(
             name="description",
             cli_option_str="--description",
-            help="The description of the app to deploy.",
         ),
         field_type=str,
+        help="The description of the app to deploy.",
         example="This is a description of my app.",
     )
     app_type = ConfigField(
         cli_meta=CLIOption(
             name="app_type",
             cli_option_str="--app-type",
-            help="The User defined type of app to deploy. Its only used for bookkeeping purposes.",
         ),
         field_type=str,
+        help="The User defined type of app to deploy. Its only used for bookkeeping purposes.",
         example="MyCustomAgent",
     )
     image = ConfigField(
         cli_meta=CLIOption(
             name="image",
             cli_option_str="--image",
-            help="The Docker image to deploy with the App.",
         ),
         field_type=str,
+        help="The Docker image to deploy with the App.",
         example="python:3.10-slim",
     )
 
@@ -827,11 +854,11 @@ How to read this schema:
         cli_meta=CLIOption(
             name="compute_pools",
             cli_option_str="--compute-pools",
-            help="A list of compute pools to deploy the app to.",
             multiple=True,
             click_type=str,
         ),
         field_type=list,
+        help="A list of compute pools to deploy the app to.",
         example=["default", "large"],
     )
     environment = ConfigField(
@@ -882,6 +909,7 @@ How to read this schema:
         cli_meta=None,  # No top-level CLI option, only nested fields have CLI options
         validation_fn=DependencyConfig.validate,
         field_type=DependencyConfig,
+        available_in=ConfigFieldContext.CLI,
         help="The dependencies to attach to the app. ",
     )
     package = ConfigField(
@@ -889,6 +917,16 @@ How to read this schema:
         field_type=PackageConfig,
         help="Configurations associated with packaging the app.",
         validation_fn=PackageConfig.validate,
+        available_in=ConfigFieldContext.CLI,
+    )
+
+    # Programmatic-only field for pre-packaged code
+    code_package = ConfigField(
+        cli_meta=None,
+        field_type=tuple,  # PackagedCode is a namedtuple (tuple subclass)
+        strict_types=False,  # Accept PackagedCode namedtuple from package_code()
+        available_in=ConfigFieldContext.PROGRAMMATIC,
+        help="Pre-packaged code from package_code(). A PackagedCode namedtuple containing url and key.",
     )
 
     no_deps = ConfigField(
@@ -898,6 +936,7 @@ How to read this schema:
             help="Do not any dependencies. Directly used the image provided",
             is_flag=True,
         ),
+        available_in=ConfigFieldContext.CLI,
         field_type=bool,
         default=False,
         help="Do not bake any dependencies. Directly used the image provided",
@@ -924,11 +963,11 @@ How to read this schema:
         cli_meta=CLIOption(
             name="persistence",
             cli_option_str="--persistence",
-            help="The persistence mode to deploy the app with.",
             choices=["none", "postgres"],
         ),
         validation_fn=BasicAppValidations.persistence,
         field_type=str,
+        help="The persistence mode to deploy the app with.",
         default="none",
         example="postgres",
         is_experimental=True,
@@ -938,9 +977,9 @@ How to read this schema:
         cli_meta=CLIOption(
             name="project",
             cli_option_str="--project",
-            help="The project name to deploy the app to.",
         ),
         field_type=str,
+        help="The project name to deploy the app to.",
         is_experimental=True,
         example="my-project",
     )
@@ -948,9 +987,9 @@ How to read this schema:
         cli_meta=CLIOption(
             name="branch",
             cli_option_str="--branch",
-            help="The branch name to deploy the app to.",
         ),
         field_type=str,
+        help="The branch name to deploy the app to.",
         is_experimental=True,
         example="main",
     )
@@ -965,6 +1004,16 @@ How to read this schema:
         field_type=list,
         is_experimental=True,
         example=[{"asset_id": "data-789", "asset_instance_id": "instance-101"}],
+    )
+    generate_static_url = ConfigField(
+        cli_meta=CLIOption(
+            name="generate_static_url",
+            cli_option_str="--generate-static-url",
+            is_flag=True,
+        ),
+        field_type=bool,
+        help="Generate a static URL for the app based on its name.",
+        default=False,
     )
     # ------- /Experimental -------------
 

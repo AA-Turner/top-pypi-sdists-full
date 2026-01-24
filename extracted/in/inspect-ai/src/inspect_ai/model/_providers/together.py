@@ -52,19 +52,24 @@ def chat_choices_from_response_together(
         if logprob_dict is None:
             logprobs_models.append(logprob_dict)
             continue
-        tokens = logprob_dict["tokens"]
-        token_logprobs = logprob_dict["token_logprobs"]
-        logprobs_sequence = []
-        for token, logprob in zip(tokens, token_logprobs):
-            logprobs_sequence.append(
-                Logprob(
-                    token=token,
-                    logprob=logprob,
-                    bytes=list(map(ord, token)),
-                    top_logprobs=None,
+        # native togetherai format
+        if "tokens" in logprob_dict:
+            tokens = logprob_dict["tokens"]
+            token_logprobs = logprob_dict["token_logprobs"]
+            logprobs_sequence = []
+            for token, logprob in zip(tokens, token_logprobs):
+                logprobs_sequence.append(
+                    Logprob(
+                        token=token,
+                        logprob=logprob,
+                        bytes=list(map(ord, token)),
+                        top_logprobs=None,
+                    )
                 )
-            )
-        logprobs_models.append(Logprobs(content=logprobs_sequence))
+            logprobs_models.append(Logprobs(content=logprobs_sequence))
+        # openai format (e.g. for openai/gpt-oss-20b)
+        elif "content" in logprob_dict:
+            logprobs_models.append(Logprobs(**logprob_dict))
     return [
         ChatCompletionChoice(
             message=chat_message_assistant_from_openai(
@@ -101,6 +106,15 @@ class TogetherAIAPI(OpenAICompatibleAPI):
     @override
     def max_tokens(self) -> int | None:
         return DEFAULT_MAX_TOKENS
+
+    @override
+    def canonical_name(self) -> str:
+        """Canonical model name for model info database lookup.
+
+        Together uses HuggingFace-style model names (e.g., meta-llama/Llama-3.1-8B-Instruct)
+        which match our database format directly.
+        """
+        return self.service_model_name()
 
     @override
     def handle_bad_request(self, ex: APIStatusError) -> ModelOutput | Exception:
@@ -164,6 +178,7 @@ class TogetherAIAPI(OpenAICompatibleAPI):
                 config.max_retries,
                 config.timeout,
                 self.should_retry,
+                lambda ex: None,
                 log_model_retry,
             ),
         )
@@ -197,8 +212,15 @@ class TogetherRESTAPI(ModelAPI):
             config=config,
         )
 
-        self.client = httpx.AsyncClient()
         self.model_args = model_args
+        self.initialize()
+
+    def _create_client(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient()
+
+    def initialize(self) -> None:
+        super().initialize()
+        self.client = self._create_client()
 
     async def generate(
         self,
@@ -265,6 +287,12 @@ class TogetherRESTAPI(ModelAPI):
     def should_retry(self, ex: Exception) -> bool:
         return should_retry_chat_api_error(ex)
 
+    @override
+    def is_auth_failure(self, ex: Exception) -> bool:
+        if isinstance(ex, httpx.HTTPStatusError):
+            return ex.response.status_code == 401
+        return False
+
     # cloudflare enforces rate limits by model for each account
     @override
     def connection_key(self) -> str:
@@ -330,8 +358,6 @@ def together_logprobs(choice: dict[str, Any]) -> Logprobs | None:
                     top_logprobs=None,
                 )
             )
-        tlp = Logprobs(content=logprobs_sequence)
-        print(tlp.model_dump_json(indent=2))
-        return tlp
+        return Logprobs(content=logprobs_sequence)
     else:
         return None

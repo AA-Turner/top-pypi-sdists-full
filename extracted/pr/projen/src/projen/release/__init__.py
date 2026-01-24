@@ -258,7 +258,7 @@ class CodeArtifactOptions:
         self,
         *,
         access_key_id_secret: typing.Optional[builtins.str] = None,
-        auth_provider: typing.Optional[CodeArtifactAuthProvider] = None,
+        auth_provider: typing.Optional["CodeArtifactAuthProvider"] = None,
         role_to_assume: typing.Optional[builtins.str] = None,
         secret_access_key_secret: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -306,7 +306,7 @@ class CodeArtifactOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def auth_provider(self) -> typing.Optional[CodeArtifactAuthProvider]:
+    def auth_provider(self) -> typing.Optional["CodeArtifactAuthProvider"]:
         '''(experimental) Provider to use for authorizing requests to AWS CodeArtifact.
 
         :default: CodeArtifactAuthProvider.ACCESS_AND_SECRET_KEY_PAIR
@@ -314,7 +314,7 @@ class CodeArtifactOptions:
         :stability: experimental
         '''
         result = self._values.get("auth_provider")
-        return typing.cast(typing.Optional[CodeArtifactAuthProvider], result)
+        return typing.cast(typing.Optional["CodeArtifactAuthProvider"], result)
 
     @builtins.property
     def role_to_assume(self) -> typing.Optional[builtins.str]:
@@ -374,9 +374,9 @@ class CommonPublishOptions:
         self,
         *,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Common publishing options.
 
@@ -422,7 +422,7 @@ class CommonPublishOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after executing the publishing command.
 
         These can be used
@@ -433,10 +433,10 @@ class CommonPublishOptions:
         :stability: experimental
         '''
         result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
 
         These steps are executed after ``dist/`` has been populated with the build
@@ -447,10 +447,10 @@ class CommonPublishOptions:
         :stability: experimental
         '''
         result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def publish_tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Additional tools to install in the publishing job.
 
         :default: - no additional tools are installed
@@ -458,7 +458,7 @@ class CommonPublishOptions:
         :stability: experimental
         '''
         result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -534,9 +534,9 @@ class GitHubReleasesPublishOptions(CommonPublishOptions):
         self,
         *,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
         changelog_file: builtins.str,
         release_tag_file: builtins.str,
         version_file: builtins.str,
@@ -595,7 +595,7 @@ class GitHubReleasesPublishOptions(CommonPublishOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after executing the publishing command.
 
         These can be used
@@ -606,10 +606,10 @@ class GitHubReleasesPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
 
         These steps are executed after ``dist/`` has been populated with the build
@@ -620,10 +620,10 @@ class GitHubReleasesPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def publish_tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Additional tools to install in the publishing job.
 
         :default: - no additional tools are installed
@@ -631,7 +631,7 @@ class GitHubReleasesPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     @builtins.property
     def changelog_file(self) -> builtins.str:
@@ -848,9 +848,9 @@ class GoPublishOptions(CommonPublishOptions):
         self,
         *,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
         git_branch: typing.Optional[builtins.str] = None,
         git_commit_message: typing.Optional[builtins.str] = None,
         github_deploy_key_secret: typing.Optional[builtins.str] = None,
@@ -870,8 +870,8 @@ class GoPublishOptions(CommonPublishOptions):
         :param github_deploy_key_secret: (experimental) The name of the secret that includes a GitHub deploy key used to push to the GitHub repository. Ignored if ``githubUseSsh`` is ``false``. Default: "GO_GITHUB_DEPLOY_KEY"
         :param github_token_secret: (experimental) The name of the secret that includes a personal GitHub access token used to push to the GitHub repository. Ignored if ``githubUseSsh`` is ``true``. Default: "GO_GITHUB_TOKEN"
         :param github_use_ssh: (experimental) Use SSH to push to GitHub instead of a personal accses token. Default: false
-        :param git_user_email: (experimental) The email to use in the release git commit. Default: "github-actions@github.com"
-        :param git_user_name: (experimental) The user name to use for the release git commit. Default: "github-actions"
+        :param git_user_email: (experimental) The email to use in the release git commit. Default: - default GitHub Actions user email
+        :param git_user_name: (experimental) The user name to use for the release git commit. Default: - default GitHub Actions user name
 
         :stability: experimental
         '''
@@ -931,7 +931,7 @@ class GoPublishOptions(CommonPublishOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after executing the publishing command.
 
         These can be used
@@ -942,10 +942,10 @@ class GoPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
 
         These steps are executed after ``dist/`` has been populated with the build
@@ -956,10 +956,10 @@ class GoPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def publish_tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Additional tools to install in the publishing job.
 
         :default: - no additional tools are installed
@@ -967,7 +967,7 @@ class GoPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     @builtins.property
     def git_branch(self) -> typing.Optional[builtins.str]:
@@ -1032,7 +1032,7 @@ class GoPublishOptions(CommonPublishOptions):
     def git_user_email(self) -> typing.Optional[builtins.str]:
         '''(experimental) The email to use in the release git commit.
 
-        :default: "github-actions@github.com"
+        :default: - default GitHub Actions user email
 
         :stability: experimental
         '''
@@ -1043,7 +1043,7 @@ class GoPublishOptions(CommonPublishOptions):
     def git_user_name(self) -> typing.Optional[builtins.str]:
         '''(experimental) The user name to use for the release git commit.
 
-        :default: "github-actions"
+        :default: - default GitHub Actions user name
 
         :stability: experimental
         '''
@@ -1084,9 +1084,9 @@ class JsiiReleaseGo(GoPublishOptions):
         self,
         *,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
         git_branch: typing.Optional[builtins.str] = None,
         git_commit_message: typing.Optional[builtins.str] = None,
         github_deploy_key_secret: typing.Optional[builtins.str] = None,
@@ -1105,8 +1105,8 @@ class JsiiReleaseGo(GoPublishOptions):
         :param github_deploy_key_secret: (experimental) The name of the secret that includes a GitHub deploy key used to push to the GitHub repository. Ignored if ``githubUseSsh`` is ``false``. Default: "GO_GITHUB_DEPLOY_KEY"
         :param github_token_secret: (experimental) The name of the secret that includes a personal GitHub access token used to push to the GitHub repository. Ignored if ``githubUseSsh`` is ``true``. Default: "GO_GITHUB_TOKEN"
         :param github_use_ssh: (experimental) Use SSH to push to GitHub instead of a personal accses token. Default: false
-        :param git_user_email: (experimental) The email to use in the release git commit. Default: "github-actions@github.com"
-        :param git_user_name: (experimental) The user name to use for the release git commit. Default: "github-actions"
+        :param git_user_email: (experimental) The email to use in the release git commit. Default: - default GitHub Actions user email
+        :param git_user_name: (experimental) The user name to use for the release git commit. Default: - default GitHub Actions user name
 
         :deprecated: Use ``GoPublishOptions`` instead.
 
@@ -1168,7 +1168,7 @@ class JsiiReleaseGo(GoPublishOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after executing the publishing command.
 
         These can be used
@@ -1179,10 +1179,10 @@ class JsiiReleaseGo(GoPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
 
         These steps are executed after ``dist/`` has been populated with the build
@@ -1193,10 +1193,10 @@ class JsiiReleaseGo(GoPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def publish_tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Additional tools to install in the publishing job.
 
         :default: - no additional tools are installed
@@ -1204,7 +1204,7 @@ class JsiiReleaseGo(GoPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     @builtins.property
     def git_branch(self) -> typing.Optional[builtins.str]:
@@ -1269,7 +1269,7 @@ class JsiiReleaseGo(GoPublishOptions):
     def git_user_email(self) -> typing.Optional[builtins.str]:
         '''(experimental) The email to use in the release git commit.
 
-        :default: "github-actions@github.com"
+        :default: - default GitHub Actions user email
 
         :stability: experimental
         '''
@@ -1280,7 +1280,7 @@ class JsiiReleaseGo(GoPublishOptions):
     def git_user_name(self) -> typing.Optional[builtins.str]:
         '''(experimental) The user name to use for the release git commit.
 
-        :default: "github-actions"
+        :default: - default GitHub Actions user name
 
         :stability: experimental
         '''
@@ -1406,9 +1406,9 @@ class MavenPublishOptions(CommonPublishOptions):
         self,
         *,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
         maven_endpoint: typing.Optional[builtins.str] = None,
         maven_gpg_private_key_passphrase: typing.Optional[builtins.str] = None,
         maven_gpg_private_key_secret: typing.Optional[builtins.str] = None,
@@ -1429,7 +1429,7 @@ class MavenPublishOptions(CommonPublishOptions):
         :param maven_gpg_private_key_secret: (experimental) GitHub secret name which contains the GPG private key or file that includes it. This is used to sign your Maven packages. See instructions. Default: "MAVEN_GPG_PRIVATE_KEY" or not set when using GitHub Packages
         :param maven_password: (experimental) GitHub secret name which contains the Password for maven repository. For Maven Central, you will need to Create JIRA account and then request a new project (see links). Default: "MAVEN_PASSWORD" or "GITHUB_TOKEN" when using GitHub Packages
         :param maven_repository_url: (experimental) Deployment repository when not deploying to Maven Central. Default: - not set
-        :param maven_server_id: (experimental) Used in maven settings for credential lookup (e.g. use github when publishing to GitHub). Set to ``central-ossrh`` to publish to Maven Central. Default: "ossrh" (Maven Central) or "github" when using GitHub Packages
+        :param maven_server_id: (experimental) Used in maven settings for credential lookup (e.g. use github when publishing to GitHub). Set to ``central-ossrh`` to publish to Maven Central. Default: "central-ossrh" (Maven Central) or "github" when using GitHub Packages
         :param maven_staging_profile_id: (experimental) GitHub secret name which contains the Maven Central (sonatype) staging profile ID (e.g. 68a05363083174). Staging profile ID can be found in the URL of the "Releases" staging profile under "Staging Profiles" in https://oss.sonatype.org (e.g. https://oss.sonatype.org/#stagingProfiles;11a33451234521). Default: "MAVEN_STAGING_PROFILE_ID" or not set when using GitHub Packages
         :param maven_username: (experimental) GitHub secret name which contains the Username for maven repository. For Maven Central, you will need to Create JIRA account and then request a new project (see links). Default: "MAVEN_USERNAME" or the GitHub Actor when using GitHub Packages
 
@@ -1494,7 +1494,7 @@ class MavenPublishOptions(CommonPublishOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after executing the publishing command.
 
         These can be used
@@ -1505,10 +1505,10 @@ class MavenPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
 
         These steps are executed after ``dist/`` has been populated with the build
@@ -1519,10 +1519,10 @@ class MavenPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def publish_tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Additional tools to install in the publishing job.
 
         :default: - no additional tools are installed
@@ -1530,7 +1530,7 @@ class MavenPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     @builtins.property
     def maven_endpoint(self) -> typing.Optional[builtins.str]:
@@ -1606,7 +1606,7 @@ class MavenPublishOptions(CommonPublishOptions):
 
         Set to ``central-ossrh`` to publish to Maven Central.
 
-        :default: "ossrh" (Maven Central) or "github" when using GitHub Packages
+        :default: "central-ossrh" (Maven Central) or "github" when using GitHub Packages
 
         :stability: experimental
         '''
@@ -1672,10 +1672,10 @@ class NpmPublishOptions(CommonPublishOptions):
         self,
         *,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
-        code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         dist_tag: typing.Optional[builtins.str] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
@@ -1752,7 +1752,7 @@ class NpmPublishOptions(CommonPublishOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after executing the publishing command.
 
         These can be used
@@ -1763,10 +1763,10 @@ class NpmPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
 
         These steps are executed after ``dist/`` has been populated with the build
@@ -1777,10 +1777,10 @@ class NpmPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def publish_tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Additional tools to install in the publishing job.
 
         :default: - no additional tools are installed
@@ -1788,10 +1788,10 @@ class NpmPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     @builtins.property
-    def code_artifact_options(self) -> typing.Optional[CodeArtifactOptions]:
+    def code_artifact_options(self) -> typing.Optional["CodeArtifactOptions"]:
         '''(experimental) Options for publishing npm package to AWS CodeArtifact.
 
         :default: - package is not published to
@@ -1799,7 +1799,7 @@ class NpmPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("code_artifact_options")
-        return typing.cast(typing.Optional[CodeArtifactOptions], result)
+        return typing.cast(typing.Optional["CodeArtifactOptions"], result)
 
     @builtins.property
     def dist_tag(self) -> typing.Optional[builtins.str]:
@@ -1911,6 +1911,8 @@ class NpmPublishOptions(CommonPublishOptions):
         "publish_tools": "publishTools",
         "nuget_api_key_secret": "nugetApiKeySecret",
         "nuget_server": "nugetServer",
+        "nuget_username_secret": "nugetUsernameSecret",
+        "trusted_publishing": "trustedPublishing",
     },
 )
 class NugetPublishOptions(CommonPublishOptions):
@@ -1918,11 +1920,13 @@ class NugetPublishOptions(CommonPublishOptions):
         self,
         *,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
         nuget_api_key_secret: typing.Optional[builtins.str] = None,
         nuget_server: typing.Optional[builtins.str] = None,
+        nuget_username_secret: typing.Optional[builtins.str] = None,
+        trusted_publishing: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Options for NuGet releases.
 
@@ -1932,6 +1936,8 @@ class NugetPublishOptions(CommonPublishOptions):
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
         :param nuget_api_key_secret: (experimental) GitHub secret which contains the API key for NuGet. Default: "NUGET_API_KEY"
         :param nuget_server: (experimental) NuGet Server URL (defaults to nuget.org).
+        :param nuget_username_secret: (experimental) The NuGet.org username (profile name, not email address) for trusted publisher authentication. Required when using trusted publishing. Default: "NUGET_USERNAME"
+        :param trusted_publishing: (experimental) Use NuGet trusted publishing instead of API keys. Needs to be setup in NuGet.org.
 
         :stability: experimental
         '''
@@ -1945,6 +1951,8 @@ class NugetPublishOptions(CommonPublishOptions):
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
             check_type(argname="argument nuget_api_key_secret", value=nuget_api_key_secret, expected_type=type_hints["nuget_api_key_secret"])
             check_type(argname="argument nuget_server", value=nuget_server, expected_type=type_hints["nuget_server"])
+            check_type(argname="argument nuget_username_secret", value=nuget_username_secret, expected_type=type_hints["nuget_username_secret"])
+            check_type(argname="argument trusted_publishing", value=trusted_publishing, expected_type=type_hints["trusted_publishing"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if github_environment is not None:
             self._values["github_environment"] = github_environment
@@ -1958,6 +1966,10 @@ class NugetPublishOptions(CommonPublishOptions):
             self._values["nuget_api_key_secret"] = nuget_api_key_secret
         if nuget_server is not None:
             self._values["nuget_server"] = nuget_server
+        if nuget_username_secret is not None:
+            self._values["nuget_username_secret"] = nuget_username_secret
+        if trusted_publishing is not None:
+            self._values["trusted_publishing"] = trusted_publishing
 
     @builtins.property
     def github_environment(self) -> typing.Optional[builtins.str]:
@@ -1976,7 +1988,7 @@ class NugetPublishOptions(CommonPublishOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after executing the publishing command.
 
         These can be used
@@ -1987,10 +1999,10 @@ class NugetPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
 
         These steps are executed after ``dist/`` has been populated with the build
@@ -2001,10 +2013,10 @@ class NugetPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def publish_tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Additional tools to install in the publishing job.
 
         :default: - no additional tools are installed
@@ -2012,7 +2024,7 @@ class NugetPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     @builtins.property
     def nuget_api_key_secret(self) -> typing.Optional[builtins.str]:
@@ -2033,6 +2045,31 @@ class NugetPublishOptions(CommonPublishOptions):
         '''
         result = self._values.get("nuget_server")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def nuget_username_secret(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The NuGet.org username (profile name, not email address) for trusted publisher authentication.
+
+        Required when using trusted publishing.
+
+        :default: "NUGET_USERNAME"
+
+        :stability: experimental
+        '''
+        result = self._values.get("nuget_username_secret")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def trusted_publishing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use NuGet trusted publishing instead of API keys.
+
+        Needs to be setup in NuGet.org.
+
+        :see: https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing
+        :stability: experimental
+        '''
+        result = self._values.get("trusted_publishing")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2060,7 +2097,7 @@ class Publisher(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         artifact_name: builtins.str,
         build_job_id: builtins.str,
@@ -2074,7 +2111,7 @@ class Publisher(
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param project: -
@@ -2116,7 +2153,7 @@ class Publisher(
         jsii.create(self.__class__, self, [project, options])
 
     @jsii.member(jsii_name="addGitHubPostPublishingSteps")
-    def add_git_hub_post_publishing_steps(self, *steps: _JobStep_c3287c05) -> None:
+    def add_git_hub_post_publishing_steps(self, *steps: "_JobStep_c3287c05") -> None:
         '''(experimental) Adds post publishing steps for the GitHub release job.
 
         :param steps: The steps.
@@ -2129,7 +2166,7 @@ class Publisher(
         return typing.cast(None, jsii.invoke(self, "addGitHubPostPublishingSteps", [*steps]))
 
     @jsii.member(jsii_name="addGitHubPrePublishingSteps")
-    def add_git_hub_pre_publishing_steps(self, *steps: _JobStep_c3287c05) -> None:
+    def add_git_hub_pre_publishing_steps(self, *steps: "_JobStep_c3287c05") -> None:
         '''(experimental) Adds pre publishing steps for the GitHub release job.
 
         :param steps: The steps.
@@ -2151,7 +2188,7 @@ class Publisher(
         git_branch: typing.Optional[builtins.str] = None,
         git_push_command: typing.Optional[builtins.str] = None,
         project_changelog_file: typing.Optional[builtins.str] = None,
-    ) -> _Task_9fa875b6:
+    ) -> "_Task_9fa875b6":
         '''(experimental) Publish to git.
 
         This includes generating a project-level changelog and release tags.
@@ -2174,7 +2211,7 @@ class Publisher(
             project_changelog_file=project_changelog_file,
         )
 
-        return typing.cast(_Task_9fa875b6, jsii.invoke(self, "publishToGit", [options]))
+        return typing.cast("_Task_9fa875b6", jsii.invoke(self, "publishToGit", [options]))
 
     @jsii.member(jsii_name="publishToGitHubReleases")
     def publish_to_git_hub_releases(
@@ -2184,9 +2221,9 @@ class Publisher(
         release_tag_file: builtins.str,
         version_file: builtins.str,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Creates a GitHub Release.
 
@@ -2224,9 +2261,9 @@ class Publisher(
         git_user_email: typing.Optional[builtins.str] = None,
         git_user_name: typing.Optional[builtins.str] = None,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Adds a go publishing job.
 
@@ -2235,8 +2272,8 @@ class Publisher(
         :param github_deploy_key_secret: (experimental) The name of the secret that includes a GitHub deploy key used to push to the GitHub repository. Ignored if ``githubUseSsh`` is ``false``. Default: "GO_GITHUB_DEPLOY_KEY"
         :param github_token_secret: (experimental) The name of the secret that includes a personal GitHub access token used to push to the GitHub repository. Ignored if ``githubUseSsh`` is ``true``. Default: "GO_GITHUB_TOKEN"
         :param github_use_ssh: (experimental) Use SSH to push to GitHub instead of a personal accses token. Default: false
-        :param git_user_email: (experimental) The email to use in the release git commit. Default: "github-actions@github.com"
-        :param git_user_name: (experimental) The user name to use for the release git commit. Default: "github-actions"
+        :param git_user_email: (experimental) The email to use in the release git commit. Default: - default GitHub Actions user email
+        :param git_user_name: (experimental) The user name to use for the release git commit. Default: - default GitHub Actions user name
         :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
@@ -2273,9 +2310,9 @@ class Publisher(
         maven_staging_profile_id: typing.Optional[builtins.str] = None,
         maven_username: typing.Optional[builtins.str] = None,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Publishes artifacts from ``java/**`` to Maven.
 
@@ -2284,7 +2321,7 @@ class Publisher(
         :param maven_gpg_private_key_secret: (experimental) GitHub secret name which contains the GPG private key or file that includes it. This is used to sign your Maven packages. See instructions. Default: "MAVEN_GPG_PRIVATE_KEY" or not set when using GitHub Packages
         :param maven_password: (experimental) GitHub secret name which contains the Password for maven repository. For Maven Central, you will need to Create JIRA account and then request a new project (see links). Default: "MAVEN_PASSWORD" or "GITHUB_TOKEN" when using GitHub Packages
         :param maven_repository_url: (experimental) Deployment repository when not deploying to Maven Central. Default: - not set
-        :param maven_server_id: (experimental) Used in maven settings for credential lookup (e.g. use github when publishing to GitHub). Set to ``central-ossrh`` to publish to Maven Central. Default: "ossrh" (Maven Central) or "github" when using GitHub Packages
+        :param maven_server_id: (experimental) Used in maven settings for credential lookup (e.g. use github when publishing to GitHub). Set to ``central-ossrh`` to publish to Maven Central. Default: "central-ossrh" (Maven Central) or "github" when using GitHub Packages
         :param maven_staging_profile_id: (experimental) GitHub secret name which contains the Maven Central (sonatype) staging profile ID (e.g. 68a05363083174). Staging profile ID can be found in the URL of the "Releases" staging profile under "Staging Profiles" in https://oss.sonatype.org (e.g. https://oss.sonatype.org/#stagingProfiles;11a33451234521). Default: "MAVEN_STAGING_PROFILE_ID" or not set when using GitHub Packages
         :param maven_username: (experimental) GitHub secret name which contains the Username for maven repository. For Maven Central, you will need to Create JIRA account and then request a new project (see links). Default: "MAVEN_USERNAME" or the GitHub Actor when using GitHub Packages
         :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
@@ -2315,16 +2352,16 @@ class Publisher(
     def publish_to_npm(
         self,
         *,
-        code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         dist_tag: typing.Optional[builtins.str] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         registry: typing.Optional[builtins.str] = None,
         trusted_publishing: typing.Optional[builtins.bool] = None,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Publishes artifacts from ``js/**`` to npm.
 
@@ -2362,15 +2399,19 @@ class Publisher(
         *,
         nuget_api_key_secret: typing.Optional[builtins.str] = None,
         nuget_server: typing.Optional[builtins.str] = None,
+        nuget_username_secret: typing.Optional[builtins.str] = None,
+        trusted_publishing: typing.Optional[builtins.bool] = None,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Publishes artifacts from ``dotnet/**`` to NuGet Gallery.
 
         :param nuget_api_key_secret: (experimental) GitHub secret which contains the API key for NuGet. Default: "NUGET_API_KEY"
         :param nuget_server: (experimental) NuGet Server URL (defaults to nuget.org).
+        :param nuget_username_secret: (experimental) The NuGet.org username (profile name, not email address) for trusted publisher authentication. Required when using trusted publishing. Default: "NUGET_USERNAME"
+        :param trusted_publishing: (experimental) Use NuGet trusted publishing instead of API keys. Needs to be setup in NuGet.org.
         :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
@@ -2381,6 +2422,8 @@ class Publisher(
         options = NugetPublishOptions(
             nuget_api_key_secret=nuget_api_key_secret,
             nuget_server=nuget_server,
+            nuget_username_secret=nuget_username_secret,
+            trusted_publishing=trusted_publishing,
             github_environment=github_environment,
             post_publish_steps=post_publish_steps,
             pre_publish_steps=pre_publish_steps,
@@ -2394,15 +2437,15 @@ class Publisher(
         self,
         *,
         attestations: typing.Optional[builtins.bool] = None,
-        code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         trusted_publishing: typing.Optional[builtins.bool] = None,
         twine_password_secret: typing.Optional[builtins.str] = None,
         twine_registry_url: typing.Optional[builtins.str] = None,
         twine_username_secret: typing.Optional[builtins.str] = None,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Publishes wheel artifacts from ``python`` to PyPI.
 
@@ -2520,7 +2563,7 @@ class PublisherOptions:
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options for ``Publisher``.
 
@@ -2731,7 +2774,7 @@ class PublisherOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def workflow_runs_on_group(self) -> typing.Optional[_GroupRunnerOptions_148c59c1]:
+    def workflow_runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -2739,7 +2782,7 @@ class PublisherOptions:
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("workflow_runs_on_group")
-        return typing.cast(typing.Optional[_GroupRunnerOptions_148c59c1], result)
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2774,11 +2817,11 @@ class PyPiPublishOptions(CommonPublishOptions):
         self,
         *,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
         attestations: typing.Optional[builtins.bool] = None,
-        code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         trusted_publishing: typing.Optional[builtins.bool] = None,
         twine_password_secret: typing.Optional[builtins.str] = None,
         twine_registry_url: typing.Optional[builtins.str] = None,
@@ -2854,7 +2897,7 @@ class PyPiPublishOptions(CommonPublishOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after executing the publishing command.
 
         These can be used
@@ -2865,10 +2908,10 @@ class PyPiPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
 
         These steps are executed after ``dist/`` has been populated with the build
@@ -2879,10 +2922,10 @@ class PyPiPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def publish_tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Additional tools to install in the publishing job.
 
         :default: - no additional tools are installed
@@ -2890,7 +2933,7 @@ class PyPiPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     @builtins.property
     def attestations(self) -> typing.Optional[builtins.bool]:
@@ -2908,7 +2951,7 @@ class PyPiPublishOptions(CommonPublishOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def code_artifact_options(self) -> typing.Optional[CodeArtifactOptions]:
+    def code_artifact_options(self) -> typing.Optional["CodeArtifactOptions"]:
         '''(experimental) Options for publishing to AWS CodeArtifact.
 
         :default: - undefined
@@ -2916,7 +2959,7 @@ class PyPiPublishOptions(CommonPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("code_artifact_options")
-        return typing.cast(typing.Optional[CodeArtifactOptions], result)
+        return typing.cast(typing.Optional["CodeArtifactOptions"], result)
 
     @builtins.property
     def trusted_publishing(self) -> typing.Optional[builtins.bool]:
@@ -2989,27 +3032,28 @@ class Release(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.IConstruct,
+        scope: "_constructs_77d1e7e8.IConstruct",
         *,
         artifacts_directory: builtins.str,
         branch: builtins.str,
-        task: _Task_9fa875b6,
         version_file: builtins.str,
         github_release: typing.Optional[builtins.bool] = None,
+        task: typing.Optional["_Task_9fa875b6"] = None,
+        tasks: typing.Optional[typing.Sequence["_Task_9fa875b6"]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
-        workflow_permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_permissions: typing.Optional[typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
         jsii_release_version: typing.Optional[builtins.str] = None,
         major_version: typing.Optional[jsii.Number] = None,
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[BranchOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["BranchOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
@@ -3019,19 +3063,20 @@ class Release(
         release_trigger: typing.Optional["ReleaseTrigger"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: should be part of the project the Release belongs to.
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param branch: (experimental) The default branch name to release from. Use ``majorVersion`` to restrict this branch to only publish releases with a specific major version. You can add additional branches using ``addBranch()``.
-        :param task: (experimental) The task to execute in order to create the release artifacts. Artifacts are expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once build is complete.
         :param version_file: (experimental) A name of a .json file to set the ``version`` field in after a bump.
         :param github_release: (experimental) Create a GitHub release for each release. Default: true
+        :param task: (deprecated) The task to execute in order to create the release artifacts. Artifacts are expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once build is complete.
+        :param tasks: (experimental) The tasks to execute in order to create the release artifacts. Artifacts are expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once build is complete.
         :param workflow_node_version: (experimental) Node version to setup in GitHub workflows if any node-based CLI utilities are needed. For example ``publib``, the CLI projen uses to publish releases, is an npm library. Default: "lts/*""
         :param workflow_permissions: (experimental) Permissions granted to the release workflow job. Default: ``{ contents: JobPermission.WRITE }``
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -3069,9 +3114,10 @@ class Release(
         options = ReleaseOptions(
             artifacts_directory=artifacts_directory,
             branch=branch,
-            task=task,
             version_file=version_file,
             github_release=github_release,
+            task=task,
+            tasks=tasks,
             workflow_node_version=workflow_node_version,
             workflow_permissions=workflow_permissions,
             bump_package=bump_package,
@@ -3106,7 +3152,7 @@ class Release(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: _Project_57d89203) -> typing.Optional["Release"]:
+    def of(cls, project: "_Project_57d89203") -> typing.Optional["Release"]:
         '''(experimental) Returns the ``Release`` component of a project or ``undefined`` if the project does not have a Release component.
 
         :param project: -
@@ -3169,7 +3215,7 @@ class Release(
     @jsii.member(jsii_name="addJobs")
     def add_jobs(
         self,
-        jobs: typing.Mapping[builtins.str, typing.Union[_Job_20ffcf45, typing.Dict[builtins.str, typing.Any]]],
+        jobs: typing.Mapping[builtins.str, typing.Union["_Job_20ffcf45", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''(experimental) Adds jobs to all release workflows.
 
@@ -3218,12 +3264,12 @@ class Release(
 
     @builtins.property
     @jsii.member(jsii_name="publisher")
-    def publisher(self) -> Publisher:
+    def publisher(self) -> "Publisher":
         '''(experimental) Package publisher.
 
         :stability: experimental
         '''
-        return typing.cast(Publisher, jsii.get(self, "publisher"))
+        return typing.cast("Publisher", jsii.get(self, "publisher"))
 
 
 @jsii.data_type(
@@ -3268,12 +3314,12 @@ class ReleaseProjectOptions:
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[BranchOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["BranchOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
@@ -3283,11 +3329,11 @@ class ReleaseProjectOptions:
         release_trigger: typing.Optional["ReleaseTrigger"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Project options for release.
 
@@ -3503,7 +3549,7 @@ class ReleaseProjectOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_build_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after build as part of the release workflow.
 
         :default: []
@@ -3511,7 +3557,7 @@ class ReleaseProjectOptions:
         :stability: experimental
         '''
         result = self._values.get("post_build_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def prerelease(self) -> typing.Optional[builtins.str]:
@@ -3550,7 +3596,7 @@ class ReleaseProjectOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def releasable_commits(self) -> typing.Optional[_ReleasableCommits_d481ce10]:
+    def releasable_commits(self) -> typing.Optional["_ReleasableCommits_d481ce10"]:
         '''(experimental) Find commits that should be considered releasable Used to decide if a release is required.
 
         :default: ReleasableCommits.everyCommit()
@@ -3558,12 +3604,12 @@ class ReleaseProjectOptions:
         :stability: experimental
         '''
         result = self._values.get("releasable_commits")
-        return typing.cast(typing.Optional[_ReleasableCommits_d481ce10], result)
+        return typing.cast(typing.Optional["_ReleasableCommits_d481ce10"], result)
 
     @builtins.property
     def release_branches(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, BranchOptions]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "BranchOptions"]]:
         '''(experimental) Defines additional release branches.
 
         A workflow will be created for each
@@ -3581,7 +3627,7 @@ class ReleaseProjectOptions:
         :stability: experimental
         '''
         result = self._values.get("release_branches")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, BranchOptions]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "BranchOptions"]], result)
 
     @builtins.property
     def release_environment(self) -> typing.Optional[builtins.str]:
@@ -3704,13 +3750,13 @@ class ReleaseProjectOptions:
     @builtins.property
     def release_workflow_setup_steps(
         self,
-    ) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) A set of workflow steps to execute in order to setup the workflow container.
 
         :stability: experimental
         '''
         result = self._values.get("release_workflow_setup_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def versionrc_options(
@@ -3752,7 +3798,7 @@ class ReleaseProjectOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def workflow_runs_on_group(self) -> typing.Optional[_GroupRunnerOptions_148c59c1]:
+    def workflow_runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -3760,7 +3806,7 @@ class ReleaseProjectOptions:
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("workflow_runs_on_group")
-        return typing.cast(typing.Optional[_GroupRunnerOptions_148c59c1], result)
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4001,9 +4047,9 @@ class JsiiReleaseMaven(MavenPublishOptions):
         self,
         *,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
         maven_endpoint: typing.Optional[builtins.str] = None,
         maven_gpg_private_key_passphrase: typing.Optional[builtins.str] = None,
         maven_gpg_private_key_secret: typing.Optional[builtins.str] = None,
@@ -4023,7 +4069,7 @@ class JsiiReleaseMaven(MavenPublishOptions):
         :param maven_gpg_private_key_secret: (experimental) GitHub secret name which contains the GPG private key or file that includes it. This is used to sign your Maven packages. See instructions. Default: "MAVEN_GPG_PRIVATE_KEY" or not set when using GitHub Packages
         :param maven_password: (experimental) GitHub secret name which contains the Password for maven repository. For Maven Central, you will need to Create JIRA account and then request a new project (see links). Default: "MAVEN_PASSWORD" or "GITHUB_TOKEN" when using GitHub Packages
         :param maven_repository_url: (experimental) Deployment repository when not deploying to Maven Central. Default: - not set
-        :param maven_server_id: (experimental) Used in maven settings for credential lookup (e.g. use github when publishing to GitHub). Set to ``central-ossrh`` to publish to Maven Central. Default: "ossrh" (Maven Central) or "github" when using GitHub Packages
+        :param maven_server_id: (experimental) Used in maven settings for credential lookup (e.g. use github when publishing to GitHub). Set to ``central-ossrh`` to publish to Maven Central. Default: "central-ossrh" (Maven Central) or "github" when using GitHub Packages
         :param maven_staging_profile_id: (experimental) GitHub secret name which contains the Maven Central (sonatype) staging profile ID (e.g. 68a05363083174). Staging profile ID can be found in the URL of the "Releases" staging profile under "Staging Profiles" in https://oss.sonatype.org (e.g. https://oss.sonatype.org/#stagingProfiles;11a33451234521). Default: "MAVEN_STAGING_PROFILE_ID" or not set when using GitHub Packages
         :param maven_username: (experimental) GitHub secret name which contains the Username for maven repository. For Maven Central, you will need to Create JIRA account and then request a new project (see links). Default: "MAVEN_USERNAME" or the GitHub Actor when using GitHub Packages
 
@@ -4090,7 +4136,7 @@ class JsiiReleaseMaven(MavenPublishOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after executing the publishing command.
 
         These can be used
@@ -4101,10 +4147,10 @@ class JsiiReleaseMaven(MavenPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
 
         These steps are executed after ``dist/`` has been populated with the build
@@ -4115,10 +4161,10 @@ class JsiiReleaseMaven(MavenPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def publish_tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Additional tools to install in the publishing job.
 
         :default: - no additional tools are installed
@@ -4126,7 +4172,7 @@ class JsiiReleaseMaven(MavenPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     @builtins.property
     def maven_endpoint(self) -> typing.Optional[builtins.str]:
@@ -4202,7 +4248,7 @@ class JsiiReleaseMaven(MavenPublishOptions):
 
         Set to ``central-ossrh`` to publish to Maven Central.
 
-        :default: "ossrh" (Maven Central) or "github" when using GitHub Packages
+        :default: "central-ossrh" (Maven Central) or "github" when using GitHub Packages
 
         :stability: experimental
         '''
@@ -4268,10 +4314,10 @@ class JsiiReleaseNpm(NpmPublishOptions):
         self,
         *,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
-        code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         dist_tag: typing.Optional[builtins.str] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
@@ -4349,7 +4395,7 @@ class JsiiReleaseNpm(NpmPublishOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after executing the publishing command.
 
         These can be used
@@ -4360,10 +4406,10 @@ class JsiiReleaseNpm(NpmPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
 
         These steps are executed after ``dist/`` has been populated with the build
@@ -4374,10 +4420,10 @@ class JsiiReleaseNpm(NpmPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def publish_tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Additional tools to install in the publishing job.
 
         :default: - no additional tools are installed
@@ -4385,10 +4431,10 @@ class JsiiReleaseNpm(NpmPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     @builtins.property
-    def code_artifact_options(self) -> typing.Optional[CodeArtifactOptions]:
+    def code_artifact_options(self) -> typing.Optional["CodeArtifactOptions"]:
         '''(experimental) Options for publishing npm package to AWS CodeArtifact.
 
         :default: - package is not published to
@@ -4396,7 +4442,7 @@ class JsiiReleaseNpm(NpmPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("code_artifact_options")
-        return typing.cast(typing.Optional[CodeArtifactOptions], result)
+        return typing.cast(typing.Optional["CodeArtifactOptions"], result)
 
     @builtins.property
     def dist_tag(self) -> typing.Optional[builtins.str]:
@@ -4508,6 +4554,8 @@ class JsiiReleaseNpm(NpmPublishOptions):
         "publish_tools": "publishTools",
         "nuget_api_key_secret": "nugetApiKeySecret",
         "nuget_server": "nugetServer",
+        "nuget_username_secret": "nugetUsernameSecret",
+        "trusted_publishing": "trustedPublishing",
     },
 )
 class JsiiReleaseNuget(NugetPublishOptions):
@@ -4515,11 +4563,13 @@ class JsiiReleaseNuget(NugetPublishOptions):
         self,
         *,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
         nuget_api_key_secret: typing.Optional[builtins.str] = None,
         nuget_server: typing.Optional[builtins.str] = None,
+        nuget_username_secret: typing.Optional[builtins.str] = None,
+        trusted_publishing: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
@@ -4528,6 +4578,8 @@ class JsiiReleaseNuget(NugetPublishOptions):
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
         :param nuget_api_key_secret: (experimental) GitHub secret which contains the API key for NuGet. Default: "NUGET_API_KEY"
         :param nuget_server: (experimental) NuGet Server URL (defaults to nuget.org).
+        :param nuget_username_secret: (experimental) The NuGet.org username (profile name, not email address) for trusted publisher authentication. Required when using trusted publishing. Default: "NUGET_USERNAME"
+        :param trusted_publishing: (experimental) Use NuGet trusted publishing instead of API keys. Needs to be setup in NuGet.org.
 
         :deprecated: Use ``NugetPublishOptions`` instead.
 
@@ -4543,6 +4595,8 @@ class JsiiReleaseNuget(NugetPublishOptions):
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
             check_type(argname="argument nuget_api_key_secret", value=nuget_api_key_secret, expected_type=type_hints["nuget_api_key_secret"])
             check_type(argname="argument nuget_server", value=nuget_server, expected_type=type_hints["nuget_server"])
+            check_type(argname="argument nuget_username_secret", value=nuget_username_secret, expected_type=type_hints["nuget_username_secret"])
+            check_type(argname="argument trusted_publishing", value=trusted_publishing, expected_type=type_hints["trusted_publishing"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if github_environment is not None:
             self._values["github_environment"] = github_environment
@@ -4556,6 +4610,10 @@ class JsiiReleaseNuget(NugetPublishOptions):
             self._values["nuget_api_key_secret"] = nuget_api_key_secret
         if nuget_server is not None:
             self._values["nuget_server"] = nuget_server
+        if nuget_username_secret is not None:
+            self._values["nuget_username_secret"] = nuget_username_secret
+        if trusted_publishing is not None:
+            self._values["trusted_publishing"] = trusted_publishing
 
     @builtins.property
     def github_environment(self) -> typing.Optional[builtins.str]:
@@ -4574,7 +4632,7 @@ class JsiiReleaseNuget(NugetPublishOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after executing the publishing command.
 
         These can be used
@@ -4585,10 +4643,10 @@ class JsiiReleaseNuget(NugetPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
 
         These steps are executed after ``dist/`` has been populated with the build
@@ -4599,10 +4657,10 @@ class JsiiReleaseNuget(NugetPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def publish_tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Additional tools to install in the publishing job.
 
         :default: - no additional tools are installed
@@ -4610,7 +4668,7 @@ class JsiiReleaseNuget(NugetPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     @builtins.property
     def nuget_api_key_secret(self) -> typing.Optional[builtins.str]:
@@ -4631,6 +4689,31 @@ class JsiiReleaseNuget(NugetPublishOptions):
         '''
         result = self._values.get("nuget_server")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def nuget_username_secret(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The NuGet.org username (profile name, not email address) for trusted publisher authentication.
+
+        Required when using trusted publishing.
+
+        :default: "NUGET_USERNAME"
+
+        :stability: experimental
+        '''
+        result = self._values.get("nuget_username_secret")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def trusted_publishing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use NuGet trusted publishing instead of API keys.
+
+        Needs to be setup in NuGet.org.
+
+        :see: https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing
+        :stability: experimental
+        '''
+        result = self._values.get("trusted_publishing")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4665,11 +4748,11 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         self,
         *,
         github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
         attestations: typing.Optional[builtins.bool] = None,
-        code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         trusted_publishing: typing.Optional[builtins.bool] = None,
         twine_password_secret: typing.Optional[builtins.str] = None,
         twine_registry_url: typing.Optional[builtins.str] = None,
@@ -4746,7 +4829,7 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after executing the publishing command.
 
         These can be used
@@ -4757,10 +4840,10 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
 
         These steps are executed after ``dist/`` has been populated with the build
@@ -4771,10 +4854,10 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def publish_tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Additional tools to install in the publishing job.
 
         :default: - no additional tools are installed
@@ -4782,7 +4865,7 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     @builtins.property
     def attestations(self) -> typing.Optional[builtins.bool]:
@@ -4800,7 +4883,7 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def code_artifact_options(self) -> typing.Optional[CodeArtifactOptions]:
+    def code_artifact_options(self) -> typing.Optional["CodeArtifactOptions"]:
         '''(experimental) Options for publishing to AWS CodeArtifact.
 
         :default: - undefined
@@ -4808,7 +4891,7 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         :stability: experimental
         '''
         result = self._values.get("code_artifact_options")
-        return typing.cast(typing.Optional[CodeArtifactOptions], result)
+        return typing.cast(typing.Optional["CodeArtifactOptions"], result)
 
     @builtins.property
     def trusted_publishing(self) -> typing.Optional[builtins.bool]:
@@ -4899,9 +4982,10 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         "workflow_runs_on_group": "workflowRunsOnGroup",
         "artifacts_directory": "artifactsDirectory",
         "branch": "branch",
-        "task": "task",
         "version_file": "versionFile",
         "github_release": "githubRelease",
+        "task": "task",
+        "tasks": "tasks",
         "workflow_node_version": "workflowNodeVersion",
         "workflow_permissions": "workflowPermissions",
     },
@@ -4916,33 +5000,34 @@ class ReleaseOptions(ReleaseProjectOptions):
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[BranchOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["BranchOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
-        release_trigger: typing.Optional[ReleaseTrigger] = None,
+        release_trigger: typing.Optional["ReleaseTrigger"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
         artifacts_directory: builtins.str,
         branch: builtins.str,
-        task: _Task_9fa875b6,
         version_file: builtins.str,
         github_release: typing.Optional[builtins.bool] = None,
+        task: typing.Optional["_Task_9fa875b6"] = None,
+        tasks: typing.Optional[typing.Sequence["_Task_9fa875b6"]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
-        workflow_permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_permissions: typing.Optional[typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options for ``Release``.
 
@@ -4974,9 +5059,10 @@ class ReleaseOptions(ReleaseProjectOptions):
         :param workflow_runs_on_group: (experimental) Github Runner Group selection options.
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param branch: (experimental) The default branch name to release from. Use ``majorVersion`` to restrict this branch to only publish releases with a specific major version. You can add additional branches using ``addBranch()``.
-        :param task: (experimental) The task to execute in order to create the release artifacts. Artifacts are expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once build is complete.
         :param version_file: (experimental) A name of a .json file to set the ``version`` field in after a bump.
         :param github_release: (experimental) Create a GitHub release for each release. Default: true
+        :param task: (deprecated) The task to execute in order to create the release artifacts. Artifacts are expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once build is complete.
+        :param tasks: (experimental) The tasks to execute in order to create the release artifacts. Artifacts are expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once build is complete.
         :param workflow_node_version: (experimental) Node version to setup in GitHub workflows if any node-based CLI utilities are needed. For example ``publib``, the CLI projen uses to publish releases, is an npm library. Default: "lts/*""
         :param workflow_permissions: (experimental) Permissions granted to the release workflow job. Default: ``{ contents: JobPermission.WRITE }``
 
@@ -5016,15 +5102,15 @@ class ReleaseOptions(ReleaseProjectOptions):
             check_type(argname="argument workflow_runs_on_group", value=workflow_runs_on_group, expected_type=type_hints["workflow_runs_on_group"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
-            check_type(argname="argument task", value=task, expected_type=type_hints["task"])
             check_type(argname="argument version_file", value=version_file, expected_type=type_hints["version_file"])
             check_type(argname="argument github_release", value=github_release, expected_type=type_hints["github_release"])
+            check_type(argname="argument task", value=task, expected_type=type_hints["task"])
+            check_type(argname="argument tasks", value=tasks, expected_type=type_hints["tasks"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
             check_type(argname="argument workflow_permissions", value=workflow_permissions, expected_type=type_hints["workflow_permissions"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "artifacts_directory": artifacts_directory,
             "branch": branch,
-            "task": task,
             "version_file": version_file,
         }
         if bump_package is not None:
@@ -5081,6 +5167,10 @@ class ReleaseOptions(ReleaseProjectOptions):
             self._values["workflow_runs_on_group"] = workflow_runs_on_group
         if github_release is not None:
             self._values["github_release"] = github_release
+        if task is not None:
+            self._values["task"] = task
+        if tasks is not None:
+            self._values["tasks"] = tasks
         if workflow_node_version is not None:
             self._values["workflow_node_version"] = workflow_node_version
         if workflow_permissions is not None:
@@ -5185,7 +5275,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_build_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after build as part of the release workflow.
 
         :default: []
@@ -5193,7 +5283,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         :stability: experimental
         '''
         result = self._values.get("post_build_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def prerelease(self) -> typing.Optional[builtins.str]:
@@ -5232,7 +5322,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def releasable_commits(self) -> typing.Optional[_ReleasableCommits_d481ce10]:
+    def releasable_commits(self) -> typing.Optional["_ReleasableCommits_d481ce10"]:
         '''(experimental) Find commits that should be considered releasable Used to decide if a release is required.
 
         :default: ReleasableCommits.everyCommit()
@@ -5240,12 +5330,12 @@ class ReleaseOptions(ReleaseProjectOptions):
         :stability: experimental
         '''
         result = self._values.get("releasable_commits")
-        return typing.cast(typing.Optional[_ReleasableCommits_d481ce10], result)
+        return typing.cast(typing.Optional["_ReleasableCommits_d481ce10"], result)
 
     @builtins.property
     def release_branches(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, BranchOptions]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "BranchOptions"]]:
         '''(experimental) Defines additional release branches.
 
         A workflow will be created for each
@@ -5263,7 +5353,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         :stability: experimental
         '''
         result = self._values.get("release_branches")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, BranchOptions]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "BranchOptions"]], result)
 
     @builtins.property
     def release_environment(self) -> typing.Optional[builtins.str]:
@@ -5349,7 +5439,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_trigger(self) -> typing.Optional[ReleaseTrigger]:
+    def release_trigger(self) -> typing.Optional["ReleaseTrigger"]:
         '''(experimental) The release trigger to use.
 
         :default: - Continuous releases (``ReleaseTrigger.continuous()``)
@@ -5357,7 +5447,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         :stability: experimental
         '''
         result = self._values.get("release_trigger")
-        return typing.cast(typing.Optional[ReleaseTrigger], result)
+        return typing.cast(typing.Optional["ReleaseTrigger"], result)
 
     @builtins.property
     def release_workflow_env(
@@ -5386,13 +5476,13 @@ class ReleaseOptions(ReleaseProjectOptions):
     @builtins.property
     def release_workflow_setup_steps(
         self,
-    ) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) A set of workflow steps to execute in order to setup the workflow container.
 
         :stability: experimental
         '''
         result = self._values.get("release_workflow_setup_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def versionrc_options(
@@ -5434,7 +5524,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def workflow_runs_on_group(self) -> typing.Optional[_GroupRunnerOptions_148c59c1]:
+    def workflow_runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -5442,7 +5532,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("workflow_runs_on_group")
-        return typing.cast(typing.Optional[_GroupRunnerOptions_148c59c1], result)
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
     def artifacts_directory(self) -> builtins.str:
@@ -5472,20 +5562,6 @@ class ReleaseOptions(ReleaseProjectOptions):
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def task(self) -> _Task_9fa875b6:
-        '''(experimental) The task to execute in order to create the release artifacts.
-
-        Artifacts are
-        expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once
-        build is complete.
-
-        :stability: experimental
-        '''
-        result = self._values.get("task")
-        assert result is not None, "Required property 'task' is missing"
-        return typing.cast(_Task_9fa875b6, result)
-
-    @builtins.property
     def version_file(self) -> builtins.str:
         '''(experimental) A name of a .json file to set the ``version`` field in after a bump.
 
@@ -5511,6 +5587,34 @@ class ReleaseOptions(ReleaseProjectOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def task(self) -> typing.Optional["_Task_9fa875b6"]:
+        '''(deprecated) The task to execute in order to create the release artifacts.
+
+        Artifacts are
+        expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once
+        build is complete.
+
+        :deprecated: Use ``tasks`` instead
+
+        :stability: deprecated
+        '''
+        result = self._values.get("task")
+        return typing.cast(typing.Optional["_Task_9fa875b6"], result)
+
+    @builtins.property
+    def tasks(self) -> typing.Optional[typing.List["_Task_9fa875b6"]]:
+        '''(experimental) The tasks to execute in order to create the release artifacts.
+
+        Artifacts are
+        expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once
+        build is complete.
+
+        :stability: experimental
+        '''
+        result = self._values.get("tasks")
+        return typing.cast(typing.Optional[typing.List["_Task_9fa875b6"]], result)
+
+    @builtins.property
     def workflow_node_version(self) -> typing.Optional[builtins.str]:
         '''(experimental) Node version to setup in GitHub workflows if any node-based CLI utilities are needed.
 
@@ -5525,7 +5629,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def workflow_permissions(self) -> typing.Optional[_JobPermissions_3b5b53dc]:
+    def workflow_permissions(self) -> typing.Optional["_JobPermissions_3b5b53dc"]:
         '''(experimental) Permissions granted to the release workflow job.
 
         :default: ``{ contents: JobPermission.WRITE }``
@@ -5533,7 +5637,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         :stability: experimental
         '''
         result = self._values.get("workflow_permissions")
-        return typing.cast(typing.Optional[_JobPermissions_3b5b53dc], result)
+        return typing.cast(typing.Optional["_JobPermissions_3b5b53dc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5728,6 +5832,8 @@ def _typecheckingstub__584d4125e43e970396e9062b357de30ef32a6d1b30bd3a0f00fc7db04
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
     nuget_api_key_secret: typing.Optional[builtins.str] = None,
     nuget_server: typing.Optional[builtins.str] = None,
+    nuget_username_secret: typing.Optional[builtins.str] = None,
+    trusted_publishing: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5804,9 +5910,10 @@ def _typecheckingstub__b447ecb34d36869391ee159467e6c78b74da704722d4c6a517e05bbae
     *,
     artifacts_directory: builtins.str,
     branch: builtins.str,
-    task: _Task_9fa875b6,
     version_file: builtins.str,
     github_release: typing.Optional[builtins.bool] = None,
+    task: typing.Optional[_Task_9fa875b6] = None,
+    tasks: typing.Optional[typing.Sequence[_Task_9fa875b6]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
     workflow_permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
     bump_package: typing.Optional[builtins.str] = None,
@@ -5947,6 +6054,8 @@ def _typecheckingstub__14abe6d299c2354a8f22a08788f088aafaa8acf2b85b20f2974163462
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
     nuget_api_key_secret: typing.Optional[builtins.str] = None,
     nuget_server: typing.Optional[builtins.str] = None,
+    nuget_username_secret: typing.Optional[builtins.str] = None,
+    trusted_publishing: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5997,9 +6106,10 @@ def _typecheckingstub__abcbb9106f2fe858c4efa7a5934906e63b00b56fa33c47c5f910dac2a
     workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
     artifacts_directory: builtins.str,
     branch: builtins.str,
-    task: _Task_9fa875b6,
     version_file: builtins.str,
     github_release: typing.Optional[builtins.bool] = None,
+    task: typing.Optional[_Task_9fa875b6] = None,
+    tasks: typing.Optional[typing.Sequence[_Task_9fa875b6]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
     workflow_permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:

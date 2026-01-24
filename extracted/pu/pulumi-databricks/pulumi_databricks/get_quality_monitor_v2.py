@@ -27,7 +27,7 @@ class GetQualityMonitorV2Result:
     """
     A collection of values returned by getQualityMonitorV2.
     """
-    def __init__(__self__, anomaly_detection_config=None, id=None, object_id=None, object_type=None, workspace_id=None):
+    def __init__(__self__, anomaly_detection_config=None, id=None, object_id=None, object_type=None, validity_check_configurations=None):
         if anomaly_detection_config and not isinstance(anomaly_detection_config, dict):
             raise TypeError("Expected argument 'anomaly_detection_config' to be a dict")
         pulumi.set(__self__, "anomaly_detection_config", anomaly_detection_config)
@@ -40,9 +40,9 @@ class GetQualityMonitorV2Result:
         if object_type and not isinstance(object_type, str):
             raise TypeError("Expected argument 'object_type' to be a str")
         pulumi.set(__self__, "object_type", object_type)
-        if workspace_id and not isinstance(workspace_id, str):
-            raise TypeError("Expected argument 'workspace_id' to be a str")
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if validity_check_configurations and not isinstance(validity_check_configurations, list):
+            raise TypeError("Expected argument 'validity_check_configurations' to be a list")
+        pulumi.set(__self__, "validity_check_configurations", validity_check_configurations)
 
     @_builtins.property
     @pulumi.getter(name="anomalyDetectionConfig")
@@ -77,9 +77,12 @@ class GetQualityMonitorV2Result:
         return pulumi.get(self, "object_type")
 
     @_builtins.property
-    @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> Optional[_builtins.str]:
-        return pulumi.get(self, "workspace_id")
+    @pulumi.getter(name="validityCheckConfigurations")
+    def validity_check_configurations(self) -> Sequence['outputs.GetQualityMonitorV2ValidityCheckConfigurationResult']:
+        """
+        (list of ValidityCheckConfiguration) - Validity check configurations for anomaly detection
+        """
+        return pulumi.get(self, "validity_check_configurations")
 
 
 class AwaitableGetQualityMonitorV2Result(GetQualityMonitorV2Result):
@@ -92,19 +95,24 @@ class AwaitableGetQualityMonitorV2Result(GetQualityMonitorV2Result):
             id=self.id,
             object_id=self.object_id,
             object_type=self.object_type,
-            workspace_id=self.workspace_id)
+            validity_check_configurations=self.validity_check_configurations)
 
 
 def get_quality_monitor_v2(object_id: Optional[_builtins.str] = None,
                            object_type: Optional[_builtins.str] = None,
-                           workspace_id: Optional[_builtins.str] = None,
                            opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetQualityMonitorV2Result:
     """
+    [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
+
+    > **Deprecated** This data source is deprecated. Please use `DataQualityMonitor` instead.
+
     This data source can be used to fetch a quality monitors v2.
 
     > **Note** This data source can only be used with an workspace-level provider!
 
     ## Example Usage
+
+    > **Deprecated** This data source is deprecated. Please use `DataQualityMonitor` instead.
 
     Referring to a quality monitor by uc object type (currently only support `schema`) and object id:
 
@@ -120,12 +128,10 @@ def get_quality_monitor_v2(object_id: Optional[_builtins.str] = None,
 
     :param _builtins.str object_id: The uuid of the request object. For example, schema id
     :param _builtins.str object_type: The type of the monitored object. Can be one of the following: schema
-    :param _builtins.str workspace_id: Workspace ID of the resource
     """
     __args__ = dict()
     __args__['objectId'] = object_id
     __args__['objectType'] = object_type
-    __args__['workspaceId'] = workspace_id
     opts = pulumi.InvokeOptions.merge(_utilities.get_invoke_opts_defaults(), opts)
     __ret__ = pulumi.runtime.invoke('databricks:index/getQualityMonitorV2:getQualityMonitorV2', __args__, opts=opts, typ=GetQualityMonitorV2Result).value
 
@@ -134,17 +140,22 @@ def get_quality_monitor_v2(object_id: Optional[_builtins.str] = None,
         id=pulumi.get(__ret__, 'id'),
         object_id=pulumi.get(__ret__, 'object_id'),
         object_type=pulumi.get(__ret__, 'object_type'),
-        workspace_id=pulumi.get(__ret__, 'workspace_id'))
+        validity_check_configurations=pulumi.get(__ret__, 'validity_check_configurations'))
 def get_quality_monitor_v2_output(object_id: Optional[pulumi.Input[_builtins.str]] = None,
                                   object_type: Optional[pulumi.Input[_builtins.str]] = None,
-                                  workspace_id: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
                                   opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetQualityMonitorV2Result]:
     """
+    [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
+
+    > **Deprecated** This data source is deprecated. Please use `DataQualityMonitor` instead.
+
     This data source can be used to fetch a quality monitors v2.
 
     > **Note** This data source can only be used with an workspace-level provider!
 
     ## Example Usage
+
+    > **Deprecated** This data source is deprecated. Please use `DataQualityMonitor` instead.
 
     Referring to a quality monitor by uc object type (currently only support `schema`) and object id:
 
@@ -160,12 +171,10 @@ def get_quality_monitor_v2_output(object_id: Optional[pulumi.Input[_builtins.str
 
     :param _builtins.str object_id: The uuid of the request object. For example, schema id
     :param _builtins.str object_type: The type of the monitored object. Can be one of the following: schema
-    :param _builtins.str workspace_id: Workspace ID of the resource
     """
     __args__ = dict()
     __args__['objectId'] = object_id
     __args__['objectType'] = object_type
-    __args__['workspaceId'] = workspace_id
     opts = pulumi.InvokeOutputOptions.merge(_utilities.get_invoke_opts_defaults(), opts)
     __ret__ = pulumi.runtime.invoke_output('databricks:index/getQualityMonitorV2:getQualityMonitorV2', __args__, opts=opts, typ=GetQualityMonitorV2Result)
     return __ret__.apply(lambda __response__: GetQualityMonitorV2Result(
@@ -173,4 +182,4 @@ def get_quality_monitor_v2_output(object_id: Optional[pulumi.Input[_builtins.str
         id=pulumi.get(__response__, 'id'),
         object_id=pulumi.get(__response__, 'object_id'),
         object_type=pulumi.get(__response__, 'object_type'),
-        workspace_id=pulumi.get(__response__, 'workspace_id')))
+        validity_check_configurations=pulumi.get(__response__, 'validity_check_configurations')))

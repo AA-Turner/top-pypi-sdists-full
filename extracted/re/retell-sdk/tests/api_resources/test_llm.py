@@ -20,14 +20,17 @@ base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 class TestLlm:
     parametrize = pytest.mark.parametrize("client", [False, True], indirect=True, ids=["loose", "strict"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_method_create(self, client: Retell) -> None:
         llm = client.llm.create()
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_method_create_with_all_params(self, client: Retell) -> None:
         llm = client.llm.create(
+            begin_after_user_silence_ms=2000,
             begin_message="Hey I am a virtual assistant calling from Retell Hospital.",
             default_dynamic_variables={"customer_name": "John Doe"},
             general_prompt="You are ...",
@@ -36,6 +39,8 @@ class TestLlm:
                     "name": "end_call",
                     "type": "end_call",
                     "description": "End the call with user.",
+                    "execution_message_description": "execution_message_description",
+                    "speak_during_execution": True,
                 }
             ],
             kb_config={
@@ -43,10 +48,23 @@ class TestLlm:
                 "top_k": 3,
             },
             knowledge_base_ids=["string"],
+            mcps=[
+                {
+                    "name": "name",
+                    "url": "url",
+                    "headers": {"Authorization": "Bearer 1234567890"},
+                    "query_params": {
+                        "index": "1",
+                        "key": "value",
+                    },
+                    "timeout_ms": 0,
+                }
+            ],
             model="gpt-4.1",
             model_high_priority=True,
             model_temperature=0,
             s2s_model="gpt-4o-realtime",
+            start_speaker="user",
             starting_state="information_collection",
             states=[
                 {
@@ -78,6 +96,9 @@ class TestLlm:
                             "type": "transfer_call",
                             "custom_sip_headers": {"X-Custom-Header": "Custom Value"},
                             "description": "Transfer to the support team.",
+                            "execution_message_description": "execution_message_description",
+                            "ignore_e164_validation": False,
+                            "speak_during_execution": True,
                         }
                     ],
                 },
@@ -108,10 +129,11 @@ class TestLlm:
                 },
             ],
             tool_call_strict_mode=True,
-            version=0,
+            version=1,
         )
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_raw_response_create(self, client: Retell) -> None:
         response = client.llm.with_raw_response.create()
@@ -121,6 +143,7 @@ class TestLlm:
         llm = response.parse()
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_streaming_response_create(self, client: Retell) -> None:
         with client.llm.with_streaming_response.create() as response:
@@ -132,6 +155,7 @@ class TestLlm:
 
         assert cast(Any, response.is_closed) is True
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_method_retrieve(self, client: Retell) -> None:
         llm = client.llm.retrieve(
@@ -139,6 +163,7 @@ class TestLlm:
         )
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_method_retrieve_with_all_params(self, client: Retell) -> None:
         llm = client.llm.retrieve(
@@ -147,6 +172,7 @@ class TestLlm:
         )
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_raw_response_retrieve(self, client: Retell) -> None:
         response = client.llm.with_raw_response.retrieve(
@@ -158,6 +184,7 @@ class TestLlm:
         llm = response.parse()
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_streaming_response_retrieve(self, client: Retell) -> None:
         with client.llm.with_streaming_response.retrieve(
@@ -171,6 +198,7 @@ class TestLlm:
 
         assert cast(Any, response.is_closed) is True
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_path_params_retrieve(self, client: Retell) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `llm_id` but received ''"):
@@ -178,6 +206,7 @@ class TestLlm:
                 llm_id="",
             )
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_method_update(self, client: Retell) -> None:
         llm = client.llm.update(
@@ -185,11 +214,13 @@ class TestLlm:
         )
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_method_update_with_all_params(self, client: Retell) -> None:
         llm = client.llm.update(
             llm_id="16b980523634a6dc504898cda492e939",
             query_version=1,
+            begin_after_user_silence_ms=2000,
             begin_message="Hey I am a virtual assistant calling from Retell Hospital.",
             default_dynamic_variables={"customer_name": "John Doe"},
             general_prompt="You are ...",
@@ -198,6 +229,8 @@ class TestLlm:
                     "name": "end_call",
                     "type": "end_call",
                     "description": "End the call with user.",
+                    "execution_message_description": "execution_message_description",
+                    "speak_during_execution": True,
                 }
             ],
             kb_config={
@@ -205,10 +238,23 @@ class TestLlm:
                 "top_k": 3,
             },
             knowledge_base_ids=["string"],
+            mcps=[
+                {
+                    "name": "name",
+                    "url": "url",
+                    "headers": {"Authorization": "Bearer 1234567890"},
+                    "query_params": {
+                        "index": "1",
+                        "key": "value",
+                    },
+                    "timeout_ms": 0,
+                }
+            ],
             model="gpt-4.1",
             model_high_priority=True,
             model_temperature=0,
             s2s_model="gpt-4o-realtime",
+            start_speaker="user",
             starting_state="information_collection",
             states=[
                 {
@@ -240,6 +286,9 @@ class TestLlm:
                             "type": "transfer_call",
                             "custom_sip_headers": {"X-Custom-Header": "Custom Value"},
                             "description": "Transfer to the support team.",
+                            "execution_message_description": "execution_message_description",
+                            "ignore_e164_validation": False,
+                            "speak_during_execution": True,
                         }
                     ],
                 },
@@ -270,10 +319,11 @@ class TestLlm:
                 },
             ],
             tool_call_strict_mode=True,
-            body_version=0,
+            body_version=1,
         )
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_raw_response_update(self, client: Retell) -> None:
         response = client.llm.with_raw_response.update(
@@ -285,6 +335,7 @@ class TestLlm:
         llm = response.parse()
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_streaming_response_update(self, client: Retell) -> None:
         with client.llm.with_streaming_response.update(
@@ -298,6 +349,7 @@ class TestLlm:
 
         assert cast(Any, response.is_closed) is True
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_path_params_update(self, client: Retell) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `llm_id` but received ''"):
@@ -305,11 +357,13 @@ class TestLlm:
                 llm_id="",
             )
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_method_list(self, client: Retell) -> None:
         llm = client.llm.list()
         assert_matches_type(LlmListResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_method_list_with_all_params(self, client: Retell) -> None:
         llm = client.llm.list(
@@ -319,6 +373,7 @@ class TestLlm:
         )
         assert_matches_type(LlmListResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_raw_response_list(self, client: Retell) -> None:
         response = client.llm.with_raw_response.list()
@@ -328,6 +383,7 @@ class TestLlm:
         llm = response.parse()
         assert_matches_type(LlmListResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_streaming_response_list(self, client: Retell) -> None:
         with client.llm.with_streaming_response.list() as response:
@@ -339,6 +395,7 @@ class TestLlm:
 
         assert cast(Any, response.is_closed) is True
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_method_delete(self, client: Retell) -> None:
         llm = client.llm.delete(
@@ -346,6 +403,7 @@ class TestLlm:
         )
         assert llm is None
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_raw_response_delete(self, client: Retell) -> None:
         response = client.llm.with_raw_response.delete(
@@ -357,6 +415,7 @@ class TestLlm:
         llm = response.parse()
         assert llm is None
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_streaming_response_delete(self, client: Retell) -> None:
         with client.llm.with_streaming_response.delete(
@@ -370,6 +429,7 @@ class TestLlm:
 
         assert cast(Any, response.is_closed) is True
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_path_params_delete(self, client: Retell) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `llm_id` but received ''"):
@@ -383,14 +443,17 @@ class TestAsyncLlm:
         "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
     )
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_method_create(self, async_client: AsyncRetell) -> None:
         llm = await async_client.llm.create()
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncRetell) -> None:
         llm = await async_client.llm.create(
+            begin_after_user_silence_ms=2000,
             begin_message="Hey I am a virtual assistant calling from Retell Hospital.",
             default_dynamic_variables={"customer_name": "John Doe"},
             general_prompt="You are ...",
@@ -399,6 +462,8 @@ class TestAsyncLlm:
                     "name": "end_call",
                     "type": "end_call",
                     "description": "End the call with user.",
+                    "execution_message_description": "execution_message_description",
+                    "speak_during_execution": True,
                 }
             ],
             kb_config={
@@ -406,10 +471,23 @@ class TestAsyncLlm:
                 "top_k": 3,
             },
             knowledge_base_ids=["string"],
+            mcps=[
+                {
+                    "name": "name",
+                    "url": "url",
+                    "headers": {"Authorization": "Bearer 1234567890"},
+                    "query_params": {
+                        "index": "1",
+                        "key": "value",
+                    },
+                    "timeout_ms": 0,
+                }
+            ],
             model="gpt-4.1",
             model_high_priority=True,
             model_temperature=0,
             s2s_model="gpt-4o-realtime",
+            start_speaker="user",
             starting_state="information_collection",
             states=[
                 {
@@ -441,6 +519,9 @@ class TestAsyncLlm:
                             "type": "transfer_call",
                             "custom_sip_headers": {"X-Custom-Header": "Custom Value"},
                             "description": "Transfer to the support team.",
+                            "execution_message_description": "execution_message_description",
+                            "ignore_e164_validation": False,
+                            "speak_during_execution": True,
                         }
                     ],
                 },
@@ -471,10 +552,11 @@ class TestAsyncLlm:
                 },
             ],
             tool_call_strict_mode=True,
-            version=0,
+            version=1,
         )
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncRetell) -> None:
         response = await async_client.llm.with_raw_response.create()
@@ -484,6 +566,7 @@ class TestAsyncLlm:
         llm = await response.parse()
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncRetell) -> None:
         async with async_client.llm.with_streaming_response.create() as response:
@@ -495,6 +578,7 @@ class TestAsyncLlm:
 
         assert cast(Any, response.is_closed) is True
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncRetell) -> None:
         llm = await async_client.llm.retrieve(
@@ -502,6 +586,7 @@ class TestAsyncLlm:
         )
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_method_retrieve_with_all_params(self, async_client: AsyncRetell) -> None:
         llm = await async_client.llm.retrieve(
@@ -510,6 +595,7 @@ class TestAsyncLlm:
         )
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncRetell) -> None:
         response = await async_client.llm.with_raw_response.retrieve(
@@ -521,6 +607,7 @@ class TestAsyncLlm:
         llm = await response.parse()
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncRetell) -> None:
         async with async_client.llm.with_streaming_response.retrieve(
@@ -534,6 +621,7 @@ class TestAsyncLlm:
 
         assert cast(Any, response.is_closed) is True
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_path_params_retrieve(self, async_client: AsyncRetell) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `llm_id` but received ''"):
@@ -541,6 +629,7 @@ class TestAsyncLlm:
                 llm_id="",
             )
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_method_update(self, async_client: AsyncRetell) -> None:
         llm = await async_client.llm.update(
@@ -548,11 +637,13 @@ class TestAsyncLlm:
         )
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_method_update_with_all_params(self, async_client: AsyncRetell) -> None:
         llm = await async_client.llm.update(
             llm_id="16b980523634a6dc504898cda492e939",
             query_version=1,
+            begin_after_user_silence_ms=2000,
             begin_message="Hey I am a virtual assistant calling from Retell Hospital.",
             default_dynamic_variables={"customer_name": "John Doe"},
             general_prompt="You are ...",
@@ -561,6 +652,8 @@ class TestAsyncLlm:
                     "name": "end_call",
                     "type": "end_call",
                     "description": "End the call with user.",
+                    "execution_message_description": "execution_message_description",
+                    "speak_during_execution": True,
                 }
             ],
             kb_config={
@@ -568,10 +661,23 @@ class TestAsyncLlm:
                 "top_k": 3,
             },
             knowledge_base_ids=["string"],
+            mcps=[
+                {
+                    "name": "name",
+                    "url": "url",
+                    "headers": {"Authorization": "Bearer 1234567890"},
+                    "query_params": {
+                        "index": "1",
+                        "key": "value",
+                    },
+                    "timeout_ms": 0,
+                }
+            ],
             model="gpt-4.1",
             model_high_priority=True,
             model_temperature=0,
             s2s_model="gpt-4o-realtime",
+            start_speaker="user",
             starting_state="information_collection",
             states=[
                 {
@@ -603,6 +709,9 @@ class TestAsyncLlm:
                             "type": "transfer_call",
                             "custom_sip_headers": {"X-Custom-Header": "Custom Value"},
                             "description": "Transfer to the support team.",
+                            "execution_message_description": "execution_message_description",
+                            "ignore_e164_validation": False,
+                            "speak_during_execution": True,
                         }
                     ],
                 },
@@ -633,10 +742,11 @@ class TestAsyncLlm:
                 },
             ],
             tool_call_strict_mode=True,
-            body_version=0,
+            body_version=1,
         )
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncRetell) -> None:
         response = await async_client.llm.with_raw_response.update(
@@ -648,6 +758,7 @@ class TestAsyncLlm:
         llm = await response.parse()
         assert_matches_type(LlmResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncRetell) -> None:
         async with async_client.llm.with_streaming_response.update(
@@ -661,6 +772,7 @@ class TestAsyncLlm:
 
         assert cast(Any, response.is_closed) is True
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_path_params_update(self, async_client: AsyncRetell) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `llm_id` but received ''"):
@@ -668,11 +780,13 @@ class TestAsyncLlm:
                 llm_id="",
             )
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_method_list(self, async_client: AsyncRetell) -> None:
         llm = await async_client.llm.list()
         assert_matches_type(LlmListResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncRetell) -> None:
         llm = await async_client.llm.list(
@@ -682,6 +796,7 @@ class TestAsyncLlm:
         )
         assert_matches_type(LlmListResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_raw_response_list(self, async_client: AsyncRetell) -> None:
         response = await async_client.llm.with_raw_response.list()
@@ -691,6 +806,7 @@ class TestAsyncLlm:
         llm = await response.parse()
         assert_matches_type(LlmListResponse, llm, path=["response"])
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_streaming_response_list(self, async_client: AsyncRetell) -> None:
         async with async_client.llm.with_streaming_response.list() as response:
@@ -702,6 +818,7 @@ class TestAsyncLlm:
 
         assert cast(Any, response.is_closed) is True
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_method_delete(self, async_client: AsyncRetell) -> None:
         llm = await async_client.llm.delete(
@@ -709,6 +826,7 @@ class TestAsyncLlm:
         )
         assert llm is None
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncRetell) -> None:
         response = await async_client.llm.with_raw_response.delete(
@@ -720,6 +838,7 @@ class TestAsyncLlm:
         llm = await response.parse()
         assert llm is None
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncRetell) -> None:
         async with async_client.llm.with_streaming_response.delete(
@@ -733,6 +852,7 @@ class TestAsyncLlm:
 
         assert cast(Any, response.is_closed) is True
 
+    @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_path_params_delete(self, async_client: AsyncRetell) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `llm_id` but received ''"):

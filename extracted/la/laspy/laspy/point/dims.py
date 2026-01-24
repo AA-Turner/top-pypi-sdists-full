@@ -1,4 +1,4 @@
-"""  This module contains things like the definitions of the point formats dimensions,
+"""This module contains things like the definitions of the point formats dimensions,
 the mapping between dimension names and their type, mapping between point format and
 compatible file version
 """
@@ -266,6 +266,7 @@ VERSION_TO_POINT_FMT: Dict[str, Tuple[int, ...]] = {
     "1.2": (0, 1, 2, 3),
     "1.3": (0, 1, 2, 3, 4, 5),
     "1.4": (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
+    "1.5": (6, 7, 8, 9, 10),
 }
 
 POINT_FORMATS_DTYPE = PointFormatDict(
@@ -555,16 +556,13 @@ class ArrayView(abc.ABC):
         self.array = array
 
     @abc.abstractmethod
-    def __array__(self, *args, **kwargs) -> np.ndarray:
-        ...
+    def __array__(self, *args, **kwargs) -> np.ndarray: ...
 
     @abc.abstractmethod
-    def __getitem__(self, item):
-        ...
+    def __getitem__(self, item): ...
 
     @abc.abstractmethod
-    def __setitem__(self, key, value):
-        ...
+    def __setitem__(self, key, value): ...
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         inpts = _convert_array_views_to_array(self.__class__, inputs)

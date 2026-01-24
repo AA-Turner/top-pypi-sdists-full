@@ -8,6 +8,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import sys
+import typing
 
 if sys.version_info >= (3, 8):
     import typing as typing_extensions
@@ -64,8 +65,19 @@ class RemoteBuildSource(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    MODEL_GROUP_NAME_FIELD_NUMBER: builtins.int
+    MODEL_NAME_FIELD_NUMBER: builtins.int
+    MODEL_ID_FIELD_NUMBER: builtins.int
     BUILD_ID_FIELD_NUMBER: builtins.int
     PHASE_IDS_FIELD_NUMBER: builtins.int
+    model_group_name: builtins.str
+    """Model group name - for verifying user permissions
+    This field is mandatory
+    """
+    model_name: builtins.str
+    """This field is identical to model_id, use model_id instead"""
+    model_id: builtins.str
+    """Model id (human readable name)"""
     build_id: builtins.str
     """Filter by build id"""
     @property
@@ -74,10 +86,15 @@ class RemoteBuildSource(google.protobuf.message.Message):
     def __init__(
         self,
         *,
+        model_group_name: builtins.str = ...,
+        model_name: builtins.str = ...,
+        model_id: builtins.str = ...,
         build_id: builtins.str = ...,
         phase_ids: collections.abc.Iterable[builtins.str] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["build_id", b"build_id", "phase_ids", b"phase_ids"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["model_id", b"model_id", "model_identifier", b"model_identifier"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["build_id", b"build_id", "model_group_name", b"model_group_name", "model_id", b"model_id", "model_identifier", b"model_identifier", "model_name", b"model_name", "phase_ids", b"phase_ids"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["model_identifier", b"model_identifier"]) -> typing_extensions.Literal["model_id"] | None: ...
 
 global___RemoteBuildSource = RemoteBuildSource
 
@@ -86,8 +103,19 @@ class ModelRuntimeSource(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    MODEL_GROUP_NAME_FIELD_NUMBER: builtins.int
+    MODEL_NAME_FIELD_NUMBER: builtins.int
+    MODEL_ID_FIELD_NUMBER: builtins.int
     DEPLOYMENT_ID_FIELD_NUMBER: builtins.int
     BUILD_ID_FIELD_NUMBER: builtins.int
+    model_group_name: builtins.str
+    """Model group name - for verifying user permissions
+    This field is mandatory
+    """
+    model_name: builtins.str
+    """This field is identical to model_id, use model_id instead"""
+    model_id: builtins.str
+    """Model id (human readable name)"""
     deployment_id: builtins.str
     """Filter by deployment id"""
     build_id: builtins.str
@@ -95,11 +123,17 @@ class ModelRuntimeSource(google.protobuf.message.Message):
     def __init__(
         self,
         *,
+        model_group_name: builtins.str = ...,
+        model_name: builtins.str = ...,
+        model_id: builtins.str = ...,
         deployment_id: builtins.str = ...,
         build_id: builtins.str = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["build_id", b"build_id", "deployment_id", b"deployment_id", "search_by", b"search_by"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["build_id", b"build_id", "deployment_id", b"deployment_id", "search_by", b"search_by"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["build_id", b"build_id", "deployment_id", b"deployment_id", "model_id", b"model_id", "model_identifier", b"model_identifier", "search_by", b"search_by"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["build_id", b"build_id", "deployment_id", b"deployment_id", "model_group_name", b"model_group_name", "model_id", b"model_id", "model_identifier", b"model_identifier", "model_name", b"model_name", "search_by", b"search_by"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["model_identifier", b"model_identifier"]) -> typing_extensions.Literal["model_id"] | None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["search_by", b"search_by"]) -> typing_extensions.Literal["deployment_id", "build_id"] | None: ...
 
 global___ModelRuntimeSource = ModelRuntimeSource
@@ -107,8 +141,19 @@ global___ModelRuntimeSource = ModelRuntimeSource
 class InferenceExecutionSource(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    MODEL_GROUP_NAME_FIELD_NUMBER: builtins.int
+    MODEL_NAME_FIELD_NUMBER: builtins.int
+    MODEL_ID_FIELD_NUMBER: builtins.int
     INFERENCE_JOB_ID_FIELD_NUMBER: builtins.int
     INFERENCE_TASK_ID_FIELD_NUMBER: builtins.int
+    model_group_name: builtins.str
+    """Model group name - for verifying user permissions
+    This field is mandatory
+    """
+    model_name: builtins.str
+    """This field is identical to model_id, use model_id instead"""
+    model_id: builtins.str
+    """Model id (human readable name)"""
     inference_job_id: builtins.str
     """Filter by deployment id"""
     inference_task_id: builtins.str
@@ -116,11 +161,17 @@ class InferenceExecutionSource(google.protobuf.message.Message):
     def __init__(
         self,
         *,
+        model_group_name: builtins.str = ...,
+        model_name: builtins.str = ...,
+        model_id: builtins.str = ...,
         inference_job_id: builtins.str = ...,
         inference_task_id: builtins.str = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["inference_job_id", b"inference_job_id", "inference_task_id", b"inference_task_id", "search_by", b"search_by"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["inference_job_id", b"inference_job_id", "inference_task_id", b"inference_task_id", "search_by", b"search_by"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["inference_job_id", b"inference_job_id", "inference_task_id", b"inference_task_id", "model_id", b"model_id", "model_identifier", b"model_identifier", "search_by", b"search_by"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["inference_job_id", b"inference_job_id", "inference_task_id", b"inference_task_id", "model_group_name", b"model_group_name", "model_id", b"model_id", "model_identifier", b"model_identifier", "model_name", b"model_name", "search_by", b"search_by"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["model_identifier", b"model_identifier"]) -> typing_extensions.Literal["model_id"] | None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["search_by", b"search_by"]) -> typing_extensions.Literal["inference_job_id", "inference_task_id"] | None: ...
 
 global___InferenceExecutionSource = InferenceExecutionSource
@@ -130,12 +181,19 @@ class StreamingFeatureSetSource(google.protobuf.message.Message):
 
     FEATURE_SET_ID_FIELD_NUMBER: builtins.int
     FEATURE_SET_NAME_FIELD_NUMBER: builtins.int
+    FEATURE_SET_REPOSITORY_NAME_FIELD_NUMBER: builtins.int
     OFFLINE_FIELD_NUMBER: builtins.int
     ONLINE_FIELD_NUMBER: builtins.int
     feature_set_id: builtins.str
     """Filter by feature set id"""
     feature_set_name: builtins.str
-    """Filter by feature set name"""
+    """Filter by feature set name, as well as for verifying user permissions
+    This field is mandatory
+    """
+    feature_set_repository_name: builtins.str
+    """Feature set repository name - for verifying user permissions
+    This field is mandatory
+    """
     @property
     def offline(self) -> global___OfflineType: ...
     @property
@@ -145,11 +203,12 @@ class StreamingFeatureSetSource(google.protobuf.message.Message):
         *,
         feature_set_id: builtins.str = ...,
         feature_set_name: builtins.str = ...,
+        feature_set_repository_name: builtins.str = ...,
         offline: global___OfflineType | None = ...,
         online: global___OnlineType | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["offline", b"offline", "online", b"online", "type", b"type"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["feature_set_id", b"feature_set_id", "feature_set_name", b"feature_set_name", "offline", b"offline", "online", b"online", "type", b"type"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["feature_set_id", b"feature_set_id", "feature_set_name", b"feature_set_name", "feature_set_repository_name", b"feature_set_repository_name", "offline", b"offline", "online", b"online", "type", b"type"]) -> None: ...
     def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["offline", "online"] | None: ...
 
 global___StreamingFeatureSetSource = StreamingFeatureSetSource
@@ -159,11 +218,21 @@ class BatchFeatureSetSource(google.protobuf.message.Message):
 
     FEATURESET_ID_FIELD_NUMBER: builtins.int
     FEATURESET_NAME_FIELD_NUMBER: builtins.int
+    FEATURE_SET_REPOSITORY_NAME_FIELD_NUMBER: builtins.int
+    FILTER_BY_FEATURE_SET_NAME_FIELD_NUMBER: builtins.int
     RUN_ID_FIELD_NUMBER: builtins.int
     featureset_id: builtins.str
     """Filter by feature set id"""
     featureset_name: builtins.str
-    """Filter by feature set name"""
+    """Filter by feature set name, as well as for verification of user permissions
+    This field is mandatory
+    """
+    feature_set_repository_name: builtins.str
+    """Feature set repository name - for verifying user permissions
+    This field is mandatory
+    """
+    filter_by_feature_set_name: builtins.bool
+    """Optionally filter by feature set name"""
     run_id: builtins.str
     """Filter by run id"""
     def __init__(
@@ -171,9 +240,11 @@ class BatchFeatureSetSource(google.protobuf.message.Message):
         *,
         featureset_id: builtins.str = ...,
         featureset_name: builtins.str = ...,
+        feature_set_repository_name: builtins.str = ...,
+        filter_by_feature_set_name: builtins.bool = ...,
         run_id: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["featureset_id", b"featureset_id", "featureset_name", b"featureset_name", "run_id", b"run_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["feature_set_repository_name", b"feature_set_repository_name", "featureset_id", b"featureset_id", "featureset_name", b"featureset_name", "filter_by_feature_set_name", b"filter_by_feature_set_name", "run_id", b"run_id"]) -> None: ...
 
 global___BatchFeatureSetSource = BatchFeatureSetSource
 
@@ -207,17 +278,25 @@ class OnlineType(google.protobuf.message.Message):
 
     FEATURE_SET_ID_FIELD_NUMBER: builtins.int
     FEATURE_SET_NAME_FIELD_NUMBER: builtins.int
+    FEATURE_SET_REPOSITORY_NAME_FIELD_NUMBER: builtins.int
     feature_set_id: builtins.str
     """Filter by feature set id"""
     feature_set_name: builtins.str
-    """Filter by feature set name"""
+    """Filter by feature set name, as well as for verification of user permissions
+    This field is mandatory
+    """
+    feature_set_repository_name: builtins.str
+    """Feature set repository name - for verifying user permissions
+    This field is mandatory
+    """
     def __init__(
         self,
         *,
         feature_set_id: builtins.str = ...,
         feature_set_name: builtins.str = ...,
+        feature_set_repository_name: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["feature_set_id", b"feature_set_id", "feature_set_name", b"feature_set_name"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["feature_set_id", b"feature_set_id", "feature_set_name", b"feature_set_name", "feature_set_repository_name", b"feature_set_repository_name"]) -> None: ...
 
 global___OnlineType = OnlineType
 
@@ -226,11 +305,18 @@ class OfflineType(google.protobuf.message.Message):
 
     FEATURE_SET_ID_FIELD_NUMBER: builtins.int
     FEATURE_SET_NAME_FIELD_NUMBER: builtins.int
+    FEATURE_SET_REPOSITORY_NAME_FIELD_NUMBER: builtins.int
     RUN_ID_FIELD_NUMBER: builtins.int
     feature_set_id: builtins.str
     """Filter by feature set id"""
     feature_set_name: builtins.str
-    """Filter by feature set name"""
+    """Filter by feature set name, as well as for verification of user permissions
+    This field is mandatory
+    """
+    feature_set_repository_name: builtins.str
+    """Feature set repository name - for verifying user permissions
+    This field is mandatory
+    """
     run_id: builtins.str
     """Filter by run id"""
     def __init__(
@@ -238,9 +324,10 @@ class OfflineType(google.protobuf.message.Message):
         *,
         feature_set_id: builtins.str = ...,
         feature_set_name: builtins.str = ...,
+        feature_set_repository_name: builtins.str = ...,
         run_id: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["feature_set_id", b"feature_set_id", "feature_set_name", b"feature_set_name", "run_id", b"run_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["feature_set_id", b"feature_set_id", "feature_set_name", b"feature_set_name", "feature_set_repository_name", b"feature_set_repository_name", "run_id", b"run_id"]) -> None: ...
 
 global___OfflineType = OfflineType
 
@@ -249,17 +336,25 @@ class RowLevelType(google.protobuf.message.Message):
 
     FEATURE_SET_ID_FIELD_NUMBER: builtins.int
     FEATURE_SET_NAME_FIELD_NUMBER: builtins.int
+    FEATURE_SET_REPOSITORY_NAME_FIELD_NUMBER: builtins.int
     feature_set_id: builtins.str
     """Filter by feature set id"""
     feature_set_name: builtins.str
-    """Filter by feature set name"""
+    """Filter by feature set name
+    This field is mandatory
+    """
+    feature_set_repository_name: builtins.str
+    """Feature set repository name - for verifying user permissions
+    This field is mandatory
+    """
     def __init__(
         self,
         *,
         feature_set_id: builtins.str = ...,
         feature_set_name: builtins.str = ...,
+        feature_set_repository_name: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["feature_set_id", b"feature_set_id", "feature_set_name", b"feature_set_name"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["feature_set_id", b"feature_set_id", "feature_set_name", b"feature_set_name", "feature_set_repository_name", b"feature_set_repository_name"]) -> None: ...
 
 global___RowLevelType = RowLevelType
 
@@ -268,11 +363,18 @@ class CompactionType(google.protobuf.message.Message):
 
     FEATURE_SET_ID_FIELD_NUMBER: builtins.int
     FEATURE_SET_NAME_FIELD_NUMBER: builtins.int
+    FEATURE_SET_REPOSITORY_NAME_FIELD_NUMBER: builtins.int
     RUN_ID_FIELD_NUMBER: builtins.int
     feature_set_id: builtins.str
     """Filter by feature set id"""
     feature_set_name: builtins.str
-    """Filter by feature set name"""
+    """Filter by feature set name, as well as for verification of user permissions
+    This field is mandatory
+    """
+    feature_set_repository_name: builtins.str
+    """Feature set repository name - for verifying user permissions
+    This field is mandatory
+    """
     run_id: builtins.str
     """Filter by run id"""
     def __init__(
@@ -280,9 +382,10 @@ class CompactionType(google.protobuf.message.Message):
         *,
         feature_set_id: builtins.str = ...,
         feature_set_name: builtins.str = ...,
+        feature_set_repository_name: builtins.str = ...,
         run_id: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["feature_set_id", b"feature_set_id", "feature_set_name", b"feature_set_name", "run_id", b"run_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["feature_set_id", b"feature_set_id", "feature_set_name", b"feature_set_name", "feature_set_repository_name", b"feature_set_repository_name", "run_id", b"run_id"]) -> None: ...
 
 global___CompactionType = CompactionType
 
@@ -291,17 +394,25 @@ class BackfillType(google.protobuf.message.Message):
 
     FEATURE_SET_ID_FIELD_NUMBER: builtins.int
     FEATURE_SET_NAME_FIELD_NUMBER: builtins.int
+    FEATURE_SET_REPOSITORY_NAME_FIELD_NUMBER: builtins.int
     feature_set_id: builtins.str
     """Filter by feature set id"""
     feature_set_name: builtins.str
-    """Filter by feature set name"""
+    """Filter by feature set name, as well as for verification of user permissions
+    This field is mandatory
+    """
+    feature_set_repository_name: builtins.str
+    """Feature set repository name - for verifying user permissions
+    This field is mandatory
+    """
     def __init__(
         self,
         *,
         feature_set_id: builtins.str = ...,
         feature_set_name: builtins.str = ...,
+        feature_set_repository_name: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["feature_set_id", b"feature_set_id", "feature_set_name", b"feature_set_name"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["feature_set_id", b"feature_set_id", "feature_set_name", b"feature_set_name", "feature_set_repository_name", b"feature_set_repository_name"]) -> None: ...
 
 global___BackfillType = BackfillType
 

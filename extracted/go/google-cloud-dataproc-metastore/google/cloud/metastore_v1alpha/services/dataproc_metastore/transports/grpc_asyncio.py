@@ -129,19 +129,18 @@ class DataprocMetastoreGrpcAsyncIOTransport(DataprocMetastoreTransport):
 
     The Dataproc Metastore API defines the following resource model:
 
-    -  The service works with a collection of Google Cloud projects,
-       named: ``/projects/*``
+    - The service works with a collection of Google Cloud projects,
+      named: ``/projects/*``
 
-    -  Each project has a collection of available locations, named:
-       ``/locations/*`` (a location must refer to a Google Cloud
-       ``region``)
+    - Each project has a collection of available locations, named:
+      ``/locations/*`` (a location must refer to a Google Cloud
+      ``region``)
 
-    -  Each location has a collection of services, named:
-       ``/services/*``
+    - Each location has a collection of services, named: ``/services/*``
 
-    -  Dataproc Metastore services are resources with names of the form:
+    - Dataproc Metastore services are resources with names of the form:
 
-       ``/projects/{project_number}/locations/{location_id}/services/{service_id}``.
+      ``/projects/{project_number}/locations/{location_id}/services/{service_id}``.
 
     This class defines the same methods as the primary client, so the
     primary client can load the underlying transport implementation
@@ -172,8 +171,9 @@ class DataprocMetastoreGrpcAsyncIOTransport(DataprocMetastoreTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -224,9 +224,10 @@ class DataprocMetastoreGrpcAsyncIOTransport(DataprocMetastoreTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.

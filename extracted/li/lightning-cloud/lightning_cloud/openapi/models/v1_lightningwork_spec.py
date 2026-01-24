@@ -43,7 +43,6 @@ class V1LightningworkSpec(object):
     swagger_types = {
         'build_spec': 'V1BuildSpec',
         'cloud_space_id': 'str',
-        'cluster_driver': 'V1LightningworkClusterDriver',
         'cluster_id': 'str',
         'compute_config': 'V1ComputeConfig',
         'data_connection_mounts': 'list[V1DataConnectionMount]',
@@ -52,6 +51,7 @@ class V1LightningworkSpec(object):
         'drives': 'list[V1LightningworkDrives]',
         'env': 'list[V1EnvVar]',
         'lightningapp_instance_id': 'str',
+        'locked_region': 'str',
         'network_config': 'list[V1NetworkConfig]',
         'pause_automation': 'bool',
         'restart_policy': 'V1LightningappRestartPolicy',
@@ -62,7 +62,6 @@ class V1LightningworkSpec(object):
     attribute_map = {
         'build_spec': 'buildSpec',
         'cloud_space_id': 'cloudSpaceId',
-        'cluster_driver': 'clusterDriver',
         'cluster_id': 'clusterId',
         'compute_config': 'computeConfig',
         'data_connection_mounts': 'dataConnectionMounts',
@@ -71,6 +70,7 @@ class V1LightningworkSpec(object):
         'drives': 'drives',
         'env': 'env',
         'lightningapp_instance_id': 'lightningappInstanceId',
+        'locked_region': 'lockedRegion',
         'network_config': 'networkConfig',
         'pause_automation': 'pauseAutomation',
         'restart_policy': 'restartPolicy',
@@ -78,11 +78,10 @@ class V1LightningworkSpec(object):
         'user_requested_compute_config': 'userRequestedComputeConfig'
     }
 
-    def __init__(self, build_spec: 'V1BuildSpec' =None, cloud_space_id: 'str' =None, cluster_driver: 'V1LightningworkClusterDriver' =None, cluster_id: 'str' =None, compute_config: 'V1ComputeConfig' =None, data_connection_mounts: 'list[V1DataConnectionMount]' =None, data_connections: 'list[V1DataConnection]' =None, desired_state: 'V1LightningworkState' =None, drives: 'list[V1LightningworkDrives]' =None, env: 'list[V1EnvVar]' =None, lightningapp_instance_id: 'str' =None, network_config: 'list[V1NetworkConfig]' =None, pause_automation: 'bool' =None, restart_policy: 'V1LightningappRestartPolicy' =None, user_id: 'str' =None, user_requested_compute_config: 'V1UserRequestedComputeConfig' =None):  # noqa: E501
+    def __init__(self, build_spec: 'V1BuildSpec' =None, cloud_space_id: 'str' =None, cluster_id: 'str' =None, compute_config: 'V1ComputeConfig' =None, data_connection_mounts: 'list[V1DataConnectionMount]' =None, data_connections: 'list[V1DataConnection]' =None, desired_state: 'V1LightningworkState' =None, drives: 'list[V1LightningworkDrives]' =None, env: 'list[V1EnvVar]' =None, lightningapp_instance_id: 'str' =None, locked_region: 'str' =None, network_config: 'list[V1NetworkConfig]' =None, pause_automation: 'bool' =None, restart_policy: 'V1LightningappRestartPolicy' =None, user_id: 'str' =None, user_requested_compute_config: 'V1UserRequestedComputeConfig' =None):  # noqa: E501
         """V1LightningworkSpec - a model defined in Swagger"""  # noqa: E501
         self._build_spec = None
         self._cloud_space_id = None
-        self._cluster_driver = None
         self._cluster_id = None
         self._compute_config = None
         self._data_connection_mounts = None
@@ -91,6 +90,7 @@ class V1LightningworkSpec(object):
         self._drives = None
         self._env = None
         self._lightningapp_instance_id = None
+        self._locked_region = None
         self._network_config = None
         self._pause_automation = None
         self._restart_policy = None
@@ -101,8 +101,6 @@ class V1LightningworkSpec(object):
             self.build_spec = build_spec
         if cloud_space_id is not None:
             self.cloud_space_id = cloud_space_id
-        if cluster_driver is not None:
-            self.cluster_driver = cluster_driver
         if cluster_id is not None:
             self.cluster_id = cluster_id
         if compute_config is not None:
@@ -119,6 +117,8 @@ class V1LightningworkSpec(object):
             self.env = env
         if lightningapp_instance_id is not None:
             self.lightningapp_instance_id = lightningapp_instance_id
+        if locked_region is not None:
+            self.locked_region = locked_region
         if network_config is not None:
             self.network_config = network_config
         if pause_automation is not None:
@@ -171,27 +171,6 @@ class V1LightningworkSpec(object):
         """
 
         self._cloud_space_id = cloud_space_id
-
-    @property
-    def cluster_driver(self) -> 'V1LightningworkClusterDriver':
-        """Gets the cluster_driver of this V1LightningworkSpec.  # noqa: E501
-
-
-        :return: The cluster_driver of this V1LightningworkSpec.  # noqa: E501
-        :rtype: V1LightningworkClusterDriver
-        """
-        return self._cluster_driver
-
-    @cluster_driver.setter
-    def cluster_driver(self, cluster_driver: 'V1LightningworkClusterDriver'):
-        """Sets the cluster_driver of this V1LightningworkSpec.
-
-
-        :param cluster_driver: The cluster_driver of this V1LightningworkSpec.  # noqa: E501
-        :type: V1LightningworkClusterDriver
-        """
-
-        self._cluster_driver = cluster_driver
 
     @property
     def cluster_id(self) -> 'str':
@@ -360,6 +339,27 @@ class V1LightningworkSpec(object):
         """
 
         self._lightningapp_instance_id = lightningapp_instance_id
+
+    @property
+    def locked_region(self) -> 'str':
+        """Gets the locked_region of this V1LightningworkSpec.  # noqa: E501
+
+
+        :return: The locked_region of this V1LightningworkSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._locked_region
+
+    @locked_region.setter
+    def locked_region(self, locked_region: 'str'):
+        """Sets the locked_region of this V1LightningworkSpec.
+
+
+        :param locked_region: The locked_region of this V1LightningworkSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._locked_region = locked_region
 
     @property
     def network_config(self) -> 'list[V1NetworkConfig]':

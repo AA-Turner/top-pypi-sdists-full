@@ -16,40 +16,45 @@ from cryptography.hazmat.primitives.serialization import (
     BestAvailableEncryption,
     NoEncryption,
 )
-from cryptography.hazmat.backends import default_backend
 from .models import NativeKeyBinding, GenericKey
 from .types import DictKey
+from ..errors import InvalidKeyTypeError
 from ..util import to_bytes
 
 
-def load_pem_key(raw: bytes, ssh_type: bytes | None = None, password: bytes | None = None) -> Any:
-    key: Any
-    if ssh_type and raw.startswith(ssh_type):
-        key = load_ssh_public_key(raw, backend=default_backend())
+def import_from_ssh_key(raw: bytes) -> Any:
+    return load_ssh_public_key(raw)
 
-    elif b"OPENSSH PRIVATE" in raw:
-        key = load_ssh_private_key(raw, password=password, backend=default_backend())
+
+def import_from_pem_key(raw: bytes, password: bytes | None = None) -> Any:
+    key: Any
+
+    if b"OPENSSH PRIVATE" in raw:
+        key = load_ssh_private_key(raw, password=password)
 
     elif b"PUBLIC" in raw:
-        key = load_pem_public_key(raw, backend=default_backend())
+        key = load_pem_public_key(raw)
 
     elif b"PRIVATE" in raw:
-        key = load_pem_private_key(raw, password=password, backend=default_backend())
+        key = load_pem_private_key(raw, password=password)
 
     elif b"CERTIFICATE" in raw:
-        cert = load_pem_x509_certificate(raw, backend=default_backend())
+        cert = load_pem_x509_certificate(raw)
         return cert.public_key()
 
     else:
         try:
-            key = load_der_private_key(raw, password=password, backend=default_backend())
+            key = load_der_private_key(raw, password=password)
         except ValueError:
-            key = load_der_public_key(raw, backend=default_backend())
+            key = load_der_public_key(raw)
     return key
 
 
 def dump_pem_key(
-    key: Any, encoding: Literal["PEM", "DER"] | None = None, private: bool | None = False, password: Any | None = None
+    key: Any,
+    encoding: Literal["PEM", "DER"] | None = None,
+    private: bool | None = False,
+    password: Any | None = None,
 ) -> bytes:
     """Export key into PEM/DER format bytes.
 
@@ -65,7 +70,7 @@ def dump_pem_key(
     elif encoding == "DER":
         encoding_enum = Encoding.DER
     else:  # pragma: no cover
-        raise ValueError("Invalid encoding: {!r}".format(encoding))
+        raise ValueError(f"Invalid encoding: {encoding}")
 
     if private:
         encryption_algorithm: KeySerializationEncryption
@@ -87,7 +92,17 @@ def dump_pem_key(
 
 
 class CryptographyBinding(NativeKeyBinding, metaclass=ABCMeta):
+    key_type: str
     ssh_type: bytes
+    _cryptography_key_types: Any
+
+    @classmethod
+    def check_ssh_type(cls, value: bytes) -> bool:
+        return value.startswith(cls.ssh_type)
+
+    @classmethod
+    def check_cryptography_key(cls, native_key: Any) -> bool:
+        return isinstance(native_key, cls._cryptography_key_types)
 
     @classmethod
     def convert_raw_key_to_dict(cls, raw_key: Any, private: bool) -> DictKey:
@@ -105,9 +120,16 @@ class CryptographyBinding(NativeKeyBinding, metaclass=ABCMeta):
 
     @classmethod
     def import_from_bytes(cls, value: bytes, password: Any | None = None) -> Any:
+        if cls.check_ssh_type(value):
+            return import_from_ssh_key(value)
+
         if password is not None:
             password = to_bytes(password)
-        return load_pem_key(value, cls.ssh_type, password)
+
+        key = import_from_pem_key(value, password)
+        if not cls.check_cryptography_key(key):
+            raise InvalidKeyTypeError(f"Not a key of: '{cls.key_type}'")
+        return key
 
     @staticmethod
     def as_bytes(
@@ -116,28 +138,30 @@ class CryptographyBinding(NativeKeyBinding, metaclass=ABCMeta):
         private: bool | None = False,
         password: Any | None = None,
     ) -> bytes:
-        if private is True:
+        if private is None:
+            private = key.is_private
+
+        if private:
             return dump_pem_key(key.private_key, encoding, private, password)
-        elif private is False:
+        else:
             return dump_pem_key(key.public_key, encoding, private, password)
-        return dump_pem_key(key.raw_value, encoding, key.is_private, password)
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def import_private_key(value: Any) -> Any:
+    def import_private_key(cls, obj: Any) -> Any:
         pass
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def import_public_key(value: Any) -> Any:
+    def import_public_key(cls, obj: Any) -> Any:
         pass
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def export_private_key(value: Any) -> Any:
+    def export_private_key(cls, key: Any) -> Any:
         pass
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def export_public_key(value: Any) -> Any:
+    def export_public_key(cls, key: Any) -> Any:
         pass

@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, SecretStr, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, SecretStr, StrictBool, StrictInt, StrictStr, field_validator
 
 
 class User(BaseModel):
@@ -76,39 +76,39 @@ class User(BaseModel):
     network_policy : str, optional
         Specifies an existing network policy is active for the user. Otherwise, use account default.
     created_on : datetime, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     last_successful_login : datetime, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     expires_at : datetime, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     locked_until : datetime, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     has_password : bool, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     has_rsa_public_key : bool, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     rsa_public_key_fp : str, optional
-        Fingerprint of the user's RSA public key
+        Fingerprint of the user's RSA public key — **Read-only:** *any user-provided value will be ignored.*
     rsa_public_key_2_fp : str, optional
-        Fingerprint of the user's second RSA public key
+        Fingerprint of the user's second RSA public key — **Read-only:** *any user-provided value will be ignored.*
     ext_authn_duo : bool, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     ext_authn_uid : str, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     snowflake_lock : bool,  default False
-        Whether the user, account, or organization is locked by Snowflake.
+        Whether the user, account, or organization is locked by Snowflake — **Read-only:** *any user-provided value will be ignored.*
     snowflake_support : bool,  default False
-        Whether Snowflake Support is allowed to use the user or account
+        Whether Snowflake Support is allowed to use the user or account — **Read-only:** *any user-provided value will be ignored.*
     mins_to_bypass_network_policy : int, optional
-        Temporary bypass network policy on the user for a specified number of minutes
+        Temporary bypass network policy on the user for a specified number of minutes — **Read-only:** *any user-provided value will be ignored.*
     password_last_set : datetime, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     custom_landing_page_url : str, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     custom_landing_page_url_flush_next_ui_load : bool,  default False
-        Whether or not to flush the custom landing page of the user on next UI load
+        Whether or not to flush the custom landing page of the user on next UI load — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: StrictStr
@@ -242,9 +242,10 @@ class User(BaseModel):
             raise ValueError("must validate the enum values ('ALL','NONE')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -289,7 +290,7 @@ class User(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -304,9 +305,9 @@ class User(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return User.parse_obj(obj)
+            return User.model_validate(obj)
 
-        _obj = User.parse_obj(
+        _obj = User.model_validate(
             {
                 "name": obj.get("name"),
                 "password": obj.get("password"),

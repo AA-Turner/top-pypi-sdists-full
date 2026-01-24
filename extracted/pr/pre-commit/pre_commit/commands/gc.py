@@ -12,6 +12,7 @@ from pre_commit.clientlib import load_manifest
 from pre_commit.clientlib import LOCAL
 from pre_commit.clientlib import META
 from pre_commit.store import Store
+from pre_commit.util import rmtree
 
 
 def _mark_used_repos(
@@ -26,7 +27,8 @@ def _mark_used_repos(
         for hook in repo['hooks']:
             deps = hook.get('additional_dependencies')
             unused_repos.discard((
-                store.db_repo_name(repo['repo'], deps), C.LOCAL_REPO_VERSION,
+                store.db_repo_name(repo['repo'], deps),
+                C.LOCAL_REPO_VERSION,
             ))
     else:
         key = (repo['repo'], repo['rev'])
@@ -56,34 +58,41 @@ def _mark_used_repos(
             ))
 
 
-def _gc_repos(store: Store) -> int:
-    configs = store.select_all_configs()
-    repos = store.select_all_repos()
+def _gc(store: Store) -> int:
+    with store.exclusive_lock(), store.connect() as db:
+        store._create_configs_table(db)
 
-    # delete config paths which do not exist
-    dead_configs = [p for p in configs if not os.path.exists(p)]
-    live_configs = [p for p in configs if os.path.exists(p)]
+        repos = db.execute('SELECT repo, ref, path FROM repos').fetchall()
+        all_repos = {(repo, ref): path for repo, ref, path in repos}
+        unused_repos = set(all_repos)
 
-    all_repos = {(repo, ref): path for repo, ref, path in repos}
-    unused_repos = set(all_repos)
-    for config_path in live_configs:
-        try:
-            config = load_config(config_path)
-        except InvalidConfigError:
-            dead_configs.append(config_path)
-            continue
-        else:
-            for repo in config['repos']:
-                _mark_used_repos(store, all_repos, unused_repos, repo)
+        configs_rows = db.execute('SELECT path FROM configs').fetchall()
+        configs = [path for path, in configs_rows]
 
-    store.delete_configs(dead_configs)
-    for db_repo_name, ref in unused_repos:
-        store.delete_repo(db_repo_name, ref, all_repos[(db_repo_name, ref)])
-    return len(unused_repos)
+        dead_configs = []
+        for config_path in configs:
+            try:
+                config = load_config(config_path)
+            except InvalidConfigError:
+                dead_configs.append(config_path)
+                continue
+            else:
+                for repo in config['repos']:
+                    _mark_used_repos(store, all_repos, unused_repos, repo)
+
+        paths = [(path,) for path in dead_configs]
+        db.executemany('DELETE FROM configs WHERE path = ?', paths)
+
+        db.executemany(
+            'DELETE FROM repos WHERE repo = ? and ref = ?',
+            sorted(unused_repos),
+        )
+        for k in unused_repos:
+            rmtree(all_repos[k])
+
+        return len(unused_repos)
 
 
 def gc(store: Store) -> int:
-    with store.exclusive_lock():
-        repos_removed = _gc_repos(store)
-    output.write_line(f'{repos_removed} repo(s) removed.')
+    output.write_line(f'{_gc(store)} repo(s) removed.')
     return 0

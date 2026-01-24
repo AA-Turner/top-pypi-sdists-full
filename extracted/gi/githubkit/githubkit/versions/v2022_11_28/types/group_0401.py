@@ -9,47 +9,111 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
+import datetime as _dt
+from typing import Literal, Union
 from typing_extensions import NotRequired, TypedDict
 
-
-class SecretScanningScanHistoryType(TypedDict):
-    """SecretScanningScanHistory"""
-
-    incremental_scans: NotRequired[list[SecretScanningScanType]]
-    pattern_update_scans: NotRequired[list[SecretScanningScanType]]
-    backfill_scans: NotRequired[list[SecretScanningScanType]]
-    custom_pattern_backfill_scans: NotRequired[
-        list[SecretScanningScanHistoryPropCustomPatternBackfillScansItemsType]
-    ]
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
+from .group_0047 import ReactionRollupType, ReactionRollupTypeForResponse
+from .group_0402 import (
+    ReviewCommentPropLinksType,
+    ReviewCommentPropLinksTypeForResponse,
+)
 
 
-class SecretScanningScanType(TypedDict):
-    """SecretScanningScan
+class ReviewCommentType(TypedDict):
+    """Legacy Review Comment
 
-    Information on a single scan performed by secret scanning on the repository
+    Legacy Review Comment
     """
 
-    type: NotRequired[str]
-    status: NotRequired[str]
-    completed_at: NotRequired[Union[datetime, None]]
-    started_at: NotRequired[Union[datetime, None]]
+    url: str
+    pull_request_review_id: Union[int, None]
+    id: int
+    node_id: str
+    diff_hunk: str
+    path: str
+    position: Union[int, None]
+    original_position: int
+    commit_id: str
+    original_commit_id: str
+    in_reply_to_id: NotRequired[int]
+    user: Union[None, SimpleUserType]
+    body: str
+    created_at: _dt.datetime
+    updated_at: _dt.datetime
+    html_url: str
+    pull_request_url: str
+    author_association: Literal[
+        "COLLABORATOR",
+        "CONTRIBUTOR",
+        "FIRST_TIMER",
+        "FIRST_TIME_CONTRIBUTOR",
+        "MANNEQUIN",
+        "MEMBER",
+        "NONE",
+        "OWNER",
+    ]
+    links: ReviewCommentPropLinksType
+    body_text: NotRequired[str]
+    body_html: NotRequired[str]
+    reactions: NotRequired[ReactionRollupType]
+    side: NotRequired[Literal["LEFT", "RIGHT"]]
+    start_side: NotRequired[Union[None, Literal["LEFT", "RIGHT"]]]
+    line: NotRequired[int]
+    original_line: NotRequired[int]
+    start_line: NotRequired[Union[int, None]]
+    original_start_line: NotRequired[Union[int, None]]
+    subject_type: NotRequired[Literal["line", "file"]]
 
 
-class SecretScanningScanHistoryPropCustomPatternBackfillScansItemsType(TypedDict):
-    """SecretScanningScanHistoryPropCustomPatternBackfillScansItems"""
+class ReviewCommentTypeForResponse(TypedDict):
+    """Legacy Review Comment
 
-    type: NotRequired[str]
-    status: NotRequired[str]
-    completed_at: NotRequired[Union[datetime, None]]
-    started_at: NotRequired[Union[datetime, None]]
-    pattern_name: NotRequired[str]
-    pattern_scope: NotRequired[str]
+    Legacy Review Comment
+    """
+
+    url: str
+    pull_request_review_id: Union[int, None]
+    id: int
+    node_id: str
+    diff_hunk: str
+    path: str
+    position: Union[int, None]
+    original_position: int
+    commit_id: str
+    original_commit_id: str
+    in_reply_to_id: NotRequired[int]
+    user: Union[None, SimpleUserTypeForResponse]
+    body: str
+    created_at: str
+    updated_at: str
+    html_url: str
+    pull_request_url: str
+    author_association: Literal[
+        "COLLABORATOR",
+        "CONTRIBUTOR",
+        "FIRST_TIMER",
+        "FIRST_TIME_CONTRIBUTOR",
+        "MANNEQUIN",
+        "MEMBER",
+        "NONE",
+        "OWNER",
+    ]
+    links: ReviewCommentPropLinksTypeForResponse
+    body_text: NotRequired[str]
+    body_html: NotRequired[str]
+    reactions: NotRequired[ReactionRollupTypeForResponse]
+    side: NotRequired[Literal["LEFT", "RIGHT"]]
+    start_side: NotRequired[Union[None, Literal["LEFT", "RIGHT"]]]
+    line: NotRequired[int]
+    original_line: NotRequired[int]
+    start_line: NotRequired[Union[int, None]]
+    original_start_line: NotRequired[Union[int, None]]
+    subject_type: NotRequired[Literal["line", "file"]]
 
 
 __all__ = (
-    "SecretScanningScanHistoryPropCustomPatternBackfillScansItemsType",
-    "SecretScanningScanHistoryType",
-    "SecretScanningScanType",
+    "ReviewCommentType",
+    "ReviewCommentTypeForResponse",
 )

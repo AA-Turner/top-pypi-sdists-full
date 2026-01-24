@@ -41,8 +41,10 @@ class FileRequestTestCase(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, requests.codes.ok)
-        self.assertEqual(response.headers["Content-Length"], len(testdata))
+        self.assertEqual(response.headers["Content-Length"], str(len(testdata)))
         self.assertEqual(response.content, testdata)
+        self.assertEqual(response.url, "file://%s" % self._pathToURL(os.path.abspath(__file__)))
+        self.assertIsInstance(response.request, requests.PreparedRequest)
 
         response.close()
 
@@ -51,6 +53,12 @@ class FileRequestTestCase(unittest.TestCase):
         response = self._session.get("file:///no/such/path")
         self.assertEqual(response.status_code, requests.codes.not_found)
         self.assertTrue(response.text)
+        self.assertEqual(response.url, "file:///no/such/path")
+        self.assertIsInstance(response.request, requests.PreparedRequest)
+
+        # Ensure the missing file's path is in the response reason
+        self.assertIn("/no/such/path", response.reason)
+
         response.close()
 
     @unittest.skipIf(
@@ -68,6 +76,8 @@ class FileRequestTestCase(unittest.TestCase):
 
             self.assertEqual(response.status_code, requests.codes.forbidden)
             self.assertTrue(response.text)
+            self.assertEqual(response.url, "file://%s" % self._pathToURL(os.path.abspath(tmp.name)))
+            self.assertIn(os.path.abspath(tmp.name), response.reason)
 
             response.close()
 
@@ -82,6 +92,8 @@ class FileRequestTestCase(unittest.TestCase):
             response = self._session.get("file:///no/such/path")
             self.assertEqual(response.status_code, requests.codes.not_found)
             self.assertTrue(response.text)
+            self.assertEqual(response.url, "file:///no/such/path")
+            self.assertIn("/no/such/path", response.reason)
             response.close()
         except locale.Error:
             unittest.SkipTest("ru_RU.UTF-8 locale not available")
@@ -96,7 +108,8 @@ class FileRequestTestCase(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, requests.codes.ok)
-        self.assertEqual(response.headers["Content-Length"], testlen)
+        self.assertEqual(response.headers["Content-Length"], str(testlen))
+        self.assertEqual(response.url, "file://%s" % self._pathToURL(os.path.abspath(__file__)))
 
         response.close()
 

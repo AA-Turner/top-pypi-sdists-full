@@ -53,13 +53,28 @@ K_B = 8.617333262e-5
 Boltzmann constant [eV/K]
 """
 
+GRAV_ACC = 9.80665 * 1e6
+"""
+Gravitational acceleration (g) [um/s^2].",
+"""
+
+M_E_C_SQUARE = 0.51099895069e6
+"""
+Electron rest mass energy (m_e * c^2) [eV]
+"""
+
+M_E_EV = M_E_C_SQUARE / C_0**2
+"""
+Electron mass [eV*s^2/um^2]
+"""
+
 # floating point precisions
 dp_eps = np.finfo(np.float64).eps
 """
 Double floating point precision.
 """
 
-fp_eps = np.finfo(np.float32).eps
+fp_eps = np.float64(np.finfo(np.float32).eps)
 """
 Floating point precision.
 """
@@ -96,6 +111,11 @@ METER = "m"
 SI unit of length.
 """
 
+PERMETER = "1/m"
+"""
+SI unit of inverse length.
+"""
+
 MICROMETER = "um"
 """
 One millionth (10^-6) of a meter.
@@ -130,6 +150,17 @@ RADPERSEC = "rad/sec"
 """
 One radian per second.
 """
+
+RADPERMETER = "rad/m"
+"""
+One radian per meter.
+"""
+
+NEPERPERMETER = "Np/m"
+"""
+SI unit for attenuation constant.
+"""
+
 
 ELECTRON_VOLT = "eV"
 """
@@ -221,9 +252,39 @@ CURRENT_DENSITY = "A/um^2"
 Amperes per square micrometer
 """
 
+DYNAMIC_VISCOSITY = "kg/(um*s)"
+"""
+Kilograms per (micrometer second)
+"""
+
+SPECIFIC_HEAT = "um^2/(s^2*K)"
+"""
+Square micrometers per (square second Kelvin).
+"""
+
+THERMAL_EXPANSIVITY = "1/K"
+"""
+Inverse Kelvin.
+"""
+
+VELOCITY_SI = "m/s"
+"""
+SI unit of velocity
+"""
+
+ACCELERATION = "um/s^2"
+"""
+Acceleration unit.
+"""
+
 LARGE_NUMBER = 1e10
 """
 Large number used for comparing infinity.
+"""
+
+LARGEST_FP_NUMBER = 1e38
+"""
+Largest number used for single precision floating point number.
 """
 
 inf = np.inf
@@ -245,6 +306,7 @@ UnitScaling = MappingProxyType(
         "mm": 1e-3,
         "cm": 1e-4,
         "m": 1e-6,
+        "mil": 1.0 / 25.4,
         "in": 1.0 / 25400,
     }
 )

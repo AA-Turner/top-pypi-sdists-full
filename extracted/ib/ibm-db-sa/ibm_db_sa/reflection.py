@@ -217,7 +217,7 @@ class DB2Reflector(BaseReflector):
         query = sql.select(sysschema.c.schemaname).\
             where(not_(sysschema.c.schemaname.like('SYS%'))).\
             order_by(sysschema.c.schemaname)
-        return [self.normalize_name(r[0]) for r in connection.execute(query)]
+        return [self.normalize_name(r[0].rstrip()) for r in connection.execute(query)]
 
     @reflection.cache
     def get_table_names(self, connection, schema=None, **kw):
@@ -235,7 +235,6 @@ class DB2Reflector(BaseReflector):
         table_name = self.denormalize_name(table_name)
         systbl = self.sys_tables
         query = sql.select(systbl.c.remarks).\
-            where(systbl.c.type == 'T').\
             where(systbl.c.tabschema == current_schema).\
             where(systbl.c.tabname == table_name)
         return {'text': connection.execute(query).scalar()}
@@ -512,6 +511,7 @@ class AS400Reflector(BaseReflector):
       Column("TABLE_SCHEMA", CoerceUnicode, key="tabschema"),
       Column("TABLE_NAME", CoerceUnicode, key="tabname"),
       Column("TABLE_TYPE", CoerceUnicode, key="tabtype"),
+      Column("LONG_COMMENT", CoerceUnicode, key="remarks"),
       schema="QSYS2")
 
     sys_table_constraints = Table("SYSCST", ischema,
@@ -616,7 +616,13 @@ class AS400Reflector(BaseReflector):
         return c.first() is not None
 
     def get_table_comment(self, connection, table_name, schema=None, **kw):
-        raise NotImplementedError()
+        current_schema = self.denormalize_name(schema or self.default_schema_name)
+        table_name = self.denormalize_name(table_name)
+        systbl = self.sys_tables
+        query = sql.select(systbl.c.remarks).\
+            where(systbl.c.tabschema == current_schema).\
+            where(systbl.c.tabname == table_name)
+        return {'text': connection.execute(query).scalar()}
 
     @reflection.cache
     def get_sequence_names(self, connection, schema=None, **kw):
@@ -640,7 +646,7 @@ class AS400Reflector(BaseReflector):
                 where(~sysschema.c.schemaname.like(str('Q%'))). \
                 where(~sysschema.c.schemaname.like(str('SYS%'))). \
                 order_by(sysschema.c.schemaname)
-        return [self.normalize_name(r[0]) for r in connection.execute(query)]
+        return [self.normalize_name(r[0].rstrip()) for r in connection.execute(query)]
 
     # Retrieves a list of table names for a given schema
     @reflection.cache
@@ -648,12 +654,12 @@ class AS400Reflector(BaseReflector):
         current_schema = self.denormalize_name(schema or self.default_schema_name)
         systbl = self.sys_tables
         if version_info[0] < 3:
-            query = not sql.select(systbl.c.tabname). \
+            query = sql.select(systbl.c.tabname). \
                 where(systbl.c.tabtype == unicode('T')). \
                 where(systbl.c.tabschema == current_schema). \
                 order_by(systbl.c.tabname)
         else:
-            query = not sql.select(systbl.c.tabname). \
+            query = sql.select(systbl.c.tabname). \
                 where(systbl.c.tabtype == str('T')). \
                 where(systbl.c.tabschema == current_schema). \
                 order_by(systbl.c.tabname)
@@ -884,6 +890,7 @@ class OS390Reflector(BaseReflector):
         Column("OWNERTYPE", CoerceUnicode, key="ownertype"),
         Column("TYPE", CoerceUnicode, key="type"),
         Column("STATUS", CoerceUnicode, key="status"),
+        Column("REMARKS", CoerceUnicode, key="remarks"),
         schema="SYSIBM")
 
     sys_indexes = Table("SYSINDEXES", ischema,
@@ -990,10 +997,16 @@ class OS390Reflector(BaseReflector):
         query = sql.select(sysschema.c.tabschema).\
             where(not_(sysschema.c.tabschema.like('SYS%'))).\
             distinct(sysschema.c.tabschema)
-        return [self.normalize_name(r[0]) for r in connection.execute(query)]
+        return [self.normalize_name(r[0].rstrip()) for r in connection.execute(query)]
 
     def get_table_comment(self, connection, table_name, schema=None, **kw):
-        raise NotImplementedError()
+        current_schema = self.denormalize_name(schema or self.default_schema_name)
+        table_name = self.denormalize_name(table_name)
+        systbl = self.sys_tables
+        query = sql.select(systbl.c.remarks).\
+            where(systbl.c.tabschema == current_schema).\
+            where(systbl.c.tabname == table_name)
+        return {'text': connection.execute(query).scalar()}
 
     @reflection.cache
     def get_table_names(self, connection, schema=None, **kw):

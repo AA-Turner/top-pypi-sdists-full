@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -10,21 +10,22 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from functools import partial, reduce
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeAlias
 from warnings import warn
 
 import httpx
-import requests as _requests
 
-import ibm_watsonx_ai._wrappers.requests as requests
-from ibm_watsonx_ai._wrappers.requests import (
+from ibm_watsonx_ai._wrappers.httpx_wrapper import (
+    TokenBucket,
     _get_httpx_client,
+    _httpx_transport_params,
+    _with_async_retry,
+    _with_retry,
 )
-from ibm_watsonx_ai.wml_client_error import (
-    InvalidMultipleArguments,
-    ParamOutOfRange,
-    WMLClientError,
-)
+from ibm_watsonx_ai.foundation_models.schema import BaseSchema, Crypto
+from ibm_watsonx_ai.utils.utils import get_from_json
+from ibm_watsonx_ai.wml_client_error import InvalidMultipleArguments, ParamOutOfRange
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 from .base_embeddings import BaseEmbeddings
@@ -32,9 +33,9 @@ from .base_embeddings import BaseEmbeddings
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient, Credentials
 
-# Type Aliasses
+# Type Aliases
 ParamsType: TypeAlias = dict[str, str | dict[str, str]]
-PayloadType: TypeAlias = dict[str, str | list[str] | ParamsType]
+PayloadType: TypeAlias = dict[str, str | list[str] | ParamsType | Crypto]
 
 
 __all__ = ["Embeddings"]
@@ -79,12 +80,7 @@ class Embeddings(BaseEmbeddings, WMLResource):
         * the path of a directory with certificates of trusted CAs
         * `True` - default path to truststore will be taken
         * `False` - no verification will be made
-    :type verify: bool or str, optional
-
-    :param persistent_connection: defines whether to keep a persistent connection when evaluating the `generate`, 'embed_query', and 'embed_documents` methods with one prompt
-                                  or batch of prompts that meet the length limit. For more details, see `Generate embeddings <https://cloud.ibm.com/apidocs/watsonx-ai#text-embeddings>`_.
-                                  To close the connection, run `embeddings.close_persistent_connection()`, defaults to True. Added in 1.1.2.
-    :type persistent_connection: bool, optional
+    :type verify: bool | str | Path, optional
 
     :param batch_size: Number of elements to be embedded sending in one call (used only for sync methods), defaults to 1000
     :type batch_size: int, optional
@@ -144,14 +140,20 @@ class Embeddings(BaseEmbeddings, WMLResource):
         project_id: str | None = None,
         space_id: str | None = None,
         api_client: APIClient | None = None,
-        verify: bool | str | None = None,
-        persistent_connection: bool = True,
+        verify: bool | str | Path | None = None,
         batch_size: int = MAX_INPUTS_LENGTH,
         concurrency_limit: int = DEFAULT_CONCURRENCY_LIMIT,
         max_retries: int | None = None,
         delay_time: float | None = None,
         retry_status_codes: list[int] | None = None,
+        **kwargs: Any,
     ) -> None:
+        if "persistent_connection" in kwargs:
+            warn(
+                "The `persistent_connection` parameter is no longer supported and any value provided for this parameter will be ignored."
+            )
+            kwargs.pop("persistent_connection")
+
         if isinstance(model_id, Enum):
             self.model_id = model_id.value
         else:
@@ -177,6 +179,9 @@ class Embeddings(BaseEmbeddings, WMLResource):
         else:
             self.batch_size = batch_size
 
+        if isinstance(verify, Path):
+            verify = str(verify)
+
         if credentials:
             from ibm_watsonx_ai import APIClient
 
@@ -198,28 +203,14 @@ class Embeddings(BaseEmbeddings, WMLResource):
                 params_names_list=["space_id", "project_id"],
                 reason="None of the arguments were provided.",
             )
-        if not self._client.CLOUD_PLATFORM_SPACES and self._client.CPD_version < 5.0:
-            raise WMLClientError(error_msg="Operation is unsupported for this release.")
-
-        self._persistent_connection = persistent_connection
 
         WMLResource.__init__(self, __name__, self._client)
 
-        self._transport_params = requests._httpx_transport_params(self._client)
-
-        if self._persistent_connection:
-            self._http_client = self._client.httpx_client
-        else:
-            self._http_client = requests  # type: ignore[assignment]
-            persistent_connection_warn = (
-                "`persistent_connection` is deprecated and will be removed in future. "
-            )
-            warn(persistent_connection_warn, category=DeprecationWarning)
-        self._async_http_client = self._client.async_httpx_client
+        self._transport_params = _httpx_transport_params(self._client)
 
         # Set initially 8 requests per second as it is default for prod instances
         # if header "x-requests-limit-rate" is different capacity will be updated
-        self.rate_limiter = requests.TokenBucket(rate=8, capacity=8)
+        self.rate_limiter = TokenBucket(rate=8, capacity=8)
         self.retry_status_codes = retry_status_codes
         self.max_retries = max_retries
         self.delay_time = delay_time
@@ -229,11 +220,11 @@ class Embeddings(BaseEmbeddings, WMLResource):
         generate_url: str,
         inputs: list[str],
         params: ParamsType | None = None,
-        _http_client: httpx.Client | None = None,
-    ) -> httpx.Response | _requests.Response:
+        crypto: dict | Crypto | None = None,
+    ) -> httpx.Response:
         """Send request with post and return service response."""
 
-        payload = self._prepare_payload(inputs, params)
+        payload = self._prepare_payload(inputs, params, crypto)
 
         post_params: dict[str, Any] = dict(
             url=generate_url,
@@ -242,33 +233,34 @@ class Embeddings(BaseEmbeddings, WMLResource):
             headers=self._client._get_headers(),
         )
 
-        return self._post(_http_client, **post_params)
+        return self._post(self._client.httpx_client, **post_params)
 
     async def _agenerate_raw_response(
         self,
         generate_url: str,
         inputs: list[str],
         params: ParamsType | None = None,
-        _async_http_client: httpx.AsyncClient | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> httpx.Response:
         """Send request with post and return service response in an asynchronous manner."""
 
-        payload = self._prepare_payload(inputs, params)
+        payload = self._prepare_payload(inputs, params, crypto)
 
         post_params: dict[str, Any] = dict(
             url=generate_url,
             json=payload,
             params=self._client._params(skip_for_create=True, skip_userfs=True),
-            headers=self._client._get_headers(),
+            headers=await self._client._aget_headers(),
         )
 
-        return await self._apost(_async_http_client, **post_params)
+        return await self._apost(self._client.async_httpx_client, **post_params)
 
     def generate(
         self,
         inputs: list[str],
         params: ParamsType | None = None,
         concurrency_limit: int = DEFAULT_CONCURRENCY_LIMIT,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
         """Generate embeddings vectors for the given input with the given
         parameters. Returns a REST API response.
@@ -279,10 +271,13 @@ class Embeddings(BaseEmbeddings, WMLResource):
         :type params: ParamsType | None, optional
         :param concurrency_limit: number of requests to be sent in parallel, max is 10, defaults to 5
         :type concurrency_limit: int, optional
+        :param crypto: configuration for tenant-level encryption
+        :type crypto: dict, Crypto, optional
         :return: scoring results containing generated embeddings vectors
         :rtype: dict
         """
         self._validate_type(inputs, "inputs", list, True)
+        self._validate_type(crypto, "crypto", [dict, Crypto], False, True)
         generate_url = self._client._href_definitions.get_fm_embeddings_href()
         if concurrency_limit is not DEFAULT_CONCURRENCY_LIMIT and (
             concurrency_limit > 10 or concurrency_limit < 1
@@ -294,12 +289,6 @@ class Embeddings(BaseEmbeddings, WMLResource):
         # '(concurrency_limit is DEFAULT_CONCURRENCY_LIMIT) == True' => NO SET
         if concurrency_limit is DEFAULT_CONCURRENCY_LIMIT:
             concurrency_limit = self.concurrency_limit
-        # For batch of prompts use keep-alive connection even if persistent_connection=False
-        http_client = (
-            self._client.httpx_client
-            if not self._persistent_connection
-            else self._http_client
-        )
 
         if len(inputs) > self.batch_size:
             inputs_split = [
@@ -313,7 +302,7 @@ class Embeddings(BaseEmbeddings, WMLResource):
                     generate_url=generate_url,
                     inputs=_inputs,
                     params=params,
-                    _http_client=http_client,
+                    crypto=crypto,
                 )
                 rate_limit = int(response.headers.get("x-requests-limit-rate", 0))
                 if rate_limit and rate_limit != self.rate_limiter.capacity:
@@ -339,7 +328,7 @@ class Embeddings(BaseEmbeddings, WMLResource):
                     self._generate,
                     generate_url,
                     params=params,
-                    _http_client=http_client,
+                    crypto=crypto,
                 )
             )  # If CDP, don't use Token Bucket
 
@@ -363,13 +352,14 @@ class Embeddings(BaseEmbeddings, WMLResource):
             )
 
         else:
-            results = self._generate(generate_url, inputs, params)
+            results = self._generate(generate_url, inputs, params, crypto)
         return results
 
     async def agenerate(
         self,
         inputs: list[str],
         params: ParamsType | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
         """Generate embeddings vectors for the given input with the given
         parameters in an asynchronous manner. Returns a REST API response.
@@ -378,14 +368,17 @@ class Embeddings(BaseEmbeddings, WMLResource):
         :type inputs: list[str]
         :param params: MetaProps for the embedding generation, use ``ibm_watsonx_ai.metanames.EmbedTextParamsMetaNames().show()`` to view the list of MetaNames, defaults to None
         :type params: ParamsType | None, optional
+        :param crypto: configuration for tenant-level encryption
+        :type crypto: dict, Crypto, optional
 
         :return: scoring results containing generated embeddings vectors
         :rtype: dict
         """
         self._validate_type(inputs, "inputs", list, True)
+        self._validate_type(crypto, "crypto", [dict, Crypto], False, True)
         generate_url = self._client._href_definitions.get_fm_embeddings_href()
 
-        results = await self._agenerate(generate_url, inputs, params)
+        results = await self._agenerate(generate_url, inputs, params, crypto)
 
         return results
 
@@ -413,8 +406,8 @@ class Embeddings(BaseEmbeddings, WMLResource):
 
             q = [
                 "What is a Generative AI?",
-                "Generative AI refers to a type of artificial intelligence that can original content."
-                ]
+                "Generative AI refers to a type of artificial intelligence that can original content.",
+            ]
 
             embedding_vectors = embedding.embed_documents(texts=q)
             print(embedding_vectors)
@@ -447,8 +440,8 @@ class Embeddings(BaseEmbeddings, WMLResource):
 
             q = [
                 "What is a Generative AI?",
-                "Generative AI refers to a type of artificial intelligence that can original content."
-                ]
+                "Generative AI refers to a type of artificial intelligence that can original content.",
+            ]
 
             embedding_vectors = await embedding.aembed_documents(texts=q)
             print(embedding_vectors)
@@ -475,10 +468,8 @@ class Embeddings(BaseEmbeddings, WMLResource):
             embedding_vector = embedding.embed_query(text=q)
             print(embedding_vector)
         """
-        return (
-            self.generate(inputs=[text], params=params)
-            .get("results", [{}])[0]
-            .get("embedding")
+        return get_from_json(
+            self.generate(inputs=[text], params=params), ["results", 0, "embedding"]
         )
 
     async def aembed_query(
@@ -503,10 +494,13 @@ class Embeddings(BaseEmbeddings, WMLResource):
         """
         response = await self.agenerate(inputs=[text], params=params)
 
-        return response.get("results", [{}])[0].get("embedding")
+        return get_from_json(response, ["results", 0, "embedding"])
 
     def _prepare_payload(
-        self, inputs: list[str], params: ParamsType | None = None
+        self,
+        inputs: list[str],
+        params: ParamsType | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> PayloadType:
         """Prepare payload based in provided inputs and params."""
         payload: PayloadType = {"model_id": self.model_id, "inputs": inputs}
@@ -521,6 +515,12 @@ class Embeddings(BaseEmbeddings, WMLResource):
         elif self._client.default_space_id:
             payload["space_id"] = self._client.default_space_id
 
+        if isinstance(crypto, BaseSchema):
+            crypto = crypto.to_dict()
+
+        if crypto:
+            payload["crypto"] = crypto
+
         return payload
 
     def _generate(
@@ -528,16 +528,14 @@ class Embeddings(BaseEmbeddings, WMLResource):
         generate_url: str,
         inputs: list[str],
         params: ParamsType | None = None,
-        _http_client: requests.HTTPXClient | httpx.Client | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
         """Send request with post and return service response."""
-        http_client = _http_client or self._http_client
-
         response_scoring = self._generate_raw_response(
             generate_url=generate_url,
             inputs=inputs,
             params=params,
-            _http_client=http_client,
+            crypto=crypto,
         )
 
         return self._handle_response(
@@ -552,6 +550,7 @@ class Embeddings(BaseEmbeddings, WMLResource):
         generate_url: str,
         inputs: list[str],
         params: ParamsType | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
         """Send request with post and return service response in an asynchronous manner."""
 
@@ -559,7 +558,7 @@ class Embeddings(BaseEmbeddings, WMLResource):
             generate_url=generate_url,
             inputs=inputs,
             params=params,
-            _async_http_client=self._async_http_client,
+            crypto=crypto,
         )
 
         return self._handle_response(
@@ -591,28 +590,21 @@ class Embeddings(BaseEmbeddings, WMLResource):
 
     def close_persistent_connection(self) -> None:
         """
-        Only applicable if persistent_connection was set to True in Embeddings initialization.
         Calling this method closes the current `httpx.Client` and recreates a new `httpx.Client` with default values:
         timeout: httpx.Timeout(read=30 * 60, write=30 * 60, connect=10, pool=30 * 60)
         limit: httpx.Limits(max_connections=10, max_keepalive_connections=10, keepalive_expiry=HTTPX_KEEPALIVE_EXPIRY)
         """
-        if self._persistent_connection is not None and isinstance(
-            self._http_client, httpx.Client
-        ):
-            self._http_client.close()
-            self._client.httpx_client = _get_httpx_client(
-                transport_params=self._transport_params,
-                timeout=EMBEDDINGS_HTTPX_TIMEOUT,
-            )
-            self._http_client = self._client.httpx_client
+        self._client.httpx_client.close()
+        self._client.httpx_client = _get_httpx_client(
+            transport=self._transport_params,
+            timeout=EMBEDDINGS_HTTPX_TIMEOUT,
+        )
 
-    @requests._with_retry(retry_status_codes=_RETRY_STATUS_CODES)
-    def _post(
-        self, http_client: Any, *args: Any, **kwargs: Any
-    ) -> httpx.Response | _requests.Response:
+    @_with_retry(retry_status_codes=_RETRY_STATUS_CODES)
+    def _post(self, http_client: Any, *args: Any, **kwargs: Any) -> httpx.Response:
         return http_client.post(*args, **kwargs)
 
-    @requests._with_async_retry(retry_status_codes=_RETRY_STATUS_CODES)
+    @_with_async_retry(retry_status_codes=_RETRY_STATUS_CODES)
     async def _apost(
         self, async_http_client: httpx.AsyncClient, *args: Any, **kwargs: Any
     ) -> httpx.Response:

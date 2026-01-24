@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: unstructured
-Version: 0.18.15
+Version: 0.18.27
 Summary: A library that prepares raw documents for downstream ML tasks.
 Home-page: https://github.com/Unstructured-IO/unstructured
 Author: Unstructured Technologies
 Author-email: devops@unstructuredai.io
 License: Apache-2.0
 Keywords: NLP PDF HTML CV XML parsing preprocessing
-Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
@@ -21,26 +20,147 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
-Provides-Extra: all-docs
-Provides-Extra: csv
-Provides-Extra: doc
-Provides-Extra: docx
-Provides-Extra: epub
-Provides-Extra: image
-Provides-Extra: md
-Provides-Extra: odt
-Provides-Extra: org
-Provides-Extra: pdf
-Provides-Extra: ppt
-Provides-Extra: pptx
-Provides-Extra: rtf
-Provides-Extra: rst
-Provides-Extra: tsv
-Provides-Extra: xlsx
-Provides-Extra: huggingface
-Provides-Extra: local-inference
-Provides-Extra: paddleocr
 License-File: LICENSE.md
+Requires-Dist: charset-normalizer
+Requires-Dist: filetype
+Requires-Dist: python-magic
+Requires-Dist: lxml
+Requires-Dist: nltk
+Requires-Dist: requests
+Requires-Dist: beautifulsoup4
+Requires-Dist: emoji
+Requires-Dist: dataclasses-json
+Requires-Dist: python-iso639
+Requires-Dist: langdetect
+Requires-Dist: numpy
+Requires-Dist: rapidfuzz
+Requires-Dist: backoff
+Requires-Dist: typing-extensions
+Requires-Dist: unstructured-client
+Requires-Dist: wrapt
+Requires-Dist: tqdm
+Requires-Dist: psutil
+Requires-Dist: python-oxmsg
+Requires-Dist: html5lib
+Provides-Extra: all-docs
+Requires-Dist: msoffcrypto-tool; extra == "all-docs"
+Requires-Dist: unstructured-inference>=1.1.1; extra == "all-docs"
+Requires-Dist: pypdf; extra == "all-docs"
+Requires-Dist: effdet; extra == "all-docs"
+Requires-Dist: markdown; extra == "all-docs"
+Requires-Dist: networkx; extra == "all-docs"
+Requires-Dist: pandas; extra == "all-docs"
+Requires-Dist: openpyxl; extra == "all-docs"
+Requires-Dist: pypandoc; extra == "all-docs"
+Requires-Dist: pdfminer.six; extra == "all-docs"
+Requires-Dist: unstructured.pytesseract>=0.3.12; extra == "all-docs"
+Requires-Dist: xlrd; extra == "all-docs"
+Requires-Dist: python-docx>=1.1.2; extra == "all-docs"
+Requires-Dist: pi_heif; extra == "all-docs"
+Requires-Dist: python-pptx>=1.0.1; extra == "all-docs"
+Requires-Dist: google-cloud-vision; extra == "all-docs"
+Requires-Dist: pdf2image; extra == "all-docs"
+Requires-Dist: onnx>=1.17.0; extra == "all-docs"
+Requires-Dist: pikepdf; extra == "all-docs"
+Requires-Dist: onnxruntime>=1.19.0; extra == "all-docs"
+Provides-Extra: csv
+Requires-Dist: pandas; extra == "csv"
+Provides-Extra: doc
+Requires-Dist: python-docx>=1.1.2; extra == "doc"
+Provides-Extra: docx
+Requires-Dist: python-docx>=1.1.2; extra == "docx"
+Provides-Extra: epub
+Requires-Dist: pypandoc; extra == "epub"
+Provides-Extra: image
+Requires-Dist: onnx>=1.17.0; extra == "image"
+Requires-Dist: onnxruntime>=1.19.0; extra == "image"
+Requires-Dist: pdf2image; extra == "image"
+Requires-Dist: pdfminer.six; extra == "image"
+Requires-Dist: pikepdf; extra == "image"
+Requires-Dist: pi_heif; extra == "image"
+Requires-Dist: pypdf; extra == "image"
+Requires-Dist: google-cloud-vision; extra == "image"
+Requires-Dist: effdet; extra == "image"
+Requires-Dist: unstructured-inference>=1.1.1; extra == "image"
+Requires-Dist: unstructured.pytesseract>=0.3.12; extra == "image"
+Provides-Extra: md
+Requires-Dist: markdown; extra == "md"
+Provides-Extra: odt
+Requires-Dist: python-docx>=1.1.2; extra == "odt"
+Requires-Dist: pypandoc; extra == "odt"
+Provides-Extra: org
+Requires-Dist: pypandoc; extra == "org"
+Provides-Extra: pdf
+Requires-Dist: onnx>=1.17.0; extra == "pdf"
+Requires-Dist: onnxruntime>=1.19.0; extra == "pdf"
+Requires-Dist: pdf2image; extra == "pdf"
+Requires-Dist: pdfminer.six; extra == "pdf"
+Requires-Dist: pikepdf; extra == "pdf"
+Requires-Dist: pi_heif; extra == "pdf"
+Requires-Dist: pypdf; extra == "pdf"
+Requires-Dist: google-cloud-vision; extra == "pdf"
+Requires-Dist: effdet; extra == "pdf"
+Requires-Dist: unstructured-inference>=1.1.1; extra == "pdf"
+Requires-Dist: unstructured.pytesseract>=0.3.12; extra == "pdf"
+Provides-Extra: ppt
+Requires-Dist: python-pptx>=1.0.1; extra == "ppt"
+Provides-Extra: pptx
+Requires-Dist: python-pptx>=1.0.1; extra == "pptx"
+Provides-Extra: rtf
+Requires-Dist: pypandoc; extra == "rtf"
+Provides-Extra: rst
+Requires-Dist: pypandoc; extra == "rst"
+Provides-Extra: tsv
+Requires-Dist: pandas; extra == "tsv"
+Provides-Extra: xlsx
+Requires-Dist: openpyxl; extra == "xlsx"
+Requires-Dist: pandas; extra == "xlsx"
+Requires-Dist: xlrd; extra == "xlsx"
+Requires-Dist: networkx; extra == "xlsx"
+Requires-Dist: msoffcrypto-tool; extra == "xlsx"
+Provides-Extra: huggingface
+Requires-Dist: langdetect; extra == "huggingface"
+Requires-Dist: sacremoses; extra == "huggingface"
+Requires-Dist: sentencepiece; extra == "huggingface"
+Requires-Dist: torch; extra == "huggingface"
+Requires-Dist: transformers; extra == "huggingface"
+Provides-Extra: local-inference
+Requires-Dist: msoffcrypto-tool; extra == "local-inference"
+Requires-Dist: unstructured-inference>=1.1.1; extra == "local-inference"
+Requires-Dist: pypdf; extra == "local-inference"
+Requires-Dist: effdet; extra == "local-inference"
+Requires-Dist: markdown; extra == "local-inference"
+Requires-Dist: networkx; extra == "local-inference"
+Requires-Dist: pandas; extra == "local-inference"
+Requires-Dist: openpyxl; extra == "local-inference"
+Requires-Dist: pypandoc; extra == "local-inference"
+Requires-Dist: pdfminer.six; extra == "local-inference"
+Requires-Dist: unstructured.pytesseract>=0.3.12; extra == "local-inference"
+Requires-Dist: xlrd; extra == "local-inference"
+Requires-Dist: python-docx>=1.1.2; extra == "local-inference"
+Requires-Dist: pi_heif; extra == "local-inference"
+Requires-Dist: python-pptx>=1.0.1; extra == "local-inference"
+Requires-Dist: google-cloud-vision; extra == "local-inference"
+Requires-Dist: pdf2image; extra == "local-inference"
+Requires-Dist: onnx>=1.17.0; extra == "local-inference"
+Requires-Dist: pikepdf; extra == "local-inference"
+Requires-Dist: onnxruntime>=1.19.0; extra == "local-inference"
+Provides-Extra: paddleocr
+Requires-Dist: paddlepaddle>=3.0.0b1; extra == "paddleocr"
+Requires-Dist: unstructured.paddleocr==2.10.0; extra == "paddleocr"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <h3 align="center">
   <img
@@ -297,5 +417,3 @@ Encountered a bug? Please create a new [GitHub issue](https://github.com/Unstruc
 ## :chart_with_upwards_trend: Analytics
 
 This library includes a very lightweight analytics "ping" when the library is loaded, however you can opt out of this data collection by setting the environment variable `DO_NOT_TRACK=true` before executing any `unstructured` code. To learn more about how we collect and use this data, please read our [Privacy Policy](https://unstructured.io/privacy-policy).
-
-

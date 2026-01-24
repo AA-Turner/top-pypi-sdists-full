@@ -11,9 +11,9 @@ __metaclass__ = type
 DOCUMENTATION = """
 ---
 module: hv_sds_block_snapshot_facts
-short_description: Gather facts about snapshots on Hitachi SDS Block storage systems.
+short_description: Retrieves information about snapshots.
 description:
-  - Gathers information (facts) about snapshots on Hitachi SDS Block storage systems.
+  - Gathers information (facts) about snapshots on VSP One SDS Block and Cloud systems.
   - Use this module to retrieve details about existing snapshots, including their names, associated volumes, and IDs.
   - For usage examples, see
     U(https://github.com/hitachi-vantara/vspone-block-ansible/blob/main/playbooks/sds_block_direct/snapshot.yml)
@@ -50,6 +50,14 @@ options:
         description: ID of the snapshot volume.
         type: str
         required: false
+      vps_id:
+        description: The ID of the VPS.
+        type: str
+        required: false
+      vps_name:
+        description: The name of the VPS.
+        type: str
+        required: false
 """
 
 EXAMPLES = """
@@ -74,8 +82,74 @@ EXAMPLES = """
 """
 
 RETURN = """
-
+ansible_facts:
+  description: Facts collected by the module.
+  returned: always
+  type: dict
+  contains:
+    snapshots_info:
+      description: List of snapshot volume information retrieved from the storage system.
+      returned: always
+      type: list
+      elements: dict
+      contains:
+        is_written_in_svol:
+          description: Whether data has been written to the secondary volume.
+          type: bool
+        qos_param:
+          description: Quality of Service parameters for the snapshot.
+          type: dict
+          contains:
+            upper_alert_allowable_time:
+              description: Threshold time for upper alert in seconds.
+              type: int
+            upper_alert_time:
+              description: Current upper alert time setting.
+              type: int
+            upper_limit_for_iops:
+              description: Upper limit for IOPS.
+              type: int
+            upper_limit_for_transfer_rate:
+              description: Upper limit for data transfer rate (MB/s).
+              type: int
+        snapshot_concordance_rate:
+          description: The concordance rate of the snapshot in percentage.
+          type: int
+        snapshot_progress_rate:
+          description: Progress rate of the snapshot operation in percentage.
+          type: int
+        snapshot_status:
+          description: Current status of the snapshot.
+          type: str
+        snapshot_timestamp:
+          description: Timestamp of the snapshot creation.
+          type: str
+        snapshot_type:
+          description: Type of the snapshot.
+          type: str
+        snapshot_volume_id:
+          description: Unique identifier of the snapshot volume.
+          type: str
+        snapshot_volume_name:
+          description: Name of the snapshot volume.
+          type: str
+        snapshot_volume_nickname:
+          description: Nickname of the snapshot volume.
+          type: str
+        status:
+          description: Overall snapshot status.
+          type: str
+        status_summary:
+          description: Summary of the snapshot status.
+          type: str
+        vps_id:
+          description: VPS identifier associated with the snapshot.
+          type: str
+        vps_name:
+          description: VPS name associated with the snapshot.
+          type: str
 """
+
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.reconciler.sdsb_snapshot_reconciler import (
     SDSBSnapshotReconciler,

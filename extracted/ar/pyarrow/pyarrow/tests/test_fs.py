@@ -293,6 +293,16 @@ _minio_limited_policy = """{
             "Resource": [
                 "arn:aws:s3:::*"
             ]
+
+        },
+        {
+            "Effect": "Deny",
+            "Action": [
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::no-delete-bucket*"
+            ]
         }
     ]
 }"""
@@ -533,6 +543,20 @@ def test_s3fs_limited_permissions_create_bucket(s3_server):
 
     with pytest.raises(pa.ArrowIOError, match="Would delete bucket"):
         fs.delete_dir('existing-bucket')
+
+    with pytest.raises(OSError, match="Request ID:"):
+        fs.copy_file("existing-bucket/test-file", "existing-bucket/test-file-copy")
+
+    with pytest.raises(pa.ArrowIOError, match="Request ID:"):
+        with fs.open_output_stream("non-existing-bucket/test-file") as f:
+            f.write(b"test")
+
+    # Create a file in the protected bucket then try to delete it
+    with fs.open_output_stream("no-delete-bucket/test-file") as f:
+        f.write(b"test")
+
+    with pytest.raises(OSError, match="Request ID:"):
+        fs.delete_file("no-delete-bucket/test-file")
 
 
 def test_file_info_constructor():
@@ -882,6 +906,7 @@ def _check_root_dir_contents(config):
     fs.delete_dir_contents("", accept_root_dir=True)
     fs.delete_dir_contents("/", accept_root_dir=True)
     fs.delete_dir_contents("//", accept_root_dir=True)
+
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir(d)
 
@@ -1436,20 +1461,20 @@ def test_s3fs_wrong_region():
     # anonymous=True incase CI/etc has invalid credentials
     fs = S3FileSystem(region='eu-north-1', anonymous=True)
 
-    msg = ("When getting information for bucket 'voltrondata-labs-datasets': "
+    msg = ("When getting information for bucket 'arrow-datasets': "
            r"AWS Error UNKNOWN \(HTTP status 301\) during HeadBucket "
            "operation: No response body. Looks like the configured region is "
-           "'eu-north-1' while the bucket is located in 'us-east-2'."
+           "'eu-north-1' while the bucket is located in 'us-east-1'."
            "|NETWORK_CONNECTION")
     with pytest.raises(OSError, match=msg) as exc:
-        fs.get_file_info("voltrondata-labs-datasets")
+        fs.get_file_info("arrow-datasets")
 
     # Sometimes fails on unrelated network error, so next call would also fail.
     if 'NETWORK_CONNECTION' in str(exc.value):
         return
 
-    fs = S3FileSystem(region='us-east-2', anonymous=True)
-    fs.get_file_info("voltrondata-labs-datasets")
+    fs = S3FileSystem(region='us-east-1', anonymous=True)
+    fs.get_file_info("arrow-datasets")
 
 
 @pytest.mark.azure
@@ -1640,6 +1665,23 @@ def test_filesystem_from_uri(uri, expected_klass, expected_path):
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, expected_klass)
     assert path == expected_path
+
+
+def test_filesystem_from_uri_calling():
+    # Call using class staticmethod
+    fs, path = FileSystem.from_uri("file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
+
+    # Call using class staticmethod with explicit arguments
+    fs, path = FileSystem.from_uri(uri="file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
+
+    # Call using instance method passthrough
+    fs, path = LocalFileSystem().from_uri(uri="file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
 
 
 @pytest.mark.parametrize(
@@ -1870,15 +1912,15 @@ def test_s3_real_aws():
     fs = S3FileSystem(anonymous=True)
     assert fs.region == default_region
 
-    fs = S3FileSystem(anonymous=True, region='us-east-2')
+    fs = S3FileSystem(anonymous=True, region='us-east-1')
     entries = fs.get_file_info(FileSelector(
-        'voltrondata-labs-datasets/nyc-taxi'))
+        'arrow-datasets/nyc-taxi'))
     assert len(entries) > 0
-    key = 'voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet'
+    key = 'arrow-datasets/nyc-taxi/year=2019/month=6/part-0.parquet'
     with fs.open_input_stream(key) as f:
         md = f.metadata()
         assert 'Content-Type' in md
-        assert md['Last-Modified'] == b'2022-07-12T23:32:00Z'
+        assert md['Last-Modified'] == b'2025-11-26T10:28:55Z'
         # For some reason, the header value is quoted
         # (both with AWS and Minio)
         assert md['ETag'] == b'"4c6a76826a695c6ac61592bc30cda3df-16"'
@@ -1899,9 +1941,12 @@ def test_s3_real_aws_region_selection():
     assert fs.region == 'us-east-2'
     # Reading from the wrong region may still work for public buckets...
 
-    # Nonexistent bucket (hopefully, otherwise need to fix this test)
+    # Nonexistent bucket. This bucket can't exist as AWS imposes that
+    # Bucket names must not contain two adjacent periods.
+    # Hopefully this won't fail in the future if a new validation rule applies.
+    # See: https://github.com/apache/arrow/pull/47166
     with pytest.raises(IOError, match="Bucket '.*' not found"):
-        FileSystem.from_uri('s3://x-arrow-nonexistent-bucket')
+        FileSystem.from_uri('s3://x-arrow..nonexistent-bucket')
     fs, path = FileSystem.from_uri('s3://x-arrow-nonexistent-bucket?region=us-east-3')
     assert fs.region == 'us-east-3'
 
@@ -1918,7 +1963,7 @@ def test_s3_real_aws_region_selection():
 @pytest.mark.s3
 def test_resolve_s3_region():
     from pyarrow.fs import resolve_s3_region
-    assert resolve_s3_region('voltrondata-labs-datasets') == 'us-east-2'
+    assert resolve_s3_region('arrow-datasets') == 'us-east-1'
     assert resolve_s3_region('mf-nwp-models') == 'eu-west-1'
 
     with pytest.raises(ValueError, match="Not a valid bucket name"):
@@ -1999,7 +2044,6 @@ def test_copy_files_directory(tempdir):
 
     # Copy directory with local file paths
     destination_dir1 = tempdir / "destination1"
-    # TODO need to create?
     destination_dir1.mkdir()
     copy_files(str(source_dir), str(destination_dir1))
     check_copied_files(destination_dir1)
@@ -2075,7 +2119,7 @@ def test_s3_finalize_region_resolver():
         with pytest.raises(ValueError, match="S3 .* finalized"):
             resolve_s3_region('mf-nwp-models')
         with pytest.raises(ValueError, match="S3 .* finalized"):
-            resolve_s3_region('voltrondata-labs-datasets')
+            resolve_s3_region('arrow-datasets')
         """
     subprocess.check_call([sys.executable, "-c", code])
 
@@ -2160,6 +2204,41 @@ def test_fsspec_filesystem_from_uri():
     fs, _ = FileSystem.from_uri(f"fsspec+{uri}")
     expected_fs = PyFileSystem(FSSpecHandler(LocalFileSystem()))
     assert fs == expected_fs
+
+
+def test_fsspec_delete_root_dir_contents():
+    try:
+        from fsspec.implementations.memory import MemoryFileSystem
+    except ImportError:
+        pytest.skip("fsspec not installed")
+
+    fs = FSSpecHandler(MemoryFileSystem())
+
+    # Create some files and directories
+    fs.create_dir("test_dir", recursive=True)
+    fs.create_dir("test_dir/subdir", recursive=True)
+
+    with fs.open_output_stream("test_file.txt", metadata={}) as stream:
+        stream.write(b"test content")
+
+    with fs.open_output_stream("test_dir/nested_file.txt", metadata={}) as stream:
+        stream.write(b"nested content")
+
+    # Verify files exist before deletion
+    def get_type(path):
+        return fs.get_file_info([path])[0].type
+
+    assert get_type("test_file.txt") == FileType.File
+    assert get_type("test_dir") == FileType.Directory
+    assert get_type("test_dir/nested_file.txt") == FileType.File
+
+    # Delete root directory contents
+    fs.delete_root_dir_contents()
+
+    # Assert all files and directories are deleted
+    assert get_type("test_file.txt") == FileType.NotFound
+    assert get_type("test_dir") == FileType.NotFound
+    assert get_type("test_dir/nested_file.txt") == FileType.NotFound
 
 
 def test_huggingface_filesystem_from_uri():

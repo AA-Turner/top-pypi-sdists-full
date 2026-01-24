@@ -75,18 +75,12 @@ class Leader(Device):
 
     @command(dtype_in=bool, dtype_out=bool)
     def SetDeviceTracing(self, enable):
-        if enable:
-            self.enable_telemetry()
-        else:
-            self.disable_telemetry()
+        self.set_telemetry_enabled(enable)
         return self.is_telemetry_enabled()
 
     @command(dtype_in=bool, dtype_out=bool)
     def SetKernelTracing(self, enable):
-        if enable:
-            self.enable_kernel_traces()
-        else:
-            self.disable_kernel_traces()
+        self.set_kernel_tracing_enabled(enable)
         return self.is_kernel_tracing_enabled()
 
     @command(dtype_in=int)

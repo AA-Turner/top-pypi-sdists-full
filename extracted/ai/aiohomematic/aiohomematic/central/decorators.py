@@ -1,21 +1,21 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """Decorators for central used within aiohomematic."""
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from datetime import datetime
-from functools import wraps
+from functools import partial, wraps
 import inspect
 import logging
 from typing import Any, Final, cast
 
-from aiohomematic import central as hmcu, client as hmcl
-from aiohomematic.central import xml_rpc_server as xmlrpc
-from aiohomematic.const import BackendSystemEvent
+from aiohomematic import client as hmcl, i18n
+from aiohomematic.const import SystemEventType
 from aiohomematic.exceptions import AioHomematicException
 from aiohomematic.support import extract_exc_args
+from aiohomematic.type_aliases import CallableAny, CallableNone
 
 _LOGGER: Final = logging.getLogger(__name__)
 _INTERFACE_ID: Final = "interface_id"
@@ -24,7 +24,7 @@ _PARAMETER: Final = "parameter"
 _VALUE: Final = "value"
 
 
-def callback_backend_system(system_event: BackendSystemEvent) -> Callable:
+def callback_backend_system(system_event: SystemEventType) -> Callable[[CallableAny], CallableAny]:  # kwonly: disable
     """Check if backend_system_callback is set and call it AFTER original function."""
 
     def decorator_backend_system_callback[**P, R](
@@ -45,40 +45,49 @@ def callback_backend_system(system_event: BackendSystemEvent) -> Callable:
             return_value = cast(R, func(*args, **kwargs))
             try:
                 unit = args[0]
-                central: hmcu.CentralUnit | None = None
-                if isinstance(unit, hmcu.CentralUnit):
-                    central = unit
-                if central is None and isinstance(unit, xmlrpc.RPCFunctions):
-                    central = unit.get_central(interface_id=str(args[1]))
-                if central:
-                    central.looper.create_task(
-                        _exec_backend_system_callback(*args, **kwargs),
+                looper: Any = None
+                # Check for CentralUnit (by duck typing - has looper attribute)
+                if hasattr(unit, "looper"):
+                    looper = unit.looper
+                # Check for coordinator with _task_scheduler
+                elif hasattr(unit, "_task_scheduler"):
+                    looper = unit._task_scheduler  # pylint: disable=protected-access
+                if looper:
+                    # Use partial to avoid lambda closure capturing args/kwargs
+                    looper.create_task(
+                        target=partial(_exec_backend_system_callback, *args, **kwargs),
                         name="wrapper_backend_system_callback",
                     )
             except Exception as exc:
                 _LOGGER.warning(
-                    "EXEC_BACKEND_SYSTEM_CALLBACK failed: Problem with identifying central: %s",
-                    extract_exc_args(exc=exc),
+                    i18n.tr(
+                        key="exception.central.decorators.backend_system_handler.identify_central_failed",
+                        reason=extract_exc_args(exc=exc),
+                    )
                 )
             return return_value
 
         async def _exec_backend_system_callback(*args: Any, **kwargs: Any) -> None:
             """Execute the callback for a system event."""
-
             if not ((len(args) > 1 and not kwargs) or (len(args) == 1 and kwargs)):
-                _LOGGER.warning("EXEC_BACKEND_SYSTEM_CALLBACK failed: *args not supported for callback_system_event")
+                _LOGGER.error(  # i18n-log: ignore
+                    "EXEC_BACKEND_SYSTEM_CALLBACK failed: *args not supported for callback_system_event"
+                )
             try:
                 args = args[1:]
                 interface_id: str = args[0] if len(args) > 0 else str(kwargs[_INTERFACE_ID])
                 if client := hmcl.get_client(interface_id=interface_id):
                     client.modified_at = datetime.now()
-                    client.central.fire_backend_system_callback(system_event=system_event, **kwargs)
+                    client.central.event_coordinator.publish_system_event(system_event=system_event, **kwargs)
             except Exception as exc:  # pragma: no cover
-                _LOGGER.warning(
+                _LOGGER.error(  # i18n-log: ignore
                     "EXEC_BACKEND_SYSTEM_CALLBACK failed: Unable to reduce kwargs for backend_system_callback"
                 )
                 raise AioHomematicException(
-                    f"args-exception backend_system_callback [{extract_exc_args(exc=exc)}]"
+                    i18n.tr(
+                        key="exception.central.decorators.backend_system_handler.args_exception",
+                        reason=extract_exc_args(exc=exc),
+                    )
                 ) from exc
 
         if inspect.iscoroutinefunction(func):
@@ -88,7 +97,7 @@ def callback_backend_system(system_event: BackendSystemEvent) -> Callable:
     return decorator_backend_system_callback
 
 
-def callback_event[**P, R](func: Callable[P, R]) -> Callable:
+def callback_event[**P, R](func: Callable[P, R]) -> Callable[P, R | Awaitable[R]]:  # kwonly: disable
     """Check if event_callback is set and call it AFTER original function."""
 
     def _exec_event_callback(*args: Any, **kwargs: Any) -> None:
@@ -109,21 +118,35 @@ def callback_event[**P, R](func: Callable[P, R]) -> Callable:
 
             if client := hmcl.get_client(interface_id=interface_id):
                 client.modified_at = datetime.now()
-                client.central.fire_backend_parameter_callback(
+                client.central.event_coordinator.publish_backend_parameter_event(
                     interface_id=interface_id, channel_address=channel_address, parameter=parameter, value=value
                 )
         except Exception as exc:  # pragma: no cover
-            _LOGGER.warning("EXEC_DATA_POINT_EVENT_CALLBACK failed: Unable to process args/kwargs for event_callback")
-            raise AioHomematicException(f"args-exception event_callback [{extract_exc_args(exc=exc)}]") from exc
+            _LOGGER.error(  # i18n-log: ignore
+                "EXEC_DATA_POINT_EVENT_CALLBACK failed: Unable to process args/kwargs for event_callback"
+            )
+            raise AioHomematicException(
+                i18n.tr(
+                    key="exception.central.decorators.event_handler.args_exception",
+                    reason=extract_exc_args(exc=exc),
+                )
+            ) from exc
 
     def _schedule_or_exec(*args: Any, **kwargs: Any) -> None:
-        """Schedule event callback on central looper when possible, else execute inline."""
+        """Schedule event callback on looper when possible, else execute inline."""
         try:
-            # Prefer scheduling on the CentralUnit looper when available to avoid blocking hot path
             unit = args[0]
-            if isinstance(unit, hmcu.CentralUnit):
-                unit.looper.create_task(
-                    _async_wrap_sync(_exec_event_callback, *args, **kwargs),
+            looper: Any = None
+            # Check for CentralUnit (by duck typing - has looper attribute)
+            if hasattr(unit, "looper"):
+                looper = unit.looper
+            # Check for coordinator with _task_scheduler
+            elif hasattr(unit, "_task_scheduler"):
+                looper = unit._task_scheduler  # pylint: disable=protected-access
+            if looper:
+                # Use partial to avoid lambda closure capturing args/kwargs
+                looper.create_task(
+                    target=partial(_async_wrap_sync, _exec_event_callback, *args, **kwargs),
                     name="wrapper_event_callback",
                 )
                 return
@@ -147,7 +170,7 @@ def callback_event[**P, R](func: Callable[P, R]) -> Callable:
         return return_value
 
     # Helper to create a trivial coroutine from a sync callable
-    async def _async_wrap_sync(cb: Callable[..., None], *a: Any, **kw: Any) -> None:
+    async def _async_wrap_sync(cb: CallableNone, *a: Any, **kw: Any) -> None:
         cb(*a, **kw)
 
     if inspect.iscoroutinefunction(func):

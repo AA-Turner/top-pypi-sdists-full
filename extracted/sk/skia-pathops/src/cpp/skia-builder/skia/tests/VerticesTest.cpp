@@ -8,6 +8,7 @@
 #include "include/core/SkBlendMode.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColor.h"
+#include "include/core/SkImageInfo.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkPoint.h"
 #include "include/core/SkRefCnt.h"
@@ -65,8 +66,8 @@ static bool equal(const SkVertices* vert0, const SkVertices* vert1) {
     return true;
 }
 
-static void self_test(sk_sp<SkVertices> v0, skiatest::Reporter* reporter) {
-    SkBinaryWriteBuffer writer;
+static void self_test(const sk_sp<SkVertices>& v0, skiatest::Reporter* reporter) {
+    SkBinaryWriteBuffer writer({});
     v0->priv().encode(writer);
 
     SkAutoMalloc buf(writer.bytesWritten());
@@ -155,7 +156,7 @@ DEF_TEST(Vertices_clipping, reporter) {
     // A very large triangle has to be geometrically clipped (since its "fast" clipping is
     // normally done in after building SkFixed coordinates). Check that we handle this.
     // (and don't assert).
-    auto surf = SkSurface::MakeRasterN32Premul(3, 3);
+    auto surf = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(3, 3));
 
     SkPoint pts[] = { { -10, 1 }, { -10, 2 }, { 1e9f, 1.5f } };
     fill_triangle(surf->getCanvas(), pts, SK_ColorBLACK);
@@ -169,5 +170,44 @@ DEF_TEST(Vertices_clipping, reporter) {
         } else {
             REPORTER_ASSERT(reporter, c == 0);
         }
+    }
+}
+
+DEF_TEST(Vertices_invalid, reporter) {
+    auto surf = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(10, 10));
+
+    constexpr SkPoint    verts[] = {{0, 0}, {1, 0}, {1, 1}};
+    constexpr SkColor   colors[] = {SK_ColorRED, SK_ColorGREEN, SK_ColorBLUE};
+    constexpr uint16_t indices[] = {0, 1, 20000};
+
+    {
+        auto vertices = SkVertices::MakeCopy(SkVertices::kTriangles_VertexMode,
+                                             0, verts, nullptr, colors);
+        REPORTER_ASSERT(reporter, !vertices);
+
+        // should not crash
+        surf->getCanvas()->drawVertices(vertices, SkBlendMode::kSrcOver, SkPaint());
+    }
+
+    {
+        auto vertices = SkVertices::MakeCopy(SkVertices::kTriangles_VertexMode,
+                                             3, verts, nullptr, colors,
+                                             1, indices);
+        // reflects current behavior
+        // TODO: should we reject invalid index counts?
+        REPORTER_ASSERT(reporter, vertices);
+
+        // should not crash
+        surf->getCanvas()->drawVertices(vertices, SkBlendMode::kSrcOver, SkPaint());
+    }
+
+    {
+        auto vertices = SkVertices::MakeCopy(SkVertices::kTriangles_VertexMode,
+                                             3, verts, nullptr, colors,
+                                             3, indices);
+        REPORTER_ASSERT(reporter, vertices);
+
+        // should not crash
+        surf->getCanvas()->drawVertices(vertices, SkBlendMode::kSrcOver, SkPaint());
     }
 }

@@ -13,6 +13,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -20,16 +24,17 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: install-rust-stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
       - name: setup-rust-cache
         uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with:
           tool: just
       - run: just ci
-
 
   test-python:
     name: test-python-${{ matrix.python-version }}
@@ -39,9 +44,9 @@ jobs:
       fail-fast: false
       matrix:
         target: [ x86_64 ]
-        python-version: [ "3.11", "pypy3.11" ]
+        python-version: [ "3.11", "pypy3.11", "3.12", "3.13", "3.13t", "3.14", "3.14t" ]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: install-rust-stable
         uses: dtolnay/rust-toolchain@stable
       - name: setup-rust-cache
@@ -49,7 +54,7 @@ jobs:
         with:
           prefix-key: "v0-rust-test-python-${{ matrix.python-version }}"
       - name: install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: install deps
@@ -62,3 +67,47 @@ jobs:
           RUST_BACKTRACE: 1
       - run: uv pip freeze
       - run: uv run pytest
+
+  test-python-cov:
+    name: test-python-cov-${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [ x86_64 ]
+        python-version: [ "3.12" ]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: setup-rust-cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "v0-rust-test-python-cov-${{ matrix.python-version }}"
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - name: install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: install deps
+        run: |
+          uv sync
+      - run: rustc --version --verbose
+      - run: uv pip freeze
+      - name: Run coverage
+        run: |
+          source <(cargo llvm-cov show-env --export-prefix)
+          export CARGO_TARGET_DIR=$CARGO_LLVM_COV_TARGET_DIR
+          export CARGO_INCREMENTAL=1
+          cargo llvm-cov clean --workspace --profraw-only
+          uv run -- maturin develop --uv
+          uv run -- pytest tests --cov=ry --cov-report xml
+          cargo llvm-cov report --lcov --output-path coverage.lcov
+      - uses: codecov/codecov-action@v5
+        # allow the action to fail bc idgaf about codecov but its nice to see (yolo)
+        continue-on-error: true
+        with:
+          files: coverage.lcov,coverage.xml
+          name: cov-python-${{ matrix.python-version }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: jessekrubin/ry

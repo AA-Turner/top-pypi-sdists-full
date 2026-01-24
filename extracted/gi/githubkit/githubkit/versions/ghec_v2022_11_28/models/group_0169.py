@@ -9,47 +9,45 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
+from typing import Literal
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
 
 
-class IssueType(GitHubModel):
-    """Issue Type
+class RepositoryRuleMergeQueuePropParameters(GitHubModel):
+    """RepositoryRuleMergeQueuePropParameters"""
 
-    The type of issue.
-    """
-
-    id: int = Field(description="The unique identifier of the issue type.")
-    node_id: str = Field(description="The node identifier of the issue type.")
-    name: str = Field(description="The name of the issue type.")
-    description: Union[str, None] = Field(
-        description="The description of the issue type."
+    check_response_timeout_minutes: int = Field(
+        le=360.0,
+        ge=1.0,
+        description="Maximum time for a required status check to report a conclusion. After this much time has elapsed, checks that have not reported a conclusion will be assumed to have failed",
     )
-    color: Missing[
-        Union[
-            None,
-            Literal[
-                "gray", "blue", "green", "yellow", "orange", "red", "pink", "purple"
-            ],
-        ]
-    ] = Field(default=UNSET, description="The color of the issue type.")
-    created_at: Missing[datetime] = Field(
-        default=UNSET, description="The time the issue type created."
+    grouping_strategy: Literal["ALLGREEN", "HEADGREEN"] = Field(
+        description="When set to ALLGREEN, the merge commit created by merge queue for each PR in the group must pass all required checks to merge. When set to HEADGREEN, only the commit at the head of the merge group, i.e. the commit containing changes from all of the PRs in the group, must pass its required checks to merge."
     )
-    updated_at: Missing[datetime] = Field(
-        default=UNSET, description="The time the issue type last updated."
+    max_entries_to_build: int = Field(
+        le=100.0,
+        description="Limit the number of queued pull requests requesting checks and workflow runs at the same time.",
     )
-    is_enabled: Missing[bool] = Field(
-        default=UNSET, description="The enabled state of the issue type."
+    max_entries_to_merge: int = Field(
+        le=100.0,
+        description="The maximum number of PRs that will be merged together in a group.",
+    )
+    merge_method: Literal["MERGE", "SQUASH", "REBASE"] = Field(
+        description="Method to use when merging changes from queued pull requests."
+    )
+    min_entries_to_merge: int = Field(
+        le=100.0,
+        description="The minimum number of PRs that will be merged together in a group.",
+    )
+    min_entries_to_merge_wait_minutes: int = Field(
+        le=360.0,
+        description="The time merge queue should wait after the first PR is added to the queue for the minimum group size to be met. After this time has elapsed, the minimum group size will be ignored and a smaller group will be merged.",
     )
 
 
-model_rebuild(IssueType)
+model_rebuild(RepositoryRuleMergeQueuePropParameters)
 
-__all__ = ("IssueType",)
+__all__ = ("RepositoryRuleMergeQueuePropParameters",)

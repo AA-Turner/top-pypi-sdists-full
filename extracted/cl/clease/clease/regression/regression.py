@@ -1,5 +1,4 @@
 """Collection of classess to perform regression."""
-from typing import List, Optional, Union
 
 import numpy as np
 from numpy.linalg import pinv
@@ -54,7 +53,7 @@ class LinearRegression:
         diag[mask] = 1.0 / D[mask] ** 2
         return V.dot(np.diag(diag)).dot(V.T)
 
-    def get_instance_array(self) -> List[object]:
+    def get_instance_array(self) -> list[object]:
         return [LinearRegression()]
 
     def is_scalar(self):
@@ -90,7 +89,7 @@ class Tikhonov(LinearRegression):
 
     def __init__(
         self,
-        alpha: Union[float, np.ndarray] = 1e-5,
+        alpha: float | np.ndarray = 1e-5,
         penalize_bias_term: bool = False,
         normalize: bool = True,
     ) -> None:
@@ -166,8 +165,8 @@ class Tikhonov(LinearRegression):
         alpha_min: float,
         alpha_max: float,
         num_alpha: int = 10,
-        scale: Optional[str] = "log",
-    ) -> List[object]:
+        scale: str | None = "log",
+    ) -> list[object]:
         if scale == "log":
             alpha = np.logspace(
                 np.log10(alpha_min), np.log10(alpha_max), int(num_alpha), endpoint=True
@@ -219,7 +218,7 @@ class Lasso(LinearRegression):
     @staticmethod
     def get_instance_array(
         alpha_min: float, alpha_max: float, num_alpha: int = 10, scale: str = "log"
-    ) -> List[object]:
+    ) -> list[object]:
         if scale == "log":
             alpha = np.logspace(
                 np.log10(alpha_min), np.log10(alpha_max), int(num_alpha), endpoint=True

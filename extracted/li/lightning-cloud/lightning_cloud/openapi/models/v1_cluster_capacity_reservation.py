@@ -41,49 +41,120 @@ class V1ClusterCapacityReservation(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'aggregate_availability': 'str',
         'capacity_reservation_type': 'str',
         'cloud_provider_capacity_reservation_id': 'str',
         'cluster_id': 'str',
+        'end_time': 'datetime',
+        'full_cloud_provider_reservation_string': 'str',
         'id': 'str',
+        'in_use': 'str',
+        'in_use_aggregate': 'str',
         'instance_type': 'str',
         'match_pattern': 'str',
-        'project_id': 'str'
+        'node_group_name': 'str',
+        'num_instances': 'str',
+        'project_id': 'str',
+        'region': 'str',
+        'start_time': 'datetime',
+        'zone': 'str'
     }
 
     attribute_map = {
+        'aggregate_availability': 'aggregateAvailability',
         'capacity_reservation_type': 'capacityReservationType',
         'cloud_provider_capacity_reservation_id': 'cloudProviderCapacityReservationId',
         'cluster_id': 'clusterId',
+        'end_time': 'endTime',
+        'full_cloud_provider_reservation_string': 'fullCloudProviderReservationString',
         'id': 'id',
+        'in_use': 'inUse',
+        'in_use_aggregate': 'inUseAggregate',
         'instance_type': 'instanceType',
         'match_pattern': 'matchPattern',
-        'project_id': 'projectId'
+        'node_group_name': 'nodeGroupName',
+        'num_instances': 'numInstances',
+        'project_id': 'projectId',
+        'region': 'region',
+        'start_time': 'startTime',
+        'zone': 'zone'
     }
 
-    def __init__(self, capacity_reservation_type: 'str' =None, cloud_provider_capacity_reservation_id: 'str' =None, cluster_id: 'str' =None, id: 'str' =None, instance_type: 'str' =None, match_pattern: 'str' =None, project_id: 'str' =None):  # noqa: E501
+    def __init__(self, aggregate_availability: 'str' =None, capacity_reservation_type: 'str' =None, cloud_provider_capacity_reservation_id: 'str' =None, cluster_id: 'str' =None, end_time: 'datetime' =None, full_cloud_provider_reservation_string: 'str' =None, id: 'str' =None, in_use: 'str' =None, in_use_aggregate: 'str' =None, instance_type: 'str' =None, match_pattern: 'str' =None, node_group_name: 'str' =None, num_instances: 'str' =None, project_id: 'str' =None, region: 'str' =None, start_time: 'datetime' =None, zone: 'str' =None):  # noqa: E501
         """V1ClusterCapacityReservation - a model defined in Swagger"""  # noqa: E501
+        self._aggregate_availability = None
         self._capacity_reservation_type = None
         self._cloud_provider_capacity_reservation_id = None
         self._cluster_id = None
+        self._end_time = None
+        self._full_cloud_provider_reservation_string = None
         self._id = None
+        self._in_use = None
+        self._in_use_aggregate = None
         self._instance_type = None
         self._match_pattern = None
+        self._node_group_name = None
+        self._num_instances = None
         self._project_id = None
+        self._region = None
+        self._start_time = None
+        self._zone = None
         self.discriminator = None
+        if aggregate_availability is not None:
+            self.aggregate_availability = aggregate_availability
         if capacity_reservation_type is not None:
             self.capacity_reservation_type = capacity_reservation_type
         if cloud_provider_capacity_reservation_id is not None:
             self.cloud_provider_capacity_reservation_id = cloud_provider_capacity_reservation_id
         if cluster_id is not None:
             self.cluster_id = cluster_id
+        if end_time is not None:
+            self.end_time = end_time
+        if full_cloud_provider_reservation_string is not None:
+            self.full_cloud_provider_reservation_string = full_cloud_provider_reservation_string
         if id is not None:
             self.id = id
+        if in_use is not None:
+            self.in_use = in_use
+        if in_use_aggregate is not None:
+            self.in_use_aggregate = in_use_aggregate
         if instance_type is not None:
             self.instance_type = instance_type
         if match_pattern is not None:
             self.match_pattern = match_pattern
+        if node_group_name is not None:
+            self.node_group_name = node_group_name
+        if num_instances is not None:
+            self.num_instances = num_instances
         if project_id is not None:
             self.project_id = project_id
+        if region is not None:
+            self.region = region
+        if start_time is not None:
+            self.start_time = start_time
+        if zone is not None:
+            self.zone = zone
+
+    @property
+    def aggregate_availability(self) -> 'str':
+        """Gets the aggregate_availability of this V1ClusterCapacityReservation.  # noqa: E501
+
+
+        :return: The aggregate_availability of this V1ClusterCapacityReservation.  # noqa: E501
+        :rtype: str
+        """
+        return self._aggregate_availability
+
+    @aggregate_availability.setter
+    def aggregate_availability(self, aggregate_availability: 'str'):
+        """Sets the aggregate_availability of this V1ClusterCapacityReservation.
+
+
+        :param aggregate_availability: The aggregate_availability of this V1ClusterCapacityReservation.  # noqa: E501
+        :type: str
+        """
+
+        self._aggregate_availability = aggregate_availability
 
     @property
     def capacity_reservation_type(self) -> 'str':
@@ -149,6 +220,48 @@ class V1ClusterCapacityReservation(object):
         self._cluster_id = cluster_id
 
     @property
+    def end_time(self) -> 'datetime':
+        """Gets the end_time of this V1ClusterCapacityReservation.  # noqa: E501
+
+
+        :return: The end_time of this V1ClusterCapacityReservation.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._end_time
+
+    @end_time.setter
+    def end_time(self, end_time: 'datetime'):
+        """Sets the end_time of this V1ClusterCapacityReservation.
+
+
+        :param end_time: The end_time of this V1ClusterCapacityReservation.  # noqa: E501
+        :type: datetime
+        """
+
+        self._end_time = end_time
+
+    @property
+    def full_cloud_provider_reservation_string(self) -> 'str':
+        """Gets the full_cloud_provider_reservation_string of this V1ClusterCapacityReservation.  # noqa: E501
+
+
+        :return: The full_cloud_provider_reservation_string of this V1ClusterCapacityReservation.  # noqa: E501
+        :rtype: str
+        """
+        return self._full_cloud_provider_reservation_string
+
+    @full_cloud_provider_reservation_string.setter
+    def full_cloud_provider_reservation_string(self, full_cloud_provider_reservation_string: 'str'):
+        """Sets the full_cloud_provider_reservation_string of this V1ClusterCapacityReservation.
+
+
+        :param full_cloud_provider_reservation_string: The full_cloud_provider_reservation_string of this V1ClusterCapacityReservation.  # noqa: E501
+        :type: str
+        """
+
+        self._full_cloud_provider_reservation_string = full_cloud_provider_reservation_string
+
+    @property
     def id(self) -> 'str':
         """Gets the id of this V1ClusterCapacityReservation.  # noqa: E501
 
@@ -168,6 +281,48 @@ class V1ClusterCapacityReservation(object):
         """
 
         self._id = id
+
+    @property
+    def in_use(self) -> 'str':
+        """Gets the in_use of this V1ClusterCapacityReservation.  # noqa: E501
+
+
+        :return: The in_use of this V1ClusterCapacityReservation.  # noqa: E501
+        :rtype: str
+        """
+        return self._in_use
+
+    @in_use.setter
+    def in_use(self, in_use: 'str'):
+        """Sets the in_use of this V1ClusterCapacityReservation.
+
+
+        :param in_use: The in_use of this V1ClusterCapacityReservation.  # noqa: E501
+        :type: str
+        """
+
+        self._in_use = in_use
+
+    @property
+    def in_use_aggregate(self) -> 'str':
+        """Gets the in_use_aggregate of this V1ClusterCapacityReservation.  # noqa: E501
+
+
+        :return: The in_use_aggregate of this V1ClusterCapacityReservation.  # noqa: E501
+        :rtype: str
+        """
+        return self._in_use_aggregate
+
+    @in_use_aggregate.setter
+    def in_use_aggregate(self, in_use_aggregate: 'str'):
+        """Sets the in_use_aggregate of this V1ClusterCapacityReservation.
+
+
+        :param in_use_aggregate: The in_use_aggregate of this V1ClusterCapacityReservation.  # noqa: E501
+        :type: str
+        """
+
+        self._in_use_aggregate = in_use_aggregate
 
     @property
     def instance_type(self) -> 'str':
@@ -212,6 +367,48 @@ class V1ClusterCapacityReservation(object):
         self._match_pattern = match_pattern
 
     @property
+    def node_group_name(self) -> 'str':
+        """Gets the node_group_name of this V1ClusterCapacityReservation.  # noqa: E501
+
+
+        :return: The node_group_name of this V1ClusterCapacityReservation.  # noqa: E501
+        :rtype: str
+        """
+        return self._node_group_name
+
+    @node_group_name.setter
+    def node_group_name(self, node_group_name: 'str'):
+        """Sets the node_group_name of this V1ClusterCapacityReservation.
+
+
+        :param node_group_name: The node_group_name of this V1ClusterCapacityReservation.  # noqa: E501
+        :type: str
+        """
+
+        self._node_group_name = node_group_name
+
+    @property
+    def num_instances(self) -> 'str':
+        """Gets the num_instances of this V1ClusterCapacityReservation.  # noqa: E501
+
+
+        :return: The num_instances of this V1ClusterCapacityReservation.  # noqa: E501
+        :rtype: str
+        """
+        return self._num_instances
+
+    @num_instances.setter
+    def num_instances(self, num_instances: 'str'):
+        """Sets the num_instances of this V1ClusterCapacityReservation.
+
+
+        :param num_instances: The num_instances of this V1ClusterCapacityReservation.  # noqa: E501
+        :type: str
+        """
+
+        self._num_instances = num_instances
+
+    @property
     def project_id(self) -> 'str':
         """Gets the project_id of this V1ClusterCapacityReservation.  # noqa: E501
 
@@ -231,6 +428,69 @@ class V1ClusterCapacityReservation(object):
         """
 
         self._project_id = project_id
+
+    @property
+    def region(self) -> 'str':
+        """Gets the region of this V1ClusterCapacityReservation.  # noqa: E501
+
+
+        :return: The region of this V1ClusterCapacityReservation.  # noqa: E501
+        :rtype: str
+        """
+        return self._region
+
+    @region.setter
+    def region(self, region: 'str'):
+        """Sets the region of this V1ClusterCapacityReservation.
+
+
+        :param region: The region of this V1ClusterCapacityReservation.  # noqa: E501
+        :type: str
+        """
+
+        self._region = region
+
+    @property
+    def start_time(self) -> 'datetime':
+        """Gets the start_time of this V1ClusterCapacityReservation.  # noqa: E501
+
+
+        :return: The start_time of this V1ClusterCapacityReservation.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._start_time
+
+    @start_time.setter
+    def start_time(self, start_time: 'datetime'):
+        """Sets the start_time of this V1ClusterCapacityReservation.
+
+
+        :param start_time: The start_time of this V1ClusterCapacityReservation.  # noqa: E501
+        :type: datetime
+        """
+
+        self._start_time = start_time
+
+    @property
+    def zone(self) -> 'str':
+        """Gets the zone of this V1ClusterCapacityReservation.  # noqa: E501
+
+
+        :return: The zone of this V1ClusterCapacityReservation.  # noqa: E501
+        :rtype: str
+        """
+        return self._zone
+
+    @zone.setter
+    def zone(self, zone: 'str'):
+        """Sets the zone of this V1ClusterCapacityReservation.
+
+
+        :param zone: The zone of this V1ClusterCapacityReservation.  # noqa: E501
+        :type: str
+        """
+
+        self._zone = zone
 
     def to_dict(self) -> dict:
         """Returns the model properties as a dict"""

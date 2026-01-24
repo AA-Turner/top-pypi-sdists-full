@@ -10,6 +10,7 @@ from chalk.sql._internal.integrations.clickhouse import ClickhouseSourceImpl
 from chalk.sql._internal.integrations.cloudsql import CloudSQLSourceImpl
 from chalk.sql._internal.integrations.databricks import DatabricksSourceImpl
 from chalk.sql._internal.integrations.dynamodb import DynamoDBSourceImpl
+from chalk.sql._internal.integrations.mssql import MSSQLSourceImpl
 from chalk.sql._internal.integrations.mysql import MySQLSourceImpl
 from chalk.sql._internal.integrations.postgres import PostgreSQLSourceImpl
 from chalk.sql._internal.integrations.redshift import RedshiftSourceImpl
@@ -464,6 +465,196 @@ def MySQLSource(
     )
 
 
+@overload
+def MSSQLSource() -> SQLSourceWithTableIngestProtocol:
+    """If you have only one MSSQL connection that you'd like
+    to add to Chalk, you do not need to specify any arguments
+    to construct the source in your code.
+
+    Returns
+    -------
+    SQLSourceWithTableIngestProtocol
+        The SQL source for use in Chalk resolvers.
+
+    Examples
+    --------
+    >>> mssql = MSSQLSource()
+    """
+    ...
+
+
+@overload
+def MSSQLSource(
+    *,
+    name: str,
+    engine_args: Optional[Dict[str, Any]] = ...,
+    async_engine_args: Optional[Dict[str, Any]] = ...,
+) -> SQLSourceWithTableIngestProtocol:
+    """If you have only one MSSQL integration, there's no need to provide
+    a distinguishing name.
+
+    But what happens when you have two data sources of the same kind?
+    When you create a new data source from your dashboard,
+    you have an option to provide a name for the integration.
+    You can then reference this name in the code directly.
+
+    Parameters
+    ----------
+    name
+        Name of the integration, as configured in your dashboard.
+    engine_args
+        Additional arguments to use when constructing the SQLAlchemy engine. These arguments will be
+        merged with any default arguments from the named integration.
+    async_engine_args
+        Additional arguments to use when constructing an async SQLAlchemy engine.
+
+    Returns
+    -------
+    SQLSourceWithTableIngestProtocol
+        The SQL source for use in Chalk resolvers.
+
+    Examples
+    --------
+    >>> source = MSSQLSource(name="RISK")
+    """
+    ...
+
+
+@overload
+def MSSQLSource(
+    *,
+    name: str | None = ...,
+    host: str,
+    port: Union[int, str] = ...,
+    db: str = ...,
+    user: str = ...,
+    password: str = ...,
+    client_id: str = ...,
+    client_secret: str = ...,
+    tenant_id: str = ...,
+    engine_args: Optional[Dict[str, Any]] = ...,
+    async_engine_args: Optional[Dict[str, Any]] = ...,
+) -> SQLSourceWithTableIngestProtocol:
+    """
+    You can also configure the integration directly using environment
+    variables on your local machine or from those added through the
+    generic environment variable support (https://docs.chalk.ai/docs/env-vars).
+
+    Authentication Methods:
+    - SQL Authentication: Provide `user` and `password`
+    - Azure AD Managed Identity: Leave `user`, `password`, `client_id`, `client_secret`, and `tenant_id` empty
+    - Azure AD Service Principal: Provide `client_id`, `client_secret`, and `tenant_id`
+
+    Parameters
+    ----------
+    name
+        Name of the integration. Not required unless if this SQL Source is used within SQL File Resolvers.
+    host
+        Name of host to connect to.
+    port
+        The port number to connect to at the server host.
+    db
+        The database name.
+    user
+        MSSQL username to connect as (for SQL authentication).
+    password
+        The password to be used for SQL authentication.
+    client_id
+        Azure AD Client ID (for Service Principal authentication).
+    client_secret
+        Azure AD Client Secret (for Service Principal authentication).
+    tenant_id
+        Azure AD Tenant ID (for Service Principal authentication).
+    engine_args
+        Additional arguments to use when constructing the SQLAlchemy engine.
+    async_engine_args
+        Additional arguments to use when constructing an async SQLAlchemy engine.
+
+    Returns
+    -------
+    SQLSourceWithTableIngestProtocol
+        The SQL source for use in Chalk resolvers.
+
+    Examples
+    --------
+    SQL Authentication:
+    >>> import os
+    >>> mssql = MSSQLSource(
+    ...     host=os.getenv("MSSQL_HOST"),
+    ...     port=os.getenv("MSSQL_TCP_PORT"),
+    ...     db=os.getenv("MSSQL_DATABASE"),
+    ...     user=os.getenv("MSSQL_USER"),
+    ...     password=os.getenv("MSSQL_PWD"),
+    ... )
+
+    Managed Identity (running in Azure):
+    >>> mssql = MSSQLSource(
+    ...     host=os.getenv("MSSQL_HOST"),
+    ...     port=os.getenv("MSSQL_TCP_PORT"),
+    ...     db=os.getenv("MSSQL_DATABASE"),
+    ... )
+
+    Service Principal:
+    >>> mssql = MSSQLSource(
+    ...     host=os.getenv("MSSQL_HOST"),
+    ...     port=os.getenv("MSSQL_TCP_PORT"),
+    ...     db=os.getenv("MSSQL_DATABASE"),
+    ...     client_id=os.getenv("MSSQL_CLIENT_ID"),
+    ...     client_secret=os.getenv("MSSQL_CLIENT_SECRET"),
+    ...     tenant_id=os.getenv("MSSQL_TENANT_ID"),
+    ... )
+
+    >>> from chalk.features import online
+    >>> @online
+    ... def resolver_fn() -> User.name:
+    ...     return mssql.query_string("select name from users where id = 4").one()
+    """
+    ...
+
+
+def MSSQLSource(
+    *,
+    host: Optional[str] = None,
+    port: Optional[Union[int, str]] = None,
+    db: Optional[str] = None,
+    user: Optional[str] = None,
+    password: Optional[str] = None,
+    client_id: Optional[str] = None,
+    client_secret: Optional[str] = None,
+    tenant_id: Optional[str] = None,
+    name: Optional[str] = None,
+    engine_args: Optional[Dict[str, Any]] = None,
+    async_engine_args: Optional[Dict[str, Any]] = None,
+) -> SQLSourceWithTableIngestProtocol:
+    """Create a MSSQL data source. SQL-based data sources
+    created without arguments assume a configuration in your
+    Chalk Dashboard. Those created with the `name=` keyword
+    argument will use the configuration for the integration
+    with the given name. And finally, those created with
+    explicit arguments will use those arguments to configure
+    the data source. See the overloaded signatures for more
+    details.
+
+    Supports three authentication methods:
+    - SQL Authentication: user + password
+    - Azure AD Managed Identity: no credentials (automatic in Azure)
+    - Azure AD Service Principal: client_id + client_secret + tenant_id
+    """
+    return MSSQLSourceImpl(
+        host=host,
+        port=port,
+        db=db,
+        user=user,
+        password=password,
+        client_id=client_id,
+        client_secret=client_secret,
+        tenant_id=tenant_id,
+        name=name,
+        engine_args=engine_args,
+        async_engine_args=async_engine_args,
+    )
+
+
 def SQLiteInMemorySource(
     name: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
@@ -848,6 +1039,8 @@ def BigQuerySource(
     credentials_base64: Optional[str] = ...,
     credentials_path: Optional[str] = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
+    temp_project: Optional[str] = ...,
+    temp_dataset: Optional[str] = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -869,6 +1062,10 @@ def BigQuerySource(
         The path to the credentials file to use to connect.
     engine_args
         Additional arguments to use when constructing the SQLAlchemy engine.
+    temp_project
+        The BigQuery project to use for temporary tables.
+    temp_dataset
+        The BigQuery dataset to use for temporary tables.
 
     Returns
     -------
@@ -897,6 +1094,8 @@ def BigQuerySource(
     credentials_base64: Optional[str] = None,
     credentials_path: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
+    temp_project: Optional[str] = None,
+    temp_dataset: Optional[str] = None,
 ) -> BaseSQLSourceProtocol:
     """Create a BigQuery data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -914,6 +1113,8 @@ def BigQuerySource(
         location=location,
         credentials_base64=credentials_base64,
         credentials_path=credentials_path,
+        temp_project=temp_project,
+        temp_dataset=temp_dataset,
         engine_args=engine_args,
     )
 
@@ -1236,6 +1437,8 @@ def DatabricksSource(
     access_token: str = ...,
     db: str = ...,
     port: str = ...,
+    client_id: str = ...,
+    client_secret: str = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
@@ -1256,6 +1459,10 @@ def DatabricksSource(
         Database to use.
     port
         Port number to use.
+    client_id
+        OAuth service principal client ID (alternative to access_token).
+    client_secret
+        OAuth service principal client secret (alternative to access_token).
     engine_args
         Additional arguments to use when constructing the SQLAlchemy engine.
 
@@ -1274,6 +1481,14 @@ def DatabricksSource(
     ...     db=os.getenv("DATABRICKS_DATABASE"),
     ...     port=os.getenv("DATABRICKS_PORT"),
     ... )
+    >>> databricks_with_oauth = DatabricksSource(
+    ...     host=os.getenv("DATABRICKS_HOST"),
+    ...     http_path=os.getenv("DATABRICKS_HTTP_PATH"),
+    ...     client_id=os.getenv("DATABRICKS_CLIENT_ID"),
+    ...     client_secret=os.getenv("DATABRICKS_CLIENT_SECRET"),
+    ...     db=os.getenv("DATABRICKS_DATABASE"),
+    ...     port=os.getenv("DATABRICKS_PORT"),
+    ... )
     """
     ...
 
@@ -1286,6 +1501,8 @@ def DatabricksSource(
     access_token: Optional[str] = None,
     db: Optional[str] = None,
     port: Optional[Union[str, int]] = None,
+    client_id: Optional[str] = None,
+    client_secret: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
 ) -> BaseSQLSourceProtocol:
     """Create a Databricks data source. SQL-based data sources
@@ -1304,6 +1521,8 @@ def DatabricksSource(
         db=db,
         port=port,
         name=name,
+        client_id=client_id,
+        client_secret=client_secret,
         engine_args=engine_args,
     )
 
@@ -1747,6 +1966,8 @@ __all__ = (
     "DynamoDBSource",
     "FinalizedChalkQuery",
     "IncrementalSettings",
+    "MSSQLSource",
+    "MSSQLSourceImpl",
     "MySQLSource",
     "PostgreSQLSource",
     "RedshiftSource",

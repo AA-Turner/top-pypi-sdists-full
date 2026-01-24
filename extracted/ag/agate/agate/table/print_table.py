@@ -56,7 +56,7 @@ def print_table(self, max_rows=20, max_columns=6, output=sys.stdout, max_column_
     column_names = []
     for column_name in self.column_names[:max_columns]:
         if max_column_width is not None and len(column_name) > max_column_width:
-            column_names.append('%s%s' % (column_name[:max_column_width - len_truncation], truncation))
+            column_names.append('{}{}'.format(column_name[:max_column_width - len_truncation], truncation))
         else:
             column_names.append(column_name)
 
@@ -101,10 +101,10 @@ def print_table(self, max_rows=20, max_columns=6, output=sys.stdout, max_column_
                     locale=locale
                 )
             else:
-                v = str(v)
+                v = str(v).replace('\n', '↵')
 
             if max_column_width is not None and len(v) > max_column_width:
-                v = '%s%s' % (v[:max_column_width - len_truncation], truncation)
+                v = '{}{}'.format(v[:max_column_width - len_truncation], truncation)
 
             if len(v) > widths[j]:
                 widths[j] = len(v)

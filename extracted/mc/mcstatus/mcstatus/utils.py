@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import inspect
 import warnings
 from collections.abc import Callable, Iterable
@@ -68,7 +67,7 @@ def retry(tries: int, exceptions: tuple[type[BaseException]] = (Exception,)) -> 
 
         # We cast here since pythons typing doesn't support adding keyword-only arguments to signature
         # (Support for this was a rejected idea https://peps.python.org/pep-0612/#concatenating-keyword-parameters)
-        if asyncio.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
             return cast("Callable[P, R]", async_wrapper)
         return cast("Callable[P, R]", sync_wrapper)
 
@@ -184,3 +183,37 @@ def deprecated(
     if obj:
         return decorate(obj)
     return decorate
+
+
+def or_none(*args: T) -> T | None:
+    """Return the first non-None argument.
+
+    This function is similar to the standard inline ``or`` operator, while
+    treating falsey values (such as ``0``, ``''``, or ``False``) as valid
+    results rather than skipping them. It only skips ``None`` values.
+
+    This is useful when selecting between optional values that may be empty
+    but still meaningful.
+
+    Example:
+        .. code-block:: py
+            >>> or_none("", 0, "fallback")
+            ''
+            >>> or_none(None, None, "value")
+            'value'
+            >>> or_none(None, None)
+            None
+
+        This is often useful when working with dict.get, e.g.:
+
+         .. code-block:: py
+            >>> mydict = {"a": ""}
+            >>> mydict.get("a") or mydict.get("b")
+            None  # expected ''!
+            >>> or_none(mydict.get("a"), mydict.get("b"))
+            ''
+    """
+    for arg in args:
+        if arg is not None:
+            return arg
+    return None

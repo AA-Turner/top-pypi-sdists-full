@@ -19,8 +19,10 @@ Usage::
         GetEnabledStandardsPaginator,
         GetFindingHistoryPaginator,
         GetFindingsPaginator,
+        GetFindingsTrendsV2Paginator,
         GetFindingsV2Paginator,
         GetInsightsPaginator,
+        GetResourcesTrendsV2Paginator,
         GetResourcesV2Paginator,
         ListAggregatorsV2Paginator,
         ListConfigurationPoliciesPaginator,
@@ -46,8 +48,10 @@ Usage::
     get_enabled_standards_paginator: GetEnabledStandardsPaginator = client.get_paginator("get_enabled_standards")
     get_finding_history_paginator: GetFindingHistoryPaginator = client.get_paginator("get_finding_history")
     get_findings_paginator: GetFindingsPaginator = client.get_paginator("get_findings")
+    get_findings_trends_v2_paginator: GetFindingsTrendsV2Paginator = client.get_paginator("get_findings_trends_v2")
     get_findings_v2_paginator: GetFindingsV2Paginator = client.get_paginator("get_findings_v2")
     get_insights_paginator: GetInsightsPaginator = client.get_paginator("get_insights")
+    get_resources_trends_v2_paginator: GetResourcesTrendsV2Paginator = client.get_paginator("get_resources_trends_v2")
     get_resources_v2_paginator: GetResourcesV2Paginator = client.get_paginator("get_resources_v2")
     list_aggregators_v2_paginator: ListAggregatorsV2Paginator = client.get_paginator("list_aggregators_v2")
     list_configuration_policies_paginator: ListConfigurationPoliciesPaginator = client.get_paginator("list_configuration_policies")
@@ -72,8 +76,10 @@ from .paginator import (
     GetEnabledStandardsPaginator,
     GetFindingHistoryPaginator,
     GetFindingsPaginator,
+    GetFindingsTrendsV2Paginator,
     GetFindingsV2Paginator,
     GetInsightsPaginator,
+    GetResourcesTrendsV2Paginator,
     GetResourcesV2Paginator,
     ListAggregatorsV2Paginator,
     ListConfigurationPoliciesPaginator,
@@ -100,8 +106,10 @@ __all__ = (
     "GetEnabledStandardsPaginator",
     "GetFindingHistoryPaginator",
     "GetFindingsPaginator",
+    "GetFindingsTrendsV2Paginator",
     "GetFindingsV2Paginator",
     "GetInsightsPaginator",
+    "GetResourcesTrendsV2Paginator",
     "GetResourcesV2Paginator",
     "ListAggregatorsV2Paginator",
     "ListConfigurationPoliciesPaginator",

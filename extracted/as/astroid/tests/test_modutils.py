@@ -20,7 +20,6 @@ from pytest import CaptureFixture, LogCaptureFixture
 
 import astroid
 from astroid import modutils
-from astroid.const import PY310_PLUS
 from astroid.interpreter._import import spec
 
 from . import resources
@@ -162,7 +161,7 @@ class ModPathFromFileTest(unittest.TestCase):
         )
 
     def test_raise_modpath_from_file_exception(self) -> None:
-        self.assertRaises(Exception, modutils.modpath_from_file, "/turlututu")
+        self.assertRaises(ImportError, modutils.modpath_from_file, "/turlututu")
 
     def test_import_symlink_with_source_outside_of_path(self) -> None:
         with tempfile.NamedTemporaryFile() as tmpfile:
@@ -174,6 +173,37 @@ class ModPathFromFileTest(unittest.TestCase):
                 )
             finally:
                 os.remove(linked_file_name)
+
+    def test_modpath_from_file_path_order(self) -> None:
+        """Test for ordering of paths.
+        The test does the following:
+        1. Add a tmp directory to beginning of sys.path via augmented_sys_path
+        2. Create a module file in sub directory of tmp directory
+        3. If the sub directory is passed as additional directory, module name
+           should be relative to the subdirectory since additional directory has
+           higher precedence."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with resources.augmented_sys_path([tmp_dir]):
+                mod_name = "module"
+                sub_dirname = "subdir"
+                sub_dir = tmp_dir + "/" + sub_dirname
+                os.mkdir(sub_dir)
+                module_file = f"{sub_dir}/{mod_name}.py"
+
+                with open(module_file, "w+", encoding="utf-8"):
+                    pass
+
+                # Without additional directory, return relative to tmp_dir
+                self.assertEqual(
+                    modutils.modpath_from_file(module_file), [sub_dirname, mod_name]
+                )
+
+                # With sub directory as additional directory, return relative to
+                # sub directory
+                self.assertEqual(
+                    modutils.modpath_from_file(f"{sub_dir}/{mod_name}.py", [sub_dir]),
+                    [mod_name],
+                )
 
     def test_import_symlink_both_outside_of_path(self) -> None:
         with tempfile.NamedTemporaryFile() as tmpfile:
@@ -469,18 +499,6 @@ class ModuleInPathTest(resources.SysPathSetup, unittest.TestCase):
         datadir = resources.find("")
         assert not modutils.module_in_path("etree", datadir)
         assert not modutils.module_in_path("astroid", datadir)
-
-
-class BackportStdlibNamesTest(resources.SysPathSetup, unittest.TestCase):
-    """
-    Verify backport raises exception on newer versions
-    """
-
-    @pytest.mark.skipif(not PY310_PLUS, reason="Backport valid on <=3.9")
-    def test_import_error(self) -> None:
-        with pytest.raises(AssertionError):
-            # pylint: disable-next=import-outside-toplevel, unused-import
-            from astroid import _backport_stdlib_names  # noqa
 
 
 class IsRelativeTest(unittest.TestCase):

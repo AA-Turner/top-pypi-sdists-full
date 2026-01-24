@@ -1,17 +1,18 @@
 Metadata-Version: 2.4
 Name: puccinialin
-Version: 0.1.5
+Version: 0.1.8
 Summary: Install rust into a temporary directory for boostrapping a rust-based build backend
-Project-URL: repository, https://github.com/konstin/puccinialin
 Author-email: konstin <konstin@mailbox.org>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
 License-Expression: MIT OR Apache-2.0
 License-File: license-apache
 License-File: license-mit
-Requires-Python: >=3.9
-Requires-Dist: httpx<0.29,>=0.28.1
-Requires-Dist: platformdirs<5,>=4.3.6
-Requires-Dist: tqdm<5,>=4.67.1
-Description-Content-Type: text/markdown
+Requires-Dist: filelock>=3.19.1,<4.0.0
+Requires-Dist: httpx>=0.28.1,<0.29
+Requires-Dist: platformdirs>=4.3.6,<5
+Requires-Dist: tqdm>=4.67.1,<5
+Project-URL: repository, https://github.com/konstin/puccinialin
 
 # puccinialin
 
@@ -127,3 +128,4 @@ Setting up rust consists of 4 steps:
 - Download `rustup-init` for this target triple
 - Use rustup to install rust and cargo for this target
 - Report the environment variables to use this rust installation
+

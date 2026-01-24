@@ -41,6 +41,7 @@ from ...prim import (
     Party,
     TimeDeltaLike,
     datetime_to_timestamp,
+    timedelta_to_duration,
     to_parties,
     to_timedelta,
 )
@@ -176,6 +177,8 @@ class Connection(aio.Connection):
         act_as: Optional[Parties] = None,
         application_name: Optional[str] = None,
         user_id: Optional[str] = None,
+        deduplication_duration: Optional[TimeDeltaLike] = None,
+        deduplication_offset: Optional[str] = None,
         token: Optional[TokenOrTokenProvider] = None,
         timeout: Optional[TimeDeltaLike] = None,
     ) -> None:
@@ -199,6 +202,8 @@ class Connection(aio.Connection):
             act_as=act_as,
             application_name=application_name,
             user_id=user_id,
+            deduplication_duration=deduplication_duration,
+            deduplication_offset=deduplication_offset,
             token=token,
             timeout=timeout,
         ) as call:
@@ -232,6 +237,8 @@ class Connection(aio.Connection):
         act_as: Optional[Parties] = None,
         application_name: Optional[str] = None,
         user_id: Optional[str] = None,
+        deduplication_duration: Optional[TimeDeltaLike] = None,
+        deduplication_offset: Optional[str] = None,
         token: Optional[TokenOrTokenProvider] = None,
         timeout: Optional[TimeDeltaLike] = None,
     ) -> CreateEvent:
@@ -275,6 +282,8 @@ class Connection(aio.Connection):
             act_as=act_as,
             application_name=application_name,
             user_id=user_id,
+            deduplication_duration=deduplication_duration,
+            deduplication_offset=deduplication_offset,
             token=token,
             timeout=timeout,
         ) as call:
@@ -303,12 +312,15 @@ class Connection(aio.Connection):
         argument: Optional[ContractData] = None,
         /,
         *,
+        choice_interface_id: None | str | TypeConName = None,
         workflow_id: Optional[str] = None,
         command_id: Optional[str] = None,
         read_as: Optional[Parties] = None,
         act_as: Optional[Parties] = None,
         application_name: Optional[str] = None,
         user_id: Optional[str] = None,
+        deduplication_duration: Optional[TimeDeltaLike] = None,
+        deduplication_offset: Optional[str] = None,
         token: Optional[TokenOrTokenProvider] = None,
         timeout: Optional[TimeDeltaLike] = None,
     ) -> ExerciseResponse:
@@ -348,6 +360,9 @@ class Connection(aio.Connection):
             The return value of the choice, together with a list of events that occurred as a result
             of exercising the choice.
         """
+        if choice_interface_id is not None:
+            contract_id = contract_id.to_interface(choice_interface_id)
+
         with self._call(
             workflow_id=workflow_id,
             command_id=command_id,
@@ -355,6 +370,8 @@ class Connection(aio.Connection):
             act_as=act_as,
             application_name=application_name,
             user_id=user_id,
+            deduplication_duration=deduplication_duration,
+            deduplication_offset=deduplication_offset,
             token=token,
             timeout=timeout,
         ) as call:
@@ -390,6 +407,8 @@ class Connection(aio.Connection):
         act_as: Optional[Parties] = None,
         application_name: Optional[str] = None,
         user_id: Optional[str] = None,
+        deduplication_duration: Optional[TimeDeltaLike] = None,
+        deduplication_offset: Optional[str] = None,
         token: Optional[TokenOrTokenProvider] = None,
         timeout: Optional[TimeDeltaLike] = None,
     ) -> ExerciseResponse:
@@ -439,6 +458,8 @@ class Connection(aio.Connection):
             act_as=act_as,
             application_name=application_name,
             user_id=user_id,
+            deduplication_duration=deduplication_duration,
+            deduplication_offset=deduplication_offset,
             token=token,
             timeout=timeout,
         ) as call:
@@ -474,6 +495,8 @@ class Connection(aio.Connection):
         act_as: Optional[Parties] = None,
         application_name: Optional[str] = None,
         user_id: Optional[str] = None,
+        deduplication_duration: Optional[TimeDeltaLike] = None,
+        deduplication_offset: Optional[str] = None,
         token: Optional[TokenOrTokenProvider] = None,
         timeout: Optional[TimeDeltaLike] = None,
     ) -> ExerciseResponse:
@@ -522,6 +545,8 @@ class Connection(aio.Connection):
             act_as=act_as,
             application_name=application_name,
             user_id=user_id,
+            deduplication_duration=deduplication_duration,
+            deduplication_offset=deduplication_offset,
             token=token,
             timeout=timeout,
         ) as call:
@@ -535,7 +560,10 @@ class Connection(aio.Connection):
 
             stub = call.grpc_stub(lapipb.CommandServiceStub)
             request = self._submit_and_wait_request(commands, await call.command_meta())
-            response = await stub.SubmitAndWaitForTransactionTree(request, **call.grpc_kwargs)
+            response = await retry(
+                lambda: stub.SubmitAndWaitForTransactionTree(request, **call.grpc_kwargs),
+                timeout=call.timeout,
+            )
 
             return await self._codec.decode_exercise_response(
                 response.transaction, token=call.token
@@ -552,6 +580,8 @@ class Connection(aio.Connection):
         act_as: Optional[Parties] = None,
         application_name: Optional[str] = None,
         user_id: Optional[str] = None,
+        deduplication_duration: Optional[TimeDeltaLike] = None,
+        deduplication_offset: Optional[str] = None,
         token: Optional[TokenOrTokenProvider] = None,
         timeout: Optional[TimeDeltaLike] = None,
     ) -> ArchiveEvent:
@@ -595,6 +625,8 @@ class Connection(aio.Connection):
             act_as=act_as,
             application_name=application_name,
             user_id=user_id,
+            deduplication_duration=deduplication_duration,
+            deduplication_offset=deduplication_offset,
             token=token,
             timeout=timeout,
         )
@@ -612,6 +644,8 @@ class Connection(aio.Connection):
         act_as: Optional[Parties] = None,
         application_name: Optional[str] = None,
         user_id: Optional[str] = None,
+        deduplication_duration: Optional[TimeDeltaLike] = None,
+        deduplication_offset: Optional[str] = None,
         token: Optional[TokenOrTokenProvider] = None,
         timeout: Optional[TimeDeltaLike] = None,
     ) -> ArchiveEvent:
@@ -660,6 +694,8 @@ class Connection(aio.Connection):
             act_as=act_as,
             application_name=application_name,
             user_id=user_id,
+            deduplication_duration=deduplication_duration,
+            deduplication_offset=deduplication_offset,
             token=token,
             timeout=timeout,
         )
@@ -681,6 +717,12 @@ class Connection(aio.Connection):
                 commands=commands,
                 act_as=meta.act_as,
                 read_as=meta.read_as,
+                deduplication_duration=(
+                    timedelta_to_duration(meta.deduplication_duration)
+                    if meta.deduplication_duration is not None
+                    else None
+                ),
+                deduplication_offset=meta.deduplication_offset,
             )
         )
 
@@ -1251,12 +1293,6 @@ class QueryStream(aio.QueryStreamBase):
     ) -> AsyncIterable[CreateEvent | Boundary]:
         stub = self._call.grpc_stub(lapipb.ActiveContractsServiceStub)
         request = lapipb.GetActiveContractsRequest(ledger_id=self._call.ledger_id, filter=filter_pb)
-        self._response_stream = response_stream = stub.GetActiveContracts(
-            request,
-            **self._call.grpc_kwargs,
-        )
-
-        offset = None
 
         # Unidirectional gRPC streams cannot sensibly have a deadline because the stream may be
         # open indefinitely. However, if fetching an individual message from the stream takes a
@@ -1264,6 +1300,13 @@ class QueryStream(aio.QueryStreamBase):
         # Contract Set messages are really supposed to be sent as quickly as the server can send
         # them. In other words, a long timeout pause in the middle of pulling down ACS messages
         # would be highly unusual, so we treat them as fatal
+        self._response_stream = response_stream = stub.GetActiveContracts(
+            request,
+            **self._call.grpc_kwargs_infinite_timeout,
+        )
+
+        offset = None
+
         i = response_stream.__aiter__()
         while True:
             try:
@@ -1305,7 +1348,7 @@ class QueryStream(aio.QueryStreamBase):
 
             self._response_stream = response_stream = stub.GetTransactions(
                 request,
-                **self._call.grpc_kwargs,
+                **self._call.grpc_kwargs_infinite_timeout,
             )
             i = response_stream.__aiter__()
 

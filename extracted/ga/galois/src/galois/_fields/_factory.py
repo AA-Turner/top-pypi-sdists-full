@@ -4,19 +4,22 @@ A module to implement the Galois field class factory `GF()`.
 
 from __future__ import annotations
 
+import copyreg
 import sys
 import types
-from typing import Type, overload
+import warnings
+from typing import Any, Dict, Tuple, Type, overload
 
 from typing_extensions import Literal
 
 from .._helper import export, verify_isinstance
-from .._modular import is_primitive_root, primitive_root
 from .._polys import Poly, conway_poly
 from .._prime import factors
+from .._primitive_root import is_primitive_root, primitive_root
 from ..typing import PolyLike
 from ._array import FieldArray
 from ._gf2 import GF2
+from ._meta import FieldArrayMeta
 from ._primitive_element import is_primitive_element, primitive_element
 from ._ufunc import UFuncMixin_2_m, UFuncMixin_p_1, UFuncMixin_p_m
 
@@ -333,11 +336,21 @@ def Field(
     repr=None,
 ):
     """
-    Alias of :func:`~galois.GF`.
+    Deprecated alias of :func:`~galois.GF`.
+
+    .. deprecated:: 0.4.10
+       Use :func:`~galois.GF` instead. This alias will be removed in 0.5.0.
 
     Group:
         galois-fields
     """
+
+    warnings.warn(
+        "galois.Field() is deprecated and will be removed in 0.5.0; use galois.GF() instead.",
+        category=DeprecationWarning,
+        stacklevel=2,
+    )
+
     return GF(
         *args,
         irreducible_poly=irreducible_poly,
@@ -444,14 +457,14 @@ def _GF_extension(
             # primitive polynomials.
             verify_element = False
     else:
-        irreducible_poly_ = Poly._PolyLike(irreducible_poly_, field=prime_subfield)
+        irreducible_poly_ = Poly.Like(irreducible_poly_, field=prime_subfield)
 
     # Get default primitive element
     if alpha is None:
         alpha = primitive_element(irreducible_poly_)
         verify_element = False
     else:
-        alpha = Poly._PolyLike(alpha, field=prime_subfield)
+        alpha = Poly.Like(alpha, field=prime_subfield)
 
     # Check polynomial fields and degrees
     if not irreducible_poly_.field.order == p:
@@ -520,3 +533,46 @@ def _GF_extension(
 
 
 _GF_extension._classes = {}
+
+
+def _reconstruct_field_class(args: Tuple, kwargs: Dict[str, Any]):
+    """
+    Reconstruct a field class via `galois.GF(...)`.
+
+    Pickle's reduce protocol passes positional args only, so we wrap keyword arguments
+    in a dict and unpack them here.
+    """
+    return GF(*args, **kwargs)
+
+
+def _reduce_field_class(field_cls) -> Tuple[object, Tuple[Dict[str, Any]]]:
+    """
+    Pickle reducer for dynamically-created field classes (FieldArray subclasses).
+
+    We serialize the minimal set of constructor kwargs needed to reconstruct the same
+    field class via the GF factory on unpickle.
+    """
+    args = (
+        int(field_cls.characteristic),
+        int(field_cls.degree),
+    )
+
+    kwargs: Dict[str, Any] = {
+        "primitive_element": int(field_cls.primitive_element),
+        "verify": False,
+        "compile": field_cls.ufunc_mode,  # Restore the field's current ufunc mode on reconstruction
+        "repr": field_cls.element_repr,
+    }
+
+    # Only extension fields have an irreducible polynomial. Encode as a string to avoid
+    # formatting / parsing issues.
+    if field_cls.degree > 1:
+        kwargs["irreducible_poly"] = str(field_cls.irreducible_poly)
+
+    # Return (callable, args) where args is a tuple of positional args; we pass kwargs as one arg.
+    return (_reconstruct_field_class, (args, kwargs))
+
+
+# Register pickling for the metaclass used by field classes.
+# FieldArrayMeta is your metaclass (import it appropriately here).
+copyreg.pickle(FieldArrayMeta, _reduce_field_class)

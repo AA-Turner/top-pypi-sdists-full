@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -39,12 +40,6 @@ from .type_defs import (
     UpdateScalingPlanRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -53,13 +48,13 @@ else:
 __all__ = ("AutoScalingPlansClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConcurrentUpdateException: Type[BotocoreClientError]
-    InternalServiceException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ObjectNotFoundException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentUpdateException: type[BotocoreClientError]
+    InternalServiceException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ObjectNotFoundException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class AutoScalingPlansClient(BaseClient):
     """
@@ -108,7 +103,7 @@ class AutoScalingPlansClient(BaseClient):
 
     def delete_scaling_plan(
         self, **kwargs: Unpack[DeleteScalingPlanRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified scaling plan.
 
@@ -148,7 +143,7 @@ class AutoScalingPlansClient(BaseClient):
 
     def update_scaling_plan(
         self, **kwargs: Unpack[UpdateScalingPlanRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the specified scaling plan.
 

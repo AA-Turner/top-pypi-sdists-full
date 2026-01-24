@@ -27,9 +27,7 @@ if TYPE_CHECKING:
     from datarobot.models.model import Model
 
 
-def wait_for_async_model_creation(
-    project_id: str, model_job_id: str, max_wait: int = DEFAULT_MAX_WAIT
-) -> Model:
+def wait_for_async_model_creation(project_id: str, model_job_id: str, max_wait: int = DEFAULT_MAX_WAIT) -> Model:
     """
     Given a Project id and ModelJob id poll for status of process
     responsible for model creation until model is created.
@@ -101,14 +99,12 @@ class ModelJob(AbstractSpecificJob):
 
     _extra_fields = frozenset(["sample_pct", "model_type", "processes", "featurelist_id"])
 
-    _converter_extra = t.Dict(
-        {
-            t.Key("sample_pct", optional=True): t.Float,
-            t.Key("model_type", optional=True): String,
-            t.Key("processes", optional=True): t.List(String),
-            t.Key("featurelist_id", optional=True): String,
-        }
-    )
+    _converter_extra = t.Dict({
+        t.Key("sample_pct", optional=True): t.Float,
+        t.Key("model_type", optional=True): String,
+        t.Key("processes", optional=True): t.List(String),
+        t.Key("featurelist_id", optional=True): String,
+    })
 
     def __repr__(self) -> str:
         return f"ModelJob({self.model_type}, status={self.status})"  # pragma:no cover

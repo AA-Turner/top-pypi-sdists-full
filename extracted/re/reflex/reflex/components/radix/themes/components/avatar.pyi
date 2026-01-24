@@ -18,79 +18,6 @@ class Avatar(RadixThemesComponent):
     def create(
         cls,
         *children,
-        variant: Literal["soft", "solid"] | Var[Literal["soft", "solid"]] | None = None,
-        size: Breakpoints[str, Literal["1", "2", "3", "4", "5", "6", "7", "8", "9"]]
-        | Literal["1", "2", "3", "4", "5", "6", "7", "8", "9"]
-        | Var[
-            Breakpoints[str, Literal["1", "2", "3", "4", "5", "6", "7", "8", "9"]]
-            | Literal["1", "2", "3", "4", "5", "6", "7", "8", "9"]
-        ]
-        | None = None,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
-        high_contrast: Var[bool] | bool | None = None,
-        radius: Literal["full", "large", "medium", "none", "small"]
-        | Var[Literal["full", "large", "medium", "none", "small"]]
-        | None = None,
-        src: Var[str] | str | None = None,
-        fallback: Var[str] | str | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -126,13 +53,6 @@ class Avatar(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            variant: The variant of the avatar
-            size: The size of the avatar: "1" - "9"
-            color_scheme: Color theme of the avatar
-            high_contrast: Whether to render the avatar with higher contrast color against background
-            radius: Override theme radius for avatar: "none" | "small" | "medium" | "large" | "full"
-            src: The src of the avatar image
-            fallback: The rendered fallback text
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

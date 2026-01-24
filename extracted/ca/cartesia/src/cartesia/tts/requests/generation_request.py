@@ -6,6 +6,7 @@ from .tts_request_voice_specifier import TtsRequestVoiceSpecifierParams
 import typing_extensions
 from ..types.supported_language import SupportedLanguage
 from .web_socket_raw_output_format import WebSocketRawOutputFormatParams
+from .generation_config import GenerationConfigParams
 from ..types.model_speed import ModelSpeed
 from ..types.context_id import ContextId
 from ...core.serialization import FieldMetadata
@@ -25,6 +26,7 @@ class GenerationRequestParams(typing_extensions.TypedDict):
     voice: TtsRequestVoiceSpecifierParams
     language: typing_extensions.NotRequired[SupportedLanguage]
     output_format: WebSocketRawOutputFormatParams
+    generation_config: typing_extensions.NotRequired[GenerationConfigParams]
     duration: typing_extensions.NotRequired[float]
     """
     The maximum duration of the audio in seconds. You do not usually need to specify this.
@@ -66,4 +68,9 @@ class GenerationRequestParams(typing_extensions.TypedDict):
     use_normalized_timestamps: typing_extensions.NotRequired[bool]
     """
     Whether to use normalized timestamps (True) or original timestamps (False).
+    """
+
+    pronunciation_dict_id: typing_extensions.NotRequired[str]
+    """
+    A pronunciation dict ID to use for the generation. This will be applied to this TTS generation only.
     """

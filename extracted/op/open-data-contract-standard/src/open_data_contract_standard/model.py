@@ -8,26 +8,39 @@ import yaml
 
 
 class AuthoritativeDefinition(pyd.BaseModel):
+    id: str | None = None
     url: str | None = None
     type: str | None = None
+    description: str | None = None
+
+
+class CustomProperty(pyd.BaseModel):
+    id: str | None = None
+    property: str | None = None
+    value: Any | None = None
+    description: str | None = None
 
 
 class Support(pyd.BaseModel):
+    id: str | None = None
     channel: str | None = None
     url: str | None = None
     description: str | None = None
     tool: str | None = None
     scope: str | None = None
     invitationUrl: str | None = None
+    customProperties: list[CustomProperty] | None = None
 
 
 class Pricing(pyd.BaseModel):
+    id: str | None = None
     priceAmount: float | int | None = None
     priceCurrency: str | None = None
     priceUnit: str | None = None
 
 
-class Team(pyd.BaseModel):
+class TeamMember(pyd.BaseModel):
+    id: str | None = None
     username: str | None = None
     name: str | None = None
     description: str | None = None
@@ -35,24 +48,37 @@ class Team(pyd.BaseModel):
     dateIn: str | None = None
     dateOut: str | None = None
     replacedByUsername: str | None = None
+    tags: list[str] | None = None
+    customProperties: list[CustomProperty] | None = None
+    authoritativeDefinitions: list[AuthoritativeDefinition] | None = None
+
+
+class Team(pyd.BaseModel):
+    id: str | None = None
+    name: str | None = None
+    description: str | None = None
+    members: list[TeamMember] | None = None
+    tags: list[str] | None = None
+    customProperties: list[CustomProperty] | None = None
+    authoritativeDefinitions: list[AuthoritativeDefinition] | None = None
 
 
 
 class ServiceLevelAgreementProperty(pyd.BaseModel):
+    id: str | None = None
     property: str | None = None
     value: str | float | int | bool | None = None
     valueExt: str | float | int | bool | None = None
     unit: str | None = None
     element: str | None = None
     driver: str | None = None
-
-
-class CustomProperty(pyd.BaseModel):
-    property: str | None = None
-    value: Any | None = None
+    description: str | None = None
+    scheduler: str | None = None
+    schedule: str | None = None
 
 
 class DataQuality(pyd.BaseModel):
+    id: str | None = None
     authoritativeDefinitions: list[AuthoritativeDefinition] | None = None
     businessImpact: str | None = None
     customProperties: list[CustomProperty] | None = None
@@ -66,7 +92,9 @@ class DataQuality(pyd.BaseModel):
     tags: list[str] | None = None
     type: str | None = None
     unit: str | None = None
-    rule: str | None = None
+    metric: str | None = None
+    rule: str | None = None  # Deprecated: Use metric instead
+    arguments: dict[str, Any] | None = None
     mustBe: Any | None = None
     mustNotBe: Any | None = None
     mustBeGreaterThan: float | int | None = None
@@ -87,7 +115,15 @@ class Description(pyd.BaseModel):
     customProperties: list[CustomProperty] | None = None
 
 
+class Relationship(pyd.BaseModel):
+    type: str | None = None
+    from_: str | list[str] | None = pyd.Field(default=None, alias="from")
+    to: str | list[str] | None = None
+    customProperties: list[CustomProperty] | None = None
+
+
 class SchemaProperty(pyd.BaseModel):
+    id: str | None = None
     name: str | None = None
     physicalType: str | None = None
     physicalName: str | None = None
@@ -100,9 +136,9 @@ class SchemaProperty(pyd.BaseModel):
     primaryKeyPosition: int | None = None
     logicalType: str | None = None
     logicalTypeOptions: dict[str, Any] | None = None
-    required: bool | None = False
-    unique: bool | None = False
-    partitioned: bool | None = False
+    required: bool | None = None
+    unique: bool | None = None
+    partitioned: bool | None = None
     partitionKeyPosition: int | None = None
     classification: str | None = None
     encryptedName: str | None = None
@@ -110,13 +146,15 @@ class SchemaProperty(pyd.BaseModel):
     transformLogic: str | None = None
     transformDescription: str | None = None
     examples: list[Any] | None = None
-    criticalDataElement: bool | None = False
+    criticalDataElement: bool | None = None
+    relationships: list[Relationship] | None = None
     quality: list[DataQuality] | None = None
     properties: list["SchemaProperty"] | None = None
     items: typing.Optional["SchemaProperty"] = None
 
 
 class SchemaObject(pyd.BaseModel):
+    id: str | None = None
     name: str | None = None
     physicalType: str | None = None
     description: str | None = None
@@ -128,10 +166,12 @@ class SchemaObject(pyd.BaseModel):
     physicalName: str | None = None
     dataGranularityDescription: str | None = None
     properties: list[SchemaProperty] | None = None
+    relationships: list[Relationship] | None = None
     quality: list[DataQuality] | None = None
 
 
 class Role(pyd.BaseModel):
+    id: str | None = None
     role: str | None = None
     description: str | None = None
     access: str | None = None
@@ -141,6 +181,7 @@ class Role(pyd.BaseModel):
 
 
 class Server(pyd.BaseModel):
+    id: str | None = None
     server: str | None = None
     type: str | None = None
     description: str | None = None
@@ -165,6 +206,7 @@ class Server(pyd.BaseModel):
     schema_: str | None = pyd.Field(default=None, alias="schema")
     serviceName: str | None = None
     stagingDir: str | None = None
+    stream: str | None = None
     warehouse: str | None = None
 
 
@@ -188,7 +230,7 @@ class OpenDataContractStandard(pyd.BaseModel):
     schema_: list[SchemaObject] | None = pyd.Field(default=None, alias="schema")
     support: list[Support] | None = None
     price: Pricing | None = None
-    team: list[Team] | None = None
+    team: Team | list[TeamMember] | None = None
     roles: list[Role] | None = None
     slaDefaultElement: str | None = None
     slaProperties: list[ServiceLevelAgreementProperty] | None = None

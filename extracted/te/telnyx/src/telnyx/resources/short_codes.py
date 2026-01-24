@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 
 from ..types import short_code_list_params, short_code_update_params
-from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -15,8 +15,9 @@ from .._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from .._base_client import make_request_options
-from ..types.short_code_list_response import ShortCodeListResponse
+from ..pagination import SyncDefaultPagination, AsyncDefaultPagination
+from .._base_client import AsyncPaginator, make_request_options
+from ..types.shared.short_code import ShortCode
 from ..types.short_code_update_response import ShortCodeUpdateResponse
 from ..types.short_code_retrieve_response import ShortCodeRetrieveResponse
 
@@ -81,6 +82,7 @@ class ShortCodesResource(SyncAPIResource):
         id: str,
         *,
         messaging_profile_id: str,
+        tags: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -91,7 +93,8 @@ class ShortCodesResource(SyncAPIResource):
         """Update the settings for a specific short code.
 
         To unbind a short code from a
-        profile, set the `messaging_profile_id` to `null` or an empty string.
+        profile, set the `messaging_profile_id` to `null` or an empty string. To add or
+        update tags, include the tags field as an array of strings.
 
         Args:
           messaging_profile_id: Unique identifier for a messaging profile.
@@ -109,7 +112,11 @@ class ShortCodesResource(SyncAPIResource):
         return self._patch(
             f"/short_codes/{id}",
             body=maybe_transform(
-                {"messaging_profile_id": messaging_profile_id}, short_code_update_params.ShortCodeUpdateParams
+                {
+                    "messaging_profile_id": messaging_profile_id,
+                    "tags": tags,
+                },
+                short_code_update_params.ShortCodeUpdateParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -128,7 +135,7 @@ class ShortCodesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> ShortCodeListResponse:
+    ) -> SyncDefaultPagination[ShortCode]:
         """
         List short codes
 
@@ -148,8 +155,9 @@ class ShortCodesResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return self._get(
+        return self._get_api_list(
             "/short_codes",
+            page=SyncDefaultPagination[ShortCode],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -163,7 +171,7 @@ class ShortCodesResource(SyncAPIResource):
                     short_code_list_params.ShortCodeListParams,
                 ),
             ),
-            cast_to=ShortCodeListResponse,
+            model=ShortCode,
         )
 
 
@@ -225,6 +233,7 @@ class AsyncShortCodesResource(AsyncAPIResource):
         id: str,
         *,
         messaging_profile_id: str,
+        tags: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -235,7 +244,8 @@ class AsyncShortCodesResource(AsyncAPIResource):
         """Update the settings for a specific short code.
 
         To unbind a short code from a
-        profile, set the `messaging_profile_id` to `null` or an empty string.
+        profile, set the `messaging_profile_id` to `null` or an empty string. To add or
+        update tags, include the tags field as an array of strings.
 
         Args:
           messaging_profile_id: Unique identifier for a messaging profile.
@@ -253,7 +263,11 @@ class AsyncShortCodesResource(AsyncAPIResource):
         return await self._patch(
             f"/short_codes/{id}",
             body=await async_maybe_transform(
-                {"messaging_profile_id": messaging_profile_id}, short_code_update_params.ShortCodeUpdateParams
+                {
+                    "messaging_profile_id": messaging_profile_id,
+                    "tags": tags,
+                },
+                short_code_update_params.ShortCodeUpdateParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -261,7 +275,7 @@ class AsyncShortCodesResource(AsyncAPIResource):
             cast_to=ShortCodeUpdateResponse,
         )
 
-    async def list(
+    def list(
         self,
         *,
         filter: short_code_list_params.Filter | Omit = omit,
@@ -272,7 +286,7 @@ class AsyncShortCodesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> ShortCodeListResponse:
+    ) -> AsyncPaginator[ShortCode, AsyncDefaultPagination[ShortCode]]:
         """
         List short codes
 
@@ -292,14 +306,15 @@ class AsyncShortCodesResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return await self._get(
+        return self._get_api_list(
             "/short_codes",
+            page=AsyncDefaultPagination[ShortCode],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=await async_maybe_transform(
+                query=maybe_transform(
                     {
                         "filter": filter,
                         "page": page,
@@ -307,7 +322,7 @@ class AsyncShortCodesResource(AsyncAPIResource):
                     short_code_list_params.ShortCodeListParams,
                 ),
             ),
-            cast_to=ShortCodeListResponse,
+            model=ShortCode,
         )
 
 

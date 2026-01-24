@@ -4,7 +4,12 @@
 # Copyright 2025 NXP
 #
 # SPDX-License-Identifier: BSD-3-Clause
-"""Nxpimage AHAB group."""
+"""SPSDK AHAB (Advanced High Assurance Boot) image management utilities.
+
+This module provides command-line interface functionality for creating, parsing,
+verifying, and managing AHAB container images and certificate blocks used in
+NXP secure boot process.
+"""
 
 import logging
 import os
@@ -59,13 +64,15 @@ def ahab_export(config: Config) -> None:
     ahab = AHABImage.load_from_config(config)
     ahab.update_fields()
     ahab.verify().validate()
-    ahab_data = ahab.export()
+    ahab_image = ahab.image_info()
 
     ahab_output_file_path = config.get_output_file_name("output")
-    write_file(ahab_data, ahab_output_file_path, mode="wb")
+    ahab_output_file_format = config.get_str("output_format", default="bin").lower()
+    ahab_image.offset = config.get_int("output_offset", default=0)
+    ahab_image.save_binary_image(ahab_output_file_path, file_format=ahab_output_file_format)
 
-    logger.info(f"Created AHAB Image:\n{str(ahab.image_info())}")
-    logger.info(f"Created AHAB Image memory map:\n{ahab.image_info().draw()}")
+    logger.info(f"Created AHAB Image:\n{ahab_image}")
+    logger.info(f"Created AHAB Image memory map:\n{ahab_image.draw()}")
     click.echo(f"Success. (AHAB: {get_printable_path(ahab_output_file_path)} created.)")
 
     post_export_files = ahab.post_export(config.get_output_dir("output"))
@@ -111,7 +118,9 @@ def ahab_parse(family: FamilyRevision, binary: str, dek: str, output: str) -> No
     if not os.path.exists(parsed_folder):
         os.makedirs(parsed_folder, exist_ok=True)
 
-    logger.info(f"Identified AHAB image for {ahab_image.chip_config.target_memory.label} target")
+    logger.info(
+        f"Identified AHAB image for {ahab_image.chip_config.target_memory.memory_type.label} target"
+    )
     logger.info(f"Parsed AHAB image memory map: {ahab_image.image_info().draw()}")
     if dek:
         for container in ahab_image.ahab_containers:
@@ -192,11 +201,27 @@ def ahab_parse_image(family: FamilyRevision, binary: bytes) -> AHABImage:
     help="Select memory type. Only applicable for bootable images "
     "(image containing FCB or XMCD segments). Do not use for raw AHAB image",
 )
+@click.option(
+    "-j",
+    "--image-id",
+    type=INT(),
+    required=False,
+    default="0",
+    help="""
+    ID of the AHAB image where the container is located, where the keyblob will be replaced.
+    The default value is first image (0).
+    """,
+)
 def ahab_update_keyblob_command(
-    family: FamilyRevision, binary: str, keyblob: str, container_id: int, mem_type: str
+    family: FamilyRevision,
+    binary: str,
+    keyblob: str,
+    container_id: int,
+    image_id: int,
+    mem_type: str,
 ) -> None:
     """Update keyblob in AHAB image container."""
-    ahab_update_keyblob(family, binary, keyblob, container_id, mem_type)
+    ahab_update_keyblob(family, binary, keyblob, container_id, image_id, mem_type)
     click.echo(f"Success. (AHAB: {binary} keyblob has been updated)")
 
 
@@ -361,6 +386,17 @@ def ahab_cert_block_get_template(family: FamilyRevision, output: str) -> None:
     """,
 )
 @click.option(
+    "-j",
+    "--image-id",
+    type=INT(),
+    required=False,
+    default="0",
+    help="""
+    ID of the AHAB image where the container is located, where the sign will be updated.
+    The default value is first image (0).
+    """,
+)
+@click.option(
     "-m",
     "--mem-type",
     type=click.Choice(
@@ -378,6 +414,7 @@ def ahab_re_sign_command(
     pkey_1: Optional[str],
     container_id: int,
     mem_type: str,
+    image_id: int = 0,
 ) -> None:
     """Re-sign the container in AHAB image."""
     sign_provider_0 = get_signature_provider_from_config_str(pkey, pss_padding=True)
@@ -388,6 +425,7 @@ def ahab_re_sign_command(
         family=family,
         binary=binary,
         container_id=container_id,
+        image_id=image_id,
         sign_provider_0=sign_provider_0,
         sign_provider_1=sign_provider_1,
         mem_type=mem_type,
@@ -396,7 +434,12 @@ def ahab_re_sign_command(
 
 
 @ahab_group.command(name="sign", no_args_is_help=True)
-@spsdk_config_option()
+@spsdk_config_option(
+    help=(
+        "Path to YAML/JSON configuration file for signing. "
+        "Use 'nxpimage ahab get-template -s' to generate a signing template."
+    )
+)
 @spsdk_output_option(force=True)
 @click.option(
     "-b",
@@ -422,14 +465,28 @@ def ahab_re_sign_command(
     required=False,
     help="Directory path where fuse script files will be exported.",
 )
+@click.option(
+    "-j",
+    "--image-id",
+    type=INT(),
+    required=False,
+    default="0",
+    help="""
+    ID of the AHAB image, in case of multiple AHAB image binaries.
+    The default value is first image (0).
+    """,
+)
 def ahab_sign_command(
-    binary: str, output: str, mem_type: str, config: Config, fuse_scripts: Optional[str]
+    binary: str,
+    output: str,
+    mem_type: str,
+    config: Config,
+    fuse_scripts: Optional[str],
+    image_id: int = 0,
 ) -> None:
     """Sign all non-NXP AHAB containers and optionally encrypt them."""
     signed_image, bimg = ahab_sign_image(
-        image_path=binary,
-        config=config,
-        mem_type=mem_type,
+        image_path=binary, config=config, mem_type=mem_type, image_id=image_id
     )
     write_file(signed_image, output, "wb")
     click.echo(f"Signed image saved to {output}")
@@ -482,7 +539,7 @@ def ahab_fix_signature_block_command(family: FamilyRevision, binary: str, output
 
 @ahab_certificate_group.command(name="export", no_args_is_help=True)
 @spsdk_config_option(klass=AhabCertificate)
-@spsdk_output_option(required=True)
+@spsdk_output_option(required=False)
 def ahab_cert_block_export_command(config: Config, output: str) -> None:
     """Generate AHAB Certificate Blob from YAML/JSON configuration.
 
@@ -493,6 +550,12 @@ def ahab_cert_block_export_command(config: Config, output: str) -> None:
 
 def ahab_cert_block_export(config: Config, output: str, plugin: Optional[str] = None) -> None:
     """Generate AHAB Certificate Blob from YAML/JSON configuration."""
+    if not output:
+        if "containerOutputFile" in config:
+            output = config.get_output_file_name("containerOutputFile")
+        else:
+            raise SPSDKAppError("No output file specified for AHAB Certificate Blob export")
+
     family = FamilyRevision.load_from_config(config)
     cert_block = get_ahab_certificate_class(family).load_from_config(config)
     # Sign the certificate blob

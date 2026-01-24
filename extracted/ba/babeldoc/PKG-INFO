@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: BabelDOC
-Version: 0.5.10
+Version: 0.5.23
 Summary: Yet Another Document Translator
 Project-URL: Homepage, https://github.com/funstory-ai/BabelDOC
 Project-URL: Issues, https://github.com/funstory-ai/BabelDOC/issues
@@ -21,6 +21,7 @@ Requires-Dist: freetype-py>=2.5.1
 Requires-Dist: httpx[socks]>=0.27.0
 Requires-Dist: huggingface-hub>=0.27.0
 Requires-Dist: hyperscan>=0.7.13
+Requires-Dist: levenshtein>=0.27.1
 Requires-Dist: msgpack>=1.1.0
 Requires-Dist: numpy>=2.0.2
 Requires-Dist: onnx>=1.18.0
@@ -32,7 +33,6 @@ Requires-Dist: peewee>=3.17.8
 Requires-Dist: psutil>=7.0.0
 Requires-Dist: pydantic>=2.10.6
 Requires-Dist: pymupdf>=1.25.1
-Requires-Dist: python-levenshtein>=0.27.1
 Requires-Dist: pyzstd>=0.17.0
 Requires-Dist: rapidocr-onnxruntime>=1.4.4
 Requires-Dist: rich>=13.9.4
@@ -81,6 +81,7 @@ Description-Content-Type: text/markdown
     <img src="https://img.shields.io/github/license/funstory-ai/BabelDOC"></a>
   <a href="https://t.me/+Z9_SgnxmsmA5NzBl">
     <img src="https://img.shields.io/badge/Telegram-2CA5E0?style=flat-squeare&logo=telegram&logoColor=white"></a>
+  <a href="https://deepwiki.com/funstory-ai/BabelDOC"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
 <a href="https://trendshift.io/repositories/13358" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13358" alt="funstory-ai%2FBabelDOC | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
@@ -89,8 +90,8 @@ Description-Content-Type: text/markdown
 
 PDF scientific paper translation and bilingual comparison library.
 
-- **Online Service**: Beta version launched [Immersive Translate - BabelDOC](https://app.immersivetranslate.com/babel-doc/) 1000 free pages per month.
-- **Self-deployment**: [PDFMathTranslate 2.0](https://github.com/PDFMathTranslate/PDFMathTranslate-next) support for BabelDOC, available for self-deployment + WebUI with more translation services.
+- **Online Service**: Beta version launched [Immersive Translate - BabelDOC](https://app.immersivetranslate.com/babel-doc/) Free usage quota is available; please refer to the FAQ section on the page for details.
+- **Self-deployment**: [PDFMathTranslate-next](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) support for BabelDOC, available for self-deployment + WebUI with more translation services.
 - Provides a simple [command line interface](#getting-started).
 - Provides a [Python API](#python-api).
 - Mainly designed to be embedded into other programs, but can also be used directly for simple translation tasks.
@@ -250,6 +251,7 @@ uv run babeldoc --files example.pdf --files example2.pdf --openai --openai-model
 - `--openai`: Use OpenAI for translation (default: False)
 - `--custom-system-prompt`: Custom system prompt for translation.
 - `--add-formula-placehold-hint`: Add formula placeholder hint for translation. (Currently not recommended, it may affect translation quality, default: False)
+- `--disable-same-text-fallback`: Disable fallback translation when LLM output matches input text. (default: False)
 - `--pool-max-workers`: Maximum number of worker threads for internal task processing pools. If not specified, defaults to QPS value. This parameter directly sets the worker count, replacing previous QPS-based dynamic calculations.
 - `--no-auto-extract-glossary`: Disable automatic term extraction. If this flag is present, the step is skipped. Defaults to enabled.
 
@@ -267,6 +269,7 @@ uv run babeldoc --files example.pdf --files example2.pdf --openai --openai-model
 - `--openai-base-url`: Base URL for OpenAI API
 - `--openai-api-key`: API key for OpenAI service
 - `--enable-json-mode-if-requested`: Enable JSON mode for OpenAI requests (default: False)
+- `--term-pool-max-workers`: Maximum number of worker threads dedicated to automatic term extraction. If not specified, this defaults to the value of `--pool-max-workers`, which itself defaults to the QPS value when unset.
 
 > [!TIP]
 >
@@ -359,6 +362,7 @@ openai-model = "gpt-4o-mini"
 openai-base-url = "https://api.openai.com/v1"
 openai-api-key = "your-api-key-here"
 enable-json-mode-if-requested = false  # Enable JSON mode when requested (default: false)
+disable_same_text_fallback = false # Disable fallback translation when LLM output matches input text (default: false)
 pool-max-workers = 8  # Maximum worker threads for task processing (defaults to QPS value if not set)
 
 # Glossary Options (Optional)

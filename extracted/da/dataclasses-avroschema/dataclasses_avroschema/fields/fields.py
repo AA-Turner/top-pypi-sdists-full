@@ -7,6 +7,7 @@ import random
 import re
 import typing
 import uuid
+from types import UnionType
 
 import fastavro
 from typing_extensions import get_args, get_origin
@@ -24,15 +25,12 @@ from dataclasses_avroschema.utils import is_pydantic_model
 from . import field_utils
 from .base import Field
 
-if version.PY_VERSION >= (3, 9):  # pragma: no cover
-    GenericAlias = (
-        typing.GenericAlias,  # type: ignore
-        typing._GenericAlias,  # type: ignore
-        typing._SpecialGenericAlias,  # type: ignore
-        typing._UnionGenericAlias,  # type: ignore
-    )  # noqa: E501
-else:
-    GenericAlias = typing._GenericAlias  # type: ignore  # pragma: no cover
+GenericAlias = (
+    typing.GenericAlias,  # type: ignore
+    typing._GenericAlias,  # type: ignore
+    typing._SpecialGenericAlias,  # type: ignore
+    typing._UnionGenericAlias,  # type: ignore
+)  # noqa: E501
 
 
 if typing.TYPE_CHECKING:
@@ -530,6 +528,17 @@ class SelfReferenceField(Field):
             return [field_utils.NULL, str_type]
         return str_type
 
+    @staticmethod
+    def _get_self_reference_type(a_type: typing.Union[typing.Type, typing.ForwardRef]) -> str:
+        if getattr(a_type, "__args__", None):
+            # this is a typing.Type[typing.ForwardRef]
+            internal_type: typing.ForwardRef = a_type.__args__[0]  # type: ignore
+            return internal_type.__forward_arg__
+
+        if isinstance(a_type, typing.ForwardRef):
+            return a_type.__forward_arg__
+        return a_type.__name__
+
     def get_default_value(self) -> typing.Union[dataclasses._MISSING_TYPE, None]:
         # Only check for None because self reference default value can be only None
         if self.default is None:
@@ -927,6 +936,28 @@ def field_factory(
     if native_type is None:
         native_type = type(None)
 
+    # Resolve ForwardRef to actual type if possible
+    # This handles cases like TYPE_CHECKING imports where types are ForwardRef at runtime
+    if isinstance(native_type, typing.ForwardRef):
+        # Try to evaluate the ForwardRef in a namespace that includes common types
+        forward_arg = native_type.__forward_arg__
+        # Build namespace with logical types and common modules
+        eval_namespace = {
+            "uuid": uuid,
+            "UUID": uuid.UUID,
+            "datetime": datetime,
+            "date": datetime.date,
+            "time": datetime.time,
+            "timedelta": datetime.timedelta,
+            "Decimal": decimal.Decimal,
+            "decimal": decimal,
+        }
+        try:
+            native_type = eval(forward_arg, eval_namespace)
+        except (NameError, SyntaxError):
+            # If we can't resolve it, let it pass through to is_self_referenced check
+            pass
+
     if utils.is_annotated(native_type):
         a_type, *extra_args = get_args(native_type)
         field_info = next((arg for arg in extra_args if isinstance(arg, types.FieldInfo)), None)
@@ -1034,7 +1065,7 @@ def field_factory(
             model_metadata=model_metadata,
             parent=parent,
         )
-    elif types.UnionType is not None and isinstance(native_type, types.UnionType):
+    elif UnionType is not None and isinstance(native_type, UnionType):
         # we need to check whether types.UnionType because it works only in
         # python 3.9 or importing __future__ in previous python versions
         # cases when a container is used, for example `typing.List[int] | str` in python is

@@ -3,7 +3,7 @@ Type annotations for lexv2-runtime service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lexv2_runtime/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import IO, Any, Union
 
 from botocore.eventstream import EventStream
@@ -36,12 +37,6 @@ from .literals import (
     StyleTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -168,7 +163,7 @@ class DeleteSessionRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -177,7 +172,7 @@ class DependencyFailedExceptionTypeDef(TypedDict):
 
 class ElicitSubSlotOutputTypeDef(TypedDict):
     name: str
-    subSlotToElicit: NotRequired[Dict[str, Any]]
+    subSlotToElicit: NotRequired[dict[str, Any]]
 
 class DisconnectionEventTypeDef(TypedDict):
     eventId: NotRequired[str]
@@ -227,7 +222,7 @@ class SentimentScoreTypeDef(TypedDict):
 class ValueOutputTypeDef(TypedDict):
     interpretedValue: str
     originalValue: NotRequired[str]
-    resolvedValues: NotRequired[List[str]]
+    resolvedValues: NotRequired[list[str]]
 
 class TextInputEventTypeDef(TypedDict):
     text: str
@@ -252,7 +247,7 @@ class ValueTypeDef(TypedDict):
 class ActiveContextOutputTypeDef(TypedDict):
     name: str
     timeToLive: ActiveContextTimeToLiveTypeDef
-    contextAttributes: Dict[str, str]
+    contextAttributes: dict[str, str]
 
 class ActiveContextTypeDef(TypedDict):
     name: str
@@ -280,7 +275,7 @@ class ImageResponseCardOutputTypeDef(TypedDict):
     title: str
     subtitle: NotRequired[str]
     imageUrl: NotRequired[str]
-    buttons: NotRequired[List[ButtonTypeDef]]
+    buttons: NotRequired[list[ButtonTypeDef]]
 
 class ImageResponseCardTypeDef(TypedDict):
     title: str
@@ -329,8 +324,8 @@ DialogActionOutputTypeDef = TypedDict(
 ElicitSubSlotUnionTypeDef = Union[ElicitSubSlotTypeDef, ElicitSubSlotOutputTypeDef]
 
 class RuntimeHintDetailsOutputTypeDef(TypedDict):
-    runtimeHintValues: NotRequired[List[RuntimeHintValueTypeDef]]
-    subSlotHints: NotRequired[Dict[str, Dict[str, Any]]]
+    runtimeHintValues: NotRequired[list[RuntimeHintValueTypeDef]]
+    subSlotHints: NotRequired[dict[str, dict[str, Any]]]
 
 class RuntimeHintDetailsTypeDef(TypedDict):
     runtimeHintValues: NotRequired[Sequence[RuntimeHintValueTypeDef]]
@@ -343,8 +338,8 @@ class SentimentResponseTypeDef(TypedDict):
 class SlotOutputTypeDef(TypedDict):
     value: NotRequired[ValueOutputTypeDef]
     shape: NotRequired[ShapeType]
-    values: NotRequired[List[Dict[str, Any]]]
-    subSlots: NotRequired[Dict[str, Dict[str, Any]]]
+    values: NotRequired[list[dict[str, Any]]]
+    subSlots: NotRequired[dict[str, dict[str, Any]]]
 
 ValueUnionTypeDef = Union[ValueTypeDef, ValueOutputTypeDef]
 ActiveContextUnionTypeDef = Union[ActiveContextTypeDef, ActiveContextOutputTypeDef]
@@ -366,13 +361,13 @@ DialogActionTypeDef = TypedDict(
 )
 
 class RuntimeHintsOutputTypeDef(TypedDict):
-    slotHints: NotRequired[Dict[str, Dict[str, RuntimeHintDetailsOutputTypeDef]]]
+    slotHints: NotRequired[dict[str, dict[str, RuntimeHintDetailsOutputTypeDef]]]
 
 RuntimeHintDetailsUnionTypeDef = Union[RuntimeHintDetailsTypeDef, RuntimeHintDetailsOutputTypeDef]
 
 class IntentOutputTypeDef(TypedDict):
     name: str
-    slots: NotRequired[Dict[str, SlotOutputTypeDef]]
+    slots: NotRequired[dict[str, SlotOutputTypeDef]]
     state: NotRequired[IntentStateType]
     confirmationState: NotRequired[ConfirmationStateType]
 
@@ -383,7 +378,7 @@ class SlotTypeDef(TypedDict):
     subSlots: NotRequired[Mapping[str, Mapping[str, Any]]]
 
 class TextResponseEventTypeDef(TypedDict):
-    messages: NotRequired[List[MessageOutputTypeDef]]
+    messages: NotRequired[list[MessageOutputTypeDef]]
     eventId: NotRequired[str]
 
 class MessageTypeDef(TypedDict):
@@ -405,8 +400,8 @@ class InterpretationTypeDef(TypedDict):
 class SessionStateOutputTypeDef(TypedDict):
     dialogAction: NotRequired[DialogActionOutputTypeDef]
     intent: NotRequired[IntentOutputTypeDef]
-    activeContexts: NotRequired[List[ActiveContextOutputTypeDef]]
-    sessionAttributes: NotRequired[Dict[str, str]]
+    activeContexts: NotRequired[list[ActiveContextOutputTypeDef]]
+    sessionAttributes: NotRequired[dict[str, str]]
     originatingRequestId: NotRequired[str]
     runtimeHints: NotRequired[RuntimeHintsOutputTypeDef]
 
@@ -416,25 +411,25 @@ RuntimeHintsUnionTypeDef = Union[RuntimeHintsTypeDef, RuntimeHintsOutputTypeDef]
 
 class GetSessionResponseTypeDef(TypedDict):
     sessionId: str
-    messages: List[MessageOutputTypeDef]
-    interpretations: List[InterpretationTypeDef]
+    messages: list[MessageOutputTypeDef]
+    interpretations: list[InterpretationTypeDef]
     sessionState: SessionStateOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class IntentResultEventTypeDef(TypedDict):
     inputMode: NotRequired[InputModeType]
-    interpretations: NotRequired[List[InterpretationTypeDef]]
+    interpretations: NotRequired[list[InterpretationTypeDef]]
     sessionState: NotRequired[SessionStateOutputTypeDef]
-    requestAttributes: NotRequired[Dict[str, str]]
+    requestAttributes: NotRequired[dict[str, str]]
     sessionId: NotRequired[str]
     eventId: NotRequired[str]
     recognizedBotMember: NotRequired[RecognizedBotMemberTypeDef]
 
 class RecognizeTextResponseTypeDef(TypedDict):
-    messages: List[MessageOutputTypeDef]
+    messages: list[MessageOutputTypeDef]
     sessionState: SessionStateOutputTypeDef
-    interpretations: List[InterpretationTypeDef]
-    requestAttributes: Dict[str, str]
+    interpretations: list[InterpretationTypeDef]
+    requestAttributes: dict[str, str]
     sessionId: str
     recognizedBotMember: RecognizedBotMemberTypeDef
     ResponseMetadata: ResponseMetadataTypeDef

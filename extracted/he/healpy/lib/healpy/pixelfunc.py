@@ -147,6 +147,7 @@ __all__ = [
     "get_nside",
     "maptype",
     "ma_to_array",
+    "lonlat2thetaphi",
 ]
 
 
@@ -157,7 +158,7 @@ def check_theta_valid(theta):
         raise ValueError("THETA is out of range [0,pi]")
 
 
-def lonlat2thetaphi(lon, lat):
+def lonlat2thetaphi(lon, lat, latauto=False, latbounce=True):
     """Transform longitude and latitude (deg) into co-latitude and longitude (rad)
 
     Parameters
@@ -166,12 +167,26 @@ def lonlat2thetaphi(lon, lat):
       Longitude in degrees
     lat : int or array-like
       Latitude in degrees
+    latauto: bool, optional
+      If True, automatically adjust latitudes to be within [-90, 90] range
+    latbounce: bool, optional
+      If True, longitude is not affected, as if scanning and bouncing back at the pole.
+      If False, longitude is adjusted by 180 degrees, as if scanning through the pole. Needs latauto=True.
 
     Returns
     -------
     theta, phi : float, scalar or array-like
       The co-latitude and longitude in radians
     """
+    if latauto:
+        lat = np.asarray(lat)
+        if not latbounce:
+            lon = np.asarray(lon)
+            lon[lat > 90] = lon[lat > 90] + 180
+            lon[lat < -90] = lon[lat < -90] + 180
+        lat[lat > 90] = 180 - lat[lat > 90]
+        lat[lat < -90] = -(180 + lat[lat < -90])
+          
     return np.pi / 2.0 - np.radians(lat), np.radians(lon)
 
 
@@ -421,8 +436,8 @@ def ma(m, badval=UNSEEN, rtol=1e-5, atol=1e-8, copy=True):
     return np.ma.masked_values(np.array(m), badval, rtol=rtol, atol=atol, copy=copy)
 
 
-def ang2pix(nside, theta, phi, nest=False, lonlat=False):
-    """ang2pix : nside,theta[rad],phi[rad],nest=False,lonlat=False -> ipix (default:RING)
+def ang2pix(nside, theta, phi, nest=False, lonlat=False, latauto=False, latbounce=True):
+    """ang2pix : nside,theta[rad],phi[rad],nest=False,lonlat=False,latauto=False,latbounce=True -> ipix (default:RING)
 
     Parameters
     ----------
@@ -435,6 +450,11 @@ def ang2pix(nside, theta, phi, nest=False, lonlat=False):
     lonlat : bool
       If True, input angles are assumed to be longitude and latitude in degree,
       otherwise, they are co-latitude and longitude in radians.
+    latauto: bool, optional
+      If True, automatically adjust latitudes to be within [-90, 90] range.
+    latbounce: bool, optional
+      If True, longitude is not affected, as if scanning and bouncing back at the pole.
+      If False, longitude is adjusted by 180 degrees, as if scanning through the pole. Needs latauto=True.
 
     Returns
     -------
@@ -473,7 +493,7 @@ def ang2pix(nside, theta, phi, nest=False, lonlat=False):
     check_nside(nside, nest=nest)
 
     if lonlat:
-        theta, phi = lonlat2thetaphi(theta, phi)
+        theta, phi = lonlat2thetaphi(theta, phi, latauto=latauto, latbounce=latbounce)
     check_theta_valid(theta)
     check_nside(nside, nest=nest)
     if nest:
@@ -836,7 +856,7 @@ def reorder(map_in, inp=None, out=None, r2n=None, n2r=None):
     ----------
     map_in : array-like
       the input map to reorder, accepts masked arrays
-    inp, out : ``'RING'`` or ``'NESTED'``
+    inp, out : ``'RING'`` or ``'NEST'``
       define the input and output ordering
     r2n : bool
       if True, reorder from RING to NESTED
@@ -1912,7 +1932,7 @@ def ud_grade(
       if ``True``, in degrading, reject pixels which contains
       a bad sub_pixel. Otherwise, estimate average with good pixels
     order_in, order_out : str
-      pixel ordering of input and output ('RING' or 'NESTED')
+      pixel ordering of input and output ('RING' or 'NEST')
     power : float
       if non-zero, divide the result by (nside_in/nside_out)**power
       Examples:

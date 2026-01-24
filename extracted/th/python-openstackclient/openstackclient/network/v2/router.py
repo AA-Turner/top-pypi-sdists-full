@@ -23,11 +23,11 @@ import typing as ty
 from cliff import columns as cliff_columns
 from osc_lib.cli import format_columns
 from osc_lib.cli import parseractions
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 from osc_lib.utils import tags as _tag
 
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -35,12 +35,12 @@ from openstackclient.network import common
 LOG = logging.getLogger(__name__)
 
 
-class AdminStateColumn(cliff_columns.FormattableColumn):
+class AdminStateColumn(cliff_columns.FormattableColumn[bool]):
     def human_readable(self):
         return 'UP' if self._value else 'DOWN'
 
 
-class RouterInfoColumn(cliff_columns.FormattableColumn):
+class RouterInfoColumn(cliff_columns.FormattableColumn[ty.Any]):
     def human_readable(self):
         try:
             return json.dumps(self._value)
@@ -48,7 +48,7 @@ class RouterInfoColumn(cliff_columns.FormattableColumn):
             return ''
 
 
-class RoutesColumn(cliff_columns.FormattableColumn):
+class RoutesColumn(cliff_columns.FormattableColumn[ty.Any]):
     def human_readable(self):
         # Map the route keys to match --route option.
         for route in self._value or []:
@@ -89,7 +89,12 @@ def _get_columns(item):
 
 
 def is_multiple_gateways_supported(n_client):
-    return n_client.find_extension("external-gateway-multihoming") is not None
+    return (
+        n_client.find_extension(
+            "external-gateway-multihoming", ignore_missing=True
+        )
+        is not None
+    )
 
 
 def _passed_multiple_gateways(extension_supported, external_gateways):
@@ -236,7 +241,9 @@ def _get_attrs(client_manager, parsed_args):
 
     # "router set" command doesn't support setting flavor_id.
     if 'flavor_id' in parsed_args and parsed_args.flavor_id is not None:
-        flavor = n_client.find_flavor(parsed_args.flavor_id)
+        flavor = n_client.find_flavor(
+            parsed_args.flavor_id, ignore_missing=False
+        )
         attrs['flavor_id'] = flavor.id
     elif 'flavor' in parsed_args and parsed_args.flavor is not None:
         flavor = n_client.find_flavor(parsed_args.flavor, ignore_missing=False)
@@ -719,13 +726,17 @@ class ListRouter(command.Lister):
         parser.add_argument(
             '--project',
             metavar='<project>',
-            help=_("List routers according to their project (name or ID)"),
+            help=_(
+                "List only routers with the specified project (name or ID)"
+            ),
         )
         identity_common.add_project_domain_option_to_parser(parser)
         parser.add_argument(
             '--agent',
             metavar='<agent-id>',
-            help=_("List routers hosted by an agent (ID only)"),
+            help=_(
+                "List only routers hosted by the specified agent (ID only)"
+            ),
         )
         _tag.add_tag_filtering_option_to_parser(parser, _('routers'))
 

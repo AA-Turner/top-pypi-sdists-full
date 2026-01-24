@@ -3,7 +3,7 @@ Main interface for vpc-lattice service.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_vpc_lattice/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -12,6 +12,7 @@ Usage::
     from types_boto3_vpc_lattice import (
         Client,
         ListAccessLogSubscriptionsPaginator,
+        ListDomainVerificationsPaginator,
         ListListenersPaginator,
         ListResourceConfigurationsPaginator,
         ListResourceEndpointAssociationsPaginator,
@@ -32,6 +33,7 @@ Usage::
     client: VPCLatticeClient = session.client("vpc-lattice")
 
     list_access_log_subscriptions_paginator: ListAccessLogSubscriptionsPaginator = client.get_paginator("list_access_log_subscriptions")
+    list_domain_verifications_paginator: ListDomainVerificationsPaginator = client.get_paginator("list_domain_verifications")
     list_listeners_paginator: ListListenersPaginator = client.get_paginator("list_listeners")
     list_resource_configurations_paginator: ListResourceConfigurationsPaginator = client.get_paginator("list_resource_configurations")
     list_resource_endpoint_associations_paginator: ListResourceEndpointAssociationsPaginator = client.get_paginator("list_resource_endpoint_associations")
@@ -51,6 +53,7 @@ Usage::
 from .client import VPCLatticeClient
 from .paginator import (
     ListAccessLogSubscriptionsPaginator,
+    ListDomainVerificationsPaginator,
     ListListenersPaginator,
     ListResourceConfigurationsPaginator,
     ListResourceEndpointAssociationsPaginator,
@@ -72,6 +75,7 @@ Client = VPCLatticeClient
 __all__ = (
     "Client",
     "ListAccessLogSubscriptionsPaginator",
+    "ListDomainVerificationsPaginator",
     "ListListenersPaginator",
     "ListResourceConfigurationsPaginator",
     "ListResourceEndpointAssociationsPaginator",

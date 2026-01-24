@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__all__ = ["bend_circular", "bend_circular180", "bend_circular_all_angle"]
+
 import warnings
 from functools import partial
 from typing import Literal, overload
@@ -101,6 +103,11 @@ def _bend_circular(
         n_bend_90=abs(angle / 90.0),
         min_bend_radius=radius,
     )
+    for prt in c.ports:  # positive radius for outward left turning
+        if all(prt.center == p.points[0]):
+            prt.info["radius"] = -radius if angle > 0 else radius
+        elif all(prt.center == p.points[-1]):
+            prt.info["radius"] = radius if angle > 0 else -radius
     return c
 
 

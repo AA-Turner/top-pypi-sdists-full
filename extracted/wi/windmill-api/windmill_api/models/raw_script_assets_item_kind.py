@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class RawScriptAssetsItemKind(str, Enum):
+    DATATABLE = "datatable"
     DUCKLAKE = "ducklake"
     RESOURCE = "resource"
     S3OBJECT = "s3object"

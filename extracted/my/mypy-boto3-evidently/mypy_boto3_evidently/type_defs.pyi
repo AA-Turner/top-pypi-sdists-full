@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -36,12 +37,6 @@ from .literals import (
     VariationValueTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -184,7 +179,7 @@ class EvaluationRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -229,7 +224,7 @@ class SegmentTypeDef(TypedDict):
     description: NotRequired[str]
     experimentCount: NotRequired[int]
     launchCount: NotRequired[int]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class DeleteExperimentRequestTypeDef(TypedDict):
     experiment: str
@@ -284,19 +279,19 @@ class ExperimentResultsDataTypeDef(TypedDict):
     metricName: NotRequired[str]
     resultStat: NotRequired[ExperimentResultResponseTypeType]
     treatmentName: NotRequired[str]
-    values: NotRequired[List[float]]
+    values: NotRequired[list[float]]
 
 class ExperimentScheduleTypeDef(TypedDict):
     analysisCompleteTime: NotRequired[datetime]
 
 class OnlineAbDefinitionTypeDef(TypedDict):
     controlTreatmentName: NotRequired[str]
-    treatmentWeights: NotRequired[Dict[str, int]]
+    treatmentWeights: NotRequired[dict[str, int]]
 
 class TreatmentTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
-    featureVariations: NotRequired[Dict[str, str]]
+    featureVariations: NotRequired[dict[str, str]]
 
 class GetExperimentRequestTypeDef(TypedDict):
     experiment: str
@@ -321,7 +316,7 @@ class LaunchExecutionTypeDef(TypedDict):
     startedTime: NotRequired[datetime]
 
 class LaunchGroupTypeDef(TypedDict):
-    featureVariations: Dict[str, str]
+    featureVariations: dict[str, str]
     name: str
     description: NotRequired[str]
 
@@ -363,7 +358,7 @@ class ProjectSummaryTypeDef(TypedDict):
     experimentCount: NotRequired[int]
     featureCount: NotRequired[int]
     launchCount: NotRequired[int]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 ListSegmentReferencesRequestTypeDef = TypedDict(
     "ListSegmentReferencesRequestTypeDef",
@@ -429,7 +424,7 @@ class PutProjectEventsResultEntryTypeDef(TypedDict):
 class SegmentOverrideOutputTypeDef(TypedDict):
     evaluationOrder: int
     segment: str
-    weights: Dict[str, int]
+    weights: dict[str, int]
 
 class SegmentOverrideTypeDef(TypedDict):
     evaluationOrder: int
@@ -469,7 +464,7 @@ class BatchEvaluateFeatureRequestTypeDef(TypedDict):
     requests: Sequence[EvaluationRequestTypeDef]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartExperimentResponseTypeDef(TypedDict):
@@ -502,7 +497,7 @@ class GetSegmentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListSegmentsResponseTypeDef(TypedDict):
-    segments: List[SegmentTypeDef]
+    segments: list[SegmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -538,9 +533,9 @@ class FeatureSummaryTypeDef(TypedDict):
     name: str
     status: FeatureStatusType
     defaultVariation: NotRequired[str]
-    evaluationRules: NotRequired[List[EvaluationRuleTypeDef]]
+    evaluationRules: NotRequired[list[EvaluationRuleTypeDef]]
     project: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 EventTypeDef = TypedDict(
     "EventTypeDef",
@@ -570,9 +565,9 @@ class StartExperimentRequestTypeDef(TypedDict):
 
 class GetExperimentResultsResponseTypeDef(TypedDict):
     details: str
-    reports: List[ExperimentReportTypeDef]
-    resultsData: List[ExperimentResultsDataTypeDef]
-    timestamps: List[datetime]
+    reports: list[ExperimentReportTypeDef]
+    resultsData: list[ExperimentResultsDataTypeDef]
+    timestamps: list[datetime]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListExperimentsRequestPaginateTypeDef(TypedDict):
@@ -605,12 +600,12 @@ class ListSegmentsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListProjectsResponseTypeDef(TypedDict):
-    projects: List[ProjectSummaryTypeDef]
+    projects: list[ProjectSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListSegmentReferencesResponseTypeDef(TypedDict):
-    referencedBy: List[RefResourceTypeDef]
+    referencedBy: list[RefResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -642,19 +637,19 @@ class ProjectDataDeliveryTypeDef(TypedDict):
     s3Destination: NotRequired[S3DestinationTypeDef]
 
 class PutProjectEventsResponseTypeDef(TypedDict):
-    eventResults: List[PutProjectEventsResultEntryTypeDef]
+    eventResults: list[PutProjectEventsResultEntryTypeDef]
     failedEventCount: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ScheduledSplitTypeDef(TypedDict):
     startTime: datetime
-    groupWeights: NotRequired[Dict[str, int]]
-    segmentOverrides: NotRequired[List[SegmentOverrideOutputTypeDef]]
+    groupWeights: NotRequired[dict[str, int]]
+    segmentOverrides: NotRequired[list[SegmentOverrideOutputTypeDef]]
 
 SegmentOverrideUnionTypeDef = Union[SegmentOverrideTypeDef, SegmentOverrideOutputTypeDef]
 
 class BatchEvaluateFeatureResponseTypeDef(TypedDict):
-    results: List[EvaluationResultTypeDef]
+    results: list[EvaluationResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateFeatureRequestTypeDef(TypedDict):
@@ -685,16 +680,16 @@ class FeatureTypeDef(TypedDict):
     name: str
     status: FeatureStatusType
     valueType: VariationValueTypeType
-    variations: List[VariationTypeDef]
+    variations: list[VariationTypeDef]
     defaultVariation: NotRequired[str]
     description: NotRequired[str]
-    entityOverrides: NotRequired[Dict[str, str]]
-    evaluationRules: NotRequired[List[EvaluationRuleTypeDef]]
+    entityOverrides: NotRequired[dict[str, str]]
+    evaluationRules: NotRequired[list[EvaluationRuleTypeDef]]
     project: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class ListFeaturesResponseTypeDef(TypedDict):
-    features: List[FeatureSummaryTypeDef]
+    features: list[FeatureSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -737,7 +732,7 @@ ExperimentTypeDef = TypedDict(
         "type": Literal["aws.evidently.onlineab"],
         "description": NotRequired[str],
         "execution": NotRequired[ExperimentExecutionTypeDef],
-        "metricGoals": NotRequired[List[MetricGoalTypeDef]],
+        "metricGoals": NotRequired[list[MetricGoalTypeDef]],
         "onlineAbDefinition": NotRequired[OnlineAbDefinitionTypeDef],
         "project": NotRequired[str],
         "randomizationSalt": NotRequired[str],
@@ -745,8 +740,8 @@ ExperimentTypeDef = TypedDict(
         "schedule": NotRequired[ExperimentScheduleTypeDef],
         "segment": NotRequired[str],
         "statusReason": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
-        "treatments": NotRequired[List[TreatmentTypeDef]],
+        "tags": NotRequired[dict[str, str]],
+        "treatments": NotRequired[list[TreatmentTypeDef]],
     },
 )
 
@@ -771,10 +766,10 @@ class ProjectTypeDef(TypedDict):
     experimentCount: NotRequired[int]
     featureCount: NotRequired[int]
     launchCount: NotRequired[int]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class ScheduledSplitsLaunchDefinitionTypeDef(TypedDict):
-    steps: NotRequired[List[ScheduledSplitTypeDef]]
+    steps: NotRequired[list[ScheduledSplitTypeDef]]
 
 class ScheduledSplitConfigTypeDef(TypedDict):
     groupWeights: Mapping[str, int]
@@ -802,7 +797,7 @@ class GetExperimentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListExperimentsResponseTypeDef(TypedDict):
-    experiments: List[ExperimentTypeDef]
+    experiments: list[ExperimentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -837,13 +832,13 @@ LaunchTypeDef = TypedDict(
         "type": Literal["aws.evidently.splits"],
         "description": NotRequired[str],
         "execution": NotRequired[LaunchExecutionTypeDef],
-        "groups": NotRequired[List[LaunchGroupTypeDef]],
-        "metricMonitors": NotRequired[List[MetricMonitorTypeDef]],
+        "groups": NotRequired[list[LaunchGroupTypeDef]],
+        "metricMonitors": NotRequired[list[MetricMonitorTypeDef]],
         "project": NotRequired[str],
         "randomizationSalt": NotRequired[str],
         "scheduledSplitsDefinition": NotRequired[ScheduledSplitsLaunchDefinitionTypeDef],
         "statusReason": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 
@@ -859,7 +854,7 @@ class GetLaunchResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListLaunchesResponseTypeDef(TypedDict):
-    launches: List[LaunchTypeDef]
+    launches: list[LaunchTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

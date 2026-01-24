@@ -1,9 +1,8 @@
 from decimal import Decimal
 from logging import DEBUG, getLogger
-from typing import Optional, Tuple
 
 import a_sync
-from a_sync import cgather
+from a_sync import ASyncCachedPropertyDescriptor, cgather
 from a_sync.a_sync import HiddenMethodDescriptor
 from dank_mids.exceptions import Revert
 from multicall.call import Call
@@ -116,9 +115,9 @@ async def is_yearn_vault(token: AnyAddressType) -> bool:
 @a_sync.a_sync(default="sync")
 async def get_price(
     token: AnyAddressType,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     skip_cache: bool = ENVS.SKIP_CACHE,
-    ignore_pools: Tuple[Pool, ...] = (),
+    ignore_pools: tuple[Pool, ...] = (),
 ) -> UsdPrice:
     return await YearnInspiredVault(token).price(
         block=block, skip_cache=skip_cache, ignore_pools=ignore_pools, sync=False
@@ -150,6 +149,10 @@ class YearnInspiredVault(ERC20):
     # v1 vaults use getPricePerFullShare scaled to 18 decimals
     # v2 vaults use pricePerShare scaled to underlying token decimals
     # yearnish clones use all sorts of other things, we gotchu covered
+
+    # mypy helpers
+    underlying: ASyncCachedPropertyDescriptor[Self, ERC20]
+    __underlying__: HiddenMethodDescriptor[Self, ERC20]
 
     @a_sync.aka.cached_property
     async def underlying(self) -> ERC20:
@@ -227,11 +230,8 @@ class YearnInspiredVault(ERC20):
             return underlying
         raise CantFetchParam(f"underlying for {self}")
 
-    __underlying__: HiddenMethodDescriptor[Self, ERC20]
-
-    a_sync.a_sync(cache_type="memory", ram_cache_maxsize=1000)
-
-    async def share_price(self, block: Optional[Block] = None) -> Optional[Decimal]:
+    @a_sync.a_sync(cache_type="memory", ram_cache_maxsize=1000)
+    async def share_price(self, block: Block | None = None) -> Decimal | None:
         """
         Calculates the share price of the vault.
 
@@ -280,7 +280,7 @@ class YearnInspiredVault(ERC20):
                             function = method
 
                             @staticmethod
-                            async def coroutine(block_id: Optional[Block]) -> int:
+                            async def coroutine(block_id: Block | None) -> int:
                                 return await contract_call.coroutine(
                                     scale, block_identifier=block_id
                                 )
@@ -322,8 +322,8 @@ class YearnInspiredVault(ERC20):
 
     async def price(
         self,
-        block: Optional[Block] = None,
-        ignore_pools: Tuple[Pool, ...] = (),
+        block: Block | None = None,
+        ignore_pools: tuple[Pool, ...] = (),
         skip_cache: bool = ENVS.SKIP_CACHE,
     ) -> UsdPrice:
         """

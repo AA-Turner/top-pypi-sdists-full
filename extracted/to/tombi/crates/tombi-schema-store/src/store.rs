@@ -1,18 +1,28 @@
 use std::{borrow::Cow, ops::Deref, str::FromStr, sync::Arc};
 
 use crate::{
-    get_tombi_schemastore_content, http_client::HttpClient, json::JsonCatalog, AllOfSchema,
-    AnyOfSchema, CatalogUri, DocumentSchema, OneOfSchema, SchemaAccessor, SchemaAccessors,
-    SourceSchema, ValueSchema,
+    AllOfSchema, AnyOfSchema, CatalogUri, DocumentSchema, OneOfSchema, SchemaAccessor,
+    SchemaAccessors, SourceSchema, ValueSchema, get_tombi_schemastore_content,
+    http_client::HttpClient, json::JsonCatalog,
 };
 use ahash::AHashMap;
 use itertools::{Either, Itertools};
 use tokio::sync::RwLock;
 use tombi_ast::SchemaDocumentCommentDirective;
 use tombi_cache::{get_cache_file_path, read_from_cache, refresh_cache, save_to_cache};
-use tombi_config::{Schema, SchemaOptions};
+use tombi_config::{SchemaItem, SchemaOverviewOptions, TomlVersion};
 use tombi_future::{BoxFuture, Boxable};
 use tombi_uri::SchemaUri;
+
+/// Options for associating a schema with file patterns
+#[derive(Debug, Clone, Default)]
+pub struct AssociateSchemaOptions {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub toml_version: Option<TomlVersion>,
+    /// If true, the schema will be inserted at the beginning to force precedence
+    pub force: bool,
+}
 
 #[derive(Debug, Clone)]
 pub struct SchemaStore {
@@ -97,7 +107,7 @@ impl SchemaStore {
         let base_dir_path = config_path.and_then(|p| p.parent());
         let schema_options = match &config.schema {
             Some(schema) => schema,
-            None => &SchemaOptions::default(),
+            None => &SchemaOverviewOptions::default(),
         };
 
         if schema_options.enabled.unwrap_or_default().value() {
@@ -114,20 +124,25 @@ impl SchemaStore {
 
             let catalogs_results =
                 futures::future::join_all(catalog_paths.iter().map(|catalog_path| async move {
-                    let Ok(tagalog_uri) = catalog_path.try_to_catalog_url(base_dir_path) else {
+                    let Ok(catalog_uri) = catalog_path
+                        .try_to_catalog_url(base_dir_path)
+                        .map(CatalogUri::from)
+                    else {
                         return Err(crate::Error::CatalogPathConvertUriFailed {
                             catalog_path: catalog_path.to_string(),
                         });
                     };
-                    let tagalog_uri = CatalogUri::from(tagalog_uri);
-                    self.load_catalog_from_uri(&tagalog_uri).await
+                    let catalog_uri = Arc::new(catalog_uri);
+                    self.load_catalog_from_uri(&catalog_uri)
+                        .await
+                        .map(|catalog| catalog.map(|catalog| (catalog_uri.clone(), catalog)))
                 }))
                 .await;
 
             for catalog_result in catalogs_results {
                 match catalog_result {
-                    Ok(Some(catalog)) => {
-                        self.add_json_catalog(catalog).await?;
+                    Ok(Some((catalog_uri, catalog))) => {
+                        self.add_json_catalog(catalog_uri, catalog).await?;
                     }
                     Ok(None) => {}
                     Err(e) => return Err(e),
@@ -140,7 +155,7 @@ impl SchemaStore {
 
     pub async fn load_config_schemas(
         &self,
-        schemas: &[Schema],
+        schemas: &[SchemaItem],
         base_dir_path: Option<&std::path::Path>,
     ) {
         futures::future::join_all(schemas.iter().map(|schema| async move {
@@ -159,7 +174,10 @@ impl SchemaStore {
             tracing::debug!("Load schema from config: {}", schema_uri);
 
             self.schemas.write().await.push(crate::Schema {
-                url: schema_uri,
+                title: None,
+                description: None,
+                schema_uri,
+                catalog_uri: None,
                 include: schema.include().to_vec(),
                 toml_version: schema.toml_version(),
                 sub_root_keys: schema.root().and_then(SchemaAccessor::parse),
@@ -201,16 +219,15 @@ impl SchemaStore {
             }
             "http" | "https" => {
                 let catalog_cache_path = get_cache_file_path(catalog_uri).await;
-                if let Some(catalog_cache_path) = &catalog_cache_path {
-                    if let Ok(Some(catalog)) = load_catalog_from_cache(
+                if let Some(catalog_cache_path) = &catalog_cache_path
+                    && let Ok(Some(catalog)) = load_catalog_from_cache(
                         catalog_uri,
                         catalog_cache_path,
                         self.options.cache.as_ref(),
                     )
                     .await
-                    {
-                        return Ok(Some(catalog));
-                    }
+                {
+                    return Ok(Some(catalog));
                 }
 
                 if self.offline() {
@@ -259,7 +276,7 @@ impl SchemaStore {
                         return Err(crate::Error::InvalidJsonFormat {
                             uri: catalog_uri.deref().clone(),
                             reason: err.to_string(),
-                        })
+                        });
                     }
                 }
             }
@@ -285,7 +302,11 @@ impl SchemaStore {
         }))
     }
 
-    async fn add_json_catalog(&self, json_catalog: JsonCatalog) -> Result<(), crate::Error> {
+    async fn add_json_catalog(
+        &self,
+        catalog_uri: Arc<CatalogUri>,
+        json_catalog: JsonCatalog,
+    ) -> Result<(), crate::Error> {
         let mut schemas = self.schemas.write().await;
         for schema in json_catalog.schemas {
             if schema
@@ -294,7 +315,10 @@ impl SchemaStore {
                 .any(|pattern| pattern.ends_with(".toml"))
             {
                 schemas.push(crate::Schema {
-                    url: schema.url,
+                    title: Some(schema.name),
+                    description: Some(schema.description),
+                    schema_uri: schema.url,
+                    catalog_uri: Some(catalog_uri.clone()),
                     include: schema.file_match,
                     toml_version: None,
                     sub_root_keys: None,
@@ -311,16 +335,15 @@ impl SchemaStore {
         }
 
         let has_key = { self.document_schemas.read().await.contains_key(schema_uri) };
-        if has_key {
-            if let Some(document_schema) = self.fetch_document_schema(schema_uri).await.transpose()
-            {
-                self.document_schemas
-                    .write()
-                    .await
-                    .insert(schema_uri.clone(), document_schema);
-                tracing::debug!("update schema: {}", schema_uri);
-                return Ok(true);
-            }
+        if has_key
+            && let Some(document_schema) = self.fetch_document_schema(schema_uri).await.transpose()
+        {
+            self.document_schemas
+                .write()
+                .await
+                .insert(schema_uri.clone(), document_schema);
+            tracing::debug!("update schema: {}", schema_uri);
+            return Ok(true);
         }
 
         Ok(false)
@@ -358,16 +381,15 @@ impl SchemaStore {
             }
             "http" | "https" => {
                 let schema_cache_path = get_cache_file_path(schema_uri).await;
-                if let Some(schema_cache_path) = &schema_cache_path {
-                    if let Ok(Some(schema_value)) = load_json_schema_from_cache(
+                if let Some(schema_cache_path) = &schema_cache_path
+                    && let Ok(Some(schema_value)) = load_json_schema_from_cache(
                         schema_uri,
                         schema_cache_path,
                         self.options.cache.as_ref(),
                     )
                     .await
-                    {
-                        return Ok(Some(schema_value));
-                    }
+                {
+                    return Ok(Some(schema_value));
                 }
 
                 if self.offline() {
@@ -510,10 +532,29 @@ impl SchemaStore {
     async fn try_get_source_schema_from_remote_url(
         &self,
         schema_uri: &SchemaUri,
+        source_path: Option<&std::path::Path>,
     ) -> Result<Option<SourceSchema>, crate::Error> {
+        let source_schema = if let Some(source_path) = source_path {
+            self.resolve_source_schema_from_path(source_path)
+                .await
+                .ok()
+                .flatten()
+        } else {
+            None
+        };
+
+        let (root_schema, sub_schema_uri_map) = if let Some(source_schema) = source_schema {
+            (source_schema.root_schema, source_schema.sub_schema_uri_map)
+        } else {
+            (None, Default::default())
+        };
+
         Ok(Some(SourceSchema {
-            root_schema: self.try_get_document_schema(schema_uri).await?,
-            sub_schema_uri_map: Default::default(),
+            root_schema: self
+                .try_get_document_schema(schema_uri)
+                .await?
+                .or(root_schema),
+            sub_schema_uri_map,
         }))
     }
 
@@ -527,7 +568,9 @@ impl SchemaStore {
                 "file" => tombi_uri::Uri::to_file_path(url).ok(),
                 _ => None,
             },
-            Some(Either::Right(path)) => Some(path.to_path_buf()),
+            Some(Either::Right(path)) => {
+                Some(std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf()))
+            }
             None => None,
         };
 
@@ -546,7 +589,7 @@ impl SchemaStore {
                 }
             };
             return self
-                .try_get_source_schema_from_remote_url(&SchemaUri::from(schema_uri))
+                .try_get_source_schema_from_remote_url(&schema_uri, source_path.as_deref())
                 .await
                 .map_err(|err| (err, uri_range));
         }
@@ -598,7 +641,10 @@ impl SchemaStore {
             if already_loaded {
                 continue;
             }
-            match self.try_get_document_schema(&matching_schema.url).await {
+            match self
+                .try_get_document_schema(&matching_schema.schema_uri)
+                .await
+            {
                 Ok(Some(document_schema)) => match &matching_schema.sub_root_keys {
                     Some(sub_root_keys) => match source_schema {
                         Some(ref mut source_schema) => {
@@ -636,12 +682,15 @@ impl SchemaStore {
                     },
                 },
                 Ok(None) => {
-                    tracing::warn!("Failed to find document schema: {}", matching_schema.url);
+                    tracing::warn!(
+                        "Failed to find document schema: {}",
+                        matching_schema.schema_uri
+                    );
                 }
                 Err(err) => {
                     tracing::warn!(
                         "Failed to get document schema for {url}: {err}",
-                        url = matching_schema.url,
+                        url = matching_schema.schema_uri,
                     );
                 }
             }
@@ -694,14 +743,34 @@ impl SchemaStore {
         })
     }
 
-    pub async fn associate_schema(&self, schema_uri: SchemaUri, include: Vec<String>) {
-        let mut schemas = self.schemas.write().await;
-        schemas.push(crate::Schema {
-            url: schema_uri,
+    pub async fn associate_schema(
+        &self,
+        schema_uri: SchemaUri,
+        include: Vec<String>,
+        options: &AssociateSchemaOptions,
+    ) {
+        let new_schema = crate::Schema {
+            title: options.title.clone(),
+            description: options.description.clone(),
+            schema_uri,
+            catalog_uri: None,
             include,
-            toml_version: None,
+            toml_version: options.toml_version,
             sub_root_keys: None,
-        });
+        };
+
+        let mut schemas = self.schemas.write().await;
+        if options.force {
+            // Insert at the beginning to force precedence
+            schemas.insert(0, new_schema);
+        } else {
+            // Append at the end
+            schemas.push(new_schema);
+        }
+    }
+
+    pub async fn list_schemas(&self) -> Vec<crate::Schema> {
+        self.schemas.read().await.clone()
     }
 }
 

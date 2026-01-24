@@ -69,11 +69,14 @@ class DataSnapshot:
         response_data: Any,
         provider_id: types.ProviderID | str | None = None,
         provider_api_url: str | None = None,
-        api_flavor: str | None = None,
+        api_flavor: str = 'default',
     ) -> types.ExtractedUsage:
         provider = self.find_provider(None, provider_id, provider_api_url)
         model_ref, usage = provider.extract_usage(response_data, api_flavor=api_flavor)
-        _, model = self.find_provider_model(model_ref, provider, None, None)
+        if model_ref is not None:
+            _, model = self.find_provider_model(model_ref, provider, None, None)
+        else:
+            model = None
         return types.ExtractedUsage(usage, model, provider, self.timestamp if self.from_auto_update else None)
 
     def find_provider_model(
@@ -94,7 +97,7 @@ class DataSnapshot:
 
             provider = self.find_provider(model_ref, provider_id, provider_api_url)
 
-        if model := provider.find_model(model_ref):
+        if model := provider.find_model(model_ref, all_providers=self.providers):
             self._lookup_cache[(provider_id, provider_api_url, model_ref)] = ret = provider, model
             return ret
         else:

@@ -4,11 +4,15 @@
 # LICENSE file in the root directory of this source tree.
 
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, NewType, Optional, Pattern, Sequence, Set
 
-import toml
+if sys.version_info < (3, 11):
+    import tomli as tomllib
+else:
+    import tomllib
 
 from .stdlibs import STDLIB_TOP_LEVEL_NAMES
 
@@ -55,8 +59,19 @@ class Config:
     # Whether to perform the first-party heuristic during find()
     first_party_detection: bool = True
 
+    # Whether to follow black-style for magic trailing commas
+    magic_commas: bool = False
+
     # Whether to merge imports when sorting
     merge_imports: bool = True
+
+    # Whether to preserve inline comments on individual imports when sorting
+    preserve_inline_comments: bool = False
+
+    # Whether to collapse blank lines within a single import category
+    # Default True matches current behavior (collapse blank lines within categories)
+    # Set to False to preserve one blank line within categories (pre-commit 58c01556 behavior)
+    collapse_blank_lines_in_category: bool = True
 
     # gitignore-style filename patterns to exclude when sorting entire directories
     excludes: List[str] = field(default_factory=list)
@@ -144,7 +159,7 @@ class Config:
         return self
 
     def update_from_config(self, toml_path: Path) -> None:
-        conf = toml.loads(toml_path.read_text())
+        conf = tomllib.loads(toml_path.read_text())
         tool = conf.get("tool", {})
         tbl = tool.get("usort", {})
 
@@ -156,8 +171,16 @@ class Config:
             self.side_effect_modules.extend(tbl["side_effect_modules"])
         if "first_party_detection" in tbl:
             self.first_party_detection = tbl["first_party_detection"]
+        if "magic_commas" in tbl:
+            self.magic_commas = bool(tbl["magic_commas"])
         if "merge_imports" in tbl:
-            self.merge_imports = tbl["merge_imports"]
+            self.merge_imports = bool(tbl["merge_imports"])
+        if "preserve_inline_comments" in tbl:
+            self.preserve_inline_comments = bool(tbl["preserve_inline_comments"])
+        if "collapse_blank_lines_in_category" in tbl:
+            self.collapse_blank_lines_in_category = bool(
+                tbl["collapse_blank_lines_in_category"]
+            )
         if "excludes" in tbl:
             self.excludes = tbl["excludes"]
 

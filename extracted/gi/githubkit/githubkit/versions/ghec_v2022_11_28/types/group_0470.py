@@ -9,48 +9,118 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Literal, Union
 from typing_extensions import NotRequired, TypedDict
 
-from .group_0469 import MetaType
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
 
 
-class ScimEnterpriseGroupResponseType(TypedDict):
-    """ScimEnterpriseGroupResponse"""
+class PullRequestReviewType(TypedDict):
+    """Pull Request Review
 
-    schemas: list[
-        Literal[
-            "urn:ietf:params:scim:schemas:core:2.0:Group",
-            "urn:ietf:params:scim:api:messages:2.0:ListResponse",
-        ]
+    Pull Request Reviews are reviews on pull requests.
+    """
+
+    id: int
+    node_id: str
+    user: Union[None, SimpleUserType]
+    body: str
+    state: str
+    html_url: str
+    pull_request_url: str
+    links: PullRequestReviewPropLinksType
+    submitted_at: NotRequired[_dt.datetime]
+    commit_id: Union[str, None]
+    body_html: NotRequired[str]
+    body_text: NotRequired[str]
+    author_association: Literal[
+        "COLLABORATOR",
+        "CONTRIBUTOR",
+        "FIRST_TIMER",
+        "FIRST_TIME_CONTRIBUTOR",
+        "MANNEQUIN",
+        "MEMBER",
+        "NONE",
+        "OWNER",
     ]
-    external_id: NotRequired[Union[str, None]]
-    display_name: NotRequired[Union[str, None]]
-    members: NotRequired[list[ScimEnterpriseGroupResponseMergedMembersType]]
-    id: NotRequired[str]
-    meta: NotRequired[MetaType]
 
 
-class ScimEnterpriseGroupResponseMergedMembersType(TypedDict):
-    """ScimEnterpriseGroupResponseMergedMembers"""
+class PullRequestReviewTypeForResponse(TypedDict):
+    """Pull Request Review
 
-    value: str
-    ref: str
-    display: NotRequired[str]
+    Pull Request Reviews are reviews on pull requests.
+    """
+
+    id: int
+    node_id: str
+    user: Union[None, SimpleUserTypeForResponse]
+    body: str
+    state: str
+    html_url: str
+    pull_request_url: str
+    links: PullRequestReviewPropLinksTypeForResponse
+    submitted_at: NotRequired[str]
+    commit_id: Union[str, None]
+    body_html: NotRequired[str]
+    body_text: NotRequired[str]
+    author_association: Literal[
+        "COLLABORATOR",
+        "CONTRIBUTOR",
+        "FIRST_TIMER",
+        "FIRST_TIME_CONTRIBUTOR",
+        "MANNEQUIN",
+        "MEMBER",
+        "NONE",
+        "OWNER",
+    ]
 
 
-class ScimEnterpriseGroupListType(TypedDict):
-    """ScimEnterpriseGroupList"""
+class PullRequestReviewPropLinksType(TypedDict):
+    """PullRequestReviewPropLinks"""
 
-    schemas: list[Literal["urn:ietf:params:scim:api:messages:2.0:ListResponse"]]
-    total_results: int
-    resources: list[ScimEnterpriseGroupResponseType]
-    start_index: int
-    items_per_page: int
+    html: PullRequestReviewPropLinksPropHtmlType
+    pull_request: PullRequestReviewPropLinksPropPullRequestType
+
+
+class PullRequestReviewPropLinksTypeForResponse(TypedDict):
+    """PullRequestReviewPropLinks"""
+
+    html: PullRequestReviewPropLinksPropHtmlTypeForResponse
+    pull_request: PullRequestReviewPropLinksPropPullRequestTypeForResponse
+
+
+class PullRequestReviewPropLinksPropHtmlType(TypedDict):
+    """PullRequestReviewPropLinksPropHtml"""
+
+    href: str
+
+
+class PullRequestReviewPropLinksPropHtmlTypeForResponse(TypedDict):
+    """PullRequestReviewPropLinksPropHtml"""
+
+    href: str
+
+
+class PullRequestReviewPropLinksPropPullRequestType(TypedDict):
+    """PullRequestReviewPropLinksPropPullRequest"""
+
+    href: str
+
+
+class PullRequestReviewPropLinksPropPullRequestTypeForResponse(TypedDict):
+    """PullRequestReviewPropLinksPropPullRequest"""
+
+    href: str
 
 
 __all__ = (
-    "ScimEnterpriseGroupListType",
-    "ScimEnterpriseGroupResponseMergedMembersType",
-    "ScimEnterpriseGroupResponseType",
+    "PullRequestReviewPropLinksPropHtmlType",
+    "PullRequestReviewPropLinksPropHtmlTypeForResponse",
+    "PullRequestReviewPropLinksPropPullRequestType",
+    "PullRequestReviewPropLinksPropPullRequestTypeForResponse",
+    "PullRequestReviewPropLinksType",
+    "PullRequestReviewPropLinksTypeForResponse",
+    "PullRequestReviewType",
+    "PullRequestReviewTypeForResponse",
 )

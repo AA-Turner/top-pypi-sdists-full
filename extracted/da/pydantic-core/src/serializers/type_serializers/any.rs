@@ -8,11 +8,9 @@ use pyo3::types::PyDict;
 
 use serde::ser::Serializer;
 
-use crate::definitions::DefinitionsBuilder;
+use crate::{definitions::DefinitionsBuilder, serializers::SerializationState};
 
-use super::{
-    infer_json_key, infer_serialize, infer_to_python, BuildSerializer, CombinedSerializer, Extra, TypeSerializer,
-};
+use super::{infer_json_key, infer_serialize, infer_to_python, BuildSerializer, CombinedSerializer, TypeSerializer};
 
 #[derive(Debug, Clone, Default)]
 pub struct AnySerializer;
@@ -30,38 +28,38 @@ impl BuildSerializer for AnySerializer {
     fn build(
         _schema: &Bound<'_, PyDict>,
         _config: Option<&Bound<'_, PyDict>>,
-        _definitions: &mut DefinitionsBuilder<CombinedSerializer>,
-    ) -> PyResult<CombinedSerializer> {
-        Ok(Self {}.into())
+        _definitions: &mut DefinitionsBuilder<Arc<CombinedSerializer>>,
+    ) -> PyResult<Arc<CombinedSerializer>> {
+        Ok(Self::get().clone())
     }
 }
 
 impl_py_gc_traverse!(AnySerializer {});
 
 impl TypeSerializer for AnySerializer {
-    fn to_python(
+    fn to_python<'py>(
         &self,
-        value: &Bound<'_, PyAny>,
-        include: Option<&Bound<'_, PyAny>>,
-        exclude: Option<&Bound<'_, PyAny>>,
-        extra: &Extra,
-    ) -> PyResult<PyObject> {
-        infer_to_python(value, include, exclude, extra)
+        value: &Bound<'py, PyAny>,
+        state: &mut SerializationState<'_, 'py>,
+    ) -> PyResult<Py<PyAny>> {
+        infer_to_python(value, state)
     }
 
-    fn json_key<'a>(&self, key: &'a Bound<'_, PyAny>, extra: &Extra) -> PyResult<Cow<'a, str>> {
-        infer_json_key(key, extra)
+    fn json_key<'a, 'py>(
+        &self,
+        key: &'a Bound<'py, PyAny>,
+        state: &mut SerializationState<'_, 'py>,
+    ) -> PyResult<Cow<'a, str>> {
+        infer_json_key(key, state)
     }
 
-    fn serde_serialize<S: Serializer>(
+    fn serde_serialize<'py, S: Serializer>(
         &self,
-        value: &Bound<'_, PyAny>,
+        value: &Bound<'py, PyAny>,
         serializer: S,
-        include: Option<&Bound<'_, PyAny>>,
-        exclude: Option<&Bound<'_, PyAny>>,
-        extra: &Extra,
+        state: &mut SerializationState<'_, 'py>,
     ) -> Result<S::Ok, S::Error> {
-        infer_serialize(value, serializer, include, exclude, extra)
+        infer_serialize(value, serializer, state)
     }
 
     fn get_name(&self) -> &str {

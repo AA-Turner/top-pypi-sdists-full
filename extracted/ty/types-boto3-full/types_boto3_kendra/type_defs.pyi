@@ -3,7 +3,7 @@ Type annotations for kendra service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kendra/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -83,12 +84,6 @@ from .literals import (
     WebCrawlerModeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -440,8 +435,8 @@ class DataSourceToIndexFieldMappingTypeDef(TypedDict):
     DateFieldFormat: NotRequired[str]
 
 class DataSourceVpcConfigurationOutputTypeDef(TypedDict):
-    SubnetIds: List[str]
-    SecurityGroupIds: List[str]
+    SubnetIds: list[str]
+    SecurityGroupIds: list[str]
 
 class S3PathTypeDef(TypedDict):
     Bucket: str
@@ -462,7 +457,7 @@ class FailedEntityTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -568,8 +563,8 @@ class ConnectionConfigurationTypeDef(TypedDict):
     SecretArn: str
 
 class ContentSourceConfigurationOutputTypeDef(TypedDict):
-    DataSourceIds: NotRequired[List[str]]
-    FaqIds: NotRequired[List[str]]
+    DataSourceIds: NotRequired[list[str]]
+    FaqIds: NotRequired[list[str]]
     DirectPutContent: NotRequired[bool]
 
 class ContentSourceConfigurationTypeDef(TypedDict):
@@ -607,7 +602,7 @@ class UserGroupResolutionConfigurationTypeDef(TypedDict):
     UserGroupResolutionMode: UserGroupResolutionModeType
 
 class TemplateConfigurationOutputTypeDef(TypedDict):
-    Template: NotRequired[Dict[str, Any]]
+    Template: NotRequired[dict[str, Any]]
 
 class TemplateConfigurationTypeDef(TypedDict):
     Template: NotRequired[Mapping[str, Any]]
@@ -737,7 +732,7 @@ class DisassociatePersonasFromEntitiesRequestTypeDef(TypedDict):
 
 class DocumentAttributeValueOutputTypeDef(TypedDict):
     StringValue: NotRequired[str]
-    StringListValue: NotRequired[List[str]]
+    StringListValue: NotRequired[list[str]]
     LongValue: NotRequired[int]
     DateValue: NotRequired[datetime]
 
@@ -746,7 +741,7 @@ class RelevanceOutputTypeDef(TypedDict):
     Importance: NotRequired[int]
     Duration: NotRequired[str]
     RankOrder: NotRequired[OrderType]
-    ValueImportanceMap: NotRequired[Dict[str, int]]
+    ValueImportanceMap: NotRequired[dict[str, int]]
 
 class SearchTypeDef(TypedDict):
     Facetable: NotRequired[bool]
@@ -964,7 +959,7 @@ class RelevanceTypeDef(TypedDict):
     ValueImportanceMap: NotRequired[Mapping[str, int]]
 
 class SeedUrlConfigurationOutputTypeDef(TypedDict):
-    SeedUrls: List[str]
+    SeedUrls: list[str]
     WebCrawlerMode: NotRequired[WebCrawlerModeType]
 
 class SeedUrlConfigurationTypeDef(TypedDict):
@@ -972,7 +967,7 @@ class SeedUrlConfigurationTypeDef(TypedDict):
     WebCrawlerMode: NotRequired[WebCrawlerModeType]
 
 class SiteMapsConfigurationOutputTypeDef(TypedDict):
-    SiteMaps: List[str]
+    SiteMaps: list[str]
 
 class SiteMapsConfigurationTypeDef(TypedDict):
     SiteMaps: Sequence[str]
@@ -1002,9 +997,9 @@ class UntagResourceRequestTypeDef(TypedDict):
 class ColumnConfigurationOutputTypeDef(TypedDict):
     DocumentIdColumnName: str
     DocumentDataColumnName: str
-    ChangeDetectingColumns: List[str]
+    ChangeDetectingColumns: list[str]
     DocumentTitleColumnName: NotRequired[str]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
 
 class ColumnConfigurationTypeDef(TypedDict):
     DocumentIdColumnName: str
@@ -1015,12 +1010,12 @@ class ColumnConfigurationTypeDef(TypedDict):
 
 class GoogleDriveConfigurationOutputTypeDef(TypedDict):
     SecretArn: str
-    InclusionPatterns: NotRequired[List[str]]
-    ExclusionPatterns: NotRequired[List[str]]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    ExcludeMimeTypes: NotRequired[List[str]]
-    ExcludeUserAccounts: NotRequired[List[str]]
-    ExcludeSharedDrives: NotRequired[List[str]]
+    InclusionPatterns: NotRequired[list[str]]
+    ExclusionPatterns: NotRequired[list[str]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    ExcludeMimeTypes: NotRequired[list[str]]
+    ExcludeUserAccounts: NotRequired[list[str]]
+    ExcludeSharedDrives: NotRequired[list[str]]
 
 class GoogleDriveConfigurationTypeDef(TypedDict):
     SecretArn: str
@@ -1034,8 +1029,8 @@ class GoogleDriveConfigurationTypeDef(TypedDict):
 class SalesforceChatterFeedConfigurationOutputTypeDef(TypedDict):
     DocumentDataFieldName: str
     DocumentTitleFieldName: NotRequired[str]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    IncludeFilterTypes: NotRequired[List[SalesforceChatterFeedIncludeFilterTypeType]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    IncludeFilterTypes: NotRequired[list[SalesforceChatterFeedIncludeFilterTypeType]]
 
 class SalesforceChatterFeedConfigurationTypeDef(TypedDict):
     DocumentDataFieldName: str
@@ -1047,7 +1042,7 @@ class SalesforceCustomKnowledgeArticleTypeConfigurationOutputTypeDef(TypedDict):
     Name: str
     DocumentDataFieldName: str
     DocumentTitleFieldName: NotRequired[str]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
 
 class SalesforceCustomKnowledgeArticleTypeConfigurationTypeDef(TypedDict):
     Name: str
@@ -1058,7 +1053,7 @@ class SalesforceCustomKnowledgeArticleTypeConfigurationTypeDef(TypedDict):
 class SalesforceStandardKnowledgeArticleTypeConfigurationOutputTypeDef(TypedDict):
     DocumentDataFieldName: str
     DocumentTitleFieldName: NotRequired[str]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
 
 class SalesforceStandardKnowledgeArticleTypeConfigurationTypeDef(TypedDict):
     DocumentDataFieldName: str
@@ -1067,7 +1062,7 @@ class SalesforceStandardKnowledgeArticleTypeConfigurationTypeDef(TypedDict):
 
 class SalesforceStandardObjectAttachmentConfigurationOutputTypeDef(TypedDict):
     DocumentTitleFieldName: NotRequired[str]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
 
 class SalesforceStandardObjectAttachmentConfigurationTypeDef(TypedDict):
     DocumentTitleFieldName: NotRequired[str]
@@ -1077,7 +1072,7 @@ class SalesforceStandardObjectConfigurationOutputTypeDef(TypedDict):
     Name: SalesforceStandardObjectNameType
     DocumentDataFieldName: str
     DocumentTitleFieldName: NotRequired[str]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
 
 class SalesforceStandardObjectConfigurationTypeDef(TypedDict):
     Name: SalesforceStandardObjectNameType
@@ -1088,10 +1083,10 @@ class SalesforceStandardObjectConfigurationTypeDef(TypedDict):
 class ServiceNowKnowledgeArticleConfigurationOutputTypeDef(TypedDict):
     DocumentDataFieldName: str
     CrawlAttachments: NotRequired[bool]
-    IncludeAttachmentFilePatterns: NotRequired[List[str]]
-    ExcludeAttachmentFilePatterns: NotRequired[List[str]]
+    IncludeAttachmentFilePatterns: NotRequired[list[str]]
+    ExcludeAttachmentFilePatterns: NotRequired[list[str]]
     DocumentTitleFieldName: NotRequired[str]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
     FilterQuery: NotRequired[str]
 
 class ServiceNowKnowledgeArticleConfigurationTypeDef(TypedDict):
@@ -1106,10 +1101,10 @@ class ServiceNowKnowledgeArticleConfigurationTypeDef(TypedDict):
 class ServiceNowServiceCatalogConfigurationOutputTypeDef(TypedDict):
     DocumentDataFieldName: str
     CrawlAttachments: NotRequired[bool]
-    IncludeAttachmentFilePatterns: NotRequired[List[str]]
-    ExcludeAttachmentFilePatterns: NotRequired[List[str]]
+    IncludeAttachmentFilePatterns: NotRequired[list[str]]
+    ExcludeAttachmentFilePatterns: NotRequired[list[str]]
     DocumentTitleFieldName: NotRequired[str]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
 
 class ServiceNowServiceCatalogConfigurationTypeDef(TypedDict):
     DocumentDataFieldName: str
@@ -1123,9 +1118,9 @@ class WorkDocsConfigurationOutputTypeDef(TypedDict):
     OrganizationId: str
     CrawlComments: NotRequired[bool]
     UseChangeLog: NotRequired[bool]
-    InclusionPatterns: NotRequired[List[str]]
-    ExclusionPatterns: NotRequired[List[str]]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
+    InclusionPatterns: NotRequired[list[str]]
+    ExclusionPatterns: NotRequired[list[str]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
 
 class WorkDocsConfigurationTypeDef(TypedDict):
     OrganizationId: str
@@ -1142,12 +1137,12 @@ class BoxConfigurationOutputTypeDef(TypedDict):
     CrawlComments: NotRequired[bool]
     CrawlTasks: NotRequired[bool]
     CrawlWebLinks: NotRequired[bool]
-    FileFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    TaskFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    CommentFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    WebLinkFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    InclusionPatterns: NotRequired[List[str]]
-    ExclusionPatterns: NotRequired[List[str]]
+    FileFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    TaskFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    CommentFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    WebLinkFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    InclusionPatterns: NotRequired[list[str]]
+    ExclusionPatterns: NotRequired[list[str]]
     VpcConfiguration: NotRequired[DataSourceVpcConfigurationOutputTypeDef]
 
 class FsxConfigurationOutputTypeDef(TypedDict):
@@ -1155,25 +1150,25 @@ class FsxConfigurationOutputTypeDef(TypedDict):
     FileSystemType: Literal["WINDOWS"]
     VpcConfiguration: DataSourceVpcConfigurationOutputTypeDef
     SecretArn: NotRequired[str]
-    InclusionPatterns: NotRequired[List[str]]
-    ExclusionPatterns: NotRequired[List[str]]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
+    InclusionPatterns: NotRequired[list[str]]
+    ExclusionPatterns: NotRequired[list[str]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
 
 class JiraConfigurationOutputTypeDef(TypedDict):
     JiraAccountUrl: str
     SecretArn: str
     UseChangeLog: NotRequired[bool]
-    Project: NotRequired[List[str]]
-    IssueType: NotRequired[List[str]]
-    Status: NotRequired[List[str]]
-    IssueSubEntityFilter: NotRequired[List[IssueSubEntityType]]
-    AttachmentFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    CommentFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    IssueFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    ProjectFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    WorkLogFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    InclusionPatterns: NotRequired[List[str]]
-    ExclusionPatterns: NotRequired[List[str]]
+    Project: NotRequired[list[str]]
+    IssueType: NotRequired[list[str]]
+    Status: NotRequired[list[str]]
+    IssueSubEntityFilter: NotRequired[list[IssueSubEntityType]]
+    AttachmentFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    CommentFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    IssueFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    ProjectFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    WorkLogFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    InclusionPatterns: NotRequired[list[str]]
+    ExclusionPatterns: NotRequired[list[str]]
     VpcConfiguration: NotRequired[DataSourceVpcConfigurationOutputTypeDef]
 
 class QuipConfigurationOutputTypeDef(TypedDict):
@@ -1182,29 +1177,29 @@ class QuipConfigurationOutputTypeDef(TypedDict):
     CrawlFileComments: NotRequired[bool]
     CrawlChatRooms: NotRequired[bool]
     CrawlAttachments: NotRequired[bool]
-    FolderIds: NotRequired[List[str]]
-    ThreadFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    MessageFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    AttachmentFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    InclusionPatterns: NotRequired[List[str]]
-    ExclusionPatterns: NotRequired[List[str]]
+    FolderIds: NotRequired[list[str]]
+    ThreadFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    MessageFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    AttachmentFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    InclusionPatterns: NotRequired[list[str]]
+    ExclusionPatterns: NotRequired[list[str]]
     VpcConfiguration: NotRequired[DataSourceVpcConfigurationOutputTypeDef]
 
 class SlackConfigurationOutputTypeDef(TypedDict):
     TeamId: str
     SecretArn: str
-    SlackEntityList: List[SlackEntityType]
+    SlackEntityList: list[SlackEntityType]
     SinceCrawlDate: str
     VpcConfiguration: NotRequired[DataSourceVpcConfigurationOutputTypeDef]
     UseChangeLog: NotRequired[bool]
     CrawlBotMessage: NotRequired[bool]
     ExcludeArchived: NotRequired[bool]
     LookBackPeriod: NotRequired[int]
-    PrivateChannelFilter: NotRequired[List[str]]
-    PublicChannelFilter: NotRequired[List[str]]
-    InclusionPatterns: NotRequired[List[str]]
-    ExclusionPatterns: NotRequired[List[str]]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
+    PrivateChannelFilter: NotRequired[list[str]]
+    PublicChannelFilter: NotRequired[list[str]]
+    InclusionPatterns: NotRequired[list[str]]
+    ExclusionPatterns: NotRequired[list[str]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
 
 class AlfrescoConfigurationOutputTypeDef(TypedDict):
     SiteUrl: str
@@ -1213,12 +1208,12 @@ class AlfrescoConfigurationOutputTypeDef(TypedDict):
     SslCertificateS3Path: S3PathTypeDef
     CrawlSystemFolders: NotRequired[bool]
     CrawlComments: NotRequired[bool]
-    EntityFilter: NotRequired[List[AlfrescoEntityType]]
-    DocumentLibraryFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    BlogFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    WikiFieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
-    InclusionPatterns: NotRequired[List[str]]
-    ExclusionPatterns: NotRequired[List[str]]
+    EntityFilter: NotRequired[list[AlfrescoEntityType]]
+    DocumentLibraryFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    BlogFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    WikiFieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
+    InclusionPatterns: NotRequired[list[str]]
+    ExclusionPatterns: NotRequired[list[str]]
     VpcConfiguration: NotRequired[DataSourceVpcConfigurationOutputTypeDef]
 
 class OnPremiseConfigurationTypeDef(TypedDict):
@@ -1227,7 +1222,7 @@ class OnPremiseConfigurationTypeDef(TypedDict):
     SslCertificateS3Path: S3PathTypeDef
 
 class OneDriveUsersOutputTypeDef(TypedDict):
-    OneDriveUserList: NotRequired[List[str]]
+    OneDriveUserList: NotRequired[list[str]]
     OneDriveUserS3Path: NotRequired[S3PathTypeDef]
 
 class OneDriveUsersTypeDef(TypedDict):
@@ -1351,11 +1346,11 @@ class DisassociateEntitiesFromExperienceRequestTypeDef(TypedDict):
     EntityList: Sequence[EntityConfigurationTypeDef]
 
 class AssociateEntitiesToExperienceResponseTypeDef(TypedDict):
-    FailedEntityList: List[FailedEntityTypeDef]
+    FailedEntityList: list[FailedEntityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssociatePersonasToEntitiesResponseTypeDef(TypedDict):
-    FailedEntityList: List[FailedEntityTypeDef]
+    FailedEntityList: list[FailedEntityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateAccessControlConfigurationResponseTypeDef(TypedDict):
@@ -1433,18 +1428,18 @@ class DescribeThesaurusResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DisassociateEntitiesFromExperienceResponseTypeDef(TypedDict):
-    FailedEntityList: List[FailedEntityTypeDef]
+    FailedEntityList: list[FailedEntityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DisassociatePersonasFromEntitiesResponseTypeDef(TypedDict):
-    FailedEntityList: List[FailedEntityTypeDef]
+    FailedEntityList: list[FailedEntityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAccessControlConfigurationsResponseTypeDef(TypedDict):
-    AccessControlConfigurations: List[AccessControlConfigurationSummaryTypeDef]
+    AccessControlConfigurations: list[AccessControlConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1458,7 +1453,7 @@ class AssociatePersonasToEntitiesRequestTypeDef(TypedDict):
     Personas: Sequence[EntityPersonaConfigurationTypeDef]
 
 class AttributeSuggestionsDescribeConfigTypeDef(TypedDict):
-    SuggestableConfigList: NotRequired[List[SuggestableConfigTypeDef]]
+    SuggestableConfigList: NotRequired[list[SuggestableConfigTypeDef]]
     AttributeSuggestionsMode: NotRequired[AttributeSuggestionsModeType]
 
 class AttributeSuggestionsUpdateConfigTypeDef(TypedDict):
@@ -1466,7 +1461,7 @@ class AttributeSuggestionsUpdateConfigTypeDef(TypedDict):
     AttributeSuggestionsMode: NotRequired[AttributeSuggestionsModeType]
 
 class AuthenticationConfigurationOutputTypeDef(TypedDict):
-    BasicAuthentication: NotRequired[List[BasicAuthenticationConfigurationTypeDef]]
+    BasicAuthentication: NotRequired[list[BasicAuthenticationConfigurationTypeDef]]
 
 class AuthenticationConfigurationTypeDef(TypedDict):
     BasicAuthentication: NotRequired[Sequence[BasicAuthenticationConfigurationTypeDef]]
@@ -1477,20 +1472,20 @@ class BatchDeleteDocumentRequestTypeDef(TypedDict):
     DataSourceSyncJobMetricTarget: NotRequired[DataSourceSyncJobMetricTargetTypeDef]
 
 class BatchDeleteDocumentResponseTypeDef(TypedDict):
-    FailedDocuments: List[BatchDeleteDocumentResponseFailedDocumentTypeDef]
+    FailedDocuments: list[BatchDeleteDocumentResponseFailedDocumentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchDeleteFeaturedResultsSetResponseTypeDef(TypedDict):
-    Errors: List[BatchDeleteFeaturedResultsSetErrorTypeDef]
+    Errors: list[BatchDeleteFeaturedResultsSetErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetDocumentStatusResponseTypeDef(TypedDict):
-    Errors: List[BatchGetDocumentStatusResponseErrorTypeDef]
-    DocumentStatusList: List[StatusTypeDef]
+    Errors: list[BatchGetDocumentStatusResponseErrorTypeDef]
+    DocumentStatusList: list[StatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchPutDocumentResponseTypeDef(TypedDict):
-    FailedDocuments: List[BatchPutDocumentResponseFailedDocumentTypeDef]
+    FailedDocuments: list[BatchPutDocumentResponseFailedDocumentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ClickFeedbackTypeDef(TypedDict):
@@ -1516,28 +1511,28 @@ class CollapseConfigurationTypeDef(TypedDict):
 
 class ConfluenceAttachmentConfigurationOutputTypeDef(TypedDict):
     CrawlAttachments: NotRequired[bool]
-    AttachmentFieldMappings: NotRequired[List[ConfluenceAttachmentToIndexFieldMappingTypeDef]]
+    AttachmentFieldMappings: NotRequired[list[ConfluenceAttachmentToIndexFieldMappingTypeDef]]
 
 class ConfluenceAttachmentConfigurationTypeDef(TypedDict):
     CrawlAttachments: NotRequired[bool]
     AttachmentFieldMappings: NotRequired[Sequence[ConfluenceAttachmentToIndexFieldMappingTypeDef]]
 
 class ConfluenceBlogConfigurationOutputTypeDef(TypedDict):
-    BlogFieldMappings: NotRequired[List[ConfluenceBlogToIndexFieldMappingTypeDef]]
+    BlogFieldMappings: NotRequired[list[ConfluenceBlogToIndexFieldMappingTypeDef]]
 
 class ConfluenceBlogConfigurationTypeDef(TypedDict):
     BlogFieldMappings: NotRequired[Sequence[ConfluenceBlogToIndexFieldMappingTypeDef]]
 
 class SharePointConfigurationOutputTypeDef(TypedDict):
     SharePointVersion: SharePointVersionType
-    Urls: List[str]
+    Urls: list[str]
     SecretArn: str
     CrawlAttachments: NotRequired[bool]
     UseChangeLog: NotRequired[bool]
-    InclusionPatterns: NotRequired[List[str]]
-    ExclusionPatterns: NotRequired[List[str]]
+    InclusionPatterns: NotRequired[list[str]]
+    ExclusionPatterns: NotRequired[list[str]]
     VpcConfiguration: NotRequired[DataSourceVpcConfigurationOutputTypeDef]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
     DocumentTitleFieldName: NotRequired[str]
     DisableLocalGroups: NotRequired[bool]
     SslCertificateS3Path: NotRequired[S3PathTypeDef]
@@ -1561,7 +1556,7 @@ class SharePointConfigurationTypeDef(TypedDict):
     ProxyConfiguration: NotRequired[ProxyConfigurationTypeDef]
 
 class ConfluencePageConfigurationOutputTypeDef(TypedDict):
-    PageFieldMappings: NotRequired[List[ConfluencePageToIndexFieldMappingTypeDef]]
+    PageFieldMappings: NotRequired[list[ConfluencePageToIndexFieldMappingTypeDef]]
 
 class ConfluencePageConfigurationTypeDef(TypedDict):
     PageFieldMappings: NotRequired[Sequence[ConfluencePageToIndexFieldMappingTypeDef]]
@@ -1569,9 +1564,9 @@ class ConfluencePageConfigurationTypeDef(TypedDict):
 class ConfluenceSpaceConfigurationOutputTypeDef(TypedDict):
     CrawlPersonalSpaces: NotRequired[bool]
     CrawlArchivedSpaces: NotRequired[bool]
-    IncludeSpaces: NotRequired[List[str]]
-    ExcludeSpaces: NotRequired[List[str]]
-    SpaceFieldMappings: NotRequired[List[ConfluenceSpaceToIndexFieldMappingTypeDef]]
+    IncludeSpaces: NotRequired[list[str]]
+    ExcludeSpaces: NotRequired[list[str]]
+    SpaceFieldMappings: NotRequired[list[ConfluenceSpaceToIndexFieldMappingTypeDef]]
 
 class ConfluenceSpaceConfigurationTypeDef(TypedDict):
     CrawlPersonalSpaces: NotRequired[bool]
@@ -1582,10 +1577,10 @@ class ConfluenceSpaceConfigurationTypeDef(TypedDict):
 
 class SpellCorrectedQueryTypeDef(TypedDict):
     SuggestedQueryText: NotRequired[str]
-    Corrections: NotRequired[List[CorrectionTypeDef]]
+    Corrections: NotRequired[list[CorrectionTypeDef]]
 
 class HierarchicalPrincipalOutputTypeDef(TypedDict):
-    PrincipalList: List[PrincipalTypeDef]
+    PrincipalList: list[PrincipalTypeDef]
 
 class HierarchicalPrincipalTypeDef(TypedDict):
     PrincipalList: Sequence[PrincipalTypeDef]
@@ -1620,7 +1615,7 @@ class CreateThesaurusRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -1642,8 +1637,8 @@ class FeaturedResultsSetTypeDef(TypedDict):
     FeaturedResultsSetName: NotRequired[str]
     Description: NotRequired[str]
     Status: NotRequired[FeaturedResultsSetStatusType]
-    QueryTexts: NotRequired[List[str]]
-    FeaturedDocuments: NotRequired[List[FeaturedDocumentTypeDef]]
+    QueryTexts: NotRequired[list[str]]
+    FeaturedDocuments: NotRequired[list[FeaturedDocumentTypeDef]]
     LastUpdatedTimestamp: NotRequired[int]
     CreationTimestamp: NotRequired[int]
 
@@ -1663,7 +1658,7 @@ class UserContextTypeDef(TypedDict):
     DataSourceGroups: NotRequired[Sequence[DataSourceGroupTypeDef]]
 
 class ListDataSourcesResponseTypeDef(TypedDict):
-    SummaryItems: List[DataSourceSummaryTypeDef]
+    SummaryItems: list[DataSourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1682,16 +1677,16 @@ class ExperiencesSummaryTypeDef(TypedDict):
     Id: NotRequired[str]
     CreatedAt: NotRequired[datetime]
     Status: NotRequired[ExperienceStatusType]
-    Endpoints: NotRequired[List[ExperienceEndpointTypeDef]]
+    Endpoints: NotRequired[list[ExperienceEndpointTypeDef]]
 
 class DescribeFeaturedResultsSetResponseTypeDef(TypedDict):
     FeaturedResultsSetId: str
     FeaturedResultsSetName: str
     Description: str
     Status: FeaturedResultsSetStatusType
-    QueryTexts: List[str]
-    FeaturedDocumentsWithMetadata: List[FeaturedDocumentWithMetadataTypeDef]
-    FeaturedDocumentsMissing: List[FeaturedDocumentMissingTypeDef]
+    QueryTexts: list[str]
+    FeaturedDocumentsWithMetadata: list[FeaturedDocumentWithMetadataTypeDef]
+    FeaturedDocumentsMissing: list[FeaturedDocumentMissingTypeDef]
     LastUpdatedTimestamp: int
     CreationTimestamp: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1700,7 +1695,7 @@ class DescribePrincipalMappingResponseTypeDef(TypedDict):
     IndexId: str
     DataSourceId: str
     GroupId: str
-    GroupOrderingIdSummaries: List[GroupOrderingIdSummaryTypeDef]
+    GroupOrderingIdSummaries: list[GroupOrderingIdSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DocumentAttributeConditionOutputTypeDef(TypedDict):
@@ -1720,7 +1715,7 @@ class DocumentAttributeTargetOutputTypeDef(TypedDict):
 class DocumentAttributeValueCountPairTypeDef(TypedDict):
     DocumentAttributeValue: NotRequired[DocumentAttributeValueOutputTypeDef]
     Count: NotRequired[int]
-    FacetResults: NotRequired[List[Dict[str, Any]]]
+    FacetResults: NotRequired[list[dict[str, Any]]]
 
 DocumentMetadataConfigurationOutputTypeDef = TypedDict(
     "DocumentMetadataConfigurationOutputTypeDef",
@@ -1734,9 +1729,9 @@ DocumentMetadataConfigurationOutputTypeDef = TypedDict(
 
 class S3DataSourceConfigurationOutputTypeDef(TypedDict):
     BucketName: str
-    InclusionPrefixes: NotRequired[List[str]]
-    InclusionPatterns: NotRequired[List[str]]
-    ExclusionPatterns: NotRequired[List[str]]
+    InclusionPrefixes: NotRequired[list[str]]
+    InclusionPatterns: NotRequired[list[str]]
+    ExclusionPatterns: NotRequired[list[str]]
     DocumentsMetadataConfiguration: NotRequired[DocumentsMetadataConfigurationTypeDef]
     AccessControlListConfiguration: NotRequired[AccessControlListConfigurationTypeDef]
 
@@ -1762,19 +1757,19 @@ class ExperienceConfigurationTypeDef(TypedDict):
     UserIdentityConfiguration: NotRequired[UserIdentityConfigurationTypeDef]
 
 class ListFaqsResponseTypeDef(TypedDict):
-    FaqSummaryItems: List[FaqSummaryTypeDef]
+    FaqSummaryItems: list[FaqSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListFeaturedResultsSetsResponseTypeDef(TypedDict):
-    FeaturedResultsSetSummaryItems: List[FeaturedResultsSetSummaryTypeDef]
+    FeaturedResultsSetSummaryItems: list[FeaturedResultsSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class GetSnapshotsResponseTypeDef(TypedDict):
     SnapShotTimeFilter: TimeRangeOutputTypeDef
-    SnapshotsDataHeader: List[str]
-    SnapshotsData: List[List[str]]
+    SnapshotsDataHeader: list[str]
+    SnapshotsData: list[list[str]]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1784,7 +1779,7 @@ class GroupMembersTypeDef(TypedDict):
     S3PathforGroupMembers: NotRequired[S3PathTypeDef]
 
 class ListGroupsOlderThanOrderingIdResponseTypeDef(TypedDict):
-    GroupsSummaries: List[GroupSummaryTypeDef]
+    GroupsSummaries: list[GroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1792,12 +1787,12 @@ TextWithHighlightsTypeDef = TypedDict(
     "TextWithHighlightsTypeDef",
     {
         "Text": NotRequired[str],
-        "Highlights": NotRequired[List[HighlightTypeDef]],
+        "Highlights": NotRequired[list[HighlightTypeDef]],
     },
 )
 
 class ListIndicesResponseTypeDef(TypedDict):
-    IndexConfigurationSummaryItems: List[IndexConfigurationSummaryTypeDef]
+    IndexConfigurationSummaryItems: list[IndexConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1810,17 +1805,17 @@ class UserTokenConfigurationTypeDef(TypedDict):
     JsonTokenTypeConfiguration: NotRequired[JsonTokenTypeConfigurationTypeDef]
 
 class ListEntityPersonasResponseTypeDef(TypedDict):
-    SummaryItems: List[PersonasSummaryTypeDef]
+    SummaryItems: list[PersonasSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListQuerySuggestionsBlockListsResponseTypeDef(TypedDict):
-    BlockListSummaryItems: List[QuerySuggestionsBlockListSummaryTypeDef]
+    BlockListSummaryItems: list[QuerySuggestionsBlockListSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListThesauriResponseTypeDef(TypedDict):
-    ThesaurusSummaryItems: List[ThesaurusSummaryTypeDef]
+    ThesaurusSummaryItems: list[ThesaurusSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1838,12 +1833,12 @@ SuggestionTextWithHighlightsTypeDef = TypedDict(
     "SuggestionTextWithHighlightsTypeDef",
     {
         "Text": NotRequired[str],
-        "Highlights": NotRequired[List[SuggestionHighlightTypeDef]],
+        "Highlights": NotRequired[list[SuggestionHighlightTypeDef]],
     },
 )
 
 class TableRowTypeDef(TypedDict):
-    Cells: NotRequired[List[TableCellTypeDef]]
+    Cells: NotRequired[list[TableCellTypeDef]]
 
 class DatabaseConfigurationOutputTypeDef(TypedDict):
     DatabaseEngineType: DatabaseEngineTypeType
@@ -1862,12 +1857,12 @@ class DatabaseConfigurationTypeDef(TypedDict):
     SqlConfiguration: NotRequired[SqlConfigurationTypeDef]
 
 class SalesforceKnowledgeArticleConfigurationOutputTypeDef(TypedDict):
-    IncludedStates: List[SalesforceKnowledgeArticleStateType]
+    IncludedStates: list[SalesforceKnowledgeArticleStateType]
     StandardKnowledgeArticleTypeConfiguration: NotRequired[
         SalesforceStandardKnowledgeArticleTypeConfigurationOutputTypeDef
     ]
     CustomKnowledgeArticleTypeConfigurations: NotRequired[
-        List[SalesforceCustomKnowledgeArticleTypeConfigurationOutputTypeDef]
+        list[SalesforceCustomKnowledgeArticleTypeConfigurationOutputTypeDef]
     ]
 
 class SalesforceKnowledgeArticleConfigurationTypeDef(TypedDict):
@@ -1904,37 +1899,37 @@ GitHubConfigurationOutputTypeDef = TypedDict(
         "Type": NotRequired[TypeType],
         "UseChangeLog": NotRequired[bool],
         "GitHubDocumentCrawlProperties": NotRequired[GitHubDocumentCrawlPropertiesTypeDef],
-        "RepositoryFilter": NotRequired[List[str]],
-        "InclusionFolderNamePatterns": NotRequired[List[str]],
-        "InclusionFileTypePatterns": NotRequired[List[str]],
-        "InclusionFileNamePatterns": NotRequired[List[str]],
-        "ExclusionFolderNamePatterns": NotRequired[List[str]],
-        "ExclusionFileTypePatterns": NotRequired[List[str]],
-        "ExclusionFileNamePatterns": NotRequired[List[str]],
+        "RepositoryFilter": NotRequired[list[str]],
+        "InclusionFolderNamePatterns": NotRequired[list[str]],
+        "InclusionFileTypePatterns": NotRequired[list[str]],
+        "InclusionFileNamePatterns": NotRequired[list[str]],
+        "ExclusionFolderNamePatterns": NotRequired[list[str]],
+        "ExclusionFileTypePatterns": NotRequired[list[str]],
+        "ExclusionFileNamePatterns": NotRequired[list[str]],
         "VpcConfiguration": NotRequired[DataSourceVpcConfigurationOutputTypeDef],
         "GitHubRepositoryConfigurationFieldMappings": NotRequired[
-            List[DataSourceToIndexFieldMappingTypeDef]
+            list[DataSourceToIndexFieldMappingTypeDef]
         ],
         "GitHubCommitConfigurationFieldMappings": NotRequired[
-            List[DataSourceToIndexFieldMappingTypeDef]
+            list[DataSourceToIndexFieldMappingTypeDef]
         ],
         "GitHubIssueDocumentConfigurationFieldMappings": NotRequired[
-            List[DataSourceToIndexFieldMappingTypeDef]
+            list[DataSourceToIndexFieldMappingTypeDef]
         ],
         "GitHubIssueCommentConfigurationFieldMappings": NotRequired[
-            List[DataSourceToIndexFieldMappingTypeDef]
+            list[DataSourceToIndexFieldMappingTypeDef]
         ],
         "GitHubIssueAttachmentConfigurationFieldMappings": NotRequired[
-            List[DataSourceToIndexFieldMappingTypeDef]
+            list[DataSourceToIndexFieldMappingTypeDef]
         ],
         "GitHubPullRequestCommentConfigurationFieldMappings": NotRequired[
-            List[DataSourceToIndexFieldMappingTypeDef]
+            list[DataSourceToIndexFieldMappingTypeDef]
         ],
         "GitHubPullRequestDocumentConfigurationFieldMappings": NotRequired[
-            List[DataSourceToIndexFieldMappingTypeDef]
+            list[DataSourceToIndexFieldMappingTypeDef]
         ],
         "GitHubPullRequestDocumentAttachmentConfigurationFieldMappings": NotRequired[
-            List[DataSourceToIndexFieldMappingTypeDef]
+            list[DataSourceToIndexFieldMappingTypeDef]
         ],
     },
 )
@@ -1986,9 +1981,9 @@ class OneDriveConfigurationOutputTypeDef(TypedDict):
     TenantDomain: str
     SecretArn: str
     OneDriveUsers: OneDriveUsersOutputTypeDef
-    InclusionPatterns: NotRequired[List[str]]
-    ExclusionPatterns: NotRequired[List[str]]
-    FieldMappings: NotRequired[List[DataSourceToIndexFieldMappingTypeDef]]
+    InclusionPatterns: NotRequired[list[str]]
+    ExclusionPatterns: NotRequired[list[str]]
+    FieldMappings: NotRequired[list[DataSourceToIndexFieldMappingTypeDef]]
     DisableLocalGroups: NotRequired[bool]
 
 class OneDriveConfigurationTypeDef(TypedDict):
@@ -2052,8 +2047,8 @@ class ConfluenceConfigurationOutputTypeDef(TypedDict):
     BlogConfiguration: NotRequired[ConfluenceBlogConfigurationOutputTypeDef]
     AttachmentConfiguration: NotRequired[ConfluenceAttachmentConfigurationOutputTypeDef]
     VpcConfiguration: NotRequired[DataSourceVpcConfigurationOutputTypeDef]
-    InclusionPatterns: NotRequired[List[str]]
-    ExclusionPatterns: NotRequired[List[str]]
+    InclusionPatterns: NotRequired[list[str]]
+    ExclusionPatterns: NotRequired[list[str]]
     ProxyConfiguration: NotRequired[ProxyConfigurationTypeDef]
     AuthenticationType: NotRequired[ConfluenceAuthenticationTypeType]
 
@@ -2075,8 +2070,8 @@ class DescribeAccessControlConfigurationResponseTypeDef(TypedDict):
     Name: str
     Description: str
     ErrorMessage: str
-    AccessControlList: List[PrincipalTypeDef]
-    HierarchicalAccessControlList: List[HierarchicalPrincipalOutputTypeDef]
+    AccessControlList: list[PrincipalTypeDef]
+    HierarchicalAccessControlList: list[HierarchicalPrincipalOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 HierarchicalPrincipalUnionTypeDef = Union[
@@ -2092,12 +2087,12 @@ class UpdateFeaturedResultsSetResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDataSourceSyncJobsResponseTypeDef(TypedDict):
-    History: List[DataSourceSyncJobTypeDef]
+    History: list[DataSourceSyncJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListExperiencesResponseTypeDef(TypedDict):
-    SummaryItems: List[ExperiencesSummaryTypeDef]
+    SummaryItems: list[ExperiencesSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2112,13 +2107,13 @@ class RetrieveResultItemTypeDef(TypedDict):
     DocumentTitle: NotRequired[str]
     Content: NotRequired[str]
     DocumentURI: NotRequired[str]
-    DocumentAttributes: NotRequired[List[DocumentAttributeOutputTypeDef]]
+    DocumentAttributes: NotRequired[list[DocumentAttributeOutputTypeDef]]
     ScoreAttributes: NotRequired[ScoreAttributesTypeDef]
 
 class SourceDocumentTypeDef(TypedDict):
     DocumentId: NotRequired[str]
-    SuggestionAttributes: NotRequired[List[str]]
-    AdditionalAttributes: NotRequired[List[DocumentAttributeOutputTypeDef]]
+    SuggestionAttributes: NotRequired[list[str]]
+    AdditionalAttributes: NotRequired[list[DocumentAttributeOutputTypeDef]]
 
 class InlineCustomDocumentEnrichmentConfigurationOutputTypeDef(TypedDict):
     Condition: NotRequired[DocumentAttributeConditionOutputTypeDef]
@@ -2128,10 +2123,10 @@ class InlineCustomDocumentEnrichmentConfigurationOutputTypeDef(TypedDict):
 class FacetResultTypeDef(TypedDict):
     DocumentAttributeKey: NotRequired[str]
     DocumentAttributeValueType: NotRequired[DocumentAttributeValueTypeType]
-    DocumentAttributeValueCountPairs: NotRequired[List[DocumentAttributeValueCountPairTypeDef]]
+    DocumentAttributeValueCountPairs: NotRequired[list[DocumentAttributeValueCountPairTypeDef]]
 
 class ListExperienceEntitiesResponseTypeDef(TypedDict):
-    SummaryItems: List[ExperienceEntitiesSummaryTypeDef]
+    SummaryItems: list[ExperienceEntitiesSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2139,7 +2134,7 @@ class DescribeExperienceResponseTypeDef(TypedDict):
     Id: str
     IndexId: str
     Name: str
-    Endpoints: List[ExperienceEndpointTypeDef]
+    Endpoints: list[ExperienceEndpointTypeDef]
     Configuration: ExperienceConfigurationOutputTypeDef
     CreatedAt: datetime
     UpdatedAt: datetime
@@ -2170,7 +2165,7 @@ class ExpandedResultItemTypeDef(TypedDict):
     DocumentTitle: NotRequired[TextWithHighlightsTypeDef]
     DocumentExcerpt: NotRequired[TextWithHighlightsTypeDef]
     DocumentURI: NotRequired[str]
-    DocumentAttributes: NotRequired[List[DocumentAttributeOutputTypeDef]]
+    DocumentAttributes: NotRequired[list[DocumentAttributeOutputTypeDef]]
 
 class CreateIndexRequestTypeDef(TypedDict):
     Name: str
@@ -2194,11 +2189,11 @@ class DescribeIndexResponseTypeDef(TypedDict):
     Description: str
     CreatedAt: datetime
     UpdatedAt: datetime
-    DocumentMetadataConfigurations: List[DocumentMetadataConfigurationOutputTypeDef]
+    DocumentMetadataConfigurations: list[DocumentMetadataConfigurationOutputTypeDef]
     IndexStatistics: IndexStatisticsTypeDef
     ErrorMessage: str
     CapacityUnits: CapacityUnitsConfigurationTypeDef
-    UserTokenConfigurations: List[UserTokenConfigurationTypeDef]
+    UserTokenConfigurations: list[UserTokenConfigurationTypeDef]
     UserContextPolicy: UserContextPolicyType
     UserGroupResolutionConfiguration: UserGroupResolutionConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2223,8 +2218,8 @@ class WebCrawlerConfigurationOutputTypeDef(TypedDict):
     MaxLinksPerPage: NotRequired[int]
     MaxContentSizePerPageInMegaBytes: NotRequired[float]
     MaxUrlsPerMinuteCrawlRate: NotRequired[int]
-    UrlInclusionPatterns: NotRequired[List[str]]
-    UrlExclusionPatterns: NotRequired[List[str]]
+    UrlInclusionPatterns: NotRequired[list[str]]
+    UrlExclusionPatterns: NotRequired[list[str]]
     ProxyConfiguration: NotRequired[ProxyConfigurationTypeDef]
     AuthenticationConfiguration: NotRequired[AuthenticationConfigurationOutputTypeDef]
 
@@ -2247,14 +2242,14 @@ SuggestionValueTypeDef = TypedDict(
 )
 
 class TableExcerptTypeDef(TypedDict):
-    Rows: NotRequired[List[TableRowTypeDef]]
+    Rows: NotRequired[list[TableRowTypeDef]]
     TotalNumberOfRows: NotRequired[int]
 
 class SalesforceConfigurationOutputTypeDef(TypedDict):
     ServerUrl: str
     SecretArn: str
     StandardObjectConfigurations: NotRequired[
-        List[SalesforceStandardObjectConfigurationOutputTypeDef]
+        list[SalesforceStandardObjectConfigurationOutputTypeDef]
     ]
     KnowledgeArticleConfiguration: NotRequired[SalesforceKnowledgeArticleConfigurationOutputTypeDef]
     ChatterFeedConfiguration: NotRequired[SalesforceChatterFeedConfigurationOutputTypeDef]
@@ -2262,8 +2257,8 @@ class SalesforceConfigurationOutputTypeDef(TypedDict):
     StandardObjectAttachmentConfiguration: NotRequired[
         SalesforceStandardObjectAttachmentConfigurationOutputTypeDef
     ]
-    IncludeAttachmentFilePatterns: NotRequired[List[str]]
-    ExcludeAttachmentFilePatterns: NotRequired[List[str]]
+    IncludeAttachmentFilePatterns: NotRequired[list[str]]
+    ExcludeAttachmentFilePatterns: NotRequired[list[str]]
 
 class SalesforceConfigurationTypeDef(TypedDict):
     ServerUrl: str
@@ -2320,12 +2315,12 @@ class UpdateAccessControlConfigurationRequestTypeDef(TypedDict):
 
 class RetrieveResultTypeDef(TypedDict):
     QueryId: str
-    ResultItems: List[RetrieveResultItemTypeDef]
+    ResultItems: list[RetrieveResultItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CustomDocumentEnrichmentConfigurationOutputTypeDef(TypedDict):
     InlineConfigurations: NotRequired[
-        List[InlineCustomDocumentEnrichmentConfigurationOutputTypeDef]
+        list[InlineCustomDocumentEnrichmentConfigurationOutputTypeDef]
     ]
     PreExtractionHookConfiguration: NotRequired[HookConfigurationOutputTypeDef]
     PostExtractionHookConfiguration: NotRequired[HookConfigurationOutputTypeDef]
@@ -2354,7 +2349,7 @@ class AdditionalResultAttributeTypeDef(TypedDict):
 
 class CollapsedResultDetailTypeDef(TypedDict):
     DocumentAttribute: DocumentAttributeOutputTypeDef
-    ExpandedResults: NotRequired[List[ExpandedResultItemTypeDef]]
+    ExpandedResults: NotRequired[list[ExpandedResultItemTypeDef]]
 
 DocumentMetadataConfigurationUnionTypeDef = Union[
     DocumentMetadataConfigurationTypeDef, DocumentMetadataConfigurationOutputTypeDef
@@ -2363,7 +2358,7 @@ DocumentMetadataConfigurationUnionTypeDef = Union[
 class SuggestionTypeDef(TypedDict):
     Id: NotRequired[str]
     Value: NotRequired[SuggestionValueTypeDef]
-    SourceDocuments: NotRequired[List[SourceDocumentTypeDef]]
+    SourceDocuments: NotRequired[list[SourceDocumentTypeDef]]
 
 class DataSourceConfigurationOutputTypeDef(TypedDict):
     S3Configuration: NotRequired[S3DataSourceConfigurationOutputTypeDef]
@@ -2417,12 +2412,12 @@ FeaturedResultsItemTypeDef = TypedDict(
     {
         "Id": NotRequired[str],
         "Type": NotRequired[QueryResultTypeType],
-        "AdditionalAttributes": NotRequired[List[AdditionalResultAttributeTypeDef]],
+        "AdditionalAttributes": NotRequired[list[AdditionalResultAttributeTypeDef]],
         "DocumentId": NotRequired[str],
         "DocumentTitle": NotRequired[TextWithHighlightsTypeDef],
         "DocumentExcerpt": NotRequired[TextWithHighlightsTypeDef],
         "DocumentURI": NotRequired[str],
-        "DocumentAttributes": NotRequired[List[DocumentAttributeOutputTypeDef]],
+        "DocumentAttributes": NotRequired[list[DocumentAttributeOutputTypeDef]],
         "FeedbackToken": NotRequired[str],
     },
 )
@@ -2432,12 +2427,12 @@ QueryResultItemTypeDef = TypedDict(
         "Id": NotRequired[str],
         "Type": NotRequired[QueryResultTypeType],
         "Format": NotRequired[QueryResultFormatType],
-        "AdditionalAttributes": NotRequired[List[AdditionalResultAttributeTypeDef]],
+        "AdditionalAttributes": NotRequired[list[AdditionalResultAttributeTypeDef]],
         "DocumentId": NotRequired[str],
         "DocumentTitle": NotRequired[TextWithHighlightsTypeDef],
         "DocumentExcerpt": NotRequired[TextWithHighlightsTypeDef],
         "DocumentURI": NotRequired[str],
-        "DocumentAttributes": NotRequired[List[DocumentAttributeOutputTypeDef]],
+        "DocumentAttributes": NotRequired[list[DocumentAttributeOutputTypeDef]],
         "ScoreAttributes": NotRequired[ScoreAttributesTypeDef],
         "FeedbackToken": NotRequired[str],
         "TableExcerpt": NotRequired[TableExcerptTypeDef],
@@ -2460,7 +2455,7 @@ class UpdateIndexRequestTypeDef(TypedDict):
 
 class GetQuerySuggestionsResponseTypeDef(TypedDict):
     QuerySuggestionsId: str
-    Suggestions: List[SuggestionTypeDef]
+    Suggestions: list[SuggestionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 DescribeDataSourceResponseTypeDef = TypedDict(
@@ -2520,12 +2515,12 @@ class DocumentTypeDef(TypedDict):
 
 class QueryResultTypeDef(TypedDict):
     QueryId: str
-    ResultItems: List[QueryResultItemTypeDef]
-    FacetResults: List[FacetResultTypeDef]
+    ResultItems: list[QueryResultItemTypeDef]
+    FacetResults: list[FacetResultTypeDef]
     TotalNumberOfResults: int
-    Warnings: List[WarningTypeDef]
-    SpellCorrectedQueries: List[SpellCorrectedQueryTypeDef]
-    FeaturedResultsItems: List[FeaturedResultsItemTypeDef]
+    Warnings: list[WarningTypeDef]
+    SpellCorrectedQueries: list[SpellCorrectedQueryTypeDef]
+    FeaturedResultsItems: list[FeaturedResultsItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 CreateDataSourceRequestTypeDef = TypedDict(

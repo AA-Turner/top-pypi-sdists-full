@@ -35,6 +35,7 @@ enable_cache_profile = conf.getboolean("cosmos", "enable_cache_profile", fallbac
 dbt_profile_cache_dir_name = conf.get("cosmos", "profile_cache_dir_name", fallback="profile")
 virtualenv_max_retries_lock = conf.getint("cosmos", "virtualenv_max_retries_lock", fallback=120)
 default_copy_dbt_packages = conf.getboolean("cosmos", "default_copy_dbt_packages", fallback=False)
+pre_dbt_fusion = conf.getboolean("cosmos", "pre_dbt_fusion", fallback=False)
 
 # Experimentally adding `remote_cache_dir` as a separate entity in the Cosmos 1.6 release to gather feedback.
 # This will be merged with the `cache_dir` config parameter in upcoming releases.
@@ -42,6 +43,7 @@ remote_cache_dir = conf.get("cosmos", "remote_cache_dir", fallback=None)
 remote_cache_dir_conn_id = conf.get("cosmos", "remote_cache_dir_conn_id", fallback=None)
 remote_target_path = conf.get("cosmos", "remote_target_path", fallback=None)
 remote_target_path_conn_id = conf.get("cosmos", "remote_target_path_conn_id", fallback=None)
+upload_sql_to_xcom = conf.getboolean("cosmos", "upload_sql_to_xcom", fallback=True)
 
 # Eager imports in cosmos/__init__.py expose all Cosmos classes at the top level,
 # which can significantly increase memory usage—even when Cosmos is installed but not actively used.

@@ -43,6 +43,15 @@ impl ConstantSpecification {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -65,7 +74,7 @@ impl ConstantSpecification {
     /// set the value of the constant
     #[setter]
     fn set_value_specification(&self, value: &Bound<'_, PyAny>) -> PyResult<()> {
-        let value_specification = pyobject_to_value_specification(value)?;
+        let value_specification = pyany_to_value_specification(value)?;
         self.0
             .set_value_specification(value_specification)
             .map_err(abstraction_err_to_pyerr)
@@ -73,20 +82,20 @@ impl ConstantSpecification {
 
     /// get the value of the constant
     #[getter]
-    fn value_specification(&self) -> Option<PyObject> {
+    fn value_specification(&self) -> Option<Py<PyAny>> {
         self.0
             .value_specification()
-            .and_then(|value_spec| value_specification_to_pyobject(&value_spec).ok())
+            .and_then(|value_spec| value_specification_to_pyany(&value_spec).ok())
     }
 }
 
 //#########################################################
 
-pub(crate) fn value_specification_to_pyobject(
+pub(crate) fn value_specification_to_pyany(
     value: &autosar_data_abstraction::datatype::ValueSpecification,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     use autosar_data_abstraction::datatype::ValueSpecification;
-    Python::with_gil(|py| match value {
+    Python::attach(|py| match value {
         ValueSpecification::Array(value) => {
             ArrayValueSpecification::try_from(value)?.into_py_any(py)
         }
@@ -121,77 +130,75 @@ pub(crate) fn value_specification_to_pyobject(
     })
 }
 
-pub(crate) fn pyobject_to_value_specification(
+pub(crate) fn pyany_to_value_specification(
     pyobject: &Bound<'_, PyAny>,
 ) -> PyResult<autosar_data_abstraction::datatype::ValueSpecification> {
     use autosar_data_abstraction::datatype::ValueSpecification;
-    if let Ok(array_value_specification) = pyobject.downcast_exact::<ArrayValueSpecification>() {
+    if let Ok(array_value_specification) = pyobject.cast_exact::<ArrayValueSpecification>() {
         (&*array_value_specification.borrow())
             .try_into()
             .map(ValueSpecification::Array)
-    } else if let Ok(record_value_specification) =
-        pyobject.downcast_exact::<RecordValueSpecification>()
+    } else if let Ok(record_value_specification) = pyobject.cast_exact::<RecordValueSpecification>()
     {
         (&*record_value_specification.borrow())
             .try_into()
             .map(ValueSpecification::Record)
-    } else if let Ok(text_value_specification) = pyobject.downcast_exact::<TextValueSpecification>()
-    {
+    } else if let Ok(text_value_specification) = pyobject.cast_exact::<TextValueSpecification>() {
         Ok(ValueSpecification::Text(
             (&*text_value_specification.borrow()).into(),
         ))
     } else if let Ok(numerical_value_specification) =
-        pyobject.downcast_exact::<NumericalValueSpecification>()
+        pyobject.cast_exact::<NumericalValueSpecification>()
     {
         Ok(ValueSpecification::Numerical(
             (&*numerical_value_specification.borrow()).into(),
         ))
-    } else if let Ok(constant_reference) = pyobject.downcast_exact::<ConstantReference>() {
+    } else if let Ok(constant_reference) = pyobject.cast_exact::<ConstantReference>() {
         Ok(ValueSpecification::ConstantReference(
             (&*constant_reference.borrow()).into(),
         ))
     } else if let Ok(application_value_specification) =
-        pyobject.downcast_exact::<ApplicationValueSpecification>()
+        pyobject.cast_exact::<ApplicationValueSpecification>()
     {
         (&*application_value_specification.borrow())
             .try_into()
             .map(ValueSpecification::Application)
     } else if let Ok(not_available_value_specification) =
-        pyobject.downcast_exact::<NotAvailableValueSpecification>()
+        pyobject.cast_exact::<NotAvailableValueSpecification>()
     {
         Ok(ValueSpecification::NotAvailable(
             (&*not_available_value_specification.borrow()).into(),
         ))
     } else if let Ok(reference_value_specification) =
-        pyobject.downcast_exact::<ReferenceValueSpecification>()
+        pyobject.cast_exact::<ReferenceValueSpecification>()
     {
         (&*reference_value_specification.borrow())
             .try_into()
             .map(ValueSpecification::Reference)
     } else if let Ok(application_rule_based_value_specification) =
-        pyobject.downcast_exact::<ApplicationRuleBasedValueSpecification>()
+        pyobject.cast_exact::<ApplicationRuleBasedValueSpecification>()
     {
         (&*application_rule_based_value_specification.borrow())
             .try_into()
             .map(ValueSpecification::ApplicationRuleBased)
     } else if let Ok(composite_rule_based_value_specification) =
-        pyobject.downcast_exact::<CompositeRuleBasedValueSpecification>()
+        pyobject.cast_exact::<CompositeRuleBasedValueSpecification>()
     {
         (&*composite_rule_based_value_specification.borrow())
             .try_into()
             .map(ValueSpecification::CompositeRuleBased)
     } else if let Ok(numerical_rule_based_value_specification) =
-        pyobject.downcast_exact::<NumericalRuleBasedValueSpecification>()
+        pyobject.cast_exact::<NumericalRuleBasedValueSpecification>()
     {
         (&*numerical_rule_based_value_specification.borrow())
             .try_into()
             .map(ValueSpecification::NumericalRuleBased)
-    } else if let Ok(py_list) = pyobject.downcast_exact::<PyList>() {
+    } else if let Ok(py_list) = pyobject.cast_exact::<PyList>() {
         // If it's a PyList, we assume it's an ArrayValueSpecification. This is more convenient for simple use cases
         let values: Vec<autosar_data_abstraction::datatype::ValueSpecification> = pylist_to_vec(
             pyobject.py(),
             py_list.as_unbound(),
-            pyobject_to_value_specification,
+            pyany_to_value_specification,
         )?;
         Ok(ValueSpecification::Array(
             autosar_data_abstraction::datatype::ArrayValueSpecification {
@@ -199,12 +206,12 @@ pub(crate) fn pyobject_to_value_specification(
                 values,
             },
         ))
-    } else if let Ok(py_tuple) = pyobject.downcast_exact::<PyTuple>() {
+    } else if let Ok(py_tuple) = pyobject.cast_exact::<PyTuple>() {
         // If it's a PyTuple, we assume it's a RecordValueSpecification. This is more convenient for simple use cases
         let tuple_values = py_tuple
             .as_sequence()
             .try_iter()?
-            .map(|elem| pyobject_to_value_specification(&elem?))
+            .map(|elem| pyany_to_value_specification(&elem?))
             .collect::<PyResult<Vec<_>>>()?;
         Ok(ValueSpecification::Record(
             autosar_data_abstraction::datatype::RecordValueSpecification {
@@ -280,8 +287,8 @@ impl TryFrom<&autosar_data_abstraction::datatype::ArrayValueSpecification>
     fn try_from(
         value: &autosar_data_abstraction::datatype::ArrayValueSpecification,
     ) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
-            let values = slice_to_pylist(py, &value.values, value_specification_to_pyobject)?;
+        Python::attach(|py| {
+            let values = slice_to_pylist(py, &value.values, value_specification_to_pyany)?;
             Ok(Self {
                 label: value.label.clone(),
                 values,
@@ -296,9 +303,8 @@ impl TryFrom<&ArrayValueSpecification>
     type Error = PyErr;
 
     fn try_from(value: &ArrayValueSpecification) -> Result<Self, Self::Error> {
-        let values = Python::with_gil(|py| {
-            pylist_to_vec(py, &value.values, pyobject_to_value_specification)
-        })?;
+        let values =
+            Python::attach(|py| pylist_to_vec(py, &value.values, pyany_to_value_specification))?;
         Ok(
             autosar_data_abstraction::datatype::ArrayValueSpecification {
                 label: value.label.clone(),
@@ -310,7 +316,7 @@ impl TryFrom<&ArrayValueSpecification>
 
 impl PartialEq for ArrayValueSpecification {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.label == other.label && compare_pylist(py, &self.values, &other.values)
         })
     }
@@ -362,8 +368,8 @@ impl TryFrom<&autosar_data_abstraction::datatype::RecordValueSpecification>
     fn try_from(
         value: &autosar_data_abstraction::datatype::RecordValueSpecification,
     ) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
-            let values = slice_to_pylist(py, &value.values, value_specification_to_pyobject)?;
+        Python::attach(|py| {
+            let values = slice_to_pylist(py, &value.values, value_specification_to_pyany)?;
             Ok(Self {
                 label: value.label.clone(),
                 values,
@@ -378,9 +384,8 @@ impl TryFrom<&RecordValueSpecification>
     type Error = PyErr;
 
     fn try_from(value: &RecordValueSpecification) -> Result<Self, Self::Error> {
-        let values = Python::with_gil(|py| {
-            pylist_to_vec(py, &value.values, pyobject_to_value_specification)
-        })?;
+        let values =
+            Python::attach(|py| pylist_to_vec(py, &value.values, pyany_to_value_specification))?;
         Ok(
             autosar_data_abstraction::datatype::RecordValueSpecification {
                 label: value.label.clone(),
@@ -392,7 +397,7 @@ impl TryFrom<&RecordValueSpecification>
 
 impl PartialEq for RecordValueSpecification {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.label == other.label && compare_pylist(py, &self.values, &other.values)
         })
     }
@@ -646,7 +651,7 @@ impl TryFrom<&autosar_data_abstraction::datatype::ApplicationValueSpecification>
     fn try_from(
         value: &autosar_data_abstraction::datatype::ApplicationValueSpecification,
     ) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let sw_axis_conts = slice_to_pylist(py, &value.sw_axis_conts, |axis| {
                 SwAxisCont::try_from(axis)?.into_py_any(py)
             })?;
@@ -669,9 +674,9 @@ impl TryFrom<&ApplicationValueSpecification>
     type Error = PyErr;
 
     fn try_from(value: &ApplicationValueSpecification) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let sw_axis_conts = pylist_to_vec(py, &value.sw_axis_conts, |axis| {
-                (&*axis.downcast_exact::<SwAxisCont>()?.borrow()).try_into()
+                (&*axis.cast_exact::<SwAxisCont>()?.borrow()).try_into()
             })?;
             let sw_value_cont = &*value.sw_value_cont.borrow(py);
             Ok(
@@ -688,7 +693,7 @@ impl TryFrom<&ApplicationValueSpecification>
 
 impl PartialEq for ApplicationValueSpecification {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.label == other.label
                 && self.category == other.category
                 && compare_pylist(py, &self.sw_axis_conts, &other.sw_axis_conts)
@@ -779,7 +784,7 @@ pub(crate) struct ReferenceValueSpecification {
     /// SHORT-LABEL: used to identify the reference in a human readable way. This is used when the reference is part of a record.
     pub(crate) label: Option<String>,
     /// data prototype that will be referenced as a pointer in the software
-    pub(crate) reference_value: PyObject, // = DataPrototype
+    pub(crate) reference_value: Py<PyAny>, // = DataPrototype
 }
 
 #[pymethods]
@@ -789,7 +794,7 @@ impl ReferenceValueSpecification {
     #[pyo3(
         text_signature = "(self, reference_value: DataPrototype, /, *, label: Optional[str] = None)"
     )]
-    fn new(reference_value: PyObject, label: Option<String>) -> PyResult<Self> {
+    fn new(reference_value: Py<PyAny>, label: Option<String>) -> PyResult<Self> {
         Ok(Self {
             label,
             reference_value,
@@ -819,7 +824,7 @@ impl TryFrom<&autosar_data_abstraction::datatype::ReferenceValueSpecification>
     fn try_from(
         value: &autosar_data_abstraction::datatype::ReferenceValueSpecification,
     ) -> Result<Self, Self::Error> {
-        let reference_value = data_prototype_to_pyobject(value.reference_value.clone())?;
+        let reference_value = data_prototype_to_pyany(value.reference_value.clone())?;
         Ok(Self {
             label: value.label.clone(),
             reference_value,
@@ -833,7 +838,7 @@ impl TryFrom<&ReferenceValueSpecification>
     type Error = PyErr;
     fn try_from(value: &ReferenceValueSpecification) -> Result<Self, Self::Error> {
         let reference_value =
-            Python::with_gil(|py| pyobject_to_data_prototype(value.reference_value.bind(py)))?;
+            Python::attach(|py| pyany_to_data_prototype(value.reference_value.bind(py)))?;
         Ok(
             autosar_data_abstraction::datatype::ReferenceValueSpecification {
                 label: value.label.clone(),
@@ -845,9 +850,9 @@ impl TryFrom<&ReferenceValueSpecification>
 
 impl PartialEq for ReferenceValueSpecification {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
-            let own_ref = pyobject_to_data_prototype(self.reference_value.bind(py));
-            let other_ref = pyobject_to_data_prototype(other.reference_value.bind(py));
+        Python::attach(|py| {
+            let own_ref = pyany_to_data_prototype(self.reference_value.bind(py));
+            let other_ref = pyany_to_data_prototype(other.reference_value.bind(py));
             if let (Ok(own_ref), Ok(other_ref)) = (own_ref, other_ref) {
                 self.label == other.label && own_ref == other_ref
             } else {
@@ -930,7 +935,7 @@ impl TryFrom<&autosar_data_abstraction::datatype::ApplicationRuleBasedValueSpeci
     fn try_from(
         value: &autosar_data_abstraction::datatype::ApplicationRuleBasedValueSpecification,
     ) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let sw_axis_cont = slice_to_pylist(py, &value.sw_axis_cont, |axis| {
                 RuleBasedAxisCont::try_from(axis)?.into_py_any(py)
             })?;
@@ -953,9 +958,9 @@ impl TryFrom<&ApplicationRuleBasedValueSpecification>
     type Error = PyErr;
 
     fn try_from(value: &ApplicationRuleBasedValueSpecification) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let sw_axis_cont = pylist_to_vec(py, &value.sw_axis_cont, |axis| {
-                (&*axis.downcast_exact::<RuleBasedAxisCont>()?.borrow()).try_into()
+                (&*axis.cast_exact::<RuleBasedAxisCont>()?.borrow()).try_into()
             })?;
 
             let sw_value_cont = &*value.sw_value_cont.borrow(py);
@@ -973,7 +978,7 @@ impl TryFrom<&ApplicationRuleBasedValueSpecification>
 
 impl PartialEq for ApplicationRuleBasedValueSpecification {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.label == other.label
                 && self.category == other.category
                 && compare_pylist(py, &self.sw_axis_cont, &other.sw_axis_cont)
@@ -1063,16 +1068,13 @@ impl TryFrom<&autosar_data_abstraction::datatype::CompositeRuleBasedValueSpecifi
     fn try_from(
         value: &autosar_data_abstraction::datatype::CompositeRuleBasedValueSpecification,
     ) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
-            let argument = slice_to_pylist(
-                py,
-                &value.argument,
-                composite_value_specification_to_pyobject,
-            )?;
+        Python::attach(|py| {
+            let argument =
+                slice_to_pylist(py, &value.argument, composite_value_specification_to_pyany)?;
             let compound_primitive_argument = slice_to_pylist(
                 py,
                 &value.compound_primitive_argument,
-                composite_rule_based_value_argument_to_pyobject,
+                composite_rule_based_value_argument_to_pyany,
             )?;
             Ok(Self {
                 label: value.label.clone(),
@@ -1091,16 +1093,13 @@ impl TryFrom<&CompositeRuleBasedValueSpecification>
     type Error = PyErr;
 
     fn try_from(value: &CompositeRuleBasedValueSpecification) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
-            let argument = pylist_to_vec(
-                py,
-                &value.argument,
-                pyobject_to_composite_value_specification,
-            )?;
+        Python::attach(|py| {
+            let argument =
+                pylist_to_vec(py, &value.argument, pyany_to_composite_value_specification)?;
             let compound_primitive_argument = pylist_to_vec(
                 py,
                 &value.compound_primitive_argument,
-                pyobject_to_composite_rule_based_value_argument,
+                pyany_to_composite_rule_based_value_argument,
             )?;
             Ok(
                 autosar_data_abstraction::datatype::CompositeRuleBasedValueSpecification {
@@ -1117,7 +1116,7 @@ impl TryFrom<&CompositeRuleBasedValueSpecification>
 
 impl PartialEq for CompositeRuleBasedValueSpecification {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.label == other.label
                 && compare_pylist(py, &self.argument, &other.argument)
                 && compare_pylist(
@@ -1188,7 +1187,7 @@ impl TryFrom<&autosar_data_abstraction::datatype::NumericalRuleBasedValueSpecifi
     fn try_from(
         value: &autosar_data_abstraction::datatype::NumericalRuleBasedValueSpecification,
     ) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rule_based_values =
                 RuleBasedValueSpecification::try_from(&value.rule_based_values)?
                     .into_pyobject(py)?
@@ -1207,7 +1206,7 @@ impl TryFrom<&NumericalRuleBasedValueSpecification>
     type Error = PyErr;
 
     fn try_from(value: &NumericalRuleBasedValueSpecification) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rule_based_values = &*value.rule_based_values.borrow(py);
             Ok(
                 autosar_data_abstraction::datatype::NumericalRuleBasedValueSpecification {
@@ -1221,7 +1220,7 @@ impl TryFrom<&NumericalRuleBasedValueSpecification>
 
 impl PartialEq for NumericalRuleBasedValueSpecification {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.label == other.label
                 && *self.rule_based_values.borrow(py) == *other.rule_based_values.borrow(py)
         })
@@ -1356,7 +1355,7 @@ impl TryFrom<&autosar_data_abstraction::datatype::SwAxisCont> for SwAxisCont {
     fn try_from(
         value: &autosar_data_abstraction::datatype::SwAxisCont,
     ) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let sw_values_phys = slice_to_pylist(py, &value.sw_values_phys, |sw_value| {
                 SwValue::try_from(sw_value)?.into_py_any(py)
             })?;
@@ -1376,9 +1375,9 @@ impl TryFrom<&SwAxisCont> for autosar_data_abstraction::datatype::SwAxisCont {
     type Error = PyErr;
 
     fn try_from(value: &SwAxisCont) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let sw_values_phys = pylist_to_vec(py, &value.sw_values_phys, |sw_value| {
-                (&*sw_value.downcast::<SwValue>()?.borrow()).try_into()
+                (&*sw_value.cast::<SwValue>()?.borrow()).try_into()
             })?;
             let unit = value.unit.as_ref().map(|unit| unit.0.clone());
             Ok(autosar_data_abstraction::datatype::SwAxisCont {
@@ -1395,7 +1394,7 @@ impl TryFrom<&SwAxisCont> for autosar_data_abstraction::datatype::SwAxisCont {
 
 impl PartialEq for SwAxisCont {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.category == other.category
                 && self.sw_array_size == other.sw_array_size
                 && self.sw_axis_index == other.sw_axis_index
@@ -1490,7 +1489,7 @@ impl TryFrom<&autosar_data_abstraction::datatype::SwValueCont> for SwValueCont {
     fn try_from(
         value: &autosar_data_abstraction::datatype::SwValueCont,
     ) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let sw_values_phys = slice_to_pylist(py, &value.sw_values_phys, |sw_value| {
                 SwValue::try_from(sw_value)?.into_py_any(py)
             })?;
@@ -1506,9 +1505,9 @@ impl TryFrom<&SwValueCont> for autosar_data_abstraction::datatype::SwValueCont {
     type Error = PyErr;
 
     fn try_from(value: &SwValueCont) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let sw_values_phys = pylist_to_vec(py, &value.sw_values_phys, |sw_value| {
-                (&*sw_value.downcast::<SwValue>()?.borrow()).try_into()
+                (&*sw_value.cast::<SwValue>()?.borrow()).try_into()
             })?;
             Ok(autosar_data_abstraction::datatype::SwValueCont {
                 sw_array_size: value.sw_array_size.clone(),
@@ -1520,7 +1519,7 @@ impl TryFrom<&SwValueCont> for autosar_data_abstraction::datatype::SwValueCont {
 
 impl PartialEq for SwValueCont {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.sw_array_size == other.sw_array_size
                 && compare_pylist(py, &self.sw_values_phys, &other.sw_values_phys)
         })
@@ -1569,7 +1568,7 @@ impl TryFrom<&autosar_data_abstraction::datatype::SwValue> for SwValue {
             autosar_data_abstraction::datatype::SwValue::V(v) => Self::V { value: *v },
             autosar_data_abstraction::datatype::SwValue::Vf(vf) => Self::Vf { value: *vf },
             autosar_data_abstraction::datatype::SwValue::Vg { label, vg_content } => {
-                let vg_content = Python::with_gil(|py| {
+                let vg_content = Python::attach(|py| {
                     slice_to_pylist(py, vg_content, |sw_value| {
                         SwValue::try_from(sw_value)?.into_py_any(py)
                     })
@@ -1597,9 +1596,9 @@ impl TryFrom<&SwValue> for autosar_data_abstraction::datatype::SwValue {
             SwValue::V { value } => Self::V(*value),
             SwValue::Vf { value } => Self::Vf(*value),
             SwValue::Vg { label, values } => {
-                let vg_content = Python::with_gil(|py| {
+                let vg_content = Python::attach(|py| {
                     pylist_to_vec(py, values, |sw_value| {
-                        (&*sw_value.downcast_exact::<SwValue>()?.borrow()).try_into()
+                        (&*sw_value.cast_exact::<SwValue>()?.borrow()).try_into()
                     })
                 })?;
                 Self::Vg {
@@ -1628,7 +1627,7 @@ impl PartialEq for SwValue {
                     label: l2,
                     values: v2,
                 },
-            ) => Python::with_gil(|py| l1 == l2 && compare_pylist(py, v1, v2)),
+            ) => Python::attach(|py| l1 == l2 && compare_pylist(py, v1, v2)),
             (SwValue::Vt(t1), SwValue::Vt(t2)) => t1 == t2,
             (SwValue::VtfNumber { value: n1 }, SwValue::VtfNumber { value: n2 }) => n1 == n2,
             (SwValue::VtfText(t1), SwValue::VtfText(t2)) => t1 == t2,
@@ -1735,7 +1734,7 @@ impl TryFrom<&autosar_data_abstraction::datatype::RuleBasedAxisCont> for RuleBas
     fn try_from(
         value: &autosar_data_abstraction::datatype::RuleBasedAxisCont,
     ) -> Result<Self, PyErr> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rule_based_values =
                 RuleBasedValueSpecification::try_from(&value.rule_based_values)?
                     .into_pyobject(py)?
@@ -1755,7 +1754,7 @@ impl TryFrom<&RuleBasedAxisCont> for autosar_data_abstraction::datatype::RuleBas
     type Error = PyErr;
 
     fn try_from(value: &RuleBasedAxisCont) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rule_based_values = &*value.rule_based_values.borrow(py);
             Ok(autosar_data_abstraction::datatype::RuleBasedAxisCont {
                 category: value.category.into(),
@@ -1770,7 +1769,7 @@ impl TryFrom<&RuleBasedAxisCont> for autosar_data_abstraction::datatype::RuleBas
 
 impl PartialEq for RuleBasedAxisCont {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.category == other.category
                 && self.sw_array_size == other.sw_array_size
                 && self.sw_axis_index == other.sw_axis_index
@@ -1850,7 +1849,7 @@ impl TryFrom<&autosar_data_abstraction::datatype::RuleBasedValueCont> for RuleBa
     fn try_from(
         value: &autosar_data_abstraction::datatype::RuleBasedValueCont,
     ) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rule_based_values =
                 RuleBasedValueSpecification::try_from(&value.rule_based_values)?
                     .into_pyobject(py)?
@@ -1868,7 +1867,7 @@ impl TryFrom<&RuleBasedValueCont> for autosar_data_abstraction::datatype::RuleBa
     type Error = PyErr;
 
     fn try_from(value: &RuleBasedValueCont) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rule_based_values = &*value.rule_based_values.borrow(py);
             Ok(autosar_data_abstraction::datatype::RuleBasedValueCont {
                 rule_based_values: rule_based_values.try_into()?,
@@ -1881,7 +1880,7 @@ impl TryFrom<&RuleBasedValueCont> for autosar_data_abstraction::datatype::RuleBa
 
 impl PartialEq for RuleBasedValueCont {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             *self.rule_based_values.bind_borrowed(py).borrow()
                 == *other.rule_based_values.bind_borrowed(py).borrow()
                 && self.sw_array_size == other.sw_array_size
@@ -1949,7 +1948,7 @@ impl TryFrom<&autosar_data_abstraction::datatype::RuleBasedValueSpecification>
     fn try_from(
         value: &autosar_data_abstraction::datatype::RuleBasedValueSpecification,
     ) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let arguments = slice_to_pylist(py, &value.arguments, |rule_argument| {
                 RuleArgument::from(rule_argument).into_py_any(py)
             })?;
@@ -1968,9 +1967,9 @@ impl TryFrom<&RuleBasedValueSpecification>
     type Error = PyErr;
 
     fn try_from(value: &RuleBasedValueSpecification) -> Result<Self, Self::Error> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let arguments = pylist_to_vec(py, &value.arguments, |elem| {
-                Ok((&*elem.downcast::<RuleArgument>()?.borrow()).into())
+                Ok((&*elem.cast::<RuleArgument>()?.borrow()).into())
             })?;
             Ok(
                 autosar_data_abstraction::datatype::RuleBasedValueSpecification {
@@ -1985,7 +1984,7 @@ impl TryFrom<&RuleBasedValueSpecification>
 
 impl PartialEq for RuleBasedValueSpecification {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             compare_pylist(py, &self.arguments, &other.arguments)
                 && self.max_size_to_fill == other.max_size_to_fill
                 && self.rule == other.rule
@@ -1995,11 +1994,11 @@ impl PartialEq for RuleBasedValueSpecification {
 
 //#########################################################
 
-pub(crate) fn composite_value_specification_to_pyobject(
+pub(crate) fn composite_value_specification_to_pyany(
     value: &autosar_data_abstraction::datatype::CompositeValueSpecification,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     use autosar_data_abstraction::datatype::CompositeValueSpecification;
-    Python::with_gil(|py| match value {
+    Python::attach(|py| match value {
         CompositeValueSpecification::Array(value) => {
             ArrayValueSpecification::try_from(value)?.into_py_any(py)
         }
@@ -2009,16 +2008,15 @@ pub(crate) fn composite_value_specification_to_pyobject(
     })
 }
 
-pub(crate) fn pyobject_to_composite_value_specification(
+pub(crate) fn pyany_to_composite_value_specification(
     pyobject: &Bound<'_, PyAny>,
 ) -> PyResult<autosar_data_abstraction::datatype::CompositeValueSpecification> {
     use autosar_data_abstraction::datatype::CompositeValueSpecification;
-    if let Ok(array_value_specification) = pyobject.downcast_exact::<ArrayValueSpecification>() {
+    if let Ok(array_value_specification) = pyobject.cast_exact::<ArrayValueSpecification>() {
         (&*array_value_specification.borrow())
             .try_into()
             .map(CompositeValueSpecification::Array)
-    } else if let Ok(record_value_specification) =
-        pyobject.downcast_exact::<RecordValueSpecification>()
+    } else if let Ok(record_value_specification) = pyobject.cast_exact::<RecordValueSpecification>()
     {
         (&*record_value_specification.borrow())
             .try_into()
@@ -2032,11 +2030,11 @@ pub(crate) fn pyobject_to_composite_value_specification(
 
 //#########################################################
 
-pub(crate) fn composite_rule_based_value_argument_to_pyobject(
+pub(crate) fn composite_rule_based_value_argument_to_pyany(
     value: &autosar_data_abstraction::datatype::CompositeRuleBasedValueArgument,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     use autosar_data_abstraction::datatype::CompositeRuleBasedValueArgument;
-    Python::with_gil(|py| match value {
+    Python::attach(|py| match value {
         CompositeRuleBasedValueArgument::Application(value) => {
             ApplicationValueSpecification::try_from(value)?.into_py_any(py)
         }
@@ -2046,17 +2044,17 @@ pub(crate) fn composite_rule_based_value_argument_to_pyobject(
     })
 }
 
-pub(crate) fn pyobject_to_composite_rule_based_value_argument(
+pub(crate) fn pyany_to_composite_rule_based_value_argument(
     pyobject: &Bound<'_, PyAny>,
 ) -> PyResult<autosar_data_abstraction::datatype::CompositeRuleBasedValueArgument> {
     if let Ok(application_value_specification) =
-        pyobject.downcast_exact::<ApplicationValueSpecification>()
+        pyobject.cast_exact::<ApplicationValueSpecification>()
     {
         (&*application_value_specification.borrow())
             .try_into()
             .map(autosar_data_abstraction::datatype::CompositeRuleBasedValueArgument::Application)
     } else if let Ok(application_rule_based_value_specification) =
-        pyobject.downcast_exact::<ApplicationRuleBasedValueSpecification>()
+        pyobject.cast_exact::<ApplicationRuleBasedValueSpecification>()
     {
         (&*application_rule_based_value_specification.borrow())
             .try_into()
@@ -2121,11 +2119,11 @@ impl From<&RuleArgument> for autosar_data_abstraction::datatype::RuleArgument {
 
 //#########################################################
 
-pub(crate) fn data_prototype_to_pyobject(
+pub(crate) fn data_prototype_to_pyany(
     data_prototype: autosar_data_abstraction::datatype::DataPrototype,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     use autosar_data_abstraction::datatype::DataPrototype;
-    Python::with_gil(|py| match data_prototype {
+    Python::attach(|py| match data_prototype {
         DataPrototype::ArgumentDataPrototype(value) => ArgumentDataPrototype(value).into_py_any(py),
         DataPrototype::ParameterDataPrototype(value) => {
             ParameterDataPrototype(value).into_py_any(py)
@@ -2140,7 +2138,7 @@ pub(crate) fn data_prototype_to_pyobject(
     })
 }
 
-pub(crate) fn pyobject_to_data_prototype(
+pub(crate) fn pyany_to_data_prototype(
     pyobject: &Bound<'_, PyAny>,
 ) -> PyResult<autosar_data_abstraction::datatype::DataPrototype> {
     use autosar_data_abstraction::datatype::DataPrototype;

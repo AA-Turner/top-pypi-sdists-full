@@ -51,10 +51,23 @@ else()
   if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_CXX_FLAGS "-O3 ${CMAKE_CXX_FLAGS}")
   endif()
-
-  set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -Wno-pedantic -Wno-unused-parameter \
--Woverloaded-virtual -flto=auto ${CMAKE_CXX_FLAGS}"
-  )
+  if(CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
+    message(STATUS "RISC-V 64-bit target detected, disabling LTO to prevent linker errors.")
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -Wno-pedantic -Wno-unused-parameter \
+-Woverloaded-virtual ${CMAKE_CXX_FLAGS}"
+    )
+  elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "ppc64le")
+    message(
+      STATUS "PowerPC 64-bit LE target detected, downgrading -Wfree-nonheap-object to warning."
+    )
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -Wno-pedantic -Wno-unused-parameter \
+-Woverloaded-virtual -Wno-error=free-nonheap-object -flto=auto ${CMAKE_CXX_FLAGS}"
+    )
+  else()
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -Wno-pedantic -Wno-unused-parameter \
+-Woverloaded-virtual -Wno-error=free-nonheap-object -flto=auto ${CMAKE_CXX_FLAGS}"
+    )
+  endif()
 endif()
 
 set(XGRAMMAR_INCLUDE_PATH ${PROJECT_SOURCE_DIR}/3rdparty/picojson
@@ -76,6 +89,21 @@ if(XGRAMMAR_ENABLE_CPPTRACE)
 else()
   target_compile_definitions(xgrammar PUBLIC XGRAMMAR_ENABLE_CPPTRACE=0)
 endif()
+
+install(TARGETS xgrammar)
+install(
+  DIRECTORY ${CMAKE_SOURCE_DIR}/include/xgrammar
+  DESTINATION include
+  FILES_MATCHING
+  PATTERN "*.h"
+)
+# Install DLPack headers from the submodule
+install(
+  DIRECTORY ${CMAKE_SOURCE_DIR}/3rdparty/dlpack/include/dlpack
+  DESTINATION include
+  FILES_MATCHING
+  PATTERN "*.h"
+)
 
 if(XGRAMMAR_BUILD_PYTHON_BINDINGS)
   add_subdirectory(${PROJECT_SOURCE_DIR}/cpp/nanobind)

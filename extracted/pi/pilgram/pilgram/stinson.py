@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pilgram import css
-from pilgram import util
+from PIL import Image
+
+from pilgram import css, util
 
 
-def stinson(im):
+def stinson(im: Image.Image) -> Image.Image:
     """Applies Stinson filter.
 
     Arguments:
@@ -26,13 +27,13 @@ def stinson(im):
         The output image.
     """
 
-    cb = util.or_convert(im, 'RGB')
+    cb = util.or_convert(im, "RGB")
 
-    cs = util.fill(cb.size, [240, 149, 128, .2])
+    cs = util.fill(cb.size, (240, 149, 128, 0.2))
     cr = css.blending.soft_light(cb, cs)
 
-    cr = css.contrast(cr, .75)
-    cr = css.saturate(cr, .85)
+    cr = css.contrast(cr, 0.75)
+    cr = css.saturate(cr, 0.85)
     cr = css.brightness(cr, 1.15)
 
     return cr

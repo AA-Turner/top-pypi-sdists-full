@@ -14,11 +14,17 @@
 # limitations under the License.
 
 
+# 操作失败。
+FAILEDOPERATION = 'FailedOperation'
+
 # 无可用的AI并发许可，请去控制台进行购买
 FAILEDOPERATION_AICONCURRENTNOPACKAGE = 'FailedOperation.AIConcurrentNoPackage'
 
 # AI并发超频
 FAILEDOPERATION_AICONCURRENTOVERFREQUENCY = 'FailedOperation.AIConcurrentOverFrequency'
+
+# AI套餐包过期，请续费或重新购买
+FAILEDOPERATION_AILICENSEHASEXPIRED = 'FailedOperation.AILicenseHasExpired'
 
 # 外呼失败。
 FAILEDOPERATION_CALLOUTFAILED = 'FailedOperation.CallOutFailed'
@@ -140,6 +146,9 @@ INVALIDPARAMETERVALUE_ERRORAPPLYSTATUS = 'InvalidParameterValue.ErrorApplyStatus
 # 使用体验账号的智能体不支持此类操作
 INVALIDPARAMETERVALUE_EXPERIENCEACCOUNT = 'InvalidParameterValue.ExperienceAccount'
 
+# 文件不存在
+INVALIDPARAMETERVALUE_FILENOTEXIST = 'InvalidParameterValue.FileNotExist'
+
 # 实例不存在。
 INVALIDPARAMETERVALUE_INSTANCENOTEXIST = 'InvalidParameterValue.InstanceNotExist'
 
@@ -169,6 +178,9 @@ LIMITEXCEEDED = 'LimitExceeded'
 
 # 套餐包耗尽
 LIMITEXCEEDED_BASEPACKAGEEXPIRED = 'LimitExceeded.BasePackageExpired'
+
+# 许可不足
+LIMITEXCEEDED_INSUFFICIENTLICENSE = 'LimitExceeded.InsufficientLicense'
 
 # 超出数量限制。
 LIMITEXCEEDED_OUTOFCOUNTLIMIT = 'LimitExceeded.OutOfCountLimit'

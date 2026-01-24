@@ -11,9 +11,11 @@ from collections.abc import (
 )
 import datetime as dt
 import sqlite3
+import sys
 from typing import (
     Any,
     ClassVar,
+    Concatenate,
     Literal,
     final,
     overload,
@@ -21,18 +23,15 @@ from typing import (
 
 import numpy as np
 from pandas import Index
-import pandas.core.indexing as indexing
 from pandas.core.resample import DatetimeIndexResampler
-from pandas.core.series import (
-    Series,
-)
+from pandas.core.series import Series
 import sqlalchemy.engine
 from typing_extensions import (
-    Concatenate,
+    Never,
     Self,
 )
 
-from pandas._libs.lib import _NoDefaultDoNotUse
+from pandas._libs.lib import NoDefaultDoNotUse
 from pandas._typing import (
     Axis,
     CompressionOptions,
@@ -42,6 +41,8 @@ from pandas._typing import (
     ExcelWriterMergeCells,
     FilePath,
     FileWriteMode,
+    FloatFormatType,
+    FormattersType,
     Frequency,
     HashableT1,
     HashableT2,
@@ -49,6 +50,7 @@ from pandas._typing import (
     IgnoreRaise,
     IndexLabel,
     Level,
+    ListLike,
     OpenFileErrors,
     P,
     StorageOptions,
@@ -58,12 +60,15 @@ from pandas._typing import (
     TimeGrouperOrigin,
     TimestampConvertibleTypes,
     WriteBuffer,
+    WriteExcelBuffer,
+    np_1darray,
 )
 
+from pandas.io.excel import ExcelWriter
 from pandas.io.pytables import HDFStore
 from pandas.io.sql import SQLTable
 
-class NDFrame(indexing.IndexingMixin):
+class NDFrame:
     __hash__: ClassVar[None]  # type: ignore[assignment] # pyright: ignore[reportIncompatibleMethodOverride]
 
     @final
@@ -96,15 +101,27 @@ class NDFrame(indexing.IndexingMixin):
     @final
     def __round__(self, decimals: int = ...) -> Self: ...
     @final
-    def __contains__(self, key) -> _bool: ...
+    def __contains__(self, key: Any) -> _bool: ...
     @property
     def empty(self) -> _bool: ...
     __array_priority__: int = ...
-    def __array__(self, dtype=...) -> np.ndarray: ...
+    if sys.version_info >= (3, 11):
+        def __array__(
+            self, dtype: _str | np.dtype = ..., copy: _bool | None = ...
+        ) -> np_1darray: ...
+    else:
+        def __array__(
+            self, dtype: _str | np.dtype[Any] = ..., copy: _bool | None = ...
+        ) -> np_1darray: ...
+
+    @final
+    def __delitem__(self, key: Hashable) -> None: ...
     @final
     def to_excel(
         self,
-        excel_writer,
+        excel_writer: (  # pyright: ignore[reportUnknownParameterType]
+            FilePath | WriteExcelBuffer | ExcelWriter
+        ),
         sheet_name: _str = "Sheet1",
         na_rep: _str = "",
         float_format: _str | None = ...,
@@ -151,7 +168,7 @@ class NDFrame(indexing.IndexingMixin):
     @overload
     def to_markdown(
         self,
-        buf: None = ...,
+        buf: None = None,
         *,
         mode: FileWriteMode | None = ...,
         index: _bool = ...,
@@ -163,12 +180,13 @@ class NDFrame(indexing.IndexingMixin):
         self,
         name: _str,
         con: str | sqlalchemy.engine.Connectable | sqlite3.Connection,
-        schema: _str | None = ...,
-        if_exists: Literal["fail", "replace", "append"] = "fail",
+        *,
+        schema: _str | None = None,
+        if_exists: Literal["fail", "replace", "append", "delete_rows"] = "fail",
         index: _bool = True,
         index_label: IndexLabel = None,
-        chunksize: int | None = ...,
-        dtype: DtypeArg | None = ...,
+        chunksize: int | None = None,
+        dtype: DtypeArg | None = None,
         method: (
             Literal["multi"]
             | Callable[
@@ -176,7 +194,7 @@ class NDFrame(indexing.IndexingMixin):
                 int | None,
             ]
             | None
-        ) = ...,
+        ) = None,
     ) -> int | None: ...
     @final
     def to_pickle(
@@ -220,8 +238,8 @@ class NDFrame(indexing.IndexingMixin):
         header: _bool | list[_str] = ...,
         index: _bool = ...,
         na_rep: _str = ...,
-        formatters=...,
-        float_format=...,
+        formatters: FormattersType | None = None,
+        float_format: FloatFormatType | None = None,
         sparsify: _bool | None = ...,
         index_names: _bool = ...,
         bold_rows: _bool = ...,
@@ -240,13 +258,13 @@ class NDFrame(indexing.IndexingMixin):
     @overload
     def to_latex(
         self,
-        buf: None = ...,
+        buf: None = None,
         columns: list[_str] | None = ...,
         header: _bool | list[_str] = ...,
         index: _bool = ...,
         na_rep: _str = ...,
-        formatters=...,
-        float_format=...,
+        formatters: FormattersType | None = None,
+        float_format: FloatFormatType | None = None,
         sparsify: _bool | None = ...,
         index_names: _bool = ...,
         bold_rows: _bool = ...,
@@ -290,7 +308,7 @@ class NDFrame(indexing.IndexingMixin):
     @overload
     def to_csv(
         self,
-        path_or_buf: None = ...,
+        path_or_buf: None = None,
         sep: _str = ...,
         na_rep: _str = ...,
         float_format: _str | Callable[[object], _str] | None = ...,
@@ -312,79 +330,113 @@ class NDFrame(indexing.IndexingMixin):
         errors: OpenFileErrors = ...,
         storage_options: StorageOptions = ...,
     ) -> _str: ...
-    @final
-    def __delitem__(self, idx: Hashable) -> None: ...
     @overload
     def drop(
         self,
-        labels: None = ...,
+        labels: Hashable | ListLike = None,
         *,
-        axis: Axis = ...,
-        index: Hashable | Sequence[Hashable] | Index = ...,
+        axis: Axis = 0,
+        index: None,
+        columns: Hashable | Iterable[Hashable] = None,
+        level: Level | None = None,
+        inplace: Literal[False] = False,
+        errors: IgnoreRaise = "raise",
+    ) -> Never: ...
+    @overload
+    def drop(
+        self,
+        labels: Hashable | ListLike = None,
+        *,
+        axis: Axis = 0,
+        index: Hashable | Sequence[Hashable] | Index = None,
+        columns: None,
+        level: Level | None = None,
+        inplace: Literal[False] = False,
+        errors: IgnoreRaise = "raise",
+    ) -> Never: ...
+    @overload
+    def drop(
+        self,
+        labels: None,
+        *,
+        axis: Axis = 0,
+        index: Hashable | Sequence[Hashable] | Index = None,
+        columns: Hashable | Iterable[Hashable] = None,
+        level: Level | None = None,
+        inplace: Literal[False] = False,
+        errors: IgnoreRaise = "raise",
+    ) -> Never: ...
+    @overload
+    def drop(
+        self,
+        labels: None = None,
+        *,
+        axis: Axis = 0,
+        index: Hashable | Sequence[Hashable] | Index = None,
         columns: Hashable | Iterable[Hashable],
-        level: Level | None = ...,
+        level: Level | None = None,
         inplace: Literal[True],
-        errors: IgnoreRaise = ...,
+        errors: IgnoreRaise = "raise",
     ) -> None: ...
     @overload
     def drop(
         self,
-        labels: None = ...,
+        labels: None = None,
         *,
-        axis: Axis = ...,
+        axis: Axis = 0,
         index: Hashable | Sequence[Hashable] | Index,
-        columns: Hashable | Iterable[Hashable] = ...,
-        level: Level | None = ...,
+        columns: Hashable | Iterable[Hashable] = None,
+        level: Level | None = None,
         inplace: Literal[True],
-        errors: IgnoreRaise = ...,
+        errors: IgnoreRaise = "raise",
     ) -> None: ...
     @overload
     def drop(
         self,
-        labels: Hashable | Sequence[Hashable] | Index,
+        labels: Hashable | ListLike,
         *,
-        axis: Axis = ...,
-        index: None = ...,
-        columns: None = ...,
-        level: Level | None = ...,
+        axis: Axis = 0,
+        index: None = None,
+        columns: None = None,
+        level: Level | None = None,
         inplace: Literal[True],
-        errors: IgnoreRaise = ...,
+        errors: IgnoreRaise = "raise",
     ) -> None: ...
     @overload
     def drop(
         self,
-        labels: None = ...,
+        labels: None = None,
         *,
-        axis: Axis = ...,
-        index: Hashable | Sequence[Hashable] | Index = ...,
+        axis: Axis = 0,
+        index: Hashable | Sequence[Hashable] | Index = None,
         columns: Hashable | Iterable[Hashable],
-        level: Level | None = ...,
-        inplace: Literal[False] = ...,
-        errors: IgnoreRaise = ...,
+        level: Level | None = None,
+        inplace: Literal[False] = False,
+        errors: IgnoreRaise = "raise",
     ) -> Self: ...
     @overload
     def drop(
         self,
-        labels: None = ...,
+        labels: None = None,
         *,
-        axis: Axis = ...,
+        axis: Axis = 0,
         index: Hashable | Sequence[Hashable] | Index,
-        columns: Hashable | Iterable[Hashable] = ...,
-        level: Level | None = ...,
-        inplace: Literal[False] = ...,
-        errors: IgnoreRaise = ...,
+        columns: Hashable | Iterable[Hashable] = None,
+        level: Level | None = None,
+        inplace: Literal[False] = False,
+        errors: IgnoreRaise = "raise",
     ) -> Self: ...
     @overload
     def drop(
         self,
-        labels: Hashable | Sequence[Hashable] | Index,
+        labels: Hashable | ListLike,
         *,
-        axis: Axis = ...,
-        index: None = ...,
-        columns: None = ...,
-        level: Level | None = ...,
-        inplace: Literal[False] = ...,
-        errors: IgnoreRaise = ...,
+        axis: Axis = 0,
+        index: None = None,
+        columns: None = None,
+        level: Level | None = None,
+        inplace: Literal[False] = False,
+        errors: IgnoreRaise = "raise",
     ) -> Self: ...
     @overload
     def pipe(
@@ -401,14 +453,6 @@ class NDFrame(indexing.IndexingMixin):
         **kwargs: Any,
     ) -> T: ...
     @final
-    def __finalize__(self, other, method=..., **kwargs) -> Self: ...
-    @final
-    def __setattr__(self, name: _str, value) -> None: ...
-    @final
-    def __copy__(self, deep: _bool = ...) -> Self: ...
-    @final
-    def __deepcopy__(self, memo=...) -> Self: ...
-    @final
     def convert_dtypes(
         self,
         infer_objects: _bool = True,
@@ -422,7 +466,7 @@ class NDFrame(indexing.IndexingMixin):
     def resample(
         self,
         rule: Frequency | dt.timedelta,
-        axis: Axis | _NoDefaultDoNotUse = 0,
+        axis: Axis | NoDefaultDoNotUse = 0,
         closed: Literal["right", "left"] | None = None,
         label: Literal["right", "left"] | None = None,
         on: Level | None = None,
@@ -430,6 +474,13 @@ class NDFrame(indexing.IndexingMixin):
         origin: TimeGrouperOrigin | TimestampConvertibleTypes = "start_day",
         offset: TimedeltaConvertibleTypes | None = None,
         group_keys: _bool = False,
-    ) -> DatetimeIndexResampler[Self]: ...
+    ) -> DatetimeIndexResampler[Self]: ...  # pyrefly: ignore[bad-specialization]
     @final
     def take(self, indices: TakeIndexer, axis: Axis = 0, **kwargs: Any) -> Self: ...
+    def xs(
+        self,
+        key: Hashable | tuple[Hashable, ...],
+        axis: Axis = 0,
+        level: IndexLabel | None = None,
+        drop_level: _bool = True,
+    ) -> Self | Series: ...

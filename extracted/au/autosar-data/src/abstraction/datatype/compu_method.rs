@@ -1,4 +1,5 @@
 use crate::abstraction::AutosarAbstractionError;
+use crate::abstraction::datatype::Unit;
 use crate::pyutils::compare_pylist;
 use crate::{abstraction::*, *};
 use autosar_data_abstraction::{self, AbstractionElement, IdentifiableAbstractionElement};
@@ -26,6 +27,15 @@ impl CompuMethod {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -51,23 +61,36 @@ impl CompuMethod {
         self.0.category().map(std::convert::Into::into)
     }
 
+    /// Set the Unit of the `CompuMethod`
+    #[setter]
+    fn set_unit(&self, unit: Option<&Unit>) -> PyResult<()> {
+        let unit = unit.map(|u| &u.0);
+        self.0.set_unit(unit).map_err(abstraction_err_to_pyerr)
+    }
+
+    /// Get the Unit of the `CompuMethod`
+    #[getter]
+    fn unit(&self) -> Option<Unit> {
+        self.0.unit().map(Unit)
+    }
+
     /// Apply `CompumethodContent` to the `CompuMethod`
     ///
     /// This will remove any existing content
     #[pyo3(signature = (content, /))]
     #[pyo3(text_signature = "(self, content: CompuMethodContent, /)")]
     fn set_content(&self, content: &Bound<'_, PyAny>) -> PyResult<()> {
-        let content = pyobject_to_compu_method_content(content)?;
+        let content = pyany_to_compu_method_content(content)?;
         self.0
             .set_content(content)
             .map_err(abstraction_err_to_pyerr)
     }
 
     /// get the content of the `CompuMethod`
-    fn content(&self) -> Option<PyObject> {
+    fn content(&self) -> Option<Py<PyAny>> {
         self.0
             .content()
-            .map(|cmc| compu_method_content_to_pyobject(&cmc))
+            .map(|cmc| compu_method_content_to_pyany(&cmc))
     }
 
     /// create a `CompuScale` in the `CompuMethod`
@@ -189,6 +212,15 @@ impl CompuScale {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[getter]
     fn element(&self) -> Element {
         Element(self.0.element().clone())
@@ -229,8 +261,8 @@ impl CompuScale {
             autosar_data_abstraction::datatype::CompuScaleContent::TextConstant(content)
         } else if let Ok(content) = content.extract::<f64>() {
             autosar_data_abstraction::datatype::CompuScaleContent::NumericConstant(content)
-        } else if let Ok(content) = content.downcast_exact::<CompuScaleRationalCoefficients>() {
-            Python::with_gil(|py| {
+        } else if let Ok(content) = content.cast_exact::<CompuScaleRationalCoefficients>() {
+            Python::attach(|py| {
                 let content = content.borrow();
                 autosar_data_abstraction::datatype::CompuScaleContent::RationalCoeffs {
                     numerator: content.numerator.extract(py).unwrap_or_default(),
@@ -250,7 +282,7 @@ impl CompuScale {
 
     /// Get the content of the `CompuScale`
     #[getter]
-    fn content(&self, py: Python) -> Option<PyObject> {
+    fn content(&self, py: Python) -> Option<Py<PyAny>> {
         let content = self.0.content()?;
 
         match content {
@@ -332,7 +364,7 @@ impl CompuScaleRationalCoefficients {
     #[pyo3(text_signature = "(self, *, numerator: List[float], denominator: List[float])")]
     #[new]
     fn new(numerator: Vec<f64>, denominator: Vec<f64>) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             numerator: PyList::new(py, numerator).unwrap().unbind(),
             denominator: PyList::new(py, denominator).unwrap().unbind(),
         })
@@ -345,7 +377,7 @@ impl CompuScaleRationalCoefficients {
 
 impl PartialEq for CompuScaleRationalCoefficients {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let self_numerator = self.numerator.extract::<Vec<f64>>(py).unwrap_or_default();
             let other_numerator = other.numerator.extract::<Vec<f64>>(py).unwrap_or_default();
             let self_denominator = self.denominator.extract::<Vec<f64>>(py).unwrap_or_default();
@@ -511,13 +543,13 @@ impl CompuMethodContent_ScaleLinear {
 
 impl PartialEq for CompuMethodContent_ScaleLinear {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| compare_pylist(py, &self.scales, &other.scales))
+        Python::attach(|py| compare_pylist(py, &self.scales, &other.scales))
     }
 }
 
 impl std::fmt::Debug for CompuMethodContent_ScaleLinear {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let scales = self.scales.bind_borrowed(py);
             write!(f, "CompuMethodContent.ScaleLinear( scales: {scales:?} )")
         })
@@ -626,13 +658,13 @@ impl CompuMethodContent_ScaleRational {
 
 impl PartialEq for CompuMethodContent_ScaleRational {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| compare_pylist(py, &self.scales, &other.scales))
+        Python::attach(|py| compare_pylist(py, &self.scales, &other.scales))
     }
 }
 
 impl std::fmt::Debug for CompuMethodContent_ScaleRational {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let scales = self.scales.bind_borrowed(py);
             write!(f, "CompuMethodContent.ScaleRational( scales: {scales:?} )")
         })
@@ -672,13 +704,13 @@ impl CompuMethodContent_TextTable {
 
 impl PartialEq for CompuMethodContent_TextTable {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| compare_pylist(py, &self.texts, &other.texts))
+        Python::attach(|py| compare_pylist(py, &self.texts, &other.texts))
     }
 }
 
 impl std::fmt::Debug for CompuMethodContent_TextTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let texts = self.texts.bind_borrowed(py);
             write!(f, "CompuMethodContent.TextTable( texts: {texts:?} )")
         })
@@ -721,13 +753,13 @@ impl CompuMethodContent_BitfieldTextTable {
 
 impl PartialEq for CompuMethodContent_BitfieldTextTable {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| compare_pylist(py, &self.entries, &other.entries))
+        Python::attach(|py| compare_pylist(py, &self.entries, &other.entries))
     }
 }
 
 impl std::fmt::Debug for CompuMethodContent_BitfieldTextTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let entries = self.entries.bind_borrowed(py);
             write!(
                 f,
@@ -781,7 +813,7 @@ impl CompuMethodContent_ScaleLinearAndTextTable {
 
 impl PartialEq for CompuMethodContent_ScaleLinearAndTextTable {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             compare_pylist(py, &self.scales, &other.scales)
                 && compare_pylist(py, &self.texts, &other.texts)
         })
@@ -790,7 +822,7 @@ impl PartialEq for CompuMethodContent_ScaleLinearAndTextTable {
 
 impl std::fmt::Debug for CompuMethodContent_ScaleLinearAndTextTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let scales = self.scales.bind_borrowed(py);
             let texts = self.texts.bind_borrowed(py);
             write!(
@@ -845,7 +877,7 @@ impl CompuMethodContent_ScaleRationalAndTextTable {
 
 impl PartialEq for CompuMethodContent_ScaleRationalAndTextTable {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             compare_pylist(py, &self.scales, &other.scales)
                 && compare_pylist(py, &self.texts, &other.texts)
         })
@@ -854,7 +886,7 @@ impl PartialEq for CompuMethodContent_ScaleRationalAndTextTable {
 
 impl std::fmt::Debug for CompuMethodContent_ScaleRationalAndTextTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let scales = self.scales.bind_borrowed(py);
             let texts = self.texts.bind_borrowed(py);
             write!(
@@ -904,13 +936,13 @@ impl CompuMethodContent_TabNoInterpretation {
 
 impl PartialEq for CompuMethodContent_TabNoInterpretation {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| compare_pylist(py, &self.entries, &other.entries))
+        Python::attach(|py| compare_pylist(py, &self.entries, &other.entries))
     }
 }
 
 impl std::fmt::Debug for CompuMethodContent_TabNoInterpretation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let entries = self.entries.bind_borrowed(py);
             write!(
                 f,
@@ -922,10 +954,10 @@ impl std::fmt::Debug for CompuMethodContent_TabNoInterpretation {
 
 //#########################################################
 
-fn compu_method_content_to_pyobject(
+fn compu_method_content_to_pyany(
     content: &autosar_data_abstraction::datatype::CompuMethodContent,
-) -> PyObject {
-    Python::with_gil(|py| match content {
+) -> Py<PyAny> {
+    Python::attach(|py| match content {
         autosar_data_abstraction::datatype::CompuMethodContent::Identical => {
             CompuMethodContent_Identical::new(py)
                 .unwrap()
@@ -1112,17 +1144,17 @@ fn bitfield_to_pylist(
     PyList::new(py, entries_vec).unwrap().unbind()
 }
 
-pub(crate) fn pyobject_to_compu_method_content(
+pub(crate) fn pyany_to_compu_method_content(
     pyobject: &Bound<'_, PyAny>,
 ) -> PyResult<autosar_data_abstraction::datatype::CompuMethodContent> {
     use autosar_data_abstraction::datatype as dt;
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         if pyobject
-            .downcast_exact::<CompuMethodContent_Identical>()
+            .cast_exact::<CompuMethodContent_Identical>()
             .is_ok()
         {
             Ok(dt::CompuMethodContent::Identical)
-        } else if let Ok(linear) = pyobject.downcast_exact::<CompuMethodContent_Linear>() {
+        } else if let Ok(linear) = pyobject.cast_exact::<CompuMethodContent_Linear>() {
             let lb: PyRef<'_, CompuMethodContent_Linear> = linear.borrow();
             Ok(dt::CompuMethodContent::Linear(
                 dt::CompuMethodLinearContent {
@@ -1134,11 +1166,10 @@ pub(crate) fn pyobject_to_compu_method_content(
                     upper_limit: lb.upper_limit,
                 },
             ))
-        } else if let Ok(scale_linear) = pyobject.downcast_exact::<CompuMethodContent_ScaleLinear>()
-        {
+        } else if let Ok(scale_linear) = pyobject.cast_exact::<CompuMethodContent_ScaleLinear>() {
             let out_scales_vec = pylist_to_linear_scales(py, &scale_linear.borrow().scales);
             Ok(dt::CompuMethodContent::ScaleLinear(out_scales_vec))
-        } else if let Ok(rational) = pyobject.downcast_exact::<CompuMethodContent_Rational>() {
+        } else if let Ok(rational) = pyobject.cast_exact::<CompuMethodContent_Rational>() {
             let rb = rational.borrow();
             Ok(dt::CompuMethodContent::Rational(
                 dt::CompuMethodRationalContent {
@@ -1149,21 +1180,18 @@ pub(crate) fn pyobject_to_compu_method_content(
                     upper_limit: rb.upper_limit,
                 },
             ))
-        } else if let Ok(scale_rational) =
-            pyobject.downcast_exact::<CompuMethodContent_ScaleRational>()
+        } else if let Ok(scale_rational) = pyobject.cast_exact::<CompuMethodContent_ScaleRational>()
         {
             let scales = pylist_to_rational_scales(py, &scale_rational.borrow().scales);
             Ok(dt::CompuMethodContent::ScaleRational(scales))
-        } else if let Ok(text_table) = pyobject.downcast_exact::<CompuMethodContent_TextTable>() {
+        } else if let Ok(text_table) = pyobject.cast_exact::<CompuMethodContent_TextTable>() {
             let texts = pylist_to_text_table(py, &text_table.borrow().texts);
             Ok(dt::CompuMethodContent::TextTable(texts))
-        } else if let Ok(bitfield) =
-            pyobject.downcast_exact::<CompuMethodContent_BitfieldTextTable>()
-        {
+        } else if let Ok(bitfield) = pyobject.cast_exact::<CompuMethodContent_BitfieldTextTable>() {
             let entries = pylist_to_bitfield(py, &bitfield.borrow().entries);
             Ok(dt::CompuMethodContent::BitfieldTextTable(entries))
         } else if let Ok(scale_linear_text_table) =
-            pyobject.downcast_exact::<CompuMethodContent_ScaleLinearAndTextTable>()
+            pyobject.cast_exact::<CompuMethodContent_ScaleLinearAndTextTable>()
         {
             let borrowed = scale_linear_text_table.borrow();
             let scales = pylist_to_linear_scales(py, &borrowed.scales);
@@ -1172,7 +1200,7 @@ pub(crate) fn pyobject_to_compu_method_content(
                 scales, texts,
             ))
         } else if let Ok(scale_rational_text_table) =
-            pyobject.downcast_exact::<CompuMethodContent_ScaleRationalAndTextTable>()
+            pyobject.cast_exact::<CompuMethodContent_ScaleRationalAndTextTable>()
         {
             let borrowed = scale_rational_text_table.borrow();
             let scales = pylist_to_rational_scales(py, &borrowed.scales);
@@ -1181,7 +1209,7 @@ pub(crate) fn pyobject_to_compu_method_content(
                 scales, texts,
             ))
         } else if let Ok(tab_no_intp) =
-            pyobject.downcast_exact::<CompuMethodContent_TabNoInterpretation>()
+            pyobject.cast_exact::<CompuMethodContent_TabNoInterpretation>()
         {
             let entries = pylist_to_tab_no_intp(py, &tab_no_intp.borrow().entries);
             Ok(dt::CompuMethodContent::TabNoInterpretation(entries))
@@ -1202,11 +1230,7 @@ fn pylist_to_linear_scales(
         let mut out_scales_vec = vec![];
         for params in scales_iter
             .filter_map(Result::ok)
-            .filter_map(|pyany| {
-                pyany
-                    .downcast_into_exact::<LinearConversionParameters>()
-                    .ok()
-            })
+            .filter_map(|pyany| pyany.cast_into_exact::<LinearConversionParameters>().ok())
             .map(|py_lcp| py_lcp.borrow())
         {
             out_scales_vec.push(
@@ -1234,11 +1258,7 @@ fn pylist_to_rational_scales(
         let mut out_scales_vec = vec![];
         for params in scales_iter
             .filter_map(Result::ok)
-            .filter_map(|pyany| {
-                pyany
-                    .downcast_into_exact::<RationalConversionParameters>()
-                    .ok()
-            })
+            .filter_map(|pyany| pyany.cast_into_exact::<RationalConversionParameters>().ok())
             .map(|py_rcp| py_rcp.borrow())
         {
             out_scales_vec.push(
@@ -1265,7 +1285,7 @@ fn pylist_to_text_table(
         let mut out_texts_vec = vec![];
         for ttentry in texts_iter
             .filter_map(Result::ok)
-            .filter_map(|pyany| pyany.downcast_into_exact::<TextTableEntry>().ok())
+            .filter_map(|pyany| pyany.cast_into_exact::<TextTableEntry>().ok())
             .map(|py_tte| py_tte.borrow())
         {
             out_texts_vec.push(
@@ -1289,7 +1309,7 @@ fn pylist_to_bitfield(
         let mut out_texts_vec = vec![];
         for bfentry in texts_iter
             .filter_map(Result::ok)
-            .filter_map(|pyany| pyany.downcast_into_exact::<BitfieldEntry>().ok())
+            .filter_map(|pyany| pyany.cast_into_exact::<BitfieldEntry>().ok())
             .map(|py_tte| py_tte.borrow())
         {
             out_texts_vec.push(
@@ -1314,7 +1334,7 @@ fn pylist_to_tab_no_intp(
         let mut out_texts_vec = vec![];
         for tnientry in texts_iter
             .filter_map(Result::ok)
-            .filter_map(|pyany| pyany.downcast_into_exact::<TabNoIntpEntry>().ok())
+            .filter_map(|pyany| pyany.cast_into_exact::<TabNoIntpEntry>().ok())
             .map(|py_tte| py_tte.borrow())
         {
             out_texts_vec.push(
@@ -1436,7 +1456,7 @@ impl RationalConversionParameters {
 
 impl PartialEq for RationalConversionParameters {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.direction == other.direction
                 && self.lower_limit == other.lower_limit
                 && self.upper_limit == other.upper_limit

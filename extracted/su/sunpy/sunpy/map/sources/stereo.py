@@ -1,9 +1,4 @@
 """STEREO Map subclass definitions"""
-
-__author__ = "Keith Hughitt"
-__email__ = "keith.hughitt@nasa.gov"
-
-
 import astropy.units as u
 from astropy.visualization import PowerStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
@@ -26,7 +21,18 @@ class EUVIMap(GenericMap):
     ----------
     * `STEREO Mission Page <https://stereo.gsfc.nasa.gov/>`__
     * `STEREO SECCHI <https://secchi.nrl.navy.mil/>`__
-    * `Instrument Page <http://secchi.lmsal.com/EUVI/>`__
+    * `Instrument Page <https://secchi.lmsal.com/EUVI/>`__
+
+    Examples
+    --------
+    .. plot::
+        :include-source:
+        :context: reset
+
+        import sunpy.map
+        from sunpy.data.sample import EUVI_STEREOSCOPIC_IMAGE
+        euvi_map = sunpy.map.Map(EUVI_STEREOSCOPIC_IMAGE)
+        euvi_map.plot()
     """
 
     def __init__(self, data, header, **kwargs):
@@ -118,7 +124,7 @@ class HIMap(GenericMap):
     ----------
     * `STEREO Mission Page <https://stereo.gsfc.nasa.gov/>`__
     * `STEREO SECCHI <https://secchi.nrl.navy.mil>`__
-    * `HI Instrument Page <http://www.stereo.rl.ac.uk>`__
+    * `HI Instrument Page <https://www.stereo.rl.ac.uk/>`__
     """
 
     def __init__(self, data, header, **kwargs):

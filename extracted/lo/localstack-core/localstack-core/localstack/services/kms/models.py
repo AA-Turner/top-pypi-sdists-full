@@ -20,7 +20,6 @@ from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 from cryptography.hazmat.primitives.asymmetric.padding import PSS, PKCS1v15
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.serialization import load_der_public_key
 
 from localstack.aws.api.kms import (
@@ -173,6 +172,7 @@ class KmsCryptoKey:
     public_key: bytes | None
     private_key: bytes | None
     key_material: bytes
+    pending_key_material: bytes | None
     key_spec: str
 
     @staticmethod
@@ -217,6 +217,7 @@ class KmsCryptoKey:
     def __init__(self, key_spec: str, key_material: bytes | None = None):
         self.private_key = None
         self.public_key = None
+        self.pending_key_material = None
         # Technically, key_material, being a symmetric encryption key, is only relevant for
         #   key_spec == SYMMETRIC_DEFAULT.
         # But LocalStack uses symmetric encryption with this key_material even for other specs. Asymmetric keys are
@@ -248,8 +249,9 @@ class KmsCryptoKey:
         self._serialize_key(key)
 
     def load_key_material(self, material: bytes):
-        if self.key_spec in [
-            KeySpec.SYMMETRIC_DEFAULT,
+        if self.key_spec == KeySpec.SYMMETRIC_DEFAULT:
+            self.pending_key_material = material
+        elif self.key_spec in [
             KeySpec.HMAC_224,
             KeySpec.HMAC_256,
             KeySpec.HMAC_384,
@@ -323,8 +325,27 @@ class KmsKey:
             # remove the _custom_key_material_ tag from the tags to not readily expose the custom key material
             del self.tags[TAG_KEY_CUSTOM_KEY_MATERIAL]
         self.crypto_key = KmsCryptoKey(self.metadata.get("KeySpec"), custom_key_material)
+        self._internal_key_id = uuid.uuid4()
+
+        # The KMS implementation always provides a crypto key with key material which doesn't suit scenarios where a
+        # KMS Key may have no key material e.g. for external keys. Don't expose the CurrentKeyMaterialId in those cases.
+        if custom_key_material or (
+            self.metadata["Origin"] == "AWS_KMS"
+            and self.metadata["KeySpec"] == KeySpec.SYMMETRIC_DEFAULT
+        ):
+            self.metadata["CurrentKeyMaterialId"] = self.generate_key_material_id(
+                self.crypto_key.key_material
+            )
+
         self.rotation_period_in_days = 365
         self.next_rotation_date = None
+
+    def generate_key_material_id(self, key_material: bytes) -> str:
+        # The KeyMaterialId depends on the key material and the KeyId. Use an internal ID to prevent brute forcing
+        # the value of the key material from the public KeyId and KeyMaterialId.
+        # https://docs.aws.amazon.com/kms/latest/APIReference/API_ImportKeyMaterial.html
+        key_material_id_hex = uuid.uuid5(self._internal_key_id, key_material).hex
+        return str(key_material_id_hex) * 2
 
     def calculate_and_set_arn(self, account_id, region):
         self.metadata["Arn"] = kms_key_arn(self.metadata.get("KeyId"), account_id, region)
@@ -420,17 +441,15 @@ class KmsKey:
 
     def derive_shared_secret(self, public_key: bytes) -> bytes:
         key_spec = self.metadata.get("KeySpec")
-        match key_spec:
-            case KeySpec.ECC_NIST_P256 | KeySpec.ECC_SECG_P256K1:
-                algorithm = hashes.SHA256()
-            case KeySpec.ECC_NIST_P384:
-                algorithm = hashes.SHA384()
-            case KeySpec.ECC_NIST_P521:
-                algorithm = hashes.SHA512()
-            case _:
-                raise InvalidKeyUsageException(
-                    f"{self.metadata['Arn']} key usage is {self.metadata['KeyUsage']} which is not valid for DeriveSharedSecret."
-                )
+        if key_spec not in (
+            KeySpec.ECC_NIST_P256,
+            KeySpec.ECC_SECG_P256K1,
+            KeySpec.ECC_NIST_P384,
+            KeySpec.ECC_NIST_P521,
+        ):
+            raise InvalidKeyUsageException(
+                f"{self.metadata['Arn']} key usage is {self.metadata['KeyUsage']} which is not valid for DeriveSharedSecret."
+            )
 
         # Deserialize public key from DER encoded data to EllipticCurvePublicKey.
         try:
@@ -438,14 +457,7 @@ class KmsKey:
         except (UnsupportedAlgorithm, ValueError):
             raise ValidationException("")
         shared_secret = self.crypto_key.key.exchange(ec.ECDH(), pub_key)
-        # Perform shared secret derivation.
-        return HKDF(
-            algorithm=algorithm,
-            salt=None,
-            info=b"",
-            length=algorithm.digest_size,
-            backend=default_backend(),
-        ).derive(shared_secret)
+        return shared_secret
 
     # This method gets called when a key is replicated to another region. It's meant to populate the required metadata
     # fields in a new replica key.
@@ -746,8 +758,16 @@ class KmsKey:
                 f"The on-demand rotations limit has been reached for the given keyId. "
                 f"No more on-demand rotations can be performed for this key: {self.metadata['Arn']}"
             )
-        self.previous_keys.append(self.crypto_key.key_material)
-        self.crypto_key = KmsCryptoKey(KeySpec.SYMMETRIC_DEFAULT)
+        current_key_material = self.crypto_key.key_material
+        pending_key_material = self.crypto_key.pending_key_material
+
+        self.previous_keys.append(current_key_material)
+
+        # If there is no pending material stored on the key, then key material will be generated.
+        self.crypto_key = KmsCryptoKey(KeySpec.SYMMETRIC_DEFAULT, pending_key_material)
+        self.metadata["CurrentKeyMaterialId"] = self.generate_key_material_id(
+            self.crypto_key.key_material
+        )
 
 
 class KmsGrant:

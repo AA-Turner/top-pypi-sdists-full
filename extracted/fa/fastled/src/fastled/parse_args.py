@@ -8,6 +8,7 @@ from fastled.project_init import project_init
 from fastled.select_sketch_directory import select_sketch_directory
 from fastled.settings import DEFAULT_URL, IMAGE_NAME
 from fastled.sketch import (
+    find_sketch_by_partial_name,
     find_sketch_directories,
     looks_like_fastled_repo,
     looks_like_sketch_directory,
@@ -28,9 +29,11 @@ _DEFAULT_HELP_TEXT = """
 FastLED WASM Compiler - Useful options:
   <directory>           Directory containing the FastLED sketch to compile
   --init [example]      Initialize one of the top tier WASM examples
+  --native              Compile using native EMSDK (no Docker required)
   --web [url]           Use web compiler
   --server              Run the compiler server
   --no-platformio       Bypass PlatformIO constraints using local Docker compilation
+  --no-https            Disable HTTPS and use HTTP for local server
   --quick               Build in quick mode (default)
   --profile             Enable profiling the C++ build system
   --update              Update the docker image for the wasm compiler
@@ -42,6 +45,7 @@ FastLED WASM Compiler - Useful options:
 Examples:
   fastled (will auto detect the sketch directory and prompt you)
   fastled my_sketch
+  fastled --native my_sketch (compiles using native EMSDK, no Docker)
   fastled my_sketch --web (compiles using the web compiler only)
   fastled my_sketch --background-update (compiles and updates docker image in background)
   fastled --init Blink (initializes a new sketch directory with the Blink example)
@@ -193,6 +197,25 @@ def parse_args() -> Args:
         type=str,
         default=None,
         help="Export EMSDK headers ZIP to specified path",
+    )
+
+    parser.add_argument(
+        "--no-https",
+        action="store_true",
+        help="Disable HTTPS and use HTTP for the local server (useful for debugging)",
+    )
+
+    parser.add_argument(
+        "--native",
+        action="store_true",
+        help="Compile using native EMSDK toolchain (no Docker required)",
+    )
+
+    parser.add_argument(
+        "--fastled-path",
+        type=str,
+        default=None,
+        help="Path to FastLED library for native compilation (defaults to downloading from master repo)",
     )
 
     build_mode = parser.add_mutually_exclusive_group()
@@ -368,7 +391,7 @@ def parse_args() -> Args:
                 print("Searching for sketch directories...")
                 sketch_directories = find_sketch_directories(maybe_sketch_dir)
                 selected_dir = select_sketch_directory(
-                    sketch_directories, cwd_is_fastled
+                    sketch_directories, cwd_is_fastled, is_followup=True
                 )
                 if selected_dir:
                     print(f"Using sketch directory: {selected_dir}")
@@ -378,10 +401,24 @@ def parse_args() -> Args:
                         "\nYou either need to specify a sketch directory or run in --server mode."
                     )
                     sys.exit(1)
-        elif args.directory is not None and os.path.isfile(args.directory):
-            dir_path = Path(args.directory).parent
-            if looks_like_sketch_directory(dir_path):
-                print(f"Using sketch directory: {dir_path}")
-                args.directory = str(dir_path)
+        elif args.directory is not None:
+            # Check if directory is a file path
+            if os.path.isfile(args.directory):
+                dir_path = Path(args.directory).parent
+                if looks_like_sketch_directory(dir_path):
+                    print(f"Using sketch directory: {dir_path}")
+                    args.directory = str(dir_path)
+            # Check if directory exists as a path
+            elif not os.path.exists(args.directory):
+                # Directory doesn't exist - try partial name matching
+                try:
+                    matched_dir = find_sketch_by_partial_name(args.directory)
+                    print(
+                        f"Matched '{args.directory}' to sketch directory: {matched_dir}"
+                    )
+                    args.directory = str(matched_dir)
+                except ValueError as e:
+                    print(f"Error: {e}")
+                    sys.exit(1)
 
     return Args.from_namespace(args)

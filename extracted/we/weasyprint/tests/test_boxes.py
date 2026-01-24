@@ -47,7 +47,7 @@ def test_inline_in_block_1():
                     ('div', 'Text', 'Hello, '),
                     ('em', 'Inline', [
                         ('em', 'Text', 'World')]),
-                    ('div', 'Text', '! ')])]),
+                    ('div', 'Text', '!\n')])]),
             ('p', 'Block', [
                 ('p', 'Line', [
                     ('p', 'Text', 'Lipsum.')])])])]
@@ -69,7 +69,7 @@ def test_inline_in_block_2():
                     ('div', 'Text', 'Hello, '),
                     ('em', 'Inline', [
                         ('em', 'Text', 'World')]),
-                    ('div', 'Text', '! ')])])])]
+                    ('div', 'Text', '!\n')])])])]
     box = parse(source)
     box = build.inline_in_block(box)
     assert_tree(box, expected)
@@ -134,7 +134,7 @@ def test_block_in_inline():
                             ('span', 'Block', [  # This block is "pulled up"
                                 ('span', 'Line', [
                                     ('span', 'Text', 'sit')])]),
-                            ('strong', 'Text', ' '),
+                            ('strong', 'Text', '\n      '),
                             ('span', 'Block', [  # This block is "pulled up"
                                 ('span', 'Line', [
                                     ('span', 'Text', 'amet,')])])]),
@@ -162,7 +162,7 @@ def test_block_in_inline():
                     ('p', 'Line', [
                         ('em', 'Inline', [
                             ('strong', 'Inline', [
-                                ('strong', 'Text', ' ')])])])]),
+                                ('strong', 'Text', '\n      ')])])])]),
                 ('span', 'Block', [
                     ('span', 'Line', [
                         ('span', 'Text', 'amet,')])]),
@@ -243,11 +243,11 @@ def test_whitespace():
         ('pre', 'Block', [
             ('pre', 'Line', [
                 # pre-line
-                ('pre', 'Text', ' foo\n')])])])
+                ('pre', 'Text', 'foo\n')])])])
 
 
 @assert_no_logs
-@pytest.mark.parametrize('page_type, top, right, bottom, left', (
+@pytest.mark.parametrize(('page_type', 'top', 'right', 'bottom', 'left'), [
     (PageType('left', False, '', 0, ()), 20, 3, 3, 10),
     (PageType('right', False, '', 0, ()), 20, 10, 3, 3),
     (PageType('left', False, '', 1, ()), 10, 3, 3, 10),
@@ -256,7 +256,7 @@ def test_whitespace():
     (PageType('right', False, 'name', 1, (('name', 1),)), 5, 10, 4, 15),
     (PageType('right', False, 'name', 2, (('name', 0),)), 5, 10, 1, 15),
     (PageType('right', False, 'name', 8, (('name', 8),)), 5, 10, 2, 15),
-))
+])
 def test_page_style(page_type, top, right, bottom, left):
     document = FakeHTML(string='''
       <style>
@@ -1246,12 +1246,12 @@ def test_page_counters():
 
 
 @assert_no_logs
-@pytest.mark.parametrize('html', (
+@pytest.mark.parametrize('html', [
     '<html style="display: none">',
     '<html style="display: none">abc',
     '<html style="display: none"><p>abc',
     '<body style="display: none"><p>abc',
-))
+])
 def test_display_none_root(html):
     box = parse_all(html)
     assert box.style['display'] == ('block', 'flow')

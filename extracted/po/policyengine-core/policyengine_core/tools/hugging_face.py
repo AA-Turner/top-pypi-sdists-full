@@ -13,6 +13,36 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
 
 
+def parse_hf_url(url: str) -> tuple[str, str, str, str | None]:
+    """
+    Parse a Hugging Face URL into components.
+
+    Args:
+        url: URL in format hf://owner/repo/path/to/file[@version]
+
+    Returns:
+        Tuple of (owner, repo, file_path, version)
+        version is None if not specified
+    """
+    parts = url.split("/")[2:]
+
+    if len(parts) < 3:
+        raise ValueError(
+            f"Invalid hf:// URL format: {url}. "
+            "Expected format: hf://owner/repo/path/to/file[@version]"
+        )
+
+    owner = parts[0]
+    repo = parts[1]
+    file_path = "/".join(parts[2:])
+
+    version = None
+    if "@" in file_path:
+        file_path, version = file_path.rsplit("@", 1)
+
+    return owner, repo, file_path, version
+
+
 def download_huggingface_dataset(
     repo: str,
     repo_filename: str,
@@ -61,21 +91,32 @@ def download_huggingface_dataset(
     )
 
 
-def get_or_prompt_hf_token() -> str:
+def get_or_prompt_hf_token() -> str | None:
     """
     Either get the Hugging Face token from the environment,
     or prompt the user for it and store it in the environment.
 
     Returns:
-        str: The Hugging Face token.
+        str | None: The Hugging Face token, or None if not available
+        and running non-interactively (e.g., in CI without secrets).
     """
 
     token = os.environ.get("HUGGING_FACE_TOKEN")
-    if token is None:
-        token = getpass(
-            "Enter your Hugging Face token (or set HUGGING_FACE_TOKEN environment variable): "
-        )
-        # Optionally store in env for subsequent calls in same session
-        os.environ["HUGGING_FACE_TOKEN"] = token
+    # Treat empty string same as None (handles CI with missing secrets)
+    if not token:
+        # Check if running interactively before prompting
+        if os.isatty(0):
+            token = getpass(
+                "Enter your Hugging Face token (or set HUGGING_FACE_TOKEN environment variable): "
+            )
+            # Store in env for subsequent calls in same session
+            if token:
+                os.environ["HUGGING_FACE_TOKEN"] = token
+            else:
+                # User entered empty string - return None
+                return None
+        else:
+            # Non-interactive (CI) - return None instead of prompting
+            return None
 
     return token

@@ -157,23 +157,14 @@ def collect_mhashes(source_tree, new_changed_file_data):
 class TestmonData:  # pylint: disable=too-many-instance-attributes
     __test__ = False
 
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(
         self,
         rootdir,
         database=None,
-        environment=None,
-        system_packages=None,
-        python_version=None,
         readonly=False,
     ):
         self.rootdir = rootdir
-        self.environment = environment if environment else "default"
         self.source_tree = SourceTree(rootdir=self.rootdir)
-        if system_packages is None:
-            system_packages = get_system_packages()
-        system_packages = drop_patch_version(system_packages)
-        if not python_version:
-            python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 
         if database:
             self.db = database  # pylint: disable=invalid-name
@@ -182,6 +173,48 @@ class TestmonData:  # pylint: disable=too-many-instance-attributes
                 os.path.join(self.rootdir, get_data_file_path()), readonly=readonly
             )  # pylint: disable=invalid-name
 
+        # Initialize instance variables (will be set by init methods)
+        self.environment = None
+        self.exec_id = None
+        self.system_packages_change = None
+        self.files_of_interest = None
+        self.all_files = {}
+        self.unstable_test_names = None
+        self.unstable_files = None
+        self.stable_test_names = None
+        self.stable_files = None
+        self.failing_tests = None
+
+    @classmethod
+    def for_local_run(
+        cls,
+        rootdir,
+        database=None,
+        environment=None,
+        system_packages=None,
+        python_version=None,
+    ):
+        instance = cls(rootdir, database=database, readonly=False)
+        instance._init_for_local_run(environment, system_packages, python_version)
+        return instance
+
+    def _init_for_local_run(
+        self,
+        environment=None,
+        system_packages=None,
+        python_version=None,
+    ):
+        """Internal method to initialize for local run."""
+        self.environment = environment if environment else "default"
+
+        if system_packages is None:
+            system_packages = get_system_packages()
+        system_packages = drop_patch_version(system_packages)
+
+        if not python_version:
+            python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+
+        # Initiate execution (controller or single process)
         try:
             result = self.db.initiate_execution(
                 self.environment,
@@ -207,21 +240,49 @@ class TestmonData:  # pylint: disable=too-many-instance-attributes
             result = self.db.initiate_execution(
                 self.environment, system_packages, python_version, {}
             )
-        self.exec_id = result["exec_id"]
 
+        self.exec_id = result["exec_id"]
         self.system_packages_change = result["packages_changed"]
         self.files_of_interest = result["filenames"]
 
-        self.all_files = {}
-        self.unstable_test_names = None
-        self.unstable_files = None
-        self.stable_test_names = None
-        self.stable_files = None
-        self.failing_tests = None
+    @classmethod
+    def for_worker(  # pylint: disable=too-many-arguments
+        cls,
+        rootdir,
+        exec_id,
+        database=None,
+        system_packages_change=None,
+        files_of_interest=None,
+        environment=None,
+    ):
+        instance = cls(rootdir, database=database, readonly=True)
+        instance._init_for_worker(
+            exec_id, system_packages_change, files_of_interest, environment
+        )
+        return instance
+
+    def _init_for_worker(
+        self,
+        exec_id,
+        system_packages_change=None,
+        files_of_interest=None,
+        environment=None,
+    ):
+        """Internal method to initialize for worker run."""
+        self.exec_id = exec_id
+        self.system_packages_change = system_packages_change
+        self.files_of_interest = files_of_interest
+        if environment:
+            self.environment = environment
+        elif not hasattr(self, "environment") or self.environment is None:
+            self.environment = "default"
 
     @property
     def new_db(self):
-        return self.db.file_created
+        # Only local DB instances have file_created attribute
+        if isinstance(self.db, db.DB):
+            return self.db.file_created
+        return False
 
     def close_connection(self):
         pass
@@ -282,7 +343,7 @@ class TestmonData:  # pylint: disable=too-many-instance-attributes
         with self.db as database:
             database.delete_test_executions(to_delete, self.exec_id)
 
-    def determine_stable(self, assert_old=True):
+    def determine_stable(self):
         files_fshas = {}
         for filename in self.files_of_interest:
             module = self.source_tree.get_file(filename)
@@ -299,9 +360,6 @@ class TestmonData:  # pylint: disable=too-many-instance-attributes
         tests = self.db.determine_tests(self.exec_id, files_mhashes)
         affected_tests, self.failing_tests = tests["affected"], tests["failing"]
 
-        if assert_old:
-            self.assert_old_determin_stable(affected_tests)
-
         self.all_files = set(self.db.filenames(self.exec_id))
         self.unstable_test_names = set()
         self.unstable_files = set()
@@ -312,47 +370,6 @@ class TestmonData:  # pylint: disable=too-many-instance-attributes
 
         self.stable_test_names = set(self.all_tests) - self.unstable_test_names
         self.stable_files = set(self.all_files) - self.unstable_files
-
-    def assert_old_determin_stable(self, new_fingerprint_misses):
-        filenames_fingerprints = self.db.filenames_fingerprints(self.exec_id)
-
-        _, fsha_misses = split_filter(
-            self.source_tree, check_fsha, filenames_fingerprints
-        )  # check 2. fsha vs filesystem
-
-        # with the list of fingerprint_ids go to the database
-        # and fetch all the data needed for next step
-
-        changed_file_data = self.db.fetch_changed_file_data(
-            [fsha_miss["fingerprint_id"] for fsha_miss in (fsha_misses)],
-            self.exec_id,
-        )
-
-        # changed_file_data:
-        # [(filename, test_name, method_fshas, fingerprint_id, failed )]
-        # All the test_names in this list have a dependency on one
-        # or more changed files. And we also have the fingerprints
-        # of data content which they depend on. So it’s possible to
-        # filter out the node_ids where the content of the changed file
-        # still matches the fingerprint
-
-        _, fingerprint_misses = split_filter(
-            self.source_tree, check_fingerprint, changed_file_data
-        )
-
-        if {fingerprint_miss[1] for fingerprint_miss in fingerprint_misses} != set(
-            new_fingerprint_misses
-        ):
-            print("ERROR: old and new fingerprint misses differ.. printing old algo")
-            print(
-                "\n".join(
-                    sorted(
-                        {fingerprint_miss[1] for fingerprint_miss in fingerprint_misses}
-                    )
-                )
-            )
-            print("printing new algo")
-            print("\n".join(sorted(new_fingerprint_misses)))
 
     @property
     def avg_durations(self) -> dict:

@@ -21,6 +21,68 @@
 
 """Parser for the git index file format."""
 
+__all__ = [
+    "DEFAULT_VERSION",
+    "EOIE_EXTENSION",
+    "EXTENDED_FLAG_INTEND_TO_ADD",
+    "EXTENDED_FLAG_SKIP_WORKTREE",
+    "FLAG_EXTENDED",
+    "FLAG_NAMEMASK",
+    "FLAG_STAGEMASK",
+    "FLAG_STAGESHIFT",
+    "FLAG_VALID",
+    "HFS_IGNORABLE_CHARS",
+    "IEOT_EXTENSION",
+    "INVALID_DOTNAMES",
+    "REUC_EXTENSION",
+    "SDIR_EXTENSION",
+    "TREE_EXTENSION",
+    "UNTR_EXTENSION",
+    "Index",
+    "IndexEntry",
+    "IndexExtension",
+    "ResolveUndoExtension",
+    "SerializedIndexEntry",
+    "SparseDirExtension",
+    "Stage",
+    "TreeDict",
+    "TreeExtension",
+    "UnmergedEntries",
+    "UnsupportedIndexFormat",
+    "UntrackedExtension",
+    "blob_from_path_and_mode",
+    "blob_from_path_and_stat",
+    "build_file_from_blob",
+    "build_index_from_tree",
+    "changes_from_tree",
+    "cleanup_mode",
+    "commit_index",
+    "commit_tree",
+    "detect_case_only_renames",
+    "get_path_element_normalizer",
+    "get_unstaged_changes",
+    "index_entry_from_stat",
+    "pathjoin",
+    "pathsplit",
+    "read_cache_entry",
+    "read_cache_time",
+    "read_index",
+    "read_index_dict",
+    "read_index_dict_with_version",
+    "read_index_header",
+    "read_submodule_head",
+    "update_working_tree",
+    "validate_path",
+    "validate_path_element_default",
+    "validate_path_element_hfs",
+    "validate_path_element_ntfs",
+    "write_cache_entry",
+    "write_cache_time",
+    "write_index",
+    "write_index_dict",
+    "write_index_extension",
+]
+
 import errno
 import os
 import shutil
@@ -28,24 +90,30 @@ import stat
 import struct
 import sys
 import types
-from collections.abc import Generator, Iterable, Iterator
+from collections.abc import (
+    Callable,
+    Generator,
+    Iterable,
+    Iterator,
+    Mapping,
+    Sequence,
+    Set,
+)
 from dataclasses import dataclass
 from enum import Enum
 from typing import (
+    IO,
     TYPE_CHECKING,
     Any,
     BinaryIO,
-    Callable,
-    Optional,
-    Union,
-    cast,
 )
 
 if TYPE_CHECKING:
     from .config import Config
     from .diff_tree import TreeChange
     from .file import _GitFile
-    from .line_ending import BlobNormalizer
+    from .filters import FilterBlobNormalizer
+    from .object_store import BaseObjectStore
     from .repo import Repo
 
 from .file import GitFile
@@ -56,10 +124,14 @@ from .objects import (
     Blob,
     ObjectID,
     Tree,
+    TreeEntry,
     hex_to_sha,
     sha_to_hex,
 )
 from .pack import ObjectContainer, SHA1Reader, SHA1Writer
+
+# Type alias for recursive tree structure used in commit_tree
+TreeDict = dict[bytes, "TreeDict | tuple[int, ObjectID]"]
 
 # 2-bit stage (during merge)
 FLAG_STAGEMASK = 0x3000
@@ -86,6 +158,7 @@ REUC_EXTENSION = b"REUC"
 UNTR_EXTENSION = b"UNTR"
 EOIE_EXTENSION = b"EOIE"
 IEOT_EXTENSION = b"IEOT"
+SDIR_EXTENSION = b"sdir"  # Sparse directory extension
 
 
 def _encode_varint(value: int) -> bytes:
@@ -258,6 +331,8 @@ def _decompress_path_from_stream(
 
 
 class Stage(Enum):
+    """Represents the stage of an index entry during merge conflicts."""
+
     NORMAL = 0
     MERGE_CONFLICT_ANCESTOR = 1
     MERGE_CONFLICT_THIS = 2
@@ -266,21 +341,51 @@ class Stage(Enum):
 
 @dataclass
 class SerializedIndexEntry:
+    """Represents a serialized index entry as stored in the index file.
+
+    This dataclass holds the raw data for an index entry before it's
+    parsed into the more user-friendly IndexEntry format.
+    """
+
     name: bytes
-    ctime: Union[int, float, tuple[int, int]]
-    mtime: Union[int, float, tuple[int, int]]
+    ctime: int | float | tuple[int, int]
+    mtime: int | float | tuple[int, int]
     dev: int
     ino: int
     mode: int
     uid: int
     gid: int
     size: int
-    sha: bytes
+    sha: ObjectID
     flags: int
     extended_flags: int
 
     def stage(self) -> Stage:
+        """Extract the stage from the flags field.
+
+        Returns:
+          Stage enum value indicating merge conflict state
+        """
         return Stage((self.flags & FLAG_STAGEMASK) >> FLAG_STAGESHIFT)
+
+    def is_sparse_dir(self) -> bool:
+        """Check if this entry represents a sparse directory.
+
+        A sparse directory entry is a collapsed representation of an entire
+        directory tree in a sparse index. It has:
+        - Directory mode (0o040000)
+        - SKIP_WORKTREE flag set
+        - Path ending with '/'
+        - SHA pointing to a tree object
+
+        Returns:
+          True if entry is a sparse directory entry
+        """
+        return (
+            stat.S_ISDIR(self.mode)
+            and bool(self.extended_flags & EXTENDED_FLAG_SKIP_WORKTREE)
+            and self.name.endswith(b"/")
+        )
 
 
 @dataclass
@@ -306,6 +411,8 @@ class IndexExtension:
             return ResolveUndoExtension.from_bytes(data)
         elif signature == UNTR_EXTENSION:
             return UntrackedExtension.from_bytes(data)
+        elif signature == SDIR_EXTENSION:
+            return SparseDirExtension.from_bytes(data)
         else:
             # Unknown extension - just store raw data
             return cls(signature, data)
@@ -319,15 +426,33 @@ class TreeExtension(IndexExtension):
     """Tree cache extension."""
 
     def __init__(self, entries: list[tuple[bytes, bytes, int]]) -> None:
+        """Initialize TreeExtension.
+
+        Args:
+            entries: List of tree cache entries (path, sha, flags)
+        """
         self.entries = entries
         super().__init__(TREE_EXTENSION, b"")
 
     @classmethod
     def from_bytes(cls, data: bytes) -> "TreeExtension":
+        """Parse TreeExtension from bytes.
+
+        Args:
+          data: Raw bytes to parse
+
+        Returns:
+          TreeExtension instance
+        """
         # TODO: Implement tree cache parsing
         return cls([])
 
     def to_bytes(self) -> bytes:
+        """Serialize TreeExtension to bytes.
+
+        Returns:
+          Serialized extension data
+        """
         # TODO: Implement tree cache serialization
         return b""
 
@@ -336,15 +461,33 @@ class ResolveUndoExtension(IndexExtension):
     """Resolve undo extension for recording merge conflicts."""
 
     def __init__(self, entries: list[tuple[bytes, list[tuple[int, bytes]]]]) -> None:
+        """Initialize ResolveUndoExtension.
+
+        Args:
+            entries: List of (path, stages) where stages is a list of (stage, sha) tuples
+        """
         self.entries = entries
         super().__init__(REUC_EXTENSION, b"")
 
     @classmethod
     def from_bytes(cls, data: bytes) -> "ResolveUndoExtension":
+        """Parse ResolveUndoExtension from bytes.
+
+        Args:
+          data: Raw bytes to parse
+
+        Returns:
+          ResolveUndoExtension instance
+        """
         # TODO: Implement resolve undo parsing
         return cls([])
 
     def to_bytes(self) -> bytes:
+        """Serialize ResolveUndoExtension to bytes.
+
+        Returns:
+          Serialized extension data
+        """
         # TODO: Implement resolve undo serialization
         return b""
 
@@ -353,29 +496,91 @@ class UntrackedExtension(IndexExtension):
     """Untracked cache extension."""
 
     def __init__(self, data: bytes) -> None:
+        """Initialize UntrackedExtension.
+
+        Args:
+            data: Raw untracked cache data
+        """
         super().__init__(UNTR_EXTENSION, data)
 
     @classmethod
     def from_bytes(cls, data: bytes) -> "UntrackedExtension":
+        """Parse UntrackedExtension from bytes.
+
+        Args:
+          data: Raw bytes to parse
+
+        Returns:
+          UntrackedExtension instance
+        """
         return cls(data)
+
+
+class SparseDirExtension(IndexExtension):
+    """Sparse directory extension.
+
+    This extension indicates that the index contains sparse directory entries.
+    Tools that don't understand sparse index should avoid interacting with
+    the index when this extension is present.
+
+    The extension data is empty - its presence is the signal.
+    """
+
+    def __init__(self) -> None:
+        """Initialize SparseDirExtension."""
+        super().__init__(SDIR_EXTENSION, b"")
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "SparseDirExtension":
+        """Parse SparseDirExtension from bytes.
+
+        Args:
+          data: Raw bytes to parse (should be empty)
+
+        Returns:
+          SparseDirExtension instance
+        """
+        return cls()
+
+    def to_bytes(self) -> bytes:
+        """Serialize SparseDirExtension to bytes.
+
+        Returns:
+          Empty bytes (extension presence is the signal)
+        """
+        return b""
 
 
 @dataclass
 class IndexEntry:
-    ctime: Union[int, float, tuple[int, int]]
-    mtime: Union[int, float, tuple[int, int]]
+    """Represents an entry in the Git index.
+
+    This is a higher-level representation of an index entry that includes
+    parsed data and convenience methods.
+    """
+
+    ctime: int | float | tuple[int, int]
+    mtime: int | float | tuple[int, int]
     dev: int
     ino: int
     mode: int
     uid: int
     gid: int
     size: int
-    sha: bytes
+    sha: ObjectID
     flags: int = 0
     extended_flags: int = 0
 
     @classmethod
     def from_serialized(cls, serialized: SerializedIndexEntry) -> "IndexEntry":
+        """Create an IndexEntry from a SerializedIndexEntry.
+
+        Args:
+          serialized: SerializedIndexEntry to convert
+
+        Returns:
+          New IndexEntry instance
+        """
         return cls(
             ctime=serialized.ctime,
             mtime=serialized.mtime,
@@ -391,6 +596,15 @@ class IndexEntry:
         )
 
     def serialize(self, name: bytes, stage: Stage) -> SerializedIndexEntry:
+        """Serialize this entry with a given name and stage.
+
+        Args:
+          name: Path name for the entry
+          stage: Merge conflict stage
+
+        Returns:
+          SerializedIndexEntry ready for writing to disk
+        """
         # Clear out any existing stage bits, then set them from the Stage.
         new_flags = self.flags & ~FLAG_STAGEMASK
         new_flags |= stage.value << FLAG_STAGESHIFT
@@ -410,6 +624,11 @@ class IndexEntry:
         )
 
     def stage(self) -> Stage:
+        """Get the merge conflict stage of this entry.
+
+        Returns:
+          Stage enum value
+        """
         return Stage((self.flags & FLAG_STAGEMASK) >> FLAG_STAGESHIFT)
 
     @property
@@ -419,6 +638,7 @@ class IndexEntry:
 
     def set_skip_worktree(self, skip: bool = True) -> None:
         """Helper method to set or clear the skip-worktree bit in extended_flags.
+
         Also sets FLAG_EXTENDED in self.flags if needed.
         """
         if skip:
@@ -433,20 +653,49 @@ class IndexEntry:
             if self.extended_flags == 0:
                 self.flags &= ~FLAG_EXTENDED
 
+    def is_sparse_dir(self, name: bytes) -> bool:
+        """Check if this entry represents a sparse directory.
+
+        A sparse directory entry is a collapsed representation of an entire
+        directory tree in a sparse index. It has:
+        - Directory mode (0o040000)
+        - SKIP_WORKTREE flag set
+        - Path ending with '/'
+        - SHA pointing to a tree object
+
+        Args:
+          name: The path name for this entry (IndexEntry doesn't store name)
+
+        Returns:
+          True if entry is a sparse directory entry
+        """
+        return (
+            stat.S_ISDIR(self.mode)
+            and bool(self.extended_flags & EXTENDED_FLAG_SKIP_WORKTREE)
+            and name.endswith(b"/")
+        )
+
 
 class ConflictedIndexEntry:
     """Index entry that represents a conflict."""
 
-    ancestor: Optional[IndexEntry]
-    this: Optional[IndexEntry]
-    other: Optional[IndexEntry]
+    ancestor: IndexEntry | None
+    this: IndexEntry | None
+    other: IndexEntry | None
 
     def __init__(
         self,
-        ancestor: Optional[IndexEntry] = None,
-        this: Optional[IndexEntry] = None,
-        other: Optional[IndexEntry] = None,
+        ancestor: IndexEntry | None = None,
+        this: IndexEntry | None = None,
+        other: IndexEntry | None = None,
     ) -> None:
+        """Initialize ConflictedIndexEntry.
+
+        Args:
+            ancestor: The common ancestor entry
+            this: The current branch entry
+            other: The other branch entry
+        """
         self.ancestor = ancestor
         self.this = this
         self.other = other
@@ -489,7 +738,7 @@ def read_cache_time(f: BinaryIO) -> tuple[int, int]:
     return struct.unpack(">LL", f.read(8))
 
 
-def write_cache_time(f: BinaryIO, t: Union[int, float, tuple[int, int]]) -> None:
+def write_cache_time(f: IO[bytes], t: int | float | tuple[int, int]) -> None:
     """Write a cache time.
 
     Args:
@@ -538,7 +787,7 @@ def read_cache_entry(
 
     if version >= 4:
         # Version 4: paths are always compressed (name_len should be 0)
-        name, consumed = _decompress_path_from_stream(f, previous_path)
+        name, _consumed = _decompress_path_from_stream(f, previous_path)
     else:
         # Versions < 4: regular name reading
         name = f.read(flags & FLAG_NAMEMASK)
@@ -565,7 +814,7 @@ def read_cache_entry(
 
 
 def write_cache_entry(
-    f: BinaryIO, entry: SerializedIndexEntry, version: int, previous_path: bytes = b""
+    f: IO[bytes], entry: SerializedIndexEntry, version: int, previous_path: bytes = b""
 ) -> None:
     """Write an index entry to a file.
 
@@ -623,6 +872,11 @@ class UnsupportedIndexFormat(Exception):
     """An unsupported index format was encountered."""
 
     def __init__(self, version: int) -> None:
+        """Initialize UnsupportedIndexFormat exception.
+
+        Args:
+            version: The unsupported index format version
+        """
         self.index_format_version = version
 
 
@@ -641,7 +895,7 @@ def read_index_header(f: BinaryIO) -> tuple[int, int]:
     return version, num_entries
 
 
-def write_index_extension(f: BinaryIO, extension: IndexExtension) -> None:
+def write_index_extension(f: IO[bytes], extension: IndexExtension) -> None:
     """Write an index extension.
 
     Args:
@@ -666,9 +920,7 @@ def read_index(f: BinaryIO) -> Iterator[SerializedIndexEntry]:
 
 def read_index_dict_with_version(
     f: BinaryIO,
-) -> tuple[
-    dict[bytes, Union[IndexEntry, ConflictedIndexEntry]], int, list[IndexExtension]
-]:
+) -> tuple[dict[bytes, IndexEntry | ConflictedIndexEntry], int, list[IndexExtension]]:
     """Read an index file and return it as a dictionary along with the version.
 
     Returns:
@@ -676,7 +928,7 @@ def read_index_dict_with_version(
     """
     version, num_entries = read_index_header(f)
 
-    ret: dict[bytes, Union[IndexEntry, ConflictedIndexEntry]] = {}
+    ret: dict[bytes, IndexEntry | ConflictedIndexEntry] = {}
     previous_path = b""
     for i in range(num_entries):
         entry = read_cache_entry(f, version, previous_path)
@@ -737,14 +989,15 @@ def read_index_dict_with_version(
 
 def read_index_dict(
     f: BinaryIO,
-) -> dict[bytes, Union[IndexEntry, ConflictedIndexEntry]]:
+) -> dict[bytes, IndexEntry | ConflictedIndexEntry]:
     """Read an index file and return it as a dictionary.
+
        Dict Key is tuple of path and stage number, as
             path alone is not unique
     Args:
       f: File object to read fromls.
     """
-    ret: dict[bytes, Union[IndexEntry, ConflictedIndexEntry]] = {}
+    ret: dict[bytes, IndexEntry | ConflictedIndexEntry] = {}
     for entry in read_index(f):
         stage = entry.stage()
         if stage == Stage.NORMAL:
@@ -763,10 +1016,10 @@ def read_index_dict(
 
 
 def write_index(
-    f: BinaryIO,
-    entries: list[SerializedIndexEntry],
-    version: Optional[int] = None,
-    extensions: Optional[list[IndexExtension]] = None,
+    f: IO[bytes],
+    entries: Sequence[SerializedIndexEntry],
+    version: int | None = None,
+    extensions: Sequence[IndexExtension] | None = None,
 ) -> None:
     """Write an index file.
 
@@ -804,12 +1057,13 @@ def write_index(
 
 
 def write_index_dict(
-    f: BinaryIO,
-    entries: dict[bytes, Union[IndexEntry, ConflictedIndexEntry]],
-    version: Optional[int] = None,
-    extensions: Optional[list[IndexExtension]] = None,
+    f: IO[bytes],
+    entries: Mapping[bytes, IndexEntry | ConflictedIndexEntry],
+    version: int | None = None,
+    extensions: Sequence[IndexExtension] | None = None,
 ) -> None:
     """Write an index file based on the contents of a dictionary.
+
     being careful to sort by path and then by stage.
     """
     entries_list = []
@@ -860,14 +1114,16 @@ def cleanup_mode(mode: int) -> int:
 class Index:
     """A Git Index file."""
 
-    _byname: dict[bytes, Union[IndexEntry, ConflictedIndexEntry]]
+    _byname: dict[bytes, IndexEntry | ConflictedIndexEntry]
 
     def __init__(
         self,
-        filename: Union[bytes, str, os.PathLike],
+        filename: bytes | str | os.PathLike[str],
         read: bool = True,
         skip_hash: bool = False,
-        version: Optional[int] = None,
+        version: int | None = None,
+        *,
+        file_mode: int | None = None,
     ) -> None:
         """Create an index object associated with the given filename.
 
@@ -876,28 +1132,35 @@ class Index:
           read: Whether to initialize the index from the given file, should it exist.
           skip_hash: Whether to skip SHA1 hash when writing (for manyfiles feature)
           version: Index format version to use (None = auto-detect from file or use default)
+          file_mode: Optional file permission mask for shared repository
         """
         self._filename = os.fspath(filename)
         # TODO(jelmer): Store the version returned by read_index
         self._version = version
         self._skip_hash = skip_hash
+        self._file_mode = file_mode
         self._extensions: list[IndexExtension] = []
         self.clear()
         if read:
             self.read()
 
     @property
-    def path(self) -> Union[bytes, str]:
+    def path(self) -> bytes | str:
+        """Get the path to the index file.
+
+        Returns:
+          Path to the index file
+        """
         return self._filename
 
     def __repr__(self) -> str:
+        """Return string representation of Index."""
         return f"{self.__class__.__name__}({self._filename!r})"
 
     def write(self) -> None:
         """Write current contents of index to disk."""
-        from typing import BinaryIO, cast
-
-        f = GitFile(self._filename, "wb")
+        mask = self._file_mode if self._file_mode is not None else 0o644
+        f = GitFile(self._filename, "wb", mask=mask)
         try:
             # Filter out extensions with no meaningful data
             meaningful_extensions = []
@@ -910,7 +1173,7 @@ class Index:
             if self._skip_hash:
                 # When skipHash is enabled, write the index without computing SHA1
                 write_index_dict(
-                    cast(BinaryIO, f),
+                    f,
                     self._byname,
                     version=self._version,
                     extensions=meaningful_extensions,
@@ -919,9 +1182,9 @@ class Index:
                 f.write(b"\x00" * 20)
                 f.close()
             else:
-                sha1_writer = SHA1Writer(cast(BinaryIO, f))
+                sha1_writer = SHA1Writer(f)
                 write_index_dict(
-                    cast(BinaryIO, sha1_writer),
+                    sha1_writer,
                     self._byname,
                     version=self._version,
                     extensions=meaningful_extensions,
@@ -938,9 +1201,7 @@ class Index:
         f = GitFile(self._filename, "rb")
         try:
             sha1_reader = SHA1Reader(f)
-            entries, version, extensions = read_index_dict_with_version(
-                cast(BinaryIO, sha1_reader)
-            )
+            entries, version, extensions = read_index_dict_with_version(sha1_reader)
             self._version = version
             self._extensions = extensions
             self.update(entries)
@@ -953,7 +1214,7 @@ class Index:
         """Number of entries in this index file."""
         return len(self._byname)
 
-    def __getitem__(self, key: bytes) -> Union[IndexEntry, ConflictedIndexEntry]:
+    def __getitem__(self, key: bytes) -> IndexEntry | ConflictedIndexEntry:
         """Retrieve entry by relative path and stage.
 
         Returns: Either a IndexEntry or a ConflictedIndexEntry
@@ -966,9 +1227,10 @@ class Index:
         return iter(self._byname)
 
     def __contains__(self, key: bytes) -> bool:
+        """Check if a path exists in the index."""
         return key in self._byname
 
-    def get_sha1(self, path: bytes) -> bytes:
+    def get_sha1(self, path: bytes) -> ObjectID:
         """Return the (git object) SHA1 for the object at a path."""
         value = self[path]
         if isinstance(value, ConflictedIndexEntry):
@@ -982,7 +1244,7 @@ class Index:
             raise UnmergedEntries
         return value.mode
 
-    def iterobjects(self) -> Iterable[tuple[bytes, bytes, int]]:
+    def iterobjects(self) -> Iterable[tuple[bytes, ObjectID, int]]:
         """Iterate over path, sha, mode tuples for use with commit_tree."""
         for path in self:
             entry = self[path]
@@ -991,6 +1253,11 @@ class Index:
             yield path, entry.sha, cleanup_mode(entry.mode)
 
     def has_conflicts(self) -> bool:
+        """Check if the index contains any conflicted entries.
+
+        Returns:
+          True if any entries are conflicted, False otherwise
+        """
         for value in self._byname.values():
             if isinstance(value, ConflictedIndexEntry):
                 return True
@@ -1001,29 +1268,49 @@ class Index:
         self._byname = {}
 
     def __setitem__(
-        self, name: bytes, value: Union[IndexEntry, ConflictedIndexEntry]
+        self, name: bytes, value: IndexEntry | ConflictedIndexEntry
     ) -> None:
+        """Set an entry in the index."""
         assert isinstance(name, bytes)
         self._byname[name] = value
 
     def __delitem__(self, name: bytes) -> None:
+        """Delete an entry from the index."""
         del self._byname[name]
 
     def iteritems(
         self,
-    ) -> Iterator[tuple[bytes, Union[IndexEntry, ConflictedIndexEntry]]]:
+    ) -> Iterator[tuple[bytes, IndexEntry | ConflictedIndexEntry]]:
+        """Iterate over (path, entry) pairs in the index.
+
+        Returns:
+          Iterator of (path, entry) tuples
+        """
         return iter(self._byname.items())
 
-    def items(self) -> Iterator[tuple[bytes, Union[IndexEntry, ConflictedIndexEntry]]]:
+    def items(self) -> Iterator[tuple[bytes, IndexEntry | ConflictedIndexEntry]]:
+        """Get an iterator over (path, entry) pairs.
+
+        Returns:
+          Iterator of (path, entry) tuples
+        """
         return iter(self._byname.items())
 
-    def update(
-        self, entries: dict[bytes, Union[IndexEntry, ConflictedIndexEntry]]
-    ) -> None:
+    def update(self, entries: dict[bytes, IndexEntry | ConflictedIndexEntry]) -> None:
+        """Update the index with multiple entries.
+
+        Args:
+          entries: Dictionary mapping paths to index entries
+        """
         for key, value in entries.items():
             self[key] = value
 
     def paths(self) -> Generator[bytes, None, None]:
+        """Generate all paths in the index.
+
+        Yields:
+          Path names as bytes
+        """
         yield from self._byname.keys()
 
     def changes_from_tree(
@@ -1033,9 +1320,9 @@ class Index:
         want_unchanged: bool = False,
     ) -> Generator[
         tuple[
-            tuple[Optional[bytes], Optional[bytes]],
-            tuple[Optional[int], Optional[int]],
-            tuple[Optional[bytes], Optional[bytes]],
+            tuple[bytes | None, bytes | None],
+            tuple[int | None, int | None],
+            tuple[bytes | None, bytes | None],
         ],
         None,
         None,
@@ -1066,7 +1353,7 @@ class Index:
             want_unchanged=want_unchanged,
         )
 
-    def commit(self, object_store: ObjectContainer) -> bytes:
+    def commit(self, object_store: ObjectContainer) -> ObjectID:
         """Create a new tree from an index.
 
         Args:
@@ -1076,10 +1363,214 @@ class Index:
         """
         return commit_tree(object_store, self.iterobjects())
 
+    def is_sparse(self) -> bool:
+        """Check if this index contains sparse directory entries.
+
+        Returns:
+          True if any sparse directory extension is present
+        """
+        return any(isinstance(ext, SparseDirExtension) for ext in self._extensions)
+
+    def ensure_full_index(self, object_store: "BaseObjectStore") -> None:
+        """Expand all sparse directory entries into full file entries.
+
+        This converts a sparse index into a full index by recursively
+        expanding any sparse directory entries into their constituent files.
+
+        Args:
+          object_store: Object store to read tree objects from
+
+        Raises:
+          KeyError: If a tree object referenced by a sparse dir entry doesn't exist
+        """
+        if not self.is_sparse():
+            return
+
+        # Find all sparse directory entries
+        sparse_dirs = []
+        for path, entry in list(self._byname.items()):
+            if isinstance(entry, IndexEntry) and entry.is_sparse_dir(path):
+                sparse_dirs.append((path, entry))
+
+        # Expand each sparse directory
+        for path, entry in sparse_dirs:
+            # Remove the sparse directory entry
+            del self._byname[path]
+
+            # Get the tree object
+            tree = object_store[entry.sha]
+            if not isinstance(tree, Tree):
+                raise ValueError(f"Sparse directory {path!r} points to non-tree object")
+
+            # Recursively add all entries from the tree
+            self._expand_tree(path.rstrip(b"/"), tree, object_store, entry)
+
+        # Remove the sparse directory extension
+        self._extensions = [
+            ext for ext in self._extensions if not isinstance(ext, SparseDirExtension)
+        ]
+
+    def _expand_tree(
+        self,
+        prefix: bytes,
+        tree: Tree,
+        object_store: "BaseObjectStore",
+        template_entry: IndexEntry,
+    ) -> None:
+        """Recursively expand a tree into index entries.
+
+        Args:
+          prefix: Path prefix for entries (without trailing slash)
+          tree: Tree object to expand
+          object_store: Object store to read nested trees from
+          template_entry: Template entry to copy metadata from
+        """
+        for name, mode, sha in tree.items():
+            if prefix:
+                full_path = prefix + b"/" + name
+            else:
+                full_path = name
+
+            if stat.S_ISDIR(mode):
+                # Recursively expand subdirectories
+                subtree = object_store[sha]
+                if not isinstance(subtree, Tree):
+                    raise ValueError(
+                        f"Directory entry {full_path!r} points to non-tree object"
+                    )
+                self._expand_tree(full_path, subtree, object_store, template_entry)
+            else:
+                # Create an index entry for this file
+                # Use the template entry for metadata but with the file's sha and mode
+                new_entry = IndexEntry(
+                    ctime=template_entry.ctime,
+                    mtime=template_entry.mtime,
+                    dev=template_entry.dev,
+                    ino=template_entry.ino,
+                    mode=mode,
+                    uid=template_entry.uid,
+                    gid=template_entry.gid,
+                    size=0,  # Size is unknown from tree
+                    sha=sha,
+                    flags=0,
+                    extended_flags=0,  # Don't copy skip-worktree flag
+                )
+                self._byname[full_path] = new_entry
+
+    def convert_to_sparse(
+        self,
+        object_store: "BaseObjectStore",
+        tree_sha: ObjectID,
+        sparse_dirs: Set[bytes],
+    ) -> None:
+        """Convert full index entries to sparse directory entries.
+
+        This collapses directories that are entirely outside the sparse
+        checkout cone into single sparse directory entries.
+
+        Args:
+          object_store: Object store to read tree objects
+          tree_sha: SHA of the tree (usually HEAD) to base sparse dirs on
+          sparse_dirs: Set of directory paths (with trailing /) to collapse
+
+        Raises:
+          KeyError: If tree_sha or a subdirectory doesn't exist
+        """
+        if not sparse_dirs:
+            return
+
+        # Get the base tree
+        tree = object_store[tree_sha]
+        if not isinstance(tree, Tree):
+            raise ValueError(f"tree_sha {tree_sha!r} is not a tree object")
+
+        # For each sparse directory, find its tree SHA and create sparse entry
+        for dir_path in sparse_dirs:
+            dir_path_stripped = dir_path.rstrip(b"/")
+
+            # Find the tree SHA for this directory
+            subtree_sha = self._find_subtree_sha(tree, dir_path_stripped, object_store)
+            if subtree_sha is None:
+                # Directory doesn't exist in tree, skip it
+                continue
+
+            # Remove all entries under this directory
+            entries_to_remove = [
+                path
+                for path in self._byname
+                if path.startswith(dir_path) or path == dir_path_stripped
+            ]
+            for path in entries_to_remove:
+                del self._byname[path]
+
+            # Create a sparse directory entry
+            # Use minimal metadata since it's not a real file
+            from dulwich.objects import ObjectID
+
+            sparse_entry = IndexEntry(
+                ctime=0,
+                mtime=0,
+                dev=0,
+                ino=0,
+                mode=stat.S_IFDIR,
+                uid=0,
+                gid=0,
+                size=0,
+                sha=ObjectID(subtree_sha),
+                flags=0,
+                extended_flags=EXTENDED_FLAG_SKIP_WORKTREE,
+            )
+            self._byname[dir_path] = sparse_entry
+
+        # Add sparse directory extension if not present
+        if not self.is_sparse():
+            self._extensions.append(SparseDirExtension())
+
+    def _find_subtree_sha(
+        self,
+        tree: Tree,
+        path: bytes,
+        object_store: "BaseObjectStore",
+    ) -> bytes | None:
+        """Find the SHA of a subtree at a given path.
+
+        Args:
+          tree: Root tree object to search in
+          path: Path to the subdirectory (no trailing slash)
+          object_store: Object store to read nested trees from
+
+        Returns:
+          SHA of the subtree, or None if path doesn't exist
+        """
+        if not path:
+            return tree.id
+
+        parts = path.split(b"/")
+        current_tree = tree
+
+        for part in parts:
+            # Look for this part in the current tree
+            try:
+                mode, sha = current_tree[part]
+            except KeyError:
+                return None
+
+            if not stat.S_ISDIR(mode):
+                # Path component is a file, not a directory
+                return None
+
+            # Load the next tree
+            obj = object_store[sha]
+            if not isinstance(obj, Tree):
+                return None
+            current_tree = obj
+
+        return current_tree.id
+
 
 def commit_tree(
-    object_store: ObjectContainer, blobs: Iterable[tuple[bytes, bytes, int]]
-) -> bytes:
+    object_store: ObjectContainer, blobs: Iterable[tuple[bytes, ObjectID, int]]
+) -> ObjectID:
     """Commit a new tree.
 
     Args:
@@ -1088,15 +1579,15 @@ def commit_tree(
     Returns:
       SHA1 of the created tree.
     """
-    trees: dict[bytes, Any] = {b"": {}}
+    trees: dict[bytes, TreeDict] = {b"": {}}
 
-    def add_tree(path: bytes) -> dict[bytes, Any]:
+    def add_tree(path: bytes) -> TreeDict:
         if path in trees:
             return trees[path]
         dirname, basename = pathsplit(path)
         t = add_tree(dirname)
         assert isinstance(basename, bytes)
-        newtree: dict[bytes, Any] = {}
+        newtree: TreeDict = {}
         t[basename] = newtree
         trees[path] = newtree
         return newtree
@@ -1106,7 +1597,7 @@ def commit_tree(
         tree = add_tree(tree_path)
         tree[basename] = (mode, sha)
 
-    def build_tree(path: bytes) -> bytes:
+    def build_tree(path: bytes) -> ObjectID:
         tree = Tree()
         for basename, entry in trees[path].items():
             if isinstance(entry, dict):
@@ -1121,7 +1612,7 @@ def commit_tree(
     return build_tree(b"")
 
 
-def commit_index(object_store: ObjectContainer, index: Index) -> bytes:
+def commit_index(object_store: ObjectContainer, index: Index) -> ObjectID:
     """Create a new tree from an index.
 
     Args:
@@ -1137,17 +1628,16 @@ def changes_from_tree(
     names: Iterable[bytes],
     lookup_entry: Callable[[bytes], tuple[bytes, int]],
     object_store: ObjectContainer,
-    tree: Optional[bytes],
+    tree: ObjectID | None,
     want_unchanged: bool = False,
 ) -> Iterable[
     tuple[
-        tuple[Optional[bytes], Optional[bytes]],
-        tuple[Optional[int], Optional[int]],
-        tuple[Optional[bytes], Optional[bytes]],
+        tuple[bytes | None, bytes | None],
+        tuple[int | None, int | None],
+        tuple[bytes | None, bytes | None],
     ]
 ]:
-    """Find the differences between the contents of a tree and
-    a working copy.
+    """Find the differences between the contents of a tree and a working copy.
 
     Args:
       names: Iterable of names in the working copy
@@ -1163,6 +1653,7 @@ def changes_from_tree(
 
     if tree is not None:
         for name, mode, sha in iter_tree_contents(object_store, tree):
+            assert name is not None and mode is not None and sha is not None
             try:
                 (other_sha, other_mode) = lookup_entry(name)
             except KeyError:
@@ -1186,27 +1677,52 @@ def changes_from_tree(
 def index_entry_from_stat(
     stat_val: os.stat_result,
     hex_sha: bytes,
-    mode: Optional[int] = None,
+    mode: int | None = None,
 ) -> IndexEntry:
     """Create a new index entry from a stat value.
 
     Args:
       stat_val: POSIX stat_result instance
       hex_sha: Hex sha of the object
+      mode: Optional file mode, will be derived from stat if not provided
     """
     if mode is None:
         mode = cleanup_mode(stat_val.st_mode)
 
+    from dulwich.objects import ObjectID
+
+    # Use nanosecond precision when available to avoid precision loss
+    # through float representation
+    ctime: int | float | tuple[int, int]
+    mtime: int | float | tuple[int, int]
+    st_ctime_ns = getattr(stat_val, "st_ctime_ns", None)
+    if st_ctime_ns is not None:
+        ctime = (
+            st_ctime_ns // 1_000_000_000,
+            st_ctime_ns % 1_000_000_000,
+        )
+    else:
+        ctime = stat_val.st_ctime
+
+    st_mtime_ns = getattr(stat_val, "st_mtime_ns", None)
+    if st_mtime_ns is not None:
+        mtime = (
+            st_mtime_ns // 1_000_000_000,
+            st_mtime_ns % 1_000_000_000,
+        )
+    else:
+        mtime = stat_val.st_mtime
+
     return IndexEntry(
-        ctime=stat_val.st_ctime,
-        mtime=stat_val.st_mtime,
+        ctime=ctime,
+        mtime=mtime,
         dev=stat_val.st_dev,
         ino=stat_val.st_ino,
         mode=mode,
         uid=stat_val.st_uid,
         gid=stat_val.st_gid,
         size=stat_val.st_size,
-        sha=hex_sha,
+        sha=ObjectID(hex_sha),
         flags=0,
         extended_flags=0,
     )
@@ -1220,20 +1736,38 @@ if sys.platform == "win32":
     # https://github.com/jelmer/dulwich/issues/1005
 
     class WindowsSymlinkPermissionError(PermissionError):
-        def __init__(self, errno: int, msg: str, filename: Optional[str]) -> None:
-            super(PermissionError, self).__init__(
+        """Windows-specific error for symlink creation failures.
+
+        This error is raised when symlink creation fails on Windows,
+        typically due to lack of developer mode or administrator privileges.
+        """
+
+        def __init__(self, errno: int, msg: str, filename: str | None) -> None:
+            """Initialize WindowsSymlinkPermissionError."""
+            super().__init__(
                 errno,
                 f"Unable to create symlink; do you have developer mode enabled? {msg}",
                 filename,
             )
 
     def symlink(
-        src: Union[str, bytes],
-        dst: Union[str, bytes],
+        src: str | bytes,
+        dst: str | bytes,
         target_is_directory: bool = False,
         *,
-        dir_fd: Optional[int] = None,
+        dir_fd: int | None = None,
     ) -> None:
+        """Create a symbolic link on Windows with better error handling.
+
+        Args:
+          src: Source path for the symlink
+          dst: Destination path where symlink will be created
+          target_is_directory: Whether the target is a directory
+          dir_fd: Optional directory file descriptor
+
+        Raises:
+          WindowsSymlinkPermissionError: If symlink creation fails due to permissions
+        """
         try:
             return os.symlink(
                 src, dst, target_is_directory=target_is_directory, dir_fd=dir_fd
@@ -1253,7 +1787,10 @@ def build_file_from_blob(
     *,
     honor_filemode: bool = True,
     tree_encoding: str = "utf-8",
-    symlink_fn: Optional[Callable] = None,
+    symlink_fn: Callable[
+        [str | bytes | os.PathLike[str], str | bytes | os.PathLike[str]], None
+    ]
+    | None = None,
 ) -> os.stat_result:
     """Build a file or symlink on disk based on a Git object.
 
@@ -1263,6 +1800,7 @@ def build_file_from_blob(
       target_path: Path to write to
       honor_filemode: An optional flag to honor core.filemode setting in
         config file, default is core.filemode=True, change executable bit
+      tree_encoding: Encoding to use for tree contents
       symlink_fn: Function to use for creating symlinks
     Returns: stat object for the file
     """
@@ -1324,7 +1862,7 @@ def _normalize_path_element_hfs(element: bytes) -> bytes:
     return normalized.lower().encode("utf-8", errors="strict")
 
 
-def get_path_element_normalizer(config) -> Callable[[bytes], bytes]:
+def get_path_element_normalizer(config: "Config") -> Callable[[bytes], bytes]:
     """Get the appropriate path element normalization function based on config.
 
     Args:
@@ -1345,10 +1883,26 @@ def get_path_element_normalizer(config) -> Callable[[bytes], bytes]:
 
 
 def validate_path_element_default(element: bytes) -> bool:
+    """Validate a path element using default rules.
+
+    Args:
+      element: Path element to validate
+
+    Returns:
+      True if path element is valid, False otherwise
+    """
     return _normalize_path_element_default(element) not in INVALID_DOTNAMES
 
 
 def validate_path_element_ntfs(element: bytes) -> bool:
+    """Validate a path element using NTFS filesystem rules.
+
+    Args:
+      element: Path element to validate
+
+    Returns:
+      True if path element is valid for NTFS, False otherwise
+    """
     normalized = _normalize_path_element_ntfs(element)
     if normalized in INVALID_DOTNAMES:
         return False
@@ -1415,14 +1969,17 @@ def validate_path(
 
 
 def build_index_from_tree(
-    root_path: Union[str, bytes],
-    index_path: Union[str, bytes],
+    root_path: str | bytes,
+    index_path: str | bytes,
     object_store: ObjectContainer,
-    tree_id: bytes,
+    tree_id: ObjectID,
     honor_filemode: bool = True,
     validate_path_element: Callable[[bytes], bool] = validate_path_element_default,
-    symlink_fn: Optional[Callable] = None,
-    blob_normalizer: Optional["BlobNormalizer"] = None,
+    symlink_fn: Callable[
+        [str | bytes | os.PathLike[str], str | bytes | os.PathLike[str]], None
+    ]
+    | None = None,
+    blob_normalizer: "FilterBlobNormalizer | None" = None,
     tree_encoding: str = "utf-8",
 ) -> None:
     """Generate and materialize index from a tree.
@@ -1436,6 +1993,7 @@ def build_index_from_tree(
         config file, default is core.filemode=True, change executable bit
       validate_path_element: Function to validate path elements to check
         out; default just refuses .git and .. directories.
+      symlink_fn: Function to use for creating symlinks
       blob_normalizer: An optional BlobNormalizer to use for converting line
         endings when writing blobs to the working directory.
       tree_encoding: Encoding used for tree paths (default: utf-8)
@@ -1448,6 +2006,9 @@ def build_index_from_tree(
         root_path = os.fsencode(root_path)
 
     for entry in iter_tree_contents(object_store, tree_id):
+        assert (
+            entry.path is not None and entry.mode is not None and entry.sha is not None
+        )
         if not validate_path(entry.path, validate_path_element):
             continue
         full_path = _tree_to_fs_path(root_path, entry.path, tree_encoding)
@@ -1509,6 +2070,7 @@ def blob_from_path_and_mode(
     Args:
       fs_path: Full file system path to file
       mode: File mode
+      tree_encoding: Encoding to use for tree contents
     Returns: A `Blob` object
     """
     assert isinstance(fs_path, bytes)
@@ -1533,12 +2095,13 @@ def blob_from_path_and_stat(
     Args:
       fs_path: Full file system path to file
       st: A stat object
+      tree_encoding: Encoding to use for tree contents
     Returns: A `Blob` object
     """
     return blob_from_path_and_mode(fs_path, st.st_mode, tree_encoding)
 
 
-def read_submodule_head(path: Union[str, bytes]) -> Optional[bytes]:
+def read_submodule_head(path: str | bytes) -> bytes | None:
     """Read the head commit of a submodule.
 
     Args:
@@ -1594,19 +2157,31 @@ def _ensure_parent_dir_exists(full_path: bytes) -> None:
     """Ensure parent directory exists, checking no parent is a file."""
     parent_dir = os.path.dirname(full_path)
     if parent_dir and not os.path.exists(parent_dir):
-        # Check if any parent in the path is a file
-        parts = parent_dir.split(os_sep_bytes)
-        for i in range(len(parts)):
-            partial_path = os_sep_bytes.join(parts[: i + 1])
-            if (
-                partial_path
-                and os.path.exists(partial_path)
-                and not os.path.isdir(partial_path)
-            ):
-                # Parent path is a file, this is an error
+        # Walk up the directory tree to find the first existing parent
+        current = parent_dir
+        parents_to_check: list[bytes] = []
+
+        while current and not os.path.exists(current):
+            parents_to_check.insert(0, current)
+            new_parent = os.path.dirname(current)
+            if new_parent == current:
+                # Reached the root or can't go up further
+                break
+            current = new_parent
+
+        # Check if the existing parent (if any) is a directory
+        if current and os.path.exists(current) and not os.path.isdir(current):
+            raise OSError(
+                f"Cannot create directory, parent path is a file: {current!r}"
+            )
+
+        # Now check each parent we need to create isn't blocked by an existing file
+        for parent_path in parents_to_check:
+            if os.path.exists(parent_path) and not os.path.isdir(parent_path):
                 raise OSError(
-                    f"Cannot create directory, parent path is a file: {partial_path!r}"
+                    f"Cannot create directory, parent path is a file: {parent_path!r}"
                 )
+
         os.makedirs(parent_dir)
 
 
@@ -1638,14 +2213,14 @@ def _remove_empty_parents(path: bytes, stop_at: bytes) -> None:
             # Directory doesn't exist - stop trying
             break
         except OSError as e:
-            if e.errno == errno.ENOTEMPTY:
+            if e.errno in (errno.ENOTEMPTY, errno.EEXIST):
                 # Directory not empty - stop trying
                 break
             raise
 
 
 def _check_symlink_matches(
-    full_path: bytes, repo_object_store, entry_sha: bytes
+    full_path: bytes, repo_object_store: "BaseObjectStore", entry_sha: ObjectID
 ) -> bool:
     """Check if symlink target matches expected target.
 
@@ -1669,14 +2244,14 @@ def _check_symlink_matches(
 
 
 def _check_file_matches(
-    repo_object_store,
+    repo_object_store: "BaseObjectStore",
     full_path: bytes,
-    entry_sha: bytes,
+    entry_sha: ObjectID,
     entry_mode: int,
     current_stat: os.stat_result,
     honor_filemode: bool,
-    blob_normalizer: Optional["BlobNormalizer"] = None,
-    tree_path: Optional[bytes] = None,
+    blob_normalizer: "FilterBlobNormalizer | None" = None,
+    tree_path: bytes | None = None,
 ) -> bool:
     """Check if a file on disk matches the expected git object.
 
@@ -1724,6 +2299,7 @@ def _check_file_matches(
             current_content = f.read()
             expected_content = blob_obj.as_raw_string()
             if blob_normalizer and tree_path is not None:
+                assert isinstance(blob_obj, Blob)
                 normalized_blob = blob_normalizer.checkout_normalize(
                     blob_obj, tree_path
                 )
@@ -1733,7 +2309,14 @@ def _check_file_matches(
         return False
 
 
-def _transition_to_submodule(repo, path, full_path, current_stat, entry, index):
+def _transition_to_submodule(
+    repo: "Repo",
+    path: bytes,
+    full_path: bytes,
+    current_stat: os.stat_result | None,
+    entry: IndexEntry | TreeEntry,
+    index: Index,
+) -> None:
     """Transition any type to submodule."""
     from .submodule import ensure_submodule_placeholder
 
@@ -1747,22 +2330,27 @@ def _transition_to_submodule(repo, path, full_path, current_stat, entry, index):
         ensure_submodule_placeholder(repo, path)
 
     st = os.lstat(full_path)
+    assert entry.sha is not None
     index[path] = index_entry_from_stat(st, entry.sha)
 
 
 def _transition_to_file(
-    object_store,
-    path,
-    full_path,
-    current_stat,
-    entry,
-    index,
-    honor_filemode,
-    symlink_fn,
-    blob_normalizer,
-    tree_encoding="utf-8",
-):
+    object_store: "BaseObjectStore",
+    path: bytes,
+    full_path: bytes,
+    current_stat: os.stat_result | None,
+    entry: IndexEntry | TreeEntry,
+    index: Index,
+    honor_filemode: bool,
+    symlink_fn: Callable[
+        [str | bytes | os.PathLike[str], str | bytes | os.PathLike[str]], None
+    ]
+    | None,
+    blob_normalizer: "FilterBlobNormalizer | None",
+    tree_encoding: str = "utf-8",
+) -> None:
     """Transition any type to regular file or symlink."""
+    assert entry.sha is not None and entry.mode is not None
     # Check if we need to update
     if (
         current_stat is not None
@@ -1794,6 +2382,7 @@ def _transition_to_file(
 
     if not needs_update:
         # Just update index - current_stat should always be valid here since we're not updating
+        assert current_stat is not None
         index[path] = index_entry_from_stat(current_stat, entry.sha)
         return
 
@@ -1813,7 +2402,7 @@ def _transition_to_file(
             try:
                 os.rmdir(full_path)
             except OSError as e:
-                if e.errno == errno.ENOTEMPTY:
+                if e.errno in (errno.ENOTEMPTY, errno.EEXIST):
                     raise IsADirectoryError(
                         f"Cannot replace non-empty directory with file: {full_path!r}"
                     )
@@ -1840,7 +2429,13 @@ def _transition_to_file(
     index[path] = index_entry_from_stat(st, entry.sha)
 
 
-def _transition_to_absent(repo, path, full_path, current_stat, index):
+def _transition_to_absent(
+    repo: "Repo",
+    path: bytes,
+    full_path: bytes,
+    current_stat: os.stat_result | None,
+    index: Index,
+) -> None:
     """Remove any type of entry."""
     if current_stat is None:
         return
@@ -1873,7 +2468,7 @@ def _transition_to_absent(repo, path, full_path, current_stat, index):
 
 
 def detect_case_only_renames(
-    changes: list["TreeChange"],
+    changes: Sequence["TreeChange"],
     config: "Config",
 ) -> list["TreeChange"]:
     """Detect and transform case-only renames in a list of tree changes.
@@ -1915,6 +2510,7 @@ def detect_case_only_renames(
     # Pre-normalize all paths once to avoid repeated normalization
     for change in changes:
         if change.type == CHANGE_DELETE and change.old:
+            assert change.old.path is not None
             try:
                 normalized = normalize_path(change.old.path)
             except UnicodeDecodeError:
@@ -1928,6 +2524,7 @@ def detect_case_only_renames(
                 old_paths_normalized[normalized] = change.old.path
                 old_changes[change.old.path] = change
         elif change.type == CHANGE_RENAME and change.old:
+            assert change.old.path is not None
             # Treat RENAME as DELETE + ADD for case-only detection
             try:
                 normalized = normalize_path(change.old.path)
@@ -1946,6 +2543,7 @@ def detect_case_only_renames(
             change.type in (CHANGE_ADD, CHANGE_MODIFY, CHANGE_RENAME, CHANGE_COPY)
             and change.new
         ):
+            assert change.new.path is not None
             try:
                 normalized = normalize_path(change.new.path)
             except UnicodeDecodeError:
@@ -1998,14 +2596,17 @@ def detect_case_only_renames(
 
 def update_working_tree(
     repo: "Repo",
-    old_tree_id: Optional[bytes],
+    old_tree_id: bytes | None,
     new_tree_id: bytes,
     change_iterator: Iterator["TreeChange"],
     honor_filemode: bool = True,
-    validate_path_element: Optional[Callable[[bytes], bool]] = None,
-    symlink_fn: Optional[Callable] = None,
+    validate_path_element: Callable[[bytes], bool] | None = None,
+    symlink_fn: Callable[
+        [str | bytes | os.PathLike[str], str | bytes | os.PathLike[str]], None
+    ]
+    | None = None,
     force_remove_untracked: bool = False,
-    blob_normalizer: Optional["BlobNormalizer"] = None,
+    blob_normalizer: "FilterBlobNormalizer | None" = None,
     tree_encoding: str = "utf-8",
     allow_overwrite_modified: bool = False,
 ) -> None:
@@ -2066,7 +2667,9 @@ def update_working_tree(
     paths_becoming_dirs = set()
     for change in changes:
         if change.type in (CHANGE_ADD, CHANGE_MODIFY, CHANGE_RENAME, CHANGE_COPY):
+            assert change.new is not None
             path = change.new.path
+            assert path is not None
             if b"/" in path:  # This is a file inside a directory
                 # Check if any parent path exists as a file in the old tree or changes
                 parts = path.split(b"/")
@@ -2107,6 +2710,10 @@ def update_working_tree(
 
             if old_change:
                 # Check if file has been modified
+                assert old_change.old is not None
+                assert (
+                    old_change.old.sha is not None and old_change.old.mode is not None
+                )
                 file_matches = _check_file_matches(
                     repo.object_store,
                     full_path,
@@ -2128,6 +2735,7 @@ def update_working_tree(
             # Only check files that are being modified or deleted
             if change.type in (CHANGE_MODIFY, CHANGE_DELETE) and change.old:
                 path = change.old.path
+                assert path is not None
                 if path.startswith(b".git") or not validate_path(
                     path, validate_path_element
                 ):
@@ -2145,6 +2753,7 @@ def update_working_tree(
 
                 if stat.S_ISREG(current_stat.st_mode):
                     # Check if working tree file differs from old tree
+                    assert change.old.sha is not None and change.old.mode is not None
                     file_matches = _check_file_matches(
                         repo.object_store,
                         full_path,
@@ -2168,6 +2777,7 @@ def update_working_tree(
     for change in changes:
         if change.type in (CHANGE_DELETE, CHANGE_RENAME):
             # Remove file/directory
+            assert change.old is not None and change.old.path is not None
             path = change.old.path
             if path.startswith(b".git") or not validate_path(
                 path, validate_path_element
@@ -2176,7 +2786,7 @@ def update_working_tree(
 
             full_path = _tree_to_fs_path(repo_path, path, tree_encoding)
             try:
-                delete_stat: Optional[os.stat_result] = os.lstat(full_path)
+                delete_stat: os.stat_result | None = os.lstat(full_path)
             except FileNotFoundError:
                 delete_stat = None
             except OSError as e:
@@ -2194,6 +2804,11 @@ def update_working_tree(
             CHANGE_RENAME,
         ):
             # Add or modify file
+            assert (
+                change.new is not None
+                and change.new.path is not None
+                and change.new.mode is not None
+            )
             path = change.new.path
             if path.startswith(b".git") or not validate_path(
                 path, validate_path_element
@@ -2202,7 +2817,7 @@ def update_working_tree(
 
             full_path = _tree_to_fs_path(repo_path, path, tree_encoding)
             try:
-                modify_stat: Optional[os.stat_result] = os.lstat(full_path)
+                modify_stat: os.stat_result | None = os.lstat(full_path)
             except FileNotFoundError:
                 modify_stat = None
             except OSError as e:
@@ -2231,50 +2846,163 @@ def update_working_tree(
     index.write()
 
 
+def _stat_matches_entry(st: os.stat_result, entry: IndexEntry) -> bool:
+    """Check if filesystem stat matches index entry stat.
+
+    This is used to determine if a file might have changed without reading its content.
+    Git uses this optimization to avoid expensive filter operations on unchanged files.
+
+    Args:
+      st: Filesystem stat result
+      entry: Index entry to compare against
+    Returns: True if stat matches and file is likely unchanged
+    """
+    # Get entry mtime with nanosecond precision if available
+    if isinstance(entry.mtime, tuple):
+        entry_mtime_sec = entry.mtime[0]
+        entry_mtime_nsec = entry.mtime[1]
+    else:
+        entry_mtime_sec = int(entry.mtime)
+        entry_mtime_nsec = 0
+
+    # Compare modification time with nanosecond precision if available
+    # This is important for fast workflows (e.g., stash) where files can be
+    # modified multiple times within the same second
+    if hasattr(st, "st_mtime_ns"):
+        # Use nanosecond precision when available
+        st_mtime_nsec = st.st_mtime_ns
+        entry_mtime_nsec_total = entry_mtime_sec * 1_000_000_000 + entry_mtime_nsec
+        if st_mtime_nsec != entry_mtime_nsec_total:
+            return False
+    else:
+        # Fall back to second precision
+        if int(st.st_mtime) != entry_mtime_sec:
+            return False
+
+    # Compare file size
+    if st.st_size != entry.size:
+        return False
+
+    # If both mtime and size match, file is likely unchanged
+    return True
+
+
+def _check_entry_for_changes(
+    tree_path: bytes,
+    entry: IndexEntry | ConflictedIndexEntry,
+    root_path: bytes,
+    filter_blob_callback: Callable[[Blob, bytes], Blob] | None = None,
+) -> bytes | None:
+    """Check a single index entry for changes.
+
+    Args:
+      tree_path: Path in the tree
+      entry: Index entry to check
+      root_path: Root filesystem path
+      filter_blob_callback: Optional callback to filter blobs
+    Returns: tree_path if changed, None otherwise
+    """
+    if isinstance(entry, ConflictedIndexEntry):
+        # Conflicted files are always unstaged
+        return tree_path
+
+    full_path = _tree_to_fs_path(root_path, tree_path)
+    try:
+        st = os.lstat(full_path)
+        if stat.S_ISDIR(st.st_mode):
+            if _has_directory_changed(tree_path, entry):
+                return tree_path
+            return None
+
+        if not stat.S_ISREG(st.st_mode) and not stat.S_ISLNK(st.st_mode):
+            return None
+
+        # Optimization: If stat matches index entry (mtime and size unchanged),
+        # we can skip reading and filtering the file entirely. This is a significant
+        # performance improvement for repositories with many unchanged files.
+        # Even with filters (e.g., LFS), if the file hasn't been modified (stat unchanged),
+        # the filter output would be the same, so we can safely skip the expensive
+        # filter operation. This addresses performance issues with LFS repositories
+        # where filter operations can be very slow.
+        if _stat_matches_entry(st, entry):
+            return None
+
+        blob = blob_from_path_and_stat(full_path, st)
+
+        if filter_blob_callback is not None:
+            blob = filter_blob_callback(blob, tree_path)
+    except FileNotFoundError:
+        # The file was removed, so we assume that counts as
+        # different from whatever file used to exist.
+        return tree_path
+    else:
+        if blob.id != entry.sha:
+            return tree_path
+    return None
+
+
 def get_unstaged_changes(
     index: Index,
-    root_path: Union[str, bytes],
-    filter_blob_callback: Optional[Callable] = None,
+    root_path: str | bytes,
+    filter_blob_callback: Callable[..., Any] | None = None,
+    preload_index: bool = False,
 ) -> Generator[bytes, None, None]:
     """Walk through an index and check for differences against working tree.
 
     Args:
       index: index to check
       root_path: path in which to find files
+      filter_blob_callback: Optional callback to filter blobs
+      preload_index: If True, use parallel threads to check files (requires threading support)
     Returns: iterator over paths with unstaged changes
     """
     # For each entry in the index check the sha1 & ensure not staged
     if not isinstance(root_path, bytes):
         root_path = os.fsencode(root_path)
 
-    for tree_path, entry in index.iteritems():
-        full_path = _tree_to_fs_path(root_path, tree_path)
-        if isinstance(entry, ConflictedIndexEntry):
-            # Conflicted files are always unstaged
-            yield tree_path
-            continue
-
+    if preload_index:
+        # Use parallel processing for better performance on slow filesystems
         try:
-            st = os.lstat(full_path)
-            if stat.S_ISDIR(st.st_mode):
-                if _has_directory_changed(tree_path, entry):
-                    yield tree_path
-                continue
-
-            if not stat.S_ISREG(st.st_mode) and not stat.S_ISLNK(st.st_mode):
-                continue
-
-            blob = blob_from_path_and_stat(full_path, st)
-
-            if filter_blob_callback is not None:
-                blob = filter_blob_callback(blob, tree_path)
-        except FileNotFoundError:
-            # The file was removed, so we assume that counts as
-            # different from whatever file used to exist.
-            yield tree_path
+            import multiprocessing
+            from concurrent.futures import ThreadPoolExecutor
+        except ImportError:
+            # If threading is not available, fall back to serial processing
+            preload_index = False
         else:
-            if blob.id != entry.sha:
-                yield tree_path
+            # Collect all entries first
+            entries = list(index.iteritems())
+
+            # Use number of CPUs but cap at 8 threads to avoid overhead
+            num_workers = min(multiprocessing.cpu_count(), 8)
+
+            # Process entries in parallel
+            with ThreadPoolExecutor(max_workers=num_workers) as executor:
+                # Submit all tasks
+                futures = [
+                    executor.submit(
+                        _check_entry_for_changes,
+                        tree_path,
+                        entry,
+                        root_path,
+                        filter_blob_callback,
+                    )
+                    for tree_path, entry in entries
+                ]
+
+                # Yield results as they complete
+                for future in futures:
+                    result = future.result()
+                    if result is not None:
+                        yield result
+
+    if not preload_index:
+        # Serial processing
+        for tree_path, entry in index.iteritems():
+            result = _check_entry_for_changes(
+                tree_path, entry, root_path, filter_blob_callback
+            )
+            if result is not None:
+                yield result
 
 
 def _tree_to_fs_path(
@@ -2308,7 +3036,7 @@ def _tree_to_fs_path(
     return os.path.join(root_path, sep_corrected_path)
 
 
-def _fs_to_tree_path(fs_path: Union[str, bytes], tree_encoding: str = "utf-8") -> bytes:
+def _fs_to_tree_path(fs_path: str | bytes, tree_encoding: str = "utf-8") -> bytes:
     """Convert a file system path to a git tree path.
 
     Args:
@@ -2339,7 +3067,18 @@ def _fs_to_tree_path(fs_path: Union[str, bytes], tree_encoding: str = "utf-8") -
     return tree_path
 
 
-def index_entry_from_directory(st: os.stat_result, path: bytes) -> Optional[IndexEntry]:
+def index_entry_from_directory(st: os.stat_result, path: bytes) -> IndexEntry | None:
+    """Create an index entry for a directory.
+
+    This is only used for submodules (directories containing .git).
+
+    Args:
+      st: Stat result for the directory
+      path: Path to the directory
+
+    Returns:
+      IndexEntry for a submodule, or None if not a submodule
+    """
     if os.path.exists(os.path.join(path, b".git")):
         head = read_submodule_head(path)
         if head is None:
@@ -2349,8 +3088,8 @@ def index_entry_from_directory(st: os.stat_result, path: bytes) -> Optional[Inde
 
 
 def index_entry_from_path(
-    path: bytes, object_store: Optional[ObjectContainer] = None
-) -> Optional[IndexEntry]:
+    path: bytes, object_store: ObjectContainer | None = None
+) -> IndexEntry | None:
     """Create an index from a filesystem path.
 
     This returns an index value for files, symlinks
@@ -2380,8 +3119,8 @@ def index_entry_from_path(
 def iter_fresh_entries(
     paths: Iterable[bytes],
     root_path: bytes,
-    object_store: Optional[ObjectContainer] = None,
-) -> Iterator[tuple[bytes, Optional[IndexEntry]]]:
+    object_store: ObjectContainer | None = None,
+) -> Iterator[tuple[bytes, IndexEntry | None]]:
     """Iterate over current versions of index entries on disk.
 
     Args:
@@ -2403,11 +3142,12 @@ def iter_fresh_objects(
     paths: Iterable[bytes],
     root_path: bytes,
     include_deleted: bool = False,
-    object_store: Optional[ObjectContainer] = None,
-) -> Iterator[tuple[bytes, Optional[bytes], Optional[int]]]:
+    object_store: ObjectContainer | None = None,
+) -> Iterator[tuple[bytes, ObjectID | None, int | None]]:
     """Iterate over versions of objects on disk referenced by index.
 
     Args:
+      paths: Paths to check
       root_path: Root path to access from
       include_deleted: Include deleted entries with sha and
         mode set to None
@@ -2444,28 +3184,30 @@ class locked_index:
 
     _file: "_GitFile"
 
-    def __init__(self, path: Union[bytes, str]) -> None:
+    def __init__(self, path: bytes | str) -> None:
+        """Initialize locked_index."""
         self._path = path
 
     def __enter__(self) -> Index:
-        self._file = GitFile(self._path, "wb")
+        """Enter context manager and lock index."""
+        f = GitFile(self._path, "wb")
+        self._file = f
         self._index = Index(self._path)
         return self._index
 
     def __exit__(
         self,
-        exc_type: Optional[type],
-        exc_value: Optional[BaseException],
-        traceback: Optional[types.TracebackType],
+        exc_type: type | None,
+        exc_value: BaseException | None,
+        traceback: types.TracebackType | None,
     ) -> None:
+        """Exit context manager and unlock index."""
         if exc_type is not None:
             self._file.abort()
             return
         try:
-            from typing import BinaryIO, cast
-
-            f = SHA1Writer(cast(BinaryIO, self._file))
-            write_index_dict(cast(BinaryIO, f), self._index._byname)
+            f = SHA1Writer(self._file)
+            write_index_dict(f, self._index._byname)
         except BaseException:
             self._file.abort()
         else:

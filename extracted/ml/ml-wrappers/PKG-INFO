@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: ml_wrappers
-Version: 0.6.0
+Version: 0.6.1
 Summary: Machine Learning Wrappers SDK for Python
 Home-page: https://github.com/microsoft/ml-wrappers
 Author: Microsoft Corp
@@ -32,6 +32,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary
 

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: stellar-sdk
-Version: 13.0.0
+Version: 13.2.1
 Summary: The Python Stellar SDK library provides APIs to build transactions and connect to Horizon and Stellar RPC server.
 Keywords: stellar-sdk,stellar,stellar.org,lumens,xlm,blockchain,distributed exchange,cryptocurrency,dex,horizon,soroban,sdex,trading,soroban,soroban-rpc,stellar-rpc
 Author-email: overcat <4catcode@gmail.com>, Eno <appweb.cn@gmail.com>
 Maintainer-email: overcat <4catcode@gmail.com>
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Description-Content-Type: text/markdown
 License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
@@ -49,8 +49,8 @@ Provides-Extra: shamir
 [![Stellar Protocol](https://img.shields.io/badge/Stellar%20Protocol-23-blue)](https://developers.stellar.org/docs/learn/fundamentals/stellar-consensus-protocol)
 
 py-stellar-base is a Python library for communicating with
-a [Stellar Horizon server](https://github.com/stellar/go/tree/master/services/horizon) and [Stellar RPC server](https://developers.stellar.org/docs/data/apis/rpc). It is used for building Stellar apps on Python. It supports **Python 3.9+** as
-well as PyPy 3.9+.
+a [Stellar Horizon server](https://developers.stellar.org/docs/data/apis/horizon) and [Stellar RPC server](https://developers.stellar.org/docs/data/apis/rpc). It is used for building Stellar apps on Python. It supports **Python 3.10+** as
+well as PyPy 3.10+.
 
 It provides:
 

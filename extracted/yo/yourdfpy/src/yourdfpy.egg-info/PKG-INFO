@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yourdfpy
-Version: 0.0.58
+Version: 0.0.60
 Summary: A simpler and easier-to-use library for loading, manipulating, saving, and visualizing URDF files.
 Home-page: https://github.com/clemense/yourdfpy/
 Author: Clemens Eppner

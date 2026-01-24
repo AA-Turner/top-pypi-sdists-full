@@ -56,7 +56,7 @@ class NotifySIGNL4(NotifyBase):
     secure_protocol = "signl4"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_signl4"
+    setup_url = "https://appriseit.com/services/signl4/"
 
     # Our event action type
     event_action = "trigger"
@@ -227,7 +227,8 @@ class NotifySIGNL4(NotifyBase):
                         ", " if status_str else "",
                         r.status_code))
 
-                self.logger.debug("Response Details:\r\n%r", r.content)
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Return; we're done
                 return False

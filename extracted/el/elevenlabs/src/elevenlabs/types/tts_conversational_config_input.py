@@ -7,6 +7,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .pydantic_pronunciation_dictionary_version_locator import PydanticPronunciationDictionaryVersionLocator
 from .supported_voice import SupportedVoice
+from .text_normalisation_type import TextNormalisationType
 from .tts_conversational_model import TtsConversationalModel
 from .tts_optimize_streaming_latency import TtsOptimizeStreamingLatency
 from .tts_output_format import TtsOutputFormat
@@ -51,6 +52,11 @@ class TtsConversationalConfigInput(UncheckedBaseModel):
     similarity_boost: typing.Optional[float] = pydantic.Field(default=None)
     """
     The similarity boost for generated speech
+    """
+
+    text_normalisation_type: typing.Optional[TextNormalisationType] = pydantic.Field(default=None)
+    """
+    Method for converting numbers to words before converting text to speech. If set to SYSTEM_PROMPT, the system prompt will be updated to include normalization instructions. If set to ELEVENLABS, the text will be normalized after generation, incurring slight additional latency.
     """
 
     pronunciation_dictionary_locators: typing.Optional[typing.List[PydanticPronunciationDictionaryVersionLocator]] = (

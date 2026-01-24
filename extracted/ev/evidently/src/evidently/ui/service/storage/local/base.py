@@ -4,10 +4,12 @@ import json
 import posixpath
 import re
 import uuid
+from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Set
+from typing import Union
 
 import uuid6
 
@@ -18,6 +20,7 @@ from evidently._pydantic_compat import parse_obj_as
 from evidently.core.metric_types import ByLabelCountValue
 from evidently.core.metric_types import ByLabelValue
 from evidently.core.metric_types import CountValue
+from evidently.core.metric_types import DataframeValue
 from evidently.core.metric_types import MeanStdValue
 from evidently.core.metric_types import SingleValue
 from evidently.core.serialization import SnapshotModel
@@ -73,17 +76,23 @@ class FSSpecBlobStorage(BlobStorage):
 
     @contextlib.contextmanager
     def open_blob(self, blob_id: str):
-        with self.location.open(blob_id) as f:
+        with self.location.open(blob_id, "rb") as f:
             yield f
 
-    async def put_blob(self, blob_id: BlobID, obj: str) -> BlobID:
+    async def put_blob(self, blob_id: BlobID, obj: Union[str, bytes]) -> BlobID:
         self.location.makedirs(posixpath.dirname(blob_id))
-        with self.location.open(blob_id, "w") as f:
+        with self.location.open(blob_id, "w" if isinstance(obj, str) else "wb") as f:
             f.write(obj)
         return blob_id
 
     async def get_blob_metadata(self, blob_id: BlobID) -> BlobMetadata:
         return BlobMetadata(id=blob_id, size=self.location.size(blob_id))
+
+    def blob_exists(self, id: BlobID):
+        return self.location.exists(id)
+
+    async def delete_blob(self, blob_id: BlobID):
+        self.location.rmtree(str(blob_id))
 
 
 def load_project(location: FSLocation, path: str) -> Optional[Project]:
@@ -100,6 +109,7 @@ class LocalState(WorkspaceLocalState):
         self.project_manager = project_manager
         self.projects: Dict[ProjectID, Project] = {}
         self.snapshots: Dict[ProjectID, Dict[SnapshotID, SnapshotModel]] = {}
+        self.callbacks: List[Callable[[ProjectID, SnapshotID, SnapshotModel], None]] = []
 
     @classmethod
     def load(cls, path: str, project_manager: Optional[ProjectManager]):
@@ -137,12 +147,17 @@ class LocalState(WorkspaceLocalState):
                 continue
             self.reload_snapshot(project, snapshot_id, skip_errors)
 
+    def register_new_snapshot_callback(self, callback: Callable[[ProjectID, SnapshotID, SnapshotModel], None]):
+        self.callbacks.append(callback)
+
     def reload_snapshot(self, project: Project, snapshot_id: SnapshotID, skip_errors: bool = True):
         try:
             snapshot_path = posixpath.join(str(project.id), SNAPSHOTS, str(snapshot_id) + ".json")
             with self.location.open(snapshot_path) as f:
                 model = parse_obj_as(SnapshotModel, json.load(f))
             self.snapshots[project.id][snapshot_id] = model
+            for callback in self.callbacks:
+                callback(project.id, snapshot_id, model)
         except ValidationError as e:
             if not skip_errors:
                 raise ValueError(f"{snapshot_id} is malformed") from e
@@ -268,6 +283,7 @@ class InMemoryDataStorage(DataStorage):
         for project_id, snapshots in self._state.snapshots.items():
             for snapshot_id, snapshot in snapshots.items():
                 self._add_snapshot_points_sync(project_id, snapshot_id, snapshot)
+        self._state.register_new_snapshot_callback(self._add_snapshot_points_sync)
 
     @property
     def state(self):
@@ -279,6 +295,8 @@ class InMemoryDataStorage(DataStorage):
         return self._add_snapshot_points_sync(project_id, snapshot_id, snapshot)
 
     def _add_snapshot_points_sync(self, project_id: ProjectID, snapshot_id: SnapshotID, snapshot: SnapshotModel):
+        if project_id in self._metrics_points and snapshot_id in self._metrics_points[project_id]:
+            self._metrics_points[project_id][snapshot_id] = []
         for result in snapshot.metric_results.values():
             if isinstance(result, SingleValue):
                 self._add_value(project_id, snapshot_id, snapshot.timestamp, result)
@@ -295,6 +313,9 @@ class InMemoryDataStorage(DataStorage):
                 for value in result.counts.values():
                     self._add_value(project_id, snapshot_id, snapshot.timestamp, value)
                 for value in result.shares.values():
+                    self._add_value(project_id, snapshot_id, snapshot.timestamp, value)
+            elif isinstance(result, DataframeValue):
+                for value in result.iter_single_values():
                     self._add_value(project_id, snapshot_id, snapshot.timestamp, value)
             else:
                 raise ValueError(f"type {type(result)} isn't supported")

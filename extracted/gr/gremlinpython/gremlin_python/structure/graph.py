@@ -25,18 +25,6 @@ import warnings
 
 
 class Graph(object):
-    def __init__(self):
-        if self.__class__ not in TraversalStrategies.global_cache:
-            TraversalStrategies.global_cache[self.__class__] = TraversalStrategies()
-
-    def traversal(self, traversal_source_class=None):
-        warnings.warn(
-            "As of release 3.3.5, replaced by the gremlin_python.process.anonymous_traversal.traversal() function.",
-            DeprecationWarning)
-
-        if not traversal_source_class:
-            traversal_source_class = GraphTraversalSource
-        return traversal_source_class(self, TraversalStrategies.global_cache[self.__class__])
 
     def __repr__(self):
         return "graph[]"
@@ -46,7 +34,7 @@ class Element(object):
     def __init__(self, id, label, properties=None):
         self.id = id
         self.label = label
-        self.properties = properties
+        self.properties = [] if properties is None else properties
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.id == other.id

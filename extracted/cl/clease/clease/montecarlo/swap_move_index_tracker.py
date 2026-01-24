@@ -1,5 +1,5 @@
+from collections.abc import Sequence
 import random
-from typing import Dict, List, Optional, Sequence
 
 import ase
 import numpy as np
@@ -14,8 +14,8 @@ class SwapMoveIndexTracker:
         can be chosen.
     """
 
-    def __init__(self, atoms, indices: Optional[Sequence[int]] = None):
-        self.tracker: Dict[str, List[int]] = {}
+    def __init__(self, atoms, indices: Sequence[int] | None = None):
+        self.tracker: dict[str, list[int]] = {}
         self.index_loc = None
         self._last_move = []
 
@@ -25,10 +25,10 @@ class SwapMoveIndexTracker:
         self.unique_symbols = self.get_unique_symbols()
 
     @staticmethod
-    def _unique_symbols_from_atoms(atoms) -> List[str]:
+    def _unique_symbols_from_atoms(atoms) -> list[str]:
         return sorted(set(atoms.symbols))
 
-    def get_unique_symbols(self) -> List[str]:
+    def get_unique_symbols(self) -> list[str]:
         return list(self.tracker.keys())
 
     @property
@@ -41,7 +41,7 @@ class SwapMoveIndexTracker:
         str_repr += f"Tracker info: {self.tracker}\n"
         return str_repr
 
-    def _init_tracker(self, atoms: ase.Atoms, indices: Optional[Sequence[int]] = None) -> None:
+    def _init_tracker(self, atoms: ase.Atoms, indices: Sequence[int] | None = None) -> None:
         """Initialize the tracker with the numbers."""
         # Cache the unique symbols for faster access
         symbols = self._unique_symbols_from_atoms(atoms)
@@ -118,7 +118,7 @@ class SwapMoveIndexTracker:
     def get_random_indx_of_symbol(self, symbol: str) -> int:
         return random.choice(self.tracker[symbol])
 
-    def get_two_random_symbols(self) -> List[str]:
+    def get_two_random_symbols(self) -> list[str]:
         """Get two different random unique symbols"""
         # random.sample samples without replacement.
         return random.sample(self.unique_symbols, 2)

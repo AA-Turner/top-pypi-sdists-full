@@ -43,8 +43,7 @@ def sample_multiscale_image_2d(tmp_path_factory, sample_2d_data):
         # Create very small downsample and write to it.
         l2 = image.add_new_level("level2", shape=(3, 8, 8))
         l2.write(coords, pa.Tensor.from_numpy(sample_2d_data[2]))
-    image2d = soma.MultiscaleImage.open(image_uri)
-    return image2d
+    return soma.MultiscaleImage.open(image_uri)
 
 
 @pytest.mark.parametrize(
@@ -76,25 +75,19 @@ def sample_multiscale_image_2d(tmp_path_factory, sample_2d_data):
         ),
         (
             0,
-            somacore.ScaleTransform(
-                ("x_scene", "y_scene"), ("x_image", "y_image"), [0.25, 0.5]
-            ),
+            somacore.ScaleTransform(("x_scene", "y_scene"), ("x_image", "y_image"), [0.25, 0.5]),
             sd.transformations.Scale([4, 2], ("x", "y")),
             "scene0",
         ),
         (
             2,
-            somacore.ScaleTransform(
-                ("x_scene", "y_scene"), ("x_image", "y_image"), [0.25, 0.5]
-            ),
+            somacore.ScaleTransform(("x_scene", "y_scene"), ("x_image", "y_image"), [0.25, 0.5]),
             sd.transformations.Scale([16, 8], ("x", "y")),
             "scene0",
         ),
         (
             0,
-            somacore.AffineTransform(
-                ("x_scene", "y_scene"), ("x_image", "y_image"), [[1, 0, 1], [0, 1, 2]]
-            ),
+            somacore.AffineTransform(("x_scene", "y_scene"), ("x_image", "y_image"), [[1, 0, 1], [0, 1, 2]]),
             sd.transformations.Affine(
                 np.array([[1, 0, -1], [0, 1, -2], [0, 0, 1]]),
                 ("x", "y"),
@@ -104,9 +97,7 @@ def sample_multiscale_image_2d(tmp_path_factory, sample_2d_data):
         ),
         (
             2,
-            somacore.AffineTransform(
-                ("x_scene", "y_scene"), ("x_image", "y_image"), [[1, 0, 1], [0, 1, 2]]
-            ),
+            somacore.AffineTransform(("x_scene", "y_scene"), ("x_image", "y_image"), [[1, 0, 1], [0, 1, 2]]),
             sd.transformations.Sequence(
                 [
                     sd.transformations.Scale([4, 4], ("x", "y")),
@@ -115,7 +106,7 @@ def sample_multiscale_image_2d(tmp_path_factory, sample_2d_data):
                         ("x", "y"),
                         ("x", "y"),
                     ),
-                ]
+                ],
             ),
             "scene0",
         ),
@@ -152,9 +143,7 @@ def test_export_image_level_to_spatialdata(
     # Check the metadata.
     metadata = dict(image2d.attrs)
     assert len(metadata) == 1
-    assert metadata["transform"] == {
-        expected_transformation_key: expected_transformation
-    }
+    assert metadata["transform"] == {expected_transformation_key: expected_transformation}
 
 
 @pytest.mark.parametrize(
@@ -179,9 +168,7 @@ def test_export_image_level_to_spatialdata(
             "scene0",
         ),
         (
-            somacore.ScaleTransform(
-                ("x_scene", "y_scene"), ("x_image", "y_image"), [0.25, 0.5]
-            ),
+            somacore.ScaleTransform(("x_scene", "y_scene"), ("x_image", "y_image"), [0.25, 0.5]),
             [
                 sd.transformations.Scale([4, 2], ("x", "y")),
                 sd.transformations.Scale([8, 4], ("x", "y")),
@@ -190,9 +177,7 @@ def test_export_image_level_to_spatialdata(
             "scene0",
         ),
         (
-            somacore.AffineTransform(
-                ("x_scene", "y_scene"), ("x_image", "y_image"), [[1, 0, 1], [0, 1, 2]]
-            ),
+            somacore.AffineTransform(("x_scene", "y_scene"), ("x_image", "y_image"), [[1, 0, 1], [0, 1, 2]]),
             [
                 sd.transformations.Affine(
                     np.array([[1, 0, -1], [0, 1, -2], [0, 0, 1]]),
@@ -207,7 +192,7 @@ def test_export_image_level_to_spatialdata(
                             ("x", "y"),
                             ("x", "y"),
                         ),
-                    ]
+                    ],
                 ),
                 sd.transformations.Sequence(
                     [
@@ -217,7 +202,7 @@ def test_export_image_level_to_spatialdata(
                             ("x", "y"),
                             ("x", "y"),
                         ),
-                    ]
+                    ],
                 ),
             ],
             "scene0",
@@ -257,6 +242,4 @@ def test_export_full_image_to_spatialdata(
         # Check the metadata.
         metadata = dict(data_array.attrs)
         assert len(metadata) == 1
-        assert metadata["transform"] == {
-            expected_transformation_key: expected_transformation[index]
-        }
+        assert metadata["transform"] == {expected_transformation_key: expected_transformation[index]}

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: google-cloud-datastore
-Version: 2.21.0
+Version: 2.23.0
 Summary: Google Cloud Datastore API client library
 Home-page: https://github.com/googleapis/python-datastore
 Author: Google LLC
@@ -18,6 +18,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -30,8 +32,22 @@ Requires-Dist: proto-plus<2.0.0,>=1.22.0
 Requires-Dist: proto-plus<2.0.0,>=1.22.2; python_version >= "3.11"
 Requires-Dist: proto-plus<2.0.0,>=1.25.0; python_version >= "3.13"
 Requires-Dist: protobuf!=3.20.0,!=3.20.1,!=4.21.0,!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5,<7.0.0,>=3.20.2
+Requires-Dist: grpcio<2.0.0,>=1.38.0
+Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14"
 Provides-Extra: libcst
 Requires-Dist: libcst>=0.2.5; extra == "libcst"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 Python Client for Google Cloud Datastore API
 ============================================
@@ -100,7 +116,7 @@ Supported Python Versions
 Our client libraries are compatible with all current `active`_ and `maintenance`_ versions of
 Python.
 
-Python >= 3.7
+Python >= 3.7, including 3.14
 
 .. _active: https://devguide.python.org/devcycle/#in-development-main-branch
 .. _maintenance: https://devguide.python.org/devcycle/#maintenance-branches

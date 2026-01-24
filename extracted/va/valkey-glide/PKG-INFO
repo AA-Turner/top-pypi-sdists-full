@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: valkey-glide
-Version: 2.1.0
+Version: 2.2.6
 Classifier: Topic :: Database
 Classifier: Topic :: Utilities
 Classifier: License :: OSI Approved :: Apache Software License
@@ -11,6 +11,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Dist: anyio>=4.9.0
 Requires-Dist: protobuf>=6.20
+Requires-Dist: sniffio
 Requires-Dist: typing-extensions>=4.8.0; python_version < '3.11'
 Summary: Valkey GLIDE Async client. Supports Valkey and Redis OSS.
 Author: Valkey GLIDE Maintainers

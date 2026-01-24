@@ -122,6 +122,16 @@ class __ContingencyAnalysis(object):
         raise RuntimeError("Impossible to add new topologies like this. Please use `add_single_contingency` "
                            "or `add_multiple_contingencies`.")
 
+    @property
+    def init_from_n_powerflow(self):
+        return self.computer.init_from_n_powerflow
+    
+    @init_from_n_powerflow.setter
+    def init_from_n_powerflow(self, val):
+        if bool(val) != val:
+            raise ValueError("The `init_from_n_powerflow` attribute must be a boolean.")
+        self.computer.init_from_n_powerflow = bool(val)
+        
     # TODO implement that !
     def __update_grid(self, backend_act):
         raise NotImplementedError("TODO !")
@@ -356,12 +366,14 @@ class __ContingencyAnalysis(object):
         """
         if self.__is_closed:
             raise RuntimeError("This is closed, you cannot use it.")
-        
-        v_init = 1. * self._ls_backend.V
+        if self._ls_backend._debug_Vdc is not None:
+            v_init = self._ls_backend._debug_Vdc.copy()
+        else:
+            v_init = self._ls_backend.V.copy()
         self.computer.compute(v_init,
                               self._ls_backend.max_it,
                               self._ls_backend.tol)
-        self._vs = 1. * self.computer.get_voltages()
+        self._vs = self.computer.get_voltages().copy()
         self.__computed = True
         return self._vs
 
@@ -400,7 +412,7 @@ class __ContingencyAnalysis(object):
         if not self.__computed:
             raise RuntimeError("This function can only be used if compute_V has been sucessfully called")
         self.computer.compute_power_flows()
-        self._mws = 1.0 * self.computer.get_power_flows()
+        self._mws = self.computer.get_power_flows().copy()
         return self._mws
 
     def close(self):

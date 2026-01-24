@@ -5,6 +5,8 @@ from attrs import field as _attrs_field
 
 from ..models.new_http_trigger_authentication_method import NewHttpTriggerAuthenticationMethod
 from ..models.new_http_trigger_http_method import NewHttpTriggerHttpMethod
+from ..models.new_http_trigger_mode import NewHttpTriggerMode
+from ..models.new_http_trigger_request_type import NewHttpTriggerRequestType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -25,7 +27,6 @@ class NewHttpTrigger:
         route_path (str):
         is_flow (bool):
         http_method (NewHttpTriggerHttpMethod):
-        is_async (bool):
         authentication_method (NewHttpTriggerAuthenticationMethod):
         is_static_website (bool):
         workspaced_route (Union[Unset, bool]):
@@ -33,11 +34,14 @@ class NewHttpTrigger:
         description (Union[Unset, str]):
         static_asset_config (Union[Unset, NewHttpTriggerStaticAssetConfig]):
         authentication_resource_path (Union[Unset, str]):
+        is_async (Union[Unset, bool]): Deprecated, use request_type instead
+        request_type (Union[Unset, NewHttpTriggerRequestType]):
         wrap_body (Union[Unset, bool]):
+        mode (Union[Unset, NewHttpTriggerMode]): job trigger mode
         raw_string (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, NewHttpTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
-        retry (Union[Unset, NewHttpTriggerRetry]):
+        retry (Union[Unset, NewHttpTriggerRetry]): Retry configuration for failed module executions
     """
 
     path: str
@@ -45,7 +49,6 @@ class NewHttpTrigger:
     route_path: str
     is_flow: bool
     http_method: NewHttpTriggerHttpMethod
-    is_async: bool
     authentication_method: NewHttpTriggerAuthenticationMethod
     is_static_website: bool
     workspaced_route: Union[Unset, bool] = UNSET
@@ -53,7 +56,10 @@ class NewHttpTrigger:
     description: Union[Unset, str] = UNSET
     static_asset_config: Union[Unset, "NewHttpTriggerStaticAssetConfig"] = UNSET
     authentication_resource_path: Union[Unset, str] = UNSET
+    is_async: Union[Unset, bool] = UNSET
+    request_type: Union[Unset, NewHttpTriggerRequestType] = UNSET
     wrap_body: Union[Unset, bool] = UNSET
+    mode: Union[Unset, NewHttpTriggerMode] = UNSET
     raw_string: Union[Unset, bool] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "NewHttpTriggerErrorHandlerArgs"] = UNSET
@@ -67,7 +73,6 @@ class NewHttpTrigger:
         is_flow = self.is_flow
         http_method = self.http_method.value
 
-        is_async = self.is_async
         authentication_method = self.authentication_method.value
 
         is_static_website = self.is_static_website
@@ -79,7 +84,16 @@ class NewHttpTrigger:
             static_asset_config = self.static_asset_config.to_dict()
 
         authentication_resource_path = self.authentication_resource_path
+        is_async = self.is_async
+        request_type: Union[Unset, str] = UNSET
+        if not isinstance(self.request_type, Unset):
+            request_type = self.request_type.value
+
         wrap_body = self.wrap_body
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         raw_string = self.raw_string
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
@@ -99,7 +113,6 @@ class NewHttpTrigger:
                 "route_path": route_path,
                 "is_flow": is_flow,
                 "http_method": http_method,
-                "is_async": is_async,
                 "authentication_method": authentication_method,
                 "is_static_website": is_static_website,
             }
@@ -114,8 +127,14 @@ class NewHttpTrigger:
             field_dict["static_asset_config"] = static_asset_config
         if authentication_resource_path is not UNSET:
             field_dict["authentication_resource_path"] = authentication_resource_path
+        if is_async is not UNSET:
+            field_dict["is_async"] = is_async
+        if request_type is not UNSET:
+            field_dict["request_type"] = request_type
         if wrap_body is not UNSET:
             field_dict["wrap_body"] = wrap_body
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if raw_string is not UNSET:
             field_dict["raw_string"] = raw_string
         if error_handler_path is not UNSET:
@@ -144,8 +163,6 @@ class NewHttpTrigger:
 
         http_method = NewHttpTriggerHttpMethod(d.pop("http_method"))
 
-        is_async = d.pop("is_async")
-
         authentication_method = NewHttpTriggerAuthenticationMethod(d.pop("authentication_method"))
 
         is_static_website = d.pop("is_static_website")
@@ -165,7 +182,23 @@ class NewHttpTrigger:
 
         authentication_resource_path = d.pop("authentication_resource_path", UNSET)
 
+        is_async = d.pop("is_async", UNSET)
+
+        _request_type = d.pop("request_type", UNSET)
+        request_type: Union[Unset, NewHttpTriggerRequestType]
+        if isinstance(_request_type, Unset):
+            request_type = UNSET
+        else:
+            request_type = NewHttpTriggerRequestType(_request_type)
+
         wrap_body = d.pop("wrap_body", UNSET)
+
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, NewHttpTriggerMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = NewHttpTriggerMode(_mode)
 
         raw_string = d.pop("raw_string", UNSET)
 
@@ -191,7 +224,6 @@ class NewHttpTrigger:
             route_path=route_path,
             is_flow=is_flow,
             http_method=http_method,
-            is_async=is_async,
             authentication_method=authentication_method,
             is_static_website=is_static_website,
             workspaced_route=workspaced_route,
@@ -199,7 +231,10 @@ class NewHttpTrigger:
             description=description,
             static_asset_config=static_asset_config,
             authentication_resource_path=authentication_resource_path,
+            is_async=is_async,
+            request_type=request_type,
             wrap_body=wrap_body,
+            mode=mode,
             raw_string=raw_string,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,

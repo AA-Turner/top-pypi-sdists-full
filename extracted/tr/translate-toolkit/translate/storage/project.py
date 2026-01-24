@@ -17,6 +17,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import os
+from typing import cast
 
 from translate.convert import factory as convert_factory
 from translate.storage.projstore import ProjectStore
@@ -60,12 +61,12 @@ class Project:
     """
 
     # INITIALIZERS #
-    def __init__(self, projstore=None):
+    def __init__(self, projstore=None) -> None:
         if projstore is None:
             projstore = ProjectStore()
         self.store = projstore
 
-    def __del__(self):
+    def __del__(self) -> None:
         if self.store:
             del self.store
 
@@ -87,7 +88,7 @@ class Project:
         )
         return srcfile, srcfname, transfile, transfname
 
-    def close(self):
+    def close(self) -> None:
         """
         Close underlying store.
 
@@ -95,16 +96,16 @@ class Project:
         """
         self.store.close()
 
-    def convert_forward(self, input_fname, template=None, output_fname=None, **options):
+    def convert_forward(
+        self, input_fname: str, template=None, output_fname=None, **options
+    ):
         """
         Convert the given input file to the next type in the process.
 
         Source document (eg. ODT) -> Translation file (eg. XLIFF) ->
         Translated document (eg. ODT).
 
-        :type  input_fname: basestring
         :param input_fname: The project name of the file to convert
-        :type  convert_options: Dictionary (optional)
         :param convert_options: Passed as-is to
                                 :meth:`translate.convert.factory.convert`.
         :returns 2-tuple: the converted file object and its project name.
@@ -132,7 +133,7 @@ class Project:
                 # inputfile is a translatable file, so it needed to be converted
                 # from some input document. Let's try and use that document as a
                 # template for this conversion.
-                for in_name, (out_name, tmpl_name) in self.store.convert_map.items():
+                for in_name, (out_name, _tmpl_name) in self.store.convert_map.items():
                     if input_fname == out_name:
                         template, templ_fname = self.get_file(in_name), in_name
                         break
@@ -187,15 +188,18 @@ class Project:
 
         os.rename(converted_file.name, output_fname)
 
-        output_type = self.store.TYPE_INFO["next_type"][input_type]
+        output_type = cast("str", self.store.TYPE_INFO["next_type"][input_type])
         outputfile, output_fname = self.store.append_file(
-            output_fname, None, ftype=output_type, delete_orig=True
+            output_fname,
+            None,
+            ftype=output_type,
+            delete_orig=True,
         )
         self.store.convert_map[input_fname] = (output_fname, templ_fname)
 
         return outputfile, output_fname
 
-    def export_file(self, fname, destfname):
+    def export_file(self, fname, destfname) -> None:
         """
         Export the file with the specified filename to the given
         destination.  This method will raise
@@ -230,7 +234,7 @@ class Project:
             raise ValueError(f"Project file has no real file: {projfname}")
         return rfname
 
-    def remove_file(self, projfname, ftype=None):
+    def remove_file(self, projfname, ftype=None) -> None:
         """
         Remove a file.
 
@@ -238,7 +242,7 @@ class Project:
         """
         self.store.remove_file(projfname, ftype)
 
-    def save(self, filename=None):
+    def save(self, filename=None) -> None:
         """
         Save a store.
 
@@ -246,7 +250,7 @@ class Project:
         """
         self.store.save(filename)
 
-    def update_file(self, proj_fname, infile):
+    def update_file(self, proj_fname, infile) -> None:
         """
         Update a file.
 

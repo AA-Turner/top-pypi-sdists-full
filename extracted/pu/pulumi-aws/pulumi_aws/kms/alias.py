@@ -233,13 +233,11 @@ class Alias(pulumi.CustomResource):
 
         #### Optional
 
-        - `account_id` (String) AWS Account where this resource is managed.
+        * `account_id` (String) AWS Account where this resource is managed.
 
-        - `region` (String) Region where this resource is managed.
+        * `region` (String) Region where this resource is managed.
 
         Using `pulumi import`, import KMS aliases using the `name`. For example:
-
-        console
 
         % pulumi import aws_kms_alias.a alias/my-key-alias
 
@@ -284,13 +282,11 @@ class Alias(pulumi.CustomResource):
 
         #### Optional
 
-        - `account_id` (String) AWS Account where this resource is managed.
+        * `account_id` (String) AWS Account where this resource is managed.
 
-        - `region` (String) Region where this resource is managed.
+        * `region` (String) Region where this resource is managed.
 
         Using `pulumi import`, import KMS aliases using the `name`. For example:
-
-        console
 
         % pulumi import aws_kms_alias.a alias/my-key-alias
 

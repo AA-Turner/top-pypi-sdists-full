@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Generator, Iterator, Mapping
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache, partial
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Generator,
     Generic,
-    Iterator,
     NoReturn,
     TypeVar,
 )
@@ -18,13 +15,13 @@ from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 
 from schemathesis import transport
 from schemathesis.config import ProjectConfig
-from schemathesis.core import NOT_SET, NotSet
+from schemathesis.core import NOT_SET, NotSet, media_types
+from schemathesis.core.adapter import OperationParameter, ResponsesContainer
 from schemathesis.core.errors import IncorrectUsage, InvalidSchema
 from schemathesis.core.result import Ok, Result
 from schemathesis.core.transport import Response
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
-from schemathesis.generation.hypothesis import strategies
 from schemathesis.generation.hypothesis.given import GivenInput, given_proxy
 from schemathesis.generation.meta import CaseMetadata
 from schemathesis.hooks import HookDispatcherMark, _should_skip_hook
@@ -46,8 +43,10 @@ if TYPE_CHECKING:
     from requests.structures import CaseInsensitiveDict
     from werkzeug.test import TestResponse
 
+    from schemathesis.auths import AuthContext
     from schemathesis.core import Specification
     from schemathesis.generation.stateful.state_machine import APIStateMachine
+    from schemathesis.resources import ExtraDataSource
 
 
 @lru_cache
@@ -118,6 +117,14 @@ class BaseSchema(Mapping):
     @property
     def transport(self) -> transport.BaseTransport:
         return transport.get(self.app)
+
+    def apply_auth(self, case: Case, context: AuthContext) -> bool:
+        """Apply spec-specific authentication to a test case.
+
+        Returns True if authentication was applied, False otherwise.
+        Subclasses should implement this to provide spec-specific auth mechanisms.
+        """
+        raise NotImplementedError
 
     def _repr_pretty_(self, *args: Any, **kwargs: Any) -> None: ...
 
@@ -280,11 +287,16 @@ class BaseSchema(Mapping):
         parts = urlsplit(self.location or "")[:2] + (path, "", "")
         return urlunsplit(parts)
 
+    @cached_property
+    def _cached_base_url(self) -> str:
+        """Cached base URL computation since schema doesn't change."""
+        return self._build_base_url()
+
     def get_base_url(self) -> str:
         base_url = self.config.base_url
         if base_url is not None:
             return base_url.rstrip("/")
-        return self._build_base_url()
+        return self._cached_base_url
 
     def validate(self) -> None:
         raise NotImplementedError
@@ -300,9 +312,6 @@ class BaseSchema(Mapping):
         raise NotImplementedError
 
     def get_strategies_from_examples(self, operation: APIOperation, **kwargs: Any) -> list[SearchStrategy[Case]]:
-        raise NotImplementedError
-
-    def get_security_requirements(self, operation: APIOperation) -> list[str]:
         raise NotImplementedError
 
     def get_parameter_serializer(self, operation: APIOperation, location: str) -> Callable | None:
@@ -390,7 +399,7 @@ class BaseSchema(Mapping):
             local_dispatcher.dispatch(name, context, *args, **kwargs)
 
     def prepare_multipart(
-        self, form_data: dict[str, Any], operation: APIOperation
+        self, form_data: dict[str, Any], operation: APIOperation, selected_content_types: dict[str, str] | None = None
     ) -> tuple[list | None, dict[str, Any] | None]:
         raise NotImplementedError
 
@@ -409,6 +418,7 @@ class BaseSchema(Mapping):
         query: dict[str, Any] | None = None,
         body: list | dict[str, Any] | str | int | float | bool | bytes | NotSet = NOT_SET,
         media_type: str | None = None,
+        multipart_content_types: dict[str, str] | None = None,
         meta: CaseMetadata | None = None,
     ) -> Case:
         raise NotImplementedError
@@ -432,19 +442,25 @@ class BaseSchema(Mapping):
         """
         raise NotImplementedError
 
-    def get_links(self, operation: APIOperation) -> dict[str, dict[str, Any]]:
-        raise NotImplementedError
-
     def get_tags(self, operation: APIOperation) -> list[str] | None:
         raise NotImplementedError
 
-    def validate_response(self, operation: APIOperation, response: Response) -> bool | None:
+    def create_extra_data_source(self) -> ExtraDataSource | None:
+        """Create an extra data source for augmenting test generation with real data.
+
+        Returns:
+            ExtraDataSource instance or None if not supported by this schema type.
+
+        """
         raise NotImplementedError
 
-    def prepare_schema(self, schema: Any) -> Any:
-        raise NotImplementedError
-
-    def _get_payload_schema(self, definition: dict[str, Any], media_type: str) -> dict[str, Any] | None:
+    def validate_response(
+        self,
+        operation: APIOperation,
+        response: Response,
+        *,
+        case: Case | None = None,
+    ) -> bool | None:
         raise NotImplementedError
 
     def as_strategy(
@@ -464,12 +480,14 @@ class BaseSchema(Mapping):
             Combined Hypothesis strategy for all valid operations in the schema.
 
         """
+        from hypothesis import strategies as st
+
         _strategies = [
             operation.ok().as_strategy(generation_mode=generation_mode, **kwargs)
             for operation in self.get_all_operations()
             if isinstance(operation, Ok)
         ]
-        return strategies.combine(_strategies)
+        return st.one_of(_strategies)
 
     def find_operation_by_label(self, label: str) -> APIOperation | None:
         raise NotImplementedError
@@ -508,45 +526,15 @@ class APIOperationMap(Mapping):
             Combined Hypothesis strategy for all valid operations in the schema.
 
         """
+        from hypothesis import strategies as st
+
         _strategies = [
             operation.as_strategy(generation_mode=generation_mode, **kwargs) for operation in self._data.values()
         ]
-        return strategies.combine(_strategies)
+        return st.one_of(_strategies)
 
 
-@dataclass(eq=False)
-class Parameter:
-    """A logically separate parameter bound to a location (e.g., to "query string").
-
-    For example, if the API requires multiple headers to be present, each header is presented as a separate
-    `Parameter` instance.
-    """
-
-    # The parameter definition in the language acceptable by the API
-    definition: Any
-
-    __slots__ = ("definition",)
-
-    @property
-    def location(self) -> str:
-        """Where this parameter is located.
-
-        E.g. "query" or "body"
-        """
-        raise NotImplementedError
-
-    @property
-    def name(self) -> str:
-        """Parameter name."""
-        raise NotImplementedError
-
-    @property
-    def is_required(self) -> bool:
-        """Whether the parameter is required for a successful API call."""
-        raise NotImplementedError
-
-
-P = TypeVar("P", bound=Parameter)
+P = TypeVar("P", bound=OperationParameter)
 
 
 @dataclass
@@ -572,14 +560,11 @@ class ParameterSet(Generic[P]):
                 return parameter
         return None
 
-    def contains(self, name: str) -> bool:
-        return self.get(name) is not None
-
-    def __contains__(self, item: str) -> bool:
-        return self.contains(item)
-
-    def __bool__(self) -> bool:
-        return bool(self.items)
+    def __contains__(self, name: str) -> bool:
+        for parameter in self.items:
+            if parameter.name == name:
+                return True
+        return False
 
     def __iter__(self) -> Generator[P, None, None]:
         yield from iter(self.items)
@@ -595,6 +580,8 @@ class PayloadAlternatives(ParameterSet[P]):
     """A set of alternative payloads."""
 
 
+R = TypeVar("R", bound=ResponsesContainer)
+S = TypeVar("S")
 D = TypeVar("D", bound=dict)
 
 
@@ -608,16 +595,14 @@ class OperationDefinition(Generic[D]):
     """
 
     raw: D
-    resolved: D
-    scope: str
 
-    __slots__ = ("raw", "resolved", "scope")
+    __slots__ = ("raw",)
 
     def _repr_pretty_(self, *args: Any, **kwargs: Any) -> None: ...
 
 
 @dataclass()
-class APIOperation(Generic[P]):
+class APIOperation(Generic[P, R, S]):
     """An API operation (e.g., `GET /users`)."""
 
     # `path` does not contain `basePath`
@@ -627,7 +612,9 @@ class APIOperation(Generic[P]):
     method: str
     definition: OperationDefinition = field(repr=False)
     schema: BaseSchema
-    label: str = None  # type: ignore
+    responses: R
+    security: S
+    label: str = None  # type: ignore[assignment]
     app: Any = None
     base_url: str | None = None
     path_parameters: ParameterSet[P] = field(default_factory=ParameterSet)
@@ -638,9 +625,9 @@ class APIOperation(Generic[P]):
 
     def __post_init__(self) -> None:
         if self.label is None:
-            self.label = f"{self.method.upper()} {self.path}"  # type: ignore
+            self.label = f"{self.method.upper()} {self.path}"  # type: ignore[unreachable]
 
-    def __deepcopy__(self, memo: dict) -> APIOperation[P]:
+    def __deepcopy__(self, memo: dict) -> APIOperation[P, R, S]:
         return self
 
     def __hash__(self) -> int:
@@ -654,10 +641,6 @@ class APIOperation(Generic[P]):
     @property
     def full_path(self) -> str:
         return self.schema.get_full_path(self.path)
-
-    @property
-    def links(self) -> dict[str, dict[str, Any]]:
-        return self.schema.get_links(self)
 
     @property
     def tags(self) -> list[str] | None:
@@ -689,6 +672,13 @@ class APIOperation(Generic[P]):
         if container is not None:
             return container.get(name)
         return None
+
+    def get_bodies_for_media_type(self, media_type: str) -> Iterator[P]:
+        main_target, sub_target = media_types.parse(media_type)
+        for body in self.body:
+            main, sub = media_types.parse(body.media_type)  # type:ignore[attr-defined]
+            if main in ("*", main_target) and sub in ("*", sub_target):
+                yield body
 
     def as_strategy(
         self,
@@ -739,17 +729,16 @@ class APIOperation(Generic[P]):
             strategy = _apply_hooks(hooks, strategy)
         return strategy
 
-    def get_security_requirements(self) -> list[str]:
-        return self.schema.get_security_requirements(self)
-
     def get_strategies_from_examples(self, **kwargs: Any) -> list[SearchStrategy[Case]]:
         return self.schema.get_strategies_from_examples(self, **kwargs)
 
     def get_parameter_serializer(self, location: str) -> Callable | None:
         return self.schema.get_parameter_serializer(self, location)
 
-    def prepare_multipart(self, form_data: dict[str, Any]) -> tuple[list | None, dict[str, Any] | None]:
-        return self.schema.prepare_multipart(form_data, self)
+    def prepare_multipart(
+        self, form_data: dict[str, Any], selected_content_types: dict[str, str] | None = None
+    ) -> tuple[list | None, dict[str, Any] | None]:
+        return self.schema.prepare_multipart(form_data, self, selected_content_types=selected_content_types)
 
     def get_request_payload_content_types(self) -> list[str]:
         return self.schema.get_request_payload_content_types(self)
@@ -767,61 +756,24 @@ class APIOperation(Generic[P]):
             f"or pass any other media type available for serialization. Defined media types: {media_types_repr}"
         )
 
-    def Case(
+    def validate_response(
         self,
+        response: Response | httpx.Response | requests.Response | TestResponse,
         *,
-        method: str | None = None,
-        path_parameters: dict[str, Any] | None = None,
-        headers: dict[str, Any] | CaseInsensitiveDict | None = None,
-        cookies: dict[str, Any] | None = None,
-        query: dict[str, Any] | None = None,
-        body: list | dict[str, Any] | str | int | float | bool | bytes | NotSet = NOT_SET,
-        media_type: str | None = None,
-        _meta: CaseMetadata | None = None,
-    ) -> Case:
-        """Create a test case with specific data instead of generated values.
-
-        Args:
-            method: Override HTTP method.
-            path_parameters: Override path variables.
-            headers: Override HTTP headers.
-            cookies: Override cookies.
-            query: Override query parameters.
-            body: Override request body.
-            media_type: Override media type.
-
-        """
-        from requests.structures import CaseInsensitiveDict
-
-        return self.schema.make_case(
-            operation=self,
-            method=method,
-            path_parameters=path_parameters or {},
-            headers=CaseInsensitiveDict() if headers is None else CaseInsensitiveDict(headers),
-            cookies=cookies or {},
-            query=query or {},
-            body=body,
-            media_type=media_type,
-            meta=_meta,
-        )
-
-    @property
-    def operation_reference(self) -> str:
-        path = self.path.replace("~", "~0").replace("/", "~1")
-        return f"#/paths/{path}/{self.method}"
-
-    def validate_response(self, response: Response | httpx.Response | requests.Response | TestResponse) -> bool | None:
+        case: Case | None = None,
+    ) -> bool | None:
         """Validate a response against the API schema.
 
         Args:
             response: The HTTP response to validate. Can be a `requests.Response`,
                 `httpx.Response`, `werkzeug.test.TestResponse`, or `schemathesis.Response`.
+            case: The generated test case related to the provided response.
 
         Raises:
             FailureGroup: If the response does not conform to the schema.
 
         """
-        return self.schema.validate_response(self, Response.from_any(response))
+        return self.schema.validate_response(self, Response.from_any(response), case=case)
 
     def is_valid_response(self, response: Response | httpx.Response | requests.Response | TestResponse) -> bool:
         """Check if the provided response is valid against the API schema.
@@ -840,8 +792,48 @@ class APIOperation(Generic[P]):
         except AssertionError:
             return False
 
-    def get_raw_payload_schema(self, media_type: str) -> dict[str, Any] | None:
-        return self.schema._get_payload_schema(self.definition.raw, media_type)
+    def Case(
+        self,
+        *,
+        method: str | None = None,
+        path_parameters: dict[str, Any] | None = None,
+        headers: dict[str, Any] | CaseInsensitiveDict | None = None,
+        cookies: dict[str, Any] | None = None,
+        query: dict[str, Any] | None = None,
+        body: list | dict[str, Any] | str | int | float | bool | bytes | NotSet = NOT_SET,
+        media_type: str | None = None,
+        multipart_content_types: dict[str, str] | None = None,
+        _meta: CaseMetadata | None = None,
+    ) -> Case:
+        """Create a test case with specific data instead of generated values.
 
-    def get_resolved_payload_schema(self, media_type: str) -> dict[str, Any] | None:
-        return self.schema._get_payload_schema(self.definition.resolved, media_type)
+        Args:
+            method: Override HTTP method.
+            path_parameters: Override path variables.
+            headers: Override HTTP headers.
+            cookies: Override cookies.
+            query: Override query parameters.
+            body: Override request body.
+            media_type: Override media type.
+            multipart_content_types: Selected content types for multipart form properties.
+
+        """
+        from requests.structures import CaseInsensitiveDict
+
+        return self.schema.make_case(
+            operation=self,
+            method=method,
+            path_parameters=path_parameters or {},
+            headers=CaseInsensitiveDict() if headers is None else CaseInsensitiveDict(headers),
+            cookies=cookies or {},
+            query=query or {},
+            body=body,
+            media_type=media_type,
+            multipart_content_types=multipart_content_types,
+            meta=_meta,
+        )
+
+    @property
+    def operation_reference(self) -> str:
+        path = self.path.replace("~", "~0").replace("/", "~1")
+        return f"#/paths/{path}/{self.method}"

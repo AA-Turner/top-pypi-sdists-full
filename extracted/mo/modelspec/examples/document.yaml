@@ -1,0 +1,11 @@
+MyBook:
+    title: My life in Python
+    ISBN: 123
+    sections:
+        Abstract:
+            paragraphs:
+            -   contents: Blah blah blah
+            -   contents: Blah2
+        Chapter 1:
+            paragraphs:
+            -   contents: More...

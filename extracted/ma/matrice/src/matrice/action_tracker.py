@@ -8,17 +8,17 @@ import requests
 from PIL import Image
 import gc
 import io
-import logging
 import subprocess
-from matrice.session import Session
+from matrice_common.session import Session
 from matrice.dataset import Dataset
-from matrice.utils import log_errors
+from matrice_common.utils import log_errors
 from matrice.model_store import (
     ModelFamily,
     ModelArch,
 )
 from matrice.projects import Projects
 
+# TODO: Replace the usage of all of the other classes imported with direct API calls
 
 class _dotdict(dict):
     """
@@ -173,7 +173,7 @@ class ActionTracker:
             self.job_params = self.get_job_params()
             self._init_model_id()
             self._init_checkpoint_path()
-            self._init_project_info()
+            # self._init_project_info() # TODO: Replace the usage with api call after fixing it with inference projects
         except Exception as e:
             self.update_status(
                 "error",
@@ -207,7 +207,7 @@ class ActionTracker:
         except Exception as e:
             print("Update project error:", e)
 
-    @log_errors(raise_exception=False, log_error=False)
+    @log_errors(raise_exception=True, log_error=False)
     def _init_project_info(self):
         self.project = Projects(
             self.session,
@@ -441,7 +441,6 @@ class ActionTracker:
         url = "/v1/actions"
         payload = {
             "_id": self.action_id_str,
-            "_idService": str(self.action_doc["_idService"]),
             "action": self.action_type,
             "serviceName": self.action_doc["serviceName"],
             "stepCode": stepCode,
@@ -857,12 +856,20 @@ class ActionTracker:
         try:
             self._remove_duplicate_results(list_of_result_dicts)
         except Exception as e:
-            logging.error(f"Exception in remove_duplicate_results: {str(e)}", exc_info=True)
+            self.log_error(
+                __file__,
+                "remove_duplicate_results",
+                str(e),
+            )
             print(f"Exception in remove_duplicate_results: {str(e)}")
         try:
             list_of_result_dicts = self._validate_eval_results(list_of_result_dicts)
         except Exception as e:
-            logging.error(f"Exception in validate_evaluation_results: {str(e)}", exc_info=True)
+            self.log_error(
+                __file__,
+                "validate_evaluation_results",
+                str(e),
+            )
             print(f"Exception in validate_evaluation_results: {str(e)}")
         try:
             url = "/v1/model/add_eval_results"
@@ -878,7 +885,11 @@ class ActionTracker:
             }
             self.rpc.post(path=url, payload=Payload)
         except Exception as e:
-            logging.error(f"Exception in save_evaluation_results: {str(e)}", exc_info=True)
+            self.log_error(
+                __file__,
+                "save_evaluation_results",
+                str(e),
+            )
             print(f"Exception in save_evaluation_results: {str(e)}")
             self.update_status(
                 "error",
@@ -973,21 +984,16 @@ class ActionTracker:
         >>> print(exported_mapping)
         {0: 'cat', 1: 'dog'}
         """
-        try:
-            if self.index_to_category is not None:
-                return self.index_to_category
-            if self.action_details.get("class_index_map"):
-                self.index_to_category = self.action_details.get("class_index_map")
-                return self.index_to_category
-            url = "/v1/model/model_train/" + str(self._idModel_str)
-            if is_exported or self.is_exported:
-                url = f"/v1/model/get_model_train_by_export_id?exportId={self._idModel_str}"
-            modelTrain_doc = self.rpc.get(url)["data"]
-            self.index_to_category = modelTrain_doc.get("indexToCat", {})
-        except Exception as e:
-            print(f"Exception in get_index_to_category: {str(e)}")
-            logging.error(f"Exception in get_index_to_category: {str(e)}")
-            self.index_to_category = {}
+        if self.index_to_category:
+            return self.index_to_category
+        if self.action_details.get("class_index_map"):
+            self.index_to_category = self.action_details.get("class_index_map")
+            return self.index_to_category
+        url = "/v1/model/model_train/" + str(self._idModel_str)
+        if is_exported is not None or self.is_exported:
+            url = f"/v1/model/get_model_train_by_export_id?exportId={self._idModel_str}"
+        modelTrain_doc = self.rpc.get(url)["data"]
+        self.index_to_category = modelTrain_doc.get("indexToCat", {})
         return self.index_to_category
 
 

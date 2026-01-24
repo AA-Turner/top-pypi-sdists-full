@@ -1,9 +1,15 @@
 r'''
-# CDKTF prebuilt bindings for DataDog/datadog provider version 3.74.0
+# CDKTF prebuilt bindings for DataDog/datadog provider version 3.82.0
 
-This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.74.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+HashiCorp made the decision to stop publishing new versions of prebuilt [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.82.0) bindings for [CDK for Terraform](https://cdk.tf) on December 10, 2025. As such, this repository has been archived and is no longer supported in any way by HashiCorp. Previously-published versions of this prebuilt provider will still continue to be available on their respective package managers (e.g. npm, PyPi, Maven, NuGet), but these will not be compatible with new releases of `cdktf` past `0.21.0` and are no longer eligible for commercial support.
 
-## Available Packages
+As a reminder, you can continue to use the `DataDog/datadog` provider in your CDK for Terraform (CDKTF) projects, even with newer versions of CDKTF, but you will need to generate the bindings locally. The easiest way to do so is to use the [`provider add` command](https://developer.hashicorp.com/terraform/cdktf/cli-reference/commands#provider-add), optionally with the `--force-local` flag enabled:
+
+`cdktf provider add DataDog/datadog --force-local`
+
+For more information and additional examples, check out our documentation on [generating provider bindings manually](https://cdk.tf/imports).
+
+## Deprecated Packages
 
 ### NPM
 
@@ -55,43 +61,6 @@ Find auto-generated docs for this provider here:
 * [Go](./docs/API.go.md)
 
 You can also visit a hosted version of the documentation on [constructs.dev](https://constructs.dev/packages/@cdktf/provider-datadog).
-
-## Versioning
-
-This project is explicitly not tracking the Terraform datadog provider version 1:1. In fact, it always tracks `latest` of `~> 3.0` with every release. If there are scenarios where you explicitly have to pin your provider version, you can do so by [generating the provider constructs manually](https://cdk.tf/imports).
-
-These are the upstream dependencies:
-
-* [CDK for Terraform](https://cdk.tf)
-* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.74.0)
-* [Terraform Engine](https://terraform.io)
-
-If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
-
-## Features / Issues / Bugs
-
-Please report bugs and issues to the [CDK for Terraform](https://cdk.tf) project:
-
-* [Create bug report](https://cdk.tf/bug)
-* [Create feature request](https://cdk.tf/feature)
-
-## Contributing
-
-### Projen
-
-This is mostly based on [Projen](https://github.com/projen/projen), which takes care of generating the entire repository.
-
-### cdktf-provider-project based on Projen
-
-There's a custom [project builder](https://github.com/cdktf/cdktf-provider-project) which encapsulate the common settings for all `cdktf` prebuilt providers.
-
-### Provider Version
-
-The provider version can be adjusted in [./.projenrc.js](./.projenrc.js).
-
-### Repository Management
-
-The repository is managed by [CDKTF Repository Manager](https://github.com/cdktf/cdktf-repository-manager/).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -128,6 +97,7 @@ from ._jsii import *
 __all__ = [
     "action_connection",
     "agentless_scanning_aws_scan_options",
+    "agentless_scanning_gcp_scan_options",
     "api_key",
     "apm_retention_filter",
     "apm_retention_filter_order",
@@ -137,6 +107,8 @@ __all__ = [
     "appsec_waf_custom_rule",
     "appsec_waf_exclusion_filter",
     "authn_mapping",
+    "aws_cur_config",
+    "azure_uc_config",
     "child_organization",
     "cloud_configuration_rule",
     "cloud_workload_security_agent_rule",
@@ -145,6 +117,8 @@ __all__ = [
     "cost_budget",
     "csm_threats_agent_rule",
     "csm_threats_policy",
+    "custom_allocation_rule",
+    "custom_allocation_rules",
     "dashboard",
     "dashboard_json",
     "dashboard_list",
@@ -153,19 +127,25 @@ __all__ = [
     "data_datadog_apm_retention_filters_order",
     "data_datadog_app_builder_app",
     "data_datadog_application_key",
+    "data_datadog_aws_cur_config",
+    "data_datadog_azure_uc_config",
     "data_datadog_cloud_workload_security_agent_rules",
     "data_datadog_cost_budget",
     "data_datadog_csm_threats_agent_rules",
     "data_datadog_csm_threats_policies",
+    "data_datadog_custom_allocation_rule",
     "data_datadog_dashboard",
     "data_datadog_dashboard_list",
+    "data_datadog_gcp_uc_config",
     "data_datadog_hosts",
     "data_datadog_incident_notification_rule",
     "data_datadog_incident_notification_template",
     "data_datadog_incident_type",
     "data_datadog_integration_aws_available_logs_services",
     "data_datadog_integration_aws_available_namespaces",
+    "data_datadog_integration_aws_external_id",
     "data_datadog_integration_aws_iam_permissions",
+    "data_datadog_integration_aws_iam_permissions_standard",
     "data_datadog_integration_aws_logs_services",
     "data_datadog_integration_aws_namespace_rules",
     "data_datadog_ip_ranges",
@@ -177,11 +157,14 @@ __all__ = [
     "data_datadog_metric_active_tags_and_aggregations",
     "data_datadog_metric_metadata",
     "data_datadog_metric_tags",
+    "data_datadog_metrics",
     "data_datadog_monitor",
     "data_datadog_monitor_config_policies",
     "data_datadog_monitors",
     "data_datadog_permissions",
     "data_datadog_powerpack",
+    "data_datadog_reference_table",
+    "data_datadog_reference_table_rows",
     "data_datadog_role",
     "data_datadog_role_users",
     "data_datadog_roles",
@@ -199,7 +182,9 @@ __all__ = [
     "data_datadog_synthetics_global_variable",
     "data_datadog_synthetics_locations",
     "data_datadog_synthetics_test",
+    "data_datadog_tag_pipeline_ruleset",
     "data_datadog_team",
+    "data_datadog_team_hierarchy_links",
     "data_datadog_team_memberships",
     "data_datadog_teams",
     "data_datadog_user",
@@ -209,6 +194,7 @@ __all__ = [
     "domain_allowlist",
     "downtime",
     "downtime_schedule",
+    "gcp_uc_config",
     "incident_notification_rule",
     "incident_notification_template",
     "incident_type",
@@ -254,9 +240,11 @@ __all__ = [
     "on_call_schedule",
     "on_call_team_routing_rules",
     "openapi_api",
+    "org_connection",
     "organization_settings",
     "powerpack",
     "provider",
+    "reference_table",
     "restriction_policy",
     "role",
     "rum_application",
@@ -283,7 +271,10 @@ __all__ = [
     "synthetics_global_variable",
     "synthetics_private_location",
     "synthetics_test",
+    "tag_pipeline_ruleset",
+    "tag_pipeline_rulesets",
     "team",
+    "team_hierarchy_links",
     "team_link",
     "team_membership",
     "team_permission_setting",
@@ -299,6 +290,7 @@ publication.publish()
 # Loading modules to ensure their types are registered with the jsii runtime library
 from . import action_connection
 from . import agentless_scanning_aws_scan_options
+from . import agentless_scanning_gcp_scan_options
 from . import api_key
 from . import apm_retention_filter
 from . import apm_retention_filter_order
@@ -308,6 +300,8 @@ from . import application_key
 from . import appsec_waf_custom_rule
 from . import appsec_waf_exclusion_filter
 from . import authn_mapping
+from . import aws_cur_config
+from . import azure_uc_config
 from . import child_organization
 from . import cloud_configuration_rule
 from . import cloud_workload_security_agent_rule
@@ -316,6 +310,8 @@ from . import compliance_resource_evaluation_filter
 from . import cost_budget
 from . import csm_threats_agent_rule
 from . import csm_threats_policy
+from . import custom_allocation_rule
+from . import custom_allocation_rules
 from . import dashboard
 from . import dashboard_json
 from . import dashboard_list
@@ -324,19 +320,25 @@ from . import data_datadog_api_key
 from . import data_datadog_apm_retention_filters_order
 from . import data_datadog_app_builder_app
 from . import data_datadog_application_key
+from . import data_datadog_aws_cur_config
+from . import data_datadog_azure_uc_config
 from . import data_datadog_cloud_workload_security_agent_rules
 from . import data_datadog_cost_budget
 from . import data_datadog_csm_threats_agent_rules
 from . import data_datadog_csm_threats_policies
+from . import data_datadog_custom_allocation_rule
 from . import data_datadog_dashboard
 from . import data_datadog_dashboard_list
+from . import data_datadog_gcp_uc_config
 from . import data_datadog_hosts
 from . import data_datadog_incident_notification_rule
 from . import data_datadog_incident_notification_template
 from . import data_datadog_incident_type
 from . import data_datadog_integration_aws_available_logs_services
 from . import data_datadog_integration_aws_available_namespaces
+from . import data_datadog_integration_aws_external_id
 from . import data_datadog_integration_aws_iam_permissions
+from . import data_datadog_integration_aws_iam_permissions_standard
 from . import data_datadog_integration_aws_logs_services
 from . import data_datadog_integration_aws_namespace_rules
 from . import data_datadog_ip_ranges
@@ -348,11 +350,14 @@ from . import data_datadog_logs_pipelines_order
 from . import data_datadog_metric_active_tags_and_aggregations
 from . import data_datadog_metric_metadata
 from . import data_datadog_metric_tags
+from . import data_datadog_metrics
 from . import data_datadog_monitor
 from . import data_datadog_monitor_config_policies
 from . import data_datadog_monitors
 from . import data_datadog_permissions
 from . import data_datadog_powerpack
+from . import data_datadog_reference_table
+from . import data_datadog_reference_table_rows
 from . import data_datadog_role
 from . import data_datadog_role_users
 from . import data_datadog_roles
@@ -370,7 +375,9 @@ from . import data_datadog_software_catalog
 from . import data_datadog_synthetics_global_variable
 from . import data_datadog_synthetics_locations
 from . import data_datadog_synthetics_test
+from . import data_datadog_tag_pipeline_ruleset
 from . import data_datadog_team
+from . import data_datadog_team_hierarchy_links
 from . import data_datadog_team_memberships
 from . import data_datadog_teams
 from . import data_datadog_user
@@ -380,6 +387,7 @@ from . import dataset
 from . import domain_allowlist
 from . import downtime
 from . import downtime_schedule
+from . import gcp_uc_config
 from . import incident_notification_rule
 from . import incident_notification_template
 from . import incident_type
@@ -425,9 +433,11 @@ from . import on_call_escalation_policy
 from . import on_call_schedule
 from . import on_call_team_routing_rules
 from . import openapi_api
+from . import org_connection
 from . import organization_settings
 from . import powerpack
 from . import provider
+from . import reference_table
 from . import restriction_policy
 from . import role
 from . import rum_application
@@ -454,7 +464,10 @@ from . import synthetics_concurrency_cap
 from . import synthetics_global_variable
 from . import synthetics_private_location
 from . import synthetics_test
+from . import tag_pipeline_ruleset
+from . import tag_pipeline_rulesets
 from . import team
+from . import team_hierarchy_links
 from . import team_link
 from . import team_membership
 from . import team_permission_setting

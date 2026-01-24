@@ -7,11 +7,11 @@ from fugue_version import __version__
 SQL_DEPENDENCIES = [
     "qpd>=0.4.4",
     "fugue-sql-antlr>=0.2.0",
-    "sqlglot",
+    "sqlglot<28",  # TODO: 28 breaks ibis, fix it
     "jinja2",
 ]
 
-with open("README.md") as f:
+with open("README.md", encoding="utf-8") as f:
     _text = ["# Fugue"] + f.read().splitlines()[1:]
     LONG_DESCRIPTION = "\n".join(_text)
 
@@ -38,24 +38,23 @@ setup(
     keywords="distributed spark dask ray sql dsl domain specific language",
     url="http://github.com/fugue-project/fugue",
     install_requires=[
-        "triad>=0.9.7",
-        "adagio>=0.2.4",
+        "triad>=1.0.0",
+        "adagio>=0.2.6",
     ],
     extras_require={
         "sql": SQL_DEPENDENCIES,
         "cpp_sql_parser": ["fugue-sql-antlr[cpp]>=0.2.0"],
         "spark": ["pyspark>=3.1.1"],
         "dask": [
-            "dask[distributed,dataframe]>=2023.5.0",
-            "dask[distributed,dataframe]>=2024.4.0;python_version>='3.11.9'",
+            "dask[distributed,dataframe]>=2024.4.0",
             "pyarrow>=7.0.0",
             "pandas>=2.0.2",
         ],
         "ray": [
-            "ray[data]>=2.5.0",
+            "ray[data]>=2.30.0",
             "duckdb>=0.5.0",
             "pyarrow>=7.0.0",
-            "pandas<2.2",
+            "pandas",
         ],
         "duckdb": SQL_DEPENDENCIES
         + [
@@ -63,21 +62,21 @@ setup(
             "numpy",
         ],
         "polars": ["polars"],
-        "ibis": SQL_DEPENDENCIES + ["ibis-framework", "pandas<2.2"],
+        "ibis": SQL_DEPENDENCIES + ["ibis-framework[pandas]"],
         "notebook": ["notebook", "jupyterlab", "ipython>=7.10.0"],
         "all": SQL_DEPENDENCIES
         + [
             "pyspark>=3.1.1",
-            "dask[distributed,dataframe]>=2023.5.0",
+            "dask[distributed,dataframe]>=2024.4.0",
             "dask-sql",
-            "ray[data]>=2.5.0",
+            "ray[data]>=2.30.0",
             "notebook",
             "jupyterlab",
             "ipython>=7.10.0",
             "duckdb>=0.5.0",
             "pyarrow>=6.0.1",
-            "pandas>=2.0.2,<2.2",  # because of Ray and ibis
-            "ibis-framework",
+            "pandas>=2.0.2",
+            "ibis-framework[pandas,duckdb]",
             "polars",
         ],
     },
@@ -92,6 +91,7 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3 :: Only",
     ],
     python_requires=">=3.8",

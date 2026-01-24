@@ -19,9 +19,9 @@ import os.path
 import re
 import tempfile
 from datetime import datetime
+from importlib.resources import files  # nosemgrep: python.lang.compatibility.python37.python37-compatibility-importlib2
 from typing import Set
 
-import pkg_resources
 from marshmallow.exceptions import ValidationError
 
 from pcluster.aws.aws_api import AWSApi
@@ -76,7 +76,7 @@ from pcluster.templates.cdk_builder import CDKTemplateBuilder
 from pcluster.utils import datetime_to_epoch, generate_random_name_with_prefix, get_installed_version, get_partition
 from pcluster.validators.common import FailureLevel, ValidationResult
 
-ImageBuilderStatusMapping = {
+ImageBuilderStatusMapping = {  # pylint: disable=invalid-name
     "BUILD_IN_PROGRESS": [
         "CREATE_IN_PROGRESS",
         "UPDATE_IN_PROGRESS",
@@ -532,7 +532,7 @@ class ImageBuilder:
                 # upload cfn template
                 self.bucket.upload_cfn_template(self.template_body, self._s3_artifacts_dict.get("template_name"))
 
-            resources = pkg_resources.resource_filename(__name__, "../resources/custom_resources")
+            resources = str(files(__package__).parent / "resources" / "custom_resources")
             self.bucket.upload_resources(
                 resource_dir=resources, custom_artifacts_name=self._s3_artifacts_dict.get("custom_artifacts_name")
             )

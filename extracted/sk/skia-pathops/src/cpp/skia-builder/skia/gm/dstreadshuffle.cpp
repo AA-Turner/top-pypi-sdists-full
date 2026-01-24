@@ -26,6 +26,7 @@
 #include "include/core/SkTypes.h"
 #include "src/base/SkRandom.h"
 #include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
 
 namespace skiagm {
 
@@ -47,13 +48,9 @@ protected:
         kNumShapeTypes
     };
 
-    SkString onShortName() override {
-        return SkString("dstreadshuffle");
-    }
+    SkString getName() const override { return SkString("dstreadshuffle"); }
 
-    SkISize onISize() override {
-        return SkISize::Make(530, 680);
-    }
+    SkISize getISize() override { return SkISize::Make(530, 680); }
 
     void drawShape(SkCanvas* canvas, SkPaint* paint, ShapeType type) {
         const SkRect kRect = SkRect::MakeXYWH(0, 0, 75.f, 85.f);
@@ -69,8 +66,7 @@ protected:
                 break;
             case kConvexPath_ShapeType:
                 if (fConvexPath.isEmpty()) {
-                    SkPoint points[4];
-                    kRect.toQuad(points);
+                    const std::array<SkPoint, 4> points = kRect.toQuad();
                     fConvexPath = SkPathBuilder().moveTo(points[0])
                                                  .quadTo(points[1], points[2])
                                                  .quadTo(points[3], points[0])
@@ -86,7 +82,7 @@ protected:
                     SkMatrix rot;
                     rot.setRotate(360.f / 5, 50.f, 70.f);
                     for (int i = 1; i < 5; ++i) {
-                        rot.mapPoints(points + i, points + i - 1, 1);
+                        points[i] = rot.mapPoint(points[i-1]);
                     }
                     b.moveTo(points[0]);
                     for (int i = 0; i < 5; ++i) {
@@ -100,7 +96,7 @@ protected:
                 break;
             case kText_ShapeType: {
                 const char* text = "N";
-                SkFont      font(ToolUtils::create_portable_typeface(), 100);
+                SkFont      font(ToolUtils::DefaultPortableTypeface(), 100);
                 font.setEmbolden(true);
                 canvas->drawString(text, 0.f, 100.f, font, *paint);
                 break;
@@ -134,7 +130,7 @@ protected:
         for (int i = 0; i < 12; ++i) {
             hairPaint.setColor(GetColor(&colorRandom));
             canvas->drawLine(pts[0], pts[1], hairPaint);
-            rot.mapPoints(pts, 2);
+            rot.mapPoints(pts);
         }
     }
 
@@ -183,7 +179,7 @@ protected:
                                          canvas->imageInfo().alphaType(),
                                          canvas->imageInfo().refColorSpace());
             }
-            surf = SkSurface::MakeRaster(info);
+            surf = SkSurfaces::Raster(info);
             SkASSERT(surf);
         }
         canvas->scale(5.f, 5.f);

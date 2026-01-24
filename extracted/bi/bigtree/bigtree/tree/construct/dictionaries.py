@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Mapping, Optional, Type, TypeVar
+from typing import Any, Mapping, TypeVar
 
 from bigtree.node import node
 from bigtree.tree.construct.strings import add_path_to_tree
@@ -42,8 +42,8 @@ def add_dict_to_tree_by_path(
     - For example: Path strings should be "a/b", "a/c", "a/b/d" etc. and should not start with another root node
 
     Examples:
-        >>> from bigtree import Node, add_dict_to_tree_by_path
-        >>> root = Node("a")
+        >>> from bigtree import Node, Tree
+        >>> tree = Tree(Node("a"))
         >>> path_dict = {
         ...     "a": {"age": 90},
         ...     "a/b": {"age": 65},
@@ -54,8 +54,9 @@ def add_dict_to_tree_by_path(
         ...     "a/b/e/g": {"age": 10},
         ...     "a/b/e/h": {"age": 6},
         ... }
-        >>> root = add_dict_to_tree_by_path(root, path_dict)
-        >>> root.show()
+        >>> tree.add_dict_by_path(path_dict)
+        Node(/a, age=90)
+        >>> tree.show()
         a
         ├── b
         │   ├── d
@@ -100,15 +101,17 @@ def add_dict_to_tree_by_name(tree: T, name_attrs: Mapping[str, Mapping[str, Any]
     name, attributes will be added to all nodes sharing the same name.
 
     Examples:
-        >>> from bigtree import Node, add_dict_to_tree_by_name
+        >>> from bigtree import Node, Tree
         >>> root = Node("a")
         >>> b = Node("b", parent=root)
+        >>> tree = Tree(root)
         >>> name_dict = {
         ...     "a": {"age": 90},
         ...     "b": {"age": 65},
         ... }
-        >>> root = add_dict_to_tree_by_name(root, name_dict)
-        >>> root.show(attr_list=["age"])
+        >>> tree.add_dict_by_name(name_dict)
+        Node(/a, age=90)
+        >>> tree.show(attr_list=["age"])
         a [age=90]
         └── b [age=65]
 
@@ -139,7 +142,7 @@ def dict_to_tree(
     path_attrs: Mapping[str, Any],
     sep: str = "/",
     duplicate_name_allowed: bool = True,
-    node_type: Type[T] = node.Node,  # type: ignore[assignment]
+    node_type: type[T] = node.Node,  # type: ignore[assignment]
 ) -> T:
     """Construct tree from nested dictionary using path, ``key``: path, ``value``: dict of attribute name and attribute
     value.
@@ -159,7 +162,7 @@ def dict_to_tree(
     All attributes in `path_attrs` will be added to the tree, including attributes with null values.
 
     Examples:
-        >>> from bigtree import dict_to_tree
+        >>> from bigtree import Tree
         >>> path_dict = {
         ...     "a": {"age": 90},
         ...     "a/b": {"age": 65},
@@ -170,8 +173,8 @@ def dict_to_tree(
         ...     "a/b/e/g": {"age": 10},
         ...     "a/b/e/h": {"age": 6},
         ... }
-        >>> root = dict_to_tree(path_dict)
-        >>> root.show(attr_list=["age"])
+        >>> tree = Tree.from_dict(path_dict)
+        >>> tree.show(attr_list=["age"])
         a [age=90]
         ├── b [age=65]
         │   ├── d [age=40]
@@ -229,7 +232,7 @@ def nested_dict_to_tree(
     node_attrs: Mapping[str, Any],
     name_key: str = "name",
     child_key: str = "children",
-    node_type: Type[T] = node.Node,  # type: ignore[assignment]
+    node_type: type[T] = node.Node,  # type: ignore[assignment]
 ) -> T:
     """Construct tree from nested recursive dictionary.
 
@@ -238,7 +241,7 @@ def nested_dict_to_tree(
     - ``value`` of `child_key`: list of dict containing `name_key` and `child_key` (recursive)
 
     Examples:
-        >>> from bigtree import nested_dict_to_tree
+        >>> from bigtree import Tree
         >>> nested_dict = {
         ...     "name": "a",
         ...     "age": 90,
@@ -253,8 +256,8 @@ def nested_dict_to_tree(
         ...          ]},
         ...     ],
         ... }
-        >>> root = nested_dict_to_tree(nested_dict)
-        >>> root.show(attr_list=["age"])
+        >>> tree = Tree.from_nested_dict(nested_dict)
+        >>> tree.show(attr_list=["age"])
         a [age=90]
         └── b [age=65]
             ├── d [age=40]
@@ -265,7 +268,7 @@ def nested_dict_to_tree(
         node_attrs: node, children, and node attribute information,
             key: `name_key` and `child_key`
             value of `name_key` (str): node name
-            value of `child_key` (List[Mapping[str, Any]]): list of dict containing `name_key` and `child_key` (recursive)
+            value of `child_key` (list[Mapping[str, Any]]): list of dict containing `name_key` and `child_key` (recursive)
         name_key: key of node name, value is type str
         child_key: key of child list, value is type list
         node_type: node type of tree to be created
@@ -276,7 +279,7 @@ def nested_dict_to_tree(
     assertions.assert_length_not_empty(node_attrs, "Dictionary", "node_attrs")
 
     def _recursive_add_child(
-        child_dict: Mapping[str, Any], parent_node: Optional[T] = None
+        child_dict: Mapping[str, Any], parent_node: T | None = None
     ) -> T:
         """Recursively add child to tree, given child attributes and parent node.
 
@@ -290,7 +293,7 @@ def nested_dict_to_tree(
         child_dict = dict(child_dict)
         node_name = child_dict.pop(name_key)
         node_children = child_dict.pop(child_key, [])
-        if not isinstance(node_children, List):
+        if not isinstance(node_children, list):
             raise TypeError(
                 f"child_key {child_key} should be List type, received {node_children}"
             )
@@ -305,8 +308,8 @@ def nested_dict_to_tree(
 
 def nested_dict_key_to_tree(
     node_attrs: Mapping[str, Mapping[str, Any]],
-    child_key: Optional[str] = "children",
-    node_type: Type[T] = node.Node,  # type: ignore[assignment]
+    child_key: str | None = "children",
+    node_type: type[T] = node.Node,  # type: ignore[assignment]
 ) -> T:
     """Construct tree from nested recursive dictionary, where the keys are node names.
 
@@ -330,7 +333,7 @@ def nested_dict_key_to_tree(
     Value dictionary consist of ``key`` that is node names of children
 
     Examples:
-        >>> from bigtree import nested_dict_key_to_tree
+        >>> from bigtree import Tree
         >>> nested_dict = {
         ...     "a": {
         ...         "age": 90,
@@ -348,8 +351,8 @@ def nested_dict_key_to_tree(
         ...         },
         ...     }
         ... }
-        >>> root = nested_dict_key_to_tree(nested_dict)
-        >>> root.show(attr_list=["age"])
+        >>> tree = Tree.from_nested_dict_key(nested_dict)
+        >>> tree.show(attr_list=["age"])
         a [age=90]
         └── b [age=65]
             ├── d [age=40]
@@ -365,8 +368,8 @@ def nested_dict_key_to_tree(
         ...         },
         ...     }
         ... }
-        >>> root = nested_dict_key_to_tree(nested_dict, child_key=None)
-        >>> root.show()
+        >>> tree = Tree.from_nested_dict_key(nested_dict, child_key=None)
+        >>> tree.show()
         a
         └── b
             ├── d
@@ -386,7 +389,7 @@ def nested_dict_key_to_tree(
     assertions.assert_length(node_attrs, 1, "Dictionary", "node_attrs")
 
     def _recursive_add_child(
-        child_name: str, child_dict: Mapping[str, Any], parent_node: Optional[T] = None
+        child_name: str, child_dict: Mapping[str, Any], parent_node: T | None = None
     ) -> T:
         """Recursively add child to tree, given child attributes and parent node.
 

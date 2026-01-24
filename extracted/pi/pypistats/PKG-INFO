@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypistats
-Version: 1.11.0
+Version: 1.12.0
 Summary: Python interface to PyPI Stats API https://pypistats.org/api
 Project-URL: Changelog, https://github.com/hugovk/pypistats/releases
 Project-URL: Homepage, https://github.com/hugovk/pypistats
@@ -14,23 +14,23 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.9
-Requires-Dist: httpx>=0.19
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
 Requires-Dist: platformdirs
 Requires-Dist: prettytable>=3.12
 Requires-Dist: pytablewriter[html]>=0.63
-Requires-Dist: python-dateutil
 Requires-Dist: python-slugify
-Requires-Dist: termcolor>=2.1
+Requires-Dist: termcolor>=3.2
 Requires-Dist: tomli; python_version < '3.11'
+Requires-Dist: urllib3>=2
 Provides-Extra: numpy
 Requires-Dist: numpy; extra == 'numpy'
 Provides-Extra: pandas
@@ -40,7 +40,6 @@ Requires-Dist: freezegun; extra == 'tests'
 Requires-Dist: pyfakefs; extra == 'tests'
 Requires-Dist: pytest; extra == 'tests'
 Requires-Dist: pytest-cov; extra == 'tests'
-Requires-Dist: respx>=0.11; extra == 'tests'
 Description-Content-Type: text/markdown
 
 # pypistats

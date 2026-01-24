@@ -1,10 +1,13 @@
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, TypeVar, Union
+
+import httpx
 
 from weave.trace_server import trace_server_interface as tsi
 from weave.trace_server_bindings.async_batch_processor import AsyncBatchProcessor
-from weave.utils import http_requests as requests
+from weave.utils.retry import _is_retryable_exception
 
 if TYPE_CHECKING:
     from weave.trace_server_bindings.models import EndBatchItem, StartBatchItem
@@ -44,10 +47,11 @@ def log_dropped_call_batch(
         logger.error(f"dropped call start ids: {dropped_start_ids}")
     if dropped_end_ids:
         logger.error(f"dropped call end ids: {dropped_end_ids}")
-    if isinstance(e, requests.HTTPError) and e.response is not None:
-        logger.error(f"status code: {e.response.status_code}")
-        logger.error(f"reason: {e.response.reason}")
-        logger.error(f"text: {e.response.text}")
+    response = getattr(e, "response", None)
+    if isinstance(e, (httpx.HTTPError, httpx.HTTPStatusError)) and response:
+        logger.error(f"status code: {response.status_code}")
+        logger.error(f"reason: {response.reason_phrase}")
+        logger.error(f"text: {response.text}")
     else:
         logger.error(f"error: {e}")
 
@@ -64,12 +68,40 @@ def log_dropped_feedback_batch(
         dropped_feedback_types.append(item.feedback_type)
     if dropped_feedback_types:
         logger.error(f"dropped feedback types: {dropped_feedback_types}")
-    if isinstance(e, requests.HTTPError) and e.response is not None:
-        logger.error(f"status code: {e.response.status_code}")
-        logger.error(f"reason: {e.response.reason}")
-        logger.error(f"text: {e.response.text}")
+    response = getattr(e, "response", None)
+    if isinstance(e, (httpx.HTTPError, httpx.HTTPStatusError)) and response:
+        logger.error(f"status code: {response.status_code}")
+        logger.error(f"reason: {response.reason_phrase}")
+        logger.error(f"text: {response.text}")
     else:
         logger.error(f"error: {e}")
+
+
+def _split_and_process_halves(
+    batch: list[T],
+    *,
+    batch_name: str,
+    remote_request_bytes_limit: int,
+    send_batch_fn: Callable[[bytes], None],
+    processor_obj: BatchProcessor[T] | None,
+    get_item_id_fn: Callable[[T], str] | None,
+    log_dropped_fn: Callable[[list[T], Exception], None] | None,
+    encode_batch_fn: Callable[[list[T]], bytes],
+) -> None:
+    """Split a batch in half and recursively process each half."""
+    split_idx = len(batch) // 2
+    for half in (batch[:split_idx], batch[split_idx:]):
+        process_batch_with_retry(
+            half,
+            batch_name=batch_name,
+            remote_request_bytes_limit=remote_request_bytes_limit,
+            send_batch_fn=send_batch_fn,
+            processor_obj=processor_obj,
+            should_update_batch_size=False,
+            get_item_id_fn=get_item_id_fn,
+            log_dropped_fn=log_dropped_fn,
+            encode_batch_fn=encode_batch_fn,
+        )
 
 
 def process_batch_with_retry(
@@ -78,10 +110,10 @@ def process_batch_with_retry(
     batch_name: str,
     remote_request_bytes_limit: int,
     send_batch_fn: Callable[[bytes], None],
-    processor_obj: Optional[BatchProcessor[T]],
+    processor_obj: BatchProcessor[T] | None,
     should_update_batch_size: bool = True,
-    get_item_id_fn: Optional[Callable[[T], str]] = None,
-    log_dropped_fn: Optional[Callable[[list[T], Exception], None]] = None,
+    get_item_id_fn: Callable[[T], str] | None = None,
+    log_dropped_fn: Callable[[list[T], Exception], None] | None = None,
     encode_batch_fn: Callable[[list[T]], bytes],
 ) -> None:
     """Process a batch with common retry and error handling logic.
@@ -109,43 +141,28 @@ def process_batch_with_retry(
     encoded_data = encode_batch_fn(batch)
     encoded_bytes = len(encoded_data)
 
-    # Update target batch size (this allows us to have a dynamic batch size based on the size of the data being sent)
+    # Update target batch size dynamically based on actual data size
     estimated_bytes_per_item = encoded_bytes / len(batch)
     if should_update_batch_size and estimated_bytes_per_item > 0:
         target_batch_size = int(remote_request_bytes_limit // estimated_bytes_per_item)
         if processor_obj:
             processor_obj.max_batch_size = max(1, target_batch_size)
 
-    # If the batch is too big, split it in half and process each half
+    # Pre-send split: if batch exceeds limit, split and process halves
     if encoded_bytes > remote_request_bytes_limit and len(batch) > 1:
-        split_idx = int(len(batch) // 2)
-        # Recursively process each half with batch size updates disabled
-        process_batch_with_retry(
-            batch[:split_idx],
+        _split_and_process_halves(
+            batch,
             batch_name=batch_name,
             remote_request_bytes_limit=remote_request_bytes_limit,
             send_batch_fn=send_batch_fn,
             processor_obj=processor_obj,
-            should_update_batch_size=False,
-            get_item_id_fn=get_item_id_fn,
-            log_dropped_fn=log_dropped_fn,
-            encode_batch_fn=encode_batch_fn,
-        )
-        process_batch_with_retry(
-            batch[split_idx:],
-            batch_name=batch_name,
-            remote_request_bytes_limit=remote_request_bytes_limit,
-            send_batch_fn=send_batch_fn,
-            processor_obj=processor_obj,
-            should_update_batch_size=False,
             get_item_id_fn=get_item_id_fn,
             log_dropped_fn=log_dropped_fn,
             encode_batch_fn=encode_batch_fn,
         )
         return
 
-    # If a single item is over the configured limit we should log a warning
-    # Bytes limit can change based on env so we don't want to actually error here
+    # Warn if single item exceeds limit (can't split further)
     if encoded_bytes > remote_request_bytes_limit and len(batch) == 1:
         logger.warning(
             f"Single {batch_name} size ({encoded_bytes} bytes) may be too large to send."
@@ -155,7 +172,22 @@ def process_batch_with_retry(
     try:
         send_batch_fn(encoded_data)
     except Exception as e:
-        from weave.utils.retry import _is_retryable_exception
+        # Handle 413 specially: server rejected as too large, split and retry
+        if _is_413_error(e) and len(batch) > 1:
+            logger.warning(
+                f"Server returned 413 for {batch_name} batch of {len(batch)} items, splitting and retrying"
+            )
+            _split_and_process_halves(
+                batch,
+                batch_name=batch_name,
+                remote_request_bytes_limit=remote_request_bytes_limit,
+                send_batch_fn=send_batch_fn,
+                processor_obj=processor_obj,
+                get_item_id_fn=get_item_id_fn,
+                log_dropped_fn=log_dropped_fn,
+                encode_batch_fn=encode_batch_fn,
+            )
+            return
 
         if not _is_retryable_exception(e):
             if log_dropped_fn:
@@ -166,16 +198,13 @@ def process_batch_with_retry(
                     exc_info=True,
                 )
         else:
-            # Add items back to the queue for later processing, but only if the processor is still accepting work
+            # Add items back to the queue for later processing
             logger.warning(
                 f"{batch_name.capitalize()} batch failed after max retries, requeuing batch with {len(batch)=} for later processing",
             )
 
-            # only if debug mode
             if logger.isEnabledFor(logging.DEBUG) and get_item_id_fn:
-                ids = []
-                for item in batch:
-                    ids.append(get_item_id_fn(item))
+                ids = [get_item_id_fn(item) for item in batch]
                 logger.debug(f"Requeuing {batch_name} batch with {ids=}")
 
             # Only requeue if the processor is still accepting work
@@ -191,7 +220,7 @@ def process_batch_with_retry(
                 )
 
 
-def handle_response_error(response: requests.Response, url: str) -> None:
+def handle_response_error(response: httpx.Response, url: str) -> None:
     """Handle HTTP response errors with user-friendly messages.
 
     Args:
@@ -199,7 +228,7 @@ def handle_response_error(response: requests.Response, url: str) -> None:
         url: The endpoint URL that was called
 
     Raises:
-        requests.HTTPError: With a well-formatted error message
+        httpx.HTTPStatusError: With a well-formatted error message
     """
     if 200 <= response.status_code < 300:
         return
@@ -208,7 +237,7 @@ def handle_response_error(response: requests.Response, url: str) -> None:
     default_message = None
     try:
         response.raise_for_status()
-    except requests.HTTPError as e:
+    except (httpx.HTTPError, httpx.HTTPStatusError) as e:
         default_message = str(e)
 
     # Try to extract custom error message from JSON response
@@ -235,11 +264,13 @@ def handle_response_error(response: requests.Response, url: str) -> None:
         # Fallback if something goes wrong
         message = f"{response.status_code} Error for url {url}: Request failed"
 
-    raise requests.HTTPError(message, response=response)
+    # For httpx, we need to use HTTPStatusError with request and response
+    # httpx Response objects always have a request attribute
+    raise httpx.HTTPStatusError(message, request=response.request, response=response)
 
 
 def check_endpoint_exists(
-    func: Callable, test_req: Any, cache_key: Union[str, None] = None
+    func: Callable, test_req: Any, cache_key: str | None = None
 ) -> bool:
     """Check if a function/endpoint exists and works by calling it with a test request.
 
@@ -248,7 +279,7 @@ def check_endpoint_exists(
 
     Args:
         func: The function to test (e.g., server.table_create_from_digests or
-              server._generic_request_executor.__wrapped__)
+              server._post_request_executor.__wrapped__)
         test_req: A test request to use for checking the function
         cache_key: Optional cache key. If not provided, uses id(func)
 
@@ -280,3 +311,12 @@ def check_endpoint_exists(
     if endpoint_exists:
         _ENDPOINT_CACHE.add(cache_key)
     return endpoint_exists
+
+
+def _is_413_error(e: Exception) -> bool:
+    """Check if an exception is an HTTP 413 (Payload Too Large) error."""
+    return (
+        isinstance(e, httpx.HTTPStatusError)
+        and e.response is not None
+        and e.response.status_code == 413
+    )

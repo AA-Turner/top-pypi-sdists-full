@@ -10,8 +10,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from wbcore import viewsets
-from wbcore.content_type.utils import get_ancestors_content_type
 from wbcore.contrib.authentication.authentication import JWTCookieAuthentication
+from wbcore.contrib.content_type.utils import get_ancestors_content_type
 from wbcore.contrib.documents.filters import DocumentFilter
 from wbcore.contrib.documents.models import Document, DocumentModelRelationship
 from wbcore.contrib.documents.serializers import (

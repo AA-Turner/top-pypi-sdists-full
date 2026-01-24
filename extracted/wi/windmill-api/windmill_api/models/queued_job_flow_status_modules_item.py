@@ -13,6 +13,12 @@ if TYPE_CHECKING:
     from ..models.queued_job_flow_status_modules_item_agent_actions_item_type_1 import (
         QueuedJobFlowStatusModulesItemAgentActionsItemType1,
     )
+    from ..models.queued_job_flow_status_modules_item_agent_actions_item_type_2 import (
+        QueuedJobFlowStatusModulesItemAgentActionsItemType2,
+    )
+    from ..models.queued_job_flow_status_modules_item_agent_actions_item_type_3 import (
+        QueuedJobFlowStatusModulesItemAgentActionsItemType3,
+    )
     from ..models.queued_job_flow_status_modules_item_approvers_item import QueuedJobFlowStatusModulesItemApproversItem
     from ..models.queued_job_flow_status_modules_item_branch_chosen import QueuedJobFlowStatusModulesItemBranchChosen
     from ..models.queued_job_flow_status_modules_item_branchall import QueuedJobFlowStatusModulesItemBranchall
@@ -44,7 +50,8 @@ class QueuedJobFlowStatusModulesItem:
         failed_retries (Union[Unset, List[str]]):
         skipped (Union[Unset, bool]):
         agent_actions (Union[Unset, List[Union['QueuedJobFlowStatusModulesItemAgentActionsItemType0',
-            'QueuedJobFlowStatusModulesItemAgentActionsItemType1']]]):
+            'QueuedJobFlowStatusModulesItemAgentActionsItemType1', 'QueuedJobFlowStatusModulesItemAgentActionsItemType2',
+            'QueuedJobFlowStatusModulesItemAgentActionsItemType3']]]):
         agent_actions_success (Union[Unset, List[bool]]):
     """
 
@@ -68,6 +75,8 @@ class QueuedJobFlowStatusModulesItem:
             Union[
                 "QueuedJobFlowStatusModulesItemAgentActionsItemType0",
                 "QueuedJobFlowStatusModulesItemAgentActionsItemType1",
+                "QueuedJobFlowStatusModulesItemAgentActionsItemType2",
+                "QueuedJobFlowStatusModulesItemAgentActionsItemType3",
             ]
         ],
     ] = UNSET
@@ -77,6 +86,12 @@ class QueuedJobFlowStatusModulesItem:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.queued_job_flow_status_modules_item_agent_actions_item_type_0 import (
             QueuedJobFlowStatusModulesItemAgentActionsItemType0,
+        )
+        from ..models.queued_job_flow_status_modules_item_agent_actions_item_type_1 import (
+            QueuedJobFlowStatusModulesItemAgentActionsItemType1,
+        )
+        from ..models.queued_job_flow_status_modules_item_agent_actions_item_type_2 import (
+            QueuedJobFlowStatusModulesItemAgentActionsItemType2,
         )
 
         type = self.type.value
@@ -129,6 +144,12 @@ class QueuedJobFlowStatusModulesItem:
                 agent_actions_item: Dict[str, Any]
 
                 if isinstance(agent_actions_item_data, QueuedJobFlowStatusModulesItemAgentActionsItemType0):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, QueuedJobFlowStatusModulesItemAgentActionsItemType1):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, QueuedJobFlowStatusModulesItemAgentActionsItemType2):
                     agent_actions_item = agent_actions_item_data.to_dict()
 
                 else:
@@ -187,6 +208,12 @@ class QueuedJobFlowStatusModulesItem:
         )
         from ..models.queued_job_flow_status_modules_item_agent_actions_item_type_1 import (
             QueuedJobFlowStatusModulesItemAgentActionsItemType1,
+        )
+        from ..models.queued_job_flow_status_modules_item_agent_actions_item_type_2 import (
+            QueuedJobFlowStatusModulesItemAgentActionsItemType2,
+        )
+        from ..models.queued_job_flow_status_modules_item_agent_actions_item_type_3 import (
+            QueuedJobFlowStatusModulesItemAgentActionsItemType3,
         )
         from ..models.queued_job_flow_status_modules_item_approvers_item import (
             QueuedJobFlowStatusModulesItemApproversItem,
@@ -263,6 +290,8 @@ class QueuedJobFlowStatusModulesItem:
             ) -> Union[
                 "QueuedJobFlowStatusModulesItemAgentActionsItemType0",
                 "QueuedJobFlowStatusModulesItemAgentActionsItemType1",
+                "QueuedJobFlowStatusModulesItemAgentActionsItemType2",
+                "QueuedJobFlowStatusModulesItemAgentActionsItemType3",
             ]:
                 try:
                     if not isinstance(data, dict):
@@ -272,11 +301,27 @@ class QueuedJobFlowStatusModulesItem:
                     return agent_actions_item_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_1 = QueuedJobFlowStatusModulesItemAgentActionsItemType1.from_dict(data)
+
+                    return agent_actions_item_type_1
+                except:  # noqa: E722
+                    pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_2 = QueuedJobFlowStatusModulesItemAgentActionsItemType2.from_dict(data)
+
+                    return agent_actions_item_type_2
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                agent_actions_item_type_1 = QueuedJobFlowStatusModulesItemAgentActionsItemType1.from_dict(data)
+                agent_actions_item_type_3 = QueuedJobFlowStatusModulesItemAgentActionsItemType3.from_dict(data)
 
-                return agent_actions_item_type_1
+                return agent_actions_item_type_3
 
             agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
 

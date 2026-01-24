@@ -102,6 +102,7 @@ class _SEnumTypeWrapper(
     Workflows_Delete: _S.ValueType  # 21
     """To delete we need read/write."""
     WorkflowMetrics_Get: _S.ValueType  # 96
+    """DEPRECATED"""
     WorkflowMetrics_Add: _S.ValueType  # 97
     WorkflowMetrics_Delete: _S.ValueType  # 98
     TSNEVisualizations_Add: _S.ValueType  # 24
@@ -171,7 +172,9 @@ class _SEnumTypeWrapper(
     LabelOrders_Delete: _S.ValueType  # 69
     """To delete label orders we need read/write"""
     FindDuplicateAnnotationsJobs_Add: _S.ValueType  # 102
-    """CRUD on FindDuplicateAnnotationsJobs table"""
+    """CRUD on FindDuplicateAnnotationsJobs table
+    DEPRECATED
+    """
     FindDuplicateAnnotationsJobs_Get: _S.ValueType  # 103
     FindDuplicateAnnotationsJobs_Delete: _S.ValueType  # 104
     Datasets_Get: _S.ValueType  # 105
@@ -248,6 +251,15 @@ class _SEnumTypeWrapper(
     Secrets_Add: _S.ValueType  # 161
     Secrets_Delete: _S.ValueType  # 162
     UserMetrics_Get: _S.ValueType  # 163
+    AnnotationTracks_Get: _S.ValueType  # 166
+    AnnotationTracks_Add: _S.ValueType  # 167
+    AnnotationTracks_Delete: _S.ValueType  # 168
+    PipelineSteps_Delete: _S.ValueType  # 169
+    Artifacts_Get: _S.ValueType  # 170
+    Artifacts_Add: _S.ValueType  # 171
+    Artifacts_Delete: _S.ValueType  # 172
+    PipelineVersionRunStatusLogs_Get: _S.ValueType  # 173
+    """Pipeline version run status logs (audit trail)"""
 
 class S(_S, metaclass=_SEnumTypeWrapper):
     """Next index: 41
@@ -351,6 +363,7 @@ Deprecated.
 Workflows_Delete: S.ValueType  # 21
 """To delete we need read/write."""
 WorkflowMetrics_Get: S.ValueType  # 96
+"""DEPRECATED"""
 WorkflowMetrics_Add: S.ValueType  # 97
 WorkflowMetrics_Delete: S.ValueType  # 98
 TSNEVisualizations_Add: S.ValueType  # 24
@@ -420,7 +433,9 @@ LabelOrders_Add: S.ValueType  # 68
 LabelOrders_Delete: S.ValueType  # 69
 """To delete label orders we need read/write"""
 FindDuplicateAnnotationsJobs_Add: S.ValueType  # 102
-"""CRUD on FindDuplicateAnnotationsJobs table"""
+"""CRUD on FindDuplicateAnnotationsJobs table
+DEPRECATED
+"""
 FindDuplicateAnnotationsJobs_Get: S.ValueType  # 103
 FindDuplicateAnnotationsJobs_Delete: S.ValueType  # 104
 Datasets_Get: S.ValueType  # 105
@@ -497,6 +512,15 @@ Secrets_Get: S.ValueType  # 160
 Secrets_Add: S.ValueType  # 161
 Secrets_Delete: S.ValueType  # 162
 UserMetrics_Get: S.ValueType  # 163
+AnnotationTracks_Get: S.ValueType  # 166
+AnnotationTracks_Add: S.ValueType  # 167
+AnnotationTracks_Delete: S.ValueType  # 168
+PipelineSteps_Delete: S.ValueType  # 169
+Artifacts_Get: S.ValueType  # 170
+Artifacts_Add: S.ValueType  # 171
+Artifacts_Delete: S.ValueType  # 172
+PipelineVersionRunStatusLogs_Get: S.ValueType  # 173
+"""Pipeline version run status logs (audit trail)"""
 global___S = S
 
 @typing_extensions.final

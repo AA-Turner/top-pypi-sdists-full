@@ -329,8 +329,34 @@ class JmcomicText:
 
     @classmethod
     def to_zh_cn(cls, s):
-        import zhconv
-        return zhconv.convert(s, 'zh-cn')
+        # 兼容旧接口，默认转换为简体
+        return cls.to_zh(s, 'zh-cn')
+
+    @classmethod
+    def to_zh(cls, s, target=None):
+        """
+        通用的繁简体转换接口。
+
+        :param s: 待转换字符串
+        :param target: 目标编码: 'zh-cn'（简体）, 'zh-tw'（繁体），或 None 表示不转换
+        :return: 转换后的字符串（若转换失败或未安装 zhconv，返回原始字符串）
+        """
+        if s is None:
+            return s
+
+        if not target:
+            return s
+
+        try:
+            import zhconv
+            return zhconv.convert(s, target)
+        except ImportError as e:
+            jm_log('zhconv.error', '繁简转换失败，未安装zhconv，请先使用命令安装: [pip install zhconv]')
+            return s
+        except Exception as e:
+            # 如果 zhconv 不可用或转换失败，则回退原字符串
+            jm_log('zhconv.error', f'error: [{e}], s: [{s}]')
+            return s
 
     @classmethod
     def try_mkdir(cls, save_dir: str):
@@ -388,6 +414,22 @@ class JmcomicText:
         path = f'/media/albums/{cls.parse_to_jm_id(album_id)}{size}.jpg'
         return cls.format_url(path, image_domain)
 
+    @classmethod
+    def compare_versions(cls, v1: str, v2: str) -> int:
+        parts1 = list(map(int, v1.split(".")))
+        parts2 = list(map(int, v2.split(".")))
+
+        # 补齐长度
+        length = max(len(parts1), len(parts2))
+        parts1 += [0] * (length - len(parts1))
+        parts2 += [0] * (length - len(parts2))
+
+        if parts1 > parts2:
+            return 1  # v1 大
+        elif parts1 < parts2:
+            return -1  # v2 大
+        else:
+            return 0  # 相等
 
 # 支持dsl: #{???} -> os.getenv(???)
 JmcomicText.dsl_replacer.add_dsl_and_replacer(r'\$\{(.*?)\}', JmcomicText.match_os_env)

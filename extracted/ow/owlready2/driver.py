@@ -293,6 +293,12 @@ def _guess_format(f):
   
   return "rdfxml"
 
+_XMLNS = {
+  "http://www.w3.org/1999/02/22-rdf-syntax-ns#" : "rdf:",
+  "http://www.w3.org/2001/XMLSchema#" : "xsd:",
+  "http://www.w3.org/2000/01/rdf-schema#" : "rdfs:",
+  "http://www.w3.org/2002/07/owl#" : "owl:",
+}
 
 def _save(f, format, graph, filter = None):
   if   format == "ntriples":
@@ -345,13 +351,8 @@ def _save(f, format, graph, filter = None):
       return r
     
     base_iri = graph._iter_ontology_iri(graph.c)
-    
-    xmlns = {
-      "http://www.w3.org/1999/02/22-rdf-syntax-ns#" : "rdf:",
-      "http://www.w3.org/2001/XMLSchema#" : "xsd:",
-      "http://www.w3.org/2000/01/rdf-schema#" : "rdfs:",
-      "http://www.w3.org/2002/07/owl#" : "owl:",
-    }
+
+    xmlns = _XMLNS.copy()
     if isinstance(base_iri, str):
       if base_iri.endswith("/"):
         xmlns[base_iri] = ""

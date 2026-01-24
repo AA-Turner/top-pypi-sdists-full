@@ -1,4 +1,5 @@
 """Package settings."""
+
 import functools
 from typing import Any, Dict, Optional, Tuple
 
@@ -7,9 +8,12 @@ from django.conf import settings as django_settings
 try:
     from pydantic import Field, validator
     from pydantic.env_settings import BaseSettings, SettingsSourceCallable
-except:  # pragma: no cover
-    from pydantic.v1.env_settings import BaseSettings, SettingsSourceCallable  # type: ignore
+except Exception:  # pragma: no cover
     from pydantic.v1 import Field, validator  # type: ignore
+    from pydantic.v1.env_settings import (  # type: ignore
+        BaseSettings,
+        SettingsSourceCallable,
+    )
 
 from .schemas import WidgetOptions, WidgetVariant
 
@@ -18,7 +22,7 @@ def _django_settings_source(settings: BaseSettings) -> Dict[str, Any]:
     return getattr(django_settings, "BOOTSTRAP_DATEPICKER_PLUS", {})
 
 
-class WidgetSettings(BaseSettings):
+class WidgetSettings(BaseSettings):  # pyright: ignore
     """Settings to customize input widgets."""
 
     template_name: Optional[str]
@@ -32,19 +36,19 @@ class WidgetSettings(BaseSettings):
         WidgetVariant.month: "bi-calendar",
         WidgetVariant.year: "bi-calendar",
     }
-    momentjs_url: Optional[
-        str
-    ] = "https://cdn.jsdelivr.net/npm/moment@2.29.4/min/moment-with-locales.min.js"
-    datetimepicker_js_url: Optional[
-        str
-    ] = "https://cdn.jsdelivr.net/npm/eonasdan-bootstrap-datetimepicker@4.17.49/build/js/bootstrap-datetimepicker.min.js"
-    datetimepicker_css_url: Optional[
-        str
-    ] = "https://cdn.jsdelivr.net/npm/eonasdan-bootstrap-datetimepicker@4.17.49/build/css/bootstrap-datetimepicker.min.css"
-    bootstrap_icon_css_url: Optional[
-        str
-    ] = "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css"
-    app_static_url = "https://cdn.jsdelivr.net/gh/monim67/django-bootstrap-datepicker-plus@5.0.2/src/bootstrap_datepicker_plus/static/bootstrap_datepicker_plus/"
+    momentjs_url: Optional[str] = (
+        "https://cdn.jsdelivr.net/npm/moment@2.29.4/min/moment-with-locales.min.js"
+    )
+    datetimepicker_js_url: Optional[str] = (
+        "https://cdn.jsdelivr.net/npm/eonasdan-bootstrap-datetimepicker@4.17.49/build/js/bootstrap-datetimepicker.min.js"
+    )
+    datetimepicker_css_url: Optional[str] = (
+        "https://cdn.jsdelivr.net/npm/eonasdan-bootstrap-datetimepicker@4.17.49/build/css/bootstrap-datetimepicker.min.css"
+    )
+    bootstrap_icon_css_url: Optional[str] = (
+        "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css"
+    )
+    app_static_url = "https://cdn.jsdelivr.net/gh/monim67/django-bootstrap-datepicker-plus@5.0.6/src/bootstrap_datepicker_plus/static/bootstrap_datepicker_plus/"
     debug: bool = Field(default_factory=lambda: getattr(django_settings, "DEBUG", True))
 
     @validator("addon_icon_classes")
@@ -59,10 +63,10 @@ class WidgetSettings(BaseSettings):
         @classmethod
         def customise_sources(
             cls,
-            init_settings: SettingsSourceCallable,
-            env_settings: SettingsSourceCallable,
-            file_secret_settings: SettingsSourceCallable,
-        ) -> Tuple[SettingsSourceCallable, ...]:
+            init_settings: SettingsSourceCallable,  # pyright: ignore
+            env_settings: SettingsSourceCallable,  # pyright: ignore
+            file_secret_settings: SettingsSourceCallable,  # pyright: ignore
+        ) -> Tuple[SettingsSourceCallable, ...]:  # pyright: ignore
             """Add django settings as config source."""
             return (
                 init_settings,

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, NoReturn, Optio
 
 from executing import Source
 
-from chalk._lsp._class_finder import get_function_ast
+from chalk._lsp._class_finder import FunctionCallerInfo, get_function_ast
 from chalk._lsp.finders import (
     get_annotation_range,
     get_class_definition_range,
@@ -186,6 +186,17 @@ class LSPErrorBuilder:
         Returns whether the exception was promoted."""
         if id(e) in cls._exception_map:
             uri, diagnostic = cls._exception_map[id(e)]
+
+            # Check if this diagnostic already exists (deduplication)
+            # Compare by message, range, and uri to detect duplicates
+            for existing in cls.all_errors[uri]:
+                if existing.message == diagnostic.message and existing.range == diagnostic.range:
+                    # Already exists, don't add duplicate
+                    del cls._exception_map[id(e)]
+                    del cls._strong_refs[id(e)]
+                    return False  # Not promoted, already exists
+
+            # Not a duplicate, add it
             cls.all_errors[uri].append(diagnostic)
             del cls._exception_map[id(e)]
             del cls._strong_refs[id(e)]
@@ -821,6 +832,199 @@ class SQLFileResolverErrorBuilder:
             raise_error=raise_error,
             uri=uri,
         )
+
+
+class FunctionCallErrorBuilder:
+    """Error builder for functions that are called (not decorated).
+
+    Unlike FeatureClassErrorBuilder and ResolverErrorBuilder which operate on decorators,
+    this error builder works with function calls like make_stream_resolver().
+    """
+
+    def __init__(self, caller_info: FunctionCallerInfo):
+        super().__init__()
+        self.caller_info = caller_info
+        self.diagnostics: List[DiagnosticGQL] = []
+        self.error_cache: OrderedSet[tuple[str, RangeGQL | ast.AST, str]] = OrderedSet()
+
+    @property
+    def uri(self) -> str:
+        return self.caller_info.filename
+
+    @property
+    def node(self) -> ast.Call | None:
+        return self.caller_info.node
+
+    def function_arg_value_by_index(self, index: int) -> ast.AST | None:
+        """Get the AST node for a function argument by its positional index."""
+        if self.node is None or index >= len(self.node.args):
+            return None
+        return self.node.args[index]
+
+    def function_arg_value_by_name(self, name: str) -> ast.AST | None:
+        """Get the AST node for a function argument by its keyword name."""
+        if self.node is None:
+            return None
+
+        for keyword in self.node.keywords:
+            if keyword.arg == name:
+                return keyword.value
+        return None
+
+    def function_arg_range_by_index(self, index: int) -> RangeGQL | None:
+        """Get the range for a function argument by its positional index."""
+        arg_node = self.function_arg_value_by_index(index)
+        if arg_node is None:
+            return None
+        return node_to_range(arg_node)
+
+    def function_arg_range_by_name(self, name: str) -> RangeGQL | None:
+        """Get the range for a function argument by its keyword name."""
+        arg_node = self.function_arg_value_by_name(name)
+        if arg_node is None:
+            return None
+        return node_to_range(arg_node)
+
+    def function_kwarg_value_by_index(self, index: int) -> ast.AST | None:
+        """Get the AST node for a keyword argument by its position in the call."""
+        if self.node is None or index >= len(self.node.keywords):
+            return None
+        return self.node.keywords[index].value
+
+    def function_kwarg_range_by_index(self, index: int) -> RangeGQL | None:
+        """Get the range for a keyword argument by its position in the call."""
+        kwarg_node = self.function_kwarg_value_by_index(index)
+        if kwarg_node is None:
+            return None
+        return node_to_range(kwarg_node)
+
+    def function_call_range(self) -> RangeGQL | None:
+        """Get the range of the entire function call."""
+        if self.node is None:
+            return None
+        return node_to_range(self.node)
+
+    def function_name_range(self) -> RangeGQL | None:
+        """Get the range of just the function name being called."""
+        if self.node is None:
+            return None
+
+        # For a call like `foo.bar()`, we want just the `bar` part
+        # For a call like `func()`, we want the `func` part
+        func_node = self.node.func
+        if isinstance(func_node, ast.Attribute):
+            # Handle method calls like obj.method()
+            return node_to_range(func_node)
+        elif isinstance(func_node, ast.Name):
+            # Handle direct function calls like func()
+            return node_to_range(func_node)
+
+        return node_to_range(func_node)
+
+    @overload
+    def add_diagnostic(
+        self,
+        message: str,
+        label: str,
+        code: str,
+        *,
+        range: RangeGQL | ast.AST | None,
+        code_href: str | None = None,
+        severity: DiagnosticSeverityGQL = DiagnosticSeverityGQL.Error,
+        raise_error: None = ...,
+        uri: str | None = ...,
+    ) -> DiagnosticBuilder:
+        ...
+
+    @overload
+    def add_diagnostic(
+        self,
+        message: str,
+        label: str,
+        code: str,
+        *,
+        range: RangeGQL | ast.AST | None,
+        code_href: str | None = None,
+        severity: DiagnosticSeverityGQL = DiagnosticSeverityGQL.Error,
+        raise_error: Type[Exception],
+        uri: str | None = ...,
+    ) -> NoReturn:
+        ...
+
+    def add_diagnostic(
+        self,
+        message: str,
+        label: str,
+        code: str,
+        range: RangeGQL | ast.AST | None,
+        code_href: str | None = None,
+        severity: DiagnosticSeverityGQL = DiagnosticSeverityGQL.Error,
+        raise_error: Type[Exception] | None = None,
+        uri: str | None = None,
+    ) -> DiagnosticBuilder:
+        """Add a diagnostic for validation errors in function calls.
+
+        :param message: longform description of error with names of attributes, etc.
+        :param label: shortform category of error
+        :param code: unique identifier of error kind
+        :param range: line number + offset of start and end of text with error
+        :param code_href: link to doc
+        :param severity: is it an error? a warning?
+        :param raise_error: if we cannot proceed, raise with this error kind and the message.
+        :param uri: filepath
+        :return: DiagnosticBuilder for chaining additional ranges
+        """
+        uri = self.uri if uri is None else uri
+        if not LSPErrorBuilder.lsp:
+            if raise_error is not None:
+                raise raise_error(message)
+            return _dummy_builder
+
+        default_error = TypeError
+        if range is None:
+            raise raise_error(message) if raise_error else default_error(message)
+
+        if isinstance(range, ast.AST):
+            range = node_to_range(range)
+            if range is None:
+                raise raise_error(message) if raise_error else default_error(message)
+
+        builder = DiagnosticBuilder(
+            severity=severity,
+            message=message,
+            uri=uri,
+            range=range,
+            label=label,
+            code=code,
+            code_href=code_href,
+        )
+
+        error = None if raise_error is None else raise_error(message)
+        if error is None:
+            if (message, range, uri) not in self.error_cache:
+                self.diagnostics.append(builder.diagnostic)
+                LSPErrorBuilder.all_errors[uri].append(builder.diagnostic)
+                self.error_cache.add((message, range, uri))
+        else:
+            LSPErrorBuilder.save_exception(error, uri, builder.diagnostic)
+            raise error
+
+        return builder
+
+
+def build_diagnostic_from_message(
+    message: str, code: str, source_line_start: int, source_line_end: int
+) -> DiagnosticGQL:
+    return DiagnosticGQL(
+        message=message,
+        range=RangeGQL(
+            start=PositionGQL(line=source_line_start, character=0),
+            end=PositionGQL(line=source_line_end + 1, character=0),
+        ),
+        severity=DiagnosticSeverityGQL.Error,
+        code=code,
+        codeDescription=None,
+    )
 
 
 """

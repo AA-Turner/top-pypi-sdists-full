@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.867391                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.992697                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.datastore.datastore_storage
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastore.core
+    import metaflow.datastore.datastore_storage
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.checkpoint_storage
 
 from ..exceptions import KeyNotCompatibleWithObjectException as KeyNotCompatibleWithObjectException
@@ -21,6 +21,7 @@ from ..datastore.core import allow_safe as allow_safe
 from ..datastore.core import DatastoreInterface as DatastoreInterface
 from ..datastore.core import ObjectStorage as ObjectStorage
 from ..datastore.core import STORAGE_FORMATS as STORAGE_FORMATS
+from ..datastore.core import warning_message as warning_message
 from ..datastore.exceptions import DatastoreReadInitException as DatastoreReadInitException
 from ..datastore.exceptions import DatastoreWriteInitException as DatastoreWriteInitException
 from ..datastore.exceptions import DatastoreNotReadyException as DatastoreNotReadyException
@@ -41,12 +42,12 @@ ARTIFACT_METADATA_STORE_NAME: str
 
 class CheckpointsPathComponents(tuple, metaclass=type):
     """
-    CheckpointsPathComponents(flow_name, step_name, scope, task_identifier, pathspec_hash, attempt, name, version_id, is_metadata, key_name, root_prefix)
+    CheckpointsPathComponents(flow_name, step_name, run_id, task_id, scope, task_identifier, pathspec_hash, attempt, name, version_id, is_metadata, key_name, root_prefix)
     """
     @staticmethod
-    def __new__(_cls, flow_name, step_name, scope, task_identifier, pathspec_hash, attempt, name, version_id, is_metadata, key_name, root_prefix):
+    def __new__(_cls, flow_name, step_name, run_id, task_id, scope, task_identifier, pathspec_hash, attempt, name, version_id, is_metadata, key_name, root_prefix):
         """
-        Create new instance of CheckpointsPathComponents(flow_name, step_name, scope, task_identifier, pathspec_hash, attempt, name, version_id, is_metadata, key_name, root_prefix)
+        Create new instance of CheckpointsPathComponents(flow_name, step_name, run_id, task_id, scope, task_identifier, pathspec_hash, attempt, name, version_id, is_metadata, key_name, root_prefix)
         """
         ...
     def __repr__(self):
@@ -74,7 +75,7 @@ def decompose_key_artifact_store(key) -> CheckpointsPathComponents:
 def decompose_key_metadata_store(key) -> CheckpointsPathComponents:
     """
     Convert Key into Path Components.
-    PATH COMPONENTS: mf.checkpoints/artifacts/<flow_name>/<step_name>/<scope>/<task_identifier>/<pathspec_hash>.<attempt>.<name>.<version_id>
+    PATH COMPONENTS: mf.checkpoints/metadata/<flow_name>/<runid>/<stepname>/<taskid>/<pathspec_hash>.<attempt>.<name>.<version_id>.metadata
     """
     ...
 
@@ -125,6 +126,42 @@ class CheckpointDatastore(metaflow.mf_extensions.obcheckpoint.plugins.machine_le
     def load_metadata(self, attempt, version_id, name = 'mfchckpt') -> dict:
         ...
     def list(self, name: typing.Optional[str] = None, attempt: typing.Optional[int] = None, within_task: typing.Optional[bool] = True):
+        ...
+    def delete(self, checkpoint_artifact: metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact) -> bool:
+        """
+        Delete a checkpoint from all stores.
+        
+        Deletion order:
+        1. Delete artifact data (files/tarball)
+        2. Delete artifact metadata
+        3. Delete task metadata
+        
+        NOTE: This does NOT modify the 'latest' pointer in any store.
+        
+        Parameters
+        ----------
+        checkpoint_artifact : CheckpointArtifact
+            The checkpoint artifact to delete.
+        
+        Returns
+        -------
+        bool
+            True if all deletions were successful.
+        
+        Raises
+        ------
+        DatastoreNotReadyException
+            If the datastore is not properly initialized for delete operations.
+        """
+        ...
+    @classmethod
+    def init_delete_store(cls, storage_backend: metaflow.datastore.datastore_storage.DataStoreStorage, checkpoint_artifact: metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact):
+        """
+        Initialize datastore for delete operations from a checkpoint artifact.
+        
+        This creates a datastore instance with access to all three stores
+        needed for complete checkpoint deletion.
+        """
         ...
     @classmethod
     def decompose_key(cls, key) -> CheckpointsPathComponents:

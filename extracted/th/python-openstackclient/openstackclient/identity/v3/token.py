@@ -15,10 +15,10 @@
 
 """Identity v3 Token action implementations"""
 
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common
 
@@ -37,6 +37,7 @@ class AuthorizeRequestToken(command.ShowOne):
         parser.add_argument(
             '--role',
             metavar='<role>',
+            dest='roles',
             action='append',
             default=[],
             required=True,
@@ -52,7 +53,7 @@ class AuthorizeRequestToken(command.ShowOne):
 
         # NOTE(stevemar): We want a list of role ids
         roles = []
-        for role in parsed_args.role:
+        for role in parsed_args.roles:
             role_id = utils.find_resource(
                 identity_client.roles,
                 role,

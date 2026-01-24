@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -34,12 +35,6 @@ from .literals import (
     RunTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -128,7 +123,7 @@ class AssociateResourceRequestTypeDef(TypedDict):
 
 class BaseScreenshotOutputTypeDef(TypedDict):
     ScreenshotName: str
-    IgnoreCoordinates: NotRequired[List[str]]
+    IgnoreCoordinates: NotRequired[list[str]]
 
 class BaseScreenshotTypeDef(TypedDict):
     ScreenshotName: str
@@ -201,8 +196,8 @@ class EngineConfigTypeDef(TypedDict):
 
 class VpcConfigOutputTypeDef(TypedDict):
     VpcId: NotRequired[str]
-    SubnetIds: NotRequired[List[str]]
-    SecurityGroupIds: NotRequired[List[str]]
+    SubnetIds: NotRequired[list[str]]
+    SecurityGroupIds: NotRequired[list[str]]
     Ipv6AllowedForDualStack: NotRequired[bool]
 
 class VpcConfigInputTypeDef(TypedDict):
@@ -213,7 +208,7 @@ class VpcConfigInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -225,7 +220,7 @@ class GroupTypeDef(TypedDict):
     Id: NotRequired[str]
     Name: NotRequired[str]
     Arn: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     CreatedTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
 
@@ -318,24 +313,26 @@ class ArtifactConfigOutputTypeDef(TypedDict):
     S3Encryption: NotRequired[S3EncryptionConfigTypeDef]
 
 class VisualReferenceOutputTypeDef(TypedDict):
-    BaseScreenshots: NotRequired[List[BaseScreenshotOutputTypeDef]]
+    BaseScreenshots: NotRequired[list[BaseScreenshotOutputTypeDef]]
     BaseCanaryRunId: NotRequired[str]
     BrowserType: NotRequired[BrowserTypeType]
 
 BaseScreenshotUnionTypeDef = Union[BaseScreenshotTypeDef, BaseScreenshotOutputTypeDef]
 
 class CanaryCodeInputTypeDef(TypedDict):
-    Handler: str
     S3Bucket: NotRequired[str]
     S3Key: NotRequired[str]
     S3Version: NotRequired[str]
     ZipFile: NotRequired[BlobTypeDef]
+    Handler: NotRequired[str]
+    BlueprintTypes: NotRequired[Sequence[str]]
     Dependencies: NotRequired[Sequence[DependencyTypeDef]]
 
 class CanaryCodeOutputTypeDef(TypedDict):
     SourceLocationArn: NotRequired[str]
     Handler: NotRequired[str]
-    Dependencies: NotRequired[List[DependencyTypeDef]]
+    BlueprintTypes: NotRequired[list[str]]
+    Dependencies: NotRequired[list[DependencyTypeDef]]
 
 class CanaryRunTypeDef(TypedDict):
     Id: NotRequired[str]
@@ -359,12 +356,12 @@ class CanaryScheduleOutputTypeDef(TypedDict):
     RetryConfig: NotRequired[RetryConfigOutputTypeDef]
 
 class ListGroupResourcesResponseTypeDef(TypedDict):
-    Resources: List[str]
+    Resources: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartCanaryDryRunResponseTypeDef(TypedDict):
@@ -380,17 +377,17 @@ class GetGroupResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeRuntimeVersionsResponseTypeDef(TypedDict):
-    RuntimeVersions: List[RuntimeVersionTypeDef]
+    RuntimeVersions: list[RuntimeVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListAssociatedGroupsResponseTypeDef(TypedDict):
-    Groups: List[GroupSummaryTypeDef]
+    Groups: list[GroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListGroupsResponseTypeDef(TypedDict):
-    Groups: List[GroupSummaryTypeDef]
+    Groups: list[GroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -404,7 +401,7 @@ class CanaryLastRunTypeDef(TypedDict):
     LastRun: NotRequired[CanaryRunTypeDef]
 
 class GetCanaryRunsResponseTypeDef(TypedDict):
-    CanaryRuns: List[CanaryRunTypeDef]
+    CanaryRuns: list[CanaryRunTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -442,10 +439,10 @@ class CanaryTypeDef(TypedDict):
     VpcConfig: NotRequired[VpcConfigOutputTypeDef]
     VisualReference: NotRequired[VisualReferenceOutputTypeDef]
     ProvisionedResourceCleanup: NotRequired[ProvisionedResourceCleanupSettingType]
-    BrowserConfigs: NotRequired[List[BrowserConfigTypeDef]]
-    EngineConfigs: NotRequired[List[EngineConfigTypeDef]]
-    VisualReferences: NotRequired[List[VisualReferenceOutputTypeDef]]
-    Tags: NotRequired[Dict[str, str]]
+    BrowserConfigs: NotRequired[list[BrowserConfigTypeDef]]
+    EngineConfigs: NotRequired[list[EngineConfigTypeDef]]
+    VisualReferences: NotRequired[list[VisualReferenceOutputTypeDef]]
+    Tags: NotRequired[dict[str, str]]
     ArtifactConfig: NotRequired[ArtifactConfigOutputTypeDef]
     DryRunConfig: NotRequired[DryRunConfigOutputTypeDef]
 
@@ -484,7 +481,7 @@ class UpdateCanaryRequestTypeDef(TypedDict):
     BrowserConfigs: NotRequired[Sequence[BrowserConfigTypeDef]]
 
 class DescribeCanariesLastRunResponseTypeDef(TypedDict):
-    CanariesLastRun: List[CanaryLastRunTypeDef]
+    CanariesLastRun: list[CanaryLastRunTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -493,7 +490,7 @@ class CreateCanaryResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeCanariesResponseTypeDef(TypedDict):
-    Canaries: List[CanaryTypeDef]
+    Canaries: list[CanaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

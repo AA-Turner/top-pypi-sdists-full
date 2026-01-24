@@ -7,6 +7,7 @@ from urllib.parse import unquote
 from core.feature_flags import flag_set
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, StreamingHttpResponse
+from drf_spectacular.utils import extend_schema
 from projects.models import Project
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -198,7 +199,12 @@ class ResolveStorageUriAPIMixin:
         if metadata.get('ContentRange'):
             response.headers['Content-Range'] = metadata['ContentRange']
         if metadata.get('LastModified'):
-            response.headers['Last-Modified'] = metadata['LastModified'].strftime('%a, %d %b %Y %H:%M:%S GMT')
+            last_mod = metadata['LastModified']
+            # Accept either datetime-like (has strftime) or preformatted string
+            if hasattr(last_mod, 'strftime'):
+                response.headers['Last-Modified'] = last_mod.strftime('%a, %d %b %Y %H:%M:%S GMT')
+            else:
+                response.headers['Last-Modified'] = str(last_mod)
 
         # Always enable range requests
         response.headers['Accept-Ranges'] = 'bytes'
@@ -271,6 +277,7 @@ class ResolveStorageUriAPIMixin:
             )
 
 
+@extend_schema(exclude=True)
 class TaskResolveStorageUri(ResolveStorageUriAPIMixin, APIView):
     """A file proxy to presign storage urls at the task level.
 
@@ -278,7 +285,6 @@ class TaskResolveStorageUri(ResolveStorageUriAPIMixin, APIView):
     instead of redirecting to presigned URLs.
     """
 
-    swagger_schema = None
     http_method_names = ['get']
     permission_classes = (IsAuthenticated,)
 
@@ -299,6 +305,7 @@ class TaskResolveStorageUri(ResolveStorageUriAPIMixin, APIView):
         return self.resolve(request, fileuri, task)
 
 
+@extend_schema(exclude=True)
 class ProjectResolveStorageUri(ResolveStorageUriAPIMixin, APIView):
     """A file proxy to presign storage urls at the project level.
 
@@ -306,7 +313,6 @@ class ProjectResolveStorageUri(ResolveStorageUriAPIMixin, APIView):
     instead of redirecting to presigned URLs.
     """
 
-    swagger_schema = None
     http_method_names = ['get']
     permission_classes = (IsAuthenticated,)
 

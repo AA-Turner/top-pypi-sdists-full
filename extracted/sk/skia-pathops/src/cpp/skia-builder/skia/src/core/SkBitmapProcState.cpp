@@ -5,18 +5,25 @@
  * found in the LICENSE file.
  */
 
-#include "include/core/SkImageEncoder.h"
-#include "include/core/SkPaint.h"
-#include "include/core/SkShader.h"
-#include "include/private/SkColorData.h"
+#include "src/core/SkBitmapProcState.h"
+
+#include "include/core/SkAlphaType.h"
+#include "include/core/SkColorType.h"
+#include "include/core/SkImageInfo.h"
+#include "include/core/SkTileMode.h"
 #include "include/private/base/SkMacros.h"
 #include "include/private/base/SkTPin.h"
-#include "src/core/SkBitmapCache.h"
-#include "src/core/SkBitmapProcState.h"
-#include "src/core/SkMipmap.h"
+#include "src/core/SkColorPriv.h"
+#include "src/core/SkMatrixPriv.h"
+#include "src/core/SkMemset.h"
 #include "src/core/SkMipmapAccessor.h"
-#include "src/core/SkOpts.h"
-#include "src/core/SkResourceCache.h"
+
+#include <algorithm>
+#include <cstring>
+#include <tuple>
+
+class SkImage;
+class SkImage_Base;
 
 // One-stop-shop shader for,
 //   - nearest-neighbor sampling (_nofilter_),
@@ -31,29 +38,29 @@ static void Clamp_S32_opaque_D32_nofilter_DX_shaderproc(const void* sIn, int x, 
     SkASSERT(s.fAlphaScale == 256);
 
     const unsigned maxX = s.fPixmap.width() - 1;
-    SkFractionalInt fx;
+    SkFixed3232 fx;
     int dstY;
     {
         const SkBitmapProcStateAutoMapper mapper(s, x, y);
         const unsigned maxY = s.fPixmap.height() - 1;
         dstY = SkTPin<int>(mapper.intY(), 0, maxY);
-        fx = mapper.fractionalIntX();
+        fx = mapper.fixed3232X();
     }
 
     const SkPMColor* src = s.fPixmap.addr32(0, dstY);
-    const SkFractionalInt dx = s.fInvSxFractionalInt;
+    const SkFixed3232 dx = s.fInvSx;
 
     // Check if we're safely inside [0...maxX] so no need to clamp each computed index.
     //
-    if ((uint64_t)SkFractionalIntToInt(fx) <= maxX &&
-        (uint64_t)SkFractionalIntToInt(fx + dx * (count - 1)) <= maxX)
+    if ((uint64_t)SkFixed3232ToInt(fx) <= maxX &&
+        (uint64_t)SkFixed3232ToInt(fx + dx * (count - 1)) <= maxX)
     {
         int count4 = count >> 2;
         for (int i = 0; i < count4; ++i) {
-            SkPMColor src0 = src[SkFractionalIntToInt(fx)]; fx += dx;
-            SkPMColor src1 = src[SkFractionalIntToInt(fx)]; fx += dx;
-            SkPMColor src2 = src[SkFractionalIntToInt(fx)]; fx += dx;
-            SkPMColor src3 = src[SkFractionalIntToInt(fx)]; fx += dx;
+            SkPMColor src0 = src[SkFixed3232ToInt(fx)]; fx += dx;
+            SkPMColor src1 = src[SkFixed3232ToInt(fx)]; fx += dx;
+            SkPMColor src2 = src[SkFixed3232ToInt(fx)]; fx += dx;
+            SkPMColor src3 = src[SkFixed3232ToInt(fx)]; fx += dx;
             dst[0] = src0;
             dst[1] = src1;
             dst[2] = src2;
@@ -61,14 +68,14 @@ static void Clamp_S32_opaque_D32_nofilter_DX_shaderproc(const void* sIn, int x, 
             dst += 4;
         }
         for (int i = (count4 << 2); i < count; ++i) {
-            unsigned index = SkFractionalIntToInt(fx);
+            unsigned index = SkFixed3232ToInt(fx);
             SkASSERT(index <= maxX);
             *dst++ = src[index];
             fx += dx;
         }
     } else {
         for (int i = 0; i < count; ++i) {
-            dst[i] = src[SkTPin<int>(SkFractionalIntToInt(fx), 0, maxX)];
+            dst[i] = src[SkTPin<int>(SkFixed3232ToInt(fx), 0, maxX)];
             fx += dx;
         }
     }
@@ -134,7 +141,7 @@ static void S32_alpha_D32_nofilter_DXDY(const SkBitmapProcState& s,
                  y  = XY >> 16;
         SkASSERT(x < (unsigned)s.fPixmap.width ());
         SkASSERT(y < (unsigned)s.fPixmap.height());
-        *colors++ = ((const SkPMColor*)(src + y*rb))[x];
+        *colors++ = SkAlphaMulQ(((const SkPMColor*)(src + y*rb))[x], s.fAlphaScale);
     }
 }
 
@@ -224,9 +231,10 @@ bool SkBitmapProcState::init(const SkMatrix& inv, SkAlpha paintAlpha,
         // if it's already pure translate then we won't do this inversion.
 
         if (matrix_only_scale_translate(fInvMatrix)) {
-            SkMatrix forward;
-            if (fInvMatrix.invert(&forward) && just_trans_general(forward)) {
-                fInvMatrix.setTranslate(-forward.getTranslateX(), -forward.getTranslateY());
+            if (auto forward = fInvMatrix.invert()) {
+                if (just_trans_general(*forward)) {
+                    fInvMatrix.setTranslate(-forward->getTranslateX(), -forward->getTranslateY());
+                }
             }
         }
 
@@ -261,9 +269,8 @@ bool SkBitmapProcState::chooseProcs() {
 
     SkASSERT(fTileModeX != SkTileMode::kDecal);
 
-    fInvProc            = SkMatrixPriv::GetMapXYProc(fInvMatrix);
-    fInvSxFractionalInt = SkScalarToFractionalInt(fInvMatrix.getScaleX());
-    fInvKyFractionalInt = SkScalarToFractionalInt(fInvMatrix.getSkewY ());
+    fInvSx = SkScalarToFixed3232(fInvMatrix.getScaleX());
+    fInvKy = SkScalarToFixed3232(fInvMatrix.getSkewY ());
 
     fAlphaScale = SkAlpha255To256(fPaintAlpha);
 
@@ -443,7 +450,7 @@ static void S32_D32_constX_shaderproc(const void* sIn,
             // bitmap's width and height. Since this method is going to do
             // its own tiling and sampling we need to undo that here.
             if (SkTileMode::kClamp != s.fTileModeX || SkTileMode::kClamp != s.fTileModeY) {
-                yTemp = SkFractionalIntToInt(mapper.fractionalIntY() * s.fPixmap.height());
+                yTemp = SkFixed3232ToInt(mapper.fixed3232Y() * s.fPixmap.height());
             } else {
                 yTemp = mapper.intY();
             }
@@ -470,7 +477,7 @@ static void S32_D32_constX_shaderproc(const void* sIn,
 
             if (!s.fInvMatrix.isTranslate() &&
                 (SkTileMode::kClamp != s.fTileModeX || SkTileMode::kClamp != s.fTileModeY)) {
-                iY2 = SkFractionalIntToInt(mapper.fractionalIntY() * s.fPixmap.height());
+                iY2 = SkFixed3232ToInt(mapper.fixed3232Y() * s.fPixmap.height());
             } else {
                 iY2 = mapper.intY();
             }

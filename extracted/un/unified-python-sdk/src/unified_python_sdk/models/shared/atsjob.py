@@ -10,12 +10,12 @@ from .atsjobquestion import AtsJobQuestion, AtsJobQuestionTypedDict
 from .atsmetadata import AtsMetadata, AtsMetadataTypedDict
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class EmploymentType(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -45,8 +45,6 @@ class AtsJobTypedDict(TypedDict):
     company_id: NotRequired[str]
     compensation: NotRequired[List[AtsCompensationTypedDict]]
     created_at: NotRequired[datetime]
-    departments: NotRequired[List[str]]
-    r"""@deprecated Use `groups` instead"""
     description: NotRequired[str]
     employment_type: NotRequired[EmploymentType]
     groups: NotRequired[List[AtsGroupTypedDict]]
@@ -55,6 +53,8 @@ class AtsJobTypedDict(TypedDict):
     id: NotRequired[str]
     language_locale: NotRequired[str]
     metadata: NotRequired[List[AtsMetadataTypedDict]]
+    minimum_degree: NotRequired[str]
+    minimum_experience_years: NotRequired[float]
     name: NotRequired[str]
     number_of_openings: NotRequired[float]
     openings: NotRequired[List[AtsJobOpeningTypedDict]]
@@ -66,6 +66,7 @@ class AtsJobTypedDict(TypedDict):
     raw: NotRequired[Dict[str, Any]]
     recruiter_ids: NotRequired[List[str]]
     remote: NotRequired[bool]
+    skills: NotRequired[List[str]]
     status: NotRequired[AtsJobStatus]
     updated_at: NotRequired[datetime]
 
@@ -81,14 +82,9 @@ class AtsJob(BaseModel):
 
     created_at: Optional[datetime] = None
 
-    departments: Optional[List[str]] = None
-    r"""@deprecated Use `groups` instead"""
-
     description: Optional[str] = None
 
-    employment_type: Annotated[
-        Optional[EmploymentType], PlainValidator(validate_open_enum(False))
-    ] = None
+    employment_type: Optional[EmploymentType] = None
 
     groups: Optional[List[AtsGroup]] = None
     r"""The departments/divisions/teams that this job belongs to"""
@@ -100,6 +96,10 @@ class AtsJob(BaseModel):
     language_locale: Optional[str] = None
 
     metadata: Optional[List[AtsMetadata]] = None
+
+    minimum_degree: Optional[str] = None
+
+    minimum_experience_years: Optional[float] = None
 
     name: Optional[str] = None
 
@@ -121,8 +121,71 @@ class AtsJob(BaseModel):
 
     remote: Optional[bool] = None
 
-    status: Annotated[
-        Optional[AtsJobStatus], PlainValidator(validate_open_enum(False))
-    ] = None
+    skills: Optional[List[str]] = None
+
+    status: Optional[AtsJobStatus] = None
 
     updated_at: Optional[datetime] = None
+
+    @field_serializer("employment_type")
+    def serialize_employment_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.EmploymentType(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("status")
+    def serialize_status(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.AtsJobStatus(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "addresses",
+                "closed_at",
+                "company_id",
+                "compensation",
+                "created_at",
+                "description",
+                "employment_type",
+                "groups",
+                "hiring_manager_ids",
+                "id",
+                "language_locale",
+                "metadata",
+                "minimum_degree",
+                "minimum_experience_years",
+                "name",
+                "number_of_openings",
+                "openings",
+                "postings",
+                "public_job_urls",
+                "questions",
+                "raw",
+                "recruiter_ids",
+                "remote",
+                "skills",
+                "status",
+                "updated_at",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

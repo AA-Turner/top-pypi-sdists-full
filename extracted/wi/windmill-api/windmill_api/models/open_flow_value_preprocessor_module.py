@@ -25,24 +25,35 @@ T = TypeVar("T", bound="OpenFlowValuePreprocessorModule")
 
 @_attrs_define
 class OpenFlowValuePreprocessorModule:
-    """
+    """A single step in a flow. Can be a script, subflow, loop, or branch
+
     Attributes:
-        id (str):
+        id (str): Unique identifier for this step. Used to reference results via 'results.step_id'. Must be a valid
+            identifier (alphanumeric, underscore, hyphen)
         value (Any):
-        stop_after_if (Union[Unset, OpenFlowValuePreprocessorModuleStopAfterIf]):
-        stop_after_all_iters_if (Union[Unset, OpenFlowValuePreprocessorModuleStopAfterAllItersIf]):
-        skip_if (Union[Unset, OpenFlowValuePreprocessorModuleSkipIf]):
+        stop_after_if (Union[Unset, OpenFlowValuePreprocessorModuleStopAfterIf]): Early termination condition for a
+            module
+        stop_after_all_iters_if (Union[Unset, OpenFlowValuePreprocessorModuleStopAfterAllItersIf]): Early termination
+            condition for a module
+        skip_if (Union[Unset, OpenFlowValuePreprocessorModuleSkipIf]): Conditionally skip this step based on previous
+            results or flow inputs
         sleep (Union['OpenFlowValuePreprocessorModuleSleepType0', 'OpenFlowValuePreprocessorModuleSleepType1', Unset]):
-        cache_ttl (Union[Unset, float]):
+            Maps input parameters for a step. Can be a static value or a JavaScript expression that references previous
+            results or flow inputs
+        cache_ttl (Union[Unset, float]): Cache duration in seconds for this step's results
+        cache_ignore_s3_path (Union[Unset, bool]):
         timeout (Union['OpenFlowValuePreprocessorModuleTimeoutType0', 'OpenFlowValuePreprocessorModuleTimeoutType1',
-            Unset]):
-        delete_after_use (Union[Unset, bool]):
-        summary (Union[Unset, str]):
-        mock (Union[Unset, OpenFlowValuePreprocessorModuleMock]):
-        suspend (Union[Unset, OpenFlowValuePreprocessorModuleSuspend]):
-        priority (Union[Unset, float]):
-        continue_on_error (Union[Unset, bool]):
-        retry (Union[Unset, OpenFlowValuePreprocessorModuleRetry]):
+            Unset]): Maps input parameters for a step. Can be a static value or a JavaScript expression that references
+            previous results or flow inputs
+        delete_after_use (Union[Unset, bool]): If true, this step's result is deleted after use to save memory
+        summary (Union[Unset, str]): Short description of what this step does
+        mock (Union[Unset, OpenFlowValuePreprocessorModuleMock]): Mock configuration for testing without executing the
+            actual step
+        suspend (Union[Unset, OpenFlowValuePreprocessorModuleSuspend]): Configuration for approval/resume steps that
+            wait for user input
+        priority (Union[Unset, float]): Execution priority for this step (higher numbers run first)
+        continue_on_error (Union[Unset, bool]): If true, flow continues even if this step fails
+        retry (Union[Unset, OpenFlowValuePreprocessorModuleRetry]): Retry configuration for failed module executions
     """
 
     id: str
@@ -54,6 +65,7 @@ class OpenFlowValuePreprocessorModule:
         "OpenFlowValuePreprocessorModuleSleepType0", "OpenFlowValuePreprocessorModuleSleepType1", Unset
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
+    cache_ignore_s3_path: Union[Unset, bool] = UNSET
     timeout: Union[
         "OpenFlowValuePreprocessorModuleTimeoutType0", "OpenFlowValuePreprocessorModuleTimeoutType1", Unset
     ] = UNSET
@@ -101,6 +113,7 @@ class OpenFlowValuePreprocessorModule:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
+        cache_ignore_s3_path = self.cache_ignore_s3_path
         timeout: Union[Dict[str, Any], Unset]
         if isinstance(self.timeout, Unset):
             timeout = UNSET
@@ -149,6 +162,8 @@ class OpenFlowValuePreprocessorModule:
             field_dict["sleep"] = sleep
         if cache_ttl is not UNSET:
             field_dict["cache_ttl"] = cache_ttl
+        if cache_ignore_s3_path is not UNSET:
+            field_dict["cache_ignore_s3_path"] = cache_ignore_s3_path
         if timeout is not UNSET:
             field_dict["timeout"] = timeout
         if delete_after_use is not UNSET:
@@ -250,6 +265,8 @@ class OpenFlowValuePreprocessorModule:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
+        cache_ignore_s3_path = d.pop("cache_ignore_s3_path", UNSET)
+
         def _parse_timeout(
             data: object,
         ) -> Union["OpenFlowValuePreprocessorModuleTimeoutType0", "OpenFlowValuePreprocessorModuleTimeoutType1", Unset]:
@@ -318,6 +335,7 @@ class OpenFlowValuePreprocessorModule:
             skip_if=skip_if,
             sleep=sleep,
             cache_ttl=cache_ttl,
+            cache_ignore_s3_path=cache_ignore_s3_path,
             timeout=timeout,
             delete_after_use=delete_after_use,
             summary=summary,

@@ -18,15 +18,17 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist, constr, validator 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from lusid.models.access_metadata_value import AccessMetadataValue
 
 class AccessMetadataOperation(BaseModel):
     """
     AccessMetadataOperation
     """
-    value: conlist(AccessMetadataValue) = Field(...)
+    value: List[AccessMetadataValue]
     path:  StrictStr = Field(...,alias="path") 
     op:  StrictStr = Field(...,alias="op", description="The available values are: add, remove") 
     var_from:  Optional[StrictStr] = Field(None,alias="from") 
@@ -80,14 +82,21 @@ class AccessMetadataOperation(BaseModel):
                                     'HealthCheckResponse', 
                                     'LuminesceViewResponse', 
                                     'SchedulerJobResponse', 
-                                    'SleepResponse']:
+                                    'SleepResponse',
+                                    'Library',
+                                    'LibraryResponse',
+                                    'DayRegularity',
+                                    'RelativeMonthRegularity',
+                                    'SpecificMonthRegularity',
+                                    'WeekRegularity',
+                                    'YearRegularity']:
            return value
         
         # Only validate the 'type' property of the class
         if "op" != "type":
             return value
 
-        if value not in ('add', 'remove'):
+        if value not in ['add', 'remove']:
             raise ValueError("must be one of enum values ('add', 'remove')")
         return value
 
@@ -153,3 +162,5 @@ class AccessMetadataOperation(BaseModel):
             "var_from": obj.get("from")
         })
         return _obj
+
+AccessMetadataOperation.update_forward_refs()

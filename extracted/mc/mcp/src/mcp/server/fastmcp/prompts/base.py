@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, TypeAdapter, validate_call
 
 from mcp.server.fastmcp.utilities.context_injection import find_context_parameter, inject_context
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
-from mcp.types import ContentBlock, TextContent
+from mcp.types import ContentBlock, Icon, TextContent
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp.server import Context
@@ -71,6 +71,7 @@ class Prompt(BaseModel):
     description: str | None = Field(None, description="Description of what the prompt does")
     arguments: list[PromptArgument] | None = Field(None, description="Arguments that can be passed to the prompt")
     fn: Callable[..., PromptResult | Awaitable[PromptResult]] = Field(exclude=True)
+    icons: list[Icon] | None = Field(default=None, description="Optional list of icons for this prompt")
     context_kwarg: str | None = Field(None, description="Name of the kwarg that should receive context", exclude=True)
 
     @classmethod
@@ -80,6 +81,7 @@ class Prompt(BaseModel):
         name: str | None = None,
         title: str | None = None,
         description: str | None = None,
+        icons: list[Icon] | None = None,
         context_kwarg: str | None = None,
     ) -> Prompt:
         """Create a Prompt from a function.
@@ -92,11 +94,11 @@ class Prompt(BaseModel):
         """
         func_name = name or fn.__name__
 
-        if func_name == "<lambda>":
+        if func_name == "<lambda>":  # pragma: no cover
             raise ValueError("You must provide a name for lambda functions")
 
         # Find context parameter if it exists
-        if context_kwarg is None:
+        if context_kwarg is None:  # pragma: no branch
             context_kwarg = find_context_parameter(fn)
 
         # Get schema from func_metadata, excluding context parameter
@@ -108,7 +110,7 @@ class Prompt(BaseModel):
 
         # Convert parameters to PromptArguments
         arguments: list[PromptArgument] = []
-        if "properties" in parameters:
+        if "properties" in parameters:  # pragma: no branch
             for param_name, param in parameters["properties"].items():
                 required = param_name in parameters.get("required", [])
                 arguments.append(
@@ -128,6 +130,7 @@ class Prompt(BaseModel):
             description=description or fn.__doc__ or "",
             arguments=arguments,
             fn=fn,
+            icons=icons,
             context_kwarg=context_kwarg,
         )
 
@@ -169,12 +172,12 @@ class Prompt(BaseModel):
                     elif isinstance(msg, str):
                         content = TextContent(type="text", text=msg)
                         messages.append(UserMessage(content=content))
-                    else:
+                    else:  # pragma: no cover
                         content = pydantic_core.to_json(msg, fallback=str, indent=2).decode()
                         messages.append(Message(role="user", content=content))
-                except Exception:
+                except Exception:  # pragma: no cover
                     raise ValueError(f"Could not convert prompt result to message: {msg}")
 
             return messages
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             raise ValueError(f"Error rendering prompt {self.name}: {e}")

@@ -3,7 +3,7 @@ Type annotations for chime service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_chime/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -139,12 +140,6 @@ from .type_defs import (
     UpdateUserSettingsRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -153,18 +148,18 @@ else:
 __all__ = ("ChimeClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ResourceLimitExceededException: Type[BotocoreClientError]
-    ServiceFailureException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottledClientException: Type[BotocoreClientError]
-    UnauthorizedClientException: Type[BotocoreClientError]
-    UnprocessableEntityException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ResourceLimitExceededException: type[BotocoreClientError]
+    ServiceFailureException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottledClientException: type[BotocoreClientError]
+    UnauthorizedClientException: type[BotocoreClientError]
+    UnprocessableEntityException: type[BotocoreClientError]
 
 class ChimeClient(AioBaseClient):
     """
@@ -203,7 +198,7 @@ class ChimeClient(AioBaseClient):
 
     async def associate_phone_number_with_user(
         self, **kwargs: Unpack[AssociatePhoneNumberWithUserRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a phone number with the specified Amazon Chime user.
 
@@ -213,7 +208,7 @@ class ChimeClient(AioBaseClient):
 
     async def associate_signin_delegate_groups_with_account(
         self, **kwargs: Unpack[AssociateSigninDelegateGroupsWithAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates the specified sign-in delegate groups with the specified Amazon
         Chime account.
@@ -357,7 +352,7 @@ class ChimeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_chime/client/#create_user)
         """
 
-    async def delete_account(self, **kwargs: Unpack[DeleteAccountRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_account(self, **kwargs: Unpack[DeleteAccountRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified Amazon Chime account.
 
@@ -407,7 +402,7 @@ class ChimeClient(AioBaseClient):
 
     async def disassociate_phone_number_from_user(
         self, **kwargs: Unpack[DisassociatePhoneNumberFromUserRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the primary provisioned phone number from the specified Amazon
         Chime user.
@@ -418,7 +413,7 @@ class ChimeClient(AioBaseClient):
 
     async def disassociate_signin_delegate_groups_from_account(
         self, **kwargs: Unpack[DisassociateSigninDelegateGroupsFromAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the specified sign-in delegate groups from the specified Amazon
         Chime account.
@@ -641,7 +636,7 @@ class ChimeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_chime/client/#list_users)
         """
 
-    async def logout_user(self, **kwargs: Unpack[LogoutUserRequestTypeDef]) -> Dict[str, Any]:
+    async def logout_user(self, **kwargs: Unpack[LogoutUserRequestTypeDef]) -> dict[str, Any]:
         """
         Logs out the specified user from all of the devices they are currently logged
         into.
@@ -673,7 +668,7 @@ class ChimeClient(AioBaseClient):
 
     async def redact_conversation_message(
         self, **kwargs: Unpack[RedactConversationMessageRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Redacts the specified message from the specified Amazon Chime conversation.
 
@@ -683,7 +678,7 @@ class ChimeClient(AioBaseClient):
 
     async def redact_room_message(
         self, **kwargs: Unpack[RedactRoomMessageRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Redacts the specified message from the specified Amazon Chime channel.
 
@@ -745,7 +740,7 @@ class ChimeClient(AioBaseClient):
 
     async def update_account_settings(
         self, **kwargs: Unpack[UpdateAccountSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the settings for the specified Amazon Chime account.
 
@@ -869,7 +864,7 @@ class ChimeClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

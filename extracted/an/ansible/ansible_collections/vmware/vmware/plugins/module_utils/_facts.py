@@ -19,9 +19,8 @@ try:
 except ImportError:
     pass
 
-from ansible.module_utils._text import to_text
-from ansible.module_utils.six import integer_types, string_types, iteritems
-import ansible.module_utils.common._collections_compat as collections_compat
+from ansible.module_utils.common.text.converters import to_text
+from collections.abc import Mapping
 from ansible_collections.vmware.vmware.plugins.module_utils._folder_paths import get_folder_path_of_vsphere_object
 
 
@@ -500,8 +499,8 @@ def serialize_spec(clonespec):
             data[x] = []
             for xe in xo:
                 data[x].append(serialize_spec(xe))
-        elif issubclass(xt, string_types + integer_types + (float, bool)):
-            if issubclass(xt, integer_types):
+        elif issubclass(xt, (str, int, float, bool)):
+            if issubclass(xt, int):
                 data[x] = int(xo)
             else:
                 data[x] = to_text(xo)
@@ -529,8 +528,6 @@ def deepmerge_dicts(d, u):
         https://bit.ly/2EDOs1B (stackoverflow question 3232943)
     License:
         cc-by-sa 3.0 (https://creativecommons.org/licenses/by-sa/3.0/)
-    Changes:
-        using collections_compat for compatibility
 
     Args:
         - d (dict): dict to merge into
@@ -539,8 +536,8 @@ def deepmerge_dicts(d, u):
     Returns:
         dict, with u merged into d
     """
-    for k, v in iteritems(u):
-        if isinstance(v, collections_compat.Mapping):
+    for k, v in u.items():
+        if isinstance(v, Mapping):
             d[k] = deepmerge_dicts(d.get(k, {}), v)
         else:
             d[k] = v

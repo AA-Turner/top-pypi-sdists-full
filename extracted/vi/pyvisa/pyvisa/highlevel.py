@@ -334,7 +334,7 @@ class VisaLibraryBase(object):
         except TypeError as e:
             raise errors.VisaTypeError(str(e)) from e
 
-        self.handlers[session].append(new_handler[:-1] + (event_type,))
+        self.handlers[session].append((*new_handler[:-1], event_type))
         return new_handler[1]
 
     def uninstall_visa_handler(
@@ -2999,7 +2999,7 @@ class ResourceManager(object):
 
         obj = super(ResourceManager, cls).__new__(cls)
 
-        obj.session, err = visa_library.open_default_resource_manager()
+        obj.session, _err = visa_library.open_default_resource_manager()
 
         obj.visalib = visa_library
         obj.visalib.resource_manager = obj
@@ -3010,9 +3010,16 @@ class ResourceManager(object):
         close_ref = WeakMethod(obj.close)  # type: ignore
 
         def call_close():
-            meth = close_ref()
-            if meth:
-                meth()
+            try:
+                meth = close_ref()
+                if meth:
+                    meth()
+            except Exception:
+                # Suppress exceptions during exit
+                logger.warning(
+                    "Exception suppressed while closing a ResourceManager at system exit",
+                    exc_info=True,
+                )
 
         atexit.register(call_close)
         obj._atexit_handler = call_close  # type: ignore
@@ -3180,9 +3187,11 @@ class ResourceManager(object):
         """
 
         if extended:
-            ret, err = self.visalib.parse_resource_extended(self.session, resource_name)
+            ret, _err = self.visalib.parse_resource_extended(
+                self.session, resource_name
+            )
         else:
-            ret, err = self.visalib.parse_resource(self.session, resource_name)
+            ret, _err = self.visalib.parse_resource(self.session, resource_name)
 
         return ret
 

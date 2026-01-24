@@ -28,7 +28,7 @@ or L{GeoidPGM} and download a C{geoid} model file, containing locations with
 known heights also referred to as the C{grid knots}.  See the documentation of
 the interpolator class for references to available C{grid} models.
 
-C{>>> from pygeodesy import GeoidEGM96  # or -G2012B, -Karney or -PGM as GeoidXyz}
+C{>>> from pygeodesy import GeoidEGM96 as GeoidXyz  # or GeoidG2012B, -Karney or -PGM}
 
 2. Instantiate an interpolator with the C{geoid} model file and use keyword
 arguments to select different interpolation options
@@ -126,7 +126,7 @@ except ImportError:  # Python 3+
     from io import BytesIO as _BytesIO  # PYCHOK expected
 
 __all__ = _ALL_LAZY.geoids
-__version__ = '25.05.21'
+__version__ = '25.09.26'
 
 _assert_    = 'assert'
 _bHASH_     = b'#'
@@ -1912,7 +1912,7 @@ del _intCs, _T, _T0s12  # trash ints cache and map
 
 # **) MIT License
 #
-# Copyright (C) 2016-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

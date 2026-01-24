@@ -3,7 +3,7 @@ Main interface for invoicing service.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_invoicing/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -14,6 +14,7 @@ Usage::
         InvoicingClient,
         ListInvoiceSummariesPaginator,
         ListInvoiceUnitsPaginator,
+        ListProcurementPortalPreferencesPaginator,
     )
 
     session = Session()
@@ -21,11 +22,16 @@ Usage::
 
     list_invoice_summaries_paginator: ListInvoiceSummariesPaginator = client.get_paginator("list_invoice_summaries")
     list_invoice_units_paginator: ListInvoiceUnitsPaginator = client.get_paginator("list_invoice_units")
+    list_procurement_portal_preferences_paginator: ListProcurementPortalPreferencesPaginator = client.get_paginator("list_procurement_portal_preferences")
     ```
 """
 
 from .client import InvoicingClient
-from .paginator import ListInvoiceSummariesPaginator, ListInvoiceUnitsPaginator
+from .paginator import (
+    ListInvoiceSummariesPaginator,
+    ListInvoiceUnitsPaginator,
+    ListProcurementPortalPreferencesPaginator,
+)
 
 Client = InvoicingClient
 
@@ -34,4 +40,5 @@ __all__ = (
     "InvoicingClient",
     "ListInvoiceSummariesPaginator",
     "ListInvoiceUnitsPaginator",
+    "ListProcurementPortalPreferencesPaginator",
 )

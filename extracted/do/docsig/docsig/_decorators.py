@@ -35,7 +35,7 @@ def parse_msgs(func: _WrappedFuncType) -> _WrappedFuncType:
 
 
 def validate_args(func: _FuncType) -> _WrappedFuncType:
-    """Confirm args passed to function are valid.
+    """Confirm args passed to the function are valid.
 
     :param func: Function to wrap.
     :return: Wrapped function.
@@ -69,7 +69,7 @@ def validate_args(func: _FuncType) -> _WrappedFuncType:
                     "argument to check class constructor not allowed with"
                     " argument to check class",
                 )
-                # if we don't make it past this condition then we are
+                # if we don't make it past this condition, then we are
                 # running this using the python interpreter
                 if _sys.stdin and _sys.stdin.isatty():
                     # otherwise, it is impossible to reach here by

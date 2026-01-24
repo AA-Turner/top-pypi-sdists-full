@@ -8,11 +8,15 @@ from .models import Currency, CurrencyFXRates
 class CurrencyRepresentationSerializer(wb_serializers.RepresentationSerializer):
     """Representation Serializer for Currencies"""
 
+    name_repr = wb_serializers.SerializerMethodField(read_only=True)
     _detail = wb_serializers.HyperlinkField(reverse_name="wbcore:currency:currency-detail")
+
+    def get_name_repr(self, obj):
+        return str(obj)
 
     class Meta:
         model = Currency
-        fields = ("id", "title", "key", "symbol", "_detail")
+        fields = ("id", "name_repr", "key", "_detail")
 
 
 class CurrencyModelSerializer(wb_serializers.ModelSerializer):

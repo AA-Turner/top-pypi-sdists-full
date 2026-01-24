@@ -262,11 +262,13 @@ AMAP_PROVIDER_TO_FUNCTION = {
 
 class PromptLayerMixin:
     @staticmethod
-    def _initialize_tracer(api_key: str = None, enable_tracing: bool = False):
+    def _initialize_tracer(api_key: str, base_url: str, throw_on_error: bool, enable_tracing: bool = False):
         if enable_tracing:
             resource = Resource(attributes={ResourceAttributes.SERVICE_NAME: "prompt-layer-library"})
             tracer_provider = TracerProvider(resource=resource)
-            promptlayer_exporter = PromptLayerSpanExporter(api_key=api_key)
+            promptlayer_exporter = PromptLayerSpanExporter(
+                api_key=api_key, base_url=base_url, throw_on_error=throw_on_error
+            )
             span_processor = BatchSpanProcessor(promptlayer_exporter)
             tracer_provider.add_span_processor(span_processor)
             tracer = tracer_provider.get_tracer(__name__)
@@ -317,7 +319,7 @@ class PromptLayerMixin:
         function_kwargs = deepcopy(prompt_blueprint["llm_kwargs"])
         function_kwargs["stream"] = stream
         provider = prompt_blueprint_model["provider"]
-        api_type = prompt_blueprint_model["api_type"]
+        api_type = prompt_blueprint_model.get("api_type", "chat-completions")
 
         if custom_provider := prompt_blueprint.get("custom_provider"):
             provider = custom_provider["client"]
@@ -339,7 +341,8 @@ class PromptLayerMixin:
                 provider_function_name = "anthropic"
 
         if provider_function_name in ("openai", "openai.azure"):
-            provider_function_name = f"{provider_function_name}:{api_type}"
+            api = api_type if api_type is not None else "chat-completions"
+            provider_function_name = f"{provider_function_name}:{api}"
 
         if is_async:
             config = AMAP_PROVIDER_TO_FUNCTION_NAME[provider_function_name][prompt_template["type"]]
@@ -386,16 +389,25 @@ class PromptLayerMixin:
         group_id,
         pl_run_span_id: Union[str, None] = None,
         metadata: Union[Dict[str, str], None] = None,
+        request_start_time: Union[float, None] = None,
+        request_end_time: Union[float, None] = None,
         **body,
     ):
+        # If timestamps are not provided, generate them (for backward compatibility)
+        # But note that this is the old buggy behavior
+        if request_start_time is None:
+            request_start_time = datetime.datetime.now(datetime.timezone.utc).timestamp()
+        if request_end_time is None:
+            request_end_time = datetime.datetime.now(datetime.timezone.utc).timestamp()
+
         return {
             "function_name": request_params["function_name"],
             "provider_type": request_params["provider"],
             "args": [],
             "kwargs": request_params["function_kwargs"],
             "tags": tags,
-            "request_start_time": datetime.datetime.now(datetime.timezone.utc).timestamp(),
-            "request_end_time": datetime.datetime.now(datetime.timezone.utc).timestamp(),
+            "request_start_time": request_start_time,
+            "request_end_time": request_end_time,
             "api_key": api_key,
             "metadata": metadata,
             "prompt_id": request_params["prompt_blueprint"]["id"],

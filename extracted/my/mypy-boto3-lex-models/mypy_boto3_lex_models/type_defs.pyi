@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -48,12 +49,6 @@ from .literals import (
     StatusTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -204,7 +199,7 @@ BotChannelAssociationTypeDef = TypedDict(
         "botName": NotRequired[str],
         "createdDate": NotRequired[datetime],
         "type": NotRequired[ChannelTypeType],
-        "botConfiguration": NotRequired[Dict[str, str]],
+        "botConfiguration": NotRequired[dict[str, str]],
         "status": NotRequired[ChannelStatusType],
         "failureReason": NotRequired[str],
     },
@@ -220,14 +215,14 @@ class BotMetadataTypeDef(TypedDict):
 
 class BuiltinIntentMetadataTypeDef(TypedDict):
     signature: NotRequired[str]
-    supportedLocales: NotRequired[List[LocaleType]]
+    supportedLocales: NotRequired[list[LocaleType]]
 
 class BuiltinIntentSlotTypeDef(TypedDict):
     name: NotRequired[str]
 
 class BuiltinSlotTypeMetadataTypeDef(TypedDict):
     signature: NotRequired[str]
-    supportedLocales: NotRequired[List[LocaleType]]
+    supportedLocales: NotRequired[list[LocaleType]]
 
 class CodeHookTypeDef(TypedDict):
     uri: str
@@ -257,7 +252,7 @@ class IntentTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -284,7 +279,7 @@ class CreateSlotTypeVersionRequestTypeDef(TypedDict):
 
 class EnumerationValueOutputTypeDef(TypedDict):
     value: str
-    synonyms: NotRequired[List[str]]
+    synonyms: NotRequired[list[str]]
 
 class DeleteBotAliasRequestTypeDef(TypedDict):
     name: str
@@ -418,8 +413,8 @@ MigrationAlertTypeDef = TypedDict(
     {
         "type": NotRequired[MigrationAlertTypeType],
         "message": NotRequired[str],
-        "details": NotRequired[List[str]],
-        "referenceURLs": NotRequired[List[str]],
+        "details": NotRequired[list[str]],
+        "referenceURLs": NotRequired[list[str]],
     },
 )
 
@@ -517,7 +512,7 @@ class ConversationLogsRequestTypeDef(TypedDict):
     iamRoleArn: str
 
 class ConversationLogsResponseTypeDef(TypedDict):
-    logSettings: NotRequired[List[LogSettingsResponseTypeDef]]
+    logSettings: NotRequired[list[LogSettingsResponseTypeDef]]
     iamRoleArn: NotRequired[str]
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -532,7 +527,7 @@ GetBotChannelAssociationResponseTypeDef = TypedDict(
         "botName": str,
         "createdDate": datetime,
         "type": ChannelTypeType,
-        "botConfiguration": Dict[str, str],
+        "botConfiguration": dict[str, str],
         "status": ChannelStatusType,
         "failureReason": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -540,33 +535,33 @@ GetBotChannelAssociationResponseTypeDef = TypedDict(
 )
 
 class GetBotChannelAssociationsResponseTypeDef(TypedDict):
-    botChannelAssociations: List[BotChannelAssociationTypeDef]
+    botChannelAssociations: list[BotChannelAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetBotVersionsResponseTypeDef(TypedDict):
-    bots: List[BotMetadataTypeDef]
+    bots: list[BotMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetBotsResponseTypeDef(TypedDict):
-    bots: List[BotMetadataTypeDef]
+    bots: list[BotMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetBuiltinIntentResponseTypeDef(TypedDict):
     signature: str
-    supportedLocales: List[LocaleType]
-    slots: List[BuiltinIntentSlotTypeDef]
+    supportedLocales: list[LocaleType]
+    slots: list[BuiltinIntentSlotTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetBuiltinIntentsResponseTypeDef(TypedDict):
-    intents: List[BuiltinIntentMetadataTypeDef]
+    intents: list[BuiltinIntentMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetBuiltinSlotTypesResponseTypeDef(TypedDict):
-    slotTypes: List[BuiltinSlotTypeMetadataTypeDef]
+    slotTypes: list[BuiltinSlotTypeMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -586,7 +581,7 @@ class GetImportResponseTypeDef(TypedDict):
     mergeStrategy: MergeStrategyType
     importId: str
     importStatus: ImportStatusType
-    failureReason: List[str]
+    failureReason: list[str]
     createdDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -649,12 +644,12 @@ class GetSlotTypesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class GetIntentVersionsResponseTypeDef(TypedDict):
-    intents: List[IntentMetadataTypeDef]
+    intents: list[IntentMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetIntentsResponseTypeDef(TypedDict):
-    intents: List[IntentMetadataTypeDef]
+    intents: list[IntentMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -668,26 +663,26 @@ class GetMigrationResponseTypeDef(TypedDict):
     migrationStatus: MigrationStatusType
     migrationStrategy: MigrationStrategyType
     migrationTimestamp: datetime
-    alerts: List[MigrationAlertTypeDef]
+    alerts: list[MigrationAlertTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetMigrationsResponseTypeDef(TypedDict):
-    migrationSummaries: List[MigrationSummaryTypeDef]
+    migrationSummaries: list[MigrationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetSlotTypeVersionsResponseTypeDef(TypedDict):
-    slotTypes: List[SlotTypeMetadataTypeDef]
+    slotTypes: list[SlotTypeMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetSlotTypesResponseTypeDef(TypedDict):
-    slotTypes: List[SlotTypeMetadataTypeDef]
+    slotTypes: list[SlotTypeMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartImportRequestTypeDef(TypedDict):
@@ -702,7 +697,7 @@ class StartImportResponseTypeDef(TypedDict):
     mergeStrategy: MergeStrategyType
     importId: str
     importStatus: ImportStatusType
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     createdDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -711,7 +706,7 @@ class TagResourceRequestTypeDef(TypedDict):
     tags: Sequence[TagTypeDef]
 
 class PromptOutputTypeDef(TypedDict):
-    messages: List[MessageTypeDef]
+    messages: list[MessageTypeDef]
     maxAttempts: int
     responseCard: NotRequired[str]
 
@@ -721,7 +716,7 @@ class PromptTypeDef(TypedDict):
     responseCard: NotRequired[str]
 
 class StatementOutputTypeDef(TypedDict):
-    messages: List[MessageTypeDef]
+    messages: list[MessageTypeDef]
     responseCard: NotRequired[str]
 
 class StatementTypeDef(TypedDict):
@@ -729,7 +724,7 @@ class StatementTypeDef(TypedDict):
     responseCard: NotRequired[str]
 
 class SlotDefaultValueSpecOutputTypeDef(TypedDict):
-    defaultValueList: List[SlotDefaultValueTypeDef]
+    defaultValueList: list[SlotDefaultValueTypeDef]
 
 class SlotDefaultValueSpecTypeDef(TypedDict):
     defaultValueList: Sequence[SlotDefaultValueTypeDef]
@@ -739,7 +734,7 @@ class SlotTypeConfigurationTypeDef(TypedDict):
 
 class UtteranceListTypeDef(TypedDict):
     botVersion: NotRequired[str]
-    utterances: NotRequired[List[UtteranceDataTypeDef]]
+    utterances: NotRequired[list[UtteranceDataTypeDef]]
 
 class PutBotAliasRequestTypeDef(TypedDict):
     name: str
@@ -780,7 +775,7 @@ class PutBotAliasResponseTypeDef(TypedDict):
     createdDate: datetime
     checksum: str
     conversationLogs: ConversationLogsResponseTypeDef
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 PromptUnionTypeDef = Union[PromptTypeDef, PromptOutputTypeDef]
@@ -788,7 +783,7 @@ PromptUnionTypeDef = Union[PromptTypeDef, PromptOutputTypeDef]
 class CreateBotVersionResponseTypeDef(TypedDict):
     name: str
     description: str
-    intents: List[IntentTypeDef]
+    intents: list[IntentTypeDef]
     clarificationPrompt: PromptOutputTypeDef
     abortStatement: StatementOutputTypeDef
     status: StatusType
@@ -812,7 +807,7 @@ class FollowUpPromptOutputTypeDef(TypedDict):
 class GetBotResponseTypeDef(TypedDict):
     name: str
     description: str
-    intents: List[IntentTypeDef]
+    intents: list[IntentTypeDef]
     enableModelImprovements: bool
     nluIntentConfidenceThreshold: float
     clarificationPrompt: PromptOutputTypeDef
@@ -833,7 +828,7 @@ class GetBotResponseTypeDef(TypedDict):
 class PutBotResponseTypeDef(TypedDict):
     name: str
     description: str
-    intents: List[IntentTypeDef]
+    intents: list[IntentTypeDef]
     enableModelImprovements: bool
     nluIntentConfidenceThreshold: float
     clarificationPrompt: PromptOutputTypeDef
@@ -850,7 +845,7 @@ class PutBotResponseTypeDef(TypedDict):
     childDirected: bool
     createVersion: bool
     detectSentiment: bool
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class FollowUpPromptTypeDef(TypedDict):
@@ -867,7 +862,7 @@ class SlotOutputTypeDef(TypedDict):
     slotTypeVersion: NotRequired[str]
     valueElicitationPrompt: NotRequired[PromptOutputTypeDef]
     priority: NotRequired[int]
-    sampleUtterances: NotRequired[List[str]]
+    sampleUtterances: NotRequired[list[str]]
     responseCard: NotRequired[str]
     obfuscationSetting: NotRequired[ObfuscationSettingType]
     defaultValueSpec: NotRequired[SlotDefaultValueSpecOutputTypeDef]
@@ -879,27 +874,27 @@ SlotDefaultValueSpecUnionTypeDef = Union[
 class CreateSlotTypeVersionResponseTypeDef(TypedDict):
     name: str
     description: str
-    enumerationValues: List[EnumerationValueOutputTypeDef]
+    enumerationValues: list[EnumerationValueOutputTypeDef]
     lastUpdatedDate: datetime
     createdDate: datetime
     version: str
     checksum: str
     valueSelectionStrategy: SlotValueSelectionStrategyType
     parentSlotTypeSignature: str
-    slotTypeConfigurations: List[SlotTypeConfigurationTypeDef]
+    slotTypeConfigurations: list[SlotTypeConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSlotTypeResponseTypeDef(TypedDict):
     name: str
     description: str
-    enumerationValues: List[EnumerationValueOutputTypeDef]
+    enumerationValues: list[EnumerationValueOutputTypeDef]
     lastUpdatedDate: datetime
     createdDate: datetime
     version: str
     checksum: str
     valueSelectionStrategy: SlotValueSelectionStrategyType
     parentSlotTypeSignature: str
-    slotTypeConfigurations: List[SlotTypeConfigurationTypeDef]
+    slotTypeConfigurations: list[SlotTypeConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutSlotTypeRequestTypeDef(TypedDict):
@@ -915,7 +910,7 @@ class PutSlotTypeRequestTypeDef(TypedDict):
 class PutSlotTypeResponseTypeDef(TypedDict):
     name: str
     description: str
-    enumerationValues: List[EnumerationValueOutputTypeDef]
+    enumerationValues: list[EnumerationValueOutputTypeDef]
     lastUpdatedDate: datetime
     createdDate: datetime
     version: str
@@ -923,16 +918,16 @@ class PutSlotTypeResponseTypeDef(TypedDict):
     valueSelectionStrategy: SlotValueSelectionStrategyType
     createVersion: bool
     parentSlotTypeSignature: str
-    slotTypeConfigurations: List[SlotTypeConfigurationTypeDef]
+    slotTypeConfigurations: list[SlotTypeConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetUtterancesViewResponseTypeDef(TypedDict):
     botName: str
-    utterances: List[UtteranceListTypeDef]
+    utterances: list[UtteranceListTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetBotAliasesResponseTypeDef(TypedDict):
-    BotAliases: List[BotAliasMetadataTypeDef]
+    BotAliases: list[BotAliasMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -959,8 +954,8 @@ class PutBotRequestTypeDef(TypedDict):
 class CreateIntentVersionResponseTypeDef(TypedDict):
     name: str
     description: str
-    slots: List[SlotOutputTypeDef]
-    sampleUtterances: List[str]
+    slots: list[SlotOutputTypeDef]
+    sampleUtterances: list[str]
     confirmationPrompt: PromptOutputTypeDef
     rejectionStatement: StatementOutputTypeDef
     followUpPrompt: FollowUpPromptOutputTypeDef
@@ -973,15 +968,15 @@ class CreateIntentVersionResponseTypeDef(TypedDict):
     version: str
     checksum: str
     kendraConfiguration: KendraConfigurationTypeDef
-    inputContexts: List[InputContextTypeDef]
-    outputContexts: List[OutputContextTypeDef]
+    inputContexts: list[InputContextTypeDef]
+    outputContexts: list[OutputContextTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetIntentResponseTypeDef(TypedDict):
     name: str
     description: str
-    slots: List[SlotOutputTypeDef]
-    sampleUtterances: List[str]
+    slots: list[SlotOutputTypeDef]
+    sampleUtterances: list[str]
     confirmationPrompt: PromptOutputTypeDef
     rejectionStatement: StatementOutputTypeDef
     followUpPrompt: FollowUpPromptOutputTypeDef
@@ -994,15 +989,15 @@ class GetIntentResponseTypeDef(TypedDict):
     version: str
     checksum: str
     kendraConfiguration: KendraConfigurationTypeDef
-    inputContexts: List[InputContextTypeDef]
-    outputContexts: List[OutputContextTypeDef]
+    inputContexts: list[InputContextTypeDef]
+    outputContexts: list[OutputContextTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutIntentResponseTypeDef(TypedDict):
     name: str
     description: str
-    slots: List[SlotOutputTypeDef]
-    sampleUtterances: List[str]
+    slots: list[SlotOutputTypeDef]
+    sampleUtterances: list[str]
     confirmationPrompt: PromptOutputTypeDef
     rejectionStatement: StatementOutputTypeDef
     followUpPrompt: FollowUpPromptOutputTypeDef
@@ -1016,8 +1011,8 @@ class PutIntentResponseTypeDef(TypedDict):
     checksum: str
     createVersion: bool
     kendraConfiguration: KendraConfigurationTypeDef
-    inputContexts: List[InputContextTypeDef]
-    outputContexts: List[OutputContextTypeDef]
+    inputContexts: list[InputContextTypeDef]
+    outputContexts: list[OutputContextTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SlotTypeDef(TypedDict):

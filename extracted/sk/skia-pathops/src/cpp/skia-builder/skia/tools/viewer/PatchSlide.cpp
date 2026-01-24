@@ -5,27 +5,28 @@
  * found in the LICENSE file.
  */
 
+#include "include/core/SkBitmap.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColorFilter.h"
-#include "include/core/SkColorPriv.h"
 #include "include/core/SkContourMeasure.h"
 #include "include/core/SkGraphics.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/core/SkPathEffect.h"
 #include "include/core/SkRegion.h"
 #include "include/core/SkShader.h"
 #include "include/core/SkStream.h"
-#include "include/core/SkTime.h"
 #include "include/core/SkTypeface.h"
 #include "include/core/SkVertices.h"
 #include "include/effects/SkGradientShader.h"
-#include "include/effects/SkOpPathEffect.h"
 #include "include/private/base/SkTDArray.h"
 #include "src/base/SkRandom.h"
+#include "src/base/SkTime.h"
 #include "src/base/SkUTF.h"
+#include "src/core/SkColorPriv.h"
 #include "src/core/SkGeometry.h"
 #include "src/core/SkOSFile.h"
-#include "tools/DecodeFile.h"
+#include "tools/DecodeUtils.h"
 #include "tools/Resources.h"
 #include "tools/timer/TimeUtils.h"
 #include "tools/viewer/ClickHandlerSlide.h"
@@ -34,7 +35,7 @@
 namespace {
 static sk_sp<SkShader> make_shader0(SkIPoint* size) {
     SkBitmap bm;
-    decode_file(GetResourceAsData("images/dog.jpg"), &bm);
+    SkASSERT_RELEASE(ToolUtils::GetResourceAsBitmap("images/dog.jpg", &bm));
     *size = SkIPoint{bm.width(), bm.height()};
     return bm.makeShader(SkSamplingOptions(SkFilterMode::kLinear));
 }
@@ -266,7 +267,7 @@ public:
         paint.setShader(nullptr);
         paint.setAntiAlias(true);
         paint.setStrokeWidth(SkIntToScalar(5));
-        canvas->drawPoints(SkCanvas::kPoints_PointMode, std::size(fPts), fPts, paint);
+        canvas->drawPoints(SkCanvas::kPoints_PointMode, fPts, paint);
 
         canvas->translate(0, SkIntToScalar(300));
 
@@ -325,7 +326,8 @@ DEF_SLIDE( return new PatchSlide(); )
 //////////////////////////////////////////////////////////////////////////////
 
 namespace {
-static sk_sp<SkVertices> make_verts(const SkPath& path, SkScalar width) {
+static sk_sp<SkVertices> make_verts(const SkPathBuilder& pathbuilder, SkScalar width) {
+    SkPath path = pathbuilder.snapshot();
     auto meas = SkContourMeasureIter(path, false).next();
     if (!meas) {
         return nullptr;
@@ -343,7 +345,7 @@ static sk_sp<SkVertices> make_verts(const SkPath& path, SkScalar width) {
             continue;
         }
         SkPoint* dst = pts.append(2);
-        mx.mapPoints(dst, src, 2);
+        mx.mapPoints({dst, 2}, {src, 2});
     }
 
     int vertCount = pts.size();
@@ -363,7 +365,7 @@ static sk_sp<SkVertices> make_verts(const SkPath& path, SkScalar width) {
 
 class PseudoInkSlide : public ClickHandlerSlide {
     enum { N = 100 };
-    SkPath            fPath;
+    SkPathBuilder     fPath;
     sk_sp<SkVertices> fVertices[N];
     SkPaint           fSkeletonP, fStrokeP, fVertsP;
     bool              fDirty = true;
@@ -418,87 +420,3 @@ protected:
 };
 }  // namespace
 DEF_SLIDE( return new PseudoInkSlide(); )
-
-namespace {
-// Show stroking options using patheffects (and pathops)
-// and why strokeandfill is a hacks
-class ManyStrokesSlide : public ClickHandlerSlide {
-    SkPath              fPath;
-    sk_sp<SkPathEffect> fPE[6];
-
-public:
-    ManyStrokesSlide() {
-        fPE[0] = SkStrokePathEffect::Make(20, SkPaint::kRound_Join, SkPaint::kRound_Cap);
-
-        auto p0 = SkStrokePathEffect::Make(25, SkPaint::kRound_Join, SkPaint::kRound_Cap);
-        auto p1 = SkStrokePathEffect::Make(20, SkPaint::kRound_Join, SkPaint::kRound_Cap);
-        fPE[1] = SkMergePathEffect::Make(p0, p1, SkPathOp::kDifference_SkPathOp);
-
-        fPE[2] = SkMergePathEffect::Make(nullptr, p1, SkPathOp::kDifference_SkPathOp);
-        fPE[3] = SkMergePathEffect::Make(nullptr, p1, SkPathOp::kUnion_SkPathOp);
-        fPE[4] = SkMergePathEffect::Make(p0, nullptr, SkPathOp::kDifference_SkPathOp);
-        fPE[5] = SkMergePathEffect::Make(p0, nullptr, SkPathOp::kIntersect_SkPathOp);
-        fName = "ManyStrokes";
-    }
-
-    bool animate(double nanos) override { return true; }
-
-    void draw(SkCanvas* canvas) override {
-        SkPaint p;
-        p.setColor(0);
-        this->dodraw(canvas, nullptr, 0, 0, &p);
-
-        this->dodraw(canvas, fPE[0], 300, 0);
-        this->dodraw(canvas, fPE[1], 0, 300);
-        this->dodraw(canvas, fPE[2], 300, 300);
-        this->dodraw(canvas, fPE[3], 600, 300);
-        this->dodraw(canvas, fPE[4], 900, 0);
-        this->dodraw(canvas, fPE[5], 900, 300);
-
-        p.setColor(SK_ColorBLACK);
-        p.setStyle(SkPaint::kStrokeAndFill_Style);
-        p.setStrokeJoin(SkPaint::kRound_Join);
-        p.setStrokeCap(SkPaint::kRound_Cap);
-        p.setStrokeWidth(20);
-        this->dodraw(canvas, nullptr, 600, 0, &p);
-    }
-
-protected:
-    Click* onFindClickHandler(SkScalar x, SkScalar y, skui::ModifierKey modi) override {
-        Click* click = new Click();
-        fPath.reset();
-        fPath.moveTo(x, y);
-        return click;
-    }
-
-    bool onClick(Click* click) override {
-        switch (click->fState) {
-            case skui::InputState::kMove:
-                fPath.lineTo(click->fCurr);
-                break;
-            default:
-                break;
-        }
-        return true;
-    }
-
-private:
-    void dodraw(SkCanvas* canvas, sk_sp<SkPathEffect> pe, SkScalar x, SkScalar y,
-                const SkPaint* ptr = nullptr) {
-        SkPaint paint;
-        paint.setAntiAlias(true);
-        paint.setPathEffect(pe);
-        canvas->save();
-        canvas->translate(x, y);
-        canvas->drawPath(fPath, ptr ? *ptr : paint);
-
-        paint.setPathEffect(nullptr);
-        paint.setStyle(SkPaint::kStroke_Style);
-        paint.setColor(SK_ColorGREEN);
-        canvas->drawPath(fPath, paint);
-
-        canvas->restore();
-    }
-};
-}  // namespace
-DEF_SLIDE( return new ManyStrokesSlide(); )

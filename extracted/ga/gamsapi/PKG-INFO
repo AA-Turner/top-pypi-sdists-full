@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gamsapi
-Version: 51.1.0
+Version: 52.4.0
 Summary: GAMS Python API
 Home-page: https://www.gams.com/
 Author: GAMS Development Corporation
@@ -10,19 +10,17 @@ Project-URL: Documentation, https://www.gams.com/latest/docs/API_PY_OVERVIEW.htm
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: connect
@@ -42,6 +40,7 @@ Provides-Extra: core
 Requires-Dist: ply; extra == "core"
 Requires-Dist: numpy; extra == "core"
 Provides-Extra: engine
+Requires-Dist: pydantic; extra == "engine"
 Requires-Dist: python_dateutil; extra == "engine"
 Requires-Dist: urllib3; extra == "engine"
 Provides-Extra: magic
@@ -53,21 +52,22 @@ Provides-Extra: transfer
 Requires-Dist: pandas<2.4,>=2.2.2; extra == "transfer"
 Requires-Dist: scipy; extra == "transfer"
 Provides-Extra: all
-Requires-Dist: urllib3; extra == "all"
-Requires-Dist: pymssql; extra == "all"
-Requires-Dist: psycopg2-binary; extra == "all"
+Requires-Dist: pymysql; extra == "all"
+Requires-Dist: certifi; extra == "all"
 Requires-Dist: python_dateutil; extra == "all"
+Requires-Dist: pymssql; extra == "all"
 Requires-Dist: ipython; extra == "all"
-Requires-Dist: ply; extra == "all"
+Requires-Dist: numpy; extra == "all"
 Requires-Dist: scipy; extra == "all"
 Requires-Dist: pyyaml; extra == "all"
-Requires-Dist: pandas<2.4,>=2.2.2; extra == "all"
 Requires-Dist: openpyxl>=3.1.0; extra == "all"
-Requires-Dist: certifi; extra == "all"
-Requires-Dist: pymysql; extra == "all"
-Requires-Dist: numpy; extra == "all"
-Requires-Dist: pyodbc; extra == "all"
+Requires-Dist: urllib3; extra == "all"
+Requires-Dist: pydantic; extra == "all"
 Requires-Dist: sqlalchemy; extra == "all"
+Requires-Dist: ply; extra == "all"
+Requires-Dist: psycopg2-binary; extra == "all"
+Requires-Dist: pyodbc; extra == "all"
+Requires-Dist: pandas<2.4,>=2.2.2; extra == "all"
 Requires-Dist: cerberus; extra == "all"
 Dynamic: author
 Dynamic: author-email

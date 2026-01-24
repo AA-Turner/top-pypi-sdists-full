@@ -17,7 +17,6 @@ on:
       # This is spelt like this to do not ignore the docs/examples/ folder.
       - '**'
       - '!docs/**'
-      - 'docs/examples/**'
       - '!CHANGELOG.rst'
       - '!LICENSE'
       - '!LICENSES/**'
@@ -42,19 +41,17 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          # actions/setup-python do not support Python 3.7 on macOS on
-          # arm64. The latest macOS version available is macOS 14 but
-          # it is arm64 only. Stick to macos-13 as long as we want to
-          # test Python 3.7 on macOS. macOS 14 on arm64 is covered by
-          # the Cirrus CI jobs.
-          - macos-13
+          # macOS 14 on arm64 is covered by the Cirrus CI jobs, stick to macOS
+          # on x86-64 here as long as we can: macOS 15 is currently planned as
+          # the last supported image based on Intel CPU on GitHub Actions.
+          - macos-15-intel
           - windows-latest
         python:
-          - '3.8'
-          - '3.13'
+          - '3.9'
+          - '3.14'
         meson:
           -
-        pyproject_metadata:
+        dependencies:
           -
         include:
           - os: ubuntu-latest
@@ -62,14 +59,12 @@ jobs:
           - os: ubuntu-latest
             python: 'pypy-3.11'
           - os: ubuntu-latest
-            python: '3.8'
-          - os: ubuntu-latest
-            python: '3.9'
-          - os: ubuntu-latest
             python: '3.10'
           # Test with older supported Meson version.  Meson up to
           # version 1.2.3 requires distutils, which has been removed
           # from the stdlib in Python 3.12, thus test with Pythn 3.11.
+          # To avoid having too many CI jobs, combine this with tests
+          # with the minimum version of other dependencies.
           - os: ubuntu-latest
             python: '3.11'
             meson: '~=0.64.0'
@@ -91,12 +86,24 @@ jobs:
           - os: ubuntu-latest
             python: '3.12'
             meson: '~=1.5.0'
-          # Test with Meson master branch.
+            dependencies: 'packaging==23.2 pyproject-metadata==0.9.0'
           - os: ubuntu-latest
             python: '3.12'
+            meson: '~=1.6.0'
+            dependencies: 'pyproject-metadata==0.9.0'
+          - os: ubuntu-latest
+            python: '3.12'
+            meson: '~=1.7.0'
+            dependencies: 'packaging==23.2'
+          - os: ubuntu-latest
+            python: '3.13'
+            meson: '~=1.8.0'
+          # Test with Meson master branch.
+          - os: ubuntu-latest
+            python: '3.14'
             meson: '@git+https://github.com/mesonbuild/meson.git'
           - os: windows-latest
-            python: '3.12'
+            python: '3.14'
             meson: '@git+https://github.com/mesonbuild/meson.git'
 
     steps:
@@ -124,12 +131,12 @@ jobs:
         run: python -m pip install "meson ${{ matrix.meson }}"
         if: ${{ matrix.meson }}
 
-      - name: Install pyproject-metadata
-        run: python -m pip install "pyproject-metadata ${{ matrix.pyproject_metadata }}"
-        if: ${{ matrix.pyproject_metadata }}
+      - name: Install dependencies
+        run: python -m pip install ${{ matrix.dependencies }}
+        if: ${{ matrix.dependencies }}
 
       - name: Install
-        run: python -m pip install .[test]
+        run: python -m pip install . --group test
 
       - name: Run tests
         run: python -m pytest --showlocals -vv --cov --cov-report=xml
@@ -172,7 +179,7 @@ jobs:
         if: ${{ matrix.meson }}
 
       - name: Install
-        run: python -m pip install .[test]
+        run: python -m pip install . --group test
 
       - name: Run tests
         run: python -m pytest --showlocals -vv
@@ -245,7 +252,7 @@ jobs:
           pushd /usr/share/python-wheels/
           python -m pip download setuptools pip
           popd
-          python -m pip install .[test]
+          python -m pip install . --group test
         shell: C:\cygwin\bin\env.exe CYGWIN_NOWINPATH=1 CHERE_INVOKING=1 C:\cygwin\bin\bash.exe -leo pipefail -o igncr {0}
 
       - name: Run tests
@@ -270,21 +277,21 @@ jobs:
       - name: Install Homebrew Python
         run: |
           brew install --overwrite python@${{ matrix.python }}
-          echo /usr/local/opt/python@${{ matrix.python }}/libexec/bin/ >> $GITHUB_PATH
+          echo /opt/homebrew/opt/python@${{ matrix.python }}/libexec/bin/ >> $GITHUB_PATH
+          python${{ matrix.python }} -m pip config set global.break-system-packages true
+
+      - name: Check Python version
+        run: python --version | grep ${{ matrix.python }}
 
       - name: Install Ninja
         run: brew install ninja
-
-      - name: Update pip
-        # pip >= 23.0 fixes https://github.com/pypa/pip/issues/11539
-        run: python -m pip install --upgrade "pip >= 23.0"
 
       - name: Install Meson
         run: python -m pip install "meson ${{ matrix.meson }}"
         if: ${{ matrix.meson }}
 
       - name: Install
-        run: python -m pip install .[test]
+        run: python -m pip install . --group test
 
       - name: Run tests
         run: python -m pytest --showlocals -vv

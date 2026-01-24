@@ -1,47 +1,44 @@
 Metadata-Version: 2.4
 Name: py7zr
-Version: 1.0.0
+Version: 1.1.2
 Summary: Pure python 7-zip library
 Author-email: Hiroshi Miura <miurahr@linux.com>
-License: LGPL-2.1-or-later
+License-Expression: LGPL-2.1-or-later
 Project-URL: Homepage, https://py7zr.readthedocs.io/
 Project-URL: Documentation, https://py7zr.readthedocs.io/en/stable/
 Project-URL: Bug Tracker, https://github.com/miurahr/py7zr/issues
 Project-URL: Source, https://github.com/miurahr/py7zr
-Project-URL: Changelog, https://py7zr.readthedocs.io/en/latest/changelog.html
+Project-URL: Changelog, https://py7zr.readthedocs.io/en/latest/Changelog.html
 Keywords: compression,7zip,lzma,zstandard,ppmd,lzma2,bcj,archive
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: texttable
 Requires-Dist: pycryptodomex>=3.20.0
-Requires-Dist: brotli>=1.1.0; platform_python_implementation == "CPython"
-Requires-Dist: brotlicffi>=1.1.0.0; platform_python_implementation == "PyPy"
+Requires-Dist: brotli>=1.2.0; platform_python_implementation == "CPython"
+Requires-Dist: brotlicffi>=1.2.0.0; platform_python_implementation == "PyPy"
 Requires-Dist: psutil; sys_platform != "cygwin"
-Requires-Dist: pyzstd>=0.16.1
-Requires-Dist: pyppmd<1.3.0,>=1.1.0
-Requires-Dist: pybcj<1.1.0,>=1.0.0
+Requires-Dist: backports.zstd>=1.0.0; python_version < "3.14"
+Requires-Dist: pyppmd>=1.3.1
+Requires-Dist: pybcj>=1.0.6
 Requires-Dist: multivolumefile>=0.2.3
-Requires-Dist: inflate64<1.1.0,>=1.0.0
-Provides-Extra: test-compat
-Requires-Dist: libarchive-c; extra == "test-compat"
+Requires-Dist: inflate64>=1.0.4
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-benchmark; extra == "test"
@@ -49,18 +46,18 @@ Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pytest-remotedata; extra == "test"
 Requires-Dist: pytest-timeout; extra == "test"
 Requires-Dist: py-cpuinfo; extra == "test"
-Requires-Dist: coverage[toml]>=5.2; extra == "test"
-Requires-Dist: coveralls>=2.1.1; extra == "test"
+Requires-Dist: coverage[toml]>=7.10.7; extra == "test"
+Requires-Dist: coveralls>=4.0.2; extra == "test"
 Requires-Dist: requests; extra == "test"
 Requires-Dist: pytest-httpserver; extra == "test"
 Provides-Extra: docs
-Requires-Dist: sphinx>=7.0.0; extra == "docs"
+Requires-Dist: sphinx>=8.0.0; extra == "docs"
 Requires-Dist: sphinx-py3doc-enhanced-theme; extra == "docs"
 Requires-Dist: sphinx-a4doc; extra == "docs"
 Requires-Dist: docutils; extra == "docs"
 Provides-Extra: check
-Requires-Dist: mypy>=1.10.0; extra == "check"
-Requires-Dist: mypy_extensions>=1.0.0; extra == "check"
+Requires-Dist: mypy>=1.17.0; extra == "check"
+Requires-Dist: mypy_extensions>=1.1.0; extra == "check"
 Requires-Dist: lxml; extra == "check"
 Requires-Dist: types-psutil; extra == "check"
 Requires-Dist: check-manifest; extra == "check"
@@ -68,11 +65,11 @@ Requires-Dist: flake8<8; extra == "check"
 Requires-Dist: flake8-black>=0.3.6; extra == "check"
 Requires-Dist: flake8-deprecated; extra == "check"
 Requires-Dist: flake8-isort; extra == "check"
-Requires-Dist: isort>=5.13.2; extra == "check"
+Requires-Dist: isort>=7.0.0; extra == "check"
 Requires-Dist: pygments; extra == "check"
 Requires-Dist: readme-renderer; extra == "check"
 Requires-Dist: twine; extra == "check"
-Requires-Dist: black>=24.8.0; extra == "check"
+Requires-Dist: black>=25.1.0; extra == "check"
 Requires-Dist: pylint; extra == "check"
 Provides-Extra: debug
 Requires-Dist: pytest; extra == "debug"
@@ -229,10 +226,6 @@ Developer guide
 
 * `Contribution guidelines(html)`_  for this project.
 
-* `Code of conduct`_ for this project.
-
-* `Code of conduct(html)`_ for this project.
-
 * `7z file specification`_ that py7zr stand on.
 
 
@@ -245,10 +238,6 @@ Developer guide
 .. _`Contribution guidelines(html)` : https://py7zr.readthedocs.io/en/latest/contribution.html
 
 .. _`Contribution guidelines` : docs/contribution.rst
-
-.. _`Code  of conduct` : docs/CODE_OF_CONDUCT.rst
-
-.. _`Code  of conduct(html)` : https://py7zr.readthedocs.io/en/latest/CODE_OF_CONDUCT.html
 
 .. _`7z file specification` : https://py7zr.readthedocs.io/en/latest/archive_format.html
 
@@ -433,7 +422,7 @@ Requirements
 `py7zr` uses a python3 standard `lzma module`_ for extraction and compression.
 The standard lzma module uses `liblzma`_ that support core compression algorithm of 7zip.
 
-Minimum required version is Python 3.9.
+Minimum required version is Python 3.10.
 
 ``py7zr`` tested on Linux, macOS, Windows and Ubuntu aarch64.
 
@@ -441,8 +430,8 @@ It hopefully works on M1 Mac too.
 
 Recommended versions are:
 
-- CPython 3.9.0 and later.
-- PyPy3.9-7.3.8 and later.
+- CPython 3.10.0 and later.
+- PyPy3.10-7.3.17 and later.
 
 Following fixes are included in these versions, and it is not fixed on python3.6.
 
@@ -472,7 +461,7 @@ There are several dependencies to support algorithms and CLI expressions.
 Package               Purpose
 ===================== ===============================
 `PyCryptodomex`_      7zAES encryption
-`PyZstd`_             ZStandard compression
+`backports.zstd`      ZStandard compression for Python before 3.14
 `PyPPMd`_             PPMd compression
 `Brotli`_             Brotli compression (CPython)
 `BrotliCFFI`_         Brotli compression (PyPy)
@@ -484,7 +473,7 @@ Package               Purpose
 
 
 .. _`Pycryptodomex` : https://www.pycryptodome.org/en/latest/index.html
-.. _`PyZstd` : https://pypi.org/project/pyzstd
+.. _`backports.zstd` : https://pypi.org/project/backports.zstd
 .. _`PyPPMd` : https://pypi.org/project/pyppmd
 .. _`Brotli` : https://pypi.org/project/brotli
 .. _`BrotliCFFI` : https://pypi.org/project/brotlicffi

@@ -21,10 +21,17 @@ Key responsibilities:
   classes, which process each part of the document as defined by the PDF
   specification.
 """
+import logging
 import typing
 
 from borb.pdf.primitives import PDFType, reference
 from borb.pdf.visitor.read.read_visitor import ReadVisitor
+from borb.pdf.visitor.read.reference_visitor.byte_offset_reference_visitor import (
+    ByteOffsetReferenceVisitor,
+)
+from borb.pdf.visitor.read.reference_visitor.obj_stm_reference_visitor import (
+    ObjStmReferenceVisitor,
+)
 
 
 class RootVisitor(ReadVisitor):
@@ -69,7 +76,7 @@ class RootVisitor(ReadVisitor):
         and primitive types. The `FacadeVisitor` acts as the central coordinator
         for dispatching PDF nodes to the appropriate visitor.
         """
-        super().__init__(root=self)
+        super().__init__(root=None)
         from borb.pdf.visitor.read.read_visitor import ReadVisitor
         from borb.pdf.visitor.read.document_visitor import DocumentVisitor
         from borb.pdf.visitor.read.plaintext_xref_visitor import PlaintextXRefVisitor
@@ -77,7 +84,6 @@ class RootVisitor(ReadVisitor):
         from borb.pdf.visitor.read.list_visitor import ListVisitor
         from borb.pdf.visitor.read.str_visitor import StrVisitor
         from borb.pdf.visitor.read.hex_str_visitor import HexStrVisitor
-        from borb.pdf.visitor.read.reference_visitor import ReferenceVisitor
         from borb.pdf.visitor.read.obj_visitor import ObjVisitor
         from borb.pdf.visitor.read.name_visitor import NameVisitor
         from borb.pdf.visitor.read.float_visitor import FloatVisitor
@@ -96,7 +102,8 @@ class RootVisitor(ReadVisitor):
             DictVisitor(root=self),
             ListVisitor(root=self),
             # reference type
-            ReferenceVisitor(root=self),
+            ByteOffsetReferenceVisitor(root=self),
+            ObjStmReferenceVisitor(root=self),
             # primitive types
             DateStrVisitor(root=self),
             StrVisitor(root=self),
@@ -108,7 +115,7 @@ class RootVisitor(ReadVisitor):
             IntVisitor(root=self),
         ]
         self.__source: bytes = b""  # type: ignore[annotation-unchecked]
-        self.__references_being_resolved: typing.List[reference] = []  # type: ignore[annotation-unchecked]
+        self.__references_being_resolved: typing.Set[int] = set()  # type: ignore[annotation-unchecked]
         self.__xref: typing.List[reference] = []  # type: ignore[annotation-unchecked]
         self.__cache: typing.Dict[int, typing.Any] = {}
 
@@ -155,15 +162,16 @@ class RootVisitor(ReadVisitor):
         ):
             self.__source = node
             node = 0
-        # print(f'stack depth: {RootVisitor.__get_stack_size()}, byte pos: {node}')
         if isinstance(node, int) and node in self.__cache:
             return self.__cache[node]
+        # print(f'stack depth: {RootVisitor.__get_stack_size()}, byte pos: {node}')
         for v in self.__visitors:
             if v is self:
                 continue
             w = v.visit(node)
             if w is not None:
-                # store in cache
+                # IF the object is more than 256 bytes
+                # THEN store it in cache
                 if (
                     isinstance(node, int)
                     and isinstance(w, tuple)
@@ -176,6 +184,9 @@ class RootVisitor(ReadVisitor):
                 return w
         # debug
         if isinstance(node, int):
-            print(f"unable to map bytes[{node}:]")
+            logger = logging.getLogger(__name__)
+            logger.debug(
+                f"Unable to map byte-sequence starting at {node} to a PDF object."
+            )
         # default case
         return None

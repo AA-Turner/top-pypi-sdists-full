@@ -3,7 +3,7 @@ Type annotations for workspaces-thin-client service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces_thin_client/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -58,12 +59,6 @@ from .type_defs import (
     UpdateSoftwareSetRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -72,14 +67,14 @@ else:
 __all__ = ("WorkSpacesThinClientClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class WorkSpacesThinClientClient(AioBaseClient):
     """
@@ -126,7 +121,7 @@ class WorkSpacesThinClientClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces_thin_client/client/#create_environment)
         """
 
-    async def delete_device(self, **kwargs: Unpack[DeleteDeviceRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_device(self, **kwargs: Unpack[DeleteDeviceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a thin client device.
 
@@ -136,7 +131,7 @@ class WorkSpacesThinClientClient(AioBaseClient):
 
     async def delete_environment(
         self, **kwargs: Unpack[DeleteEnvironmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an environment.
 
@@ -146,7 +141,7 @@ class WorkSpacesThinClientClient(AioBaseClient):
 
     async def deregister_device(
         self, **kwargs: Unpack[DeregisterDeviceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deregisters a thin client device.
 
@@ -224,7 +219,7 @@ class WorkSpacesThinClientClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces_thin_client/client/#list_tags_for_resource)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags (key-value pairs) to the specified resource.
 
@@ -232,7 +227,7 @@ class WorkSpacesThinClientClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces_thin_client/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag or tags from a resource.
 
@@ -262,7 +257,7 @@ class WorkSpacesThinClientClient(AioBaseClient):
 
     async def update_software_set(
         self, **kwargs: Unpack[UpdateSoftwareSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a software set.
 
@@ -311,7 +306,7 @@ class WorkSpacesThinClientClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

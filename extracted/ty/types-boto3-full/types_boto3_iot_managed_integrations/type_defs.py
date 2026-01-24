@@ -3,7 +3,7 @@ Type annotations for iot-managed-integrations service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iot_managed_integrations/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -38,6 +39,7 @@ from .literals import (
     OtaStatusType,
     OtaTaskExecutionStatusType,
     OtaTypeType,
+    ProtocolTypeType,
     ProvisioningStatusType,
     ProvisioningTypeType,
     RetryCriteriaFailureTypeType,
@@ -49,12 +51,6 @@ from .literals import (
     TokenEndpointAuthenticationSchemeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -143,6 +139,8 @@ __all__ = (
     "GetHubConfigurationResponseTypeDef",
     "GetManagedThingCapabilitiesRequestTypeDef",
     "GetManagedThingCapabilitiesResponseTypeDef",
+    "GetManagedThingCertificateRequestTypeDef",
+    "GetManagedThingCertificateResponseTypeDef",
     "GetManagedThingConnectivityDataRequestTypeDef",
     "GetManagedThingConnectivityDataResponseTypeDef",
     "GetManagedThingMetaDataRequestTypeDef",
@@ -286,6 +284,7 @@ __all__ = (
     "UpdateManagedThingRequestTypeDef",
     "UpdateNotificationConfigurationRequestTypeDef",
     "UpdateOtaTaskRequestTypeDef",
+    "WiFiSimpleSetupConfigurationTypeDef",
 )
 
 
@@ -319,9 +318,9 @@ CapabilityReportCapabilityOutputTypeDef = TypedDict(
         "id": str,
         "name": str,
         "version": str,
-        "properties": List[str],
-        "actions": List[str],
-        "events": List[str],
+        "properties": list[str],
+        "actions": list[str],
+        "events": list[str],
     },
 )
 CapabilityReportCapabilityTypeDef = TypedDict(
@@ -368,7 +367,7 @@ class CreateAccountAssociationRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -399,6 +398,12 @@ class CreateEventLogConfigurationRequestTypeDef(TypedDict):
     EventLogLevel: LogLevelType
     ResourceId: NotRequired[str]
     ClientToken: NotRequired[str]
+
+
+class WiFiSimpleSetupConfigurationTypeDef(TypedDict):
+    EnableAsProvisioner: NotRequired[bool]
+    EnableAsProvisionee: NotRequired[bool]
+    TimeoutInMinutes: NotRequired[int]
 
 
 class CreateNotificationConfigurationRequestTypeDef(TypedDict):
@@ -490,7 +495,7 @@ class DeviceDiscoverySummaryTypeDef(TypedDict):
 class DiscoveredDeviceSummaryTypeDef(TypedDict):
     ConnectorDeviceId: NotRequired[str]
     ConnectorDeviceName: NotRequired[str]
-    DeviceTypes: NotRequired[List[str]]
+    DeviceTypes: NotRequired[list[str]]
     ManagedThingId: NotRequired[str]
     Modification: NotRequired[DiscoveryModificationType]
     DiscoveredAt: NotRequired[datetime]
@@ -547,6 +552,10 @@ class GetManagedThingCapabilitiesRequestTypeDef(TypedDict):
     Identifier: str
 
 
+class GetManagedThingCertificateRequestTypeDef(TypedDict):
+    Identifier: str
+
+
 class GetManagedThingConnectivityDataRequestTypeDef(TypedDict):
     Identifier: str
 
@@ -584,7 +593,7 @@ class TaskProcessingDetailsTypeDef(TypedDict):
     numberOfRemovedThings: NotRequired[int]
     numberOfSucceededThings: NotRequired[int]
     numberOfTimedOutThings: NotRequired[int]
-    processingTargets: NotRequired[List[str]]
+    processingTargets: NotRequired[list[str]]
 
 
 class GetProvisioningProfileRequestTypeDef(TypedDict):
@@ -696,7 +705,7 @@ class ListManagedThingSchemasRequestTypeDef(TypedDict):
 class ManagedThingSchemaListItemTypeDef(TypedDict):
     EndpointId: NotRequired[str]
     CapabilityId: NotRequired[str]
-    Schema: NotRequired[Dict[str, Any]]
+    Schema: NotRequired[dict[str, Any]]
 
 
 class ListManagedThingsRequestTypeDef(TypedDict):
@@ -887,25 +896,29 @@ class StartAccountAssociationRefreshRequestTypeDef(TypedDict):
     AccountAssociationId: str
 
 
-class StartDeviceDiscoveryRequestTypeDef(TypedDict):
-    DiscoveryType: DiscoveryTypeType
-    CustomProtocolDetail: NotRequired[Mapping[str, str]]
-    ControllerIdentifier: NotRequired[str]
-    ConnectorAssociationIdentifier: NotRequired[str]
-    AccountAssociationId: NotRequired[str]
-    AuthenticationMaterial: NotRequired[str]
-    AuthenticationMaterialType: NotRequired[Literal["ZWAVE_INSTALL_CODE"]]
-    ClientToken: NotRequired[str]
-    Tags: NotRequired[Mapping[str, str]]
-
-
+StartDeviceDiscoveryRequestTypeDef = TypedDict(
+    "StartDeviceDiscoveryRequestTypeDef",
+    {
+        "DiscoveryType": DiscoveryTypeType,
+        "CustomProtocolDetail": NotRequired[Mapping[str, str]],
+        "ControllerIdentifier": NotRequired[str],
+        "ConnectorAssociationIdentifier": NotRequired[str],
+        "AccountAssociationId": NotRequired[str],
+        "AuthenticationMaterial": NotRequired[str],
+        "AuthenticationMaterialType": NotRequired[Literal["ZWAVE_INSTALL_CODE"]],
+        "ClientToken": NotRequired[str],
+        "Tags": NotRequired[Mapping[str, str]],
+        "Protocol": NotRequired[ProtocolTypeType],
+        "EndDeviceIdentifier": NotRequired[str],
+    },
+)
 StateCapabilityTypeDef = TypedDict(
     "StateCapabilityTypeDef",
     {
         "id": str,
         "name": str,
         "version": str,
-        "properties": NotRequired[Dict[str, Any]],
+        "properties": NotRequired[dict[str, Any]],
     },
 )
 
@@ -957,7 +970,7 @@ class UpdateOtaTaskRequestTypeDef(TypedDict):
 
 
 class OtaTaskAbortConfigOutputTypeDef(TypedDict):
-    AbortConfigCriteriaList: NotRequired[List[AbortConfigCriteriaTypeDef]]
+    AbortConfigCriteriaList: NotRequired[list[AbortConfigCriteriaTypeDef]]
 
 
 class OtaTaskAbortConfigTypeDef(TypedDict):
@@ -977,8 +990,8 @@ CapabilityReportEndpointOutputTypeDef = TypedDict(
     "CapabilityReportEndpointOutputTypeDef",
     {
         "id": str,
-        "deviceTypes": List[str],
-        "capabilities": List[CapabilityReportCapabilityOutputTypeDef],
+        "deviceTypes": list[str],
+        "capabilities": list[CapabilityReportCapabilityOutputTypeDef],
     },
 )
 CapabilityReportEndpointTypeDef = TypedDict(
@@ -1078,7 +1091,7 @@ class GetAccountAssociationResponseTypeDef(TypedDict):
     Description: str
     Arn: str
     OAuthAuthorizationUrl: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1087,7 +1100,7 @@ class GetCredentialLockerResponseTypeDef(TypedDict):
     Arn: str
     Name: str
     CreatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1104,7 +1117,7 @@ class GetDestinationResponseTypeDef(TypedDict):
     RoleArn: str
     CreatedAt: datetime
     UpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1118,7 +1131,7 @@ class GetDeviceDiscoveryResponseTypeDef(TypedDict):
     ConnectorAssociationId: str
     AccountAssociationId: str
     FinishedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1136,6 +1149,12 @@ class GetHubConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetManagedThingCertificateResponseTypeDef(TypedDict):
+    ManagedThingId: str
+    CertificatePem: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetManagedThingConnectivityDataResponseTypeDef(TypedDict):
     ManagedThingId: str
     Connected: bool
@@ -1146,37 +1165,7 @@ class GetManagedThingConnectivityDataResponseTypeDef(TypedDict):
 
 class GetManagedThingMetaDataResponseTypeDef(TypedDict):
     ManagedThingId: str
-    MetaData: Dict[str, str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetManagedThingResponseTypeDef(TypedDict):
-    Id: str
-    Arn: str
-    Owner: str
-    CredentialLockerId: str
-    AdvertisedProductId: str
-    Role: RoleType
-    ProvisioningStatus: ProvisioningStatusType
-    Name: str
-    Model: str
-    Brand: str
-    SerialNumber: str
-    UniversalProductCode: str
-    InternationalArticleNumber: str
-    ConnectorPolicyId: str
-    ConnectorDestinationId: str
-    ConnectorDeviceId: str
-    DeviceSpecificKey: str
-    MacAddress: str
-    ParentControllerId: str
-    Classification: str
-    CreatedAt: datetime
-    UpdatedAt: datetime
-    ActivatedAt: datetime
-    HubNetworkMode: HubNetworkModeType
-    MetaData: Dict[str, str]
-    Tags: Dict[str, str]
+    MetaData: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1185,7 +1174,7 @@ class GetNotificationConfigurationResponseTypeDef(TypedDict):
     DestinationName: str
     CreatedAt: datetime
     UpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1195,7 +1184,7 @@ class GetProvisioningProfileResponseTypeDef(TypedDict):
     ProvisioningType: ProvisioningTypeType
     Id: str
     ClaimCertificate: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1208,26 +1197,26 @@ GetSchemaVersionResponseTypeDef = TypedDict(
         "Namespace": str,
         "SemanticVersion": str,
         "Visibility": SchemaVersionVisibilityType,
-        "Schema": Dict[str, Any],
+        "Schema": dict[str, Any],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
 
 
 class ListAccountAssociationsResponseTypeDef(TypedDict):
-    Items: List[AccountAssociationItemTypeDef]
+    Items: list[AccountAssociationItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListConnectorDestinationsResponseTypeDef(TypedDict):
-    ConnectorDestinationList: List[ConnectorDestinationSummaryTypeDef]
+    ConnectorDestinationList: list[ConnectorDestinationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1269,26 +1258,57 @@ class StartDeviceDiscoveryResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetManagedThingResponseTypeDef(TypedDict):
+    Id: str
+    Arn: str
+    Owner: str
+    CredentialLockerId: str
+    AdvertisedProductId: str
+    Role: RoleType
+    ProvisioningStatus: ProvisioningStatusType
+    Name: str
+    Model: str
+    Brand: str
+    SerialNumber: str
+    UniversalProductCode: str
+    InternationalArticleNumber: str
+    ConnectorPolicyId: str
+    ConnectorDestinationId: str
+    ConnectorDeviceId: str
+    DeviceSpecificKey: str
+    MacAddress: str
+    ParentControllerId: str
+    Classification: str
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    ActivatedAt: datetime
+    HubNetworkMode: HubNetworkModeType
+    MetaData: dict[str, str]
+    Tags: dict[str, str]
+    WiFiSimpleSetupConfiguration: WiFiSimpleSetupConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListCredentialLockersResponseTypeDef(TypedDict):
-    Items: List[CredentialLockerSummaryTypeDef]
+    Items: list[CredentialLockerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDestinationsResponseTypeDef(TypedDict):
-    DestinationList: List[DestinationSummaryTypeDef]
+    DestinationList: list[DestinationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDeviceDiscoveriesResponseTypeDef(TypedDict):
-    Items: List[DeviceDiscoverySummaryTypeDef]
+    Items: list[DeviceDiscoverySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDiscoveredDevicesResponseTypeDef(TypedDict):
-    Items: List[DiscoveredDeviceSummaryTypeDef]
+    Items: list[DiscoveredDeviceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1302,7 +1322,7 @@ EndpointConfigTypeDef = TypedDict(
 
 
 class ListEventLogConfigurationsResponseTypeDef(TypedDict):
-    EventLogConfigurationList: List[EventLogConfigurationSummaryTypeDef]
+    EventLogConfigurationList: list[EventLogConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1428,49 +1448,49 @@ ListSchemaVersionsRequestPaginateTypeDef = TypedDict(
 
 
 class ListManagedThingAccountAssociationsResponseTypeDef(TypedDict):
-    Items: List[ManagedThingAssociationTypeDef]
+    Items: list[ManagedThingAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListManagedThingSchemasResponseTypeDef(TypedDict):
-    Items: List[ManagedThingSchemaListItemTypeDef]
+    Items: list[ManagedThingSchemaListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListManagedThingsResponseTypeDef(TypedDict):
-    Items: List[ManagedThingSummaryTypeDef]
+    Items: list[ManagedThingSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListNotificationConfigurationsResponseTypeDef(TypedDict):
-    NotificationConfigurationList: List[NotificationConfigurationSummaryTypeDef]
+    NotificationConfigurationList: list[NotificationConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListOtaTaskConfigurationsResponseTypeDef(TypedDict):
-    Items: List[OtaTaskConfigurationSummaryTypeDef]
+    Items: list[OtaTaskConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListOtaTasksResponseTypeDef(TypedDict):
-    Tasks: List[OtaTaskSummaryTypeDef]
+    Tasks: list[OtaTaskSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListProvisioningProfilesResponseTypeDef(TypedDict):
-    Items: List[ProvisioningProfileSummaryTypeDef]
+    Items: list[ProvisioningProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSchemaVersionsResponseTypeDef(TypedDict):
-    Items: List[SchemaVersionListItemTypeDef]
+    Items: list[SchemaVersionListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1515,7 +1535,7 @@ class OAuthUpdateTypeDef(TypedDict):
 
 
 class OtaTaskExecutionRetryConfigOutputTypeDef(TypedDict):
-    RetryConfigCriteria: NotRequired[List[RetryConfigCriteriaTypeDef]]
+    RetryConfigCriteria: NotRequired[list[RetryConfigCriteriaTypeDef]]
 
 
 class OtaTaskExecutionRetryConfigTypeDef(TypedDict):
@@ -1530,7 +1550,7 @@ class OtaTaskExecutionSummariesTypeDef(TypedDict):
 class OtaTaskSchedulingConfigOutputTypeDef(TypedDict):
     EndBehavior: NotRequired[SchedulingConfigEndBehaviorType]
     EndTime: NotRequired[str]
-    MaintenanceWindows: NotRequired[List[ScheduleMaintenanceWindowTypeDef]]
+    MaintenanceWindows: NotRequired[list[ScheduleMaintenanceWindowTypeDef]]
     StartTime: NotRequired[str]
 
 
@@ -1543,7 +1563,7 @@ class OtaTaskSchedulingConfigTypeDef(TypedDict):
 
 class StateEndpointTypeDef(TypedDict):
     endpointId: str
-    capabilities: List[StateCapabilityTypeDef]
+    capabilities: list[StateCapabilityTypeDef]
 
 
 class CommandEndpointTypeDef(TypedDict):
@@ -1553,7 +1573,7 @@ class CommandEndpointTypeDef(TypedDict):
 
 class CapabilityReportOutputTypeDef(TypedDict):
     version: str
-    endpoints: List[CapabilityReportEndpointOutputTypeDef]
+    endpoints: list[CapabilityReportEndpointOutputTypeDef]
     nodeId: NotRequired[str]
 
 
@@ -1644,7 +1664,7 @@ OtaTaskExecutionRetryConfigUnionTypeDef = Union[
 
 
 class ListOtaTaskExecutionsResponseTypeDef(TypedDict):
-    ExecutionSummaries: List[OtaTaskExecutionSummariesTypeDef]
+    ExecutionSummaries: list[OtaTaskExecutionSummariesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1660,7 +1680,7 @@ GetOtaTaskResponseTypeDef = TypedDict(
         "OtaType": OtaTypeType,
         "OtaTargetQueryString": str,
         "OtaMechanism": Literal["PUSH"],
-        "Target": List[str],
+        "Target": list[str],
         "CreatedAt": datetime,
         "LastUpdatedAt": datetime,
         "TaskConfigurationId": str,
@@ -1668,7 +1688,7 @@ GetOtaTaskResponseTypeDef = TypedDict(
         "OtaSchedulingConfig": OtaTaskSchedulingConfigOutputTypeDef,
         "OtaTaskExecutionRetryConfig": OtaTaskExecutionRetryConfigOutputTypeDef,
         "Status": OtaStatusType,
-        "Tags": Dict[str, str],
+        "Tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1678,7 +1698,7 @@ OtaTaskSchedulingConfigUnionTypeDef = Union[
 
 
 class GetManagedThingStateResponseTypeDef(TypedDict):
-    Endpoints: List[StateEndpointTypeDef]
+    Endpoints: list[StateEndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1700,7 +1720,7 @@ CapabilityReportUnionTypeDef = Union[CapabilityReportTypeDef, CapabilityReportOu
 
 
 class ListCloudConnectorsResponseTypeDef(TypedDict):
-    Items: List[ConnectorItemTypeDef]
+    Items: list[ConnectorItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1779,6 +1799,7 @@ class CreateManagedThingRequestTypeDef(TypedDict):
     AuthenticationMaterialType: AuthMaterialTypeType
     Owner: NotRequired[str]
     CredentialLockerId: NotRequired[str]
+    WiFiSimpleSetupConfiguration: NotRequired[WiFiSimpleSetupConfigurationTypeDef]
     SerialNumber: NotRequired[str]
     Brand: NotRequired[str]
     Model: NotRequired[str]
@@ -1797,6 +1818,7 @@ class UpdateManagedThingRequestTypeDef(TypedDict):
     Owner: NotRequired[str]
     CredentialLockerId: NotRequired[str]
     SerialNumber: NotRequired[str]
+    WiFiSimpleSetupConfiguration: NotRequired[WiFiSimpleSetupConfigurationTypeDef]
     Brand: NotRequired[str]
     Model: NotRequired[str]
     Name: NotRequired[str]

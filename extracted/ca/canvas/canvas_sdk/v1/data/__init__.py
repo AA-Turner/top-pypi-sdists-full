@@ -1,22 +1,39 @@
 from .allergy_intolerance import AllergyIntolerance, AllergyIntoleranceCoding
-from .appointment import Appointment, AppointmentExternalIdentifier, AppointmentMetadata
+from .appointment import (
+    Appointment,
+    AppointmentExternalIdentifier,
+    AppointmentLabel,
+    AppointmentMetadata,
+)
 from .assessment import Assessment
 from .banner_alert import BannerAlert
 from .billing import BillingLineItem, BillingLineItemModifier
 from .business_line import BusinessLine
+from .calendar import Calendar, Event
 from .care_team import CareTeamMembership, CareTeamRole
 from .charge_description_master import ChargeDescriptionMaster
-from .claim import Claim, ClaimCoverage, ClaimPatient, ClaimQueue, InstallmentPlan
+from .claim import (
+    Claim,
+    ClaimComment,
+    ClaimCoverage,
+    ClaimLabel,
+    ClaimPatient,
+    ClaimProvider,
+    ClaimQueue,
+    ClaimSubmission,
+    InstallmentPlan,
+)
 from .claim_diagnosis_code import ClaimDiagnosisCode
 from .claim_line_item import ClaimLineItem
 from .command import Command
 from .compound_medication import CompoundMedication
 from .condition import Condition, ConditionCoding
-from .coverage import Coverage, Transactor, TransactorAddress, TransactorPhone
+from .coverage import Coverage, EligibilitySummary, Transactor, TransactorAddress, TransactorPhone
 from .detected_issue import DetectedIssue, DetectedIssueEvidence
 from .device import Device
 from .discount import Discount
 from .encounter import Encounter
+from .external_event import ExternalEvent, ExternalVisit
 from .facility import Facility
 from .goal import Goal
 from .imaging import ImagingOrder, ImagingReport, ImagingReview
@@ -45,6 +62,12 @@ from .line_item_transaction import (
     NewLineItemPayment,
 )
 from .medication import Medication, MedicationCoding
+from .medication_history import (
+    MedicationHistoryMedication,
+    MedicationHistoryMedicationCoding,
+    MedicationHistoryResponse,
+    MedicationHistoryResponseStatus,
+)
 from .medication_statement import MedicationStatement
 from .message import Message, MessageAttachment, MessageTransmission
 from .note import CurrentNoteStateEvent, Note, NoteStateChangeEvent, NoteType
@@ -55,7 +78,7 @@ from .observation import (
     ObservationComponentCoding,
     ObservationValueCoding,
 )
-from .organization import Organization
+from .organization import Organization, OrganizationAddress, OrganizationContactPoint
 from .patient import (
     Patient,
     PatientAddress,
@@ -79,7 +102,12 @@ from .posting import (
     CoveragePosting,
     PatientPosting,
 )
-from .practicelocation import PracticeLocation, PracticeLocationSetting
+from .practicelocation import (
+    PracticeLocation,
+    PracticeLocationAddress,
+    PracticeLocationContactPoint,
+    PracticeLocationSetting,
+)
 from .protocol_current import ProtocolCurrent
 from .protocol_override import ProtocolOverride
 from .questionnaire import (
@@ -93,18 +121,23 @@ from .questionnaire import (
     ResponseOptionSet,
 )
 from .reason_for_visit import ReasonForVisitSettingCoding
-from .referral import Referral, ReferralReport
+from .referral import Referral, ReferralReport, ReferralReview
 from .service_provider import ServiceProvider
 from .staff import Staff, StaffAddress, StaffContactPoint, StaffLicense, StaffPhoto, StaffRole
 from .stop_medication_event import StopMedicationEvent
-from .task import Task, TaskComment, TaskLabel, TaskTaskLabel
+from .task import Task, TaskComment, TaskLabel, TaskMetadata, TaskTaskLabel
 from .team import Team, TeamContactPoint
+from .uncategorized_clinical_document import (
+    UncategorizedClinicalDocument,
+    UncategorizedClinicalDocumentReview,
+)
 from .user import CanvasUser
 
 __all__ = __exports__ = (
     "Appointment",
     "AppointmentMetadata",
     "AppointmentExternalIdentifier",
+    "AppointmentLabel",
     "AllergyIntolerance",
     "AllergyIntoleranceCoding",
     "Assessment",
@@ -115,16 +148,21 @@ __all__ = __exports__ = (
     "BillingLineItemModifier",
     "BusinessLine",
     "BulkPatientPosting",
+    "Calendar",
     "CanvasUser",
     "CareTeamMembership",
     "CareTeamRole",
     "ChargeDescriptionMaster",
     "Claim",
+    "ClaimComment",
     "ClaimCoverage",
     "ClaimDiagnosisCode",
+    "ClaimLabel",
     "ClaimLineItem",
     "ClaimPatient",
+    "ClaimProvider",
     "ClaimQueue",
+    "ClaimSubmission",
     "Command",
     "CompoundMedication",
     "Condition",
@@ -136,7 +174,11 @@ __all__ = __exports__ = (
     "DetectedIssueEvidence",
     "Device",
     "Discount",
+    "EligibilitySummary",
     "Encounter",
+    "Event",
+    "ExternalEvent",
+    "ExternalVisit",
     "Facility",
     "Goal",
     "ImagingOrder",
@@ -164,6 +206,10 @@ __all__ = __exports__ = (
     "LineItemTransfer",
     "Medication",
     "MedicationCoding",
+    "MedicationHistoryMedication",
+    "MedicationHistoryMedicationCoding",
+    "MedicationHistoryResponseStatus",
+    "MedicationHistoryResponse",
     "MedicationStatement",
     "Message",
     "MessageAttachment",
@@ -179,6 +225,8 @@ __all__ = __exports__ = (
     "ObservationComponentCoding",
     "ObservationValueCoding",
     "Organization",
+    "OrganizationAddress",
+    "OrganizationContactPoint",
     "Patient",
     "PatientAddress",
     "PatientContactPoint",
@@ -193,6 +241,8 @@ __all__ = __exports__ = (
     "PayorSpecificCharge",
     "PaymentCollection",
     "PracticeLocation",
+    "PracticeLocationAddress",
+    "PracticeLocationContactPoint",
     "PracticeLocationSetting",
     "ProtocolCurrent",
     "ProtocolOverride",
@@ -202,6 +252,7 @@ __all__ = __exports__ = (
     "ReasonForVisitSettingCoding",
     "Referral",
     "ReferralReport",
+    "ReferralReview",
     "ResponseOption",
     "ResponseOptionSet",
     "ServiceProvider",
@@ -216,9 +267,12 @@ __all__ = __exports__ = (
     "TaskComment",
     "TaskLabel",
     "TaskTaskLabel",
+    "TaskMetadata",
     "Team",
     "TeamContactPoint",
     "Transactor",
     "TransactorAddress",
     "TransactorPhone",
+    "UncategorizedClinicalDocumentReview",
+    "UncategorizedClinicalDocument",
 )

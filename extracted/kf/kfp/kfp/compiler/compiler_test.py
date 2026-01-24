@@ -700,7 +700,7 @@ inputs:
 - {name: message, type: PipelineTaskFinalStatus}
 implementation:
   container:
-    image: python:3.9
+    image: python:3.11
     command:
     - echo
     - {inputValue: message}
@@ -975,14 +975,14 @@ implementation:
     def test_pipeline_with_parameterized_container_image(self):
         with tempfile.TemporaryDirectory() as tmpdir:
 
-            @dsl.component(base_image='docker.io/python:3.9.17')
+            @dsl.component(base_image='docker.io/python:3.11.17')
             def empty_component():
                 pass
 
             @dsl.pipeline()
             def simple_pipeline(img: str):
                 task = empty_component()
-                # overwrite base_image="docker.io/python:3.9.17"
+                # overwrite base_image="docker.io/python:3.11.17"
                 task.set_container_image(img)
 
             output_yaml = os.path.join(tmpdir, 'result.yaml')
@@ -1010,14 +1010,14 @@ implementation:
     def test_pipeline_with_constant_container_image(self):
         with tempfile.TemporaryDirectory() as tmpdir:
 
-            @dsl.component(base_image='docker.io/python:3.9.17')
+            @dsl.component(base_image='docker.io/python:3.11.17')
             def empty_component():
                 pass
 
             @dsl.pipeline()
             def simple_pipeline():
                 task = empty_component()
-                # overwrite base_image="docker.io/python:3.9.17"
+                # overwrite base_image="docker.io/python:3.11.17"
                 task.set_container_image('constant-value')
 
             output_yaml = os.path.join(tmpdir, 'result.yaml')
@@ -1504,7 +1504,7 @@ class TestCompileComponent(parameterized.TestCase):
         def hello_world_container() -> dsl.ContainerSpec:
             """Hello world component."""
             return dsl.ContainerSpec(
-                image='python:3.9',
+                image='python:3.11',
                 command=['echo', 'hello world'],
                 args=[],
             )
@@ -1527,7 +1527,7 @@ class TestCompileComponent(parameterized.TestCase):
         @dsl.container_component
         def container_simple_io(text: str, output_path: dsl.OutputPath(str)):
             return dsl.ContainerSpec(
-                image='python:3.9',
+                image='python:3.11',
                 command=['my_program', text],
                 args=['--output_path', output_path])
 
@@ -1619,8 +1619,7 @@ def pipeline_spec_from_file(filepath: str) -> str:
 
 
 _PROJECT_ROOT = os.path.abspath(os.path.join(__file__, *([os.path.pardir] * 5)))
-_TEST_DATA_DIR = os.path.join(_PROJECT_ROOT, 'sdk', 'python', 'test_data')
-PIPELINES_TEST_DATA_DIR = os.path.join(_TEST_DATA_DIR, 'pipelines')
+_TEST_DATA_DIR = os.path.join(_PROJECT_ROOT, 'test_data')
 UNSUPPORTED_COMPONENTS_TEST_DATA_DIR = os.path.join(_TEST_DATA_DIR,
                                                     'components', 'unsupported')
 
@@ -1636,9 +1635,11 @@ class TestReadWriteEquality(parameterized.TestCase):
                       directory: str,
                       fn: Optional[str] = None,
                       additional_arguments: Optional[List[str]] = None) -> None:
-        py_file = os.path.join(directory, f'{file_base_name}.py')
+        py_file = os.path.join(directory, 'sdk_compiled_pipelines', 'valid',
+                               f'{file_base_name}.py')
 
-        golden_compiled_file = os.path.join(directory, f'{file_base_name}.yaml')
+        golden_compiled_file = os.path.join(directory, 'sdk_compiled_pipelines',
+                                            'valid', f'{file_base_name}.yaml')
 
         if additional_arguments is None:
             additional_arguments = []
@@ -1669,7 +1670,7 @@ class TestReadWriteEquality(parameterized.TestCase):
     def test_two_step_pipeline(self):
         self._test_compile(
             'two_step_pipeline',
-            directory=PIPELINES_TEST_DATA_DIR,
+            directory=_TEST_DATA_DIR,
             additional_arguments=[
                 '--pipeline-parameters', '{"text":"Hello KFP!"}'
             ])
@@ -1679,7 +1680,7 @@ class TestReadWriteEquality(parameterized.TestCase):
                                     r'Unterminated string starting at:'):
             self._test_compile(
                 'two_step_pipeline',
-                directory=PIPELINES_TEST_DATA_DIR,
+                directory=_TEST_DATA_DIR,
                 additional_arguments=[
                     '--pipeline-parameters', '{"text":"Hello KFP!}'
                 ])
@@ -1690,9 +1691,7 @@ class TestReadWriteEquality(parameterized.TestCase):
                 r'Pipeline function or component "step1" not found in module two_step_pipeline\.py\.'
         ):
             self._test_compile(
-                'two_step_pipeline',
-                directory=PIPELINES_TEST_DATA_DIR,
-                fn='step1')
+                'two_step_pipeline', directory=_TEST_DATA_DIR, fn='step1')
 
     def test_deprecation_warning(self):
         res = subprocess.run(['dsl-compile', '--help'], capture_output=True)
@@ -2575,7 +2574,7 @@ class TestYamlComments(unittest.TestCase):
         def my_container_component(text: str, output_path: OutputPath(str)):
             """component description."""
             return ContainerSpec(
-                image='python:3.9',
+                image='python:3.11',
                 command=['my_program', text],
                 args=['--output_path', output_path])
 
@@ -4240,6 +4239,16 @@ class TestPlatformConfig(unittest.TestCase):
         with self.assertRaises(ValueError):
             WorkspaceConfig(size=None)
 
+        # Test invalid size raise error
+        invalid_sizes = ['abc', '10XYZ', 'Gi', '.', '1..5Gi', '-10Gi']
+        for size in invalid_sizes:
+            with self.subTest(invalid_size=size):
+                with self.assertRaisesRegex(
+                        ValueError,
+                        r'Workspace size \".*\" is invalid\. Must be a valid Kubernetes resource quantity \(e\.g\., \"10Gi\", \"500Mi\", \"1Ti\"\)'
+                ):
+                    WorkspaceConfig(size=size)
+
         # Test set_size method validation
         workspace = WorkspaceConfig(size='10Gi')
 
@@ -4256,6 +4265,130 @@ class TestPlatformConfig(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             workspace.set_size('   ')
         self.assertIn('required and cannot be empty', str(context.exception))
+
+    def test_compile_fails_when_workspace_placeholder_used_without_workspace_config(
+            self):
+        """Tests that compilation fails if placeholder is used and no workspace configured."""
+
+        @dsl.component
+        def uses_workspace(workspace_path: str) -> str:
+            import os
+            file_path = os.path.join(workspace_path, 'test.txt')
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, 'w') as f:
+                f.write('hello')
+            return file_path
+
+        # No PipelineConfig provided (i.e., no workspace configured)
+        with self.assertRaisesRegex(
+                ValueError,
+                r'Workspace features are used \(e\.g\., dsl\.WORKSPACE_PATH_PLACEHOLDER\) but PipelineConfig\.workspace\.size is not set\.'
+        ):
+
+            @dsl.pipeline
+            def my_pipeline():
+                uses_workspace(workspace_path=dsl.WORKSPACE_PATH_PLACEHOLDER)
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                output_yaml = os.path.join(tmpdir, 'pipeline.yaml')
+                compiler.Compiler().compile(
+                    pipeline_func=my_pipeline, package_path=output_yaml)
+
+    def test_compile_fails_when_workspace_placeholder_used_in_nested_groups_without_workspace_config(
+            self):
+        """Tests that compilation fails if placeholder is used within nested groups and no workspace configured."""
+
+        import os
+        import tempfile
+
+        from kfp import compiler
+        from kfp import dsl
+
+        @dsl.component
+        def gen_int() -> int:
+            return 0
+
+        @dsl.component
+        def uses_workspace(workspace_path: str) -> str:
+            import os as _os
+            file_path = _os.path.join(workspace_path, 'nested.txt')
+            _os.makedirs(_os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, 'w') as f:
+                f.write('nested')
+            return file_path
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'Workspace features are used \(e\.g\., dsl\.WORKSPACE_PATH_PLACEHOLDER\) but PipelineConfig\.workspace\.size is not set\.'
+        ):
+
+            @dsl.pipeline
+            def my_pipeline():
+                x = gen_int()
+                with dsl.If(x.output == 0):
+                    uses_workspace(
+                        workspace_path=dsl.WORKSPACE_PATH_PLACEHOLDER)
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                output_yaml = os.path.join(tmpdir, 'pipeline.yaml')
+                compiler.Compiler().compile(
+                    pipeline_func=my_pipeline, package_path=output_yaml)
+
+    def test_compile_fails_when_importer_download_to_workspace_without_workspace_config(
+            self):
+        """Tests that compilation fails if importer uses download_to_workspace without workspace config."""
+
+        import os
+        import tempfile
+
+        from kfp import compiler
+        from kfp import dsl
+
+        # No PipelineConfig provided (i.e., no workspace configured)
+        with self.assertRaisesRegex(
+                ValueError,
+                r'dsl\.importer\(download_to_workspace=True\) requires PipelineConfig\(workspace=\.\.\.\) on the pipeline\.'
+        ):
+
+            @dsl.pipeline
+            def my_pipeline():
+                dsl.importer(
+                    artifact_uri='gs://bucket/file.txt',
+                    artifact_class=dsl.Dataset,
+                    download_to_workspace=True,
+                )
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                output_yaml = os.path.join(tmpdir, 'pipeline.yaml')
+                compiler.Compiler().compile(
+                    pipeline_func=my_pipeline, package_path=output_yaml)
+
+    def test_compile_succeeds_when_importer_download_to_workspace_with_workspace_config(
+            self):
+        """Tests that compilation succeeds with both download_to_workspace and workspace config."""
+
+        import os
+        import tempfile
+
+        from kfp import compiler
+        from kfp import dsl
+
+        @dsl.pipeline(
+            pipeline_config=dsl.PipelineConfig(
+                workspace=dsl.WorkspaceConfig(size='1Gi')))
+        def my_pipeline():
+            dsl.importer(
+                artifact_uri='gs://bucket/file.txt',
+                artifact_class=dsl.Dataset,
+                download_to_workspace=True,
+            )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_yaml = os.path.join(tmpdir, 'pipeline.yaml')
+            compiler.Compiler().compile(
+                pipeline_func=my_pipeline, package_path=output_yaml)
+            # Should not raise an error
+            self.assertTrue(os.path.exists(output_yaml))
 
 
 class ExtractInputOutputDescription(unittest.TestCase):

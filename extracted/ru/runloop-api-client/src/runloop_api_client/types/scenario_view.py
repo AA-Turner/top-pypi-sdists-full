@@ -12,6 +12,10 @@ __all__ = ["ScenarioView"]
 
 
 class ScenarioView(BaseModel):
+    """
+    A ScenarioDefinitionView represents a repeatable AI coding evaluation test, complete with initial environment and scoring contract.
+    """
+
     id: str
     """The ID of the Scenario."""
 
@@ -53,5 +57,5 @@ class ScenarioView(BaseModel):
     If any required secrets are missing, the scenario will fail to start.
     """
 
-    validation_type: Optional[Literal["FORWARD", "REVERSE", "EVALUATION"]] = None
+    validation_type: Optional[Literal["UNSPECIFIED", "FORWARD", "REVERSE", "EVALUATION"]] = None
     """Validation strategy."""

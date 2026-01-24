@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: pymisp
-Version: 2.5.17.1
+Version: 2.5.32
 Summary: Python API for MISP.
 License-Expression: BSD-2-Clause
 License-File: LICENSE
 Author: Raphaël Vinot
 Author-email: raphael.vinot@circl.lu
-Requires-Python: >=3.9.2,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Information Technology
@@ -29,36 +29,36 @@ Provides-Extra: openioc
 Provides-Extra: pdfexport
 Provides-Extra: url
 Provides-Extra: virustotal
-Requires-Dist: RTFDE (>=0.1.2.1) ; (python_version <= "3.9") and (extra == "email")
-Requires-Dist: beautifulsoup4 (>=4.13.5) ; extra == "openioc"
-Requires-Dist: deprecated (>=1.2.18)
-Requires-Dist: docutils (<0.22) ; (python_version >= "3.11") and (extra == "docs")
+Requires-Dist: RTFDE (>=0.1.2.2) ; (python_version <= "3.10") and (extra == "email")
+Requires-Dist: beautifulsoup4 (>=4.13.5,<4.14) ; extra == "openioc"
+Requires-Dist: deprecated (>=1.3.1)
+Requires-Dist: docutils (<0.22) ; (python_version >= "3.12") and (extra == "docs")
 Requires-Dist: extract_msg (>=0.55.0) ; extra == "email"
-Requires-Dist: lief (>=0.17.0) ; extra == "fileobjects"
-Requires-Dist: myst-parser (>=4.0.1) ; (python_version >= "3.11") and (extra == "docs")
+Requires-Dist: lief (>=0.17.2) ; extra == "fileobjects"
+Requires-Dist: myst-parser (>=4.0.1) ; (python_version >= "3.12") and (extra == "docs")
 Requires-Dist: oletools (>=0.60.2) ; extra == "email"
+Requires-Dist: pure-magic-rs (>=0.2.4) ; extra == "fileobjects"
 Requires-Dist: pydeep2 (>=0.5.1) ; extra == "fileobjects"
-Requires-Dist: pyfaup (>=1.2) ; extra == "url"
+Requires-Dist: pyfaup-rs (>=0.1.2,<0.2.0) ; extra == "url"
 Requires-Dist: python-dateutil (>=2.9.0.post0)
-Requires-Dist: python-magic (>=0.4.27) ; extra == "fileobjects"
-Requires-Dist: reportlab (>=4.4.3) ; extra == "pdfexport"
+Requires-Dist: reportlab (>=4.4.7) ; extra == "pdfexport"
 Requires-Dist: requests (>=2.32.5)
-Requires-Dist: sphinx (>=8.2.3) ; (python_version >= "3.11") and (extra == "docs")
-Requires-Dist: sphinx-autodoc-typehints (>=3.2.0) ; (python_version >= "3.11") and (extra == "docs")
-Requires-Dist: urllib3 (>=2.5.0) ; extra == "brotli"
+Requires-Dist: sphinx (<9) ; (python_version >= "3.12") and (extra == "docs")
+Requires-Dist: sphinx-autodoc-typehints (<3.6) ; (python_version >= "3.12") and (extra == "docs")
+Requires-Dist: urllib3[broti] (>=2.6.3) ; extra == "brotli"
 Requires-Dist: validators (>=0.35.0) ; extra == "virustotal"
 Project-URL: Documentation, https://pymisp.readthedocs.io
 Project-URL: Repository, https://github.com/MISP/PyMISP
 Project-URL: issues, https://github.com/MISP/PyMISP/issues
 Description-Content-Type: text/markdown
 
-**IMPORTANT NOTE**: This library will require **at least** Python 3.10 starting the 1st of January 2024. If you have legacy versions of python, please use the latest PyMISP version that will be released in December 2023, and consider updating your system(s). Anything released within the last 2 years will do, starting with Ubuntu 22.04.
+![](docs/source/MISP-pymisp-hori-color.png)
 
 # PyMISP - Python Library to access MISP
 
 [![Documentation Status](https://readthedocs.org/projects/pymisp/badge/?version=latest)](http://pymisp.readthedocs.io/?badge=latest)
 [![Coverage Status](https://coveralls.io/repos/github/MISP/PyMISP/badge.svg?branch=main)](https://coveralls.io/github/MISP/PyMISP?branch=main)
-[![Python 3.9](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/release/python-390/)
+[![Python 3.10](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 [![PyPi version](https://img.shields.io/pypi/v/pymisp.svg)](https://pypi.python.org/pypi/pymisp/)
 [![Number of PyPI downloads](https://img.shields.io/pypi/dm/pymisp.svg)](https://pypi.python.org/pypi/pymisp/)
 

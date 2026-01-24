@@ -1,8 +1,11 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
+from vellum.client.core.api_error import ApiError
+from vellum.workflows.constants import VellumIntegrationProviderType
 from vellum.workflows.errors.types import WorkflowErrorCode
 from vellum.workflows.exceptions import NodeException
-from vellum.workflows.vellum_client import create_vellum_client
+from vellum.workflows.types.definition import VellumIntegrationToolDetails
+from vellum.workflows.vellum_client import Vellum
 
 
 class VellumIntegrationService:
@@ -13,43 +16,49 @@ class VellumIntegrationService:
     own integration infrastructure.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, client: Vellum) -> None:
         """Initialize the VellumIntegrationService with a Vellum client."""
-        self._client = create_vellum_client()
+        self._client = client
 
     def get_tool_definition(
         self,
         integration: str,
         provider: str,
         tool_name: str,
-    ) -> Dict[str, Any]:
+        toolkit_version: Optional[str] = None,
+    ) -> VellumIntegrationToolDetails:
         """Retrieve a tool definition from Vellum integrations.
 
         Args:
             integration: The integration name (e.g., "GITHUB", "SLACK")
             provider: The integration provider name (e.g., "COMPOSIO")
             tool_name: The tool's unique name as specified by the provider
+            toolkit_version: The version of the toolkit to use. Pass 'latest' to get the
+                latest version, or a specific version string to pin it. If not provided,
+                uses the provider's default.
 
         Returns:
-            Dict containing the tool definition with name, description, and parameters
+            VellumIntegrationToolDetails containing the tool definition with parameters
 
         Raises:
             NodeException: If the tool definition cannot be retrieved
         """
         try:
             response = self._client.integrations.retrieve_integration_tool_definition(
-                integration=integration,
-                provider=provider,
+                integration_name=integration,
+                integration_provider=provider,
                 tool_name=tool_name,
+                toolkit_version=toolkit_version,
             )
 
-            # Convert the response to a dict format matching what's expected
-            return {
-                "name": response.name,
-                "description": response.description,
-                "parameters": response.parameters,
-                "provider": response.provider,
-            }
+            return VellumIntegrationToolDetails(
+                provider=VellumIntegrationProviderType(response.provider),
+                integration_name=integration,
+                name=response.name,
+                description=response.description,
+                parameters=response.input_parameters,
+                toolkit_version=response.toolkit_version,
+            )
         except Exception as e:
             error_message = f"Failed to retrieve tool definition for {tool_name}: {str(e)}"
             raise NodeException(
@@ -63,6 +72,7 @@ class VellumIntegrationService:
         provider: str,
         tool_name: str,
         arguments: Dict[str, Any],
+        toolkit_version: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Execute a tool through Vellum integrations.
 
@@ -71,24 +81,65 @@ class VellumIntegrationService:
             provider: The integration provider name (e.g., "COMPOSIO")
             tool_name: The tool's unique name as specified by the provider
             arguments: Arguments to pass to the tool
+            toolkit_version: The version of the toolkit to use. Pass 'latest' to get the
+                latest version, or a specific version string to pin it. If not provided,
+                uses the provider's default.
 
         Returns:
             Dict containing the execution result data
 
         Raises:
-            NodeException: If the tool execution fails
+            NodeException: If the tool execution fails, including credential errors
+                with integration details in raw_data
         """
         try:
             response = self._client.integrations.execute_integration_tool(
-                integration=integration,
-                provider=provider,
+                integration_name=integration,
+                integration_provider=provider,
                 tool_name=tool_name,
                 arguments=arguments,
+                toolkit_version=toolkit_version,
             )
 
             # Return the data from the response
             return response.data
+        except ApiError as e:
+            # Handle structured 403 credential error responses
+            if e.status_code == 403 and isinstance(e.body, dict):
+                # Check for backend structure with integration as direct field
+                integration_from_backend = e.body.get("integration")
+                if integration_from_backend:
+                    error_message = e.body.get(
+                        "message", "You must authenticate with this integration before you can execute this tool."
+                    )
+
+                    # Wrap integration in raw_data for frontend consumption
+                    raw_data = {"integration": integration_from_backend}
+
+                    raise NodeException(
+                        message=error_message,
+                        code=WorkflowErrorCode.INTEGRATION_CREDENTIALS_UNAVAILABLE,
+                        raw_data=raw_data,
+                    ) from e
+                else:
+                    # Fallback for generic 403 responses
+                    raise NodeException(
+                        message=e.body.get("detail", "You do not have permission to execute this tool."),
+                        code=WorkflowErrorCode.PROVIDER_CREDENTIALS_UNAVAILABLE,
+                    ) from e
+            elif e.status_code == 500 and isinstance(e.body, dict):
+                error_message = e.body.get("detail", f"Internal server error occurred while executing tool {tool_name}")
+                raise NodeException(
+                    message=error_message,
+                    code=WorkflowErrorCode.PROVIDER_ERROR,
+                ) from e
+            # Generic server error
+            raise NodeException(
+                message=f"Failed to execute tool {tool_name}: {str(e)}",
+                code=WorkflowErrorCode.INTERNAL_ERROR,
+            ) from e
         except Exception as e:
+            # Catch-all for non-API errors
             error_message = f"Failed to execute tool {tool_name}: {str(e)}"
             raise NodeException(
                 message=error_message,

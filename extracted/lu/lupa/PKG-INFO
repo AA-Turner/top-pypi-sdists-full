@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lupa
-Version: 2.5
+Version: 2.6
 Summary: Python wrapper around Lua and LuaJIT
 Home-page: https://github.com/scoder/lupa
 Author: Stefan Behnel
@@ -1252,6 +1252,14 @@ OS X + Lua 5.2 + Homebrew
 
 Lupa change log
 ===============
+
+2.6 (2025-10-24)
+----------------
+
+* The bundled LuaJIT versions were updated to the latest git branches.
+
+* Built with Cython 3.1.6.
+
 
 2.5 (2025-06-15)
 ----------------

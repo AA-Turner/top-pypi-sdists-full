@@ -1,10 +1,11 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
 Arn = str
+AuthUserName = str
 AwsBackupRecoveryPointArn = str
 BlueGreenDeploymentIdentifier = str
 BlueGreenDeploymentName = str
@@ -21,6 +22,7 @@ CustomEngineVersion = str
 DBClusterIdentifier = str
 DBProxyEndpointName = str
 DBProxyName = str
+DBProxyTargetGroupName = str
 DBShardGroupIdentifier = str
 DataFilter = str
 DatabaseArn = str
@@ -39,6 +41,8 @@ KmsKeyIdOrArn = str
 MajorEngineVersion = str
 Marker = str
 MaxRecords = int
+PotentiallySensitiveOptionSettingValue = str
+PotentiallySensitiveParameterValue = str
 SensitiveString = str
 SourceArn = str
 String = str
@@ -233,6 +237,8 @@ class SourceType(StrEnum):
     custom_engine_version = "custom-engine-version"
     db_proxy = "db-proxy"
     blue_green_deployment = "blue-green-deployment"
+    db_shard_group = "db-shard-group"
+    zero_etl = "zero-etl"
 
 
 class TargetConnectionNetworkType(StrEnum):
@@ -246,6 +252,7 @@ class TargetHealthReason(StrEnum):
     AUTH_FAILURE = "AUTH_FAILURE"
     PENDING_PROXY_CAPACITY = "PENDING_PROXY_CAPACITY"
     INVALID_REPLICATION_STATE = "INVALID_REPLICATION_STATE"
+    PROMOTED = "PROMOTED"
 
 
 class TargetRole(StrEnum):
@@ -258,12 +265,19 @@ class TargetState(StrEnum):
     REGISTERING = "REGISTERING"
     AVAILABLE = "AVAILABLE"
     UNAVAILABLE = "UNAVAILABLE"
+    UNUSED = "UNUSED"
 
 
 class TargetType(StrEnum):
     RDS_INSTANCE = "RDS_INSTANCE"
     RDS_SERVERLESS_ENDPOINT = "RDS_SERVERLESS_ENDPOINT"
     TRACKED_CLUSTER = "TRACKED_CLUSTER"
+
+
+class UpgradeRolloutOrder(StrEnum):
+    first = "first"
+    second = "second"
+    last = "last"
 
 
 class WriteForwardingStatus(StrEnum):
@@ -557,8 +571,8 @@ class DBInstanceNotReadyFault(ServiceException):
     """
 
     code: str = "DBInstanceNotReady"
-    sender_fault: bool = False
-    status_code: int = 503
+    sender_fault: bool = True
+    status_code: int = 400
 
 
 class DBInstanceRoleAlreadyExistsFault(ServiceException):
@@ -1594,6 +1608,18 @@ class UnsupportedDBEngineVersionFault(ServiceException):
     status_code: int = 400
 
 
+class VpcEncryptionControlViolationException(ServiceException):
+    """The operation violates VPC encryption control settings. Make sure that
+    your DB instance type supports the Nitro encryption-in-transit
+    capability, or modify your VPC's encryption controls to not enforce
+    encryption-in-transit.
+    """
+
+    code: str = "VpcEncryptionControlViolationException"
+    sender_fault: bool = True
+    status_code: int = 400
+
+
 Long = int
 
 
@@ -1691,27 +1717,27 @@ class AccountQuota(TypedDict, total=False):
     in the *Amazon Aurora User Guide*.
     """
 
-    AccountQuotaName: Optional[String]
-    Used: Optional[Long]
-    Max: Optional[Long]
+    AccountQuotaName: String | None
+    Used: Long | None
+    Max: Long | None
 
 
-AccountQuotaList = List[AccountQuota]
+AccountQuotaList = list[AccountQuota]
 
 
 class AccountAttributesMessage(TypedDict, total=False):
     """Data returned by the **DescribeAccountAttributes** action."""
 
-    AccountQuotas: Optional[AccountQuotaList]
+    AccountQuotas: AccountQuotaList | None
 
 
-ActivityStreamModeList = List[String]
+ActivityStreamModeList = list[String]
 
 
 class AddRoleToDBClusterMessage(ServiceRequest):
     DBClusterIdentifier: String
     RoleArn: String
-    FeatureName: Optional[String]
+    FeatureName: String | None
 
 
 class AddRoleToDBInstanceMessage(ServiceRequest):
@@ -1725,8 +1751,8 @@ class AddSourceIdentifierToSubscriptionMessage(ServiceRequest):
     SourceIdentifier: String
 
 
-EventCategoriesList = List[String]
-SourceIdsList = List[String]
+EventCategoriesList = list[String]
+SourceIdsList = list[String]
 
 
 class EventSubscription(TypedDict, total=False):
@@ -1734,20 +1760,20 @@ class EventSubscription(TypedDict, total=False):
     ``DescribeEventSubscriptions`` action.
     """
 
-    CustomerAwsId: Optional[String]
-    CustSubscriptionId: Optional[String]
-    SnsTopicArn: Optional[String]
-    Status: Optional[String]
-    SubscriptionCreationTime: Optional[String]
-    SourceType: Optional[String]
-    SourceIdsList: Optional[SourceIdsList]
-    EventCategoriesList: Optional[EventCategoriesList]
-    Enabled: Optional[Boolean]
-    EventSubscriptionArn: Optional[String]
+    CustomerAwsId: String | None
+    CustSubscriptionId: String | None
+    SnsTopicArn: String | None
+    Status: String | None
+    SubscriptionCreationTime: String | None
+    SourceType: String | None
+    SourceIdsList: SourceIdsList | None
+    EventCategoriesList: EventCategoriesList | None
+    Enabled: Boolean | None
+    EventSubscriptionArn: String | None
 
 
 class AddSourceIdentifierToSubscriptionResult(TypedDict, total=False):
-    EventSubscription: Optional[EventSubscription]
+    EventSubscription: EventSubscription | None
 
 
 class Tag(TypedDict, total=False):
@@ -1761,16 +1787,48 @@ class Tag(TypedDict, total=False):
     in the *Amazon Aurora User Guide*.
     """
 
-    Key: Optional[String]
-    Value: Optional[String]
+    Key: String | None
+    Value: String | None
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class AddTagsToResourceMessage(ServiceRequest):
     ResourceName: String
     Tags: TagList
+
+
+class AdditionalStorageVolume(TypedDict, total=False):
+    """Contains details about an additional storage volume for a DB instance.
+    RDS support additional storage volumes for RDS for Oracle and RDS for
+    SQL Server.
+    """
+
+    VolumeName: String
+    AllocatedStorage: IntegerOptional | None
+    IOPS: IntegerOptional | None
+    MaxAllocatedStorage: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    StorageType: String | None
+
+
+class AdditionalStorageVolumeOutput(TypedDict, total=False):
+    """Contains information about an additional storage volume for a DB
+    instance.
+    """
+
+    VolumeName: String | None
+    StorageVolumeStatus: String | None
+    AllocatedStorage: Integer | None
+    IOPS: IntegerOptional | None
+    MaxAllocatedStorage: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    StorageType: String | None
+
+
+AdditionalStorageVolumesList = list[AdditionalStorageVolume]
+AdditionalStorageVolumesOutputList = list[AdditionalStorageVolumeOutput]
 
 
 class ApplyPendingMaintenanceActionMessage(ServiceRequest):
@@ -1785,37 +1843,37 @@ TStamp = datetime
 class PendingMaintenanceAction(TypedDict, total=False):
     """Provides information about a pending maintenance action for a resource."""
 
-    Action: Optional[String]
-    AutoAppliedAfterDate: Optional[TStamp]
-    ForcedApplyDate: Optional[TStamp]
-    OptInStatus: Optional[String]
-    CurrentApplyDate: Optional[TStamp]
-    Description: Optional[String]
+    Action: String | None
+    AutoAppliedAfterDate: TStamp | None
+    ForcedApplyDate: TStamp | None
+    OptInStatus: String | None
+    CurrentApplyDate: TStamp | None
+    Description: String | None
 
 
-PendingMaintenanceActionDetails = List[PendingMaintenanceAction]
+PendingMaintenanceActionDetails = list[PendingMaintenanceAction]
 
 
 class ResourcePendingMaintenanceActions(TypedDict, total=False):
     """Describes the pending maintenance actions for a resource."""
 
-    ResourceIdentifier: Optional[String]
-    PendingMaintenanceActionDetails: Optional[PendingMaintenanceActionDetails]
+    ResourceIdentifier: String | None
+    PendingMaintenanceActionDetails: PendingMaintenanceActionDetails | None
 
 
 class ApplyPendingMaintenanceActionResult(TypedDict, total=False):
-    ResourcePendingMaintenanceActions: Optional[ResourcePendingMaintenanceActions]
+    ResourcePendingMaintenanceActions: ResourcePendingMaintenanceActions | None
 
 
-AttributeValueList = List[String]
+AttributeValueList = list[String]
 
 
 class AuthorizeDBSecurityGroupIngressMessage(ServiceRequest):
     DBSecurityGroupName: String
-    CIDRIP: Optional[String]
-    EC2SecurityGroupName: Optional[String]
-    EC2SecurityGroupId: Optional[String]
-    EC2SecurityGroupOwnerId: Optional[String]
+    CIDRIP: String | None
+    EC2SecurityGroupName: String | None
+    EC2SecurityGroupId: String | None
+    EC2SecurityGroupOwnerId: String | None
 
 
 class IPRange(TypedDict, total=False):
@@ -1823,11 +1881,11 @@ class IPRange(TypedDict, total=False):
     ``DescribeDBSecurityGroups`` action.
     """
 
-    Status: Optional[String]
-    CIDRIP: Optional[String]
+    Status: String | None
+    CIDRIP: String | None
 
 
-IPRangeList = List[IPRange]
+IPRangeList = list[IPRange]
 
 
 class EC2SecurityGroup(TypedDict, total=False):
@@ -1840,13 +1898,13 @@ class EC2SecurityGroup(TypedDict, total=False):
     -  ``RevokeDBSecurityGroupIngress``
     """
 
-    Status: Optional[String]
-    EC2SecurityGroupName: Optional[String]
-    EC2SecurityGroupId: Optional[String]
-    EC2SecurityGroupOwnerId: Optional[String]
+    Status: String | None
+    EC2SecurityGroupName: String | None
+    EC2SecurityGroupId: String | None
+    EC2SecurityGroupOwnerId: String | None
 
 
-EC2SecurityGroupList = List[EC2SecurityGroup]
+EC2SecurityGroupList = list[EC2SecurityGroup]
 
 
 class DBSecurityGroup(TypedDict, total=False):
@@ -1856,17 +1914,17 @@ class DBSecurityGroup(TypedDict, total=False):
     ``DescribeDBSecurityGroups`` action.
     """
 
-    OwnerId: Optional[String]
-    DBSecurityGroupName: Optional[String]
-    DBSecurityGroupDescription: Optional[String]
-    VpcId: Optional[String]
-    EC2SecurityGroups: Optional[EC2SecurityGroupList]
-    IPRanges: Optional[IPRangeList]
-    DBSecurityGroupArn: Optional[String]
+    OwnerId: String | None
+    DBSecurityGroupName: String | None
+    DBSecurityGroupDescription: String | None
+    VpcId: String | None
+    EC2SecurityGroups: EC2SecurityGroupList | None
+    IPRanges: IPRangeList | None
+    DBSecurityGroupArn: String | None
 
 
 class AuthorizeDBSecurityGroupIngressResult(TypedDict, total=False):
-    DBSecurityGroup: Optional[DBSecurityGroup]
+    DBSecurityGroup: DBSecurityGroup | None
 
 
 class AvailabilityZone(TypedDict, total=False):
@@ -1876,11 +1934,33 @@ class AvailabilityZone(TypedDict, total=False):
     ``OrderableDBInstanceOption`` data type.
     """
 
-    Name: Optional[String]
+    Name: String | None
 
 
-AvailabilityZoneList = List[AvailabilityZone]
-AvailabilityZones = List[String]
+AvailabilityZoneList = list[AvailabilityZone]
+AvailabilityZones = list[String]
+
+
+class AvailableAdditionalStorageVolumesOption(TypedDict, total=False):
+    """Contains the available options for additional storage volumes for a DB
+    instance class.
+    """
+
+    SupportsStorageAutoscaling: Boolean | None
+    SupportsStorageThroughput: Boolean | None
+    SupportsIops: Boolean | None
+    StorageType: String | None
+    MinStorageSize: IntegerOptional | None
+    MaxStorageSize: IntegerOptional | None
+    MinIops: IntegerOptional | None
+    MaxIops: IntegerOptional | None
+    MinIopsPerGib: DoubleOptional | None
+    MaxIopsPerGib: DoubleOptional | None
+    MinStorageThroughput: IntegerOptional | None
+    MaxStorageThroughput: IntegerOptional | None
+
+
+AvailableAdditionalStorageVolumesOptionList = list[AvailableAdditionalStorageVolumesOption]
 
 
 class AvailableProcessorFeature(TypedDict, total=False):
@@ -1892,19 +1972,19 @@ class AvailableProcessorFeature(TypedDict, total=False):
     in the *Amazon RDS User Guide.*
     """
 
-    Name: Optional[String]
-    DefaultValue: Optional[String]
-    AllowedValues: Optional[String]
+    Name: String | None
+    DefaultValue: String | None
+    AllowedValues: String | None
 
 
-AvailableProcessorFeatureList = List[AvailableProcessorFeature]
+AvailableProcessorFeatureList = list[AvailableProcessorFeature]
 
 
 class BacktrackDBClusterMessage(ServiceRequest):
     DBClusterIdentifier: String
     BacktrackTo: TStamp
-    Force: Optional[BooleanOptional]
-    UseEarliestTimeOnPointInTimeUnavailable: Optional[BooleanOptional]
+    Force: BooleanOptional | None
+    UseEarliestTimeOnPointInTimeUnavailable: BooleanOptional | None
 
 
 class BlueGreenDeploymentTask(TypedDict, total=False):
@@ -1919,11 +1999,11 @@ class BlueGreenDeploymentTask(TypedDict, total=False):
     in the *Amazon Aurora User Guide*.
     """
 
-    Name: Optional[BlueGreenDeploymentTaskName]
-    Status: Optional[BlueGreenDeploymentTaskStatus]
+    Name: BlueGreenDeploymentTaskName | None
+    Status: BlueGreenDeploymentTaskStatus | None
 
 
-BlueGreenDeploymentTaskList = List[BlueGreenDeploymentTask]
+BlueGreenDeploymentTaskList = list[BlueGreenDeploymentTask]
 
 
 class SwitchoverDetail(TypedDict, total=False):
@@ -1938,12 +2018,12 @@ class SwitchoverDetail(TypedDict, total=False):
     in the *Amazon Aurora User Guide*.
     """
 
-    SourceMember: Optional[DatabaseArn]
-    TargetMember: Optional[DatabaseArn]
-    Status: Optional[SwitchoverDetailStatus]
+    SourceMember: DatabaseArn | None
+    TargetMember: DatabaseArn | None
+    Status: SwitchoverDetailStatus | None
 
 
-SwitchoverDetailList = List[SwitchoverDetail]
+SwitchoverDetailList = list[SwitchoverDetail]
 
 
 class BlueGreenDeployment(TypedDict, total=False):
@@ -1958,21 +2038,21 @@ class BlueGreenDeployment(TypedDict, total=False):
     in the *Amazon Aurora User Guide*.
     """
 
-    BlueGreenDeploymentIdentifier: Optional[BlueGreenDeploymentIdentifier]
-    BlueGreenDeploymentName: Optional[BlueGreenDeploymentName]
-    Source: Optional[DatabaseArn]
-    Target: Optional[DatabaseArn]
-    SwitchoverDetails: Optional[SwitchoverDetailList]
-    Tasks: Optional[BlueGreenDeploymentTaskList]
-    Status: Optional[BlueGreenDeploymentStatus]
-    StatusDetails: Optional[BlueGreenDeploymentStatusDetails]
-    CreateTime: Optional[TStamp]
-    DeleteTime: Optional[TStamp]
-    TagList: Optional[TagList]
+    BlueGreenDeploymentIdentifier: BlueGreenDeploymentIdentifier | None
+    BlueGreenDeploymentName: BlueGreenDeploymentName | None
+    Source: DatabaseArn | None
+    Target: DatabaseArn | None
+    SwitchoverDetails: SwitchoverDetailList | None
+    Tasks: BlueGreenDeploymentTaskList | None
+    Status: BlueGreenDeploymentStatus | None
+    StatusDetails: BlueGreenDeploymentStatusDetails | None
+    CreateTime: TStamp | None
+    DeleteTime: TStamp | None
+    TagList: TagList | None
 
 
-BlueGreenDeploymentList = List[BlueGreenDeployment]
-CACertificateIdentifiersList = List[String]
+BlueGreenDeploymentList = list[BlueGreenDeployment]
+CACertificateIdentifiersList = list[String]
 
 
 class CancelExportTaskMessage(ServiceRequest):
@@ -1990,14 +2070,14 @@ class Certificate(TypedDict, total=False):
     in the *Amazon Aurora User Guide*.
     """
 
-    CertificateIdentifier: Optional[String]
-    CertificateType: Optional[String]
-    Thumbprint: Optional[String]
-    ValidFrom: Optional[TStamp]
-    ValidTill: Optional[TStamp]
-    CertificateArn: Optional[String]
-    CustomerOverride: Optional[BooleanOptional]
-    CustomerOverrideValidTill: Optional[TStamp]
+    CertificateIdentifier: String | None
+    CertificateType: String | None
+    Thumbprint: String | None
+    ValidFrom: TStamp | None
+    ValidTill: TStamp | None
+    CertificateArn: String | None
+    CustomerOverride: BooleanOptional | None
+    CustomerOverrideValidTill: TStamp | None
 
 
 class CertificateDetails(TypedDict, total=False):
@@ -2011,19 +2091,19 @@ class CertificateDetails(TypedDict, total=False):
     in the *Amazon Aurora User Guide*.
     """
 
-    CAIdentifier: Optional[String]
-    ValidTill: Optional[TStamp]
+    CAIdentifier: String | None
+    ValidTill: TStamp | None
 
 
-CertificateList = List[Certificate]
+CertificateList = list[Certificate]
 
 
 class CertificateMessage(TypedDict, total=False):
     """Data returned by the **DescribeCertificates** action."""
 
-    DefaultCertificateForNewLaunches: Optional[String]
-    Certificates: Optional[CertificateList]
-    Marker: Optional[String]
+    DefaultCertificateForNewLaunches: String | None
+    Certificates: CertificateList | None
+    Marker: String | None
 
 
 class CharacterSet(TypedDict, total=False):
@@ -2031,11 +2111,11 @@ class CharacterSet(TypedDict, total=False):
     ``DescribeDBEngineVersions``.
     """
 
-    CharacterSetName: Optional[String]
-    CharacterSetDescription: Optional[String]
+    CharacterSetName: String | None
+    CharacterSetDescription: String | None
 
 
-LogTypeList = List[String]
+LogTypeList = list[String]
 
 
 class CloudwatchLogsExportConfiguration(TypedDict, total=False):
@@ -2057,16 +2137,16 @@ class CloudwatchLogsExportConfiguration(TypedDict, total=False):
     in the *Amazon Aurora User Guide*.
     """
 
-    EnableLogTypes: Optional[LogTypeList]
-    DisableLogTypes: Optional[LogTypeList]
+    EnableLogTypes: LogTypeList | None
+    DisableLogTypes: LogTypeList | None
 
 
 class RdsCustomClusterConfiguration(TypedDict, total=False):
     """Reserved for future use."""
 
-    InterconnectSubnetId: Optional[String]
-    TransitGatewayMulticastDomainId: Optional[String]
-    ReplicaMode: Optional[ReplicaMode]
+    InterconnectSubnetId: String | None
+    TransitGatewayMulticastDomainId: String | None
+    ReplicaMode: ReplicaMode | None
 
 
 class PendingCloudwatchLogsExports(TypedDict, total=False):
@@ -2075,8 +2155,8 @@ class PendingCloudwatchLogsExports(TypedDict, total=False):
     deactivated.
     """
 
-    LogTypesToEnable: Optional[LogTypeList]
-    LogTypesToDisable: Optional[LogTypeList]
+    LogTypesToEnable: LogTypeList | None
+    LogTypesToDisable: LogTypeList | None
 
 
 class ClusterPendingModifiedValues(TypedDict, total=False):
@@ -2085,20 +2165,20 @@ class ClusterPendingModifiedValues(TypedDict, total=False):
     maintenance window.
     """
 
-    PendingCloudwatchLogsExports: Optional[PendingCloudwatchLogsExports]
-    DBClusterIdentifier: Optional[String]
-    MasterUserPassword: Optional[String]
-    IAMDatabaseAuthenticationEnabled: Optional[BooleanOptional]
-    EngineVersion: Optional[String]
-    BackupRetentionPeriod: Optional[IntegerOptional]
-    AllocatedStorage: Optional[IntegerOptional]
-    RdsCustomClusterConfiguration: Optional[RdsCustomClusterConfiguration]
-    Iops: Optional[IntegerOptional]
-    StorageType: Optional[String]
-    CertificateDetails: Optional[CertificateDetails]
+    PendingCloudwatchLogsExports: PendingCloudwatchLogsExports | None
+    DBClusterIdentifier: String | None
+    MasterUserPassword: SensitiveString | None
+    IAMDatabaseAuthenticationEnabled: BooleanOptional | None
+    EngineVersion: String | None
+    BackupRetentionPeriod: IntegerOptional | None
+    StorageType: String | None
+    AllocatedStorage: IntegerOptional | None
+    RdsCustomClusterConfiguration: RdsCustomClusterConfiguration | None
+    Iops: IntegerOptional | None
+    CertificateDetails: CertificateDetails | None
 
 
-StringList = List[String]
+StringList = list[String]
 
 
 class ConnectionPoolConfiguration(TypedDict, total=False):
@@ -2106,11 +2186,11 @@ class ConnectionPoolConfiguration(TypedDict, total=False):
     connection pool associated with a ``DBProxyTargetGroup``.
     """
 
-    MaxConnectionsPercent: Optional[IntegerOptional]
-    MaxIdleConnectionsPercent: Optional[IntegerOptional]
-    ConnectionBorrowTimeout: Optional[IntegerOptional]
-    SessionPinningFilters: Optional[StringList]
-    InitQuery: Optional[String]
+    MaxConnectionsPercent: IntegerOptional | None
+    MaxIdleConnectionsPercent: IntegerOptional | None
+    ConnectionBorrowTimeout: IntegerOptional | None
+    SessionPinningFilters: StringList | None
+    InitQuery: String | None
 
 
 class ConnectionPoolConfigurationInfo(TypedDict, total=False):
@@ -2118,28 +2198,28 @@ class ConnectionPoolConfigurationInfo(TypedDict, total=False):
     connection pool associated with a ``DBProxyTarget``.
     """
 
-    MaxConnectionsPercent: Optional[Integer]
-    MaxIdleConnectionsPercent: Optional[Integer]
-    ConnectionBorrowTimeout: Optional[Integer]
-    SessionPinningFilters: Optional[StringList]
-    InitQuery: Optional[String]
+    MaxConnectionsPercent: Integer | None
+    MaxIdleConnectionsPercent: Integer | None
+    ConnectionBorrowTimeout: Integer | None
+    SessionPinningFilters: StringList | None
+    InitQuery: String | None
 
 
 class ContextAttribute(TypedDict, total=False):
     """The additional attributes of ``RecommendedAction`` data type."""
 
-    Key: Optional[String]
-    Value: Optional[String]
+    Key: String | None
+    Value: String | None
 
 
-ContextAttributeList = List[ContextAttribute]
+ContextAttributeList = list[ContextAttribute]
 
 
 class CopyDBClusterParameterGroupMessage(ServiceRequest):
     SourceDBClusterParameterGroupIdentifier: String
     TargetDBClusterParameterGroupIdentifier: String
     TargetDBClusterParameterGroupDescription: String
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class DBClusterParameterGroup(TypedDict, total=False):
@@ -2149,24 +2229,24 @@ class DBClusterParameterGroup(TypedDict, total=False):
     ``DescribeDBClusterParameterGroups`` action.
     """
 
-    DBClusterParameterGroupName: Optional[String]
-    DBParameterGroupFamily: Optional[String]
-    Description: Optional[String]
-    DBClusterParameterGroupArn: Optional[String]
+    DBClusterParameterGroupName: String | None
+    DBParameterGroupFamily: String | None
+    Description: String | None
+    DBClusterParameterGroupArn: String | None
 
 
 class CopyDBClusterParameterGroupResult(TypedDict, total=False):
-    DBClusterParameterGroup: Optional[DBClusterParameterGroup]
+    DBClusterParameterGroup: DBClusterParameterGroup | None
 
 
 class CopyDBClusterSnapshotMessage(ServiceRequest):
     SourceDBClusterSnapshotIdentifier: String
     TargetDBClusterSnapshotIdentifier: String
-    KmsKeyId: Optional[String]
-    PreSignedUrl: Optional[String]
-    CopyTags: Optional[BooleanOptional]
-    Tags: Optional[TagList]
-    SourceRegion: Optional[String]
+    KmsKeyId: String | None
+    PreSignedUrl: SensitiveString | None
+    CopyTags: BooleanOptional | None
+    Tags: TagList | None
+    SourceRegion: String | None
 
 
 class DBClusterSnapshot(TypedDict, total=False):
@@ -2176,43 +2256,43 @@ class DBClusterSnapshot(TypedDict, total=False):
     ``DescribeDBClusterSnapshots`` action.
     """
 
-    AvailabilityZones: Optional[AvailabilityZones]
-    DBClusterSnapshotIdentifier: Optional[String]
-    DBClusterIdentifier: Optional[String]
-    SnapshotCreateTime: Optional[TStamp]
-    Engine: Optional[String]
-    EngineMode: Optional[String]
-    AllocatedStorage: Optional[Integer]
-    Status: Optional[String]
-    Port: Optional[Integer]
-    VpcId: Optional[String]
-    ClusterCreateTime: Optional[TStamp]
-    MasterUsername: Optional[String]
-    EngineVersion: Optional[String]
-    LicenseModel: Optional[String]
-    SnapshotType: Optional[String]
-    PercentProgress: Optional[Integer]
-    StorageEncrypted: Optional[Boolean]
-    KmsKeyId: Optional[String]
-    DBClusterSnapshotArn: Optional[String]
-    SourceDBClusterSnapshotArn: Optional[String]
-    IAMDatabaseAuthenticationEnabled: Optional[Boolean]
-    TagList: Optional[TagList]
-    DBSystemId: Optional[String]
-    StorageType: Optional[String]
-    DbClusterResourceId: Optional[String]
-    StorageThroughput: Optional[IntegerOptional]
+    AvailabilityZones: AvailabilityZones | None
+    DBClusterSnapshotIdentifier: String | None
+    DBClusterIdentifier: String | None
+    SnapshotCreateTime: TStamp | None
+    Engine: String | None
+    EngineMode: String | None
+    AllocatedStorage: Integer | None
+    Status: String | None
+    Port: Integer | None
+    VpcId: String | None
+    ClusterCreateTime: TStamp | None
+    MasterUsername: String | None
+    EngineVersion: String | None
+    LicenseModel: String | None
+    SnapshotType: String | None
+    PercentProgress: Integer | None
+    StorageEncrypted: Boolean | None
+    KmsKeyId: String | None
+    DBClusterSnapshotArn: String | None
+    SourceDBClusterSnapshotArn: String | None
+    IAMDatabaseAuthenticationEnabled: Boolean | None
+    TagList: TagList | None
+    StorageType: String | None
+    StorageThroughput: IntegerOptional | None
+    DbClusterResourceId: String | None
+    DBSystemId: String | None
 
 
 class CopyDBClusterSnapshotResult(TypedDict, total=False):
-    DBClusterSnapshot: Optional[DBClusterSnapshot]
+    DBClusterSnapshot: DBClusterSnapshot | None
 
 
 class CopyDBParameterGroupMessage(ServiceRequest):
     SourceDBParameterGroupIdentifier: String
     TargetDBParameterGroupIdentifier: String
     TargetDBParameterGroupDescription: String
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class DBParameterGroup(TypedDict, total=False):
@@ -2222,29 +2302,29 @@ class DBParameterGroup(TypedDict, total=False):
     ``DescribeDBParameterGroups`` action.
     """
 
-    DBParameterGroupName: Optional[String]
-    DBParameterGroupFamily: Optional[String]
-    Description: Optional[String]
-    DBParameterGroupArn: Optional[String]
+    DBParameterGroupName: String | None
+    DBParameterGroupFamily: String | None
+    Description: String | None
+    DBParameterGroupArn: String | None
 
 
 class CopyDBParameterGroupResult(TypedDict, total=False):
-    DBParameterGroup: Optional[DBParameterGroup]
+    DBParameterGroup: DBParameterGroup | None
 
 
 class CopyDBSnapshotMessage(ServiceRequest):
     SourceDBSnapshotIdentifier: String
     TargetDBSnapshotIdentifier: String
-    KmsKeyId: Optional[String]
-    Tags: Optional[TagList]
-    CopyTags: Optional[BooleanOptional]
-    PreSignedUrl: Optional[String]
-    OptionGroupName: Optional[String]
-    TargetCustomAvailabilityZone: Optional[String]
-    CopyOptionGroup: Optional[BooleanOptional]
-    SnapshotAvailabilityZone: Optional[String]
-    SnapshotTarget: Optional[String]
-    SourceRegion: Optional[String]
+    KmsKeyId: String | None
+    Tags: TagList | None
+    CopyTags: BooleanOptional | None
+    PreSignedUrl: SensitiveString | None
+    OptionGroupName: String | None
+    TargetCustomAvailabilityZone: String | None
+    SnapshotTarget: String | None
+    CopyOptionGroup: BooleanOptional | None
+    SnapshotAvailabilityZone: String | None
+    SourceRegion: String | None
 
 
 class ProcessorFeature(TypedDict, total=False):
@@ -2283,25 +2363,29 @@ class ProcessorFeature(TypedDict, total=False):
     If you call ``DescribeDBInstances``, ``ProcessorFeature`` returns
     non-null values only if the following conditions are met:
 
-    -  You are accessing an Oracle DB instance.
+    -  You are accessing an Oracle or SQL Server DB instance.
 
-    -  Your Oracle DB instance class supports configuring the number of CPU
-       cores and threads per core.
+    -  Your Oracle or SQL Server DB instance class supports configuring the
+       number of CPU cores and threads per core.
 
     -  The current number CPU cores and threads is set to a non-default
        value.
 
     For more information, see `Configuring the processor for a DB instance
     class in RDS for
-    Oracle <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html#USER_ConfigureProcessor>`__
+    Oracle <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html#USER_ConfigureProcessor>`__,
+    `Optimizing your RDS for SQL Server
+    CPU <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/SQLServer.Concepts.General.OptimizeCPU.html>`__,
+    and `DB instance
+    classes <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html>`__
     in the *Amazon RDS User Guide.*
     """
 
-    Name: Optional[String]
-    Value: Optional[String]
+    Name: String | None
+    Value: String | None
 
 
-ProcessorFeatureList = List[ProcessorFeature]
+ProcessorFeatureList = list[ProcessorFeature]
 
 
 class DBSnapshot(TypedDict, total=False):
@@ -2311,54 +2395,55 @@ class DBSnapshot(TypedDict, total=False):
     ``DescribeDBSnapshots`` action.
     """
 
-    DBSnapshotIdentifier: Optional[String]
-    DBInstanceIdentifier: Optional[String]
-    SnapshotCreateTime: Optional[TStamp]
-    Engine: Optional[String]
-    AllocatedStorage: Optional[Integer]
-    Status: Optional[String]
-    Port: Optional[Integer]
-    AvailabilityZone: Optional[String]
-    VpcId: Optional[String]
-    InstanceCreateTime: Optional[TStamp]
-    MasterUsername: Optional[String]
-    EngineVersion: Optional[String]
-    LicenseModel: Optional[String]
-    SnapshotType: Optional[String]
-    Iops: Optional[IntegerOptional]
-    OptionGroupName: Optional[String]
-    PercentProgress: Optional[Integer]
-    SourceRegion: Optional[String]
-    SourceDBSnapshotIdentifier: Optional[String]
-    StorageType: Optional[String]
-    TdeCredentialArn: Optional[String]
-    Encrypted: Optional[Boolean]
-    KmsKeyId: Optional[String]
-    DBSnapshotArn: Optional[String]
-    Timezone: Optional[String]
-    IAMDatabaseAuthenticationEnabled: Optional[Boolean]
-    ProcessorFeatures: Optional[ProcessorFeatureList]
-    DbiResourceId: Optional[String]
-    TagList: Optional[TagList]
-    OriginalSnapshotCreateTime: Optional[TStamp]
-    SnapshotDatabaseTime: Optional[TStamp]
-    SnapshotTarget: Optional[String]
-    StorageThroughput: Optional[IntegerOptional]
-    DBSystemId: Optional[String]
-    DedicatedLogVolume: Optional[Boolean]
-    MultiTenant: Optional[BooleanOptional]
-    SnapshotAvailabilityZone: Optional[String]
+    DBSnapshotIdentifier: String | None
+    DBInstanceIdentifier: String | None
+    SnapshotCreateTime: TStamp | None
+    Engine: String | None
+    AllocatedStorage: Integer | None
+    Status: String | None
+    Port: Integer | None
+    AvailabilityZone: String | None
+    VpcId: String | None
+    InstanceCreateTime: TStamp | None
+    MasterUsername: String | None
+    EngineVersion: String | None
+    LicenseModel: String | None
+    SnapshotType: String | None
+    Iops: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    OptionGroupName: String | None
+    PercentProgress: Integer | None
+    SourceRegion: String | None
+    SourceDBSnapshotIdentifier: String | None
+    StorageType: String | None
+    TdeCredentialArn: String | None
+    Encrypted: Boolean | None
+    KmsKeyId: String | None
+    DBSnapshotArn: String | None
+    Timezone: String | None
+    IAMDatabaseAuthenticationEnabled: Boolean | None
+    ProcessorFeatures: ProcessorFeatureList | None
+    DbiResourceId: String | None
+    TagList: TagList | None
+    SnapshotTarget: String | None
+    OriginalSnapshotCreateTime: TStamp | None
+    SnapshotDatabaseTime: TStamp | None
+    DBSystemId: String | None
+    MultiTenant: BooleanOptional | None
+    DedicatedLogVolume: Boolean | None
+    SnapshotAvailabilityZone: String | None
+    AdditionalStorageVolumes: AdditionalStorageVolumesList | None
 
 
 class CopyDBSnapshotResult(TypedDict, total=False):
-    DBSnapshot: Optional[DBSnapshot]
+    DBSnapshot: DBSnapshot | None
 
 
 class CopyOptionGroupMessage(ServiceRequest):
     SourceOptionGroupIdentifier: String
     TargetOptionGroupIdentifier: String
     TargetOptionGroupDescription: String
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class VpcSecurityGroupMembership(TypedDict, total=False):
@@ -2366,11 +2451,11 @@ class VpcSecurityGroupMembership(TypedDict, total=False):
     group membership.
     """
 
-    VpcSecurityGroupId: Optional[String]
-    Status: Optional[String]
+    VpcSecurityGroupId: String | None
+    Status: String | None
 
 
-VpcSecurityGroupMembershipList = List[VpcSecurityGroupMembership]
+VpcSecurityGroupMembershipList = list[VpcSecurityGroupMembership]
 
 
 class DBSecurityGroupMembership(TypedDict, total=False):
@@ -2385,11 +2470,11 @@ class DBSecurityGroupMembership(TypedDict, total=False):
     -  ``RestoreDBInstanceToPointInTime``
     """
 
-    DBSecurityGroupName: Optional[String]
-    Status: Optional[String]
+    DBSecurityGroupName: String | None
+    Status: String | None
 
 
-DBSecurityGroupMembershipList = List[DBSecurityGroupMembership]
+DBSecurityGroupMembershipList = list[DBSecurityGroupMembership]
 
 
 class OptionSetting(TypedDict, total=False):
@@ -2400,95 +2485,96 @@ class OptionSetting(TypedDict, total=False):
     values.
     """
 
-    Name: Optional[String]
-    Value: Optional[String]
-    DefaultValue: Optional[String]
-    Description: Optional[String]
-    ApplyType: Optional[String]
-    DataType: Optional[String]
-    AllowedValues: Optional[String]
-    IsModifiable: Optional[Boolean]
-    IsCollection: Optional[Boolean]
+    Name: String | None
+    Value: PotentiallySensitiveOptionSettingValue | None
+    DefaultValue: String | None
+    Description: String | None
+    ApplyType: String | None
+    DataType: String | None
+    AllowedValues: String | None
+    IsModifiable: Boolean | None
+    IsCollection: Boolean | None
 
 
-OptionSettingConfigurationList = List[OptionSetting]
+OptionSettingConfigurationList = list[OptionSetting]
 
 
 class Option(TypedDict, total=False):
     """The details of an option."""
 
-    OptionName: Optional[String]
-    OptionDescription: Optional[String]
-    Persistent: Optional[Boolean]
-    Permanent: Optional[Boolean]
-    Port: Optional[IntegerOptional]
-    OptionVersion: Optional[String]
-    OptionSettings: Optional[OptionSettingConfigurationList]
-    DBSecurityGroupMemberships: Optional[DBSecurityGroupMembershipList]
-    VpcSecurityGroupMemberships: Optional[VpcSecurityGroupMembershipList]
+    OptionName: String | None
+    OptionDescription: String | None
+    Persistent: Boolean | None
+    Permanent: Boolean | None
+    Port: IntegerOptional | None
+    OptionVersion: String | None
+    OptionSettings: OptionSettingConfigurationList | None
+    DBSecurityGroupMemberships: DBSecurityGroupMembershipList | None
+    VpcSecurityGroupMemberships: VpcSecurityGroupMembershipList | None
 
 
-OptionsList = List[Option]
+OptionsList = list[Option]
 
 
 class OptionGroup(TypedDict, total=False):
-    OptionGroupName: Optional[String]
-    OptionGroupDescription: Optional[String]
-    EngineName: Optional[String]
-    MajorEngineVersion: Optional[String]
-    Options: Optional[OptionsList]
-    AllowsVpcAndNonVpcInstanceMemberships: Optional[Boolean]
-    VpcId: Optional[String]
-    OptionGroupArn: Optional[String]
-    SourceOptionGroup: Optional[String]
-    SourceAccountId: Optional[String]
-    CopyTimestamp: Optional[TStamp]
+    OptionGroupName: String | None
+    OptionGroupDescription: String | None
+    EngineName: String | None
+    MajorEngineVersion: String | None
+    Options: OptionsList | None
+    AllowsVpcAndNonVpcInstanceMemberships: Boolean | None
+    VpcId: String | None
+    OptionGroupArn: String | None
+    SourceOptionGroup: String | None
+    SourceAccountId: String | None
+    CopyTimestamp: TStamp | None
 
 
 class CopyOptionGroupResult(TypedDict, total=False):
-    OptionGroup: Optional[OptionGroup]
+    OptionGroup: OptionGroup | None
 
 
 class CreateBlueGreenDeploymentRequest(ServiceRequest):
     BlueGreenDeploymentName: BlueGreenDeploymentName
     Source: DatabaseArn
-    TargetEngineVersion: Optional[TargetEngineVersion]
-    TargetDBParameterGroupName: Optional[TargetDBParameterGroupName]
-    TargetDBClusterParameterGroupName: Optional[TargetDBClusterParameterGroupName]
-    Tags: Optional[TagList]
-    TargetDBInstanceClass: Optional[TargetDBInstanceClass]
-    UpgradeTargetStorageConfig: Optional[BooleanOptional]
-    TargetIops: Optional[IntegerOptional]
-    TargetStorageType: Optional[TargetStorageType]
-    TargetAllocatedStorage: Optional[IntegerOptional]
-    TargetStorageThroughput: Optional[IntegerOptional]
+    TargetEngineVersion: TargetEngineVersion | None
+    TargetDBParameterGroupName: TargetDBParameterGroupName | None
+    TargetDBClusterParameterGroupName: TargetDBClusterParameterGroupName | None
+    Tags: TagList | None
+    TargetDBInstanceClass: TargetDBInstanceClass | None
+    UpgradeTargetStorageConfig: BooleanOptional | None
+    TargetIops: IntegerOptional | None
+    TargetStorageType: TargetStorageType | None
+    TargetAllocatedStorage: IntegerOptional | None
+    TargetStorageThroughput: IntegerOptional | None
 
 
 class CreateBlueGreenDeploymentResponse(TypedDict, total=False):
-    BlueGreenDeployment: Optional[BlueGreenDeployment]
+    BlueGreenDeployment: BlueGreenDeployment | None
 
 
 class CreateCustomDBEngineVersionMessage(ServiceRequest):
     Engine: CustomEngineName
     EngineVersion: CustomEngineVersion
-    DatabaseInstallationFilesS3BucketName: Optional[BucketName]
-    DatabaseInstallationFilesS3Prefix: Optional[String255]
-    ImageId: Optional[String255]
-    KMSKeyId: Optional[KmsKeyIdOrArn]
-    Description: Optional[Description]
-    Manifest: Optional[CustomDBEngineVersionManifest]
-    Tags: Optional[TagList]
-    SourceCustomDbEngineVersionIdentifier: Optional[String255]
-    UseAwsProvidedLatestImage: Optional[BooleanOptional]
+    DatabaseInstallationFilesS3BucketName: BucketName | None
+    DatabaseInstallationFilesS3Prefix: String255 | None
+    ImageId: String255 | None
+    KMSKeyId: KmsKeyIdOrArn | None
+    SourceCustomDbEngineVersionIdentifier: String255 | None
+    UseAwsProvidedLatestImage: BooleanOptional | None
+    Description: Description | None
+    Manifest: CustomDBEngineVersionManifest | None
+    Tags: TagList | None
+    DatabaseInstallationFiles: StringList | None
 
 
 class CreateDBClusterEndpointMessage(ServiceRequest):
     DBClusterIdentifier: String
     DBClusterEndpointIdentifier: String
     EndpointType: String
-    StaticMembers: Optional[StringList]
-    ExcludedMembers: Optional[StringList]
-    Tags: Optional[TagList]
+    StaticMembers: StringList | None
+    ExcludedMembers: StringList | None
+    Tags: TagList | None
 
 
 class ServerlessV2ScalingConfiguration(TypedDict, total=False):
@@ -2500,9 +2586,9 @@ class ServerlessV2ScalingConfiguration(TypedDict, total=False):
     in the *Amazon Aurora User Guide*.
     """
 
-    MinCapacity: Optional[DoubleOptional]
-    MaxCapacity: Optional[DoubleOptional]
-    SecondsUntilAutoPause: Optional[IntegerOptional]
+    MinCapacity: DoubleOptional | None
+    MaxCapacity: DoubleOptional | None
+    SecondsUntilAutoPause: IntegerOptional | None
 
 
 class ScalingConfiguration(TypedDict, total=False):
@@ -2514,95 +2600,95 @@ class ScalingConfiguration(TypedDict, total=False):
     in the *Amazon Aurora User Guide*.
     """
 
-    MinCapacity: Optional[IntegerOptional]
-    MaxCapacity: Optional[IntegerOptional]
-    AutoPause: Optional[BooleanOptional]
-    SecondsUntilAutoPause: Optional[IntegerOptional]
-    TimeoutAction: Optional[String]
-    SecondsBeforeTimeout: Optional[IntegerOptional]
+    MinCapacity: IntegerOptional | None
+    MaxCapacity: IntegerOptional | None
+    AutoPause: BooleanOptional | None
+    SecondsUntilAutoPause: IntegerOptional | None
+    TimeoutAction: String | None
+    SecondsBeforeTimeout: IntegerOptional | None
 
 
 LongOptional = int
-VpcSecurityGroupIdList = List[String]
+VpcSecurityGroupIdList = list[String]
 
 
 class CreateDBClusterMessage(ServiceRequest):
-    AvailabilityZones: Optional[AvailabilityZones]
-    BackupRetentionPeriod: Optional[IntegerOptional]
-    CharacterSetName: Optional[String]
-    DatabaseName: Optional[String]
+    AvailabilityZones: AvailabilityZones | None
+    BackupRetentionPeriod: IntegerOptional | None
+    CharacterSetName: String | None
+    DatabaseName: String | None
     DBClusterIdentifier: String
-    DBClusterParameterGroupName: Optional[String]
-    VpcSecurityGroupIds: Optional[VpcSecurityGroupIdList]
-    DBSubnetGroupName: Optional[String]
+    DBClusterParameterGroupName: String | None
+    VpcSecurityGroupIds: VpcSecurityGroupIdList | None
+    DBSubnetGroupName: String | None
     Engine: String
-    EngineVersion: Optional[String]
-    Port: Optional[IntegerOptional]
-    MasterUsername: Optional[String]
-    MasterUserPassword: Optional[String]
-    OptionGroupName: Optional[String]
-    PreferredBackupWindow: Optional[String]
-    PreferredMaintenanceWindow: Optional[String]
-    ReplicationSourceIdentifier: Optional[String]
-    Tags: Optional[TagList]
-    StorageEncrypted: Optional[BooleanOptional]
-    KmsKeyId: Optional[String]
-    PreSignedUrl: Optional[String]
-    EnableIAMDatabaseAuthentication: Optional[BooleanOptional]
-    BacktrackWindow: Optional[LongOptional]
-    EnableCloudwatchLogsExports: Optional[LogTypeList]
-    EngineMode: Optional[String]
-    ScalingConfiguration: Optional[ScalingConfiguration]
-    RdsCustomClusterConfiguration: Optional[RdsCustomClusterConfiguration]
-    DeletionProtection: Optional[BooleanOptional]
-    GlobalClusterIdentifier: Optional[String]
-    EnableHttpEndpoint: Optional[BooleanOptional]
-    CopyTagsToSnapshot: Optional[BooleanOptional]
-    Domain: Optional[String]
-    DomainIAMRoleName: Optional[String]
-    EnableGlobalWriteForwarding: Optional[BooleanOptional]
-    DBClusterInstanceClass: Optional[String]
-    AllocatedStorage: Optional[IntegerOptional]
-    StorageType: Optional[String]
-    Iops: Optional[IntegerOptional]
-    PubliclyAccessible: Optional[BooleanOptional]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    MonitoringInterval: Optional[IntegerOptional]
-    MonitoringRoleArn: Optional[String]
-    DatabaseInsightsMode: Optional[DatabaseInsightsMode]
-    EnablePerformanceInsights: Optional[BooleanOptional]
-    PerformanceInsightsKMSKeyId: Optional[String]
-    PerformanceInsightsRetentionPeriod: Optional[IntegerOptional]
-    EnableLimitlessDatabase: Optional[BooleanOptional]
-    ServerlessV2ScalingConfiguration: Optional[ServerlessV2ScalingConfiguration]
-    NetworkType: Optional[String]
-    ClusterScalabilityType: Optional[ClusterScalabilityType]
-    DBSystemId: Optional[String]
-    ManageMasterUserPassword: Optional[BooleanOptional]
-    MasterUserSecretKmsKeyId: Optional[String]
-    EnableLocalWriteForwarding: Optional[BooleanOptional]
-    CACertificateIdentifier: Optional[String]
-    EngineLifecycleSupport: Optional[String]
-    MasterUserAuthenticationType: Optional[MasterUserAuthenticationType]
-    SourceRegion: Optional[String]
+    EngineVersion: String | None
+    Port: IntegerOptional | None
+    MasterUsername: String | None
+    MasterUserPassword: SensitiveString | None
+    OptionGroupName: String | None
+    PreferredBackupWindow: String | None
+    PreferredMaintenanceWindow: String | None
+    ReplicationSourceIdentifier: String | None
+    Tags: TagList | None
+    StorageEncrypted: BooleanOptional | None
+    KmsKeyId: String | None
+    PreSignedUrl: SensitiveString | None
+    EnableIAMDatabaseAuthentication: BooleanOptional | None
+    BacktrackWindow: LongOptional | None
+    EnableCloudwatchLogsExports: LogTypeList | None
+    EngineMode: String | None
+    ScalingConfiguration: ScalingConfiguration | None
+    RdsCustomClusterConfiguration: RdsCustomClusterConfiguration | None
+    DBClusterInstanceClass: String | None
+    AllocatedStorage: IntegerOptional | None
+    StorageType: String | None
+    Iops: IntegerOptional | None
+    PubliclyAccessible: BooleanOptional | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    DeletionProtection: BooleanOptional | None
+    GlobalClusterIdentifier: GlobalClusterIdentifier | None
+    EnableHttpEndpoint: BooleanOptional | None
+    CopyTagsToSnapshot: BooleanOptional | None
+    Domain: String | None
+    DomainIAMRoleName: String | None
+    EnableGlobalWriteForwarding: BooleanOptional | None
+    NetworkType: String | None
+    ServerlessV2ScalingConfiguration: ServerlessV2ScalingConfiguration | None
+    MonitoringInterval: IntegerOptional | None
+    MonitoringRoleArn: String | None
+    DatabaseInsightsMode: DatabaseInsightsMode | None
+    EnablePerformanceInsights: BooleanOptional | None
+    PerformanceInsightsKMSKeyId: String | None
+    PerformanceInsightsRetentionPeriod: IntegerOptional | None
+    EnableLimitlessDatabase: BooleanOptional | None
+    ClusterScalabilityType: ClusterScalabilityType | None
+    DBSystemId: String | None
+    ManageMasterUserPassword: BooleanOptional | None
+    EnableLocalWriteForwarding: BooleanOptional | None
+    MasterUserSecretKmsKeyId: String | None
+    CACertificateIdentifier: String | None
+    EngineLifecycleSupport: String | None
+    MasterUserAuthenticationType: MasterUserAuthenticationType | None
+    SourceRegion: String | None
 
 
 class CreateDBClusterParameterGroupMessage(ServiceRequest):
     DBClusterParameterGroupName: String
     DBParameterGroupFamily: String
     Description: String
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateDBClusterParameterGroupResult(TypedDict, total=False):
-    DBClusterParameterGroup: Optional[DBClusterParameterGroup]
+    DBClusterParameterGroup: DBClusterParameterGroup | None
 
 
 class LimitlessDatabase(TypedDict, total=False):
     """Contains details for Aurora Limitless Database."""
 
-    Status: Optional[LimitlessDatabaseStatus]
-    MinRequiredACU: Optional[DoubleOptional]
+    Status: LimitlessDatabaseStatus | None
+    MinRequiredACU: DoubleOptional | None
 
 
 class MasterUserSecret(TypedDict, total=False):
@@ -2618,9 +2704,9 @@ class MasterUserSecret(TypedDict, total=False):
     in the *Amazon Aurora User Guide.*
     """
 
-    SecretArn: Optional[String]
-    SecretStatus: Optional[String]
-    KmsKeyId: Optional[String]
+    SecretArn: String | None
+    SecretStatus: String | None
+    KmsKeyId: String | None
 
 
 class ServerlessV2ScalingConfigurationInfo(TypedDict, total=False):
@@ -2631,9 +2717,9 @@ class ServerlessV2ScalingConfigurationInfo(TypedDict, total=False):
     in the *Amazon Aurora User Guide*.
     """
 
-    MinCapacity: Optional[DoubleOptional]
-    MaxCapacity: Optional[DoubleOptional]
-    SecondsUntilAutoPause: Optional[IntegerOptional]
+    MinCapacity: DoubleOptional | None
+    MaxCapacity: DoubleOptional | None
+    SecondsUntilAutoPause: IntegerOptional | None
 
 
 class DomainMembership(TypedDict, total=False):
@@ -2641,16 +2727,16 @@ class DomainMembership(TypedDict, total=False):
     instance or cluster.
     """
 
-    Domain: Optional[String]
-    Status: Optional[String]
-    FQDN: Optional[String]
-    IAMRoleName: Optional[String]
-    OU: Optional[String]
-    AuthSecretArn: Optional[String]
-    DnsIps: Optional[StringList]
+    Domain: String | None
+    Status: String | None
+    FQDN: String | None
+    IAMRoleName: String | None
+    OU: String | None
+    AuthSecretArn: String | None
+    DnsIps: StringList | None
 
 
-DomainMembershipList = List[DomainMembership]
+DomainMembershipList = list[DomainMembership]
 
 
 class ScalingConfigurationInfo(TypedDict, total=False):
@@ -2662,12 +2748,12 @@ class ScalingConfigurationInfo(TypedDict, total=False):
     in the *Amazon Aurora User Guide*.
     """
 
-    MinCapacity: Optional[IntegerOptional]
-    MaxCapacity: Optional[IntegerOptional]
-    AutoPause: Optional[BooleanOptional]
-    SecondsUntilAutoPause: Optional[IntegerOptional]
-    TimeoutAction: Optional[String]
-    SecondsBeforeTimeout: Optional[IntegerOptional]
+    MinCapacity: IntegerOptional | None
+    MaxCapacity: IntegerOptional | None
+    AutoPause: BooleanOptional | None
+    SecondsUntilAutoPause: IntegerOptional | None
+    TimeoutAction: String | None
+    SecondsBeforeTimeout: IntegerOptional | None
 
 
 class DBClusterRole(TypedDict, total=False):
@@ -2675,47 +2761,47 @@ class DBClusterRole(TypedDict, total=False):
     role that is associated with a DB cluster.
     """
 
-    RoleArn: Optional[String]
-    Status: Optional[String]
-    FeatureName: Optional[String]
+    RoleArn: String | None
+    Status: String | None
+    FeatureName: String | None
 
 
-DBClusterRoles = List[DBClusterRole]
+DBClusterRoles = list[DBClusterRole]
 
 
 class DBClusterMember(TypedDict, total=False):
     """Contains information about an instance that is part of a DB cluster."""
 
-    DBInstanceIdentifier: Optional[String]
-    IsClusterWriter: Optional[Boolean]
-    DBClusterParameterGroupStatus: Optional[String]
-    PromotionTier: Optional[IntegerOptional]
+    DBInstanceIdentifier: String | None
+    IsClusterWriter: Boolean | None
+    DBClusterParameterGroupStatus: String | None
+    PromotionTier: IntegerOptional | None
 
 
-DBClusterMemberList = List[DBClusterMember]
+DBClusterMemberList = list[DBClusterMember]
 
 
 class DBClusterStatusInfo(TypedDict, total=False):
     """Reserved for future use."""
 
-    StatusType: Optional[String]
-    Normal: Optional[Boolean]
-    Status: Optional[String]
-    Message: Optional[String]
+    StatusType: String | None
+    Normal: Boolean | None
+    Status: String | None
+    Message: String | None
 
 
-DBClusterStatusInfoList = List[DBClusterStatusInfo]
-ReadReplicaIdentifierList = List[String]
+DBClusterStatusInfoList = list[DBClusterStatusInfo]
+ReadReplicaIdentifierList = list[String]
 
 
 class DBClusterOptionGroupStatus(TypedDict, total=False):
     """Contains status information for a DB cluster option group."""
 
-    DBClusterOptionGroupName: Optional[String]
-    Status: Optional[String]
+    DBClusterOptionGroupName: String | None
+    Status: String | None
 
 
-DBClusterOptionGroupMemberships = List[DBClusterOptionGroupStatus]
+DBClusterOptionGroupMemberships = list[DBClusterOptionGroupStatus]
 
 
 class DBCluster(TypedDict, total=False):
@@ -2745,226 +2831,229 @@ class DBCluster(TypedDict, total=False):
     in the *Amazon RDS User Guide.*
     """
 
-    AllocatedStorage: Optional[IntegerOptional]
-    AvailabilityZones: Optional[AvailabilityZones]
-    BackupRetentionPeriod: Optional[IntegerOptional]
-    CharacterSetName: Optional[String]
-    DatabaseName: Optional[String]
-    DBClusterIdentifier: Optional[String]
-    DBClusterParameterGroup: Optional[String]
-    DBSubnetGroup: Optional[String]
-    Status: Optional[String]
-    AutomaticRestartTime: Optional[TStamp]
-    PercentProgress: Optional[String]
-    EarliestRestorableTime: Optional[TStamp]
-    Endpoint: Optional[String]
-    ReaderEndpoint: Optional[String]
-    CustomEndpoints: Optional[StringList]
-    MultiAZ: Optional[BooleanOptional]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    LatestRestorableTime: Optional[TStamp]
-    Port: Optional[IntegerOptional]
-    MasterUsername: Optional[String]
-    DBClusterOptionGroupMemberships: Optional[DBClusterOptionGroupMemberships]
-    PreferredBackupWindow: Optional[String]
-    PreferredMaintenanceWindow: Optional[String]
-    ReplicationSourceIdentifier: Optional[String]
-    ReadReplicaIdentifiers: Optional[ReadReplicaIdentifierList]
-    StatusInfos: Optional[DBClusterStatusInfoList]
-    DBClusterMembers: Optional[DBClusterMemberList]
-    VpcSecurityGroups: Optional[VpcSecurityGroupMembershipList]
-    HostedZoneId: Optional[String]
-    StorageEncrypted: Optional[Boolean]
-    KmsKeyId: Optional[String]
-    DbClusterResourceId: Optional[String]
-    DBClusterArn: Optional[String]
-    AssociatedRoles: Optional[DBClusterRoles]
-    IAMDatabaseAuthenticationEnabled: Optional[BooleanOptional]
-    CloneGroupId: Optional[String]
-    ClusterCreateTime: Optional[TStamp]
-    EarliestBacktrackTime: Optional[TStamp]
-    BacktrackWindow: Optional[LongOptional]
-    BacktrackConsumedChangeRecords: Optional[LongOptional]
-    EnabledCloudwatchLogsExports: Optional[LogTypeList]
-    Capacity: Optional[IntegerOptional]
-    EngineMode: Optional[String]
-    ScalingConfigurationInfo: Optional[ScalingConfigurationInfo]
-    RdsCustomClusterConfiguration: Optional[RdsCustomClusterConfiguration]
-    DeletionProtection: Optional[BooleanOptional]
-    HttpEndpointEnabled: Optional[BooleanOptional]
-    ActivityStreamMode: Optional[ActivityStreamMode]
-    ActivityStreamStatus: Optional[ActivityStreamStatus]
-    ActivityStreamKmsKeyId: Optional[String]
-    ActivityStreamKinesisStreamName: Optional[String]
-    CopyTagsToSnapshot: Optional[BooleanOptional]
-    CrossAccountClone: Optional[BooleanOptional]
-    DomainMemberships: Optional[DomainMembershipList]
-    TagList: Optional[TagList]
-    GlobalClusterIdentifier: Optional[GlobalClusterIdentifier]
-    GlobalWriteForwardingStatus: Optional[WriteForwardingStatus]
-    GlobalWriteForwardingRequested: Optional[BooleanOptional]
-    PendingModifiedValues: Optional[ClusterPendingModifiedValues]
-    DBClusterInstanceClass: Optional[String]
-    StorageType: Optional[String]
-    Iops: Optional[IntegerOptional]
-    PubliclyAccessible: Optional[BooleanOptional]
-    AutoMinorVersionUpgrade: Optional[Boolean]
-    MonitoringInterval: Optional[IntegerOptional]
-    MonitoringRoleArn: Optional[String]
-    DatabaseInsightsMode: Optional[DatabaseInsightsMode]
-    PerformanceInsightsEnabled: Optional[BooleanOptional]
-    PerformanceInsightsKMSKeyId: Optional[String]
-    PerformanceInsightsRetentionPeriod: Optional[IntegerOptional]
-    ServerlessV2ScalingConfiguration: Optional[ServerlessV2ScalingConfigurationInfo]
-    ServerlessV2PlatformVersion: Optional[String]
-    NetworkType: Optional[String]
-    DBSystemId: Optional[String]
-    MasterUserSecret: Optional[MasterUserSecret]
-    IOOptimizedNextAllowedModificationTime: Optional[TStamp]
-    LocalWriteForwardingStatus: Optional[LocalWriteForwardingStatus]
-    AwsBackupRecoveryPointArn: Optional[String]
-    LimitlessDatabase: Optional[LimitlessDatabase]
-    StorageThroughput: Optional[IntegerOptional]
-    ClusterScalabilityType: Optional[ClusterScalabilityType]
-    CertificateDetails: Optional[CertificateDetails]
-    EngineLifecycleSupport: Optional[String]
+    AllocatedStorage: IntegerOptional | None
+    AvailabilityZones: AvailabilityZones | None
+    BackupRetentionPeriod: IntegerOptional | None
+    CharacterSetName: String | None
+    DatabaseName: String | None
+    DBClusterIdentifier: String | None
+    DBClusterParameterGroup: String | None
+    DBSubnetGroup: String | None
+    Status: String | None
+    PercentProgress: String | None
+    EarliestRestorableTime: TStamp | None
+    Endpoint: String | None
+    ReaderEndpoint: String | None
+    CustomEndpoints: StringList | None
+    MultiAZ: BooleanOptional | None
+    Engine: String | None
+    EngineVersion: String | None
+    LatestRestorableTime: TStamp | None
+    Port: IntegerOptional | None
+    MasterUsername: String | None
+    DBClusterOptionGroupMemberships: DBClusterOptionGroupMemberships | None
+    PreferredBackupWindow: String | None
+    PreferredMaintenanceWindow: String | None
+    UpgradeRolloutOrder: UpgradeRolloutOrder | None
+    ReplicationSourceIdentifier: String | None
+    ReadReplicaIdentifiers: ReadReplicaIdentifierList | None
+    StatusInfos: DBClusterStatusInfoList | None
+    DBClusterMembers: DBClusterMemberList | None
+    VpcSecurityGroups: VpcSecurityGroupMembershipList | None
+    HostedZoneId: String | None
+    StorageEncrypted: Boolean | None
+    KmsKeyId: String | None
+    DbClusterResourceId: String | None
+    DBClusterArn: String | None
+    AssociatedRoles: DBClusterRoles | None
+    IAMDatabaseAuthenticationEnabled: BooleanOptional | None
+    CloneGroupId: String | None
+    ClusterCreateTime: TStamp | None
+    EarliestBacktrackTime: TStamp | None
+    BacktrackWindow: LongOptional | None
+    BacktrackConsumedChangeRecords: LongOptional | None
+    EnabledCloudwatchLogsExports: LogTypeList | None
+    Capacity: IntegerOptional | None
+    PendingModifiedValues: ClusterPendingModifiedValues | None
+    EngineMode: String | None
+    ScalingConfigurationInfo: ScalingConfigurationInfo | None
+    RdsCustomClusterConfiguration: RdsCustomClusterConfiguration | None
+    DBClusterInstanceClass: String | None
+    StorageType: String | None
+    Iops: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    IOOptimizedNextAllowedModificationTime: TStamp | None
+    PubliclyAccessible: BooleanOptional | None
+    AutoMinorVersionUpgrade: Boolean | None
+    DeletionProtection: BooleanOptional | None
+    HttpEndpointEnabled: BooleanOptional | None
+    ActivityStreamMode: ActivityStreamMode | None
+    ActivityStreamStatus: ActivityStreamStatus | None
+    ActivityStreamKmsKeyId: String | None
+    ActivityStreamKinesisStreamName: String | None
+    CopyTagsToSnapshot: BooleanOptional | None
+    CrossAccountClone: BooleanOptional | None
+    DomainMemberships: DomainMembershipList | None
+    TagList: TagList | None
+    GlobalClusterIdentifier: GlobalClusterIdentifier | None
+    GlobalWriteForwardingStatus: WriteForwardingStatus | None
+    GlobalWriteForwardingRequested: BooleanOptional | None
+    NetworkType: String | None
+    AutomaticRestartTime: TStamp | None
+    ServerlessV2ScalingConfiguration: ServerlessV2ScalingConfigurationInfo | None
+    ServerlessV2PlatformVersion: String | None
+    MonitoringInterval: IntegerOptional | None
+    MonitoringRoleArn: String | None
+    DatabaseInsightsMode: DatabaseInsightsMode | None
+    PerformanceInsightsEnabled: BooleanOptional | None
+    PerformanceInsightsKMSKeyId: String | None
+    PerformanceInsightsRetentionPeriod: IntegerOptional | None
+    DBSystemId: String | None
+    MasterUserSecret: MasterUserSecret | None
+    LocalWriteForwardingStatus: LocalWriteForwardingStatus | None
+    AwsBackupRecoveryPointArn: String | None
+    LimitlessDatabase: LimitlessDatabase | None
+    ClusterScalabilityType: ClusterScalabilityType | None
+    CertificateDetails: CertificateDetails | None
+    EngineLifecycleSupport: String | None
 
 
 class CreateDBClusterResult(TypedDict, total=False):
-    DBCluster: Optional[DBCluster]
+    DBCluster: DBCluster | None
 
 
 class CreateDBClusterSnapshotMessage(ServiceRequest):
     DBClusterSnapshotIdentifier: String
     DBClusterIdentifier: String
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateDBClusterSnapshotResult(TypedDict, total=False):
-    DBClusterSnapshot: Optional[DBClusterSnapshot]
+    DBClusterSnapshot: DBClusterSnapshot | None
 
 
-DBSecurityGroupNameList = List[String]
+DBSecurityGroupNameList = list[String]
 
 
 class CreateDBInstanceMessage(ServiceRequest):
-    DBName: Optional[String]
+    DBName: String | None
     DBInstanceIdentifier: String
-    AllocatedStorage: Optional[IntegerOptional]
+    AllocatedStorage: IntegerOptional | None
     DBInstanceClass: String
     Engine: String
-    MasterUsername: Optional[String]
-    MasterUserPassword: Optional[String]
-    DBSecurityGroups: Optional[DBSecurityGroupNameList]
-    VpcSecurityGroupIds: Optional[VpcSecurityGroupIdList]
-    AvailabilityZone: Optional[String]
-    DBSubnetGroupName: Optional[String]
-    PreferredMaintenanceWindow: Optional[String]
-    DBParameterGroupName: Optional[String]
-    BackupRetentionPeriod: Optional[IntegerOptional]
-    PreferredBackupWindow: Optional[String]
-    Port: Optional[IntegerOptional]
-    MultiAZ: Optional[BooleanOptional]
-    EngineVersion: Optional[String]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    LicenseModel: Optional[String]
-    Iops: Optional[IntegerOptional]
-    OptionGroupName: Optional[String]
-    CharacterSetName: Optional[String]
-    NcharCharacterSetName: Optional[String]
-    PubliclyAccessible: Optional[BooleanOptional]
-    Tags: Optional[TagList]
-    DBClusterIdentifier: Optional[String]
-    StorageType: Optional[String]
-    TdeCredentialArn: Optional[String]
-    TdeCredentialPassword: Optional[String]
-    StorageEncrypted: Optional[BooleanOptional]
-    KmsKeyId: Optional[String]
-    Domain: Optional[String]
-    DomainFqdn: Optional[String]
-    DomainOu: Optional[String]
-    DomainAuthSecretArn: Optional[String]
-    DomainDnsIps: Optional[StringList]
-    CopyTagsToSnapshot: Optional[BooleanOptional]
-    MonitoringInterval: Optional[IntegerOptional]
-    MonitoringRoleArn: Optional[String]
-    DomainIAMRoleName: Optional[String]
-    PromotionTier: Optional[IntegerOptional]
-    Timezone: Optional[String]
-    EnableIAMDatabaseAuthentication: Optional[BooleanOptional]
-    DatabaseInsightsMode: Optional[DatabaseInsightsMode]
-    EnablePerformanceInsights: Optional[BooleanOptional]
-    PerformanceInsightsKMSKeyId: Optional[String]
-    PerformanceInsightsRetentionPeriod: Optional[IntegerOptional]
-    EnableCloudwatchLogsExports: Optional[LogTypeList]
-    ProcessorFeatures: Optional[ProcessorFeatureList]
-    DeletionProtection: Optional[BooleanOptional]
-    MaxAllocatedStorage: Optional[IntegerOptional]
-    EnableCustomerOwnedIp: Optional[BooleanOptional]
-    CustomIamInstanceProfile: Optional[String]
-    BackupTarget: Optional[String]
-    NetworkType: Optional[String]
-    StorageThroughput: Optional[IntegerOptional]
-    ManageMasterUserPassword: Optional[BooleanOptional]
-    MasterUserSecretKmsKeyId: Optional[String]
-    CACertificateIdentifier: Optional[String]
-    DBSystemId: Optional[String]
-    DedicatedLogVolume: Optional[BooleanOptional]
-    MultiTenant: Optional[BooleanOptional]
-    EngineLifecycleSupport: Optional[String]
-    MasterUserAuthenticationType: Optional[MasterUserAuthenticationType]
+    MasterUsername: String | None
+    MasterUserPassword: SensitiveString | None
+    DBSecurityGroups: DBSecurityGroupNameList | None
+    VpcSecurityGroupIds: VpcSecurityGroupIdList | None
+    AvailabilityZone: String | None
+    DBSubnetGroupName: String | None
+    PreferredMaintenanceWindow: String | None
+    DBParameterGroupName: String | None
+    BackupRetentionPeriod: IntegerOptional | None
+    PreferredBackupWindow: String | None
+    Port: IntegerOptional | None
+    MultiAZ: BooleanOptional | None
+    EngineVersion: String | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    LicenseModel: String | None
+    Iops: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    OptionGroupName: String | None
+    CharacterSetName: String | None
+    NcharCharacterSetName: String | None
+    PubliclyAccessible: BooleanOptional | None
+    Tags: TagList | None
+    DBClusterIdentifier: String | None
+    StorageType: String | None
+    TdeCredentialArn: String | None
+    TdeCredentialPassword: SensitiveString | None
+    StorageEncrypted: BooleanOptional | None
+    KmsKeyId: String | None
+    Domain: String | None
+    DomainFqdn: String | None
+    DomainOu: String | None
+    DomainAuthSecretArn: String | None
+    DomainDnsIps: StringList | None
+    CopyTagsToSnapshot: BooleanOptional | None
+    MonitoringInterval: IntegerOptional | None
+    MonitoringRoleArn: String | None
+    DomainIAMRoleName: String | None
+    PromotionTier: IntegerOptional | None
+    Timezone: String | None
+    EnableIAMDatabaseAuthentication: BooleanOptional | None
+    DatabaseInsightsMode: DatabaseInsightsMode | None
+    EnablePerformanceInsights: BooleanOptional | None
+    PerformanceInsightsKMSKeyId: String | None
+    PerformanceInsightsRetentionPeriod: IntegerOptional | None
+    EnableCloudwatchLogsExports: LogTypeList | None
+    ProcessorFeatures: ProcessorFeatureList | None
+    DeletionProtection: BooleanOptional | None
+    MaxAllocatedStorage: IntegerOptional | None
+    EnableCustomerOwnedIp: BooleanOptional | None
+    NetworkType: String | None
+    BackupTarget: String | None
+    CustomIamInstanceProfile: String | None
+    DBSystemId: String | None
+    CACertificateIdentifier: String | None
+    ManageMasterUserPassword: BooleanOptional | None
+    MasterUserSecretKmsKeyId: String | None
+    MultiTenant: BooleanOptional | None
+    DedicatedLogVolume: BooleanOptional | None
+    EngineLifecycleSupport: String | None
+    MasterUserAuthenticationType: MasterUserAuthenticationType | None
+    AdditionalStorageVolumes: AdditionalStorageVolumesList | None
 
 
 class CreateDBInstanceReadReplicaMessage(ServiceRequest):
     DBInstanceIdentifier: String
-    SourceDBInstanceIdentifier: Optional[String]
-    DBInstanceClass: Optional[String]
-    AvailabilityZone: Optional[String]
-    Port: Optional[IntegerOptional]
-    MultiAZ: Optional[BooleanOptional]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    Iops: Optional[IntegerOptional]
-    OptionGroupName: Optional[String]
-    DBParameterGroupName: Optional[String]
-    PubliclyAccessible: Optional[BooleanOptional]
-    Tags: Optional[TagList]
-    DBSubnetGroupName: Optional[String]
-    VpcSecurityGroupIds: Optional[VpcSecurityGroupIdList]
-    StorageType: Optional[String]
-    CopyTagsToSnapshot: Optional[BooleanOptional]
-    MonitoringInterval: Optional[IntegerOptional]
-    MonitoringRoleArn: Optional[String]
-    KmsKeyId: Optional[String]
-    PreSignedUrl: Optional[String]
-    EnableIAMDatabaseAuthentication: Optional[BooleanOptional]
-    DatabaseInsightsMode: Optional[DatabaseInsightsMode]
-    EnablePerformanceInsights: Optional[BooleanOptional]
-    PerformanceInsightsKMSKeyId: Optional[String]
-    PerformanceInsightsRetentionPeriod: Optional[IntegerOptional]
-    EnableCloudwatchLogsExports: Optional[LogTypeList]
-    ProcessorFeatures: Optional[ProcessorFeatureList]
-    UseDefaultProcessorFeatures: Optional[BooleanOptional]
-    DeletionProtection: Optional[BooleanOptional]
-    Domain: Optional[String]
-    DomainIAMRoleName: Optional[String]
-    DomainFqdn: Optional[String]
-    DomainOu: Optional[String]
-    DomainAuthSecretArn: Optional[String]
-    DomainDnsIps: Optional[StringList]
-    ReplicaMode: Optional[ReplicaMode]
-    MaxAllocatedStorage: Optional[IntegerOptional]
-    CustomIamInstanceProfile: Optional[String]
-    NetworkType: Optional[String]
-    StorageThroughput: Optional[IntegerOptional]
-    EnableCustomerOwnedIp: Optional[BooleanOptional]
-    BackupTarget: Optional[String]
-    AllocatedStorage: Optional[IntegerOptional]
-    SourceDBClusterIdentifier: Optional[String]
-    DedicatedLogVolume: Optional[BooleanOptional]
-    UpgradeStorageConfig: Optional[BooleanOptional]
-    CACertificateIdentifier: Optional[String]
-    SourceRegion: Optional[String]
+    SourceDBInstanceIdentifier: String | None
+    DBInstanceClass: String | None
+    AvailabilityZone: String | None
+    Port: IntegerOptional | None
+    MultiAZ: BooleanOptional | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    Iops: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    OptionGroupName: String | None
+    DBParameterGroupName: String | None
+    PubliclyAccessible: BooleanOptional | None
+    Tags: TagList | None
+    DBSubnetGroupName: String | None
+    VpcSecurityGroupIds: VpcSecurityGroupIdList | None
+    StorageType: String | None
+    CopyTagsToSnapshot: BooleanOptional | None
+    MonitoringInterval: IntegerOptional | None
+    MonitoringRoleArn: String | None
+    KmsKeyId: String | None
+    PreSignedUrl: SensitiveString | None
+    EnableIAMDatabaseAuthentication: BooleanOptional | None
+    DatabaseInsightsMode: DatabaseInsightsMode | None
+    EnablePerformanceInsights: BooleanOptional | None
+    PerformanceInsightsKMSKeyId: String | None
+    PerformanceInsightsRetentionPeriod: IntegerOptional | None
+    EnableCloudwatchLogsExports: LogTypeList | None
+    ProcessorFeatures: ProcessorFeatureList | None
+    UseDefaultProcessorFeatures: BooleanOptional | None
+    DeletionProtection: BooleanOptional | None
+    Domain: String | None
+    DomainIAMRoleName: String | None
+    DomainFqdn: String | None
+    DomainOu: String | None
+    DomainAuthSecretArn: String | None
+    DomainDnsIps: StringList | None
+    ReplicaMode: ReplicaMode | None
+    EnableCustomerOwnedIp: BooleanOptional | None
+    NetworkType: String | None
+    MaxAllocatedStorage: IntegerOptional | None
+    BackupTarget: String | None
+    CustomIamInstanceProfile: String | None
+    AllocatedStorage: IntegerOptional | None
+    SourceDBClusterIdentifier: String | None
+    DedicatedLogVolume: BooleanOptional | None
+    UpgradeStorageConfig: BooleanOptional | None
+    CACertificateIdentifier: String | None
+    AdditionalStorageVolumes: AdditionalStorageVolumesList | None
+    SourceRegion: String | None
 
 
 class DBInstanceAutomatedBackupsReplication(TypedDict, total=False):
@@ -2973,10 +3062,10 @@ class DBInstanceAutomatedBackupsReplication(TypedDict, total=False):
     database instance properties.
     """
 
-    DBInstanceAutomatedBackupsArn: Optional[String]
+    DBInstanceAutomatedBackupsArn: String | None
 
 
-DBInstanceAutomatedBackupsReplicationList = List[DBInstanceAutomatedBackupsReplication]
+DBInstanceAutomatedBackupsReplicationList = list[DBInstanceAutomatedBackupsReplication]
 
 
 class Endpoint(TypedDict, total=False):
@@ -2994,9 +3083,9 @@ class Endpoint(TypedDict, total=False):
     endpoints, see ``DBClusterEndpoint``.
     """
 
-    Address: Optional[String]
-    Port: Optional[Integer]
-    HostedZoneId: Optional[String]
+    Address: String | None
+    Port: Integer | None
+    HostedZoneId: String | None
 
 
 class DBInstanceRole(TypedDict, total=False):
@@ -3004,24 +3093,24 @@ class DBInstanceRole(TypedDict, total=False):
     (IAM) role that is associated with a DB instance.
     """
 
-    RoleArn: Optional[String]
-    FeatureName: Optional[String]
-    Status: Optional[String]
+    RoleArn: String | None
+    FeatureName: String | None
+    Status: String | None
 
 
-DBInstanceRoles = List[DBInstanceRole]
+DBInstanceRoles = list[DBInstanceRole]
 
 
 class DBInstanceStatusInfo(TypedDict, total=False):
     """Provides a list of status information for a DB instance."""
 
-    StatusType: Optional[String]
-    Normal: Optional[Boolean]
-    Status: Optional[String]
-    Message: Optional[String]
+    StatusType: String | None
+    Normal: Boolean | None
+    Status: String | None
+    Message: String | None
 
 
-DBInstanceStatusInfoList = List[DBInstanceStatusInfo]
+DBInstanceStatusInfoList = list[DBInstanceStatusInfo]
 
 
 class OptionGroupMembership(TypedDict, total=False):
@@ -3029,13 +3118,13 @@ class OptionGroupMembership(TypedDict, total=False):
     of.
     """
 
-    OptionGroupName: Optional[String]
-    Status: Optional[String]
+    OptionGroupName: String | None
+    Status: String | None
 
 
-OptionGroupMembershipList = List[OptionGroupMembership]
-ReadReplicaDBClusterIdentifierList = List[String]
-ReadReplicaDBInstanceIdentifierList = List[String]
+OptionGroupMembershipList = list[OptionGroupMembership]
+ReadReplicaDBClusterIdentifierList = list[String]
+ReadReplicaDBInstanceIdentifierList = list[String]
 
 
 class PendingModifiedValues(TypedDict, total=False):
@@ -3044,28 +3133,29 @@ class PendingModifiedValues(TypedDict, total=False):
     maintenance window.
     """
 
-    DBInstanceClass: Optional[String]
-    AllocatedStorage: Optional[IntegerOptional]
-    MasterUserPassword: Optional[String]
-    Port: Optional[IntegerOptional]
-    BackupRetentionPeriod: Optional[IntegerOptional]
-    MultiAZ: Optional[BooleanOptional]
-    EngineVersion: Optional[String]
-    LicenseModel: Optional[String]
-    Iops: Optional[IntegerOptional]
-    DBInstanceIdentifier: Optional[String]
-    StorageType: Optional[String]
-    CACertificateIdentifier: Optional[String]
-    DBSubnetGroupName: Optional[String]
-    PendingCloudwatchLogsExports: Optional[PendingCloudwatchLogsExports]
-    ProcessorFeatures: Optional[ProcessorFeatureList]
-    IAMDatabaseAuthenticationEnabled: Optional[BooleanOptional]
-    AutomationMode: Optional[AutomationMode]
-    ResumeFullAutomationModeTime: Optional[TStamp]
-    StorageThroughput: Optional[IntegerOptional]
-    Engine: Optional[String]
-    DedicatedLogVolume: Optional[BooleanOptional]
-    MultiTenant: Optional[BooleanOptional]
+    DBInstanceClass: String | None
+    AllocatedStorage: IntegerOptional | None
+    MasterUserPassword: SensitiveString | None
+    Port: IntegerOptional | None
+    BackupRetentionPeriod: IntegerOptional | None
+    MultiAZ: BooleanOptional | None
+    EngineVersion: String | None
+    LicenseModel: String | None
+    Iops: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    DBInstanceIdentifier: String | None
+    StorageType: String | None
+    CACertificateIdentifier: String | None
+    DBSubnetGroupName: String | None
+    PendingCloudwatchLogsExports: PendingCloudwatchLogsExports | None
+    ProcessorFeatures: ProcessorFeatureList | None
+    AutomationMode: AutomationMode | None
+    ResumeFullAutomationModeTime: TStamp | None
+    MultiTenant: BooleanOptional | None
+    IAMDatabaseAuthenticationEnabled: BooleanOptional | None
+    DedicatedLogVolume: BooleanOptional | None
+    Engine: String | None
+    AdditionalStorageVolumes: AdditionalStorageVolumesList | None
 
 
 class Outpost(TypedDict, total=False):
@@ -3077,7 +3167,7 @@ class Outpost(TypedDict, total=False):
     in the *Amazon RDS User Guide.*
     """
 
-    Arn: Optional[String]
+    Arn: String | None
 
 
 class Subnet(TypedDict, total=False):
@@ -3085,13 +3175,13 @@ class Subnet(TypedDict, total=False):
     ``DescribeDBSubnetGroups`` operation.
     """
 
-    SubnetIdentifier: Optional[String]
-    SubnetAvailabilityZone: Optional[AvailabilityZone]
-    SubnetOutpost: Optional[Outpost]
-    SubnetStatus: Optional[String]
+    SubnetIdentifier: String | None
+    SubnetAvailabilityZone: AvailabilityZone | None
+    SubnetOutpost: Outpost | None
+    SubnetStatus: String | None
 
 
-SubnetList = List[Subnet]
+SubnetList = list[Subnet]
 
 
 class DBSubnetGroup(TypedDict, total=False):
@@ -3101,13 +3191,13 @@ class DBSubnetGroup(TypedDict, total=False):
     ``DescribeDBSubnetGroups`` action.
     """
 
-    DBSubnetGroupName: Optional[String]
-    DBSubnetGroupDescription: Optional[String]
-    VpcId: Optional[String]
-    SubnetGroupStatus: Optional[String]
-    Subnets: Optional[SubnetList]
-    DBSubnetGroupArn: Optional[String]
-    SupportedNetworkTypes: Optional[StringList]
+    DBSubnetGroupName: String | None
+    DBSubnetGroupDescription: String | None
+    VpcId: String | None
+    SubnetGroupStatus: String | None
+    Subnets: SubnetList | None
+    DBSubnetGroupArn: String | None
+    SupportedNetworkTypes: StringList | None
 
 
 class DBParameterGroupStatus(TypedDict, total=False):
@@ -3128,11 +3218,11 @@ class DBParameterGroupStatus(TypedDict, total=False):
     -  ``RestoreDBInstanceFromDBSnapshot``
     """
 
-    DBParameterGroupName: Optional[String]
-    ParameterApplyStatus: Optional[String]
+    DBParameterGroupName: String | None
+    ParameterApplyStatus: String | None
 
 
-DBParameterGroupStatusList = List[DBParameterGroupStatus]
+DBParameterGroupStatusList = list[DBParameterGroupStatus]
 
 
 class DBInstance(TypedDict, total=False):
@@ -3147,122 +3237,125 @@ class DBInstance(TypedDict, total=False):
     ``StopDBInstance``.
     """
 
-    DBInstanceIdentifier: Optional[String]
-    DBInstanceClass: Optional[String]
-    Engine: Optional[String]
-    DBInstanceStatus: Optional[String]
-    AutomaticRestartTime: Optional[TStamp]
-    MasterUsername: Optional[String]
-    DBName: Optional[String]
-    Endpoint: Optional[Endpoint]
-    AllocatedStorage: Optional[Integer]
-    InstanceCreateTime: Optional[TStamp]
-    PreferredBackupWindow: Optional[String]
-    BackupRetentionPeriod: Optional[Integer]
-    DBSecurityGroups: Optional[DBSecurityGroupMembershipList]
-    VpcSecurityGroups: Optional[VpcSecurityGroupMembershipList]
-    DBParameterGroups: Optional[DBParameterGroupStatusList]
-    AvailabilityZone: Optional[String]
-    DBSubnetGroup: Optional[DBSubnetGroup]
-    PreferredMaintenanceWindow: Optional[String]
-    PendingModifiedValues: Optional[PendingModifiedValues]
-    LatestRestorableTime: Optional[TStamp]
-    MultiAZ: Optional[Boolean]
-    EngineVersion: Optional[String]
-    AutoMinorVersionUpgrade: Optional[Boolean]
-    ReadReplicaSourceDBInstanceIdentifier: Optional[String]
-    ReadReplicaDBInstanceIdentifiers: Optional[ReadReplicaDBInstanceIdentifierList]
-    ReadReplicaDBClusterIdentifiers: Optional[ReadReplicaDBClusterIdentifierList]
-    ReplicaMode: Optional[ReplicaMode]
-    LicenseModel: Optional[String]
-    Iops: Optional[IntegerOptional]
-    OptionGroupMemberships: Optional[OptionGroupMembershipList]
-    CharacterSetName: Optional[String]
-    NcharCharacterSetName: Optional[String]
-    SecondaryAvailabilityZone: Optional[String]
-    PubliclyAccessible: Optional[Boolean]
-    StatusInfos: Optional[DBInstanceStatusInfoList]
-    StorageType: Optional[String]
-    TdeCredentialArn: Optional[String]
-    DbInstancePort: Optional[Integer]
-    DBClusterIdentifier: Optional[String]
-    StorageEncrypted: Optional[Boolean]
-    KmsKeyId: Optional[String]
-    DbiResourceId: Optional[String]
-    CACertificateIdentifier: Optional[String]
-    DomainMemberships: Optional[DomainMembershipList]
-    CopyTagsToSnapshot: Optional[Boolean]
-    MonitoringInterval: Optional[IntegerOptional]
-    EnhancedMonitoringResourceArn: Optional[String]
-    MonitoringRoleArn: Optional[String]
-    PromotionTier: Optional[IntegerOptional]
-    DBInstanceArn: Optional[String]
-    Timezone: Optional[String]
-    IAMDatabaseAuthenticationEnabled: Optional[Boolean]
-    DatabaseInsightsMode: Optional[DatabaseInsightsMode]
-    PerformanceInsightsEnabled: Optional[BooleanOptional]
-    PerformanceInsightsKMSKeyId: Optional[String]
-    PerformanceInsightsRetentionPeriod: Optional[IntegerOptional]
-    EnabledCloudwatchLogsExports: Optional[LogTypeList]
-    ProcessorFeatures: Optional[ProcessorFeatureList]
-    DeletionProtection: Optional[Boolean]
-    AssociatedRoles: Optional[DBInstanceRoles]
-    ListenerEndpoint: Optional[Endpoint]
-    MaxAllocatedStorage: Optional[IntegerOptional]
-    TagList: Optional[TagList]
-    DBInstanceAutomatedBackupsReplications: Optional[DBInstanceAutomatedBackupsReplicationList]
-    CustomerOwnedIpEnabled: Optional[BooleanOptional]
-    AwsBackupRecoveryPointArn: Optional[String]
-    ActivityStreamStatus: Optional[ActivityStreamStatus]
-    ActivityStreamKmsKeyId: Optional[String]
-    ActivityStreamKinesisStreamName: Optional[String]
-    ActivityStreamMode: Optional[ActivityStreamMode]
-    ActivityStreamEngineNativeAuditFieldsIncluded: Optional[BooleanOptional]
-    AutomationMode: Optional[AutomationMode]
-    ResumeFullAutomationModeTime: Optional[TStamp]
-    CustomIamInstanceProfile: Optional[String]
-    BackupTarget: Optional[String]
-    NetworkType: Optional[String]
-    ActivityStreamPolicyStatus: Optional[ActivityStreamPolicyStatus]
-    StorageThroughput: Optional[IntegerOptional]
-    DBSystemId: Optional[String]
-    MasterUserSecret: Optional[MasterUserSecret]
-    CertificateDetails: Optional[CertificateDetails]
-    ReadReplicaSourceDBClusterIdentifier: Optional[String]
-    PercentProgress: Optional[String]
-    DedicatedLogVolume: Optional[Boolean]
-    IsStorageConfigUpgradeAvailable: Optional[BooleanOptional]
-    MultiTenant: Optional[BooleanOptional]
-    EngineLifecycleSupport: Optional[String]
+    DBInstanceIdentifier: String | None
+    DBInstanceClass: String | None
+    Engine: String | None
+    DBInstanceStatus: String | None
+    MasterUsername: String | None
+    DBName: String | None
+    Endpoint: Endpoint | None
+    AllocatedStorage: Integer | None
+    InstanceCreateTime: TStamp | None
+    PreferredBackupWindow: String | None
+    BackupRetentionPeriod: Integer | None
+    DBSecurityGroups: DBSecurityGroupMembershipList | None
+    VpcSecurityGroups: VpcSecurityGroupMembershipList | None
+    DBParameterGroups: DBParameterGroupStatusList | None
+    AvailabilityZone: String | None
+    DBSubnetGroup: DBSubnetGroup | None
+    PreferredMaintenanceWindow: String | None
+    UpgradeRolloutOrder: UpgradeRolloutOrder | None
+    PendingModifiedValues: PendingModifiedValues | None
+    LatestRestorableTime: TStamp | None
+    MultiAZ: Boolean | None
+    EngineVersion: String | None
+    AutoMinorVersionUpgrade: Boolean | None
+    ReadReplicaSourceDBInstanceIdentifier: String | None
+    ReadReplicaDBInstanceIdentifiers: ReadReplicaDBInstanceIdentifierList | None
+    ReadReplicaDBClusterIdentifiers: ReadReplicaDBClusterIdentifierList | None
+    ReplicaMode: ReplicaMode | None
+    LicenseModel: String | None
+    Iops: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    OptionGroupMemberships: OptionGroupMembershipList | None
+    CharacterSetName: String | None
+    NcharCharacterSetName: String | None
+    SecondaryAvailabilityZone: String | None
+    PubliclyAccessible: Boolean | None
+    StatusInfos: DBInstanceStatusInfoList | None
+    StorageType: String | None
+    TdeCredentialArn: String | None
+    DbInstancePort: Integer | None
+    DBClusterIdentifier: String | None
+    StorageEncrypted: Boolean | None
+    KmsKeyId: String | None
+    DbiResourceId: String | None
+    CACertificateIdentifier: String | None
+    DomainMemberships: DomainMembershipList | None
+    CopyTagsToSnapshot: Boolean | None
+    MonitoringInterval: IntegerOptional | None
+    EnhancedMonitoringResourceArn: String | None
+    MonitoringRoleArn: String | None
+    PromotionTier: IntegerOptional | None
+    DBInstanceArn: String | None
+    Timezone: String | None
+    IAMDatabaseAuthenticationEnabled: Boolean | None
+    DatabaseInsightsMode: DatabaseInsightsMode | None
+    PerformanceInsightsEnabled: BooleanOptional | None
+    PerformanceInsightsKMSKeyId: String | None
+    PerformanceInsightsRetentionPeriod: IntegerOptional | None
+    EnabledCloudwatchLogsExports: LogTypeList | None
+    ProcessorFeatures: ProcessorFeatureList | None
+    DeletionProtection: Boolean | None
+    AssociatedRoles: DBInstanceRoles | None
+    ListenerEndpoint: Endpoint | None
+    MaxAllocatedStorage: IntegerOptional | None
+    TagList: TagList | None
+    AutomationMode: AutomationMode | None
+    ResumeFullAutomationModeTime: TStamp | None
+    CustomerOwnedIpEnabled: BooleanOptional | None
+    NetworkType: String | None
+    ActivityStreamStatus: ActivityStreamStatus | None
+    ActivityStreamKmsKeyId: String | None
+    ActivityStreamKinesisStreamName: String | None
+    ActivityStreamMode: ActivityStreamMode | None
+    ActivityStreamEngineNativeAuditFieldsIncluded: BooleanOptional | None
+    AwsBackupRecoveryPointArn: String | None
+    DBInstanceAutomatedBackupsReplications: DBInstanceAutomatedBackupsReplicationList | None
+    BackupTarget: String | None
+    AutomaticRestartTime: TStamp | None
+    CustomIamInstanceProfile: String | None
+    ActivityStreamPolicyStatus: ActivityStreamPolicyStatus | None
+    CertificateDetails: CertificateDetails | None
+    DBSystemId: String | None
+    MasterUserSecret: MasterUserSecret | None
+    ReadReplicaSourceDBClusterIdentifier: String | None
+    PercentProgress: String | None
+    MultiTenant: BooleanOptional | None
+    DedicatedLogVolume: Boolean | None
+    IsStorageConfigUpgradeAvailable: BooleanOptional | None
+    EngineLifecycleSupport: String | None
+    AdditionalStorageVolumes: AdditionalStorageVolumesOutputList | None
+    StorageVolumeStatus: String | None
 
 
 class CreateDBInstanceReadReplicaResult(TypedDict, total=False):
-    DBInstance: Optional[DBInstance]
+    DBInstance: DBInstance | None
 
 
 class CreateDBInstanceResult(TypedDict, total=False):
-    DBInstance: Optional[DBInstance]
+    DBInstance: DBInstance | None
 
 
 class CreateDBParameterGroupMessage(ServiceRequest):
     DBParameterGroupName: String
     DBParameterGroupFamily: String
     Description: String
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateDBParameterGroupResult(TypedDict, total=False):
-    DBParameterGroup: Optional[DBParameterGroup]
+    DBParameterGroup: DBParameterGroup | None
 
 
 class CreateDBProxyEndpointRequest(ServiceRequest):
     DBProxyName: DBProxyName
     DBProxyEndpointName: DBProxyEndpointName
     VpcSubnetIds: StringList
-    VpcSecurityGroupIds: Optional[StringList]
-    TargetRole: Optional[DBProxyEndpointTargetRole]
-    Tags: Optional[TagList]
-    EndpointNetworkType: Optional[EndpointNetworkType]
+    VpcSecurityGroupIds: StringList | None
+    TargetRole: DBProxyEndpointTargetRole | None
+    Tags: TagList | None
+    EndpointNetworkType: EndpointNetworkType | None
 
 
 class DBProxyEndpoint(TypedDict, total=False):
@@ -3276,22 +3369,22 @@ class DBProxyEndpoint(TypedDict, total=False):
     ``DescribeDBProxyEndpoints`` operation.
     """
 
-    DBProxyEndpointName: Optional[String]
-    DBProxyEndpointArn: Optional[String]
-    DBProxyName: Optional[String]
-    Status: Optional[DBProxyEndpointStatus]
-    VpcId: Optional[String]
-    VpcSecurityGroupIds: Optional[StringList]
-    VpcSubnetIds: Optional[StringList]
-    Endpoint: Optional[String]
-    CreatedDate: Optional[TStamp]
-    TargetRole: Optional[DBProxyEndpointTargetRole]
-    IsDefault: Optional[Boolean]
-    EndpointNetworkType: Optional[EndpointNetworkType]
+    DBProxyEndpointName: String | None
+    DBProxyEndpointArn: String | None
+    DBProxyName: String | None
+    Status: DBProxyEndpointStatus | None
+    VpcId: String | None
+    VpcSecurityGroupIds: StringList | None
+    VpcSubnetIds: StringList | None
+    Endpoint: String | None
+    CreatedDate: TStamp | None
+    TargetRole: DBProxyEndpointTargetRole | None
+    IsDefault: Boolean | None
+    EndpointNetworkType: EndpointNetworkType | None
 
 
 class CreateDBProxyEndpointResponse(TypedDict, total=False):
-    DBProxyEndpoint: Optional[DBProxyEndpoint]
+    DBProxyEndpoint: DBProxyEndpoint | None
 
 
 class UserAuthConfig(TypedDict, total=False):
@@ -3299,31 +3392,31 @@ class UserAuthConfig(TypedDict, total=False):
     specific database user.
     """
 
-    Description: Optional[String]
-    UserName: Optional[String]
-    AuthScheme: Optional[AuthScheme]
-    SecretArn: Optional[String]
-    IAMAuth: Optional[IAMAuthMode]
-    ClientPasswordAuthType: Optional[ClientPasswordAuthType]
+    Description: Description | None
+    UserName: AuthUserName | None
+    AuthScheme: AuthScheme | None
+    SecretArn: Arn | None
+    IAMAuth: IAMAuthMode | None
+    ClientPasswordAuthType: ClientPasswordAuthType | None
 
 
-UserAuthConfigList = List[UserAuthConfig]
+UserAuthConfigList = list[UserAuthConfig]
 
 
 class CreateDBProxyRequest(ServiceRequest):
-    DBProxyName: String
+    DBProxyName: DBProxyName
     EngineFamily: EngineFamily
-    DefaultAuthScheme: Optional[DefaultAuthScheme]
-    Auth: Optional[UserAuthConfigList]
-    RoleArn: String
+    DefaultAuthScheme: DefaultAuthScheme | None
+    Auth: UserAuthConfigList | None
+    RoleArn: Arn
     VpcSubnetIds: StringList
-    VpcSecurityGroupIds: Optional[StringList]
-    RequireTLS: Optional[Boolean]
-    IdleClientTimeout: Optional[IntegerOptional]
-    DebugLogging: Optional[Boolean]
-    Tags: Optional[TagList]
-    EndpointNetworkType: Optional[EndpointNetworkType]
-    TargetConnectionNetworkType: Optional[TargetConnectionNetworkType]
+    VpcSecurityGroupIds: StringList | None
+    RequireTLS: Boolean | None
+    IdleClientTimeout: IntegerOptional | None
+    DebugLogging: Boolean | None
+    Tags: TagList | None
+    EndpointNetworkType: EndpointNetworkType | None
+    TargetConnectionNetworkType: TargetConnectionNetworkType | None
 
 
 class UserAuthConfigInfo(TypedDict, total=False):
@@ -3331,15 +3424,15 @@ class UserAuthConfigInfo(TypedDict, total=False):
     specific database user.
     """
 
-    Description: Optional[String]
-    UserName: Optional[String]
-    AuthScheme: Optional[AuthScheme]
-    SecretArn: Optional[String]
-    IAMAuth: Optional[IAMAuthMode]
-    ClientPasswordAuthType: Optional[ClientPasswordAuthType]
+    Description: String | None
+    UserName: String | None
+    AuthScheme: AuthScheme | None
+    SecretArn: String | None
+    IAMAuth: IAMAuthMode | None
+    ClientPasswordAuthType: ClientPasswordAuthType | None
 
 
-UserAuthConfigInfoList = List[UserAuthConfigInfo]
+UserAuthConfigInfoList = list[UserAuthConfigInfo]
 
 
 class DBProxy(TypedDict, total=False):
@@ -3349,98 +3442,98 @@ class DBProxy(TypedDict, total=False):
     ``DescribeDBProxies`` action.
     """
 
-    DBProxyName: Optional[String]
-    DBProxyArn: Optional[String]
-    Status: Optional[DBProxyStatus]
-    EngineFamily: Optional[String]
-    VpcId: Optional[String]
-    VpcSecurityGroupIds: Optional[StringList]
-    VpcSubnetIds: Optional[StringList]
-    DefaultAuthScheme: Optional[String]
-    Auth: Optional[UserAuthConfigInfoList]
-    RoleArn: Optional[String]
-    Endpoint: Optional[String]
-    RequireTLS: Optional[Boolean]
-    IdleClientTimeout: Optional[Integer]
-    DebugLogging: Optional[Boolean]
-    CreatedDate: Optional[TStamp]
-    UpdatedDate: Optional[TStamp]
-    EndpointNetworkType: Optional[EndpointNetworkType]
-    TargetConnectionNetworkType: Optional[TargetConnectionNetworkType]
+    DBProxyName: String | None
+    DBProxyArn: String | None
+    Status: DBProxyStatus | None
+    EngineFamily: String | None
+    VpcId: String | None
+    VpcSecurityGroupIds: StringList | None
+    VpcSubnetIds: StringList | None
+    DefaultAuthScheme: String | None
+    Auth: UserAuthConfigInfoList | None
+    RoleArn: String | None
+    Endpoint: String | None
+    RequireTLS: Boolean | None
+    IdleClientTimeout: Integer | None
+    DebugLogging: Boolean | None
+    CreatedDate: TStamp | None
+    UpdatedDate: TStamp | None
+    EndpointNetworkType: EndpointNetworkType | None
+    TargetConnectionNetworkType: TargetConnectionNetworkType | None
 
 
 class CreateDBProxyResponse(TypedDict, total=False):
-    DBProxy: Optional[DBProxy]
+    DBProxy: DBProxy | None
 
 
 class CreateDBSecurityGroupMessage(ServiceRequest):
     DBSecurityGroupName: String
     DBSecurityGroupDescription: String
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateDBSecurityGroupResult(TypedDict, total=False):
-    DBSecurityGroup: Optional[DBSecurityGroup]
+    DBSecurityGroup: DBSecurityGroup | None
 
 
 class CreateDBShardGroupMessage(ServiceRequest):
     DBShardGroupIdentifier: String
     DBClusterIdentifier: String
-    ComputeRedundancy: Optional[IntegerOptional]
+    ComputeRedundancy: IntegerOptional | None
     MaxACU: DoubleOptional
-    MinACU: Optional[DoubleOptional]
-    PubliclyAccessible: Optional[BooleanOptional]
-    Tags: Optional[TagList]
+    MinACU: DoubleOptional | None
+    PubliclyAccessible: BooleanOptional | None
+    Tags: TagList | None
 
 
 class CreateDBSnapshotMessage(ServiceRequest):
     DBSnapshotIdentifier: String
     DBInstanceIdentifier: String
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateDBSnapshotResult(TypedDict, total=False):
-    DBSnapshot: Optional[DBSnapshot]
+    DBSnapshot: DBSnapshot | None
 
 
-SubnetIdentifierList = List[String]
+SubnetIdentifierList = list[String]
 
 
 class CreateDBSubnetGroupMessage(ServiceRequest):
     DBSubnetGroupName: String
     DBSubnetGroupDescription: String
     SubnetIds: SubnetIdentifierList
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateDBSubnetGroupResult(TypedDict, total=False):
-    DBSubnetGroup: Optional[DBSubnetGroup]
+    DBSubnetGroup: DBSubnetGroup | None
 
 
 class CreateEventSubscriptionMessage(ServiceRequest):
     SubscriptionName: String
     SnsTopicArn: String
-    SourceType: Optional[String]
-    EventCategories: Optional[EventCategoriesList]
-    SourceIds: Optional[SourceIdsList]
-    Enabled: Optional[BooleanOptional]
-    Tags: Optional[TagList]
+    SourceType: String | None
+    EventCategories: EventCategoriesList | None
+    SourceIds: SourceIdsList | None
+    Enabled: BooleanOptional | None
+    Tags: TagList | None
 
 
 class CreateEventSubscriptionResult(TypedDict, total=False):
-    EventSubscription: Optional[EventSubscription]
+    EventSubscription: EventSubscription | None
 
 
 class CreateGlobalClusterMessage(ServiceRequest):
-    GlobalClusterIdentifier: Optional[String]
-    SourceDBClusterIdentifier: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    EngineLifecycleSupport: Optional[String]
-    DeletionProtection: Optional[BooleanOptional]
-    DatabaseName: Optional[String]
-    StorageEncrypted: Optional[BooleanOptional]
-    Tags: Optional[TagList]
+    GlobalClusterIdentifier: GlobalClusterIdentifier
+    SourceDBClusterIdentifier: String | None
+    Engine: String | None
+    EngineVersion: String | None
+    EngineLifecycleSupport: String | None
+    DeletionProtection: BooleanOptional | None
+    DatabaseName: String | None
+    StorageEncrypted: BooleanOptional | None
+    Tags: TagList | None
 
 
 class FailoverState(TypedDict, total=False):
@@ -3450,13 +3543,13 @@ class FailoverState(TypedDict, total=False):
     Aurora global database.
     """
 
-    Status: Optional[FailoverStatus]
-    FromDbClusterArn: Optional[String]
-    ToDbClusterArn: Optional[String]
-    IsDataLossAllowed: Optional[Boolean]
+    Status: FailoverStatus | None
+    FromDbClusterArn: String | None
+    ToDbClusterArn: String | None
+    IsDataLossAllowed: Boolean | None
 
 
-ReadersArnList = List[String]
+ReadersArnList = list[String]
 
 
 class GlobalClusterMember(TypedDict, total=False):
@@ -3464,51 +3557,51 @@ class GlobalClusterMember(TypedDict, total=False):
     clusters associated with a global cluster (Aurora global database).
     """
 
-    DBClusterArn: Optional[String]
-    Readers: Optional[ReadersArnList]
-    IsWriter: Optional[Boolean]
-    GlobalWriteForwardingStatus: Optional[WriteForwardingStatus]
-    SynchronizationStatus: Optional[GlobalClusterMemberSynchronizationStatus]
+    DBClusterArn: String | None
+    Readers: ReadersArnList | None
+    IsWriter: Boolean | None
+    GlobalWriteForwardingStatus: WriteForwardingStatus | None
+    SynchronizationStatus: GlobalClusterMemberSynchronizationStatus | None
 
 
-GlobalClusterMemberList = List[GlobalClusterMember]
+GlobalClusterMemberList = list[GlobalClusterMember]
 
 
 class GlobalCluster(TypedDict, total=False):
     """A data type representing an Aurora global database."""
 
-    GlobalClusterIdentifier: Optional[String]
-    GlobalClusterResourceId: Optional[String]
-    GlobalClusterArn: Optional[String]
-    Status: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    EngineLifecycleSupport: Optional[String]
-    DatabaseName: Optional[String]
-    StorageEncrypted: Optional[BooleanOptional]
-    DeletionProtection: Optional[BooleanOptional]
-    GlobalClusterMembers: Optional[GlobalClusterMemberList]
-    Endpoint: Optional[String]
-    FailoverState: Optional[FailoverState]
-    TagList: Optional[TagList]
+    GlobalClusterIdentifier: GlobalClusterIdentifier | None
+    GlobalClusterResourceId: String | None
+    GlobalClusterArn: String | None
+    Status: String | None
+    Engine: String | None
+    EngineVersion: String | None
+    EngineLifecycleSupport: String | None
+    DatabaseName: String | None
+    StorageEncrypted: BooleanOptional | None
+    DeletionProtection: BooleanOptional | None
+    GlobalClusterMembers: GlobalClusterMemberList | None
+    Endpoint: String | None
+    FailoverState: FailoverState | None
+    TagList: TagList | None
 
 
 class CreateGlobalClusterResult(TypedDict, total=False):
-    GlobalCluster: Optional[GlobalCluster]
+    GlobalCluster: GlobalCluster | None
 
 
-EncryptionContextMap = Dict[String, String]
+EncryptionContextMap = dict[String, String]
 
 
 class CreateIntegrationMessage(ServiceRequest):
     SourceArn: SourceArn
     TargetArn: Arn
     IntegrationName: IntegrationName
-    KMSKeyId: Optional[String]
-    AdditionalEncryptionContext: Optional[EncryptionContextMap]
-    Tags: Optional[TagList]
-    DataFilter: Optional[DataFilter]
-    Description: Optional[IntegrationDescription]
+    KMSKeyId: String | None
+    AdditionalEncryptionContext: EncryptionContextMap | None
+    Tags: TagList | None
+    DataFilter: DataFilter | None
+    Description: IntegrationDescription | None
 
 
 class CreateOptionGroupMessage(ServiceRequest):
@@ -3516,23 +3609,23 @@ class CreateOptionGroupMessage(ServiceRequest):
     EngineName: String
     MajorEngineVersion: String
     OptionGroupDescription: String
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateOptionGroupResult(TypedDict, total=False):
-    OptionGroup: Optional[OptionGroup]
+    OptionGroup: OptionGroup | None
 
 
 class CreateTenantDatabaseMessage(ServiceRequest):
     DBInstanceIdentifier: String
     TenantDBName: String
     MasterUsername: String
-    MasterUserPassword: Optional[SensitiveString]
-    CharacterSetName: Optional[String]
-    NcharCharacterSetName: Optional[String]
-    ManageMasterUserPassword: Optional[BooleanOptional]
-    MasterUserSecretKmsKeyId: Optional[String]
-    Tags: Optional[TagList]
+    MasterUserPassword: SensitiveString | None
+    CharacterSetName: String | None
+    NcharCharacterSetName: String | None
+    ManageMasterUserPassword: BooleanOptional | None
+    MasterUserSecretKmsKeyId: String | None
+    Tags: TagList | None
 
 
 class TenantDatabasePendingModifiedValues(TypedDict, total=False):
@@ -3541,8 +3634,8 @@ class TenantDatabasePendingModifiedValues(TypedDict, total=False):
     by subelements.
     """
 
-    MasterUserPassword: Optional[SensitiveString]
-    TenantDBName: Optional[String]
+    MasterUserPassword: SensitiveString | None
+    TenantDBName: String | None
 
 
 class TenantDatabase(TypedDict, total=False):
@@ -3550,38 +3643,38 @@ class TenantDatabase(TypedDict, total=False):
     the response to the ``DescribeTenantDatabases`` action.
     """
 
-    TenantDatabaseCreateTime: Optional[TStamp]
-    DBInstanceIdentifier: Optional[String]
-    TenantDBName: Optional[String]
-    Status: Optional[String]
-    MasterUsername: Optional[String]
-    DbiResourceId: Optional[String]
-    TenantDatabaseResourceId: Optional[String]
-    TenantDatabaseARN: Optional[String]
-    CharacterSetName: Optional[String]
-    NcharCharacterSetName: Optional[String]
-    DeletionProtection: Optional[Boolean]
-    PendingModifiedValues: Optional[TenantDatabasePendingModifiedValues]
-    MasterUserSecret: Optional[MasterUserSecret]
-    TagList: Optional[TagList]
+    TenantDatabaseCreateTime: TStamp | None
+    DBInstanceIdentifier: String | None
+    TenantDBName: String | None
+    Status: String | None
+    MasterUsername: String | None
+    DbiResourceId: String | None
+    TenantDatabaseResourceId: String | None
+    TenantDatabaseARN: String | None
+    CharacterSetName: String | None
+    NcharCharacterSetName: String | None
+    DeletionProtection: Boolean | None
+    PendingModifiedValues: TenantDatabasePendingModifiedValues | None
+    MasterUserSecret: MasterUserSecret | None
+    TagList: TagList | None
 
 
 class CreateTenantDatabaseResult(TypedDict, total=False):
-    TenantDatabase: Optional[TenantDatabase]
+    TenantDatabase: TenantDatabase | None
 
 
 class CustomDBEngineVersionAMI(TypedDict, total=False):
     """A value that indicates the AMI information."""
 
-    ImageId: Optional[String]
-    Status: Optional[String]
+    ImageId: String | None
+    Status: String | None
 
 
 class RestoreWindow(TypedDict, total=False):
     """Earliest and latest time an instance can be restored to:"""
 
-    EarliestTime: Optional[TStamp]
-    LatestTime: Optional[TStamp]
+    EarliestTime: TStamp | None
+    LatestTime: TStamp | None
 
 
 class DBClusterAutomatedBackup(TypedDict, total=False):
@@ -3590,39 +3683,39 @@ class DBClusterAutomatedBackup(TypedDict, total=False):
     the time you deleted the source cluster.
     """
 
-    Engine: Optional[String]
-    VpcId: Optional[String]
-    DBClusterAutomatedBackupsArn: Optional[String]
-    DBClusterIdentifier: Optional[String]
-    RestoreWindow: Optional[RestoreWindow]
-    MasterUsername: Optional[String]
-    DbClusterResourceId: Optional[String]
-    Region: Optional[String]
-    LicenseModel: Optional[String]
-    Status: Optional[String]
-    IAMDatabaseAuthenticationEnabled: Optional[Boolean]
-    ClusterCreateTime: Optional[TStamp]
-    StorageEncrypted: Optional[Boolean]
-    AllocatedStorage: Optional[Integer]
-    EngineVersion: Optional[String]
-    DBClusterArn: Optional[String]
-    BackupRetentionPeriod: Optional[IntegerOptional]
-    EngineMode: Optional[String]
-    AvailabilityZones: Optional[AvailabilityZones]
-    Port: Optional[Integer]
-    KmsKeyId: Optional[String]
-    StorageType: Optional[String]
-    Iops: Optional[IntegerOptional]
-    AwsBackupRecoveryPointArn: Optional[String]
-    StorageThroughput: Optional[IntegerOptional]
+    Engine: String | None
+    VpcId: String | None
+    DBClusterAutomatedBackupsArn: String | None
+    DBClusterIdentifier: String | None
+    RestoreWindow: RestoreWindow | None
+    MasterUsername: String | None
+    DbClusterResourceId: String | None
+    Region: String | None
+    LicenseModel: String | None
+    Status: String | None
+    IAMDatabaseAuthenticationEnabled: Boolean | None
+    ClusterCreateTime: TStamp | None
+    StorageEncrypted: Boolean | None
+    AllocatedStorage: Integer | None
+    EngineVersion: String | None
+    DBClusterArn: String | None
+    BackupRetentionPeriod: IntegerOptional | None
+    EngineMode: String | None
+    AvailabilityZones: AvailabilityZones | None
+    Port: Integer | None
+    KmsKeyId: String | None
+    StorageType: String | None
+    Iops: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    AwsBackupRecoveryPointArn: String | None
 
 
-DBClusterAutomatedBackupList = List[DBClusterAutomatedBackup]
+DBClusterAutomatedBackupList = list[DBClusterAutomatedBackup]
 
 
 class DBClusterAutomatedBackupMessage(TypedDict, total=False):
-    Marker: Optional[String]
-    DBClusterAutomatedBackups: Optional[DBClusterAutomatedBackupList]
+    Marker: String | None
+    DBClusterAutomatedBackups: DBClusterAutomatedBackupList | None
 
 
 class DBClusterBacktrack(TypedDict, total=False):
@@ -3630,15 +3723,15 @@ class DBClusterBacktrack(TypedDict, total=False):
     ``DescribeDBClusterBacktracks`` action.
     """
 
-    DBClusterIdentifier: Optional[String]
-    BacktrackIdentifier: Optional[String]
-    BacktrackTo: Optional[TStamp]
-    BacktrackedFrom: Optional[TStamp]
-    BacktrackRequestCreationTime: Optional[TStamp]
-    Status: Optional[String]
+    DBClusterIdentifier: String | None
+    BacktrackIdentifier: String | None
+    BacktrackTo: TStamp | None
+    BacktrackedFrom: TStamp | None
+    BacktrackRequestCreationTime: TStamp | None
+    Status: String | None
 
 
-DBClusterBacktrackList = List[DBClusterBacktrack]
+DBClusterBacktrackList = list[DBClusterBacktrack]
 
 
 class DBClusterBacktrackMessage(TypedDict, total=False):
@@ -3646,16 +3739,16 @@ class DBClusterBacktrackMessage(TypedDict, total=False):
     ``DescribeDBClusterBacktracks`` action.
     """
 
-    Marker: Optional[String]
-    DBClusterBacktracks: Optional[DBClusterBacktrackList]
+    Marker: String | None
+    DBClusterBacktracks: DBClusterBacktrackList | None
 
 
 class DBClusterCapacityInfo(TypedDict, total=False):
-    DBClusterIdentifier: Optional[String]
-    PendingCapacity: Optional[IntegerOptional]
-    CurrentCapacity: Optional[IntegerOptional]
-    SecondsBeforeTimeout: Optional[IntegerOptional]
-    TimeoutAction: Optional[String]
+    DBClusterIdentifier: String | None
+    PendingCapacity: IntegerOptional | None
+    CurrentCapacity: IntegerOptional | None
+    SecondsBeforeTimeout: IntegerOptional | None
+    TimeoutAction: String | None
 
 
 class DBClusterEndpoint(TypedDict, total=False):
@@ -3675,27 +3768,27 @@ class DBClusterEndpoint(TypedDict, total=False):
     see ``Endpoint``.
     """
 
-    DBClusterEndpointIdentifier: Optional[String]
-    DBClusterIdentifier: Optional[String]
-    DBClusterEndpointResourceIdentifier: Optional[String]
-    Endpoint: Optional[String]
-    Status: Optional[String]
-    EndpointType: Optional[String]
-    CustomEndpointType: Optional[String]
-    StaticMembers: Optional[StringList]
-    ExcludedMembers: Optional[StringList]
-    DBClusterEndpointArn: Optional[String]
+    DBClusterEndpointIdentifier: String | None
+    DBClusterIdentifier: String | None
+    DBClusterEndpointResourceIdentifier: String | None
+    Endpoint: String | None
+    Status: String | None
+    EndpointType: String | None
+    CustomEndpointType: String | None
+    StaticMembers: StringList | None
+    ExcludedMembers: StringList | None
+    DBClusterEndpointArn: String | None
 
 
-DBClusterEndpointList = List[DBClusterEndpoint]
+DBClusterEndpointList = list[DBClusterEndpoint]
 
 
 class DBClusterEndpointMessage(TypedDict, total=False):
-    Marker: Optional[String]
-    DBClusterEndpoints: Optional[DBClusterEndpointList]
+    Marker: String | None
+    DBClusterEndpoints: DBClusterEndpointList | None
 
 
-DBClusterList = List[DBCluster]
+DBClusterList = list[DBCluster]
 
 
 class DBClusterMessage(TypedDict, total=False):
@@ -3703,11 +3796,11 @@ class DBClusterMessage(TypedDict, total=False):
     ``DescribeDBClusters`` action.
     """
 
-    Marker: Optional[String]
-    DBClusters: Optional[DBClusterList]
+    Marker: String | None
+    DBClusters: DBClusterList | None
 
 
-EngineModeList = List[String]
+EngineModeList = list[String]
 
 
 class Parameter(TypedDict, total=False):
@@ -3719,20 +3812,20 @@ class Parameter(TypedDict, total=False):
     actions.
     """
 
-    ParameterName: Optional[String]
-    ParameterValue: Optional[String]
-    Description: Optional[String]
-    Source: Optional[String]
-    ApplyType: Optional[String]
-    DataType: Optional[String]
-    AllowedValues: Optional[String]
-    IsModifiable: Optional[Boolean]
-    MinimumEngineVersion: Optional[String]
-    ApplyMethod: Optional[ApplyMethod]
-    SupportedEngineModes: Optional[EngineModeList]
+    ParameterName: String | None
+    ParameterValue: PotentiallySensitiveParameterValue | None
+    Description: String | None
+    Source: String | None
+    ApplyType: String | None
+    DataType: String | None
+    AllowedValues: String | None
+    IsModifiable: Boolean | None
+    MinimumEngineVersion: String | None
+    ApplyMethod: ApplyMethod | None
+    SupportedEngineModes: EngineModeList | None
 
 
-ParametersList = List[Parameter]
+ParametersList = list[Parameter]
 
 
 class DBClusterParameterGroupDetails(TypedDict, total=False):
@@ -3740,20 +3833,20 @@ class DBClusterParameterGroupDetails(TypedDict, total=False):
     parameters in the DB cluster parameter group.
     """
 
-    Parameters: Optional[ParametersList]
-    Marker: Optional[String]
+    Parameters: ParametersList | None
+    Marker: String | None
 
 
-DBClusterParameterGroupList = List[DBClusterParameterGroup]
+DBClusterParameterGroupList = list[DBClusterParameterGroup]
 
 
 class DBClusterParameterGroupNameMessage(TypedDict, total=False):
-    DBClusterParameterGroupName: Optional[String]
+    DBClusterParameterGroupName: String | None
 
 
 class DBClusterParameterGroupsMessage(TypedDict, total=False):
-    Marker: Optional[String]
-    DBClusterParameterGroups: Optional[DBClusterParameterGroupList]
+    Marker: String | None
+    DBClusterParameterGroups: DBClusterParameterGroupList | None
 
 
 class DBClusterSnapshotAttribute(TypedDict, total=False):
@@ -3764,11 +3857,11 @@ class DBClusterSnapshotAttribute(TypedDict, total=False):
     information, see the ``ModifyDBClusterSnapshotAttribute`` API action.
     """
 
-    AttributeName: Optional[String]
-    AttributeValues: Optional[AttributeValueList]
+    AttributeName: String | None
+    AttributeValues: AttributeValueList | None
 
 
-DBClusterSnapshotAttributeList = List[DBClusterSnapshotAttribute]
+DBClusterSnapshotAttributeList = list[DBClusterSnapshotAttribute]
 
 
 class DBClusterSnapshotAttributesResult(TypedDict, total=False):
@@ -3781,11 +3874,11 @@ class DBClusterSnapshotAttributesResult(TypedDict, total=False):
     action.
     """
 
-    DBClusterSnapshotIdentifier: Optional[String]
-    DBClusterSnapshotAttributes: Optional[DBClusterSnapshotAttributeList]
+    DBClusterSnapshotIdentifier: String | None
+    DBClusterSnapshotAttributes: DBClusterSnapshotAttributeList | None
 
 
-DBClusterSnapshotList = List[DBClusterSnapshot]
+DBClusterSnapshotList = list[DBClusterSnapshot]
 
 
 class DBClusterSnapshotMessage(TypedDict, total=False):
@@ -3793,8 +3886,8 @@ class DBClusterSnapshotMessage(TypedDict, total=False):
     call to the ``DescribeDBClusterSnapshots`` action.
     """
 
-    Marker: Optional[String]
-    DBClusterSnapshots: Optional[DBClusterSnapshotList]
+    Marker: String | None
+    DBClusterSnapshots: DBClusterSnapshotList | None
 
 
 class ServerlessV2FeaturesSupport(TypedDict, total=False):
@@ -3806,11 +3899,11 @@ class ServerlessV2FeaturesSupport(TypedDict, total=False):
     Aurora Serverless v2 features before you attempt to use those features.
     """
 
-    MinCapacity: Optional[DoubleOptional]
-    MaxCapacity: Optional[DoubleOptional]
+    MinCapacity: DoubleOptional | None
+    MaxCapacity: DoubleOptional | None
 
 
-FeatureNameList = List[String]
+FeatureNameList = list[String]
 
 
 class Timezone(TypedDict, total=False):
@@ -3820,10 +3913,10 @@ class Timezone(TypedDict, total=False):
     actions.
     """
 
-    TimezoneName: Optional[String]
+    TimezoneName: String | None
 
 
-SupportedTimezonesList = List[Timezone]
+SupportedTimezonesList = list[Timezone]
 
 
 class UpgradeTarget(TypedDict, total=False):
@@ -3831,22 +3924,22 @@ class UpgradeTarget(TypedDict, total=False):
     to.
     """
 
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    Description: Optional[String]
-    AutoUpgrade: Optional[Boolean]
-    IsMajorVersionUpgrade: Optional[Boolean]
-    SupportedEngineModes: Optional[EngineModeList]
-    SupportsParallelQuery: Optional[BooleanOptional]
-    SupportsGlobalDatabases: Optional[BooleanOptional]
-    SupportsBabelfish: Optional[BooleanOptional]
-    SupportsLimitlessDatabase: Optional[BooleanOptional]
-    SupportsLocalWriteForwarding: Optional[BooleanOptional]
-    SupportsIntegrations: Optional[BooleanOptional]
+    Engine: String | None
+    EngineVersion: String | None
+    Description: String | None
+    AutoUpgrade: Boolean | None
+    IsMajorVersionUpgrade: Boolean | None
+    SupportedEngineModes: EngineModeList | None
+    SupportsParallelQuery: BooleanOptional | None
+    SupportsGlobalDatabases: BooleanOptional | None
+    SupportsBabelfish: BooleanOptional | None
+    SupportsLimitlessDatabase: BooleanOptional | None
+    SupportsLocalWriteForwarding: BooleanOptional | None
+    SupportsIntegrations: BooleanOptional | None
 
 
-ValidUpgradeTargetList = List[UpgradeTarget]
-SupportedCharacterSetsList = List[CharacterSet]
+ValidUpgradeTargetList = list[UpgradeTarget]
+SupportedCharacterSetsList = list[CharacterSet]
 
 
 class DBEngineVersion(TypedDict, total=False):
@@ -3854,44 +3947,46 @@ class DBEngineVersion(TypedDict, total=False):
     ``DescribeDBEngineVersions``.
     """
 
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    DBParameterGroupFamily: Optional[String]
-    DBEngineDescription: Optional[String]
-    DBEngineVersionDescription: Optional[String]
-    DefaultCharacterSet: Optional[CharacterSet]
-    Image: Optional[CustomDBEngineVersionAMI]
-    DBEngineMediaType: Optional[String]
-    SupportedCharacterSets: Optional[SupportedCharacterSetsList]
-    SupportedNcharCharacterSets: Optional[SupportedCharacterSetsList]
-    ValidUpgradeTarget: Optional[ValidUpgradeTargetList]
-    SupportedTimezones: Optional[SupportedTimezonesList]
-    ExportableLogTypes: Optional[LogTypeList]
-    SupportsLogExportsToCloudwatchLogs: Optional[Boolean]
-    SupportsReadReplica: Optional[Boolean]
-    SupportedEngineModes: Optional[EngineModeList]
-    SupportedFeatureNames: Optional[FeatureNameList]
-    Status: Optional[String]
-    SupportsParallelQuery: Optional[Boolean]
-    SupportsGlobalDatabases: Optional[Boolean]
-    MajorEngineVersion: Optional[String]
-    DatabaseInstallationFilesS3BucketName: Optional[String]
-    DatabaseInstallationFilesS3Prefix: Optional[String]
-    DBEngineVersionArn: Optional[String]
-    KMSKeyId: Optional[String]
-    CreateTime: Optional[TStamp]
-    TagList: Optional[TagList]
-    SupportsBabelfish: Optional[Boolean]
-    CustomDBEngineVersionManifest: Optional[CustomDBEngineVersionManifest]
-    SupportsLimitlessDatabase: Optional[Boolean]
-    SupportsCertificateRotationWithoutRestart: Optional[BooleanOptional]
-    SupportedCACertificateIdentifiers: Optional[CACertificateIdentifiersList]
-    SupportsLocalWriteForwarding: Optional[BooleanOptional]
-    SupportsIntegrations: Optional[Boolean]
-    ServerlessV2FeaturesSupport: Optional[ServerlessV2FeaturesSupport]
+    Engine: String | None
+    MajorEngineVersion: String | None
+    EngineVersion: String | None
+    DatabaseInstallationFilesS3BucketName: String | None
+    DatabaseInstallationFilesS3Prefix: String | None
+    CustomDBEngineVersionManifest: CustomDBEngineVersionManifest | None
+    DBParameterGroupFamily: String | None
+    DBEngineDescription: String | None
+    DBEngineVersionArn: String | None
+    DBEngineVersionDescription: String | None
+    DefaultCharacterSet: CharacterSet | None
+    Image: CustomDBEngineVersionAMI | None
+    DBEngineMediaType: String | None
+    KMSKeyId: String | None
+    CreateTime: TStamp | None
+    SupportedCharacterSets: SupportedCharacterSetsList | None
+    SupportedNcharCharacterSets: SupportedCharacterSetsList | None
+    ValidUpgradeTarget: ValidUpgradeTargetList | None
+    SupportedTimezones: SupportedTimezonesList | None
+    ExportableLogTypes: LogTypeList | None
+    SupportsLogExportsToCloudwatchLogs: Boolean | None
+    SupportsReadReplica: Boolean | None
+    SupportedEngineModes: EngineModeList | None
+    SupportedFeatureNames: FeatureNameList | None
+    Status: String | None
+    SupportsParallelQuery: Boolean | None
+    SupportsGlobalDatabases: Boolean | None
+    TagList: TagList | None
+    SupportsBabelfish: Boolean | None
+    SupportsLimitlessDatabase: Boolean | None
+    SupportsCertificateRotationWithoutRestart: BooleanOptional | None
+    SupportedCACertificateIdentifiers: CACertificateIdentifiersList | None
+    SupportsLocalWriteForwarding: BooleanOptional | None
+    SupportsIntegrations: Boolean | None
+    ServerlessV2FeaturesSupport: ServerlessV2FeaturesSupport | None
+    DatabaseInstallationFiles: StringList | None
+    FailureReason: String | None
 
 
-DBEngineVersionList = List[DBEngineVersion]
+DBEngineVersionList = list[DBEngineVersion]
 
 
 class DBEngineVersionMessage(TypedDict, total=False):
@@ -3899,8 +3994,8 @@ class DBEngineVersionMessage(TypedDict, total=False):
     ``DescribeDBEngineVersions`` action.
     """
 
-    Marker: Optional[String]
-    DBEngineVersions: Optional[DBEngineVersionList]
+    Marker: String | None
+    DBEngineVersions: DBEngineVersionList | None
 
 
 class DBInstanceAutomatedBackup(TypedDict, total=False):
@@ -3909,40 +4004,41 @@ class DBInstanceAutomatedBackup(TypedDict, total=False):
     the time you deleted the source instance.
     """
 
-    DBInstanceArn: Optional[String]
-    DbiResourceId: Optional[String]
-    Region: Optional[String]
-    DBInstanceIdentifier: Optional[String]
-    RestoreWindow: Optional[RestoreWindow]
-    AllocatedStorage: Optional[Integer]
-    Status: Optional[String]
-    Port: Optional[Integer]
-    AvailabilityZone: Optional[String]
-    VpcId: Optional[String]
-    InstanceCreateTime: Optional[TStamp]
-    MasterUsername: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    LicenseModel: Optional[String]
-    Iops: Optional[IntegerOptional]
-    OptionGroupName: Optional[String]
-    TdeCredentialArn: Optional[String]
-    Encrypted: Optional[Boolean]
-    StorageType: Optional[String]
-    KmsKeyId: Optional[String]
-    Timezone: Optional[String]
-    IAMDatabaseAuthenticationEnabled: Optional[Boolean]
-    BackupRetentionPeriod: Optional[IntegerOptional]
-    DBInstanceAutomatedBackupsArn: Optional[String]
-    DBInstanceAutomatedBackupsReplications: Optional[DBInstanceAutomatedBackupsReplicationList]
-    BackupTarget: Optional[String]
-    StorageThroughput: Optional[IntegerOptional]
-    AwsBackupRecoveryPointArn: Optional[String]
-    DedicatedLogVolume: Optional[BooleanOptional]
-    MultiTenant: Optional[BooleanOptional]
+    DBInstanceArn: String | None
+    DbiResourceId: String | None
+    Region: String | None
+    DBInstanceIdentifier: String | None
+    RestoreWindow: RestoreWindow | None
+    AllocatedStorage: Integer | None
+    Status: String | None
+    Port: Integer | None
+    AvailabilityZone: String | None
+    VpcId: String | None
+    InstanceCreateTime: TStamp | None
+    MasterUsername: String | None
+    Engine: String | None
+    EngineVersion: String | None
+    LicenseModel: String | None
+    Iops: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    OptionGroupName: String | None
+    TdeCredentialArn: String | None
+    Encrypted: Boolean | None
+    StorageType: String | None
+    KmsKeyId: String | None
+    Timezone: String | None
+    IAMDatabaseAuthenticationEnabled: Boolean | None
+    BackupRetentionPeriod: IntegerOptional | None
+    DBInstanceAutomatedBackupsArn: String | None
+    DBInstanceAutomatedBackupsReplications: DBInstanceAutomatedBackupsReplicationList | None
+    BackupTarget: String | None
+    MultiTenant: BooleanOptional | None
+    AwsBackupRecoveryPointArn: String | None
+    DedicatedLogVolume: BooleanOptional | None
+    AdditionalStorageVolumes: AdditionalStorageVolumesList | None
 
 
-DBInstanceAutomatedBackupList = List[DBInstanceAutomatedBackup]
+DBInstanceAutomatedBackupList = list[DBInstanceAutomatedBackup]
 
 
 class DBInstanceAutomatedBackupMessage(TypedDict, total=False):
@@ -3950,11 +4046,11 @@ class DBInstanceAutomatedBackupMessage(TypedDict, total=False):
     ``DescribeDBInstanceAutomatedBackups`` action.
     """
 
-    Marker: Optional[String]
-    DBInstanceAutomatedBackups: Optional[DBInstanceAutomatedBackupList]
+    Marker: String | None
+    DBInstanceAutomatedBackups: DBInstanceAutomatedBackupList | None
 
 
-DBInstanceList = List[DBInstance]
+DBInstanceList = list[DBInstance]
 
 
 class DBInstanceMessage(TypedDict, total=False):
@@ -3962,8 +4058,8 @@ class DBInstanceMessage(TypedDict, total=False):
     ``DescribeDBInstances`` action.
     """
 
-    Marker: Optional[String]
-    DBInstances: Optional[DBInstanceList]
+    Marker: String | None
+    DBInstances: DBInstanceList | None
 
 
 class SupportedEngineLifecycle(TypedDict, total=False):
@@ -3983,7 +4079,7 @@ class SupportedEngineLifecycle(TypedDict, total=False):
     LifecycleSupportEndDate: TStamp
 
 
-SupportedEngineLifecycleList = List[SupportedEngineLifecycle]
+SupportedEngineLifecycleList = list[SupportedEngineLifecycle]
 
 
 class DBMajorEngineVersion(TypedDict, total=False):
@@ -3991,12 +4087,12 @@ class DBMajorEngineVersion(TypedDict, total=False):
     ``DescribeDBMajorEngineVersions``.
     """
 
-    Engine: Optional[String]
-    MajorEngineVersion: Optional[String]
-    SupportedEngineLifecycles: Optional[SupportedEngineLifecycleList]
+    Engine: String | None
+    MajorEngineVersion: String | None
+    SupportedEngineLifecycles: SupportedEngineLifecycleList | None
 
 
-DBMajorEngineVersionsList = List[DBMajorEngineVersion]
+DBMajorEngineVersionsList = list[DBMajorEngineVersion]
 
 
 class DBParameterGroupDetails(TypedDict, total=False):
@@ -4004,11 +4100,11 @@ class DBParameterGroupDetails(TypedDict, total=False):
     ``DescribeDBParameters`` action.
     """
 
-    Parameters: Optional[ParametersList]
-    Marker: Optional[String]
+    Parameters: ParametersList | None
+    Marker: String | None
 
 
-DBParameterGroupList = List[DBParameterGroup]
+DBParameterGroupList = list[DBParameterGroup]
 
 
 class DBParameterGroupNameMessage(TypedDict, total=False):
@@ -4016,7 +4112,7 @@ class DBParameterGroupNameMessage(TypedDict, total=False):
     ``ModifyDBParameterGroup`` or ``ResetDBParameterGroup`` operation.
     """
 
-    DBParameterGroupName: Optional[String]
+    DBParameterGroupName: String | None
 
 
 class DBParameterGroupsMessage(TypedDict, total=False):
@@ -4024,20 +4120,20 @@ class DBParameterGroupsMessage(TypedDict, total=False):
     ``DescribeDBParameterGroups`` action.
     """
 
-    Marker: Optional[String]
-    DBParameterGroups: Optional[DBParameterGroupList]
+    Marker: String | None
+    DBParameterGroups: DBParameterGroupList | None
 
 
-DBProxyEndpointList = List[DBProxyEndpoint]
-DBProxyList = List[DBProxy]
+DBProxyEndpointList = list[DBProxyEndpoint]
+DBProxyList = list[DBProxy]
 
 
 class TargetHealth(TypedDict, total=False):
     """Information about the connection health of an RDS Proxy target."""
 
-    State: Optional[TargetState]
-    Reason: Optional[TargetHealthReason]
-    Description: Optional[String]
+    State: TargetState | None
+    Reason: TargetHealthReason | None
+    Description: String | None
 
 
 class DBProxyTarget(TypedDict, total=False):
@@ -4049,14 +4145,14 @@ class DBProxyTarget(TypedDict, total=False):
     ``DescribeDBProxyTargets`` action.
     """
 
-    TargetArn: Optional[String]
-    Endpoint: Optional[String]
-    TrackedClusterId: Optional[String]
-    RdsResourceId: Optional[String]
-    Port: Optional[Integer]
-    Type: Optional[TargetType]
-    Role: Optional[TargetRole]
-    TargetHealth: Optional[TargetHealth]
+    TargetArn: String | None
+    Endpoint: String | None
+    TrackedClusterId: String | None
+    RdsResourceId: String | None
+    Port: Integer | None
+    Type: TargetType | None
+    Role: TargetRole | None
+    TargetHealth: TargetHealth | None
 
 
 class DBProxyTargetGroup(TypedDict, total=False):
@@ -4068,14 +4164,14 @@ class DBProxyTargetGroup(TypedDict, total=False):
     ``DescribeDBProxyTargetGroups`` action.
     """
 
-    DBProxyName: Optional[String]
-    TargetGroupName: Optional[String]
-    TargetGroupArn: Optional[String]
-    IsDefault: Optional[Boolean]
-    Status: Optional[String]
-    ConnectionPoolConfig: Optional[ConnectionPoolConfigurationInfo]
-    CreatedDate: Optional[TStamp]
-    UpdatedDate: Optional[TStamp]
+    DBProxyName: String | None
+    TargetGroupName: String | None
+    TargetGroupArn: String | None
+    IsDefault: Boolean | None
+    Status: String | None
+    ConnectionPoolConfig: ConnectionPoolConfigurationInfo | None
+    CreatedDate: TStamp | None
+    UpdatedDate: TStamp | None
 
 
 class PerformanceInsightsMetricDimensionGroup(TypedDict, total=False):
@@ -4100,9 +4196,9 @@ class PerformanceInsightsMetricDimensionGroup(TypedDict, total=False):
     elements, such as SQL statements, only the first 500 bytes are returned.
     """
 
-    Dimensions: Optional[StringList]
-    Group: Optional[String]
-    Limit: Optional[Integer]
+    Dimensions: StringList | None
+    Group: String | None
+    Limit: Integer | None
 
 
 class PerformanceInsightsMetricQuery(TypedDict, total=False):
@@ -4118,57 +4214,57 @@ class PerformanceInsightsMetricQuery(TypedDict, total=False):
     -  Must be a valid Performance Insights query.
     """
 
-    GroupBy: Optional[PerformanceInsightsMetricDimensionGroup]
-    Metric: Optional[String]
+    GroupBy: PerformanceInsightsMetricDimensionGroup | None
+    Metric: String | None
 
 
 class MetricQuery(TypedDict, total=False):
     """The query to retrieve metric data points."""
 
-    PerformanceInsightsMetricQuery: Optional[PerformanceInsightsMetricQuery]
+    PerformanceInsightsMetricQuery: PerformanceInsightsMetricQuery | None
 
 
 class ScalarReferenceDetails(TypedDict, total=False):
     """The metric reference details when the reference is a scalar."""
 
-    Value: Optional[Double]
+    Value: Double | None
 
 
 class ReferenceDetails(TypedDict, total=False):
     """The reference details of a metric."""
 
-    ScalarReferenceDetails: Optional[ScalarReferenceDetails]
+    ScalarReferenceDetails: ScalarReferenceDetails | None
 
 
 class MetricReference(TypedDict, total=False):
     """The reference (threshold) for a metric."""
 
-    Name: Optional[String]
-    ReferenceDetails: Optional[ReferenceDetails]
+    Name: String | None
+    ReferenceDetails: ReferenceDetails | None
 
 
-MetricReferenceList = List[MetricReference]
+MetricReferenceList = list[MetricReference]
 
 
 class Metric(TypedDict, total=False):
     """The representation of a metric."""
 
-    Name: Optional[String]
-    References: Optional[MetricReferenceList]
-    StatisticsDetails: Optional[String]
-    MetricQuery: Optional[MetricQuery]
+    Name: String | None
+    References: MetricReferenceList | None
+    StatisticsDetails: String | None
+    MetricQuery: MetricQuery | None
 
 
-MetricList = List[Metric]
+MetricList = list[Metric]
 
 
 class PerformanceIssueDetails(TypedDict, total=False):
     """Details of the performance issue."""
 
-    StartTime: Optional[TStamp]
-    EndTime: Optional[TStamp]
-    Metrics: Optional[MetricList]
-    Analysis: Optional[String]
+    StartTime: TStamp | None
+    EndTime: TStamp | None
+    Metrics: MetricList | None
+    Analysis: String | None
 
 
 class IssueDetails(TypedDict, total=False):
@@ -4176,7 +4272,7 @@ class IssueDetails(TypedDict, total=False):
     parameter groups.
     """
 
-    PerformanceIssueDetails: Optional[PerformanceIssueDetails]
+    PerformanceIssueDetails: PerformanceIssueDetails | None
 
 
 class DocLink(TypedDict, total=False):
@@ -4184,11 +4280,11 @@ class DocLink(TypedDict, total=False):
     recommendation.
     """
 
-    Text: Optional[String]
-    Url: Optional[String]
+    Text: String | None
+    Url: String | None
 
 
-DocLinkList = List[DocLink]
+DocLinkList = list[DocLink]
 
 
 class RecommendedActionParameter(TypedDict, total=False):
@@ -4196,11 +4292,11 @@ class RecommendedActionParameter(TypedDict, total=False):
     to apply the action.
     """
 
-    Key: Optional[String]
-    Value: Optional[String]
+    Key: String | None
+    Value: String | None
 
 
-RecommendedActionParameterList = List[RecommendedActionParameter]
+RecommendedActionParameterList = list[RecommendedActionParameter]
 
 
 class RecommendedAction(TypedDict, total=False):
@@ -4208,18 +4304,18 @@ class RecommendedAction(TypedDict, total=False):
     your DB instances, DB clusters, and DB parameter groups.
     """
 
-    ActionId: Optional[String]
-    Title: Optional[String]
-    Description: Optional[String]
-    Operation: Optional[String]
-    Parameters: Optional[RecommendedActionParameterList]
-    ApplyModes: Optional[StringList]
-    Status: Optional[String]
-    IssueDetails: Optional[IssueDetails]
-    ContextAttributes: Optional[ContextAttributeList]
+    ActionId: String | None
+    Title: String | None
+    Description: String | None
+    Operation: String | None
+    Parameters: RecommendedActionParameterList | None
+    ApplyModes: StringList | None
+    Status: String | None
+    IssueDetails: IssueDetails | None
+    ContextAttributes: ContextAttributeList | None
 
 
-RecommendedActionList = List[RecommendedAction]
+RecommendedActionList = list[RecommendedAction]
 
 
 class DBRecommendation(TypedDict, total=False):
@@ -4227,41 +4323,41 @@ class DBRecommendation(TypedDict, total=False):
     groups.
     """
 
-    RecommendationId: Optional[String]
-    TypeId: Optional[String]
-    Severity: Optional[String]
-    ResourceArn: Optional[String]
-    Status: Optional[String]
-    CreatedTime: Optional[TStamp]
-    UpdatedTime: Optional[TStamp]
-    Detection: Optional[String]
-    Recommendation: Optional[String]
-    Description: Optional[String]
-    Reason: Optional[String]
-    RecommendedActions: Optional[RecommendedActionList]
-    Category: Optional[String]
-    Source: Optional[String]
-    TypeDetection: Optional[String]
-    TypeRecommendation: Optional[String]
-    Impact: Optional[String]
-    AdditionalInfo: Optional[String]
-    Links: Optional[DocLinkList]
-    IssueDetails: Optional[IssueDetails]
+    RecommendationId: String | None
+    TypeId: String | None
+    Severity: String | None
+    ResourceArn: String | None
+    Status: String | None
+    CreatedTime: TStamp | None
+    UpdatedTime: TStamp | None
+    Detection: String | None
+    Recommendation: String | None
+    Description: String | None
+    Reason: String | None
+    RecommendedActions: RecommendedActionList | None
+    Category: String | None
+    Source: String | None
+    TypeDetection: String | None
+    TypeRecommendation: String | None
+    Impact: String | None
+    AdditionalInfo: String | None
+    Links: DocLinkList | None
+    IssueDetails: IssueDetails | None
 
 
-DBRecommendationList = List[DBRecommendation]
+DBRecommendationList = list[DBRecommendation]
 
 
 class DBRecommendationMessage(TypedDict, total=False):
-    DBRecommendation: Optional[DBRecommendation]
+    DBRecommendation: DBRecommendation | None
 
 
 class DBRecommendationsMessage(TypedDict, total=False):
-    DBRecommendations: Optional[DBRecommendationList]
-    Marker: Optional[String]
+    DBRecommendations: DBRecommendationList | None
+    Marker: String | None
 
 
-DBSecurityGroups = List[DBSecurityGroup]
+DBSecurityGroups = list[DBSecurityGroup]
 
 
 class DBSecurityGroupMessage(TypedDict, total=False):
@@ -4269,27 +4365,27 @@ class DBSecurityGroupMessage(TypedDict, total=False):
     ``DescribeDBSecurityGroups`` action.
     """
 
-    Marker: Optional[String]
-    DBSecurityGroups: Optional[DBSecurityGroups]
+    Marker: String | None
+    DBSecurityGroups: DBSecurityGroups | None
 
 
 class DBShardGroup(TypedDict, total=False):
     """Contains the details for an Amazon RDS DB shard group."""
 
-    DBShardGroupResourceId: Optional[String]
-    DBShardGroupIdentifier: Optional[DBShardGroupIdentifier]
-    DBClusterIdentifier: Optional[String]
-    MaxACU: Optional[DoubleOptional]
-    MinACU: Optional[DoubleOptional]
-    ComputeRedundancy: Optional[IntegerOptional]
-    Status: Optional[String]
-    PubliclyAccessible: Optional[BooleanOptional]
-    Endpoint: Optional[String]
-    DBShardGroupArn: Optional[String]
-    TagList: Optional[TagList]
+    DBShardGroupResourceId: String | None
+    DBShardGroupIdentifier: DBShardGroupIdentifier | None
+    DBClusterIdentifier: String | None
+    MaxACU: DoubleOptional | None
+    MinACU: DoubleOptional | None
+    ComputeRedundancy: IntegerOptional | None
+    Status: String | None
+    PubliclyAccessible: BooleanOptional | None
+    Endpoint: String | None
+    DBShardGroupArn: String | None
+    TagList: TagList | None
 
 
-DBShardGroupsList = List[DBShardGroup]
+DBShardGroupsList = list[DBShardGroup]
 
 
 class DBSnapshotAttribute(TypedDict, total=False):
@@ -4300,11 +4396,11 @@ class DBSnapshotAttribute(TypedDict, total=False):
     see the ``ModifyDBSnapshotAttribute`` API.
     """
 
-    AttributeName: Optional[String]
-    AttributeValues: Optional[AttributeValueList]
+    AttributeName: String | None
+    AttributeValues: AttributeValueList | None
 
 
-DBSnapshotAttributeList = List[DBSnapshotAttribute]
+DBSnapshotAttributeList = list[DBSnapshotAttribute]
 
 
 class DBSnapshotAttributesResult(TypedDict, total=False):
@@ -4316,11 +4412,11 @@ class DBSnapshotAttributesResult(TypedDict, total=False):
     information, see the ``ModifyDBSnapshotAttribute`` API action.
     """
 
-    DBSnapshotIdentifier: Optional[String]
-    DBSnapshotAttributes: Optional[DBSnapshotAttributeList]
+    DBSnapshotIdentifier: String | None
+    DBSnapshotAttributes: DBSnapshotAttributeList | None
 
 
-DBSnapshotList = List[DBSnapshot]
+DBSnapshotList = list[DBSnapshot]
 
 
 class DBSnapshotMessage(TypedDict, total=False):
@@ -4328,8 +4424,8 @@ class DBSnapshotMessage(TypedDict, total=False):
     ``DescribeDBSnapshots`` action.
     """
 
-    Marker: Optional[String]
-    DBSnapshots: Optional[DBSnapshotList]
+    Marker: String | None
+    DBSnapshots: DBSnapshotList | None
 
 
 class DBSnapshotTenantDatabase(TypedDict, total=False):
@@ -4337,30 +4433,30 @@ class DBSnapshotTenantDatabase(TypedDict, total=False):
     instance.
     """
 
-    DBSnapshotIdentifier: Optional[String]
-    DBInstanceIdentifier: Optional[String]
-    DbiResourceId: Optional[String]
-    EngineName: Optional[String]
-    SnapshotType: Optional[String]
-    TenantDatabaseCreateTime: Optional[TStamp]
-    TenantDBName: Optional[String]
-    MasterUsername: Optional[String]
-    TenantDatabaseResourceId: Optional[String]
-    CharacterSetName: Optional[String]
-    DBSnapshotTenantDatabaseARN: Optional[String]
-    NcharCharacterSetName: Optional[String]
-    TagList: Optional[TagList]
+    DBSnapshotIdentifier: String | None
+    DBInstanceIdentifier: String | None
+    DbiResourceId: String | None
+    EngineName: String | None
+    SnapshotType: String | None
+    TenantDatabaseCreateTime: TStamp | None
+    TenantDBName: String | None
+    MasterUsername: String | None
+    TenantDatabaseResourceId: String | None
+    CharacterSetName: String | None
+    DBSnapshotTenantDatabaseARN: String | None
+    NcharCharacterSetName: String | None
+    TagList: TagList | None
 
 
-DBSnapshotTenantDatabasesList = List[DBSnapshotTenantDatabase]
+DBSnapshotTenantDatabasesList = list[DBSnapshotTenantDatabase]
 
 
 class DBSnapshotTenantDatabasesMessage(TypedDict, total=False):
-    Marker: Optional[String]
-    DBSnapshotTenantDatabases: Optional[DBSnapshotTenantDatabasesList]
+    Marker: String | None
+    DBSnapshotTenantDatabases: DBSnapshotTenantDatabasesList | None
 
 
-DBSubnetGroups = List[DBSubnetGroup]
+DBSubnetGroups = list[DBSubnetGroup]
 
 
 class DBSubnetGroupMessage(TypedDict, total=False):
@@ -4368,17 +4464,17 @@ class DBSubnetGroupMessage(TypedDict, total=False):
     ``DescribeDBSubnetGroups`` action.
     """
 
-    Marker: Optional[String]
-    DBSubnetGroups: Optional[DBSubnetGroups]
+    Marker: String | None
+    DBSubnetGroups: DBSubnetGroups | None
 
 
 class DeleteBlueGreenDeploymentRequest(ServiceRequest):
     BlueGreenDeploymentIdentifier: BlueGreenDeploymentIdentifier
-    DeleteTarget: Optional[BooleanOptional]
+    DeleteTarget: BooleanOptional | None
 
 
 class DeleteBlueGreenDeploymentResponse(TypedDict, total=False):
-    BlueGreenDeployment: Optional[BlueGreenDeployment]
+    BlueGreenDeployment: BlueGreenDeployment | None
 
 
 class DeleteCustomDBEngineVersionMessage(ServiceRequest):
@@ -4391,7 +4487,7 @@ class DeleteDBClusterAutomatedBackupMessage(ServiceRequest):
 
 
 class DeleteDBClusterAutomatedBackupResult(TypedDict, total=False):
-    DBClusterAutomatedBackup: Optional[DBClusterAutomatedBackup]
+    DBClusterAutomatedBackup: DBClusterAutomatedBackup | None
 
 
 class DeleteDBClusterEndpointMessage(ServiceRequest):
@@ -4400,9 +4496,9 @@ class DeleteDBClusterEndpointMessage(ServiceRequest):
 
 class DeleteDBClusterMessage(ServiceRequest):
     DBClusterIdentifier: String
-    SkipFinalSnapshot: Optional[Boolean]
-    FinalDBSnapshotIdentifier: Optional[String]
-    DeleteAutomatedBackups: Optional[BooleanOptional]
+    SkipFinalSnapshot: Boolean | None
+    FinalDBSnapshotIdentifier: String | None
+    DeleteAutomatedBackups: BooleanOptional | None
 
 
 class DeleteDBClusterParameterGroupMessage(ServiceRequest):
@@ -4410,7 +4506,7 @@ class DeleteDBClusterParameterGroupMessage(ServiceRequest):
 
 
 class DeleteDBClusterResult(TypedDict, total=False):
-    DBCluster: Optional[DBCluster]
+    DBCluster: DBCluster | None
 
 
 class DeleteDBClusterSnapshotMessage(ServiceRequest):
@@ -4418,29 +4514,29 @@ class DeleteDBClusterSnapshotMessage(ServiceRequest):
 
 
 class DeleteDBClusterSnapshotResult(TypedDict, total=False):
-    DBClusterSnapshot: Optional[DBClusterSnapshot]
+    DBClusterSnapshot: DBClusterSnapshot | None
 
 
 class DeleteDBInstanceAutomatedBackupMessage(ServiceRequest):
     """Parameter input for the ``DeleteDBInstanceAutomatedBackup`` operation."""
 
-    DbiResourceId: Optional[String]
-    DBInstanceAutomatedBackupsArn: Optional[String]
+    DbiResourceId: String | None
+    DBInstanceAutomatedBackupsArn: String | None
 
 
 class DeleteDBInstanceAutomatedBackupResult(TypedDict, total=False):
-    DBInstanceAutomatedBackup: Optional[DBInstanceAutomatedBackup]
+    DBInstanceAutomatedBackup: DBInstanceAutomatedBackup | None
 
 
 class DeleteDBInstanceMessage(ServiceRequest):
     DBInstanceIdentifier: String
-    SkipFinalSnapshot: Optional[Boolean]
-    FinalDBSnapshotIdentifier: Optional[String]
-    DeleteAutomatedBackups: Optional[BooleanOptional]
+    SkipFinalSnapshot: Boolean | None
+    FinalDBSnapshotIdentifier: String | None
+    DeleteAutomatedBackups: BooleanOptional | None
 
 
 class DeleteDBInstanceResult(TypedDict, total=False):
-    DBInstance: Optional[DBInstance]
+    DBInstance: DBInstance | None
 
 
 class DeleteDBParameterGroupMessage(ServiceRequest):
@@ -4452,15 +4548,15 @@ class DeleteDBProxyEndpointRequest(ServiceRequest):
 
 
 class DeleteDBProxyEndpointResponse(TypedDict, total=False):
-    DBProxyEndpoint: Optional[DBProxyEndpoint]
+    DBProxyEndpoint: DBProxyEndpoint | None
 
 
 class DeleteDBProxyRequest(ServiceRequest):
-    DBProxyName: String
+    DBProxyName: DBProxyName
 
 
 class DeleteDBProxyResponse(TypedDict, total=False):
-    DBProxy: Optional[DBProxy]
+    DBProxy: DBProxy | None
 
 
 class DeleteDBSecurityGroupMessage(ServiceRequest):
@@ -4476,7 +4572,7 @@ class DeleteDBSnapshotMessage(ServiceRequest):
 
 
 class DeleteDBSnapshotResult(TypedDict, total=False):
-    DBSnapshot: Optional[DBSnapshot]
+    DBSnapshot: DBSnapshot | None
 
 
 class DeleteDBSubnetGroupMessage(ServiceRequest):
@@ -4488,15 +4584,15 @@ class DeleteEventSubscriptionMessage(ServiceRequest):
 
 
 class DeleteEventSubscriptionResult(TypedDict, total=False):
-    EventSubscription: Optional[EventSubscription]
+    EventSubscription: EventSubscription | None
 
 
 class DeleteGlobalClusterMessage(ServiceRequest):
-    GlobalClusterIdentifier: String
+    GlobalClusterIdentifier: GlobalClusterIdentifier
 
 
 class DeleteGlobalClusterResult(TypedDict, total=False):
-    GlobalCluster: Optional[GlobalCluster]
+    GlobalCluster: GlobalCluster | None
 
 
 class DeleteIntegrationMessage(ServiceRequest):
@@ -4510,19 +4606,19 @@ class DeleteOptionGroupMessage(ServiceRequest):
 class DeleteTenantDatabaseMessage(ServiceRequest):
     DBInstanceIdentifier: String
     TenantDBName: String
-    SkipFinalSnapshot: Optional[Boolean]
-    FinalDBSnapshotIdentifier: Optional[String]
+    SkipFinalSnapshot: Boolean | None
+    FinalDBSnapshotIdentifier: String | None
 
 
 class DeleteTenantDatabaseResult(TypedDict, total=False):
-    TenantDatabase: Optional[TenantDatabase]
+    TenantDatabase: TenantDatabase | None
 
 
 class DeregisterDBProxyTargetsRequest(ServiceRequest):
-    DBProxyName: String
-    TargetGroupName: Optional[String]
-    DBInstanceIdentifiers: Optional[StringList]
-    DBClusterIdentifiers: Optional[StringList]
+    DBProxyName: DBProxyName
+    TargetGroupName: DBProxyTargetGroupName | None
+    DBInstanceIdentifiers: StringList | None
+    DBClusterIdentifiers: StringList | None
 
 
 class DeregisterDBProxyTargetsResponse(TypedDict, total=False):
@@ -4533,7 +4629,7 @@ class DescribeAccountAttributesMessage(ServiceRequest):
     pass
 
 
-FilterValueList = List[String]
+FilterValueList = list[String]
 
 
 class Filter(TypedDict, total=False):
@@ -4565,65 +4661,65 @@ class Filter(TypedDict, total=False):
     Values: FilterValueList
 
 
-FilterList = List[Filter]
+FilterList = list[Filter]
 
 
 class DescribeBlueGreenDeploymentsRequest(ServiceRequest):
-    BlueGreenDeploymentIdentifier: Optional[BlueGreenDeploymentIdentifier]
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[MaxRecords]
+    BlueGreenDeploymentIdentifier: BlueGreenDeploymentIdentifier | None
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: MaxRecords | None
 
 
 class DescribeBlueGreenDeploymentsResponse(TypedDict, total=False):
-    BlueGreenDeployments: Optional[BlueGreenDeploymentList]
-    Marker: Optional[String]
+    BlueGreenDeployments: BlueGreenDeploymentList | None
+    Marker: String | None
 
 
 class DescribeCertificatesMessage(ServiceRequest):
-    CertificateIdentifier: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    CertificateIdentifier: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeDBClusterAutomatedBackupsMessage(ServiceRequest):
-    DbClusterResourceId: Optional[String]
-    DBClusterIdentifier: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    DbClusterResourceId: String | None
+    DBClusterIdentifier: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeDBClusterBacktracksMessage(ServiceRequest):
     DBClusterIdentifier: String
-    BacktrackIdentifier: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    BacktrackIdentifier: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeDBClusterEndpointsMessage(ServiceRequest):
-    DBClusterIdentifier: Optional[String]
-    DBClusterEndpointIdentifier: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    DBClusterIdentifier: String | None
+    DBClusterEndpointIdentifier: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeDBClusterParameterGroupsMessage(ServiceRequest):
-    DBClusterParameterGroupName: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    DBClusterParameterGroupName: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeDBClusterParametersMessage(ServiceRequest):
     DBClusterParameterGroupName: String
-    Source: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Source: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeDBClusterSnapshotAttributesMessage(ServiceRequest):
@@ -4631,198 +4727,198 @@ class DescribeDBClusterSnapshotAttributesMessage(ServiceRequest):
 
 
 class DescribeDBClusterSnapshotAttributesResult(TypedDict, total=False):
-    DBClusterSnapshotAttributesResult: Optional[DBClusterSnapshotAttributesResult]
+    DBClusterSnapshotAttributesResult: DBClusterSnapshotAttributesResult | None
 
 
 class DescribeDBClusterSnapshotsMessage(ServiceRequest):
-    DBClusterIdentifier: Optional[String]
-    DBClusterSnapshotIdentifier: Optional[String]
-    SnapshotType: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
-    IncludeShared: Optional[Boolean]
-    IncludePublic: Optional[Boolean]
-    DbClusterResourceId: Optional[String]
+    DBClusterIdentifier: String | None
+    DBClusterSnapshotIdentifier: String | None
+    SnapshotType: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
+    IncludeShared: Boolean | None
+    IncludePublic: Boolean | None
+    DbClusterResourceId: String | None
 
 
 class DescribeDBClustersMessage(ServiceRequest):
-    DBClusterIdentifier: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
-    IncludeShared: Optional[Boolean]
+    DBClusterIdentifier: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
+    IncludeShared: Boolean | None
 
 
 class DescribeDBEngineVersionsMessage(ServiceRequest):
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    DBParameterGroupFamily: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
-    DefaultOnly: Optional[Boolean]
-    ListSupportedCharacterSets: Optional[BooleanOptional]
-    ListSupportedTimezones: Optional[BooleanOptional]
-    IncludeAll: Optional[BooleanOptional]
+    Engine: String | None
+    EngineVersion: String | None
+    DBParameterGroupFamily: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
+    DefaultOnly: Boolean | None
+    ListSupportedCharacterSets: BooleanOptional | None
+    ListSupportedTimezones: BooleanOptional | None
+    IncludeAll: BooleanOptional | None
 
 
 class DescribeDBInstanceAutomatedBackupsMessage(ServiceRequest):
     """Parameter input for DescribeDBInstanceAutomatedBackups."""
 
-    DbiResourceId: Optional[String]
-    DBInstanceIdentifier: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
-    DBInstanceAutomatedBackupsArn: Optional[String]
+    DbiResourceId: String | None
+    DBInstanceIdentifier: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
+    DBInstanceAutomatedBackupsArn: String | None
 
 
 class DescribeDBInstancesMessage(ServiceRequest):
-    DBInstanceIdentifier: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    DBInstanceIdentifier: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeDBLogFilesDetails(TypedDict, total=False):
     """This data type is used as a response element to ``DescribeDBLogFiles``."""
 
-    LogFileName: Optional[String]
-    LastWritten: Optional[Long]
-    Size: Optional[Long]
+    LogFileName: String | None
+    LastWritten: Long | None
+    Size: Long | None
 
 
-DescribeDBLogFilesList = List[DescribeDBLogFilesDetails]
+DescribeDBLogFilesList = list[DescribeDBLogFilesDetails]
 
 
 class DescribeDBLogFilesMessage(ServiceRequest):
     DBInstanceIdentifier: String
-    FilenameContains: Optional[String]
-    FileLastWritten: Optional[Long]
-    FileSize: Optional[Long]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    FilenameContains: String | None
+    FileLastWritten: Long | None
+    FileSize: Long | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeDBLogFilesResponse(TypedDict, total=False):
     """The response from a call to ``DescribeDBLogFiles``."""
 
-    DescribeDBLogFiles: Optional[DescribeDBLogFilesList]
-    Marker: Optional[String]
+    DescribeDBLogFiles: DescribeDBLogFilesList | None
+    Marker: String | None
 
 
 class DescribeDBMajorEngineVersionsRequest(ServiceRequest):
-    Engine: Optional[Engine]
-    MajorEngineVersion: Optional[MajorEngineVersion]
-    Marker: Optional[Marker]
-    MaxRecords: Optional[MaxRecords]
+    Engine: Engine | None
+    MajorEngineVersion: MajorEngineVersion | None
+    Marker: Marker | None
+    MaxRecords: MaxRecords | None
 
 
 class DescribeDBMajorEngineVersionsResponse(TypedDict, total=False):
-    DBMajorEngineVersions: Optional[DBMajorEngineVersionsList]
-    Marker: Optional[String]
+    DBMajorEngineVersions: DBMajorEngineVersionsList | None
+    Marker: String | None
 
 
 class DescribeDBParameterGroupsMessage(ServiceRequest):
-    DBParameterGroupName: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    DBParameterGroupName: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeDBParametersMessage(ServiceRequest):
     DBParameterGroupName: String
-    Source: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Source: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeDBProxiesRequest(ServiceRequest):
-    DBProxyName: Optional[String]
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[MaxRecords]
+    DBProxyName: DBProxyName | None
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: MaxRecords | None
 
 
 class DescribeDBProxiesResponse(TypedDict, total=False):
-    DBProxies: Optional[DBProxyList]
-    Marker: Optional[String]
+    DBProxies: DBProxyList | None
+    Marker: String | None
 
 
 class DescribeDBProxyEndpointsRequest(ServiceRequest):
-    DBProxyName: Optional[DBProxyName]
-    DBProxyEndpointName: Optional[DBProxyEndpointName]
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[MaxRecords]
+    DBProxyName: DBProxyName | None
+    DBProxyEndpointName: DBProxyEndpointName | None
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: MaxRecords | None
 
 
 class DescribeDBProxyEndpointsResponse(TypedDict, total=False):
-    DBProxyEndpoints: Optional[DBProxyEndpointList]
-    Marker: Optional[String]
+    DBProxyEndpoints: DBProxyEndpointList | None
+    Marker: String | None
 
 
 class DescribeDBProxyTargetGroupsRequest(ServiceRequest):
-    DBProxyName: String
-    TargetGroupName: Optional[String]
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[MaxRecords]
+    DBProxyName: DBProxyName
+    TargetGroupName: DBProxyTargetGroupName | None
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: MaxRecords | None
 
 
-TargetGroupList = List[DBProxyTargetGroup]
+TargetGroupList = list[DBProxyTargetGroup]
 
 
 class DescribeDBProxyTargetGroupsResponse(TypedDict, total=False):
-    TargetGroups: Optional[TargetGroupList]
-    Marker: Optional[String]
+    TargetGroups: TargetGroupList | None
+    Marker: String | None
 
 
 class DescribeDBProxyTargetsRequest(ServiceRequest):
-    DBProxyName: String
-    TargetGroupName: Optional[String]
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[MaxRecords]
+    DBProxyName: DBProxyName
+    TargetGroupName: DBProxyTargetGroupName | None
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: MaxRecords | None
 
 
-TargetList = List[DBProxyTarget]
+TargetList = list[DBProxyTarget]
 
 
 class DescribeDBProxyTargetsResponse(TypedDict, total=False):
-    Targets: Optional[TargetList]
-    Marker: Optional[String]
+    Targets: TargetList | None
+    Marker: String | None
 
 
 class DescribeDBRecommendationsMessage(ServiceRequest):
-    LastUpdatedAfter: Optional[TStamp]
-    LastUpdatedBefore: Optional[TStamp]
-    Locale: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    LastUpdatedAfter: TStamp | None
+    LastUpdatedBefore: TStamp | None
+    Locale: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeDBSecurityGroupsMessage(ServiceRequest):
-    DBSecurityGroupName: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    DBSecurityGroupName: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeDBShardGroupsMessage(ServiceRequest):
-    DBShardGroupIdentifier: Optional[DBShardGroupIdentifier]
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[MaxRecords]
+    DBShardGroupIdentifier: DBShardGroupIdentifier | None
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: MaxRecords | None
 
 
 class DescribeDBShardGroupsResponse(TypedDict, total=False):
-    DBShardGroups: Optional[DBShardGroupsList]
-    Marker: Optional[String]
+    DBShardGroups: DBShardGroupsList | None
+    Marker: String | None
 
 
 class DescribeDBSnapshotAttributesMessage(ServiceRequest):
@@ -4830,43 +4926,43 @@ class DescribeDBSnapshotAttributesMessage(ServiceRequest):
 
 
 class DescribeDBSnapshotAttributesResult(TypedDict, total=False):
-    DBSnapshotAttributesResult: Optional[DBSnapshotAttributesResult]
+    DBSnapshotAttributesResult: DBSnapshotAttributesResult | None
 
 
 class DescribeDBSnapshotTenantDatabasesMessage(ServiceRequest):
-    DBInstanceIdentifier: Optional[String]
-    DBSnapshotIdentifier: Optional[String]
-    SnapshotType: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
-    DbiResourceId: Optional[String]
+    DBInstanceIdentifier: String | None
+    DBSnapshotIdentifier: String | None
+    SnapshotType: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
+    DbiResourceId: String | None
 
 
 class DescribeDBSnapshotsMessage(ServiceRequest):
-    DBInstanceIdentifier: Optional[String]
-    DBSnapshotIdentifier: Optional[String]
-    SnapshotType: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
-    IncludeShared: Optional[Boolean]
-    IncludePublic: Optional[Boolean]
-    DbiResourceId: Optional[String]
+    DBInstanceIdentifier: String | None
+    DBSnapshotIdentifier: String | None
+    SnapshotType: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
+    IncludeShared: Boolean | None
+    IncludePublic: Boolean | None
+    DbiResourceId: String | None
 
 
 class DescribeDBSubnetGroupsMessage(ServiceRequest):
-    DBSubnetGroupName: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    DBSubnetGroupName: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeEngineDefaultClusterParametersMessage(ServiceRequest):
     DBParameterGroupFamily: String
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class EngineDefaults(TypedDict, total=False):
@@ -4874,183 +4970,183 @@ class EngineDefaults(TypedDict, total=False):
     ``DescribeEngineDefaultParameters`` action.
     """
 
-    DBParameterGroupFamily: Optional[String]
-    Marker: Optional[String]
-    Parameters: Optional[ParametersList]
+    DBParameterGroupFamily: String | None
+    Marker: String | None
+    Parameters: ParametersList | None
 
 
 class DescribeEngineDefaultClusterParametersResult(TypedDict, total=False):
-    EngineDefaults: Optional[EngineDefaults]
+    EngineDefaults: EngineDefaults | None
 
 
 class DescribeEngineDefaultParametersMessage(ServiceRequest):
     DBParameterGroupFamily: String
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeEngineDefaultParametersResult(TypedDict, total=False):
-    EngineDefaults: Optional[EngineDefaults]
+    EngineDefaults: EngineDefaults | None
 
 
 class DescribeEventCategoriesMessage(ServiceRequest):
-    SourceType: Optional[String]
-    Filters: Optional[FilterList]
+    SourceType: String | None
+    Filters: FilterList | None
 
 
 class DescribeEventSubscriptionsMessage(ServiceRequest):
-    SubscriptionName: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    SubscriptionName: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeEventsMessage(ServiceRequest):
-    SourceIdentifier: Optional[String]
-    SourceType: Optional[SourceType]
-    StartTime: Optional[TStamp]
-    EndTime: Optional[TStamp]
-    Duration: Optional[IntegerOptional]
-    EventCategories: Optional[EventCategoriesList]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    SourceIdentifier: String | None
+    SourceType: SourceType | None
+    StartTime: TStamp | None
+    EndTime: TStamp | None
+    Duration: IntegerOptional | None
+    EventCategories: EventCategoriesList | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeExportTasksMessage(ServiceRequest):
-    ExportTaskIdentifier: Optional[String]
-    SourceArn: Optional[String]
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[MaxRecords]
-    SourceType: Optional[ExportSourceType]
+    ExportTaskIdentifier: String | None
+    SourceArn: String | None
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: MaxRecords | None
+    SourceType: ExportSourceType | None
 
 
 class DescribeGlobalClustersMessage(ServiceRequest):
-    GlobalClusterIdentifier: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    GlobalClusterIdentifier: GlobalClusterIdentifier | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeIntegrationsMessage(ServiceRequest):
-    IntegrationIdentifier: Optional[IntegrationIdentifier]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[Marker]
+    IntegrationIdentifier: IntegrationIdentifier | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: Marker | None
 
 
 class IntegrationError(TypedDict, total=False):
     """An error associated with a zero-ETL integration with Amazon Redshift."""
 
     ErrorCode: String
-    ErrorMessage: Optional[String]
+    ErrorMessage: String | None
 
 
-IntegrationErrorList = List[IntegrationError]
+IntegrationErrorList = list[IntegrationError]
 
 
 class Integration(TypedDict, total=False):
     """A zero-ETL integration with Amazon Redshift."""
 
-    SourceArn: Optional[SourceArn]
-    TargetArn: Optional[Arn]
-    IntegrationName: Optional[IntegrationName]
-    IntegrationArn: Optional[IntegrationArn]
-    KMSKeyId: Optional[String]
-    AdditionalEncryptionContext: Optional[EncryptionContextMap]
-    Status: Optional[IntegrationStatus]
-    Tags: Optional[TagList]
-    CreateTime: Optional[TStamp]
-    Errors: Optional[IntegrationErrorList]
-    DataFilter: Optional[DataFilter]
-    Description: Optional[IntegrationDescription]
+    SourceArn: SourceArn | None
+    TargetArn: Arn | None
+    IntegrationName: IntegrationName | None
+    IntegrationArn: IntegrationArn | None
+    KMSKeyId: String | None
+    AdditionalEncryptionContext: EncryptionContextMap | None
+    Status: IntegrationStatus | None
+    Tags: TagList | None
+    DataFilter: DataFilter | None
+    Description: IntegrationDescription | None
+    CreateTime: TStamp | None
+    Errors: IntegrationErrorList | None
 
 
-IntegrationList = List[Integration]
+IntegrationList = list[Integration]
 
 
 class DescribeIntegrationsResponse(TypedDict, total=False):
-    Marker: Optional[Marker]
-    Integrations: Optional[IntegrationList]
+    Marker: Marker | None
+    Integrations: IntegrationList | None
 
 
 class DescribeOptionGroupOptionsMessage(ServiceRequest):
     EngineName: String
-    MajorEngineVersion: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    MajorEngineVersion: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeOptionGroupsMessage(ServiceRequest):
-    OptionGroupName: Optional[String]
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    EngineName: Optional[String]
-    MajorEngineVersion: Optional[String]
+    OptionGroupName: String | None
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: IntegerOptional | None
+    EngineName: String | None
+    MajorEngineVersion: String | None
 
 
 class DescribeOrderableDBInstanceOptionsMessage(ServiceRequest):
     Engine: String
-    EngineVersion: Optional[String]
-    DBInstanceClass: Optional[String]
-    LicenseModel: Optional[String]
-    AvailabilityZoneGroup: Optional[String]
-    Vpc: Optional[BooleanOptional]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    EngineVersion: String | None
+    DBInstanceClass: String | None
+    LicenseModel: String | None
+    AvailabilityZoneGroup: String | None
+    Vpc: BooleanOptional | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribePendingMaintenanceActionsMessage(ServiceRequest):
-    ResourceIdentifier: Optional[String]
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
+    ResourceIdentifier: String | None
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: IntegerOptional | None
 
 
 class DescribeReservedDBInstancesMessage(ServiceRequest):
-    ReservedDBInstanceId: Optional[String]
-    ReservedDBInstancesOfferingId: Optional[String]
-    DBInstanceClass: Optional[String]
-    Duration: Optional[String]
-    ProductDescription: Optional[String]
-    OfferingType: Optional[String]
-    MultiAZ: Optional[BooleanOptional]
-    LeaseId: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    ReservedDBInstanceId: String | None
+    ReservedDBInstancesOfferingId: String | None
+    DBInstanceClass: String | None
+    Duration: String | None
+    ProductDescription: String | None
+    OfferingType: String | None
+    MultiAZ: BooleanOptional | None
+    LeaseId: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeReservedDBInstancesOfferingsMessage(ServiceRequest):
-    ReservedDBInstancesOfferingId: Optional[String]
-    DBInstanceClass: Optional[String]
-    Duration: Optional[String]
-    ProductDescription: Optional[String]
-    OfferingType: Optional[String]
-    MultiAZ: Optional[BooleanOptional]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    ReservedDBInstancesOfferingId: String | None
+    DBInstanceClass: String | None
+    Duration: String | None
+    ProductDescription: String | None
+    OfferingType: String | None
+    MultiAZ: BooleanOptional | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeSourceRegionsMessage(ServiceRequest):
-    RegionName: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
-    Filters: Optional[FilterList]
+    RegionName: String | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
+    Filters: FilterList | None
 
 
 class DescribeTenantDatabasesMessage(ServiceRequest):
-    DBInstanceIdentifier: Optional[String]
-    TenantDBName: Optional[String]
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
+    DBInstanceIdentifier: String | None
+    TenantDBName: String | None
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: IntegerOptional | None
 
 
 class DescribeValidDBInstanceModificationsMessage(ServiceRequest):
@@ -5060,22 +5156,22 @@ class DescribeValidDBInstanceModificationsMessage(ServiceRequest):
 class DoubleRange(TypedDict, total=False):
     """A range of double values."""
 
-    From: Optional[Double]
-    To: Optional[Double]
+    From: Double | None
+    To: Double | None
 
 
-DoubleRangeList = List[DoubleRange]
+DoubleRangeList = list[DoubleRange]
 
 
 class Range(TypedDict, total=False):
     """A range of integer values."""
 
-    From: Optional[Integer]
-    To: Optional[Integer]
-    Step: Optional[IntegerOptional]
+    From: Integer | None
+    To: Integer | None
+    Step: IntegerOptional | None
 
 
-RangeList = List[Range]
+RangeList = list[Range]
 
 
 class ValidStorageOptions(TypedDict, total=False):
@@ -5084,16 +5180,35 @@ class ValidStorageOptions(TypedDict, total=False):
     ``DescribeValidDBInstanceModifications`` action.
     """
 
-    StorageType: Optional[String]
-    StorageSize: Optional[RangeList]
-    ProvisionedIops: Optional[RangeList]
-    IopsToStorageRatio: Optional[DoubleRangeList]
-    SupportsStorageAutoscaling: Optional[Boolean]
-    ProvisionedStorageThroughput: Optional[RangeList]
-    StorageThroughputToIopsRatio: Optional[DoubleRangeList]
+    StorageType: String | None
+    StorageSize: RangeList | None
+    ProvisionedIops: RangeList | None
+    IopsToStorageRatio: DoubleRangeList | None
+    ProvisionedStorageThroughput: RangeList | None
+    StorageThroughputToIopsRatio: DoubleRangeList | None
+    SupportsStorageAutoscaling: Boolean | None
 
 
-ValidStorageOptionsList = List[ValidStorageOptions]
+ValidStorageOptionsList = list[ValidStorageOptions]
+
+
+class ValidVolumeOptions(TypedDict, total=False):
+    """Contains the valid options for an additional storage volume."""
+
+    VolumeName: String | None
+    Storage: ValidStorageOptionsList | None
+
+
+ValidVolumeOptionsList = list[ValidVolumeOptions]
+
+
+class ValidAdditionalStorageOptions(TypedDict, total=False):
+    """Contains the valid options for additional storage volumes for a DB
+    instance.
+    """
+
+    SupportsAdditionalStorageVolumes: Boolean | None
+    Volumes: ValidVolumeOptionsList | None
 
 
 class ValidDBInstanceModificationsMessage(TypedDict, total=False):
@@ -5103,13 +5218,14 @@ class ValidDBInstanceModificationsMessage(TypedDict, total=False):
     information when you call ``ModifyDBInstance``.
     """
 
-    Storage: Optional[ValidStorageOptionsList]
-    ValidProcessorFeatures: Optional[AvailableProcessorFeatureList]
-    SupportsDedicatedLogVolume: Optional[Boolean]
+    Storage: ValidStorageOptionsList | None
+    ValidProcessorFeatures: AvailableProcessorFeatureList | None
+    SupportsDedicatedLogVolume: Boolean | None
+    AdditionalStorage: ValidAdditionalStorageOptions | None
 
 
 class DescribeValidDBInstanceModificationsResult(TypedDict, total=False):
-    ValidDBInstanceModificationsMessage: Optional[ValidDBInstanceModificationsMessage]
+    ValidDBInstanceModificationsMessage: ValidDBInstanceModificationsMessage | None
 
 
 class DisableHttpEndpointRequest(ServiceRequest):
@@ -5117,8 +5233,8 @@ class DisableHttpEndpointRequest(ServiceRequest):
 
 
 class DisableHttpEndpointResponse(TypedDict, total=False):
-    ResourceArn: Optional[String]
-    HttpEndpointEnabled: Optional[Boolean]
+    ResourceArn: String | None
+    HttpEndpointEnabled: Boolean | None
 
 
 class DownloadDBLogFilePortionDetails(TypedDict, total=False):
@@ -5126,16 +5242,16 @@ class DownloadDBLogFilePortionDetails(TypedDict, total=False):
     ``DownloadDBLogFilePortion``.
     """
 
-    LogFileData: Optional[String]
-    Marker: Optional[String]
-    AdditionalDataPending: Optional[Boolean]
+    LogFileData: SensitiveString | None
+    Marker: String | None
+    AdditionalDataPending: Boolean | None
 
 
 class DownloadDBLogFilePortionMessage(ServiceRequest):
     DBInstanceIdentifier: String
     LogFileName: String
-    Marker: Optional[String]
-    NumberOfLines: Optional[Integer]
+    Marker: String | None
+    NumberOfLines: Integer | None
 
 
 class EnableHttpEndpointRequest(ServiceRequest):
@@ -5143,8 +5259,8 @@ class EnableHttpEndpointRequest(ServiceRequest):
 
 
 class EnableHttpEndpointResponse(TypedDict, total=False):
-    ResourceArn: Optional[String]
-    HttpEndpointEnabled: Optional[Boolean]
+    ResourceArn: String | None
+    HttpEndpointEnabled: Boolean | None
 
 
 class Event(TypedDict, total=False):
@@ -5153,12 +5269,12 @@ class Event(TypedDict, total=False):
     action.
     """
 
-    SourceIdentifier: Optional[String]
-    SourceType: Optional[SourceType]
-    Message: Optional[String]
-    EventCategories: Optional[EventCategoriesList]
-    Date: Optional[TStamp]
-    SourceArn: Optional[String]
+    SourceIdentifier: String | None
+    SourceType: SourceType | None
+    Message: String | None
+    EventCategories: EventCategoriesList | None
+    Date: TStamp | None
+    SourceArn: String | None
 
 
 class EventCategoriesMap(TypedDict, total=False):
@@ -5167,28 +5283,28 @@ class EventCategoriesMap(TypedDict, total=False):
     operation.
     """
 
-    SourceType: Optional[String]
-    EventCategories: Optional[EventCategoriesList]
+    SourceType: String | None
+    EventCategories: EventCategoriesList | None
 
 
-EventCategoriesMapList = List[EventCategoriesMap]
+EventCategoriesMapList = list[EventCategoriesMap]
 
 
 class EventCategoriesMessage(TypedDict, total=False):
     """Data returned from the ``DescribeEventCategories`` operation."""
 
-    EventCategoriesMapList: Optional[EventCategoriesMapList]
+    EventCategoriesMapList: EventCategoriesMapList | None
 
 
-EventList = List[Event]
-EventSubscriptionsList = List[EventSubscription]
+EventList = list[Event]
+EventSubscriptionsList = list[EventSubscription]
 
 
 class EventSubscriptionsMessage(TypedDict, total=False):
     """Data returned by the **DescribeEventSubscriptions** action."""
 
-    Marker: Optional[String]
-    EventSubscriptionsList: Optional[EventSubscriptionsList]
+    Marker: String | None
+    EventSubscriptionsList: EventSubscriptionsList | None
 
 
 class EventsMessage(TypedDict, total=False):
@@ -5196,8 +5312,8 @@ class EventsMessage(TypedDict, total=False):
     action.
     """
 
-    Marker: Optional[String]
-    Events: Optional[EventList]
+    Marker: String | None
+    Events: EventList | None
 
 
 class ExportTask(TypedDict, total=False):
@@ -5207,66 +5323,66 @@ class ExportTask(TypedDict, total=False):
     ``DescribeExportTasks`` operation.
     """
 
-    ExportTaskIdentifier: Optional[String]
-    SourceArn: Optional[String]
-    ExportOnly: Optional[StringList]
-    SnapshotTime: Optional[TStamp]
-    TaskStartTime: Optional[TStamp]
-    TaskEndTime: Optional[TStamp]
-    S3Bucket: Optional[String]
-    S3Prefix: Optional[String]
-    IamRoleArn: Optional[String]
-    KmsKeyId: Optional[String]
-    Status: Optional[String]
-    PercentProgress: Optional[Integer]
-    TotalExtractedDataInGB: Optional[Integer]
-    FailureCause: Optional[String]
-    WarningMessage: Optional[String]
-    SourceType: Optional[ExportSourceType]
+    ExportTaskIdentifier: String | None
+    SourceArn: String | None
+    ExportOnly: StringList | None
+    SnapshotTime: TStamp | None
+    TaskStartTime: TStamp | None
+    TaskEndTime: TStamp | None
+    S3Bucket: String | None
+    S3Prefix: String | None
+    IamRoleArn: String | None
+    KmsKeyId: String | None
+    Status: String | None
+    PercentProgress: Integer | None
+    TotalExtractedDataInGB: Integer | None
+    FailureCause: String | None
+    WarningMessage: String | None
+    SourceType: ExportSourceType | None
 
 
-ExportTasksList = List[ExportTask]
+ExportTasksList = list[ExportTask]
 
 
 class ExportTasksMessage(TypedDict, total=False):
-    Marker: Optional[String]
-    ExportTasks: Optional[ExportTasksList]
+    Marker: String | None
+    ExportTasks: ExportTasksList | None
 
 
 class FailoverDBClusterMessage(ServiceRequest):
     DBClusterIdentifier: String
-    TargetDBInstanceIdentifier: Optional[String]
+    TargetDBInstanceIdentifier: String | None
 
 
 class FailoverDBClusterResult(TypedDict, total=False):
-    DBCluster: Optional[DBCluster]
+    DBCluster: DBCluster | None
 
 
 class FailoverGlobalClusterMessage(ServiceRequest):
     GlobalClusterIdentifier: GlobalClusterIdentifier
     TargetDbClusterIdentifier: DBClusterIdentifier
-    AllowDataLoss: Optional[BooleanOptional]
-    Switchover: Optional[BooleanOptional]
+    AllowDataLoss: BooleanOptional | None
+    Switchover: BooleanOptional | None
 
 
 class FailoverGlobalClusterResult(TypedDict, total=False):
-    GlobalCluster: Optional[GlobalCluster]
+    GlobalCluster: GlobalCluster | None
 
 
-GlobalClusterList = List[GlobalCluster]
+GlobalClusterList = list[GlobalCluster]
 
 
 class GlobalClustersMessage(TypedDict, total=False):
-    Marker: Optional[String]
-    GlobalClusters: Optional[GlobalClusterList]
+    Marker: String | None
+    GlobalClusters: GlobalClusterList | None
 
 
-KeyList = List[String]
+KeyList = list[String]
 
 
 class ListTagsForResourceMessage(ServiceRequest):
     ResourceName: String
-    Filters: Optional[FilterList]
+    Filters: FilterList | None
 
 
 class MinimumEngineVersionPerAllowedValue(TypedDict, total=False):
@@ -5274,105 +5390,120 @@ class MinimumEngineVersionPerAllowedValue(TypedDict, total=False):
     value for an option setting.
     """
 
-    AllowedValue: Optional[String]
-    MinimumEngineVersion: Optional[String]
+    AllowedValue: String | None
+    MinimumEngineVersion: String | None
 
 
-MinimumEngineVersionPerAllowedValueList = List[MinimumEngineVersionPerAllowedValue]
+MinimumEngineVersionPerAllowedValueList = list[MinimumEngineVersionPerAllowedValue]
 
 
 class ModifyActivityStreamRequest(ServiceRequest):
-    ResourceArn: Optional[String]
-    AuditPolicyState: Optional[AuditPolicyState]
+    ResourceArn: String | None
+    AuditPolicyState: AuditPolicyState | None
 
 
 class ModifyActivityStreamResponse(TypedDict, total=False):
-    KmsKeyId: Optional[String]
-    KinesisStreamName: Optional[String]
-    Status: Optional[ActivityStreamStatus]
-    Mode: Optional[ActivityStreamMode]
-    EngineNativeAuditFieldsIncluded: Optional[BooleanOptional]
-    PolicyStatus: Optional[ActivityStreamPolicyStatus]
+    KmsKeyId: String | None
+    KinesisStreamName: String | None
+    Status: ActivityStreamStatus | None
+    Mode: ActivityStreamMode | None
+    EngineNativeAuditFieldsIncluded: BooleanOptional | None
+    PolicyStatus: ActivityStreamPolicyStatus | None
+
+
+class ModifyAdditionalStorageVolume(TypedDict, total=False):
+    """Contains details about the modification of an additional storage volume."""
+
+    VolumeName: String
+    AllocatedStorage: IntegerOptional | None
+    IOPS: IntegerOptional | None
+    MaxAllocatedStorage: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    StorageType: String | None
+    SetForDelete: BooleanOptional | None
+
+
+ModifyAdditionalStorageVolumesList = list[ModifyAdditionalStorageVolume]
 
 
 class ModifyCertificatesMessage(ServiceRequest):
-    CertificateIdentifier: Optional[String]
-    RemoveCustomerOverride: Optional[BooleanOptional]
+    CertificateIdentifier: String | None
+    RemoveCustomerOverride: BooleanOptional | None
 
 
 class ModifyCertificatesResult(TypedDict, total=False):
-    Certificate: Optional[Certificate]
+    Certificate: Certificate | None
 
 
 class ModifyCurrentDBClusterCapacityMessage(ServiceRequest):
     DBClusterIdentifier: String
-    Capacity: Optional[IntegerOptional]
-    SecondsBeforeTimeout: Optional[IntegerOptional]
-    TimeoutAction: Optional[String]
+    Capacity: IntegerOptional | None
+    SecondsBeforeTimeout: IntegerOptional | None
+    TimeoutAction: String | None
 
 
 class ModifyCustomDBEngineVersionMessage(ServiceRequest):
     Engine: CustomEngineName
     EngineVersion: CustomEngineVersion
-    Description: Optional[Description]
-    Status: Optional[CustomEngineVersionStatus]
+    Description: Description | None
+    Status: CustomEngineVersionStatus | None
 
 
 class ModifyDBClusterEndpointMessage(ServiceRequest):
     DBClusterEndpointIdentifier: String
-    EndpointType: Optional[String]
-    StaticMembers: Optional[StringList]
-    ExcludedMembers: Optional[StringList]
+    EndpointType: String | None
+    StaticMembers: StringList | None
+    ExcludedMembers: StringList | None
 
 
 class ModifyDBClusterMessage(ServiceRequest):
     DBClusterIdentifier: String
-    NewDBClusterIdentifier: Optional[String]
-    ApplyImmediately: Optional[Boolean]
-    BackupRetentionPeriod: Optional[IntegerOptional]
-    DBClusterParameterGroupName: Optional[String]
-    VpcSecurityGroupIds: Optional[VpcSecurityGroupIdList]
-    Port: Optional[IntegerOptional]
-    MasterUserPassword: Optional[String]
-    OptionGroupName: Optional[String]
-    PreferredBackupWindow: Optional[String]
-    PreferredMaintenanceWindow: Optional[String]
-    EnableIAMDatabaseAuthentication: Optional[BooleanOptional]
-    BacktrackWindow: Optional[LongOptional]
-    CloudwatchLogsExportConfiguration: Optional[CloudwatchLogsExportConfiguration]
-    EngineVersion: Optional[String]
-    AllowMajorVersionUpgrade: Optional[Boolean]
-    DBInstanceParameterGroupName: Optional[String]
-    Domain: Optional[String]
-    DomainIAMRoleName: Optional[String]
-    ScalingConfiguration: Optional[ScalingConfiguration]
-    DeletionProtection: Optional[BooleanOptional]
-    EnableHttpEndpoint: Optional[BooleanOptional]
-    CopyTagsToSnapshot: Optional[BooleanOptional]
-    EnableGlobalWriteForwarding: Optional[BooleanOptional]
-    DBClusterInstanceClass: Optional[String]
-    AllocatedStorage: Optional[IntegerOptional]
-    StorageType: Optional[String]
-    Iops: Optional[IntegerOptional]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    MonitoringInterval: Optional[IntegerOptional]
-    MonitoringRoleArn: Optional[String]
-    DatabaseInsightsMode: Optional[DatabaseInsightsMode]
-    EnablePerformanceInsights: Optional[BooleanOptional]
-    PerformanceInsightsKMSKeyId: Optional[String]
-    PerformanceInsightsRetentionPeriod: Optional[IntegerOptional]
-    ServerlessV2ScalingConfiguration: Optional[ServerlessV2ScalingConfiguration]
-    NetworkType: Optional[String]
-    ManageMasterUserPassword: Optional[BooleanOptional]
-    RotateMasterUserPassword: Optional[BooleanOptional]
-    MasterUserSecretKmsKeyId: Optional[String]
-    EngineMode: Optional[String]
-    AllowEngineModeChange: Optional[Boolean]
-    EnableLocalWriteForwarding: Optional[BooleanOptional]
-    AwsBackupRecoveryPointArn: Optional[AwsBackupRecoveryPointArn]
-    EnableLimitlessDatabase: Optional[BooleanOptional]
-    CACertificateIdentifier: Optional[String]
-    MasterUserAuthenticationType: Optional[MasterUserAuthenticationType]
+    NewDBClusterIdentifier: String | None
+    ApplyImmediately: Boolean | None
+    BackupRetentionPeriod: IntegerOptional | None
+    DBClusterParameterGroupName: String | None
+    VpcSecurityGroupIds: VpcSecurityGroupIdList | None
+    Port: IntegerOptional | None
+    MasterUserPassword: SensitiveString | None
+    OptionGroupName: String | None
+    PreferredBackupWindow: String | None
+    PreferredMaintenanceWindow: String | None
+    EnableIAMDatabaseAuthentication: BooleanOptional | None
+    BacktrackWindow: LongOptional | None
+    CloudwatchLogsExportConfiguration: CloudwatchLogsExportConfiguration | None
+    EngineVersion: String | None
+    AllowMajorVersionUpgrade: Boolean | None
+    DBInstanceParameterGroupName: String | None
+    Domain: String | None
+    DomainIAMRoleName: String | None
+    ScalingConfiguration: ScalingConfiguration | None
+    DeletionProtection: BooleanOptional | None
+    EnableHttpEndpoint: BooleanOptional | None
+    CopyTagsToSnapshot: BooleanOptional | None
+    EnableGlobalWriteForwarding: BooleanOptional | None
+    DBClusterInstanceClass: String | None
+    AllocatedStorage: IntegerOptional | None
+    StorageType: String | None
+    Iops: IntegerOptional | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    NetworkType: String | None
+    ServerlessV2ScalingConfiguration: ServerlessV2ScalingConfiguration | None
+    MonitoringInterval: IntegerOptional | None
+    MonitoringRoleArn: String | None
+    DatabaseInsightsMode: DatabaseInsightsMode | None
+    EnablePerformanceInsights: BooleanOptional | None
+    PerformanceInsightsKMSKeyId: String | None
+    PerformanceInsightsRetentionPeriod: IntegerOptional | None
+    ManageMasterUserPassword: BooleanOptional | None
+    RotateMasterUserPassword: BooleanOptional | None
+    EnableLocalWriteForwarding: BooleanOptional | None
+    MasterUserSecretKmsKeyId: String | None
+    EngineMode: String | None
+    AllowEngineModeChange: Boolean | None
+    AwsBackupRecoveryPointArn: AwsBackupRecoveryPointArn | None
+    EnableLimitlessDatabase: BooleanOptional | None
+    CACertificateIdentifier: String | None
+    MasterUserAuthenticationType: MasterUserAuthenticationType | None
 
 
 class ModifyDBClusterParameterGroupMessage(ServiceRequest):
@@ -5381,87 +5512,88 @@ class ModifyDBClusterParameterGroupMessage(ServiceRequest):
 
 
 class ModifyDBClusterResult(TypedDict, total=False):
-    DBCluster: Optional[DBCluster]
+    DBCluster: DBCluster | None
 
 
 class ModifyDBClusterSnapshotAttributeMessage(ServiceRequest):
     DBClusterSnapshotIdentifier: String
     AttributeName: String
-    ValuesToAdd: Optional[AttributeValueList]
-    ValuesToRemove: Optional[AttributeValueList]
+    ValuesToAdd: AttributeValueList | None
+    ValuesToRemove: AttributeValueList | None
 
 
 class ModifyDBClusterSnapshotAttributeResult(TypedDict, total=False):
-    DBClusterSnapshotAttributesResult: Optional[DBClusterSnapshotAttributesResult]
+    DBClusterSnapshotAttributesResult: DBClusterSnapshotAttributesResult | None
 
 
 class ModifyDBInstanceMessage(ServiceRequest):
     DBInstanceIdentifier: String
-    AllocatedStorage: Optional[IntegerOptional]
-    DBInstanceClass: Optional[String]
-    DBSubnetGroupName: Optional[String]
-    DBSecurityGroups: Optional[DBSecurityGroupNameList]
-    VpcSecurityGroupIds: Optional[VpcSecurityGroupIdList]
-    ApplyImmediately: Optional[Boolean]
-    MasterUserPassword: Optional[String]
-    DBParameterGroupName: Optional[String]
-    BackupRetentionPeriod: Optional[IntegerOptional]
-    PreferredBackupWindow: Optional[String]
-    PreferredMaintenanceWindow: Optional[String]
-    MultiAZ: Optional[BooleanOptional]
-    EngineVersion: Optional[String]
-    AllowMajorVersionUpgrade: Optional[Boolean]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    LicenseModel: Optional[String]
-    Iops: Optional[IntegerOptional]
-    OptionGroupName: Optional[String]
-    NewDBInstanceIdentifier: Optional[String]
-    StorageType: Optional[String]
-    TdeCredentialArn: Optional[String]
-    TdeCredentialPassword: Optional[String]
-    CACertificateIdentifier: Optional[String]
-    Domain: Optional[String]
-    DomainFqdn: Optional[String]
-    DomainOu: Optional[String]
-    DomainAuthSecretArn: Optional[String]
-    DomainDnsIps: Optional[StringList]
-    CopyTagsToSnapshot: Optional[BooleanOptional]
-    MonitoringInterval: Optional[IntegerOptional]
-    DBPortNumber: Optional[IntegerOptional]
-    PubliclyAccessible: Optional[BooleanOptional]
-    MonitoringRoleArn: Optional[String]
-    DomainIAMRoleName: Optional[String]
-    DisableDomain: Optional[BooleanOptional]
-    PromotionTier: Optional[IntegerOptional]
-    EnableIAMDatabaseAuthentication: Optional[BooleanOptional]
-    DatabaseInsightsMode: Optional[DatabaseInsightsMode]
-    EnablePerformanceInsights: Optional[BooleanOptional]
-    PerformanceInsightsKMSKeyId: Optional[String]
-    PerformanceInsightsRetentionPeriod: Optional[IntegerOptional]
-    CloudwatchLogsExportConfiguration: Optional[CloudwatchLogsExportConfiguration]
-    ProcessorFeatures: Optional[ProcessorFeatureList]
-    UseDefaultProcessorFeatures: Optional[BooleanOptional]
-    DeletionProtection: Optional[BooleanOptional]
-    MaxAllocatedStorage: Optional[IntegerOptional]
-    CertificateRotationRestart: Optional[BooleanOptional]
-    ReplicaMode: Optional[ReplicaMode]
-    EnableCustomerOwnedIp: Optional[BooleanOptional]
-    AwsBackupRecoveryPointArn: Optional[AwsBackupRecoveryPointArn]
-    AutomationMode: Optional[AutomationMode]
-    ResumeFullAutomationModeMinutes: Optional[IntegerOptional]
-    NetworkType: Optional[String]
-    StorageThroughput: Optional[IntegerOptional]
-    ManageMasterUserPassword: Optional[BooleanOptional]
-    RotateMasterUserPassword: Optional[BooleanOptional]
-    MasterUserSecretKmsKeyId: Optional[String]
-    Engine: Optional[String]
-    DedicatedLogVolume: Optional[BooleanOptional]
-    MultiTenant: Optional[BooleanOptional]
-    MasterUserAuthenticationType: Optional[MasterUserAuthenticationType]
+    AllocatedStorage: IntegerOptional | None
+    DBInstanceClass: String | None
+    DBSubnetGroupName: String | None
+    DBSecurityGroups: DBSecurityGroupNameList | None
+    VpcSecurityGroupIds: VpcSecurityGroupIdList | None
+    ApplyImmediately: Boolean | None
+    MasterUserPassword: SensitiveString | None
+    DBParameterGroupName: String | None
+    BackupRetentionPeriod: IntegerOptional | None
+    PreferredBackupWindow: String | None
+    PreferredMaintenanceWindow: String | None
+    MultiAZ: BooleanOptional | None
+    EngineVersion: String | None
+    AllowMajorVersionUpgrade: Boolean | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    LicenseModel: String | None
+    Iops: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    OptionGroupName: String | None
+    NewDBInstanceIdentifier: String | None
+    StorageType: String | None
+    TdeCredentialArn: String | None
+    TdeCredentialPassword: SensitiveString | None
+    CACertificateIdentifier: String | None
+    Domain: String | None
+    DomainFqdn: String | None
+    DomainOu: String | None
+    DomainAuthSecretArn: String | None
+    DomainDnsIps: StringList | None
+    DisableDomain: BooleanOptional | None
+    CopyTagsToSnapshot: BooleanOptional | None
+    MonitoringInterval: IntegerOptional | None
+    DBPortNumber: IntegerOptional | None
+    PubliclyAccessible: BooleanOptional | None
+    MonitoringRoleArn: String | None
+    DomainIAMRoleName: String | None
+    PromotionTier: IntegerOptional | None
+    EnableIAMDatabaseAuthentication: BooleanOptional | None
+    DatabaseInsightsMode: DatabaseInsightsMode | None
+    EnablePerformanceInsights: BooleanOptional | None
+    PerformanceInsightsKMSKeyId: String | None
+    PerformanceInsightsRetentionPeriod: IntegerOptional | None
+    CloudwatchLogsExportConfiguration: CloudwatchLogsExportConfiguration | None
+    ProcessorFeatures: ProcessorFeatureList | None
+    UseDefaultProcessorFeatures: BooleanOptional | None
+    DeletionProtection: BooleanOptional | None
+    MaxAllocatedStorage: IntegerOptional | None
+    CertificateRotationRestart: BooleanOptional | None
+    ReplicaMode: ReplicaMode | None
+    AutomationMode: AutomationMode | None
+    ResumeFullAutomationModeMinutes: IntegerOptional | None
+    EnableCustomerOwnedIp: BooleanOptional | None
+    NetworkType: String | None
+    AwsBackupRecoveryPointArn: AwsBackupRecoveryPointArn | None
+    ManageMasterUserPassword: BooleanOptional | None
+    RotateMasterUserPassword: BooleanOptional | None
+    MasterUserSecretKmsKeyId: String | None
+    MultiTenant: BooleanOptional | None
+    DedicatedLogVolume: BooleanOptional | None
+    Engine: String | None
+    MasterUserAuthenticationType: MasterUserAuthenticationType | None
+    AdditionalStorageVolumes: ModifyAdditionalStorageVolumesList | None
 
 
 class ModifyDBInstanceResult(TypedDict, total=False):
-    DBInstance: Optional[DBInstance]
+    DBInstance: DBInstance | None
 
 
 class ModifyDBParameterGroupMessage(ServiceRequest):
@@ -5471,39 +5603,39 @@ class ModifyDBParameterGroupMessage(ServiceRequest):
 
 class ModifyDBProxyEndpointRequest(ServiceRequest):
     DBProxyEndpointName: DBProxyEndpointName
-    NewDBProxyEndpointName: Optional[DBProxyEndpointName]
-    VpcSecurityGroupIds: Optional[StringList]
+    NewDBProxyEndpointName: DBProxyEndpointName | None
+    VpcSecurityGroupIds: StringList | None
 
 
 class ModifyDBProxyEndpointResponse(TypedDict, total=False):
-    DBProxyEndpoint: Optional[DBProxyEndpoint]
+    DBProxyEndpoint: DBProxyEndpoint | None
 
 
 class ModifyDBProxyRequest(ServiceRequest):
-    DBProxyName: String
-    NewDBProxyName: Optional[String]
-    DefaultAuthScheme: Optional[DefaultAuthScheme]
-    Auth: Optional[UserAuthConfigList]
-    RequireTLS: Optional[BooleanOptional]
-    IdleClientTimeout: Optional[IntegerOptional]
-    DebugLogging: Optional[BooleanOptional]
-    RoleArn: Optional[String]
-    SecurityGroups: Optional[StringList]
+    DBProxyName: DBProxyName
+    NewDBProxyName: DBProxyName | None
+    DefaultAuthScheme: DefaultAuthScheme | None
+    Auth: UserAuthConfigList | None
+    RequireTLS: BooleanOptional | None
+    IdleClientTimeout: IntegerOptional | None
+    DebugLogging: BooleanOptional | None
+    RoleArn: Arn | None
+    SecurityGroups: StringList | None
 
 
 class ModifyDBProxyResponse(TypedDict, total=False):
-    DBProxy: Optional[DBProxy]
+    DBProxy: DBProxy | None
 
 
 class ModifyDBProxyTargetGroupRequest(ServiceRequest):
-    TargetGroupName: String
-    DBProxyName: String
-    ConnectionPoolConfig: Optional[ConnectionPoolConfiguration]
-    NewName: Optional[String]
+    TargetGroupName: DBProxyTargetGroupName
+    DBProxyName: DBProxyName
+    ConnectionPoolConfig: ConnectionPoolConfiguration | None
+    NewName: String | None
 
 
 class ModifyDBProxyTargetGroupResponse(TypedDict, total=False):
-    DBProxyTargetGroup: Optional[DBProxyTargetGroup]
+    DBProxyTargetGroup: DBProxyTargetGroup | None
 
 
 class RecommendedActionUpdate(TypedDict, total=False):
@@ -5515,126 +5647,126 @@ class RecommendedActionUpdate(TypedDict, total=False):
     Status: String
 
 
-RecommendedActionUpdateList = List[RecommendedActionUpdate]
+RecommendedActionUpdateList = list[RecommendedActionUpdate]
 
 
 class ModifyDBRecommendationMessage(ServiceRequest):
     RecommendationId: String
-    Locale: Optional[String]
-    Status: Optional[String]
-    RecommendedActionUpdates: Optional[RecommendedActionUpdateList]
+    Locale: String | None
+    Status: String | None
+    RecommendedActionUpdates: RecommendedActionUpdateList | None
 
 
 class ModifyDBShardGroupMessage(ServiceRequest):
     DBShardGroupIdentifier: DBShardGroupIdentifier
-    MaxACU: Optional[DoubleOptional]
-    MinACU: Optional[DoubleOptional]
-    ComputeRedundancy: Optional[IntegerOptional]
+    MaxACU: DoubleOptional | None
+    MinACU: DoubleOptional | None
+    ComputeRedundancy: IntegerOptional | None
 
 
 class ModifyDBSnapshotAttributeMessage(ServiceRequest):
     DBSnapshotIdentifier: String
     AttributeName: String
-    ValuesToAdd: Optional[AttributeValueList]
-    ValuesToRemove: Optional[AttributeValueList]
+    ValuesToAdd: AttributeValueList | None
+    ValuesToRemove: AttributeValueList | None
 
 
 class ModifyDBSnapshotAttributeResult(TypedDict, total=False):
-    DBSnapshotAttributesResult: Optional[DBSnapshotAttributesResult]
+    DBSnapshotAttributesResult: DBSnapshotAttributesResult | None
 
 
 class ModifyDBSnapshotMessage(ServiceRequest):
     DBSnapshotIdentifier: String
-    EngineVersion: Optional[String]
-    OptionGroupName: Optional[String]
+    EngineVersion: String | None
+    OptionGroupName: String | None
 
 
 class ModifyDBSnapshotResult(TypedDict, total=False):
-    DBSnapshot: Optional[DBSnapshot]
+    DBSnapshot: DBSnapshot | None
 
 
 class ModifyDBSubnetGroupMessage(ServiceRequest):
     DBSubnetGroupName: String
-    DBSubnetGroupDescription: Optional[String]
+    DBSubnetGroupDescription: String | None
     SubnetIds: SubnetIdentifierList
 
 
 class ModifyDBSubnetGroupResult(TypedDict, total=False):
-    DBSubnetGroup: Optional[DBSubnetGroup]
+    DBSubnetGroup: DBSubnetGroup | None
 
 
 class ModifyEventSubscriptionMessage(ServiceRequest):
     SubscriptionName: String
-    SnsTopicArn: Optional[String]
-    SourceType: Optional[String]
-    EventCategories: Optional[EventCategoriesList]
-    Enabled: Optional[BooleanOptional]
+    SnsTopicArn: String | None
+    SourceType: String | None
+    EventCategories: EventCategoriesList | None
+    Enabled: BooleanOptional | None
 
 
 class ModifyEventSubscriptionResult(TypedDict, total=False):
-    EventSubscription: Optional[EventSubscription]
+    EventSubscription: EventSubscription | None
 
 
 class ModifyGlobalClusterMessage(ServiceRequest):
-    GlobalClusterIdentifier: Optional[String]
-    NewGlobalClusterIdentifier: Optional[String]
-    DeletionProtection: Optional[BooleanOptional]
-    EngineVersion: Optional[String]
-    AllowMajorVersionUpgrade: Optional[BooleanOptional]
+    GlobalClusterIdentifier: GlobalClusterIdentifier
+    NewGlobalClusterIdentifier: GlobalClusterIdentifier | None
+    DeletionProtection: BooleanOptional | None
+    EngineVersion: String | None
+    AllowMajorVersionUpgrade: BooleanOptional | None
 
 
 class ModifyGlobalClusterResult(TypedDict, total=False):
-    GlobalCluster: Optional[GlobalCluster]
+    GlobalCluster: GlobalCluster | None
 
 
 class ModifyIntegrationMessage(ServiceRequest):
     IntegrationIdentifier: IntegrationIdentifier
-    IntegrationName: Optional[IntegrationName]
-    DataFilter: Optional[DataFilter]
-    Description: Optional[IntegrationDescription]
+    IntegrationName: IntegrationName | None
+    DataFilter: DataFilter | None
+    Description: IntegrationDescription | None
 
 
-OptionNamesList = List[String]
-OptionSettingsList = List[OptionSetting]
+OptionNamesList = list[String]
+OptionSettingsList = list[OptionSetting]
 
 
 class OptionConfiguration(TypedDict, total=False):
     """A list of all available options for an option group."""
 
     OptionName: String
-    Port: Optional[IntegerOptional]
-    OptionVersion: Optional[String]
-    DBSecurityGroupMemberships: Optional[DBSecurityGroupNameList]
-    VpcSecurityGroupMemberships: Optional[VpcSecurityGroupIdList]
-    OptionSettings: Optional[OptionSettingsList]
+    Port: IntegerOptional | None
+    OptionVersion: String | None
+    DBSecurityGroupMemberships: DBSecurityGroupNameList | None
+    VpcSecurityGroupMemberships: VpcSecurityGroupIdList | None
+    OptionSettings: OptionSettingsList | None
 
 
-OptionConfigurationList = List[OptionConfiguration]
+OptionConfigurationList = list[OptionConfiguration]
 
 
 class ModifyOptionGroupMessage(ServiceRequest):
     OptionGroupName: String
-    OptionsToInclude: Optional[OptionConfigurationList]
-    OptionsToRemove: Optional[OptionNamesList]
-    ApplyImmediately: Optional[Boolean]
+    OptionsToInclude: OptionConfigurationList | None
+    OptionsToRemove: OptionNamesList | None
+    ApplyImmediately: Boolean | None
 
 
 class ModifyOptionGroupResult(TypedDict, total=False):
-    OptionGroup: Optional[OptionGroup]
+    OptionGroup: OptionGroup | None
 
 
 class ModifyTenantDatabaseMessage(ServiceRequest):
     DBInstanceIdentifier: String
     TenantDBName: String
-    MasterUserPassword: Optional[SensitiveString]
-    NewTenantDBName: Optional[String]
-    ManageMasterUserPassword: Optional[BooleanOptional]
-    RotateMasterUserPassword: Optional[BooleanOptional]
-    MasterUserSecretKmsKeyId: Optional[String]
+    MasterUserPassword: SensitiveString | None
+    NewTenantDBName: String | None
+    ManageMasterUserPassword: BooleanOptional | None
+    RotateMasterUserPassword: BooleanOptional | None
+    MasterUserSecretKmsKeyId: String | None
 
 
 class ModifyTenantDatabaseResult(TypedDict, total=False):
-    TenantDatabase: Optional[TenantDatabase]
+    TenantDatabase: TenantDatabase | None
 
 
 class OptionVersion(TypedDict, total=False):
@@ -5642,11 +5774,11 @@ class OptionVersion(TypedDict, total=False):
     the ``DescribeOptionGroupOptions`` action.
     """
 
-    Version: Optional[String]
-    IsDefault: Optional[Boolean]
+    Version: String | None
+    IsDefault: Boolean | None
 
 
-OptionGroupOptionVersionsList = List[OptionVersion]
+OptionGroupOptionVersionsList = list[OptionVersion]
 
 
 class OptionGroupOptionSetting(TypedDict, total=False):
@@ -5655,59 +5787,59 @@ class OptionGroupOptionSetting(TypedDict, total=False):
     values are used with the DescribeOptionGroupOptions action.
     """
 
-    SettingName: Optional[String]
-    SettingDescription: Optional[String]
-    DefaultValue: Optional[String]
-    ApplyType: Optional[String]
-    AllowedValues: Optional[String]
-    IsModifiable: Optional[Boolean]
-    IsRequired: Optional[Boolean]
-    MinimumEngineVersionPerAllowedValue: Optional[MinimumEngineVersionPerAllowedValueList]
+    SettingName: String | None
+    SettingDescription: String | None
+    DefaultValue: String | None
+    ApplyType: String | None
+    AllowedValues: String | None
+    IsModifiable: Boolean | None
+    IsRequired: Boolean | None
+    MinimumEngineVersionPerAllowedValue: MinimumEngineVersionPerAllowedValueList | None
 
 
-OptionGroupOptionSettingsList = List[OptionGroupOptionSetting]
-OptionsConflictsWith = List[String]
-OptionsDependedOn = List[String]
+OptionGroupOptionSettingsList = list[OptionGroupOptionSetting]
+OptionsConflictsWith = list[String]
+OptionsDependedOn = list[String]
 
 
 class OptionGroupOption(TypedDict, total=False):
     """Available option."""
 
-    Name: Optional[String]
-    Description: Optional[String]
-    EngineName: Optional[String]
-    MajorEngineVersion: Optional[String]
-    MinimumRequiredMinorEngineVersion: Optional[String]
-    PortRequired: Optional[Boolean]
-    DefaultPort: Optional[IntegerOptional]
-    OptionsDependedOn: Optional[OptionsDependedOn]
-    OptionsConflictsWith: Optional[OptionsConflictsWith]
-    Persistent: Optional[Boolean]
-    Permanent: Optional[Boolean]
-    RequiresAutoMinorEngineVersionUpgrade: Optional[Boolean]
-    VpcOnly: Optional[Boolean]
-    SupportsOptionVersionDowngrade: Optional[BooleanOptional]
-    OptionGroupOptionSettings: Optional[OptionGroupOptionSettingsList]
-    OptionGroupOptionVersions: Optional[OptionGroupOptionVersionsList]
-    CopyableCrossAccount: Optional[BooleanOptional]
+    Name: String | None
+    Description: String | None
+    EngineName: String | None
+    MajorEngineVersion: String | None
+    MinimumRequiredMinorEngineVersion: String | None
+    PortRequired: Boolean | None
+    DefaultPort: IntegerOptional | None
+    OptionsDependedOn: OptionsDependedOn | None
+    OptionsConflictsWith: OptionsConflictsWith | None
+    Persistent: Boolean | None
+    Permanent: Boolean | None
+    RequiresAutoMinorEngineVersionUpgrade: Boolean | None
+    VpcOnly: Boolean | None
+    SupportsOptionVersionDowngrade: BooleanOptional | None
+    OptionGroupOptionSettings: OptionGroupOptionSettingsList | None
+    OptionGroupOptionVersions: OptionGroupOptionVersionsList | None
+    CopyableCrossAccount: BooleanOptional | None
 
 
-OptionGroupOptionsList = List[OptionGroupOption]
+OptionGroupOptionsList = list[OptionGroupOption]
 
 
 class OptionGroupOptionsMessage(TypedDict, total=False):
-    OptionGroupOptions: Optional[OptionGroupOptionsList]
-    Marker: Optional[String]
+    OptionGroupOptions: OptionGroupOptionsList | None
+    Marker: String | None
 
 
-OptionGroupsList = List[OptionGroup]
+OptionGroupsList = list[OptionGroup]
 
 
 class OptionGroups(TypedDict, total=False):
     """List of option groups."""
 
-    OptionGroupsList: Optional[OptionGroupsList]
-    Marker: Optional[String]
+    OptionGroupsList: OptionGroupsList | None
+    Marker: String | None
 
 
 class OrderableDBInstanceOption(TypedDict, total=False):
@@ -5717,46 +5849,48 @@ class OrderableDBInstanceOption(TypedDict, total=False):
     ``DescribeOrderableDBInstanceOptions`` action.
     """
 
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    DBInstanceClass: Optional[String]
-    LicenseModel: Optional[String]
-    AvailabilityZoneGroup: Optional[String]
-    AvailabilityZones: Optional[AvailabilityZoneList]
-    MultiAZCapable: Optional[Boolean]
-    ReadReplicaCapable: Optional[Boolean]
-    Vpc: Optional[Boolean]
-    SupportsStorageEncryption: Optional[Boolean]
-    StorageType: Optional[String]
-    SupportsIops: Optional[Boolean]
-    SupportsEnhancedMonitoring: Optional[Boolean]
-    SupportsIAMDatabaseAuthentication: Optional[Boolean]
-    SupportsPerformanceInsights: Optional[Boolean]
-    MinStorageSize: Optional[IntegerOptional]
-    MaxStorageSize: Optional[IntegerOptional]
-    MinIopsPerDbInstance: Optional[IntegerOptional]
-    MaxIopsPerDbInstance: Optional[IntegerOptional]
-    MinIopsPerGib: Optional[DoubleOptional]
-    MaxIopsPerGib: Optional[DoubleOptional]
-    AvailableProcessorFeatures: Optional[AvailableProcessorFeatureList]
-    SupportedEngineModes: Optional[EngineModeList]
-    SupportsStorageAutoscaling: Optional[BooleanOptional]
-    SupportsKerberosAuthentication: Optional[BooleanOptional]
-    OutpostCapable: Optional[Boolean]
-    SupportedActivityStreamModes: Optional[ActivityStreamModeList]
-    SupportsGlobalDatabases: Optional[Boolean]
-    SupportsClusters: Optional[Boolean]
-    SupportedNetworkTypes: Optional[StringList]
-    SupportsStorageThroughput: Optional[Boolean]
-    MinStorageThroughputPerDbInstance: Optional[IntegerOptional]
-    MaxStorageThroughputPerDbInstance: Optional[IntegerOptional]
-    MinStorageThroughputPerIops: Optional[DoubleOptional]
-    MaxStorageThroughputPerIops: Optional[DoubleOptional]
-    SupportsDedicatedLogVolume: Optional[Boolean]
-    SupportsHttpEndpoint: Optional[Boolean]
+    Engine: String | None
+    EngineVersion: String | None
+    DBInstanceClass: String | None
+    LicenseModel: String | None
+    AvailabilityZoneGroup: String | None
+    AvailabilityZones: AvailabilityZoneList | None
+    MultiAZCapable: Boolean | None
+    ReadReplicaCapable: Boolean | None
+    Vpc: Boolean | None
+    SupportsStorageEncryption: Boolean | None
+    StorageType: String | None
+    SupportsIops: Boolean | None
+    SupportsStorageThroughput: Boolean | None
+    SupportsEnhancedMonitoring: Boolean | None
+    SupportsIAMDatabaseAuthentication: Boolean | None
+    SupportsPerformanceInsights: Boolean | None
+    MinStorageSize: IntegerOptional | None
+    MaxStorageSize: IntegerOptional | None
+    MinIopsPerDbInstance: IntegerOptional | None
+    MaxIopsPerDbInstance: IntegerOptional | None
+    MinIopsPerGib: DoubleOptional | None
+    MaxIopsPerGib: DoubleOptional | None
+    MinStorageThroughputPerDbInstance: IntegerOptional | None
+    MaxStorageThroughputPerDbInstance: IntegerOptional | None
+    MinStorageThroughputPerIops: DoubleOptional | None
+    MaxStorageThroughputPerIops: DoubleOptional | None
+    AvailableProcessorFeatures: AvailableProcessorFeatureList | None
+    SupportedEngineModes: EngineModeList | None
+    SupportsStorageAutoscaling: BooleanOptional | None
+    SupportsKerberosAuthentication: BooleanOptional | None
+    OutpostCapable: Boolean | None
+    SupportedActivityStreamModes: ActivityStreamModeList | None
+    SupportsGlobalDatabases: Boolean | None
+    SupportedNetworkTypes: StringList | None
+    SupportsClusters: Boolean | None
+    SupportsDedicatedLogVolume: Boolean | None
+    SupportsHttpEndpoint: Boolean | None
+    SupportsAdditionalStorageVolumes: BooleanOptional | None
+    AvailableAdditionalStorageVolumesOptions: AvailableAdditionalStorageVolumesOptionList | None
 
 
-OrderableDBInstanceOptionsList = List[OrderableDBInstanceOption]
+OrderableDBInstanceOptionsList = list[OrderableDBInstanceOption]
 
 
 class OrderableDBInstanceOptionsMessage(TypedDict, total=False):
@@ -5764,18 +5898,18 @@ class OrderableDBInstanceOptionsMessage(TypedDict, total=False):
     ``DescribeOrderableDBInstanceOptions`` action.
     """
 
-    OrderableDBInstanceOptions: Optional[OrderableDBInstanceOptionsList]
-    Marker: Optional[String]
+    OrderableDBInstanceOptions: OrderableDBInstanceOptionsList | None
+    Marker: String | None
 
 
-PendingMaintenanceActions = List[ResourcePendingMaintenanceActions]
+PendingMaintenanceActions = list[ResourcePendingMaintenanceActions]
 
 
 class PendingMaintenanceActionsMessage(TypedDict, total=False):
     """Data returned from the **DescribePendingMaintenanceActions** action."""
 
-    PendingMaintenanceActions: Optional[PendingMaintenanceActions]
-    Marker: Optional[String]
+    PendingMaintenanceActions: PendingMaintenanceActions | None
+    Marker: String | None
 
 
 class PromoteReadReplicaDBClusterMessage(ServiceRequest):
@@ -5783,24 +5917,24 @@ class PromoteReadReplicaDBClusterMessage(ServiceRequest):
 
 
 class PromoteReadReplicaDBClusterResult(TypedDict, total=False):
-    DBCluster: Optional[DBCluster]
+    DBCluster: DBCluster | None
 
 
 class PromoteReadReplicaMessage(ServiceRequest):
     DBInstanceIdentifier: String
-    BackupRetentionPeriod: Optional[IntegerOptional]
-    PreferredBackupWindow: Optional[String]
+    BackupRetentionPeriod: IntegerOptional | None
+    PreferredBackupWindow: String | None
 
 
 class PromoteReadReplicaResult(TypedDict, total=False):
-    DBInstance: Optional[DBInstance]
+    DBInstance: DBInstance | None
 
 
 class PurchaseReservedDBInstancesOfferingMessage(ServiceRequest):
     ReservedDBInstancesOfferingId: String
-    ReservedDBInstanceId: Optional[String]
-    DBInstanceCount: Optional[IntegerOptional]
-    Tags: Optional[TagList]
+    ReservedDBInstanceId: String | None
+    DBInstanceCount: IntegerOptional | None
+    Tags: TagList | None
 
 
 class RecurringCharge(TypedDict, total=False):
@@ -5809,11 +5943,11 @@ class RecurringCharge(TypedDict, total=False):
     ``DescribeReservedDBInstancesOfferings`` actions.
     """
 
-    RecurringChargeAmount: Optional[Double]
-    RecurringChargeFrequency: Optional[String]
+    RecurringChargeAmount: Double | None
+    RecurringChargeFrequency: String | None
 
 
-RecurringChargeList = List[RecurringCharge]
+RecurringChargeList = list[RecurringCharge]
 
 
 class ReservedDBInstance(TypedDict, total=False):
@@ -5822,26 +5956,26 @@ class ReservedDBInstance(TypedDict, total=False):
     ``PurchaseReservedDBInstancesOffering`` actions.
     """
 
-    ReservedDBInstanceId: Optional[String]
-    ReservedDBInstancesOfferingId: Optional[String]
-    DBInstanceClass: Optional[String]
-    StartTime: Optional[TStamp]
-    Duration: Optional[Integer]
-    FixedPrice: Optional[Double]
-    UsagePrice: Optional[Double]
-    CurrencyCode: Optional[String]
-    DBInstanceCount: Optional[Integer]
-    ProductDescription: Optional[String]
-    OfferingType: Optional[String]
-    MultiAZ: Optional[Boolean]
-    State: Optional[String]
-    RecurringCharges: Optional[RecurringChargeList]
-    ReservedDBInstanceArn: Optional[String]
-    LeaseId: Optional[String]
+    ReservedDBInstanceId: String | None
+    ReservedDBInstancesOfferingId: String | None
+    DBInstanceClass: String | None
+    StartTime: TStamp | None
+    Duration: Integer | None
+    FixedPrice: Double | None
+    UsagePrice: Double | None
+    CurrencyCode: String | None
+    DBInstanceCount: Integer | None
+    ProductDescription: String | None
+    OfferingType: String | None
+    MultiAZ: Boolean | None
+    State: String | None
+    RecurringCharges: RecurringChargeList | None
+    ReservedDBInstanceArn: String | None
+    LeaseId: String | None
 
 
 class PurchaseReservedDBInstancesOfferingResult(TypedDict, total=False):
-    ReservedDBInstance: Optional[ReservedDBInstance]
+    ReservedDBInstance: ReservedDBInstance | None
 
 
 class RebootDBClusterMessage(ServiceRequest):
@@ -5849,16 +5983,16 @@ class RebootDBClusterMessage(ServiceRequest):
 
 
 class RebootDBClusterResult(TypedDict, total=False):
-    DBCluster: Optional[DBCluster]
+    DBCluster: DBCluster | None
 
 
 class RebootDBInstanceMessage(ServiceRequest):
     DBInstanceIdentifier: String
-    ForceFailover: Optional[BooleanOptional]
+    ForceFailover: BooleanOptional | None
 
 
 class RebootDBInstanceResult(TypedDict, total=False):
-    DBInstance: Optional[DBInstance]
+    DBInstance: DBInstance | None
 
 
 class RebootDBShardGroupMessage(ServiceRequest):
@@ -5866,29 +6000,29 @@ class RebootDBShardGroupMessage(ServiceRequest):
 
 
 class RegisterDBProxyTargetsRequest(ServiceRequest):
-    DBProxyName: String
-    TargetGroupName: Optional[String]
-    DBInstanceIdentifiers: Optional[StringList]
-    DBClusterIdentifiers: Optional[StringList]
+    DBProxyName: DBProxyName
+    TargetGroupName: DBProxyTargetGroupName | None
+    DBInstanceIdentifiers: StringList | None
+    DBClusterIdentifiers: StringList | None
 
 
 class RegisterDBProxyTargetsResponse(TypedDict, total=False):
-    DBProxyTargets: Optional[TargetList]
+    DBProxyTargets: TargetList | None
 
 
 class RemoveFromGlobalClusterMessage(ServiceRequest):
-    GlobalClusterIdentifier: Optional[String]
-    DbClusterIdentifier: Optional[String]
+    GlobalClusterIdentifier: GlobalClusterIdentifier
+    DbClusterIdentifier: String
 
 
 class RemoveFromGlobalClusterResult(TypedDict, total=False):
-    GlobalCluster: Optional[GlobalCluster]
+    GlobalCluster: GlobalCluster | None
 
 
 class RemoveRoleFromDBClusterMessage(ServiceRequest):
     DBClusterIdentifier: String
     RoleArn: String
-    FeatureName: Optional[String]
+    FeatureName: String | None
 
 
 class RemoveRoleFromDBInstanceMessage(ServiceRequest):
@@ -5903,7 +6037,7 @@ class RemoveSourceIdentifierFromSubscriptionMessage(ServiceRequest):
 
 
 class RemoveSourceIdentifierFromSubscriptionResult(TypedDict, total=False):
-    EventSubscription: Optional[EventSubscription]
+    EventSubscription: EventSubscription | None
 
 
 class RemoveTagsFromResourceMessage(ServiceRequest):
@@ -5911,7 +6045,7 @@ class RemoveTagsFromResourceMessage(ServiceRequest):
     TagKeys: KeyList
 
 
-ReservedDBInstanceList = List[ReservedDBInstance]
+ReservedDBInstanceList = list[ReservedDBInstance]
 
 
 class ReservedDBInstanceMessage(TypedDict, total=False):
@@ -5919,8 +6053,8 @@ class ReservedDBInstanceMessage(TypedDict, total=False):
     ``DescribeReservedDBInstances`` action.
     """
 
-    Marker: Optional[String]
-    ReservedDBInstances: Optional[ReservedDBInstanceList]
+    Marker: String | None
+    ReservedDBInstances: ReservedDBInstanceList | None
 
 
 class ReservedDBInstancesOffering(TypedDict, total=False):
@@ -5928,19 +6062,19 @@ class ReservedDBInstancesOffering(TypedDict, total=False):
     ``DescribeReservedDBInstancesOfferings`` action.
     """
 
-    ReservedDBInstancesOfferingId: Optional[String]
-    DBInstanceClass: Optional[String]
-    Duration: Optional[Integer]
-    FixedPrice: Optional[Double]
-    UsagePrice: Optional[Double]
-    CurrencyCode: Optional[String]
-    ProductDescription: Optional[String]
-    OfferingType: Optional[String]
-    MultiAZ: Optional[Boolean]
-    RecurringCharges: Optional[RecurringChargeList]
+    ReservedDBInstancesOfferingId: String | None
+    DBInstanceClass: String | None
+    Duration: Integer | None
+    FixedPrice: Double | None
+    UsagePrice: Double | None
+    CurrencyCode: String | None
+    ProductDescription: String | None
+    OfferingType: String | None
+    MultiAZ: Boolean | None
+    RecurringCharges: RecurringChargeList | None
 
 
-ReservedDBInstancesOfferingList = List[ReservedDBInstancesOffering]
+ReservedDBInstancesOfferingList = list[ReservedDBInstancesOffering]
 
 
 class ReservedDBInstancesOfferingMessage(TypedDict, total=False):
@@ -5948,325 +6082,328 @@ class ReservedDBInstancesOfferingMessage(TypedDict, total=False):
     ``DescribeReservedDBInstancesOfferings`` action.
     """
 
-    Marker: Optional[String]
-    ReservedDBInstancesOfferings: Optional[ReservedDBInstancesOfferingList]
+    Marker: String | None
+    ReservedDBInstancesOfferings: ReservedDBInstancesOfferingList | None
 
 
 class ResetDBClusterParameterGroupMessage(ServiceRequest):
     DBClusterParameterGroupName: String
-    ResetAllParameters: Optional[Boolean]
-    Parameters: Optional[ParametersList]
+    ResetAllParameters: Boolean | None
+    Parameters: ParametersList | None
 
 
 class ResetDBParameterGroupMessage(ServiceRequest):
     DBParameterGroupName: String
-    ResetAllParameters: Optional[Boolean]
-    Parameters: Optional[ParametersList]
+    ResetAllParameters: Boolean | None
+    Parameters: ParametersList | None
 
 
 class RestoreDBClusterFromS3Message(ServiceRequest):
-    AvailabilityZones: Optional[AvailabilityZones]
-    BackupRetentionPeriod: Optional[IntegerOptional]
-    CharacterSetName: Optional[String]
-    DatabaseName: Optional[String]
+    AvailabilityZones: AvailabilityZones | None
+    BackupRetentionPeriod: IntegerOptional | None
+    CharacterSetName: String | None
+    DatabaseName: String | None
     DBClusterIdentifier: String
-    DBClusterParameterGroupName: Optional[String]
-    VpcSecurityGroupIds: Optional[VpcSecurityGroupIdList]
-    DBSubnetGroupName: Optional[String]
+    DBClusterParameterGroupName: String | None
+    VpcSecurityGroupIds: VpcSecurityGroupIdList | None
+    DBSubnetGroupName: String | None
     Engine: String
-    EngineVersion: Optional[String]
-    Port: Optional[IntegerOptional]
+    EngineVersion: String | None
+    Port: IntegerOptional | None
     MasterUsername: String
-    MasterUserPassword: Optional[String]
-    OptionGroupName: Optional[String]
-    PreferredBackupWindow: Optional[String]
-    PreferredMaintenanceWindow: Optional[String]
-    Tags: Optional[TagList]
-    StorageEncrypted: Optional[BooleanOptional]
-    KmsKeyId: Optional[String]
-    EnableIAMDatabaseAuthentication: Optional[BooleanOptional]
+    MasterUserPassword: SensitiveString | None
+    OptionGroupName: String | None
+    PreferredBackupWindow: String | None
+    PreferredMaintenanceWindow: String | None
+    Tags: TagList | None
+    StorageEncrypted: BooleanOptional | None
+    KmsKeyId: String | None
+    EnableIAMDatabaseAuthentication: BooleanOptional | None
     SourceEngine: String
     SourceEngineVersion: String
     S3BucketName: String
-    S3Prefix: Optional[String]
+    S3Prefix: String | None
     S3IngestionRoleArn: String
-    BacktrackWindow: Optional[LongOptional]
-    EnableCloudwatchLogsExports: Optional[LogTypeList]
-    DeletionProtection: Optional[BooleanOptional]
-    CopyTagsToSnapshot: Optional[BooleanOptional]
-    Domain: Optional[String]
-    DomainIAMRoleName: Optional[String]
-    ServerlessV2ScalingConfiguration: Optional[ServerlessV2ScalingConfiguration]
-    NetworkType: Optional[String]
-    ManageMasterUserPassword: Optional[BooleanOptional]
-    MasterUserSecretKmsKeyId: Optional[String]
-    StorageType: Optional[String]
-    EngineLifecycleSupport: Optional[String]
+    BacktrackWindow: LongOptional | None
+    EnableCloudwatchLogsExports: LogTypeList | None
+    DeletionProtection: BooleanOptional | None
+    CopyTagsToSnapshot: BooleanOptional | None
+    Domain: String | None
+    DomainIAMRoleName: String | None
+    StorageType: String | None
+    NetworkType: String | None
+    ServerlessV2ScalingConfiguration: ServerlessV2ScalingConfiguration | None
+    ManageMasterUserPassword: BooleanOptional | None
+    MasterUserSecretKmsKeyId: String | None
+    EngineLifecycleSupport: String | None
 
 
 class RestoreDBClusterFromS3Result(TypedDict, total=False):
-    DBCluster: Optional[DBCluster]
+    DBCluster: DBCluster | None
 
 
 class RestoreDBClusterFromSnapshotMessage(ServiceRequest):
-    AvailabilityZones: Optional[AvailabilityZones]
+    AvailabilityZones: AvailabilityZones | None
     DBClusterIdentifier: String
     SnapshotIdentifier: String
     Engine: String
-    EngineVersion: Optional[String]
-    Port: Optional[IntegerOptional]
-    DBSubnetGroupName: Optional[String]
-    DatabaseName: Optional[String]
-    OptionGroupName: Optional[String]
-    VpcSecurityGroupIds: Optional[VpcSecurityGroupIdList]
-    Tags: Optional[TagList]
-    KmsKeyId: Optional[String]
-    EnableIAMDatabaseAuthentication: Optional[BooleanOptional]
-    BacktrackWindow: Optional[LongOptional]
-    EnableCloudwatchLogsExports: Optional[LogTypeList]
-    EngineMode: Optional[String]
-    ScalingConfiguration: Optional[ScalingConfiguration]
-    DBClusterParameterGroupName: Optional[String]
-    DeletionProtection: Optional[BooleanOptional]
-    CopyTagsToSnapshot: Optional[BooleanOptional]
-    Domain: Optional[String]
-    DomainIAMRoleName: Optional[String]
-    DBClusterInstanceClass: Optional[String]
-    StorageType: Optional[String]
-    Iops: Optional[IntegerOptional]
-    PubliclyAccessible: Optional[BooleanOptional]
-    ServerlessV2ScalingConfiguration: Optional[ServerlessV2ScalingConfiguration]
-    NetworkType: Optional[String]
-    RdsCustomClusterConfiguration: Optional[RdsCustomClusterConfiguration]
-    MonitoringInterval: Optional[IntegerOptional]
-    MonitoringRoleArn: Optional[String]
-    EnablePerformanceInsights: Optional[BooleanOptional]
-    PerformanceInsightsKMSKeyId: Optional[String]
-    PerformanceInsightsRetentionPeriod: Optional[IntegerOptional]
-    EngineLifecycleSupport: Optional[String]
+    EngineVersion: String | None
+    Port: IntegerOptional | None
+    DBSubnetGroupName: String | None
+    DatabaseName: String | None
+    OptionGroupName: String | None
+    VpcSecurityGroupIds: VpcSecurityGroupIdList | None
+    Tags: TagList | None
+    KmsKeyId: String | None
+    EnableIAMDatabaseAuthentication: BooleanOptional | None
+    BacktrackWindow: LongOptional | None
+    EnableCloudwatchLogsExports: LogTypeList | None
+    EngineMode: String | None
+    ScalingConfiguration: ScalingConfiguration | None
+    DBClusterParameterGroupName: String | None
+    DeletionProtection: BooleanOptional | None
+    CopyTagsToSnapshot: BooleanOptional | None
+    Domain: String | None
+    DomainIAMRoleName: String | None
+    DBClusterInstanceClass: String | None
+    StorageType: String | None
+    Iops: IntegerOptional | None
+    PubliclyAccessible: BooleanOptional | None
+    NetworkType: String | None
+    ServerlessV2ScalingConfiguration: ServerlessV2ScalingConfiguration | None
+    RdsCustomClusterConfiguration: RdsCustomClusterConfiguration | None
+    MonitoringInterval: IntegerOptional | None
+    MonitoringRoleArn: String | None
+    EnablePerformanceInsights: BooleanOptional | None
+    PerformanceInsightsKMSKeyId: String | None
+    PerformanceInsightsRetentionPeriod: IntegerOptional | None
+    EngineLifecycleSupport: String | None
 
 
 class RestoreDBClusterFromSnapshotResult(TypedDict, total=False):
-    DBCluster: Optional[DBCluster]
+    DBCluster: DBCluster | None
 
 
 class RestoreDBClusterToPointInTimeMessage(ServiceRequest):
     DBClusterIdentifier: String
-    RestoreType: Optional[String]
-    SourceDBClusterIdentifier: Optional[String]
-    RestoreToTime: Optional[TStamp]
-    UseLatestRestorableTime: Optional[Boolean]
-    Port: Optional[IntegerOptional]
-    DBSubnetGroupName: Optional[String]
-    OptionGroupName: Optional[String]
-    VpcSecurityGroupIds: Optional[VpcSecurityGroupIdList]
-    Tags: Optional[TagList]
-    KmsKeyId: Optional[String]
-    EnableIAMDatabaseAuthentication: Optional[BooleanOptional]
-    BacktrackWindow: Optional[LongOptional]
-    EnableCloudwatchLogsExports: Optional[LogTypeList]
-    DBClusterParameterGroupName: Optional[String]
-    DeletionProtection: Optional[BooleanOptional]
-    CopyTagsToSnapshot: Optional[BooleanOptional]
-    Domain: Optional[String]
-    DomainIAMRoleName: Optional[String]
-    ScalingConfiguration: Optional[ScalingConfiguration]
-    EngineMode: Optional[String]
-    DBClusterInstanceClass: Optional[String]
-    StorageType: Optional[String]
-    PubliclyAccessible: Optional[BooleanOptional]
-    Iops: Optional[IntegerOptional]
-    ServerlessV2ScalingConfiguration: Optional[ServerlessV2ScalingConfiguration]
-    NetworkType: Optional[String]
-    SourceDbClusterResourceId: Optional[String]
-    RdsCustomClusterConfiguration: Optional[RdsCustomClusterConfiguration]
-    MonitoringInterval: Optional[IntegerOptional]
-    MonitoringRoleArn: Optional[String]
-    EnablePerformanceInsights: Optional[BooleanOptional]
-    PerformanceInsightsKMSKeyId: Optional[String]
-    PerformanceInsightsRetentionPeriod: Optional[IntegerOptional]
-    EngineLifecycleSupport: Optional[String]
+    RestoreType: String | None
+    SourceDBClusterIdentifier: String | None
+    RestoreToTime: TStamp | None
+    UseLatestRestorableTime: Boolean | None
+    Port: IntegerOptional | None
+    DBSubnetGroupName: String | None
+    OptionGroupName: String | None
+    VpcSecurityGroupIds: VpcSecurityGroupIdList | None
+    Tags: TagList | None
+    KmsKeyId: String | None
+    EnableIAMDatabaseAuthentication: BooleanOptional | None
+    BacktrackWindow: LongOptional | None
+    EnableCloudwatchLogsExports: LogTypeList | None
+    DBClusterParameterGroupName: String | None
+    DeletionProtection: BooleanOptional | None
+    CopyTagsToSnapshot: BooleanOptional | None
+    Domain: String | None
+    DomainIAMRoleName: String | None
+    DBClusterInstanceClass: String | None
+    StorageType: String | None
+    PubliclyAccessible: BooleanOptional | None
+    Iops: IntegerOptional | None
+    NetworkType: String | None
+    SourceDbClusterResourceId: String | None
+    ServerlessV2ScalingConfiguration: ServerlessV2ScalingConfiguration | None
+    ScalingConfiguration: ScalingConfiguration | None
+    EngineMode: String | None
+    RdsCustomClusterConfiguration: RdsCustomClusterConfiguration | None
+    MonitoringInterval: IntegerOptional | None
+    MonitoringRoleArn: String | None
+    EnablePerformanceInsights: BooleanOptional | None
+    PerformanceInsightsKMSKeyId: String | None
+    PerformanceInsightsRetentionPeriod: IntegerOptional | None
+    EngineLifecycleSupport: String | None
 
 
 class RestoreDBClusterToPointInTimeResult(TypedDict, total=False):
-    DBCluster: Optional[DBCluster]
+    DBCluster: DBCluster | None
 
 
 class RestoreDBInstanceFromDBSnapshotMessage(ServiceRequest):
     DBInstanceIdentifier: String
-    DBSnapshotIdentifier: Optional[String]
-    DBInstanceClass: Optional[String]
-    Port: Optional[IntegerOptional]
-    AvailabilityZone: Optional[String]
-    DBSubnetGroupName: Optional[String]
-    MultiAZ: Optional[BooleanOptional]
-    PubliclyAccessible: Optional[BooleanOptional]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    LicenseModel: Optional[String]
-    DBName: Optional[String]
-    Engine: Optional[String]
-    Iops: Optional[IntegerOptional]
-    OptionGroupName: Optional[String]
-    Tags: Optional[TagList]
-    StorageType: Optional[String]
-    TdeCredentialArn: Optional[String]
-    TdeCredentialPassword: Optional[String]
-    VpcSecurityGroupIds: Optional[VpcSecurityGroupIdList]
-    Domain: Optional[String]
-    DomainFqdn: Optional[String]
-    DomainOu: Optional[String]
-    DomainAuthSecretArn: Optional[String]
-    DomainDnsIps: Optional[StringList]
-    CopyTagsToSnapshot: Optional[BooleanOptional]
-    DomainIAMRoleName: Optional[String]
-    EnableIAMDatabaseAuthentication: Optional[BooleanOptional]
-    EnableCloudwatchLogsExports: Optional[LogTypeList]
-    ProcessorFeatures: Optional[ProcessorFeatureList]
-    UseDefaultProcessorFeatures: Optional[BooleanOptional]
-    DBParameterGroupName: Optional[String]
-    DeletionProtection: Optional[BooleanOptional]
-    EnableCustomerOwnedIp: Optional[BooleanOptional]
-    CustomIamInstanceProfile: Optional[String]
-    BackupTarget: Optional[String]
-    NetworkType: Optional[String]
-    StorageThroughput: Optional[IntegerOptional]
-    DBClusterSnapshotIdentifier: Optional[String]
-    AllocatedStorage: Optional[IntegerOptional]
-    DedicatedLogVolume: Optional[BooleanOptional]
-    CACertificateIdentifier: Optional[String]
-    EngineLifecycleSupport: Optional[String]
-    ManageMasterUserPassword: Optional[BooleanOptional]
-    MasterUserSecretKmsKeyId: Optional[String]
+    DBSnapshotIdentifier: String | None
+    DBInstanceClass: String | None
+    Port: IntegerOptional | None
+    AvailabilityZone: String | None
+    DBSubnetGroupName: String | None
+    MultiAZ: BooleanOptional | None
+    PubliclyAccessible: BooleanOptional | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    LicenseModel: String | None
+    DBName: String | None
+    Engine: String | None
+    Iops: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    OptionGroupName: String | None
+    Tags: TagList | None
+    StorageType: String | None
+    TdeCredentialArn: String | None
+    TdeCredentialPassword: SensitiveString | None
+    VpcSecurityGroupIds: VpcSecurityGroupIdList | None
+    Domain: String | None
+    DomainFqdn: String | None
+    DomainOu: String | None
+    DomainAuthSecretArn: String | None
+    DomainDnsIps: StringList | None
+    CopyTagsToSnapshot: BooleanOptional | None
+    DomainIAMRoleName: String | None
+    EnableIAMDatabaseAuthentication: BooleanOptional | None
+    EnableCloudwatchLogsExports: LogTypeList | None
+    ProcessorFeatures: ProcessorFeatureList | None
+    UseDefaultProcessorFeatures: BooleanOptional | None
+    DBParameterGroupName: String | None
+    DeletionProtection: BooleanOptional | None
+    EnableCustomerOwnedIp: BooleanOptional | None
+    NetworkType: String | None
+    BackupTarget: String | None
+    CustomIamInstanceProfile: String | None
+    AllocatedStorage: IntegerOptional | None
+    DBClusterSnapshotIdentifier: String | None
+    DedicatedLogVolume: BooleanOptional | None
+    CACertificateIdentifier: String | None
+    EngineLifecycleSupport: String | None
+    ManageMasterUserPassword: BooleanOptional | None
+    MasterUserSecretKmsKeyId: String | None
+    AdditionalStorageVolumes: AdditionalStorageVolumesList | None
 
 
 class RestoreDBInstanceFromDBSnapshotResult(TypedDict, total=False):
-    DBInstance: Optional[DBInstance]
+    DBInstance: DBInstance | None
 
 
 class RestoreDBInstanceFromS3Message(ServiceRequest):
-    DBName: Optional[String]
+    DBName: String | None
     DBInstanceIdentifier: String
-    AllocatedStorage: Optional[IntegerOptional]
+    AllocatedStorage: IntegerOptional | None
     DBInstanceClass: String
     Engine: String
-    MasterUsername: Optional[String]
-    MasterUserPassword: Optional[String]
-    DBSecurityGroups: Optional[DBSecurityGroupNameList]
-    VpcSecurityGroupIds: Optional[VpcSecurityGroupIdList]
-    AvailabilityZone: Optional[String]
-    DBSubnetGroupName: Optional[String]
-    PreferredMaintenanceWindow: Optional[String]
-    DBParameterGroupName: Optional[String]
-    BackupRetentionPeriod: Optional[IntegerOptional]
-    PreferredBackupWindow: Optional[String]
-    Port: Optional[IntegerOptional]
-    MultiAZ: Optional[BooleanOptional]
-    EngineVersion: Optional[String]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    LicenseModel: Optional[String]
-    Iops: Optional[IntegerOptional]
-    OptionGroupName: Optional[String]
-    PubliclyAccessible: Optional[BooleanOptional]
-    Tags: Optional[TagList]
-    StorageType: Optional[String]
-    StorageEncrypted: Optional[BooleanOptional]
-    KmsKeyId: Optional[String]
-    CopyTagsToSnapshot: Optional[BooleanOptional]
-    MonitoringInterval: Optional[IntegerOptional]
-    MonitoringRoleArn: Optional[String]
-    EnableIAMDatabaseAuthentication: Optional[BooleanOptional]
+    MasterUsername: String | None
+    MasterUserPassword: SensitiveString | None
+    DBSecurityGroups: DBSecurityGroupNameList | None
+    VpcSecurityGroupIds: VpcSecurityGroupIdList | None
+    AvailabilityZone: String | None
+    DBSubnetGroupName: String | None
+    PreferredMaintenanceWindow: String | None
+    DBParameterGroupName: String | None
+    BackupRetentionPeriod: IntegerOptional | None
+    PreferredBackupWindow: String | None
+    Port: IntegerOptional | None
+    MultiAZ: BooleanOptional | None
+    EngineVersion: String | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    LicenseModel: String | None
+    Iops: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    OptionGroupName: String | None
+    PubliclyAccessible: BooleanOptional | None
+    Tags: TagList | None
+    StorageType: String | None
+    StorageEncrypted: BooleanOptional | None
+    KmsKeyId: String | None
+    CopyTagsToSnapshot: BooleanOptional | None
+    MonitoringInterval: IntegerOptional | None
+    MonitoringRoleArn: String | None
+    EnableIAMDatabaseAuthentication: BooleanOptional | None
     SourceEngine: String
     SourceEngineVersion: String
     S3BucketName: String
-    S3Prefix: Optional[String]
+    S3Prefix: String | None
     S3IngestionRoleArn: String
-    DatabaseInsightsMode: Optional[DatabaseInsightsMode]
-    EnablePerformanceInsights: Optional[BooleanOptional]
-    PerformanceInsightsKMSKeyId: Optional[String]
-    PerformanceInsightsRetentionPeriod: Optional[IntegerOptional]
-    EnableCloudwatchLogsExports: Optional[LogTypeList]
-    ProcessorFeatures: Optional[ProcessorFeatureList]
-    UseDefaultProcessorFeatures: Optional[BooleanOptional]
-    DeletionProtection: Optional[BooleanOptional]
-    MaxAllocatedStorage: Optional[IntegerOptional]
-    NetworkType: Optional[String]
-    StorageThroughput: Optional[IntegerOptional]
-    ManageMasterUserPassword: Optional[BooleanOptional]
-    MasterUserSecretKmsKeyId: Optional[String]
-    DedicatedLogVolume: Optional[BooleanOptional]
-    CACertificateIdentifier: Optional[String]
-    EngineLifecycleSupport: Optional[String]
+    DatabaseInsightsMode: DatabaseInsightsMode | None
+    EnablePerformanceInsights: BooleanOptional | None
+    PerformanceInsightsKMSKeyId: String | None
+    PerformanceInsightsRetentionPeriod: IntegerOptional | None
+    EnableCloudwatchLogsExports: LogTypeList | None
+    ProcessorFeatures: ProcessorFeatureList | None
+    UseDefaultProcessorFeatures: BooleanOptional | None
+    DeletionProtection: BooleanOptional | None
+    MaxAllocatedStorage: IntegerOptional | None
+    NetworkType: String | None
+    ManageMasterUserPassword: BooleanOptional | None
+    MasterUserSecretKmsKeyId: String | None
+    DedicatedLogVolume: BooleanOptional | None
+    CACertificateIdentifier: String | None
+    EngineLifecycleSupport: String | None
+    AdditionalStorageVolumes: AdditionalStorageVolumesList | None
 
 
 class RestoreDBInstanceFromS3Result(TypedDict, total=False):
-    DBInstance: Optional[DBInstance]
+    DBInstance: DBInstance | None
 
 
 class RestoreDBInstanceToPointInTimeMessage(ServiceRequest):
-    SourceDBInstanceIdentifier: Optional[String]
+    SourceDBInstanceIdentifier: String | None
     TargetDBInstanceIdentifier: String
-    RestoreTime: Optional[TStamp]
-    UseLatestRestorableTime: Optional[Boolean]
-    DBInstanceClass: Optional[String]
-    Port: Optional[IntegerOptional]
-    AvailabilityZone: Optional[String]
-    DBSubnetGroupName: Optional[String]
-    MultiAZ: Optional[BooleanOptional]
-    PubliclyAccessible: Optional[BooleanOptional]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    LicenseModel: Optional[String]
-    DBName: Optional[String]
-    Engine: Optional[String]
-    Iops: Optional[IntegerOptional]
-    OptionGroupName: Optional[String]
-    CopyTagsToSnapshot: Optional[BooleanOptional]
-    Tags: Optional[TagList]
-    StorageType: Optional[String]
-    TdeCredentialArn: Optional[String]
-    TdeCredentialPassword: Optional[String]
-    VpcSecurityGroupIds: Optional[VpcSecurityGroupIdList]
-    Domain: Optional[String]
-    DomainIAMRoleName: Optional[String]
-    DomainFqdn: Optional[String]
-    DomainOu: Optional[String]
-    DomainAuthSecretArn: Optional[String]
-    DomainDnsIps: Optional[StringList]
-    EnableIAMDatabaseAuthentication: Optional[BooleanOptional]
-    EnableCloudwatchLogsExports: Optional[LogTypeList]
-    ProcessorFeatures: Optional[ProcessorFeatureList]
-    UseDefaultProcessorFeatures: Optional[BooleanOptional]
-    DBParameterGroupName: Optional[String]
-    DeletionProtection: Optional[BooleanOptional]
-    SourceDbiResourceId: Optional[String]
-    MaxAllocatedStorage: Optional[IntegerOptional]
-    SourceDBInstanceAutomatedBackupsArn: Optional[String]
-    EnableCustomerOwnedIp: Optional[BooleanOptional]
-    CustomIamInstanceProfile: Optional[String]
-    BackupTarget: Optional[String]
-    NetworkType: Optional[String]
-    StorageThroughput: Optional[IntegerOptional]
-    AllocatedStorage: Optional[IntegerOptional]
-    DedicatedLogVolume: Optional[BooleanOptional]
-    CACertificateIdentifier: Optional[String]
-    EngineLifecycleSupport: Optional[String]
-    ManageMasterUserPassword: Optional[BooleanOptional]
-    MasterUserSecretKmsKeyId: Optional[String]
+    RestoreTime: TStamp | None
+    UseLatestRestorableTime: Boolean | None
+    DBInstanceClass: String | None
+    Port: IntegerOptional | None
+    AvailabilityZone: String | None
+    DBSubnetGroupName: String | None
+    MultiAZ: BooleanOptional | None
+    PubliclyAccessible: BooleanOptional | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    LicenseModel: String | None
+    DBName: String | None
+    Engine: String | None
+    Iops: IntegerOptional | None
+    StorageThroughput: IntegerOptional | None
+    OptionGroupName: String | None
+    CopyTagsToSnapshot: BooleanOptional | None
+    Tags: TagList | None
+    StorageType: String | None
+    TdeCredentialArn: String | None
+    TdeCredentialPassword: SensitiveString | None
+    VpcSecurityGroupIds: VpcSecurityGroupIdList | None
+    Domain: String | None
+    DomainIAMRoleName: String | None
+    DomainFqdn: String | None
+    DomainOu: String | None
+    DomainAuthSecretArn: String | None
+    DomainDnsIps: StringList | None
+    EnableIAMDatabaseAuthentication: BooleanOptional | None
+    EnableCloudwatchLogsExports: LogTypeList | None
+    ProcessorFeatures: ProcessorFeatureList | None
+    UseDefaultProcessorFeatures: BooleanOptional | None
+    DBParameterGroupName: String | None
+    DeletionProtection: BooleanOptional | None
+    SourceDbiResourceId: String | None
+    MaxAllocatedStorage: IntegerOptional | None
+    EnableCustomerOwnedIp: BooleanOptional | None
+    NetworkType: String | None
+    SourceDBInstanceAutomatedBackupsArn: String | None
+    BackupTarget: String | None
+    CustomIamInstanceProfile: String | None
+    AllocatedStorage: IntegerOptional | None
+    DedicatedLogVolume: BooleanOptional | None
+    CACertificateIdentifier: String | None
+    EngineLifecycleSupport: String | None
+    ManageMasterUserPassword: BooleanOptional | None
+    MasterUserSecretKmsKeyId: String | None
+    AdditionalStorageVolumes: AdditionalStorageVolumesList | None
 
 
 class RestoreDBInstanceToPointInTimeResult(TypedDict, total=False):
-    DBInstance: Optional[DBInstance]
+    DBInstance: DBInstance | None
 
 
 class RevokeDBSecurityGroupIngressMessage(ServiceRequest):
     DBSecurityGroupName: String
-    CIDRIP: Optional[String]
-    EC2SecurityGroupName: Optional[String]
-    EC2SecurityGroupId: Optional[String]
-    EC2SecurityGroupOwnerId: Optional[String]
+    CIDRIP: String | None
+    EC2SecurityGroupName: String | None
+    EC2SecurityGroupId: String | None
+    EC2SecurityGroupOwnerId: String | None
 
 
 class RevokeDBSecurityGroupIngressResult(TypedDict, total=False):
-    DBSecurityGroup: Optional[DBSecurityGroup]
+    DBSecurityGroup: DBSecurityGroup | None
 
 
 class SourceRegion(TypedDict, total=False):
@@ -6274,13 +6411,13 @@ class SourceRegion(TypedDict, total=False):
     successful call to the ``DescribeSourceRegions`` action.
     """
 
-    RegionName: Optional[String]
-    Endpoint: Optional[String]
-    Status: Optional[String]
-    SupportsDBInstanceAutomatedBackupsReplication: Optional[Boolean]
+    RegionName: String | None
+    Endpoint: String | None
+    Status: String | None
+    SupportsDBInstanceAutomatedBackupsReplication: Boolean | None
 
 
-SourceRegionList = List[SourceRegion]
+SourceRegionList = list[SourceRegion]
 
 
 class SourceRegionMessage(TypedDict, total=False):
@@ -6288,25 +6425,25 @@ class SourceRegionMessage(TypedDict, total=False):
     ``DescribeSourceRegions`` action.
     """
 
-    Marker: Optional[String]
-    SourceRegions: Optional[SourceRegionList]
+    Marker: String | None
+    SourceRegions: SourceRegionList | None
 
 
 class StartActivityStreamRequest(ServiceRequest):
     ResourceArn: String
     Mode: ActivityStreamMode
     KmsKeyId: String
-    ApplyImmediately: Optional[BooleanOptional]
-    EngineNativeAuditFieldsIncluded: Optional[BooleanOptional]
+    ApplyImmediately: BooleanOptional | None
+    EngineNativeAuditFieldsIncluded: BooleanOptional | None
 
 
 class StartActivityStreamResponse(TypedDict, total=False):
-    KmsKeyId: Optional[String]
-    KinesisStreamName: Optional[String]
-    Status: Optional[ActivityStreamStatus]
-    Mode: Optional[ActivityStreamMode]
-    ApplyImmediately: Optional[Boolean]
-    EngineNativeAuditFieldsIncluded: Optional[BooleanOptional]
+    KmsKeyId: String | None
+    KinesisStreamName: String | None
+    Status: ActivityStreamStatus | None
+    Mode: ActivityStreamMode | None
+    EngineNativeAuditFieldsIncluded: BooleanOptional | None
+    ApplyImmediately: Boolean | None
 
 
 class StartDBClusterMessage(ServiceRequest):
@@ -6314,19 +6451,19 @@ class StartDBClusterMessage(ServiceRequest):
 
 
 class StartDBClusterResult(TypedDict, total=False):
-    DBCluster: Optional[DBCluster]
+    DBCluster: DBCluster | None
 
 
 class StartDBInstanceAutomatedBackupsReplicationMessage(ServiceRequest):
     SourceDBInstanceArn: String
-    BackupRetentionPeriod: Optional[IntegerOptional]
-    KmsKeyId: Optional[String]
-    PreSignedUrl: Optional[String]
-    SourceRegion: Optional[String]
+    BackupRetentionPeriod: IntegerOptional | None
+    KmsKeyId: String | None
+    PreSignedUrl: SensitiveString | None
+    SourceRegion: String | None
 
 
 class StartDBInstanceAutomatedBackupsReplicationResult(TypedDict, total=False):
-    DBInstanceAutomatedBackup: Optional[DBInstanceAutomatedBackup]
+    DBInstanceAutomatedBackup: DBInstanceAutomatedBackup | None
 
 
 class StartDBInstanceMessage(ServiceRequest):
@@ -6334,7 +6471,7 @@ class StartDBInstanceMessage(ServiceRequest):
 
 
 class StartDBInstanceResult(TypedDict, total=False):
-    DBInstance: Optional[DBInstance]
+    DBInstance: DBInstance | None
 
 
 class StartExportTaskMessage(ServiceRequest):
@@ -6343,19 +6480,19 @@ class StartExportTaskMessage(ServiceRequest):
     S3BucketName: String
     IamRoleArn: String
     KmsKeyId: String
-    S3Prefix: Optional[String]
-    ExportOnly: Optional[StringList]
+    S3Prefix: String | None
+    ExportOnly: StringList | None
 
 
 class StopActivityStreamRequest(ServiceRequest):
     ResourceArn: String
-    ApplyImmediately: Optional[BooleanOptional]
+    ApplyImmediately: BooleanOptional | None
 
 
 class StopActivityStreamResponse(TypedDict, total=False):
-    KmsKeyId: Optional[String]
-    KinesisStreamName: Optional[String]
-    Status: Optional[ActivityStreamStatus]
+    KmsKeyId: String | None
+    KinesisStreamName: String | None
+    Status: ActivityStreamStatus | None
 
 
 class StopDBClusterMessage(ServiceRequest):
@@ -6363,7 +6500,7 @@ class StopDBClusterMessage(ServiceRequest):
 
 
 class StopDBClusterResult(TypedDict, total=False):
-    DBCluster: Optional[DBCluster]
+    DBCluster: DBCluster | None
 
 
 class StopDBInstanceAutomatedBackupsReplicationMessage(ServiceRequest):
@@ -6371,25 +6508,25 @@ class StopDBInstanceAutomatedBackupsReplicationMessage(ServiceRequest):
 
 
 class StopDBInstanceAutomatedBackupsReplicationResult(TypedDict, total=False):
-    DBInstanceAutomatedBackup: Optional[DBInstanceAutomatedBackup]
+    DBInstanceAutomatedBackup: DBInstanceAutomatedBackup | None
 
 
 class StopDBInstanceMessage(ServiceRequest):
     DBInstanceIdentifier: String
-    DBSnapshotIdentifier: Optional[String]
+    DBSnapshotIdentifier: String | None
 
 
 class StopDBInstanceResult(TypedDict, total=False):
-    DBInstance: Optional[DBInstance]
+    DBInstance: DBInstance | None
 
 
 class SwitchoverBlueGreenDeploymentRequest(ServiceRequest):
     BlueGreenDeploymentIdentifier: BlueGreenDeploymentIdentifier
-    SwitchoverTimeout: Optional[SwitchoverTimeout]
+    SwitchoverTimeout: SwitchoverTimeout | None
 
 
 class SwitchoverBlueGreenDeploymentResponse(TypedDict, total=False):
-    BlueGreenDeployment: Optional[BlueGreenDeployment]
+    BlueGreenDeployment: BlueGreenDeployment | None
 
 
 class SwitchoverGlobalClusterMessage(ServiceRequest):
@@ -6398,7 +6535,7 @@ class SwitchoverGlobalClusterMessage(ServiceRequest):
 
 
 class SwitchoverGlobalClusterResult(TypedDict, total=False):
-    GlobalCluster: Optional[GlobalCluster]
+    GlobalCluster: GlobalCluster | None
 
 
 class SwitchoverReadReplicaMessage(ServiceRequest):
@@ -6406,24 +6543,24 @@ class SwitchoverReadReplicaMessage(ServiceRequest):
 
 
 class SwitchoverReadReplicaResult(TypedDict, total=False):
-    DBInstance: Optional[DBInstance]
+    DBInstance: DBInstance | None
 
 
 class TagListMessage(TypedDict, total=False):
-    TagList: Optional[TagList]
+    TagList: TagList | None
 
 
-TenantDatabasesList = List[TenantDatabase]
+TenantDatabasesList = list[TenantDatabase]
 
 
 class TenantDatabasesMessage(TypedDict, total=False):
-    Marker: Optional[String]
-    TenantDatabases: Optional[TenantDatabasesList]
+    Marker: String | None
+    TenantDatabases: TenantDatabasesList | None
 
 
 class RdsApi:
-    service = "rds"
-    version = "2014-10-31"
+    service: str = "rds"
+    version: str = "2014-10-31"
 
     @handler("AddRoleToDBCluster")
     def add_role_to_db_cluster(
@@ -6520,11 +6657,16 @@ class RdsApi:
         :raises DBClusterNotFoundFault:
         :raises DBSnapshotNotFoundFault:
         :raises DBProxyNotFoundFault:
+        :raises DBProxyEndpointNotFoundFault:
         :raises DBProxyTargetGroupNotFoundFault:
         :raises BlueGreenDeploymentNotFoundFault:
-        :raises IntegrationNotFoundFault:
         :raises TenantDatabaseNotFoundFault:
         :raises DBSnapshotTenantDatabaseNotFoundFault:
+        :raises IntegrationNotFoundFault:
+        :raises DBShardGroupNotFoundFault:
+        :raises InvalidDBClusterStateFault:
+        :raises InvalidDBInstanceStateFault:
+        :raises InvalidDBClusterEndpointStateFault:
         """
         raise NotImplementedError
 
@@ -6689,7 +6831,7 @@ class RdsApi:
         source_db_cluster_snapshot_identifier: String,
         target_db_cluster_snapshot_identifier: String,
         kms_key_id: String | None = None,
-        pre_signed_url: String | None = None,
+        pre_signed_url: SensitiveString | None = None,
         copy_tags: BooleanOptional | None = None,
         tags: TagList | None = None,
         source_region: String | None = None,
@@ -6800,12 +6942,12 @@ class RdsApi:
         kms_key_id: String | None = None,
         tags: TagList | None = None,
         copy_tags: BooleanOptional | None = None,
-        pre_signed_url: String | None = None,
+        pre_signed_url: SensitiveString | None = None,
         option_group_name: String | None = None,
         target_custom_availability_zone: String | None = None,
+        snapshot_target: String | None = None,
         copy_option_group: BooleanOptional | None = None,
         snapshot_availability_zone: String | None = None,
-        snapshot_target: String | None = None,
         source_region: String | None = None,
         **kwargs,
     ) -> CopyDBSnapshotResult:
@@ -6836,12 +6978,12 @@ class RdsApi:
         :param option_group_name: The name of an option group to associate with the copy of the snapshot.
         :param target_custom_availability_zone: The external custom Availability Zone (CAZ) identifier for the target
         CAZ.
+        :param snapshot_target: Configures the location where RDS will store copied snapshots.
         :param copy_option_group: Specifies whether to copy the DB option group associated with the source
         DB snapshot to the target Amazon Web Services account and associate with
         the target DB snapshot.
         :param snapshot_availability_zone: Specifies the name of the Availability Zone where RDS stores the DB
         snapshot.
-        :param snapshot_target: Configures the location where RDS will store copied snapshots.
         :param source_region: The ID of the region that contains the snapshot to be copied.
         :returns: CopyDBSnapshotResult
         :raises DBSnapshotAlreadyExistsFault:
@@ -6946,6 +7088,7 @@ class RdsApi:
         :raises DBClusterParameterGroupNotFoundFault:
         :raises InstanceQuotaExceededFault:
         :raises DBClusterQuotaExceededFault:
+        :raises StorageQuotaExceededFault:
         :raises InvalidDBInstanceStateFault:
         :raises InvalidDBClusterStateFault:
         """
@@ -6961,36 +7104,41 @@ class RdsApi:
         database_installation_files_s3_prefix: String255 | None = None,
         image_id: String255 | None = None,
         kms_key_id: KmsKeyIdOrArn | None = None,
+        source_custom_db_engine_version_identifier: String255 | None = None,
+        use_aws_provided_latest_image: BooleanOptional | None = None,
         description: Description | None = None,
         manifest: CustomDBEngineVersionManifest | None = None,
         tags: TagList | None = None,
-        source_custom_db_engine_version_identifier: String255 | None = None,
-        use_aws_provided_latest_image: BooleanOptional | None = None,
+        database_installation_files: StringList | None = None,
         **kwargs,
     ) -> DBEngineVersion:
         """Creates a custom DB engine version (CEV).
 
         :param engine: The database engine.
-        :param engine_version: The name of your CEV.
+        :param engine_version: The name of your custom engine version (CEV).
         :param database_installation_files_s3_bucket_name: The name of an Amazon S3 bucket that contains database installation
         files for your CEV.
         :param database_installation_files_s3_prefix: The Amazon S3 directory that contains the database installation files
         for your CEV.
         :param image_id: The ID of the Amazon Machine Image (AMI).
         :param kms_key_id: The Amazon Web Services KMS key identifier for an encrypted CEV.
+        :param source_custom_db_engine_version_identifier: The ARN of a CEV to use as a source for creating a new CEV.
+        :param use_aws_provided_latest_image: Specifies whether to use the latest service-provided Amazon Machine
+        Image (AMI) for the CEV.
         :param description: An optional description of your CEV.
         :param manifest: The CEV manifest, which is a JSON document that describes the
         installation .
         :param tags: A list of tags.
-        :param source_custom_db_engine_version_identifier: The ARN of a CEV to use as a source for creating a new CEV.
-        :param use_aws_provided_latest_image: Specifies whether to use the latest service-provided Amazon Machine
-        Image (AMI) for the CEV.
+        :param database_installation_files: The database installation files (ISO and EXE) uploaded to Amazon S3 for
+        your database engine version to import to Amazon RDS.
         :returns: DBEngineVersion
         :raises CustomDBEngineVersionAlreadyExistsFault:
         :raises CustomDBEngineVersionQuotaExceededFault:
-        :raises Ec2ImagePropertiesNotSupportedFault:
         :raises KMSKeyNotAccessibleFault:
+        :raises Ec2ImagePropertiesNotSupportedFault:
         :raises CreateCustomDBEngineVersionFault:
+        :raises CustomDBEngineVersionNotFoundFault:
+        :raises InvalidCustomDBEngineVersionStateFault:
         """
         raise NotImplementedError
 
@@ -7010,7 +7158,7 @@ class RdsApi:
         engine_version: String | None = None,
         port: IntegerOptional | None = None,
         master_username: String | None = None,
-        master_user_password: String | None = None,
+        master_user_password: SensitiveString | None = None,
         option_group_name: String | None = None,
         preferred_backup_window: String | None = None,
         preferred_maintenance_window: String | None = None,
@@ -7018,26 +7166,28 @@ class RdsApi:
         tags: TagList | None = None,
         storage_encrypted: BooleanOptional | None = None,
         kms_key_id: String | None = None,
-        pre_signed_url: String | None = None,
+        pre_signed_url: SensitiveString | None = None,
         enable_iam_database_authentication: BooleanOptional | None = None,
         backtrack_window: LongOptional | None = None,
         enable_cloudwatch_logs_exports: LogTypeList | None = None,
         engine_mode: String | None = None,
         scaling_configuration: ScalingConfiguration | None = None,
         rds_custom_cluster_configuration: RdsCustomClusterConfiguration | None = None,
-        deletion_protection: BooleanOptional | None = None,
-        global_cluster_identifier: String | None = None,
-        enable_http_endpoint: BooleanOptional | None = None,
-        copy_tags_to_snapshot: BooleanOptional | None = None,
-        domain: String | None = None,
-        domain_iam_role_name: String | None = None,
-        enable_global_write_forwarding: BooleanOptional | None = None,
         db_cluster_instance_class: String | None = None,
         allocated_storage: IntegerOptional | None = None,
         storage_type: String | None = None,
         iops: IntegerOptional | None = None,
         publicly_accessible: BooleanOptional | None = None,
         auto_minor_version_upgrade: BooleanOptional | None = None,
+        deletion_protection: BooleanOptional | None = None,
+        global_cluster_identifier: GlobalClusterIdentifier | None = None,
+        enable_http_endpoint: BooleanOptional | None = None,
+        copy_tags_to_snapshot: BooleanOptional | None = None,
+        domain: String | None = None,
+        domain_iam_role_name: String | None = None,
+        enable_global_write_forwarding: BooleanOptional | None = None,
+        network_type: String | None = None,
+        serverless_v2_scaling_configuration: ServerlessV2ScalingConfiguration | None = None,
         monitoring_interval: IntegerOptional | None = None,
         monitoring_role_arn: String | None = None,
         database_insights_mode: DatabaseInsightsMode | None = None,
@@ -7045,13 +7195,11 @@ class RdsApi:
         performance_insights_kms_key_id: String | None = None,
         performance_insights_retention_period: IntegerOptional | None = None,
         enable_limitless_database: BooleanOptional | None = None,
-        serverless_v2_scaling_configuration: ServerlessV2ScalingConfiguration | None = None,
-        network_type: String | None = None,
         cluster_scalability_type: ClusterScalabilityType | None = None,
         db_system_id: String | None = None,
         manage_master_user_password: BooleanOptional | None = None,
-        master_user_secret_kms_key_id: String | None = None,
         enable_local_write_forwarding: BooleanOptional | None = None,
+        master_user_secret_kms_key_id: String | None = None,
         ca_certificate_identifier: String | None = None,
         engine_lifecycle_support: String | None = None,
         master_user_authentication_type: MasterUserAuthenticationType | None = None,
@@ -7124,6 +7272,16 @@ class RdsApi:
         :param scaling_configuration: For DB clusters in ``serverless`` DB engine mode, the scaling properties
         of the DB cluster.
         :param rds_custom_cluster_configuration: Reserved for future use.
+        :param db_cluster_instance_class: The compute and memory capacity of each DB instance in the Multi-AZ DB
+        cluster, for example ``db.
+        :param allocated_storage: The amount of storage in gibibytes (GiB) to allocate to each DB instance
+        in the Multi-AZ DB cluster.
+        :param storage_type: The storage type to associate with the DB cluster.
+        :param iops: The amount of Provisioned IOPS (input/output operations per second) to
+        be initially allocated for each DB instance in the Multi-AZ DB cluster.
+        :param publicly_accessible: Specifies whether the DB cluster is publicly accessible.
+        :param auto_minor_version_upgrade: Specifies whether minor engine upgrades are applied automatically to the
+        DB cluster during the maintenance window.
         :param deletion_protection: Specifies whether the DB cluster has deletion protection enabled.
         :param global_cluster_identifier: The global cluster ID of an Aurora cluster that becomes the primary
         cluster in the new global database cluster.
@@ -7135,16 +7293,9 @@ class RdsApi:
         Service.
         :param enable_global_write_forwarding: Specifies whether to enable this DB cluster to forward write operations
         to the primary cluster of a global cluster (Aurora global database).
-        :param db_cluster_instance_class: The compute and memory capacity of each DB instance in the Multi-AZ DB
-        cluster, for example ``db.
-        :param allocated_storage: The amount of storage in gibibytes (GiB) to allocate to each DB instance
-        in the Multi-AZ DB cluster.
-        :param storage_type: The storage type to associate with the DB cluster.
-        :param iops: The amount of Provisioned IOPS (input/output operations per second) to
-        be initially allocated for each DB instance in the Multi-AZ DB cluster.
-        :param publicly_accessible: Specifies whether the DB cluster is publicly accessible.
-        :param auto_minor_version_upgrade: Specifies whether minor engine upgrades are applied automatically to the
-        DB cluster during the maintenance window.
+        :param network_type: The network type of the DB cluster.
+        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB
+        cluster.
         :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring
         metrics are collected for the DB cluster.
         :param monitoring_role_arn: The Amazon Resource Name (ARN) for the IAM role that permits RDS to send
@@ -7155,18 +7306,15 @@ class RdsApi:
         Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
         :param enable_limitless_database: Specifies whether to enable Aurora Limitless Database.
-        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB
-        cluster.
-        :param network_type: The network type of the DB cluster.
         :param cluster_scalability_type: Specifies the scalability mode of the Aurora DB cluster.
         :param db_system_id: Reserved for future use.
         :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
         Services Secrets Manager.
+        :param enable_local_write_forwarding: Specifies whether read replicas can forward write operations to the
+        writer DB instance in the DB cluster.
         :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
         automatically generated and managed in Amazon Web Services Secrets
         Manager.
-        :param enable_local_write_forwarding: Specifies whether read replicas can forward write operations to the
-        writer DB instance in the DB cluster.
         :param ca_certificate_identifier: The CA certificate identifier to use for the DB cluster's server
         certificate.
         :param engine_lifecycle_support: The life cycle type for this DB cluster.
@@ -7192,8 +7340,11 @@ class RdsApi:
         :raises DBSubnetGroupDoesNotCoverEnoughAZs:
         :raises GlobalClusterNotFoundFault:
         :raises InvalidGlobalClusterStateFault:
+        :raises NetworkTypeNotSupported:
         :raises DomainNotFoundFault:
+        :raises StorageTypeNotSupportedFault:
         :raises OptionGroupNotFoundFault:
+        :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
 
@@ -7336,7 +7487,7 @@ class RdsApi:
         db_name: String | None = None,
         allocated_storage: IntegerOptional | None = None,
         master_username: String | None = None,
-        master_user_password: String | None = None,
+        master_user_password: SensitiveString | None = None,
         db_security_groups: DBSecurityGroupNameList | None = None,
         vpc_security_group_ids: VpcSecurityGroupIdList | None = None,
         availability_zone: String | None = None,
@@ -7351,6 +7502,7 @@ class RdsApi:
         auto_minor_version_upgrade: BooleanOptional | None = None,
         license_model: String | None = None,
         iops: IntegerOptional | None = None,
+        storage_throughput: IntegerOptional | None = None,
         option_group_name: String | None = None,
         character_set_name: String | None = None,
         nchar_character_set_name: String | None = None,
@@ -7359,7 +7511,7 @@ class RdsApi:
         db_cluster_identifier: String | None = None,
         storage_type: String | None = None,
         tde_credential_arn: String | None = None,
-        tde_credential_password: String | None = None,
+        tde_credential_password: SensitiveString | None = None,
         storage_encrypted: BooleanOptional | None = None,
         kms_key_id: String | None = None,
         domain: String | None = None,
@@ -7383,18 +7535,18 @@ class RdsApi:
         deletion_protection: BooleanOptional | None = None,
         max_allocated_storage: IntegerOptional | None = None,
         enable_customer_owned_ip: BooleanOptional | None = None,
-        custom_iam_instance_profile: String | None = None,
-        backup_target: String | None = None,
         network_type: String | None = None,
-        storage_throughput: IntegerOptional | None = None,
+        backup_target: String | None = None,
+        custom_iam_instance_profile: String | None = None,
+        db_system_id: String | None = None,
+        ca_certificate_identifier: String | None = None,
         manage_master_user_password: BooleanOptional | None = None,
         master_user_secret_kms_key_id: String | None = None,
-        ca_certificate_identifier: String | None = None,
-        db_system_id: String | None = None,
-        dedicated_log_volume: BooleanOptional | None = None,
         multi_tenant: BooleanOptional | None = None,
+        dedicated_log_volume: BooleanOptional | None = None,
         engine_lifecycle_support: String | None = None,
         master_user_authentication_type: MasterUserAuthenticationType | None = None,
+        additional_storage_volumes: AdditionalStorageVolumesList | None = None,
         **kwargs,
     ) -> CreateDBInstanceResult:
         """Creates a new DB instance.
@@ -7443,6 +7595,8 @@ class RdsApi:
         :param license_model: The license model information for this DB instance.
         :param iops: The amount of Provisioned IOPS (input/output operations per second) to
         initially allocate for the DB instance.
+        :param storage_throughput: The storage throughput value, in mebibyte per second (MiBps), for the DB
+        instance.
         :param option_group_name: The option group to associate the DB instance with.
         :param character_set_name: For supported engines, the character set (``CharacterSet``) to associate
         the DB instance with.
@@ -7490,27 +7644,26 @@ class RdsApi:
         scale the storage of the DB instance.
         :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
         RDS on Outposts DB instance.
+        :param network_type: The network type of the DB instance.
+        :param backup_target: The location for storing automated backups and manual snapshots.
         :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance
         of an RDS Custom DB instance.
-        :param backup_target: The location for storing automated backups and manual snapshots.
-        :param network_type: The network type of the DB instance.
-        :param storage_throughput: The storage throughput value, in mebibyte per second (MiBps), for the DB
-        instance.
+        :param db_system_id: The Oracle system identifier (SID), which is the name of the Oracle
+        database instance that manages your database files.
+        :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
+        certificate.
         :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
         Services Secrets Manager.
         :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
         automatically generated and managed in Amazon Web Services Secrets
         Manager.
-        :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
-        certificate.
-        :param db_system_id: The Oracle system identifier (SID), which is the name of the Oracle
-        database instance that manages your database files.
-        :param dedicated_log_volume: Indicates whether the DB instance has a dedicated log volume (DLV)
-        enabled.
         :param multi_tenant: Specifies whether to use the multi-tenant configuration or the
         single-tenant configuration (default).
+        :param dedicated_log_volume: Indicates whether the DB instance has a dedicated log volume (DLV)
+        enabled.
         :param engine_lifecycle_support: The life cycle type for this DB instance.
         :param master_user_authentication_type: Specifies the authentication type for the master user.
+        :param additional_storage_volumes: A list of additional storage volumes to create for the DB instance.
         :returns: CreateDBInstanceResult
         :raises DBInstanceAlreadyExistsFault:
         :raises InsufficientDBInstanceCapacityFault:
@@ -7530,10 +7683,11 @@ class RdsApi:
         :raises AuthorizationNotFoundFault:
         :raises KMSKeyNotAccessibleFault:
         :raises DomainNotFoundFault:
-        :raises BackupPolicyNotFoundFault:
         :raises NetworkTypeNotSupported:
+        :raises BackupPolicyNotFoundFault:
         :raises CertificateNotFoundFault:
         :raises TenantDatabaseQuotaExceededFault:
+        :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
 
@@ -7549,6 +7703,7 @@ class RdsApi:
         multi_az: BooleanOptional | None = None,
         auto_minor_version_upgrade: BooleanOptional | None = None,
         iops: IntegerOptional | None = None,
+        storage_throughput: IntegerOptional | None = None,
         option_group_name: String | None = None,
         db_parameter_group_name: String | None = None,
         publicly_accessible: BooleanOptional | None = None,
@@ -7560,7 +7715,7 @@ class RdsApi:
         monitoring_interval: IntegerOptional | None = None,
         monitoring_role_arn: String | None = None,
         kms_key_id: String | None = None,
-        pre_signed_url: String | None = None,
+        pre_signed_url: SensitiveString | None = None,
         enable_iam_database_authentication: BooleanOptional | None = None,
         database_insights_mode: DatabaseInsightsMode | None = None,
         enable_performance_insights: BooleanOptional | None = None,
@@ -7577,17 +7732,17 @@ class RdsApi:
         domain_auth_secret_arn: String | None = None,
         domain_dns_ips: StringList | None = None,
         replica_mode: ReplicaMode | None = None,
-        max_allocated_storage: IntegerOptional | None = None,
-        custom_iam_instance_profile: String | None = None,
-        network_type: String | None = None,
-        storage_throughput: IntegerOptional | None = None,
         enable_customer_owned_ip: BooleanOptional | None = None,
+        network_type: String | None = None,
+        max_allocated_storage: IntegerOptional | None = None,
         backup_target: String | None = None,
+        custom_iam_instance_profile: String | None = None,
         allocated_storage: IntegerOptional | None = None,
         source_db_cluster_identifier: String | None = None,
         dedicated_log_volume: BooleanOptional | None = None,
         upgrade_storage_config: BooleanOptional | None = None,
         ca_certificate_identifier: String | None = None,
+        additional_storage_volumes: AdditionalStorageVolumesList | None = None,
         source_region: String | None = None,
         **kwargs,
     ) -> CreateDBInstanceReadReplicaResult:
@@ -7623,6 +7778,7 @@ class RdsApi:
         read replica during the maintenance window.
         :param iops: The amount of Provisioned IOPS (input/output operations per second) to
         initially allocate for the DB instance.
+        :param storage_throughput: Specifies the storage throughput value for the read replica.
         :param option_group_name: The option group to associate the DB instance with.
         :param db_parameter_group_name: The name of the DB parameter group to associate with this read replica
         DB instance.
@@ -7669,15 +7825,14 @@ class RdsApi:
         :param domain_dns_ips: The IPv4 DNS IP addresses of your primary and secondary Active Directory
         domain controllers.
         :param replica_mode: The open mode of the replica database.
-        :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically
-        scale the storage of the DB instance.
-        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance
-        of an RDS Custom DB instance.
-        :param network_type: The network type of the DB instance.
-        :param storage_throughput: Specifies the storage throughput value for the read replica.
         :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
         RDS on Outposts read replica.
+        :param network_type: The network type of the DB instance.
+        :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically
+        scale the storage of the DB instance.
         :param backup_target: The location where RDS stores automated backups and manual snapshots.
+        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance
+        of an RDS Custom DB instance.
         :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the read
         replica.
         :param source_db_cluster_identifier: The identifier of the Multi-AZ DB cluster that will act as the source
@@ -7688,6 +7843,7 @@ class RdsApi:
         replica.
         :param ca_certificate_identifier: The CA certificate identifier to use for the read replica's server
         certificate.
+        :param additional_storage_volumes: A list of additional storage volumes to create for the DB instance.
         :param source_region: The ID of the region that contains the source for the read replica.
         :returns: CreateDBInstanceReadReplicaResult
         :raises DBInstanceAlreadyExistsFault:
@@ -7710,10 +7866,11 @@ class RdsApi:
         :raises InvalidDBSubnetGroupFault:
         :raises StorageTypeNotSupportedFault:
         :raises KMSKeyNotAccessibleFault:
-        :raises DomainNotFoundFault:
         :raises NetworkTypeNotSupported:
+        :raises DomainNotFoundFault:
         :raises TenantDatabaseQuotaExceededFault:
         :raises CertificateNotFoundFault:
+        :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
 
@@ -7754,9 +7911,9 @@ class RdsApi:
     def create_db_proxy(
         self,
         context: RequestContext,
-        db_proxy_name: String,
+        db_proxy_name: DBProxyName,
         engine_family: EngineFamily,
-        role_arn: String,
+        role_arn: Arn,
         vpc_subnet_ids: StringList,
         default_auth_scheme: DefaultAuthScheme | None = None,
         auth: UserAuthConfigList | None = None,
@@ -8030,7 +8187,7 @@ class RdsApi:
     def create_global_cluster(
         self,
         context: RequestContext,
-        global_cluster_identifier: String | None = None,
+        global_cluster_identifier: GlobalClusterIdentifier,
         source_db_cluster_identifier: String | None = None,
         engine: String | None = None,
         engine_version: String | None = None,
@@ -8071,6 +8228,8 @@ class RdsApi:
         :raises GlobalClusterQuotaExceededFault:
         :raises InvalidDBClusterStateFault:
         :raises DBClusterNotFoundFault:
+        :raises InvalidDBShardGroupStateFault:
+        :raises ResourceNotFoundFault:
         """
         raise NotImplementedError
 
@@ -8283,10 +8442,12 @@ class RdsApi:
         :returns: DeleteDBClusterResult
         :raises DBClusterNotFoundFault:
         :raises InvalidDBClusterStateFault:
+        :raises InvalidGlobalClusterStateFault:
         :raises DBClusterSnapshotAlreadyExistsFault:
         :raises SnapshotQuotaExceededFault:
         :raises InvalidDBClusterSnapshotStateFault:
         :raises DBClusterAutomatedBackupQuotaExceededFault:
+        :raises KMSKeyNotAccessibleFault:
         """
         raise NotImplementedError
 
@@ -8428,6 +8589,7 @@ class RdsApi:
         :raises SnapshotQuotaExceededFault:
         :raises InvalidDBClusterStateFault:
         :raises DBInstanceAutomatedBackupQuotaExceededFault:
+        :raises KMSKeyNotAccessibleFault:
         """
         raise NotImplementedError
 
@@ -8469,7 +8631,7 @@ class RdsApi:
 
     @handler("DeleteDBProxy")
     def delete_db_proxy(
-        self, context: RequestContext, db_proxy_name: String, **kwargs
+        self, context: RequestContext, db_proxy_name: DBProxyName, **kwargs
     ) -> DeleteDBProxyResponse:
         """Deletes an existing DB proxy.
 
@@ -8583,7 +8745,7 @@ class RdsApi:
 
     @handler("DeleteGlobalCluster")
     def delete_global_cluster(
-        self, context: RequestContext, global_cluster_identifier: String, **kwargs
+        self, context: RequestContext, global_cluster_identifier: GlobalClusterIdentifier, **kwargs
     ) -> DeleteGlobalClusterResult:
         """Deletes a global database cluster. The primary and secondary clusters
         must already be detached or destroyed first.
@@ -8651,6 +8813,7 @@ class RdsApi:
         :raises DBInstanceNotFoundFault:
         :raises TenantDatabaseNotFoundFault:
         :raises InvalidDBInstanceStateFault:
+        :raises DBSnapshotAlreadyExistsFault:
         """
         raise NotImplementedError
 
@@ -8658,8 +8821,8 @@ class RdsApi:
     def deregister_db_proxy_targets(
         self,
         context: RequestContext,
-        db_proxy_name: String,
-        target_group_name: String | None = None,
+        db_proxy_name: DBProxyName,
+        target_group_name: DBProxyTargetGroupName | None = None,
         db_instance_identifiers: StringList | None = None,
         db_cluster_identifiers: StringList | None = None,
         **kwargs,
@@ -9225,7 +9388,7 @@ class RdsApi:
     def describe_db_proxies(
         self,
         context: RequestContext,
-        db_proxy_name: String | None = None,
+        db_proxy_name: DBProxyName | None = None,
         filters: FilterList | None = None,
         marker: String | None = None,
         max_records: MaxRecords | None = None,
@@ -9270,8 +9433,8 @@ class RdsApi:
     def describe_db_proxy_target_groups(
         self,
         context: RequestContext,
-        db_proxy_name: String,
-        target_group_name: String | None = None,
+        db_proxy_name: DBProxyName,
+        target_group_name: DBProxyTargetGroupName | None = None,
         filters: FilterList | None = None,
         marker: String | None = None,
         max_records: MaxRecords | None = None,
@@ -9296,8 +9459,8 @@ class RdsApi:
     def describe_db_proxy_targets(
         self,
         context: RequestContext,
-        db_proxy_name: String,
-        target_group_name: String | None = None,
+        db_proxy_name: DBProxyName,
+        target_group_name: DBProxyTargetGroupName | None = None,
         filters: FilterList | None = None,
         marker: String | None = None,
         max_records: MaxRecords | None = None,
@@ -9709,7 +9872,7 @@ class RdsApi:
     def describe_global_clusters(
         self,
         context: RequestContext,
-        global_cluster_identifier: String | None = None,
+        global_cluster_identifier: GlobalClusterIdentifier | None = None,
         filters: FilterList | None = None,
         max_records: IntegerOptional | None = None,
         marker: String | None = None,
@@ -10248,10 +10411,12 @@ class RdsApi:
         :raises DBClusterNotFoundFault:
         :raises DBProxyNotFoundFault:
         :raises DBProxyTargetGroupNotFoundFault:
+        :raises DBProxyEndpointNotFoundFault:
         :raises BlueGreenDeploymentNotFoundFault:
-        :raises IntegrationNotFoundFault:
         :raises TenantDatabaseNotFoundFault:
         :raises DBSnapshotTenantDatabaseNotFoundFault:
+        :raises IntegrationNotFoundFault:
+        :raises DBShardGroupNotFoundFault:
         """
         raise NotImplementedError
 
@@ -10428,7 +10593,7 @@ class RdsApi:
         db_cluster_parameter_group_name: String | None = None,
         vpc_security_group_ids: VpcSecurityGroupIdList | None = None,
         port: IntegerOptional | None = None,
-        master_user_password: String | None = None,
+        master_user_password: SensitiveString | None = None,
         option_group_name: String | None = None,
         preferred_backup_window: String | None = None,
         preferred_maintenance_window: String | None = None,
@@ -10450,20 +10615,20 @@ class RdsApi:
         storage_type: String | None = None,
         iops: IntegerOptional | None = None,
         auto_minor_version_upgrade: BooleanOptional | None = None,
+        network_type: String | None = None,
+        serverless_v2_scaling_configuration: ServerlessV2ScalingConfiguration | None = None,
         monitoring_interval: IntegerOptional | None = None,
         monitoring_role_arn: String | None = None,
         database_insights_mode: DatabaseInsightsMode | None = None,
         enable_performance_insights: BooleanOptional | None = None,
         performance_insights_kms_key_id: String | None = None,
         performance_insights_retention_period: IntegerOptional | None = None,
-        serverless_v2_scaling_configuration: ServerlessV2ScalingConfiguration | None = None,
-        network_type: String | None = None,
         manage_master_user_password: BooleanOptional | None = None,
         rotate_master_user_password: BooleanOptional | None = None,
+        enable_local_write_forwarding: BooleanOptional | None = None,
         master_user_secret_kms_key_id: String | None = None,
         engine_mode: String | None = None,
         allow_engine_mode_change: Boolean | None = None,
-        enable_local_write_forwarding: BooleanOptional | None = None,
         aws_backup_recovery_point_arn: AwsBackupRecoveryPointArn | None = None,
         enable_limitless_database: BooleanOptional | None = None,
         ca_certificate_identifier: String | None = None,
@@ -10528,6 +10693,9 @@ class RdsApi:
         be initially allocated for each DB instance in the Multi-AZ DB cluster.
         :param auto_minor_version_upgrade: Specifies whether minor engine upgrades are applied automatically to the
         DB cluster during the maintenance window.
+        :param network_type: The network type of the DB cluster.
+        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB
+        cluster.
         :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring
         metrics are collected for the DB cluster.
         :param monitoring_role_arn: The Amazon Resource Name (ARN) for the IAM role that permits RDS to send
@@ -10537,13 +10705,12 @@ class RdsApi:
         :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance
         Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
-        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB
-        cluster.
-        :param network_type: The network type of the DB cluster.
         :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
         Services Secrets Manager.
         :param rotate_master_user_password: Specifies whether to rotate the secret managed by Amazon Web Services
         Secrets Manager for the master user password.
+        :param enable_local_write_forwarding: Specifies whether read replicas can forward write operations to the
+        writer DB instance in the DB cluster.
         :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
         automatically generated and managed in Amazon Web Services Secrets
         Manager.
@@ -10551,8 +10718,6 @@ class RdsApi:
         ``serverless``.
         :param allow_engine_mode_change: Specifies whether engine mode changes from ``serverless`` to
         ``provisioned`` are allowed.
-        :param enable_local_write_forwarding: Specifies whether read replicas can forward write operations to the
-        writer DB instance in the DB cluster.
         :param aws_backup_recovery_point_arn: The Amazon Resource Name (ARN) of the recovery point in Amazon Web
         Services Backup.
         :param enable_limitless_database: Specifies whether to enable Aurora Limitless Database.
@@ -10568,13 +10733,19 @@ class RdsApi:
         :raises InvalidDBSubnetGroupStateFault:
         :raises InvalidSubnet:
         :raises DBClusterParameterGroupNotFoundFault:
+        :raises DBParameterGroupNotFoundFault:
         :raises InvalidDBSecurityGroupStateFault:
         :raises InvalidDBInstanceStateFault:
         :raises DBClusterAlreadyExistsFault:
         :raises DBInstanceAlreadyExistsFault:
+        :raises NetworkTypeNotSupported:
         :raises DomainNotFoundFault:
+        :raises InvalidGlobalClusterStateFault:
+        :raises StorageTypeNotSupportedFault:
         :raises StorageTypeNotAvailableFault:
         :raises OptionGroupNotFoundFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
 
@@ -10620,24 +10791,14 @@ class RdsApi:
         ``ParameterValue``, and ``ApplyMethod``. A maximum of 20 parameters can
         be modified in a single request.
 
-        After you create a DB cluster parameter group, you should wait at least
-        5 minutes before creating your first DB cluster that uses that DB
-        cluster parameter group as the default parameter group. This allows
-        Amazon RDS to fully complete the create operation before the parameter
-        group is used as the default for a new DB cluster. This is especially
-        important for parameters that are critical when creating the default
-        database for a DB cluster, such as the character set for the default
-        database defined by the ``character_set_database`` parameter. You can
-        use the *Parameter Groups* option of the `Amazon RDS
-        console <https://console.aws.amazon.com/rds/>`__ or the
-        ``DescribeDBClusterParameters`` operation to verify that your DB cluster
-        parameter group has been created or modified.
-
-        If the modified DB cluster parameter group is used by an Aurora
-        Serverless v1 cluster, Aurora applies the update immediately. The
-        cluster restart might interrupt your workload. In that case, your
-        application must reopen any connections and retry any transactions that
-        were active when the parameter changes took effect.
+        There are two types of parameters - dynamic parameters and static
+        parameters. Changes to dynamic parameters are applied to the DB cluster
+        immediately without a reboot. Changes to static parameters are applied
+        only after the DB cluster is rebooted, which can be done using
+        ``RebootDBCluster`` operation. You can use the *Parameter Groups* option
+        of the `Amazon RDS console <https://console.aws.amazon.com/rds/>`__ or
+        the ``DescribeDBClusterParameters`` operation to verify that your DB
+        cluster parameter group has been created or modified.
 
         For more information on Amazon Aurora DB clusters, see `What is Amazon
         Aurora? <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/CHAP_AuroraOverview.html>`__
@@ -10715,7 +10876,7 @@ class RdsApi:
         db_security_groups: DBSecurityGroupNameList | None = None,
         vpc_security_group_ids: VpcSecurityGroupIdList | None = None,
         apply_immediately: Boolean | None = None,
-        master_user_password: String | None = None,
+        master_user_password: SensitiveString | None = None,
         db_parameter_group_name: String | None = None,
         backup_retention_period: IntegerOptional | None = None,
         preferred_backup_window: String | None = None,
@@ -10726,24 +10887,25 @@ class RdsApi:
         auto_minor_version_upgrade: BooleanOptional | None = None,
         license_model: String | None = None,
         iops: IntegerOptional | None = None,
+        storage_throughput: IntegerOptional | None = None,
         option_group_name: String | None = None,
         new_db_instance_identifier: String | None = None,
         storage_type: String | None = None,
         tde_credential_arn: String | None = None,
-        tde_credential_password: String | None = None,
+        tde_credential_password: SensitiveString | None = None,
         ca_certificate_identifier: String | None = None,
         domain: String | None = None,
         domain_fqdn: String | None = None,
         domain_ou: String | None = None,
         domain_auth_secret_arn: String | None = None,
         domain_dns_ips: StringList | None = None,
+        disable_domain: BooleanOptional | None = None,
         copy_tags_to_snapshot: BooleanOptional | None = None,
         monitoring_interval: IntegerOptional | None = None,
         db_port_number: IntegerOptional | None = None,
         publicly_accessible: BooleanOptional | None = None,
         monitoring_role_arn: String | None = None,
         domain_iam_role_name: String | None = None,
-        disable_domain: BooleanOptional | None = None,
         promotion_tier: IntegerOptional | None = None,
         enable_iam_database_authentication: BooleanOptional | None = None,
         database_insights_mode: DatabaseInsightsMode | None = None,
@@ -10757,19 +10919,19 @@ class RdsApi:
         max_allocated_storage: IntegerOptional | None = None,
         certificate_rotation_restart: BooleanOptional | None = None,
         replica_mode: ReplicaMode | None = None,
-        enable_customer_owned_ip: BooleanOptional | None = None,
-        aws_backup_recovery_point_arn: AwsBackupRecoveryPointArn | None = None,
         automation_mode: AutomationMode | None = None,
         resume_full_automation_mode_minutes: IntegerOptional | None = None,
+        enable_customer_owned_ip: BooleanOptional | None = None,
         network_type: String | None = None,
-        storage_throughput: IntegerOptional | None = None,
+        aws_backup_recovery_point_arn: AwsBackupRecoveryPointArn | None = None,
         manage_master_user_password: BooleanOptional | None = None,
         rotate_master_user_password: BooleanOptional | None = None,
         master_user_secret_kms_key_id: String | None = None,
-        engine: String | None = None,
-        dedicated_log_volume: BooleanOptional | None = None,
         multi_tenant: BooleanOptional | None = None,
+        dedicated_log_volume: BooleanOptional | None = None,
+        engine: String | None = None,
         master_user_authentication_type: MasterUserAuthenticationType | None = None,
+        additional_storage_volumes: ModifyAdditionalStorageVolumesList | None = None,
         **kwargs,
     ) -> ModifyDBInstanceResult:
         """Modifies settings for a DB instance. You can change one or more database
@@ -10806,6 +10968,7 @@ class RdsApi:
         :param license_model: The license model for the DB instance.
         :param iops: The new Provisioned IOPS (I/O operations per second) value for the RDS
         instance.
+        :param storage_throughput: The storage throughput value for the DB instance.
         :param option_group_name: The option group to associate the DB instance with.
         :param new_db_instance_identifier: The new identifier for the DB instance when renaming a DB instance.
         :param storage_type: The storage type to associate with the DB instance.
@@ -10822,6 +10985,8 @@ class RdsApi:
         joining the domain.
         :param domain_dns_ips: The IPv4 DNS IP addresses of your primary and secondary Active Directory
         domain controllers.
+        :param disable_domain: Specifies whether to remove the DB instance from the Active Directory
+        domain.
         :param copy_tags_to_snapshot: Specifies whether to copy all tags from the DB instance to snapshots of
         the DB instance.
         :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring
@@ -10832,8 +10997,6 @@ class RdsApi:
         metrics to Amazon CloudWatch Logs.
         :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory
         Service.
-        :param disable_domain: Specifies whether to remove the DB instance from the Active Directory
-        domain.
         :param promotion_tier: The order of priority in which an Aurora Replica is promoted to the
         primary instance after a failure of the existing primary instance.
         :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and
@@ -10855,14 +11018,13 @@ class RdsApi:
         :param certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your
         SSL/TLS certificate.
         :param replica_mode: The open mode of a replica database.
-        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
-        RDS on Outposts DB instance.
-        :param aws_backup_recovery_point_arn: The Amazon Resource Name (ARN) of the recovery point in Amazon Web
-        Services Backup.
         :param automation_mode: The automation mode of the RDS Custom DB instance.
         :param resume_full_automation_mode_minutes: The number of minutes to pause the automation.
+        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
+        RDS on Outposts DB instance.
         :param network_type: The network type of the DB instance.
-        :param storage_throughput: The storage throughput value for the DB instance.
+        :param aws_backup_recovery_point_arn: The Amazon Resource Name (ARN) of the recovery point in Amazon Web
+        Services Backup.
         :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
         Services Secrets Manager.
         :param rotate_master_user_password: Specifies whether to rotate the secret managed by Amazon Web Services
@@ -10870,12 +11032,14 @@ class RdsApi:
         :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
         automatically generated and managed in Amazon Web Services Secrets
         Manager.
-        :param engine: The target Oracle DB engine when you convert a non-CDB to a CDB.
-        :param dedicated_log_volume: Indicates whether the DB instance has a dedicated log volume (DLV)
-        enabled.
         :param multi_tenant: Specifies whether the to convert your DB instance from the single-tenant
         conﬁguration to the multi-tenant conﬁguration.
+        :param dedicated_log_volume: Indicates whether the DB instance has a dedicated log volume (DLV)
+        enabled.
+        :param engine: The target Oracle DB engine when you convert a non-CDB to a CDB.
         :param master_user_authentication_type: Specifies the authentication type for the master user.
+        :param additional_storage_volumes: A list of additional storage volumes to modify or delete for the DB
+        instance.
         :returns: ModifyDBInstanceResult
         :raises InvalidDBInstanceStateFault:
         :raises InvalidDBSecurityGroupStateFault:
@@ -10895,9 +11059,10 @@ class RdsApi:
         :raises DomainNotFoundFault:
         :raises BackupPolicyNotFoundFault:
         :raises KMSKeyNotAccessibleFault:
-        :raises InvalidDBClusterStateFault:
         :raises NetworkTypeNotSupported:
+        :raises InvalidDBClusterStateFault:
         :raises TenantDatabaseQuotaExceededFault:
+        :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
 
@@ -10940,14 +11105,14 @@ class RdsApi:
     def modify_db_proxy(
         self,
         context: RequestContext,
-        db_proxy_name: String,
-        new_db_proxy_name: String | None = None,
+        db_proxy_name: DBProxyName,
+        new_db_proxy_name: DBProxyName | None = None,
         default_auth_scheme: DefaultAuthScheme | None = None,
         auth: UserAuthConfigList | None = None,
         require_tls: BooleanOptional | None = None,
         idle_client_timeout: IntegerOptional | None = None,
         debug_logging: BooleanOptional | None = None,
-        role_arn: String | None = None,
+        role_arn: Arn | None = None,
         security_groups: StringList | None = None,
         **kwargs,
     ) -> ModifyDBProxyResponse:
@@ -11002,8 +11167,8 @@ class RdsApi:
     def modify_db_proxy_target_group(
         self,
         context: RequestContext,
-        target_group_name: String,
-        db_proxy_name: String,
+        target_group_name: DBProxyTargetGroupName,
+        db_proxy_name: DBProxyName,
         connection_pool_config: ConnectionPoolConfiguration | None = None,
         new_name: String | None = None,
         **kwargs,
@@ -11092,6 +11257,8 @@ class RdsApi:
         :param option_group_name: The option group to identify with the upgraded DB snapshot.
         :returns: ModifyDBSnapshotResult
         :raises DBSnapshotNotFoundFault:
+        :raises InvalidDBSnapshotStateFault:
+        :raises KMSKeyNotAccessibleFault:
         """
         raise NotImplementedError
 
@@ -11162,6 +11329,7 @@ class RdsApi:
         :raises DBSubnetQuotaExceededFault:
         :raises SubnetAlreadyInUse:
         :raises DBSubnetGroupDoesNotCoverEnoughAZs:
+        :raises InvalidDBSubnetGroupStateFault:
         :raises InvalidSubnet:
         """
         raise NotImplementedError
@@ -11210,8 +11378,8 @@ class RdsApi:
     def modify_global_cluster(
         self,
         context: RequestContext,
-        global_cluster_identifier: String | None = None,
-        new_global_cluster_identifier: String | None = None,
+        global_cluster_identifier: GlobalClusterIdentifier,
+        new_global_cluster_identifier: GlobalClusterIdentifier | None = None,
         deletion_protection: BooleanOptional | None = None,
         engine_version: String | None = None,
         allow_major_version_upgrade: BooleanOptional | None = None,
@@ -11457,6 +11625,7 @@ class RdsApi:
         :returns: RebootDBInstanceResult
         :raises InvalidDBInstanceStateFault:
         :raises DBInstanceNotFoundFault:
+        :raises KMSKeyNotAccessibleFault:
         """
         raise NotImplementedError
 
@@ -11482,8 +11651,8 @@ class RdsApi:
     def register_db_proxy_targets(
         self,
         context: RequestContext,
-        db_proxy_name: String,
-        target_group_name: String | None = None,
+        db_proxy_name: DBProxyName,
+        target_group_name: DBProxyTargetGroupName | None = None,
         db_instance_identifiers: StringList | None = None,
         db_cluster_identifiers: StringList | None = None,
         **kwargs,
@@ -11513,8 +11682,8 @@ class RdsApi:
     def remove_from_global_cluster(
         self,
         context: RequestContext,
-        global_cluster_identifier: String | None = None,
-        db_cluster_identifier: String | None = None,
+        global_cluster_identifier: GlobalClusterIdentifier,
+        db_cluster_identifier: String,
         **kwargs,
     ) -> RemoveFromGlobalClusterResult:
         """Detaches an Aurora secondary cluster from an Aurora global database
@@ -11531,6 +11700,7 @@ class RdsApi:
         :returns: RemoveFromGlobalClusterResult
         :raises GlobalClusterNotFoundFault:
         :raises InvalidGlobalClusterStateFault:
+        :raises InvalidDBClusterStateFault:
         :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
@@ -11631,11 +11801,16 @@ class RdsApi:
         :raises DBSnapshotNotFoundFault:
         :raises DBClusterNotFoundFault:
         :raises DBProxyNotFoundFault:
+        :raises DBProxyEndpointNotFoundFault:
         :raises DBProxyTargetGroupNotFoundFault:
         :raises BlueGreenDeploymentNotFoundFault:
-        :raises IntegrationNotFoundFault:
         :raises TenantDatabaseNotFoundFault:
         :raises DBSnapshotTenantDatabaseNotFoundFault:
+        :raises IntegrationNotFoundFault:
+        :raises DBShardGroupNotFoundFault:
+        :raises InvalidDBClusterStateFault:
+        :raises InvalidDBInstanceStateFault:
+        :raises InvalidDBClusterEndpointStateFault:
         """
         raise NotImplementedError
 
@@ -11728,7 +11903,7 @@ class RdsApi:
         db_subnet_group_name: String | None = None,
         engine_version: String | None = None,
         port: IntegerOptional | None = None,
-        master_user_password: String | None = None,
+        master_user_password: SensitiveString | None = None,
         option_group_name: String | None = None,
         preferred_backup_window: String | None = None,
         preferred_maintenance_window: String | None = None,
@@ -11743,11 +11918,11 @@ class RdsApi:
         copy_tags_to_snapshot: BooleanOptional | None = None,
         domain: String | None = None,
         domain_iam_role_name: String | None = None,
-        serverless_v2_scaling_configuration: ServerlessV2ScalingConfiguration | None = None,
+        storage_type: String | None = None,
         network_type: String | None = None,
+        serverless_v2_scaling_configuration: ServerlessV2ScalingConfiguration | None = None,
         manage_master_user_password: BooleanOptional | None = None,
         master_user_secret_kms_key_id: String | None = None,
-        storage_type: String | None = None,
         engine_lifecycle_support: String | None = None,
         **kwargs,
     ) -> RestoreDBClusterFromS3Result:
@@ -11823,15 +11998,15 @@ class RdsApi:
         :param domain: Specify the Active Directory directory ID to restore the DB cluster in.
         :param domain_iam_role_name: Specify the name of the IAM role to be used when making API calls to the
         Directory Service.
+        :param storage_type: Specifies the storage type to be associated with the DB cluster.
+        :param network_type: The network type of the DB cluster.
         :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB
         cluster.
-        :param network_type: The network type of the DB cluster.
         :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
         Services Secrets Manager.
         :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
         automatically generated and managed in Amazon Web Services Secrets
         Manager.
-        :param storage_type: Specifies the storage type to be associated with the DB cluster.
         :param engine_lifecycle_support: The life cycle type for this DB cluster.
         :returns: RestoreDBClusterFromS3Result
         :raises DBClusterAlreadyExistsFault:
@@ -11846,6 +12021,7 @@ class RdsApi:
         :raises DBClusterParameterGroupNotFoundFault:
         :raises KMSKeyNotAccessibleFault:
         :raises DBClusterNotFoundFault:
+        :raises NetworkTypeNotSupported:
         :raises DomainNotFoundFault:
         :raises InsufficientStorageClusterCapacityFault:
         :raises StorageTypeNotSupportedFault:
@@ -11882,8 +12058,8 @@ class RdsApi:
         storage_type: String | None = None,
         iops: IntegerOptional | None = None,
         publicly_accessible: BooleanOptional | None = None,
-        serverless_v2_scaling_configuration: ServerlessV2ScalingConfiguration | None = None,
         network_type: String | None = None,
+        serverless_v2_scaling_configuration: ServerlessV2ScalingConfiguration | None = None,
         rds_custom_cluster_configuration: RdsCustomClusterConfiguration | None = None,
         monitoring_interval: IntegerOptional | None = None,
         monitoring_role_arn: String | None = None,
@@ -11953,9 +12129,9 @@ class RdsApi:
         :param iops: The amount of Provisioned IOPS (input/output operations per second) to
         be initially allocated for each DB instance in the Multi-AZ DB cluster.
         :param publicly_accessible: Specifies whether the DB cluster is publicly accessible.
+        :param network_type: The network type of the DB cluster.
         :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB
         cluster.
-        :param network_type: The network type of the DB cluster.
         :param rds_custom_cluster_configuration: Reserved for future use.
         :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring
         metrics are collected for the DB cluster.
@@ -11985,10 +12161,13 @@ class RdsApi:
         :raises InvalidSubnet:
         :raises OptionGroupNotFoundFault:
         :raises KMSKeyNotAccessibleFault:
+        :raises NetworkTypeNotSupported:
         :raises DomainNotFoundFault:
         :raises DBClusterParameterGroupNotFoundFault:
+        :raises StorageTypeNotSupportedFault:
         :raises InvalidDBInstanceStateFault:
         :raises InsufficientDBInstanceCapacityFault:
+        :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
 
@@ -12015,15 +12194,15 @@ class RdsApi:
         copy_tags_to_snapshot: BooleanOptional | None = None,
         domain: String | None = None,
         domain_iam_role_name: String | None = None,
-        scaling_configuration: ScalingConfiguration | None = None,
-        engine_mode: String | None = None,
         db_cluster_instance_class: String | None = None,
         storage_type: String | None = None,
         publicly_accessible: BooleanOptional | None = None,
         iops: IntegerOptional | None = None,
-        serverless_v2_scaling_configuration: ServerlessV2ScalingConfiguration | None = None,
         network_type: String | None = None,
         source_db_cluster_resource_id: String | None = None,
+        serverless_v2_scaling_configuration: ServerlessV2ScalingConfiguration | None = None,
+        scaling_configuration: ScalingConfiguration | None = None,
+        engine_mode: String | None = None,
         rds_custom_cluster_configuration: RdsCustomClusterConfiguration | None = None,
         monitoring_interval: IntegerOptional | None = None,
         monitoring_role_arn: String | None = None,
@@ -12085,19 +12264,19 @@ class RdsApi:
         :param domain: The Active Directory directory ID to restore the DB cluster in.
         :param domain_iam_role_name: The name of the IAM role to be used when making API calls to the
         Directory Service.
-        :param scaling_configuration: For DB clusters in ``serverless`` DB engine mode, the scaling properties
-        of the DB cluster.
-        :param engine_mode: The engine mode of the new cluster.
         :param db_cluster_instance_class: The compute and memory capacity of the each DB instance in the Multi-AZ
         DB cluster, for example db.
         :param storage_type: Specifies the storage type to be associated with the DB cluster.
         :param publicly_accessible: Specifies whether the DB cluster is publicly accessible.
         :param iops: The amount of Provisioned IOPS (input/output operations per second) to
         be initially allocated for each DB instance in the Multi-AZ DB cluster.
-        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB
-        cluster.
         :param network_type: The network type of the DB cluster.
         :param source_db_cluster_resource_id: The resource ID of the source DB cluster from which to restore.
+        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB
+        cluster.
+        :param scaling_configuration: For DB clusters in ``serverless`` DB engine mode, the scaling properties
+        of the DB cluster.
+        :param engine_mode: The engine mode of the new cluster.
         :param rds_custom_cluster_configuration: Reserved for future use.
         :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring
         metrics are collected for the DB cluster.
@@ -12125,10 +12304,13 @@ class RdsApi:
         :raises KMSKeyNotAccessibleFault:
         :raises OptionGroupNotFoundFault:
         :raises StorageQuotaExceededFault:
+        :raises NetworkTypeNotSupported:
         :raises DomainNotFoundFault:
         :raises DBClusterParameterGroupNotFoundFault:
+        :raises StorageTypeNotSupportedFault:
         :raises DBClusterAutomatedBackupNotFoundFault:
         :raises InsufficientDBInstanceCapacityFault:
+        :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
 
@@ -12149,11 +12331,12 @@ class RdsApi:
         db_name: String | None = None,
         engine: String | None = None,
         iops: IntegerOptional | None = None,
+        storage_throughput: IntegerOptional | None = None,
         option_group_name: String | None = None,
         tags: TagList | None = None,
         storage_type: String | None = None,
         tde_credential_arn: String | None = None,
-        tde_credential_password: String | None = None,
+        tde_credential_password: SensitiveString | None = None,
         vpc_security_group_ids: VpcSecurityGroupIdList | None = None,
         domain: String | None = None,
         domain_fqdn: String | None = None,
@@ -12169,17 +12352,17 @@ class RdsApi:
         db_parameter_group_name: String | None = None,
         deletion_protection: BooleanOptional | None = None,
         enable_customer_owned_ip: BooleanOptional | None = None,
-        custom_iam_instance_profile: String | None = None,
-        backup_target: String | None = None,
         network_type: String | None = None,
-        storage_throughput: IntegerOptional | None = None,
-        db_cluster_snapshot_identifier: String | None = None,
+        backup_target: String | None = None,
+        custom_iam_instance_profile: String | None = None,
         allocated_storage: IntegerOptional | None = None,
+        db_cluster_snapshot_identifier: String | None = None,
         dedicated_log_volume: BooleanOptional | None = None,
         ca_certificate_identifier: String | None = None,
         engine_lifecycle_support: String | None = None,
         manage_master_user_password: BooleanOptional | None = None,
         master_user_secret_kms_key_id: String | None = None,
+        additional_storage_volumes: AdditionalStorageVolumesList | None = None,
         **kwargs,
     ) -> RestoreDBInstanceFromDBSnapshotResult:
         """Creates a new DB instance from a DB snapshot. The target database is
@@ -12231,6 +12414,7 @@ class RdsApi:
         :param engine: The database engine to use for the new instance.
         :param iops: Specifies the amount of provisioned IOPS for the DB instance, expressed
         in I/O operations per second.
+        :param storage_throughput: Specifies the storage throughput value for the DB instance.
         :param option_group_name: The name of the option group to be used for the restored DB instance.
         :param tags: A list of tags.
         :param storage_type: Specifies the storage type to be associated with the DB instance.
@@ -12262,15 +12446,14 @@ class RdsApi:
         :param deletion_protection: Specifies whether to enable deletion protection for the DB instance.
         :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
         RDS on Outposts DB instance.
-        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance
-        of an RDS Custom DB instance.
+        :param network_type: The network type of the DB instance.
         :param backup_target: Specifies where automated backups and manual snapshots are stored for
         the restored DB instance.
-        :param network_type: The network type of the DB instance.
-        :param storage_throughput: Specifies the storage throughput value for the DB instance.
-        :param db_cluster_snapshot_identifier: The identifier for the Multi-AZ DB cluster snapshot to restore from.
+        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance
+        of an RDS Custom DB instance.
         :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the DB
         instance.
+        :param db_cluster_snapshot_identifier: The identifier for the Multi-AZ DB cluster snapshot to restore from.
         :param dedicated_log_volume: Specifies whether to enable a dedicated log volume (DLV) for the DB
         instance.
         :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
@@ -12281,6 +12464,7 @@ class RdsApi:
         :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
         automatically generated and managed in Amazon Web Services Secrets
         Manager.
+        :param additional_storage_volumes: A list of additional storage volumes to create for the DB instance.
         :returns: RestoreDBInstanceFromDBSnapshotResult
         :raises DBInstanceAlreadyExistsFault:
         :raises DBSnapshotNotFoundFault:
@@ -12301,11 +12485,12 @@ class RdsApi:
         :raises DBSecurityGroupNotFoundFault:
         :raises DomainNotFoundFault:
         :raises DBParameterGroupNotFoundFault:
-        :raises BackupPolicyNotFoundFault:
         :raises NetworkTypeNotSupported:
+        :raises BackupPolicyNotFoundFault:
         :raises DBClusterSnapshotNotFoundFault:
         :raises CertificateNotFoundFault:
         :raises TenantDatabaseQuotaExceededFault:
+        :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
 
@@ -12323,7 +12508,7 @@ class RdsApi:
         db_name: String | None = None,
         allocated_storage: IntegerOptional | None = None,
         master_username: String | None = None,
-        master_user_password: String | None = None,
+        master_user_password: SensitiveString | None = None,
         db_security_groups: DBSecurityGroupNameList | None = None,
         vpc_security_group_ids: VpcSecurityGroupIdList | None = None,
         availability_zone: String | None = None,
@@ -12338,6 +12523,7 @@ class RdsApi:
         auto_minor_version_upgrade: BooleanOptional | None = None,
         license_model: String | None = None,
         iops: IntegerOptional | None = None,
+        storage_throughput: IntegerOptional | None = None,
         option_group_name: String | None = None,
         publicly_accessible: BooleanOptional | None = None,
         tags: TagList | None = None,
@@ -12359,12 +12545,12 @@ class RdsApi:
         deletion_protection: BooleanOptional | None = None,
         max_allocated_storage: IntegerOptional | None = None,
         network_type: String | None = None,
-        storage_throughput: IntegerOptional | None = None,
         manage_master_user_password: BooleanOptional | None = None,
         master_user_secret_kms_key_id: String | None = None,
         dedicated_log_volume: BooleanOptional | None = None,
         ca_certificate_identifier: String | None = None,
         engine_lifecycle_support: String | None = None,
+        additional_storage_volumes: AdditionalStorageVolumesList | None = None,
         **kwargs,
     ) -> RestoreDBInstanceFromS3Result:
         """Amazon Relational Database Service (Amazon RDS) supports importing MySQL
@@ -12412,6 +12598,7 @@ class RdsApi:
         :param license_model: The license model for this DB instance.
         :param iops: The amount of Provisioned IOPS (input/output operations per second) to
         allocate initially for the DB instance.
+        :param storage_throughput: Specifies the storage throughput value for the DB instance.
         :param option_group_name: The name of the option group to associate with this DB instance.
         :param publicly_accessible: Specifies whether the DB instance is publicly accessible.
         :param tags: A list of tags to associate with this DB instance.
@@ -12442,7 +12629,6 @@ class RdsApi:
         :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically
         scale the storage of the DB instance.
         :param network_type: The network type of the DB instance.
-        :param storage_throughput: Specifies the storage throughput value for the DB instance.
         :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
         Services Secrets Manager.
         :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
@@ -12453,6 +12639,8 @@ class RdsApi:
         :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
         certificate.
         :param engine_lifecycle_support: The life cycle type for this DB instance.
+        :param additional_storage_volumes: A list of additional storage volumes to modify or delete for the DB
+        instance.
         :returns: RestoreDBInstanceFromS3Result
         :raises DBInstanceAlreadyExistsFault:
         :raises InsufficientDBInstanceCapacityFault:
@@ -12470,9 +12658,10 @@ class RdsApi:
         :raises StorageTypeNotSupportedFault:
         :raises AuthorizationNotFoundFault:
         :raises KMSKeyNotAccessibleFault:
-        :raises BackupPolicyNotFoundFault:
         :raises NetworkTypeNotSupported:
+        :raises BackupPolicyNotFoundFault:
         :raises CertificateNotFoundFault:
+        :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
 
@@ -12495,12 +12684,13 @@ class RdsApi:
         db_name: String | None = None,
         engine: String | None = None,
         iops: IntegerOptional | None = None,
+        storage_throughput: IntegerOptional | None = None,
         option_group_name: String | None = None,
         copy_tags_to_snapshot: BooleanOptional | None = None,
         tags: TagList | None = None,
         storage_type: String | None = None,
         tde_credential_arn: String | None = None,
-        tde_credential_password: String | None = None,
+        tde_credential_password: SensitiveString | None = None,
         vpc_security_group_ids: VpcSecurityGroupIdList | None = None,
         domain: String | None = None,
         domain_iam_role_name: String | None = None,
@@ -12516,18 +12706,18 @@ class RdsApi:
         deletion_protection: BooleanOptional | None = None,
         source_dbi_resource_id: String | None = None,
         max_allocated_storage: IntegerOptional | None = None,
-        source_db_instance_automated_backups_arn: String | None = None,
         enable_customer_owned_ip: BooleanOptional | None = None,
-        custom_iam_instance_profile: String | None = None,
-        backup_target: String | None = None,
         network_type: String | None = None,
-        storage_throughput: IntegerOptional | None = None,
+        source_db_instance_automated_backups_arn: String | None = None,
+        backup_target: String | None = None,
+        custom_iam_instance_profile: String | None = None,
         allocated_storage: IntegerOptional | None = None,
         dedicated_log_volume: BooleanOptional | None = None,
         ca_certificate_identifier: String | None = None,
         engine_lifecycle_support: String | None = None,
         manage_master_user_password: BooleanOptional | None = None,
         master_user_secret_kms_key_id: String | None = None,
+        additional_storage_volumes: AdditionalStorageVolumesList | None = None,
         **kwargs,
     ) -> RestoreDBInstanceToPointInTimeResult:
         """Restores a DB instance to an arbitrary point in time. You can restore to
@@ -12565,6 +12755,7 @@ class RdsApi:
         :param engine: The database engine to use for the new instance.
         :param iops: The amount of Provisioned IOPS (input/output operations per second) to
         initially allocate for the DB instance.
+        :param storage_throughput: The storage throughput value for the DB instance.
         :param option_group_name: The name of the option group to use for the restored DB instance.
         :param copy_tags_to_snapshot: Specifies whether to copy all tags from the restored DB instance to
         snapshots of the DB instance.
@@ -12597,17 +12788,16 @@ class RdsApi:
         :param source_dbi_resource_id: The resource ID of the source DB instance from which to restore.
         :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically
         scale the storage of the DB instance.
+        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
+        RDS on Outposts DB instance.
+        :param network_type: The network type of the DB instance.
         :param source_db_instance_automated_backups_arn: The Amazon Resource Name (ARN) of the replicated automated backups from
         which to restore, for example,
         ``arn:aws:rds:us-east-1:123456789012:auto-backup:ab-L2IJCEXJP7XQ7HOJ4SIEXAMPLE``.
-        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
-        RDS on Outposts DB instance.
-        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance
-        of an RDS Custom DB instance.
         :param backup_target: The location for storing automated backups and manual snapshots for the
         restored DB instance.
-        :param network_type: The network type of the DB instance.
-        :param storage_throughput: The storage throughput value for the DB instance.
+        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance
+        of an RDS Custom DB instance.
         :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the DB
         instance.
         :param dedicated_log_volume: Specifies whether to enable a dedicated log volume (DLV) for the DB
@@ -12620,6 +12810,7 @@ class RdsApi:
         :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
         automatically generated and managed in Amazon Web Services Secrets
         Manager.
+        :param additional_storage_volumes: A list of additional storage volumes to restore to the DB instance.
         :returns: RestoreDBInstanceToPointInTimeResult
         :raises DBInstanceAlreadyExistsFault:
         :raises DBInstanceNotFoundFault:
@@ -12642,10 +12833,11 @@ class RdsApi:
         :raises DomainNotFoundFault:
         :raises BackupPolicyNotFoundFault:
         :raises DBParameterGroupNotFoundFault:
-        :raises DBInstanceAutomatedBackupNotFoundFault:
         :raises NetworkTypeNotSupported:
+        :raises DBInstanceAutomatedBackupNotFoundFault:
         :raises TenantDatabaseQuotaExceededFault:
         :raises CertificateNotFoundFault:
+        :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
 
@@ -12749,6 +12941,8 @@ class RdsApi:
         :raises InvalidDBClusterStateFault:
         :raises InvalidDBInstanceStateFault:
         :raises InvalidDBShardGroupStateFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
 
@@ -12781,6 +12975,7 @@ class RdsApi:
         :raises DBClusterNotFoundFault:
         :raises AuthorizationNotFoundFault:
         :raises KMSKeyNotAccessibleFault:
+        :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
 
@@ -12791,7 +12986,7 @@ class RdsApi:
         source_db_instance_arn: String,
         backup_retention_period: IntegerOptional | None = None,
         kms_key_id: String | None = None,
-        pre_signed_url: String | None = None,
+        pre_signed_url: SensitiveString | None = None,
         source_region: String | None = None,
         **kwargs,
     ) -> StartDBInstanceAutomatedBackupsReplicationResult:
@@ -12820,6 +13015,7 @@ class RdsApi:
         :raises DBInstanceNotFoundFault:
         :raises InvalidDBInstanceStateFault:
         :raises KMSKeyNotAccessibleFault:
+        :raises InvalidDBInstanceAutomatedBackupStateFault:
         :raises DBInstanceAutomatedBackupQuotaExceededFault:
         :raises StorageTypeNotSupportedFault:
         """

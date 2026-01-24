@@ -194,3 +194,204 @@ class KmsKeyEncryptDataResponse(BaseModel):
 class KmsKeyDecryptDataResponse(BaseModel):
     """Response model for decrypt data API"""
     plaintext: str
+
+@dataclass
+class CreateFolderResponseItem(BaseModel):
+    """Folder model with path for create response"""
+    id: str
+    name: str
+    createdAt: str
+    updatedAt: str
+    envId: str
+    path: str
+    version: Optional[int] = 1
+    parentId: Optional[str] = None
+    isReserved: Optional[bool] = False
+    description: Optional[str] = None
+    lastSecretModified: Optional[str] = None
+
+@dataclass
+class CreateFolderResponse(BaseModel):
+    """Response model for create folder API"""
+    folder: CreateFolderResponseItem
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'CreateFolderResponse':
+        return cls(
+            folder=CreateFolderResponseItem.from_dict(data['folder']),
+        )
+
+
+@dataclass
+class ListFoldersResponseItem(BaseModel):
+    """Response model for list folders API"""
+    id: str
+    name: str
+    createdAt: str
+    updatedAt: str
+    envId: str
+    version: Optional[int] = 1
+    parentId: Optional[str] = None
+    isReserved: Optional[bool] = False
+    description: Optional[str] = None
+    lastSecretModified: Optional[str] = None 
+    relativePath: Optional[str] = None
+
+
+@dataclass
+class ListFoldersResponse(BaseModel):
+    """Complete response model for folders API"""
+    folders: List[ListFoldersResponseItem]
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'ListFoldersResponse':
+        """Create model from dictionary with camelCase keys, handling nested objects"""
+        return cls(
+            folders=[ListFoldersResponseItem.from_dict(folder) for folder in data['folders']]
+        )
+
+
+@dataclass
+class Environment(BaseModel):
+    """Environment model"""
+    envId: str
+    envName: str
+    envSlug: str
+
+@dataclass
+class SingleFolderResponseItem(BaseModel):
+    """Response model for get folder API"""
+    id: str
+    name: str
+    createdAt: str
+    updatedAt: str
+    envId: str
+    path: str
+    projectId: str
+    environment: Environment
+    version: Optional[int] = 1
+    parentId: Optional[str] = None
+    isReserved: Optional[bool] = False
+    description: Optional[str] = None
+    lastSecretModified: Optional[str] = None
+    
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'SingleFolderResponseItem':
+        """Create model from dictionary with nested Environment"""
+        folder_data = data.copy()
+        folder_data['environment'] = Environment.from_dict(data['environment'])
+        
+        return super().from_dict(folder_data)
+
+@dataclass
+class SingleFolderResponse(BaseModel):
+    """Response model for get/create folder API"""
+    folder: SingleFolderResponseItem
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'SingleFolderResponse':
+        return cls(
+            folder=SingleFolderResponseItem.from_dict(data['folder']),
+        )
+
+class DynamicSecretProviders(str, Enum):
+    """Enum for dynamic secret provider types"""
+    AWS_ELASTICACHE = "aws-elasticache"
+    AWS_IAM = "aws-iam"
+    AZURE_ENTRA_ID = "azure-entra-id"
+    AZURE_SQL_DATABASE = "azure-sql-database"
+    CASSANDRA = "cassandra"
+    COUCHBASE = "couchbase"
+    ELASTICSEARCH = "elastic-search"
+    GCP_IAM = "gcp-iam"
+    GITHUB = "github"
+    KUBERNETES = "kubernetes"
+    LDAP = "ldap"
+    MONGO_ATLAS = "mongo-db-atlas"
+    MONGODB = "mongo-db"
+    RABBITMQ = "rabbit-mq"
+    REDIS = "redis"
+    SAP_ASE = "sap-ase"
+    SAP_HANA = "sap-hana"
+    SNOWFLAKE = "snowflake"
+    SQL_DATABASE = "sql-database"
+    TOTP = "totp"
+    VERTICA = "vertica"
+
+@dataclass
+class DynamicSecret(BaseModel):
+    """Infisical Dynamic Secret"""
+    id: str
+    name: str
+    version: int
+    type: str
+    folderId: str
+    createdAt: str
+    updatedAt: str
+    defaultTTL: Optional[str] = None
+    maxTTL: Optional[str] = None
+    status: Optional[str] = None
+    statusDetails: Optional[str] = None
+    usernameTemplate: Optional[str] = None
+    metadata: Optional[List[Dict[str, str]]] = field(default_factory=list)
+    inputs: Optional[Any] = None
+
+@dataclass
+class SingleDynamicSecretResponse(BaseModel):
+    """Response model for get/create/update/delete dynamic secret API"""
+    dynamicSecret: DynamicSecret
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'SingleDynamicSecretResponse':
+        return cls(
+            dynamicSecret=DynamicSecret.from_dict(data['dynamicSecret']),
+        )
+
+@dataclass
+class DynamicSecretLease(BaseModel):
+    """Infisical Dynamic Secret Lease"""
+    id: str
+    expireAt: str
+    createdAt: str
+    updatedAt: str
+    version: int
+    dynamicSecretId: str
+    externalEntityId: str
+    status: Optional[str] = None
+    statusDetails: Optional[str] = None
+    dynamicSecret: Optional[DynamicSecret] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'DynamicSecretLease':
+        """Create model from dictionary with nested DynamicSecret"""
+        lease_data = data.copy()
+        if 'dynamicSecret' in data and data['dynamicSecret'] is not None:
+            lease_data['dynamicSecret'] = DynamicSecret.from_dict(data['dynamicSecret'])
+        
+        return super().from_dict(lease_data)
+
+@dataclass
+class CreateLeaseResponse(BaseModel):
+    """Response model for create lease API - returns lease, dynamicSecret, and data"""
+    lease: DynamicSecretLease
+    dynamicSecret: DynamicSecret
+    data: Any
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'CreateLeaseResponse':
+        return cls(
+            lease=DynamicSecretLease.from_dict(data['lease']),
+            dynamicSecret=DynamicSecret.from_dict(data['dynamicSecret']),
+            data=data.get('data', {}),
+        )
+
+@dataclass
+class SingleLeaseResponse(BaseModel):
+    """Response model for get/delete/renew lease API - returns only lease"""
+    lease: DynamicSecretLease
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'SingleLeaseResponse':
+        return cls(
+            lease=DynamicSecretLease.from_dict(data['lease']),
+        )

@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Optional
+from typing import Any
 
 from requests import Response, Session
 
@@ -27,7 +27,7 @@ class DefaultTransport(Transport):
 
     __slots__ = "session", "timeout"
 
-    def __init__(self, timeout: float = 2.0, session: Optional[Session] = None):
+    def __init__(self, timeout: float = 2.0, session: Session | None = None):
         """Initialize the transport."""
         self.timeout = timeout
         self.session = session or Session()

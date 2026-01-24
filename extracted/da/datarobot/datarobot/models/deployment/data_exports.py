@@ -69,32 +69,28 @@ class PredictionDataExport(APIObject):
     """
 
     _path = "deployments/{}/predictionDataExports/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("model_id"): t.String(),
-            t.Key("created_at"): t.String() >> dateutil.parser.parse,
-            t.Key("period"): t.Dict(
-                {
-                    t.Key("start"): t.String >> dateutil.parser.parse,
-                    t.Key("end"): t.String >> dateutil.parser.parse,
-                }
-            ),
-            t.Key("status"): t.String(),
-            t.Key("error", optional=True, default=None): t.Or(
-                t.Dict().allow_extra("*"),
-                t.Null,
-            ),
-            t.Key("data", optional=True): t.Or(
-                t.List(t.Dict().allow_extra("*")),
-                t.Null,
-            ),
-            t.Key("batches", optional=True, default=None): t.Or(
-                t.Dict().allow_extra("*"),
-                t.Null,
-            ),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("model_id"): t.String(),
+        t.Key("created_at"): t.String() >> dateutil.parser.parse,
+        t.Key("period"): t.Dict({
+            t.Key("start"): t.String >> dateutil.parser.parse,
+            t.Key("end"): t.String >> dateutil.parser.parse,
+        }),
+        t.Key("status"): t.String(),
+        t.Key("error", optional=True, default=None): t.Or(
+            t.Dict().allow_extra("*"),
+            t.Null,
+        ),
+        t.Key("data", optional=True): t.Or(
+            t.List(t.Dict().allow_extra("*")),
+            t.Null,
+        ),
+        t.Key("batches", optional=True, default=None): t.Or(
+            t.Dict().allow_extra("*"),
+            t.Null,
+        ),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -181,9 +177,7 @@ class PredictionDataExport(APIObject):
             response = cls._client.get(path, params=params).json()
             r_data = response["data"]
 
-        prediction_data_exports = [
-            cls.from_server_data(from_api(d, keep_null_keys=True)) for d in r_data
-        ]
+        prediction_data_exports = [cls.from_server_data(from_api(d, keep_null_keys=True)) for d in r_data]
         for data_export in prediction_data_exports:
             data_export.deployment_id = deployment_id
         return prediction_data_exports
@@ -281,9 +275,7 @@ class PredictionDataExport(APIObject):
             payload["batchIds"] = batch_ids
         path = cls._path.format(deployment_id)
         response = cls._client.post(path, json=payload)
-        retrieve_url = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        retrieve_url = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         response = cls._client.get(retrieve_url)
         export_id = response.json()["id"]
         return cls.get(deployment_id, export_id)
@@ -339,29 +331,25 @@ class ActualsDataExport(APIObject):
     """
 
     _path = "deployments/{}/actualsDataExports/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("model_id"): t.String(),
-            t.Key("created_at"): t.String() >> dateutil.parser.parse,
-            t.Key("period"): t.Dict(
-                {
-                    t.Key("start"): t.String >> dateutil.parser.parse,
-                    t.Key("end"): t.String >> dateutil.parser.parse,
-                }
-            ),
-            t.Key("status"): t.String(),
-            t.Key("error", optional=True, default=None): t.Or(
-                t.Dict().allow_extra("*"),
-                t.Null,
-            ),
-            t.Key("data", optional=True): t.Or(
-                t.List(t.Dict().allow_extra("*")),
-                t.Null,
-            ),
-            t.Key("only_matched_predictions", optional=True, default=True): t.Bool(),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("model_id"): t.String(),
+        t.Key("created_at"): t.String() >> dateutil.parser.parse,
+        t.Key("period"): t.Dict({
+            t.Key("start"): t.String >> dateutil.parser.parse,
+            t.Key("end"): t.String >> dateutil.parser.parse,
+        }),
+        t.Key("status"): t.String(),
+        t.Key("error", optional=True, default=None): t.Or(
+            t.Dict().allow_extra("*"),
+            t.Null,
+        ),
+        t.Key("data", optional=True): t.Or(
+            t.List(t.Dict().allow_extra("*")),
+            t.Null,
+        ),
+        t.Key("only_matched_predictions", optional=True, default=True): t.Bool(),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -436,9 +424,7 @@ class ActualsDataExport(APIObject):
             response = cls._client.get(path, params=params).json()
             r_data = response["data"]
 
-        actuals_data_exports = [
-            cls.from_server_data(from_api(d, keep_null_keys=True)) for d in r_data
-        ]
+        actuals_data_exports = [cls.from_server_data(from_api(d, keep_null_keys=True)) for d in r_data]
         for data_export in actuals_data_exports:
             data_export.deployment_id = deployment_id
         return actuals_data_exports
@@ -535,9 +521,7 @@ class ActualsDataExport(APIObject):
             payload["onlyMatchedPredictions"] = only_matched_predictions
         path = cls._path.format(deployment_id)
         response = cls._client.post(path, json=payload)
-        retrieve_url = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        retrieve_url = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         response = cls._client.get(retrieve_url)
         export_id = response.json()["id"]
         return cls.get(deployment_id, export_id)
@@ -587,18 +571,16 @@ class TrainingDataExport(APIObject):
     """
 
     _path = "deployments/{}/trainingDataExports/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("model_id"): t.String(),
-            t.Key("model_package_id"): t.String(),
-            t.Key("created_at"): t.String() >> dateutil.parser.parse,
-            t.Key("data", optional=True): t.Or(
-                t.Dict().allow_extra("*"),
-                t.Null,
-            ),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("model_id"): t.String(),
+        t.Key("model_package_id"): t.String(),
+        t.Key("created_at"): t.String() >> dateutil.parser.parse,
+        t.Key("data", optional=True): t.Or(
+            t.Dict().allow_extra("*"),
+            t.Null,
+        ),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -646,9 +628,7 @@ class TrainingDataExport(APIObject):
         """
         path = cls._path.format(deployment_id)
         data = cls._client.get(path).json()["data"]
-        training_data_exports = [
-            cls.from_server_data(from_api(d, keep_null_keys=True)) for d in data
-        ]
+        training_data_exports = [cls.from_server_data(from_api(d, keep_null_keys=True)) for d in data]
         for data_export in training_data_exports:
             data_export.deployment_id = deployment_id
         return training_data_exports
@@ -725,9 +705,7 @@ class TrainingDataExport(APIObject):
             payload["modelId"] = model_id
         path = cls._path.format(deployment_id)
         response = cls._client.post(path, json=payload)
-        retrieve_url = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        retrieve_url = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         response = cls._client.get(retrieve_url)
         dataset_id = response.json()["datasetId"]
         return dataset_id  # type: ignore[no-any-return]
@@ -783,21 +761,19 @@ class DataQualityExport(APIObject):
     """
 
     _path = "deployments/{}/dataQualityView/"
-    _converter = t.Dict(
-        {
-            t.Key("association_id"): t.String(),
-            t.Key("timestamp"): t.String() >> dateutil.parser.parse,
-            t.Key("prompt", optional=True, default=None): t.Or(t.Null, t.String()),
-            t.Key("predicted_value", optional=True, default=None): t.Or(t.Null, t.String()),
-            t.Key("actual_value", optional=True, default=None): t.Or(t.Null, t.String()),
-            t.Key("context"): t.List(
-                t.Dict().allow_extra("*"),
-            ),
-            t.Key("metrics"): t.List(
-                t.Dict().allow_extra("*"),
-            ),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("association_id"): t.String(),
+        t.Key("timestamp"): t.String() >> dateutil.parser.parse,
+        t.Key("prompt", optional=True, default=None): t.Or(t.Null, t.String()),
+        t.Key("predicted_value", optional=True, default=None): t.Or(t.Null, t.String()),
+        t.Key("actual_value", optional=True, default=None): t.Or(t.Null, t.String()),
+        t.Key("context"): t.List(
+            t.Dict().allow_extra("*"),
+        ),
+        t.Key("metrics"): t.List(
+            t.Dict().allow_extra("*"),
+        ),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -922,9 +898,7 @@ class DataQualityExport(APIObject):
             response = cls._client.get(path, params=params).json()
             r_data = response["data"]
 
-        data_quality_exports = [
-            cls.from_server_data(from_api(d, keep_null_keys=True)) for d in r_data
-        ]
+        data_quality_exports = [cls.from_server_data(from_api(d, keep_null_keys=True)) for d in r_data]
         for data_export in data_quality_exports:
             data_export.deployment_id = deployment_id
         return data_quality_exports

@@ -17,16 +17,28 @@ from langgraph_api.config import (
     BG_JOB_MAX_RETRIES,
     BG_JOB_TIMEOUT_SECS,
 )
+from langgraph_api.encryption.context import set_encryption_context
+from langgraph_api.encryption.middleware import (
+    decrypt_response,
+    extract_blob_encryption_context,
+)
 from langgraph_api.errors import UserInterrupt, UserRollback, UserTimeout
+from langgraph_api.feature_flags import FF_USE_CORE_API
+from langgraph_api.grpc.ops import Runs as GrpcRuns
+from langgraph_api.grpc.ops import Threads as GrpcThreads
 from langgraph_api.js.errors import RemoteException
 from langgraph_api.metadata import incr_runs
-from langgraph_api.schema import Run, StreamMode
+from langgraph_api.otel_context import restore_otel_trace_context
+from langgraph_api.schema import RUN_KWARGS_ENCRYPTION_SUBFIELDS, Run, StreamMode
 from langgraph_api.state import state_snapshot_to_thread_state
 from langgraph_api.stream import AnyStream, astream_state, consume
 from langgraph_api.utils import with_user
 from langgraph_runtime.database import connect
 from langgraph_runtime.ops import Runs, Threads
 from langgraph_runtime.retry import RETRIABLE_EXCEPTIONS
+
+CrudRuns = GrpcRuns if FF_USE_CORE_API else Runs
+CrudThreads = GrpcThreads if FF_USE_CORE_API else Threads
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -72,6 +84,17 @@ async def worker(
     run_id = run["run_id"]
     if attempt == 1:
         incr_runs()
+
+    # Extract and set encryption context BEFORE decryption (decrypt_response strips this key)
+    encryption_context = extract_blob_encryption_context(run["kwargs"].get("config"))
+    if encryption_context:
+        set_encryption_context(encryption_context)
+
+    # Decrypt kwargs fields FIRST, before any access to run["kwargs"]
+    run["kwargs"] = await decrypt_response(
+        run["kwargs"], "run", RUN_KWARGS_ENCRYPTION_SUBFIELDS
+    )
+
     checkpoint: CheckpointPayload | None = None
     exception: Exception | asyncio.CancelledError | None = None
     status: str | None = None
@@ -96,15 +119,17 @@ async def worker(
     )
     temporary = run["kwargs"].get("temporary", False)
     resumable = run["kwargs"].get("resumable", False)
+    run_created_at_dt = run["created_at"]
     run_created_at = run["created_at"].isoformat()
+    thread_id = str(run.get("thread_id"))
     lg_logging.set_logging_context(
         {
             "run_id": str(run_id),
             "run_attempt": attempt,
-            "thread_id": str(run.get("thread_id")),
+            "thread_id": thread_id,
             "assistant_id": str(run.get("assistant_id")),
-            "graph_id": _get_graph_id(run),
-            "request_id": _get_request_id(run),
+            "graph_id": str(_get_graph_id(run)),
+            "request_id": str(_get_request_id(run)),
         }
     )
     run_stream_started_at_dt = datetime.now(UTC)
@@ -146,6 +171,8 @@ async def worker(
             if not isinstance(e, UserRollback | UserInterrupt):
                 logger.exception(
                     f"Run encountered an error in graph: {type(e)}({e})",
+                    run_id=str(run_id),
+                    thread_id=thread_id,
                 )
             # TimeoutError is a special case where we rely on asyncio.wait_for to timeout runs
             # Convert user TimeoutErrors to a custom class so we can distinguish and later convert back
@@ -153,13 +180,13 @@ async def worker(
                 raise UserTimeout(e) from e
             raise
 
-    async with Runs.enter(run_id, run["thread_id"], main_loop, resumable) as done:
+    async with CrudRuns.enter(run_id, run["thread_id"], main_loop, resumable) as done:
         # attempt the run
         try:
             if attempt > BG_JOB_MAX_RETRIES:
                 await logger.aerror(
                     "Run exceeded max attempts",
-                    run_id=run["run_id"],
+                    run_id=str(run["run_id"]),
                     run_completed_in_ms=(
                         int((time.time() * 1_000) - request_created_at)
                         if request_created_at is not None
@@ -181,24 +208,28 @@ async def worker(
                     )
 
                 raise RuntimeError(error_message)
+            configurable = run["kwargs"].get("config", {}).get("configurable", {})
             async with set_auth_ctx_for_run(run["kwargs"]):
-                if temporary:
-                    stream = astream_state(run, attempt, done)
-                else:
-                    stream = astream_state(
-                        run,
-                        attempt,
-                        done,
-                        on_checkpoint=on_checkpoint,
-                        on_task_result=on_task_result,
+                with restore_otel_trace_context(
+                    configurable, run_id=str(run_id), thread_id=str(thread_id)
+                ):
+                    if temporary:
+                        stream = astream_state(run, attempt, done)
+                    else:
+                        stream = astream_state(
+                            run,
+                            attempt,
+                            done,
+                            on_checkpoint=on_checkpoint,
+                            on_task_result=on_task_result,
+                        )
+                    stream_modes: set[StreamMode] = set(
+                        run["kwargs"].get("stream_mode", [])
                     )
-                stream_modes: set[StreamMode] = set(
-                    run["kwargs"].get("stream_mode", [])
-                )
-                await asyncio.wait_for(
-                    wrap_user_errors(stream, run_id, resumable, stream_modes),
-                    BG_JOB_TIMEOUT_SECS,
-                )
+                    await asyncio.wait_for(
+                        wrap_user_errors(stream, run_id, resumable, stream_modes),
+                        BG_JOB_TIMEOUT_SECS,
+                    )
         except (Exception, asyncio.CancelledError) as ee:
             exception = ee
         except BaseException as eee:
@@ -228,6 +259,7 @@ async def worker(
                     if request_created_at is not None
                     else None
                 ),
+                "run_wait_time_ms": ms(run_started_at_dt, run_created_at_dt),
             }
 
             if exception is None:
@@ -246,8 +278,8 @@ async def worker(
                         run_attempt=attempt,
                     )
                     try:
-                        state_snapshot = await Threads.State.get(
-                            conn, run["kwargs"]["config"]
+                        state_snapshot = await CrudThreads.State.get(
+                            conn, run["kwargs"]["config"], subgraphs=False
                         )
                         checkpoint = state_snapshot_to_thread_state(state_snapshot)
                     except Exception:
@@ -258,7 +290,7 @@ async def worker(
                             run_attempt=attempt,
                         )
                 if not temporary:
-                    await Threads.set_joint_status(
+                    await CrudThreads.set_joint_status(
                         conn,
                         run["thread_id"],
                         run_id,
@@ -269,23 +301,24 @@ async def worker(
             elif isinstance(exception, TimeoutError):
                 status = "timeout"
                 await logger.awarning(
-                    "Background run timed out",
+                    "Background run timed out. To increase the timeout, set the BG_JOB_TIMEOUT_SECS environment variable (integer, defaults to 3600).",
                     **log_info,
                 )
                 if not temporary:
-                    await Threads.set_joint_status(
+                    await CrudThreads.set_joint_status(
                         conn,
                         run["thread_id"],
                         run_id,
                         status,
                         graph_id=graph_id,
                         checkpoint=checkpoint,
+                        exception=exception,
                     )
             elif isinstance(exception, UserRollback):
                 status = "rollback"
                 if not temporary:
                     try:
-                        await Threads.set_joint_status(
+                        await CrudThreads.set_joint_status(
                             conn,
                             run["thread_id"],
                             run_id,
@@ -314,7 +347,7 @@ async def worker(
                     **log_info,
                 )
                 if not temporary:
-                    await Threads.set_joint_status(
+                    await CrudThreads.set_joint_status(
                         conn,
                         run["thread_id"],
                         run_id,
@@ -331,7 +364,7 @@ async def worker(
                 )
                 # Don't update thread status yet.
                 # Apply this even for temporary runs, so we retry
-                await Runs.set_status(conn, run_id, "pending")
+                await CrudRuns.set_status(conn, run_id, "pending")
             else:
                 status = "error"
 
@@ -345,7 +378,7 @@ async def worker(
                     **log_info,
                 )
                 if not temporary:
-                    await Threads.set_joint_status(
+                    await CrudThreads.set_joint_status(
                         conn,
                         run["thread_id"],
                         run_id,
@@ -357,7 +390,7 @@ async def worker(
 
             # delete thread if it's temporary and we don't want to retry
             if temporary and not isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
-                await Threads._delete_with_run(conn, run["thread_id"], run_id)
+                await CrudThreads.delete(conn, run["thread_id"])
 
         if isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
             await logger.awarning("RETRYING", exc_info=exception)

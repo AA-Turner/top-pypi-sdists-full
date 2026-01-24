@@ -1,4 +1,4 @@
-name: test
+name: 312-latest
 channels:
   - conda-forge
 dependencies:
@@ -9,7 +9,7 @@ dependencies:
   - mapclassify
   - quantecon
   - scipy
-  - splot
+  - seaborn
   # testing
   - codecov
   - ipywidgets

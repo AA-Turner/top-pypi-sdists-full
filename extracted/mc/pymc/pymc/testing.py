@@ -20,14 +20,17 @@ from typing import Any
 import numpy as np
 import pytensor
 import pytensor.tensor as pt
+import xarray as xr
 
 from arviz import InferenceData
 from numpy import random as nr
 from numpy import testing as npt
+from numpy.typing import NDArray
 from pytensor.compile import SharedVariable
 from pytensor.compile.mode import Mode
-from pytensor.graph.basic import Constant, Variable, equal_computations, graph_inputs
+from pytensor.graph.basic import Constant, Variable, equal_computations
 from pytensor.graph.rewriting.basic import in2out
+from pytensor.graph.traversal import graph_inputs
 from pytensor.tensor import TensorVariable
 from pytensor.tensor.random.op import RandomVariable
 from pytensor.tensor.random.type import RandomType
@@ -665,6 +668,52 @@ def check_selfconsistency_discrete_logcdf(
             )
 
 
+def check_selfconsistency_icdf(
+    distribution: Distribution,
+    paramdomains: dict[str, Domain],
+    *,
+    decimal: int | None = None,
+    n_samples: int = 100,
+) -> None:
+    """Check that the icdf and logcdf functions of the distribution are consistent.
+
+    Only works with continuous distributions.
+    """
+    if decimal is None:
+        decimal = select_by_precision(float64=6, float32=3)
+
+    dist = create_dist_from_paramdomains(distribution, paramdomains)
+    if dist.type.dtype.startswith("int"):
+        raise NotImplementedError(
+            "check_selfconsistency_icdf is not robust against discrete distributions."
+        )
+    value = dist.astype("float64").type("value")
+    dist_icdf = icdf(dist, value)
+    dist_cdf = pt.exp(logcdf(dist, value))
+
+    py_mode = Mode("py")
+    dist_icdf_fn = pytensor.function(list(inputvars(dist_icdf)), dist_icdf, mode=py_mode)
+    dist_cdf_fn = compile(list(inputvars(dist_cdf)), dist_cdf, mode=py_mode)
+
+    domains = paramdomains.copy()
+    domains["value"] = Domain(np.linspace(0, 1, 10))
+
+    for point in product(domains, n_samples=n_samples):
+        point = dict(point)
+        value = point.pop("value")
+        icdf_value = dist_icdf_fn(**point, value=value)
+        recovered_value = dist_cdf_fn(
+            **point,
+            value=icdf_value,
+        )
+        np.testing.assert_almost_equal(
+            value,
+            recovered_value,
+            decimal=decimal,
+            err_msg=f"point: {point}",
+        )
+
+
 def assert_support_point_is_expected(model, expected, check_finite_logp=True):
     fn = make_initial_point_fn(
         model=model,
@@ -976,7 +1025,14 @@ def assert_no_rvs(vars: Sequence[Variable]) -> None:
         raise AssertionError(f"RV found in graph: {rvs}")
 
 
-def mock_sample(draws: int = 10, **kwargs):
+SampleStatsCreator = Callable[[tuple[int, int]], NDArray]
+
+
+def mock_sample(
+    draws: int = 10,
+    sample_stats: dict[str, SampleStatsCreator] | None = None,
+    **kwargs,
+) -> InferenceData:
     """Mock :func:`pymc.sample` with :func:`pymc.sample_prior_predictive`.
 
     Useful for testing models that use pm.sample without running MCMC sampling.
@@ -1006,15 +1062,47 @@ def mock_sample(draws: int = 10, **kwargs):
 
             pm.sample = original_sample
 
+    By default, the sample_stats group is not created. Pass a dictionary of functions
+    that create sample statistics, where the keys are the names of the statistics
+    and the values are functions that take a size tuple and return an array of that size.
+
+    .. code-block:: python
+
+        from functools import partial
+
+        import numpy as np
+        from numpy.typing import NDArray
+
+        from pymc.testing import mock_sample
+
+
+        def mock_diverging(size: tuple[int, int]) -> NDArray:
+            return np.zeros(size)
+
+
+        def mock_tree_depth(size: tuple[int, int]) -> NDArray:
+            return np.random.choice(range(2, 10), size=size)
+
+
+        mock_sample_with_stats = partial(
+            mock_sample,
+            sample_stats={
+                "diverging": mock_diverging,
+                "tree_depth": mock_tree_depth,
+            },
+        )
+
     """
     random_seed = kwargs.get("random_seed", None)
     model = kwargs.get("model", None)
     draws = kwargs.get("draws", draws)
     n_chains = kwargs.get("chains", 1)
+    var_names = kwargs.get("var_names", None)
     idata: InferenceData = pm.sample_prior_predictive(
         model=model,
         random_seed=random_seed,
         draws=draws,
+        var_names=var_names,
     )
 
     idata.add_groups(
@@ -1028,6 +1116,16 @@ def mock_sample(draws: int = 10, **kwargs):
     del idata["prior"]
     if "prior_predictive" in idata:
         del idata["prior_predictive"]
+
+    if sample_stats is not None:
+        sizes = idata["posterior"].sizes
+        size = (sizes["chain"], sizes["draw"])
+        sample_stats_ds = xr.Dataset(
+            {name: (("chain", "draw"), creator(size)) for name, creator in sample_stats.items()},
+            coords=idata["posterior"].coords,
+        )
+        idata.add_groups(sample_stats=sample_stats_ds)
+
     return idata
 
 

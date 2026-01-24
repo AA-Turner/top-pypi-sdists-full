@@ -1,0 +1,62 @@
+Metadata-Version: 2.3
+Name: iregexp-check
+Version: 0.1.4
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Author-email: James Prior <jamesgr.prior@gmail.com>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Change Log, https://github.com/jg-rp/rust-iregexp/blob/main/CHANGES.md
+Project-URL: Homepage, https://github.com/jg-rp/rust-iregexp/tree/main/crates/python
+Project-URL: Issue Tracker, https://github.com/jg-rp/rust-iregexp/issues
+Project-URL: Source Code, https://github.com/jg-rp/rust-iregexp/tree/main/crates/python
+
+<h1 align="center">I-Regexp Check</h1>
+
+<p align="center">
+<a href="https://datatracker.ietf.org/doc/html/rfc9485">RFC 9485</a> I-Regexp: An Interoperable Regular Expression Format
+</p>
+
+<p align="center">
+  <a href="https://github.com/jg-rp/rust-iregexp/blob/main/LICENSE.txt">
+    <img src="https://img.shields.io/pypi/l/iregexp_check.svg?style=flat-square" alt="License">
+  </a>
+  <a href="https://github.com/jg-rp/rust-iregexp/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/jg-rp/rust-iregexp/tests.yml?branch=main&label=tests&style=flat-square" alt="Tests">
+  </a>
+  <br>
+  <a href="https://pypi.org/project/iregexp_check">
+    <img src="https://img.shields.io/pypi/v/iregexp_check.svg?style=flat-square" alt="PyPi - Version">
+  </a>
+  <a href="https://pypi.org/project/iregexp_check">
+    <img src="https://img.shields.io/pypi/pyversions/iregexp_check.svg?style=flat-square" alt="Python versions">
+  </a>
+</p>
+
+---
+
+## Install
+
+```
+pip install iregexp_check
+```
+
+## Usage
+
+```python
+from iregexp_check import check
+
+print(check(r"[ab]{3}"))  # True
+print(check(r"[0-9]*?"))  # False
+```
+

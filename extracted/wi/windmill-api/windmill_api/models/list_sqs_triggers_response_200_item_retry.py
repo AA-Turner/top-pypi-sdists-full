@@ -18,11 +18,13 @@ T = TypeVar("T", bound="ListSqsTriggersResponse200ItemRetry")
 
 @_attrs_define
 class ListSqsTriggersResponse200ItemRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, ListSqsTriggersResponse200ItemRetryConstant]):
-        exponential (Union[Unset, ListSqsTriggersResponse200ItemRetryExponential]):
-        retry_if (Union[Unset, ListSqsTriggersResponse200ItemRetryRetryIf]):
+        constant (Union[Unset, ListSqsTriggersResponse200ItemRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, ListSqsTriggersResponse200ItemRetryExponential]): Retry with exponential backoff
+            (delay doubles each time)
+        retry_if (Union[Unset, ListSqsTriggersResponse200ItemRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "ListSqsTriggersResponse200ItemRetryConstant"] = UNSET

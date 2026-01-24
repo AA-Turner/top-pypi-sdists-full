@@ -3,7 +3,7 @@ Type annotations for migrationhubstrategy service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_migrationhubstrategy/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -65,12 +66,6 @@ from .literals import (
     VersionControlTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -249,7 +244,7 @@ class StrategySummaryTypeDef(TypedDict):
 class AssessmentTargetOutputTypeDef(TypedDict):
     condition: ConditionType
     name: str
-    values: List[str]
+    values: list[str]
 
 class AssessmentTargetTypeDef(TypedDict):
     condition: ConditionType
@@ -265,7 +260,7 @@ AssociatedApplicationTypeDef = TypedDict(
 )
 
 class AwsManagedResourcesOutputTypeDef(TypedDict):
-    targetDestination: List[AwsManagedTargetDestinationType]
+    targetDestination: list[AwsManagedTargetDestinationType]
 
 class AwsManagedResourcesTypeDef(TypedDict):
     targetDestination: Sequence[AwsManagedTargetDestinationType]
@@ -307,13 +302,13 @@ class DataCollectionDetailsTypeDef(TypedDict):
     success: NotRequired[int]
 
 class HeterogeneousOutputTypeDef(TypedDict):
-    targetDatabaseEngine: List[HeterogeneousTargetDatabaseEngineType]
+    targetDatabaseEngine: list[HeterogeneousTargetDatabaseEngineType]
 
 class HomogeneousOutputTypeDef(TypedDict):
-    targetDatabaseEngine: NotRequired[List[Literal["None specified"]]]
+    targetDatabaseEngine: NotRequired[list[Literal["None specified"]]]
 
 class NoDatabaseMigrationPreferenceOutputTypeDef(TypedDict):
-    targetDatabaseEngine: List[TargetDatabaseEngineType]
+    targetDatabaseEngine: list[TargetDatabaseEngineType]
 
 class HeterogeneousTypeDef(TypedDict):
     targetDatabaseEngine: Sequence[HeterogeneousTargetDatabaseEngineType]
@@ -330,7 +325,7 @@ class GetApplicationComponentDetailsRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -359,7 +354,7 @@ GetRecommendationReportDetailsRequestTypeDef = TypedDict(
 class RecommendationReportDetailsTypeDef(TypedDict):
     completionTime: NotRequired[datetime]
     s3Bucket: NotRequired[str]
-    s3Keys: NotRequired[List[str]]
+    s3Keys: NotRequired[list[str]]
     startTime: NotRequired[datetime]
     status: NotRequired[RecommendationReportStatusType]
     statusMessage: NotRequired[str]
@@ -412,10 +407,10 @@ class ListImportFileTaskRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class NoManagementPreferenceOutputTypeDef(TypedDict):
-    targetDestination: List[NoPreferenceTargetDestinationType]
+    targetDestination: list[NoPreferenceTargetDestinationType]
 
 class SelfManageResourcesOutputTypeDef(TypedDict):
-    targetDestination: List[SelfManageTargetDestinationType]
+    targetDestination: list[SelfManageTargetDestinationType]
 
 class NoManagementPreferenceTypeDef(TypedDict):
     targetDestination: Sequence[NoPreferenceTargetDestinationType]
@@ -471,15 +466,15 @@ class AssessmentSummaryTypeDef(TypedDict):
     antipatternReportStatus: NotRequired[AntipatternReportStatusType]
     antipatternReportStatusMessage: NotRequired[str]
     lastAnalyzedTimestamp: NotRequired[datetime]
-    listAntipatternSeveritySummary: NotRequired[List[AntipatternSeveritySummaryTypeDef]]
+    listAntipatternSeveritySummary: NotRequired[list[AntipatternSeveritySummaryTypeDef]]
     listApplicationComponentStatusSummary: NotRequired[
-        List[ApplicationComponentStatusSummaryTypeDef]
+        list[ApplicationComponentStatusSummaryTypeDef]
     ]
-    listApplicationComponentStrategySummary: NotRequired[List[StrategySummaryTypeDef]]
-    listApplicationComponentSummary: NotRequired[List[ApplicationComponentSummaryTypeDef]]
-    listServerStatusSummary: NotRequired[List[ServerStatusSummaryTypeDef]]
-    listServerStrategySummary: NotRequired[List[StrategySummaryTypeDef]]
-    listServerSummary: NotRequired[List[ServerSummaryTypeDef]]
+    listApplicationComponentStrategySummary: NotRequired[list[StrategySummaryTypeDef]]
+    listApplicationComponentSummary: NotRequired[list[ApplicationComponentSummaryTypeDef]]
+    listServerStatusSummary: NotRequired[list[ServerStatusSummaryTypeDef]]
+    listServerStrategySummary: NotRequired[list[StrategySummaryTypeDef]]
+    listServerSummary: NotRequired[list[ServerSummaryTypeDef]]
 
 AssessmentTargetUnionTypeDef = Union[AssessmentTargetTypeDef, AssessmentTargetOutputTypeDef]
 
@@ -487,11 +482,11 @@ class PrioritizeBusinessGoalsTypeDef(TypedDict):
     businessGoals: NotRequired[BusinessGoalsTypeDef]
 
 class ConfigurationSummaryTypeDef(TypedDict):
-    ipAddressBasedRemoteInfoList: NotRequired[List[IPAddressBasedRemoteInfoTypeDef]]
-    pipelineInfoList: NotRequired[List[PipelineInfoTypeDef]]
+    ipAddressBasedRemoteInfoList: NotRequired[list[IPAddressBasedRemoteInfoTypeDef]]
+    pipelineInfoList: NotRequired[list[PipelineInfoTypeDef]]
     remoteSourceCodeAnalysisServerInfo: NotRequired[RemoteSourceCodeAnalysisServerInfoTypeDef]
-    vcenterBasedRemoteInfoList: NotRequired[List[VcenterBasedRemoteInfoTypeDef]]
-    versionControlInfoList: NotRequired[List[VersionControlInfoTypeDef]]
+    vcenterBasedRemoteInfoList: NotRequired[list[VcenterBasedRemoteInfoTypeDef]]
+    versionControlInfoList: NotRequired[list[VersionControlInfoTypeDef]]
 
 class DatabaseMigrationPreferenceOutputTypeDef(TypedDict):
     heterogeneous: NotRequired[HeterogeneousOutputTypeDef]
@@ -506,7 +501,7 @@ class DatabaseMigrationPreferenceTypeDef(TypedDict):
 GetAssessmentResponseTypeDef = TypedDict(
     "GetAssessmentResponseTypeDef",
     {
-        "assessmentTargets": List[AssessmentTargetOutputTypeDef],
+        "assessmentTargets": list[AssessmentTargetOutputTypeDef],
         "dataCollectionDetails": DataCollectionDetailsTypeDef,
         "id": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -538,7 +533,7 @@ GetLatestAssessmentIdResponseTypeDef = TypedDict(
 )
 
 class ListAnalyzableServersResponseTypeDef(TypedDict):
-    analyzableServers: List[AnalyzableServerSummaryTypeDef]
+    analyzableServers: list[AnalyzableServerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -626,7 +621,7 @@ class StartRecommendationReportGenerationRequestTypeDef(TypedDict):
     outputFormat: NotRequired[OutputFormatType]
 
 class ListImportFileTaskResponseTypeDef(TypedDict):
-    taskInfos: List[ImportFileTaskInformationTypeDef]
+    taskInfos: list[ImportFileTaskInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -643,7 +638,7 @@ class ManagementPreferenceTypeDef(TypedDict):
 class SystemInfoTypeDef(TypedDict):
     cpuArchitecture: NotRequired[str]
     fileSystemType: NotRequired[str]
-    networkInfoList: NotRequired[List[NetworkInfoTypeDef]]
+    networkInfoList: NotRequired[list[NetworkInfoTypeDef]]
     osInfo: NotRequired[OSInfoTypeDef]
 
 class RecommendationSetTypeDef(TypedDict):
@@ -667,7 +662,7 @@ class UpdateServerConfigRequestTypeDef(TypedDict):
 class ResultTypeDef(TypedDict):
     analysisStatus: NotRequired[AnalysisStatusUnionTypeDef]
     analysisType: NotRequired[AnalysisTypeType]
-    antipatternReportResultList: NotRequired[List[AntipatternReportResultTypeDef]]
+    antipatternReportResultList: NotRequired[list[AntipatternReportResultTypeDef]]
     statusMessage: NotRequired[str]
 
 class GetPortfolioSummaryResponseTypeDef(TypedDict):
@@ -715,11 +710,11 @@ ServerDetailTypeDef = TypedDict(
         "antipatternReportS3Object": NotRequired[S3ObjectTypeDef],
         "antipatternReportStatus": NotRequired[AntipatternReportStatusType],
         "antipatternReportStatusMessage": NotRequired[str],
-        "applicationComponentStrategySummary": NotRequired[List[StrategySummaryTypeDef]],
+        "applicationComponentStrategySummary": NotRequired[list[StrategySummaryTypeDef]],
         "dataCollectionStatus": NotRequired[RunTimeAssessmentStatusType],
         "id": NotRequired[str],
         "lastAnalyzedTimestamp": NotRequired[datetime],
-        "listAntipatternSeveritySummary": NotRequired[List[AntipatternSeveritySummaryTypeDef]],
+        "listAntipatternSeveritySummary": NotRequired[list[AntipatternSeveritySummaryTypeDef]],
         "name": NotRequired[str],
         "recommendationSet": NotRequired[RecommendationSetTypeDef],
         "serverError": NotRequired[ServerErrorTypeDef],
@@ -749,23 +744,23 @@ ApplicationComponentDetailTypeDef = TypedDict(
         "id": NotRequired[str],
         "inclusionStatus": NotRequired[InclusionStatusType],
         "lastAnalyzedTimestamp": NotRequired[datetime],
-        "listAntipatternSeveritySummary": NotRequired[List[AntipatternSeveritySummaryTypeDef]],
+        "listAntipatternSeveritySummary": NotRequired[list[AntipatternSeveritySummaryTypeDef]],
         "moreServerAssociationExists": NotRequired[bool],
         "name": NotRequired[str],
         "osDriver": NotRequired[str],
         "osVersion": NotRequired[str],
         "recommendationSet": NotRequired[RecommendationSetTypeDef],
         "resourceSubType": NotRequired[ResourceSubTypeType],
-        "resultList": NotRequired[List[ResultTypeDef]],
+        "resultList": NotRequired[list[ResultTypeDef]],
         "runtimeStatus": NotRequired[RuntimeAnalysisStatusType],
         "runtimeStatusMessage": NotRequired[str],
-        "sourceCodeRepositories": NotRequired[List[SourceCodeRepositoryTypeDef]],
+        "sourceCodeRepositories": NotRequired[list[SourceCodeRepositoryTypeDef]],
         "statusMessage": NotRequired[str],
     },
 )
 
 class ListCollectorsResponseTypeDef(TypedDict):
-    Collectors: List[CollectorTypeDef]
+    Collectors: list[CollectorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -785,33 +780,33 @@ ApplicationPreferencesUnionTypeDef = Union[
 ]
 
 class GetApplicationComponentStrategiesResponseTypeDef(TypedDict):
-    applicationComponentStrategies: List[ApplicationComponentStrategyTypeDef]
+    applicationComponentStrategies: list[ApplicationComponentStrategyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetServerDetailsResponseTypeDef(TypedDict):
-    associatedApplications: List[AssociatedApplicationTypeDef]
+    associatedApplications: list[AssociatedApplicationTypeDef]
     serverDetail: ServerDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListServersResponseTypeDef(TypedDict):
-    serverInfos: List[ServerDetailTypeDef]
+    serverInfos: list[ServerDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetServerStrategiesResponseTypeDef(TypedDict):
-    serverStrategies: List[ServerStrategyTypeDef]
+    serverStrategies: list[ServerStrategyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetApplicationComponentDetailsResponseTypeDef(TypedDict):
     applicationComponentDetail: ApplicationComponentDetailTypeDef
-    associatedApplications: List[AssociatedApplicationTypeDef]
-    associatedServerIds: List[str]
+    associatedApplications: list[AssociatedApplicationTypeDef]
+    associatedServerIds: list[str]
     moreApplicationResource: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListApplicationComponentsResponseTypeDef(TypedDict):
-    applicationComponentInfos: List[ApplicationComponentDetailTypeDef]
+    applicationComponentInfos: list[ApplicationComponentDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

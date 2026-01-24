@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import datetime
+from typing import cast
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -43,9 +44,11 @@ class ChooseBillingForm(forms.Form):
         queryset=Plan.objects.public(), widget=forms.HiddenInput, required=False
     )
 
-    def __init__(self, user, *args, **kwargs):
+    def __init__(self, user, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.fields["billing"].queryset = Billing.objects.for_user(user)
+        cast(
+            "forms.ModelChoiceField", self.fields["billing"]
+        ).queryset = Billing.objects.for_user(user)
 
 
 class BillingForm(ChooseBillingForm):
@@ -57,9 +60,11 @@ class BillingForm(ChooseBillingForm):
     )
     extra_domain = forms.BooleanField(required=False, widget=forms.HiddenInput)
 
-    def __init__(self, user, *args, **kwargs):
+    def __init__(self, user, *args, **kwargs) -> None:
         super().__init__(user, *args, **kwargs)
-        self.fields["plan"].queryset = Plan.objects.public(user)
+        cast(
+            "forms.ModelChoiceField", self.fields["plan"]
+        ).queryset = Plan.objects.public(user)
 
     def clean(self) -> None:
         plan = self.cleaned_data.get("plan")

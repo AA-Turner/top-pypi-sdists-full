@@ -20,6 +20,7 @@ from peft import (
     BOFTConfig,
     BoneConfig,
     C3AConfig,
+    DeloraConfig,
     FourierFTConfig,
     HRAConfig,
     IA3Config,
@@ -30,14 +31,17 @@ from peft import (
     PromptEncoderConfig,
     PromptTuningConfig,
     PromptTuningInit,
+    RoadConfig,
     ShiraConfig,
     VBLoRAConfig,
     VeraConfig,
+    WaveFTConfig,
     get_peft_model,
 )
 from peft.utils.other import ModulesToSaveWrapper
 
-from .testing_common import PeftCommonTester, hub_online_once
+from .testing_common import PeftCommonTester
+from .testing_utils import hub_online_once
 
 
 PEFT_SEQ_CLS_MODELS_TO_TEST = [
@@ -73,6 +77,14 @@ ALL_CONFIGS = [
     ),
     (
         MissConfig,
+        {
+            "task_type": "SEQ_CLS",
+            "target_modules": None,
+            "r": 2,
+        },
+    ),
+    (
+        DeloraConfig,
         {
             "task_type": "SEQ_CLS",
             "target_modules": None,
@@ -156,6 +168,14 @@ ALL_CONFIGS = [
         },
     ),
     (
+        RoadConfig,
+        {
+            "task_type": "SEQ_CLS",
+            "variant": "road_1",
+            "group_size": 2,
+        },
+    ),
+    (
         ShiraConfig,
         {
             "r": 1,
@@ -192,6 +212,14 @@ ALL_CONFIGS = [
         {
             "task_type": "SEQ_CLS",
             "block_size": 1,
+            "target_modules": None,
+        },
+    ),
+    (
+        WaveFTConfig,
+        {
+            "task_type": "SEQ_CLS",
+            "n_frequency": 8,
             "target_modules": None,
         },
     ),

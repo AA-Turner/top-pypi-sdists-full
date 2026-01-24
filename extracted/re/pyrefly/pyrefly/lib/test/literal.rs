@@ -68,7 +68,7 @@ class Foo[T]:
     def __init__(self, x: T) -> None: ...
 
 x: Literal[42] = 42
-assert_type(Foo(x), Foo[int])
+assert_type(Foo(x), Foo[Literal[42]])
 "#,
 );
 
@@ -119,7 +119,7 @@ testcase!(
 from typing import LiteralString, assert_type
 def f(x: LiteralString):
     assert_type(["foo"], list[str])
-    assert_type([x], list[str])
+    assert_type([x], list[LiteralString])
     xs: list[str] = [x]
 "#,
 );
@@ -127,11 +127,11 @@ def f(x: LiteralString):
 testcase!(
     test_index_literal,
     r#"
-from typing import assert_type
+from typing import Literal, assert_type
 
 def foo(x):
-    assert_type("Magic"[0], str)
-    assert_type("Magic"[3:4], str)
+    assert_type("Magic"[0], Literal['M'])
+    assert_type("Magic"[3:4], Literal['i'])
 "#,
 );
 
@@ -224,9 +224,156 @@ testcase!(
 testcase!(
     test_promote_literal,
     r#"
-from typing import assert_type, Literal
+from typing import assert_type, LiteralString
 
 x = list("abcdefg")
-assert_type(x, list[str])
+assert_type(x, list[LiteralString])
 "#,
+);
+
+testcase!(
+    test_literal_string_format,
+    r#"
+from typing import assert_type, LiteralString
+
+# Basic format with literal strings
+sep: LiteralString = "{} {}"
+x: LiteralString = "foo"
+y: LiteralString = "bar"
+result = sep.format(x, y)
+assert_type(result, LiteralString)
+
+# With keyword arguments
+result2 = "{a} {b}".format(a=x, b=y)
+assert_type(result2, LiteralString)
+
+# Non-literal positional arg should return str
+z: str = "baz"
+result3 = sep.format(x, z)
+assert_type(result3, str)
+
+# Non-literal keyword arg should return str
+result4 = "{a}".format(a=z)
+assert_type(result4, str)
+
+# Test starred arguments
+args = (x, y)
+result5 = sep.format(*args)
+assert_type(result5, LiteralString)
+
+args2: tuple[str, ...] = (x, y)
+result6 = sep.format(*args2)
+assert_type(result6, str)
+"#,
+);
+
+testcase!(
+    test_literal_string_join,
+    r#"
+from typing import assert_type, LiteralString
+
+sep: LiteralString = ","
+items: list[LiteralString] = ["a", "b", "c"]
+result = sep.join(items)
+assert_type(result, LiteralString)
+
+# Tuple of literals
+result2 = sep.join(("x", "y", "z"))
+assert_type(result2, LiteralString)
+
+# Non-literal items should return str
+non_lit: list[str] = ["x", "y"]
+result3 = sep.join(non_lit)
+assert_type(result3, str)
+
+# Union with non-literal should return str
+mixed: list[LiteralString | str] = []
+result4 = sep.join(mixed)
+assert_type(result4, str)
+"#,
+);
+
+testcase!(
+    test_literal_string_replace,
+    r#"
+from typing import assert_type, LiteralString
+
+x: LiteralString = "hello world"
+old: LiteralString = "world"
+new: LiteralString = "universe"
+
+# Basic replace
+result = x.replace(old, new)
+assert_type(result, LiteralString)
+
+# With count argument (should still return LiteralString)
+result2 = x.replace(old, new, 1)
+assert_type(result2, LiteralString)
+
+# With count keyword
+result3 = x.replace(old, new, count=1)
+assert_type(result3, LiteralString)
+
+# Non-literal old should return str
+non_lit: str = "foo"
+result4 = x.replace(non_lit, new)
+assert_type(result4, str)
+
+# Non-literal new should return str
+result5 = x.replace(old, non_lit)
+assert_type(result5, str)
+"#,
+);
+
+testcase!(
+    test_literal_string_as_collection,
+    r#"
+from collections.abc import Container, Collection, Sequence
+
+a: Container[str] = ""
+b: Collection[str] = ""
+c: Sequence[str] = ""
+"#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/2068
+testcase!(
+    test_literal_string_join_loop_inference,
+    r#"
+def test():
+    items = ["a", "b"]
+    lines = []
+    for k in items:
+        lines.append(f"*{k}")
+    return "\n".join(lines)
+"#,
+);
+
+testcase!(
+    test_literal_int_sum_loop_inference,
+    r#"
+from typing import assert_type
+def f(x: int):
+    y = []
+    for i in range(10):
+        y.append(x)
+    assert_type(y, list[int])
+    sum(y, 0)
+    "#,
+);
+
+testcase!(
+    bug = "Bad interaction between overload resolution and partial type inference",
+    test_partial_inference_literalstring_join,
+    r#"
+from typing import assert_type, LiteralString, reveal_type
+
+
+def f(x1: list[str], x2: list[LiteralString]):
+    x3 = []
+    assert_type(", ".join(x1), str)
+    assert_type(", ".join(x2), LiteralString)
+    # This is wrong: we should not assume `join`'s `LiteralString` overload is matched.
+    reveal_type(", ".join(x3))  # E: revealed type: LiteralString
+    "#,
 );

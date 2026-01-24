@@ -1,5 +1,4 @@
 from abc import ABCMeta
-from typing import List
 
 from ase import Atoms
 from ase.neighborlist import neighbor_list
@@ -12,7 +11,7 @@ class KMCEventType(metaclass=ABCMeta):
     def name(self):
         return type(self).__name__
 
-    def get_swaps(self, atoms: Atoms, vac_idx: int) -> List[int]:
+    def get_swaps(self, atoms: Atoms, vac_idx: int) -> list[int]:
         raise NotImplementedError(f"get_swaps has not been implemented for class {self.name}")
 
 
@@ -31,5 +30,5 @@ class NeighbourSwap(KMCEventType):
         for f, s in zip(first, second):
             self.nl[f].append(s)
 
-    def get_swaps(self, atoms: Atoms, vac_idx: int) -> List[int]:
+    def get_swaps(self, atoms: Atoms, vac_idx: int) -> list[int]:
         return self.nl[vac_idx]

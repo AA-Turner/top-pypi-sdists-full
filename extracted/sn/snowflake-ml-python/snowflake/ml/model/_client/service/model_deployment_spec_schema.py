@@ -32,12 +32,15 @@ class Service(BaseModel):
     gpu: Optional[str] = None
     num_workers: Optional[int] = None
     max_batch_rows: Optional[int] = None
+    autocapture: Optional[bool] = None
     inference_engine_spec: Optional[InferenceEngineSpec] = None
 
 
 class Input(BaseModel):
     input_stage_location: str
     input_file_pattern: str
+    column_handling: Optional[str] = None
+    params: Optional[str] = None
 
 
 class Output(BaseModel):
@@ -58,6 +61,7 @@ class Job(BaseModel):
     input: Input
     output: Output
     replicas: Optional[int] = None
+    inference_engine_spec: Optional[InferenceEngineSpec] = None
 
 
 class LogModelArgs(BaseModel):
@@ -73,6 +77,7 @@ class HuggingFaceModel(BaseModel):
     task: Optional[str] = None
     tokenizer: Optional[str] = None
     token: Optional[str] = None
+    token_secret_object: Optional[str] = None
     trust_remote_code: Optional[bool] = False
     revision: Optional[str] = None
     hf_model_kwargs: Optional[str] = "{}"

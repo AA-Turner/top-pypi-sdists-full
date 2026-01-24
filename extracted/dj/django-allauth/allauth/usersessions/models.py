@@ -2,7 +2,6 @@ from importlib import import_module
 from typing import List
 
 from django.conf import settings
-from django.contrib.auth import get_user
 from django.core.exceptions import ImproperlyConfigured
 from django.db import models, transaction
 from django.http import HttpRequest
@@ -12,6 +11,8 @@ from django.utils.translation import gettext_lazy as _
 from allauth import app_settings as allauth_settings
 from allauth.account.adapter import get_adapter
 from allauth.core import context
+from allauth.core.internal.httpkit import HTTP_USER_AGENT_MAX_LENGTH
+from allauth.core.internal.sessionkit import get_session_user
 
 
 if not allauth_settings.USERSESSIONS_ENABLED:
@@ -92,7 +93,7 @@ class UserSession(models.Model):
     session_key = models.CharField(
         _("session key"), max_length=40, unique=True, editable=False
     )
-    user_agent = models.CharField(max_length=200)
+    user_agent = models.CharField(max_length=HTTP_USER_AGENT_MAX_LENGTH)
     data = models.JSONField(default=dict)
 
     def __str__(self):
@@ -111,10 +112,8 @@ class UserSession(models.Model):
             # Even if the session still exists, it might be the case that the
             # user session hash is out of sync. So, let's see if
             # `django.contrib.auth` can find a user...
-            request = HttpRequest()
-            request.session = self._session_store(self.session_key)
-            user = get_user(request)
-            purge = not user or user.is_anonymous
+            user = get_session_user(self._session_store(self.session_key))
+            purge = not user
         if purge:
             self.delete()
             return True

@@ -1,3 +1,4 @@
+from .enum import BaseEnum
 from .field import (
     AnnotatedField,
     Discriminator,
@@ -14,4 +15,5 @@ __all__ = [
     "HiddenField",
     "SecretField",
     "SemanticType",
+    "BaseEnum",
 ]

@@ -2,5 +2,6 @@
 
 from .client import MemoryClient
 from .controlplane import MemoryControlPlaneClient
+from .session import Actor, MemorySession, MemorySessionManager
 
-__all__ = ["MemoryClient", "MemoryControlPlaneClient"]
+__all__ = ["Actor", "MemoryClient", "MemorySession", "MemorySessionManager", "MemoryControlPlaneClient"]

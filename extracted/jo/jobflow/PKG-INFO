@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jobflow
-Version: 0.2.0
+Version: 0.2.1
 Summary: jobflow is a library for writing computational workflows
 Author-email: Alex Ganose <a.ganose@imperial.ac.uk>
 License: modified BSD
@@ -25,18 +25,18 @@ Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: PyYAML
-Requires-Dist: maggma>=0.57.0
+Requires-Dist: PyYAML>=6.0.1
+Requires-Dist: maggma>=0.72.0
 Requires-Dist: monty>=2023.9.25
-Requires-Dist: networkx
+Requires-Dist: networkx>=3.2.1
 Requires-Dist: pydantic-settings>=2.0.3
-Requires-Dist: pydantic>=2.0.1
-Requires-Dist: pydash
+Requires-Dist: pydantic>=2.4
+Requires-Dist: pydash>=8.0.1
 Provides-Extra: ulid
 Requires-Dist: python-ulid; extra == "ulid"
 Provides-Extra: docs
 Requires-Dist: autodoc_pydantic==2.2.0; extra == "docs"
-Requires-Dist: furo==2024.8.6; extra == "docs"
+Requires-Dist: furo==2025.9.25; extra == "docs"
 Requires-Dist: ipython==9.3.0; extra == "docs"
 Requires-Dist: myst_parser==4.0.1; extra == "docs"
 Requires-Dist: nbsphinx==0.9.7; extra == "docs"
@@ -46,28 +46,28 @@ Provides-Extra: dev
 Requires-Dist: pre-commit>=2.12.1; extra == "dev"
 Requires-Dist: typing_extensions; python_version < "3.11" and extra == "dev"
 Provides-Extra: tests
-Requires-Dist: moto==5.1.5; extra == "tests"
-Requires-Dist: pytest-cov==6.1.1; extra == "tests"
-Requires-Dist: pytest==8.4.0; extra == "tests"
+Requires-Dist: moto==5.1.16; extra == "tests"
+Requires-Dist: pytest-cov==7.0.0; extra == "tests"
+Requires-Dist: pytest==8.4.2; extra == "tests"
 Provides-Extra: vis
 Requires-Dist: matplotlib; extra == "vis"
 Requires-Dist: pydot; extra == "vis"
 Provides-Extra: fireworks
 Requires-Dist: FireWorks; extra == "fireworks"
 Provides-Extra: strict
-Requires-Dist: FireWorks==2.0.4; extra == "strict"
-Requires-Dist: PyYAML==6.0.2; extra == "strict"
-Requires-Dist: maggma==0.71.5; extra == "strict"
-Requires-Dist: matplotlib==3.10.3; extra == "strict"
+Requires-Dist: FireWorks==2.0.6; extra == "strict"
+Requires-Dist: PyYAML==6.0.3; extra == "strict"
+Requires-Dist: maggma==0.72.0; extra == "strict"
+Requires-Dist: matplotlib==3.10.7; extra == "strict"
 Requires-Dist: monty==2025.3.3; extra == "strict"
-Requires-Dist: moto==5.1.5; extra == "strict"
+Requires-Dist: moto==5.1.16; extra == "strict"
 Requires-Dist: networkx==3.4.2; extra == "strict"
-Requires-Dist: pydantic-settings==2.9.1; extra == "strict"
-Requires-Dist: pydantic==2.11.5; extra == "strict"
+Requires-Dist: pydantic-settings==2.11.0; extra == "strict"
+Requires-Dist: pydantic==2.12.3; extra == "strict"
 Requires-Dist: pydash==8.0.5; extra == "strict"
-Requires-Dist: pydot==4.0.0; extra == "strict"
-Requires-Dist: python-ulid==3.0.0; extra == "strict"
-Requires-Dist: typing-extensions==4.13.2; extra == "strict"
+Requires-Dist: pydot==4.0.1; extra == "strict"
+Requires-Dist: python-ulid==3.1.0; extra == "strict"
+Requires-Dist: typing-extensions==4.15.0; extra == "strict"
 Dynamic: license-file
 
 <div align="center">

@@ -190,16 +190,16 @@ class AuthenticateCognitoAction(
     def __init__(
         self,
         *,
-        next: _ListenerAction_1aa94a29,
-        user_pool: _IUserPool_1f1029e2,
-        user_pool_client: _IUserPoolClient_75623ba4,
-        user_pool_domain: _IUserPoolDomain_72b6a019,
+        next: "_ListenerAction_1aa94a29",
+        user_pool: "_IUserPool_1f1029e2",
+        user_pool_client: "_IUserPoolClient_75623ba4",
+        user_pool_domain: "_IUserPoolDomain_72b6a019",
         allow_https_outbound: typing.Optional[builtins.bool] = None,
         authentication_request_extra_params: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        on_unauthenticated_request: typing.Optional[_UnauthenticatedAction_161c1c21] = None,
+        on_unauthenticated_request: typing.Optional["_UnauthenticatedAction_161c1c21"] = None,
         scope: typing.Optional[builtins.str] = None,
         session_cookie_name: typing.Optional[builtins.str] = None,
-        session_timeout: typing.Optional[_Duration_4839e8c3] = None,
+        session_timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''Authenticate using an identity provide (IdP) that is compliant with OpenID Connect (OIDC).
 
@@ -232,9 +232,9 @@ class AuthenticateCognitoAction(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        listener: _IApplicationListener_60f2beb6,
-        associating_construct: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
+        scope: "_constructs_77d1e7e8.Construct",
+        listener: "_IApplicationListener_60f2beb6",
+        associating_construct: typing.Optional["_constructs_77d1e7e8.IConstruct"] = None,
     ) -> None:
         '''Called when the action is being used in a listener.
 
@@ -270,16 +270,16 @@ class AuthenticateCognitoActionProps:
     def __init__(
         self,
         *,
-        next: _ListenerAction_1aa94a29,
-        user_pool: _IUserPool_1f1029e2,
-        user_pool_client: _IUserPoolClient_75623ba4,
-        user_pool_domain: _IUserPoolDomain_72b6a019,
+        next: "_ListenerAction_1aa94a29",
+        user_pool: "_IUserPool_1f1029e2",
+        user_pool_client: "_IUserPoolClient_75623ba4",
+        user_pool_domain: "_IUserPoolDomain_72b6a019",
         allow_https_outbound: typing.Optional[builtins.bool] = None,
         authentication_request_extra_params: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        on_unauthenticated_request: typing.Optional[_UnauthenticatedAction_161c1c21] = None,
+        on_unauthenticated_request: typing.Optional["_UnauthenticatedAction_161c1c21"] = None,
         scope: typing.Optional[builtins.str] = None,
         session_cookie_name: typing.Optional[builtins.str] = None,
-        session_timeout: typing.Optional[_Duration_4839e8c3] = None,
+        session_timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''Properties for AuthenticateCognitoAction.
 
@@ -388,7 +388,7 @@ class AuthenticateCognitoActionProps:
             self._values["session_timeout"] = session_timeout
 
     @builtins.property
-    def next(self) -> _ListenerAction_1aa94a29:
+    def next(self) -> "_ListenerAction_1aa94a29":
         '''What action to execute next.
 
         Multiple actions form a linked chain; the chain must always terminate in a
@@ -396,28 +396,28 @@ class AuthenticateCognitoActionProps:
         '''
         result = self._values.get("next")
         assert result is not None, "Required property 'next' is missing"
-        return typing.cast(_ListenerAction_1aa94a29, result)
+        return typing.cast("_ListenerAction_1aa94a29", result)
 
     @builtins.property
-    def user_pool(self) -> _IUserPool_1f1029e2:
+    def user_pool(self) -> "_IUserPool_1f1029e2":
         '''The Amazon Cognito user pool.'''
         result = self._values.get("user_pool")
         assert result is not None, "Required property 'user_pool' is missing"
-        return typing.cast(_IUserPool_1f1029e2, result)
+        return typing.cast("_IUserPool_1f1029e2", result)
 
     @builtins.property
-    def user_pool_client(self) -> _IUserPoolClient_75623ba4:
+    def user_pool_client(self) -> "_IUserPoolClient_75623ba4":
         '''The Amazon Cognito user pool client.'''
         result = self._values.get("user_pool_client")
         assert result is not None, "Required property 'user_pool_client' is missing"
-        return typing.cast(_IUserPoolClient_75623ba4, result)
+        return typing.cast("_IUserPoolClient_75623ba4", result)
 
     @builtins.property
-    def user_pool_domain(self) -> _IUserPoolDomain_72b6a019:
+    def user_pool_domain(self) -> "_IUserPoolDomain_72b6a019":
         '''The domain prefix or fully-qualified domain name of the Amazon Cognito user pool.'''
         result = self._values.get("user_pool_domain")
         assert result is not None, "Required property 'user_pool_domain' is missing"
-        return typing.cast(_IUserPoolDomain_72b6a019, result)
+        return typing.cast("_IUserPoolDomain_72b6a019", result)
 
     @builtins.property
     def allow_https_outbound(self) -> typing.Optional[builtins.bool]:
@@ -448,13 +448,13 @@ class AuthenticateCognitoActionProps:
     @builtins.property
     def on_unauthenticated_request(
         self,
-    ) -> typing.Optional[_UnauthenticatedAction_161c1c21]:
+    ) -> typing.Optional["_UnauthenticatedAction_161c1c21"]:
         '''The behavior if the user is not authenticated.
 
         :default: UnauthenticatedAction.AUTHENTICATE
         '''
         result = self._values.get("on_unauthenticated_request")
-        return typing.cast(typing.Optional[_UnauthenticatedAction_161c1c21], result)
+        return typing.cast(typing.Optional["_UnauthenticatedAction_161c1c21"], result)
 
     @builtins.property
     def scope(self) -> typing.Optional[builtins.str]:
@@ -477,13 +477,13 @@ class AuthenticateCognitoActionProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def session_timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def session_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum duration of the authentication session.
 
         :default: Duration.days(7)
         '''
         result = self._values.get("session_timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values

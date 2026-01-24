@@ -9,6 +9,7 @@ import pytest
 from impit import AsyncClient, Browser, Cookies, StreamClosed, StreamConsumed, TooManyRedirects
 
 from .httpbin import get_httpbin_url
+from .setup_proxy import start_proxy_server
 
 
 def thread_server(port_holder: list[int]) -> None:
@@ -262,6 +263,18 @@ class TestBasicRequests:
         await m(get_httpbin_url('/anything'))
 
     @pytest.mark.asyncio
+    async def test_proxy(self, browser: Browser) -> None:
+        stop_proxy = start_proxy_server(3002)
+        impit = AsyncClient(browser=browser, proxy='http://127.0.0.1:3002')
+        target_url = 'https://crawlee.dev/'
+
+        resp = await impit.get(target_url)
+        assert resp.status_code == 200
+        assert 'Crawlee' in resp.text
+
+        stop_proxy()
+
+    @pytest.mark.asyncio
     async def test_default_no_redirect(self, browser: Browser) -> None:
         impit = AsyncClient(browser=browser)
 
@@ -431,6 +444,15 @@ class TestRequestBody:
         assert isinstance(response.content, bytes)
         assert isinstance(response.text, str)
         assert response.content.decode('utf-8') == response.text
+
+    @pytest.mark.asyncio
+    async def test_json(self, browser: Browser) -> None:
+        impit = AsyncClient(browser=browser)
+
+        response = await impit.get(get_httpbin_url('/get'))
+
+        assert response.status_code == 200
+        assert response.json() == json.loads(response.text)
 
 
 @pytest.mark.parametrize(

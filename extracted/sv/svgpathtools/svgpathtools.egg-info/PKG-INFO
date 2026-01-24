@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: svgpathtools
-Version: 1.7.1
+Version: 1.7.2
 Summary: A collection of tools for manipulating and analyzing SVG Path objects and Bezier curves.
 Home-page: https://github.com/mathandy/svgpathtools
-Download-URL: https://github.com/mathandy/svgpathtools/releases/download/1.7.1/svgpathtools-1.7.1-py3-none-any.whl
+Download-URL: https://github.com/mathandy/svgpathtools/releases/download/1.7.2/svgpathtools-1.7.2-py3-none-any.whl
 Author: Andy Port
 Author-email: AndyAPort@gmail.com
 License: MIT

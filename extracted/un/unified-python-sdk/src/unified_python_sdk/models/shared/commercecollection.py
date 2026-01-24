@@ -5,12 +5,12 @@ from .commerceitemmedia import CommerceItemMedia, CommerceItemMediaTypedDict
 from .commercemetadata import CommerceMetadata, CommerceMetadataTypedDict
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class CommerceCollectionType(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -29,6 +29,7 @@ class CommerceCollectionTypedDict(TypedDict):
     is_active: NotRequired[bool]
     is_featured: NotRequired[bool]
     is_visible: NotRequired[bool]
+    item_metadata: NotRequired[List[CommerceMetadataTypedDict]]
     media: NotRequired[List[CommerceItemMediaTypedDict]]
     metadata: NotRequired[List[CommerceMetadataTypedDict]]
     parent_id: NotRequired[str]
@@ -57,6 +58,8 @@ class CommerceCollection(BaseModel):
 
     is_visible: Optional[bool] = None
 
+    item_metadata: Optional[List[CommerceMetadata]] = None
+
     media: Optional[List[CommerceItemMedia]] = None
 
     metadata: Optional[List[CommerceMetadata]] = None
@@ -71,8 +74,50 @@ class CommerceCollection(BaseModel):
 
     tags: Optional[List[str]] = None
 
-    type: Annotated[
-        Optional[CommerceCollectionType], PlainValidator(validate_open_enum(False))
-    ] = None
+    type: Optional[CommerceCollectionType] = None
 
     updated_at: Optional[datetime] = None
+
+    @field_serializer("type")
+    def serialize_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.CommerceCollectionType(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "created_at",
+                "description",
+                "id",
+                "is_active",
+                "is_featured",
+                "is_visible",
+                "item_metadata",
+                "media",
+                "metadata",
+                "parent_id",
+                "public_description",
+                "public_name",
+                "raw",
+                "tags",
+                "type",
+                "updated_at",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

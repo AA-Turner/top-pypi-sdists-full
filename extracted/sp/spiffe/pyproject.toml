@@ -1,0 +1,55 @@
+[tool.poetry]
+name = "spiffe"
+version = "0.2.3"
+description = "Python library for SPIFFE support"
+authors = ["Max Lambrecht <maxlambrecht@gmail.com>"]
+readme = "README.md"
+license = "Apache-2.0"
+repository = "https://github.com/HewlettPackard/py-spiffe"
+
+[tool.poetry.dependencies]
+python = "^3.10" # >= 3.10, < 4.0
+grpcio = "^1.62"
+cryptography = ">=45,<47"
+pyjwt = { version = "^2.0", extras = ["crypto"] }
+pyasn1 = "~0.6.0"
+pyasn1-modules = "~0.4.0"
+pem = "^23.0"
+protobuf = ">=5,<7"
+
+[tool.poetry.dev-dependencies]
+black = "^25.12"
+mypy = "^1.19"
+mypy-protobuf = "^5.0"
+pytest = "^9.0"
+pytest-mock = "^3.15"
+pre-commit = "^4.5"
+flake8 = "^7.3"
+testutils = { path = "../testutils" }
+
+[build-system]
+requires = ["poetry-core>=1.9.0"]
+build-backend = "poetry.core.masonry.api"
+
+# Tool configurations
+[tool.black]
+line-length = 95
+skip-string-normalization = true
+target-version = ['py310']
+exclude = '''
+/(
+    src/spiffe/proto
+)/
+'''
+
+[tool.mypy]
+ignore_missing_imports = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--doctest-modules",
+]
+testpaths = [
+    "tests",
+]

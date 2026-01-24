@@ -9,19 +9,28 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
 
-class ActionsHostedRunnerMachineSpecType(TypedDict):
-    """Github-owned VM details.
+class ActionsCacheRetentionLimitForEnterpriseType(TypedDict):
+    """Actions cache retention limit for an enterprise
 
-    Provides details of a particular machine spec.
+    GitHub Actions cache retention policy for an enterprise.
     """
 
-    id: str
-    cpu_cores: int
-    memory_gb: int
-    storage_gb: int
+    max_cache_retention_days: NotRequired[int]
 
 
-__all__ = ("ActionsHostedRunnerMachineSpecType",)
+class ActionsCacheRetentionLimitForEnterpriseTypeForResponse(TypedDict):
+    """Actions cache retention limit for an enterprise
+
+    GitHub Actions cache retention policy for an enterprise.
+    """
+
+    max_cache_retention_days: NotRequired[int]
+
+
+__all__ = (
+    "ActionsCacheRetentionLimitForEnterpriseType",
+    "ActionsCacheRetentionLimitForEnterpriseTypeForResponse",
+)

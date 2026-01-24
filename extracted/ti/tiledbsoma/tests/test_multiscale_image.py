@@ -79,7 +79,6 @@ def test_multiscale_basic(tmp_path):
         level_shape=(128, 64),
         has_channel_axis=False,
     ) as image:
-
         # Add medium sized downsample.
         image.add_new_level("level1", shape=(64, 32))
 
@@ -90,7 +89,6 @@ def test_multiscale_basic(tmp_path):
 
     # Open for reading and check metadata.
     with soma.MultiscaleImage.open(image_uri, mode="r") as image:
-
         # Check the base properties for the image.
         assert image.level_shape(0) == (128, 64)
         assert image.nchannels == 1
@@ -192,7 +190,6 @@ def test_multiscale_basic(tmp_path):
 
 
 class TestSimpleMultiscale2D:
-
     @pytest.fixture(scope="class")
     def image_uri(self, tmp_path_factory):
         """Create a multiscale image and return the path."""
@@ -216,18 +213,14 @@ class TestSimpleMultiscale2D:
             l1 = image.add_new_level("level1", shape=(1, 6, 4))
             l1.write(
                 coords,
-                pa.Tensor.from_numpy(
-                    10 * np.arange(24, dtype=np.uint8).reshape(1, 6, 4)
-                ),
+                pa.Tensor.from_numpy(10 * np.arange(24, dtype=np.uint8).reshape(1, 6, 4)),
             )
 
             # Create very small downsample and write to it.
             l2 = image.add_new_level("level2", shape=(1, 3, 2))
             l2.write(
                 coords,
-                pa.Tensor.from_numpy(
-                    100 * np.arange(6, dtype=np.uint8).reshape(1, 3, 2)
-                ),
+                pa.Tensor.from_numpy(100 * np.arange(6, dtype=np.uint8).reshape(1, 3, 2)),
             )
         return image_uri
 
@@ -244,9 +237,7 @@ class TestSimpleMultiscale2D:
             ),
         ],
     )
-    def test_read_spatial_region(
-        self, image_uri, level, region, kwargs, expected_data, expected_transform
-    ):
+    def test_read_spatial_region(self, image_uri, level, region, kwargs, expected_data, expected_transform):
         with soma.MultiscaleImage.open(image_uri) as image:
             result = image.read_spatial_region(level=level, region=region, **kwargs)
         actual_data = result.data.to_numpy()
@@ -357,12 +348,15 @@ def create_multiscale(baseuri, coord_space, axis_order, has_channel_axis, shapes
     ],
 )
 def test_multiscale_with_axis_names(
-    tmp_path, coord_space, axis_order, has_channel_axis, shapes, expected_scale_factors
+    tmp_path,
+    coord_space,
+    axis_order,
+    has_channel_axis,
+    shapes,
+    expected_scale_factors,
 ):
     baseuri = urljoin(f"{tmp_path.as_uri()}/", "test_multiscale_with_axis_names")
-    image_uri = create_multiscale(
-        baseuri, coord_space, axis_order, has_channel_axis, shapes
-    )
+    image_uri = create_multiscale(baseuri, coord_space, axis_order, has_channel_axis, shapes)
 
     with soma.MultiscaleImage.open(image_uri, mode="r") as image:
         assert image.level_count == len(shapes)
@@ -487,22 +481,23 @@ def test_multiscale_with_axis_names(
     ],
 )
 def test_multiscale_2d_read_region_with_channel(
-    tmp_path, shapes, data_axis_order, region, expected_coords, scale_factors
+    tmp_path,
+    shapes,
+    data_axis_order,
+    region,
+    expected_coords,
+    scale_factors,
 ):
     baseuri = urljoin(f"{tmp_path.as_uri()}/", "test_multiscale_read_region")
     image_uri = create_multiscale(baseuri, ("x", "y"), data_axis_order, True, shapes)
 
     with soma.MultiscaleImage.open(image_uri, mode="w") as image:
         for i, shape in enumerate(shapes):
-            data = np.arange(shape[0] * shape[1] * shape[2], dtype=np.uint8).reshape(
-                shape
-            )
-            image[f"level{i}"].write(
-                (slice(None), slice(None)), pa.Tensor.from_numpy(data)
-            )
+            data = np.arange(shape[0] * shape[1] * shape[2], dtype=np.uint8).reshape(shape)
+            image[f"level{i}"].write((slice(None), slice(None)), pa.Tensor.from_numpy(data))
 
     with soma.MultiscaleImage.open(image_uri, mode="r") as image:
-        for i, shape in enumerate(shapes):
+        for i, _shape in enumerate(shapes):
             actual_data = image.read_spatial_region(i, region=region).data
             if expected_coords is None:
                 expected_data = image[f"level{i}"].read()
@@ -560,9 +555,7 @@ def test_multiscale_2d_read_region_no_channel(tmp_path, shapes, region, scale_fa
     with soma.MultiscaleImage.open(image_uri, mode="w") as image:
         for i, shape in enumerate(shapes):
             data = np.arange(shape[0] * shape[1], dtype=np.uint8).reshape(shape)
-            image[f"level{i}"].write(
-                (slice(None), slice(None)), pa.Tensor.from_numpy(data)
-            )
+            image[f"level{i}"].write((slice(None), slice(None)), pa.Tensor.from_numpy(data))
 
     with soma.MultiscaleImage.open(image_uri, mode="r") as image:
         for i, shape in enumerate(shapes):
@@ -580,7 +573,7 @@ def test_multiscale_2d_read_region_no_channel(tmp_path, shapes, region, scale_fa
                             region[0],
                             region[2] // scale_factors[i][1],
                         ),
-                    )
+                    ),
                 )
             assert np.array_equal(actual_data, expected_data)
 
@@ -630,25 +623,19 @@ def test_multiscale_2d_read_region_no_channel(tmp_path, shapes, region, scale_fa
 )
 def test_multiscale_3d_read_region_no_channel(tmp_path, shapes, region, scale_factors):
     baseuri = urljoin(f"{tmp_path.as_uri()}/", "test_multiscale_read_region")
-    image_uri = create_multiscale(
-        baseuri, ("x", "y", "z"), ("z", "y", "x"), False, shapes
-    )
+    image_uri = create_multiscale(baseuri, ("x", "y", "z"), ("z", "y", "x"), False, shapes)
 
     with soma.Collection.open(image_uri, mode="w") as image:
         for i, shape in enumerate(shapes):
             size = functools.reduce(lambda x, y: x * y, shape)
             data = np.arange(size, dtype=np.uint8).reshape(*shape)
-            image[f"level{i}"].write(
-                (slice(None), slice(None), slice(None)), pa.Tensor.from_numpy(data)
-            )
+            image[f"level{i}"].write((slice(None), slice(None), slice(None)), pa.Tensor.from_numpy(data))
 
     with soma.MultiscaleImage.open(image_uri, mode="r") as image:
         for i, shape in enumerate(shapes):
             if region is None:
                 actual_data = image.read_spatial_region(i).data
-                expected_data = np.arange(
-                    functools.reduce(lambda x, y: x * y, shape), dtype=np.uint8
-                ).reshape(*shape)
+                expected_data = np.arange(functools.reduce(lambda x, y: x * y, shape), dtype=np.uint8).reshape(*shape)
             else:
                 actual_data = image.read_spatial_region(i, region=region).data
                 expected_data = image[f"level{i}"].read(
@@ -656,6 +643,6 @@ def test_multiscale_3d_read_region_no_channel(tmp_path, shapes, region, scale_fa
                         slice(region[2], region[5] // scale_factors[i][2]),
                         slice(region[1], region[4] // scale_factors[i][1]),
                         slice(region[0], region[3] // scale_factors[i][0]),
-                    )
+                    ),
                 )
             assert np.array_equal(actual_data, expected_data)

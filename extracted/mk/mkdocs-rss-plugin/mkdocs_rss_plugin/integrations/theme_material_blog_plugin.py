@@ -7,26 +7,27 @@
 # standard library
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import Union
 
 # 3rd party
 from mkdocs.config.defaults import MkDocsConfig
 from mkdocs.plugins import get_plugin_logger
-from mkdocs.structure.pages import Page
 
 # package
 from mkdocs_rss_plugin.constants import MKDOCS_LOGGER_NAME
 from mkdocs_rss_plugin.integrations.theme_material_base import (
     IntegrationMaterialThemeBase,
 )
+from mkdocs_rss_plugin.models import MkdocsPageSubset
 
 # conditional
 try:
     from material import __version__ as material_version
     from material.plugins.blog.plugin import BlogPlugin
+    from material.plugins.blog.structure import Post
 
 except ImportError:
-    material_version = None
+    material_version = BlogPlugin = Post = None
 
 
 # ############################################################################
@@ -69,9 +70,7 @@ class IntegrationMaterialBlog(IntegrationMaterialThemeBase):
                 "disabled in plugin's option in Mkdocs configuration."
             )
 
-    def is_blog_plugin_enabled_mkdocs(
-        self, mkdocs_config: Optional[MkDocsConfig]
-    ) -> bool:
+    def is_blog_plugin_enabled_mkdocs(self, mkdocs_config: MkDocsConfig | None) -> bool:
         """Check if blog plugin is installed and enabled.
 
         Args:
@@ -87,7 +86,7 @@ class IntegrationMaterialBlog(IntegrationMaterialThemeBase):
             logger.debug("Installed theme is not 'material'. Integration disabled.")
             return False
 
-        if not mkdocs_config.plugins.get("material/blog"):
+        if mkdocs_config.plugins.get("material/blog") is None:
             logger.debug("Material blog plugin is not listed in configuration.")
             self.IS_BLOG_PLUGIN_ENABLED = False
             return False
@@ -134,15 +133,27 @@ class IntegrationMaterialBlog(IntegrationMaterialThemeBase):
                 )
                 return author_id
 
-    def is_page_a_blog_post(self, mkdocs_page: Page) -> bool:
+    def is_page_a_blog_post(self, mkdocs_page: Union["Post", MkdocsPageSubset]) -> bool:
         """Identifies if the given page is part of Material Blog.
 
         Args:
-            mkdocs_page (Page): page to identify
+            mkdocs_page: page to identify
 
         Returns:
-            bool: True if the given page is a Material Blog post.
+            True if the given page is a Material Blog post.
         """
-        return Path(mkdocs_page.file.src_uri).is_relative_to(
-            self.blog_plugin_cfg.config.blog_dir
-        )
+        if self.IS_ENABLED and Post is not None and isinstance(mkdocs_page, Post):
+            logger.debug(
+                f"page '{mkdocs_page.file.src_uri}' identified as Material Blog post."
+            )
+            return True
+        elif isinstance(mkdocs_page, MkdocsPageSubset) and Path(
+            mkdocs_page.src_uri
+        ).is_relative_to(self.blog_plugin_cfg.config.blog_dir):
+            logger.debug(
+                f"page '{mkdocs_page.src_uri}' identified as Material Blog post "
+                f"by src_uri matching."
+            )
+            return True
+        else:
+            return False

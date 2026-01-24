@@ -14,6 +14,8 @@ from itertools import takewhile
 
 from dateutil.relativedelta import relativedelta
 
+from markdown_it import MarkdownIt
+
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -78,7 +80,6 @@ from chellow.utils import (
     utc_datetime,
     utc_datetime_now,
 )
-
 
 config = {
     "PGUSER": "postgres",
@@ -705,6 +706,72 @@ class BatchFile(Base, PersistentClass):
         sess.flush()
 
 
+class Element(Base, PersistentClass):
+    __tablename__ = "element"
+    id = Column(Integer, primary_key=True)
+    bill_id = Column(
+        Integer, ForeignKey("bill.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name = Column(String, nullable=False, index=True)
+    start_date = Column(DateTime(timezone=True), nullable=False, index=True)
+    finish_date = Column(DateTime(timezone=True), nullable=False, index=True)
+    net = Column(Numeric, nullable=False)
+    breakdown = Column(String, nullable=False)
+
+    def __init__(
+        self,
+        bill,
+        name,
+        start_date,
+        finish_date,
+        net,
+        breakdown,
+    ):
+        self.bill = bill
+        self.update(name, start_date, finish_date, net, breakdown)
+
+    @property
+    def bd(self):
+        if not hasattr(self, "_bd"):
+            self._bd = loads(self.breakdown)
+        return self._bd
+
+    def update(
+        self,
+        name,
+        start_date,
+        finish_date,
+        net,
+        breakdown,
+    ):
+
+        self.name = name
+        if start_date > finish_date:
+            raise BadRequest(
+                f"The element start date {hh_format(start_date)} can't be after the "
+                f"finish date {hh_format(finish_date)}."
+            )
+
+        self.start_date = start_date
+        self.finish_date = finish_date
+
+        if net.as_tuple().exponent != -2:
+            raise BadRequest(
+                f"The 'net' field of an element must be written to at exactly two "
+                f"decimal places. It's actually {net}"
+            )
+        self.net = net
+
+        if isinstance(breakdown, Mapping):
+            self.breakdown = dumps(breakdown)
+        else:
+            raise BadRequest("The 'breakdown' parameter must be a mapping type.")
+
+    def delete(self, sess):
+        sess.delete(self)
+        sess.flush()
+
+
 class Bill(Base, PersistentClass):
     __tablename__ = "bill"
     id = Column(Integer, primary_key=True)
@@ -724,6 +791,12 @@ class Bill(Base, PersistentClass):
     kwh = Column(Numeric, nullable=False)
     reads = relationship(
         "RegisterRead",
+        backref="bill",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    elements = relationship(
+        "Element",
         backref="bill",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -863,6 +936,20 @@ class Bill(Base, PersistentClass):
             else:
                 raise
         return read
+
+    def insert_element(
+        self,
+        sess,
+        name,
+        start_date,
+        finish_date,
+        net,
+        breakdown,
+    ):
+        element = Element(self, name, start_date, finish_date, net, breakdown)
+        sess.add(element)
+        sess.flush()
+        return element
 
     def delete(self, sess):
         sess.delete(self)
@@ -1458,6 +1545,7 @@ class Contract(Base, PersistentClass):
     finish_rate_script = relationship(
         "RateScript", primaryjoin="RateScript.id==Contract.finish_rate_script_id"
     )
+    issues = relationship("Issue", backref="contract")
 
     def __init__(self, name, party, charge_script, properties, state):
         self.market_role = party.market_role
@@ -1515,18 +1603,14 @@ class Contract(Base, PersistentClass):
 
         if prev_rscript is not None:
             if not hh_before(prev_rscript.start_date, start_date):
-                raise BadRequest(
-                    """The start date must be after the start
-                        date of the previous rate script."""
-                )
+                raise BadRequest("""The start date must be after the start
+                        date of the previous rate script.""")
             prev_rscript.finish_date = prev_hh(start_date)
 
         if next_rscript is not None:
             if finish_date is None:
-                raise BadRequest(
-                    """The finish date must be before the start date of the
-                    next rate script."""
-                )
+                raise BadRequest("""The finish date must be before the start date of the
+                    next rate script.""")
 
             if not hh_before(finish_date, next_rscript.finish_date):
                 raise BadRequest(
@@ -1710,6 +1794,12 @@ class Contract(Base, PersistentClass):
             else:
                 raise e
         return batch
+
+    def insert_issue(self, sess, date_created, properties):
+        issue = Issue(self, date_created, True, properties)
+        sess.add(issue)
+        sess.flush()
+        return issue
 
     def make_properties(self):
         return loads(self.properties)
@@ -1911,9 +2001,7 @@ class Site(Base, PersistentClass):
         finish_date,
         gsp_group,
         mop_contract,
-        mop_account,
         dc_contract,
-        dc_account,
         msn,
         dno,
         pc,
@@ -1955,9 +2043,7 @@ class Site(Base, PersistentClass):
             start_date,
             finish_date,
             mop_contract,
-            mop_account,
             dc_contract,
-            dc_account,
             msn,
             pc,
             old_mtc_code,
@@ -3281,12 +3367,10 @@ class Era(Base, PersistentClass):
     mop_contract = relationship(
         "Contract", primaryjoin="Contract.id==Era.mop_contract_id"
     )
-    mop_account = Column(String, nullable=False)
     dc_contract_id = Column(Integer, ForeignKey("contract.id"), nullable=False)
     dc_contract = relationship(
         "Contract", primaryjoin="Contract.id==Era.dc_contract_id"
     )
-    dc_account = Column(String)
     msn = Column(String)
     pc_id = Column(Integer, ForeignKey("pc.id"), nullable=False)
     mtc_participant_id = Column(
@@ -3326,9 +3410,7 @@ class Era(Base, PersistentClass):
         start_date,
         finish_date,
         mop_contract,
-        mop_account,
         dc_contract,
-        dc_account,
         msn,
         pc,
         mtc_code,
@@ -3354,9 +3436,7 @@ class Era(Base, PersistentClass):
             start_date,
             finish_date,
             mop_contract,
-            mop_account,
             dc_contract,
-            dc_account,
             msn,
             pc,
             mtc_code,
@@ -3431,9 +3511,7 @@ class Era(Base, PersistentClass):
                 start_date,
                 finish_date,
                 self.mop_contract,
-                self.mop_account,
                 self.dc_contract,
-                self.dc_account,
                 self.msn,
                 self.pc,
                 self.mtc_participant.mtc.code,
@@ -3460,9 +3538,7 @@ class Era(Base, PersistentClass):
         start_date,
         finish_date,
         mop_contract,
-        mop_account,
         dc_contract,
-        dc_account,
         msn,
         pc,
         mtc_code,
@@ -3494,16 +3570,8 @@ class Era(Base, PersistentClass):
         if mop_contract is None:
             raise BadRequest("An supply era must have a MOP contract.")
 
-        mop_account = mop_account.strip()
-        if len(mop_account) == 0:
-            raise BadRequest("There must be a MOP account reference.")
-
         if dc_contract is None:
             raise BadRequest("An era must have a DC contract.")
-
-        dc_account = dc_account.strip()
-        if len(dc_account) == 0:
-            raise BadRequest("An era must have a DC account reference.")
 
         self.msn = msn.strip()
         self.pc = pc
@@ -3535,9 +3603,7 @@ class Era(Base, PersistentClass):
 
         self.start_date = start_date
         self.finish_date = finish_date
-        self.mop_account = mop_account
         self.mop_contract = mop_contract
-        self.dc_account = dc_account
         self.dc_contract = dc_contract
 
         for polarity in ["imp", "exp"]:
@@ -4262,12 +4328,9 @@ class Supply(Base, PersistentClass):
             )
 
     def find_last_era(self, sess):
-        return (
-            sess.query(Era)
-            .filter(Era.supply == self)
-            .order_by(Era.start_date.desc())
-            .first()
-        )
+        return sess.scalars(
+            select(Era).where(Era.supply == self).order_by(Era.start_date.desc())
+        ).first()
 
     def find_eras(self, sess, start, finish):
         eras = (
@@ -4289,9 +4352,7 @@ class Supply(Base, PersistentClass):
         start_date,
         finish_date,
         mop_contract,
-        mop_account,
         dc_contract,
-        dc_account,
         msn,
         pc,
         mtc_code,
@@ -4437,9 +4498,7 @@ class Supply(Base, PersistentClass):
             start_date,
             finish_date,
             mop_contract,
-            mop_account,
             dc_contract,
-            dc_account,
             msn,
             pc,
             mtc_code,
@@ -4518,9 +4577,7 @@ class Supply(Base, PersistentClass):
             start_date,
             None,
             template_era.mop_contract,
-            template_era.mop_account,
             template_era.dc_contract,
-            template_era.dc_account,
             template_era.msn,
             template_era.pc,
             template_era.mtc_participant.mtc.code,
@@ -4550,9 +4607,7 @@ class Supply(Base, PersistentClass):
         start_date,
         finish_date,
         mop_contract,
-        mop_account,
         dc_contract,
-        dc_account,
         msn,
         pc,
         mtc,
@@ -4615,9 +4670,7 @@ class Supply(Base, PersistentClass):
                 start_date,
                 finish_date,
                 mop_contract,
-                mop_account,
                 dc_contract,
-                dc_account,
                 msn,
                 pc,
                 mtc,
@@ -6391,10 +6444,13 @@ class ReportRun(Base, PersistentClass):
         self.data = _jsonize(data)
         attributes.flag_modified(self, "data")
 
-    def insert_row(self, sess, tab, titles, values, properties):
+    def insert_row(self, sess, tab, titles, values, properties, data=None):
         vals = {"titles": titles, "values": values, "properties": properties}
+        if data is not None:
+            vals["data"] = data
         row = ReportRunRow(self, tab, vals)
         sess.add(row)
+        return row
 
     def delete(self, sess):
         sess.delete(self)
@@ -6430,10 +6486,10 @@ class ReportRun(Base, PersistentClass):
             wsess.commit()
 
     @staticmethod
-    def w_insert_row(report_run_id, tab, titles, values, properties):
+    def w_insert_row(report_run_id, tab, titles, values, properties, data=None):
         with Session() as wsess:
             report_run = ReportRun.get_by_id(wsess, report_run_id)
-            report_run.insert_row(wsess, tab, titles, values, properties)
+            report_run.insert_row(wsess, tab, titles, values, properties, data=data)
             wsess.commit()
 
 
@@ -6479,6 +6535,68 @@ class ReportRunRow(Base, PersistentClass):
         self.report_run = report_run
         self.tab = tab
         self.data = _jsonize(data)
+
+
+class Issue(Base, PersistentClass):
+    __tablename__ = "issue"
+    id = Column(Integer, primary_key=True)
+    contract_id = Column(Integer, ForeignKey("contract.id"), nullable=False)
+    date_created = Column(DateTime(timezone=True), nullable=False, index=True)
+    properties = Column(JSONB, nullable=False)
+    is_open = Column(Boolean, nullable=False, index=True)
+    entries = relationship(
+        "IssueEntry",
+        backref="issue",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="IssueEntry.timestamp.desc()",
+    )
+
+    def __init__(self, contract, date_created, is_open, properties):
+        self.contract = contract
+        self.update(date_created, is_open, properties)
+
+    def update(self, date_created, is_open, properties):
+        self.date_created = date_created
+        self.is_open = is_open
+        self.update_properties(properties)
+
+    def update_properties(self, properties):
+        self.properties = _jsonize(properties)
+        attributes.flag_modified(self, "properties")
+
+    def add_entry(self, sess, markdown):
+        entry = IssueEntry(self, utc_datetime_now(), markdown)
+        sess.add(entry)
+        return entry
+
+    def delete(self, sess):
+        sess.delete(self)
+        sess.flush()
+
+
+class IssueEntry(Base, PersistentClass):
+    __tablename__ = "issue_entry"
+    id = Column(Integer, primary_key=True)
+    issue_id = Column(
+        Integer, ForeignKey("issue.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    timestamp = Column(DateTime(timezone=True), nullable=False, index=True)
+    markdown = Column(JSONB, nullable=False)
+
+    def __init__(self, issue, timestamp, markdown):
+        self.issue = issue
+        self.update(timestamp, markdown)
+
+    def update(self, timestamp, markdown):
+        self.timestamp = timestamp
+        md = MarkdownIt()
+        md.parse(markdown)
+        self.markdown = markdown
+
+    def delete(self, sess):
+        sess.delete(self)
+        sess.flush()
 
 
 def read_file(pth, fname, attr):
@@ -6779,27 +6897,7 @@ def db_init(sess, root_path):
         None,
         None,
     )
-    for name, properties in (
-        ("aahedc", {}),
-        (
-            "bank_holidays",
-            {
-                "enabled": True,
-                "url": "https://www.gov.uk/bank-holidays/england-and-wales.ics",
-            },
-        ),
-        ("bmarketidx", {}),
-        ("bsuos", {}),
-        ("ccl", {}),
-        ("configuration", {}),
-        ("rcrc", {}),
-        ("ro", {}),
-        ("system_price", {}),
-        ("tlms", {}),
-        ("triad_dates", {}),
-        ("tnuos", {}),
-    ):
-        Contract.insert_non_core(sess, name, "", properties, last_month_start, None, {})
+    Contract.insert_non_core(sess, "configuration", "", {}, last_month_start, None, {})
 
     insert_dtc_meter_types(sess)
     sess.commit()
@@ -7396,9 +7494,7 @@ def db_upgrade_43_to_44(sess, root_path):
             read = RegisterRead.get_by_id(sess, read_id)
             read.delete(sess)
 
-    sess.execute(
-        text(
-            """ALTER TABLE register_read ADD CONSTRAINT
+    sess.execute(text("""ALTER TABLE register_read ADD CONSTRAINT
             register_read_bill_id_msn_mpan_str_coefficient_units_tpr_id_key UNIQUE (
             bill_id,
             msn,
@@ -7412,9 +7508,7 @@ def db_upgrade_43_to_44(sess, root_path):
             present_date,
             present_value,
             present_type_id
-        );"""
-        )
-    )
+        );"""))
 
 
 def db_upgrade_44_to_45(sess, root_path):
@@ -7545,6 +7639,11 @@ def db_upgrade_50_to_51(sess, root_path):
         sess.execute(delete(Party).where(Party.id == dno_99.id))
 
 
+def db_upgrade_51_to_52(sess, root_path):
+    sess.execute(text("alter table era drop column mop_account;"))
+    sess.execute(text("alter table era drop column dc_account;"))
+
+
 upgrade_funcs = [None] * 18
 upgrade_funcs.extend(
     [
@@ -7581,6 +7680,7 @@ upgrade_funcs.extend(
         db_upgrade_48_to_49,
         db_upgrade_49_to_50,
         db_upgrade_50_to_51,
+        db_upgrade_51_to_52,
     ]
 )
 

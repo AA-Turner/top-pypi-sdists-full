@@ -36,6 +36,10 @@ from .condition_constprop import ConditionConstantPropagation
 from .determine_load_sizes import DetermineLoadSizes
 from .eager_std_string_concatenation import EagerStdStringConcatenationPass
 from .peephole_simplifier import PostStructuringPeepholeOptimizationPass
+from .register_save_area_simplifier_adv import RegisterSaveAreaSimplifierAdvanced
+from .inlined_strlen_simplifier import InlinedStrlenSimplifier
+from .static_vvar_rewriter import StaticVVarRewriter
+from .eager_std_string_eval import EagerStdStringEvalPass
 
 if TYPE_CHECKING:
     from angr.analyses.decompiler.presets import DecompilationPreset
@@ -74,6 +78,10 @@ ALL_OPTIMIZATION_PASSES = [
     DetermineLoadSizes,
     EagerStdStringConcatenationPass,
     PostStructuringPeepholeOptimizationPass,
+    RegisterSaveAreaSimplifierAdvanced,
+    InlinedStrlenSimplifier,
+    StaticVVarRewriter,
+    EagerStdStringEvalPass,
 ]
 
 # these passes may duplicate code to remove gotos or improve the structure of the graph
@@ -134,15 +142,18 @@ __all__ = (
     "ITEExprConverter",
     "ITERegionConverter",
     "InlinedStringTransformationSimplifier",
+    "InlinedStrlenSimplifier",
     "LoweredSwitchSimplifier",
     "ModSimplifier",
     "OptimizationPassStage",
     "RegisterSaveAreaSimplifier",
+    "RegisterSaveAreaSimplifierAdvanced",
     "RetAddrSaveSimplifier",
     "ReturnDeduplicator",
     "ReturnDuplicatorHigh",
     "ReturnDuplicatorLow",
     "StackCanarySimplifier",
+    "StaticVVarRewriter",
     "SwitchDefaultCaseDuplicator",
     "SwitchReusedEntryRewriter",
     "TagSlicer",

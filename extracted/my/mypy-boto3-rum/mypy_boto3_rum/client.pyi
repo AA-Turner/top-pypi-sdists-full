@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -66,12 +67,6 @@ from .type_defs import (
     UpdateRumMetricDefinitionRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -80,18 +75,18 @@ else:
 __all__ = ("CloudWatchRUMClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidPolicyRevisionIdException: Type[BotocoreClientError]
-    MalformedPolicyDocumentException: Type[BotocoreClientError]
-    PolicyNotFoundException: Type[BotocoreClientError]
-    PolicySizeLimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidPolicyRevisionIdException: type[BotocoreClientError]
+    MalformedPolicyDocumentException: type[BotocoreClientError]
+    PolicyNotFoundException: type[BotocoreClientError]
+    PolicySizeLimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class CloudWatchRUMClient(BaseClient):
     """
@@ -174,7 +169,7 @@ class CloudWatchRUMClient(BaseClient):
 
     def delete_app_monitor(
         self, **kwargs: Unpack[DeleteAppMonitorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an existing app monitor.
 
@@ -194,7 +189,7 @@ class CloudWatchRUMClient(BaseClient):
 
     def delete_rum_metrics_destination(
         self, **kwargs: Unpack[DeleteRumMetricsDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a destination for CloudWatch RUM extended metrics, so that the
         specified app monitor stops sending extended metrics to that destination.
@@ -277,7 +272,7 @@ class CloudWatchRUMClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rum/client/#put_resource_policy)
         """
 
-    def put_rum_events(self, **kwargs: Unpack[PutRumEventsRequestTypeDef]) -> Dict[str, Any]:
+    def put_rum_events(self, **kwargs: Unpack[PutRumEventsRequestTypeDef]) -> dict[str, Any]:
         """
         Sends telemetry events about your application performance and user behavior to
         CloudWatch RUM.
@@ -288,7 +283,7 @@ class CloudWatchRUMClient(BaseClient):
 
     def put_rum_metrics_destination(
         self, **kwargs: Unpack[PutRumMetricsDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates a destination to receive extended metrics from CloudWatch
         RUM.
@@ -297,7 +292,7 @@ class CloudWatchRUMClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rum/client/#put_rum_metrics_destination)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags (key-value pairs) to the specified CloudWatch RUM
         resource.
@@ -306,7 +301,7 @@ class CloudWatchRUMClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rum/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified resource.
 
@@ -316,7 +311,7 @@ class CloudWatchRUMClient(BaseClient):
 
     def update_app_monitor(
         self, **kwargs: Unpack[UpdateAppMonitorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the configuration of an existing app monitor.
 
@@ -326,7 +321,7 @@ class CloudWatchRUMClient(BaseClient):
 
     def update_rum_metric_definition(
         self, **kwargs: Unpack[UpdateRumMetricDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies one existing metric definition for CloudWatch RUM extended metrics.
 

@@ -3,6 +3,7 @@ import re
 import warnings
 from copy import deepcopy
 from enum import Enum
+from html import unescape
 from io import BytesIO
 from pathlib import Path
 from typing import Literal, Optional, Union, cast
@@ -14,19 +15,25 @@ from docling_core.types.doc import (
     DocItemLabel,
     DoclingDocument,
     DocumentOrigin,
+    Formatting,
     ListItem,
     NodeItem,
     TableCell,
     TableData,
     TextItem,
 )
-from docling_core.types.doc.document import Formatting
 from marko import Markdown
 from pydantic import AnyUrl, BaseModel, Field, TypeAdapter
-from typing_extensions import Annotated
+from typing_extensions import Annotated, override
 
-from docling.backend.abstract_backend import DeclarativeDocumentBackend
+from docling.backend.abstract_backend import (
+    DeclarativeDocumentBackend,
+)
 from docling.backend.html_backend import HTMLDocumentBackend
+from docling.datamodel.backend_options import (
+    HTMLBackendOptions,
+    MarkdownBackendOptions,
+)
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.document import InputDocument
 
@@ -64,6 +71,21 @@ _CreationPayload = Annotated[
 
 
 class MarkdownDocumentBackend(DeclarativeDocumentBackend):
+    _ENTITY_RE = re.compile(r"&(#\d+|#x[0-9a-fA-F]+|\w+);")
+
+    @staticmethod
+    def _unescape_except_pipe(text: str) -> str:
+        def replace(match):
+            entity = match.group(0)
+
+            # entities that represent |
+            if entity in ("&#124;", "&#x7C;", "&vert;"):
+                return entity
+
+            return unescape(entity)
+
+        return MarkdownDocumentBackend._ENTITY_RE.sub(replace, text)
+
     def _shorten_underscore_sequences(self, markdown_text: str, max_length: int = 10):
         # This regex will match any sequence of underscores
         pattern = r"_+"
@@ -87,8 +109,14 @@ class MarkdownDocumentBackend(DeclarativeDocumentBackend):
 
         return shortened_text
 
-    def __init__(self, in_doc: "InputDocument", path_or_stream: Union[BytesIO, Path]):
-        super().__init__(in_doc, path_or_stream)
+    @override
+    def __init__(
+        self,
+        in_doc: InputDocument,
+        path_or_stream: Union[BytesIO, Path],
+        options: MarkdownBackendOptions = MarkdownBackendOptions(),
+    ):
+        super().__init__(in_doc, path_or_stream, options)
 
         _log.debug("Starting MarkdownDocumentBackend...")
 
@@ -156,7 +184,7 @@ class MarkdownDocumentBackend(DeclarativeDocumentBackend):
                         1  # currently supporting just simple tables (without spans)
                     )
                     icell = TableCell(
-                        text=cellval.strip(),
+                        text=unescape(cellval.strip()),
                         row_span=row_span,
                         col_span=col_span,
                         start_row_offset_idx=trow_ind,
@@ -248,7 +276,10 @@ class MarkdownDocumentBackend(DeclarativeDocumentBackend):
 
         # Iterates over all elements in the AST
         # Check for different element types and process relevant details
-        if isinstance(element, marko.block.Heading) and len(element.children) > 0:
+        if (
+            isinstance(element, marko.block.Heading)
+            or isinstance(element, marko.block.SetextHeading)
+        ) and len(element.children) > 0:
             self._close_table(doc)
             _log.debug(
                 f" - Heading level {element.level}, content: {element.children[0].children}"  # type: ignore
@@ -321,9 +352,10 @@ class MarkdownDocumentBackend(DeclarativeDocumentBackend):
 
             fig_caption: Optional[TextItem] = None
             if element.title is not None and element.title != "":
+                title = unescape(element.title)
                 fig_caption = doc.add_text(
                     label=DocItemLabel.CAPTION,
-                    text=element.title,
+                    text=title,
                     formatting=formatting,
                     hyperlink=hyperlink,
                 )
@@ -346,20 +378,26 @@ class MarkdownDocumentBackend(DeclarativeDocumentBackend):
                 element.dest
             )
 
-        elif isinstance(element, (marko.inline.RawText, marko.inline.Literal)):
+        elif isinstance(element, marko.inline.RawText | marko.inline.Literal):
             _log.debug(f" - RawText/Literal: {element.children}")
-            snippet_text = (
-                element.children.strip() if isinstance(element.children, str) else ""
+            original_text = (
+                element.children if isinstance(element.children, str) else ""
             )
-            # Detect start of the table:
-            if "|" in snippet_text or self.in_table:
-                # most likely part of the markdown table
+            snippet_text = unescape(original_text.strip())
+            is_table_row = "|" in snippet_text and (
+                self.in_table or original_text.lstrip().startswith("|")
+            )
+            if is_table_row:
                 self.in_table = True
-                if len(self.md_table_buffer) > 0:
+            if self.in_table and snippet_text:
+                snippet_text = self._unescape_except_pipe(original_text.strip())
+                # If we're in a table, keep adding text (for formatted content in cells)
+                if self.md_table_buffer:
                     self.md_table_buffer[len(self.md_table_buffer) - 1] += snippet_text
                 else:
                     self.md_table_buffer.append(snippet_text)
             elif snippet_text:
+                # Not in table - close any pending table and process as regular text
                 self._close_table(doc)
 
                 if creation_stack:
@@ -420,7 +458,7 @@ class MarkdownDocumentBackend(DeclarativeDocumentBackend):
             )
 
         elif (
-            isinstance(element, (marko.block.CodeBlock, marko.block.FencedCode))
+            isinstance(element, marko.block.CodeBlock | marko.block.FencedCode)
             and len(element.children) > 0
             and isinstance((child := element.children[0]), marko.inline.RawText)
             and len(snippet_text := (child.children.strip())) > 0
@@ -462,7 +500,7 @@ class MarkdownDocumentBackend(DeclarativeDocumentBackend):
                 _log.debug(f"Some other element: {element}")
 
         if (
-            isinstance(element, (marko.block.Paragraph, marko.block.Heading))
+            isinstance(element, marko.block.Paragraph | marko.block.Heading)
             and len(element.children) > 1
         ):
             parent_item = doc.add_inline_group(parent=parent_item)
@@ -569,14 +607,26 @@ class MarkdownDocumentBackend(DeclarativeDocumentBackend):
                 self._html_blocks = 0
                 # delegate to HTML backend
                 stream = BytesIO(bytes(html_str, encoding="utf-8"))
+                md_options = cast(MarkdownBackendOptions, self.options)
+                html_options = HTMLBackendOptions(
+                    enable_local_fetch=md_options.enable_local_fetch,
+                    enable_remote_fetch=md_options.enable_remote_fetch,
+                    fetch_images=md_options.fetch_images,
+                    source_uri=md_options.source_uri,
+                    infer_furniture=False,
+                    add_title=False,
+                )
                 in_doc = InputDocument(
                     path_or_stream=stream,
                     format=InputFormat.HTML,
                     backend=html_backend_cls,
                     filename=self.file.name,
+                    backend_options=html_options,
                 )
                 html_backend_obj = html_backend_cls(
-                    in_doc=in_doc, path_or_stream=stream
+                    in_doc=in_doc,
+                    path_or_stream=stream,
+                    options=html_options,
                 )
                 doc = html_backend_obj.convert()
         else:

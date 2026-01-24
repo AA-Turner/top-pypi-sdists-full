@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import codecs
 import csv
-from typing import Optional
+from os import PathLike
+from typing import Any, Optional
 
 import numpy as np
 import requests
@@ -15,10 +16,10 @@ from tidy3d.components.base import Tidy3dBaseModel, cached_property, skip_if_fie
 from tidy3d.components.medium import AbstractMedium, PoleResidue
 from tidy3d.components.types import ArrayFloat1D, Ax
 from tidy3d.components.viz import add_ax_if_none
+from tidy3d.config import config
 from tidy3d.constants import C_0, HBAR, MICROMETER
 from tidy3d.exceptions import SetupError, ValidationError, WebError
 from tidy3d.log import get_logging_console, log
-from tidy3d.web.core.environment import Env
 
 
 class DispersionFitter(Tidy3dBaseModel):
@@ -556,7 +557,7 @@ class DispersionFitter(Tidy3dBaseModel):
         return ax
 
     @staticmethod
-    def _validate_url_load(data_load: list):
+    def _validate_url_load(data_load: list) -> None:
         """Validate if the loaded data from URL is valid
             The data list should be in this format:
                 [["wl",     "n"],
@@ -609,7 +610,7 @@ class DispersionFitter(Tidy3dBaseModel):
 
     @classmethod
     def from_url(
-        cls, url_file: str, delimiter: str = ",", ignore_k: bool = False, **kwargs
+        cls, url_file: str, delimiter: str = ",", ignore_k: bool = False, **kwargs: Any
     ) -> DispersionFitter:
         """loads :class:`DispersionFitter` from url linked to a csv/txt file that
         contains wavelength (micron), n, and optionally k data. Preferred from
@@ -657,7 +658,7 @@ class DispersionFitter(Tidy3dBaseModel):
         :class:`DispersionFitter`
             A :class:`DispersionFitter` instance.
         """
-        resp = requests.get(url_file, verify=Env.current.ssl_verify)
+        resp = requests.get(url_file, verify=config.web.ssl_verify)
 
         try:
             resp.raise_for_status()
@@ -698,12 +699,12 @@ class DispersionFitter(Tidy3dBaseModel):
         return cls(wvl_um=n_lam[:, 0], n_data=n_lam[:, 1], **kwargs)
 
     @classmethod
-    def from_file(cls, fname: str, **loadtxt_kwargs) -> DispersionFitter:
+    def from_file(cls, fname: PathLike, **loadtxt_kwargs: Any) -> DispersionFitter:
         """Loads :class:`DispersionFitter` from file containing wavelength, n, k data.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Path to file containing wavelength (um), n, k (optional) data in columns.
         **loadtxt_kwargs
             Kwargs passed to ``np.loadtxt``, such as ``skiprows``, ``delimiter``.

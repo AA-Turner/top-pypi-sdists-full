@@ -1,11 +1,10 @@
 import asyncio
 import base64
-import copy
 import json
 import socket
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 from urllib import parse
 
 import grpc
@@ -15,6 +14,7 @@ from pymilvus.client.types import GrantInfo, ResourceGroupConfig
 from pymilvus.decorators import ignore_unimplemented, retry_on_rpc_failure
 from pymilvus.exceptions import (
     AmbiguousIndexName,
+    DataNotMatchException,
     DescribeCollectionException,
     ErrorCode,
     ExceptionsMessage,
@@ -23,18 +23,20 @@ from pymilvus.exceptions import (
 )
 from pymilvus.grpc_gen import common_pb2, milvus_pb2_grpc
 from pymilvus.grpc_gen import milvus_pb2 as milvus_types
-from pymilvus.orm.schema import Function
+from pymilvus.orm.schema import Function, Highlighter
 from pymilvus.settings import Config
 
 from . import entity_helper, ts_utils, utils
 from .abstract import AnnSearchRequest, BaseRanker, CollectionSchema, FieldSchema, MutationResult
 from .async_interceptor import async_header_adder_interceptor
 from .check import (
+    check_id_and_data,
     check_pass_param,
     is_legal_host,
     is_legal_port,
 )
 from .constants import ITERATOR_SESSION_TS_FIELD
+from .embedding_list import EmbeddingList
 from .interceptor import _api_level_md
 from .prepare import Prepare
 from .search_result import SearchResult
@@ -42,7 +44,6 @@ from .types import (
     AnalyzeResult,
     CompactionState,
     DatabaseInfo,
-    DataType,
     HybridExtraList,
     IndexState,
     LoadState,
@@ -50,7 +51,7 @@ from .types import (
     Shard,
     State,
     Status,
-    get_cost_extra,
+    get_extra_info,
 )
 from .utils import (
     check_invalid_binary_vector,
@@ -72,6 +73,7 @@ class AsyncGrpcHandler:
     ) -> None:
         self._async_stub = None
         self._async_channel = channel
+        self.schema_cache: Dict[str, dict] = {}
 
         addr = kwargs.get("address")
         self._address = addr if addr is not None else self.__get_address(uri, host, port)
@@ -135,10 +137,15 @@ class AsyncGrpcHandler:
 
     def _setup_db_name(self, db_name: str):
         if db_name is None:
-            self._db_name = None
+            new_db = None
         else:
             check_pass_param(db_name=db_name)
-            self._db_name = db_name
+            new_db = db_name
+
+        if getattr(self, "_db_name", None) != new_db:
+            self.schema_cache.clear()
+
+        self._db_name = new_db
 
     def _setup_grpc_channel(self, **kwargs):
         if self._async_channel is None:
@@ -513,13 +520,46 @@ class AsyncGrpcHandler:
 
     async def _get_info(self, collection_name: str, timeout: Optional[float] = None, **kwargs):
         schema = kwargs.get("schema")
-        if not schema:
-            schema = await self.describe_collection(collection_name, timeout=timeout, **kwargs)
-
+        schema, schema_timestamp = await self._get_schema_from_cache_or_remote(
+            collection_name, schema=schema, timeout=timeout, **kwargs
+        )
         fields_info = schema.get("fields")
+        struct_fields_info = schema.get("struct_array_fields", [])
         enable_dynamic = schema.get("enable_dynamic_field", False)
 
-        return fields_info, enable_dynamic
+        return fields_info, struct_fields_info, enable_dynamic, schema_timestamp
+
+    async def update_schema(
+        self, collection_name: str, timeout: Optional[float] = None, **kwargs
+    ) -> dict:
+        self.schema_cache.pop(collection_name, None)
+        schema = await self.describe_collection(collection_name, timeout=timeout, **kwargs)
+        schema_timestamp = schema.get("update_timestamp", 0)
+        self.schema_cache[collection_name] = {
+            "schema": schema,
+            "schema_timestamp": schema_timestamp,
+        }
+        return schema
+
+    async def _get_schema_from_cache_or_remote(
+        self,
+        collection_name: str,
+        schema: Optional[dict] = None,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ) -> Tuple[dict, int]:
+        if collection_name in self.schema_cache:
+            cached = self.schema_cache[collection_name]
+            return cached["schema"], cached["schema_timestamp"]
+
+        if not isinstance(schema, dict):
+            schema = await self.describe_collection(collection_name, timeout=timeout, **kwargs)
+        schema_timestamp = schema.get("update_timestamp", 0)
+        self.schema_cache[collection_name] = {
+            "schema": schema,
+            "schema_timestamp": schema_timestamp,
+        }
+        return schema, schema_timestamp
 
     @retry_on_rpc_failure()
     async def release_collection(
@@ -543,14 +583,27 @@ class AsyncGrpcHandler:
         timeout: Optional[float] = None,
         **kwargs,
     ):
-        # TODO impl schema change cache policy here
         await self.ensure_channel_ready()
-        request = await self._prepare_row_insert_request(
-            collection_name, entities, partition_name, schema, timeout, **kwargs
-        )
+        try:
+            request = await self._prepare_row_insert_request(
+                collection_name, entities, partition_name, schema, timeout, **kwargs
+            )
+        except DataNotMatchException:
+            schema = await self.update_schema(collection_name, timeout, **kwargs)
+            request = await self._prepare_row_insert_request(
+                collection_name, entities, partition_name, schema, timeout, **kwargs
+            )
         resp = await self._async_stub.Insert(
             request=request, timeout=timeout, metadata=_api_level_md(**kwargs)
         )
+        if resp.status.error_code == common_pb2.SchemaMismatch:
+            schema = await self.update_schema(collection_name, timeout, **kwargs)
+            request = await self._prepare_row_insert_request(
+                collection_name, entities, partition_name, schema, timeout, **kwargs
+            )
+            resp = await self._async_stub.Insert(
+                request=request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            )
         check_status(resp.status)
         ts_utils.update_collection_ts(collection_name, resp.timestamp)
         return MutationResult(resp)
@@ -567,18 +620,23 @@ class AsyncGrpcHandler:
         if isinstance(entity_rows, dict):
             entity_rows = [entity_rows]
 
-        if not isinstance(schema, dict):
-            schema = await self.describe_collection(collection_name, timeout=timeout, **kwargs)
-
+        schema, schema_timestamp = await self._get_schema_from_cache_or_remote(
+            collection_name, schema=schema, timeout=timeout, **kwargs
+        )
         fields_info = schema.get("fields")
+        struct_fields_info = schema.get("struct_array_fields", [])  # Default to empty list
         enable_dynamic = schema.get("enable_dynamic_field", False)
+        namespace = kwargs.get("namespace")
 
         return Prepare.row_insert_param(
             collection_name,
             entity_rows,
             partition_name,
             fields_info,
+            struct_fields_info,
             enable_dynamic=enable_dynamic,
+            schema_timestamp=schema_timestamp,
+            namespace=namespace,
         )
 
     @retry_on_rpc_failure()
@@ -630,8 +688,9 @@ class AsyncGrpcHandler:
         partial_update = kwargs.get("partial_update", False)
 
         schema = kwargs.get("schema")
-        if not schema:
-            schema = await self.describe_collection(collection_name, timeout=timeout, **kwargs)
+        schema, _ = await self._get_schema_from_cache_or_remote(
+            collection_name, schema=schema, timeout=timeout, **kwargs
+        )
 
         fields_info = schema["fields"]
 
@@ -682,17 +741,19 @@ class AsyncGrpcHandler:
         if not isinstance(rows, list):
             raise ParamError(message="'rows' must be a list, please provide valid row data.")
 
-        # Extract partial_update parameter from kwargs
         partial_update = kwargs.get("partial_update", False)
-
-        fields_info, enable_dynamic = await self._get_info(collection_name, timeout, **kwargs)
+        fields_info, struct_fields_info, enable_dynamic, schema_timestamp = await self._get_info(
+            collection_name, timeout, **kwargs
+        )
         return Prepare.row_upsert_param(
             collection_name,
             rows,
             partition_name,
             fields_info,
+            struct_fields_info,
             enable_dynamic=enable_dynamic,
             partial_update=partial_update,
+            schema_timestamp=schema_timestamp,
         )
 
     @retry_on_rpc_failure()
@@ -704,16 +765,29 @@ class AsyncGrpcHandler:
         timeout: Optional[float] = None,
         **kwargs,
     ):
-        # TODO impl schema change cache policy here
         await self.ensure_channel_ready()
         if isinstance(entities, dict):
             entities = [entities]
-        request = await self._prepare_row_upsert_request(
-            collection_name, entities, partition_name, timeout, **kwargs
-        )
+        try:
+            request = await self._prepare_row_upsert_request(
+                collection_name, entities, partition_name, timeout, **kwargs
+            )
+        except DataNotMatchException:
+            schema = await self.update_schema(collection_name, timeout, **kwargs)
+            request = await self._prepare_row_upsert_request(
+                collection_name, entities, partition_name, timeout, schema=schema, **kwargs
+            )
         response = await self._async_stub.Upsert(
             request, timeout=timeout, metadata=_api_level_md(**kwargs)
         )
+        if response.status.error_code == common_pb2.SchemaMismatch:
+            schema = await self.update_schema(collection_name, timeout, **kwargs)
+            request = await self._prepare_row_upsert_request(
+                collection_name, entities, partition_name, timeout, schema=schema, **kwargs
+            )
+            response = await self._async_stub.Upsert(
+                request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            )
         check_status(response.status)
         m = MutationResult(response)
         ts_utils.update_collection_ts(collection_name, m.timestamp)
@@ -748,40 +822,53 @@ class AsyncGrpcHandler:
     async def search(
         self,
         collection_name: str,
-        data: Union[List[List[float]], utils.SparseMatrixInputType],
         anns_field: str,
         param: Dict,
         limit: int,
+        data: Optional[Union[List[List[float]], utils.SparseMatrixInputType]] = None,
+        ids: Optional[Union[List[int], List[str], str, int]] = None,
         expression: Optional[str] = None,
         partition_names: Optional[List[str]] = None,
         output_fields: Optional[List[str]] = None,
         round_decimal: int = -1,
         timeout: Optional[float] = None,
         ranker: Optional[Function] = None,
+        highlighter: Optional[Highlighter] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
+        if isinstance(ids, (int, str)):
+            ids = [ids]
+        check_id_and_data(ids, data)
+
         check_pass_param(
             limit=limit,
             round_decimal=round_decimal,
             anns_field=anns_field,
-            search_data=data,
             partition_name_array=partition_names,
             output_fields=output_fields,
             guarantee_timestamp=kwargs.get("guarantee_timestamp"),
             timeout=timeout,
         )
+
+        # Convert EmbeddingList to flat array if present
+        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], EmbeddingList):
+            data = [emb_list.to_flat_array() for emb_list in data]
+            kwargs["is_embedding_list"] = True
+
         request = Prepare.search_requests_with_expr(
-            collection_name,
-            data,
-            anns_field,
-            param,
-            limit,
-            expression,
-            partition_names,
-            output_fields,
-            round_decimal,
+            collection_name=collection_name,
+            data=data,
+            ids=ids,
+            anns_field=anns_field,
+            param=param,
+            limit=limit,
+            expr=expression,
+            partition_names=partition_names,
+            output_fields=output_fields,
+            round_decimal=round_decimal,
             ranker=ranker,
+            highlighter=highlighter,
             **kwargs,
         )
         return await self._execute_search(request, timeout, round_decimal=round_decimal, **kwargs)
@@ -811,17 +898,24 @@ class AsyncGrpcHandler:
 
         requests = []
         for req in reqs:
+            data = req.data
+            req_kwargs = dict(kwargs)
+            # Convert EmbeddingList to flat array if present
+            if isinstance(data, list) and len(data) > 0 and isinstance(data[0], EmbeddingList):
+                data = [emb_list.to_flat_array() for emb_list in data]
+                req_kwargs["is_embedding_list"] = True
+
             search_request = Prepare.search_requests_with_expr(
-                collection_name,
-                req.data,
-                req.anns_field,
-                req.param,
-                req.limit,
-                req.expr,
+                collection_name=collection_name,
+                data=data,
+                anns_field=req.anns_field,
+                param=req.param,
+                limit=req.limit,
+                expr=req.expr,
                 partition_names=partition_names,
                 round_decimal=round_decimal,
                 expr_params=req.expr_params,
-                **kwargs,
+                **req_kwargs,
             )
             requests.append(search_request)
 
@@ -849,30 +943,12 @@ class AsyncGrpcHandler:
         **kwargs,
     ):
         index_name = kwargs.pop("index_name", Config.IndexName)
-        copy_kwargs = copy.deepcopy(kwargs)
 
-        collection_desc = await self.describe_collection(
-            collection_name, timeout=timeout, **copy_kwargs
-        )
         await self.ensure_channel_ready()
-        valid_field = False
-        for fields in collection_desc["fields"]:
-            if field_name != fields["name"]:
-                continue
-            valid_field = True
-            if fields["type"] not in {
-                DataType.FLOAT_VECTOR,
-                DataType.BINARY_VECTOR,
-                DataType.FLOAT16_VECTOR,
-                DataType.BFLOAT16_VECTOR,
-                DataType.SPARSE_FLOAT_VECTOR,
-                DataType.INT8_VECTOR,
-            }:
-                break
-
-        if not valid_field:
-            raise MilvusException(message=f"cannot create index on non-existed field: {field_name}")
-
+        # Note: Field validation is handled by the server.
+        # Client-side validation for nested fields (e.g., "chunks[text_vector]")
+        # is not reliable as it only checks top-level field names.
+        # Let the server perform the validation instead.
         index_param = Prepare.create_index_request(
             collection_name, field_name, params, index_name=index_name
         )
@@ -1153,7 +1229,7 @@ class AsyncGrpcHandler:
             if lazy_extracted:
                 lazy_field_data.append(field_data)
 
-        extra_dict = get_cost_extra(response.status)
+        extra_dict = get_extra_info(response.status)
         extra_dict[ITERATOR_SESSION_TS_FIELD] = response.session_ts
         return HybridExtraList(
             lazy_field_data,
@@ -1233,6 +1309,60 @@ class AsyncGrpcHandler:
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.add_collection_field_request(collection_name, field_schema)
         status = await self._async_stub.AddCollectionField(
+            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+        )
+        check_status(status)
+
+    @retry_on_rpc_failure()
+    async def drop_collection_function(
+        self,
+        collection_name: str,
+        function_name: str,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        await self.ensure_channel_ready()
+        check_pass_param(collection_name=collection_name, timeout=timeout)
+        request = Prepare.drop_collection_function_request(collection_name, function_name)
+
+        status = await self._async_stub.DropCollectionFunction(
+            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+        )
+        check_status(status)
+
+    @retry_on_rpc_failure()
+    async def add_collection_function(
+        self,
+        collection_name: str,
+        function: Function,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        await self.ensure_channel_ready()
+        check_pass_param(collection_name=collection_name, timeout=timeout)
+        request = Prepare.add_collection_function_request(collection_name, function)
+
+        status = await self._async_stub.AddCollectionFunction(
+            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+        )
+        check_status(status)
+
+    @retry_on_rpc_failure()
+    async def alter_collection_function(
+        self,
+        collection_name: str,
+        function_name: str,
+        function: Function,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        await self.ensure_channel_ready()
+        check_pass_param(collection_name=collection_name, timeout=timeout)
+        request = Prepare.alter_collection_function_request(
+            collection_name, function_name, function
+        )
+
+        status = await self._async_stub.AlterCollectionFunction(
             request, timeout=timeout, metadata=_api_level_md(**kwargs)
         )
         check_status(status)
@@ -1812,12 +1942,76 @@ class AsyncGrpcHandler:
         check_status(resp)
 
     @retry_on_rpc_failure()
+    async def get_flush_state(
+        self,
+        segment_ids: List[int],
+        collection_name: str,
+        flush_ts: int,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ) -> bool:
+        """Get the flush state for given segments."""
+        await self.ensure_channel_ready()
+        req = Prepare.get_flush_state_request(segment_ids, collection_name, flush_ts)
+        response = await self._async_stub.GetFlushState(
+            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+        )
+        check_status(response.status)
+        return response.flushed
+
+    async def _wait_for_flushed(
+        self,
+        segment_ids: List[int],
+        collection_name: str,
+        flush_ts: int,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        """Wait for segments to be flushed."""
+        flush_ret = False
+        start = time.time()
+        while not flush_ret:
+            flush_ret = await self.get_flush_state(
+                segment_ids, collection_name, flush_ts, timeout, **kwargs
+            )
+            end = time.time()
+            if timeout is not None and end - start > timeout:
+                raise MilvusException(
+                    message=f"wait for flush timeout, collection: {collection_name}, flusht_ts: {flush_ts}"
+                )
+
+            if not flush_ret:
+                await asyncio.sleep(0.5)
+
+    @retry_on_rpc_failure()
     async def flush(self, collection_names: List[str], timeout: Optional[float] = None, **kwargs):
+        if collection_names in (None, []) or not isinstance(collection_names, list):
+            raise ParamError(message="Collection name list can not be None or empty")
+
+        check_pass_param(timeout=timeout)
+        for name in collection_names:
+            check_pass_param(collection_name=name)
+
         req = Prepare.flush_param(collection_names)
         response = await self._async_stub.Flush(
             req, timeout=timeout, metadata=_api_level_md(**kwargs)
         )
         check_status(response.status)
+
+        # Wait for all segments to be flushed in parallel
+        if collection_names:
+            await asyncio.gather(
+                *(
+                    self._wait_for_flushed(
+                        response.coll_segIDs[collection_name].data,
+                        collection_name,
+                        response.coll_flush_ts[collection_name],
+                        timeout=timeout,
+                    )
+                    for collection_name in collection_names
+                )
+            )
+
         return response
 
     @retry_on_rpc_failure()
@@ -1825,6 +2019,7 @@ class AsyncGrpcHandler:
         self,
         collection_name: str,
         is_clustering: Optional[bool] = False,
+        is_l0: Optional[bool] = False,
         timeout: Optional[float] = None,
         **kwargs,
     ) -> int:
@@ -1835,7 +2030,9 @@ class AsyncGrpcHandler:
         )
         check_status(response.status)
 
-        req = Prepare.manual_compaction(collection_name, is_clustering, response.collectionID)
+        req = Prepare.manual_compaction(
+            collection_name, is_clustering, is_l0, response.collectionID
+        )
         response = await self._async_stub.ManualCompaction(req, timeout=timeout, metadata=meta)
         check_status(response.status)
 

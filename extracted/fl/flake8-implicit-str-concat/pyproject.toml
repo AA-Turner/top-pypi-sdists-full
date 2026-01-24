@@ -11,7 +11,7 @@ description = "Flake8 plugin to encourage correct string literal concatenation"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [ { name = "Dylan Turner", email = "58230987+keisheiled@users.noreply.github.com" } ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Console",
@@ -21,17 +21,18 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Topic :: Software Development :: Quality Assurance",
 ]
 dynamic = [ "version" ]
-dependencies = [
-  "more-itertools>=8.0.2; python_version<='3.9'",
+optional-dependencies.tests = [
+  "pytest",
+  "pytest-cov",
 ]
 
 urls.Homepage = "https://github.com/flake8-implicit-str-concat/flake8-implicit-str-concat"
@@ -72,6 +73,12 @@ lint.ignore = [
   "UP038", # Makes code slower and more verbose
 ]
 lint.isort.required-imports = [ "from __future__ import annotations" ]
+
+[tool.pyproject-fmt]
+max_supported_python = "3.14"
+
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]
 
 [tool.mypy]
 pretty = true

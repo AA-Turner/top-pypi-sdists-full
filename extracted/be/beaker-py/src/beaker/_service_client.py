@@ -3,7 +3,7 @@ import json
 import logging
 import time
 import urllib.parse
-from functools import cached_property, wraps
+from functools import wraps
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -41,10 +41,10 @@ class RpcMethod(Generic[T]):
         self,
         request: Message,
         exceptions_for_status: dict[grpc.StatusCode, Exception] | None = None,
-        **kwargs,
+        metadata: list[tuple[str, str]] | None = None,
     ) -> T:
         try:
-            return self.method(request, **kwargs)
+            return self.method(request, metadata=metadata)
         except RpcError as e:
             raise coerce_rpc_error(e, exceptions_for_status)
 
@@ -61,10 +61,10 @@ class RpcStreamingMethod(Generic[T]):
         self,
         request: Message,
         exceptions_for_status: dict[grpc.StatusCode, Exception] | None = None,
-        **kwargs,
+        metadata: list[tuple[str, str]] | None = None,
     ) -> Generator[T, None, None]:
         try:
-            yield from self.method(request, **kwargs)
+            yield from self.method(request, metadata=metadata)
         except RpcError as e:
             raise coerce_rpc_error(e, exceptions_for_status)
 
@@ -81,10 +81,10 @@ class RpcBidirectionalStreamingMethod(Generic[T]):
         self,
         request: Iterable[Message],
         exceptions_for_status: dict[grpc.StatusCode, Exception] | None = None,
-        **kwargs,
+        metadata: list[tuple[str, str]] | None = None,
     ) -> Generator[T, None, None]:
         try:
-            yield from self.method(request, **kwargs)
+            yield from self.method(request, metadata=metadata)
         except RpcError as e:
             raise coerce_rpc_error(e, exceptions_for_status)
 
@@ -373,8 +373,8 @@ class ServiceClient:
             return workspace.id
 
         if workspace is None:
-            if self._default_workspace_id is not None:
-                return self._default_workspace_id
+            if (ws_id := self._default_workspace_id) is not None:
+                return ws_id
             else:
                 raise BeakerWorkspaceNotSet(
                     "'workspace' argument required since default workspace not set"
@@ -507,7 +507,7 @@ class ServiceClient:
             exceptions_for_status={grpc.StatusCode.NOT_FOUND: BeakerQueueNotFound(queue)},
         ).queue_id
 
-    @cached_property
+    @property
     def _default_workspace_id(self) -> str | None:
         if (workspace_name := self.config.default_workspace) is not None:
             return self.resolve_workspace_id(workspace_name)

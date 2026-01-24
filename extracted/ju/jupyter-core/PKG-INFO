@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter_core
-Version: 5.8.1
+Version: 5.9.1
 Summary: Jupyter core package. A base package on which Jupyter projects rely.
 Project-URL: Homepage, https://jupyter.org
 Project-URL: Documentation, https://jupyter-core.readthedocs.io/
@@ -15,9 +15,8 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: System Administrators
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: platformdirs>=2.5
-Requires-Dist: pywin32>=300; sys_platform == 'win32' and platform_python_implementation != 'PyPy'
 Requires-Dist: traitlets>=5.3
 Provides-Extra: docs
 Requires-Dist: intersphinx-registry; extra == 'docs'
@@ -34,4 +33,4 @@ Requires-Dist: pytest-timeout; extra == 'test'
 Requires-Dist: pytest<9; extra == 'test'
 Description-Content-Type: text/plain
 
-There is no reason to install this package on its own.
+Jupyter core package. A base package on which Jupyter projects rely.

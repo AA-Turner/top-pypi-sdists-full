@@ -20,6 +20,21 @@ class TraceServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetTraceRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetTraceResponse.FromString,
         )
+        self.ListTrace = channel.unary_unary(
+            "/chalk.server.v1.TraceService/ListTrace",
+            request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListTraceRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListTraceResponse.FromString,
+        )
+        self.GetSpan = channel.unary_unary(
+            "/chalk.server.v1.TraceService/GetSpan",
+            request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanResponse.FromString,
+        )
+        self.ListSpan = channel.unary_unary(
+            "/chalk.server.v1.TraceService/ListSpan",
+            request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanResponse.FromString,
+        )
 
 
 class TraceServiceServicer(object):
@@ -31,6 +46,24 @@ class TraceServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListTrace(self, request, context):
+        """ListTrace retrieves a list of traces with optional filtering"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetSpan(self, request, context):
+        """GetSpan retrieves a specific span by span ID and trace ID"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListSpan(self, request, context):
+        """ListSpan retrieves a list of spans for a specific trace with optional filtering"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_TraceServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -38,6 +71,21 @@ def add_TraceServiceServicer_to_server(servicer, server):
             servicer.GetTrace,
             request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetTraceRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetTraceResponse.SerializeToString,
+        ),
+        "ListTrace": grpc.unary_unary_rpc_method_handler(
+            servicer.ListTrace,
+            request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListTraceRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListTraceResponse.SerializeToString,
+        ),
+        "GetSpan": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSpan,
+            request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanResponse.SerializeToString,
+        ),
+        "ListSpan": grpc.unary_unary_rpc_method_handler(
+            servicer.ListSpan,
+            request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.TraceService", rpc_method_handlers)
@@ -67,6 +115,93 @@ class TraceService(object):
             "/chalk.server.v1.TraceService/GetTrace",
             chalk_dot_server_dot_v1_dot_trace__pb2.GetTraceRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_trace__pb2.GetTraceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListTrace(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TraceService/ListTrace",
+            chalk_dot_server_dot_v1_dot_trace__pb2.ListTraceRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_trace__pb2.ListTraceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSpan(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TraceService/GetSpan",
+            chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListSpan(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TraceService/ListSpan",
+            chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanResponse.FromString,
             options,
             channel_credentials,
             insecure,

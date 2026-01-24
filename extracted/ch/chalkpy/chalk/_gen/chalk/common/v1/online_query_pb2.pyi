@@ -71,7 +71,16 @@ class OnlineQueryRequest(_message.Message):
     ) -> None: ...
 
 class OnlineQueryBulkRequest(_message.Message):
-    __slots__ = ("inputs_feather", "outputs", "now", "staleness", "context", "response_options", "body_type")
+    __slots__ = (
+        "inputs_feather",
+        "inputs_sql",
+        "outputs",
+        "now",
+        "staleness",
+        "context",
+        "response_options",
+        "body_type",
+    )
     class StalenessEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -81,6 +90,7 @@ class OnlineQueryBulkRequest(_message.Message):
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
     INPUTS_FEATHER_FIELD_NUMBER: _ClassVar[int]
+    INPUTS_SQL_FIELD_NUMBER: _ClassVar[int]
     OUTPUTS_FIELD_NUMBER: _ClassVar[int]
     NOW_FIELD_NUMBER: _ClassVar[int]
     STALENESS_FIELD_NUMBER: _ClassVar[int]
@@ -88,6 +98,7 @@ class OnlineQueryBulkRequest(_message.Message):
     RESPONSE_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     BODY_TYPE_FIELD_NUMBER: _ClassVar[int]
     inputs_feather: bytes
+    inputs_sql: str
     outputs: _containers.RepeatedCompositeFieldContainer[OutputExpr]
     now: _containers.RepeatedCompositeFieldContainer[_timestamp_pb2.Timestamp]
     staleness: _containers.ScalarMap[str, str]
@@ -97,6 +108,7 @@ class OnlineQueryBulkRequest(_message.Message):
     def __init__(
         self,
         inputs_feather: _Optional[bytes] = ...,
+        inputs_sql: _Optional[str] = ...,
         outputs: _Optional[_Iterable[_Union[OutputExpr, _Mapping]]] = ...,
         now: _Optional[_Iterable[_Union[_timestamp_pb2.Timestamp, _Mapping]]] = ...,
         staleness: _Optional[_Mapping[str, str]] = ...,

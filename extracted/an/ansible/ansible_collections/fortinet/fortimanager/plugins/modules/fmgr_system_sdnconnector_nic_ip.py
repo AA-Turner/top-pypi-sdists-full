@@ -16,7 +16,6 @@ short_description: Configure IP configuration.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -131,12 +133,12 @@ EXAMPLES = '''
       fortinet.fortimanager.fmgr_system_sdnconnector_nic_ip:
         bypass_validation: false
         adom: ansible
-        sdn-connector: ansible-test-sdn # name
+        sdn_connector: ansible-test-sdn # name
         nic: ansible-test-nic # name
         state: present
         system_sdnconnector_nic_ip:
           name: ansible-test-nicip
-          public-ip: 222.222.222.2
+          public_ip: 222.222.222.2
 
 - name: Gathering fortimanager facts
   hosts: fortimanagers
@@ -153,7 +155,7 @@ EXAMPLES = '''
           selector: "system_sdnconnector_nic_ip"
           params:
             adom: "ansible"
-            sdn-connector: "ansible-test-sdn" # name
+            sdn_connector: "ansible-test-sdn" # name
             nic: "ansible-test-nic" # name
             ip: "your_value"
 '''
@@ -215,6 +217,7 @@ def main():
         'sdn-connector': {'type': 'str', 'api_name': 'sdn_connector'},
         'sdn_connector': {'type': 'str'},
         'nic': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'system_sdnconnector_nic_ip': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -222,7 +225,7 @@ def main():
                 'name': {'required': True, 'type': 'str'},
                 'public-ip': {'type': 'str'},
                 'resource-group': {'v_range': [['6.2.3', '']], 'type': 'str'},
-                'private-ip': {'v_range': [['7.4.4', '7.4.7'], ['7.6.2', '']], 'type': 'str'}
+                'private-ip': {'v_range': [['7.4.4', '7.4.8'], ['7.6.2', '']], 'type': 'str'}
             }
         }
     }

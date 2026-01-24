@@ -1,11 +1,93 @@
 import re
 
+from functools import wraps
+
+from json import JSONDecodeError
+from typing import Any
+
+
 import requests
 
 from rocketchat_API.APIExceptions.RocketExceptions import (
     RocketAuthenticationException,
     RocketConnectionException,
+    RocketBadStatusCodeException,
+    RocketApiException,
 )
+
+
+def paginated(data_key):
+    """
+    Decorator that converts a paginated API method into an iterator.
+
+    Args:
+        data_key: The key in the API response that contains the list of items
+                  (e.g., 'groups', 'channels', 'users')
+
+    Returns:
+        A decorator that wraps the original method to yield items one by one,
+        automatically handling pagination with offset and count parameters.
+
+    Example:
+        @paginated('groups')
+        def groups_list_all(self, **kwargs):
+            return self.call_api_get("groups.listAll", kwargs=kwargs)
+    """
+
+    def decorator(func):
+        def _generator(self, first_data, offset, count, args, kwargs):
+            """Inner generator that yields items from paginated API responses."""
+            data = first_data
+            while True:
+                items = data.get(data_key, [])
+                if not items:
+                    break
+
+                for item in items:
+                    yield item
+
+                # If we got fewer items than requested, we've reached the end
+                if len(items) < count:
+                    break
+
+                offset += count
+                # Call the original function with pagination parameters
+                data = func(self, *args, offset=offset, count=count, **kwargs)
+
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            offset = kwargs.pop("offset", 0)
+            count = kwargs.pop("count", 50)
+
+            # Call the original function eagerly to propagate any exceptions
+            first_data = func(self, *args, offset=offset, count=count, **kwargs)
+
+            return _generator(self, first_data, offset, count, args, kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def json_or_error(r: requests.Response) -> Any:
+    if r.status_code > 399 or r.status_code < 200:
+        try:
+            response_json = r.json()
+            if (
+                isinstance(response_json, dict)
+                and response_json.get("success") is False
+            ):
+                raise RocketApiException(r.status_code, r.text, response_json)
+        except JSONDecodeError:
+            pass
+        raise RocketBadStatusCodeException(r.status_code, r.text)
+
+    try:
+        result = r.json()
+    except JSONDecodeError:
+        return r.text
+
+    return result
 
 
 class RocketChatBase:
@@ -31,7 +113,7 @@ class RocketChatBase:
         self.ssl_verify = ssl_verify
         self.cert = client_certs
         self.timeout = timeout
-        self.req = session or requests
+        self.session = session or requests.Session()
         if user and password:
             self.login(user, password)  # skipcq: PTC-W1006
         if auth_token and user_id:
@@ -50,13 +132,15 @@ class RocketChatBase:
     def call_api_delete(self, method):
         url = self.server_url + self.api_path + method
 
-        return self.req.delete(
-            url,
-            headers=self.headers,
-            verify=self.ssl_verify,
-            cert=self.cert,
-            proxies=self.proxies,
-            timeout=self.timeout,
+        return json_or_error(
+            self.session.delete(
+                url,
+                headers=self.headers,
+                verify=self.ssl_verify,
+                cert=self.cert,
+                proxies=self.proxies,
+                timeout=self.timeout,
+            )
         )
 
     def call_api_get(self, method, api_path=None, **kwargs):
@@ -73,13 +157,16 @@ class RocketChatBase:
             )
             for i in args
         )
-        return self.req.get(
-            "%s?%s" % (url, params),
-            headers=self.headers,
-            verify=self.ssl_verify,
-            cert=self.cert,
-            proxies=self.proxies,
-            timeout=self.timeout,
+
+        return json_or_error(
+            self.session.get(
+                "%s?%s" % (url, params),
+                headers=self.headers,
+                verify=self.ssl_verify,
+                cert=self.cert,
+                proxies=self.proxies,
+                timeout=self.timeout,
+            )
         )
 
     def call_api_post(self, method, files=None, use_json=None, **kwargs):
@@ -95,9 +182,23 @@ class RocketChatBase:
             # If files are sent, json should not be used
             use_json = files is None
         if use_json:
-            return self.req.post(
+            return json_or_error(
+                self.session.post(
+                    self.server_url + self.api_path + method,
+                    json=reduced_args,
+                    files=files,
+                    headers=self.headers,
+                    verify=self.ssl_verify,
+                    cert=self.cert,
+                    proxies=self.proxies,
+                    timeout=self.timeout,
+                )
+            )
+
+        return json_or_error(
+            self.session.post(
                 self.server_url + self.api_path + method,
-                json=reduced_args,
+                data=reduced_args,
                 files=files,
                 headers=self.headers,
                 verify=self.ssl_verify,
@@ -105,15 +206,6 @@ class RocketChatBase:
                 proxies=self.proxies,
                 timeout=self.timeout,
             )
-        return self.req.post(
-            self.server_url + self.api_path + method,
-            data=reduced_args,
-            files=files,
-            headers=self.headers,
-            verify=self.ssl_verify,
-            cert=self.cert,
-            proxies=self.proxies,
-            timeout=self.timeout,
         )
 
     def call_api_put(self, method, files=None, use_json=None, **kwargs):
@@ -124,9 +216,23 @@ class RocketChatBase:
             # If files are sent, json should not be used
             use_json = files is None
         if use_json:
-            return self.req.put(
+            return json_or_error(
+                self.session.put(
+                    self.server_url + self.api_path + method,
+                    json=reduced_args,
+                    files=files,
+                    headers=self.headers,
+                    verify=self.ssl_verify,
+                    cert=self.cert,
+                    proxies=self.proxies,
+                    timeout=self.timeout,
+                )
+            )
+
+        return json_or_error(
+            self.session.put(
                 self.server_url + self.api_path + method,
-                json=reduced_args,
+                data=reduced_args,
                 files=files,
                 headers=self.headers,
                 verify=self.ssl_verify,
@@ -134,15 +240,6 @@ class RocketChatBase:
                 proxies=self.proxies,
                 timeout=self.timeout,
             )
-        return self.req.put(
-            self.server_url + self.api_path + method,
-            data=reduced_args,
-            files=files,
-            headers=self.headers,
-            verify=self.ssl_verify,
-            cert=self.cert,
-            proxies=self.proxies,
-            timeout=self.timeout,
         )
 
     # Authentication
@@ -156,7 +253,7 @@ class RocketChatBase:
             request_data["user"] = user
         else:
             request_data["username"] = user
-        login_request = self.req.post(
+        login_request = self.session.post(
             self.server_url + self.api_path + "login",
             json=request_data,
             verify=self.ssl_verify,
@@ -175,7 +272,7 @@ class RocketChatBase:
                 login_request.json().get("data").get("authToken")
             )
             self.headers["X-User-Id"] = login_request.json().get("data").get("userId")
-            return login_request
+            return login_request.json()
 
         raise RocketConnectionException()
 

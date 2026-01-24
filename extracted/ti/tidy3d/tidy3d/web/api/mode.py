@@ -7,23 +7,25 @@ import pathlib
 import tempfile
 import time
 from datetime import datetime
+from os import PathLike
 from typing import Callable, Literal, Optional, Union
 
 import pydantic.v1 as pydantic
+import requests
 from botocore.exceptions import ClientError
 from joblib import Parallel, delayed
-from rich.progress import Progress
+from rich.progress import Progress, TaskID
 
 from tidy3d.components.data.monitor_data import ModeSolverData
 from tidy3d.components.eme.simulation import EMESimulation
 from tidy3d.components.medium import AbstractCustomMedium
 from tidy3d.components.simulation import Simulation
+from tidy3d.config import config
 from tidy3d.exceptions import SetupError, WebError
 from tidy3d.log import get_logging_console, log
 from tidy3d.plugins.mode.mode_solver import MODE_MONITOR_NAME, ModeSolver
 from tidy3d.version import __version__
 from tidy3d.web.core.core_config import get_logger_console
-from tidy3d.web.core.environment import Env
 from tidy3d.web.core.http_util import http
 from tidy3d.web.core.s3utils import download_file, download_gz_file, upload_file
 from tidy3d.web.core.task_core import Folder
@@ -50,7 +52,7 @@ def run(
     task_name: str = "Untitled",
     mode_solver_name: str = "mode_solver",
     folder_name: str = "Mode Solver",
-    results_file: str = "mode_solver.hdf5",
+    results_file: PathLike = "mode_solver.hdf5",
     verbose: bool = True,
     progress_callback_upload: Optional[Callable[[float], None]] = None,
     progress_callback_download: Optional[Callable[[float], None]] = None,
@@ -70,7 +72,7 @@ def run(
         The name of the mode solver to create the in task.
     folder_name : str = "Mode Solver"
         Name of folder to store task on web UI.
-    results_file : str = "mode_solver.hdf5"
+    results_file : PathLike = "mode_solver.hdf5"
         Path to download results file (.hdf5).
     verbose : bool = True
         If ``True``, will print status, otherwise, will run silently.
@@ -202,7 +204,9 @@ def run_batch(
     if results_files is None:
         results_files = [f"mode_solver_batch_results_{i}.hdf5" for i in range(num_mode_solvers)]
 
-    def handle_mode_solver(index, progress, pbar):
+    def handle_mode_solver(
+        index: int, progress: Progress, pbar: Optional[TaskID]
+    ) -> Optional[Parallel]:
         retries = 0
         while retries <= max_retries:
             try:
@@ -372,8 +376,8 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
         cls,
         task_id: str,
         solver_id: str,
-        to_file: str = "mode_solver.hdf5",
-        sim_file: str = "simulation.hdf5",
+        to_file: PathLike = "mode_solver.hdf5",
+        sim_file: PathLike = "simulation.hdf5",
         verbose: bool = True,
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> ModeSolverTask:
@@ -385,9 +389,9 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
             Unique identifier of the task on server.
         solver_id: str
             Unique identifier of the mode solver in the task.
-        to_file: str = "mode_solver.hdf5"
+        to_file: PathLike = "mode_solver.hdf5"
             File to store the mode solver downloaded from the task.
-        sim_file: str = "simulation.hdf5"
+        sim_file: PathLike = "simulation.hdf5"
             File to store the simulation downloaded from the task.
         verbose: bool = True
             Whether to display progress bars.
@@ -465,7 +469,7 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
     def submit(
         self,
         pay_type: Union[PayType, str] = PayType.AUTO,
-    ):
+    ) -> None:
         """Start the execution of this task.
 
         The mode solver must be uploaded to the server with the :meth:`ModeSolverTask.upload` method
@@ -476,20 +480,17 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
 
         http.post(
             f"{MODESOLVER_API}/{self.task_id}/{self.solver_id}/run",
-            {
-                "enableCaching": Env.current.enable_caching,
-                "payType": pay_type.value,
-            },
+            {"enableCaching": config.web.enable_caching, "payType": pay_type.value},
         )
 
-    def delete(self):
+    def delete(self) -> None:
         """Delete the mode solver and its corresponding task from the server."""
         # Delete mode solver
         http.delete(f"{MODESOLVER_API}/{self.task_id}/{self.solver_id}")
         # Delete parent task
         http.delete(f"tidy3d/tasks/{self.task_id}")
 
-    def abort(self):
+    def abort(self) -> requests.Response:
         """Abort the mode solver and its corresponding task from the server."""
         return http.put(
             "tidy3d/tasks/abort", json={"taskType": "MODE_SOLVER", "taskId": self.solver_id}
@@ -497,8 +498,8 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
 
     def get_modesolver(
         self,
-        to_file: str = "mode_solver.hdf5",
-        sim_file: str = "simulation.hdf5",
+        to_file: PathLike = "mode_solver.hdf5",
+        sim_file: PathLike = "simulation.hdf5",
         verbose: bool = True,
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> ModeSolver:
@@ -506,9 +507,9 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
 
         Parameters
         ----------
-        to_file: str = "mode_solver.hdf5"
+        to_file: PathLike = "mode_solver.hdf5"
             File to store the mode solver downloaded from the task.
-        sim_file: str = "simulation.hdf5"
+        sim_file: PathLike = "simulation.hdf5"
             File to store the simulation downloaded from the task, if any.
         verbose: bool = True
             Whether to display progress bars.
@@ -517,8 +518,8 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
 
         Returns
         -------
-        :class:`ModeSolver`
-            :class:`ModeSolver` object associated with this task.
+        :class:`.ModeSolver`
+            :class:`.ModeSolver` object associated with this task.
         """
         if self.file_type == "Gz":
             file, file_path = tempfile.mkstemp(".hdf5.gz")
@@ -582,7 +583,7 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
 
     def get_result(
         self,
-        to_file: str = "mode_solver_data.hdf5",
+        to_file: PathLike = "mode_solver_data.hdf5",
         verbose: bool = True,
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> ModeSolverData:
@@ -590,7 +591,7 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
 
         Parameters
         ----------
-        to_file: str = "mode_solver_data.hdf5"
+        to_file: PathLike = "mode_solver_data.hdf5"
             File to store the mode solver downloaded from the task.
         verbose: bool = True
             Whether to display progress bars.
@@ -645,7 +646,7 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
 
     def get_log(
         self,
-        to_file: str = "mode_solver.log",
+        to_file: PathLike = "mode_solver.log",
         verbose: bool = True,
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> pathlib.Path:
@@ -653,7 +654,7 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
 
         Parameters
         ----------
-        to_file: str = "mode_solver.log"
+        to_file: PathLike = "mode_solver.log"
             File to store the mode solver downloaded from the task.
         verbose: bool = True
             Whether to display progress bars.

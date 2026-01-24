@@ -5073,12 +5073,12 @@ static const char __pyx_k_1_1_Q_q_JhgQjPYYaallmmn_1_AXWAQ[] = "\320\004 \240\n\2
 static const char __pyx_k_1_iq_Q_iq_Q_5_1_Qa_Qa_d_1_d_1_y[] = "\320\004\033\2301\360<\000\t\023\220$\220i\230q\330\014\r\330\t\021\220\021\220+\230Q\330\010\022\220$\220i\230q\330\014\r\330\t\021\220\021\220+\230Q\330\010\013\2105\220\003\2201\330\014\026\320\026-\250Q\250a\330\014\026\320\026-\250Q\250a\340\014\026\220d\230!\2301\330\014\026\220d\230!\2301\330\010\017\210y\230\001";
 static const char __pyx_k_22HHZZ_QgQ_Q_q_QgQ_wc_E_N_E_N_Z[] = "\320\0042\3202H\320HZ\320Z[\330\010\013\210:\220Q\220g\230Q\330\014\020\220\005\220Q\330\020\022\220%\220q\330*+\360\006\000\r\016\330\010\013\210:\220Q\220g\230Q\330\014\017\210w\220c\230\021\330\020\024\220E\230\021\230\"\230N\250!\340\020\024\220E\230\021\230\"\230N\250'\260\021\330\014\r\330\017\020\330\010\r\210Z\220q\330\010\014\210E\220\021\220\"\220N\240%\240q\330\010\013\2101\330\014\020\220\005\220Q\220e\320\033/\250q\330\010\013\2104\210q\330\014\022\220'\230\021\230%\230q";
 static const char __pyx_k_3aq_1_a_7_Q_Q_5_1_1D_gUVVW_3axs[] = "\320\004)\250\021\360\030\000\t\034\2303\230a\230q\330\010+\2501\330\010&\240a\330\010\013\2107\220#\220Q\330\014\025\220Q\330\010\013\2105\220\003\2201\330\014\030\230\006\320\036;\2701\270D\300\010\310\006\310g\320UV\320VW\340\014\023\2203\220a\220x\230s\240$\240n\260A\330\014\035\230Q\330\020!\240\037\260\006\260a\260u\270B\270a\330\020\023\2204\220z\240\021\240)\2506\260\021\330\024\035\230T\240\021\240!\330\020\024\220E\230\025\230a\230q\330\024\"\240!\2405\250\006\250a\250v\260Q\260b\270\007\270q\300\001\330\020!\320!?\270q\300\004\300H\310F\320RY\320YZ\320Zd\320de\330\020\024\220E\230\025\230a\230q\330\024\027\220~\240Q\240c\250\023\250A\330\030\034\230A\230^\2501\250A\330\020\024\220A\220Q\330\020\023\2201\330\024 \240\001\240\021\330\037 \330\020\031\230\024\230Q\230c\240\021\240'\250\021\330\020!\240\032\2506\260\021\260%\260r\270\021\330\020\024\220E\230\025\230a\230q\330\024\"\240!\2405\250\006\250a\250q\330\020!\320!?\270q\300\004\300H\310F\320RY\320YZ\320Zd\320de\330\020\024\220A\220Q\330\020\023\2201\330\024 \240\001\240\021\340\020\026\220a";
-static const char __pyx_k_9Cq_31D_j_HTZZ___z_A_1A_4q_1E_A[] = "\320\004\"\240!\360.\000\t\014\2109\220C\220q\330\014\020\220\001\330\014\030\230\006\320\0363\2601\260D\270\006\270j\310\004\310H\320TZ\320Z]\320]^\320^_\340\014\017\210z\230\021\230*\240A\330\020\033\2301\230A\340\020\033\2304\230q\240\003\2401\240E\250\021\330\014\031\230\031\240&\250\001\250\023\250A\250Z\260r\270\021\330\014\020\220\005\220U\230!\2303\230a\230q\330\020\032\230!\2305\240\006\240a\240x\250q\260\002\260'\270\021\270!\330\014\020\220\003\2201\220A\330\014\030\230\006\320\0363\2601\260D\270\006\270j\310\004\310H\320T`\320`c\320cd\320de\330\014\020\220\005\220U\230!\2303\230a\230q\330\020\024\220A\220Z\230q\240\001\330\014\020\220\001\220\021\340\010\030\230\007\230q\240\001";
+static const char __pyx_k_9Cq_31D_j_HTZZ___z_A_1A_4q_1E_A[] = "\320\004\"\240!\360.\000\t\014\2109\220C\220q\330\014\020\220\001\330\014\030\230\006\320\0363\2601\260D\270\006\270j\310\004\310H\320TZ\320Z]\320]^\320^_\340\014\017\210z\230\021\230*\240A\330\020\033\2301\230A\340\020\033\2304\230q\240\003\2401\240E\250\021\330\014\031\230\031\240&\250\001\250\023\250A\250Z\260r\270\021\330\014\020\220\005\220U\230!\2303\230a\230q\330\020\032\230!\2305\240\006\240a\240x\250q\260\002\260'\270\021\270!\330\014\020\220\003\2201\220A\330\014\030\230\006\320\0363\2601\260D\270\006\270j\310\004\310H\320Th\320ht\320tw\320wx\320xy\330\014\020\220\005\220U\230!\2303\230a\230q\330\020\024\220A\220Z\230q\240\001\330\014\020\220\001\220\021\340\010\030\230\007\230q\240\001";
 static const char __pyx_k_AMPLException___setstate_cython[] = "AMPLException.__setstate_cython__";
 static const char __pyx_k_A_4_1D_jPTT_a_B_B_M_M_N_N_O_1_1[] = "\200A\360\n\000\t\014\2104\210{\230!\330\014\030\230\006\320\036;\2701\270D\300\006\300j\320PT\320T\\\320\\`\360\000\000a\001B\002\360\000\000B\002M\002\360\000\000M\002N\002\360\000\000N\002O\002\330\014\023\2201\340\014\023\2201";
 static const char __pyx_k_A_AS_a_1A_auBa_E_aq_vQe1BgQa_at[] = "\200A\360\"\000\t\021\220\004\220A\220S\230\001\230\025\230a\330\010\030\230\003\2301\230A\330\010\"\240.\260\006\260a\260u\270B\270a\340\010\014\210E\220\025\220a\220q\330\014\021\220\021\220%\220v\230Q\230e\2401\240B\240g\250Q\250a\340\010\022\220!\330\010\031\320\031>\270a\270t\300:\310W\320T[\320[\\\320\\f\320fz\360\000\000{\001B\002\360\000\000B\002C\002\330\010\014\210E\220\025\220a\220q\330\014\020\220\001\220\025\220a\220q\330\010\014\210A\210Q\330\010\013\2101\330\014\030\230\001\230\021";
 static const char __pyx_k_A_QgQ_AT_zQUU_aajjoouuv_AT_zQUU[] = "\200A\360\020\000\t\014\210:\220Q\220g\230Q\330\014\030\230\006\320\036<\270A\270T\300\026\300z\320QU\320U]\320]a\320aj\320jo\320ou\320uv\340\014\030\230\006\320\036<\270A\270T\300\026\300z\320QU\320U]\320]a\320aj\320jo\320op\320pq";
-static const char __pyx_k_A_a_Q_3aq_QfAT_YfAU_A_U_1_auF_6[] = "\200A\360\024\000\t'\240a\330\010%\240Q\330\010\033\2303\230a\230q\330\010\013\210:\220Q\220f\230A\230T\240\021\330\014\035\230Y\240f\250A\250U\260\"\260A\330\014\020\220\005\220U\230!\2301\330\020\036\230a\230u\240F\250!\2506\260\021\260\"\260G\2701\270A\330\014\035\320\035>\270a\270t\3008\3106\320QX\320XY\320Yc\320cs\320st\330\014\020\220\005\220U\230!\2301\330\020\023\220>\240\021\240#\240S\250\001\330\024\030\230\001\230\036\240q\250\001\330\014\020\220\001\220\021\330\014\017\210q\330\020\034\230A\230Q\340\014\035\230Z\240v\250Q\250e\2602\260Q\330\014\020\220\005\220U\230!\2301\330\020\023\220<\230q\240\006\240a\240q\330\024\"\240!\2405\250\r\260Q\260f\270A\270Q\340\024\037\230q\330\024\"\240!\2405\320(8\270\001\270\026\270q\300\001\330\024\027\220~\240Q\330\030\036\230i\240q\250\001\330\014\035\320\035>\270a\270t\3008\3106\320QX\320XY\320Yc\320cs\320st\330\014\020\220\001\220\021\330\014\017\210q\330\020\034\230A\230Q";
+static const char __pyx_k_A_a_Q_3aq_QfAT_YfAU_A_U_1_auF_6[] = "\200A\360\024\000\t'\240a\330\010%\240Q\330\010\033\2303\230a\230q\330\010\013\210:\220Q\220f\230A\230T\240\021\330\014\035\230Y\240f\250A\250U\260\"\260A\330\014\020\220\005\220U\230!\2301\330\020\036\230a\230u\240F\250!\2506\260\021\260\"\260G\2701\270A\330\014\035\320\035>\270a\270t\3008\3106\320QX\320XY\320Yc\320cw\360\000\000x\001H\002\360\000\000H\002I\002\330\014\020\220\005\220U\230!\2301\330\020\023\220>\240\021\240#\240S\250\001\330\024\030\230\001\230\036\240q\250\001\330\014\020\220\001\220\021\330\014\017\210q\330\020\034\230A\230Q\340\014\035\230Z\240v\250Q\250e\2602\260Q\330\014\020\220\005\220U\230!\2301\330\020\023\220<\230q\240\006\240a\240q\330\024\"\240!\2405\250\r\260Q\260f\270A\270Q\340\024\037\230q\330\024\"\240!\2405\320(8\270\001\270\026\270q\300\001\330\024\027\220~\240Q\330\030\036\230i\240q\250\001\330\014\035\320\035>\270a\270t\3008\3106\320QX\320XY\320Yc\320cs\320st\330\014\020\220\001\220\021\330\014\017\210q\330\020\034\230A\230Q";
 static const char __pyx_k_A_s_QfBa_A_s_4xs_IT_AT_A_Be2U_c[] = "\200A\360\n\000\t\020\210s\220'\230\021\330\010\013\210:\220Q\220f\230B\230a\330\014\024\220A\330\014\017\210s\220!\2204\220x\230s\240!\330\020\032\230\"\230I\240T\250\027\260\001\330\021\024\220A\220T\230\030\240\023\240A\330\020\032\230\"\230B\230e\2402\240U\250$\250c\260\027\270\t\300\021\300#\300R\300t\3107\320RS\340\020\026\220a\340\014\022\220!\330\010\017\210s\220!\2206\230\027\240\010\250\001";
 static const char __pyx_k_OutputHandler___setstate_cython[] = "OutputHandler.__setstate_cython__";
 static const char __pyx_k_Q_1G1_r_AZxq_XQfA_q_fARvQ_har_q[] = "\320\000%\240Q\330\004\n\210)\2201\220G\2301\330\004\n\210%\210r\220\023\220A\220Z\230x\240q\320(:\270#\270X\300Q\300f\310A\330\004\007\200q\330\010\016\210f\220A\220R\220v\230Q\340\010\016\210h\220a\220r\230\026\230q";
@@ -5103,7 +5103,7 @@ static const char __pyx_k_self__df_cannot_be_converted_to[] = "self._df cannot b
 static const char __pyx_k_self__index_cannot_be_converted[] = "self._index cannot be converted to a Python object for pickling";
 static const char __pyx_k_z_q_q_1E_uAQ_1E_uAS_Q_6_A_1A_AR[] = "\220\001\330\024\027\220z\240\021\240%\240q\330\030\037\230q\330\031#\2401\240E\250\021\330\030\037\230u\240A\240Q\330\031#\2401\240E\250\021\330\030\037\230u\240A\240S\250\001\250\034\260Q\340\030\033\2306\240\023\240A\330\034\"\240)\2501\250A\340\034\"\240*\250A\250R\320/K\3101";
 static const char __pyx_k_A2_F_q_F_D_PTT___QfA_2XQ_2_4vZyP[] = "\200A\3602\000\t\025\220F\320\032/\250q\260\004\260F\270*\300D\310\010\320PT\320T]\320]^\320^_\330\010\013\210:\220Q\220f\230A\330\014\021\220\021\330\014\023\2202\220X\230Q\330\014\035\320\0352\260!\2604\260v\270Z\300y\320PQ\330\021!\240\021\240!\2401\330\014\017\210q\330\020\034\230A\230Q\330\r\027\220q\230\006\230a\330\014\021\220\031\230*\240A\240Q\330\014\023\2202\220X\230Q\330\014\035\320\0352\260!\2604\260v\270Z\300y\320PQ\330\021!\240\021\240!\2401\330\014\017\210q\330\020\034\230A\230Q\340\014\017\210s\220'\230\025\230d\240*\250A\250W\260B\260l\300\"\300A\330\020\025\220Y\230l\250!\2506\260\033\270D\300\013\3101\330\020\027\220r\230\030\240\021\330\020!\320!6\260a\260t\2706\300\032\3109\320TU\330\025%\240Q\240a\240q\330\020\023\2201\330\024 \240\001\240\021\330\020\021\330\014\022\220)\2301\230B\320\0368\270\004\270A\270Q";
-static const char __pyx_k_AD_9F_3a_2Q_E_as_1_fAZq_at_3a_TU[] = "\200A\360D\001\000\t$\2409\250F\260!\2603\260a\260|\3002\300Q\330\010\014\210E\220\025\220a\220s\230!\2301\330\014\030\230\001\230\025\230f\240A\240Z\250q\260\002\260'\270\021\270!\330\010\031\230\035\240a\240t\250:\260^\3003\300a\300}\320TU\320UV\330\010\014\210E\220\025\220a\220s\230!\2301\330\014\020\220\001\220\034\230Q\230a\330\010\014\210A\210Q\330\010\013\2101\330\014\030\230\001\230\021\330\010\030\230\007\230q\240\001";
+static const char __pyx_k_AD_9F_3a_2Q_E_as_1_fAZq_at_5I_WZ[] = "\200A\360D\001\000\t$\2409\250F\260!\2603\260a\260|\3002\300Q\330\010\014\210E\220\025\220a\220s\230!\2301\330\014\030\230\001\230\025\230f\240A\240Z\250q\260\002\260'\270\021\270!\330\010\031\230\035\240a\240t\250:\3205I\310\036\320WZ\320Z[\320[h\320hi\320ij\330\010\014\210E\220\025\220a\220s\230!\2301\330\014\020\220\001\220\034\230Q\230a\330\010\014\210A\210Q\330\010\013\2101\330\014\030\230\001\230\021\330\010\030\230\007\230q\240\001";
 static const char __pyx_k_A_1_F_5Qd_hVWW___E_aq_t1Cs_gQd_2[] = "\200A\360\032\000\t\034\2301\330\010\024\220F\320\0325\260Q\260d\270&\300\n\310$\310h\320VW\320W]\320]^\320^_\330\010\014\210E\220\025\220a\220q\330\014\017\210t\2201\220C\220s\230!\330\020\026\220g\230Q\230d\240!\2402\240W\250A\250Q\340\020\026\220g\230Q\230a\330\021!\240\021\240!\2404\240q\250\001\330\010\014\210A\210Q\340\010\017\210q";
 static const char __pyx_k_A_1_F_Qd_havUVVW_E_aq_t1Cs_gQd_2[] = "\200A\360\022\000\t\034\2301\330\010\024\220F\320\032-\250Q\250d\260&\270\n\300$\300h\310a\310v\320UV\320VW\330\010\014\210E\220\025\220a\220q\330\014\017\210t\2201\220C\220s\230!\330\020\026\220g\230Q\230d\240!\2402\240W\250A\250Q\330\025%\240Q\240a\240t\2501\250A\340\020\026\220g\230Q\230a\330\010\014\210A\210Q\330\010\017\210q";
 static const char __pyx_k_A_1_z_q_s_5_1_D_AZs_q_d_3az_G1_S[] = "\200A\330(;\2701\360\022\000\t\020\210z\230\021\230%\230q\330\010\017\210s\220!\2205\230\003\2301\340\010\t\360\014\000\t\025\220D\230\001\230\023\230A\230Z\240s\250%\250q\330\010\026\220d\230!\2303\230a\230z\250\023\250G\2601\330\010\022\220+\230S\240\001\240\031\250!\2505\260\003\2601\260K\270q\300\001\330\010\017\210|\2303\230e\2403\240i\250s\260#\260Q\260a\330\010\017\210}\230C\230u\240C\240y\260\003\2603\260a\260q\330\010\032\230!\330\010\032\230!\340\010\020\220\003\2202\220Q\330\010\022\220#\220R\220q\340\010\013\210<\220s\230!\330\014\032\230!\2302\230Y\240a\240t\2505\260\005\260Q\260a\340\010\013\210=\230\003\2301\330\014\033\2301\230B\230i\240q\250\004\250E\260\025\260a\260q\340\010\020\220\002\220+\230Q\230d\240(\250$\250c\260\032\2709\300A\300S\310\002\310!\330\010\022\220!\330\r\031\230\021\230$\230h\240d\250#\250Z\260y\300\001\300\023\300B\300a\340\010\017\210s\220!\2206\230\027\240\010\250\001";
@@ -9255,7 +9255,7 @@ static AMPL_ERRORINFO *__pyx_f_6amplpy_4ampl_setValuesParamStr(AMPL *__pyx_v_amp
  *     for i in range(size):
  *         values_c[i] = strdup(values[i].encode('utf-8'))             # <<<<<<<<<<<<<<
  * 
- *     errorinfo = campl.AMPL_ParameterSetArgsStringValues(ampl, name, size, values_c)
+ *     errorinfo = campl.AMPL_ParameterSetArgsStringValues(ampl, name, size, <const char* const*>values_c)
 */
     __pyx_t_7 = __Pyx_GetItemInt(__pyx_v_values, __pyx_v_i, size_t, 0, __Pyx_PyLong_FromSize_t, 0, 0, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(4, 172, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
@@ -9278,14 +9278,14 @@ static AMPL_ERRORINFO *__pyx_f_6amplpy_4ampl_setValuesParamStr(AMPL *__pyx_v_amp
   /* "amplpy/util.pxi":174
  *         values_c[i] = strdup(values[i].encode('utf-8'))
  * 
- *     errorinfo = campl.AMPL_ParameterSetArgsStringValues(ampl, name, size, values_c)             # <<<<<<<<<<<<<<
+ *     errorinfo = campl.AMPL_ParameterSetArgsStringValues(ampl, name, size, <const char* const*>values_c)             # <<<<<<<<<<<<<<
  * 
  *     for i in range(size):
 */
-  __pyx_v_errorinfo = AMPL_ParameterSetArgsStringValues(__pyx_v_ampl, __pyx_v_name, __pyx_v_size, __pyx_v_values_c);
+  __pyx_v_errorinfo = AMPL_ParameterSetArgsStringValues(__pyx_v_ampl, __pyx_v_name, __pyx_v_size, ((char const *const *)__pyx_v_values_c));
 
   /* "amplpy/util.pxi":176
- *     errorinfo = campl.AMPL_ParameterSetArgsStringValues(ampl, name, size, values_c)
+ *     errorinfo = campl.AMPL_ParameterSetArgsStringValues(ampl, name, size, <const char* const*>values_c)
  * 
  *     for i in range(size):             # <<<<<<<<<<<<<<
  *         free(values_c[i])
@@ -15186,7 +15186,7 @@ static int __pyx_pf_6amplpy_4ampl_9DataFrame___cinit__(struct __pyx_obj_6amplpy_
  *                     temp = column_names[i - index_size].encode('utf-8')
  *                 headers[i] = strdup(temp)             # <<<<<<<<<<<<<<
  * 
- *             PY_AMPL_CALL(campl.AMPL_DataFrameCreate(&self._c_df, index_size, column_size, headers))
+ *             PY_AMPL_CALL(campl.AMPL_DataFrameCreate(&self._c_df, index_size, column_size, <const char* const*>headers))
 */
       __pyx_t_10 = __Pyx_PyObject_AsString(__pyx_v_temp); if (unlikely((!__pyx_t_10) && PyErr_Occurred())) __PYX_ERR(1, 155, __pyx_L1_error)
       __pyx_t_11 = __Pyx_PyIndex_AsSsize_t(__pyx_v_i); if (unlikely((__pyx_t_11 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(1, 155, __pyx_L1_error)
@@ -15205,14 +15205,14 @@ static int __pyx_pf_6amplpy_4ampl_9DataFrame___cinit__(struct __pyx_obj_6amplpy_
     /* "amplpy/dataframe.pxi":157
  *                 headers[i] = strdup(temp)
  * 
- *             PY_AMPL_CALL(campl.AMPL_DataFrameCreate(&self._c_df, index_size, column_size, headers))             # <<<<<<<<<<<<<<
+ *             PY_AMPL_CALL(campl.AMPL_DataFrameCreate(&self._c_df, index_size, column_size, <const char* const*>headers))             # <<<<<<<<<<<<<<
  * 
  *             for i in range(index_size+column_size):
 */
-    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_DataFrameCreate((&__pyx_v_self->_c_df), __pyx_v_index_size, __pyx_v_column_size, __pyx_v_headers)); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 157, __pyx_L1_error)
+    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_DataFrameCreate((&__pyx_v_self->_c_df), __pyx_v_index_size, __pyx_v_column_size, ((char const *const *)__pyx_v_headers))); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 157, __pyx_L1_error)
 
     /* "amplpy/dataframe.pxi":159
- *             PY_AMPL_CALL(campl.AMPL_DataFrameCreate(&self._c_df, index_size, column_size, headers))
+ *             PY_AMPL_CALL(campl.AMPL_DataFrameCreate(&self._c_df, index_size, column_size, <const char* const*>headers))
  * 
  *             for i in range(index_size+column_size):             # <<<<<<<<<<<<<<
  *                 if headers[i] != NULL:
@@ -15317,7 +15317,7 @@ static int __pyx_pf_6amplpy_4ampl_9DataFrame___cinit__(struct __pyx_obj_6amplpy_
       }
 
       /* "amplpy/dataframe.pxi":159
- *             PY_AMPL_CALL(campl.AMPL_DataFrameCreate(&self._c_df, index_size, column_size, headers))
+ *             PY_AMPL_CALL(campl.AMPL_DataFrameCreate(&self._c_df, index_size, column_size, <const char* const*>headers))
  * 
  *             for i in range(index_size+column_size):             # <<<<<<<<<<<<<<
  *                 if headers[i] != NULL:
@@ -18227,7 +18227,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_22_set_column(struct __pyx_ob
  *             c_string_array = <char**> malloc(size * sizeof(char*))
  *             for i in range(size):             # <<<<<<<<<<<<<<
  *                 c_string_array[i] = strdup(values[i].encode('utf-8'))
- *             errorinfo = campl.AMPL_DataFrameSetColumnArgString(self._c_df, header.encode('utf-8'), c_string_array, size)
+ *             errorinfo = campl.AMPL_DataFrameSetColumnArgString(self._c_df, header.encode('utf-8'), <const char* const*>c_string_array, size)
 */
     __pyx_t_4 = __pyx_v_size;
     __pyx_t_5 = __pyx_t_4;
@@ -18238,7 +18238,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_22_set_column(struct __pyx_ob
  *             c_string_array = <char**> malloc(size * sizeof(char*))
  *             for i in range(size):
  *                 c_string_array[i] = strdup(values[i].encode('utf-8'))             # <<<<<<<<<<<<<<
- *             errorinfo = campl.AMPL_DataFrameSetColumnArgString(self._c_df, header.encode('utf-8'), c_string_array, size)
+ *             errorinfo = campl.AMPL_DataFrameSetColumnArgString(self._c_df, header.encode('utf-8'), <const char* const*>c_string_array, size)
  *             for i in range(size):
 */
       __pyx_t_8 = __Pyx_GetItemInt(__pyx_v_values, __pyx_v_i, size_t, 0, __Pyx_PyLong_FromSize_t, 0, 0, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 328, __pyx_L1_error)
@@ -18262,7 +18262,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_22_set_column(struct __pyx_ob
     /* "amplpy/dataframe.pxi":329
  *             for i in range(size):
  *                 c_string_array[i] = strdup(values[i].encode('utf-8'))
- *             errorinfo = campl.AMPL_DataFrameSetColumnArgString(self._c_df, header.encode('utf-8'), c_string_array, size)             # <<<<<<<<<<<<<<
+ *             errorinfo = campl.AMPL_DataFrameSetColumnArgString(self._c_df, header.encode('utf-8'), <const char* const*>c_string_array, size)             # <<<<<<<<<<<<<<
  *             for i in range(size):
  *                 if c_string_array[i] != NULL:
 */
@@ -18277,12 +18277,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_22_set_column(struct __pyx_ob
       __Pyx_GOTREF(__pyx_t_2);
     }
     __pyx_t_11 = __Pyx_PyObject_AsString(__pyx_t_2); if (unlikely((!__pyx_t_11) && PyErr_Occurred())) __PYX_ERR(1, 329, __pyx_L1_error)
-    __pyx_v_errorinfo = AMPL_DataFrameSetColumnArgString(__pyx_v_self->_c_df, __pyx_t_11, __pyx_v_c_string_array, __pyx_v_size);
+    __pyx_v_errorinfo = AMPL_DataFrameSetColumnArgString(__pyx_v_self->_c_df, __pyx_t_11, ((char const *const *)__pyx_v_c_string_array), __pyx_v_size);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
     /* "amplpy/dataframe.pxi":330
  *                 c_string_array[i] = strdup(values[i].encode('utf-8'))
- *             errorinfo = campl.AMPL_DataFrameSetColumnArgString(self._c_df, header.encode('utf-8'), c_string_array, size)
+ *             errorinfo = campl.AMPL_DataFrameSetColumnArgString(self._c_df, header.encode('utf-8'), <const char* const*>c_string_array, size)
  *             for i in range(size):             # <<<<<<<<<<<<<<
  *                 if c_string_array[i] != NULL:
  *                     free(c_string_array[i])
@@ -18293,7 +18293,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_22_set_column(struct __pyx_ob
       __pyx_v_i = __pyx_t_6;
 
       /* "amplpy/dataframe.pxi":331
- *             errorinfo = campl.AMPL_DataFrameSetColumnArgString(self._c_df, header.encode('utf-8'), c_string_array, size)
+ *             errorinfo = campl.AMPL_DataFrameSetColumnArgString(self._c_df, header.encode('utf-8'), <const char* const*>c_string_array, size)
  *             for i in range(size):
  *                 if c_string_array[i] != NULL:             # <<<<<<<<<<<<<<
  *                     free(c_string_array[i])
@@ -18312,7 +18312,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_22_set_column(struct __pyx_ob
         free((__pyx_v_c_string_array[__pyx_v_i]));
 
         /* "amplpy/dataframe.pxi":331
- *             errorinfo = campl.AMPL_DataFrameSetColumnArgString(self._c_df, header.encode('utf-8'), c_string_array, size)
+ *             errorinfo = campl.AMPL_DataFrameSetColumnArgString(self._c_df, header.encode('utf-8'), <const char* const*>c_string_array, size)
  *             for i in range(size):
  *                 if c_string_array[i] != NULL:             # <<<<<<<<<<<<<<
  *                     free(c_string_array[i])
@@ -27630,7 +27630,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
  *             for i in range(len(suffixes)):
  *                 suffixes_c[i] = strdup(suffixes[i].encode('utf-8'))             # <<<<<<<<<<<<<<
  *             n = len(suffixes)
- *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, suffixes_c, n, &df_c))
+ *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, <const char* const*>suffixes_c, n, &df_c))
 */
       __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_suffixes, __pyx_v_i, Py_ssize_t, 1, PyLong_FromSsize_t, 0, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(9, 286, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
@@ -27654,7 +27654,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
  *             for i in range(len(suffixes)):
  *                 suffixes_c[i] = strdup(suffixes[i].encode('utf-8'))
  *             n = len(suffixes)             # <<<<<<<<<<<<<<
- *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, suffixes_c, n, &df_c))
+ *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, <const char* const*>suffixes_c, n, &df_c))
  *             for i in range(len(suffixes)):
 */
     __pyx_t_6 = PyObject_Length(__pyx_v_suffixes); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(9, 287, __pyx_L1_error)
@@ -27663,15 +27663,15 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
     /* "amplpy/entity.pxi":288
  *                 suffixes_c[i] = strdup(suffixes[i].encode('utf-8'))
  *             n = len(suffixes)
- *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, suffixes_c, n, &df_c))             # <<<<<<<<<<<<<<
+ *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, <const char* const*>suffixes_c, n, &df_c))             # <<<<<<<<<<<<<<
  *             for i in range(len(suffixes)):
  *                 free(suffixes_c[i])
 */
-    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetValues(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, __pyx_v_suffixes_c, __pyx_v_n, (&__pyx_v_df_c))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 288, __pyx_L1_error)
+    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetValues(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, ((char const *const *)__pyx_v_suffixes_c), __pyx_v_n, (&__pyx_v_df_c))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 288, __pyx_L1_error)
 
     /* "amplpy/entity.pxi":289
  *             n = len(suffixes)
- *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, suffixes_c, n, &df_c))
+ *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, <const char* const*>suffixes_c, n, &df_c))
  *             for i in range(len(suffixes)):             # <<<<<<<<<<<<<<
  *                 free(suffixes_c[i])
  *             free(suffixes_c)
@@ -27682,7 +27682,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
       __pyx_v_i = __pyx_t_8;
 
       /* "amplpy/entity.pxi":290
- *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, suffixes_c, n, &df_c))
+ *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, <const char* const*>suffixes_c, n, &df_c))
  *             for i in range(len(suffixes)):
  *                 free(suffixes_c[i])             # <<<<<<<<<<<<<<
  *             free(suffixes_c)
@@ -29675,7 +29675,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_11Environment_10__getitem__(struct __pyx
  *             return None
  * 
  *     def to_string(self):             # <<<<<<<<<<<<<<
- *         cdef const char* to_string_c
+ *         cdef char* to_string_c
  *         campl.AMPL_EnvironmentToString(self._c_env, &to_string_c)
 */
 
@@ -29723,7 +29723,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 
 static PyObject *__pyx_pf_6amplpy_4ampl_11Environment_12to_string(struct __pyx_obj_6amplpy_4ampl_Environment *__pyx_v_self) {
-  char const *__pyx_v_to_string_c;
+  char *__pyx_v_to_string_c;
   PyObject *__pyx_v_to_string = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -29736,7 +29736,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_11Environment_12to_string(struct __pyx_o
 
   /* "amplpy/environment.pxi":74
  *     def to_string(self):
- *         cdef const char* to_string_c
+ *         cdef char* to_string_c
  *         campl.AMPL_EnvironmentToString(self._c_env, &to_string_c)             # <<<<<<<<<<<<<<
  *         to_string = str(to_string_c.decode('utf-8'))
  *         return to_string
@@ -29744,7 +29744,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_11Environment_12to_string(struct __pyx_o
   (void)(AMPL_EnvironmentToString(__pyx_v_self->_c_env, (&__pyx_v_to_string_c)));
 
   /* "amplpy/environment.pxi":75
- *         cdef const char* to_string_c
+ *         cdef char* to_string_c
  *         campl.AMPL_EnvironmentToString(self._c_env, &to_string_c)
  *         to_string = str(to_string_c.decode('utf-8'))             # <<<<<<<<<<<<<<
  *         return to_string
@@ -29772,7 +29772,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_11Environment_12to_string(struct __pyx_o
  *             return None
  * 
  *     def to_string(self):             # <<<<<<<<<<<<<<
- *         cdef const char* to_string_c
+ *         cdef char* to_string_c
  *         campl.AMPL_EnvironmentToString(self._c_env, &to_string_c)
 */
 
@@ -29989,7 +29989,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 
 static PyObject *__pyx_pf_6amplpy_4ampl_11Environment_16get_bin_dir(struct __pyx_obj_6amplpy_4ampl_Environment *__pyx_v_self) {
-  char const *__pyx_v_bin_dir_c;
+  char *__pyx_v_bin_dir_c;
   PyObject *__pyx_v_bin_dir = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -30002,7 +30002,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_11Environment_16get_bin_dir(struct __pyx
 
   /* "amplpy/environment.pxi":92
  *         """
- *         cdef const char* bin_dir_c
+ *         cdef char* bin_dir_c
  *         campl.AMPL_EnvironmentGetBinaryDirectory(self._c_env, &bin_dir_c)             # <<<<<<<<<<<<<<
  *         bin_dir = str(bin_dir_c.decode('utf-8'))
  *         return bin_dir
@@ -30010,7 +30010,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_11Environment_16get_bin_dir(struct __pyx
   (void)(AMPL_EnvironmentGetBinaryDirectory(__pyx_v_self->_c_env, (&__pyx_v_bin_dir_c)));
 
   /* "amplpy/environment.pxi":93
- *         cdef const char* bin_dir_c
+ *         cdef char* bin_dir_c
  *         campl.AMPL_EnvironmentGetBinaryDirectory(self._c_env, &bin_dir_c)
  *         bin_dir = str(bin_dir_c.decode('utf-8'))             # <<<<<<<<<<<<<<
  *         return bin_dir
@@ -30255,7 +30255,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 
 static PyObject *__pyx_pf_6amplpy_4ampl_11Environment_20get_bin_name(struct __pyx_obj_6amplpy_4ampl_Environment *__pyx_v_self) {
-  char const *__pyx_v_bin_name_c;
+  char *__pyx_v_bin_name_c;
   PyObject *__pyx_v_bin_name = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -30268,7 +30268,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_11Environment_20get_bin_name(struct __py
 
   /* "amplpy/environment.pxi":110
  *         """
- *         cdef const char* bin_name_c
+ *         cdef char* bin_name_c
  *         campl.AMPL_EnvironmentGetBinaryName(self._c_env, &bin_name_c)             # <<<<<<<<<<<<<<
  *         bin_name = str(bin_name_c.decode('utf-8'))
  *         return bin_name
@@ -30276,7 +30276,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_11Environment_20get_bin_name(struct __py
   (void)(AMPL_EnvironmentGetBinaryName(__pyx_v_self->_c_env, (&__pyx_v_bin_name_c)));
 
   /* "amplpy/environment.pxi":111
- *         cdef const char* bin_name_c
+ *         cdef char* bin_name_c
  *         campl.AMPL_EnvironmentGetBinaryName(self._c_env, &bin_name_c)
  *         bin_name = str(bin_name_c.decode('utf-8'))             # <<<<<<<<<<<<<<
  *         return bin_name
@@ -50966,7 +50966,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4get_data(struct __pyx_obj_6amplpy
  *         cdef char** statements_c = <char**> malloc(len(statements) * sizeof(char*))
  *         for i in range(len(statements)):             # <<<<<<<<<<<<<<
  *             statements_c[i] = strdup(statements[i].encode('utf-8'))
- *         errorinfo = campl.AMPL_GetData(self._c_ampl, statements_c, len(statements), &data)
+ *         errorinfo = campl.AMPL_GetData(self._c_ampl, <const char* const*>statements_c, len(statements), &data)
 */
   __pyx_t_1 = __Pyx_PyTuple_GET_SIZE(__pyx_v_statements); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 189, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_1;
@@ -50977,7 +50977,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4get_data(struct __pyx_obj_6amplpy
  *         cdef char** statements_c = <char**> malloc(len(statements) * sizeof(char*))
  *         for i in range(len(statements)):
  *             statements_c[i] = strdup(statements[i].encode('utf-8'))             # <<<<<<<<<<<<<<
- *         errorinfo = campl.AMPL_GetData(self._c_ampl, statements_c, len(statements), &data)
+ *         errorinfo = campl.AMPL_GetData(self._c_ampl, <const char* const*>statements_c, len(statements), &data)
  *         for i in range(len(statements)):
 */
     __pyx_t_5 = __Pyx_PyTuple_GET_ITEM(__pyx_v_statements, __pyx_v_i);
@@ -50998,16 +50998,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4get_data(struct __pyx_obj_6amplpy
   /* "amplpy/ampl.pyx":191
  *         for i in range(len(statements)):
  *             statements_c[i] = strdup(statements[i].encode('utf-8'))
- *         errorinfo = campl.AMPL_GetData(self._c_ampl, statements_c, len(statements), &data)             # <<<<<<<<<<<<<<
+ *         errorinfo = campl.AMPL_GetData(self._c_ampl, <const char* const*>statements_c, len(statements), &data)             # <<<<<<<<<<<<<<
  *         for i in range(len(statements)):
  *             free(statements_c[i])
 */
   __pyx_t_1 = __Pyx_PyTuple_GET_SIZE(__pyx_v_statements); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 191, __pyx_L1_error)
-  __pyx_v_errorinfo = AMPL_GetData(__pyx_v_self->_c_ampl, __pyx_v_statements_c, __pyx_t_1, (&__pyx_v_data));
+  __pyx_v_errorinfo = AMPL_GetData(__pyx_v_self->_c_ampl, ((char const *const *)__pyx_v_statements_c), __pyx_t_1, (&__pyx_v_data));
 
   /* "amplpy/ampl.pyx":192
  *             statements_c[i] = strdup(statements[i].encode('utf-8'))
- *         errorinfo = campl.AMPL_GetData(self._c_ampl, statements_c, len(statements), &data)
+ *         errorinfo = campl.AMPL_GetData(self._c_ampl, <const char* const*>statements_c, len(statements), &data)
  *         for i in range(len(statements)):             # <<<<<<<<<<<<<<
  *             free(statements_c[i])
  *         free(statements_c)
@@ -51018,7 +51018,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4get_data(struct __pyx_obj_6amplpy
     __pyx_v_i = __pyx_t_3;
 
     /* "amplpy/ampl.pyx":193
- *         errorinfo = campl.AMPL_GetData(self._c_ampl, statements_c, len(statements), &data)
+ *         errorinfo = campl.AMPL_GetData(self._c_ampl, <const char* const*>statements_c, len(statements), &data)
  *         for i in range(len(statements)):
  *             free(statements_c[i])             # <<<<<<<<<<<<<<
  *         free(statements_c)
@@ -78956,7 +78956,7 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
  *             return None
  * 
  *     def to_string(self):             # <<<<<<<<<<<<<<
- *         cdef const char* to_string_c
+ *         cdef char* to_string_c
  *         campl.AMPL_EnvironmentToString(self._c_env, &to_string_c)
 */
   __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_11Environment_13to_string, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Environment_to_string, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[114])); if (unlikely(!__pyx_t_2)) __PYX_ERR(10, 72, __pyx_L1_error)
@@ -84249,16 +84249,15 @@ static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   return -1;
 }
 /* #### Code section: init_codeobjects ### */
-\
-        typedef struct {
-            unsigned int argcount : 3;
-            unsigned int num_posonly_args : 1;
-            unsigned int num_kwonly_args : 1;
-            unsigned int nlocals : 5;
-            unsigned int flags : 10;
-            unsigned int first_line : 11;
-            unsigned int line_table_length : 14;
-        } __Pyx_PyCode_New_function_description;
+typedef struct {
+    unsigned int argcount : 3;
+    unsigned int num_posonly_args : 1;
+    unsigned int num_kwonly_args : 1;
+    unsigned int nlocals : 5;
+    unsigned int flags : 10;
+    unsigned int first_line : 11;
+    unsigned int line_table_length : 14;
+} __Pyx_PyCode_New_function_description;
 /* NewCodeObj.proto */
 static PyObject* __Pyx_PyCode_New(
         __Pyx_PyCode_New_function_description descr,
@@ -84689,7 +84688,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[82] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_dataframe_pxi, __pyx_mstate->__pyx_n_u_get_column, __pyx_k_A_F_7q_HF_QRR_WAT, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[82])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 312, 313};
+    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 312, 324};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_header, __pyx_mstate->__pyx_n_u_values, __pyx_mstate->__pyx_n_u_errorinfo, __pyx_mstate->__pyx_n_u_c_double_array, __pyx_mstate->__pyx_n_u_c_string_array, __pyx_mstate->__pyx_n_u_size, __pyx_mstate->__pyx_n_u_i};
     __pyx_mstate_global->__pyx_codeobj_tab[83] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_dataframe_pxi, __pyx_mstate->__pyx_n_u_set_column, __pyx_k_A_a_Q_3aq_QfAT_YfAU_A_U_1_auF_6, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[83])) goto bad;
   }
@@ -84809,7 +84808,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[106] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_xref, __pyx_k_A_1_F_Qd_havUVVW_E_aq_t1Cs_gQd_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[106])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 253, 226};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 253, 229};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_suffixes, __pyx_mstate->__pyx_n_u_df_c, __pyx_mstate->__pyx_n_u_suffixes_c, __pyx_mstate->__pyx_n_u_n, __pyx_mstate->__pyx_n_u_i};
     __pyx_mstate_global->__pyx_codeobj_tab[107] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_get_values, __pyx_k_9Cq_31D_j_HTZZ___z_A_1A_4q_1E_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[107])) goto bad;
   }
@@ -85299,9 +85298,9 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[204] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_nested_dict_of_suffixes, __pyx_k_Q_iq_4wa_81_E_xt2T_Qb_T_1Cq_r_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[204])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS), 154, 141};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS), 154, 147};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_statements, __pyx_mstate->__pyx_n_u_errorinfo, __pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_statements_c, __pyx_mstate->__pyx_n_u_i};
-    __pyx_mstate_global->__pyx_codeobj_tab[205] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_get_data, __pyx_k_AD_9F_3a_2Q_E_as_1_fAZq_at_3a_TU, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[205])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[205] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_get_data, __pyx_k_AD_9F_3a_2Q_E_as_1_fAZq_at_5I_WZ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[205])) goto bad;
   }
   {
     __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 199, 34};

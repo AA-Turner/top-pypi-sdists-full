@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gotenberg-client
-Version: 0.11.0
+Version: 0.13.1
 Summary: A Python client for interfacing with the Gotenberg API
 Project-URL: Changelog, https://github.com/stumpylog/gotenberg-client/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://stumpylog.github.io/gotenberg-client/

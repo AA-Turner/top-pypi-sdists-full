@@ -41,6 +41,7 @@ class TestCompletions:
                 }
             ],
             model="meta-llama/llama-4-scout-17b-16e-instruct",
+            citation_options="enabled",
             compound_custom={
                 "models": {
                     "answering_model": "answering_model",
@@ -51,7 +52,16 @@ class TestCompletions:
                     "wolfram_settings": {"authorization": "authorization"},
                 },
             },
-            documents=[{"text": "text"}],
+            disable_tool_validation=True,
+            documents=[
+                {
+                    "source": {
+                        "text": "text",
+                        "type": "text",
+                    },
+                    "id": "id",
+                }
+            ],
             exclude_domains=["string"],
             frequency_penalty=-2,
             function_call="none",
@@ -95,6 +105,7 @@ class TestCompletions:
                         "name": "name",
                         "description": "description",
                         "parameters": {"foo": "bar"},
+                        "strict": True,
                     },
                 }
             ],
@@ -170,6 +181,7 @@ class TestAsyncCompletions:
                 }
             ],
             model="meta-llama/llama-4-scout-17b-16e-instruct",
+            citation_options="enabled",
             compound_custom={
                 "models": {
                     "answering_model": "answering_model",
@@ -180,7 +192,16 @@ class TestAsyncCompletions:
                     "wolfram_settings": {"authorization": "authorization"},
                 },
             },
-            documents=[{"text": "text"}],
+            disable_tool_validation=True,
+            documents=[
+                {
+                    "source": {
+                        "text": "text",
+                        "type": "text",
+                    },
+                    "id": "id",
+                }
+            ],
             exclude_domains=["string"],
             frequency_penalty=-2,
             function_call="none",
@@ -224,6 +245,7 @@ class TestAsyncCompletions:
                         "name": "name",
                         "description": "description",
                         "parameters": {"foo": "bar"},
+                        "strict": True,
                     },
                 }
             ],

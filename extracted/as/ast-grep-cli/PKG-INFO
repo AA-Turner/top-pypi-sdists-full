@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ast-grep-cli
-Version: 0.39.5
+Version: 0.40.5
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -18,9 +18,9 @@ Home-Page: https://ast-grep.github.io/
 Author-email: Herrington Darkholme <2883231+HerringtonDarkholme@users.noreply.github.com>
 Maintainer-email: Herrington Darkholme <2883231+HerringtonDarkholme@users.noreply.github.com>
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Repository, https://github.com/ast-grep/ast-grep
-Project-URL: Documentation, https://ast-grep.github.io/
 Project-URL: Changelog, https://github.com/ast-grep/ast-grep/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://ast-grep.github.io/
+Project-URL: Repository, https://github.com/ast-grep/ast-grep
 
 <p align=center>
   <img src="https://ast-grep.github.io/logo.svg" alt="ast-grep"/>
@@ -31,9 +31,9 @@ Project-URL: Changelog, https://github.com/ast-grep/ast-grep/blob/main/CHANGELOG
    <a href="https://app.codecov.io/gh/ast-grep/ast-grep"><img src="https://codecov.io/gh/ast-grep/ast-grep/branch/main/graph/badge.svg?token=37VX8H2EWV"/></a>
    <a href="https://discord.gg/4YZjf6htSQ" target="_blank"><img alt="Discord" src="https://img.shields.io/discord/1107749847722889217?label=Discord"></a>
    <a href="https://repology.org/project/ast-grep/versions" target="_blank"><img alt="Repology" src="https://repology.org/badge/tiny-repos/ast-grep.svg"></a>
-   <img src="https://img.shields.io/github/stars/ast-grep/ast-grep?style=social" alt="Badge"/>
-   <img src="https://img.shields.io/github/forks/ast-grep/ast-grep?style=social" alt="Badge"/>
-   <img alt="GitHub Sponsors" src="https://img.shields.io/github/sponsors/HerringtonDarkholme?style=social">
+   <a href="https://github.com/ast-grep/ast-grep/stargazers"><img src="https://img.shields.io/github/stars/ast-grep/ast-grep?style=social" alt="Badge"></a>   
+   <a href="https://github.com/ast-grep/ast-grep/network/members"><img src="https://img.shields.io/github/forks/ast-grep/ast-grep?style=social" alt="Badge"></a>
+   <a href="https://github.com/sponsors/HerringtonDarkholme"><img alt="GitHub Sponsors" src="https://img.shields.io/github/sponsors/HerringtonDarkholme?style=social"></a>
    <a href="https://gurubase.io/g/ast-grep"><img alt="Gurubase" src="https://img.shields.io/badge/Gurubase-Ask%20ast--grep%20Guru-006BFF"></a>
 </p>
 
@@ -55,7 +55,7 @@ Try the [online playground](https://ast-grep.github.io/playground.html) for a ta
 See more screenshots on the [website](https://ast-grep.github.io/).
 
 ## Installation
-You can install it from [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), [pip](https://pypi.org/), [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html),  [cargo-binstall](https://github.com/cargo-bins/cargo-binstall), [homebrew](https://brew.sh/), [scoop](https://scoop.sh/) or [MacPorts](https://www.macports.org)!
+You can install it from [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), [pip](https://pypi.org/), [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html),  [cargo-binstall](https://github.com/cargo-bins/cargo-binstall), [homebrew](https://brew.sh/), [scoop](https://scoop.sh/), [mise](https://github.com/jdx/mise) or [MacPorts](https://www.macports.org)!
 
 ```bash
 npm install --global @ast-grep/cli
@@ -79,6 +79,9 @@ sudo port install ast-grep
 
 # try ast-grep in nix-shell
 nix-shell -p ast-grep
+
+# try ast-grep with mise
+mise use -g ast-grep
 ```
 </details>
 
@@ -141,3 +144,4 @@ ast-grep's vision is to democratize abstract syntax tree magic and to liberate o
 * If you are an open-source library author, ast-grep can help your library users adopt breaking changes more easily.
 * if you are a tech lead in your team, ast-grep can help you enforce code best practice tailored to your business need.
 * If you are a security researcher, ast-grep can help you write rules much faster.
+

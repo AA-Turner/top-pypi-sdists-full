@@ -1,9 +1,6 @@
-import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
+import { WEBUI_BASE_URL } from '$lib/constants';
 import { convertOpenApiToToolPayload } from '$lib/utils';
 import { getOpenAIModelsDirect } from './openai';
-
-import { parse } from 'yaml';
-import { toast } from 'svelte-sonner';
 
 export const getModels = async (
 	token: string = '',
@@ -316,7 +313,7 @@ export const getToolServerData = async (token: string, url: string) => {
 			// Check if URL ends with .yaml or .yml to determine format
 			if (url.toLowerCase().endsWith('.yaml') || url.toLowerCase().endsWith('.yml')) {
 				if (!res.ok) throw await res.text();
-				const text = await res.text();
+				const [text, { parse }] = await Promise.all([res.text(), import('yaml')]);
 				return parse(text);
 			} else {
 				if (!res.ok) throw await res.json();
@@ -337,14 +334,8 @@ export const getToolServerData = async (token: string, url: string) => {
 		throw error;
 	}
 
-	const data = {
-		openapi: res,
-		info: res.info,
-		specs: convertOpenApiToToolPayload(res)
-	};
-
-	console.log(data);
-	return data;
+	console.log(res);
+	return res;
 };
 
 export const getToolServersData = async (servers: object[]) => {
@@ -356,6 +347,7 @@ export const getToolServersData = async (servers: object[]) => {
 					let error = null;
 
 					let toolServerToken = null;
+
 					const auth_type = server?.auth_type ?? 'bearer';
 					if (auth_type === 'bearer') {
 						toolServerToken = server?.key;
@@ -365,18 +357,41 @@ export const getToolServersData = async (servers: object[]) => {
 						toolServerToken = localStorage.token;
 					}
 
-					const data = await getToolServerData(
-						toolServerToken,
-						(server?.path ?? '').includes('://')
-							? server?.path
-							: `${server?.url}${(server?.path ?? '').startsWith('/') ? '' : '/'}${server?.path}`
-					).catch((err) => {
-						error = err;
-						return null;
-					});
+					let res = null;
+					const specType = server?.spec_type ?? 'url';
 
-					if (data) {
-						const { openapi, info, specs } = data;
+					if (specType === 'url') {
+						res = await getToolServerData(
+							toolServerToken,
+							(server?.path ?? '').includes('://')
+								? server?.path
+								: `${server?.url}${(server?.path ?? '').startsWith('/') ? '' : '/'}${server?.path}`
+						).catch((err) => {
+							error = err;
+							return null;
+						});
+					} else if ((specType === 'json' && server?.spec) ?? null) {
+						try {
+							res = JSON.parse(server?.spec);
+						} catch (e) {
+							error = 'Failed to parse JSON spec';
+						}
+					}
+
+					if (res) {
+						if (!res.paths) {
+							return {
+								error: 'Invalid OpenAPI spec',
+								url: server?.url
+							};
+						}
+
+						const { openapi, info, specs } = {
+							openapi: res,
+							info: res.info,
+							specs: convertOpenApiToToolPayload(res)
+						};
+
 						return {
 							url: server?.url,
 							openapi: openapi,
@@ -483,7 +498,10 @@ export const executeToolServer = async (
 			headers
 		};
 
-		if (['post', 'put', 'patch'].includes(httpMethod.toLowerCase()) && operation.requestBody) {
+		if (
+			['post', 'put', 'patch', 'delete'].includes(httpMethod.toLowerCase()) &&
+			operation.requestBody
+		) {
 			requestOptions.body = JSON.stringify(bodyParams);
 		}
 
@@ -493,18 +511,25 @@ export const executeToolServer = async (
 			throw new Error(`HTTP error! Status: ${res.status}. Message: ${resText}`);
 		}
 
-		let responseData;
-		try {
-			responseData = await res.json();
-		} catch (err) {
-			responseData = await res.text();
-		}
+		// make a clone of res and extract headers
+		const responseHeaders = {};
+		res.headers.forEach((value, key) => {
+			responseHeaders[key] = value;
+		});
 
-		return responseData;
+		const text = await res.text();
+		let responseData;
+
+		try {
+			responseData = JSON.parse(text);
+		} catch {
+			responseData = text;
+		}
+		return [responseData, responseHeaders];
 	} catch (err: any) {
 		error = err.message;
 		console.error('API Request Error:', error);
-		return { error };
+		return [{ error }, null];
 	}
 };
 
@@ -1361,6 +1386,33 @@ export const getChangelog = async () => {
 		method: 'GET',
 		headers: {
 			'Content-Type': 'application/json'
+		}
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return res.json();
+		})
+		.catch((err) => {
+			console.error(err);
+			error = err;
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const getVersion = async (token: string) => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_BASE_URL}/api/version`, {
+		method: 'GET',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
 		}
 	})
 		.then(async (res) => {

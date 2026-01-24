@@ -3,7 +3,7 @@ Type annotations for marketplace-deployment service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_deployment/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,14 +17,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -52,7 +48,7 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -67,14 +63,14 @@ class UntagResourceRequestTypeDef(TypedDict):
     tagKeys: Sequence[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutDeploymentParameterResponseTypeDef(TypedDict):
     agreementId: str
     deploymentParameterId: str
     resourceArn: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutDeploymentParameterRequestTypeDef(TypedDict):

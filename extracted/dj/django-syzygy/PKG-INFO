@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-syzygy
-Version: 1.2.1
+Version: 1.2.2
 Summary: Deployment aware tooling for Django migrations.
 Home-page: https://github.com/charettes/django-syzygy
 Author: Simon Charette

@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright 2019 Arm Ltd.
+%YAML 1.2
+---
+$id: http://devicetree.org/meta-schemas/nodes.yaml#
+$schema: https://json-schema.org/draft/2019-09/schema
+
+type: object
+
+description: DT nodes ("object" type in schemas) can only use a subset of json-schema keywords.
+
+properties:
+  type:
+    const: object
+
+propertyNames:
+  enum:
+    - type
+    - description
+    - dependencies
+    - dependentRequired
+    - dependentSchemas
+    - properties
+    - patternProperties
+    - additionalProperties
+    - unevaluatedProperties
+    - deprecated
+    - required
+    - not
+    - if
+    - else
+    - then
+    - allOf
+    - anyOf
+    - oneOf
+    - $ref
+
+required:
+  - type

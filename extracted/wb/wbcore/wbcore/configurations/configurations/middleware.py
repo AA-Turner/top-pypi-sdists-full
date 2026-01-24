@@ -14,7 +14,7 @@ class Middleware:
 
 class DevMiddleware:
     @property
-    def MIDDLEWARE(self):
+    def MIDDLEWARE(self):  # noqa
         middleware = []
         middleware_list = Middleware.MIDDLEWARE.copy()
         if self.DEBUG:

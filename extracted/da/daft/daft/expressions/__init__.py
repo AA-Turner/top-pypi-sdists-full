@@ -5,11 +5,9 @@ from .expressions import (
     ExpressionsProjection,
     col,
     element,
-    list_,
     lit,
     interval,
-    struct,
-    coalesce,
+    WhenExpr,
 )
 
 from .visitor import ExpressionVisitor
@@ -18,11 +16,9 @@ __all__ = [
     "Expression",
     "ExpressionVisitor",
     "ExpressionsProjection",
-    "coalesce",
+    "WhenExpr",
     "col",
     "element",
     "interval",
-    "list_",
     "lit",
-    "struct",
 ]

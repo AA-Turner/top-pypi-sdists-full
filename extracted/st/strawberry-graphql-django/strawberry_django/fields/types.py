@@ -9,10 +9,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Generic,
-    NewType,
-    Optional,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -24,6 +21,7 @@ from django.db.models.fields import files, json, related, reverse_related
 from strawberry import UNSET, relay
 from strawberry.file_uploads.scalars import Upload
 from strawberry.scalars import JSON
+from strawberry.schema.types.scalar import DEFAULT_SCALAR_REGISTRY
 from strawberry.types.enum import EnumValueDefinition
 from strawberry.utils.str_converters import capitalize_first, to_camel_case
 
@@ -78,26 +76,26 @@ class DjangoModelType:
 
 @strawberry.input
 class OneToOneInput:
-    set: Optional[strawberry.ID]
+    set: strawberry.ID | None
 
 
 @strawberry.input
 class OneToManyInput:
-    set: Optional[strawberry.ID]
+    set: strawberry.ID | None
 
 
 @strawberry.input
 class ManyToOneInput:
-    add: Optional[list[strawberry.ID]] = UNSET
-    remove: Optional[list[strawberry.ID]] = UNSET
-    set: Optional[list[strawberry.ID]] = UNSET
+    add: list[strawberry.ID] | None = UNSET
+    remove: list[strawberry.ID] | None = UNSET
+    set: list[strawberry.ID] | None = UNSET
 
 
 @strawberry.input
 class ManyToManyInput:
-    add: Optional[list[strawberry.ID]] = UNSET
-    remove: Optional[list[strawberry.ID]] = UNSET
-    set: Optional[list[strawberry.ID]] = UNSET
+    add: list[strawberry.ID] | None = UNSET
+    remove: list[strawberry.ID] | None = UNSET
+    set: list[strawberry.ID] | None = UNSET
 
 
 @strawberry.input(
@@ -123,9 +121,9 @@ class NodeInputPartial(NodeInput):
     # FIXME: Without this pyright will not let any class inherit from this and define
     # a field that doesn't contain a default value...
     if TYPE_CHECKING:
-        id: Optional[relay.GlobalID]  # type: ignore
+        id: relay.GlobalID | None  # type: ignore
     else:
-        id: Optional[relay.GlobalID] = UNSET
+        id: relay.GlobalID | None = UNSET
 
 
 @strawberry.input(description="Add/remove/set the selected nodes.")
@@ -142,13 +140,13 @@ class ListInput(Generic[K]):
     # FIXME: Without this pyright will not let any class inheric from this and define
     # a field that doesn't contain a default value...
     if TYPE_CHECKING:
-        set: Optional[list[K]]
-        add: Optional[list[K]]
-        remove: Optional[list[K]]
+        set: list[K] | None
+        add: list[K] | None
+        remove: list[K] | None
     else:
-        set: Optional[list[K]] = UNSET
-        add: Optional[list[K]] = UNSET
-        remove: Optional[list[K]] = UNSET
+        set: list[K] | None = UNSET
+        add: list[K] | None = UNSET
+        remove: list[K] | None = UNSET
 
     def __eq__(self, other: object):
         if not isinstance(other, ListInput):
@@ -183,14 +181,14 @@ class OperationMessage:
 
     kind: Kind = strawberry.field(description="The kind of this message.")
     message: str = strawberry.field(description="The error message.")
-    field: Optional[str] = strawberry.field(
+    field: str | None = strawberry.field(
         description=(
             "The field that caused the error, or `null` if it "
             "isn't associated with any particular field."
         ),
         default=None,
     )
-    code: Optional[str] = strawberry.field(
+    code: str | None = strawberry.field(
         description="The error code, or `null` if no error code was set.",
         default=None,
     )
@@ -229,12 +227,10 @@ class OperationInfo:
 
 
 field_type_map: dict[
-    Union[
-        type[fields.Field],
-        type[related.RelatedField],
-        type[reverse_related.ForeignObjectRel],
-    ],
-    Union[type, FunctionType],
+    type[fields.Field]
+    | type[related.RelatedField]
+    | type[reverse_related.ForeignObjectRel],
+    type | FunctionType,
 ] = {
     fields.AutoField: strawberry.ID,
     fields.BigAutoField: strawberry.ID,
@@ -285,76 +281,84 @@ except ImproperlyConfigured:
     MultiPolygon = None
     Geometry = None
 else:
-    Point = strawberry.scalar(
-        cast("type", NewType("Point", tuple[float, float, Optional[float]])),
-        serialize=lambda v: v.tuple if isinstance(v, geos.Point) else v,
-        parse_value=geos.Point,
-        description="Represents a point as `(x, y, z)` or `(x, y)`.",
-    )
+    # Alias the geos types for backwards compatibility
+    Point = geos.Point
+    LineString = geos.LineString
+    LinearRing = geos.LinearRing
+    Polygon = geos.Polygon
+    MultiPoint = geos.MultiPoint
+    MultiLineString = geos.MultiLineString
+    MultiPolygon = geos.MultiPolygon
+    Geometry = geos.GEOSGeometry
 
-    LineString = strawberry.scalar(
-        cast("type", NewType("LineString", tuple[Point])),
-        serialize=lambda v: v.tuple if isinstance(v, geos.LineString) else v,
-        parse_value=geos.LineString,
-        description=(
-            "A geographical line that gets multiple 'x, y' or 'x, y, z'"
-            " tuples to form a line."
+    DEFAULT_SCALAR_REGISTRY.update({
+        geos.Point: strawberry.scalar(
+            name="Point",
+            serialize=lambda v: v.tuple if isinstance(v, geos.Point) else v,
+            parse_value=geos.Point,
+            description="Represents a point as `(x, y, z)` or `(x, y)`.",
         ),
-    )
-
-    LinearRing = strawberry.scalar(
-        cast("type", NewType("LinearRing", tuple[Point])),
-        serialize=lambda v: v.tuple if isinstance(v, geos.LinearRing) else v,
-        parse_value=geos.LinearRing,
-        description=(
-            "A geographical line that gets multiple 'x, y' or 'x, y, z' "
-            "tuples to form a line. It must be a circle. "
-            "E.g. It maps back to itself."
+        geos.LineString: strawberry.scalar(
+            name="LineString",
+            serialize=lambda v: v.tuple if isinstance(v, geos.LineString) else v,
+            parse_value=geos.LineString,
+            description=(
+                "A geographical line that gets multiple 'x, y' or 'x, y, z'"
+                " tuples to form a line."
+            ),
         ),
-    )
-
-    Polygon = strawberry.scalar(
-        cast("type", NewType("Polygon", tuple[LinearRing])),
-        serialize=lambda v: v.tuple if isinstance(v, geos.Polygon) else v,
-        parse_value=lambda v: geos.Polygon(*[geos.LinearRing(x) for x in v]),
-        description=(
-            "A geographical object that gets 1 or 2 LinearRing objects"
-            " as external and internal rings."
+        geos.LinearRing: strawberry.scalar(
+            name="LinearRing",
+            serialize=lambda v: v.tuple if isinstance(v, geos.LinearRing) else v,
+            parse_value=geos.LinearRing,
+            description=(
+                "A geographical line that gets multiple 'x, y' or 'x, y, z' "
+                "tuples to form a line. It must be a circle. "
+                "E.g. It maps back to itself."
+            ),
         ),
-    )
-
-    MultiPoint = strawberry.scalar(
-        cast("type", NewType("MultiPoint", tuple[Point])),
-        serialize=lambda v: v.tuple if isinstance(v, geos.MultiPoint) else v,
-        parse_value=lambda v: geos.MultiPoint(*[geos.Point(x) for x in v]),
-        description="A geographical object that contains multiple Points.",
-    )
-
-    MultiLineString = strawberry.scalar(
-        cast("type", NewType("MultiLineString", tuple[LineString])),
-        serialize=lambda v: v.tuple if isinstance(v, geos.MultiLineString) else v,
-        parse_value=lambda v: geos.MultiLineString(*[geos.LineString(x) for x in v]),
-        description="A geographical object that contains multiple line strings.",
-    )
-
-    MultiPolygon = strawberry.scalar(
-        cast("type", NewType("MultiPolygon", tuple[Polygon])),
-        serialize=lambda v: v.tuple if isinstance(v, geos.MultiPolygon) else v,
-        parse_value=lambda v: geos.MultiPolygon(
-            *[geos.Polygon(*list(x)) for x in v],
+        geos.Polygon: strawberry.scalar(
+            name="Polygon",
+            serialize=lambda v: v.tuple if isinstance(v, geos.Polygon) else v,
+            parse_value=lambda v: geos.Polygon(*[geos.LinearRing(x) for x in v]),
+            description=(
+                "A geographical object that gets 1 or 2 LinearRing objects"
+                " as external and internal rings."
+            ),
         ),
-        description="A geographical object that contains multiple polygons.",
-    )
-
-    Geometry = strawberry.scalar(
-        cast("type", NewType("Geometry", geos.GEOSGeometry)),
-        serialize=lambda v: v.tuple if isinstance(v, geos.GEOSGeometry) else v,  # type: ignore
-        parse_value=lambda v: geos.GeometryCollection,
-        description=(
-            "An arbitrary geographical object. One of Point, "
-            "LineString, LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon."
+        geos.MultiPoint: strawberry.scalar(
+            name="MultiPoint",
+            serialize=lambda v: v.tuple if isinstance(v, geos.MultiPoint) else v,
+            parse_value=lambda v: geos.MultiPoint(*[geos.Point(x) for x in v]),
+            description="A geographical object that contains multiple Points.",
         ),
-    )
+        geos.MultiLineString: strawberry.scalar(
+            name="MultiLineString",
+            serialize=lambda v: v.tuple if isinstance(v, geos.MultiLineString) else v,
+            parse_value=lambda v: geos.MultiLineString(*[
+                geos.LineString(x) for x in v
+            ]),
+            description="A geographical object that contains multiple line strings.",
+        ),
+        geos.MultiPolygon: strawberry.scalar(
+            name="MultiPolygon",
+            serialize=lambda v: v.tuple if isinstance(v, geos.MultiPolygon) else v,
+            parse_value=lambda v: geos.MultiPolygon(
+                *[geos.Polygon(*list(x)) for x in v],
+            ),
+            description="A geographical object that contains multiple polygons.",
+        ),
+        geos.GEOSGeometry: strawberry.scalar(
+            name="Geometry",
+            serialize=lambda v: v.tuple if isinstance(v, geos.GEOSGeometry) else v,  # type: ignore[attr-defined]
+            parse_value=geos.GEOSGeometry,
+            description=(
+                "An arbitrary geographical object. One of Point, "
+                "LineString, LinearRing, Polygon, MultiPoint, "
+                "MultiLineString, MultiPolygon."
+            ),
+        ),
+    })
 
     field_type_map.update(
         {
@@ -370,12 +374,10 @@ else:
 
 
 input_field_type_map: dict[
-    Union[
-        type[fields.Field],
-        type[related.RelatedField],
-        type[reverse_related.ForeignObjectRel],
-    ],
-    type,
+    type[fields.Field]
+    | type[related.RelatedField]
+    | type[reverse_related.ForeignObjectRel],
+    type | FunctionType,
 ] = {
     files.FileField: Upload,
     files.ImageField: Upload,
@@ -389,12 +391,10 @@ input_field_type_map: dict[
 
 
 relay_field_type_map: dict[
-    Union[
-        type[fields.Field],
-        type[related.RelatedField],
-        type[reverse_related.ForeignObjectRel],
-    ],
-    type,
+    type[fields.Field]
+    | type[related.RelatedField]
+    | type[reverse_related.ForeignObjectRel],
+    type | FunctionType,
 ] = {
     fields.AutoField: relay.GlobalID,
     fields.BigAutoField: relay.GlobalID,
@@ -408,12 +408,10 @@ relay_field_type_map: dict[
 
 
 relay_input_field_type_map: dict[
-    Union[
-        type[fields.Field],
-        type[related.RelatedField],
-        type[reverse_related.ForeignObjectRel],
-    ],
-    type,
+    type[fields.Field]
+    | type[related.RelatedField]
+    | type[reverse_related.ForeignObjectRel],
+    type | FunctionType,
 ] = {
     related.ForeignKey: NodeInput,
     related.ManyToManyField: ListInput[NodeInput],
@@ -439,7 +437,7 @@ def _resolve_array_field_type(model_field: Field):
 
 
 def resolve_model_field_type(
-    model_field: Union[Field, reverse_related.ForeignObjectRel],
+    model_field: Field | reverse_related.ForeignObjectRel,
     django_type: "StrawberryDjangoDefinition",
 ):
     settings = django_settings()
@@ -454,7 +452,7 @@ def resolve_model_field_type(
         )
     ):
         field_type = model_field.choices_enum
-        enum_def = getattr(field_type, "_enum_definition", None)
+        enum_def = getattr(field_type, "__strawberry_definition__", None)
         if enum_def is None:
             doc = (
                 inspect.cleandoc(field_type.__doc__)
@@ -462,7 +460,9 @@ def resolve_model_field_type(
                 and field_type.__doc__
                 else None
             )
-            enum_def = strawberry.enum(field_type, description=doc)._enum_definition
+            enum_def = strawberry.enum(
+                field_type, description=doc
+            ).__strawberry_definition__
         field_type = enum_def.wrapped_cls
     # Auto enum
     elif (
@@ -567,7 +567,7 @@ def resolve_model_field_type(
 
 
 def resolve_model_field_name(
-    model_field: Union[Field, reverse_related.ForeignObjectRel],
+    model_field: Field | reverse_related.ForeignObjectRel,
     is_input: bool = False,
     is_filter: bool = False,
     is_fk_id: bool = False,
@@ -605,7 +605,7 @@ def get_model_field(model: type[Model], field_name: str):
 
 
 def is_optional(
-    model_field: Union[Field, reverse_related.ForeignObjectRel],
+    model_field: Field | reverse_related.ForeignObjectRel,
     is_input: bool,
     partial: bool,
 ):

@@ -122,16 +122,11 @@ def cli(args_override: Optional[List[str]] = None):
     export_parser.add_argument("filename", help="Write to this file")
     export_parser.add_argument("--directory", help="Scope to this directory", nargs="?")
     export_parser.add_argument("--file_filter", help="Path containing only files to consider", nargs="?")
-    # >= 3.9 version
-    # export_parser.add_argument(
-    #     "--lsp",
-    #     help="If set, will output the diagnostics in the format expected by the LSP instead of eagerly raising",
-    #     action=argparse.BooleanOptionalAction,
-    # )
-    # < 3.9 version
-    export_parser.add_argument("--lsp", action="store_true")
-    export_parser.add_argument("--no-lsp", dest="lsp", action="store_false")
-    export_parser.set_defaults(lsp=False)
+    export_parser.add_argument(
+        "--lsp",
+        help="If set, will output the diagnostics in the format expected by the LSP instead of eagerly raising",
+        action=argparse.BooleanOptionalAction,
+    )
 
     export_parser.add_argument("--proto", action="store_true")
     export_parser.set_defaults(proto=False)

@@ -75,7 +75,9 @@ class ConversationEvent(proto.Message):
             CONVERSATION_FINISHED (2):
                 An existing conversation has closed. This is
                 fired when a telephone call is terminated, or a
-                conversation is closed via the API.
+                conversation is closed via the API. The event is
+                fired for every CompleteConversation call, even
+                if the conversation is already closed.
             HUMAN_INTERVENTION_NEEDED (3):
                 An existing conversation has received
                 notification from Dialogflow that human
@@ -99,9 +101,9 @@ class ConversationEvent(proto.Message):
 
                 We don't fire this event:
 
-                -  in an API call because we can directly return the error,
-                   or,
-                -  when we can recover from an error.
+                - in an API call because we can directly return the error,
+                  or,
+                - when we can recover from an error.
         """
         TYPE_UNSPECIFIED = 0
         CONVERSATION_STARTED = 1

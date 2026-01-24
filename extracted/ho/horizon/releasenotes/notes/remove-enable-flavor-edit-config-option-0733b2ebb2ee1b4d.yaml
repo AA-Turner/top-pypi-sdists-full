@@ -1,4 +1,0 @@
----
-upgrade:
-  - |
-    Deprecated config option ENABLE_FLAVOR_EDIT is removed.

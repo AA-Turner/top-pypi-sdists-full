@@ -1,6 +1,6 @@
 # This sample tests the reporting of incorrect TypeVar usage within
 # a generic function. A TypeVar must appear at least twice to be
-# considered legitimate.
+# considered legitimate, except for the return position.
 
 # pyright: reportInvalidTypeVarUse=true
 
@@ -38,8 +38,8 @@ def f3(v1: _T) -> _T: ...
 def f4() -> dict[_T, _T]: ...
 
 
-# This should generate an error because _T
-# is a local typeVar and appears only once.
+# This should not generate an error because _T
+# is a local typeVar and appears only once, but in a return position.
 def f5() -> list[_T]: ...
 
 
@@ -61,7 +61,7 @@ def f8(v1: list[_T_Bound]): ...
 
 
 # Bound TypeVars as type arguments are not exempt when used in a
-# return annotation.
+# return annotation. well... they are, so.
 def f9() -> list[_T_Bound]: ...
 
 

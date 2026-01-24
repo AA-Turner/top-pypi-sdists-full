@@ -16,6 +16,7 @@ from snowflake.ml.model._packager.model_meta import (
     model_meta as model_meta_api,
     model_meta_schema,
 )
+from snowflake.ml.model._signatures import utils as model_signature_utils
 from snowflake.snowpark._internal import utils as snowpark_utils
 
 if TYPE_CHECKING:
@@ -23,24 +24,59 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Allowlist of supported target methods for SentenceTransformer models.
+# Note: sentence-transformers >= 3.0 uses singular names (encode_query, encode_document)
+# while older versions may use plural names (encode_queries, encode_documents).
+_ALLOWED_TARGET_METHODS = ["encode", "encode_query", "encode_document", "encode_queries", "encode_documents"]
 
-def _validate_sentence_transformers_signatures(sigs: dict[str, model_signature.ModelSignature]) -> None:
-    if list(sigs.keys()) != ["encode"]:
-        raise ValueError("target_methods can only be ['encode']")
 
-    if len(sigs["encode"].inputs) != 1:
-        raise ValueError("SentenceTransformer can only accept 1 input column")
+def _validate_sentence_transformers_signatures(
+    sigs: dict[str, model_signature.ModelSignature],
+) -> None:
+    """Validate signatures for SentenceTransformer models.
 
-    if len(sigs["encode"].outputs) != 1:
-        raise ValueError("SentenceTransformer can only return 1 output column")
+    Args:
+        sigs: Dictionary mapping method names to their signatures.
 
-    assert isinstance(sigs["encode"].inputs[0], model_signature.FeatureSpec)
+    Raises:
+        ValueError: If signatures are empty, contain unsupported methods, or violate per-method constraints.
+    """
+    # Check that signatures are non-empty
+    if not sigs:
+        raise ValueError("At least one signature must be provided.")
 
-    if sigs["encode"].inputs[0]._shape is not None:
-        raise ValueError("SentenceTransformer does not support input shape")
+    # Check that all methods are in the allowlist
+    unsupported_methods = set(sigs.keys()) - set(_ALLOWED_TARGET_METHODS)
+    if unsupported_methods:
+        raise ValueError(
+            f"Unsupported target methods: {sorted(unsupported_methods)}. "
+            f"Supported methods are: {_ALLOWED_TARGET_METHODS}."
+        )
 
-    if sigs["encode"].inputs[0]._dtype != model_signature.DataType.STRING:
-        raise ValueError("SentenceTransformer only accepts string input")
+    # Validate per-method constraints
+    for method_name, sig in sigs.items():
+        if len(sig.inputs) != 1:
+            raise ValueError(f"SentenceTransformer method '{method_name}' must have exactly 1 input column.")
+
+        if len(sig.outputs) != 1:
+            raise ValueError(f"SentenceTransformer method '{method_name}' must have exactly 1 output column.")
+
+        # FeatureSpec is expected here; FeatureGroupSpec would indicate a nested/grouped input
+        # which SentenceTransformer does not support.
+        if not isinstance(sig.inputs[0], model_signature.FeatureSpec):
+            raise ValueError(
+                f"SentenceTransformer method '{method_name}' requires a FeatureSpec input, "
+                f"got {type(sig.inputs[0]).__name__}."
+            )
+
+        if sig.inputs[0]._shape is not None:
+            raise ValueError(f"SentenceTransformer method '{method_name}' does not support input shape.")
+
+        if sig.inputs[0]._dtype != model_signature.DataType.STRING:
+            raise ValueError(
+                f"SentenceTransformer method '{method_name}' only accepts STRING input, "
+                f"got {sig.inputs[0]._dtype.name}."
+            )
 
 
 @final
@@ -51,7 +87,9 @@ class SentenceTransformerHandler(_base.BaseModelHandler["sentence_transformers.S
     _HANDLER_MIGRATOR_PLANS: dict[str, type[base_migrator.BaseModelHandlerMigrator]] = {}
 
     MODEL_BLOB_FILE_OR_DIR = "model"
-    DEFAULT_TARGET_METHODS = ["encode"]
+    # Default to singular names which are used in sentence-transformers >= 3.0
+    DEFAULT_TARGET_METHODS = ["encode", "encode_query", "encode_document"]
+    IS_AUTO_SIGNATURE = True
 
     @classmethod
     def can_handle(
@@ -98,11 +136,17 @@ class SentenceTransformerHandler(_base.BaseModelHandler["sentence_transformers.S
                 target_methods=kwargs.pop("target_methods", None),
                 default_target_methods=cls.DEFAULT_TARGET_METHODS,
             )
-            if target_methods != ["encode"]:
-                raise ValueError("target_methods can only be ['encode']")
+
+            # Validate target_methods
+            if not target_methods:
+                raise ValueError("At least one target method must be specified.")
+
+            if not set(target_methods).issubset(_ALLOWED_TARGET_METHODS):
+                raise ValueError(f"target_methods {target_methods} must be a subset of {_ALLOWED_TARGET_METHODS}.")
 
             def get_prediction(
-                target_method_name: str, sample_input_data: model_types.SupportedLocalDataType
+                target_method_name: str,
+                sample_input_data: model_types.SupportedLocalDataType,
             ) -> model_types.SupportedLocalDataType:
                 if not isinstance(sample_input_data, pd.DataFrame):
                     sample_input_data = model_signature._convert_local_data_to_df(data=sample_input_data)
@@ -113,8 +157,13 @@ class SentenceTransformerHandler(_base.BaseModelHandler["sentence_transformers.S
                     )
                 X_list = sample_input_data.iloc[:, 0].tolist()
 
-                assert callable(getattr(model, "encode", None))
-                return pd.DataFrame({0: model.encode(X_list, batch_size=batch_size).tolist()})
+                # Call the appropriate method based on target_method_name
+                method_to_call = getattr(model, target_method_name, None)
+                if not callable(method_to_call):
+                    raise ValueError(
+                        f"SentenceTransformer model does not have a callable method '{target_method_name}'."
+                    )
+                return pd.DataFrame({0: method_to_call(X_list, batch_size=batch_size).tolist()})
 
             if model_meta.signatures:
                 handlers_utils.validate_target_methods(model, list(model_meta.signatures.keys()))
@@ -135,6 +184,36 @@ class SentenceTransformerHandler(_base.BaseModelHandler["sentence_transformers.S
                         sample_input_data=sample_input_data,
                         get_prediction_fn=get_prediction,
                     )
+                else:
+                    # Auto-infer signature from model when no sample_input_data is provided
+                    # Get the embedding dimension from the model
+                    embedding_dim = model.get_sentence_embedding_dimension()
+                    if embedding_dim is None:
+                        raise ValueError(
+                            "Unable to auto-infer signature: model.get_sentence_embedding_dimension() returned None. "
+                            "Please provide sample_input_data or signatures explicitly."
+                        )
+
+                    for target_method in target_methods:
+                        # target_methods are already validated as callable by get_target_methods()
+                        inferred_sig = model_signature_utils.sentence_transformers_signature_auto_infer(
+                            target_method=target_method,
+                            embedding_dim=embedding_dim,
+                        )
+                        if inferred_sig is None:
+                            raise ValueError(
+                                f"Unable to auto-infer signature for method '{target_method}'. "
+                                "Please provide sample_input_data or signatures explicitly."
+                            )
+                        model_meta.signatures[target_method] = inferred_sig
+
+                    # Ensure at least one method was successfully inferred
+                    if not model_meta.signatures:
+                        raise ValueError(
+                            "No valid target methods found on the model. "
+                            "Please provide sample_input_data or signatures explicitly, "
+                            "or specify target_methods that exist on your model."
+                        )
 
             _validate_sentence_transformers_signatures(model_meta.signatures)
 
@@ -160,7 +239,10 @@ class SentenceTransformerHandler(_base.BaseModelHandler["sentence_transformers.S
 
         model_meta.env.include_if_absent(
             [
-                model_env.ModelDependency(requirement="sentence-transformers", pip_name="sentence-transformers"),
+                model_env.ModelDependency(
+                    requirement="sentence-transformers",
+                    pip_name="sentence-transformers",
+                ),
                 model_env.ModelDependency(requirement="transformers", pip_name="transformers"),
                 model_env.ModelDependency(requirement="pytorch", pip_name="torch"),
             ],
@@ -169,7 +251,9 @@ class SentenceTransformerHandler(_base.BaseModelHandler["sentence_transformers.S
         model_meta.env.cuda_version = kwargs.get("cuda_version", handlers_utils.get_default_cuda_version())
 
     @staticmethod
-    def _get_device_config(**kwargs: Unpack[model_types.SentenceTransformersLoadOptions]) -> Optional[str]:
+    def _get_device_config(
+        **kwargs: Unpack[model_types.SentenceTransformersLoadOptions],
+    ) -> Optional[str]:
         if kwargs.get("device", None) is not None:
             return kwargs["device"]
         elif kwargs.get("use_gpu", False):
@@ -226,7 +310,8 @@ class SentenceTransformerHandler(_base.BaseModelHandler["sentence_transformers.S
             model_meta: model_meta_api.ModelMetadata,
         ) -> type[custom_model.CustomModel]:
             batch_size = cast(
-                model_meta_schema.SentenceTransformersModelBlobOptions, model_meta.models[model_meta.name].options
+                model_meta_schema.SentenceTransformersModelBlobOptions,
+                model_meta.models[model_meta.name].options,
             ).get("batch_size", None)
 
             def get_prediction(
@@ -234,22 +319,30 @@ class SentenceTransformerHandler(_base.BaseModelHandler["sentence_transformers.S
                 signature: model_signature.ModelSignature,
                 target_method: str,
             ) -> Callable[[custom_model.CustomModel, pd.DataFrame], pd.DataFrame]:
+                # Capture target_method in closure to call the correct model method
+                method_to_call = getattr(raw_model, target_method, None)
+                if not callable(method_to_call):
+                    raise ValueError(
+                        f"SentenceTransformer model does not have a callable method '{target_method}'. "
+                        f"This method may not be available in your version of sentence-transformers."
+                    )
+
                 @custom_model.inference_api
                 def fn(self: custom_model.CustomModel, X: pd.DataFrame) -> pd.DataFrame:
                     X_list = X.iloc[:, 0].tolist()
 
                     return pd.DataFrame(
-                        {signature.outputs[0].name: raw_model.encode(X_list, batch_size=batch_size).tolist()}
+                        {signature.outputs[0].name: method_to_call(X_list, batch_size=batch_size).tolist()}
                     )
 
                 return fn
 
             type_method_dict = {}
             for target_method_name, sig in model_meta.signatures.items():
-                if target_method_name == "encode":
+                if target_method_name in _ALLOWED_TARGET_METHODS:
                     type_method_dict[target_method_name] = get_prediction(raw_model, sig, target_method_name)
                 else:
-                    ValueError(f"{target_method_name} is currently not supported.")
+                    raise ValueError(f"{target_method_name} is currently not supported.")
 
             _SentenceTransformer = type(
                 "_SentenceTransformer",
@@ -262,7 +355,6 @@ class SentenceTransformerHandler(_base.BaseModelHandler["sentence_transformers.S
         model = raw_model
 
         _SentenceTransformer = _create_custom_model(model, model_meta)
-        sentence_transformers_SentenceTransformer_model = _SentenceTransformer(custom_model.ModelContext())
-        predict_method = getattr(sentence_transformers_SentenceTransformer_model, "encode", None)
-        assert callable(predict_method)
-        return sentence_transformers_SentenceTransformer_model
+        sentence_transformers_model = _SentenceTransformer(custom_model.ModelContext())
+
+        return sentence_transformers_model

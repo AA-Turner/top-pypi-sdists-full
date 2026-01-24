@@ -6,7 +6,7 @@ use rmpv::Value as RmpvValue;
 const CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE: [&str; 3] = ["filters", "processors", "test_generation"];
 
 pub struct Config {
-    inner: HashMap<String, PyObject>,
+    inner: HashMap<String, Py<PyAny>>,
 }
 
 impl Config {
@@ -14,7 +14,7 @@ impl Config {
         let mut inner = HashMap::new();
         for (key, value) in config.iter() {
             let key: String = key.extract()?;
-            let value: PyObject = value.extract()?;
+            let value: Py<PyAny> = value.extract()?;
             inner.insert(key, value);
         }
         Ok(Self { inner })

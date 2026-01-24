@@ -1,13 +1,12 @@
 """Duckduckgo images search engine implementation."""
 
-from __future__ import annotations
-
+import json
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, ClassVar
 
-from ..base import BaseSearchEngine
-from ..results import ImagesResult
-from ..utils import _extract_vqd, json_loads
+from ddgs.base import BaseSearchEngine
+from ddgs.results import ImagesResult
+from ddgs.utils import _extract_vqd
 
 
 class DuckduckgoImages(BaseSearchEngine[ImagesResult]):
@@ -19,9 +18,9 @@ class DuckduckgoImages(BaseSearchEngine[ImagesResult]):
 
     search_url = "https://duckduckgo.com/i.js"
     search_method = "GET"
-    search_headers: Mapping[str, str] = {"Referer": "https://duckduckgo.com/", "Sec-Fetch-Mode": "cors"}
+    search_headers: ClassVar[Mapping[str, str]] = {"Referer": "https://duckduckgo.com/", "Sec-Fetch-Mode": "cors"}
 
-    elements_replace: Mapping[str, str] = {
+    elements_replace: ClassVar[Mapping[str, str]] = {
         "title": "title",
         "image": "image",
         "thumbnail": "thumbnail",
@@ -37,7 +36,13 @@ class DuckduckgoImages(BaseSearchEngine[ImagesResult]):
         return _extract_vqd(resp_content, query)
 
     def build_payload(
-        self, query: str, region: str, safesearch: str, timelimit: str | None, page: int = 1, **kwargs: Any
+        self,
+        query: str,
+        region: str,
+        safesearch: str,
+        timelimit: str | None,
+        page: int = 1,
+        **kwargs: str,
     ) -> dict[str, Any]:
         """Build a payload for the search request."""
         safesearch_base = {"on": "1", "moderate": "1", "off": "-1"}
@@ -68,7 +73,7 @@ class DuckduckgoImages(BaseSearchEngine[ImagesResult]):
 
     def extract_results(self, html_text: str) -> list[ImagesResult]:
         """Extract search results from html text."""
-        json_data = json_loads(html_text)
+        json_data = json.loads(html_text)
         items = json_data.get("results", [])
         results = []
         for item in items:

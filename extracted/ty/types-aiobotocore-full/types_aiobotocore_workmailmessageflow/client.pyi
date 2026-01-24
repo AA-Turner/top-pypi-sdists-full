@@ -3,7 +3,7 @@ Type annotations for workmailmessageflow service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workmailmessageflow/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -34,12 +35,6 @@ from .type_defs import (
     PutRawMessageContentRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -48,11 +43,11 @@ else:
 __all__ = ("WorkMailMessageFlowClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InvalidContentLocation: Type[BotocoreClientError]
-    MessageFrozen: Type[BotocoreClientError]
-    MessageRejected: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InvalidContentLocation: type[BotocoreClientError]
+    MessageFrozen: type[BotocoreClientError]
+    MessageRejected: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 class WorkMailMessageFlowClient(AioBaseClient):
     """
@@ -101,7 +96,7 @@ class WorkMailMessageFlowClient(AioBaseClient):
 
     async def put_raw_message_content(
         self, **kwargs: Unpack[PutRawMessageContentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the raw content of an in-transit email message, in MIME format.
 
@@ -117,7 +112,7 @@ class WorkMailMessageFlowClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

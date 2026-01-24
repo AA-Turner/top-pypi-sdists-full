@@ -18,7 +18,7 @@ import re
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing_extensions import Annotated
 
 
@@ -51,53 +51,10 @@ class Argument(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    @field_validator("datatype")
-    def datatype_validate_enum(cls, v):
-        if v not in (
-            "ARRAY",
-            "BIGINT",
-            "BINARY",
-            "BOOLEAN",
-            "BYTEINT",
-            "CHAR",
-            "CHARACTER",
-            "DATE",
-            "DATETIME",
-            "DECIMAL",
-            "DOUBLE",
-            "DOUBLE PRECISION",
-            "FLOAT",
-            "FLOAT4",
-            "FLOAT8",
-            "GEOGRAPHY",
-            "GEOMETRY",
-            "INT",
-            "INTEGER",
-            "NUMBER",
-            "NUMERIC",
-            "OBJECT",
-            "REAL",
-            "STRING",
-            "SMALLINT",
-            "TEXT",
-            "TIME",
-            "TIMESTAMP_LTZ",
-            "TIMESTAMP_NTZ",
-            "TIMESTAMP_TZ",
-            "TINYINT",
-            "VARBINARY",
-            "VARCHAR",
-            "VARIANT",
-            "VECTOR",
-        ):
-            raise ValueError(
-                "must validate the enum values ('ARRAY','BIGINT','BINARY','BOOLEAN','BYTEINT','CHAR','CHARACTER','DATE','DATETIME','DECIMAL','DOUBLE','DOUBLE PRECISION','FLOAT','FLOAT4','FLOAT8','GEOGRAPHY','GEOMETRY','INT','INTEGER','NUMBER','NUMERIC','OBJECT','REAL','STRING','SMALLINT','TEXT','TIME','TIMESTAMP_LTZ','TIMESTAMP_NTZ','TIMESTAMP_TZ','TINYINT','VARBINARY','VARCHAR','VARIANT','VECTOR')"
-            )
-        return v
-
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -122,7 +79,7 @@ class Argument(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -137,9 +94,9 @@ class Argument(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Argument.parse_obj(obj)
+            return Argument.model_validate(obj)
 
-        _obj = Argument.parse_obj(
+        _obj = Argument.model_validate(
             {
                 "name": obj.get("name"),
                 "datatype": obj.get("datatype"),

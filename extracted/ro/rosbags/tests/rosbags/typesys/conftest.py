@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def _comparable() -> Generator[None, None, None]:  # pyright: ignore[reportUnusedFunction]
+def _comparable() -> Generator[None, None, None]:
     """Make messages containing numpy arrays comparable.
 
     Notes:
@@ -56,6 +56,9 @@ def _comparable() -> Generator[None, None, None]:  # pyright: ignore[reportUnuse
 
         def __getattr__(self, name: str) -> object:
             return cast('object', getattr(self.child, name))
+
+        def __hash__(self) -> int:
+            return hash(self.child)
 
     def wrap_frombuffer(mem: bytes, dtype: str, count: int, offset: int) -> CNDArray:
         return CNDArray(frombuffer(mem, dtype=dtype, count=count, offset=offset))

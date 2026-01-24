@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: mistral_common
-Version: 1.8.5
+Version: 1.8.8
 Summary: Mistral-common is a library of common utilities for Mistral AI.
 Author-email: bam4d <bam4d@mistral.ai>
 License-Expression: Apache-2.0
-Requires-Python: <3.14,>=3.9.0
+Requires-Python: <3.14,>=3.10.0
 Description-Content-Type: text/markdown
 Requires-Dist: pydantic<3.0,>=2.7
 Requires-Dist: jsonschema>=4.21.1
@@ -120,3 +120,5 @@ uv run pre-commit install
 ## License
 
 This library is licensed under the Apache 2.0 License. See the [LICENCE](./LICENCE) file for more information.
+
+*You must not use this library or our models in a manner that infringes, misappropriates, or otherwise violates any third party’s rights, including intellectual property rights.*

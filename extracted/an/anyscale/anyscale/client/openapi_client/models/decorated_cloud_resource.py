@@ -44,6 +44,7 @@ class DecoratedCloudResource(object):
         'file_storage': 'FileStorage',
         'aws_config': 'AWSConfig',
         'gcp_config': 'GCPConfig',
+        'azure_config': 'AzureConfig',
         'kubernetes_config': 'KubernetesConfig',
         'created_at': 'datetime',
         'is_default': 'bool',
@@ -63,6 +64,7 @@ class DecoratedCloudResource(object):
         'file_storage': 'file_storage',
         'aws_config': 'aws_config',
         'gcp_config': 'gcp_config',
+        'azure_config': 'azure_config',
         'kubernetes_config': 'kubernetes_config',
         'created_at': 'created_at',
         'is_default': 'is_default',
@@ -70,7 +72,7 @@ class DecoratedCloudResource(object):
         'operator_status_details': 'operator_status_details'
     }
 
-    def __init__(self, cloud_resource_id=None, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, kubernetes_config=None, created_at=None, is_default=False, operator_status=None, operator_status_details=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cloud_resource_id=None, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, azure_config=None, kubernetes_config=None, created_at=None, is_default=False, operator_status=None, operator_status_details=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedCloudResource - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -87,6 +89,7 @@ class DecoratedCloudResource(object):
         self._file_storage = None
         self._aws_config = None
         self._gcp_config = None
+        self._azure_config = None
         self._kubernetes_config = None
         self._created_at = None
         self._is_default = None
@@ -111,6 +114,7 @@ class DecoratedCloudResource(object):
         self.file_storage = file_storage
         self.aws_config = aws_config
         self.gcp_config = gcp_config
+        self.azure_config = azure_config
         self.kubernetes_config = kubernetes_config
         if created_at is not None:
             self.created_at = created_at
@@ -373,6 +377,29 @@ class DecoratedCloudResource(object):
         """
 
         self._gcp_config = gcp_config
+
+    @property
+    def azure_config(self):
+        """Gets the azure_config of this DecoratedCloudResource.  # noqa: E501
+
+        Azure provider-specific configurations.  # noqa: E501
+
+        :return: The azure_config of this DecoratedCloudResource.  # noqa: E501
+        :rtype: AzureConfig
+        """
+        return self._azure_config
+
+    @azure_config.setter
+    def azure_config(self, azure_config):
+        """Sets the azure_config of this DecoratedCloudResource.
+
+        Azure provider-specific configurations.  # noqa: E501
+
+        :param azure_config: The azure_config of this DecoratedCloudResource.  # noqa: E501
+        :type: AzureConfig
+        """
+
+        self._azure_config = azure_config
 
     @property
     def kubernetes_config(self):

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -24,6 +24,11 @@
 #
 import os
 import sys
+import re
+from docs.utils import (
+    get_latest_version_by_major_minor,
+    get_versions_from_git_tags,
+)
 sys.path.insert(0, os.path.abspath('../ibm_watsonx_ai/'))
 sys.path.insert(0, os.path.abspath('../ibm_watsonx_ai/libs/'))
 
@@ -38,7 +43,8 @@ sys.path.insert(0, os.path.abspath('../ibm_watsonx_ai/libs/'))
 # ones.
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.viewcode',
-              'sphinx_design']
+              'sphinx_design',
+              "sphinx_multiversion"]
 
 # This value controls how to represent typehints.
 autodoc_typehints = 'none'
@@ -57,7 +63,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'ibm-watsonx-ai(V4)'
-copyright = u'2023-2025, IBM'
+copyright = u'2023-2026, IBM'
 author = u'IBM'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -129,7 +135,8 @@ html_sidebars = {
         "sidebar/brand.html",
         "sidebar/search.html",
         "sidebar/navigation.html",
-        "sidebar/scroll-end.html"
+        "sidebar/scroll-end.html",
+        "versioning.html",
     ]
 }
 
@@ -189,3 +196,33 @@ texinfo_documents = [
      author, 'ibm-watsonx-ai', 'watsonx.ai API Client.',
      'Miscellaneous'),
 ]
+
+# sphinx_multiversion config
+
+smv_branch_whitelist = r'^$'
+smv_remote_whitelist = None
+smv_released_pattern = r'^tags/.*$'
+smv_outputdir_format = '{ref.name}'
+
+
+def latest_patch_per_minor():
+    """
+    Collect all tags in the format vMAJOR.MINOR.PATCH and select the latest PATCH for each MAJOR.MINOR.
+    Only tags starting from v1.1.0 (inclusive) are considered.
+    Return a regex whitelist that matches the selected tags.
+    """
+
+    tag_versions = get_versions_from_git_tags()
+
+    latest_version_by_major_minor = get_latest_version_by_major_minor(tag_versions)
+    if not latest_version_by_major_minor:
+        return r"^$"
+
+    picked_versions_regex = "|".join(
+        re.escape(str(version)) for version in latest_version_by_major_minor.values()
+    )
+
+    return rf"^(?:{picked_versions_regex})$"
+
+
+smv_tag_whitelist = latest_patch_per_minor()

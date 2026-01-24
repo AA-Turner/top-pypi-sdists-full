@@ -11,12 +11,9 @@ name: Release Package
 on:
   push:
     branches:
-      - '*'
+      - 'main'
     tags:
       - 'v*'
-  pull_request:
-    branches:
-      - '*'
   release:
     types: [published]
 
@@ -33,10 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
@@ -103,17 +100,17 @@ jobs:
       CARGO_BUILD_TARGET: ${{ matrix.job.target }}
       PYAPP_DISTRIBUTION_VARIANT_CPU: ${{ matrix.job.cpu_variant }}
       PYAPP_REPO: pyapp # Use local copy of pyapp (needed for cross-compiling)
-      PYAPP_VERSION: v0.27.0
+      PYAPP_VERSION: v0.28.0
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Clone PyApp
       run: git clone --depth 1 --branch $PYAPP_VERSION https://github.com/ofek/pyapp $PYAPP_REPO
 
     - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
@@ -144,7 +141,7 @@ jobs:
         hatch --version
 
     - name: Get artifact
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: sdist-and-wheel
         path: ${{ github.workspace }}/dist
@@ -162,9 +159,10 @@ jobs:
         mv dist/binary/iSponsorBlockTV* dist/binary/iSponsorBlockTV-${{ matrix.job.release_suffix }}
 
     - name: Attest build provenance
-      uses: actions/attest-build-provenance@v2
+      uses: actions/attest-build-provenance@v3
       with:
         subject-path: dist/binary/*
+      continue-on-error: true # Continue if attestation fails (it will fail on forks)
 
     - name: Upload built binary package
       uses: actions/upload-artifact@v4
@@ -183,7 +181,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Get artifact
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: sdist-and-wheel
         path: dist
@@ -202,7 +200,7 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       name: Get artifact
       with:
         path: dist

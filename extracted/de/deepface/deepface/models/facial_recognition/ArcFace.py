@@ -1,3 +1,6 @@
+# built-in dependencies
+from typing import Any
+
 # project dependencies
 from deepface.commons import package_utils, weight_utils
 from deepface.models.FacialRecognition import FacialRecognition
@@ -15,7 +18,6 @@ tf_version = package_utils.get_tf_major_version()
 
 if tf_version == 1:
     from keras.models import Model
-    from keras.engine import training
     from keras.layers import (
         ZeroPadding2D,
         Input,
@@ -29,7 +31,6 @@ if tf_version == 1:
     )
 else:
     from tensorflow.keras.models import Model
-    from tensorflow.python.keras.engine import training
     from tensorflow.keras.layers import (
         ZeroPadding2D,
         Input,
@@ -42,7 +43,10 @@ else:
         Dense,
     )
 
-WEIGHTS_URL="https://github.com/serengil/deepface_models/releases/download/v1.0/arcface_weights.h5"
+WEIGHTS_URL = (
+    "https://github.com/serengil/deepface_models/releases/download/v1.0/arcface_weights.h5"
+)
+
 
 # pylint: disable=too-few-public-methods
 class ArcFaceClient(FacialRecognition):
@@ -50,7 +54,7 @@ class ArcFaceClient(FacialRecognition):
     ArcFace model class
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.model = load_model()
         self.model_name = "ArcFace"
         self.input_shape = (112, 112)
@@ -58,7 +62,7 @@ class ArcFaceClient(FacialRecognition):
 
 
 def load_model(
-    url=WEIGHTS_URL,
+    url: str = WEIGHTS_URL,
 ) -> Model:
     """
     Construct ArcFace model, download its weights and load
@@ -106,12 +110,19 @@ def ResNet34() -> Model:
     x = PReLU(shared_axes=[1, 2], name="conv1_prelu")(x)
     x = stack_fn(x)
 
-    model = training.Model(img_input, x, name="ResNet34")
+    model = Model(img_input, x, name="ResNet34")
 
     return model
 
 
-def block1(x, filters, kernel_size=3, stride=1, conv_shortcut=True, name=None):
+def block1(
+    x: Any,
+    filters: int,
+    kernel_size: int = 3,
+    stride: int = 1,
+    conv_shortcut: bool = True,
+    name: str = "N/A",
+) -> Any:
     bn_axis = 3
 
     if conv_shortcut:
@@ -157,14 +168,14 @@ def block1(x, filters, kernel_size=3, stride=1, conv_shortcut=True, name=None):
     return x
 
 
-def stack1(x, filters, blocks, stride1=2, name=None):
+def stack1(x: Any, filters: int, blocks: int, stride1: int = 2, name: str = "N/A") -> Any:
     x = block1(x, filters, stride=stride1, name=name + "_block1")
     for i in range(2, blocks + 1):
         x = block1(x, filters, conv_shortcut=False, name=name + "_block" + str(i))
     return x
 
 
-def stack_fn(x):
+def stack_fn(x: Any) -> Any:
     x = stack1(x, 64, 3, name="conv2")
     x = stack1(x, 128, 4, name="conv3")
     x = stack1(x, 256, 6, name="conv4")

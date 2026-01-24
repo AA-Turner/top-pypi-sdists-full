@@ -37,6 +37,7 @@ from lightning_fabric.strategies.ddp import DDPStrategy
 from lightning_fabric.strategies.registry import _StrategyRegistry
 from lightning_fabric.strategies.strategy import _Sharded
 from lightning_fabric.utilities.distributed import log
+from lightning_fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_6
 from lightning_fabric.utilities.load import _move_state_into
 from lightning_fabric.utilities.rank_zero import rank_zero_info, rank_zero_warn
 from lightning_fabric.utilities.seed import reset_seed
@@ -44,8 +45,10 @@ from lightning_fabric.utilities.types import _PATH
 
 if TYPE_CHECKING:
     from deepspeed import DeepSpeedEngine
+    from torch.optim.lr_scheduler import _LRScheduler
 
 _DEEPSPEED_AVAILABLE = RequirementCache("deepspeed")
+_DEEPSPEED_GREATER_EQUAL_0_16 = RequirementCache("deepspeed>=0.16.0")
 
 
 # TODO(fabric): Links in the docstrings to PL-specific deepspeed user docs need to be replaced.
@@ -238,6 +241,19 @@ class DeepSpeedStrategy(DDPStrategy, _Sharded):
                 " Install it by running `pip install -U deepspeed`."
             )
 
+        if _TORCH_GREATER_EQUAL_2_6 and not _DEEPSPEED_GREATER_EQUAL_0_16:
+            # Starting with PyTorch 2.6, `torch.load` defaults to `weights_only=True` when loading full checkpoints.
+            # DeepSpeed added support for this behavior in version 0.16.0.
+            import deepspeed
+
+            deepspeed_version = deepspeed.__version__
+
+            raise ImportError(
+                f"PyTorch >= 2.6 requires DeepSpeed >= 0.16.0. "
+                f"Detected DeepSpeed version: {deepspeed_version}. "
+                "Please upgrade by running `pip install -U 'deepspeed>=0.16.0'`."
+            )
+
         super().__init__(
             accelerator=accelerator,
             parallel_devices=parallel_devices,
@@ -319,15 +335,14 @@ class DeepSpeedStrategy(DDPStrategy, _Sharded):
 
     @override
     def setup_module_and_optimizers(
-        self, module: Module, optimizers: list[Optimizer]
-    ) -> tuple["DeepSpeedEngine", list[Optimizer]]:
-        """Set up a model and multiple optimizers together.
-
-        Currently, only a single optimizer is supported.
+        self, module: Module, optimizers: list[Optimizer], scheduler: Optional["_LRScheduler"] = None
+    ) -> tuple["DeepSpeedEngine", list[Optimizer], Any]:
+        """Set up a model and multiple optimizers together, along with an optional learning rate scheduler. Currently,
+        only a single optimizer is supported.
 
         Return:
-            The model wrapped into a :class:`deepspeed.DeepSpeedEngine` and a list with a single
-            deepspeed optimizer.
+            The model wrapped into a :class:`deepspeed.DeepSpeedEngine`, a list with a single
+            deepspeed optimizer, and an optional learning rate scheduler.
 
         """
         if len(optimizers) != 1:
@@ -335,9 +350,9 @@ class DeepSpeedStrategy(DDPStrategy, _Sharded):
                 f"Currently only one optimizer is supported with DeepSpeed. Got {len(optimizers)} optimizers instead."
             )
 
-        self._deepspeed_engine, optimizer = self._initialize_engine(module, optimizers[0])
+        self._deepspeed_engine, optimizer, scheduler = self._initialize_engine(module, optimizers[0], scheduler)
         self._set_deepspeed_activation_checkpointing()
-        return self._deepspeed_engine, [optimizer]
+        return self._deepspeed_engine, [optimizer], scheduler
 
     @override
     def setup_module(self, module: Module) -> "DeepSpeedEngine":
@@ -346,7 +361,7 @@ class DeepSpeedStrategy(DDPStrategy, _Sharded):
         For training, see :meth:`setup_module_and_optimizers`.
 
         """
-        self._deepspeed_engine, _ = self._initialize_engine(module)
+        self._deepspeed_engine, _, _ = self._initialize_engine(module)
         return self._deepspeed_engine
 
     @override
@@ -458,6 +473,7 @@ class DeepSpeedStrategy(DDPStrategy, _Sharded):
         path: _PATH,
         state: Optional[Union[Module, Optimizer, dict[str, Union[Module, Optimizer, Any]]]] = None,
         strict: bool = True,
+        weights_only: Optional[bool] = None,
     ) -> dict[str, Any]:
         """Load the contents from a checkpoint and restore the state of the given objects.
 
@@ -483,7 +499,7 @@ class DeepSpeedStrategy(DDPStrategy, _Sharded):
             # This code path to enables loading a checkpoint from a non-deepspeed checkpoint or from
             # a consolidated checkpoint
             path = self.broadcast(path)
-            return super().load_checkpoint(path=path, state=state, strict=strict)
+            return super().load_checkpoint(path=path, state=state, strict=strict, weights_only=weights_only)
 
         if not state:
             raise ValueError(
@@ -598,10 +614,8 @@ class DeepSpeedStrategy(DDPStrategy, _Sharded):
         )
 
     def _initialize_engine(
-        self,
-        model: Module,
-        optimizer: Optional[Optimizer] = None,
-    ) -> tuple["DeepSpeedEngine", Optimizer]:
+        self, model: Module, optimizer: Optional[Optimizer] = None, scheduler: Optional["_LRScheduler"] = None
+    ) -> tuple["DeepSpeedEngine", Optimizer, Any]:
         """Initialize one model and one optimizer with an optional learning rate scheduler.
 
         This calls ``deepspeed.initialize`` internally.
@@ -610,15 +624,16 @@ class DeepSpeedStrategy(DDPStrategy, _Sharded):
         import deepspeed
 
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-        deepspeed_engine, deepspeed_optimizer, _, _ = deepspeed.initialize(
+        deepspeed_engine, deepspeed_optimizer, _, deepspeed_scheduler = deepspeed.initialize(
             args=argparse.Namespace(device_rank=self.root_device.index),
             config=self.config,
             model=model,
             model_parameters=model_parameters,
             optimizer=optimizer,
+            lr_scheduler=scheduler,
             dist_init_required=False,
         )
-        return deepspeed_engine, deepspeed_optimizer
+        return deepspeed_engine, deepspeed_optimizer, deepspeed_scheduler
 
     @override
     def setup_environment(self) -> None:

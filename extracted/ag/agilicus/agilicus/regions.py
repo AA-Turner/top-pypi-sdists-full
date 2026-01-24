@@ -66,6 +66,7 @@ def update_point_of_presence(
     master_cluster_id=None,
     requests_enabled=None,
     org_domain=None,
+    overwrite_org_domains=False,
     public=None,
     restrict_by_user_id=None,
     add_permitted_user_id=None,
@@ -101,6 +102,13 @@ def update_point_of_presence(
             if domain not in to_write:
                 to_write.append(domain)
         domains = to_write
+
+    if not overwrite_org_domains:
+        to_write = original.spec.routing.org_domains
+        for domain in org_domains:
+            if domain not in to_write:
+                to_write.append(domain)
+        org_domains = to_write
 
     original.spec.routing.domains = domains
     original.spec.routing.org_domains = org_domains

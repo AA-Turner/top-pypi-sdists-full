@@ -132,5 +132,9 @@ WHERE  listid IN( 500, 501, 502 ); """
             ),
         ],
         dialect=dialect,
-        test_sqlparse=False,
+        # Skip graph check for column lineage in CTE queries since sqlglot returns
+        # direct column lineage from source to target, while sqlfluff/sqlparse builds
+        # column lineage with intermediate CTE columns
+        # TODO: Improve sqlglot to match other parsers in CTE column lineage or vice versa
+        skip_graph_check=True,
     )

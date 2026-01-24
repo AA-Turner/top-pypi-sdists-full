@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictBool 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from lusid.models.date_or_diary_entry import DateOrDiaryEntry
 
 class ValuationPointDataQueryParameters(BaseModel):
@@ -27,9 +29,9 @@ class ValuationPointDataQueryParameters(BaseModel):
     The parameters used in getting the ValuationPointData.  # noqa: E501
     """
     start: Optional[DateOrDiaryEntry] = None
-    end: DateOrDiaryEntry = Field(...)
-    exclude_cleardown_module: Optional[StrictBool] = Field(None, alias="excludeCleardownModule", description="By deafult this flag is set to false, if this is set to true, no cleardown module will be applied to the trial balance.")
-    __properties = ["start", "end", "excludeCleardownModule"]
+    end: DateOrDiaryEntry
+    variant:  Optional[StrictStr] = Field(None,alias="variant", description="Optional variant code. Only required when it is necessary to choose between scenarios with multiple estimates.") 
+    __properties = ["start", "end", "variant"]
 
     class Config:
         """Pydantic configuration"""
@@ -69,6 +71,11 @@ class ValuationPointDataQueryParameters(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of end
         if self.end:
             _dict['end'] = self.end.to_dict()
+        # set to None if variant (nullable) is None
+        # and __fields_set__ contains the field
+        if self.variant is None and "variant" in self.__fields_set__:
+            _dict['variant'] = None
+
         return _dict
 
     @classmethod
@@ -83,6 +90,8 @@ class ValuationPointDataQueryParameters(BaseModel):
         _obj = ValuationPointDataQueryParameters.parse_obj({
             "start": DateOrDiaryEntry.from_dict(obj.get("start")) if obj.get("start") is not None else None,
             "end": DateOrDiaryEntry.from_dict(obj.get("end")) if obj.get("end") is not None else None,
-            "exclude_cleardown_module": obj.get("excludeCleardownModule")
+            "variant": obj.get("variant")
         })
         return _obj
+
+ValuationPointDataQueryParameters.update_forward_refs()

@@ -29,6 +29,15 @@ class LLMReferenceDict(TypedDict):
     url: Optional[str]
 
 
+class AvailableLiteLLMEndpointsDict(TypedDict):
+    """Dict representation of supported endpoints for LLM.
+    Currently includes supports_chat_completions (for /chat/completions)
+    and supports_responses (for /responses)."""
+
+    supports_chat_completions: bool
+    supports_responses: bool
+
+
 class LLMGatewayCatalogEntryDict(TypedDict):
     """Dict representation of LlmGatewayCatalogEntry."""
 
@@ -56,43 +65,46 @@ class LLMGatewayCatalogEntryDict(TypedDict):
     is_deprecated: bool
     is_active: bool
     available_regions: List[str]
+    available_litellm_endpoints: AvailableLiteLLMEndpointsDict
 
 
-llm_reference_trafaret = t.Dict(
-    {
-        t.Key("name"): t.String,
-        t.Key("url", optional=True): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+llm_reference_trafaret = t.Dict({
+    t.Key("name"): t.String,
+    t.Key("url", optional=True): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
-llm_gateway_catalog_entry_trafaret = t.Dict(
-    {
-        t.Key("model"): t.String,
-        t.Key("llm_id"): t.String,
-        t.Key("name"): t.String,
-        t.Key("description"): t.String,
-        t.Key("provider"): t.String,
-        t.Key("creator"): t.String,
-        t.Key("context_size"): t.Int,
-        t.Key("max_completion_tokens"): t.Int,
-        t.Key("capabilities", optional=True): t.Or(t.List(t.String), t.Null),
-        t.Key("supported_languages"): t.List(t.String),
-        t.Key("input_types"): t.List(t.String),
-        t.Key("output_types"): t.List(t.String),
-        t.Key("parameters"): t.Dict({}).allow_extra("*"),
-        t.Key("documentation_link"): t.String,
-        t.Key("reference_links"): t.List(llm_reference_trafaret),
-        t.Key("date_added"): t.String,
-        t.Key("license"): t.String,
-        t.Key("is_preview"): t.Bool,
-        t.Key("is_metered"): t.Bool,
-        t.Key("retirement_date", optional=True): t.Or(t.String, t.Null),
-        t.Key("suggested_replacement", optional=True): t.Or(t.String, t.Null),
-        t.Key("is_deprecated"): t.Bool,
-        t.Key("is_active"): t.Bool,
-        t.Key("available_regions"): t.List(t.String),
-    }
-).ignore_extra("*")
+available_litellm_endpoints_trafaret = t.Dict({
+    t.Key("supports_chat_completions"): t.Bool,
+    t.Key("supports_responses"): t.Bool,
+}).ignore_extra("*")
+
+llm_gateway_catalog_entry_trafaret = t.Dict({
+    t.Key("model"): t.String,
+    t.Key("llm_id"): t.String,
+    t.Key("name"): t.String,
+    t.Key("description"): t.String,
+    t.Key("provider"): t.String,
+    t.Key("creator"): t.String,
+    t.Key("context_size"): t.Int,
+    t.Key("max_completion_tokens"): t.Int,
+    t.Key("capabilities", optional=True): t.Or(t.List(t.String), t.Null),
+    t.Key("supported_languages"): t.List(t.String),
+    t.Key("input_types"): t.List(t.String),
+    t.Key("output_types"): t.List(t.String),
+    t.Key("parameters"): t.Dict({}).allow_extra("*"),
+    t.Key("documentation_link"): t.String,
+    t.Key("reference_links"): t.List(llm_reference_trafaret),
+    t.Key("date_added"): t.String,
+    t.Key("license"): t.String,
+    t.Key("is_preview"): t.Bool,
+    t.Key("is_metered"): t.Bool,
+    t.Key("retirement_date", optional=True): t.Or(t.String, t.Null),
+    t.Key("suggested_replacement", optional=True): t.Or(t.String, t.Null),
+    t.Key("is_deprecated"): t.Bool,
+    t.Key("is_active"): t.Bool,
+    t.Key("available_regions"): t.List(t.String),
+    t.Key("available_litellm_endpoints"): available_litellm_endpoints_trafaret,
+}).ignore_extra("*")
 
 
 class LLMReference(APIObject):
@@ -118,6 +130,37 @@ class LLMReference(APIObject):
 
     def to_dict(self) -> LLMReferenceDict:
         return {"name": self.name, "url": self.url}
+
+
+class AvailableLiteLLMEndpoints(APIObject):
+    """
+    Supported endpoints for the LLM.
+
+    Attributes
+    ----------
+    supports_chat_completions : bool
+        Whether the chat completions endpoint (/chat/completions) is supported.
+    supports_responses : bool
+        Whether the responses endpoint (/responses) is supported.
+    """
+
+    _converter = available_litellm_endpoints_trafaret
+
+    def __init__(self, supports_chat_completions: bool, supports_responses: bool):
+        self.supports_chat_completions = supports_chat_completions
+        self.supports_responses = supports_responses
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}(supports_chat_completions={self.supports_chat_completions}, "
+            f"supports_responses={self.supports_responses})"
+        )
+
+    def to_dict(self) -> AvailableLiteLLMEndpointsDict:
+        return {
+            "supports_chat_completions": self.supports_chat_completions,
+            "supports_responses": self.supports_responses,
+        }
 
 
 class LLMGatewayCatalogEntry(APIObject):
@@ -174,6 +217,8 @@ class LLMGatewayCatalogEntry(APIObject):
         Whether the LLM is active.
     available_regions : list of str
         The regions where the LLM is available.
+    available_litellm_endpoints : AvailableLiteLLMEndpoints
+        The supported endpoints for the LLM (includes /chat/completions and /responses).
     """
 
     _converter = llm_gateway_catalog_entry_trafaret
@@ -201,6 +246,7 @@ class LLMGatewayCatalogEntry(APIObject):
         is_deprecated: bool,
         is_active: bool,
         available_regions: List[str],
+        available_litellm_endpoints: Dict[str, bool],
         capabilities: Optional[List[str]] = None,
         retirement_date: Optional[str] = None,
         suggested_replacement: Optional[str] = None,
@@ -220,9 +266,7 @@ class LLMGatewayCatalogEntry(APIObject):
         self.parameters = parameters
         self.documentation_link = documentation_link
         self.reference_links = [LLMReference.from_server_data(ref) for ref in reference_links]
-        self.date_added = (
-            date.fromisoformat(date_added) if isinstance(date_added, str) else date_added
-        )
+        self.date_added = date.fromisoformat(date_added) if isinstance(date_added, str) else date_added
         self.license = license
         self.is_preview = is_preview
         self.is_metered = is_metered
@@ -231,6 +275,7 @@ class LLMGatewayCatalogEntry(APIObject):
         self.is_deprecated = is_deprecated
         self.is_active = is_active
         self.available_regions = available_regions
+        self.available_litellm_endpoints = AvailableLiteLLMEndpoints.from_server_data(available_litellm_endpoints)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(model={self.model}, name={self.name})"
@@ -261,6 +306,7 @@ class LLMGatewayCatalogEntry(APIObject):
             "is_deprecated": self.is_deprecated,
             "is_active": self.is_active,
             "available_regions": self.available_regions,
+            "available_litellm_endpoints": self.available_litellm_endpoints.to_dict(),
         }
 
 
@@ -280,6 +326,7 @@ class LLMGatewayCatalog(APIObject):
         offset: Optional[int] = None,
         limit: Optional[int] = None,
         llm_id: Optional[str] = None,
+        chat_completions_supported_only: Optional[bool] = None,
         only_active: bool = True,
         only_non_deprecated: bool = True,
     ) -> List[LLMGatewayCatalogEntry]:
@@ -294,11 +341,12 @@ class LLMGatewayCatalog(APIObject):
             Retrieve only the specified number of values.
         llm_id : str, optional
             Get the catalog entries for a specific LLM ID.
+        chat_completions_supported_only: bool, optional
+            If True, only return LLMs that support the chat completions endpoint (/chat/completions).
         only_active : bool, default True
             If True, only return active LLMs.
         only_non_deprecated : bool, default True
             If True, only return non-deprecated LLMs.
-
         Returns
         -------
         list of LlmGatewayCatalogEntry
@@ -312,6 +360,9 @@ class LLMGatewayCatalog(APIObject):
 
             # List all active, non-deprecated LLMs
             llms = dr.LlmGatewayCatalog.list()
+
+            # List all LLMs that support the chat completions endpoint (/chat/completions)
+            llms = dr.LlmGatewayCatalog.list(chat_completions_supported_only=True)
 
             # List all LLMs (including deprecated and inactive)
             all_llms = dr.LlmGatewayCatalog.list(
@@ -332,6 +383,8 @@ class LLMGatewayCatalog(APIObject):
             params["limit"] = limit
         if llm_id is not None:
             params["llmId"] = llm_id
+        if chat_completions_supported_only is not None:
+            params["chatCompletionsSupportedOnly"] = str(chat_completions_supported_only).lower()
 
         url = f"{cls._client.domain}/api/v2/{cls._path}"
         r_data = unpaginate(url, params, cls._client)
@@ -357,6 +410,7 @@ class LLMGatewayCatalog(APIObject):
         offset: Optional[int] = None,
         limit: Optional[int] = None,
         llm_id: Optional[str] = None,
+        chat_completions_supported_only: Optional[bool] = None,
         only_active: bool = True,
         only_non_deprecated: bool = True,
     ) -> List[LLMGatewayCatalogEntryDict]:
@@ -373,6 +427,8 @@ class LLMGatewayCatalog(APIObject):
             Retrieve only the specified number of values.
         llm_id : str, optional
             Get the catalog entries for a specific LLM ID.
+        chat_completions_supported_only: bool, optional
+            If True, only return LLMs that support the chat completions endpoint (/chat/completions).
         only_active : bool, default True
             If True, only return active LLMs.
         only_non_deprecated : bool, default True
@@ -398,6 +454,7 @@ class LLMGatewayCatalog(APIObject):
             offset=offset,
             limit=limit,
             llm_id=llm_id,
+            chat_completions_supported_only=chat_completions_supported_only,
             only_active=only_active,
             only_non_deprecated=only_non_deprecated,
         )
@@ -496,9 +553,7 @@ class LLMGatewayCatalog(APIObject):
             # Get list of available models for error message
             available_models = cls.get_available_models(include_preview=True)
             model_list = "\n.   - ".join(available_models)
-            raise ValueError(
-                f"Model '{model_id}' not found in catalog. Available models: {model_list}"
-            )
+            raise ValueError(f"Model '{model_id}' not found in catalog. Available models: {model_list}")
 
         if len(matched_models) > 1:
             raise ValueError(f"Multiple models found for '{model_id}' in catalog. {matched_models}")
@@ -509,9 +564,7 @@ class LLMGatewayCatalog(APIObject):
             # Get list of available models for error message
             available_models = cls.get_available_models(include_preview=True)
             model_list = "\n.   - ".join(available_models)
-            raise ValueError(
-                f"Model '{model_id}' is not active or is deprecated. Available models: {model_list}"
-            )
+            raise ValueError(f"Model '{model_id}' is not active or is deprecated. Available models: {model_list}")
 
         return model_entry
 

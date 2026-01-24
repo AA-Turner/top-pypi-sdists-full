@@ -1,0 +1,13 @@
+[build-system]
+requires = ["flit_core >=2,<3"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+module = "pytest_async"
+author = "Andrew Lee"
+author-email = "leedevx@gmail.com"
+home-page = "https://github.com/hyperleex/pytest-async"
+classifiers = ["License :: OSI Approved :: MIT License"]
+
+description-file = "README.md"
+requires-python = ">=3.6"

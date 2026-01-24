@@ -13,6 +13,7 @@ import binascii
 import typing as t
 
 from ansible.module_utils.common.text.converters import to_text
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.cryptography_support import (
     CRYPTOGRAPHY_TIMEZONE,
     cryptography_decode_name,
@@ -36,25 +37,22 @@ from ansible_collections.community.crypto.plugins.module_utils._time import (
     get_now_datetime,
 )
 
-
 if t.TYPE_CHECKING:
     import datetime  # pragma: no cover
 
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
-    from ansible_collections.community.crypto.plugins.module_utils._argspec import (  # pragma: no cover
-        ArgumentSpec,
+    from cryptography.hazmat.primitives.asymmetric.types import (
+        PublicKeyTypes,  # pragma: no cover
     )
+
     from ansible_collections.community.crypto.plugins.plugin_utils._action_module import (  # pragma: no cover
         AnsibleActionModule,
     )
     from ansible_collections.community.crypto.plugins.plugin_utils._filter_module import (  # pragma: no cover
         FilterModuleMock,
     )
-    from cryptography.hazmat.primitives.asymmetric.types import (
-        PublicKeyTypes,  # pragma: no cover
-    )
 
-    GeneralAnsibleModule = t.Union[
+    GeneralAnsibleModule = t.Union[  # noqa: UP007
         AnsibleModule, AnsibleActionModule, FilterModuleMock
     ]  # pragma: no cover
 
@@ -268,9 +266,11 @@ class CertificateInfoRetrieval:
                 x509.AuthorityInformationAccess
             )
             for desc in ext.value:
-                if desc.access_method == x509.oid.AuthorityInformationAccessOID.OCSP:
-                    if isinstance(desc.access_location, x509.UniformResourceIdentifier):
-                        return desc.access_location.value
+                if (
+                    desc.access_method == x509.oid.AuthorityInformationAccessOID.OCSP
+                    and isinstance(desc.access_location, x509.UniformResourceIdentifier)
+                ):
+                    return desc.access_location.value
         except x509.ExtensionNotFound:
             pass
         return None
@@ -284,9 +284,8 @@ class CertificateInfoRetrieval:
                 if (
                     desc.access_method
                     == x509.oid.AuthorityInformationAccessOID.CA_ISSUERS
-                ):
-                    if isinstance(desc.access_location, x509.UniformResourceIdentifier):
-                        return desc.access_location.value
+                ) and isinstance(desc.access_location, x509.UniformResourceIdentifier):
+                    return desc.access_location.value
         except x509.ExtensionNotFound:
             pass
         return None

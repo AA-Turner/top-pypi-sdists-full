@@ -40,13 +40,8 @@ def _start_stream_job_with_online_store_sink(
     )
 
     if use_realtime_trigger:
-        if stream_task_info.HasField("streaming_trigger_interval_override"):
-            processing_time = stream_task_info.streaming_trigger_interval_override
-        else:
-            processing_time = "5 minutes"
-
-        logger.info(f"Using RealTimeTrigger with interval {processing_time} for FV {fd.id}")
-        trigger = spark._jvm.org.apache.spark.sql.execution.streaming.RealTimeTrigger.apply(processing_time)
+        logger.info(f"Using RealTimeTrigger for FV {fd.id}")
+        trigger = spark._jvm.org.apache.spark.sql.streaming.Trigger.RealTimeTrigger()
     else:
         if stream_task_info.HasField("streaming_trigger_interval_override"):
             processing_time = stream_task_info.streaming_trigger_interval_override

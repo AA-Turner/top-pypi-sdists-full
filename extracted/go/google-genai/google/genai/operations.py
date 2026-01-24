@@ -30,6 +30,24 @@ from ._common import set_value_by_path as setv
 logger = logging.getLogger('google_genai.operations')
 
 
+def _FetchPredictOperationParameters_to_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+  to_object: dict[str, Any] = {}
+  if getv(from_object, ['operation_name']) is not None:
+    setv(to_object, ['operationName'], getv(from_object, ['operation_name']))
+
+  if getv(from_object, ['resource_name']) is not None:
+    setv(
+        to_object,
+        ['_url', 'resourceName'],
+        getv(from_object, ['resource_name']),
+    )
+
+  return to_object
+
+
 def _GetOperationParameters_to_mldev(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
@@ -41,9 +59,6 @@ def _GetOperationParameters_to_mldev(
         ['_url', 'operationName'],
         getv(from_object, ['operation_name']),
     )
-
-  if getv(from_object, ['config']) is not None:
-    setv(to_object, ['config'], getv(from_object, ['config']))
 
   return to_object
 
@@ -60,30 +75,6 @@ def _GetOperationParameters_to_vertex(
         getv(from_object, ['operation_name']),
     )
 
-  if getv(from_object, ['config']) is not None:
-    setv(to_object, ['config'], getv(from_object, ['config']))
-
-  return to_object
-
-
-def _FetchPredictOperationParameters_to_vertex(
-    from_object: Union[dict[str, Any], object],
-    parent_object: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-  to_object: dict[str, Any] = {}
-  if getv(from_object, ['operation_name']) is not None:
-    setv(to_object, ['operationName'], getv(from_object, ['operation_name']))
-
-  if getv(from_object, ['resource_name']) is not None:
-    setv(
-        to_object,
-        ['_url', 'resourceName'],
-        getv(from_object, ['resource_name']),
-    )
-
-  if getv(from_object, ['config']) is not None:
-    setv(to_object, ['config'], getv(from_object, ['config']))
-
   return to_object
 
 
@@ -96,29 +87,6 @@ def _GetProjectOperationParameters_to_vertex(
     setv(
         to_object, ['_url', 'operation_id'], getv(from_object, ['operation_id'])
     )
-
-  if getv(from_object, ['config']) is not None:
-    setv(to_object, ['config'], getv(from_object, ['config']))
-
-  return to_object
-
-
-def _ProjectOperation_from_vertex(
-    from_object: Union[dict[str, Any], object],
-    parent_object: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-  to_object: dict[str, Any] = {}
-  if getv(from_object, ['name']) is not None:
-    setv(to_object, ['name'], getv(from_object, ['name']))
-
-  if getv(from_object, ['metadata']) is not None:
-    setv(to_object, ['metadata'], getv(from_object, ['metadata']))
-
-  if getv(from_object, ['done']) is not None:
-    setv(to_object, ['done'], getv(from_object, ['done']))
-
-  if getv(from_object, ['error']) is not None:
-    setv(to_object, ['error'], getv(from_object, ['error']))
 
   return to_object
 
@@ -170,7 +138,7 @@ class Operations(_api_module.BaseModule):
 
     response = self._api_client.request('get', path, request_dict, http_options)
 
-    response_dict = '' if not response.body else json.loads(response.body)
+    response_dict = {} if not response.body else json.loads(response.body)
 
     return response_dict
 
@@ -220,7 +188,7 @@ class Operations(_api_module.BaseModule):
         'post', path, request_dict, http_options
     )
 
-    response_dict = '' if not response.body else json.loads(response.body)
+    response_dict = {} if not response.body else json.loads(response.body)
 
     return response_dict
 
@@ -264,10 +232,7 @@ class Operations(_api_module.BaseModule):
 
     response = self._api_client.request('get', path, request_dict, http_options)
 
-    response_dict = '' if not response.body else json.loads(response.body)
-
-    if self._api_client.vertexai:
-      response_dict = _ProjectOperation_from_vertex(response_dict)
+    response_dict = {} if not response.body else json.loads(response.body)
 
     return_value = types.ProjectOperation._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
@@ -317,6 +282,8 @@ class Operations(_api_module.BaseModule):
       response_operation = operation.from_api_response(
           response_dict, is_vertex_ai=True
       )
+
+      self._api_client._verify_response(response_operation)  # type: ignore [arg-type]
       return response_operation  # type: ignore[no-any-return]
     else:
       response_dict = self._get_videos_operation(
@@ -326,6 +293,8 @@ class Operations(_api_module.BaseModule):
       response_operation = operation.from_api_response(
           response_dict, is_vertex_ai=False
       )
+
+      self._api_client._verify_response(response_operation)  # type: ignore [arg-type]
       return response_operation  # type: ignore[no-any-return]
 
 
@@ -378,7 +347,7 @@ class AsyncOperations(_api_module.BaseModule):
         'get', path, request_dict, http_options
     )
 
-    response_dict = '' if not response.body else json.loads(response.body)
+    response_dict = {} if not response.body else json.loads(response.body)
 
     return response_dict
 
@@ -428,7 +397,7 @@ class AsyncOperations(_api_module.BaseModule):
         'post', path, request_dict, http_options
     )
 
-    response_dict = '' if not response.body else json.loads(response.body)
+    response_dict = {} if not response.body else json.loads(response.body)
 
     return response_dict
 
@@ -474,10 +443,7 @@ class AsyncOperations(_api_module.BaseModule):
         'get', path, request_dict, http_options
     )
 
-    response_dict = '' if not response.body else json.loads(response.body)
-
-    if self._api_client.vertexai:
-      response_dict = _ProjectOperation_from_vertex(response_dict)
+    response_dict = {} if not response.body else json.loads(response.body)
 
     return_value = types.ProjectOperation._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()

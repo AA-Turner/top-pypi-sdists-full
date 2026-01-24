@@ -2,13 +2,11 @@ import numpy as np
 import pytest
 import dynesty
 import pickle
+import os
 from scipy import linalg
 import dynesty.utils as dyutil
 from multiprocessing import Pool
 import itertools
-from dynesty.dynamicsampler import _SAMPLERS
-from dynesty.nestedsamplers import MultiEllipsoidSampler
-from dynesty.sampling import sample_rwalk
 from utils import get_rstate, get_printing, NullContextManager
 """
 Run a series of basic tests changing various things like
@@ -67,71 +65,8 @@ def test_maxcall():
     sampler.run_nested(dlogz_init=1, maxcall=1000, print_progress=printing)
 
 
-# register fake custom sampler
-_SAMPLERS["custom"] = MultiEllipsoidSampler
-
-
-def custom_update(blob, scale, update=True):
-    """A rough version of the update_rwalk method to test custom updates"""
-    if update:
-        accept = blob['accept']
-        reject = blob['reject']
-        facc = (1. * accept) / (accept + reject)
-        target = 0.3
-        ndim = 2
-        scale *= np.exp((facc - target) / ndim / target)
-    return scale
-
-
-# Test custom update/custom sampler
-@pytest.mark.parametrize("bound,sample",
-                         [['multi', sample_rwalk], ['custom', 'rslice']])
-def test_custom(bound, sample):
-    # stress test various boundaries
-    ndim = 2
-    rstate = get_rstate()
-    sampler = dynesty.NestedSampler(
-        loglike,
-        prior_transform,
-        ndim,
-        nlive=nlive,
-        bound=bound,
-        sample=sample,
-        rstate=rstate,
-        update_func=custom_update,
-    )
-    sampler.run_nested(dlogz=0.01, print_progress=printing)
-
-
-def test_n_effective_deprecation():
-    # test deprecation of n_effective and n_effective_init
-    ndim = 2
-    rstate = get_rstate()
-
-    sampler = dynesty.NestedSampler(loglike,
-                                    prior_transform,
-                                    ndim,
-                                    nlive=nlive,
-                                    rstate=rstate)
-    with pytest.deprecated_call():
-        sampler.run_nested(dlogz=1, maxcall=10, n_effective=10)
-
-    sampler = dynesty.DynamicNestedSampler(loglike,
-                                           prior_transform,
-                                           ndim,
-                                           nlive=nlive,
-                                           rstate=rstate)
-
-    sample_generator = sampler.sample_initial(n_effective=10)
-    with pytest.deprecated_call():
-        next(sample_generator)
-
-    with pytest.deprecated_call():
-        sampler.run_nested(dlogz_init=1, maxcall=10, n_effective_init=10)
-
-
-@pytest.mark.parametrize('dynamic,with_pool',
-                         itertools.product([True, False], [True, False]))
+@pytest.mark.parametrize('dynamic', [True, False])
+@pytest.mark.parametrize('with_pool', [True, False])
 def test_pickle(dynamic, with_pool):
     # test of pickling functionality
     ndim = 2
@@ -214,7 +149,7 @@ def test_reweight(dyn, ndim):
     # test reweight_run
     rstate = get_rstate()
 
-    class L:
+    class Lclass:
 
         def __init__(self, s, ndim, width):
             self.s = s
@@ -227,7 +162,7 @@ def test_reweight(dyn, ndim):
             ret = self.norm - 0.5 * np.sum((x / self.s)**2, axis=1)
             return np.squeeze(ret)
 
-    class T:
+    class TClass:
 
         def __init__(self, s):
             self.s = s
@@ -236,18 +171,19 @@ def test_reweight(dyn, ndim):
             return (2 * x - 1) * self.s
 
     width = 10
-    L1 = L(0.1, ndim, width)
-    L05 = L(0.05, ndim, width)
-    T = T(width)
+    L1 = Lclass(0.1, ndim, width)
+    L05 = Lclass(0.05, ndim, width)
+    Transf = TClass(width)
     if dyn:
-        S = dynesty.NestedSampler
+        samp = dynesty.NestedSampler
     else:
-        S = dynesty.DynamicNestedSampler
-    sampler = S(L1, T, ndim, rstate=rstate)
+        samp = dynesty.DynamicNestedSampler
+    sampler = samp(L1, Transf, ndim, rstate=rstate)
     sampler.run_nested(print_progress=printing)
     res0 = sampler.results
-    res1 = dyutil.reweight_run(res0, L05(sampler.results['samples']))
-    assert np.abs(res1['logz'][-1]) < 3 * res1['logzerr'][-1]
+    res1 = dyutil.reweight_run(res0, L05(res0['samples']))
+    assert np.abs(res1['logz'][-1] -
+                  res0['logz'][-1]) < 3 * res1['logzerr'][-1]
 
 
 def test_livepoints():
@@ -271,10 +207,13 @@ def test_livepoints():
 def test_first_update():
     # Test that first_update works
     ndim = 10
-    rstate = get_rstate()
     bigres = {}
     nlive = 50
+    rstate0 = get_rstate()
+
     for i in range(3):
+        rstate = np.random.default_rng(rstate0)
+        # make sure identical rstate
         if i == 0:
             first_update = None
         elif i == 1:
@@ -285,11 +224,11 @@ def test_first_update():
                                         prior_transform,
                                         ndim,
                                         nlive=nlive,
+                                        update_interval=100,
                                         first_update=first_update,
                                         rstate=rstate)
         sampler.run_nested(print_progress=printing)
         res = sampler.results
-        print(res.bound)
         bigres[i] = len(res.bound)
     assert (bigres[1] > bigres[0])
     assert (bigres[2] > bigres[0])
@@ -314,15 +253,6 @@ def test_neff():
     # test of neff functionality
     ndim = 2
     rstate = get_rstate()
-    sampler = dynesty.NestedSampler(loglike,
-                                    prior_transform,
-                                    ndim,
-                                    nlive=nlive,
-                                    rstate=rstate)
-    assert sampler.n_effective == 0
-    sampler.run_nested(print_progress=printing)
-    assert sampler.n_effective > 10
-
     sampler = dynesty.DynamicNestedSampler(loglike,
                                            prior_transform,
                                            ndim,
@@ -340,23 +270,6 @@ def test_neff():
                        n_effective=10000,
                        print_progress=printing)
     assert sampler.n_effective > 10000
-
-
-def test_oldstop():
-    # test of old stopping function functionality
-    ndim = 2
-    rstate = get_rstate()
-    import dynesty.utils as dyutil
-    stopfn = dyutil.old_stopping_function
-    sampler = dynesty.DynamicNestedSampler(loglike,
-                                           prior_transform,
-                                           ndim,
-                                           nlive=nlive,
-                                           rstate=rstate)
-    sampler.run_nested(dlogz_init=1,
-                       n_effective=None,
-                       stop_function=stopfn,
-                       print_progress=printing)
 
 
 def test_stop_nmc():
@@ -430,7 +343,7 @@ def test_deterministic(ndim):
         results.append(res)
 
     for k in results[0].keys():
-        if k == 'blob':
+        if k in ['blob', 'proposal_stats']:
             continue
         val0 = results[0][k]
         val1 = results[1][k]
@@ -589,7 +502,7 @@ def test_maxiter_batch():
             # I am finding the the first iteration with the batch
             # [-inf, something]. Then I'm setting maxiter to be just above
             # that iteration
-            b1 = np.where(~np.isfinite(dres2.batch_bounds[:, 0]))[0][1]
+            b1 = np.where(~np.isfinite(dres2.batch_logl_bounds[:, 0]))[0][1]
             maxiter = np.min(
                 np.array(dsampler2.saved_run['it'])[
                     dsampler2.saved_run['batch'] == b1]) + nlive // 2
@@ -691,7 +604,8 @@ def test_verify_batch():
                                     1].min() > d0.results['samples_it'].max()
     # checke that the iterations are set correctly
     assert d1.ncall > d0.ncall
-    assert len(d1.results.batch_bounds) > len(d0.results.batch_bounds)
+    assert len(d1.results.batch_logl_bounds) > len(
+        d0.results.batch_logl_bounds)
 
 
 @pytest.mark.parametrize('dynamic', [False, True])
@@ -810,3 +724,148 @@ def test_doubling_slice():
                                  sample='rslice',
                                  rstate=rstate)
     samp.run_nested(print_progress=printing)
+
+
+def test_sampling_history_completeness():
+    """Test that evaluation history length equals ncalls when enabled."""
+    import tempfile
+    import h5py
+
+    ndim = 2
+    rstate = get_rstate()
+
+    # Create temporary file for history
+    with tempfile.NamedTemporaryFile(suffix='.h5', delete=False) as tmp:
+        history_filename = tmp.name
+
+    try:
+        # Run sampler with sampling history enabled
+        sampler = dynesty.NestedSampler(
+            loglike,
+            prior_transform,
+            ndim,
+            nlive=50,  # Small nlive for quick test
+            save_evaluation_history=True,
+            history_filename=history_filename,
+            rstate=rstate)
+
+        sampler.run_nested(dlogz=0.1, print_progress=printing, maxiter=500)
+
+        # Check that history file was created and contains expected data
+        assert os.path.exists(history_filename), "History file was not created"
+
+        # Read the history file and verify completeness
+        with h5py.File(history_filename, 'r') as f:
+            # Check that evaluation history datasets exist
+            assert 'evaluation_u' in f, "sampling_u dataset not found in history file"
+            assert 'evaluation_v' in f, "sampling_v dataset not found in history file"
+            assert 'evaluation_logl' in f, "sampling_logl dataset not found in history file"
+
+            # Check that sampling_accepted is not present (removed per requirements)
+            assert 'sampling_accepted' not in f, "sampling_accepted should not be present in history file"
+
+            # Get the length of evaluation history
+            evaluation_history_length = len(f['evaluation_logl'])
+
+            # The evaluation history should contain all likelihood evaluations (including initial live points)
+            ncalls = sampler.ncall
+
+            # Verify completeness: evaluation history length should equal total ncalls
+            assert evaluation_history_length == ncalls, \
+                f"Evaluation history incomplete: {evaluation_history_length} entries but {ncalls} likelihood calls"
+
+            # Additional checks: all arrays should have same length
+            assert len(
+                f['evaluation_u']
+            ) == evaluation_history_length, "sampling_u length mismatch"
+            assert len(
+                f['evaluation_v']
+            ) == evaluation_history_length, "sampling_v length mismatch"
+
+            # Check data integrity: no NaN values
+            assert not np.any(np.isnan(
+                f['evaluation_logl'][:])), "sampling_logl contains NaN values"
+            assert not np.any(np.isnan(
+                f['evaluation_u'][:])), "sampling_u contains NaN values"
+            assert not np.any(np.isnan(
+                f['evaluation_v'][:])), "sampling_v contains NaN values"
+
+    finally:
+        # Clean up temporary file
+        try:
+            os.unlink(history_filename)
+        except FileNotFoundError:
+            pass
+
+
+def test_dynamic_sampling_history_completeness():
+    """Test that evaluation history length equals ncalls when enabled for dynamic sampler."""
+    import tempfile
+    import h5py
+
+    ndim = 2
+    rstate = get_rstate()
+
+    # Create temporary file for history
+    with tempfile.NamedTemporaryFile(suffix='.h5', delete=False) as tmp:
+        history_filename = tmp.name
+
+    try:
+        # Run dynamic sampler with sampling history enabled
+        sampler = dynesty.DynamicNestedSampler(
+            loglike,
+            prior_transform,
+            ndim,
+            save_evaluation_history=True,
+            history_filename=history_filename,
+            rstate=rstate)
+
+        sampler.run_nested(dlogz_init=0.1,
+                           print_progress=printing,
+                           maxiter=500)
+
+        # Check that history file was created and contains expected data
+        assert os.path.exists(history_filename), "History file was not created"
+
+        # Read the history file and verify completeness
+        with h5py.File(history_filename, 'r') as f:
+            # Check that evaluation history datasets exist
+            assert 'evaluation_u' in f, "sampling_u dataset not found in history file"
+            assert 'evaluation_v' in f, "sampling_v dataset not found in history file"
+            assert 'evaluation_logl' in f, "sampling_logl dataset not found in history file"
+
+            # Check that sampling_accepted is not present (removed per requirements)
+            assert 'sampling_accepted' not in f, "sampling_accepted should not be present in history file"
+
+            # Get the length of evaluation history
+            evaluation_history_length = len(f['evaluation_logl'])
+
+            # The evaluation history should contain all likelihood evaluations (including initial live points)
+            ncalls = sampler.ncall
+
+            # Verify completeness: evaluation history length should equal total ncalls
+            assert evaluation_history_length == ncalls, \
+                f"Dynamic sampler evaluation history incomplete: {evaluation_history_length} entries but {ncalls} likelihood calls"
+
+            # Additional checks: all arrays should have same length
+            assert len(
+                f['evaluation_u']
+            ) == evaluation_history_length, "sampling_u length mismatch"
+            assert len(
+                f['evaluation_v']
+            ) == evaluation_history_length, "sampling_v length mismatch"
+
+            # Check data integrity: no NaN values
+            assert not np.any(np.isnan(
+                f['evaluation_logl'][:])), "sampling_logl contains NaN values"
+            assert not np.any(np.isnan(
+                f['evaluation_u'][:])), "sampling_u contains NaN values"
+            assert not np.any(np.isnan(
+                f['evaluation_v'][:])), "sampling_v contains NaN values"
+
+    finally:
+        # Clean up temporary file
+        try:
+            os.unlink(history_filename)
+        except FileNotFoundError:
+            pass

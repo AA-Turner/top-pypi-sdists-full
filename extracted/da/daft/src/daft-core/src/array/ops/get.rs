@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
-use arrow2::types::months_days_ns;
-use common_file::{DaftFile, DaftFileType};
+use daft_arrow::types::months_days_ns;
 
 use super::as_arrow::AsArrow;
+#[cfg(feature = "python")]
+use crate::prelude::PythonArray;
 use crate::{
     array::{DataArray, FixedSizeListArray, ListArray},
     datatypes::{
@@ -13,6 +14,7 @@ use crate::{
             DateArray, DurationArray, LogicalArrayImpl, MapArray, TimeArray, TimestampArray,
         },
     },
+    file::{DaftMediaType, FileReference},
     series::Series,
 };
 
@@ -28,10 +30,10 @@ where
             idx,
             self.len()
         );
-        let arrow_array = self.as_arrow();
+        let arrow_array = self.as_arrow2();
         let is_valid = arrow_array
             .validity()
-            .is_none_or(|validity| validity.get_bit(idx));
+            .is_none_or(|nulls| nulls.get_bit(idx));
         if is_valid {
             Some(unsafe { arrow_array.value_unchecked(idx) })
         } else {
@@ -46,13 +48,17 @@ macro_rules! impl_array_arrow_get {
         impl $ArrayT {
             #[inline]
             pub fn get(&self, idx: usize) -> Option<$output> {
-                if idx >= self.len() {
-                    panic!("Out of bounds: {} vs len: {}", idx, self.len())
-                }
-                let arrow_array = self.as_arrow();
+                assert!(
+                    idx < self.len(),
+                    "Out of bounds: {} vs len: {}",
+                    idx,
+                    self.len()
+                );
+
+                let arrow_array = self.as_arrow2();
                 let is_valid = arrow_array
                     .validity()
-                    .is_none_or(|validity| validity.get_bit(idx));
+                    .is_none_or(|nulls| nulls.get_bit(idx));
                 if is_valid {
                     Some(unsafe { arrow_array.value_unchecked(idx) })
                 } else {
@@ -95,19 +101,16 @@ impl NullArray {
 
 impl ExtensionArray {
     #[inline]
-    pub fn get(&self, idx: usize) -> Option<Box<dyn arrow2::scalar::Scalar>> {
+    pub fn get(&self, idx: usize) -> Option<Box<dyn daft_arrow::scalar::Scalar>> {
         assert!(
             idx < self.len(),
             "Out of bounds: {} vs len: {}",
             idx,
             self.len()
         );
-        let is_valid = self
-            .data
-            .validity()
-            .is_none_or(|validity| validity.get_bit(idx));
+        let is_valid = self.data.validity().is_none_or(|nulls| nulls.get_bit(idx));
         if is_valid {
-            Some(arrow2::scalar::new_scalar(self.data(), idx))
+            Some(daft_arrow::scalar::new_scalar(self.data(), idx))
         } else {
             None
         }
@@ -115,27 +118,19 @@ impl ExtensionArray {
 }
 
 #[cfg(feature = "python")]
-impl crate::datatypes::PythonArray {
+impl PythonArray {
     #[inline]
-    pub fn get(&self, idx: usize) -> Arc<pyo3::PyObject> {
-        use arrow2::array::Array;
-        use pyo3::prelude::*;
-
+    pub fn get(&self, idx: usize) -> Option<Arc<pyo3::Py<pyo3::PyAny>>> {
         assert!(
             idx < self.len(),
             "Out of bounds: {} vs len: {}",
             idx,
             self.len()
         );
-        let valid = self
-            .as_arrow()
-            .validity()
-            .map(|vd| vd.get_bit(idx))
-            .unwrap_or(true);
-        if valid {
-            self.as_arrow().values().get(idx).unwrap().clone()
+        if self.nulls().is_none_or(|v| v.is_valid(idx)) {
+            self.values().get(idx).cloned()
         } else {
-            Arc::new(Python::with_gil(|py| py.None()))
+            None
         }
     }
 }
@@ -189,46 +184,38 @@ impl MapArray {
     }
 }
 
-impl FileArray {
+impl<T> FileArray<T>
+where
+    T: DaftMediaType,
+{
     #[inline]
-    #[cfg(feature = "python")]
-    pub fn get(&self, idx: usize) -> Option<DaftFile> {
-        let discriminant_array = self.discriminant_array();
-        let discriminant = discriminant_array.get(idx)?;
+    pub fn get(&self, idx: usize) -> Option<FileReference> {
+        let url_array = self.physical.get("url").expect("url exists");
+        let io_config_array = self.physical.get("io_config").expect("io_config exists");
+        let url_array = url_array.utf8().expect("url is utf8");
+        let io_config_array = io_config_array.binary().expect("io_config is binary");
 
-        let discriminant: DaftFileType = discriminant.try_into().expect("Invalid discriminant");
-        match discriminant {
-            // it's a path, we know its valid utf8
-            DaftFileType::Reference => {
-                let url_array = self.physical.get("url").expect("url exists");
-                let io_config_array = self.physical.get("io_config").expect("io_config exists");
-                let url_array = url_array.utf8().expect("url is utf8");
-                let io_config_array = io_config_array.python().expect("io_config is python");
+        let data = url_array.get(idx)?;
+        let io_config = io_config_array.get(idx);
+        let io_config: Option<common_io_config::IOConfig> = {
+            io_config
+                .map(|serialized| {
+                    bincode::serde::decode_from_slice::<common_io_config::IOConfig, _>(
+                        serialized,
+                        bincode::config::legacy(),
+                    )
+                    .map(|out| out.0)
+                })
+                .transpose()
+                .ok()
+                .flatten()
+        };
 
-                let data = url_array.get(idx)?;
-                let io_config = io_config_array.get(idx);
-                let io_config: Option<common_io_config::python::IOConfig> =
-                    pyo3::Python::with_gil(|py| io_config.extract(py).ok().flatten());
-
-                Some(DaftFile::new_from_reference(
-                    data.to_string(),
-                    io_config.map(|conf| conf.config),
-                ))
-            }
-            DaftFileType::Data => {
-                let data_array = self.physical.get("data").expect("data exists");
-                let data_array = data_array.binary().expect("data is binary");
-                let data = data_array.get(idx)?;
-                let data = data.to_vec();
-                Some(DaftFile::new_from_data(data))
-            }
-        }
-    }
-
-    #[inline]
-    #[cfg(not(feature = "python"))]
-    pub fn get(&self, idx: usize) -> Option<DaftFile> {
-        unreachable!("FileArray.get() requires Python feature")
+        Some(FileReference::new(
+            T::get_type(),
+            data.to_string(),
+            io_config,
+        ))
     }
 }
 
@@ -246,8 +233,8 @@ mod tests {
     fn test_fixed_size_list_get_all_valid() -> DaftResult<()> {
         let field = Field::new("foo", DataType::FixedSizeList(Box::new(DataType::Int32), 3));
         let flat_child = Int32Array::from(("foo", (0..9).collect::<Vec<i32>>()));
-        let validity = None;
-        let arr = FixedSizeListArray::new(field, flat_child.into_series(), validity);
+        let nulls = None;
+        let arr = FixedSizeListArray::new(field, flat_child.into_series(), nulls);
         assert_eq!(arr.len(), 3);
 
         for i in 0..3 {
@@ -276,9 +263,9 @@ mod tests {
     fn test_fixed_size_list_get_some_valid() -> DaftResult<()> {
         let field = Field::new("foo", DataType::FixedSizeList(Box::new(DataType::Int32), 3));
         let flat_child = Int32Array::from(("foo", (0..9).collect::<Vec<i32>>()));
-        let raw_validity = vec![true, false, true];
-        let validity = Some(arrow2::bitmap::Bitmap::from(raw_validity.as_slice()));
-        let arr = FixedSizeListArray::new(field, flat_child.into_series(), validity);
+        let raw_nulls = vec![true, false, true];
+        let nulls = Some(daft_arrow::buffer::NullBuffer::from(raw_nulls.as_slice()));
+        let arr = FixedSizeListArray::new(field, flat_child.into_series(), nulls);
         assert_eq!(arr.len(), 3);
 
         let element = arr.get(0);
@@ -317,9 +304,9 @@ mod tests {
     fn test_list_get_some_valid() -> DaftResult<()> {
         let field = Field::new("foo", DataType::FixedSizeList(Box::new(DataType::Int32), 3));
         let flat_child = Int32Array::from(("foo", (0..9).collect::<Vec<i32>>()));
-        let raw_validity = vec![true, false, true];
-        let validity = Some(arrow2::bitmap::Bitmap::from(raw_validity.as_slice()));
-        let arr = FixedSizeListArray::new(field, flat_child.into_series(), validity);
+        let raw_nulls = vec![true, false, true];
+        let nulls = Some(daft_arrow::buffer::NullBuffer::from(raw_nulls.as_slice()));
+        let arr = FixedSizeListArray::new(field, flat_child.into_series(), nulls);
         let list_dtype = DataType::List(Box::new(DataType::Int32));
         let list_arr = arr.cast(&list_dtype)?;
         let l = list_arr.list()?;

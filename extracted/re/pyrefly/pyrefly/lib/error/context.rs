@@ -7,11 +7,11 @@
 
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::callable::Callable;
+use pyrefly_types::callable::FunctionKind;
 use ruff_python_ast::name::Name;
 
 use crate::binding::binding::AnnotationTarget;
 use crate::config::error_kind::ErrorKind;
-use crate::types::callable::FuncId;
 use crate::types::types::Type;
 
 /// General context for an error. For many errors, the root cause is some steps removed from what
@@ -22,6 +22,9 @@ use crate::types::types::Type;
 /// The root cause is `C.__lt__` being called with the wrong type, but the user sees a `<`
 /// comparison. ErrorContext stores this context that the user sees, to make it easier to connect
 /// it back to the root cause.
+///
+/// Note: Types stored in the ErrorContext should be processed through `AnswersSolver::for_display`
+/// otherwise printed type representations may be non-deterministic due to unsolved vars
 #[derive(Clone, Debug)]
 pub enum ErrorContext {
     /// with x: ...
@@ -47,6 +50,7 @@ pub enum ErrorContext {
     /// match x: case Foo(y): ...
     MatchPositional(Type),
     ImportNotFound(ModuleName),
+    ImportNotTyped(ModuleName),
 }
 
 impl ErrorContext {
@@ -58,12 +62,13 @@ impl ErrorContext {
             Self::InplaceBinaryOp(..) => ErrorKind::UnsupportedOperation,
             Self::Iteration(..) => ErrorKind::NotIterable,
             Self::AsyncIteration(..) => ErrorKind::NotIterable,
-            Self::Await(..) => ErrorKind::AsyncError,
-            Self::Index(..) => ErrorKind::IndexError,
+            Self::Await(..) => ErrorKind::NotAsync,
+            Self::Index(..) => ErrorKind::BadIndex,
             Self::SetItem(..) => ErrorKind::UnsupportedOperation,
             Self::DelItem(..) => ErrorKind::UnsupportedOperation,
-            Self::MatchPositional(..) => ErrorKind::MatchError,
-            Self::ImportNotFound(..) => ErrorKind::ImportError,
+            Self::MatchPositional(..) => ErrorKind::BadMatch,
+            Self::ImportNotFound(..) => ErrorKind::MissingImport,
+            Self::ImportNotTyped(..) => ErrorKind::UntypedImport,
         }
     }
 }
@@ -125,13 +130,13 @@ pub enum TypeCheckKind {
     /// Return in a type guard function.
     TypeGuardReturn,
     /// Function call argument against parameter type.
-    CallArgument(Option<Name>, Option<FuncId>),
+    CallArgument(Option<Name>, Option<FunctionKind>),
     /// Function call argument against *arg parameter type. The bool indicates whether the argument is unpacked.
-    CallVarArgs(bool, Option<Name>, Option<FuncId>),
+    CallVarArgs(bool, Option<Name>, Option<FunctionKind>),
     /// Keyword argument against parameter or **kwargs type, as (argument name, parameter name, function name).
-    CallKwArgs(Option<Name>, Option<Name>, Option<FuncId>),
+    CallKwArgs(Option<Name>, Option<Name>, Option<FunctionKind>),
     /// Unpacked keyword argument against named parameter.
-    CallUnpackKwArg(Name, Option<FuncId>),
+    CallUnpackKwArg(Name, Option<FunctionKind>),
     /// Check of a parameter's default value against its type annotation.
     FunctionParameterDefault(Name),
     /// Check against type of a TypedDict key. The name may be None if the type comes from
@@ -139,6 +144,10 @@ pub enum TypeCheckKind {
     TypedDictKey(Option<Name>),
     /// Check an unpacked dict against a TypedDict, e.g., `x: MyTypedDict = {**unpacked_dict}`.
     TypedDictUnpacking,
+    /// Check unpacking of an open TypedDict into a TypedDict. Used to report instances of
+    /// TypedDictUnpacking that are specifically caused by the open TypedDict potentially
+    /// containing extra keys via inheritance.
+    TypedDictOpenUnpacking,
     /// Check of an attribute assignment against its type.
     Attribute(Name),
     /// A check against a user-declared type annotation on a variable name.
@@ -172,6 +181,8 @@ pub enum TypeCheckKind {
     OverloadInput(Callable, Callable),
     /// Check that the type a TypeVar is specialized with is compatible with its type restriction.
     TypeVarSpecialization(Name),
+    /// An `x in y` check
+    Container,
 }
 
 impl TypeCheckKind {
@@ -198,8 +209,9 @@ impl TypeCheckKind {
             Self::CallKwArgs(..) => ErrorKind::BadArgumentType,
             Self::CallUnpackKwArg(..) => ErrorKind::BadArgumentType,
             Self::FunctionParameterDefault(..) => ErrorKind::BadFunctionDefinition,
-            Self::TypedDictKey(..) => ErrorKind::TypedDictKeyError,
+            Self::TypedDictKey(..) => ErrorKind::BadTypedDictKey,
             Self::TypedDictUnpacking => ErrorKind::BadUnpacking,
+            Self::TypedDictOpenUnpacking => ErrorKind::OpenUnpacking,
             Self::Attribute(..) => ErrorKind::BadAssignment,
             Self::AnnotatedName(..) => ErrorKind::BadAssignment,
             Self::IterationVariableMismatch(..) => ErrorKind::BadAssignment,
@@ -211,9 +223,10 @@ impl TypeCheckKind {
             Self::YieldFrom => ErrorKind::InvalidYield,
             Self::UnexpectedBareYield => ErrorKind::InvalidYield,
             Self::PostInit => ErrorKind::BadFunctionDefinition,
-            Self::OverloadReturn => ErrorKind::InvalidOverload,
-            Self::OverloadInput(..) => ErrorKind::InvalidOverload,
+            Self::OverloadReturn => ErrorKind::InconsistentOverload,
+            Self::OverloadInput(..) => ErrorKind::InconsistentOverload,
             Self::TypeVarSpecialization(..) => ErrorKind::BadSpecialization,
+            Self::Container => ErrorKind::UnsupportedOperation,
         }
     }
 }

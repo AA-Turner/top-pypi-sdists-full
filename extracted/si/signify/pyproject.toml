@@ -36,6 +36,9 @@ dynamic = ["version"]
 [tool.setuptools.dynamic]
 version = {attr = "signify.__version__"}
 
+[tool.setuptools.package-data]
+"signify.authenticode" = ["*.pem"]
+
 [project.urls]
 Documentation = "http://signify.readthedocs.io/en/latest/"
 Repository = "https://github.com/ralphje/signify"
@@ -44,6 +47,9 @@ Changelog = "https://signify.readthedocs.io/en/latest/changelog.html"
 [project.optional-dependencies]
 msi = ["olefile"]
 full = ["olefile"]
+
+[project.scripts]
+authenticode = "signify.authenticode.cli:main"
 
 [tool.black]
 line-length = 88

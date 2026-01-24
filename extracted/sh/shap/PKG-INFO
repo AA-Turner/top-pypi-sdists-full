@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shap
-Version: 0.48.0
+Version: 0.50.0
 Summary: A unified approach to explain the output of any machine learning model.
 Author-email: Scott Lundberg <slund1@cs.washington.edu>
 License: MIT License
@@ -11,28 +11,29 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy
+Requires-Dist: numpy>=2
 Requires-Dist: scipy
 Requires-Dist: scikit-learn
 Requires-Dist: pandas
 Requires-Dist: tqdm>=4.27.0
 Requires-Dist: packaging>20.9
 Requires-Dist: slicer==0.0.8
-Requires-Dist: numba>=0.54
+Requires-Dist: numba==0.63.0b1; python_version >= "3.14"
+Requires-Dist: llvmlite==0.46.0b1; python_version >= "3.14"
+Requires-Dist: numba>=0.54; python_version < "3.14"
 Requires-Dist: cloudpickle
 Requires-Dist: typing-extensions
 Provides-Extra: plots
@@ -40,6 +41,8 @@ Requires-Dist: matplotlib; extra == "plots"
 Requires-Dist: ipython; extra == "plots"
 Provides-Extra: others
 Requires-Dist: lime; extra == "others"
+Provides-Extra: download-datasets
+Requires-Dist: scikit-learn; extra == "download-datasets"
 Provides-Extra: docs
 Requires-Dist: matplotlib; extra == "docs"
 Requires-Dist: ipython; extra == "docs"
@@ -62,20 +65,20 @@ Requires-Dist: pytest-mpl; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: xgboost; extra == "test"
 Requires-Dist: lightgbm; extra == "test"
-Requires-Dist: catboost; python_version < "3.13" and extra == "test"
-Requires-Dist: gpboost; extra == "test"
+Requires-Dist: catboost; python_version < "3.14" and extra == "test"
+Requires-Dist: gpboost==1.6.3.1; python_version < "3.14" and extra == "test"
 Requires-Dist: ngboost; extra == "test"
 Requires-Dist: pyspark; extra == "test"
 Requires-Dist: pyod; extra == "test"
-Requires-Dist: transformers; python_version < "3.13" and extra == "test"
-Requires-Dist: tf-keras; python_version < "3.13" and extra == "test"
-Requires-Dist: protobuf==3.20.3; extra == "test"
-Requires-Dist: torch; python_version < "3.13" and extra == "test"
-Requires-Dist: torchvision; python_version < "3.13" and extra == "test"
-Requires-Dist: tensorflow; python_version < "3.13" and extra == "test"
+Requires-Dist: transformers<4.54.0; extra == "test"
+Requires-Dist: tf-keras; extra == "test"
+Requires-Dist: protobuf; extra == "test"
+Requires-Dist: torch; python_version < "3.14" and extra == "test"
+Requires-Dist: torchvision; python_version < "3.14" and extra == "test"
+Requires-Dist: tensorflow; python_version < "3.14" and extra == "test"
 Requires-Dist: sentencepiece; extra == "test"
 Requires-Dist: opencv-python; extra == "test"
-Requires-Dist: numpy<2.0; extra == "test"
+Requires-Dist: numpy>=2.0; extra == "test"
 Requires-Dist: scikit-learn<=1.6.1; extra == "test"
 Requires-Dist: causalml; extra == "test"
 Requires-Dist: selenium; extra == "test"
@@ -87,6 +90,10 @@ Requires-Dist: nlp; extra == "test-notebooks"
 Requires-Dist: transformers; extra == "test-notebooks"
 Requires-Dist: datasets; extra == "test-notebooks"
 Requires-Dist: keras; extra == "test-notebooks"
+Provides-Extra: nbtest
+Requires-Dist: nbtest-plugin; extra == "nbtest"
+Requires-Dist: nbtest-gen; extra == "nbtest"
+Requires-Dist: nbtest-lab-extension; extra == "nbtest"
 Dynamic: license-file
 
 

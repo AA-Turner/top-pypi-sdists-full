@@ -1,0 +1,55 @@
+name: Deploy to github pages
+on:
+  push:
+    branches:
+    - master
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-to-external-gh-pages:
+    name: Deploy spec site to github pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch event to site-gen-repo
+        run: |
+          curl -X POST https://api.github.com/repos/wamp-proto/wamp-site-gen/dispatches \
+          -H 'Accept: application/vnd.github.everest-preview+json' \
+          -H 'Authorization: token ${{ secrets.ACCESS_TOKEN }}' \
+          --data '{"event_type": "publish", "client_payload": { "repository": "'"$GITHUB_REPOSITORY"'", "commit_sha": "'"$GITHUB_SHA"'" }}'
+  deploy-to-gh-pages:
+    name: Deploy spec site to github pages
+    runs-on: ubuntu-latest
+    environment: github-pages
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: export PATH=$PATH:$HOME/.local/bin
+      - run: export WAMP_BUILD_ID="$(date -u "+%Y%m%d")-$(git rev-parse --short ${GITHUB_SHA})"
+      - run: sudo apt update
+      - run: sudo apt install -y xml2rfc libxml2-utils libenchant-2-2 enscript weasyprint libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0 python3-cffi python3-brotli libcairo2-dev
+      - run: pip install -r requirements.txt
+      - run: pip install 'weasyprint>=53.0'
+      - run: wget https://github.com/mmarkdown/mmark/releases/download/v2.2.25/mmark_2.2.25_linux_amd64.tgz
+      - run: tar xvzf mmark_2.2.25_linux_amd64.tgz
+      - run: rm -f ./mmark*.tgz
+      - run: sudo cp ./mmark /usr/local/bin/
+      - run: make build
+      - run: mv dist/_graphics dist/graphics
+      - run: mv dist/_images dist/images
+      - run: mv dist/_sources dist/sources
+      - run: mv dist/_static dist/static
+      - name: Rename underscore urls in dist
+        run: find dist -type f \( -name "*.html" -or -name "*.txt" \) -print -exec sed -i 's/_graphics\//graphics\//g' {} \;
+      - run: find dist -type f \( -name "*.html" -or -name "*.txt" \) -print -exec sed -i 's/_images\//images\//g' {} \;
+      - run: find dist -type f \( -name "*.html" -or -name "*.txt" \) -print -exec sed -i 's/_sources\//sources\//g' {} \;
+      - run: find dist -type f \( -name "*.html" -or -name "*.txt" \) -print -exec sed -i 's/_static\//static\//g' {} \;
+      - name: Deploy 🚀
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages # The branch the action should deploy to.
+          folder: dist # The folder the action should deploy.

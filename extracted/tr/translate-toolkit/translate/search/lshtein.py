@@ -85,7 +85,7 @@ except ImportError:
 
 
 class LevenshteinComparer:
-    def __init__(self, max_len=200):
+    def __init__(self, max_len=200) -> None:
         self.MAX_LEN = max_len
 
     def similarity(self, a, b, stoppercentage=40):
@@ -151,7 +151,6 @@ class LevenshteinComparer:
             penalty += 7
             if l1 > self.MAX_LEN:
                 a = a[: self.MAX_LEN]
-                l1 = self.MAX_LEN
                 penalty += 7
 
         # The actual value in the array that would represent a giveup situation:

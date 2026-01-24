@@ -12,15 +12,15 @@ if typing.TYPE_CHECKING:
 
 
 class _QueryParams(types.BaseModel):
-    fn_id: typing.Optional[str]
-    probe: typing.Optional[server_lib.Probe]
-    step_id: typing.Optional[str]
-    sync_id: typing.Optional[str]
+    fn_id: str | None
+    probe: server_lib.Probe | None
+    step_id: str | None
+    sync_id: str | None
 
 
 def parse_query_params(
-    query_params: typing.Union[dict[str, str], dict[str, list[str]]],
-) -> typing.Union[_QueryParams, Exception]:
+    query_params: dict[str, str] | dict[str, list[str]],
+) -> _QueryParams | Exception:
     normalized: dict[str, str] = {}
     for k, v in query_params.items():
         if isinstance(v, list):
@@ -28,7 +28,7 @@ def parse_query_params(
         else:
             normalized[k] = v
 
-    probe: typing.Optional[server_lib.Probe] = None
+    probe: server_lib.Probe | None = None
     probe_str = normalized.get(server_lib.QueryParamKey.PROBE.value)
     if probe_str:
         try:
@@ -49,8 +49,8 @@ def parse_query_params(
 
 
 _MethodHandler = typing.Callable[
-    [typing.Any, CommRequest, types.MaybeError[typing.Optional[str]]],
-    typing.Awaitable[typing.Union[CommResponse, Exception]],
+    [typing.Any, CommRequest, types.MaybeError[str | None]],
+    typing.Awaitable[CommResponse | Exception],
 ]
 
 
@@ -75,36 +75,37 @@ def wrap_handler(
             req: CommRequest,
         ) -> CommResponse:
             request_signing_key = None
-            if req.is_connect is False:
-                # Connect uses WebSockets so there isn't a request signature
-                # header.
+            with req.timings.comm_handler, req.timings.async_block:
+                if req.is_connect is False:
+                    # Connect uses WebSockets so there isn't a request signature
+                    # header.
 
-                req.headers = net.normalize_headers(req.headers)
+                    req.headers = net.normalize_headers(req.headers)
 
-                request_signing_key = net.validate_request_sig(
-                    body=req.body,
-                    headers=req.headers,
-                    mode=self._client._mode,
-                    signing_key=self._signing_key,
-                    signing_key_fallback=self._signing_key_fallback,
-                )
-                if (
-                    isinstance(request_signing_key, Exception)
-                    and require_signature
-                ):
-                    return CommResponse.from_error(
-                        self._client.logger,
-                        request_signing_key,
-                        status=http.HTTPStatus.UNAUTHORIZED,
+                    request_signing_key = net.validate_request_sig(
+                        body=req.body,
+                        headers=req.headers,
+                        mode=self._client._mode,
+                        signing_key=self._signing_key,
+                        signing_key_fallback=self._signing_key_fallback,
                     )
+                    if (
+                        isinstance(request_signing_key, Exception)
+                        and require_signature
+                    ):
+                        return CommResponse.from_error(
+                            self._client.logger,
+                            request_signing_key,
+                            status=http.HTTPStatus.UNAUTHORIZED,
+                        )
 
-            res = await method(
-                self,
-                req,
-                request_signing_key,
-            )
-            if isinstance(res, Exception):
-                res = CommResponse.from_error(self._client.logger, res)
+                res = await method(
+                    self,
+                    req,
+                    request_signing_key,
+                )
+                if isinstance(res, Exception):
+                    res = CommResponse.from_error(self._client.logger, res)
 
             res.headers = {
                 **res.headers,
@@ -113,6 +114,7 @@ def wrap_handler(
                     framework=self._framework,
                     server_kind=self._client._mode,
                 ),
+                server_lib.HeaderKey.SERVER_TIMING.value: req.timings.to_header(),
             }
 
             if isinstance(request_signing_key, str):
@@ -128,8 +130,8 @@ def wrap_handler(
 
 
 _MethodHandlerSync = typing.Callable[
-    [typing.Any, CommRequest, types.MaybeError[typing.Optional[str]]],
-    typing.Union[CommResponse, Exception],
+    [typing.Any, CommRequest, types.MaybeError[str | None]],
+    CommResponse | Exception,
 ]
 
 
@@ -152,36 +154,37 @@ def wrap_handler_sync(
             req: CommRequest,
         ) -> CommResponse:
             request_signing_key = None
-            if req.is_connect is False:
-                # Connect uses WebSockets so there isn't a request signature
-                # header.
+            with req.timings.comm_handler:
+                if req.is_connect is False:
+                    # Connect uses WebSockets so there isn't a request signature
+                    # header.
 
-                req.headers = net.normalize_headers(req.headers)
+                    req.headers = net.normalize_headers(req.headers)
 
-                request_signing_key = net.validate_request_sig(
-                    body=req.body,
-                    headers=req.headers,
-                    mode=self._client._mode,
-                    signing_key=self._signing_key,
-                    signing_key_fallback=self._signing_key_fallback,
-                )
-                if (
-                    isinstance(request_signing_key, Exception)
-                    and require_signature
-                ):
-                    return CommResponse.from_error(
-                        self._client.logger,
-                        request_signing_key,
-                        status=http.HTTPStatus.UNAUTHORIZED,
+                    request_signing_key = net.validate_request_sig(
+                        body=req.body,
+                        headers=req.headers,
+                        mode=self._client._mode,
+                        signing_key=self._signing_key,
+                        signing_key_fallback=self._signing_key_fallback,
                     )
+                    if (
+                        isinstance(request_signing_key, Exception)
+                        and require_signature
+                    ):
+                        return CommResponse.from_error(
+                            self._client.logger,
+                            request_signing_key,
+                            status=http.HTTPStatus.UNAUTHORIZED,
+                        )
 
-            res = method(
-                self,
-                req,
-                request_signing_key,
-            )
-            if isinstance(res, Exception):
-                res = CommResponse.from_error(self._client.logger, res)
+                res = method(
+                    self,
+                    req,
+                    request_signing_key,
+                )
+                if isinstance(res, Exception):
+                    res = CommResponse.from_error(self._client.logger, res)
 
             res.headers = {
                 **res.headers,
@@ -190,6 +193,7 @@ def wrap_handler_sync(
                     framework=self._framework,
                     server_kind=self._client._mode,
                 ),
+                server_lib.HeaderKey.SERVER_TIMING.value: req.timings.to_header(),
             }
 
             if isinstance(request_signing_key, str):

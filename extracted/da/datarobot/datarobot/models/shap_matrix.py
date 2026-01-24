@@ -62,14 +62,12 @@ class ShapMatrix(APIObject):
     """
 
     _path = "projects/{}/shapMatrices/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("project_id"): String(),
-            t.Key("model_id"): String(),
-            t.Key("dataset_id"): String(),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("project_id"): String(),
+        t.Key("model_id"): String(),
+        t.Key("dataset_id"): String(),
+    }).allow_extra("*")
 
     @deprecation.deprecated(
         deprecated_since_version="v3.4",
@@ -139,9 +137,7 @@ class ShapMatrix(APIObject):
             ShapMatrixJob,
         )
 
-        return ShapMatrixJob.get(
-            project_id=project_id, job_id=job_id, model_id=model_id, dataset_id=dataset_id
-        )
+        return ShapMatrixJob.get(project_id=project_id, job_id=job_id, model_id=model_id, dataset_id=dataset_id)
 
     @classmethod
     def from_location(  # type: ignore[override] # pylint: disable=arguments-renamed
@@ -183,9 +179,7 @@ class ShapMatrix(APIObject):
         datarobot.errors.ServerError
             if the server responded with 5xx status
         """
-        data = unpaginate(
-            initial_url=cls._path.format(project_id), initial_params=None, client=cls._client
-        )
+        data = unpaginate(initial_url=cls._path.format(project_id), initial_params=None, client=cls._client)
         result = [cls.from_server_data(item) for item in data]
         return result
 
@@ -238,9 +232,7 @@ class ShapMatrix(APIObject):
             if the server responded with 5xx status.
         """
         path = self._path.format(self.project_id) + f"{self.id}/"
-        resp = self._client.get(
-            path, headers={"Accept": "text/csv"}, stream=True, timeout=read_timeout
-        )
+        resp = self._client.get(path, headers={"Accept": "text/csv"}, stream=True, timeout=read_timeout)
         if resp.status_code == 200:
             content = resp.content.decode("utf-8")
             return pd.read_csv(StringIO(content), index_col=0, encoding="utf-8")

@@ -3,13 +3,26 @@ from enum import Enum
 
 import pydantic
 
-from connector_sdk_types.generated import CredentialConfig
+from connector_sdk_types.generated.models.standard_capability_name import StandardCapabilityName
 from connector_sdk_types.oai.capability import AuthRequest
 
 
 class OAuthFlowType(str, Enum):
     CODE_FLOW = "CODE_FLOW"
     CLIENT_CREDENTIALS = "CLIENT_CREDENTIALS"
+
+
+OAUTH_FLOW_TYPE_CAPABILITIES = {
+    OAuthFlowType.CODE_FLOW: [
+        StandardCapabilityName.GET_AUTHORIZATION_URL,
+        StandardCapabilityName.HANDLE_AUTHORIZATION_CALLBACK,
+        StandardCapabilityName.REFRESH_ACCESS_TOKEN,
+    ],
+    OAuthFlowType.CLIENT_CREDENTIALS: [
+        StandardCapabilityName.HANDLE_CLIENT_CREDENTIALS_REQUEST,
+        StandardCapabilityName.REFRESH_ACCESS_TOKEN,
+    ],
+}
 
 
 class ClientAuthenticationMethod(str, Enum):
@@ -79,17 +92,3 @@ class OAuthSettings(pydantic.BaseModel):
         default=False,
         description="Whether to use PKCE (code verifier and challenge), defaults to False.",
     )
-
-
-class OAuthConfig(CredentialConfig):
-    """
-    OAuth config, this is a CredentialConfig, used when needing to configure OAuth for an apps credentials list.
-    """
-
-    oauth_settings: t.Annotated[
-        OAuthSettings | None,
-        pydantic.Field(
-            default=None,
-            description="The OAuth settings to use, defaults to all capabilities enabled.",
-        ),
-    ] = None

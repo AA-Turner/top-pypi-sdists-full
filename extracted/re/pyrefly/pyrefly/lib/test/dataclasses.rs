@@ -68,6 +68,284 @@ Data(0, 1)  # E: Argument `Literal[1]` is not assignable to parameter `y` with t
 );
 
 testcase!(
+    test_replace,
+    r#"
+from dataclasses import dataclass, replace
+
+@dataclass
+class Foo:
+    x: int
+    y: str
+
+f = Foo(1, "a")
+
+replace(f, x="wrong")  # E: Argument `Literal['wrong']` is not assignable to parameter `x` with type `int` in function `Foo.__replace__`
+replace(f, z=3)  # E: Unexpected keyword argument `z`
+    "#,
+);
+
+testcase!(
+    test_replace_initvar_default,
+    r#"
+from dataclasses import dataclass, field, InitVar, replace
+
+@dataclass
+class WithInitVarDefault:
+    x: int
+    y: InitVar[str] = "ok"
+
+w = WithInitVarDefault(0)
+replace(w)
+replace(w, y="new")
+    "#,
+);
+
+testcase!(
+    test_replace_initvar_required,
+    r#"
+from dataclasses import dataclass, InitVar, replace
+
+@dataclass
+class Foo:
+    x: int
+    y: InitVar[int]
+
+f = Foo(1, 2)
+
+replace(f)  # E: Missing argument `y`
+    "#,
+);
+
+testcase!(
+    test_replace_positional_args_rejected,
+    r#"
+from dataclasses import dataclass, replace
+
+@dataclass
+class Foo:
+    x: int
+    y: str
+
+f = Foo(1, "a")
+
+replace(f, "extra")  # E: Expected 0 positional arguments, got 1
+    "#,
+);
+
+testcase!(
+    test_replace_init_false_field_rejected,
+    r#"
+from dataclasses import dataclass, field, replace
+
+@dataclass
+class WithInitFalse:
+    x: int
+    y: int = field(init=False, default=5)
+
+g = WithInitFalse(1)
+
+replace(g, y=10)  # E: Unexpected keyword argument `y`
+    "#,
+);
+
+testcase!(
+    test_replace_classvar_rejected,
+    r#"
+from dataclasses import dataclass, replace
+from typing import ClassVar
+
+@dataclass
+class Config:
+    limit: int
+    MAX_ID: ClassVar[int] = 100
+
+c = Config(10)
+replace(c, limit=20)
+replace(c, MAX_ID=200) # E: Unexpected keyword argument `MAX_ID`
+    "#,
+);
+
+testcase!(
+    test_replace_union_mixed_dataclass,
+    r#"
+from dataclasses import dataclass, replace
+from typing import Union
+
+@dataclass
+class Foo:
+    x: int
+
+class Bar:
+    x: int
+
+def f(obj: Union[Foo, Bar]):
+    replace(obj, x=0)  # E: `Bar` is not assignable to upper bound `DataclassInstance`
+    replace(obj, x="oops")  # E: `Bar` is not assignable to upper bound `DataclassInstance`  # E: Argument `Literal['oops']` is not assignable to parameter `x` with type `int`
+    "#,
+);
+
+testcase!(
+    test_replace_union_two_dataclasses_rejects_bad_kw,
+    r#"
+from dataclasses import dataclass, replace
+from typing import Union
+
+@dataclass
+class A:
+    x: int
+
+@dataclass
+class B:
+    y: int
+
+def f(obj: Union[A, B]):
+    replace(obj, z=1)  # E: Unexpected keyword argument `z` in function `A.__replace__`  # E: Unexpected keyword argument `z` in function `B.__replace__`
+    "#,
+);
+
+testcase!(
+    test_replace_union_two_dataclasses_rejects_kw_not_in_all_members,
+    r#"
+from dataclasses import dataclass, replace
+from typing import Union
+
+@dataclass
+class A:
+    x: int
+
+@dataclass
+class B:
+    y: int
+
+def f(obj: Union[A, B]):
+    replace(obj, x=1)  # E: Unexpected keyword argument `x`
+    "#,
+);
+
+testcase!(
+    test_replace_union_two_dataclasses_accepts_shared_kw,
+    r#"
+from dataclasses import dataclass, replace
+from typing import Union
+
+@dataclass
+class A:
+    x: int
+
+@dataclass
+class B:
+    x: int
+    y: str
+
+def f(obj: Union[A, B]):
+    replace(obj, x=1)
+    "#,
+);
+
+testcase!(
+    test_replace_starred_args_rejected,
+    r#"
+from dataclasses import dataclass, replace
+
+@dataclass
+class Foo:
+    x: int
+    y: int
+
+foo = Foo(1, 2)
+
+replace(foo, *())
+replace(foo, **{"x": "bad"})  # E: Argument `str` is not assignable to parameter `x` with type `int`
+replace(foo, **{"z": 0})  # E: Unexpected keyword argument `z`
+    "#,
+);
+
+testcase!(
+    test_replace_rejects_obj_keyword,
+    r#"
+from dataclasses import dataclass, replace
+
+@dataclass
+class Foo:
+    x: int
+
+foo = Foo(1)
+
+replace(foo, obj=foo)  # E: Unexpected keyword argument `obj`
+    "#,
+);
+
+testcase!(
+    test_replace_generic_consistency,
+    r#"
+from dataclasses import dataclass, replace
+from typing import TypeVar, Generic, assert_type
+
+T = TypeVar("T")
+
+@dataclass
+class Box(Generic[T]):
+    item: T
+
+b = Box(item=1)
+assert_type(replace(b, item=2), Box[int])
+replace(b, item="wrong")  # E: Argument `Literal['wrong']` is not assignable to parameter `item` with type `int`
+    "#,
+);
+
+testcase!(
+    test_replace_any_object_allows_any_keywords,
+    r#"
+from dataclasses import replace
+from typing import Any
+
+def f(obj: Any):
+    replace(obj, z=1)
+    replace(obj, **{"z": 2})
+    "#,
+);
+
+testcase!(
+    test_replace_union_with_dataclass_and_any,
+    r#"
+from dataclasses import dataclass, replace
+from typing import Any, assert_type
+
+@dataclass
+class Foo:
+    x: int
+
+def f(obj: Foo | Any):
+    replace(obj, x="oops")  # E: Argument `Literal['oops']` is not assignable to parameter `x` with type `int`
+    assert_type(replace(obj, x=0), Foo | Any)
+    "#,
+);
+
+testcase!(
+    test_replace_treats_dataclass_transform_as_dataclass,
+    r#"
+from dataclasses import replace
+from typing import dataclass_transform
+
+@dataclass_transform()
+def my_dc(cls):
+    return cls
+
+@my_dc
+class Model:
+    x: int
+    y: str
+
+    def __init__(self, x: int, y: str) -> None: ...
+
+m = Model(1, "a")
+
+replace(m, x=2)
+replace(m, x="oops")  # E: Argument `Literal['oops']` is not assignable to parameter `x` with type `int`
+    "#,
+);
+
+testcase!(
     test_inheritance,
     r#"
 import dataclasses
@@ -469,6 +747,18 @@ class D(C):
     x = 0
 D()  # OK
 D(x=1)  # E: Unexpected keyword argument `x`
+    "#,
+);
+
+testcase!(
+    test_bare_classvar,
+    r#"
+from typing import ClassVar
+import dataclasses
+@dataclasses.dataclass
+class C:
+    replace: ClassVar = dataclasses.replace
+C()
     "#,
 );
 
@@ -1197,7 +1487,7 @@ class Desc:
     def __set__(self, obj, value: str) -> None: ...
 @dataclass
 class C:
-    x: Desc = Desc()
+    x: Desc = Desc()  # E: Data descriptor `x` has incompatible default
 c = C('')
 assert_type(c.x, int)
 c.x = 'cat'
@@ -1237,5 +1527,121 @@ class Dog(Animal):
         return "woof"
 
 hdog = Dog(name="hdog")
+    "#,
+);
+
+testcase!(
+    test_fields_function,
+    r#"
+from typing import assert_type, Any
+from dataclasses import dataclass, fields, Field
+
+@dataclass
+class Person:
+    name: str
+    age: int
+
+# Test fields() on the class type
+f1 = fields(Person)
+assert_type(f1, tuple[Field[Any], ...])
+
+# Test fields() on an instance
+p = Person("Alice", 30)
+f2 = fields(p)
+assert_type(f2, tuple[Field[Any], ...])
+    "#,
+);
+
+testcase!(
+    test_final_field_no_modification,
+    r#"
+from typing import Final
+from dataclasses import dataclass
+@dataclass
+class C:
+    x: Final[int]
+    y: Final[int] = 42
+
+c = C(x=0)
+c.x = 1  # E: Cannot set field `x`
+c.y = 1  # E: Cannot set field `y`
+
+C.x = 1  # E: Cannot set field `x`
+C.y = 1  # E: Cannot set field `y`
+"#,
+);
+
+testcase!(
+    test_field_has_unknown_default,
+    r#"
+from dataclasses import dataclass, field
+@dataclass
+class C:
+    x: int = field(default_factory=42) # E:
+C()
+    "#,
+);
+
+testcase!(
+    test_non_data_descriptor_in_dataclass,
+    r#"
+from dataclasses import dataclass
+from typing import assert_type, Self
+
+# Non-data descriptors (only __get__, no __set__) in dataclasses are unsound:
+# The dataclass __init__ writes to the instance dict, shadowing the class-level
+# descriptor. This means the static type (from __get__) doesn't match the runtime
+# type (the raw descriptor object in the instance dict).
+class DescA:
+    def __get__(self, obj, cls) -> int: ...
+    # No __set__ - non-data descriptor
+
+# If the result of `__get__` is `Self`, then the shadowing described above doesn't cause
+# any static typing issues. Because this pattern does sometimes occur (e.g. Pytorch Device is a
+# Self-returning descriptor), we allow it.
+class DescB:
+    def __get__(self, obj, cls) -> Self: ...
+    # No __set__ - non-data descriptor, but __get__ returns Self
+
+@dataclass
+class C:
+    x: DescA = DescA()  # E: Non-data descriptor `x` in dataclass is unsound. The dataclass __init__ writes to the instance dict, shadowing the descriptor. Add a __set__ method to make it a data descriptor.
+    y: DescB = DescB()
+
+# Regardless of any errors, any descriptors assigned in the class body do have default values.
+c = C()
+    "#,
+);
+
+testcase!(
+    test_data_descriptor_in_dataclass,
+    r#"
+from dataclasses import dataclass
+from typing import assert_type
+
+# Data descriptors (have __set__) in dataclasses may work correctly because
+# assignments go through the descriptor protocol rather than shadowing.
+class DescA:
+    def __get__(self, obj, cls) -> int: ...
+    def __set__(self, obj, value: int) -> None: ...
+
+# But if the `__get__` type does not match `__set__` then the default is
+# incorrectly typed.
+class DescB:
+    def __get__(self, obj, cls) -> int: ...
+    def __set__(self, obj, value: str) -> None: ...
+
+@dataclass
+class C:
+    x: DescA = DescA()
+    y: DescB = DescB()  # E: Data descriptor `y` has incompatible default: `__get__` returns `int` which is not assignable to `__set__` value type `str`. The class-level descriptor value cannot be used as a default.
+
+# The field has a default, and accepts the `__set__` type if provided.
+c = C()
+c = C(x=42, y='42')
+
+# Reading should return the __get__ return type
+assert_type(c.x, int)
+assert_type(c.y, int)
     "#,
 );

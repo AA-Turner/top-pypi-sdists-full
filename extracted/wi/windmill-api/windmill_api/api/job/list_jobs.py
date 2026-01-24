@@ -8,6 +8,7 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.list_jobs_response_200_item_type_0 import ListJobsResponse200ItemType0
 from ...models.list_jobs_response_200_item_type_1 import ListJobsResponse200ItemType1
+from ...models.list_jobs_trigger_kind import ListJobsTriggerKind
 from ...types import UNSET, Response, Unset
 
 
@@ -26,19 +27,20 @@ def _get_kwargs(
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
     created_before: Union[Unset, None, datetime.datetime] = UNSET,
     created_after: Union[Unset, None, datetime.datetime] = UNSET,
-    created_or_started_before: Union[Unset, None, datetime.datetime] = UNSET,
+    completed_before: Union[Unset, None, datetime.datetime] = UNSET,
+    completed_after: Union[Unset, None, datetime.datetime] = UNSET,
+    created_before_queue: Union[Unset, None, datetime.datetime] = UNSET,
+    created_after_queue: Union[Unset, None, datetime.datetime] = UNSET,
     running: Union[Unset, None, bool] = UNSET,
     scheduled_for_before_now: Union[Unset, None, bool] = UNSET,
-    created_or_started_after: Union[Unset, None, datetime.datetime] = UNSET,
-    created_or_started_after_completed_jobs: Union[Unset, None, datetime.datetime] = UNSET,
     job_kinds: Union[Unset, None, str] = UNSET,
     suspended: Union[Unset, None, bool] = UNSET,
     args: Union[Unset, None, str] = UNSET,
     tag: Union[Unset, None, str] = UNSET,
     result: Union[Unset, None, str] = UNSET,
     allow_wildcards: Union[Unset, None, bool] = UNSET,
-    page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
+    trigger_kind: Union[Unset, None, ListJobsTriggerKind] = UNSET,
     is_skipped: Union[Unset, None, bool] = UNSET,
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
@@ -89,29 +91,33 @@ def _get_kwargs(
 
     params["created_after"] = json_created_after
 
-    json_created_or_started_before: Union[Unset, None, str] = UNSET
-    if not isinstance(created_or_started_before, Unset):
-        json_created_or_started_before = created_or_started_before.isoformat() if created_or_started_before else None
+    json_completed_before: Union[Unset, None, str] = UNSET
+    if not isinstance(completed_before, Unset):
+        json_completed_before = completed_before.isoformat() if completed_before else None
 
-    params["created_or_started_before"] = json_created_or_started_before
+    params["completed_before"] = json_completed_before
+
+    json_completed_after: Union[Unset, None, str] = UNSET
+    if not isinstance(completed_after, Unset):
+        json_completed_after = completed_after.isoformat() if completed_after else None
+
+    params["completed_after"] = json_completed_after
+
+    json_created_before_queue: Union[Unset, None, str] = UNSET
+    if not isinstance(created_before_queue, Unset):
+        json_created_before_queue = created_before_queue.isoformat() if created_before_queue else None
+
+    params["created_before_queue"] = json_created_before_queue
+
+    json_created_after_queue: Union[Unset, None, str] = UNSET
+    if not isinstance(created_after_queue, Unset):
+        json_created_after_queue = created_after_queue.isoformat() if created_after_queue else None
+
+    params["created_after_queue"] = json_created_after_queue
 
     params["running"] = running
 
     params["scheduled_for_before_now"] = scheduled_for_before_now
-
-    json_created_or_started_after: Union[Unset, None, str] = UNSET
-    if not isinstance(created_or_started_after, Unset):
-        json_created_or_started_after = created_or_started_after.isoformat() if created_or_started_after else None
-
-    params["created_or_started_after"] = json_created_or_started_after
-
-    json_created_or_started_after_completed_jobs: Union[Unset, None, str] = UNSET
-    if not isinstance(created_or_started_after_completed_jobs, Unset):
-        json_created_or_started_after_completed_jobs = (
-            created_or_started_after_completed_jobs.isoformat() if created_or_started_after_completed_jobs else None
-        )
-
-    params["created_or_started_after_completed_jobs"] = json_created_or_started_after_completed_jobs
 
     params["job_kinds"] = job_kinds
 
@@ -125,9 +131,13 @@ def _get_kwargs(
 
     params["allow_wildcards"] = allow_wildcards
 
-    params["page"] = page
-
     params["per_page"] = per_page
+
+    json_trigger_kind: Union[Unset, None, str] = UNSET
+    if not isinstance(trigger_kind, Unset):
+        json_trigger_kind = trigger_kind.value if trigger_kind else None
+
+    params["trigger_kind"] = json_trigger_kind
 
     params["is_skipped"] = is_skipped
 
@@ -215,19 +225,20 @@ def sync_detailed(
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
     created_before: Union[Unset, None, datetime.datetime] = UNSET,
     created_after: Union[Unset, None, datetime.datetime] = UNSET,
-    created_or_started_before: Union[Unset, None, datetime.datetime] = UNSET,
+    completed_before: Union[Unset, None, datetime.datetime] = UNSET,
+    completed_after: Union[Unset, None, datetime.datetime] = UNSET,
+    created_before_queue: Union[Unset, None, datetime.datetime] = UNSET,
+    created_after_queue: Union[Unset, None, datetime.datetime] = UNSET,
     running: Union[Unset, None, bool] = UNSET,
     scheduled_for_before_now: Union[Unset, None, bool] = UNSET,
-    created_or_started_after: Union[Unset, None, datetime.datetime] = UNSET,
-    created_or_started_after_completed_jobs: Union[Unset, None, datetime.datetime] = UNSET,
     job_kinds: Union[Unset, None, str] = UNSET,
     suspended: Union[Unset, None, bool] = UNSET,
     args: Union[Unset, None, str] = UNSET,
     tag: Union[Unset, None, str] = UNSET,
     result: Union[Unset, None, str] = UNSET,
     allow_wildcards: Union[Unset, None, bool] = UNSET,
-    page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
+    trigger_kind: Union[Unset, None, ListJobsTriggerKind] = UNSET,
     is_skipped: Union[Unset, None, bool] = UNSET,
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
@@ -251,19 +262,21 @@ def sync_detailed(
         started_after (Union[Unset, None, datetime.datetime]):
         created_before (Union[Unset, None, datetime.datetime]):
         created_after (Union[Unset, None, datetime.datetime]):
-        created_or_started_before (Union[Unset, None, datetime.datetime]):
+        completed_before (Union[Unset, None, datetime.datetime]):
+        completed_after (Union[Unset, None, datetime.datetime]):
+        created_before_queue (Union[Unset, None, datetime.datetime]):
+        created_after_queue (Union[Unset, None, datetime.datetime]):
         running (Union[Unset, None, bool]):
         scheduled_for_before_now (Union[Unset, None, bool]):
-        created_or_started_after (Union[Unset, None, datetime.datetime]):
-        created_or_started_after_completed_jobs (Union[Unset, None, datetime.datetime]):
         job_kinds (Union[Unset, None, str]):
         suspended (Union[Unset, None, bool]):
         args (Union[Unset, None, str]):
         tag (Union[Unset, None, str]):
         result (Union[Unset, None, str]):
         allow_wildcards (Union[Unset, None, bool]):
-        page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
+        trigger_kind (Union[Unset, None, ListJobsTriggerKind]): job trigger kind (schedule, http,
+            websocket...)
         is_skipped (Union[Unset, None, bool]):
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
@@ -293,19 +306,20 @@ def sync_detailed(
         started_after=started_after,
         created_before=created_before,
         created_after=created_after,
-        created_or_started_before=created_or_started_before,
+        completed_before=completed_before,
+        completed_after=completed_after,
+        created_before_queue=created_before_queue,
+        created_after_queue=created_after_queue,
         running=running,
         scheduled_for_before_now=scheduled_for_before_now,
-        created_or_started_after=created_or_started_after,
-        created_or_started_after_completed_jobs=created_or_started_after_completed_jobs,
         job_kinds=job_kinds,
         suspended=suspended,
         args=args,
         tag=tag,
         result=result,
         allow_wildcards=allow_wildcards,
-        page=page,
         per_page=per_page,
+        trigger_kind=trigger_kind,
         is_skipped=is_skipped,
         is_flow_step=is_flow_step,
         has_null_parent=has_null_parent,
@@ -337,19 +351,20 @@ def sync(
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
     created_before: Union[Unset, None, datetime.datetime] = UNSET,
     created_after: Union[Unset, None, datetime.datetime] = UNSET,
-    created_or_started_before: Union[Unset, None, datetime.datetime] = UNSET,
+    completed_before: Union[Unset, None, datetime.datetime] = UNSET,
+    completed_after: Union[Unset, None, datetime.datetime] = UNSET,
+    created_before_queue: Union[Unset, None, datetime.datetime] = UNSET,
+    created_after_queue: Union[Unset, None, datetime.datetime] = UNSET,
     running: Union[Unset, None, bool] = UNSET,
     scheduled_for_before_now: Union[Unset, None, bool] = UNSET,
-    created_or_started_after: Union[Unset, None, datetime.datetime] = UNSET,
-    created_or_started_after_completed_jobs: Union[Unset, None, datetime.datetime] = UNSET,
     job_kinds: Union[Unset, None, str] = UNSET,
     suspended: Union[Unset, None, bool] = UNSET,
     args: Union[Unset, None, str] = UNSET,
     tag: Union[Unset, None, str] = UNSET,
     result: Union[Unset, None, str] = UNSET,
     allow_wildcards: Union[Unset, None, bool] = UNSET,
-    page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
+    trigger_kind: Union[Unset, None, ListJobsTriggerKind] = UNSET,
     is_skipped: Union[Unset, None, bool] = UNSET,
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
@@ -373,19 +388,21 @@ def sync(
         started_after (Union[Unset, None, datetime.datetime]):
         created_before (Union[Unset, None, datetime.datetime]):
         created_after (Union[Unset, None, datetime.datetime]):
-        created_or_started_before (Union[Unset, None, datetime.datetime]):
+        completed_before (Union[Unset, None, datetime.datetime]):
+        completed_after (Union[Unset, None, datetime.datetime]):
+        created_before_queue (Union[Unset, None, datetime.datetime]):
+        created_after_queue (Union[Unset, None, datetime.datetime]):
         running (Union[Unset, None, bool]):
         scheduled_for_before_now (Union[Unset, None, bool]):
-        created_or_started_after (Union[Unset, None, datetime.datetime]):
-        created_or_started_after_completed_jobs (Union[Unset, None, datetime.datetime]):
         job_kinds (Union[Unset, None, str]):
         suspended (Union[Unset, None, bool]):
         args (Union[Unset, None, str]):
         tag (Union[Unset, None, str]):
         result (Union[Unset, None, str]):
         allow_wildcards (Union[Unset, None, bool]):
-        page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
+        trigger_kind (Union[Unset, None, ListJobsTriggerKind]): job trigger kind (schedule, http,
+            websocket...)
         is_skipped (Union[Unset, None, bool]):
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
@@ -416,19 +433,20 @@ def sync(
         started_after=started_after,
         created_before=created_before,
         created_after=created_after,
-        created_or_started_before=created_or_started_before,
+        completed_before=completed_before,
+        completed_after=completed_after,
+        created_before_queue=created_before_queue,
+        created_after_queue=created_after_queue,
         running=running,
         scheduled_for_before_now=scheduled_for_before_now,
-        created_or_started_after=created_or_started_after,
-        created_or_started_after_completed_jobs=created_or_started_after_completed_jobs,
         job_kinds=job_kinds,
         suspended=suspended,
         args=args,
         tag=tag,
         result=result,
         allow_wildcards=allow_wildcards,
-        page=page,
         per_page=per_page,
+        trigger_kind=trigger_kind,
         is_skipped=is_skipped,
         is_flow_step=is_flow_step,
         has_null_parent=has_null_parent,
@@ -454,19 +472,20 @@ async def asyncio_detailed(
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
     created_before: Union[Unset, None, datetime.datetime] = UNSET,
     created_after: Union[Unset, None, datetime.datetime] = UNSET,
-    created_or_started_before: Union[Unset, None, datetime.datetime] = UNSET,
+    completed_before: Union[Unset, None, datetime.datetime] = UNSET,
+    completed_after: Union[Unset, None, datetime.datetime] = UNSET,
+    created_before_queue: Union[Unset, None, datetime.datetime] = UNSET,
+    created_after_queue: Union[Unset, None, datetime.datetime] = UNSET,
     running: Union[Unset, None, bool] = UNSET,
     scheduled_for_before_now: Union[Unset, None, bool] = UNSET,
-    created_or_started_after: Union[Unset, None, datetime.datetime] = UNSET,
-    created_or_started_after_completed_jobs: Union[Unset, None, datetime.datetime] = UNSET,
     job_kinds: Union[Unset, None, str] = UNSET,
     suspended: Union[Unset, None, bool] = UNSET,
     args: Union[Unset, None, str] = UNSET,
     tag: Union[Unset, None, str] = UNSET,
     result: Union[Unset, None, str] = UNSET,
     allow_wildcards: Union[Unset, None, bool] = UNSET,
-    page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
+    trigger_kind: Union[Unset, None, ListJobsTriggerKind] = UNSET,
     is_skipped: Union[Unset, None, bool] = UNSET,
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
@@ -490,19 +509,21 @@ async def asyncio_detailed(
         started_after (Union[Unset, None, datetime.datetime]):
         created_before (Union[Unset, None, datetime.datetime]):
         created_after (Union[Unset, None, datetime.datetime]):
-        created_or_started_before (Union[Unset, None, datetime.datetime]):
+        completed_before (Union[Unset, None, datetime.datetime]):
+        completed_after (Union[Unset, None, datetime.datetime]):
+        created_before_queue (Union[Unset, None, datetime.datetime]):
+        created_after_queue (Union[Unset, None, datetime.datetime]):
         running (Union[Unset, None, bool]):
         scheduled_for_before_now (Union[Unset, None, bool]):
-        created_or_started_after (Union[Unset, None, datetime.datetime]):
-        created_or_started_after_completed_jobs (Union[Unset, None, datetime.datetime]):
         job_kinds (Union[Unset, None, str]):
         suspended (Union[Unset, None, bool]):
         args (Union[Unset, None, str]):
         tag (Union[Unset, None, str]):
         result (Union[Unset, None, str]):
         allow_wildcards (Union[Unset, None, bool]):
-        page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
+        trigger_kind (Union[Unset, None, ListJobsTriggerKind]): job trigger kind (schedule, http,
+            websocket...)
         is_skipped (Union[Unset, None, bool]):
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
@@ -532,19 +553,20 @@ async def asyncio_detailed(
         started_after=started_after,
         created_before=created_before,
         created_after=created_after,
-        created_or_started_before=created_or_started_before,
+        completed_before=completed_before,
+        completed_after=completed_after,
+        created_before_queue=created_before_queue,
+        created_after_queue=created_after_queue,
         running=running,
         scheduled_for_before_now=scheduled_for_before_now,
-        created_or_started_after=created_or_started_after,
-        created_or_started_after_completed_jobs=created_or_started_after_completed_jobs,
         job_kinds=job_kinds,
         suspended=suspended,
         args=args,
         tag=tag,
         result=result,
         allow_wildcards=allow_wildcards,
-        page=page,
         per_page=per_page,
+        trigger_kind=trigger_kind,
         is_skipped=is_skipped,
         is_flow_step=is_flow_step,
         has_null_parent=has_null_parent,
@@ -574,19 +596,20 @@ async def asyncio(
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
     created_before: Union[Unset, None, datetime.datetime] = UNSET,
     created_after: Union[Unset, None, datetime.datetime] = UNSET,
-    created_or_started_before: Union[Unset, None, datetime.datetime] = UNSET,
+    completed_before: Union[Unset, None, datetime.datetime] = UNSET,
+    completed_after: Union[Unset, None, datetime.datetime] = UNSET,
+    created_before_queue: Union[Unset, None, datetime.datetime] = UNSET,
+    created_after_queue: Union[Unset, None, datetime.datetime] = UNSET,
     running: Union[Unset, None, bool] = UNSET,
     scheduled_for_before_now: Union[Unset, None, bool] = UNSET,
-    created_or_started_after: Union[Unset, None, datetime.datetime] = UNSET,
-    created_or_started_after_completed_jobs: Union[Unset, None, datetime.datetime] = UNSET,
     job_kinds: Union[Unset, None, str] = UNSET,
     suspended: Union[Unset, None, bool] = UNSET,
     args: Union[Unset, None, str] = UNSET,
     tag: Union[Unset, None, str] = UNSET,
     result: Union[Unset, None, str] = UNSET,
     allow_wildcards: Union[Unset, None, bool] = UNSET,
-    page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
+    trigger_kind: Union[Unset, None, ListJobsTriggerKind] = UNSET,
     is_skipped: Union[Unset, None, bool] = UNSET,
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
@@ -610,19 +633,21 @@ async def asyncio(
         started_after (Union[Unset, None, datetime.datetime]):
         created_before (Union[Unset, None, datetime.datetime]):
         created_after (Union[Unset, None, datetime.datetime]):
-        created_or_started_before (Union[Unset, None, datetime.datetime]):
+        completed_before (Union[Unset, None, datetime.datetime]):
+        completed_after (Union[Unset, None, datetime.datetime]):
+        created_before_queue (Union[Unset, None, datetime.datetime]):
+        created_after_queue (Union[Unset, None, datetime.datetime]):
         running (Union[Unset, None, bool]):
         scheduled_for_before_now (Union[Unset, None, bool]):
-        created_or_started_after (Union[Unset, None, datetime.datetime]):
-        created_or_started_after_completed_jobs (Union[Unset, None, datetime.datetime]):
         job_kinds (Union[Unset, None, str]):
         suspended (Union[Unset, None, bool]):
         args (Union[Unset, None, str]):
         tag (Union[Unset, None, str]):
         result (Union[Unset, None, str]):
         allow_wildcards (Union[Unset, None, bool]):
-        page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
+        trigger_kind (Union[Unset, None, ListJobsTriggerKind]): job trigger kind (schedule, http,
+            websocket...)
         is_skipped (Union[Unset, None, bool]):
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
@@ -654,19 +679,20 @@ async def asyncio(
             started_after=started_after,
             created_before=created_before,
             created_after=created_after,
-            created_or_started_before=created_or_started_before,
+            completed_before=completed_before,
+            completed_after=completed_after,
+            created_before_queue=created_before_queue,
+            created_after_queue=created_after_queue,
             running=running,
             scheduled_for_before_now=scheduled_for_before_now,
-            created_or_started_after=created_or_started_after,
-            created_or_started_after_completed_jobs=created_or_started_after_completed_jobs,
             job_kinds=job_kinds,
             suspended=suspended,
             args=args,
             tag=tag,
             result=result,
             allow_wildcards=allow_wildcards,
-            page=page,
             per_page=per_page,
+            trigger_kind=trigger_kind,
             is_skipped=is_skipped,
             is_flow_step=is_flow_step,
             has_null_parent=has_null_parent,

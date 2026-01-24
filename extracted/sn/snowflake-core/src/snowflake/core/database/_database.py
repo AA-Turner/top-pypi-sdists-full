@@ -248,8 +248,8 @@ class DatabaseCollection(AccountObjectCollectionParent["DatabaseResource"]):
 class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
     """Represents a reference to a Snowflake database.
 
-    With this database reference, you can create, update, and fetch information about databases, as well
-    as perform certain unique actions on them.
+    With this database reference, you can fetch information about a database, as well as perform
+    certain actions on it.
     """
 
     def __init__(self, name: str, collection: DatabaseCollection) -> None:

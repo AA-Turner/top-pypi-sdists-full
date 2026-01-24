@@ -14,7 +14,8 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "include/private/base/SkDebug.h"
 #include "src/core/SkConvertPixels.h"
 #include "src/gpu/ganesh/GrDataUtils.h"
@@ -110,10 +111,12 @@ static void test_premul_alpha_roundtrip(skiatest::Reporter* reporter, SkSurface*
 DEF_TEST(PremulAlphaRoundTrip, reporter) {
     const SkImageInfo info = SkImageInfo::MakeN32Premul(256, 256);
 
-    sk_sp<SkSurface> surf(SkSurface::MakeRaster(info));
+    sk_sp<SkSurface> surf(SkSurfaces::Raster(info));
 
     test_premul_alpha_roundtrip(reporter, surf.get());
 }
+
+#if defined(SK_GANESH)
 DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(PremulAlphaRoundTrip_Gpu,
                                        reporter,
                                        ctxInfo,
@@ -121,7 +124,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(PremulAlphaRoundTrip_Gpu,
     const SkImageInfo info = SkImageInfo::MakeN32Premul(256, 256);
 
     sk_sp<SkSurface> surf(
-            SkSurface::MakeRenderTarget(ctxInfo.directContext(), skgpu::Budgeted::kNo, info));
+            SkSurfaces::RenderTarget(ctxInfo.directContext(), skgpu::Budgeted::kNo, info));
     test_premul_alpha_roundtrip(reporter, surf.get());
 }
 
@@ -182,6 +185,7 @@ DEF_TEST(PremulAlphaRoundTripGrConvertPixels, reporter) {
         }
     }
 }
+#endif
 
 DEF_TEST(PremulAlphaRoundTripSkConvertPixels, reporter) {
     // ... and now using SkConvertPixels, just for completeness
@@ -239,3 +243,4 @@ DEF_TEST(PremulAlphaRoundTripSkConvertPixels, reporter) {
         }
     }
 }
+

@@ -7,8 +7,6 @@ Tests for bitarray
 
 Author: Ilan Schnell
 """
-from __future__ import absolute_import
-
 import re
 import os
 import sys
@@ -17,7 +15,7 @@ import unittest
 import shutil
 import tempfile
 from io import BytesIO, UnsupportedOperation
-from random import choice, getrandbits, randrange, randint, shuffle
+from random import choice, choices, getrandbits, randrange, randint, shuffle
 from string import whitespace
 
 # imports needed inside tests
@@ -35,7 +33,7 @@ is_pypy = bool(platform.python_implementation() == 'PyPy')
 
 
 from bitarray import (bitarray, frozenbitarray, bits2bytes, decodetree,
-                      get_default_endian, _set_default_endian,
+                      get_default_endian,
                       _bitarray_reconstructor, _sysinfo as sysinfo,
                       BufferInfo, __version__)
 
@@ -154,10 +152,19 @@ class ModuleFunctionsTests(unittest.TestCase):
 
     def test_sysinfo(self):
         for key in ["void*", "size_t", "bitarrayobject", "decodetreeobject",
-                    "binode", "HAVE_BUILTIN_BSWAP64", "PY_LITTLE_ENDIAN",
-                    "PY_BIG_ENDIAN", "Py_DEBUG", "DEBUG"]:
+                    "binode", "HAVE_BUILTIN_BSWAP64",
+                    "PY_LITTLE_ENDIAN", "PY_BIG_ENDIAN",
+                    "Py_GIL_DISABLED", "Py_DEBUG", "DEBUG"]:
             res = sysinfo(key)
             self.assertEqual(type(res), int)
+
+    @skipIf(sys.version_info[:2] < (3, 14))
+    def test_gil_disabled(self):
+        self.assertEqual(sysinfo("Py_GIL_DISABLED"),
+                         "free-threading" in sys.version)
+        # see if GIL is actually disabled in free-threading build
+        if sysinfo("Py_GIL_DISABLED"):
+            self.assertFalse(sys._is_gil_enabled())
 
     def test_sysinfo_errors(self):
         self.assertRaises(TypeError, sysinfo)
@@ -177,36 +184,12 @@ class ModuleFunctionsTests(unittest.TestCase):
         self.assertEqual(sys.byteorder == "big",
                          sysinfo("PY_BIG_ENDIAN"))
 
-    def test_set_default_endian(self):
-        for default_endian in 'big', 'little':
-            _set_default_endian(default_endian)
-            a = bitarray()
-            self.assertEqual(a.endian, default_endian)
-            for x in None, 0, 64, '10111', [1, 0]:
-                a = bitarray(x)
-                self.assertEqual(a.endian, default_endian)
-
-            for endian in 'big', 'little', None:
-                a = bitarray(endian=endian)
-                self.assertEqual(a.endian,
-                                 default_endian if endian is None else endian)
-
-            # make sure that wrong calling _set_default_endian() does not
-            # change the default endianness
-            self.assertRaises(ValueError, _set_default_endian, 'foobar')
-            self.assertEqual(bitarray().endian, default_endian)
-
-    def test_set_default_endian_errors(self):
-        self.assertRaises(TypeError, _set_default_endian, 0)
-        self.assertRaises(TypeError, _set_default_endian, 'little', 0)
-        self.assertRaises(ValueError, _set_default_endian, 'foo')
-
     def test_get_default_endian(self):
-        for default_endian in 'big', 'little':
-            _set_default_endian(default_endian)
-            endian = get_default_endian()
-            self.assertEqual(endian, default_endian)
-            self.assertEqual(type(endian), str)
+        endian = get_default_endian()
+        self.assertTrue(endian in ('little', 'big'))
+        self.assertEqual(type(endian), str)
+        a = bitarray()
+        self.assertEqual(a.endian, endian)
 
     def test_get_default_endian_errors(self):
         # takes no arguments
@@ -259,16 +242,6 @@ class CreateObjectTests(unittest.TestCase, Util):
         self.assertNotEqual(a, b)
         self.assertEqual(a.tobytes(), b.tobytes())
 
-    def test_endian_default(self):
-        _set_default_endian('big')
-        a_big = bitarray()
-        _set_default_endian('little')
-        a_little = bitarray()
-        _set_default_endian('big')
-
-        self.assertEqual(a_big.endian, 'big')
-        self.assertEqual(a_little.endian, 'little')
-
     def test_endian_wrong(self):
         self.assertRaises(TypeError, bitarray, endian=0)
         self.assertRaises(ValueError, bitarray, endian='')
@@ -285,10 +258,9 @@ class CreateObjectTests(unittest.TestCase, Util):
             a = bitarray(buffer=b'', endian=endian)
             self.assertEQUAL(a, bitarray(0, endian))
 
-            _set_default_endian(endian)
-            a = bitarray(buffer=b'A')
-            self.assertEqual(a.endian, endian)
-            self.assertEqual(len(a), 8)
+        a = bitarray(buffer=b'A')
+        self.assertEqual(a.endian, "big")
+        self.assertEqual(len(a), 8)
 
     def test_buffer_readonly(self):
         a = bitarray(buffer=b'\xf0', endian='little')
@@ -539,6 +511,13 @@ class ToObjectsTests(unittest.TestCase, Util):
             self.assertEqual(a.padbits, 0)
             self.assertEqual(bytes(a), a.tobytes())
             self.assertEqual(bytearray(a), a.tobytes())
+
+    def test_bytes_bytearray_pad(self):
+        for endian, res in ("little", b"\x01"), ("big", b"\x80"):
+            a = bitarray("1", endian)
+            self.assertEqual(a.tobytes(), res)
+            a = bitarray("1", endian)
+            self.assertEqual(bytes(a), res)
 
     def test_set(self):
         for a in self.randombitarrays():
@@ -1409,7 +1388,7 @@ class GetSequenceIndexTests(unittest.TestCase, Util):
     def test_random(self):
         for a in self.randombitarrays():
             n = len(a)
-            lst = [randrange(n) for _ in range(n // 2)]
+            lst = choices(range(n), k=n//2)
             b = a[lst]
             self.assertEqual(b, bitarray(a[i] for i in lst))
             self.assertEqual(b.endian, a.endian)
@@ -1442,7 +1421,7 @@ class SetSequenceIndexTests(unittest.TestCase, Util):
     def test_bool_random(self):
         for a in self.randombitarrays():
             n = len(a)
-            lst = [randrange(n) for _ in range(n // 2)]
+            lst = choices(range(n), k=n//2)
             b = a.copy()
             v = getrandbits(1)
             a[lst] = v
@@ -1476,7 +1455,7 @@ class SetSequenceIndexTests(unittest.TestCase, Util):
     def test_bitarray_random(self):
         for a in self.randombitarrays():
             n = len(a)
-            lst = [randrange(n) for _ in range(n // 2)]
+            lst = choices(range(n), k=n//2)
             c = urandom_2(len(lst))
             b = a.copy()
 
@@ -1547,7 +1526,7 @@ class DelSequenceIndexTests(unittest.TestCase, Util):
     def test_random(self):
         for n in range(100):
             a = urandom_2(n)
-            lst = [randrange(n) for _ in range(randint(0, n))]
+            lst = choices(range(n), k=randint(0, n))
             b = a.copy()
             del a[lst]
             self.assertEqual(len(a), n - len(set(lst)))
@@ -2425,7 +2404,6 @@ class NumberTests(unittest.TestCase, Util):
 
     @skipIf(is_pypy)
     def test_imported(self):
-        _set_default_endian("big")
         a = bytearray([0xf0, 0x01, 0x02, 0x0f])
         b = bitarray(buffer=a)
         self.assertFalse(b.readonly)
@@ -2939,20 +2917,18 @@ class SortTests(unittest.TestCase, Util):
 class PackTests(unittest.TestCase, Util):
 
     def test_pack_simple(self):
-        for endian in 'little', 'big':
-            _set_default_endian(endian)
-            a = bitarray()
-            a.pack(bytes())
-            self.assertEQUAL(a, bitarray())
-            a.pack(b'\x00')
-            self.assertEQUAL(a, bitarray('0'))
-            a.pack(b'\xff')
-            self.assertEQUAL(a, bitarray('01'))
-            a.pack(b'\x01\x00\x7a')
-            self.assertEQUAL(a, bitarray('01101'))
-            a.pack(bytearray([0x01, 0x00, 0xff, 0xa7]))
-            self.assertEQUAL(a, bitarray('01101 1011'))
-            self.check_obj(a)
+        a = bitarray()
+        a.pack(bytes())
+        self.assertEQUAL(a, bitarray())
+        a.pack(b'\x00')
+        self.assertEQUAL(a, bitarray('0'))
+        a.pack(b'\xff')
+        self.assertEQUAL(a, bitarray('01'))
+        a.pack(b'\x01\x00\x7a')
+        self.assertEQUAL(a, bitarray('01101'))
+        a.pack(bytearray([0x01, 0x00, 0xff, 0xa7]))
+        self.assertEQUAL(a, bitarray('01101 1011'))
+        self.check_obj(a)
 
     def test_pack_types(self):
         a = bitarray()
@@ -3233,7 +3209,7 @@ class To01Tests(unittest.TestCase, Util):
     def test_sep(self):
         for a in self.randombitarrays():
             sep = "".join(chr(randint(32, 126))
-                              for _ in range(randrange(10)))
+                          for _ in range(randrange(10)))
             self.assertEqual(a.to01(1, sep), sep.join(str(v) for v in a))
 
         a = bitarray("11100111")
@@ -3445,7 +3421,7 @@ class CountTests(unittest.TestCase, Util):
     def test_sparse(self):
         n = 65536
         a = bitarray(n)
-        indices = set(randrange(n) for _ in range(256))
+        indices = set(choices(range(n), k=256))
         a[list(indices)] = 1
         self.assertEqual(a.count(1), len(indices))
         self.assertEqual(a.count(0), n - len(indices))
@@ -3636,7 +3612,7 @@ class IndexTests(unittest.TestCase, Util):
         for _ in range(500):
             n = randrange(1, 200)
             a = zeros(n)
-            plst = sorted(randrange(n) for _ in range(1, 10))
+            plst = sorted(choices(range(n), k=9))
             a[plst] = 1
             # test without start and stop
             self.assertEqual(a.find(1, right=0), plst[0])
@@ -5176,17 +5152,19 @@ class FrozenbitarrayTests(unittest.TestCase, Util):
 def run(verbosity=1):
     import bitarray.test_util
 
-    default_endian = get_default_endian()
     print('bitarray is installed in: %s' % os.path.dirname(__file__))
     print('bitarray version: %s' % __version__)
     print('sys.version: %s' % sys.version)
     print('sys.prefix: %s' % sys.prefix)
+    if sys.version_info[:2] >= (3, 14):
+        print('sys._is_gil_enabled(): %s' % sys._is_gil_enabled())
     print('pointer size: %d bit' % (8 * PTRSIZE))
     print('sizeof(size_t): %d' % sysinfo("size_t"));
     print('sizeof(bitarrayobject): %d' % sysinfo("bitarrayobject"))
     print('HAVE_BUILTIN_BSWAP64: %d' % sysinfo("HAVE_BUILTIN_BSWAP64"))
-    print('default bit-endianness: %s' % default_endian)
+    print('default bit-endianness: %s' % get_default_endian())
     print('machine byte-order: %s' % sys.byteorder)
+    print('Py_GIL_DISABLED: %s' % sysinfo("Py_GIL_DISABLED"))
     print('Py_DEBUG: %s' % sysinfo("Py_DEBUG"))
     print('DEBUG: %s' % sysinfo("DEBUG"))
     loader = unittest.TestLoader()
@@ -5196,7 +5174,6 @@ def run(verbosity=1):
 
     runner = unittest.TextTestRunner(verbosity=verbosity)
     result = runner.run(suite)
-    _set_default_endian(default_endian)
     return result
 
 if __name__ == '__main__':

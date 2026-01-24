@@ -4,19 +4,19 @@ from typing import Optional, Dict, Any, List, TypeVar, Type, Union
 
 import opik.llm_usage as llm_usage
 from . import opik_query_language, validation_helpers, constants
-
-from .. import config, datetime_helpers, logging_messages
-from ..id_helpers import generate_id  # noqa: F401 , keep it here for backward compatibility with external dependants
+from .. import config, datetime_helpers, logging_messages, id_helpers
 from ..message_processing import messages
 from ..rest_api.types import (
     span_filter_public,
     trace_filter_public,
     trace_thread_filter,
 )
-from ..types import FeedbackScoreDict
+from ..types import BatchFeedbackScoreDict
+
+# Re-export for backward compatibility
+generate_id = id_helpers.generate_id
 
 LOGGER = logging.getLogger(__name__)
-
 
 FilterParsedItemT = TypeVar(
     "FilterParsedItemT",
@@ -89,6 +89,11 @@ def add_usage_to_metadata(
 
     metadata = {} if metadata is None else {**metadata}
 
+    # Don't overwrite existing metadata.usage - it may contain original provider data
+    # that should be preserved (e.g., during import from exported data)
+    if "usage" in metadata:
+        return metadata
+
     if isinstance(usage, llm_usage.OpikUsage):
         metadata["usage"] = usage.provider_usage.model_dump(exclude_none=True)
         return metadata
@@ -140,7 +145,7 @@ def parse_search_expressions(
 
 
 def parse_feedback_score_messages(
-    scores: List[FeedbackScoreDict],
+    scores: List[BatchFeedbackScoreDict],
     project_name: str,
     parsed_item_class: Type[ScoreMessageT],
     logger: logging.Logger,
@@ -156,9 +161,13 @@ def parse_feedback_score_messages(
 
     score_messages = [
         parsed_item_class(
+            id=score_dict["id"],
+            name=score_dict["name"],
+            value=score_dict["value"],
             source=constants.FEEDBACK_SCORE_SOURCE_SDK,
-            project_name=project_name,
-            **score_dict,
+            project_name=score_dict.get("project_name") or project_name,
+            reason=score_dict.get("reason"),
+            category_name=score_dict.get("category_name"),
         )
         for score_dict in valid_scores
     ]

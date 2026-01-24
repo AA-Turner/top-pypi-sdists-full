@@ -31,6 +31,8 @@ class MonthlyUsageAttributionValues(ModelNormal):
             "appsec_usage": (float,),
             "asm_serverless_traced_invocations_percentage": (float,),
             "asm_serverless_traced_invocations_usage": (float,),
+            "bits_ai_investigations_percentage": (float,),
+            "bits_ai_investigations_usage": (float,),
             "browser_percentage": (float,),
             "browser_usage": (float,),
             "ci_pipeline_indexed_spans_percentage": (float,),
@@ -77,6 +79,8 @@ class MonthlyUsageAttributionValues(ModelNormal):
             "estimated_ingested_spans_usage": (float,),
             "fargate_percentage": (float,),
             "fargate_usage": (float,),
+            "flex_stored_logs_percentage": (float,),
+            "flex_stored_logs_usage": (float,),
             "functions_percentage": (float,),
             "functions_usage": (float,),
             "incident_management_monthly_active_users_percentage": (float,),
@@ -95,6 +99,8 @@ class MonthlyUsageAttributionValues(ModelNormal):
             "lambda_traced_invocations_usage": (float,),
             "llm_observability_percentage": (float,),
             "llm_observability_usage": (float,),
+            "llm_spans_percentage": (float,),
+            "llm_spans_usage": (float,),
             "logs_indexed_15day_percentage": (float,),
             "logs_indexed_15day_usage": (float,),
             "logs_indexed_180day_percentage": (float,),
@@ -186,6 +192,8 @@ class MonthlyUsageAttributionValues(ModelNormal):
         "appsec_usage": "appsec_usage",
         "asm_serverless_traced_invocations_percentage": "asm_serverless_traced_invocations_percentage",
         "asm_serverless_traced_invocations_usage": "asm_serverless_traced_invocations_usage",
+        "bits_ai_investigations_percentage": "bits_ai_investigations_percentage",
+        "bits_ai_investigations_usage": "bits_ai_investigations_usage",
         "browser_percentage": "browser_percentage",
         "browser_usage": "browser_usage",
         "ci_pipeline_indexed_spans_percentage": "ci_pipeline_indexed_spans_percentage",
@@ -232,6 +240,8 @@ class MonthlyUsageAttributionValues(ModelNormal):
         "estimated_ingested_spans_usage": "estimated_ingested_spans_usage",
         "fargate_percentage": "fargate_percentage",
         "fargate_usage": "fargate_usage",
+        "flex_stored_logs_percentage": "flex_stored_logs_percentage",
+        "flex_stored_logs_usage": "flex_stored_logs_usage",
         "functions_percentage": "functions_percentage",
         "functions_usage": "functions_usage",
         "incident_management_monthly_active_users_percentage": "incident_management_monthly_active_users_percentage",
@@ -250,6 +260,8 @@ class MonthlyUsageAttributionValues(ModelNormal):
         "lambda_traced_invocations_usage": "lambda_traced_invocations_usage",
         "llm_observability_percentage": "llm_observability_percentage",
         "llm_observability_usage": "llm_observability_usage",
+        "llm_spans_percentage": "llm_spans_percentage",
+        "llm_spans_usage": "llm_spans_usage",
         "logs_indexed_15day_percentage": "logs_indexed_15day_percentage",
         "logs_indexed_15day_usage": "logs_indexed_15day_usage",
         "logs_indexed_180day_percentage": "logs_indexed_180day_percentage",
@@ -342,6 +354,8 @@ class MonthlyUsageAttributionValues(ModelNormal):
         appsec_usage: Union[float, UnsetType] = unset,
         asm_serverless_traced_invocations_percentage: Union[float, UnsetType] = unset,
         asm_serverless_traced_invocations_usage: Union[float, UnsetType] = unset,
+        bits_ai_investigations_percentage: Union[float, UnsetType] = unset,
+        bits_ai_investigations_usage: Union[float, UnsetType] = unset,
         browser_percentage: Union[float, UnsetType] = unset,
         browser_usage: Union[float, UnsetType] = unset,
         ci_pipeline_indexed_spans_percentage: Union[float, UnsetType] = unset,
@@ -388,6 +402,8 @@ class MonthlyUsageAttributionValues(ModelNormal):
         estimated_ingested_spans_usage: Union[float, UnsetType] = unset,
         fargate_percentage: Union[float, UnsetType] = unset,
         fargate_usage: Union[float, UnsetType] = unset,
+        flex_stored_logs_percentage: Union[float, UnsetType] = unset,
+        flex_stored_logs_usage: Union[float, UnsetType] = unset,
         functions_percentage: Union[float, UnsetType] = unset,
         functions_usage: Union[float, UnsetType] = unset,
         incident_management_monthly_active_users_percentage: Union[float, UnsetType] = unset,
@@ -406,6 +422,8 @@ class MonthlyUsageAttributionValues(ModelNormal):
         lambda_traced_invocations_usage: Union[float, UnsetType] = unset,
         llm_observability_percentage: Union[float, UnsetType] = unset,
         llm_observability_usage: Union[float, UnsetType] = unset,
+        llm_spans_percentage: Union[float, UnsetType] = unset,
+        llm_spans_usage: Union[float, UnsetType] = unset,
         logs_indexed_15day_percentage: Union[float, UnsetType] = unset,
         logs_indexed_15day_usage: Union[float, UnsetType] = unset,
         logs_indexed_180day_percentage: Union[float, UnsetType] = unset,
@@ -527,6 +545,12 @@ class MonthlyUsageAttributionValues(ModelNormal):
 
         :param asm_serverless_traced_invocations_usage: The Application Security Monitoring Serverless traced invocations usage by tag(s).
         :type asm_serverless_traced_invocations_usage: float, optional
+
+        :param bits_ai_investigations_percentage: The percentage of Bits AI ``SRE`` investigation usage by tag(s).
+        :type bits_ai_investigations_percentage: float, optional
+
+        :param bits_ai_investigations_usage: The Bits AI ``SRE`` investigation usage by tag(s).
+        :type bits_ai_investigations_usage: float, optional
 
         :param browser_percentage: The percentage of synthetic browser test usage by tag(s).
         :type browser_percentage: float, optional
@@ -666,6 +690,12 @@ class MonthlyUsageAttributionValues(ModelNormal):
         :param fargate_usage: The Fargate usage by tags.
         :type fargate_usage: float, optional
 
+        :param flex_stored_logs_percentage: The percentage of Flex Stored Logs usage by tags.
+        :type flex_stored_logs_percentage: float, optional
+
+        :param flex_stored_logs_usage: The Flex Stored Logs usage by tags.
+        :type flex_stored_logs_usage: float, optional
+
         :param functions_percentage: The percentage of Lambda function usage by tag(s).
         :type functions_percentage: float, optional
 
@@ -719,6 +749,12 @@ class MonthlyUsageAttributionValues(ModelNormal):
 
         :param llm_observability_usage: The LLM Observability usage by tag(s).
         :type llm_observability_usage: float, optional
+
+        :param llm_spans_percentage: The percentage of LLM Spans usage by tag(s).
+        :type llm_spans_percentage: float, optional
+
+        :param llm_spans_usage: The LLM Spans usage by tag(s).
+        :type llm_spans_usage: float, optional
 
         :param logs_indexed_15day_percentage: The percentage of Indexed Logs (15-day Retention) usage by tag(s).
         :type logs_indexed_15day_percentage: float, optional
@@ -970,6 +1006,10 @@ class MonthlyUsageAttributionValues(ModelNormal):
             kwargs["asm_serverless_traced_invocations_percentage"] = asm_serverless_traced_invocations_percentage
         if asm_serverless_traced_invocations_usage is not unset:
             kwargs["asm_serverless_traced_invocations_usage"] = asm_serverless_traced_invocations_usage
+        if bits_ai_investigations_percentage is not unset:
+            kwargs["bits_ai_investigations_percentage"] = bits_ai_investigations_percentage
+        if bits_ai_investigations_usage is not unset:
+            kwargs["bits_ai_investigations_usage"] = bits_ai_investigations_usage
         if browser_percentage is not unset:
             kwargs["browser_percentage"] = browser_percentage
         if browser_usage is not unset:
@@ -1062,6 +1102,10 @@ class MonthlyUsageAttributionValues(ModelNormal):
             kwargs["fargate_percentage"] = fargate_percentage
         if fargate_usage is not unset:
             kwargs["fargate_usage"] = fargate_usage
+        if flex_stored_logs_percentage is not unset:
+            kwargs["flex_stored_logs_percentage"] = flex_stored_logs_percentage
+        if flex_stored_logs_usage is not unset:
+            kwargs["flex_stored_logs_usage"] = flex_stored_logs_usage
         if functions_percentage is not unset:
             kwargs["functions_percentage"] = functions_percentage
         if functions_usage is not unset:
@@ -1100,6 +1144,10 @@ class MonthlyUsageAttributionValues(ModelNormal):
             kwargs["llm_observability_percentage"] = llm_observability_percentage
         if llm_observability_usage is not unset:
             kwargs["llm_observability_usage"] = llm_observability_usage
+        if llm_spans_percentage is not unset:
+            kwargs["llm_spans_percentage"] = llm_spans_percentage
+        if llm_spans_usage is not unset:
+            kwargs["llm_spans_usage"] = llm_spans_usage
         if logs_indexed_15day_percentage is not unset:
             kwargs["logs_indexed_15day_percentage"] = logs_indexed_15day_percentage
         if logs_indexed_15day_usage is not unset:

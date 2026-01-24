@@ -1,46 +1,23 @@
 use crate::JiffTimeZone;
-use crate::errors::map_py_value_err;
 use crate::ry_datetime::RyDateTime;
 use crate::ry_offset::RyOffset;
 use crate::ry_timestamp::RyTimestamp;
 use crate::ry_zoned::RyZoned;
 use jiff::Timestamp;
-use jiff::tz::{Offset, TimeZone};
+use jiff::tz::{Offset, TimeZone, TimeZoneTransition};
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString, PyTuple};
-use ryo3_macro_rules::pytodo;
+use pyo3::types::{PyList, PyTzInfo};
+use ryo3_core::map_py_value_err;
+use ryo3_macro_rules::{py_type_err, pytodo};
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 #[derive(Debug, Clone)]
-#[pyclass(name = "TimeZone", frozen)]
+#[pyclass(name = "TimeZone", frozen, immutable_type, from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyTimeZone(pub(crate) std::sync::Arc<TimeZone>);
-
-impl From<TimeZone> for RyTimeZone {
-    fn from(value: TimeZone) -> Self {
-        Self(std::sync::Arc::new(value))
-    }
-}
-
-impl From<&TimeZone> for RyTimeZone {
-    fn from(value: &TimeZone) -> Self {
-        Self(std::sync::Arc::new(value.clone()))
-    }
-}
-
-impl From<RyTimeZone> for TimeZone {
-    fn from(value: RyTimeZone) -> Self {
-        (*value.0).clone()
-    }
-}
-
-impl From<&RyTimeZone> for TimeZone {
-    fn from(value: &RyTimeZone) -> Self {
-        (*value.0).clone()
-    }
-}
 
 #[pymethods]
 impl RyTimeZone {
@@ -55,6 +32,12 @@ impl RyTimeZone {
         TimeZone::get(time_zone_name)
             .map(Self::from)
             .map_err(map_py_value_err)
+    }
+
+    #[classattr]
+    #[expect(non_snake_case)]
+    fn UTC() -> Self {
+        Self::from(TimeZone::UTC)
     }
 
     // =====================================================================
@@ -73,18 +56,7 @@ impl RyTimeZone {
     }
 
     fn __repr__(&self) -> String {
-        if self.0.is_unknown() {
-            return "TimeZone('unknown')".to_string();
-        }
-
-        let iana_name = self.0.iana_name();
-        if let Some(name) = iana_name {
-            format!("TimeZone(\"{name}\")")
-        } else {
-            // REALLY NOT SURE IF THIS IS CORRECT
-            let offset = self.0.to_offset(Timestamp::now());
-            format!("TimeZone('{offset}')")
-        }
+        format!("{self}")
     }
 
     fn __str__(&self) -> String {
@@ -110,16 +82,21 @@ impl RyTimeZone {
         hasher.finish()
     }
 
-    fn __eq__<'py>(&self, other: &'py Bound<'py, PyAny>) -> PyResult<bool> {
-        if let Ok(other) = other.cast::<Self>() {
+    fn __eq__(&self, other: &Self) -> bool {
+        self.0.eq(&other.0)
+    }
+
+    fn equiv<'py>(&self, other: &'py Bound<'py, PyAny>) -> PyResult<bool> {
+        if let Ok(other) = other.cast_exact::<Self>() {
             Ok(self.0.eq(&other.get().0))
+        } else if let Ok(other) = other.cast::<PyTzInfo>() {
+            let tz: jiff::tz::TimeZone = other.extract()?;
+            Ok((*self.0).eq(&tz))
         } else if let Ok(other) = other.cast::<PyString>() {
             let other_str = other.extract::<&str>()?;
             Ok(self.0.iana_name() == Some(other_str))
         } else {
-            Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                "Expected a RyTimeZone or a string",
-            ))
+            py_type_err!("Expected TimeZone, datetime.tzinfo or string")
         }
     }
 
@@ -136,8 +113,8 @@ impl RyTimeZone {
     }
 
     #[staticmethod]
-    fn from_pytzinfo(d: JiffTimeZone) -> Self {
-        Self::from(d.0)
+    fn from_pytzinfo(tz: JiffTimeZone) -> Self {
+        Self::from(tz.0)
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
@@ -150,10 +127,6 @@ impl RyTimeZone {
     // =====================================================================
     // CLASS METHODS
     // =====================================================================
-    #[staticmethod]
-    fn from_str(s: &str) -> PyResult<Self> {
-        TimeZone::get(s).map(Self::from).map_err(map_py_value_err)
-    }
 
     #[staticmethod]
     fn fixed(offset: &RyOffset) -> Self {
@@ -161,15 +134,17 @@ impl RyTimeZone {
     }
 
     #[staticmethod]
-    fn posix(string: &str) -> PyResult<Self> {
-        TimeZone::posix(string)
+    fn posix(tz_name: &str) -> PyResult<Self> {
+        TimeZone::posix(tz_name)
             .map(Self::from)
             .map_err(map_py_value_err)
     }
 
     #[staticmethod]
-    fn get(s: &str) -> PyResult<Self> {
-        TimeZone::get(s).map(Self::from).map_err(map_py_value_err)
+    fn get(tz_name: &str) -> PyResult<Self> {
+        TimeZone::get(tz_name)
+            .map(Self::from)
+            .map_err(map_py_value_err)
     }
 
     #[staticmethod]
@@ -181,7 +156,7 @@ impl RyTimeZone {
 
     #[staticmethod]
     fn utc() -> Self {
-        Self::from(TimeZone::fixed(Offset::UTC))
+        Self::UTC()
     }
 
     #[staticmethod]
@@ -201,6 +176,22 @@ impl RyTimeZone {
     // =====================================================================
     // INSTANCE METHODS
     // =====================================================================
+
+    /// Return dictionary with `offset`, `dst` and `abbreviation` from `TimeZone`
+    /// given a `Timestamp`
+    fn to_offset_info<'py>(
+        &self,
+        py: Python<'py>,
+        timestamp: &RyTimestamp,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let offset_info = self.0.to_offset_info(timestamp.0);
+        let dict = PyDict::new(py);
+        let ryoff = RyOffset::from(offset_info.offset());
+        dict.set_item(crate::interns::offset(py), ryoff.to_dict(py)?)?;
+        dict.set_item(crate::interns::dst(py), offset_info.dst().is_dst())?;
+        dict.set_item(crate::interns::abbreviation(py), offset_info.abbreviation())?;
+        Ok(dict)
+    }
 
     fn to_datetime(&self, timestamp: &RyTimestamp) -> RyDateTime {
         RyDateTime::from(self.0.to_datetime(timestamp.0))
@@ -263,5 +254,119 @@ impl RyTimeZone {
     #[expect(clippy::unused_self)]
     fn to_ambiguous_zoned(&self) -> PyResult<()> {
         pytodo!()
+    }
+
+    #[pyo3(signature = (timestamp, /, limit=None))]
+    fn preceding(
+        &self,
+        timestamp: &RyTimestamp,
+        limit: Option<usize>,
+    ) -> PyTimeZoneTransitionsVec<'_> {
+        let transitions = if let Some(lim) = limit {
+            self.0.preceding(timestamp.0).take(lim).collect::<Vec<_>>()
+        } else {
+            self.0.preceding(timestamp.0).collect::<Vec<_>>()
+        };
+        PyTimeZoneTransitionsVec(transitions)
+    }
+
+    #[pyo3(signature = (timestamp, /, limit=None))]
+    fn following(
+        &self,
+        timestamp: &RyTimestamp,
+        limit: Option<usize>,
+    ) -> PyTimeZoneTransitionsVec<'_> {
+        let transitions = if let Some(lim) = limit {
+            self.0.following(timestamp.0).take(lim).collect::<Vec<_>>()
+        } else {
+            self.0.following(timestamp.0).collect::<Vec<_>>()
+        };
+        PyTimeZoneTransitionsVec(transitions)
+    }
+
+    // ========================================================================
+    // STANDARD METHODS
+    // ========================================================================
+    // <STD-METHODS>
+    #[staticmethod]
+    fn from_str(s: &str) -> PyResult<Self> {
+        use ryo3_core::PyFromStr;
+        Self::py_from_str(s)
+    }
+
+    #[staticmethod]
+    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
+        use ryo3_core::PyParse;
+        Self::py_parse(s)
+    }
+    // </STD-METHODS>
+}
+
+impl std::fmt::Display for RyTimeZone {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "TimeZone(")?;
+
+        if self.is_unknown() {
+            write!(f, "\"unknown\"")?;
+        } else if let Some(name) = self.iana_name() {
+            write!(f, "\"{name}\"")?;
+        } else {
+            // REALLY NOT SURE IF THIS IS CORRECT
+            let offset = self.0.to_offset(Timestamp::now());
+            write!(f, "'{offset}'")?;
+        }
+        write!(f, ")")
+    }
+}
+
+struct PyTimeZoneTransitionsVec<'t>(Vec<TimeZoneTransition<'t>>);
+
+impl<'py> IntoPyObject<'py> for PyTimeZoneTransitionsVec<'_> {
+    type Target = PyList;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        use crate::interns;
+        let mut abbrev_set = {
+            // this is in a block bc I find the lint that clippy flips out
+            // over ('clippy::redundant_closure_for_method_calls') annoying as
+            // fuck I do think in some casese it makes more sense but wtf...
+            // it wants me to replace the following:
+            //    `|t| t.abbreviation()`
+            // with this:
+            //    `jiff::tz::TimeZoneTransition::abbreviation`
+            #[expect(clippy::redundant_closure_for_method_calls)]
+            self.0
+                .iter()
+                .map(|t| t.abbreviation())
+                .collect::<std::collections::HashSet<_>>()
+        };
+        let mut abbrev_pystrings: Vec<(&str, Bound<PyAny>)> = Vec::with_capacity(8);
+        for abbrev in abbrev_set.drain() {
+            let py_abbrev = PyString::new(py, abbrev);
+            abbrev_pystrings.push((abbrev, py_abbrev.into_bound_py_any(py)?));
+        }
+
+        let mut objects = vec![];
+        for t in &self.0 {
+            let d = PyDict::new(py);
+            d.set_item(interns::timestamp(py), RyTimestamp::from(t.timestamp()))?;
+            d.set_item(interns::offset(py), RyOffset::from(t.offset()))?;
+            d.set_item(interns::dst(py), t.dst().is_dst())?;
+            let py_abrev_str = abbrev_pystrings
+                .iter()
+                .find_map(|(abbrev, pystr)| {
+                    if *abbrev == t.abbreviation() {
+                        Some(pystr.clone())
+                    } else {
+                        None
+                    }
+                })
+                .expect("no-way-jose");
+            d.set_item(interns::abbreviation(py), py_abrev_str)?;
+            objects.push(d);
+        }
+        PyList::new(py, objects)
     }
 }

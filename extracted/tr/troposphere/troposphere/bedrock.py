@@ -307,6 +307,97 @@ class ApplicationInferenceProfile(AWSObject):
     }
 
 
+class PolicyDefinitionRule(AWSProperty):
+    """
+    `PolicyDefinitionRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitionrule.html>`__
+    """
+
+    props: PropsDictType = {
+        "AlternateExpression": (str, False),
+        "Expression": (str, True),
+        "Id": (str, True),
+    }
+
+
+class PolicyDefinitionTypeValue(AWSProperty):
+    """
+    `PolicyDefinitionTypeValue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitiontypevalue.html>`__
+    """
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "Value": (str, True),
+    }
+
+
+class PolicyDefinitionType(AWSProperty):
+    """
+    `PolicyDefinitionType <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitiontype.html>`__
+    """
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "Name": (str, True),
+        "Values": ([PolicyDefinitionTypeValue], True),
+    }
+
+
+class PolicyDefinitionVariable(AWSProperty):
+    """
+    `PolicyDefinitionVariable <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitionvariable.html>`__
+    """
+
+    props: PropsDictType = {
+        "Description": (str, True),
+        "Name": (str, True),
+        "Type": (str, True),
+    }
+
+
+class PolicyDefinition(AWSProperty):
+    """
+    `PolicyDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinition.html>`__
+    """
+
+    props: PropsDictType = {
+        "Rules": ([PolicyDefinitionRule], False),
+        "Types": ([PolicyDefinitionType], False),
+        "Variables": ([PolicyDefinitionVariable], False),
+        "Version": (str, False),
+    }
+
+
+class AutomatedReasoningPolicy(AWSObject):
+    """
+    `AutomatedReasoningPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-automatedreasoningpolicy.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::AutomatedReasoningPolicy"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "ForceDelete": (boolean, False),
+        "KmsKeyId": (str, False),
+        "Name": (str, True),
+        "PolicyDefinition": (PolicyDefinition, False),
+        "Tags": (Tags, False),
+    }
+
+
+class AutomatedReasoningPolicyVersion(AWSObject):
+    """
+    `AutomatedReasoningPolicyVersion <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-automatedreasoningpolicyversion.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::AutomatedReasoningPolicyVersion"
+
+    props: PropsDictType = {
+        "LastUpdatedDefinitionHash": (str, False),
+        "PolicyArn": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class Blueprint(AWSObject):
     """
     `Blueprint <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html>`__
@@ -346,6 +437,18 @@ class CustomOutputConfiguration(AWSProperty):
     }
 
 
+class AudioLanguageConfiguration(AWSProperty):
+    """
+    `AudioLanguageConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-audiolanguageconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "GenerativeOutputLanguage": (str, False),
+        "IdentifyMultipleLanguages": (boolean, False),
+        "InputLanguages": ([str], False),
+    }
+
+
 class ModalityProcessingConfiguration(AWSProperty):
     """
     `ModalityProcessingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-modalityprocessingconfiguration.html>`__
@@ -362,6 +465,7 @@ class AudioOverrideConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
+        "LanguageConfiguration": (AudioLanguageConfiguration, False),
         "ModalityProcessing": (ModalityProcessingConfiguration, False),
     }
 
@@ -434,6 +538,47 @@ class OverrideConfiguration(AWSProperty):
     }
 
 
+class ChannelLabelingConfiguration(AWSProperty):
+    """
+    `ChannelLabelingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-channellabelingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "State": (str, True),
+    }
+
+
+class SpeakerLabelingConfiguration(AWSProperty):
+    """
+    `SpeakerLabelingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-speakerlabelingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "State": (str, True),
+    }
+
+
+class TranscriptConfiguration(AWSProperty):
+    """
+    `TranscriptConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-transcriptconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ChannelLabeling": (ChannelLabelingConfiguration, False),
+        "SpeakerLabeling": (SpeakerLabelingConfiguration, False),
+    }
+
+
+class AudioExtractionCategoryTypeConfiguration(AWSProperty):
+    """
+    `AudioExtractionCategoryTypeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-audioextractioncategorytypeconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Transcript": (TranscriptConfiguration, False),
+    }
+
+
 class AudioExtractionCategory(AWSProperty):
     """
     `AudioExtractionCategory <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-audioextractioncategory.html>`__
@@ -441,6 +586,7 @@ class AudioExtractionCategory(AWSProperty):
 
     props: PropsDictType = {
         "State": (str, True),
+        "TypeConfiguration": (AudioExtractionCategoryTypeConfiguration, False),
         "Types": ([str], False),
     }
 
@@ -1882,6 +2028,17 @@ class FlowVersion(AWSObject):
     }
 
 
+class AutomatedReasoningPolicyConfig(AWSProperty):
+    """
+    `AutomatedReasoningPolicyConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-automatedreasoningpolicyconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "ConfidenceThreshold": (double, False),
+        "Policies": ([str], True),
+    }
+
+
 class ContentFilterConfig(AWSProperty):
     """
     `ContentFilterConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentfilterconfig.html>`__
@@ -2082,6 +2239,7 @@ class Guardrail(AWSObject):
     resource_type = "AWS::Bedrock::Guardrail"
 
     props: PropsDictType = {
+        "AutomatedReasoningPolicyConfig": (AutomatedReasoningPolicyConfig, False),
         "BlockedInputMessaging": (str, True),
         "BlockedOutputsMessaging": (str, True),
         "ContentPolicyConfig": (ContentPolicyConfig, False),

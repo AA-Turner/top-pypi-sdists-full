@@ -11,6 +11,8 @@ import httpx
 
 from .command_runner import _CommandRunner
 
+_dev_server_version: typing.Final = os.getenv("DEV_SERVER_VERSION", "latest")
+
 
 class _Server:
     @property
@@ -26,7 +28,7 @@ class _Server:
             port = 8288
         self.port = port
 
-        log_path: typing.Optional[pathlib.Path] = None
+        log_path: pathlib.Path | None = None
         if os.getenv("DEV_SERVER_LOGS") == "1":
             artifacts_dir = pathlib.Path("artifacts").absolute()
             print(f"Using artifacts directory: {artifacts_dir}")
@@ -37,14 +39,14 @@ class _Server:
             log_path = artifacts_dir / "dev_server.log"
 
         self._runner = _CommandRunner(
-            f"npx --yes inngest-cli@latest dev --no-discovery --no-poll --port {self.port}",
+            f"npx --ignore-scripts=false --yes inngest-cli@{_dev_server_version} dev --no-discovery --no-poll --port {self.port}",
             log_path=log_path,
         )
 
         self._enabled = os.getenv("DEV_SERVER_ENABLED") != "0"
-        self._output_thread: typing.Optional[threading.Thread] = None
+        self._output_thread: threading.Thread | None = None
 
-        self._process: typing.Optional[subprocess.Popen[str]] = None
+        self._process: subprocess.Popen[str] | None = None
         self._ready_event = threading.Event()
         self._stop_event = threading.Event()
 
@@ -57,7 +59,13 @@ class _Server:
         # Print inngest-cli version
         try:
             result = subprocess.run(
-                ["npx", "--yes", "inngest-cli@latest", "version"],
+                [
+                    "npx",
+                    "--ignore-scripts=false",
+                    "--yes",
+                    f"inngest-cli@{_dev_server_version}",
+                    "version",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=10,

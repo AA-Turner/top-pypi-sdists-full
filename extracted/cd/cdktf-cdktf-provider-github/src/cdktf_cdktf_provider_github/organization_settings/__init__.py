@@ -1,7 +1,7 @@
 r'''
 # `github_organization_settings`
 
-Refer to the Terraform Registry for docs: [`github_organization_settings`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings).
+Refer to the Terraform Registry for docs: [`github_organization_settings`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OrganizationSettings(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.organizationSettings.OrganizationSettings",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings github_organization_settings}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings github_organization_settings}.'''
 
     def __init__(
         self,
@@ -86,37 +86,37 @@ class OrganizationSettings(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings github_organization_settings} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings github_organization_settings} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param billing_email: The billing email address for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#billing_email OrganizationSettings#billing_email}
-        :param advanced_security_enabled_for_new_repositories: Whether or not advanced security is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#advanced_security_enabled_for_new_repositories OrganizationSettings#advanced_security_enabled_for_new_repositories}
-        :param blog: The blog URL for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#blog OrganizationSettings#blog}
-        :param company: The company name for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#company OrganizationSettings#company}
-        :param default_repository_permission: The default permission for organization members to create new repositories. Can be one of 'read', 'write', 'admin' or 'none'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#default_repository_permission OrganizationSettings#default_repository_permission}
-        :param dependabot_alerts_enabled_for_new_repositories: Whether or not dependabot alerts are enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#dependabot_alerts_enabled_for_new_repositories OrganizationSettings#dependabot_alerts_enabled_for_new_repositories}
-        :param dependabot_security_updates_enabled_for_new_repositories: Whether or not dependabot security updates are enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#dependabot_security_updates_enabled_for_new_repositories OrganizationSettings#dependabot_security_updates_enabled_for_new_repositories}
-        :param dependency_graph_enabled_for_new_repositories: Whether or not dependency graph is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#dependency_graph_enabled_for_new_repositories OrganizationSettings#dependency_graph_enabled_for_new_repositories}
-        :param description: The description for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#description OrganizationSettings#description}
-        :param email: The email address for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#email OrganizationSettings#email}
-        :param has_organization_projects: Whether or not organization projects are enabled for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#has_organization_projects OrganizationSettings#has_organization_projects}
-        :param has_repository_projects: Whether or not repository projects are enabled for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#has_repository_projects OrganizationSettings#has_repository_projects}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#id OrganizationSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#location OrganizationSettings#location}
-        :param members_can_create_internal_repositories: Whether or not organization members can create new internal repositories. For Enterprise Organizations only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_internal_repositories OrganizationSettings#members_can_create_internal_repositories}
-        :param members_can_create_pages: Whether or not organization members can create new pages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_pages OrganizationSettings#members_can_create_pages}
-        :param members_can_create_private_pages: Whether or not organization members can create new private pages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_private_pages OrganizationSettings#members_can_create_private_pages}
-        :param members_can_create_private_repositories: Whether or not organization members can create new private repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_private_repositories OrganizationSettings#members_can_create_private_repositories}
-        :param members_can_create_public_pages: Whether or not organization members can create new public pages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_public_pages OrganizationSettings#members_can_create_public_pages}
-        :param members_can_create_public_repositories: Whether or not organization members can create new public repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_public_repositories OrganizationSettings#members_can_create_public_repositories}
-        :param members_can_create_repositories: Whether or not organization members can create new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_repositories OrganizationSettings#members_can_create_repositories}
-        :param members_can_fork_private_repositories: Whether or not organization members can fork private repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_fork_private_repositories OrganizationSettings#members_can_fork_private_repositories}
-        :param name: The name for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#name OrganizationSettings#name}
-        :param secret_scanning_enabled_for_new_repositories: Whether or not secret scanning is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#secret_scanning_enabled_for_new_repositories OrganizationSettings#secret_scanning_enabled_for_new_repositories}
-        :param secret_scanning_push_protection_enabled_for_new_repositories: Whether or not secret scanning push protection is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#secret_scanning_push_protection_enabled_for_new_repositories OrganizationSettings#secret_scanning_push_protection_enabled_for_new_repositories}
-        :param twitter_username: The Twitter username for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#twitter_username OrganizationSettings#twitter_username}
-        :param web_commit_signoff_required: Whether or not commit signatures are required for commits to the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#web_commit_signoff_required OrganizationSettings#web_commit_signoff_required}
+        :param billing_email: The billing email address for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#billing_email OrganizationSettings#billing_email}
+        :param advanced_security_enabled_for_new_repositories: Whether or not advanced security is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#advanced_security_enabled_for_new_repositories OrganizationSettings#advanced_security_enabled_for_new_repositories}
+        :param blog: The blog URL for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#blog OrganizationSettings#blog}
+        :param company: The company name for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#company OrganizationSettings#company}
+        :param default_repository_permission: The default permission for organization members to create new repositories. Can be one of 'read', 'write', 'admin' or 'none'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#default_repository_permission OrganizationSettings#default_repository_permission}
+        :param dependabot_alerts_enabled_for_new_repositories: Whether or not dependabot alerts are enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#dependabot_alerts_enabled_for_new_repositories OrganizationSettings#dependabot_alerts_enabled_for_new_repositories}
+        :param dependabot_security_updates_enabled_for_new_repositories: Whether or not dependabot security updates are enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#dependabot_security_updates_enabled_for_new_repositories OrganizationSettings#dependabot_security_updates_enabled_for_new_repositories}
+        :param dependency_graph_enabled_for_new_repositories: Whether or not dependency graph is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#dependency_graph_enabled_for_new_repositories OrganizationSettings#dependency_graph_enabled_for_new_repositories}
+        :param description: The description for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#description OrganizationSettings#description}
+        :param email: The email address for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#email OrganizationSettings#email}
+        :param has_organization_projects: Whether or not organization projects are enabled for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#has_organization_projects OrganizationSettings#has_organization_projects}
+        :param has_repository_projects: Whether or not repository projects are enabled for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#has_repository_projects OrganizationSettings#has_repository_projects}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#id OrganizationSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#location OrganizationSettings#location}
+        :param members_can_create_internal_repositories: Whether or not organization members can create new internal repositories. For Enterprise Organizations only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_internal_repositories OrganizationSettings#members_can_create_internal_repositories}
+        :param members_can_create_pages: Whether or not organization members can create new pages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_pages OrganizationSettings#members_can_create_pages}
+        :param members_can_create_private_pages: Whether or not organization members can create new private pages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_private_pages OrganizationSettings#members_can_create_private_pages}
+        :param members_can_create_private_repositories: Whether or not organization members can create new private repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_private_repositories OrganizationSettings#members_can_create_private_repositories}
+        :param members_can_create_public_pages: Whether or not organization members can create new public pages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_public_pages OrganizationSettings#members_can_create_public_pages}
+        :param members_can_create_public_repositories: Whether or not organization members can create new public repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_public_repositories OrganizationSettings#members_can_create_public_repositories}
+        :param members_can_create_repositories: Whether or not organization members can create new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_repositories OrganizationSettings#members_can_create_repositories}
+        :param members_can_fork_private_repositories: Whether or not organization members can fork private repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_fork_private_repositories OrganizationSettings#members_can_fork_private_repositories}
+        :param name: The name for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#name OrganizationSettings#name}
+        :param secret_scanning_enabled_for_new_repositories: Whether or not secret scanning is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#secret_scanning_enabled_for_new_repositories OrganizationSettings#secret_scanning_enabled_for_new_repositories}
+        :param secret_scanning_push_protection_enabled_for_new_repositories: Whether or not secret scanning push protection is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#secret_scanning_push_protection_enabled_for_new_repositories OrganizationSettings#secret_scanning_push_protection_enabled_for_new_repositories}
+        :param twitter_username: The Twitter username for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#twitter_username OrganizationSettings#twitter_username}
+        :param web_commit_signoff_required: Whether or not commit signatures are required for commits to the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#web_commit_signoff_required OrganizationSettings#web_commit_signoff_required}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -181,7 +181,7 @@ class OrganizationSettings(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OrganizationSettings to import.
-        :param import_from_id: The id of the existing OrganizationSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OrganizationSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OrganizationSettings to import is found.
         '''
         if __debug__:
@@ -977,33 +977,33 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param billing_email: The billing email address for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#billing_email OrganizationSettings#billing_email}
-        :param advanced_security_enabled_for_new_repositories: Whether or not advanced security is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#advanced_security_enabled_for_new_repositories OrganizationSettings#advanced_security_enabled_for_new_repositories}
-        :param blog: The blog URL for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#blog OrganizationSettings#blog}
-        :param company: The company name for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#company OrganizationSettings#company}
-        :param default_repository_permission: The default permission for organization members to create new repositories. Can be one of 'read', 'write', 'admin' or 'none'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#default_repository_permission OrganizationSettings#default_repository_permission}
-        :param dependabot_alerts_enabled_for_new_repositories: Whether or not dependabot alerts are enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#dependabot_alerts_enabled_for_new_repositories OrganizationSettings#dependabot_alerts_enabled_for_new_repositories}
-        :param dependabot_security_updates_enabled_for_new_repositories: Whether or not dependabot security updates are enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#dependabot_security_updates_enabled_for_new_repositories OrganizationSettings#dependabot_security_updates_enabled_for_new_repositories}
-        :param dependency_graph_enabled_for_new_repositories: Whether or not dependency graph is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#dependency_graph_enabled_for_new_repositories OrganizationSettings#dependency_graph_enabled_for_new_repositories}
-        :param description: The description for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#description OrganizationSettings#description}
-        :param email: The email address for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#email OrganizationSettings#email}
-        :param has_organization_projects: Whether or not organization projects are enabled for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#has_organization_projects OrganizationSettings#has_organization_projects}
-        :param has_repository_projects: Whether or not repository projects are enabled for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#has_repository_projects OrganizationSettings#has_repository_projects}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#id OrganizationSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#location OrganizationSettings#location}
-        :param members_can_create_internal_repositories: Whether or not organization members can create new internal repositories. For Enterprise Organizations only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_internal_repositories OrganizationSettings#members_can_create_internal_repositories}
-        :param members_can_create_pages: Whether or not organization members can create new pages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_pages OrganizationSettings#members_can_create_pages}
-        :param members_can_create_private_pages: Whether or not organization members can create new private pages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_private_pages OrganizationSettings#members_can_create_private_pages}
-        :param members_can_create_private_repositories: Whether or not organization members can create new private repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_private_repositories OrganizationSettings#members_can_create_private_repositories}
-        :param members_can_create_public_pages: Whether or not organization members can create new public pages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_public_pages OrganizationSettings#members_can_create_public_pages}
-        :param members_can_create_public_repositories: Whether or not organization members can create new public repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_public_repositories OrganizationSettings#members_can_create_public_repositories}
-        :param members_can_create_repositories: Whether or not organization members can create new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_repositories OrganizationSettings#members_can_create_repositories}
-        :param members_can_fork_private_repositories: Whether or not organization members can fork private repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_fork_private_repositories OrganizationSettings#members_can_fork_private_repositories}
-        :param name: The name for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#name OrganizationSettings#name}
-        :param secret_scanning_enabled_for_new_repositories: Whether or not secret scanning is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#secret_scanning_enabled_for_new_repositories OrganizationSettings#secret_scanning_enabled_for_new_repositories}
-        :param secret_scanning_push_protection_enabled_for_new_repositories: Whether or not secret scanning push protection is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#secret_scanning_push_protection_enabled_for_new_repositories OrganizationSettings#secret_scanning_push_protection_enabled_for_new_repositories}
-        :param twitter_username: The Twitter username for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#twitter_username OrganizationSettings#twitter_username}
-        :param web_commit_signoff_required: Whether or not commit signatures are required for commits to the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#web_commit_signoff_required OrganizationSettings#web_commit_signoff_required}
+        :param billing_email: The billing email address for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#billing_email OrganizationSettings#billing_email}
+        :param advanced_security_enabled_for_new_repositories: Whether or not advanced security is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#advanced_security_enabled_for_new_repositories OrganizationSettings#advanced_security_enabled_for_new_repositories}
+        :param blog: The blog URL for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#blog OrganizationSettings#blog}
+        :param company: The company name for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#company OrganizationSettings#company}
+        :param default_repository_permission: The default permission for organization members to create new repositories. Can be one of 'read', 'write', 'admin' or 'none'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#default_repository_permission OrganizationSettings#default_repository_permission}
+        :param dependabot_alerts_enabled_for_new_repositories: Whether or not dependabot alerts are enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#dependabot_alerts_enabled_for_new_repositories OrganizationSettings#dependabot_alerts_enabled_for_new_repositories}
+        :param dependabot_security_updates_enabled_for_new_repositories: Whether or not dependabot security updates are enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#dependabot_security_updates_enabled_for_new_repositories OrganizationSettings#dependabot_security_updates_enabled_for_new_repositories}
+        :param dependency_graph_enabled_for_new_repositories: Whether or not dependency graph is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#dependency_graph_enabled_for_new_repositories OrganizationSettings#dependency_graph_enabled_for_new_repositories}
+        :param description: The description for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#description OrganizationSettings#description}
+        :param email: The email address for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#email OrganizationSettings#email}
+        :param has_organization_projects: Whether or not organization projects are enabled for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#has_organization_projects OrganizationSettings#has_organization_projects}
+        :param has_repository_projects: Whether or not repository projects are enabled for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#has_repository_projects OrganizationSettings#has_repository_projects}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#id OrganizationSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#location OrganizationSettings#location}
+        :param members_can_create_internal_repositories: Whether or not organization members can create new internal repositories. For Enterprise Organizations only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_internal_repositories OrganizationSettings#members_can_create_internal_repositories}
+        :param members_can_create_pages: Whether or not organization members can create new pages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_pages OrganizationSettings#members_can_create_pages}
+        :param members_can_create_private_pages: Whether or not organization members can create new private pages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_private_pages OrganizationSettings#members_can_create_private_pages}
+        :param members_can_create_private_repositories: Whether or not organization members can create new private repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_private_repositories OrganizationSettings#members_can_create_private_repositories}
+        :param members_can_create_public_pages: Whether or not organization members can create new public pages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_public_pages OrganizationSettings#members_can_create_public_pages}
+        :param members_can_create_public_repositories: Whether or not organization members can create new public repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_public_repositories OrganizationSettings#members_can_create_public_repositories}
+        :param members_can_create_repositories: Whether or not organization members can create new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_repositories OrganizationSettings#members_can_create_repositories}
+        :param members_can_fork_private_repositories: Whether or not organization members can fork private repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_fork_private_repositories OrganizationSettings#members_can_fork_private_repositories}
+        :param name: The name for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#name OrganizationSettings#name}
+        :param secret_scanning_enabled_for_new_repositories: Whether or not secret scanning is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#secret_scanning_enabled_for_new_repositories OrganizationSettings#secret_scanning_enabled_for_new_repositories}
+        :param secret_scanning_push_protection_enabled_for_new_repositories: Whether or not secret scanning push protection is enabled for new repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#secret_scanning_push_protection_enabled_for_new_repositories OrganizationSettings#secret_scanning_push_protection_enabled_for_new_repositories}
+        :param twitter_username: The Twitter username for the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#twitter_username OrganizationSettings#twitter_username}
+        :param web_commit_signoff_required: Whether or not commit signatures are required for commits to the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#web_commit_signoff_required OrganizationSettings#web_commit_signoff_required}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1181,7 +1181,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def billing_email(self) -> builtins.str:
         '''The billing email address for the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#billing_email OrganizationSettings#billing_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#billing_email OrganizationSettings#billing_email}
         '''
         result = self._values.get("billing_email")
         assert result is not None, "Required property 'billing_email' is missing"
@@ -1193,7 +1193,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not advanced security is enabled for new repositories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#advanced_security_enabled_for_new_repositories OrganizationSettings#advanced_security_enabled_for_new_repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#advanced_security_enabled_for_new_repositories OrganizationSettings#advanced_security_enabled_for_new_repositories}
         '''
         result = self._values.get("advanced_security_enabled_for_new_repositories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1202,7 +1202,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def blog(self) -> typing.Optional[builtins.str]:
         '''The blog URL for the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#blog OrganizationSettings#blog}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#blog OrganizationSettings#blog}
         '''
         result = self._values.get("blog")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1211,7 +1211,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def company(self) -> typing.Optional[builtins.str]:
         '''The company name for the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#company OrganizationSettings#company}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#company OrganizationSettings#company}
         '''
         result = self._values.get("company")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1220,7 +1220,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_repository_permission(self) -> typing.Optional[builtins.str]:
         '''The default permission for organization members to create new repositories. Can be one of 'read', 'write', 'admin' or 'none'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#default_repository_permission OrganizationSettings#default_repository_permission}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#default_repository_permission OrganizationSettings#default_repository_permission}
         '''
         result = self._values.get("default_repository_permission")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1231,7 +1231,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not dependabot alerts are enabled for new repositories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#dependabot_alerts_enabled_for_new_repositories OrganizationSettings#dependabot_alerts_enabled_for_new_repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#dependabot_alerts_enabled_for_new_repositories OrganizationSettings#dependabot_alerts_enabled_for_new_repositories}
         '''
         result = self._values.get("dependabot_alerts_enabled_for_new_repositories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1242,7 +1242,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not dependabot security updates are enabled for new repositories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#dependabot_security_updates_enabled_for_new_repositories OrganizationSettings#dependabot_security_updates_enabled_for_new_repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#dependabot_security_updates_enabled_for_new_repositories OrganizationSettings#dependabot_security_updates_enabled_for_new_repositories}
         '''
         result = self._values.get("dependabot_security_updates_enabled_for_new_repositories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1253,7 +1253,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not dependency graph is enabled for new repositories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#dependency_graph_enabled_for_new_repositories OrganizationSettings#dependency_graph_enabled_for_new_repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#dependency_graph_enabled_for_new_repositories OrganizationSettings#dependency_graph_enabled_for_new_repositories}
         '''
         result = self._values.get("dependency_graph_enabled_for_new_repositories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1262,7 +1262,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description for the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#description OrganizationSettings#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#description OrganizationSettings#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1271,7 +1271,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def email(self) -> typing.Optional[builtins.str]:
         '''The email address for the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#email OrganizationSettings#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#email OrganizationSettings#email}
         '''
         result = self._values.get("email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1282,7 +1282,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not organization projects are enabled for the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#has_organization_projects OrganizationSettings#has_organization_projects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#has_organization_projects OrganizationSettings#has_organization_projects}
         '''
         result = self._values.get("has_organization_projects")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1293,14 +1293,14 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not repository projects are enabled for the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#has_repository_projects OrganizationSettings#has_repository_projects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#has_repository_projects OrganizationSettings#has_repository_projects}
         '''
         result = self._values.get("has_repository_projects")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#id OrganizationSettings#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#id OrganizationSettings#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1312,7 +1312,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''The location for the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#location OrganizationSettings#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#location OrganizationSettings#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1323,7 +1323,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not organization members can create new internal repositories. For Enterprise Organizations only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_internal_repositories OrganizationSettings#members_can_create_internal_repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_internal_repositories OrganizationSettings#members_can_create_internal_repositories}
         '''
         result = self._values.get("members_can_create_internal_repositories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1334,7 +1334,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not organization members can create new pages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_pages OrganizationSettings#members_can_create_pages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_pages OrganizationSettings#members_can_create_pages}
         '''
         result = self._values.get("members_can_create_pages")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1345,7 +1345,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not organization members can create new private pages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_private_pages OrganizationSettings#members_can_create_private_pages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_private_pages OrganizationSettings#members_can_create_private_pages}
         '''
         result = self._values.get("members_can_create_private_pages")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1356,7 +1356,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not organization members can create new private repositories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_private_repositories OrganizationSettings#members_can_create_private_repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_private_repositories OrganizationSettings#members_can_create_private_repositories}
         '''
         result = self._values.get("members_can_create_private_repositories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1367,7 +1367,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not organization members can create new public pages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_public_pages OrganizationSettings#members_can_create_public_pages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_public_pages OrganizationSettings#members_can_create_public_pages}
         '''
         result = self._values.get("members_can_create_public_pages")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1378,7 +1378,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not organization members can create new public repositories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_public_repositories OrganizationSettings#members_can_create_public_repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_public_repositories OrganizationSettings#members_can_create_public_repositories}
         '''
         result = self._values.get("members_can_create_public_repositories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1389,7 +1389,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not organization members can create new repositories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_create_repositories OrganizationSettings#members_can_create_repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_create_repositories OrganizationSettings#members_can_create_repositories}
         '''
         result = self._values.get("members_can_create_repositories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1400,7 +1400,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not organization members can fork private repositories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#members_can_fork_private_repositories OrganizationSettings#members_can_fork_private_repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#members_can_fork_private_repositories OrganizationSettings#members_can_fork_private_repositories}
         '''
         result = self._values.get("members_can_fork_private_repositories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1409,7 +1409,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''The name for the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#name OrganizationSettings#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#name OrganizationSettings#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1420,7 +1420,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not secret scanning is enabled for new repositories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#secret_scanning_enabled_for_new_repositories OrganizationSettings#secret_scanning_enabled_for_new_repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#secret_scanning_enabled_for_new_repositories OrganizationSettings#secret_scanning_enabled_for_new_repositories}
         '''
         result = self._values.get("secret_scanning_enabled_for_new_repositories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1431,7 +1431,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not secret scanning push protection is enabled for new repositories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#secret_scanning_push_protection_enabled_for_new_repositories OrganizationSettings#secret_scanning_push_protection_enabled_for_new_repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#secret_scanning_push_protection_enabled_for_new_repositories OrganizationSettings#secret_scanning_push_protection_enabled_for_new_repositories}
         '''
         result = self._values.get("secret_scanning_push_protection_enabled_for_new_repositories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1440,7 +1440,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def twitter_username(self) -> typing.Optional[builtins.str]:
         '''The Twitter username for the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#twitter_username OrganizationSettings#twitter_username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#twitter_username OrganizationSettings#twitter_username}
         '''
         result = self._values.get("twitter_username")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1451,7 +1451,7 @@ class OrganizationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not commit signatures are required for commits to the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_settings#web_commit_signoff_required OrganizationSettings#web_commit_signoff_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_settings#web_commit_signoff_required OrganizationSettings#web_commit_signoff_required}
         '''
         result = self._values.get("web_commit_signoff_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

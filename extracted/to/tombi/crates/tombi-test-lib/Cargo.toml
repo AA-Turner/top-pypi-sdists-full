@@ -9,4 +9,5 @@ readme = "README.md"
 
 [dependencies]
 chrono.workspace = true
+tombi-uri.workspace = true
 tracing-subscriber.workspace = true

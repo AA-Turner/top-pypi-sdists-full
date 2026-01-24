@@ -142,7 +142,7 @@ class MetaDynamicsSampler:
 
         if not self._getter_accepts_peak():
             raise PeakNotAcceptedError(
-                ("Observer does not accept peak as a keyword argument to __call__")
+                "Observer does not accept peak as a keyword argument to __call__"
             )
 
         if not hasattr(self.bias, "get_coeff"):
@@ -171,7 +171,7 @@ class MetaDynamicsSampler:
         while not conv:
             counter += 1
             if time.perf_counter() - now > self.log_freq:
-                msg = f"Sweep no. {int(counter/len(self.mc.atoms))} "
+                msg = f"Sweep no. {int(counter / len(self.mc.atoms))} "
                 msg += f"Average visits: {self.progress_info['mean']:.2e}. "
                 msg += f"Min/avg: {self.progress_info['minval']:.2e} "
                 msg += f"x: {self.bias.getter(None):.2e}"

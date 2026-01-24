@@ -32,7 +32,7 @@ TUNNELDIR = '/var/www/html'
 TUNNELPORT = 22
 VMUSER = None
 VMPORT = None
-OPENSHIFT_TAG = '4.19'
+OPENSHIFT_TAG = '4.20'
 ALMA = 'https://repo.ifca.es/almalinux'
 BSD = 'https://object-storage.public.mtl1.vexxhost.net/swift/v1/1dbafeefbd4f4c80864414a441e72dd2'
 BSD += '/bsd-cloud-image.org/images/dragonflybsd'
@@ -56,11 +56,13 @@ IMAGES = {'almalinux8': f'{ALMA}/8/cloud/x86_64/images/AlmaLinux-8-GenericCloud-
           'debian10': f'{DEBIAN}/openstack/current-10/debian-10-openstack-amd64.qcow2',
           'debian11': f'{DEBIAN}/cloud/bullseye/latest/debian-11-generic-amd64.qcow2',
           'debian12': f'{DEBIAN}/cloud/bookworm/latest/debian-12-generic-amd64.qcow2',
+          'debian13': f'{DEBIAN}/cloud/trixie/latest/debian-13-generic-amd64.qcow2',
           'fcos': 'https://builds.coreos.fedoraproject.org/streams/stable.json',
           'fedora39': f'{FEDORA}/39/Cloud/x86_64/images/Fedora-Cloud-Base-39-1.5.x86_64.qcow2',
           'fedora40': f'{FEDORA}/40/Cloud/x86_64/images/Fedora-Cloud-Base-Generic.x86_64-40-1.14.qcow2',
           'fedora41': f'{FEDORA}/41/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-41-1.4.x86_64.qcow2',
           'fedora42': f'{FEDORA}/42/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-42-1.1.x86_64.qcow2',
+          'fedora43': f'{FEDORA}/43/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-43-1.6.x86_64.qcow2',
           'fedoralatest': 'https://alt.fedoraproject.org/cloud',
           'freebsd122': f'{BSD}/freebsd/12.2/freebsd-12.2.qcow2',
           'freebsd130': f'{BSD}/freebsd/13.0/freebsd-13.0-zfs.qcow2',
@@ -85,6 +87,7 @@ IMAGES = {'almalinux8': f'{ALMA}/8/cloud/x86_64/images/AlmaLinux-8-GenericCloud-
           'rhcos417': f'{RHCOS}/4.17',
           'rhcos418': f'{RHCOS}/4.18',
           'rhcos419': f'{RHCOS}/4.19',
+          'rhcos420': f'{RHCOS}/4.20',
           'rhcoslatest': f'{RHCOS}/{OPENSHIFT_TAG}',
           'rhel7': 'https://access.redhat.com/downloads/content/69/ver=/rhel---7',
           'rhel8': 'https://access.redhat.com/downloads/content/479/ver=/rhel---8',

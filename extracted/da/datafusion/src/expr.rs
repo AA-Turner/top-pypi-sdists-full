@@ -15,27 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use datafusion::logical_expr::expr::{AggregateFunctionParams, FieldMetadata};
-use datafusion::logical_expr::utils::exprlist_to_fields;
-use datafusion::logical_expr::{
-    lit_with_metadata, ExprFuncBuilder, ExprFunctionExt, LogicalPlan, WindowFunctionDefinition,
-};
-use pyo3::IntoPyObjectExt;
-use pyo3::{basic::CompareOp, prelude::*};
 use std::collections::HashMap;
 use std::convert::{From, Into};
 use std::sync::Arc;
-use window::PyWindowFrame;
 
 use datafusion::arrow::datatypes::{DataType, Field};
 use datafusion::arrow::pyarrow::PyArrowType;
 use datafusion::functions::core::expr_ext::FieldAccessor;
-use datafusion::logical_expr::{
-    col,
-    expr::{AggregateFunction, InList, InSubquery, ScalarFunction, WindowFunction},
-    lit, Between, BinaryExpr, Case, Cast, Expr, Like, Operator, TryCast,
+use datafusion::logical_expr::expr::{
+    AggregateFunction, AggregateFunctionParams, FieldMetadata, InList, InSubquery, ScalarFunction,
+    WindowFunction,
 };
+use datafusion::logical_expr::utils::exprlist_to_fields;
+use datafusion::logical_expr::{
+    col, lit, lit_with_metadata, Between, BinaryExpr, Case, Cast, Expr, ExprFuncBuilder,
+    ExprFunctionExt, Like, LogicalPlan, Operator, TryCast, WindowFunctionDefinition,
+};
+use pyo3::basic::CompareOp;
+use pyo3::prelude::*;
+use pyo3::IntoPyObjectExt;
+use window::PyWindowFrame;
 
+use self::alias::PyAlias;
+use self::bool_expr::{
+    PyIsFalse, PyIsNotFalse, PyIsNotNull, PyIsNotTrue, PyIsNotUnknown, PyIsNull, PyIsTrue,
+    PyIsUnknown, PyNegative, PyNot,
+};
+use self::like::{PyILike, PyLike, PySimilarTo};
+use self::scalar_variable::PyScalarVariable;
 use crate::common::data_type::{DataTypeMap, NullTreatment, PyScalarValue, RexType};
 use crate::errors::{py_runtime_err, py_type_err, py_unsupported_variant_err, PyDataFusionResult};
 use crate::expr::aggregate_expr::PyAggregateFunction;
@@ -45,14 +52,6 @@ use crate::expr::literal::PyLiteral;
 use crate::functions::add_builder_fns_to_window;
 use crate::pyarrow_util::scalar_to_pyarrow;
 use crate::sql::logical::PyLogicalPlan;
-
-use self::alias::PyAlias;
-use self::bool_expr::{
-    PyIsFalse, PyIsNotFalse, PyIsNotNull, PyIsNotTrue, PyIsNotUnknown, PyIsNull, PyIsTrue,
-    PyIsUnknown, PyNegative, PyNot,
-};
-use self::like::{PyILike, PyLike, PySimilarTo};
-use self::scalar_variable::PyScalarVariable;
 
 pub mod aggregate;
 pub mod aggregate_expr;
@@ -115,7 +114,7 @@ pub mod window;
 use sort_expr::{to_sort_expressions, PySortExpr};
 
 /// A PyExpr that can be used on a DataFrame
-#[pyclass(name = "RawExpr", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "RawExpr", module = "datafusion.expr", subclass)]
 #[derive(Debug, Clone)]
 pub struct PyExpr {
     pub expr: Expr,
@@ -142,7 +141,7 @@ pub fn py_expr_list(expr: &[Expr]) -> PyResult<Vec<PyExpr>> {
 impl PyExpr {
     /// Return the specific expression
     fn to_variant<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        Python::with_gil(|_| {
+        Python::attach(|_| {
             match &self.expr {
             Expr::Alias(alias) => Ok(PyAlias::from(alias.clone()).into_bound_py_any(py)?),
             Expr::Column(col) => Ok(PyColumn::from(col.clone()).into_bound_py_any(py)?),
@@ -380,8 +379,8 @@ impl PyExpr {
         Self::_types(&self.expr)
     }
 
-    /// Extracts the Expr value into a PyObject that can be shared with Python
-    pub fn python_value(&self, py: Python) -> PyResult<PyObject> {
+    /// Extracts the Expr value into a Py<PyAny> that can be shared with Python
+    pub fn python_value<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         match &self.expr {
             Expr::Literal(scalar_value, _) => scalar_to_pyarrow(scalar_value, py),
             _ => Err(py_type_err(format!(
@@ -637,7 +636,7 @@ impl PyExpr {
     }
 }
 
-#[pyclass(name = "ExprFuncBuilder", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "ExprFuncBuilder", module = "datafusion.expr", subclass)]
 #[derive(Debug, Clone)]
 pub struct PyExprFuncBuilder {
     pub builder: ExprFuncBuilder,

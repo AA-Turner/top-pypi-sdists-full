@@ -3,7 +3,7 @@ Type annotations for directconnect service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_directconnect/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import (
@@ -37,12 +38,6 @@ from .literals import (
     VirtualInterfaceStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -198,7 +193,7 @@ class RouteFilterPrefixTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -497,7 +492,7 @@ class ListVirtualInterfaceTestHistoryRequestTypeDef(TypedDict):
 class VirtualInterfaceTestHistoryTypeDef(TypedDict):
     testId: NotRequired[str]
     virtualInterfaceId: NotRequired[str]
-    bgpPeers: NotRequired[List[str]]
+    bgpPeers: NotRequired[list[str]]
     status: NotRequired[str]
     ownerAccount: NotRequired[str]
     testDurationInMinutes: NotRequired[int]
@@ -509,9 +504,9 @@ class LocationTypeDef(TypedDict):
     locationCode: NotRequired[str]
     locationName: NotRequired[str]
     region: NotRequired[str]
-    availablePortSpeeds: NotRequired[List[str]]
-    availableProviders: NotRequired[List[str]]
-    availableMacSecPortSpeeds: NotRequired[List[str]]
+    availablePortSpeeds: NotRequired[list[str]]
+    availableProviders: NotRequired[list[str]]
+    availableMacSecPortSpeeds: NotRequired[list[str]]
 
 
 class StartBgpFailoverTestRequestTypeDef(TypedDict):
@@ -682,7 +677,7 @@ class DirectConnectGatewayTypeDef(TypedDict):
     ownerAccount: NotRequired[str]
     directConnectGatewayState: NotRequired[DirectConnectGatewayStateType]
     stateChangeError: NotRequired[str]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 
 class NewPrivateVirtualInterfaceAllocationTypeDef(TypedDict):
@@ -770,7 +765,7 @@ class NewTransitVirtualInterfaceTypeDef(TypedDict):
 
 class ResourceTagTypeDef(TypedDict):
     resourceArn: NotRequired[str]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -780,7 +775,7 @@ class TagResourceRequestTypeDef(TypedDict):
 
 class AssociateMacSecKeyResponseTypeDef(TypedDict):
     connectionId: str
-    macSecKeys: List[MacSecKeyTypeDef]
+    macSecKeys: list[MacSecKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -801,12 +796,12 @@ class ConnectionResponseTypeDef(TypedDict):
     awsDeviceV2: str
     awsLogicalDeviceId: str
     hasLogicalRedundancy: HasLogicalRedundancyType
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     providerName: str
     macSecCapable: bool
     portEncryptionStatus: str
     encryptionMode: str
-    macSecKeys: List[MacSecKeyTypeDef]
+    macSecKeys: list[MacSecKeyTypeDef]
     partnerInterconnectMacSecCapable: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -828,18 +823,18 @@ class ConnectionTypeDef(TypedDict):
     awsDeviceV2: NotRequired[str]
     awsLogicalDeviceId: NotRequired[str]
     hasLogicalRedundancy: NotRequired[HasLogicalRedundancyType]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
     providerName: NotRequired[str]
     macSecCapable: NotRequired[bool]
     portEncryptionStatus: NotRequired[str]
     encryptionMode: NotRequired[str]
-    macSecKeys: NotRequired[List[MacSecKeyTypeDef]]
+    macSecKeys: NotRequired[list[MacSecKeyTypeDef]]
     partnerInterconnectMacSecCapable: NotRequired[bool]
 
 
 class DisassociateMacSecKeyResponseTypeDef(TypedDict):
     connectionId: str
-    macSecKeys: List[MacSecKeyTypeDef]
+    macSecKeys: list[MacSecKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -857,12 +852,12 @@ class InterconnectResponseTypeDef(TypedDict):
     awsDeviceV2: str
     awsLogicalDeviceId: str
     hasLogicalRedundancy: HasLogicalRedundancyType
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     providerName: str
     macSecCapable: bool
     portEncryptionStatus: str
     encryptionMode: str
-    macSecKeys: List[MacSecKeyTypeDef]
+    macSecKeys: list[MacSecKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -880,12 +875,12 @@ class InterconnectTypeDef(TypedDict):
     awsDeviceV2: NotRequired[str]
     awsLogicalDeviceId: NotRequired[str]
     hasLogicalRedundancy: NotRequired[HasLogicalRedundancyType]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
     providerName: NotRequired[str]
     macSecCapable: NotRequired[bool]
     portEncryptionStatus: NotRequired[str]
     encryptionMode: NotRequired[str]
-    macSecKeys: NotRequired[List[MacSecKeyTypeDef]]
+    macSecKeys: NotRequired[list[MacSecKeyTypeDef]]
 
 
 class DirectConnectGatewayAssociationProposalTypeDef(TypedDict):
@@ -894,8 +889,8 @@ class DirectConnectGatewayAssociationProposalTypeDef(TypedDict):
     directConnectGatewayOwnerAccount: NotRequired[str]
     proposalState: NotRequired[DirectConnectGatewayAssociationProposalStateType]
     associatedGateway: NotRequired[AssociatedGatewayTypeDef]
-    existingAllowedPrefixesToDirectConnectGateway: NotRequired[List[RouteFilterPrefixTypeDef]]
-    requestedAllowedPrefixesToDirectConnectGateway: NotRequired[List[RouteFilterPrefixTypeDef]]
+    existingAllowedPrefixesToDirectConnectGateway: NotRequired[list[RouteFilterPrefixTypeDef]]
+    requestedAllowedPrefixesToDirectConnectGateway: NotRequired[list[RouteFilterPrefixTypeDef]]
 
 
 class DirectConnectGatewayAssociationTypeDef(TypedDict):
@@ -905,7 +900,7 @@ class DirectConnectGatewayAssociationTypeDef(TypedDict):
     stateChangeError: NotRequired[str]
     associatedGateway: NotRequired[AssociatedGatewayTypeDef]
     associationId: NotRequired[str]
-    allowedPrefixesToDirectConnectGateway: NotRequired[List[RouteFilterPrefixTypeDef]]
+    allowedPrefixesToDirectConnectGateway: NotRequired[list[RouteFilterPrefixTypeDef]]
     associatedCoreNetwork: NotRequired[AssociatedCoreNetworkTypeDef]
     virtualGatewayId: NotRequired[str]
     virtualGatewayRegion: NotRequired[str]
@@ -933,12 +928,12 @@ class VirtualInterfaceResponseTypeDef(TypedDict):
     jumboFrameCapable: bool
     virtualGatewayId: str
     directConnectGatewayId: str
-    routeFilterPrefixes: List[RouteFilterPrefixTypeDef]
-    bgpPeers: List[BGPPeerTypeDef]
+    routeFilterPrefixes: list[RouteFilterPrefixTypeDef]
+    bgpPeers: list[BGPPeerTypeDef]
     region: str
     awsDeviceV2: str
     awsLogicalDeviceId: str
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     siteLinkEnabled: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -964,12 +959,12 @@ class VirtualInterfaceTypeDef(TypedDict):
     jumboFrameCapable: NotRequired[bool]
     virtualGatewayId: NotRequired[str]
     directConnectGatewayId: NotRequired[str]
-    routeFilterPrefixes: NotRequired[List[RouteFilterPrefixTypeDef]]
-    bgpPeers: NotRequired[List[BGPPeerTypeDef]]
+    routeFilterPrefixes: NotRequired[list[RouteFilterPrefixTypeDef]]
+    bgpPeers: NotRequired[list[BGPPeerTypeDef]]
     region: NotRequired[str]
     awsDeviceV2: NotRequired[str]
     awsLogicalDeviceId: NotRequired[str]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
     siteLinkEnabled: NotRequired[bool]
 
 
@@ -979,7 +974,7 @@ class CreateBGPPeerRequestTypeDef(TypedDict):
 
 
 class DescribeCustomerMetadataResponseTypeDef(TypedDict):
-    agreements: List[CustomerAgreementTypeDef]
+    agreements: list[CustomerAgreementTypeDef]
     nniPartnerType: NniPartnerTypeType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1014,7 +1009,7 @@ class DescribeDirectConnectGatewaysRequestPaginateTypeDef(TypedDict):
 
 
 class DescribeDirectConnectGatewayAttachmentsResultTypeDef(TypedDict):
-    directConnectGatewayAttachments: List[DirectConnectGatewayAttachmentTypeDef]
+    directConnectGatewayAttachments: list[DirectConnectGatewayAttachmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1028,7 +1023,7 @@ class DescribeRouterConfigurationResponseTypeDef(TypedDict):
 
 
 class ListVirtualInterfaceTestHistoryResponseTypeDef(TypedDict):
-    virtualInterfaceTestHistory: List[VirtualInterfaceTestHistoryTypeDef]
+    virtualInterfaceTestHistory: list[VirtualInterfaceTestHistoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1044,12 +1039,12 @@ class StopBgpFailoverTestResponseTypeDef(TypedDict):
 
 
 class LocationsTypeDef(TypedDict):
-    locations: List[LocationTypeDef]
+    locations: list[LocationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class VirtualGatewaysTypeDef(TypedDict):
-    virtualGateways: List[VirtualGatewayTypeDef]
+    virtualGateways: list[VirtualGatewayTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1064,7 +1059,7 @@ class DeleteDirectConnectGatewayResultTypeDef(TypedDict):
 
 
 class DescribeDirectConnectGatewaysResultTypeDef(TypedDict):
-    directConnectGateways: List[DirectConnectGatewayTypeDef]
+    directConnectGateways: list[DirectConnectGatewayTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1108,12 +1103,12 @@ class CreateTransitVirtualInterfaceRequestTypeDef(TypedDict):
 
 
 class DescribeTagsResponseTypeDef(TypedDict):
-    resourceTags: List[ResourceTagTypeDef]
+    resourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ConnectionsTypeDef(TypedDict):
-    connections: List[ConnectionTypeDef]
+    connections: list[ConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1131,15 +1126,15 @@ class LagResponseTypeDef(TypedDict):
     awsDevice: str
     awsDeviceV2: str
     awsLogicalDeviceId: str
-    connections: List[ConnectionTypeDef]
+    connections: list[ConnectionTypeDef]
     allowsHostedConnections: bool
     jumboFrameCapable: bool
     hasLogicalRedundancy: HasLogicalRedundancyType
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     providerName: str
     macSecCapable: bool
     encryptionMode: str
-    macSecKeys: List[MacSecKeyTypeDef]
+    macSecKeys: list[MacSecKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1156,19 +1151,19 @@ class LagTypeDef(TypedDict):
     awsDevice: NotRequired[str]
     awsDeviceV2: NotRequired[str]
     awsLogicalDeviceId: NotRequired[str]
-    connections: NotRequired[List[ConnectionTypeDef]]
+    connections: NotRequired[list[ConnectionTypeDef]]
     allowsHostedConnections: NotRequired[bool]
     jumboFrameCapable: NotRequired[bool]
     hasLogicalRedundancy: NotRequired[HasLogicalRedundancyType]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
     providerName: NotRequired[str]
     macSecCapable: NotRequired[bool]
     encryptionMode: NotRequired[str]
-    macSecKeys: NotRequired[List[MacSecKeyTypeDef]]
+    macSecKeys: NotRequired[list[MacSecKeyTypeDef]]
 
 
 class InterconnectsTypeDef(TypedDict):
-    interconnects: List[InterconnectTypeDef]
+    interconnects: list[InterconnectTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1184,7 +1179,7 @@ class DeleteDirectConnectGatewayAssociationProposalResultTypeDef(TypedDict):
 
 
 class DescribeDirectConnectGatewayAssociationProposalsResultTypeDef(TypedDict):
-    directConnectGatewayAssociationProposals: List[DirectConnectGatewayAssociationProposalTypeDef]
+    directConnectGatewayAssociationProposals: list[DirectConnectGatewayAssociationProposalTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1205,7 +1200,7 @@ class DeleteDirectConnectGatewayAssociationResultTypeDef(TypedDict):
 
 
 class DescribeDirectConnectGatewayAssociationsResultTypeDef(TypedDict):
-    directConnectGatewayAssociations: List[DirectConnectGatewayAssociationTypeDef]
+    directConnectGatewayAssociations: list[DirectConnectGatewayAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1236,12 +1231,12 @@ class DeleteBGPPeerResponseTypeDef(TypedDict):
 
 
 class VirtualInterfacesTypeDef(TypedDict):
-    virtualInterfaces: List[VirtualInterfaceTypeDef]
+    virtualInterfaces: list[VirtualInterfaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class LagsTypeDef(TypedDict):
-    lags: List[LagTypeDef]
+    lags: list[LagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

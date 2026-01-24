@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
-Name: pylint-gitlab
-Version: 2.0.1
+Name: pylint_gitlab
+Version: 2.1.1
 Summary: This project provides pylint formatters for a nice integration with GitLab CI.
 Home-page: https://gitlab.com/smueller18/pylint-gitlab
 Author: Stephan Müller

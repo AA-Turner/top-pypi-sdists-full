@@ -8,16 +8,20 @@ use tombi_schema_store::{
     Accessor, CurrentSchema, DocumentSchema, PropertySchema, SchemaAccessor, SchemaAccessors,
     ValueSchema,
 };
-use tombi_severity_level::{SeverityLevel, SeverityLevelDefaultError, SeverityLevelDefaultWarn};
+use tombi_severity_level::{SeverityLevel, SeverityLevelDefaultError};
 
 use crate::{
     comment_directive::{
         get_tombi_key_rules_and_diagnostics, get_tombi_table_comment_directive_and_diagnostics,
     },
-    validate::type_mismatch,
+    error::{REQUIRED_KEY_SCORE, TYPE_MATCHED_SCORE},
+    validate::{
+        handle_deprecated, handle_deprecated_value, handle_type_mismatch, handle_unused_noqa,
+        not_schema::validate_not,
+    },
 };
 
-use super::{validate_all_of, validate_any_of, validate_one_of, Validate};
+use super::{Validate, validate_all_of, validate_any_of, validate_one_of};
 use crate::diagnostic::Patterns;
 
 impl Validate for tombi_document_tree::Table {
@@ -26,16 +30,8 @@ impl Validate for tombi_document_tree::Table {
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> BoxFuture<'b, Result<(), Vec<tombi_diagnostic::Diagnostic>>> {
+    ) -> BoxFuture<'b, Result<(), crate::Error>> {
         async move {
-            let mut total_diagnostics = vec![];
-            let (table_common_rules, diagnostics) =
-                get_tombi_table_comment_directive_and_diagnostics(self, accessors).await;
-
-            if !diagnostics.is_empty() {
-                total_diagnostics.extend(diagnostics);
-            }
-
             if let Some(Ok(DocumentSchema {
                 value_schema: Some(value_schema),
                 schema_uri,
@@ -58,8 +54,11 @@ impl Validate for tombi_document_tree::Table {
                     .await;
             }
 
-            if let Some(current_schema) = current_schema {
-                let result = match current_schema.value_schema.as_ref() {
+            let (lint_rules, lint_rules_diagnostics) =
+                get_tombi_table_comment_directive_and_diagnostics(self, accessors).await;
+
+            let result = if let Some(current_schema) = current_schema {
+                match current_schema.value_schema.as_ref() {
                     ValueSchema::Table(table_schema) => {
                         validate_table(
                             self,
@@ -67,7 +66,7 @@ impl Validate for tombi_document_tree::Table {
                             table_schema,
                             current_schema,
                             schema_context,
-                            table_common_rules.as_ref(),
+                            lint_rules.as_ref(),
                         )
                         .await
                     }
@@ -78,7 +77,8 @@ impl Validate for tombi_document_tree::Table {
                             one_of_schema,
                             current_schema,
                             schema_context,
-                            table_common_rules.as_ref().map(|rules| &rules.common),
+                            self.comment_directives(),
+                            lint_rules.as_ref().map(|rules| &rules.common),
                         )
                         .await
                     }
@@ -89,7 +89,8 @@ impl Validate for tombi_document_tree::Table {
                             any_of_schema,
                             current_schema,
                             schema_context,
-                            table_common_rules.as_ref().map(|rules| &rules.common),
+                            self.comment_directives(),
+                            lint_rules.as_ref().map(|rules| &rules.common),
                         )
                         .await
                     }
@@ -100,34 +101,35 @@ impl Validate for tombi_document_tree::Table {
                             all_of_schema,
                             current_schema,
                             schema_context,
-                            table_common_rules.as_ref().map(|rules| &rules.common),
+                            self.comment_directives(),
+                            lint_rules.as_ref().map(|rules| &rules.common),
                         )
                         .await
                     }
                     ValueSchema::Null => return Ok(()),
-                    value_schema => type_mismatch(
+                    value_schema => handle_type_mismatch(
                         value_schema.value_type().await,
                         self.value_type(),
                         self.range(),
-                        table_common_rules.as_ref().map(|rules| &rules.common),
+                        lint_rules.as_ref().map(|rules| &rules.common),
                     ),
-                };
-
-                if let Err(diagnostics) = result {
-                    total_diagnostics.extend(diagnostics);
                 }
             } else {
-                if let Err(diagnostics) =
-                    validate_table_without_schema(self, accessors, schema_context).await
-                {
-                    total_diagnostics.extend(diagnostics);
-                }
-            }
+                validate_table_without_schema(self, accessors, schema_context).await
+            };
 
-            if total_diagnostics.is_empty() {
-                Ok(())
-            } else {
-                Err(total_diagnostics)
+            match result {
+                Ok(()) => {
+                    if lint_rules_diagnostics.is_empty() {
+                        Ok(())
+                    } else {
+                        Err(lint_rules_diagnostics.into())
+                    }
+                }
+                Err(mut error) => {
+                    error.prepend_diagnostics(lint_rules_diagnostics);
+                    Err(error)
+                }
             }
         }
         .boxed()
@@ -140,13 +142,14 @@ async fn validate_table(
     table_schema: &tombi_schema_store::TableSchema,
     current_schema: &CurrentSchema<'_>,
     schema_context: &tombi_schema_store::SchemaContext<'_>,
-    value_rules: Option<&TableCommonLintRules>,
-) -> Result<(), Vec<tombi_diagnostic::Diagnostic>> {
-    let mut diagnostics = vec![];
+    table_rules: Option<&TableCommonLintRules>,
+) -> Result<(), crate::Error> {
+    let mut total_score = TYPE_MATCHED_SCORE;
+    let mut total_diagnostics = vec![];
 
     for (key, value) in table_value.key_values() {
         let key_rules = if let Some(directives) = key.comment_directives() {
-            get_tombi_key_rules_and_diagnostics(&directives)
+            get_tombi_key_rules_and_diagnostics(directives)
                 .await
                 .0
                 .map(|rules| rules.value)
@@ -183,21 +186,16 @@ async fn validate_table(
                 )
                 .await
                 .inspect_err(|err| tracing::warn!("{err}"))
-            {
-                if let Err(mut schema_diagnostics) = value
+                && let Err(crate::Error {
+                    mut diagnostics, ..
+                }) = value
                     .validate(&new_accessors, Some(&current_schema), schema_context)
                     .await
-                {
-                    convert_deprecated_diagnostics_range(
-                        &current_schema,
-                        value,
-                        key,
-                        &mut schema_diagnostics,
-                    )
+            {
+                convert_deprecated_diagnostics_range(&current_schema, value, key, &mut diagnostics)
                     .await;
 
-                    diagnostics.extend(schema_diagnostics);
-                }
+                total_diagnostics.extend(diagnostics);
             }
         }
 
@@ -209,11 +207,11 @@ async fn validate_table(
                 },
             ) in pattern_properties.write().await.iter_mut()
             {
-                let Ok(pattern) = regex::Regex::new(pattern_key) else {
+                let Ok(pattern) = tombi_regex::Regex::new(pattern_key) else {
                     tracing::warn!("Invalid regex pattern property: {}", pattern_key);
                     continue;
                 };
-                if pattern.is_match(&accessor_raw_text) {
+                if pattern.is_match(accessor_raw_text) {
                     matched_key = true;
                     if let Ok(Some(current_schema)) = property_schema
                         .resolve(
@@ -223,49 +221,63 @@ async fn validate_table(
                         )
                         .await
                         .inspect_err(|err| tracing::warn!("{err}"))
-                    {
-                        if let Err(mut schema_diagnostics) = value
+                        && let Err(crate::Error {
+                            mut diagnostics, ..
+                        }) = value
                             .validate(&new_accessors, Some(&current_schema), schema_context)
                             .await
-                        {
-                            convert_deprecated_diagnostics_range(
-                                &current_schema,
-                                value,
-                                key,
-                                &mut schema_diagnostics,
-                            )
-                            .await;
+                    {
+                        convert_deprecated_diagnostics_range(
+                            &current_schema,
+                            value,
+                            key,
+                            &mut diagnostics,
+                        )
+                        .await;
 
-                            diagnostics.extend(schema_diagnostics);
-                        }
+                        total_diagnostics.extend(diagnostics);
                     }
-                } else if !table_schema.allows_additional_properties(schema_context.strict()) {
-                    let level = key_rules
-                        .and_then(|rules| {
-                            rules
-                                .key_pattern
-                                .as_ref()
-                                .map(SeverityLevelDefaultError::from)
-                        })
-                        .unwrap_or_default();
-
-                    crate::Diagnostic {
-                        kind: Box::new(crate::DiagnosticKind::KeyPattern {
-                            patterns: Patterns(
-                                pattern_properties
-                                    .read()
-                                    .await
-                                    .keys()
-                                    .map(ToString::to_string)
-                                    .collect(),
-                            ),
-                        }),
-                        range: key.range(),
-                    }
-                    .push_diagnostic_with_level(level, &mut diagnostics);
                 }
             }
+
+            if !matched_key && !table_schema.allows_additional_properties(schema_context.strict()) {
+                let level = key_rules
+                    .and_then(|rules| {
+                        rules
+                            .key_pattern
+                            .as_ref()
+                            .map(SeverityLevelDefaultError::from)
+                    })
+                    .unwrap_or_default();
+
+                crate::Diagnostic {
+                    kind: Box::new(crate::DiagnosticKind::KeyPattern {
+                        patterns: Patterns(
+                            pattern_properties
+                                .read()
+                                .await
+                                .keys()
+                                .map(ToString::to_string)
+                                .collect(),
+                        ),
+                    }),
+                    range: key.range(),
+                }
+                .push_diagnostic_with_level(level, &mut total_diagnostics);
+            } else if key_rules
+                .and_then(|rules| rules.key_pattern.as_ref())
+                .and_then(|rules| rules.disabled)
+                == Some(true)
+            {
+                handle_unused_noqa(
+                    &mut total_diagnostics,
+                    table_value.comment_directives(),
+                    table_rules.as_ref().map(|rules| &rules.common),
+                    "key-pattern",
+                );
+            }
         }
+
         if !matched_key {
             if let Some((_, referable_additional_property_schema)) =
                 &table_schema.additional_property_schema
@@ -280,32 +292,20 @@ async fn validate_table(
                     .await
                     .inspect_err(|err| tracing::warn!("{err}"))
                 {
-                    if current_schema.value_schema.deprecated().await == Some(true) {
-                        let level = value_rules
-                            .map(|rules| &rules.common)
-                            .and_then(|rules| {
-                                rules
-                                    .deprecated
-                                    .as_ref()
-                                    .map(SeverityLevelDefaultWarn::from)
-                            })
-                            .unwrap_or_default();
+                    handle_deprecated_value(
+                        &mut total_diagnostics,
+                        current_schema.value_schema.deprecated().await,
+                        &new_accessors,
+                        value,
+                        table_value.comment_directives(),
+                        table_rules.as_ref().map(|rules| &rules.common),
+                    );
 
-                        crate::Diagnostic {
-                            kind: Box::new(crate::DiagnosticKind::DeprecatedValue(
-                                SchemaAccessors::from(&new_accessors),
-                                value.to_string(),
-                            )),
-                            range: key.range() + value.range(),
-                        }
-                        .push_diagnostic_with_level(level, &mut diagnostics);
-                    }
-
-                    if let Err(schema_diagnostics) = value
+                    if let Err(crate::Error { diagnostics, .. }) = value
                         .validate(&new_accessors, Some(&current_schema), schema_context)
                         .await
                     {
-                        diagnostics.extend(schema_diagnostics);
+                        total_diagnostics.extend(diagnostics);
                     }
                 }
             }
@@ -318,7 +318,7 @@ async fn validate_table(
                     }),
                     range: key.range() + value.range(),
                 }
-                .push_diagnostic_with_level(SeverityLevel::Warn, &mut diagnostics);
+                .push_diagnostic_with_level(SeverityLevel::Warn, &mut total_diagnostics);
 
                 continue;
             }
@@ -338,8 +338,20 @@ async fn validate_table(
                     }),
                     range: key.range() + value.range(),
                 }
-                .push_diagnostic_with_level(level, &mut diagnostics);
+                .push_diagnostic_with_level(level, &mut total_diagnostics);
                 continue;
+            } else if schema_context.strict()
+                && key_rules
+                    .and_then(|rules| rules.key_not_allowed.as_ref())
+                    .and_then(|rules| rules.disabled)
+                    == Some(true)
+            {
+                handle_unused_noqa(
+                    &mut total_diagnostics,
+                    table_value.comment_directives(),
+                    table_rules.as_ref().map(|rules| &rules.common),
+                    "key-not-allowed",
+                );
             }
         }
     }
@@ -349,7 +361,7 @@ async fn validate_table(
 
         for required_key in required {
             if !keys.contains(&required_key) {
-                let level = value_rules
+                let level = table_rules
                     .map(|rules| &rules.value)
                     .and_then(|rules| {
                         rules
@@ -365,83 +377,129 @@ async fn validate_table(
                     }),
                     range: table_value.range(),
                 }
-                .push_diagnostic_with_level(level, &mut diagnostics);
+                .push_diagnostic_with_level(level, &mut total_diagnostics);
+            } else {
+                if table_rules
+                    .map(|rules| &rules.value)
+                    .and_then(|rules| rules.table_key_required.as_ref())
+                    .and_then(|rules| rules.disabled)
+                    == Some(true)
+                {
+                    handle_unused_noqa(
+                        &mut total_diagnostics,
+                        table_value.comment_directives(),
+                        table_rules.as_ref().map(|rules| &rules.common),
+                        "table-key-required",
+                    );
+                }
+                total_score += REQUIRED_KEY_SCORE;
             }
         }
     }
 
-    if let Some(max_properties) = table_schema.max_properties {
-        if table_value.keys().count() > max_properties {
-            let level = value_rules
-                .map(|rules| &rules.value)
-                .and_then(|rules| {
-                    rules
-                        .table_max_keys
-                        .as_ref()
-                        .map(SeverityLevelDefaultError::from)
-                })
-                .unwrap_or_default();
+    if let Some(max_properties) = table_schema.max_properties
+        && table_value.keys().count() > max_properties
+    {
+        let level = table_rules
+            .map(|rules| &rules.value)
+            .and_then(|rules| {
+                rules
+                    .table_max_keys
+                    .as_ref()
+                    .map(SeverityLevelDefaultError::from)
+            })
+            .unwrap_or_default();
 
-            crate::Diagnostic {
-                kind: Box::new(crate::DiagnosticKind::TableMaxKeys {
-                    max_keys: max_properties,
-                    actual: table_value.keys().count(),
-                }),
-                range: table_value.range(),
-            }
-            .push_diagnostic_with_level(level, &mut diagnostics);
+        crate::Diagnostic {
+            kind: Box::new(crate::DiagnosticKind::TableMaxKeys {
+                max_keys: max_properties,
+                actual: table_value.keys().count(),
+            }),
+            range: table_value.range(),
         }
+        .push_diagnostic_with_level(level, &mut total_diagnostics);
+    } else if table_rules
+        .map(|rules| &rules.value)
+        .and_then(|rules| rules.table_max_keys.as_ref())
+        .and_then(|rules| rules.disabled)
+        == Some(true)
+    {
+        handle_unused_noqa(
+            &mut total_diagnostics,
+            table_value.comment_directives(),
+            table_rules.as_ref().map(|rules| &rules.common),
+            "table-max-keys",
+        );
     }
 
-    if let Some(min_properties) = table_schema.min_properties {
-        if table_value.keys().count() < min_properties {
-            let level = value_rules
-                .map(|rules| &rules.value)
-                .and_then(|rules| {
-                    rules
-                        .table_min_keys
-                        .as_ref()
-                        .map(SeverityLevelDefaultError::from)
-                })
-                .unwrap_or_default();
+    if let Some(min_properties) = table_schema.min_properties
+        && table_value.keys().count() < min_properties
+    {
+        let level = table_rules
+            .map(|rules| &rules.value)
+            .and_then(|rules| {
+                rules
+                    .table_min_keys
+                    .as_ref()
+                    .map(SeverityLevelDefaultError::from)
+            })
+            .unwrap_or_default();
 
-            crate::Diagnostic {
-                kind: Box::new(crate::DiagnosticKind::TableMinKeys {
-                    min_keys: min_properties,
-                    actual: table_value.keys().count(),
-                }),
-                range: table_value.range(),
-            }
-            .push_diagnostic_with_level(level, &mut diagnostics);
+        crate::Diagnostic {
+            kind: Box::new(crate::DiagnosticKind::TableMinKeys {
+                min_keys: min_properties,
+                actual: table_value.keys().count(),
+            }),
+            range: table_value.range(),
         }
+        .push_diagnostic_with_level(level, &mut total_diagnostics);
+    } else if table_rules
+        .map(|rules| &rules.value)
+        .and_then(|rules| rules.table_min_keys.as_ref())
+        .and_then(|rules| rules.disabled)
+        == Some(true)
+    {
+        handle_unused_noqa(
+            &mut total_diagnostics,
+            table_value.comment_directives(),
+            table_rules.as_ref().map(|rules| &rules.common),
+            "table-min-keys",
+        );
     }
 
-    if diagnostics.is_empty() {
-        if table_schema.deprecated == Some(true) {
-            let level = value_rules
-                .map(|rules| &rules.common)
-                .and_then(|rules| {
-                    rules
-                        .deprecated
-                        .as_ref()
-                        .map(SeverityLevelDefaultWarn::from)
-                })
-                .unwrap_or_default();
-
-            crate::Diagnostic {
-                kind: Box::new(crate::DiagnosticKind::Deprecated(
-                    tombi_schema_store::SchemaAccessors::from(accessors),
-                )),
-                range: table_value.range(),
-            }
-            .push_diagnostic_with_level(level, &mut diagnostics);
-        }
+    if total_diagnostics.is_empty() {
+        handle_deprecated(
+            &mut total_diagnostics,
+            table_schema.deprecated,
+            accessors,
+            table_value,
+            table_value.comment_directives(),
+            table_rules.as_ref().map(|rules| &rules.common),
+        );
     }
 
-    if diagnostics.is_empty() {
+    if let Some(not_schema) = table_schema.not.as_ref()
+        && let Err(error) = validate_not(
+            table_value,
+            accessors,
+            not_schema,
+            current_schema,
+            schema_context,
+            table_value.comment_directives(),
+            table_rules.as_ref().map(|rules| &rules.common),
+        )
+        .await
+    {
+        total_diagnostics.extend(error.diagnostics);
+    }
+
+    if total_diagnostics.is_empty() {
         Ok(())
     } else {
-        Err(diagnostics)
+        Err(crate::Error {
+            score: total_score,
+            diagnostics: total_diagnostics,
+        })
     }
 }
 
@@ -449,12 +507,12 @@ async fn validate_table_without_schema(
     table_value: &tombi_document_tree::Table,
     accessors: &[tombi_schema_store::Accessor],
     schema_context: &tombi_schema_store::SchemaContext<'_>,
-) -> Result<(), Vec<tombi_diagnostic::Diagnostic>> {
-    let mut diagnostics = vec![];
+) -> Result<(), crate::Error> {
+    let mut total_diagnostics = vec![];
 
     // Validate without schema
     for (key, value) in table_value.key_values() {
-        if let Err(schema_diagnostics) = value
+        if let Err(crate::Error { diagnostics, .. }) = value
             .validate(
                 &accessors
                     .iter()
@@ -466,14 +524,14 @@ async fn validate_table_without_schema(
             )
             .await
         {
-            diagnostics.extend(schema_diagnostics);
+            total_diagnostics.extend(diagnostics);
         }
     }
 
-    if diagnostics.is_empty() {
+    if total_diagnostics.is_empty() {
         Ok(())
     } else {
-        Err(diagnostics)
+        Err(total_diagnostics.into())
     }
 }
 
@@ -482,7 +540,7 @@ async fn convert_deprecated_diagnostics_range(
     current_schema: &CurrentSchema<'_>,
     value: &tombi_document_tree::Value,
     key: &tombi_document_tree::Key,
-    schema_diagnostics: &mut Vec<tombi_diagnostic::Diagnostic>,
+    schema_diagnostics: &mut [tombi_diagnostic::Diagnostic],
 ) {
     if current_schema.value_schema.deprecated().await == Some(true) {
         for diagnostic in schema_diagnostics.iter_mut() {

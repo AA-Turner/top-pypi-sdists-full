@@ -45,11 +45,15 @@ This would be the resulting dict dumped to clickhouse:
 # Priority is given to standards in this order:
 # This is used to populate the `inputs_dump` column in clickhouse
 
+# Logfire pydantic instrumentation notes here: https://github.com/pydantic/logfire/blob/0782da9c021a54246cc46429c28627c9d9a480e8/logfire/_internal/main.py#L1067
+
 INPUT_KEYS = [
     "ai.prompt",  # Vercel
     "gen_ai.prompt",  # From OpenTelemetry AI semantic conventions
     "input.value",  # From OpenInference standard
     "mlflow.spanInputs",  # From MLFlow's tracking format
+    "gen_ai.input.messages",  # Logfire V2 - see logfire pydantic instrumentation notes
+    "pydantic_ai.all_messages",  # Includes all messages for Pydantic AI agent run
     "traceloop.entity.input",  # From Traceloop's conventions
     "gcp.vertex.agent.tool_call_args",  # From Google's Vertex AI
     "gcp.vertex.agent.llm_request",  # From Google's Vertex AI
@@ -64,7 +68,9 @@ OUTPUT_KEYS = [
     "ai.response",  # Vercel
     "gen_ai.completion",  # From OpenTelemetry AI semantic conventions
     "output.value",  # From OpenInference standard - highest priority
+    "gen_ai.output.messages",  # Logfire v2 - see logfire pydantic instrumentation notes
     "mlflow.spanOutputs",  # From MLFlow's tracking format
+    "final_result",  # Output for PydanticAI agent run
     "gen_ai.content.completion",  # From OpenLit project's format
     "traceloop.entity.output",  # From Traceloop's conventions
     "gcp.vertex.agent.tool_response",  # From Google's Vertex AI
@@ -94,6 +100,7 @@ USAGE_KEYS = {
         ("llm.token_count.completion", try_parse_int),
         ("ai.usage.completionTokens", try_parse_int),  # Vercel
     ],
+    "output_tokens": [("gen_ai.usage.output_tokens", try_parse_int)],
     # Maps Weave's "total_tokens" to keys from different standards
     "total_tokens": [
         ("llm.usage.total_tokens", try_parse_int),
@@ -102,13 +109,14 @@ USAGE_KEYS = {
 }
 
 # ATTRIBUTE_KEYS: Maps common LLM call metadata attributes to the types of attributes expected in weave traces
+# Exception is wandb.attributes which populates its keys to the root level
 # This is used to populate the `attributes_dump` column in clickhouse
-# Prior to dumping, the full span is dumped under another key not listed here called `otel_span`
 ATTRIBUTE_KEYS = {
     # System prompt/instructions
     "system": [
         "gen_ai.system",  # OpenTelemetry AI
         "llm.system",  # OpenInference
+        "gen_ai.system_instructions",
     ],
     # Span kind - identifies the type of operation
     "kind": [
@@ -132,6 +140,10 @@ WB_KEYS = {
     # Custom display name for the call in the UI
     "display_name": ["wandb.display_name"],
     "thread_id": ["gcp.vertex.agent.session_id", "wandb.thread_id"],
+    "attributes": ["wandb.attributes"],
+    "wb_run_id": ["wandb.wb_run_id"],
+    "wb_run_step": ["wandb.wb_run_step"],
+    "wb_run_step_end": ["wandb.wb_run_step_end"],
     "is_turn": [
         "gcp.vertex.agent.session_id",
         "wandb.is_turn",

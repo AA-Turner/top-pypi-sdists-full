@@ -1,7 +1,7 @@
 import base64
 import platform
 import copy
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 from asyauth.utils.paramprocessor import str_one, int_one, bool_one
 from asyauth.common.constants import asyauthSecret, asyauthProtocol, asyauthSubProtocol
 from asyauth.common.subprotocols import SubProtocol, SubProtocolNative, SubProtocolSSPI
@@ -108,6 +108,11 @@ class UniCredential:
 		protocol = asyauthProtocol.NONE
 		subprotocol = SubProtocolNative()
 		url_e = urlparse(connection_url)
+		url_dict = url_e._asdict()
+		for prop, val in url_dict.items():
+			if type(val) is str:
+				url_dict[prop] = unquote(val)
+		url_e = url_e._replace(**url_dict)
 		schemes = url_e.scheme.upper().split('+')
 		if len(schemes) == 1:
 			try:
@@ -204,7 +209,7 @@ class UniCredential:
 			if extra['dcc'] is not None:
 				cross_target = UniTarget(extra['dcc'], 88, UniProto.CLIENT_TCP, proxies = proxies, dns=params['dnsc'], dc_ip=extra['dcc'])
 
-			etypes = extra['etype'] if extra['etype'] is not None else [23,17,18]
+			etypes = extra['etype']
 
 			return credobj(
 				secret, 

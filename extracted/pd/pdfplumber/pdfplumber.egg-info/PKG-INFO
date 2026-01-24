@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdfplumber
-Version: 0.11.7
+Version: 0.11.9
 Summary: Plumb a PDF for detailed information about each char, rectangle, and line.
 Home-page: https://github.com/jsvine/pdfplumber
 Author: Jeremy Singer-Vine
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: pdfminer.six==20250506
+Requires-Dist: pdfminer.six==20251230
 Requires-Dist: Pillow>=9.1
 Requires-Dist: pypdfium2>=4.18.0
 Dynamic: author
@@ -69,7 +69,7 @@ pip install pdfplumber
 
 ```sh
 curl "https://raw.githubusercontent.com/jsvine/pdfplumber/stable/examples/pdfs/background-checks.pdf" > background-checks.pdf
-pdfplumber < background-checks.pdf > background-checks.csv
+pdfplumber background-checks.pdf > background-checks.csv
 ```
 
 The output will be a CSV containing info about every character, line, and rectangle in the PDF.
@@ -433,6 +433,7 @@ By default, `extract_tables` uses the page's vertical and horizontal lines (or r
     "join_x_tolerance": 3,
     "join_y_tolerance": 3,
     "edge_min_length": 3,
+    "edge_min_length_prefilter": 1,
     "min_words_vertical": 3,
     "min_words_horizontal": 1,
     "intersection_tolerance": 3,
@@ -454,6 +455,7 @@ By default, `extract_tables` uses the page's vertical and horizontal lines (or r
 |`"snap_tolerance"`, `"snap_x_tolerance"`, `"snap_y_tolerance"`| Parallel lines within `snap_tolerance` points will be "snapped" to the same horizontal or vertical position.|
 |`"join_tolerance"`, `"join_x_tolerance"`, `"join_y_tolerance"`| Line segments on the same infinite line, and whose ends are within `join_tolerance` of one another, will be "joined" into a single line segment.|
 |`"edge_min_length"`| Edges shorter than `edge_min_length` will be discarded before attempting to reconstruct the table.|
+|`"edge_min_length_prefilter"`| Edges shorter than `edge_min_length_prefilter` will be discarded during initial edge filtering from the page. Lowering this value (e.g., to `0.5`) can help capture small dashed lines that might otherwise be filtered out.|
 |`"min_words_vertical"`| When using `"vertical_strategy": "text"`, at least `min_words_vertical` words must share the same alignment.|
 |`"min_words_horizontal"`| When using `"horizontal_strategy": "text"`, at least `min_words_horizontal` words must share the same alignment.|
 |`"intersection_tolerance"`, `"intersection_x_tolerance"`, `"intersection_y_tolerance"`| When combining edges into cells, orthogonal edges must be within `intersection_tolerance` points to be considered intersecting.|
@@ -554,13 +556,13 @@ It's also helpful to know what features `pdfplumber` does __not__ provide:
 
 ### Specific comparisons
 
-- [`pdfminer.six`](https://github.com/pdfminer/pdfminer.six) provides the foundation for `pdfplumber`. It primarily focuses on parsing PDFs, analyzing PDF layouts and object positioning, and extracting text. It does not provide tools for table extraction or visual debugging.
+- [`pdfminer.six`](https://github.com/pdfminer/pdfminer.six) provides the foundation for `pdfplumber`. It primarily focuses on parsing PDFs, analyzing PDF layouts and object positioning, and extracting text. It does not provide tools for table extraction or visual debugging. License: [MIT](https://github.com/pdfminer/pdfminer.six?tab=MIT-1-ov-file).
 
-- [`PyPDF2`](https://github.com/mstamy2/PyPDF2) is a pure-Python library "capable of splitting, merging, cropping, and transforming the pages of PDF files. It can also add custom data, viewing options, and passwords to PDF files." It can extract page text, but does not provide easy access to shape objects (rectangles, lines, etc.), table-extraction, or visually debugging tools.
+- [`PyPDF2`](https://github.com/mstamy2/PyPDF2) is a pure-Python library "capable of splitting, merging, cropping, and transforming the pages of PDF files. It can also add custom data, viewing options, and passwords to PDF files." It can extract page text, but does not provide easy access to shape objects (rectangles, lines, etc.), table-extraction, or visually debugging tools. License: [BSD](https://github.com/py-pdf/pypdf?tab=License-1-ov-file#readme).
 
-- [`pymupdf`](https://pymupdf.readthedocs.io/) is substantially faster than `pdfminer.six` (and thus also `pdfplumber`) and can generate and modify PDFs, but the library requires installation of non-Python software (MuPDF). It also does not enable easy access to shape objects (rectangles, lines, etc.), and does not provide table-extraction or visual debugging tools.
+- [`pymupdf`](https://pymupdf.readthedocs.io/) is substantially faster than `pdfminer.six` (and thus also `pdfplumber`) and can generate and modify PDFs, but the library requires installation of non-Python software (MuPDF). It also does not enable easy access to shape objects (rectangles, lines, etc.), and does not provide table-extraction or visual debugging tools. License: [AGPL](https://pymupdf.readthedocs.io/en/latest/about.html#license-and-copyright).
 
-- [`camelot`](https://github.com/camelot-dev/camelot), [`tabula-py`](https://github.com/chezou/tabula-py), and [`pdftables`](https://github.com/drj11/pdftables) all focus primarily on extracting tables. In some cases, they may be better suited to the particular tables you are trying to extract.
+- [`camelot`](https://github.com/camelot-dev/camelot), [`tabula-py`](https://github.com/chezou/tabula-py), and [`pdftables`](https://github.com/drj11/pdftables) all focus primarily on extracting tables. In some cases, they may be better suited to the particular tables you are trying to extract. License: [MIT](https://github.com/camelot-dev/camelot?tab=MIT-1-ov-file#readme) (`camelot`), [MIT](https://github.com/chezou/tabula-py?tab=MIT-1-ov-file#readme) (`tabula-py`), [BSD](https://github.com/drj11/pdftables?tab=BSD-2-Clause-1-ov-file#readme) (`pdftables`).
 
 
 ## Acknowledgments / Contributors
@@ -602,6 +604,7 @@ Many thanks to the following users who've contributed ideas, features, and fixes
 - [Michal Stolarczyk](https://github.com/stolarczyk)
 - [Brandon Roberts](https://github.com/brandonrobertz)
 - [@ennamarie19](https://github.com/ennamarie19)
+- [Anton Ilin](https://github.com/bronislav)
 
 ## Contributing
 

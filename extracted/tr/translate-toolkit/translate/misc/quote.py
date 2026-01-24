@@ -188,7 +188,7 @@ def extractwithoutquotes(
                     if callable_includeescapes:
                         replace_escape = includeescapes(
                             section[epos : epos + lenescape + 1]
-                        )
+                        )  # ty:ignore[call-non-callable]
                         # TODO: deprecate old method of returning boolean from
                         # includeescape, by removing this if block
                         if not isinstance(replace_escape, str):
@@ -239,21 +239,20 @@ def extractwithoutquotes(
 
 
 # TODO: investigate if ord is needed
-def _encode_entity_char(char: str, codepoint2name: dict[str, str]) -> str:
+def _encode_entity_char(char: str, codepoint2name: dict[int, str]) -> str:
     charnum = ord(char)
     if charnum in codepoint2name:
         return f"&{codepoint2name[charnum]};"
     return char
 
 
-def entityencode(source: str, codepoint2name: dict[str, str]) -> str:
+def entityencode(source: str, codepoint2name: dict[int, str]) -> str:
     """
     Encode ``source`` using entities from ``codepoint2name``.
 
     :param unicode source: Source string to encode
     :param codepoint2name: Dictionary mapping code points to entity names
            (without the the leading ``&`` or the trailing ``;``)
-    :type codepoint2name: :meth:`dict`
     """
     output = []
     inentity = False
@@ -297,14 +296,13 @@ def _has_entity_end(source: str) -> bool:
     return False
 
 
-def entitydecode(source: str, name2codepoint: dict[str, str]) -> str:
+def entitydecode(source: str, name2codepoint: dict[str, int]) -> str:
     """
     Decode ``source`` using entities from ``name2codepoint``.
 
     :param unicode source: Source string to decode
     :param name2codepoint: Dictionary mapping entity names (without the
            the leading ``&`` or the trailing ``;``) to code points
-    :type name2codepoint: :meth:`dict`
     """
     output = []
     inentity = False
@@ -357,22 +355,65 @@ def htmlentitydecode(source: str) -> str:
     return entitydecode(source, html.entities.name2codepoint)
 
 
-def javapropertiesencode(source: str) -> str:
-    """
+def javapropertiesencode(source: str, encoding: str | None = None) -> str:
+    r"""
     Encodes source in the escaped-unicode encoding used by Java
     .properties files.
+
+    :param source: The string to encode
+    :param encoding: The target encoding (default: iso-8859-1).
+                     Only characters that cannot be represented in this
+                     encoding will be escaped as \uXXXX.
     """
+    if encoding is None:
+        encoding = "iso-8859-1"
+
     output = []
     if source and source[0] == " ":
         output.append("\\")
+
+    # Determine character validation function based on encoding
+    # Fast path for common encodings using ordinal checks (no exceptions)
+    if encoding in {"ascii", "us-ascii"}:
+
+        def is_valid_char(charnum):
+            return 0 <= charnum < 128
+    elif encoding in {"iso-8859-1", "latin-1", "latin1"}:
+
+        def is_valid_char(charnum):
+            return 0 <= charnum <= 255
+    else:
+        # For other encodings, try the full string first for performance
+        try:
+            source.encode(encoding)
+            # All characters are valid, use a function that always returns True
+
+            def is_valid_char(charnum) -> bool:
+                return True
+        except (UnicodeEncodeError, LookupError):
+            # Some characters can't be encoded, need per-character check
+            def is_valid_char(charnum) -> None:
+                return None  # Signal to use try/except
+
+    # Process each character with the appropriate validation
     for char in source:
         charnum = ord(char)
         if char in controlchars:
             output.append(controlchars[char])
-        elif 0 <= charnum < 128:
-            output.append(str(char))
         else:
-            output.append(f"\\u{charnum:04X}")
+            valid = is_valid_char(charnum)
+            if valid is None:
+                # Need to test encoding for this character
+                try:
+                    char.encode(encoding)
+                    output.append(str(char))
+                except (UnicodeEncodeError, LookupError):
+                    output.append(f"\\u{charnum:04X}")
+            elif valid:
+                output.append(str(char))
+            else:
+                output.append(f"\\u{charnum:04X}")
+
     return "".join(output)
 
 
@@ -548,7 +589,8 @@ def propertiesdecode(source: str) -> str:
                 logger.warning("Invalid named unicode escape: no } after \\N{")
                 output.append(f"\\{c}")
                 continue
-            import unicodedata
+            # pylint: disable-next=import-outside-toplevel
+            import unicodedata  # noqa: PLC0415
 
             name = source[s:e]
             output.append(unicodedata.lookup(name))

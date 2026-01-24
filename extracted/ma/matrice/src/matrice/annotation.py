@@ -1,7 +1,7 @@
 """Module to handle annotation-related operations within a project."""
 
 import sys
-from matrice.utils import handle_response
+from matrice_common.utils import handle_response
 from datetime import datetime
 
 

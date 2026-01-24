@@ -3,6 +3,7 @@ from enum import Enum
 
 class GetCopilotInfoResponse200CodeCompletionModelProvider(str, Enum):
     ANTHROPIC = "anthropic"
+    AWS_BEDROCK = "aws_bedrock"
     AZURE_OPENAI = "azure_openai"
     CUSTOMAI = "customai"
     DEEPSEEK = "deepseek"

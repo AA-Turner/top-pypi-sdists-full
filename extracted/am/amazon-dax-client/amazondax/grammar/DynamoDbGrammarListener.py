@@ -1,7 +1,7 @@
-# Generated from grammar/DynamoDbGrammar.g4 by ANTLR 4.9.3
+# Generated from grammar/DynamoDbGrammar.g4 by ANTLR 4.13.2
 # pylint: skip-file
 from antlr4 import *
-if __name__ is not None and "." in __name__:
+if "." in __name__:
     from .DynamoDbGrammarParser import DynamoDbGrammarParser
 else:
     from DynamoDbGrammarParser import DynamoDbGrammarParser

@@ -23,6 +23,7 @@ from datetime import timedelta
 from dateutil import tz
 import socket
 import time
+import uuid
 
 import pyghmi.constants as const
 import pyghmi.exceptions as exc
@@ -31,6 +32,27 @@ import pyghmi.util.webclient as webclient
 from pyghmi.util.parse import parse_time
 
 
+def _pem_to_dict(pemdata, uefi=False):
+    """Pull PEM into a dict
+
+    Accepts a file-like or a string or bytes.
+
+    A dict with the PEM as a value for CertificateString is created.
+    If uefi, then "UefiSignatureOwner" is also created with a random GUID.
+    This is how redfish expects certificate information for CAs to be provided for
+    UEFI and for itself.
+    """
+    if hasattr(pemdata, 'read'):
+        pemdata = pemdata.read()
+    if isinstance(pemdata, bytes):
+        pemdata = pemdata.decode('utf-8')
+    cert_dict = {
+        'CertificateString': pemdata,
+        'CertificateType': 'PEM',
+        }
+    if uefi:
+        cert_dict['UefiSignatureOwner'] = str(uuid.uuid4())
+    return cert_dict
 
 class SensorReading(object):
     def __init__(self, healthinfo, sensor=None, value=None, units=None,
@@ -145,8 +167,11 @@ class AttrDependencyHandler(object):
                 if currprop == 'CurrentValue':
                     if currattr in self.pend:
                         currval = self.pend[currattr]
-                    else:
+                    elif currattr in self.curr:
                         currval = self.curr[currattr]
+                    else:
+                        break  # The cited dependency attribute is missing, can't enforce
+                               # requested override
                 else:
                     currval = self.reg[currattr][currprop]
                 lastcond = self.process(currval, mapfrom, lastcond, lastoper)
@@ -188,17 +213,87 @@ class OEMHandler(object):
     hostnic = None
     usegenericsensors = True
 
-    def __init__(self, sysinfo, sysurl, webclient, cache, gpool=None):
+    def _invalidate_url_cache(self, url):
+        if url is None:
+            return
+        if url in self._urlcache:
+            del self._urlcache[url]
+        if url + '?$expand=.' in self._urlcache:
+            del self._urlcache[url + '?$expand=.']
+
+    def __init__(self, sysinfo, sysurl, webclient, cache, gpool=None, rootinfo={}):
         self._gpool = gpool
         self._varsysinfo = sysinfo
         self._varsysurl = sysurl
+        self._varbmcurl = None
         self._urlcache = cache
         self.webclient = webclient
         self._hwnamemap = {}
+        self._rootinfo = rootinfo
+        if not self._rootinfo:
+            self._rootinfo = self.webclient.grab_json_response(
+                '/redfish/v1/')
+        self._varbmcurl = None
+        self._varsysurl = sysurl
+        self._allsysurls = []
+        if sysurl is None:  # generic means we need to gather all systems
+            if 'Systems' in self._rootinfo:
+                systems = self._rootinfo['Systems']['@odata.id']
+                res = self.webclient.grab_json_response_with_status(systems)
+                if res[1] == 200:
+                    members = res[0]['Members']
+                    for system in members:
+                        if system['@odata.id'] != sysurl:
+                            self._allsysurls.append(system['@odata.id'])
+        else:
+            self._allsysurls = [sysurl]
 
     def get_screenshot(self, outfile):
         raise exc.UnsupportedFunctionality(
             'Retrieving screenshot is not implemented for this platform')
+    
+    def get_default_mgrurl(self):
+        if not self._varbmcurl and 'Managers' in self._rootinfo:
+            bmcoll = self._rootinfo['Managers']['@odata.id']
+            res = self.webclient.grab_json_response_with_status(bmcoll)
+            if res[1] == 401:
+                raise exc.PyghmiException('Access Denied')
+            elif res[1] < 200 or res[1] >= 300:
+                raise exc.PyghmiException(repr(res[0]))
+            bmcs = res[0]['Members']
+            if len(bmcs) == 1:
+                self._varbmcurl = bmcs[0]['@odata.id']
+        return self._varbmcurl
+    
+    def get_default_sysurl(self):
+        if not self._varsysurl and 'Systems' in self._rootinfo:
+            systems = self._rootinfo['Systems']['@odata.id']
+            res = self.webclient.grab_json_response_with_status(systems)
+            if res[1] == 401:
+                raise exc.PyghmiException('Access Denied')
+            elif res[1] < 200 or res[1] >= 300:
+                raise exc.PyghmiException(repr(res[0]))
+            members = res[0]
+            systems = members['Members']
+            if self._varsysurl:
+                for system in systems:
+                    if system['@odata.id'] == self._varsysurl or system['@odata.id'].split('/')[-1] == self._varsysurl:
+                        self._varsysurl = system['@odata.id']
+                        break
+                else:
+                    raise exc.PyghmiException(
+                        'Specified sysurl not found: {0}'.format(self._varsysurl))
+            else:
+                if len(systems) > 1:
+                    systems = [x for x in systems if 'DPU' not in x['@odata.id']]
+                if len(systems) > 1:
+                    raise exc.PyghmiException(
+                        'Multi system manager, sysurl is required parameter')
+                if len(systems):
+                    self._varsysurl = systems[0]['@odata.id']
+                else:
+                    self._varsysurl = None
+        return self._varsysurl
 
     def supports_expand(self, url):
         # Unfortunately, the state of expand in redfish is pretty dicey,
@@ -236,6 +331,214 @@ class OEMHandler(object):
                 cputemps.append(temp)
         return cputemps
 
+    @property
+    def _bmcurl(self):
+        if not self._varbmcurl:
+            self._varbmcurl = self.sysinfo.get('Links', {}).get(
+                'ManagedBy', [{}])[0].get('@odata.id', None)
+        return self._varbmcurl
+
+    @property
+    def sysinfo(self):
+        return self._do_web_request(self._varsysurl)
+
+    def get_bmc_csr(self, keytype=None, keylength=None, cn=None, city=None,
+                    state=None, country=None, org=None, orgunit=None):
+        # A fun time here, the redfish specification is weird about this.
+        # We have a certificateservice, sounds good, and an action to generate a CSR,
+        # straightforward enough, but you have to indicate a certificate collection...
+        # We get a list of locations, so we have to infer the collection, which
+        # is perhaps odd, but a relatively safe bet.
+        # However, the purpose of the certificates is opaque, so we can only guess
+        # based on strings in the url if there is ambiguity.
+        rootinfo = self._do_web_request('/redfish/v1/')
+        certserviceurl = rootinfo.get('CertificateService', {}).get('@odata.id', None)
+        if not certserviceurl:
+            raise exc.PyghmiException('No CertificateService found on platform')
+        certservice = self._do_web_request(certserviceurl)
+        gencsractinfo = certservice.get('Actions', {}).get("#CertificateService.GenerateCSR", {})
+        curveids = gencsractinfo.get('KeyCurveId@Redfish.AllowableValues', [])
+        keylens = gencsractinfo.get('KeyBitLength@Redfish.AllowableValues', [])
+        keypairalgorithms = gencsractinfo.get('KeyPairAlgorithm@Redfish.AllowableValues', [])
+        selectedcurve = None
+        selectedkeylen = None
+        selectedkpa = None
+        if not keytype:
+            for kpa in keypairalgorithms:
+                if 'ECDH' in kpa:
+                    keytype = 'ECC'
+                    selectedkpa = kpa
+                    break
+                if 'RSA' in kpa:
+                    selectedkpa = kpa
+                    keytype = 'RSA'
+        if not keytype:
+            raise exc.PyghmiException('No valid key type found for CSR generation')
+        if keytype.upper() in ('ECC', 'ECDSA'):
+            if not curveids:
+                raise exc.PyghmiException('No valid curves found for ECC/ECDSA key type')
+            if keylength:
+                for curve in curveids:
+                    if fnmatch(curve, '*{0}'.format(keylength)):
+                        selectedcurve = curve
+                        break
+            else:
+                selectedcurve = curveids[-1]
+        elif keytype.upper() == 'RSA':
+            if not keylens:
+                raise exc.PyghmiException('No valid key lengths found for RSA key type')
+            if keylength:
+                allkeylens = []
+                for klp in keylens:
+                    if isinstance(klp, int):
+                        allkeylens.append(klp)
+                        continue
+                    for kl in klp.split(':'):
+                        allkeylens.append(int(kl))
+                if keylength not in allkeylens:
+                    raise exc.PyghmiException('Requested key length {0} not supported'.format(keylength))
+                selectedkeylen = keylength
+        gencsrtarg = gencsractinfo.get('target', None)
+        certcoll = self.get_certificate_collection(certservice)
+        payload = {
+            'CertificateCollection': {"@odata.id": certcoll},
+            'City': city or 'Unspecified',
+            'CommonName': cn or self.webclient.thehost,
+            'Country': country or 'AQ',  # Need *a* valid two letter country code, Antarctica is more equally likely to be wrong than most.
+            'Organization': org or 'Unspecified',
+            'State': state or 'Unspecified',
+        }
+        if orgunit:
+            payload['OrganizationalUnit'] = orgunit
+        if selectedcurve:
+            payload['KeyCurveId'] = selectedcurve
+        elif selectedkeylen:
+            payload['KeyLength'] = selectedkeylen
+        if selectedkpa:
+            payload['KeyPairAlgorithm'] = selectedkpa
+        rsp = self._do_web_request(gencsrtarg, payload)
+        csr = rsp.get('CSRString', None)
+        return csr
+
+    def get_certificate_collection(self, certservice):
+        certcollections = set([])
+        certlocs = certservice.get('CertificateLocations', {}).get('@odata.id', None)
+        if certlocs:
+            certlocdata = self._do_web_request(certlocs)
+            for cert in certlocdata.get('Links', {}).get('Certificates', []):
+                certurl = cert.get('@odata.id', None)
+                if not certurl:
+                    continue
+                # we need to remove the last part of url to get collection
+                collurl = '/'.join(certurl.split('/')[:-1])
+                certcollections.add(collurl)
+        if len(certcollections) == 0:
+            raise exc.PyghmiException('No certificate collections found for certificate operation')
+        if len(certcollections) > 1:
+            for candcoll in list(certcollections):
+                if 'TrustedCertificates' in candcoll:  # likely a CA store
+                    certcollections.discard(candcoll)
+                elif 'LDAP' in candcoll:  # certificate for LDAP server
+                    certcollections.discard(candcoll)
+                elif 'KMIP' in candcoll:  # not for TLS
+                    certcollections.discard(candcoll)
+                elif 'Boot/Certificates' in candcoll:
+                    certcollections.discard(candcoll)
+        if len(certcollections) > 1:
+            raise exc.PyghmiException('Multiple certificate collections found, unable to infer intended target for certificate operation')
+        certcoll = list(certcollections)[0]
+        return certcoll
+
+    def install_bmc_certificate(self, certdata):
+        rootinfo = self._do_web_request('/redfish/v1/')
+        certserviceurl = rootinfo.get('CertificateService', {}).get('@odata.id', None)
+        if not certserviceurl:
+            raise exc.PyghmiException('No CertificateService found on platform')
+        certservice = self._do_web_request(certserviceurl)
+        certlocs = certservice.get('CertificateLocations', {}).get('@odata.id', None)
+        if not certlocs:
+            raise exc.PyghmiException('No CertificateLocations found on platform')
+        certlocdata = self._do_web_request(certlocs)
+        allcerts = set([])
+        for certloc in certlocdata.get('Links', {}).get('Certificates', []):
+            certurl = certloc.get('@odata.id', None)
+            if not certurl:
+                continue
+            allcerts.add(certurl)
+        if len(allcerts) == 0:
+            raise exc.PyghmiException('No Certificates found on platform')
+        elif len(allcerts) > 1:
+            # try to narrow down to server cert
+            for certurl in list(allcerts):
+                if 'TrustedCertificates' in certurl:
+                    allcerts.discard(certurl)
+                elif 'LDAP' in certurl:
+                    allcerts.discard(certurl)
+                elif 'KMIP' in certurl:
+                    allcerts.discard(certurl)
+                elif 'Boot/Certificates' in certurl:
+                    allcerts.discard(certurl)
+        if len(allcerts) > 1:
+            raise exc.PyghmiException('Multiple Certificates found, unable to infer intended target for certificate installation')
+        targcerturl = list(allcerts)[0]
+        replacecerturl = certservice.get('Actions', {}).get(
+            '#CertificateService.ReplaceCertificate', {}).get('target', None)
+        certpayload = _pem_to_dict(certdata)
+        certpayload['CertificateUri'] = {'@odata.id': targcerturl}
+        #/redfish/v1/CertificateService/Actions/CertificateService.ReplaceCertificate
+        self._do_web_request(replacecerturl, certpayload)
+
+    def add_trusted_ca(self, pemdata):
+        mgrinfo = self._do_web_request(self._bmcurl)
+        secpolicy = mgrinfo.get('SecurityPolicy', {}).get('@odata.id', None)
+        if secpolicy:
+            secinfo = self._do_web_request(secpolicy)
+            certcoll = secinfo.get('TLS', {}).get('Client', {}).get('TrustedCertificates', {}).get('@odata.id', None)
+            self._invalidate_url_cache(certcoll)
+            if certcoll:
+                certpayload = _pem_to_dict(pemdata)
+                self._do_web_request(certcoll, certpayload)
+                return True
+        raise exc.PyghmiException('Platform does not support adding trusted CAs')
+
+    def del_trusted_ca(self, certid):
+        mgrinfo = self._do_web_request(self._bmcurl)
+        secpolicy = mgrinfo.get('SecurityPolicy', {}).get('@odata.id', None)
+        if secpolicy:
+            secinfo = self._do_web_request(secpolicy)
+            certcoll = secinfo.get('TLS', {}).get('Client', {}).get('TrustedCertificates', {}).get('@odata.id', None)
+            if certcoll:
+                certs = self._get_expanded_data(certcoll)
+                certs = certs.get('Members', [])
+                for cert in certs:
+                    if cert.get('Id', '') == certid:
+                        self._do_web_request(cert['@odata.id'], method='DELETE')
+                        self._invalidate_url_cache(certcoll)
+                        return True
+        raise exc.PyghmiException(f'No such certificate found: {certid}')
+
+    def get_trusted_cas(self):
+        mgrinfo = self._do_web_request(self._bmcurl)
+        secpolicy = mgrinfo.get('SecurityPolicy', {}).get('@odata.id', None)
+        if secpolicy:
+            secinfo = self._do_web_request(secpolicy)
+            certcoll = secinfo.get('TLS', {}).get('Client', {}).get('TrustedCertificates', {}).get('@odata.id', None)
+            if certcoll:
+                certs = self._get_expanded_data(certcoll)
+                certs = certs.get('Members', [])
+                for cert in certs:
+                    certdesc = {
+                        'id': cert.get('Id', ''),
+                        'name': cert.get('Name', ''),
+                        'pem': cert.get('CertificateString', None),
+                        'subject': cert.get('Subject', {}).get('CommonName', ''),
+                        'sans': cert.get('Subject', {}).get('AlternativeNames', []),
+                        'issuer': cert.get('Issuer', {}).get('CommonName', ''),
+                        'validfrom': cert.get('ValidNotBefore', ''),
+                        'validto': cert.get('ValidNotAfter', ''),
+                    }
+                    yield certdesc
+
     def get_event_log(self, clear=False, fishclient=None, extraurls=[]):
         bmcinfo = self._do_web_request(fishclient._bmcurl)
         lsurl = bmcinfo.get('LogServices', {}).get('@odata.id', None)
@@ -257,7 +560,16 @@ class OEMHandler(object):
         lurls.extend(extraurls)
         for lurl in lurls:
             lurl = lurl['@odata.id']
-            loginfo = self._do_web_request(lurl, cache=(not clear))
+            try:
+                loginfo = self._do_web_request(lurl, cache=(not clear))
+            except Exception:
+                record = {}
+                record['log_id'] = os.path.basename(lurl)
+                record['message'] = 'Could not retrieve log at {0}'.format(lurl)
+                record['severity'] = const.Health.Ok
+                record['timestamp'] = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+                yield record
+                continue
             entriesurl = loginfo.get('Entries', {}).get('@odata.id', None)
             if not entriesurl:
                 continue
@@ -356,7 +668,7 @@ class OEMHandler(object):
             if memsumstatus != 'OK':
                 dimmfound = False
                 dimmdata = self._get_mem_data()
-                for dimminfo in dimmdata['Members']:
+                for dimminfo in dimmdata:
                     if dimminfo.get('Status', {}).get(
                             'State', None) == 'Absent':
                         continue
@@ -667,7 +979,7 @@ class OEMHandler(object):
     def _extract_fwinfo(self, inf):
         return {}
 
-    def get_firmware_inventory(self, components, fishclient):
+    def get_firmware_inventory(self, components, fishclient, category=None):
         return []
 
     def set_credentials(self, username, password):
@@ -940,8 +1252,7 @@ class OEMHandler(object):
         return urls
 
     def _get_cpu_inventory(self, onlynames=False, withids=False, urls=None):
-        for currcpuinfo in self._get_cpu_data().get(
-                'Members', []):
+        for currcpuinfo in self._get_cpu_data():
             url = currcpuinfo['@odata.id']
             name = currcpuinfo.get('Name', 'CPU')
             if name in self._hwnamemap:
@@ -968,18 +1279,21 @@ class OEMHandler(object):
 
     def _get_cpu_urls(self):
         md = self._get_cpu_data(False)
-        return [x['@odata.id'] for x in md.get('Members', [])]
+        return [x['@odata.id'] for x in md]
 
     def _get_cpu_data(self, expand='.'):
-        cpurl = self._varsysinfo.get('Processors', {}).get('@odata.id', None)
-        if not cpurl:
-            return {}
-        return self._get_expanded_data(cpurl, expand)
-
+        cpumembers = []
+        for sysurl in self._allsysurls:
+            currsysdata = self._do_web_request(sysurl)
+            currcpuurl = currsysdata.get('Processors', {}).get('@odata.id', None)
+            if currcpuurl:
+                currcpudata = self._get_expanded_data(currcpuurl, expand)
+                cpumembers.extend(currcpudata.get('Members', []))
+        return cpumembers
 
     def _get_mem_inventory(self, onlyname=False, withids=False, urls=None):
         memdata = self._get_mem_data()
-        for currmeminfo in memdata.get('Members', []): # self._do_bulk_requests(urls):
+        for currmeminfo in memdata:
             url = currmeminfo['@odata.id']
             name = currmeminfo.get('Name', 'Memory')
             if name in self._hwnamemap:
@@ -1010,13 +1324,17 @@ class OEMHandler(object):
 
     def _get_mem_urls(self):
         md = self._get_mem_data(False)
-        return [x['@odata.id'] for x in md.get('Members', [])]
+        return [x['@odata.id'] for x in md]
 
     def _get_mem_data(self, expand='.'):
-        memurl = self._varsysinfo.get('Memory', {}).get('@odata.id', None)
-        if not memurl:
-            return {}
-        return self._get_expanded_data(memurl, expand)
+        memmembers = []
+        for sysurl in self._allsysurls:
+            currsysdata = self._do_web_request(sysurl)
+            currmemurl = currsysdata.get('Memory', {}).get('@odata.id', None)
+            if currmemurl:
+                currmemdata = self._get_expanded_data(currmemurl, expand)
+                memmembers.extend(currmemdata.get('Members', []))
+        return memmembers
 
     def _get_expanded_data(self, url, expand='.'):
         topdata = []
@@ -1088,14 +1406,15 @@ class OEMHandler(object):
             if (uploadthread.rspstatus >= 300
                     or uploadthread.rspstatus < 200):
                 rsp = uploadthread.rsp
-                errmsg = ''
+                errmsg = f'Update attempt resulted in response status {uploadthread.rspstatus}'
                 try:
                     rsp = json.loads(rsp)
                     errmsg = (
                         rsp['error'][
                             '@Message.ExtendedInfo'][0]['Message'])
                 except Exception:
-                    raise Exception(uploadthread.rsp)
+                    errmsg = errmsg + ': ' + repr(rsp)
+                    raise Exception(errmsg)
                 raise Exception(errmsg)
             return self.continue_update(uploadthread, progress)
         finally:
@@ -1215,6 +1534,8 @@ class OEMHandler(object):
             res = self._get_cache(url)
         if res:
             return res
+        # If doing a method that may change remote url state, invalidate cache
+        self._invalidate_url_cache(url)
         wc = self.webclient.dupe()
         if etag:
             wc.stdheaders['If-Match'] = etag

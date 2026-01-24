@@ -16,8 +16,8 @@ from aiohttp_retry import ExponentialRetry, RetryClient
 from fsspec.asyn import _run_coros_in_chunks, sync_wrapper
 from fsspec.callbacks import DEFAULT_CALLBACK
 from fsspec.implementations.http import HTTPFileSystem
-from funcy import cached_property
 
+from scmrepo.compat import cached_property
 from scmrepo.git.backend.dulwich import _get_ssh_vendor
 from scmrepo.git.credentials import Credential, CredentialNotFoundError
 from scmrepo.urls import SCP_REGEX, is_scp_style_url
@@ -58,7 +58,7 @@ class LFSClient(AbstractContextManager):
             return RetryClient(
                 connector=aiohttp.TCPConnector(
                     # Force cleanup of closed SSL transports.
-                    # See https://github.com/iterative/dvc/issues/7414
+                    # See https://github.com/treeverse/dvc/issues/7414
                     enable_cleanup_closed=True,
                 ),
                 timeout=aiohttp.ClientTimeout(
@@ -267,7 +267,7 @@ class _SSHLFSClient(LFSClient):
         action = "upload" if upload else "download"
         return json.loads(
             self._ssh.run_command(
-                command=f"git-lfs-authenticate {path} {action}",
+                command=f"git-lfs-authenticate {path} {action}".encode(),
                 host=host,
                 port=port,
                 username=username,

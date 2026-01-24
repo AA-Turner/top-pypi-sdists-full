@@ -67,6 +67,7 @@ use crate::{Edit, Fix, FixAvailability, Violation};
 /// - [Python documentation: `__getattr__`](https://docs.python.org/3/reference/datamodel.html#object.__getattr__)
 /// - [Python documentation: `__call__`](https://docs.python.org/3/reference/datamodel.html#object.__call__)
 #[derive(ViolationMetadata)]
+#[violation_metadata(stable_since = "v0.0.106")]
 pub(crate) struct UnreliableCallableCheck;
 
 impl Violation for UnreliableCallableCheck {
@@ -90,7 +91,11 @@ pub(crate) fn unreliable_callable_check(
     expr: &Expr,
     func: &Expr,
     args: &[Expr],
+    keywords: &[ast::Keyword],
 ) {
+    if !keywords.is_empty() {
+        return;
+    }
     let [obj, attr, ..] = args else {
         return;
     };
@@ -103,7 +108,21 @@ pub(crate) fn unreliable_callable_check(
     let Some(builtins_function) = checker.semantic().resolve_builtin_symbol(func) else {
         return;
     };
-    if !matches!(builtins_function, "hasattr" | "getattr") {
+
+    // Validate function arguments based on function name
+    let valid_args = match builtins_function {
+        "hasattr" => {
+            // hasattr should have exactly 2 positional arguments and no keywords
+            args.len() == 2
+        }
+        "getattr" => {
+            // getattr should have 2 or 3 positional arguments and no keywords
+            args.len() == 2 || args.len() == 3
+        }
+        _ => return,
+    };
+
+    if !valid_args {
         return;
     }
 

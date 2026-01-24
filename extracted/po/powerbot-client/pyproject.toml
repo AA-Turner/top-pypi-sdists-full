@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "powerbot_client"
-version = "2.24.1"
+version = "2.27.10"
 description = "PowerBot Asyncio Client"
 authors = ["PowerBot <support@powerbot-trading.com>"]
 readme = "README.md"
@@ -9,7 +9,7 @@ readme = "README.md"
 python = "^3.9"
 six = "^1.16.0"
 certifi = "^2024.7.4"
-urllib3 = "^2.2.2"
+urllib3 = "^2.2.2, !=2.6.0"
 python-dateutil = "^2.9.0.post0"
 
 [build-system]

@@ -168,7 +168,7 @@ class TestDBClassBasic(unittest.TestCase):
     def test_attribute_server_version(self):
         server_version = self.db.server_version
         self.assertIsInstance(server_version, int)
-        self.assertGreaterEqual(server_version, 100000)  # >= 10.0
+        self.assertGreaterEqual(server_version, 120000)  # >= 12.0
         self.assertLess(server_version, 200000)  # < 20.0
         self.assertEqual(server_version, self.db.db.server_version)
 
@@ -3899,7 +3899,7 @@ class TestDBClass(unittest.TestCase):
 
     def test_timetz(self):
         query = self.db.query
-        timezones = dict(CET=1, EET=2, EST=-5, UTC=0)
+        timezones = {'GMT': 0, 'Etc/GMT-1': 1, 'Etc/GMT-5': -5, 'UTC': 0}
         for timezone in sorted(timezones):
             tz = f'{timezones[timezone]:+03d}00'
             tzinfo = datetime.strptime(tz, '%z').tzinfo
@@ -3951,7 +3951,7 @@ class TestDBClass(unittest.TestCase):
 
     def test_timestamptz(self):
         query = self.db.query
-        timezones = dict(CET=1, EET=2, EST=-5, UTC=0)
+        timezones = {'GMT': 0, 'Etc/GMT-1': 1, 'Etc/GMT-5': -5, 'UTC': 0}
         for timezone in sorted(timezones):
             tz = f'{timezones[timezone]:+03d}00'
             tzinfo = datetime.strptime(tz, '%z').tzinfo
@@ -4232,6 +4232,24 @@ class TestDBClass(unittest.TestCase):
         self.assertEqual(n, 3)
         self.assertEqual([row[0] for row in data_from], [1, 2, 3])
         self.assertEqual(data_from, data_to)
+
+    def test_inserttable_with_freeze(self):
+        # use inserttable() with freeze and table created in same transaction
+        query = self.db.query
+        values = [(i,) for i in range(1, 4)]
+        self.db.begin()
+        self.create_table('test_table_freeze', 'n integer')
+        self.db.inserttable('test_table_freeze', values, freeze=True)
+        self.db.commit()
+        r = query("select * from test_table_freeze").getresult()
+        self.assertEqual(r, values)
+
+    def test_inserttable_with_freeze_no_transaction(self):
+        # use inserttable() with freeze and table created before transaction
+        values = [(i,) for i in range(1, 4)]
+        self.create_table('test_table_freeze', 'n integer')
+        self.assertRaises(ValueError, self.db.inserttable,
+                          'test_table_freeze', values, freeze=True)
 
 
 class TestDBClassNonStdOpts(TestDBClass):

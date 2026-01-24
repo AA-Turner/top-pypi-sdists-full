@@ -1261,3 +1261,45 @@ class OpenDataInvalidStateUpdate(OpenDataError):
         super(OpenDataInvalidStateUpdate, self).__init__(*args)
         self._message = "Invalid state update attempted on open data entry."
         self.error_code = 119
+
+
+class InvalidPolicyPackageAlgorithmType(RucioException):
+    """
+    Thrown when an unknown algorithm type name is encountered.
+    """
+    def __init__(self, param: str, *args):
+        super(InvalidPolicyPackageAlgorithmType, self).__init__(*args)
+        self._message = f"Invalid policy package algorithm type '{param}'."
+        self.error_code = 120
+
+
+class InvalidAccountType(RucioException):
+    """
+    Thrown when an account is created with an invalid type
+    """
+    def __init__(self, *args):
+        super(InvalidAccountType, self).__init__(*args)
+        self._message = "Cannot create an account with an invalid type."
+        self.error_code = 121
+
+
+class OpenDataDuplicateDOI(OpenDataError):
+    """
+    Throws when a data identifier with the same DOI already exists in the open data catalog.
+    """
+
+    def __init__(self, doi: str, *args):
+        super(OpenDataDuplicateDOI, self).__init__(*args)
+        self._message = f"Data identifier with the same DOI ({doi}) already exists in the open data catalog."
+        self.error_code = 122
+
+
+class OpenDataDuplicateRecordID(OpenDataError):
+    """
+    Throws when a data identifier with the same Record ID already exists in the open data catalog.
+    """
+
+    def __init__(self, record_id: int, *args):
+        super(OpenDataDuplicateRecordID, self).__init__(*args)
+        self._message = f"Data identifier with the same Record ID ({record_id}) already exists in the open data catalog."
+        self.error_code = 123

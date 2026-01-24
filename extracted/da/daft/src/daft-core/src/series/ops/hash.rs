@@ -1,5 +1,5 @@
-use arrow2::bitmap::Bitmap;
 use common_error::DaftResult;
+use daft_arrow::buffer::NullBuffer;
 use daft_hash::HashFunctionKind;
 
 use crate::{
@@ -29,14 +29,14 @@ impl Series {
         })
     }
 
-    pub fn hash_with_validity(&self, seed: Option<&UInt64Array>) -> DaftResult<UInt64Array> {
+    pub fn hash_with_nulls(&self, seed: Option<&UInt64Array>) -> DaftResult<UInt64Array> {
         let hash = self.hash(seed)?;
-        let validity = if matches!(self.data_type(), DataType::Null) {
-            Some(Bitmap::new_zeroed(self.len()))
+        let nulls = if matches!(self.data_type(), DataType::Null) {
+            Some(NullBuffer::new_null(self.len()))
         } else {
-            self.validity().cloned()
+            self.nulls().cloned()
         };
-        hash.with_validity(validity)
+        hash.with_nulls(nulls)
     }
 
     pub fn murmur3_32(&self) -> DaftResult<Int32Array> {

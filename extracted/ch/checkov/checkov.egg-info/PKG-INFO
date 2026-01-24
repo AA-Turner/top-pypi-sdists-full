@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: checkov
-Version: 3.2.471
+Version: 3.2.497
 Summary: Infrastructure as code static analysis
 Home-page: https://github.com/bridgecrewio/checkov
 Author: bridgecrew
@@ -11,7 +11,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -19,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: bc-python-hcl2==0.4.3
@@ -64,8 +63,8 @@ Requires-Dist: spdx-tools<0.9.0,>=0.8.0
 Requires-Dist: license-expression<31.0.0,>=30.1.0
 Requires-Dist: rustworkx<1.0.0,>=0.13.0
 Requires-Dist: pydantic<3.0.0,>=2.0.0
-Requires-Dist: asteval==1.0.5
-Requires-Dist: urllib3==1.26.20
+Requires-Dist: asteval==1.0.6
+Requires-Dist: urllib3>=1.26.20
 Provides-Extra: dev
 Requires-Dist: pytest<8.0.0; extra == "dev"
 Requires-Dist: coverage==7.6.1; extra == "dev"
@@ -73,6 +72,18 @@ Requires-Dist: coverage-badge; extra == "dev"
 Requires-Dist: GitPython==3.1.41; extra == "dev"
 Requires-Dist: bandit; extra == "dev"
 Requires-Dist: jsonschema; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 [![checkov](https://raw.githubusercontent.com/bridgecrewio/checkov/main/docs/web/images/checkov_blue_logo.png)](#)
        
@@ -574,4 +585,7 @@ To skip this API call use the flag `--skip-download`.
 Start with our [Documentation](https://www.checkov.io/1.Welcome/Quick%20Start.html) for quick tutorials and examples.
 
 ## Python Version Support
-We follow the official support cycle of Python, and we use automated tests for supported versions of Python. This means we currently support Python 3.9 - 3.13, inclusive. Note that Python 3.8 reached EOL on October 2024 and Python 3.9 will reach EOL in October 2025. If you run into any issues with any non-EOL Python version, please open an Issue.
+We follow the official support cycle of Python, and we use automated tests for supported versions of Python.
+This means we currently support Python 3.9 - 3.13, inclusive.
+Note that Python 3.8 reached EOL on October 2024 and Python 3.9 will reach EOL in October 2025.
+If you run into any issues with any non-EOL Python version, please open an Issue.

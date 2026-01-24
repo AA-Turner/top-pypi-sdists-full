@@ -1,60 +1,65 @@
 use std::borrow::Cow;
+use std::sync::Arc;
 
 use pyo3::types::{PyComplex, PyDict};
 use pyo3::{prelude::*, IntoPyObjectExt};
 
+use crate::build_tools::LazyLock;
 use crate::definitions::DefinitionsBuilder;
+use crate::serializers::SerializationState;
 
-use super::{infer_serialize, infer_to_python, BuildSerializer, CombinedSerializer, Extra, SerMode, TypeSerializer};
+use super::{infer_serialize, infer_to_python, BuildSerializer, CombinedSerializer, SerMode, TypeSerializer};
 
 #[derive(Debug, Clone)]
 pub struct ComplexSerializer {}
+
+static COMPLEX_SERIALIZER: LazyLock<Arc<CombinedSerializer>> = LazyLock::new(|| Arc::new(ComplexSerializer {}.into()));
 
 impl BuildSerializer for ComplexSerializer {
     const EXPECTED_TYPE: &'static str = "complex";
     fn build(
         _schema: &Bound<'_, PyDict>,
         _config: Option<&Bound<'_, PyDict>>,
-        _definitions: &mut DefinitionsBuilder<CombinedSerializer>,
-    ) -> PyResult<CombinedSerializer> {
-        Ok(Self {}.into())
+        _definitions: &mut DefinitionsBuilder<Arc<CombinedSerializer>>,
+    ) -> PyResult<Arc<CombinedSerializer>> {
+        Ok(COMPLEX_SERIALIZER.clone())
     }
 }
 
 impl_py_gc_traverse!(ComplexSerializer {});
 
 impl TypeSerializer for ComplexSerializer {
-    fn to_python(
+    fn to_python<'py>(
         &self,
-        value: &Bound<'_, PyAny>,
-        include: Option<&Bound<'_, PyAny>>,
-        exclude: Option<&Bound<'_, PyAny>>,
-        extra: &Extra,
-    ) -> PyResult<PyObject> {
+        value: &Bound<'py, PyAny>,
+        state: &mut SerializationState<'_, 'py>,
+    ) -> PyResult<Py<PyAny>> {
         let py = value.py();
         match value.downcast::<PyComplex>() {
-            Ok(py_complex) => match extra.mode {
+            Ok(py_complex) => match state.extra.mode {
                 SerMode::Json => complex_to_str(py_complex).into_py_any(py),
                 _ => Ok(value.clone().unbind()),
             },
             Err(_) => {
-                extra.warnings.on_fallback_py(self.get_name(), value, extra)?;
-                infer_to_python(value, include, exclude, extra)
+                state.warn_fallback_py(self.get_name(), value)?;
+                infer_to_python(value, state)
             }
         }
     }
 
-    fn json_key<'a>(&self, key: &'a Bound<'_, PyAny>, extra: &Extra) -> PyResult<Cow<'a, str>> {
-        self.invalid_as_json_key(key, extra, "complex")
+    fn json_key<'a, 'py>(
+        &self,
+        key: &'a Bound<'py, PyAny>,
+        state: &mut SerializationState<'_, 'py>,
+    ) -> PyResult<Cow<'a, str>> {
+        self.invalid_as_json_key(key, state, "complex")
     }
 
-    fn serde_serialize<S: serde::ser::Serializer>(
+    fn serde_serialize<'py, S: serde::ser::Serializer>(
         &self,
-        value: &Bound<'_, PyAny>,
+        value: &Bound<'py, PyAny>,
         serializer: S,
-        include: Option<&Bound<'_, PyAny>>,
-        exclude: Option<&Bound<'_, PyAny>>,
-        extra: &Extra,
+        state: &mut SerializationState<'_, 'py>,
     ) -> Result<S::Ok, S::Error> {
         match value.downcast::<PyComplex>() {
             Ok(py_complex) => {
@@ -62,8 +67,8 @@ impl TypeSerializer for ComplexSerializer {
                 Ok(serializer.collect_str::<String>(&s)?)
             }
             Err(_) => {
-                extra.warnings.on_fallback_ser::<S>(self.get_name(), value, extra)?;
-                infer_serialize(value, serializer, include, exclude, extra)
+                state.warn_fallback_ser::<S>(self.get_name(), value)?;
+                infer_serialize(value, serializer, state)
             }
         }
     }

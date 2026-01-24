@@ -1,24 +1,10 @@
 from abc import ABCMeta, abstractmethod
-from asyncio import Task, create_task, get_event_loop, sleep
+from asyncio import Task, TimeoutError, create_task, get_event_loop, shield, sleep, wait_for
+from collections.abc import AsyncIterator, Awaitable, Callable, Container
 from copy import copy
 from itertools import dropwhile, groupby
 from logging import DEBUG, getLogger
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Container,
-    Dict,
-    Generic,
-    List,
-    NoReturn,
-    Optional,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Generic, NoReturn, Optional, TypeVar, final
 
 import a_sync
 import dank_mids
@@ -30,7 +16,7 @@ from a_sync import (
     CounterLock,
     PruningThreadPoolExecutor,
 )
-from async_property import async_property
+from async_property import async_property  # type: ignore [import-untyped]
 from brownie import ZERO_ADDRESS
 from dank_mids import BlockSemaphore
 from evmspec.data import Address, HexBytes32
@@ -39,8 +25,8 @@ from pony.orm import OptimisticCheckError, TransactionIntegrityError, db_session
 from web3.datastructures import AttributeDict
 from web3.middleware.filter import block_ranges
 
-from y import convert
 from y import ENVIRONMENT_VARIABLES as ENVS
+from y import convert
 from y._db.decorators import retry_locked
 from y._db.exceptions import CacheNotPopulatedError
 from y._decorators import stuck_coro_debugger
@@ -54,7 +40,7 @@ T = TypeVar("T")
 S = TypeVar("S")
 M = TypeVar("M")
 
-Checkpoints = Dict["Block", int]
+Checkpoints = dict["Block", int]
 
 logger = getLogger(__name__)
 default_filter_threads = PruningThreadPoolExecutor(4)
@@ -106,7 +92,7 @@ def enc_hook(obj: Any) -> bytes:
         raise TypeError
 
 
-def dec_hook(typ: Type[T], obj: bytes) -> T:
+def dec_hook(typ: type[T], obj: bytes) -> T:
     """
     Decode hook for JSON deserialization of special types.
 
@@ -163,7 +149,7 @@ class DiskCache(Generic[S, M], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def _select(self, from_block: "Block", to_block: "Block") -> List[S]:
+    def _select(self, from_block: "Block", to_block: "Block") -> list[S]:
         """
         Selects all cached objects from block `from_block` to block `to_block`.
 
@@ -203,7 +189,7 @@ class DiskCache(Generic[S, M], metaclass=ABCMeta):
 
     @db_session
     @retry_locked
-    def select(self, from_block: "Block", to_block: "Block") -> List[S]:
+    def select(self, from_block: "Block", to_block: "Block") -> list[S]:
         """
         Selects all cached objects from block `from_block` to block `to_block`.
 
@@ -232,7 +218,7 @@ class DiskCache(Generic[S, M], metaclass=ABCMeta):
 
     @db_session
     @retry_locked
-    def check_and_select(self, from_block: "Block", to_block: "Block") -> List[S]:
+    def check_and_select(self, from_block: "Block", to_block: "Block") -> list[S]:
         """
         Selects all cached objects within a specified block range.
 
@@ -276,7 +262,7 @@ class _DiskCachedMixin(ASyncIterable[T], Generic[T, C], metaclass=ABCMeta):
 
     def __init__(
         self,
-        executor: Optional[AsyncThreadPoolExecutor] = None,
+        executor: AsyncThreadPoolExecutor | None = None,
         is_reusable: bool = True,
     ):
         """
@@ -289,7 +275,7 @@ class _DiskCachedMixin(ASyncIterable[T], Generic[T, C], metaclass=ABCMeta):
         self.is_reusable = is_reusable
         self._cache = None
         self._executor = executor
-        self._objects: List[T] = []
+        self._objects: list[T] = []
         self._pruned = 0
 
     @property
@@ -321,7 +307,7 @@ class _DiskCachedMixin(ASyncIterable[T], Generic[T, C], metaclass=ABCMeta):
     @abstractmethod
     def insert_to_db(self) -> Callable[[T], None]: ...
 
-    def bulk_insert(self) -> Callable[[List[T]], Awaitable[None]]:
+    def bulk_insert(self) -> Callable[[list[T]], Awaitable[None]]:
         """
         Function to bulk insert a list of objects into the database.
 
@@ -414,7 +400,7 @@ class _DiskCachedMixin(ASyncIterable[T], Generic[T, C], metaclass=ABCMeta):
         return None
 
 
-def make_executor(small: int, big: int, name: Optional[str] = None) -> PruningThreadPoolExecutor:
+def make_executor(small: int, big: int, name: str | None = None) -> PruningThreadPoolExecutor:
     """
     Creates a thread pool executor that prunes completed tasks.
 
@@ -462,10 +448,10 @@ class Filter(_DiskCachedMixin[T, C]):
         from_block: "Block",
         *,
         chunk_size: int = BATCH_SIZE,
-        chunks_per_batch: Optional[int] = None,
+        chunks_per_batch: int | None = None,
         sleep_time: int = 60,
-        semaphore: Optional[BlockSemaphore] = None,
-        executor: Optional[AsyncThreadPoolExecutor] = None,
+        semaphore: BlockSemaphore | None = None,
+        executor: AsyncThreadPoolExecutor | None = None,
         is_reusable: bool = True,
         verbose: bool = False,
     ):
@@ -511,7 +497,7 @@ class Filter(_DiskCachedMixin[T, C]):
             self._task.cancel()
 
     @abstractmethod
-    async def _fetch_range(self, from_block: "Block", to_block: "Block") -> List[T]:
+    async def _fetch_range(self, from_block: "Block", to_block: "Block") -> list[T]:
         """
         Fetches data for a given range of blocks from an on-chain or remote provider.
 
@@ -615,8 +601,15 @@ class Filter(_DiskCachedMixin[T, C]):
 
         while True:
             if block is None or done_thru < block:
-                self._wakeup()
-                await self._lock.wait_for(done_thru + 1)
+                # TODO: extract this block to a helper method
+                while True:
+                    self._wakeup()
+                    try:
+                        await wait_for(self._lock.wait_for(done_thru + 1), 60)
+                    except TimeoutError:
+                        pass
+                    else:
+                        break
             if self._exc is not None:
                 # raise a copy of it so multiple waiters don't destroy the traceback
                 raise self._exc.with_traceback(self._tb) from self._exc.__cause__
@@ -680,10 +673,13 @@ class Filter(_DiskCachedMixin[T, C]):
 
     def _wakeup(self) -> None:
         """Wake up the Filter to query logs from blocks not yet loaded into memory."""
-        if self._sleep_fut is not None:
-            self._sleep_fut.set_result(None)
+        # self._task should never be None here, it should be assigned by this point
+        _raise_if_exception(self._task)
+        if (fut := self._sleep_fut) is not None:
+            fut.set_result(None)
             del self._sleep_fut
 
+    @final
     async def __fetch(self) -> NoReturn:
         """
         Main coroutine that continuously runs the internal fetch loop.
@@ -691,8 +687,7 @@ class Filter(_DiskCachedMixin[T, C]):
         try:
             await self._fetch()
         except Exception as e:
-            import traceback
-
+            # TODO: propagate these exceptions to the waiters of _lock
             logger.exception(e)
             self._exc = e
             self._tb = e.__traceback__
@@ -715,7 +710,7 @@ class Filter(_DiskCachedMixin[T, C]):
     @stuck_coro_debugger
     async def _fetch_range_wrapped(
         self, i: int, range_start: "Block", range_end: "Block", debug_logs: bool
-    ) -> List[T]:
+    ) -> list[T]:
         """
         Wraps the _fetch_range call with concurrency control.
 
@@ -864,7 +859,7 @@ class Filter(_DiskCachedMixin[T, C]):
         self._lock.set(block)
 
     def _insert_chunk(
-        self, objs: List[T], from_block: "Block", done_thru: "Block", debug_logs: bool
+        self, objs: list[T], from_block: "Block", done_thru: "Block", debug_logs: bool
     ) -> None:
         """
         Queues the insertion of a chunk of objects into the database, and sets metadata.
@@ -877,8 +872,10 @@ class Filter(_DiskCachedMixin[T, C]):
         """
         if prev_task := self._db_task:
             if prev_task.done():
-                if e := prev_task.exception():
-                    raise e
+                if prev_task.exception():
+                    # raise the exception with the proper traceback
+                    prev_task.result()
+
                 prev_task = None
 
         depth = self._depth
@@ -906,22 +903,22 @@ class Filter(_DiskCachedMixin[T, C]):
         """
         Ensures there is a main fetch task running in the background. If not, creates it.
         """
-        if self._task is None:
+        task = self._task
+        if task is None:
             logger.debug("creating task for %s", self)
-            self._task = create_task(coro=self.__fetch(), name=f"{self}.__fetch")
+            task = create_task(coro=self.__fetch(), name=f"{self}.__fetch")
             # NOTE: The task does not return and will be cancelled when this object is
             # garbage collected so there is no need to log the "destroy pending task" message.
-            self._task._log_destroy_pending = False
-        if self._task.done() and (e := self._task.exception()):
-            # copy the exc so the traceback doesn't get destroyed by other waiters
-            raise copy(e).with_traceback(e.__traceback__) from e.__cause__
+            task._log_destroy_pending = False
+            self._task = task
+        _raise_if_exception(task)
 
     async def __insert_chunk(
         self,
-        objs: List[T],
+        objs: list[T],
         from_block: "Block",
         done_thru: "Block",
-        prev_chunk_task: Optional[Task],
+        prev_chunk_task: Task | None,
         depth: int,
         debug_logs: bool,
     ) -> None:
@@ -937,7 +934,9 @@ class Filter(_DiskCachedMixin[T, C]):
             debug_logs: Whether debug logs are active.
         """
         if prev_chunk_task:
-            await prev_chunk_task
+            # I don't believe this can be cancelled by any user-facing function
+            # but just in case, we still want all queued db inserts to complete.
+            await shield(prev_chunk_task)
         del prev_chunk_task
 
         if objs:
@@ -963,7 +962,17 @@ class Filter(_DiskCachedMixin[T, C]):
         self._pruned += count
 
 
-def _clean_addresses(addresses: Union[list, tuple]) -> Union[str, List[str]]:
+def _raise_if_exception(task: Task[Any]) -> None:
+    if not task.done():
+        return None
+    elif (e := task.exception()) is None:
+        return None
+    # we have an exception, copy it and raise it
+    # copy the exc so the traceback doesn't get destroyed by other waiters
+    raise copy(e).with_traceback(e.__traceback__) from e.__cause__
+
+
+def _clean_addresses(addresses: list | tuple) -> str | list[str]:
     """
     Converts addresses into a standardized format, raising an error if the zero address is encountered.
 
@@ -1004,7 +1013,7 @@ def _get_suitable_checkpoint(target_block: "Block", checkpoints: Checkpoints) ->
     return None if block_lt_checkpoint is True else tuple(group)[-1]
 
 
-def _get_checkpoint_index(target_block: "Block", checkpoints: Checkpoints) -> Optional[int]:
+def _get_checkpoint_index(target_block: "Block", checkpoints: Checkpoints) -> int | None:
     """
     Retrieves the index for a checkpoint that is less than or equal to a given block.
 

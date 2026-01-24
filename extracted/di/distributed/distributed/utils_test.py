@@ -80,9 +80,9 @@ from distributed.worker_state_machine import (
     InvalidTransition,
     SecedeEvent,
     StateMachineEvent,
+    WorkerState,
 )
 from distributed.worker_state_machine import TaskState as WorkerTaskState
-from distributed.worker_state_machine import WorkerState
 
 try:
     import dask.array  # register config
@@ -203,7 +203,7 @@ def nodebug_setup_module(module):
 
 def nodebug_teardown_module(module):
     """
-    A teardown_module() that you can install in a test module to reenable
+    A teardown_module() that you can install in a test module to re-enable
     debug facilities.
     """
     if module._old_asyncio_debug is not None:

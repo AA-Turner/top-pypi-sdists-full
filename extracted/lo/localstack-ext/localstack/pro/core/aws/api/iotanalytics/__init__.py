@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -150,8 +150,8 @@ class ResourceAlreadyExistsException(ServiceException):
     code: str = "ResourceAlreadyExistsException"
     sender_fault: bool = False
     status_code: int = 409
-    resourceId: Optional[resourceId]
-    resourceArn: Optional[resourceArn]
+    resourceId: resourceId | None
+    resourceArn: resourceArn | None
 
 
 class ResourceNotFoundException(ServiceException):
@@ -178,7 +178,7 @@ class ThrottlingException(ServiceException):
     status_code: int = 429
 
 
-AttributeNameMapping = Dict[AttributeName, AttributeName]
+AttributeNameMapping = dict[AttributeName, AttributeName]
 
 
 class AddAttributesActivity(TypedDict, total=False):
@@ -188,21 +188,21 @@ class AddAttributesActivity(TypedDict, total=False):
 
     name: ActivityName
     attributes: AttributeNameMapping
-    next: Optional[ActivityName]
+    next: ActivityName | None
 
 
-AttributeNames = List[AttributeName]
+AttributeNames = list[AttributeName]
 
 
 class BatchPutMessageErrorEntry(TypedDict, total=False):
     """Contains informations about errors."""
 
-    messageId: Optional[MessageId]
-    errorCode: Optional[ErrorCode]
-    errorMessage: Optional[ErrorMessage]
+    messageId: MessageId | None
+    errorCode: ErrorCode | None
+    errorMessage: ErrorMessage | None
 
 
-BatchPutMessageErrorEntries = List[BatchPutMessageErrorEntry]
+BatchPutMessageErrorEntries = list[BatchPutMessageErrorEntry]
 MessagePayload = bytes
 
 
@@ -213,7 +213,7 @@ class Message(TypedDict, total=False):
     payload: MessagePayload
 
 
-Messages = List[Message]
+Messages = list[Message]
 
 
 class BatchPutMessageRequest(ServiceRequest):
@@ -222,7 +222,7 @@ class BatchPutMessageRequest(ServiceRequest):
 
 
 class BatchPutMessageResponse(TypedDict, total=False):
-    batchPutMessageErrorEntries: Optional[BatchPutMessageErrorEntries]
+    batchPutMessageErrorEntries: BatchPutMessageErrorEntries | None
 
 
 class CancelPipelineReprocessingRequest(ServiceRequest):
@@ -240,8 +240,8 @@ Timestamp = datetime
 class RetentionPeriod(TypedDict, total=False):
     """How long, in days, message data is kept."""
 
-    unlimited: Optional[UnlimitedRetentionPeriod]
-    numberOfDays: Optional[RetentionPeriodInDays]
+    unlimited: UnlimitedRetentionPeriod | None
+    numberOfDays: RetentionPeriodInDays | None
 
 
 class CustomerManagedChannelS3Storage(TypedDict, total=False):
@@ -252,7 +252,7 @@ class CustomerManagedChannelS3Storage(TypedDict, total=False):
     """
 
     bucket: BucketName
-    keyPrefix: Optional[S3KeyPrefix]
+    keyPrefix: S3KeyPrefix | None
     roleArn: RoleArn
 
 
@@ -271,8 +271,8 @@ class ChannelStorage(TypedDict, total=False):
     creation of the channel.
     """
 
-    serviceManagedS3: Optional[ServiceManagedChannelS3Storage]
-    customerManagedS3: Optional[CustomerManagedChannelS3Storage]
+    serviceManagedS3: ServiceManagedChannelS3Storage | None
+    customerManagedS3: CustomerManagedChannelS3Storage | None
 
 
 class Channel(TypedDict, total=False):
@@ -280,14 +280,14 @@ class Channel(TypedDict, total=False):
     unprocessed messages before publishing the data to a pipeline.
     """
 
-    name: Optional[ChannelName]
-    storage: Optional[ChannelStorage]
-    arn: Optional[ChannelArn]
-    status: Optional[ChannelStatus]
-    retentionPeriod: Optional[RetentionPeriod]
-    creationTime: Optional[Timestamp]
-    lastUpdateTime: Optional[Timestamp]
-    lastMessageArrivalTime: Optional[Timestamp]
+    name: ChannelName | None
+    storage: ChannelStorage | None
+    arn: ChannelArn | None
+    status: ChannelStatus | None
+    retentionPeriod: RetentionPeriod | None
+    creationTime: Timestamp | None
+    lastUpdateTime: Timestamp | None
+    lastMessageArrivalTime: Timestamp | None
 
 
 class ChannelActivity(TypedDict, total=False):
@@ -295,37 +295,37 @@ class ChannelActivity(TypedDict, total=False):
 
     name: ActivityName
     channelName: ChannelName
-    next: Optional[ActivityName]
+    next: ActivityName | None
 
 
-S3PathChannelMessages = List[S3PathChannelMessage]
+S3PathChannelMessages = list[S3PathChannelMessage]
 
 
 class ChannelMessages(TypedDict, total=False):
     """Specifies one or more sets of channel messages."""
 
-    s3Paths: Optional[S3PathChannelMessages]
+    s3Paths: S3PathChannelMessages | None
 
 
 class EstimatedResourceSize(TypedDict, total=False):
     """The estimated size of the resource."""
 
-    estimatedSizeInBytes: Optional[SizeInBytes]
-    estimatedOn: Optional[Timestamp]
+    estimatedSizeInBytes: SizeInBytes | None
+    estimatedOn: Timestamp | None
 
 
 class ChannelStatistics(TypedDict, total=False):
     """Statistics information about the channel."""
 
-    size: Optional[EstimatedResourceSize]
+    size: EstimatedResourceSize | None
 
 
 class CustomerManagedChannelS3StorageSummary(TypedDict, total=False):
     """Used to store channel data in an S3 bucket that you manage."""
 
-    bucket: Optional[BucketName]
-    keyPrefix: Optional[S3KeyPrefix]
-    roleArn: Optional[RoleArn]
+    bucket: BucketName | None
+    keyPrefix: S3KeyPrefix | None
+    roleArn: RoleArn | None
 
 
 class ServiceManagedChannelS3StorageSummary(TypedDict, total=False):
@@ -337,22 +337,22 @@ class ServiceManagedChannelS3StorageSummary(TypedDict, total=False):
 class ChannelStorageSummary(TypedDict, total=False):
     """Where channel data is stored."""
 
-    serviceManagedS3: Optional[ServiceManagedChannelS3StorageSummary]
-    customerManagedS3: Optional[CustomerManagedChannelS3StorageSummary]
+    serviceManagedS3: ServiceManagedChannelS3StorageSummary | None
+    customerManagedS3: CustomerManagedChannelS3StorageSummary | None
 
 
 class ChannelSummary(TypedDict, total=False):
     """A summary of information about a channel."""
 
-    channelName: Optional[ChannelName]
-    channelStorage: Optional[ChannelStorageSummary]
-    status: Optional[ChannelStatus]
-    creationTime: Optional[Timestamp]
-    lastUpdateTime: Optional[Timestamp]
-    lastMessageArrivalTime: Optional[Timestamp]
+    channelName: ChannelName | None
+    channelStorage: ChannelStorageSummary | None
+    status: ChannelStatus | None
+    creationTime: Timestamp | None
+    lastUpdateTime: Timestamp | None
+    lastMessageArrivalTime: Timestamp | None
 
 
-ChannelSummaries = List[ChannelSummary]
+ChannelSummaries = list[ChannelSummary]
 
 
 class Column(TypedDict, total=False):
@@ -360,7 +360,7 @@ class Column(TypedDict, total=False):
     type: ColumnDataType
 
 
-Columns = List[Column]
+Columns = list[Column]
 
 
 class OutputFileUriValue(TypedDict, total=False):
@@ -387,13 +387,13 @@ class Variable(TypedDict, total=False):
     """
 
     name: VariableName
-    stringValue: Optional[StringValue]
-    doubleValue: Optional[DoubleValue]
-    datasetContentVersionValue: Optional[DatasetContentVersionValue]
-    outputFileUriValue: Optional[OutputFileUriValue]
+    stringValue: StringValue | None
+    doubleValue: DoubleValue | None
+    datasetContentVersionValue: DatasetContentVersionValue | None
+    outputFileUriValue: OutputFileUriValue | None
 
 
-Variables = List[Variable]
+Variables = list[Variable]
 
 
 class ResourceConfiguration(TypedDict, total=False):
@@ -413,7 +413,7 @@ class ContainerDatasetAction(TypedDict, total=False):
     image: Image
     executionRoleArn: RoleArn
     resourceConfiguration: ResourceConfiguration
-    variables: Optional[Variables]
+    variables: Variables | None
 
 
 class Tag(TypedDict, total=False):
@@ -423,29 +423,29 @@ class Tag(TypedDict, total=False):
     value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CreateChannelRequest(ServiceRequest):
     channelName: ChannelName
-    channelStorage: Optional[ChannelStorage]
-    retentionPeriod: Optional[RetentionPeriod]
-    tags: Optional[TagList]
+    channelStorage: ChannelStorage | None
+    retentionPeriod: RetentionPeriod | None
+    tags: TagList | None
 
 
 class CreateChannelResponse(TypedDict, total=False):
-    channelName: Optional[ChannelName]
-    channelArn: Optional[ChannelArn]
-    retentionPeriod: Optional[RetentionPeriod]
+    channelName: ChannelName | None
+    channelArn: ChannelArn | None
+    retentionPeriod: RetentionPeriod | None
 
 
 class CreateDatasetContentRequest(ServiceRequest):
     datasetName: DatasetName
-    versionId: Optional[DatasetContentVersion]
+    versionId: DatasetContentVersion | None
 
 
 class CreateDatasetContentResponse(TypedDict, total=False):
-    versionId: Optional[DatasetContentVersion]
+    versionId: DatasetContentVersion | None
 
 
 class DeltaTimeSessionWindowConfiguration(TypedDict, total=False):
@@ -467,7 +467,7 @@ class DeltaTimeSessionWindowConfiguration(TypedDict, total=False):
 class LateDataRuleConfiguration(TypedDict, total=False):
     """The information needed to configure a delta time session window."""
 
-    deltaTimeSessionWindowConfiguration: Optional[DeltaTimeSessionWindowConfiguration]
+    deltaTimeSessionWindowConfiguration: DeltaTimeSessionWindowConfiguration | None
 
 
 class LateDataRule(TypedDict, total=False):
@@ -475,18 +475,18 @@ class LateDataRule(TypedDict, total=False):
     late data rule.
     """
 
-    ruleName: Optional[LateDataRuleName]
+    ruleName: LateDataRuleName | None
     ruleConfiguration: LateDataRuleConfiguration
 
 
-LateDataRules = List[LateDataRule]
+LateDataRules = list[LateDataRule]
 
 
 class VersioningConfiguration(TypedDict, total=False):
     """Information about the versioning of dataset contents."""
 
-    unlimited: Optional[UnlimitedVersioning]
-    maxVersions: Optional[MaxVersions]
+    unlimited: UnlimitedVersioning | None
+    maxVersions: MaxVersions | None
 
 
 class GlueConfiguration(TypedDict, total=False):
@@ -505,7 +505,7 @@ class S3DestinationConfiguration(TypedDict, total=False):
 
     bucket: BucketName
     key: BucketKeyExpression
-    glueConfiguration: Optional[GlueConfiguration]
+    glueConfiguration: GlueConfiguration | None
     roleArn: RoleArn
 
 
@@ -521,8 +521,8 @@ class IotEventsDestinationConfiguration(TypedDict, total=False):
 class DatasetContentDeliveryDestination(TypedDict, total=False):
     """The destination to which dataset contents are delivered."""
 
-    iotEventsDestinationConfiguration: Optional[IotEventsDestinationConfiguration]
-    s3DestinationConfiguration: Optional[S3DestinationConfiguration]
+    iotEventsDestinationConfiguration: IotEventsDestinationConfiguration | None
+    s3DestinationConfiguration: S3DestinationConfiguration | None
 
 
 class DatasetContentDeliveryRule(TypedDict, total=False):
@@ -530,11 +530,11 @@ class DatasetContentDeliveryRule(TypedDict, total=False):
     specified here.
     """
 
-    entryName: Optional[EntryName]
+    entryName: EntryName | None
     destination: DatasetContentDeliveryDestination
 
 
-DatasetContentDeliveryRules = List[DatasetContentDeliveryRule]
+DatasetContentDeliveryRules = list[DatasetContentDeliveryRule]
 
 
 class TriggeringDataset(TypedDict, total=False):
@@ -548,7 +548,7 @@ class TriggeringDataset(TypedDict, total=False):
 class Schedule(TypedDict, total=False):
     """The schedule for when to trigger an update."""
 
-    expression: Optional[ScheduleExpression]
+    expression: ScheduleExpression | None
 
 
 class DatasetTrigger(TypedDict, total=False):
@@ -556,11 +556,11 @@ class DatasetTrigger(TypedDict, total=False):
     updated.
     """
 
-    schedule: Optional[Schedule]
-    dataset: Optional[TriggeringDataset]
+    schedule: Schedule | None
+    dataset: TriggeringDataset | None
 
 
-DatasetTriggers = List[DatasetTrigger]
+DatasetTriggers = list[DatasetTrigger]
 
 
 class DeltaTime(TypedDict, total=False):
@@ -577,17 +577,17 @@ class QueryFilter(TypedDict, total=False):
     according to the timeframe in which it arrives.
     """
 
-    deltaTime: Optional[DeltaTime]
+    deltaTime: DeltaTime | None
 
 
-QueryFilters = List[QueryFilter]
+QueryFilters = list[QueryFilter]
 
 
 class SqlQueryDatasetAction(TypedDict, total=False):
     """The SQL query to modify the message."""
 
     sqlQuery: SqlQuery
-    filters: Optional[QueryFilters]
+    filters: QueryFilters | None
 
 
 class DatasetAction(TypedDict, total=False):
@@ -595,36 +595,36 @@ class DatasetAction(TypedDict, total=False):
     automatically created.
     """
 
-    actionName: Optional[DatasetActionName]
-    queryAction: Optional[SqlQueryDatasetAction]
-    containerAction: Optional[ContainerDatasetAction]
+    actionName: DatasetActionName | None
+    queryAction: SqlQueryDatasetAction | None
+    containerAction: ContainerDatasetAction | None
 
 
-DatasetActions = List[DatasetAction]
+DatasetActions = list[DatasetAction]
 
 
 class CreateDatasetRequest(ServiceRequest):
     datasetName: DatasetName
     actions: DatasetActions
-    triggers: Optional[DatasetTriggers]
-    contentDeliveryRules: Optional[DatasetContentDeliveryRules]
-    retentionPeriod: Optional[RetentionPeriod]
-    versioningConfiguration: Optional[VersioningConfiguration]
-    tags: Optional[TagList]
-    lateDataRules: Optional[LateDataRules]
+    triggers: DatasetTriggers | None
+    contentDeliveryRules: DatasetContentDeliveryRules | None
+    retentionPeriod: RetentionPeriod | None
+    versioningConfiguration: VersioningConfiguration | None
+    tags: TagList | None
+    lateDataRules: LateDataRules | None
 
 
 class CreateDatasetResponse(TypedDict, total=False):
-    datasetName: Optional[DatasetName]
-    datasetArn: Optional[DatasetArn]
-    retentionPeriod: Optional[RetentionPeriod]
+    datasetName: DatasetName | None
+    datasetArn: DatasetArn | None
+    retentionPeriod: RetentionPeriod | None
 
 
 class TimestampPartition(TypedDict, total=False):
     """A partition dimension defined by a timestamp attribute."""
 
     attributeName: PartitionAttributeName
-    timestampFormat: Optional[TimestampFormat]
+    timestampFormat: TimestampFormat | None
 
 
 class Partition(TypedDict, total=False):
@@ -638,29 +638,29 @@ class DatastorePartition(TypedDict, total=False):
     ``AttributePartition`` or a ``TimestampPartition``.
     """
 
-    attributePartition: Optional[Partition]
-    timestampPartition: Optional[TimestampPartition]
+    attributePartition: Partition | None
+    timestampPartition: TimestampPartition | None
 
 
-Partitions = List[DatastorePartition]
+Partitions = list[DatastorePartition]
 
 
 class DatastorePartitions(TypedDict, total=False):
     """Contains information about the partition dimensions in a data store."""
 
-    partitions: Optional[Partitions]
+    partitions: Partitions | None
 
 
 class SchemaDefinition(TypedDict, total=False):
     """Information needed to define a schema."""
 
-    columns: Optional[Columns]
+    columns: Columns | None
 
 
 class ParquetConfiguration(TypedDict, total=False):
     """Contains the configuration information of the Parquet format."""
 
-    schemaDefinition: Optional[SchemaDefinition]
+    schemaDefinition: SchemaDefinition | None
 
 
 class JsonConfiguration(TypedDict, total=False):
@@ -678,8 +678,8 @@ class FileFormatConfiguration(TypedDict, total=False):
     You can't change the file format after you create the data store.
     """
 
-    jsonConfiguration: Optional[JsonConfiguration]
-    parquetConfiguration: Optional[ParquetConfiguration]
+    jsonConfiguration: JsonConfiguration | None
+    parquetConfiguration: ParquetConfiguration | None
 
 
 class IotSiteWiseCustomerManagedDatastoreS3Storage(TypedDict, total=False):
@@ -689,7 +689,7 @@ class IotSiteWiseCustomerManagedDatastoreS3Storage(TypedDict, total=False):
     """
 
     bucket: BucketName
-    keyPrefix: Optional[S3KeyPrefix]
+    keyPrefix: S3KeyPrefix | None
 
 
 class DatastoreIotSiteWiseMultiLayerStorage(TypedDict, total=False):
@@ -708,7 +708,7 @@ class CustomerManagedDatastoreS3Storage(TypedDict, total=False):
     """
 
     bucket: BucketName
-    keyPrefix: Optional[S3KeyPrefix]
+    keyPrefix: S3KeyPrefix | None
     roleArn: RoleArn
 
 
@@ -729,24 +729,24 @@ class DatastoreStorage(TypedDict, total=False):
     after your data store is created.
     """
 
-    serviceManagedS3: Optional[ServiceManagedDatastoreS3Storage]
-    customerManagedS3: Optional[CustomerManagedDatastoreS3Storage]
-    iotSiteWiseMultiLayerStorage: Optional[DatastoreIotSiteWiseMultiLayerStorage]
+    serviceManagedS3: ServiceManagedDatastoreS3Storage | None
+    customerManagedS3: CustomerManagedDatastoreS3Storage | None
+    iotSiteWiseMultiLayerStorage: DatastoreIotSiteWiseMultiLayerStorage | None
 
 
 class CreateDatastoreRequest(ServiceRequest):
     datastoreName: DatastoreName
-    datastoreStorage: Optional[DatastoreStorage]
-    retentionPeriod: Optional[RetentionPeriod]
-    tags: Optional[TagList]
-    fileFormatConfiguration: Optional[FileFormatConfiguration]
-    datastorePartitions: Optional[DatastorePartitions]
+    datastoreStorage: DatastoreStorage | None
+    retentionPeriod: RetentionPeriod | None
+    tags: TagList | None
+    fileFormatConfiguration: FileFormatConfiguration | None
+    datastorePartitions: DatastorePartitions | None
 
 
 class CreateDatastoreResponse(TypedDict, total=False):
-    datastoreName: Optional[DatastoreName]
-    datastoreArn: Optional[DatastoreArn]
-    retentionPeriod: Optional[RetentionPeriod]
+    datastoreName: DatastoreName | None
+    datastoreArn: DatastoreArn | None
+    retentionPeriod: RetentionPeriod | None
 
 
 class DeviceShadowEnrichActivity(TypedDict, total=False):
@@ -758,7 +758,7 @@ class DeviceShadowEnrichActivity(TypedDict, total=False):
     attribute: AttributeName
     thingName: AttributeName
     roleArn: RoleArn
-    next: Optional[ActivityName]
+    next: ActivityName | None
 
 
 class DeviceRegistryEnrichActivity(TypedDict, total=False):
@@ -768,7 +768,7 @@ class DeviceRegistryEnrichActivity(TypedDict, total=False):
     attribute: AttributeName
     thingName: AttributeName
     roleArn: RoleArn
-    next: Optional[ActivityName]
+    next: ActivityName | None
 
 
 class MathActivity(TypedDict, total=False):
@@ -779,7 +779,7 @@ class MathActivity(TypedDict, total=False):
     name: ActivityName
     attribute: AttributeName
     math: MathExpression
-    next: Optional[ActivityName]
+    next: ActivityName | None
 
 
 class FilterActivity(TypedDict, total=False):
@@ -787,7 +787,7 @@ class FilterActivity(TypedDict, total=False):
 
     name: ActivityName
     filter: FilterExpression
-    next: Optional[ActivityName]
+    next: ActivityName | None
 
 
 class SelectAttributesActivity(TypedDict, total=False):
@@ -797,7 +797,7 @@ class SelectAttributesActivity(TypedDict, total=False):
 
     name: ActivityName
     attributes: AttributeNames
-    next: Optional[ActivityName]
+    next: ActivityName | None
 
 
 class RemoveAttributesActivity(TypedDict, total=False):
@@ -805,7 +805,7 @@ class RemoveAttributesActivity(TypedDict, total=False):
 
     name: ActivityName
     attributes: AttributeNames
-    next: Optional[ActivityName]
+    next: ActivityName | None
 
 
 class DatastoreActivity(TypedDict, total=False):
@@ -821,61 +821,61 @@ class LambdaActivity(TypedDict, total=False):
     name: ActivityName
     lambdaName: LambdaName
     batchSize: ActivityBatchSize
-    next: Optional[ActivityName]
+    next: ActivityName | None
 
 
 PipelineActivity = TypedDict(
     "PipelineActivity",
     {
-        "channel": Optional[ChannelActivity],
-        "lambda": Optional[LambdaActivity],
-        "datastore": Optional[DatastoreActivity],
-        "addAttributes": Optional[AddAttributesActivity],
-        "removeAttributes": Optional[RemoveAttributesActivity],
-        "selectAttributes": Optional[SelectAttributesActivity],
-        "filter": Optional[FilterActivity],
-        "math": Optional[MathActivity],
-        "deviceRegistryEnrich": Optional[DeviceRegistryEnrichActivity],
-        "deviceShadowEnrich": Optional[DeviceShadowEnrichActivity],
+        "channel": ChannelActivity | None,
+        "lambda": LambdaActivity | None,
+        "datastore": DatastoreActivity | None,
+        "addAttributes": AddAttributesActivity | None,
+        "removeAttributes": RemoveAttributesActivity | None,
+        "selectAttributes": SelectAttributesActivity | None,
+        "filter": FilterActivity | None,
+        "math": MathActivity | None,
+        "deviceRegistryEnrich": DeviceRegistryEnrichActivity | None,
+        "deviceShadowEnrich": DeviceShadowEnrichActivity | None,
     },
     total=False,
 )
-PipelineActivities = List[PipelineActivity]
+PipelineActivities = list[PipelineActivity]
 
 
 class CreatePipelineRequest(ServiceRequest):
     pipelineName: PipelineName
     pipelineActivities: PipelineActivities
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class CreatePipelineResponse(TypedDict, total=False):
-    pipelineName: Optional[PipelineName]
-    pipelineArn: Optional[PipelineArn]
+    pipelineName: PipelineName | None
+    pipelineArn: PipelineArn | None
 
 
 class CustomerManagedDatastoreS3StorageSummary(TypedDict, total=False):
     """Contains information about the data store that you manage."""
 
-    bucket: Optional[BucketName]
-    keyPrefix: Optional[S3KeyPrefix]
-    roleArn: Optional[RoleArn]
+    bucket: BucketName | None
+    keyPrefix: S3KeyPrefix | None
+    roleArn: RoleArn | None
 
 
 class Dataset(TypedDict, total=False):
     """Information about a dataset."""
 
-    name: Optional[DatasetName]
-    arn: Optional[DatasetArn]
-    actions: Optional[DatasetActions]
-    triggers: Optional[DatasetTriggers]
-    contentDeliveryRules: Optional[DatasetContentDeliveryRules]
-    status: Optional[DatasetStatus]
-    creationTime: Optional[Timestamp]
-    lastUpdateTime: Optional[Timestamp]
-    retentionPeriod: Optional[RetentionPeriod]
-    versioningConfiguration: Optional[VersioningConfiguration]
-    lateDataRules: Optional[LateDataRules]
+    name: DatasetName | None
+    arn: DatasetArn | None
+    actions: DatasetActions | None
+    triggers: DatasetTriggers | None
+    contentDeliveryRules: DatasetContentDeliveryRules | None
+    status: DatasetStatus | None
+    creationTime: Timestamp | None
+    lastUpdateTime: Timestamp | None
+    retentionPeriod: RetentionPeriod | None
+    versioningConfiguration: VersioningConfiguration | None
+    lateDataRules: LateDataRules | None
 
 
 class DatasetActionSummary(TypedDict, total=False):
@@ -883,70 +883,70 @@ class DatasetActionSummary(TypedDict, total=False):
     contents.
     """
 
-    actionName: Optional[DatasetActionName]
-    actionType: Optional[DatasetActionType]
+    actionName: DatasetActionName | None
+    actionType: DatasetActionType | None
 
 
-DatasetActionSummaries = List[DatasetActionSummary]
+DatasetActionSummaries = list[DatasetActionSummary]
 
 
 class DatasetContentStatus(TypedDict, total=False):
     """The state of the dataset contents and the reason they are in this state."""
 
-    state: Optional[DatasetContentState]
-    reason: Optional[Reason]
+    state: DatasetContentState | None
+    reason: Reason | None
 
 
 class DatasetContentSummary(TypedDict, total=False):
     """Summary information about dataset contents."""
 
-    version: Optional[DatasetContentVersion]
-    status: Optional[DatasetContentStatus]
-    creationTime: Optional[Timestamp]
-    scheduleTime: Optional[Timestamp]
-    completionTime: Optional[Timestamp]
+    version: DatasetContentVersion | None
+    status: DatasetContentStatus | None
+    creationTime: Timestamp | None
+    scheduleTime: Timestamp | None
+    completionTime: Timestamp | None
 
 
-DatasetContentSummaries = List[DatasetContentSummary]
+DatasetContentSummaries = list[DatasetContentSummary]
 
 
 class DatasetEntry(TypedDict, total=False):
     """The reference to a dataset entry."""
 
-    entryName: Optional[EntryName]
-    dataURI: Optional[PresignedURI]
+    entryName: EntryName | None
+    dataURI: PresignedURI | None
 
 
-DatasetEntries = List[DatasetEntry]
+DatasetEntries = list[DatasetEntry]
 
 
 class DatasetSummary(TypedDict, total=False):
     """A summary of information about a dataset."""
 
-    datasetName: Optional[DatasetName]
-    status: Optional[DatasetStatus]
-    creationTime: Optional[Timestamp]
-    lastUpdateTime: Optional[Timestamp]
-    triggers: Optional[DatasetTriggers]
-    actions: Optional[DatasetActionSummaries]
+    datasetName: DatasetName | None
+    status: DatasetStatus | None
+    creationTime: Timestamp | None
+    lastUpdateTime: Timestamp | None
+    triggers: DatasetTriggers | None
+    actions: DatasetActionSummaries | None
 
 
-DatasetSummaries = List[DatasetSummary]
+DatasetSummaries = list[DatasetSummary]
 
 
 class Datastore(TypedDict, total=False):
     """Information about a data store."""
 
-    name: Optional[DatastoreName]
-    storage: Optional[DatastoreStorage]
-    arn: Optional[DatastoreArn]
-    status: Optional[DatastoreStatus]
-    retentionPeriod: Optional[RetentionPeriod]
-    creationTime: Optional[Timestamp]
-    lastUpdateTime: Optional[Timestamp]
-    lastMessageArrivalTime: Optional[Timestamp]
-    fileFormatConfiguration: Optional[FileFormatConfiguration]
-    datastorePartitions: Optional[DatastorePartitions]
+    name: DatastoreName | None
+    storage: DatastoreStorage | None
+    arn: DatastoreArn | None
+    status: DatastoreStatus | None
+    retentionPeriod: RetentionPeriod | None
+    creationTime: Timestamp | None
+    lastUpdateTime: Timestamp | None
+    lastMessageArrivalTime: Timestamp | None
+    fileFormatConfiguration: FileFormatConfiguration | None
+    datastorePartitions: DatastorePartitions | None
 
 
 class IotSiteWiseCustomerManagedDatastoreS3StorageSummary(TypedDict, total=False):
@@ -954,8 +954,8 @@ class IotSiteWiseCustomerManagedDatastoreS3StorageSummary(TypedDict, total=False
     data used by IoT SiteWise.
     """
 
-    bucket: Optional[BucketName]
-    keyPrefix: Optional[S3KeyPrefix]
+    bucket: BucketName | None
+    keyPrefix: S3KeyPrefix | None
 
 
 class DatastoreIotSiteWiseMultiLayerStorageSummary(TypedDict, total=False):
@@ -963,13 +963,13 @@ class DatastoreIotSiteWiseMultiLayerStorageSummary(TypedDict, total=False):
     data used by IoT SiteWise.
     """
 
-    customerManagedS3Storage: Optional[IotSiteWiseCustomerManagedDatastoreS3StorageSummary]
+    customerManagedS3Storage: IotSiteWiseCustomerManagedDatastoreS3StorageSummary | None
 
 
 class DatastoreStatistics(TypedDict, total=False):
     """Statistical information about the data store."""
 
-    size: Optional[EstimatedResourceSize]
+    size: EstimatedResourceSize | None
 
 
 class ServiceManagedDatastoreS3StorageSummary(TypedDict, total=False):
@@ -983,25 +983,25 @@ class ServiceManagedDatastoreS3StorageSummary(TypedDict, total=False):
 class DatastoreStorageSummary(TypedDict, total=False):
     """Contains information about your data store."""
 
-    serviceManagedS3: Optional[ServiceManagedDatastoreS3StorageSummary]
-    customerManagedS3: Optional[CustomerManagedDatastoreS3StorageSummary]
-    iotSiteWiseMultiLayerStorage: Optional[DatastoreIotSiteWiseMultiLayerStorageSummary]
+    serviceManagedS3: ServiceManagedDatastoreS3StorageSummary | None
+    customerManagedS3: CustomerManagedDatastoreS3StorageSummary | None
+    iotSiteWiseMultiLayerStorage: DatastoreIotSiteWiseMultiLayerStorageSummary | None
 
 
 class DatastoreSummary(TypedDict, total=False):
     """A summary of information about a data store."""
 
-    datastoreName: Optional[DatastoreName]
-    datastoreStorage: Optional[DatastoreStorageSummary]
-    status: Optional[DatastoreStatus]
-    creationTime: Optional[Timestamp]
-    lastUpdateTime: Optional[Timestamp]
-    lastMessageArrivalTime: Optional[Timestamp]
-    fileFormatType: Optional[FileFormatType]
-    datastorePartitions: Optional[DatastorePartitions]
+    datastoreName: DatastoreName | None
+    datastoreStorage: DatastoreStorageSummary | None
+    status: DatastoreStatus | None
+    creationTime: Timestamp | None
+    lastUpdateTime: Timestamp | None
+    lastMessageArrivalTime: Timestamp | None
+    fileFormatType: FileFormatType | None
+    datastorePartitions: DatastorePartitions | None
 
 
-DatastoreSummaries = List[DatastoreSummary]
+DatastoreSummaries = list[DatastoreSummary]
 
 
 class DeleteChannelRequest(ServiceRequest):
@@ -1010,7 +1010,7 @@ class DeleteChannelRequest(ServiceRequest):
 
 class DeleteDatasetContentRequest(ServiceRequest):
     datasetName: DatasetName
-    versionId: Optional[DatasetContentVersion]
+    versionId: DatasetContentVersion | None
 
 
 class DeleteDatasetRequest(ServiceRequest):
@@ -1027,12 +1027,12 @@ class DeletePipelineRequest(ServiceRequest):
 
 class DescribeChannelRequest(ServiceRequest):
     channelName: ChannelName
-    includeStatistics: Optional[IncludeStatisticsFlag]
+    includeStatistics: IncludeStatisticsFlag | None
 
 
 class DescribeChannelResponse(TypedDict, total=False):
-    channel: Optional[Channel]
-    statistics: Optional[ChannelStatistics]
+    channel: Channel | None
+    statistics: ChannelStatistics | None
 
 
 class DescribeDatasetRequest(ServiceRequest):
@@ -1040,17 +1040,17 @@ class DescribeDatasetRequest(ServiceRequest):
 
 
 class DescribeDatasetResponse(TypedDict, total=False):
-    dataset: Optional[Dataset]
+    dataset: Dataset | None
 
 
 class DescribeDatastoreRequest(ServiceRequest):
     datastoreName: DatastoreName
-    includeStatistics: Optional[IncludeStatisticsFlag]
+    includeStatistics: IncludeStatisticsFlag | None
 
 
 class DescribeDatastoreResponse(TypedDict, total=False):
-    datastore: Optional[Datastore]
-    statistics: Optional[DatastoreStatistics]
+    datastore: Datastore | None
+    statistics: DatastoreStatistics | None
 
 
 class DescribeLoggingOptionsRequest(ServiceRequest):
@@ -1066,7 +1066,7 @@ class LoggingOptions(TypedDict, total=False):
 
 
 class DescribeLoggingOptionsResponse(TypedDict, total=False):
-    loggingOptions: Optional[LoggingOptions]
+    loggingOptions: LoggingOptions | None
 
 
 class DescribePipelineRequest(ServiceRequest):
@@ -1076,27 +1076,27 @@ class DescribePipelineRequest(ServiceRequest):
 class ReprocessingSummary(TypedDict, total=False):
     """Information about pipeline reprocessing."""
 
-    id: Optional[ReprocessingId]
-    status: Optional[ReprocessingStatus]
-    creationTime: Optional[Timestamp]
+    id: ReprocessingId | None
+    status: ReprocessingStatus | None
+    creationTime: Timestamp | None
 
 
-ReprocessingSummaries = List[ReprocessingSummary]
+ReprocessingSummaries = list[ReprocessingSummary]
 
 
 class Pipeline(TypedDict, total=False):
     """Contains information about a pipeline."""
 
-    name: Optional[PipelineName]
-    arn: Optional[PipelineArn]
-    activities: Optional[PipelineActivities]
-    reprocessingSummaries: Optional[ReprocessingSummaries]
-    creationTime: Optional[Timestamp]
-    lastUpdateTime: Optional[Timestamp]
+    name: PipelineName | None
+    arn: PipelineArn | None
+    activities: PipelineActivities | None
+    reprocessingSummaries: ReprocessingSummaries | None
+    creationTime: Timestamp | None
+    lastUpdateTime: Timestamp | None
 
 
 class DescribePipelineResponse(TypedDict, total=False):
-    pipeline: Optional[Pipeline]
+    pipeline: Pipeline | None
 
 
 EndTime = datetime
@@ -1104,78 +1104,78 @@ EndTime = datetime
 
 class GetDatasetContentRequest(ServiceRequest):
     datasetName: DatasetName
-    versionId: Optional[DatasetContentVersion]
+    versionId: DatasetContentVersion | None
 
 
 class GetDatasetContentResponse(TypedDict, total=False):
-    entries: Optional[DatasetEntries]
-    timestamp: Optional[Timestamp]
-    status: Optional[DatasetContentStatus]
+    entries: DatasetEntries | None
+    timestamp: Timestamp | None
+    status: DatasetContentStatus | None
 
 
 class ListChannelsRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListChannelsResponse(TypedDict, total=False):
-    channelSummaries: Optional[ChannelSummaries]
-    nextToken: Optional[NextToken]
+    channelSummaries: ChannelSummaries | None
+    nextToken: NextToken | None
 
 
 class ListDatasetContentsRequest(ServiceRequest):
     datasetName: DatasetName
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
-    scheduledOnOrAfter: Optional[Timestamp]
-    scheduledBefore: Optional[Timestamp]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
+    scheduledOnOrAfter: Timestamp | None
+    scheduledBefore: Timestamp | None
 
 
 class ListDatasetContentsResponse(TypedDict, total=False):
-    datasetContentSummaries: Optional[DatasetContentSummaries]
-    nextToken: Optional[NextToken]
+    datasetContentSummaries: DatasetContentSummaries | None
+    nextToken: NextToken | None
 
 
 class ListDatasetsRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListDatasetsResponse(TypedDict, total=False):
-    datasetSummaries: Optional[DatasetSummaries]
-    nextToken: Optional[NextToken]
+    datasetSummaries: DatasetSummaries | None
+    nextToken: NextToken | None
 
 
 class ListDatastoresRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListDatastoresResponse(TypedDict, total=False):
-    datastoreSummaries: Optional[DatastoreSummaries]
-    nextToken: Optional[NextToken]
+    datastoreSummaries: DatastoreSummaries | None
+    nextToken: NextToken | None
 
 
 class ListPipelinesRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class PipelineSummary(TypedDict, total=False):
     """A summary of information about a pipeline."""
 
-    pipelineName: Optional[PipelineName]
-    reprocessingSummaries: Optional[ReprocessingSummaries]
-    creationTime: Optional[Timestamp]
-    lastUpdateTime: Optional[Timestamp]
+    pipelineName: PipelineName | None
+    reprocessingSummaries: ReprocessingSummaries | None
+    creationTime: Timestamp | None
+    lastUpdateTime: Timestamp | None
 
 
-PipelineSummaries = List[PipelineSummary]
+PipelineSummaries = list[PipelineSummary]
 
 
 class ListPipelinesResponse(TypedDict, total=False):
-    pipelineSummaries: Optional[PipelineSummaries]
-    nextToken: Optional[NextToken]
+    pipelineSummaries: PipelineSummaries | None
+    nextToken: NextToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -1183,10 +1183,10 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
-MessagePayloads = List[MessagePayload]
+MessagePayloads = list[MessagePayload]
 
 
 class PutLoggingOptionsRequest(ServiceRequest):
@@ -1199,8 +1199,8 @@ class RunPipelineActivityRequest(ServiceRequest):
 
 
 class RunPipelineActivityResponse(TypedDict, total=False):
-    payloads: Optional[MessagePayloads]
-    logResult: Optional[LogResult]
+    payloads: MessagePayloads | None
+    logResult: LogResult | None
 
 
 StartTime = datetime
@@ -1208,27 +1208,27 @@ StartTime = datetime
 
 class SampleChannelDataRequest(ServiceRequest):
     channelName: ChannelName
-    maxMessages: Optional[MaxMessages]
-    startTime: Optional[StartTime]
-    endTime: Optional[EndTime]
+    maxMessages: MaxMessages | None
+    startTime: StartTime | None
+    endTime: EndTime | None
 
 
 class SampleChannelDataResponse(TypedDict, total=False):
-    payloads: Optional[MessagePayloads]
+    payloads: MessagePayloads | None
 
 
 class StartPipelineReprocessingRequest(ServiceRequest):
     pipelineName: PipelineName
-    startTime: Optional[StartTime]
-    endTime: Optional[EndTime]
-    channelMessages: Optional[ChannelMessages]
+    startTime: StartTime | None
+    endTime: EndTime | None
+    channelMessages: ChannelMessages | None
 
 
 class StartPipelineReprocessingResponse(TypedDict, total=False):
-    reprocessingId: Optional[ReprocessingId]
+    reprocessingId: ReprocessingId | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -1251,25 +1251,25 @@ class UntagResourceResponse(TypedDict, total=False):
 
 class UpdateChannelRequest(ServiceRequest):
     channelName: ChannelName
-    channelStorage: Optional[ChannelStorage]
-    retentionPeriod: Optional[RetentionPeriod]
+    channelStorage: ChannelStorage | None
+    retentionPeriod: RetentionPeriod | None
 
 
 class UpdateDatasetRequest(ServiceRequest):
     datasetName: DatasetName
     actions: DatasetActions
-    triggers: Optional[DatasetTriggers]
-    contentDeliveryRules: Optional[DatasetContentDeliveryRules]
-    retentionPeriod: Optional[RetentionPeriod]
-    versioningConfiguration: Optional[VersioningConfiguration]
-    lateDataRules: Optional[LateDataRules]
+    triggers: DatasetTriggers | None
+    contentDeliveryRules: DatasetContentDeliveryRules | None
+    retentionPeriod: RetentionPeriod | None
+    versioningConfiguration: VersioningConfiguration | None
+    lateDataRules: LateDataRules | None
 
 
 class UpdateDatastoreRequest(ServiceRequest):
     datastoreName: DatastoreName
-    retentionPeriod: Optional[RetentionPeriod]
-    datastoreStorage: Optional[DatastoreStorage]
-    fileFormatConfiguration: Optional[FileFormatConfiguration]
+    retentionPeriod: RetentionPeriod | None
+    datastoreStorage: DatastoreStorage | None
+    fileFormatConfiguration: FileFormatConfiguration | None
 
 
 class UpdatePipelineRequest(ServiceRequest):
@@ -1278,8 +1278,8 @@ class UpdatePipelineRequest(ServiceRequest):
 
 
 class IotanalyticsApi:
-    service = "iotanalytics"
-    version = "2017-11-27"
+    service: str = "iotanalytics"
+    version: str = "2017-11-27"
 
     @handler("BatchPutMessage")
     def batch_put_message(

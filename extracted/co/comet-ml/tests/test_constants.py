@@ -37,3 +37,15 @@ SOME_PROJECT_NAME = "some  project name"
 SOME_EXPERIMENT_KEY = "some experiment id"
 SOME_WORKSPACE_ID = "some-workspace-id"
 SOME_WORKSPACE = "WORKSPACE NAME"
+
+FAKE_MODEL_STATUS_CONFIGURATION = status_configuration = {
+  "status": "Production",
+  "is_review_required": True,
+  "status_configuration_items": [
+    {
+      "key": "deployment",
+      "value": "enabled"
+    }
+  ],
+  "comment": "Enabled deployment for production"
+}

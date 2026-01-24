@@ -3,7 +3,7 @@ Type annotations for inspector service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_inspector/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -36,12 +37,6 @@ from .literals import (
     StopActionType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -170,7 +165,7 @@ class FailedItemDetailsTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -378,8 +373,8 @@ class AssessmentTemplateTypeDef(TypedDict):
     name: str
     assessmentTargetArn: str
     durationInSeconds: int
-    rulesPackageArns: List[str]
-    userAttributesForFindings: List[AttributeTypeDef]
+    rulesPackageArns: list[str]
+    userAttributesForFindings: list[AttributeTypeDef]
     assessmentRunCount: int
     createdAt: datetime
     lastAssessmentRunArn: NotRequired[str]
@@ -392,7 +387,7 @@ class CreateAssessmentTemplateRequestTypeDef(TypedDict):
     userAttributesForFindings: NotRequired[Sequence[AttributeTypeDef]]
 
 class AddAttributesToFindingsResponseTypeDef(TypedDict):
-    failedItems: Dict[str, FailedItemDetailsTypeDef]
+    failedItems: dict[str, FailedItemDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateAssessmentTargetResponseTypeDef(TypedDict):
@@ -426,37 +421,37 @@ class GetAssessmentReportResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAssessmentRunsResponseTypeDef(TypedDict):
-    assessmentRunArns: List[str]
+    assessmentRunArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAssessmentTargetsResponseTypeDef(TypedDict):
-    assessmentTargetArns: List[str]
+    assessmentTargetArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAssessmentTemplatesResponseTypeDef(TypedDict):
-    assessmentTemplateArns: List[str]
+    assessmentTemplateArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListExclusionsResponseTypeDef(TypedDict):
-    exclusionArns: List[str]
+    exclusionArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListFindingsResponseTypeDef(TypedDict):
-    findingArns: List[str]
+    findingArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListRulesPackagesResponseTypeDef(TypedDict):
-    rulesPackageArns: List[str]
+    rulesPackageArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class RemoveAttributesFromFindingsResponseTypeDef(TypedDict):
-    failedItems: Dict[str, FailedItemDetailsTypeDef]
+    failedItems: dict[str, FailedItemDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartAssessmentRunResponseTypeDef(TypedDict):
@@ -474,7 +469,7 @@ ListAssessmentRunAgentsRequestTypeDef = TypedDict(
 )
 
 class PreviewAgentsResponseTypeDef(TypedDict):
-    agentPreviews: List[AgentPreviewTypeDef]
+    agentPreviews: list[AgentPreviewTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -483,12 +478,12 @@ class AssessmentRunAgentTypeDef(TypedDict):
     assessmentRunArn: str
     agentHealth: AgentHealthType
     agentHealthCode: AgentHealthCodeType
-    telemetryMetadata: List[TelemetryMetadataTypeDef]
+    telemetryMetadata: list[TelemetryMetadataTypeDef]
     agentHealthDetails: NotRequired[str]
     autoScalingGroup: NotRequired[str]
 
 class GetTelemetryMetadataResponseTypeDef(TypedDict):
-    telemetryMetadata: List[TelemetryMetadataTypeDef]
+    telemetryMetadata: list[TelemetryMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssessmentTemplateFilterTypeDef(TypedDict):
@@ -502,14 +497,14 @@ class AssessmentRunTypeDef(TypedDict):
     assessmentTemplateArn: str
     state: AssessmentRunStateType
     durationInSeconds: int
-    rulesPackageArns: List[str]
-    userAttributesForFindings: List[AttributeTypeDef]
+    rulesPackageArns: list[str]
+    userAttributesForFindings: list[AttributeTypeDef]
     createdAt: datetime
     stateChangedAt: datetime
     dataCollected: bool
-    stateChanges: List[AssessmentRunStateChangeTypeDef]
-    notifications: List[AssessmentRunNotificationTypeDef]
-    findingCounts: Dict[SeverityType, int]
+    stateChanges: list[AssessmentRunStateChangeTypeDef]
+    notifications: list[AssessmentRunNotificationTypeDef]
+    findingCounts: dict[SeverityType, int]
     startedAt: NotRequired[datetime]
     completedAt: NotRequired[datetime]
 
@@ -523,12 +518,12 @@ ListAssessmentTargetsRequestTypeDef = TypedDict(
 )
 
 class DescribeAssessmentTargetsResponseTypeDef(TypedDict):
-    assessmentTargets: List[AssessmentTargetTypeDef]
-    failedItems: Dict[str, FailedItemDetailsTypeDef]
+    assessmentTargets: list[AssessmentTargetTypeDef]
+    failedItems: dict[str, FailedItemDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SetTagsForResourceRequestTypeDef(TypedDict):
@@ -540,33 +535,33 @@ class CreateResourceGroupRequestTypeDef(TypedDict):
 
 class ResourceGroupTypeDef(TypedDict):
     arn: str
-    tags: List[ResourceGroupTagTypeDef]
+    tags: list[ResourceGroupTagTypeDef]
     createdAt: datetime
 
 class DescribeRulesPackagesResponseTypeDef(TypedDict):
-    rulesPackages: List[RulesPackageTypeDef]
-    failedItems: Dict[str, FailedItemDetailsTypeDef]
+    rulesPackages: list[RulesPackageTypeDef]
+    failedItems: dict[str, FailedItemDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SubscriptionTypeDef(TypedDict):
     resourceArn: str
     topicArn: str
-    eventSubscriptions: List[EventSubscriptionTypeDef]
+    eventSubscriptions: list[EventSubscriptionTypeDef]
 
 class ExclusionPreviewTypeDef(TypedDict):
     title: str
     description: str
     recommendation: str
-    scopes: List[ScopeTypeDef]
-    attributes: NotRequired[List[AttributeTypeDef]]
+    scopes: list[ScopeTypeDef]
+    attributes: NotRequired[list[AttributeTypeDef]]
 
 class ExclusionTypeDef(TypedDict):
     arn: str
     title: str
     description: str
     recommendation: str
-    scopes: List[ScopeTypeDef]
-    attributes: NotRequired[List[AttributeTypeDef]]
+    scopes: list[ScopeTypeDef]
+    attributes: NotRequired[list[AttributeTypeDef]]
 
 ListAssessmentRunAgentsRequestPaginateTypeDef = TypedDict(
     "ListAssessmentRunAgentsRequestPaginateTypeDef",
@@ -605,23 +600,23 @@ class NetworkInterfaceTypeDef(TypedDict):
     vpcId: NotRequired[str]
     privateDnsName: NotRequired[str]
     privateIpAddress: NotRequired[str]
-    privateIpAddresses: NotRequired[List[PrivateIpTypeDef]]
+    privateIpAddresses: NotRequired[list[PrivateIpTypeDef]]
     publicDnsName: NotRequired[str]
     publicIp: NotRequired[str]
-    ipv6Addresses: NotRequired[List[str]]
-    securityGroups: NotRequired[List[SecurityGroupTypeDef]]
+    ipv6Addresses: NotRequired[list[str]]
+    securityGroups: NotRequired[list[SecurityGroupTypeDef]]
 
 class TimestampRangeTypeDef(TypedDict):
     beginDate: NotRequired[TimestampTypeDef]
     endDate: NotRequired[TimestampTypeDef]
 
 class DescribeAssessmentTemplatesResponseTypeDef(TypedDict):
-    assessmentTemplates: List[AssessmentTemplateTypeDef]
-    failedItems: Dict[str, FailedItemDetailsTypeDef]
+    assessmentTemplates: list[AssessmentTemplateTypeDef]
+    failedItems: dict[str, FailedItemDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAssessmentRunAgentsResponseTypeDef(TypedDict):
-    assessmentRunAgents: List[AssessmentRunAgentTypeDef]
+    assessmentRunAgents: list[AssessmentRunAgentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -644,29 +639,29 @@ ListAssessmentTemplatesRequestTypeDef = TypedDict(
 )
 
 class DescribeAssessmentRunsResponseTypeDef(TypedDict):
-    assessmentRuns: List[AssessmentRunTypeDef]
-    failedItems: Dict[str, FailedItemDetailsTypeDef]
+    assessmentRuns: list[AssessmentRunTypeDef]
+    failedItems: dict[str, FailedItemDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeResourceGroupsResponseTypeDef(TypedDict):
-    resourceGroups: List[ResourceGroupTypeDef]
-    failedItems: Dict[str, FailedItemDetailsTypeDef]
+    resourceGroups: list[ResourceGroupTypeDef]
+    failedItems: dict[str, FailedItemDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListEventSubscriptionsResponseTypeDef(TypedDict):
-    subscriptions: List[SubscriptionTypeDef]
+    subscriptions: list[SubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetExclusionsPreviewResponseTypeDef(TypedDict):
     previewStatus: PreviewStatusType
-    exclusionPreviews: List[ExclusionPreviewTypeDef]
+    exclusionPreviews: list[ExclusionPreviewTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class DescribeExclusionsResponseTypeDef(TypedDict):
-    exclusions: Dict[str, ExclusionTypeDef]
-    failedItems: Dict[str, FailedItemDetailsTypeDef]
+    exclusions: dict[str, ExclusionTypeDef]
+    failedItems: dict[str, FailedItemDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssetAttributesTypeDef(TypedDict):
@@ -675,9 +670,9 @@ class AssetAttributesTypeDef(TypedDict):
     autoScalingGroup: NotRequired[str]
     amiId: NotRequired[str]
     hostname: NotRequired[str]
-    ipv4Addresses: NotRequired[List[str]]
-    tags: NotRequired[List[TagTypeDef]]
-    networkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+    ipv4Addresses: NotRequired[list[str]]
+    tags: NotRequired[list[TagTypeDef]]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
 
 class AssessmentRunFilterTypeDef(TypedDict):
     namePattern: NotRequired[str]
@@ -702,8 +697,8 @@ FindingTypeDef = TypedDict(
     "FindingTypeDef",
     {
         "arn": str,
-        "attributes": List[AttributeTypeDef],
-        "userAttributes": List[AttributeTypeDef],
+        "attributes": list[AttributeTypeDef],
+        "userAttributes": list[AttributeTypeDef],
         "createdAt": datetime,
         "updatedAt": datetime,
         "schemaVersion": NotRequired[int],
@@ -757,6 +752,6 @@ ListFindingsRequestTypeDef = TypedDict(
 )
 
 class DescribeFindingsResponseTypeDef(TypedDict):
-    findings: List[FindingTypeDef]
-    failedItems: Dict[str, FailedItemDetailsTypeDef]
+    findings: list[FindingTypeDef]
+    failedItems: dict[str, FailedItemDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

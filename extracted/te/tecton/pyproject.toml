@@ -24,7 +24,7 @@ dependencies = [
     "boto3",
     # serialization.load_pem_private_key throws an error with cryptography < 45.0
     "cryptography>=45.0",
-    'deltalake==0.18.2; python_version > "3.7"',
+    'deltalake>=0.18.2; python_version > "3.7"',
     "jinja2~=3.0",
     "numpy~=1.16",
     "pathspec",
@@ -111,6 +111,8 @@ rift-materialization = [
     # Rift materialization requires IMDSv2 support. Older versions of boto3 do not support this metadata server mode:
     # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html#use-a-supported-sdk-version-for-imdsv2
     "boto3>=1.12.6",
+    # rift uses components of deltalake that were deprecated after 1.0
+    "deltalake<1.0",
     # Extra data source libraries
     "psycopg[binary]~=3.2",
     # DuckDB extension

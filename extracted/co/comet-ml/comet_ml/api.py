@@ -45,6 +45,7 @@ from ._typing import (
     Union,
 )
 from .api_objects import model
+from .api_objects.model import ModelStatusConfiguration
 from .common_experiment import CommonExperiment
 from .config import get_api_key, get_config
 from .connection.connection_factory import get_rest_api_client
@@ -159,6 +160,8 @@ from .validation.tag_validator import TagsValidator, TagValidator
 
 if TYPE_CHECKING:
     import pandas as pd
+
+    from .artifacts.logged_artifact import LoggedArtifact
 
 LOGGER = logging.getLogger(__name__)
 
@@ -647,6 +650,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the name of the experiment, if one.
 
+        Returns:
+            str or None: The experiment name if set, otherwise None.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -667,6 +673,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the HTML associated with this experiment.
 
+        Returns:
+            str or None: The HTML content if available, otherwise None.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -685,6 +694,11 @@ class APIExperiment(CommonExperiment):
     def get_metadata(self):
         """
         Get the metadata associated with this experiment.
+
+        Returns:
+            dict: Dictionary containing experiment metadata including archived status,
+                duration, timestamps, experiment key, name, file information,
+                optimization ID, project details, running status, and workspace name.
 
         Example:
             Running the following code sample:
@@ -724,6 +738,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the associated source code for this experiment.
 
+        Returns:
+            str or None: The source code if available, otherwise None.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -742,6 +759,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the associated standard output for this experiment.
 
+        Returns:
+            str or None: The standard output if available, otherwise None.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -758,6 +778,9 @@ class APIExperiment(CommonExperiment):
     def get_installed_packages(self):
         """
         Get the associated installed packages for this experiment.
+
+        Returns:
+            list: List of installed packages with their details.
 
         Example:
             ```python linenums="1"
@@ -783,6 +806,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the OS packages for this experiment.
 
+        Returns:
+            list: List of OS packages with their details.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -799,6 +825,9 @@ class APIExperiment(CommonExperiment):
     def get_user(self):
         """
         Get the associated user for this experiment.
+
+        Returns:
+            str or None: The user information if available, otherwise None.
 
         Example:
             ```python linenums="1"
@@ -817,6 +846,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the Python version for this experiment.
 
+        Returns:
+            str or None: The Python version if available, otherwise None.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -833,6 +865,9 @@ class APIExperiment(CommonExperiment):
     def get_python_version_verbose(self):
         """
         Get the Python version verbose for this experiment.
+
+        Returns:
+            str or None: The verbose Python version information if available, otherwise None.
 
         Example:
             ```python linenums="1"
@@ -851,6 +886,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the pid for this experiment.
 
+        Returns:
+            str or None: The process ID if available, otherwise None.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -867,6 +905,9 @@ class APIExperiment(CommonExperiment):
     def get_os_type(self):
         """
         Get the associated os type for this experiment.
+
+        Returns:
+            str or None: The OS type if available, otherwise None.
 
         Example:
             ```python linenums="1"
@@ -885,6 +926,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the associated OS for this experiment.
 
+        Returns:
+            str or None: The OS information if available, otherwise None.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -901,6 +945,9 @@ class APIExperiment(CommonExperiment):
     def get_os_release(self):
         """
         Get the associated OS release for this experiment.
+
+        Returns:
+            str or None: The OS release information if available, otherwise None.
 
         Example:
             ```python linenums="1"
@@ -919,6 +966,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the associated IP for this experiment.
 
+        Returns:
+            str or None: The IP address if available, otherwise None.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -935,6 +985,9 @@ class APIExperiment(CommonExperiment):
     def get_hostname(self):
         """
         Get the associated hostname for this experiment.
+
+        Returns:
+            str or None: The hostname if available, otherwise None.
 
         Example:
             ```python linenums="1"
@@ -953,6 +1006,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the associated GPU static info for this experiment.
 
+        Returns:
+            dict or None: The GPU static information if available, otherwise None.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -970,6 +1026,12 @@ class APIExperiment(CommonExperiment):
         """
         Get the associated additional system info for this experiment.
 
+        Returns:
+            list or None: List of additional system information dictionaries if available,
+                otherwise None. Each dictionary typically contains key-value pairs of
+                additional system metrics or information that was logged during the experiment.
+                Returns an empty list if no additional system info is available.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -977,8 +1039,36 @@ class APIExperiment(CommonExperiment):
             comet_ml.login()
             api_experiment = comet_ml.APIExperiment(previous_experiment='EXPERIMENT-KEY')
 
-            print(api_experiment.get_additional_system_info())
+            additional_info = api_experiment.get_additional_system_info()
+            if additional_info:
+                print(f"Found {len(additional_info)} additional system info entries")
+                for info in additional_info:
+                    print(f"Key: {info.get('key', 'N/A')}, Value: {info.get('value', 'N/A')}")
+            else:
+                print("No additional system information available")
             ```
+
+            will return a list like:
+            ```json
+            [
+                {
+                    "key": "gpu_memory_used",
+                    "value": "8.5 GB"
+                },
+                {
+                    "key": "cpu_cores_used",
+                    "value": "4"
+                },
+                {
+                    "key": "custom_metric",
+                    "value": "custom_value"
+                }
+            ]
+            ```
+
+            Note: This method may return an empty list if no additional system information
+            was logged during the experiment. The structure and content of the returned
+            data depends on what additional system metrics were configured to be logged.
         """
         results = self._api._client.get_experiment_additional_system_info(self.id)
         return results
@@ -986,6 +1076,9 @@ class APIExperiment(CommonExperiment):
     def get_system_metric_names(self):
         """
         Get the associated system metric names for this experiment.
+
+        Returns:
+            list or None: The system metric names if available, otherwise None.
 
         Example:
             ```python linenums="1"
@@ -1004,6 +1097,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the associated max total memory for this experiment.
 
+        Returns:
+            str or None: The maximum memory information if available, otherwise None.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -1020,6 +1116,9 @@ class APIExperiment(CommonExperiment):
     def get_network_interface_ips(self):
         """
         Get the associated network interface IPs for this experiment.
+
+        Returns:
+            list or None: The network interface IPs if available, otherwise None.
 
         Example:
             ```python linenums="1"
@@ -1038,6 +1137,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the associated command-line script and args for this experiment.
 
+        Returns:
+            str or None: The command-line script and arguments if available, otherwise None.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -1054,6 +1156,9 @@ class APIExperiment(CommonExperiment):
     def get_executable(self):
         """
         Get the associated executable for this experiment.
+
+        Returns:
+            str or None: The executable path if available, otherwise None.
 
         Example:
             ```python linenums="1"
@@ -1072,6 +1177,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the associated total RAM for this experiment.
 
+        Returns:
+            str or None: The total memory information if available, otherwise None.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -1087,7 +1195,10 @@ class APIExperiment(CommonExperiment):
 
     def get_machine(self):
         """
-        Get the associated total RAM for this experiment.
+        Get the associated machine information for this experiment.
+
+        Returns:
+            str or None: The machine information if available, otherwise None.
 
         Example:
             ```python linenums="1"
@@ -1104,7 +1215,10 @@ class APIExperiment(CommonExperiment):
 
     def get_processor(self):
         """
-        Get the associated total RAM for this experiment.
+        Get the associated processor information for this experiment.
+
+        Returns:
+            str or None: The processor information if available, otherwise None.
 
         Example:
             ```python linenums="1"
@@ -1270,7 +1384,33 @@ class APIExperiment(CommonExperiment):
         Get a list of model names associated with this experiment.
 
         Returns:
-            list: List of model names
+            list: List of model names (strings) associated with this experiment.
+                Returns an empty list if no models are found.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+
+            comet_ml.login()
+            api_experiment = comet_ml.APIExperiment(previous_experiment='EXPERIMENT-KEY')
+
+            model_names = api_experiment.get_model_names()
+            print(f"Found {len(model_names)} models: {model_names}")
+
+            # Check if specific models exist
+            if "my_model" in model_names:
+                print("my_model is available")
+            ```
+
+            will return a list like:
+            ```json
+            ["model_v1", "best_model", "final_model"]
+            ```
+
+            or an empty list if no models:
+            ```json
+            []
+            ```
         """
         model_names = [
             model["modelName"]
@@ -1282,6 +1422,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the associated graph/model description for this
         experiment.
+
+        Returns:
+            str or None: The model graph description if available, otherwise None.
 
         Example:
             ```python linenums="1"
@@ -1301,6 +1444,10 @@ class APIExperiment(CommonExperiment):
         """
         Get the associated tags for this experiment.
 
+        Returns:
+            list or None: List of tags (strings) associated with the experiment if available,
+                otherwise None. Returns an empty list if no tags are found.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -1308,7 +1455,24 @@ class APIExperiment(CommonExperiment):
             comet_ml.login()
             api_experiment = comet_ml.APIExperiment(previous_experiment='EXPERIMENT-KEY')
 
-            print(api_experiment.get_tags())
+            tags = api_experiment.get_tags()
+            if tags:
+                print(f"Experiment tags: {tags}")
+                # Check for specific tags
+                if "production" in tags:
+                    print("This is a production experiment")
+            else:
+                print("No tags found")
+            ```
+
+            will return a list like:
+            ```json
+            ["experiment", "machine-learning", "production", "v1.0"]
+            ```
+
+            or an empty list if no tags:
+            ```json
+            []
             ```
         """
         results = self._api._client.get_experiment_tags(self.id)
@@ -1324,52 +1488,106 @@ class APIExperiment(CommonExperiment):
         Args:
             parameter (str):Name of a parameter
 
+        Returns:
+            list or dict or None: List of parameter summaries (if no parameter specified),
+                or a single parameter summary dict (if parameter specified), or None if not found.
+                Each summary includes:
+                - name: Parameter name
+                - valueMax: Maximum value recorded
+                - valueMin: Minimum value recorded
+                - valueCurrent: Current/latest value
+                - timestampMax: Timestamp when max value was recorded
+                - timestampMin: Timestamp when min value was recorded
+                - timestampCurrent: Timestamp of current value
+                - stepMax: Step when max value was recorded
+                - stepMin: Step when min value was recorded
+                - stepCurrent: Step of current value
+                - editable: Whether the parameter can be edited
+
         Example:
-            Running the following code sample:
+            Getting all parameter summaries:
             ```python linenums="1"
             import comet_ml
 
             comet_ml.login()
             api_experiment = comet_ml.APIExperiment(previous_experiment='EXPERIMENT-KEY')
 
-            print(api_experiment.get_parameters_summary())
+            params = api_experiment.get_parameters_summary()
+            print(f"Found {len(params)} parameters")
+            for param in params:
+                print(f"{param['name']}: {param['valueCurrent']}")
             ```
 
-            will print the list:
+            will return a list like:
             ```json
             [{
-                'name': 'batch_size',
-                'valueMax': '120',
-                'valueMin': '120',
-                'valueCurrent': '120',
-                'timestampMax': 1558962363411,
-                'timestampMin': 1558962363411,
-                'timestampCurrent': 1558962363411
+                'name': 'activation',
+                'valueMax': 'sigmoid',
+                'valueMin': 'sigmoid',
+                'valueCurrent': 'sigmoid',
+                'timestampMax': 1757002051223,
+                'timestampMin': 1757002051223,
+                'timestampCurrent': 1757002051223,
+                'stepMax': 12000,
+                'stepMin': 12000,
+                'stepCurrent': 12000,
+                'editable': False
             },
-            ...]
+            {
+                'name': 'batch_size',
+                'valueMax': '32',
+                'valueMin': '16',
+                'valueCurrent': '32',
+                'timestampMax': 1757002100000,
+                'timestampMin': 1757002000000,
+                'timestampCurrent': 1757002100000,
+                'stepMax': 10000,
+                'stepMin': 5000,
+                'stepCurrent': 10000,
+                'editable': True
+            },
+            {
+                'name': 'learning_rate',
+                'valueMax': '0.01',
+                'valueMin': '0.001',
+                'valueCurrent': '0.005',
+                'timestampMax': 1757002150000,
+                'timestampMin': 1757002050000,
+                'timestampCurrent': 1757002150000,
+                'stepMax': 15000,
+                'stepMin': 8000,
+                'stepCurrent': 15000,
+                'editable': True
+            }]
             ```
 
-
-            Specifying a parameter name:
+            Getting a specific parameter:
             ```python linenums="1"
             import comet_ml
 
             comet_ml.login()
             api_experiment = comet_ml.APIExperiment(previous_experiment='EXPERIMENT-KEY')
 
-            print(api_experiment.get_parameters_summary("batch_size"))
+            batch_size = api_experiment.get_parameters_summary("batch_size")
+            if batch_size:
+                print(f"Batch size: {batch_size['valueCurrent']}")
+                print(f"Range: {batch_size['valueMin']} - {batch_size['valueMax']}")
             ```
 
-            will return the dictionary:
+            will return a dictionary like:
             ```json
             {
                 'name': 'batch_size',
-                'valueMax': '120',
-                'valueMin': '120',
-                'valueCurrent': '120',
-                'timestampMax': 1558962363411,
-                'timestampMin': 1558962363411,
-                'timestampCurrent': 1558962363411
+                'valueMax': '32',
+                'valueMin': '16',
+                'valueCurrent': '32',
+                'timestampMax': 1757002100000,
+                'timestampMin': 1757002000000,
+                'timestampCurrent': 1757002100000,
+                'stepMax': 10000,
+                'stepMin': 5000,
+                'stepCurrent': 10000,
+                'editable': True
             }
             ```
         """
@@ -1395,60 +1613,107 @@ class APIExperiment(CommonExperiment):
         Args:
             metric (str): Name of a metric.
 
-        Example:
-            Getting all metrics for an experiment:
+        Returns:
+            list or dict or None: List of metric summaries (if no metric specified),
+                or a single metric summary dict (if metric specified), or None if not found.
+                Each summary includes:
+                - name: Metric name
+                - valueMax: Maximum value recorded
+                - valueMin: Minimum value recorded
+                - valueCurrent: Current/latest value
+                - timestampMax: Timestamp when max value was recorded
+                - timestampMin: Timestamp when min value was recorded
+                - timestampCurrent: Timestamp of current value
+                - stepMax: Step when max value was recorded
+                - stepMin: Step when min value was recorded
+                - stepCurrent: Step of current value
+                - editable: Whether the metric can be edited
 
+        Example:
+            Getting all metric summaries:
             ```python linenums="1"
             import comet_ml
 
             comet_ml.login()
             api_experiment = comet_ml.APIExperiment(previous_experiment='EXPERIMENT-KEY')
 
-            res = api_experiment.get_metrics_summary()
-            print(res)
+            metrics_summary = api_experiment.get_metrics_summary()
+            print(f"Found {len(metrics_summary)} metrics")
+            for metric in metrics_summary:
+                print(f"{metric['name']}: {metric['valueCurrent']} (range: {metric['valueMin']} - {metric['valueMax']})")
             ```
 
-            will print the following list:
+            will return a list like:
             ```json
             [{
-                'name': 'val_loss',
-                'valueMax': '0.24951280827820302',
-                'valueMin': '0.13101346811652184',
-                'valueCurrent': '0.13101346811652184',
-                'timestampMax': 1558962367938,
-                'timestampMin': 1558962367938,
-                'timestampCurrent': 1558962376383,
-                'stepMax': 500,
-                'stepMin': 1500,
-                'stepCurrent': 1500
+                'name': 'batch_loss',
+                'valueMax': '0.40676847100257874',
+                'valueMin': '8.63224093336612E-4',
+                'valueCurrent': '0.005951814819127321',
+                'timestampMax': 1757001865142,
+                'timestampMin': 1757001963352,
+                'timestampCurrent': 1757001981929,
+                'stepMax': 1,
+                'stepMin': 9829,
+                'stepCurrent': 11999,
+                'editable': False
             },
-            ...]
+            {
+                'name': 'batch_tolerance_accuracy',
+                'valueMax': '0.875',
+                'valueMin': '0.0',
+                'valueCurrent': '0.6704545617103577',
+                'timestampMax': 1757001978047,
+                'timestampMin': 1757001868390,
+                'timestampCurrent': 1757001981929,
+                'stepMax': 11497,
+                'stepMin': 589,
+                'stepCurrent': 11999,
+                'editable': False
+            },
+            {
+                'name': 'epoch_duration',
+                'valueMax': '1.234567890',
+                'valueMin': '0.123456789',
+                'valueCurrent': '0.987654321',
+                'timestampMax': 1757002000000,
+                'timestampMin': 1757001900000,
+                'timestampCurrent': 1757002100000,
+                'stepMax': 1000,
+                'stepMin': 500,
+                'stepCurrent': 12000,
+                'editable': True
+            }]
             ```
 
-            Specifying the metric name:
+            Getting a specific metric summary:
             ```python linenums="1"
             import comet_ml
 
             comet_ml.login()
             api_experiment = comet_ml.APIExperiment(previous_experiment='EXPERIMENT-KEY')
 
-            res = api_experiment.get_metrics_summary("val_loss")
-            print(res)
+            loss_summary = api_experiment.get_metrics_summary("batch_loss")
+            if loss_summary:
+                print(f"Loss metric: {loss_summary['valueCurrent']}")
+                print(f"Range: {loss_summary['valueMin']} - {loss_summary['valueMax']}")
+                print(f"Editable: {loss_summary['editable']}")
             ```
 
-            will print the following dictionary:
+            will return a dictionary like:
             ```json
             {
-                'name': 'val_loss',
-                'valueMax': '0.24951280827820302',
-                'valueMin': '0.13101346811652184',
-                'valueCurrent': '0.13101346811652184',
-                'timestampMax': 1558962367938,
-                'timestampMin': 1558962367938,
-                'timestampCurrent': 1558962376383,
-                'stepMax': 500,
-                'stepMin': 1500,
-                'stepCurrent': 1500
+                'name': 'batch_loss',
+                'valueMax': '0.40676847100257874',
+                'valueMin': '8.63224093336612E-4',
+                'valueCurrent': '0.005951814819127321',
+                'timestampMax': 1757001865142,
+                'timestampMin': 1757001963352,
+                'timestampCurrent': 1757001981929,
+                'stepMax': 1,
+                'stepMin': 9829,
+                'stepCurrent': 11999,
+                'editable': False
             }
             ```
         """
@@ -1475,47 +1740,82 @@ class APIExperiment(CommonExperiment):
                 the other item. Otherwise, return all other
                 items logged.
 
-        Example:
-            Getting all metrics for an experiment:
+        Returns:
+            list or list or None: List of other item summaries (if no other specified),
+                or list of valueCurrent values for the specified other item, or None if not found.
+                Each summary includes:
+                - name: Other item name
+                - valueMax: Maximum value recorded
+                - valueMin: Minimum value recorded
+                - valueCurrent: Current/latest value
+                - timestampMax: Timestamp when max value was recorded
+                - timestampMin: Timestamp when min value was recorded
+                - timestampCurrent: Timestamp of current value
+                - editable: Whether the other item can be edited
 
+        Example:
+            Getting all other items for an experiment:
             ```python linenums="1"
             import comet_ml
 
             comet_ml.login()
             api_experiment = comet_ml.APIExperiment(previous_experiment='EXPERIMENT-KEY')
 
-            res = api_experiment.get_others_summary()
-            print(res)
+            others = api_experiment.get_others_summary()
+            print(f"Found {len(others)} other items")
+            for item in others:
+                print(f"{item['name']}: {item['valueCurrent']}")
             ```
 
-            will print the following list:
+            will return a list like:
             ```json
             [{
-                'name': 'trainable_params',
-                'valueMax': '712723',
-                'valueMin': '712723',
-                'valueCurrent': '712723',
-                'timestampMax': 1558962363411,
-                'timestampMin': 1558962363411,
-                'timestampCurrent': 1558962363411
+                'name': 'color',
+                'valueMax': '#FF0000',
+                'valueMin': '#FF0000',
+                'valueCurrent': '#FF0000',
+                'timestampMax': 1757002049586,
+                'timestampMin': 1757002049586,
+                'timestampCurrent': 1757002049586,
+                'editable': False
             },
-            ...]
+            {
+                'name': 'experiment_name',
+                'valueMax': 'My Experiment',
+                'valueMin': 'My Experiment',
+                'valueCurrent': 'My Experiment',
+                'timestampMax': 1757002049587,
+                'timestampMin': 1757002049587,
+                'timestampCurrent': 1757002049587,
+                'editable': True
+            },
+            {
+                'name': 'notes',
+                'valueMax': 'This is a test experiment',
+                'valueMin': 'This is a test experiment',
+                'valueCurrent': 'This is a test experiment',
+                'timestampMax': 1757002049588,
+                'timestampMin': 1757002049588,
+                'timestampCurrent': 1757002049588,
+                'editable': True
+            }]
             ```
 
-            Specifying the metric name:
+            Getting a specific other item:
             ```python linenums="1"
             import comet_ml
 
             comet_ml.login()
             api_experiment = comet_ml.APIExperiment(previous_experiment='EXPERIMENT-KEY')
 
-            res = api_experiment.get_others_summary("trainable_params")
-            print(res)
+            color_values = api_experiment.get_others_summary("color")
+            if color_values:
+                print(f"Color values: {color_values}")
             ```
 
-            will print the following dictionary:
+            will return a list like:
             ```json
-            ['712723']
+            ['#FF0000']
             ```
         """
         results = self._api._client.get_experiment_others_summaries(self.id)
@@ -1561,6 +1861,11 @@ class APIExperiment(CommonExperiment):
             metric_name (str): Name of the total-fidelity metric
             fallback_to_sampled_data (bool): If set to `True`, when the API returns no data,
                 it would fetch regular sampled data instead.
+
+        Returns:
+            pd.DataFrame or None: Pandas DataFrame containing metric data with columns: value,
+                timestep, step, epoch, datetime, and duration. Returns None if pandas is not installed
+                or no data is available.
 
         The returned DataFrame contains the following columns:
 
@@ -1616,63 +1921,109 @@ class APIExperiment(CommonExperiment):
         Args:
             metric (str): If given, filter the metrics by name.
 
+        Returns:
+            list: List of metric dictionaries, each containing:
+                - metricName: Name of the metric
+                - metricValue: Value of the metric (as string)
+                - timestamp: Unix timestamp when metric was logged
+                - step: Training step when metric was logged
+                - epoch: Training epoch when metric was logged (may be None)
+                - runContext: Context information (may be None)
+                - offset: Offset for ordering metrics with same timestamp
+            Returns None if no metrics found.
 
         Example:
             Getting all metrics for an experiment:
-
             ```python linenums="1"
             import comet_ml
 
             comet_ml.login()
             api_experiment = comet_ml.APIExperiment(previous_experiment='EXPERIMENT-KEY')
 
-            res = api_experiment.get_metrics()
-            print(res)
+            metrics = api_experiment.get_metrics()
+            print(f"Found {len(metrics)} metrics")
+
+            # Group metrics by name
+            metric_names = set(m['metricName'] for m in metrics)
+            for name in sorted(metric_names):
+                values = [m for m in metrics if m['metricName'] == name]
+                print(f"{name}: {len(values)} values")
             ```
 
-            will print the following list:
+            will return a list like:
             ```json
             [{
-                'metricName': 'val_loss',
-                'metricValue': '0.13101346811652184',
-                'timestamp': 1558962376383,
-                'step': 1500,
-                'epoch': None,
-                'runContext': None
+                'metricName': 'epoch_duration',
+                'metricValue': '0.8397483790000706',
+                'timestamp': 1757001865179,
+                'step': 12,
+                'epoch': 0,
+                'runContext': None,
+                'offset': -227196944980285897
             },
             {
-                'metricName': 'acc',
-                'metricValue': '0.876',
-                'timestamp': 1564536453647,
-                'step': 100,
-                'epoch': None,
-                'runContext': None
+                'metricName': 'train_loss',
+                'metricValue': '0.123456789',
+                'timestamp': 1757001866000,
+                'step': 12,
+                'epoch': 0,
+                'runContext': 'train',
+                'offset': -227196944980285896
             },
-            ...]
+            {
+                'metricName': 'val_loss',
+                'metricValue': '0.234567890',
+                'timestamp': 1757001867000,
+                'step': 12,
+                'epoch': 0,
+                'runContext': 'val',
+                'offset': -227196944980285895
+            },
+            {
+                'metricName': 'accuracy',
+                'metricValue': '0.876',
+                'timestamp': 1757001868000,
+                'step': 12,
+                'epoch': 0,
+                'runContext': 'val',
+                'offset': -227196944980285894
+            }]
             ```
 
-            Specifying the metric name:
+            Getting a specific metric:
             ```python linenums="1"
             import comet_ml
 
             comet_ml.login()
             api_experiment = comet_ml.APIExperiment(previous_experiment='EXPERIMENT-KEY')
 
-            res = api_experiment.get_metrics("acc")
-            print(res)
+            train_losses = api_experiment.get_metrics("train_loss")
+            if train_losses:
+                print(f"Found {len(train_losses)} train_loss metrics")
+                latest = train_losses[-1]  # Get the latest value
+                print(f"Latest train_loss: {latest['metricValue']} at step {latest['step']}")
             ```
 
-            will print the following dictionary:
+            will return a filtered list like:
             ```json
             [{
-                'metricName': 'acc',
-                'metricValue': '0.876',
-                'timestamp': 1564536453647,
-                'step': 100,
-                'epoch': None,
-                'runContext': None
+                'metricName': 'train_loss',
+                'metricValue': '0.123456789',
+                'timestamp': 1757001866000,
+                'step': 12,
+                'epoch': 0,
+                'runContext': 'train',
+                'offset': -227196944980285896
             },
-            ...]
+            {
+                'metricName': 'train_loss',
+                'metricValue': '0.098765432',
+                'timestamp': 1757001869000,
+                'step': 13,
+                'epoch': 0,
+                'runContext': 'train',
+                'offset': -227196944980285893
+            }]
             ```
         """
         if metric is None:
@@ -1735,10 +2086,12 @@ class APIExperiment(CommonExperiment):
             timeout (int): Timeout in seconds.
 
         Returns:
-            dict: A list of dictionaries of asset properties
+            list: List of dictionaries of asset properties including fileName, fileSize,
+                runContext, step, link, createdAt, dir, canView, audio, histogram, image,
+                type, metadata, and assetId.
 
         Example:
-            Getting all metrics for an experiment:
+            Getting all assets for an experiment:
 
             ```python linenums="1"
             import comet_ml
@@ -1746,30 +2099,62 @@ class APIExperiment(CommonExperiment):
             comet_ml.login()
             api_experiment = comet_ml.APIExperiment(previous_experiment='EXPERIMENT-KEY')
 
-            res = api_experiment.get_asset_list()
-            print(res)
+            assets = api_experiment.get_asset_list()
+            print(f"Found {len(assets)} assets")
+            for asset in assets:
+                print(f"Asset: {asset['fileName']} ({asset['type']})")
             ```
 
             will print the following list:
             ```json
             [{
-                'fileName': 'My Filename.png',
-                'fileSize': 21113,
+                'fileName': 'ColabNotebook.ipynb',
+                'fileSize': 538211,
                 'runContext': None,
-                'step': None,
-                'link': 'https://www.comet.com/api/asset/download?experimentKey=KEY&assetId=ASSET_ID',
-                'createdAt': 1565898755830,
-                'dir': 'assets',
+                'step': 12000,
+                'remote': False,
+                'link': 'https://www.comet.com/api/asset/download?experimentKey=deebdf450d314e4fa262941285a83589&assetId=1c05cf7db0174acc99d8a66c6a9577e5&isCompressed=false',
+                'compressedAssetLink': 'https://www.comet.com/api/asset/download?experimentKey=deebdf450d314e4fa262941285a83589&assetId=1c05cf7db0174acc99d8a66c6a9577e5&isCompressed=true',
+                's3Link': 'https://s3.amazonaws.com/comet.ml/asset_notebook-deebdf450d314e4fa262941285a83589-PiLhoBrFnUXJVS9w5Vo09btTi.ipynb?...',
+                'createdAt': 1757002056514,
+                'dir': 'notebooks',
                 'canView': False,
                 'audio': False,
                 'video': False,
                 'histogram': False,
-                'image': True,
-                'type': 'image',
+                'image': False,
+                'type': 'notebook',
                 'metadata': None,
-                'assetId': ASSET_ID
+                'assetId': '1c05cf7db0174acc99d8a66c6a9577e5',
+                'tags': [],
+                'curlDownload': 'curl "https://www.comet.com/api/rest/v2/experiment/asset/get-asset?experimentKey=deebdf450d314e4fa262941285a83589&assetId=1c05cf7db0174acc99d8a66c6a9577e5" -H"Authorization: BVZZk68boDqH2YyczAtT0uSCN" > ColabNotebook.ipynb',
+                'experimentKey': 'deebdf450d314e4fa262941285a83589',
+                'items': [],
+                'etag': None
             },
-            ...]
+            {
+                'fileName': 'model.pkl',
+                'fileSize': 1024000,
+                'runContext': 'train',
+                'step': 5000,
+                'remote': True,
+                'link': 'https://www.comet.com/api/asset/download?experimentKey=deebdf450d314e4fa262941285a83589&assetId=2d8f9e1a3b4c5d6e7f8a9b0c1d2e3f4g',
+                'createdAt': 1757002000000,
+                'dir': 'assets',
+                'canView': True,
+                'audio': False,
+                'video': False,
+                'histogram': False,
+                'image': False,
+                'type': 'model',
+                'metadata': {'model_type': 'sklearn', 'version': '1.0'},
+                'assetId': '2d8f9e1a3b4c5d6e7f8a9b0c1d2e3f4g',
+                'tags': ['model', 'production'],
+                'curlDownload': 'curl "https://www.comet.com/api/rest/v2/experiment/asset/get-asset?experimentKey=deebdf450d314e4fa262941285a83589&assetId=2d8f9e1a3b4c5d6e7f8a9b0c1d2e3f4g" -H"Authorization: BVZZk68boDqH2YyczAtT0uSCN" > model.pkl',
+                'experimentKey': 'deebdf450d314e4fa262941285a83589',
+                'items': [],
+                'etag': 'abc123def456'
+            }]
             ```
         """
         results = self._api._client.get_experiment_asset_list(
@@ -1798,6 +2183,10 @@ class APIExperiment(CommonExperiment):
             stream (bool): When return_type is "response", you can also
                 use stream=True to use the response as a stream
             timeout (int): Timeout in seconds.
+
+        Returns:
+            bytes or dict or requests.Response or None: Asset content in the format specified by
+                return_type (binary bytes, JSON dict, or Response object), or None if not found.
 
         Note: Will return the first asset found, if there are more than one with
         the same name. If you give the asset_type, the function will run faster.
@@ -1901,6 +2290,10 @@ class APIExperiment(CommonExperiment):
             stream (bool): When return_type is "response", you can also
                 use stream=True to use the response as a stream
 
+        Returns:
+            bytes or dict or requests.Response: Asset content in the format specified by
+                return_type (binary bytes, JSON dict, or Response object).
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -1943,6 +2336,9 @@ class APIExperiment(CommonExperiment):
         """
         Get all curves logged with experiment.
 
+        Returns:
+            list: List of curve dictionaries, each containing name, x, y, and step fields.
+
         Example:
             Running:
             ```python linenums="1"
@@ -1978,6 +2374,9 @@ class APIExperiment(CommonExperiment):
         Args:
             asset_id (str): The asset id of the curve to download
 
+        Returns:
+            dict: Curve dictionary containing name, x, y, and step fields.
+
         Example:
             Running the code sample:
             ```python linenums="1"
@@ -2012,42 +2411,108 @@ class APIExperiment(CommonExperiment):
         Get the system details associated with this experiment.
 
         Returns:
-            dict: A dictionary that follows the format:
-                ```python
-                {
-                    "experimentKey": "someExperimentKey",
-                    "user": "system username"
-                    "pythonVersion": "python version"
-                    "pythonVersionVerbose": "python version with verbose flag"
-                    "pid": <Integer, pid>,
-                    "osType": "os experiment ran on",
-                    "os": "os with version info",
-                    "ip": "ip address",
-                    "hostname": "hostname",
-                    "gpuStaticInfoList": [
-                        {
-                        "gpuIndex": <Integer, index>,
-                        "name": "name",
-                        "uuid": "someUniqueId",
-                        "totalMemory": <Integer, total memory>,
-                        "powerLimit": <Integer, max power>
-                        }
-                    ],
-                    "logAdditionalSystemInfoList": [
-                        {
-                        "key": "someKey",
-                        "value": "someValue"
-                        }
-                    ],
-                    "systemMetricNames": ["name", "anotherName"],
-                    "maxTotalMemory": <double, max memory used>,
-                    "networkInterfaceIps": ["ip", "anotherIp"]
-                    "command": ["part1", "part2"],
-                    "executable": "The python Exe, if any (in future could be non python executables)",
-                    "osPackages": ["package", "anotherPackage"],
-                    "installedPackages": ["package", "anotherPackage"]
-                }
-                ```
+            dict: A comprehensive dictionary containing system information including:
+                - experimentKey: The experiment identifier
+                - user: System username
+                - pythonVersion: Python version string
+                - pythonVersionVerbose: Detailed Python version information
+                - pid: Process ID
+                - osType: Operating system type
+                - os: Operating system with version details
+                - osRelease: OS release information
+                - machine: Machine architecture
+                - processor: Processor information
+                - ip: IP address
+                - hostname: System hostname
+                - env: Environment variables (if available)
+                - gpuStaticInfoList: List of GPU information dictionaries
+                - logAdditionalSystemInfoList: Additional system information
+                - systemMetricNames: List of available system metric names
+                - maxTotalMemory: Maximum total memory used
+                - networkInterfaceIps: List of network interface IPs
+                - command: Command line arguments
+                - executable: Python executable path
+                - osPackages: List of OS packages
+                - installedPackages: List of Python packages
+                - totalRam: Total RAM in bytes
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+
+            comet_ml.login()
+            api_experiment = comet_ml.APIExperiment(previous_experiment='EXPERIMENT-KEY')
+
+            system_info = api_experiment.get_system_details()
+            print(f"Python version: {system_info['pythonVersion']}")
+            print(f"OS: {system_info['os']}")
+            print(f"Total RAM: {system_info['totalRam'] / (1024**3):.1f} GB")
+            ```
+
+            will return a dictionary like:
+            ```json
+            {
+                "experimentKey": "deebdf450d314e4fa262941285a83589",
+                "user": "root",
+                "pythonVersion": "3.12.11",
+                "pythonVersionVerbose": "3.12.11 (main, Jun  4 2025, 08:56:18) [GCC 11.4.0]",
+                "pid": 166,
+                "osType": "Linux",
+                "os": "Linux-6.1.123+-x86_64-with-glibc2.35",
+                "osRelease": "6.1.123+",
+                "machine": "x86_64",
+                "processor": "x86_64",
+                "ip": "172.28.0.12",
+                "hostname": "01804790b2f2",
+                "env": null,
+                "gpuStaticInfoList": [],
+                "logAdditionalSystemInfoList": [],
+                "systemMetricNames": [
+                    "sys.disk.root.used",
+                    "sys.network.send_bps",
+                    "sys.network.receive_bps",
+                    "sys.cpu.percent.avg",
+                    "sys.compute.overall",
+                    "sys.disk.read_bps",
+                    "sys.ram.available",
+                    "sys.compute.utilized",
+                    "sys.disk.root.percent.used",
+                    "sys.load.avg",
+                    "sys.ram.percent.used",
+                    "sys.ram.total",
+                    "sys.disk.write_bps",
+                    "sys.ram.used"
+                ],
+                "maxTotalMemory": null,
+                "networkInterfaceIps": null,
+                "command": [
+                    "/usr/local/lib/python3.12/dist-packages/colab_kernel_launcher.py",
+                    "-f",
+                    "/root/.local/share/jupyter/runtime/kernel-f5346775-d1a6-4bf3-8a6a-d68e554a921b.json"
+                ],
+                "executable": "/usr/bin/python3",
+                "osPackages": [
+                    "adduser=3.118ubuntu5",
+                    "adwaita-icon-theme=41.0-1ubuntu1",
+                    "apt-utils=2.4.14",
+                    "apt=2.4.14",
+                    "autoconf=2.71-2",
+                    "automake=1:1.16.5-1.3",
+                    "..."
+                ],
+                "installedPackages": [
+                    "absl-py==1.4.0",
+                    "accelerate==1.10.1",
+                    "aiofiles==24.1.0",
+                    "aiohttp==3.12.15",
+                    "comet_ml==3.52.1",
+                    "tensorflow==2.19.0",
+                    "torch==2.8.0+cu126",
+                    "..."
+                ],
+                "totalRam": 13608370176.0
+            }
+            ```
         """
         results = self._api._client.get_experiment_system_details(self.id)
         # Return directly
@@ -2057,6 +2522,9 @@ class APIExperiment(CommonExperiment):
         """
         Get the git-patch associated with this experiment as a zipfile containing a unique file
         named `zip_file.patch`.
+
+        Returns:
+            bytes or None: The git patch as a zipfile in bytes format, or None if not available.
 
         Example:
             ```python linenums="1"
@@ -2078,6 +2546,10 @@ class APIExperiment(CommonExperiment):
     def get_git_metadata(self):
         """
         Get the git-metadata associated with this experiment.
+
+        Returns:
+            dict or None: Dictionary containing git metadata including remote, branch,
+                commit, origin, parent, root, and user information, or None if not available.
 
         Example:
             Running the code sample"
@@ -2109,17 +2581,19 @@ class APIExperiment(CommonExperiment):
 
     def register_model(
         self,
-        model_name,
-        version=None,
-        workspace=None,
-        registry_name=None,
-        public=None,
-        description=None,
-        comment=None,
-        status=None,
-        tags=None,
-        stages=None,
-    ):
+        model_name: str,
+        version: Optional[str] = None,
+        workspace: Optional[str] = None,
+        registry_name: Optional[str] = None,
+        public: Optional[bool] = None,
+        description: Optional[str] = None,
+        comment: Optional[str] = None,
+        status: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        stages: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        status_configuration: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
         """
         Register an experiment model in the workspace registry.
 
@@ -2129,15 +2603,17 @@ class APIExperiment(CommonExperiment):
             version (str, optional): A proper semantic version string; defaults to "1.0.0".
             registry_name (str, optional): The name of the registered workspace model, if not provided the
                 model_name will be used instead.
-            public (bool, optional): If True, then the model will be publically viewable.
+            public (bool, optional): If True, then the model will be publicly viewable.
             description (str, optional): A textual description of the model.
             comment (str, optional): A textual comment about the model.
             tags (Any, optional): A list of textual tags such as ["tag1", "tag2"], etc.
             stages (Any, optional): Equivalent to tags, DEPRECATED with newer backend versions.
             status (str, optional): Allowed values are configured at the organization level.
+            metadata (dict, optional): The metadata to associate
+            status_configuration (dict, optional): The status configuration to associate
 
         Returns:
-            dict: if successful, the dict will looks like this:
+            dict: if successful, the dict will look like this:
                 ```python
                 {"registryModelId": "ath6ho4eijaexeShahJ9sohQu", "registryModelItemId": "yoi5saes7ea2vooG2ush1uuwi"}
                 ```
@@ -2149,18 +2625,27 @@ class APIExperiment(CommonExperiment):
             if workspace:
                 LOGGER.warning(DEPRECATED_WORKSPACE_MODEL_REGISTRY_ARGUMENT)
 
+            if status_configuration is not None:
+                model_status_configuration = (
+                    ModelStatusConfiguration.from_parameters_dict(status_configuration)
+                )
+            else:
+                model_status_configuration = None
+
             response = self._api._client.register_model_v2(
-                self.id,
-                model_name,
-                version,
-                self.workspace,
-                registry_name,
-                public,
-                description,
-                comment,
-                tags,
-                status,
-                stages,
+                experiment_id=self.id,
+                model_name=model_name,
+                version=version,
+                workspace=self.workspace,
+                registry_name=registry_name,
+                public=public,
+                description=description,
+                comment=comment,
+                tags=tags,
+                status=status,
+                stages=stages,
+                metadata=metadata,
+                status_configuration=model_status_configuration,
             )
         except CometRestApiException as exc:
             if (
@@ -2176,6 +2661,8 @@ class APIExperiment(CommonExperiment):
 
         if response:
             return response.json()
+
+        return None
 
     def create_symlink(self, project_name):
         """
@@ -3874,6 +4361,12 @@ class API(object):
             project_name (str): Project name.
             experiment (str): Experiment key.
 
+        Returns:
+            list or APIExperiment or None: Returns a list of workspaces (if no args),
+                list of projects (if workspace only), list of experiments
+                (if workspace and project), or an APIExperiment object (if all three args).
+                Returns None if the experiment is not found.
+
         Note:
             `workspace`, `project_name`, and `experiment` can also be given as a single
             string, delimited with a slash.
@@ -3946,6 +4439,9 @@ class API(object):
             project_name (str): The name of the project
             query (Any): A query expression (see below)
             archived (bool): Query the archived experiments if True
+
+        Returns:
+            list: List of APIExperiment objects matching the query criteria.
 
         Example:
             ```python linenums="1"
@@ -4026,6 +4522,158 @@ class API(object):
                 for key in results_json["experimentKeys"]
             ]
 
+    def search(
+        self, workspace, project_name, query, archived=False, page=None, page_size=None
+    ):
+        """
+        Perform a search on a workspace/project to find matching
+        APIExperiment objects. Searches are composed of
+
+        ```python
+        ((QUERY-VARIABLE OPERATOR VALUE) & ...)
+
+        # or:
+
+        (QUERY-VARIABLE.METHOD(VALUE) & ...)
+        ```
+
+        where:
+
+        `QUERY-VARIABLE` is `Environment(NAME)`, `Metric(NAME)`, `Parameter(NAME)`,
+        `Other(NAME)`, `Metadata(NAME)`, or `Tag(VALUE)`.
+
+        `OPERATOR` is any of the standard mathematical operators
+        `==`, `<=`, `>=`, `!=`, `<`, `>`.
+
+        `METHOD` is `between()`, `contains()`, `startswith()`, or `endswith()`.
+
+        You may also place the bitwise `~` not operator in front of an expression
+        which means to invert the expression. Use `&` to combine additional
+        criteria with AND logic, and `|` to combine criteria with OR logic.
+
+        `VALUE` can be any query type, including `string`, `boolean`, `double`,
+        `datetime`, or `timenumber` (number of seconds). `None` and `""` are special
+        values that mean `NULL` and `EMPTY`, respectively. Use
+        `API.get_query_variables(WORKSPACE, PROJECT_NAME)` to see query variables
+        and types for a project.
+
+        When using `datetime`, be aware that the backend is using UTC datetimes. If you
+        do not receive the correct experiments via a datetime query, please check with
+        the web UI query builder to verify timezone of the server.
+
+        `search()` returns a list of matching `APIExperiment` objects directly.
+
+        Args:
+            workspace (str): The name of the workspace
+            project_name (str): The name of the project
+            query (Any): A query expression (see below)
+            archived (bool): Search the archived experiments if True
+            page (int, optional): Page number for pagination (default: 1)
+            page_size (int, optional): Number of results per page (default: 100)
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+            from comet_ml.query import (
+                Environment,
+                Metric,
+                Parameter,
+                Other,
+                Metadata,
+                Tag
+            )
+
+            comet_ml.login()
+            api = comet_ml.API()
+
+            # Find all experiments that have an acc metric value > .98:
+            experiments = api.search("workspace", "project", Metric("acc") > .98)
+            for exp in experiments:
+                print(f"Experiment: {exp.key}")
+
+            # Find all experiments that have a loss metric < .1 and
+            # a learning_rate parameter value >= 0.3:
+            loss = Metric("loss")
+            lr = Parameter("learning_rate")
+            query = ((loss < .1) & (lr >= 0.3))
+            experiments = api.search("workspace", "project", query)
+
+            # Find all of the experiments tagged "My simple tag":
+            tagged = Tag("My simple tag")
+            experiments = api.search("workspace", "project", tagged)
+
+            # Find all experiments started before Sept 24, 2019 at 5:00am:
+            q = Metadata("start_server_timestamp") < datetime(2019, 9, 24, 5)
+            experiments = api.search("workspace", "project", q)
+
+            # Find all experiments lasting more that 2 minutes (in seconds):
+            q = Metadata("duration") > (2 * 60)
+            experiments = api.search("workspace", "project", q)
+
+            # Find experiments with high accuracy OR low loss:
+            q = (Metric("accuracy") > 0.95) | (Metric("loss") < 0.1)
+            experiments = api.search("workspace", "project", q)
+
+            # Find experiments with specific tags OR parameters:
+            q = Tag("best") | (Parameter("learning_rate") > 0.01)
+            experiments = api.search("workspace", "project", q)
+
+            # Access experiment details directly:
+            for exp in experiments:
+                print(f"Experiment key: {exp.key}")
+                print(f"Experiment name: {exp.name}")
+                print(f"Metrics: {exp.get_metrics()}")
+            ```
+
+        Note:
+            * Use `~` for `not` on any expression
+            * Use `~QUERY-VARIABLE.between(2,3)` for values not between 2 and 3
+            * Use `(QUERY-VARIABLE == True)` for truth
+            * Use `(QUERY-VARIABLE == False)` for not true
+            * Use `(QUERY-VARIABLE == None)` for testing null
+            * Use `(QUERY-VARIABLE != None)` or `~(QUERY-VARIABLE == None)` for testing not null
+            * Use `(QUERY-VARIABLE == "")` for testing empty
+            * Use `(QUERY-VARIABLE != "")` or `~(QUERY-VARIABLE == "")` for testing not empty
+            * Use Python's datetime(YEAR, MONTH, DAY, HOUR, MINUTE, SECONDS) for comparing datetimes, like
+                `Metadata("start_server_timestamp")` or `Metadata("end_server_timestamp")`
+            * Use seconds for comparing timenumbers, like `Metadata("duration")`
+            * Use `API.get_query_variables(WORKSPACE, PROJECT_NAME)` to see query variables
+                and types.
+
+            Do not use 'and', 'or', 'not', 'is', or 'in'. These
+            are logical operators and you must use mathematical
+            operators for queries. For example, always use '=='
+            where you might usually use 'is'.
+        """
+        columns = self._client.get_project_columns(workspace, project_name)
+        if isinstance(query, QueryVariable):
+            raise Exception(API_QUERY_INVALID_QUERY_EXPRESSION_EXCEPTION)
+        if not isinstance(query, QueryExpression):
+            raise Exception(API_QUERY_MISSING_QUERY_EXPRESSION_EXCEPTION)
+
+        try:
+            # Use get_predicates_for_search for the new search API
+            predicates = query.get_predicates_for_search(columns)
+        except QueryException as exc:
+            LOGGER.info(API_QUERY_ERROR_INFO, exc)
+            return []
+
+        project_json = self.get_project(workspace, project_name)
+        if not project_json:
+            return []
+
+        project_id = project_json["projectId"]
+        results = self._client.search(
+            workspace, project_id, predicates, archived, page, page_size
+        )
+        if results:
+            results_json = results.json()
+            return [
+                self._get_experiment(workspace, project_name, item["experimentKey"])
+                for item in results_json["experiments"]
+            ]
+        return []
+
     def get_archived_experiment(self, workspace, project_name, experiment):
         """
         Get a single archived APIExperiment by workspace, project, experiment.
@@ -4034,6 +4682,9 @@ class API(object):
             workspace (str): Workspace name
             project_name (str): Project name
             experiment (str): Experiment key
+
+        Returns:
+            APIExperiment or None: The archived APIExperiment object if found, otherwise None.
         """
         return self._get_experiment(workspace, project_name, experiment)
 
@@ -4041,11 +4692,13 @@ class API(object):
         """
         Get a single APIExperiment by workspace, project, experiment.
 
-
         Args:
             workspace (str): Workspace name
             project_name (str): Project name
             experiment (str): Experiment key
+
+        Returns:
+            APIExperiment or None: The APIExperiment object if found, otherwise None.
         """
         return self._get_experiment(workspace, project_name, experiment)
 
@@ -4059,6 +4712,9 @@ class API(object):
 
         Args:
             experiment_key (str): Experiment key
+
+        Returns:
+            APIExperiment or None: The APIExperiment object if found, otherwise None.
         """
         try:
             metadata = self._get_experiment_metadata(experiment_key)
@@ -4082,12 +4738,24 @@ class API(object):
             project_name (str): The project name, if ommitted all projects will
                 be searched
             pattern (str): Regex pattern to apply on the experiment name or the experiment key
+
+        Returns:
+            list: List of archived APIExperiment objects matching the criteria.
         """
         return list(
             self._gen_experiments(workspace, project_name, pattern, archived=True)
         )
 
-    def get_experiments(self, workspace, project_name=None, pattern=None):
+    def get_experiments(
+        self,
+        workspace,
+        project_name=None,
+        pattern=None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
+    ):
         """
         Get APIExperiments by workspace, workspace + project, or
         workspace + project + regular expression pattern.
@@ -4097,17 +4765,72 @@ class API(object):
             project_name (str): The project name, if omitted all projects will
                 be searched
             pattern (str): Regex pattern to apply on the experiment name or the experiment key
+            page (int, optional): Page number for pagination (1-indexed). If provided, page_size is required.
+            page_size (int, optional): Number of experiments per page. Required when page is specified.
+            sort_by (str, optional): Field to sort by. Must be "startTime" or "endTime" if provided.
+            sort_order (str, optional): Sort direction. Must be "asc" or "desc" if provided.
+                                      Required when page, page_size, and sort_by are all specified.
+
+        Returns:
+            List of APIExperiment objects
+
+        Raises:
+            ValueError: If pagination or sorting parameters are invalid
         """
         return list(
-            self._gen_experiments(workspace, project_name, pattern, archived=False)
+            self._gen_experiments(
+                workspace,
+                project_name,
+                pattern,
+                archived=False,
+                page=page,
+                page_size=page_size,
+                sort_by=sort_by,
+                sort_order=sort_order,
+            )
         )
 
-    def gen_experiments(self, workspace, project_name=None, pattern=None):
+    def gen_experiments(
+        self,
+        workspace,
+        project_name=None,
+        pattern=None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
+    ):
         """
         Get APIExperiments by workspace, workspace + project, or
         workspace + project + regular expression pattern.
+
+        Args:
+            workspace (str): Workspace name
+            project_name (str): The project name, if omitted all projects will
+                be searched
+            pattern (str): Regex pattern to apply on the experiment name or the experiment key
+            page (int, optional): Page number for pagination (1-indexed). If provided, page_size is required.
+            page_size (int, optional): Number of experiments per page. Required when page is specified.
+            sort_by (str, optional): Field to sort by. Must be "startTime" or "endTime" if provided.
+            sort_order (str, optional): Sort direction. Must be "asc" or "desc" if provided.
+                                      Required when page, page_size, and sort_by are all specified.
+
+        Yields:
+            APIExperiment objects
+
+        Raises:
+            ValueError: If pagination or sorting parameters are invalid
         """
-        return self._gen_experiments(workspace, project_name, pattern, archived=False)
+        return self._gen_experiments(
+            workspace,
+            project_name,
+            pattern,
+            archived=False,
+            page=page,
+            page_size=page_size,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
 
     def get_metrics_df(
         self,
@@ -4196,8 +4919,38 @@ class API(object):
         return APIExperiment(api=self, metadata=metadata)
 
     def _gen_experiments(
-        self, workspace, project_name=None, pattern=None, archived=False
+        self,
+        workspace,
+        project_name=None,
+        pattern=None,
+        archived=False,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
     ):
+        """
+        Private method to generate APIExperiments by workspace, workspace + project, or
+        workspace + project + regular expression pattern.
+
+        Args:
+            workspace (str): Workspace name
+            project_name (str, optional): The project name, if omitted all projects will
+                be searched
+            pattern (str, optional): Regex pattern to apply on the experiment name or the experiment key
+            archived (bool): Whether to return archived experiments (default: False)
+            page (int, optional): Page number for pagination (1-indexed). If provided, page_size is required.
+            page_size (int, optional): Number of experiments per page. Required when page is specified.
+            sort_by (str, optional): Field to sort by. Must be "startTime" or "endTime" if provided.
+            sort_order (str, optional): Sort direction. Must be "asc" or "desc" if provided.
+                                      Required when page, page_size, and sort_by are all specified.
+
+        Yields:
+            APIExperiment objects
+
+        Raises:
+            ValueError: If pagination or sorting parameters are invalid
+        """
         if project_name is None:
             if pattern is not None:
                 raise ValueError(API_MISSING_PROJECT_IN_PATTERN_EXCEPTION)
@@ -4210,14 +4963,27 @@ class API(object):
             return
         elif pattern is None:
             experiments = self._get_project_experiments(
-                workspace, project_name, archived=archived
+                workspace,
+                project_name,
+                archived=archived,
+                page=page,
+                page_size=page_size,
+                sort_by=sort_by,
+                sort_order=sort_order,
             )
             for metadatum in experiments.values():
                 yield APIExperiment(api=self, metadata=metadatum)
             return
         else:
             experiments = self._get_project_experiments(
-                workspace, project_name, use_names=False, archived=archived
+                workspace,
+                project_name,
+                use_names=False,
+                archived=archived,
+                page=page,
+                page_size=page_size,
+                sort_by=sort_by,
+                sort_order=sort_order,
             )
             if experiments is None:
                 raise ValueError(
@@ -4240,7 +5006,9 @@ class API(object):
         # type: (str, str, str) -> Any
         try:
             experiments = self._get_project_experiments(
-                workspace, project_name, use_names=True
+                workspace,
+                project_name,
+                use_names=True,
             )
         except NotFound:
             return None
@@ -4250,11 +5018,45 @@ class API(object):
             return None
 
     def _get_project_experiments(
-        self, workspace, project_name, use_names=False, archived=False
+        self,
+        workspace,
+        project_name,
+        use_names=False,
+        archived=False,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
     ):
+        """
+        Private method to get project experiments with pagination and sorting support.
+
+        Args:
+            workspace (str): Workspace name
+            project_name (str): The project name
+            use_names (bool): Whether to use experiment names as keys (default: False)
+            archived (bool): Whether to return archived experiments (default: False)
+            page (int, optional): Page number for pagination (1-indexed). If provided, page_size is required.
+            page_size (int, optional): Number of experiments per page. Required when page is specified.
+            sort_by (str, optional): Field to sort by. Must be "startTime" or "endTime" if provided.
+            sort_order (str, optional): Sort direction. Must be "asc" or "desc" if provided.
+                                      Required when page, page_size, and sort_by are all specified.
+
+        Returns:
+            dict: A dictionary mapping experiment names or keys to experiment metadata dictionaries.
+
+        Raises:
+            ValueError: If pagination or sorting parameters are invalid
+        """
         # Get the project details:
         project_json = self._client.get_project_experiments(
-            workspace, project_name, archived=archived
+            workspace,
+            project_name,
+            archived=archived,
+            page=page,
+            page_size=page_size,
+            sort_by=sort_by,
+            sort_order=sort_order,
         )
         if project_json is None:
             return
@@ -4322,6 +5124,28 @@ class API(object):
     def get_workspaces(self) -> Optional[List[str]]:
         """
         Return a list of names of the workspaces for this user.
+
+        Returns:
+            list or None: List of workspace names if available, otherwise None.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+
+            comet_ml.login()
+            api = comet_ml.API()
+
+            workspaces = api.get_workspaces()
+            if workspaces:
+                print(f"Available workspaces: {workspaces}")
+                for workspace in workspaces:
+                    print(f"- {workspace}")
+            ```
+
+            will return a list like:
+            ```json
+            ["my-workspace", "team-workspace", "shared-workspace"]
+            ```
         """
         results = self._client.get_workspaces()
         if self._check_results(results):
@@ -4335,7 +5159,40 @@ class API(object):
             workspace (str): The name of the workspace
 
         Returns:
-            list: List of project details in workspace.
+            list: List of project details in workspace. Each project detail is a dictionary
+                containing project information such as name, description, and metadata.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+
+            comet_ml.login()
+            api = comet_ml.API()
+
+            projects = api.get_projects("my-workspace")
+            print(f"Found {len(projects)} projects")
+            for project in projects:
+                print(f"Project: {project.get('name', 'Unknown')}")
+                print(f"Description: {project.get('description', 'No description')}")
+            ```
+
+            will return a list like:
+            ```json
+            [
+                {
+                    "name": "machine-learning",
+                    "description": "ML experiments and models",
+                    "id": "project-123",
+                    "createdAt": "2023-01-01T00:00:00Z"
+                },
+                {
+                    "name": "computer-vision",
+                    "description": "CV research and development",
+                    "id": "project-456",
+                    "createdAt": "2023-02-01T00:00:00Z"
+                }
+            ]
+            ```
         """
         return self._client.get_projects(workspace)
 
@@ -4461,6 +5318,11 @@ class API(object):
             workspace (str): The name of the workspace
             artifact_type (str): If provided only returns Artifacts with the given type
 
+        Returns:
+            dict: Dictionary containing artifact information with keys like 'artifacts'
+                containing a list of artifact objects with metadata such as name,
+                version, description, and creation details.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -4485,6 +5347,11 @@ class API(object):
             workspace (str): The name of the workspace
             artifact_name (str): The name of the artifact
             artifact_id (str): The unique ID of the artifact, for example `6194e719-f596-48e7-8cca-8530c16dd007`
+
+        Returns:
+            dict: Dictionary containing artifact details including artifactId, project, type,
+                name, description, latestVersion, tags, isPublic, emoji, sizeInBytes, and
+                versions list with version history.
 
         Example:
             ```python linenums="1"
@@ -4553,6 +5420,9 @@ class API(object):
             artifact_id (str): The unique ID of the artifact, for example `6194e719-f596-48e7-8cca-8530c16dd007`
             version (str): The version number of the artifact version you want
             alias (str): The alias of the artifact version you want
+
+        Returns:
+            dict: Dictionary containing artifact files information with file metadata and download links.
 
         Example:
             ```python linenums="1"
@@ -4807,6 +5677,9 @@ class API(object):
         """
         Get the default workspace name.
 
+        Returns:
+            str: The default workspace name for the authorized user.
+
         Example:
             ```python linenums="1"
             import comet_ml
@@ -4825,6 +5698,9 @@ class API(object):
 
         Args:
             project_id (str): The ID of the project
+
+        Returns:
+            list: List of share key strings for the private project.
 
         Example:
         ```python
@@ -5136,6 +6012,9 @@ class API(object):
 
         Args:
             workspace (str): The name of workspace.
+
+        Returns:
+            int: The count of registered models in the workspace.
         """
         return self._client.get_registry_model_count(workspace)
 
@@ -5146,6 +6025,9 @@ class API(object):
         Args:
             workspace (str): The name of workspace.
             model_name (str): The name of registered model.
+
+        Returns:
+            Model: A Model API object for interacting with the registered model.
         """
         return model.Model.from_registry(workspace, model_name, api_key=self.api_key)
 
@@ -5159,6 +6041,10 @@ class API(object):
             workspace (str): The name of workspace.
             registry_name (str): The name of the model.
             version (str): The version string of the model.
+
+        Returns:
+            dict: Dictionary containing registered model details including metadata, versions,
+                and configuration information.
 
         Example:
             Running the following code:
@@ -5247,6 +6133,10 @@ class API(object):
             version_major (int): The major part of version string of the model.
             version_minor (int): The minor part of version string of the model.
             stage (str): A textual tag such as "production" or "staging".
+
+        Returns:
+            dict: Dictionary containing the latest model registry version details including
+                registryModelId, modelName, version information, assets, and metadata.
 
         Example:
             Running the following code:
@@ -5341,6 +6231,10 @@ class API(object):
             version (str): The version string of the model.
             stage (str): A textual tag such as "production" or "staging".
 
+        Returns:
+            dict: Dictionary containing model registry version details including asset list
+                and metadata.
+
         Example:
             Running the following code
             ```python linenums="1"
@@ -5404,6 +6298,9 @@ class API(object):
         Args:
             workspace (str): The name of workspace.
             registry_name (str): The name of the model.
+
+        Returns:
+            list: List of version strings for the registered model.
         """
         return self._client.get_registry_model_versions(workspace, registry_name)
 
@@ -5414,6 +6311,9 @@ class API(object):
         Args:
             workspace (str): The name of workspace.
             registry_name (str): The name of the model.
+
+        Returns:
+            str: The notes associated with the registered model.
         """
         return self._client.get_registry_model_notes(workspace, registry_name)
 
@@ -5645,6 +6545,9 @@ class API(object):
         Returns the metric names for all experiments in the
         workspace/project_name associated with this panel.
 
+        Returns:
+            list: List of metric names (excluding system metrics) for the panel's workspace/project.
+
         This method is designed for use inside a Comet Panel.
         For more information, please see:
         [Python Panels](/docs/v2/guides/comet-ui/experiment-management/visualizations/python-panel/)
@@ -5669,6 +6572,9 @@ class API(object):
         """
         Returns the panel options as a dictionary.
 
+        Returns:
+            dict: Dictionary containing panel configuration options.
+
         This method is designed for use inside a Comet Panel.
         For more information, please see:
         [Python Panels](/docs/v2/guides/comet-ui/experiment-management/visualizations/python-panel/)
@@ -5680,6 +6586,9 @@ class API(object):
         """
         Returns the experiments associated with the workspace/
         project_name associated with this panel.
+
+        Returns:
+            list: List of APIExperiment objects associated with the panel.
 
         This method is designed for use inside a Comet Panel.
         For more information, please see:
@@ -5706,6 +6615,9 @@ class API(object):
         Returns the experiment keys associated with the workspace/
         project_name associated with this panel.
 
+        Returns:
+            list: List of experiment key strings associated with the panel.
+
         This method is designed for use inside a Comet Panel.
         For more information, please see:
         [Python Panels](/docs/v2/guides/comet-ui/experiment-management/visualizations/python-panel/)
@@ -5729,6 +6641,9 @@ class API(object):
         """
         Returns the project_id associated with this panel.
 
+        Returns:
+            str: The project ID associated with the panel.
+
         This method is designed for use inside a Comet Panel.
         For more information, please see:
         [Python Panels](/docs/v2/guides/comet-ui/experiment-management/visualizations/python-panel/)
@@ -5750,6 +6665,9 @@ class API(object):
         """
         Returns the project name associated with this panel.
 
+        Returns:
+            str or None: The project name if available, otherwise None.
+
         This method is designed for use inside a Comet Panel.
         For more information, please see:
         [Python Panels](/docs/v2/guides/comet-ui/experiment-management/visualizations/python-panel/)
@@ -5759,7 +6677,10 @@ class API(object):
 
     def get_panel_workspace(self) -> Union[str, None]:
         """
-        Returns the project name associated with this panel.
+        Returns the workspace name associated with this panel.
+
+        Returns:
+            str or None: The workspace name if available, otherwise None.
 
         This method is designed for use inside a Comet Panel.
         For more information, please see:
@@ -5770,6 +6691,9 @@ class API(object):
     def get_panel_experiment_colors(self) -> PanelColorMap:
         """
         Returns a dictionary of experiment keys and their associated colors.
+
+        Returns:
+            dict: Dictionary mapping experiment keys to their color values.
 
         This method is designed for use inside a Comet Panel.
         For more information, please see:
@@ -5782,6 +6706,9 @@ class API(object):
         """
         Returns a dictionary of metrics and their associated colors.
 
+        Returns:
+            dict: Dictionary mapping metric names to their color values.
+
         This method is designed for use inside a Comet Panel.
         For more information, please see:
         [Python Panels](/docs/v2/guides/comet-ui/experiment-management/visualizations/python-panel/)
@@ -5791,7 +6718,10 @@ class API(object):
 
     def get_panel_width(self) -> int:
         """
-        Returns a width of the panel (in pixels).
+        Returns the width of the panel (in pixels).
+
+        Returns:
+            int: The panel width in pixels.
 
         This method is designed for use inside a Comet Panel.
         For more information, please see:
@@ -5802,7 +6732,10 @@ class API(object):
 
     def get_panel_height(self) -> int:
         """
-        Returns a height of the panel (in pixels).
+        Returns the height of the panel (in pixels).
+
+        Returns:
+            int: The panel height in pixels.
 
         This method is designed for use inside a Comet Panel.
         For more information, please see:
@@ -5815,6 +6748,9 @@ class API(object):
         """
         Returns a tuple of the width and height of the panel (in pixels). (width, height)
 
+        Returns:
+            tuple: A tuple of (width, height) in pixels.
+
         This method is designed for use inside a Comet Panel.
         For more information, please see:
         [Python Panels](/docs/v2/guides/comet-ui/experiment-management/visualizations/python-panel/)
@@ -5823,6 +6759,71 @@ class API(object):
         panel_height = self.get_panel_height()
 
         return (panel_width, panel_height)
+
+    def get_artifact(
+        self,
+        workspace: str,
+        artifact_name: str,
+        version: Optional[str] = None,
+        alias: Optional[str] = None,
+    ) -> "LoggedArtifact":
+        """
+        Returns a LoggedArtifact object that can be used to download assets and access artifact metadata.
+
+        Args:
+            workspace: The workspace name where the artifact is stored
+            artifact_name: The name of the artifact
+            version: Specific version to retrieve (e.g., "1.0.0")
+            alias: Alias to retrieve (e.g., "latest", "production")
+
+        Returns:
+            LoggedArtifact: An object that provides methods to download assets and access metadata
+
+        Example:
+            ```python
+            import comet_ml
+
+            api = comet_ml.API()
+            artifact = api.get_artifact("my-workspace", "my-dataset", alias="latest")
+
+            # Download all assets
+            local_artifact = artifact.download()
+
+            # List assets
+            for asset in artifact.assets:
+                print(f"{asset.logical_path}: {asset.size} bytes")
+            ```
+        """
+        # Import at runtime to avoid circular import
+        from .artifacts.artifact_getter import get_artifact
+        from .summary import Summary
+
+        # Create minimal summary for tracking
+        summary = Summary("API")
+
+        # Prepare parameters for getting artifact details
+        get_artifact_params: Dict[str, Optional[str]] = {
+            "workspace": workspace,
+            "name": artifact_name,
+        }
+
+        if version is not None:
+            get_artifact_params["version"] = version
+        elif alias is not None:
+            get_artifact_params["alias"] = alias
+        else:
+            # Default to latest if neither version nor alias specified
+            get_artifact_params["alias"] = "latest"
+
+        # Get the logged artifact using the existing artifact_getter function
+        return get_artifact(
+            rest_api_client=self._client,
+            get_artifact_params=get_artifact_params,
+            experiment_id="",  # Not needed for API usage
+            summary=summary,
+            config=self.config,
+            raise_on_warning=False,
+        )
 
 
 def make_query_vars(columns) -> List[Union[QueryVariable, Tag]]:

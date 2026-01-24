@@ -5,8 +5,10 @@ Copyright 2025 Vlad Emelianov
 """
 
 import logging
+from collections.abc import Iterator, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
-from typing import IO, Any, Callable, Iterator, Mapping, TypeVar
+from typing import IO, Any, Callable, TypeVar
 
 from botocore.awsrequest import AWSRequest
 from botocore.client import BaseClient
@@ -79,7 +81,7 @@ class MultipartUploader:
         client: BaseClient,
         config: TransferConfig,
         osutil: OSUtils,
-        executor_cls: type[BaseExecutor] = ...,
+        executor_cls: type[ThreadPoolExecutor | BaseExecutor] = ...,
     ) -> None: ...
     def upload_file(
         self,
@@ -101,7 +103,7 @@ class MultipartDownloader:
         client: BaseClient,
         config: TransferConfig,
         osutil: OSUtils,
-        executor_cls: type[BaseExecutor] = ...,
+        executor_cls: type[ThreadPoolExecutor | BaseExecutor] = ...,
     ) -> None: ...
     def download_file(
         self,

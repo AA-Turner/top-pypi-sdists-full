@@ -16,6 +16,7 @@ from typing_extensions import Literal
 
 from textual._text_area_theme import TextAreaTheme
 from textual._tree_sitter import TREE_SITTER, get_language
+from textual.actions import SkipAction
 from textual.cache import LRUCache
 from textual.color import Color
 from textual.content import Content
@@ -265,7 +266,7 @@ TextArea {
             "ctrl+f", "delete_word_right", "Delete right to start of word", show=False
         ),
         Binding("ctrl+x", "cut", "Cut", show=False),
-        Binding("ctrl+c", "copy", "Copy", show=False),
+        Binding("ctrl+c,super+c", "copy", "Copy", show=False),
         Binding("ctrl+v", "paste", "Paste", show=False),
         Binding(
             "ctrl+u", "delete_to_start_of_line", "Delete to line start", show=False
@@ -675,7 +676,7 @@ TextArea {
             character: A character associated with the key, or `None` if there isn't one.
 
         Returns:
-            `True` if the widget may capture the key in it's `Key` message, or `False` if it won't.
+            `True` if the widget may capture the key in its `Key` message, or `False` if it won't.
         """
         if self.read_only:
             # In read only mode we don't consume any key events
@@ -1034,7 +1035,7 @@ TextArea {
                 "Try `pip install 'textual[syntax]'` or '`poetry add textual[syntax]' to get started quickly.\n\n"
                 "Alternatively, install tree-sitter manually (`pip install tree-sitter`) and then\n"
                 "install the required language (e.g. `pip install tree-sitter-ruby`), then register it.\n"
-                "and it's highlight query using TextArea.register_language().\n\n"
+                "and its highlight query using TextArea.register_language().\n\n"
                 "Falling back to plain text for now."
             )
             document = Document(text)
@@ -1157,6 +1158,7 @@ TextArea {
             # +1 width to make space for the cursor resting at the end of the line
             width, height = self.document.get_size(self.indent_width)
             self.virtual_size = Size(width + self.gutter_width + 1, height)
+        self._refresh_scrollbars()
 
     @property
     def _draw_cursor(self) -> bool:
@@ -1206,28 +1208,29 @@ TextArea {
         Returns:
             A rendered line.
         """
-        if y == 0 and not self.text and self.placeholder:
-            style = self.get_visual_style("text-area--placeholder")
-            content = (
-                Content(self.placeholder)
-                if isinstance(self.placeholder, str)
-                else self.placeholder
+
+        if not self.text and self.placeholder:
+            placeholder_lines = Content.from_text(self.placeholder).wrap(
+                self.content_size.width
             )
-            content = content.stylize(style)
-            if self._draw_cursor:
-                theme = self._theme
-                cursor_style = theme.cursor_style if theme else None
-                if cursor_style:
-                    content = content.stylize(
-                        ContentStyle.from_rich_style(cursor_style), 0, 1
-                    )
-            return Strip(
-                content.render_segments(self.visual_style), content.cell_length
-            )
+            if y < len(placeholder_lines):
+                style = self.get_visual_style("text-area--placeholder")
+                content = placeholder_lines[y].stylize(style)
+                if self._draw_cursor and y == 0:
+                    theme = self._theme
+                    cursor_style = theme.cursor_style if theme else None
+                    if cursor_style:
+                        content = content.stylize(
+                            ContentStyle.from_rich_style(cursor_style), 0, 1
+                        )
+                return Strip(
+                    content.render_segments(self.visual_style), content.cell_length
+                )
 
         scroll_x, scroll_y = self.scroll_offset
         absolute_y = scroll_y + y
         selection = self.selection
+        _, cursor_y = self._cursor_offset
         cache_key = (
             self.size,
             scroll_x,
@@ -1242,7 +1245,7 @@ TextArea {
                 if (
                     self._cursor_visible
                     and self.cursor_blink
-                    and absolute_y == selection.end[0]
+                    and absolute_y == cursor_y
                 )
                 else None
             ),
@@ -1484,7 +1487,10 @@ TextArea {
             line_style = theme.base_style if theme else None
 
         text_strip = text_strip.extend_cell_length(target_width, line_style)
-        strip = Strip.join([Strip(gutter, cell_length=gutter_width), text_strip])
+        if gutter:
+            strip = Strip.join([Strip(gutter, cell_length=gutter_width), text_strip])
+        else:
+            strip = text_strip
 
         return strip.apply_style(base_style)
 
@@ -1556,11 +1562,11 @@ TextArea {
                 result.end_location,
             )
 
-        self._refresh_size()
         edit.after(self)
         self._build_highlight_map()
         self.post_message(self.Changed(self))
         self.update_suggestion()
+        self._refresh_size()
         return result
 
     def undo(self) -> None:
@@ -2342,6 +2348,8 @@ TextArea {
         Returns:
             An `EditResult` containing information about the edit.
         """
+        if len(text) > 1:
+            self._restart_blink()
         if location is None:
             location = self.cursor_location
         return self.edit(Edit(text, location, location, maintain_selection_offset))
@@ -2513,6 +2521,8 @@ TextArea {
         selected_text = self.selected_text
         if selected_text:
             self.app.copy_to_clipboard(selected_text)
+        else:
+            raise SkipAction()
 
     def action_paste(self) -> None:
         """Paste from local clipboard."""

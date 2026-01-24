@@ -3,7 +3,7 @@ Type annotations for route53domains service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53domains/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -97,12 +98,6 @@ from .type_defs import (
     ViewBillingResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -113,14 +108,14 @@ __all__ = ("Route53DomainsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    DnssecLimitExceeded: Type[BotocoreClientError]
-    DomainLimitExceeded: Type[BotocoreClientError]
-    DuplicateRequest: Type[BotocoreClientError]
-    InvalidInput: Type[BotocoreClientError]
-    OperationLimitExceeded: Type[BotocoreClientError]
-    TLDRulesViolation: Type[BotocoreClientError]
-    UnsupportedTLD: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DnssecLimitExceeded: type[BotocoreClientError]
+    DomainLimitExceeded: type[BotocoreClientError]
+    DuplicateRequest: type[BotocoreClientError]
+    InvalidInput: type[BotocoreClientError]
+    OperationLimitExceeded: type[BotocoreClientError]
+    TLDRulesViolation: type[BotocoreClientError]
+    UnsupportedTLD: type[BotocoreClientError]
 
 
 class Route53DomainsClient(BaseClient):
@@ -223,7 +218,7 @@ class Route53DomainsClient(BaseClient):
 
     def delete_tags_for_domain(
         self, **kwargs: Unpack[DeleteTagsForDomainRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This operation deletes the specified tags for a domain.
 
@@ -233,7 +228,7 @@ class Route53DomainsClient(BaseClient):
 
     def disable_domain_auto_renew(
         self, **kwargs: Unpack[DisableDomainAutoRenewRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This operation disables automatic renewal of domain registration for the
         specified domain.
@@ -266,7 +261,7 @@ class Route53DomainsClient(BaseClient):
 
     def enable_domain_auto_renew(
         self, **kwargs: Unpack[EnableDomainAutoRenewRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This operation configures Amazon Route 53 to automatically renew the specified
         domain before the domain registration expires.
@@ -500,7 +495,7 @@ class Route53DomainsClient(BaseClient):
 
     def update_tags_for_domain(
         self, **kwargs: Unpack[UpdateTagsForDomainRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This operation adds or updates tags for a specified domain.
 

@@ -10,10 +10,11 @@ import pytest
 from telnyx import Telnyx, AsyncTelnyx
 from tests.utils import assert_matches_type
 from telnyx.types import (
+    VerifiedNumber,
     VerifiedNumberDataWrapper,
-    VerifiedNumberListResponse,
     VerifiedNumberCreateResponse,
 )
+from telnyx.pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -27,6 +28,16 @@ class TestVerifiedNumbers:
         verified_number = client.verified_numbers.create(
             phone_number="+15551234567",
             verification_method="sms",
+        )
+        assert_matches_type(VerifiedNumberCreateResponse, verified_number, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_method_create_with_all_params(self, client: Telnyx) -> None:
+        verified_number = client.verified_numbers.create(
+            phone_number="+15551234567",
+            verification_method="sms",
+            extension="ww243w1",
         )
         assert_matches_type(VerifiedNumberCreateResponse, verified_number, path=["response"])
 
@@ -104,18 +115,16 @@ class TestVerifiedNumbers:
     @parametrize
     def test_method_list(self, client: Telnyx) -> None:
         verified_number = client.verified_numbers.list()
-        assert_matches_type(VerifiedNumberListResponse, verified_number, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[VerifiedNumber], verified_number, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_method_list_with_all_params(self, client: Telnyx) -> None:
         verified_number = client.verified_numbers.list(
-            page={
-                "number": 0,
-                "size": 0,
-            },
+            page_number=0,
+            page_size=0,
         )
-        assert_matches_type(VerifiedNumberListResponse, verified_number, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[VerifiedNumber], verified_number, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -125,7 +134,7 @@ class TestVerifiedNumbers:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         verified_number = response.parse()
-        assert_matches_type(VerifiedNumberListResponse, verified_number, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[VerifiedNumber], verified_number, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -135,7 +144,7 @@ class TestVerifiedNumbers:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             verified_number = response.parse()
-            assert_matches_type(VerifiedNumberListResponse, verified_number, path=["response"])
+            assert_matches_type(SyncDefaultFlatPagination[VerifiedNumber], verified_number, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -193,6 +202,16 @@ class TestAsyncVerifiedNumbers:
         verified_number = await async_client.verified_numbers.create(
             phone_number="+15551234567",
             verification_method="sms",
+        )
+        assert_matches_type(VerifiedNumberCreateResponse, verified_number, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_method_create_with_all_params(self, async_client: AsyncTelnyx) -> None:
+        verified_number = await async_client.verified_numbers.create(
+            phone_number="+15551234567",
+            verification_method="sms",
+            extension="ww243w1",
         )
         assert_matches_type(VerifiedNumberCreateResponse, verified_number, path=["response"])
 
@@ -270,18 +289,16 @@ class TestAsyncVerifiedNumbers:
     @parametrize
     async def test_method_list(self, async_client: AsyncTelnyx) -> None:
         verified_number = await async_client.verified_numbers.list()
-        assert_matches_type(VerifiedNumberListResponse, verified_number, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[VerifiedNumber], verified_number, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncTelnyx) -> None:
         verified_number = await async_client.verified_numbers.list(
-            page={
-                "number": 0,
-                "size": 0,
-            },
+            page_number=0,
+            page_size=0,
         )
-        assert_matches_type(VerifiedNumberListResponse, verified_number, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[VerifiedNumber], verified_number, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -291,7 +308,7 @@ class TestAsyncVerifiedNumbers:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         verified_number = await response.parse()
-        assert_matches_type(VerifiedNumberListResponse, verified_number, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[VerifiedNumber], verified_number, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -301,7 +318,7 @@ class TestAsyncVerifiedNumbers:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             verified_number = await response.parse()
-            assert_matches_type(VerifiedNumberListResponse, verified_number, path=["response"])
+            assert_matches_type(AsyncDefaultFlatPagination[VerifiedNumber], verified_number, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

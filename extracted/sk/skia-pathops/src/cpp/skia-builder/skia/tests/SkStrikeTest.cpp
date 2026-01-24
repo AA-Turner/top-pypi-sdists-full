@@ -38,6 +38,7 @@
 #include "src/text/StrikeForGPU.h"
 #include "tests/Test.h"
 #include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
 
 #include <atomic>
 #include <cstddef>
@@ -48,6 +49,7 @@
 #include <tuple>
 #include <vector>
 
+using namespace skia_private;
 
 using namespace sktext;
 using namespace skglyph;
@@ -79,7 +81,7 @@ prepare_for_mask_drawing(
         rejectedSize = 0;
     StrikeMutationMonitor m{strike};
     for (auto [glyphID, pos] : source) {
-        if (!SkScalarsAreFinite(pos.x(), pos.y())) {
+        if (!SkIsFinite(pos.x(), pos.y())) {
             continue;
         }
         const SkPackedGlyphID packedID{glyphID};
@@ -106,7 +108,7 @@ prepare_for_mask_drawing(
 
 DEF_TEST(SkStrikeMultiThread, Reporter) {
     sk_sp<SkTypeface> typeface =
-            ToolUtils::create_portable_typeface("serif", SkFontStyle::Italic());
+            ToolUtils::CreatePortableTypeface("serif", SkFontStyle::Italic());
     static constexpr int kThreadCount = 4;
 
     Barrier barrier{kThreadCount};
@@ -144,16 +146,16 @@ DEF_TEST(SkStrikeMultiThread, Reporter) {
             auto local = data.subspan(threadIndex * 2, data.size() - kThreadCount * 2);
             for (int i = 0; i < 100; i++) {
                 // Accepted buffers.
-                SkSTArray<64, SkPackedGlyphID> acceptedPackedGlyphIDs;
-                SkSTArray<64, SkPoint> acceptedPositions;
-                SkSTArray<64, SkMask::Format> acceptedFormats;
+                STArray<64, SkPackedGlyphID> acceptedPackedGlyphIDs;
+                STArray<64, SkPoint> acceptedPositions;
+                STArray<64, SkMask::Format> acceptedFormats;
                 acceptedPackedGlyphIDs.resize(glyphCount);
                 acceptedPositions.resize(glyphCount);
                 const auto acceptedBuffer = SkMakeZip(acceptedPackedGlyphIDs, acceptedPositions);
 
                 // Rejected buffers.
-                SkSTArray<64, SkGlyphID> rejectedGlyphIDs;
-                SkSTArray<64, SkPoint> rejectedPositions;
+                STArray<64, SkGlyphID> rejectedGlyphIDs;
+                STArray<64, SkPoint> rejectedPositions;
                 rejectedGlyphIDs.resize(glyphCount);
                 rejectedPositions.resize(glyphCount);
                 const auto rejectedBuffer = SkMakeZip(rejectedGlyphIDs, rejectedPositions);
@@ -224,9 +226,8 @@ DEF_TEST(SkStrike_FlattenByType, reporter) {
     const SkPackedGlyphID pathPackedGlyphID((SkGlyphID)11);
     SkGlyph pathGlyph{pathPackedGlyphID};
     SkGlyphTestPeer::SetGlyph(&pathGlyph);
-    SkPath path;
-    path.addRect(pathGlyph.rect());
-    pathGlyph.setPath(&alloc, &path, false);
+    SkPath path = SkPath::Rect(pathGlyph.rect());
+    pathGlyph.setPath(&alloc, &path, false, false);
     pathsToSend.emplace_back(pathGlyph);
 
     // Make a drawable glyph and put it in the glyphs to send.
@@ -257,13 +258,13 @@ DEF_TEST(SkStrike_FlattenByType, reporter) {
     drawablesToSend.emplace_back(drawableGlyph);
 
     // Test the FlattenGlyphsByType method.
-    SkBinaryWriteBuffer writeBuffer;
+    SkBinaryWriteBuffer writeBuffer({});
     SkStrike::FlattenGlyphsByType(writeBuffer, imagesToSend, pathsToSend, drawablesToSend);
     auto data = writeBuffer.snapshotAsData();
 
     // Make a strike to merge into.
     SkStrikeCache strikeCache;
-    auto dstTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto dstTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
     SkFont font{dstTypeface};
     SkStrikeSpec spec = SkStrikeSpec::MakeWithNoDevice(font);
     sk_sp<SkStrike> strike = spec.findOrCreateStrike(&strikeCache);

@@ -59,13 +59,16 @@ class ListSchedulesWithJobsResponse200Item:
         on_success_extra_args (Union[Unset, ListSchedulesWithJobsResponse200ItemOnSuccessExtraArgs]): The arguments to
             pass to the script or flow
         ws_error_handler_muted (Union[Unset, bool]):
-        retry (Union[Unset, ListSchedulesWithJobsResponse200ItemRetry]):
+        retry (Union[Unset, ListSchedulesWithJobsResponse200ItemRetry]): Retry configuration for failed module
+            executions
         summary (Union[Unset, str]):
         description (Union[Unset, str]):
         no_flow_overlap (Union[Unset, bool]):
         tag (Union[Unset, str]):
         paused_until (Union[Unset, datetime.datetime]):
         cron_version (Union[Unset, str]):
+        dynamic_skip (Union[Unset, str]): Path to a script that validates scheduled datetimes. Receives scheduled_for
+            datetime and returns boolean.
         jobs (Union[Unset, List['ListSchedulesWithJobsResponse200ItemJobsItem']]):
     """
 
@@ -98,6 +101,7 @@ class ListSchedulesWithJobsResponse200Item:
     tag: Union[Unset, str] = UNSET
     paused_until: Union[Unset, datetime.datetime] = UNSET
     cron_version: Union[Unset, str] = UNSET
+    dynamic_skip: Union[Unset, str] = UNSET
     jobs: Union[Unset, List["ListSchedulesWithJobsResponse200ItemJobsItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -151,6 +155,7 @@ class ListSchedulesWithJobsResponse200Item:
             paused_until = self.paused_until.isoformat()
 
         cron_version = self.cron_version
+        dynamic_skip = self.dynamic_skip
         jobs: Union[Unset, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.jobs, Unset):
             jobs = []
@@ -213,6 +218,8 @@ class ListSchedulesWithJobsResponse200Item:
             field_dict["paused_until"] = paused_until
         if cron_version is not UNSET:
             field_dict["cron_version"] = cron_version
+        if dynamic_skip is not UNSET:
+            field_dict["dynamic_skip"] = dynamic_skip
         if jobs is not UNSET:
             field_dict["jobs"] = jobs
 
@@ -333,6 +340,8 @@ class ListSchedulesWithJobsResponse200Item:
 
         cron_version = d.pop("cron_version", UNSET)
 
+        dynamic_skip = d.pop("dynamic_skip", UNSET)
+
         jobs = []
         _jobs = d.pop("jobs", UNSET)
         for jobs_item_data in _jobs or []:
@@ -370,6 +379,7 @@ class ListSchedulesWithJobsResponse200Item:
             tag=tag,
             paused_until=paused_until,
             cron_version=cron_version,
+            dynamic_skip=dynamic_skip,
             jobs=jobs,
         )
 

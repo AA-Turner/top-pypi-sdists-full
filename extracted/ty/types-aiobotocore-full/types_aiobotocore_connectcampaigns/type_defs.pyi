@@ -3,7 +3,7 @@ Type annotations for connectcampaigns service type definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connectcampaigns/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -28,12 +29,6 @@ from .literals import (
     InstanceOnboardingJobStatusCodeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -124,7 +119,7 @@ CampaignSummaryTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -280,7 +275,7 @@ CreateCampaignResponseTypeDef = TypedDict(
     {
         "id": str,
         "arn": str,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -293,12 +288,12 @@ class GetCampaignStateResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCampaignsResponseTypeDef(TypedDict):
-    campaignSummaryList: List[CampaignSummaryTypeDef]
+    campaignSummaryList: list[CampaignSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DialRequestTypeDef(TypedDict):
@@ -322,8 +317,8 @@ class StartInstanceOnboardingJobRequestTypeDef(TypedDict):
     encryptionConfig: EncryptionConfigTypeDef
 
 class GetCampaignStateBatchResponseTypeDef(TypedDict):
-    successfulRequests: List[SuccessfulCampaignStateResponseTypeDef]
-    failedRequests: List[FailedCampaignStateResponseTypeDef]
+    successfulRequests: list[SuccessfulCampaignStateResponseTypeDef]
+    failedRequests: list[FailedCampaignStateResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetInstanceOnboardingJobStatusResponseTypeDef(TypedDict):
@@ -335,8 +330,8 @@ class StartInstanceOnboardingJobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutDialRequestBatchResponseTypeDef(TypedDict):
-    successfulRequests: List[SuccessfulRequestTypeDef]
-    failedRequests: List[FailedRequestTypeDef]
+    successfulRequests: list[SuccessfulRequestTypeDef]
+    failedRequests: list[FailedRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCampaignsRequestPaginateTypeDef(TypedDict):
@@ -364,7 +359,7 @@ CampaignTypeDef = TypedDict(
         "connectInstanceId": str,
         "dialerConfig": DialerConfigTypeDef,
         "outboundCallConfig": OutboundCallConfigTypeDef,
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 

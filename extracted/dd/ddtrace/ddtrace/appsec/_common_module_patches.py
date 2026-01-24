@@ -1,4 +1,3 @@
-# This module must not import other modules unconditionally that require iast
 import ctypes
 import io
 import json
@@ -14,6 +13,8 @@ from typing import Union
 from wrapt import FunctionWrapper
 from wrapt import resolve_path
 
+from ddtrace.appsec._asm_request_context import _get_asm_context
+from ddtrace.appsec._asm_request_context import call_waf_callback
 from ddtrace.appsec._asm_request_context import get_blocked
 from ddtrace.appsec._constants import EXPLOIT_PREVENTION
 from ddtrace.appsec._constants import WAF_ACTIONS
@@ -24,7 +25,7 @@ from ddtrace.internal._exceptions import BlockingException
 from ddtrace.internal._unpatched import _gc as gc
 from ddtrace.internal.logger import get_logger
 from ddtrace.internal.module import ModuleWatchdog
-from ddtrace.settings.asm import config as asm_config
+from ddtrace.internal.settings.asm import config as asm_config
 
 
 log = get_logger(__name__)
@@ -50,9 +51,19 @@ def patch_common_modules():
     if _is_patched:
         return
 
+    try_wrap_function_wrapper(
+        "urllib3.connectionpool", "HTTPConnectionPool._make_request", wrapped_urllib3_make_request
+    )
+    try_wrap_function_wrapper("urllib3.connectionpool", "HTTPConnectionPool.urlopen", wrapped_urllib3_urlopen)
+    try_wrap_function_wrapper("urllib3._request_methods", "RequestMethods.request", wrapped_request_D8CB81E472AF98A2)
+    try_wrap_function_wrapper("urllib3.request", "RequestMethods.request", wrapped_request_D8CB81E472AF98A2)
     try_wrap_function_wrapper("builtins", "open", wrapped_open_CFDDB7ABBA9081B6)
     try_wrap_function_wrapper("urllib.request", "OpenerDirector.open", wrapped_open_ED4CF71136E15EBF)
     try_wrap_function_wrapper("http.client", "HTTPConnection.request", wrapped_request)
+    try_wrap_function_wrapper("http.client", "HTTPConnection.getresponse", wrapped_response)
+
+    patch_stripe_for_appsec()
+
     core.on("asm.block.dbapi.execute", execute_4C9BAC8E228EB347)
     log.debug("Patching common modules: builtins and urllib.request")
     _is_patched = True
@@ -63,10 +74,18 @@ def unpatch_common_modules():
     if not _is_patched:
         return
 
+    try_unwrap("urllib3.connectionpool", "HTTPConnectionPool._make_request")
+    try_unwrap("urllib3._request_methods", "RequestMethods.request")
+    try_unwrap("urllib3.request", "RequestMethods.request")
     try_unwrap("builtins", "open")
     try_unwrap("urllib.request", "OpenerDirector.open")
+    try_unwrap("http.client", "HTTPConnection.request")
+    try_unwrap("http.client", "HTTPConnection.getresponse")
     try_unwrap("_io", "BytesIO.read")
     try_unwrap("_io", "StringIO.read")
+
+    unpatch_stripe_for_appsec()
+
     subprocess_patch.unpatch()
     subprocess_patch.del_str_callback(_RASP_SYSTEM)
     subprocess_patch.del_lst_callback(_RASP_POPEN)
@@ -153,10 +172,9 @@ def _build_headers(lst: Iterable[Tuple[str, str]]) -> Dict[str, Union[str, List[
 
 
 def wrapped_request(original_request_callable, instance, args, kwargs):
-    from ddtrace.appsec._asm_request_context import call_waf_callback
-
     full_url = core.get_item("full_url")
-    if full_url is not None:
+    env = _get_asm_context()
+    if _get_rasp_capability("ssrf") and full_url is not None and env is not None:
         use_body = core.get_item("use_body", False)
         method = args[0] if len(args) > 0 else kwargs.get("method", None)
         body = args[2] if len(args) > 2 else kwargs.get("body", None)
@@ -171,11 +189,31 @@ def wrapped_request(original_request_callable, instance, args, kwargs):
         res = call_waf_callback(
             addresses,
             crop_trace="wrapped_open_ED4CF71136E15EBF",
-            rule_type=EXPLOIT_PREVENTION.TYPE.SSRF,
+            rule_type=EXPLOIT_PREVENTION.TYPE.SSRF_REQ,
         )
+        env.downstream_requests += 1
+        core.discard_item("full_url")
         if res and _must_block(res.actions):
             raise BlockingException(get_blocked(), EXPLOIT_PREVENTION.BLOCKING, EXPLOIT_PREVENTION.TYPE.SSRF, full_url)
     return original_request_callable(*args, **kwargs)
+
+
+def wrapped_response(original_response_callable, instance, args, kwargs):
+    response = original_response_callable(*args, *kwargs)
+    env = _get_asm_context()
+    try:
+        if _get_rasp_capability("ssrf") and response.__class__.__name__ == "HTTPResponse" and env is not None:
+            status = response.getcode()
+            if 300 <= status < 400:
+                # api10 for redirected response status and headers in urllib
+                addresses = {
+                    "DOWN_RES_STATUS": str(status),
+                    "DOWN_RES_HEADERS": _build_headers(response.getheaders()),
+                }
+                call_waf_callback(addresses, rule_type=EXPLOIT_PREVENTION.TYPE.SSRF_RES)
+    except Exception:
+        pass  # nosec
+    return response
 
 
 def _parse_http_response_body(response):
@@ -195,12 +233,8 @@ def wrapped_open_ED4CF71136E15EBF(original_open_callable, instance, args, kwargs
     """
     wrapper for open url function
     """
-    if asm_config._iast_enabled:
-        # TODO: IAST SSRF sink to be added
-        pass
     if _get_rasp_capability("ssrf"):
         try:
-            from ddtrace.appsec._asm_request_context import _get_asm_context
             from ddtrace.appsec._asm_request_context import call_waf_callback
             from ddtrace.appsec._asm_request_context import should_analyze_body_response
         except ImportError:
@@ -219,18 +253,18 @@ def wrapped_open_ED4CF71136E15EBF(original_open_callable, instance, args, kwargs
                 # API10, doing all request calls in HTTPConnection.request
                 try:
                     response = original_open_callable(*args, **kwargs)
-                    # api10 response handler for regular reponses
-                    if response.__class__.__name__ == "HTTPResponse":
+                    # api10 response handler for regular responses
+                    if response.__class__.__name__ == "HTTPResponse" and not (300 <= response.status < 400):
                         addresses = {
                             "DOWN_RES_STATUS": str(response.status),
                             "DOWN_RES_HEADERS": _build_headers(response.getheaders()),
                         }
                         if use_body:
                             addresses["DOWN_RES_BODY"] = _parse_http_response_body(response)
-                        call_waf_callback(addresses, rule_type=EXPLOIT_PREVENTION.TYPE.SSRF)
+                        call_waf_callback(addresses, rule_type=EXPLOIT_PREVENTION.TYPE.SSRF_RES)
                     return response
                 except Exception as e:
-                    # api10 response handler for error reponses
+                    # api10 response handler for error responses
                     if e.__class__.__name__ == "HTTPError":
                         try:
                             status_code = e.code
@@ -243,7 +277,7 @@ def wrapped_open_ED4CF71136E15EBF(original_open_callable, instance, args, kwargs
                         if status_code is not None or response_headers is not None:
                             call_waf_callback(
                                 {"DOWN_RES_STATUS": str(status_code), "DOWN_RES_HEADERS": response_headers},
-                                rule_type=EXPLOIT_PREVENTION.TYPE.SSRF,
+                                rule_type=EXPLOIT_PREVENTION.TYPE.SSRF_RES,
                             )
                     raise
         elif valid_url:
@@ -251,20 +285,72 @@ def wrapped_open_ED4CF71136E15EBF(original_open_callable, instance, args, kwargs
     return original_open_callable(*args, **kwargs)
 
 
+def _parse_headers_urllib3(headers):
+    try:
+        return dict(headers)
+    except Exception:
+        return {}
+
+
+def wrapped_urllib3_make_request(original_request_callable, instance, args, kwargs):
+    full_url = core.get_item("full_url")
+    env = _get_asm_context()
+    do_rasp = _get_rasp_capability("ssrf") and full_url is not None and env is not None
+    if do_rasp:
+        use_body = core.get_item("use_body", False)
+        method = args[1] if len(args) > 1 else kwargs.get("method", None)
+        body = args[3] if len(args) > 3 else kwargs.get("body", None)
+        headers = _parse_headers_urllib3(args[4] if len(args) > 4 else kwargs.get("headers", {}))
+        addresses = {EXPLOIT_PREVENTION.ADDRESS.SSRF: full_url, "DOWN_REQ_METHOD": method, "DOWN_REQ_HEADERS": headers}
+        content_type = headers.get("Content-Type", None) or headers.get("content-type", None)
+        if use_body and content_type == "application/json":
+            try:
+                addresses["DOWN_REQ_BODY"] = json.loads(body)
+            except Exception:
+                pass  # nosec
+        res = call_waf_callback(
+            addresses,
+            crop_trace="wrapped_request_D8CB81E472AF98A2",
+            rule_type=EXPLOIT_PREVENTION.TYPE.SSRF_REQ,
+        )
+        env.downstream_requests += 1
+        core.discard_item("full_url")
+        if res and _must_block(res.actions):
+            raise BlockingException(get_blocked(), EXPLOIT_PREVENTION.BLOCKING, EXPLOIT_PREVENTION.TYPE.SSRF, full_url)
+    response = original_request_callable(*args, **kwargs)
+    try:
+        if do_rasp and response.__class__.__name__ == "BaseHTTPResponse" and 300 <= response.status < 400:
+            # api10 for redirected response status and headers in urllib3
+            addresses = {
+                "DOWN_RES_STATUS": str(response.status),
+                "DOWN_RES_HEADERS": response.headers,
+            }
+            call_waf_callback(addresses, rule_type=EXPLOIT_PREVENTION.TYPE.SSRF_RES)
+    except Exception:
+        pass  # nosec
+    return response
+
+
+def wrapped_urllib3_urlopen(original_open_callable, instance, args, kwargs):
+    full_url = args[2] if len(args) > 2 else kwargs.get("url", None)
+    if core.get_item("full_url") is None:
+        core.set_item("full_url", full_url)
+    try:
+        return original_open_callable(*args, **kwargs)
+    finally:
+        core.discard_item("full_url")
+
+
 def wrapped_request_D8CB81E472AF98A2(original_request_callable, instance, args, kwargs):
     """
     wrapper for third party requests.request function
     https://requests.readthedocs.io
     """
-    if asm_config._iast_enabled and asm_config.is_iast_request_enabled:
-        from ddtrace.appsec._iast.taint_sinks.ssrf import _iast_report_ssrf
-
-        _iast_report_ssrf(original_request_callable, *args, **kwargs)
-
     if _get_rasp_capability("ssrf"):
         try:
+            from ddtrace.appsec._asm_request_context import _get_asm_context
             from ddtrace.appsec._asm_request_context import call_waf_callback
-            from ddtrace.appsec._asm_request_context import in_asm_context
+            from ddtrace.appsec._asm_request_context import should_analyze_body_response
         except ImportError:
             # open is used during module initialization
             # and shouldn't be changed at that time
@@ -272,19 +358,29 @@ def wrapped_request_D8CB81E472AF98A2(original_request_callable, instance, args, 
             return original_request_callable(*args, **kwargs)
 
         url = args[1] if len(args) > 1 else kwargs.get("url", None)
-        if isinstance(url, str) and url:
-            if in_asm_context():
-                res = call_waf_callback(
-                    {EXPLOIT_PREVENTION.ADDRESS.SSRF: url},
-                    crop_trace="wrapped_request_D8CB81E472AF98A2",
-                    rule_type=EXPLOIT_PREVENTION.TYPE.SSRF,
-                )
-                if res and _must_block(res.actions):
-                    raise BlockingException(
-                        get_blocked(), EXPLOIT_PREVENTION.BLOCKING, EXPLOIT_PREVENTION.TYPE.SSRF, url
-                    )
-            else:
-                _report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SSRF, False)
+        valid_url = isinstance(url, str) and bool(url)
+        if valid_url and url and (ctx := _get_asm_context()):
+            use_body = should_analyze_body_response(ctx)
+            with core.context_with_data("url_open_analysis", full_url=url, use_body=use_body):
+                # API10, doing all request calls in HTTPConnection.request
+                try:
+                    response = original_request_callable(*args, **kwargs)
+                    if response.__class__.__name__ == "Response" and not (300 <= response.status_code < 400):
+                        addresses = {
+                            "DOWN_RES_STATUS": str(response.status_code),
+                            "DOWN_RES_HEADERS": dict(response.headers),
+                        }
+                        if use_body:
+                            try:
+                                addresses["DOWN_RES_BODY"] = response.json()
+                            except Exception:
+                                pass  # nosec
+                        call_waf_callback(addresses, rule_type=EXPLOIT_PREVENTION.TYPE.SSRF_RES)
+                    return response
+                except Exception:
+                    raise
+        elif valid_url:
+            _report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SSRF, False)
     return original_request_callable(*args, **kwargs)
 
 
@@ -485,3 +581,75 @@ def patch_builtins(klass, attr, value):
             pass
 
     ctypes.pythonapi.PyType_Modified(ctypes.py_object(klass))
+
+
+def _wrap_checkout_session_create(original_callable, instance, args, kwargs):
+    session = original_callable(*args, **kwargs)
+    core.dispatch("appsec.stripe.checkout.session.create", (session,))
+    return session
+
+
+def _wrap_payment_intent_create(original_callable, instance, args, kwargs):
+    payment_intent = original_callable(*args, **kwargs)
+    core.dispatch("appsec.stripe.payment_intent.create", (payment_intent,))
+    return payment_intent
+
+
+def _wrap_webhook_construct_event(original_callable, instance, args, kwargs):
+    event = original_callable(*args, **kwargs)
+    core.dispatch("appsec.stripe.webhook.construct_event", (event,))
+    return event
+
+
+def _wrap_stripe_client_construct_event(original_callable, instance, args, kwargs):
+    event = original_callable(*args, **kwargs)
+    core.dispatch("appsec.stripe.stripe_client.construct_event", (event,))
+    return event
+
+
+def patch_stripe_for_appsec():
+    try_wrap_function_wrapper(
+        "stripe.checkout",
+        "Session.create",
+        _wrap_checkout_session_create,
+    )
+    try_wrap_function_wrapper(
+        "stripe.checkout._session_service",
+        "SessionService.create",
+        _wrap_checkout_session_create,
+    )
+    try_wrap_function_wrapper(
+        "stripe",
+        "PaymentIntent.create",
+        _wrap_payment_intent_create,
+    )
+    try_wrap_function_wrapper(
+        "stripe._payment_intent_service",
+        "PaymentIntentService.create",
+        _wrap_payment_intent_create,
+    )
+    try_wrap_function_wrapper(
+        "stripe.webhook",
+        "construct_event",
+        _wrap_webhook_construct_event,
+    )
+    try_wrap_function_wrapper(
+        "stripe._webhook",
+        "Webhook.construct_event",
+        _wrap_webhook_construct_event,
+    )
+    try_wrap_function_wrapper(
+        "stripe._stripe_client",
+        "StripeClient.construct_event",
+        _wrap_stripe_client_construct_event,
+    )
+
+
+def unpatch_stripe_for_appsec():
+    try_unwrap("stripe.checkout", "Session.create")
+    try_unwrap("stripe.checkout._session_service", "SessionService.create")
+    try_unwrap("stripe", "PaymentIntent.create")
+    try_unwrap("stripe._payment_intent_service", "PaymentIntentService.create")
+    try_unwrap("stripe.webhook", "construct_event")
+    try_unwrap("stripe._webhook", "Webhook.construct_event")
+    try_unwrap("stripe._stripe_client", "StripeClient.construct_event")

@@ -66,18 +66,20 @@ class QueueJobRequest(_message.Message):
     def __init__(self, job_id: _Optional[int] = ..., codegen: _Optional[str] = ..., script_path: _Optional[str] = ..., remote_log_dir: _Optional[str] = ..., managed_job: _Optional[_Union[ManagedJobInfo, _Mapping]] = ...) -> None: ...
 
 class ManagedJobInfo(_message.Message):
-    __slots__ = ("name", "pool", "workspace", "entrypoint", "tasks")
+    __slots__ = ("name", "pool", "workspace", "entrypoint", "tasks", "user_id")
     NAME_FIELD_NUMBER: _ClassVar[int]
     POOL_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_FIELD_NUMBER: _ClassVar[int]
     ENTRYPOINT_FIELD_NUMBER: _ClassVar[int]
     TASKS_FIELD_NUMBER: _ClassVar[int]
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
     name: str
     pool: str
     workspace: str
     entrypoint: str
     tasks: _containers.RepeatedCompositeFieldContainer[ManagedJobTask]
-    def __init__(self, name: _Optional[str] = ..., pool: _Optional[str] = ..., workspace: _Optional[str] = ..., entrypoint: _Optional[str] = ..., tasks: _Optional[_Iterable[_Union[ManagedJobTask, _Mapping]]] = ...) -> None: ...
+    user_id: str
+    def __init__(self, name: _Optional[str] = ..., pool: _Optional[str] = ..., workspace: _Optional[str] = ..., entrypoint: _Optional[str] = ..., tasks: _Optional[_Iterable[_Union[ManagedJobTask, _Mapping]]] = ..., user_id: _Optional[str] = ...) -> None: ...
 
 class ManagedJobTask(_message.Message):
     __slots__ = ("task_id", "name", "resources_str", "metadata_json")
@@ -250,3 +252,15 @@ class GetLogDirsForJobsResponse(_message.Message):
     JOB_LOG_DIRS_FIELD_NUMBER: _ClassVar[int]
     job_log_dirs: _containers.ScalarMap[int, str]
     def __init__(self, job_log_dirs: _Optional[_Mapping[int, str]] = ...) -> None: ...
+
+class GetJobExitCodesRequest(_message.Message):
+    __slots__ = ("job_id",)
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: int
+    def __init__(self, job_id: _Optional[int] = ...) -> None: ...
+
+class GetJobExitCodesResponse(_message.Message):
+    __slots__ = ("exit_codes",)
+    EXIT_CODES_FIELD_NUMBER: _ClassVar[int]
+    exit_codes: _containers.RepeatedScalarFieldContainer[int]
+    def __init__(self, exit_codes: _Optional[_Iterable[int]] = ...) -> None: ...

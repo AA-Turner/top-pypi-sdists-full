@@ -118,6 +118,12 @@ mock.patch(
     return_value=itr_settings
 ).start()
 
+# Mock fetch_skippable_items to return our test data
+mock.patch(
+    "ddtrace.internal.ci_visibility._api_client._TestVisibilityAPIClientBase.fetch_skippable_items",
+    return_value=itr_data
+).start()
+
 # Set ITR data when CIVisibility is enabled
 import ddtrace.internal.ci_visibility.recorder
 CIVisibility = ddtrace.internal.ci_visibility.recorder.CIVisibility
@@ -147,11 +153,15 @@ CIVisibility.enable = classmethod(patched_enable)
             test_management=TestManagementSettings(),
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features", return_value=itr_settings
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility.test_skipping_enabled",
-            return_value=True,
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=itr_settings,
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility.test_skipping_enabled",
+                return_value=True,
+            ),
         ):
             # note, passing -n 2 without --dist will fallback to dist=load
             # passing args via PYTEST_ADDOPTS env var
@@ -171,6 +181,133 @@ CIVisibility.enable = classmethod(patched_enable)
         assert session_span.get_tag("test.itr.tests_skipping.enabled") == "true"
         assert session_span.get_tag("test.itr.tests_skipping.type") == "test"  # load uses suite-level skipping
         # Verify number of skipped tests in session
+        assert session_span.get_metric("test.itr.tests_skipping.count") == 2
+
+    def test_xdist_suite_mode_skipped_suites(self):
+        """Test that suite-level ITR skipping works correctly in xdist and counts suites, not individual tests."""
+
+        itr_skipping_sitecustomize = """
+# sitecustomize.py - ITR setup for xdist worker nodes
+from unittest import mock
+
+# Import required modules
+from ddtrace.internal.ci_visibility._api_client import TestVisibilityAPISettings
+from ddtrace.internal.ci_visibility._api_client import EarlyFlakeDetectionSettings
+from ddtrace.internal.ci_visibility._api_client import TestManagementSettings
+from ddtrace.internal.ci_visibility._api_client import ITRData
+from ddtrace.ext.test_visibility._test_visibility_base import TestSuiteId, TestModuleId, TestId
+
+# Create ITR settings and data
+itr_settings = TestVisibilityAPISettings(
+    coverage_enabled=False, skipping_enabled=True, require_git=False, itr_enabled=True,
+    flaky_test_retries_enabled=False, known_tests_enabled=False,
+    early_flake_detection=EarlyFlakeDetectionSettings(), test_management=TestManagementSettings()
+)
+
+# Create skippable suites for suite-level skipping
+skippable_suites = {
+    TestSuiteId(TestModuleId(""), "test_scope1.py"),
+    TestSuiteId(TestModuleId(""), "test_scope2.py")
+}
+itr_data = ITRData(correlation_id="12345678-1234-1234-1234-123456789012", skippable_items=skippable_suites)
+
+# Mock API calls to return our settings
+mock.patch(
+    "ddtrace.internal.ci_visibility._api_client._TestVisibilityAPIClientBase.fetch_settings",
+    return_value=itr_settings
+).start()
+
+mock.patch(
+    "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+    return_value=itr_settings
+).start()
+
+# Mock fetch_skippable_items to return our test data
+mock.patch(
+    "ddtrace.internal.ci_visibility._api_client._TestVisibilityAPIClientBase.fetch_skippable_items",
+    return_value=itr_data
+).start()
+
+# Set ITR data when CIVisibility is enabled
+import ddtrace.internal.ci_visibility.recorder
+CIVisibility = ddtrace.internal.ci_visibility.recorder.CIVisibility
+original_enable = CIVisibility.enable
+
+def patched_enable(cls, *args, **kwargs):
+    result = original_enable(*args, **kwargs)
+    if cls._instance:
+        cls._instance._itr_data = itr_data
+    return result
+
+CIVisibility.enable = classmethod(patched_enable)
+"""
+
+        # Create test files
+        self.testdir.makepyfile(sitecustomize=itr_skipping_sitecustomize)
+        self.testdir.makepyfile(
+            test_scope1="""
+import pytest
+
+class TestScope1:
+    def test_scope1_method1(self):
+        assert True
+
+    def test_scope1_method2(self):
+        assert True
+""",
+            test_scope2="""
+import pytest
+
+class TestScope2:
+    def test_scope2_method1(self):
+        assert True
+""",
+        )
+        self.testdir.chdir()
+
+        itr_settings = TestVisibilityAPISettings(
+            coverage_enabled=False,
+            skipping_enabled=True,
+            require_git=False,
+            itr_enabled=True,
+            flaky_test_retries_enabled=False,
+            known_tests_enabled=False,
+            early_flake_detection=EarlyFlakeDetectionSettings(),
+            test_management=TestManagementSettings(),
+        )
+
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=itr_settings,
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility.test_skipping_enabled",
+                return_value=True,
+            ),
+        ):
+            # Run with xdist using loadscope mode (suite-level skipping)
+            rec = self.inline_run(
+                "--ddtrace",
+                "-n",
+                "2",
+                "--dist=loadscope",
+                "-s",
+                "-vvv",
+                extra_env={
+                    "DD_CIVISIBILITY_AGENTLESS_ENABLED": "1",
+                    "DD_API_KEY": "foobar.baz",
+                    "DD_INSTRUMENTATION_TELEMETRY_ENABLED": "0",
+                },
+            )
+            assert rec.ret == 0  # All tests skipped, so exit code is 0
+
+        # Assert on session span metrics - key assertion for suite-level skipping
+        spans = self.pop_spans()
+        session_span = [span for span in spans if span.get_tag("type") == "test_session_end"][0]
+        assert session_span.get_tag("test.itr.tests_skipping.enabled") == "true"
+        assert session_span.get_tag("test.itr.tests_skipping.type") == "suite"  # loadscope uses suite-level skipping
+        # Verify number of skipped SUITES in session (should be 2 suites, not 3 tests)
         assert session_span.get_metric("test.itr.tests_skipping.count") == 2
 
     def test_pytest_xdist_itr_skips_tests_at_test_level_without_loadscope(self):
@@ -210,6 +347,12 @@ mock.patch(
     return_value=itr_settings
 ).start()
 
+# Mock fetch_skippable_items to return our test data
+mock.patch(
+    "ddtrace.internal.ci_visibility._api_client._TestVisibilityAPIClientBase.fetch_skippable_items",
+    return_value=itr_data
+).start()
+
 # Set ITR data when CIVisibility is enabled
 import ddtrace.internal.ci_visibility.recorder
 CIVisibility = ddtrace.internal.ci_visibility.recorder.CIVisibility
@@ -239,11 +382,15 @@ CIVisibility.enable = classmethod(patched_enable)
             test_management=TestManagementSettings(),
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features", return_value=itr_settings
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility.test_skipping_enabled",
-            return_value=True,
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=itr_settings,
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility.test_skipping_enabled",
+                return_value=True,
+            ),
         ):
             # note, passing -n 2 without --dist will fallback to dist=load
             rec = self.inline_run(
@@ -300,6 +447,12 @@ mock.patch(
     return_value=itr_settings
 ).start()
 
+# Mock fetch_skippable_items to return our test data
+mock.patch(
+    "ddtrace.internal.ci_visibility._api_client._TestVisibilityAPIClientBase.fetch_skippable_items",
+    return_value=itr_data
+).start()
+
 # Set ITR data when CIVisibility is enabled
 import ddtrace.internal.ci_visibility.recorder
 CIVisibility = ddtrace.internal.ci_visibility.recorder.CIVisibility
@@ -329,11 +482,15 @@ CIVisibility.enable = classmethod(patched_enable)
             test_management=TestManagementSettings(),
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features", return_value=itr_settings
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility.test_skipping_enabled",
-            return_value=True,
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=itr_settings,
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility.test_skipping_enabled",
+                return_value=True,
+            ),
         ):
             rec = self.inline_run(
                 "--ddtrace",
@@ -460,20 +617,19 @@ class TestXdistHooksUnit:
         test_id = TestId(TestSuiteId(TestModuleId("test_module"), "test_suite"), "test_name")
 
         mock_service = mock.MagicMock()
-        mock_service._suite_skipping_mode = True
+        mock_service._suite_skipping_mode = False  # Use test-level skipping for worker count tests
 
-        with mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSession.is_test_skipping_enabled", return_value=True
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSuite.is_itr_unskippable", return_value=False
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTest.is_attempt_to_fix", return_value=False
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSuite.is_itr_skippable", return_value=True
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTest.mark_itr_skipped"
-        ), mock.patch(
-            "ddtrace.contrib.internal.pytest._plugin_v2.require_ci_visibility_service", return_value=mock_service
+        with (
+            mock.patch(
+                "ddtrace.internal.test_visibility.api.InternalTestSession.is_test_skipping_enabled", return_value=True
+            ),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTest.is_itr_unskippable", return_value=False),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTest.is_attempt_to_fix", return_value=False),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTest.is_itr_skippable", return_value=True),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTest.mark_itr_skipped"),
+            mock.patch(
+                "ddtrace.contrib.internal.pytest._plugin_v2.require_ci_visibility_service", return_value=mock_service
+            ),
         ):
             result = _handle_itr_should_skip(mock_item, test_id)
 
@@ -491,20 +647,19 @@ class TestXdistHooksUnit:
         test_id = TestId(TestSuiteId(TestModuleId("test_module"), "test_suite"), "test_name")
 
         mock_service = mock.MagicMock()
-        mock_service._suite_skipping_mode = True
+        mock_service._suite_skipping_mode = False  # Use test-level skipping for worker count tests
 
-        with mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSession.is_test_skipping_enabled", return_value=True
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSuite.is_itr_unskippable", return_value=False
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTest.is_attempt_to_fix", return_value=False
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSuite.is_itr_skippable", return_value=True
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTest.mark_itr_skipped"
-        ), mock.patch(
-            "ddtrace.contrib.internal.pytest._plugin_v2.require_ci_visibility_service", return_value=mock_service
+        with (
+            mock.patch(
+                "ddtrace.internal.test_visibility.api.InternalTestSession.is_test_skipping_enabled", return_value=True
+            ),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTest.is_itr_unskippable", return_value=False),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTest.is_attempt_to_fix", return_value=False),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTest.is_itr_skippable", return_value=True),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTest.mark_itr_skipped"),
+            mock.patch(
+                "ddtrace.contrib.internal.pytest._plugin_v2.require_ci_visibility_service", return_value=mock_service
+            ),
         ):
             result = _handle_itr_should_skip(mock_item, test_id)
 
@@ -521,16 +676,16 @@ class TestXdistHooksUnit:
         mock_service = mock.MagicMock()
         mock_service._suite_skipping_mode = True
 
-        with mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSession.is_test_skipping_enabled", return_value=True
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSuite.is_itr_unskippable", return_value=False
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTest.is_attempt_to_fix", return_value=False
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSuite.is_itr_skippable", return_value=False
-        ), mock.patch(
-            "ddtrace.contrib.internal.pytest._plugin_v2.require_ci_visibility_service", return_value=mock_service
+        with (
+            mock.patch(
+                "ddtrace.internal.test_visibility.api.InternalTestSession.is_test_skipping_enabled", return_value=True
+            ),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTestSuite.is_itr_unskippable", return_value=False),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTest.is_attempt_to_fix", return_value=False),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTestSuite.is_itr_skippable", return_value=False),
+            mock.patch(
+                "ddtrace.contrib.internal.pytest._plugin_v2.require_ci_visibility_service", return_value=mock_service
+            ),
         ):  # Not skippable
             result = _handle_itr_should_skip(mock_item, test_id)
 
@@ -548,18 +703,17 @@ class TestXdistHooksUnit:
         mock_service = mock.MagicMock()
         mock_service._suite_skipping_mode = True
 
-        with mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSession.is_test_skipping_enabled", return_value=True
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSuite.is_itr_unskippable", return_value=True
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTest.is_attempt_to_fix", return_value=False
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSuite.is_itr_skippable", return_value=True
-        ), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTest.mark_itr_forced_run"
-        ) as mock_forced_run, mock.patch(
-            "ddtrace.contrib.internal.pytest._plugin_v2.require_ci_visibility_service", return_value=mock_service
+        with (
+            mock.patch(
+                "ddtrace.internal.test_visibility.api.InternalTestSession.is_test_skipping_enabled", return_value=True
+            ),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTestSuite.is_itr_unskippable", return_value=True),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTest.is_attempt_to_fix", return_value=False),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTestSuite.is_itr_skippable", return_value=True),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTest.mark_itr_forced_run") as mock_forced_run,
+            mock.patch(
+                "ddtrace.contrib.internal.pytest._plugin_v2.require_ci_visibility_service", return_value=mock_service
+            ),
         ):
             result = _handle_itr_should_skip(mock_item, test_id)
 
@@ -589,13 +743,13 @@ class TestXdistHooksUnit:
             if skipped_count > 0:
                 session_span = mock_session_span  # Use our mock directly
                 if session_span:
-                    session_span.set_tag_str(test.ITR_TEST_SKIPPING_TESTS_SKIPPED, "true")
-                    session_span.set_tag_str(test.ITR_DD_CI_ITR_TESTS_SKIPPED, "true")
+                    session_span._set_tag_str(test.ITR_TEST_SKIPPING_TESTS_SKIPPED, "true")
+                    session_span._set_tag_str(test.ITR_DD_CI_ITR_TESTS_SKIPPED, "true")
                     session_span.set_metric(test.ITR_TEST_SKIPPING_COUNT, skipped_count)
 
         # Verify the session span was tagged with ITR results
-        mock_session_span.set_tag_str.assert_any_call(test.ITR_TEST_SKIPPING_TESTS_SKIPPED, "true")
-        mock_session_span.set_tag_str.assert_any_call(test.ITR_DD_CI_ITR_TESTS_SKIPPED, "true")
+        mock_session_span._set_tag_str.assert_any_call(test.ITR_TEST_SKIPPING_TESTS_SKIPPED, "true")
+        mock_session_span._set_tag_str.assert_any_call(test.ITR_DD_CI_ITR_TESTS_SKIPPED, "true")
         mock_session_span.set_metric.assert_called_with(test.ITR_TEST_SKIPPING_COUNT, 10)
 
         # Clean up
@@ -613,13 +767,17 @@ class TestXdistHooksUnit:
 
         mock_session_span = mock.MagicMock()
 
-        with mock.patch("ddtrace.ext.test_visibility.api.is_test_visibility_enabled", return_value=True), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSession.get_span", return_value=mock_session_span
-        ), mock.patch("ddtrace.internal.test_visibility.api.InternalTestSession.finish"):
+        with (
+            mock.patch("ddtrace.ext.test_visibility.api.is_test_visibility_enabled", return_value=True),
+            mock.patch(
+                "ddtrace.internal.test_visibility.api.InternalTestSession.get_span", return_value=mock_session_span
+            ),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTestSession.finish"),
+        ):
             _pytest_sessionfinish(mock_session, 0)
 
             # Verify no ITR tags were set (worker shouldn't aggregate)
-            mock_session_span.set_tag_str.assert_not_called()
+            mock_session_span._set_tag_str.assert_not_called()
             mock_session_span.set_metric.assert_not_called()
 
         # Clean up
@@ -638,13 +796,17 @@ class TestXdistHooksUnit:
 
         mock_session_span = mock.MagicMock()
 
-        with mock.patch("ddtrace.ext.test_visibility.api.is_test_visibility_enabled", return_value=True), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSession.get_span", return_value=mock_session_span
-        ), mock.patch("ddtrace.internal.test_visibility.api.InternalTestSession.finish"):
+        with (
+            mock.patch("ddtrace.ext.test_visibility.api.is_test_visibility_enabled", return_value=True),
+            mock.patch(
+                "ddtrace.internal.test_visibility.api.InternalTestSession.get_span", return_value=mock_session_span
+            ),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTestSession.finish"),
+        ):
             _pytest_sessionfinish(mock_session, 0)
 
             # Verify no ITR tags were set (no global results to aggregate)
-            mock_session_span.set_tag_str.assert_not_called()
+            mock_session_span._set_tag_str.assert_not_called()
             mock_session_span.set_metric.assert_not_called()
 
     def test_pytest_sessionfinish_no_aggregation_when_zero_skipped(self):
@@ -659,13 +821,17 @@ class TestXdistHooksUnit:
 
         mock_session_span = mock.MagicMock()
 
-        with mock.patch("ddtrace.ext.test_visibility.api.is_test_visibility_enabled", return_value=True), mock.patch(
-            "ddtrace.internal.test_visibility.api.InternalTestSession.get_span", return_value=mock_session_span
-        ), mock.patch("ddtrace.internal.test_visibility.api.InternalTestSession.finish"):
+        with (
+            mock.patch("ddtrace.ext.test_visibility.api.is_test_visibility_enabled", return_value=True),
+            mock.patch(
+                "ddtrace.internal.test_visibility.api.InternalTestSession.get_span", return_value=mock_session_span
+            ),
+            mock.patch("ddtrace.internal.test_visibility.api.InternalTestSession.finish"),
+        ):
             _pytest_sessionfinish(mock_session, 0)
 
             # Verify no ITR tags were set (zero tests skipped)
-            mock_session_span.set_tag_str.assert_not_called()
+            mock_session_span._set_tag_str.assert_not_called()
             mock_session_span.set_metric.assert_not_called()
 
         # Clean up
@@ -944,12 +1110,15 @@ def test_suite2_func1():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using loadscope mode
             result = self.inline_run(
@@ -992,12 +1161,15 @@ def test_func3():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using worksteal mode
             result = self.inline_run(
@@ -1039,12 +1211,15 @@ def test_file2_func1():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using loadfile mode
             result = self.inline_run(
@@ -1078,12 +1253,15 @@ def test_func():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run without xdist
             result = self.inline_run(
@@ -1115,12 +1293,15 @@ def test_func():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist disabled (-n 0)
             result = self.inline_run(
@@ -1169,12 +1350,15 @@ def test_group2_func1():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using loadgroup mode
             result = self.inline_run(
@@ -1220,12 +1404,15 @@ def test_func4():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using load mode (default)
             result = self.inline_run(
@@ -1265,12 +1452,15 @@ def test_func2():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using each mode
             result = self.inline_run(
@@ -1313,12 +1503,15 @@ def test_func3():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist but no --dist parameter (defaults to load mode)
             result = self.inline_run(
@@ -1359,12 +1552,15 @@ def test_func2():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using -n auto
             result = self.inline_run(
@@ -1404,12 +1600,15 @@ def test_func2():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using -n logical
             result = self.inline_run(
@@ -1459,12 +1658,15 @@ class TestScope2:
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using loadscope with maxprocesses
             result = self.inline_run(
@@ -1508,12 +1710,15 @@ def test_func3():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using multiple workers (simplified from --tx option)
             result = self.inline_run(
@@ -1567,12 +1772,15 @@ class TestComplexClass2:
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using complex options combination
             result = self.inline_run(
@@ -1615,12 +1823,15 @@ def test_func2():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using worksteal mode (removed rsync-dir for test compatibility)
             result = self.inline_run(
@@ -1660,12 +1871,15 @@ def test_func2():
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using load mode (normally test-level) but explicitly set suite mode
             result = self.inline_run(
@@ -1690,6 +1904,11 @@ def test_func2():
 
         # The ITR skipping type should be suite due to explicit env var override
         assert session_span.get_tag("test.itr.tests_skipping.type") == "suite"
+        expected_suite_count = 0  # No suites skipped
+        actual_count = session_span.get_metric("test.itr.tests_skipping.count")
+        assert actual_count == expected_suite_count, (
+            f"Expected {expected_suite_count} suites skipped but got {actual_count}"
+        )
 
     def test_explicit_env_var_overrides_xdist_test_mode(self):
         """Test that explicit _DD_CIVISIBILITY_ITR_SUITE_MODE=False overrides xdist suite-level detection."""
@@ -1742,6 +1961,12 @@ mock.patch(
     return_value=itr_settings
 ).start()
 
+# Mock fetch_skippable_items to return our test data
+mock.patch(
+    "ddtrace.internal.ci_visibility._api_client._TestVisibilityAPIClientBase.fetch_skippable_items",
+    return_value=itr_data
+).start()
+
 CIVisibility.enable = classmethod(patched_enable)
 
 """
@@ -1766,12 +1991,15 @@ class TestScope2:
             """,
         )
 
-        with mock.patch(
-            "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
-            return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
-        ), mock.patch(
-            "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
-            return_value=TestVisibilityAPISettings(False, True, False, True),
+        with (
+            mock.patch(
+                "ddtrace.internal.ci_visibility.recorder.CIVisibility._check_enabled_features",
+                return_value=TestVisibilityAPISettings(False, True, False, True),  # Enable skipping and ITR
+            ),
+            mock.patch(
+                "ddtrace.internal.ci_visibility._api_client.AgentlessTestVisibilityAPIClient.fetch_settings",
+                return_value=TestVisibilityAPISettings(False, True, False, True),
+            ),
         ):
             # Run with xdist using loadscope mode (normally suite-level) but explicitly set test mode
             result = self.inline_run(

@@ -11,11 +11,11 @@ use clap::{Args, Parser, Subcommand};
 use data::data_client::default_config;
 use data::migration_tool::hub_client_token_refresher::HubClientTokenRefresher;
 use data::migration_tool::migrate::migrate_files_impl;
-use hub_client::{BearerCredentialHelper, HubClient, Operation};
+use hub_client::{BearerCredentialHelper, HubClient, Operation, RepoInfo};
 use merklehash::MerkleHash;
 use utils::auth::TokenRefresher;
 use walkdir::WalkDir;
-use xet_runtime::ThreadPool;
+use xet_runtime::XetRuntime;
 
 const DEFAULT_HF_ENDPOINT: &str = "https://huggingface.co";
 
@@ -56,8 +56,14 @@ impl XCommand {
             .unwrap_or_else(|| std::env::var("HF_TOKEN").unwrap_or_default());
 
         let cred_helper = BearerCredentialHelper::new(token, "");
-        let hub_client =
-            HubClient::new(&endpoint, &self.overrides.repo_type, &self.overrides.repo_id, "xtool", "", cred_helper)?;
+        let hub_client = HubClient::new(
+            &endpoint,
+            RepoInfo::try_from(&self.overrides.repo_type, &self.overrides.repo_id)?,
+            Some("main".to_owned()),
+            "xtool",
+            "",
+            cred_helper,
+        )?;
 
         self.command.run(hub_client).await
     }
@@ -160,7 +166,7 @@ impl Command {
 
 fn walk_files(files: Vec<String>, recursive: bool) -> Vec<String> {
     // Scan all files if under recursive mode
-    let file_paths = if recursive {
+    if recursive {
         files
             .iter()
             .flat_map(|dir| {
@@ -179,9 +185,7 @@ fn walk_files(files: Vec<String>, recursive: bool) -> Vec<String> {
             .collect::<Vec<_>>()
     } else {
         files
-    };
-
-    file_paths
+    }
 }
 
 fn is_git_special_files(path: &str) -> bool {
@@ -224,7 +228,7 @@ async fn query_reconstruction(
 
 fn main() -> Result<()> {
     let cli = XCommand::parse();
-    let threadpool = ThreadPool::new()?;
+    let threadpool = XetRuntime::new()?;
     threadpool.external_run_async_task(async move { cli.run().await })??;
 
     Ok(())

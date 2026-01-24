@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pygeoif
-Version: 1.5.1
+Version: 1.6.0
 Summary: A basic implementation of the __geo_interface__
 Author-email: Christian Ledermann <christian.ledermann@gmail.com>
 License: LGPL
@@ -15,7 +15,6 @@ Classifier: License :: OSI Approved :: GNU Library or Lesser General Public Lice
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -23,13 +22,15 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: GraalPy
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 Requires-Dist: typing_extensions
 Provides-Extra: complexity
+Requires-Dist: complexipy; extra == "complexity"
 Requires-Dist: lizard; extra == "complexity"
 Requires-Dist: radon; extra == "complexity"
 Provides-Extra: dev
@@ -41,24 +42,6 @@ Requires-Dist: pygeoif[typing]; extra == "dev"
 Provides-Extra: hypothesis
 Requires-Dist: hypothesis; extra == "hypothesis"
 Provides-Extra: linting
-Requires-Dist: black; extra == "linting"
-Requires-Dist: flake8; extra == "linting"
-Requires-Dist: flake8-cognitive-complexity; extra == "linting"
-Requires-Dist: flake8-comments; extra == "linting"
-Requires-Dist: flake8-complex-f-strings; extra == "linting"
-Requires-Dist: flake8-continuation; extra == "linting"
-Requires-Dist: flake8-docstrings; extra == "linting"
-Requires-Dist: flake8-dunder-all; extra == "linting"
-Requires-Dist: flake8-encodings; extra == "linting"
-Requires-Dist: flake8-expression-complexity; extra == "linting"
-Requires-Dist: flake8-function-order; extra == "linting"
-Requires-Dist: flake8-length; extra == "linting"
-Requires-Dist: flake8-pep3101; extra == "linting"
-Requires-Dist: flake8-rst-docstrings; extra == "linting"
-Requires-Dist: flake8-string-format; extra == "linting"
-Requires-Dist: flake8-super; extra == "linting"
-Requires-Dist: flake8-typing-imports; extra == "linting"
-Requires-Dist: flake8-use-fstring; extra == "linting"
 Requires-Dist: ruff; extra == "linting"
 Requires-Dist: yamllint; extra == "linting"
 Provides-Extra: tests
@@ -94,9 +77,9 @@ When you want to write your own geospatial library with support
 for this protocol you may use pygeoif as a starting point and build
 your functionality on top of it. It has no requirements outside the
 Python standard library and is therefore easy to integrate into your
-project. It is tested on `CPython <https://python.org>`_ and
-`PyPy <https://www.pypy.org/>`_, but it should work on alternative
-Python implementations (that implement the language specification *>=3.8*) as well.
+project. It is tested on `CPython <https://python.org>`_,
+`PyPy <https://www.pypy.org/>`_ and `GraalPy <https://www.graalvm.org/python/>`_, but it should work on alternative
+Python implementations (that implement the language specification *>=3.9*) as well.
 
 You may think of pygeoif as a 'shapely ultralight' which lets you
 construct geometries and perform **very** basic operations like
@@ -484,9 +467,8 @@ Run the unit and static tests with::
 
     pytest tests
     pytest --doctest-glob="README.rst"
-    black pygeoif
-    ruff pygeoif
-    flake8 pygeoif
+    ruff check pygeoif
+    ruff fmt pygeoif
     mypy pygeoif
 
 

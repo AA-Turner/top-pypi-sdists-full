@@ -20,6 +20,9 @@ namespace Cantera
 
 LatticePhase::LatticePhase(const string& inputFile, const string& id_)
 {
+    warn_deprecated("class LatticePhase", "To be removed after Cantera 3.2. Can be "
+        "replaced by use of IdealSolidSolnPhase with the site density used to set the "
+        "molar density of each constituent species.");
     initThermoFile(inputFile, id_);
 }
 
@@ -32,6 +35,10 @@ double LatticePhase::enthalpy_mole() const
 double LatticePhase::entropy_mole() const
 {
     return GasConstant * (mean_X(entropy_R_ref()) - sum_xlogx());
+}
+
+double LatticePhase::gibbs_mole() const {
+    return enthalpy_mole() - temperature() * entropy_mole();
 }
 
 double LatticePhase::cp_mole() const
@@ -291,7 +298,7 @@ void LatticePhase::getParameters(AnyMap& phaseNode) const
 void LatticePhase::getSpeciesParameters(const string& name, AnyMap& speciesNode) const
 {
     ThermoPhase::getSpeciesParameters(name, speciesNode);
-    size_t k = speciesIndex(name);
+    size_t k = speciesIndex(name, true);
     // Output volume information in a form consistent with the input
     const auto S = species(k);
     if (S->input.hasKey("equation-of-state")) {

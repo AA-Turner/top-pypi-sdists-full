@@ -17,7 +17,7 @@ class InstrErrorSuppressor:
 		Other errors will be reported. Example: If you enter -113 here, only the 'Undefined Header' error will be suppressed.
 		Default value: suppress-all-errors."""
 
-	def __init__(self, io: Instrument, visa_tout_ms: int = 0, suppress_only_codes: int or List[int] = None):
+	def __init__(self, io: Instrument, visa_tout_ms: int = 0, suppress_only_codes: int | List[int] = None):
 		self._io: Instrument = io
 		self._old_query_instr_status: bool = False
 		self._old_visa_tout_ms: int = 0
@@ -76,7 +76,7 @@ class InstrErrorSuppressor:
 
 		return False
 
-	def get_all_errors(self, incl_codes: bool = False) -> List[str] or List[Tuple[int, str]] or None:
+	def get_all_errors(self, incl_codes: bool = False) -> List[str] | List[Tuple[int, str]] | None:
 		"""Returns all the errors accumulated during the call of this context.
 		If no errors occurred, the method returns 'None'."""
 		self.get_errors_occurred()
@@ -149,7 +149,7 @@ class VisaTimeoutSuppressor:
 		# Was it straight timeout exception?
 		if isinstance(value, TimeoutException):
 			self._timeout_occurred = True
-			if self._io.query_instr_status is False:
+			if not self._io.query_instr_status:
 				# If the instrument status checking is OFF, clear the error queue
 				try:
 					self._instrument_errors = self._io.query_all_syst_errors(False)
@@ -162,7 +162,7 @@ class VisaTimeoutSuppressor:
 		if isinstance(value, StatusException):
 			if value.first_exc is not None and value.first_exc is TimeoutException:
 				self._timeout_occurred = True
-				if self._io.query_instr_status is False:
+				if not self._io.query_instr_status:
 					# If the instrument status checking is OFF, clear the error queue
 					try:
 						self._instrument_errors = self._io.query_all_syst_errors(False)

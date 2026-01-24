@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 from typing import Optional, Union
@@ -127,10 +127,16 @@ class _HTMLBuilder:
             return f"<iframe {_join_params(params)}></iframe>"
 
     @staticmethod
-    def pre(child: str, style: Optional[str] = None) -> str:
+    def pre(
+        child: str,
+        style: Optional[str] = None,
+        class_: Optional[str] = None,
+    ) -> str:
         params: list[tuple[str, Union[str, None]]] = []
         if style is not None:
             params.append(("style", style))
+        if class_ is not None:
+            params.append(("class", class_))
 
         if not params:
             return f"<pre>{child}</pre>"

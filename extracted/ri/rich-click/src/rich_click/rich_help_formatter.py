@@ -36,6 +36,23 @@ if TYPE_CHECKING:  # pragma: no cover
 RP = TypeVar("RP", bound=RichPanel[Any, Any])
 
 
+class _EncodedStringIO(io.StringIO):
+    """StringIO with encoding attributes for Rich Console detection."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+        self._errors = getattr(sys.stdout, "errors", None) or "replace"
+
+    @property
+    def encoding(self) -> str:  # type: ignore[override]
+        return self._encoding
+
+    @property
+    def errors(self) -> str:  # type: ignore[override]
+        return self._errors
+
+
 def create_console(
     config: RichHelpConfiguration,
     file: Optional[IO[str]] = None,
@@ -78,7 +95,7 @@ def create_console(
     )
     # Defaults for console.color_system change when file is in __init__.
     # Workaround: set file after __init__.
-    console.file = file or io.StringIO()
+    console.file = file or _EncodedStringIO()
     max_width = max_width if max_width is not None else config.max_width
     if isinstance(max_width, int):
         console.width = min(max_width, console.size.width)
@@ -261,6 +278,12 @@ class RichHelpFormatter(click.HelpFormatter):
         if not self.export_console_as:
             from rich.console import COLOR_SYSTEMS
             from rich.segment import Segment
+
+            if self.console.legacy_windows:
+                # Handle legacy windows
+                import colorama  # type: ignore[import-untyped]
+
+                colorama.init()
 
             if self.console.no_color:
                 res = "".join(

@@ -1,0 +1,137 @@
+[build-system]
+requires = [
+  "setuptools >= 61",
+  "setuptools_scm[toml] >= 3.4",
+  "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+# metadata
+name = "gwosc"
+description = "A python interface to the GW Open Science data archive"
+readme = "README.md"
+authors = [
+  { name = "Duncan Macleod", email = "duncan.macleod@ligo.org" },
+  { name = "Martin Beroiz", email = "martin.beroiz@ligo.org" },
+]
+license = { text = "MIT" }
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Intended Audience :: Science/Research",
+  "Natural Language :: English",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Topic :: Scientific/Engineering :: Physics",
+  "License :: OSI Approved :: MIT License",
+]
+
+# requirements
+requires-python = ">=3.8"
+dependencies = [
+  "requests >= 1.0.0",
+]
+
+dynamic = [
+  "version",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest >= 2.7.0",
+  "pytest-cov",
+  "pytest-socket",
+  "requests-mock >= 1.5.0",
+]
+docs = [
+  "sphinx",
+  "sphinx-automodapi",
+  "sphinx-immaterial-igwn",
+]
+
+[project.urls]
+"Homepage" = "https://gwosc.readthedocs.io"
+"Bug Tracker" = "https://git.ligo.org/gwosc/client/-/issues"
+"Discussion Forum" = "https://ask.igwn.org"
+"Documentation" = "https://gwosc.readthedocs.io"
+"Source Code" = "https://git.ligo.org/gwosc/client.git"
+
+# -- tools
+
+[tool.coverage.paths]
+source = [
+  "gwosc/",
+  "*/gwosc/",
+]
+
+[tool.coverage.report]
+omit = [
+  "*/_version.py",
+]
+precision = 1
+
+[tool.coverage.run]
+source = ["gwosc"]
+
+[tool.pytest.ini_options]
+addopts = "-r a --color=yes"
+filterwarnings = [
+  "error",
+  # https://github.com/pyreadline/pyreadline/issues/65
+  "ignore:Using or importing the ABCs::pyreadline",
+]
+markers = [
+  "remote",
+]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+  # pycodestyle errors
+  "E",
+  # flake8-executable
+  "EXE",
+  # pyflakes
+  "F",
+  # isort
+  "I",
+  # pep8-naming
+  "N",
+  # pyupgrade
+  "UP",
+  # pycodestyle warnings
+  "W",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# ignore unused import in __init__
+"__init__.py" = [
+  "F401",
+]
+
+[tool.setuptools]
+license-files = [
+  "LICENSE",
+]
+
+[tool.setuptools.packages.find]
+include = [
+  "gwosc*",
+]
+
+[tool.setuptools_scm]
+write_to = "gwosc/_version.py"

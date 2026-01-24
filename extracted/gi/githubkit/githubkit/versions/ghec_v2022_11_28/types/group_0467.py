@@ -11,18 +11,36 @@ from __future__ import annotations
 
 from typing_extensions import TypedDict
 
-from .group_0463 import TrafficType
+from .group_0291 import LinkType, LinkTypeForResponse
 
 
-class ViewTrafficType(TypedDict):
-    """View Traffic
+class PullRequestPropLinksType(TypedDict):
+    """PullRequestPropLinks"""
 
-    View Traffic
-    """
+    comments: LinkType
+    commits: LinkType
+    statuses: LinkType
+    html: LinkType
+    issue: LinkType
+    review_comments: LinkType
+    review_comment: LinkType
+    self_: LinkType
 
-    count: int
-    uniques: int
-    views: list[TrafficType]
+
+class PullRequestPropLinksTypeForResponse(TypedDict):
+    """PullRequestPropLinks"""
+
+    comments: LinkTypeForResponse
+    commits: LinkTypeForResponse
+    statuses: LinkTypeForResponse
+    html: LinkTypeForResponse
+    issue: LinkTypeForResponse
+    review_comments: LinkTypeForResponse
+    review_comment: LinkTypeForResponse
+    self_: LinkTypeForResponse
 
 
-__all__ = ("ViewTrafficType",)
+__all__ = (
+    "PullRequestPropLinksType",
+    "PullRequestPropLinksTypeForResponse",
+)

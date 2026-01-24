@@ -41,6 +41,28 @@ class DmlSelectExtractor(LineageHolderExtractor):
             else retrieve_segments(statement)
         )
         for segment in segments:
+
+            # Handle common_table_expression (CTEs) specially
+            if segment.type == "common_table_expression":
+                # Extract the CTE name (identifier) and query (bracketed)
+                cte_name = None
+                cte_query = None
+                for cte_child in (
+                    segment.segments if hasattr(segment, "segments") else []
+                ):
+                    if cte_child.type == "identifier":
+                        cte_name = cte_child.raw
+                    elif cte_child.type == "bracketed":
+                        cte_query = cte_child
+
+                if cte_name and cte_query:
+                    # Create a SubQuery with the correct CTE name as the alias
+                    cte_sq = SqlFluffSubQuery.of(cte_query, cte_name)
+                    # Add to CTE set (this will create the SubQuery -> 'name' edge)
+                    holder.add_cte(cte_sq)
+                    subqueries.append(cte_sq)
+                continue  # Don't process CTE with normal handlers
+
             for sq in self.parse_subquery(segment):
                 # Collecting subquery on the way, hold on parsing until last
                 # so that each handler don't have to worry about what's inside subquery

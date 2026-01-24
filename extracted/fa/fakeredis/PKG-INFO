@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fakeredis
-Version: 2.31.3
+Version: 2.33.0
 Summary: Python implementation of redis API, can be used for testing purposes.
 Project-URL: Homepage, https://github.com/cunla/fakeredis-py
 Project-URL: Repository, https://github.com/cunla/fakeredis-py
@@ -25,26 +25,27 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.7
+Requires-Dist: redis<7.1.0; python_version < '3.10'
 Requires-Dist: redis>=4.3; python_version > '3.8'
 Requires-Dist: redis>=4; python_version < '3.8'
-Requires-Dist: sortedcontainers<3,>=2
+Requires-Dist: sortedcontainers>=2
 Requires-Dist: typing-extensions~=4.7; python_version < '3.11'
 Provides-Extra: bf
 Requires-Dist: pyprobables>=0.6; extra == 'bf'
 Provides-Extra: cf
 Requires-Dist: pyprobables>=0.6; extra == 'cf'
 Provides-Extra: json
-Requires-Dist: jsonpath-ng~=1.6; extra == 'json'
+Requires-Dist: jsonpath-ng>=1.6; extra == 'json'
 Provides-Extra: lua
-Requires-Dist: lupa<3.0,>=2.1; extra == 'lua'
+Requires-Dist: lupa>=2.1; extra == 'lua'
 Provides-Extra: probabilistic
 Requires-Dist: pyprobables>=0.6; extra == 'probabilistic'
 Provides-Extra: valkey
 Requires-Dist: valkey>=6; (python_version >= '3.8') and extra == 'valkey'
 Description-Content-Type: text/markdown
 
-fakeredis: A fake version of a redis-py
-=======================================
+fakeredis: A python implementation of Redis Protocol API
+========================================================
 
 [![badge](https://img.shields.io/pypi/v/fakeredis)](https://pypi.org/project/fakeredis/)
 [![CI](https://github.com/cunla/fakeredis-py/actions/workflows/test.yml/badge.svg)](https://github.com/cunla/fakeredis-py/actions/workflows/test.yml)
@@ -52,16 +53,16 @@ fakeredis: A fake version of a redis-py
 [![badge](https://img.shields.io/pypi/dm/fakeredis)](https://pypi.org/project/fakeredis/)
 [![badge](https://img.shields.io/pypi/l/fakeredis)](./LICENSE)
 [![Open Source Helpers](https://www.codetriage.com/cunla/fakeredis-py/badges/users.svg)](https://www.codetriage.com/cunla/fakeredis-py)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 --------------------
+
 
 
 Documentation is hosted in https://fakeredis.readthedocs.io/
 
 # Intro
 
-FakeRedis is a pure-Python implementation of the Redis protocol API. It provides enhanced versions of
-the [redis-py][redis-py] Python bindings for Redis.
+FakeRedis is a pure-Python implementation of the Redis Protocol API. It provides enhanced versions of
+the [redis-py][redis-py]/[valkey-py][valkey-py] Python bindings for Redis.
 
 It enables running tests requiring [Redis][redis]/[ValKey][valkey]/[DragonflyDB][dragonflydb]/[KeyDB][keydb] server
 without an actual server.
@@ -92,3 +93,5 @@ You can support this project by becoming a sponsor using [this link](https://git
 [dragonflydb]: https://dragonflydb.io/
 
 [keydb]: https://docs.keydb.dev/
+
+[valkey-py]: https://github.com/valkey-io/valkey-py

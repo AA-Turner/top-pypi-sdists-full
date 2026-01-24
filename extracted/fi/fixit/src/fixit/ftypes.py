@@ -6,6 +6,7 @@
 import platform
 import re
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import (
     Any,
@@ -27,8 +28,9 @@ from typing import (
 from libcst import CSTNode, CSTNodeT, FlattenSentinel, RemovalSentinel
 from libcst._add_slots import add_slots
 from libcst.metadata import CodePosition as CodePosition, CodeRange as CodeRange
-
 from packaging.version import Version
+
+__all__ = ("Version",)
 
 T = TypeVar("T")
 
@@ -44,13 +46,18 @@ RuleOptionsTable = Dict[str, RuleOptions]
 
 NodeReplacement = Union[CSTNodeT, FlattenSentinel[CSTNodeT], RemovalSentinel]
 
-Timings = Dict[str, int]
-TimingsHook = Callable[[Timings], None]
+Metrics = Dict[str, Any]
+MetricsHook = Callable[[Metrics], None]
 
 VisitorMethod = Callable[[CSTNode], None]
-VisitHook = Callable[[str], ContextManager]
+VisitHook = Callable[[str], ContextManager[None]]
 
-Version
+
+class OutputFormat(str, Enum):
+    custom = "custom"
+    fixit = "fixit"
+    # json = "json"  # TODO
+    vscode = "vscode"
 
 
 @dataclass(frozen=True)
@@ -87,9 +94,9 @@ QualifiedRuleRegex = re.compile(
     ^
     (?P<module>
         (?P<local>\.)?
-        [a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)*
+        [a-zA-Z0-9_]+(\.[a-zA-Z0-9_-]+)*
     )
-    (?::(?P<name>[a-zA-Z0-9_]+))?
+    (?::(?P<name>[a-zA-Z0-9_-]+))?
     $
     """,
     re.VERBOSE,
@@ -178,10 +185,25 @@ class Options:
     Command-line options to affect runtime behavior
     """
 
-    debug: Optional[bool]
-    config_file: Optional[Path]
+    debug: Optional[bool] = None
+    config_file: Optional[Path] = None
     tags: Optional[Tags] = None
     rules: Sequence[QualifiedRule] = ()
+    output_format: Optional[OutputFormat] = None
+    output_template: str = ""
+    print_metrics: bool = False
+
+
+@dataclass
+class LSPOptions:
+    """
+    Command-line options to affect LSP runtime behavior
+    """
+
+    tcp: Optional[int]
+    ws: Optional[int]
+    stdio: bool = True
+    debounce_interval: float = 0.5
 
 
 @dataclass
@@ -212,7 +234,11 @@ class Config:
     # post-run processing
     formatter: Optional[str] = None
 
-    def __post_init__(self):
+    # output formatting options
+    output_format: OutputFormat = OutputFormat.fixit
+    output_template: str = ""
+
+    def __post_init__(self) -> None:
         self.path = self.path.resolve()
         self.root = self.root.resolve()
 
@@ -222,7 +248,7 @@ class RawConfig:
     path: Path
     data: Dict[str, Any]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.path = self.path.resolve()
 
 
@@ -237,7 +263,7 @@ class LintViolation:
     range: CodeRange
     message: str
     node: CSTNode
-    replacement: Optional[NodeReplacement]
+    replacement: Optional[NodeReplacement[CSTNode]]
     diff: str = ""
 
     @property

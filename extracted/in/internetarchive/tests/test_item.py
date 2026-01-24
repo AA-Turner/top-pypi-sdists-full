@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import sys
 import types
 from copy import deepcopy
 
@@ -36,6 +37,9 @@ EXPECTED_S3_HEADERS = {
     'accept-encoding': 'gzip, deflate',
     'connection': 'close',
 }
+# `compression.zstd` is added to the Standard Library in Python >= 3.14.
+if sys.version_info >= (3, 14):
+    EXPECTED_S3_HEADERS['accept-encoding'] += ', zstd'
 
 
 def test_get_item(nasa_metadata, nasa_item, session):
@@ -268,7 +272,7 @@ def test_download_dry_run(tmpdir, capsys, nasa_item):
         nasa_item.download(formats='Metadata', dry_run=True)
 
     expected = {'nasa_reviews.xml', 'nasa_meta.xml', 'nasa_files.xml'}
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
 
     assert {x.split('/')[-1] for x in out.split('\n') if x} == expected
 
@@ -282,7 +286,7 @@ def test_download_dry_run_on_the_fly_formats(tmpdir, capsys, nasa_item):
         nasa_item.download(formats='MARCXML', on_the_fly=True, dry_run=True)
 
     expected = {'nasa_archive_marc.xml'}
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
 
     assert {x.split('/')[-1] for x in out.split('\n') if x} == expected
 
@@ -296,7 +300,7 @@ def test_download_verbose(tmpdir, capsys, nasa_item):
                  body='no dest dir',
                  adding_headers=headers)
         nasa_item.download(files='nasa_meta.xml', verbose=True)
-        out, err = capsys.readouterr()
+        _out, err = capsys.readouterr()
         assert 'downloading nasa_meta.xml' in err
 
 
@@ -315,7 +319,7 @@ def test_download_dark_item(tmpdir, capsys, nasa_metadata, session):
                  status=403,
                  adding_headers={'content-length': '100'})
         _item.download(files='nasa_meta.xml', verbose=True)
-        out, err = capsys.readouterr()
+        _out, err = capsys.readouterr()
         assert 'skipping dark-item, item is dark' in err
 
 
@@ -433,7 +437,7 @@ def test_upload_503(capsys, nasa_item):
                              verbose=True)
         except Exception as exc:
             assert 'Please reduce your request rate' in str(exc)
-            out, err = capsys.readouterr()
+            _out, err = capsys.readouterr()
             assert 'warning: s3 is overloaded' in err
 
 

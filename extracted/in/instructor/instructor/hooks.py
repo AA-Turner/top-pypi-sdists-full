@@ -13,13 +13,13 @@ def __getattr__(name: str):
         f"Please update your imports to use 'instructor.core.hooks.{name}' instead:\n"
         "  from instructor.core.hooks import Hooks, HookName",
         DeprecationWarning,
-        stacklevel=2
+        stacklevel=2,
     )
-    
+
     from .core import hooks as core_hooks
-    
+
     # Try to get the attribute from the core.hooks module
     if hasattr(core_hooks, name):
         return getattr(core_hooks, name)
-    
+
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

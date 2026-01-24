@@ -6,7 +6,7 @@ class Maintenance:
     MAINTENANCE_MODE_STR: str | None = values.Value("False", environ_prefix=None)
 
     # We allow maintenance mode to be either True, False or None. In case of None, the specified Backend will take over.
-    def MAINTENANCE_MODE(self) -> bool | None:
+    def MAINTENANCE_MODE(self) -> bool | None:  # noqa
         if value := self.MAINTENANCE_MODE_STR:
             normalized_value = value.strip().lower()
             if normalized_value in values.BooleanValue.true_values:

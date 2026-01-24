@@ -16,7 +16,7 @@ from typing import (
 )
 
 from google.protobuf import timestamp_pb2
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, SkipValidation, TypeAdapter, model_validator
 
 from hatchet_sdk.clients.admin import (
     ScheduleTriggerWorkflowOptions,
@@ -45,16 +45,15 @@ from hatchet_sdk.runnables.types import (
     R,
     StepType,
     TaskDefaults,
+    TaskPayloadForInternalUse,
     TWorkflowInput,
     WorkflowConfig,
+    normalize_validator,
 )
+from hatchet_sdk.serde import HATCHET_PYDANTIC_SENTINEL
 from hatchet_sdk.utils.proto_enums import convert_python_enum_to_proto
 from hatchet_sdk.utils.timedelta_to_expression import Duration
-from hatchet_sdk.utils.typing import (
-    CoroutineLike,
-    JSONSerializableMapping,
-    is_basemodel_subclass,
-)
+from hatchet_sdk.utils.typing import CoroutineLike, JSONSerializableMapping
 from hatchet_sdk.workflow_run import WorkflowRunRef
 
 if TYPE_CHECKING:
@@ -130,7 +129,8 @@ def transform_desired_worker_label(d: DesiredWorkerLabel) -> DesiredWorkerLabels
 
 
 class TypedTriggerWorkflowRunConfig(BaseModel, Generic[TWorkflowInput]):
-    input: TWorkflowInput
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    input: SkipValidation[TWorkflowInput]
     options: TriggerWorkflowOptions
 
 
@@ -193,6 +193,11 @@ class BaseWorkflow(Generic[TWorkflowInput]):
         elif isinstance(self.config.concurrency, ConcurrencyExpression):
             _concurrency_arr = []
             _concurrency = self.config.concurrency.to_proto()
+        elif isinstance(self.config.concurrency, int):
+            _concurrency_arr = []
+            _concurrency = ConcurrencyExpression.from_int(
+                self.config.concurrency
+            ).to_proto()
         else:
             _concurrency = None
             _concurrency_arr = []
@@ -219,7 +224,9 @@ class BaseWorkflow(Generic[TWorkflowInput]):
     def _get_workflow_input(self, ctx: Context) -> TWorkflowInput:
         return cast(
             TWorkflowInput,
-            self.config.input_validator.model_validate(ctx.workflow_input),
+            self.config.input_validator.validate_python(
+                ctx.workflow_input, context=HATCHET_PYDANTIC_SENTINEL
+            ),
         )
 
     @property
@@ -271,11 +278,13 @@ class BaseWorkflow(Generic[TWorkflowInput]):
         if not input:
             return {}
 
-        if isinstance(input, BaseModel):
-            return input.model_dump(mode="json")
-
-        raise ValueError(
-            f"Input must be a BaseModel or `None`, got {type(input)} instead."
+        return cast(
+            JSONSerializableMapping,
+            self.config.input_validator.dump_python(
+                input,  # type: ignore[arg-type]
+                mode="json",
+                context=HATCHET_PYDANTIC_SENTINEL,
+            ),
         )
 
     @cached_property
@@ -784,7 +793,6 @@ class Workflow(BaseWorkflow[TWorkflowInput]):
         func: Callable[..., Any],
     ) -> str:
         non_null_name = name or func.__name__
-
         return non_null_name.lower()
 
     def task(
@@ -798,7 +806,7 @@ class Workflow(BaseWorkflow[TWorkflowInput]):
         desired_worker_labels: dict[str, DesiredWorkerLabel] | None = None,
         backoff_factor: float | None = None,
         backoff_max_seconds: int | None = None,
-        concurrency: list[ConcurrencyExpression] | None = None,
+        concurrency: int | list[ConcurrencyExpression] | None = None,
         wait_for: list[Condition | OrGroup] | None = None,
         skip_if: list[Condition | OrGroup] | None = None,
         cancel_if: list[Condition | OrGroup] | None = None,
@@ -827,7 +835,7 @@ class Workflow(BaseWorkflow[TWorkflowInput]):
 
         :param backoff_max_seconds: The maximum number of seconds to allow retries with exponential backoff to continue.
 
-        :param concurrency: A list of concurrency expressions for the task.
+        :param concurrency: A list of concurrency expressions for the task. If an integer is provided, it is treated as a constant concurrency limit with a `GROUP_ROUND_ROBIN` strategy, which means that only `N` runs of the task may execute at any given time.
 
         :param wait_for: A list of conditions that must be met before the task can run.
 
@@ -892,7 +900,7 @@ class Workflow(BaseWorkflow[TWorkflowInput]):
         desired_worker_labels: dict[str, DesiredWorkerLabel] | None = None,
         backoff_factor: float | None = None,
         backoff_max_seconds: int | None = None,
-        concurrency: list[ConcurrencyExpression] | None = None,
+        concurrency: int | list[ConcurrencyExpression] | None = None,
         wait_for: list[Condition | OrGroup] | None = None,
         skip_if: list[Condition | OrGroup] | None = None,
         cancel_if: list[Condition | OrGroup] | None = None,
@@ -929,7 +937,7 @@ class Workflow(BaseWorkflow[TWorkflowInput]):
 
         :param backoff_max_seconds: The maximum number of seconds to allow retries with exponential backoff to continue.
 
-        :param concurrency: A list of concurrency expressions for the task.
+        :param concurrency: A list of concurrency expressions for the task. If an integer is provided, it is treated as a constant concurrency limit with a `GROUP_ROUND_ROBIN` strategy, which means that only `N` runs of the task may execute at any given time.
 
         :param wait_for: A list of conditions that must be met before the task can run.
 
@@ -992,7 +1000,7 @@ class Workflow(BaseWorkflow[TWorkflowInput]):
         rate_limits: list[RateLimit] | None = None,
         backoff_factor: float | None = None,
         backoff_max_seconds: int | None = None,
-        concurrency: list[ConcurrencyExpression] | None = None,
+        concurrency: int | list[ConcurrencyExpression] | None = None,
     ) -> Callable[
         [Callable[Concatenate[TWorkflowInput, Context, P], R | CoroutineLike[R]]],
         Task[TWorkflowInput, R],
@@ -1014,7 +1022,7 @@ class Workflow(BaseWorkflow[TWorkflowInput]):
 
         :param backoff_max_seconds: The maximum number of seconds to allow retries with exponential backoff to continue.
 
-        :param concurrency: A list of concurrency expressions for the on-failure task.
+        :param concurrency: A list of concurrency expressions for the on-failure task. If an integer is provided, it is treated as a constant concurrency limit with a `GROUP_ROUND_ROBIN` strategy, which means that only `N` runs of the task may execute at any given time.
 
         :returns: A decorator which creates a `Task` object.
         """
@@ -1062,7 +1070,7 @@ class Workflow(BaseWorkflow[TWorkflowInput]):
         rate_limits: list[RateLimit] | None = None,
         backoff_factor: float | None = None,
         backoff_max_seconds: int | None = None,
-        concurrency: list[ConcurrencyExpression] | None = None,
+        concurrency: int | list[ConcurrencyExpression] | None = None,
     ) -> Callable[
         [Callable[Concatenate[TWorkflowInput, Context, P], R | CoroutineLike[R]]],
         Task[TWorkflowInput, R],
@@ -1084,7 +1092,7 @@ class Workflow(BaseWorkflow[TWorkflowInput]):
 
         :param backoff_max_seconds: The maximum number of seconds to allow retries with exponential backoff to continue.
 
-        :param concurrency: A list of concurrency expressions for the on-success task.
+        :param concurrency: A list of concurrency expressions for the on-success task. If an integer is provided, it is treated as a constant concurrency limit with a `GROUP_ROUND_ROBIN` strategy, which means that only `N` runs of the task may execute at any given time.
 
         :returns: A decorator which creates a Task object.
         """
@@ -1203,8 +1211,8 @@ class Standalone(BaseWorkflow[TWorkflowInput], Generic[TWorkflowInput, R]):
 
         return_type = get_type_hints(self._task.fn).get("return")
 
-        self._output_validator = (
-            return_type if is_basemodel_subclass(return_type) else None
+        self._output_validator: TypeAdapter[TaskPayloadForInternalUse] = TypeAdapter(
+            normalize_validator(return_type)
         )
 
         self.config = self._workflow.config
@@ -1221,12 +1229,18 @@ class Standalone(BaseWorkflow[TWorkflowInput], Generic[TWorkflowInput, R]):
         if isinstance(result, BaseException):
             return result
 
-        output = result.get(self._task.name)
+        ## if a task is cancelled, we can get `None` back here
+        ## this is a bit of an edge case since both `None` and an empty dict
+        ## would cause Pydantic validation errors, but if you were expecting a `dict`
+        ## return, then the empty dict would not error and would work correctly
+        output = result.get(self._task.name) or {}
 
-        if not self._output_validator:
-            return cast(R, output)
-
-        return cast(R, self._output_validator.model_validate(output))
+        return cast(
+            R,
+            self._output_validator.validate_python(
+                output, context=HATCHET_PYDANTIC_SENTINEL
+            ),
+        )
 
     def run(
         self,

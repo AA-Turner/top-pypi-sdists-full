@@ -15,6 +15,12 @@ if TYPE_CHECKING:
     from ..models.delete_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_1 import (
         DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1,
     )
+    from ..models.delete_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_2 import (
+        DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType2,
+    )
+    from ..models.delete_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_3 import (
+        DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType3,
+    )
     from ..models.delete_completed_job_response_200_flow_status_modules_item_approvers_item import (
         DeleteCompletedJobResponse200FlowStatusModulesItemApproversItem,
     )
@@ -55,7 +61,9 @@ class DeleteCompletedJobResponse200FlowStatusModulesItem:
         skipped (Union[Unset, bool]):
         agent_actions (Union[Unset,
             List[Union['DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType0',
-            'DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1']]]):
+            'DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1',
+            'DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType2',
+            'DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType3']]]):
         agent_actions_success (Union[Unset, List[bool]]):
     """
 
@@ -79,6 +87,8 @@ class DeleteCompletedJobResponse200FlowStatusModulesItem:
             Union[
                 "DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType0",
                 "DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1",
+                "DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType2",
+                "DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType3",
             ]
         ],
     ] = UNSET
@@ -88,6 +98,12 @@ class DeleteCompletedJobResponse200FlowStatusModulesItem:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.delete_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_0 import (
             DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType0,
+        )
+        from ..models.delete_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_1 import (
+            DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1,
+        )
+        from ..models.delete_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_2 import (
+            DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType2,
         )
 
         type = self.type.value
@@ -141,6 +157,16 @@ class DeleteCompletedJobResponse200FlowStatusModulesItem:
 
                 if isinstance(
                     agent_actions_item_data, DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType0
+                ):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(
+                    agent_actions_item_data, DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1
+                ):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(
+                    agent_actions_item_data, DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType2
                 ):
                     agent_actions_item = agent_actions_item_data.to_dict()
 
@@ -200,6 +226,12 @@ class DeleteCompletedJobResponse200FlowStatusModulesItem:
         )
         from ..models.delete_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_1 import (
             DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1,
+        )
+        from ..models.delete_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_2 import (
+            DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType2,
+        )
+        from ..models.delete_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_3 import (
+            DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType3,
         )
         from ..models.delete_completed_job_response_200_flow_status_modules_item_approvers_item import (
             DeleteCompletedJobResponse200FlowStatusModulesItemApproversItem,
@@ -284,6 +316,8 @@ class DeleteCompletedJobResponse200FlowStatusModulesItem:
             ) -> Union[
                 "DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType0",
                 "DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1",
+                "DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType2",
+                "DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType3",
             ]:
                 try:
                     if not isinstance(data, dict):
@@ -295,13 +329,33 @@ class DeleteCompletedJobResponse200FlowStatusModulesItem:
                     return agent_actions_item_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_1 = (
+                        DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1.from_dict(data)
+                    )
+
+                    return agent_actions_item_type_1
+                except:  # noqa: E722
+                    pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_2 = (
+                        DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType2.from_dict(data)
+                    )
+
+                    return agent_actions_item_type_2
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                agent_actions_item_type_1 = (
-                    DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1.from_dict(data)
+                agent_actions_item_type_3 = (
+                    DeleteCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType3.from_dict(data)
                 )
 
-                return agent_actions_item_type_1
+                return agent_actions_item_type_3
 
             agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
 

@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 import uuid
 from abc import ABCMeta, abstractmethod
+from collections.abc import AsyncGenerator, AsyncIterator, Iterable, Mapping
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Iterable, Mapping, overload
+from typing import TYPE_CHECKING, Any, overload
 
 from cashews.commands import ALL, Command
 from cashews.exceptions import CacheBackendInteractionError, LockedError
@@ -148,7 +149,7 @@ class _BackendInterface(metaclass=ABCMeta):
     @asynccontextmanager
     async def lock(
         self, key: Key, expire: float, wait: bool = True, check_interval: float = 0
-    ) -> AsyncGenerator[None, None]:
+    ) -> AsyncGenerator[None]:
         identifier = str(uuid.uuid4())
         while True:
             lock = await self.set_lock(key, identifier, expire=expire)

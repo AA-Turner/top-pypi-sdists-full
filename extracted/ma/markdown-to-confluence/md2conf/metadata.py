@@ -1,13 +1,12 @@
 """
 Publish Markdown files to Confluence wiki.
 
-Copyright 2022-2025, Levente Hunyadi
+Copyright 2022-2026, Levente Hunyadi
 
 :see: https://github.com/hunyadi/md2conf
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -22,7 +21,7 @@ class ConfluenceSiteMetadata:
 
     domain: str
     base_path: str
-    space_key: Optional[str]
+    space_key: str | None
 
 
 @dataclass

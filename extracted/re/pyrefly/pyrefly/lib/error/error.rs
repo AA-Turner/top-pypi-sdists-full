@@ -12,7 +12,10 @@ use std::io::Write;
 use std::path::Path;
 
 use itertools::Itertools;
+use lsp_types::CodeDescription;
 use lsp_types::Diagnostic;
+use lsp_types::Url;
+use pyrefly_python::ignore::Tool;
 use pyrefly_python::module::Module;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::display::number_thousands;
@@ -26,6 +29,7 @@ use ruff_annotate_snippets::Snippet;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 use yansi::Paint;
 
@@ -67,7 +71,7 @@ impl Error {
                 self.msg_header,
                 self.error_kind.to_name(),
             )?;
-            let origin = self.display_path(project_root).to_string_lossy();
+            let origin = self.path_string_with_fragment(project_root);
             let snippet = self.get_source_snippet(&origin);
             let renderer = Renderer::plain();
             writeln!(f, "{}", renderer.render(snippet))?;
@@ -79,7 +83,7 @@ impl Error {
                 f,
                 "{} {}:{}: {} [{}]",
                 self.severity.label(),
-                self.display_path(project_root).to_string_lossy(),
+                self.path_string_with_fragment(project_root),
                 self.display_range,
                 self.msg_header,
                 self.error_kind.to_name(),
@@ -96,7 +100,7 @@ impl Error {
                 Paint::new(&*self.msg_header),
                 Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
             );
-            let origin = self.display_path(project_root).to_string_lossy();
+            let origin = self.path_string_with_fragment(project_root);
             let snippet = self.get_source_snippet(&origin);
             let renderer = Renderer::styled();
             anstream::println!("{}", renderer.render(snippet));
@@ -107,7 +111,7 @@ impl Error {
             anstream::println!(
                 "{} {}:{}: {} {}",
                 self.severity.painted(),
-                Paint::blue(&self.display_path(project_root).display()),
+                Paint::blue(&self.path_string_with_fragment(project_root)),
                 Paint::dim(self.display_range()),
                 Paint::new(&*self.msg_header),
                 Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
@@ -115,9 +119,15 @@ impl Error {
         }
     }
 
-    fn display_path(&self, project_root: &Path) -> &Path {
+    /// Return the path with a cell fragment if the error is in a notebook cell.
+    fn path_string_with_fragment(&self, project_root: &Path) -> String {
         let path = self.path().as_path();
-        path.strip_prefix(project_root).unwrap_or(path)
+        let path = path.strip_prefix(project_root).unwrap_or(path);
+        if let Some(cell) = self.display_range.start.cell() {
+            format!("{}#{cell}", path.to_string_lossy())
+        } else {
+            path.to_string_lossy().to_string()
+        }
     }
 
     fn get_source_snippet<'a>(&'a self, origin: &'a str) -> Message<'a> {
@@ -127,18 +137,22 @@ impl Error {
         // Warning: The SourceRange is char indexed, while the snippet is byte indexed.
         //          Be careful in the conversion.
         let source = self.module.lined_buffer().content_in_line_range(
-            self.display_range.start.line,
+            self.display_range.start.line_within_file(),
             cmp::min(
                 LineNumber::from_zero_indexed(
-                    self.display_range.start.line.to_zero_indexed() + MAX_LINES,
+                    self.display_range
+                        .start
+                        .line_within_file()
+                        .to_zero_indexed()
+                        + MAX_LINES,
                 ),
-                self.display_range.end.line,
+                self.display_range.end.line_within_file(),
             ),
         );
         let line_start = self
             .module
             .lined_buffer()
-            .line_start(self.display_range.start.line);
+            .line_start(self.display_range.start.line_within_file());
 
         let level = match self.severity {
             Severity::Error => Level::Error,
@@ -150,7 +164,7 @@ impl Error {
         let span_end = cmp::min(span_start + self.range.len().to_usize(), source.len());
         Level::None.title("").snippet(
             Snippet::source(source)
-                .line_start(self.display_range.start.line.get() as usize)
+                .line_start(self.display_range.start.line_within_cell().get() as usize)
                 .origin(origin)
                 .annotation(level.span(span_start..span_end)),
         )
@@ -168,8 +182,12 @@ impl Error {
 
     /// Create a diagnostic suitable for use in LSP.
     pub fn to_diagnostic(&self) -> Diagnostic {
+        let code = self.error_kind().to_name().to_owned();
+        let code_description = Url::parse(&self.error_kind().docs_url())
+            .ok()
+            .map(|href| CodeDescription { href });
         Diagnostic {
-            range: self.lined_buffer().to_lsp_range(self.range()),
+            range: self.module.to_lsp_range(self.range()),
             severity: Some(match self.severity() {
                 Severity::Error => lsp_types::DiagnosticSeverity::ERROR,
                 Severity::Warn => lsp_types::DiagnosticSeverity::WARNING,
@@ -179,11 +197,15 @@ impl Error {
             }),
             source: Some("Pyrefly".to_owned()),
             message: self.msg().to_owned(),
-            code: Some(lsp_types::NumberOrString::String(
-                self.error_kind().to_name().to_owned(),
-            )),
+            code: Some(lsp_types::NumberOrString::String(code)),
+            code_description,
+            tags: None,
             ..Default::default()
         }
+    }
+
+    pub fn get_notebook_cell(&self) -> Option<usize> {
+        self.module.to_cell_for_lsp(self.range().start())
     }
 
     pub fn module(&self) -> &Module {
@@ -271,11 +293,11 @@ impl Error {
         }
     }
 
-    pub fn is_ignored(&self, permissive_ignores: bool) -> bool {
+    pub fn is_ignored(&self, enabled_ignores: &SmallSet<Tool>) -> bool {
         self.module.is_ignored(
             &self.display_range,
             self.error_kind.to_name(),
-            permissive_ignores,
+            enabled_ignores,
         )
     }
 

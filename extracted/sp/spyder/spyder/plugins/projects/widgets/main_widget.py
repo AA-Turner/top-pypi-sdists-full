@@ -13,6 +13,7 @@ from contextlib import contextmanager
 import logging
 import os
 import os.path as osp
+import re
 import pathlib
 import shutil
 
@@ -38,7 +39,10 @@ from spyder.plugins.explorer.api import DirViewActions
 from spyder.plugins.projects.api import (
     BaseProjectType, EmptyProject, WORKSPACE)
 from spyder.plugins.projects.utils.watcher import WorkspaceWatcher
-from spyder.plugins.projects.widgets.projectdialog import ProjectDialog
+from spyder.plugins.projects.widgets.projectdialog import (
+    is_writable,
+    ProjectDialog,
+)
 from spyder.plugins.projects.widgets.projectexplorer import (
     ProjectExplorerTreeWidget)
 from spyder.plugins.switcher.utils import get_file_icon, shorten_paths
@@ -46,7 +50,6 @@ from spyder.utils import encoding
 from spyder.utils.misc import getcwd_or_home
 from spyder.utils.programs import find_program
 from spyder.utils.workers import WorkerManager
-from spyder.widgets.helperwidgets import PaneEmptyWidget
 
 
 # For logging
@@ -86,6 +89,15 @@ class ProjectsOptionsMenuActions:
 @class_register
 class ProjectExplorerWidget(PluginMainWidget):
     """Project explorer main widget."""
+
+    # ---- PluginMainWidget API
+    # -------------------------------------------------------------------------
+    SHOW_MESSAGE_WHEN_EMPTY = True
+    IMAGE_WHEN_EMPTY = "projects"
+    MESSAGE_WHEN_EMPTY = _("No project opened")
+    DESCRIPTION_WHEN_EMPTY = _(
+        "Create one using the menu entry Projects > New project."
+    )
 
     # ---- Constants
     # -------------------------------------------------------------------------
@@ -183,16 +195,9 @@ class ProjectExplorerWidget(PluginMainWidget):
         self.treewidget = ProjectExplorerTreeWidget(self, self.show_hscrollbar)
         self.treewidget.setup()
         self.treewidget.setup_view()
-        self.treewidget.hide()
         self.treewidget.sig_open_file_requested.connect(
             self.sig_open_file_requested)
-
-        self.pane_empty = PaneEmptyWidget(
-            self,
-            "projects",
-            _("No project opened"),
-            _("Create one using the menu entry Projects > New project.")
-        )
+        self.set_content_widget(self.treewidget)
 
         # -- Watcher
         self.watcher = WorkspaceWatcher(self)
@@ -214,10 +219,6 @@ class ProjectExplorerWidget(PluginMainWidget):
         self.sig_project_closed.connect(lambda p: self._clear_switcher_paths())
 
         # -- Layout
-        layout = QVBoxLayout()
-        layout.addWidget(self.pane_empty)
-        layout.addWidget(self.treewidget)
-        self.setLayout(layout)
         self.setMinimumWidth(200)
 
         # Initial setup
@@ -262,7 +263,7 @@ class ProjectExplorerWidget(PluginMainWidget):
 
         self.max_recent_action = self.create_action(
             ProjectsActions.MaxRecent,
-            text=_("Maximum number of recent projects..."),
+            text=_("Maximum number of recent projects"),
             icon=self.create_icon("transparent"),
             triggered=self.change_max_recent_projects)
 
@@ -302,10 +303,6 @@ class ProjectExplorerWidget(PluginMainWidget):
                 section=ProjectExplorerOptionsMenuSections.Main
             )
 
-    def set_pane_empty(self):
-        self.treewidget.hide()
-        self.pane_empty.show()
-
     def update_actions(self):
         pass
 
@@ -319,7 +316,7 @@ class ProjectExplorerWidget(PluginMainWidget):
         """Create new project."""
         self._unmaximize()
 
-        dlg = ProjectDialog(self, project_types=self.get_project_types())
+        dlg = ProjectDialog(self)
         result = dlg.exec_()
         data = dlg.project_data
         root_path = data.get("root_path", None)
@@ -328,7 +325,6 @@ class ProjectExplorerWidget(PluginMainWidget):
         if result:
             logger.debug(f'Creating a project at {root_path}')
             self.create_project(root_path, project_type_id=project_type)
-            dlg.close()
 
     def create_project(self, root_path, project_type_id=EmptyProject.ID):
         """Create a new project."""
@@ -373,11 +369,29 @@ class ProjectExplorerWidget(PluginMainWidget):
             path = encoding.to_unicode_from_fs(path)
             if not self.is_valid_project(path):
                 if path:
-                    QMessageBox.critical(
+                    buttons = QMessageBox.Yes | QMessageBox.No
+                    answer = QMessageBox.warning(
                         self,
-                        _('Error'),
-                        _("<b>%s</b> is not a Spyder project!") % path,
+                        _("Warning"),
+                        _("<b>%s</b> is not a Spyder project.<br><br>"
+                          "Do you want to create a project in this "
+                          "location?") % path,
+                        buttons
                     )
+
+                    if answer == QMessageBox.Yes:
+                        valid = self._is_valid_location(path)
+                        if valid[0]:
+                            self.create_project(path)
+                        else:
+                            QMessageBox.critical(
+                                self,
+                                _("Error"),
+                                _(
+                                    "It was not possible to create a project "
+                                    "in <b>{}</b>. The reason is:<br><br>{}"
+                                ).format(path, valid[1])
+                            )
                 return
         else:
             path = encoding.to_unicode_from_fs(path)
@@ -866,13 +880,16 @@ class ProjectExplorerWidget(PluginMainWidget):
 
     def _clear(self):
         """Show an empty view"""
-        self.treewidget.hide()
-        self.pane_empty.show()
+        if self.get_conf("show_message_when_panes_are_empty", section="main"):
+            super().show_empty_message()
+        else:
+            # This removes the widget's contents to show an empty pane
+            self.treewidget.set_root_path("")
 
     def _setup_project(self, directory):
         """Setup project"""
-        self.pane_empty.hide()
-        self.treewidget.show()
+        if self.get_conf("show_message_when_panes_are_empty", section="main"):
+            self.show_content_widget()
 
         # Setup the directory shown by the tree
         self._set_project_dir(directory)
@@ -1042,6 +1059,28 @@ class ProjectExplorerWidget(PluginMainWidget):
             self.set_conf(
                 "pdb_prevent_closing", pdb_prevent_closing, section="debugger"
             )
+
+    def _is_valid_location(self, location: str):
+        valid = True
+        reason = ""
+        if not location:
+            reason = _("No directory was selected")
+            valid = False
+        elif not osp.isdir(location):
+            reason = _("The directory doesn't exist")
+            valid = False
+        elif not is_writable(location):
+            reason = _("The directory is not writable")
+            valid = False
+        elif os.name == "nt" and any(
+            [re.search(r":", part) for part in pathlib.Path(location).parts[1:]]
+        ):
+            # Prevent creating a project in directory with colons.
+            # Fixes spyder-ide/spyder#16942
+            reason = _("The project directory can't contain ':'")
+            valid = False
+
+        return (valid, reason)
 
     # ---- Private API for the Switcher
     # -------------------------------------------------------------------------

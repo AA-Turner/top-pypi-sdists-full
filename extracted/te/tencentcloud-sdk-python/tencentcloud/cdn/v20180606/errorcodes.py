@@ -26,6 +26,9 @@ FAILEDOPERATION = 'FailedOperation'
 # 域名配置更新操作失败，请重试或联系客服人员解决。
 FAILEDOPERATION_CDNCONFIGERROR = 'FailedOperation.CdnConfigError'
 
+# 数据查询错误，请联系腾讯云工程师进一步排查。
+FAILEDOPERATION_DATASYSTEMERROR = 'FailedOperation.DataSystemError'
+
 # 证书不存在
 FAILEDOPERATION_SSLCERTNOTFOUND = 'FailedOperation.SslCertNotFound'
 
@@ -338,6 +341,12 @@ LIMITEXCEEDED_CLSTOPICEXCEED = 'LimitExceeded.ClsTopicExceed'
 # 缺少参数错误。
 MISSINGPARAMETER = 'MissingParameter'
 
+# 此域名因遭受过大规模 DDoS 攻击，为了保证平台稳定，当前无法接入。
+OPERATIONDENIED_CDNHOSTHASDDOSRISK = 'OperationDenied.CdnHostHasDDosRisk'
+
+# 您的域名正在顺利升级至EdgeOne平台。在升级期间，您可能暂时无法进行配置修改。
+OPERATIONDENIED_PRODUCTUPDATING = 'OperationDenied.ProductUpdating'
+
 # 腾讯云CDN已全面升级为边缘安全加速平台
 OPERATIONDENIED_PRODUCTUPGRADED = 'OperationDenied.ProductUpgraded'
 
@@ -437,7 +446,7 @@ UNAUTHORIZEDOPERATION_CDNCAMUNAUTHORIZED = 'UnauthorizedOperation.CdnCamUnauthor
 # 该账号未授权开通CLS。
 UNAUTHORIZEDOPERATION_CDNCLSNOTREGISTERED = 'UnauthorizedOperation.CdnClsNotRegistered'
 
-# 域名解析未进行验证。
+# 域名未进行归属权校验。
 UNAUTHORIZEDOPERATION_CDNDOMAINRECORDNOTVERIFIED = 'UnauthorizedOperation.CdnDomainRecordNotVerified'
 
 # 域名在内部系统已存在，请提工单处理。

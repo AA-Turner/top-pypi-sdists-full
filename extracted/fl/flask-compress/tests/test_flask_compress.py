@@ -3,11 +3,19 @@ import os
 import tempfile
 import unittest
 
-from flask import Flask, render_template
+from flask import (
+    Flask,
+    make_response,
+    render_template,
+    request,
+    stream_with_context,
+)
 from flask_caching import Cache
 
 from flask_compress import Compress, DictCache
-from flask_compress.flask_compress import _choose_algorithm
+from flask_compress.flask_compress import _choose_algorithm, _uncompress_data
+
+ALGORITHMS = ("gzip", "deflate", "br", "zstd")
 
 
 class DefaultsTest(unittest.TestCase):
@@ -63,6 +71,12 @@ class DefaultsTest(unittest.TestCase):
             self.app.config["COMPRESS_ALGORITHM"], ["zstd", "br", "gzip", "deflate"]
         )
 
+    def test_algorithm_streaming(self):
+        """Tests COMPRESS_ALGORITHM_STREAMING default value is correctly set."""
+        self.assertEqual(
+            self.app.config["COMPRESS_ALGORITHM_STREAMING"], ["zstd", "br", "deflate"]
+        )
+
     def test_default_deflate_settings(self):
         """Tests COMPRESS_DELATE_LEVEL default value is correctly set."""
         self.assertEqual(self.app.config["COMPRESS_DEFLATE_LEVEL"], -1)
@@ -91,6 +105,18 @@ class DefaultsTest(unittest.TestCase):
         """Tests COMPRESS_ZSTD_LEVEL default value is correctly set."""
         self.assertEqual(self.app.config["COMPRESS_ZSTD_LEVEL"], 3)
 
+    def test_evaluate_conditional_request(self):
+        """Tests COMPRESS_EVALUATE_CONDITIONAL_REQUEST default value
+        is correctly set."""
+        self.assertEqual(self.app.config["COMPRESS_EVALUATE_CONDITIONAL_REQUEST"], True)
+
+    def test_streaming_endpoint_conditional(self):
+        """Tests COMPRESS_STREAMING_ENDPOINT_CONDITIONAL default value
+        is correctly set."""
+        self.assertEqual(
+            self.app.config["COMPRESS_STREAMING_ENDPOINT_CONDITIONAL"], ["static"]
+        )
+
 
 class InitTests(unittest.TestCase):
     def setUp(self):
@@ -110,12 +136,11 @@ class UrlTests(unittest.TestCase):
         self.app = Flask(__name__)
         self.app.testing = True
 
-        small_path = os.path.join(os.getcwd(), "tests", "templates", "small.html")
+        self.small_path = os.path.join(os.getcwd(), "tests", "templates", "small.html")
+        self.large_path = os.path.join(os.getcwd(), "tests", "templates", "large.html")
 
-        large_path = os.path.join(os.getcwd(), "tests", "templates", "large.html")
-
-        self.small_size = os.path.getsize(small_path) - 1
-        self.large_size = os.path.getsize(large_path) - 1
+        self.small_size = os.path.getsize(self.small_path) - 1
+        self.large_size = os.path.getsize(self.large_path) - 1
 
         Compress(self.app)
 
@@ -126,6 +151,20 @@ class UrlTests(unittest.TestCase):
         @self.app.route("/large/")
         def large():
             return render_template("large.html")
+
+    def test_compressed_content(self):
+        client = self.app.test_client()
+        with open(self.large_path, "rb") as f:
+            original_data = f.read().rstrip()  # flask strips trailing newline
+
+        for algorithm in ALGORITHMS:
+            headers = [("Accept-Encoding", algorithm)]
+            response = client.get("/large/", headers=headers)
+            self.assertIn("Content-Encoding", response.headers)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.is_streamed, True)
+            self.assertGreater(self.large_size, len(response.data))
+            self.assertEqual(original_data, _uncompress_data(response.data, algorithm))
 
     def client_get(self, ufs):
         client = self.app.test_client()
@@ -438,7 +477,13 @@ class StreamTests(unittest.TestCase):
     def setUp(self):
         self.app = Flask(__name__)
         self.app.testing = True
-        self.app.config["COMPRESS_STREAMS"] = False
+
+        self.app.config["COMPRESS_ALGORITHM_STREAMING"] = [
+            "zstd",
+            "br",
+            "gzip",  # not by default for streaming
+            "deflate",
+        ]
 
         self.file_path = os.path.join(os.getcwd(), "tests", "templates", "large.html")
         self.file_size = os.path.getsize(self.file_path)
@@ -452,26 +497,118 @@ class StreamTests(unittest.TestCase):
             return self.app.response_class(_stream(), mimetype="text/html")
 
     def test_no_compression_stream(self):
-        """Tests compression is skipped when response is streamed"""
+        """Tests compression is skipped when COMPRESS_STREAMS is False"""
         Compress(self.app)
+        self.app.config["COMPRESS_STREAMS"] = False
         client = self.app.test_client()
-        for algorithm in ("gzip", "deflate", "br", "zstd", ""):
+
+        for algorithm in (*ALGORITHMS, ""):
             headers = [("Accept-Encoding", algorithm)]
             response = client.get("/stream/large", headers=headers)
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.is_streamed, True)
             self.assertEqual(self.file_size, len(response.data))
 
-    def test_disabled_stream(self):
-        """Test that stream compression can be disabled."""
+    def test_compression_stream(self):
         Compress(self.app)
-        self.app.config["COMPRESS_STREAMS"] = True
         client = self.app.test_client()
-        for algorithm in ("gzip", "deflate", "br", "zstd"):
+        with open(self.file_path, "rb") as f:
+            original_data = f.read()
+
+        for algorithm in ALGORITHMS:
             headers = [("Accept-Encoding", algorithm)]
             response = client.get("/stream/large", headers=headers)
             self.assertIn("Content-Encoding", response.headers)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.is_streamed, True)
             self.assertGreater(self.file_size, len(response.data))
+            self.assertEqual(original_data, _uncompress_data(response.data, algorithm))
+
+        headers = [("Accept-Encoding", "")]
+        response = client.get("/stream/large", headers=headers)
+        self.assertNotIn("Content-Encoding", response.headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.is_streamed, True)
+        self.assertEqual(self.file_size, len(response.data))
+        self.assertEqual(original_data, response.data)
+
+
+class StreamTestsWithETags(unittest.TestCase):
+    def setUp(self):
+        self.app = Flask(__name__, static_folder="web", static_url_path="/path")
+        self.app.testing = True
+
+        self.file_path = os.path.join(os.getcwd(), "tests", "templates", "large.html")
+        self.file_size = os.path.getsize(self.file_path)
+
+        self.app.config["COMPRESS_MIN_SIZE"] = 1
+
+        Compress(self.app)
+
+        @self.app.route("/stream/large")
+        def stream():
+            def _stream():
+                with open(self.file_path) as f:
+                    yield from f.readlines()
+
+            rv = make_response(stream_with_context(_stream()))
+            rv.mimetype = "text/html"
+            rv.set_etag("stream-etag", weak=False)
+            return rv
+
+    def test_conditionals_are_skipped_on_streaming(self):
+        client = self.app.test_client()
+
+        r1 = client.get("/stream/large", headers=[("Accept-Encoding", "br")])
+        tag, is_weak = r1.get_etag()
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r1.is_streamed, True)
+        self.assertIn("Content-Encoding", r1.headers)
+        self.assertEqual(r1.headers.get("Content-Encoding"), "br")
+        self.assertEqual(tag, "stream-etag:br")
+        self.assertFalse(is_weak)
+        r1.close()
+
+        r2 = client.get(
+            "/stream/large",
+            headers=[("Accept-Encoding", "br"), ("If-None-Match", r1.headers["ETag"])],
+        )
+        self.assertEqual(r2.status_code, 200)  # Should be 200, not 304
+        self.assertEqual(r2.is_streamed, True)
+        self.assertIn("Content-Encoding", r1.headers)
+        self.assertEqual(r1.headers.get("Content-Encoding"), "br")
+        r2.close()
+
+    def test_static_exception_to_conditionals(self):
+        # Here we test that the static endpoint, which is using streaming responses,
+        # still respects conditional requests even when streaming.
+        # We use a custom static folder and static url path to show that the test
+        # works even if those are changed from the defaults.
+        # In practice there is almost no chance for a user to accidentally write a
+        # streaming 'static' endpoint, as this will raise an exception in Flask,
+        # because of the predefined static file handling.
+        client = self.app.test_client()
+
+        r1 = client.get("/path/test.xml", headers=[("Accept-Encoding", "br")])
+        tag, is_weak = r1.get_etag()
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r1.is_streamed, True)
+        self.assertIn("Content-Encoding", r1.headers)
+        self.assertEqual(r1.headers.get("Content-Encoding"), "br")
+        self.assertIsNotNone(tag)
+        self.assertEqual(tag[-3:], ":br")
+        self.assertFalse(is_weak)
+        r1.close()
+
+        r2 = client.get(
+            "/path/test.xml",
+            headers=[("Accept-Encoding", "br"), ("If-None-Match", r1.headers["ETag"])],
+        )
+        self.assertEqual(r2.status_code, 304)  # static endpoint has an exception
+        self.assertEqual(r2.is_streamed, True)
+        self.assertIn("Content-Encoding", r1.headers)
+        self.assertEqual(r1.headers.get("Content-Encoding"), "br")
+        r2.close()
 
 
 class CachingCompressionTests(unittest.TestCase):
@@ -568,6 +705,136 @@ class DictCacheTests(unittest.TestCase):
         self.assertIn("Content-Encoding", response.headers)
         self.assertEqual(response.headers.get("Content-Encoding"), "deflate")
         self.assertEqual(self.cache_key_calls, 2)
+
+
+class ETagTests(unittest.TestCase):
+    def setUp(self):
+        self.app = Flask(__name__)
+        self.app.testing = True
+        self.app.config["COMPRESS_ALGORITHM"] = ["gzip"]
+        self.app.config["COMPRESS_MIN_SIZE"] = 1
+
+        Compress(self.app)
+
+        @self.app.route("/strong/")
+        def strong():
+            rv = make_response(render_template("large.html"))
+            rv.set_etag("abc123", weak=False)
+            return rv.make_conditional(request)
+
+        @self.app.route("/strong-compress-conditional/")
+        def strong_compress_conditional():
+            rv = make_response(render_template("large.html"))
+            rv.set_etag("abc123", weak=False)
+            return rv
+
+        @self.app.route("/weak/")
+        def weak():
+            rv = make_response(render_template("large.html"))
+            rv.set_etag("abc123", weak=True)
+            return rv.make_conditional(request)
+
+        @self.app.route("/weak-compress-conditional/")
+        def weak_compress_conditional():
+            rv = make_response(render_template("large.html"))
+            rv.set_etag("abc123", weak=True)
+            return rv
+
+    def test_strong_etag_is_mutated_with_suffix_and_remains_strong(self):
+        client = self.app.test_client()
+        r = client.get("/strong/", headers=[("Accept-Encoding", "gzip")])
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.headers.get("Content-Encoding"), "gzip")
+
+        tag, is_weak = r.get_etag()
+        self.assertFalse(is_weak)
+        self.assertEqual(tag, "abc123:gzip")
+        self.assertEqual(int(r.headers["Content-Length"]), len(r.data))
+
+    def test_weak_etag_is_preserved(self):
+        client = self.app.test_client()
+        r = client.get("/weak/", headers=[("Accept-Encoding", "gzip")])
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.headers.get("Content-Encoding"), "gzip")
+
+        tag, is_weak = r.get_etag()
+        self.assertTrue(is_weak)
+        # No :gzip suffix when flag is False
+        self.assertEqual(tag, "abc123")
+
+    def test_conditional_get_uses_strong_compressed_representation(self):
+        self.app.config["COMPRESS_EVALUATE_CONDITIONAL_REQUEST"] = False
+        client = self.app.test_client()
+        r1 = client.get("/strong/", headers=[("Accept-Encoding", "gzip")])
+
+        r2 = client.get(
+            "/strong/",
+            headers=[
+                ("Accept-Encoding", "gzip"),
+                ("If-None-Match", r1.headers["ETag"]),
+            ],
+        )
+        # This is the old behavior that broke make_conditional
+        # strong etags due rewrite at after_request
+        # We would expect a 304 but it does not because of etag mismatch
+        self.assertEqual(r2.status_code, 200)
+
+    def test_conditional_get_uses_weak_compressed_representation(self):
+        self.app.config["COMPRESS_EVALUATE_CONDITIONAL_REQUEST"] = False
+        client = self.app.test_client()
+        r1 = client.get("/weak/", headers=[("Accept-Encoding", "gzip")])
+        etag_header = r1.headers["ETag"]
+
+        r2 = client.get(
+            "/weak/",
+            headers=[("Accept-Encoding", "gzip"), ("If-None-Match", etag_header)],
+        )
+        # This is the behaviour we expect by not mutating
+        # the weak etags at after_request
+        self.assertEqual(r2.status_code, 304)
+        self.assertEqual(r2.headers.get("ETag"), etag_header)
+        self.assertNotIn("Content-Encoding", r2.headers)
+        self.assertEqual(len(r2.get_data()), 0)
+
+    def test_conditional_get_uses_strong_compressed_representation_evaluate_conditional(
+        self,
+    ):
+        client = self.app.test_client()
+        r1 = client.get(
+            "/strong-compress-conditional/", headers=[("Accept-Encoding", "gzip")]
+        )
+        etag_header = r1.headers["ETag"]
+
+        r2 = client.get(
+            "/strong-compress-conditional/",
+            headers=[("Accept-Encoding", "gzip"), ("If-None-Match", etag_header)],
+        )
+        # This is the behaviour we would expect after evaluating
+        # flask make_conditional at after_request
+        self.assertEqual(r2.status_code, 304)
+        self.assertEqual(r2.headers.get("ETag"), etag_header)
+        self.assertNotIn("Content-Encoding", r2.headers)
+        self.assertEqual(len(r2.get_data()), 0)
+
+    def test_conditional_get_uses_weak_compressed_representation_evaluate_conditional(
+        self,
+    ):
+        client = self.app.test_client()
+        r1 = client.get(
+            "/weak-compress-conditional/", headers=[("Accept-Encoding", "gzip")]
+        )
+        etag_header = r1.headers["ETag"]
+
+        r2 = client.get(
+            "/weak-compress-conditional/",
+            headers=[("Accept-Encoding", "gzip"), ("If-None-Match", etag_header)],
+        )
+        # This is the behaviour we would expect after evaluating
+        # flask make_conditional at after_request
+        self.assertEqual(r2.status_code, 304)
+        self.assertEqual(r2.headers.get("ETag"), etag_header)
+        self.assertNotIn("Content-Encoding", r2.headers)
+        self.assertEqual(len(r2.get_data()), 0)
 
 
 if __name__ == "__main__":

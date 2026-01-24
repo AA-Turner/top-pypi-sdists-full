@@ -3,9 +3,9 @@
 
 """Package responsible for analyzing the binary size of firmware in ESP-IDF projects."""
 
-__version__ = '1.7.1'
+__version__ = '2.1.0'
 
-from .ng import log, memorymap
+from . import log, memorymap
 
 __all__ = [
     'memorymap',

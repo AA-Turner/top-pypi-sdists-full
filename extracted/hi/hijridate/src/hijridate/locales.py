@@ -1,10 +1,10 @@
 """Localization for the Hijri month and day names."""
 
-from typing import ClassVar, Dict, Literal, Tuple, Type
+from typing import ClassVar, Literal
 
-Language = Literal["en", "ar", "bn"]
+Language = Literal["en", "ar", "bn", "tr"]
 
-_locale_map: Dict[str, Type["Locale"]] = {}
+_locale_map: dict[str, type["Locale"]] = {}
 
 
 def get_locale(name: str) -> "Locale":
@@ -27,9 +27,9 @@ class Locale:
     """A Locale object represents locale-specific data and functionality."""
 
     language_tag: ClassVar[str]
-    month_names: ClassVar[Tuple[str, ...]]
-    gregorian_month_names: ClassVar[Tuple[str, ...]]
-    day_names: ClassVar[Tuple[str, ...]]
+    month_names: ClassVar[tuple[str, ...]]
+    gregorian_month_names: ClassVar[tuple[str, ...]]
+    day_names: ClassVar[tuple[str, ...]]
     notation: ClassVar[str]
     gregorian_notation: ClassVar[str]
 
@@ -197,3 +197,48 @@ class BengaliLocale(Locale):
     )
     notation = "হিজরি"
     gregorian_notation = "খ্রিস্টাব্দ"
+
+
+class TurkishLocale(Locale):
+    """A Turkish Locale object represents Turkish locale-specific data."""
+
+    language_tag = "tr"
+    month_names = (
+        "Muharrem",
+        "Safer",
+        "Rebiülevvel",
+        "Rebiülahir",
+        "Cemaziyelevvel",
+        "Cemaziyelahir",
+        "Recep",
+        "Şaban",
+        "Ramazan",
+        "Şevval",
+        "Zilkade",
+        "Zilhicce",
+    )
+    gregorian_month_names = (
+        "Ocak",
+        "Şubat",
+        "Mart",
+        "Nisan",
+        "Mayıs",
+        "Haziran",
+        "Temmuz",
+        "Ağustos",
+        "Eylül",
+        "Ekim",
+        "Kasım",
+        "Aralık",
+    )
+    day_names = (
+        "Pazartesi",
+        "Salı",
+        "Çarşamba",
+        "Perşembe",
+        "Cuma",
+        "Cumartesi",
+        "Pazar",
+    )
+    notation = "Hicri"
+    gregorian_notation = "Miladi"

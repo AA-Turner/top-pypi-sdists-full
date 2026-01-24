@@ -29,7 +29,7 @@ Keyword arguments:
 
 - value (number; optional):
     value to set the progress bar to."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'NavigationProgress'

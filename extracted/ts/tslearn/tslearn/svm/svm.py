@@ -1,18 +1,45 @@
+"""
+The :mod:`tslearn.svm.svm` module contains Support Vector Classifier (SVC) and
+Support Vector Regressor (SVR) models for time series.
+"""
 from sklearn.svm import SVC, SVR
-from sklearn.base import ClassifierMixin, RegressorMixin
+from sklearn.base import ClassifierMixin, RegressorMixin, BaseEstimator
 from sklearn.utils.validation import check_is_fitted
 import numpy
 
+from tslearn.bases.bases import ALLOW_VARIABLE_LENGTH
 from ..metrics import cdist_gak, gamma_soft_dtw, VARIABLE_LENGTH_METRICS
 from ..utils import to_time_series_dataset, check_array, check_dims, check_X_y, to_sklearn_dataset
-from ..bases import TimeSeriesBaseEstimator
+from ..bases import TimeSeriesMixin
 
 import warnings
 
 __author__ = 'Romain Tavenard romain.tavenard[at]univ-rennes2.fr'
 
 
-class TimeSeriesSVMMixin:
+class TimeSeriesSVMMixin(TimeSeriesMixin):
+    """Time series mixin for SVM based estimators."""
+
+    @property
+    def support_(self):
+        check_is_fitted(self, ['svm_estimator_', '_X_fit'])
+        return getattr(self, "svm_estimator_").support_
+
+    @property
+    def dual_coef_(self):
+        check_is_fitted(self, ['svm_estimator_', '_X_fit'])
+        return getattr(self, "svm_estimator_").dual_coef_
+
+    @property
+    def coef_(self):
+        check_is_fitted(self, ['svm_estimator_', '_X_fit'])
+        return getattr(self, "svm_estimator_").coef_
+
+    @property
+    def intercept_(self):
+        check_is_fitted(self, ['svm_estimator_', '_X_fit'])
+        return getattr(self, "svm_estimator_").intercept_
+
     def _preprocess_sklearn(self, X, y=None, fit_time=False):
         force_all_finite = self.kernel not in VARIABLE_LENGTH_METRICS
         if y is None:
@@ -22,11 +49,12 @@ class TimeSeriesSVMMixin:
             X, y = check_X_y(X, y, allow_nd=True,
                              force_all_finite=force_all_finite)
         X = to_time_series_dataset(X)
+        nb_features = X.shape[-1]
 
         if fit_time:
             self._X_fit = X
             if self.gamma == "auto":
-                self.gamma_ = gamma_soft_dtw(X)
+                self.gamma_ = gamma_soft_dtw(X, random_state=self.random_state)
             else:
                 self.gamma_ = self.gamma
             self.classes_ = numpy.unique(y)
@@ -45,7 +73,7 @@ class TimeSeriesSVMMixin:
             if fit_time:
                 sklearn_X = cdist_gak(X,
                                       sigma=numpy.sqrt(self.gamma_ / 2.),
-                                      n_jobs=self.n_jobs, 
+                                      n_jobs=self.n_jobs,
                                       verbose=self.verbose)
             else:
                 sklearn_X = cdist_gak(X,
@@ -53,18 +81,33 @@ class TimeSeriesSVMMixin:
                                       sigma=numpy.sqrt(self.gamma_ / 2.),
                                       n_jobs=self.n_jobs,
                                       verbose=self.verbose)
+
         else:
             self.estimator_kernel_ = self.kernel
             sklearn_X = to_sklearn_dataset(X)
 
-        if y is None:
-            return sklearn_X
-        else:
-            return sklearn_X, y
+        return sklearn_X, y, nb_features
+
+    def _more_tags(self):
+        tags = super()._more_tags()
+        sample_weight_failure_msg = "zero sample_weight is not equivalent to removing samples"
+        tags.update({
+            "allow_nan": False,
+            ALLOW_VARIABLE_LENGTH: True,
+        })
+        tags["_xfail_checks"].update({
+            "check_sample_weights_invariance": sample_weight_failure_msg,
+        })
+        return tags
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.allow_nan = False
+        tags.allow_variable_length = True
+        return tags
 
 
-class TimeSeriesSVC(TimeSeriesSVMMixin, ClassifierMixin,
-                    TimeSeriesBaseEstimator):
+class TimeSeriesSVC(TimeSeriesSVMMixin, ClassifierMixin, BaseEstimator):
     """Time-series specific Support Vector Classifier.
 
     Parameters
@@ -85,10 +128,16 @@ class TimeSeriesSVC(TimeSeriesSVMMixin, ClassifierMixin,
 
     gamma : float, optional (default='auto')
         Kernel coefficient for 'gak', 'rbf', 'poly' and 'sigmoid'.
+        For 'gak' kernel, a `RuntimeError` is raised at fit time when value is
+        close to 0 and therefore not compatible with 'gak' kernel.
+
         If gamma is 'auto' then:
 
         - for 'gak' kernel, it is computed based on a sampling of the training
-          set (cf :ref:`tslearn.metrics.gamma_soft_dtw <fun-tslearn.metrics.gamma_soft_dtw>`)
+          set (cf :ref:`tslearn.metrics.gamma_soft_dtw <fun-tslearn.metrics.gamma_soft_dtw>`).
+          A `RuntimeError` is raised at fit time when computed value is
+          close to 0 and therefore not compatible with 'gak' kernel.
+
         - for other kernels (eg. 'rbf'), 1/n_features will be used.
 
     coef0 : float, optional (default=0.0)
@@ -124,7 +173,7 @@ class TimeSeriesSVC(TimeSeriesSVMMixin, ClassifierMixin,
         computations.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See scikit-learns'
-        `Glossary <https://scikit-learn.org/stable/glossary.html#term-n-jobs>`_
+        `Glossary <https://scikit-learn.org/stable/glossary.html#term-n_jobs>`_
         for more details.
 
     verbose : int, default: 0
@@ -155,7 +204,7 @@ class TimeSeriesSVC(TimeSeriesSVMMixin, ClassifierMixin,
 
     n_support_ : array-like, dtype=int32, shape = [n_class]
         Number of support vectors for each class.
-        
+
     support_vectors_ : list of arrays of shape [n_SV, sz, d]
         List of support vectors in tslearn dataset format, one array per class
 
@@ -251,15 +300,21 @@ class TimeSeriesSVC(TimeSeriesSVMMixin, ClassifierMixin,
         ----------
         X : array-like of shape=(n_ts, sz, d)
             Time series dataset.
-            
+
         y : array-like of shape=(n_ts, )
             Time series labels.
-            
+
         sample_weight : array-like of shape (n_samples,), default=None
-            Per-sample weights. Rescale C per sample. Higher weights force the 
+            Per-sample weights. Rescale C per sample. Higher weights force the
             classifier to put more emphasis on these points.
         """
-        sklearn_X, y = self._preprocess_sklearn(X, y, fit_time=True)
+        try:
+            sklearn_X, y, nb_features = self._preprocess_sklearn(X, y, fit_time=True)
+        except ZeroDivisionError:
+            raise RuntimeError(
+                "The{} `gamma` parameter is close to 0 and "
+                "cannot be used with gak kernel."
+                .format(" auto computed" if self.gamma == "auto" else ""))
 
         self.svm_estimator_ = SVC(
             C=self.C, kernel=self.estimator_kernel_, degree=self.degree,
@@ -271,7 +326,7 @@ class TimeSeriesSVC(TimeSeriesSVMMixin, ClassifierMixin,
             random_state=self.random_state
         )
         self.svm_estimator_.fit(sklearn_X, y, sample_weight=sample_weight)
-
+        self.n_features_in_ = nb_features
         return self
 
     def predict(self, X):
@@ -289,17 +344,19 @@ class TimeSeriesSVC(TimeSeriesSVMMixin, ClassifierMixin,
             Index of the cluster each sample belongs to or class probability
             matrix, depending on what was provided at training time.
         """
-        sklearn_X = self._preprocess_sklearn(X, fit_time=False)
-        return self.svm_estimator_.predict(sklearn_X)
+        sklearn_X, y, nb_features = self._preprocess_sklearn(X, fit_time=False)
+        estimator = self.svm_estimator_.predict(sklearn_X)
+        self.n_features_in_ = nb_features
+        return estimator
 
     def decision_function(self, X):
         """Evaluates the decision function for the samples in X.
-        
+
         Parameters
         ----------
         X : array-like of shape=(n_ts, sz, d)
             Time series dataset.
-        
+
         Returns
         -------
         ndarray of shape (n_samples, n_classes * (n_classes-1) / 2)
@@ -307,13 +364,13 @@ class TimeSeriesSVC(TimeSeriesSVMMixin, ClassifierMixin,
             in the model.
             If decision_function_shape='ovr', the shape is (n_samples,
             n_classes)."""
-        sklearn_X = self._preprocess_sklearn(X, fit_time=False)
+        sklearn_X, *_ = self._preprocess_sklearn(X, fit_time=False)
         return self.svm_estimator_.decision_function(sklearn_X)
 
     def predict_log_proba(self, X):
         """Predict class log-probabilities for a given set of time series.
-        
-        Note that probability estimates are not guaranteed to match predict 
+
+        Note that probability estimates are not guaranteed to match predict
         output.
         See our :ref:`dedicated user guide section <kernels-ml>`
         for more details.
@@ -328,13 +385,13 @@ class TimeSeriesSVC(TimeSeriesSVMMixin, ClassifierMixin,
         array of shape=(n_ts, n_classes),
             Class probability matrix.
         """
-        sklearn_X = self._preprocess_sklearn(X, fit_time=False)
+        sklearn_X, *_ = self._preprocess_sklearn(X, fit_time=False)
         return self.svm_estimator_.predict_log_proba(sklearn_X)
 
     def predict_proba(self, X):
         """Predict class probability for a given set of time series.
-        
-        Note that probability estimates are not guaranteed to match predict 
+
+        Note that probability estimates are not guaranteed to match predict
         output.
         See our :ref:`dedicated user guide section <kernels-ml>`
         for more details.
@@ -349,22 +406,11 @@ class TimeSeriesSVC(TimeSeriesSVMMixin, ClassifierMixin,
         array of shape=(n_ts, n_classes),
             Class probability matrix.
         """
-        sklearn_X = self._preprocess_sklearn(X, fit_time=False)
+        sklearn_X, *_ = self._preprocess_sklearn(X, fit_time=False)
         return self.svm_estimator_.predict_proba(sklearn_X)
 
-    def _more_tags(self):
-        sample_weight_failure_msg = "zero sample_weight is not equivalent to removing samples"
-        return {'non_deterministic': True, 'allow_nan': True,
-                'allow_variable_length': True,
-                "_xfail_checks": {
-                    "check_sample_weights_invariance": sample_weight_failure_msg,
-                    "check_sample_weight_equivalence_on_dense_data": sample_weight_failure_msg,
-                    "check_sample_weight_equivalence_on_sparse_data":sample_weight_failure_msg
-                }}
 
-
-class TimeSeriesSVR(TimeSeriesSVMMixin, RegressorMixin,
-                    TimeSeriesBaseEstimator):
+class TimeSeriesSVR(TimeSeriesSVMMixin, RegressorMixin, BaseEstimator):
     """Time-series specific Support Vector Regressor.
 
     Parameters
@@ -385,10 +431,16 @@ class TimeSeriesSVR(TimeSeriesSVMMixin, RegressorMixin,
 
     gamma : float, optional (default='auto')
         Kernel coefficient for 'gak', 'rbf', 'poly' and 'sigmoid'.
+        For 'gak' kernel, a `RuntimeError` is raised at fit time when value is
+        close to 0 and therefore not compatible with 'gak' kernel.
+
         If gamma is 'auto' then:
 
         - for 'gak' kernel, it is computed based on a sampling of the training
-          set (cf :ref:`tslearn.metrics.gamma_soft_dtw <fun-tslearn.metrics.gamma_soft_dtw>`)
+          set (cf :ref:`tslearn.metrics.gamma_soft_dtw <fun-tslearn.metrics.gamma_soft_dtw>`).
+          A `RuntimeError` is raised at fit time when computed value is
+          close to 0 and therefore not compatible with 'gak' kernel.
+
         - for other kernels (eg. 'rbf'), 1/n_features will be used.
 
     coef0 : float, optional (default=0.0)
@@ -415,7 +467,7 @@ class TimeSeriesSVR(TimeSeriesSVMMixin, RegressorMixin,
         computations.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See scikit-learns'
-        `Glossary <https://scikit-learn.org/stable/glossary.html#term-n-jobs>`_
+        `Glossary <https://scikit-learn.org/stable/glossary.html#term-n_jobs>`_
         for more details.
 
     verbose : int, default: 0
@@ -426,11 +478,18 @@ class TimeSeriesSVR(TimeSeriesSVMMixin, RegressorMixin,
     max_iter : int, optional (default=-1)
         Hard limit on iterations within solver, or -1 for no limit.
 
+    random_state : int, RandomState instance or None, optional (default=None)
+        The seed of the pseudo random number generator to use when shuffling
+        the data.  If int, random_state is the seed used by the random number
+        generator; If RandomState instance, random_state is the random number
+        generator; If None, the random number generator is the RandomState
+        instance used by `np.random`.
+
     Attributes
     ----------
     support_ : array-like, shape = [n_SV]
         Indices of support vectors.
-        
+
     support_vectors_ : array of shape [n_SV, sz, d]
         Support vectors in tslearn dataset format
 
@@ -445,9 +504,6 @@ class TimeSeriesSVR(TimeSeriesSVMMixin, RegressorMixin,
 
     intercept_ : array, shape = [1]
         Constants in decision function.
-
-    sample_weight : array-like, shape = [n_samples]
-        Individual weights for each sample
 
     svm_estimator_ : sklearn.svm.SVR
         The underlying sklearn estimator
@@ -476,7 +532,8 @@ class TimeSeriesSVR(TimeSeriesSVMMixin, RegressorMixin,
     """
     def __init__(self, C=1.0, kernel="gak", degree=3, gamma="auto",
                  coef0=0.0, tol=0.001, epsilon=0.1, shrinking=True,
-                 cache_size=200, n_jobs=None, verbose=0, max_iter=-1):
+                 cache_size=200, n_jobs=None, verbose=0, max_iter=-1,
+                 random_state=None):
         self.C = C
         self.kernel = kernel
         self.degree = degree
@@ -489,6 +546,7 @@ class TimeSeriesSVR(TimeSeriesSVMMixin, RegressorMixin,
         self.n_jobs = n_jobs
         self.verbose = verbose
         self.max_iter = max_iter
+        self.random_state = random_state
 
     @property
     def n_iter_(self):
@@ -508,15 +566,21 @@ class TimeSeriesSVR(TimeSeriesSVMMixin, RegressorMixin,
         ----------
         X : array-like of shape=(n_ts, sz, d)
             Time series dataset.
-            
+
         y : array-like of shape=(n_ts, )
             Time series labels.
-            
+
         sample_weight : array-like of shape (n_samples,), default=None
-            Per-sample weights. Rescale C per sample. Higher weights force the 
+            Per-sample weights. Rescale C per sample. Higher weights force the
             classifier to put more emphasis on these points.
         """
-        sklearn_X, y = self._preprocess_sklearn(X, y, fit_time=True)
+        try:
+            sklearn_X, y, nb_features = self._preprocess_sklearn(X, y, fit_time=True)
+        except ZeroDivisionError:
+            raise RuntimeError(
+                "The{} `gamma` parameter is close to 0 and "
+                "cannot be used with gak kernel."
+                .format(" auto computed" if self.gamma == "auto" else ""))
 
         self.svm_estimator_ = SVR(
             C=self.C, kernel=self.estimator_kernel_, degree=self.degree,
@@ -525,6 +589,7 @@ class TimeSeriesSVR(TimeSeriesSVMMixin, RegressorMixin,
             verbose=self.verbose, max_iter=self.max_iter
         )
         self.svm_estimator_.fit(sklearn_X, y, sample_weight=sample_weight)
+        self.n_features_in_ = nb_features
         return self
 
     def predict(self, X):
@@ -541,15 +606,5 @@ class TimeSeriesSVR(TimeSeriesSVMMixin, RegressorMixin,
         of the target vector provided at training time.
             Predicted targets
         """
-        sklearn_X = self._preprocess_sklearn(X, fit_time=False)
+        sklearn_X, *_ = self._preprocess_sklearn(X, fit_time=False)
         return self.svm_estimator_.predict(sklearn_X)
-
-    def _more_tags(self):
-        sample_weight_failure_msg = "zero sample_weight is not equivalent to removing samples"
-        return {'non_deterministic': True, 'allow_nan': True,
-                'allow_variable_length': True,
-                "_xfail_checks": {
-                    "check_sample_weights_invariance": sample_weight_failure_msg,
-                    "check_sample_weight_equivalence_on_dense_data": sample_weight_failure_msg,
-                    "check_sample_weight_equivalence_on_sparse_data":sample_weight_failure_msg
-                }}

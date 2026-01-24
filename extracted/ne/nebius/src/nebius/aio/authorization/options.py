@@ -1,41 +1,27 @@
-from logging import getLogger
-from typing import TypeVar
+"""Authorization options for requests."""
 
-from grpc.aio._metadata import Metadata as GRPCMetadata
+OPTION_TYPE = "type"
+"""The type of the authorization in process.
 
-from nebius.base.metadata import Internal, Metadata
+Possible values are defined in :class:`Types`.
 
-log = getLogger(__name__)
-
-MD = TypeVar("MD", Metadata, GRPCMetadata)
-
-
-def get_options_from_metadata(metadata: MD | None) -> dict[str, str]:
-    ret = dict[str, str]()
-    if metadata is None:
-        return ret
-    if isinstance(metadata, GRPCMetadata):
-        selected_options = metadata.get_all(Internal.AUTHORIZATION_OPTION.lower())
-    elif isinstance(metadata, Metadata):  # type: ignore[unused-ignore]
-        selected_options = metadata[Internal.AUTHORIZATION_OPTION]
-    for option in selected_options:
-        if isinstance(option, bytes):
-            option = option.decode("utf-8")
-        if isinstance(option, str):
-            k, v = option.split("=", 1)
-            ret[k] = v
-        else:
-            log.error(f"invalid auth option type {type(option)}")
-    return ret
+Currently, the only supported types are "default" and "disable".
+The default type authorizes requests using the configured
+authorization provider, if any. The disable type disables
+authorization for the request completely (for instance, to perform requests for the
+authorization itself).
+"""
 
 
-def add_options_to_metadata(options: dict[str, str], metadata: MD) -> MD:
-    for k, v in options.items():
-        if "=" in k:
-            raise ValueError(f"option key contains '=' {k}")
-        metadata.add(Internal.AUTHORIZATION_OPTION.lower(), k + "=" + v)
-    return metadata
+class Types:
+    """The types of the authorization in process."""
 
+    DEFAULT = "default"
+    """The default type of authorization. Not used anywhere, appears here for clarity.
+    """
+    DISABLE = "disable"
+    """Disable authorization for the request completely.
 
-def options_to_metadata(options: dict[str, str]) -> Metadata:
-    return add_options_to_metadata(options, Metadata())
+    Used to perform requests for the authorization itself, or to send requests without
+    any authorization.
+    """

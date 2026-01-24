@@ -64,8 +64,14 @@ fn resolve_uv_toml() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -96,9 +102,11 @@ fn resolve_uv_toml() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -235,7 +243,7 @@ fn resolve_uv_toml() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -263,8 +271,14 @@ fn resolve_uv_toml() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -295,9 +309,11 @@ fn resolve_uv_toml() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -434,7 +450,7 @@ fn resolve_uv_toml() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -463,8 +479,14 @@ fn resolve_uv_toml() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -495,9 +517,11 @@ fn resolve_uv_toml() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -634,7 +658,7 @@ fn resolve_uv_toml() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -695,8 +719,14 @@ fn resolve_pyproject_toml() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -727,9 +757,11 @@ fn resolve_pyproject_toml() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -866,7 +898,7 @@ fn resolve_pyproject_toml() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -896,8 +928,14 @@ fn resolve_pyproject_toml() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -928,9 +966,11 @@ fn resolve_pyproject_toml() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -1033,7 +1073,7 @@ fn resolve_pyproject_toml() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -1073,8 +1113,14 @@ fn resolve_pyproject_toml() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -1105,9 +1151,11 @@ fn resolve_pyproject_toml() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -1246,7 +1294,7 @@ fn resolve_pyproject_toml() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -1299,8 +1347,14 @@ fn resolve_index_url() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -1331,9 +1385,11 @@ fn resolve_index_url() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -1503,7 +1559,7 @@ fn resolve_index_url() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -1533,8 +1589,14 @@ fn resolve_index_url() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -1565,9 +1627,11 @@ fn resolve_index_url() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -1772,7 +1836,7 @@ fn resolve_index_url() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -1825,8 +1889,14 @@ fn resolve_find_links() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -1857,9 +1927,11 @@ fn resolve_find_links() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -1996,7 +2068,7 @@ fn resolve_find_links() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -2048,8 +2120,14 @@ fn resolve_top_level() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -2080,9 +2158,11 @@ fn resolve_top_level() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -2185,7 +2265,7 @@ fn resolve_top_level() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -2230,8 +2310,14 @@ fn resolve_top_level() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -2262,9 +2348,11 @@ fn resolve_top_level() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -2434,7 +2522,7 @@ fn resolve_top_level() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -2462,8 +2550,14 @@ fn resolve_top_level() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -2494,9 +2588,11 @@ fn resolve_top_level() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -2666,7 +2762,7 @@ fn resolve_top_level() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -2717,8 +2813,14 @@ fn resolve_user_configuration() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -2749,9 +2851,11 @@ fn resolve_user_configuration() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -2854,7 +2958,7 @@ fn resolve_user_configuration() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -2889,8 +2993,14 @@ fn resolve_user_configuration() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -2921,9 +3031,11 @@ fn resolve_user_configuration() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -3026,7 +3138,7 @@ fn resolve_user_configuration() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -3061,8 +3173,14 @@ fn resolve_user_configuration() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -3093,9 +3211,11 @@ fn resolve_user_configuration() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -3198,7 +3318,7 @@ fn resolve_user_configuration() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -3235,8 +3355,14 @@ fn resolve_user_configuration() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -3267,9 +3393,11 @@ fn resolve_user_configuration() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -3372,7 +3500,7 @@ fn resolve_user_configuration() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -3428,8 +3556,14 @@ fn resolve_tool() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -3462,7 +3596,9 @@ fn resolve_tool() -> anyhow::Result<()> {
         with_editable: [],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
+        lfs: Disabled,
         python: None,
         python_platform: None,
         refresh: None(
@@ -3497,8 +3633,10 @@ fn resolve_tool() -> anyhow::Result<()> {
             link_mode: Some(
                 Clone,
             ),
+            torch_backend: None,
             compile_bytecode: None,
             no_sources: None,
+            no_sources_package: None,
             upgrade: None,
             reinstall: None,
             no_build: None,
@@ -3545,7 +3683,8 @@ fn resolve_tool() -> anyhow::Result<()> {
                 ),
                 prerelease: IfNecessaryOrExplicit,
                 resolution: LowestDirect,
-                sources: Enabled,
+                sources: None,
+                torch_backend: None,
                 upgrade: None,
             },
             compile_bytecode: false,
@@ -3613,8 +3752,14 @@ fn resolve_poetry_toml() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -3645,9 +3790,11 @@ fn resolve_poetry_toml() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -3750,7 +3897,7 @@ fn resolve_poetry_toml() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -3819,8 +3966,14 @@ fn resolve_both() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -3851,9 +4004,11 @@ fn resolve_both() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -3990,7 +4145,7 @@ fn resolve_both() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -4064,8 +4219,14 @@ fn resolve_both_special_fields() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -4096,9 +4257,11 @@ fn resolve_both_special_fields() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -4235,7 +4398,7 @@ fn resolve_both_special_fields() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -4272,7 +4435,7 @@ fn invalid_conflicts() -> anyhow::Result<()> {
     "#})?;
 
     // The file should be rejected for violating the schema.
-    uv_snapshot!(context.filters(), add_shared_args(context.lock(), context.temp_dir.path()), @r###"
+    uv_snapshot!(context.filters(), add_shared_args(context.lock(), context.temp_dir.path()), @"
     success: false
     exit_code: 2
     ----- stdout -----
@@ -4284,7 +4447,7 @@ fn invalid_conflicts() -> anyhow::Result<()> {
     7 | conflicts = [
       |             ^
     Each set of conflicts must have at least two entries, but found only one
-    "###
+    "
     );
 
     // Now test the empty case.
@@ -4299,7 +4462,7 @@ fn invalid_conflicts() -> anyhow::Result<()> {
     "#})?;
 
     // The file should be rejected for violating the schema.
-    uv_snapshot!(context.filters(), add_shared_args(context.lock(), context.temp_dir.path()), @r###"
+    uv_snapshot!(context.filters(), add_shared_args(context.lock(), context.temp_dir.path()), @"
     success: false
     exit_code: 2
     ----- stdout -----
@@ -4311,7 +4474,7 @@ fn invalid_conflicts() -> anyhow::Result<()> {
     7 | conflicts = [[]]
       |             ^^^^
     Each set of conflicts must have at least two entries, but found none
-    "###
+    "
     );
 
     Ok(())
@@ -4337,14 +4500,14 @@ fn valid_conflicts() -> anyhow::Result<()> {
         ]
     "#})?;
     uv_snapshot!(context.filters(), add_shared_args(context.lock(), context.temp_dir.path())
-        .env(EnvVars::XDG_CONFIG_HOME, xdg.path()), @r###"
+        .env(EnvVars::XDG_CONFIG_HOME, xdg.path()), @"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
     Resolved 1 package in [TIME]
-    "###
+    "
     );
 
     Ok(())
@@ -4388,8 +4551,14 @@ fn resolve_config_file() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -4420,9 +4589,11 @@ fn resolve_config_file() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -4559,7 +4730,7 @@ fn resolve_config_file() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -4589,7 +4760,7 @@ fn resolve_config_file() -> anyhow::Result<()> {
         .arg("--show-settings")
         .arg("--config-file")
         .arg(config.path())
-        .arg("requirements.in"), @r"
+        .arg("requirements.in"), @"
     success: false
     exit_code: 2
     ----- stdout -----
@@ -4600,7 +4771,7 @@ fn resolve_config_file() -> anyhow::Result<()> {
       |
     1 | [project]
       |  ^^^^^^^
-    unknown field `project`, expected one of `required-version`, `native-tls`, `offline`, `no-cache`, `cache-dir`, `preview`, `python-preference`, `python-downloads`, `concurrent-downloads`, `concurrent-builds`, `concurrent-installs`, `index`, `index-url`, `extra-index-url`, `no-index`, `find-links`, `index-strategy`, `keyring-provider`, `allow-insecure-host`, `resolution`, `prerelease`, `fork-strategy`, `dependency-metadata`, `config-settings`, `config-settings-package`, `no-build-isolation`, `no-build-isolation-package`, `extra-build-dependencies`, `extra-build-variables`, `exclude-newer`, `exclude-newer-package`, `link-mode`, `compile-bytecode`, `no-sources`, `upgrade`, `upgrade-package`, `reinstall`, `reinstall-package`, `no-build`, `no-build-package`, `no-binary`, `no-binary-package`, `python-install-mirror`, `pypy-install-mirror`, `python-downloads-json-url`, `publish-url`, `trusted-publishing`, `check-url`, `add-bounds`, `pip`, `cache-keys`, `override-dependencies`, `constraint-dependencies`, `build-constraint-dependencies`, `environments`, `required-environments`, `conflicts`, `workspace`, `sources`, `managed`, `package`, `default-groups`, `dependency-groups`, `dev-dependencies`, `build-backend`
+    unknown field `project`, expected one of `required-version`, `native-tls`, `offline`, `no-cache`, `cache-dir`, `preview`, `python-preference`, `python-downloads`, `concurrent-downloads`, `concurrent-builds`, `concurrent-installs`, `index`, `index-url`, `extra-index-url`, `no-index`, `find-links`, `index-strategy`, `keyring-provider`, `http-proxy`, `https-proxy`, `no-proxy`, `allow-insecure-host`, `resolution`, `prerelease`, `fork-strategy`, `dependency-metadata`, `config-settings`, `config-settings-package`, `no-build-isolation`, `no-build-isolation-package`, `extra-build-dependencies`, `extra-build-variables`, `exclude-newer`, `exclude-newer-package`, `link-mode`, `compile-bytecode`, `no-sources`, `no-sources-package`, `upgrade`, `upgrade-package`, `reinstall`, `reinstall-package`, `no-build`, `no-build-package`, `no-binary`, `no-binary-package`, `torch-backend`, `python-install-mirror`, `pypy-install-mirror`, `python-downloads-json-url`, `publish-url`, `trusted-publishing`, `check-url`, `add-bounds`, `pip`, `cache-keys`, `override-dependencies`, `exclude-dependencies`, `constraint-dependencies`, `build-constraint-dependencies`, `environments`, `required-environments`, `conflicts`, `workspace`, `sources`, `managed`, `package`, `default-groups`, `dependency-groups`, `dev-dependencies`, `build-backend`
     "
     );
 
@@ -4687,8 +4858,14 @@ fn resolve_skip_empty() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -4719,9 +4896,11 @@ fn resolve_skip_empty() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -4824,7 +5003,7 @@ fn resolve_skip_empty() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -4862,8 +5041,14 @@ fn resolve_skip_empty() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -4894,9 +5079,11 @@ fn resolve_skip_empty() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -4999,7 +5186,7 @@ fn resolve_skip_empty() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -5045,7 +5232,11 @@ fn allow_insecure_host() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [
                 Host {
                     scheme: None,
@@ -5058,6 +5249,8 @@ fn allow_insecure_host() -> anyhow::Result<()> {
                     port: None,
                 },
             ],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -5088,9 +5281,11 @@ fn allow_insecure_host() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -5193,7 +5388,7 @@ fn allow_insecure_host() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -5242,8 +5437,14 @@ fn index_priority() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -5274,9 +5475,11 @@ fn index_priority() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -5448,7 +5651,7 @@ fn index_priority() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -5476,8 +5679,14 @@ fn index_priority() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -5508,9 +5717,11 @@ fn index_priority() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -5682,7 +5893,7 @@ fn index_priority() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -5716,8 +5927,14 @@ fn index_priority() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -5748,9 +5965,11 @@ fn index_priority() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -5922,7 +6141,7 @@ fn index_priority() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -5951,8 +6170,14 @@ fn index_priority() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -5983,9 +6208,11 @@ fn index_priority() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -6157,7 +6384,7 @@ fn index_priority() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -6193,8 +6420,14 @@ fn index_priority() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -6225,9 +6458,11 @@ fn index_priority() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -6399,7 +6634,7 @@ fn index_priority() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -6428,8 +6663,14 @@ fn index_priority() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -6460,9 +6701,11 @@ fn index_priority() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -6634,7 +6877,7 @@ fn index_priority() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -6676,8 +6919,14 @@ fn verify_hashes() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -6709,10 +6958,12 @@ fn verify_hashes() -> anyhow::Result<()> {
         editables: [],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         dry_run: Disabled,
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         modifications: Sufficient,
         refresh: None(
@@ -6813,7 +7064,7 @@ fn verify_hashes() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -6841,8 +7092,14 @@ fn verify_hashes() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -6874,10 +7131,12 @@ fn verify_hashes() -> anyhow::Result<()> {
         editables: [],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         dry_run: Disabled,
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         modifications: Sufficient,
         refresh: None(
@@ -6978,7 +7237,7 @@ fn verify_hashes() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: None,
             upgrade: None,
             reinstall: None,
@@ -7004,8 +7263,14 @@ fn verify_hashes() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -7037,10 +7302,12 @@ fn verify_hashes() -> anyhow::Result<()> {
         editables: [],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         dry_run: Disabled,
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         modifications: Sufficient,
         refresh: None(
@@ -7141,7 +7408,7 @@ fn verify_hashes() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Require,
             ),
@@ -7169,8 +7436,14 @@ fn verify_hashes() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -7202,10 +7475,12 @@ fn verify_hashes() -> anyhow::Result<()> {
         editables: [],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         dry_run: Disabled,
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         modifications: Sufficient,
         refresh: None(
@@ -7306,7 +7581,7 @@ fn verify_hashes() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: None,
             upgrade: None,
             reinstall: None,
@@ -7332,8 +7607,14 @@ fn verify_hashes() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -7365,10 +7646,12 @@ fn verify_hashes() -> anyhow::Result<()> {
         editables: [],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         dry_run: Disabled,
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         modifications: Sufficient,
         refresh: None(
@@ -7469,7 +7752,7 @@ fn verify_hashes() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: None,
             upgrade: None,
             reinstall: None,
@@ -7496,8 +7779,14 @@ fn verify_hashes() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -7529,10 +7818,12 @@ fn verify_hashes() -> anyhow::Result<()> {
         editables: [],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         dry_run: Disabled,
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         modifications: Sufficient,
         refresh: None(
@@ -7633,7 +7924,7 @@ fn verify_hashes() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -7675,8 +7966,14 @@ fn preview_features() {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -7686,7 +7983,7 @@ fn preview_features() {
         show_settings: true,
         preview: Preview {
             flags: PreviewFeatures(
-                PYTHON_INSTALL_DEFAULT | PYTHON_UPGRADE | JSON_OUTPUT | PYLOCK | ADD_BOUNDS | PACKAGE_CONFLICTS | EXTRA_BUILD_DEPENDENCIES | DETECT_MODULE_CONFLICTS | FORMAT | NATIVE_AUTH | S3_ENDPOINT,
+                PYTHON_INSTALL_DEFAULT | PYTHON_UPGRADE | JSON_OUTPUT | PYLOCK | ADD_BOUNDS | PACKAGE_CONFLICTS | EXTRA_BUILD_DEPENDENCIES | DETECT_MODULE_CONFLICTS | FORMAT | NATIVE_AUTH | S3_ENDPOINT | CACHE_SIZE | INIT_PROJECT_FLAG | WORKSPACE_METADATA | WORKSPACE_DIR | WORKSPACE_LIST | SBOM_EXPORT | AUTH_HELPER | DIRECT_PUBLISH | TARGET_WORKSPACE_DISCOVERY | METADATA_JSON | GCS_ENDPOINT | ADJUST_ULIMIT,
             ),
         },
         python_preference: Managed,
@@ -7706,8 +8003,8 @@ fn preview_features() {
         short: false,
         output_format: Text,
         dry_run: false,
-        locked: false,
-        frozen: false,
+        lock_check: Disabled,
+        frozen: None,
         active: None,
         no_sync: false,
         package: None,
@@ -7764,7 +8061,8 @@ fn preview_features() {
                 ),
                 prerelease: IfNecessaryOrExplicit,
                 resolution: Highest,
-                sources: Enabled,
+                sources: None,
+                torch_backend: None,
                 upgrade: None,
             },
             compile_bytecode: false,
@@ -7787,8 +8085,14 @@ fn preview_features() {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -7818,8 +8122,8 @@ fn preview_features() {
         short: false,
         output_format: Text,
         dry_run: false,
-        locked: false,
-        frozen: false,
+        lock_check: Disabled,
+        frozen: None,
         active: None,
         no_sync: false,
         package: None,
@@ -7876,7 +8180,8 @@ fn preview_features() {
                 ),
                 prerelease: IfNecessaryOrExplicit,
                 resolution: Highest,
-                sources: Enabled,
+                sources: None,
+                torch_backend: None,
                 upgrade: None,
             },
             compile_bytecode: false,
@@ -7899,8 +8204,14 @@ fn preview_features() {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -7910,7 +8221,7 @@ fn preview_features() {
         show_settings: true,
         preview: Preview {
             flags: PreviewFeatures(
-                PYTHON_INSTALL_DEFAULT | PYTHON_UPGRADE | JSON_OUTPUT | PYLOCK | ADD_BOUNDS | PACKAGE_CONFLICTS | EXTRA_BUILD_DEPENDENCIES | DETECT_MODULE_CONFLICTS | FORMAT | NATIVE_AUTH | S3_ENDPOINT,
+                PYTHON_INSTALL_DEFAULT | PYTHON_UPGRADE | JSON_OUTPUT | PYLOCK | ADD_BOUNDS | PACKAGE_CONFLICTS | EXTRA_BUILD_DEPENDENCIES | DETECT_MODULE_CONFLICTS | FORMAT | NATIVE_AUTH | S3_ENDPOINT | CACHE_SIZE | INIT_PROJECT_FLAG | WORKSPACE_METADATA | WORKSPACE_DIR | WORKSPACE_LIST | SBOM_EXPORT | AUTH_HELPER | DIRECT_PUBLISH | TARGET_WORKSPACE_DISCOVERY | METADATA_JSON | GCS_ENDPOINT | ADJUST_ULIMIT,
             ),
         },
         python_preference: Managed,
@@ -7930,8 +8241,8 @@ fn preview_features() {
         short: false,
         output_format: Text,
         dry_run: false,
-        locked: false,
-        frozen: false,
+        lock_check: Disabled,
+        frozen: None,
         active: None,
         no_sync: false,
         package: None,
@@ -7988,7 +8299,8 @@ fn preview_features() {
                 ),
                 prerelease: IfNecessaryOrExplicit,
                 resolution: Highest,
-                sources: Enabled,
+                sources: None,
+                torch_backend: None,
                 upgrade: None,
             },
             compile_bytecode: false,
@@ -8011,8 +8323,14 @@ fn preview_features() {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -8042,8 +8360,8 @@ fn preview_features() {
         short: false,
         output_format: Text,
         dry_run: false,
-        locked: false,
-        frozen: false,
+        lock_check: Disabled,
+        frozen: None,
         active: None,
         no_sync: false,
         package: None,
@@ -8100,7 +8418,8 @@ fn preview_features() {
                 ),
                 prerelease: IfNecessaryOrExplicit,
                 resolution: Highest,
-                sources: Enabled,
+                sources: None,
+                torch_backend: None,
                 upgrade: None,
             },
             compile_bytecode: false,
@@ -8123,8 +8442,14 @@ fn preview_features() {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -8154,8 +8479,8 @@ fn preview_features() {
         short: false,
         output_format: Text,
         dry_run: false,
-        locked: false,
-        frozen: false,
+        lock_check: Disabled,
+        frozen: None,
         active: None,
         no_sync: false,
         package: None,
@@ -8212,7 +8537,8 @@ fn preview_features() {
                 ),
                 prerelease: IfNecessaryOrExplicit,
                 resolution: Highest,
-                sources: Enabled,
+                sources: None,
+                torch_backend: None,
                 upgrade: None,
             },
             compile_bytecode: false,
@@ -8237,8 +8563,14 @@ fn preview_features() {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -8268,8 +8600,8 @@ fn preview_features() {
         short: false,
         output_format: Text,
         dry_run: false,
-        locked: false,
-        frozen: false,
+        lock_check: Disabled,
+        frozen: None,
         active: None,
         no_sync: false,
         package: None,
@@ -8326,7 +8658,8 @@ fn preview_features() {
                 ),
                 prerelease: IfNecessaryOrExplicit,
                 resolution: Highest,
-                sources: Enabled,
+                sources: None,
+                torch_backend: None,
                 upgrade: None,
             },
             compile_bytecode: false,
@@ -8370,8 +8703,14 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -8402,9 +8741,11 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -8507,7 +8848,7 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -8543,8 +8884,14 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -8575,9 +8922,11 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -8680,7 +9029,7 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -8739,8 +9088,14 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -8771,9 +9126,11 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -8876,7 +9233,7 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -8910,8 +9267,14 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -8942,9 +9305,11 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -9047,7 +9412,7 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -9075,8 +9440,14 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -9107,9 +9478,11 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -9212,7 +9585,7 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -9241,8 +9614,14 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -9273,9 +9652,11 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -9378,7 +9759,7 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -9472,8 +9853,14 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -9498,8 +9885,8 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
         ),
     }
     LockSettings {
-        locked: false,
-        frozen: false,
+        lock_check: Disabled,
+        frozen: None,
         dry_run: Disabled,
         script: None,
         python: None,
@@ -9554,7 +9941,8 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
             ),
             prerelease: IfNecessaryOrExplicit,
             resolution: Highest,
-            sources: Enabled,
+            sources: None,
+            torch_backend: None,
             upgrade: None,
         },
     }
@@ -9589,8 +9977,14 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -9615,8 +10009,8 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
         ),
     }
     LockSettings {
-        locked: false,
-        frozen: false,
+        lock_check: Disabled,
+        frozen: None,
         dry_run: Disabled,
         script: None,
         python: None,
@@ -9671,7 +10065,8 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
             ),
             prerelease: IfNecessaryOrExplicit,
             resolution: Highest,
-            sources: Enabled,
+            sources: None,
+            torch_backend: None,
             upgrade: Packages(
                 {
                     PackageName(
@@ -9729,8 +10124,14 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -9755,8 +10156,8 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
         ),
     }
     LockSettings {
-        locked: false,
-        frozen: false,
+        lock_check: Disabled,
+        frozen: None,
         dry_run: Disabled,
         script: None,
         python: None,
@@ -9811,7 +10212,8 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
             ),
             prerelease: IfNecessaryOrExplicit,
             resolution: Highest,
-            sources: Enabled,
+            sources: None,
+            torch_backend: None,
             upgrade: All,
         },
     }
@@ -9844,8 +10246,14 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -9870,8 +10278,8 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
         ),
     }
     LockSettings {
-        locked: false,
-        frozen: false,
+        lock_check: Disabled,
+        frozen: None,
         dry_run: Disabled,
         script: None,
         python: None,
@@ -9926,7 +10334,8 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
             ),
             prerelease: IfNecessaryOrExplicit,
             resolution: Highest,
-            sources: Enabled,
+            sources: None,
+            torch_backend: None,
             upgrade: None,
         },
     }
@@ -9949,8 +10358,14 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -9975,8 +10390,8 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
         ),
     }
     LockSettings {
-        locked: false,
-        frozen: false,
+        lock_check: Disabled,
+        frozen: None,
         dry_run: Disabled,
         script: None,
         python: None,
@@ -10031,7 +10446,8 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
             ),
             prerelease: IfNecessaryOrExplicit,
             resolution: Highest,
-            sources: Enabled,
+            sources: None,
+            torch_backend: None,
             upgrade: All,
         },
     }
@@ -10055,8 +10471,14 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -10081,8 +10503,8 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
         ),
     }
     LockSettings {
-        locked: false,
-        frozen: false,
+        lock_check: Disabled,
+        frozen: None,
         dry_run: Disabled,
         script: None,
         python: None,
@@ -10137,7 +10559,8 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
             ),
             prerelease: IfNecessaryOrExplicit,
             resolution: Highest,
-            sources: Enabled,
+            sources: None,
+            torch_backend: None,
             upgrade: Packages(
                 {
                     PackageName(
@@ -10225,8 +10648,14 @@ fn build_isolation_override() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -10257,9 +10686,11 @@ fn build_isolation_override() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -10362,7 +10793,7 @@ fn build_isolation_override() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),
@@ -10393,8 +10824,14 @@ fn build_isolation_override() -> anyhow::Result<()> {
         color: Auto,
         network_settings: NetworkSettings {
             connectivity: Online,
+            offline: Disabled,
             native_tls: false,
+            http_proxy: None,
+            https_proxy: None,
+            no_proxy: None,
             allow_insecure_host: [],
+            timeout: [TIME],
+            retries: 3,
         },
         concurrency: Concurrency {
             downloads: 50,
@@ -10425,9 +10862,11 @@ fn build_isolation_override() -> anyhow::Result<()> {
         ],
         constraints: [],
         overrides: [],
+        excludes: [],
         build_constraints: [],
         constraints_from_workspace: [],
         overrides_from_workspace: [],
+        excludes_from_workspace: [],
         build_constraints_from_workspace: [],
         environments: SupportedEnvironments(
             [],
@@ -10536,7 +10975,7 @@ fn build_isolation_override() -> anyhow::Result<()> {
             annotation_style: Split,
             link_mode: Clone,
             compile_bytecode: false,
-            sources: Enabled,
+            sources: None,
             hash_checking: Some(
                 Verify,
             ),

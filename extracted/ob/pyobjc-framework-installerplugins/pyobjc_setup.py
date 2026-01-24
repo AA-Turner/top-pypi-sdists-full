@@ -87,10 +87,10 @@ class oc_egg_info(egg_info.egg_info):
 
     def write_build_info(self):
         macos_version = subprocess.check_output(
-            ["sw_vers", "-productversion"], text=True
+            ["sw_vers", "-productVersion"], text=True
         ).strip()
         macos_build = subprocess.check_output(
-            ["sw_vers", "-buildversion"], text=True
+            ["sw_vers", "-buildVersion"], text=True
         ).strip()
         clang_version = (
             subprocess.check_output(["clang", "--version"], text=True)
@@ -228,13 +228,14 @@ Operating System :: MacOS :: MacOS X
 Programming Language :: Python
 Programming Language :: Python :: 3
 Programming Language :: Python :: 3 :: Only
-Programming Language :: Python :: 3.9
 Programming Language :: Python :: 3.10
 Programming Language :: Python :: 3.11
 Programming Language :: Python :: 3.12
 Programming Language :: Python :: 3.13
 Programming Language :: Python :: 3.14
+Programming Language :: Python :: 3.15
 Programming Language :: Python :: Implementation :: CPython
+Programming Language :: Python :: Free Threading :: 3 - Stable
 Programming Language :: Objective C
 Topic :: Software Development :: Libraries :: Python Modules
 Topic :: Software Development :: User Interfaces
@@ -676,7 +677,7 @@ def setup(
         zip_safe=False,
         license="MIT",
         classifiers=CLASSIFIERS,
-        python_requires=">=3.9",
+        python_requires=">=3.10",
         keywords=["PyObjC"] + [p for p in k["packages"] if p not in ("PyObjCTools",)],
         options=options,
         **k,

@@ -7,11 +7,13 @@ import io
 import json
 import math
 import os
-import pathlib
 import tempfile
 from functools import wraps
 from math import ceil
-from typing import Any, Callable, Optional, Union
+from os import PathLike
+from pathlib import Path
+from types import UnionType
+from typing import Any, Callable, Literal, Optional, Union, get_args, get_origin
 
 import h5py
 import numpy as np
@@ -22,6 +24,8 @@ import yaml
 from autograd.builtins import dict as dict_ag
 from autograd.tracer import isbox
 from pydantic.v1.fields import ModelField
+from pydantic.v1.json import custom_pydantic_encoder
+from typing_extensions import Self
 
 from tidy3d.exceptions import FileError
 from tidy3d.log import log
@@ -30,7 +34,7 @@ from .autograd.types import AutogradFieldMap, Box
 from .autograd.utils import get_static
 from .data.data_array import DATA_ARRAY_MAP, DataArray
 from .file_util import compress_file_to_gzip, extract_gzip_file
-from .types import TYPE_TAG_STR, ComplexNumber, Literal
+from .types import TYPE_TAG_STR, ComplexNumber
 
 INDENT_JSON_FILE = 4  # default indentation of json string in json files
 INDENT = None  # default indentation of json string used internally
@@ -38,6 +42,8 @@ JSON_TAG = "JSON_STRING"
 # If json string is larger than ``MAX_STRING_LENGTH``, split the string when storing in hdf5
 MAX_STRING_LENGTH = 1_000_000_000
 FORBID_SPECIAL_CHARACTERS = ["/"]
+TRACED_FIELD_KEYS_ATTR = "__tidy3d_traced_field_keys__"
+TYPE_TO_CLASS_MAP: dict[str, type[Tidy3dBaseModel]] = {}
 
 
 def cache(prop):
@@ -68,6 +74,29 @@ def cached_property(cached_property_getter):
     return property(cache(cached_property_getter))
 
 
+def cached_property_guarded(key_func):
+    """Like cached_property, but invalidates when the key_func(self) changes."""
+
+    def _decorator(getter):
+        prop_name = getter.__name__
+
+        @wraps(getter)
+        def _guarded(self):
+            cache_store = self._cached_properties.get(prop_name)
+            current_key = key_func(self)
+            if cache_store is not None:
+                cached_key, cached_value = cache_store
+                if cached_key == current_key:
+                    return cached_value
+            value = getter(self)
+            self._cached_properties[prop_name] = (current_key, value)
+            return value
+
+        return property(_guarded)
+
+    return _decorator
+
+
 def ndarray_encoder(val):
     """How a ``np.ndarray`` gets handled before saving to json."""
     if np.any(np.iscomplex(val)):
@@ -75,12 +104,24 @@ def ndarray_encoder(val):
     return val.real.tolist()
 
 
-def _get_valid_extension(fname: str) -> str:
+def make_json_compatible(json_string: str) -> str:
+    """Makes the string compatible with json standards, notably for infinity."""
+
+    tmp_string = "<<TEMPORARY_INFINITY_STRING>>"
+    json_string = json_string.replace("-Infinity", tmp_string)
+    json_string = json_string.replace('""-Infinity""', tmp_string)
+    json_string = json_string.replace("Infinity", '"Infinity"')
+    json_string = json_string.replace('""Infinity""', '"Infinity"')
+    return json_string.replace(tmp_string, '"-Infinity"')
+
+
+def _get_valid_extension(fname: PathLike) -> str:
     """Return the file extension from fname, validated to accepted ones."""
     valid_extensions = [".json", ".yaml", ".hdf5", ".h5", ".hdf5.gz"]
-    extensions = [s.lower() for s in pathlib.Path(fname).suffixes[-2:]]
+    path = Path(fname)
+    extensions = [s.lower() for s in path.suffixes[-2:]]
     if len(extensions) == 0:
-        raise FileError(f"File '{fname}' missing extension.")
+        raise FileError(f"File '{path}' missing extension.")
     single_extension = extensions[-1]
     if single_extension in valid_extensions:
         return single_extension
@@ -88,7 +129,7 @@ def _get_valid_extension(fname: str) -> str:
     if double_extension in valid_extensions:
         return double_extension
     raise FileError(
-        f"File extension must be one of {', '.join(valid_extensions)}; file '{fname}' does not "
+        f"File extension must be one of {', '.join(valid_extensions)}; file '{path}' does not "
         "match any of those."
     )
 
@@ -98,7 +139,7 @@ def skip_if_fields_missing(fields: list[str], root=False):
 
     def actual_decorator(validator):
         @wraps(validator)
-        def _validator(cls, *args, **kwargs):
+        def _validator(cls, *args: Any, **kwargs: Any):
             """New validator function."""
             values = kwargs.get("values")
             if values is None:
@@ -120,6 +161,21 @@ def skip_if_fields_missing(fields: list[str], root=False):
     return actual_decorator
 
 
+def field_allows_scalar(field: ModelField) -> bool:
+    annotation = field.outer_type_
+
+    def allows_scalar(a: Any) -> bool:
+        origin = get_origin(a)
+        if origin in (Union, UnionType):
+            args = (arg for arg in get_args(a) if arg is not type(None))
+            return any(allows_scalar(arg) for arg in args)
+        if origin is not None:
+            return False
+        return isinstance(a, type) and issubclass(a, (float, int, np.generic))
+
+    return allows_scalar(annotation)
+
+
 class Tidy3dBaseModel(pydantic.BaseModel):
     """Base pydantic model that all Tidy3d components inherit from.
     Defines configuration for handling data structures
@@ -139,14 +195,28 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         """Hash this component with ``hashlib`` in a way that is the same every session."""
         bf = io.BytesIO()
         self.to_hdf5(bf)
-        return hashlib.sha256(bf.getvalue()).hexdigest()
+        return hashlib.md5(bf.getvalue()).hexdigest()
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         """Init method, includes post-init validators."""
         log.begin_capture()
         super().__init__(**kwargs)
         self._post_init_validators()
         log.end_capture(self)
+
+    @pydantic.validator("*", pre=True, allow_reuse=True)
+    def coerce_numpy_scalars_for_model(cls, v: Any, field: ModelField) -> Any:
+        """
+        Wildcard field validator: coerce numpy scalars / size-1 arrays to native Python
+        scalars, but only for fields whose annotations allow scalars.
+        """
+        if not field_allows_scalar(field):
+            return v
+
+        if isinstance(v, np.generic) or (isinstance(v, np.ndarray) and v.size == 1):
+            return v.item()
+
+        return v
 
     def _post_init_validators(self) -> None:
         """Call validators taking ``self`` that get run after init, implement in subclasses."""
@@ -156,6 +226,76 @@ class Tidy3dBaseModel(pydantic.BaseModel):
 
         cls.add_type_field()
         cls.generate_docstring()
+        type_value = cls.__fields__.get(TYPE_TAG_STR)
+        if type_value and type_value.default:
+            TYPE_TO_CLASS_MAP[type_value.default] = cls
+
+    @classmethod
+    def _get_type_value(cls, obj: dict[str, Any]) -> str:
+        """Return the type tag from a raw dictionary."""
+        if not isinstance(obj, dict):
+            raise TypeError("Input must be a dict")
+        try:
+            type_value = obj[TYPE_TAG_STR]
+        except KeyError as exc:
+            raise ValueError(f'Missing "{TYPE_TAG_STR}" in data') from exc
+        if not isinstance(type_value, str) or not type_value:
+            raise ValueError(f'Invalid "{TYPE_TAG_STR}" value: {type_value!r}')
+        return type_value
+
+    @classmethod
+    def _get_registered_class(cls, type_value: str) -> type[Tidy3dBaseModel]:
+        try:
+            return TYPE_TO_CLASS_MAP[type_value]
+        except KeyError as exc:
+            raise ValueError(f"Unknown type: {type_value}") from exc
+
+    @classmethod
+    def _should_dispatch_to(cls, target_cls: type[Tidy3dBaseModel]) -> bool:
+        """Return True if ``cls`` allows auto-dispatch to ``target_cls``."""
+        return issubclass(target_cls, cls)
+
+    @classmethod
+    def _resolve_dispatch_target(cls, obj: dict[str, Any]) -> type[Tidy3dBaseModel]:
+        """Determine which subclass should receive ``obj``."""
+        type_value = cls._get_type_value(obj)
+        target_cls = cls._get_registered_class(type_value)
+        if cls._should_dispatch_to(target_cls):
+            return target_cls
+        if target_cls is cls:
+            return cls
+        raise ValueError(
+            f'Cannot parse type "{type_value}" using {cls.__name__}; expected subclass of {cls.__name__}.'
+        )
+
+    @classmethod
+    def _target_cls_from_file(
+        cls, fname: PathLike, group_path: Optional[str] = None
+    ) -> type[Tidy3dBaseModel]:
+        """Peek the file metadata to determine the subclass to instantiate."""
+        model_dict = cls.dict_from_file(
+            fname=fname,
+            group_path=group_path,
+            load_data_arrays=False,
+        )
+        return cls._resolve_dispatch_target(model_dict)
+
+    @classmethod
+    def _parse_obj(cls, obj: dict[str, Any], **parse_obj_kwargs: Any) -> Tidy3dBaseModel:
+        """Dispatch ``obj`` to the correct subclass registered in the type map."""
+        target_cls = cls._resolve_dispatch_target(obj)
+        if target_cls is cls:
+            return super().parse_obj(obj, **parse_obj_kwargs)
+        return target_cls.parse_obj(obj, **parse_obj_kwargs)
+
+    @classmethod
+    def _parse_model_dict(
+        cls, model_dict: dict[str, Any], **parse_obj_kwargs: Any
+    ) -> Tidy3dBaseModel:
+        """Parse ``model_dict`` while optionally auto-dispatching when called on the base class."""
+        if cls is Tidy3dBaseModel:
+            return cls._parse_obj(model_dict, **parse_obj_kwargs)
+        return cls.parse_obj(model_dict, **parse_obj_kwargs)
 
     class Config:
         """Sets config for all :class:`Tidy3dBaseModel` objects.
@@ -192,6 +332,7 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         copy_on_model_validation = "none"
 
     _cached_properties = pydantic.PrivateAttr({})
+    _has_tracers: Optional[bool] = pydantic.PrivateAttr(default=None)
 
     @pydantic.root_validator(skip_on_failure=True)
     def _special_characters_not_in_name(cls, values):
@@ -212,12 +353,30 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         "operation of Tidy3D as it is not used internally. "
         "Note that, unlike regular Tidy3D fields, ``attrs`` are mutable. "
         "For example, the following is allowed for setting an ``attr`` ``obj.attrs['foo'] = bar``. "
-        "Also note that `Tidy3D`` will raise a ``TypeError`` if ``attrs`` contain objects "
+        "Also note that Tidy3D will raise a ``TypeError`` if ``attrs`` contain objects "
         "that can not be serialized. One can check if ``attrs`` are serializable "
         "by calling ``obj.json()``.",
     )
 
-    def copy(self, deep: bool = True, validate: bool = True, **kwargs) -> Tidy3dBaseModel:
+    def _attrs_digest(self) -> str:
+        """Stable digest of `attrs` using the same JSON encoding rules as pydantic .json()."""
+        encoders = getattr(self.__config__, "json_encoders", {}) or {}
+
+        def _default(o):
+            return custom_pydantic_encoder(encoders, o)
+
+        json_str = json.dumps(
+            self.attrs,
+            default=_default,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        json_str = make_json_compatible(json_str)
+
+        return hashlib.sha256(json_str.encode("utf-8")).hexdigest()
+
+    def copy(self, deep: bool = True, validate: bool = True, **kwargs: Any) -> Self:
         """Copy a Tidy3dBaseModel.  With ``deep=True`` and ``validate=True`` as default."""
         kwargs.update(deep=deep)
         new_copy = pydantic.BaseModel.copy(self, **kwargs)
@@ -226,11 +385,12 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         # cached property is cleared automatically when validation is on, but it
         # needs to be manually cleared when validation is off
         new_copy._cached_properties = {}
+        new_copy._has_tracers = None
         return new_copy
 
     def updated_copy(
-        self, path: Optional[str] = None, deep: bool = True, validate: bool = True, **kwargs
-    ) -> Tidy3dBaseModel:
+        self, path: Optional[str] = None, deep: bool = True, validate: bool = True, **kwargs: Any
+    ) -> Self:
         """Make copy of a component instance with ``**kwargs`` indicating updated field values.
 
         Note
@@ -288,7 +448,7 @@ class Tidy3dBaseModel(pydantic.BaseModel):
 
         return self._updated_copy(deep=deep, validate=validate, **{field_name: new_component})
 
-    def _updated_copy(self, deep: bool = True, validate: bool = True, **kwargs) -> Tidy3dBaseModel:
+    def _updated_copy(self, deep: bool = True, validate: bool = True, **kwargs: Any) -> Self:
         """Make copy of a component instance with ``**kwargs`` indicating updated field values."""
         return self.copy(update=kwargs, deep=deep, validate=validate)
 
@@ -308,39 +468,61 @@ class Tidy3dBaseModel(pydantic.BaseModel):
 
     @classmethod
     def from_file(
-        cls, fname: str, group_path: Optional[str] = None, **parse_obj_kwargs
-    ) -> Tidy3dBaseModel:
+        cls,
+        fname: PathLike,
+        group_path: Optional[str] = None,
+        lazy: bool = False,
+        on_load: Optional[Callable] = None,
+        **parse_obj_kwargs: Any,
+    ) -> Self:
         """Loads a :class:`Tidy3dBaseModel` from .yaml, .json, .hdf5, or .hdf5.gz file.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the file to load the :class:`Tidy3dBaseModel` from.
-        group_path : str, optional
+        group_path : str | None = None
             Path to a group inside the file to use as the base level. Only for hdf5 files.
             Starting `/` is optional.
+        lazy : bool = False
+            Whether to load the actual data (``lazy=False``) or return a proxy that loads
+            the data when accessed (``lazy=True``).
+        on_load : Callable | None = None
+            Callback function executed once the model is fully materialized.
+            Only used if ``lazy=True``. The callback is invoked with the loaded
+            instance as its sole argument, enabling post-processing such as
+            validation, logging, or warnings checks.
         **parse_obj_kwargs
             Keyword arguments passed to either pydantic's ``parse_obj`` function when loading model.
 
         Returns
         -------
-        :class:`Tidy3dBaseModel`
+        Self
             An instance of the component class calling ``load``.
 
         Example
         -------
         >>> simulation = Simulation.from_file(fname='folder/sim.json') # doctest: +SKIP
         """
+        if lazy:
+            target_cls = cls._target_cls_from_file(fname=fname, group_path=group_path)
+            Proxy = _make_lazy_proxy(target_cls, on_load=on_load)
+            return Proxy(fname, group_path, parse_obj_kwargs)
         model_dict = cls.dict_from_file(fname=fname, group_path=group_path)
-        return cls.parse_obj(model_dict, **parse_obj_kwargs)
+        obj = cls._parse_model_dict(model_dict, **parse_obj_kwargs)
+        if not lazy and on_load is not None:
+            on_load(obj)
+        return obj
 
     @classmethod
-    def dict_from_file(cls, fname: str, group_path: Optional[str] = None) -> dict:
+    def dict_from_file(
+        cls, fname: PathLike, group_path: Optional[str] = None, *, load_data_arrays: bool = True
+    ) -> dict:
         """Loads a dictionary containing the model from a .yaml, .json, .hdf5, or .hdf5.gz file.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the file to load the :class:`Tidy3dBaseModel` from.
         group_path : str, optional
             Path to a group inside the file to use as the base level.
@@ -354,15 +536,18 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         -------
         >>> simulation = Simulation.from_file(fname='folder/sim.json') # doctest: +SKIP
         """
-
-        extension = _get_valid_extension(fname)
-        kwargs = {"fname": fname}
+        fname_path = Path(fname)
+        extension = _get_valid_extension(fname_path)
+        kwargs = {"fname": fname_path}
 
         if group_path is not None:
-            if extension == ".hdf5" or extension == ".hdf5.gz":
+            if extension in {".hdf5", ".hdf5.gz", ".h5"}:
                 kwargs["group_path"] = group_path
             else:
                 log.warning("'group_path' provided, but this feature only works with hdf5 files.")
+
+        if extension in {".hdf5", ".hdf5.gz", ".h5"}:
+            kwargs["load_data_arrays"] = load_data_arrays
 
         converter = {
             ".json": cls.dict_from_json,
@@ -373,19 +558,18 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         }[extension]
         return converter(**kwargs)
 
-    def to_file(self, fname: str) -> None:
+    def to_file(self, fname: PathLike) -> None:
         """Exports :class:`Tidy3dBaseModel` instance to .yaml, .json, or .hdf5 file
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the .yaml or .json file to save the :class:`Tidy3dBaseModel` to.
 
         Example
         -------
         >>> simulation.to_file(fname='folder/sim.json') # doctest: +SKIP
         """
-
         extension = _get_valid_extension(fname)
         converter = {
             ".json": self.to_json,
@@ -396,17 +580,17 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         return converter(fname=fname)
 
     @classmethod
-    def from_json(cls, fname: str, **parse_obj_kwargs) -> Tidy3dBaseModel:
+    def from_json(cls, fname: PathLike, **parse_obj_kwargs: Any) -> Self:
         """Load a :class:`Tidy3dBaseModel` from .json file.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the .json file to load the :class:`Tidy3dBaseModel` from.
 
         Returns
         -------
-        :class:`Tidy3dBaseModel`
+        Self
             An instance of the component class calling `load`.
         **parse_obj_kwargs
             Keyword arguments passed to pydantic's ``parse_obj`` method.
@@ -416,15 +600,15 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         >>> simulation = Simulation.from_json(fname='folder/sim.json') # doctest: +SKIP
         """
         model_dict = cls.dict_from_json(fname=fname)
-        return cls.parse_obj(model_dict, **parse_obj_kwargs)
+        return cls._parse_model_dict(model_dict, **parse_obj_kwargs)
 
     @classmethod
-    def dict_from_json(cls, fname: str) -> dict:
+    def dict_from_json(cls, fname: PathLike) -> dict:
         """Load dictionary of the model from a .json file.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the .json file to load the :class:`Tidy3dBaseModel` from.
 
         Returns
@@ -440,37 +624,40 @@ class Tidy3dBaseModel(pydantic.BaseModel):
             model_dict = json.load(json_fhandle)
         return model_dict
 
-    def to_json(self, fname: str) -> None:
+    def to_json(self, fname: PathLike) -> None:
         """Exports :class:`Tidy3dBaseModel` instance to .json file
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the .json file to save the :class:`Tidy3dBaseModel` to.
 
         Example
         -------
         >>> simulation.to_json(fname='folder/sim.json') # doctest: +SKIP
         """
-        json_string = self._json(indent=INDENT_JSON_FILE)
+        export_model = self.to_static()
+        json_string = export_model._json(indent=INDENT_JSON_FILE)
         self._warn_if_contains_data(json_string)
-        with open(fname, "w", encoding="utf-8") as file_handle:
+        path = Path(fname)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as file_handle:
             file_handle.write(json_string)
 
     @classmethod
-    def from_yaml(cls, fname: str, **parse_obj_kwargs) -> Tidy3dBaseModel:
+    def from_yaml(cls, fname: PathLike, **parse_obj_kwargs: Any) -> Self:
         """Loads :class:`Tidy3dBaseModel` from .yaml file.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the .yaml file to load the :class:`Tidy3dBaseModel` from.
         **parse_obj_kwargs
             Keyword arguments passed to pydantic's ``parse_obj`` method.
 
         Returns
         -------
-        :class:`Tidy3dBaseModel`
+        Self
             An instance of the component class calling `from_yaml`.
 
         Example
@@ -478,15 +665,15 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         >>> simulation = Simulation.from_yaml(fname='folder/sim.yaml') # doctest: +SKIP
         """
         model_dict = cls.dict_from_yaml(fname=fname)
-        return cls.parse_obj(model_dict, **parse_obj_kwargs)
+        return cls._parse_model_dict(model_dict, **parse_obj_kwargs)
 
     @classmethod
-    def dict_from_yaml(cls, fname: str) -> dict:
+    def dict_from_yaml(cls, fname: PathLike) -> dict:
         """Load dictionary of the model from a .yaml file.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the .yaml file to load the :class:`Tidy3dBaseModel` from.
 
         Returns
@@ -502,22 +689,25 @@ class Tidy3dBaseModel(pydantic.BaseModel):
             model_dict = yaml.safe_load(yaml_in)
         return model_dict
 
-    def to_yaml(self, fname: str) -> None:
+    def to_yaml(self, fname: PathLike) -> None:
         """Exports :class:`Tidy3dBaseModel` instance to .yaml file.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the .yaml file to save the :class:`Tidy3dBaseModel` to.
 
         Example
         -------
         >>> simulation.to_yaml(fname='folder/sim.yaml') # doctest: +SKIP
         """
-        json_string = self._json_string
+        export_model = self.to_static()
+        json_string = export_model._json()
         self._warn_if_contains_data(json_string)
         model_dict = json.loads(json_string)
-        with open(fname, "w+", encoding="utf-8") as file_handle:
+        path = Path(fname)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w+", encoding="utf-8") as file_handle:
             yaml.dump(model_dict, file_handle, indent=INDENT_JSON_FILE)
 
     @staticmethod
@@ -581,7 +771,7 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         return JSON_TAG
 
     @classmethod
-    def _json_string_from_hdf5(cls, fname: str) -> str:
+    def _json_string_from_hdf5(cls, fname: PathLike) -> str:
         """Load the model json string from an hdf5 file."""
         with h5py.File(fname, "r") as f_handle:
             num_string_parts = len([key for key in f_handle.keys() if JSON_TAG in key])
@@ -592,13 +782,17 @@ class Tidy3dBaseModel(pydantic.BaseModel):
 
     @classmethod
     def dict_from_hdf5(
-        cls, fname: str, group_path: str = "", custom_decoders: Optional[list[Callable]] = None
+        cls,
+        fname: PathLike,
+        group_path: str = "",
+        custom_decoders: Optional[list[Callable]] = None,
+        load_data_arrays: bool = True,
     ) -> dict:
         """Loads a dictionary containing the model contents from a .hdf5 file.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the .hdf5 file to load the :class:`Tidy3dBaseModel` from.
         group_path : str, optional
             Path to a group inside the file to selectively load a sub-element of the model only.
@@ -621,6 +815,8 @@ class Tidy3dBaseModel(pydantic.BaseModel):
             """Whether a value is supposed to be a data array based on the contents."""
             return isinstance(value, str) and value in DATA_ARRAY_MAP
 
+        fname_path = Path(fname)
+
         def load_data_from_file(model_dict: dict, group_path: str = "") -> None:
             """For every DataArray item in dictionary, load path of hdf5 group as value."""
 
@@ -631,7 +827,7 @@ class Tidy3dBaseModel(pydantic.BaseModel):
                 if custom_decoders:
                     for custom_decoder in custom_decoders:
                         custom_decoder(
-                            fname=fname,
+                            fname=str(fname_path),
                             group_path=subpath,
                             model_dict=model_dict,
                             key=key,
@@ -641,7 +837,9 @@ class Tidy3dBaseModel(pydantic.BaseModel):
                 # write the path to the element of the json dict where the data_array should be
                 if is_data_array(value):
                     data_array_type = DATA_ARRAY_MAP[value]
-                    model_dict[key] = data_array_type.from_hdf5(fname=fname, group_path=subpath)
+                    model_dict[key] = data_array_type.from_hdf5(
+                        fname=fname_path, group_path=subpath
+                    )
                     continue
 
                 # if a list, assign each element a unique key, recurse
@@ -659,25 +857,26 @@ class Tidy3dBaseModel(pydantic.BaseModel):
                 elif isinstance(value, dict):
                     load_data_from_file(model_dict=value, group_path=subpath)
 
-        model_dict = json.loads(cls._json_string_from_hdf5(fname=fname))
+        model_dict = json.loads(cls._json_string_from_hdf5(fname=fname_path))
         group_path = cls._construct_group_path(group_path)
         model_dict = cls.get_sub_model(group_path=group_path, model_dict=model_dict)
-        load_data_from_file(model_dict=model_dict, group_path=group_path)
+        if load_data_arrays:
+            load_data_from_file(model_dict=model_dict, group_path=group_path)
         return model_dict
 
     @classmethod
     def from_hdf5(
         cls,
-        fname: str,
+        fname: PathLike,
         group_path: str = "",
         custom_decoders: Optional[list[Callable]] = None,
-        **parse_obj_kwargs,
-    ) -> Tidy3dBaseModel:
+        **parse_obj_kwargs: Any,
+    ) -> Self:
         """Loads :class:`Tidy3dBaseModel` instance to .hdf5 file.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the .hdf5 file to load the :class:`Tidy3dBaseModel` from.
         group_path : str, optional
             Path to a group inside the file to selectively load a sub-element of the model only.
@@ -696,17 +895,23 @@ class Tidy3dBaseModel(pydantic.BaseModel):
 
         group_path = cls._construct_group_path(group_path)
         model_dict = cls.dict_from_hdf5(
-            fname=fname, group_path=group_path, custom_decoders=custom_decoders
+            fname=fname,
+            group_path=group_path,
+            custom_decoders=custom_decoders,
         )
-        return cls.parse_obj(model_dict, **parse_obj_kwargs)
+        return cls._parse_model_dict(model_dict, **parse_obj_kwargs)
 
-    def to_hdf5(self, fname: str, custom_encoders: Optional[list[Callable]] = None) -> None:
+    def to_hdf5(
+        self,
+        fname: PathLike | io.BytesIO,
+        custom_encoders: Optional[list[Callable]] = None,
+    ) -> None:
         """Exports :class:`Tidy3dBaseModel` instance to .hdf5 file.
 
         Parameters
         ----------
-        fname : str
-            Full path to the .hdf5 file to save the :class:`Tidy3dBaseModel` to.
+        fname : PathLike | BytesIO
+            Full path to the .hdf5 file or buffer to save the :class:`Tidy3dBaseModel` to.
         custom_encoders : List[Callable]
             List of functions accepting (fname: str, group_path: str, value: Any) that take
             the ``value`` supplied and write it to the hdf5 ``fname`` at ``group_path``.
@@ -716,8 +921,16 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         >>> simulation.to_hdf5(fname='folder/sim.hdf5') # doctest: +SKIP
         """
 
-        with h5py.File(fname, "w") as f_handle:
-            json_str = self._json_string
+        export_model = self.to_static()
+        traced_keys_payload = export_model.attrs.get(TRACED_FIELD_KEYS_ATTR)
+
+        if traced_keys_payload is None:
+            traced_keys_payload = self.attrs.get(TRACED_FIELD_KEYS_ATTR)
+        if traced_keys_payload is None:
+            traced_keys_payload = self._serialized_traced_field_keys()
+        path = Path(fname) if isinstance(fname, PathLike) else fname
+        with h5py.File(path, "w") as f_handle:
+            json_str = export_model._json()
             for ind in range(ceil(len(json_str) / MAX_STRING_LENGTH)):
                 ind_start = int(ind * MAX_STRING_LENGTH)
                 ind_stop = min(int(ind + 1) * MAX_STRING_LENGTH, len(json_str))
@@ -740,24 +953,30 @@ class Tidy3dBaseModel(pydantic.BaseModel):
 
                     # if a tuple, assign each element a unique key
                     if isinstance(value, (list, tuple)):
-                        value_dict = self.tuple_to_dict(tuple_values=value)
+                        value_dict = export_model.tuple_to_dict(tuple_values=value)
                         add_data_to_file(data_dict=value_dict, group_path=subpath)
 
                     # if a dict, recurse
                     elif isinstance(value, dict):
                         add_data_to_file(data_dict=value, group_path=subpath)
 
-            add_data_to_file(data_dict=self.dict())
+            add_data_to_file(data_dict=export_model.dict())
+            if traced_keys_payload:
+                f_handle.attrs[TRACED_FIELD_KEYS_ATTR] = traced_keys_payload
 
     @classmethod
     def dict_from_hdf5_gz(
-        cls, fname: str, group_path: str = "", custom_decoders: Optional[list[Callable]] = None
+        cls,
+        fname: PathLike,
+        group_path: str = "",
+        custom_decoders: Optional[list[Callable]] = None,
+        load_data_arrays: bool = True,
     ) -> dict:
         """Loads a dictionary containing the model contents from a .hdf5.gz file.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the .hdf5.gz file to load the :class:`Tidy3dBaseModel` from.
         group_path : str, optional
             Path to a group inside the file to selectively load a sub-element of the model only.
@@ -775,31 +994,35 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         -------
         >>> sim_dict = Simulation.dict_from_hdf5(fname='folder/sim.hdf5.gz') # doctest: +SKIP
         """
-        file, extracted = tempfile.mkstemp(".hdf5")
-        os.close(file)
+        file_descriptor, extracted = tempfile.mkstemp(".hdf5")
+        os.close(file_descriptor)
+        extracted_path = Path(extracted)
         try:
-            extract_gzip_file(fname, extracted)
+            extract_gzip_file(fname, extracted_path)
             result = cls.dict_from_hdf5(
-                extracted, group_path=group_path, custom_decoders=custom_decoders
+                extracted_path,
+                group_path=group_path,
+                custom_decoders=custom_decoders,
+                load_data_arrays=load_data_arrays,
             )
         finally:
-            os.unlink(extracted)
+            extracted_path.unlink(missing_ok=True)
 
         return result
 
     @classmethod
     def from_hdf5_gz(
         cls,
-        fname: str,
+        fname: PathLike,
         group_path: str = "",
         custom_decoders: Optional[list[Callable]] = None,
-        **parse_obj_kwargs,
-    ) -> Tidy3dBaseModel:
+        **parse_obj_kwargs: Any,
+    ) -> Self:
         """Loads :class:`Tidy3dBaseModel` instance to .hdf5.gz file.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the .hdf5.gz file to load the :class:`Tidy3dBaseModel` from.
         group_path : str, optional
             Path to a group inside the file to selectively load a sub-element of the model only.
@@ -818,17 +1041,21 @@ class Tidy3dBaseModel(pydantic.BaseModel):
 
         group_path = cls._construct_group_path(group_path)
         model_dict = cls.dict_from_hdf5_gz(
-            fname=fname, group_path=group_path, custom_decoders=custom_decoders
+            fname=fname,
+            group_path=group_path,
+            custom_decoders=custom_decoders,
         )
-        return cls.parse_obj(model_dict, **parse_obj_kwargs)
+        return cls._parse_model_dict(model_dict, **parse_obj_kwargs)
 
-    def to_hdf5_gz(self, fname: str, custom_encoders: Optional[list[Callable]] = None) -> None:
+    def to_hdf5_gz(
+        self, fname: PathLike | io.BytesIO, custom_encoders: Optional[list[Callable]] = None
+    ) -> None:
         """Exports :class:`Tidy3dBaseModel` instance to .hdf5.gz file.
 
         Parameters
         ----------
-        fname : str
-            Full path to the .hdf5.gz file to save the :class:`Tidy3dBaseModel` to.
+        fname : PathLike | BytesIO
+            Full path to the .hdf5.gz file or buffer to save the :class:`Tidy3dBaseModel` to.
         custom_encoders : List[Callable]
             List of functions accepting (fname: str, group_path: str, value: Any) that take
             the ``value`` supplied and write it to the hdf5 ``fname`` at ``group_path``.
@@ -837,7 +1064,6 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         -------
         >>> simulation.to_hdf5_gz(fname='folder/sim.hdf5.gz') # doctest: +SKIP
         """
-
         file, decompressed = tempfile.mkstemp(".hdf5")
         os.close(file)
         try:
@@ -887,7 +1113,7 @@ class Tidy3dBaseModel(pydantic.BaseModel):
                     return False
 
                 # convert tuple to dict to use this recursive function
-                if isinstance(val1, tuple) or isinstance(val2, tuple):
+                if isinstance(val1, tuple) and isinstance(val2, tuple):
                     val1 = dict(zip(range(len(val1)), val1))
                     val2 = dict(zip(range(len(val2)), val2))
 
@@ -912,7 +1138,7 @@ class Tidy3dBaseModel(pydantic.BaseModel):
 
         return check_equal(self.dict(), other.dict())
 
-    @cached_property
+    @cached_property_guarded(lambda self: self._attrs_digest())
     def _json_string(self) -> str:
         """Returns string representation of a :class:`Tidy3dBaseModel`.
 
@@ -923,7 +1149,7 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         """
         return self._json()
 
-    def _json(self, indent=INDENT, exclude_unset=False, **kwargs) -> str:
+    def _json(self, indent=INDENT, exclude_unset=False, **kwargs: Any) -> str:
         """Overwrites the model ``json`` representation with some extra customized handling.
 
         Parameters
@@ -936,22 +1162,12 @@ class Tidy3dBaseModel(pydantic.BaseModel):
             Json-formatted string holding :class:`Tidy3dBaseModel` data.
         """
 
-        def make_json_compatible(json_string: str) -> str:
-            """Makes the string compatible with json standards, notably for infinity."""
-
-            tmp_string = "<<TEMPORARY_INFINITY_STRING>>"
-            json_string = json_string.replace("-Infinity", tmp_string)
-            json_string = json_string.replace('""-Infinity""', tmp_string)
-            json_string = json_string.replace("Infinity", '"Infinity"')
-            json_string = json_string.replace('""Infinity""', '"Infinity"')
-            return json_string.replace(tmp_string, '"-Infinity"')
-
         json_string = self.json(indent=indent, exclude_unset=exclude_unset, **kwargs)
         json_string = make_json_compatible(json_string)
         return json_string
 
     def _strip_traced_fields(
-        self, starting_path: tuple[str] = (), include_untraced_data_arrays: bool = False
+        self, starting_path: tuple[str, ...] = (), include_untraced_data_arrays: bool = False
     ) -> AutogradFieldMap:
         """Extract a dictionary mapping paths in the model to the data traced by ``autograd``.
 
@@ -969,6 +1185,10 @@ class Tidy3dBaseModel(pydantic.BaseModel):
             mapping of traced fields used by ``autograd``
 
         """
+
+        path = tuple(starting_path)
+        if self._has_tracers is False and not include_untraced_data_arrays:
+            return dict_ag()
 
         field_mapping = {}
 
@@ -997,21 +1217,27 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         self_dict = self.dict()
 
         # if an include_only string was provided, only look at that subset of the dict
-        if starting_path:
-            for key in starting_path:
+        if path:
+            for key in path:
                 self_dict = self_dict[key]
 
-        handle_value(self_dict, path=starting_path)
+        handle_value(self_dict, path=path)
 
-        # convert the resulting field_mapping to an autograd-traced dictionary
-        return dict_ag(field_mapping)
+        if field_mapping:
+            if not include_untraced_data_arrays:
+                self._has_tracers = True
+            return dict_ag(field_mapping)
 
-    def _insert_traced_fields(self, field_mapping: AutogradFieldMap) -> Tidy3dBaseModel:
+        if not include_untraced_data_arrays and not path:
+            self._has_tracers = False
+        return dict_ag()
+
+    def _insert_traced_fields(self, field_mapping: AutogradFieldMap) -> Self:
         """Recursively insert a map of paths to autograd-traced fields into a copy of this obj."""
 
         self_dict = self.dict()
 
-        def insert_value(x, path: tuple[str, ...], sub_dict: dict):
+        def insert_value(x, path: tuple[str, ...], sub_dict: dict) -> None:
             """Insert a value into the path into a dictionary."""
             current_dict = sub_dict
             for key in path[:-1]:
@@ -1033,23 +1259,45 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         for path, value in field_mapping.items():
             insert_value(value, path=path, sub_dict=self_dict)
 
-        return self.parse_obj(self_dict)
+        return type(self)._parse_model_dict(self_dict)
 
-    def to_static(self) -> Tidy3dBaseModel:
+    def _serialized_traced_field_keys(
+        self, field_mapping: AutogradFieldMap | None = None
+    ) -> Optional[str]:
+        """Return a serialized, order-independent representation of traced field paths."""
+
+        if field_mapping is None:
+            field_mapping = self._strip_traced_fields()
+        if not field_mapping:
+            return None
+
+        # TODO: remove this deferred import once TracerKeys is decoupled from Tidy3dBaseModel.
+        from tidy3d.components.autograd.field_map import TracerKeys
+
+        tracer_keys = TracerKeys.from_field_mapping(field_mapping)
+        return tracer_keys.json(separators=(",", ":"), ensure_ascii=True)
+
+    def to_static(self) -> Self:
         """Version of object with all autograd-traced fields removed."""
+
+        if self._has_tracers is False:
+            return self
 
         # get dictionary of all traced fields
         field_mapping = self._strip_traced_fields()
 
         # shortcut to just return self if no tracers found, for performance
         if not field_mapping:
+            self._has_tracers = False
             return self
 
         # convert all fields to static values
         field_mapping_static = {key: get_static(val) for key, val in field_mapping.items()}
 
         # insert the static values into a copy of self
-        return self._insert_traced_fields(field_mapping_static)
+        static_self = self._insert_traced_fields(field_mapping_static)
+        static_self._has_tracers = False
+        return static_self
 
     @classmethod
     def add_type_field(cls) -> None:
@@ -1201,3 +1449,81 @@ class Tidy3dBaseModel(pydantic.BaseModel):
         sci_max = to_sci(max_val, common_exponent, precision)
 
         return sci_min, sci_max
+
+
+def _make_lazy_proxy(
+    target_cls: type,
+    on_load: Optional[Callable[[Any], None]] = None,
+) -> type:
+    """
+    Return a lazy-loading proxy subclass of ``target_cls``.
+
+    Parameters
+    ----------
+    target_cls : type
+        Must implement ``dict_from_file`` and ``parse_obj``.
+    on_load : Callable[[Any], None] | None = None
+        A function to call with the fully loaded instance once loaded.
+
+    Returns
+    -------
+    type
+        A class named ``<TargetClsName>Proxy`` with init args:
+        ``(fname, group_path, parse_obj_kwargs)``.
+    """
+
+    proxy_name = f"{target_cls.__name__}Proxy"
+
+    class _LazyProxy(target_cls):
+        def __init__(
+            self,
+            fname: PathLike,
+            group_path: Optional[str],
+            parse_obj_kwargs: Any,
+        ):
+            object.__setattr__(self, "_lazy_fname", Path(fname))
+            object.__setattr__(self, "_lazy_group_path", group_path)
+            object.__setattr__(self, "_lazy_parse_obj_kwargs", dict(parse_obj_kwargs or {}))
+
+        def copy(self, **kwargs: Any):
+            """Return another lazy proxy instead of materializing."""
+            return _LazyProxy(
+                self._lazy_fname,
+                self._lazy_group_path,
+                {**self._lazy_parse_obj_kwargs, **kwargs},
+            )
+
+        def __getattribute__(self, name: str):
+            if name in (
+                "__class__",
+                "__dict__",
+                "__weakref__",
+                "__post_root_validators__",
+                "copy",  # <-- avoid materializing just for copy
+            ) or name.startswith("_lazy_"):
+                return object.__getattribute__(self, name)
+
+            d = object.__getattribute__(self, "__dict__")
+            if "_lazy_fname" in d:  # sentinel: not loaded yet
+                fname = d["_lazy_fname"]
+                group_path = d["_lazy_group_path"]
+                kwargs = d["_lazy_parse_obj_kwargs"]
+
+                model_dict = target_cls.dict_from_file(fname=fname, group_path=group_path)
+                target = target_cls._parse_model_dict(model_dict, **kwargs)
+
+                d.clear()
+                d.update(target.__dict__)
+                object.__setattr__(self, "__class__", target.__class__)
+                object.__setattr__(self, "__fields_set__", set(target.__fields_set__))
+                private_attrs = getattr(target, "__private_attributes__", {}) or {}
+                for attr_name in private_attrs:
+                    object.__setattr__(self, attr_name, getattr(target, attr_name))
+
+                if on_load is not None:
+                    on_load(self)
+
+            return object.__getattribute__(self, name)
+
+    _LazyProxy.__name__ = proxy_name
+    return _LazyProxy

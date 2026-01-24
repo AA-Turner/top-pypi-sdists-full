@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2024, XGBoost Contributors
+ * Copyright 2015-2025, XGBoost Contributors
  * \file data.h
  * \brief The input data structure of xgboost.
  * \author Tianqi Chen
@@ -8,8 +8,8 @@
 #define XGBOOST_DATA_H_
 
 #include <dmlc/base.h>
-#include <dmlc/data.h>
-#include <dmlc/serializer.h>
+#include <dmlc/io.h>          // for Stream
+#include <dmlc/serializer.h>  // for Handler
 #include <xgboost/base.h>
 #include <xgboost/host_device_vector.h>
 #include <xgboost/linalg.h>
@@ -42,13 +42,16 @@ enum class FeatureType : uint8_t { kNumerical = 0, kCategorical = 1 };
 
 enum class DataSplitMode : int { kRow = 0, kCol = 1 };
 
-/*!
- * \brief Meta information about dataset, always sit in memory.
+// Forward declaration of the container used by the meta info.
+class CatContainer;
+
+/**
+ * @brief Meta information about dataset, always sit in memory.
  */
 class MetaInfo {
  public:
   /*! \brief number of data fields in MetaInfo */
-  static constexpr uint64_t kNumField = 12;
+  static constexpr uint64_t kNumField = 13;
 
   /*! \brief number of rows in the data */
   bst_idx_t num_row_{0};  // NOLINT
@@ -100,9 +103,9 @@ class MetaInfo {
    */
   HostDeviceVector<float> feature_weights;
 
-  /*! \brief default constructor */
-  MetaInfo()  = default;
+  MetaInfo();
   MetaInfo(MetaInfo&& that) = default;
+  MetaInfo(MetaInfo const& that) = delete;
   MetaInfo& operator=(MetaInfo&& that) = default;
   MetaInfo& operator=(MetaInfo const& that) = delete;
 
@@ -205,6 +208,16 @@ class MetaInfo {
    * @brief Flag for whether the DMatrix has categorical features.
    */
   bool HasCategorical() const { return has_categorical_; }
+  /**
+   * @brief Getters for categories.
+   */
+  [[nodiscard]] CatContainer const* Cats() const;
+  [[nodiscard]] CatContainer* Cats();
+  [[nodiscard]] std::shared_ptr<CatContainer const>  CatsShared() const;
+  /**
+   * @brief Setter for categories.
+   */
+  void Cats(std::shared_ptr<CatContainer> cats);
 
  private:
   void SetInfoFromHost(Context const* ctx, StringView key, Json arr);
@@ -213,6 +226,8 @@ class MetaInfo {
   /*! \brief argsort of labels */
   mutable std::vector<size_t> label_order_cache_;
   bool has_categorical_{false};
+
+  std::shared_ptr<CatContainer> cats_;
 };
 
 /*! \brief Element from a sparse vector */
@@ -276,7 +291,6 @@ struct BatchParam {
    * @brief The number of batches to pre-fetch for external memory.
    */
   std::int32_t n_prefetch_batches{3};
-
   /**
    * @brief Exact or others that don't need histogram.
    */
@@ -416,7 +430,7 @@ class SparsePage {
    * \return  The maximum number of columns encountered in this input batch. Useful when pushing many adapter batches to work out the total number of columns.
    */
   template <typename AdapterBatchT>
-  uint64_t Push(const AdapterBatchT& batch, float missing, int nthread);
+  bst_idx_t Push(AdapterBatchT const& batch, float missing, std::int32_t nthread);
 
   /*!
    * \brief Push a sparse page
@@ -517,26 +531,36 @@ struct ExtMemConfig {
   // Cache prefix, not used if the cache is in the host memory. (on_host is true)
   std::string cache;
   // Whether the ellpack page is stored in the host memory.
-  bool on_host{true};
+  bool on_host;
+  // Host cache/Total cache for the GPU impl.
+  float cache_host_ratio;
   // Minimum number of of bytes for each ellpack page in cache. Only used for in-host
   // ExtMemQdm.
-  std::int64_t min_cache_page_bytes{0};
+  std::int64_t min_cache_page_bytes;
   // Missing value.
-  float missing{std::numeric_limits<float>::quiet_NaN()};
-  // Maximum number of pages cached in device.
-  std::int64_t max_num_device_pages{0};
+  float missing;
   // The number of CPU threads.
   std::int32_t n_threads{0};
+  // The ratio of the cache that can be compressed. Used for testing.
+  float hw_decomp_ratio{std::numeric_limits<float>::quiet_NaN()};
+  // Fallback to using nvcomp. Used for testing.
+  bool allow_decomp_fallback{false};
 
-  ExtMemConfig() = default;
-  ExtMemConfig(std::string cache, bool on_host, std::int64_t min_cache, float missing,
-               std::int64_t max_num_d, std::int32_t n_threads)
+  ExtMemConfig() = delete;
+  ExtMemConfig(std::string cache, bool on_host, float h_ratio, std::int64_t min_cache,
+               float missing, std::int32_t n_threads)
       : cache{std::move(cache)},
         on_host{on_host},
+        cache_host_ratio{h_ratio},
         min_cache_page_bytes{min_cache},
         missing{missing},
-        max_num_device_pages{max_num_d},
         n_threads{n_threads} {}
+
+  ExtMemConfig& SetParamsForTest(float _hw_decomp_ratio, bool _allow_decomp_fallback) {
+    this->hw_decomp_ratio = _hw_decomp_ratio;
+    this->allow_decomp_fallback = _allow_decomp_fallback;
+    return *this;
+  }
 };
 
 /**
@@ -691,7 +715,14 @@ class DMatrix {
    * @param slice_id Index of the current slice
    * @return DMatrix containing the slice of columns
    */
-  virtual DMatrix *SliceCol(int num_slices, int slice_id) = 0;
+  virtual DMatrix* SliceCol(int num_slices, int slice_id) = 0;
+  /**
+   * @brief Accessor for the string representation of the categories.
+   */
+  [[nodiscard]] CatContainer const* Cats() const { return this->CatsShared().get(); }
+  [[nodiscard]] std::shared_ptr<CatContainer const> CatsShared() const {
+    return this->Info().CatsShared();
+  }
 
  protected:
   virtual BatchSet<SparsePage> GetRowBatches() = 0;

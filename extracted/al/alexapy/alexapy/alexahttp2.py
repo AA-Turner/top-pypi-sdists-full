@@ -11,20 +11,21 @@ https://gitlab.com/keatontaylor/alexapy
 """
 
 import asyncio
-import certifi
-from collections.abc import Coroutine
+import contextlib
 import datetime
 import json
 import logging
 import ssl
-from typing import Any, Callable, Optional
+from collections.abc import Callable, Coroutine
+from typing import Any
 
+import certifi
 import httpx
 
 from alexapy.const import HTTP2_AUTHORITY, HTTP2_DEFAULT
 from alexapy.errors import AlexapyLoginError
 
-from .alexalogin import AlexaLogin  # noqa pylint
+from .alexalogin import AlexaLogin
 
 
 def _create_ssl_context():
@@ -40,21 +41,20 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class HTTP2EchoClient:
-    # pylint: disable=too-many-instance-attributes
     """HTTP2 Client Class for Echo Devices.
 
     Based on code from openHAB:
     https://github.com/Apollon77/alexa-remote/blob/bc687b9e36da7c2318c56b4e1bec677c7198dbd4/alexa-http2push.js
     """
 
-    def __init__(  # pylint: disable=too-many-positional-arguments
+    def __init__(
         self,
         login: AlexaLogin,
         msg_callback: Callable[[Any], Coroutine[Any, Any, None]],
         open_callback: Callable[[], Coroutine[Any, Any, None]],
         close_callback: Callable[[], Coroutine[Any, Any, None]],
         error_callback: Callable[[str], Coroutine[Any, Any, None]],
-        loop: Optional[asyncio.AbstractEventLoop] = None,
+        loop: asyncio.AbstractEventLoop | None = None,
     ) -> None:
         """Init for threading and HTTP2 Push Connection."""
         assert login.session is not None
@@ -115,9 +115,8 @@ class HTTP2EchoClient:
             self.on_close(f"Disconnect detected: {exception_}")
 
     async def on_message(self, message: str) -> None:
-        # pylint: disable=too-many-statements
         """Handle New Message."""
-        reauth_required = "Unable to authenticate the request. Please provide a valid authorization token."
+        reauth_required = "Unable to authenticate the request. Please provide a valid authorization token."  # noqa: E501
         _LOGGER.debug("Received raw message: %s", message)
         for line in message.splitlines():
             if line.startswith("------"):
@@ -129,12 +128,10 @@ class HTTP2EchoClient:
             elif line.startswith("Content-Type:"):
                 continue
             elif line and not line.startswith(self.boundary):
-                try:
+                with contextlib.suppress(json.decoder.JSONDecodeError):
                     asyncio.run_coroutine_threadsafe(
                         self.msg_callback(json.loads(line)), self._loop
                     )
-                except json.decoder.JSONDecodeError:
-                    pass
 
     def on_error(self, error: str = "Unspecified") -> None:
         """Handle HTTP2 Error."""
@@ -154,7 +151,7 @@ class HTTP2EchoClient:
                 else:
                     task.remove_done_callback(self.on_close)
                     task.cancel()
-        except BaseException:  # pylint: disable=broad-except
+        except BaseException:
             pass
         asyncio.run_coroutine_threadsafe(self.close_callback(), self._loop)
 

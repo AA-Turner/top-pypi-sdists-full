@@ -1,36 +1,53 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import MISSING, dataclass, field, fields
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
-from docutils.parsers.rst import directives
 from sphinx.application import Sphinx
 from sphinx.config import Config as _SphinxConfig
 
 from sphinx_needs.data import GraphvizStyleType, NeedsCoreFields
 from sphinx_needs.defaults import DEFAULT_DIAGRAM_TEMPLATE
 from sphinx_needs.logging import get_logger, log_warning
+from sphinx_needs.schema.config import (
+    ExtraLinkSchemaType,
+    ExtraOptionBooleanSchemaType,
+    ExtraOptionIntegerSchemaType,
+    ExtraOptionMultiValueSchemaType,
+    ExtraOptionNumberSchemaType,
+    ExtraOptionSchemaTypes,
+    ExtraOptionStringSchemaType,
+    SchemasFileRootType,
+)
 
 if TYPE_CHECKING:
     from sphinx.util.logging import SphinxLoggerAdapter
     from typing_extensions import NotRequired, Required
 
-    from sphinx_needs.data import NeedsInfoType
     from sphinx_needs.functions.functions import DynamicFunction
+    from sphinx_needs.need_item import NeedItem
 
 
 LOGGER = get_logger(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True, slots=True)
 class ExtraOptionParams:
     """Defines a single extra option for needs"""
 
     description: str
     """A description of the option."""
-    validator: Callable[[str | None], str]
-    """A function to validate the directive option value."""
+    schema: (
+        ExtraOptionStringSchemaType
+        | ExtraOptionBooleanSchemaType
+        | ExtraOptionIntegerSchemaType
+        | ExtraOptionNumberSchemaType
+        | ExtraOptionMultiValueSchemaType
+        | None
+    )
+    """A JSON schema for the option."""
 
 
 class FieldDefault(TypedDict):
@@ -62,15 +79,13 @@ class _Config:
 
     def __init__(self) -> None:
         self._extra_options: dict[str, ExtraOptionParams] = {}
-        self._field_defaults: dict[str, FieldDefault] = {}
         self._functions: dict[str, NeedFunctionsType] = {}
         self._warnings: dict[
-            str, str | Callable[[NeedsInfoType, SphinxLoggerAdapter], bool]
+            str, str | Callable[[NeedItem, SphinxLoggerAdapter], bool]
         ] = {}
 
     def clear(self) -> None:
         self._extra_options = {}
-        self._field_defaults = {}
         self._functions = {}
         self._warnings = {}
 
@@ -91,10 +106,25 @@ class _Config:
         name: str,
         description: str,
         *,
-        validator: Callable[[str | None], str] | None = None,
+        schema: ExtraOptionStringSchemaType
+        | ExtraOptionBooleanSchemaType
+        | ExtraOptionIntegerSchemaType
+        | ExtraOptionNumberSchemaType
+        | ExtraOptionMultiValueSchemaType
+        | None = None,
         override: bool = False,
     ) -> None:
         """Adds an extra option to the configuration."""
+        if name in NeedsCoreFields:
+            from sphinx_needs.exceptions import (
+                NeedsApiConfigWarning,  # avoid circular import
+            )
+
+            raise NeedsApiConfigWarning(
+                f"Cannot add extra option with name {name!r}"
+                + (f" ({description!r})" if description else "")
+                + ", as it is already used as a core field name."
+            )
         if name in self._extra_options:
             if override:
                 log_warning(
@@ -104,23 +134,15 @@ class _Config:
                     None,
                 )
             else:
-                from sphinx_needs.api.exceptions import (
+                from sphinx_needs.exceptions import (
                     NeedsApiConfigWarning,  # avoid circular import
                 )
 
                 raise NeedsApiConfigWarning(f"Option {name} already registered.")
         self._extra_options[name] = ExtraOptionParams(
-            description, directives.unchanged if validator is None else validator
+            description=description,
+            schema=schema,
         )
-
-    @property
-    def field_defaults(self) -> Mapping[str, FieldDefault]:
-        """Default values for need fields."""
-        return self._field_defaults
-
-    @field_defaults.setter
-    def field_defaults(self, value: dict[str, FieldDefault]) -> None:
-        self._field_defaults = value
 
     @property
     def functions(self) -> Mapping[str, NeedFunctionsType]:
@@ -142,7 +164,7 @@ class _Config:
     @property
     def warnings(
         self,
-    ) -> Mapping[str, str | Callable[[NeedsInfoType, SphinxLoggerAdapter], bool]]:
+    ) -> Mapping[str, str | Callable[[NeedItem, SphinxLoggerAdapter], bool]]:
         """Warning handlers that are added by the user,
         then called at the end of the build.
         """
@@ -151,7 +173,7 @@ class _Config:
     def add_warning(
         self,
         name: str,
-        filter: str | Callable[[NeedsInfoType, SphinxLoggerAdapter], bool],
+        filter: str | Callable[[NeedItem, SphinxLoggerAdapter], bool],
     ) -> None:
         """Adds a warning handler to the configuration."""
         self._warnings[name] = filter
@@ -202,6 +224,9 @@ class ExternalSource(TypedDict, total=False):
     css_class: str
     """Added as the `external_css` field for each need item (optional)"""
 
+    allow_type_coercion: bool
+    """If true, values will be coerced to the expected type where possible (optional, default: True)."""
+
 
 GlobalOptionsType = dict[str, Any]
 """Default values given to specified fields of needs
@@ -240,6 +265,14 @@ class LinkOptionsType(TypedDict, total=False):
     """Used for needflow. Default: '->'"""
     allow_dead_links: bool
     """If True, add a 'forbidden' class to dead links"""
+    schema: NotRequired[ExtraLinkSchemaType]
+    """
+    A JSON schema for the link option.
+    
+    If given, the schema will apply to all needs that use this link option.
+    The schema is applied locally on unresolved links, i.e. on the list of string ids.
+    For more granular control and graph traversal, use the `needs_schema_definitions` configuration.
+    """
 
 
 class NeedType(TypedDict):
@@ -263,6 +296,13 @@ class NeedExtraOption(TypedDict):
     name: str
     description: NotRequired[str]
     """A description of the option."""
+    schema: NotRequired[ExtraOptionSchemaTypes]
+    """
+    A JSON schema definition for the option.
+    
+    If given, the schema will apply to all needs that use this option.
+    For more granular control, use the `needs_schema_definitions` configuration.
+    """
 
 
 class NeedStatusesOption(TypedDict):
@@ -273,6 +313,33 @@ class NeedStatusesOption(TypedDict):
 class NeedTagsOption(TypedDict):
     name: str
     description: NotRequired[str]
+
+
+def _abs_path(value: Any, base: Path) -> Any:
+    """Convert a possibly relative path to an absolute path,
+    based on the given base path.
+    """
+    if isinstance(value, str | Path):
+        path = Path(value)
+        if not path.is_absolute():
+            path = base / path
+            return str(path.resolve())
+    return value
+
+
+def _abs_path_external_sources(
+    value: list[ExternalSource], base: Path
+) -> list[ExternalSource]:
+    """Convert possibly relative paths in external sources to absolute paths,
+    based on the given base path.
+    """
+    new_sources: list[ExternalSource] = []
+    for source in value:
+        new_source = source.copy()
+        if "json_path" in source:
+            new_source["json_path"] = _abs_path(source["json_path"], base)
+        new_sources.append(new_source)
+    return new_sources
 
 
 @dataclass
@@ -296,7 +363,6 @@ class NeedsSphinxConfig:
         if name.startswith("__") or name in (
             "_config",
             "extra_options",
-            "field_defaults",
             "functions",
             "warnings",
         ):
@@ -309,7 +375,6 @@ class NeedsSphinxConfig:
         if name.startswith("__") or name in (
             "_config",
             "extra_options",
-            "field_defaults",
             "functions",
             "warnings",
         ):
@@ -347,6 +412,24 @@ class NeedsSphinxConfig:
         return {name[1:] if name.startswith("_") else name for name in names}
 
     @classmethod
+    def convert_field_value(
+        cls, name: str, value: Any, base_path: Path, prefix: str = ""
+    ) -> Any:
+        """Convert a config field value from toml, if a converter is defined."""
+        try:
+            _field = next(
+                field
+                for field in fields(cls)
+                if field.name in (f"{prefix}{name}", f"_{prefix}{name}")
+            )
+        except StopIteration:
+            raise ValueError(f"Unknown config field: {name!r}")
+        converter = _field.metadata.get("toml_convert")
+        if converter:
+            return converter(value, base_path)
+        return value
+
+    @classmethod
     def get_default(cls, name: str) -> Any:
         """Get the default value for a config item."""
         _field = next(
@@ -365,6 +448,61 @@ class NeedsSphinxConfig:
         default_factory=list, metadata={"rebuild": "env", "types": (list,)}
     )
     """Path to the root table in the toml file to load configuration from."""
+
+    schema_validation_enabled: bool = field(
+        default=True,
+        metadata={"rebuild": "env", "types": (bool,)},
+    )
+    """Enable schema validation for needs."""
+    schema_definitions: SchemasFileRootType = field(
+        default_factory=lambda: cast(SchemasFileRootType, {}),
+        metadata={"rebuild": "env", "types": (dict,)},
+    )
+    """Schema definitions to write complex validations based on selectors."""
+
+    schema_definitions_from_json: str | None = field(
+        default=None,
+        metadata={
+            "rebuild": "env",
+            "types": (str, type(None)),
+            "toml_convert": _abs_path,
+        },
+    )
+    """Path to a JSON file to load the schemas from."""
+
+    schema_debug_active: bool = field(
+        default=False,
+        metadata={"rebuild": "env", "types": (bool,)},
+    )
+    """Activate the debug mode for schema validation to dump JSON/schema files and messages."""
+
+    schema_debug_path: str = field(
+        default="schema_debug",
+        metadata={"rebuild": "env", "types": (str,), "toml_convert": _abs_path},
+    )
+    """
+    Path to the directory where the debug files are stored.
+
+    If the path is relative, the caller needs to make sure
+    it gets converted to a use case specific absolute path, e.g.
+    with confdir for Sphinx.
+    """
+
+    schema_debug_ignore: list[str] = field(
+        default_factory=lambda: [
+            "extra_option_success",
+            "extra_link_success",
+            "select_success",
+            "select_fail",
+            "local_success",
+            "network_local_success",
+        ],
+        metadata={
+            "rebuild": "env",
+            "types": (list,),
+        },
+    )
+    """List of scenarios that are ignored for dumping debug information."""
 
     types: list[NeedType] = field(
         default_factory=lambda: [
@@ -437,7 +575,10 @@ class NeedsSphinxConfig:
         default=True, metadata={"rebuild": "html", "types": (bool,)}
     )
     """Show the link ID in the need incoming/outgoing roles."""
-    file: None | str = field(default=None, metadata={"rebuild": "html", "types": ()})
+    file: None | str = field(
+        default=None,
+        metadata={"rebuild": "html", "types": (), "toml_convert": _abs_path},
+    )
     """Path to the needs builder input file."""
     table_columns: str = field(
         default="ID;TITLE;STATUS;TYPE;OUTGOING;TAGS",
@@ -509,11 +650,6 @@ class NeedsSphinxConfig:
     )
     """Default values given to specified fields of needs"""
 
-    @property
-    def field_defaults(self) -> Mapping[str, FieldDefault]:
-        """Default values for need fields."""
-        return _NEEDS_CONFIG.field_defaults
-
     duration_option: str = field(
         default="duration", metadata={"rebuild": "html", "types": (str,)}
     )
@@ -535,7 +671,8 @@ class NeedsSphinxConfig:
     )
     """If given, only the defined tags are allowed."""
     css: str = field(
-        default="modern.css", metadata={"rebuild": "html", "types": (str,)}
+        default="modern.css",
+        metadata={"rebuild": "html", "types": (str,), "toml_convert": _abs_path},
     )
     """Path of css file, which shall be used for need style"""
     part_prefix: str = field(
@@ -550,7 +687,7 @@ class NeedsSphinxConfig:
         default=True, metadata={"rebuild": "html", "types": (bool,)}
     )
     """DEPRECATED: Use ``suppress_warnings = ["needs.link_outgoing"]`` instead."""
-    filter_data: dict[str, Any] = field(
+    filter_data: dict[str, str] = field(
         default_factory=dict, metadata={"rebuild": "html", "types": ()}
     )
     """Additional context data for filters."""
@@ -586,7 +723,7 @@ class NeedsSphinxConfig:
     @property
     def warnings(
         self,
-    ) -> Mapping[str, str | Callable[[NeedsInfoType, SphinxLoggerAdapter], bool]]:
+    ) -> Mapping[str, str | Callable[[NeedItem, SphinxLoggerAdapter], bool]]:
         """Defines warnings to be checked at the end of the build (name -> string filter / filter function).
 
         These handlers can be added via sphinx configuration,
@@ -619,7 +756,8 @@ class NeedsSphinxConfig:
     )
     """Additional configuration for needflow diagrams (graphviz engine)."""
     template_folder: str = field(
-        default="needs_templates/", metadata={"rebuild": "html", "types": (str,)}
+        default="needs_templates/",
+        metadata={"rebuild": "html", "types": (str,), "toml_convert": _abs_path},
     )
     """Path to the template folder for needs rendering templates."""
     services: dict[str, dict[str, Any]] = field(
@@ -635,7 +773,12 @@ class NeedsSphinxConfig:
     )
     """Mapping of keys that can be used as needimport arguments and replaced by the value."""
     external_needs: list[ExternalSource] = field(
-        default_factory=list, metadata={"rebuild": "html", "types": (list,)}
+        default_factory=list,
+        metadata={
+            "rebuild": "html",
+            "types": (list,),
+            "toml_convert": _abs_path_external_sources,
+        },
     )
     """List of external sources to load needs from."""
     builder_filter: str = field(

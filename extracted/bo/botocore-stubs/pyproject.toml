@@ -1,16 +1,16 @@
 [project]
 name = "botocore-stubs"
-version = "1.40.33"
+version = "1.42.34"
 requires-python = ">=3.9"
 description = "Type annotations and code completion for botocore"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 keywords = ["botocore", "type-annotations", "pyright", "mypy", "boto3"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
-    "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -32,7 +32,7 @@ botocore = ["botocore"]
 
 [dependency-groups]
 dev = [
-    "setuptools",
+    "setuptools>77.0.0",
     "awscrt",
     "botocore>=1.35.0",
     "mypy",
@@ -63,9 +63,6 @@ Issues = "https://github.com/youtype/botocore-stubs/issues"
 [build-system]
 requires = ['setuptools']
 build-backend = 'setuptools.build_meta'
-
-[tool.setuptools]
-packages = ["botocore-stubs"]
 
 [tool.pyright]
 include = ["botocore-stubs"]

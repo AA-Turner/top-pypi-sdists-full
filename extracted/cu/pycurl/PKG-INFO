@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pycurl
-Version: 7.45.6
+Version: 7.45.7
 Summary: PycURL -- A Python Interface To The cURL library
 Home-page: http://pycurl.io/
 Author: Kjetil Jacobsen, Markus F.X.J. Oberhumer, Oleg Pudeyev
@@ -18,15 +18,12 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: File Transfer Protocol (FTP)
 Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Python: >=3.5
@@ -62,7 +59,7 @@ libcurl, including:
 Requirements
 ------------
 
-- Python 3.5-3.13.
+- Python 3.9-3.14.
 - libcurl 7.19.0 or better.
 
 

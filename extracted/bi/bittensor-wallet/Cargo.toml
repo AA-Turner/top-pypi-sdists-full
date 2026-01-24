@@ -1,6 +1,6 @@
 [package]
 name = "bittensor_wallet"
-version = "4.0.0"
+version = "4.0.1"
 edition = "2021"
 readme = "README.md"
 
@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 sp-core = "34.0.0"
-pyo3 = { version = "0.22.4", features = ["gil-refs"] }
+pyo3 = { version = "0.26.0", features = ["generate-import-lib"] }
 bip39 = { version = "2.0.0", features = ["rand"] }
 hex = "0.4.3"
 colored = "2.1.0"

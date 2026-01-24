@@ -18,7 +18,6 @@ necessary to bring the current configuration to its desired end-state is
 created.
 """
 
-from ansible.module_utils.six import iteritems
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.rm_base.resource_module import (
     ResourceModule,
 )
@@ -105,16 +104,16 @@ class Hsrp_interfaces(ResourceModule):
 
         # if state is deleted, empty out wantd and set haved to wantd
         if self.state == "deleted":
-            haved = {k: v for k, v in iteritems(haved) if k in wantd or not wantd}
+            haved = {k: v for k, v in haved.items() if k in wantd or not wantd}
             wantd = {}
 
         # remove superfluous config for overridden and deleted
         if self.state in ["overridden", "deleted"]:
-            for k, have in iteritems(haved):
+            for k, have in haved.items():
                 if k not in wantd:
                     self._compare(want={}, have=have)
 
-        for k, want in iteritems(wantd):
+        for k, want in wantd.items():
             self._compare(want=want, have=haved.pop(k, {}))
 
     def _compare(self, want, have):
@@ -124,6 +123,8 @@ class Hsrp_interfaces(ResourceModule):
         for the Hsrp_interfaces network resource.
         """
         begin = len(self.commands)
+
+        self.handle_defaults(want, have)
         self.compare(parsers=self.parsers, want=want, have=have)
         self._compare_complex_attrs(
             want.get("standby_options", {}),
@@ -161,9 +162,15 @@ class Hsrp_interfaces(ResourceModule):
         for not_req_grp in have_group.values():
             self.commands.append(self._tmplt.render(not_req_grp, "group_no", True))
 
+    def handle_defaults(self, want, have):
+        if not want.get("standby", {}).get("version") and want.get("standby"):
+            want["standby"]["version"] = 1
+        if not have.get("standby", {}).get("version") and have.get("standby"):
+            have["standby"]["version"] = 1
+
     def list_to_dict(self, param):
         if param:
-            for _k, val in iteritems(param):
+            for _k, val in param.items():
                 temp_standby_grp = {}
 
                 # handle the deprecated attribute, only appliacble for want
@@ -176,6 +183,9 @@ class Hsrp_interfaces(ResourceModule):
                         val["standby"]["bfd"] = False
 
                 for standby_grp in val.get("standby_options", {}):
+                    if not standby_grp.get("priority"):
+                        standby_grp["priority"] = {"level": 100}
+
                     temp_ip = {}
                     if standby_grp.get("ip"):
                         for ips in standby_grp.get("ip", {}):

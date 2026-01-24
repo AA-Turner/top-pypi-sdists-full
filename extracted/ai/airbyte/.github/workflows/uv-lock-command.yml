@@ -1,0 +1,147 @@
+name: On-Demand UV Lock
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'PR Number'
+        type: string
+        required: true
+      comment-id:
+        description: 'Comment ID (Optional)'
+        type: string
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  AIRBYTE_ANALYTICS_ID: ${{ vars.AIRBYTE_ANALYTICS_ID }}
+
+jobs:
+  uv-lock-on-demand:
+    name: On-Demand UV Lock
+    strategy:
+      matrix:
+        python-version: [
+          '3.10',
+        ]
+        os: [
+          Ubuntu,
+        ]
+      fail-fast: false
+
+    runs-on: "${{ matrix.os }}-latest"
+    steps:
+
+    # Custom steps to fetch the PR and checkout the code:
+    - name: Authenticate as GitHub App
+      uses: actions/create-github-app-token@v2
+      id: get-app-token
+      with:
+        owner: "airbytehq"
+        repositories: "PyAirbyte"
+        app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+        private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+    - name: Checkout Airbyte
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+      with:
+        # Important that this is set so that CI checks are triggered again
+        # Without this we would be forever waiting on required checks to pass
+        token: ${{ steps.get-app-token.outputs.token }}
+
+    - name: Checkout PR (${{ github.event.inputs.pr }})
+      uses: dawidd6/action-checkout-pr@v1
+      with:
+        pr: ${{ github.event.inputs.pr }}
+
+    - name: Check for blank or missing uv.lock
+      run: |
+        if [ ! -s "uv.lock" ]; then
+          echo "uv.lock missing or blank. Fetching from main branch..."
+          git fetch origin main
+          git checkout origin/main -- uv.lock
+          echo "Lock file restored from main."
+        else
+          echo "uv.lock found. Proceeding."
+        fi
+
+    - name: Resolve workflow variables
+      id: vars
+      uses: aaronsteers/resolve-ci-vars-action@v0
+
+    - name: Append comment with job run link
+      id: first-comment-action
+      uses: peter-evans/create-or-update-comment@v5
+      with:
+        comment-id: ${{ github.event.inputs.comment-id }}
+        issue-number: ${{ github.event.inputs.pr }}
+        body: |
+
+          > `uv lock` job started... [Check job output.][1]
+
+          [1]: ${{ steps.vars.outputs.run-url }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@f06b870e0a91d23284a3013acc55e6f88ab4b904 # v7
+      with:
+        version: "latest"
+        python-version: ${{ matrix.python-version }}
+
+    # Run `uv lock`
+
+    - name: Run `uv lock`
+      run: uv lock
+
+    # Check for changes in git
+
+    - name: Check for changes
+      id: git-diff
+      run: |
+        git diff --quiet && echo "No changes to commit" || echo "changes=true" >> $GITHUB_OUTPUT
+      shell: bash
+
+    # Commit changes (if any)
+
+    - name: Commit changes
+      if: steps.git-diff.outputs.changes == 'true'
+      run: |
+        git config --global user.name "octavia-squidington-iii"
+        git config --global user.email "contact@airbyte.com"
+        git add .
+        git commit -m "Auto-commit `uv lock` changes"
+
+    - name: Push changes to '(${{ steps.vars.outputs.pr-source-repo-name-full }})'
+      if: steps.git-diff.outputs.changes == 'true'
+      run: |
+        git remote add contributor https://github.com/${{ steps.vars.outputs.pr-source-repo-name-full }}.git
+        git push contributor HEAD:${{ steps.vars.outputs.pr-source-git-branch }}
+
+    - name: Append success comment
+      uses: peter-evans/create-or-update-comment@v5
+      if: steps.git-diff.outputs.changes == 'true'
+      with:
+        comment-id: ${{ steps.first-comment-action.outputs.comment-id }}
+        reactions: hooray
+        body: |
+          > `uv lock` applied successfully.
+
+    - name: Append success comment (no-op)
+      uses: peter-evans/create-or-update-comment@v5
+      if: steps.git-diff.outputs.changes != 'true'
+      with:
+        comment-id: ${{ steps.first-comment-action.outputs.comment-id }}
+        reactions: "+1"
+        body: |
+          > Job completed successfully (no changes).
+
+    - name: Append failure comment
+      uses: peter-evans/create-or-update-comment@v5
+      if: failure()
+      with:
+        comment-id: ${{ steps.first-comment-action.outputs.comment-id }}
+        reactions: confused
+        body: |
+          > Job failed.

@@ -136,6 +136,7 @@ class SwiftOrderSubscriber:
             None,
         ],
         accept_sanitized: bool = False,
+        accept_deposit_trades: bool = False,
     ) -> None:
         print("Starting subscription process")
         self.on_order = on_order
@@ -169,6 +170,10 @@ class SwiftOrderSubscriber:
                                 order = message["order"]
                                 if order.get("will_sanitize") and not accept_sanitized:
                                     continue
+
+                                if message.get("deposit") and not accept_deposit_trades:
+                                    continue
+                                order["deposit"] = message["deposit"]
 
                                 signed_order_params_buf = bytes.fromhex(
                                     order["order_message"]

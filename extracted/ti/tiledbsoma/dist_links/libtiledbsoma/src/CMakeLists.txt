@@ -30,9 +30,11 @@ set_property(TARGET TILEDBSOMA_NANOARROW_OBJECT PROPERTY POSITION_INDEPENDENT_CO
 add_library(TILEDB_SOMA_OBJECTS OBJECT
   ${CMAKE_CURRENT_SOURCE_DIR}/reindexer/reindexer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/managed_query.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/soma/coordinate_value_filters.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_coordinates.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_array.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_group.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_factory.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_object.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_column.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_attribute.cc
@@ -52,6 +54,8 @@ add_library(TILEDB_SOMA_OBJECTS OBJECT
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_transformers.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/array_buffers.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/column_buffer.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/tiledb_adapter/value_filter.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/tiledb_adapter/platform_config.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/arrow_adapter.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/logger.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/stats.cc
@@ -199,6 +203,7 @@ endif()
 #   ${CMAKE_CURRENT_SOURCE_DIR}/cpp_api/soma_point_cloud_dataframe.h
 #   ${CMAKE_CURRENT_SOURCE_DIR}/cpp_api/soma_multiscale_image.h
 #   ${CMAKE_CURRENT_SOURCE_DIR}/cpp_api/soma_object.h
+#   ${CMAKE_CURRENT_SOURCE_DIR}/cpp_api/soma_factory.h
 #   ${CMAKE_CURRENT_SOURCE_DIR}/cpp_api/soma_sparse_ndarray.h
 #   ${CMAKE_CURRENT_SOURCE_DIR}/cpp_api/logger_public.h
 # )
@@ -208,6 +213,7 @@ install(FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/logger_public.h
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_context.h
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/managed_query.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/soma/coordinate_value_filters.h
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_coordinates.h
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/array_buffers.h
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/column_buffer.h
@@ -228,6 +234,7 @@ install(FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_point_cloud_dataframe.h
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_multiscale_image.h
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_object.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_factory.h
   ${CMAKE_CURRENT_SOURCE_DIR}/soma/soma_transformers.h
   DESTINATION "include/tiledbsoma/soma"
 )
@@ -238,8 +245,19 @@ install(FILES
 )
 
 install(FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/common/soma_column_selection.h
+  DESTINATION "include/tiledbsoma/common/"
+)
+
+install(FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/tiledbsoma/tiledbsoma
   DESTINATION "include/tiledbsoma"
+)
+
+install(FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/tiledb_adapter/value_filter.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/tiledb_adapter/platform_config.h
+  DESTINATION "include/tiledbsoma/tiledb_adapter"
 )
 
 install(FILES

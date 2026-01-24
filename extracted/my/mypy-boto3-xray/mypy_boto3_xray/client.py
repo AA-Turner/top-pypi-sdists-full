@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -108,12 +109,6 @@ from .type_defs import (
     UpdateTraceSegmentDestinationResultTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -124,17 +119,17 @@ __all__ = ("XRayClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InvalidPolicyRevisionIdException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    LockoutPreventionException: Type[BotocoreClientError]
-    MalformedPolicyDocumentException: Type[BotocoreClientError]
-    PolicyCountLimitExceededException: Type[BotocoreClientError]
-    PolicySizeLimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    RuleLimitExceededException: Type[BotocoreClientError]
-    ThrottledException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InvalidPolicyRevisionIdException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    LockoutPreventionException: type[BotocoreClientError]
+    MalformedPolicyDocumentException: type[BotocoreClientError]
+    PolicyCountLimitExceededException: type[BotocoreClientError]
+    PolicySizeLimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    RuleLimitExceededException: type[BotocoreClientError]
+    ThrottledException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
 
 
 class XRayClient(BaseClient):
@@ -185,7 +180,7 @@ class XRayClient(BaseClient):
 
     def cancel_trace_retrieval(
         self, **kwargs: Unpack[CancelTraceRetrievalRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels an ongoing trace retrieval job initiated by
         <code>StartTraceRetrieval</code> using the provided
@@ -213,7 +208,7 @@ class XRayClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_xray/client/#create_sampling_rule)
         """
 
-    def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> Dict[str, Any]:
+    def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a group resource.
 
@@ -223,7 +218,7 @@ class XRayClient(BaseClient):
 
     def delete_resource_policy(
         self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a resource policy from the target Amazon Web Services account.
 
@@ -464,7 +459,7 @@ class XRayClient(BaseClient):
 
     def put_telemetry_records(
         self, **kwargs: Unpack[PutTelemetryRecordsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Used by the Amazon Web Services X-Ray daemon to upload telemetry.
 
@@ -493,7 +488,7 @@ class XRayClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_xray/client/#start_trace_retrieval)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Applies tags to an existing Amazon Web Services X-Ray group or sampling rule.
 
@@ -501,7 +496,7 @@ class XRayClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_xray/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from an Amazon Web Services X-Ray group or sampling rule.
 

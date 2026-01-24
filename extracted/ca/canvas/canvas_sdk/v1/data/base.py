@@ -54,6 +54,34 @@ class IdentifiableModel(Model):
     id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 
 
+class TimestampedModel(Model):
+    """A model that includes created and modified timestamps."""
+
+    class Meta:
+        abstract = True
+
+    created = models.DateTimeField(auto_now_add=True)
+    modified = models.DateTimeField(auto_now=True)
+
+
+class AuditedModel(TimestampedModel):
+    """A model that includes auditing fields."""
+
+    class Meta:
+        abstract = True
+
+    originator = models.ForeignKey(
+        "v1.CanvasUser", on_delete=models.DO_NOTHING, null=True, related_name="+"
+    )
+    committer = models.ForeignKey(
+        "v1.CanvasUser", on_delete=models.DO_NOTHING, null=True, related_name="+"
+    )
+    entered_in_error = models.ForeignKey(
+        "v1.CanvasUser", on_delete=models.DO_NOTHING, null=True, related_name="+"
+    )
+    deleted = models.BooleanField(default=False)
+
+
 class BaseModelManager(models.Manager):
     """A base manager for models."""
 
@@ -68,16 +96,27 @@ class BaseQuerySet(models.QuerySet):
     pass
 
 
-class QuerySetProtocol(Protocol):
-    """A typing protocol for use in mixins into models.QuerySet-inherited classes."""
+if TYPE_CHECKING:
+    # For type checking: Define the Protocol with method signatures
+    class QuerySetProtocol(Protocol):
+        """A typing protocol for use in mixins into models.QuerySet-inherited classes."""
 
-    def filter(self, *args: Any, **kwargs: Any) -> Self:
-        """Django's models.QuerySet filter method."""
-        ...
+        def filter(self, *args: Any, **kwargs: Any) -> Self:
+            """Django's models.QuerySet filter method."""
+            ...
 
-    def distinct(self) -> Self:
-        """Django's models.QuerySet distinct method."""
-        ...
+        def distinct(self) -> Self:
+            """Django's models.QuerySet distinct method."""
+            ...
+else:
+    # At runtime: Empty class that doesn't shadow Django's methods
+    class QuerySetProtocol:
+        """A typing protocol for use in mixins into models.QuerySet-inherited classes.
+
+        This Protocol is intentionally empty at runtime to avoid shadowing Django's
+        QuerySet methods in the MRO. The method signatures are only defined when
+        type checking (see TYPE_CHECKING block above).
+        """
 
 
 class ValueSetLookupQuerySetProtocol(QuerySetProtocol):
@@ -209,25 +248,25 @@ class TimeframeLookupQuerySetMixin(TimeframeLookupQuerySetProtocol):
         )
 
 
-class CommittableQuerySet(BaseQuerySet, CommittableQuerySetMixin):
+class CommittableQuerySet(CommittableQuerySetMixin, BaseQuerySet):
     """A queryset for committable objects."""
 
     pass
 
 
-class ValueSetLookupQuerySet(BaseQuerySet, ValueSetLookupQuerySetMixin):
+class ValueSetLookupQuerySet(ValueSetLookupQuerySetMixin, BaseQuerySet):
     """A class that includes methods for looking up value sets."""
 
     pass
 
 
-class ValueSetLookupByNameQuerySet(BaseQuerySet, ValueSetLookupByNameQuerySetMixin):
+class ValueSetLookupByNameQuerySet(ValueSetLookupByNameQuerySetMixin, BaseQuerySet):
     """A class that includes methods for looking up value sets by name."""
 
     pass
 
 
-class ValueSetTimeframeLookupQuerySet(ValueSetLookupQuerySet, TimeframeLookupQuerySetMixin):
+class ValueSetTimeframeLookupQuerySet(TimeframeLookupQuerySetMixin, ValueSetLookupQuerySet):
     """A class that includes methods for looking up value sets and using timeframes."""
 
     pass

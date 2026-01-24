@@ -21,12 +21,16 @@ __all__ = [
     "Airflow",
     "ADF",
     "BI",
+    "Semantic",
     "FlowDataset",
     "NoSQL",
+    "Partial",
     "Dbt",
     "Fivetran",
     "DataContract",
     "DataQuality",
+    "PartialV01",
+    "PartialV02",
     "AI",
     "Resource",
     "FlowField",
@@ -52,19 +56,27 @@ __all__ = [
     "AdfLinkedservice",
     "AdfActivity",
     "PowerBI",
+    "Fabric",
     "CosmosMongoDB",
     "DocumentDB",
+    "PartialField",
+    "PartialObject",
     "DbtModelColumn",
     "DbtTest",
     "DbtModel",
+    "DbtSeed",
     "DbtMetric",
     "DbtSource",
-    "DbtSeed",
     "FivetranConnector",
     "Anomalo",
     "MonteCarlo",
+    "DataQualityRuleTemplate",
     "Metric",
+    "DataQualityRule",
     "Soda",
+    "PartialV01Field",
+    "PartialV02Field",
+    "PartialV02Object",
     "AIApplication",
     "AIModelVersion",
     "AIModel",
@@ -85,9 +97,10 @@ __all__ = [
     "SnowflakeStage",
     "DatabricksUnityCatalogTag",
     "SnowflakeStream",
-    "Database",
     "CalculationView",
+    "Database",
     "Procedure",
+    "Databricks",
     "SnowflakeTag",
     "MatillionGroup",
     "MatillionJob",
@@ -114,6 +127,18 @@ __all__ = [
     "PowerBIDataset",
     "PowerBIApp",
     "PowerBIPage",
+    "FabricVisual",
+    "FabricDashboard",
+    "FabricDataflow",
+    "FabricActivity",
+    "FabricPage",
+    "FabricWorkspace",
+    "FabricDataPipeline",
+    "FabricSemanticModelTable",
+    "FabricSemanticModelTableColumn",
+    "FabricDataflowEntityColumn",
+    "FabricReport",
+    "FabricSemanticModel",
     "CosmosMongoDBCollection",
     "CosmosMongoDBAccount",
     "CosmosMongoDBDatabase",
@@ -131,6 +156,10 @@ __all__ = [
     "SnowflakeAIModelContext",
     "DatabricksAIModelContext",
     "SnowflakeDynamicTable",
+    "DatabricksMetricView",
+    "BigqueryRoutine",
+    "DatabricksVolume",
+    "DatabricksVolumePath",
     "Task",
     "Form",
     "DataSet",
@@ -170,6 +199,7 @@ __all__ = [
     "AWS",
     "BusinessPolicyIncident",
     "DbtColumnProcess",
+    "AtlanApp",
     "SapErpTable",
     "SapErpColumn",
     "SapErpCdsView",
@@ -195,16 +225,27 @@ __all__ = [
     "Cognos",
     "Superset",
     "Qlik",
+    "SemanticDimension",
+    "SemanticEntity",
+    "SemanticModel",
+    "SemanticField",
+    "SemanticMeasure",
     "Kafka",
     "AzureServiceBus",
     "Cassandra",
     "DynamoDB",
     "MongoDB",
     "DbtTag",
+    "DbtDimension",
+    "DbtMeasure",
+    "DbtSemanticModel",
+    "DbtEntity",
     "S3",
     "ADLS",
     "GCS",
     "DatabricksNotebook",
+    "PartialV01Object",
+    "SageMakerUnifiedStudio",
     "Dataverse",
     "Cognite",
     "Salesforce",
@@ -214,9 +255,9 @@ __all__ = [
     "CubeDimension",
     "CubeField",
     "CustomEntity",
+    "Dremio",
     "BigqueryTag",
     "Snowflake",
-    "Databricks",
     "APISpec",
     "APIQuery",
     "APIObject",
@@ -224,6 +265,8 @@ __all__ = [
     "APIField",
     "SourceTag",
     "DataStudioAsset",
+    "AtlanAppDeployment",
+    "AtlanAppInstalled",
     "PresetChart",
     "PresetDataset",
     "PresetDashboard",
@@ -341,12 +384,18 @@ __all__ = [
     "CassandraKeyspace",
     "DynamoDBTable",
     "S3Bucket",
+    "S3Prefix",
     "S3Object",
     "ADLSAccount",
     "ADLSContainer",
     "ADLSObject",
     "GCSObject",
     "GCSBucket",
+    "SageMakerUnifiedStudioProject",
+    "SageMakerUnifiedStudioAsset",
+    "SageMakerUnifiedStudioSubscribedAsset",
+    "SageMakerUnifiedStudioPublishedAsset",
+    "SageMakerUnifiedStudioAssetSchema",
     "DataverseAttribute",
     "DataverseEntity",
     "CogniteEvent",
@@ -360,13 +409,19 @@ __all__ = [
     "SalesforceOrganization",
     "SalesforceDashboard",
     "SalesforceReport",
+    "DremioVirtualDataset",
+    "DremioColumn",
+    "DremioSpace",
+    "DremioPhysicalDataset",
+    "DremioFolder",
+    "DremioSource",
+    "DatabricksExternalLocation",
+    "DatabricksExternalLocationPath",
     "QlikStream",
     "AzureEventHub",
     "AzureEventHubConsumerGroup",
     "DynamoDBLocalSecondaryIndex",
     "DynamoDBGlobalSecondaryIndex",
-    "alpha_DQRuleTemplate",
-    "alpha_DQRule",
     "IndistinctAsset",
 ]
 
@@ -393,6 +448,9 @@ from .anaplan_system_dimension import AnaplanSystemDimension
 from .anaplan_view import AnaplanView
 from .anaplan_workspace import AnaplanWorkspace
 from .app_workflow_run import AppWorkflowRun
+from .atlan_app import AtlanApp
+from .atlan_app_deployment import AtlanAppDeployment
+from .atlan_app_installed import AtlanAppInstalled
 from .auth_service import AuthService
 from .azure import Azure
 from .azure_event_hub import AzureEventHub
@@ -449,8 +507,6 @@ from .core.adf_pipeline import AdfPipeline
 from .core.airflow import Airflow
 from .core.airflow_dag import AirflowDag
 from .core.airflow_task import AirflowTask
-from .core.alpha__d_q_rule import alpha_DQRule
-from .core.alpha__d_q_rule_template import alpha_DQRuleTemplate
 from .core.anomalo import Anomalo
 from .core.anomalo_check import AnomaloCheck
 from .core.app import App
@@ -463,6 +519,7 @@ from .core.atlas_glossary_term import AtlasGlossaryTerm
 from .core.auth_policy import AuthPolicy
 from .core.b_i import BI
 from .core.b_i_process import BIProcess
+from .core.bigquery_routine import BigqueryRoutine
 from .core.calculation_view import CalculationView
 from .core.catalog import Catalog
 from .core.column import Column
@@ -476,10 +533,16 @@ from .core.data_domain import DataDomain
 from .core.data_mesh import DataMesh
 from .core.data_product import DataProduct
 from .core.data_quality import DataQuality
+from .core.data_quality_rule import DataQualityRule
+from .core.data_quality_rule_template import DataQualityRuleTemplate
 from .core.database import Database
+from .core.databricks import Databricks
 from .core.databricks_a_i_model_context import DatabricksAIModelContext
 from .core.databricks_a_i_model_version import DatabricksAIModelVersion
+from .core.databricks_metric_view import DatabricksMetricView
 from .core.databricks_unity_catalog_tag import DatabricksUnityCatalogTag
+from .core.databricks_volume import DatabricksVolume
+from .core.databricks_volume_path import DatabricksVolumePath
 from .core.dbt import Dbt
 from .core.dbt_metric import DbtMetric
 from .core.dbt_model import DbtModel
@@ -491,6 +554,19 @@ from .core.document_d_b import DocumentDB
 from .core.document_d_b_collection import DocumentDBCollection
 from .core.document_d_b_database import DocumentDBDatabase
 from .core.dynamo_d_b_secondary_index import DynamoDBSecondaryIndex
+from .core.fabric import Fabric
+from .core.fabric_activity import FabricActivity
+from .core.fabric_dashboard import FabricDashboard
+from .core.fabric_data_pipeline import FabricDataPipeline
+from .core.fabric_dataflow import FabricDataflow
+from .core.fabric_dataflow_entity_column import FabricDataflowEntityColumn
+from .core.fabric_page import FabricPage
+from .core.fabric_report import FabricReport
+from .core.fabric_semantic_model import FabricSemanticModel
+from .core.fabric_semantic_model_table import FabricSemanticModelTable
+from .core.fabric_semantic_model_table_column import FabricSemanticModelTableColumn
+from .core.fabric_visual import FabricVisual
+from .core.fabric_workspace import FabricWorkspace
 from .core.file import File
 from .core.fivetran import Fivetran
 from .core.fivetran_connector import FivetranConnector
@@ -526,6 +602,14 @@ from .core.mongo_d_b_database import MongoDBDatabase
 from .core.monte_carlo import MonteCarlo
 from .core.namespace import Namespace
 from .core.no_s_q_l import NoSQL
+from .core.partial import Partial
+from .core.partial_field import PartialField
+from .core.partial_object import PartialObject
+from .core.partial_v01 import PartialV01
+from .core.partial_v01_field import PartialV01Field
+from .core.partial_v02 import PartialV02
+from .core.partial_v02_field import PartialV02Field
+from .core.partial_v02_object import PartialV02Object
 from .core.persona import Persona
 from .core.power_b_i import PowerBI
 from .core.power_b_i_app import PowerBIApp
@@ -551,6 +635,7 @@ from .core.s_q_l import SQL
 from .core.schema import Schema
 from .core.schema_registry import SchemaRegistry
 from .core.schema_registry_subject import SchemaRegistrySubject
+from .core.semantic import Semantic
 from .core.snowflake_a_i_model_context import SnowflakeAIModelContext
 from .core.snowflake_a_i_model_version import SnowflakeAIModelVersion
 from .core.snowflake_dynamic_table import SnowflakeDynamicTable
@@ -577,19 +662,31 @@ from .custom_entity import CustomEntity
 from .data_set import DataSet
 from .data_studio import DataStudio
 from .data_studio_asset import DataStudioAsset
-from .databricks import Databricks
+from .databricks_external_location import DatabricksExternalLocation
+from .databricks_external_location_path import DatabricksExternalLocationPath
 from .databricks_notebook import DatabricksNotebook
 from .dataverse import Dataverse
 from .dataverse_attribute import DataverseAttribute
 from .dataverse_entity import DataverseEntity
 from .dbt_column_process import DbtColumnProcess
+from .dbt_dimension import DbtDimension
+from .dbt_entity import DbtEntity
+from .dbt_measure import DbtMeasure
 from .dbt_process import DbtProcess
+from .dbt_semantic_model import DbtSemanticModel
 from .dbt_tag import DbtTag
 from .domo import Domo
 from .domo_card import DomoCard
 from .domo_dashboard import DomoDashboard
 from .domo_dataset import DomoDataset
 from .domo_dataset_column import DomoDatasetColumn
+from .dremio import Dremio
+from .dremio_column import DremioColumn
+from .dremio_folder import DremioFolder
+from .dremio_physical_dataset import DremioPhysicalDataset
+from .dremio_source import DremioSource
+from .dremio_space import DremioSpace
+from .dremio_virtual_dataset import DremioVirtualDataset
 from .dynamo_d_b import DynamoDB
 from .dynamo_d_b_global_secondary_index import DynamoDBGlobalSecondaryIndex
 from .dynamo_d_b_local_secondary_index import DynamoDBLocalSecondaryIndex
@@ -644,6 +741,7 @@ from .mongo_d_b import MongoDB
 from .multi_dimensional_dataset import MultiDimensionalDataset
 from .notebook import Notebook
 from .object_store import ObjectStore
+from .partial_v01_object import PartialV01Object
 from .preset import Preset
 from .preset_chart import PresetChart
 from .preset_dashboard import PresetDashboard
@@ -676,8 +774,19 @@ from .response import Response
 from .s3 import S3
 from .s3_bucket import S3Bucket
 from .s3_object import S3Object
+from .s3_prefix import S3Prefix
 from .s_a_p import SAP
 from .saa_s import SaaS
+from .sage_maker_unified_studio import SageMakerUnifiedStudio
+from .sage_maker_unified_studio_asset import SageMakerUnifiedStudioAsset
+from .sage_maker_unified_studio_asset_schema import SageMakerUnifiedStudioAssetSchema
+from .sage_maker_unified_studio_project import SageMakerUnifiedStudioProject
+from .sage_maker_unified_studio_published_asset import (
+    SageMakerUnifiedStudioPublishedAsset,
+)
+from .sage_maker_unified_studio_subscribed_asset import (
+    SageMakerUnifiedStudioSubscribedAsset,
+)
 from .salesforce import Salesforce
 from .salesforce_dashboard import SalesforceDashboard
 from .salesforce_field import SalesforceField
@@ -692,6 +801,11 @@ from .sap_erp_function_module import SapErpFunctionModule
 from .sap_erp_table import SapErpTable
 from .sap_erp_transaction_code import SapErpTransactionCode
 from .sap_erp_view import SapErpView
+from .semantic_dimension import SemanticDimension
+from .semantic_entity import SemanticEntity
+from .semantic_field import SemanticField
+from .semantic_measure import SemanticMeasure
+from .semantic_model import SemanticModel
 from .sigma import Sigma
 from .sigma_data_element import SigmaDataElement
 from .sigma_data_element_field import SigmaDataElementField

@@ -22,6 +22,7 @@ class ConnectionConfig(Settings):
     VALIDATE_CERTS: bool = True
     TIMEOUT: int = DEFAULT_TIMEOUT
     LOCAL_HOSTNAME: Optional[str] = None
+    CERT_BUNDLE: Optional[str] = None
 
     def template_engine(self) -> Environment:
         """

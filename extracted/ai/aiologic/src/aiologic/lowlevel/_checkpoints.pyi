@@ -5,41 +5,133 @@
 
 import sys
 
-from contextvars import ContextVar
-from typing import Any, Callable, Final, TypeVar, overload
+from contextvars import ContextVar, Token
+from types import TracebackType
+from typing import Any, Final, Literal, TypeVar
+
+from aiologic.meta import MISSING, MissingType
 
 if sys.version_info >= (3, 11):
-    from typing import TypeVarTuple, Unpack
+    from typing import overload
 else:
-    from typing_extensions import TypeVarTuple, Unpack
+    from typing_extensions import overload
 
-_T = TypeVar("_T")
-_Ts = TypeVarTuple("_Ts")
+if sys.version_info >= (3, 9):
+    from collections.abc import Awaitable, Callable
+else:
+    from typing import Awaitable, Callable
 
-threading_checkpoints_cvar: Final[ContextVar[bool]]
-eventlet_checkpoints_cvar: Final[ContextVar[bool]]
-gevent_checkpoints_cvar: Final[ContextVar[bool]]
-asyncio_checkpoints_cvar: Final[ContextVar[bool]]
-curio_checkpoints_cvar: Final[ContextVar[bool]]
-trio_checkpoints_cvar: Final[ContextVar[bool]]
+_AwaitableT = TypeVar("_AwaitableT", bound=Awaitable[Any])
+_CallableT = TypeVar("_CallableT", bound=Callable[..., Any])
 
+_THREADING_CHECKPOINTS_ENABLED_BY_DEFAULT: Final[bool]
+_EVENTLET_CHECKPOINTS_ENABLED_BY_DEFAULT: Final[bool]
+_GEVENT_CHECKPOINTS_ENABLED_BY_DEFAULT: Final[bool]
+_ASYNCIO_CHECKPOINTS_ENABLED_BY_DEFAULT: Final[bool]
+_CURIO_CHECKPOINTS_ENABLED_BY_DEFAULT: Final[bool]
+_TRIO_CHECKPOINTS_ENABLED_BY_DEFAULT: Final[bool]
+
+_green_checkpoints_enabled: bool
+_async_checkpoints_enabled: bool
+_green_checkpoints_disabled: bool
+_async_checkpoints_disabled: bool
+_green_checkpoints_used: bool
+_async_checkpoints_used: bool
+
+_green_checkpoints_cvar: ContextVar[tuple[int, bool | None]]
+_async_checkpoints_cvar: ContextVar[tuple[int, bool | None]]
+
+def _threading_checkpoints_enabled() -> bool: ...
+def _eventlet_checkpoints_enabled() -> bool: ...
+def _gevent_checkpoints_enabled() -> bool: ...
+def _asyncio_checkpoints_enabled() -> bool: ...
+def _curio_checkpoints_enabled() -> bool: ...
+def _trio_checkpoints_enabled() -> bool: ...
+def _green_checkpoints_reset(
+    token: Token[tuple[int, bool | None]],
+    /,
+) -> None: ...
+def _async_checkpoints_reset(
+    token: Token[tuple[int, bool | None]],
+    /,
+) -> None: ...
+def _green_checkpoints_set(
+    enabled: bool,
+) -> Token[tuple[int, bool | None]]: ...
+def _async_checkpoints_set(
+    enabled: bool,
+) -> Token[tuple[int, bool | None]]: ...
+def green_checkpoint_enabled() -> bool: ...
+def async_checkpoint_enabled() -> bool: ...
+
+class _CheckpointsManager:
+    __slots__ = ("__token",)
+
+    async def __aenter__(self, /) -> Literal[True]: ...
+    def __enter__(self, /) -> Literal[True]: ...
+    async def __aexit__(
+        self,
+        /,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
+    def __exit__(
+        self,
+        /,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
+
+class _NoCheckpointsManager:
+    __slots__ = ("__token",)
+
+    async def __aenter__(self, /) -> Literal[False]: ...
+    def __enter__(self, /) -> Literal[False]: ...
+    async def __aexit__(
+        self,
+        /,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
+    def __exit__(
+        self,
+        /,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
+
+@overload
+def enable_checkpoints(
+    wrapped: MissingType = MISSING,
+    /,
+) -> _CheckpointsManager: ...
+@overload
+def enable_checkpoints(wrapped: _AwaitableT, /) -> _AwaitableT: ...
+@overload
+def enable_checkpoints(wrapped: _CallableT, /) -> _CallableT: ...
+@overload
+def disable_checkpoints(
+    wrapped: MissingType = MISSING,
+    /,
+) -> _NoCheckpointsManager: ...
+@overload
+def disable_checkpoints(wrapped: _AwaitableT, /) -> _AwaitableT: ...
+@overload
+def disable_checkpoints(wrapped: _CallableT, /) -> _CallableT: ...
+def _threading_checkpoint() -> None: ...
+def _eventlet_checkpoint() -> None: ...
+def _gevent_checkpoint() -> None: ...
+async def _asyncio_checkpoint() -> None: ...
+async def _curio_checkpoint() -> None: ...
+async def _trio_checkpoint() -> None: ...
 def green_checkpoint(*, force: bool = False) -> None: ...
-async def checkpoint(*, force: bool = False) -> None: ...
 async def async_checkpoint(*, force: bool = False) -> None: ...
-async def checkpoint_if_cancelled(*, force: bool = False) -> None: ...
-@overload
-async def repeat_if_cancelled(func: Callable[[], _T], /) -> _T: ...
-@overload
-async def repeat_if_cancelled(
-    func: Callable[[Unpack[_Ts]], _T],
-    /,
-    *args: Unpack[_Ts],
-) -> _T: ...
-@overload
-async def repeat_if_cancelled(
-    func: Callable[..., _T],
-    /,
-    *args: Any,
-    **kwargs: Any,
-) -> _T: ...
-async def cancel_shielded_checkpoint(*, force: bool = False) -> None: ...
+async def _asyncio_checkpoint_if_cancelled() -> None: ...
+async def _curio_checkpoint_if_cancelled() -> None: ...
+async def _trio_checkpoint_if_cancelled() -> None: ...
+def green_checkpoint_if_cancelled(*, force: bool = False) -> None: ...
+async def async_checkpoint_if_cancelled(*, force: bool = False) -> None: ...

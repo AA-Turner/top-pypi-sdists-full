@@ -1,6 +1,7 @@
 import contextlib
 import logging
-from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
+from collections.abc import Callable, Iterable
+from typing import Any
 
 import a_sync
 import brownie
@@ -36,6 +37,8 @@ MULTICALL2 = {
     Network.Cronos: "0x5e954f5972EC6BFc7dECd75779F10d848230345F",
     Network.Optimism: "0xcA11bde05977b3631167028862bE2a173976CA11",  # Multicall 3
     Network.Base: "0xcA11bde05977b3631167028862bE2a173976CA11",  # mc3
+    Network.Katana: "0xcA11bde05977b3631167028862bE2a173976CA11",
+    Network.Berachain: "0xcA11bde05977b3631167028862bE2a173976CA11",
 }.get(brownie.chain.id)
 
 multicall = None
@@ -56,13 +59,13 @@ multicall_deploy_block = contract_creation_block(multicall2.address)
 async def multicall_same_func_no_input(
     addresses: Iterable[AnyAddressType],
     method: str,
-    block: Optional[Block] = None,
-    apply_func: Optional[Callable] = None,
+    block: Block | None = None,
+    apply_func: Callable | None = None,
     return_None_on_failure: bool = False,
-) -> List[Any]:
+) -> list[Any]:
 
     addresses = [await convert.to_address_async(address) for address in addresses]
-    results: List[dict] = await igather(
+    results: list[dict] = await igather(
         Call(address, [method], ((address, apply_func)), block_id=block) for address in addresses
     )
     return [v for call in results for v in call.values()]
@@ -73,14 +76,14 @@ async def multicall_same_func_no_input(
 async def multicall_same_func_same_contract_different_inputs(
     address: AnyAddressType,
     method: str,
-    inputs: Union[List, Tuple],
-    block: Optional[Block] = None,
-    apply_func: Optional[Callable] = None,
+    inputs: list | tuple,
+    block: Block | None = None,
+    apply_func: Callable | None = None,
     return_None_on_failure: bool = False,
-) -> List[Any]:
+) -> list[Any]:
     assert inputs
     address = await convert.to_address_async(address)
-    results: List[dict] = await igather(
+    results: list[dict] = await igather(
         (Call(address, [method, input], [(input, apply_func)], block_id=block) for input in inputs),
         return_exceptions=return_None_on_failure,
     )
@@ -96,9 +99,9 @@ async def multicall_same_func_same_contract_different_inputs(
 @stuck_coro_debugger
 async def multicall_decimals(
     addresses: Iterable[AddressOrContract],
-    block: Optional[Block] = None,
+    block: Block | None = None,
     return_None_on_failure: bool = True,
-) -> List[int]:
+) -> list[int]:
 
     addresses = tuple(map(str, addresses))
     try:
@@ -118,9 +121,9 @@ async def multicall_decimals(
 @stuck_coro_debugger
 async def multicall_totalSupply(
     addresses: Iterable[AddressOrContract],
-    block: Optional[Block] = None,
+    block: Block | None = None,
     return_None_on_failure: bool = True,
-) -> List[int]:
+) -> list[int]:
 
     with contextlib.suppress(CannotHandleRequest, InsufficientDataBytes):
         return await multicall_same_func_no_input(
@@ -140,7 +143,7 @@ async def multicall_totalSupply(
 # yLazyLogger(logger)
 @a_sync.a_sync(default="sync")
 @stuck_coro_debugger
-async def fetch_multicall(*calls: Any, block: Optional[Block] = None) -> List[Optional[Any]]:
+async def fetch_multicall(*calls: Any, block: Block | None = None) -> list[Any | None]:
     # https://github.com/makerdao/multicall
     multicall_input = []
     fn_list = []

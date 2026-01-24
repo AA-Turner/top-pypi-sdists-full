@@ -37,7 +37,7 @@ from pygeodesy.units import Degrees_, Int, Lat_, Lon_, Meter, Precision_, Str
 from math import fabs, ldexp, log10, radians
 
 __all__ = _ALL_LAZY.geohash
-__version__ = '25.04.21'
+__version__ = '25.09.16'
 
 _formy   = _MODS.into(formy=__name__)
 _MASK5   =  16, 8, 4, 2, 1  # PYCHOK used!
@@ -150,10 +150,10 @@ class _GH(object):
         '''
         def _encodes(lat, lon, prec, eps=0):
             s, w, n, e = self.SWNE4
-            E, d, _mid = self.EncodeB32, True, _2mid
+            d, _mid = True, _2mid
             for _ in range(prec):
                 i = 0
-                for _ in range(5):  # len(_MASK5)
+                for _ in _MASK5:
                     i += i
                     if d:  # bisect longitude
                         a = _mid(e, w)
@@ -170,7 +170,7 @@ class _GH(object):
                             s  = a
                             i += 1
                     d = not d
-                yield E[i]
+                yield self.EncodeB32[i]
                 if eps > 0:  # infer prec
                     if _2dab(lon, e, w) < eps and \
                        _2dab(lat, n, s) < eps:
@@ -233,10 +233,10 @@ class _GH(object):
         if not (0 < nc <= _MaxPrec):  # or geohash.startswith(_INV_)
             raise GeohashError(geohash=geohash, len=nc)
         s, w, n, e = self.SWNE4
-        D, d, _mid = self.DecodeB32, True, _2mid
+        d, _mid = True, _2mid
         try:
             for j, c in enumerate(geohash.lower()):
-                i = D[c]
+                i = self.DecodeB32[c]
                 for m in mask5:
                     if d:  # longitude
                         a = _mid(e, w)
@@ -1098,7 +1098,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2016-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

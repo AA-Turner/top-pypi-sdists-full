@@ -421,12 +421,7 @@ DEF_TEST(Codec_GifPreMap, r) {
         bm.allocPixels(info);
         result = codec->getPixels(info, bm.getPixels(), bm.rowBytes());
 
-        // See the comments in Codec_GifTruncated2.
-#ifdef SK_HAS_WUFFS_LIBRARY
         REPORTER_ASSERT(r, result == SkCodec::kIncompleteInput);
-#else
-        REPORTER_ASSERT(r, result == SkCodec::kInvalidInput);
-#endif
     }
 
     // Again, truncate to 23 bytes, this time for an incremental decode. We
@@ -440,8 +435,6 @@ DEF_TEST(Codec_GifPreMap, r) {
         bm.allocPixels(info);
         result = codec->startIncrementalDecode(info, bm.getPixels(), bm.rowBytes());
 
-        // See the comments in Codec_GifTruncated2.
-#ifdef SK_HAS_WUFFS_LIBRARY
         REPORTER_ASSERT(r, result == SkCodec::kSuccess);
 
         // Note that this is incrementalDecode, not startIncrementalDecode.
@@ -449,14 +442,6 @@ DEF_TEST(Codec_GifPreMap, r) {
         REPORTER_ASSERT(r, result == SkCodec::kIncompleteInput);
 
         stream->addNewData(data->size());
-#else
-        REPORTER_ASSERT(r, result == SkCodec::kIncompleteInput);
-
-        // Note that this is startIncrementalDecode, not incrementalDecode.
-        stream->addNewData(data->size());
-        result = codec->startIncrementalDecode(info, bm.getPixels(), bm.rowBytes());
-        REPORTER_ASSERT(r, result == SkCodec::kSuccess);
-#endif
 
         result = codec->incrementalDecode();
         REPORTER_ASSERT(r, result == SkCodec::kSuccess);
@@ -489,14 +474,14 @@ DEF_TEST(Codec_emptyIDAT, r) {
 }
 
 DEF_TEST(Codec_incomplete, r) {
-    for (const char* name : { "images/baby_tux.png",
-                              "images/baby_tux.webp",
-                              "images/CMYK.jpg",
-                              "images/color_wheel.gif",
-                              "images/google_chrome.ico",
-                              "images/rle.bmp",
-                              "images/mandrill.wbmp",
-                              }) {
+    for (const char* name : {
+             "images/baby_tux.png", "images/baby_tux.webp", "images/CMYK.jpg",
+                     "images/color_wheel.gif",
+#if defined(SK_CODEC_DECODES_ICO)
+                     "images/google_chrome.ico",
+#endif
+                     "images/rle.bmp", "images/mandrill.wbmp",
+         }) {
         sk_sp<SkData> file = GetResourceAsData(name);
         if (!file) {
             continue;

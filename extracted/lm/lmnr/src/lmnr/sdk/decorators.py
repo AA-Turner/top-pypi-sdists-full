@@ -1,17 +1,16 @@
 from lmnr.opentelemetry_lib.decorators import (
     observe_base,
     async_observe_base,
-    json_dumps,
 )
-from opentelemetry.trace import INVALID_SPAN, get_current_span
 
-from typing import Any, Callable, Literal, TypeVar, cast
+from typing import Any, Callable, Coroutine, Literal, TypeVar, overload
 from typing_extensions import ParamSpec
 
-from lmnr.opentelemetry_lib.tracing.attributes import SESSION_ID
 from lmnr.sdk.log import get_default_logger
+from lmnr.sdk.types import TraceType
 
 from .utils import is_async
+import os
 
 logger = get_default_logger(__name__)
 
@@ -19,6 +18,8 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
+# Overload for synchronous functions
+@overload
 def observe(
     *,
     name: str | None = None,
@@ -28,12 +29,55 @@ def observe(
     ignore_output: bool = False,
     span_type: Literal["DEFAULT", "LLM", "TOOL"] = "DEFAULT",
     ignore_inputs: list[str] | None = None,
-    input_formatter: Callable[P, str] | None = None,
-    output_formatter: Callable[[R], str] | None = None,
+    input_formatter: Callable[..., str] | None = None,
+    output_formatter: Callable[..., str] | None = None,
     metadata: dict[str, Any] | None = None,
     tags: list[str] | None = None,
     preserve_global_context: bool = False,
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    rollout_entrypoint: bool = False,
+) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
+
+
+# Overload for asynchronous functions
+@overload
+def observe(
+    *,
+    name: str | None = None,
+    session_id: str | None = None,
+    user_id: str | None = None,
+    ignore_input: bool = False,
+    ignore_output: bool = False,
+    span_type: Literal["DEFAULT", "LLM", "TOOL"] = "DEFAULT",
+    ignore_inputs: list[str] | None = None,
+    input_formatter: Callable[..., str] | None = None,
+    output_formatter: Callable[..., str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    tags: list[str] | None = None,
+    preserve_global_context: bool = False,
+    rollout_entrypoint: bool = False,
+) -> Callable[
+    [Callable[P, Coroutine[Any, Any, R]]], Callable[P, Coroutine[Any, Any, R]]
+]: ...
+
+
+# Implementation
+def observe(
+    *,
+    name: str | None = None,
+    session_id: str | None = None,
+    user_id: str | None = None,
+    ignore_input: bool = False,
+    ignore_output: bool = False,
+    span_type: Literal["DEFAULT", "LLM", "TOOL"] = "DEFAULT",
+    ignore_inputs: list[str] | None = None,
+    input_formatter: Callable[..., str] | None = None,
+    output_formatter: Callable[..., str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    tags: list[str] | None = None,
+    preserve_global_context: bool = False,
+    rollout_entrypoint: bool = False,
+):
+    # Return type is determined by overloads above
     """The main decorator entrypoint for Laminar. This is used to wrap
     functions and methods to create spans.
 
@@ -57,14 +101,15 @@ def observe(
             `sensitive_data` argument, you can pass ["sensitive_data"] to\
             this argument. Defaults to None.
         input_formatter (Callable[P, str] | None, optional): A custom function\
-            to format the input of the wrapped function. All function arguments\
-            are passed to this function. Must return a string. Ignored if\
+            to format the input of the wrapped function. This function should\
+            accept the same parameters as the wrapped function and return a string.\
+            All function arguments are passed to this function. Ignored if\
             `ignore_input` is True. Does not respect `ignore_inputs` argument.
             Defaults to None.
         output_formatter (Callable[[R], str] | None, optional): A custom function\
-            to format the output of the wrapped function. The output is passed\
-            to this function. Must return a string. Ignored if `ignore_output`
-            is True. Does not respect `ignore_inputs` argument.
+            to format the output of the wrapped function. This function should\
+            accept a single parameter (the return value of the wrapped function)\
+            and return a string. Ignored if `ignore_output` is True.\
             Defaults to None.
         metadata (dict[str, Any] | None, optional): Metadata to associate with\
             the trace. Must be JSON serializable. Defaults to None.
@@ -73,6 +118,9 @@ def observe(
         preserve_global_context (bool, optional): Whether to preserve the global\
             OpenTelemetry context. If set to True, Laminar spans will continue\
             traces started in the global context. Defaults to False.
+        rollout_entrypoint (bool, optional): Whether to mark this function as a\
+            rollout entrypoint. When True and in rollout mode, the function will\
+            be registered for rollout execution via the CLI. Defaults to False.
     Raises:
         Exception: re-raises the exception if the wrapped function raises an\
             exception
@@ -81,25 +129,21 @@ def observe(
         R: Returns the result of the wrapped function
     """
 
-    def decorator(func: Callable) -> Callable:
-        current_span = get_current_span()
-        if current_span != INVALID_SPAN:
-            if session_id is not None:
-                current_span.set_attribute(SESSION_ID, session_id)
+    def decorator(
+        func: Callable[P, R] | Callable[P, Coroutine[Any, Any, R]],
+    ) -> Callable[P, R] | Callable[P, Coroutine[Any, Any, R]]:
+        # Get rollout session ID from environment if in rollout mode
+        rollout_session_id = os.environ.get("LMNR_ROLLOUT_SESSION_ID")
+
         association_properties = {}
         if session_id is not None:
             association_properties["session_id"] = session_id
         if user_id is not None:
             association_properties["user_id"] = user_id
-        if metadata is not None:
-            association_properties.update(
-                {
-                    f"metadata.{k}": (
-                        v if isinstance(v, (str, int, float, bool)) else json_dumps(v)
-                    )
-                    for k, v in metadata.items()
-                }
-            )
+        if rollout_session_id is not None:
+            association_properties["rollout_session_id"] = rollout_session_id
+        if span_type in ["EVALUATION", "EXECUTOR", "EVALUATOR"]:
+            association_properties["trace_type"] = TraceType.EVALUATION.value
         if tags is not None:
             if not isinstance(tags, list) or not all(
                 isinstance(tag, str) for tag in tags
@@ -127,31 +171,48 @@ def observe(
                 " is ignored because `ignore_output` is True. Specify only one of"
                 " `ignore_output` or `output_formatter`."
             )
-        result = (
-            async_observe_base(
-                name=name,
-                ignore_input=ignore_input,
-                ignore_output=ignore_output,
-                span_type=span_type,
-                ignore_inputs=ignore_inputs,
-                input_formatter=input_formatter,
-                output_formatter=output_formatter,
-                association_properties=association_properties,
-                preserve_global_context=preserve_global_context,
-            )(func)
-            if is_async(func)
-            else observe_base(
-                name=name,
-                ignore_input=ignore_input,
-                ignore_output=ignore_output,
-                span_type=span_type,
-                ignore_inputs=ignore_inputs,
-                input_formatter=input_formatter,
-                output_formatter=output_formatter,
-                association_properties=association_properties,
-                preserve_global_context=preserve_global_context,
-            )(func)
-        )
-        return result
 
-    return cast(Callable, decorator)
+        # Merge rollout.session_id into metadata if in rollout mode
+        merged_metadata = metadata.copy() if metadata else {}
+        if rollout_session_id is not None:
+            merged_metadata["rollout.session_id"] = rollout_session_id
+
+        if is_async(func):
+            wrapped_func = async_observe_base(
+                name=name,
+                ignore_input=ignore_input,
+                ignore_output=ignore_output,
+                span_type=span_type,
+                metadata=merged_metadata if merged_metadata else None,
+                ignore_inputs=ignore_inputs,
+                input_formatter=input_formatter,
+                output_formatter=output_formatter,
+                association_properties=association_properties,
+                preserve_global_context=preserve_global_context,
+            )(func)
+        else:
+            wrapped_func = observe_base(
+                name=name,
+                ignore_input=ignore_input,
+                ignore_output=ignore_output,
+                span_type=span_type,
+                metadata=merged_metadata if merged_metadata else None,
+                ignore_inputs=ignore_inputs,
+                input_formatter=input_formatter,
+                output_formatter=output_formatter,
+                association_properties=association_properties,
+                preserve_global_context=preserve_global_context,
+            )(func)
+
+        # Handle rollout entrypoint registration (after wrapping)
+        if rollout_entrypoint:
+            from lmnr.sdk.rollout_control import is_rollout_mode, register_entrypoint
+
+            if is_rollout_mode():
+                # Register the WRAPPED function for rollout execution
+                entrypoint_name = name if name is not None else func.__name__
+                register_entrypoint(entrypoint_name, wrapped_func)
+
+        return wrapped_func
+
+    return decorator

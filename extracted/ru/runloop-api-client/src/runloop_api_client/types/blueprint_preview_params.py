@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from typing import Dict, Iterable, Optional
-from typing_extensions import Required, TypedDict
+from typing_extensions import Literal, Required, TypedDict
 
 from .._types import SequenceNotStr
 from .shared_params.launch_parameters import LaunchParameters
 from .shared_params.code_mount_parameters import CodeMountParameters
 
-__all__ = ["BlueprintPreviewParams", "Service", "ServiceCredentials"]
+__all__ = ["BlueprintPreviewParams", "BuildContext", "Service", "ServiceCredentials"]
 
 
 class BlueprintPreviewParams(TypedDict, total=False):
@@ -30,6 +30,12 @@ class BlueprintPreviewParams(TypedDict, total=False):
     be specified.
     """
 
+    build_args: Optional[Dict[str, str]]
+    """(Optional) Arbitrary Docker build args to pass during build."""
+
+    build_context: Optional[BuildContext]
+    """A build context backed by an Object."""
+
     code_mounts: Optional[Iterable[CodeMountParameters]]
     """A list of code mounts to be included in the Blueprint."""
 
@@ -45,6 +51,23 @@ class BlueprintPreviewParams(TypedDict, total=False):
     metadata: Optional[Dict[str, str]]
     """(Optional) User defined metadata for the Blueprint."""
 
+    network_policy_id: Optional[str]
+    """(Optional) ID of the network policy to apply during blueprint build.
+
+    This restricts network access during the build process. This does not affect
+    devboxes created from this blueprint; if you want devboxes created from this
+    blueprint to inherit the network policy, set the network_policy_id on the
+    blueprint launch parameters.
+    """
+
+    secrets: Optional[Dict[str, str]]
+    """(Optional) Map of mount IDs/environment variable names to secret names.
+
+    Secrets will be available to commands during the build. Secrets are NOT stored
+    in the blueprint image. Example: {"DB_PASS": "DATABASE_PASSWORD"} makes the
+    secret 'DATABASE_PASSWORD' available as environment variable 'DB_PASS'.
+    """
+
     services: Optional[Iterable[Service]]
     """(Optional) List of containerized services to include in the Blueprint.
 
@@ -56,7 +79,18 @@ class BlueprintPreviewParams(TypedDict, total=False):
     """A list of commands to run to set up your system."""
 
 
+class BuildContext(TypedDict, total=False):
+    """A build context backed by an Object."""
+
+    object_id: Required[str]
+    """The ID of an object, whose contents are to be used as a build context."""
+
+    type: Required[Literal["object"]]
+
+
 class ServiceCredentials(TypedDict, total=False):
+    """The credentials of the container service."""
+
     password: Required[str]
     """The password of the container service."""
 

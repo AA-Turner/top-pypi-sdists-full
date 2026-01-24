@@ -16,7 +16,6 @@ short_description: Configure geographical location mapping for IP address
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -153,12 +155,12 @@ EXAMPLES = '''
       fortinet.fortimanager.fmgr_system_geoipoverride_iprange:
         bypass_validation: false
         adom: ansible
-        geoip-override: ansible-test-geoipoverride # name
+        geoip_override: ansible-test-geoipoverride # name
         state: present
         system_geoipoverride_iprange:
-          end-ip: 222.222.222.25
+          end_ip: 222.222.222.25
           id: 1
-          start-ip: 222.222.222.2
+          start_ip: 222.222.222.2
 '''
 
 RETURN = '''
@@ -215,6 +217,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'system_geoipoverride': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

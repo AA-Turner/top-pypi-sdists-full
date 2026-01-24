@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.new_email_trigger_mode import NewEmailTriggerMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -24,7 +25,8 @@ class NewEmailTrigger:
         workspaced_local_part (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, NewEmailTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
-        retry (Union[Unset, NewEmailTriggerRetry]):
+        retry (Union[Unset, NewEmailTriggerRetry]): Retry configuration for failed module executions
+        mode (Union[Unset, NewEmailTriggerMode]): job trigger mode
     """
 
     path: str
@@ -35,6 +37,7 @@ class NewEmailTrigger:
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "NewEmailTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "NewEmailTriggerRetry"] = UNSET
+    mode: Union[Unset, NewEmailTriggerMode] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -51,6 +54,10 @@ class NewEmailTrigger:
         retry: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
+
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -70,6 +77,8 @@ class NewEmailTrigger:
             field_dict["error_handler_args"] = error_handler_args
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if mode is not UNSET:
+            field_dict["mode"] = mode
 
         return field_dict
 
@@ -105,6 +114,13 @@ class NewEmailTrigger:
         else:
             retry = NewEmailTriggerRetry.from_dict(_retry)
 
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, NewEmailTriggerMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = NewEmailTriggerMode(_mode)
+
         new_email_trigger = cls(
             path=path,
             script_path=script_path,
@@ -114,6 +130,7 @@ class NewEmailTrigger:
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,
+            mode=mode,
         )
 
         new_email_trigger.additional_properties = d

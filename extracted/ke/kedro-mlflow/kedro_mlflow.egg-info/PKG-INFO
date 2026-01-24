@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro_mlflow
-Version: 1.0.1
+Version: 2.0.1
 Summary: A kedro-plugin to use mlflow in your kedro projects
 Author: Yolan Honoré-Rougé
 License: Apache Software License (Apache 2.0)
@@ -23,7 +23,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: kedro<2.0.0,>=1.0.0
-Requires-Dist: mlflow<3.0.0,>=2.7.0
+Requires-Dist: mlflow<4.0.0,>=3.0.0
 Requires-Dist: pydantic<3.0.0,>=1.0.0
 Provides-Extra: test
 Requires-Dist: pytest<9.0.0,>=5.4.0; extra == "test"
@@ -52,7 +52,7 @@ Dynamic: license-file
 **General informations**
 <!-- markdown-link-check-disable -->
 [![Python Version](https://img.shields.io/pypi/pyversions/kedro-mlflow)](https://pypi.org/project/kedro-mlflow/) [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Code Style: Black](https://img.shields.io/badge/code%20style-black-black.svg)](https://github.com/ambv/black)
-[![SemVer](https://img.shields.io/badge/semver-2.0.0-green)](https://semver.org/)
+[![SemVer](https://img.shields.io/badge/semver-2.0.1-green)](https://semver.org/)
 [![Powered by Kedro](https://img.shields.io/badge/powered_by-kedro-ffc900?logo=kedro)](https://kedro.org)
 <!-- markdown-link-check-enable -->
 
@@ -67,7 +67,7 @@ Dynamic: license-file
 ----------------------------------------------------------
 | Branch   | Tests                                                                                                                                                                                            | Coverage                                                                                                                                                         | Links                                                                                                                                                                                                           | Documentation                                                                                                                           | Deployment                                                                                                                                                                                                | Activity                                                                                                                                                              |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `master` | [![test](https://github.com/Galileo-Galilei/kedro-mlflow/workflows/test/badge.svg?branch=master)](https://github.com/Galileo-Galilei/kedro-mlflow/actions?query=workflow%3Atest+branch%3Amaster) | [![codecov](https://codecov.io/gh/Galileo-Galilei/kedro-mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/Galileo-Galilei/kedro-mlflow/branch/master) | [![links](https://github.com/Galileo-Galilei/kedro-mlflow/workflows/check-links/badge.svg?branch=master)](https://github.com/Galileo-Galilei/kedro-mlflow/actions?query=workflow%3Acheck-links+branch%3Amaster) | [![Documentation](https://readthedocs.org/projects/kedro-mlflow/badge/?version=stable)](https://kedro-mlflow.readthedocs.io/en/stable/) | [![publish](https://github.com/Galileo-Galilei/kedro-mlflow/workflows/publish/badge.svg?branch=master)](https://github.com/Galileo-Galilei/kedro-mlflow/actions?query=branch%3Amaster+workflow%3Apublish) | [![commit](https://img.shields.io/github/commits-since/Galileo-Galilei/kedro-mlflow/1.0.1)](https://github.com/Galileo-Galilei/kedro-mlflow/compare/1.0.1...master) |
+| `master` | [![test](https://github.com/Galileo-Galilei/kedro-mlflow/workflows/test/badge.svg?branch=master)](https://github.com/Galileo-Galilei/kedro-mlflow/actions?query=workflow%3Atest+branch%3Amaster) | [![codecov](https://codecov.io/gh/Galileo-Galilei/kedro-mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/Galileo-Galilei/kedro-mlflow/branch/master) | [![links](https://github.com/Galileo-Galilei/kedro-mlflow/workflows/check-links/badge.svg?branch=master)](https://github.com/Galileo-Galilei/kedro-mlflow/actions?query=workflow%3Acheck-links+branch%3Amaster) | [![Documentation](https://readthedocs.org/projects/kedro-mlflow/badge/?version=stable)](https://kedro-mlflow.readthedocs.io/en/stable/) | [![publish](https://github.com/Galileo-Galilei/kedro-mlflow/workflows/publish/badge.svg?branch=master)](https://github.com/Galileo-Galilei/kedro-mlflow/actions?query=branch%3Amaster+workflow%3Apublish) | [![commit](https://img.shields.io/github/commits-since/Galileo-Galilei/kedro-mlflow/2.0.1)](https://github.com/Galileo-Galilei/kedro-mlflow/compare/2.0.1...master) |
 
 *If you like the repo, please give it a :star:*
 
@@ -82,7 +82,7 @@ Dynamic: license-file
 
 # How do I install kedro-mlflow?
 
-**Important: ``kedro-mlflow`` is only compatible with ``kedro>=0.16.0`` and ``mlflow>=1.0.1``. If you have a project created with an older version of ``Kedro``, see this [migration guide](https://github.com/quantumblacklabs/kedro/blob/master/RELEASE.md#migration-guide-from-kedro-015-to-016).**
+**Important: ``kedro-mlflow`` is only compatible with ``kedro>=0.16.0`` and ``mlflow>=1.0.0``. If you have a project created with an older version of ``Kedro``, see this [migration guide](https://github.com/quantumblacklabs/kedro/blob/master/RELEASE.md#migration-guide-from-kedro-015-to-016).**
 
 You can install ``kedro-mlflow`` with several tools and from several packaging platforms:
 
@@ -115,7 +115,7 @@ The [release history](https://github.com/Galileo-Galilei/kedro-mlflow/blob/maste
 
 # Disclaimer
 
-This package is still in active development. We use [SemVer](https://semver.org/) principles to version our releases. Since we reached `1.0.1` (compatible with ``kedro==1.X`` and ``mlflow==1.X`` or ``2.X``) on 27th of July 2025, breaking changes will lead to `major` version number increment, while releases which do not introduce breaking changes in the API will lead to `minor` or ``patch`` (for bugs) version number increment.
+This package is still in active development. We use [SemVer](https://semver.org/) principles to version our releases. Since we reached `1.0.0` (compatible with ``kedro==1.X`` and ``mlflow==1.X`` or ``2.X``) on 27th of July 2025, breaking changes will lead to `major` version number increment, while releases which do not introduce breaking changes in the API will lead to `minor` or ``patch`` (for bugs) version number increment. Current kedro-mlflow `2.0.1` is only compatible with ``mlflow==3.x``
 
 If you want to migrate from an older version of `kedro-mlflow` to most recent ones, see the [migration guide](https://kedro-mlflow.readthedocs.io/en/latest/source/06_migration_guide/index.html).
 

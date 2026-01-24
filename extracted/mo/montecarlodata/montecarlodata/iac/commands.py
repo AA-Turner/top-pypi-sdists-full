@@ -422,3 +422,43 @@ def export_migrated_dt(ctx, project_dir, namespace):
         command_name="monitors export_migrated_dt",
         project_dir=project_dir,
     ).export_migrated_dt(namespace)
+
+
+@monitors.command(help="Run a circuit breaker monitor and wait for the result.")
+@click.option(
+    "--namespace",
+    required=False,
+    type=click.STRING,
+    help="Namespace of the monitor to run.",
+)
+@click.option(
+    "--name",
+    required=False,
+    type=click.STRING,
+    help="Name of the monitor to run.",
+)
+@click.option(
+    "--uuid",
+    required=False,
+    type=click.STRING,
+    help="UUID of the monitor to run (alternative to namespace/name).",
+)
+@click.option(
+    "--runtime-variables",
+    required=False,
+    type=click.STRING,
+    help='Runtime variables as JSON string (e.g., \'{"var1": "value1", "var2": "value2"}\').',
+)
+@click.pass_obj
+def run(ctx, namespace, name, uuid, runtime_variables):
+    result = MonitorService(
+        client=create_mc_client(ctx),
+        command_name="monitors run",
+    ).run_circuit_breaker(
+        namespace=namespace,
+        name=name,
+        uuid=uuid,
+        runtime_variables=runtime_variables,
+    )
+    if result:
+        raise SystemExit(1)

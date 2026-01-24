@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """
 Event model for AioHomematic.
 
-This module defines the event data point hierarchy used to expose HomeMatic
+This module defines the event data point hierarchy used to expose Homematic
 button presses, device errors, and impulse notifications to applications.
 
 Included classes:
 - GenericEvent: Base event that integrates with the common data point API
-  (category, usage, names/paths, callbacks) and provides fire_event handling.
+  (category, usage, names/paths, subscriptions) and provides publish_event handling.
 - ClickEvent: Represents key press events (EventType.KEYPRESS).
 - DeviceErrorEvent: Represents device error signaling with special value change
-  semantics before emitting an event (EventType.DEVICE_ERROR).
+  semantics before publishing an event (EventType.DEVICE_ERROR).
 - ImpulseEvent: Represents impulse events (EventType.IMPULSE).
 
 Factory helpers:
@@ -32,7 +32,7 @@ from datetime import datetime
 import logging
 from typing import Any, Final
 
-from aiohomematic import support as hms
+from aiohomematic import i18n, support as hms
 from aiohomematic.async_support import loop_check
 from aiohomematic.const import (
     CLICK_EVENTS,
@@ -41,18 +41,29 @@ from aiohomematic.const import (
     IMPULSE_EVENTS,
     DataPointCategory,
     DataPointUsage,
-    EventType,
+    DeviceTriggerEventType,
     Operations,
     ParameterData,
     ParamsetKey,
+    ServiceScope,
 )
 from aiohomematic.decorators import inspector
 from aiohomematic.exceptions import AioHomematicException
-from aiohomematic.model import device as hmd
-from aiohomematic.model.data_point import BaseParameterDataPoint
-from aiohomematic.model.support import DataPointNameData, get_event_name
+from aiohomematic.interfaces import ChannelProtocol, DeviceProtocol, GenericEventProtocolAny
+from aiohomematic.interfaces.model import ChannelEventGroupProtocol
+from aiohomematic.model.data_point import BaseParameterDataPointAny, CallbackDataPoint
+from aiohomematic.model.support import (
+    DataPointNameData,
+    DataPointPathData,
+    PathData,
+    generate_translation_key,
+    get_event_name,
+)
+from aiohomematic.property_decorators import DelegatedProperty
+from aiohomematic.type_aliases import DataPointUpdatedHandler, UnsubscribeCallback
 
 __all__ = [
+    "ChannelEventGroup",
     "ClickEvent",
     "DeviceErrorEvent",
     "GenericEvent",
@@ -60,20 +71,22 @@ __all__ = [
     "create_event_and_append_to_channel",
 ]
 
+
 _LOGGER: Final = logging.getLogger(__name__)
 
 
-class GenericEvent(BaseParameterDataPoint[Any, Any]):
+class GenericEvent(BaseParameterDataPointAny, GenericEventProtocolAny):
     """Base class for events."""
 
-    __slots__ = ("_event_type",)
+    __slots__ = ("_device_trigger_event_type",)
 
     _category = DataPointCategory.EVENT
-    _event_type: EventType
+    _device_trigger_event_type: DeviceTriggerEventType
 
     def __init__(
         self,
-        channel: hmd.Channel,
+        *,
+        channel: ChannelProtocol,
         parameter: str,
         parameter_data: ParameterData,
     ) -> None:
@@ -83,32 +96,31 @@ class GenericEvent(BaseParameterDataPoint[Any, Any]):
             paramset_key=ParamsetKey.VALUES,
             parameter=parameter,
             parameter_data=parameter_data,
-            unique_id_prefix=f"event_{channel.central.name}",
+            unique_id_prefix=f"event_{channel.device.central_info.name}",
         )
+
+    event_type: Final = DelegatedProperty[DeviceTriggerEventType](path="_device_trigger_event_type")
 
     @property
     def usage(self) -> DataPointUsage:
         """Return the data_point usage."""
         if (forced_by_com := self._enabled_by_channel_operation_mode) is None:
             return self._get_data_point_usage()
-        return DataPointUsage.EVENT if forced_by_com else DataPointUsage.NO_CREATE  # pylint: disable=using-constant-test
+        return DataPointUsage.EVENT if forced_by_com else DataPointUsage.NO_CREATE
 
-    @property
-    def event_type(self) -> EventType:
-        """Return the event_type of the event."""
-        return self._event_type
-
-    async def event(self, value: Any, received_at: datetime) -> None:
+    async def event(self, *, value: Any, received_at: datetime) -> None:
         """Handle event for which this handler has subscribed."""
         if self.event_type in DATA_POINT_EVENTS:
-            self.fire_data_point_updated_callback()
+            self.publish_data_point_updated_event()
         self._set_modified_at(modified_at=received_at)
-        self.fire_event(value)
+        self.publish_event(value=value)
 
     @loop_check
-    def fire_event(self, value: Any) -> None:
-        """Do what is needed to fire an event."""
-        self._central.fire_homematic_callback(event_type=self.event_type, event_data=self.get_event_data(value=value))
+    def publish_event(self, *, value: Any) -> None:
+        """Do what is needed to publish an event."""
+        self._event_publisher.publish_device_trigger_event(
+            trigger_type=self.event_type, event_data=self.get_event_data(value=value)
+        )
 
     def _get_data_point_name(self) -> DataPointNameData:
         """Create the name for the data_point."""
@@ -127,7 +139,7 @@ class ClickEvent(GenericEvent):
 
     __slots__ = ()
 
-    _event_type = EventType.KEYPRESS
+    _device_trigger_event_type = DeviceTriggerEventType.KEYPRESS
 
 
 class DeviceErrorEvent(GenericEvent):
@@ -135,9 +147,9 @@ class DeviceErrorEvent(GenericEvent):
 
     __slots__ = ()
 
-    _event_type = EventType.DEVICE_ERROR
+    _device_trigger_event_type = DeviceTriggerEventType.DEVICE_ERROR
 
-    async def event(self, value: Any, received_at: datetime) -> None:
+    async def event(self, *, value: Any, received_at: datetime) -> None:
         """Handle event for which this handler has subscribed."""
         old_value, new_value = self.write_value(value=value, write_at=received_at)
 
@@ -148,7 +160,7 @@ class DeviceErrorEvent(GenericEvent):
             isinstance(new_value, int)
             and ((old_value is None and new_value > 0) or (isinstance(old_value, int) and old_value != new_value))
         ):
-            self.fire_event(value=new_value)
+            self.publish_event(value=new_value)
 
 
 class ImpulseEvent(GenericEvent):
@@ -156,11 +168,152 @@ class ImpulseEvent(GenericEvent):
 
     __slots__ = ()
 
-    _event_type = EventType.IMPULSE
+    _device_trigger_event_type = DeviceTriggerEventType.IMPULSE
 
 
-@inspector
-def create_event_and_append_to_channel(channel: hmd.Channel, parameter: str, parameter_data: ParameterData) -> None:
+class ChannelEventGroup(CallbackDataPoint, ChannelEventGroupProtocol):
+    """
+    Virtual data point aggregating events of the same type for a single channel.
+
+    Created during Channel.finalize_init() for each DeviceTriggerEventType
+    present in the channel. A channel can have multiple event groups
+    (e.g., one for KEYPRESS, one for IMPULSE).
+
+    Internally subscribes to all GenericEvents of the same type and forwards
+    triggers to external subscribers via the standard subscription API.
+
+    Provides unified access to channel events with:
+    - Pre-computed event_types list (parameter names)
+    - Device trigger event type for the group
+    - Last triggered event tracking
+    - Standard CallbackDataPointProtocol subscription pattern
+    - Translation key derivation
+
+    Used by Home Assistant to create one EventEntity per event group.
+    """
+
+    __slots__ = (
+        "_channel",
+        "_device_trigger_event_type",
+        "_events",
+        "_event_types",
+        "_last_triggered_event",
+        "_name_data",
+        "_internal_unsubscribe_callbacks",
+    )
+
+    _category = DataPointCategory.EVENT_GROUP
+
+    def __init__(
+        self,
+        *,
+        channel: ChannelProtocol,
+        device_trigger_event_type: DeviceTriggerEventType,
+        events: tuple[GenericEventProtocolAny, ...],
+    ) -> None:
+        """Initialize the channel event group."""
+        if not events:
+            raise ValueError(i18n.tr(key="exception.model.event.channel_event_group.no_events"))
+
+        # Validate all events have the same event_type
+        for event in events:
+            if event.event_type != device_trigger_event_type:
+                raise ValueError(
+                    i18n.tr(
+                        key="exception.model.event.channel_event_group.mixed_event_types",
+                        expected=device_trigger_event_type,
+                        actual=event.event_type,
+                    )
+                )
+
+        self._channel: Final = channel
+        self._device_trigger_event_type: Final = device_trigger_event_type
+        self._events: Final = events
+        self._event_types: Final = tuple(event.parameter.lower() for event in events)
+        self._last_triggered_event: GenericEventProtocolAny | None = None
+        self._internal_unsubscribe_callbacks: list[UnsubscribeCallback] = []
+        self._name_data: Final = get_event_name(channel=channel, parameter=device_trigger_event_type.short)
+
+        # Initialize CallbackDataPoint - get providers from channel.device
+        super().__init__(
+            unique_id=f"event_group_{device_trigger_event_type.short}_{channel.unique_id}",
+            central_info=channel.device.central_info,
+            event_bus_provider=channel.device.event_bus_provider,
+            event_publisher=channel.device.event_publisher,
+            task_scheduler=channel.device.task_scheduler,
+            paramset_description_provider=channel.device.paramset_description_provider,
+            parameter_visibility_provider=channel.device.parameter_visibility_provider,
+        )
+
+    available: Final = DelegatedProperty[bool](path="_channel.device.available")
+    channel: Final = DelegatedProperty[ChannelProtocol](path="_channel")
+    device: Final = DelegatedProperty[DeviceProtocol](path="_channel.device")
+    device_trigger_event_type: Final = DelegatedProperty[DeviceTriggerEventType](path="_device_trigger_event_type")
+    event_types: Final = DelegatedProperty[tuple[str, ...]](path="_event_types")
+    events: Final = DelegatedProperty[tuple[GenericEventProtocolAny, ...]](path="_events")
+    full_name: Final = DelegatedProperty[str](path="_name_data.full_name")
+    name: Final = DelegatedProperty[str](path="_name_data.channel_name")
+
+    @property
+    def last_triggered_event(self) -> GenericEventProtocolAny | None:
+        """Return the last event that was triggered."""
+        return self._last_triggered_event
+
+    @property
+    def translation_key(self) -> str:
+        """Return translation key for Home Assistant."""
+        return generate_translation_key(name=self._device_trigger_event_type)
+
+    @property
+    def usage(self) -> DataPointUsage:
+        """Return the data point usage."""
+        return DataPointUsage.EVENT
+
+    def cleanup_subscriptions(self) -> None:
+        """Clean up internal subscriptions."""
+        for unsub in self._internal_unsubscribe_callbacks:
+            unsub()
+        self._internal_unsubscribe_callbacks.clear()
+        super().cleanup_subscriptions()
+
+    async def finalize_init(self) -> None:
+        """Set up internal subscriptions after channel events are ready."""
+        self._setup_internal_subscriptions()
+
+    def _get_path_data(self) -> PathData:
+        """Return the path data."""
+        return DataPointPathData(
+            interface=self._channel.device.client.interface,
+            address=self._channel.device.address,
+            channel_no=self._channel.no,
+            kind="event_group",
+        )
+
+    def _get_signature(self) -> str:
+        """Return the signature of the event group."""
+        return f"{self._category}/{self._channel.device.model}/event_group"
+
+    def _setup_internal_subscriptions(self) -> None:
+        """Subscribe to all events internally."""
+        for event in self._events:
+
+            def make_handler(ev: GenericEventProtocolAny) -> DataPointUpdatedHandler:
+                def handler(*, data_point: Any, custom_id: str) -> None:
+                    self._last_triggered_event = ev
+                    self._set_modified_at(modified_at=ev.modified_at)
+                    self.publish_data_point_updated_event()
+
+                return handler
+
+            self._internal_unsubscribe_callbacks.append(
+                event.subscribe_to_internal_data_point_updated(handler=make_handler(event))
+            )
+
+
+@inspector(scope=ServiceScope.INTERNAL)
+def create_event_and_append_to_channel(
+    *, channel: ChannelProtocol, parameter: str, parameter_data: ParameterData
+) -> None:
     """Create action event data_point."""
     _LOGGER.debug(
         "CREATE_EVENT_AND_APPEND_TO_DEVICE: Creating event for %s, %s, %s",
@@ -173,10 +326,10 @@ def create_event_and_append_to_channel(channel: hmd.Channel, parameter: str, par
             event_t=event_t, channel=channel, parameter=parameter, parameter_data=parameter_data
         )
     ):
-        channel.add_data_point(event)
+        channel.add_data_point(data_point=event)
 
 
-def _determine_event_type(parameter: str, parameter_data: ParameterData) -> type[GenericEvent] | None:
+def _determine_event_type(*, parameter: str, parameter_data: ParameterData) -> type[GenericEvent] | None:
     event_t: type[GenericEvent] | None = None
     if parameter_data["OPERATIONS"] & Operations.EVENT:
         if parameter in CLICK_EVENTS:
@@ -189,8 +342,9 @@ def _determine_event_type(parameter: str, parameter_data: ParameterData) -> type
 
 
 def _safe_create_event(
+    *,
     event_t: type[GenericEvent],
-    channel: hmd.Channel,
+    channel: ChannelProtocol,
     parameter: str,
     parameter_data: ParameterData,
 ) -> GenericEvent:
@@ -203,5 +357,8 @@ def _safe_create_event(
         )
     except Exception as exc:
         raise AioHomematicException(
-            f"CREATE_EVENT_AND_APPEND_TO_CHANNEL: Unable to create event:{hms.extract_exc_args(exc=exc)}"
+            i18n.tr(
+                key="exception.model.event.create_event.failed",
+                reason=hms.extract_exc_args(exc=exc),
+            )
         ) from exc

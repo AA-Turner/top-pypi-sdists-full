@@ -1,4 +1,4 @@
-# Copyright 2025 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 """
 Async version of pathlib.Path that uses asyncio.to_thread for filesystem operations.
 """
@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-import sys
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import IO, TYPE_CHECKING, Any, Optional, Union
 
@@ -138,14 +137,9 @@ class AsyncPath(PurePath):
         newline: Optional[str] = None,
     ) -> int:
         """Write text data to the file."""
-        if sys.version_info >= (3, 10):
-            return await asyncio.to_thread(
-                self._path.write_text, data, encoding, errors, newline
-            )
-        else:
-            return await asyncio.to_thread(
-                self._path.write_text, data, encoding, errors
-            )
+        return await asyncio.to_thread(
+            self._path.write_text, data, encoding, errors, newline
+        )
 
     async def write_bytes(self, data: bytes) -> int:
         """Write bytes data to the file."""
@@ -195,6 +189,11 @@ class AsyncPath(PurePath):
         result = await asyncio.to_thread(self._path.expanduser)
         return self.__class__(result)
 
+    async def absolute(self) -> AsyncPath:
+        """Return an absolute version of this path."""
+        result = await asyncio.to_thread(self._path.absolute)
+        return self.__class__(result)
+
     # Context manager support for opening files
 
     def open(
@@ -230,3 +229,42 @@ class AsyncWindowsPath(AsyncPath, PureWindowsPath):
 
     def __getattr__(self, name: str) -> Any:
         return super().__getattr__(name)  # type: ignore
+
+
+# Module-level convenience functions for compatibility with aio_path
+
+
+async def exists(path: StrPath) -> bool:
+    """Check if a path exists asynchronously."""
+    return await AsyncPath(path).exists()
+
+
+async def isfile(path: StrPath) -> bool:
+    """Check if a path is a file asynchronously."""
+    return await AsyncPath(path).is_file()
+
+
+async def isdir(path: StrPath) -> bool:
+    """Check if a path is a directory asynchronously."""
+    return await AsyncPath(path).is_dir()
+
+
+async def abspath(path: StrPath) -> str:
+    """Return absolute path asynchronously."""
+    result = await AsyncPath(path).absolute()
+    return str(result)
+
+
+async def normpath(path: str) -> str:
+    """Normalize a pathname asynchronously."""
+    return await asyncio.to_thread(os.path.normpath, path)
+
+
+async def mkdir(
+    path: StrPath,
+    mode: int = 0o777,
+    parents: bool = False,
+    exist_ok: bool = False,
+) -> None:
+    """Create a directory asynchronously."""
+    await AsyncPath(path).mkdir(mode=mode, parents=parents, exist_ok=exist_ok)

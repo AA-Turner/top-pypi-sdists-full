@@ -96,6 +96,24 @@ class UserService:
         return resource_identifiers
 
     @property
+    def all_resource_identifiers(self) -> Dict:
+        """
+        Returns a commutative mapping of resource uuid and name for all resource types.
+        e.g. user_service.all_resource_identifiers().get("resource_name") == "resource_uuid"
+         and user_service.all_resource_identifiers().get("resource_uuid") == "resource_name"
+
+        Supports warehouse and BI container resources.
+        """
+        resource_identifiers = {}
+        for resource in self.warehouses:
+            resource_identifiers[resource["uuid"]] = resource["name"]
+            resource_identifiers[resource["name"]] = resource["uuid"]
+        for resource in self.bi_containers:
+            resource_identifiers[resource["uuid"]] = resource["name"]
+            resource_identifiers[resource["name"]] = resource["uuid"]
+        return resource_identifiers
+
+    @property
     def warehouses(self) -> List[Dict]:
         """
         Get warehouses attached to the account

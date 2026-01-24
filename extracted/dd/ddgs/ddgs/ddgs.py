@@ -1,14 +1,12 @@
 """DDGS class implementation."""
 
-from __future__ import annotations
-
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, wait
 from math import ceil
 from random import random, shuffle
 from types import TracebackType
-from typing import Any
+from typing import Any, ClassVar
 
 from .base import BaseSearchEngine
 from .engines import ENGINES
@@ -28,7 +26,7 @@ class DDGS:
     Args:
         proxy: The proxy to use for the search. Defaults to None.
         timeout: The timeout for the search. Defaults to 5.
-        verify: Whether to verify the SSL certificate. Defaults to True.
+        verify: bool (True to verify, False to skip) or str path to a PEM file. Defaults to True.
 
     Attributes:
         threads: The number of threads to use for the search. Defaults to None (automatic).
@@ -43,10 +41,10 @@ class DDGS:
 
     """
 
-    threads: int | None = None
-    _executor: ThreadPoolExecutor | None = None
+    threads: ClassVar[int | None] = None
+    _executor: ClassVar[ThreadPoolExecutor | None] = None
 
-    def __init__(self, proxy: str | None = None, timeout: int | None = 5, verify: bool = True):
+    def __init__(self, proxy: str | None = None, timeout: int | None = 5, *, verify: bool | str = True) -> None:
         self._proxy = _expand_proxy_tb_alias(proxy) or os.environ.get("DDGS_PROXY")
         self._timeout = timeout
         self._verify = verify
@@ -54,7 +52,7 @@ class DDGS:
             type[BaseSearchEngine[Any]], BaseSearchEngine[Any]
         ] = {}  # dict[engine_class, engine_instance]
 
-    def __enter__(self) -> DDGS:
+    def __enter__(self) -> "DDGS":
         """Enter the context manager and return the DDGS instance."""
         return self
 
@@ -65,7 +63,6 @@ class DDGS:
         exc_tb: TracebackType | None = None,
     ) -> None:
         """Exit the context manager."""
-        pass
 
     @classmethod
     def get_executor(cls) -> ThreadPoolExecutor:
@@ -98,8 +95,7 @@ class DDGS:
         if "auto" in backend_list or "all" in backend_list:
             keys = engine_keys
             if category == "text":
-                # ensure Wikipedia is always included and in the first position
-                keys = ["wikipedia"] + [key for key in keys if key != "wikipedia"]
+                keys = ["wikipedia", "grokipedia"] + [k for k in keys if k not in ("wikipedia", "grokipedia")]
         else:
             keys = backend_list
 
@@ -119,14 +115,17 @@ class DDGS:
 
             # sorting by `engine.priority`
             instances.sort(key=lambda e: (e.priority, random), reverse=True)
-            return instances
         except KeyError as ex:
             logger.warning(
-                "%r - backend is not exist or disabled. Available: %s. Using 'auto'", ex, ", ".join(sorted(engine_keys))
+                "%r - backend is not exist or disabled. Available: %s. Using 'auto'",
+                ex,
+                ", ".join(sorted(engine_keys)),
             )
             return self._get_engines(category, "auto")
+        else:
+            return instances
 
-    def _search(
+    def _search(  # noqa: C901
         self,
         category: str,
         query: str,
@@ -138,7 +137,7 @@ class DDGS:
         max_results: int | None = 10,
         page: int = 1,
         backend: str = "auto",
-        **kwargs: Any,
+        **kwargs: str,
     ) -> list[dict[str, Any]]:
         """Perform a search across engines in the given category.
 
@@ -182,22 +181,21 @@ class DDGS:
                 safesearch=safesearch,
                 timelimit=timelimit,
                 page=page,
-                max_results=max_results,
                 **kwargs,
             )
             futures[future] = engine
 
             if len(futures) >= max_workers or i >= max_workers:
                 done, not_done = wait(futures, timeout=self._timeout, return_when="FIRST_EXCEPTION")
-                for future in futures:
-                    if future in done:
+                for f, f_engine in futures.items():
+                    if f in done:
                         try:
-                            if r := future.result():
+                            if r := f.result():
                                 results_aggregator.extend(r)
-                                seen_providers.add(futures[future].provider)
-                        except Exception as ex:
+                                seen_providers.add(f_engine.provider)
+                        except Exception as ex:  # noqa: BLE001
                             err = ex
-                            logger.info("Error in engine %s: %r", futures[future].name, ex)
+                            logger.info("Error in engine %s: %r", engine.name, ex)
                 futures = {f: futures[f] for f in not_done}
 
             if max_results and len(results_aggregator) >= max_results:
@@ -215,22 +213,22 @@ class DDGS:
             raise TimeoutException(err)
         raise DDGSException(err or "No results found.")
 
-    def text(self, query: str, **kwargs: Any) -> list[dict[str, Any]]:
+    def text(self, query: str, **kwargs: Any) -> list[dict[str, Any]]:  # noqa: ANN401
         """Perform a text search."""
         return self._search("text", query, **kwargs)
 
-    def images(self, query: str, **kwargs: Any) -> list[dict[str, Any]]:
+    def images(self, query: str, **kwargs: Any) -> list[dict[str, Any]]:  # noqa: ANN401
         """Perform an image search."""
         return self._search("images", query, **kwargs)
 
-    def news(self, query: str, **kwargs: Any) -> list[dict[str, Any]]:
+    def news(self, query: str, **kwargs: Any) -> list[dict[str, Any]]:  # noqa: ANN401
         """Perform a news search."""
         return self._search("news", query, **kwargs)
 
-    def videos(self, query: str, **kwargs: Any) -> list[dict[str, Any]]:
+    def videos(self, query: str, **kwargs: Any) -> list[dict[str, Any]]:  # noqa: ANN401
         """Perform a video search."""
         return self._search("videos", query, **kwargs)
 
-    def books(self, query: str, **kwargs: Any) -> list[dict[str, Any]]:
+    def books(self, query: str, **kwargs: Any) -> list[dict[str, Any]]:  # noqa: ANN401
         """Perform a book search."""
         return self._search("books", query, **kwargs)

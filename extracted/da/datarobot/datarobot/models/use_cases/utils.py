@@ -95,9 +95,7 @@ def resolve_use_case_ids(use_cases: UseCaseLike) -> List[str]:
         The returned list of ID strings.
     """
     if isinstance(use_cases, list):
-        return [
-            use_case.id if isinstance(use_case, UseCase) else use_case for use_case in use_cases
-        ]
+        return [use_case.id if isinstance(use_case, UseCase) else use_case for use_case in use_cases]
     if isinstance(use_cases, UseCase):
         return [use_cases.id]
     else:
@@ -200,8 +198,7 @@ def add_to_use_case(
         ret_type = ret_type.lstrip("t")
         if not UseCaseReferenceEntityMap.get(ret_type):  # type: ignore[arg-type]
             raise InvalidUsageError(
-                "This decorator can only support methods that return a "
-                "Project, Dataset, or Application instance."
+                "This decorator can only support methods that return a Project, Dataset, or Application instance."
             )
         new_kw_param = Parameter(
             "use_cases" if allow_multiple else "use_case", kind=Parameter.KEYWORD_ONLY, default=None
@@ -341,9 +338,7 @@ def get_use_case_id(use_case: Optional[Union[UseCase, str]], is_required: bool) 
         if Context.use_case:
             return Context.use_case.id  # type: ignore[union-attr]
         elif is_required:
-            raise InvalidUsageError(
-                "Use case was not specified and could not be inferred from the Context"
-            )
+            raise InvalidUsageError("Use case was not specified and could not be inferred from the Context")
 
     if isinstance(use_case, UseCase):
         return use_case.id

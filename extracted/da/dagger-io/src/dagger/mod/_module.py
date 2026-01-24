@@ -9,6 +9,7 @@ import typing
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, TypeVar, cast
 
+import anyio
 import cattrs
 import cattrs.gen
 from cattrs.preconf import is_primitive_enum
@@ -52,9 +53,10 @@ logger = logging.getLogger(__package__)
 OBJECT_DEF_KEY: typing.Final[str] = "__dagger_object__"
 FIELD_DEF_KEY: typing.Final[str] = "__dagger_field__"
 FUNCTION_DEF_KEY: typing.Final[str] = "__dagger_function__"
+CHECK_DEF_KEY: typing.Final[str] = "__dagger_check__"
 MODULE_NAME: typing.Final[str] = os.getenv("DAGGER_MODULE", "")
 MAIN_OBJECT: typing.Final[str] = os.getenv("DAGGER_MAIN_OBJECT", "")
-
+TYPE_DEF_FILE: typing.Final[str] = os.getenv("DAGGER_MODULE_FILE", "/module.json")
 
 T = TypeVar("T", bound=type)
 
@@ -83,11 +85,11 @@ class Module:
         return self.main_cls is other.cls
 
     async def serve(self):
-        if parent_name := await dag.current_function_call().parent_name():
-            result = await self._invoke(parent_name)
+        if await dag.current_function_call().parent_name():
+            result = await self.invoke()
         else:
             try:
-                result = await self._register()
+                result = await self._typedefs()
             except TypeError as e:
                 raise RegistrationError(str(e)) from e
 
@@ -109,8 +111,19 @@ class Module:
 
         await dag.current_function_call().return_value(dagger.JSON(output))
 
-    async def _register(self) -> dagger.ModuleID:  # noqa: C901, PLR0912
+    async def register(self):
         """Register the module and its types with the Dagger API."""
+        try:
+            result = await self._typedefs()
+            output = json.dumps(result)
+        except TypeError as e:
+            raise RegistrationError(str(e), e) from e
+        await anyio.Path(TYPE_DEF_FILE).write_text(output)
+
+    async def _typedefs(self) -> dagger.ModuleID:  # noqa: C901, PLR0912, PLR0915
+        if not self._main_name:
+            msg = "Main object name can't be empty"
+            raise ValueError(msg)
         try:
             self.get_object(self._main_name)
         except ObjectNotFoundError as e:
@@ -146,6 +159,7 @@ class Module:
                 type_def = type_def.with_object(
                     obj_name,
                     description=get_doc(obj_type.cls),
+                    deprecated=obj_type.deprecated,
                 )
 
             # Object fields
@@ -158,6 +172,7 @@ class Module:
                         field_name,
                         to_typedef(types[field.original_name], ctx),
                         description=get_doc(field.return_type),
+                        deprecated=field.meta.deprecated,
                     )
 
             # Object/interface functions
@@ -175,6 +190,25 @@ class Module:
                 if doc := func.doc:
                     func_def = func_def.with_description(doc)
 
+                if func.cache_policy is not None:
+                    if func.cache_policy == "never":
+                        func_def = func_def.with_cache_policy(
+                            dagger.FunctionCachePolicy.Never,
+                        )
+                    elif func.cache_policy == "session":
+                        func_def = func_def.with_cache_policy(
+                            dagger.FunctionCachePolicy.PerSession,
+                        )
+                    elif func.cache_policy != "":
+                        func_def = func_def.with_cache_policy(
+                            dagger.FunctionCachePolicy.Default,
+                            time_to_live=func.cache_policy,
+                        )
+                if deprecated := func.deprecated:
+                    func_def = func_def.with_deprecated(reason=deprecated)
+                if func.check:
+                    func_def = func_def.with_check()
+
                 for param in func.parameters.values():
                     arg_def = to_typedef(
                         param.resolved_type,
@@ -191,6 +225,7 @@ class Module:
                         default_value=param.default_value,
                         default_path=param.default_path,
                         ignore=param.ignore,
+                        deprecated=param.deprecated,
                     )
 
                 type_def = (
@@ -200,10 +235,11 @@ class Module:
                 )
 
             # Add object/interface to module
-            if obj_type.interface:
-                mod = mod.with_interface(type_def)
-            else:
-                mod = mod.with_object(type_def)
+            mod = (
+                mod.with_interface(type_def)
+                if obj_type.interface
+                else mod.with_object(type_def)
+            )
 
         # Enum types
         for name, cls in self._enums.items():
@@ -211,26 +247,37 @@ class Module:
             member_docs = extract_enum_member_doc(cls)
 
             for member in cls:
-                # Get description from either description attribute or AST doc
                 description = getattr(member, "description", None)
-                if description is None:
-                    description = member_docs.get(member.name)
+                meta = member_docs.get(member.name)
+
+                if description is None and meta and meta.description is not None:
+                    description = meta.description
 
                 enum_def = enum_def.with_enum_member(
                     member.name,
                     value=str(member.value),
                     description=description,
+                    deprecated=meta.deprecated if meta else None,
                 )
             mod = mod.with_enum(enum_def)
 
         return await mod.id()
 
-    async def _invoke(self, parent_name: str) -> Any:
+    async def invoke(self) -> dagger.ModuleID:
         """Invoke a function and return its result.
 
         This includes getting the call context from the API and deserializing data.
         """
         fn_call = dag.current_function_call()
+        parent_name = await fn_call.parent_name()
+
+        if not parent_name:
+            msg = (
+                "Seems like the SDK module isn't registering the types correctly. "
+                "This is a bug."
+            )
+            raise RegistrationError(msg)
+
         name = await fn_call.name()
         parent_json = await fn_call.parent()
         input_args = await fn_call.input_args()
@@ -521,6 +568,7 @@ class Module:
         default: Callable[[], Any] | object = ...,
         name: APIName | None = None,
         init: bool = True,
+        deprecated: str | None = None,
     ) -> Any:
         """Exposes an attribute as a :py:class:`dagger.FieldTypeDef`.
 
@@ -545,6 +593,8 @@ class Module:
         init:
             Whether the field should be included in the constructor.
             Defaults to `True`.
+        deprecated:
+            Optional deprecation message exposed to the engine.
         """
         kwargs = {}
         optional = False
@@ -554,12 +604,44 @@ class Module:
             kwargs["default_factory" if callable(default) else "default"] = default
 
         return dataclasses.field(
-            metadata={FIELD_DEF_KEY: FieldDefinition(name, optional)},
+            metadata={FIELD_DEF_KEY: FieldDefinition(name, optional, deprecated)},
             kw_only=True,
             init=init,
             repr=init,  # default repr shows field as an __init__ argument
             **kwargs,
         )
+
+    def check(
+        self,
+        func: Func[P, R] | None = None,
+    ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
+        """Mark a function as a check.
+
+        Checks are functions that validate conditions and return void/error
+        to indicate pass/fail. This decorator can be combined with
+        :py:meth:`function`.
+
+        Example usage::
+
+            @object_type
+            class MyModule:
+                @function
+                @check
+                def lint(self) -> str:
+                    return "All checks passed"
+
+        Parameters
+        ----------
+        func:
+            The function to mark as a check. Should be an instance method in a
+            class decorated with :py:meth:`object_type`.
+        """
+
+        def wrapper(fn: Func[P, R]) -> Func[P, R]:
+            setattr(fn, CHECK_DEF_KEY, True)
+            return fn
+
+        return wrapper(func) if func else wrapper
 
     @overload
     def function(
@@ -568,6 +650,7 @@ class Module:
         *,
         name: APIName | None = None,
         doc: str | None = None,
+        deprecated: str | None = None,
     ) -> Func[P, R]: ...
 
     @overload
@@ -576,6 +659,7 @@ class Module:
         *,
         name: APIName | None = None,
         doc: str | None = None,
+        deprecated: str | None = None,
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     def function(
@@ -584,6 +668,8 @@ class Module:
         *,
         name: APIName | None = None,
         doc: str | None = None,
+        cache: str | None = None,
+        deprecated: str | None = None,
     ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
         """Exposes a Python function as a :py:class:`dagger.Function`.
 
@@ -608,6 +694,8 @@ class Module:
         doc:
             An alternative description for the API. Useful to use the
             docstring for other purposes.
+        deprecated:
+            Optional deprecation message exposed to the engine.
         """
 
         # TODO: Wrap appropriately
@@ -615,7 +703,16 @@ class Module:
             # TODO: Use beartype to validate
             assert callable(func), f"Expected a callable, got {type(func)}."
 
-            meta = FunctionDefinition(name, doc)
+            # Check if function is marked as a check
+            check = getattr(func, CHECK_DEF_KEY, False)
+
+            meta = FunctionDefinition(
+                name=name,
+                doc=doc,
+                cache=cache,
+                deprecated=deprecated,
+                check=check,
+            )
 
             if inspect.isclass(func):
                 return Constructor(func, meta)
@@ -631,16 +728,21 @@ class Module:
         kw_only_default=True,
         field_specifiers=(function, dataclasses.field, dataclasses.Field),
     )
-    def object_type(self, cls: T) -> T: ...
+    def object_type(self, cls: T, /, *, deprecated: str | None = None) -> T: ...
 
     @overload
     @dataclass_transform(
         kw_only_default=True,
         field_specifiers=(function, dataclasses.field, dataclasses.Field),
     )
-    def object_type(self) -> Callable[[T], T]: ...
+    def object_type(self, *, deprecated: str | None = None) -> Callable[[T], T]: ...
 
-    def object_type(self, cls: T | None = None) -> T | Callable[[T], T]:
+    def object_type(
+        self,
+        cls: T | None = None,
+        *,
+        deprecated: str | None = None,
+    ) -> T | Callable[[T], T]:
         """Exposes a Python class as a :py:class:`dagger.ObjectTypeDef`.
 
         Used with :py:meth:`field` and :py:meth:`function` to expose
@@ -656,6 +758,12 @@ class Module:
                 @dagger.function
                 def bar(self) -> str:
                     return "foobar"
+
+
+        Parameters
+        ----------
+        deprecated:
+            Optional deprecation message visible when introspecting the module.
         """
 
         def wrapper(cls: T) -> T:
@@ -677,12 +785,18 @@ class Module:
                     raise BadUsageError(msg)
 
             wrapped = dataclasses.dataclass(kw_only=True)(cls)
-            return self._process_type(wrapped)
+            return self._process_type(wrapped, deprecated=deprecated)
 
         return wrapper(cls) if cls else wrapper
 
-    def _process_type(self, cls: T, interface: bool = False) -> T:
-        obj_def = ObjectType(cls, interface=interface)
+    def _process_type(
+        self,
+        cls: T,
+        *,
+        interface: bool = False,
+        deprecated: str | None = None,
+    ) -> T:
+        obj_def = ObjectType(cls, interface=interface, deprecated=deprecated)
 
         cls.__dagger_module__ = self
         cls.__dagger_object_type__ = obj_def

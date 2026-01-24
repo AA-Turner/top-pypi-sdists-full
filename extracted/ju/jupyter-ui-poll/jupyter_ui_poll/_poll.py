@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import sys
 import time
 from collections import abc
@@ -38,12 +39,20 @@ class KernelWrapper:
         self._loop = loop
         self._original_parent = (
             kernel._parent_ident,
-            kernel.get_parent()  # ipykernel 6+
-            if hasattr(kernel, "get_parent")
-            else kernel._parent_header,  # ipykernel < 6
+            (
+                kernel.get_parent()  # ipykernel 6+
+                if hasattr(kernel, "get_parent")
+                else kernel._parent_header
+            ),  # ipykernel < 6
         )
         self._events: List[Tuple[Any, Any, Any]] = []
         self._backup_execute_request = kernel.shell_handlers["execute_request"]
+        self._backup_main_asyncio_lock = None
+        if hasattr(kernel, "_main_asyncio_lock"):  # ipykernel 7+
+            # Introduced in https://github.com/ipython/ipykernel/pull/1430
+            # Does not seem to have a very good reason to be introduced, only to reduce flakiness
+            self._backup_main_asyncio_lock = kernel._main_asyncio_lock
+            kernel._main_asyncio_lock = contextlib.nullcontext()
         self._aproc = None
 
         if iscoroutinefunction(self._backup_execute_request):  # ipykernel 6+
@@ -52,14 +61,22 @@ class KernelWrapper:
             # ipykernel < 6
             kernel.shell_handlers["execute_request"] = self._execute_request
 
-        shell.events.register("post_execute", self._post_execute_hook)
+        # Previously, we used "post_execute", but a comm message handler can also trigger this event:
+        #  https://github.com/ipython/comm/blob/73e28fc4adaca9b05dd437d70717480be19ce25b/comm/base_comm.py#L151
+        # Instead, we now use the "post_run_cell" event, which is also triggered after the cell is executed.
+        # However, "post_run_cell" is not triggered, it's unclear when this happens, but it should not happen
+        # for normal cell execution.
+        shell.events.register("post_run_cell", self._post_run_cell)
 
     def restore(self):
         if self._backup_execute_request is not None:
-            self._kernel.shell_handlers[
-                "execute_request"
-            ] = self._backup_execute_request
+            self._kernel.shell_handlers["execute_request"] = (
+                self._backup_execute_request
+            )
             self._backup_execute_request = None
+            if self._backup_main_asyncio_lock is not None:
+                self._kernel._main_asyncio_lock = self._backup_main_asyncio_lock
+                self._backup_main_asyncio_lock = None
 
     def _reset_output(self):
         self._kernel.set_parent(*self._original_parent)
@@ -113,8 +130,8 @@ class KernelWrapper:
             # reset stdio back to original cell
             self._reset_output()
 
-    def _post_execute_hook(self, *args, **kw):
-        self._shell.events.unregister("post_execute", self._post_execute_hook)
+    def _post_run_cell(self, *args, **kw):
+        self._shell.events.unregister("post_run_cell", self._post_run_cell)
         self.restore()
         KernelWrapper._current = None
         asyncio.ensure_future(self.replay(), loop=self._loop)

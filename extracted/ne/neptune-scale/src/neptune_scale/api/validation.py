@@ -6,11 +6,18 @@ __all__ = (
     "verify_max_length",
     "verify_value_between",
     "verify_project_qualified_name",
+    "verify_run_id",
 )
 
 from typing import (
     Any,
     Union,
+)
+
+from neptune_scale.sync.parameters import (
+    MAX_RUN_ID_LENGTH,
+    MAX_STEP_VALUE,
+    MIN_STEP_VALUE,
 )
 
 
@@ -48,8 +55,28 @@ def verify_project_qualified_name(var_name: str, var: Any) -> None:
         raise ValueError(f"{var_name} is not in expected format, should be 'workspace-name/project-name")
 
 
+def verify_run_id(var_name: str, var: Any) -> None:
+    verify_type(var_name, var, str)
+    verify_non_empty(var_name, var)
+    verify_max_length(var_name, var, MAX_RUN_ID_LENGTH)
+
+    if "/" in var:
+        raise ValueError(f"{var_name} is not in expected format, should not contain '/' character")
+
+
 def verify_value_between(
     var_name: str, var: Union[int, float], expected_min: Union[int, float], expected_max: Union[int, float]
 ) -> None:
     if var > expected_max or var < expected_min:
         raise ValueError(f"{var_name} must have a value between {expected_min} and {expected_max}")
+
+
+def verify_step(var_name: str, var: Any, optional: bool = False) -> None:
+    if optional:
+        verify_type(var_name, var, (float, int, type(None)))
+    else:
+        verify_type(var_name, var, (float, int))
+
+    if var is not None:
+        if not MIN_STEP_VALUE <= var < MAX_STEP_VALUE:
+            raise ValueError(f"{var_name} must have a value between {MIN_STEP_VALUE} and {MAX_STEP_VALUE}")

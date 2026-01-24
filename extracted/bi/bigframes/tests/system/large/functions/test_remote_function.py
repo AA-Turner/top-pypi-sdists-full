@@ -36,7 +36,7 @@ import bigframes.functions._utils as bff_utils
 import bigframes.pandas as bpd
 import bigframes.series
 from bigframes.testing.utils import (
-    assert_pandas_df_equal,
+    assert_frame_equal,
     cleanup_function_assets,
     delete_cloud_function,
     get_cloud_functions,
@@ -214,7 +214,7 @@ def test_remote_function_decorator_with_bigframes_series(
         pd_result_col = pd_result_col.astype(pandas.Int64Dtype())
         pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(square, session.bqclient, session.cloudfunctionsclient)
@@ -261,7 +261,7 @@ def test_remote_function_explicit_with_bigframes_series(
         pd_result_col = pd_result_col.astype(pandas.Int64Dtype())
         pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(
@@ -349,7 +349,7 @@ def test_remote_function_explicit_dataset_not_created(
         pd_result_col = pd_result_col.astype(pandas.Int64Dtype())
         pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(square, session.bqclient, session.cloudfunctionsclient)
@@ -403,7 +403,7 @@ def test_remote_udf_referring_outside_var(
         pd_result_col = pd_result_col.astype(pandas.Int64Dtype())
         pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(
@@ -453,7 +453,7 @@ def test_remote_udf_referring_outside_import(
         pd_result_col = pd_result_col.astype(pandas.Float64Dtype())
         pd_result = pd_float64_col_filtered.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(
@@ -503,7 +503,7 @@ def test_remote_udf_referring_global_var_and_import(
         pd_result_col = pd_result_col.astype(pandas.StringDtype(storage="pyarrow"))
         pd_result = pd_float64_col_filtered.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(
@@ -591,7 +591,7 @@ def test_remote_function_restore_with_bigframes_series(
             pd_result_col = pd_result_col.astype(pandas.Int64Dtype())
             pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-            assert_pandas_df_equal(bf_result, pd_result)
+            assert_frame_equal(bf_result, pd_result)
 
         # Test that the remote function works as expected
         inner_test()
@@ -683,7 +683,7 @@ def test_remote_udf_mask_default_value(
         pd_result_col = pd_int64_col.mask(is_odd)
         pd_result = pd_int64_col.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(
@@ -727,7 +727,7 @@ def test_remote_udf_mask_custom_value(
         pd_result_col = pd_int64_col[pd_int64_col.notnull()].mask(is_odd, -1)
         pd_result = pd_int64_col.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(
@@ -770,7 +770,7 @@ def test_remote_udf_lambda(session, scalars_dfs, dataset_id, bq_cf_connection):
         pd_result_col = pd_result_col.astype(pandas.Int64Dtype())
         pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(
@@ -829,7 +829,7 @@ def test_remote_function_with_explicit_name(
         pd_result_col = pd_result_col.astype(pandas.Int64Dtype())
         pd_result = pd_int64_col.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(
@@ -884,7 +884,7 @@ def test_remote_function_with_external_package_dependencies(
         # comparing for the purpose of this test
         pd_result.result = pd_result.result.astype(pandas.Float64Dtype())
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(
@@ -928,7 +928,7 @@ def test_remote_function_with_explicit_name_reuse(
             pd_result_col = pd_result_col.astype(pandas.Int64Dtype())
             pd_result = pd_int64_col.to_frame().assign(result=pd_result_col)
 
-            assert_pandas_df_equal(bf_result, pd_result)
+            assert_frame_equal(bf_result, pd_result)
 
         # Create an explicit name for the remote function
         prefixer = test_utils.prefixer.Prefixer("foo", "")
@@ -1109,7 +1109,7 @@ def test_remote_function_via_session_context_connection_setter(
         pd_result_col = pd_result_col.astype(pandas.Int64Dtype())
         pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(square, session.bqclient, session.cloudfunctionsclient)
@@ -1150,7 +1150,7 @@ def test_remote_function_default_connection(session, scalars_dfs, dataset_id):
         pd_result_col = pd_result_col.astype(pandas.Int64Dtype())
         pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(square, session.bqclient, session.cloudfunctionsclient)
@@ -1225,7 +1225,7 @@ def test_remote_function_anonymous_dataset(session, scalars_dfs):
         pd_result_col = pd_result_col.astype(pandas.Int64Dtype())
         pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result)
+        assert_frame_equal(bf_result, pd_result)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(square, session.bqclient, session.cloudfunctionsclient)
@@ -1283,7 +1283,7 @@ def test_remote_function_via_session_custom_sa(scalars_dfs):
         pd_result_col = pd_int64_col.apply(lambda x: x if x is None else x * x)
         pd_result = pd_int64_col.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result, check_dtype=False)
+        assert_frame_equal(bf_result, pd_result, check_dtype=False)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(
@@ -1357,7 +1357,7 @@ def test_remote_function_via_session_custom_build_sa(
         pd_result_col = pd_int64_col.apply(lambda x: x if x is None else x * x)
         pd_result = pd_int64_col.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result, check_dtype=False)
+        assert_frame_equal(bf_result, pd_result, check_dtype=False)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(
@@ -1416,7 +1416,7 @@ def test_remote_function_with_gcf_cmek():
         pd_result_col = df["num"].apply(lambda x: x if x is None else x * x)
         pd_result = df.assign(result=pd_result_col)
 
-        assert_pandas_df_equal(
+        assert_frame_equal(
             bf_result, pd_result, check_dtype=False, check_index_type=False
         )
 
@@ -1504,7 +1504,7 @@ def test_remote_function_via_session_vpc(scalars_dfs):
         pd_result_col = pd_int64_col.apply(square_num)
         pd_result = pd_int64_col.to_frame().assign(result=pd_result_col)
 
-        assert_pandas_df_equal(bf_result, pd_result, check_dtype=False)
+        assert_frame_equal(bf_result, pd_result, check_dtype=False)
     finally:
         # clean up the gcp assets created for the remote function
         cleanup_function_assets(
@@ -1651,11 +1651,13 @@ def test_remote_function_gcf_timeout_max_supported_exceeded(session):
             return x * x
 
 
+# Note: Zero represents default, which is 100 instances actually, which is why the remote function still works
+# in the df.apply() call here
 @pytest.mark.parametrize(
     ("max_instances_args", "expected_max_instances"),
     [
-        pytest.param({}, 100, id="no-set"),
-        pytest.param({"cloud_function_max_instances": None}, 100, id="set-None"),
+        pytest.param({}, 0, id="no-set"),
+        pytest.param({"cloud_function_max_instances": None}, 0, id="set-None"),
         pytest.param({"cloud_function_max_instances": 1000}, 1000, id="set-explicit"),
     ],
 )
@@ -1722,7 +1724,7 @@ def test_df_apply_axis_1(session, scalars_dfs):
             )
 
         serialize_row_remote = session.remote_function(
-            input_types=bigframes.series.Series,
+            input_types=pandas.Series,
             output_type=str,
             reuse=False,
             cloud_function_service_account="default",
@@ -1771,7 +1773,7 @@ def test_df_apply_axis_1_aggregates(session, scalars_dfs):
             )
 
         analyze_remote = session.remote_function(
-            input_types=bigframes.series.Series,
+            input_types=pandas.Series,
             output_type=str,
             reuse=False,
             cloud_function_service_account="default",
@@ -1895,7 +1897,7 @@ def test_df_apply_axis_1_complex(session, pd_df):
             )
 
         serialize_row_remote = session.remote_function(
-            input_types=bigframes.series.Series,
+            input_types=pandas.Series,
             output_type=str,
             reuse=False,
             cloud_function_service_account="default",
@@ -1944,7 +1946,7 @@ SELECT "pandas na" AS text, NULL AS num
 
     try:
 
-        def float_parser(row):
+        def float_parser(row: pandas.Series):
             import numpy as mynp
             import pandas as mypd
 
@@ -1955,7 +1957,6 @@ SELECT "pandas na" AS text, NULL AS num
             return float(row["text"])
 
         float_parser_remote = session.remote_function(
-            input_types=bigframes.series.Series,
             output_type=float,
             reuse=False,
             cloud_function_service_account="default",
@@ -2055,12 +2056,12 @@ def test_df_apply_axis_1_series_args(session, scalars_dfs):
     try:
 
         @session.remote_function(
-            input_types=[bigframes.series.Series, float, str, bool],
+            input_types=[pandas.Series, float, str, bool],
             output_type=list[str],
             reuse=False,
             cloud_function_service_account="default",
         )
-        def foo_list(x, y0: float, y1, y2) -> list[str]:
+        def foo_list(x: pandas.Series, y0: float, y1, y2) -> list[str]:
             return (
                 [str(x["int64_col"]), str(y0), str(y1), str(y2)]
                 if y2
@@ -3087,12 +3088,21 @@ def test_remote_function_df_where_mask_series(session, dataset_id, scalars_dfs):
     try:
 
         # The return type has to be bool type for callable where condition.
-        def is_sum_positive_series(s):
+        def is_sum_positive_series(s: pandas.Series) -> bool:
             return s["int64_col"] + s["int64_too"] > 0
 
+        with pytest.raises(
+            TypeError,
+            match="Argument type hint must be Pandas Series, not BigFrames Series.",
+        ):
+            session.remote_function(
+                input_types=bigframes.series.Series,
+                dataset=dataset_id,
+                reuse=False,
+                cloud_function_service_account="default",
+            )(is_sum_positive_series)
+
         is_sum_positive_series_mf = session.remote_function(
-            input_types=bigframes.series.Series,
-            output_type=bool,
             dataset=dataset_id,
             reuse=False,
             cloud_function_service_account="default",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-kernel
-Version: 1.37.0
+Version: 1.39.2
 Summary: Semantic Kernel Python SDK
 Author-email: Microsoft <SK-Support@microsoft.com>
 Requires-Python: >=3.10
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Framework :: Pydantic :: 2
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: azure-ai-projects >= 1.0.0b12
+Requires-Dist: azure-ai-projects ~= 1.0.0b12
 Requires-Dist: azure-ai-agents >= 1.2.0b3
 Requires-Dist: aiohttp ~= 3.8
 Requires-Dist: cloudevents ~=1.0
@@ -25,7 +25,7 @@ Requires-Dist: defusedxml ~= 0.7
 Requires-Dist: azure-identity >= 1.13
 Requires-Dist: numpy >= 1.25.0; python_version < '3.12'
 Requires-Dist: numpy >= 1.26.0; python_version >= '3.12'
-Requires-Dist: openai >= 1.98.0
+Requires-Dist: openai >= 1.98.0,<2
 Requires-Dist: openapi_core >= 0.18,<0.20
 Requires-Dist: websockets >= 13, < 16
 Requires-Dist: aiortc>=1.9.0
@@ -48,12 +48,14 @@ Requires-Dist: azure-core-tracing-opentelemetry >= 1.0.0b11 ; extra == "azure"
 Requires-Dist: azure-search-documents >= 11.6.0b4 ; extra == "azure"
 Requires-Dist: azure-cosmos ~= 4.7 ; extra == "azure"
 Requires-Dist: chromadb >= 0.5,< 1.1 ; extra == "chroma"
+Requires-Dist: microsoft-agents-copilotstudio-client >= 0.3.1 ; extra == "copilotstudio"
+Requires-Dist: microsoft-agents-activity >= 0.3.1 ; extra == "copilotstudio"
 Requires-Dist: dapr>=1.14.0 ; extra == "dapr"
 Requires-Dist: dapr-ext-fastapi>=1.14.0 ; extra == "dapr"
 Requires-Dist: flask-dapr>=1.14.0 ; extra == "dapr"
 Requires-Dist: faiss-cpu>=1.10.0 ; extra == "faiss"
-Requires-Dist: google-cloud-aiplatform == 1.97.0 ; extra == "google"
-Requires-Dist: google-generativeai ~= 0.8 ; extra == "google"
+Requires-Dist: google-cloud-aiplatform ~= 1.114.0 ; extra == "google"
+Requires-Dist: google-genai ~= 1.51.0 ; extra == "google"
 Requires-Dist: transformers[torch] ~= 4.28 ; extra == "hugging-face"
 Requires-Dist: sentence-transformers >= 2.2,< 6.0 ; extra == "hugging-face"
 Requires-Dist: torch == 2.8.0 ; extra == "hugging-face"
@@ -65,7 +67,9 @@ Requires-Dist: pymongo >= 4.8.0, < 4.15 ; extra == "mongo"
 Requires-Dist: motor >= 3.3.2,< 3.8.0 ; extra == "mongo"
 Requires-Dist: ipykernel ~= 6.29 ; extra == "notebooks"
 Requires-Dist: ollama ~= 0.4 ; extra == "ollama"
-Requires-Dist: onnxruntime-genai ~= 0.7 ; extra == "onnx"
+Requires-Dist: onnxruntime==1.22.1 ; extra == "onnx"
+Requires-Dist: onnxruntime-genai==0.9.0 ; extra == "onnx"
+Requires-Dist: oracledb >= 3.4.1 ; extra == "oracledb"
 Requires-Dist: pandas ~= 2.2 ; extra == "pandas"
 Requires-Dist: pinecone[asyncio, grpc] ~= 7.0 ; extra == "pinecone"
 Requires-Dist: psycopg[binary, pool] ~= 3.2 ; extra == "postgres"
@@ -78,7 +82,7 @@ Requires-Dist: redisvl ~= 0.4 ; extra == "redis"
 Requires-Dist: pyodbc >= 5.2 ; extra == "sql"
 Requires-Dist: usearch ~= 2.16 ; extra == "usearch"
 Requires-Dist: pyarrow >= 12.0,< 22.0 ; extra == "usearch"
-Requires-Dist: weaviate-client>=4.10,<5.0,!=4.16.7 ; extra == "weaviate"
+Requires-Dist: weaviate-client>=4.17.0,<5.0 ; extra == "weaviate"
 Project-URL: homepage, https://learn.microsoft.com/en-us/semantic-kernel/overview/
 Project-URL: issues, https://github.com/microsoft/semantic-kernel/issues
 Project-URL: release_notes, https://github.com/microsoft/semantic-kernel/releases?q=tag%3Apython-1&expanded=true
@@ -88,6 +92,7 @@ Provides-Extra: autogen
 Provides-Extra: aws
 Provides-Extra: azure
 Provides-Extra: chroma
+Provides-Extra: copilotstudio
 Provides-Extra: dapr
 Provides-Extra: faiss
 Provides-Extra: google
@@ -99,6 +104,7 @@ Provides-Extra: mongo
 Provides-Extra: notebooks
 Provides-Extra: ollama
 Provides-Extra: onnx
+Provides-Extra: oracledb
 Provides-Extra: pandas
 Provides-Extra: pinecone
 Provides-Extra: postgres
@@ -115,7 +121,7 @@ Highlights
 - Flexible Agent Framework: build, orchestrate, and deploy AI agents and multi-agent systems
 - Multi-Agent Systems: Model workflows and collaboration between AI specialists
 - Plugin Ecosystem: Extend with Python, OpenAPI, Model Context Protocol (MCP), and more
-- LLM Support: OpenAI, Azure OpenAI, Hugging Face, Mistral, Vertex AI, ONNX, Ollama, NVIDIA NIM, and others
+- LLM Support: OpenAI, Azure OpenAI, Hugging Face, Mistral, Google AI, ONNX, Ollama, NVIDIA NIM, and others
 - Vector DB Support: Azure AI Search, Elasticsearch, Chroma, and more
 - Process Framework: Build structured business processes with workflow modeling
 - Multimodal: Text, vision, audio

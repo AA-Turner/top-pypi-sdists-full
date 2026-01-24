@@ -3,12 +3,12 @@
 from __future__ import annotations
 from enum import Enum
 import pydantic
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional, Union
 from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class OneTypedDict(TypedDict):
@@ -82,29 +82,47 @@ class AtsMetadataTypedDict(TypedDict):
     extra_data: NotRequired[ExtraDataTypedDict]
     format_: NotRequired[Format]
     id: NotRequired[str]
-    key: NotRequired[str]
     namespace: NotRequired[str]
     slug: NotRequired[str]
-    type: NotRequired[str]
     value: NotRequired[ValueTypedDict]
 
 
 class AtsMetadata(BaseModel):
     extra_data: Optional[ExtraData] = None
 
-    format_: Annotated[
-        Annotated[Optional[Format], PlainValidator(validate_open_enum(False))],
-        pydantic.Field(alias="format"),
-    ] = None
+    format_: Annotated[Optional[Format], pydantic.Field(alias="format")] = None
 
     id: Optional[str] = None
-
-    key: Optional[str] = None
 
     namespace: Optional[str] = None
 
     slug: Optional[str] = None
 
-    type: Optional[str] = None
-
     value: Optional[Value] = None
+
+    @field_serializer("format_")
+    def serialize_format_(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.Format(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            ["extra_data", "format", "id", "namespace", "slug", "value"]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

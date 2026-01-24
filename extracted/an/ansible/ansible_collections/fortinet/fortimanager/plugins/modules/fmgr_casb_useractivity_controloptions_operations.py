@@ -16,7 +16,6 @@ short_description: CASB control option operations.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.3.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -162,6 +164,10 @@ options:
                 type: list
                 elements: str
                 description: CASB operation new values.
+            value_name_from_input:
+                aliases: ['value-name-from-input']
+                type: str
+                description: CASB operation value name from user input.
 '''
 
 EXAMPLES = '''
@@ -177,8 +183,8 @@ EXAMPLES = '''
     - name: CASB control option operations.
       fortinet.fortimanager.fmgr_casb_useractivity_controloptions_operations:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -196,6 +202,7 @@ EXAMPLES = '''
           # target: <value in [header, path, body]>
           # value_from_input: <value in [disable, enable]>
           # values: <list or string>
+          # value_name_from_input: <string>
 '''
 
 RETURN = '''
@@ -256,6 +263,7 @@ def main():
         'user_activity': {'type': 'str'},
         'control-options': {'type': 'str', 'api_name': 'control_options'},
         'control_options': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'casb_useractivity_controloptions_operations': {
             'type': 'dict',
             'v_range': [['7.4.1', '']],
@@ -269,7 +277,8 @@ def main():
                 'search-pattern': {'v_range': [['7.4.1', '']], 'choices': ['simple', 'substr', 'regexp'], 'type': 'str'},
                 'target': {'v_range': [['7.4.1', '']], 'choices': ['header', 'path', 'body'], 'type': 'str'},
                 'value-from-input': {'v_range': [['7.4.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'values': {'v_range': [['7.4.1', '']], 'type': 'list', 'elements': 'str'}
+                'values': {'v_range': [['7.4.1', '']], 'type': 'list', 'elements': 'str'},
+                'value-name-from-input': {'v_range': [['7.6.4', '']], 'type': 'str'}
             }
         }
     }

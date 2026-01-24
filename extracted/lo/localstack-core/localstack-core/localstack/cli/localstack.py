@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 import traceback
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 import click
 import requests
@@ -320,8 +320,8 @@ class DockerStatus(TypedDict, total=False):
     image_tag: str
     image_id: str
     image_created: str
-    container_name: Optional[str]
-    container_ip: Optional[str]
+    container_name: str | None
+    container_ip: str | None
 
 
 def _print_docker_status(format_: str) -> None:
@@ -433,7 +433,7 @@ def _print_service_table(services: dict[str, str]) -> None:
 
 @localstack.command(name="start", short_help="Start LocalStack")
 @click.option("--docker", is_flag=True, help="Start LocalStack in a docker container [default]")
-@click.option("--host", is_flag=True, help="Start LocalStack directly on the host")
+@click.option("--host", is_flag=True, help="Start LocalStack directly on the host", deprecated=True)
 @click.option("--no-banner", is_flag=True, help="Disable LocalStack banner", default=False)
 @click.option(
     "-d", "--detached", is_flag=True, help="Start LocalStack in the background", default=False
@@ -532,6 +532,11 @@ def cmd_start(
             console.log("starting LocalStack in Docker mode :whale:")
 
     if host:
+        console.log(
+            "Warning: Starting LocalStack in host mode from the CLI is deprecated and will be removed soon. Please use the default Docker mode instead.",
+            style="bold red",
+        )
+
         # call hooks to prepare host
         bootstrap.prepare_host(console)
 
@@ -699,7 +704,7 @@ def cmd_logs(follow: bool, tail: int) -> None:
     metavar="N",
 )
 @publish_invocation
-def cmd_wait(timeout: Optional[float] = None) -> None:
+def cmd_wait(timeout: float | None = None) -> None:
     """
     Wait for the LocalStack runtime to be up and running.
 

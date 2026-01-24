@@ -120,11 +120,13 @@ class _MagicTransitConnectorState:
                  device: Optional[pulumi.Input['MagicTransitConnectorDeviceArgs']] = None,
                  interrupt_window_duration_hours: Optional[pulumi.Input[_builtins.float]] = None,
                  interrupt_window_hour_of_day: Optional[pulumi.Input[_builtins.float]] = None,
+                 license_key: Optional[pulumi.Input[_builtins.str]] = None,
                  notes: Optional[pulumi.Input[_builtins.str]] = None,
                  timezone: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering MagicTransitConnector resources.
         :param pulumi.Input[_builtins.str] account_id: Account identifier
+        :param pulumi.Input[_builtins.str] license_key: License key for the connector. This is only returned on creation and will not be available in subsequent reads.
         """
         if account_id is not None:
             pulumi.set(__self__, "account_id", account_id)
@@ -136,6 +138,8 @@ class _MagicTransitConnectorState:
             pulumi.set(__self__, "interrupt_window_duration_hours", interrupt_window_duration_hours)
         if interrupt_window_hour_of_day is not None:
             pulumi.set(__self__, "interrupt_window_hour_of_day", interrupt_window_hour_of_day)
+        if license_key is not None:
+            pulumi.set(__self__, "license_key", license_key)
         if notes is not None:
             pulumi.set(__self__, "notes", notes)
         if timezone is not None:
@@ -190,6 +194,18 @@ class _MagicTransitConnectorState:
         pulumi.set(self, "interrupt_window_hour_of_day", value)
 
     @_builtins.property
+    @pulumi.getter(name="licenseKey")
+    def license_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        License key for the connector. This is only returned on creation and will not be available in subsequent reads.
+        """
+        return pulumi.get(self, "license_key")
+
+    @license_key.setter
+    def license_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "license_key", value)
+
+    @_builtins.property
     @pulumi.getter
     def notes(self) -> Optional[pulumi.Input[_builtins.str]]:
         return pulumi.get(self, "notes")
@@ -225,6 +241,24 @@ class MagicTransitConnector(pulumi.CustomResource):
         """
         ## Example Usage
 
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_magic_transit_connector = cloudflare.MagicTransitConnector("example_magic_transit_connector",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            device={
+                "id": "id",
+                "provision_license": True,
+                "serial_number": "serial_number",
+            },
+            activated=True,
+            interrupt_window_duration_hours=0,
+            interrupt_window_hour_of_day=0,
+            notes="notes",
+            timezone="timezone")
+        ```
+
         ## Import
 
         ```sh
@@ -243,6 +277,24 @@ class MagicTransitConnector(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_magic_transit_connector = cloudflare.MagicTransitConnector("example_magic_transit_connector",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            device={
+                "id": "id",
+                "provision_license": True,
+                "serial_number": "serial_number",
+            },
+            activated=True,
+            interrupt_window_duration_hours=0,
+            interrupt_window_hour_of_day=0,
+            notes="notes",
+            timezone="timezone")
+        ```
 
         ## Import
 
@@ -292,6 +344,9 @@ class MagicTransitConnector(pulumi.CustomResource):
             __props__.__dict__["interrupt_window_hour_of_day"] = interrupt_window_hour_of_day
             __props__.__dict__["notes"] = notes
             __props__.__dict__["timezone"] = timezone
+            __props__.__dict__["license_key"] = None
+        secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["licenseKey"])
+        opts = pulumi.ResourceOptions.merge(opts, secret_opts)
         super(MagicTransitConnector, __self__).__init__(
             'cloudflare:index/magicTransitConnector:MagicTransitConnector',
             resource_name,
@@ -307,6 +362,7 @@ class MagicTransitConnector(pulumi.CustomResource):
             device: Optional[pulumi.Input[Union['MagicTransitConnectorDeviceArgs', 'MagicTransitConnectorDeviceArgsDict']]] = None,
             interrupt_window_duration_hours: Optional[pulumi.Input[_builtins.float]] = None,
             interrupt_window_hour_of_day: Optional[pulumi.Input[_builtins.float]] = None,
+            license_key: Optional[pulumi.Input[_builtins.str]] = None,
             notes: Optional[pulumi.Input[_builtins.str]] = None,
             timezone: Optional[pulumi.Input[_builtins.str]] = None) -> 'MagicTransitConnector':
         """
@@ -317,6 +373,7 @@ class MagicTransitConnector(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] account_id: Account identifier
+        :param pulumi.Input[_builtins.str] license_key: License key for the connector. This is only returned on creation and will not be available in subsequent reads.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -327,6 +384,7 @@ class MagicTransitConnector(pulumi.CustomResource):
         __props__.__dict__["device"] = device
         __props__.__dict__["interrupt_window_duration_hours"] = interrupt_window_duration_hours
         __props__.__dict__["interrupt_window_hour_of_day"] = interrupt_window_hour_of_day
+        __props__.__dict__["license_key"] = license_key
         __props__.__dict__["notes"] = notes
         __props__.__dict__["timezone"] = timezone
         return MagicTransitConnector(resource_name, opts=opts, __props__=__props__)
@@ -358,6 +416,14 @@ class MagicTransitConnector(pulumi.CustomResource):
     @pulumi.getter(name="interruptWindowHourOfDay")
     def interrupt_window_hour_of_day(self) -> pulumi.Output[_builtins.float]:
         return pulumi.get(self, "interrupt_window_hour_of_day")
+
+    @_builtins.property
+    @pulumi.getter(name="licenseKey")
+    def license_key(self) -> pulumi.Output[_builtins.str]:
+        """
+        License key for the connector. This is only returned on creation and will not be available in subsequent reads.
+        """
+        return pulumi.get(self, "license_key")
 
     @_builtins.property
     @pulumi.getter

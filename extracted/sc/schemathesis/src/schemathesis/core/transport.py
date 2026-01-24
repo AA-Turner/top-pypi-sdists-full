@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import TYPE_CHECKING, Any, Mapping
+import string
+from collections.abc import Mapping
+from itertools import product
+from typing import TYPE_CHECKING, Any
 
+from schemathesis.core import NOT_SET
 from schemathesis.core.version import SCHEMATHESIS_VERSION
 
 if TYPE_CHECKING:
@@ -64,7 +68,7 @@ class Response:
         "request",
         "elapsed",
         "verify",
-        "_json",
+        "_deserialized",
         "message",
         "http_version",
         "encoding",
@@ -92,7 +96,7 @@ class Response:
         self.request = request
         self.elapsed = elapsed
         self.verify = verify
-        self._json = None
+        self._deserialized = NOT_SET
         self._encoded_body: str | None = None
         self.message = message
         self.http_version = http_version
@@ -165,7 +169,7 @@ class Response:
 
         reason = http.client.responses.get(response.status_code, "Unknown")
         data = response.get_data()
-        if response.response == []:
+        if not response.response:
             # Werkzeug <3.0 had `charset` attr, newer versions always have UTF-8
             encoding = response.mimetype_params.get("charset", getattr(response, "charset", "utf-8"))
         else:
@@ -194,7 +198,7 @@ class Response:
     @property
     def text(self) -> str:
         """Decode response content as text using the detected or default encoding."""
-        return self.content.decode(self.encoding if self.encoding else "utf-8")
+        return self.content.decode(self.encoding or "utf-8")
 
     def json(self) -> Any:
         """Parse response content as JSON.
@@ -206,9 +210,9 @@ class Response:
             json.JSONDecodeError: If content is not valid JSON
 
         """
-        if self._json is None:
-            self._json = json.loads(self.text)
-        return self._json
+        if self._deserialized is NOT_SET:
+            self._deserialized = json.loads(self.text)
+        return self._deserialized
 
     @property
     def body_size(self) -> int | None:
@@ -221,3 +225,31 @@ class Response:
         if self._encoded_body is None and self.content:
             self._encoded_body = base64.b64encode(self.content).decode()
         return self._encoded_body
+
+
+def expand_status_code(status_code: str | int) -> list[int]:
+    """Expand OpenAPI status code patterns like '2XX' or 'default' into concrete codes.
+
+    Args:
+        status_code: Status code pattern ('200', '2XX', 'default', etc.)
+
+    Returns:
+        List of concrete status codes matching the pattern
+
+    """
+    chars = [list(string.digits) if digit == "X" else [digit] for digit in str(status_code).upper()]
+    return [int("".join(expanded)) for expanded in product(*chars)]
+
+
+def status_code_matches(pattern: str, response_code: int) -> bool:
+    """Check if a response status code matches an OpenAPI status code pattern.
+
+    Args:
+        pattern: OpenAPI status code pattern ('200', '2XX', 'default', etc.)
+        response_code: Actual HTTP status code from response
+
+    Returns:
+        True if the response code matches the pattern
+
+    """
+    return pattern == str(response_code) or pattern == "default" or response_code in expand_status_code(pattern)

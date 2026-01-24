@@ -181,6 +181,7 @@ class InstanceGroup(google.protobuf.message.Message):
     APPLICATION_LOAD_BALANCER_SPEC_FIELD_NUMBER: builtins.int
     APPLICATION_LOAD_BALANCER_STATE_FIELD_NUMBER: builtins.int
     AUTO_HEALING_POLICY_FIELD_NUMBER: builtins.int
+    DISABLE_ZONE_STATUSES_FIELD_NUMBER: builtins.int
     id: builtins.str
     """ID of the instance group."""
     folder_id: builtins.str
@@ -268,6 +269,10 @@ class InstanceGroup(google.protobuf.message.Message):
     def auto_healing_policy(self) -> global___AutoHealingPolicy:
         """AutoHealingPolicy policy of the instance group."""
 
+    @property
+    def disable_zone_statuses(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___DisableZoneStatus]:
+        """List of disabled zones for the instance group."""
+
     def __init__(
         self,
         *,
@@ -292,9 +297,10 @@ class InstanceGroup(google.protobuf.message.Message):
         application_load_balancer_spec: global___ApplicationLoadBalancerSpec | None = ...,
         application_load_balancer_state: global___ApplicationLoadBalancerState | None = ...,
         auto_healing_policy: global___AutoHealingPolicy | None = ...,
+        disable_zone_statuses: collections.abc.Iterable[global___DisableZoneStatus] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["allocation_policy", b"allocation_policy", "application_load_balancer_spec", b"application_load_balancer_spec", "application_load_balancer_state", b"application_load_balancer_state", "auto_healing_policy", b"auto_healing_policy", "created_at", b"created_at", "deploy_policy", b"deploy_policy", "health_checks_spec", b"health_checks_spec", "instance_template", b"instance_template", "load_balancer_spec", b"load_balancer_spec", "load_balancer_state", b"load_balancer_state", "managed_instances_state", b"managed_instances_state", "scale_policy", b"scale_policy"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["allocation_policy", b"allocation_policy", "application_load_balancer_spec", b"application_load_balancer_spec", "application_load_balancer_state", b"application_load_balancer_state", "auto_healing_policy", b"auto_healing_policy", "created_at", b"created_at", "deletion_protection", b"deletion_protection", "deploy_policy", b"deploy_policy", "description", b"description", "folder_id", b"folder_id", "health_checks_spec", b"health_checks_spec", "id", b"id", "instance_template", b"instance_template", "labels", b"labels", "load_balancer_spec", b"load_balancer_spec", "load_balancer_state", b"load_balancer_state", "managed_instances_state", b"managed_instances_state", "name", b"name", "scale_policy", b"scale_policy", "service_account_id", b"service_account_id", "status", b"status", "variables", b"variables"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["allocation_policy", b"allocation_policy", "application_load_balancer_spec", b"application_load_balancer_spec", "application_load_balancer_state", b"application_load_balancer_state", "auto_healing_policy", b"auto_healing_policy", "created_at", b"created_at", "deletion_protection", b"deletion_protection", "deploy_policy", b"deploy_policy", "description", b"description", "disable_zone_statuses", b"disable_zone_statuses", "folder_id", b"folder_id", "health_checks_spec", b"health_checks_spec", "id", b"id", "instance_template", b"instance_template", "labels", b"labels", "load_balancer_spec", b"load_balancer_spec", "load_balancer_state", b"load_balancer_state", "managed_instances_state", b"managed_instances_state", "name", b"name", "scale_policy", b"scale_policy", "service_account_id", b"service_account_id", "status", b"status", "variables", b"variables"]) -> None: ...
 
 global___InstanceGroup = InstanceGroup
 
@@ -917,6 +923,7 @@ class InstanceTemplate(google.protobuf.message.Message):
     PLACEMENT_POLICY_FIELD_NUMBER: builtins.int
     FILESYSTEM_SPECS_FIELD_NUMBER: builtins.int
     METADATA_OPTIONS_FIELD_NUMBER: builtins.int
+    RESERVED_INSTANCE_POOL_ID_FIELD_NUMBER: builtins.int
     description: builtins.str
     """Description of the instance template."""
     platform_id: builtins.str
@@ -951,6 +958,12 @@ class InstanceTemplate(google.protobuf.message.Message):
     Example: my-instance-{instance.index}
     If not set, `name` value will be used
     It may also contain another placeholders, see metadata doc for full list.
+    """
+    reserved_instance_pool_id: builtins.str
+    """ID of the reserved instance pool that the instance should belong to.
+    Attaching/detaching running instance will increase/decrease the size of the reserved instance pool.
+    Attaching/detaching stopped instance will leave the size of the reserved instance pool unchanged. Starting such attached instance will use resources from the reserved instance pool.
+    Reserved instance pool resource configuration must match the resource configuration of the instance.
     """
     @property
     def labels(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
@@ -1038,9 +1051,10 @@ class InstanceTemplate(google.protobuf.message.Message):
         placement_policy: global___PlacementPolicy | None = ...,
         filesystem_specs: collections.abc.Iterable[global___AttachedFilesystemSpec] | None = ...,
         metadata_options: global___MetadataOptions | None = ...,
+        reserved_instance_pool_id: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["boot_disk_spec", b"boot_disk_spec", "metadata_options", b"metadata_options", "network_settings", b"network_settings", "placement_policy", b"placement_policy", "resources_spec", b"resources_spec", "scheduling_policy", b"scheduling_policy"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["boot_disk_spec", b"boot_disk_spec", "description", b"description", "filesystem_specs", b"filesystem_specs", "hostname", b"hostname", "labels", b"labels", "metadata", b"metadata", "metadata_options", b"metadata_options", "name", b"name", "network_interface_specs", b"network_interface_specs", "network_settings", b"network_settings", "placement_policy", b"placement_policy", "platform_id", b"platform_id", "resources_spec", b"resources_spec", "scheduling_policy", b"scheduling_policy", "secondary_disk_specs", b"secondary_disk_specs", "service_account_id", b"service_account_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["boot_disk_spec", b"boot_disk_spec", "description", b"description", "filesystem_specs", b"filesystem_specs", "hostname", b"hostname", "labels", b"labels", "metadata", b"metadata", "metadata_options", b"metadata_options", "name", b"name", "network_interface_specs", b"network_interface_specs", "network_settings", b"network_settings", "placement_policy", b"placement_policy", "platform_id", b"platform_id", "reserved_instance_pool_id", b"reserved_instance_pool_id", "resources_spec", b"resources_spec", "scheduling_policy", b"scheduling_policy", "secondary_disk_specs", b"secondary_disk_specs", "service_account_id", b"service_account_id"]) -> None: ...
 
 global___InstanceTemplate = InstanceTemplate
 
@@ -2060,3 +2074,30 @@ class MetadataOptions(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["aws_v1_http_endpoint", b"aws_v1_http_endpoint", "aws_v1_http_token", b"aws_v1_http_token", "gce_http_endpoint", b"gce_http_endpoint", "gce_http_token", b"gce_http_token"]) -> None: ...
 
 global___MetadataOptions = MetadataOptions
+
+@typing.final
+class DisableZoneStatus(google.protobuf.message.Message):
+    """Status of the disabled zone."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ZONE_ID_FIELD_NUMBER: builtins.int
+    DISABLED_UNTIL_FIELD_NUMBER: builtins.int
+    zone_id: builtins.str
+    """ID of zone."""
+    @property
+    def disabled_until(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """Timestamp until which the zone will be disabled.
+        If not present then zone will be disabled until it is removed through a separate call.
+        """
+
+    def __init__(
+        self,
+        *,
+        zone_id: builtins.str = ...,
+        disabled_until: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["disabled_until", b"disabled_until"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["disabled_until", b"disabled_until", "zone_id", b"zone_id"]) -> None: ...
+
+global___DisableZoneStatus = DisableZoneStatus

@@ -69,5 +69,9 @@ PERMISSION_PROJECT_CREATE: Permission
 PERMISSION_CHALK_ADMIN: Permission
 PERMISSION_BILLING_READ: Permission
 PERMISSION_AUTH_SERVICE_MANAGER: Permission
+DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+description: _descriptor.FieldDescriptor
+SLUG_FIELD_NUMBER: _ClassVar[int]
+slug: _descriptor.FieldDescriptor
 PERMISSION_FIELD_NUMBER: _ClassVar[int]
 permission: _descriptor.FieldDescriptor

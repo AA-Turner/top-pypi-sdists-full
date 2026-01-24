@@ -17,6 +17,7 @@
 # import models into model package
 from pulpcore.client.pulp_file.models.async_operation_response import AsyncOperationResponse
 from pulpcore.client.pulp_file.models.content_summary_response import ContentSummaryResponse
+from pulpcore.client.pulp_file.models.file_content_upload_response import FileContentUploadResponse
 from pulpcore.client.pulp_file.models.file_file_alternate_content_source import FileFileAlternateContentSource
 from pulpcore.client.pulp_file.models.file_file_alternate_content_source_response import FileFileAlternateContentSourceResponse
 from pulpcore.client.pulp_file.models.file_file_content_response import FileFileContentResponse

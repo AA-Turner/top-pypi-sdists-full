@@ -16,8 +16,7 @@ import pytest
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry import trace
-from opentelemetry._logs import SeverityNumber, get_logger
-from opentelemetry.sdk._logs import LogRecord
+from opentelemetry._logs import LogRecord, SeverityNumber, get_logger
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import get_tracer
 
@@ -738,6 +737,7 @@ def test_exception(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'a': 'test',
                     'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 events=[
                     {

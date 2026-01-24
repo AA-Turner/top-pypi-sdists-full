@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import subprocess
 import sys
 import time
 
@@ -18,6 +16,7 @@ import coiled
 from coiled.scan import scan_prefix
 from coiled.utils import login_if_required
 
+from ..curl import sync_request
 from .examples import examples
 from .utils import PRIMARY_COLOR, Panel, console, has_macos_system_python, log_interactions
 
@@ -41,8 +40,10 @@ def needs_login():
 
 
 def get_interactions():
-    response = subprocess.check_output(["coiled", "curl", "/api/v2/interactions/user-interactions/hello"])
-    return json.loads(response, strict=False)
+    with coiled.Cloud() as cloud:
+        return sync_request(
+            cloud, url=f"{cloud.server}/api/v2/interactions/user-interactions/hello", method="get", json_output=True
+        )
 
 
 def get_already_run_examples():
@@ -294,7 +295,7 @@ Choose any computation you'd like to run:
 Yee-haw you've done all my examples 🎉  
 Now you can:
 - Try Coiled in your own use case
-- [Talk to us](https://calendly.com/d/cmph-386-cjt/coiled-help-getting-started)
+- [Ask us questions](mailto:support@coiled.io)
 - Explore the [docs](https://docs.coiled.io?utm_source=coiled-hello&utm_medium=finished) to see all the other things Coiled can do
 """),  # noqa
                     border_style="green",

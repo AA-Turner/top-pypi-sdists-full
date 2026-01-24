@@ -96,7 +96,7 @@ def new_default_http_client(*args: Any, **kwargs: Any) -> "HTTPClient":
     else:
         return PycurlClient(*args, **kwargs)
 
-    return Urllib2Client(*args, **kwargs)
+    return UrllibClient(*args, **kwargs)
 
 
 def new_http_client_async_fallback(*args: Any, **kwargs: Any) -> "HTTPClient":
@@ -123,6 +123,10 @@ def new_http_client_async_fallback(*args: Any, **kwargs: Any) -> "HTTPClient":
 
 
 class HTTPClient(object):
+    """
+    Base HTTP client that custom clients can inherit from.
+    """
+
     name: ClassVar[str]
 
     class _Proxy(TypedDict):
@@ -786,7 +790,7 @@ class UrlFetchClient(HTTPClient):
             raise ValueError(
                 "No proxy support in urlfetch library. "
                 "Set stripe.default_http_client to either RequestsClient, "
-                "PycurlClient, or Urllib2Client instance to use a proxy."
+                "PycurlClient, or UrllibClient instance to use a proxy."
             )
 
         self._verify_ssl_certs = verify_ssl_certs
@@ -860,7 +864,7 @@ class UrlFetchClient(HTTPClient):
 
         if is_streaming:
             # This doesn't really stream.
-            content = _util.io.BytesIO(str.encode(result.content))
+            content = BytesIO(str.encode(result.content))
         else:
             content = result.content
 
@@ -991,8 +995,8 @@ class PycurlClient(HTTPClient):
         post_data,
         is_streaming,
     ) -> Tuple[Union[str, BytesIO], int, Mapping[str, str]]:
-        b = _util.io.BytesIO()
-        rheaders = _util.io.BytesIO()
+        b = BytesIO()
+        rheaders = BytesIO()
 
         # Pycurl's design is a little weird: although we set per-request
         # options on this object, it's also capable of maintaining established
@@ -1102,8 +1106,7 @@ class PycurlClient(HTTPClient):
         pass
 
 
-# todo(major): rename this, urllib2 isn't called that anymore
-class Urllib2Client(HTTPClient):
+class UrllibClient(HTTPClient):
     name = "urllib.request"
 
     def __init__(
@@ -1113,7 +1116,7 @@ class Urllib2Client(HTTPClient):
         async_fallback_client: Optional[HTTPClient] = None,
         _lib=None,  # used for internal unit testing
     ):
-        super(Urllib2Client, self).__init__(
+        super(UrllibClient, self).__init__(
             verify_ssl_certs=verify_ssl_certs,
             proxy=proxy,
             async_fallback_client=async_fallback_client,

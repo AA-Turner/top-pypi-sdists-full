@@ -1,4 +1,16 @@
-#![warn(
+#![deny(
+    warnings,
+    deprecated_safe,
+    future_incompatible,
+    keyword_idents,
+    let_underscore,
+    nonstandard_style,
+    refining_impl_trait,
+    rust_2018_compatibility,
+    rust_2018_idioms,
+    rust_2021_compatibility,
+    rust_2024_compatibility,
+    unused,
     clippy::all,
     clippy::pedantic,
     clippy::restriction,
@@ -16,6 +28,7 @@
     clippy::else_if_without_else,
     clippy::float_arithmetic,
     clippy::implicit_return,
+    clippy::integer_division_remainder_used,
     clippy::iter_over_hash_type,
     clippy::min_ident_chars,
     clippy::missing_docs_in_private_items,
@@ -72,13 +85,13 @@ fn minify(
     keep_ssi_comments: bool,
     minify_css: bool,
     minify_doctype: bool,
-    #[expect(unused_variables)] minify_js: bool,
+    minify_js: bool,
     preserve_brace_template_syntax: bool,
     preserve_chevron_percent_template_syntax: bool,
     remove_bangs: bool,
     remove_processing_instructions: bool,
 ) -> String {
-    py.allow_threads(move || {
+    py.detach(move || {
         let cfg = ::minify_html::Cfg {
             allow_noncompliant_unquoted_attribute_values,
             allow_optimal_entities,
@@ -90,7 +103,7 @@ fn minify(
             keep_ssi_comments,
             minify_css,
             minify_doctype,
-            minify_js: false,
+            minify_js,
             preserve_brace_template_syntax,
             preserve_chevron_percent_template_syntax,
             remove_bangs,
@@ -101,7 +114,7 @@ fn minify(
     })
 }
 
-#[pymodule]
+#[pymodule(gil_used = false)]
 fn _minify_html(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(minify))?;
     Ok(())

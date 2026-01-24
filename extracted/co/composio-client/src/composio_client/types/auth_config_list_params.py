@@ -21,12 +21,13 @@ class AuthConfigListParams(TypedDict, total=False):
     """The app id to filter by"""
 
     deprecated_status: str
+    """DEPRECATED: This parameter will be removed in a future version."""
 
     is_composio_managed: Union[str, bool]
     """Whether to filter by composio managed auth configs"""
 
     limit: Optional[float]
-    """Number of items per page"""
+    """Number of items per page, max allowed is 1000"""
 
     search: str
     """Search auth configs by name"""

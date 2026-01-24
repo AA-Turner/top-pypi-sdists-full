@@ -21,7 +21,7 @@ from unittest.mock import MagicMock
 import pytest
 from dirty_equals import HasRepr, IsInstance
 from pydantic_core import core_schema
-from typing_extensions import TypedDict
+from typing_extensions import TypeAliasType, TypedDict
 
 from pydantic import (
     BaseModel,
@@ -1095,6 +1095,20 @@ def test_validation_each_item():
                 return v + 1
 
     assert Model(foobar={1: 1}).foobar == {1: 2}
+
+
+def test_validation_each_item_tuple():
+    with pytest.warns(PydanticDeprecatedSince20, match=V1_VALIDATOR_DEPRECATION_MATCH):
+
+        class Model(BaseModel):
+            foobar: tuple[int, ...]
+
+            @validator('foobar', each_item=True)
+            @classmethod
+            def check_foobar(cls, v: Any):
+                return v + 1
+
+    assert Model(foobar=(1, 2, 1)).foobar == (2, 3, 2)
 
 
 def test_validation_each_item_invalid_type():
@@ -2545,7 +2559,7 @@ def test_validator_allow_reuse_different_field_3():
             y: int
 
             val_x = field_validator('x')(val1)
-            val_x = field_validator('y')(val2)
+            val_x = field_validator('y')(val2)  # noqa: PIE794
 
     assert Model(x=1, y=2).model_dump() == {'x': 1, 'y': 4}
 
@@ -2684,7 +2698,7 @@ def foobar_validate(value: Any, info: core_schema.ValidationInfo):
 class Foobar:
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
-        return core_schema.with_info_plain_validator_function(foobar_validate, field_name=handler.field_name)
+        return core_schema.with_info_plain_validator_function(foobar_validate)
 
 
 def test_custom_type_field_name_model():
@@ -2777,6 +2791,29 @@ def test_plain_validator_field_name():
     m = MyModel(x='123', foobar='1')
     # insert_assert(m.foobar)
     assert m.foobar == {'value': '1', 'field_name': 'foobar', 'data': {'x': 123}}
+
+
+def test_validator_field_name_with_reused_type_alias():
+    calls = []
+
+    def validate_my_field(value: str, info: ValidationInfo):
+        calls.append((info.field_name, value))
+        return value
+
+    MyField = TypeAliasType('MyField', Annotated[str, AfterValidator(validate_my_field)])
+
+    class MyModel(BaseModel):
+        field1: MyField
+        field2: MyField
+
+    MyModel.model_validate(
+        {
+            'field1': 'value1',
+            'field2': 'value2',
+        }
+    )
+
+    assert calls == [('field1', 'value1'), ('field2', 'value2')]
 
 
 def validate_wrap(value: Any, handler: core_schema.ValidatorFunctionWrapHandler, info: core_schema.ValidationInfo):

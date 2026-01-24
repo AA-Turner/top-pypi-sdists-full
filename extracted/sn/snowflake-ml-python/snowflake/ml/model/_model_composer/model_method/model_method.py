@@ -4,14 +4,17 @@ from typing import Optional, TypedDict, Union
 
 from typing_extensions import NotRequired
 
+from snowflake.ml._internal import platform_capabilities
 from snowflake.ml._internal.utils import sql_identifier
 from snowflake.ml.model import model_signature, type_hints
 from snowflake.ml.model._model_composer.model_manifest import model_manifest_schema
 from snowflake.ml.model._model_composer.model_method import (
     constants,
     function_generator,
+    utils,
 )
 from snowflake.ml.model._packager.model_meta import model_meta as model_meta_api
+from snowflake.ml.model.volatility import Volatility
 from snowflake.snowpark._internal import type_utils
 
 
@@ -20,28 +23,46 @@ class ModelMethodOptions(TypedDict):
 
     case_sensitive: Specify when the name of the method should be considered as case sensitive when registered to SQL.
     function_type: One of `ModelMethodFunctionTypes` specifying function type.
+    volatility: One of `Volatility` enum values specifying function volatility.
     """
 
     case_sensitive: NotRequired[bool]
     function_type: NotRequired[str]
+    volatility: NotRequired[Volatility]
 
 
 def get_model_method_options_from_options(
-    options: type_hints.ModelSaveOption, target_method: str
+    options: type_hints.ModelSaveOption, target_method: str, model_type: Optional[str] = None
 ) -> ModelMethodOptions:
     default_function_type = model_manifest_schema.ModelMethodFunctionTypes.FUNCTION.value
+    method_option = options.get("method_options", {}).get(target_method, {})
+    case_sensitive = method_option.get("case_sensitive", False)
     if target_method == "explain":
         default_function_type = model_manifest_schema.ModelMethodFunctionTypes.TABLE_FUNCTION.value
-    method_option = options.get("method_options", {}).get(target_method, {})
+        case_sensitive = utils.determine_explain_case_sensitive_from_method_options(
+            options.get("method_options", {}), target_method
+        )
+    elif model_type == "prophet":
+        # Prophet models always require TABLE_FUNCTION because they need entire time series context
+        default_function_type = model_manifest_schema.ModelMethodFunctionTypes.TABLE_FUNCTION.value
     global_function_type = options.get("function_type", default_function_type)
     function_type = method_option.get("function_type", global_function_type)
     if function_type not in [function_type.value for function_type in model_manifest_schema.ModelMethodFunctionTypes]:
         raise NotImplementedError(f"Function type {function_type} is not supported.")
 
-    return ModelMethodOptions(
-        case_sensitive=method_option.get("case_sensitive", False),
+    default_volatility = options.get("volatility")
+    method_volatility = method_option.get("volatility")
+    resolved_volatility = method_volatility or default_volatility
+
+    # Only include volatility if explicitly provided in method options
+    result: ModelMethodOptions = ModelMethodOptions(
+        case_sensitive=case_sensitive,
         function_type=function_type,
     )
+    if resolved_volatility:
+        result["volatility"] = resolved_volatility
+
+    return result
 
 
 class ModelMethod:
@@ -84,7 +105,7 @@ class ModelMethod:
         except ValueError as e:
             raise ValueError(
                 f"Your target method {self.target_method} cannot be resolved as valid SQL identifier. "
-                "Try specify `case_sensitive` as True."
+                "Try specifying `case_sensitive` as True."
             ) from e
 
         if self.target_method not in self.model_meta.signatures.keys():
@@ -93,6 +114,9 @@ class ModelMethod:
         self.function_type = self.options.get(
             "function_type", model_manifest_schema.ModelMethodFunctionTypes.FUNCTION.value
         )
+
+        # Volatility is optional; when not provided, we omit it from the manifest
+        self.volatility = self.options.get("volatility")
 
     @staticmethod
     def _get_method_arg_from_feature(
@@ -103,10 +127,41 @@ class ModelMethod:
         except ValueError as e:
             raise ValueError(
                 f"Your feature {feature.name} cannot be resolved as valid SQL identifier. "
-                "Try specify `case_sensitive` as True."
+                "Try specifying `case_sensitive` as True."
             ) from e
         return model_manifest_schema.ModelMethodSignatureFieldWithName(
             name=feature_name.resolved(), type=type_utils.convert_sp_to_sf_type(feature.as_snowpark_type())
+        )
+
+    @staticmethod
+    def _flatten_params(params: list[model_signature.BaseParamSpec]) -> list[model_signature.ParamSpec]:
+        """Flatten ParamGroupSpec into leaf ParamSpec items."""
+        result: list[model_signature.ParamSpec] = []
+        for param in params:
+            if isinstance(param, model_signature.ParamSpec):
+                result.append(param)
+            elif isinstance(param, model_signature.ParamGroupSpec):
+                result.extend(ModelMethod._flatten_params(param.specs))
+        return result
+
+    @staticmethod
+    def _get_method_arg_from_param(
+        param_spec: model_signature.ParamSpec,
+        case_sensitive: bool = False,
+    ) -> model_manifest_schema.ModelMethodSignatureFieldWithNameAndDefault:
+        try:
+            param_name = sql_identifier.SqlIdentifier(param_spec.name, case_sensitive=case_sensitive)
+        except ValueError as e:
+            raise ValueError(
+                f"Your parameter {param_spec.name} cannot be resolved as valid SQL identifier. "
+                "Try specifying `case_sensitive` as True."
+            ) from e
+        # Convert None to "NULL" string so MANIFEST parser can interpret it as SQL NULL
+        default_value = "NULL" if param_spec.default_value is None else str(param_spec.default_value)
+        return model_manifest_schema.ModelMethodSignatureFieldWithNameAndDefault(
+            name=param_name.resolved(),
+            type=type_utils.convert_sp_to_sf_type(param_spec.dtype.as_snowpark_type()),
+            default=default_value,
         )
 
     def save(
@@ -148,7 +203,7 @@ class ModelMethod:
         else:
             outputs = [model_manifest_schema.ModelMethodSignatureField(type="OBJECT")]
 
-        return model_manifest_schema.ModelFunctionMethodDict(
+        method_dict = model_manifest_schema.ModelFunctionMethodDict(
             name=self.method_name.resolved(),
             runtime=self.runtime_name,
             type=self.function_type,
@@ -158,3 +213,40 @@ class ModelMethod:
             inputs=input_list,
             outputs=outputs,
         )
+
+        # Add parameters if signature has parameters
+        if self.model_meta.signatures[self.target_method].params:
+            flat_params = ModelMethod._flatten_params(list(self.model_meta.signatures[self.target_method].params))
+            param_list = [
+                ModelMethod._get_method_arg_from_param(
+                    param_spec, case_sensitive=self.options.get("case_sensitive", False)
+                )
+                for param_spec in flat_params
+            ]
+            param_name_counter = collections.Counter([param_info["name"] for param_info in param_list])
+            dup_param_names = [k for k, v in param_name_counter.items() if v > 1]
+            if dup_param_names:
+                raise ValueError(
+                    f"Found duplicate parameter named resolved as {', '.join(dup_param_names)} in the method"
+                    f" {self.target_method}. This might be because you have parameters with same letters but "
+                    "different cases. In this case, set case_sensitive as True for those methods to distinguish them."
+                )
+
+            # Check for name collisions between parameters and inputs using existing counters
+            collision_names = [name for name in param_name_counter if name in input_name_counter]
+            if collision_names:
+                raise ValueError(
+                    f"Found parameter(s) with the same name as input feature(s): {', '.join(sorted(collision_names))} "
+                    f"in the method {self.target_method}. Parameters and inputs must have distinct names. "
+                    "Try using case_sensitive=True if the names differ only by case."
+                )
+
+            method_dict["params"] = param_list
+
+        should_set_volatility = (
+            platform_capabilities.PlatformCapabilities.get_instance().is_set_module_functions_volatility_from_manifest()
+        )
+        if should_set_volatility and self.volatility is not None:
+            method_dict["volatility"] = self.volatility.name
+
+        return method_dict

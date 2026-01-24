@@ -133,6 +133,12 @@ def find_call_names(node: nodes.Node, vars_in_scope: t.Set[str]) -> t.Iterator[C
     vars_in_scope = vars_in_scope.copy()
     for child_node in node.iter_child_nodes():
         if "target" in child_node.fields:
+            # For nodes with assignment targets (Assign, AssignBlock, For, Import),
+            # the target name could shadow a reference in the right hand side.
+            # So we need to process the RHS before adding the target to scope.
+            # For example: {% set model = model.path %} should track model.path.
+            yield from find_call_names(child_node, vars_in_scope)
+
             target = getattr(child_node, "target")
             if isinstance(target, nodes.Name):
                 vars_in_scope.add(target.name)
@@ -149,7 +155,9 @@ def find_call_names(node: nodes.Node, vars_in_scope: t.Set[str]) -> t.Iterator[C
             name = call_name(child_node)
             if name[0][0] != "'" and name[0] not in vars_in_scope:
                 yield (name, child_node)
-        yield from find_call_names(child_node, vars_in_scope)
+
+        if "target" not in child_node.fields:
+            yield from find_call_names(child_node, vars_in_scope)
 
 
 def extract_call_names(
@@ -204,6 +212,20 @@ def extract_macro_references_and_variables(
             elif len(call_name) == 2:
                 macro_references.add(MacroReference(package=call_name[0], name=call_name[1]))
     return macro_references, variables
+
+
+def sort_dict_recursive(
+    item: t.Dict[str, t.Any],
+) -> t.Dict[str, t.Any]:
+    sorted_dict: t.Dict[str, t.Any] = {}
+    for k, v in sorted(item.items()):
+        if isinstance(v, list):
+            sorted_dict[k] = sorted(v)
+        elif isinstance(v, dict):
+            sorted_dict[k] = sort_dict_recursive(v)
+        else:
+            sorted_dict[k] = v
+    return sorted_dict
 
 
 JinjaGlobalAttribute = t.Union[str, int, float, bool, AttributeDict]
@@ -355,6 +377,7 @@ class JinjaMacroRegistry(PydanticModel):
         context.update(builtin_globals)
         context.update(root_macros)
         context.update(package_macros)
+        context["render"] = lambda input: env.from_string(input).render()
 
         env.globals.update(context)
         env.filters.update(self._environment.filters)
@@ -440,7 +463,7 @@ class JinjaMacroRegistry(PydanticModel):
                 d.PythonCode(
                     expressions=[
                         f"{k} = '{v}'" if isinstance(v, str) else f"{k} = {v}"
-                        for k, v in sorted(filtered_objs.items())
+                        for k, v in sort_dict_recursive(filtered_objs).items()
                     ]
                 )
             )

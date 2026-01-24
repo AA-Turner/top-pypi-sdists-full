@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -7,7 +5,7 @@ from statsmodels.iolib.summary import Summary
 from statsmodels.iolib.table import SimpleTable
 from statsmodels.regression.linear_model import RegressionResults
 
-from arch.typing import ArrayLike1D, ArrayLike2D, Literal, UnitRootTrend
+from arch._typing import ArrayLike1D, ArrayLike2D, Literal, UnitRootTrend
 from arch.unitroot._shared import (
     ResidualCointegrationTestResult,
     _check_cointegrating_regression,
@@ -29,8 +27,8 @@ def engle_granger(
     x: ArrayLike2D,
     trend: UnitRootTrend = "c",
     *,
-    lags: Optional[int] = None,
-    max_lags: Optional[int] = None,
+    lags: int | None = None,
+    max_lags: int | None = None,
     method: Literal["aic", "bic", "t-stat"] = "bic",
 ) -> "EngleGrangerTestResults":
     r"""
@@ -143,8 +141,8 @@ class EngleGrangerTestResults(ResidualCointegrationTestResult):
         alternative: str = "Cointegration",
         trend: str = "c",
         order: int = 2,
-        adf: Optional[ADF] = None,
-        xsection: Optional[RegressionResults] = None,
+        adf: ADF | None = None,
+        xsection: RegressionResults | None = None,
     ) -> None:
         super().__init__(
             stat, pvalue, crit_vals, null, alternative, trend, order, xsection
@@ -167,7 +165,7 @@ class EngleGrangerTestResults(ResidualCointegrationTestResult):
         return self._adf.lags
 
     @property
-    def max_lags(self) -> Union[int, None]:
+    def max_lags(self) -> int | None:
         """The maximum number of lags used in the lag-length selection."""
         return self._adf.max_lags
 

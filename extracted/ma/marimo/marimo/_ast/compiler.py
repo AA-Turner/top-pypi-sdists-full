@@ -1,8 +1,7 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import ast
-import copy
 import inspect
 import io
 import linecache
@@ -14,7 +13,7 @@ import token as token_types
 import warnings
 from tokenize import tokenize
 from types import CodeType, FrameType
-from typing import Any, Callable, Optional, cast
+from typing import Any, Callable, Optional, TypeAlias, cast
 
 from marimo import _loggers
 from marimo._ast import parse
@@ -25,17 +24,13 @@ from marimo._ast.cell import (
     SourcePosition,
 )
 from marimo._ast.names import SETUP_CELL_NAME, TOPLEVEL_CELL_PREFIX
+from marimo._ast.pytest import has_fixture_decorator
 from marimo._ast.transformers import ContainedExtractWithBlock
 from marimo._ast.variables import is_local
 from marimo._ast.visitor import ImportData, Name, ScopedVisitor
 from marimo._schemas.serialization import CellDef, ClassCell, FunctionCell
 from marimo._types.ids import CellId_t
 from marimo._utils.tmpdir import get_tmpdir
-
-if sys.version_info < (3, 10):
-    from typing_extensions import TypeAlias
-else:
-    from typing import TypeAlias
 
 LOGGER = _loggers.marimo_logger()
 Cls: TypeAlias = type
@@ -46,6 +41,21 @@ def ast_compile(*args: Any, **kwargs: Any) -> CodeType:
         warnings.simplefilter("ignore", category=SyntaxWarning)
         # The SyntaxWarning is suppressed only inside this `with` block
         return cast(CodeType, compile(*args, **kwargs))  # type: ignore[call-overload]
+
+
+def module_compile(code: str) -> ast.Module:
+    # Overloads on compile are strange, cast for proper typing.
+    return cast(
+        ast.Module,
+        ast_compile(
+            code,
+            "<unknown>",
+            mode="exec",
+            # don't inherit compiler flags, in particular future annotations
+            dont_inherit=True,
+            flags=ast.PyCF_ONLY_AST | ast.PyCF_ALLOW_TOP_LEVEL_AWAIT,
+        ),
+    )
 
 
 def code_key(code: str) -> int:
@@ -92,7 +102,7 @@ def ends_with_semicolon(code: str) -> bool:
 
 
 def contains_only_tests(tree: ast.Module) -> bool:
-    """Returns True if the module contains only test functions."""
+    """Returns True if the module contains only test functions or fixtures."""
     scope = tree.body
     for node in scope:
         if isinstance(node, ast.Return):
@@ -101,7 +111,9 @@ def contains_only_tests(tree: ast.Module) -> bool:
             node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
         ):
             return False
-        if not node.name.lower().startswith("test"):
+        if not node.name.lower().startswith(
+            "test"
+        ) and not has_fixture_decorator(node):
             return False
     return bool(scope)
 
@@ -152,6 +164,73 @@ def fix_source_position(node: Any, source_position: SourcePosition) -> Any:
     return node
 
 
+def _extract_const_string(args: list[ast.stmt]) -> str:
+    (inner,) = args
+    # Various string types may need to be unpacked
+    if isinstance(inner, ast.JoinedStr) or (
+        sys.version_info >= (3, 14) and isinstance(inner, ast.TemplateStr)
+    ):
+        # But we only match if there is 1 entry.
+        (inner,) = inner.values  # type: ignore[attr-defined]
+    assert isinstance(inner, ast.Constant)
+    assert isinstance(inner.value, str)
+    return inner.value
+
+
+def const_or_id(args: ast.stmt) -> str:
+    if hasattr(args, "value"):
+        return f"{args.value}"  # type: ignore[attr-defined]
+    return f"{args.id}"  # type: ignore[attr-defined]
+
+
+def _extract_markdown(tree: ast.Module) -> Optional[str]:
+    # Attribute Error handled by the outer try/except block.
+    # Wish there was a more compact to ignore ignore[attr-defined] for all.
+    try:
+        (body,) = tree.body
+        if body.value.func.attr == "md":  # type: ignore[attr-defined, union-attr]
+            value = body.value  # type: ignore[attr-defined, union-attr]
+        else:
+            return None
+        assert value.func.value.id == "mo"
+        if not value.args:  # Handle mo.md() with no arguments
+            return None
+        md_lines = _extract_const_string(value.args).split("\n")
+    except (AssertionError, AttributeError, ValueError):
+        # No reason to explicitly catch exceptions if we can't parse out
+        # markdown. Just handle it as a code block.
+        return None
+
+    # Dedent behavior is a little different that in marimo js, so handle
+    # accordingly.
+    md_lines = [line.rstrip() for line in md_lines]
+    md = (
+        textwrap.dedent(md_lines[0])
+        + "\n"
+        + textwrap.dedent("\n".join(md_lines[1:]))
+    )
+    md = md.strip()
+    return md
+
+
+def extract_markdown(code: str) -> Optional[str]:
+    code = code.strip()
+    count = 0
+    # Early quitting for markdown extraction.
+    for line in code.strip().split("\n"):
+        if line.startswith("mo.md("):
+            count += 1
+            if count > 1:
+                return None
+    if count == 0:
+        return None
+
+    try:
+        return _extract_markdown(ast.parse(code))
+    except SyntaxError:
+        return None
+
+
 def compile_cell(
     code: str,
     cell_id: CellId_t,
@@ -174,18 +253,7 @@ def compile_cell(
     # See https://github.com/pyodide/pyodide/issues/3337,
     #     https://github.com/marimo-team/marimo/issues/1546
     code = code.replace("\u00a0", " ")
-    # Overloads on compile are strange, cast for proper typing.
-    module = cast(
-        ast.Module,
-        ast_compile(
-            code,
-            "<unknown>",
-            mode="exec",
-            # don't inherit compiler flags, in particular future annotations
-            dont_inherit=True,
-            flags=ast.PyCF_ONLY_AST | ast.PyCF_ALLOW_TOP_LEVEL_AWAIT,
-        ),
-    )
+    module = module_compile(code)
 
     if not module.body:
         # either empty code or just comments
@@ -215,7 +283,9 @@ def compile_cell(
 
     expr: ast.Expression
     final_expr = module.body[-1]
-    original_module = copy.deepcopy(module)
+    # Compile again as an effective copy since copying directly seems slow and
+    # error prone.
+    original_module = module_compile(code)
     # Use final expression if it exists doesn't end in a
     # semicolon. Evaluates expression to "None" otherwise.
     if isinstance(final_expr, ast.Expr) and not ends_with_semicolon(code):
@@ -291,6 +361,8 @@ def compile_cell(
                     if previous_import_data == import_data:
                         imported_defs.add(import_data.definition)
 
+    maybe_md = _extract_markdown(original_module)
+
     return CellImpl(
         # keyed by original (user) code, for cache lookups
         key=code_key(code),
@@ -310,6 +382,7 @@ def compile_cell(
         body=body,
         last_expr=last_expr,
         cell_id=cell_id,
+        markdown=maybe_md,
         _test=is_test,
     )
 
@@ -522,7 +595,7 @@ def cell_factory(
 
     extractor = parse.Extractor(contents=function_code)
     func_ast = parse.ast_parse(function_code).body[0]
-    cell_def = extractor.to_cell(func_ast, attribute="cell")
+    cell_def = extractor.to_cell(func_ast, attribute="cell").unwrap()
 
     # anonymous file is required for deterministic testing.
     source_position = None

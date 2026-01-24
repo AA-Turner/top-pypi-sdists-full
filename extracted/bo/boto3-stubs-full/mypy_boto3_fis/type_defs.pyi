@@ -3,7 +3,7 @@ Type annotations for fis service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fis/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -30,12 +31,6 @@ from .literals import (
     SafetyLeverStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -206,7 +201,7 @@ class CreateExperimentTemplateStopConditionInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -288,14 +283,14 @@ class ExperimentTargetAccountConfigurationTypeDef(TypedDict):
 
 class ExperimentTargetFilterTypeDef(TypedDict):
     path: NotRequired[str]
-    values: NotRequired[List[str]]
+    values: NotRequired[list[str]]
 
 class ExperimentTemplateActionTypeDef(TypedDict):
     actionId: NotRequired[str]
     description: NotRequired[str]
-    parameters: NotRequired[Dict[str, str]]
-    targets: NotRequired[Dict[str, str]]
-    startAfter: NotRequired[List[str]]
+    parameters: NotRequired[dict[str, str]]
+    targets: NotRequired[dict[str, str]]
+    startAfter: NotRequired[list[str]]
 
 class ExperimentTemplateCloudWatchLogsLogConfigurationTypeDef(TypedDict):
     logGroupArn: NotRequired[str]
@@ -334,13 +329,13 @@ ExperimentTemplateSummaryTypeDef = TypedDict(
         "description": NotRequired[str],
         "creationTime": NotRequired[datetime],
         "lastUpdateTime": NotRequired[datetime],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 
 class ExperimentTemplateTargetFilterTypeDef(TypedDict):
     path: NotRequired[str]
-    values: NotRequired[List[str]]
+    values: NotRequired[list[str]]
 
 GetActionRequestTypeDef = TypedDict(
     "GetActionRequestTypeDef",
@@ -397,7 +392,7 @@ class ListExperimentResolvedTargetsRequestTypeDef(TypedDict):
 class ResolvedTargetTypeDef(TypedDict):
     resourceType: NotRequired[str]
     targetName: NotRequired[str]
-    targetInformation: NotRequired[Dict[str, str]]
+    targetInformation: NotRequired[dict[str, str]]
 
 class ListExperimentTargetAccountConfigurationsRequestTypeDef(TypedDict):
     experimentId: str
@@ -489,8 +484,8 @@ ActionSummaryTypeDef = TypedDict(
         "id": NotRequired[str],
         "arn": NotRequired[str],
         "description": NotRequired[str],
-        "targets": NotRequired[Dict[str, ActionTargetTypeDef]],
-        "tags": NotRequired[Dict[str, str]],
+        "targets": NotRequired[dict[str, ActionTargetTypeDef]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 ActionTypeDef = TypedDict(
@@ -499,9 +494,9 @@ ActionTypeDef = TypedDict(
         "id": NotRequired[str],
         "arn": NotRequired[str],
         "description": NotRequired[str],
-        "parameters": NotRequired[Dict[str, ActionParameterTypeDef]],
-        "targets": NotRequired[Dict[str, ActionTargetTypeDef]],
-        "tags": NotRequired[Dict[str, str]],
+        "parameters": NotRequired[dict[str, ActionParameterTypeDef]],
+        "targets": NotRequired[dict[str, ActionTargetTypeDef]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 
@@ -520,7 +515,7 @@ class UpdateExperimentTemplateLogConfigurationInputTypeDef(TypedDict):
     logSchemaVersion: NotRequired[int]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateExperimentTemplateTargetInputTypeDef(TypedDict):
@@ -558,9 +553,9 @@ class UpdateTargetAccountConfigurationResponseTypeDef(TypedDict):
 class ExperimentActionTypeDef(TypedDict):
     actionId: NotRequired[str]
     description: NotRequired[str]
-    parameters: NotRequired[Dict[str, str]]
-    targets: NotRequired[Dict[str, str]]
-    startAfter: NotRequired[List[str]]
+    parameters: NotRequired[dict[str, str]]
+    targets: NotRequired[dict[str, str]]
+    startAfter: NotRequired[list[str]]
     state: NotRequired[ExperimentActionStateTypeDef]
     startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
@@ -576,7 +571,7 @@ class ExperimentLogConfigurationTypeDef(TypedDict):
     logSchemaVersion: NotRequired[int]
 
 class ExperimentReportConfigurationDataSourcesTypeDef(TypedDict):
-    cloudWatchDashboards: NotRequired[List[ExperimentReportConfigurationCloudWatchDashboardTypeDef]]
+    cloudWatchDashboards: NotRequired[list[ExperimentReportConfigurationCloudWatchDashboardTypeDef]]
 
 class ExperimentReportConfigurationOutputsTypeDef(TypedDict):
     s3Configuration: NotRequired[ExperimentReportConfigurationOutputsS3ConfigurationTypeDef]
@@ -587,7 +582,7 @@ class ExperimentReportStateTypeDef(TypedDict):
     error: NotRequired[ExperimentReportErrorTypeDef]
 
 class ListExperimentTargetAccountConfigurationsResponseTypeDef(TypedDict):
-    targetAccountConfigurations: List[ExperimentTargetAccountConfigurationSummaryTypeDef]
+    targetAccountConfigurations: list[ExperimentTargetAccountConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -597,11 +592,11 @@ class GetExperimentTargetAccountConfigurationResponseTypeDef(TypedDict):
 
 class ExperimentTargetTypeDef(TypedDict):
     resourceType: NotRequired[str]
-    resourceArns: NotRequired[List[str]]
-    resourceTags: NotRequired[Dict[str, str]]
-    filters: NotRequired[List[ExperimentTargetFilterTypeDef]]
+    resourceArns: NotRequired[list[str]]
+    resourceTags: NotRequired[dict[str, str]]
+    filters: NotRequired[list[ExperimentTargetFilterTypeDef]]
     selectionMode: NotRequired[str]
-    parameters: NotRequired[Dict[str, str]]
+    parameters: NotRequired[dict[str, str]]
 
 class ExperimentTemplateLogConfigurationTypeDef(TypedDict):
     cloudWatchLogsConfiguration: NotRequired[
@@ -612,7 +607,7 @@ class ExperimentTemplateLogConfigurationTypeDef(TypedDict):
 
 class ExperimentTemplateReportConfigurationDataSourcesTypeDef(TypedDict):
     cloudWatchDashboards: NotRequired[
-        List[ExperimentTemplateReportConfigurationCloudWatchDashboardTypeDef]
+        list[ExperimentTemplateReportConfigurationCloudWatchDashboardTypeDef]
     ]
 
 class ExperimentTemplateReportConfigurationDataSourcesInputTypeDef(TypedDict):
@@ -625,17 +620,17 @@ class ExperimentTemplateReportConfigurationOutputsTypeDef(TypedDict):
     s3Configuration: NotRequired[ReportConfigurationS3OutputTypeDef]
 
 class ListExperimentTemplatesResponseTypeDef(TypedDict):
-    experimentTemplates: List[ExperimentTemplateSummaryTypeDef]
+    experimentTemplates: list[ExperimentTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ExperimentTemplateTargetTypeDef(TypedDict):
     resourceType: NotRequired[str]
-    resourceArns: NotRequired[List[str]]
-    resourceTags: NotRequired[Dict[str, str]]
-    filters: NotRequired[List[ExperimentTemplateTargetFilterTypeDef]]
+    resourceArns: NotRequired[list[str]]
+    resourceTags: NotRequired[dict[str, str]]
+    filters: NotRequired[list[ExperimentTemplateTargetFilterTypeDef]]
     selectionMode: NotRequired[str]
-    parameters: NotRequired[Dict[str, str]]
+    parameters: NotRequired[dict[str, str]]
 
 class ListActionsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -660,17 +655,17 @@ class ListTargetResourceTypesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListExperimentResolvedTargetsResponseTypeDef(TypedDict):
-    resolvedTargets: List[ResolvedTargetTypeDef]
+    resolvedTargets: list[ResolvedTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTargetAccountConfigurationsResponseTypeDef(TypedDict):
-    targetAccountConfigurations: List[TargetAccountConfigurationSummaryTypeDef]
+    targetAccountConfigurations: list[TargetAccountConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTargetResourceTypesResponseTypeDef(TypedDict):
-    targetResourceTypes: List[TargetResourceTypeSummaryTypeDef]
+    targetResourceTypes: list[TargetResourceTypeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -692,7 +687,7 @@ class StartExperimentRequestTypeDef(TypedDict):
 class TargetResourceTypeTypeDef(TypedDict):
     resourceType: NotRequired[str]
     description: NotRequired[str]
-    parameters: NotRequired[Dict[str, TargetResourceTypeParameterTypeDef]]
+    parameters: NotRequired[dict[str, TargetResourceTypeParameterTypeDef]]
 
 UpdateSafetyLeverStateRequestTypeDef = TypedDict(
     "UpdateSafetyLeverStateRequestTypeDef",
@@ -703,7 +698,7 @@ UpdateSafetyLeverStateRequestTypeDef = TypedDict(
 )
 
 class ListActionsResponseTypeDef(TypedDict):
-    actions: List[ActionSummaryTypeDef]
+    actions: list[ActionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -719,7 +714,7 @@ ExperimentSummaryTypeDef = TypedDict(
         "experimentTemplateId": NotRequired[str],
         "state": NotRequired[ExperimentStateTypeDef],
         "creationTime": NotRequired[datetime],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "experimentOptions": NotRequired[ExperimentOptionsTypeDef],
     },
 )
@@ -732,7 +727,7 @@ class ExperimentReportConfigurationTypeDef(TypedDict):
 
 class ExperimentReportTypeDef(TypedDict):
     state: NotRequired[ExperimentReportStateTypeDef]
-    s3Reports: NotRequired[List[ExperimentReportS3ReportTypeDef]]
+    s3Reports: NotRequired[list[ExperimentReportS3ReportTypeDef]]
 
 class CreateExperimentTemplateReportConfigurationInputTypeDef(TypedDict):
     outputs: NotRequired[ExperimentTemplateReportConfigurationOutputsInputTypeDef]
@@ -765,7 +760,7 @@ class GetTargetResourceTypeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListExperimentsResponseTypeDef(TypedDict):
-    experiments: List[ExperimentSummaryTypeDef]
+    experiments: list[ExperimentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -777,13 +772,13 @@ ExperimentTypeDef = TypedDict(
         "experimentTemplateId": NotRequired[str],
         "roleArn": NotRequired[str],
         "state": NotRequired[ExperimentStateTypeDef],
-        "targets": NotRequired[Dict[str, ExperimentTargetTypeDef]],
-        "actions": NotRequired[Dict[str, ExperimentActionTypeDef]],
-        "stopConditions": NotRequired[List[ExperimentStopConditionTypeDef]],
+        "targets": NotRequired[dict[str, ExperimentTargetTypeDef]],
+        "actions": NotRequired[dict[str, ExperimentActionTypeDef]],
+        "stopConditions": NotRequired[list[ExperimentStopConditionTypeDef]],
         "creationTime": NotRequired[datetime],
         "startTime": NotRequired[datetime],
         "endTime": NotRequired[datetime],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "logConfiguration": NotRequired[ExperimentLogConfigurationTypeDef],
         "experimentOptions": NotRequired[ExperimentOptionsTypeDef],
         "targetAccountConfigurationsCount": NotRequired[int],
@@ -828,13 +823,13 @@ ExperimentTemplateTypeDef = TypedDict(
         "id": NotRequired[str],
         "arn": NotRequired[str],
         "description": NotRequired[str],
-        "targets": NotRequired[Dict[str, ExperimentTemplateTargetTypeDef]],
-        "actions": NotRequired[Dict[str, ExperimentTemplateActionTypeDef]],
-        "stopConditions": NotRequired[List[ExperimentTemplateStopConditionTypeDef]],
+        "targets": NotRequired[dict[str, ExperimentTemplateTargetTypeDef]],
+        "actions": NotRequired[dict[str, ExperimentTemplateActionTypeDef]],
+        "stopConditions": NotRequired[list[ExperimentTemplateStopConditionTypeDef]],
         "creationTime": NotRequired[datetime],
         "lastUpdateTime": NotRequired[datetime],
         "roleArn": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "logConfiguration": NotRequired[ExperimentTemplateLogConfigurationTypeDef],
         "experimentOptions": NotRequired[ExperimentTemplateExperimentOptionsTypeDef],
         "targetAccountConfigurationsCount": NotRequired[int],

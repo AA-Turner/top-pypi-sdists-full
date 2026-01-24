@@ -19,6 +19,9 @@ __all__ = [
     "CompoundCustomTools",
     "CompoundCustomToolsWolframSettings",
     "Document",
+    "DocumentSource",
+    "DocumentSourceChatCompletionDocumentSourceText",
+    "DocumentSourceChatCompletionDocumentSourceJson",
     "FunctionCall",
     "Function",
     "ResponseFormat",
@@ -59,8 +62,22 @@ class CompletionCreateParams(TypedDict, total=False):
     [models](https://console.groq.com/docs/models)
     """
 
+    citation_options: Optional[Literal["enabled", "disabled"]]
+    """Whether to enable citations in the response.
+
+    When enabled, the model will include citations for information retrieved from
+    provided documents or web searches.
+    """
+
     compound_custom: Optional[CompoundCustom]
     """Custom configuration of models and tools for Compound."""
+
+    disable_tool_validation: bool
+    """
+    If set to true, groq will return called tools without validating that the tool
+    is present in request.tools. tool_choice=required/none will still be enforced,
+    but the request cannot require a specific tool be used.
+    """
 
     documents: Optional[Iterable[Document]]
     """A list of documents to provide context for the conversation.
@@ -288,11 +305,15 @@ class CompoundCustomModels(TypedDict, total=False):
 
 
 class CompoundCustomToolsWolframSettings(TypedDict, total=False):
+    """Configuration for the Wolfram tool integration."""
+
     authorization: Optional[str]
     """API key used to authorize requests to Wolfram services."""
 
 
 class CompoundCustomTools(TypedDict, total=False):
+    """Configuration options for tools available to Compound."""
+
     enabled_tools: Optional[SequenceNotStr[str]]
     """A list of tool names that are enabled for the request."""
 
@@ -301,15 +322,47 @@ class CompoundCustomTools(TypedDict, total=False):
 
 
 class CompoundCustom(TypedDict, total=False):
+    """Custom configuration of models and tools for Compound."""
+
     models: Optional[CompoundCustomModels]
 
     tools: Optional[CompoundCustomTools]
     """Configuration options for tools available to Compound."""
 
 
-class Document(TypedDict, total=False):
+class DocumentSourceChatCompletionDocumentSourceText(TypedDict, total=False):
+    """A document whose contents are provided inline as text."""
+
     text: Required[str]
-    """The text content of the document."""
+    """The document contents."""
+
+    type: Required[Literal["text"]]
+    """Identifies this document source as inline text."""
+
+
+class DocumentSourceChatCompletionDocumentSourceJson(TypedDict, total=False):
+    """A document whose contents are provided inline as JSON data."""
+
+    data: Required[Dict[str, object]]
+    """The JSON payload associated with the document."""
+
+    type: Required[Literal["json"]]
+    """Identifies this document source as JSON data."""
+
+
+DocumentSource: TypeAlias = Union[
+    DocumentSourceChatCompletionDocumentSourceText, DocumentSourceChatCompletionDocumentSourceJson
+]
+
+
+class Document(TypedDict, total=False):
+    """A document that can be referenced by the model while generating responses."""
+
+    source: Required[DocumentSource]
+    """The source of the document. Only text and JSON sources are currently supported."""
+
+    id: Optional[str]
+    """Optional unique identifier that can be used for citations in responses."""
 
 
 FunctionCall: TypeAlias = Union[Literal["none", "auto", "required"], ChatCompletionFunctionCallOptionParam]
@@ -338,11 +391,15 @@ class Function(TypedDict, total=False):
 
 
 class ResponseFormatResponseFormatText(TypedDict, total=False):
+    """Default response format. Used to generate text responses."""
+
     type: Required[Literal["text"]]
     """The type of response format being defined. Always `text`."""
 
 
 class ResponseFormatResponseFormatJsonSchemaJsonSchema(TypedDict, total=False):
+    """Structured Outputs configuration options, including a JSON Schema."""
+
     name: Required[str]
     """The name of the response format.
 
@@ -372,6 +429,8 @@ class ResponseFormatResponseFormatJsonSchemaJsonSchema(TypedDict, total=False):
 
 
 class ResponseFormatResponseFormatJsonSchema(TypedDict, total=False):
+    """JSON Schema response format. Used to generate structured JSON responses."""
+
     json_schema: Required[ResponseFormatResponseFormatJsonSchemaJsonSchema]
     """Structured Outputs configuration options, including a JSON Schema."""
 
@@ -380,6 +439,11 @@ class ResponseFormatResponseFormatJsonSchema(TypedDict, total=False):
 
 
 class ResponseFormatResponseFormatJsonObject(TypedDict, total=False):
+    """JSON object response format.
+
+    An older method of generating JSON responses. Using `json_schema` is recommended for models that support it. Note that the model will not generate JSON without a system or user message instructing it to do so.
+    """
+
     type: Required[Literal["json_object"]]
     """The type of response format being defined. Always `json_object`."""
 
@@ -390,6 +454,8 @@ ResponseFormat: TypeAlias = Union[
 
 
 class SearchSettings(TypedDict, total=False):
+    """Settings for web search functionality when the model uses a web search tool."""
+
     country: Optional[str]
     """
     Name of country to prioritize search results from (e.g., "united states",

@@ -2,20 +2,31 @@ use itertools::Itertools;
 use std::fmt::Write;
 
 use tombi_ast::AstNode;
-use tombi_config::QuoteStyle;
+use tombi_config::StringQuoteStyle;
 
 use super::LiteralNode;
-use crate::format::Format;
+use crate::{
+    format::{Format, write_trailing_comment_alignment_space},
+    types::WithAlignmentHint,
+};
 
 impl Format for tombi_ast::BasicString {
+    #[inline]
     fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
-        self.leading_comments().collect_vec().format(f)?;
+        WithAlignmentHint::new(self).format(f)
+    }
+}
+
+impl Format for WithAlignmentHint<'_, tombi_ast::BasicString> {
+    fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
+        let value = self.value;
+        value.leading_comments().collect_vec().format(f)?;
 
         f.write_indent()?;
-        let text = self.token().unwrap().text().to_owned();
-        let text = match f.quote_style() {
-            QuoteStyle::Double | QuoteStyle::Preserve => text,
-            QuoteStyle::Single => {
+        let text = value.token().unwrap().text().to_owned();
+        let text = match f.string_quote_style() {
+            StringQuoteStyle::Double | StringQuoteStyle::Preserve => text,
+            StringQuoteStyle::Single => {
                 // TODO: Only supports simple conditions, so it needs to be changed to behavior closer to black
                 if text.contains("\\") || text.contains("'") {
                     text
@@ -26,7 +37,10 @@ impl Format for tombi_ast::BasicString {
         };
         write!(f, "{text}")?;
 
-        if let Some(comment) = self.trailing_comment() {
+        if let Some(comment) = value.trailing_comment() {
+            if let Some(trailing_comment_alignment_width) = self.trailing_comment_alignment_width {
+                write_trailing_comment_alignment_space(f, trailing_comment_alignment_width)?;
+            }
             comment.format(f)?;
         }
 
@@ -36,13 +50,20 @@ impl Format for tombi_ast::BasicString {
 
 impl Format for tombi_ast::LiteralString {
     fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
-        self.leading_comments().collect_vec().format(f)?;
+        WithAlignmentHint::new(self).format(f)
+    }
+}
+
+impl Format for WithAlignmentHint<'_, tombi_ast::LiteralString> {
+    fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
+        let value = self.value;
+        value.leading_comments().collect_vec().format(f)?;
 
         f.write_indent()?;
-        let text = self.token().unwrap().text().to_owned();
-        let text = match f.quote_style() {
-            QuoteStyle::Single | QuoteStyle::Preserve => text,
-            QuoteStyle::Double => {
+        let text = value.token().unwrap().text().to_owned();
+        let text = match f.string_quote_style() {
+            StringQuoteStyle::Single | StringQuoteStyle::Preserve => text,
+            StringQuoteStyle::Double => {
                 // TODO: Only supports simple conditions, so it needs to be changed to behavior closer to black
                 if text.contains("\\") || text.contains("\"") {
                     text
@@ -53,7 +74,10 @@ impl Format for tombi_ast::LiteralString {
         };
         write!(f, "{text}")?;
 
-        if let Some(comment) = self.trailing_comment() {
+        if let Some(comment) = value.trailing_comment() {
+            if let Some(trailing_comment_alignment_width) = self.trailing_comment_alignment_width {
+                write_trailing_comment_alignment_space(f, trailing_comment_alignment_width)?;
+            }
             comment.format(f)?;
         }
 
@@ -74,41 +98,42 @@ impl LiteralNode for tombi_ast::MultiLineLiteralString {
 
 #[cfg(test)]
 mod tests {
-    use tombi_config::{QuoteStyle, TomlVersion};
-
-    use crate::{test_format, FormatDefinitions};
+    use crate::{Formatter, test_format};
+    use tombi_config::{StringQuoteStyle, format::FormatRules};
 
     test_format! {
-        #[test]
-        fn basic_string_value1(r#"key = "value""#) -> Ok(source);
+        #[tokio::test]
+        async fn basic_string_value1(r#"key = "value""#) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn basic_string_value2(r#"key    = "value""#) -> Ok(r#"key = "value""#);
+        #[tokio::test]
+        async fn basic_string_value2(r#"key    = "value""#) -> Ok(r#"key = "value""#)
     }
 
     test_format! {
-        #[test]
-        fn basic_string_value_quote_style_single1(
+        #[tokio::test]
+        async fn basic_string_value_quote_style_single1(
             r#"key = "value""#,
-            TomlVersion::default(),
-            &FormatDefinitions {
-                quote_style: Some(QuoteStyle::Single),
-                ..Default::default()
+            FormatOptions {
+                rules: Some(FormatRules {
+                    string_quote_style: Some(StringQuoteStyle::Single),
+                    ..Default::default()
+                }),
             }
-        ) -> Ok(r#"key = 'value'"#);
+        ) -> Ok(r#"key = 'value'"#)
     }
 
     test_format! {
-        #[test]
-        fn basic_string_value_quote_style_single2(
+        #[tokio::test]
+        async fn basic_string_value_quote_style_single2(
             r#"key = "'value'""#,
-            TomlVersion::default(),
-            &FormatDefinitions {
-                quote_style: Some(QuoteStyle::Single),
-                ..Default::default()
+            FormatOptions {
+                rules: Some(FormatRules {
+                    string_quote_style: Some(StringQuoteStyle::Single),
+                    ..Default::default()
+                }),
             }
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 }

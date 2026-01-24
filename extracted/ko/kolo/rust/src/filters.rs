@@ -47,6 +47,7 @@ mod windows {
     finder!(pub LOWER_LIB_FINDER = "\\lib\\");
     finder!(pub UPPER_LIB_FINDER = "\\Lib\\");
     finder!(pub KOLO_FINDERS = "\\kolo\\config.py",
+        "\\kolo\\core.py",
         "\\kolo\\db.py",
         "\\kolo\\django_schema.py",
         "\\kolo\\filters\\",
@@ -58,6 +59,7 @@ mod windows {
         "\\kolo\\monitoring.py",
         "\\kolo\\plugins.py",
         "\\kolo\\profiler.py",
+        "\\kolo\\pth_init.py",
         "\\kolo\\pytest_plugin.py",
         "\\kolo\\serialize.py",
         "\\kolo\\utils.py",
@@ -72,6 +74,7 @@ mod not_windows {
     use once_cell::sync::Lazy;
     finder!(pub LIBRARY_FINDERS = "lib/python", "lib64/python", "/site-packages/");
     finder!(pub KOLO_FINDERS = "/kolo/config.py",
+        "/kolo/core.py",
         "/kolo/db.py",
         "/kolo/django_schema.py",
         "/kolo/filters/",
@@ -83,6 +86,7 @@ mod not_windows {
         "/kolo/monitoring.py",
         "/kolo/plugins.py",
         "/kolo/profiler.py",
+        "/kolo/pth_init.py",
         "/kolo/pytest_plugin.py",
         "/kolo/serialize.py",
         "/kolo/utils.py",
@@ -138,16 +142,25 @@ fn frame_filename(frame: Bound<'_, PyAny>) -> String {
 }
 
 pub fn attrs_filter_monitoring(py: Python, co_filename: &str) -> Result<bool, PyErr> {
-    if co_filename.starts_with("<attrs generated") {
-        return Ok(true);
+    // If filename is not empty, just check if it starts with "<attrs generated"
+    // This matches the Python behavior in monitoring.py attrs_filter()
+    if !co_filename.is_empty() {
+        return Ok(co_filename.starts_with("<attrs generated"));
     }
 
-    let sys = PyModule::import_bound(py, "sys")?;
-    let frame_1 = sys.call_method1("_getframe", (1,))?;
+    // Filename is empty - need to check parent frames for attrs code
+    // Wrap in error handling since the call stack may not be deep enough
+    let sys = PyModule::import(py, "sys")?;
+    let frame_1 = match sys.call_method1("_getframe", (1,)) {
+        Ok(frame) => frame,
+        Err(_) => return Ok(false), // Stack not deep enough, not attrs code
+    };
     let filename = match frame_filename(frame_1) {
         filename if filename.is_empty() => {
-            let frame_2 = sys.call_method1("_getframe", (2,))?;
-            frame_filename(frame_2)
+            match sys.call_method1("_getframe", (2,)) {
+                Ok(frame) => frame_filename(frame),
+                Err(_) => return Ok(false), // Stack not deep enough
+            }
         }
         filename => filename,
     };
@@ -266,4 +279,52 @@ pub fn load_filters(filters: &Option<Bound<'_, PyAny>>, key: &str) -> Result<Fin
             finders: Vec::new(),
         },
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_kolo_filter_matches_core_py() {
+        let path = "/some/path/kolo/python/src/kolo/core.py";
+        assert!(
+            kolo_filter(path),
+            "kolo_filter should match kolo/core.py in path: {}",
+            path
+        );
+    }
+
+    #[test]
+    fn test_kolo_filter_matches_various_kolo_paths() {
+        let paths = vec![
+            "/some/path/kolo/core.py",
+            "/kolo/config.py",
+            "/path/to/kolo/middleware.py",
+            "/kolo/profiler.py",
+        ];
+        for path in paths {
+            assert!(
+                kolo_filter(path),
+                "kolo_filter should match path: {}",
+                path
+            );
+        }
+    }
+
+    #[test]
+    fn test_kolo_filter_does_not_match_user_code() {
+        let paths = vec![
+            "/Users/user/myapp/views.py",
+            "/path/to/myproject/models.py",
+            "/some/random/file.py",
+        ];
+        for path in paths {
+            assert!(
+                !kolo_filter(path),
+                "kolo_filter should NOT match path: {}",
+                path
+            );
+        }
+    }
 }

@@ -43,6 +43,7 @@ def free_var(id: str) -> UnboundVariableExpression:
     return UnboundVariableExpression(id)
 
 
+T = TypeVar("T")
 TExpression = TypeVar("TExpression", bound="Expression")
 
 
@@ -136,6 +137,11 @@ class Expression(abc.ABC):
         """True for identity operation that does not transform input."""
         return False
 
+    @functools.cached_property
+    def is_scalar_expr(self) -> bool:
+        """True if expression represents scalar value or expression over scalar values (no windows or aggregations)"""
+        return all(expr.is_scalar_expr for expr in self.children)
+
     @abc.abstractmethod
     def transform_children(self, t: Callable[[Expression], Expression]) -> Expression:
         ...
@@ -143,6 +149,11 @@ class Expression(abc.ABC):
     def bottom_up(self, t: Callable[[Expression], Expression]) -> Expression:
         expr = self.transform_children(lambda child: child.bottom_up(t))
         expr = t(expr)
+        return expr
+
+    def top_down(self, t: Callable[[Expression], Expression]) -> Expression:
+        expr = t(self)
+        expr = expr.transform_children(lambda child: child.top_down(t))
         return expr
 
     def walk(self) -> Generator[Expression, None, None]:

@@ -1,8 +1,10 @@
 from celery import chain, shared_task
 from django.db.models import Model
 
+from wbcore.workers import Queue
 
-@shared_task(queue="llm")
+
+@shared_task(queue=Queue.BACKGROUND.value)
 def save_instance_as_task(instance):
     instance.save(_with_llm=False)
 

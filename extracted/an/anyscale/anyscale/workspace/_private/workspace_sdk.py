@@ -1,25 +1,30 @@
+import concurrent.futures
 from functools import partial
 import os
 import subprocess
 import tempfile
-from typing import cast, Dict, List, Optional, Tuple, Union
+from types import SimpleNamespace
+from typing import cast, ClassVar, Dict, List, Optional, Tuple, Union
 
 import click
 
+from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.workload.workload_sdk import WorkloadSDK
 from anyscale.client.openapi_client.models import (
     CreateExperimentalWorkspace,
     ExperimentalWorkspace,
 )
-from anyscale.client.openapi_client.models.session_state import SessionState
-from anyscale.client.openapi_client.models.workspace_dataplane_proxied_artifacts import (
-    WorkspaceDataplaneProxiedArtifacts,
+from anyscale.client.openapi_client.models.resource_tag_resource_type import (
+    ResourceTagResourceType,
 )
+from anyscale.client.openapi_client.models.session_state import SessionState
 from anyscale.utils.runtime_env import parse_requirements_file
 from anyscale.workspace.models import (
     UpdateWorkspaceConfig,
     Workspace,
     WorkspaceConfig,
+    WorkspaceSortField,
+    WorkspaceSortOrder,
     WorkspaceState,
 )
 
@@ -62,7 +67,9 @@ class PrivateWorkspaceSDK(WorkloadSDK):
     _POLLING_INTERVAL_SECONDS = 10.0
     _WAIT_TIMEOUT_SECONDS = 1800.0
 
-    _BACKEND_SESSION_STATE_TO_WORKSPACE_STATE = {
+    _BACKEND_SESSION_STATE_TO_WORKSPACE_STATE: ClassVar[
+        Dict[SessionState, WorkspaceState]
+    ] = {
         SessionState.STOPPED: WorkspaceState.TERMINATED,
         SessionState.TERMINATED: WorkspaceState.TERMINATED,
         SessionState.STARTINGUP: WorkspaceState.STARTING,
@@ -169,6 +176,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 cluster_environment_build_id=build_id,
                 idle_timeout_minutes=config.idle_termination_minutes,
                 cloud_id=cloud_id,
+                tags=config.tags,
                 skip_start=True,
             )
         )
@@ -363,6 +371,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             ["ssh"]
             + ANYSCALE_WORKSPACES_SSH_OPTIONS
             + ["-F", config_file, host_name, command],
+            check=kwargs.pop("check", False),
             **kwargs,
         )
 
@@ -418,9 +427,9 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         should_warn_delete = False
 
         if not delete:
-            # --delete-excluded is needed to detect files that are being deleted in the destination
+            # --delete is needed to detect files that are being deleted in the destination
             should_warn_delete = True
-            dry_run_options.append("--delete-excluded")
+            dry_run_options.append("--delete")
 
         try:
             result = subprocess.run(
@@ -464,7 +473,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
 
         default_dir_name = self.get_default_dir_name(id=workspace_model.id)
 
-        local_dir = local_dir or os.path.join(os.getcwd(), "")
+        local_dir = local_dir or os.getcwd()
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             host_name, config_file = self.generate_ssh_config_file(
@@ -475,7 +484,9 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 source = f"ray@{host_name}:~/{default_dir_name}/"
                 destination = local_dir
             else:
-                source = local_dir
+                # Ensure source directory has trailing slash for consistent rsync behavior
+                # This ensures we sync the contents of the directory, not the directory itself
+                source = os.path.join(local_dir, "")  # Ensures trailing slash
                 destination = f"ray@{host_name}:~/{default_dir_name}/"
 
             rsync_args = rsync_args or []
@@ -509,9 +520,9 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             ]
 
             if delete:
-                # --delete-excluded is needed to delete files in the destination that are not in the source
-                # Note: We need --delete-excluded instead of --delete to delete files that are excluded from the sync, e.g. .git
-                args.append("--delete-excluded")
+                # --delete removes files in the destination that are not in the source
+                # Note: This preserves excluded files (like .git) and is compatible with all rsync implementations
+                args.append("--delete")
 
             if rsync_args:
                 args.extend(rsync_args)
@@ -683,57 +694,103 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             return []
         return [req for req in requirements.split("\n") if req]
 
-    def _transform_internal_to_external_workspace_model(
-        self, model: ExperimentalWorkspace
+    def _to_workspace(
+        self, workspace: ExperimentalWorkspace, *, include_config: bool = True
     ) -> Workspace:
-        """Transforms an internal workspace model to a public-facing workspace model."""
-        cluster = self.client.get_workspace_cluster(model.id)
-        if not cluster:
-            raise ValueError(
-                f"Workspace cluster with ID '{model.cluster_id}' was not found."
-            )
+        """Convert ExperimentalWorkspace to Workspace.
 
-        workspace_status = self._convert_cluster_state_to_workspace_state(cluster.state)
-        idle_termination_minutes = cluster.idle_timeout
-
-        build_id = cluster.build_id
-        image_uri = self._image_sdk.get_image_uri_from_build_id(build_id)
-        if image_uri is None:
-            raise RuntimeError(f"Failed to get image URI for ID {build_id}.")
-        image_build = self._image_sdk.get_image_build(build_id)
-        if image_build is None:
-            raise RuntimeError(f"Failed to get image build for ID {build_id}.")
-
-        compute_config = self.get_user_facing_compute_config(model.compute_config_id)
-
-        cloud = self.client.get_cloud(cloud_id=model.cloud_id)
-        project = self.client.get_project(project_id=model.project_id)
-
-        workspace_dataplane_artifacts: WorkspaceDataplaneProxiedArtifacts = self.client.get_workspace_proxied_dataplane_artifacts(
-            workspace_id=model.id
+        Args:
+            workspace: Internal workspace model from API
+            include_config: If True, fetch full config (expensive). If False, only metadata.
+        """
+        state = self._BACKEND_SESSION_STATE_TO_WORKSPACE_STATE.get(
+            workspace.state, WorkspaceState.UNKNOWN
         )
-        env_vars_dict = self._convert_env_var_list_to_dict(
-            workspace_dataplane_artifacts.environment_variables
-        )
-        requirements = self._convert_requirements_str_to_list(
-            workspace_dataplane_artifacts.requirements
-        )
+
+        # Optionally fetch expensive config data
+        config = self._fetch_workspace_config(workspace) if include_config else None
 
         return Workspace(
-            id=model.id,
-            name=model.name,
-            config=WorkspaceConfig(
-                name=model.name,
-                compute_config=compute_config,
-                registry_login_secret=image_build.registry_login_secret,
-                image_uri=str(image_uri),
-                requirements=requirements if requirements else None,
-                idle_termination_minutes=idle_termination_minutes,
-                env_vars=env_vars_dict,
-                project=project.name if project else None,
-                cloud=cloud.name if cloud else None,
-            ),
-            state=workspace_status,
+            id=workspace.id or "",
+            name=workspace.name or "",
+            state=state,
+            project_id=workspace.project_id,
+            cloud_id=workspace.cloud_id,
+            creator_id=workspace.creator_id,
+            creator_email=workspace.creator_email,
+            created_at=workspace.created_at,
+            last_started_at=workspace.latest_started_at,
+            cluster_id=workspace.cluster_id,
+            config=config,
+        )
+
+    def _fetch_workspace_config(
+        self, workspace: ExperimentalWorkspace
+    ) -> WorkspaceConfig:
+        """Fetch full workspace configuration (expensive, makes multiple API calls).
+
+        Optimizes performance by parallelizing independent API calls using ThreadPoolExecutor.
+        ThreadPoolExecutor is appropriate here because the OpenAPI clients use synchronous I/O
+        (requests library), not async/await.
+        """
+        # First fetch cluster (needed for subsequent calls)
+        cluster = self.client.get_workspace_cluster(workspace.id)
+        if not cluster:
+            raise ValueError(
+                f"Workspace cluster with ID '{workspace.cluster_id}' was not found."
+            )
+
+        # Parallelize all independent API calls
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            # Submit all fetches in parallel - more Pythonic dict pattern
+            futures = {
+                "image_uri": executor.submit(
+                    self._image_sdk.get_image_uri_from_build_id, cluster.build_id
+                ),
+                "image_build": executor.submit(
+                    self._image_sdk.get_image_build, cluster.build_id
+                ),
+                "compute": executor.submit(
+                    self.get_user_facing_compute_config, workspace.compute_config_id
+                ),
+                "cloud": executor.submit(
+                    self.client.get_cloud, cloud_id=workspace.cloud_id
+                ),
+                "project": executor.submit(
+                    self.client.get_project, project_id=workspace.project_id
+                ),
+                "artifacts": executor.submit(
+                    self.client.get_workspace_proxied_dataplane_artifacts,
+                    workspace_id=workspace.id,
+                ),
+            }
+
+            # Collect all results - will raise exception if any call failed
+            results = {key: future.result() for key, future in futures.items()}
+
+        # Validate required results
+        if not results["image_uri"]:
+            raise ValueError(f"Failed to get image URI for build {cluster.build_id}.")
+        if not results["image_build"]:
+            raise ValueError(f"Failed to get image build {cluster.build_id}.")
+
+        env_vars = self._convert_env_var_list_to_dict(
+            results["artifacts"].environment_variables
+        )
+        requirements = self._convert_requirements_str_to_list(
+            results["artifacts"].requirements
+        )
+
+        return WorkspaceConfig(
+            name=workspace.name,
+            compute_config=results["compute"],
+            registry_login_secret=results["image_build"].registry_login_secret,
+            image_uri=str(results["image_uri"]),
+            requirements=requirements if requirements else None,
+            idle_termination_minutes=cluster.idle_timeout,
+            env_vars=env_vars,
+            project=results["project"].name if results["project"] else None,
+            cloud=results["cloud"].name if results["cloud"] else None,
         )
 
     def get(
@@ -743,10 +800,254 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         name: Optional[str] = None,
         cloud: Optional[str] = None,
         project: Optional[str] = None,
-    ) -> Workspace:  # noqa: A002
-        internal_workspace_model = self._resolve_to_workspace_model(
+        include_config: bool = True,
+    ) -> Workspace:
+        """Get a workspace by name or ID.
+
+        Args:
+            include_config: If True, fetch full config (default). Set to False for efficiency.
+        """
+        workspace = self._resolve_to_workspace_model(
             id=id, name=name, cloud=cloud, project=project
         )
-        return self._transform_internal_to_external_workspace_model(
-            internal_workspace_model
+        return self._to_workspace(workspace, include_config=include_config)
+
+    def list(  # noqa: PLR0913, PLR0917
+        self,
+        *,
+        workspace_id: Optional[str] = None,
+        name: Optional[str] = None,
+        project: Optional[str] = None,
+        cloud: Optional[str] = None,
+        creator_id: Optional[str] = None,
+        state_filter: Optional[Union[List[WorkspaceState], List[str]]] = None,
+        tags_filter: Optional[Dict[str, List[str]]] = None,
+        include_config: bool = False,
+        sort_field: Optional[Union[str, WorkspaceSortField]] = None,
+        sort_order: Optional[Union[str, WorkspaceSortOrder]] = None,
+        max_items: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> ResultIterator[Workspace]:
+        """List workspaces with optional filters.
+
+        Args:
+            state_filter: List of states to include. May be WorkspaceState enums or case-insensitive strings.
+                         If None, defaults to non-terminated states.
+            tags_filter: Filter by tags. Dict mapping tag keys to lists of values.
+                        Tags with the same key are ORed, different keys are ANDed.
+            include_config: If True, fetch full config for each workspace (expensive, makes multiple API calls).
+                           Defaults to False for efficiency. Set to True when full config is needed.
+            sort_field: Field to sort by. Defaults to status (active first) then created_at (desc).
+            sort_order: Sort order (ASC or DESC). Defaults to appropriate order for sort_field.
+        """
+        MAX_PAGE_SIZE = 100
+
+        if page_size is not None and not (1 <= page_size <= MAX_PAGE_SIZE):
+            raise ValueError(
+                f"page_size must be between 1 and {MAX_PAGE_SIZE}, inclusive."
+            )
+
+        # Resolve cloud and project to IDs
+        cloud_id = self.client.get_cloud_id(cloud_name=cloud) if cloud else None
+        project_id = (
+            self.client.get_project_id(parent_cloud_id=cloud_id, name=project)
+            if project
+            else None
         )
+
+        # Normalize state filter
+        # Backend expects SessionState enum values as strings
+        normalized_states = _normalize_state_filter_to_backend(state_filter)
+
+        # Convert tags_filter dict to backend format (list of "key:value" strings)
+        tag_filter_list: Optional[List[str]] = None
+        if tags_filter:
+            tag_filter_list = []
+            for key, values in tags_filter.items():
+                for value in values:
+                    tag_filter_list.append(f"{key}:{value}")
+
+        # Handle single workspace lookup by ID
+        if workspace_id is not None:
+            workspace = self.client.get_workspace(id=workspace_id)
+
+            if workspace is None:
+                # Return empty iterator
+                return ResultIterator(
+                    page_token=None,
+                    max_items=0,
+                    fetch_page=lambda _: SimpleNamespace(
+                        results=[], metadata=SimpleNamespace(next_paging_token=None),
+                    ),
+                    parse_fn=None,
+                )
+
+            # Return single-item iterator
+            summary = self._to_workspace(workspace, include_config=include_config)
+            return ResultIterator(
+                page_token=None,
+                max_items=1,
+                fetch_page=lambda token: SimpleNamespace(
+                    results=[summary] if token is None else [],
+                    metadata=SimpleNamespace(next_paging_token=None),
+                ),
+                parse_fn=None,
+            )
+
+        # Handle paginated list
+        def _fetch_page(token: Optional[str]) -> SimpleNamespace:
+            # Use internal API client directly as there's no interface method for list_workspaces yet
+            response = self.client._internal_api_client.list_workspaces_api_v2_experimental_workspaces_get(  # noqa: SLF001
+                project_id=project_id,
+                cloud_id=cloud_id,
+                name=name,
+                creator_id=creator_id,
+                state_filter=normalized_states,
+                tag_filter=tag_filter_list,
+                sort_field=sort_field,
+                sort_order=sort_order,
+                count=page_size or 50,
+                paging_token=token,
+            )
+
+            results = response.results if response.results else []
+            next_token = (
+                response.metadata.next_paging_token if response.metadata else None
+            )
+
+            return SimpleNamespace(
+                results=results, metadata=SimpleNamespace(next_paging_token=next_token),
+            )
+
+        return ResultIterator(
+            page_token=None,
+            max_items=max_items,
+            fetch_page=_fetch_page,
+            parse_fn=lambda ws: self._to_workspace(ws, include_config=include_config),
+        )
+
+    def add_tags(
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        tags: Dict[str, str],
+    ) -> None:
+        """Upsert (add/update) tag key/value pairs for a workspace."""
+        if not tags:
+            raise ValueError("At least one tag must be provided.")
+
+        if id is not None:
+            resource_id = id
+        else:
+            if name is None and not self.client.inside_workspace():
+                raise ValueError(
+                    "Either 'id' or 'name' must be provided when running outside of a workspace."
+                )
+            model = self._resolve_to_workspace_model(
+                id=id, name=name, cloud=cloud, project=project
+            )
+            resource_id = model.id  # type: ignore
+
+        self.client.upsert_resource_tags(
+            ResourceTagResourceType.WORKSPACE, resource_id, tags
+        )
+
+    def remove_tags(
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        keys: List[str],
+    ) -> None:
+        """Remove tag keys from a workspace."""
+        if not keys:
+            raise ValueError("At least one tag key must be provided.")
+
+        if id is not None:
+            resource_id = id
+        else:
+            if name is None and not self.client.inside_workspace():
+                raise ValueError(
+                    "Either 'id' or 'name' must be provided when running outside of a workspace."
+                )
+            model = self._resolve_to_workspace_model(
+                id=id, name=name, cloud=cloud, project=project
+            )
+            resource_id = model.id  # type: ignore
+
+        self.client.delete_resource_tags(
+            ResourceTagResourceType.WORKSPACE, resource_id, keys
+        )
+
+    def list_tags(
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """List tags for a workspace as a key/value mapping."""
+        if id is not None:
+            resource_id = id
+        else:
+            model = self._resolve_to_workspace_model(
+                id=id, name=name, cloud=cloud, project=project
+            )
+            resource_id = model.id  # type: ignore
+
+        records = self.client.list_resource_tags(
+            ResourceTagResourceType.WORKSPACE, resource_id
+        )
+        return {r.key: r.value for r in records if r and r.key is not None}
+
+
+def _normalize_state_filter_to_backend(
+    states: Optional[Union[List[WorkspaceState], List[str]]],
+) -> Optional[List[str]]:
+    """Normalize frontend WorkspaceState filter to backend SessionState values.
+
+    Maps frontend WorkspaceState enums to their corresponding backend SessionState values.
+    None or empty list: no filtering (includes all states).
+    """
+    # Map WorkspaceState to backend SessionState values
+    WORKSPACE_TO_SESSION_STATES: Dict[WorkspaceState, List[str]] = {
+        WorkspaceState.STARTING: [
+            "StartingUp",
+            "AwaitingStartup",
+            "AwaitingFileMounts",
+        ],
+        WorkspaceState.RUNNING: ["Running"],
+        WorkspaceState.UPDATING: ["Updating"],
+        WorkspaceState.TERMINATING: ["Stopping", "Terminating"],
+        WorkspaceState.TERMINATED: ["Stopped", "Terminated"],
+        WorkspaceState.ERRORED: [
+            "UpdatingErrored",
+            "StartupErrored",
+            "TerminatingErrored",
+            "StoppingErrored",
+        ],
+        WorkspaceState.UNKNOWN: [],
+    }
+
+    # None or empty list means no filtering
+    if states is None or len(states) == 0:
+        return None
+
+    backend_states: List[str] = []
+    for s in states:
+        if isinstance(s, WorkspaceState):
+            backend_states.extend(WORKSPACE_TO_SESSION_STATES.get(s, []))
+        elif isinstance(s, str):
+            backend_states.append(s)
+        else:
+            raise TypeError(
+                "'state_filter' entries must be WorkspaceState or str, "
+                f"got {type(s).__name__}"
+            )
+    return backend_states if backend_states else None

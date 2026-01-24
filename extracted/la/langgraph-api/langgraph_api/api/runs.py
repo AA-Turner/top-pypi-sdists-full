@@ -1,6 +1,6 @@
 import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
-from typing import Literal, cast
+from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 
 import orjson
@@ -10,9 +10,24 @@ from starlette.responses import Response, StreamingResponse
 
 from langgraph_api import config
 from langgraph_api.asyncio import ValueEvent
+from langgraph_api.encryption.middleware import (
+    decrypt_response,
+    decrypt_responses,
+    encrypt_request,
+)
+from langgraph_api.feature_flags import FF_USE_CORE_API
+from langgraph_api.graph import _validate_assistant_id
+from langgraph_api.grpc.ops import Runs as GrpcRuns
 from langgraph_api.models.run import create_valid_run
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
-from langgraph_api.schema import CRON_FIELDS, RUN_FIELDS
+from langgraph_api.schema import (
+    CRON_ENCRYPTION_FIELDS,
+    CRON_FIELDS,
+    CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
+    RUN_ENCRYPTION_FIELDS,
+    RUN_FIELDS,
+)
+from langgraph_api.serde import json_dumpb, json_loads
 from langgraph_api.sse import EventSourceResponse
 from langgraph_api.utils import (
     fetchone,
@@ -29,16 +44,34 @@ from langgraph_api.validation import (
     RunCreateStateful,
     RunCreateStateless,
     RunsCancel,
+    ThreadCronCreate,
 )
+from langgraph_api.webhook import validate_webhook_url_or_raise
 from langgraph_license.validation import plus_features_enabled
 from langgraph_runtime.database import connect
-from langgraph_runtime.ops import Crons, Runs, StreamHandler, Threads
+from langgraph_runtime.ops import Crons, Runs, Threads
 from langgraph_runtime.retry import retry_db
+
+CrudRuns = GrpcRuns if FF_USE_CORE_API else Runs
 
 logger = structlog.stdlib.get_logger(__name__)
 
 
+# Type alias for stream handlers (GrpcStreamHandler or ContextQueue).
+# CrudRuns is selected at runtime, and the implementations have different
+# type signatures, so we use Any for compatibility.
+_StreamHandler = Any
+
+
 _RunResultFallback = Callable[[], Awaitable[bytes]]
+
+
+def _ensure_crons_enabled() -> None:
+    if not (config.FF_CRONS_ENABLED and plus_features_enabled()):
+        raise HTTPException(
+            status_code=403,
+            detail="Crons are currently only available in the cloud version of LangSmith Deployment or with a self-hosting enterprise license. Please visit https://docs.langchain.com/langsmith/deployments to learn more about deployment options, or contact sales@langchain.com for more information",
+        )
 
 
 def _thread_values_fallback(thread_id: UUID) -> _RunResultFallback:
@@ -46,24 +79,27 @@ def _thread_values_fallback(thread_id: UUID) -> _RunResultFallback:
         async with connect() as conn:
             thread_iter = await Threads.get(conn, thread_id)
             try:
-                thread = await anext(thread_iter)
-                if thread["status"] == "error":
-                    return orjson.dumps({"__error__": orjson.Fragment(thread["error"])})
-                if thread["status"] == "interrupted":
+                row = await anext(thread_iter)
+                # Decrypt thread fields (values, interrupts, error) if encryption is enabled
+                thread = await decrypt_response(
+                    dict(row),
+                    "thread",
+                    ["values", "interrupts", "error"],
+                )
+                if row["status"] == "error":
+                    return json_dumpb({"__error__": json_loads(thread["error"])})
+                if row["status"] == "interrupted":
                     # Get an interrupt for the thread. There is the case where there are multiple interrupts for the same run and we may not show the same
                     # interrupt, but we'll always show one. Long term we should show all of them.
                     try:
-                        if isinstance(thread["interrupts"], dict):
-                            # Handle in memory format
-                            interrupt_map = thread["interrupts"]
-                        else:
-                            interrupt_map = orjson.loads(thread["interrupts"].buf)
+                        interrupt_map = json_loads(thread["interrupts"])
                         interrupt = [next(iter(interrupt_map.values()))[0]]
-                        return orjson.dumps({"__interrupt__": interrupt})
+                        return json_dumpb({"__interrupt__": interrupt})
                     except Exception:
                         # No interrupt, but status is interrupted from a before/after block. Default back to values.
                         pass
-                return cast(bytes, thread["values"])
+                values = json_loads(thread["values"]) if thread["values"] else None
+                return json_dumpb(values) if values else b"{}"
             except StopAsyncIteration:
                 await logger.awarning(
                     f"No checkpoint found for thread {thread_id}",
@@ -78,7 +114,7 @@ def _run_result_body(
     *,
     run_id: UUID,
     thread_id: UUID,
-    sub: StreamHandler,
+    sub: _StreamHandler,
     cancel_on_disconnect: bool = False,
     ignore_404: bool = False,
     fallback: _RunResultFallback | None = None,
@@ -89,17 +125,15 @@ def _run_result_body(
     async def consume() -> None:
         vchunk: bytes | None = None
         try:
-            async for mode, chunk, _ in Runs.Stream.join(
+            async for mode, chunk, _ in CrudRuns.Stream.join(
                 run_id,
                 stream_channel=sub,
                 cancel_on_disconnect=cancel_on_disconnect,
                 thread_id=thread_id,
                 ignore_404=ignore_404,
             ):
-                if (
-                    mode == b"values"
-                    or mode == b"updates"
-                    and b"__interrupt__" in chunk
+                if mode == b"values" or (
+                    mode == b"updates" and b"__interrupt__" in chunk
                 ):
                     vchunk = chunk
                 elif mode == b"error":
@@ -111,7 +145,6 @@ def _run_result_body(
             else:
                 last_chunk.set(b"{}")
         finally:
-            # Make sure to always clean up the pubsub
             await sub.__aexit__(None, None, None)
 
     # keep the connection open by sending whitespace every 5 seconds
@@ -147,6 +180,7 @@ async def create_run(request: ApiRequest):
     """Create a run."""
     thread_id = request.path_params["thread_id"]
     payload = await request.json(RunCreateStateful)
+
     async with connect() as conn:
         run = await create_valid_run(
             conn,
@@ -155,6 +189,7 @@ async def create_run(request: ApiRequest):
             request.headers,
             request_start_time=request.scope.get("request_start_time_ms"),
         )
+    run = await decrypt_response(run, "run", RUN_ENCRYPTION_FIELDS)
     return ApiResponse(
         run,
         headers={"Content-Location": f"/threads/{thread_id}/runs/{run['run_id']}"},
@@ -165,6 +200,7 @@ async def create_run(request: ApiRequest):
 async def create_stateless_run(request: ApiRequest):
     """Create a run."""
     payload = await request.json(RunCreateStateless)
+
     async with connect() as conn:
         run = await create_valid_run(
             conn,
@@ -173,6 +209,7 @@ async def create_stateless_run(request: ApiRequest):
             request.headers,
             request_start_time=request.scope.get("request_start_time_ms"),
         )
+    run = await decrypt_response(run, "run", RUN_ENCRYPTION_FIELDS)
     return ApiResponse(
         run,
         headers={"Content-Location": f"/runs/{run['run_id']}"},
@@ -197,6 +234,7 @@ async def create_stateless_run_batch(request: ApiRequest):
             for payload in batch_payload
         ]
         runs = await asyncio.gather(*coros)
+    runs = await decrypt_responses(list(runs), "run", RUN_ENCRYPTION_FIELDS)
     return ApiResponse(runs)
 
 
@@ -209,7 +247,7 @@ async def stream_run(
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
 
-    sub = await Runs.Stream.subscribe(run_id, thread_id)
+    sub = await CrudRuns.Stream.subscribe(run_id, thread_id)
     try:
         async with connect() as conn:
             run = await create_valid_run(
@@ -221,22 +259,21 @@ async def stream_run(
                 request_start_time=request.scope.get("request_start_time_ms"),
             )
     except Exception:
-        # Clean up the pubsub on errors
+        # Clean up the stream handler on errors
         await sub.__aexit__(None, None, None)
         raise
 
     async def body():
         try:
-            async for event, message, stream_id in Runs.Stream.join(
+            async for event, message, stream_id in CrudRuns.Stream.join(
                 run["run_id"],
                 thread_id=thread_id,
                 cancel_on_disconnect=on_disconnect == "cancel",
-                stream_channel=sub,
-                last_event_id=None,
+                stream_channel=cast("_StreamHandler", sub),
             ):
                 yield event, message, stream_id
         finally:
-            # Make sure to always clean up the pubsub
+            # Clean up the stream handler
             await sub.__aexit__(None, None, None)
 
     return EventSourceResponse(
@@ -258,7 +295,7 @@ async def stream_run_stateless(
     run_id = uuid7()
     thread_id = uuid4()
 
-    sub = await Runs.Stream.subscribe(run_id, thread_id)
+    sub = await CrudRuns.Stream.subscribe(run_id, thread_id)
     try:
         async with connect() as conn:
             run = await create_valid_run(
@@ -271,23 +308,22 @@ async def stream_run_stateless(
                 temporary=True,
             )
     except Exception:
-        # Clean up the pubsub on errors
+        # Clean up the stream handler on errors
         await sub.__aexit__(None, None, None)
         raise
 
     async def body():
         try:
-            async for event, message, stream_id in Runs.Stream.join(
+            async for event, message, stream_id in CrudRuns.Stream.join(
                 run["run_id"],
                 thread_id=run["thread_id"],
                 ignore_404=True,
                 cancel_on_disconnect=on_disconnect == "cancel",
-                stream_channel=sub,
-                last_event_id=None,
+                stream_channel=cast("_StreamHandler", sub),
             ):
                 yield event, message, stream_id
         finally:
-            # Make sure to always clean up the pubsub
+            # Clean up the stream handler
             await sub.__aexit__(None, None, None)
 
     return EventSourceResponse(
@@ -306,7 +342,7 @@ async def wait_run(request: ApiRequest):
     payload = await request.json(RunCreateStateful)
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
-    sub = await Runs.Stream.subscribe(run_id, thread_id)
+    sub = await CrudRuns.Stream.subscribe(run_id, thread_id)
     try:
         async with connect() as conn:
             run = await create_valid_run(
@@ -318,7 +354,7 @@ async def wait_run(request: ApiRequest):
                 request_start_time=request.scope.get("request_start_time_ms"),
             )
     except Exception:
-        # Clean up the pubsub on errors
+        # Clean up the stream handler on errors
         await sub.__aexit__(None, None, None)
         raise
 
@@ -349,7 +385,7 @@ async def wait_run_stateless(request: ApiRequest):
     run_id = uuid7()
     thread_id = uuid4()
 
-    sub = await Runs.Stream.subscribe(run_id, thread_id)
+    sub = await CrudRuns.Stream.subscribe(run_id, thread_id)
     try:
         async with connect() as conn:
             run = await create_valid_run(
@@ -362,7 +398,7 @@ async def wait_run_stateless(request: ApiRequest):
                 temporary=True,
             )
     except Exception:
-        # Clean up the pubsub on errors
+        # Clean up the stream handler on errors
         await sub.__aexit__(None, None, None)
         raise
 
@@ -411,7 +447,7 @@ async def list_runs(
     async with connect() as conn, conn.pipeline():
         thread, runs = await asyncio.gather(
             Threads.get(conn, thread_id),
-            Runs.search(
+            CrudRuns.search(
                 conn,
                 thread_id,
                 limit=limit,
@@ -421,7 +457,12 @@ async def list_runs(
             ),
         )
     await fetchone(thread)
-    return ApiResponse([run async for run in runs])
+
+    # Collect and decrypt runs
+    runs_list = [run async for run in runs]
+    runs_list = await decrypt_responses(runs_list, "run", RUN_ENCRYPTION_FIELDS)
+
+    return ApiResponse(runs_list)
 
 
 @retry_db
@@ -435,14 +476,19 @@ async def get_run(request: ApiRequest):
     async with connect() as conn, conn.pipeline():
         thread, run = await asyncio.gather(
             Threads.get(conn, thread_id),
-            Runs.get(
+            CrudRuns.get(
                 conn,
                 run_id,
                 thread_id=thread_id,
             ),
         )
     await fetchone(thread)
-    return ApiResponse(await fetchone(run))
+    run_dict = await fetchone(run)
+
+    # Decrypt run metadata and kwargs
+    run_dict = await decrypt_response(run_dict, "run", RUN_ENCRYPTION_FIELDS)
+
+    return ApiResponse(run_dict)
 
 
 @retry_db
@@ -454,8 +500,8 @@ async def join_run(request: ApiRequest):
     validate_uuid(run_id, "Invalid run ID: must be a UUID")
 
     # A touch redundant, but to meet the existing signature of join, we need to throw any 404s before we enter the streaming body
-    await Runs.Stream.check_run_stream_auth(run_id, thread_id)
-    sub = await Runs.Stream.subscribe(run_id, thread_id)
+    await CrudRuns.Stream.check_run_stream_auth(run_id, thread_id)
+    sub = await CrudRuns.Stream.subscribe(run_id, thread_id)
     body = _run_result_body(
         run_id=run_id,
         thread_id=thread_id,
@@ -486,16 +532,20 @@ async def join_run_stream(request: ApiRequest):
     last_event_id = request.headers.get("last-event-id") or None
 
     async def body():
-        async with await Runs.Stream.subscribe(run_id, thread_id) as sub:
-            async for event, message, stream_id in Runs.Stream.join(
+        sub = await CrudRuns.Stream.subscribe(run_id, thread_id)
+        try:
+            async for event, message, stream_id in CrudRuns.Stream.join(
                 run_id,
                 thread_id=thread_id,
                 cancel_on_disconnect=cancel_on_disconnect,
-                stream_channel=sub,
+                stream_channel=cast("_StreamHandler", sub),
                 stream_mode=stream_mode,
                 last_event_id=last_event_id,
             ):
                 yield event, message, stream_id
+        finally:
+            # Clean up the stream handler
+            await sub.__aexit__(None, None, None)
 
     return EventSourceResponse(
         body(),
@@ -519,14 +569,14 @@ async def cancel_run(
     wait = wait_str.lower() in {"true", "yes", "1"}
     action_str = request.query_params.get("action", "interrupt")
     action = cast(
-        Literal["interrupt", "rollback"],
+        "Literal['interrupt', 'rollback']",
         action_str if action_str in {"interrupt", "rollback"} else "interrupt",
     )
 
-    sub = await Runs.Stream.subscribe(run_id, thread_id) if wait else None
+    sub = await CrudRuns.Stream.subscribe(run_id, thread_id) if wait else None
     try:
         async with connect() as conn:
-            await Runs.cancel(
+            await CrudRuns.cancel(
                 conn,
                 [run_id],
                 action=action,
@@ -536,7 +586,7 @@ async def cancel_run(
         if sub is not None:
             await sub.__aexit__(None, None, None)
         raise
-    if not wait:
+    if not wait or sub is None:
         return Response(status_code=202)
 
     body = _run_result_body(
@@ -585,12 +635,12 @@ async def cancel_runs(
             validate_uuid(rid, "Invalid run ID: must be a UUID")
     action_str = request.query_params.get("action", "interrupt")
     action = cast(
-        Literal["interrupt", "rollback"],
+        "Literal['interrupt', 'rollback']",
         action_str if action_str in ("interrupt", "rollback") else "interrupt",
     )
 
     async with connect() as conn:
-        await Runs.cancel(
+        await CrudRuns.cancel(
             conn,
             run_ids,
             action=action,
@@ -609,7 +659,7 @@ async def delete_run(request: ApiRequest):
     validate_uuid(run_id, "Invalid run ID: must be a UUID")
 
     async with connect() as conn:
-        rid = await Runs.delete(
+        rid = await CrudRuns.delete(
             conn,
             run_id,
             thread_id=thread_id,
@@ -621,40 +671,71 @@ async def delete_run(request: ApiRequest):
 @retry_db
 async def create_cron(request: ApiRequest):
     """Create a cron with new thread."""
+    _ensure_crons_enabled()
     payload = await request.json(CronCreate)
+    if webhook := payload.get("webhook"):
+        await validate_webhook_url_or_raise(str(webhook))
+    _validate_assistant_id(payload.get("assistant_id"))
+
+    encrypted_payload = await encrypt_request(
+        payload,
+        "cron",
+        CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
+    )
 
     async with connect() as conn:
         cron = await Crons.put(
             conn,
             thread_id=None,
+            on_run_completed=payload.get("on_run_completed", "delete"),
             end_time=payload.get("end_time"),
             schedule=payload.get("schedule"),
-            payload=payload,
+            payload=encrypted_payload,
+            metadata=encrypted_payload.get("metadata"),
         )
-    return ApiResponse(await fetchone(cron))
+    cron_dict = await fetchone(cron)
+    cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
+
+    return ApiResponse(cron_dict)
 
 
 @retry_db
 async def create_thread_cron(request: ApiRequest):
     """Create a thread specific cron."""
+    _ensure_crons_enabled()
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
-    payload = await request.json(CronCreate)
+    payload = await request.json(ThreadCronCreate)
+    if webhook := payload.get("webhook"):
+        await validate_webhook_url_or_raise(str(webhook))
+    _validate_assistant_id(payload.get("assistant_id"))
+
+    encrypted_payload = await encrypt_request(
+        payload,
+        "cron",
+        CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
+    )
 
     async with connect() as conn:
         cron = await Crons.put(
             conn,
             thread_id=thread_id,
+            on_run_completed=None,
             end_time=payload.get("end_time"),
             schedule=payload.get("schedule"),
-            payload=payload,
+            payload=encrypted_payload,
+            metadata=encrypted_payload.get("metadata"),
         )
-    return ApiResponse(await fetchone(cron))
+    cron_dict = await fetchone(cron)
+    cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
+
+    return ApiResponse(cron_dict)
 
 
 @retry_db
 async def delete_cron(request: ApiRequest):
     """Delete a cron by ID."""
+    _ensure_crons_enabled()
     cron_id = request.path_params["cron_id"]
     validate_uuid(cron_id, "Invalid cron ID: must be a UUID")
 
@@ -670,6 +751,7 @@ async def delete_cron(request: ApiRequest):
 @retry_db
 async def search_crons(request: ApiRequest):
     """List all cron jobs for an assistant"""
+    _ensure_crons_enabled()
     payload = await request.json(CronSearch)
     select = validate_select_columns(payload.get("select") or None, CRON_FIELDS)
     if assistant_id := payload.get("assistant_id"):
@@ -692,12 +774,16 @@ async def search_crons(request: ApiRequest):
     crons, response_headers = await get_pagination_headers(
         crons_iter, next_offset, offset
     )
+
+    crons = await decrypt_responses(crons, "cron", CRON_ENCRYPTION_FIELDS)
+
     return ApiResponse(crons, headers=response_headers)
 
 
 @retry_db
 async def count_crons(request: ApiRequest):
     """Count cron jobs."""
+    _ensure_crons_enabled()
     payload = await request.json(CronCountRequest)
     if assistant_id := payload.get("assistant_id"):
         validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
@@ -719,21 +805,9 @@ runs_routes = [
     ApiRoute("/runs", create_stateless_run, methods=["POST"]),
     ApiRoute("/runs/batch", create_stateless_run_batch, methods=["POST"]),
     ApiRoute("/runs/cancel", cancel_runs, methods=["POST"]),
-    (
-        ApiRoute("/runs/crons", create_cron, methods=["POST"])
-        if config.FF_CRONS_ENABLED and plus_features_enabled()
-        else None
-    ),
-    (
-        ApiRoute("/runs/crons/search", search_crons, methods=["POST"])
-        if config.FF_CRONS_ENABLED and plus_features_enabled()
-        else None
-    ),
-    (
-        ApiRoute("/runs/crons/count", count_crons, methods=["POST"])
-        if config.FF_CRONS_ENABLED and plus_features_enabled()
-        else None
-    ),
+    ApiRoute("/runs/crons", create_cron, methods=["POST"]),
+    ApiRoute("/runs/crons/search", search_crons, methods=["POST"]),
+    ApiRoute("/runs/crons/count", count_crons, methods=["POST"]),
     ApiRoute("/threads/{thread_id}/runs/{run_id}/join", join_run, methods=["GET"]),
     ApiRoute(
         "/threads/{thread_id}/runs/{run_id}/stream",
@@ -746,19 +820,9 @@ runs_routes = [
     ApiRoute("/threads/{thread_id}/runs/stream", stream_run, methods=["POST"]),
     ApiRoute("/threads/{thread_id}/runs/wait", wait_run, methods=["POST"]),
     ApiRoute("/threads/{thread_id}/runs", create_run, methods=["POST"]),
-    (
-        ApiRoute(
-            "/threads/{thread_id}/runs/crons", create_thread_cron, methods=["POST"]
-        )
-        if config.FF_CRONS_ENABLED and plus_features_enabled()
-        else None
-    ),
+    ApiRoute("/threads/{thread_id}/runs/crons", create_thread_cron, methods=["POST"]),
     ApiRoute("/threads/{thread_id}/runs", list_runs, methods=["GET"]),
-    (
-        ApiRoute("/runs/crons/{cron_id}", delete_cron, methods=["DELETE"])
-        if config.FF_CRONS_ENABLED and plus_features_enabled()
-        else None
-    ),
+    ApiRoute("/runs/crons/{cron_id}", delete_cron, methods=["DELETE"]),
 ]
 
 runs_routes = [route for route in runs_routes if route is not None]

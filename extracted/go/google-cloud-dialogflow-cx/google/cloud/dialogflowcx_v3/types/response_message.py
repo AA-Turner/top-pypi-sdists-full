@@ -20,6 +20,8 @@ from typing import MutableMapping, MutableSequence
 from google.protobuf import struct_pb2  # type: ignore
 import proto  # type: ignore
 
+from google.cloud.dialogflowcx_v3.types import tool_call as gcdc_tool_call
+
 __protobuf__ = proto.module(
     package="google.cloud.dialogflow.cx.v3",
     manifest={
@@ -35,16 +37,16 @@ class ResponseMessage(proto.Message):
     Response messages are also used for output audio synthesis. The
     approach is as follows:
 
-    -  If at least one OutputAudioText response is present, then all
-       OutputAudioText responses are linearly concatenated, and the
-       result is used for output audio synthesis.
-    -  If the OutputAudioText responses are a mixture of text and SSML,
-       then the concatenated result is treated as SSML; otherwise, the
-       result is treated as either text or SSML as appropriate. The
-       agent designer should ideally use either text or SSML
-       consistently throughout the bot design.
-    -  Otherwise, all Text responses are linearly concatenated, and the
-       result is used for output audio synthesis.
+    - If at least one OutputAudioText response is present, then all
+      OutputAudioText responses are linearly concatenated, and the
+      result is used for output audio synthesis.
+    - If the OutputAudioText responses are a mixture of text and SSML,
+      then the concatenated result is treated as SSML; otherwise, the
+      result is treated as either text or SSML as appropriate. The agent
+      designer should ideally use either text or SSML consistently
+      throughout the bot design.
+    - Otherwise, all Text responses are linearly concatenated, and the
+      result is used for output audio synthesis.
 
     This approach allows for more sophisticated user experience
     scenarios, where the text displayed to the user may differ from what
@@ -121,6 +123,11 @@ class ResponseMessage(proto.Message):
             to be better rendered in Dialogflow Messenger.
 
             This field is a member of `oneof`_ ``message``.
+        tool_call (google.cloud.dialogflowcx_v3.types.ToolCall):
+            Returns the definition of a tool call that
+            should be executed by the client.
+
+            This field is a member of `oneof`_ ``message``.
         response_type (google.cloud.dialogflowcx_v3.types.ResponseMessage.ResponseType):
             Response type.
         channel (str):
@@ -190,13 +197,12 @@ class ResponseMessage(proto.Message):
 
         You may set this, for example:
 
-        -  In the
-           [entry_fulfillment][google.cloud.dialogflow.cx.v3.Page.entry_fulfillment]
-           of a [Page][google.cloud.dialogflow.cx.v3.Page] if entering the
-           page indicates something went extremely wrong in the
-           conversation.
-        -  In a webhook response when you determine that the customer issue
-           can only be handled by a human.
+        - In the
+          [entry_fulfillment][google.cloud.dialogflow.cx.v3.Page.entry_fulfillment]
+          of a [Page][google.cloud.dialogflow.cx.v3.Page] if entering the
+          page indicates something went extremely wrong in the conversation.
+        - In a webhook response when you determine that the customer issue
+          can only be handled by a human.
 
         Attributes:
             metadata (google.protobuf.struct_pb2.Struct):
@@ -223,12 +229,12 @@ class ResponseMessage(proto.Message):
 
         You may set this, for example:
 
-        -  In the
-           [entry_fulfillment][google.cloud.dialogflow.cx.v3.Page.entry_fulfillment]
-           of a [Page][google.cloud.dialogflow.cx.v3.Page] if entering the
-           page indicates that the conversation succeeded.
-        -  In a webhook response when you determine that you handled the
-           customer issue.
+        - In the
+          [entry_fulfillment][google.cloud.dialogflow.cx.v3.Page.entry_fulfillment]
+          of a [Page][google.cloud.dialogflow.cx.v3.Page] if entering the
+          page indicates that the conversation succeeded.
+        - In a webhook response when you determine that you handled the
+          customer issue.
 
         Attributes:
             metadata (google.protobuf.struct_pb2.Struct):
@@ -474,6 +480,12 @@ class ResponseMessage(proto.Message):
         number=20,
         oneof="message",
         message=KnowledgeInfoCard,
+    )
+    tool_call: gcdc_tool_call.ToolCall = proto.Field(
+        proto.MESSAGE,
+        number=22,
+        oneof="message",
+        message=gcdc_tool_call.ToolCall,
     )
     response_type: ResponseType = proto.Field(
         proto.ENUM,

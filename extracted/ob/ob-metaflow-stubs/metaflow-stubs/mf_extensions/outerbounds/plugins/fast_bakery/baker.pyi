@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.694802                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.856257                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ import typing
 import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.exception
-    import typing
     import metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery
+    import typing
 
 from .....exception import MetaflowException as MetaflowException
 from .fast_bakery import FastBakery as FastBakery
@@ -28,7 +28,7 @@ class BakerException(metaflow.exception.MetaflowException, metaclass=type):
         ...
     ...
 
-def bake_image(cache_file_path: str, ref: typing.Optional[str] = None, python: typing.Optional[str] = None, pypi_packages: typing.Optional[typing.Dict[str, str]] = None, conda_packages: typing.Optional[typing.Dict[str, str]] = None, base_image: typing.Optional[str] = None, logger: typing.Optional[typing.Callable[[str], typing.Any]] = None) -> metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery.FastBakeryApiResponse:
+def bake_image(cache_file_path: str, ref: typing.Optional[str] = None, python: typing.Optional[str] = None, pypi_packages: typing.Optional[typing.Dict[str, str]] = None, conda_packages: typing.Optional[typing.Dict[str, str]] = None, base_image: typing.Optional[str] = None, logger: typing.Optional[typing.Callable[[str], typing.Any]] = None, fast_bakery_url: typing.Optional[str] = None) -> metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery.FastBakeryApiResponse:
     """
     Bakes a Docker image with the specified dependencies.
     
@@ -40,6 +40,7 @@ def bake_image(cache_file_path: str, ref: typing.Optional[str] = None, python: t
         conda_packages: Dictionary of Conda packages and versions
         base_image: Base Docker image to use
         logger: Optional logger function to output progress
+        fast_bakery_url: Optional FB URL
     
     Returns:
         FastBakeryApiResponse: The response from the bakery service

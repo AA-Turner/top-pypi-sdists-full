@@ -1,0 +1,176 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ogmios"
+dynamic = ["version"]
+description = "Ogmios is a lightweight bridge interface for cardano-node. It offers a WebSockets API that enables local clients to speak Ouroboros' mini-protocols via JSON/RPC. ogmios-python is an Ogmios client written in Python designed for ease of use."
+readme = "README.md"
+requires-python = ">=3.8"
+license-expression = "GPL-3.0-or-later"
+keywords = []
+authors = [
+  { name = "Willie Marchetto", email = "willie@viperscience.com" },
+  { name = "Dylan Crocker", email = "dylan@viperscience.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+  "websockets",
+  "pydantic>=2.0",
+  "orjson",
+  "coloredlogs",
+  "cachetools",
+  "cardano-tools",
+  "setuptools>=75.3.2",
+]
+
+[project.optional-dependencies]
+testing = ["pytest", "coverage[toml]>=6.5", "pycardano"]
+dev = [
+  "isort",
+  "black",
+  "datamodel-code-generator",
+  "Flake8-pyproject",
+  "sphinx",
+  "sphinx_rtd_theme",
+]
+
+[project.urls]
+Documentation = "https://ogmios-python.readthedocs.io"
+Issues = "https://gitlab.com/viperscience/ogmios-python/-/issues"
+Source = "https://gitlab.com/viperscience/ogmios-python"
+
+[tool.hatch.version]
+path = "src/ogmios/__about__.py"
+
+[tool.hatch.build.targets.sdist]
+metadata-version = "2.4"
+exclude = [
+  "/.pytest_cache",
+  ".pytest_cache",
+  ".venv",
+  "/.venv",
+  ".vscode",
+  "/.vscode",
+  ".cache",
+  ".cache/uv",
+  "uv.lock",
+  "dist",
+  "/docs",
+  "docs",
+  ".gitlab-ci.yml",
+  ".readthedocs.yml",
+  ".python-version",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ogmios"]
+
+[tool.uv]
+dev-dependencies = [
+  "websockets",
+  "coverage[toml]>=6.5",
+  "pydantic>=2.0",
+  "orjson",
+  "pytest",
+  "isort",
+  "black",
+  "datamodel-code-generator",
+  "Flake8-pyproject",
+  "coloredlogs",
+  "sphinx",
+  "sphinx_rtd_theme",
+]
+
+[tool.black]
+target-version = ["py38"]
+line-length = 100
+skip-string-normalization = true
+
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+select = [
+  "A",
+  "ARG",
+  "B",
+  "C",
+  "DTZ",
+  "E",
+  "EM",
+  "F",
+  "FBT",
+  "I",
+  "ICN",
+  "ISC",
+  "N",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "Q",
+  "RUF",
+  "S",
+  "T",
+  "TID",
+  "UP",
+  "W",
+  "YTT",
+]
+ignore = [
+  # Allow non-abstract empty methods in abstract base classes
+  "B027",
+  # Allow boolean positional values in function calls, like `dict.get(... True)`
+  "FBT003",
+  # Ignore checks for possible passwords
+  "S105",
+  "S106",
+  "S107",
+  # Ignore complexity
+  "C901",
+  "PLR0911",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
+]
+unfixable = [
+  # Don't touch unused imports
+  "F401",
+]
+
+[tool.ruff.isort]
+known-first-party = ["ogmios"]
+
+[tool.ruff.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.per-file-ignores]
+# Tests can use magic values, assertions, and relative imports
+"tests/**/*" = ["PLR2004", "S101", "TID252"]
+
+[tool.flake8]
+max-line-length = 120
+
+[tool.coverage.run]
+source_pkgs = ["ogmios", "tests"]
+branch = true
+parallel = true
+omit = ["src/ogmios/__about__.py"]
+
+[tool.coverage.paths]
+ogmios = ["src/ogmios", "*/ogmios-python/src/ogmios"]
+tests = ["tests", "*/ogmios-python/tests"]
+
+[tool.coverage.report]
+exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]

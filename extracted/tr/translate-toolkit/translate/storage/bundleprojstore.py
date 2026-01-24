@@ -18,8 +18,8 @@
 
 import contextlib
 import os
-import shutil
-import tempfile
+from shutil import copyfileobj, move
+from tempfile import mkstemp
 from zipfile import ZipFile
 
 from translate.storage.projstore import FileNotInProjectError, ProjectStore
@@ -35,7 +35,7 @@ class BundleProjectStore(ProjectStore):
     """Represents a translate project bundle (zip archive)."""
 
     # INITIALIZERS #
-    def __init__(self, fname):
+    def __init__(self, fname) -> None:
         super().__init__()
         self._tempfiles = {}
         if fname and os.path.isfile(fname):
@@ -91,7 +91,7 @@ class BundleProjectStore(ProjectStore):
 
         return self.get_file(fname), fname
 
-    def remove_file(self, fname, ftype=None):
+    def remove_file(self, fname, ftype=None) -> None:
         """Remove the file with the given project name from the project."""
         super().remove_file(fname, ftype)
         self._zip_delete([fname])
@@ -102,19 +102,20 @@ class BundleProjectStore(ProjectStore):
                     os.unlink(tmpf)
                 del self._tempfiles[tmpf]
 
-    def close(self):
+    def close(self) -> None:
         super().close()
         self.cleanup()
         self.zip.close()
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Clean up our mess: remove temporary files."""
+        super().cleanup()
         for tempfname in self._tempfiles:
             if os.path.isfile(tempfname):
                 os.unlink(tempfname)
         self._tempfiles = {}
 
-    def get_file(self, fname):
+    def get_file(self, fname):  # ty:ignore[invalid-method-override]
         """
         Retrieve a project file (source, translation or target file) from
         the project archive.
@@ -123,7 +124,7 @@ class BundleProjectStore(ProjectStore):
         if fname in self._files or fname in self.zip.namelist():
             # Check if the file has not already been extracted to a temp file
             tempfname = [
-                tfn for tfn in self._tempfiles if self._tempfiles[tfn] == fname
+                tfn for tfn, tname in self._tempfiles.items() if tname == fname
             ]
             if tempfname and os.path.isfile(tempfname[0]):
                 tempfname = tempfname[0]
@@ -131,12 +132,13 @@ class BundleProjectStore(ProjectStore):
                 tempfname = ""
             if not tempfname:
                 # Extract the file to a temporary file
-                zfile = self.zip.open(fname)
-                tempfname = os.path.split(fname)[-1]
-                tempfd, tempfname = tempfile.mkstemp(suffix="_" + tempfname)
-                os.close(tempfd)
-                open(tempfname, "w").write(zfile.read())
-            retfile = open(tempfname)
+                with self.zip.open(fname) as zfile:
+                    tempfname = os.path.split(fname)[-1]
+                    tempfd, tempfname = mkstemp(suffix=f"_{tempfname}")
+                    os.close(tempfd)
+                    with open(tempfname, "wb") as handle:
+                        copyfileobj(zfile, handle)
+            retfile = open(tempfname, "rb")
             self._tempfiles[tempfname] = fname
 
         if not retfile:
@@ -155,7 +157,7 @@ class BundleProjectStore(ProjectStore):
             return self._tempfiles[realfname]
         raise ValueError(f"Real file not in project store: {realfname}")
 
-    def load(self, zipname):
+    def load(self, zipname) -> None:
         """Load the bundle project from the zip file of the given name."""
         self.zip = ZipFile(zipname, mode="a")
         self._load_settings()
@@ -171,7 +173,7 @@ class BundleProjectStore(ProjectStore):
                     append_section[section](fname)
                     self._files[fname] = None
 
-    def save(self, filename=None):
+    def save(self, filename=None) -> None:  # ty:ignore[invalid-method-override]
         """Save all project files to the bundle zip file."""
         self._update_from_tempfiles()
 
@@ -191,7 +193,7 @@ class BundleProjectStore(ProjectStore):
 
         self._replace_project_zip(newzip)
 
-    def update_file(self, pfname, infile):
+    def update_file(self, pfname, infile) -> None:
         """
         Updates the file with the given project file name with the contents
         of ``infile``.
@@ -208,7 +210,7 @@ class BundleProjectStore(ProjectStore):
         self._zip_delete([pfname])
         self._zip_add(pfname, infile)
 
-    def _load_settings(self):
+    def _load_settings(self) -> None:  # ty:ignore[invalid-method-override]
         """Grab the project.xtp file from the zip file and load it."""
         if "project.xtp" not in self.zip.namelist():
             raise InvalidBundleError("Not a translate project bundle")
@@ -217,13 +219,11 @@ class BundleProjectStore(ProjectStore):
     @staticmethod
     def _create_temp_zipfile():
         """Create a new zip file with a temporary file name (with mode 'w')."""
-        newzipfd, newzipfname = tempfile.mkstemp(
-            prefix="translate_bundle", suffix=".zip"
-        )
+        newzipfd, newzipfname = mkstemp(prefix="translate_bundle", suffix=".zip")
         os.close(newzipfd)
         return ZipFile(newzipfname, "w")
 
-    def _replace_project_zip(self, zfile):
+    def _replace_project_zip(self, zfile) -> None:
         """
         Replace the currently used zip file (``self.zip``) with the given
         zip file. Basically, ``os.rename(zfile.filename,
@@ -231,20 +231,20 @@ class BundleProjectStore(ProjectStore):
         """
         if not zfile.fp.closed:
             zfile.close()
-        if not self.zip.fp.closed:
+        if not self.zip.fp.closed:  # ty:ignore[possibly-missing-attribute]
             self.zip.close()
-        shutil.move(zfile.filename, self.zip.filename)
-        self.zip = ZipFile(self.zip.filename, mode="a")
+        move(zfile.filename, self.zip.filename)  # ty:ignore[invalid-argument-type]
+        self.zip = ZipFile(self.zip.filename, mode="a")  # ty:ignore[no-matching-overload]
 
-    def _update_from_tempfiles(self):
+    def _update_from_tempfiles(self) -> None:
         """Update project files from temporary files."""
-        for tempfname in self._tempfiles:
+        for tempfname, value in self._tempfiles.items():
             tmp = open(tempfname)
-            self.update_file(self._tempfiles[tempfname], tmp)
+            self.update_file(value, tmp)
             if not tmp.closed:
                 tmp.close()
 
-    def _zip_add(self, pfname, infile):
+    def _zip_add(self, pfname, infile) -> None:
         """Add the contents of ``infile`` to the zip with file name ``pfname``."""
         if hasattr(infile, "seek"):
             infile.seek(0)
@@ -253,7 +253,7 @@ class BundleProjectStore(ProjectStore):
         # zip file.
         self._files[pfname] = None
 
-    def _zip_delete(self, fnames):
+    def _zip_delete(self, fnames) -> None:
         """Delete the files with the given names from the zip file (``self.zip``)."""
         # Sanity checking
         if not isinstance(fnames, (list, tuple)):

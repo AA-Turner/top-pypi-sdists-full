@@ -1,4 +1,5 @@
 import ipaddress
+import logging
 import os
 import random
 import time
@@ -15,10 +16,18 @@ import requests
 from requests.exceptions import ConnectionError, RequestException
 
 from linode_api4 import (
+    ExplicitNullValue,
+    InterfaceGeneration,
+    LinodeInterfaceDefaultRouteOptions,
+    LinodeInterfaceOptions,
+    LinodeInterfacePublicOptions,
+    LinodeInterfaceVLANOptions,
+    LinodeInterfaceVPCOptions,
     PlacementGroupPolicy,
     PlacementGroupType,
     PostgreSQLDatabase,
 )
+from linode_api4.errors import ApiError
 from linode_api4.linode_client import LinodeClient, MonitorClient
 from linode_api4.objects import Region
 
@@ -27,6 +36,16 @@ ENV_API_URL_NAME = "LINODE_API_URL"
 ENV_REGION_OVERRIDE = "LINODE_TEST_REGION_OVERRIDE"
 ENV_API_CA_NAME = "LINODE_API_CA"
 RUN_LONG_TESTS = "RUN_LONG_TESTS"
+SKIP_E2E_FIREWALL = "SKIP_E2E_FIREWALL"
+
+ALL_ACCOUNT_AVAILABILITIES = {
+    "Linodes",
+    "NodeBalancers",
+    "Block Storage",
+    "Kubernetes",
+}
+
+logger = logging.getLogger(__name__)
 
 
 def get_token():
@@ -50,9 +69,40 @@ def get_regions(
 
     regions = client.regions()
 
+    account_regional_availabilities = {}
+    try:
+        account_availabilities = client.account.availabilities()
+        for availability in account_availabilities:
+            account_regional_availabilities[availability.region] = (
+                availability.available
+            )
+    except ApiError:
+        logger.warning(
+            "Failed to retrieve account availabilities for regions. "
+            "Assuming required capabilities are available in all regions for this account. "
+            "Tests may fail if the account lacks access to necessary capabilities in the selected region."
+        )
+
     if capabilities is not None:
+        required_capabilities = set(capabilities)
+        required_account_capabilities = required_capabilities.intersection(
+            ALL_ACCOUNT_AVAILABILITIES
+        )
+
         regions = [
-            v for v in regions if set(capabilities).issubset(v.capabilities)
+            v
+            for v in regions
+            if required_capabilities.issubset(v.capabilities)
+            and required_account_capabilities.issubset(
+                account_regional_availabilities.get(
+                    v.id,
+                    (
+                        []
+                        if account_regional_availabilities
+                        else ALL_ACCOUNT_AVAILABILITIES
+                    ),
+                )
+            )
         ]
 
     if site_type is not None:
@@ -78,6 +128,12 @@ def run_long_tests():
 
 @pytest.fixture(autouse=True, scope="session")
 def e2e_test_firewall(test_linode_client):
+    # Allow skipping firewall creation for local runs: set SKIP_E2E_FIREWALL=1
+    if os.environ.get(SKIP_E2E_FIREWALL):
+        # Yield None so fixtures depending on this receive a falsy value but the session continues.
+        yield None
+        return
+
     def is_valid_ipv4(address):
         try:
             ipaddress.IPv4Address(address)
@@ -399,9 +455,12 @@ def create_vpc(test_linode_client):
     label = get_test_label(length=10)
 
     vpc = client.vpcs.create(
-        label,
-        get_region(test_linode_client, {"VPCs"}),
+        label=label,
+        region=get_region(
+            test_linode_client, {"VPCs", "VPC IPv6 Stack", "Linode Interfaces"}
+        ),
         description="test description",
+        ipv6=[{"range": "auto"}],
     )
     yield vpc
 
@@ -410,7 +469,11 @@ def create_vpc(test_linode_client):
 
 @pytest.fixture(scope="session")
 def create_vpc_with_subnet(test_linode_client, create_vpc):
-    subnet = create_vpc.subnet_create("test-subnet", ipv4="10.0.0.0/24")
+    subnet = create_vpc.subnet_create(
+        label="test-subnet",
+        ipv4="10.0.0.0/24",
+        ipv6=[{"range": "auto"}],
+    )
 
     yield create_vpc, subnet
 
@@ -527,6 +590,77 @@ def linode_for_vlan_tests(test_linode_client, e2e_test_firewall):
     yield linode_instance
 
     linode_instance.delete()
+
+
+@pytest.fixture(scope="function")
+def linode_with_interface_generation_linode(
+    test_linode_client,
+    e2e_test_firewall,
+    # We won't be using this all the time, but it's
+    # necessary for certain consumers of this fixture
+    create_vpc_with_subnet,
+):
+    client = test_linode_client
+
+    label = get_test_label()
+
+    instance = client.linode.instance_create(
+        "g6-nanode-1",
+        create_vpc_with_subnet[0].region,
+        label=label,
+        interface_generation=InterfaceGeneration.LINODE,
+        booted=False,
+    )
+
+    yield instance
+
+    instance.delete()
+
+
+@pytest.fixture(scope="function")
+def linode_with_linode_interfaces(
+    test_linode_client, e2e_test_firewall, create_vpc_with_subnet
+):
+    client = test_linode_client
+    vpc, subnet = create_vpc_with_subnet
+
+    # Are there regions where VPCs are supported but Linode Interfaces aren't?
+    region = vpc.region
+    label = get_test_label()
+
+    instance, _ = client.linode.instance_create(
+        "g6-nanode-1",
+        region,
+        image="linode/debian12",
+        label=label,
+        booted=False,
+        interface_generation=InterfaceGeneration.LINODE,
+        interfaces=[
+            LinodeInterfaceOptions(
+                firewall_id=e2e_test_firewall.id,
+                default_route=LinodeInterfaceDefaultRouteOptions(
+                    ipv4=True,
+                    ipv6=True,
+                ),
+                public=LinodeInterfacePublicOptions(),
+            ),
+            LinodeInterfaceOptions(
+                firewall_id=ExplicitNullValue,
+                vpc=LinodeInterfaceVPCOptions(
+                    subnet_id=subnet.id,
+                ),
+            ),
+            LinodeInterfaceOptions(
+                vlan=LinodeInterfaceVLANOptions(
+                    vlan_label="test-vlan", ipam_address="10.0.0.5/32"
+                ),
+            ),
+        ],
+    )
+
+    yield instance
+
+    instance.delete()
 
 
 @pytest.fixture(scope="session")

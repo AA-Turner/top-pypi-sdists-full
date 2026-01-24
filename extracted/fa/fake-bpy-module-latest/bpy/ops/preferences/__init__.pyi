@@ -13,10 +13,7 @@ def addon_disable(
 ) -> None:
     """Turn off this add-on
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param module: Module, Module name of the add-on to disable
-    :type module: str
     """
 
 def addon_enable(
@@ -28,10 +25,7 @@ def addon_enable(
 ) -> None:
     """Turn on this add-on
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param module: Module, Module name of the add-on to enable
-    :type module: str
     """
 
 def addon_expand(
@@ -43,10 +37,7 @@ def addon_expand(
 ) -> None:
     """Display information and preferences for this add-on
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param module: Module, Module name of the add-on to expand
-    :type module: str
     """
 
 def addon_install(
@@ -64,22 +55,13 @@ def addon_install(
 ) -> None:
     """Install an add-on
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param overwrite: Overwrite, Remove existing add-ons with the same ID
-    :type overwrite: bool | None
     :param enable_on_install: Enable on Install, Enable after installing
-    :type enable_on_install: bool | None
     :param target: Target Path
-    :type target: str | None
     :param filepath: filepath
-    :type filepath: str
     :param filter_folder: Filter folders
-    :type filter_folder: bool | None
     :param filter_python: Filter Python
-    :type filter_python: bool | None
     :param filter_glob: filter_glob
-    :type filter_glob: str
     """
 
 def addon_refresh(
@@ -87,11 +69,7 @@ def addon_refresh(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Scan add-on directories for new modules
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Scan add-on directories for new modules"""
 
 def addon_remove(
     execution_context: int | str | None = None,
@@ -102,10 +80,7 @@ def addon_remove(
 ) -> None:
     """Delete the add-on from the file system
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param module: Module, Module name of the add-on to remove
-    :type module: str
     """
 
 def addon_show(
@@ -117,10 +92,7 @@ def addon_show(
 ) -> None:
     """Show add-on preferences
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param module: Module, Module name of the add-on to expand
-    :type module: str
     """
 
 def app_template_install(
@@ -135,16 +107,10 @@ def app_template_install(
 ) -> None:
     """Install an application template
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param overwrite: Overwrite, Remove existing template with the same ID
-    :type overwrite: bool | None
     :param filepath: filepath
-    :type filepath: str
     :param filter_folder: Filter folders
-    :type filter_folder: bool | None
     :param filter_glob: filter_glob
-    :type filter_glob: str
     """
 
 def asset_library_add(
@@ -180,48 +146,26 @@ def asset_library_add(
 ) -> None:
     """Add a directory to be used by the Asset Browser as source of assets
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -235,9 +179,7 @@ def asset_library_add(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
     """
 
 def asset_library_remove(
@@ -249,10 +191,7 @@ def asset_library_remove(
 ) -> None:
     """Remove a path to a .blend file, so the Asset Browser will not attempt to show it anymore
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: Index
-    :type index: int | None
     """
 
 def associate_blend(
@@ -260,22 +199,14 @@ def associate_blend(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Use this installation for .blend files and to display thumbnails
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Use this installation for .blend files and to display thumbnails"""
 
 def autoexec_path_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add path to exclude from auto-execution
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add path to exclude from auto-execution"""
 
 def autoexec_path_remove(
     execution_context: int | str | None = None,
@@ -286,22 +217,22 @@ def autoexec_path_remove(
 ) -> None:
     """Remove path to exclude from auto-execution
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: Index
-    :type index: int | None
     """
+
+def clear_filter(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Clear the search filter"""
 
 def copy_prev(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy settings from previous version
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy settings from previous version"""
 
 def extension_repo_add(
     execution_context: int | str | None = None,
@@ -319,22 +250,13 @@ def extension_repo_add(
 ) -> None:
     """Add a new repository used to store extensions
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param name: Name, Unique repository name
-        :type name: str
         :param remote_url: URL, Remote URL to the extension repository, the file-system may be referenced using the file URI scheme: "file://"
-        :type remote_url: str
         :param use_access_token: Requires Access Token, Repository requires an access token
-        :type use_access_token: bool | None
         :param access_token: Secret, Personal access token, may be required by some repositories
-        :type access_token: str
         :param use_sync_on_startup: Check for Updates on Startup, Allow Blender to check for updates upon launch
-        :type use_sync_on_startup: bool | None
         :param use_custom_directory: Custom Directory, Manually set the path for extensions to be stored. When disabled a users extensions directory is created.
-        :type use_custom_directory: bool | None
         :param custom_directory: Custom Directory, The local directory containing extensions
-        :type custom_directory: str
         :param type: Type, The kind of repository to add
 
     REMOTE
@@ -342,7 +264,6 @@ def extension_repo_add(
 
     LOCAL
     Add Local Repository -- Add a repository managed manually without referencing an external repository.
-        :type type: typing.Literal['REMOTE','LOCAL'] | None
     """
 
 def extension_repo_remove(
@@ -355,12 +276,8 @@ def extension_repo_remove(
 ) -> None:
     """Remove an extension repository
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: Index
-    :type index: int | None
     :param remove_files: Remove Files, Remove extension files when removing the repository
-    :type remove_files: bool | None
     """
 
 def extension_url_drop(
@@ -372,10 +289,7 @@ def extension_url_drop(
 ) -> None:
     """Handle dropping an extension URL
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param url: URL, Location of the extension to install
-    :type url: str
     """
 
 def keyconfig_activate(
@@ -387,10 +301,7 @@ def keyconfig_activate(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filepath: filepath
-    :type filepath: str
     """
 
 def keyconfig_export(
@@ -406,18 +317,11 @@ def keyconfig_export(
 ) -> None:
     """Export key configuration to a Python script
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param all: All Keymaps, Write all keymaps (not just user modified)
-    :type all: bool | None
     :param filepath: filepath
-    :type filepath: str
     :param filter_folder: Filter folders
-    :type filter_folder: bool | None
     :param filter_text: Filter text
-    :type filter_text: bool | None
     :param filter_python: Filter Python
-    :type filter_python: bool | None
     """
 
 def keyconfig_import(
@@ -433,18 +337,11 @@ def keyconfig_import(
 ) -> None:
     """Import key configuration from a Python script
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filepath: filepath
-    :type filepath: str
     :param filter_folder: Filter folders
-    :type filter_folder: bool | None
     :param filter_text: Filter text
-    :type filter_text: bool | None
     :param filter_python: Filter Python
-    :type filter_python: bool | None
     :param keep_original: Keep Original, Keep original file after copying to configuration folder
-    :type keep_original: bool | None
     """
 
 def keyconfig_remove(
@@ -452,33 +349,21 @@ def keyconfig_remove(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove key config
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove key config"""
 
 def keyconfig_test(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Test key configuration for conflicts
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Test key configuration for conflicts"""
 
 def keyitem_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add key map item
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add key map item"""
 
 def keyitem_remove(
     execution_context: int | str | None = None,
@@ -489,10 +374,7 @@ def keyitem_remove(
 ) -> None:
     """Remove key map item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param item_id: Item Identifier, Identifier of the item to remove
-    :type item_id: int | None
     """
 
 def keyitem_restore(
@@ -504,10 +386,7 @@ def keyitem_restore(
 ) -> None:
     """Restore key map item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param item_id: Item Identifier, Identifier of the item to restore
-    :type item_id: int | None
     """
 
 def keymap_restore(
@@ -519,10 +398,7 @@ def keymap_restore(
 ) -> None:
     """Restore key map(s)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param all: All Keymaps, Restore all keymaps to default
-    :type all: bool | None
     """
 
 def reset_default_theme(
@@ -530,11 +406,7 @@ def reset_default_theme(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reset to the default theme colors
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reset to the default theme colors"""
 
 def script_directory_add(
     execution_context: int | str | None = None,
@@ -546,12 +418,8 @@ def script_directory_add(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param directory: directory
-    :type directory: str
     :param filter_folder: Filter Folders
-    :type filter_folder: bool | None
     """
 
 def script_directory_remove(
@@ -563,11 +431,15 @@ def script_directory_remove(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: Index, Index of the script directory to remove
-    :type index: int | None
     """
+
+def start_filter(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Start entering filter text"""
 
 def studiolight_copy_settings(
     execution_context: int | str | None = None,
@@ -578,10 +450,7 @@ def studiolight_copy_settings(
 ) -> None:
     """Copy Studio Light settings to the Studio Light editor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: index
-    :type index: int | None
     """
 
 def studiolight_install(
@@ -598,16 +467,10 @@ def studiolight_install(
 ) -> None:
     """Install a user defined light
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param files: File Path
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param directory: directory
-        :type directory: str
         :param filter_folder: Filter Folders
-        :type filter_folder: bool | None
         :param filter_glob: filter_glob
-        :type filter_glob: str
         :param type: Type
 
     MATCAP
@@ -618,7 +481,6 @@ def studiolight_install(
 
     STUDIO
     Studio -- Install custom Studio Lights.
-        :type type: typing.Literal['MATCAP','WORLD','STUDIO'] | None
     """
 
 def studiolight_new(
@@ -630,10 +492,7 @@ def studiolight_new(
 ) -> None:
     """Save custom studio light from the studio light editor settings
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filename: Name
-    :type filename: str
     """
 
 def studiolight_uninstall(
@@ -645,10 +504,7 @@ def studiolight_uninstall(
 ) -> None:
     """Delete Studio Light
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: index
-    :type index: int | None
     """
 
 def theme_install(
@@ -663,16 +519,10 @@ def theme_install(
 ) -> None:
     """Load and apply a Blender XML theme file
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param overwrite: Overwrite, Remove existing theme file if exists
-    :type overwrite: bool | None
     :param filepath: filepath
-    :type filepath: str
     :param filter_folder: Filter folders
-    :type filter_folder: bool | None
     :param filter_glob: filter_glob
-    :type filter_glob: str
     """
 
 def unassociate_blend(
@@ -680,8 +530,4 @@ def unassociate_blend(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove this installations associations with .blend files
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove this installations associations with .blend files"""

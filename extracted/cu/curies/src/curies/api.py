@@ -7,19 +7,18 @@ import itertools as itt
 import json
 import logging
 import warnings
-from collections import defaultdict
-from collections.abc import Collection, Iterable, Iterator, Mapping, Sequence
+from collections import UserDict, defaultdict
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from functools import partial
 from pathlib import Path
 from textwrap import dedent
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Literal,
     NamedTuple,
+    TypeAlias,
     TypeVar,
-    Union,
     cast,
     overload,
 )
@@ -34,8 +33,7 @@ from pydantic import (
     model_validator,
 )
 from pydantic_core import core_schema
-from pytrie import StringTrie
-from typing_extensions import Self
+from typing_extensions import Never, Self
 
 from .utils import NoCURIEDelimiterError, _split
 
@@ -57,6 +55,8 @@ __all__ = [
     "Records",
     "Reference",
     "ReferenceTuple",
+    "Trie",
+    "TrieNode",
     "chain",
     "load_extended_prefix_map",
     "load_jsonld_context",
@@ -72,7 +72,17 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 X = TypeVar("X")
-LocationOr = Union[str, Path, X]
+LocationOr: TypeAlias = str | Path | X
+
+RETURN_NONE_WARNING_TEXT = (
+    "return_none=True is a no-op argument now. Please remove it. ``return_none`` "
+    "will be removed as an argument in curies v0.12.0"
+)
+RETURN_NONE_ERROR_TEXT = (
+    "Converter.parse_uri stopped returning ``(None, None)`` in curies v0.11.0. "
+    "``return_none`` is now a no-op argument (i.e., you shouldn't pass it "
+    "anymore) and the function returns ``None`` when parsing fails in non-strict mode"
+)
 
 
 def _get_field_validator_values(values, key: str):  # type:ignore
@@ -157,9 +167,23 @@ class ReferenceTuple(NamedTuple):
         prefix, identifier = _split(curie, sep=sep)
         return cls(prefix, identifier)
 
-    def to_pydantic(self) -> Reference:
+    # docstr-coverage:excused `overload`
+    @overload
+    def to_pydantic(self, *, name: str = ...) -> NamedReference: ...
+
+    # docstr-coverage:excused `overload`
+    @overload
+    def to_pydantic(self, *, name: None = ...) -> Reference: ...
+
+    def to_pydantic(self, *, name: str | None = None) -> Reference | NamedReference:
         """Get a Pydantic model."""
-        return Reference(prefix=self.prefix, identifier=self.identifier)
+        if name is None:
+            return Reference(prefix=self.prefix, identifier=self.identifier)
+        if not name:
+            raise ValueError(
+                f"tried to construct a pydantic named reference with a missing name from {self.curie}"
+            )
+        return NamedReference(prefix=self.prefix, identifier=self.identifier, name=name)
 
 
 class Prefix(str):
@@ -743,37 +767,6 @@ def _get_duplicate_prefixes(records: list[Record]) -> list[DuplicateSummary]:
     ]
 
 
-def _get_prefix_map(records: list[Record]) -> dict[str, str]:
-    rv = {}
-    for record in records:
-        rv[record.prefix] = record.uri_prefix
-        for prefix_synonym in record.prefix_synonyms:
-            rv[prefix_synonym] = record.uri_prefix
-    return rv
-
-
-def _get_pattern_map(records: list[Record]) -> dict[str, str]:
-    return {record.prefix: record.pattern for record in records if record.pattern}
-
-
-def _get_reverse_prefix_map(records: list[Record]) -> dict[str, str]:
-    rv = {}
-    for record in records:
-        rv[record.uri_prefix] = record.prefix
-        for uri_prefix_synonym in record.uri_prefix_synonyms:
-            rv[uri_prefix_synonym] = record.prefix
-    return rv
-
-
-def _get_prefix_synmap(records: list[Record]) -> dict[str, str]:
-    rv = {}
-    for record in records:
-        rv[record.prefix] = record.prefix
-        for prefix_synonym in record.prefix_synonyms:
-            rv[prefix_synonym] = record.prefix
-    return rv
-
-
 def _prepare(data: LocationOr[X]) -> X:
     if isinstance(data, Path):
         with data.open() as file:
@@ -823,24 +816,24 @@ class Converter:
         >>> converter.expand("missing:0000000")
     """
 
-    #: The expansion dictionary with prefixes as keys and priority URI prefixes as values
-    prefix_map: dict[str, str]
-    #: The mapping from URI prefixes to prefixes
-    reverse_prefix_map: dict[str, str]
     #: A prefix trie for efficient parsing of URIs
-    trie: StringTrie
+    trie: Trie
+
     #: A mapping from prefix to regular expression pattern. Not necessarily complete wrt the prefix map.
     #:
     #: .. warning:: patterns are an experimental feature
     pattern_map: dict[str, str]
 
+    #: The list of records. Don't modify this directly
+    records: list[Record]
+
     def __init__(
-        self, records: Iterable[Record], *, delimiter: str = ":", strict: bool = True
+        self, records: Iterable[Record] | None = None, *, delimiter: str = ":", strict: bool = True
     ) -> None:
         """Instantiate a converter.
 
         :param records:
-            A list of records. If you plan to build a converter incrementally, pass an empty list.
+            A list of records. If you plan to build a converter incrementally, pass an empty list or leave this blank.
         :param strict:
             If true, raises issues on duplicate URI prefixes
         :param delimiter:
@@ -848,6 +841,8 @@ class Converter:
         :raises DuplicatePrefixes: if any records share any synonyms
         :raises DuplicateURIPrefixes: if any records share any URI prefixes
         """
+        if records is None:
+            records = []
         records = sorted(records, key=lambda r: r.prefix)
         if strict:
             duplicate_uri_prefixes = _get_duplicate_uri_prefixes(records)
@@ -859,11 +854,40 @@ class Converter:
 
         self.delimiter = delimiter
         self.records = records
-        self.prefix_map = _get_prefix_map(records)
-        self.synonym_to_prefix = _get_prefix_synmap(records)
-        self.reverse_prefix_map = _get_reverse_prefix_map(records)
-        self.trie = StringTrie(self.reverse_prefix_map)
-        self.pattern_map = _get_pattern_map(records)
+
+        self._prefix_to_record: dict[str, Record] = {}
+        self._prefix_ci_to_record: dict[str, Record] = {}
+        self._uri_prefix_to_record: dict[str, Record] = {}
+        self._uri_prefix_ci_to_record: dict[str, Record] = {}
+        self.trie = Trie()
+        self.pattern_map = {}
+
+        for record in records:
+            self._index(record)
+
+    @property
+    def prefix_map(self) -> Mapping[str, str]:
+        """Get the non-URI-prefix-unique prefix map.."""
+        return {
+            prefix: record.uri_prefix for record in self.records for prefix in record._all_prefixes
+        }
+
+    @property
+    def reverse_prefix_map(self) -> Mapping[str, str]:
+        """Get the non-URI-prefix-unique prefix map."""
+        return {
+            uri_prefix: record.prefix
+            for record in self.records
+            for uri_prefix in record._all_uri_prefixes
+        }
+
+    def __len__(self) -> int:
+        """Count the number of records."""
+        return len(self.records)
+
+    def __iter__(self) -> Iterator[Record]:
+        """Iterate over records."""
+        return iter(self.records)
 
     @property
     def bimap(self) -> Mapping[str, str]:
@@ -877,47 +901,60 @@ class Converter:
 
     def _match_record(
         self, external: Record, case_sensitive: bool = True
-    ) -> Mapping[RecordKey, list[str]]:
+    ) -> Mapping[str, list[str]]:
         """Match the given record to existing records."""
-        rv: defaultdict[RecordKey, list[str]] = defaultdict(list)
-        for record in self.records:
-            # Match CURIE prefixes
-            if _eq(external.prefix, record.prefix, case_sensitive=case_sensitive):
-                rv[record._key].append("prefix match")
-            if _in(external.prefix, record.prefix_synonyms, case_sensitive=case_sensitive):
-                rv[record._key].append("prefix match")
-            for prefix_synonym in external.prefix_synonyms:
-                if _eq(prefix_synonym, record.prefix, case_sensitive=case_sensitive):
-                    rv[record._key].append("prefix match")
-                if _in(prefix_synonym, record.prefix_synonyms, case_sensitive=case_sensitive):
-                    rv[record._key].append("prefix match")
+        rv: defaultdict[str, list[str]] = defaultdict(list)
+        if case_sensitive:
+            if record := self._prefix_to_record.get(external.prefix):
+                rv[record.prefix].append(
+                    f"primary prefix ({external.prefix}) match to {self._label(external.prefix == record.prefix)} prefix for {record.prefix}"
+                )
+            for prefix in external.prefix_synonyms:
+                if record := self._prefix_to_record.get(prefix):
+                    rv[record.prefix].append(
+                        f"secondary prefix ({prefix}) matched {self._label(prefix == record.prefix)} prefix for {record.prefix}"
+                    )
 
-            # Match URI prefixes
-            if _eq(external.uri_prefix, record.uri_prefix, case_sensitive=case_sensitive):
-                rv[record._key].append("URI prefix match")
-            if _in(external.uri_prefix, record.uri_prefix_synonyms, case_sensitive=case_sensitive):
-                rv[record._key].append("URI prefix match")
-            for uri_prefix_synonym in external.uri_prefix_synonyms:
-                if _eq(uri_prefix_synonym, record.uri_prefix, case_sensitive=case_sensitive):
-                    rv[record._key].append("URI prefix match")
-                if _in(
-                    uri_prefix_synonym, record.uri_prefix_synonyms, case_sensitive=case_sensitive
-                ):
-                    rv[record._key].append("URI prefix match")
+            if record := self._uri_prefix_to_record.get(external.uri_prefix):
+                rv[record.prefix].append(
+                    f"primary URI prefix ({external.uri_prefix}) matched {self._label(record.uri_prefix == external.uri_prefix)} URI prefix for {record.prefix}"
+                )
+            for uri_prefix in external.uri_prefix_synonyms:
+                if record := self._uri_prefix_to_record.get(uri_prefix):
+                    rv[record.prefix].append(
+                        f"secondary URI prefix ({uri_prefix}) matched {self._label(record.uri_prefix == uri_prefix)} URI prefix for {record.prefix}"
+                    )
+        else:
+            for prefix in external._all_prefixes:
+                if record := self._prefix_ci_to_record.get(prefix.casefold()):
+                    rv[record.prefix].append("prefix case-insenstive match")
+            for uri_prefix in external._all_uri_prefixes:
+                if record := self._uri_prefix_ci_to_record.get(uri_prefix.casefold()):
+                    rv[record.prefix].append("URI case-insenstive prefix match")
+
         return dict(rv)
 
-    def add_record(self, record: Record, case_sensitive: bool = True, merge: bool = False) -> None:
+    @staticmethod
+    def _label(x: bool) -> str:
+        return "primary" if x else "secondary"
+
+    def add_record(
+        self, record: Record, *, case_sensitive: bool = True, merge: bool = False
+    ) -> None:
         """Append a record to the converter."""
         matched = self._match_record(record, case_sensitive=case_sensitive)
         if len(matched) > 1:
             msg = "".join(f"\n  {m} -> {v}" for m, v in matched.items())
             raise ValueError(f"new record has duplicates:{msg}")
         if len(matched) == 1:
+            prefix, values = next(iter(matched.items()))
             if not merge:
-                raise ValueError(f"new record already exists and merge=False: {matched}")
+                msg = "\n".join(f"- {v}" for v in values)
+                raise ValueError(
+                    f"failed to add {record.prefix} because of overlaps. Full record:\n\n{record.model_dump_json(indent=2)}\n\nExplanation:\n{msg}\n"
+                )
 
-            key = next(iter(matched))
-            existing_record = next(r for r in self.records if r._key == key)
+            existing_record = self._prefix_to_record[prefix]
             self._merge(record, into=existing_record)
             self._index(existing_record)
         else:
@@ -927,31 +964,90 @@ class Converter:
 
     @staticmethod
     def _merge(record: Record, into: Record) -> None:
-        for prefix_synonym in itt.chain([record.prefix], record.prefix_synonyms):
-            if prefix_synonym not in into._all_prefixes:
-                into.prefix_synonyms.append(prefix_synonym)
+        xx = set(into._all_prefixes)
+        for prefix in record._all_prefixes:
+            if prefix not in xx:
+                into.prefix_synonyms.append(prefix)
         into.prefix_synonyms.sort()
 
-        for uri_prefix_synonym in itt.chain([record.uri_prefix], record.uri_prefix_synonyms):
-            if uri_prefix_synonym not in into._all_uri_prefixes:
-                into.uri_prefix_synonyms.append(uri_prefix_synonym)
+        yy = set(into._all_uri_prefixes)
+        for uri_prefix in record._all_uri_prefixes:
+            if uri_prefix not in yy:
+                into.uri_prefix_synonyms.append(uri_prefix)
         into.uri_prefix_synonyms.sort()
 
     def _index(self, record: Record) -> None:
-        self.prefix_map[record.prefix] = record.uri_prefix
-        self.synonym_to_prefix[record.prefix] = record.prefix
-        for prefix_synonym in record.prefix_synonyms:
-            self.prefix_map[prefix_synonym] = record.uri_prefix
-            self.synonym_to_prefix[prefix_synonym] = record.prefix
+        for prefix in record._all_prefixes:
+            self._index_prefix(prefix, record)
 
-        self.reverse_prefix_map[record.uri_prefix] = record.prefix
-        self.trie[record.uri_prefix] = record.prefix
-        for uri_prefix_synonym in record.uri_prefix_synonyms:
-            self.reverse_prefix_map[uri_prefix_synonym] = record.prefix
-            self.trie[uri_prefix_synonym] = record.prefix
+        for uri_prefix in record._all_uri_prefixes:
+            self._index_uri_prefix(uri_prefix, record)
 
         if record.pattern and record.prefix not in self.pattern_map:
             self.pattern_map[record.prefix] = record.pattern
+
+    def _index_prefix(self, prefix: str, record: Record) -> None:
+        self._prefix_to_record[prefix] = record
+        self._prefix_ci_to_record[prefix.casefold()] = record
+
+    def _index_uri_prefix(self, uri_prefix: str, record: Record) -> None:
+        self._uri_prefix_to_record[uri_prefix] = record
+        self._uri_prefix_ci_to_record[uri_prefix.casefold()] = record
+        self.trie[uri_prefix] = record
+
+    def add_prefix_synonym(
+        self, prefix: str, prefix_synonym: str, *, case_sensitive: bool = True
+    ) -> None:
+        """Add a prefix synonym to the record with the given prefix."""
+        if not case_sensitive:
+            raise NotImplementedError
+
+        try:
+            record = self._prefix_to_record[prefix]
+        except KeyError as e:
+            raise KeyError(
+                f"can not add prefix synoynm {prefix_synonym} to prefix {prefix} since {prefix} is not already indexed"
+            ) from e
+
+        sr = self._prefix_to_record.get(prefix_synonym)
+        if sr is not None:
+            if sr.prefix != record.prefix:
+                raise ValueError(f"this prefix synonym is already taken by record for {sr.prefix}")
+            return None
+
+        self._index_prefix(prefix_synonym, record)
+
+        record.prefix_synonyms.append(prefix_synonym)
+        record.prefix_synonyms.sort()
+
+    def add_uri_prefix_synonym(
+        self, prefix: str, uri_prefix_synonym: str, *, case_sensitive: bool = True
+    ) -> None:
+        """Add a URI synonym to the record with the given prefix."""
+        if not case_sensitive:
+            raise NotImplementedError
+
+        try:
+            record = self._prefix_to_record[prefix]
+        except KeyError as e:
+            raise KeyError(
+                f"can't add URI prefix synoynm {uri_prefix_synonym} to prefix {prefix} because "
+                f"{prefix} is not already indexed"
+            ) from e
+
+        sr = self._uri_prefix_to_record.get(uri_prefix_synonym)
+        if sr is not None:
+            if sr.prefix != record.prefix:
+                raise ValueError(
+                    f"can't add URI prefix synonym {uri_prefix_synonym} to {prefix} becauase "
+                    f"it is already taken by record for {sr.prefix}"
+                )
+            return None
+
+        self._index_uri_prefix(uri_prefix_synonym, record)
+
+        record.uri_prefix_synonyms.append(uri_prefix_synonym)
+        record.uri_prefix_synonyms.sort()
 
     def add_prefix(
         self,
@@ -960,6 +1056,7 @@ class Converter:
         prefix_synonyms: Collection[str] | None = None,
         uri_prefix_synonyms: Collection[str] | None = None,
         *,
+        pattern: str | None = None,
         case_sensitive: bool = True,
         merge: bool = False,
     ) -> None:
@@ -974,6 +1071,8 @@ class Converter:
         :param uri_prefix_synonyms:
             An optional collections of synonyms for the URI prefix such as
             ``https://bioregistry.io/go:``, ``http://www.informatics.jax.org/searches/GO.cgi?id=GO:``, etc.
+        :param pattern:
+            An optional pattern
         :param case_sensitive:
             Should prefixes and URI prefixes be compared in a case-sensitive manner when checking
             for uniqueness? Defaults to True.
@@ -1005,6 +1104,7 @@ class Converter:
             uri_prefix=uri_prefix,
             prefix_synonyms=sorted(prefix_synonyms or []),
             uri_prefix_synonyms=sorted(uri_prefix_synonyms or []),
+            pattern=pattern,
         )
         self.add_record(record, case_sensitive=case_sensitive, merge=merge)
 
@@ -1502,7 +1602,7 @@ class Converter:
     def parse(self, str_or_uri_or_curie: str, *, strict: bool = False) -> ReferenceTuple | None:
         """Parse a string, URI, or CURIE."""
         if self.is_uri(str_or_uri_or_curie):
-            return self.parse_uri(str_or_uri_or_curie, strict=strict, return_none=True)  # type:ignore[no-any-return,call-overload]
+            return self.parse_uri(str_or_uri_or_curie, strict=strict)  # type:ignore[no-any-return,call-overload]
         if self.is_curie(str_or_uri_or_curie):
             return self.parse_curie(str_or_uri_or_curie, strict=strict)  # type:ignore[no-any-return,call-overload]
         if strict:
@@ -1568,7 +1668,7 @@ class Converter:
             ``http://purl.obolibrary.org/obo/GO_0032571`` will return ``GO:0032571``
             instead of ``OBO:GO_0032571``.
         """
-        reference = self.parse_uri(uri, return_none=True)
+        reference: ReferenceTuple | None = self.parse_uri(uri)
         if reference:
             return self.format_curie(reference.prefix, reference.identifier)
         if strict:
@@ -1580,13 +1680,13 @@ class Converter:
     # docstr-coverage:excused `overload`
     @overload
     def parse_uri(
-        self, uri: str, *, strict: Literal[False] = False, return_none: Literal[False] = False
-    ) -> ReferenceTuple | tuple[None, None]: ...
+        self, uri: str, *, strict: Literal[False] = ..., return_none: Literal[False] = ...
+    ) -> Never: ...
 
     # docstr-coverage:excused `overload`
     @overload
     def parse_uri(
-        self, uri: str, *, strict: Literal[False] = False, return_none: Literal[True] = True
+        self, uri: str, *, strict: Literal[False] = ..., return_none: Literal[True] | None = ...
     ) -> ReferenceTuple | None: ...
 
     # docstr-coverage:excused `overload`
@@ -1596,12 +1696,12 @@ class Converter:
         uri: str,
         *,
         strict: Literal[True] = True,
-        return_none: bool = ...,
+        return_none: bool | None = ...,
     ) -> ReferenceTuple: ...
 
     def parse_uri(
-        self, uri: str, *, strict: bool = False, return_none: bool = False
-    ) -> ReferenceTuple | tuple[None, None] | None:
+        self, uri: str, *, strict: bool = False, return_none: bool | None = None
+    ) -> ReferenceTuple | None:
         """Compress a URI to a CURIE pair.
 
         :param uri:
@@ -1612,6 +1712,7 @@ class Converter:
             A CURIE pair if the URI could be parsed, otherwise a pair of None's
 
         :raises CompressionError: if strict is set to true and the URI can't be parsed
+        :raises NotImplementedError: If you pass ``False`` to return_none
 
         >>> from curies import Converter
         >>> converter = Converter.from_prefix_map(
@@ -1624,22 +1725,23 @@ class Converter:
         >>> converter.parse_uri("http://purl.obolibrary.org/obo/CHEBI_138488")
         ReferenceTuple(prefix='CHEBI', identifier='138488')
         >>> converter.parse_uri("http://example.org/missing:0000000")
-        (None, None)
         """
-        try:
-            value, prefix = self.trie.longest_prefix_item(uri)
-        except KeyError:
-            if strict:
-                raise CompressionError(uri) from None
-            if return_none:
-                return None
+        rv = self.trie.parse_uri(uri)
+        if rv is not None:
+            return rv
+        if strict:
+            raise CompressionError(uri) from None
+        if return_none is None:
+            return None
+        elif return_none is True:
             warnings.warn(
-                "Converter.parse_uri will switch to returning None instead of (None, None) in curies v0.11.0.",
+                RETURN_NONE_WARNING_TEXT,
+                DeprecationWarning,
                 stacklevel=2,
             )
-            return None, None
-        else:
-            return ReferenceTuple(prefix, uri[len(value) :])
+            return None
+        else:  # i.e., return_none=False, which isn't supported anymore.
+            raise NotImplementedError(RETURN_NONE_ERROR_TEXT)
 
     def is_curie(self, s: str) -> bool:
         """Check if the string can be parsed as a CURIE by this converter.
@@ -1870,12 +1972,27 @@ class Converter:
             return None
         return ReferenceTuple(norm_prefix, norm_identifier)
 
-    def standardize_identifier(self, standard_prefix: str, identifier: str) -> str | None:
+    # docstr-coverage:excused `overload`
+    @overload
+    def standardize_identifier(
+        self, standard_prefix: str, identifier: str, *, strict: Literal[True] = ...
+    ) -> str: ...
+
+    # docstr-coverage:excused `overload`
+    @overload
+    def standardize_identifier(
+        self, standard_prefix: str, identifier: str, *, strict: Literal[False] = ...
+    ) -> str | None: ...
+
+    def standardize_identifier(
+        self, standard_prefix: str, identifier: str, *, strict: bool = False
+    ) -> str | None:
         """Standardize an identifier.
 
         :param standard_prefix: This is a prefix that has already been standardized using
             :meth:`standardize_prefix` in this converter
         :param identifier: An unstandardized identifier
+        :param strict: If true, requires standardization to succeed or throws an error
         :returns: A standardized identifier.
 
         By default, this function is a no-op, meaning that it just returns the identifier
@@ -1891,7 +2008,7 @@ class Converter:
         self,
         reference: ReferenceTuple | Reference,
         *,
-        strict: Literal[True] = True,
+        strict: Literal[True] = ...,
         passthrough: bool = ...,
     ) -> str: ...
 
@@ -1901,7 +2018,7 @@ class Converter:
         self,
         reference: ReferenceTuple | Reference,
         *,
-        strict: Literal[False] = False,
+        strict: Literal[False] = ...,
         passthrough: bool = ...,
     ) -> str | None: ...
 
@@ -2012,7 +2129,7 @@ class Converter:
         >>> converter.expand_pair_all("NOPE", "NOPE") is None
         True
         """
-        record = self.get_record(prefix)
+        record = self._prefix_to_record.get(prefix)
         if record is not None:
             rv = [record.uri_prefix + identifier]
             for uri_prefix_synonyms in record.uri_prefix_synonyms:
@@ -2071,9 +2188,9 @@ class Converter:
         >>> converter.standardize_prefix("NOPE", passthrough=True)
         'NOPE'
         """
-        rv = self.synonym_to_prefix.get(prefix)
-        if rv:
-            return rv
+        record = self._prefix_to_record.get(prefix)
+        if record:
+            return record.prefix
         if strict:
             raise PrefixStandardizationError(prefix)
         if passthrough:
@@ -2203,7 +2320,7 @@ class Converter:
         >>> converter.standardize_uri("http://example.org/NOPE", passthrough=True)
         'http://example.org/NOPE'
         """
-        reference = self.parse_uri(uri, strict=False, return_none=True)
+        reference: ReferenceTuple | None = self.parse_uri(uri, strict=False)
         if reference is not None:
             # prefix is ensured to be in self.prefix_map because of successful parse
             return self.prefix_map[reference.prefix] + reference.identifier
@@ -2211,6 +2328,34 @@ class Converter:
             raise URIStandardizationError(uri)
         if passthrough:
             return uri
+        return None
+
+    # docstr-coverage:excused `overload`
+    @overload
+    def standardize_reference(
+        self, reference: Reference, *, strict: Literal[True] = ...
+    ) -> Reference: ...
+
+    # docstr-coverage:excused `overload`
+    @overload
+    def standardize_reference(
+        self, reference: Reference, *, strict: Literal[False] = ...
+    ) -> Reference | None: ...
+
+    def standardize_reference(
+        self, reference: Reference, *, strict: bool = False
+    ) -> Reference | None:
+        """Standardizes a reference."""
+        st_prefix = self.standardize_prefix(reference.prefix, strict=False)
+        if st_prefix is None and strict:
+            raise PrefixStandardizationError(reference.prefix)
+
+        st_identifier = self.standardize_identifier(st_prefix, reference.identifier, strict=False)
+        if st_identifier is None and strict:
+            raise IdentifierStandardizationError(reference.curie)
+
+        if st_prefix and st_identifier:
+            return reference.model_copy(update={"prefix": st_prefix, "identifier": st_identifier})
         return None
 
     def pd_compress(
@@ -2232,8 +2377,10 @@ class Converter:
             Defaults to false.
         :param ambiguous: If true, consider the column as containing either CURIEs or URIs.
         """
-        pre_func = self.compress_or_standardize if ambiguous else self.compress
-        func = partial(pre_func, strict=strict, passthrough=passthrough)
+        if ambiguous:
+            func = partial(self.compress_or_standardize, strict=strict, passthrough=passthrough)
+        else:
+            func = partial(self.compress, strict=strict, passthrough=passthrough)
         df[column if target_column is None else target_column] = df[column].map(func)
 
     def pd_expand(
@@ -2255,8 +2402,10 @@ class Converter:
             Defaults to false.
         :param ambiguous: If true, consider the column as containing either CURIEs or URIs.
         """
-        pre_func = self.expand_or_standardize if ambiguous else self.expand
-        func = partial(pre_func, strict=strict, passthrough=passthrough)
+        if ambiguous:
+            func = partial(self.expand_or_standardize, strict=strict, passthrough=passthrough)
+        else:
+            func = partial(self.expand, strict=strict, passthrough=passthrough)
         df[column if target_column is None else target_column] = df[column].map(func)
 
     def pd_standardize_prefix(
@@ -2358,8 +2507,10 @@ class Converter:
             Defaults to false.
         :param ambiguous: If true, consider the column as containing either CURIEs or URIs.
         """
-        pre_func = self.compress_or_standardize if ambiguous else self.compress
-        func = partial(pre_func, strict=strict, passthrough=passthrough)
+        if ambiguous:
+            func = partial(self.compress_or_standardize, strict=strict, passthrough=passthrough)
+        else:
+            func = partial(self.compress, strict=strict, passthrough=passthrough)
         self._file_helper(func, path=path, column=column, sep=sep, header=header)
 
     def file_expand(
@@ -2384,8 +2535,10 @@ class Converter:
             Defaults to false.
         :param ambiguous: If true, consider the column as containing either CURIEs or URIs.
         """
-        pre_func = self.expand_or_standardize if ambiguous else self.expand
-        func = partial(pre_func, strict=strict, passthrough=passthrough)
+        if ambiguous:
+            func = partial(self.expand_or_standardize, strict=strict, passthrough=passthrough)
+        else:
+            func = partial(self.expand, strict=strict, passthrough=passthrough)
         self._file_helper(func, path=path, column=column, sep=sep, header=header)
 
     @staticmethod
@@ -2421,7 +2574,7 @@ class Converter:
 
     def get_record(self, prefix: str, *, strict: bool = False) -> Record | None:
         """Get the record for the prefix."""
-        # TODO better data structure for this
+        # TODO use self._prefix_to_record
         for record in self.records:
             if record.prefix == prefix or prefix in record.prefix_synonyms:
                 return record
@@ -2476,19 +2629,6 @@ class Converter:
             if any(prefix in prefixes for prefix in record._all_prefixes)
         ]
         return Converter(records)
-
-
-def _eq(a: str, b: str, case_sensitive: bool) -> bool:
-    if case_sensitive:
-        return a == b
-    return a.casefold() == b.casefold()
-
-
-def _in(a: str, bs: Iterable[str], case_sensitive: bool) -> bool:
-    if case_sensitive:
-        return a in bs
-    nfa = a.casefold()
-    return any(nfa == b.casefold() for b in bs)
 
 
 def chain(converters: Sequence[Converter], *, case_sensitive: bool = True) -> Converter:
@@ -2553,9 +2693,12 @@ def chain(converters: Sequence[Converter], *, case_sensitive: bool = True) -> Co
     >>> c3.prefix_map["GO"]
     'http://purl.obolibrary.org/obo/GO_'
     """
+    converters = list(converters)
     if not converters:
         raise ValueError
-    rv = Converter([])
+    if len(converters) == 1:
+        return converters[0]
+    rv = Converter()
     for converter in converters:
         for record in converter.records:
             rv.add_record(record, case_sensitive=case_sensitive, merge=True)
@@ -3020,3 +3163,74 @@ def _converter_from_validation_info(info: core_schema.ValidationInfo) -> Convert
         return context.get("converter")
     else:
         raise TypeError
+
+
+class Trie(UserDict[str, Record]):
+    """A partial implementation of a string trie."""
+
+    root: TrieNode
+
+    def __init__(self, initial_dict: dict[str, Record] | None = None) -> None:
+        """Create a new string trie."""
+        super().__init__()
+        self.root = TrieNode()
+        if initial_dict:
+            for key, value in initial_dict.items():
+                self[key] = value
+
+    def __setitem__(self, key: str, value: Record) -> None:
+        self.root._ensure_node(key).value = value
+
+    def parse_uri(self, uri: str) -> ReferenceTuple | None:
+        """Parse a URI into a prefix/identifier pair based prefixes in the trie."""
+        node: TrieNode | None = self.root
+        record: Record | None = self.root.value
+        max_non_null_index = -1
+        for i, character in enumerate(uri):
+            node = cast(TrieNode, node).children.get(character)
+            if node is None:
+                break
+            if node.value is not None:
+                record = node.value
+                max_non_null_index = i
+        if record is None:
+            return None
+        identifier = uri[max_non_null_index + 1 :]
+        return ReferenceTuple(record.prefix, identifier)
+
+    def __contains__(self, key: Any) -> bool:
+        node = self.root._find_node(key)
+        return node is not None and node.value is not None
+
+
+class TrieNode:
+    """Trie node class."""
+
+    __slots__ = ("children", "value")
+
+    value: Record | None
+    children: dict[str, TrieNode]
+
+    def __init__(self, value: Record | None = None) -> None:
+        """Initialize the node."""
+        self.value = value  # this needs to be mutable, which is why this isn't a named tuple
+        self.children = {}
+
+    def _ensure_node(self, key: str) -> TrieNode:
+        node = self
+        for character in key:
+            next_node: TrieNode | None = node.children.get(character)
+            if next_node is None:
+                node = node.children.setdefault(character, TrieNode())
+            else:
+                node = next_node
+        return node
+
+    def _find_node(self, key: Sequence[str]) -> TrieNode | None:
+        node = self
+        for character in key:
+            next_node = node.children.get(character)
+            if next_node is None:
+                return None
+            node = next_node
+        return node

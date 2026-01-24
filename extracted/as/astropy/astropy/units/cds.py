@@ -40,8 +40,14 @@ import numpy as np
 
 from astropy.constants import si as _si
 
-from .core import UnitBase, binary_prefixes, def_unit, set_enabled_units, si_prefixes
-from .utils import generate_unit_summary
+from .core import (
+    _UnitContext,
+    binary_prefixes,
+    def_unit,
+    set_enabled_units,
+    si_prefixes,
+)
+from .docgen import generate_dunder_all, generate_unit_summary
 
 _ns = globals()
 
@@ -184,7 +190,7 @@ _initialize_module()
 ###########################################################################
 # ALL & DOCSTRING
 
-__all__ += [n for n, v in _ns.items() if isinstance(v, UnitBase)]
+__all__ += generate_dunder_all(globals())  # noqa: PLE0605
 
 if __doc__ is not None:
     # This generates a docstring for this module that describes all of the
@@ -192,7 +198,7 @@ if __doc__ is not None:
     __doc__ += generate_unit_summary(globals())
 
 
-def enable():
+def enable() -> _UnitContext:
     """
     Enable CDS units so they appear in results of
     `~astropy.units.UnitBase.find_equivalent_units` and

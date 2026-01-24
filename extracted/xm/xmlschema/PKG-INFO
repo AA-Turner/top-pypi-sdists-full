@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xmlschema
-Version: 4.1.0
+Version: 4.3.1
 Summary: An XML Schema validator and decoder
 Author-email: Davide Brunato <brunato@sissa.it>
 License-Expression: MIT
@@ -13,20 +13,20 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Text Processing :: Markup :: XML
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: elementpath<6.0.0,>=5.0.1
+Requires-Dist: elementpath<6.0.0,>=5.1.0
 Provides-Extra: codegen
 Requires-Dist: jinja2; extra == "codegen"
 Provides-Extra: dev
@@ -63,7 +63,7 @@ xmlschema
 .. xmlschema-introduction-start
 
 The *xmlschema* library is an implementation of `XML Schema <http://www.w3.org/2001/XMLSchema>`_
-for Python (supports Python 3.8+).
+for Python.
 
 This library arises from the needs of a solid Python layer for processing XML
 Schema based files for
@@ -102,7 +102,7 @@ This library includes the following features:
 Installation
 ============
 
-You can install the library with *pip* in a Python 3.7+ environment::
+You can install the library with *pip* in a Python environment::
 
     pip install xmlschema
 

@@ -7,7 +7,7 @@ with open("README.md", encoding="utf-8") as readme_file:
 
 setup(
     name="hcloud",
-    version="2.6.0",  # x-releaser-pleaser-version
+    version="2.16.0",  # x-releaser-pleaser-version
     keywords="hcloud hetzner cloud",
     description="Official Hetzner Cloud python library",
     long_description=readme,
@@ -27,30 +27,30 @@ setup(
         "Intended Audience :: Developers",
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     install_requires=[
         "python-dateutil>=2.7.5",
         "requests>=2.20",
     ],
     extras_require={
         "docs": [
-            "sphinx>=8,<8.3",
-            "sphinx-rtd-theme>=3,<3.1",
-            "myst-parser>=4,<4.1",
+            "sphinx>=9,<9.2",
+            "sphinx-rtd-theme>=3,<3.2",
+            "myst-parser>=5,<5.1",
             "watchdog>=6,<6.1",
         ],
         "test": [
-            "coverage>=7.10,<7.11",
-            "pylint>=3,<3.4",
-            "pytest>=8,<8.5",
-            "pytest-cov>=6,<6.4",
-            "mypy>=1.17,<1.18",
+            "coverage>=7.13,<7.14",
+            "pylint>=4,<4.1",
+            "pytest>=9,<9.1",
+            "pytest-cov>=7,<7.1",
+            "mypy>=1.19,<1.20",
             "types-python-dateutil",
             "types-requests",
         ],

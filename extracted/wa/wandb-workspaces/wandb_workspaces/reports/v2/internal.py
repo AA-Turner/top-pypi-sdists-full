@@ -25,6 +25,8 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_camel
 
+from ...expr import Filters, Key, SortKey, SortKeyKey
+
 
 def _generate_name(length: int = 12) -> str:
     """Generate a random name.
@@ -78,9 +80,12 @@ SmoothingType = Literal[
     "exponentialTimeWeighted", "exponential", "gaussian", "average", "none"
 ]
 CodeCompareDiff = Literal["split", "unified"]
+MediaBrowserAxis = Literal["step", "index", "run"]
 Range = Tuple[Optional[float], Optional[float]]
 Language = Literal["javascript", "python", "css", "json", "html", "markdown", "yaml"]
-Ops = Literal["OR", "AND", "=", "!=", "<=", ">=", "<", ">", "IN", "NIN", "=="]
+Ops = Literal[
+    "OR", "AND", "=", "!=", "<=", ">=", "<", ">", "IN", "NIN", "==", "WITHINSECONDS"
+]
 TextLikeInternal = Union["InlineLatex", "InlineLink", "Paragraph", "Text"]
 GalleryLink = Union["GalleryLinkReport", "GalleryLinkURL"]
 ReportWidth = Literal["readable", "fixed", "fluid"]
@@ -240,6 +245,12 @@ class PanelBankConfigSectionsItem(ReportAPIBaseModel):
     sorted: int = 0
     local_panel_settings: LocalPanelSettings = Field(default_factory=LocalPanelSettings)
     panels: LList["PanelTypes"] = Field(default_factory=list)
+    pinned: Optional[bool] = None
+
+    @validator("panels", pre=True, each_item=True)
+    def parse_panel(cls, v):  # noqa: N805
+        """Parse panels based on 'viewType' field to use correct class."""
+        return _validate_panel_from_dict(v)
 
 
 class PanelBankConfig(ReportAPIBaseModel):
@@ -272,6 +283,11 @@ class PanelBankSectionConfig(ReportAPIBaseModel):
     sorted: int = 0
     local_panel_settings: LocalPanelSettings = Field(default_factory=LocalPanelSettings)
     pinned: Optional[bool] = None
+
+    @validator("panels", pre=True, each_item=True)
+    def parse_panel(cls, v):  # noqa: N805
+        """Parse panels based on 'viewType' field to use correct class."""
+        return _validate_panel_from_dict(v)
 
 
 class PanelGridMetadataPanels(ReportAPIBaseModel):
@@ -320,30 +336,6 @@ class RunFeed(ReportAPIBaseModel):
     column_order: LList[str] = Field(default_factory=list)
     page_size: int = 10
     only_show_selected: bool = False
-
-
-class Key(ReportAPIBaseModel):
-    section: str = "summary"
-    name: str = ""
-
-
-class Filters(ReportAPIBaseModel):
-    op: Ops = "OR"
-    key: Optional[Key] = None
-    filters: Optional[LList["Filters"]] = None
-    value: Optional[Any] = None
-    disabled: Optional[bool] = None
-    current: Optional["Filters"] = None
-
-
-class SortKeyKey(ReportAPIBaseModel):
-    section: str = "run"
-    name: str = "createdAt"
-
-
-class SortKey(ReportAPIBaseModel):
-    key: SortKeyKey = Field(default_factory=SortKeyKey)
-    ascending: bool = False
 
 
 class Sort(ReportAPIBaseModel):
@@ -404,7 +396,7 @@ class InlineLink(TextLikeMixin, InlineModel):
 
 
 class Paragraph(TextLikeMixin, Block):
-    type: Literal["paragraph"] = "paragraph"
+    type: Literal["paragraph", "default"] = "paragraph"
     children: LList[TextLikeInternal] = Field(default_factory=lambda: [Text()])
 
     model_config = ConfigDict(
@@ -413,7 +405,7 @@ class Paragraph(TextLikeMixin, Block):
         validate_assignment=True,
         populate_by_name=True,
         arbitrary_types_allowed=True,
-        extra="forbid",
+        extra="allow",
     )
 
     @validator("children", pre=True, each_item=True)
@@ -456,7 +448,7 @@ class Image(Block):
     type: Literal["image"] = "image"
     children: LList[TextLikeInternal] = Field(default_factory=lambda: [Text()])
     url: str
-    has_caption: bool
+    has_caption: bool = False
 
 
 class ListItem(ReportAPIBaseModel):
@@ -557,6 +549,33 @@ class Spec(ReportAPIBaseModel):
     authors: list = Field(default_factory=list)
     discussion_threads: list = Field(default_factory=list)
 
+    @validator("blocks", pre=True, each_item=True)
+    def parse_block(cls, v):  # noqa: N805
+        """Parse blocks based on 'type' field to use correct class."""
+        if not isinstance(v, dict):
+            return v
+
+        block_type = v.get("type")
+        if not block_type:
+            return v
+
+        # Define mapping after classes are defined
+        type_mapping = block_type_mapping
+        block_class = type_mapping.get(block_type)
+
+        if block_class:
+            try:
+                return block_class.model_validate(v)
+            except Exception as e:
+                # If validation fails, log it and fall through to default behavior
+                import warnings
+
+                warnings.warn(
+                    f"Failed to validate block type '{block_type}' with {block_class.__name__}: {e}"
+                )
+
+        return v
+
 
 class ReportViewspec(ReportAPIBaseModel):
     id: str = ""
@@ -590,10 +609,22 @@ class Panel(ReportAPIBaseModel):
     layout: Layout = Field(default_factory=Layout)
 
 
+class GridSettings(ReportAPIBaseModel):
+    x_axis: Optional[MediaBrowserAxis] = None
+    y_axis: Optional[MediaBrowserAxis] = None
+
+
+class GallerySettings(ReportAPIBaseModel):
+    axis: Optional[MediaBrowserAxis] = None
+
+
 class MediaBrowserConfig(ReportAPIBaseModel):
     chart_title: Optional[str] = None
     column_count: Optional[int] = None
     media_keys: LList[str] = Field(default_factory=list)
+    mode: Optional[Literal["gallery", "grid"]] = None
+    gallery_settings: Optional[GallerySettings] = None
+    grid_settings: Optional[GridSettings] = None
 
 
 class MediaBrowser(Panel):
@@ -643,6 +674,9 @@ class LinePlotConfig(ReportAPIBaseModel):
     override_colors: Optional[dict] = None
     override_series_titles: Optional[dict] = None
     legend_fields: Optional[LList[str]] = None
+
+    metric_regex: Optional[str] = None
+    use_metric_regex: Optional[bool] = None
 
     # there are more here...
 
@@ -826,7 +860,7 @@ class UnknownPanel(ReportAPIBaseModel):
 
 
 class WeavePanel(Panel):
-    view_type: Literal["Weave"] = "Weave"
+    view_type: Literal["Weave", "Weave Trace"] = "Weave"
     config: dict
 
 
@@ -872,21 +906,64 @@ block_type_mapping: Dict[str, BlockTypes] = {
     "twitter": Twitter,
     "heading": Heading,
     "paragraph": Paragraph,
+    "default": Paragraph,  # Alternative type name for paragraphs
     "code-block": CodeBlock,
     "markdown-block": MarkdownBlock,
-    "latex-block": LatexBlock,
+    "latex": LatexBlock,
     "image": Image,
     "list": List,
     "callout-block": CalloutBlock,
     "video": Video,
-    "horziontal-rule": HorizontalRule,
+    "horizontal-rule": HorizontalRule,
     "spotify": Spotify,
     "soundcloud": SoundCloud,
     "gallery": Gallery,
     "panel-grid": PanelGrid,
     "table-of-contents": TableOfContents,
     "block-quote": BlockQuote,
+    "weave-panel": WeaveBlock,
 }
+
+panel_type_mapping: Dict[str, PanelTypes] = {
+    "Run History Line Plot": LinePlot,
+    "Scatter Plot": ScatterPlot,
+    "Scalar Chart": ScalarChart,
+    "Bar Chart": BarPlot,
+    "Code Comparer": CodeComparer,
+    "Parallel Coordinates Plot": ParallelCoordinatesPlot,
+    "Parameter Importance": ParameterImportancePlot,
+    "Run Comparer": RunComparer,
+    "Media Browser": MediaBrowser,
+    "Markdown Panel": MarkdownPanel,
+    "Vega2": Vega2,
+    "Weave": WeavePanel,
+    "Weave Trace": WeavePanel,  # Weave Trace panels use the same structure as Weave panels
+}
+
+
+def _validate_panel_from_dict(v: Any) -> Any:
+    """Helper function to parse panels based on 'viewType' field.
+
+    Used by validators in PanelBankConfigSectionsItem and PanelBankSectionConfig.
+    """
+    if not isinstance(v, dict):
+        return v
+
+    # Check both camelCase and snake_case
+    view_type = v.get("viewType") or v.get("view_type")
+    if not view_type:
+        return v
+
+    panel_class = panel_type_mapping.get(view_type)
+
+    if panel_class:
+        try:
+            return panel_class.model_validate(v)
+        except Exception:
+            # If validation fails, fall through to default behavior
+            pass
+
+    return v
 
 
 def _get_weave_block_inputs(config: dict) -> dict:

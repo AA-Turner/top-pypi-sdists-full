@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -10,6 +10,7 @@ _double = float
 _integer = int
 _integerMin1Max15 = int
 _integerMin1Max16384 = int
+_integerMin1 = int
 _string = str
 _stringMax1024 = str
 _stringMax249 = str
@@ -22,6 +23,11 @@ _stringMin1Max128Pattern09AZaZ09AZaZ0 = str
 
 class BrokerAZDistribution(StrEnum):
     DEFAULT = "DEFAULT"
+
+
+class RebalancingStatus(StrEnum):
+    PAUSED = "PAUSED"
+    ACTIVE = "ACTIVE"
 
 
 class ClientBroker(StrEnum):
@@ -110,6 +116,13 @@ class UserIdentityType(StrEnum):
     AWSSERVICE = "AWSSERVICE"
 
 
+class TopicState(StrEnum):
+    CREATING = "CREATING"
+    UPDATING = "UPDATING"
+    DELETING = "DELETING"
+    ACTIVE = "ACTIVE"
+
+
 class VpcConnectionState(StrEnum):
     CREATING = "CREATING"
     AVAILABLE = "AVAILABLE"
@@ -127,7 +140,7 @@ class BadRequestException(ServiceException):
     code: str = "BadRequestException"
     sender_fault: bool = False
     status_code: int = 400
-    InvalidParameter: Optional[_string]
+    InvalidParameter: _string | None
 
 
 class ConflictException(ServiceException):
@@ -136,7 +149,7 @@ class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 409
-    InvalidParameter: Optional[_string]
+    InvalidParameter: _string | None
 
 
 class ForbiddenException(ServiceException):
@@ -145,7 +158,7 @@ class ForbiddenException(ServiceException):
     code: str = "ForbiddenException"
     sender_fault: bool = False
     status_code: int = 403
-    InvalidParameter: Optional[_string]
+    InvalidParameter: _string | None
 
 
 class InternalServerErrorException(ServiceException):
@@ -154,7 +167,7 @@ class InternalServerErrorException(ServiceException):
     code: str = "InternalServerErrorException"
     sender_fault: bool = False
     status_code: int = 500
-    InvalidParameter: Optional[_string]
+    InvalidParameter: _string | None
 
 
 class NotFoundException(ServiceException):
@@ -163,7 +176,7 @@ class NotFoundException(ServiceException):
     code: str = "NotFoundException"
     sender_fault: bool = False
     status_code: int = 404
-    InvalidParameter: Optional[_string]
+    InvalidParameter: _string | None
 
 
 class ServiceUnavailableException(ServiceException):
@@ -172,7 +185,7 @@ class ServiceUnavailableException(ServiceException):
     code: str = "ServiceUnavailableException"
     sender_fault: bool = False
     status_code: int = 503
-    InvalidParameter: Optional[_string]
+    InvalidParameter: _string | None
 
 
 class TooManyRequestsException(ServiceException):
@@ -181,7 +194,7 @@ class TooManyRequestsException(ServiceException):
     code: str = "TooManyRequestsException"
     sender_fault: bool = False
     status_code: int = 429
-    InvalidParameter: Optional[_string]
+    InvalidParameter: _string | None
 
 
 class UnauthorizedException(ServiceException):
@@ -190,7 +203,7 @@ class UnauthorizedException(ServiceException):
     code: str = "UnauthorizedException"
     sender_fault: bool = False
     status_code: int = 401
-    InvalidParameter: Optional[_string]
+    InvalidParameter: _string | None
 
 
 class AmazonMskCluster(TypedDict, total=False):
@@ -199,7 +212,7 @@ class AmazonMskCluster(TypedDict, total=False):
     MskClusterArn: _string
 
 
-_listOf__string = List[_string]
+_listOf__string = list[_string]
 
 
 class BatchAssociateScramSecretRequest(ServiceRequest):
@@ -212,27 +225,27 @@ class BatchAssociateScramSecretRequest(ServiceRequest):
 class UnprocessedScramSecret(TypedDict, total=False):
     """Error info for scram secret associate/disassociate failure."""
 
-    ErrorCode: Optional[_string]
-    ErrorMessage: Optional[_string]
-    SecretArn: Optional[_string]
+    ErrorCode: _string | None
+    ErrorMessage: _string | None
+    SecretArn: _string | None
 
 
-_listOfUnprocessedScramSecret = List[UnprocessedScramSecret]
+_listOfUnprocessedScramSecret = list[UnprocessedScramSecret]
 
 
 class BatchAssociateScramSecretResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    UnprocessedScramSecrets: Optional[_listOfUnprocessedScramSecret]
+    ClusterArn: _string | None
+    UnprocessedScramSecrets: _listOfUnprocessedScramSecret | None
 
 
-_listOf__double = List[_double]
+_listOf__double = list[_double]
 
 
 class BrokerCountUpdateInfo(TypedDict, total=False):
     """Information regarding UpdateBrokerCount."""
 
-    CreatedBrokerIds: Optional[_listOf__double]
-    DeletedBrokerIds: Optional[_listOf__double]
+    CreatedBrokerIds: _listOf__double | None
+    DeletedBrokerIds: _listOf__double | None
 
 
 class ProvisionedThroughput(TypedDict, total=False):
@@ -240,8 +253,8 @@ class ProvisionedThroughput(TypedDict, total=False):
     volumes attached to kafka broker nodes.
     """
 
-    Enabled: Optional[_boolean]
-    VolumeThroughput: Optional[_integer]
+    Enabled: _boolean | None
+    VolumeThroughput: _integer | None
 
 
 class BrokerEBSVolumeInfo(TypedDict, total=False):
@@ -251,81 +264,92 @@ class BrokerEBSVolumeInfo(TypedDict, total=False):
     """
 
     KafkaBrokerNodeId: _string
-    ProvisionedThroughput: Optional[ProvisionedThroughput]
-    VolumeSizeGB: Optional[_integer]
+    ProvisionedThroughput: ProvisionedThroughput | None
+    VolumeSizeGB: _integer | None
 
 
 class S3(TypedDict, total=False):
-    Bucket: Optional[_string]
+    Bucket: _string | None
     Enabled: _boolean
-    Prefix: Optional[_string]
+    Prefix: _string | None
 
 
 class Firehose(TypedDict, total=False):
-    DeliveryStream: Optional[_string]
+    DeliveryStream: _string | None
     Enabled: _boolean
 
 
 class CloudWatchLogs(TypedDict, total=False):
     Enabled: _boolean
-    LogGroup: Optional[_string]
+    LogGroup: _string | None
 
 
 class BrokerLogs(TypedDict, total=False):
-    CloudWatchLogs: Optional[CloudWatchLogs]
-    Firehose: Optional[Firehose]
-    S3: Optional[S3]
+    CloudWatchLogs: CloudWatchLogs | None
+    Firehose: Firehose | None
+    S3: S3 | None
+
+
+class Rebalancing(TypedDict, total=False):
+    """Specifies whether or not intelligent rebalancing is turned on for a
+    newly created MSK Provisioned cluster with Express brokers. Intelligent
+    rebalancing performs automatic partition balancing operations when you
+    scale your clusters up or down. By default, intelligent rebalancing is
+    ACTIVE for all new Express-based clusters.
+    """
+
+    Status: RebalancingStatus | None
 
 
 class VpcConnectivityTls(TypedDict, total=False):
     """Details for TLS client authentication for VPC connectivity."""
 
-    Enabled: Optional[_boolean]
+    Enabled: _boolean | None
 
 
 class VpcConnectivityIam(TypedDict, total=False):
     """Details for IAM access control for VPC connectivity."""
 
-    Enabled: Optional[_boolean]
+    Enabled: _boolean | None
 
 
 class VpcConnectivityScram(TypedDict, total=False):
     """Details for SASL/SCRAM client authentication for VPC connectivity."""
 
-    Enabled: Optional[_boolean]
+    Enabled: _boolean | None
 
 
 class VpcConnectivitySasl(TypedDict, total=False):
     """Details for SASL client authentication for VPC connectivity."""
 
-    Scram: Optional[VpcConnectivityScram]
-    Iam: Optional[VpcConnectivityIam]
+    Scram: VpcConnectivityScram | None
+    Iam: VpcConnectivityIam | None
 
 
 class VpcConnectivityClientAuthentication(TypedDict, total=False):
     """Includes all client authentication information for VPC connectivity."""
 
-    Sasl: Optional[VpcConnectivitySasl]
-    Tls: Optional[VpcConnectivityTls]
+    Sasl: VpcConnectivitySasl | None
+    Tls: VpcConnectivityTls | None
 
 
 class VpcConnectivity(TypedDict, total=False):
     """VPC connectivity access control for brokers."""
 
-    ClientAuthentication: Optional[VpcConnectivityClientAuthentication]
+    ClientAuthentication: VpcConnectivityClientAuthentication | None
 
 
 class PublicAccess(TypedDict, total=False):
     """Public access control for brokers."""
 
-    Type: Optional[_string]
+    Type: _string | None
 
 
 class ConnectivityInfo(TypedDict, total=False):
     """Information about the broker access configuration."""
 
-    PublicAccess: Optional[PublicAccess]
-    VpcConnectivity: Optional[VpcConnectivity]
+    PublicAccess: PublicAccess | None
+    VpcConnectivity: VpcConnectivity | None
 
 
 class EBSStorageInfo(TypedDict, total=False):
@@ -333,14 +357,14 @@ class EBSStorageInfo(TypedDict, total=False):
     Kafka broker nodes.
     """
 
-    ProvisionedThroughput: Optional[ProvisionedThroughput]
-    VolumeSize: Optional[_integerMin1Max16384]
+    ProvisionedThroughput: ProvisionedThroughput | None
+    VolumeSize: _integerMin1Max16384 | None
 
 
 class StorageInfo(TypedDict, total=False):
     """Contains information about storage volumes attached to MSK broker nodes."""
 
-    EbsStorageInfo: Optional[EBSStorageInfo]
+    EbsStorageInfo: EBSStorageInfo | None
 
 
 class BrokerNodeGroupInfo(TypedDict, total=False):
@@ -348,13 +372,13 @@ class BrokerNodeGroupInfo(TypedDict, total=False):
     cluster.
     """
 
-    BrokerAZDistribution: Optional[BrokerAZDistribution]
+    BrokerAZDistribution: BrokerAZDistribution | None
     ClientSubnets: _listOf__string
     InstanceType: _stringMin5Max32
-    SecurityGroups: Optional[_listOf__string]
-    StorageInfo: Optional[StorageInfo]
-    ConnectivityInfo: Optional[ConnectivityInfo]
-    ZoneIds: Optional[_listOf__string]
+    SecurityGroups: _listOf__string | None
+    StorageInfo: StorageInfo | None
+    ConnectivityInfo: ConnectivityInfo | None
+    ZoneIds: _listOf__string | None
 
 
 _long = int
@@ -363,78 +387,78 @@ _long = int
 class BrokerSoftwareInfo(TypedDict, total=False):
     """Information about the current software installed on the cluster."""
 
-    ConfigurationArn: Optional[_string]
-    ConfigurationRevision: Optional[_long]
-    KafkaVersion: Optional[_string]
+    ConfigurationArn: _string | None
+    ConfigurationRevision: _long | None
+    KafkaVersion: _string | None
 
 
 class BrokerNodeInfo(TypedDict, total=False):
     """BrokerNodeInfo"""
 
-    AttachedENIId: Optional[_string]
-    BrokerId: Optional[_double]
-    ClientSubnet: Optional[_string]
-    ClientVpcIpAddress: Optional[_string]
-    CurrentBrokerSoftwareInfo: Optional[BrokerSoftwareInfo]
-    Endpoints: Optional[_listOf__string]
+    AttachedENIId: _string | None
+    BrokerId: _double | None
+    ClientSubnet: _string | None
+    ClientVpcIpAddress: _string | None
+    CurrentBrokerSoftwareInfo: BrokerSoftwareInfo | None
+    Endpoints: _listOf__string | None
 
 
 class Unauthenticated(TypedDict, total=False):
-    Enabled: Optional[_boolean]
+    Enabled: _boolean | None
 
 
 class Tls(TypedDict, total=False):
     """Details for client authentication using TLS."""
 
-    CertificateAuthorityArnList: Optional[_listOf__string]
-    Enabled: Optional[_boolean]
+    CertificateAuthorityArnList: _listOf__string | None
+    Enabled: _boolean | None
 
 
 class Iam(TypedDict, total=False):
     """Details for IAM access control."""
 
-    Enabled: Optional[_boolean]
+    Enabled: _boolean | None
 
 
 class Scram(TypedDict, total=False):
     """Details for SASL/SCRAM client authentication."""
 
-    Enabled: Optional[_boolean]
+    Enabled: _boolean | None
 
 
 class Sasl(TypedDict, total=False):
     """Details for client authentication using SASL."""
 
-    Scram: Optional[Scram]
-    Iam: Optional[Iam]
+    Scram: Scram | None
+    Iam: Iam | None
 
 
 class ClientAuthentication(TypedDict, total=False):
     """Includes all client authentication information."""
 
-    Sasl: Optional[Sasl]
-    Tls: Optional[Tls]
-    Unauthenticated: Optional[Unauthenticated]
+    Sasl: Sasl | None
+    Tls: Tls | None
+    Unauthenticated: Unauthenticated | None
 
 
 class ServerlessSasl(TypedDict, total=False):
     """Details for client authentication using SASL."""
 
-    Iam: Optional[Iam]
+    Iam: Iam | None
 
 
 class ServerlessClientAuthentication(TypedDict, total=False):
     """Includes all client authentication information."""
 
-    Sasl: Optional[ServerlessSasl]
+    Sasl: ServerlessSasl | None
 
 
-_mapOf__string = Dict[_string, _string]
+_mapOf__string = dict[_string, _string]
 
 
 class StateInfo(TypedDict, total=False):
-    Code: Optional[_string]
-    Message: Optional[_string]
+    Code: _string | None
+    Message: _string | None
 
 
 class LoggingInfo(TypedDict, total=False):
@@ -456,8 +480,8 @@ class JmxExporter(TypedDict, total=False):
 class Prometheus(TypedDict, total=False):
     """Prometheus settings."""
 
-    JmxExporter: Optional[JmxExporter]
-    NodeExporter: Optional[NodeExporter]
+    JmxExporter: JmxExporter | None
+    NodeExporter: NodeExporter | None
 
 
 class OpenMonitoring(TypedDict, total=False):
@@ -469,8 +493,8 @@ class OpenMonitoring(TypedDict, total=False):
 class EncryptionInTransit(TypedDict, total=False):
     """The settings for encrypting data in transit."""
 
-    ClientBroker: Optional[ClientBroker]
-    InCluster: Optional[_boolean]
+    ClientBroker: ClientBroker | None
+    InCluster: _boolean | None
 
 
 class EncryptionAtRest(TypedDict, total=False):
@@ -485,8 +509,8 @@ class EncryptionInfo(TypedDict, total=False):
     data in transit.
     """
 
-    EncryptionAtRest: Optional[EncryptionAtRest]
-    EncryptionInTransit: Optional[EncryptionInTransit]
+    EncryptionAtRest: EncryptionAtRest | None
+    EncryptionInTransit: EncryptionInTransit | None
 
 
 _timestampIso8601 = datetime
@@ -495,43 +519,44 @@ _timestampIso8601 = datetime
 class ClusterInfo(TypedDict, total=False):
     """Returns information about a cluster."""
 
-    ActiveOperationArn: Optional[_string]
-    BrokerNodeGroupInfo: Optional[BrokerNodeGroupInfo]
-    ClientAuthentication: Optional[ClientAuthentication]
-    ClusterArn: Optional[_string]
-    ClusterName: Optional[_string]
-    CreationTime: Optional[_timestampIso8601]
-    CurrentBrokerSoftwareInfo: Optional[BrokerSoftwareInfo]
-    CurrentVersion: Optional[_string]
-    EncryptionInfo: Optional[EncryptionInfo]
-    EnhancedMonitoring: Optional[EnhancedMonitoring]
-    OpenMonitoring: Optional[OpenMonitoring]
-    LoggingInfo: Optional[LoggingInfo]
-    NumberOfBrokerNodes: Optional[_integer]
-    State: Optional[ClusterState]
-    StateInfo: Optional[StateInfo]
-    Tags: Optional[_mapOf__string]
-    ZookeeperConnectString: Optional[_string]
-    ZookeeperConnectStringTls: Optional[_string]
-    StorageMode: Optional[StorageMode]
-    CustomerActionStatus: Optional[CustomerActionStatus]
+    ActiveOperationArn: _string | None
+    BrokerNodeGroupInfo: BrokerNodeGroupInfo | None
+    Rebalancing: Rebalancing | None
+    ClientAuthentication: ClientAuthentication | None
+    ClusterArn: _string | None
+    ClusterName: _string | None
+    CreationTime: _timestampIso8601 | None
+    CurrentBrokerSoftwareInfo: BrokerSoftwareInfo | None
+    CurrentVersion: _string | None
+    EncryptionInfo: EncryptionInfo | None
+    EnhancedMonitoring: EnhancedMonitoring | None
+    OpenMonitoring: OpenMonitoring | None
+    LoggingInfo: LoggingInfo | None
+    NumberOfBrokerNodes: _integer | None
+    State: ClusterState | None
+    StateInfo: StateInfo | None
+    Tags: _mapOf__string | None
+    ZookeeperConnectString: _string | None
+    ZookeeperConnectStringTls: _string | None
+    StorageMode: StorageMode | None
+    CustomerActionStatus: CustomerActionStatus | None
 
 
 class VpcConfig(TypedDict, total=False):
     """The configuration of the Amazon VPCs for the cluster."""
 
     SubnetIds: _listOf__string
-    SecurityGroupIds: Optional[_listOf__string]
+    SecurityGroupIds: _listOf__string | None
 
 
-_listOfVpcConfig = List[VpcConfig]
+_listOfVpcConfig = list[VpcConfig]
 
 
 class Serverless(TypedDict, total=False):
     """Serverless cluster."""
 
     VpcConfigs: _listOfVpcConfig
-    ClientAuthentication: Optional[ServerlessClientAuthentication]
+    ClientAuthentication: ServerlessClientAuthentication | None
 
 
 class NodeExporterInfo(TypedDict, total=False):
@@ -549,8 +574,8 @@ class JmxExporterInfo(TypedDict, total=False):
 class PrometheusInfo(TypedDict, total=False):
     """Prometheus settings."""
 
-    JmxExporter: Optional[JmxExporterInfo]
-    NodeExporter: Optional[NodeExporterInfo]
+    JmxExporter: JmxExporterInfo | None
+    NodeExporter: NodeExporterInfo | None
 
 
 class OpenMonitoringInfo(TypedDict, total=False):
@@ -563,49 +588,50 @@ class Provisioned(TypedDict, total=False):
     """Provisioned cluster."""
 
     BrokerNodeGroupInfo: BrokerNodeGroupInfo
-    CurrentBrokerSoftwareInfo: Optional[BrokerSoftwareInfo]
-    ClientAuthentication: Optional[ClientAuthentication]
-    EncryptionInfo: Optional[EncryptionInfo]
-    EnhancedMonitoring: Optional[EnhancedMonitoring]
-    OpenMonitoring: Optional[OpenMonitoringInfo]
-    LoggingInfo: Optional[LoggingInfo]
+    Rebalancing: Rebalancing | None
+    CurrentBrokerSoftwareInfo: BrokerSoftwareInfo | None
+    ClientAuthentication: ClientAuthentication | None
+    EncryptionInfo: EncryptionInfo | None
+    EnhancedMonitoring: EnhancedMonitoring | None
+    OpenMonitoring: OpenMonitoringInfo | None
+    LoggingInfo: LoggingInfo | None
     NumberOfBrokerNodes: _integerMin1Max15
-    ZookeeperConnectString: Optional[_string]
-    ZookeeperConnectStringTls: Optional[_string]
-    StorageMode: Optional[StorageMode]
-    CustomerActionStatus: Optional[CustomerActionStatus]
+    ZookeeperConnectString: _string | None
+    ZookeeperConnectStringTls: _string | None
+    StorageMode: StorageMode | None
+    CustomerActionStatus: CustomerActionStatus | None
 
 
 class Cluster(TypedDict, total=False):
     """Returns information about a cluster."""
 
-    ActiveOperationArn: Optional[_string]
-    ClusterType: Optional[ClusterType]
-    ClusterArn: Optional[_string]
-    ClusterName: Optional[_string]
-    CreationTime: Optional[_timestampIso8601]
-    CurrentVersion: Optional[_string]
-    State: Optional[ClusterState]
-    StateInfo: Optional[StateInfo]
-    Tags: Optional[_mapOf__string]
-    Provisioned: Optional[Provisioned]
-    Serverless: Optional[Serverless]
+    ActiveOperationArn: _string | None
+    ClusterType: ClusterType | None
+    ClusterArn: _string | None
+    ClusterName: _string | None
+    CreationTime: _timestampIso8601 | None
+    CurrentVersion: _string | None
+    State: ClusterState | None
+    StateInfo: StateInfo | None
+    Tags: _mapOf__string | None
+    Provisioned: Provisioned | None
+    Serverless: Serverless | None
 
 
 class UserIdentity(TypedDict, total=False):
     """Description of the requester that calls the API operation."""
 
-    Type: Optional[UserIdentityType]
-    PrincipalId: Optional[_string]
+    Type: UserIdentityType | None
+    PrincipalId: _string | None
 
 
 class VpcConnectionInfo(TypedDict, total=False):
     """Description of the VPC connection."""
 
-    VpcConnectionArn: Optional[_string]
-    Owner: Optional[_string]
-    UserIdentity: Optional[UserIdentity]
-    CreationTime: Optional[_timestampIso8601]
+    VpcConnectionArn: _string | None
+    Owner: _string | None
+    UserIdentity: UserIdentity | None
+    CreationTime: _timestampIso8601 | None
 
 
 class ConfigurationInfo(TypedDict, total=False):
@@ -615,7 +641,7 @@ class ConfigurationInfo(TypedDict, total=False):
     Revision: _long
 
 
-_listOfBrokerEBSVolumeInfo = List[BrokerEBSVolumeInfo]
+_listOfBrokerEBSVolumeInfo = list[BrokerEBSVolumeInfo]
 
 
 class MutableClusterInfo(TypedDict, total=False):
@@ -623,91 +649,93 @@ class MutableClusterInfo(TypedDict, total=False):
     APIs.
     """
 
-    BrokerEBSVolumeInfo: Optional[_listOfBrokerEBSVolumeInfo]
-    ConfigurationInfo: Optional[ConfigurationInfo]
-    NumberOfBrokerNodes: Optional[_integer]
-    EnhancedMonitoring: Optional[EnhancedMonitoring]
-    OpenMonitoring: Optional[OpenMonitoring]
-    KafkaVersion: Optional[_string]
-    LoggingInfo: Optional[LoggingInfo]
-    InstanceType: Optional[_stringMin5Max32]
-    ClientAuthentication: Optional[ClientAuthentication]
-    EncryptionInfo: Optional[EncryptionInfo]
-    ConnectivityInfo: Optional[ConnectivityInfo]
-    StorageMode: Optional[StorageMode]
-    BrokerCountUpdateInfo: Optional[BrokerCountUpdateInfo]
+    BrokerEBSVolumeInfo: _listOfBrokerEBSVolumeInfo | None
+    ConfigurationInfo: ConfigurationInfo | None
+    NumberOfBrokerNodes: _integer | None
+    EnhancedMonitoring: EnhancedMonitoring | None
+    OpenMonitoring: OpenMonitoring | None
+    KafkaVersion: _string | None
+    LoggingInfo: LoggingInfo | None
+    InstanceType: _stringMin5Max32 | None
+    ClientAuthentication: ClientAuthentication | None
+    EncryptionInfo: EncryptionInfo | None
+    ConnectivityInfo: ConnectivityInfo | None
+    StorageMode: StorageMode | None
+    BrokerCountUpdateInfo: BrokerCountUpdateInfo | None
+    Rebalancing: Rebalancing | None
 
 
 class ClusterOperationStepInfo(TypedDict, total=False):
     """State information about the operation step."""
 
-    StepStatus: Optional[_string]
+    StepStatus: _string | None
 
 
 class ClusterOperationStep(TypedDict, total=False):
     """Step taken during a cluster operation."""
 
-    StepInfo: Optional[ClusterOperationStepInfo]
-    StepName: Optional[_string]
+    StepInfo: ClusterOperationStepInfo | None
+    StepName: _string | None
 
 
-_listOfClusterOperationStep = List[ClusterOperationStep]
+_listOfClusterOperationStep = list[ClusterOperationStep]
 
 
 class ErrorInfo(TypedDict, total=False):
     """Returns information about an error state of the cluster."""
 
-    ErrorCode: Optional[_string]
-    ErrorString: Optional[_string]
+    ErrorCode: _string | None
+    ErrorString: _string | None
 
 
 class ClusterOperationInfo(TypedDict, total=False):
     """Returns information about a cluster operation."""
 
-    ClientRequestId: Optional[_string]
-    ClusterArn: Optional[_string]
-    CreationTime: Optional[_timestampIso8601]
-    EndTime: Optional[_timestampIso8601]
-    ErrorInfo: Optional[ErrorInfo]
-    OperationArn: Optional[_string]
-    OperationState: Optional[_string]
-    OperationSteps: Optional[_listOfClusterOperationStep]
-    OperationType: Optional[_string]
-    SourceClusterInfo: Optional[MutableClusterInfo]
-    TargetClusterInfo: Optional[MutableClusterInfo]
-    VpcConnectionInfo: Optional[VpcConnectionInfo]
+    ClientRequestId: _string | None
+    ClusterArn: _string | None
+    CreationTime: _timestampIso8601 | None
+    EndTime: _timestampIso8601 | None
+    ErrorInfo: ErrorInfo | None
+    OperationArn: _string | None
+    OperationState: _string | None
+    OperationSteps: _listOfClusterOperationStep | None
+    OperationType: _string | None
+    SourceClusterInfo: MutableClusterInfo | None
+    TargetClusterInfo: MutableClusterInfo | None
+    VpcConnectionInfo: VpcConnectionInfo | None
 
 
 class ProvisionedRequest(TypedDict, total=False):
     """Provisioned cluster request."""
 
     BrokerNodeGroupInfo: BrokerNodeGroupInfo
-    ClientAuthentication: Optional[ClientAuthentication]
-    ConfigurationInfo: Optional[ConfigurationInfo]
-    EncryptionInfo: Optional[EncryptionInfo]
-    EnhancedMonitoring: Optional[EnhancedMonitoring]
-    OpenMonitoring: Optional[OpenMonitoringInfo]
+    Rebalancing: Rebalancing | None
+    ClientAuthentication: ClientAuthentication | None
+    ConfigurationInfo: ConfigurationInfo | None
+    EncryptionInfo: EncryptionInfo | None
+    EnhancedMonitoring: EnhancedMonitoring | None
+    OpenMonitoring: OpenMonitoringInfo | None
     KafkaVersion: _stringMin1Max128
-    LoggingInfo: Optional[LoggingInfo]
+    LoggingInfo: LoggingInfo | None
     NumberOfBrokerNodes: _integerMin1Max15
-    StorageMode: Optional[StorageMode]
+    StorageMode: StorageMode | None
 
 
 class ServerlessRequest(TypedDict, total=False):
     """Serverless cluster request."""
 
     VpcConfigs: _listOfVpcConfig
-    ClientAuthentication: Optional[ServerlessClientAuthentication]
+    ClientAuthentication: ServerlessClientAuthentication | None
 
 
 class ClientVpcConnection(TypedDict, total=False):
     """The client VPC connection object."""
 
-    Authentication: Optional[_string]
-    CreationTime: Optional[_timestampIso8601]
-    State: Optional[VpcConnectionState]
+    Authentication: _string | None
+    CreationTime: _timestampIso8601 | None
+    State: VpcConnectionState | None
     VpcConnectionArn: _string
-    Owner: Optional[_string]
+    Owner: _string | None
 
 
 class VpcConnection(TypedDict, total=False):
@@ -715,10 +743,10 @@ class VpcConnection(TypedDict, total=False):
 
     VpcConnectionArn: _string
     TargetClusterArn: _string
-    CreationTime: Optional[_timestampIso8601]
-    Authentication: Optional[_string]
-    VpcId: Optional[_string]
-    State: Optional[VpcConnectionState]
+    CreationTime: _timestampIso8601 | None
+    Authentication: _string | None
+    VpcId: _string | None
+    State: VpcConnectionState | None
 
 
 class CompatibleKafkaVersion(TypedDict, total=False):
@@ -726,15 +754,15 @@ class CompatibleKafkaVersion(TypedDict, total=False):
     versions.
     """
 
-    SourceVersion: Optional[_string]
-    TargetVersions: Optional[_listOf__string]
+    SourceVersion: _string | None
+    TargetVersions: _listOf__string | None
 
 
 class ConfigurationRevision(TypedDict, total=False):
     """Describes a configuration revision."""
 
     CreationTime: _timestampIso8601
-    Description: Optional[_string]
+    Description: _string | None
     Revision: _long
 
 
@@ -750,16 +778,16 @@ class Configuration(TypedDict, total=False):
     State: ConfigurationState
 
 
-_listOf__stringMax256 = List[_stringMax256]
+_listOf__stringMax256 = list[_stringMax256]
 
 
 class ConsumerGroupReplication(TypedDict, total=False):
     """Details about consumer group replication."""
 
-    ConsumerGroupsToExclude: Optional[_listOf__stringMax256]
+    ConsumerGroupsToExclude: _listOf__stringMax256 | None
     ConsumerGroupsToReplicate: _listOf__stringMax256
-    DetectAndCopyNewConsumerGroups: Optional[_boolean]
-    SynchroniseConsumerGroupOffsets: Optional[_boolean]
+    DetectAndCopyNewConsumerGroups: _boolean | None
+    SynchroniseConsumerGroupOffsets: _boolean | None
 
 
 class ConsumerGroupReplicationUpdate(TypedDict, total=False):
@@ -773,58 +801,59 @@ class ConsumerGroupReplicationUpdate(TypedDict, total=False):
 
 class CreateClusterV2Request(ServiceRequest):
     ClusterName: _stringMin1Max64
-    Tags: Optional[_mapOf__string]
-    Provisioned: Optional[ProvisionedRequest]
-    Serverless: Optional[ServerlessRequest]
+    Tags: _mapOf__string | None
+    Provisioned: ProvisionedRequest | None
+    Serverless: ServerlessRequest | None
 
 
 class CreateClusterRequest(ServiceRequest):
     BrokerNodeGroupInfo: BrokerNodeGroupInfo
-    ClientAuthentication: Optional[ClientAuthentication]
+    Rebalancing: Rebalancing | None
+    ClientAuthentication: ClientAuthentication | None
     ClusterName: _stringMin1Max64
-    ConfigurationInfo: Optional[ConfigurationInfo]
-    EncryptionInfo: Optional[EncryptionInfo]
-    EnhancedMonitoring: Optional[EnhancedMonitoring]
-    OpenMonitoring: Optional[OpenMonitoringInfo]
+    ConfigurationInfo: ConfigurationInfo | None
+    EncryptionInfo: EncryptionInfo | None
+    EnhancedMonitoring: EnhancedMonitoring | None
+    OpenMonitoring: OpenMonitoringInfo | None
     KafkaVersion: _stringMin1Max128
-    LoggingInfo: Optional[LoggingInfo]
+    LoggingInfo: LoggingInfo | None
     NumberOfBrokerNodes: _integerMin1Max15
-    Tags: Optional[_mapOf__string]
-    StorageMode: Optional[StorageMode]
+    Tags: _mapOf__string | None
+    StorageMode: StorageMode | None
 
 
 class CreateClusterResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    ClusterName: Optional[_string]
-    State: Optional[ClusterState]
+    ClusterArn: _string | None
+    ClusterName: _string | None
+    State: ClusterState | None
 
 
 class CreateClusterV2Response(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    ClusterName: Optional[_string]
-    State: Optional[ClusterState]
-    ClusterType: Optional[ClusterType]
+    ClusterArn: _string | None
+    ClusterName: _string | None
+    State: ClusterState | None
+    ClusterType: ClusterType | None
 
 
 _blob = bytes
 
 
 class CreateConfigurationRequest(ServiceRequest):
-    Description: Optional[_string]
-    KafkaVersions: Optional[_listOf__string]
+    Description: _string | None
+    KafkaVersions: _listOf__string | None
     Name: _string
     ServerProperties: _blob
 
 
 class CreateConfigurationResponse(TypedDict, total=False):
-    Arn: Optional[_string]
-    CreationTime: Optional[_timestampIso8601]
-    LatestRevision: Optional[ConfigurationRevision]
-    Name: Optional[_string]
-    State: Optional[ConfigurationState]
+    Arn: _string | None
+    CreationTime: _timestampIso8601 | None
+    LatestRevision: ConfigurationRevision | None
+    Name: _string | None
+    State: ConfigurationState | None
 
 
-_listOf__stringMax249 = List[_stringMax249]
+_listOf__stringMax249 = list[_stringMax249]
 
 
 class ReplicationTopicNameConfiguration(TypedDict, total=False):
@@ -833,7 +862,7 @@ class ReplicationTopicNameConfiguration(TypedDict, total=False):
     alias.
     """
 
-    Type: Optional[ReplicationTopicNameConfigurationType]
+    Type: ReplicationTopicNameConfigurationType | None
 
 
 class ReplicationStartingPosition(TypedDict, total=False):
@@ -841,18 +870,18 @@ class ReplicationStartingPosition(TypedDict, total=False):
     replicating from.
     """
 
-    Type: Optional[ReplicationStartingPositionType]
+    Type: ReplicationStartingPositionType | None
 
 
 class TopicReplication(TypedDict, total=False):
     """Details about topic replication."""
 
-    CopyAccessControlListsForTopics: Optional[_boolean]
-    CopyTopicConfigurations: Optional[_boolean]
-    DetectAndCopyNewTopics: Optional[_boolean]
-    StartingPosition: Optional[ReplicationStartingPosition]
-    TopicNameConfiguration: Optional[ReplicationTopicNameConfiguration]
-    TopicsToExclude: Optional[_listOf__stringMax249]
+    CopyAccessControlListsForTopics: _boolean | None
+    CopyTopicConfigurations: _boolean | None
+    DetectAndCopyNewTopics: _boolean | None
+    StartingPosition: ReplicationStartingPosition | None
+    TopicNameConfiguration: ReplicationTopicNameConfiguration | None
+    TopicsToExclude: _listOf__stringMax249 | None
     TopicsToReplicate: _listOf__stringMax249
 
 
@@ -868,7 +897,7 @@ class ReplicationInfo(TypedDict, total=False):
     TopicReplication: TopicReplication
 
 
-_listOfReplicationInfo = List[ReplicationInfo]
+_listOfReplicationInfo = list[ReplicationInfo]
 
 
 class KafkaClusterClientVpcConfig(TypedDict, total=False):
@@ -876,7 +905,7 @@ class KafkaClusterClientVpcConfig(TypedDict, total=False):
     Kafka cluster.
     """
 
-    SecurityGroupIds: Optional[_listOf__string]
+    SecurityGroupIds: _listOf__string | None
     SubnetIds: _listOf__string
 
 
@@ -889,24 +918,24 @@ class KafkaCluster(TypedDict, total=False):
     VpcConfig: KafkaClusterClientVpcConfig
 
 
-_listOfKafkaCluster = List[KafkaCluster]
+_listOfKafkaCluster = list[KafkaCluster]
 
 
 class CreateReplicatorRequest(ServiceRequest):
     """Creates a replicator using the specified configuration."""
 
-    Description: Optional[_stringMax1024]
+    Description: _stringMax1024 | None
     KafkaClusters: _listOfKafkaCluster
     ReplicationInfoList: _listOfReplicationInfo
     ReplicatorName: _stringMin1Max128Pattern09AZaZ09AZaZ0
     ServiceExecutionRoleArn: _string
-    Tags: Optional[_mapOf__string]
+    Tags: _mapOf__string | None
 
 
 class CreateReplicatorResponse(TypedDict, total=False):
-    ReplicatorArn: Optional[_string]
-    ReplicatorName: Optional[_string]
-    ReplicatorState: Optional[ReplicatorState]
+    ReplicatorArn: _string | None
+    ReplicatorName: _string | None
+    ReplicatorState: ReplicatorState | None
 
 
 class CreateVpcConnectionRequest(ServiceRequest):
@@ -915,85 +944,85 @@ class CreateVpcConnectionRequest(ServiceRequest):
     VpcId: _string
     ClientSubnets: _listOf__string
     SecurityGroups: _listOf__string
-    Tags: Optional[_mapOf__string]
+    Tags: _mapOf__string | None
 
 
 class CreateVpcConnectionResponse(TypedDict, total=False):
-    VpcConnectionArn: Optional[_string]
-    State: Optional[VpcConnectionState]
-    Authentication: Optional[_string]
-    VpcId: Optional[_string]
-    ClientSubnets: Optional[_listOf__string]
-    SecurityGroups: Optional[_listOf__string]
-    CreationTime: Optional[_timestampIso8601]
-    Tags: Optional[_mapOf__string]
+    VpcConnectionArn: _string | None
+    State: VpcConnectionState | None
+    Authentication: _string | None
+    VpcId: _string | None
+    ClientSubnets: _listOf__string | None
+    SecurityGroups: _listOf__string | None
+    CreationTime: _timestampIso8601 | None
+    Tags: _mapOf__string | None
 
 
 class VpcConnectionInfoServerless(TypedDict, total=False):
     """Description of the VPC connection."""
 
-    CreationTime: Optional[_timestampIso8601]
-    Owner: Optional[_string]
-    UserIdentity: Optional[UserIdentity]
-    VpcConnectionArn: Optional[_string]
+    CreationTime: _timestampIso8601 | None
+    Owner: _string | None
+    UserIdentity: UserIdentity | None
+    VpcConnectionArn: _string | None
 
 
 class ClusterOperationV2Serverless(TypedDict, total=False):
     """Returns information about a serverless cluster operation."""
 
-    VpcConnectionInfo: Optional[VpcConnectionInfoServerless]
+    VpcConnectionInfo: VpcConnectionInfoServerless | None
 
 
 class ClusterOperationV2Provisioned(TypedDict, total=False):
     """Returns information about a provisioned cluster operation."""
 
-    OperationSteps: Optional[_listOfClusterOperationStep]
-    SourceClusterInfo: Optional[MutableClusterInfo]
-    TargetClusterInfo: Optional[MutableClusterInfo]
-    VpcConnectionInfo: Optional[VpcConnectionInfo]
+    OperationSteps: _listOfClusterOperationStep | None
+    SourceClusterInfo: MutableClusterInfo | None
+    TargetClusterInfo: MutableClusterInfo | None
+    VpcConnectionInfo: VpcConnectionInfo | None
 
 
 class ClusterOperationV2(TypedDict, total=False):
     """Returns information about a cluster operation."""
 
-    ClusterArn: Optional[_string]
-    ClusterType: Optional[ClusterType]
-    StartTime: Optional[_timestampIso8601]
-    EndTime: Optional[_timestampIso8601]
-    ErrorInfo: Optional[ErrorInfo]
-    OperationArn: Optional[_string]
-    OperationState: Optional[_string]
-    OperationType: Optional[_string]
-    Provisioned: Optional[ClusterOperationV2Provisioned]
-    Serverless: Optional[ClusterOperationV2Serverless]
+    ClusterArn: _string | None
+    ClusterType: ClusterType | None
+    StartTime: _timestampIso8601 | None
+    EndTime: _timestampIso8601 | None
+    ErrorInfo: ErrorInfo | None
+    OperationArn: _string | None
+    OperationState: _string | None
+    OperationType: _string | None
+    Provisioned: ClusterOperationV2Provisioned | None
+    Serverless: ClusterOperationV2Serverless | None
 
 
 class ClusterOperationV2Summary(TypedDict, total=False):
     """Returns information about a cluster operation."""
 
-    ClusterArn: Optional[_string]
-    ClusterType: Optional[ClusterType]
-    StartTime: Optional[_timestampIso8601]
-    EndTime: Optional[_timestampIso8601]
-    OperationArn: Optional[_string]
-    OperationState: Optional[_string]
-    OperationType: Optional[_string]
+    ClusterArn: _string | None
+    ClusterType: ClusterType | None
+    StartTime: _timestampIso8601 | None
+    EndTime: _timestampIso8601 | None
+    OperationArn: _string | None
+    OperationState: _string | None
+    OperationType: _string | None
 
 
 class ControllerNodeInfo(TypedDict, total=False):
     """Controller node information."""
 
-    Endpoints: Optional[_listOf__string]
+    Endpoints: _listOf__string | None
 
 
 class DeleteClusterRequest(ServiceRequest):
     ClusterArn: _string
-    CurrentVersion: Optional[_string]
+    CurrentVersion: _string | None
 
 
 class DeleteClusterResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    State: Optional[ClusterState]
+    ClusterArn: _string | None
+    State: ClusterState | None
 
 
 class DeleteClusterPolicyRequest(ServiceRequest):
@@ -1009,18 +1038,18 @@ class DeleteConfigurationRequest(ServiceRequest):
 
 
 class DeleteConfigurationResponse(TypedDict, total=False):
-    Arn: Optional[_string]
-    State: Optional[ConfigurationState]
+    Arn: _string | None
+    State: ConfigurationState | None
 
 
 class DeleteReplicatorRequest(ServiceRequest):
-    CurrentVersion: Optional[_string]
+    CurrentVersion: _string | None
     ReplicatorArn: _string
 
 
 class DeleteReplicatorResponse(TypedDict, total=False):
-    ReplicatorArn: Optional[_string]
-    ReplicatorState: Optional[ReplicatorState]
+    ReplicatorArn: _string | None
+    ReplicatorState: ReplicatorState | None
 
 
 class DeleteVpcConnectionRequest(ServiceRequest):
@@ -1028,8 +1057,8 @@ class DeleteVpcConnectionRequest(ServiceRequest):
 
 
 class DeleteVpcConnectionResponse(TypedDict, total=False):
-    VpcConnectionArn: Optional[_string]
-    State: Optional[VpcConnectionState]
+    VpcConnectionArn: _string | None
+    State: VpcConnectionState | None
 
 
 class DescribeClusterOperationRequest(ServiceRequest):
@@ -1041,11 +1070,11 @@ class DescribeClusterOperationV2Request(ServiceRequest):
 
 
 class DescribeClusterOperationResponse(TypedDict, total=False):
-    ClusterOperationInfo: Optional[ClusterOperationInfo]
+    ClusterOperationInfo: ClusterOperationInfo | None
 
 
 class DescribeClusterOperationV2Response(TypedDict, total=False):
-    ClusterOperationInfo: Optional[ClusterOperationV2]
+    ClusterOperationInfo: ClusterOperationV2 | None
 
 
 class DescribeClusterRequest(ServiceRequest):
@@ -1057,11 +1086,11 @@ class DescribeClusterV2Request(ServiceRequest):
 
 
 class DescribeClusterResponse(TypedDict, total=False):
-    ClusterInfo: Optional[ClusterInfo]
+    ClusterInfo: ClusterInfo | None
 
 
 class DescribeClusterV2Response(TypedDict, total=False):
-    ClusterInfo: Optional[Cluster]
+    ClusterInfo: Cluster | None
 
 
 class DescribeConfigurationRequest(ServiceRequest):
@@ -1069,13 +1098,13 @@ class DescribeConfigurationRequest(ServiceRequest):
 
 
 class DescribeConfigurationResponse(TypedDict, total=False):
-    Arn: Optional[_string]
-    CreationTime: Optional[_timestampIso8601]
-    Description: Optional[_string]
-    KafkaVersions: Optional[_listOf__string]
-    LatestRevision: Optional[ConfigurationRevision]
-    Name: Optional[_string]
-    State: Optional[ConfigurationState]
+    Arn: _string | None
+    CreationTime: _timestampIso8601 | None
+    Description: _string | None
+    KafkaVersions: _listOf__string | None
+    LatestRevision: ConfigurationRevision | None
+    Name: _string | None
+    State: ConfigurationState | None
 
 
 class DescribeConfigurationRevisionRequest(ServiceRequest):
@@ -1084,11 +1113,52 @@ class DescribeConfigurationRevisionRequest(ServiceRequest):
 
 
 class DescribeConfigurationRevisionResponse(TypedDict, total=False):
-    Arn: Optional[_string]
-    CreationTime: Optional[_timestampIso8601]
-    Description: Optional[_string]
-    Revision: Optional[_long]
-    ServerProperties: Optional[_blob]
+    Arn: _string | None
+    CreationTime: _timestampIso8601 | None
+    Description: _string | None
+    Revision: _long | None
+    ServerProperties: _blob | None
+
+
+class DescribeTopicRequest(ServiceRequest):
+    ClusterArn: _string
+    TopicName: _string
+
+
+class DescribeTopicPartitionsRequest(ServiceRequest):
+    ClusterArn: _string
+    TopicName: _string
+    MaxResults: MaxResults | None
+    NextToken: _string | None
+
+
+class DescribeTopicResponse(TypedDict, total=False):
+    TopicArn: _string | None
+    TopicName: _string | None
+    ReplicationFactor: _integer | None
+    PartitionCount: _integer | None
+    Configs: _string | None
+    Status: TopicState | None
+
+
+_listOf__integer = list[_integer]
+
+
+class TopicPartitionInfo(TypedDict, total=False):
+    """Contains information about a topic partition."""
+
+    Partition: _integer | None
+    Leader: _integer | None
+    Replicas: _listOf__integer | None
+    Isr: _listOf__integer | None
+
+
+_listOfTopicPartitionInfo = list[TopicPartitionInfo]
+
+
+class DescribeTopicPartitionsResponse(TypedDict, total=False):
+    Partitions: _listOfTopicPartitionInfo | None
+    NextToken: _string | None
 
 
 class DescribeVpcConnectionRequest(ServiceRequest):
@@ -1102,8 +1172,8 @@ class DescribeReplicatorRequest(ServiceRequest):
 class ReplicationStateInfo(TypedDict, total=False):
     """Details about the state of a replicator"""
 
-    Code: Optional[_string]
-    Message: Optional[_string]
+    Code: _string | None
+    Message: _string | None
 
 
 class ReplicationInfoDescription(TypedDict, total=False):
@@ -1111,53 +1181,53 @@ class ReplicationInfoDescription(TypedDict, total=False):
     Kafka cluster (sourceKafkaClusterAlias -> targetKafkaClusterAlias)
     """
 
-    ConsumerGroupReplication: Optional[ConsumerGroupReplication]
-    SourceKafkaClusterAlias: Optional[_string]
-    TargetCompressionType: Optional[TargetCompressionType]
-    TargetKafkaClusterAlias: Optional[_string]
-    TopicReplication: Optional[TopicReplication]
+    ConsumerGroupReplication: ConsumerGroupReplication | None
+    SourceKafkaClusterAlias: _string | None
+    TargetCompressionType: TargetCompressionType | None
+    TargetKafkaClusterAlias: _string | None
+    TopicReplication: TopicReplication | None
 
 
-_listOfReplicationInfoDescription = List[ReplicationInfoDescription]
+_listOfReplicationInfoDescription = list[ReplicationInfoDescription]
 
 
 class KafkaClusterDescription(TypedDict, total=False):
     """Information about Kafka Cluster used as source / target for replication."""
 
-    AmazonMskCluster: Optional[AmazonMskCluster]
-    KafkaClusterAlias: Optional[_string]
-    VpcConfig: Optional[KafkaClusterClientVpcConfig]
+    AmazonMskCluster: AmazonMskCluster | None
+    KafkaClusterAlias: _string | None
+    VpcConfig: KafkaClusterClientVpcConfig | None
 
 
-_listOfKafkaClusterDescription = List[KafkaClusterDescription]
+_listOfKafkaClusterDescription = list[KafkaClusterDescription]
 
 
 class DescribeReplicatorResponse(TypedDict, total=False):
-    CreationTime: Optional[_timestampIso8601]
-    CurrentVersion: Optional[_string]
-    IsReplicatorReference: Optional[_boolean]
-    KafkaClusters: Optional[_listOfKafkaClusterDescription]
-    ReplicationInfoList: Optional[_listOfReplicationInfoDescription]
-    ReplicatorArn: Optional[_string]
-    ReplicatorDescription: Optional[_string]
-    ReplicatorName: Optional[_string]
-    ReplicatorResourceArn: Optional[_string]
-    ReplicatorState: Optional[ReplicatorState]
-    ServiceExecutionRoleArn: Optional[_string]
-    StateInfo: Optional[ReplicationStateInfo]
-    Tags: Optional[_mapOf__string]
+    CreationTime: _timestampIso8601 | None
+    CurrentVersion: _string | None
+    IsReplicatorReference: _boolean | None
+    KafkaClusters: _listOfKafkaClusterDescription | None
+    ReplicationInfoList: _listOfReplicationInfoDescription | None
+    ReplicatorArn: _string | None
+    ReplicatorDescription: _string | None
+    ReplicatorName: _string | None
+    ReplicatorResourceArn: _string | None
+    ReplicatorState: ReplicatorState | None
+    ServiceExecutionRoleArn: _string | None
+    StateInfo: ReplicationStateInfo | None
+    Tags: _mapOf__string | None
 
 
 class DescribeVpcConnectionResponse(TypedDict, total=False):
-    VpcConnectionArn: Optional[_string]
-    TargetClusterArn: Optional[_string]
-    State: Optional[VpcConnectionState]
-    Authentication: Optional[_string]
-    VpcId: Optional[_string]
-    Subnets: Optional[_listOf__string]
-    SecurityGroups: Optional[_listOf__string]
-    CreationTime: Optional[_timestampIso8601]
-    Tags: Optional[_mapOf__string]
+    VpcConnectionArn: _string | None
+    TargetClusterArn: _string | None
+    State: VpcConnectionState | None
+    Authentication: _string | None
+    VpcId: _string | None
+    Subnets: _listOf__string | None
+    SecurityGroups: _listOf__string | None
+    CreationTime: _timestampIso8601 | None
+    Tags: _mapOf__string | None
 
 
 class BatchDisassociateScramSecretRequest(ServiceRequest):
@@ -1168,15 +1238,15 @@ class BatchDisassociateScramSecretRequest(ServiceRequest):
 
 
 class BatchDisassociateScramSecretResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    UnprocessedScramSecrets: Optional[_listOfUnprocessedScramSecret]
+    ClusterArn: _string | None
+    UnprocessedScramSecrets: _listOfUnprocessedScramSecret | None
 
 
 class Error(TypedDict, total=False):
     """Returns information about an error."""
 
-    InvalidParameter: Optional[_string]
-    Message: Optional[_string]
+    InvalidParameter: _string | None
+    Message: _string | None
 
 
 class GetBootstrapBrokersRequest(ServiceRequest):
@@ -1184,27 +1254,27 @@ class GetBootstrapBrokersRequest(ServiceRequest):
 
 
 class GetBootstrapBrokersResponse(TypedDict, total=False):
-    BootstrapBrokerString: Optional[_string]
-    BootstrapBrokerStringTls: Optional[_string]
-    BootstrapBrokerStringSaslScram: Optional[_string]
-    BootstrapBrokerStringSaslIam: Optional[_string]
-    BootstrapBrokerStringPublicTls: Optional[_string]
-    BootstrapBrokerStringPublicSaslScram: Optional[_string]
-    BootstrapBrokerStringPublicSaslIam: Optional[_string]
-    BootstrapBrokerStringVpcConnectivityTls: Optional[_string]
-    BootstrapBrokerStringVpcConnectivitySaslScram: Optional[_string]
-    BootstrapBrokerStringVpcConnectivitySaslIam: Optional[_string]
+    BootstrapBrokerString: _string | None
+    BootstrapBrokerStringTls: _string | None
+    BootstrapBrokerStringSaslScram: _string | None
+    BootstrapBrokerStringSaslIam: _string | None
+    BootstrapBrokerStringPublicTls: _string | None
+    BootstrapBrokerStringPublicSaslScram: _string | None
+    BootstrapBrokerStringPublicSaslIam: _string | None
+    BootstrapBrokerStringVpcConnectivityTls: _string | None
+    BootstrapBrokerStringVpcConnectivitySaslScram: _string | None
+    BootstrapBrokerStringVpcConnectivitySaslIam: _string | None
 
 
 class GetCompatibleKafkaVersionsRequest(ServiceRequest):
-    ClusterArn: Optional[_string]
+    ClusterArn: _string | None
 
 
-_listOfCompatibleKafkaVersion = List[CompatibleKafkaVersion]
+_listOfCompatibleKafkaVersion = list[CompatibleKafkaVersion]
 
 
 class GetCompatibleKafkaVersionsResponse(TypedDict, total=False):
-    CompatibleKafkaVersions: Optional[_listOfCompatibleKafkaVersion]
+    CompatibleKafkaVersions: _listOfCompatibleKafkaVersion | None
 
 
 class GetClusterPolicyRequest(ServiceRequest):
@@ -1212,8 +1282,8 @@ class GetClusterPolicyRequest(ServiceRequest):
 
 
 class GetClusterPolicyResponse(TypedDict, total=False):
-    CurrentVersion: Optional[_string]
-    Policy: Optional[_string]
+    CurrentVersion: _string | None
+    Policy: _string | None
 
 
 class KafkaClusterSummary(TypedDict, total=False):
@@ -1221,196 +1291,196 @@ class KafkaClusterSummary(TypedDict, total=False):
     replication.
     """
 
-    AmazonMskCluster: Optional[AmazonMskCluster]
-    KafkaClusterAlias: Optional[_string]
+    AmazonMskCluster: AmazonMskCluster | None
+    KafkaClusterAlias: _string | None
 
 
 class KafkaVersion(TypedDict, total=False):
-    Version: Optional[_string]
-    Status: Optional[KafkaVersionStatus]
+    Version: _string | None
+    Status: KafkaVersionStatus | None
 
 
 class ListClusterOperationsRequest(ServiceRequest):
     ClusterArn: _string
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
 class ListClusterOperationsV2Request(ServiceRequest):
     ClusterArn: _string
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
-_listOfClusterOperationInfo = List[ClusterOperationInfo]
+_listOfClusterOperationInfo = list[ClusterOperationInfo]
 
 
 class ListClusterOperationsResponse(TypedDict, total=False):
-    ClusterOperationInfoList: Optional[_listOfClusterOperationInfo]
-    NextToken: Optional[_string]
+    ClusterOperationInfoList: _listOfClusterOperationInfo | None
+    NextToken: _string | None
 
 
-_listOfClusterOperationV2Summary = List[ClusterOperationV2Summary]
+_listOfClusterOperationV2Summary = list[ClusterOperationV2Summary]
 
 
 class ListClusterOperationsV2Response(TypedDict, total=False):
-    ClusterOperationInfoList: Optional[_listOfClusterOperationV2Summary]
-    NextToken: Optional[_string]
+    ClusterOperationInfoList: _listOfClusterOperationV2Summary | None
+    NextToken: _string | None
 
 
 class ListClustersRequest(ServiceRequest):
-    ClusterNameFilter: Optional[_string]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    ClusterNameFilter: _string | None
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
 class ListClustersV2Request(ServiceRequest):
-    ClusterNameFilter: Optional[_string]
-    ClusterTypeFilter: Optional[_string]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    ClusterNameFilter: _string | None
+    ClusterTypeFilter: _string | None
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
-_listOfClusterInfo = List[ClusterInfo]
+_listOfClusterInfo = list[ClusterInfo]
 
 
 class ListClustersResponse(TypedDict, total=False):
-    ClusterInfoList: Optional[_listOfClusterInfo]
-    NextToken: Optional[_string]
+    ClusterInfoList: _listOfClusterInfo | None
+    NextToken: _string | None
 
 
-_listOfCluster = List[Cluster]
+_listOfCluster = list[Cluster]
 
 
 class ListClustersV2Response(TypedDict, total=False):
-    ClusterInfoList: Optional[_listOfCluster]
-    NextToken: Optional[_string]
+    ClusterInfoList: _listOfCluster | None
+    NextToken: _string | None
 
 
 class ListConfigurationRevisionsRequest(ServiceRequest):
     Arn: _string
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
-_listOfConfigurationRevision = List[ConfigurationRevision]
+_listOfConfigurationRevision = list[ConfigurationRevision]
 
 
 class ListConfigurationRevisionsResponse(TypedDict, total=False):
-    NextToken: Optional[_string]
-    Revisions: Optional[_listOfConfigurationRevision]
+    NextToken: _string | None
+    Revisions: _listOfConfigurationRevision | None
 
 
 class ListConfigurationsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
-_listOfConfiguration = List[Configuration]
+_listOfConfiguration = list[Configuration]
 
 
 class ListConfigurationsResponse(TypedDict, total=False):
-    Configurations: Optional[_listOfConfiguration]
-    NextToken: Optional[_string]
+    Configurations: _listOfConfiguration | None
+    NextToken: _string | None
 
 
 class ListKafkaVersionsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
-_listOfKafkaVersion = List[KafkaVersion]
+_listOfKafkaVersion = list[KafkaVersion]
 
 
 class ListKafkaVersionsResponse(TypedDict, total=False):
-    KafkaVersions: Optional[_listOfKafkaVersion]
-    NextToken: Optional[_string]
+    KafkaVersions: _listOfKafkaVersion | None
+    NextToken: _string | None
 
 
 class ListNodesRequest(ServiceRequest):
     ClusterArn: _string
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
 class ZookeeperNodeInfo(TypedDict, total=False):
     """Zookeeper node information."""
 
-    AttachedENIId: Optional[_string]
-    ClientVpcIpAddress: Optional[_string]
-    Endpoints: Optional[_listOf__string]
-    ZookeeperId: Optional[_double]
-    ZookeeperVersion: Optional[_string]
+    AttachedENIId: _string | None
+    ClientVpcIpAddress: _string | None
+    Endpoints: _listOf__string | None
+    ZookeeperId: _double | None
+    ZookeeperVersion: _string | None
 
 
 class NodeInfo(TypedDict, total=False):
     """The node information object."""
 
-    AddedToClusterTime: Optional[_string]
-    BrokerNodeInfo: Optional[BrokerNodeInfo]
-    ControllerNodeInfo: Optional[ControllerNodeInfo]
-    InstanceType: Optional[_string]
-    NodeARN: Optional[_string]
-    NodeType: Optional[NodeType]
-    ZookeeperNodeInfo: Optional[ZookeeperNodeInfo]
+    AddedToClusterTime: _string | None
+    BrokerNodeInfo: BrokerNodeInfo | None
+    ControllerNodeInfo: ControllerNodeInfo | None
+    InstanceType: _string | None
+    NodeARN: _string | None
+    NodeType: NodeType | None
+    ZookeeperNodeInfo: ZookeeperNodeInfo | None
 
 
-_listOfNodeInfo = List[NodeInfo]
+_listOfNodeInfo = list[NodeInfo]
 
 
 class ListNodesResponse(TypedDict, total=False):
-    NextToken: Optional[_string]
-    NodeInfoList: Optional[_listOfNodeInfo]
+    NextToken: _string | None
+    NodeInfoList: _listOfNodeInfo | None
 
 
 class ListReplicatorsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
-    ReplicatorNameFilter: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
+    ReplicatorNameFilter: _string | None
 
 
 class ReplicationInfoSummary(TypedDict, total=False):
     """Summarized information of replication between clusters."""
 
-    SourceKafkaClusterAlias: Optional[_string]
-    TargetKafkaClusterAlias: Optional[_string]
+    SourceKafkaClusterAlias: _string | None
+    TargetKafkaClusterAlias: _string | None
 
 
-_listOfReplicationInfoSummary = List[ReplicationInfoSummary]
-_listOfKafkaClusterSummary = List[KafkaClusterSummary]
+_listOfReplicationInfoSummary = list[ReplicationInfoSummary]
+_listOfKafkaClusterSummary = list[KafkaClusterSummary]
 
 
 class ReplicatorSummary(TypedDict, total=False):
     """Information about a replicator."""
 
-    CreationTime: Optional[_timestampIso8601]
-    CurrentVersion: Optional[_string]
-    IsReplicatorReference: Optional[_boolean]
-    KafkaClustersSummary: Optional[_listOfKafkaClusterSummary]
-    ReplicationInfoSummaryList: Optional[_listOfReplicationInfoSummary]
-    ReplicatorArn: Optional[_string]
-    ReplicatorName: Optional[_string]
-    ReplicatorResourceArn: Optional[_string]
-    ReplicatorState: Optional[ReplicatorState]
+    CreationTime: _timestampIso8601 | None
+    CurrentVersion: _string | None
+    IsReplicatorReference: _boolean | None
+    KafkaClustersSummary: _listOfKafkaClusterSummary | None
+    ReplicationInfoSummaryList: _listOfReplicationInfoSummary | None
+    ReplicatorArn: _string | None
+    ReplicatorName: _string | None
+    ReplicatorResourceArn: _string | None
+    ReplicatorState: ReplicatorState | None
 
 
-_listOfReplicatorSummary = List[ReplicatorSummary]
+_listOfReplicatorSummary = list[ReplicatorSummary]
 
 
 class ListReplicatorsResponse(TypedDict, total=False):
-    NextToken: Optional[_string]
-    Replicators: Optional[_listOfReplicatorSummary]
+    NextToken: _string | None
+    Replicators: _listOfReplicatorSummary | None
 
 
 class ListScramSecretsRequest(ServiceRequest):
     ClusterArn: _string
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
 class ListScramSecretsResponse(TypedDict, total=False):
-    NextToken: Optional[_string]
-    SecretArnList: Optional[_listOf__string]
+    NextToken: _string | None
+    SecretArnList: _listOf__string | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -1418,34 +1488,59 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[_mapOf__string]
+    Tags: _mapOf__string | None
 
 
 class ListClientVpcConnectionsRequest(ServiceRequest):
     ClusterArn: _string
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
-_listOfClientVpcConnection = List[ClientVpcConnection]
+_listOfClientVpcConnection = list[ClientVpcConnection]
 
 
 class ListClientVpcConnectionsResponse(TypedDict, total=False):
-    ClientVpcConnections: Optional[_listOfClientVpcConnection]
-    NextToken: Optional[_string]
+    ClientVpcConnections: _listOfClientVpcConnection | None
+    NextToken: _string | None
+
+
+class ListTopicsRequest(ServiceRequest):
+    ClusterArn: _string
+    MaxResults: MaxResults | None
+    NextToken: _string | None
+    TopicNameFilter: _string | None
+
+
+class TopicInfo(TypedDict, total=False):
+    """Includes identification info about the topic."""
+
+    TopicArn: _string | None
+    TopicName: _string | None
+    ReplicationFactor: _integer | None
+    PartitionCount: _integer | None
+    OutOfSyncReplicaCount: _integer | None
+
+
+_listOfTopicInfo = list[TopicInfo]
+
+
+class ListTopicsResponse(TypedDict, total=False):
+    Topics: _listOfTopicInfo | None
+    NextToken: _string | None
 
 
 class ListVpcConnectionsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
-_listOfVpcConnection = List[VpcConnection]
+_listOfVpcConnection = list[VpcConnection]
 
 
 class ListVpcConnectionsResponse(TypedDict, total=False):
-    VpcConnections: Optional[_listOfVpcConnection]
-    NextToken: Optional[_string]
+    VpcConnections: _listOfVpcConnection | None
+    NextToken: _string | None
 
 
 class RejectClientVpcConnectionRequest(ServiceRequest):
@@ -1459,12 +1554,12 @@ class RejectClientVpcConnectionResponse(TypedDict, total=False):
 
 class PutClusterPolicyRequest(ServiceRequest):
     ClusterArn: _string
-    CurrentVersion: Optional[_string]
+    CurrentVersion: _string | None
     Policy: _string
 
 
 class PutClusterPolicyResponse(TypedDict, total=False):
-    CurrentVersion: Optional[_string]
+    CurrentVersion: _string | None
 
 
 class RebootBrokerRequest(ServiceRequest):
@@ -1475,8 +1570,8 @@ class RebootBrokerRequest(ServiceRequest):
 
 
 class RebootBrokerResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    ClusterOperationArn: Optional[_string]
+    ClusterArn: _string | None
+    ClusterOperationArn: _string | None
 
 
 class TagResourceRequest(ServiceRequest):
@@ -1506,8 +1601,8 @@ class UpdateBrokerCountRequest(ServiceRequest):
 
 
 class UpdateBrokerCountResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    ClusterOperationArn: Optional[_string]
+    ClusterArn: _string | None
+    ClusterOperationArn: _string | None
 
 
 class UpdateBrokerTypeRequest(ServiceRequest):
@@ -1517,8 +1612,8 @@ class UpdateBrokerTypeRequest(ServiceRequest):
 
 
 class UpdateBrokerTypeResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    ClusterOperationArn: Optional[_string]
+    ClusterArn: _string | None
+    ClusterOperationArn: _string | None
 
 
 class UpdateBrokerStorageRequest(ServiceRequest):
@@ -1528,8 +1623,8 @@ class UpdateBrokerStorageRequest(ServiceRequest):
 
 
 class UpdateBrokerStorageResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    ClusterOperationArn: Optional[_string]
+    ClusterArn: _string | None
+    ClusterOperationArn: _string | None
 
 
 class UpdateClusterConfigurationRequest(ServiceRequest):
@@ -1539,20 +1634,20 @@ class UpdateClusterConfigurationRequest(ServiceRequest):
 
 
 class UpdateClusterConfigurationResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    ClusterOperationArn: Optional[_string]
+    ClusterArn: _string | None
+    ClusterOperationArn: _string | None
 
 
 class UpdateClusterKafkaVersionRequest(ServiceRequest):
     ClusterArn: _string
-    ConfigurationInfo: Optional[ConfigurationInfo]
+    ConfigurationInfo: ConfigurationInfo | None
     CurrentVersion: _string
     TargetKafkaVersion: _string
 
 
 class UpdateClusterKafkaVersionResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    ClusterOperationArn: Optional[_string]
+    ClusterArn: _string | None
+    ClusterOperationArn: _string | None
 
 
 class UpdateMonitoringRequest(ServiceRequest):
@@ -1560,14 +1655,25 @@ class UpdateMonitoringRequest(ServiceRequest):
 
     ClusterArn: _string
     CurrentVersion: _string
-    EnhancedMonitoring: Optional[EnhancedMonitoring]
-    OpenMonitoring: Optional[OpenMonitoringInfo]
-    LoggingInfo: Optional[LoggingInfo]
+    EnhancedMonitoring: EnhancedMonitoring | None
+    OpenMonitoring: OpenMonitoringInfo | None
+    LoggingInfo: LoggingInfo | None
 
 
 class UpdateMonitoringResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    ClusterOperationArn: Optional[_string]
+    ClusterArn: _string | None
+    ClusterOperationArn: _string | None
+
+
+class UpdateRebalancingRequest(ServiceRequest):
+    ClusterArn: _string
+    CurrentVersion: _string
+    Rebalancing: Rebalancing
+
+
+class UpdateRebalancingResponse(TypedDict, total=False):
+    ClusterArn: _string | None
+    ClusterOperationArn: _string | None
 
 
 class UpdateReplicationInfoRequest(ServiceRequest):
@@ -1575,29 +1681,29 @@ class UpdateReplicationInfoRequest(ServiceRequest):
     target Kafka cluster.
     """
 
-    ConsumerGroupReplication: Optional[ConsumerGroupReplicationUpdate]
+    ConsumerGroupReplication: ConsumerGroupReplicationUpdate | None
     CurrentVersion: _string
     ReplicatorArn: _string
     SourceKafkaClusterArn: _string
     TargetKafkaClusterArn: _string
-    TopicReplication: Optional[TopicReplicationUpdate]
+    TopicReplication: TopicReplicationUpdate | None
 
 
 class UpdateReplicationInfoResponse(TypedDict, total=False):
-    ReplicatorArn: Optional[_string]
-    ReplicatorState: Optional[ReplicatorState]
+    ReplicatorArn: _string | None
+    ReplicatorState: ReplicatorState | None
 
 
 class UpdateSecurityRequest(ServiceRequest):
-    ClientAuthentication: Optional[ClientAuthentication]
+    ClientAuthentication: ClientAuthentication | None
     ClusterArn: _string
     CurrentVersion: _string
-    EncryptionInfo: Optional[EncryptionInfo]
+    EncryptionInfo: EncryptionInfo | None
 
 
 class UpdateSecurityResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    ClusterOperationArn: Optional[_string]
+    ClusterArn: _string | None
+    ClusterOperationArn: _string | None
 
 
 class UpdateStorageRequest(ServiceRequest):
@@ -1607,25 +1713,25 @@ class UpdateStorageRequest(ServiceRequest):
 
     ClusterArn: _string
     CurrentVersion: _string
-    ProvisionedThroughput: Optional[ProvisionedThroughput]
-    StorageMode: Optional[StorageMode]
-    VolumeSizeGB: Optional[_integer]
+    ProvisionedThroughput: ProvisionedThroughput | None
+    StorageMode: StorageMode | None
+    VolumeSizeGB: _integer | None
 
 
 class UpdateStorageResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    ClusterOperationArn: Optional[_string]
+    ClusterArn: _string | None
+    ClusterOperationArn: _string | None
 
 
 class UpdateConfigurationRequest(ServiceRequest):
     Arn: _string
-    Description: Optional[_string]
+    Description: _string | None
     ServerProperties: _blob
 
 
 class UpdateConfigurationResponse(TypedDict, total=False):
-    Arn: Optional[_string]
-    LatestRevision: Optional[ConfigurationRevision]
+    Arn: _string | None
+    LatestRevision: ConfigurationRevision | None
 
 
 class UpdateConnectivityRequest(ServiceRequest):
@@ -1637,16 +1743,16 @@ class UpdateConnectivityRequest(ServiceRequest):
 
 
 class UpdateConnectivityResponse(TypedDict, total=False):
-    ClusterArn: Optional[_string]
-    ClusterOperationArn: Optional[_string]
+    ClusterArn: _string | None
+    ClusterOperationArn: _string | None
 
 
 _timestampUnix = datetime
 
 
 class KafkaApi:
-    service = "kafka"
-    version = "2018-11-14"
+    service: str = "kafka"
+    version: str = "2018-11-14"
 
     @handler("BatchAssociateScramSecret")
     def batch_associate_scram_secret(
@@ -1679,6 +1785,7 @@ class KafkaApi:
         kafka_version: _stringMin1Max128,
         number_of_broker_nodes: _integerMin1Max15,
         cluster_name: _stringMin1Max64,
+        rebalancing: Rebalancing | None = None,
         client_authentication: ClientAuthentication | None = None,
         configuration_info: ConfigurationInfo | None = None,
         encryption_info: EncryptionInfo | None = None,
@@ -1695,6 +1802,8 @@ class KafkaApi:
         :param kafka_version: The version of Apache Kafka.
         :param number_of_broker_nodes: The number of broker nodes in the cluster.
         :param cluster_name: The name of the cluster.
+        :param rebalancing: Specifies if intelligent rebalancing should be turned on for the new MSK
+        Provisioned cluster with Express brokers.
         :param client_authentication: Includes all client authentication related information.
         :param configuration_info: Represents the configuration that you want MSK to use for the brokers in
         a cluster.
@@ -2047,6 +2156,48 @@ class KafkaApi:
         :raises NotFoundException:
         :raises ServiceUnavailableException:
         :raises TooManyRequestsException:
+        """
+        raise NotImplementedError
+
+    @handler("DescribeTopic")
+    def describe_topic(
+        self, context: RequestContext, cluster_arn: _string, topic_name: _string, **kwargs
+    ) -> DescribeTopicResponse:
+        """Returns topic details of this topic on a MSK cluster.
+
+        :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
+        :param topic_name: The Kafka topic name that uniquely identifies the topic.
+        :returns: DescribeTopicResponse
+        :raises BadRequestException:
+        :raises UnauthorizedException:
+        :raises InternalServerErrorException:
+        :raises ForbiddenException:
+        :raises NotFoundException:
+        """
+        raise NotImplementedError
+
+    @handler("DescribeTopicPartitions")
+    def describe_topic_partitions(
+        self,
+        context: RequestContext,
+        cluster_arn: _string,
+        topic_name: _string,
+        max_results: MaxResults | None = None,
+        next_token: _string | None = None,
+        **kwargs,
+    ) -> DescribeTopicPartitionsResponse:
+        """Returns partition details of this topic on a MSK cluster.
+
+        :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
+        :param topic_name: The Kafka topic name that uniquely identifies the topic.
+        :param max_results: The maximum number of results to return in the response.
+        :param next_token: The paginated results marker.
+        :returns: DescribeTopicPartitionsResponse
+        :raises BadRequestException:
+        :raises UnauthorizedException:
+        :raises InternalServerErrorException:
+        :raises ForbiddenException:
+        :raises NotFoundException:
         """
         raise NotImplementedError
 
@@ -2419,6 +2570,31 @@ class KafkaApi:
         """
         raise NotImplementedError
 
+    @handler("ListTopics")
+    def list_topics(
+        self,
+        context: RequestContext,
+        cluster_arn: _string,
+        max_results: MaxResults | None = None,
+        next_token: _string | None = None,
+        topic_name_filter: _string | None = None,
+        **kwargs,
+    ) -> ListTopicsResponse:
+        """List topics in a MSK cluster.
+
+        :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
+        :param max_results: The maximum number of results to return in the response.
+        :param next_token: The paginated results marker.
+        :param topic_name_filter: Returns topics starting with given name.
+        :returns: ListTopicsResponse
+        :raises ServiceUnavailableException:
+        :raises BadRequestException:
+        :raises UnauthorizedException:
+        :raises InternalServerErrorException:
+        :raises ForbiddenException:
+        """
+        raise NotImplementedError
+
     @handler("ListVpcConnections")
     def list_vpc_connections(
         self,
@@ -2733,6 +2909,33 @@ class KafkaApi:
         :raises UnauthorizedException:
         :raises InternalServerErrorException:
         :raises ForbiddenException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateRebalancing")
+    def update_rebalancing(
+        self,
+        context: RequestContext,
+        cluster_arn: _string,
+        current_version: _string,
+        rebalancing: Rebalancing,
+        **kwargs,
+    ) -> UpdateRebalancingResponse:
+        """Use this resource to update the intelligent rebalancing status of an
+        Amazon MSK Provisioned cluster with Express brokers.
+
+        :param cluster_arn: The Amazon Resource Name (ARN) of the cluster.
+        :param current_version: The current version of the cluster.
+        :param rebalancing: Specifies if intelligent rebalancing should be turned on for your
+        cluster.
+        :returns: UpdateRebalancingResponse
+        :raises BadRequestException:
+        :raises UnauthorizedException:
+        :raises InternalServerErrorException:
+        :raises ForbiddenException:
+        :raises NotFoundException:
+        :raises ServiceUnavailableException:
+        :raises TooManyRequestsException:
         """
         raise NotImplementedError
 

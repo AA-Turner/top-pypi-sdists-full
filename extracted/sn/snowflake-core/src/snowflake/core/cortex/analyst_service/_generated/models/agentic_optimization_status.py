@@ -24,3 +24,6 @@ class AgenticOptimizationStatus(str, Enum):
     """
     allowed enum values
     """
+
+
+AgenticOptimizationStatusModel = AgenticOptimizationStatus

@@ -2,21 +2,24 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from datetime import datetime
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from pymatgen.core import Structure
 from pymatgen.core.structure import Molecule
 
-from emmet.core.common import convert_datetime
+from emmet.core.base import EmmetBaseModel
 from emmet.core.mpid import MPID, MPculeID
 from emmet.core.structure import MoleculeMetadata, StructureMetadata
-from emmet.core.utils import utcnow
-from emmet.core.vasp.validation import DeprecationMessage
+from emmet.core.types.enums import DeprecationMessage
+from emmet.core.types.pymatgen_types.structure_adapter import (
+    MoleculeType,
+    StructureType,
+)
+from emmet.core.types.typing import DateTimeType, IdentifierType
 
 if TYPE_CHECKING:
+
     from typing_extensions import Self
 
 
@@ -26,71 +29,41 @@ class PropertyOrigin(BaseModel):
     """
 
     name: str = Field(..., description="The property name")
-    task_id: MPID | MPculeID = Field(
-        ..., description="The calculation ID this property comes from"
+    task_id: IdentifierType = Field(
+        ..., description="The calculation ID this property comes from."
     )
-    last_updated: datetime = Field(  # type: ignore
+    last_updated: DateTimeType = Field(  # type: ignore
         description="The timestamp when this calculation was last updated",
-        default_factory=utcnow,
     )
 
-    @field_validator("last_updated", mode="before")
-    @classmethod
-    def handle_datetime(cls, v):
-        return convert_datetime(cls, v)
 
-
-class MaterialsDoc(StructureMetadata):
+class BasePropertyMetadata(StructureMetadata, EmmetBaseModel):
     """
-    Definition for a core Materials Document
+    Base model definition for a single material property.
+
+    This may contain any amount of structure metadata for the
+    purpose of search. This is intended to be inherited and
+    extended, not used directly
     """
 
-    material_id: MPID | None = Field(
+    material_id: IdentifierType | None = Field(
         None,
         description="The Materials Project ID of the material, used as a universal reference across property documents."
         "This comes in the form: mp-******.",
     )
 
-    structure: Structure = Field(
-        ...,
-        description="The structure of the this material.",
-    )
-
     deprecated: bool = Field(
         True,
-        description="Whether this materials document is deprecated.",
+        description="Whether this property document is deprecated.",
     )
 
     deprecation_reasons: list[DeprecationMessage | str] | None = Field(
         None,
-        description="List of deprecation tags detailing why this materials document isn't valid.",
+        description="List of deprecation tags detailing why this document isn't valid.",
     )
 
-    initial_structures: list[Structure] = Field(
-        [],
-        description="Initial structures used in the DFT optimizations corresponding to this material.",
-    )
-
-    task_ids: list[MPID] = Field(
-        [],
-        description="List of Calculations IDs used to make this Materials Document.",
-    )
-
-    deprecated_tasks: list[str] = Field([], title="Deprecated Tasks")
-
-    calc_types: Mapping[str, str] | None = Field(
-        None,
-        description="Calculation types for all the calculations that make up this material.",
-    )
-
-    last_updated: datetime = Field(
-        description="Timestamp for when this document was last updated.",
-        default_factory=utcnow,
-    )
-
-    created_at: datetime = Field(
-        description="Timestamp for when this material document was first created.",
-        default_factory=utcnow,
+    last_updated: DateTimeType = Field(
+        description="Timestamp for the most recent calculation update for this property.",
     )
 
     origins: list[PropertyOrigin] | None = Field(
@@ -98,31 +71,64 @@ class MaterialsDoc(StructureMetadata):
     )
 
     warnings: list[str] = Field(
-        [], description="Any warnings related to this material."
+        [], description="Any warnings related to this property."
+    )
+
+    structure: StructureType | None = Field(
+        ...,
+        description="The structure of the this material.",
     )
 
     @classmethod
-    def from_structure(
-        cls, structure: Structure, material_id: MPID | None = None, **kwargs
-    ) -> Self:  # type: ignore[override]
+    def from_structure(  # type: ignore[override]
+        cls,
+        meta_structure: Structure,
+        material_id: IdentifierType | None = None,
+        **kwargs,
+    ) -> Self:
         """
-        Builds a materials document using the minimal amount of information
+        Builds a materials document using a minimal amount of information.
+
+        Note that structure is stored as a private attr, and will not
+        be included in `PropertyDoc().model_dump()`
         """
 
-        return super().from_structure(  # type: ignore
-            meta_structure=structure,
+        return super().from_structure(
+            meta_structure=meta_structure,
+            structure=meta_structure,
             material_id=material_id,
-            structure=structure,
             **kwargs,
-        )
-
-    @field_validator("last_updated", "created_at", mode="before")
-    @classmethod
-    def handle_datetime(cls, v):
-        return convert_datetime(cls, v)
+        )  # type: ignore
 
 
-class CoreMoleculeDoc(MoleculeMetadata):
+class MaterialsDoc(BasePropertyMetadata):
+    """
+    Definition for a core Materials Document
+    """
+
+    initial_structures: list[StructureType] = Field(
+        [],
+        description="Initial structures used in the DFT optimizations corresponding to this material.",
+    )
+
+    task_ids: list[IdentifierType] = Field(
+        [],
+        description="List of Calculations IDs used to make this Materials Document.",
+    )
+
+    deprecated_tasks: list[str] = Field([], title="Deprecated Tasks")
+
+    calc_types: dict[str, str] | None = Field(
+        None,
+        description="Calculation types for all the calculations that make up this material.",
+    )
+
+    created_at: DateTimeType = Field(
+        description="Timestamp for when this material document was first created.",
+    )
+
+
+class CoreMoleculeDoc(MoleculeMetadata, EmmetBaseModel):
     """
     Definition for a core Molecule Document
     """
@@ -134,7 +140,7 @@ class CoreMoleculeDoc(MoleculeMetadata):
         "This comes in the form of an MPID (or int) or MPculeID (or str)",
     )
 
-    molecule: Molecule = Field(
+    molecule: MoleculeType = Field(
         ...,
         description="The best (typically meaning lowest in energy) structure for this molecule",
     )
@@ -150,12 +156,12 @@ class CoreMoleculeDoc(MoleculeMetadata):
         description="List of deprecation tags detailing why this molecules document isn't valid",
     )
 
-    initial_molecules: list[Molecule] = Field(
+    initial_molecules: list[MoleculeType] = Field(
         [],
         description="Initial molecules used in the DFT geometry optimizations corresponding to this molecule",
     )
 
-    task_ids: list[MPID] = Field(
+    task_ids: list[MPID | MPculeID] = Field(
         [],
         title="Calculation IDs",
         description="List of Calculations IDs used to make this Molecule Document",
@@ -164,19 +170,17 @@ class CoreMoleculeDoc(MoleculeMetadata):
     # TODO: Should this be MPID?
     deprecated_tasks: list[str] = Field([], title="Deprecated Tasks")
 
-    calc_types: Mapping[str, str] | None = Field(
+    calc_types: dict[str, str] | None = Field(
         None,
         description="Calculation types for all the tasks that make up this molecule",
     )
 
-    last_updated: datetime = Field(
+    last_updated: DateTimeType = Field(
         description="Timestamp for when this document was last updated",
-        default_factory=utcnow,
     )
 
-    created_at: datetime = Field(
+    created_at: DateTimeType = Field(
         description="Timestamp for when this document was first created",
-        default_factory=utcnow,
     )
 
     origins: list[PropertyOrigin] | None = Field(
@@ -196,8 +200,3 @@ class CoreMoleculeDoc(MoleculeMetadata):
         return super().from_molecule(  # type: ignore
             meta_molecule=molecule, molecule_id=molecule_id, molecule=molecule, **kwargs
         )
-
-    @field_validator("last_updated", "created_at", mode="before")
-    @classmethod
-    def handle_datetime(cls, v):
-        return convert_datetime(cls, v)

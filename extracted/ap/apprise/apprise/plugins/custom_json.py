@@ -26,6 +26,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from json import dumps
+import logging
 
 import requests
 
@@ -33,6 +34,7 @@ from .. import exception
 from ..common import NotifyImageSize, NotifyType
 from ..locale import gettext_lazy as _
 from ..url import PrivacyMode
+from ..utils.sanitize import sanitize_payload
 from .base import NotifyBase
 
 
@@ -63,7 +65,7 @@ class NotifyJSON(NotifyBase):
     secure_protocol = "jsons"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_Custom_JSON"
+    setup_url = "https://appriseit.com/services/json/"
 
     # Support attachments
     attachment_support = True
@@ -253,7 +255,7 @@ class NotifyJSON(NotifyBase):
             JSONPayloadField.TITLE: title,
             JSONPayloadField.MESSAGE: body,
             JSONPayloadField.ATTACHMENTS: attachments,
-            JSONPayloadField.MESSAGETYPE: notify_type,
+            JSONPayloadField.MESSAGETYPE: notify_type.value,
         }
 
         for key, value in self.payload_extras.items():
@@ -285,10 +287,16 @@ class NotifyJSON(NotifyBase):
 
         url += self.fullpath
 
-        self.logger.debug(
-            f"JSON POST URL: {url} (cert_verify={self.verify_certificate!r})"
-        )
-        self.logger.debug(f"JSON Payload: {payload!s}")
+        # Some Debug Logging
+        if self.logger.isEnabledFor(logging.DEBUG):
+            # Due to attachments; output can be quite heavy and io intensive
+            # To accommodate this, we only show our debug payload information
+            # if required.
+            self.logger.debug(
+                f"JSON POST URL: {url} "
+                f"(cert_verify={self.verify_certificate!r})"
+            )
+            self.logger.debug("JSON Payload: %s", sanitize_payload(payload))
 
         # Always call throttle before any remote server i/o is made
         self.throttle()
@@ -335,7 +343,8 @@ class NotifyJSON(NotifyBase):
                     str(r.status_code),
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Return; we're done
                 return False

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import os
 import platform
+import stat
 import subprocess
 import sys
-from collections.abc import Iterable, Mapping, Sequence
+import warnings
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import suppress
 from contextvars import ContextVar
 from dataclasses import field, replace
@@ -19,8 +21,9 @@ from tempfile import TemporaryDirectory
 from types import TracebackType
 from typing import (
     Any,
-    Callable,
+    Final,
     Literal,
+    ParamSpec,
     TypeVar,
     get_args,
     overload,
@@ -28,7 +31,8 @@ from typing import (
 from unicodedata import normalize
 
 from jinja2.loaders import FileSystemLoader
-from pathspec import PathSpec
+from packaging.version import Version
+from pathspec import PathSpec, __version__ as pathspec_version
 from plumbum import ProcessExecutionError, colors
 from plumbum.machines import local
 from pydantic import ConfigDict, PositiveInt
@@ -56,7 +60,6 @@ from ._types import (
     JSONSerializable,
     LazyDict,
     Operation,
-    ParamSpec,
     Phase,
     RelativePath,
     StrOrPath,
@@ -80,6 +83,9 @@ _T = TypeVar("_T")
 _P = ParamSpec("_P")
 
 _operation: ContextVar[Operation] = ContextVar("_operation")
+_pathspec_pattern: Final = (
+    "gitignore" if Version(pathspec_version) >= Version("1.0.0") else "gitwildmatch"
+)
 
 
 def as_operation(value: Operation) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
@@ -438,7 +444,7 @@ class Worker:
         """Produce a function that matches against specified patterns."""
         # TODO Is normalization really needed?
         normalized_patterns = (normalize("NFD", pattern) for pattern in patterns)
-        spec = PathSpec.from_lines("gitwildmatch", normalized_patterns)
+        spec = PathSpec.from_lines(_pathspec_pattern, normalized_patterns)
         return spec.match_file
 
     def _solve_render_conflict(self, dst_relpath: Path) -> bool:
@@ -573,7 +579,7 @@ class Worker:
                     del self.answers.last[var_name]
                 # Skip immediately to the next question when it has no default
                 # value.
-                if question.default is MISSING:
+                if question.get_default() is MISSING:
                     continue
             if var_name in self.answers.init:
                 # Try to parse and validate (if the question has a validator)
@@ -636,6 +642,11 @@ class Worker:
     def all_exclusions(self) -> Sequence[str]:
         """Combine default, template and user-chosen exclusions."""
         return self.template.exclude + tuple(self.exclude)
+
+    @cached_property
+    def all_skip_if_exists(self) -> Sequence[str]:
+        """Combine default and template skip-if-exists patterns."""
+        return tuple(chain(self.skip_if_exists, self.template.skip_if_exists))
 
     @cached_property
     def jinja_env(self) -> YieldEnvironment:
@@ -704,25 +715,44 @@ class Worker:
     @cached_property
     def match_skip(self) -> Callable[[Path], bool]:
         """Get a callable to match paths against all skip-if-exists patterns."""
-        return self._path_matcher(
-            map(
-                self._render_string,
-                tuple(chain(self.skip_if_exists, self.template.skip_if_exists)),
-            )
-        )
+        return self._path_matcher(map(self._render_string, self.all_skip_if_exists))
 
     def _render_template(self) -> None:
         """Render the template in the subproject root."""
         follow_symlinks = not self.template.preserve_symlinks
-        cwd = Path.cwd()
+        dst_root = self.dst_path.resolve()
         for src in scantree(str(self.template_copy_root), follow_symlinks):
             src_abspath = Path(src.path)
+            # If the source is a symlink, we are not preserving symlinks, and the
+            # symlink target is outside the template root, this means that we are
+            # copying a file/directory from outside the template, which is
+            # forbidden, so raise an error.
+            if (
+                src_abspath.is_symlink()
+                and not self.template.preserve_symlinks
+                and not (src_abspath.resolve()).is_relative_to(
+                    self.template.local_abspath
+                )
+            ):
+                raise ForbiddenPathError(
+                    path=src_abspath.relative_to(self.template_copy_root)
+                )
             src_relpath = Path(src_abspath).relative_to(self.template.local_abspath)
             dst_relpaths_ctxs = self._render_path(
                 Path(src_abspath).relative_to(self.template_copy_root)
             )
             for dst_relpath, ctx in dst_relpaths_ctxs:
-                if not cwd.joinpath(dst_relpath).resolve().is_relative_to(cwd):
+                dst_abspath = dst_root / dst_relpath
+                if dst_abspath.is_symlink() and self.template.preserve_symlinks:
+                    # If destination path is a symlink, it can safely point outside the
+                    # subproject dir, while still itself existing within the subproject.
+                    # (So long as nothing is templated into it (if it is a directory),
+                    # which would be caught by that path's own check.)
+                    # Therefore avoid resolving the symlink itself:
+                    dst_realpath = dst_abspath.parent.resolve() / dst_abspath.name
+                else:
+                    dst_realpath = dst_abspath.resolve()
+                if not dst_realpath.is_relative_to(dst_root):
                     raise ForbiddenPathError(path=dst_relpath)
                 if self.match_exclude(dst_relpath):
                     continue
@@ -733,7 +763,7 @@ class Worker:
                 else:
                     self._render_file(src_relpath, dst_relpath, extra_context=ctx or {})
 
-    def _render_file(
+    def _render_file(  # noqa: C901
         self,
         src_relpath: Path,
         dst_relpath: Path,
@@ -785,7 +815,17 @@ class Worker:
                 # replace a symlink with a file we have to unlink it first
                 dst_abspath.unlink()
             dst_abspath.write_bytes(new_content)
-            dst_abspath.chmod(src_mode)
+            if (dst_mode := dst_abspath.stat().st_mode) != src_mode:
+                try:
+                    dst_abspath.chmod(src_mode)
+                except PermissionError:
+                    # In some filesystems (e.g., gcsfuse), `chmod` is not allowed,
+                    # so we suppress the `PermissionError` here.
+                    warnings.warn(
+                        f"Path permissions for {dst_abspath} cannot be changed from "
+                        f"{stat.filemode(dst_mode)} to {stat.filemode(src_mode)}",
+                        stacklevel=2,
+                    )
 
     def _render_symlink(self, src_relpath: Path, dst_relpath: Path) -> None:
         """Render one symlink.
@@ -1162,6 +1202,10 @@ class Worker:
                 quiet=True,
                 src_path=self.subproject.template.url,  # type: ignore[union-attr]
                 vcs_ref=self.subproject.template.commit,  # type: ignore[union-attr]
+                # Exclude also paths listed in the new template version, so they
+                # won't be included in the diff as deleted paths to prevent deletion.
+                # https://github.com/orgs/copier-org/discussions/2345
+                exclude=[*self.template.exclude, *self.exclude],
             ) as old_worker:
                 old_worker.run_copy()
             # Run pre-migration tasks
@@ -1230,7 +1274,10 @@ class Worker:
                 data={
                     k: v
                     for k, v in self.answers.combined.items()
-                    if k not in self.answers.hidden
+                    if not k.startswith("_")
+                    and k not in self.answers.hidden
+                    and isinstance(k, JSONSerializable)
+                    and isinstance(v, JSONSerializable)
                 },
                 defaults=True,
                 quiet=True,
@@ -1294,9 +1341,10 @@ class Worker:
                 extra_exclude = [
                     filename.split("!! ").pop()
                     for filename in ignored_files.splitlines()
+                    if filename.startswith("!! ")
                 ]
                 for skip_pattern in chain(
-                    self.skip_if_exists, self.template.skip_if_exists, extra_exclude
+                    map(self._render_string, self.all_skip_if_exists), extra_exclude
                 ):
                     apply_cmd = apply_cmd["--exclude", skip_pattern]
                 (apply_cmd << diff)(retcode=None)
@@ -1319,7 +1367,15 @@ class Worker:
                         # Remove ".rej" suffix
                         fname = fname[:-4]
                         # Undo possible non-rejected chunks
-                        git("checkout", "--", fname)
+                        git(
+                            # Ignore hooks to avoid errors from them or
+                            # issues when .pre-commit-config.yaml is changed
+                            "-c",
+                            f"core.hooksPath={os.devnull}",
+                            "checkout",
+                            "--",
+                            fname,
+                        )
                         # 3-way-merge the file directly
                         git(
                             "merge-file",

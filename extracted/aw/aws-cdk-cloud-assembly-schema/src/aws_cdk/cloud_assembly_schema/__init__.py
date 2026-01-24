@@ -267,7 +267,7 @@ class AssemblyManifest:
         self,
         *,
         version: builtins.str,
-        artifacts: typing.Optional[typing.Mapping[builtins.str, typing.Union[ArtifactManifest, typing.Dict[builtins.str, typing.Any]]]] = None,
+        artifacts: typing.Optional[typing.Mapping[builtins.str, typing.Union["ArtifactManifest", typing.Dict[builtins.str, typing.Any]]]] = None,
         minimum_cli_version: typing.Optional[builtins.str] = None,
         missing: typing.Optional[typing.Sequence[typing.Union["MissingContext", typing.Dict[builtins.str, typing.Any]]]] = None,
         runtime: typing.Optional[typing.Union["RuntimeInfo", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -311,13 +311,13 @@ class AssemblyManifest:
     @builtins.property
     def artifacts(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, ArtifactManifest]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "ArtifactManifest"]]:
         '''The set of artifacts in this assembly.
 
         :default: - no artifacts.
         '''
         result = self._values.get("artifacts")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, ArtifactManifest]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "ArtifactManifest"]], result)
 
     @builtins.property
     def minimum_cli_version(self) -> typing.Optional[builtins.str]:
@@ -641,7 +641,7 @@ class AwsCloudFormationStackProperties:
         :param requires_bootstrap_stack_version: Version of bootstrap stack required to deploy this stack. Default: - No bootstrap stack required
         :param stack_name: The name to use for the CloudFormation stack. Default: - name derived from artifact ID
         :param stack_template_asset_object_url: If the stack template has already been included in the asset manifest, its asset URL. Default: - Not uploaded yet, upload just before deploying
-        :param tags: Values for CloudFormation stack tags that should be passed when the stack is deployed. Default: - No tags
+        :param tags: Values for CloudFormation stack tags that should be passed when the stack is deployed. N.B.: Tags are also written to stack metadata, under the path of the Stack construct. Only in CDK CLI v1 are those tags found in metadata used for actual deployments; in all stable versions of CDK only the stack tags directly found in the ``tags`` property of ``AwsCloudFormationStack`` artifact (i.e., this property) are used. Default: - No tags
         :param termination_protection: Whether to enable termination protection for this stack. Default: false
         :param validate_on_synth: Whether this stack should be validated by the CLI after synthesis. Default: - false
         '''
@@ -820,6 +820,12 @@ class AwsCloudFormationStackProperties:
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Values for CloudFormation stack tags that should be passed when the stack is deployed.
+
+        N.B.: Tags are also written to stack metadata, under the path of the Stack
+        construct. Only in CDK CLI v1 are those tags found in metadata used for
+        actual deployments; in all stable versions of CDK only the stack tags
+        directly found in the ``tags`` property of ``AwsCloudFormationStack`` artifact
+        (i.e., this property) are used.
 
         :default: - No tags
         '''
@@ -1311,8 +1317,8 @@ class ContainerImageAssetMetadataEntry:
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
-        cache_from: typing.Optional[typing.Sequence[typing.Union[ContainerImageAssetCacheOption, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cache_to: typing.Optional[typing.Union[ContainerImageAssetCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
+        cache_from: typing.Optional[typing.Sequence[typing.Union["ContainerImageAssetCacheOption", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache_to: typing.Optional[typing.Union["ContainerImageAssetCacheOption", typing.Dict[builtins.str, typing.Any]]] = None,
         file: typing.Optional[builtins.str] = None,
         image_name_parameter: typing.Optional[builtins.str] = None,
         image_tag: typing.Optional[builtins.str] = None,
@@ -1477,7 +1483,7 @@ class ContainerImageAssetMetadataEntry:
     @builtins.property
     def cache_from(
         self,
-    ) -> typing.Optional[typing.List[ContainerImageAssetCacheOption]]:
+    ) -> typing.Optional[typing.List["ContainerImageAssetCacheOption"]]:
         '''Cache from options to pass to the ``docker build`` command.
 
         :default: - no cache from options are passed to the build command
@@ -1485,10 +1491,10 @@ class ContainerImageAssetMetadataEntry:
         :see: https://docs.docker.com/build/cache/backends/
         '''
         result = self._values.get("cache_from")
-        return typing.cast(typing.Optional[typing.List[ContainerImageAssetCacheOption]], result)
+        return typing.cast(typing.Optional[typing.List["ContainerImageAssetCacheOption"]], result)
 
     @builtins.property
-    def cache_to(self) -> typing.Optional[ContainerImageAssetCacheOption]:
+    def cache_to(self) -> typing.Optional["ContainerImageAssetCacheOption"]:
         '''Cache to options to pass to the ``docker build`` command.
 
         :default: - no cache to options are passed to the build command
@@ -1496,7 +1502,7 @@ class ContainerImageAssetMetadataEntry:
         :see: https://docs.docker.com/build/cache/backends/
         '''
         result = self._values.get("cache_to")
-        return typing.cast(typing.Optional[ContainerImageAssetCacheOption], result)
+        return typing.cast(typing.Optional["ContainerImageAssetCacheOption"], result)
 
     @builtins.property
     def file(self) -> typing.Optional[builtins.str]:
@@ -3625,8 +3631,8 @@ class DockerImageSource:
         self,
         *,
         cache_disabled: typing.Optional[builtins.bool] = None,
-        cache_from: typing.Optional[typing.Sequence[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cache_to: typing.Optional[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
+        cache_from: typing.Optional[typing.Sequence[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache_to: typing.Optional[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]] = None,
         directory: typing.Optional[builtins.str] = None,
         docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -3709,7 +3715,7 @@ class DockerImageSource:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def cache_from(self) -> typing.Optional[typing.List[DockerCacheOption]]:
+    def cache_from(self) -> typing.Optional[typing.List["DockerCacheOption"]]:
         '''Cache from options to pass to the ``docker build`` command.
 
         :default: - no cache from options are passed to the build command
@@ -3717,10 +3723,10 @@ class DockerImageSource:
         :see: https://docs.docker.com/build/cache/backends/
         '''
         result = self._values.get("cache_from")
-        return typing.cast(typing.Optional[typing.List[DockerCacheOption]], result)
+        return typing.cast(typing.Optional[typing.List["DockerCacheOption"]], result)
 
     @builtins.property
-    def cache_to(self) -> typing.Optional[DockerCacheOption]:
+    def cache_to(self) -> typing.Optional["DockerCacheOption"]:
         '''Cache to options to pass to the ``docker build`` command.
 
         :default: - no cache to options are passed to the build command
@@ -3728,7 +3734,7 @@ class DockerImageSource:
         :see: https://docs.docker.com/build/cache/backends/
         '''
         result = self._values.get("cache_to")
-        return typing.cast(typing.Optional[DockerCacheOption], result)
+        return typing.cast(typing.Optional["DockerCacheOption"], result)
 
     @builtins.property
     def directory(self) -> typing.Optional[builtins.str]:
@@ -3989,16 +3995,18 @@ class FeatureFlag:
         *,
         explanation: typing.Optional[builtins.str] = None,
         recommended_value: typing.Any = None,
-        unconfigured_behaves_like: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        unconfigured_behaves_like: typing.Optional[typing.Union["UnconfiguredBehavesLike", typing.Dict[builtins.str, typing.Any]]] = None,
         user_value: typing.Any = None,
     ) -> None:
         '''A single feature flag.
 
         :param explanation: Explanation about the purpose of this flag that can be shown to the user. Default: - No description
         :param recommended_value: The library-recommended value for this flag, if any. It is possible that there is no recommended value. Default: - No recommended value.
-        :param unconfigured_behaves_like: The value of the flag if it is unconfigured. Default: - No value
+        :param unconfigured_behaves_like: The value of the flag that produces the same behavior as when the flag is not configured at all. The structure of this field is a historical accident. The type of this field should have been boolean, which should have contained the default value for the flag appropriate for the *current* version of the CDK library. We are not rectifying this accident because doing so Instead, the canonical way to access this value is by evaluating ``unconfiguredBehavesLike?.v2 ?? false``. Default: false
         :param user_value: The value configured by the user. This is the value configured at the root of the tree. Users may also have configured values at specific locations in the tree; we don't report on those. Default: - Not configured by the user
         '''
+        if isinstance(unconfigured_behaves_like, dict):
+            unconfigured_behaves_like = UnconfiguredBehavesLike(**unconfigured_behaves_like)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3319304c04d8505cf9982ecfa24f47834cf139c61f72ec4ae0183b015fff5eb7)
             check_type(argname="argument explanation", value=explanation, expected_type=type_hints["explanation"])
@@ -4036,15 +4044,21 @@ class FeatureFlag:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def unconfigured_behaves_like(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
-        '''The value of the flag if it is unconfigured.
+    def unconfigured_behaves_like(self) -> typing.Optional["UnconfiguredBehavesLike"]:
+        '''The value of the flag that produces the same behavior as when the flag is not configured at all.
 
-        :default: - No value
+        The structure of this field is a historical accident. The type of this field
+        should have been boolean, which should have contained the default value for
+        the flag appropriate for the *current* version of the CDK library. We are
+        not rectifying this accident because doing so
+
+        Instead, the canonical way to access this value is by evaluating
+        ``unconfiguredBehavesLike?.v2 ?? false``.
+
+        :default: false
         '''
         result = self._values.get("unconfigured_behaves_like")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+        return typing.cast(typing.Optional["UnconfiguredBehavesLike"], result)
 
     @builtins.property
     def user_value(self) -> typing.Any:
@@ -4080,7 +4094,7 @@ class FeatureFlagReportProperties:
     def __init__(
         self,
         *,
-        flags: typing.Mapping[builtins.str, typing.Union[FeatureFlag, typing.Dict[builtins.str, typing.Any]]],
+        flags: typing.Mapping[builtins.str, typing.Union["FeatureFlag", typing.Dict[builtins.str, typing.Any]]],
         module: builtins.str,
     ) -> None:
         '''Artifact properties for a feature flag report.
@@ -4101,11 +4115,11 @@ class FeatureFlagReportProperties:
         }
 
     @builtins.property
-    def flags(self) -> typing.Mapping[builtins.str, FeatureFlag]:
+    def flags(self) -> typing.Mapping[builtins.str, "FeatureFlag"]:
         '''Information about every feature flag supported by this library.'''
         result = self._values.get("flags")
         assert result is not None, "Required property 'flags' is missing"
-        return typing.cast(typing.Mapping[builtins.str, FeatureFlag], result)
+        return typing.cast(typing.Mapping[builtins.str, "FeatureFlag"], result)
 
     @builtins.property
     def module(self) -> builtins.str:
@@ -4468,7 +4482,7 @@ class FileSource:
         self,
         *,
         executable: typing.Optional[typing.Sequence[builtins.str]] = None,
-        packaging: typing.Optional[FileAssetPackaging] = None,
+        packaging: typing.Optional["FileAssetPackaging"] = None,
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Describe the source of a file asset.
@@ -4500,7 +4514,7 @@ class FileSource:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def packaging(self) -> typing.Optional[FileAssetPackaging]:
+    def packaging(self) -> typing.Optional["FileAssetPackaging"]:
         '''Packaging method.
 
         Only allowed when ``path`` is specified.
@@ -4508,7 +4522,7 @@ class FileSource:
         :default: FILE
         '''
         result = self._values.get("packaging")
-        return typing.cast(typing.Optional[FileAssetPackaging], result)
+        return typing.cast(typing.Optional["FileAssetPackaging"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -5504,10 +5518,13 @@ class LoadManifestOptions:
 
 
 class Manifest(
-    metaclass=jsii.JSIIMeta,
+    metaclass=jsii.JSIIAbstractClass,
     jsii_type="@aws-cdk/cloud-assembly-schema.Manifest",
 ):
     '''Protocol utility class.'''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
 
     @jsii.member(jsii_name="cliVersion")
     @builtins.classmethod
@@ -5517,7 +5534,7 @@ class Manifest(
 
     @jsii.member(jsii_name="load")
     @builtins.classmethod
-    def load(cls, file_path: builtins.str) -> AssemblyManifest:
+    def load(cls, file_path: builtins.str) -> "AssemblyManifest":
         '''(deprecated) Deprecated.
 
         :param file_path: -
@@ -5529,7 +5546,7 @@ class Manifest(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92a3a8e390ca07d038618bc441cdf858af7a9061ee286bb534b9f446c6834d52)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
-        return typing.cast(AssemblyManifest, jsii.sinvoke(cls, "load", [file_path]))
+        return typing.cast("AssemblyManifest", jsii.sinvoke(cls, "load", [file_path]))
 
     @jsii.member(jsii_name="loadAssemblyManifest")
     @builtins.classmethod
@@ -5540,7 +5557,7 @@ class Manifest(
         skip_enum_check: typing.Optional[builtins.bool] = None,
         skip_version_check: typing.Optional[builtins.bool] = None,
         topo_sort: typing.Optional[builtins.bool] = None,
-    ) -> AssemblyManifest:
+    ) -> "AssemblyManifest":
         '''Load and validates the cloud assembly manifest from file.
 
         :param file_path: - path to the manifest file.
@@ -5557,11 +5574,11 @@ class Manifest(
             topo_sort=topo_sort,
         )
 
-        return typing.cast(AssemblyManifest, jsii.sinvoke(cls, "loadAssemblyManifest", [file_path, options]))
+        return typing.cast("AssemblyManifest", jsii.sinvoke(cls, "loadAssemblyManifest", [file_path, options]))
 
     @jsii.member(jsii_name="loadAssetManifest")
     @builtins.classmethod
-    def load_asset_manifest(cls, file_path: builtins.str) -> AssetManifest:
+    def load_asset_manifest(cls, file_path: builtins.str) -> "AssetManifest":
         '''Load and validates the asset manifest from file.
 
         :param file_path: - path to the manifest file.
@@ -5569,11 +5586,11 @@ class Manifest(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d54032e5981d21aee2040f0e80f2e0c20c4b41ab3c6268cc7bb8b21bee7635cd)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
-        return typing.cast(AssetManifest, jsii.sinvoke(cls, "loadAssetManifest", [file_path]))
+        return typing.cast("AssetManifest", jsii.sinvoke(cls, "loadAssetManifest", [file_path]))
 
     @jsii.member(jsii_name="loadIntegManifest")
     @builtins.classmethod
-    def load_integ_manifest(cls, file_path: builtins.str) -> IntegManifest:
+    def load_integ_manifest(cls, file_path: builtins.str) -> "IntegManifest":
         '''Load and validates the integ manifest from file.
 
         :param file_path: - path to the manifest file.
@@ -5581,13 +5598,13 @@ class Manifest(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7bfc67a947aecf959646220e5d0176838484c69b5a013165eaa15fd29e771ec1)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
-        return typing.cast(IntegManifest, jsii.sinvoke(cls, "loadIntegManifest", [file_path]))
+        return typing.cast("IntegManifest", jsii.sinvoke(cls, "loadIntegManifest", [file_path]))
 
     @jsii.member(jsii_name="save")
     @builtins.classmethod
     def save(
         cls,
-        manifest: typing.Union[AssemblyManifest, typing.Dict[builtins.str, typing.Any]],
+        manifest: typing.Union["AssemblyManifest", typing.Dict[builtins.str, typing.Any]],
         file_path: builtins.str,
     ) -> None:
         '''(deprecated) Deprecated.
@@ -5609,7 +5626,7 @@ class Manifest(
     @builtins.classmethod
     def save_assembly_manifest(
         cls,
-        manifest: typing.Union[AssemblyManifest, typing.Dict[builtins.str, typing.Any]],
+        manifest: typing.Union["AssemblyManifest", typing.Dict[builtins.str, typing.Any]],
         file_path: builtins.str,
     ) -> None:
         '''Validates and saves the cloud assembly manifest to file.
@@ -5627,7 +5644,7 @@ class Manifest(
     @builtins.classmethod
     def save_asset_manifest(
         cls,
-        manifest: typing.Union[AssetManifest, typing.Dict[builtins.str, typing.Any]],
+        manifest: typing.Union["AssetManifest", typing.Dict[builtins.str, typing.Any]],
         file_path: builtins.str,
     ) -> None:
         '''Validates and saves the asset manifest to file.
@@ -5645,7 +5662,7 @@ class Manifest(
     @builtins.classmethod
     def save_integ_manifest(
         cls,
-        manifest: typing.Union[IntegManifest, typing.Dict[builtins.str, typing.Any]],
+        manifest: typing.Union["IntegManifest", typing.Dict[builtins.str, typing.Any]],
         file_path: builtins.str,
     ) -> None:
         '''Validates and saves the integ manifest to file.
@@ -5666,6 +5683,13 @@ class Manifest(
         return typing.cast(builtins.str, jsii.sinvoke(cls, "version", []))
 
 
+class _ManifestProxy(Manifest):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, Manifest).__jsii_proxy_class__ = lambda : _ManifestProxy
+
+
 @jsii.data_type(
     jsii_type="@aws-cdk/cloud-assembly-schema.MetadataEntry",
     jsii_struct_bases=[],
@@ -5676,7 +5700,7 @@ class MetadataEntry:
         self,
         *,
         type: builtins.str,
-        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[FileAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[ContainerImageAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["FileAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["ContainerImageAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]]] = None,
         trace: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''A metadata entry in a cloud assembly artifact.
@@ -5708,13 +5732,13 @@ class MetadataEntry:
     @builtins.property
     def data(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, FileAssetMetadataEntry, ContainerImageAssetMetadataEntry, typing.List["Tag"]]]:
+    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "FileAssetMetadataEntry", "ContainerImageAssetMetadataEntry", typing.List["Tag"]]]:
         '''The data.
 
         :default: - no data.
         '''
         result = self._values.get("data")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, FileAssetMetadataEntry, ContainerImageAssetMetadataEntry, typing.List["Tag"]]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "FileAssetMetadataEntry", "ContainerImageAssetMetadataEntry", typing.List["Tag"]]], result)
 
     @builtins.property
     def trace(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5747,8 +5771,8 @@ class MissingContext:
         self,
         *,
         key: builtins.str,
-        props: typing.Union[typing.Union["AmiContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["AvailabilityZonesContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union[HostedZoneContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union["SSMParameterContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["VpcContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union[EndpointServiceAvailabilityZonesContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union["LoadBalancerContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union[LoadBalancerListenerContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union["SecurityGroupContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union[KeyContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union["CcApiContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["PluginContextQuery", typing.Dict[builtins.str, typing.Any]]],
-        provider: ContextProvider,
+        props: typing.Union[typing.Union["AmiContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["AvailabilityZonesContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["HostedZoneContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["SSMParameterContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["VpcContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["EndpointServiceAvailabilityZonesContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["LoadBalancerContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["LoadBalancerListenerContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["SecurityGroupContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["KeyContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["CcApiContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["PluginContextQuery", typing.Dict[builtins.str, typing.Any]]],
+        provider: "ContextProvider",
     ) -> None:
         '''Represents a missing piece of context.
 
@@ -5777,18 +5801,18 @@ class MissingContext:
     @builtins.property
     def props(
         self,
-    ) -> typing.Union["AmiContextQuery", "AvailabilityZonesContextQuery", HostedZoneContextQuery, "SSMParameterContextQuery", "VpcContextQuery", EndpointServiceAvailabilityZonesContextQuery, "LoadBalancerContextQuery", LoadBalancerListenerContextQuery, "SecurityGroupContextQuery", KeyContextQuery, "CcApiContextQuery", "PluginContextQuery"]:
+    ) -> typing.Union["AmiContextQuery", "AvailabilityZonesContextQuery", "HostedZoneContextQuery", "SSMParameterContextQuery", "VpcContextQuery", "EndpointServiceAvailabilityZonesContextQuery", "LoadBalancerContextQuery", "LoadBalancerListenerContextQuery", "SecurityGroupContextQuery", "KeyContextQuery", "CcApiContextQuery", "PluginContextQuery"]:
         '''A set of provider-specific options.'''
         result = self._values.get("props")
         assert result is not None, "Required property 'props' is missing"
-        return typing.cast(typing.Union["AmiContextQuery", "AvailabilityZonesContextQuery", HostedZoneContextQuery, "SSMParameterContextQuery", "VpcContextQuery", EndpointServiceAvailabilityZonesContextQuery, "LoadBalancerContextQuery", LoadBalancerListenerContextQuery, "SecurityGroupContextQuery", KeyContextQuery, "CcApiContextQuery", "PluginContextQuery"], result)
+        return typing.cast(typing.Union["AmiContextQuery", "AvailabilityZonesContextQuery", "HostedZoneContextQuery", "SSMParameterContextQuery", "VpcContextQuery", "EndpointServiceAvailabilityZonesContextQuery", "LoadBalancerContextQuery", "LoadBalancerListenerContextQuery", "SecurityGroupContextQuery", "KeyContextQuery", "CcApiContextQuery", "PluginContextQuery"], result)
 
     @builtins.property
-    def provider(self) -> ContextProvider:
+    def provider(self) -> "ContextProvider":
         '''The provider from which we expect this context key to be obtained.'''
         result = self._values.get("provider")
         assert result is not None, "Required property 'provider' is missing"
-        return typing.cast(ContextProvider, result)
+        return typing.cast("ContextProvider", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6295,9 +6319,9 @@ class TestOptions:
         self,
         *,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cdk_command_options: typing.Optional[typing.Union[CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
+        cdk_command_options: typing.Optional[typing.Union["CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
-        hooks: typing.Optional[typing.Union[Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
+        hooks: typing.Optional[typing.Union["Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         stack_update_workflow: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -6353,13 +6377,13 @@ class TestOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def cdk_command_options(self) -> typing.Optional[CdkCommands]:
+    def cdk_command_options(self) -> typing.Optional["CdkCommands"]:
         '''Additional options to use for each CDK command.
 
         :default: - runner default options
         '''
         result = self._values.get("cdk_command_options")
-        return typing.cast(typing.Optional[CdkCommands], result)
+        return typing.cast(typing.Optional["CdkCommands"], result)
 
     @builtins.property
     def diff_assets(self) -> typing.Optional[builtins.bool]:
@@ -6374,7 +6398,7 @@ class TestOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def hooks(self) -> typing.Optional[Hooks]:
+    def hooks(self) -> typing.Optional["Hooks"]:
         '''Additional commands to run at predefined points in the test workflow.
 
         e.g. { postDeploy: ['yarn', 'test'] }
@@ -6382,7 +6406,7 @@ class TestOptions:
         :default: - no hooks
         '''
         result = self._values.get("hooks")
-        return typing.cast(typing.Optional[Hooks], result)
+        return typing.cast(typing.Optional["Hooks"], result)
 
     @builtins.property
     def regions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -6447,6 +6471,66 @@ class TreeArtifactProperties:
 
     def __repr__(self) -> str:
         return "TreeArtifactProperties(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/cloud-assembly-schema.UnconfiguredBehavesLike",
+    jsii_struct_bases=[],
+    name_mapping={"v1": "v1", "v2": "v2"},
+)
+class UnconfiguredBehavesLike:
+    def __init__(self, *, v1: typing.Any = None, v2: typing.Any = None) -> None:
+        '''
+        :param v1: Historical accident, don't use. This value may be present, but it should never be used. The actual value is in the ``v2`` field, regardless of the version of the CDK library. Default: - ignore
+        :param v2: The value of the flag that produces the same behavior as when the flag is not configured at all. Even though it is called 'v2', this is the official name of this field. In any future versions of CDK (v3, v4, ...), this field will still be called 'v2'. The structure of this field is a historical accident. See the comment on ``unconfiguredBehavesLike`` for more information. Default: false
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__24e6acea6db216da68872ce6a70889e9d753101f47a05729ee1577a0c96387f4)
+            check_type(argname="argument v1", value=v1, expected_type=type_hints["v1"])
+            check_type(argname="argument v2", value=v2, expected_type=type_hints["v2"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if v1 is not None:
+            self._values["v1"] = v1
+        if v2 is not None:
+            self._values["v2"] = v2
+
+    @builtins.property
+    def v1(self) -> typing.Any:
+        '''Historical accident, don't use.
+
+        This value may be present, but it should never be used. The actual value is
+        in the ``v2`` field, regardless of the version of the CDK library.
+
+        :default: - ignore
+        '''
+        result = self._values.get("v1")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def v2(self) -> typing.Any:
+        '''The value of the flag that produces the same behavior as when the flag is not configured at all.
+
+        Even though it is called 'v2', this is the official name of this field. In
+        any future versions of CDK (v3, v4, ...), this field will still be called 'v2'.
+
+        The structure of this field is a historical accident. See the comment on
+        ``unconfiguredBehavesLike`` for more information.
+
+        :default: false
+        '''
+        result = self._values.get("v2")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UnconfiguredBehavesLike(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -6885,6 +6969,7 @@ class AvailabilityZonesContextQuery(ContextLookupRoleOptions):
         "expected_match_count": "expectedMatchCount",
         "ignore_error_on_missing_context": "ignoreErrorOnMissingContext",
         "property_match": "propertyMatch",
+        "resource_model": "resourceModel",
     },
 )
 class CcApiContextQuery(ContextLookupRoleOptions):
@@ -6903,6 +6988,7 @@ class CcApiContextQuery(ContextLookupRoleOptions):
         expected_match_count: typing.Optional[builtins.str] = None,
         ignore_error_on_missing_context: typing.Optional[builtins.bool] = None,
         property_match: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        resource_model: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     ) -> None:
         '''Query input for lookup up CloudFormation resources using CC API.
 
@@ -6923,15 +7009,18 @@ class CcApiContextQuery(ContextLookupRoleOptions):
         :param expected_match_count: Expected count of results if ``propertyMatch`` is specified. If the expected result count does not match the actual count, by default an error is produced and the result is not committed to cached context, and the user can correct the situation and try again without having to manually clear out the context key using ``cdk context --remove`` If the value of * ``ignoreErrorOnMissingContext`` is ``true``, the value of ``expectedMatchCount`` is ``at-least-one | exactly-one`` and the number of found resources is 0, ``dummyValue`` is returned and committed to context instead. Default: 'any'
         :param ignore_error_on_missing_context: Ignore an error and return the ``dummyValue`` instead if the resource was not found. - In case of an ``exactIdentifier`` lookup, return the ``dummyValue`` if the resource with that identifier was not found. - In case of a ``propertyMatch`` lookup, return the ``dummyValue`` if ``expectedMatchCount`` is ``at-least-one | exactly-one`` and the number of resources found was 0. if ``ignoreErrorOnMissingContext`` is set, ``dummyValue`` should be set and be an array. Default: false
         :param property_match: Returns any resources matching these properties, using ``ListResources``. By default, specifying propertyMatch will successfully return 0 or more results. To throw an error if the number of results is unexpected (and prevent the query results from being committed to context), specify ``expectedMatchCount``. Notes on property completeness CloudControl API's ``ListResources`` may return fewer properties than ``GetResource`` would, depending on the resource implementation. The resources that ``propertyMatch`` matches against will *only ever* be the properties returned by the ``ListResources`` call. Default: - Either exactIdentifier or propertyMatch should be specified.
+        :param resource_model: The resource model to use to select the resources, using ``ListResources``.. This is needed for sub-resources where the parent Arn is required. See https://docs.aws.amazon.com/cloudcontrolapi/latest/userguide/resource-operations-list.html#resource-operations-list-containers Default: - no resource Model is provided
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import CcApiContextQuery
             from aws_cdk.cloud_assembly_schema import CcApiContextQuery
             
             
             x = CcApiContextQuery(
                 type_name="AWS::Some::Type",
                 expected_match_count="exactly-one",
+                resource_model={"SomeArn": "arn:aws:...."},
                 properties_to_return=["SomeProp"],
                 account="11111111111",
                 region="us-east-1"
@@ -6951,6 +7040,7 @@ class CcApiContextQuery(ContextLookupRoleOptions):
             check_type(argname="argument expected_match_count", value=expected_match_count, expected_type=type_hints["expected_match_count"])
             check_type(argname="argument ignore_error_on_missing_context", value=ignore_error_on_missing_context, expected_type=type_hints["ignore_error_on_missing_context"])
             check_type(argname="argument property_match", value=property_match, expected_type=type_hints["property_match"])
+            check_type(argname="argument resource_model", value=resource_model, expected_type=type_hints["resource_model"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "account": account,
             "region": region,
@@ -6973,6 +7063,8 @@ class CcApiContextQuery(ContextLookupRoleOptions):
             self._values["ignore_error_on_missing_context"] = ignore_error_on_missing_context
         if property_match is not None:
             self._values["property_match"] = property_match
+        if resource_model is not None:
+            self._values["resource_model"] = resource_model
 
     @builtins.property
     def account(self) -> builtins.str:
@@ -7146,6 +7238,21 @@ class CcApiContextQuery(ContextLookupRoleOptions):
         result = self._values.get("property_match")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
+    @builtins.property
+    def resource_model(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''The resource model to use to select the resources, using ``ListResources``..
+
+        This is needed for sub-resources where the parent Arn is required.
+
+        See https://docs.aws.amazon.com/cloudcontrolapi/latest/userguide/resource-operations-list.html#resource-operations-list-containers
+
+        :default: - no resource Model is provided
+        '''
+        result = self._values.get("resource_model")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -7181,9 +7288,9 @@ class LoadBalancerContextQuery(LoadBalancerFilter):
         assume_role_additional_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         lookup_role_arn: typing.Optional[builtins.str] = None,
         lookup_role_external_id: typing.Optional[builtins.str] = None,
-        load_balancer_type: LoadBalancerType,
+        load_balancer_type: "LoadBalancerType",
         load_balancer_arn: typing.Optional[builtins.str] = None,
-        load_balancer_tags: typing.Optional[typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+        load_balancer_tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Query input for looking up a load balancer.
 
@@ -7271,11 +7378,11 @@ class LoadBalancerContextQuery(LoadBalancerFilter):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def load_balancer_type(self) -> LoadBalancerType:
+    def load_balancer_type(self) -> "LoadBalancerType":
         '''Filter load balancers by their type.'''
         result = self._values.get("load_balancer_type")
         assert result is not None, "Required property 'load_balancer_type' is missing"
-        return typing.cast(LoadBalancerType, result)
+        return typing.cast("LoadBalancerType", result)
 
     @builtins.property
     def load_balancer_arn(self) -> typing.Optional[builtins.str]:
@@ -7287,13 +7394,13 @@ class LoadBalancerContextQuery(LoadBalancerFilter):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def load_balancer_tags(self) -> typing.Optional[typing.List[Tag]]:
+    def load_balancer_tags(self) -> typing.Optional[typing.List["Tag"]]:
         '''Match load balancer tags.
 
         :default: - does not match load balancers by tags
         '''
         result = self._values.get("load_balancer_tags")
-        return typing.cast(typing.Optional[typing.List[Tag]], result)
+        return typing.cast(typing.Optional[typing.List["Tag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7327,9 +7434,9 @@ class TestCase(TestOptions):
         self,
         *,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cdk_command_options: typing.Optional[typing.Union[CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
+        cdk_command_options: typing.Optional[typing.Union["CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
-        hooks: typing.Optional[typing.Union[Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
+        hooks: typing.Optional[typing.Union["Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         stack_update_workflow: typing.Optional[builtins.bool] = None,
         stacks: typing.Sequence[builtins.str],
@@ -7400,13 +7507,13 @@ class TestCase(TestOptions):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def cdk_command_options(self) -> typing.Optional[CdkCommands]:
+    def cdk_command_options(self) -> typing.Optional["CdkCommands"]:
         '''Additional options to use for each CDK command.
 
         :default: - runner default options
         '''
         result = self._values.get("cdk_command_options")
-        return typing.cast(typing.Optional[CdkCommands], result)
+        return typing.cast(typing.Optional["CdkCommands"], result)
 
     @builtins.property
     def diff_assets(self) -> typing.Optional[builtins.bool]:
@@ -7421,7 +7528,7 @@ class TestCase(TestOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def hooks(self) -> typing.Optional[Hooks]:
+    def hooks(self) -> typing.Optional["Hooks"]:
         '''Additional commands to run at predefined points in the test workflow.
 
         e.g. { postDeploy: ['yarn', 'test'] }
@@ -7429,7 +7536,7 @@ class TestCase(TestOptions):
         :default: - no hooks
         '''
         result = self._values.get("hooks")
-        return typing.cast(typing.Optional[Hooks], result)
+        return typing.cast(typing.Optional["Hooks"], result)
 
     @builtins.property
     def regions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -7549,6 +7656,7 @@ __all__ = [
     "TestCase",
     "TestOptions",
     "TreeArtifactProperties",
+    "UnconfiguredBehavesLike",
     "VpcContextQuery",
 ]
 
@@ -7892,7 +8000,7 @@ def _typecheckingstub__3319304c04d8505cf9982ecfa24f47834cf139c61f72ec4ae0183b015
     *,
     explanation: typing.Optional[builtins.str] = None,
     recommended_value: typing.Any = None,
-    unconfigured_behaves_like: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    unconfigured_behaves_like: typing.Optional[typing.Union[UnconfiguredBehavesLike, typing.Dict[builtins.str, typing.Any]]] = None,
     user_value: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -8184,6 +8292,14 @@ def _typecheckingstub__2876ff1cecf9646045f557584f99de9afa25af35026c0611aa36d9be9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__24e6acea6db216da68872ce6a70889e9d753101f47a05729ee1577a0c96387f4(
+    *,
+    v1: typing.Any = None,
+    v2: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b344502e3b6e6f7f3ea36aea745221e80503fe01dbd1896f774782d7359c6b63(
     *,
     account: builtins.str,
@@ -8237,6 +8353,7 @@ def _typecheckingstub__527f00e61a39e5b3b1a863d96d9f33b15a5b10086b87f1f121e7b1201
     expected_match_count: typing.Optional[builtins.str] = None,
     ignore_error_on_missing_context: typing.Optional[builtins.bool] = None,
     property_match: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    resource_model: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8269,3 +8386,6 @@ def _typecheckingstub__a15ed4761f9994da082716c3f328395dce904f39530d9fe41636f5e52
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [ICloudAssembly]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

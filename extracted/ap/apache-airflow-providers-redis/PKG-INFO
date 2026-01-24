@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-redis
-Version: 4.3.1
+Version: 4.4.2
 Summary: Provider package apache-airflow-providers-redis for Apache Airflow
 Keywords: airflow-provider,redis,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
+License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
@@ -14,18 +15,20 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
-Requires-Dist: apache-airflow>=2.10.0
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: apache-airflow>=2.11.0
+Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: redis>=4.5.2,!=4.5.5,!=5.0.2
 Requires-Dist: apache-airflow-providers-common-messaging>=2.0.0 ; extra == "common-messaging"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-redis/4.3.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-redis/4.3.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-redis/4.4.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-redis/4.4.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -57,7 +60,7 @@ Provides-Extra: common-messaging
 
 Package ``apache-airflow-providers-redis``
 
-Release: ``4.3.1``
+Release: ``4.4.2``
 
 
 `Redis <https://redis.io/>`__
@@ -70,7 +73,7 @@ This is a provider package for ``redis`` provider. All classes for this provider
 are in ``airflow.providers.redis`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-redis/4.3.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-redis/4.4.2/>`_.
 
 Installation
 ------------
@@ -84,12 +87,13 @@ The package supports the following python versions: 3.10,3.11,3.12,3.13
 Requirements
 ------------
 
-==================  ===========================
-PIP package         Version required
-==================  ===========================
-``apache-airflow``  ``>=2.10.0``
-``redis``           ``>=4.5.2,!=4.5.5,!=5.0.2``
-==================  ===========================
+==========================================  ===========================
+PIP package                                 Version required
+==========================================  ===========================
+``apache-airflow``                          ``>=2.11.0``
+``apache-airflow-providers-common-compat``  ``>=1.10.1``
+``redis``                                   ``>=4.5.2,!=4.5.5,!=5.0.2``
+==========================================  ===========================
 
 Cross provider package dependencies
 -----------------------------------
@@ -101,12 +105,13 @@ You can install such cross-provider dependencies when installing from PyPI. For 
 
 .. code-block:: bash
 
-    pip install apache-airflow-providers-redis[common.messaging]
+    pip install apache-airflow-providers-redis[common.compat]
 
 
 ========================================================================================================================  ====================
 Dependent package                                                                                                         Extra
 ========================================================================================================================  ====================
+`apache-airflow-providers-common-compat <https://airflow.apache.org/docs/apache-airflow-providers-common-compat>`_        ``common.compat``
 `apache-airflow-providers-common-messaging <https://airflow.apache.org/docs/apache-airflow-providers-common-messaging>`_  ``common.messaging``
 ========================================================================================================================  ====================
 
@@ -120,5 +125,5 @@ Extra                 Dependencies
 ====================  ====================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-redis/4.3.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-redis/4.4.2/changelog.html>`_.
 

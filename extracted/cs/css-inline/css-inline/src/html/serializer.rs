@@ -9,12 +9,14 @@ use html5ever::{local_name, ns, tendril::StrTendril, LocalName, QualName};
 use smallvec::{smallvec, SmallVec};
 use std::io::Write;
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn serialize_to<W: Write>(
     document: &Document,
     writer: &mut W,
     styles: DocumentStyleMap<'_>,
     keep_style_tags: bool,
     keep_link_tags: bool,
+    minify_css: bool,
     at_rules: Option<&String>,
     mode: InliningMode,
 ) -> Result<(), InlineError> {
@@ -23,6 +25,7 @@ pub(crate) fn serialize_to<W: Write>(
         NodeId::document_id(),
         keep_style_tags,
         keep_link_tags,
+        minify_css,
         at_rules,
         mode,
     );
@@ -36,6 +39,7 @@ struct Sink<'a> {
     node: NodeId,
     keep_style_tags: bool,
     keep_link_tags: bool,
+    minify_css: bool,
     at_rules: Option<&'a String>,
     inlining_mode: InliningMode,
 }
@@ -46,6 +50,7 @@ impl<'a> Sink<'a> {
         node: NodeId,
         keep_style_tags: bool,
         keep_link_tags: bool,
+        minify_css: bool,
         at_rules: Option<&'a String>,
         inlining_mode: InliningMode,
     ) -> Sink<'a> {
@@ -54,6 +59,7 @@ impl<'a> Sink<'a> {
             node,
             keep_style_tags,
             keep_link_tags,
+            minify_css,
             at_rules,
             inlining_mode,
         }
@@ -65,6 +71,7 @@ impl<'a> Sink<'a> {
             node,
             self.keep_style_tags,
             self.keep_link_tags,
+            self.minify_css,
             self.at_rules,
             self.inlining_mode,
         )
@@ -117,7 +124,12 @@ impl<'a> Sink<'a> {
                     Some(self.node)
                 };
 
-                serializer.start_elem(&element.name, &element.attributes, style_node_id)?;
+                serializer.start_elem(
+                    &element.name,
+                    &element.attributes,
+                    style_node_id,
+                    self.minify_css,
+                )?;
 
                 if element.name.local == local_name!("head") {
                     if let Some(at_rules) = &self.at_rules {
@@ -227,11 +239,13 @@ impl<'a, W: Write> HtmlSerializer<'a, W> {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)]
     fn start_elem(
         &mut self,
         name: &QualName,
         attrs: &Attributes,
         style_node_id: Option<NodeId>,
+        minify_css: bool,
     ) -> Result<(), InlineError> {
         let html_name = match name.ns {
             ns!(html) => Some(name.local.clone()),
@@ -247,13 +261,12 @@ impl<'a, W: Write> HtmlSerializer<'a, W> {
         }
 
         let mut styles = if let Some(node_id) = style_node_id {
-            self.styles.swap_remove(&node_id).map(|mut styles| {
-                // Even though, there is a fast path for sorting of <2 elements, `indexmap` still
-                // rebuilds the hashtable unnecessarily
-                if styles.len() > 1 {
-                    styles.sort_unstable_by(|_, (a, _), _, (b, _)| a.cmp(b));
-                }
-                styles
+            self.styles.get_mut(node_id.get()).and_then(|slot| {
+                slot.take().map(|mut styles| {
+                    // Sort by specificity for consistent output order
+                    styles.sort_unstable_by(|a, b| a.1.cmp(&b.1));
+                    styles
+                })
             })
         } else {
             None
@@ -292,6 +305,7 @@ impl<'a, W: Write> HtmlSerializer<'a, W> {
                         &attr.value,
                         new_styles,
                         &mut self.style_buffer,
+                        minify_css,
                     )?;
                     styles = None;
                 } else {
@@ -304,9 +318,19 @@ impl<'a, W: Write> HtmlSerializer<'a, W> {
         }
         if let Some(styles) = styles {
             self.writer.write_all(b" style=\"")?;
-            for (property, (_, value)) in styles {
-                write_declaration(&mut self.writer, property, value)?;
-                self.writer.write_all(b";")?;
+            if minify_css {
+                let mut it = styles.iter().peekable();
+                while let Some((property, _, value)) = it.next() {
+                    write_declaration(&mut self.writer, property, value, minify_css)?;
+                    if !minify_css || it.peek().is_some() {
+                        self.writer.write_all(b";")?;
+                    }
+                }
+            } else {
+                for (property, _, value) in styles {
+                    write_declaration(&mut self.writer, property, value, minify_css)?;
+                    self.writer.write_all(b";")?;
+                }
             }
             self.writer.write_all(b"\"")?;
         }
@@ -416,15 +440,21 @@ impl<'a, W: Write> HtmlSerializer<'a, W> {
 }
 
 const STYLE_SEPARATOR: &[u8] = b": ";
+const STYLE_SEPARATOR_MIN: &[u8] = b":";
 
 #[inline]
 fn write_declaration<Wr: Write>(
     writer: &mut Wr,
     name: &str,
     value: &str,
+    minify_css: bool,
 ) -> Result<(), InlineError> {
     writer.write_all(name.as_bytes())?;
-    writer.write_all(STYLE_SEPARATOR)?;
+    if minify_css {
+        writer.write_all(STYLE_SEPARATOR_MIN)?;
+    } else {
+        writer.write_all(STYLE_SEPARATOR)?;
+    }
     write_declaration_value(writer, value)
 }
 
@@ -453,10 +483,10 @@ fn write_declaration_value<Wr: Write>(writer: &mut Wr, value: &str) -> Result<()
 }
 
 macro_rules! push_or_update {
-    ($style_buffer:expr, $length:expr, $name: expr, $value:expr) => {{
+    ($style_buffer:expr, $length:expr, $name: expr, $value:expr, $minify_css:expr) => {{
         if let Some(style) = $style_buffer.get_mut($length) {
             style.clear();
-            write_declaration(style, &$name, $value)?;
+            write_declaration(style, &$name, $value, $minify_css)?;
         } else {
             let value = $value.trim();
             let mut style = Vec::with_capacity(
@@ -465,7 +495,7 @@ macro_rules! push_or_update {
                     .saturating_add(STYLE_SEPARATOR.len())
                     .saturating_add(value.len()),
             );
-            write_declaration(&mut style, &$name, $value)?;
+            write_declaration(&mut style, &$name, $value, $minify_css)?;
             $style_buffer.push(style);
         };
         $length = $length.saturating_add(1);
@@ -480,6 +510,7 @@ fn merge_styles<Wr: Write>(
     current_style: &StrTendril,
     new_styles: &ElementStyleMap<'_>,
     declarations_buffer: &mut SmallVec<[Vec<u8>; 8]>,
+    minify_css: bool,
 ) -> Result<(), InlineError> {
     // This function is designed with a focus on reusing existing allocations where possible
     // We start by parsing the current declarations in the "style" attribute
@@ -502,10 +533,10 @@ fn merge_styles<Wr: Write>(
         if let Some(buffer) = declarations_buffer.get_mut(idx) {
             buffer.clear();
             buffer.reserve(estimated_declaration_size);
-            write_declaration(buffer, &property, value)?;
+            write_declaration(buffer, &property, value, minify_css)?;
         } else {
             let mut buffer = Vec::with_capacity(estimated_declaration_size);
-            write_declaration(&mut buffer, &property, value)?;
+            write_declaration(&mut buffer, &property, value, minify_css)?;
             declarations_buffer.push(buffer);
         }
     }
@@ -513,7 +544,7 @@ fn merge_styles<Wr: Write>(
     let current_declarations_count = parsed_declarations_count;
     // Next, we iterate over the new styles and merge them into our existing set
     // New rules will not override old ones unless they are marked as `!important`
-    for (property, (_, value)) in new_styles {
+    for (property, _, value) in new_styles {
         match (
             value.trim_end().strip_suffix("!important"),
             declarations_buffer
@@ -526,11 +557,14 @@ fn merge_styles<Wr: Write>(
                 }),
         ) {
             // The new rule is `!important` and there's an existing rule with the same name
-            // In this case, we override the existing rule with the new one
+            // Only override if the existing inline rule is NOT `!important`.
+            // Per CSS spec: inline `!important` takes precedence over stylesheet `!important`
             (Some(value), Some(buffer)) => {
-                // We keep the rule name and the colon-space suffix - '<rule>: `
-                buffer.truncate(property.len().saturating_add(STYLE_SEPARATOR.len()));
-                write_declaration_value(buffer, value)?;
+                if !buffer.ends_with(b"!important") {
+                    // We keep the rule name and the colon-space suffix - '<rule>: `
+                    buffer.truncate(property.len().saturating_add(STYLE_SEPARATOR.len()));
+                    write_declaration_value(buffer, value)?;
+                }
             }
             // There's no existing rule with the same name, but the new rule is `!important`
             // In this case, we add the new rule with the `!important` suffix removed
@@ -539,7 +573,8 @@ fn merge_styles<Wr: Write>(
                     declarations_buffer,
                     parsed_declarations_count,
                     property,
-                    value
+                    value,
+                    minify_css
                 );
             }
             // There's no existing rule with the same name, and the new rule is not `!important`
@@ -548,7 +583,8 @@ fn merge_styles<Wr: Write>(
                 declarations_buffer,
                 parsed_declarations_count,
                 property,
-                value
+                value,
+                minify_css
             ),
             // Rule exists and the new one is not `!important` - leave the existing rule as-is and
             // ignore the new one.
@@ -580,7 +616,6 @@ mod tests {
     use crate::html::InliningMode;
 
     use super::Document;
-    use indexmap::IndexMap;
 
     #[test]
     fn test_serialize() {
@@ -592,8 +627,9 @@ mod tests {
         let mut buffer = Vec::new();
         doc.serialize(
             &mut buffer,
-            IndexMap::default(),
+            vec![None; doc.nodes.len()],
             true,
+            false,
             false,
             None,
             InliningMode::Document,
@@ -612,7 +648,8 @@ mod tests {
         let mut buffer = Vec::new();
         doc.serialize(
             &mut buffer,
-            IndexMap::default(),
+            vec![None; doc.nodes.len()],
+            false,
             false,
             false,
             None,
@@ -632,7 +669,8 @@ mod tests {
         let mut buffer = Vec::new();
         doc.serialize(
             &mut buffer,
-            IndexMap::default(),
+            vec![None; doc.nodes.len()],
+            false,
             false,
             false,
             None,
@@ -652,7 +690,8 @@ mod tests {
         let mut buffer = Vec::new();
         doc.serialize(
             &mut buffer,
-            IndexMap::default(),
+            vec![None; doc.nodes.len()],
+            false,
             false,
             false,
             None,
@@ -675,7 +714,8 @@ mod tests {
         let mut buffer = Vec::new();
         doc.serialize(
             &mut buffer,
-            IndexMap::default(),
+            vec![None; doc.nodes.len()],
+            false,
             false,
             false,
             None,
@@ -695,7 +735,8 @@ mod tests {
         let mut buffer = Vec::new();
         doc.serialize(
             &mut buffer,
-            IndexMap::default(),
+            vec![None; doc.nodes.len()],
+            false,
             false,
             false,
             Some(&String::from(

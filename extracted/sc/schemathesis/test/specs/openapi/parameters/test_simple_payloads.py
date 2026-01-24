@@ -4,7 +4,8 @@ import pytest
 
 import schemathesis
 from schemathesis.schemas import PayloadAlternatives
-from schemathesis.specs.openapi.parameters import OpenAPI20Body, OpenAPI30Body
+from schemathesis.specs.openapi.adapter import v2, v3_0
+from schemathesis.specs.openapi.adapter.parameters import OpenApiBody
 
 
 @pytest.mark.parametrize(
@@ -27,7 +28,17 @@ def test_payload_open_api_2(
     assert_parameters(
         schema,
         PayloadAlternatives(
-            [OpenAPI20Body(definition=open_api_2_user_in_body, media_type=value) for value in consumes]
+            [
+                OpenApiBody.from_definition(
+                    definition=open_api_2_user_in_body,
+                    is_required=False,
+                    media_type=value,
+                    resource_name=None,
+                    name_to_uri={},
+                    adapter=v2,
+                )
+                for value in consumes
+            ]
         ),
         # For each one the schema is extracted from the parameter definition and transformed to the proper JSON Schema
         [user_jsonschema] * len(consumes),
@@ -55,7 +66,14 @@ def test_payload_open_api_3(media_types, assert_parameters, make_openapi_3_schem
         schema,
         PayloadAlternatives(
             [
-                OpenAPI30Body(definition={"schema": open_api_3_user}, media_type=media_type, required=True)
+                OpenApiBody.from_definition(
+                    definition={"schema": open_api_3_user},
+                    media_type=media_type,
+                    is_required=True,
+                    resource_name=None,
+                    name_to_uri={},
+                    adapter=v3_0,
+                )
                 for media_type in media_types
             ]
         ),
@@ -71,6 +89,4 @@ def test_parameter_set_get(make_openapi_3_schema):
     schema = schemathesis.openapi.from_dict(raw_schema)
     headers = schema["/users"]["POST"].headers
     assert "id" in headers
-    assert headers.contains("id")
-    assert not headers.contains("foo")
     assert "foo" not in headers

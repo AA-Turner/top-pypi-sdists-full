@@ -26,7 +26,7 @@
 
 pub use self::ndarr::{ArrayElement, NdArrayView};
 pub use self::timestamp::*;
-use crate::error::{self, fmt, Result};
+use crate::error::{self, Result, fmt};
 use crate::ingress::conf::ConfigSetting;
 use core::time::Duration;
 use std::collections::HashMap;
@@ -41,13 +41,13 @@ mod tls;
 #[cfg(all(feature = "_sender-tcp", feature = "aws-lc-crypto"))]
 use aws_lc_rs::{
     rand::SystemRandom,
-    signature::{EcdsaKeyPair, ECDSA_P256_SHA256_FIXED_SIGNING},
+    signature::{ECDSA_P256_SHA256_FIXED_SIGNING, EcdsaKeyPair},
 };
 
 #[cfg(all(feature = "_sender-tcp", feature = "ring-crypto"))]
 use ring::{
     rand::SystemRandom,
-    signature::{EcdsaKeyPair, ECDSA_P256_SHA256_FIXED_SIGNING},
+    signature::{ECDSA_P256_SHA256_FIXED_SIGNING, EcdsaKeyPair},
 };
 
 mod conf;
@@ -62,6 +62,9 @@ pub use buffer::*;
 mod sender;
 pub use sender::*;
 
+mod decimal;
+pub use decimal::DecimalView;
+
 const MAX_NAME_LEN_DEFAULT: usize = 127;
 
 /// The maximum allowed dimensions for arrays.
@@ -71,9 +74,11 @@ pub const MAX_ARRAY_DIM_LEN: usize = 0x0FFF_FFFF; // 1 << 28 - 1
 
 pub(crate) const ARRAY_BINARY_FORMAT_TYPE: u8 = 14;
 pub(crate) const DOUBLE_BINARY_FORMAT_TYPE: u8 = 16;
+#[allow(dead_code)]
+pub const DECIMAL_BINARY_FORMAT_TYPE: u8 = 23;
 
 /// The version of InfluxDB Line Protocol used to communicate with the server.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum ProtocolVersion {
     /// Version 1 of Line Protocol.
     /// Full-text protocol.
@@ -83,15 +88,29 @@ pub enum ProtocolVersion {
     /// Version 2 of InfluxDB Line Protocol.
     /// Uses binary format serialization for f64, and supports the array data type.
     /// This version is specific to QuestDB and is not compatible with InfluxDB.
-    /// QuestDB server version 9.0.0 or later is required for `V2` supported.
+    /// QuestDB server version 9.0.0 or later is required for `V2` support.
     V2 = 2,
+
+    /// Version 3 of InfluxDB Line Protocol.
+    /// Supports the decimal data type in text and binary formats.
+    /// This version is specific to QuestDB and is not compatible with InfluxDB.
+    /// QuestDB server version 9.2.0 or later is required for `V3` support.
+    V3 = 3,
 }
+
+/// List of supported protocol versions, in order of preference (highest to lowest).
+const SUPPORTED_PROTOCOL_VERSIONS: [ProtocolVersion; 3] = [
+    ProtocolVersion::V3,
+    ProtocolVersion::V2,
+    ProtocolVersion::V1,
+];
 
 impl Display for ProtocolVersion {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ProtocolVersion::V1 => write!(f, "v1"),
             ProtocolVersion::V2 => write!(f, "v2"),
+            ProtocolVersion::V3 => write!(f, "v3"),
         }
     }
 }
@@ -162,14 +181,14 @@ impl From<u16> for Port {
 }
 
 fn validate_auto_flush_params(params: &HashMap<String, String>) -> Result<()> {
-    if let Some(auto_flush) = params.get("auto_flush") {
-        if auto_flush.as_str() != "off" {
-            return Err(error::fmt!(
-                ConfigError,
-                "Invalid auto_flush value '{auto_flush}'. This client does not \
-                support auto-flush, so the only accepted value is 'off'"
-            ));
-        }
+    if let Some(auto_flush) = params.get("auto_flush")
+        && auto_flush.as_str() != "off"
+    {
+        return Err(error::fmt!(
+            ConfigError,
+            "Invalid auto_flush value '{auto_flush}'. This client does not \
+            support auto-flush, so the only accepted value is 'off'"
+        ));
     }
 
     for &param in ["auto_flush_rows", "auto_flush_bytes"].iter() {
@@ -417,23 +436,22 @@ impl SenderBuilder {
                 "protocol_version" => match val {
                     "1" => builder.protocol_version(ProtocolVersion::V1)?,
                     "2" => builder.protocol_version(ProtocolVersion::V2)?,
+                    "3" => builder.protocol_version(ProtocolVersion::V3)?,
                     "auto" => builder,
                     invalid => {
                         return Err(error::fmt!(
                             ConfigError,
-                            "invalid \"protocol_version\" [value={invalid}, allowed-values=[auto, 1, 2]]]\"]"
-                        ))
+                            "invalid \"protocol_version\" [value={invalid}, allowed-values=[auto, 1, 2, 3]]"
+                        ));
                     }
                 },
-                "max_name_len" => {
-                    builder.max_name_len(parse_conf_value(key, val)?)?
-                }
+                "max_name_len" => builder.max_name_len(parse_conf_value(key, val)?)?,
 
                 "init_buf_size" => {
                     return Err(error::fmt!(
                         ConfigError,
                         "\"init_buf_size\" is not supported in config string"
-                    ))
+                    ));
                 }
 
                 "max_buf_size" => builder.max_buf_size(parse_conf_value(key, val)?)?,
@@ -450,7 +468,7 @@ impl SenderBuilder {
                             return Err(fmt!(
                                 ConfigError,
                                 r##"Config parameter "tls_verify" must be either "on" or "unsafe_off".'"##,
-                            ))
+                            ));
                         }
                     };
 
@@ -475,21 +493,44 @@ impl SenderBuilder {
                         "webpki_roots" => CertificateAuthority::WebpkiRoots,
 
                         #[cfg(not(feature = "tls-webpki-certs"))]
-                        "webpki_roots" => return Err(error::fmt!(ConfigError, "Config parameter \"tls_ca=webpki_roots\" requires the \"tls-webpki-certs\" feature")),
+                        "webpki_roots" => {
+                            return Err(error::fmt!(
+                                ConfigError,
+                                "Config parameter \"tls_ca=webpki_roots\" requires the \"tls-webpki-certs\" feature"
+                            ));
+                        }
 
                         #[cfg(feature = "tls-native-certs")]
                         "os_roots" => CertificateAuthority::OsRoots,
 
                         #[cfg(not(feature = "tls-native-certs"))]
-                        "os_roots" => return Err(error::fmt!(ConfigError, "Config parameter \"tls_ca=os_roots\" requires the \"tls-native-certs\" feature")),
+                        "os_roots" => {
+                            return Err(error::fmt!(
+                                ConfigError,
+                                "Config parameter \"tls_ca=os_roots\" requires the \"tls-native-certs\" feature"
+                            ));
+                        }
 
                         #[cfg(all(feature = "tls-webpki-certs", feature = "tls-native-certs"))]
                         "webpki_and_os_roots" => CertificateAuthority::WebpkiAndOsRoots,
 
-                        #[cfg(not(all(feature = "tls-webpki-certs", feature = "tls-native-certs")))]
-                        "webpki_and_os_roots" => return Err(error::fmt!(ConfigError, "Config parameter \"tls_ca=webpki_and_os_roots\" requires both the \"tls-webpki-certs\" and \"tls-native-certs\" features")),
+                        #[cfg(not(all(
+                            feature = "tls-webpki-certs",
+                            feature = "tls-native-certs"
+                        )))]
+                        "webpki_and_os_roots" => {
+                            return Err(error::fmt!(
+                                ConfigError,
+                                "Config parameter \"tls_ca=webpki_and_os_roots\" requires both the \"tls-webpki-certs\" and \"tls-native-certs\" features"
+                            ));
+                        }
 
-                        _ => return Err(error::fmt!(ConfigError, "Invalid value {val:?} for \"tls_ca\"")),
+                        _ => {
+                            return Err(error::fmt!(
+                                ConfigError,
+                                "Invalid value {val:?} for \"tls_ca\""
+                            ));
+                        }
                     };
                     builder.tls_ca(ca)?
                 }
@@ -510,7 +551,7 @@ impl SenderBuilder {
                     return Err(error::fmt!(
                         ConfigError,
                         "\"tls_roots_password\" is not supported."
-                    ))
+                    ));
                 }
 
                 #[cfg(feature = "sync-sender-http")]
@@ -902,109 +943,101 @@ impl SenderBuilder {
             self.username.deref(),
             self.password.deref(),
             self.token.deref(),
-
             #[cfg(feature = "_sender-tcp")]
             self.token_x.deref(),
-
             #[cfg(not(feature = "_sender-tcp"))]
             None::<String>,
-
             #[cfg(feature = "_sender-tcp")]
             self.token_y.deref(),
-
             #[cfg(not(feature = "_sender-tcp"))]
             None::<String>,
         ) {
             (_, None, None, None, None, None) => Ok(None),
 
             #[cfg(feature = "_sender-tcp")]
-            (
-                protocol,
-                Some(username),
-                None,
-                Some(token),
-                Some(token_x),
-                Some(token_y),
-            ) if protocol.is_tcpx() => Ok(Some(conf::AuthParams::Ecdsa(conf::EcdsaAuthParams {
-                key_id: username.to_string(),
-                priv_key: token.to_string(),
-                pub_key_x: token_x.to_string(),
-                pub_key_y: token_y.to_string(),
-            }))),
+            (protocol, Some(username), None, Some(token), Some(token_x), Some(token_y))
+                if protocol.is_tcpx() =>
+            {
+                Ok(Some(conf::AuthParams::Ecdsa(conf::EcdsaAuthParams {
+                    key_id: username.to_string(),
+                    priv_key: token.to_string(),
+                    pub_key_x: token_x.to_string(),
+                    pub_key_y: token_y.to_string(),
+                })))
+            }
 
             #[cfg(feature = "_sender-tcp")]
             (protocol, Some(_username), Some(_password), None, None, None)
-            if protocol.is_tcpx() => {
-                Err(error::fmt!(ConfigError,
+                if protocol.is_tcpx() =>
+            {
+                Err(error::fmt!(
+                    ConfigError,
                     r##"The "basic_auth" setting can only be used with the ILP/HTTP protocol."##,
                 ))
             }
 
             #[cfg(feature = "_sender-tcp")]
-            (protocol, None, None, Some(_token), None, None)
-            if protocol.is_tcpx() => {
-                Err(error::fmt!(ConfigError, "Token authentication only be used with the ILP/HTTP protocol."))
+            (protocol, None, None, Some(_token), None, None) if protocol.is_tcpx() => {
+                Err(error::fmt!(
+                    ConfigError,
+                    "Token authentication only be used with the ILP/HTTP protocol."
+                ))
             }
 
             #[cfg(feature = "_sender-tcp")]
-            (protocol, _username, None, _token, _token_x, _token_y)
-            if protocol.is_tcpx() => {
-                Err(error::fmt!(ConfigError,
+            (protocol, _username, None, _token, _token_x, _token_y) if protocol.is_tcpx() => {
+                Err(error::fmt!(
+                    ConfigError,
                     r##"Incomplete ECDSA authentication parameters. Specify either all or none of: "username", "token", "token_x", "token_y"."##,
                 ))
             }
             #[cfg(feature = "_sender-http")]
-            (protocol, Some(username), Some(password), None, None, None)
-            if protocol.is_httpx() => {
+            (protocol, Some(username), Some(password), None, None, None) if protocol.is_httpx() => {
                 Ok(Some(conf::AuthParams::Basic(conf::BasicAuthParams {
                     username: username.to_string(),
                     password: password.to_string(),
                 })))
             }
             #[cfg(feature = "_sender-http")]
-            (protocol, Some(_username), None, None, None, None)
-            if protocol.is_httpx() => {
-                Err(error::fmt!(ConfigError,
+            (protocol, Some(_username), None, None, None, None) if protocol.is_httpx() => {
+                Err(error::fmt!(
+                    ConfigError,
                     r##"Basic authentication parameter "username" is present, but "password" is missing."##,
                 ))
             }
             #[cfg(feature = "_sender-http")]
-            (protocol, None, Some(_password), None, None, None)
-            if protocol.is_httpx() => {
-                Err(error::fmt!(ConfigError,
+            (protocol, None, Some(_password), None, None, None) if protocol.is_httpx() => {
+                Err(error::fmt!(
+                    ConfigError,
                     r##"Basic authentication parameter "password" is present, but "username" is missing."##,
                 ))
             }
             #[cfg(feature = "sync-sender-http")]
-            (protocol, None, None, Some(token), None, None)
-            if protocol.is_httpx() => {
+            (protocol, None, None, Some(token), None, None) if protocol.is_httpx() => {
                 Ok(Some(conf::AuthParams::Token(conf::TokenAuthParams {
                     token: token.to_string(),
                 })))
             }
             #[cfg(feature = "sync-sender-http")]
-            (
-                protocol,
-                Some(_username),
-                None,
-                Some(_token),
-                Some(_token_x),
-                Some(_token_y),
-            ) if protocol.is_httpx() => {
-                Err(error::fmt!(ConfigError, "ECDSA authentication is only available with ILP/TCP and not available with ILP/HTTP."))
+            (protocol, Some(_username), None, Some(_token), Some(_token_x), Some(_token_y))
+                if protocol.is_httpx() =>
+            {
+                Err(error::fmt!(
+                    ConfigError,
+                    "ECDSA authentication is only available with ILP/TCP and not available with ILP/HTTP."
+                ))
             }
             #[cfg(feature = "_sender-http")]
-            (protocol, _username, _password, _token, None, None)
-            if protocol.is_httpx() => {
-                Err(error::fmt!(ConfigError,
+            (protocol, _username, _password, _token, None, None) if protocol.is_httpx() => {
+                Err(error::fmt!(
+                    ConfigError,
                     r##"Inconsistent HTTP authentication parameters. Specify either "username" and "password", or just "token"."##,
                 ))
             }
-            _ => {
-                Err(error::fmt!(ConfigError,
-                    r##"Incomplete authentication parameters. Check "username", "password", "token", "token_x" and "token_y" parameters are set correctly."##,
-                ))
-            }
+            _ => Err(error::fmt!(
+                ConfigError,
+                r##"Incomplete authentication parameters. Check "username", "password", "token", "token_x" and "token_y" parameters are set correctly."##,
+            )),
         }
     }
 
@@ -1133,16 +1166,17 @@ impl SenderBuilder {
                         let (protocol_versions, server_max_name_len) =
                             read_server_settings(http_state, settings_url, max_name_len)?;
                         max_name_len = server_max_name_len;
-                        if protocol_versions.contains(&ProtocolVersion::V2) {
-                            ProtocolVersion::V2
-                        } else if protocol_versions.contains(&ProtocolVersion::V1) {
-                            ProtocolVersion::V1
-                        } else {
-                            return Err(fmt!(
-                                ProtocolVersionError,
-                                "Server does not support current client"
-                            ));
-                        }
+                        SUPPORTED_PROTOCOL_VERSIONS
+                            .iter()
+                            .find(|version| protocol_versions.contains(version))
+                            .copied()
+                            .ok_or_else(|| {
+                                fmt!(
+                                    ProtocolVersionError,
+                                    "Server does not support any of the client protocol versions: {:?}",
+                                    SUPPORTED_PROTOCOL_VERSIONS
+                                )
+                            })?
                     } else {
                         unreachable!("HTTP handler should be used for HTTP protocol");
                     }
@@ -1287,7 +1321,7 @@ fn parse_key_pair(auth: &conf::EcdsaAuthParams) -> Result<EcdsaKeyPair> {
 
 struct DebugBytes<'a>(pub &'a [u8]);
 
-impl<'a> Debug for DebugBytes<'a> {
+impl Debug for DebugBytes<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "b\"")?;
 

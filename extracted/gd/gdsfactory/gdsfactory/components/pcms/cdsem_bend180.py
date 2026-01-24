@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["cdsem_bend180"]
+
 import gdsfactory as gf
 from gdsfactory.component import Component
 from gdsfactory.typings import ComponentSpec, CrossSectionSpec
@@ -39,7 +41,11 @@ def cdsem_bend180(
         wg_length = 2 * r
 
     bend90 = gf.get_component(
-        bend90, cross_section=cross_section, radius=r, width=width
+        bend90,
+        cross_section=cross_section,
+        radius=r,
+        width=width,
+        allow_min_radius_violation=True,
     )
     wg = gf.get_component(
         straight, cross_section=cross_section, length=wg_length, width=width

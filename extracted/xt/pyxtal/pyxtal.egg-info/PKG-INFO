@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyxtal
-Version: 1.1.1
+Version: 1.1.2
 Summary: Python code for generation of crystal structures based on symmetry constraints.
 Home-page: https://github.com/MaterSim/PyXtal
 Author: Scott Fredericks, Kevin Parrish, Qiang Zhu

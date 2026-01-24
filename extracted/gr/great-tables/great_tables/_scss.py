@@ -22,12 +22,12 @@ DEFAULTS_TABLE_BACKGROUND = (
     "grand_summary_row_background_color",
     "footnotes_background_color",
     "source_notes_background_color",
+    "row_striping_background_color",
 )
 
 FONT_COLOR_VARS = (
     "table_background_color",
     "heading_background_color",
-    "column_labels_background_color",
     "column_labels_background_color",
     "row_group_background_color",
     "stub_background_color",
@@ -36,6 +36,7 @@ FONT_COLOR_VARS = (
     "grand_summary_row_background_color",
     "footnotes_background_color",
     "source_notes_background_color",
+    "row_striping_background_color",
 )
 
 
@@ -53,10 +54,10 @@ def font_color(color: str, dark_option: str, light_option: str) -> str:
         # With the `transparent` color, the font color should have the same value
         # as the `dark_option` option since the background will be transparent
         return dark_normalized
-    if color in ["currentcolor", "currentColor"]:
+    if color in ("currentcolor", "currentColor"):
         # With two variations of `currentColor` value, normalize to `currentcolor`
         return "currentcolor"
-    if color in ["inherit", "initial", "unset"]:
+    if color in ("inherit", "initial", "unset"):
         # For the other valid CSS color attribute values, we should pass them through
         return color
 

@@ -1,14 +1,30 @@
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, NamedTuple
 
+from cyclopts.command_spec import CommandSpec
 from cyclopts.group import Group
 
 if TYPE_CHECKING:
     from cyclopts.core import App
 
 
+class RegisteredCommand(NamedTuple):
+    """An App with the names it was registered under.
+
+    Attributes
+    ----------
+    names : tuple[str, ...]
+        All names (including aliases) this command is registered under.
+    app : "App"
+        The command's App instance.
+    """
+
+    names: tuple[str, ...]
+    app: "App"
+
+
 def _create_or_append(
     group_mapping: list[tuple[Group, list[Any]]],
-    group: Union[str, Group],
+    group: str | Group,
     element: Any,
 ):
     # updates group_mapping inplace.
@@ -27,7 +43,7 @@ def _create_or_append(
         group_mapping.append((group, [element]))
 
 
-def groups_from_app(app: "App") -> list[tuple[Group, list["App"]]]:
+def groups_from_app(app: "App") -> list[tuple[Group, list[RegisteredCommand]]]:
     """Extract Group/App association from all commands of ``app``.
 
     Returns
@@ -37,20 +53,37 @@ def groups_from_app(app: "App") -> list[tuple[Group, list["App"]]]:
 
         * :class:`.Group` - The group
 
-        * ``list[App]`` - The list of app subcommands within the group.
+        * ``list[RegisteredCommand]`` - List of RegisteredCommand tuples containing
+          the registered names and app instance for each command.
     """
     assert not isinstance(app.group_commands, str)
     group_commands = app.group_commands or Group.create_default_commands()
-    group_mapping: list[tuple[Group, list[App]]] = [
+
+    # First pass: collect all registered names and unique apps
+    # Use __iter__ and __getitem__ to properly handle meta parents
+    #
+    # Skip unresolved lazy commands to avoid importing modules unnecessarily.
+    # Limitation: Group objects defined in unresolved lazy modules won't be
+    # available until those modules are imported. To avoid this, define Group
+    # objects in non-lazy modules. See docs/source/lazy_loading.rst for details.
+    app_names: dict[int, list[str]] = {}
+    unique_apps: dict[int, App] = {}
+    for name in app:
+        cmd = app._get_item(name, recurse_meta=True)
+        if isinstance(cmd, CommandSpec) and not cmd.is_resolved:
+            continue
+        subapp = app[name]
+        app_id = id(subapp)
+        app_names.setdefault(app_id, []).append(name)
+        if app_id not in unique_apps:
+            unique_apps[app_id] = subapp
+
+    group_mapping: list[tuple[Group, list[RegisteredCommand]]] = [
         (group_commands, []),
     ]
 
-    subapps = list(app.subapps)
-
-    # 2 iterations need to be performed:
-    # 1. Extract out all Group objects as they may have additional configuration.
-    # 2. Assign/Create Groups out of the strings, as necessary.
-    for subapp in subapps:
+    # Extract Group objects
+    for subapp in unique_apps.values():
         assert isinstance(subapp.group, tuple)
         for group in subapp.group:
             if isinstance(group, Group):
@@ -62,15 +95,18 @@ def groups_from_app(app: "App") -> list[tuple[Group, list["App"]]]:
                 else:
                     group_mapping.append((group, []))
 
-    for subapp in subapps:
+    # Assign apps to groups with their registered names
+    for app_id, subapp in unique_apps.items():
+        names = tuple(app_names[app_id])
+        registered_command = RegisteredCommand(names, subapp)
         if subapp.group:
             assert isinstance(subapp.group, tuple)
             for group in subapp.group:
-                _create_or_append(group_mapping, group, subapp)
+                _create_or_append(group_mapping, group, registered_command)
         else:
-            _create_or_append(group_mapping, app.group_commands or Group.create_default_commands(), subapp)
+            _create_or_append(group_mapping, app.group_commands or Group.create_default_commands(), registered_command)
 
-    # Remove the empty groups
+    # Remove empty groups
     group_mapping = [x for x in group_mapping if x[1]]
 
     # Sort alphabetically by name
@@ -82,8 +118,9 @@ def groups_from_app(app: "App") -> list[tuple[Group, list["App"]]]:
 def inverse_groups_from_app(input_app: "App") -> list[tuple["App", list[Group]]]:
     out = []
     seen_apps = []
-    for group, apps in groups_from_app(input_app):
-        for app in apps:
+    for group, registered_commands in groups_from_app(input_app):
+        for registered_command in registered_commands:
+            app = registered_command.app
             try:
                 index = seen_apps.index(app)
             except ValueError:

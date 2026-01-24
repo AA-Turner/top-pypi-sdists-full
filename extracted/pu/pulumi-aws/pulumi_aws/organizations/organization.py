@@ -27,8 +27,8 @@ class OrganizationArgs:
         """
         The set of arguments for constructing a Organization resource.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] aws_service_access_principals: List of AWS service principal names for which you want to enable integration with your organization. This is typically in the form of a URL, such as service-abbreviation.amazonaws.com. Organization must have `feature_set` set to `ALL`. Some services do not support enablement via this endpoint, see [warning in aws docs](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnableAWSServiceAccess.html).
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] enabled_policy_types: List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `RESOURCE_CONTROL_POLICY`, `SERVICE_CONTROL_POLICY`, and `TAG_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html).
-        :param pulumi.Input[_builtins.str] feature_set: Specify "ALL" (default) or "CONSOLIDATED_BILLING".
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] enabled_policy_types: List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `BEDROCK_POLICY`, `CHATBOT_POLICY`, `DECLARATIVE_POLICY_EC2`, `INSPECTOR_POLICY`, `RESOURCE_CONTROL_POLICY`, `S3_POLICY`, `SECURITYHUB_POLICY`, `SERVICE_CONTROL_POLICY`, `TAG_POLICY` and `UPGRADE_ROLLOUT_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html). To enable `INSPECTOR_POLICY`, `aws_service_access_principals` must include `inspector2.amazonaws.com`. To enable `SECURITYHUB_POLICY`, `aws_service_access_principals` must include `securityhub.amazonaws.com`.
+        :param pulumi.Input[_builtins.str] feature_set: Specify `ALL` (default) or `CONSOLIDATED_BILLING`.
         """
         if aws_service_access_principals is not None:
             pulumi.set(__self__, "aws_service_access_principals", aws_service_access_principals)
@@ -53,7 +53,7 @@ class OrganizationArgs:
     @pulumi.getter(name="enabledPolicyTypes")
     def enabled_policy_types(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `RESOURCE_CONTROL_POLICY`, `SERVICE_CONTROL_POLICY`, and `TAG_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html).
+        List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `BEDROCK_POLICY`, `CHATBOT_POLICY`, `DECLARATIVE_POLICY_EC2`, `INSPECTOR_POLICY`, `RESOURCE_CONTROL_POLICY`, `S3_POLICY`, `SECURITYHUB_POLICY`, `SERVICE_CONTROL_POLICY`, `TAG_POLICY` and `UPGRADE_ROLLOUT_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html). To enable `INSPECTOR_POLICY`, `aws_service_access_principals` must include `inspector2.amazonaws.com`. To enable `SECURITYHUB_POLICY`, `aws_service_access_principals` must include `securityhub.amazonaws.com`.
         """
         return pulumi.get(self, "enabled_policy_types")
 
@@ -65,7 +65,7 @@ class OrganizationArgs:
     @pulumi.getter(name="featureSet")
     def feature_set(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Specify "ALL" (default) or "CONSOLIDATED_BILLING".
+        Specify `ALL` (default) or `CONSOLIDATED_BILLING`.
         """
         return pulumi.get(self, "feature_set")
 
@@ -91,14 +91,14 @@ class _OrganizationState:
         """
         Input properties used for looking up and filtering Organization resources.
         :param pulumi.Input[Sequence[pulumi.Input['OrganizationAccountArgs']]] accounts: List of organization accounts including the master account. For a list excluding the master account, see the `non_master_accounts` attribute. All elements have these attributes:
-        :param pulumi.Input[_builtins.str] arn: ARN of the root
+        :param pulumi.Input[_builtins.str] arn: ARN of the root.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] aws_service_access_principals: List of AWS service principal names for which you want to enable integration with your organization. This is typically in the form of a URL, such as service-abbreviation.amazonaws.com. Organization must have `feature_set` set to `ALL`. Some services do not support enablement via this endpoint, see [warning in aws docs](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnableAWSServiceAccess.html).
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] enabled_policy_types: List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `RESOURCE_CONTROL_POLICY`, `SERVICE_CONTROL_POLICY`, and `TAG_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html).
-        :param pulumi.Input[_builtins.str] feature_set: Specify "ALL" (default) or "CONSOLIDATED_BILLING".
-        :param pulumi.Input[_builtins.str] master_account_arn: ARN of the master account
-        :param pulumi.Input[_builtins.str] master_account_email: Email address of the master account
-        :param pulumi.Input[_builtins.str] master_account_id: Identifier of the master account
-        :param pulumi.Input[_builtins.str] master_account_name: Name of the master account
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] enabled_policy_types: List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `BEDROCK_POLICY`, `CHATBOT_POLICY`, `DECLARATIVE_POLICY_EC2`, `INSPECTOR_POLICY`, `RESOURCE_CONTROL_POLICY`, `S3_POLICY`, `SECURITYHUB_POLICY`, `SERVICE_CONTROL_POLICY`, `TAG_POLICY` and `UPGRADE_ROLLOUT_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html). To enable `INSPECTOR_POLICY`, `aws_service_access_principals` must include `inspector2.amazonaws.com`. To enable `SECURITYHUB_POLICY`, `aws_service_access_principals` must include `securityhub.amazonaws.com`.
+        :param pulumi.Input[_builtins.str] feature_set: Specify `ALL` (default) or `CONSOLIDATED_BILLING`.
+        :param pulumi.Input[_builtins.str] master_account_arn: ARN of the master account.
+        :param pulumi.Input[_builtins.str] master_account_email: Email address of the master account.
+        :param pulumi.Input[_builtins.str] master_account_id: Identifier of the master account.
+        :param pulumi.Input[_builtins.str] master_account_name: Name of the master account.
         :param pulumi.Input[Sequence[pulumi.Input['OrganizationNonMasterAccountArgs']]] non_master_accounts: List of organization accounts excluding the master account. For a list including the master account, see the `accounts` attribute. All elements have these attributes:
         :param pulumi.Input[Sequence[pulumi.Input['OrganizationRootArgs']]] roots: List of organization roots. All elements have these attributes:
         """
@@ -141,7 +141,7 @@ class _OrganizationState:
     @pulumi.getter
     def arn(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        ARN of the root
+        ARN of the root.
         """
         return pulumi.get(self, "arn")
 
@@ -165,7 +165,7 @@ class _OrganizationState:
     @pulumi.getter(name="enabledPolicyTypes")
     def enabled_policy_types(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `RESOURCE_CONTROL_POLICY`, `SERVICE_CONTROL_POLICY`, and `TAG_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html).
+        List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `BEDROCK_POLICY`, `CHATBOT_POLICY`, `DECLARATIVE_POLICY_EC2`, `INSPECTOR_POLICY`, `RESOURCE_CONTROL_POLICY`, `S3_POLICY`, `SECURITYHUB_POLICY`, `SERVICE_CONTROL_POLICY`, `TAG_POLICY` and `UPGRADE_ROLLOUT_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html). To enable `INSPECTOR_POLICY`, `aws_service_access_principals` must include `inspector2.amazonaws.com`. To enable `SECURITYHUB_POLICY`, `aws_service_access_principals` must include `securityhub.amazonaws.com`.
         """
         return pulumi.get(self, "enabled_policy_types")
 
@@ -177,7 +177,7 @@ class _OrganizationState:
     @pulumi.getter(name="featureSet")
     def feature_set(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Specify "ALL" (default) or "CONSOLIDATED_BILLING".
+        Specify `ALL` (default) or `CONSOLIDATED_BILLING`.
         """
         return pulumi.get(self, "feature_set")
 
@@ -189,7 +189,7 @@ class _OrganizationState:
     @pulumi.getter(name="masterAccountArn")
     def master_account_arn(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        ARN of the master account
+        ARN of the master account.
         """
         return pulumi.get(self, "master_account_arn")
 
@@ -201,7 +201,7 @@ class _OrganizationState:
     @pulumi.getter(name="masterAccountEmail")
     def master_account_email(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Email address of the master account
+        Email address of the master account.
         """
         return pulumi.get(self, "master_account_email")
 
@@ -213,7 +213,7 @@ class _OrganizationState:
     @pulumi.getter(name="masterAccountId")
     def master_account_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Identifier of the master account
+        Identifier of the master account.
         """
         return pulumi.get(self, "master_account_id")
 
@@ -225,7 +225,7 @@ class _OrganizationState:
     @pulumi.getter(name="masterAccountName")
     def master_account_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Name of the master account
+        Name of the master account.
         """
         return pulumi.get(self, "master_account_name")
 
@@ -291,17 +291,25 @@ class Organization(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        * `id` (String) ID of the AWS Organizations organization.
+
+        #### Optional
+
+        * `account_id` (String) AWS Account where this resource is managed.
+
         Using `pulumi import`, import the AWS organization using the `id`. For example:
 
-        ```sh
-        $ pulumi import aws:organizations/organization:Organization my_org o-1234567
-        ```
+        % pulumi import aws_organizations_organization.example o-1234567
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] aws_service_access_principals: List of AWS service principal names for which you want to enable integration with your organization. This is typically in the form of a URL, such as service-abbreviation.amazonaws.com. Organization must have `feature_set` set to `ALL`. Some services do not support enablement via this endpoint, see [warning in aws docs](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnableAWSServiceAccess.html).
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] enabled_policy_types: List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `RESOURCE_CONTROL_POLICY`, `SERVICE_CONTROL_POLICY`, and `TAG_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html).
-        :param pulumi.Input[_builtins.str] feature_set: Specify "ALL" (default) or "CONSOLIDATED_BILLING".
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] enabled_policy_types: List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `BEDROCK_POLICY`, `CHATBOT_POLICY`, `DECLARATIVE_POLICY_EC2`, `INSPECTOR_POLICY`, `RESOURCE_CONTROL_POLICY`, `S3_POLICY`, `SECURITYHUB_POLICY`, `SERVICE_CONTROL_POLICY`, `TAG_POLICY` and `UPGRADE_ROLLOUT_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html). To enable `INSPECTOR_POLICY`, `aws_service_access_principals` must include `inspector2.amazonaws.com`. To enable `SECURITYHUB_POLICY`, `aws_service_access_principals` must include `securityhub.amazonaws.com`.
+        :param pulumi.Input[_builtins.str] feature_set: Specify `ALL` (default) or `CONSOLIDATED_BILLING`.
         """
         ...
     @overload
@@ -332,11 +340,19 @@ class Organization(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        * `id` (String) ID of the AWS Organizations organization.
+
+        #### Optional
+
+        * `account_id` (String) AWS Account where this resource is managed.
+
         Using `pulumi import`, import the AWS organization using the `id`. For example:
 
-        ```sh
-        $ pulumi import aws:organizations/organization:Organization my_org o-1234567
-        ```
+        % pulumi import aws_organizations_organization.example o-1234567
 
         :param str resource_name: The name of the resource.
         :param OrganizationArgs args: The arguments to use to populate this resource's properties.
@@ -405,14 +421,14 @@ class Organization(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Sequence[pulumi.Input[Union['OrganizationAccountArgs', 'OrganizationAccountArgsDict']]]] accounts: List of organization accounts including the master account. For a list excluding the master account, see the `non_master_accounts` attribute. All elements have these attributes:
-        :param pulumi.Input[_builtins.str] arn: ARN of the root
+        :param pulumi.Input[_builtins.str] arn: ARN of the root.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] aws_service_access_principals: List of AWS service principal names for which you want to enable integration with your organization. This is typically in the form of a URL, such as service-abbreviation.amazonaws.com. Organization must have `feature_set` set to `ALL`. Some services do not support enablement via this endpoint, see [warning in aws docs](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnableAWSServiceAccess.html).
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] enabled_policy_types: List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `RESOURCE_CONTROL_POLICY`, `SERVICE_CONTROL_POLICY`, and `TAG_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html).
-        :param pulumi.Input[_builtins.str] feature_set: Specify "ALL" (default) or "CONSOLIDATED_BILLING".
-        :param pulumi.Input[_builtins.str] master_account_arn: ARN of the master account
-        :param pulumi.Input[_builtins.str] master_account_email: Email address of the master account
-        :param pulumi.Input[_builtins.str] master_account_id: Identifier of the master account
-        :param pulumi.Input[_builtins.str] master_account_name: Name of the master account
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] enabled_policy_types: List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `BEDROCK_POLICY`, `CHATBOT_POLICY`, `DECLARATIVE_POLICY_EC2`, `INSPECTOR_POLICY`, `RESOURCE_CONTROL_POLICY`, `S3_POLICY`, `SECURITYHUB_POLICY`, `SERVICE_CONTROL_POLICY`, `TAG_POLICY` and `UPGRADE_ROLLOUT_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html). To enable `INSPECTOR_POLICY`, `aws_service_access_principals` must include `inspector2.amazonaws.com`. To enable `SECURITYHUB_POLICY`, `aws_service_access_principals` must include `securityhub.amazonaws.com`.
+        :param pulumi.Input[_builtins.str] feature_set: Specify `ALL` (default) or `CONSOLIDATED_BILLING`.
+        :param pulumi.Input[_builtins.str] master_account_arn: ARN of the master account.
+        :param pulumi.Input[_builtins.str] master_account_email: Email address of the master account.
+        :param pulumi.Input[_builtins.str] master_account_id: Identifier of the master account.
+        :param pulumi.Input[_builtins.str] master_account_name: Name of the master account.
         :param pulumi.Input[Sequence[pulumi.Input[Union['OrganizationNonMasterAccountArgs', 'OrganizationNonMasterAccountArgsDict']]]] non_master_accounts: List of organization accounts excluding the master account. For a list including the master account, see the `accounts` attribute. All elements have these attributes:
         :param pulumi.Input[Sequence[pulumi.Input[Union['OrganizationRootArgs', 'OrganizationRootArgsDict']]]] roots: List of organization roots. All elements have these attributes:
         """
@@ -445,7 +461,7 @@ class Organization(pulumi.CustomResource):
     @pulumi.getter
     def arn(self) -> pulumi.Output[_builtins.str]:
         """
-        ARN of the root
+        ARN of the root.
         """
         return pulumi.get(self, "arn")
 
@@ -461,7 +477,7 @@ class Organization(pulumi.CustomResource):
     @pulumi.getter(name="enabledPolicyTypes")
     def enabled_policy_types(self) -> pulumi.Output[Optional[Sequence[_builtins.str]]]:
         """
-        List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `RESOURCE_CONTROL_POLICY`, `SERVICE_CONTROL_POLICY`, and `TAG_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html).
+        List of Organizations policy types to enable in the Organization Root. Organization must have `feature_set` set to `ALL`. For additional information about valid policy types (e.g., `AISERVICES_OPT_OUT_POLICY`, `BACKUP_POLICY`, `BEDROCK_POLICY`, `CHATBOT_POLICY`, `DECLARATIVE_POLICY_EC2`, `INSPECTOR_POLICY`, `RESOURCE_CONTROL_POLICY`, `S3_POLICY`, `SECURITYHUB_POLICY`, `SERVICE_CONTROL_POLICY`, `TAG_POLICY` and `UPGRADE_ROLLOUT_POLICY`), see the [AWS Organizations API Reference](https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnablePolicyType.html). To enable `INSPECTOR_POLICY`, `aws_service_access_principals` must include `inspector2.amazonaws.com`. To enable `SECURITYHUB_POLICY`, `aws_service_access_principals` must include `securityhub.amazonaws.com`.
         """
         return pulumi.get(self, "enabled_policy_types")
 
@@ -469,7 +485,7 @@ class Organization(pulumi.CustomResource):
     @pulumi.getter(name="featureSet")
     def feature_set(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Specify "ALL" (default) or "CONSOLIDATED_BILLING".
+        Specify `ALL` (default) or `CONSOLIDATED_BILLING`.
         """
         return pulumi.get(self, "feature_set")
 
@@ -477,7 +493,7 @@ class Organization(pulumi.CustomResource):
     @pulumi.getter(name="masterAccountArn")
     def master_account_arn(self) -> pulumi.Output[_builtins.str]:
         """
-        ARN of the master account
+        ARN of the master account.
         """
         return pulumi.get(self, "master_account_arn")
 
@@ -485,7 +501,7 @@ class Organization(pulumi.CustomResource):
     @pulumi.getter(name="masterAccountEmail")
     def master_account_email(self) -> pulumi.Output[_builtins.str]:
         """
-        Email address of the master account
+        Email address of the master account.
         """
         return pulumi.get(self, "master_account_email")
 
@@ -493,7 +509,7 @@ class Organization(pulumi.CustomResource):
     @pulumi.getter(name="masterAccountId")
     def master_account_id(self) -> pulumi.Output[_builtins.str]:
         """
-        Identifier of the master account
+        Identifier of the master account.
         """
         return pulumi.get(self, "master_account_id")
 
@@ -501,7 +517,7 @@ class Organization(pulumi.CustomResource):
     @pulumi.getter(name="masterAccountName")
     def master_account_name(self) -> pulumi.Output[_builtins.str]:
         """
-        Name of the master account
+        Name of the master account.
         """
         return pulumi.get(self, "master_account_name")
 

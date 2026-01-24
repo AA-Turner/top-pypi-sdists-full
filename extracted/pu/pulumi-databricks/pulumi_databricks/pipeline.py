@@ -58,12 +58,13 @@ class PipelineArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  target: Optional[pulumi.Input[_builtins.str]] = None,
                  trigger: Optional[pulumi.Input['PipelineTriggerArgs']] = None,
-                 url: Optional[pulumi.Input[_builtins.str]] = None):
+                 url: Optional[pulumi.Input[_builtins.str]] = None,
+                 usage_policy_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a Pipeline resource.
         :param pulumi.Input[_builtins.bool] allow_duplicate_names: Optional boolean flag. If false, deployment will fail if name conflicts with that of another pipeline. default is `false`.
         :param pulumi.Input[_builtins.str] budget_policy_id: optional string specifying ID of the budget policy for this Lakeflow Declarative Pipeline.
-        :param pulumi.Input[_builtins.str] catalog: The name of catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline.* (Conflicts with `storage`).
+        :param pulumi.Input[_builtins.str] catalog: The name of default catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline if you switch from `storage` to `catalog` or vice versa.  If pipeline was already created with `catalog` set, the value could be changed.* (Conflicts with `storage`).
         :param pulumi.Input[_builtins.str] channel: optional name of the release channel for Spark version used by Lakeflow Declarative Pipeline.  Supported values are: `CURRENT` (default) and `PREVIEW`.
         :param pulumi.Input[Sequence[pulumi.Input['PipelineClusterArgs']]] clusters: blocks - Clusters to run the pipeline. If none is specified, pipelines will automatically select a default cluster configuration for the pipeline. *Please note that Lakeflow Declarative Pipeline clusters are supporting only subset of attributes as described in [documentation](https://docs.databricks.com/api/workspace/pipelines/create#clusters).*  Also, note that `autoscale` block is extended with the `mode` parameter that controls the autoscaling algorithm (possible values are `ENHANCED` for new, enhanced autoscaling algorithm, or `LEGACY` for old algorithm).
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] configuration: An optional list of values to apply to the entire pipeline. Elements must be formatted as key:value pairs.
@@ -161,6 +162,8 @@ class PipelineArgs:
             pulumi.set(__self__, "trigger", trigger)
         if url is not None:
             pulumi.set(__self__, "url", url)
+        if usage_policy_id is not None:
+            pulumi.set(__self__, "usage_policy_id", usage_policy_id)
 
     @_builtins.property
     @pulumi.getter(name="allowDuplicateNames")
@@ -190,7 +193,7 @@ class PipelineArgs:
     @pulumi.getter
     def catalog(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The name of catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline.* (Conflicts with `storage`).
+        The name of default catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline if you switch from `storage` to `catalog` or vice versa.  If pipeline was already created with `catalog` set, the value could be changed.* (Conflicts with `storage`).
         """
         return pulumi.get(self, "catalog")
 
@@ -572,6 +575,15 @@ class PipelineArgs:
     @url.setter
     def url(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "url", value)
+
+    @_builtins.property
+    @pulumi.getter(name="usagePolicyId")
+    def usage_policy_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        return pulumi.get(self, "usage_policy_id")
+
+    @usage_policy_id.setter
+    def usage_policy_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "usage_policy_id", value)
 
 
 @pulumi.input_type
@@ -614,12 +626,13 @@ class _PipelineState:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  target: Optional[pulumi.Input[_builtins.str]] = None,
                  trigger: Optional[pulumi.Input['PipelineTriggerArgs']] = None,
-                 url: Optional[pulumi.Input[_builtins.str]] = None):
+                 url: Optional[pulumi.Input[_builtins.str]] = None,
+                 usage_policy_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Pipeline resources.
         :param pulumi.Input[_builtins.bool] allow_duplicate_names: Optional boolean flag. If false, deployment will fail if name conflicts with that of another pipeline. default is `false`.
         :param pulumi.Input[_builtins.str] budget_policy_id: optional string specifying ID of the budget policy for this Lakeflow Declarative Pipeline.
-        :param pulumi.Input[_builtins.str] catalog: The name of catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline.* (Conflicts with `storage`).
+        :param pulumi.Input[_builtins.str] catalog: The name of default catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline if you switch from `storage` to `catalog` or vice versa.  If pipeline was already created with `catalog` set, the value could be changed.* (Conflicts with `storage`).
         :param pulumi.Input[_builtins.str] channel: optional name of the release channel for Spark version used by Lakeflow Declarative Pipeline.  Supported values are: `CURRENT` (default) and `PREVIEW`.
         :param pulumi.Input[Sequence[pulumi.Input['PipelineClusterArgs']]] clusters: blocks - Clusters to run the pipeline. If none is specified, pipelines will automatically select a default cluster configuration for the pipeline. *Please note that Lakeflow Declarative Pipeline clusters are supporting only subset of attributes as described in [documentation](https://docs.databricks.com/api/workspace/pipelines/create#clusters).*  Also, note that `autoscale` block is extended with the `mode` parameter that controls the autoscaling algorithm (possible values are `ENHANCED` for new, enhanced autoscaling algorithm, or `LEGACY` for old algorithm).
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] configuration: An optional list of values to apply to the entire pipeline. Elements must be formatted as key:value pairs.
@@ -717,6 +730,8 @@ class _PipelineState:
             pulumi.set(__self__, "trigger", trigger)
         if url is not None:
             pulumi.set(__self__, "url", url)
+        if usage_policy_id is not None:
+            pulumi.set(__self__, "usage_policy_id", usage_policy_id)
 
     @_builtins.property
     @pulumi.getter(name="allowDuplicateNames")
@@ -746,7 +761,7 @@ class _PipelineState:
     @pulumi.getter
     def catalog(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The name of catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline.* (Conflicts with `storage`).
+        The name of default catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline if you switch from `storage` to `catalog` or vice versa.  If pipeline was already created with `catalog` set, the value could be changed.* (Conflicts with `storage`).
         """
         return pulumi.get(self, "catalog")
 
@@ -1128,6 +1143,15 @@ class _PipelineState:
     @url.setter
     def url(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "url", value)
+
+    @_builtins.property
+    @pulumi.getter(name="usagePolicyId")
+    def usage_policy_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        return pulumi.get(self, "usage_policy_id")
+
+    @usage_policy_id.setter
+    def usage_policy_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "usage_policy_id", value)
 
 
 @pulumi.type_token("databricks:index/pipeline:Pipeline")
@@ -1174,6 +1198,7 @@ class Pipeline(pulumi.CustomResource):
                  target: Optional[pulumi.Input[_builtins.str]] = None,
                  trigger: Optional[pulumi.Input[Union['PipelineTriggerArgs', 'PipelineTriggerArgsDict']]] = None,
                  url: Optional[pulumi.Input[_builtins.str]] = None,
+                 usage_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
         Use `Pipeline` to deploy [Lakeflow Declarative Pipelines](https://docs.databricks.com/aws/en/dlt).
@@ -1280,7 +1305,7 @@ class Pipeline(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.bool] allow_duplicate_names: Optional boolean flag. If false, deployment will fail if name conflicts with that of another pipeline. default is `false`.
         :param pulumi.Input[_builtins.str] budget_policy_id: optional string specifying ID of the budget policy for this Lakeflow Declarative Pipeline.
-        :param pulumi.Input[_builtins.str] catalog: The name of catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline.* (Conflicts with `storage`).
+        :param pulumi.Input[_builtins.str] catalog: The name of default catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline if you switch from `storage` to `catalog` or vice versa.  If pipeline was already created with `catalog` set, the value could be changed.* (Conflicts with `storage`).
         :param pulumi.Input[_builtins.str] channel: optional name of the release channel for Spark version used by Lakeflow Declarative Pipeline.  Supported values are: `CURRENT` (default) and `PREVIEW`.
         :param pulumi.Input[Sequence[pulumi.Input[Union['PipelineClusterArgs', 'PipelineClusterArgsDict']]]] clusters: blocks - Clusters to run the pipeline. If none is specified, pipelines will automatically select a default cluster configuration for the pipeline. *Please note that Lakeflow Declarative Pipeline clusters are supporting only subset of attributes as described in [documentation](https://docs.databricks.com/api/workspace/pipelines/create#clusters).*  Also, note that `autoscale` block is extended with the `mode` parameter that controls the autoscaling algorithm (possible values are `ENHANCED` for new, enhanced autoscaling algorithm, or `LEGACY` for old algorithm).
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] configuration: An optional list of values to apply to the entire pipeline. Elements must be formatted as key:value pairs.
@@ -1462,6 +1487,7 @@ class Pipeline(pulumi.CustomResource):
                  target: Optional[pulumi.Input[_builtins.str]] = None,
                  trigger: Optional[pulumi.Input[Union['PipelineTriggerArgs', 'PipelineTriggerArgsDict']]] = None,
                  url: Optional[pulumi.Input[_builtins.str]] = None,
+                 usage_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1509,6 +1535,7 @@ class Pipeline(pulumi.CustomResource):
             __props__.__dict__["target"] = target
             __props__.__dict__["trigger"] = trigger
             __props__.__dict__["url"] = url
+            __props__.__dict__["usage_policy_id"] = usage_policy_id
         super(Pipeline, __self__).__init__(
             'databricks:index/pipeline:Pipeline',
             resource_name,
@@ -1556,7 +1583,8 @@ class Pipeline(pulumi.CustomResource):
             tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             target: Optional[pulumi.Input[_builtins.str]] = None,
             trigger: Optional[pulumi.Input[Union['PipelineTriggerArgs', 'PipelineTriggerArgsDict']]] = None,
-            url: Optional[pulumi.Input[_builtins.str]] = None) -> 'Pipeline':
+            url: Optional[pulumi.Input[_builtins.str]] = None,
+            usage_policy_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'Pipeline':
         """
         Get an existing Pipeline resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1566,7 +1594,7 @@ class Pipeline(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.bool] allow_duplicate_names: Optional boolean flag. If false, deployment will fail if name conflicts with that of another pipeline. default is `false`.
         :param pulumi.Input[_builtins.str] budget_policy_id: optional string specifying ID of the budget policy for this Lakeflow Declarative Pipeline.
-        :param pulumi.Input[_builtins.str] catalog: The name of catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline.* (Conflicts with `storage`).
+        :param pulumi.Input[_builtins.str] catalog: The name of default catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline if you switch from `storage` to `catalog` or vice versa.  If pipeline was already created with `catalog` set, the value could be changed.* (Conflicts with `storage`).
         :param pulumi.Input[_builtins.str] channel: optional name of the release channel for Spark version used by Lakeflow Declarative Pipeline.  Supported values are: `CURRENT` (default) and `PREVIEW`.
         :param pulumi.Input[Sequence[pulumi.Input[Union['PipelineClusterArgs', 'PipelineClusterArgsDict']]]] clusters: blocks - Clusters to run the pipeline. If none is specified, pipelines will automatically select a default cluster configuration for the pipeline. *Please note that Lakeflow Declarative Pipeline clusters are supporting only subset of attributes as described in [documentation](https://docs.databricks.com/api/workspace/pipelines/create#clusters).*  Also, note that `autoscale` block is extended with the `mode` parameter that controls the autoscaling algorithm (possible values are `ENHANCED` for new, enhanced autoscaling algorithm, or `LEGACY` for old algorithm).
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] configuration: An optional list of values to apply to the entire pipeline. Elements must be formatted as key:value pairs.
@@ -1630,6 +1658,7 @@ class Pipeline(pulumi.CustomResource):
         __props__.__dict__["target"] = target
         __props__.__dict__["trigger"] = trigger
         __props__.__dict__["url"] = url
+        __props__.__dict__["usage_policy_id"] = usage_policy_id
         return Pipeline(resource_name, opts=opts, __props__=__props__)
 
     @_builtins.property
@@ -1652,7 +1681,7 @@ class Pipeline(pulumi.CustomResource):
     @pulumi.getter
     def catalog(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        The name of catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline.* (Conflicts with `storage`).
+        The name of default catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline if you switch from `storage` to `catalog` or vice versa.  If pipeline was already created with `catalog` set, the value could be changed.* (Conflicts with `storage`).
         """
         return pulumi.get(self, "catalog")
 
@@ -1890,4 +1919,9 @@ class Pipeline(pulumi.CustomResource):
         URL of the Lakeflow Declarative Pipeline on the given workspace.
         """
         return pulumi.get(self, "url")
+
+    @_builtins.property
+    @pulumi.getter(name="usagePolicyId")
+    def usage_policy_id(self) -> pulumi.Output[Optional[_builtins.str]]:
+        return pulumi.get(self, "usage_policy_id")
 

@@ -1,3 +1,4 @@
+from chalk._gen.chalk.server.v1 import environment_pb2 as _environment_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -81,7 +82,7 @@ class SourceImageSpec(_message.Message):
     ) -> None: ...
 
 class SourceImageSpecs(_message.Message):
-    __slots__ = ("specs",)
+    __slots__ = ("specs", "uses_uploaded_proto_graph")
     class SpecsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -93,8 +94,12 @@ class SourceImageSpecs(_message.Message):
         ) -> None: ...
 
     SPECS_FIELD_NUMBER: _ClassVar[int]
+    USES_UPLOADED_PROTO_GRAPH_FIELD_NUMBER: _ClassVar[int]
     specs: _containers.MessageMap[str, SourceImageSpec]
-    def __init__(self, specs: _Optional[_Mapping[str, SourceImageSpec]] = ...) -> None: ...
+    uses_uploaded_proto_graph: bool
+    def __init__(
+        self, specs: _Optional[_Mapping[str, SourceImageSpec]] = ..., uses_uploaded_proto_graph: bool = ...
+    ) -> None: ...
 
 class Deployment(_message.Message):
     __slots__ = (
@@ -128,6 +133,12 @@ class Deployment(_message.Message):
         "profiling_mode",
         "source_image_specs",
         "uses_uploaded_proto_graph",
+        "build_profile",
+        "customer_cicd_job_url",
+        "customer_metadata",
+        "customer_vcs_url",
+        "display_description",
+        "git_commit_message",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -159,6 +170,12 @@ class Deployment(_message.Message):
     PROFILING_MODE_FIELD_NUMBER: _ClassVar[int]
     SOURCE_IMAGE_SPECS_FIELD_NUMBER: _ClassVar[int]
     USES_UPLOADED_PROTO_GRAPH_FIELD_NUMBER: _ClassVar[int]
+    BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_CICD_JOB_URL_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_VCS_URL_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    GIT_COMMIT_MESSAGE_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     status: DeploymentStatus
@@ -189,6 +206,12 @@ class Deployment(_message.Message):
     profiling_mode: DeploymentProfilingMode
     source_image_specs: bytes
     uses_uploaded_proto_graph: bool
+    build_profile: _environment_pb2.DeploymentBuildProfile
+    customer_cicd_job_url: str
+    customer_metadata: str
+    customer_vcs_url: str
+    display_description: str
+    git_commit_message: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -221,4 +244,10 @@ class Deployment(_message.Message):
         profiling_mode: _Optional[_Union[DeploymentProfilingMode, str]] = ...,
         source_image_specs: _Optional[bytes] = ...,
         uses_uploaded_proto_graph: bool = ...,
+        build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
+        customer_cicd_job_url: _Optional[str] = ...,
+        customer_metadata: _Optional[str] = ...,
+        customer_vcs_url: _Optional[str] = ...,
+        display_description: _Optional[str] = ...,
+        git_commit_message: _Optional[str] = ...,
     ) -> None: ...

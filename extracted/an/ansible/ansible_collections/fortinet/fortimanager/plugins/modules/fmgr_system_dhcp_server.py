@@ -16,7 +16,6 @@ short_description: Configure DHCP servers.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -622,18 +624,18 @@ EXAMPLES = '''
         adom: ansible
         state: present
         system_dhcp_server:
-          auto-configuration: enable # <value in [disable, enable]>
-          default-gateway: "222.222.222.1"
+          auto_configuration: enable # <value in [disable, enable]>
+          default_gateway: "222.222.222.1"
           filename: ansible-file
           id: 1
           interface: any
-          ip-mode: range # <value in [range, usrgrp]>
-          ip-range:
-            - end-ip: 222.222.222.22
+          ip_mode: range # <value in [range, usrgrp]>
+          ip_range:
+            - end_ip: 222.222.222.22
               id: 1
-              start-ip: 222.222.222.2
+              start_ip: 222.222.222.2
           netmask: 255.255.255.0
-          server-type: regular # <value in [regular, ipsec]>
+          server_type: regular # <value in [regular, ipsec]>
           status: disable # <value in [disable, enable]>
 
 - name: Gathering fortimanager facts
@@ -708,6 +710,7 @@ def main():
     module_primary_key = 'id'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'system_dhcp_server': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

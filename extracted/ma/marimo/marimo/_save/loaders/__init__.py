@@ -1,4 +1,6 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
 from typing import Literal
 
 from marimo._save.loaders.json import JsonLoader
@@ -19,12 +21,13 @@ PERSISTENT_LOADERS: dict[LoaderKey, LoaderType] = {
 }
 
 __all__ = [
-    "PERSISTENT_LOADERS",
+    "BasePersistenceLoader",
+    "JsonLoader",
     "Loader",
     "LoaderKey",
-    "BasePersistenceLoader",
     "LoaderPartial",
     "LoaderType",
     "MemoryLoader",
+    "PERSISTENT_LOADERS",
     "PickleLoader",
 ]

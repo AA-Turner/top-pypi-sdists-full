@@ -17,11 +17,18 @@ __macros = {
 }
 
 try:
-    # optionally accept zarr.Array as array data to support conversion of data from Zarr to HDMF
-    import zarr
-    __macros['array_data'].append(zarr.Array)
+    from zarr import Array as ZarrArray
+    ZARR_INSTALLED = True
 except ImportError:
-    pass
+    ZARR_INSTALLED = False
+
+
+def is_zarr_array(value):
+    return ZARR_INSTALLED and isinstance(value, ZarrArray)
+
+if ZARR_INSTALLED:
+    # optionally accept zarr.Array as array data to support conversion of data from Zarr to HDMF
+    __macros['array_data'].append(ZarrArray)
 
 
 # code to signify how to handle positional arguments in docval
@@ -189,6 +196,15 @@ def __fmt_str_quotes(x):
     return str(x)
 
 
+def __shape_error_message(argname, valshape, allowable_shapes):
+    if isinstance(allowable_shapes, (list, tuple)) and all(isinstance(e, (list, tuple)) for e in allowable_shapes):
+        allowable_shapes_str = " or ".join(map(str, allowable_shapes))
+    else:
+        allowable_shapes_str = str(allowable_shapes)
+    allowable_shapes_str = allowable_shapes_str.replace("None", "*")
+    return f"incorrect shape for {argname}: got {valshape}, and expected {allowable_shapes_str}"
+
+
 def __parse_args(validator, args, kwargs, enforce_type=True, enforce_shape=True, allow_extra=False,  # noqa: C901
                  allow_positional=AllowPositional.ALLOWED):
     """
@@ -305,8 +321,7 @@ def __parse_args(validator, args, kwargs, enforce_type=True, enforce_shape=True,
                         argval = getattr(argval, argname)
                         valshape = get_data_shape(argval)
                     if valshape is not None and not __shape_okay_multi(argval, arg['shape']):
-                        fmt_val = (argname, valshape, arg['shape'])
-                        value_errors.append("incorrect shape for '%s' (got '%s', expected '%s')" % fmt_val)
+                        value_errors.append(__shape_error_message(argname, valshape, arg['shape']))
                 if 'enum' in arg:
                     err = __check_enum(argval, arg)
                     if err:
@@ -362,8 +377,7 @@ def __parse_args(validator, args, kwargs, enforce_type=True, enforce_shape=True,
                     argval = getattr(argval, argname)
                     valshape = get_data_shape(argval)
                 if valshape is not None and not __shape_okay_multi(argval, arg['shape']):
-                    fmt_val = (argname, valshape, arg['shape'])
-                    value_errors.append("incorrect shape for '%s' (got '%s', expected '%s')" % fmt_val)
+                    value_errors.append(__shape_error_message(argname, valshape, arg['shape']))
             if 'enum' in arg and argval is not None:
                 err = __check_enum(argval, arg)
                 if err:
@@ -824,6 +838,11 @@ def get_data_shape(data, strict_no_data_load=False):
                     shape.extend(__get_shape_helper(el))
         return tuple(shape)
 
+    # Get the shape of the underlying data if this is a Data object. Some Data subclasses may override the shape
+    # property to improve user-friendliness, but we want the actual shape of the data here.
+    if isinstance(data, Data):
+        data = data.data
+
     # NOTE: data.maxshape will fail on empty h5py.Dataset without shape or maxshape. this will be fixed in h5py 3.0
     if hasattr(data, 'maxshape'):
         return data.maxshape
@@ -948,7 +967,7 @@ def generate_array_html_repr(array_info_dict, array, dataset_type=None):
     # Heuristic for displaying data
     array_is_small = array_size_bytes < 1024 * 0.1 # 10 % a kilobyte to display the array
     if array_is_small:
-        repr_html += "<br>" + str(np.asarray(array))
+        repr_html += "<br>" + str(array[()])
 
     return repr_html
 

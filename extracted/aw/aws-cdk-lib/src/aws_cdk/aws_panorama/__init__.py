@@ -67,772 +67,17 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_panorama.ApplicationInstanceReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_instance_arn": "applicationInstanceArn",
-        "application_instance_id": "applicationInstanceId",
-    },
+from ..interfaces.aws_panorama import (
+    ApplicationInstanceReference as _ApplicationInstanceReference_011533a2,
+    IApplicationInstanceRef as _IApplicationInstanceRef_530e8c33,
+    IPackageRef as _IPackageRef_675e27b7,
+    IPackageVersionRef as _IPackageVersionRef_ace03ee8,
+    PackageReference as _PackageReference_e44c01fe,
+    PackageVersionReference as _PackageVersionReference_83c42bde,
 )
-class ApplicationInstanceReference:
-    def __init__(
-        self,
-        *,
-        application_instance_arn: builtins.str,
-        application_instance_id: builtins.str,
-    ) -> None:
-        '''A reference to a ApplicationInstance resource.
 
-        :param application_instance_arn: The ARN of the ApplicationInstance resource.
-        :param application_instance_id: The ApplicationInstanceId of the ApplicationInstance resource.
 
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_panorama as panorama
-            
-            application_instance_reference = panorama.ApplicationInstanceReference(
-                application_instance_arn="applicationInstanceArn",
-                application_instance_id="applicationInstanceId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4357df7722a5d5276703897b1e9d7d0fa7b1de2aa5ccd308c66c4e397beacde)
-            check_type(argname="argument application_instance_arn", value=application_instance_arn, expected_type=type_hints["application_instance_arn"])
-            check_type(argname="argument application_instance_id", value=application_instance_id, expected_type=type_hints["application_instance_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_instance_arn": application_instance_arn,
-            "application_instance_id": application_instance_id,
-        }
-
-    @builtins.property
-    def application_instance_arn(self) -> builtins.str:
-        '''The ARN of the ApplicationInstance resource.'''
-        result = self._values.get("application_instance_arn")
-        assert result is not None, "Required property 'application_instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def application_instance_id(self) -> builtins.str:
-        '''The ApplicationInstanceId of the ApplicationInstance resource.'''
-        result = self._values.get("application_instance_id")
-        assert result is not None, "Required property 'application_instance_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ApplicationInstanceReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_panorama.CfnApplicationInstanceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "default_runtime_context_device": "defaultRuntimeContextDevice",
-        "manifest_payload": "manifestPayload",
-        "application_instance_id_to_replace": "applicationInstanceIdToReplace",
-        "description": "description",
-        "manifest_overrides_payload": "manifestOverridesPayload",
-        "name": "name",
-        "runtime_role_arn": "runtimeRoleArn",
-        "tags": "tags",
-    },
-)
-class CfnApplicationInstanceProps:
-    def __init__(
-        self,
-        *,
-        default_runtime_context_device: builtins.str,
-        manifest_payload: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationInstance.ManifestPayloadProperty", typing.Dict[builtins.str, typing.Any]]],
-        application_instance_id_to_replace: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        manifest_overrides_payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationInstance.ManifestOverridesPayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        runtime_role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplicationInstance``.
-
-        :param default_runtime_context_device: The device's ID.
-        :param manifest_payload: The application's manifest document.
-        :param application_instance_id_to_replace: The ID of an application instance to replace with the new instance.
-        :param description: A description for the application instance.
-        :param manifest_overrides_payload: Setting overrides for the application manifest.
-        :param name: A name for the application instance.
-        :param runtime_role_arn: The ARN of a runtime role for the application instance.
-        :param tags: Tags for the application instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_panorama as panorama
-            
-            cfn_application_instance_props = panorama.CfnApplicationInstanceProps(
-                default_runtime_context_device="defaultRuntimeContextDevice",
-                manifest_payload=panorama.CfnApplicationInstance.ManifestPayloadProperty(
-                    payload_data="payloadData"
-                ),
-            
-                # the properties below are optional
-                application_instance_id_to_replace="applicationInstanceIdToReplace",
-                description="description",
-                manifest_overrides_payload=panorama.CfnApplicationInstance.ManifestOverridesPayloadProperty(
-                    payload_data="payloadData"
-                ),
-                name="name",
-                runtime_role_arn="runtimeRoleArn",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86e1bdf3f249b2bc0c09d79eca2507b458b360a5856626b251d3b11a03bcb807)
-            check_type(argname="argument default_runtime_context_device", value=default_runtime_context_device, expected_type=type_hints["default_runtime_context_device"])
-            check_type(argname="argument manifest_payload", value=manifest_payload, expected_type=type_hints["manifest_payload"])
-            check_type(argname="argument application_instance_id_to_replace", value=application_instance_id_to_replace, expected_type=type_hints["application_instance_id_to_replace"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument manifest_overrides_payload", value=manifest_overrides_payload, expected_type=type_hints["manifest_overrides_payload"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument runtime_role_arn", value=runtime_role_arn, expected_type=type_hints["runtime_role_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "default_runtime_context_device": default_runtime_context_device,
-            "manifest_payload": manifest_payload,
-        }
-        if application_instance_id_to_replace is not None:
-            self._values["application_instance_id_to_replace"] = application_instance_id_to_replace
-        if description is not None:
-            self._values["description"] = description
-        if manifest_overrides_payload is not None:
-            self._values["manifest_overrides_payload"] = manifest_overrides_payload
-        if name is not None:
-            self._values["name"] = name
-        if runtime_role_arn is not None:
-            self._values["runtime_role_arn"] = runtime_role_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def default_runtime_context_device(self) -> builtins.str:
-        '''The device's ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-defaultruntimecontextdevice
-        '''
-        result = self._values.get("default_runtime_context_device")
-        assert result is not None, "Required property 'default_runtime_context_device' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def manifest_payload(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationInstance.ManifestPayloadProperty"]:
-        '''The application's manifest document.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-manifestpayload
-        '''
-        result = self._values.get("manifest_payload")
-        assert result is not None, "Required property 'manifest_payload' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplicationInstance.ManifestPayloadProperty"], result)
-
-    @builtins.property
-    def application_instance_id_to_replace(self) -> typing.Optional[builtins.str]:
-        '''The ID of an application instance to replace with the new instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-applicationinstanceidtoreplace
-        '''
-        result = self._values.get("application_instance_id_to_replace")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the application instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def manifest_overrides_payload(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationInstance.ManifestOverridesPayloadProperty"]]:
-        '''Setting overrides for the application manifest.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-manifestoverridespayload
-        '''
-        result = self._values.get("manifest_overrides_payload")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationInstance.ManifestOverridesPayloadProperty"]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''A name for the application instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def runtime_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of a runtime role for the application instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-runtimerolearn
-        '''
-        result = self._values.get("runtime_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags for the application instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationInstanceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_panorama.CfnPackageProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "package_name": "packageName",
-        "storage_location": "storageLocation",
-        "tags": "tags",
-    },
-)
-class CfnPackageProps:
-    def __init__(
-        self,
-        *,
-        package_name: builtins.str,
-        storage_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPackage.StorageLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPackage``.
-
-        :param package_name: A name for the package.
-        :param storage_location: A storage location.
-        :param tags: Tags for the package.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-package.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_panorama as panorama
-            
-            cfn_package_props = panorama.CfnPackageProps(
-                package_name="packageName",
-            
-                # the properties below are optional
-                storage_location=panorama.CfnPackage.StorageLocationProperty(
-                    binary_prefix_location="binaryPrefixLocation",
-                    bucket="bucket",
-                    generated_prefix_location="generatedPrefixLocation",
-                    manifest_prefix_location="manifestPrefixLocation",
-                    repo_prefix_location="repoPrefixLocation"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1b52b8a916ab2fd0db4662da21b8aba3f3a0bd1b465b93c901724b70fe754a8)
-            check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
-            check_type(argname="argument storage_location", value=storage_location, expected_type=type_hints["storage_location"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "package_name": package_name,
-        }
-        if storage_location is not None:
-            self._values["storage_location"] = storage_location
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def package_name(self) -> builtins.str:
-        '''A name for the package.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-package.html#cfn-panorama-package-packagename
-        '''
-        result = self._values.get("package_name")
-        assert result is not None, "Required property 'package_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def storage_location(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPackage.StorageLocationProperty"]]:
-        '''A storage location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-package.html#cfn-panorama-package-storagelocation
-        '''
-        result = self._values.get("storage_location")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPackage.StorageLocationProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags for the package.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-package.html#cfn-panorama-package-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPackageProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_panorama.CfnPackageVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "package_id": "packageId",
-        "package_version": "packageVersion",
-        "patch_version": "patchVersion",
-        "mark_latest": "markLatest",
-        "owner_account": "ownerAccount",
-        "updated_latest_patch_version": "updatedLatestPatchVersion",
-    },
-)
-class CfnPackageVersionProps:
-    def __init__(
-        self,
-        *,
-        package_id: builtins.str,
-        package_version: builtins.str,
-        patch_version: builtins.str,
-        mark_latest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        owner_account: typing.Optional[builtins.str] = None,
-        updated_latest_patch_version: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPackageVersion``.
-
-        :param package_id: A package ID.
-        :param package_version: A package version.
-        :param patch_version: A patch version.
-        :param mark_latest: Whether to mark the new version as the latest version.
-        :param owner_account: An owner account.
-        :param updated_latest_patch_version: If the version was marked latest, the new version to maker as latest.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_panorama as panorama
-            
-            cfn_package_version_props = panorama.CfnPackageVersionProps(
-                package_id="packageId",
-                package_version="packageVersion",
-                patch_version="patchVersion",
-            
-                # the properties below are optional
-                mark_latest=False,
-                owner_account="ownerAccount",
-                updated_latest_patch_version="updatedLatestPatchVersion"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a64dc269b0bd6d71d3221fbd05486743bcd745dd462213003c3e1bdcc512b47)
-            check_type(argname="argument package_id", value=package_id, expected_type=type_hints["package_id"])
-            check_type(argname="argument package_version", value=package_version, expected_type=type_hints["package_version"])
-            check_type(argname="argument patch_version", value=patch_version, expected_type=type_hints["patch_version"])
-            check_type(argname="argument mark_latest", value=mark_latest, expected_type=type_hints["mark_latest"])
-            check_type(argname="argument owner_account", value=owner_account, expected_type=type_hints["owner_account"])
-            check_type(argname="argument updated_latest_patch_version", value=updated_latest_patch_version, expected_type=type_hints["updated_latest_patch_version"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "package_id": package_id,
-            "package_version": package_version,
-            "patch_version": patch_version,
-        }
-        if mark_latest is not None:
-            self._values["mark_latest"] = mark_latest
-        if owner_account is not None:
-            self._values["owner_account"] = owner_account
-        if updated_latest_patch_version is not None:
-            self._values["updated_latest_patch_version"] = updated_latest_patch_version
-
-    @builtins.property
-    def package_id(self) -> builtins.str:
-        '''A package ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html#cfn-panorama-packageversion-packageid
-        '''
-        result = self._values.get("package_id")
-        assert result is not None, "Required property 'package_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def package_version(self) -> builtins.str:
-        '''A package version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html#cfn-panorama-packageversion-packageversion
-        '''
-        result = self._values.get("package_version")
-        assert result is not None, "Required property 'package_version' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def patch_version(self) -> builtins.str:
-        '''A patch version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html#cfn-panorama-packageversion-patchversion
-        '''
-        result = self._values.get("patch_version")
-        assert result is not None, "Required property 'patch_version' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def mark_latest(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to mark the new version as the latest version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html#cfn-panorama-packageversion-marklatest
-        '''
-        result = self._values.get("mark_latest")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def owner_account(self) -> typing.Optional[builtins.str]:
-        '''An owner account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html#cfn-panorama-packageversion-owneraccount
-        '''
-        result = self._values.get("owner_account")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def updated_latest_patch_version(self) -> typing.Optional[builtins.str]:
-        '''If the version was marked latest, the new version to maker as latest.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html#cfn-panorama-packageversion-updatedlatestpatchversion
-        '''
-        result = self._values.get("updated_latest_patch_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPackageVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_panorama.IApplicationInstanceRef")
-class IApplicationInstanceRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ApplicationInstance.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationInstanceRef")
-    def application_instance_ref(self) -> ApplicationInstanceReference:
-        '''(experimental) A reference to a ApplicationInstance resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IApplicationInstanceRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ApplicationInstance.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_panorama.IApplicationInstanceRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationInstanceRef")
-    def application_instance_ref(self) -> ApplicationInstanceReference:
-        '''(experimental) A reference to a ApplicationInstance resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ApplicationInstanceReference, jsii.get(self, "applicationInstanceRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IApplicationInstanceRef).__jsii_proxy_class__ = lambda : _IApplicationInstanceRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_panorama.IPackageRef")
-class IPackageRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Package.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="packageRef")
-    def package_ref(self) -> "PackageReference":
-        '''(experimental) A reference to a Package resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IPackageRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Package.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_panorama.IPackageRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="packageRef")
-    def package_ref(self) -> "PackageReference":
-        '''(experimental) A reference to a Package resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("PackageReference", jsii.get(self, "packageRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IPackageRef).__jsii_proxy_class__ = lambda : _IPackageRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_panorama.IPackageVersionRef")
-class IPackageVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a PackageVersion.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="packageVersionRef")
-    def package_version_ref(self) -> "PackageVersionReference":
-        '''(experimental) A reference to a PackageVersion resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IPackageVersionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a PackageVersion.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_panorama.IPackageVersionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="packageVersionRef")
-    def package_version_ref(self) -> "PackageVersionReference":
-        '''(experimental) A reference to a PackageVersion resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("PackageVersionReference", jsii.get(self, "packageVersionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IPackageVersionRef).__jsii_proxy_class__ = lambda : _IPackageVersionRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_panorama.PackageReference",
-    jsii_struct_bases=[],
-    name_mapping={"package_arn": "packageArn", "package_id": "packageId"},
-)
-class PackageReference:
-    def __init__(self, *, package_arn: builtins.str, package_id: builtins.str) -> None:
-        '''A reference to a Package resource.
-
-        :param package_arn: The ARN of the Package resource.
-        :param package_id: The PackageId of the Package resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_panorama as panorama
-            
-            package_reference = panorama.PackageReference(
-                package_arn="packageArn",
-                package_id="packageId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27b42c0caf540e7b5eba1f3a882312ef2bff23c44a9b512b1e25b79f58d0ab57)
-            check_type(argname="argument package_arn", value=package_arn, expected_type=type_hints["package_arn"])
-            check_type(argname="argument package_id", value=package_id, expected_type=type_hints["package_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "package_arn": package_arn,
-            "package_id": package_id,
-        }
-
-    @builtins.property
-    def package_arn(self) -> builtins.str:
-        '''The ARN of the Package resource.'''
-        result = self._values.get("package_arn")
-        assert result is not None, "Required property 'package_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def package_id(self) -> builtins.str:
-        '''The PackageId of the Package resource.'''
-        result = self._values.get("package_id")
-        assert result is not None, "Required property 'package_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "PackageReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_panorama.PackageVersionReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "package_id": "packageId",
-        "package_version": "packageVersion",
-        "patch_version": "patchVersion",
-    },
-)
-class PackageVersionReference:
-    def __init__(
-        self,
-        *,
-        package_id: builtins.str,
-        package_version: builtins.str,
-        patch_version: builtins.str,
-    ) -> None:
-        '''A reference to a PackageVersion resource.
-
-        :param package_id: The PackageId of the PackageVersion resource.
-        :param package_version: The PackageVersion of the PackageVersion resource.
-        :param patch_version: The PatchVersion of the PackageVersion resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_panorama as panorama
-            
-            package_version_reference = panorama.PackageVersionReference(
-                package_id="packageId",
-                package_version="packageVersion",
-                patch_version="patchVersion"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57f10cdf1bbee22b25906854d9b03f15ac4dc821bba7ea14ddb75dac1bd43989)
-            check_type(argname="argument package_id", value=package_id, expected_type=type_hints["package_id"])
-            check_type(argname="argument package_version", value=package_version, expected_type=type_hints["package_version"])
-            check_type(argname="argument patch_version", value=patch_version, expected_type=type_hints["patch_version"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "package_id": package_id,
-            "package_version": package_version,
-            "patch_version": patch_version,
-        }
-
-    @builtins.property
-    def package_id(self) -> builtins.str:
-        '''The PackageId of the PackageVersion resource.'''
-        result = self._values.get("package_id")
-        assert result is not None, "Required property 'package_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def package_version(self) -> builtins.str:
-        '''The PackageVersion of the PackageVersion resource.'''
-        result = self._values.get("package_version")
-        assert result is not None, "Required property 'package_version' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def patch_version(self) -> builtins.str:
-        '''The PatchVersion of the PackageVersion resource.'''
-        result = self._values.get("patch_version")
-        assert result is not None, "Required property 'patch_version' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "PackageVersionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IApplicationInstanceRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IApplicationInstanceRef_530e8c33, _ITaggable_36806126)
 class CfnApplicationInstance(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -855,6 +100,7 @@ class CfnApplicationInstance(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_panorama as panorama
@@ -882,19 +128,20 @@ class CfnApplicationInstance(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         default_runtime_context_device: builtins.str,
-        manifest_payload: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationInstance.ManifestPayloadProperty", typing.Dict[builtins.str, typing.Any]]],
+        manifest_payload: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationInstance.ManifestPayloadProperty", typing.Dict[builtins.str, typing.Any]]],
         application_instance_id_to_replace: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        manifest_overrides_payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationInstance.ManifestOverridesPayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        manifest_overrides_payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationInstance.ManifestOverridesPayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         runtime_role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Panorama::ApplicationInstance``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param default_runtime_context_device: The device's ID.
@@ -923,8 +170,76 @@ class CfnApplicationInstance(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForApplicationInstance")
+    @builtins.classmethod
+    def arn_for_application_instance(
+        cls,
+        resource: "_IApplicationInstanceRef_530e8c33",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf533fb3b1006fba9f44c5f4406218e9ea314ac7fd24c6f3e86b82405f8cd644)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplicationInstance", [resource]))
+
+    @jsii.member(jsii_name="fromApplicationInstanceArn")
+    @builtins.classmethod
+    def from_application_instance_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IApplicationInstanceRef_530e8c33":
+        '''Creates a new IApplicationInstanceRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a9f4f68f6afad3612ec12bf875c21240c719f76be3cb147ecb5aa8e2041ee7b3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IApplicationInstanceRef_530e8c33", jsii.sinvoke(cls, "fromApplicationInstanceArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromApplicationInstanceId")
+    @builtins.classmethod
+    def from_application_instance_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        application_instance_id: builtins.str,
+    ) -> "_IApplicationInstanceRef_530e8c33":
+        '''Creates a new IApplicationInstanceRef from a applicationInstanceId.
+
+        :param scope: -
+        :param id: -
+        :param application_instance_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf3c71beda280e35f7832b3400f0af821e251042c4f89db4b42f5975db8cb61e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument application_instance_id", value=application_instance_id, expected_type=type_hints["application_instance_id"])
+        return typing.cast("_IApplicationInstanceRef_530e8c33", jsii.sinvoke(cls, "fromApplicationInstanceId", [scope, id, application_instance_id]))
+
+    @jsii.member(jsii_name="isCfnApplicationInstance")
+    @builtins.classmethod
+    def is_cfn_application_instance(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnApplicationInstance.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eb3ed9d2426f451e3bd6baba6a2f534f717b5076782b9e522b13823c420b592e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplicationInstance", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -955,9 +270,9 @@ class CfnApplicationInstance(
 
     @builtins.property
     @jsii.member(jsii_name="applicationInstanceRef")
-    def application_instance_ref(self) -> ApplicationInstanceReference:
+    def application_instance_ref(self) -> "_ApplicationInstanceReference_011533a2":
         '''A reference to a ApplicationInstance resource.'''
-        return typing.cast(ApplicationInstanceReference, jsii.get(self, "applicationInstanceRef"))
+        return typing.cast("_ApplicationInstanceReference_011533a2", jsii.get(self, "applicationInstanceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrApplicationInstanceId")
@@ -1038,9 +353,9 @@ class CfnApplicationInstance(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultRuntimeContextDevice")
@@ -1059,14 +374,14 @@ class CfnApplicationInstance(
     @jsii.member(jsii_name="manifestPayload")
     def manifest_payload(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationInstance.ManifestPayloadProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestPayloadProperty"]:
         '''The application's manifest document.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplicationInstance.ManifestPayloadProperty"], jsii.get(self, "manifestPayload"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestPayloadProperty"], jsii.get(self, "manifestPayload"))
 
     @manifest_payload.setter
     def manifest_payload(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnApplicationInstance.ManifestPayloadProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestPayloadProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4633be9adb22fb14ee3ed09114e5a580f0c1d44702407ccc944dc6786365f444)
@@ -1106,14 +421,14 @@ class CfnApplicationInstance(
     @jsii.member(jsii_name="manifestOverridesPayload")
     def manifest_overrides_payload(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationInstance.ManifestOverridesPayloadProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]]:
         '''Setting overrides for the application manifest.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationInstance.ManifestOverridesPayloadProperty"]], jsii.get(self, "manifestOverridesPayload"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]], jsii.get(self, "manifestOverridesPayload"))
 
     @manifest_overrides_payload.setter
     def manifest_overrides_payload(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationInstance.ManifestOverridesPayloadProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b7471c650c5b47abc295c3f3540f494f924a6e4a67d4808e09a0c61dbfb5a40)
@@ -1148,12 +463,12 @@ class CfnApplicationInstance(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Tags for the application instance.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cc3bba124186482968d9b6204289729da05b6e7cb68d9a998bbd4aef3a949112)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1274,7 +589,192 @@ class CfnApplicationInstance(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IPackageRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_panorama.CfnApplicationInstanceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "default_runtime_context_device": "defaultRuntimeContextDevice",
+        "manifest_payload": "manifestPayload",
+        "application_instance_id_to_replace": "applicationInstanceIdToReplace",
+        "description": "description",
+        "manifest_overrides_payload": "manifestOverridesPayload",
+        "name": "name",
+        "runtime_role_arn": "runtimeRoleArn",
+        "tags": "tags",
+    },
+)
+class CfnApplicationInstanceProps:
+    def __init__(
+        self,
+        *,
+        default_runtime_context_device: builtins.str,
+        manifest_payload: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationInstance.ManifestPayloadProperty", typing.Dict[builtins.str, typing.Any]]],
+        application_instance_id_to_replace: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        manifest_overrides_payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationInstance.ManifestOverridesPayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        runtime_role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplicationInstance``.
+
+        :param default_runtime_context_device: The device's ID.
+        :param manifest_payload: The application's manifest document.
+        :param application_instance_id_to_replace: The ID of an application instance to replace with the new instance.
+        :param description: A description for the application instance.
+        :param manifest_overrides_payload: Setting overrides for the application manifest.
+        :param name: A name for the application instance.
+        :param runtime_role_arn: The ARN of a runtime role for the application instance.
+        :param tags: Tags for the application instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_panorama as panorama
+            
+            cfn_application_instance_props = panorama.CfnApplicationInstanceProps(
+                default_runtime_context_device="defaultRuntimeContextDevice",
+                manifest_payload=panorama.CfnApplicationInstance.ManifestPayloadProperty(
+                    payload_data="payloadData"
+                ),
+            
+                # the properties below are optional
+                application_instance_id_to_replace="applicationInstanceIdToReplace",
+                description="description",
+                manifest_overrides_payload=panorama.CfnApplicationInstance.ManifestOverridesPayloadProperty(
+                    payload_data="payloadData"
+                ),
+                name="name",
+                runtime_role_arn="runtimeRoleArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__86e1bdf3f249b2bc0c09d79eca2507b458b360a5856626b251d3b11a03bcb807)
+            check_type(argname="argument default_runtime_context_device", value=default_runtime_context_device, expected_type=type_hints["default_runtime_context_device"])
+            check_type(argname="argument manifest_payload", value=manifest_payload, expected_type=type_hints["manifest_payload"])
+            check_type(argname="argument application_instance_id_to_replace", value=application_instance_id_to_replace, expected_type=type_hints["application_instance_id_to_replace"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument manifest_overrides_payload", value=manifest_overrides_payload, expected_type=type_hints["manifest_overrides_payload"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument runtime_role_arn", value=runtime_role_arn, expected_type=type_hints["runtime_role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "default_runtime_context_device": default_runtime_context_device,
+            "manifest_payload": manifest_payload,
+        }
+        if application_instance_id_to_replace is not None:
+            self._values["application_instance_id_to_replace"] = application_instance_id_to_replace
+        if description is not None:
+            self._values["description"] = description
+        if manifest_overrides_payload is not None:
+            self._values["manifest_overrides_payload"] = manifest_overrides_payload
+        if name is not None:
+            self._values["name"] = name
+        if runtime_role_arn is not None:
+            self._values["runtime_role_arn"] = runtime_role_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def default_runtime_context_device(self) -> builtins.str:
+        '''The device's ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-defaultruntimecontextdevice
+        '''
+        result = self._values.get("default_runtime_context_device")
+        assert result is not None, "Required property 'default_runtime_context_device' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def manifest_payload(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestPayloadProperty"]:
+        '''The application's manifest document.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-manifestpayload
+        '''
+        result = self._values.get("manifest_payload")
+        assert result is not None, "Required property 'manifest_payload' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestPayloadProperty"], result)
+
+    @builtins.property
+    def application_instance_id_to_replace(self) -> typing.Optional[builtins.str]:
+        '''The ID of an application instance to replace with the new instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-applicationinstanceidtoreplace
+        '''
+        result = self._values.get("application_instance_id_to_replace")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the application instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def manifest_overrides_payload(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]]:
+        '''Setting overrides for the application manifest.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-manifestoverridespayload
+        '''
+        result = self._values.get("manifest_overrides_payload")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''A name for the application instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def runtime_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of a runtime role for the application instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-runtimerolearn
+        '''
+        result = self._values.get("runtime_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags for the application instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationInstanceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPackageRef_675e27b7, _ITaggable_36806126)
 class CfnPackage(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1297,6 +797,7 @@ class CfnPackage(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_panorama as panorama
@@ -1321,14 +822,15 @@ class CfnPackage(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         package_name: builtins.str,
-        storage_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPackage.StorageLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPackage.StorageLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Panorama::Package``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param package_name: A name for the package.
@@ -1345,8 +847,73 @@ class CfnPackage(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForPackage")
+    @builtins.classmethod
+    def arn_for_package(cls, resource: "_IPackageRef_675e27b7") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__32b65f7208865d53ecbe99deb9c2940dacb42be95282adae7c79ebac681921bb)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPackage", [resource]))
+
+    @jsii.member(jsii_name="fromPackageArn")
+    @builtins.classmethod
+    def from_package_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IPackageRef_675e27b7":
+        '''Creates a new IPackageRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dbb1b4451fa22057cbdadb664b6b5291a345b0219fd29e15b98a5e75bc902dc5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IPackageRef_675e27b7", jsii.sinvoke(cls, "fromPackageArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromPackageId")
+    @builtins.classmethod
+    def from_package_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        package_id: builtins.str,
+    ) -> "_IPackageRef_675e27b7":
+        '''Creates a new IPackageRef from a packageId.
+
+        :param scope: -
+        :param id: -
+        :param package_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__036c08570129c334f6bca1d78d3bbd858ea49a86a6495c2d28a66c5f7fdd60a9)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument package_id", value=package_id, expected_type=type_hints["package_id"])
+        return typing.cast("_IPackageRef_675e27b7", jsii.sinvoke(cls, "fromPackageId", [scope, id, package_id]))
+
+    @jsii.member(jsii_name="isCfnPackage")
+    @builtins.classmethod
+    def is_cfn_package(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPackage.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26450166c38099b9461762c4c5b68170797ccd2ee0abd48a6a5b776efc7eb89e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPackage", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1454,15 +1021,15 @@ class CfnPackage(
 
     @builtins.property
     @jsii.member(jsii_name="packageRef")
-    def package_ref(self) -> PackageReference:
+    def package_ref(self) -> "_PackageReference_e44c01fe":
         '''A reference to a Package resource.'''
-        return typing.cast(PackageReference, jsii.get(self, "packageRef"))
+        return typing.cast("_PackageReference_e44c01fe", jsii.get(self, "packageRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="packageName")
@@ -1481,14 +1048,14 @@ class CfnPackage(
     @jsii.member(jsii_name="storageLocation")
     def storage_location(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPackage.StorageLocationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackage.StorageLocationProperty"]]:
         '''A storage location.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPackage.StorageLocationProperty"]], jsii.get(self, "storageLocation"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackage.StorageLocationProperty"]], jsii.get(self, "storageLocation"))
 
     @storage_location.setter
     def storage_location(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPackage.StorageLocationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackage.StorageLocationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1eaa635a573937e0a68237889912d86f74cf48c8584d1f51e6c4d9cc116ee909)
@@ -1497,12 +1064,12 @@ class CfnPackage(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Tags for the package.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d23cf48bb2587552001b9c9c1738689c65ba3fb8070925cb3522000952eddac5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1630,7 +1197,112 @@ class CfnPackage(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IPackageVersionRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_panorama.CfnPackageProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "package_name": "packageName",
+        "storage_location": "storageLocation",
+        "tags": "tags",
+    },
+)
+class CfnPackageProps:
+    def __init__(
+        self,
+        *,
+        package_name: builtins.str,
+        storage_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPackage.StorageLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPackage``.
+
+        :param package_name: A name for the package.
+        :param storage_location: A storage location.
+        :param tags: Tags for the package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-package.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_panorama as panorama
+            
+            cfn_package_props = panorama.CfnPackageProps(
+                package_name="packageName",
+            
+                # the properties below are optional
+                storage_location=panorama.CfnPackage.StorageLocationProperty(
+                    binary_prefix_location="binaryPrefixLocation",
+                    bucket="bucket",
+                    generated_prefix_location="generatedPrefixLocation",
+                    manifest_prefix_location="manifestPrefixLocation",
+                    repo_prefix_location="repoPrefixLocation"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f1b52b8a916ab2fd0db4662da21b8aba3f3a0bd1b465b93c901724b70fe754a8)
+            check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
+            check_type(argname="argument storage_location", value=storage_location, expected_type=type_hints["storage_location"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "package_name": package_name,
+        }
+        if storage_location is not None:
+            self._values["storage_location"] = storage_location
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def package_name(self) -> builtins.str:
+        '''A name for the package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-package.html#cfn-panorama-package-packagename
+        '''
+        result = self._values.get("package_name")
+        assert result is not None, "Required property 'package_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def storage_location(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackage.StorageLocationProperty"]]:
+        '''A storage location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-package.html#cfn-panorama-package-storagelocation
+        '''
+        result = self._values.get("storage_location")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackage.StorageLocationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags for the package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-package.html#cfn-panorama-package-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPackageProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPackageVersionRef_ace03ee8)
 class CfnPackageVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1671,17 +1343,18 @@ class CfnPackageVersion(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         package_id: builtins.str,
         package_version: builtins.str,
         patch_version: builtins.str,
-        mark_latest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        mark_latest: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         owner_account: typing.Optional[builtins.str] = None,
         updated_latest_patch_version: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Panorama::PackageVersion``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param package_id: A package ID.
@@ -1706,8 +1379,20 @@ class CfnPackageVersion(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnPackageVersion")
+    @builtins.classmethod
+    def is_cfn_package_version(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPackageVersion.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fe822a39893f6b8aa5031935e7bc2ee9e7cb5428991e4f1a93335fe85bf76ca9)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPackageVersion", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1738,12 +1423,12 @@ class CfnPackageVersion(
 
     @builtins.property
     @jsii.member(jsii_name="attrIsLatestPatch")
-    def attr_is_latest_patch(self) -> _IResolvable_da3f097b:
+    def attr_is_latest_patch(self) -> "_IResolvable_da3f097b":
         '''Whether the package version is the latest version.
 
         :cloudformationAttribute: IsLatestPatch
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrIsLatestPatch"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrIsLatestPatch"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPackageArn")
@@ -1797,9 +1482,9 @@ class CfnPackageVersion(
 
     @builtins.property
     @jsii.member(jsii_name="packageVersionRef")
-    def package_version_ref(self) -> PackageVersionReference:
+    def package_version_ref(self) -> "_PackageVersionReference_83c42bde":
         '''A reference to a PackageVersion resource.'''
-        return typing.cast(PackageVersionReference, jsii.get(self, "packageVersionRef"))
+        return typing.cast("_PackageVersionReference_83c42bde", jsii.get(self, "packageVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="packageId")
@@ -1844,14 +1529,14 @@ class CfnPackageVersion(
     @jsii.member(jsii_name="markLatest")
     def mark_latest(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Whether to mark the new version as the latest version.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "markLatest"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "markLatest"))
 
     @mark_latest.setter
     def mark_latest(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__feaca7cbbeb3ea13ff355cd5c7ca768921046c2e7bfcbbe8f2380c53bcbe38b7)
@@ -1888,82 +1573,159 @@ class CfnPackageVersion(
         jsii.set(self, "updatedLatestPatchVersion", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_panorama.CfnPackageVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "package_id": "packageId",
+        "package_version": "packageVersion",
+        "patch_version": "patchVersion",
+        "mark_latest": "markLatest",
+        "owner_account": "ownerAccount",
+        "updated_latest_patch_version": "updatedLatestPatchVersion",
+    },
+)
+class CfnPackageVersionProps:
+    def __init__(
+        self,
+        *,
+        package_id: builtins.str,
+        package_version: builtins.str,
+        patch_version: builtins.str,
+        mark_latest: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        owner_account: typing.Optional[builtins.str] = None,
+        updated_latest_patch_version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPackageVersion``.
+
+        :param package_id: A package ID.
+        :param package_version: A package version.
+        :param patch_version: A patch version.
+        :param mark_latest: Whether to mark the new version as the latest version.
+        :param owner_account: An owner account.
+        :param updated_latest_patch_version: If the version was marked latest, the new version to maker as latest.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_panorama as panorama
+            
+            cfn_package_version_props = panorama.CfnPackageVersionProps(
+                package_id="packageId",
+                package_version="packageVersion",
+                patch_version="patchVersion",
+            
+                # the properties below are optional
+                mark_latest=False,
+                owner_account="ownerAccount",
+                updated_latest_patch_version="updatedLatestPatchVersion"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8a64dc269b0bd6d71d3221fbd05486743bcd745dd462213003c3e1bdcc512b47)
+            check_type(argname="argument package_id", value=package_id, expected_type=type_hints["package_id"])
+            check_type(argname="argument package_version", value=package_version, expected_type=type_hints["package_version"])
+            check_type(argname="argument patch_version", value=patch_version, expected_type=type_hints["patch_version"])
+            check_type(argname="argument mark_latest", value=mark_latest, expected_type=type_hints["mark_latest"])
+            check_type(argname="argument owner_account", value=owner_account, expected_type=type_hints["owner_account"])
+            check_type(argname="argument updated_latest_patch_version", value=updated_latest_patch_version, expected_type=type_hints["updated_latest_patch_version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "package_id": package_id,
+            "package_version": package_version,
+            "patch_version": patch_version,
+        }
+        if mark_latest is not None:
+            self._values["mark_latest"] = mark_latest
+        if owner_account is not None:
+            self._values["owner_account"] = owner_account
+        if updated_latest_patch_version is not None:
+            self._values["updated_latest_patch_version"] = updated_latest_patch_version
+
+    @builtins.property
+    def package_id(self) -> builtins.str:
+        '''A package ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html#cfn-panorama-packageversion-packageid
+        '''
+        result = self._values.get("package_id")
+        assert result is not None, "Required property 'package_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def package_version(self) -> builtins.str:
+        '''A package version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html#cfn-panorama-packageversion-packageversion
+        '''
+        result = self._values.get("package_version")
+        assert result is not None, "Required property 'package_version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def patch_version(self) -> builtins.str:
+        '''A patch version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html#cfn-panorama-packageversion-patchversion
+        '''
+        result = self._values.get("patch_version")
+        assert result is not None, "Required property 'patch_version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def mark_latest(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Whether to mark the new version as the latest version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html#cfn-panorama-packageversion-marklatest
+        '''
+        result = self._values.get("mark_latest")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def owner_account(self) -> typing.Optional[builtins.str]:
+        '''An owner account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html#cfn-panorama-packageversion-owneraccount
+        '''
+        result = self._values.get("owner_account")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def updated_latest_patch_version(self) -> typing.Optional[builtins.str]:
+        '''If the version was marked latest, the new version to maker as latest.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html#cfn-panorama-packageversion-updatedlatestpatchversion
+        '''
+        result = self._values.get("updated_latest_patch_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPackageVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "ApplicationInstanceReference",
     "CfnApplicationInstance",
     "CfnApplicationInstanceProps",
     "CfnPackage",
     "CfnPackageProps",
     "CfnPackageVersion",
     "CfnPackageVersionProps",
-    "IApplicationInstanceRef",
-    "IPackageRef",
-    "IPackageVersionRef",
-    "PackageReference",
-    "PackageVersionReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__d4357df7722a5d5276703897b1e9d7d0fa7b1de2aa5ccd308c66c4e397beacde(
-    *,
-    application_instance_arn: builtins.str,
-    application_instance_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__86e1bdf3f249b2bc0c09d79eca2507b458b360a5856626b251d3b11a03bcb807(
-    *,
-    default_runtime_context_device: builtins.str,
-    manifest_payload: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationInstance.ManifestPayloadProperty, typing.Dict[builtins.str, typing.Any]]],
-    application_instance_id_to_replace: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    manifest_overrides_payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationInstance.ManifestOverridesPayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    runtime_role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f1b52b8a916ab2fd0db4662da21b8aba3f3a0bd1b465b93c901724b70fe754a8(
-    *,
-    package_name: builtins.str,
-    storage_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPackage.StorageLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8a64dc269b0bd6d71d3221fbd05486743bcd745dd462213003c3e1bdcc512b47(
-    *,
-    package_id: builtins.str,
-    package_version: builtins.str,
-    patch_version: builtins.str,
-    mark_latest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    owner_account: typing.Optional[builtins.str] = None,
-    updated_latest_patch_version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__27b42c0caf540e7b5eba1f3a882312ef2bff23c44a9b512b1e25b79f58d0ab57(
-    *,
-    package_arn: builtins.str,
-    package_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__57f10cdf1bbee22b25906854d9b03f15ac4dc821bba7ea14ddb75dac1bd43989(
-    *,
-    package_id: builtins.str,
-    package_version: builtins.str,
-    patch_version: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__efd0ba4cd6c0b4ee9023df6f956444617b610a622dce5eb667859d9d33cce0e1(
     scope: _constructs_77d1e7e8.Construct,
@@ -1977,6 +1739,34 @@ def _typecheckingstub__efd0ba4cd6c0b4ee9023df6f956444617b610a622dce5eb667859d9d3
     name: typing.Optional[builtins.str] = None,
     runtime_role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf533fb3b1006fba9f44c5f4406218e9ea314ac7fd24c6f3e86b82405f8cd644(
+    resource: _IApplicationInstanceRef_530e8c33,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9f4f68f6afad3612ec12bf875c21240c719f76be3cb147ecb5aa8e2041ee7b3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf3c71beda280e35f7832b3400f0af821e251042c4f89db4b42f5975db8cb61e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    application_instance_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eb3ed9d2426f451e3bd6baba6a2f534f717b5076782b9e522b13823c420b592e(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2055,6 +1845,20 @@ def _typecheckingstub__a5d7cb2c1d20afe24346d68fd8c261ab008166cc9e17ce83f5e21e6c3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__86e1bdf3f249b2bc0c09d79eca2507b458b360a5856626b251d3b11a03bcb807(
+    *,
+    default_runtime_context_device: builtins.str,
+    manifest_payload: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationInstance.ManifestPayloadProperty, typing.Dict[builtins.str, typing.Any]]],
+    application_instance_id_to_replace: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    manifest_overrides_payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationInstance.ManifestOverridesPayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    runtime_role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__014b23b28acc37a82edebe15e1628f0ee03393a0354f498b25ce8519a95771ba(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2062,6 +1866,34 @@ def _typecheckingstub__014b23b28acc37a82edebe15e1628f0ee03393a0354f498b25ce8519a
     package_name: builtins.str,
     storage_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPackage.StorageLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32b65f7208865d53ecbe99deb9c2940dacb42be95282adae7c79ebac681921bb(
+    resource: _IPackageRef_675e27b7,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dbb1b4451fa22057cbdadb664b6b5291a345b0219fd29e15b98a5e75bc902dc5(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__036c08570129c334f6bca1d78d3bbd858ea49a86a6495c2d28a66c5f7fdd60a9(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    package_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26450166c38099b9461762c4c5b68170797ccd2ee0abd48a6a5b776efc7eb89e(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2107,6 +1939,15 @@ def _typecheckingstub__2c474d68f6b2f0c2e6021bd9cf93a01c9cb04e35b4b763184a117165d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f1b52b8a916ab2fd0db4662da21b8aba3f3a0bd1b465b93c901724b70fe754a8(
+    *,
+    package_name: builtins.str,
+    storage_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPackage.StorageLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__13ea96f0334a230d99017463d74c935661d9ebbe5ba26311c01f75163ae86682(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2117,6 +1958,12 @@ def _typecheckingstub__13ea96f0334a230d99017463d74c935661d9ebbe5ba26311c01f75163
     mark_latest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     owner_account: typing.Optional[builtins.str] = None,
     updated_latest_patch_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe822a39893f6b8aa5031935e7bc2ee9e7cb5428991e4f1a93335fe85bf76ca9(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2165,6 +2012,18 @@ def _typecheckingstub__a4a02ccb498f6e627400881f12832f7791d330ce6cf68e4fba78b66be
 
 def _typecheckingstub__67beb15f93d101823e57a760b1affa4d22f8ec0110bd2f5fe3c329c87f8b56c3(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a64dc269b0bd6d71d3221fbd05486743bcd745dd462213003c3e1bdcc512b47(
+    *,
+    package_id: builtins.str,
+    package_version: builtins.str,
+    patch_version: builtins.str,
+    mark_latest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    owner_account: typing.Optional[builtins.str] = None,
+    updated_latest_patch_version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

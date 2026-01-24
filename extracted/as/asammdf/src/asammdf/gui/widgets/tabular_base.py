@@ -30,6 +30,7 @@ import bisect
 import datetime
 import logging
 from traceback import format_exc
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -140,9 +141,17 @@ class DataFrameStorage:
         super().__init__()
 
         self.df = df
-        self.df.cached_size = df.shape
         self.df_unfiltered = df
         self.tabular = tabular
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="Pandas doesn't allow columns to be created via a new attribute name.*",
+                category=UserWarning,
+            )
+            # code that triggers the warning
+            self.df.cached_size = df.shape
 
         self.sorted_column_name = None
         self.sorted_index_level = None
@@ -474,9 +483,9 @@ class DataTableView(QtWidgets.QTableView):
                     ranges.extend(self.pgdf.tabular.ranges[original_name])
 
                 dlg = RangeEditor("<selected signals>", "", ranges=ranges, parent=self, brush=True)
-                dlg.exec_()
+                dlg.exec()
                 if dlg.pressed_button == "apply":
-                    ranges = dlg.result
+                    ranges = dlg.payload
 
                     for index in selected_items:
                         original_name = self.pgdf.df_unfiltered.columns[index]
@@ -1635,7 +1644,7 @@ class TabularBase(Ui_TabularDisplay, QtWidgets.QWidget):
 
         self.tree.dataView.model().format = fmt
         self.tree.pgdf.data_changed()
-        self._settings.setValue("tabular_format", fmt)
+        self._settings.setValue("tabular/integer_format", fmt)
 
         for row in range(self.filters.count()):
             filter = self.filters.itemWidget(self.filters.item(row))
@@ -1664,9 +1673,9 @@ class TabularBase(Ui_TabularDisplay, QtWidgets.QWidget):
             original_name = self.tree.pgdf.df_unfiltered.columns[index]
 
             dlg = RangeEditor(name, "", self.ranges[original_name], parent=self, brush=True)
-            dlg.exec_()
+            dlg.exec()
             if dlg.pressed_button == "apply":
-                ranges = dlg.result
+                ranges = dlg.payload
                 self.ranges[original_name] = ranges
 
     def decrease_font(self):

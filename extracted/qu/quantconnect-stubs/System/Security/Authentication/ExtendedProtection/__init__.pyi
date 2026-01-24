@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import typing
 
@@ -20,6 +20,16 @@ class ExtendedProtectionPolicyTypeConverter(System.ComponentModel.TypeConverter)
         ...
 
 
+class ChannelBindingKind(IntEnum):
+    """This class has no documentation."""
+
+    UNKNOWN = 0
+
+    UNIQUE = ...
+
+    ENDPOINT = ...
+
+
 class ChannelBinding(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -30,25 +40,10 @@ class ChannelBinding(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInval
 
     @overload
     def __init__(self) -> None:
-        """This method is protected."""
         ...
 
     @overload
     def __init__(self, owns_handle: bool) -> None:
-        """This method is protected."""
-        ...
-
-
-class ChannelBindingKind(Enum):
-    """This class has no documentation."""
-
-    UNKNOWN = 0
-
-    UNIQUE = ...
-
-    ENDPOINT = ...
-
-    def __int__(self) -> int:
         ...
 
 

@@ -23,12 +23,6 @@ from flax.typing import (
 import jax
 from jax.sharding import PartitionSpec
 
-# JAX version compatibility
-if hasattr(jax.sharding, 'use_mesh'):
-  set_mesh = jax.sharding.use_mesh
-else:
-  set_mesh = jax.set_mesh
-
 A = tp.TypeVar('A')
 F = tp.TypeVar('F', bound=tp.Callable[..., tp.Any])
 PARTITION_NAME = 'partition_name'
@@ -53,11 +47,11 @@ def add_axis(tree: A, index: int, transform_metadata: tp.Mapping) -> A:
       metadata = x.get_metadata()
       if 'sharding_names' in metadata and metadata['sharding_names']:
         sharding = metadata['sharding_names']
-        x.sharding_names = insert_field(sharding, index, axis_name)
+        x.set_metadata(sharding_names=insert_field(sharding, index, axis_name))
 
       for k, v in other_meta.items():
         if hasattr(x, k) and (t := getattr(x, k)) and isinstance(t, tuple):
-          setattr(x, k, insert_field(t, index, v))
+          x.set_metadata(k, insert_field(t, index, v))
 
       assert isinstance(x, variablelib.Variable)
       x.add_axis(index, axis_name)
@@ -81,11 +75,13 @@ def remove_axis(
   def _remove_axis(x: tp.Any):
     if isinstance(x, variablelib.Variable):
       if hasattr(x, 'sharding_names') and x.sharding_names is not None:
-        x.sharding_names = remove_field(x.sharding_names, index, axis_name)
+        x.set_metadata(
+          sharding_names=remove_field(x.sharding_names, index, axis_name)
+        )
 
       for k, v in other_meta.items():
         if hasattr(x, k) and (t := getattr(x, k)) and isinstance(t, tuple):
-          setattr(x, k, remove_field(t, index, v))
+          x.set_metadata(k, remove_field(t, index, v))
 
       x.remove_axis(index, axis_name)
     return x
@@ -171,7 +167,7 @@ def get_named_sharding(tree: A, mesh: jax.sharding.Mesh) -> A:
 
 
 def get_abstract_model(init_fn, mesh):
-  with set_mesh(mesh):
+  with jax.set_mesh(mesh):
     abs_model = eval_shape(init_fn)
     gdef, abs_state = graph.split(abs_model)
     abs_state = jax.tree.map(

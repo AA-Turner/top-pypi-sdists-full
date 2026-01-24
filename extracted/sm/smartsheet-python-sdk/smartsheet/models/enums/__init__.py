@@ -19,6 +19,7 @@ from __future__ import absolute_import
 
 # import enums into enum package
 from .access_level import AccessLevel
+from .asset_type import AssetType
 from .attachment_parent_type import AttachmentParentType
 from .attachment_sub_type import AttachmentSubType
 from .attachment_type import AttachmentType
@@ -33,7 +34,7 @@ from .currency_code import CurrencyCode
 from .day_descriptors import DayDescriptors
 from .day_ordinal import DayOrdinal
 from .event_action import EventAction
-from .event_obejct_type import EventObjectType
+from .event_object_type import EventObjectType
 from .event_source import EventSource
 from .global_template import GlobalTemplate
 from .operator import Operator
@@ -52,3 +53,4 @@ from .system_column_type import SystemColumnType
 from .update_request_status import UpdateRequestStatus
 from .user_status import UserStatus
 from .widget_type import WidgetType
+from .seat_type import SeatType, DowngradeSeatType, UpgradeSeatType

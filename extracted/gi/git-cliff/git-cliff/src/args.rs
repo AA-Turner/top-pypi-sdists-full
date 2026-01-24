@@ -31,7 +31,7 @@ const STYLES: Styles = Styles::styled()
     .placeholder(AnsiColor::Green.on_default());
 
 /// Command-line arguments to parse.
-#[derive(Debug, Parser)]
+#[derive(Debug, Parser, Clone)]
 #[command(
     version,
     author = clap::crate_authors!("\n"),
@@ -149,6 +149,9 @@ pub struct Opt {
 		num_args = 0..=1,
 	)]
     pub with_tag_message: Option<String>,
+    /// Sets the tags to skip in the changelog.
+    #[arg(long, env = "GIT_CLIFF_SKIP_TAGS", value_name = "PATTERN")]
+    pub skip_tags: Option<Regex>,
     /// Sets the tags to ignore in the changelog.
     #[arg(long, env = "GIT_CLIFF_IGNORE_TAGS", value_name = "PATTERN")]
     pub ignore_tags: Option<Regex>,
@@ -253,12 +256,10 @@ pub struct Opt {
 		default_value_t = Sort::Oldest
 	)]
     pub sort: Sort,
-    /// Sets the commit range to process.
-    #[arg(value_name = "RANGE", help_heading = Some("ARGS"))]
-    pub range: Option<String>,
     /// Sets the GitHub API token.
     #[arg(
 		long,
+		help_heading = "REMOTE OPTIONS",
 		env = "GITHUB_TOKEN",
 		value_name = "TOKEN",
 		hide_env_values = true,
@@ -268,6 +269,7 @@ pub struct Opt {
     /// Sets the GitHub repository.
     #[arg(
 		long,
+		help_heading = "REMOTE OPTIONS",
 		env = "GITHUB_REPO",
 		value_parser = clap::value_parser!(RemoteValue),
 		value_name = "OWNER/REPO",
@@ -277,6 +279,7 @@ pub struct Opt {
     /// Sets the GitLab API token.
     #[arg(
 		long,
+		help_heading = "REMOTE OPTIONS",
 		env = "GITLAB_TOKEN",
 		value_name = "TOKEN",
 		hide_env_values = true,
@@ -286,6 +289,7 @@ pub struct Opt {
     /// Sets the GitLab repository.
     #[arg(
 		long,
+		help_heading = "REMOTE OPTIONS",
 		env = "GITLAB_REPO",
 		value_parser = clap::value_parser!(RemoteValue),
 		value_name = "OWNER/REPO",
@@ -295,6 +299,7 @@ pub struct Opt {
     /// Sets the Gitea API token.
     #[arg(
 		long,
+		help_heading = "REMOTE OPTIONS",
 		env = "GITEA_TOKEN",
 		value_name = "TOKEN",
 		hide_env_values = true,
@@ -304,6 +309,7 @@ pub struct Opt {
     /// Sets the Gitea repository.
     #[arg(
 		long,
+		help_heading = "REMOTE OPTIONS",
 		env = "GITEA_REPO",
 		value_parser = clap::value_parser!(RemoteValue),
 		value_name = "OWNER/REPO",
@@ -313,6 +319,7 @@ pub struct Opt {
     /// Sets the Bitbucket API token.
     #[arg(
 		long,
+		help_heading = "REMOTE OPTIONS",
 		env = "BITBUCKET_TOKEN",
 		value_name = "TOKEN",
 		hide_env_values = true,
@@ -322,15 +329,42 @@ pub struct Opt {
     /// Sets the Bitbucket repository.
     #[arg(
 		long,
+		help_heading = "REMOTE OPTIONS",
 		env = "BITBUCKET_REPO",
 		value_parser = clap::value_parser!(RemoteValue),
 		value_name = "OWNER/REPO",
 		hide = !cfg!(feature = "bitbucket"),
 	)]
     pub bitbucket_repo: Option<RemoteValue>,
+    /// Sets the Azure DevOps API token.
+    #[arg(
+		long,
+		help_heading = "REMOTE OPTIONS",
+		env = "AZURE_DEVOPS_TOKEN",
+		value_name = "TOKEN",
+		hide_env_values = true,
+		hide = !cfg!(feature = "azure_devops"),
+	)]
+    pub azure_devops_token: Option<SecretString>,
+    /// Sets the Azure DevOps repository.
+    #[arg(
+		long,
+		help_heading = "REMOTE OPTIONS",
+		env = "AZURE_DEVOPS_REPO",
+		value_parser = clap::value_parser!(RemoteValue),
+		value_name = "OWNER/REPO",
+		hide = !cfg!(feature = "azure_devops"),
+	)]
+    pub azure_devops_repo: Option<RemoteValue>,
+    /// Sets the commit range to process.
+    #[arg(value_name = "RANGE", help_heading = Some("ARGS"))]
+    pub range: Option<String>,
     /// Load TLS certificates from the native certificate store.
     #[arg(long, help_heading = Some("FLAGS"), hide = !cfg!(feature = "remote"))]
     pub use_native_tls: bool,
+    /// Disable network access for remote repositories.
+    #[arg(long, help_heading = Some("REMOTE OPTIONS"), hide = !cfg!(feature = "remote"))]
+    pub offline: bool,
 }
 
 /// Custom type for the remote value.

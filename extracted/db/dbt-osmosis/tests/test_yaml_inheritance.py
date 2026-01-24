@@ -1,49 +1,31 @@
 # pyright: reportAny=false, reportUnknownMemberType=false, reportPrivateUsage=false
-import json
 import typing as t
-from pathlib import Path
 from unittest import mock
 
 import dbt.version
 import pytest
-from dbt.contracts.graph.manifest import Manifest
 from packaging.version import Version
 
 from dbt_osmosis.core.osmosis import (
-    DbtConfiguration,
     YamlRefactorContext,
-    YamlRefactorSettings,
     _build_node_ancestor_tree,
     _get_node_yaml,
-    create_dbt_project_context,
     inherit_upstream_column_knowledge,
     sync_node_to_yaml,
 )
 
+
+def _filter_config_field(d: dict[str, t.Any]) -> dict[str, t.Any]:
+    """Filter out the 'config' and 'doc_blocks' fields from column dicts.
+
+    Newer versions of dbt-core (1.9+) include 'config' in to_dict() output,
+    which contains redundant 'meta' and 'tags' that duplicate top-level fields.
+    The 'doc_blocks' field is also added but not relevant for these tests.
+    """
+    return {k: v for k, v in d.items() if k not in ("config", "doc_blocks")}
+
+
 dbt_version = Version(dbt.version.get_installed_version().to_version_string(skip_matcher=True))
-
-
-@pytest.fixture(scope="function")
-def yaml_context() -> YamlRefactorContext:
-    # initializing the context is a sanity test in and of itself
-    c = DbtConfiguration(project_dir="demo_duckdb", profiles_dir="demo_duckdb")
-    c.vars = {"dbt-osmosis": {}}
-    project = create_dbt_project_context(c)
-    context = YamlRefactorContext(
-        project,
-        settings=YamlRefactorSettings(
-            dry_run=True,
-        ),
-    )
-    return context
-
-
-def load_manifest() -> Manifest:
-    manifest_path = Path(__file__).parent.parent / "demo_duckdb/target/manifest.json"
-    with manifest_path.open("r") as f:
-        manifest_text = f.read()
-        manifest_dict = json.loads(manifest_text)
-    return Manifest.from_dict(manifest_dict)
 
 
 @pytest.mark.parametrize(
@@ -67,9 +49,13 @@ def load_manifest() -> Manifest:
         ),
     ],
 )
-def test_build_node_ancestor_tree(node_id: str, expected_tree: dict[str, list[str]]):
+def test_build_node_ancestor_tree(
+    yaml_context: YamlRefactorContext,
+    node_id: str,
+    expected_tree: dict[str, list[str]],
+):
     """Test the build node ancestor tree functionality."""
-    manifest = load_manifest()
+    manifest = yaml_context.project.manifest
     target_node = manifest.nodes[node_id]
     assert _build_node_ancestor_tree(manifest, target_node) == expected_tree
 
@@ -89,7 +75,7 @@ def test_build_node_ancestor_tree(node_id: str, expected_tree: dict[str, list[st
                     "description": "I will be inherited, forcibly so :)",
                     "meta": {"a": 1, "b": 2},
                     "tags": ["foo", "bar"],
-                }
+                },
             },
             {
                 "description": "I was steadfast and unyielding",
@@ -110,7 +96,7 @@ def test_build_node_ancestor_tree(node_id: str, expected_tree: dict[str, list[st
                     "description": "I will be inherited, forcibly so :)",
                     "meta": {"a": 1, "b": 2},
                     "tags": ["foo", "bar"],
-                }
+                },
             },
             {
                 "description": "I will be inherited, forcibly so :)",
@@ -131,7 +117,7 @@ def test_build_node_ancestor_tree(node_id: str, expected_tree: dict[str, list[st
                     "description": "I will not be inherited, since the customer table documents me",
                     "meta": {"a": 1},
                     "tags": ["foo", "bar"],
-                }
+                },
             },
             {
                 "description": "I was steadfast and unyielding",
@@ -147,7 +133,7 @@ def test_build_node_ancestor_tree(node_id: str, expected_tree: dict[str, list[st
                     "description": "{{ doc('stg_customer_description') }}",
                     "meta": {"d": 4},
                     "tags": ["rendered", "unrendered"],
-                }
+                },
             },
             {
                 "description": "{{ doc('stg_customer_description') }}",
@@ -164,7 +150,7 @@ def test_build_node_ancestor_tree(node_id: str, expected_tree: dict[str, list[st
                     "meta": {"e": 5},
                     "tags": ["constrainted"],
                     "quote": True,
-                }
+                },
             },
             {
                 "description": "I was steadfast and unyielding",
@@ -179,7 +165,7 @@ def test_build_node_ancestor_tree(node_id: str, expected_tree: dict[str, list[st
             {
                 "stg_customers.v1.customer_id": {
                     "name": "WTF",
-                }
+                },
             },
             {
                 "name": "wtf",
@@ -202,7 +188,7 @@ def test_build_node_ancestor_tree(node_id: str, expected_tree: dict[str, list[st
                     "meta": {"a": 1},
                     "tags": ["foo", "bar"],
                     "_extra": {"policy_tags": ["pii_main"]},
-                }
+                },
             },
             {
                 "description": "I will prevail",
@@ -277,7 +263,9 @@ def test_inherit_upstream_column_knowledge_with_various_settings(
     ],
 )
 def test_use_unrendered_descriptions(
-    yaml_context: YamlRefactorContext, use_unrendered_descriptions: bool, expected_start: str
+    yaml_context: YamlRefactorContext,
+    use_unrendered_descriptions: bool,
+    expected_start: str,
 ):
     """Test the handling of unrendered descriptions."""
     manifest = yaml_context.project.manifest
@@ -290,7 +278,7 @@ def test_use_unrendered_descriptions(
         mock.patch("dbt_osmosis.core.osmosis._COLUMN_LIST_CACHE", {}),
     ):
         _ = inherit_upstream_column_knowledge(yaml_context, target_node)
-        sync_node_to_yaml(yaml_context, target_node)
+        sync_node_to_yaml(yaml_context, target_node, commit=False)
 
     assert target_node.columns["status"].description.startswith(expected_start)
 
@@ -376,7 +364,7 @@ def test_inherit_upstream_column_knowledge(yaml_context: YamlRefactorContext):
         },
     }
     if dbt_version >= Version("1.9.0"):
-        for column in expect.keys():
+        for column in expect:
             expect[column]["granularity"] = None
 
     target_node = manifest.nodes["model.jaffle_shop_duckdb.customers"]
@@ -384,6 +372,8 @@ def test_inherit_upstream_column_knowledge(yaml_context: YamlRefactorContext):
 
     yaml_context.placeholders = ("",)
     yaml_context.settings.add_progenitor_to_meta = True
+    # Disable unrendered descriptions so the test's manifest modifications are respected
+    yaml_context.settings.use_unrendered_descriptions = False
 
     # Perform inheritance on the node
     with (
@@ -392,4 +382,6 @@ def test_inherit_upstream_column_knowledge(yaml_context: YamlRefactorContext):
     ):
         _ = inherit_upstream_column_knowledge(yaml_context, target_node)
 
-    assert {k: v.to_dict() for k, v in target_node.columns.items()} == expect
+    # Filter out 'config' field for comparison (dbt-core 1.9+ includes it)
+    actual = {k: _filter_config_field(v.to_dict()) for k, v in target_node.columns.items()}
+    assert actual == expect

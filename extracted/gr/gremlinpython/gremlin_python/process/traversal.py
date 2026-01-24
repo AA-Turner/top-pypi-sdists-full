@@ -75,7 +75,7 @@ class Traversal(object):
         return set(iter(self))
 
     def iterate(self):
-        self.bytecode.add_step("none")
+        self.bytecode.add_step("discard")
         while True:
             try: self.next_traverser()
             except StopIteration: return self
@@ -214,10 +214,11 @@ statics.add_static('shuffle', Order.shuffle)
 statics.add_static('asc', Order.asc)
 statics.add_static('desc', Order.desc)
 
-Pick = Enum('Pick', ' any_ none')
+Pick = Enum('Pick', ' any_ none unproductive')
 
 statics.add_static('any_', Pick.any_)
 statics.add_static('none', Pick.none)
+statics.add_static('unproductive', Pick.unproductive)
 
 Pop = Enum('Pop', ' all_ first last mixed')
 
@@ -256,6 +257,37 @@ statics.add_static('or_', Operator.or_)
 statics.add_static('addAll', Operator.addAll)
 statics.add_static('add_all', Operator.add_all)
 statics.add_static('sum_long', Operator.sum_long)
+
+
+GType = Enum('GType', ' BIGDECIMAL BIGINT BINARY BOOLEAN BYTE CHAR DATETIME DOUBLE DURATION EDGE FLOAT GRAPH INT LIST LONG MAP NULL NUMBER PATH PROPERTY SET SHORT STRING TREE UUID VERTEX VPROPERTY')
+
+statics.add_static('BIGDECIMAL', GType.BIGDECIMAL)
+statics.add_static('BIGINT', GType.BIGINT)
+statics.add_static('BINARY', GType.BINARY)
+statics.add_static('BOOLEAN', GType.BOOLEAN)
+statics.add_static('BYTE', GType.BYTE)
+statics.add_static('CHAR', GType.CHAR)
+statics.add_static('DATETIME', GType.DATETIME)
+statics.add_static('DOUBLE', GType.DOUBLE)
+statics.add_static('DURATION', GType.DURATION)
+statics.add_static('EDGE', GType.EDGE)
+statics.add_static('FLOAT', GType.FLOAT)
+statics.add_static('GRAPH', GType.GRAPH)
+statics.add_static('INT', GType.INT)
+statics.add_static('LIST', GType.LIST)
+statics.add_static('LONG', GType.LONG)
+statics.add_static('MAP', GType.MAP)
+statics.add_static('NULL', GType.NULL)
+statics.add_static('NUMBER', GType.NUMBER)
+statics.add_static('PATH', GType.PATH)
+statics.add_static('PROPERTY', GType.PROPERTY)
+statics.add_static('SET', GType.SET)
+statics.add_static('SHORT', GType.SHORT)
+statics.add_static('STRING', GType.STRING)
+statics.add_static('TREE', GType.TREE)
+statics.add_static('UUID', GType.UUID)
+statics.add_static('VERTEX', GType.VERTEX)
+statics.add_static('VPROPERTY', GType.VPROPERTY)
 
 
 class P(object):
@@ -307,6 +339,10 @@ class P(object):
     @staticmethod
     def test(*args):
         return P("test", *args)
+
+    @staticmethod
+    def type_of(*args):
+        return P("typeOf", *args)
 
     @staticmethod
     def within(*args):
@@ -387,6 +423,10 @@ def without(*args):
     return P.without(*args)
 
 
+def type_of(*args):
+    return P.type_of(*args)
+
+
 statics.add_static('between', between)
 
 statics.add_static('eq', eq)
@@ -410,6 +450,8 @@ statics.add_static('outside', outside)
 statics.add_static('within', within)
 
 statics.add_static('without', without)
+
+statics.add_static('typeOf', type_of)
 
 
 class TextP(P):
@@ -688,7 +730,6 @@ TRAVERSAL STRATEGIES
 
 
 class TraversalStrategies(object):
-    global_cache = {}
 
     def __init__(self, traversal_strategies=None):
         self.traversal_strategies = traversal_strategies.traversal_strategies if traversal_strategies is not None else []

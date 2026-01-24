@@ -13,8 +13,14 @@ from typing import (
 import numpy.typing as npt
 from typing_extensions import NotRequired
 
+from snowflake.ml.model.code_path import CodePath
+from snowflake.ml.model.compute_pool import (
+    DEFAULT_CPU_COMPUTE_POOL,
+    DEFAULT_GPU_COMPUTE_POOL,
+)
 from snowflake.ml.model.target_platform import TargetPlatform
 from snowflake.ml.model.task import Task
+from snowflake.ml.model.volatility import Volatility
 
 if TYPE_CHECKING:
     import catboost
@@ -23,6 +29,7 @@ if TYPE_CHECKING:
     import mlflow
     import numpy as np
     import pandas as pd
+    import prophet
     import sentence_transformers
     import sklearn.base
     import sklearn.pipeline
@@ -80,6 +87,7 @@ SupportedRequireSignatureModelType = Union[
     "catboost.CatBoost",
     "lightgbm.LGBMModel",
     "lightgbm.Booster",
+    "prophet.Prophet",
     "snowflake.ml.model.custom_model.CustomModel",
     "sklearn.base.BaseEstimator",
     "sklearn.pipeline.Pipeline",
@@ -112,6 +120,7 @@ Here is all acceptable types of Snowflake native model packaging and its handler
 | snowflake.ml.model.custom_model.CustomModel | custom.py    | _CustomModelHandler |
 | sklearn.base.BaseEstimator      | sklearn.py   | _SKLModelHandler    |
 | sklearn.pipeline.Pipeline       | sklearn.py   | _SKLModelHandler    |
+| prophet.Prophet       | prophet.py   | ProphetHandler    |
 | xgboost.XGBModel       | xgboost.py   | _XGBModelHandler    |
 | xgboost.Booster        | xgboost.py   | _XGBModelHandler    |
 | lightgbm.LGBMModel       | lightgbm.py   | _LGBMModelHandler    |
@@ -133,6 +142,7 @@ SupportedModelHandlerType = Literal[
     "huggingface_pipeline",
     "lightgbm",
     "mlflow",
+    "prophet",
     "pytorch",
     "sentence_transformers",
     "sklearn",
@@ -150,6 +160,7 @@ class ModelMethodSaveOptions(TypedDict):
     case_sensitive: NotRequired[bool]
     max_batch_size: NotRequired[int]
     function_type: NotRequired[Literal["FUNCTION", "TABLE_FUNCTION"]]
+    volatility: NotRequired[Volatility]
 
 
 class BaseModelSaveOption(TypedDict):
@@ -158,12 +169,23 @@ class BaseModelSaveOption(TypedDict):
     embed_local_ml_library: Embedding local SnowML into the code directory of the folder.
     relax_version: Whether or not relax the version constraints of the dependencies if unresolvable in Warehouse.
         It detects any ==x.y.z in specifiers and replaced with >=x.y, <(x+1). Defaults to True.
+    function_type: Set the method function type globally. To set method function types individually see
+        function_type in method_options.
+    volatility: Set the volatility for all model methods globally. To set volatility for individual methods
+        see volatility in method_options. Defaults are set automatically based on model type: supported
+        models (sklearn, xgboost, pytorch, huggingface_pipeline, mlflow, etc.) default to IMMUTABLE, while
+        custom models default to VOLATILE. When both global volatility and per-method volatility are specified,
+        the per-method volatility takes precedence.
+    method_options: Per-method saving options. This dictionary has method names as keys and dictionary
+        values with the desired options.
+    enable_explainability: Whether to enable explainability features for the model.
     save_location: Local directory path to save the model and metadata.
     """
 
     embed_local_ml_library: NotRequired[bool]
     relax_version: NotRequired[bool]
     function_type: NotRequired[Literal["FUNCTION", "TABLE_FUNCTION"]]
+    volatility: NotRequired[Volatility]
     method_options: NotRequired[dict[str, ModelMethodSaveOptions]]
     enable_explainability: NotRequired[bool]
     save_location: NotRequired[str]
@@ -235,11 +257,18 @@ class KerasSaveOptions(BaseModelSaveOption):
     cuda_version: NotRequired[str]
 
 
+class ProphetSaveOptions(BaseModelSaveOption):
+    target_methods: NotRequired[Sequence[str]]
+    date_column: NotRequired[str]
+    target_column: NotRequired[str]
+
+
 ModelSaveOption = Union[
     BaseModelSaveOption,
     CatBoostModelSaveOptions,
     CustomModelSaveOption,
     LGBMModelSaveOptions,
+    ProphetSaveOptions,
     SKLModelSaveOptions,
     XGBModelSaveOptions,
     SNOWModelSaveOptions,
@@ -314,11 +343,16 @@ class KerasLoadOptions(BaseModelLoadOption):
     use_gpu: NotRequired[bool]
 
 
+class ProphetLoadOptions(BaseModelLoadOption):
+    ...
+
+
 ModelLoadOption = Union[
     BaseModelLoadOption,
     CatBoostModelLoadOptions,
     CustomModelLoadOption,
     LGBMModelLoadOptions,
+    ProphetLoadOptions,
     SKLModelLoadOptions,
     XGBModelLoadOptions,
     SNOWModelLoadOptions,
@@ -333,6 +367,7 @@ ModelLoadOption = Union[
 
 
 SupportedTargetPlatformType = Union[TargetPlatform, str]
+CodePathLike = Union[str, CodePath]
 
 
 class ProgressStatus(Protocol):
@@ -351,4 +386,4 @@ class ProgressStatus(Protocol):
         ...
 
 
-__all__ = ["TargetPlatform", "Task"]
+__all__ = ["TargetPlatform", "Task", "DEFAULT_CPU_COMPUTE_POOL", "DEFAULT_GPU_COMPUTE_POOL"]

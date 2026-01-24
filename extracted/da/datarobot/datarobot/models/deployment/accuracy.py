@@ -100,19 +100,15 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/accuracy/"
-    _converter = t.Dict(
-        {
-            t.Key("period"): t.Dict(
-                {
-                    t.Key("start"): String >> dateutil.parser.parse,
-                    t.Key("end"): String >> dateutil.parser.parse,
-                }
-            ),
-            t.Key("data"): t.List(t.Dict().allow_extra("*")),
-            t.Key("model_id", optional=True): t.Or(t.String(), t.Null),
-            t.Key("metrics", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("period"): t.Dict({
+            t.Key("start"): String >> dateutil.parser.parse,
+            t.Key("end"): String >> dateutil.parser.parse,
+        }),
+        t.Key("data"): t.List(t.Dict().allow_extra("*")),
+        t.Key("model_id", optional=True): t.Or(t.String(), t.Null),
+        t.Key("metrics", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -301,25 +297,21 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/accuracyOverTime/"
-    _period = t.Dict(
-        {
-            t.Key("start"): String >> dateutil.parser.parse,
-            t.Key("end"): String >> dateutil.parser.parse,
-        }
-    )
+    _period = t.Dict({
+        t.Key("start"): String >> dateutil.parser.parse,
+        t.Key("end"): String >> dateutil.parser.parse,
+    })
     _bucket = t.Dict({t.Key("period"): t.Or(_period, t.Null)}).allow_extra("*")
-    _converter = t.Dict(
-        {
-            t.Key("buckets"): t.List(_bucket),
-            t.Key("summary", optional=True): t.Or(_bucket, t.Null),
-            t.Key("baseline", optional=True): t.Or(_bucket, t.Null),
-            t.Key("baselines"): t.List(t.Dict().allow_extra("*")),
-            t.Key("metric"): String(),
-            t.Key("model_id", optional=True): t.Or(String(), t.Null),
-            t.Key("segment_attribute", optional=True): t.String(),
-            t.Key("segment_value", optional=True): t.Or(String(allow_blank=True), t.Null),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("buckets"): t.List(_bucket),
+        t.Key("summary", optional=True): t.Or(_bucket, t.Null),
+        t.Key("baseline", optional=True): t.Or(_bucket, t.Null),
+        t.Key("baselines"): t.List(t.Dict().allow_extra("*")),
+        t.Key("metric"): String(),
+        t.Key("model_id", optional=True): t.Or(String(), t.Null),
+        t.Key("segment_attribute", optional=True): t.String(),
+        t.Key("segment_value", optional=True): t.Or(String(allow_blank=True), t.Null),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -457,9 +449,7 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         """
         if not metrics:
             if metrics == []:
-                raise ValueError(
-                    "Metrics must be a list of ACCURACY_METRIC or None, but cannot be an empty list"
-                )
+                raise ValueError("Metrics must be a list of ACCURACY_METRIC or None, but cannot be an empty list")
             metrics = [None]
         series = {}
         for metric in metrics:
@@ -475,7 +465,9 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
                 continue
             dataframe = pd.json_normalize(fetched.buckets)
             dataframe.set_index(
-                ["model_id", "period.start"], drop=True, inplace=True  # noqa: PD002
+                ["model_id", "period.start"],
+                drop=True,
+                inplace=True,  # noqa: PD002
             )
             series[fetched.metric] = dataframe["value"]
         if series:
@@ -524,11 +516,7 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         bucket_values: Dict
         """
         if self.buckets:
-            return {
-                bucket["period"]["start"]: bucket["value"]
-                for bucket in self.buckets
-                if bucket.get("period")
-            }
+            return {bucket["period"]["start"]: bucket["value"] for bucket in self.buckets if bucket.get("period")}
         return {}
 
     @property
@@ -545,11 +533,7 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         bucket_sample_sizes: Dict
         """
         if self.buckets:
-            return {
-                bucket["period"]["start"]: bucket["sample_size"]
-                for bucket in self.buckets
-                if bucket.get("period")
-            }
+            return {bucket["period"]["start"]: bucket["sample_size"] for bucket in self.buckets if bucket.get("period")}
         return {}
 
 
@@ -572,21 +556,17 @@ class PredictionsVsActualsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/predictionsVsActualsOverTime/"
-    _period = t.Dict(
-        {
-            t.Key("start"): String >> dateutil.parser.parse,
-            t.Key("end"): String >> dateutil.parser.parse,
-        }
-    )
-    _converter = t.Dict(
-        {
-            t.Key("summary"): t.Dict().allow_extra("*"),
-            t.Key("baselines"): t.List(t.Dict().allow_extra("*")),
-            t.Key("buckets"): t.List(t.Dict({"period": _period}).allow_extra("*")),
-            t.Key("segment_attribute", optional=True): t.String(),
-            t.Key("segment_value", optional=True): t.Or(String(allow_blank=True), t.Null),
-        }
-    )
+    _period = t.Dict({
+        t.Key("start"): String >> dateutil.parser.parse,
+        t.Key("end"): String >> dateutil.parser.parse,
+    })
+    _converter = t.Dict({
+        t.Key("summary"): t.Dict().allow_extra("*"),
+        t.Key("baselines"): t.List(t.Dict().allow_extra("*")),
+        t.Key("buckets"): t.List(t.Dict({"period": _period}).allow_extra("*")),
+        t.Key("segment_attribute", optional=True): t.String(),
+        t.Key("segment_value", optional=True): t.Or(String(allow_blank=True), t.Null),
+    })
 
     def __init__(
         self,

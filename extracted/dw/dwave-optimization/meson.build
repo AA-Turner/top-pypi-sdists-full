@@ -22,6 +22,7 @@ project(
 # We want some debugging symbols
 add_project_arguments(['-g1'], language: ['cpp'])
 
+cpp = meson.get_compiler('cpp')
 py = import('python').find_installation(pure: false)
 
 dwave_optimization_include = include_directories('dwave/optimization/include/')
@@ -35,12 +36,14 @@ dwave_optimization_src = [
     'dwave/optimization/src/nodes/inputs.cpp',
     'dwave/optimization/src/nodes/interpolation.cpp',
     'dwave/optimization/src/nodes/lambda.cpp',
+    'dwave/optimization/src/nodes/linear_algebra.cpp',
     'dwave/optimization/src/nodes/lp.cpp',
     'dwave/optimization/src/nodes/manipulation.cpp',
     'dwave/optimization/src/nodes/naryop.cpp',
     'dwave/optimization/src/nodes/numbers.cpp',
     'dwave/optimization/src/nodes/quadratic_model.cpp',
     'dwave/optimization/src/nodes/reduce.cpp',
+    'dwave/optimization/src/nodes/set_routines.cpp',
     'dwave/optimization/src/nodes/softmax.cpp',
     'dwave/optimization/src/nodes/sorting.cpp',
     'dwave/optimization/src/nodes/statistics.cpp',
@@ -52,6 +55,37 @@ dwave_optimization_src = [
     'dwave/optimization/src/simplex.cpp',
 ]
 
+dwave_optimization_dependencies = []
+
+# Set up BLAS. _find_openblas.py will return the include directory, the library
+# directory and the library name.
+if not get_option('blas').disabled()
+    blasinfo = run_command(
+        ['dwave/optimization/_build/_find_openblas.py'],
+        capture: true,
+        check: true
+    ).stdout().splitlines()
+    if blasinfo.length() != 0
+        assert(blasinfo.length() == 3, '_find_openblas.py returned an unexpected value')
+
+        dwave_optimization_dependencies += [
+            declare_dependency(
+                dependencies: cpp.find_library(
+                    blasinfo[2],
+                    dirs: blasinfo[1],
+                    required: true,
+                ),
+                include_directories: blasinfo[0],
+            )
+        ]
+    elif get_option('blas').enabled()
+        error(
+            'No BLAS available.' +
+            'Install scipy_openblas64 into the build environment or disable the blas user option'
+        )
+    endif
+endif
+
 if host_machine.system() == 'windows'
     # Shared libraries don't work so well on windows, so we build from a static
     # library instead
@@ -60,6 +94,7 @@ if host_machine.system() == 'windows'
             'dwave-optimization',
             sources: dwave_optimization_src,
             include_directories: dwave_optimization_include,
+            dependencies: dwave_optimization_dependencies,
         ),
         include_directories: dwave_optimization_include
     )
@@ -72,6 +107,7 @@ else
             include_directories: dwave_optimization_include,
             install: true,
             install_dir: py.get_install_dir(pure: false) / 'dwave/optimization/',
+            dependencies: dwave_optimization_dependencies,
         ),
         include_directories: dwave_optimization_include
     )
@@ -89,6 +125,44 @@ else
     limited_api = ''  # i.e. no limited api
 endif
 
+foreach name : [
+    '_binaryop',
+    '_reduce',
+    '_unaryop',
+    'accumulate_zip',
+    'collections',
+    'constants',
+    'creation',
+    'flow',
+    'indexing',
+    'inputs',
+    'interpolation',
+    'linear_algebra',
+    'lp',
+    'manipulation',
+    'naryop',
+    'numbers',
+    'quadratic_model',
+    'set_routines',
+    'softmax',
+    'sorting',
+    'statistics',
+    'testing',
+]
+    py.extension_module(
+        name,
+        'dwave/optimization/symbols/' + name + '.pyx',
+        dependencies: libdwave_optimization,
+        gnu_symbol_visibility: 'default',
+        install: true,
+        install_rpath: '$ORIGIN/..',
+        override_options : ['cython_language=cpp'],
+        cython_args : ['-Xfreethreading_compatible=True'],
+        subdir: 'dwave/optimization/symbols/',
+        limited_api: limited_api,
+    )
+endforeach
+
 py.extension_module(
     '_model',
     'dwave/optimization/_model.pyx',
@@ -105,19 +179,6 @@ py.extension_module(
 py.extension_module(
     'states',
     'dwave/optimization/states.pyx',
-    dependencies: libdwave_optimization,
-    gnu_symbol_visibility: 'default',
-    install: true,
-    install_rpath: '$ORIGIN',
-    override_options : ['cython_language=cpp'],
-    cython_args : ['-Xfreethreading_compatible=True'],
-    subdir: 'dwave/optimization/',
-    limited_api: limited_api,
-)
-
-py.extension_module(
-    'symbols',
-    'dwave/optimization/symbols.pyx',
     dependencies: libdwave_optimization,
     gnu_symbol_visibility: 'default',
     install: true,

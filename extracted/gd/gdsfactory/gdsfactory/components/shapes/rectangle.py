@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__all__ = ["fiber_size", "marker_te", "marker_tm", "rectangle", "rectangles"]
+
 from collections.abc import Sequence
 from functools import partial
 from typing import Any
@@ -88,6 +90,7 @@ def rectangles(
         raise ValueError(f"len(offsets) != len(layers) {len(offsets)} != {len(layers)}")
     for layer, offset in zip(layers, offsets, strict=False):
         current_size = size_np + 2 * offset
+        print(f"layer={layer} offset={offset} current_size={current_size}")
         ref = c << rectangle(
             size=(current_size[0], current_size[1]),
             layer=layer,

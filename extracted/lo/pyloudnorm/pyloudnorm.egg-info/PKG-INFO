@@ -1,20 +1,25 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyloudnorm
-Version: 0.1.1
+Version: 0.2.0
 Summary: Implementation of ITU-R BS.1770-4 loudness algorithm in Python.
-Home-page: https://github.com/csteinmetz1/pyloudnorm
-Author: Christian Steinmetz
-Author-email: c.j.steinmetz@qmul.ac.uk
-License: MIT
+Author-email: Christian Steinmetz <c.j.steinmetz@qmul.ac.uk>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/csteinmetz1/pyloudnorm
+Project-URL: Repository, https://github.com/csteinmetz1/pyloudnorm
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.0
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-
+Requires-Dist: scipy>=1.0.1
+Requires-Dist: numpy>=1.14.2
+Dynamic: license-file
 
 # pyloudnorm  [![Build Status](https://travis-ci.org/csteinmetz1/pyloudnorm.svg?branch=master)](https://travis-ci.org/csteinmetz1/pyloudnorm) ![Zenodo](https://zenodo.org/badge/DOI/10.5281/zenodo.3551801.svg)
 Flexible audio loudness meter in Python. 
@@ -67,6 +72,21 @@ loudness = meter.integrated_loudness(data)
 loudness_normalized_audio = pyln.normalize.loudness(data, loudness, -12.0)
 ```
 
+### Loudness range
+Attempt to measure the Loudness Range (LRA) of an audio file based on [EBU Tech 3342](https://tech.ebu.ch/docs/tech/tech3342.pdf).
+LRA quantifies the variation in loudness over time, measured in LU (Loudness Units).
+```python
+import soundfile as sf
+import pyloudnorm as pyln
+
+data, rate = sf.read("test.wav") # load audio
+
+meter = pyln.Meter(rate) # create BS.1770 meter
+lra = meter.loudness_range(data) # measure loudness range
+
+print(f"Loudness Range: {lra:.1f} LU")
+```
+
 ### Advanced operation
 A number of alternate weighting filters are available, as well as the ability to adjust the analysis block size. 
 Examples are shown below.
@@ -100,7 +120,7 @@ meter8._filters = {'my_high_pass' : my_high_pass, 'my_high_shelf' : my_high_shel
 
 ```
 
-## Dependancies
+## Dependencies
 - **SciPy** ([https://www.scipy.org/](https://www.scipy.org/))
 - **NumPy** ([http://www.numpy.org/](http://www.numpy.org/))
 
@@ -132,3 +152,8 @@ If you use pyloudnorm in your work please consider citing us.
 > Brecht De Man, "[Evaluation of Implementations of the EBU R128 Loudness Measurement](http://www.aes.org/e-lib/browse.cfm?elib=19790)," 
 > 145th International Convention of the Audio Engineering Society, October 2018. 
 
+## Tensorized/Differentiable Implementations
+
+For use in differentiable contexts, such as part of a loss function, there are the following implementations:
+- PyTorch: [Descript Inc.'s `audiotools`](https://github.com/descriptinc/audiotools/blob/master/audiotools/core/loudness.py)
+- Jax: [jaxloudnorm](https://github.com/boris-kuz/jaxloudnorm)

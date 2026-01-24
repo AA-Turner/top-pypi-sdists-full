@@ -56,7 +56,6 @@
 #  include "winconfig.h"
 #endif
 
-#include "expat_external.h"
 #include "internal.h"
 #include "xmltok.h"
 #include "nametab.h"
@@ -1398,7 +1397,7 @@ unknown_toUtf16(const ENCODING *enc, const char **fromP, const char *fromLim,
 }
 
 ENCODING *
-XmlInitUnknownEncoding(void *mem, int *table, CONVERTER convert,
+XmlInitUnknownEncoding(void *mem, const int *table, CONVERTER convert,
                        void *userData) {
   int i;
   struct unknown_encoding *e = (struct unknown_encoding *)mem;
@@ -1661,7 +1660,7 @@ initScan(const ENCODING *const *encodingTable, const INIT_ENCODING *enc,
 #  undef ns
 
 ENCODING *
-XmlInitUnknownEncodingNS(void *mem, int *table, CONVERTER convert,
+XmlInitUnknownEncodingNS(void *mem, const int *table, CONVERTER convert,
                          void *userData) {
   ENCODING *enc = XmlInitUnknownEncoding(mem, table, convert, userData);
   if (enc)

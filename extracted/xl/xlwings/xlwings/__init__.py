@@ -2,7 +2,7 @@ import os
 import sys
 from functools import wraps
 
-__version__ = "0.33.15"
+__version__ = "0.33.20"
 
 # Platform specifics
 if sys.platform.startswith("darwin"):
@@ -120,7 +120,11 @@ if "excel" in [engine.name for engine in engines]:
     engines.active = engines["excel"]
 
 # UDFs
-if sys.platform.startswith("win") and has_pywin32:
+on_server = os.environ.get("XLWINGS_ON_SERVER") == "true"
+
+if on_server:
+    from xlwings.server import arg, func, ret, script  # noqa: F401
+elif sys.platform.startswith("win") and has_pywin32:
     from .com_server import serve
     from .udfs import (
         get_udf_module,
@@ -128,6 +132,7 @@ if sys.platform.startswith("win") and has_pywin32:
         xlarg as arg,
         xlfunc as func,
         xlret as ret,
+        xlsub as script,
         xlsub as sub,
     )
 
@@ -145,8 +150,6 @@ if sys.platform.startswith("win") and has_pywin32:
         )
     except:  # noqa: E722
         pass
-elif __pro__:
-    from xlwings.server import arg, func, ret, script  # noqa: F401
 else:
 
     def func(f=None, *args, **kwargs):
@@ -168,6 +171,8 @@ else:
             return inner
         else:
             return inner(f)
+
+    script = sub
 
     def ret(*args, **kwargs):
         def inner(f):

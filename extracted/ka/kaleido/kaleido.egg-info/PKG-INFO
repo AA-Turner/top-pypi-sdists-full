@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: kaleido
-Version: 1.1.0
+Version: 1.2.0
 Summary: Plotly graph export library
 Author-email: Andrew Pikul <ajpikul@gmail.com>, Neyberson Atencio <neyberatencio@gmail.com>
 Maintainer-email: Andrew Pikul <ajpikul@gmail.com>
@@ -31,7 +31,7 @@ Project-URL: Repository, https://github.com/plotly/kaleido
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: choreographer>=1.0.10
+Requires-Dist: choreographer>=1.1.1
 Requires-Dist: logistro>=1.0.8
 Requires-Dist: orjson>=3.10.15
 Requires-Dist: packaging

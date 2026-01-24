@@ -98,6 +98,10 @@ class _ExportableConfig(types.ModuleType):
         return __config__.get('biglakeCustomEndpoint')
 
     @_builtins.property
+    def biglake_iceberg_custom_endpoint(self) -> Optional[str]:
+        return __config__.get('biglakeIcebergCustomEndpoint')
+
+    @_builtins.property
     def bigquery_analytics_hub_custom_endpoint(self) -> Optional[str]:
         return __config__.get('bigqueryAnalyticsHubCustomEndpoint')
 
@@ -112,6 +116,10 @@ class _ExportableConfig(types.ModuleType):
     @_builtins.property
     def bigquery_datapolicy_custom_endpoint(self) -> Optional[str]:
         return __config__.get('bigqueryDatapolicyCustomEndpoint')
+
+    @_builtins.property
+    def bigquery_datapolicyv2_custom_endpoint(self) -> Optional[str]:
+        return __config__.get('bigqueryDatapolicyv2CustomEndpoint')
 
     @_builtins.property
     def bigquery_reservation_custom_endpoint(self) -> Optional[str]:
@@ -140,6 +148,10 @@ class _ExportableConfig(types.ModuleType):
     @_builtins.property
     def certificate_manager_custom_endpoint(self) -> Optional[str]:
         return __config__.get('certificateManagerCustomEndpoint')
+
+    @_builtins.property
+    def ces_custom_endpoint(self) -> Optional[str]:
+        return __config__.get('cesCustomEndpoint')
 
     @_builtins.property
     def chronicle_custom_endpoint(self) -> Optional[str]:
@@ -188,6 +200,10 @@ class _ExportableConfig(types.ModuleType):
     @_builtins.property
     def cloud_scheduler_custom_endpoint(self) -> Optional[str]:
         return __config__.get('cloudSchedulerCustomEndpoint')
+
+    @_builtins.property
+    def cloud_security_compliance_custom_endpoint(self) -> Optional[str]:
+        return __config__.get('cloudSecurityComplianceCustomEndpoint')
 
     @_builtins.property
     def cloud_tasks_custom_endpoint(self) -> Optional[str]:
@@ -542,6 +558,10 @@ class _ExportableConfig(types.ModuleType):
         return __config__.get('networkConnectivityCustomEndpoint')
 
     @_builtins.property
+    def network_connectivityv1_custom_endpoint(self) -> Optional[str]:
+        return __config__.get('networkConnectivityv1CustomEndpoint')
+
+    @_builtins.property
     def network_management_custom_endpoint(self) -> Optional[str]:
         return __config__.get('networkManagementCustomEndpoint')
 
@@ -556,6 +576,10 @@ class _ExportableConfig(types.ModuleType):
     @_builtins.property
     def notebooks_custom_endpoint(self) -> Optional[str]:
         return __config__.get('notebooksCustomEndpoint')
+
+    @_builtins.property
+    def observability_custom_endpoint(self) -> Optional[str]:
+        return __config__.get('observabilityCustomEndpoint')
 
     @_builtins.property
     def oracle_database_custom_endpoint(self) -> Optional[str]:

@@ -3,7 +3,7 @@ Type annotations for codeartifact service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_codeartifact/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -38,12 +39,6 @@ from .literals import (
     PackageVersionStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -191,7 +186,7 @@ __all__ = (
 class AssetSummaryTypeDef(TypedDict):
     name: str
     size: NotRequired[int]
-    hashes: NotRequired[Dict[HashAlgorithmType, str]]
+    hashes: NotRequired[dict[HashAlgorithmType, str]]
 
 class AssociateExternalConnectionRequestTypeDef(TypedDict):
     domain: str
@@ -202,7 +197,7 @@ class AssociateExternalConnectionRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -671,7 +666,7 @@ class GetRepositoryEndpointResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAllowedRepositoriesForGroupResultTypeDef(TypedDict):
-    allowedRepositories: List[str]
+    allowedRepositories: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -683,7 +678,7 @@ ListPackageVersionAssetsResultTypeDef = TypedDict(
         "package": str,
         "version": str,
         "versionRevision": str,
-        "assets": List[AssetSummaryTypeDef],
+        "assets": list[AssetSummaryTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
         "nextToken": NotRequired[str],
     },
@@ -703,7 +698,7 @@ PublishPackageVersionResultTypeDef = TypedDict(
 )
 
 class ListAssociatedPackagesResultTypeDef(TypedDict):
-    packages: List[AssociatedPackageTypeDef]
+    packages: list[AssociatedPackageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -725,23 +720,23 @@ PublishPackageVersionRequestTypeDef = TypedDict(
 )
 
 class CopyPackageVersionsResultTypeDef(TypedDict):
-    successfulVersions: Dict[str, SuccessfulPackageVersionInfoTypeDef]
-    failedVersions: Dict[str, PackageVersionErrorTypeDef]
+    successfulVersions: dict[str, SuccessfulPackageVersionInfoTypeDef]
+    failedVersions: dict[str, PackageVersionErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeletePackageVersionsResultTypeDef(TypedDict):
-    successfulVersions: Dict[str, SuccessfulPackageVersionInfoTypeDef]
-    failedVersions: Dict[str, PackageVersionErrorTypeDef]
+    successfulVersions: dict[str, SuccessfulPackageVersionInfoTypeDef]
+    failedVersions: dict[str, PackageVersionErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DisposePackageVersionsResultTypeDef(TypedDict):
-    successfulVersions: Dict[str, SuccessfulPackageVersionInfoTypeDef]
-    failedVersions: Dict[str, PackageVersionErrorTypeDef]
+    successfulVersions: dict[str, SuccessfulPackageVersionInfoTypeDef]
+    failedVersions: dict[str, PackageVersionErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdatePackageVersionsStatusResultTypeDef(TypedDict):
-    successfulVersions: Dict[str, SuccessfulPackageVersionInfoTypeDef]
-    failedVersions: Dict[str, PackageVersionErrorTypeDef]
+    successfulVersions: dict[str, SuccessfulPackageVersionInfoTypeDef]
+    failedVersions: dict[str, PackageVersionErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateDomainRequestTypeDef(TypedDict):
@@ -758,7 +753,7 @@ class CreatePackageGroupRequestTypeDef(TypedDict):
     tags: NotRequired[Sequence[TagTypeDef]]
 
 class ListTagsForResourceResultTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -821,7 +816,7 @@ class PackageVersionOriginTypeDef(TypedDict):
     originType: NotRequired[PackageVersionOriginTypeType]
 
 class ListDomainsResultTypeDef(TypedDict):
-    domains: List[DomainSummaryTypeDef]
+    domains: list[DomainSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -916,19 +911,19 @@ ListPackageVersionDependenciesResultTypeDef = TypedDict(
         "package": str,
         "version": str,
         "versionRevision": str,
-        "dependencies": List[PackageDependencyTypeDef],
+        "dependencies": list[PackageDependencyTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
         "nextToken": NotRequired[str],
     },
 )
 
 class ListRepositoriesInDomainResultTypeDef(TypedDict):
-    repositories: List[RepositorySummaryTypeDef]
+    repositories: list[RepositorySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListRepositoriesResultTypeDef(TypedDict):
-    repositories: List[RepositorySummaryTypeDef]
+    repositories: list[RepositorySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -971,8 +966,8 @@ class RepositoryDescriptionTypeDef(TypedDict):
     domainOwner: NotRequired[str]
     arn: NotRequired[str]
     description: NotRequired[str]
-    upstreams: NotRequired[List[UpstreamRepositoryInfoTypeDef]]
-    externalConnections: NotRequired[List[RepositoryExternalConnectionInfoTypeDef]]
+    upstreams: NotRequired[list[UpstreamRepositoryInfoTypeDef]]
+    externalConnections: NotRequired[list[RepositoryExternalConnectionInfoTypeDef]]
     createdTime: NotRequired[datetime]
 
 PackageVersionDescriptionTypeDef = TypedDict(
@@ -987,7 +982,7 @@ PackageVersionDescriptionTypeDef = TypedDict(
         "homePage": NotRequired[str],
         "sourceCodeRepository": NotRequired[str],
         "publishedTime": NotRequired[datetime],
-        "licenses": NotRequired[List[LicenseInfoTypeDef]],
+        "licenses": NotRequired[list[LicenseInfoTypeDef]],
         "revision": NotRequired[str],
         "status": NotRequired[PackageVersionStatusType],
         "origin": NotRequired[PackageVersionOriginTypeDef],
@@ -1002,7 +997,7 @@ class PackageVersionSummaryTypeDef(TypedDict):
 
 class PackageGroupOriginConfigurationTypeDef(TypedDict):
     restrictions: NotRequired[
-        Dict[PackageGroupOriginRestrictionTypeType, PackageGroupOriginRestrictionTypeDef]
+        dict[PackageGroupOriginRestrictionTypeType, PackageGroupOriginRestrictionTypeDef]
     ]
 
 PackageDescriptionTypeDef = TypedDict(
@@ -1063,7 +1058,7 @@ ListPackageVersionsResultTypeDef = TypedDict(
         "format": PackageFormatType,
         "namespace": str,
         "package": str,
-        "versions": List[PackageVersionSummaryTypeDef],
+        "versions": list[PackageVersionSummaryTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
         "nextToken": NotRequired[str],
     },
@@ -1100,7 +1095,7 @@ class DeletePackageResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListPackagesResultTypeDef(TypedDict):
-    packages: List[PackageSummaryTypeDef]
+    packages: list[PackageSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1123,9 +1118,9 @@ class GetAssociatedPackageGroupResultTypeDef(TypedDict):
 
 class UpdatePackageGroupOriginConfigurationResultTypeDef(TypedDict):
     packageGroup: PackageGroupDescriptionTypeDef
-    allowedRepositoryUpdates: Dict[
+    allowedRepositoryUpdates: dict[
         PackageGroupOriginRestrictionTypeType,
-        Dict[PackageGroupAllowedRepositoryUpdateTypeType, List[str]],
+        dict[PackageGroupAllowedRepositoryUpdateTypeType, list[str]],
     ]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1134,11 +1129,11 @@ class UpdatePackageGroupResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListPackageGroupsResultTypeDef(TypedDict):
-    packageGroups: List[PackageGroupSummaryTypeDef]
+    packageGroups: list[PackageGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListSubPackageGroupsResultTypeDef(TypedDict):
-    packageGroups: List[PackageGroupSummaryTypeDef]
+    packageGroups: list[PackageGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

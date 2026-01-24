@@ -1,13 +1,11 @@
 use std::iter::zip;
 
-use arrow2::array::PrimitiveArray;
 use common_error::{DaftError, DaftResult};
 
 use super::full::FullNull;
 use crate::{
     array::DataArray,
     datatypes::{DaftNumericType, DaftPrimitiveType},
-    utils::arrow::arrow_bitmap_and_helper,
 };
 
 impl<T> DataArray<T>
@@ -19,10 +17,12 @@ where
     where
         F: Fn(T::Native) -> T::Native + Copy,
     {
-        let arr: &PrimitiveArray<T::Native> = self.data().as_any().downcast_ref().unwrap();
-        let iter = arr.values_iter().map(|v| func(*v));
+        let values = self.values();
 
-        Self::from_values_iter(self.field.clone(), iter).with_validity(arr.validity().cloned())
+        let iter = values.iter().map(|v| func(*v));
+
+        Self::from_values_iter(self.field.clone(), iter)
+            .with_nulls(self.nulls().cloned().map(Into::into))
     }
 
     // applies a native binary function to two DataArrays, maintaining validity.
@@ -36,16 +36,16 @@ where
     {
         match (self.len(), rhs.len()) {
             (x, y) if x == y => {
-                let lhs_arr: &PrimitiveArray<T::Native> =
-                    self.data().as_any().downcast_ref().unwrap();
-                let rhs_arr: &PrimitiveArray<R::Native> =
-                    rhs.data().as_any().downcast_ref().unwrap();
+                let lhs_nulls = self.nulls().map(|v| v.clone().into());
+                let rhs_nulls = rhs.nulls().map(|v| v.clone().into());
 
-                let validity = arrow_bitmap_and_helper(lhs_arr.validity(), rhs_arr.validity());
+                let nulls =
+                    daft_arrow::buffer::NullBuffer::union(lhs_nulls.as_ref(), rhs_nulls.as_ref());
+                let values = self.values();
+                let rhs_values = rhs.values();
 
-                let iter =
-                    zip(lhs_arr.values_iter(), rhs_arr.values_iter()).map(|(a, b)| func(*a, *b));
-                Self::from_values_iter(self.field.clone(), iter).with_validity(validity)
+                let iter = zip(values.iter(), rhs_values.iter()).map(|(a, b)| func(*a, *b));
+                Self::from_values_iter(self.field.clone(), iter).with_nulls(nulls)
             }
             (l_size, 1) => {
                 if let Some(value) = rhs.get(0) {
@@ -55,12 +55,11 @@ where
                 }
             }
             (1, r_size) => {
-                let rhs_arr: &PrimitiveArray<R::Native> =
-                    rhs.data().as_any().downcast_ref().unwrap();
                 if let Some(value) = self.get(0) {
-                    let iter = rhs_arr.values_iter().map(|v| func(value, *v));
+                    let rhs_values = rhs.values();
+                    let iter = rhs_values.iter().map(|v| func(value, *v));
                     Self::from_values_iter(self.field.clone(), iter)
-                        .with_validity(rhs_arr.validity().cloned())
+                        .with_nulls(rhs.nulls().cloned().map(Into::into))
                 } else {
                     Ok(Self::full_null(self.name(), self.data_type(), r_size))
                 }

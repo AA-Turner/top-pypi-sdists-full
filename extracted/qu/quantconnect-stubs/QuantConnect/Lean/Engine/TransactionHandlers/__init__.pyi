@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import datetime
 import typing
@@ -15,41 +15,6 @@ import System.Collections.Generic
 
 QuantConnect_Lean_Engine_TransactionHandlers__EventContainer_Callable = typing.TypeVar("QuantConnect_Lean_Engine_TransactionHandlers__EventContainer_Callable")
 QuantConnect_Lean_Engine_TransactionHandlers__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Lean_Engine_TransactionHandlers__EventContainer_ReturnType")
-
-
-class CancelPendingOrders(System.Object):
-    """Class used to keep track of CancelPending orders and their original or updated status"""
-
-    @property
-    def get_cancel_pending_orders_size(self) -> int:
-        """Amount of CancelPending Orders"""
-        ...
-
-    def remove_and_fallback(self, order: QuantConnect.Orders.Order) -> None:
-        """
-        Removes an order which we failed to cancel and falls back the order Status to previous value
-        
-        :param order: The order that failed to be canceled
-        """
-        ...
-
-    def set(self, order_id: int, status: QuantConnect.Orders.OrderStatus) -> None:
-        """
-        Adds an order which will be canceled and we want to keep track of it Status in case of fallback
-        
-        :param order_id: The order id
-        :param status: The order Status, before the cancel request
-        """
-        ...
-
-    def update_or_remove(self, order_id: int, new_status: QuantConnect.Orders.OrderStatus) -> None:
-        """
-        Updates an order that is pending to be canceled.
-        
-        :param order_id: The id of the order
-        :param new_status: The new status of the order. If its OrderStatus.Canceled or OrderStatus.Filled it will be removed
-        """
-        ...
 
 
 class ITransactionHandler(QuantConnect.Securities.IOrderProcessor, QuantConnect.Securities.IOrderEventProvider, metaclass=abc.ABCMeta):
@@ -102,6 +67,41 @@ class ITransactionHandler(QuantConnect.Securities.IOrderProcessor, QuantConnect.
         ...
 
 
+class CancelPendingOrders(System.Object):
+    """Class used to keep track of CancelPending orders and their original or updated status"""
+
+    @property
+    def get_cancel_pending_orders_size(self) -> int:
+        """Amount of CancelPending Orders"""
+        ...
+
+    def remove_and_fallback(self, order: QuantConnect.Orders.Order) -> None:
+        """
+        Removes an order which we failed to cancel and falls back the order Status to previous value
+        
+        :param order: The order that failed to be canceled
+        """
+        ...
+
+    def set(self, order_id: int, status: QuantConnect.Orders.OrderStatus) -> None:
+        """
+        Adds an order which will be canceled and we want to keep track of it Status in case of fallback
+        
+        :param order_id: The order id
+        :param status: The order Status, before the cancel request
+        """
+        ...
+
+    def update_or_remove(self, order_id: int, new_status: QuantConnect.Orders.OrderStatus) -> None:
+        """
+        Updates an order that is pending to be canceled.
+        
+        :param new_status: The new status of the order. If its OrderStatus.Canceled or OrderStatus.Filled it will be removed
+        :param order_id: The id of the order
+        """
+        ...
+
+
 class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler):
     """Transaction handler for all brokerages"""
 
@@ -111,7 +111,8 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         OrderQueue holds the newly updated orders from the user algorithm waiting to be processed. Once
         orders are processed they are moved into the Orders queue awaiting the brokerage response.
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -124,7 +125,8 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         The _cancelPendingOrders instance will help to keep track of CancelPending orders and their Status
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -170,7 +172,8 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         Gets the amount of time since the last call to algorithm.Portfolio.ProcessFill(fill)
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -179,7 +182,8 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         Gets current time UTC. This is here to facilitate testing
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -219,10 +223,10 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
 
     def get_open_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Iterable[QuantConnect.Orders.OrderTicket]:
         """
-        Gets and enumerable of opened OrderTicket matching the specified
+        Gets and enumerable of opened OrderTicket matching the specified filter
         
         :param filter: The filter predicate used to find the required order tickets
-        :returns: An enumerable of opened OrderTicket matching the specified.
+        :returns: An enumerable of opened OrderTicket matching the specified filter.
         """
         ...
 
@@ -265,10 +269,10 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
 
     def get_order_tickets(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> typing.Iterable[QuantConnect.Orders.OrderTicket]:
         """
-        Gets and enumerable of OrderTicket matching the specified
+        Gets and enumerable of OrderTicket matching the specified filter
         
         :param filter: The filter predicate used to find the required order tickets
-        :returns: An enumerable of OrderTicket matching the specified.
+        :returns: An enumerable of OrderTicket matching the specified filter.
         """
         ...
 
@@ -277,7 +281,8 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         Calculates the projected holdings for the specified security based on the current open orders.
         
         :param security: The security
-        :returns: The projected holdings for the specified security, which is the sum of the current holdings plus the sum of the open orders quantity.
+        :returns: The projected holdings for the specified security, which is the sum of the current holdings
+        plus the sum of the open orders quantity.
         """
         ...
 
@@ -296,6 +301,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         
         :param algorithm: The algorithm instance
         :param brokerage: The brokerage implementation to process orders and fire fill events
+        :param result_handler: 
         """
         ...
 
@@ -304,7 +310,8 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         Create and start the transaction thread, who will be in charge of processing
         the order requests
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -335,7 +342,8 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         
         This procedure is needed to meet brokerage precision requirements.
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -346,7 +354,8 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         
         This procedure is needed to meet brokerage precision requirements.
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -354,7 +363,8 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         Primary thread entry point to launch the transaction thread.
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -370,7 +380,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         Wait for the order to be handled by the _processingThreads
         
-        This method is protected.
+        This codeEntityType is protected.
         
         :param ticket: The OrderTicket expecting to be submitted
         """
@@ -385,7 +395,8 @@ class BacktestingTransactionHandler(QuantConnect.Lean.Engine.TransactionHandlers
         """
         Gets current time UTC. This is here to facilitate testing
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -395,15 +406,16 @@ class BacktestingTransactionHandler(QuantConnect.Lean.Engine.TransactionHandlers
         
         :param algorithm: The algorithm instance
         :param brokerage: The BacktestingBrokerage
+        :param result_handler: 
         """
         ...
 
     def initialize_transaction_thread(self) -> None:
         """
         For backtesting order requests will be processed by the algorithm thread
-        sequentially at WaitForOrderSubmission and ProcessSynchronousEvents
+        sequentially at wait_for_order_submission and process_synchronous_events
         
-        This method is protected.
+        This codeEntityType is protected.
         """
         ...
 
@@ -419,7 +431,8 @@ class BacktestingTransactionHandler(QuantConnect.Lean.Engine.TransactionHandlers
         """
         For backtesting we will submit the order ourselves
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param ticket: The OrderTicket expecting to be submitted
         """

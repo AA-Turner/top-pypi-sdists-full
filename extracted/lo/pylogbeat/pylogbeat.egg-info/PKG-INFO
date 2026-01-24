@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pylogbeat
-Version: 2.0.1
+Version: 2.1.0
 Summary: Simple, incomplete implementation of the Beats protocol used by Elastic Beats and Logstash.
 Home-page: https://github.com/eht16/pylogbeat/
 Author: Enrico Tröger
@@ -18,9 +18,21 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Logging
-Requires-Python: >3.6
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-python
+Dynamic: summary
 
 PyLogBeat
 =========
@@ -205,6 +217,14 @@ Thanks to brxie for the initial code.
 
 ChangeLog
 ---------
+
+### 2.1.0 / 2025-11-23
+
+- Shutdown the TCP socket before closing it
+- Support setting "ssl_verify_flags" to override Python's default
+- Update test matrix to support Python 3.11 to 3.14, drop support
+  for older Python versions and require at least Python 3.11
+
 
 ### 2.0.1 / 2023-07-30
 

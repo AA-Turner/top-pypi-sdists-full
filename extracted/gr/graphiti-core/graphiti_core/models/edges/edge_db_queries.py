@@ -60,7 +60,7 @@ EPISODIC_EDGE_RETURN = """
 """
 
 
-def get_entity_edge_save_query(provider: GraphProvider) -> str:
+def get_entity_edge_save_query(provider: GraphProvider, has_aoss: bool = False) -> str:
     match provider:
         case GraphProvider.FALKORDB:
             return """
@@ -68,6 +68,7 @@ def get_entity_edge_save_query(provider: GraphProvider) -> str:
                 MATCH (target:Entity {uuid: $edge_data.target_uuid})
                 MERGE (source)-[e:RELATES_TO {uuid: $edge_data.uuid}]->(target)
                 SET e = $edge_data
+                SET e.fact_embedding = vecf32($edge_data.fact_embedding)
                 RETURN e.uuid AS uuid
             """
         case GraphProvider.NEPTUNE:
@@ -99,17 +100,28 @@ def get_entity_edge_save_query(provider: GraphProvider) -> str:
                 RETURN e.uuid AS uuid
             """
         case _:  # Neo4j
-            return """
-                MATCH (source:Entity {uuid: $edge_data.source_uuid})
-                MATCH (target:Entity {uuid: $edge_data.target_uuid})
-                MERGE (source)-[e:RELATES_TO {uuid: $edge_data.uuid}]->(target)
-                SET e = $edge_data
-                WITH e CALL db.create.setRelationshipVectorProperty(e, "fact_embedding", $edge_data.fact_embedding)
+            save_embedding_query = (
+                """WITH e CALL db.create.setRelationshipVectorProperty(e, "fact_embedding", $edge_data.fact_embedding)"""
+                if not has_aoss
+                else ''
+            )
+            return (
+                (
+                    """
+                        MATCH (source:Entity {uuid: $edge_data.source_uuid})
+                        MATCH (target:Entity {uuid: $edge_data.target_uuid})
+                        MERGE (source)-[e:RELATES_TO {uuid: $edge_data.uuid}]->(target)
+                        SET e = $edge_data
+                        """
+                    + save_embedding_query
+                )
+                + """
                 RETURN e.uuid AS uuid
-            """
+                """
+            )
 
 
-def get_entity_edge_save_bulk_query(provider: GraphProvider) -> str:
+def get_entity_edge_save_bulk_query(provider: GraphProvider, has_aoss: bool = False) -> str:
     match provider:
         case GraphProvider.FALKORDB:
             return """
@@ -117,8 +129,8 @@ def get_entity_edge_save_bulk_query(provider: GraphProvider) -> str:
                 MATCH (source:Entity {uuid: edge.source_node_uuid})
                 MATCH (target:Entity {uuid: edge.target_node_uuid})
                 MERGE (source)-[r:RELATES_TO {uuid: edge.uuid}]->(target)
-                SET r = {uuid: edge.uuid, name: edge.name, group_id: edge.group_id, fact: edge.fact, episodes: edge.episodes,
-                created_at: edge.created_at, expired_at: edge.expired_at, valid_at: edge.valid_at, invalid_at: edge.invalid_at, fact_embedding: vecf32(edge.fact_embedding)}
+                SET r = edge
+                SET r.fact_embedding = vecf32(edge.fact_embedding)
                 WITH r, edge
                 RETURN edge.uuid AS uuid
             """
@@ -152,15 +164,24 @@ def get_entity_edge_save_bulk_query(provider: GraphProvider) -> str:
                 RETURN e.uuid AS uuid
             """
         case _:
-            return """
-                UNWIND $entity_edges AS edge
-                MATCH (source:Entity {uuid: edge.source_node_uuid})
-                MATCH (target:Entity {uuid: edge.target_node_uuid})
-                MERGE (source)-[e:RELATES_TO {uuid: edge.uuid}]->(target)
-                SET e = edge
-                WITH e, edge CALL db.create.setRelationshipVectorProperty(e, "fact_embedding", edge.fact_embedding)
+            save_embedding_query = (
+                'WITH e, edge CALL db.create.setRelationshipVectorProperty(e, "fact_embedding", edge.fact_embedding)'
+                if not has_aoss
+                else ''
+            )
+            return (
+                """
+                    UNWIND $entity_edges AS edge
+                    MATCH (source:Entity {uuid: edge.source_node_uuid})
+                    MATCH (target:Entity {uuid: edge.target_node_uuid})
+                    MERGE (source)-[e:RELATES_TO {uuid: edge.uuid}]->(target)
+                    SET e = edge
+                    """
+                + save_embedding_query
+                + """
                 RETURN edge.uuid AS uuid
             """
+            )
 
 
 def get_entity_edge_return_query(provider: GraphProvider) -> str:
@@ -251,6 +272,44 @@ def get_community_edge_save_query(provider: GraphProvider) -> str:
 
 
 COMMUNITY_EDGE_RETURN = """
+    e.uuid AS uuid,
+    e.group_id AS group_id,
+    n.uuid AS source_node_uuid,
+    m.uuid AS target_node_uuid,
+    e.created_at AS created_at
+"""
+
+
+HAS_EPISODE_EDGE_SAVE = """
+    MATCH (saga:Saga {uuid: $saga_uuid})
+    MATCH (episode:Episodic {uuid: $episode_uuid})
+    MERGE (saga)-[e:HAS_EPISODE {uuid: $uuid}]->(episode)
+    SET
+        e.group_id = $group_id,
+        e.created_at = $created_at
+    RETURN e.uuid AS uuid
+"""
+
+HAS_EPISODE_EDGE_RETURN = """
+    e.uuid AS uuid,
+    e.group_id AS group_id,
+    n.uuid AS source_node_uuid,
+    m.uuid AS target_node_uuid,
+    e.created_at AS created_at
+"""
+
+
+NEXT_EPISODE_EDGE_SAVE = """
+    MATCH (source_episode:Episodic {uuid: $source_episode_uuid})
+    MATCH (target_episode:Episodic {uuid: $target_episode_uuid})
+    MERGE (source_episode)-[e:NEXT_EPISODE {uuid: $uuid}]->(target_episode)
+    SET
+        e.group_id = $group_id,
+        e.created_at = $created_at
+    RETURN e.uuid AS uuid
+"""
+
+NEXT_EPISODE_EDGE_RETURN = """
     e.uuid AS uuid,
     e.group_id AS group_id,
     n.uuid AS source_node_uuid,

@@ -8,6 +8,16 @@ from gwcs import examples, geometry
 
 
 @pytest.fixture
+def gwcs_simple_2d():
+    return examples.gwcs_simple_2d()
+
+
+@pytest.fixture
+def gwcs_empty_output_2d():
+    return examples.gwcs_empty_output_2d()
+
+
+@pytest.fixture
 def gwcs_2d_quantity_shift():
     return examples.gwcs_2d_quantity_shift()
 
@@ -174,3 +184,13 @@ def gwcs_romanisim():
 def fits_wcs_imaging_simple(request):
     params = request.param
     return examples.fits_wcs_imaging_simple(params)
+
+
+@pytest.fixture
+def gwcs_2d_spatial_shift_reverse():
+    return examples.gwcs_2d_spatial_shift_reverse()
+
+
+@pytest.fixture
+def gwcs_multi_stage():
+    return examples.gwcs_multi_stage()

@@ -33,6 +33,7 @@ extensions = [
     'issue_role',
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
+    'sphinx_copybutton',
 ]
 
 intersphinx_mapping = {
@@ -40,6 +41,7 @@ intersphinx_mapping = {
 }
 
 autodoc_typehints = 'both'
+copybutton_exclude = '.linenos, .gp, .go'
 
 # Add any paths that contain templates here, relative to this directory.
 # templates_path = ['_templates']
@@ -107,6 +109,7 @@ pygments_style = 'sphinx'
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = 'furo'
+
 ## html_favicon = '_static/lock-light.svg'
 ## html_theme_options = {
 ##     'light_logo': 'logo-light.png',

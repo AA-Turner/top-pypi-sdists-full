@@ -1,6 +1,6 @@
 # flake8: noqa
 # Library version
-VERSION = "10.1.0"
+VERSION = "10.3.0"
 VERSION_INFO = [str(number) for number in VERSION.split(".")]
 
 # Client defaults
@@ -41,5 +41,6 @@ _CARRIER_ACCOUNT_TYPES_WITH_CUSTOM_OAUTH = [
     "UpsAccount",
     "UpsMailInnovationsAccount",
     "UpsSurepostAccount",
+    "UspsShipAccount",
 ]
 _FILTERS_KEY = "filters"

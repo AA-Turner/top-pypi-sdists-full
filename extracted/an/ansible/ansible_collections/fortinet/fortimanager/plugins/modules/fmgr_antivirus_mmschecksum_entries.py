@@ -16,7 +16,6 @@ short_description: modify this MMS content checksum list
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -123,7 +125,7 @@ EXAMPLES = '''
     - name: Modify this MMS content checksum list
       fortinet.fortimanager.fmgr_antivirus_mmschecksum_entries:
         adom: FortiCarrier
-        mms-checksum: "1" # id
+        mms_checksum: "1" # id
         state: present
         antivirus_mmschecksum_entries:
           checksum: "test_checksum"
@@ -146,7 +148,7 @@ EXAMPLES = '''
           params:
             adom: "FortiCarrier" # This is FOC-only object, data will only be returned under FortiCarrier adom
             entries: ""
-            mms-checksum: "1" # id
+            mms_checksum: "1" # id
 '''
 
 RETURN = '''
@@ -205,6 +207,7 @@ def main():
         'adom': {'required': True, 'type': 'str'},
         'mms-checksum': {'type': 'str', 'api_name': 'mms_checksum'},
         'mms_checksum': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'antivirus_mmschecksum_entries': {
             'type': 'dict',
             'v_range': [['6.0.0', '7.6.2']],

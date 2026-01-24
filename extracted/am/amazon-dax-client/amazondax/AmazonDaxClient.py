@@ -23,7 +23,8 @@ from botocore.credentials import Credentials
 from botocore.model import ServiceModel
 from botocore.exceptions import PartialCredentialsError
 from botocore.hooks import first_non_none_response
-from .Constants import PY_TO_OP_NAME
+from .Constants import VALID_IP_DISCOVERY_VALUES, PY_TO_OP_NAME
+from .DaxError import DaxValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,7 @@ class AmazonDaxClient(object):
                  use_ssl=None, verify=None, endpoint_url=None,
                  aws_access_key_id=None, aws_secret_access_key=None,
                  aws_session_token=None, config=None, endpoints=None,
-                 skip_hostname_verification=None):
+                 skip_hostname_verification=None, ip_discovery=None):
         if session is None:
             session = botocore.session.get_session()
         else:
@@ -121,6 +122,7 @@ class AmazonDaxClient(object):
 
         self._session = session
         default_client_config = self._session.get_default_client_config()
+
         if config is not None and default_client_config is not None:
             # If a config is provided and a default config is set, then
             # use the config resulting from merging the two.
@@ -168,6 +170,14 @@ class AmazonDaxClient(object):
 
         self._skip_hostname_verification = skip_hostname_verification
 
+        # Validate ip_discovery parameter
+        ip_discovery = ip_discovery.lower() if isinstance(ip_discovery, str) else ip_discovery
+        if ip_discovery not in VALID_IP_DISCOVERY_VALUES:
+            raise DaxValidationError(
+                'Invalid ip_discovery parameter: {} Valid values: {}'.format(ip_discovery, VALID_IP_DISCOVERY_VALUES)
+            )
+        self._ip_discovery = ip_discovery
+
         # Fake out the meta information as much as possible
         loader = session.get_component('data_loader')
         json_model = loader.load_service_model(
@@ -191,7 +201,8 @@ class AmazonDaxClient(object):
                                 self._client_config.user_agent_extra,
                                 self._client_config.connect_timeout,
                                 self._client_config.read_timeout,
-                                self._skip_hostname_verification)
+                                self._skip_hostname_verification,
+                                ip_discovery=self._ip_discovery)
         self._cluster.start()
 
     def close(self):

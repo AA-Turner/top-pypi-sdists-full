@@ -24,6 +24,7 @@ class ClientConfig(BaseClientConfig):
             "sagemaker_studio": self.overrides.get("sagemaker_studio", {}),
             "execution": self.overrides.get("execution", {}),
             "secretsmanager": self.overrides.get("secretsmanager", {}),
+            "athena": self.overrides.get("athena", {}),
         }
 
 

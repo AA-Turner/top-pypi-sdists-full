@@ -148,6 +148,34 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
     _DEFAULT_ENDPOINT_TEMPLATE = "compute.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
 
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
+
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
         """Creates an instance of this client using the provided credentials
@@ -313,12 +341,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = InstanceGroupsClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -326,7 +350,7 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -358,20 +382,14 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = InstanceGroupsClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -705,9 +723,9 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Adds a list of instances to the specified instance
-        group. All of the instances in the instance group must
-        be in the same network/subnetwork. Read Adding instances
-        for more information.
+        group.  All of the instances in the instance group must
+        be in the same network/subnetwork. Read
+        Adding instances for more information.
 
         .. code-block:: python
 
@@ -748,8 +766,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                instance group is located.
+                The name of the zone
+                where the instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -860,9 +878,9 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Adds a list of instances to the specified instance
-        group. All of the instances in the instance group must
-        be in the same network/subnetwork. Read Adding instances
-        for more information.
+        group.  All of the instances in the instance group must
+        be in the same network/subnetwork. Read
+        Adding instances for more information.
 
         .. code-block:: python
 
@@ -903,8 +921,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                instance group is located.
+                The name of the zone
+                where the instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1036,8 +1054,9 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.AggregatedListPager:
-        r"""Retrieves the list of instance groups and sorts them by zone. To
-        prevent failure, Google recommends that you set the
+        r"""Retrieves the list of instance groups and sorts them by zone.
+
+        To prevent failure, Google recommends that you set the
         ``returnPartialSuccess`` parameter to ``true``.
 
         .. code-block:: python
@@ -1162,8 +1181,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
     ) -> compute.Operation:
         r"""Deletes the specified instance group. The instances
         in the group are not deleted. Note that instance group
-        must not belong to a backend service. Read Deleting an
-        instance group for more information.
+        must not belong to a backend service. Read
+        Deleting an instance group for more information.
 
         .. code-block:: python
 
@@ -1204,8 +1223,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                instance group is located.
+                The name of the zone
+                where the instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1300,8 +1319,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
     ) -> extended_operation.ExtendedOperation:
         r"""Deletes the specified instance group. The instances
         in the group are not deleted. Note that instance group
-        must not belong to a backend service. Read Deleting an
-        instance group for more information.
+        must not belong to a backend service. Read
+        Deleting an instance group for more information.
 
         .. code-block:: python
 
@@ -1342,8 +1361,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                instance group is located.
+                The name of the zone
+                where the instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1463,8 +1482,10 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
     ) -> compute.InstanceGroup:
         r"""Returns the specified zonal instance group. Get a
         list of available zonal instance groups by making a
-        list() request. For managed instance groups, use the
-        instanceGroupManagers or regionInstanceGroupManagers
+        list() request.
+
+        For managed instance groups, use
+        theinstanceGroupManagers or regionInstanceGroupManagers
         methods instead.
 
         .. code-block:: python
@@ -1506,8 +1527,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                instance group is located.
+                The name of the zone
+                where the instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1528,19 +1549,28 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
         Returns:
             google.cloud.compute_v1.types.InstanceGroup:
                 Represents an Instance Group
-                resource. Instance Groups can be used to
-                configure a target for load balancing.
+                resource.
+                Instance Groups can be used to configure
+                a target forload balancing.
+
                 Instance groups can either be managed or
-                unmanaged. To create managed instance
-                groups, use the instanceGroupManager or
-                regionInstanceGroupManager resource
-                instead. Use zonal unmanaged instance
-                groups if you need to apply load
-                balancing to groups of heterogeneous
-                instances or if you need to manage the
-                instances yourself. You cannot create
-                regional unmanaged instance groups. For
-                more information, read Instance groups.
+                unmanaged.
+
+                To create
+                managed instance groups, use the
+                instanceGroupManager
+                orregionInstanceGroupManager resource
+                instead.
+
+                Use zonal unmanaged instance groups if
+                you need to applyload balancing to
+                groups of heterogeneous instances or if
+                you need to manage the instances
+                yourself. You cannot create regional
+                unmanaged instance groups.
+
+                For more information, readInstance
+                groups.
 
         """
         # Create or coerce a protobuf request object.
@@ -1651,8 +1681,9 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where you want
-                to create the instance group.
+                The name of the zone
+                where you want to create the instance
+                group.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1783,8 +1814,9 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where you want
-                to create the instance group.
+                The name of the zone
+                where you want to create the instance
+                group.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1899,9 +1931,11 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.ListPager:
         r"""Retrieves the list of zonal instance group resources
-        contained within the specified zone. For managed
-        instance groups, use the instanceGroupManagers or
-        regionInstanceGroupManagers methods instead.
+        contained within the specified zone.
+
+        For managed instance groups, use
+        theinstanceGroupManagers or regionInstanceGroupManagers
+        methods instead.
 
         .. code-block:: python
 
@@ -1942,8 +1976,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                instance group is located.
+                The name of thezone
+                where the instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2090,8 +2124,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                instance group is located.
+                The name of the zone
+                where the instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2217,8 +2251,10 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Removes one or more instances from the specified
-        instance group, but does not delete those instances. If
-        the group is part of a backend service that has enabled
+        instance group, but does not delete those instances.
+
+        If the group is part of a backend
+        service that has enabled
         connection draining, it can take up to 60 seconds after
         the connection draining duration before the VM instance
         is removed or deleted.
@@ -2262,8 +2298,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                instance group is located.
+                The name of the zone
+                where the instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2376,8 +2412,10 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Removes one or more instances from the specified
-        instance group, but does not delete those instances. If
-        the group is part of a backend service that has enabled
+        instance group, but does not delete those instances.
+
+        If the group is part of a backend
+        service that has enabled
         connection draining, it can take up to 60 seconds after
         the connection draining duration before the VM instance
         is removed or deleted.
@@ -2421,8 +2459,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                instance group is located.
+                The name of the zone
+                where the instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2601,8 +2639,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                instance group is located.
+                The name of the zone
+                where the instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2756,8 +2794,8 @@ class InstanceGroupsClient(metaclass=InstanceGroupsClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                instance group is located.
+                The name of the zone
+                where the instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this

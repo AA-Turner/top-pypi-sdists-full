@@ -35,6 +35,8 @@ class UpdateAccountSettings(object):
     """
     openapi_types = {
         'address': 'str',
+        'allowed_client_type': 'list[str]',
+        'allowed_email_domains': 'list[str]',
         'bound_ips': 'list[str]',
         'city': 'str',
         'company_name': 'str',
@@ -46,6 +48,7 @@ class UpdateAccountSettings(object):
         'dp_enable_classic_key_protection': 'str',
         'dynamic_secret_max_ttl': 'int',
         'dynamic_secret_max_ttl_enable': 'str',
+        'enable_ai_insights': 'str',
         'enable_default_certificate_expiration_event': 'str',
         'enable_item_sharing': 'str',
         'enable_password_expiration': 'str',
@@ -60,6 +63,7 @@ class UpdateAccountSettings(object):
         'jwt_ttl_default': 'int',
         'jwt_ttl_max': 'int',
         'jwt_ttl_min': 'int',
+        'lock_allowed_client_type': 'str',
         'lock_bound_ips': 'str',
         'lock_default_key': 'str',
         'lock_gw_bound_ips': 'str',
@@ -84,6 +88,8 @@ class UpdateAccountSettings(object):
 
     attribute_map = {
         'address': 'address',
+        'allowed_client_type': 'allowed-client-type',
+        'allowed_email_domains': 'allowed-email-domains',
         'bound_ips': 'bound-ips',
         'city': 'city',
         'company_name': 'company-name',
@@ -95,6 +101,7 @@ class UpdateAccountSettings(object):
         'dp_enable_classic_key_protection': 'dp-enable-classic-key-protection',
         'dynamic_secret_max_ttl': 'dynamic-secret-max-ttl',
         'dynamic_secret_max_ttl_enable': 'dynamic-secret-max-ttl-enable',
+        'enable_ai_insights': 'enable-ai-insights',
         'enable_default_certificate_expiration_event': 'enable-default-certificate-expiration-event',
         'enable_item_sharing': 'enable-item-sharing',
         'enable_password_expiration': 'enable-password-expiration',
@@ -109,6 +116,7 @@ class UpdateAccountSettings(object):
         'jwt_ttl_default': 'jwt-ttl-default',
         'jwt_ttl_max': 'jwt-ttl-max',
         'jwt_ttl_min': 'jwt-ttl-min',
+        'lock_allowed_client_type': 'lock-allowed-client-type',
         'lock_bound_ips': 'lock-bound-ips',
         'lock_default_key': 'lock-default-key',
         'lock_gw_bound_ips': 'lock-gw-bound-ips',
@@ -131,13 +139,15 @@ class UpdateAccountSettings(object):
         'use_special_characters': 'use-special-characters'
     }
 
-    def __init__(self, address=None, bound_ips=None, city=None, company_name=None, country=None, default_certificate_expiration_notification_days=None, default_key_name=None, default_share_link_ttl_minutes=None, default_versioning=None, dp_enable_classic_key_protection=None, dynamic_secret_max_ttl=None, dynamic_secret_max_ttl_enable=None, enable_default_certificate_expiration_event=None, enable_item_sharing=None, enable_password_expiration=None, force_new_versions=None, gw_bound_ips=None, hide_personal_folder=None, hide_static_password=None, invalid_characters='notReceivedInvalidCharacter', item_type=None, items_deletion_protection=None, json=False, jwt_ttl_default=None, jwt_ttl_max=None, jwt_ttl_min=None, lock_bound_ips=None, lock_default_key=None, lock_gw_bound_ips=None, max_rotation_interval=None, max_rotation_interval_enable=None, max_versions=None, password_expiration_days=None, password_expiration_notification_days=None, password_length=None, phone=None, postal_code=None, token=None, uid_token=None, usage_event_enable=None, usage_event_interval=None, usage_event_object_type=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, address=None, allowed_client_type=None, allowed_email_domains=None, bound_ips=None, city=None, company_name=None, country=None, default_certificate_expiration_notification_days=None, default_key_name=None, default_share_link_ttl_minutes=None, default_versioning=None, dp_enable_classic_key_protection=None, dynamic_secret_max_ttl=None, dynamic_secret_max_ttl_enable=None, enable_ai_insights=None, enable_default_certificate_expiration_event=None, enable_item_sharing=None, enable_password_expiration=None, force_new_versions=None, gw_bound_ips=None, hide_personal_folder=None, hide_static_password=None, invalid_characters='notReceivedInvalidCharacter', item_type=None, items_deletion_protection=None, json=False, jwt_ttl_default=None, jwt_ttl_max=None, jwt_ttl_min=None, lock_allowed_client_type=None, lock_bound_ips=None, lock_default_key=None, lock_gw_bound_ips=None, max_rotation_interval=None, max_rotation_interval_enable=None, max_versions=None, password_expiration_days=None, password_expiration_notification_days=None, password_length=None, phone=None, postal_code=None, token=None, uid_token=None, usage_event_enable=None, usage_event_interval=None, usage_event_object_type=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, local_vars_configuration=None):  # noqa: E501
         """UpdateAccountSettings - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._address = None
+        self._allowed_client_type = None
+        self._allowed_email_domains = None
         self._bound_ips = None
         self._city = None
         self._company_name = None
@@ -149,6 +159,7 @@ class UpdateAccountSettings(object):
         self._dp_enable_classic_key_protection = None
         self._dynamic_secret_max_ttl = None
         self._dynamic_secret_max_ttl_enable = None
+        self._enable_ai_insights = None
         self._enable_default_certificate_expiration_event = None
         self._enable_item_sharing = None
         self._enable_password_expiration = None
@@ -163,6 +174,7 @@ class UpdateAccountSettings(object):
         self._jwt_ttl_default = None
         self._jwt_ttl_max = None
         self._jwt_ttl_min = None
+        self._lock_allowed_client_type = None
         self._lock_bound_ips = None
         self._lock_default_key = None
         self._lock_gw_bound_ips = None
@@ -187,6 +199,10 @@ class UpdateAccountSettings(object):
 
         if address is not None:
             self.address = address
+        if allowed_client_type is not None:
+            self.allowed_client_type = allowed_client_type
+        if allowed_email_domains is not None:
+            self.allowed_email_domains = allowed_email_domains
         if bound_ips is not None:
             self.bound_ips = bound_ips
         if city is not None:
@@ -209,6 +225,8 @@ class UpdateAccountSettings(object):
             self.dynamic_secret_max_ttl = dynamic_secret_max_ttl
         if dynamic_secret_max_ttl_enable is not None:
             self.dynamic_secret_max_ttl_enable = dynamic_secret_max_ttl_enable
+        if enable_ai_insights is not None:
+            self.enable_ai_insights = enable_ai_insights
         if enable_default_certificate_expiration_event is not None:
             self.enable_default_certificate_expiration_event = enable_default_certificate_expiration_event
         if enable_item_sharing is not None:
@@ -237,6 +255,8 @@ class UpdateAccountSettings(object):
             self.jwt_ttl_max = jwt_ttl_max
         if jwt_ttl_min is not None:
             self.jwt_ttl_min = jwt_ttl_min
+        if lock_allowed_client_type is not None:
+            self.lock_allowed_client_type = lock_allowed_client_type
         if lock_bound_ips is not None:
             self.lock_bound_ips = lock_bound_ips
         if lock_default_key is not None:
@@ -300,6 +320,52 @@ class UpdateAccountSettings(object):
         """
 
         self._address = address
+
+    @property
+    def allowed_client_type(self):
+        """Gets the allowed_client_type of this UpdateAccountSettings.  # noqa: E501
+
+        A default list of client types that are allowed to authenticate [cli,ui,gateway-admin,sdk,mobile,extension].  # noqa: E501
+
+        :return: The allowed_client_type of this UpdateAccountSettings.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._allowed_client_type
+
+    @allowed_client_type.setter
+    def allowed_client_type(self, allowed_client_type):
+        """Sets the allowed_client_type of this UpdateAccountSettings.
+
+        A default list of client types that are allowed to authenticate [cli,ui,gateway-admin,sdk,mobile,extension].  # noqa: E501
+
+        :param allowed_client_type: The allowed_client_type of this UpdateAccountSettings.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._allowed_client_type = allowed_client_type
+
+    @property
+    def allowed_email_domains(self):
+        """Gets the allowed_email_domains of this UpdateAccountSettings.  # noqa: E501
+
+        Limits email sharing to the specified domains. Relevant only when item sharing is enabled. By default, all domains are allowed.  # noqa: E501
+
+        :return: The allowed_email_domains of this UpdateAccountSettings.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._allowed_email_domains
+
+    @allowed_email_domains.setter
+    def allowed_email_domains(self, allowed_email_domains):
+        """Sets the allowed_email_domains of this UpdateAccountSettings.
+
+        Limits email sharing to the specified domains. Relevant only when item sharing is enabled. By default, all domains are allowed.  # noqa: E501
+
+        :param allowed_email_domains: The allowed_email_domains of this UpdateAccountSettings.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._allowed_email_domains = allowed_email_domains
 
     @property
     def bound_ips(self):
@@ -553,6 +619,29 @@ class UpdateAccountSettings(object):
         """
 
         self._dynamic_secret_max_ttl_enable = dynamic_secret_max_ttl_enable
+
+    @property
+    def enable_ai_insights(self):
+        """Gets the enable_ai_insights of this UpdateAccountSettings.  # noqa: E501
+
+        Enable AI insights [true/false]  # noqa: E501
+
+        :return: The enable_ai_insights of this UpdateAccountSettings.  # noqa: E501
+        :rtype: str
+        """
+        return self._enable_ai_insights
+
+    @enable_ai_insights.setter
+    def enable_ai_insights(self, enable_ai_insights):
+        """Sets the enable_ai_insights of this UpdateAccountSettings.
+
+        Enable AI insights [true/false]  # noqa: E501
+
+        :param enable_ai_insights: The enable_ai_insights of this UpdateAccountSettings.  # noqa: E501
+        :type: str
+        """
+
+        self._enable_ai_insights = enable_ai_insights
 
     @property
     def enable_default_certificate_expiration_event(self):
@@ -875,6 +964,29 @@ class UpdateAccountSettings(object):
         """
 
         self._jwt_ttl_min = jwt_ttl_min
+
+    @property
+    def lock_allowed_client_type(self):
+        """Gets the lock_allowed_client_type of this UpdateAccountSettings.  # noqa: E501
+
+        Lock allowed-client-type setting in the account [true/false].  # noqa: E501
+
+        :return: The lock_allowed_client_type of this UpdateAccountSettings.  # noqa: E501
+        :rtype: str
+        """
+        return self._lock_allowed_client_type
+
+    @lock_allowed_client_type.setter
+    def lock_allowed_client_type(self, lock_allowed_client_type):
+        """Sets the lock_allowed_client_type of this UpdateAccountSettings.
+
+        Lock allowed-client-type setting in the account [true/false].  # noqa: E501
+
+        :param lock_allowed_client_type: The lock_allowed_client_type of this UpdateAccountSettings.  # noqa: E501
+        :type: str
+        """
+
+        self._lock_allowed_client_type = lock_allowed_client_type
 
     @property
     def lock_bound_ips(self):

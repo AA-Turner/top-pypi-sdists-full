@@ -9,32 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
+from typing import Literal
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
+from .group_0214 import RepositoryRuleFileExtensionRestrictionPropParameters
 
 
-class Reaction(GitHubModel):
-    """Reaction
+class RepositoryRuleFileExtensionRestriction(GitHubModel):
+    """file_extension_restriction
 
-    Reactions to conversations provide a way to help people express their feelings
-    more simply and effectively.
+    Prevent commits that include files with specified file extensions from being
+    pushed to the commit graph.
     """
 
-    id: int = Field()
-    node_id: str = Field()
-    user: Union[None, SimpleUser] = Field()
-    content: Literal[
-        "+1", "-1", "laugh", "confused", "heart", "hooray", "rocket", "eyes"
-    ] = Field(description="The reaction to use")
-    created_at: datetime = Field()
+    type: Literal["file_extension_restriction"] = Field()
+    parameters: Missing[RepositoryRuleFileExtensionRestrictionPropParameters] = Field(
+        default=UNSET
+    )
 
 
-model_rebuild(Reaction)
+model_rebuild(RepositoryRuleFileExtensionRestriction)
 
-__all__ = ("Reaction",)
+__all__ = ("RepositoryRuleFileExtensionRestriction",)

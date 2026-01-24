@@ -29,10 +29,21 @@ from .api import (
     CloudApiClientError,
     CloudApiCodedError,
     CloudApiError,
+    CloudApiInvalidResponseError,
     CloudApiNonRetryableError,
     CloudApiTimeoutError,
 )
-from .auth import CognitoAuth
+from .auth import (
+    CognitoAuth,
+    InvalidTotpCode,
+    MFARequired,
+    PasswordChangeRequired,
+    Unauthenticated,
+    UnknownError,
+    UserExists,
+    UserNotConfirmed,
+    UserNotFound,
+)
 from .client import CloudClient
 from .cloudhooks import Cloudhooks
 from .const import (
@@ -45,17 +56,30 @@ from .const import (
     CertificateStatus,
     SubscriptionReconnectionReason,
 )
+from .events import CloudEvent, CloudEventBus, CloudEventType
 from .exceptions import (
     CloudError,
     NabuCasaAuthenticationError,
     NabuCasaBaseError,
     NabuCasaConnectionError,
+    NabuCasaNotLoggedInError,
 )
 from .files import Files, FilesError, StorageType, StoredFile, calculate_b64md5
 from .google_report_state import GoogleReportState, GoogleReportStateError
 from .ice_servers import IceServers, IceServersApiError
 from .instance_api import InstanceApi, InstanceApiError, InstanceConnectionDetails
 from .iot import CloudIoT
+from .llm import (
+    LLMAuthenticationError,
+    LLMError,
+    LLMGeneratedImage,
+    LLMHandler,
+    LLMImageAttachment,
+    LLMRateLimitError,
+    LLMRequestError,
+    LLMResponseError,
+    LLMServiceError,
+)
 from .payments_api import (
     MigratePaypalAgreementInfo,
     PaymentsApi,
@@ -63,7 +87,24 @@ from .payments_api import (
     SubscriptionInfo,
 )
 from .remote import RemoteUI
-from .utils import UTC, gather_callbacks, parse_date, utcnow
+from .service_discovery import (
+    ServiceDiscovery,
+    ServiceDiscoveryAction,
+    ServiceDiscoveryError,
+    ServiceDiscoveryInvalidResponseError,
+    ServiceDiscoveryMissingActionError,
+    ServiceDiscoveryMissingParameterError,
+)
+from .utils import (
+    UTC,
+    CheckLatencyError,
+    CheckLatencyHostResult,
+    async_check_latency,
+    gather_callbacks,
+    parse_date,
+    seconds_as_dhms,
+    utcnow,
+)
 from .voice import Voice
 from .voice_api import VoiceApi, VoiceApiError
 
@@ -78,29 +119,60 @@ __all__ = [
     "AlexaApiNoTokenError",
     "AlreadyConnectedError",
     "CertificateStatus",
+    "CheckLatencyError",
+    "CheckLatencyHostResult",
     "Cloud",
     "CloudApiClientError",
     "CloudApiCodedError",
     "CloudApiError",
+    "CloudApiInvalidResponseError",
     "CloudApiNonRetryableError",
     "CloudApiTimeoutError",
     "CloudClient",
     "CloudError",
+    "CloudEvent",
+    "CloudEventBus",
+    "CloudEventType",
     "FilesError",
     "GoogleReportStateError",
     "IceServersApiError",
     "InstanceApiError",
     "InstanceConnectionDetails",
+    "InvalidTotpCode",
+    "LLMAuthenticationError",
+    "LLMError",
+    "LLMGeneratedImage",
+    "LLMHandler",
+    "LLMImageAttachment",
+    "LLMRateLimitError",
+    "LLMRequestError",
+    "LLMResponseError",
+    "LLMServiceError",
+    "MFARequired",
     "MigratePaypalAgreementInfo",
     "NabuCasaAuthenticationError",
     "NabuCasaBaseError",
     "NabuCasaConnectionError",
+    "NabuCasaNotLoggedInError",
+    "PasswordChangeRequired",
     "PaymentsApiError",
+    "ServiceDiscovery",
+    "ServiceDiscoveryAction",
+    "ServiceDiscoveryError",
+    "ServiceDiscoveryInvalidResponseError",
+    "ServiceDiscoveryMissingActionError",
+    "ServiceDiscoveryMissingParameterError",
     "StorageType",
     "StoredFile",
     "SubscriptionInfo",
     "SubscriptionReconnectionReason",
+    "Unauthenticated",
+    "UnknownError",
+    "UserExists",
+    "UserNotConfirmed",
+    "UserNotFound",
     "VoiceApiError",
+    "async_check_latency",
     "calculate_b64md5",
 ]
 
@@ -127,16 +199,16 @@ class Cloud(Generic[_ClientT]):
         client: _ClientT,
         mode: Literal["development", "production"],
         *,
+        api_server: str | None = None,
         cognito_client_id: str | None = None,
         region: str | None = None,
         user_pool_id: str | None = None,
         account_link_server: str | None = None,
-        accounts_server: str | None = None,
         acme_server: str | None = None,
-        cloudhook_server: str | None = None,
         relayer_server: str | None = None,
         remotestate_server: str | None = None,
         servicehandlers_server: str | None = None,
+        discovery_service_actions: dict[ServiceDiscoveryAction, str] | None = None,
         **kwargs: Any,  # noqa: ARG002
     ) -> None:
         """Create an instance of Cloud."""
@@ -167,9 +239,8 @@ class Cloud(Generic[_ClientT]):
         self.user_pool_id = _values.get("user_pool_id", user_pool_id)
 
         self.account_link_server = _servers.get("account_link", account_link_server)
-        self.accounts_server = _servers.get("accounts", accounts_server)
         self.acme_server = _servers.get("acme", acme_server)
-        self.cloudhook_server = _servers.get("cloudhook", cloudhook_server)
+        self.api_server = _servers.get("api", api_server)
         self.relayer_server = _servers.get("relayer", relayer_server)
         self.remotestate_server = _servers.get("remotestate", remotestate_server)
         self.servicehandlers_server = _servers.get(
@@ -177,12 +248,16 @@ class Cloud(Generic[_ClientT]):
             servicehandlers_server,
         )
 
+        # Setup event bus before other components
+        self.events = CloudEventBus()
+
         # Needs to be setup before other components
         self.iot = CloudIoT(self)
 
         # Setup the rest of the components
         self.account = AccountApi(self)
         self.accounts = AccountsApi(self)
+        self.llm = LLMHandler(self)
         self.alexa_api = AlexaApi(self)
         self.auth = CognitoAuth(self)
         self.cloudhooks = Cloudhooks(self)
@@ -192,6 +267,10 @@ class Cloud(Generic[_ClientT]):
         self.instance = InstanceApi(self)
         self.payments = PaymentsApi(self)
         self.remote = RemoteUI(self)
+        self.service_discovery = ServiceDiscovery(
+            self,
+            action_overrides=discovery_service_actions,
+        )
         self.voice = Voice(self)
         self.voice_api = VoiceApi(self)
 
@@ -253,6 +332,11 @@ class Cloud(Generic[_ClientT]):
         access_token: str,
     ) -> None:
         """Raise AlreadyConnectedError if already connected."""
+        try:
+            await self.service_discovery.async_start_service_discovery()
+        except ServiceDiscoveryError as err:
+            _LOGGER.info("Failed to initialize service discovery: %s", err)
+
         try:
             connection = await self.instance.connection(
                 skip_token_check=True,
@@ -333,6 +417,7 @@ class Cloud(Generic[_ClientT]):
     ) -> None:
         """Log a user in."""
         await self.auth.async_login(email, password, check_connection=check_connection)
+        await self.events.publish(CloudEvent(type=CloudEventType.LOGIN))
 
     async def login_verify_totp(
         self,
@@ -346,9 +431,11 @@ class Cloud(Generic[_ClientT]):
         await self.auth.async_login_verify_totp(
             email, code, mfa_tokens, check_connection=check_connection
         )
+        await self.events.publish(CloudEvent(type=CloudEventType.LOGIN))
 
     async def logout(self) -> None:
         """Close connection and remove all credentials."""
+        await self.events.publish(CloudEvent(type=CloudEventType.LOGOUT))
         self.id_token = None
         self.access_token = None
         self.refresh_token = None
@@ -457,6 +544,11 @@ class Cloud(Generic[_ClientT]):
         except CloudError:
             _LOGGER.debug("Failed to check cloud token", exc_info=True)
 
+        try:
+            await self.service_discovery.async_start_service_discovery()
+        except ServiceDiscoveryError as err:
+            _LOGGER.info("Failed to initialize service discovery: %s", err)
+
         if await self.async_subscription_is_valid():
             await self._start(skip_subscription_check=True)
             await gather_callbacks(_LOGGER, "on_initialized", self._on_initialized)
@@ -466,6 +558,11 @@ class Cloud(Generic[_ClientT]):
 
     async def _start(self, skip_subscription_check: bool = False) -> None:
         """Start the cloud component."""
+        try:
+            await self.service_discovery.async_start_service_discovery()
+        except ServiceDiscoveryError as err:
+            _LOGGER.info("Failed to initialize service discovery: %s", err)
+
         if skip_subscription_check or await self.async_subscription_is_valid():
             await self.client.cloud_started()
             await gather_callbacks(_LOGGER, "on_start", self._on_start)
@@ -476,6 +573,7 @@ class Cloud(Generic[_ClientT]):
             self._init_task.cancel()
             self._init_task = None
 
+        await self.service_discovery.async_stop_service_discovery()
         await self.client.cloud_stopped()
         await gather_callbacks(_LOGGER, "on_stop", self._on_stop)
 
@@ -569,9 +667,9 @@ class Cloud(Generic[_ClientT]):
             if reason == SubscriptionReconnectionReason.CONNECTION_ERROR:
                 _LOGGER.info(
                     "Could not establish connection (attempt %s), "
-                    "waiting %s minutes before retrying",
+                    "waiting %s before retrying",
                     self._connection_retry_count,
-                    round(wait_hours * 60, 1),
+                    seconds_as_dhms(wait_hours * 60 * 60),
                 )
                 await self.client.async_create_repair_issue(
                     identifier=issue_identifier,
@@ -580,9 +678,9 @@ class Cloud(Generic[_ClientT]):
                 )
             else:
                 _LOGGER.info(
-                    "Subscription expired at %s, waiting %s hours for activation",
+                    "Subscription expired at %s, waiting %s for activation",
                     sub_expired.strftime("%Y-%m-%d"),
-                    wait_hours,
+                    seconds_as_dhms(wait_hours * 60 * 60),
                 )
                 await self.client.async_create_repair_issue(
                     identifier=issue_identifier,

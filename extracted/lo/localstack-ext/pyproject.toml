@@ -11,20 +11,18 @@ authors = [
 description = "Extensions for LocalStack"
 requires-python = ">=3.9"
 dependencies = [
-    "dill>=0.3.2",
-    "dnslib>=0.9.10",
-    "dnspython>=1.16.0",
+    "click>=7.1",
+    "cryptography",
     "packaging",
-    "build",
     "plux>=1.10.0",
-    "localstack-core==4.8.1",
+    "localstack-core==4.12.0",
     "pyotp>=2.9.0",
     "PyJWT[crypto]>=1.7.0",
     "requests>=2.20.0",
+    "rich>=12.3.0",
     "python-dateutil>=2.8",
     "tabulate",
-    "localstack-py-avro-schema>=3.9.1",
-    "fastavro>=1.12.0",
+    "pyyaml>=5.1",
     # currently needed to load pro entrypoints, for the tree view
     "windows-curses;platform_system=='Windows'",
 ]
@@ -32,7 +30,7 @@ dynamic = ["version"]
 license = "LicenseRef-All-Rights-Reserved"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Internet",
     "Topic :: Software Development :: Testing",
     "Topic :: System :: Emulators",
@@ -52,70 +50,87 @@ Issues = "https://github.com/localstack/localstack/issues"
 
 [project.optional-dependencies]
 runtime = [
+    "airspeed-ext>=0.6.9",
     "alembic>=1.16.0",
-    "amazon.ion>=0.9.3",
     "avro>=1.11.0",
+    "botocore",
+    "boto3",
     "aws-encryption-sdk>=3.1.0",
     "aws-json-term-matcher>=0.1.5",
+    "aws-sam-translator>=1.105.0",
+    "cachetools>=5.5.2",
     "cedarpy>=4.1.0",
-    "dirtyjson>=1.0.7",
     "distro",
+    "docker>=7.1.0",
     "python-dxf>=12.1.1",
     "dulwich>=0.19.16",
+    "fastavro>=1.12.0",
     "graphql-core>=3.0.3",
+    "hypercorn>=0.14.4",
     "janus>=0.5.0",
     "javascript",
-    # TODO: transitive dependency from community, can be removed (adjust range in community before)
+    "jinja2>=3.1.6",
     "jsonpatch>=1.32",
-    "kafka-python",
+    "jsonpath-ng>=1.7.0",
+    "jsonschema>=4.25.1",
     "confluent-kafka",
     "kubernetes>=21.7.0",
     "libvirt-python",
-    "localstack-core[runtime]==4.8.1",
+    "localstack-core[runtime]==4.12.0",
+    "localstack-py-avro-schema==3.9.9",
     "opentelemetry-api",
     "opentelemetry-sdk",
     "opentelemetry-propagator-aws-xray",
+    "orjson",
     "paho-mqtt>=1.5",
     "parquet[snappy]>=1.3.1",
     "parse>=1.19.0",
     "pg8000>=1.10",
     "postgres>=2.2.2",
     "postgresql-proxy>=0.2.0",
-    "presto-python-client>=0.7.0",
+    "trino>=0.328.0",
+    "psutil>=7.1.0",
+    "psycopg2-binary>=2.9.10",
     "pycdlib>=1.14.0",
+    "pydantic>=2.11.9",
     "pyftpdlib>=1.5.6",
     # hive_pure_sasl extra is necessary for python3.11
     "pyhive[hive_pure_sasl]>=0.7.0",
+    "pyiceberg>=0.9.0",
+    # TODO remove pin once the pydantic pyiceberg incompatibility is resolved https://github.com/apache/iceberg-python/issues/2590
+    "pydantic<2.12",
     # TODO remove this transitive dependency of pyhive[hive_pure_sasl] once extra detection works with latest setuptools
-    "pure-sasl>=0.6.2",
-    # TODO remove this transitive dependency of pyhive[hive_pure_sasl] once extra detection works with latest setuptools
-    "thrift>=0.10.0",
-    # TODO remove this transitive dependency of pyhive[hive_pure_sasl] once extra detection works with latest setuptools
-    "thrift_sasl>=0.1.0",
-    "pyion2json>=0.0.2",
+    "pyopenssl>=25.3.0",
+    "pyparsing>=3.2.5",
     "pymysql",
     "mysql-replication",
-    "pyqldb~=3.2",
-    "python-snappy>=0.6",
-    # TODO: transitive dependency from community, can be removed (adjust range in community before)
     "readerwriterlock>=1.0.7",
     "redis>=5.0,<6.0",
+    "rolo",
     "rsa>=4.0",
+    "semver>=3.0.4",
+    "setuptools",
     "sql-metadata>=2.6.0",
     "sqlglot[rs]",
     "srp-ext>=1.0.7.1",
     "sqlalchemy>=2.0.0",
     "testing.common.database>=1.1.0",
-    "tornado>=6.0",
+    "typing-extensions>=4.15.0",
+    "urllib3>=2.5.0",
     "pycognito>=2024.5.1",
     # TODO: Upgrade websockets to v14, see https://websockets.readthedocs.io/en/stable/project/changelog.html#id4
     "websockets>=8.1,<14",
-    "Whoosh>=2.7.4"
+    "websocket-client>=1.8.0",
+    "werkzeug>=3.1.3",
+    "Whoosh>=2.7.4",
+    "xmltodict>=1.0.2"
 ]
 
 test = [
     # test always needs the runtime to be able to run the tests
     "localstack-ext[runtime]",
+    # ASF codegen generates docs with pypandoc
+    "pypandoc",
     # TODO fix issues with pytest-httpserver==1.1.2, remove upper boundary
     "pytest-httpserver>=1.0.1",
     "aiohttp",
@@ -125,9 +140,13 @@ test = [
     "aws_xray_sdk>=2.4.2",
     "coverage[toml]>=5.0.0",
     "deepdiff>=5.5.0",
-    "gremlinpython",
+    "deptry>=0.13.0",
+    "dnslib>=0.9.10",
+    "dnspython>=1.16.0",
+    "gremlinpython<3.8.0",
     "jws>=0.1.3",
-    "localstack-core[test]==4.8.1",
+    "kafka-python",
+    "localstack-core[test]==4.12.0",
     "msal",
     "msal-extensions",
     "msrest",
@@ -143,6 +162,7 @@ test = [
     "pymssql>=2.2.8",
     "pytest-instafail>=0.4.2",
     "pytest-mock>=3.14.0",
+    "uefivars>=1.2",
     "ruff>=0.1.0",
     "redshift_connector",
     "stomp.py>=8.0.1",
@@ -164,7 +184,7 @@ package = [
 typehint = [
     # typehint extends the test dev experience, so it needs the test dependencies
     "localstack-ext[test]",
-    "boto3-stubs[acm,amplify,apigateway,apigatewayv2,appconfig,appsync,athena,autoscaling,bedrock,bedrock-runtime,backup,batch,ce,cloudcontrol,cloudformation,cloudfront,cloudtrail,cloudwatch,codecommit,cognito-identity,cognito-idp,dms,docdb,dynamodb,dynamodbstreams,ec2,ecr,ecs,efs,eks,elasticache,elasticbeanstalk,elbv2,emr,emr-serverless,es,events,firehose,fis,glacier,glue,iam,iot,iot-data,iotanalytics,iotwireless,kafka,kinesis,kinesisanalytics,kinesisanalyticsv2,kms,lakeformation,lambda,logs,mediaconvert,mediastore,mq,mwaa,neptune,opensearch,organizations,pi,qldb,qldb-session,rds,rds-data,redshift,redshift-data,resource-groups,resourcegroupstaggingapi,route53,route53resolver,s3,s3control,sagemaker,sagemaker-runtime,secretsmanager,serverlessrepo,servicediscovery,ses,sesv2,sns,sqs,ssm,sso-admin,stepfunctions,sts,timestream-query,timestream-write,transcribe,xray]"
+    "boto3-stubs[acm,amplify,apigateway,apigatewayv2,appconfig,appsync,athena,autoscaling,bedrock,bedrock-runtime,backup,batch,ce,cloudcontrol,cloudformation,cloudfront,cloudtrail,cloudwatch,codecommit,cognito-identity,cognito-idp,dms,docdb,dynamodb,dynamodbstreams,ec2,ecr,ecs,efs,eks,elasticache,elasticbeanstalk,elbv2,emr,emr-serverless,es,events,firehose,fis,glacier,glue,iam,iot,iot-data,iotanalytics,iotwireless,kafka,kinesis,kinesisanalytics,kinesisanalyticsv2,kms,lakeformation,lambda,logs,mediaconvert,mediastore,mq,mwaa,neptune,opensearch,organizations,pi,rds,rds-data,redshift,redshift-data,resource-groups,resourcegroupstaggingapi,route53,route53resolver,s3,s3control,s3tables,sagemaker,sagemaker-runtime,secretsmanager,serverlessrepo,servicediscovery,ses,sesv2,sns,sqs,ssm,sso-admin,stepfunctions,sts,timestream-query,timestream-write,transcribe,xray]"
 ]
 
 [tool.setuptools]
@@ -191,15 +211,14 @@ exclude = ["tests*"]
     "**/services/docdb/mongodb-resources/*",
     "**/openapi.yaml",
     "**/replicator/**.json",
-    "**/eventstudio/database/alembic.ini"
+    "**/appinspector/database/alembic.ini"
 ]
 
 [tool.ruff]
 # Extend the ruff config in the root dir
 extend = "../ruff.toml"
-# Always generate Python 3.9-compatible code.
 # Generate code compatible with version defined in .python-version
-target-version = "py311"
+target-version = "py313"
 line-length = 100
 src = ["tests", "localstack"]
 exclude = [
@@ -216,19 +235,13 @@ exclude = [
 
 [tool.ruff.per-file-target-version]
 # Only allow minimum version for code used in the CLI
-"localstack/pro/core/cli/**" = "py39"
-"localstack/pro/core/bootstrap/**" = "py39"
-
-# These rules use the stdlib as generics directly, instead of importing from typing.
-# However, removing unused imports (F401) is currently in preview (https://docs.astral.sh/ruff/rules/unused-import/)
-# and should be forced as unsafe fix (as we do it the `aws_asf-updates.yml` workflow).
-[tool.ruff.lint.per-file-ignores]
-"localstack/pro/core/**/__init__.py" = ["UP006", "UP007", "UP035", "UP045"]
+"localstack/pro/core/cli/**" = "py310"
+"localstack/pro/core/bootstrap/**" = "py310"
 
 [tool.ruff.lint]
 extend-safe-fixes = [
-    "UP006",    # unsafe-fix for py39
-    "UP035",    # unsafe-fix for py39
+    "UP006", # unsafe-fix for py39
+    "UP035", # unsafe-fix for py39
 ]
 
 [tool.ruff.lint.pyupgrade]
@@ -277,5 +290,29 @@ unsafe-package = ["localstack-ext", "localstack-core", "pip", "setuptools", "dis
 [tool.plux]
 # Alembic requires Python scripts that cannot be imported outside their own loading mechanism, which reports an error
 # when creating entrypoints.
-# We are excluding the whole eventstudio.database.alembic package
-exclude = ["*.eventstudio.database.alembic*"]
+# We are excluding the whole appinspector.database.alembic package
+exclude = ["*.appinspector.database.alembic*"]
+
+[tool.deptry]
+known_first_party = [
+    "localstack",
+    "PySiddhi", # managed by localstack package manager
+    "pyarrow", # managed by localstack package manager
+    "cookiecutter", # manually throwing warning that cookiecutter is needed in extensions CLI
+    "oras", # lazily installed if used and not yet installed
+]
+extend_exclude = [
+    "localstack/pro/core/testing/**", # utilities for testing
+]
+pep621_dev_dependency_groups = ["typehint", "test", "package"]
+
+[tool.deptry.package_module_name_map]
+"localstack-ext" = ["localstack.pro.core"]
+
+[tool.deptry.per_rule_ignores]
+DEP002 = [
+    "windows-curses", # needed on Windows platforms
+]
+DEP003 = [
+    "moto", # directly depending on moto/moto-ext here will cause issues with dependency resolution
+]

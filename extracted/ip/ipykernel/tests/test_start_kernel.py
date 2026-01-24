@@ -2,7 +2,6 @@ import os
 from textwrap import dedent
 
 import pytest
-from flaky import flaky
 
 from .test_embed_kernel import setup_kernel
 
@@ -12,7 +11,7 @@ if os.name == "nt":
     pytest.skip("skipping tests on windows", allow_module_level=True)
 
 
-@flaky(max_runs=3)
+@pytest.mark.flaky(max_runs=3)
 def test_ipython_start_kernel_userns():
     import IPython
 
@@ -51,7 +50,41 @@ def test_ipython_start_kernel_userns():
         assert EXPECTED in text
 
 
-@flaky(max_runs=3)
+def test_start_kernel_background_thread():
+    cmd = dedent(
+        """
+        import threading
+        import asyncio
+        from ipykernel.kernelapp import launch_new_instance
+
+        def launch():
+            # Threads don't always have a default event loop so we need to
+            # create and set a default
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            launch_new_instance()
+
+        thread = threading.Thread(target=launch)
+        thread.start()
+        thread.join()
+        """
+    )
+
+    with setup_kernel(cmd) as client:
+        client.execute("a = 1")
+        msg = client.get_shell_msg(timeout=TIMEOUT)
+        content = msg["content"]
+        assert content["status"] == "ok"
+
+        client.inspect("a")
+        msg = client.get_shell_msg(timeout=TIMEOUT)
+        content = msg["content"]
+        assert content["found"]
+        text = content["data"]["text/plain"]
+        assert "1" in text
+
+
+@pytest.mark.flaky(max_runs=3)
 def test_ipython_start_kernel_no_userns():
     # Issue #4188 - user_ns should be passed to shell as None, not {}
     cmd = dedent(

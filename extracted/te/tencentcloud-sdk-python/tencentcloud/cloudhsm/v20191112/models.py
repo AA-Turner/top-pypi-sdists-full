@@ -991,6 +991,8 @@ class DescribeVsmAttributesResponse(AbstractModel):
         :type RenewFlag: int
         :param _Manufacturer: 厂商
         :type Manufacturer: str
+        :param _PqcFlag: 0-关闭，1-开启
+        :type PqcFlag: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
@@ -1017,6 +1019,7 @@ class DescribeVsmAttributesResponse(AbstractModel):
         self._Tags = None
         self._RenewFlag = None
         self._Manufacturer = None
+        self._PqcFlag = None
         self._RequestId = None
 
     @property
@@ -1273,6 +1276,17 @@ class DescribeVsmAttributesResponse(AbstractModel):
         self._Manufacturer = Manufacturer
 
     @property
+    def PqcFlag(self):
+        r"""0-关闭，1-开启
+        :rtype: int
+        """
+        return self._PqcFlag
+
+    @PqcFlag.setter
+    def PqcFlag(self, PqcFlag):
+        self._PqcFlag = PqcFlag
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -1318,6 +1332,7 @@ class DescribeVsmAttributesResponse(AbstractModel):
                 self._Tags.append(obj)
         self._RenewFlag = params.get("RenewFlag")
         self._Manufacturer = params.get("Manufacturer")
+        self._PqcFlag = params.get("PqcFlag")
         self._RequestId = params.get("RequestId")
 
 
@@ -1790,20 +1805,20 @@ class InquiryPriceBuyVsmRequest(AbstractModel):
         :type TimeSpan: str
         :param _TimeUnit: 商品的时间单位，m表示月，y表示年
         :type TimeUnit: str
-        :param _Currency: 货币类型，默认为CNY
-        :type Currency: str
         :param _Type: 默认为CREATE，可选RENEW
         :type Type: str
         :param _HsmType: Hsm服务类型，可选值virtualization、physical、GHSM、EHSM、SHSM
         :type HsmType: str
+        :param _Currency: 货币类型，默认为CNY
+        :type Currency: str
         """
         self._GoodsNum = None
         self._PayMode = None
         self._TimeSpan = None
         self._TimeUnit = None
-        self._Currency = None
         self._Type = None
         self._HsmType = None
+        self._Currency = None
 
     @property
     def GoodsNum(self):
@@ -1850,17 +1865,6 @@ class InquiryPriceBuyVsmRequest(AbstractModel):
         self._TimeUnit = TimeUnit
 
     @property
-    def Currency(self):
-        r"""货币类型，默认为CNY
-        :rtype: str
-        """
-        return self._Currency
-
-    @Currency.setter
-    def Currency(self, Currency):
-        self._Currency = Currency
-
-    @property
     def Type(self):
         r"""默认为CREATE，可选RENEW
         :rtype: str
@@ -1882,15 +1886,26 @@ class InquiryPriceBuyVsmRequest(AbstractModel):
     def HsmType(self, HsmType):
         self._HsmType = HsmType
 
+    @property
+    def Currency(self):
+        r"""货币类型，默认为CNY
+        :rtype: str
+        """
+        return self._Currency
+
+    @Currency.setter
+    def Currency(self, Currency):
+        self._Currency = Currency
+
 
     def _deserialize(self, params):
         self._GoodsNum = params.get("GoodsNum")
         self._PayMode = params.get("PayMode")
         self._TimeSpan = params.get("TimeSpan")
         self._TimeUnit = params.get("TimeUnit")
-        self._Currency = params.get("Currency")
         self._Type = params.get("Type")
         self._HsmType = params.get("HsmType")
+        self._Currency = params.get("Currency")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2341,6 +2356,12 @@ class ResourceInfo(AbstractModel):
         :type Manufacturer: str
         :param _AlarmStatus: 告警状态，0：停用，1：启用
         :type AlarmStatus: int
+        :param _PqcStatus: 0不支持
+1关闭
+2开启
+        :type PqcStatus: int
+        :param _PqcFlag: 0关闭，1开启
+        :type PqcFlag: int
         """
         self._ResourceId = None
         self._ResourceName = None
@@ -2365,6 +2386,8 @@ class ResourceInfo(AbstractModel):
         self._Tags = None
         self._Manufacturer = None
         self._AlarmStatus = None
+        self._PqcStatus = None
+        self._PqcFlag = None
 
     @property
     def ResourceId(self):
@@ -2619,6 +2642,30 @@ class ResourceInfo(AbstractModel):
     def AlarmStatus(self, AlarmStatus):
         self._AlarmStatus = AlarmStatus
 
+    @property
+    def PqcStatus(self):
+        r"""0不支持
+1关闭
+2开启
+        :rtype: int
+        """
+        return self._PqcStatus
+
+    @PqcStatus.setter
+    def PqcStatus(self, PqcStatus):
+        self._PqcStatus = PqcStatus
+
+    @property
+    def PqcFlag(self):
+        r"""0关闭，1开启
+        :rtype: int
+        """
+        return self._PqcFlag
+
+    @PqcFlag.setter
+    def PqcFlag(self, PqcFlag):
+        self._PqcFlag = PqcFlag
+
 
     def _deserialize(self, params):
         self._ResourceId = params.get("ResourceId")
@@ -2654,6 +2701,8 @@ class ResourceInfo(AbstractModel):
                 self._Tags.append(obj)
         self._Manufacturer = params.get("Manufacturer")
         self._AlarmStatus = params.get("AlarmStatus")
+        self._PqcStatus = params.get("PqcStatus")
+        self._PqcFlag = params.get("PqcFlag")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

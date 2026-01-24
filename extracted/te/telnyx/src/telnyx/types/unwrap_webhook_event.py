@@ -17,13 +17,10 @@ from .delivery_update_webhook_event import DeliveryUpdateWebhookEvent
 from .inbound_message_webhook_event import InboundMessageWebhookEvent
 from .call_speak_ended_webhook_event import CallSpeakEndedWebhookEvent
 from .conference_ended_webhook_event import ConferenceEndedWebhookEvent
-from .streaming_failed_webhook_event import StreamingFailedWebhookEvent
 from .call_fork_started_webhook_event import CallForkStartedWebhookEvent
 from .call_fork_stopped_webhook_event import CallForkStoppedWebhookEvent
 from .call_gather_ended_webhook_event import CallGatherEndedWebhookEvent
 from .call_refer_failed_webhook_event import CallReferFailedWebhookEvent
-from .streaming_started_webhook_event import StreamingStartedWebhookEvent
-from .streaming_stopped_webhook_event import StreamingStoppedWebhookEvent
 from .call_dtmf_received_webhook_event import CallDtmfReceivedWebhookEvent
 from .call_refer_started_webhook_event import CallReferStartedWebhookEvent
 from .call_siprec_failed_webhook_event import CallSiprecFailedWebhookEvent
@@ -65,7 +62,6 @@ from .call_machine_premium_detection_ended_webhook_event import CallMachinePremi
 from .conference_participant_speak_started_webhook_event import ConferenceParticipantSpeakStartedWebhookEvent
 from .conference_participant_playback_ended_webhook_event import ConferenceParticipantPlaybackEndedWebhookEvent
 from .call_ai_gather_message_history_updated_webhook_event import CallAIGatherMessageHistoryUpdatedWebhookEvent
-from .customer_service_record_status_changed_webhook_event import CustomerServiceRecordStatusChangedWebhookEvent
 from .conference_participant_playback_started_webhook_event import ConferenceParticipantPlaybackStartedWebhookEvent
 
 __all__ = ["UnwrapWebhookEvent"]
@@ -74,7 +70,6 @@ UnwrapWebhookEvent: TypeAlias = Union[
     CallAIGatherEndedWebhookEvent,
     CallAIGatherMessageHistoryUpdatedWebhookEvent,
     CallAIGatherPartialResultsWebhookEvent,
-    CustomerServiceRecordStatusChangedWebhookEvent,
     CallAnsweredWebhookEvent,
     CallBridgedWebhookEvent,
     CallConversationEndedWebhookEvent,
@@ -131,8 +126,5 @@ UnwrapWebhookEvent: TypeAlias = Union[
     InboundMessageWebhookEvent,
     NumberOrderStatusUpdateWebhookEvent,
     ReplacedLinkClickWebhookEvent,
-    StreamingFailedWebhookEvent,
-    StreamingStartedWebhookEvent,
-    StreamingStoppedWebhookEvent,
     TranscriptionWebhookEvent,
 ]

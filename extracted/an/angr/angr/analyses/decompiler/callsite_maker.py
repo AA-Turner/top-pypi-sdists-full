@@ -92,7 +92,7 @@ class CallSiteMaker(Analysis):
         # manually-specified call-site prototype
         has_callsite_prototype = self.kb.callsite_prototypes.has_prototype(self.block.addr)
         if has_callsite_prototype:
-            manually_specified = self.kb.callsite_prototypes.get_prototype_type(self.block.addr)
+            manually_specified = self.kb.callsite_prototypes.is_prototype_manual(self.block.addr)
             if manually_specified:
                 cc = self.kb.callsite_prototypes.get_cc(self.block.addr)
                 prototype = self.kb.callsite_prototypes.get_prototype(self.block.addr)
@@ -216,7 +216,7 @@ class CallSiteMaker(Analysis):
                             offset,
                             size * 8,
                             reg_name=arg_loc.reg_name,
-                            ins_addr=last_stmt.ins_addr,
+                            ins_addr=last_stmt.tags["ins_addr"],
                         )
                         arg_expr = reg
                 elif isinstance(arg_loc, SimStackArg):
@@ -270,17 +270,20 @@ class CallSiteMaker(Analysis):
         # simplification steps in the future, which may decide to remove statements that store arguments on the stack.
         if stack_arg_locs:
             assert self._stack_pointer_tracker is not None
-            sp_offset = self._stack_pointer_tracker.offset_before(call_stmt.ins_addr, self.project.arch.sp_offset)
+            sp_offset = self._stack_pointer_tracker.offset_before(
+                call_stmt.tags["ins_addr"], self.project.arch.sp_offset
+            )
             if sp_offset is None:
                 l.warning(
                     "Failed to calculate the stack pointer offset at pc %#x. You may find redundant Store "
                     "statements.",
-                    call_stmt.ins_addr,
+                    call_stmt.tags["ins_addr"],
                 )
                 self.stack_arg_offsets = None
             else:
                 self.stack_arg_offsets = {
-                    (call_stmt.ins_addr, sp_offset + arg.stack_offset - stackarg_sp_diff) for arg in stack_arg_locs
+                    (call_stmt.tags["ins_addr"], sp_offset + arg.stack_offset - stackarg_sp_diff)
+                    for arg in stack_arg_locs
                 }
 
         ret_expr = call_stmt.ret_expr
@@ -364,7 +367,12 @@ class CallSiteMaker(Analysis):
             # Find its definition
             view = SRDAView(self._reaching_definitions.model)
             vvar = view.get_reg_vvar_by_stmt(
-                offset, self.block.addr, self.block.idx, len(self.block.statements) - 1, OP_BEFORE
+                offset,
+                arg_loc.size,
+                self.block.addr,
+                self.block.idx,
+                len(self.block.statements) - 1,
+                OP_BEFORE,
             )
 
             if vvar is not None:
@@ -386,7 +394,7 @@ class CallSiteMaker(Analysis):
             # adjust the offset
             offset -= self.project.arch.bytes
 
-        sp_base = self._stack_pointer_tracker.offset_before(call_stmt.ins_addr, self.project.arch.sp_offset)
+        sp_base = self._stack_pointer_tracker.offset_before(call_stmt.tags["ins_addr"], self.project.arch.sp_offset)
         if sp_base is not None:
             sp_offset = sp_base + offset
             if sp_offset >= (1 << (self.project.arch.bits - 1)):
@@ -412,7 +420,7 @@ class CallSiteMaker(Analysis):
                             vvar.bits,
                             vvar.category,
                             oident=vvar.oident,
-                            ins_addr=call_stmt.ins_addr,
+                            ins_addr=call_stmt.tags["ins_addr"],
                         )
                     if v.size > size:
                         v = Expr.Convert(
@@ -421,7 +429,7 @@ class CallSiteMaker(Analysis):
                             size * self.project.arch.byte_width,
                             False,
                             v,
-                            ins_addr=call_stmt.ins_addr,
+                            ins_addr=call_stmt.tags["ins_addr"],
                         )
                     return None, v
 

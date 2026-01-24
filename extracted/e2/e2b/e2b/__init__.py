@@ -34,54 +34,69 @@ from .connection_config import (
     ProxyTypes,
 )
 from .exceptions import (
-    SandboxException,
-    TimeoutException,
-    NotFoundException,
     AuthenticationException,
+    BuildException,
+    FileUploadException,
     InvalidArgumentException,
     NotEnoughSpaceException,
+    NotFoundException,
+    SandboxException,
     TemplateException,
+    TimeoutException,
 )
-from .sandbox.sandbox_api import SandboxInfo, SandboxQuery, SandboxState, SandboxMetrics
-from .sandbox.commands.main import ProcessInfo
 from .sandbox.commands.command_handle import (
-    CommandResult,
-    Stderr,
-    Stdout,
     CommandExitException,
+    CommandResult,
     PtyOutput,
     PtySize,
+    Stderr,
+    Stdout,
 )
+from .sandbox.commands.main import ProcessInfo
+from .sandbox.filesystem.filesystem import EntryInfo, FileType, WriteInfo
 from .sandbox.filesystem.watch_handle import (
     FilesystemEvent,
     FilesystemEventType,
 )
-from .sandbox.filesystem.filesystem import EntryInfo, WriteInfo, FileType
-
-from .sandbox_sync.main import Sandbox
-from .sandbox_sync.filesystem.watch_handle import WatchHandle
-from .sandbox_sync.commands.command_handle import CommandHandle
-from .sandbox_async.paginator import AsyncSandboxPaginator
-
-from .sandbox_async.utils import OutputHandler
-from .sandbox_async.main import AsyncSandbox
-from .sandbox_async.filesystem.watch_handle import AsyncWatchHandle
+from .sandbox.network import ALL_TRAFFIC
+from .sandbox.sandbox_api import (
+    GitHubMcpServer,
+    GitHubMcpServerConfig,
+    McpServer,
+    SandboxInfo,
+    SandboxMetrics,
+    SandboxNetworkOpts,
+    SandboxQuery,
+    SandboxState,
+)
 from .sandbox_async.commands.command_handle import AsyncCommandHandle
+from .sandbox_async.filesystem.watch_handle import AsyncWatchHandle
+from .sandbox_async.main import AsyncSandbox
+from .sandbox_async.paginator import AsyncSandboxPaginator
+from .sandbox_async.utils import OutputHandler
+from .sandbox_sync.commands.command_handle import CommandHandle
+from .sandbox_sync.filesystem.watch_handle import WatchHandle
+from .sandbox_sync.main import Sandbox
 from .sandbox_sync.paginator import SandboxPaginator
-
+from .template.logger import (
+    LogEntry,
+    LogEntryEnd,
+    LogEntryLevel,
+    LogEntryStart,
+    default_build_logger,
+)
 from .template.main import TemplateBase, TemplateClass
-
-from .template_sync.main import Template
-from .template_async.main import AsyncTemplate
-
-from .template.exceptions import BuildException, FileUploadException
 from .template.readycmd import (
+    ReadyCmd,
     wait_for_file,
-    wait_for_url,
     wait_for_port,
     wait_for_process,
     wait_for_timeout,
+    wait_for_url,
 )
+from .template.types import BuildInfo, CopyItem
+from .template_async.main import AsyncTemplate
+from .template_sync.main import Template
 
 __all__ = [
     # API
@@ -120,6 +135,9 @@ __all__ = [
     "EntryInfo",
     "WriteInfo",
     "FileType",
+    # Network
+    "SandboxNetworkOpts",
+    "ALL_TRAFFIC",
     # Sync sandbox
     "Sandbox",
     "SandboxPaginator",
@@ -136,9 +154,21 @@ __all__ = [
     "AsyncTemplate",
     "TemplateBase",
     "TemplateClass",
+    "CopyItem",
+    "BuildInfo",
+    "ReadyCmd",
     "wait_for_file",
     "wait_for_url",
     "wait_for_port",
     "wait_for_process",
     "wait_for_timeout",
+    "LogEntry",
+    "LogEntryStart",
+    "LogEntryEnd",
+    "LogEntryLevel",
+    "default_build_logger",
+    # MCP
+    "McpServer",
+    "GitHubMcpServer",
+    "GitHubMcpServerConfig",
 ]

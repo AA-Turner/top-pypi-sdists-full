@@ -18,6 +18,7 @@
       - ^tools/.*$
       - ^tox.ini$
       - ^plugin.spec$
+      - ^pyproject.toml$
       - ^tools/ovn_migration/.*$
       - ^neutron/agent/ovn/.*$
       - ^neutron/plugins/ml2/drivers/macvtap/.*$
@@ -234,6 +235,7 @@
       - ^releasenotes/.*$
       - ^doc/.*$
       - ^setup.cfg$
+      - ^pyproject.toml$
       - ^.*\.conf\.sample$
       - ^.*\.rst$
       - ^neutron/locale/.*$
@@ -293,6 +295,7 @@
           OVN_BUILD_MODULES: false
         shared:
           Q_AGENT: ovn
+          OVN_AGENT_EXTENSIONS: 'metadata'
           # NOTE(ralonsoh): during the eventlet removal, the "logger" mech
           # driver has been removed from this list. Re-add it once the removal
           # is finished or the mech driver does not call monkey_patch().
@@ -319,7 +322,8 @@
         etcd: false
         br-ex-tcpdump: true
         br-int-flows: true
-        q-ovn-metadata-agent: true
+        q-ovn-metadata-agent: false
+        q-ovn-agent: true
         ovn-controller: true
         ovn-northd: true
         ovs-vswitchd: true
@@ -368,7 +372,8 @@
           q-l3: false
           q-meta: false
           q-metering: false
-          q-ovn-metadata-agent: true
+          q-ovn-metadata-agent: false
+          q-ovn-agent: true
           tls-proxy: false
           # Cinder services
           c-bak: false
@@ -385,6 +390,7 @@
             OVN_BUILD_MODULES: false
           shared:
             Q_AGENT: ovn
+            OVN_AGENT_EXTENSIONS: 'metadata'
             # NOTE(ralonsoh): during the eventlet removal, the "logger" mech
             # driver has been removed from this list. Re-add it once the removal
             # is finished or the mech driver does not call monkey_patch().
@@ -403,23 +409,13 @@
       specific releases as prescribed by our process.
     vars:
       # Move this forward when master changes to a new skip-level-allowed
-      # target release. Right now, this is Caracal (2024.1) because master is
-      # Epoxy (2025.1).
-      # When master is F (2025.2), this should become Dalmatian (2024.2),
+      # target release. Right now, this is Dalmatian (2024.2) because master is
+      # Flamingo (2025.2).
+      # When master is G (2026.1), this should become Epoxy (2025.1),
       # and so forth.
-      grenade_from_branch: stable/2024.1
+      grenade_from_branch: stable/2024.2
       grenade_localrc:
         NOVA_ENABLE_UPGRADE_WORKAROUND: True
-      grenade_devstack_localrc:
-        shared:
-          NEUTRON_DEPLOY_MOD_WSGI: False
-      devstack_services:
-        # Neutron services
-        q-svc: true
-        neutron-api: false
-        neutron-rpc-server: false
-        neutron-periodic-workers: false
-        neutron-ovn-maintenance-worker: false
 
 - job:
     name: neutron-ovn-grenade-multinode-skip-level
@@ -429,19 +425,20 @@
       specific releases as prescribed by our process.
     vars:
       # Move this forward when master changes to a new skip-level-allowed
-      # target release. Right now, this is Caracal (2024.1) because master is
-      # Epoxy (2025.1).
-      # When master is F (2025.2), this should become Dalmatian (2024.2),
+      # target release. Right now, this is Dalmatian (2024.2) because master is
+      # Flamingo (2025.2).
+      # When master is G (2026.1), this should become Epoxy (2025.1),
       # and so forth.
-      grenade_from_branch: stable/2024.1
+      grenade_from_branch: stable/2024.2
       grenade_localrc:
         NOVA_ENABLE_UPGRADE_WORKAROUND: True
-      grenade_devstack_localrc:
-        shared:
-          NEUTRON_DEPLOY_MOD_WSGI: False
+
+# NOTE(ralonsoh): to be removed in 2026.2, once the OVN Metadata agent
+# replacement finishes. See LP#2112313.
+- job:
+    name: neutron-ovn-grenade-multinode-ovn-metadata-agent
+    parent: neutron-ovn-grenade-multinode
+    vars:
       devstack_services:
-        q-svc: true
-        neutron-api: false
-        neutron-rpc-server: false
-        neutron-periodic-workers: false
-        neutron-ovn-maintenance-worker: false
+        q-ovn-metadata-agent: true
+        q-ovn-agent: false

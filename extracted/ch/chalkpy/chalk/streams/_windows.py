@@ -13,12 +13,11 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TypedDict,
     TypeVar,
     Union,
     cast,
 )
-
-from typing_extensions import TypedDict
 
 from chalk._validation.feature_validation import FeatureValidation
 from chalk._validation.validation import Validation
@@ -71,6 +70,7 @@ class WindowedMeta(type, Generic[TRich]):
             validations=None,
             offline_ttl=None,
             expression=None,
+            offline_expression=None,
             materialization=None,
         )  # noqa
 
@@ -80,9 +80,14 @@ JsonValue = Any
 
 def get_name_with_duration(name_or_fqn: str, duration: Union[str, int, timedelta]) -> str:
     duration_secs = parse_chalk_duration_s(duration)
+    name_or_fqn_components = name_or_fqn.split("@")
+    assert len(name_or_fqn_components) <= 2, f"Received invalid fqn format.\nfqn={name_or_fqn}"
+    unversioned_fqn = name_or_fqn_components[0]
+    version = None if len(name_or_fqn_components) != 2 else name_or_fqn_components[1]
+
     if duration_secs >= CHALK_MAX_TIMEDELTA.total_seconds():
-        return f"{name_or_fqn}__all__"
-    return f"{name_or_fqn}__{duration_secs}__"
+        return f"{unversioned_fqn}__all__" + ("" if version is None else f"@{version}")
+    return f"{unversioned_fqn}__{duration_secs}__" + ("" if version is None else f"@{version}")
 
 
 if TYPE_CHECKING:
@@ -176,6 +181,7 @@ class Windowed(Generic[TRich], metaclass=_WINDOWED_METACLASS):
             window_durations=tuple(self.buckets_seconds) if bucket is None else tuple(),
             window_duration=window_duration,
             underscore_expression=self._expression,
+            offline_underscore_expression=self._offline_expression,
             window_materialization=(
                 MaterializationWindowConfig(bucket_duration=timedelta(seconds=window_duration))
                 if self._materialization is True and window_duration is not None
@@ -209,6 +215,7 @@ class Windowed(Generic[TRich], metaclass=_WINDOWED_METACLASS):
         kind: Type[TRich] | None,
         offline_ttl: Duration | ellipsis | None,
         expression: Underscore | None,
+        offline_expression: Underscore | None,
         materialization: MaterializationWindowConfig | Literal[True] | None,
     ):
         super().__init__()
@@ -235,6 +242,7 @@ class Windowed(Generic[TRich], metaclass=_WINDOWED_METACLASS):
         self._validations = validations
         self._dtype = dtype
         self._expression = expression
+        self._offline_expression = offline_expression
         self._materialization = materialization
 
 
@@ -575,6 +583,7 @@ def windowed(
     validations: List[Validation] | None = None,
     dtype: pa.DataType | None = None,
     expression: Underscore | None = None,
+    offline_expression: Underscore | None = None,
     materialization: MaterializationWindowConfig | Literal[True] | None = None,
 ) -> Windowed[TRich]:
     """Create a windowed feature.
@@ -651,6 +660,8 @@ def windowed(
         the feature value and will treat it as failed.
     expression
         The expression to compute the feature. This is an underscore expression, like `_.transactions[_.amount].sum()`.
+    offline_expression
+        Defines an alternate expression to compute the feature during offline queries.
     validations
         A list of Validations to apply to this feature.
 
@@ -749,5 +760,6 @@ def windowed(
         validations=validations,
         offline_ttl=offline_ttl,
         expression=expression,
+        offline_expression=offline_expression,
         materialization=materialization,
     )

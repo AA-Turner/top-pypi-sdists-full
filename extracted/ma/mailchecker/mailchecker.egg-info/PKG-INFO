@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mailchecker
-Version: 6.0.18
+Version: 6.0.19
 Summary: Cross-language temporary email detection library. Stop users from signing up with temporary email addresses.
 Home-page: https://github.com/FGRibreau/mailchecker
 Author: Francois-Guillaume Ribreau

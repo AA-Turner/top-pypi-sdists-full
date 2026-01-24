@@ -11,10 +11,19 @@ from ...core.http_response import AsyncHttpResponse, HttpResponse
 from ...core.jsonable_encoder import jsonable_encoder
 from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
+from ...core.serialization import convert_and_respect_annotation_metadata
 from ...errors.bad_request_error import BadRequestError
+from ...errors.internal_server_error import InternalServerError
+from ...errors.not_found_error import NotFoundError
+from ...types.check_workflow_execution_status_response import CheckWorkflowExecutionStatusResponse
+from ...types.dataset_row_push_request import DatasetRowPushRequest
+from ...types.runner_config_request import RunnerConfigRequest
+from ...types.type_checker_enum import TypeCheckerEnum
 from ...types.workflow_push_deployment_config_request import WorkflowPushDeploymentConfigRequest
 from ...types.workflow_push_exec_config import WorkflowPushExecConfig
 from ...types.workflow_push_response import WorkflowPushResponse
+from ...types.workflow_resolved_state import WorkflowResolvedState
+from ...types.workflow_sandbox_execute_node_response import WorkflowSandboxExecuteNodeResponse
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -70,7 +79,7 @@ class RawWorkflowsClient:
         """
         with self._client_wrapper.httpx_client.stream(
             f"v1/workflows/{jsonable_encoder(id)}/pull",
-            base_url=self._client_wrapper.get_environment().default,
+            base_url=self._client_wrapper.get_environment().predict,
             method="GET",
             params={
                 "exclude_code": exclude_code,
@@ -112,13 +121,206 @@ class RawWorkflowsClient:
 
             yield _stream()
 
+    def retrieve_state(
+        self, span_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[WorkflowResolvedState]:
+        """
+        Retrieve the current state of a workflow execution.
+
+        **Note:** Uses a base url of `https://predict.vellum.ai`.
+
+        Parameters
+        ----------
+        span_id : str
+            The span ID of the workflow execution to retrieve state for
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[WorkflowResolvedState]
+
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"v1/workflows/{jsonable_encoder(span_id)}/state",
+            base_url=self._client_wrapper.get_environment().predict,
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    WorkflowResolvedState,
+                    parse_obj_as(
+                        type_=WorkflowResolvedState,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def execute_node(
+        self,
+        *,
+        files: typing.Dict[str, str],
+        node: str,
+        inputs: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[WorkflowSandboxExecuteNodeResponse]:
+        """
+        Parameters
+        ----------
+        files : typing.Dict[str, str]
+
+        node : str
+
+        inputs : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[WorkflowSandboxExecuteNodeResponse]
+
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "v1/workflows/execute-node",
+            base_url=self._client_wrapper.get_environment().default,
+            method="POST",
+            json={
+                "files": files,
+                "node": node,
+                "inputs": inputs,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    WorkflowSandboxExecuteNodeResponse,
+                    parse_obj_as(
+                        type_=WorkflowSandboxExecuteNodeResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def workflow_execution_status(
+        self, execution_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[CheckWorkflowExecutionStatusResponse]:
+        """
+        Checks if a workflow execution is currently executing (not fulfilled, not rejected, and has no end time).
+        Uses the ClickHouse Prime summary materialized view.
+
+        Parameters
+        ----------
+        execution_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[CheckWorkflowExecutionStatusResponse]
+
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"v1/workflows/executions/{jsonable_encoder(execution_id)}/status",
+            base_url=self._client_wrapper.get_environment().predict,
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    CheckWorkflowExecutionStatusResponse,
+                    parse_obj_as(
+                        type_=CheckWorkflowExecutionStatusResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def push(
         self,
         *,
-        exec_config: WorkflowPushExecConfig,
+        exec_config: typing.Optional[WorkflowPushExecConfig] = OMIT,
         workflow_sandbox_id: typing.Optional[str] = OMIT,
         deployment_config: typing.Optional[WorkflowPushDeploymentConfigRequest] = OMIT,
         artifact: typing.Optional[core.File] = OMIT,
+        dataset: typing.Optional[typing.List[DatasetRowPushRequest]] = OMIT,
         dry_run: typing.Optional[bool] = OMIT,
         strict: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -126,8 +328,8 @@ class RawWorkflowsClient:
         """
         Parameters
         ----------
-        exec_config : WorkflowPushExecConfig
-            The execution configuration of the workflow.
+        exec_config : typing.Optional[WorkflowPushExecConfig]
+            The execution configuration of the workflow. If not provided, it will be derived from the artifact.
 
         workflow_sandbox_id : typing.Optional[str]
 
@@ -135,6 +337,9 @@ class RawWorkflowsClient:
 
         artifact : typing.Optional[core.File]
             See core.File for more documentation
+
+        dataset : typing.Optional[typing.List[DatasetRowPushRequest]]
+            List of dataset rows with inputs for scenarios.
 
         dry_run : typing.Optional[bool]
 
@@ -156,6 +361,7 @@ class RawWorkflowsClient:
                 "exec_config": exec_config,
                 "workflow_sandbox_id": workflow_sandbox_id,
                 "deployment_config": deployment_config,
+                "dataset": dataset,
                 "dry_run": dry_run,
                 "strict": strict,
             },
@@ -185,6 +391,9 @@ class RawWorkflowsClient:
         self,
         *,
         files: typing.Dict[str, typing.Optional[typing.Any]],
+        module: typing.Optional[str] = OMIT,
+        runner_config: typing.Optional[RunnerConfigRequest] = OMIT,
+        type_checker: typing.Optional[TypeCheckerEnum] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[typing.Dict[str, typing.Optional[typing.Any]]]:
         """
@@ -193,6 +402,17 @@ class RawWorkflowsClient:
         Parameters
         ----------
         files : typing.Dict[str, typing.Optional[typing.Any]]
+
+        module : typing.Optional[str]
+
+        runner_config : typing.Optional[RunnerConfigRequest]
+
+        type_checker : typing.Optional[TypeCheckerEnum]
+            Optional type checker to run during serialization. Supported values: mypy, zuban, default.
+
+            * `mypy` - Mypy
+            * `zuban` - Zuban
+            * `default` - Default
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -208,6 +428,11 @@ class RawWorkflowsClient:
             method="POST",
             json={
                 "files": files,
+                "module": module,
+                "runner_config": convert_and_respect_annotation_metadata(
+                    object_=runner_config, annotation=typing.Optional[RunnerConfigRequest], direction="write"
+                ),
+                "type_checker": type_checker,
             },
             headers={
                 "content-type": "application/json",
@@ -281,7 +506,7 @@ class AsyncRawWorkflowsClient:
         """
         async with self._client_wrapper.httpx_client.stream(
             f"v1/workflows/{jsonable_encoder(id)}/pull",
-            base_url=self._client_wrapper.get_environment().default,
+            base_url=self._client_wrapper.get_environment().predict,
             method="GET",
             params={
                 "exclude_code": exclude_code,
@@ -324,13 +549,206 @@ class AsyncRawWorkflowsClient:
 
             yield await _stream()
 
+    async def retrieve_state(
+        self, span_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[WorkflowResolvedState]:
+        """
+        Retrieve the current state of a workflow execution.
+
+        **Note:** Uses a base url of `https://predict.vellum.ai`.
+
+        Parameters
+        ----------
+        span_id : str
+            The span ID of the workflow execution to retrieve state for
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[WorkflowResolvedState]
+
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"v1/workflows/{jsonable_encoder(span_id)}/state",
+            base_url=self._client_wrapper.get_environment().predict,
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    WorkflowResolvedState,
+                    parse_obj_as(
+                        type_=WorkflowResolvedState,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def execute_node(
+        self,
+        *,
+        files: typing.Dict[str, str],
+        node: str,
+        inputs: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[WorkflowSandboxExecuteNodeResponse]:
+        """
+        Parameters
+        ----------
+        files : typing.Dict[str, str]
+
+        node : str
+
+        inputs : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[WorkflowSandboxExecuteNodeResponse]
+
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "v1/workflows/execute-node",
+            base_url=self._client_wrapper.get_environment().default,
+            method="POST",
+            json={
+                "files": files,
+                "node": node,
+                "inputs": inputs,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    WorkflowSandboxExecuteNodeResponse,
+                    parse_obj_as(
+                        type_=WorkflowSandboxExecuteNodeResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def workflow_execution_status(
+        self, execution_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[CheckWorkflowExecutionStatusResponse]:
+        """
+        Checks if a workflow execution is currently executing (not fulfilled, not rejected, and has no end time).
+        Uses the ClickHouse Prime summary materialized view.
+
+        Parameters
+        ----------
+        execution_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[CheckWorkflowExecutionStatusResponse]
+
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"v1/workflows/executions/{jsonable_encoder(execution_id)}/status",
+            base_url=self._client_wrapper.get_environment().predict,
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    CheckWorkflowExecutionStatusResponse,
+                    parse_obj_as(
+                        type_=CheckWorkflowExecutionStatusResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def push(
         self,
         *,
-        exec_config: WorkflowPushExecConfig,
+        exec_config: typing.Optional[WorkflowPushExecConfig] = OMIT,
         workflow_sandbox_id: typing.Optional[str] = OMIT,
         deployment_config: typing.Optional[WorkflowPushDeploymentConfigRequest] = OMIT,
         artifact: typing.Optional[core.File] = OMIT,
+        dataset: typing.Optional[typing.List[DatasetRowPushRequest]] = OMIT,
         dry_run: typing.Optional[bool] = OMIT,
         strict: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -338,8 +756,8 @@ class AsyncRawWorkflowsClient:
         """
         Parameters
         ----------
-        exec_config : WorkflowPushExecConfig
-            The execution configuration of the workflow.
+        exec_config : typing.Optional[WorkflowPushExecConfig]
+            The execution configuration of the workflow. If not provided, it will be derived from the artifact.
 
         workflow_sandbox_id : typing.Optional[str]
 
@@ -347,6 +765,9 @@ class AsyncRawWorkflowsClient:
 
         artifact : typing.Optional[core.File]
             See core.File for more documentation
+
+        dataset : typing.Optional[typing.List[DatasetRowPushRequest]]
+            List of dataset rows with inputs for scenarios.
 
         dry_run : typing.Optional[bool]
 
@@ -368,6 +789,7 @@ class AsyncRawWorkflowsClient:
                 "exec_config": exec_config,
                 "workflow_sandbox_id": workflow_sandbox_id,
                 "deployment_config": deployment_config,
+                "dataset": dataset,
                 "dry_run": dry_run,
                 "strict": strict,
             },
@@ -397,6 +819,9 @@ class AsyncRawWorkflowsClient:
         self,
         *,
         files: typing.Dict[str, typing.Optional[typing.Any]],
+        module: typing.Optional[str] = OMIT,
+        runner_config: typing.Optional[RunnerConfigRequest] = OMIT,
+        type_checker: typing.Optional[TypeCheckerEnum] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[typing.Dict[str, typing.Optional[typing.Any]]]:
         """
@@ -405,6 +830,17 @@ class AsyncRawWorkflowsClient:
         Parameters
         ----------
         files : typing.Dict[str, typing.Optional[typing.Any]]
+
+        module : typing.Optional[str]
+
+        runner_config : typing.Optional[RunnerConfigRequest]
+
+        type_checker : typing.Optional[TypeCheckerEnum]
+            Optional type checker to run during serialization. Supported values: mypy, zuban, default.
+
+            * `mypy` - Mypy
+            * `zuban` - Zuban
+            * `default` - Default
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -420,6 +856,11 @@ class AsyncRawWorkflowsClient:
             method="POST",
             json={
                 "files": files,
+                "module": module,
+                "runner_config": convert_and_respect_annotation_metadata(
+                    object_=runner_config, annotation=typing.Optional[RunnerConfigRequest], direction="write"
+                ),
+                "type_checker": type_checker,
             },
             headers={
                 "content-type": "application/json",

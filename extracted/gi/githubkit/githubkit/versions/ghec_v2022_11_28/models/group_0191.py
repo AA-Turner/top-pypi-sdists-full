@@ -9,31 +9,27 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
+from typing import Literal
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
 
 
-class ThreadSubscription(GitHubModel):
-    """Thread Subscription
+class DeleteCostCenter(GitHubModel):
+    """DeleteCostCenter"""
 
-    Thread Subscription
-    """
+    message: str = Field(
+        description="A message indicating the result of the deletion operation"
+    )
+    id: str = Field(description="The unique identifier of the deleted cost center")
+    name: str = Field(description="The name of the deleted cost center")
+    cost_center_state: Literal["CostCenterArchived"] = Field(
+        alias="costCenterState",
+        description="The state of the cost center after deletion",
+    )
 
-    subscribed: bool = Field()
-    ignored: bool = Field()
-    reason: Union[str, None] = Field()
-    created_at: Union[datetime, None] = Field()
-    url: str = Field()
-    thread_url: Missing[str] = Field(default=UNSET)
-    repository_url: Missing[str] = Field(default=UNSET)
 
+model_rebuild(DeleteCostCenter)
 
-model_rebuild(ThreadSubscription)
-
-__all__ = ("ThreadSubscription",)
+__all__ = ("DeleteCostCenter",)

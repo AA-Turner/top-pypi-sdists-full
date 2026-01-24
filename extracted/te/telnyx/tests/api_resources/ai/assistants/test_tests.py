@@ -9,9 +9,9 @@ import pytest
 
 from telnyx import Telnyx, AsyncTelnyx
 from tests.utils import assert_matches_type
+from telnyx.pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
 from telnyx.types.ai.assistants import (
     AssistantTest,
-    TestListResponse,
 )
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
@@ -24,14 +24,18 @@ class TestTests:
     @parametrize
     def test_method_create(self, client: Telnyx) -> None:
         test = client.ai.assistants.tests.create(
-            destination="x",
-            instructions="x",
-            name="x",
+            destination="+15551234567",
+            instructions="Act as a frustrated customer who received a damaged product. Ask for a refund and escalate if not satisfied with the initial response.",
+            name="Customer Support Bot Test",
             rubric=[
                 {
-                    "criteria": "criteria",
-                    "name": "name",
-                }
+                    "criteria": "Assistant responds within 30 seconds",
+                    "name": "Response Time",
+                },
+                {
+                    "criteria": "Provides correct product information",
+                    "name": "Accuracy",
+                },
             ],
         )
         assert_matches_type(AssistantTest, test, path=["response"])
@@ -40,18 +44,22 @@ class TestTests:
     @parametrize
     def test_method_create_with_all_params(self, client: Telnyx) -> None:
         test = client.ai.assistants.tests.create(
-            destination="x",
-            instructions="x",
-            name="x",
+            destination="+15551234567",
+            instructions="Act as a frustrated customer who received a damaged product. Ask for a refund and escalate if not satisfied with the initial response.",
+            name="Customer Support Bot Test",
             rubric=[
                 {
-                    "criteria": "criteria",
-                    "name": "name",
-                }
+                    "criteria": "Assistant responds within 30 seconds",
+                    "name": "Response Time",
+                },
+                {
+                    "criteria": "Provides correct product information",
+                    "name": "Accuracy",
+                },
             ],
             description="description",
             max_duration_seconds=1,
-            telnyx_conversation_channel="phone_call",
+            telnyx_conversation_channel="web_chat",
             test_suite="test_suite",
         )
         assert_matches_type(AssistantTest, test, path=["response"])
@@ -60,14 +68,18 @@ class TestTests:
     @parametrize
     def test_raw_response_create(self, client: Telnyx) -> None:
         response = client.ai.assistants.tests.with_raw_response.create(
-            destination="x",
-            instructions="x",
-            name="x",
+            destination="+15551234567",
+            instructions="Act as a frustrated customer who received a damaged product. Ask for a refund and escalate if not satisfied with the initial response.",
+            name="Customer Support Bot Test",
             rubric=[
                 {
-                    "criteria": "criteria",
-                    "name": "name",
-                }
+                    "criteria": "Assistant responds within 30 seconds",
+                    "name": "Response Time",
+                },
+                {
+                    "criteria": "Provides correct product information",
+                    "name": "Accuracy",
+                },
             ],
         )
 
@@ -80,14 +92,18 @@ class TestTests:
     @parametrize
     def test_streaming_response_create(self, client: Telnyx) -> None:
         with client.ai.assistants.tests.with_streaming_response.create(
-            destination="x",
-            instructions="x",
-            name="x",
+            destination="+15551234567",
+            instructions="Act as a frustrated customer who received a damaged product. Ask for a refund and escalate if not satisfied with the initial response.",
+            name="Customer Support Bot Test",
             rubric=[
                 {
-                    "criteria": "criteria",
-                    "name": "name",
-                }
+                    "criteria": "Assistant responds within 30 seconds",
+                    "name": "Response Time",
+                },
+                {
+                    "criteria": "Provides correct product information",
+                    "name": "Accuracy",
+                },
             ],
         ) as response:
             assert not response.is_closed
@@ -207,21 +223,19 @@ class TestTests:
     @parametrize
     def test_method_list(self, client: Telnyx) -> None:
         test = client.ai.assistants.tests.list()
-        assert_matches_type(TestListResponse, test, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[AssistantTest], test, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_method_list_with_all_params(self, client: Telnyx) -> None:
         test = client.ai.assistants.tests.list(
             destination="destination",
-            page={
-                "number": 1,
-                "size": 1,
-            },
+            page_number=0,
+            page_size=0,
             telnyx_conversation_channel="telnyx_conversation_channel",
             test_suite="test_suite",
         )
-        assert_matches_type(TestListResponse, test, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[AssistantTest], test, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -231,7 +245,7 @@ class TestTests:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         test = response.parse()
-        assert_matches_type(TestListResponse, test, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[AssistantTest], test, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -241,7 +255,7 @@ class TestTests:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             test = response.parse()
-            assert_matches_type(TestListResponse, test, path=["response"])
+            assert_matches_type(SyncDefaultFlatPagination[AssistantTest], test, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -251,7 +265,7 @@ class TestTests:
         test = client.ai.assistants.tests.delete(
             "test_id",
         )
-        assert_matches_type(object, test, path=["response"])
+        assert test is None
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -263,7 +277,7 @@ class TestTests:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         test = response.parse()
-        assert_matches_type(object, test, path=["response"])
+        assert test is None
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -275,7 +289,7 @@ class TestTests:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             test = response.parse()
-            assert_matches_type(object, test, path=["response"])
+            assert test is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -297,14 +311,18 @@ class TestAsyncTests:
     @parametrize
     async def test_method_create(self, async_client: AsyncTelnyx) -> None:
         test = await async_client.ai.assistants.tests.create(
-            destination="x",
-            instructions="x",
-            name="x",
+            destination="+15551234567",
+            instructions="Act as a frustrated customer who received a damaged product. Ask for a refund and escalate if not satisfied with the initial response.",
+            name="Customer Support Bot Test",
             rubric=[
                 {
-                    "criteria": "criteria",
-                    "name": "name",
-                }
+                    "criteria": "Assistant responds within 30 seconds",
+                    "name": "Response Time",
+                },
+                {
+                    "criteria": "Provides correct product information",
+                    "name": "Accuracy",
+                },
             ],
         )
         assert_matches_type(AssistantTest, test, path=["response"])
@@ -313,18 +331,22 @@ class TestAsyncTests:
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncTelnyx) -> None:
         test = await async_client.ai.assistants.tests.create(
-            destination="x",
-            instructions="x",
-            name="x",
+            destination="+15551234567",
+            instructions="Act as a frustrated customer who received a damaged product. Ask for a refund and escalate if not satisfied with the initial response.",
+            name="Customer Support Bot Test",
             rubric=[
                 {
-                    "criteria": "criteria",
-                    "name": "name",
-                }
+                    "criteria": "Assistant responds within 30 seconds",
+                    "name": "Response Time",
+                },
+                {
+                    "criteria": "Provides correct product information",
+                    "name": "Accuracy",
+                },
             ],
             description="description",
             max_duration_seconds=1,
-            telnyx_conversation_channel="phone_call",
+            telnyx_conversation_channel="web_chat",
             test_suite="test_suite",
         )
         assert_matches_type(AssistantTest, test, path=["response"])
@@ -333,14 +355,18 @@ class TestAsyncTests:
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.ai.assistants.tests.with_raw_response.create(
-            destination="x",
-            instructions="x",
-            name="x",
+            destination="+15551234567",
+            instructions="Act as a frustrated customer who received a damaged product. Ask for a refund and escalate if not satisfied with the initial response.",
+            name="Customer Support Bot Test",
             rubric=[
                 {
-                    "criteria": "criteria",
-                    "name": "name",
-                }
+                    "criteria": "Assistant responds within 30 seconds",
+                    "name": "Response Time",
+                },
+                {
+                    "criteria": "Provides correct product information",
+                    "name": "Accuracy",
+                },
             ],
         )
 
@@ -353,14 +379,18 @@ class TestAsyncTests:
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncTelnyx) -> None:
         async with async_client.ai.assistants.tests.with_streaming_response.create(
-            destination="x",
-            instructions="x",
-            name="x",
+            destination="+15551234567",
+            instructions="Act as a frustrated customer who received a damaged product. Ask for a refund and escalate if not satisfied with the initial response.",
+            name="Customer Support Bot Test",
             rubric=[
                 {
-                    "criteria": "criteria",
-                    "name": "name",
-                }
+                    "criteria": "Assistant responds within 30 seconds",
+                    "name": "Response Time",
+                },
+                {
+                    "criteria": "Provides correct product information",
+                    "name": "Accuracy",
+                },
             ],
         ) as response:
             assert not response.is_closed
@@ -480,21 +510,19 @@ class TestAsyncTests:
     @parametrize
     async def test_method_list(self, async_client: AsyncTelnyx) -> None:
         test = await async_client.ai.assistants.tests.list()
-        assert_matches_type(TestListResponse, test, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[AssistantTest], test, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncTelnyx) -> None:
         test = await async_client.ai.assistants.tests.list(
             destination="destination",
-            page={
-                "number": 1,
-                "size": 1,
-            },
+            page_number=0,
+            page_size=0,
             telnyx_conversation_channel="telnyx_conversation_channel",
             test_suite="test_suite",
         )
-        assert_matches_type(TestListResponse, test, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[AssistantTest], test, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -504,7 +532,7 @@ class TestAsyncTests:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         test = await response.parse()
-        assert_matches_type(TestListResponse, test, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[AssistantTest], test, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -514,7 +542,7 @@ class TestAsyncTests:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             test = await response.parse()
-            assert_matches_type(TestListResponse, test, path=["response"])
+            assert_matches_type(AsyncDefaultFlatPagination[AssistantTest], test, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -524,7 +552,7 @@ class TestAsyncTests:
         test = await async_client.ai.assistants.tests.delete(
             "test_id",
         )
-        assert_matches_type(object, test, path=["response"])
+        assert test is None
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -536,7 +564,7 @@ class TestAsyncTests:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         test = await response.parse()
-        assert_matches_type(object, test, path=["response"])
+        assert test is None
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -548,7 +576,7 @@ class TestAsyncTests:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             test = await response.parse()
-            assert_matches_type(object, test, path=["response"])
+            assert test is None
 
         assert cast(Any, response.is_closed) is True
 

@@ -16,7 +16,6 @@ short_description: EAP auth param.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -243,6 +245,7 @@ def main():
         'nai_list': {'type': 'str'},
         'eap-method': {'type': 'str', 'api_name': 'eap_method'},
         'eap_method': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'hotspot20_anqpnairealm_nailist_eapmethod_authparam': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

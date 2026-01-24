@@ -3,7 +3,7 @@ Type annotations for servicediscovery service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_servicediscovery/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -38,12 +39,6 @@ from .literals import (
     ServiceTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -161,7 +156,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -217,7 +212,7 @@ HttpInstanceSummaryTypeDef = TypedDict(
         "NamespaceName": NotRequired[str],
         "ServiceName": NotRequired[str],
         "HealthStatus": NotRequired[HealthStatusType],
-        "Attributes": NotRequired[Dict[str, str]],
+        "Attributes": NotRequired[dict[str, str]],
     },
 )
 DiscoverInstancesRevisionRequestTypeDef = TypedDict(
@@ -249,7 +244,7 @@ class GetInstanceRequestTypeDef(TypedDict):
 class InstanceTypeDef(TypedDict):
     Id: str
     CreatorRequestId: NotRequired[str]
-    Attributes: NotRequired[Dict[str, str]]
+    Attributes: NotRequired[dict[str, str]]
     CreatedByAccount: NotRequired[str]
 
 
@@ -280,7 +275,7 @@ OperationTypeDef = TypedDict(
         "ErrorCode": NotRequired[str],
         "CreateDate": NotRequired[datetime],
         "UpdateDate": NotRequired[datetime],
-        "Targets": NotRequired[Dict[OperationTargetTypeType, str]],
+        "Targets": NotRequired[dict[OperationTargetTypeType, str]],
     },
 )
 
@@ -292,7 +287,7 @@ class GetServiceAttributesRequestTypeDef(TypedDict):
 class ServiceAttributesTypeDef(TypedDict):
     ServiceArn: NotRequired[str]
     ResourceOwner: NotRequired[str]
-    Attributes: NotRequired[Dict[str, str]]
+    Attributes: NotRequired[dict[str, str]]
 
 
 class GetServiceRequestTypeDef(TypedDict):
@@ -309,7 +304,7 @@ class HttpPropertiesTypeDef(TypedDict):
 
 class InstanceSummaryTypeDef(TypedDict):
     Id: NotRequired[str]
-    Attributes: NotRequired[Dict[str, str]]
+    Attributes: NotRequired[dict[str, str]]
     CreatedByAccount: NotRequired[str]
 
 
@@ -426,13 +421,13 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class GetInstancesHealthStatusResponseTypeDef(TypedDict):
-    Status: Dict[str, HealthStatusType]
+    Status: dict[str, HealthStatusType]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -462,7 +457,7 @@ class UpdateServiceResponseTypeDef(TypedDict):
 
 
 class DiscoverInstancesResponseTypeDef(TypedDict):
-    Instances: List[HttpInstanceSummaryTypeDef]
+    Instances: list[HttpInstanceSummaryTypeDef]
     InstancesRevision: int
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -472,7 +467,7 @@ class DnsConfigChangeTypeDef(TypedDict):
 
 
 class DnsConfigOutputTypeDef(TypedDict):
-    DnsRecords: List[DnsRecordTypeDef]
+    DnsRecords: list[DnsRecordTypeDef]
     NamespaceId: NotRequired[str]
     RoutingPolicy: NotRequired[RoutingPolicyType]
 
@@ -520,7 +515,7 @@ class UpdateHttpNamespaceRequestTypeDef(TypedDict):
 
 class ListInstancesResponseTypeDef(TypedDict):
     ResourceOwner: str
-    Instances: List[InstanceSummaryTypeDef]
+    Instances: list[InstanceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -553,7 +548,7 @@ class ListOperationsRequestTypeDef(TypedDict):
 
 
 class ListOperationsResponseTypeDef(TypedDict):
-    Operations: List[OperationSummaryTypeDef]
+    Operations: list[OperationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -649,7 +644,7 @@ class UpdateServiceRequestTypeDef(TypedDict):
 
 
 class ListServicesResponseTypeDef(TypedDict):
-    Services: List[ServiceSummaryTypeDef]
+    Services: list[ServiceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -737,7 +732,7 @@ class PublicDnsNamespaceChangeTypeDef(TypedDict):
 
 
 class ListNamespacesResponseTypeDef(TypedDict):
-    Namespaces: List[NamespaceSummaryTypeDef]
+    Namespaces: list[NamespaceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

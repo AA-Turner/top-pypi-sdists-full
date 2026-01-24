@@ -14,7 +14,7 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Literal, TypedDict
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -66,6 +66,7 @@ from logfire.sampling._tail_sampling import TailSamplingProcessor
 from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
+from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
@@ -112,7 +113,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from opentelemetry._events import EventLoggerProvider
+    from typing import TextIO
 
     from .main import Logfire
 
@@ -158,6 +159,8 @@ class ConsoleOptions:
 
     show_project_link: bool = True
     """Whether to print the URL of the Logfire project after initialization."""
+    output: TextIO | None = None
+    """The output stream to write console output to (default: stdout)."""
 
 
 @dataclass
@@ -181,6 +184,16 @@ class AdvancedOptions:
 
     log_record_processors: Sequence[LogRecordProcessor] = ()
     """Configuration for OpenTelemetry logging. This is experimental and may be removed."""
+
+    exception_callback: ExceptionCallback | None = None
+    """Callback function that is called when an exception is recorded on a span.
+
+    This is experimental and may be modified or removed.
+
+    Note: When using `ProcessPoolExecutor`, this callback must be defined at the module level
+    (not as a local function) to be picklable. Local functions will be excluded from the
+    serialized configuration sent to child processes. See the [distributed tracing guide](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#thread-and-pool-executors) for more details.
+    """
 
     def generate_base_url(self, token: str) -> str:
         if self.base_url is not None:
@@ -216,11 +229,51 @@ class PydanticPlugin:
 class MetricsOptions:
     """Configuration of metrics."""
 
+    DEFAULT_VIEWS: ClassVar[Sequence[View]] = (
+        View(
+            instrument_type=Histogram,
+            aggregation=ExponentialBucketHistogramAggregation(),
+        ),
+        View(
+            instrument_type=UpDownCounter,
+            instrument_name='http.server.active_requests',
+            attribute_keys={
+                'url.scheme',
+                'http.scheme',
+                'http.flavor',
+                'http.method',
+                'http.request.method',
+            },
+        ),
+    )
+    """The default OpenTelemetry metric views applied by Logfire.
+
+    This class variable is provided for reference so you can extend the defaults when configuring
+    custom views: `MetricsOptions(views=[*MetricsOptions.DEFAULT_VIEWS, View(...), View(...)])`
+
+    The default views include:
+
+    - **Exponential bucket histogram aggregation** for all `Histogram` instruments, which provides
+      better resolution and smaller payload sizes compared to fixed-bucket histograms.
+    - **Attribute filtering** for the `http.server.active_requests` `UpDownCounter`, limiting
+      attributes to `url.scheme`, `http.scheme`, `http.flavor`, `http.method`, and `http.request.method`
+      to reduce cardinality.
+    """
+
     additional_readers: Sequence[MetricReader] = ()
     """Sequence of metric readers to be used in addition to the default which exports metrics to Logfire's API."""
 
     collect_in_spans: bool = False
     """Experimental setting to add up the values of counter and histogram metrics in active spans."""
+
+    views: Sequence[View] = field(default_factory=lambda: MetricsOptions.DEFAULT_VIEWS)
+    """Sequence of OpenTelemetry metric views to apply during metric collection.
+
+    Defaults to `DEFAULT_VIEWS`. To add custom views while keeping the defaults, use:
+    `MetricsOptions(views=[*MetricsOptions.DEFAULT_VIEWS, View(...), View(...)])`
+
+    To replace the defaults entirely, pass your own sequence of views.
+    """
 
 
 @dataclass
@@ -253,7 +306,7 @@ class DeprecatedKwargs(TypedDict):
     pass
 
 
-def configure(  # noqa: D417
+def configure(
     *,
     local: bool = False,
     send_to_logfire: bool | Literal['if-token-present'] | None = None,
@@ -711,12 +764,6 @@ class LogfireConfig(_LogfireConfigData):
         # thus it "shuts down" when it's gc'ed
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
-        try:
-            from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider
-
-            self._event_logger_provider = SDKEventLoggerProvider(self._logger_provider)  # type: ignore
-        except ImportError:
-            self._event_logger_provider = None
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -814,11 +861,7 @@ class LogfireConfig(_LogfireConfigData):
             ):
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
-            if emscripten:  # pragma: no cover
-                # Resource.create creates a thread pool which fails in Pyodide / Emscripten
-                resource = Resource(otel_resource_attributes)
-            else:
-                resource = Resource.create(otel_resource_attributes)
+            resource = Resource.create(otel_resource_attributes)
 
             # Set service instance ID to a random UUID if it hasn't been set already.
             # Setting it above would have also mostly worked and allowed overriding via OTEL_RESOURCE_ATTRIBUTES,
@@ -888,6 +931,7 @@ class LogfireConfig(_LogfireConfigData):
                     include_tags=self.console.include_tags,
                     verbose=self.console.verbose,
                     min_log_level=self.console.min_log_level,
+                    output=self.console.output,
                 )
                 add_span_processor(SimpleSpanProcessor(console_span_exporter))
                 log_record_processors.append(SimpleLogRecordProcessor(ConsoleLogExporter(console_span_exporter)))
@@ -955,11 +999,11 @@ class LogfireConfig(_LogfireConfigData):
                     base_url = self.advanced.generate_base_url(self.token)
                     headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
                     session = OTLPExporterHttpSession()
-                    session.headers.update(headers)
                     span_exporter = BodySizeCheckingOTLPSpanExporter(
                         endpoint=urljoin(base_url, '/v1/traces'),
                         session=session,
                         compression=Compression.Gzip,
+                        headers=headers,
                     )
                     span_exporter = QuietSpanExporter(span_exporter)
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
@@ -995,6 +1039,7 @@ class LogfireConfig(_LogfireConfigData):
                     log_exporter = OTLPLogExporter(
                         endpoint=urljoin(base_url, '/v1/logs'),
                         session=session,
+                        headers=headers,
                         compression=Compression.Gzip,
                     )
                     log_exporter = QuietLogExporter(log_exporter)
@@ -1005,6 +1050,11 @@ class LogfireConfig(_LogfireConfigData):
                     else:
                         logfire_log_processor = BatchLogRecordProcessor(log_exporter)
                     log_record_processors.append(logfire_log_processor)
+
+                    # Forgetting to include `headers=headers` in all exporters previously allowed
+                    # env vars like OTEL_EXPORTER_OTLP_HEADERS to override ours since one session is shared.
+                    # This line is just to make sure.
+                    session.headers.update(headers)
 
             if processors_with_pending_spans:
                 pending_multiprocessor = SynchronousMultiSpanProcessor()
@@ -1044,26 +1094,11 @@ class LogfireConfig(_LogfireConfigData):
                 log_record_processors.append(logfire_log_processor)
 
             if metric_readers is not None:
+                assert isinstance(self.metrics, MetricsOptions)
                 meter_provider = MeterProvider(
                     metric_readers=metric_readers,
                     resource=resource,
-                    views=[
-                        View(
-                            instrument_type=Histogram,
-                            aggregation=ExponentialBucketHistogramAggregation(),
-                        ),
-                        View(
-                            instrument_type=UpDownCounter,
-                            instrument_name='http.server.active_requests',
-                            attribute_keys={
-                                'url.scheme',
-                                'http.scheme',
-                                'http.flavor',
-                                'http.method',
-                                'http.request.method',
-                            },
-                        ),
-                    ],
+                    views=self.metrics.views,
                 )
             else:
                 meter_provider = NoOpMeterProvider()
@@ -1094,12 +1129,7 @@ class LogfireConfig(_LogfireConfigData):
             )
             logger_provider = SDKLoggerProvider(resource)
             logger_provider.add_log_record_processor(root_log_processor)
-
-            if self._event_logger_provider:
-                # This also shuts down the underlying self._logger_provider
-                self._event_logger_provider.shutdown()
-            else:
-                self._logger_provider.shutdown()
+            self._logger_provider.shutdown()
 
             self._logger_provider.set_provider(logger_provider)
             self._logger_provider.set_min_level(self.min_level)
@@ -1109,10 +1139,6 @@ class LogfireConfig(_LogfireConfigData):
                 trace.set_tracer_provider(self._tracer_provider)
                 set_meter_provider(self._meter_provider)
                 set_logger_provider(self._logger_provider)
-                if self._event_logger_provider:
-                    from opentelemetry._events import set_event_logger_provider
-
-                    set_event_logger_provider(self._event_logger_provider)
 
             @atexit.register
             def exit_open_spans():  # pragma: no cover
@@ -1173,8 +1199,6 @@ class LogfireConfig(_LogfireConfigData):
         """
         self._meter_provider.force_flush(timeout_millis)
         self._logger_provider.force_flush(timeout_millis)
-        if self._event_logger_provider:
-            self._event_logger_provider.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
@@ -1206,16 +1230,6 @@ class LogfireConfig(_LogfireConfigData):
             The logger provider.
         """
         return self._logger_provider
-
-    def get_event_logger_provider(self) -> EventLoggerProvider | None:
-        """Get an event logger provider from this `LogfireConfig`.
-
-        This is used internally and should not be called by users of the SDK.
-
-        Returns:
-            The event logger provider.
-        """
-        return self._event_logger_provider
 
     def warn_if_not_initialized(self, message: str):
         ignore_no_config_env = os.getenv('LOGFIRE_IGNORE_NO_CONFIG', '')
@@ -1465,7 +1479,7 @@ class LogfireCredentials:
                 [f'{index}. {item[0]}/{item[1]}' for index, item in project_choices.items()]
             )
             selected_project_key = Prompt.ask(
-                f'Please select one of the following projects by number:\n{project_choices_str}\n',
+                f"Please select one of the following projects by number (requires the 'write_token' permission):\n{project_choices_str}\n",
                 choices=list(project_choices.keys()),
                 default='1',
             )

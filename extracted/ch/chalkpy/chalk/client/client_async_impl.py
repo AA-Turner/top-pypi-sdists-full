@@ -18,8 +18,10 @@ from chalk.client.client_impl import ChalkAPIClientImpl, OnlineQueryResponseImpl
 from chalk.client.dataset import Dataset, DatasetImpl
 from chalk.client.models import (
     BulkOnlineQueryResponse,
+    BulkOnlineQueryResult,
     ChalkError,
     FeatureStatisticsResponse,
+    PlanQueryResponse,
     UploadFeaturesResponse,
     WhoAmIResponse,
 )
@@ -140,6 +142,26 @@ class AsyncChalkClientImpl(AsyncChalkClient):
         return await self._current_loop().run_in_executor(
             self._executor,
             partial(self._client.query_bulk, *args, **kwargs),
+        )
+
+    async def plan_query(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> PlanQueryResponse:
+        return await self._current_loop().run_in_executor(
+            self._executor,
+            partial(self._client.plan_query, *args, **kwargs),
+        )
+
+    async def _run_serialized_query(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> BulkOnlineQueryResult:
+        return await self._current_loop().run_in_executor(
+            self._executor,
+            partial(self._client._run_serialized_query, *args, **kwargs),  # pyright: ignore[reportPrivateUsage]
         )
 
     async def offline_query(

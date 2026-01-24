@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Optional
 
-from httpx import HTTPStatusError
+from niquests import HTTPError
 from pydantic import Field, BaseModel
 
 from ipfabric.models.users import User
@@ -20,7 +20,7 @@ class LocalUsers(BaseModel):
         self._users = self.get_users()
         try:
             self._roles = Roles(client=self.client)
-        except HTTPStatusError:
+        except HTTPError:
             pass
 
     @property

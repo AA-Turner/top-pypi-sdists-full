@@ -1,13 +1,14 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: sphinx-argparse-cli
-Version: 1.19.0
+Version: 1.20.1
 Summary: render CLI arguments (sub-commands friendly) defined by argparse module
 Project-URL: Documentation, https://github.com/tox-dev/sphinx-argparse-cli#sphinx-argparse-cli
 Project-URL: Homepage, https://github.com/tox-dev/sphinx-argparse-cli
 Project-URL: Source, https://github.com/tox-dev/sphinx-argparse-cli
 Project-URL: Tracker, https://github.com/tox-dev/sphinx-argparse-cli/issues
 Maintainer-email: Bernat Gabor <gaborjbernat@gmail.com>
-License: MIT
+License-Expression: MIT
+License-File: LICENSE.txt
 Keywords: argparse,sphinx
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -17,20 +18,20 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Documentation
 Classifier: Topic :: Documentation :: Sphinx
-Requires-Python: >=3.10
-Requires-Dist: sphinx>=8.0.2
+Requires-Python: >=3.11
+Requires-Dist: sphinx>=8.2.3
 Provides-Extra: testing
 Requires-Dist: covdefaults>=2.3; extra == 'testing'
 Requires-Dist: defusedxml>=0.7.1; extra == 'testing'
-Requires-Dist: pytest-cov>=5; extra == 'testing'
-Requires-Dist: pytest>=8.3.2; extra == 'testing'
+Requires-Dist: pytest-cov>=7; extra == 'testing'
+Requires-Dist: pytest>=8.4.2; extra == 'testing'
 Description-Content-Type: text/markdown
 
 # sphinx-argparse-cli

@@ -1,23 +1,25 @@
 Metadata-Version: 2.4
 Name: ffmpy
-Version: 0.6.1
+Version: 1.0.0
 Summary: A simple Python wrapper for FFmpeg
 Keywords: ffmpeg,ffprobe,ffplay,ffserver,wrapper,media,audio,video,transcoding
 Author: Andrii Yurchuk
 Author-email: Andrii Yurchuk < <ay@mntw.re>>
 License-Expression: MIT
+Classifier: Topic :: Multimedia
 Classifier: Topic :: Multimedia :: Sound/Audio
-Classifier: Development Status :: 4 - Beta
+Classifier: Topic :: Multimedia :: Video
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: Microsoft :: Windows
@@ -30,7 +32,7 @@ Requires-Python: >=3.9
 Provides-Extra: psutil
 Description-Content-Type: text/x-rst
 
-.. image:: https://github.com/Ch00k/ffmpy/workflows/test/badge.svg
+.. image:: https://github.com/Ch00k/ffmpy/workflows/ci/badge.svg
     :target: https://github.com/Ch00k/ffmpy/actions
     :alt: Tests
 
@@ -51,7 +53,7 @@ ffmpy
 =====
 *ffmpy* is a simple `FFmpeg <http://ffmpeg.org/>`_ command line wrapper. It implements a Pythonic interface for FFmpeg command line compilation and uses Python's `subprocess <https://docs.python.org/2/library/subprocess.html>`_ to execute the compiled command line.
 
-*ffmpy* requires Python 3.8 or greater.
+*ffmpy* requires Python 3.9 or greater.
 
 Installation
 ------------
@@ -74,9 +76,9 @@ This will take the ``input.mp4`` file in the current directory as the input, cha
 
 Documentation
 -------------
-http://ffmpy.rtfd.io
+https://ffmpy.readthedocs.io/
 
-See `Examples <http://ffmpy.readthedocs.io/en/latest/examples.html>`_ section for usage examples.
+See `Examples <https://ffmpy.readthedocs.io/latest/examples.html>`_ section for usage examples.
 
 License
 -------

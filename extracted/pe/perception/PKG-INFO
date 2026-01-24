@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: Perception
-Version: 0.8.1
+Version: 0.8.2
 Summary: Perception provides flexible, well-documented, and comprehensively tested tooling for perceptual hashing research, development, and production use.
 License: Apache-2.0
+License-File: LICENSE
 Author: Thorn
 Author-email: info@wearethorn.org
 Requires-Python: >=3.10,<4.0
@@ -12,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: benchmarking
 Provides-Extra: experimental
 Provides-Extra: matching

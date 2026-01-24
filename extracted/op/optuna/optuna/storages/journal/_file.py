@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+from collections.abc import Generator
 from collections.abc import Iterator
 from contextlib import contextmanager
 import errno
@@ -9,14 +10,17 @@ import os
 import time
 from typing import Any
 import uuid
-import warnings
 
 from optuna._deprecated import deprecated_class
+from optuna._warnings import optuna_warn
+from optuna.logging import get_logger
 from optuna.storages.journal._base import BaseJournalBackend
 
 
 LOCK_FILE_SUFFIX = ".lock"
 RENAME_FILE_SUFFIX = ".rename"
+
+_logger = get_logger(__name__)
 
 
 class JournalFileBackend(BaseJournalBackend):
@@ -59,8 +63,7 @@ class JournalFileBackend(BaseJournalBackend):
             open(self._file_path, "ab").close()  # Create a file if it does not exist.
         self._log_number_offset: dict[int, int] = {0: 0}
 
-    def read_logs(self, log_number_from: int) -> list[dict[str, Any]]:
-        logs = []
+    def read_logs(self, log_number_from: int) -> Generator[dict[str, Any], None, None]:
         with open(self._file_path, "rb") as f:
             # Maintain remaining_log_size to allow writing by another process
             # while reading the log.
@@ -92,11 +95,10 @@ class JournalFileBackend(BaseJournalBackend):
                     del self._log_number_offset[log_number + 1]
                     continue
                 try:
-                    logs.append(json.loads(line))
+                    yield json.loads(line)
                 except json.JSONDecodeError as err:
                     last_decode_error = err
                     del self._log_number_offset[log_number + 1]
-            return logs
 
     def append_logs(self, logs: list[dict[str, Any]]) -> None:
         with get_lock_file(self._lock):
@@ -140,7 +142,7 @@ class JournalFileSymlinkLock(BaseJournalFileLock):
             if grace_period <= 0:
                 raise ValueError("The value of `grace_period` should be a positive integer.")
             if grace_period < 3:
-                warnings.warn("The value of `grace_period` might be too small. ")
+                optuna_warn("The value of `grace_period` might be too small. ")
         self.grace_period = grace_period
 
     def acquire(self) -> bool:
@@ -150,7 +152,9 @@ class JournalFileSymlinkLock(BaseJournalFileLock):
             :obj:`True` if it succeeded in creating a symbolic link of ``self._lock_target_file``.
         """
         sleep_secs = 0.001
+        warning_interval = 10.0
         last_update_monotonic_time = time.monotonic()
+        last_warning_time = time.monotonic()
         mtime = None
         while True:
             try:
@@ -158,6 +162,13 @@ class JournalFileSymlinkLock(BaseJournalFileLock):
                 return True
             except OSError as err:
                 if err.errno == errno.EEXIST:
+                    if time.monotonic() - last_warning_time > warning_interval:
+                        _logger.warning(
+                            f"It is taking longer than {warning_interval} seconds to acquire "
+                            f"the lock file: {self._lock_file} Retrying..."
+                        )
+                        last_warning_time = time.monotonic()
+
                     if self.grace_period is not None:
                         try:
                             current_mtime = os.stat(self._lock_file).st_mtime
@@ -168,10 +179,11 @@ class JournalFileSymlinkLock(BaseJournalFileLock):
                             last_update_monotonic_time = time.monotonic()
 
                         if time.monotonic() - last_update_monotonic_time > self.grace_period:
-                            warnings.warn(
+                            _logger.warning(
                                 "The existing lock file has not been released "
                                 "for an extended period. Forcibly releasing the lock file."
                             )
+                            last_warning_time = time.monotonic()
                             try:
                                 self.release()
                                 sleep_secs = 0.001
@@ -221,7 +233,7 @@ class JournalFileOpenLock(BaseJournalFileLock):
             if grace_period <= 0:
                 raise ValueError("The value of `grace_period` should be a positive integer.")
             if grace_period < 3:
-                warnings.warn("The value of `grace_period` might be too small. ")
+                optuna_warn("The value of `grace_period` might be too small. ")
         self.grace_period = grace_period
 
     def acquire(self) -> bool:
@@ -232,7 +244,9 @@ class JournalFileOpenLock(BaseJournalFileLock):
 
         """
         sleep_secs = 0.001
+        warning_interval = 10.0
         last_update_monotonic_time = time.monotonic()
+        last_warning_time = time.monotonic()
         mtime = None
         while True:
             try:
@@ -241,6 +255,13 @@ class JournalFileOpenLock(BaseJournalFileLock):
                 return True
             except OSError as err:
                 if err.errno == errno.EEXIST:
+                    if time.monotonic() - last_warning_time > warning_interval:
+                        _logger.warning(
+                            f"It is taking longer than {warning_interval} seconds to acquire "
+                            f"the lock file: {self._lock_file} Retrying..."
+                        )
+                        last_warning_time = time.monotonic()
+
                     if self.grace_period is not None:
                         try:
                             current_mtime = os.stat(self._lock_file).st_mtime
@@ -251,10 +272,11 @@ class JournalFileOpenLock(BaseJournalFileLock):
                             last_update_monotonic_time = time.monotonic()
 
                         if time.monotonic() - last_update_monotonic_time > self.grace_period:
-                            warnings.warn(
+                            _logger.warning(
                                 "The existing lock file has not been released "
                                 "for an extended period. Forcibly releasing the lock file."
                             )
+                            last_warning_time = time.monotonic()
                             try:
                                 self.release()
                                 sleep_secs = 0.001

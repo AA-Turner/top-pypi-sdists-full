@@ -5,11 +5,11 @@ requires = ["setuptools>=78.0.2"]
 [dependency-groups]
 dev = [
   "coverage>=3.6",
-  "django-stubs-ext==5.2.1",
-  "django-stubs==5.2.1",
-  "mypy==1.16.1",
+  "django-stubs-ext==5.2.8",
+  "django-stubs==5.2.8",
+  "mypy==1.19.1",
   "pre-commit",
-  "pyright==1.1.402",
+  "pyright==1.1.407",
   "tox"
 ]
 
@@ -27,12 +27,13 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python",
   "Topic :: Internet"
 ]
 dependencies = [
   "Django>=5.1",
-  "social-auth-core~=4.4"
+  "social-auth-core~=4.8.3"
 ]
 description = "Python Social Authentication, Django integration."
 keywords = ["django", "oauth", "openid", "saml", "social auth"]
@@ -41,18 +42,18 @@ license-files = ["LICENSE"]
 name = "social-auth-app-django"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "5.5.1"
+version = "5.7.0"
 
 [project.optional-dependencies]
 # This is present until pip implements supports for PEP 735
 # see https://github.com/pypa/pip/issues/12963
 dev = [
   "coverage>=3.6",
-  "django-stubs-ext==5.2.1",
-  "django-stubs==5.2.1",
-  "mypy==1.16.1",
+  "django-stubs-ext==5.2.8",
+  "django-stubs==5.2.8",
+  "mypy==1.19.1",
   "pre-commit",
-  "pyright==1.1.402",
+  "pyright==1.1.407",
   "tox"
 ]
 

@@ -331,7 +331,7 @@ def metrics(cfg: CLIConfiguration, show_all_dimensions: bool = False, search: Op
     num_dims_to_show = MAX_LIST_OBJECT_ELEMENTS
     for m in metrics:
         # sort dimensions by whether they're local first(if / then global else local) then the dim name
-        dimensions = sorted([dimension.granularity_free_qualified_name for dimension in m.dimensions])
+        dimensions = sorted([dimension.granularity_free_dunder_name for dimension in m.dimensions])
         if show_all_dimensions:
             num_dims_to_show = len(dimensions)
         click.echo(
@@ -366,7 +366,7 @@ def dimensions(cfg: CLIConfiguration, metrics: List[str]) -> None:
 
     spinner.succeed(f"🌱 We've found {len(dimensions)} common dimensions for metrics {metrics}.")
     for dimension in dimensions:
-        click.echo(f"• {click.style(dimension.granularity_free_qualified_name, bold=True, fg='green')}")
+        click.echo(f"• {click.style(dimension.granularity_free_dunder_name, bold=True, fg='green')}")
 
 
 @list_command_group.command()
@@ -524,7 +524,7 @@ def _data_warehouse_validations_runner(
         dw_validator.validate_entities, manifest=manifest, validation_type="entities", timeout=timeout
     )
     measure_results = _run_dw_validations(
-        dw_validator.validate_measures, manifest=manifest, validation_type="measures", timeout=timeout
+        dw_validator.validate_simple_metrics, manifest=manifest, validation_type="measures", timeout=timeout
     )
     metric_results = _run_dw_validations(
         dw_validator.validate_metrics, manifest=manifest, validation_type="metrics", timeout=timeout

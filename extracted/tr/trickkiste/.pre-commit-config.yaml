@@ -15,42 +15,10 @@ default_stages:
 repos:
     - repo: local
       hooks:
-          - name: Python Unit Tests
-            id: check-python-unittest
-            stages: [manual]  # no tests yet
-            language: system
-            entry: uv run pytest
-            args: [
-                "--ignore=_UNTRACKED",
-                "-m unit",
-                "test",
-            ]
-            types: [python]
-            # https://github.com/pytest-dev/pytest/discussions/7793
-            pass_filenames: false
-            always_run: true
+          # Items are sorted by execution speed and probability of failure
+          # in order to optimize number of iterations
 
-          - name: Python Doctests
-            id: check-python-doctest
-            language: system
-            entry: uv run pytest
-            args: [
-                "--ignore=_UNTRACKED",
-                "--ignore=test",
-                "--doctest-modules"
-            ]
-            types: [python]
-            # https://github.com/pytest-dev/pytest/discussions/7793
-            pass_filenames: false
-            always_run: true
-
-          - name: Check Python Type Hinting
-            id: check-python-typing
-            language: system
-            entry: uv run mypy
-            types: [python]
-            exclude: ^(_UNTRACKED/|test/)
-
+          # also covered by dev/check-python-linting
           - name: Check Python linter (ruff)
             id: check-python-linting
             language: system
@@ -59,48 +27,55 @@ repos:
             types: [file, python]
             exclude: ^(_UNTRACKED/|test/)
 
+          # also covered by dev/fix-python-linting
           - name: Fix Python linter (ruff) issues
             id: fix-python-linting
             stages: [manual]
             language: system
             entry: uv run ruff
-            args: [
-                "check",
-                "--fix",
-                # "--no-cache",
-                # "--select=ALL",
-                # "--ignore=I001",
-            ]
+            args: [check, --fix, --ignore=I001]
             types: [file, python]
             exclude: ^(_UNTRACKED/|test/)
 
+          # also covered by dev/check-python-typing
+          - name: Check Python Type Hinting
+            id: check-python-typing
+            language: system
+            entry: uv run mypy
+            types: [python]
+            exclude: ^(_UNTRACKED/|test/)
+
+          # also covered by dev/check-python-formatting
           - name: Check Python import order
             id: check-python-isort
             language: system
             entry: uv run ruff
-            args: ["check", "--select=I001"]
+            args: [check, --select=I001]
             types: [file, python]
             exclude: ^(_UNTRACKED/)
 
+          # also covered by dev/fix-python-formatting
           - name: Fix Python import order
             id: fix-python-isort
             stages: [manual]
             language: system
             entry: uv run ruff
-            args: ["check", "--fix", "--select=I001"]
+            args: [check, --fix, --select=I001]
             types: [file, python]
             exclude: ^(_UNTRACKED/)
 
+          # also covered by dev/check-python-formatting
           - name: Check Python formatting (ruff)
-            id: check-python-format
+            id: check-python-formatting
             language: system
             entry: uv run ruff
             args: [format, --check, --diff]
             types: [file, python]
             exclude: ^(_UNTRACKED/)
 
+          # also covered by dev/fix-python-formatting
           - name: Fix Python formatting issues (ruff)
-            id: fix-python-format
+            id: fix-python-formatting
             stages: [manual]
             language: system
             entry: uv run ruff
@@ -108,21 +83,58 @@ repos:
             types: [file, python]
             exclude: ^(_UNTRACKED/)
 
-          # Check shell-scripts
-          # uv run pre-commit run check-shellscripts --all-files
-          # - id: check-shellscripts
-          #   name: Check Shell Scripts
-          #   entry: dev/check-shellscripts
-          #   language: script
-          #   types: [file, shell]
+          # also covered by dev/check-python-doctests
+          - name: Python Doctests
+            id: check-python-doctest
+            language: system
+            entry: uv run pytest
+            args: [
+                # --ignore=test doesn't do the same here..
+                --ignore-glob=test/*,
+                --doctest-modules,
+            ]
+            types: [python]
+            # https://github.com/pytest-dev/pytest/discussions/7793
+            pass_filenames: false
+            always_run: true
 
-          # Check YAML files
-          # uv run pre-commit run check-yaml-linting --all-files
+          # also covered by dev/check-python-unittests
+          - name: Python Unit Tests
+            id: check-python-unittest
+            stages: [manual]  # no unit tests yet
+            language: system
+            entry: uv run pytest
+            args: [-m unit]
+            types: [python]
+            # https://github.com/pytest-dev/pytest/discussions/7793
+            pass_filenames: false
+            always_run: true
+
+          # also covered by dev/check-python-systemtests
+          - name: Python System Tests
+            id: check-python-systemtests
+            stages: [manual]  # system tests should not run automatically
+            language: system
+            entry: uv run pytest
+            args: [-m system]
+            types: [python]
+            # https://github.com/pytest-dev/pytest/discussions/7793
+            pass_filenames: false
+            always_run: true
+
+          # also covered by dev/check-shellscripts
+          - name: Check Shell Scripts
+            id: check-shellscripts
+            stages: [manual]
+            entry: dev/check-shellscripts
+            language: script
+            types: [file, shell]
+
+          # also covered by dev/check-yaml-linting
           - name: Check YAML Linting
             id: check-yaml-linting
-            # stages: [manual]
             language: system
             entry: uv run yamllint
-            args: ["--strict"]
+            args: [--strict]
             types: [file, yaml]
             exclude: ^(_UNTRACKED/)

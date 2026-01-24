@@ -46,7 +46,6 @@ from datasets.packaged_modules import (_EXTENSION_TO_MODULE,
 from datasets.utils import file_utils
 from datasets.utils.file_utils import (_raise_if_offline_mode_is_enabled,
                                        cached_path, is_local_path,
-                                       is_relative_path,
                                        relative_to_absolute_path)
 from datasets.utils.info_utils import is_small_dataset
 from datasets.utils.metadata import MetadataConfigs
@@ -68,6 +67,7 @@ from modelscope.msdatasets.utils.hf_file_utils import get_from_cache_ms
 from modelscope.utils.config_ds import MS_DATASETS_CACHE
 from modelscope.utils.constant import DEFAULT_DATASET_REVISION, REPO_TYPE_DATASET
 from modelscope.utils.import_utils import has_attr_in_class
+from modelscope.utils.file_utils import is_relative_path
 from modelscope.utils.logger import get_logger
 
 logger = get_logger()
@@ -741,7 +741,8 @@ def _download_additional_modules(
         namespace: str,
         revision: str,
         imports: Tuple[str, str, str, str],
-        download_config: Optional[DownloadConfig]
+        download_config: Optional[DownloadConfig],
+        trust_remote_code: Optional[bool] = False,
 ) -> List[Tuple[str, str]]:
     """
     Download additional module for a module <name>.py at URL (or local path) <base_path>/<name>.py
@@ -755,6 +756,21 @@ def _download_additional_modules(
     """
     local_imports = []
     library_imports = []
+
+    # Check if we need to execute remote code
+    has_remote_code = any(
+        import_type in ('internal', 'external')
+        for import_type, _, _, _ in imports
+    )
+
+    if has_remote_code and not trust_remote_code:
+        raise ValueError(
+            f'Loading {name} requires executing code from the repository. '
+            'This is disabled by default for security reasons. '
+            'If you trust the authors of this dataset, you can enable it with '
+            '`trust_remote_code=True`.'
+        )
+
     download_config = download_config.copy()
     if download_config.download_desc is None:
         download_config.download_desc = 'Downloading extra modules'
@@ -863,6 +879,7 @@ def get_module_with_script(self) -> DatasetModule:
         revision=revision,
         imports=imports,
         download_config=self.download_config,
+        trust_remote_code=self.trust_remote_code,
     )
     additional_files = []
     if dataset_infos_path:

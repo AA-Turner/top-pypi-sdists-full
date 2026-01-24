@@ -8,6 +8,7 @@ mod integer_schema;
 mod local_date_schema;
 mod local_date_time_schema;
 mod local_time_schema;
+mod not_schema;
 mod offset_date_time_schema;
 mod one_of_schema;
 mod referable_schema;
@@ -30,9 +31,10 @@ pub use integer_schema::IntegerSchema;
 pub use local_date_schema::LocalDateSchema;
 pub use local_date_time_schema::LocalDateTimeSchema;
 pub use local_time_schema::LocalTimeSchema;
+pub use not_schema::NotSchema;
 pub use offset_date_time_schema::OffsetDateTimeSchema;
 pub use one_of_schema::OneOfSchema;
-pub use referable_schema::{is_online_url, CurrentSchema, Referable};
+pub use referable_schema::{CurrentSchema, Referable, is_online_url};
 pub use schema_context::SchemaContext;
 pub use source_schema::{SourceSchema, SubSchemaUriMap};
 pub use string_schema::StringSchema;
@@ -58,8 +60,11 @@ pub struct PropertySchema {
 
 #[derive(Debug, Clone)]
 pub struct Schema {
+    pub title: Option<String>,
+    pub description: Option<String>,
     pub toml_version: Option<tombi_config::TomlVersion>,
-    pub url: crate::SchemaUri,
+    pub schema_uri: tombi_uri::SchemaUri,
+    pub catalog_uri: Option<Arc<tombi_uri::CatalogUri>>,
     pub include: Vec<String>,
     pub sub_root_keys: Option<Vec<SchemaAccessor>>,
 }

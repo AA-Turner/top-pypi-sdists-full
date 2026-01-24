@@ -1,5 +1,6 @@
 from unittest import TestCase
 from joserfc.jwk import RSAKey
+from joserfc.errors import SecurityWarning, KeyParameterError, InvalidKeyTypeError
 from tests.keys import read_key
 
 
@@ -41,7 +42,7 @@ class TestRSAKey(TestCase):
             "e": "AQAB",
             "oth": "invalid information",
         }
-        self.assertRaises(ValueError, RSAKey.import_key, data)
+        self.assertRaises(KeyParameterError, RSAKey.import_key, data)
 
     def test_import_only_from_d(self):
         data = {
@@ -71,7 +72,7 @@ class TestRSAKey(TestCase):
             "9vDQSccA3xXHOAFOPJ8R9EeIAbTi1VwBYnbTp87X-xcPWlEPkrdoUKW60tgs1aNd_Nnc"
             "9LEVVPMS390zbFxt8TN_biaBgelNgbC95sM"
         )
-        self.assertRaises(ValueError, RSAKey.import_key, data)
+        self.assertRaises(KeyParameterError, RSAKey.import_key, data)
 
     def test_import_key_from_ssh(self):
         ssh_public_pem = read_key("ssh-rsa-public.pem")
@@ -90,6 +91,10 @@ class TestRSAKey(TestCase):
         private_pem = read_key("rsa-openssl-private.pem")
         key: RSAKey = RSAKey.import_key(private_pem)
         self.assertTrue(key.is_private)
+
+    def test_import_from_native_keys(self):
+        key = RSAKey.generate_key()
+        self.assertEqual(key, RSAKey.import_key(key.private_key))
 
     def test_output_as_methods(self):
         private_pem = read_key("rsa-openssl-private.pem")
@@ -126,6 +131,29 @@ class TestRSAKey(TestCase):
         key = RSAKey.generate_key(auto_kid=True)
         self.assertIsNotNone(key.kid)
 
+    def test_generate_key_with_warnings(self):
+        self.assertWarns(SecurityWarning, RSAKey.generate_key, 1024)
+
+    def test_import_key_with_warnings(self):
+        rsa_jwk = {
+            "n": (
+                "qEr7algLblN5qcstFCfOkAVERAWOyq3UuIor3BZq6s932Zs97yrkKw6XhKobGlNKEXNJhFiKU9oG-XA1dyvwv"
+                "9uRbFPiUxLC0IS1mnIeF1Uz3n9h8o3v23TIkbcTPPNsJJuSPiRybefddDBtld7i_9mzNjDR4Ios6DJCNthnIKc"
+            ),
+            "e": "AQAB",
+            "d": (
+                "QfOYkXVNjX_TFvJTiSmMbq5RsWKIMe9rhKJJS-fRIJILgtCutdKWNjVytX_APVHUngATGHVmSDQSNaB-o2Qp5TMG"
+                "0KQ8-TuCXD3nRQIsDj0CCRSuq_CoVUjsFkP3hPvJ8MStN5xpyNGWusHNjgyz_KMQMziFM2wnjRIpMw7J3ck"
+            ),
+            "p": "3fJ5EmJpD7YCElVtAWBUWSVw5uO_NcvDMvTsshVsSY7H6atE4UZSsKEy3HKmVLB3zfqHZYg1Bd8DV52EnGOogw",
+            "q": "wh0awdt7hnpdHJGbrbaC1Pr12MRd6bnraPTGewBB9o6KxPXpkSVBlm5mLuhEiB0gnuA933zxvt1bSHHUNuGGDQ",
+            "dp": "1GFJ6YWx8w6_PLvx6vc6v3NMbiRQvDGXQBOOy3okfN7b_YWeC9M3HT2jZb9v2mpiuf-ZwFZuJogYsqZQVzYl8Q",
+            "dq": "U5Tqn4xdHON1UkbULLFIlmJVF3g-I9SdK70x9WaAAKUR1Ys5ffj3y8lPkGUMlTtNf3t4yNFo2lE_6-qvgM4MxQ",
+            "qi": "dhaZmFV6lFH-jD4hb_-GtaMlsk97gqW7zU2gSVZdULGXZsqbQEfm0k34mglOWC6Hxmi1rqQB_HAe9HUyNdHPXg",
+            "kty": "RSA",
+        }
+        self.assertWarns(SecurityWarning, RSAKey.import_key, rsa_jwk)
+
     def test_import_from_der_bytes(self):
         value1 = self.default_key.as_der()
         key1 = RSAKey.import_key(value1)
@@ -136,6 +164,10 @@ class TestRSAKey(TestCase):
         key: RSAKey = RSAKey.import_key(firebase_cert)
         data = key.as_dict()
         self.assertEqual(data["kty"], "RSA")
+
+    def test_import_invalid_pem_key(self):
+        public_pem = read_key("ec-p256-public.pem")
+        self.assertRaises(InvalidKeyTypeError, RSAKey.import_key, public_pem)
 
     def test_output_with_password(self):
         private_pem = read_key("rsa-openssl-private.pem")

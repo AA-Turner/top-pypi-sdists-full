@@ -4,13 +4,16 @@ from . import trusted_certs
 
 
 @click.command(name="add-trusted-certificate")
-@click.argument("certificate", nargs=-1, type=click.Path(exists=True))
+@click.option("--certificate", multiple=True, type=click.Path(exists=True))
+@click.option("--certificate-url", multiple=True)
 @click.option("--root", is_flag=True)
 @click.option("--label", type=str, multiple=True)
 @click.option("--org-id", default=None)
 @click.option("--quiet", default=True)
 @click.pass_context
-def cli_command_add_trusted_certificate(ctx, certificate, label, quiet, **kwargs):
+def cli_command_add_trusted_certificate(
+    ctx, certificate, certificate_url, label, quiet, **kwargs
+):
     for cert in certificate:
         results = trusted_certs.add_certificate(
             ctx, certificate=cert, labels=list(label), **kwargs
@@ -19,6 +22,27 @@ def cli_command_add_trusted_certificate(ctx, certificate, label, quiet, **kwargs
             continue
         for result in results:
             output_entry(ctx, result.to_dict())
+    for url in certificate_url:
+        results = trusted_certs.add_certificate(
+            ctx, certificate_url=url, labels=list(label), **kwargs
+        )
+        if quiet:
+            continue
+        for result in results:
+            output_entry(ctx, result.to_dict())
+
+
+@click.command(name="update-trusted-certificates")
+@click.option("--globalsign", is_flag=True, default=False)
+@click.option("--common-name", default=None)
+@click.pass_context
+def cli_command_update_trusted_certificates(ctx, **kwargs):
+    if not ctx.obj.get("ADMIN_MODE"):
+        print("must run in --admin mode")
+        return
+    results = trusted_certs.update_trusted_certificates(ctx, **kwargs)
+    for result in results:
+        output_entry(ctx, result.to_dict())
 
 
 @click.command(name="show-trusted-certificate")

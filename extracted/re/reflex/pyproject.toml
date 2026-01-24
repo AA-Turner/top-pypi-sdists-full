@@ -1,6 +1,6 @@
 [project]
 name = "reflex"
-version = "0.8.12"
+version = "0.8.26"
 description = "Web apps in pure Python."
 license.text = "Apache-2.0"
 authors = [
@@ -22,7 +22,7 @@ requires-python = ">=3.10,<4.0"
 dependencies = [
   "alembic >=1.15.2,<2.0",
   "click >=8.2",
-  "granian[reload] >=2.4.0",
+  "granian[reload] >=2.5.5",
   "httpx >=0.23.3,<1.0",
   "packaging >=24.2,<26",
   "platformdirs >=4.3.7,<5.0",
@@ -30,13 +30,13 @@ dependencies = [
   "pydantic >=1.10.21,<3.0",
   "python-multipart >=0.0.20,<1.0",
   "python-socketio >=5.12.0,<6.0",
-  "redis >=5.2.1,<7.0",
-  "reflex-hosting-cli >=0.1.55",
+  "redis >=5.2.1,<8.0",
+  "reflex-hosting-cli >=0.1.61",
   "rich >=13,<15",
-  "sqlmodel >=0.0.24,<0.1",
+  "sqlmodel >=0.0.27,<0.1",
   "starlette >=0.47.0",
   "typing_extensions >=4.13.0",
-  "wrapt >=1.17.0,<2.0",
+  "wrapt >=1.17.0,<3.0",
 ]
 
 classifiers = [
@@ -47,9 +47,15 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 
 [project.optional-dependencies]
+db = [
+  "alembic >=1.15.2,<2.0",
+  "pydantic >=1.10.21,<3.0",
+  "sqlmodel >=0.0.24,<0.1",
+]
 monitoring = ["pyleak >=0.1.14,<1.0"]
 
 [project.urls]
@@ -84,7 +90,7 @@ dev = [
   "pytest-cov",
   "pytest-mock",
   "pytest-playwright",
-  "pytest-retry",
+  "pytest-rerunfailures",
   "pytest-split",
   "pytest",
   "python-dotenv",
@@ -117,6 +123,7 @@ reportIncompatibleMethodOverride = false
 target-version = "py310"
 output-format = "concise"
 lint.isort.split-on-trailing-comma = false
+preview = true
 lint.select = ["ALL"]
 lint.ignore = [
   "A",
@@ -128,12 +135,18 @@ lint.ignore = [
   "BLE",
   "C901",
   "COM",
+  "CPY001",
   "D205",
+  "DOC202",
+  "DOC501",
+  "DOC502",
   "DTZ",
   "E501",
   "F403",
   "FBT",
   "FIX",
+  "FURB189",
+  "FURB140",
   "G004",
   "ISC003",
   "PLC",
@@ -174,6 +187,7 @@ lint.flake8-bugbear.extend-immutable-calls = [
 "*.pyi" = ["D301", "D415", "D417", "D418", "E742", "N", "PGH"]
 "pyi_generator.py" = ["N802"]
 "reflex/constants/*.py" = ["N"]
+"reflex/.templates/apps/blank/code/*" = ["INP001"]
 "*/blank.py" = ["I001"]
 
 [tool.pytest.ini_options]
@@ -229,7 +243,7 @@ fail_fast = true
 
 [[tool.pre-commit.repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.13.0"
+rev = "v0.14.9"
 hooks = [
   { id = "ruff-format", args = [
     "reflex",
@@ -261,13 +275,8 @@ hooks = [
 
 [[tool.pre-commit.repos]]
 repo = "https://github.com/RobertCraigie/pyright-python"
-rev = "v1.1.405"
+rev = "v1.1.407"
 hooks = [{ id = "pyright", args = ["reflex", "tests"], language = "system" }]
-
-[[tool.pre-commit.repos]]
-repo = "https://github.com/terrencepreilly/darglint"
-rev = "v1.8.1"
-hooks = [{ id = "darglint", exclude = "^reflex/reflex.py" }]
 
 [[tool.pre-commit.repos]]
 repo = "https://github.com/pre-commit/mirrors-prettier"

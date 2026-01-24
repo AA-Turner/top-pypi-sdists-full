@@ -6,7 +6,6 @@ from robocop.config import Config, ConfigManager
 from robocop.files import get_relative_path
 from robocop.linter.diagnostics import Diagnostics
 from robocop.linter.rules import Rule
-from robocop.linter.utils.misc import ROBOCOP_RULES_URL
 
 
 class SarifReport(robocop.linter.reports.JsonFileReport):
@@ -16,16 +15,16 @@ class SarifReport(robocop.linter.reports.JsonFileReport):
     Report that generates SARIF output file.
 
     This report is not included in the default reports. The ``--reports all`` option will not enable this report.
-    You can still enable it using report name directly: ``--reports sarif`` or ``--reports all,sarif``.
+    You can still enable it using the report name directly: ``--reports sarif`` or ``--reports all,sarif``.
 
     All fields required by GitHub Code Scanning are supported. The output file will be generated
     in the current working directory with the ``.sarif.json`` name.
 
-    You can configure output path. It's relative path to file that will be produced by the report::
+    You can configure an output path. It's a relative path to the file that will be produced by the report:
 
         robocop check --configure sarif.output_path=output/robocop_sarif.json
 
-    Default path is ``.sarif.json`` .
+    The default path is ``.sarif.json``.
 
     """
 
@@ -46,7 +45,7 @@ class SarifReport(robocop.linter.reports.JsonFileReport):
         return {
             "id": rule.rule_id,
             "name": rule.name,
-            "helpUri": f"{ROBOCOP_RULES_URL.format(version=__version__)}#{rule.name}",
+            "helpUri": f"{rule.docs_url}",
             "shortDescription": {"text": rule.message},
             "fullDescription": {"text": rule.docs},
             "defaultConfiguration": {"level": self.map_severity_to_level(rule.default_severity)},
@@ -93,7 +92,7 @@ class SarifReport(robocop.linter.reports.JsonFileReport):
                         "driver": {
                             "name": "Robocop",
                             "semanticVersion": __version__,
-                            "informationUri": "https://robocop.readthedocs.io/",
+                            "informationUri": "https://robocop.dev/",
                             "rules": self.generate_rules_config(rules),
                         }
                     },

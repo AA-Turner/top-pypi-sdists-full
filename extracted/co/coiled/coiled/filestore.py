@@ -33,10 +33,24 @@ def wait_until_complete(cluster_id, wait_for_output=True, wait_for_input=False):
     return attachments
 
 
-def download_from_filestore_with_ui(fs, into="."):
+def list_files_ui(fs, name_includes=None):
+    blobs = FilestoreManager.get_download_list_with_urls(fs["id"])
+
+    if name_includes:
+        blobs = [blob for blob in blobs if name_includes in blob["relative_path"]]
+
+    for blob in blobs:
+        print(blob["relative_path"])
+
+
+def download_from_filestore_with_ui(fs, into=".", name_includes=None):
     if fs:
         # TODO (possible enhancement) if "has files" flag is set then make sure we do see files to download?
         blobs = FilestoreManager.get_download_list_with_urls(fs["id"])
+
+        if name_includes:
+            blobs = [blob for blob in blobs if name_includes in blob["relative_path"]]
+
         total_bytes = sum(blob["size"] for blob in blobs)
 
         size_label = "Bytes"
@@ -97,7 +111,7 @@ def download_from_filestore_with_ui(fs, into="."):
             )
 
 
-def upload_to_filestore_with_ui(fs, local_dir):
+def upload_to_filestore_with_ui(fs, local_dir, file_buffers=None):
     # TODO (future enhancement) send write status
     #   this is tricky because status is stored on the "attachment" object, which might not exist yet
     #   because we want to be able to upload files before cluster has been created
@@ -109,16 +123,24 @@ def upload_to_filestore_with_ui(fs, local_dir):
             Align.left(f"Currently uploading: [blue]{f or ''}[/blue]"),
         )
 
-    if fs and local_dir:
-        files, total_bytes = FilestoreManager.get_files_for_upload(local_dir)
+    files = []
+    total_bytes = None
 
+    if fs:
+        if local_dir:
+            files_from_path, total_bytes = FilestoreManager.get_files_for_upload(local_dir)
+            files.extend(files_from_path)
+        if file_buffers:
+            files.extend(file_buffers)
+
+    if files:
         size_label = "Bytes"
         size_scale = 1
 
-        if total_bytes > 10_000_000:
+        if total_bytes and total_bytes > 10_000_000:
             size_label = "Mb"
             size_scale = 1_000_000
-        elif total_bytes > 10_000:
+        elif total_bytes and total_bytes > 10_000:
             size_label = "Kb"
             size_scale = 1_000
 
@@ -132,19 +154,42 @@ def upload_to_filestore_with_ui(fs, local_dir):
                     "label": size_label,
                     "total": total_bytes / size_scale if size_scale > 1 else total_bytes,
                     "completed": done_bytes / size_scale if size_scale > 1 else done_bytes,
-                },
+                }
+                if total_bytes
+                else {},
             ])
 
-            upload_urls = FilestoreManager.get_signed_upload_urls(fs["id"], files_for_upload=files)
+            # files_for_upload is type list[dict] where each dict has "relative_path" key
+            upload_info = FilestoreManager.get_signed_upload_urls(fs["id"], files_for_upload=files)
 
-            for local_path, relative_path, size in files:
-                progress.batch_title = progress_title(local_path)
-                progress.refresh()
+            upload_urls = upload_info.get("urls")
+            existing_blobs = upload_info.get("existing")
 
-                FilestoreManager.upload_to_signed_url(local_path, upload_urls[relative_path])
+            for file in files:
+                relative_path = file.get("relative_path")
+                local_path = file.get("local_path")
+                buffer = file.get("buffer")
+                if local_path:
+                    size = file.get("size")
+                    skip_upload = False
+                    existing_blob_info = existing_blobs.get(relative_path)
+                    if existing_blob_info:
+                        modified = os.path.getmtime(local_path)
+                        if size == existing_blob_info["size"] and modified < existing_blob_info["modified"]:
+                            skip_upload = True
+
+                    if not skip_upload:
+                        progress.batch_title = progress_title(local_path)
+                        progress.refresh()
+
+                        FilestoreManager.upload_to_signed_url(local_path, upload_urls[relative_path])
+
+                    done_bytes += size
+
+                elif buffer:
+                    FilestoreManager.upload_bytes_to_signed_url(buffer, upload_urls[relative_path])
 
                 done_files += 1
-                done_bytes += size
 
                 progress.update_progress([
                     {"label": "Files", "total": len(files), "completed": done_files},
@@ -152,7 +197,60 @@ def upload_to_filestore_with_ui(fs, local_dir):
                         "label": size_label,
                         "total": total_bytes / size_scale if size_scale > 1 else total_bytes,
                         "completed": done_bytes / size_scale if size_scale > 1 else done_bytes,
-                    },
+                    }
+                    if total_bytes
+                    else {},
+                ])
+
+            progress.update_title(Align.left(f"Uploaded to cloud storage: [green]{fs['name']}[green]"))
+
+        # TODO (future enhancement) send write status
+        # FilestoreManager.post_fs_write_status(fs["id"], "finish", {"complete": True, "file_count": len(files)})
+
+        return len(files)
+
+
+def upload_bytes_to_fs(fs, files):
+    def progress_title(f=None):
+        return Group(
+            Align.left(Status(f"Uploading to cloud storage: [green]{fs['name']}[green]", spinner="dots")),
+            Align.left(f"Currently uploading: [blue]{f or ''}[/blue]"),
+        )
+
+    if fs and files:
+        with coiled.utils.SimpleRichProgressPanel.from_defaults(title=progress_title()) as progress:
+            done_files = 0
+
+            progress.update_progress([
+                {"label": "Files", "total": len(files), "completed": done_files},
+            ])
+
+            upload_info = FilestoreManager.get_signed_upload_urls(fs["id"], files_for_upload=files)
+
+            upload_urls = upload_info.get("urls")
+            existing_blobs = upload_info.get("existing")
+
+            for file in files:
+                local_path = file.get("local_path")
+                relative_path = file.get("relative_path")
+                size = file.get("size")
+                skip_upload = False
+                existing_blob_info = existing_blobs.get(relative_path)
+                if existing_blob_info:
+                    modified = os.path.getmtime(local_path)
+                    if size == existing_blob_info["size"] and modified < existing_blob_info["modified"]:
+                        skip_upload = True
+
+                if not skip_upload:
+                    progress.batch_title = progress_title(local_path)
+                    progress.refresh()
+
+                    FilestoreManager.upload_to_signed_url(local_path, upload_urls[relative_path])
+
+                done_files += 1
+
+                progress.update_progress([
+                    {"label": "Files", "total": len(files), "completed": done_files},
                 ])
 
             progress.update_title(Align.left(f"Uploaded to cloud storage: [green]{fs['name']}[green]"))
@@ -185,6 +283,11 @@ class FilestoreManagerWithoutHttp:
         raise NotImplementedError()
 
     @classmethod
+    def get_filestore(cls, name=None):
+        if name:
+            return cls.make_req(f"/api/v2/filestore/name/{name}").get("filestores")
+
+    @classmethod
     def get_or_create_filestores(cls, names, workspace, region):
         return cls.make_req(
             "/api/v2/filestore/list", post=True, data={"names": names, "workspace": workspace, "region": region}
@@ -200,10 +303,8 @@ class FilestoreManagerWithoutHttp:
 
     @classmethod
     def get_signed_upload_urls(cls, fs_id, files_for_upload):
-        paths = [p for _, p, _ in files_for_upload]  # relative paths
-        return cls.make_req(f"/api/v2/filestore/fs/{fs_id}/signed-urls/upload", post=True, data={"paths": paths}).get(
-            "urls"
-        )
+        paths = [f["relative_path"] for f in files_for_upload]  # relative paths
+        return cls.make_req(f"/api/v2/filestore/fs/{fs_id}/signed-urls/upload", post=True, data={"paths": paths})
 
     @classmethod
     def get_download_list_with_urls(cls, fs_id):
@@ -234,6 +335,18 @@ class FilestoreManagerWithoutHttp:
         files = []
         total_bytes = 0
 
+        # if we're given a specific file path instead of directory, then mark that file for upload
+        if os.path.isfile(local_dir):
+            local_path = local_dir
+            local_dir = os.path.dirname(local_path)
+            relative_path = Path(os.path.relpath(local_path, local_dir)).as_posix()
+            size = os.path.getsize(local_path)
+
+            files.append({"local_path": local_path, "relative_path": relative_path, "size": size})
+            total_bytes += size
+
+            return files, total_bytes
+
         ignore_before_ts = 0
         if os.path.exists(os.path.join(local_dir, ".ignore-before")):
             ignore_before_ts = os.path.getmtime(os.path.join(local_dir, ".ignore-before"))
@@ -261,43 +374,67 @@ class FilestoreManagerWithoutHttp:
                 relative_path = Path(os.path.relpath(local_path, local_dir)).as_posix()
                 size = os.path.getsize(local_path)
 
-                files.append((local_path, relative_path, size))
+                files.append({"local_path": local_path, "relative_path": relative_path, "size": size})
                 total_bytes += size
         return files, total_bytes
 
     @classmethod
-    def upload_to_signed_url(cls, local_path, url):
+    def upload_to_signed_url(cls, local_path: str, url: str):
         with open(local_path, "rb") as f:
             buffer = io.BytesIO(f.read())
-            buffer.seek(0)
-            num_bytes = len(buffer.getvalue())
-            with httpx.Client(http2=cls.http2) as client:
-                headers = {"Content-Type": "binary/octet-stream", "Content-Length": str(num_bytes)}
-                if "blob.core.windows.net" in url:
-                    headers["x-ms-blob-type"] = "BlockBlob"
-                # TODO error handling
-                client.put(
-                    url,
-                    # content must be set to an iterable of bytes, rather than a
-                    # bytes object (like file.read()) because files >2GB need
-                    # to be sent in chunks to avoid an OverflowError in the
-                    # Python stdlib ssl module, and httpx will not chunk up a
-                    # bytes object automatically.
-                    content=buffer,
-                    timeout=60,
-                    headers=headers,
-                )
+            cls.upload_bytes_to_signed_url(buffer=buffer, url=url)
 
     @classmethod
-    def download_from_signed_url(cls, local_path, url):
+    def upload_bytes_to_signed_url(cls, buffer: io.BytesIO, url: str):
+        buffer.seek(0)
+        num_bytes = len(buffer.getvalue())
+        with httpx.Client(http2=cls.http2) as client:
+            headers = {"Content-Type": "binary/octet-stream", "Content-Length": str(num_bytes)}
+            if "blob.core.windows.net" in url:
+                headers["x-ms-blob-type"] = "BlockBlob"
+            # TODO error handling
+            client.put(
+                url,
+                # content must be set to an iterable of bytes, rather than a
+                # bytes object (like file.read()) because files >2GB need
+                # to be sent in chunks to avoid an OverflowError in the
+                # Python stdlib ssl module, and httpx will not chunk up a
+                # bytes object automatically.
+                content=buffer,
+                timeout=60,
+                headers=headers,
+            )
+
+    @classmethod
+    def download_from_signed_url(cls, local_path, url, max_retries=3, verbose=False):
         # TODO (performance enhancement) check if file already exists, skip if match, warn if not
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
-        # TODO (performance enhancement) stream
+
+        if verbose:
+            print(f"Downloading file from signed URL: {url} to {local_path}")
+
         with httpx.Client(http2=cls.http2) as client:
-            with open(local_path, "wb") as f:
-                headers = {"Content-Type": "binary/octet-stream"}
-                response = client.get(url, timeout=60, headers=headers)
-                f.write(io.BytesIO(response.content).getbuffer())
+            for attempt in range(max_retries):
+                try:
+                    with client.stream("GET", url, timeout=60) as response:
+                        response.raise_for_status()
+                        with open(local_path, "wb") as f:
+                            for chunk in response.iter_bytes(chunk_size=8192):
+                                f.write(chunk)
+                    return  # Success, exit function
+                except (httpx.RemoteProtocolError, httpx.ReadTimeout, httpx.ConnectError, httpx.HTTPStatusError) as e:
+                    if attempt < max_retries - 1:
+                        wait_time = 2**attempt  # Exponential backoff: 1s, 2s, 4s
+                        if verbose:
+                            print(
+                                f"Download failed (attempt {attempt + 1}/{max_retries}): {e}. "
+                                f"Retrying in {wait_time}s..."
+                            )
+                        time.sleep(wait_time)
+                    else:
+                        if verbose:
+                            print(f"Download failed after {max_retries} attempts: {e}")
+                        raise
 
 
 class FilestoreManager(FilestoreManagerWithoutHttp):

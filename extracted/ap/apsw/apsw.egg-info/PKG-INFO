@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: apsw
-Version: 3.50.4.0
+Version: 3.51.2.0
 Summary: Another Python SQLite Wrapper
 Home-page: https://github.com/rogerbinns/apsw
 Author: Roger Binns
@@ -18,7 +18,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Database :: Front-Ends
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 
@@ -29,7 +29,7 @@ License-File: LICENSE
   :target: https://rogerbinns.github.io/apsw/
 
 APSW stands for **A**\ nother **P**\ ython **S**\ QLite **W**\ rapper.   APSW
-supports CPython 3.9 onwards.
+supports CPython 3.10 onwards.
 
 About
 =====
@@ -40,7 +40,12 @@ Python from SQLite.  APSW glues together the complete `SQLite C API
 <https://sqlite.org/c3ref/intro.html>`__ and `Python's C API
 <https://docs.python.org/3/c-api/index.html>`__, staying up to date
 with both SQLite and Python.  This includes `full text search
-<https://rogerbinns.github.io/apsw/textsearch.html>`__.
+<https://rogerbinns.github.io/apsw/textsearch.html>`__, `session
+<https://rogerbinns.github.io/apsw/session.html>`__, `virtual tables
+<https://rogerbinns.github.io/apsw/vtable.html>`__, `VFS (virtual file
+system) <https://rogerbinns.github.io/apsw/vfs.html>`__, `JSON
+<https://rogerbinns.github.io/apsw/jsonb.html>`__, and `CArray
+<https://rogerbinns.github.io/apsw/apsw.html#apsw.carray>`__.
 
 
 It is recommended to use the builtin `sqlite3 module

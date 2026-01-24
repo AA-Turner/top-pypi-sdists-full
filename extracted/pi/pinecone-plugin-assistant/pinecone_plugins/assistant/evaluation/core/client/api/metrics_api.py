@@ -42,6 +42,7 @@ class MetricsApi(object):
         def __metrics_alignment(
             self,
             alignment_request,
+            x_pinecone_api_version="2025-10",
             **kwargs
         ):
             """Evaluate an answer  # noqa: E501
@@ -50,11 +51,12 @@ class MetricsApi(object):
             This method makes a synchronous HTTP request by default. To make an
             asynchronous HTTP request, please pass async_req=True
 
-            >>> thread = api.metrics_alignment(alignment_request, async_req=True)
+            >>> thread = api.metrics_alignment(alignment_request, x_pinecone_api_version="2025-10", async_req=True)
             >>> result = thread.get()
 
             Args:
                 alignment_request (AlignmentRequest): The request body for the alignment evaluation.
+                x_pinecone_api_version (str): Required date-based version header. defaults to "2025-10", must be one of ["2025-10"]
 
             Keyword Args:
                 _return_http_data_only (bool): response data without head status
@@ -101,6 +103,8 @@ class MetricsApi(object):
                 '_check_return_type', True
             )
             kwargs['_host_index'] = kwargs.get('_host_index')
+            kwargs['x_pinecone_api_version'] = \
+                x_pinecone_api_version
             kwargs['alignment_request'] = \
                 alignment_request
             return self.call_with_http_info(**kwargs)
@@ -118,9 +122,11 @@ class MetricsApi(object):
             },
             params_map={
                 'all': [
+                    'x_pinecone_api_version',
                     'alignment_request',
                 ],
                 'required': [
+                    'x_pinecone_api_version',
                     'alignment_request',
                 ],
                 'nullable': [
@@ -136,12 +142,16 @@ class MetricsApi(object):
                 'allowed_values': {
                 },
                 'openapi_types': {
+                    'x_pinecone_api_version':
+                        (str,),
                     'alignment_request':
                         (AlignmentRequest,),
                 },
                 'attribute_map': {
+                    'x_pinecone_api_version': 'X-Pinecone-Api-Version',
                 },
                 'location_map': {
+                    'x_pinecone_api_version': 'header',
                     'alignment_request': 'body',
                 },
                 'collection_format_map': {

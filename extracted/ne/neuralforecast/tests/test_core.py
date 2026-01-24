@@ -48,6 +48,7 @@ from neuralforecast.core import (
     PredictionIntervals,
     TimesNet,
     _insample_times,
+    _type2scaler,
 )
 from neuralforecast.losses.pytorch import (
     GMM,
@@ -57,6 +58,7 @@ from neuralforecast.losses.pytorch import (
     DistributionLoss,
     MQLoss,
 )
+from neuralforecast.tsdataset import TimeSeriesDataset
 from neuralforecast.utils import (
     AirPassengersPanel,
     AirPassengersStatic,
@@ -341,6 +343,118 @@ def test_neural_forecast_boxcox_scaling(setup_airplane_data):
         insample_res["y_expected"].values,
         rtol=0.7,
     )
+
+
+# Test static exogenous feature scaling
+
+@pytest.fixture
+def config() -> dict:
+    return {
+        'h': 12,
+        'input_size': 24,
+        'max_steps': 10,
+    }
+
+
+@pytest.mark.parametrize("scaler", _type2scaler.keys())
+def test_neural_forecast_static_scaling(config, scaler):
+    """Test static scaling functionality for NeuralForecast models."""
+    stat_exog = ['airline1', 'airline2']
+    nf = NeuralForecast(models=[NHITS(**config, stat_exog_list=stat_exog)], freq="D")
+    nf.fit(AirPassengersPanel, AirPassengersStatic)
+    without_scaler = nf.predict()
+
+    nf = NeuralForecast(models=[NHITS(**config, stat_exog_list=stat_exog)], freq="D", local_static_scaler_type=scaler)
+    nf.fit(AirPassengersPanel, AirPassengersStatic)
+    with_scaler = nf.predict()
+
+    np.testing.assert_allclose(
+        without_scaler["NHITS"].values,
+        with_scaler["NHITS"].values,
+        rtol=0.2,
+    )
+
+
+@pytest.fixture
+def data(size=300, n_series=3) -> pd.DataFrame:
+    return pd.DataFrame({
+        "unique_id": (['store_1'] * (size // n_series) + ['store_2'] * (size // n_series) + ['store_3'] * (size // n_series)),
+        "ds": np.tile(pd.date_range(start="2020-01-01", periods=size // n_series, freq="D").to_numpy(), n_series),
+        "y": np.random.rand(size),
+    })
+
+
+@pytest.fixture
+def static_data(n_series=3) -> pd.DataFrame:
+    return pd.DataFrame({
+        "unique_id": [f'store_{i+1}' for i in range(n_series)],
+        "size": np.random.randint(50, 500, size=n_series),
+        "num_days_open": np.random.randint(100, 1000, size=n_series),
+    })
+
+
+@pytest.mark.parametrize("scaler", _type2scaler.keys())
+def test_normalization_of_static_exog(data, static_data, config, scaler):
+    models = [TFT(**config, stat_exog_list=["size", "num_days_open"])]
+    nf = NeuralForecast(models=models, freq="D", local_static_scaler_type=scaler)
+    
+    dataset = TimeSeriesDataset.from_df(data, static_data)[0]
+    nf._scalers_fit_transform(dataset)
+    fit_dataset = dataset.static
+    
+    dataset = TimeSeriesDataset.from_df(data, static_data)[0]
+    nf._scalers_transform(dataset)
+    predict_dataset = dataset.static
+
+    assert (fit_dataset == predict_dataset).all()
+
+
+def test_standard_normalization_of_static_exog(data, static_data, config):
+    models = [TFT(**config, stat_exog_list=["size", "num_days_open"])]
+    nf = NeuralForecast(models=models, freq="D", local_static_scaler_type="standard")
+    
+    dataset = TimeSeriesDataset.from_df(data, static_data)[0]
+    nf._scalers_fit_transform(dataset)
+    normalized_static = dataset.static.numpy()
+
+    for i, col in enumerate(dataset.static_cols):
+        col_values = static_data[col].values.reshape(-1, 1).astype(np.float32)
+        mean = col_values.mean()
+        std = col_values.std()
+        expected_normalized = (col_values - mean) / std
+
+        np.testing.assert_allclose(nf.static_scalers_[col].stats_[:, 0], mean, rtol=1e-5)
+        np.testing.assert_allclose(nf.static_scalers_[col].stats_[:, 1], std, rtol=1e-5)
+        np.testing.assert_allclose(
+            normalized_static[:, i],
+            expected_normalized.flatten(),
+            rtol=1e-5,
+        )
+
+
+def test_minmax_normalization_of_static_exog(data, static_data, config):
+    models = [TFT(**config, stat_exog_list=["size", "num_days_open"])]
+    nf = NeuralForecast(models=models, freq="D", local_static_scaler_type="minmax")
+    
+    dataset = TimeSeriesDataset.from_df(data, static_data)[0]
+    nf._scalers_fit_transform(dataset)
+    normalized_static = dataset.static.numpy()
+
+    for i, col in enumerate(dataset.static_cols):
+        col_values = static_data[col].values.reshape(-1, 1).astype(np.float32)
+        min_val = col_values.min()
+        range_val = col_values.max() - min_val
+        expected_normalized = (col_values - min_val) / range_val
+
+        np.testing.assert_allclose(nf.static_scalers_[col].stats_[:, 0], min_val, rtol=1e-5)
+        np.testing.assert_allclose(nf.static_scalers_[col].stats_[:, 1], range_val, rtol=1e-5)
+        np.testing.assert_allclose(
+            normalized_static[:, i],
+            expected_normalized.flatten(),
+            rtol=1e-5,
+        )
+
+
 # test futr_df contents
 def test_future_df_contents(setup_airplane_data):
     AirPassengersPanel_train, AirPassengersPanel_test = setup_airplane_data
@@ -907,7 +1021,11 @@ def test_save_load(setup_airplane_data):
 def test_save_load_no_dataset(setup_airplane_data):
     AirPassengersPanel_train, AirPassengersPanel_test = setup_airplane_data
 
-    shutil.rmtree("examples/debug_run")
+    try:
+        shutil.rmtree("examples/debug_run")
+    except:
+        print("Directory does not exist")
+
     fcst = NeuralForecast(
         models=[DilatedRNN(h=12, input_size=-1, encoder_hidden_size=5, max_steps=1)],
         freq="M",
@@ -1616,7 +1734,8 @@ def test_neuralforecast_quantile_level_prediction(setup_airplane_data, model):
 @pytest.mark.parametrize("explainer", [ExplainerEnum.IntegratedGradients, ExplainerEnum.InputXGradient])
 @pytest.mark.parametrize("use_polars", [True, False])
 @pytest.mark.parametrize("horizons", [list(range(12)), [0, 5]])
-def test_explainability(explainer, use_polars, horizons):
+@pytest.mark.parametrize("recursive_horizon", [True, False])
+def test_explainability(explainer, use_polars, horizons, recursive_horizon):
     "Test that explanations are returned or skipped depending on model and configuration"
     Y_train_df = AirPassengersPanel[AirPassengersPanel['ds'] < AirPassengersPanel['ds'].values[-12]].reset_index(drop=True)
     Y_test_df = AirPassengersPanel[AirPassengersPanel['ds'] >= AirPassengersPanel['ds'].values[-12]].reset_index(drop=True)
@@ -1624,15 +1743,22 @@ def test_explainability(explainer, use_polars, horizons):
     static_df = AirPassengersStatic.drop(columns=["airline2"])
 
     h = 12
+    h_train = h
     input_size = 2*h
     n_series = Y_train_df["unique_id"].nunique()
     n_stat_exog = len(static_df.drop(columns="unique_id").columns)
 
+    if recursive_horizon:
+        # For recursive test: train with h=6, predict with h=12
+        h_train = 6
+        input_size = 6
+
     base_config = {
-        "h": h,
+        "h": h_train,
         "input_size": input_size,
         "scaler_type": "robust",
-        "max_steps": 2
+        "max_steps": 2,
+        "accelerator": "cpu",
     }
 
     models = [
@@ -1661,7 +1787,6 @@ def test_explainability(explainer, use_polars, horizons):
         LSTM( # Gets skiped when explainer is IntegratedGradients
             **base_config,
             recurrent=True,
-            accelerator="cpu",
             alias="LSTM-recurrent"
         ),
         TSMixer( # Gets skipped because it's multivariate
@@ -1669,6 +1794,25 @@ def test_explainability(explainer, use_polars, horizons):
             n_series=2,
         )
     ]
+    if recursive_horizon:
+        recursive_config = {
+            "h": h_train,
+            "input_size": input_size,
+            "scaler_type": "robust",
+            "max_steps": 2,
+            "accelerator": "cpu",
+        }
+        models = [
+            NHITS(
+                **recursive_config,
+                futr_exog_list=["trend"],
+                stat_exog_list=['airline1'],
+            ),
+            LSTM(
+                **recursive_config,
+                recurrent=False,
+            ),
+        ]
 
     freq="ME"
     if use_polars:
@@ -1684,7 +1828,8 @@ def test_explainability(explainer, use_polars, horizons):
         outputs=outputs, # Get only 1 ouput
         horizons=horizons, # Get all horizons
         static_df=static_df,
-        futr_df=futr_df, 
+        futr_df=futr_df,
+        h=h, 
         explainer=explainer
     )
 
@@ -1723,7 +1868,7 @@ def test_explainability(explainer, use_polars, horizons):
         assert expl["insample"] is not None
         expected_input_size = input_size
         if model_name == "LSTM-recurrent":
-            expected_input_size = input_size + h
+            expected_input_size = input_size + h_train
         
         batch_size = n_series
         n_series_ = 1
@@ -1755,12 +1900,16 @@ def test_explainability(explainer, use_polars, horizons):
         # Check exogenous if model has them
         model = next(m for m in models if (m.alias or m.__class__.__name__) == model_name)
         if model.futr_exog_list:
+            if recursive_horizon:
+                futr_temporal_size = model.input_size + model.h
+            else:
+                futr_temporal_size = model.input_size + h
             expected_futr_shape = (
                 batch_size,                 # batch size
                 len(horizons),              # horizons
                 n_series_,                  # n_series (1 for univariate)
                 len(outputs),               # n_outputs
-                input_size+h,               # n_input_steps (past + future)
+                futr_temporal_size,         # n_input_steps (past + future)
                 len(model.futr_exog_list),  # number of features
             )
             assert expl["futr_exog"] is not None
@@ -1771,7 +1920,7 @@ def test_explainability(explainer, use_polars, horizons):
                 len(horizons),             # horizons
                 n_series_,                 # n_series (1 for univariate)
                 len(outputs),              # n_outputs
-                input_size,                # n_input_steps (past)
+                model.input_size,          # n_input_steps (past)
                 len(model.hist_exog_list), # number of features
             )
             assert expl["hist_exog"] is not None
@@ -1819,4 +1968,41 @@ def _test_model_additivity(preds_df, expl, model_name, use_polars, n_series, h, 
         preds,
         rtol=1e-3,
         err_msg="Attribution predictions do not match model predictions"
+    )
+
+def test_compute_valid_loss_distribution_to_quantile_scale():
+    """
+    Test that when training with DistributionLoss and validating with 
+    quantile-based losses, the validation loss is computed on the original scale.
+    """
+    loss = DistributionLoss(distribution='StudentT', level=[80, 90])
+    
+    # Simulate normalized model output (mean ~0, scale ~1)
+    batch_size, horizon, n_series = 2, 12, 1
+    raw_output = (
+        torch.ones(batch_size, horizon, n_series) * 5,    
+        torch.zeros(batch_size, horizon, n_series),       # mean (normalized)
+        torch.zeros(batch_size, horizon, n_series),       # scale (normalized)
+    )
+    
+    # Simulate real data statistics
+    loc = torch.ones(batch_size, horizon, n_series) * 400
+    scale = torch.ones(batch_size, horizon, n_series) * 100
+    
+    # Apply scale_decouple (transforms distribution params to original scale)
+    distr_args = loss.scale_decouple(raw_output, loc=loc, scale=scale)
+    
+    # Sample quantiles
+    _, _, quants = loss.sample(distr_args)
+    
+    # Target would be in original scale (around loc)
+    target_mean = loc.mean().item()
+    quants_mean = quants.mean().item()
+    
+    ratio = quants_mean / target_mean
+    
+    # Ratio should be close to 1 - quantiles and target on same scale
+    assert 0.8 < ratio < 1.2, (
+        f"Quantiles mean ({quants_mean:.2f}) and target mean ({target_mean:.2f}) "
+        f"are not on the same scale. Ratio: {ratio:.2f}"
     )

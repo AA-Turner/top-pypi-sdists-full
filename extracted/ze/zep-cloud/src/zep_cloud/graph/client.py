@@ -6,6 +6,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.add_triple_response import AddTripleResponse
 from ..types.clone_graph_response import CloneGraphResponse
+from ..types.custom_instruction import CustomInstruction
 from ..types.edge_type import EdgeType
 from ..types.entity_type import EntityType
 from ..types.entity_type_response import EntityTypeResponse
@@ -17,6 +18,7 @@ from ..types.graph_data_type import GraphDataType
 from ..types.graph_list_response import GraphListResponse
 from ..types.graph_search_results import GraphSearchResults
 from ..types.graph_search_scope import GraphSearchScope
+from ..types.list_custom_instructions_response import ListCustomInstructionsResponse
 from ..types.reranker import Reranker
 from ..types.search_filters import SearchFilters
 from ..types.success_response import SuccessResponse
@@ -48,6 +50,144 @@ class GraphClient:
         RawGraphClient
         """
         return self._raw_client
+
+    def list_custom_instructions(
+        self,
+        *,
+        user_id: typing.Optional[str] = None,
+        graph_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ListCustomInstructionsResponse:
+        """
+        Lists all custom instructions for a project, user, or graph.
+
+        Parameters
+        ----------
+        user_id : typing.Optional[str]
+            User ID to get user-specific instructions
+
+        graph_id : typing.Optional[str]
+            Graph ID to get graph-specific instructions
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ListCustomInstructionsResponse
+            The list of instructions.
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.graph.list_custom_instructions(
+            user_id="user_id",
+            graph_id="graph_id",
+        )
+        """
+        _response = self._raw_client.list_custom_instructions(
+            user_id=user_id, graph_id=graph_id, request_options=request_options
+        )
+        return _response.data
+
+    def add_custom_instructions(
+        self,
+        *,
+        instructions: typing.Sequence[CustomInstruction],
+        graph_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        user_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SuccessResponse:
+        """
+        Adds new custom instructions for graphs without removing existing ones. If user_ids or graph_ids is empty, adds to project-wide default instructions.
+
+        Parameters
+        ----------
+        instructions : typing.Sequence[CustomInstruction]
+            Instructions to add to the graph.
+
+        graph_ids : typing.Optional[typing.Sequence[str]]
+            Graph IDs to add the instructions to. If empty, the instructions are added to the project-wide default.
+
+        user_ids : typing.Optional[typing.Sequence[str]]
+            User IDs to add the instructions to. If empty, the instructions are added to the project-wide default.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SuccessResponse
+            Instructions added successfully
+
+        Examples
+        --------
+        from zep_cloud import CustomInstruction, Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.graph.add_custom_instructions(
+            instructions=[
+                CustomInstruction(
+                    name="name",
+                    text="text",
+                )
+            ],
+        )
+        """
+        _response = self._raw_client.add_custom_instructions(
+            instructions=instructions, graph_ids=graph_ids, user_ids=user_ids, request_options=request_options
+        )
+        return _response.data
+
+    def delete_custom_instructions(
+        self,
+        *,
+        graph_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        instruction_names: typing.Optional[typing.Sequence[str]] = OMIT,
+        user_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SuccessResponse:
+        """
+        Deletes custom instructions for graphs or project wide defaults.
+
+        Parameters
+        ----------
+        graph_ids : typing.Optional[typing.Sequence[str]]
+            Determines which group graphs will have their custom instructions deleted. If no graphs are provided, the project-wide custom instructions will be affected.
+
+        instruction_names : typing.Optional[typing.Sequence[str]]
+            Unique identifier for the instructions to be deleted. If empty deletes all instructions.
+
+        user_ids : typing.Optional[typing.Sequence[str]]
+            Determines which user graphs will have their custom instructions deleted. If no users are provided, the project-wide custom instructions will be affected.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SuccessResponse
+            Instructions deleted successfully
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.graph.delete_custom_instructions()
+        """
+        _response = self._raw_client.delete_custom_instructions(
+            graph_ids=graph_ids, instruction_names=instruction_names, user_ids=user_ids, request_options=request_options
+        )
+        return _response.data
 
     def list_entity_types(
         self,
@@ -82,7 +222,10 @@ class GraphClient:
         client = Zep(
             api_key="YOUR_API_KEY",
         )
-        client.graph.list_entity_types()
+        client.graph.list_entity_types(
+            user_id="user_id",
+            graph_id="graph_id",
+        )
         """
         _response = self._raw_client.list_entity_types(
             user_id=user_id, graph_id=graph_id, request_options=request_options
@@ -253,15 +396,18 @@ class GraphClient:
         *,
         fact: str,
         fact_name: str,
-        target_node_name: str,
         created_at: typing.Optional[str] = OMIT,
+        edge_attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         expired_at: typing.Optional[str] = OMIT,
         fact_uuid: typing.Optional[str] = OMIT,
         graph_id: typing.Optional[str] = OMIT,
         invalid_at: typing.Optional[str] = OMIT,
+        source_node_attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         source_node_name: typing.Optional[str] = OMIT,
         source_node_summary: typing.Optional[str] = OMIT,
         source_node_uuid: typing.Optional[str] = OMIT,
+        target_node_attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        target_node_name: typing.Optional[str] = OMIT,
         target_node_summary: typing.Optional[str] = OMIT,
         target_node_uuid: typing.Optional[str] = OMIT,
         user_id: typing.Optional[str] = OMIT,
@@ -279,11 +425,12 @@ class GraphClient:
         fact_name : str
             The name of the edge to add. Should be all caps using snake case (eg RELATES_TO)
 
-        target_node_name : str
-            The name of the target node to add
-
         created_at : typing.Optional[str]
             The timestamp of the message
+
+        edge_attributes : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+            Additional attributes of the edge. Values must be scalar types (string, number, boolean, or null).
+            Nested objects and arrays are not allowed.
 
         expired_at : typing.Optional[str]
             The time (if any) at which the edge expires
@@ -296,6 +443,10 @@ class GraphClient:
         invalid_at : typing.Optional[str]
             The time (if any) at which the fact stops being true
 
+        source_node_attributes : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+            Additional attributes of the source node. Values must be scalar types (string, number, boolean, or null).
+            Nested objects and arrays are not allowed.
+
         source_node_name : typing.Optional[str]
             The name of the source node to add
 
@@ -304,6 +455,13 @@ class GraphClient:
 
         source_node_uuid : typing.Optional[str]
             The source node uuid
+
+        target_node_attributes : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+            Additional attributes of the target node. Values must be scalar types (string, number, boolean, or null).
+            Nested objects and arrays are not allowed.
+
+        target_node_name : typing.Optional[str]
+            The name of the target node to add
 
         target_node_summary : typing.Optional[str]
             The summary of the target node to add
@@ -334,21 +492,23 @@ class GraphClient:
         client.graph.add_fact_triple(
             fact="fact",
             fact_name="fact_name",
-            target_node_name="target_node_name",
         )
         """
         _response = self._raw_client.add_fact_triple(
             fact=fact,
             fact_name=fact_name,
-            target_node_name=target_node_name,
             created_at=created_at,
+            edge_attributes=edge_attributes,
             expired_at=expired_at,
             fact_uuid=fact_uuid,
             graph_id=graph_id,
             invalid_at=invalid_at,
+            source_node_attributes=source_node_attributes,
             source_node_name=source_node_name,
             source_node_summary=source_node_summary,
             source_node_uuid=source_node_uuid,
+            target_node_attributes=target_node_attributes,
+            target_node_name=target_node_name,
             target_node_summary=target_node_summary,
             target_node_uuid=target_node_uuid,
             user_id=user_id,
@@ -492,7 +652,10 @@ class GraphClient:
         client = Zep(
             api_key="YOUR_API_KEY",
         )
-        client.graph.list_all()
+        client.graph.list_all(
+            page_number=1,
+            page_size=1,
+        )
         """
         _response = self._raw_client.list_all(
             page_number=page_number, page_size=page_size, request_options=request_options
@@ -727,6 +890,168 @@ class AsyncGraphClient:
         """
         return self._raw_client
 
+    async def list_custom_instructions(
+        self,
+        *,
+        user_id: typing.Optional[str] = None,
+        graph_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ListCustomInstructionsResponse:
+        """
+        Lists all custom instructions for a project, user, or graph.
+
+        Parameters
+        ----------
+        user_id : typing.Optional[str]
+            User ID to get user-specific instructions
+
+        graph_id : typing.Optional[str]
+            Graph ID to get graph-specific instructions
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ListCustomInstructionsResponse
+            The list of instructions.
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.graph.list_custom_instructions(
+                user_id="user_id",
+                graph_id="graph_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.list_custom_instructions(
+            user_id=user_id, graph_id=graph_id, request_options=request_options
+        )
+        return _response.data
+
+    async def add_custom_instructions(
+        self,
+        *,
+        instructions: typing.Sequence[CustomInstruction],
+        graph_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        user_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SuccessResponse:
+        """
+        Adds new custom instructions for graphs without removing existing ones. If user_ids or graph_ids is empty, adds to project-wide default instructions.
+
+        Parameters
+        ----------
+        instructions : typing.Sequence[CustomInstruction]
+            Instructions to add to the graph.
+
+        graph_ids : typing.Optional[typing.Sequence[str]]
+            Graph IDs to add the instructions to. If empty, the instructions are added to the project-wide default.
+
+        user_ids : typing.Optional[typing.Sequence[str]]
+            User IDs to add the instructions to. If empty, the instructions are added to the project-wide default.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SuccessResponse
+            Instructions added successfully
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep, CustomInstruction
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.graph.add_custom_instructions(
+                instructions=[
+                    CustomInstruction(
+                        name="name",
+                        text="text",
+                    )
+                ],
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.add_custom_instructions(
+            instructions=instructions, graph_ids=graph_ids, user_ids=user_ids, request_options=request_options
+        )
+        return _response.data
+
+    async def delete_custom_instructions(
+        self,
+        *,
+        graph_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        instruction_names: typing.Optional[typing.Sequence[str]] = OMIT,
+        user_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SuccessResponse:
+        """
+        Deletes custom instructions for graphs or project wide defaults.
+
+        Parameters
+        ----------
+        graph_ids : typing.Optional[typing.Sequence[str]]
+            Determines which group graphs will have their custom instructions deleted. If no graphs are provided, the project-wide custom instructions will be affected.
+
+        instruction_names : typing.Optional[typing.Sequence[str]]
+            Unique identifier for the instructions to be deleted. If empty deletes all instructions.
+
+        user_ids : typing.Optional[typing.Sequence[str]]
+            Determines which user graphs will have their custom instructions deleted. If no users are provided, the project-wide custom instructions will be affected.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SuccessResponse
+            Instructions deleted successfully
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.graph.delete_custom_instructions()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete_custom_instructions(
+            graph_ids=graph_ids, instruction_names=instruction_names, user_ids=user_ids, request_options=request_options
+        )
+        return _response.data
+
     async def list_entity_types(
         self,
         *,
@@ -765,7 +1090,10 @@ class AsyncGraphClient:
 
 
         async def main() -> None:
-            await client.graph.list_entity_types()
+            await client.graph.list_entity_types(
+                user_id="user_id",
+                graph_id="graph_id",
+            )
 
 
         asyncio.run(main())
@@ -963,15 +1291,18 @@ class AsyncGraphClient:
         *,
         fact: str,
         fact_name: str,
-        target_node_name: str,
         created_at: typing.Optional[str] = OMIT,
+        edge_attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         expired_at: typing.Optional[str] = OMIT,
         fact_uuid: typing.Optional[str] = OMIT,
         graph_id: typing.Optional[str] = OMIT,
         invalid_at: typing.Optional[str] = OMIT,
+        source_node_attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         source_node_name: typing.Optional[str] = OMIT,
         source_node_summary: typing.Optional[str] = OMIT,
         source_node_uuid: typing.Optional[str] = OMIT,
+        target_node_attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        target_node_name: typing.Optional[str] = OMIT,
         target_node_summary: typing.Optional[str] = OMIT,
         target_node_uuid: typing.Optional[str] = OMIT,
         user_id: typing.Optional[str] = OMIT,
@@ -989,11 +1320,12 @@ class AsyncGraphClient:
         fact_name : str
             The name of the edge to add. Should be all caps using snake case (eg RELATES_TO)
 
-        target_node_name : str
-            The name of the target node to add
-
         created_at : typing.Optional[str]
             The timestamp of the message
+
+        edge_attributes : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+            Additional attributes of the edge. Values must be scalar types (string, number, boolean, or null).
+            Nested objects and arrays are not allowed.
 
         expired_at : typing.Optional[str]
             The time (if any) at which the edge expires
@@ -1006,6 +1338,10 @@ class AsyncGraphClient:
         invalid_at : typing.Optional[str]
             The time (if any) at which the fact stops being true
 
+        source_node_attributes : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+            Additional attributes of the source node. Values must be scalar types (string, number, boolean, or null).
+            Nested objects and arrays are not allowed.
+
         source_node_name : typing.Optional[str]
             The name of the source node to add
 
@@ -1014,6 +1350,13 @@ class AsyncGraphClient:
 
         source_node_uuid : typing.Optional[str]
             The source node uuid
+
+        target_node_attributes : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+            Additional attributes of the target node. Values must be scalar types (string, number, boolean, or null).
+            Nested objects and arrays are not allowed.
+
+        target_node_name : typing.Optional[str]
+            The name of the target node to add
 
         target_node_summary : typing.Optional[str]
             The summary of the target node to add
@@ -1049,7 +1392,6 @@ class AsyncGraphClient:
             await client.graph.add_fact_triple(
                 fact="fact",
                 fact_name="fact_name",
-                target_node_name="target_node_name",
             )
 
 
@@ -1058,15 +1400,18 @@ class AsyncGraphClient:
         _response = await self._raw_client.add_fact_triple(
             fact=fact,
             fact_name=fact_name,
-            target_node_name=target_node_name,
             created_at=created_at,
+            edge_attributes=edge_attributes,
             expired_at=expired_at,
             fact_uuid=fact_uuid,
             graph_id=graph_id,
             invalid_at=invalid_at,
+            source_node_attributes=source_node_attributes,
             source_node_name=source_node_name,
             source_node_summary=source_node_summary,
             source_node_uuid=source_node_uuid,
+            target_node_attributes=target_node_attributes,
+            target_node_name=target_node_name,
             target_node_summary=target_node_summary,
             target_node_uuid=target_node_uuid,
             user_id=user_id,
@@ -1231,7 +1576,10 @@ class AsyncGraphClient:
 
 
         async def main() -> None:
-            await client.graph.list_all()
+            await client.graph.list_all(
+                page_number=1,
+                page_size=1,
+            )
 
 
         asyncio.run(main())

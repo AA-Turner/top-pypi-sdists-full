@@ -18,6 +18,8 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
+from pydantic import ConfigDict
+
 from snowflake.core.stream._generated.models.stream_source import StreamSource
 
 
@@ -41,9 +43,10 @@ class StreamSourceStage(StreamSource):
 
     __properties = ["src_type", "name", "database_name", "schema_name"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -68,7 +71,7 @@ class StreamSourceStage(StreamSource):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         _dict["src_type"] = StreamSource.get_child_model_discriminator_value("StreamSourceStage")
 
@@ -85,9 +88,9 @@ class StreamSourceStage(StreamSource):
             return None
 
         if type(obj) is not dict:
-            return StreamSourceStage.parse_obj(obj)
+            return StreamSourceStage.model_validate(obj)
 
-        _obj = StreamSourceStage.parse_obj(
+        _obj = StreamSourceStage.model_validate(
             {
                 "name": obj.get("name"),
                 "database_name": obj.get("database_name"),

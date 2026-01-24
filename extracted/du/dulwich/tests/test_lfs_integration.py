@@ -35,6 +35,11 @@ from . import TestCase
 class LFSFilterIntegrationTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
+        # Suppress LFS warnings during these integration tests
+        import logging
+
+        self._old_level = logging.getLogger("dulwich.lfs").level
+        logging.getLogger("dulwich.lfs").setLevel(logging.ERROR)
         # Create temporary directory for LFS store
         self.test_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.test_dir)
@@ -56,9 +61,19 @@ class LFSFilterIntegrationTests(TestCase):
         ]
         self.gitattributes = GitAttributes(patterns)
 
+        from dulwich.filters import FilterContext
+
+        filter_context = FilterContext(self.registry)
         self.normalizer = FilterBlobNormalizer(
-            self.config, self.gitattributes, self.registry
+            self.config, self.gitattributes, filter_context=filter_context
         )
+
+    def tearDown(self) -> None:
+        # Restore original logging level
+        import logging
+
+        logging.getLogger("dulwich.lfs").setLevel(self._old_level)
+        super().tearDown()
 
     def test_lfs_round_trip(self) -> None:
         """Test complete LFS round trip through filter normalizer."""
@@ -130,5 +145,6 @@ class LFSFilterIntegrationTests(TestCase):
         blob.data = pointer.to_bytes()
 
         # Checkout should return the pointer as-is when object is missing
-        checked_out = self.normalizer.checkout_normalize(blob, b"missing.bin")
+        with self.assertLogs("dulwich.lfs", level="WARNING"):
+            checked_out = self.normalizer.checkout_normalize(blob, b"missing.bin")
         self.assertEqual(checked_out.data, blob.data)

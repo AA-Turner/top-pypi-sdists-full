@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import uuid
 import warnings
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -27,13 +28,13 @@ try:
 except ImportError:
     from typing_extensions import deprecated  # Python 3.12
 
+
 import pyarrow as pa
 
-from datafusion.catalog import Catalog, CatalogProvider, Table
+from datafusion.catalog import Catalog
 from datafusion.dataframe import DataFrame
-from datafusion.expr import SortKey, sort_list_to_raw_sort_list
+from datafusion.expr import sort_list_to_raw_sort_list
 from datafusion.record_batch import RecordBatchStream
-from datafusion.user_defined import AggregateUDF, ScalarUDF, TableFunction, WindowUDF
 
 from ._internal import RuntimeEnvBuilder as RuntimeEnvBuilderInternal
 from ._internal import SessionConfig as SessionConfigInternal
@@ -48,7 +49,15 @@ if TYPE_CHECKING:
     import pandas as pd
     import polars as pl  # type: ignore[import]
 
+    from datafusion.catalog import CatalogProvider, Table
+    from datafusion.expr import SortKey
     from datafusion.plan import ExecutionPlan, LogicalPlan
+    from datafusion.user_defined import (
+        AggregateUDF,
+        ScalarUDF,
+        TableFunction,
+        WindowUDF,
+    )
 
 
 class ArrowStreamExportable(Protocol):
@@ -585,8 +594,18 @@ class SessionContext:
             self._convert_file_sort_order(file_sort_order),
         )
 
-    def sql(self, query: str, options: SQLOptions | None = None) -> DataFrame:
+    def sql(
+        self,
+        query: str,
+        options: SQLOptions | None = None,
+        param_values: dict[str, Any] | None = None,
+        **named_params: Any,
+    ) -> DataFrame:
         """Create a :py:class:`~datafusion.DataFrame` from SQL query text.
+
+        See the online documentation for a description of how to perform
+        parameterized substitution via either the ``param_values`` option
+        or passing in ``named_params``.
 
         Note: This API implements DDL statements such as ``CREATE TABLE`` and
         ``CREATE VIEW`` and DML statements such as ``INSERT INTO`` with in-memory
@@ -596,15 +615,57 @@ class SessionContext:
         Args:
             query: SQL query text.
             options: If provided, the query will be validated against these options.
+            param_values: Provides substitution of scalar values in the query
+                after parsing.
+            named_params: Provides string or DataFrame substitution in the query string.
 
         Returns:
             DataFrame representation of the SQL query.
         """
-        if options is None:
-            return DataFrame(self.ctx.sql(query))
-        return DataFrame(self.ctx.sql_with_options(query, options.options_internal))
 
-    def sql_with_options(self, query: str, options: SQLOptions) -> DataFrame:
+        def value_to_scalar(value: Any) -> pa.Scalar:
+            if isinstance(value, pa.Scalar):
+                return value
+            return pa.scalar(value)
+
+        def value_to_string(value: Any) -> str:
+            if isinstance(value, DataFrame):
+                view_name = str(uuid.uuid4()).replace("-", "_")
+                view_name = f"view_{view_name}"
+                view = value.df.into_view(temporary=True)
+                self.ctx.register_table(view_name, view)
+                return view_name
+            return str(value)
+
+        param_values = (
+            {name: value_to_scalar(value) for (name, value) in param_values.items()}
+            if param_values is not None
+            else {}
+        )
+        param_strings = (
+            {name: value_to_string(value) for (name, value) in named_params.items()}
+            if named_params is not None
+            else {}
+        )
+
+        options_raw = options.options_internal if options is not None else None
+
+        return DataFrame(
+            self.ctx.sql_with_options(
+                query,
+                options=options_raw,
+                param_values=param_values,
+                param_strings=param_strings,
+            )
+        )
+
+    def sql_with_options(
+        self,
+        query: str,
+        options: SQLOptions,
+        param_values: dict[str, Any] | None = None,
+        **named_params: Any,
+    ) -> DataFrame:
         """Create a :py:class:`~datafusion.dataframe.DataFrame` from SQL query text.
 
         This function will first validate that the query is allowed by the
@@ -613,11 +674,16 @@ class SessionContext:
         Args:
             query: SQL query text.
             options: SQL options.
+            param_values: Provides substitution of scalar values in the query
+                after parsing.
+            named_params: Provides string or DataFrame substitution in the query string.
 
         Returns:
             DataFrame representation of the SQL query.
         """
-        return self.sql(query, options)
+        return self.sql(
+            query, options=options, param_values=param_values, **named_params
+        )
 
     def create_dataframe(
         self,
@@ -733,7 +799,7 @@ class SessionContext:
     # https://github.com/apache/datafusion-python/pull/1016#discussion_r1983239116
     # is the discussion on how we arrived at adding register_view
     def register_view(self, name: str, df: DataFrame) -> None:
-        """Register a :py:class: `~datafusion.detaframe.DataFrame` as a view.
+        """Register a :py:class:`~datafusion.dataframe.DataFrame` as a view.
 
         Args:
             name (str): The name to register the view under.
@@ -742,16 +808,21 @@ class SessionContext:
         view = df.into_view()
         self.ctx.register_table(name, view)
 
-    def register_table(self, name: str, table: Table) -> None:
-        """Register a :py:class: `~datafusion.catalog.Table` as a table.
+    def register_table(
+        self,
+        name: str,
+        table: Table | TableProviderExportable | DataFrame | pa.dataset.Dataset,
+    ) -> None:
+        """Register a :py:class:`~datafusion.Table` with this context.
 
-        The registered table can be referenced from SQL statement executed against.
+        The registered table can be referenced from SQL statements executed against
+        this context.
 
         Args:
             name: Name of the resultant table.
-            table: DataFusion table to add to the session context.
+            table: Any object that can be converted into a :class:`Table`.
         """
-        self.ctx.register_table(name, table.table)
+        self.ctx.register_table(name, table)
 
     def deregister_table(self, name: str) -> None:
         """Remove a table from the session."""
@@ -770,15 +841,17 @@ class SessionContext:
         else:
             self.ctx.register_catalog_provider(name, provider)
 
+    @deprecated("Use register_table() instead.")
     def register_table_provider(
-        self, name: str, provider: TableProviderExportable
+        self,
+        name: str,
+        provider: Table | TableProviderExportable | DataFrame | pa.dataset.Dataset,
     ) -> None:
         """Register a table provider.
 
-        This table provider must have a method called ``__datafusion_table_provider__``
-        which returns a PyCapsule that exposes a ``FFI_TableProvider``.
+        Deprecated: use :meth:`register_table` instead.
         """
-        self.ctx.register_table_provider(name, provider)
+        self.register_table(name, provider)
 
     def register_udtf(self, func: TableFunction) -> None:
         """Register a user defined table function."""
@@ -1163,14 +1236,11 @@ class SessionContext:
             self.ctx.read_avro(str(path), schema, file_partition_cols, file_extension)
         )
 
-    def read_table(self, table: Table) -> DataFrame:
-        """Creates a :py:class:`~datafusion.dataframe.DataFrame` from a table.
-
-        For a :py:class:`~datafusion.catalog.Table` such as a
-        :py:class:`~datafusion.catalog.ListingTable`, create a
-        :py:class:`~datafusion.dataframe.DataFrame`.
-        """
-        return DataFrame(self.ctx.read_table(table.table))
+    def read_table(
+        self, table: Table | TableProviderExportable | DataFrame | pa.dataset.Dataset
+    ) -> DataFrame:
+        """Creates a :py:class:`~datafusion.dataframe.DataFrame` from a table."""
+        return DataFrame(self.ctx.read_table(table))
 
     def execute(self, plan: ExecutionPlan, partitions: int) -> RecordBatchStream:
         """Execute the ``plan`` and return the results."""

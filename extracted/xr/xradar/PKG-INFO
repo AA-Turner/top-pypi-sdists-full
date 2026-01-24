@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xradar
-Version: 0.10.0
+Version: 0.11.0
 Summary: Xradar includes all the tools to get your weather radar into the xarray data model.
 Author-email: Maxwell Grover <mgrover@anl.gov>, Kai Mühlbauer <kai.muehlbauer@uni-bonn.de>, Zachary Sherman <zsherman@anl.gov>
 License-Expression: MIT
@@ -55,6 +55,15 @@ Requires-Dist: boto3; extra == "dev"
 Requires-Dist: cartopy; extra == "dev"
 Requires-Dist: s3fs; extra == "dev"
 Requires-Dist: zarr<3,>=2; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: diff-cover; extra == "dev"
+Requires-Dist: myst-parser; extra == "dev"
+Requires-Dist: sphinx-copybutton; extra == "dev"
+Requires-Dist: sphinx-favicon; extra == "dev"
+Requires-Dist: nbsphinx; extra == "dev"
+Requires-Dist: pydata-sphinx-theme; extra == "dev"
 Dynamic: license-file
 
 # xradar
@@ -133,6 +142,25 @@ Thanks to our many contributors!
 [![Contributors](https://contrib.rocks/image?repo=openradar/xradar)](https://github.com/openradar/xradar/graphs/contributors)
 
 # History
+
+## 0.11.0 (2026-01-12)
+
+* ENH: get radar coordinates with given reference system ({issue}`243`) ({pull}`300`) by [@egouden](https://github.com/egouden)
+* ENH: Disable fill value in rainbow reader ({issue}`103`) ({pull}`290`) by [@egouden](https://github.com/egouden)
+* ADD: read nyquist_velocity in ODIM and GAMIC HDF5 files ({pull}`291`) by
+  [@katelbach](https://github.com/katelbach)
+* MNT: update and harden CI, add zizmor to precommit, add dependabot ({pull}`294`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: Return float32 for float types (keep other dtypes) and remove erroneous "units" from time attrs for hpl reader. ({issue}`296`) ({pull}`297`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* MNT: Fix Windows errors in file handling ({pull}`295`) by [@egouden](https://github.com/egouden)
+* MNT: do not overwrite Dataset for Dataset.update ({pull}`302`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: Properly handle zero and NaN values during IRIS/Sigmet KDP decode. ({pull}`301`) by [@billvieux](https://github.com/billvieux)
+* FIX: NEXRAD Level2 backend compatibility with older files and VCP-0 ({issue}`311`, {pull}`312`) by [@aladinor](https://github.com/aladinor)
+* FIX: Add explicit `compat="no_conflicts",` to `xr.merge()` in `_get_subgroup` to silence xarray FutureWarning ({issue}`313`, {pull}`314`) by [@aladinor](https://github.com/aladinor).
+* MNT: create individual notebook tests with pytest_generate_tests and use tmp_path-fixture ({pull}`316`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: Ensure backend closers are available ({pull}`318`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* MNT: Enhance contributing experience ({pull}`315`) by [@egouden](https://github.com/egouden)
+* ENH: Add ``combine_sweeps`` function to stack sweeps into a single radar volume with optional time and angle filtering ({pull}`307`) by [@egouden](https://github.com/egouden)
+* FIX: Use time-dimension to stack/unstack CfRadial1 data for variable number of gates, properly handle duplicates ({issue}`317`), ({pull}`320`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
 
 ## 0.10.0 (2025-07-11)
 

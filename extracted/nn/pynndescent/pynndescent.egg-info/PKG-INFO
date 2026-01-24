@@ -1,18 +1,15 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pynndescent
-Version: 0.5.13
+Version: 0.6.0
 Summary: Nearest Neighbor Descent
-Home-page: http://github.com/lmcinnes/pynndescent
-Author: Leland McInnes
-Author-email: leland.mcinnes@gmail.com
-Maintainer: Leland McInnes
-Maintainer-email: leland.mcinnes@gmail.com
-License: BSD
-Keywords: nearest neighbor,knn,ANN
+Author-email: Leland McInnes <leland.mcinnes@gmail.com>
+Maintainer-email: Leland McInnes <leland.mcinnes@gmail.com>
+License-Expression: BSD-2-Clause
+Project-URL: Homepage, http://github.com/lmcinnes/pynndescent
+Keywords: nearest,neighbor,knn,ANN
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development
 Classifier: Topic :: Scientific/Engineering
@@ -20,11 +17,20 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Description-Content-Type: text/x-rst
 License-File: LICENSE
+Requires-Dist: scikit-learn>=0.18
+Requires-Dist: scipy>=1.0
+Requires-Dist: numba>=0.55.0
+Requires-Dist: llvmlite>=0.38
+Requires-Dist: joblib>=0.11
+Provides-Extra: testing
+Requires-Dist: pytest; extra == "testing"
+Dynamic: license-file
 
 .. image:: doc/pynndescent_logo.png
   :width: 600

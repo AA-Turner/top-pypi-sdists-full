@@ -57,7 +57,9 @@ class MongoDBDatabase:
             )
         self._include_colls = set(include_collections or [])
         self._ignore_colls = set(ignore_collections or [])
-        self._all_colls = set(self._db.list_collection_names())
+        self._all_colls = set(
+            self._db.list_collection_names(authorizedCollections=True)
+        )
 
         self._sample_docs_in_coll_info = sample_docs_in_collection_info
         self._indexes_in_coll_info = indexes_in_collection_info
@@ -339,10 +341,15 @@ class MongoDBDatabase:
                 raise ValueError("ObjectId must contain a value.")
             return f"ObjectId('{oid_str}')"
 
+        def _handle_id_key(match: Any) -> str:
+            return f'"{match.group(1)}"'
+
         patterns = [
             (r'ISODate\(\s*["\']([^"\']*)["\']\s*\)', _handle_iso_date),
             (r'new\s+Date\(\s*["\']([^"\']*)["\']\s*\)', _handle_new_date),
             (r'ObjectId\(\s*["\']([^"\']*)["\']\s*\)', _handle_object_id),
+            (r'ObjectId\(\s*["\']([^"\']*)["\']\s*\)', _handle_object_id),
+            (r'(?<!["\'])\b(_id)\b(?!["\'])', _handle_id_key),
         ]
 
         for pattern, replacer in patterns:

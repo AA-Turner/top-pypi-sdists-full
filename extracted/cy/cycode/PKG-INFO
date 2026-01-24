@@ -1,26 +1,25 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cycode
-Version: 3.5.0
+Version: 3.8.9
 Summary: Boost security in your dev lifecycle via SAST, SCA, Secrets & IaC scanning.
-Home-page: https://github.com/cycodehq/cycode-cli
-License: MIT
-Keywords: secret-scan,cycode,devops,token,secret,security,cycode,code
+License-Expression: MIT
+License-File: LICENCE
+Keywords: secret-scan,cycode,devops,token,secret,security,code
 Author: Cycode
 Author-email: support@cycode.com
-Requires-Python: >=3.9,<3.14
+Requires-Python: >=3.9
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: arrow (>=1.0.0,<1.4.0)
 Requires-Dist: binaryornot (>=0.4.4,<0.5.0)
 Requires-Dist: click (>=8.1.0,<8.2.0)
@@ -100,8 +99,9 @@ This guide walks you through both installation and usage.
         6. [Ignoring via a config file](#ignoring-via-a-config-file)
 6. [Report command](#report-command)
     1. [Generating SBOM Report](#generating-sbom-report)
-7. [Scan logs](#scan-logs)
-8. [Syntax Help](#syntax-help)
+7. [Import command](#import-command)
+8. [Scan logs](#scan-logs)
+9. [Syntax Help](#syntax-help)
 
 # Prerequisites
 
@@ -144,7 +144,7 @@ To install the Cycode CLI application on your local machine, perform the followi
      ./cycode
      ```
 
-3. Finally authenticate the CLI. There are three methods to set the Cycode client ID and client secret:
+3. Finally authenticate the CLI. There are three methods to set the Cycode client ID and credentials (client secret or OIDC ID token):
 
    - [cycode auth](#using-the-auth-command) (**Recommended**)
    - [cycode configure](#using-the-configure-command)
@@ -207,11 +207,15 @@ To install the Cycode CLI application on your local machine, perform the followi
 
     `Cycode Client ID []: 7fe5346b-xxxx-xxxx-xxxx-55157625c72d`
 
-5. Enter your Cycode Client Secret value.
+5. Enter your Cycode Client Secret value (skip if you plan to use an OIDC ID token).
 
     `Cycode Client Secret []: c1e24929-xxxx-xxxx-xxxx-8b08c1839a2e`
 
-6. If the values were entered successfully, you'll see the following message:
+6. Enter your Cycode OIDC ID Token value (optional).
+
+    `Cycode ID Token []: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...`
+
+7. If the values were entered successfully, you'll see the following message:
 
     `Successfully configured CLI credentials!`
 
@@ -236,6 +240,12 @@ and
 export CYCODE_CLIENT_SECRET={your Cycode Secret Key}
 ```
 
+If your organization uses OIDC authentication, you can provide the ID token instead (or in addition):
+
+```bash
+export CYCODE_ID_TOKEN={your Cycode OIDC ID token}
+```
+
 #### On Windows
 
 1. From the Control Panel, navigate to the System menu:
@@ -250,7 +260,7 @@ export CYCODE_CLIENT_SECRET={your Cycode Secret Key}
 
    <img height="30" src="https://raw.githubusercontent.com/cycodehq/cycode-cli/main/images/image3.png" alt="environments variables button"/>
 
-4. Create `CYCODE_CLIENT_ID` and `CYCODE_CLIENT_SECRET` variables with values matching your ID and Secret Key, respectively:
+4. Create `CYCODE_CLIENT_ID` and `CYCODE_CLIENT_SECRET` variables with values matching your ID and Secret Key, respectively. If you authenticate via OIDC, add `CYCODE_ID_TOKEN` with your OIDC ID token value as well:
 
    <img height="100" src="https://raw.githubusercontent.com/cycodehq/cycode-cli/main/images/image4.png" alt="environment variables window"/>
 
@@ -364,6 +374,7 @@ The following are the options and commands available with the Cycode CLI applica
 | `-o`, `--output [rich\|text\|json\|table]`                        | Specify the output type. The default is `rich`.                                    |
 | `--client-id TEXT`                                                | Specify a Cycode client ID for this specific scan execution.                       |
 | `--client-secret TEXT`                                            | Specify a Cycode client secret for this specific scan execution.                   |
+| `--id-token TEXT`                                                 | Specify a Cycode OIDC ID token for this specific scan execution.                   |
 | `--install-completion`                                            | Install completion for the current shell..                                         |
 | `--show-completion           [bash\|zsh\|fish\|powershell\|pwsh]` | Show completion for the specified shell, to copy it or customize the installation. |
 | `-h`, `--help`                                                    | Show options for given command.                                                    |
@@ -388,7 +399,7 @@ The Model Context Protocol (MCP) command allows you to start an MCP server that 
 > [!TIP]
 > For the best experience, install Cycode CLI globally on your system using `pip install cycode` or `brew install cycode`, then authenticate once with `cycode auth`. After global installation and authentication, you won't need to configure `CYCODE_CLIENT_ID` and `CYCODE_CLIENT_SECRET` environment variables in your MCP configuration files.
 
-[![Add MCP Server to Cursor using UV](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=cycode&config=eyJjb21tYW5kIjoidXZ4IGN5Y29kZSBtY3AiLCJlbnYiOnsiQ1lDT0RFX0NMSUVOVF9JRCI6InlvdXItY3ljb2RlLWlkIiwiQ1lDT0RFX0NMSUVOVF9TRUNSRVQiOiJ5b3VyLWN5Y29kZS1zZWNyZXQta2V5IiwiQ1lDT0RFX0FQSV9VUkwiOiJodHRwczovL2FwaS5jeWNvZGUuY29tIiwiQ1lDT0RFX0FQUF9VUkwiOiJodHRwczovL2FwcC5jeWNvZGUuY29tIn19)
+[![Add MCP Server to Cursor using UV](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=cycode&config=eyJjb21tYW5kIjoidXZ4IGN5Y29kZSBtY3AiLCJlbnYiOnsiQ1lDT0RFX0NMSUVOVF9JRCI6InlvdXItY3ljb2RlLWlkIiwiQ1lDT0RFX0NMSUVOVF9TRUNSRVQiOiJ5b3VyLWN5Y29kZS1zZWNyZXQta2V5IiwiQ1lDT0RFX0FQSV9VUkwiOiJodHRwczovL2FwaS5jeWNvZGUuY29tIiwiQ1lDT0RFX0FQUF9VUkwiOiJodHRwczovL2FwcC5jeWNvZGUuY29tIn19)
 
 
 ## Starting the MCP Server
@@ -961,6 +972,24 @@ git push --no-verify
 > [!TIP]
 > The pre-push hook is triggered on `git push` command and scans only the commits that are about to be pushed, making it more efficient than scanning the entire repository.
 
+## Exclude Paths From Scans
+You can use a `.cycodeignore` file to tell the Cycode CLI which files and directories to exclude from scans.
+It works just like a `.gitignore` file. This helps you focus scans on your relevant code and prevent certain paths from triggering violations locally.
+
+### How It Works
+1. Create a file named `.cycodeignore` in your workfolder.
+2. List the files and directories you want to exclude, using the same patterns as `.gitignore`.
+3. Place this file in the directory where you plan to run the cycode scan command.
+
+> [!WARNING]
+> - **Invalid files**: If the `.cycodeignore` file contains a syntax error, the CLI scan will fail and return an error.
+> - **Ignoring paths vs. violations**: This file is for excluding paths. It's different from the CLI's capability to ignore specific violations (for example, by using the --ignore-violation flag).
+
+### Supported Scanners
+- SAST
+- IaC (comming soon)
+- SCA (comming soon)
+
 ## Scan Results
 
 Each scan will complete with a message stating if any issues were found or not.
@@ -1320,6 +1349,26 @@ To create an SBOM report for a path:\
 
 For example:\
 `cycode report sbom --format spdx-2.3 --include-vulnerabilities --include-dev-dependencies path /path/to/local/project`
+
+# Import Command
+
+## Importing SBOM
+
+A software bill of materials (SBOM) is an inventory of all constituent components and software dependencies involved in the development and delivery of an application.
+Using this command, you can import an SBOM file from your file system into Cycode.
+
+The following options are available for use with this command:
+
+| Option                                             | Description                                | Required | Default                                               |
+|----------------------------------------------------|--------------------------------------------|----------|-------------------------------------------------------|
+| `-n, --name TEXT`                                  | Display name of the SBOM                   | Yes      |                                                       |
+| `-v, --vendor TEXT`                                | Name of the entity that provided the SBOM  | Yes      |                                                       |
+| `-l, --label TEXT`                                 | Attach label to the SBOM                   | No       |                                                       |
+| `-o, --owner TEXT`                                 | Email address of the Cycode user that serves as point of contact for this SBOM | No |                         |
+| `-b, --business-impact [High \| Medium \| Low]`    | Business Impact                            | No       | Medium                                                |
+
+For example:\
+`cycode import sbom --name example-sbom --vendor cycode -label tag1 -label tag2 --owner example@cycode.com /path/to/local/project`
 
 # Scan Logs
 

@@ -1,20 +1,30 @@
 """Define flatpage instance."""
 
+from __future__ import annotations
+from functools import cached_property
 from io import StringIO
-
+from typing import Any
 
 import yaml
-from werkzeug.utils import cached_property
+
+from .utils import WrappedRenderer
 
 
-class Page(object):
+class Page:
     """Simple class to store all necessary information about a flatpage.
 
     Main purpose is to render the page's content with a ``html_renderer``
     function.
     """
 
-    def __init__(self, path, meta, body, html_renderer, folder):
+    def __init__(
+        self,
+        path: str,
+        meta: str,
+        body: str,
+        html_renderer: WrappedRenderer["Page"],
+        folder: str,
+    ):
         """Initialize Page instance.
 
         :param path: Page path.
@@ -33,7 +43,7 @@ class Page(object):
         #: The name of the folder the page is contained in.
         self.folder = folder
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str):
         """Shortcut for accessing metadata.
 
         ``page['title']`` or, in a template, ``{{ page.title }}`` are
@@ -41,7 +51,7 @@ class Page(object):
         """
         return self.meta[name]
 
-    def __html__(self):
+    def __html__(self) -> str:
         """
         Return HTML for use in Jinja templates.
 
@@ -50,19 +60,18 @@ class Page(object):
         """
         return self.html
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Machine representation of :class:`Page` instance."""
-        return "<Page %r>" % self.path
+        return f"<Page {self.path}>"
 
     @cached_property
-    def html(self):
+    def html(self) -> str:
         """Content of the page, rendered as HTML by the configured renderer."""
         return self.html_renderer(self)
 
     @cached_property
-    def meta(self):
+    def meta(self) -> dict[str, Any]:
         """Store a dict of metadata parsed from the YAML header of the file."""
-        # meta = yaml.safe_load(self._meta)
         meta = {}
         for doc in yaml.safe_load_all(StringIO(self._meta)):
             if doc is not None:

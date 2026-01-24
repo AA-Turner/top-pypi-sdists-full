@@ -6,7 +6,6 @@ from operator import ior
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
-    Generator,
     List,
     Literal,
     Optional,
@@ -303,7 +302,7 @@ def merge_cases(*args: ValidationCase) -> ValidationCase:
 
 def merged_product(
     *args: Sequence[ValidationCase], conditions: dict = None
-) -> Generator[ValidationCase, None, None]:
+) -> list[ValidationCase]:
     """
     Generator for the product of the iterators of validation cases,
     merging each tuple, and respecting if they should be :meth:`.ValidationCase.skip`
@@ -341,6 +340,7 @@ def merged_product(
 
     """
     iterator = product(*args)
+    cases = []
     for case_tuple in iterator:
         case = merge_cases(*case_tuple)
         if case.skip():
@@ -349,4 +349,5 @@ def merged_product(
             matching = all([getattr(case, k, None) == v for k, v in conditions.items()])
             if not matching:
                 continue
-        yield case
+        cases.append(case)
+    return cases

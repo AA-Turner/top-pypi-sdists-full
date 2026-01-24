@@ -9,43 +9,51 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
-from typing_extensions import NotRequired, TypedDict
+from typing import Union
+from typing_extensions import TypedDict
 
-from .group_0003 import SimpleUserType
-from .group_0010 import IntegrationType
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
 
 
-class AddedToProjectIssueEventType(TypedDict):
-    """Added to Project Issue Event
+class StatusType(TypedDict):
+    """Status
 
-    Added to Project Issue Event
+    The status of a commit.
     """
 
+    url: str
+    avatar_url: Union[str, None]
     id: int
     node_id: str
-    url: str
-    actor: SimpleUserType
-    event: Literal["added_to_project"]
-    commit_id: Union[str, None]
-    commit_url: Union[str, None]
+    state: str
+    description: Union[str, None]
+    target_url: Union[str, None]
+    context: str
     created_at: str
-    performed_via_github_app: Union[None, IntegrationType, None]
-    project_card: NotRequired[AddedToProjectIssueEventPropProjectCardType]
+    updated_at: str
+    creator: Union[None, SimpleUserType]
 
 
-class AddedToProjectIssueEventPropProjectCardType(TypedDict):
-    """AddedToProjectIssueEventPropProjectCard"""
+class StatusTypeForResponse(TypedDict):
+    """Status
 
-    id: int
+    The status of a commit.
+    """
+
     url: str
-    project_id: int
-    project_url: str
-    column_name: str
-    previous_column_name: NotRequired[str]
+    avatar_url: Union[str, None]
+    id: int
+    node_id: str
+    state: str
+    description: Union[str, None]
+    target_url: Union[str, None]
+    context: str
+    created_at: str
+    updated_at: str
+    creator: Union[None, SimpleUserTypeForResponse]
 
 
 __all__ = (
-    "AddedToProjectIssueEventPropProjectCardType",
-    "AddedToProjectIssueEventType",
+    "StatusType",
+    "StatusTypeForResponse",
 )

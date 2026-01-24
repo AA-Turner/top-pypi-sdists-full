@@ -32,6 +32,7 @@ from pytorch_lightning.callbacks.spike import SpikeDetection
 from pytorch_lightning.callbacks.stochastic_weight_avg import StochasticWeightAveraging
 from pytorch_lightning.callbacks.throughput_monitor import ThroughputMonitor
 from pytorch_lightning.callbacks.timer import Timer
+from pytorch_lightning.callbacks.weight_averaging import EMAWeightAveraging, WeightAveraging
 
 __all__ = [
     "BackboneFinetuning",
@@ -58,4 +59,6 @@ __all__ = [
     "ThroughputMonitor",
     "Timer",
     "TQDMProgressBar",
+    "EMAWeightAveraging",
+    "WeightAveraging",
 ]

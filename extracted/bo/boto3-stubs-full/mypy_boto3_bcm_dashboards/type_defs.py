@@ -3,7 +3,7 @@ Type annotations for bcm-dashboards service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bcm_dashboards/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -30,12 +31,6 @@ from .literals import (
     VisualTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -120,8 +115,8 @@ GroupDefinitionTypeDef = TypedDict(
 
 class CostCategoryValuesOutputTypeDef(TypedDict):
     key: NotRequired[str]
-    values: NotRequired[List[str]]
-    matchOptions: NotRequired[List[MatchOptionType]]
+    values: NotRequired[list[str]]
+    matchOptions: NotRequired[list[MatchOptionType]]
 
 
 class CostCategoryValuesTypeDef(TypedDict):
@@ -138,7 +133,7 @@ class ResourceTagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -169,8 +164,8 @@ class DeleteDashboardRequestTypeDef(TypedDict):
 
 class DimensionValuesOutputTypeDef(TypedDict):
     key: DimensionType
-    values: List[str]
-    matchOptions: NotRequired[List[MatchOptionType]]
+    values: list[str]
+    matchOptions: NotRequired[list[MatchOptionType]]
 
 
 class DimensionValuesTypeDef(TypedDict):
@@ -185,8 +180,8 @@ class GraphDisplayConfigTypeDef(TypedDict):
 
 class TagValuesOutputTypeDef(TypedDict):
     key: NotRequired[str]
-    values: NotRequired[List[str]]
-    matchOptions: NotRequired[List[MatchOptionType]]
+    values: NotRequired[list[str]]
+    matchOptions: NotRequired[list[MatchOptionType]]
 
 
 class GetDashboardRequestTypeDef(TypedDict):
@@ -248,7 +243,7 @@ class GetResourcePolicyResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    resourceTags: List[ResourceTagTypeDef]
+    resourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -258,7 +253,7 @@ class UpdateDashboardResponseTypeDef(TypedDict):
 
 
 class ListDashboardsResponseTypeDef(TypedDict):
-    dashboards: List[DashboardReferenceTypeDef]
+    dashboards: list[DashboardReferenceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -272,8 +267,8 @@ DimensionValuesUnionTypeDef = Union[DimensionValuesTypeDef, DimensionValuesOutpu
 
 
 class DisplayConfigOutputTypeDef(TypedDict):
-    graph: NotRequired[Dict[str, GraphDisplayConfigTypeDef]]
-    table: NotRequired[Dict[str, Any]]
+    graph: NotRequired[dict[str, GraphDisplayConfigTypeDef]]
+    table: NotRequired[dict[str, Any]]
 
 
 class DisplayConfigTypeDef(TypedDict):
@@ -284,9 +279,9 @@ class DisplayConfigTypeDef(TypedDict):
 ExpressionOutputTypeDef = TypedDict(
     "ExpressionOutputTypeDef",
     {
-        "or": NotRequired[List[Dict[str, Any]]],
-        "and": NotRequired[List[Dict[str, Any]]],
-        "not": NotRequired[Dict[str, Any]],
+        "or": NotRequired[list[dict[str, Any]]],
+        "and": NotRequired[list[dict[str, Any]]],
+        "not": NotRequired[dict[str, Any]],
         "dimensions": NotRequired[DimensionValuesOutputTypeDef],
         "tags": NotRequired[TagValuesOutputTypeDef],
         "costCategories": NotRequired[CostCategoryValuesOutputTypeDef],
@@ -303,10 +298,10 @@ DisplayConfigUnionTypeDef = Union[DisplayConfigTypeDef, DisplayConfigOutputTypeD
 CostAndUsageQueryOutputTypeDef = TypedDict(
     "CostAndUsageQueryOutputTypeDef",
     {
-        "metrics": List[MetricNameType],
+        "metrics": list[MetricNameType],
         "timeRange": DateTimeRangeTypeDef,
         "granularity": GranularityType,
-        "groupBy": NotRequired[List[GroupDefinitionTypeDef]],
+        "groupBy": NotRequired[list[GroupDefinitionTypeDef]],
         "filter": NotRequired[ExpressionOutputTypeDef],
     },
 )
@@ -314,17 +309,17 @@ ReservationCoverageQueryOutputTypeDef = TypedDict(
     "ReservationCoverageQueryOutputTypeDef",
     {
         "timeRange": DateTimeRangeTypeDef,
-        "groupBy": NotRequired[List[GroupDefinitionTypeDef]],
+        "groupBy": NotRequired[list[GroupDefinitionTypeDef]],
         "granularity": NotRequired[GranularityType],
         "filter": NotRequired[ExpressionOutputTypeDef],
-        "metrics": NotRequired[List[MetricNameType]],
+        "metrics": NotRequired[list[MetricNameType]],
     },
 )
 ReservationUtilizationQueryOutputTypeDef = TypedDict(
     "ReservationUtilizationQueryOutputTypeDef",
     {
         "timeRange": DateTimeRangeTypeDef,
-        "groupBy": NotRequired[List[GroupDefinitionTypeDef]],
+        "groupBy": NotRequired[list[GroupDefinitionTypeDef]],
         "granularity": NotRequired[GranularityType],
         "filter": NotRequired[ExpressionOutputTypeDef],
     },
@@ -333,9 +328,9 @@ SavingsPlansCoverageQueryOutputTypeDef = TypedDict(
     "SavingsPlansCoverageQueryOutputTypeDef",
     {
         "timeRange": DateTimeRangeTypeDef,
-        "metrics": NotRequired[List[MetricNameType]],
+        "metrics": NotRequired[list[MetricNameType]],
         "granularity": NotRequired[GranularityType],
-        "groupBy": NotRequired[List[GroupDefinitionTypeDef]],
+        "groupBy": NotRequired[list[GroupDefinitionTypeDef]],
         "filter": NotRequired[ExpressionOutputTypeDef],
     },
 )
@@ -427,7 +422,7 @@ SavingsPlansUtilizationQueryTypeDef = TypedDict(
 
 class WidgetOutputTypeDef(TypedDict):
     title: str
-    configs: List[WidgetConfigOutputTypeDef]
+    configs: list[WidgetConfigOutputTypeDef]
     description: NotRequired[str]
     width: NotRequired[int]
     height: NotRequired[int]
@@ -454,7 +449,7 @@ GetDashboardResponseTypeDef = TypedDict(
         "name": str,
         "description": str,
         "type": Literal["CUSTOM"],
-        "widgets": List[WidgetOutputTypeDef],
+        "widgets": list[WidgetOutputTypeDef],
         "createdAt": datetime,
         "updatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,

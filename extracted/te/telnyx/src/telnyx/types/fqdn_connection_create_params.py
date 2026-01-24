@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Optional
-from typing_extensions import Required, TypedDict
+from typing_extensions import Literal, Required, TypedDict
 
 from .._types import SequenceNotStr
 from .dtmf_type import DtmfType
@@ -14,6 +14,7 @@ from .anchorsite_override import AnchorsiteOverride
 from .outbound_fqdn_param import OutboundFqdnParam
 from .webhook_api_version import WebhookAPIVersion
 from .connection_rtcp_settings_param import ConnectionRtcpSettingsParam
+from .shared_params.connection_noise_suppression_details import ConnectionNoiseSuppressionDetails
 
 __all__ = ["FqdnConnectionCreateParams"]
 
@@ -34,6 +35,9 @@ class FqdnConnectionCreateParams(TypedDict, total=False):
 
     android_push_credential_id: Optional[str]
     """The uuid of the push credential for Android"""
+
+    call_cost_in_webhooks: bool
+    """Specifies if call cost webhooks should be sent for this connection."""
 
     default_on_hold_comfort_noise_enabled: bool
     """When enabled, Telnyx will generate comfort noise when you place the call on
@@ -70,6 +74,23 @@ class FqdnConnectionCreateParams(TypedDict, total=False):
     """When enabled, the connection will be created for Microsoft Teams Direct Routing.
 
     A \\**.mstsbc.telnyx.tech FQDN will be created for the connection automatically.
+    """
+
+    noise_suppression: Literal["inbound", "outbound", "both", "disabled"]
+    """Controls when noise suppression is applied to calls.
+
+    When set to 'inbound', noise suppression is applied to incoming audio. When set
+    to 'outbound', it's applied to outgoing audio. When set to 'both', it's applied
+    in both directions. When set to 'disabled', noise suppression is turned off.
+    """
+
+    noise_suppression_details: ConnectionNoiseSuppressionDetails
+    """Configuration options for noise suppression.
+
+    These settings are stored regardless of the noise_suppression value, but only
+    take effect when noise_suppression is not 'disabled'. If you disable noise
+    suppression and later re-enable it, the previously configured settings will be
+    used.
     """
 
     onnet_t38_passthrough_enabled: bool

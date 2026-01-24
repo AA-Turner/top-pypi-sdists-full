@@ -1,5 +1,5 @@
 """
-    Cg Exceptions.
+Cg Exceptions.
 """
 
 
@@ -36,6 +36,12 @@ class AnalysisNotReadyError(CgError):
     """
 
 
+class AnalysisAlreadyCompletedError(CgError):
+    """
+    Exception raised when the latest analysis is already completed.
+    """
+
+
 class AnalysisNotCompletedError(CgError):
     """
     Exception raised when an analysis has not completed.
@@ -57,6 +63,12 @@ class AnalysisRunningError(CgError):
 class BalsamicStartError(CgError):
     """
     Exception raised when Balsamic fails to start.
+    """
+
+
+class BedVersionNotFoundError(CgError):
+    """
+    Exception raised when a bed version is not found.
     """
 
 
@@ -138,6 +150,14 @@ class IlluminaRunAlreadyBackedUpError(CgError):
     """Raised when a flow cell is already backed-up."""
 
 
+class PacbioSequencingRunAlreadyExistsError(CgError):
+    """Raised when a PacBio sequencing run already exists."""
+
+
+class PacbioSequencingRunNotFoundError(CgError):
+    """Raised when a PacBio sequencing run is not found."""
+
+
 class HousekeeperFileMissingError(CgError):
     """
     Exception raised when a file is missing in Housekeeper.
@@ -202,10 +222,6 @@ class PedigreeConfigError(CgError):
 
 class RunParametersError(CgError):
     """Raised when something is wrong with the run parameters file."""
-
-
-class NfSampleSheetError(CgError):
-    """Raised when something is wrong with the sample sheet."""
 
 
 class SampleSheetContentError(CgError):
@@ -280,6 +296,10 @@ class MissingFilesError(CgError):
     """Exception raised when there are missing files."""
 
 
+class SampleFilesCurrentlyArchivingError(CgError):
+    """Exception raised when not all of the sample files have finished archiving."""
+
+
 class MetricsQCError(CgError):
     """Exception raised when QC metrics are not met."""
 
@@ -326,3 +346,26 @@ class Chanjo2ResponseError(Chanjo2APIClientError):
 
 class CaseNotConfiguredError(CgError):
     """Exception raised when a case is being run without a configuration."""
+
+
+class CaseWorkflowMismatchError(CgError):
+    """
+    Exception raised when a case is being run with a workflow different from the one specified
+    for it in the database.
+    """
+
+
+class MissingConfigFilesError(CgError):
+    """Exception raised when a case is being run with missing configuration files."""
+
+
+class SeqeraError(CgError):
+    """Exception raised when receiving an unexpected response from Seqera platform"""
+
+
+class MultipleCaptureKitsError(CgError):
+    """Exception raised when multiple capture kits are found where only one is expected."""
+
+
+class ApplicationDoesNotHaveHiFiYieldError(CgError):
+    """Exception raised when application does not have HiFi yield set."""

@@ -1,6 +1,9 @@
 #  Copyright (c) 2025, Apple Inc. All rights reserved.
+#
+#  Use of this source code is governed by a BSD-3-clause license that can be
+#  found in the LICENSE.txt file or at https://opensource.org/licenses/BSD-3-Clause
 
-
+import platform
 from typing import Optional
 
 import numpy as np
@@ -9,6 +12,7 @@ import torch
 
 import coremltools as ct
 from coremltools.converters.mil import Builder as mb
+from coremltools.converters.mil.mil import types
 from coremltools.models.ml_program.experimental.perf_utils import MLModelBenchmarker
 from coremltools.models.ml_program.experimental.torch.perf_utils import (
     TorchMLModelBenchmarker,
@@ -16,12 +20,16 @@ from coremltools.models.ml_program.experimental.torch.perf_utils import (
     TorchScriptNodeInfo,
 )
 
+IS_INTEL_MAC = platform.machine() == "x86_64"
+pytestmark = pytest.mark.skipif(IS_INTEL_MAC, reason="Skip all tests on Apple Intel Macs")
+
 
 @pytest.mark.skipif(
     ct.utils._macos_version() < (14, 4),
     reason="MLModelBenchmarker API is available for macos versions >= 14.4.",
 )
 class TestMLModelBenchmarker:
+    @staticmethod
     def get_test_model():
         @mb.program(
             input_specs=[
@@ -41,13 +49,31 @@ class TestMLModelBenchmarker:
         return prog
 
     @staticmethod
+    def get_test_model_with_int32_inputs():
+        @mb.program(
+            input_specs=[
+                mb.TensorSpec(shape=(1, 2), dtype=types.int32),
+                mb.TensorSpec(shape=(1, 2), dtype=types.int32),
+            ]
+        )
+        def prog(x, y):
+            return mb.add(x=x, y=y, name="add")
+
+        return prog
+
+    @staticmethod
     @pytest.mark.asyncio
     @pytest.mark.parametrize("compute_units", [compute_unit for compute_unit in ct.ComputeUnit])
     async def test_benchmark_load(
         compute_units: ct.ComputeUnit,
     ):
         prog = TestMLModelBenchmarker.get_test_model()
-        mlmodel = ct.convert(prog, convert_to="mlprogram", compute_precision=ct.precision.FLOAT32)
+        mlmodel = ct.convert(
+            prog,
+            convert_to="mlprogram",
+            compute_precision=ct.precision.FLOAT32,
+            compute_units=compute_units,
+        )
         benchmarker = MLModelBenchmarker(model=mlmodel)
 
         measurement = await benchmarker.benchmark_load(iterations=3)
@@ -65,7 +91,12 @@ class TestMLModelBenchmarker:
         warmup: bool,
     ):
         prog = TestMLModelBenchmarker.get_test_model()
-        mlmodel = ct.convert(prog, convert_to="mlprogram", compute_precision=ct.precision.FLOAT32)
+        mlmodel = ct.convert(
+            prog,
+            convert_to="mlprogram",
+            compute_precision=ct.precision.FLOAT32,
+            compute_units=compute_units,
+        )
         benchmarker = MLModelBenchmarker(model=mlmodel)
         measurement = await benchmarker.benchmark_predict(
             iterations=3,
@@ -85,7 +116,12 @@ class TestMLModelBenchmarker:
         warmup: bool,
     ):
         prog = TestMLModelBenchmarker.get_test_model()
-        mlmodel = ct.convert(prog, convert_to="mlprogram", compute_precision=ct.precision.FLOAT32)
+        mlmodel = ct.convert(
+            prog,
+            convert_to="mlprogram",
+            compute_precision=ct.precision.FLOAT32,
+            compute_units=compute_units,
+        )
         benchmarker = MLModelBenchmarker(model=mlmodel)
         execution_infos = await benchmarker.benchmark_operation_execution(
             iterations=3,
@@ -102,6 +138,16 @@ class TestMLModelBenchmarker:
             assert measurement.statistics is not None
             assert measurement.statistics.average > 1e-6
 
+    @staticmethod
+    @pytest.mark.asyncio
+    async def test_benchmark_predict_with_int32_inputs():
+        prog = TestMLModelBenchmarker.get_test_model_with_int32_inputs()
+        mlmodel = ct.convert(prog, convert_to="mlprogram", compute_precision=ct.precision.FLOAT32)
+        benchmarker = MLModelBenchmarker(model=mlmodel)
+        measurement = await benchmarker.benchmark_predict()
+        assert len(measurement.samples) == 1
+        assert measurement.statistics is not None
+        assert measurement.statistics.average > 1e-6
 
 @pytest.mark.skipif(
     ct.utils._macos_version() < (14, 4),
@@ -159,16 +205,20 @@ class TestTorchMLModelBenchmarker:
         warmup: bool,
         use_torch_export: bool,
     ):
+        if use_torch_export and ct.utils._python_version()[:2] <= (3, 8):
+            pytest.skip("torch.export not support on Python 3.8 or lower")
+
         test_model = TestTorchMLModelBenchmarker.get_test_model()
         inputs = (
             torch.full((1, 10), 1, dtype=torch.float),
             torch.full((1, 10), 2, dtype=torch.float),
         )
-        torch_model = (
-            torch.export.export(test_model, inputs)
-            if use_torch_export
-            else torch.jit.trace(test_model, inputs)
-        )
+        torch_model = None
+        if use_torch_export:
+            torch_model = torch.export.export(test_model, inputs)
+            torch_model = torch_model.run_decompositions({})
+        else:
+            torch_model = torch.jit.trace(test_model, inputs)
 
         benchmarker = TorchMLModelBenchmarker(
             model=torch_model,
@@ -206,16 +256,21 @@ class TestTorchMLModelBenchmarker:
         warmup: bool,
         use_torch_export: bool,
     ):
+
+        if use_torch_export and ct.utils._python_version()[:2] <= (3, 8):
+            pytest.skip("torch.export not support on Python 3.8 or lower")
+
         test_model = TestTorchMLModelBenchmarker.get_test_model()
         inputs = (
             torch.full((1, 10), 1, dtype=torch.float),
             torch.full((1, 10), 2, dtype=torch.float),
         )
-        torch_model = (
-            torch.export.export(test_model, inputs)
-            if use_torch_export
-            else torch.jit.trace(test_model, inputs)
-        )
+        torch_model = None
+        if use_torch_export:
+            torch_model = torch.export.export(test_model, inputs)
+            torch_model = torch_model.run_decompositions({})
+        else:
+            torch_model = torch.jit.trace(test_model, inputs)
 
         benchmarker = TorchMLModelBenchmarker(
             model=torch_model,

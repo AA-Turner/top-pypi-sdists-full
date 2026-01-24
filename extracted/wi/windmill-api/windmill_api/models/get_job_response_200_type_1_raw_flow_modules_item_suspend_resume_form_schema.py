@@ -8,7 +8,7 @@ T = TypeVar("T", bound="GetJobResponse200Type1RawFlowModulesItemSuspendResumeFor
 
 @_attrs_define
 class GetJobResponse200Type1RawFlowModulesItemSuspendResumeFormSchema:
-    """ """
+    """JSON Schema for the resume form"""
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

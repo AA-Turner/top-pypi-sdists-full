@@ -55,7 +55,7 @@ def requirements():
 
 configuration = {
     'name': 'hdbscan',
-    'version': '0.8.40',
+    'version': '0.8.41',
     'description': 'Clustering based on density with variable density clusters',
     'long_description': readme(),
     'classifiers': [
@@ -71,7 +71,10 @@ configuration = {
         'Operating System :: POSIX',
         'Operating System :: Unix',
         'Operating System :: MacOS',
-        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
     ],
     'keywords': 'cluster clustering density hierarchical',
     'url': 'http://github.com/scikit-learn-contrib/hdbscan',

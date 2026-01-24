@@ -165,18 +165,20 @@ from beartype._conf.confmain import (
     BeartypeConf as BeartypeConf,
 )
 from beartype._conf.confenum import (
-    BeartypeDecorationPosition as BeartypeDecorationPosition,
     BeartypeStrategy as BeartypeStrategy,
     BeartypeViolationVerbosity as BeartypeViolationVerbosity,
 )
-from beartype._util.kind.map.utilmapfrozen import (
+from beartype._conf.decorplace.confplaceenum import (
+    BeartypeDecorPlace as BeartypeDecorPlace,
+)
+from beartype._util.kind.maplike.utilmapfrozen import (
     FrozenDict as FrozenDict,
 )
 
 # ....................{ GLOBALS ~ __all__                  }....................
 __all__ = [
     'BeartypeConf',
-    'BeartypeDecorationPosition',
+    'BeartypeDecorPlace',
     'BeartypeStrategy',
     'BeartypeViolationVerbosity',
     'FrozenDict',
@@ -280,8 +282,11 @@ def __getattr__(attr_name: str) -> object:
     return deprecate_module_attr(
         attr_deprecated_name=attr_name,
         attr_deprecated_name_to_nondeprecated_name={
+            'BeartypeDecorationPosition': 'BeartypeDecorPlace',
             'BeartypeHintOverrides': 'FrozenDict',
             'abby': 'door',
         },
         attr_nondeprecated_name_to_value=attr_nondeprecated_name_to_value,
     )
+
+# print('!!!!!!HERE!!!!!!')  # <-- don't ask

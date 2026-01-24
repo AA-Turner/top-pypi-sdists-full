@@ -15,7 +15,6 @@ from chellow.models import (
 )
 from chellow.utils import ct_datetime_now, hh_format, utc_datetime_now
 
-
 importer = None
 
 
@@ -59,8 +58,6 @@ def api_search(s, resource_id, sort=None):
 
 def run_import(sess, log, set_progress, scripting_key):
     log("Starting to import data from Elexon")
-    s = requests.Session()
-    s.verify = False
 
     for mod_name in (
         "chellow.e.system_price",
@@ -69,7 +66,10 @@ def run_import(sess, log, set_progress, scripting_key):
         "chellow.e.lafs",
     ):
         mod = import_module(mod_name)
-        mod.elexon_import(sess, log, set_progress, s, scripting_key)
+        try:
+            mod.elexon_import(sess, log, set_progress, scripting_key)
+        except TypeError as e:
+            raise BadRequest(f"Problem with module {mod_name}: {e}") from e
 
 
 ELEXON_PORTAL_SCRIPTING_KEY_KEY = "elexonportal_scripting_key"
@@ -139,7 +139,9 @@ class Elexon(threading.Thread):
                         if scripting_key is None:
                             raise BadRequest(
                                 f"The property {ELEXON_PORTAL_SCRIPTING_KEY_KEY} "
-                                f"cannot be found in the configuration properties."
+                                f"cannot be found in the configuration properties. "
+                                f"A scripting key can be obtained from "
+                                f"https://www.elexonportal.co.uk/"
                             )
                         run_import(sess, self.log, self.set_progress, scripting_key)
                     except BaseException as e:

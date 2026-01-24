@@ -9,7 +9,11 @@ from pyfakefs.fake_filesystem import FakeFilesystem
 from pygitguardian import GGClient
 from pygitguardian.models import APITokensResponse, Detail, TokenScope
 
-from ggshield.core.client import check_client_api_key, create_client_from_config
+from ggshield.core.client import (
+    check_client_api_key,
+    create_client_from_config,
+    create_session,
+)
 from ggshield.core.config import Config
 from ggshield.core.errors import (
     APIKeyCheckError,
@@ -155,6 +159,31 @@ def test_check_client_api_key_without_source_uuid_no_token_check():
     client_mock.api_tokens.assert_not_called()
 
 
+def test_check_client_api_key_unknown_scope():
+    """
+    GIVEN a client with valid API key and API returns unknown scopes
+    WHEN check_client_api_key() is called with required scopes
+    THEN it ignores unknown scopes and validates only the required ones
+    """
+    client_mock = Mock(spec=GGClient)
+    client_mock.base_uri = "http://localhost"
+    client_mock.read_metadata.return_value = None  # Success
+    client_mock.api_tokens.return_value = APITokensResponse.from_dict(
+        {
+            "id": "5ddaad0c-5a0c-4674-beb5-1cd198d13360",
+            "name": "test-name",
+            "workspace_id": 1,
+            "type": "personal_access_token",
+            "status": "active",
+            "created_at": "2023-01-01T00:00:00Z",
+            "scopes": [TokenScope.SCAN_CREATE_INCIDENTS.value, "scope:unknown"],
+        }
+    )
+
+    # Should not raise any exception
+    check_client_api_key(client_mock, {TokenScope.SCAN_CREATE_INCIDENTS})
+
+
 def test_retrieve_client_invalid_api_url():
     """
     GIVEN a GITGUARDIAN_API_URL missing its https scheme
@@ -214,3 +243,37 @@ def test_retrieve_client_unknown_custom_dashboard_url(isolated_fs: FakeFilesyste
             config = Config()
             config.cmdline_instance_name = "https://example.com"
             create_client_from_config(config)
+
+
+def test_create_session_pool_configuration():
+    """
+    GIVEN create_session is called
+    WHEN the session is created
+    THEN the HTTPAdapter has the correct pool configuration
+    """
+    session = create_session()
+
+    adapter = session.get_adapter("https://example.com")
+
+    # Verify pool configuration by checking the init parameters
+    assert getattr(adapter, "_pool_maxsize", None) == 100
+
+
+@pytest.mark.parametrize("allow_self_signed", [True, False])
+def test_create_session_with_self_signed_option(allow_self_signed: bool):
+    """
+    GIVEN create_session is called with allow_self_signed parameter
+    WHEN the session is created
+    THEN HTTPAdapter is mounted regardless of allow_self_signed value
+    AND verify is set correctly
+    """
+    session = create_session(allow_self_signed=allow_self_signed)
+
+    # Verify adapters are mounted
+    assert "https://" in session.adapters
+
+    # Verify SSL verification setting
+    if allow_self_signed:
+        assert session.verify is False
+    else:
+        assert session.verify is True

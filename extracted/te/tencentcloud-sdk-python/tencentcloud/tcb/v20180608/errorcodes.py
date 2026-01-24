@@ -23,23 +23,29 @@ AUTHFAILURE_UNAUTHORIZEDOPERATION = 'AuthFailure.UnauthorizedOperation'
 # 操作失败。
 FAILEDOPERATION = 'FailedOperation'
 
-# 部分失败（有一部分操作失败）。
-FAILEDOPERATION_PARTIALFAILURE = 'FailedOperation.PartialFailure'
+# 无效上下文
+FAILEDOPERATION_INVALIDCONTEXT = 'FailedOperation.InvalidContext'
+
+# 网络异常
+FAILEDOPERATION_NETWORKERROR = 'FailedOperation.NetworkError'
 
 # 操作失败，后台依赖平台错误。
 FAILEDOPERATION_PLATFORMERROR = 'FailedOperation.PlatformError'
+
+# 查询异常
+FAILEDOPERATION_QUERYERROR = 'FailedOperation.QueryError'
+
+# 查询语句解析错误
+FAILEDOPERATION_SYNTAXERROR = 'FailedOperation.SyntaxError'
+
+# Topic隔离
+FAILEDOPERATION_TOPICISOLATED = 'FailedOperation.TopicIsolated'
 
 # 内部错误。
 INTERNALERROR = 'InternalError'
 
 # 数据库错误。
 INTERNALERROR_DATABASE = 'InternalError.Database'
-
-# 系统失败。
-INTERNALERROR_SYSTEMFAIL = 'InternalError.SystemFail'
-
-# 服务超时。
-INTERNALERROR_TIMEOUT = 'InternalError.Timeout'
 
 # 参数错误。
 INVALIDPARAMETER = 'InvalidParameter'
@@ -110,8 +116,17 @@ RESOURCEINSUFFICIENT = 'ResourceInsufficient'
 # 资源不存在。
 RESOURCENOTFOUND = 'ResourceNotFound'
 
+# 请求的云托管服务未找到
+RESOURCENOTFOUND_SERVERNOTFOUND = 'ResourceNotFound.ServerNotFound'
+
+# 主题不存在
+RESOURCENOTFOUND_TOPICNOTEXIST = 'ResourceNotFound.TopicNotExist'
+
 # 用户不存在。
 RESOURCENOTFOUND_USERNOTEXISTS = 'ResourceNotFound.UserNotExists'
+
+# 请求参数中的云托管版本未找到
+RESOURCENOTFOUND_VERSIONNOTFOUND = 'ResourceNotFound.VersionNotFound'
 
 # 资源不可用。
 RESOURCEUNAVAILABLE = 'ResourceUnavailable'
@@ -128,6 +143,15 @@ RESOURCEUNAVAILABLE_INVOICEAMOUNTLACK = 'ResourceUnavailable.InvoiceAmountLack'
 # 云项目oAuth授权失效（即RefreshToken过期）。
 RESOURCEUNAVAILABLE_REFRESHTOKENEXPIRED = 'ResourceUnavailable.RefreshTokenExpired'
 
+# 资源被封禁
+RESOURCEUNAVAILABLE_RESOURCEBANNED = 'ResourceUnavailable.ResourceBanned'
+
+# 资源已冻结
+RESOURCEUNAVAILABLE_RESOURCEFROZEN = 'ResourceUnavailable.ResourceFrozen'
+
+# 资源已隔离
+RESOURCEUNAVAILABLE_RESOURCEISOLATED = 'ResourceUnavailable.ResourceIsolated'
+
 # 资源过期。
 RESOURCEUNAVAILABLE_RESOURCEOVERDUE = 'ResourceUnavailable.ResourceOverdue'
 
@@ -140,11 +164,5 @@ UNAUTHORIZEDOPERATION = 'UnauthorizedOperation'
 # 外部代码仓库未授权。
 UNAUTHORIZEDOPERATION_CODEOAUTHUNAUTHORIZED = 'UnauthorizedOperation.CodeOAuthUnauthorized'
 
-# 未知参数错误。
-UNKNOWNPARAMETER = 'UnknownParameter'
-
 # 操作不支持。
 UNSUPPORTEDOPERATION = 'UnsupportedOperation'
-
-# 有正在进行中的任务。
-UNSUPPORTEDOPERATION_TASKEXISTED = 'UnsupportedOperation.TaskExisted'

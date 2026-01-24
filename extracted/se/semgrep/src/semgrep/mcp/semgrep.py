@@ -14,6 +14,7 @@ import asyncio
 import json
 import os
 import subprocess
+import uuid
 from typing import Any
 
 from mcp.shared.exceptions import McpError
@@ -23,12 +24,13 @@ from mcp.types import INVALID_REQUEST
 from opentelemetry import trace
 
 from semgrep.mcp.models import CodeFile
+from semgrep.mcp.models import SemgrepScanResult
 from semgrep.mcp.utilities.tracing import get_trace_endpoint
 from semgrep.mcp.utilities.tracing import is_tracing_disabled
+from semgrep.mcp.utilities.utils import get_git_info
 from semgrep.mcp.utilities.utils import get_semgrep_app_token
 from semgrep.mcp.utilities.utils import is_hosted
 from semgrep.semgrep_core import compute_executable_path
-from semgrep.semgrep_interfaces.semgrep_output_v1 import CliOutput
 from semgrep.verbose_logging import getLogger
 
 logger = getLogger(__name__)
@@ -43,17 +45,19 @@ class SemgrepContext:
     stdin: asyncio.StreamWriter | None
     stdout: asyncio.StreamReader | None
     top_level_span: trace.Span | None
+    session_id: str
 
     is_hosted: bool
     pro_engine_available: bool
-    use_rpc: bool
+    use_rpc: bool | None
 
     def __init__(
         self,
         top_level_span: trace.Span | None,
         is_hosted: bool,
         pro_engine_available: bool,
-        use_rpc: bool,
+        use_rpc: bool | None,
+        session_id: str,
         process: asyncio.subprocess.Process | None = None,
     ) -> None:
         self.process = process
@@ -61,6 +65,7 @@ class SemgrepContext:
         self.is_hosted = is_hosted
         self.pro_engine_available = pro_engine_available
         self.use_rpc = use_rpc
+        self.session_id = session_id
 
         if process is None:
             self.stdin = None
@@ -205,6 +210,16 @@ async def run_semgrep_process_sync(
     return process
 
 
+async def spawn_semgrep_daemon(
+    top_level_span: trace.Span | None,
+    session_id: str,
+) -> asyncio.subprocess.Process:
+    logger.info("Spawning `semgrep mcp` daemon with session_id: %s", session_id)
+    return await run_semgrep_process_async(
+        top_level_span, ["mcp", "--experimental", "--pro", "--session-id", session_id]
+    )
+
+
 async def mk_context(top_level_span: trace.Span | None) -> SemgrepContext:
     """
     Runs the semgrep daemon (`semgrep mcp`) if:
@@ -217,47 +232,64 @@ async def mk_context(top_level_span: trace.Span | None) -> SemgrepContext:
     """
     process = None
     pro_engine_available = True
+    session_id = str(uuid.uuid4())
 
-    use_rpc = os.environ.get("USE_SEMGREP_RPC", "true").lower() == "true"
+    # TODO: Should rename this env var if we ever use the daemon for non-strictly RPC scanning
+    use_rpc_value = os.environ.get("USE_SEMGREP_RPC", None)
 
     resp = await run_semgrep_process_sync(top_level_span, ["--pro", "--version"])
 
-    # The user doesn't seem to have the Pro Engine installed.
+    # First, let's handle the "fatal" reasons why we cannot run the daemon.
+    # This means, regardless of the user's choice, we simply could not run the daemon
+    # even if we wanted to.
+
+    # 1. The user doesn't seem to have the Pro Engine installed.
     # That's fine, let's just run the free engine, without the
-    # `semgrep mcp` backend.
+    # daemon-based backend.
     if resp.returncode != 0:
         logger.warning(
             "User doesn't have the Pro Engine installed, not running `semgrep mcp` daemon..."
         )
         pro_engine_available = False
-    elif not use_rpc:
-        logger.info(
-            "USE_SEMGREP_RPC env var is false, not running `semgrep mcp` daemon..."
-        )
-    elif is_hosted():
-        logger.warning(
-            """
-            The `semgrep mcp` daemon is only available when the MCP server is ran locally.
-            User is using the hosted version of the MCP server, not running `semgrep mcp` daemon...
-            """
-        )
+    # 2. The user doesn't have a valid app token.
+    # In which case, we don't run the daemon, because we can't properly authenticate the user
+    # to fetch their deployment details.
     elif not get_semgrep_app_token():
         logger.warning(
             "No SEMGREP_APP_TOKEN found, not running `semgrep mcp` daemon..."
         )
     else:
-        logger.info("Spawning `semgrep mcp` daemon...")
-        process = await run_semgrep_process_async(
-            top_level_span, ["mcp", "--experimental", "--pro"]
-        )
+        # Otherwise, we defer to the value of `USE_SEMGREP_RPC`.
+        # If the user specifies "true" or "false", that's that.
+        # Otherwise, we defer to whether the user is running the MCP server locally or hosted.
+        # Importantly, this means the user can still do daemon-based scanning remotely, if they
+        # pass `USE_SEMGREP_RPC=true` and `SEMGREP_IS_HOSTED=true`!
+        if use_rpc_value is None:
+            if is_hosted():
+                logger.warning(
+                    """
+                    The `semgrep mcp` daemon is only available when the MCP server is ran locally.
+                    User is using the hosted version of the MCP server, not running `semgrep mcp` daemon...
+                    """
+                )
+            else:
+                process = await spawn_semgrep_daemon(top_level_span, session_id)
+        elif use_rpc_value.lower() == "true":
+            process = await spawn_semgrep_daemon(top_level_span, session_id)
+        elif use_rpc_value.lower() == "false":
+            logger.info(
+                f"USE_SEMGREP_RPC env var is {use_rpc_value}, not running `semgrep mcp` daemon..."
+            )
 
-    return SemgrepContext(
+    context = SemgrepContext(
         top_level_span=top_level_span,
         is_hosted=is_hosted(),
         pro_engine_available=pro_engine_available,
         process=process,
-        use_rpc=use_rpc,
+        use_rpc=None if use_rpc_value is None else use_rpc_value.lower() == "true",
+        session_id=session_id,
     )
+    return context
 
 
 async def run_semgrep_output(top_level_span: trace.Span | None, args: list[str]) -> str:
@@ -286,8 +318,8 @@ async def run_semgrep_output(top_level_span: trace.Span | None, args: list[str])
 
 
 async def run_semgrep_via_rpc(
-    context: SemgrepContext, data: list[CodeFile]
-) -> CliOutput:
+    context: SemgrepContext, workspace_dir: str | None, data: list[CodeFile]
+) -> SemgrepScanResult:
     """
     Runs semgrep with the given arguments via RPC
 
@@ -301,9 +333,10 @@ async def run_semgrep_via_rpc(
     # TODO: to be honest it's silly for us to wire the contents of the files over RPC
     # if they exist on the local filesystem, we could just pass the paths
     files_json = [{"file": data.path, "content": data.content} for data in data]
+    git_info = get_git_info(workspace_dir)
 
     # ATD serialized value
-    resp = await context.send_request("scanFiles", files=files_json)
+    resp = await context.send_request("scanFiles", files=files_json, git_info=git_info)
 
     # The JSON we get is double encoded, looks like
     # '"{"results": ..., ...}"'
@@ -312,4 +345,4 @@ async def run_semgrep_via_rpc(
     resp_json = json.loads(resp_json)
     assert isinstance(resp_json, dict)
 
-    return CliOutput.from_json(resp_json)
+    return SemgrepScanResult.model_validate(resp_json)

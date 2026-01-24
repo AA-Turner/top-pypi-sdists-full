@@ -3,7 +3,7 @@ Type annotations for support service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_support/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -61,11 +62,6 @@ from .type_defs import (
     ResolveCaseResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -74,17 +70,17 @@ else:
 __all__ = ("SupportClient",)
 
 class Exceptions(BaseClientExceptions):
-    AttachmentIdNotFound: Type[BotocoreClientError]
-    AttachmentLimitExceeded: Type[BotocoreClientError]
-    AttachmentSetExpired: Type[BotocoreClientError]
-    AttachmentSetIdNotFound: Type[BotocoreClientError]
-    AttachmentSetSizeLimitExceeded: Type[BotocoreClientError]
-    CaseCreationLimitExceeded: Type[BotocoreClientError]
-    CaseIdNotFound: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DescribeAttachmentLimitExceeded: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
+    AttachmentIdNotFound: type[BotocoreClientError]
+    AttachmentLimitExceeded: type[BotocoreClientError]
+    AttachmentSetExpired: type[BotocoreClientError]
+    AttachmentSetIdNotFound: type[BotocoreClientError]
+    AttachmentSetSizeLimitExceeded: type[BotocoreClientError]
+    CaseCreationLimitExceeded: type[BotocoreClientError]
+    CaseIdNotFound: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DescribeAttachmentLimitExceeded: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
 
 class SupportClient(BaseClient):
     """

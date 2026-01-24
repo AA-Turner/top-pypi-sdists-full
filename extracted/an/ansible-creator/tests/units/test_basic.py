@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import runpy
 import sys
 
@@ -22,8 +21,6 @@ def test_configuration_class(output: Output) -> None:
     Args:
         output: Output dataclass object.
 
-    Raises:
-        AssertionError: If the assertion fails.
     """
     app_config = Config(
         creator_version="0.0.1",
@@ -210,8 +207,6 @@ def test_cli_parser(
         sysargs: List of CLI arguments.
         expected: Expected values for the parsed CLI arguments.
 
-    Raises:
-        AssertionError: If the assertion fails.
     """
     monkeypatch.setattr("sys.argv", sysargs)
     parsed_args = Cli().args
@@ -224,8 +219,6 @@ def test_missing_j2(monkeypatch: pytest.MonkeyPatch) -> None:
     Args:
         monkeypatch: Pytest monkeypatch fixture.
 
-    Raises:
-        AssertionError: If the assertion fails.
     """
     fail_msg = (
         "jinja2 is required but does not appear to be installed."
@@ -250,8 +243,6 @@ def test_cli_init_output(monkeypatch: pytest.MonkeyPatch, home_path: PosixPath) 
         monkeypatch: Pytest monkeypatch fixture.
         home_path: Home directory.
 
-    Raises:
-        AssertionError: If the assertion fails.
     """
     sysargs = [
         "ansible-creator",
@@ -293,8 +284,6 @@ def test_cli_main(
         tmp_path: Temporary path.
         monkeypatch: Pytest monkeypatch fixture.
 
-    Raises:
-        AssertionError: If the assertion fails.
     """
     sysargs = [
         "ansible-creator",
@@ -313,7 +302,7 @@ def test_cli_main(
 
     result = capsys.readouterr().out
     # check stdout
-    assert re.search(r"collection project created", result) is not None
+    assert r"collection project created" in result
 
 
 @pytest.mark.parametrize(argnames="project", argvalues=("collection", "playbook"))
@@ -327,8 +316,6 @@ def test_collection_name_short(
         project: The project type.
         monkeypatch: Pytest monkeypatch fixture.
 
-    Raises:
-        AssertionError: If the assertion fails.
     """
     sysargs = [
         "ansible-creator",
@@ -355,8 +342,6 @@ def test_collection_name_invalid(
         project: The project type.
         monkeypatch: Pytest monkeypatch fixture.
 
-    Raises:
-        AssertionError: If the assertion fails.
     """
     sysargs = [
         "ansible-creator",
@@ -381,8 +366,6 @@ def test_is_a_tty(monkeypatch: pytest.MonkeyPatch) -> None:
     Args:
         monkeypatch: Pytest monkeypatch fixture.
 
-    Raises:
-        AssertionError: If the assertion fails.
     """
     sysargs = [
         "ansible-creator",
@@ -393,6 +376,7 @@ def test_is_a_tty(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("sys.argv", sysargs)
     monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+    monkeypatch.delenv("NO_COLOR", raising=False)
 
     cli = Cli()
     cli.init_output()
@@ -407,8 +391,6 @@ def test_not_a_tty(monkeypatch: pytest.MonkeyPatch) -> None:
     Args:
         monkeypatch: Pytest monkeypatch fixture.
 
-    Raises:
-        AssertionError: If the assertion fails.
     """
     sysargs = [
         "ansible-creator",
@@ -434,8 +416,6 @@ def test_main(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str
         monkeypatch: Pytest monkeypatch fixture.
         capsys: Pytest capsys fixture.
 
-    Raises:
-        AssertionError: If the assertion fails.
     """
     monkeypatch.setattr("sys.argv", ["ansible-creator", "--help"])
 
@@ -452,8 +432,6 @@ def test_proj_main(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixtur
         monkeypatch: Pytest monkeypatch fixture.
         capsys: Pytest capsys fixture.
 
-    Raises:
-        AssertionError: If the assertion fails.
     """
     monkeypatch.setattr("sys.argv", ["ansible-creator", "--help"])
 
@@ -473,8 +451,6 @@ def test_config_post_init(
         tmp_path: Temporary directory path.
         output: Output class object.
 
-    Raises:
-        AssertionError: If the assertion fails.
     """
     config = Config(
         creator_version="24.10.0",

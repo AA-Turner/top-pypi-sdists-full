@@ -1018,7 +1018,7 @@ class IEEEP370(Deembedding):
     def extrapolate_to_dc(ntwk: Network) -> Network:
         """
         Extrapolate the network to DC using IEEE370 NZC algorithm.
-        This is usefull to compare the fixtures and deembedded networks
+        This is useful to compare the fixtures and deembedded networks
         to the input data in the same conditions used by NZC algorithm.
         If the network already have a DC point, it will be replaced.
 
@@ -1810,8 +1810,9 @@ class IEEEP370_FD_QM:
         IEEE 370 initial quality checking of raw data at the given frequency
         samples.
 
-        Passivity, reciprocity, and causality checks are
-        performed on the original S-parameters data in the frequency domain.
+        Initial passivity (PQMi), reciprocity (RQMi), and causality (CQMi)
+        checks are performed on the original S-parameters data in the frequency
+        domain.
 
         Based on [IEEE370]_.
 
@@ -1831,8 +1832,8 @@ class IEEEP370_FD_QM:
 
     def check_causality(self, ntwk: Network) -> float:
         """
-        Causality quality metrics verify that the complex S-parameters
-        rotate clockwise in the complex plane.
+        Initial Causality Quality Metric (CQMi): verify that the complex
+        S-parameters rotate clockwise in the complex plane.
 
         This is done by computing the normalized vector product on pairs of
         consecutive vectors between two frequency points.
@@ -1847,9 +1848,6 @@ class IEEEP370_FD_QM:
         PQM : :class:`~skrf.network.Network` object
               Causality quality metric in percents
         """
-        if ntwk.nports == 1:
-            raise (ValueError('Doesn\'t exist for one-ports'))
-
         Nf = ntwk.frequency.npoints
         CQM = zeros((ntwk.nports, ntwk.nports))
         for i in range(ntwk.nports):
@@ -1872,8 +1870,8 @@ class IEEEP370_FD_QM:
 
     def check_passivity(self, ntwk: Network) -> float:
          """
-         Passivity quality metrics verify that the 2-Norm of S-parameters is
-         smaller or equal to 1 at each frequency.
+         Initial Passivity Quality Metric (PQMi): verify that the 2-Norm of
+         S-parameters is smaller or equal to 1 at each frequency.
 
          This is equivalent to checking the eigenvalues of the unity matrix
          subtracted by complex conjugate transposed S time S is greater or
@@ -1908,7 +1906,8 @@ class IEEEP370_FD_QM:
 
     def check_reciprocity(self, ntwk: Network) -> float:
         """
-        Integrates the absolute difference between Sij and Sji at
+        Initial Reciprocity Quality Metric (RQMi):
+        integrates the absolute difference between Sij and Sji at
         each frequency point. Ideally, Sij should be equal to Sji.
 
         Parameters
@@ -1957,7 +1956,7 @@ class IEEEP370_FD_QM:
         Returns
         -------
         QM : :class:`dict` object
-              Dictionnary with quality metrics
+              Dictionary with quality metrics
         """
         verbose = self.verbose or verbose
         QM = {'causality': {'value': self.check_causality(ntwk), 'evaluation': ''},
@@ -2041,7 +2040,7 @@ class IEEEP370_FD_QM:
         Returns
         -------
         QM : :class:`dict` object
-              Dictionnary with quality metrics
+              Dictionary with quality metrics
         """
         mm = ntwk.copy()
         mm.se2gmm(p = 2)
@@ -2052,12 +2051,12 @@ class IEEEP370_FD_QM:
 
     def print_qm(self, QM: dict) -> dict:
         """
-        Print the quality metrics dictionnary.
+        Print the quality metrics dictionary.
 
         Parameters
         ----------
         QM: :class:`dict` object
-            Dictionnary with quality metrics to print
+            Dictionary with quality metrics to print
         """
         if 'dd' in QM:
             print('Differential mode')
@@ -2076,7 +2075,8 @@ class IEEEP370_TD_QM:
                  extrapolation: int = 2, verbose: bool = False) -> None:
         """
         IEEEP370_TD_QM Application-based quality checking of in the time
-        domain.
+        domain using causality (CQMa), passivity (PQMa), and reciprocity (RQMa)
+        metrics.
 
         If necessary, the original S-parameters are extrapolated to a frequency
         of three times the desired data rate. Causal, passive, and reciprocal
@@ -2519,7 +2519,7 @@ class IEEEP370_TD_QM:
         rise_time_per: :float
                        Rise time from 20% to 80% divided by width
         verbose      : :boolean
-                       Plot referrence and generated pulses in the time
+                       Plot reference and generated pulses in the time
                        domain
 
         Returns
@@ -2747,7 +2747,9 @@ class IEEEP370_TD_QM:
 
     def check_se_quality(self, ntwk: Network, verbose: bool = False) -> dict:
         """
-        Single-ended application-based quality checking of in the time domain.
+        Single-ended application-based quality checking in the time domain
+        using causality (CQMa), passivity (PQMa), and reciprocity (RQMa)
+        metrics.
 
         If necessary, the original S-parameters are extrapolated to a frequency
         of three times the desired data rate. Causal, passive, and reciprocal
@@ -2767,11 +2769,11 @@ class IEEEP370_TD_QM:
         Returns
         -------
         QM : :class:`dict` object
-              Dictionnary with quality metrics
+              Dictionary with quality metrics
         """
         verbose = self.verbose or verbose
         if (1.5 * self.data_rate) > ntwk.frequency.f[-1]:
-            warnings.warn('Maximum frequency is less then recomended frequency.',
+            warnings.warn('Maximum frequency is less then recommended frequency.',
                           RuntimeWarning, stacklevel=2)
 
         # extrapolate max freq
@@ -2977,7 +2979,7 @@ class IEEEP370_TD_QM:
         Returns
         -------
         QM : :class:`dict` object
-              Dictionnary with quality metrics
+              Dictionary with quality metrics
         """
         mm = ntwk.copy()
         mm.se2gmm(p = 2)
@@ -2988,12 +2990,12 @@ class IEEEP370_TD_QM:
 
     def print_qm(self, QM: dict) -> dict:
         """
-        Print the quality metrics dictionnary.
+        Print the quality metrics dictionary.
 
         Parameters
         ----------
         QM: :class:`dict` object
-            Dictionnary with quality metrics to print
+            Dictionary with quality metrics to print
         """
         if 'dd' in QM:
             print('Differential mode')
@@ -3554,7 +3556,7 @@ class IEEEP370_MM_NZC_2xThru(IEEEP370):
     use `Network.renumber` to change port ordering.
 
     Example
-    --------
+    -------
     >>> import skrf as rf
     >>> from skrf.calibration import IEEEP370_MM_NZC_2xThru
 
@@ -3585,10 +3587,10 @@ class IEEEP370_MM_NZC_2xThru(IEEEP370):
     Warning
     -------
     There are two differences compared to the original matlab implementation
-    [I3E370]:
-        - FIX-2 is flipped (see diagram above)
-        - A more robust root choice solution is used that avoids the apparition
-          of 180° phase jumps in the fixtures in certain circumstances
+    [I3E370]_:
+    - FIX-2 is flipped (see diagram above)
+    - A more robust root choice solution is used that avoids the apparition
+    of 180° phase jumps in the fixtures in certain circumstances
 
     References
     ----------
@@ -3953,8 +3955,8 @@ class IEEEP370_SE_ZC_2xThru(IEEEP370):
     Warning
     -------
     There is one difference compared to the original matlab implementation
-    [I3E370]:
-        - FIX-2 is flipped (see diagram above)
+    [I3E370]_:
+    - FIX-2 is flipped (see diagram above)
 
     References
     ----------
@@ -4321,7 +4323,7 @@ class IEEEP370_SE_ZC_2xThru(IEEEP370):
         s_side2 = IEEEP370.thru(sfix_dut_fix)
 
         # In the implementation, FIX-2 is flipped.
-        # This does not met IEEEP370 numbering recommandation but is left as
+        # This does not met IEEEP370 numbering recommendation but is left as
         # is for comparison ease.
         if self.pullback1 == self.pullback2 and self.side1 and self.side2:
             (s_side1, s_side2) = self.makeErrorBox_v7(sfix_dut_fix, s2xthru,
@@ -4370,7 +4372,7 @@ class IEEEP370_SE_ZC_2xThru(IEEEP370):
             s_side1, _ = IEEEP370.NRP(s_side1, TD, 0)
             s_side2, _ = IEEEP370.NRP(s_side2, TD, 1)
 
-        # unflip FIX-2 as per IEEEP370 numbering recommandation
+        # unflip FIX-2 as per IEEEP370 numbering recommendation
         return (s_side1, s_side2.flipped())
 
     def plot_check_residuals(self, ax: Axes = None) -> (Figure, Axes):

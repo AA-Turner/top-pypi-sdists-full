@@ -16,7 +16,6 @@ short_description: Configure application control lists.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "1.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -402,15 +404,15 @@ EXAMPLES = '''
         adom: ansible
         state: present
         application_list:
-          app-replacemsg: enable
+          app_replacemsg: enable
           comment: "ansible-test-comment"
-          deep-app-inspection: enable
-          extended-log: disable
+          deep_app_inspection: enable
+          extended_log: disable
           name: "ansible-test"
-          other-application-action: pass
-          other-application-log: disable
-          unknown-application-action: pass
-          unknown-application-log: disable
+          other_application_action: pass
+          other_application_log: disable
+          unknown_application_action: pass
+          unknown_application_log: disable
 
 - name: Gathering fortimanager facts
   hosts: fortimanagers
@@ -484,6 +486,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'application_list': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -536,7 +539,7 @@ def main():
                         'sub-category': {'type': 'raw'},
                         'technology': {'type': 'raw'},
                         'vendor': {'type': 'raw'},
-                        'tags': {'v_range': [['6.2.0', '6.4.15']], 'type': 'str'},
+                        'tags': {'v_range': [['6.2.0', '6.4.15'], ['7.4.8', '7.4.8']], 'type': 'str'},
                         'exclusion': {'v_range': [['6.2.7', '6.2.13'], ['6.4.3', '']], 'type': 'raw'}
                     },
                     'elements': 'dict'

@@ -10,8 +10,9 @@ ipywidgets = pytest.importorskip("ipywidgets")
 mpl.use("Agg")
 
 
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_interactive_ipywidgets(mock_ipython):
+    pytest.importorskip("scipy")
+
     def cost(a, b):
         return a**2 + b**2
 
@@ -88,16 +89,19 @@ def test_interactive_ipywidgets(mock_ipython):
     fit_button, update_button, reset_button, algo_select = header.children
     assert parameters.children[0].slider.max == 1
     assert parameters.children[1].slider.min == -1
+    assert m.limits[0] == (-float("inf"), float("inf"))
+    parameters.children[0].children[1].value = -200
+    parameters.children[0].children[3].value = 200
+    assert m.limits[0] == (-200, 200)
     with plot.assert_call():
         fit_button.click()
-    assert_allclose(m.values, (100, -100), atol=1e-5)
+    assert_allclose(m.values, (100, -100), atol=1e-3)
     # this should trigger an exception
     plot.raises = True
     with plot.assert_call():
         fit_button.click()
 
 
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_interactive_ipywidgets_raises(mock_ipython):
     def raiser(args):
         raise ValueError
@@ -111,7 +115,6 @@ def test_interactive_ipywidgets_raises(mock_ipython):
         m.interactive(raiser, raise_on_exception=True)
 
 
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_interactive_ipywidgets_with_array_func(mock_ipython):
     def cost(par):
         return par[0] ** 2 + (par[1] / 2) ** 2

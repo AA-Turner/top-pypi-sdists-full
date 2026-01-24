@@ -30,7 +30,7 @@ def usage():
 # __doc__ = """
 # Usage:
 #   %s [OPTIONS]... [ FILE | DIR]...
-#   %s [--help | -h | --V | --version]
+#   %s [--help | --version]
 
 # Examples:
 #   %s      foo.pyc bar.pyc       # decompile foo.pyc, bar.pyc to stdout
@@ -131,7 +131,6 @@ def usage():
     default=0,
     help="start decomplation at offset; default is 0 or the starting offset.",
 )
-@click.version_option(version=__version__)
 @click.option(
     "--stop-offset",
     "stop_offset",

@@ -26,12 +26,11 @@ from seeq.spy.workbooks._item import Item, ItemList
 from seeq.spy.workbooks._item_map import ItemMap
 from seeq.spy.workbooks._table_toolbar import ConditionTableToolbar
 from seeq.spy.workbooks._trend_toolbar import TrendToolbar
-from seeq.spy.workbooks._workstep import Workstep, AnalysisWorkstep
+from seeq.spy.workbooks._workstep import Workstep, AnalysisWorkstep, RoomWorkstep
 
 
 class Worksheet(Item):
-    _annotation: Union[Journal, Report]
-    _item_map_for_push: Optional[ItemMap]
+    _annotation: Optional[Union[Journal, Report]]
 
     def __new__(cls, *args, **kwargs):
         if cls is Worksheet:
@@ -52,11 +51,15 @@ class Worksheet(Item):
         if add_defaults:
             if self.workbook['Workbook Type'] == 'Analysis':
                 self._annotation = Journal(self)
-                self.worksteps = dict()
-                workstep = AnalysisWorkstep(self)
-                self._definition['Current Workstep ID'] = workstep.id
-            else:
+            elif self.workbook['Workbook Type'] == 'Topic':
                 self._annotation = Report(self)
+            else:
+                self._annotation = None
+
+            if self.workbook['Workbook Type'] in ('Analysis', 'Vantage'):
+                self.worksteps = dict()
+                workstep = self._instantiate_new_workstep()
+                self._definition['Current Workstep ID'] = workstep.id
 
     @property
     def url(self):
@@ -81,8 +84,12 @@ class Worksheet(Item):
     def _instantiate(workbook, definition=None, *, provenance=None):
         if workbook['Workbook Type'] == 'Analysis':
             return AnalysisWorksheet(workbook, definition, provenance=provenance)
-        else:
+        elif workbook['Workbook Type'] == 'Topic':
             return TopicDocument(workbook, definition, provenance=provenance)
+        elif workbook['Workbook Type'] == 'Vantage':
+            return RoomView(workbook, definition, provenance=provenance)
+        else:
+            raise SPyValueError(f'Unsupported Workbook Type "{workbook["Workbook Type"]}" for Worksheet instantiation')
 
     @staticmethod
     def pull(item_id, *, workbook=None, extra_workstep_tuples=None, include_annotations=True, include_images=True,
@@ -99,7 +106,7 @@ class Worksheet(Item):
             status=Status(errors='catalog'))
         if definition is None:
             if status.errors == 'catalog':
-                return
+                return None
             else:
                 raise SPyRuntimeError(f'Worksheet with ID "{item_id}" does not exist')
         worksheet = Worksheet._instantiate(workbook, definition, provenance=Item.PULL)
@@ -115,7 +122,7 @@ class Worksheet(Item):
         if include_images and not include_annotations:
             raise SPyValueError('Must specify include_images=False if you specify include_annotations=False')
 
-        if include_annotations:
+        if include_annotations and self._annotation is not None:
             self._annotation.pull(session, include_images=include_images,
                                   include_archived=include_archived, status=status)
 
@@ -134,8 +141,6 @@ class Worksheet(Item):
 
     def push(self, context: WorkbookPushContext, pushed_workbook_id, item_map, datasource_output,
              existing_worksheet_identifiers, include_inventory, label=None):
-        self._item_map_for_push = item_map
-
         existing_worksheet_id = None
 
         # After Integrated Security was introduced, we can no longer search for Worksheets using Data ID,
@@ -159,11 +164,20 @@ class Worksheet(Item):
         workbooks_api = WorkbooksApi(context.session.client)
         items_api = ItemsApi(context.session.client)
         props = list()
+        worksheet_output: Optional[WorksheetOutputV1] = None
         if not existing_worksheet_id:
             worksheet_input = WorksheetInputV1()
             worksheet_input.name = self.definition['Name']
-            worksheet_output = workbooks_api.create_worksheet(
-                workbook_id=pushed_workbook_id, body=worksheet_input)  # type: WorksheetOutputV1
+            if not context.dry_run:
+                worksheet_output = workbooks_api.create_worksheet(
+                    workbook_id=pushed_workbook_id, body=worksheet_input)
+                context.status.log(
+                    f'Pushed {self} to Workbook {pushed_workbook_id} as Worksheet {worksheet_output.id}')
+            else:
+                if pushed_workbook_id is not None:
+                    context.status.log(f'[Dry Run] Would push {self} to Workbook {pushed_workbook_id}')
+                else:
+                    context.status.log(f'[Dry Run] Would push {self} to new Workbook')
 
             if context.session.options.wants_compatibility_with(194):
                 spy_id = spy_id_with_label_suffix_maybe
@@ -174,13 +188,20 @@ class Worksheet(Item):
         else:
             worksheet_output = workbooks_api.get_worksheet(workbook_id=pushed_workbook_id,
                                                            worksheet_id=existing_worksheet_id)
+            context.status.log(f'{self} mapped to existing worksheet "{worksheet_output.name}" ({worksheet_output.id})')
             props.append(ScalarPropertyV1(name='Name', value=self.definition['Name']))
 
         item_map[self.id] = worksheet_output.id
 
         props.append(ScalarPropertyV1(name='Archived', value=_common.get(self, 'Archived', False)))
+        props_string = ', '.join([f'{p.name}={p.value}' for p in props])
 
-        items_api.set_properties(id=worksheet_output.id, body=props)
+        if not context.dry_run:
+            context.status.log(f'Updating properties for worksheet ID {worksheet_output.id}: {props_string}')
+            items_api.set_properties(id=worksheet_output.id, body=props)
+        else:
+            context.status.log(f'[Dry Run] Would update properties for worksheet ID {worksheet_output.id}: '
+                               f'{props_string}')
 
         return worksheet_output
 
@@ -191,7 +212,8 @@ class Worksheet(Item):
             for workstep_id, workstep in self.worksteps.items():  # type: Workstep
                 referenced_items.update(workstep.referenced_items)
 
-        referenced_items.update(self._annotation.referenced_items)
+        if self._annotation is not None:
+            referenced_items.update(self._annotation.referenced_items)
 
         return list(referenced_items)
 
@@ -201,23 +223,29 @@ class Worksheet(Item):
 
     @property
     def referenced_worksteps(self):
+        if self._annotation is None:
+            return set()
         return self._annotation.referenced_worksteps
 
     def find_workbook_links(self, session: Session, status: Status):
+        if self._annotation is None:
+            return dict()
         return self._annotation.find_workbook_links(session, status)
 
-    def find_unresolved_worksteps(self):
+    def find_unresolved_worksteps(self, item_map: ItemMap):
+        if self._annotation is None:
+            return set()
         # Unresolved Report workstep dependencies will be found when pushing the associated document
         dependencies_not_found = set()
-        for workstep_tuple in self._annotation.find_workstep_references(item_map=self._item_map_for_push):
+        for workstep_tuple in self._annotation.find_workstep_references(item_map=item_map):
             referenced_workbook_id, referenced_worksheet_id, referenced_workstep_id = workstep_tuple
-            if referenced_workstep_id not in self._item_map_for_push:
+            if referenced_workstep_id not in item_map:
                 dependencies_not_found.add(
                     'Workbook %s, Worksheet %s, Workstep %s' % (
                         referenced_workbook_id, referenced_worksheet_id, referenced_workstep_id))
         return dependencies_not_found
 
-    def current_workstep(self) -> AnalysisWorkstep:
+    def current_workstep(self) -> Union[AnalysisWorkstep, RoomWorkstep]:
         return self.worksteps[self.definition['Current Workstep ID']]
 
     @staticmethod
@@ -230,8 +258,9 @@ class Worksheet(Item):
         with util.safe_open(worksheet_json_file, 'w', encoding='utf-8') as f:
             json.dump(self._definition, f, indent=4)
 
-        self._annotation.save(workbook_folder, include_rendered_content=include_rendered_content,
-                              pretty_print_html=pretty_print_html)
+        if self._annotation is not None:
+            self._annotation.save(workbook_folder, include_rendered_content=include_rendered_content,
+                                  pretty_print_html=pretty_print_html)
 
     def _load(self, workbook_folder, worksheet_id):
         worksheet_json_file = Worksheet._get_worksheet_json_file(workbook_folder, worksheet_id)
@@ -241,7 +270,7 @@ class Worksheet(Item):
 
         if self.workbook['Workbook Type'] == 'Analysis':
             self._annotation = Journal.load(self, workbook_folder)
-        else:
+        elif self.workbook['Workbook Type'] == 'Topic':
             self._annotation = Report.load(self, workbook_folder)
 
         self.worksteps = dict()
@@ -304,16 +333,22 @@ class Worksheet(Item):
         """
         return self.current_workstep().timezone
 
+    def _instantiate_new_workstep(self, **kwargs):
+        if self.workbook['Workbook Type'] == 'Analysis':
+            return AnalysisWorkstep(self, **kwargs)
+        else:
+            return RoomWorkstep(self, **kwargs)
+
     def _branch_current_workstep(self):
         if self.provenance == self.CONSTRUCTOR:
             return self.current_workstep()
 
         if 'Current Workstep ID' in self.definition and self.definition['Current Workstep ID']:
-            new_workstep = AnalysisWorkstep(self,
-                                            definition={
-                                                'Data': self.worksteps[self.definition['Current Workstep ID']].data})
+            new_workstep = self._instantiate_new_workstep(definition={
+                'Data': self.worksteps[self.definition['Current Workstep ID']].data
+            })
         else:
-            new_workstep = AnalysisWorkstep(self)
+            new_workstep = self._instantiate_new_workstep()
 
         self.worksteps[new_workstep['ID']] = new_workstep
         self.definition['Current Workstep ID'] = new_workstep['ID']
@@ -328,7 +363,198 @@ class Worksheet(Item):
             del self.worksteps[workstep.id]
 
 
-class AnalysisWorksheet(Worksheet):
+class WorksheetForAnalysisOrRoom(Worksheet):
+    def workstep(self, name=None, create=True):
+        if not name:
+            name = _common.new_placeholder_guid()
+
+        existing_workstep = [ws for ws in self.worksteps.values() if ws.name == name]
+        if len(existing_workstep) == 1:
+            return existing_workstep[0]
+        elif not create:
+            return None
+
+        workstep = self._instantiate_new_workstep(definition={'Name': name})
+        workstep.set_as_current()
+
+        return workstep
+
+    def pull_worksheet(self, session: Session, worksheet_id, extra_workstep_tuples=None, include_images=True,
+                       status=None, include_annotations=True, include_archived: Optional[bool] = None,
+                       include_referenced_worksteps=True):
+        super().pull_worksheet(session, worksheet_id, extra_workstep_tuples, include_images, status,
+                               include_annotations, include_archived)
+
+        workbooks_api = WorkbooksApi(session.client)
+        worksheet_output = safely(
+            lambda: workbooks_api.get_worksheet(workbook_id=self.workbook.id, worksheet_id=worksheet_id),
+            action_description=f'get Worksheet details for {self.workbook.id}/{worksheet_id}',
+            status=status)  # type: WorksheetOutputV1
+        if worksheet_output is None:
+            return
+        current_workstep_id = worksheet_output.workstep
+
+        workstep_tuples_to_pull = set()
+        if current_workstep_id is not None:
+            workstep_tuples_to_pull.add((self.workbook.id, self.id, current_workstep_id))
+            self._definition['Current Workstep ID'] = current_workstep_id
+
+        if include_referenced_worksteps and self._annotation is not None:
+            for workbook_id, worksheet_id, workstep_id in self._annotation.referenced_worksteps:
+                if isinstance(self._annotation, Journal) or worksheet_id == self.id:
+                    workstep_tuples_to_pull.add((workbook_id, worksheet_id, workstep_id))
+
+        if extra_workstep_tuples:
+            for workbook_id, worksheet_id, workstep_id in extra_workstep_tuples:
+                if workbook_id == self.workbook.id and worksheet_id == self.id and workstep_id is not None:
+                    workstep_tuples_to_pull.add((workbook_id, worksheet_id, workstep_id))
+        self._pull_worksteps(session, workstep_tuples_to_pull, status)
+
+        if not self.worksteps:
+            workstep = self._instantiate_new_workstep()
+            self._definition['Current Workstep ID'] = workstep['ID']
+
+    def _pull_worksteps(self, session: Session, workstep_tuples, status: Status):
+        for workstep_tuple in workstep_tuples:
+            workbook_id, worksheet_id, workstep_id = workstep_tuple
+            if workstep_id not in self.worksteps:
+                self.workbook.update_status('Pulling worksteps', 0)
+                self.worksteps[workstep_id] = Workstep.pull(workstep_tuple, worksheet=self, session=session,
+                                                            status=status)
+                self.workbook.update_status('Pulling worksteps', 1)
+
+    def pull_current_workstep(self, quiet: bool = False, status: Optional[Status] = None,
+                              session: Optional[Session] = None):
+        # noinspection PyUnresolvedReferences
+        """
+        Pulls the current workstep for the given worksheet so that the Python
+        object has been updated with what the user might have changed in the
+        user interface.
+
+        Parameters
+        ----------
+        quiet : bool, default False
+            If True, suppresses progress output. Note that when status is
+            provided, the quiet setting of the Status object that is passed
+            in takes precedence.
+
+        status : spy.Status, optional
+            If specified, the supplied Status object will be updated as the command
+            progresses. It gets filled in with the same information you would see
+            in Jupyter in the blue/green/red table below your code while the
+            command is executed. The table itself is accessible as a DataFrame via
+            the status.df property.
+
+        session : spy.Session, optional
+            If supplied, the Session object (and its Options) will be used to
+            store the login session state. This is useful to log in to different
+            Seeq servers at the same time or with different credentials.
+
+        Example
+        -------
+        >>> worksheet = workbook.worksheets['My Worksheet']
+        >>> worksheet.pull_current_workstep()
+        """
+        session = Session.validate(session)
+        status = Status.validate(status, session, quiet)
+        self.pull_worksheet(session, self.id, include_images=False, status=status, include_annotations=False,
+                            include_referenced_worksteps=False)
+
+    def refresh_from(self, new_item, item_map: ItemMap, status: Status):
+        super().refresh_from(new_item, item_map, status)
+
+        if self._annotation is not None and getattr(new_item, '_annotation') is not None:
+            self._annotation.refresh_from(getattr(new_item, '_annotation'), item_map, status)
+
+        for workstep_id, workstep in self.worksteps.items():
+            workstep['ID'] = item_map[workstep_id]
+        self.worksteps = new_item.worksteps
+
+    def save(self, workbook_folder, *, include_rendered_content=False, pretty_print_html=False):
+        super().save(workbook_folder, include_rendered_content=include_rendered_content,
+                     pretty_print_html=pretty_print_html)
+
+        for workstep_id, workstep in self.worksteps.items():
+            workstep.save(workbook_folder)
+
+    @property
+    def display_range(self):
+        # noinspection PyIncorrectDocstring
+        """
+        Set the display range on the worksheet
+
+        Parameters
+        ----------
+        value: pandas.DataFrame, pandas.Series, dict
+            The display range as a single row DataFrame, Series or dict with
+            columns of 'Start' and 'End' containing the datetime objects or
+            text parsable using pandas.to_datetime().
+
+        Returns
+        -------
+         dict
+            A dict with keys of 'Start' and 'End' and values of the ISO8601
+            timestamps for the start and end of the display range.
+        """
+        return self._get_display_range()
+
+    @display_range.setter
+    def display_range(self, value):
+        self._set_display_range(value)
+
+    @property
+    def investigate_range(self):
+        # noinspection PyIncorrectDocstring
+        """
+        Set the investigate range on the worksheet
+
+        Parameters
+        ----------
+        value: pandas.DataFrame, pandas.Series, dict
+            The investigate range as a single row DataFrame, Series or dict
+            with columns of 'Start' and 'End' containing the datetime objects
+            or text parsable using pandas.to_datetime().
+
+        Returns
+        -------
+        dict
+            A dict with keys of 'Start' and 'End' and values of the ISO8601
+            timestamps for the start and end of the investigate range.
+        """
+        return self._get_investigate_range()
+
+    @investigate_range.setter
+    def investigate_range(self, value):
+        self._set_investigate_range(value)
+
+    def _get_display_range(self) -> Optional[dict]:
+        """
+        Get the display range for the workstep
+
+        See worksheet property "display_range" for docs
+
+        :return:
+        """
+        return self.current_workstep().display_range
+
+    def _set_display_range(self, display_range: dict):
+        new_workstep = self._branch_current_workstep()
+        new_workstep.display_range = display_range
+
+    def _get_investigate_range(self) -> Optional[dict]:
+        """
+        Get the investigate range of the current workstep
+
+        See worksheet property "investigate_range" for docs
+        """
+        return self.current_workstep().investigate_range
+
+    def _set_investigate_range(self, investigate_range: dict):
+        new_workstep = self._branch_current_workstep()
+        new_workstep.investigate_range = investigate_range
+
+
+class AnalysisWorksheet(WorksheetForAnalysisOrRoom):
 
     def __init__(self, workbook, definition=None, *, provenance=None, add_defaults=True):
         super().__init__(workbook, definition, provenance=provenance, add_defaults=add_defaults)
@@ -514,7 +740,7 @@ class AnalysisWorksheet(Worksheet):
         for workstep_id, workstep in self.worksteps.items():  # type: (str, Workstep)
             self.workbook.update_status('Pushing worksteps', 0)
             # Intentionally don't send a workstep message since it will be sent below when we set the current workstep
-            pushed_workstep_id = workstep.push_to_specific_worksheet(context.session, pushed_workbook_id,
+            pushed_workstep_id = workstep.push_to_specific_worksheet(context, pushed_workbook_id,
                                                                      worksheet_output, item_map, include_inventory,
                                                                      no_workstep_message=True)
             self.workbook.update_status('Pushing worksteps', 1)
@@ -528,7 +754,7 @@ class AnalysisWorksheet(Worksheet):
             if workstep_id == self.definition['Current Workstep ID']:
                 pushed_current_workstep_id = pushed_workstep_id
 
-        if not pushed_current_workstep_id:
+        if not pushed_current_workstep_id and not context.dry_run:
             raise SPyRuntimeError("Workstep for worksheet's 'Current Workstep ID' not found")
 
         workbooks_api = WorkbooksApi(context.session.client)
@@ -538,29 +764,13 @@ class AnalysisWorksheet(Worksheet):
                                                           workstep_id=pushed_current_workstep_id),
                action_description=f'set {pushed_workbook_id}/{worksheet_output.id}/{pushed_current_workstep_id} '
                                   f'as the current workstep',
-               status=context.status)  # type: WorksheetOutputListV1
+               status=context.status, dry_run=context.dry_run)  # type: WorksheetOutputListV1
 
-        if context.include_annotations:
-            self.journal.push(context.session, pushed_workbook_id, worksheet_output.id, item_map, datasource_output,
-                              context.access_control, push_images=True, label=label, status=context.status)
+        if context.include_annotations and self._annotation is not None and worksheet_output is not None:
+            self._annotation.push(context, pushed_workbook_id, worksheet_output.id, item_map, datasource_output,
+                                  context.access_control, push_images=True, label=label)
 
         return worksheet_output
-
-    def refresh_from(self, new_item, item_map: ItemMap, status: Status):
-        super().refresh_from(new_item, item_map, status)
-
-        self.journal.refresh_from(new_item.journal, item_map, status)
-
-        for workstep_id, workstep in self.worksteps.items():
-            workstep['ID'] = item_map[workstep_id]
-        self.worksteps = new_item.worksteps
-
-    def save(self, workbook_folder, *, include_rendered_content=False, pretty_print_html=False):
-        super().save(workbook_folder, include_rendered_content=include_rendered_content,
-                     pretty_print_html=pretty_print_html)
-
-        for workstep_id, workstep in self.worksteps.items():
-            workstep.save(workbook_folder)
 
     @property
     def display_items(self):
@@ -653,56 +863,6 @@ class AnalysisWorksheet(Worksheet):
     @view.setter
     def view(self, value):
         self._set_worksheet_view(value)
-
-    @property
-    def display_range(self):
-        # noinspection PyIncorrectDocstring
-        """
-        Set the display range on the worksheet
-
-        Parameters
-        ----------
-        value: pandas.DataFrame, pandas.Series, dict
-            The display range as a single row DataFrame, Series or dict with
-            columns of 'Start' and 'End' containing the datetime objects or
-            text parsable using pandas.to_datetime().
-
-        Returns
-        -------
-         dict
-            A dict with keys of 'Start' and 'End' and values of the ISO8601
-            timestamps for the start and end of the display range.
-        """
-        return self._get_display_range()
-
-    @display_range.setter
-    def display_range(self, value):
-        self._set_display_range(value)
-
-    @property
-    def investigate_range(self):
-        # noinspection PyIncorrectDocstring
-        """
-        Set the investigate range on the worksheet
-
-        Parameters
-        ----------
-        value: pandas.DataFrame, pandas.Series, dict
-            The investigate range as a single row DataFrame, Series or dict
-            with columns of 'Start' and 'End' containing the datetime objects
-            or text parsable using pandas.to_datetime().
-
-        Returns
-        -------
-        dict
-            A dict with keys of 'Start' and 'End' and values of the ISO8601
-            timestamps for the start and end of the investigate range.
-        """
-        return self._get_investigate_range()
-
-    @investigate_range.setter
-    def investigate_range(self, value):
-        self._set_investigate_range(value)
 
     @property
     @deprecated(reason='Use self.table_date_display instead')
@@ -810,32 +970,6 @@ class AnalysisWorksheet(Worksheet):
     @scatter_plot_series.setter
     def scatter_plot_series(self, value):
         self._set_scatter_plot_series(value)
-
-    def _get_display_range(self) -> Optional[dict]:
-        """
-        Get the display range for the workstep
-
-        See worksheet property "display_range" for docs
-
-        :return:
-        """
-        return self.current_workstep().display_range
-
-    def _set_display_range(self, display_range: dict):
-        new_workstep = self._branch_current_workstep()
-        new_workstep.display_range = display_range
-
-    def _get_investigate_range(self) -> Optional[dict]:
-        """
-        Get the investigate range of the current workstep
-
-        See worksheet property "investigate_range" for docs
-        """
-        return self.current_workstep().investigate_range
-
-    def _set_investigate_range(self, investigate_range: dict):
-        new_workstep = self._branch_current_workstep()
-        new_workstep.investigate_range = investigate_range
 
     def _get_display_items(self) -> Optional[pd.DataFrame]:
         """
@@ -975,8 +1109,8 @@ class TopicDocument(Worksheet):
                                         label=label)
 
         if context.include_annotations:
-            self.report.push(context.session, pushed_workbook_id, worksheet_output.id, item_map, datasource_output,
-                             context.access_control, push_images=True, label=label, status=context.status)
+            self.report.push(context, pushed_workbook_id, worksheet_output.id, item_map, datasource_output,
+                             context.access_control, push_images=True, label=label)
 
         return worksheet_output
 
@@ -1099,6 +1233,10 @@ class TopicDocument(Worksheet):
         self.report.schedule = value
 
 
+class RoomView(WorksheetForAnalysisOrRoom):
+    pass
+
+
 @deprecated(reason='Use spy.utils.pull_worksheet_via_url instead')
 def get_analysis_worksheet_from_url(url: str, include_archived: bool = False, quiet: Optional[bool] = False,
                                     session: Optional[Session] = None):
@@ -1149,7 +1287,7 @@ def pull_worksheet_via_url(url: str, *, minimal: bool = True, include_archived: 
     workbooks = spy.workbooks.pull(workbook_search, include_referenced_workbooks=False, include_inventory=False,
                                    include_annotations=not minimal, include_images=not minimal,
                                    include_access_control=not minimal, specific_worksheet_ids=[worksheet_id],
-                                   status=Status(quiet=quiet), session=session)
+                                   status=status, session=session)
     if not workbooks:
         raise SPyValueError(f"An error occurred while pulling Worksheet '{worksheet_id}' from Workbook '{workbook_id}'")
     workbook = workbooks[0]
@@ -1195,18 +1333,18 @@ class WorksheetList(ItemList):
                 worksheet.workbook = self.workbook
 
     # noinspection PyTypeChecker
-    def __getitem__(self, key) -> Worksheet:
+    def __getitem__(self, key) -> AnalysisWorksheet | TopicDocument | RoomView:
         return super().__getitem__(key)
 
-    def __setitem__(self, key, val: Worksheet):
+    def __setitem__(self, key, val: AnalysisWorksheet | TopicDocument | RoomView):
         retval = super().__setitem__(key, val)
         self._validate_and_transfer_if_necessary()
         return retval
 
-    def append(self, __object: Worksheet) -> None:
+    def append(self, __object: AnalysisWorksheet | TopicDocument | RoomView) -> None:
         super().append(__object)
         self._validate_and_transfer_if_necessary()
 
-    def extend(self, __iterable: Iterable[Worksheet]) -> None:
+    def extend(self, __iterable: Iterable[AnalysisWorksheet | TopicDocument | RoomView]) -> None:
         super().extend(__iterable)
         self._validate_and_transfer_if_necessary()

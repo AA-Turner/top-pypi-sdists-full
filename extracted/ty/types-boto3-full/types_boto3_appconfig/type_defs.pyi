@@ -3,7 +3,7 @@ Type annotations for appconfig service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appconfig/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -34,12 +35,6 @@ from .literals import (
     ValidatorTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -149,7 +144,7 @@ class DeletionProtectionSettingsTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -177,7 +172,7 @@ class AppliedExtensionTypeDef(TypedDict):
     ExtensionId: NotRequired[str]
     ExtensionAssociationId: NotRequired[str]
     VersionNumber: NotRequired[int]
-    Parameters: NotRequired[Dict[str, str]]
+    Parameters: NotRequired[dict[str, str]]
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 ConfigurationProfileSummaryTypeDef = TypedDict(
@@ -187,7 +182,7 @@ ConfigurationProfileSummaryTypeDef = TypedDict(
         "Id": NotRequired[str],
         "Name": NotRequired[str],
         "LocationUri": NotRequired[str],
-        "ValidatorTypes": NotRequired[List[ValidatorTypeType]],
+        "ValidatorTypes": NotRequired[list[ValidatorTypeType]],
         "Type": NotRequired[str],
     },
 )
@@ -490,7 +485,7 @@ class ExtensionAssociationTypeDef(TypedDict):
     ExtensionArn: str
     ResourceArn: str
     Arn: str
-    Parameters: Dict[str, str]
+    Parameters: dict[str, str]
     ExtensionVersionNumber: int
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -506,18 +501,18 @@ class HostedConfigurationVersionTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ResourceTagsTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeploymentEventTypeDef(TypedDict):
     EventType: NotRequired[DeploymentEventTypeType]
     TriggeredBy: NotRequired[TriggeredByType]
     Description: NotRequired[str]
-    ActionInvocations: NotRequired[List[ActionInvocationTypeDef]]
+    ActionInvocations: NotRequired[list[ActionInvocationTypeDef]]
     OccurredAt: NotRequired[datetime]
 
 class ApplicationsTypeDef(TypedDict):
-    Items: List[ApplicationTypeDef]
+    Items: list[ApplicationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -531,7 +526,7 @@ class CreateHostedConfigurationVersionRequestTypeDef(TypedDict):
     VersionLabel: NotRequired[str]
 
 class ConfigurationProfilesTypeDef(TypedDict):
-    Items: List[ConfigurationProfileSummaryTypeDef]
+    Items: list[ConfigurationProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -544,7 +539,7 @@ ConfigurationProfileTypeDef = TypedDict(
         "Description": str,
         "LocationUri": str,
         "RetrievalRoleArn": str,
-        "Validators": List[ValidatorTypeDef],
+        "Validators": list[ValidatorTypeDef],
         "Type": str,
         "KmsKeyArn": str,
         "KmsKeyIdentifier": str,
@@ -588,7 +583,7 @@ class EnvironmentResponseTypeDef(TypedDict):
     Name: str
     Description: str
     State: EnvironmentStateType
-    Monitors: List[MonitorTypeDef]
+    Monitors: list[MonitorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EnvironmentTypeDef(TypedDict):
@@ -597,7 +592,7 @@ class EnvironmentTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
     State: NotRequired[EnvironmentStateType]
-    Monitors: NotRequired[List[MonitorTypeDef]]
+    Monitors: NotRequired[list[MonitorTypeDef]]
 
 class UpdateEnvironmentRequestTypeDef(TypedDict):
     ApplicationId: str
@@ -620,8 +615,8 @@ class ExtensionTypeDef(TypedDict):
     VersionNumber: int
     Arn: str
     Description: str
-    Actions: Dict[ActionPointType, List[ActionTypeDef]]
-    Parameters: Dict[str, ParameterTypeDef]
+    Actions: dict[ActionPointType, list[ActionTypeDef]]
+    Parameters: dict[str, ParameterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateExtensionRequestTypeDef(TypedDict):
@@ -632,22 +627,22 @@ class UpdateExtensionRequestTypeDef(TypedDict):
     VersionNumber: NotRequired[int]
 
 class DeploymentStrategiesTypeDef(TypedDict):
-    Items: List[DeploymentStrategyTypeDef]
+    Items: list[DeploymentStrategyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DeploymentsTypeDef(TypedDict):
-    Items: List[DeploymentSummaryTypeDef]
+    Items: list[DeploymentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ExtensionAssociationsTypeDef(TypedDict):
-    Items: List[ExtensionAssociationSummaryTypeDef]
+    Items: list[ExtensionAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ExtensionsTypeDef(TypedDict):
-    Items: List[ExtensionSummaryTypeDef]
+    Items: list[ExtensionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -663,7 +658,7 @@ class GetEnvironmentRequestWaitTypeDef(TypedDict):
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 class HostedConfigurationVersionsTypeDef(TypedDict):
-    Items: List[HostedConfigurationVersionSummaryTypeDef]
+    Items: list[HostedConfigurationVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -722,17 +717,17 @@ class DeploymentTypeDef(TypedDict):
     GrowthFactor: float
     FinalBakeTimeInMinutes: int
     State: DeploymentStateType
-    EventLog: List[DeploymentEventTypeDef]
+    EventLog: list[DeploymentEventTypeDef]
     PercentageComplete: float
     StartedAt: datetime
     CompletedAt: datetime
-    AppliedExtensions: List[AppliedExtensionTypeDef]
+    AppliedExtensions: list[AppliedExtensionTypeDef]
     KmsKeyArn: str
     KmsKeyIdentifier: str
     VersionLabel: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EnvironmentsTypeDef(TypedDict):
-    Items: List[EnvironmentTypeDef]
+    Items: list[EnvironmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

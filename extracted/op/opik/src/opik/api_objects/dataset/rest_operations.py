@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 from typing import List
 from opik.rest_api import OpikApi
 import opik.exceptions as exceptions
+from opik.message_processing import streamer
 from . import dataset
 from .. import experiment
+from ..experiment import experiments_client
 from ...rest_api.core.api_error import ApiError
 
 
@@ -27,6 +31,7 @@ def get_datasets(
                 name=dataset_fern.name,
                 description=dataset_fern.description,
                 rest_client=rest_client,
+                dataset_items_count=dataset_fern.dataset_items_count,
             )
 
             if sync_items:
@@ -55,7 +60,11 @@ def get_dataset_id(rest_client: OpikApi, dataset_name: str) -> str:
 
 
 def get_dataset_experiments(
-    rest_client: OpikApi, dataset_id: str, max_results: int = 1000
+    rest_client: OpikApi,
+    dataset_id: str,
+    max_results: int,
+    streamer: streamer.Streamer,
+    experiments_client: experiments_client.ExperimentsClient,
 ) -> List[experiment.Experiment]:
     page_size = 100
     experiments: List[experiment.Experiment] = []
@@ -78,7 +87,9 @@ def get_dataset_experiments(
                     name=experiment_.name,
                     dataset_name=experiment_.dataset_name,
                     rest_client=rest_client,
-                    # TODO: add prompt if exists
+                    streamer=streamer,
+                    experiments_client=experiments_client,
+                    tags=experiment_.tags,
                 )
             )
 

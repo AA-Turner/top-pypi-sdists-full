@@ -25,6 +25,7 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
+    TypedDict,
     TypeVar,
     Union,
     cast,
@@ -35,6 +36,7 @@ from uuid import UUID
 
 import wrapt  # type: ignore
 from langchain_core.messages import BaseMessage
+from langchain_core.messages.ai import UsageMetadata
 from langchain_core.tracers import BaseTracer, LangChainTracer
 from langchain_core.tracers.schemas import Run
 from opentelemetry import context as context_api
@@ -43,6 +45,7 @@ from opentelemetry.context import _SUPPRESS_INSTRUMENTATION_KEY, get_value
 from opentelemetry.semconv.trace import SpanAttributes as OTELSpanAttributes
 from opentelemetry.trace import Span
 from opentelemetry.util.types import AttributeValue
+from typing_extensions import NotRequired, TypeGuard
 from wrapt import ObjectProxy
 
 from openinference.instrumentation import get_attributes_from_context, safe_json_dumps
@@ -360,13 +363,41 @@ def _as_output(values: Iterable[str]) -> Iterator[Tuple[str, str]]:
     return zip((OUTPUT_VALUE, OUTPUT_MIME_TYPE), values)
 
 
+def _is_json_parseable(value: str) -> bool:
+    """
+    Check if a string value looks like JSON (object or array).
+
+    Uses a simple heuristic (startswith/endswith check) to avoid the performance
+    overhead of actual JSON parsing. False positives are rare and harmless - the
+    frontend will handle invalid JSON gracefully.
+
+    Args:
+        value: String to check for JSON-like structure.
+
+    Returns:
+        `True` if the string looks like JSON (starts/ends with braces/brackets), `False` otherwise.
+    """
+    if not value:
+        return False
+
+    stripped = value.strip()
+    if not stripped:
+        return False
+
+    return (stripped.startswith("{") and stripped.endswith("}")) or (
+        stripped.startswith("[") and stripped.endswith("]")
+    )
+
+
 def _convert_io(obj: Optional[Mapping[str, Any]]) -> Iterator[str]:
     """
     Convert input/output data to appropriate string representation for OpenInference spans.
 
     This function handles different cases with increasing complexity:
     1. Empty/None objects: return nothing
-    2. Single string values: return the string directly (performance optimization, no MIME type)
+    2. Single string values: return the string directly
+       - If the string is parseable JSON (object/array), also yield JSON MIME type
+       - Otherwise, no MIME type (defaults to text/plain)
     3. Single input/output key with non-string: use custom JSON formatting via _json_dumps
        - Conditional MIME type: only for structured data (objects/arrays), not primitives
     4. Multiple keys or other cases: use _json_dumps for consistent formatting
@@ -387,10 +418,14 @@ def _convert_io(obj: Optional[Mapping[str, Any]]) -> Iterator[str]:
     if len(obj) == 1:
         value = next(iter(obj.values()))
 
-        # Optimization: Single string values are returned as-is without processing
-        # This is the most common case in LangChain runs (e.g., {"input": "user message"})
+        # Handle string values: check if they contain JSON
+        # This is a common case when producers pass stringified JSON
         if isinstance(value, str):
             yield value
+            # Check if the string is parseable JSON (object or array)
+            # If so, tag it with JSON MIME type for proper frontend rendering
+            if _is_json_parseable(value):
+                yield OpenInferenceMimeTypeValues.JSON.value
             return
 
         key = next(iter(obj.keys()))
@@ -473,6 +508,9 @@ def _json_dumps(obj: Any) -> str:
     This approach is much simpler and more robust than manual recursive processing.
     It handles most common types while falling back to safe_json_dumps for edge cases.
     """
+    if isinstance(obj, dict):
+        obj = {str(k): v for k, v in obj.items()}
+
     try:
         # Use standard json.dumps with our custom encoder
         return json.dumps(obj, cls=_OpenInferenceJSONEncoder, ensure_ascii=False)
@@ -565,29 +603,161 @@ def _output_messages(
         yield LLM_OUTPUT_MESSAGES, parsed_messages
 
 
+def _infer_role_from_context(message_data: Mapping[str, Any]) -> Optional[str]:
+    """
+    Infer message role from context when the id field is unavailable.
+
+    This is a fallback strategy used when LangGraph streaming produces messages
+    without the standard id field (e.g., when message["id"] is None).
+
+    Args:
+        message_data: The message data mapping
+
+    Returns:
+        The inferred role string, or None if role cannot be determined
+    """
+    # Check for tool_call_id in kwargs - indicates a tool message
+    if kwargs := message_data.get("kwargs"):
+        if isinstance(kwargs, Mapping):
+            if kwargs.get("tool_call_id"):
+                return "tool"
+
+            # Check for tool_calls - indicates an assistant message
+            if kwargs.get("tool_calls"):
+                return "assistant"
+
+            # Check for explicit role in kwargs (e.g., ChatMessage)
+            if role := kwargs.get("role"):
+                if isinstance(role, str):
+                    return role
+
+    # Check for tool_calls at the top level (LangGraph style)
+    if message_data.get("tool_calls"):
+        return "assistant"
+
+    # Unable to infer role from context
+    return None
+
+
+def _map_class_name_to_role(
+    message_class_name: str, message_data: Mapping[str, Any]
+) -> Optional[str]:
+    """
+    Map a LangChain message class name to its corresponding role.
+
+    Args:
+        message_class_name: The class name from the message id
+        message_data: The full message data (needed for ChatMessage role lookup)
+
+    Returns:
+        The role string, or None for message types without roles (e.g., RemoveMessage)
+
+    Raises:
+        ValueError: If the message class name is not recognized
+    """
+    if message_class_name.startswith("HumanMessage"):
+        return "user"
+    elif message_class_name.startswith("AIMessage"):
+        return "assistant"
+    elif message_class_name.startswith("SystemMessage"):
+        return "system"
+    elif message_class_name.startswith("FunctionMessage"):
+        return "function"
+    elif message_class_name.startswith("ToolMessage"):
+        return "tool"
+    elif message_class_name.startswith("ChatMessage"):
+        role = message_data["kwargs"]["role"]
+        return str(role) if role is not None else None
+    elif message_class_name.startswith("RemoveMessage"):
+        # RemoveMessage is a special message type used by LangGraph to mark messages for removal
+        # It doesn't have a traditional role, so we skip adding a role attribute
+        # This prevents ValueError while allowing RemoveMessage to be processed
+        return None
+    else:
+        raise ValueError(f"Cannot parse message of type: {message_class_name}")
+
+
 @stop_on_exception
 def _extract_message_role(message_data: Optional[Mapping[str, Any]]) -> Iterator[Tuple[str, Any]]:
+    """
+    Extract the message role from message data with multiple fallback strategies.
+
+    This function handles cases where the standard id field may be missing or None,
+    which can occur in LangGraph streaming scenarios.
+
+    Fallback strategies:
+    1. Try extracting from id field (standard LangChain serialization)
+    2. Try extracting from type field
+    3. Try inferring from message context (tool_calls, tool_call_id, etc.)
+    4. If all fail, log warning and skip role (span continues without role attribute)
+
+    Special handling:
+    - RemoveMessage intentionally has no role and will not trigger a warning
+    """
     if not message_data:
         return
     assert hasattr(message_data, "get"), f"expected Mapping, found {type(message_data)}"
+
+    role = None
+
+    # Strategy 1: Try the standard id field approach
     id_ = message_data.get("id")
-    assert isinstance(id_, List), f"expected list, found {type(id_)}"
-    message_class_name = id_[-1]
-    if message_class_name.startswith("HumanMessage"):
-        role = "user"
-    elif message_class_name.startswith("AIMessage"):
-        role = "assistant"
-    elif message_class_name.startswith("SystemMessage"):
-        role = "system"
-    elif message_class_name.startswith("FunctionMessage"):
-        role = "function"
-    elif message_class_name.startswith("ToolMessage"):
-        role = "tool"
-    elif message_class_name.startswith("ChatMessage"):
-        role = message_data["kwargs"]["role"]
+    if id_ is not None and isinstance(id_, List) and len(id_) > 0:
+        try:
+            message_class_name = id_[-1]
+            # RemoveMessage intentionally has no role - exit early without warning
+            if message_class_name.startswith("RemoveMessage"):
+                logger.debug("Encountered RemoveMessage - no role attribute needed")
+                return
+            role = _map_class_name_to_role(message_class_name, message_data)
+            logger.debug("Extracted message role from id field: %s", role)
+        except (IndexError, KeyError, ValueError, TypeError, AttributeError) as e:
+            logger.debug("Failed to extract role from id field: %s", e)
+
+    # Strategy 2: Try the type field (alternative serialization format)
+    if role is None:
+        type_field = message_data.get("type")
+        if isinstance(type_field, str):
+            # RemoveMessage via type field - exit early without warning
+            if type_field.lower() == "remove":
+                logger.debug("Encountered RemoveMessage via type field - no role attribute needed")
+                return
+            # Map common type values to roles
+            type_to_role = {
+                "human": "user",
+                "ai": "assistant",
+                "system": "system",
+                "function": "function",
+                "tool": "tool",
+            }
+            role = type_to_role.get(type_field.lower())
+            if role:
+                logger.debug("Extracted message role from type field: %s", role)
+
+    # Strategy 3: Try direct role field (for raw dict messages)
+    if role is None:
+        direct_role = message_data.get("role")
+        if isinstance(direct_role, str):
+            logger.debug("Extracted message role from direct role field: %s", direct_role)
+            role = direct_role
+
+    # Strategy 4: Try inferring from context
+    if role is None:
+        role = _infer_role_from_context(message_data)
+        if role:
+            logger.debug("Inferred message role from context: %s", role)
+
+    # If we found a role through any strategy, yield it
+    if role:
+        yield MESSAGE_ROLE, role
     else:
-        raise ValueError(f"Cannot parse message of type: {message_class_name}")
-    yield MESSAGE_ROLE, role
+        # No role found - log warning
+        # Note: RemoveMessage returns early above, so won't trigger this warning
+        logger.warning(
+            "Unable to determine message role. Message data keys: %s. "
+            "Span will continue without role attribute.",
+            list(message_data.keys()),
+        )
 
 
 @stop_on_exception
@@ -832,6 +1002,126 @@ def _model_name(
             return
 
 
+class _RawAnthropicUsageWithCacheReadOrWrite(TypedDict):
+    # https://github.com/anthropics/anthropic-sdk-python/blob/2e2f663104c8926434088828c08fbdf202d6d6fd/src/anthropic/types/usage.py#L13
+    input_tokens: int
+    output_tokens: int
+    cache_read_input_tokens: NotRequired[int]
+    cache_creation_input_tokens: NotRequired[int]
+
+
+def _is_raw_anthropic_usage_with_cache_read_or_write(
+    obj: Mapping[str, Any],
+) -> TypeGuard[_RawAnthropicUsageWithCacheReadOrWrite]:
+    return (
+        "input_tokens" in obj
+        and "output_tokens" in obj
+        and isinstance(obj["input_tokens"], int)
+        and isinstance(obj["output_tokens"], int)
+        and (
+            ("cache_read_input_tokens" in obj and isinstance(obj["cache_read_input_tokens"], int))
+            or (
+                "cache_creation_input_tokens" in obj
+                and isinstance(obj["cache_creation_input_tokens"], int)
+            )
+        )
+    )
+
+
+def _token_counts_from_raw_anthropic_usage_with_cache_read_or_write(
+    obj: _RawAnthropicUsageWithCacheReadOrWrite,
+) -> Iterator[Tuple[str, int]]:
+    input_tokens = obj["input_tokens"]
+    output_tokens = obj["output_tokens"]
+
+    cache_creation_input_tokens = 0
+    cache_read_input_tokens = 0
+
+    if "cache_creation_input_tokens" in obj:
+        cache_creation_input_tokens = obj["cache_creation_input_tokens"]
+    if "cache_read_input_tokens" in obj:
+        cache_read_input_tokens = obj["cache_read_input_tokens"]
+
+    prompt_tokens = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
+    completion_tokens = output_tokens
+
+    yield LLM_TOKEN_COUNT_PROMPT, prompt_tokens
+    yield LLM_TOKEN_COUNT_COMPLETION, completion_tokens
+
+    if cache_creation_input_tokens:
+        yield LLM_TOKEN_COUNT_PROMPT_DETAILS_CACHE_WRITE, cache_creation_input_tokens
+    if cache_read_input_tokens:
+        yield LLM_TOKEN_COUNT_PROMPT_DETAILS_CACHE_READ, cache_read_input_tokens
+
+
+def _is_lc_usage_metadata(obj: Mapping[str, Any]) -> TypeGuard[UsageMetadata]:
+    return (
+        "input_tokens" in obj
+        and "output_tokens" in obj
+        and "total_tokens" in obj
+        and isinstance(obj["input_tokens"], int)
+        and isinstance(obj["output_tokens"], int)
+        and isinstance(obj["total_tokens"], int)
+    )
+
+
+def _token_counts_from_lc_usage_metadata(obj: UsageMetadata) -> Iterator[Tuple[str, int]]:
+    input_tokens = obj["input_tokens"]
+    output_tokens = obj["output_tokens"]
+    total_tokens = obj["total_tokens"]
+
+    input_audio = 0
+    input_cache_creation = 0
+    input_cache_read = 0
+    output_audio = 0
+    output_reasoning = 0
+
+    if "input_token_details" in obj:
+        input_token_details = obj["input_token_details"]
+        if "audio" in input_token_details:
+            input_audio = input_token_details["audio"]
+        if "cache_creation" in input_token_details:
+            input_cache_creation = input_token_details["cache_creation"]
+        if "cache_read" in input_token_details:
+            input_cache_read = input_token_details["cache_read"]
+
+    if "output_token_details" in obj:
+        output_token_details = obj["output_token_details"]
+        if "audio" in output_token_details:
+            output_audio = output_token_details["audio"]
+        if "reasoning" in output_token_details:
+            output_reasoning = output_token_details["reasoning"]
+
+    prompt_tokens = input_tokens
+    completion_tokens = output_tokens
+
+    # heuristic adjustment for Bedrock Anthropic models with cache read or write
+    # https://github.com/Arize-ai/openinference/issues/2381
+    if input_cache := input_cache_creation + input_cache_read:
+        if total_tokens == input_tokens + output_tokens + input_cache:
+            # for Bedrock Converse
+            prompt_tokens += input_cache
+        elif input_tokens < input_cache:
+            # for Bedrock InvokeModel
+            prompt_tokens += input_cache
+            total_tokens += input_cache
+
+    yield LLM_TOKEN_COUNT_PROMPT, prompt_tokens
+    yield LLM_TOKEN_COUNT_COMPLETION, completion_tokens
+    yield LLM_TOKEN_COUNT_TOTAL, total_tokens
+
+    if input_audio:
+        yield LLM_TOKEN_COUNT_PROMPT_DETAILS_AUDIO, input_audio
+    if input_cache_creation:
+        yield LLM_TOKEN_COUNT_PROMPT_DETAILS_CACHE_WRITE, input_cache_creation
+    if input_cache_read:
+        yield LLM_TOKEN_COUNT_PROMPT_DETAILS_CACHE_READ, input_cache_read
+    if output_audio:
+        yield LLM_TOKEN_COUNT_COMPLETION_DETAILS_AUDIO, output_audio
+    if output_reasoning:
+        yield LLM_TOKEN_COUNT_COMPLETION_DETAILS_REASONING, output_reasoning
+
+
 @stop_on_exception
 def _token_counts(outputs: Optional[Mapping[str, Any]]) -> Iterator[Tuple[str, int]]:
     """Yields token count information if present."""
@@ -843,6 +1133,7 @@ def _token_counts(outputs: Optional[Mapping[str, Any]]) -> Iterator[Tuple[str, i
         )
     ):
         return
+    keys: Sequence[str]
     for attribute_name, keys in [
         (
             LLM_TOKEN_COUNT_PROMPT,
@@ -861,8 +1152,6 @@ def _token_counts(outputs: Optional[Mapping[str, Any]]) -> Iterator[Tuple[str, i
             ),
         ),
         (LLM_TOKEN_COUNT_TOTAL, ("total_tokens", "total_token_count")),  # Gemini-specific key
-        (LLM_TOKEN_COUNT_PROMPT_DETAILS_CACHE_READ, ("cache_read_input_tokens",)),  # Antrhopic
-        (LLM_TOKEN_COUNT_PROMPT_DETAILS_CACHE_WRITE, ("cache_creation_input_tokens",)),  # Antrhopic
     ]:
         if (token_count := _get_first_value(token_usage, keys)) is not None:
             yield attribute_name, token_count
@@ -895,39 +1184,11 @@ def _token_counts(outputs: Optional[Mapping[str, Any]]) -> Iterator[Tuple[str, i
                 yield attribute_name, token_count
 
     # maps langchain_core.messages.ai.UsageMetadata object
-    for attribute_name, details_key_or_none, keys in [
-        (LLM_TOKEN_COUNT_PROMPT, None, ("input_tokens",)),
-        (LLM_TOKEN_COUNT_COMPLETION, None, ("output_tokens",)),
-        (
-            LLM_TOKEN_COUNT_PROMPT_DETAILS_AUDIO,
-            "input_token_details",
-            ("audio",),
-        ),
-        (
-            LLM_TOKEN_COUNT_PROMPT_DETAILS_CACHE_WRITE,
-            "input_token_details",
-            ("cache_creation",),
-        ),
-        (
-            LLM_TOKEN_COUNT_PROMPT_DETAILS_CACHE_READ,
-            "input_token_details",
-            ("cache_read",),
-        ),
-        (
-            LLM_TOKEN_COUNT_COMPLETION_DETAILS_AUDIO,
-            "output_token_details",
-            ("audio",),
-        ),
-        (
-            LLM_TOKEN_COUNT_COMPLETION_DETAILS_REASONING,
-            "output_token_details",
-            ("reasoning",),
-        ),
-    ]:
-        details = token_usage.get(details_key_or_none) if details_key_or_none else token_usage
-        if details is not None:
-            if (token_count := _get_first_value(details, keys)) is not None:
-                yield attribute_name, token_count
+    if _is_lc_usage_metadata(token_usage):
+        yield from _token_counts_from_lc_usage_metadata(token_usage)
+
+    if _is_raw_anthropic_usage_with_cache_read_or_write(token_usage):
+        yield from _token_counts_from_raw_anthropic_usage_with_cache_read_or_write(token_usage)
 
 
 def _parse_token_usage_for_vertexai(
@@ -1129,7 +1390,10 @@ def _get_attributes_from_message_content(
     content: Mapping[str, Any],
 ) -> Iterator[Tuple[str, AttributeValue]]:
     content = dict(content)
-    type_ = content.pop("type")
+    type_ = content.pop("type", None)
+
+    if type_ is None:
+        return
     if type_ == "text":
         yield f"{MESSAGE_CONTENT_TYPE}", "text"
         if text := content.pop("text"):

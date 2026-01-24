@@ -20,6 +20,7 @@ from target_sqlite import SQLiteSink, SQLiteTarget
 
 from singer_sdk import typing as th
 from singer_sdk.testing import (
+    get_target_test_class,
     tap_sync_test,
     tap_to_target_sync_test,
     target_sync_test,
@@ -32,6 +33,31 @@ if t.TYPE_CHECKING:
 
     from singer_sdk.tap_base import SQLTap
     from singer_sdk.target_base import SQLTarget
+    from singer_sdk.testing.config import SuiteConfig
+    from singer_sdk.testing.runners import TargetTestRunner
+
+
+_TestTargetSQLite = get_target_test_class(
+    target_class=SQLiteTarget,
+    config={"path_to_db": ":memory:"},
+)
+
+
+class TestTargetSQLite(_TestTargetSQLite):
+    """Test Target SQLite."""
+
+    @pytest.mark.xfail(
+        reason="Our sample target SQLite does not support duplicate records.",
+        strict=True,
+    )
+    def test_target_duplicate_records(
+        self,
+        config: SuiteConfig,
+        resource: t.Any,
+        runner: TargetTestRunner,
+    ) -> None:
+        """Test target handles duplicate records."""
+        super().test_target_duplicate_records(config, resource, runner)
 
 
 def get_table(config: Mapping, table_name: str) -> sqlalchemy.Table:
@@ -690,6 +716,52 @@ def test_record_with_missing_properties(
     snapshot.assert_match(caplog.text, "singer.log")
 
 
+@pytest.mark.snapshot
+def test_sqlite_successive_schema_changes(
+    sqlite_target_test_config: dict,
+    snapshot: Snapshot,
+    caplog: pytest.LogCaptureFixture,
+):
+    """Test that SQLite target handles successive schema changes."""
+    target = SQLiteTarget(
+        config={
+            **sqlite_target_test_config,
+            "load_method": "overwrite",
+        }
+    )
+    test_tbl = "zzz_tmp_schema_changes"
+
+    tap_output = """\
+{"type": "SCHEMA", "stream": "zzz_tmp_schema_changes", "schema": {"type": "object", "properties": {"id": {"type": "integer"}}}}
+{"type": "RECORD", "stream": "zzz_tmp_schema_changes", "record": {"id": 1}}
+{"type": "RECORD", "stream": "zzz_tmp_schema_changes", "record": {"id": 2}}
+{"type": "SCHEMA", "stream": "zzz_tmp_schema_changes", "schema": {"type": "object", "properties": {"id": {"type": "integer"}, "name": {"type": "string"}}}}
+{"type": "RECORD", "stream": "zzz_tmp_schema_changes", "record": {"id": 3, "name": "Alice"}}
+{"type": "RECORD", "stream": "zzz_tmp_schema_changes", "record": {"id": 4, "name": "Bob"}}\
+"""  # noqa: E501
+
+    caplog.set_level("ERROR", "singer_sdk.metrics")
+    with caplog.at_level("INFO"):
+        target_stdout, _ = target_sync_test(
+            target,
+            input=StringIO(tap_output),
+            finalize=True,
+        )
+
+    snapshot.assert_match(target_stdout.read(), "target.jsonl")
+    snapshot.assert_match(caplog.text, "singer.log")
+    db = sqlite3.connect(sqlite_target_test_config["path_to_db"])
+    cursor = db.cursor()
+    cursor.execute(f"SELECT id, name FROM {test_tbl}")  # noqa: S608
+    records = cursor.fetchall()
+    assert records == [
+        (1, None),
+        (2, None),
+        (3, "Alice"),
+        (4, "Bob"),
+    ]
+
+
 @pytest.mark.parametrize(
     "stream_name,schema,key_properties,expected_dml",
     [
@@ -771,9 +843,7 @@ def test_hostile_to_sqlite(
     }
 
 
-def test_overwrite_load_method(
-    sqlite_target_test_config: dict,
-):
+def test_overwrite_load_method(sqlite_target_test_config: dict):
     sqlite_target_test_config["load_method"] = "overwrite"
     target = SQLiteTarget(config=sqlite_target_test_config)
     test_tbl = f"zzz_tmp_{str(uuid4()).split('-')[-1]}"

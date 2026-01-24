@@ -25,8 +25,9 @@ import pyarrow
 from pyarrow import Table
 
 from opteryx import EOS
-from opteryx.compiled.joins.inner_join import build_side_hash_map
-from opteryx.compiled.joins.inner_join import inner_join
+from opteryx.compiled.joins import build_side_hash_map
+from opteryx.compiled.joins import get_last_inner_join_metrics
+from opteryx.compiled.joins import inner_join
 from opteryx.compiled.structures.bloom_filter import create_bloom_filter
 from opteryx.models import QueryProperties
 from opteryx.utils.arrow import align_tables
@@ -50,6 +51,8 @@ class InnerJoinNode(JoinNode):
         self.left_hash = None
         self.left_filter = None
 
+        self.columns = parameters.get("columns")
+
         self.lock = Lock()
 
     @property
@@ -61,6 +64,8 @@ class InnerJoinNode(JoinNode):
         return ""
 
     def execute(self, morsel: Table, join_leg: str) -> Table:
+        morsel = self.ensure_arrow_table(morsel)
+
         with self.lock:
             if join_leg == "left":
                 if morsel == EOS:
@@ -71,20 +76,32 @@ class InnerJoinNode(JoinNode):
 
                     start = time.monotonic_ns()
                     self.left_hash = build_side_hash_map(self.left_relation, self.left_columns)
-                    self.statistics.time_inner_join_build_side_hash_map += (
-                        time.monotonic_ns() - start
+                    self.statistics.increase(
+                        "time_inner_join_build_side_hash_map",
+                        time.monotonic_ns() - start,
                     )
 
                     # If the left side is small enough to quickly build a bloom filter, do that.
-                    # - We use 1m + 1 as the upper limit to catch LIMIT on 1m rows
-                    # The bloom filter has a 16m variation coded, but so far it's not fast enough.
+                    # - We use 16m + 1 as the upper limit to catch LIMIT on 16m rows
                     if self.left_relation.num_rows < 16_000_001:
                         start = time.monotonic_ns()
                         self.left_filter = create_bloom_filter(
                             self.left_relation, self.left_columns
                         )
-                        self.statistics.time_build_bloom_filter += time.monotonic_ns() - start
-                        self.statistics.feature_bloom_filter += 1
+                        self.statistics.increase(
+                            "time_build_bloom_filter", time.monotonic_ns() - start
+                        )
+                        self.statistics.increase("feature_bloom_filter", 1)
+
+                    # Project the left relation down to only the columns we need in the
+                    # resulting morsel. This reduces the amount of data we keep in memory
+                    # and pass through the align steps.
+                    if self.columns is not None:
+                        candidates = [c.schema_column.identity for c in self.columns]
+                        left_keep = [c for c in candidates if c in self.left_relation.schema.names]
+                        if len(left_keep) < len(self.left_relation.schema.names):
+                            self.left_relation = self.left_relation.select(left_keep)
+                            self.statistics.feature_eliminate_left_join_columns = 1
                 else:
                     if self.left_buffer_columns is None:
                         self.left_buffer_columns = morsel.schema.names
@@ -106,7 +123,7 @@ class InnerJoinNode(JoinNode):
                     maybe_in_left = self.left_filter.possibly_contains_many(
                         morsel, self.right_columns
                     )
-                    self.statistics.time_bloom_filtering += time.monotonic_ns() - start
+                    self.statistics.increase("time_bloom_filtering", time.monotonic_ns() - start)
                     morsel = morsel.filter(maybe_in_left)
 
                     # If the bloom filter is not effective, disable it.
@@ -115,13 +132,43 @@ class InnerJoinNode(JoinNode):
                     eliminated_rows = len(maybe_in_left) - morsel.num_rows
                     if eliminated_rows < 0.05 * len(maybe_in_left):
                         self.left_filter = None
-                        self.statistics.feature_dynamically_disabled_bloom_filter += 1
+                        self.statistics.increase("feature_dynamically_disabled_bloom_filter", 1)
 
-                    self.statistics.rows_eliminated_by_bloom_filter += eliminated_rows
+                    self.statistics.increase("rows_eliminated_by_bloom_filter", eliminated_rows)
 
                 # do the join
                 left_indicies, right_indicies = inner_join(
                     morsel, self.right_columns, self.left_hash
                 )
 
-                yield align_tables(morsel, self.left_relation, right_indicies, left_indicies)
+                # record detailed timing and row counts for diagnostics
+                (
+                    hash_time,
+                    probe_time,
+                    rows_hashed,
+                    candidate_rows,
+                    matched_rows,
+                    materialize_time,
+                ) = get_last_inner_join_metrics()
+                self.statistics.increase("time_inner_join_hash", hash_time)
+                self.statistics.increase("time_inner_join_probe", probe_time)
+                self.statistics.increase("rows_inner_join_hashed", rows_hashed)
+                self.statistics.increase("rows_inner_join_candidates", candidate_rows)
+                self.statistics.increase("time_inner_join_indices", materialize_time)
+                self.statistics.increase("rows_inner_join_matched", matched_rows)
+                start = time.monotonic_ns()
+
+                # Project the right relation down to only the columns we need in the
+                # resulting morsel. This reduces the amount of data we keep in memory
+                # and pass through the align steps.
+                if self.columns is not None:
+                    candidates = [c.schema_column.identity for c in self.columns]
+                    right_keep = [c for c in candidates if c in morsel.schema.names]
+                    if len(right_keep) < len(morsel.schema.names):
+                        morsel = morsel.select(right_keep)
+                        self.statistics.feature_eliminate_right_join_columns = 1
+
+                aligned = align_tables(morsel, self.left_relation, right_indicies, left_indicies)
+                self.statistics.increase("time_inner_join_align", time.monotonic_ns() - start)
+
+                yield aligned

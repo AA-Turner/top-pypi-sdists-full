@@ -17,7 +17,6 @@ pytestmark = [
 
 
 @pytest.fixture()
-@pytest.mark.use_accountadmin
 def notification_integration_extended(notification_integrations, set_internal_params):
     names_list = []
     for _ in range(5):

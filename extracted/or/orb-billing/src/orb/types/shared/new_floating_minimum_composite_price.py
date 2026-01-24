@@ -12,10 +12,12 @@ from .tiered_conversion_rate_config import TieredConversionRateConfig
 from .new_billing_cycle_configuration import NewBillingCycleConfiguration
 from .new_dimensional_price_configuration import NewDimensionalPriceConfiguration
 
-__all__ = ["NewFloatingMinimumCompositePrice", "MinimumConfig", "ConversionRateConfig"]
+__all__ = ["NewFloatingMinimumCompositePrice", "MinimumCompositeConfig", "ConversionRateConfig"]
 
 
-class MinimumConfig(BaseModel):
+class MinimumCompositeConfig(BaseModel):
+    """Configuration for minimum_composite pricing"""
+
     minimum_amount: str
     """The minimum amount to apply"""
 
@@ -38,10 +40,10 @@ class NewFloatingMinimumCompositePrice(BaseModel):
     item_id: str
     """The id of the item the price will be associated with."""
 
-    minimum_config: MinimumConfig
-    """Configuration for minimum pricing"""
+    minimum_composite_config: MinimumCompositeConfig
+    """Configuration for minimum_composite pricing"""
 
-    price_model_type: Literal["minimum"] = FieldInfo(alias="model_type")
+    price_model_type: Literal["minimum_composite"] = FieldInfo(alias="model_type")
     """The pricing model type"""
 
     name: str

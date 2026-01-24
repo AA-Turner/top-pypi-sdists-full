@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.aggregate.v1.service_pb2 import (
+    CreateAggregateBackfillJobRequest,
+    CreateAggregateBackfillJobResponse,
     GetActiveCronAggregateBackfillsRequest,
     GetActiveCronAggregateBackfillsResponse,
     GetAggregateBackfillJobRequest,
@@ -67,6 +69,10 @@ class AggregateServiceStub:
         GetActiveCronAggregateBackfillsRequest,
         GetActiveCronAggregateBackfillsResponse,
     ]
+    CreateAggregateBackfillJob: UnaryUnaryMultiCallable[
+        CreateAggregateBackfillJobRequest,
+        CreateAggregateBackfillJobResponse,
+    ]
 
 class AggregateServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -118,5 +124,11 @@ class AggregateServiceServicer(metaclass=ABCMeta):
         request: GetActiveCronAggregateBackfillsRequest,
         context: ServicerContext,
     ) -> GetActiveCronAggregateBackfillsResponse: ...
+    @abstractmethod
+    def CreateAggregateBackfillJob(
+        self,
+        request: CreateAggregateBackfillJobRequest,
+        context: ServicerContext,
+    ) -> CreateAggregateBackfillJobResponse: ...
 
 def add_AggregateServiceServicer_to_server(servicer: AggregateServiceServicer, server: Server) -> None: ...

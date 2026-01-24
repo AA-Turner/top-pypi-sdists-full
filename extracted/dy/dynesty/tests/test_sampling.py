@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.integrate
-import dynesty.sampling as ds
+import dynesty.internal_samplers as ds
 from utils import get_rstate
 
 
@@ -81,10 +81,9 @@ def doit(model='diamond',
     else:
         raise Exception('unknown')
     func = {
-        'rslice': ds.sample_rslice,
-        'hslice': ds.sample_hslice,
-        'slice': ds.sample_slice,
-        'rwalk': ds.sample_rwalk
+        'rslice': ds.RSliceSampler().sample,
+        'slice': ds.SliceSampler().sample,
+        'rwalk': ds.RWalkSampler().sample
     }[sample]
 
     eye2 = np.eye(2)

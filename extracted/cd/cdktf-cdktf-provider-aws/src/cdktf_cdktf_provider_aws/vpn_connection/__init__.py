@@ -1,7 +1,7 @@
 r'''
 # `aws_vpn_connection`
 
-Refer to the Terraform Registry for docs: [`aws_vpn_connection`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection).
+Refer to the Terraform Registry for docs: [`aws_vpn_connection`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class VpnConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.vpnConnection.VpnConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection aws_vpn_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection aws_vpn_connection}.'''
 
     def __init__(
         self,
@@ -107,7 +107,9 @@ class VpnConnection(
         tunnel2_rekey_margin_time_seconds: typing.Optional[jsii.Number] = None,
         tunnel2_replay_window_size: typing.Optional[jsii.Number] = None,
         tunnel2_startup_action: typing.Optional[builtins.str] = None,
+        tunnel_bandwidth: typing.Optional[builtins.str] = None,
         tunnel_inside_ip_version: typing.Optional[builtins.str] = None,
+        vpn_concentrator_id: typing.Optional[builtins.str] = None,
         vpn_gateway_id: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -117,68 +119,70 @@ class VpnConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection aws_vpn_connection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection aws_vpn_connection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param customer_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#customer_gateway_id VpnConnection#customer_gateway_id}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#type VpnConnection#type}.
-        :param enable_acceleration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#enable_acceleration VpnConnection#enable_acceleration}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#id VpnConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param local_ipv4_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#local_ipv4_network_cidr VpnConnection#local_ipv4_network_cidr}.
-        :param local_ipv6_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#local_ipv6_network_cidr VpnConnection#local_ipv6_network_cidr}.
-        :param outside_ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#outside_ip_address_type VpnConnection#outside_ip_address_type}.
-        :param preshared_key_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#preshared_key_storage VpnConnection#preshared_key_storage}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#region VpnConnection#region}
-        :param remote_ipv4_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#remote_ipv4_network_cidr VpnConnection#remote_ipv4_network_cidr}.
-        :param remote_ipv6_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#remote_ipv6_network_cidr VpnConnection#remote_ipv6_network_cidr}.
-        :param static_routes_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#static_routes_only VpnConnection#static_routes_only}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tags VpnConnection#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tags_all VpnConnection#tags_all}.
-        :param transit_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#transit_gateway_id VpnConnection#transit_gateway_id}.
-        :param transport_transit_gateway_attachment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#transport_transit_gateway_attachment_id VpnConnection#transport_transit_gateway_attachment_id}.
-        :param tunnel1_dpd_timeout_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_dpd_timeout_action VpnConnection#tunnel1_dpd_timeout_action}.
-        :param tunnel1_dpd_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_dpd_timeout_seconds VpnConnection#tunnel1_dpd_timeout_seconds}.
-        :param tunnel1_enable_tunnel_lifecycle_control: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_enable_tunnel_lifecycle_control VpnConnection#tunnel1_enable_tunnel_lifecycle_control}.
-        :param tunnel1_ike_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_ike_versions VpnConnection#tunnel1_ike_versions}.
-        :param tunnel1_inside_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_inside_cidr VpnConnection#tunnel1_inside_cidr}.
-        :param tunnel1_inside_ipv6_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_inside_ipv6_cidr VpnConnection#tunnel1_inside_ipv6_cidr}.
-        :param tunnel1_log_options: tunnel1_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_log_options VpnConnection#tunnel1_log_options}
-        :param tunnel1_phase1_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase1_dh_group_numbers VpnConnection#tunnel1_phase1_dh_group_numbers}.
-        :param tunnel1_phase1_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase1_encryption_algorithms VpnConnection#tunnel1_phase1_encryption_algorithms}.
-        :param tunnel1_phase1_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase1_integrity_algorithms VpnConnection#tunnel1_phase1_integrity_algorithms}.
-        :param tunnel1_phase1_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase1_lifetime_seconds VpnConnection#tunnel1_phase1_lifetime_seconds}.
-        :param tunnel1_phase2_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase2_dh_group_numbers VpnConnection#tunnel1_phase2_dh_group_numbers}.
-        :param tunnel1_phase2_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase2_encryption_algorithms VpnConnection#tunnel1_phase2_encryption_algorithms}.
-        :param tunnel1_phase2_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase2_integrity_algorithms VpnConnection#tunnel1_phase2_integrity_algorithms}.
-        :param tunnel1_phase2_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase2_lifetime_seconds VpnConnection#tunnel1_phase2_lifetime_seconds}.
-        :param tunnel1_preshared_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_preshared_key VpnConnection#tunnel1_preshared_key}.
-        :param tunnel1_rekey_fuzz_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_rekey_fuzz_percentage VpnConnection#tunnel1_rekey_fuzz_percentage}.
-        :param tunnel1_rekey_margin_time_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_rekey_margin_time_seconds VpnConnection#tunnel1_rekey_margin_time_seconds}.
-        :param tunnel1_replay_window_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_replay_window_size VpnConnection#tunnel1_replay_window_size}.
-        :param tunnel1_startup_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_startup_action VpnConnection#tunnel1_startup_action}.
-        :param tunnel2_dpd_timeout_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_dpd_timeout_action VpnConnection#tunnel2_dpd_timeout_action}.
-        :param tunnel2_dpd_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_dpd_timeout_seconds VpnConnection#tunnel2_dpd_timeout_seconds}.
-        :param tunnel2_enable_tunnel_lifecycle_control: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_enable_tunnel_lifecycle_control VpnConnection#tunnel2_enable_tunnel_lifecycle_control}.
-        :param tunnel2_ike_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_ike_versions VpnConnection#tunnel2_ike_versions}.
-        :param tunnel2_inside_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_inside_cidr VpnConnection#tunnel2_inside_cidr}.
-        :param tunnel2_inside_ipv6_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_inside_ipv6_cidr VpnConnection#tunnel2_inside_ipv6_cidr}.
-        :param tunnel2_log_options: tunnel2_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_log_options VpnConnection#tunnel2_log_options}
-        :param tunnel2_phase1_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase1_dh_group_numbers VpnConnection#tunnel2_phase1_dh_group_numbers}.
-        :param tunnel2_phase1_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase1_encryption_algorithms VpnConnection#tunnel2_phase1_encryption_algorithms}.
-        :param tunnel2_phase1_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase1_integrity_algorithms VpnConnection#tunnel2_phase1_integrity_algorithms}.
-        :param tunnel2_phase1_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase1_lifetime_seconds VpnConnection#tunnel2_phase1_lifetime_seconds}.
-        :param tunnel2_phase2_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase2_dh_group_numbers VpnConnection#tunnel2_phase2_dh_group_numbers}.
-        :param tunnel2_phase2_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase2_encryption_algorithms VpnConnection#tunnel2_phase2_encryption_algorithms}.
-        :param tunnel2_phase2_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase2_integrity_algorithms VpnConnection#tunnel2_phase2_integrity_algorithms}.
-        :param tunnel2_phase2_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase2_lifetime_seconds VpnConnection#tunnel2_phase2_lifetime_seconds}.
-        :param tunnel2_preshared_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_preshared_key VpnConnection#tunnel2_preshared_key}.
-        :param tunnel2_rekey_fuzz_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_rekey_fuzz_percentage VpnConnection#tunnel2_rekey_fuzz_percentage}.
-        :param tunnel2_rekey_margin_time_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_rekey_margin_time_seconds VpnConnection#tunnel2_rekey_margin_time_seconds}.
-        :param tunnel2_replay_window_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_replay_window_size VpnConnection#tunnel2_replay_window_size}.
-        :param tunnel2_startup_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_startup_action VpnConnection#tunnel2_startup_action}.
-        :param tunnel_inside_ip_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel_inside_ip_version VpnConnection#tunnel_inside_ip_version}.
-        :param vpn_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#vpn_gateway_id VpnConnection#vpn_gateway_id}.
+        :param customer_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#customer_gateway_id VpnConnection#customer_gateway_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#type VpnConnection#type}.
+        :param enable_acceleration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#enable_acceleration VpnConnection#enable_acceleration}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#id VpnConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param local_ipv4_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#local_ipv4_network_cidr VpnConnection#local_ipv4_network_cidr}.
+        :param local_ipv6_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#local_ipv6_network_cidr VpnConnection#local_ipv6_network_cidr}.
+        :param outside_ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#outside_ip_address_type VpnConnection#outside_ip_address_type}.
+        :param preshared_key_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#preshared_key_storage VpnConnection#preshared_key_storage}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#region VpnConnection#region}
+        :param remote_ipv4_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#remote_ipv4_network_cidr VpnConnection#remote_ipv4_network_cidr}.
+        :param remote_ipv6_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#remote_ipv6_network_cidr VpnConnection#remote_ipv6_network_cidr}.
+        :param static_routes_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#static_routes_only VpnConnection#static_routes_only}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tags VpnConnection#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tags_all VpnConnection#tags_all}.
+        :param transit_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#transit_gateway_id VpnConnection#transit_gateway_id}.
+        :param transport_transit_gateway_attachment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#transport_transit_gateway_attachment_id VpnConnection#transport_transit_gateway_attachment_id}.
+        :param tunnel1_dpd_timeout_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_dpd_timeout_action VpnConnection#tunnel1_dpd_timeout_action}.
+        :param tunnel1_dpd_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_dpd_timeout_seconds VpnConnection#tunnel1_dpd_timeout_seconds}.
+        :param tunnel1_enable_tunnel_lifecycle_control: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_enable_tunnel_lifecycle_control VpnConnection#tunnel1_enable_tunnel_lifecycle_control}.
+        :param tunnel1_ike_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_ike_versions VpnConnection#tunnel1_ike_versions}.
+        :param tunnel1_inside_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_inside_cidr VpnConnection#tunnel1_inside_cidr}.
+        :param tunnel1_inside_ipv6_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_inside_ipv6_cidr VpnConnection#tunnel1_inside_ipv6_cidr}.
+        :param tunnel1_log_options: tunnel1_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_log_options VpnConnection#tunnel1_log_options}
+        :param tunnel1_phase1_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase1_dh_group_numbers VpnConnection#tunnel1_phase1_dh_group_numbers}.
+        :param tunnel1_phase1_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase1_encryption_algorithms VpnConnection#tunnel1_phase1_encryption_algorithms}.
+        :param tunnel1_phase1_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase1_integrity_algorithms VpnConnection#tunnel1_phase1_integrity_algorithms}.
+        :param tunnel1_phase1_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase1_lifetime_seconds VpnConnection#tunnel1_phase1_lifetime_seconds}.
+        :param tunnel1_phase2_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase2_dh_group_numbers VpnConnection#tunnel1_phase2_dh_group_numbers}.
+        :param tunnel1_phase2_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase2_encryption_algorithms VpnConnection#tunnel1_phase2_encryption_algorithms}.
+        :param tunnel1_phase2_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase2_integrity_algorithms VpnConnection#tunnel1_phase2_integrity_algorithms}.
+        :param tunnel1_phase2_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase2_lifetime_seconds VpnConnection#tunnel1_phase2_lifetime_seconds}.
+        :param tunnel1_preshared_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_preshared_key VpnConnection#tunnel1_preshared_key}.
+        :param tunnel1_rekey_fuzz_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_rekey_fuzz_percentage VpnConnection#tunnel1_rekey_fuzz_percentage}.
+        :param tunnel1_rekey_margin_time_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_rekey_margin_time_seconds VpnConnection#tunnel1_rekey_margin_time_seconds}.
+        :param tunnel1_replay_window_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_replay_window_size VpnConnection#tunnel1_replay_window_size}.
+        :param tunnel1_startup_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_startup_action VpnConnection#tunnel1_startup_action}.
+        :param tunnel2_dpd_timeout_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_dpd_timeout_action VpnConnection#tunnel2_dpd_timeout_action}.
+        :param tunnel2_dpd_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_dpd_timeout_seconds VpnConnection#tunnel2_dpd_timeout_seconds}.
+        :param tunnel2_enable_tunnel_lifecycle_control: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_enable_tunnel_lifecycle_control VpnConnection#tunnel2_enable_tunnel_lifecycle_control}.
+        :param tunnel2_ike_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_ike_versions VpnConnection#tunnel2_ike_versions}.
+        :param tunnel2_inside_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_inside_cidr VpnConnection#tunnel2_inside_cidr}.
+        :param tunnel2_inside_ipv6_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_inside_ipv6_cidr VpnConnection#tunnel2_inside_ipv6_cidr}.
+        :param tunnel2_log_options: tunnel2_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_log_options VpnConnection#tunnel2_log_options}
+        :param tunnel2_phase1_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase1_dh_group_numbers VpnConnection#tunnel2_phase1_dh_group_numbers}.
+        :param tunnel2_phase1_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase1_encryption_algorithms VpnConnection#tunnel2_phase1_encryption_algorithms}.
+        :param tunnel2_phase1_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase1_integrity_algorithms VpnConnection#tunnel2_phase1_integrity_algorithms}.
+        :param tunnel2_phase1_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase1_lifetime_seconds VpnConnection#tunnel2_phase1_lifetime_seconds}.
+        :param tunnel2_phase2_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase2_dh_group_numbers VpnConnection#tunnel2_phase2_dh_group_numbers}.
+        :param tunnel2_phase2_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase2_encryption_algorithms VpnConnection#tunnel2_phase2_encryption_algorithms}.
+        :param tunnel2_phase2_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase2_integrity_algorithms VpnConnection#tunnel2_phase2_integrity_algorithms}.
+        :param tunnel2_phase2_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase2_lifetime_seconds VpnConnection#tunnel2_phase2_lifetime_seconds}.
+        :param tunnel2_preshared_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_preshared_key VpnConnection#tunnel2_preshared_key}.
+        :param tunnel2_rekey_fuzz_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_rekey_fuzz_percentage VpnConnection#tunnel2_rekey_fuzz_percentage}.
+        :param tunnel2_rekey_margin_time_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_rekey_margin_time_seconds VpnConnection#tunnel2_rekey_margin_time_seconds}.
+        :param tunnel2_replay_window_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_replay_window_size VpnConnection#tunnel2_replay_window_size}.
+        :param tunnel2_startup_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_startup_action VpnConnection#tunnel2_startup_action}.
+        :param tunnel_bandwidth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel_bandwidth VpnConnection#tunnel_bandwidth}.
+        :param tunnel_inside_ip_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel_inside_ip_version VpnConnection#tunnel_inside_ip_version}.
+        :param vpn_concentrator_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#vpn_concentrator_id VpnConnection#vpn_concentrator_id}.
+        :param vpn_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#vpn_gateway_id VpnConnection#vpn_gateway_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -248,7 +252,9 @@ class VpnConnection(
             tunnel2_rekey_margin_time_seconds=tunnel2_rekey_margin_time_seconds,
             tunnel2_replay_window_size=tunnel2_replay_window_size,
             tunnel2_startup_action=tunnel2_startup_action,
+            tunnel_bandwidth=tunnel_bandwidth,
             tunnel_inside_ip_version=tunnel_inside_ip_version,
+            vpn_concentrator_id=vpn_concentrator_id,
             vpn_gateway_id=vpn_gateway_id,
             connection=connection,
             count=count,
@@ -274,7 +280,7 @@ class VpnConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the VpnConnection to import.
-        :param import_from_id: The id of the existing VpnConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing VpnConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the VpnConnection to import is found.
         '''
         if __debug__:
@@ -292,7 +298,7 @@ class VpnConnection(
         cloudwatch_log_options: typing.Optional[typing.Union["VpnConnectionTunnel1LogOptionsCloudwatchLogOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_log_options: cloudwatch_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#cloudwatch_log_options VpnConnection#cloudwatch_log_options}
+        :param cloudwatch_log_options: cloudwatch_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#cloudwatch_log_options VpnConnection#cloudwatch_log_options}
         '''
         value = VpnConnectionTunnel1LogOptions(
             cloudwatch_log_options=cloudwatch_log_options
@@ -307,7 +313,7 @@ class VpnConnection(
         cloudwatch_log_options: typing.Optional[typing.Union["VpnConnectionTunnel2LogOptionsCloudwatchLogOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_log_options: cloudwatch_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#cloudwatch_log_options VpnConnection#cloudwatch_log_options}
+        :param cloudwatch_log_options: cloudwatch_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#cloudwatch_log_options VpnConnection#cloudwatch_log_options}
         '''
         value = VpnConnectionTunnel2LogOptions(
             cloudwatch_log_options=cloudwatch_log_options
@@ -531,9 +537,17 @@ class VpnConnection(
     def reset_tunnel2_startup_action(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetTunnel2StartupAction", []))
 
+    @jsii.member(jsii_name="resetTunnelBandwidth")
+    def reset_tunnel_bandwidth(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTunnelBandwidth", []))
+
     @jsii.member(jsii_name="resetTunnelInsideIpVersion")
     def reset_tunnel_inside_ip_version(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetTunnelInsideIpVersion", []))
+
+    @jsii.member(jsii_name="resetVpnConcentratorId")
+    def reset_vpn_concentrator_id(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetVpnConcentratorId", []))
 
     @jsii.member(jsii_name="resetVpnGatewayId")
     def reset_vpn_gateway_id(self) -> None:
@@ -968,6 +982,11 @@ class VpnConnection(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tunnel2StartupActionInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="tunnelBandwidthInput")
+    def tunnel_bandwidth_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tunnelBandwidthInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="tunnelInsideIpVersionInput")
     def tunnel_inside_ip_version_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tunnelInsideIpVersionInput"))
@@ -976,6 +995,11 @@ class VpnConnection(
     @jsii.member(jsii_name="typeInput")
     def type_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "typeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="vpnConcentratorIdInput")
+    def vpn_concentrator_id_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "vpnConcentratorIdInput"))
 
     @builtins.property
     @jsii.member(jsii_name="vpnGatewayIdInput")
@@ -1663,6 +1687,18 @@ class VpnConnection(
         jsii.set(self, "tunnel2StartupAction", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="tunnelBandwidth")
+    def tunnel_bandwidth(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "tunnelBandwidth"))
+
+    @tunnel_bandwidth.setter
+    def tunnel_bandwidth(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8fe18cfe3a2081e4ea60b9b1ffa4f9aa4737823fb1c676aeb7b9e01d3c076926)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tunnelBandwidth", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tunnelInsideIpVersion")
     def tunnel_inside_ip_version(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "tunnelInsideIpVersion"))
@@ -1685,6 +1721,18 @@ class VpnConnection(
             type_hints = typing.get_type_hints(_typecheckingstub__bed913dd2c7d2d93cfeb82fef754f5c6e60fbe372d9a5490adac7beae7067a4b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpnConcentratorId")
+    def vpn_concentrator_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "vpnConcentratorId"))
+
+    @vpn_concentrator_id.setter
+    def vpn_concentrator_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d662ec90e4bc81bcc3214de25dc200e210c2ba51982123bc382ceb6737f192f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpnConcentratorId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vpnGatewayId")
@@ -1766,7 +1814,9 @@ class VpnConnection(
         "tunnel2_rekey_margin_time_seconds": "tunnel2RekeyMarginTimeSeconds",
         "tunnel2_replay_window_size": "tunnel2ReplayWindowSize",
         "tunnel2_startup_action": "tunnel2StartupAction",
+        "tunnel_bandwidth": "tunnelBandwidth",
         "tunnel_inside_ip_version": "tunnelInsideIpVersion",
+        "vpn_concentrator_id": "vpnConcentratorId",
         "vpn_gateway_id": "vpnGatewayId",
     },
 )
@@ -1837,7 +1887,9 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         tunnel2_rekey_margin_time_seconds: typing.Optional[jsii.Number] = None,
         tunnel2_replay_window_size: typing.Optional[jsii.Number] = None,
         tunnel2_startup_action: typing.Optional[builtins.str] = None,
+        tunnel_bandwidth: typing.Optional[builtins.str] = None,
         tunnel_inside_ip_version: typing.Optional[builtins.str] = None,
+        vpn_concentrator_id: typing.Optional[builtins.str] = None,
         vpn_gateway_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -1848,64 +1900,66 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param customer_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#customer_gateway_id VpnConnection#customer_gateway_id}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#type VpnConnection#type}.
-        :param enable_acceleration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#enable_acceleration VpnConnection#enable_acceleration}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#id VpnConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param local_ipv4_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#local_ipv4_network_cidr VpnConnection#local_ipv4_network_cidr}.
-        :param local_ipv6_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#local_ipv6_network_cidr VpnConnection#local_ipv6_network_cidr}.
-        :param outside_ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#outside_ip_address_type VpnConnection#outside_ip_address_type}.
-        :param preshared_key_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#preshared_key_storage VpnConnection#preshared_key_storage}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#region VpnConnection#region}
-        :param remote_ipv4_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#remote_ipv4_network_cidr VpnConnection#remote_ipv4_network_cidr}.
-        :param remote_ipv6_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#remote_ipv6_network_cidr VpnConnection#remote_ipv6_network_cidr}.
-        :param static_routes_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#static_routes_only VpnConnection#static_routes_only}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tags VpnConnection#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tags_all VpnConnection#tags_all}.
-        :param transit_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#transit_gateway_id VpnConnection#transit_gateway_id}.
-        :param transport_transit_gateway_attachment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#transport_transit_gateway_attachment_id VpnConnection#transport_transit_gateway_attachment_id}.
-        :param tunnel1_dpd_timeout_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_dpd_timeout_action VpnConnection#tunnel1_dpd_timeout_action}.
-        :param tunnel1_dpd_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_dpd_timeout_seconds VpnConnection#tunnel1_dpd_timeout_seconds}.
-        :param tunnel1_enable_tunnel_lifecycle_control: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_enable_tunnel_lifecycle_control VpnConnection#tunnel1_enable_tunnel_lifecycle_control}.
-        :param tunnel1_ike_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_ike_versions VpnConnection#tunnel1_ike_versions}.
-        :param tunnel1_inside_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_inside_cidr VpnConnection#tunnel1_inside_cidr}.
-        :param tunnel1_inside_ipv6_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_inside_ipv6_cidr VpnConnection#tunnel1_inside_ipv6_cidr}.
-        :param tunnel1_log_options: tunnel1_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_log_options VpnConnection#tunnel1_log_options}
-        :param tunnel1_phase1_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase1_dh_group_numbers VpnConnection#tunnel1_phase1_dh_group_numbers}.
-        :param tunnel1_phase1_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase1_encryption_algorithms VpnConnection#tunnel1_phase1_encryption_algorithms}.
-        :param tunnel1_phase1_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase1_integrity_algorithms VpnConnection#tunnel1_phase1_integrity_algorithms}.
-        :param tunnel1_phase1_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase1_lifetime_seconds VpnConnection#tunnel1_phase1_lifetime_seconds}.
-        :param tunnel1_phase2_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase2_dh_group_numbers VpnConnection#tunnel1_phase2_dh_group_numbers}.
-        :param tunnel1_phase2_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase2_encryption_algorithms VpnConnection#tunnel1_phase2_encryption_algorithms}.
-        :param tunnel1_phase2_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase2_integrity_algorithms VpnConnection#tunnel1_phase2_integrity_algorithms}.
-        :param tunnel1_phase2_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase2_lifetime_seconds VpnConnection#tunnel1_phase2_lifetime_seconds}.
-        :param tunnel1_preshared_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_preshared_key VpnConnection#tunnel1_preshared_key}.
-        :param tunnel1_rekey_fuzz_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_rekey_fuzz_percentage VpnConnection#tunnel1_rekey_fuzz_percentage}.
-        :param tunnel1_rekey_margin_time_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_rekey_margin_time_seconds VpnConnection#tunnel1_rekey_margin_time_seconds}.
-        :param tunnel1_replay_window_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_replay_window_size VpnConnection#tunnel1_replay_window_size}.
-        :param tunnel1_startup_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_startup_action VpnConnection#tunnel1_startup_action}.
-        :param tunnel2_dpd_timeout_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_dpd_timeout_action VpnConnection#tunnel2_dpd_timeout_action}.
-        :param tunnel2_dpd_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_dpd_timeout_seconds VpnConnection#tunnel2_dpd_timeout_seconds}.
-        :param tunnel2_enable_tunnel_lifecycle_control: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_enable_tunnel_lifecycle_control VpnConnection#tunnel2_enable_tunnel_lifecycle_control}.
-        :param tunnel2_ike_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_ike_versions VpnConnection#tunnel2_ike_versions}.
-        :param tunnel2_inside_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_inside_cidr VpnConnection#tunnel2_inside_cidr}.
-        :param tunnel2_inside_ipv6_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_inside_ipv6_cidr VpnConnection#tunnel2_inside_ipv6_cidr}.
-        :param tunnel2_log_options: tunnel2_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_log_options VpnConnection#tunnel2_log_options}
-        :param tunnel2_phase1_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase1_dh_group_numbers VpnConnection#tunnel2_phase1_dh_group_numbers}.
-        :param tunnel2_phase1_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase1_encryption_algorithms VpnConnection#tunnel2_phase1_encryption_algorithms}.
-        :param tunnel2_phase1_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase1_integrity_algorithms VpnConnection#tunnel2_phase1_integrity_algorithms}.
-        :param tunnel2_phase1_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase1_lifetime_seconds VpnConnection#tunnel2_phase1_lifetime_seconds}.
-        :param tunnel2_phase2_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase2_dh_group_numbers VpnConnection#tunnel2_phase2_dh_group_numbers}.
-        :param tunnel2_phase2_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase2_encryption_algorithms VpnConnection#tunnel2_phase2_encryption_algorithms}.
-        :param tunnel2_phase2_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase2_integrity_algorithms VpnConnection#tunnel2_phase2_integrity_algorithms}.
-        :param tunnel2_phase2_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase2_lifetime_seconds VpnConnection#tunnel2_phase2_lifetime_seconds}.
-        :param tunnel2_preshared_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_preshared_key VpnConnection#tunnel2_preshared_key}.
-        :param tunnel2_rekey_fuzz_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_rekey_fuzz_percentage VpnConnection#tunnel2_rekey_fuzz_percentage}.
-        :param tunnel2_rekey_margin_time_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_rekey_margin_time_seconds VpnConnection#tunnel2_rekey_margin_time_seconds}.
-        :param tunnel2_replay_window_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_replay_window_size VpnConnection#tunnel2_replay_window_size}.
-        :param tunnel2_startup_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_startup_action VpnConnection#tunnel2_startup_action}.
-        :param tunnel_inside_ip_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel_inside_ip_version VpnConnection#tunnel_inside_ip_version}.
-        :param vpn_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#vpn_gateway_id VpnConnection#vpn_gateway_id}.
+        :param customer_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#customer_gateway_id VpnConnection#customer_gateway_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#type VpnConnection#type}.
+        :param enable_acceleration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#enable_acceleration VpnConnection#enable_acceleration}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#id VpnConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param local_ipv4_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#local_ipv4_network_cidr VpnConnection#local_ipv4_network_cidr}.
+        :param local_ipv6_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#local_ipv6_network_cidr VpnConnection#local_ipv6_network_cidr}.
+        :param outside_ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#outside_ip_address_type VpnConnection#outside_ip_address_type}.
+        :param preshared_key_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#preshared_key_storage VpnConnection#preshared_key_storage}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#region VpnConnection#region}
+        :param remote_ipv4_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#remote_ipv4_network_cidr VpnConnection#remote_ipv4_network_cidr}.
+        :param remote_ipv6_network_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#remote_ipv6_network_cidr VpnConnection#remote_ipv6_network_cidr}.
+        :param static_routes_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#static_routes_only VpnConnection#static_routes_only}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tags VpnConnection#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tags_all VpnConnection#tags_all}.
+        :param transit_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#transit_gateway_id VpnConnection#transit_gateway_id}.
+        :param transport_transit_gateway_attachment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#transport_transit_gateway_attachment_id VpnConnection#transport_transit_gateway_attachment_id}.
+        :param tunnel1_dpd_timeout_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_dpd_timeout_action VpnConnection#tunnel1_dpd_timeout_action}.
+        :param tunnel1_dpd_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_dpd_timeout_seconds VpnConnection#tunnel1_dpd_timeout_seconds}.
+        :param tunnel1_enable_tunnel_lifecycle_control: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_enable_tunnel_lifecycle_control VpnConnection#tunnel1_enable_tunnel_lifecycle_control}.
+        :param tunnel1_ike_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_ike_versions VpnConnection#tunnel1_ike_versions}.
+        :param tunnel1_inside_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_inside_cidr VpnConnection#tunnel1_inside_cidr}.
+        :param tunnel1_inside_ipv6_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_inside_ipv6_cidr VpnConnection#tunnel1_inside_ipv6_cidr}.
+        :param tunnel1_log_options: tunnel1_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_log_options VpnConnection#tunnel1_log_options}
+        :param tunnel1_phase1_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase1_dh_group_numbers VpnConnection#tunnel1_phase1_dh_group_numbers}.
+        :param tunnel1_phase1_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase1_encryption_algorithms VpnConnection#tunnel1_phase1_encryption_algorithms}.
+        :param tunnel1_phase1_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase1_integrity_algorithms VpnConnection#tunnel1_phase1_integrity_algorithms}.
+        :param tunnel1_phase1_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase1_lifetime_seconds VpnConnection#tunnel1_phase1_lifetime_seconds}.
+        :param tunnel1_phase2_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase2_dh_group_numbers VpnConnection#tunnel1_phase2_dh_group_numbers}.
+        :param tunnel1_phase2_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase2_encryption_algorithms VpnConnection#tunnel1_phase2_encryption_algorithms}.
+        :param tunnel1_phase2_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase2_integrity_algorithms VpnConnection#tunnel1_phase2_integrity_algorithms}.
+        :param tunnel1_phase2_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase2_lifetime_seconds VpnConnection#tunnel1_phase2_lifetime_seconds}.
+        :param tunnel1_preshared_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_preshared_key VpnConnection#tunnel1_preshared_key}.
+        :param tunnel1_rekey_fuzz_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_rekey_fuzz_percentage VpnConnection#tunnel1_rekey_fuzz_percentage}.
+        :param tunnel1_rekey_margin_time_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_rekey_margin_time_seconds VpnConnection#tunnel1_rekey_margin_time_seconds}.
+        :param tunnel1_replay_window_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_replay_window_size VpnConnection#tunnel1_replay_window_size}.
+        :param tunnel1_startup_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_startup_action VpnConnection#tunnel1_startup_action}.
+        :param tunnel2_dpd_timeout_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_dpd_timeout_action VpnConnection#tunnel2_dpd_timeout_action}.
+        :param tunnel2_dpd_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_dpd_timeout_seconds VpnConnection#tunnel2_dpd_timeout_seconds}.
+        :param tunnel2_enable_tunnel_lifecycle_control: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_enable_tunnel_lifecycle_control VpnConnection#tunnel2_enable_tunnel_lifecycle_control}.
+        :param tunnel2_ike_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_ike_versions VpnConnection#tunnel2_ike_versions}.
+        :param tunnel2_inside_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_inside_cidr VpnConnection#tunnel2_inside_cidr}.
+        :param tunnel2_inside_ipv6_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_inside_ipv6_cidr VpnConnection#tunnel2_inside_ipv6_cidr}.
+        :param tunnel2_log_options: tunnel2_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_log_options VpnConnection#tunnel2_log_options}
+        :param tunnel2_phase1_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase1_dh_group_numbers VpnConnection#tunnel2_phase1_dh_group_numbers}.
+        :param tunnel2_phase1_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase1_encryption_algorithms VpnConnection#tunnel2_phase1_encryption_algorithms}.
+        :param tunnel2_phase1_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase1_integrity_algorithms VpnConnection#tunnel2_phase1_integrity_algorithms}.
+        :param tunnel2_phase1_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase1_lifetime_seconds VpnConnection#tunnel2_phase1_lifetime_seconds}.
+        :param tunnel2_phase2_dh_group_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase2_dh_group_numbers VpnConnection#tunnel2_phase2_dh_group_numbers}.
+        :param tunnel2_phase2_encryption_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase2_encryption_algorithms VpnConnection#tunnel2_phase2_encryption_algorithms}.
+        :param tunnel2_phase2_integrity_algorithms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase2_integrity_algorithms VpnConnection#tunnel2_phase2_integrity_algorithms}.
+        :param tunnel2_phase2_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase2_lifetime_seconds VpnConnection#tunnel2_phase2_lifetime_seconds}.
+        :param tunnel2_preshared_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_preshared_key VpnConnection#tunnel2_preshared_key}.
+        :param tunnel2_rekey_fuzz_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_rekey_fuzz_percentage VpnConnection#tunnel2_rekey_fuzz_percentage}.
+        :param tunnel2_rekey_margin_time_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_rekey_margin_time_seconds VpnConnection#tunnel2_rekey_margin_time_seconds}.
+        :param tunnel2_replay_window_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_replay_window_size VpnConnection#tunnel2_replay_window_size}.
+        :param tunnel2_startup_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_startup_action VpnConnection#tunnel2_startup_action}.
+        :param tunnel_bandwidth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel_bandwidth VpnConnection#tunnel_bandwidth}.
+        :param tunnel_inside_ip_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel_inside_ip_version VpnConnection#tunnel_inside_ip_version}.
+        :param vpn_concentrator_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#vpn_concentrator_id VpnConnection#vpn_concentrator_id}.
+        :param vpn_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#vpn_gateway_id VpnConnection#vpn_gateway_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1978,7 +2032,9 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument tunnel2_rekey_margin_time_seconds", value=tunnel2_rekey_margin_time_seconds, expected_type=type_hints["tunnel2_rekey_margin_time_seconds"])
             check_type(argname="argument tunnel2_replay_window_size", value=tunnel2_replay_window_size, expected_type=type_hints["tunnel2_replay_window_size"])
             check_type(argname="argument tunnel2_startup_action", value=tunnel2_startup_action, expected_type=type_hints["tunnel2_startup_action"])
+            check_type(argname="argument tunnel_bandwidth", value=tunnel_bandwidth, expected_type=type_hints["tunnel_bandwidth"])
             check_type(argname="argument tunnel_inside_ip_version", value=tunnel_inside_ip_version, expected_type=type_hints["tunnel_inside_ip_version"])
+            check_type(argname="argument vpn_concentrator_id", value=vpn_concentrator_id, expected_type=type_hints["vpn_concentrator_id"])
             check_type(argname="argument vpn_gateway_id", value=vpn_gateway_id, expected_type=type_hints["vpn_gateway_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "customer_gateway_id": customer_gateway_id,
@@ -2106,8 +2162,12 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["tunnel2_replay_window_size"] = tunnel2_replay_window_size
         if tunnel2_startup_action is not None:
             self._values["tunnel2_startup_action"] = tunnel2_startup_action
+        if tunnel_bandwidth is not None:
+            self._values["tunnel_bandwidth"] = tunnel_bandwidth
         if tunnel_inside_ip_version is not None:
             self._values["tunnel_inside_ip_version"] = tunnel_inside_ip_version
+        if vpn_concentrator_id is not None:
+            self._values["vpn_concentrator_id"] = vpn_concentrator_id
         if vpn_gateway_id is not None:
             self._values["vpn_gateway_id"] = vpn_gateway_id
 
@@ -2177,14 +2237,14 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def customer_gateway_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#customer_gateway_id VpnConnection#customer_gateway_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#customer_gateway_id VpnConnection#customer_gateway_id}.'''
         result = self._values.get("customer_gateway_id")
         assert result is not None, "Required property 'customer_gateway_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#type VpnConnection#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#type VpnConnection#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -2193,13 +2253,13 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_acceleration(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#enable_acceleration VpnConnection#enable_acceleration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#enable_acceleration VpnConnection#enable_acceleration}.'''
         result = self._values.get("enable_acceleration")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#id VpnConnection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#id VpnConnection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2209,25 +2269,25 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def local_ipv4_network_cidr(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#local_ipv4_network_cidr VpnConnection#local_ipv4_network_cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#local_ipv4_network_cidr VpnConnection#local_ipv4_network_cidr}.'''
         result = self._values.get("local_ipv4_network_cidr")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def local_ipv6_network_cidr(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#local_ipv6_network_cidr VpnConnection#local_ipv6_network_cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#local_ipv6_network_cidr VpnConnection#local_ipv6_network_cidr}.'''
         result = self._values.get("local_ipv6_network_cidr")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def outside_ip_address_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#outside_ip_address_type VpnConnection#outside_ip_address_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#outside_ip_address_type VpnConnection#outside_ip_address_type}.'''
         result = self._values.get("outside_ip_address_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def preshared_key_storage(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#preshared_key_storage VpnConnection#preshared_key_storage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#preshared_key_storage VpnConnection#preshared_key_storage}.'''
         result = self._values.get("preshared_key_storage")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2235,20 +2295,20 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#region VpnConnection#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#region VpnConnection#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def remote_ipv4_network_cidr(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#remote_ipv4_network_cidr VpnConnection#remote_ipv4_network_cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#remote_ipv4_network_cidr VpnConnection#remote_ipv4_network_cidr}.'''
         result = self._values.get("remote_ipv4_network_cidr")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def remote_ipv6_network_cidr(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#remote_ipv6_network_cidr VpnConnection#remote_ipv6_network_cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#remote_ipv6_network_cidr VpnConnection#remote_ipv6_network_cidr}.'''
         result = self._values.get("remote_ipv6_network_cidr")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2256,43 +2316,43 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def static_routes_only(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#static_routes_only VpnConnection#static_routes_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#static_routes_only VpnConnection#static_routes_only}.'''
         result = self._values.get("static_routes_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tags VpnConnection#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tags VpnConnection#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tags_all VpnConnection#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tags_all VpnConnection#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def transit_gateway_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#transit_gateway_id VpnConnection#transit_gateway_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#transit_gateway_id VpnConnection#transit_gateway_id}.'''
         result = self._values.get("transit_gateway_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def transport_transit_gateway_attachment_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#transport_transit_gateway_attachment_id VpnConnection#transport_transit_gateway_attachment_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#transport_transit_gateway_attachment_id VpnConnection#transport_transit_gateway_attachment_id}.'''
         result = self._values.get("transport_transit_gateway_attachment_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tunnel1_dpd_timeout_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_dpd_timeout_action VpnConnection#tunnel1_dpd_timeout_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_dpd_timeout_action VpnConnection#tunnel1_dpd_timeout_action}.'''
         result = self._values.get("tunnel1_dpd_timeout_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tunnel1_dpd_timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_dpd_timeout_seconds VpnConnection#tunnel1_dpd_timeout_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_dpd_timeout_seconds VpnConnection#tunnel1_dpd_timeout_seconds}.'''
         result = self._values.get("tunnel1_dpd_timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2300,25 +2360,25 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel1_enable_tunnel_lifecycle_control(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_enable_tunnel_lifecycle_control VpnConnection#tunnel1_enable_tunnel_lifecycle_control}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_enable_tunnel_lifecycle_control VpnConnection#tunnel1_enable_tunnel_lifecycle_control}.'''
         result = self._values.get("tunnel1_enable_tunnel_lifecycle_control")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tunnel1_ike_versions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_ike_versions VpnConnection#tunnel1_ike_versions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_ike_versions VpnConnection#tunnel1_ike_versions}.'''
         result = self._values.get("tunnel1_ike_versions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tunnel1_inside_cidr(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_inside_cidr VpnConnection#tunnel1_inside_cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_inside_cidr VpnConnection#tunnel1_inside_cidr}.'''
         result = self._values.get("tunnel1_inside_cidr")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tunnel1_inside_ipv6_cidr(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_inside_ipv6_cidr VpnConnection#tunnel1_inside_ipv6_cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_inside_ipv6_cidr VpnConnection#tunnel1_inside_ipv6_cidr}.'''
         result = self._values.get("tunnel1_inside_ipv6_cidr")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2326,7 +2386,7 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel1_log_options(self) -> typing.Optional["VpnConnectionTunnel1LogOptions"]:
         '''tunnel1_log_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_log_options VpnConnection#tunnel1_log_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_log_options VpnConnection#tunnel1_log_options}
         '''
         result = self._values.get("tunnel1_log_options")
         return typing.cast(typing.Optional["VpnConnectionTunnel1LogOptions"], result)
@@ -2335,7 +2395,7 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel1_phase1_dh_group_numbers(
         self,
     ) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase1_dh_group_numbers VpnConnection#tunnel1_phase1_dh_group_numbers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase1_dh_group_numbers VpnConnection#tunnel1_phase1_dh_group_numbers}.'''
         result = self._values.get("tunnel1_phase1_dh_group_numbers")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -2343,7 +2403,7 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel1_phase1_encryption_algorithms(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase1_encryption_algorithms VpnConnection#tunnel1_phase1_encryption_algorithms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase1_encryption_algorithms VpnConnection#tunnel1_phase1_encryption_algorithms}.'''
         result = self._values.get("tunnel1_phase1_encryption_algorithms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2351,13 +2411,13 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel1_phase1_integrity_algorithms(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase1_integrity_algorithms VpnConnection#tunnel1_phase1_integrity_algorithms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase1_integrity_algorithms VpnConnection#tunnel1_phase1_integrity_algorithms}.'''
         result = self._values.get("tunnel1_phase1_integrity_algorithms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tunnel1_phase1_lifetime_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase1_lifetime_seconds VpnConnection#tunnel1_phase1_lifetime_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase1_lifetime_seconds VpnConnection#tunnel1_phase1_lifetime_seconds}.'''
         result = self._values.get("tunnel1_phase1_lifetime_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2365,7 +2425,7 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel1_phase2_dh_group_numbers(
         self,
     ) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase2_dh_group_numbers VpnConnection#tunnel1_phase2_dh_group_numbers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase2_dh_group_numbers VpnConnection#tunnel1_phase2_dh_group_numbers}.'''
         result = self._values.get("tunnel1_phase2_dh_group_numbers")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -2373,7 +2433,7 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel1_phase2_encryption_algorithms(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase2_encryption_algorithms VpnConnection#tunnel1_phase2_encryption_algorithms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase2_encryption_algorithms VpnConnection#tunnel1_phase2_encryption_algorithms}.'''
         result = self._values.get("tunnel1_phase2_encryption_algorithms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2381,55 +2441,55 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel1_phase2_integrity_algorithms(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase2_integrity_algorithms VpnConnection#tunnel1_phase2_integrity_algorithms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase2_integrity_algorithms VpnConnection#tunnel1_phase2_integrity_algorithms}.'''
         result = self._values.get("tunnel1_phase2_integrity_algorithms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tunnel1_phase2_lifetime_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_phase2_lifetime_seconds VpnConnection#tunnel1_phase2_lifetime_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_phase2_lifetime_seconds VpnConnection#tunnel1_phase2_lifetime_seconds}.'''
         result = self._values.get("tunnel1_phase2_lifetime_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tunnel1_preshared_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_preshared_key VpnConnection#tunnel1_preshared_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_preshared_key VpnConnection#tunnel1_preshared_key}.'''
         result = self._values.get("tunnel1_preshared_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tunnel1_rekey_fuzz_percentage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_rekey_fuzz_percentage VpnConnection#tunnel1_rekey_fuzz_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_rekey_fuzz_percentage VpnConnection#tunnel1_rekey_fuzz_percentage}.'''
         result = self._values.get("tunnel1_rekey_fuzz_percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tunnel1_rekey_margin_time_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_rekey_margin_time_seconds VpnConnection#tunnel1_rekey_margin_time_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_rekey_margin_time_seconds VpnConnection#tunnel1_rekey_margin_time_seconds}.'''
         result = self._values.get("tunnel1_rekey_margin_time_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tunnel1_replay_window_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_replay_window_size VpnConnection#tunnel1_replay_window_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_replay_window_size VpnConnection#tunnel1_replay_window_size}.'''
         result = self._values.get("tunnel1_replay_window_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tunnel1_startup_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel1_startup_action VpnConnection#tunnel1_startup_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel1_startup_action VpnConnection#tunnel1_startup_action}.'''
         result = self._values.get("tunnel1_startup_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tunnel2_dpd_timeout_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_dpd_timeout_action VpnConnection#tunnel2_dpd_timeout_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_dpd_timeout_action VpnConnection#tunnel2_dpd_timeout_action}.'''
         result = self._values.get("tunnel2_dpd_timeout_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tunnel2_dpd_timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_dpd_timeout_seconds VpnConnection#tunnel2_dpd_timeout_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_dpd_timeout_seconds VpnConnection#tunnel2_dpd_timeout_seconds}.'''
         result = self._values.get("tunnel2_dpd_timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2437,25 +2497,25 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel2_enable_tunnel_lifecycle_control(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_enable_tunnel_lifecycle_control VpnConnection#tunnel2_enable_tunnel_lifecycle_control}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_enable_tunnel_lifecycle_control VpnConnection#tunnel2_enable_tunnel_lifecycle_control}.'''
         result = self._values.get("tunnel2_enable_tunnel_lifecycle_control")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tunnel2_ike_versions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_ike_versions VpnConnection#tunnel2_ike_versions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_ike_versions VpnConnection#tunnel2_ike_versions}.'''
         result = self._values.get("tunnel2_ike_versions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tunnel2_inside_cidr(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_inside_cidr VpnConnection#tunnel2_inside_cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_inside_cidr VpnConnection#tunnel2_inside_cidr}.'''
         result = self._values.get("tunnel2_inside_cidr")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tunnel2_inside_ipv6_cidr(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_inside_ipv6_cidr VpnConnection#tunnel2_inside_ipv6_cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_inside_ipv6_cidr VpnConnection#tunnel2_inside_ipv6_cidr}.'''
         result = self._values.get("tunnel2_inside_ipv6_cidr")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2463,7 +2523,7 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel2_log_options(self) -> typing.Optional["VpnConnectionTunnel2LogOptions"]:
         '''tunnel2_log_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_log_options VpnConnection#tunnel2_log_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_log_options VpnConnection#tunnel2_log_options}
         '''
         result = self._values.get("tunnel2_log_options")
         return typing.cast(typing.Optional["VpnConnectionTunnel2LogOptions"], result)
@@ -2472,7 +2532,7 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel2_phase1_dh_group_numbers(
         self,
     ) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase1_dh_group_numbers VpnConnection#tunnel2_phase1_dh_group_numbers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase1_dh_group_numbers VpnConnection#tunnel2_phase1_dh_group_numbers}.'''
         result = self._values.get("tunnel2_phase1_dh_group_numbers")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -2480,7 +2540,7 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel2_phase1_encryption_algorithms(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase1_encryption_algorithms VpnConnection#tunnel2_phase1_encryption_algorithms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase1_encryption_algorithms VpnConnection#tunnel2_phase1_encryption_algorithms}.'''
         result = self._values.get("tunnel2_phase1_encryption_algorithms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2488,13 +2548,13 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel2_phase1_integrity_algorithms(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase1_integrity_algorithms VpnConnection#tunnel2_phase1_integrity_algorithms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase1_integrity_algorithms VpnConnection#tunnel2_phase1_integrity_algorithms}.'''
         result = self._values.get("tunnel2_phase1_integrity_algorithms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tunnel2_phase1_lifetime_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase1_lifetime_seconds VpnConnection#tunnel2_phase1_lifetime_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase1_lifetime_seconds VpnConnection#tunnel2_phase1_lifetime_seconds}.'''
         result = self._values.get("tunnel2_phase1_lifetime_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2502,7 +2562,7 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel2_phase2_dh_group_numbers(
         self,
     ) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase2_dh_group_numbers VpnConnection#tunnel2_phase2_dh_group_numbers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase2_dh_group_numbers VpnConnection#tunnel2_phase2_dh_group_numbers}.'''
         result = self._values.get("tunnel2_phase2_dh_group_numbers")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -2510,7 +2570,7 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel2_phase2_encryption_algorithms(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase2_encryption_algorithms VpnConnection#tunnel2_phase2_encryption_algorithms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase2_encryption_algorithms VpnConnection#tunnel2_phase2_encryption_algorithms}.'''
         result = self._values.get("tunnel2_phase2_encryption_algorithms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2518,55 +2578,67 @@ class VpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tunnel2_phase2_integrity_algorithms(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase2_integrity_algorithms VpnConnection#tunnel2_phase2_integrity_algorithms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase2_integrity_algorithms VpnConnection#tunnel2_phase2_integrity_algorithms}.'''
         result = self._values.get("tunnel2_phase2_integrity_algorithms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tunnel2_phase2_lifetime_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_phase2_lifetime_seconds VpnConnection#tunnel2_phase2_lifetime_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_phase2_lifetime_seconds VpnConnection#tunnel2_phase2_lifetime_seconds}.'''
         result = self._values.get("tunnel2_phase2_lifetime_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tunnel2_preshared_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_preshared_key VpnConnection#tunnel2_preshared_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_preshared_key VpnConnection#tunnel2_preshared_key}.'''
         result = self._values.get("tunnel2_preshared_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tunnel2_rekey_fuzz_percentage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_rekey_fuzz_percentage VpnConnection#tunnel2_rekey_fuzz_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_rekey_fuzz_percentage VpnConnection#tunnel2_rekey_fuzz_percentage}.'''
         result = self._values.get("tunnel2_rekey_fuzz_percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tunnel2_rekey_margin_time_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_rekey_margin_time_seconds VpnConnection#tunnel2_rekey_margin_time_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_rekey_margin_time_seconds VpnConnection#tunnel2_rekey_margin_time_seconds}.'''
         result = self._values.get("tunnel2_rekey_margin_time_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tunnel2_replay_window_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_replay_window_size VpnConnection#tunnel2_replay_window_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_replay_window_size VpnConnection#tunnel2_replay_window_size}.'''
         result = self._values.get("tunnel2_replay_window_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tunnel2_startup_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel2_startup_action VpnConnection#tunnel2_startup_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel2_startup_action VpnConnection#tunnel2_startup_action}.'''
         result = self._values.get("tunnel2_startup_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def tunnel_bandwidth(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel_bandwidth VpnConnection#tunnel_bandwidth}.'''
+        result = self._values.get("tunnel_bandwidth")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tunnel_inside_ip_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#tunnel_inside_ip_version VpnConnection#tunnel_inside_ip_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#tunnel_inside_ip_version VpnConnection#tunnel_inside_ip_version}.'''
         result = self._values.get("tunnel_inside_ip_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def vpn_concentrator_id(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#vpn_concentrator_id VpnConnection#vpn_concentrator_id}.'''
+        result = self._values.get("vpn_concentrator_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def vpn_gateway_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#vpn_gateway_id VpnConnection#vpn_gateway_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#vpn_gateway_id VpnConnection#vpn_gateway_id}.'''
         result = self._values.get("vpn_gateway_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2742,7 +2814,7 @@ class VpnConnectionTunnel1LogOptions:
         cloudwatch_log_options: typing.Optional[typing.Union["VpnConnectionTunnel1LogOptionsCloudwatchLogOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_log_options: cloudwatch_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#cloudwatch_log_options VpnConnection#cloudwatch_log_options}
+        :param cloudwatch_log_options: cloudwatch_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#cloudwatch_log_options VpnConnection#cloudwatch_log_options}
         '''
         if isinstance(cloudwatch_log_options, dict):
             cloudwatch_log_options = VpnConnectionTunnel1LogOptionsCloudwatchLogOptions(**cloudwatch_log_options)
@@ -2759,7 +2831,7 @@ class VpnConnectionTunnel1LogOptions:
     ) -> typing.Optional["VpnConnectionTunnel1LogOptionsCloudwatchLogOptions"]:
         '''cloudwatch_log_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#cloudwatch_log_options VpnConnection#cloudwatch_log_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#cloudwatch_log_options VpnConnection#cloudwatch_log_options}
         '''
         result = self._values.get("cloudwatch_log_options")
         return typing.cast(typing.Optional["VpnConnectionTunnel1LogOptionsCloudwatchLogOptions"], result)
@@ -2780,6 +2852,9 @@ class VpnConnectionTunnel1LogOptions:
     jsii_type="@cdktf/provider-aws.vpnConnection.VpnConnectionTunnel1LogOptionsCloudwatchLogOptions",
     jsii_struct_bases=[],
     name_mapping={
+        "bgp_log_enabled": "bgpLogEnabled",
+        "bgp_log_group_arn": "bgpLogGroupArn",
+        "bgp_log_output_format": "bgpLogOutputFormat",
         "log_enabled": "logEnabled",
         "log_group_arn": "logGroupArn",
         "log_output_format": "logOutputFormat",
@@ -2789,21 +2864,36 @@ class VpnConnectionTunnel1LogOptionsCloudwatchLogOptions:
     def __init__(
         self,
         *,
+        bgp_log_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        bgp_log_group_arn: typing.Optional[builtins.str] = None,
+        bgp_log_output_format: typing.Optional[builtins.str] = None,
         log_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         log_group_arn: typing.Optional[builtins.str] = None,
         log_output_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_enabled VpnConnection#log_enabled}.
-        :param log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_group_arn VpnConnection#log_group_arn}.
-        :param log_output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_output_format VpnConnection#log_output_format}.
+        :param bgp_log_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_enabled VpnConnection#bgp_log_enabled}.
+        :param bgp_log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_group_arn VpnConnection#bgp_log_group_arn}.
+        :param bgp_log_output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_output_format VpnConnection#bgp_log_output_format}.
+        :param log_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_enabled VpnConnection#log_enabled}.
+        :param log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_group_arn VpnConnection#log_group_arn}.
+        :param log_output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_output_format VpnConnection#log_output_format}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b428cdf57040466ff9e463429eb04d8967afd4f3062a33f5397ea359d413e33)
+            check_type(argname="argument bgp_log_enabled", value=bgp_log_enabled, expected_type=type_hints["bgp_log_enabled"])
+            check_type(argname="argument bgp_log_group_arn", value=bgp_log_group_arn, expected_type=type_hints["bgp_log_group_arn"])
+            check_type(argname="argument bgp_log_output_format", value=bgp_log_output_format, expected_type=type_hints["bgp_log_output_format"])
             check_type(argname="argument log_enabled", value=log_enabled, expected_type=type_hints["log_enabled"])
             check_type(argname="argument log_group_arn", value=log_group_arn, expected_type=type_hints["log_group_arn"])
             check_type(argname="argument log_output_format", value=log_output_format, expected_type=type_hints["log_output_format"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if bgp_log_enabled is not None:
+            self._values["bgp_log_enabled"] = bgp_log_enabled
+        if bgp_log_group_arn is not None:
+            self._values["bgp_log_group_arn"] = bgp_log_group_arn
+        if bgp_log_output_format is not None:
+            self._values["bgp_log_output_format"] = bgp_log_output_format
         if log_enabled is not None:
             self._values["log_enabled"] = log_enabled
         if log_group_arn is not None:
@@ -2812,22 +2902,42 @@ class VpnConnectionTunnel1LogOptionsCloudwatchLogOptions:
             self._values["log_output_format"] = log_output_format
 
     @builtins.property
+    def bgp_log_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_enabled VpnConnection#bgp_log_enabled}.'''
+        result = self._values.get("bgp_log_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def bgp_log_group_arn(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_group_arn VpnConnection#bgp_log_group_arn}.'''
+        result = self._values.get("bgp_log_group_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def bgp_log_output_format(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_output_format VpnConnection#bgp_log_output_format}.'''
+        result = self._values.get("bgp_log_output_format")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def log_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_enabled VpnConnection#log_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_enabled VpnConnection#log_enabled}.'''
         result = self._values.get("log_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def log_group_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_group_arn VpnConnection#log_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_group_arn VpnConnection#log_group_arn}.'''
         result = self._values.get("log_group_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def log_output_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_output_format VpnConnection#log_output_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_output_format VpnConnection#log_output_format}.'''
         result = self._values.get("log_output_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2863,6 +2973,18 @@ class VpnConnectionTunnel1LogOptionsCloudwatchLogOptionsOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="resetBgpLogEnabled")
+    def reset_bgp_log_enabled(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetBgpLogEnabled", []))
+
+    @jsii.member(jsii_name="resetBgpLogGroupArn")
+    def reset_bgp_log_group_arn(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetBgpLogGroupArn", []))
+
+    @jsii.member(jsii_name="resetBgpLogOutputFormat")
+    def reset_bgp_log_output_format(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetBgpLogOutputFormat", []))
+
     @jsii.member(jsii_name="resetLogEnabled")
     def reset_log_enabled(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLogEnabled", []))
@@ -2874,6 +2996,23 @@ class VpnConnectionTunnel1LogOptionsCloudwatchLogOptionsOutputReference(
     @jsii.member(jsii_name="resetLogOutputFormat")
     def reset_log_output_format(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLogOutputFormat", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="bgpLogEnabledInput")
+    def bgp_log_enabled_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "bgpLogEnabledInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bgpLogGroupArnInput")
+    def bgp_log_group_arn_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bgpLogGroupArnInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bgpLogOutputFormatInput")
+    def bgp_log_output_format_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bgpLogOutputFormatInput"))
 
     @builtins.property
     @jsii.member(jsii_name="logEnabledInput")
@@ -2891,6 +3030,47 @@ class VpnConnectionTunnel1LogOptionsCloudwatchLogOptionsOutputReference(
     @jsii.member(jsii_name="logOutputFormatInput")
     def log_output_format_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "logOutputFormatInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bgpLogEnabled")
+    def bgp_log_enabled(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "bgpLogEnabled"))
+
+    @bgp_log_enabled.setter
+    def bgp_log_enabled(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__604519e5d01089a94ae7d7b95c3170567397b6680da95a02cacd812480b2a7db)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bgpLogEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="bgpLogGroupArn")
+    def bgp_log_group_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "bgpLogGroupArn"))
+
+    @bgp_log_group_arn.setter
+    def bgp_log_group_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91676ceabfd9cf9bbffeaa4e72a7420618c3b6794c1210f7dcc92c32ae0dd94e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bgpLogGroupArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="bgpLogOutputFormat")
+    def bgp_log_output_format(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "bgpLogOutputFormat"))
+
+    @bgp_log_output_format.setter
+    def bgp_log_output_format(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__78547be7eec8fa8691efa6a6403292d07cc575b167a9406b5cfed0d2dcb12985)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bgpLogOutputFormat", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="logEnabled")
@@ -2973,16 +3153,25 @@ class VpnConnectionTunnel1LogOptionsOutputReference(
     def put_cloudwatch_log_options(
         self,
         *,
+        bgp_log_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        bgp_log_group_arn: typing.Optional[builtins.str] = None,
+        bgp_log_output_format: typing.Optional[builtins.str] = None,
         log_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         log_group_arn: typing.Optional[builtins.str] = None,
         log_output_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_enabled VpnConnection#log_enabled}.
-        :param log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_group_arn VpnConnection#log_group_arn}.
-        :param log_output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_output_format VpnConnection#log_output_format}.
+        :param bgp_log_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_enabled VpnConnection#bgp_log_enabled}.
+        :param bgp_log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_group_arn VpnConnection#bgp_log_group_arn}.
+        :param bgp_log_output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_output_format VpnConnection#bgp_log_output_format}.
+        :param log_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_enabled VpnConnection#log_enabled}.
+        :param log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_group_arn VpnConnection#log_group_arn}.
+        :param log_output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_output_format VpnConnection#log_output_format}.
         '''
         value = VpnConnectionTunnel1LogOptionsCloudwatchLogOptions(
+            bgp_log_enabled=bgp_log_enabled,
+            bgp_log_group_arn=bgp_log_group_arn,
+            bgp_log_output_format=bgp_log_output_format,
             log_enabled=log_enabled,
             log_group_arn=log_group_arn,
             log_output_format=log_output_format,
@@ -3036,7 +3225,7 @@ class VpnConnectionTunnel2LogOptions:
         cloudwatch_log_options: typing.Optional[typing.Union["VpnConnectionTunnel2LogOptionsCloudwatchLogOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_log_options: cloudwatch_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#cloudwatch_log_options VpnConnection#cloudwatch_log_options}
+        :param cloudwatch_log_options: cloudwatch_log_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#cloudwatch_log_options VpnConnection#cloudwatch_log_options}
         '''
         if isinstance(cloudwatch_log_options, dict):
             cloudwatch_log_options = VpnConnectionTunnel2LogOptionsCloudwatchLogOptions(**cloudwatch_log_options)
@@ -3053,7 +3242,7 @@ class VpnConnectionTunnel2LogOptions:
     ) -> typing.Optional["VpnConnectionTunnel2LogOptionsCloudwatchLogOptions"]:
         '''cloudwatch_log_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#cloudwatch_log_options VpnConnection#cloudwatch_log_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#cloudwatch_log_options VpnConnection#cloudwatch_log_options}
         '''
         result = self._values.get("cloudwatch_log_options")
         return typing.cast(typing.Optional["VpnConnectionTunnel2LogOptionsCloudwatchLogOptions"], result)
@@ -3074,6 +3263,9 @@ class VpnConnectionTunnel2LogOptions:
     jsii_type="@cdktf/provider-aws.vpnConnection.VpnConnectionTunnel2LogOptionsCloudwatchLogOptions",
     jsii_struct_bases=[],
     name_mapping={
+        "bgp_log_enabled": "bgpLogEnabled",
+        "bgp_log_group_arn": "bgpLogGroupArn",
+        "bgp_log_output_format": "bgpLogOutputFormat",
         "log_enabled": "logEnabled",
         "log_group_arn": "logGroupArn",
         "log_output_format": "logOutputFormat",
@@ -3083,21 +3275,36 @@ class VpnConnectionTunnel2LogOptionsCloudwatchLogOptions:
     def __init__(
         self,
         *,
+        bgp_log_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        bgp_log_group_arn: typing.Optional[builtins.str] = None,
+        bgp_log_output_format: typing.Optional[builtins.str] = None,
         log_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         log_group_arn: typing.Optional[builtins.str] = None,
         log_output_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_enabled VpnConnection#log_enabled}.
-        :param log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_group_arn VpnConnection#log_group_arn}.
-        :param log_output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_output_format VpnConnection#log_output_format}.
+        :param bgp_log_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_enabled VpnConnection#bgp_log_enabled}.
+        :param bgp_log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_group_arn VpnConnection#bgp_log_group_arn}.
+        :param bgp_log_output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_output_format VpnConnection#bgp_log_output_format}.
+        :param log_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_enabled VpnConnection#log_enabled}.
+        :param log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_group_arn VpnConnection#log_group_arn}.
+        :param log_output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_output_format VpnConnection#log_output_format}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83afa986daa56ec1bf87438375044ba4eec0772572289e758e7532249a69d7f8)
+            check_type(argname="argument bgp_log_enabled", value=bgp_log_enabled, expected_type=type_hints["bgp_log_enabled"])
+            check_type(argname="argument bgp_log_group_arn", value=bgp_log_group_arn, expected_type=type_hints["bgp_log_group_arn"])
+            check_type(argname="argument bgp_log_output_format", value=bgp_log_output_format, expected_type=type_hints["bgp_log_output_format"])
             check_type(argname="argument log_enabled", value=log_enabled, expected_type=type_hints["log_enabled"])
             check_type(argname="argument log_group_arn", value=log_group_arn, expected_type=type_hints["log_group_arn"])
             check_type(argname="argument log_output_format", value=log_output_format, expected_type=type_hints["log_output_format"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if bgp_log_enabled is not None:
+            self._values["bgp_log_enabled"] = bgp_log_enabled
+        if bgp_log_group_arn is not None:
+            self._values["bgp_log_group_arn"] = bgp_log_group_arn
+        if bgp_log_output_format is not None:
+            self._values["bgp_log_output_format"] = bgp_log_output_format
         if log_enabled is not None:
             self._values["log_enabled"] = log_enabled
         if log_group_arn is not None:
@@ -3106,22 +3313,42 @@ class VpnConnectionTunnel2LogOptionsCloudwatchLogOptions:
             self._values["log_output_format"] = log_output_format
 
     @builtins.property
+    def bgp_log_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_enabled VpnConnection#bgp_log_enabled}.'''
+        result = self._values.get("bgp_log_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def bgp_log_group_arn(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_group_arn VpnConnection#bgp_log_group_arn}.'''
+        result = self._values.get("bgp_log_group_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def bgp_log_output_format(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_output_format VpnConnection#bgp_log_output_format}.'''
+        result = self._values.get("bgp_log_output_format")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def log_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_enabled VpnConnection#log_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_enabled VpnConnection#log_enabled}.'''
         result = self._values.get("log_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def log_group_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_group_arn VpnConnection#log_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_group_arn VpnConnection#log_group_arn}.'''
         result = self._values.get("log_group_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def log_output_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_output_format VpnConnection#log_output_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_output_format VpnConnection#log_output_format}.'''
         result = self._values.get("log_output_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3157,6 +3384,18 @@ class VpnConnectionTunnel2LogOptionsCloudwatchLogOptionsOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="resetBgpLogEnabled")
+    def reset_bgp_log_enabled(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetBgpLogEnabled", []))
+
+    @jsii.member(jsii_name="resetBgpLogGroupArn")
+    def reset_bgp_log_group_arn(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetBgpLogGroupArn", []))
+
+    @jsii.member(jsii_name="resetBgpLogOutputFormat")
+    def reset_bgp_log_output_format(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetBgpLogOutputFormat", []))
+
     @jsii.member(jsii_name="resetLogEnabled")
     def reset_log_enabled(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLogEnabled", []))
@@ -3168,6 +3407,23 @@ class VpnConnectionTunnel2LogOptionsCloudwatchLogOptionsOutputReference(
     @jsii.member(jsii_name="resetLogOutputFormat")
     def reset_log_output_format(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLogOutputFormat", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="bgpLogEnabledInput")
+    def bgp_log_enabled_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "bgpLogEnabledInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bgpLogGroupArnInput")
+    def bgp_log_group_arn_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bgpLogGroupArnInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bgpLogOutputFormatInput")
+    def bgp_log_output_format_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bgpLogOutputFormatInput"))
 
     @builtins.property
     @jsii.member(jsii_name="logEnabledInput")
@@ -3185,6 +3441,47 @@ class VpnConnectionTunnel2LogOptionsCloudwatchLogOptionsOutputReference(
     @jsii.member(jsii_name="logOutputFormatInput")
     def log_output_format_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "logOutputFormatInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bgpLogEnabled")
+    def bgp_log_enabled(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "bgpLogEnabled"))
+
+    @bgp_log_enabled.setter
+    def bgp_log_enabled(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4fb6c60ea7a589e57d280e9e6ae1900fef6a8681fce96d4a1af98eccb685df5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bgpLogEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="bgpLogGroupArn")
+    def bgp_log_group_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "bgpLogGroupArn"))
+
+    @bgp_log_group_arn.setter
+    def bgp_log_group_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__68da3d0ee31770696e35c8197aded209fcf9eae1d6b0ba760a229a3e74f53bb4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bgpLogGroupArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="bgpLogOutputFormat")
+    def bgp_log_output_format(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "bgpLogOutputFormat"))
+
+    @bgp_log_output_format.setter
+    def bgp_log_output_format(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f67cd92e967b933b809293a880fd1676d4500e046df118d16b851399cd03c913)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bgpLogOutputFormat", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="logEnabled")
@@ -3267,16 +3564,25 @@ class VpnConnectionTunnel2LogOptionsOutputReference(
     def put_cloudwatch_log_options(
         self,
         *,
+        bgp_log_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        bgp_log_group_arn: typing.Optional[builtins.str] = None,
+        bgp_log_output_format: typing.Optional[builtins.str] = None,
         log_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         log_group_arn: typing.Optional[builtins.str] = None,
         log_output_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_enabled VpnConnection#log_enabled}.
-        :param log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_group_arn VpnConnection#log_group_arn}.
-        :param log_output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/vpn_connection#log_output_format VpnConnection#log_output_format}.
+        :param bgp_log_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_enabled VpnConnection#bgp_log_enabled}.
+        :param bgp_log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_group_arn VpnConnection#bgp_log_group_arn}.
+        :param bgp_log_output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#bgp_log_output_format VpnConnection#bgp_log_output_format}.
+        :param log_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_enabled VpnConnection#log_enabled}.
+        :param log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_group_arn VpnConnection#log_group_arn}.
+        :param log_output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/vpn_connection#log_output_format VpnConnection#log_output_format}.
         '''
         value = VpnConnectionTunnel2LogOptionsCloudwatchLogOptions(
+            bgp_log_enabled=bgp_log_enabled,
+            bgp_log_group_arn=bgp_log_group_arn,
+            bgp_log_output_format=bgp_log_output_format,
             log_enabled=log_enabled,
             log_group_arn=log_group_arn,
             log_output_format=log_output_format,
@@ -3562,7 +3868,9 @@ def _typecheckingstub__53c837b21d9377340ba0b9ae12cf2e76d94617740e84d55b4fefcf365
     tunnel2_rekey_margin_time_seconds: typing.Optional[jsii.Number] = None,
     tunnel2_replay_window_size: typing.Optional[jsii.Number] = None,
     tunnel2_startup_action: typing.Optional[builtins.str] = None,
+    tunnel_bandwidth: typing.Optional[builtins.str] = None,
     tunnel_inside_ip_version: typing.Optional[builtins.str] = None,
+    vpn_concentrator_id: typing.Optional[builtins.str] = None,
     vpn_gateway_id: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -3902,6 +4210,12 @@ def _typecheckingstub__17594096376b2b497777b66d44aab6cd8e8da35edd8ef533fd7f85255
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8fe18cfe3a2081e4ea60b9b1ffa4f9aa4737823fb1c676aeb7b9e01d3c076926(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a3c3ba8141afa1d83ef9d6e9a4866c51c8b5617a8777ee92c0376ae8ee9e897d(
     value: builtins.str,
 ) -> None:
@@ -3909,6 +4223,12 @@ def _typecheckingstub__a3c3ba8141afa1d83ef9d6e9a4866c51c8b5617a8777ee92c0376ae8e
     pass
 
 def _typecheckingstub__bed913dd2c7d2d93cfeb82fef754f5c6e60fbe372d9a5490adac7beae7067a4b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d662ec90e4bc81bcc3214de25dc200e210c2ba51982123bc382ceb6737f192f(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -3985,7 +4305,9 @@ def _typecheckingstub__1a1ff5171a739715b7a4605259904c2502c4c339a5fbc4f33a1eeec85
     tunnel2_rekey_margin_time_seconds: typing.Optional[jsii.Number] = None,
     tunnel2_replay_window_size: typing.Optional[jsii.Number] = None,
     tunnel2_startup_action: typing.Optional[builtins.str] = None,
+    tunnel_bandwidth: typing.Optional[builtins.str] = None,
     tunnel_inside_ip_version: typing.Optional[builtins.str] = None,
+    vpn_concentrator_id: typing.Optional[builtins.str] = None,
     vpn_gateway_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4047,6 +4369,9 @@ def _typecheckingstub__2987178142993d954c0b9fb8c3c1dc0aead090fbf7670bf0e2df9759e
 
 def _typecheckingstub__1b428cdf57040466ff9e463429eb04d8967afd4f3062a33f5397ea359d413e33(
     *,
+    bgp_log_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    bgp_log_group_arn: typing.Optional[builtins.str] = None,
+    bgp_log_output_format: typing.Optional[builtins.str] = None,
     log_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     log_group_arn: typing.Optional[builtins.str] = None,
     log_output_format: typing.Optional[builtins.str] = None,
@@ -4057,6 +4382,24 @@ def _typecheckingstub__1b428cdf57040466ff9e463429eb04d8967afd4f3062a33f5397ea359
 def _typecheckingstub__835aff9933dc21765aa06eaa383b3763a6c5e10d4e647d0bc204c3c96e4bba56(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__604519e5d01089a94ae7d7b95c3170567397b6680da95a02cacd812480b2a7db(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91676ceabfd9cf9bbffeaa4e72a7420618c3b6794c1210f7dcc92c32ae0dd94e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78547be7eec8fa8691efa6a6403292d07cc575b167a9406b5cfed0d2dcb12985(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4107,6 +4450,9 @@ def _typecheckingstub__5c70a0cb4f28045d21c5df6238baa8f21a158c1ff05b04d09c3373ffc
 
 def _typecheckingstub__83afa986daa56ec1bf87438375044ba4eec0772572289e758e7532249a69d7f8(
     *,
+    bgp_log_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    bgp_log_group_arn: typing.Optional[builtins.str] = None,
+    bgp_log_output_format: typing.Optional[builtins.str] = None,
     log_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     log_group_arn: typing.Optional[builtins.str] = None,
     log_output_format: typing.Optional[builtins.str] = None,
@@ -4117,6 +4463,24 @@ def _typecheckingstub__83afa986daa56ec1bf87438375044ba4eec0772572289e758e7532249
 def _typecheckingstub__bbc0ff6bb9df7e14da341ac2e86c97346e8a7a7d42681749eea41203635615d8(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4fb6c60ea7a589e57d280e9e6ae1900fef6a8681fce96d4a1af98eccb685df5(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68da3d0ee31770696e35c8197aded209fcf9eae1d6b0ba760a229a3e74f53bb4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f67cd92e967b933b809293a880fd1676d4500e046df118d16b851399cd03c913(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

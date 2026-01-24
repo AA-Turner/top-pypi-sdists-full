@@ -17,6 +17,7 @@ from datetime import datetime
 from hashlib import sha256
 
 from ansible.module_utils.common.text.converters import to_text
+
 from ansible_collections.community.crypto.plugins.module_utils._openssh.utils import (
     OpensshParser,
     _OpensshWriter,
@@ -28,7 +29,6 @@ from ansible_collections.community.crypto.plugins.module_utils._time import (
 from ansible_collections.community.crypto.plugins.module_utils._time import (
     convert_relative_to_datetime,
 )
-
 
 if t.TYPE_CHECKING:
     from ansible_collections.community.crypto.plugins.module_utils._openssh.cryptography import (  # pragma: no cover
@@ -311,7 +311,7 @@ class OpensshCertificateOption:
 
     @classmethod
     def from_string(
-        cls: t.Type[_OpensshCertificateOption], option_string: str
+        cls: t.Type[_OpensshCertificateOption], option_string: str  # noqa: UP006
     ) -> _OpensshCertificateOption:
         if not isinstance(option_string, str):
             raise ValueError(
@@ -572,7 +572,7 @@ class OpensshCertificate:
 
     @classmethod
     def load(
-        cls: t.Type[_OpensshCertificate], path: str | os.PathLike
+        cls: t.Type[_OpensshCertificate], path: str | os.PathLike  # noqa: UP006
     ) -> _OpensshCertificate:
         if not os.path.exists(path):
             raise ValueError(f"{path} is not a valid path.")
@@ -839,14 +839,14 @@ def parse_option_list(
 
 
 __all__ = (
-    "OpensshCertificateTimeParameters",
-    "OpensshCertificateOption",
+    "OpensshCertificate",
     "OpensshCertificateInfo",
-    "OpensshRSACertificateInfo",
+    "OpensshCertificateOption",
+    "OpensshCertificateTimeParameters",
     "OpensshDSACertificateInfo",
     "OpensshECDSACertificateInfo",
     "OpensshED25519CertificateInfo",
-    "OpensshCertificate",
+    "OpensshRSACertificateInfo",
     "apply_directives",
     "default_options",
     "fingerprint",

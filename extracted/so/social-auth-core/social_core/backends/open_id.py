@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from typing import Any
+
 from openid.consumer.consumer import CANCEL, FAILURE, SUCCESS, Consumer
 from openid.consumer.discover import DiscoveryFailure
 from openid.extensions import ax, pape, sreg
+from openid.fetchers import HTTPFetchingError
 
 from social_core.exceptions import (
     AuthCanceled,
@@ -10,6 +13,7 @@ from social_core.exceptions import (
     AuthFailed,
     AuthMissingParameter,
     AuthUnknownError,
+    AuthUnreachableProvider,
 )
 from social_core.utils import url_add_parameters
 
@@ -127,7 +131,14 @@ class OpenIdAuth(BaseAuth):
         )
         return values
 
-    def extra_data(self, user, uid, response, details=None, *args, **kwargs):
+    def extra_data(
+        self,
+        user,
+        uid: str,
+        response: dict[str, Any],
+        details: dict[str, Any],
+        pipeline_kwargs: dict[str, Any],
+    ) -> dict[str, Any]:
         """Return defined extra data names to store in extra_data field.
         Settings will be inspected to get more values names that should be
         stored on extra_data field. Setting name is created from current
@@ -141,7 +152,7 @@ class OpenIdAuth(BaseAuth):
         sreg_names = self.setting("SREG_EXTRA_DATA")
         ax_names = self.setting("AX_EXTRA_DATA")
         values = self.values_from_response(response, sreg_names, ax_names)
-        from_details = super().extra_data(user, uid, {}, details, *args, **kwargs)
+        from_details = super().extra_data(user, uid, {}, details, pipeline_kwargs)
         values.update(from_details)
         return values
 
@@ -177,21 +188,25 @@ class OpenIdAuth(BaseAuth):
         )
         return self.strategy.authenticate(
             self,
+            *partial.args,
             response=response,
             pipeline_index=partial.next_step,
-            *partial.args,
             **partial.kwargs,
         )
 
     def auth_complete(self, *args, **kwargs):
         """Complete auth process"""
-        response = self.consumer().complete(
-            dict(self.data.items()), self.get_return_to()
-        )
+        try:
+            response = self.consumer().complete(
+                dict(self.data.items()), self.get_return_to()
+            )
+        except HTTPFetchingError as error:
+            raise AuthUnreachableProvider(self) from error
+
         self.process_error(response)
         if session_id := self.data.get(self.strategy.SESSION_SAVE_KEY):
             self.strategy.restore_session(session_id, kwargs)
-        return self.strategy.authenticate(self, response=response, *args, **kwargs)
+        return self.strategy.authenticate(self, *args, response=response, **kwargs)
 
     def process_error(self, data) -> None:
         if not data:

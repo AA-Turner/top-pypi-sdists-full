@@ -54,11 +54,13 @@ General notes:
 This module implements taint sink detection to track and block cases where tainted data
 is passed to header-setting APIs without proper sanitization.
 """  # noqa: D301
+
 import typing
 from typing import Text
 
 from ddtrace.appsec._constants import IAST
 from ddtrace.appsec._constants import IAST_SPAN_TAGS
+from ddtrace.appsec._iast._iast_request_context_base import is_iast_request_enabled
 from ddtrace.appsec._iast._logs import iast_error
 from ddtrace.appsec._iast._metrics import _set_metric_iast_executed_sink
 from ddtrace.appsec._iast._metrics import _set_metric_iast_instrumented_sink
@@ -70,7 +72,7 @@ from ddtrace.appsec._iast.constants import VULN_HEADER_INJECTION
 from ddtrace.appsec._iast.taint_sinks._base import VulnerabilityBase
 from ddtrace.appsec._iast.taint_sinks.unvalidated_redirect import _iast_report_unvalidated_redirect
 from ddtrace.internal.logger import get_logger
-from ddtrace.settings.asm import config as asm_config
+from ddtrace.internal.settings.asm import config as asm_config
 
 
 log = get_logger(__name__)
@@ -191,12 +193,12 @@ def _iast_django_response(wrapped, instance, args, kwargs):
         elif hasattr(instance, "_store"):
             instance._store = HeaderInjectionDict(instance._store)
     except Exception as e:
-        iast_error(f"propagation::sink_point::Error in _iast_django_response. {e}")
+        iast_error("propagation::sink_point::Error in _iast_django_response", e)
 
 
 class HeaderInjectionDict(dict):
     def __setitem__(self, key, value):
-        if asm_config.is_iast_request_enabled:
+        if is_iast_request_enabled():
             _check_type_headers_and_report_header_injection(value)
         dict.__setitem__(self, key, value)
 
@@ -213,7 +215,7 @@ def _iast_set_headers(wrapped, instance, args, kwargs):
         # We call `_check_type_headers_and_report_header_injection` after the wrapped function because it may
         # contain validators and serializers that modify the `args` ranges.
         result = wrapped.__func__(instance, *args, **kwargs)
-        if asm_config.is_iast_request_enabled:
+        if is_iast_request_enabled():
             _check_type_headers_and_report_header_injection(args, check_header_injection=False)
         return result
     return wrapped(*args, **kwargs)
@@ -263,7 +265,7 @@ def _iast_report_header_injection(headers_args, check_header_injection=True, che
             # Report Telemetry Metrics
             _set_metric_iast_executed_sink(HeaderInjection.vulnerability_type)
     except Exception as e:
-        iast_error(f"propagation::sink_point::Error in _iast_report_header_injection. {e}")
+        iast_error("propagation::sink_point::Error in _iast_report_header_injection", e)
 
 
 def _check_type_headers_and_report_header_injection(

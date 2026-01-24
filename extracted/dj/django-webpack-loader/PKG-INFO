@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: django-webpack-loader
-Version: 3.2.1
+Version: 3.2.3
 Summary: Transparently use webpack with django
 Home-page: https://github.com/django-webpack/django-webpack-loader
-Download-URL: https://github.com/django-webpack/django-webpack-loader/tarball/3.2.1
+Download-URL: https://github.com/django-webpack/django-webpack-loader/tarball/3.2.3
 Author: Vinta Software
 Author-email: contact@vinta.com.br
 License: MIT License

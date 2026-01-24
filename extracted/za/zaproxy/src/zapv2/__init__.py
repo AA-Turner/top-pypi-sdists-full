@@ -20,7 +20,7 @@ Client implementation for using the ZAP pentesting proxy remotely.
 """
 
 __docformat__ = 'restructuredtext'
-__version__ = '0.4.0'
+__version__ = '0.5.0'
 
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -36,6 +36,8 @@ from .authorization import authorization
 from .automation import automation
 from .autoupdate import autoupdate
 from .brk import brk
+from .client import client
+from .clientSpider import clientSpider
 from .context import context
 from .core import core
 from .custompayloads import custompayloads
@@ -49,6 +51,7 @@ from .oast import oast
 from .openapi import openapi
 from .params import params
 from .pnh import pnh
+from .postman import postman
 from .pscan import pscan
 from .replacer import replacer
 from .reports import reports
@@ -103,6 +106,8 @@ class ZAPv2(object):
         self.automation = automation(self)
         self.autoupdate = autoupdate(self)
         self.brk = brk(self)
+        self.client = client(self)
+        self.clientSpider = clientSpider(self)
         self.context = context(self)
         self.core = core(self)
         self.custompayloads = custompayloads(self)
@@ -116,6 +121,7 @@ class ZAPv2(object):
         self.openapi = openapi(self)
         self.params = params(self)
         self.pnh = pnh(self)
+        self.postman = postman(self)
         self.pscan = pscan(self)
         self.replacer = replacer(self)
         self.reports = reports(self)
@@ -136,12 +142,6 @@ class ZAPv2(object):
 
         # not very nice, but prevents warnings when accessing the ZAP API via https
         requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-        # Currently create a new session for each request to prevent request failing
-        # e.g. when polling the spider status
-        #self.session = requests.Session()
-        #if apikey is not None:
-        #  self.session.headers['X-ZAP-API-Key'] = apikey
 
     def urlopen(self, url, *args, **kwargs):
         """
@@ -170,11 +170,11 @@ class ZAPv2(object):
 
         # In theory we should be able to reuse the session,
         # but there have been problems with that
-        self.session = requests.Session()
-        if self.__apikey is not None:
-          self.session.headers['X-ZAP-API-Key'] = self.__apikey
+        with requests.Session() as session:
+            if self.__apikey is not None:
+              session.headers['X-ZAP-API-Key'] = self.__apikey
 
-        response = self.session.request(method, url, params=query, data=body, proxies=self.__proxies, verify=False)
+            response = session.request(method, url, params=query, data=body, proxies=self.__proxies, verify=False)
 
         if (self.__validate_status_code and response.status_code >= 300 and response.status_code < 500):
             raise Exception("Non-successful status code returned from ZAP, which indicates a bad request: "

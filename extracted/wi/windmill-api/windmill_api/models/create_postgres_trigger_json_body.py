@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.create_postgres_trigger_json_body_mode import CreatePostgresTriggerJsonBodyMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -23,24 +24,24 @@ class CreatePostgresTriggerJsonBody:
         path (str):
         script_path (str):
         is_flow (bool):
-        enabled (bool):
         postgres_resource_path (str):
         replication_slot_name (Union[Unset, str]):
         publication_name (Union[Unset, str]):
+        mode (Union[Unset, CreatePostgresTriggerJsonBodyMode]): job trigger mode
         publication (Union[Unset, CreatePostgresTriggerJsonBodyPublication]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, CreatePostgresTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, CreatePostgresTriggerJsonBodyRetry]):
+        retry (Union[Unset, CreatePostgresTriggerJsonBodyRetry]): Retry configuration for failed module executions
     """
 
     path: str
     script_path: str
     is_flow: bool
-    enabled: bool
     postgres_resource_path: str
     replication_slot_name: Union[Unset, str] = UNSET
     publication_name: Union[Unset, str] = UNSET
+    mode: Union[Unset, CreatePostgresTriggerJsonBodyMode] = UNSET
     publication: Union[Unset, "CreatePostgresTriggerJsonBodyPublication"] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "CreatePostgresTriggerJsonBodyErrorHandlerArgs"] = UNSET
@@ -51,10 +52,13 @@ class CreatePostgresTriggerJsonBody:
         path = self.path
         script_path = self.script_path
         is_flow = self.is_flow
-        enabled = self.enabled
         postgres_resource_path = self.postgres_resource_path
         replication_slot_name = self.replication_slot_name
         publication_name = self.publication_name
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         publication: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.publication, Unset):
             publication = self.publication.to_dict()
@@ -75,7 +79,6 @@ class CreatePostgresTriggerJsonBody:
                 "path": path,
                 "script_path": script_path,
                 "is_flow": is_flow,
-                "enabled": enabled,
                 "postgres_resource_path": postgres_resource_path,
             }
         )
@@ -83,6 +86,8 @@ class CreatePostgresTriggerJsonBody:
             field_dict["replication_slot_name"] = replication_slot_name
         if publication_name is not UNSET:
             field_dict["publication_name"] = publication_name
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if publication is not UNSET:
             field_dict["publication"] = publication
         if error_handler_path is not UNSET:
@@ -109,13 +114,18 @@ class CreatePostgresTriggerJsonBody:
 
         is_flow = d.pop("is_flow")
 
-        enabled = d.pop("enabled")
-
         postgres_resource_path = d.pop("postgres_resource_path")
 
         replication_slot_name = d.pop("replication_slot_name", UNSET)
 
         publication_name = d.pop("publication_name", UNSET)
+
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, CreatePostgresTriggerJsonBodyMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = CreatePostgresTriggerJsonBodyMode(_mode)
 
         _publication = d.pop("publication", UNSET)
         publication: Union[Unset, CreatePostgresTriggerJsonBodyPublication]
@@ -144,10 +154,10 @@ class CreatePostgresTriggerJsonBody:
             path=path,
             script_path=script_path,
             is_flow=is_flow,
-            enabled=enabled,
             postgres_resource_path=postgres_resource_path,
             replication_slot_name=replication_slot_name,
             publication_name=publication_name,
+            mode=mode,
             publication=publication,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,

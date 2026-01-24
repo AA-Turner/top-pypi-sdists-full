@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: py-cid
-Version: 0.3.1
+Version: 0.4.0
 Summary: Self-describing content-addressed identifiers for distributed systems
 Author-email: Dhruv Baldawa <dhruv@dhruvb.com>
 Maintainer: acul71
 Maintainer-email: Dhruv Baldawa <dhruv@dhruvb.com>, pacrob <pacrob-py-libp2p@protonmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/ipld/py-cid
 Project-URL: Documentation, https://py-cid.readthedocs.io
 Project-URL: Repository, https://github.com/ipld/py-cid
@@ -19,15 +19,15 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst
-Requires-Dist: base58<2.0,>=1.0.2
-Requires-Dist: py-multibase<2.0.0,>=1.0.0
-Requires-Dist: py-multicodec<0.3.0
+Requires-Dist: py-multibase>=1.0.0
+Requires-Dist: py-multicodec>=1.0.0
 Requires-Dist: morphys<2.0,>=1.0
-Requires-Dist: pymultihash<1.0.0,>=0.8.0
+Requires-Dist: py-multihash>=3.0.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
@@ -48,8 +48,6 @@ Requires-Dist: mypy>=1.5.0; extra == "dev"
 Requires-Dist: pre-commit>=3.0.0; extra == "dev"
 Requires-Dist: towncrier<25,>=24; extra == "dev"
 Requires-Dist: pyrefly<0.18.0,>=0.17.1; extra == "dev"
-Provides-Extra: docs
-Requires-Dist: sphinx>=7.0.0; extra == "docs"
 Dynamic: license-file
 
 CID (Content IDentifier)
@@ -113,4 +111,4 @@ Other info
 
 * Free software: MIT license
 * Documentation: https://py-cid.readthedocs.io.
-* Python versions: 3.10+
+* Python versions: 3.10-3.14

@@ -21,7 +21,7 @@ jobs:
         runner: [ubuntu-latest]
         target: [x86_64, x86, aarch64, armv7, s390x, ppc64le]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Copy README.md and LICENSE
         run: |
           cp README.md pypi/
@@ -37,7 +37,7 @@ jobs:
           sccache: 'true'
           manylinux: auto
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: "wheels-linux-${{ matrix.target }}"
           path: pypi/dist
@@ -50,7 +50,7 @@ jobs:
         runner: [ubuntu-latest]
         target: [x86_64, x86, aarch64, armv7]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Copy README.md and LICENSE
         run: |
           cp README.md pypi/
@@ -66,7 +66,7 @@ jobs:
           sccache: 'true'
           manylinux: musllinux_1_2
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: "wheels-musllinux-${{ matrix.target }}"
           path: pypi/dist
@@ -79,7 +79,7 @@ jobs:
         runner: [windows-latest]
         target: [x64, x86]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Copy README.md and LICENSE
         run: |
           cp README.md pypi/
@@ -94,7 +94,7 @@ jobs:
           args: --release --out dist
           sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: "wheels-windows-${{ matrix.target }}"
           path: pypi/dist
@@ -107,7 +107,7 @@ jobs:
         runner: [macos-14]
         target: [x86_64, aarch64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Copy README.md and LICENSE
         run: |
           cp README.md pypi/
@@ -122,7 +122,7 @@ jobs:
           args: --release --out dist
           sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: "wheels-macos-${{ matrix.target }}"
           path: pypi/dist
@@ -131,7 +131,7 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Copy README.md and LICENSE
         run: |
           cp README.md pypi/
@@ -145,7 +145,7 @@ jobs:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: "wheels-sdist"
           path: pypi/dist
@@ -157,7 +157,7 @@ jobs:
     # if: startsWith(github.ref, 'refs/tags/')
     needs: [linux, musllinux, windows, macos, sdist]
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           path: pypi/dist
           pattern: wheels-*

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tree-sitter-yaml
-Version: 0.7.1
+Version: 0.7.2
 Summary: YAML grammar for tree-sitter
 Author-email: Ika <ikatyang@gmail.com>, Amaan Qureshi <amaanq12@gmail.com>
 License: MIT

@@ -4,10 +4,9 @@
 import warnings
 import numbers as _numbers
 from cython.operator cimport dereference as deref
+import numpy as np
 
-from .thermo cimport *
 from ._utils cimport pystr, stringify, comp_map, py_to_anymap, anymap_to_py
-from ._utils import *
 from .delegator cimport *
 from .drawnetwork import *
 
@@ -16,24 +15,27 @@ cdef class ReactorBase:
     Common base class for reactors and reservoirs.
     """
     reactor_type = "none"
-    def __cinit__(self, _SolutionBase contents=None, *, name="(none)", **kwargs):
-        if isinstance(contents, _SolutionBase):
-            self._reactor = newReactor(stringify(self.reactor_type),
-                                       contents._base, stringify(name))
-        else:
-            # deprecated: will raise warnings in C++ layer
-            self._reactor = newReactor(stringify(self.reactor_type))
-            self._reactor.get().setName(stringify(name))
-        self.rbase = self._reactor.get()
+    def __cinit__(self, _SolutionBase phase, *args, name="(none)", clone=None,
+                  **kwargs):
+        if clone is None:
+            clone = False  # TODO: change as indicated after Cantera 3.2
+            warnings.warn("ReactorBase.__init__: After Cantera 3.2, the default value "
+                "of the `clone` argument will be `True`, resulting in an independent "
+                "copy of the `phase` being created for use by this reactor. Add the "
+                "`clone=False` argument to retain the old behavior of sharing "
+                "`Solution` objects.", DeprecationWarning)
+        if self.reactor_type != "ReactorSurface":
+            self._rbase = newReactorBase(stringify(self.reactor_type),
+                                        phase._base, clone, stringify(name))
+            self.rbase = self._rbase.get()
 
-    def __init__(self, _SolutionBase contents=None, *,
-                 name="(none)", volume=None, node_attr=None):
+    def __init__(self, _SolutionBase phase=None, *args,
+                 clone=None, name="(none)", volume=None, node_attr=None):
         self._inlets = []
         self._outlets = []
         self._walls = []
         self._surfaces = []
-        if isinstance(contents, _SolutionBase):
-            self.insert(contents)  # leave insert for the time being
+        self._phase = _wrap_Solution(self.rbase.phase())
 
         if volume is not None:
             self.volume = volume
@@ -44,9 +46,14 @@ cdef class ReactorBase:
         """
         Set ``solution`` to be the object used to compute thermodynamic
         properties and kinetic rates for this reactor.
+
+        .. deprecated:: 3.2
+
+            After Cantera 3.2, a change of reactor contents after instantiation
+            will be disabled and this method will be removed.
         """
-        self._thermo = solution
-        self.rbase.setSolution(solution._base)
+        self.rbase.setSolution(solution._base)  # raises warning in C++ core
+        self._phase = solution
 
     property type:
         """The type of the reactor."""
@@ -69,13 +76,32 @@ cdef class ReactorBase:
         self.rbase.syncState()
 
     property thermo:
-        """The `ThermoPhase` object representing the reactor's contents."""
+        """
+        The `ThermoPhase` object representing the reactor's contents.
+
+        .. deprecated:: 3.2
+           Renamed to ``phase``
+        """
         def __get__(self):
+            warnings.warn("ReactorBase.thermo: To be removed after Cantera 3.2. "
+                "Renamed to `phase`.",
+                DeprecationWarning)
             self.rbase.restoreState()
-            return self._thermo
+            return self._phase
+
+    @property
+    def phase(self):
+        """
+        The `Solution` object representing the reactor's contents.
+
+        .. versionchanged:: 3.2
+           Renamed from ``thermo``.
+        """
+        self.rbase.restoreState()
+        return self._phase
 
     property volume:
-        """The volume [m^3] of the reactor."""
+        """The volume [m³] of the reactor."""
         def __get__(self):
             return self.rbase.volume()
 
@@ -85,22 +111,31 @@ cdef class ReactorBase:
     property T:
         """The temperature [K] of the reactor's contents."""
         def __get__(self):
-            return self.thermo.T
+            return self.phase.T
 
     property density:
-        """The density [kg/m^3 or kmol/m^3] of the reactor's contents."""
+        """The density [kg/m³ or kmol/m³] of the reactor's contents."""
         def __get__(self):
-            return self.thermo.density
+            return self.phase.density
 
     property mass:
         """The mass of the reactor's contents."""
         def __get__(self):
-            return self.thermo.density_mass * self.volume
+            return self.phase.density_mass * self.volume
 
     property Y:
         """The mass fractions of the reactor's contents."""
         def __get__(self):
-            return self.thermo.Y
+            return self.phase.Y
+
+    def add_sensitivity_reaction(self, int m):
+        """
+        Specifies that the sensitivity of the state variables with respect to
+        reaction ``m`` should be computed. ``m`` is the 0-based reaction index.
+        The reactor must be part of a network first. Specifying the same
+        reaction more than one time raises an exception.
+        """
+        self.rbase.addSensitivityReaction(m)
 
     # Flow devices & walls
     property inlets:
@@ -198,13 +233,15 @@ cdef class Reactor(ReactorBase):
     def __cinit__(self, *args, **kwargs):
         self.reactor = <CxxReactor*>(self.rbase)
 
-    def __init__(self, contents=None, *,
-                 name="(none)", energy='on', group_name="", **kwargs):
+    def __init__(self, phase, *,
+                 clone=None, name="(none)", energy='on', group_name="", **kwargs):
         """
-        :param contents:
-            Reactor contents. If not specified, the reactor is initially empty.
-            In this case, call `insert` to specify the contents. Providing valid
-            contents will become mandatory after Cantera 3.1.
+        :param phase:
+            A `Solution` object representing the Reactor contents
+        :param clone:
+            Determines whether to clone the ``phase`` object used by this reactor so
+            that the internal state is independent of the original `Solution` (and any
+            `Solution` objects used by other reactors in the network).
         :param name:
             Name string. If not specified, the name initially defaults to ``'(none)'``
             and changes to ``'<reactor_type>_n'`` when `Reactor` objects are installed
@@ -224,20 +261,25 @@ cdef class Reactor(ReactorBase):
         .. versionadded:: 3.1
            Added the ``node_attr`` and ``group_name`` parameters.
 
+        .. versionchanged:: 3.2
+           Added the ``clone`` parameter with the default value ``None`` indicating that
+           contents will not be cloned. After Cantera 3.2, this default will change to
+           be ``True``. Specify ``False`` to retain the old behavior and suppress a
+           deprecation warning.
+
         Some examples showing how to create :class:`Reactor` objects are
         shown below.
 
         >>> gas = Solution('gri30.yaml')
         >>> r1 = Reactor(gas)
 
-        Arguments may be specified using keywords in any order:
+        Arguments may be specified using keywords:
 
-        >>> r2 = Reactor(contents=gas, energy='off',
+        >>> r2 = Reactor(gas, energy='off',
         ...              name='isothermal_reactor')
-        >>> r3 = Reactor(name='adiabatic_reactor', contents=gas)
 
         """
-        super().__init__(contents, name=name, **kwargs)
+        super().__init__(phase, clone=clone, name=name, **kwargs)
 
         if energy == 'off':
             self.energy_enabled = False
@@ -246,22 +288,19 @@ cdef class Reactor(ReactorBase):
 
         self.group_name = group_name
 
-    def insert(self, _SolutionBase solution):
-        """
-        Set ``solution`` to be the object used to compute thermodynamic
-        properties and kinetic rates for this reactor.
-        """
-        ReactorBase.insert(self, solution)
-        self._kinetics = solution
-
     property kinetics:
         """
         The `Kinetics` object used for calculating kinetic rates in
         this reactor.
+
+        .. deprecated:: 3.2
+            Replaced by ``phase`` property.
         """
         def __get__(self):
+            warnings.warn("Reactor.kinetics: To be removed after Cantera 3.2. "
+                "Renamed to `phase`.", DeprecationWarning)
             self.rbase.restoreState()
-            return self._kinetics
+            return self._phase
 
     property chemistry_enabled:
         """
@@ -273,7 +312,7 @@ cdef class Reactor(ReactorBase):
             return self.reactor.chemistryEnabled()
 
         def __set__(self, pybool value):
-            self.reactor.setChemistry(value)
+            self.reactor.setChemistryEnabled(value)
 
     property energy_enabled:
         """
@@ -284,16 +323,7 @@ cdef class Reactor(ReactorBase):
             return self.reactor.energyEnabled()
 
         def __set__(self, pybool value):
-            self.reactor.setEnergy(int(value))
-
-    def add_sensitivity_reaction(self, m):
-        """
-        Specifies that the sensitivity of the state variables with respect to
-        reaction ``m`` should be computed. ``m`` is the 0-based reaction index.
-        The reactor must be part of a network first. Specifying the same
-        reaction more than one time raises an exception.
-        """
-        self.reactor.addSensitivityReaction(m)
+            self.reactor.setEnergyEnabled(value)
 
     def add_sensitivity_species_enthalpy(self, k):
         """
@@ -301,7 +331,7 @@ cdef class Reactor(ReactorBase):
         species ``k`` should be computed. The reactor must be part of a network
         first.
         """
-        self.reactor.addSensitivitySpeciesEnthalpy(self.thermo.species_index(k))
+        self.reactor.addSensitivitySpeciesEnthalpy(self.phase.species_index(k))
 
     def component_index(self, name):
         """
@@ -345,16 +375,16 @@ cdef class Reactor(ReactorBase):
 
         `Reactor` or `IdealGasReactor`:
 
-          - 0  - mass
-          - 1  - volume
-          - 2  - internal energy or temperature
-          - 3+ - mass fractions of the species
+        - 0  - mass
+        - 1  - volume
+        - 2  - internal energy or temperature
+        - 3+ - mass fractions of the species
 
         `ConstPressureReactor` or `IdealGasConstPressureReactor`:
 
-          - 0  - mass
-          - 1  - enthalpy or temperature
-          - 2+ - mass fractions of the species
+        - 0  - mass
+        - 1  - enthalpy or temperature
+        - 2+ - mass fractions of the species
 
         You can use the function `component_index` to determine the location of
         a specific component from its name, or `component_name` to determine the
@@ -491,7 +521,7 @@ cdef class FlowReactor(Reactor):
     @property
     def area(self):
         """
-        Get/set the area of the reactor [m^2].
+        Get/set the area of the reactor [m²].
 
         When the area is changed, the flow speed is scaled to keep the total mass flow
         rate constant.
@@ -552,7 +582,7 @@ cdef class FlowReactor(Reactor):
 
     @property
     def surface_area_to_volume_ratio(self):
-        """ Get/Set the surface area to volume ratio of the reactor [m^-1] """
+        """Get/Set the surface area to volume ratio of the reactor [1/m]"""
         return (<CxxFlowReactor*>self.reactor).surfaceAreaToVolumeRatio()
 
     @surface_area_to_volume_ratio.setter
@@ -683,7 +713,7 @@ cdef class ExtensibleReactor(Reactor):
     @property
     def expansion_rate(self):
         """
-        Get/Set the net rate of volume change (for example, from moving walls) [m^3/s]
+        Get/Set the net rate of volume change (for example, from moving walls) [m³/s]
 
         .. versionadded:: 3.0
         """
@@ -785,41 +815,77 @@ cdef class ExtensibleIdealGasConstPressureMoleReactor(ExtensibleReactor):
     reactor_type = "ExtensibleIdealGasConstPressureMoleReactor"
 
 
-cdef class ReactorSurface:
+cdef class ReactorSurface(ReactorBase):
     """
-    Represents a surface in contact with the contents of a reactor.
+    Represents a reacting surface in contact with the contents of one or more reactors.
 
+    :param phase:
+        The `Interface` object representing reactions on this surface.
+    :param r:
+        A `Reactor` or list of `Reactor` objects that this surface is adjacent to.
+    :param clone:
+        Determines whether to clone the ``phase`` object used by this reactor so
+        that the internal state is independent of the original `Solution` (and any
+        `Solution` objects used by other reactors in the network).
     :param name:
         Name string. If not specified, the name initially defaults to ``'(none)'`` and
         changes to ``'ReactorSurface_n'`` when when associated `Reactor` objects are
         installed within a `ReactorNet`. For the latter, *n* is an integer assigned in
         the order reactor surfaces are detected.
-    :param kin:
-        The `Kinetics` or `Interface` object representing reactions on this
-        surface.
-    :param r:
-        The `Reactor` into which this surface should be installed.
     :param A:
-        The area of the reacting surface [m^2]
+        The area of the reacting surface [m²].
     :param node_attr:
         Attributes to be passed to the ``node`` method invoked to draw this surface.
         See https://graphviz.org/docs/nodes/ for a list of all usable attributes.
 
     .. versionadded:: 3.1
        Added the ``node_attr`` parameter.
+
+    .. versionchanged:: 3.2
+       Handle surfaces that are adjacent to multiple reactors.
+
+       Added the ``clone`` parameter with the default value ``None`` indicating that
+       contents will not be cloned. After Cantera 3.2, this default will change to
+       be ``True``. Specify ``False`` to retain the old behavior and suppress a
+       deprecation warning.
+
     """
-    def __cinit__(self, *args, name="(none)", **kwargs):
-        self.surface = new CxxReactorSurface(stringify(name))
+    reactor_type = "ReactorSurface"
 
-    def __dealloc__(self):
-        del self.surface
+    def __cinit__(self, _SolutionBase phase, r=None, clone=None, name="(none)", **kwargs):
+        if clone is None:
+            clone = False # TODO: change default to True after Cantera 3.2
+        cdef ReactorBase adj
+        cdef vector[shared_ptr[CxxReactorBase]] cxx_adj
+        if isinstance(r, ReactorBase):
+            adj = <ReactorBase>r
+            adj._surfaces.append(self)
+            cxx_adj.push_back(adj._rbase)
+            self._reactors = [r]
+        elif hasattr(r, "__len__"):
+            self._reactors = r
+            for ri in r:
+                adj = <Reactor>ri
+                adj._surfaces.append(self)
+                cxx_adj.push_back(adj._rbase)
+        elif r is None:
+            warnings.warn("ReactorSurface.__init__: After Cantera 3.2, the list of "
+                "adjacent reactors `r` will be a required constructor argument and the "
+                "install method will be removed.",
+                DeprecationWarning)
+            self._reactors = []
+        else:
+            raise TypeError("Parameter 'r' should be a ReactorBase object or a list "
+                            "of ReactorBase objects.")
 
-    def __init__(self, kin=None, Reactor r=None, *,
+        self._rbase = CxxNewReactorSurface(phase._base, cxx_adj, clone, stringify(name))
+        self.rbase = self._rbase.get()
+        self.surface = <CxxReactorSurface*>(self.rbase)
+
+    def __init__(self, phase=None, r=None, *, clone=None,
                  name="(none)", A=None, node_attr=None):
-        if kin is not None:
-            self.kinetics = kin
-        if r is not None:
-            self.install(r)
+        super().__init__(phase, name=name)
+
         if A is not None:
             self.area = A
         self.node_attr = node_attr or {'shape': 'underline'}
@@ -827,25 +893,20 @@ cdef class ReactorSurface:
     def install(self, Reactor r):
         """
         Add this `ReactorSurface` to the specified `Reactor`
+
+        .. deprecated:: 3.2
+           Replaced by specifying list of adjacent reactors in the `ReactorSurface`
+           constructor.
         """
+        warnings.warn("ReactorSurface.install: To be removed after Cantera 3.2. "
+            "Adjacent reactors should be specified in the ReactorSurface constructor.",
+            DeprecationWarning)
         r._surfaces.append(self)
         r.reactor.addSurface(self.surface)
-        self._reactor = r
-
-    property type:
-        """The type of the reactor surface."""
-        def __get__(self):
-            return pystr(self.surface.type())
-
-    property name:
-        """The name of the reactor surface."""
-        def __get__(self):
-            return pystr(self.surface.name())
-        def __set__(self, name):
-            self.surface.setName(stringify(name))
+        self._reactors.append(r)
 
     property area:
-        """ Area on which reactions can occur [m^2] """
+        """Area on which reactions can occur [m²]."""
         def __get__(self):
             return self.surface.area()
         def __set__(self, A):
@@ -855,32 +916,34 @@ cdef class ReactorSurface:
         """
         The `InterfaceKinetics` object used for calculating reaction rates on
         this surface.
+
+        .. deprecated:: 3.2
+            Replaced by ``phase`` property.
         """
         def __get__(self):
-            self.surface.syncState()
-            return self._kinetics
-        def __set__(self, Kinetics k):
-            self._kinetics = k
-            self.surface.setKinetics(self._kinetics.kinetics)
+            warnings.warn("ReactorSurface.kinetics: To be removed after Cantera 3.2. "
+                "Renamed to `phase`.", DeprecationWarning)
+            self.syncState()
+            return self._phase
 
     property coverages:
         """
         The fraction of sites covered by each surface species.
         """
         def __get__(self):
-            if self._kinetics is None:
+            if self._phase is None:
                 raise CanteraError('No kinetics manager present')
-            self.surface.syncState()
-            return self._kinetics.coverages
+            self.rbase.restoreState()
+            return self._phase.coverages
         def __set__(self, coverages):
-            if self._kinetics is None:
+            if self._phase is None:
                 raise CanteraError("Can't set coverages before assigning kinetics manager.")
 
             if isinstance(coverages, (dict, str, bytes)):
                 self.surface.setCoverages(comp_map(coverages))
                 return
 
-            if len(coverages) != self._kinetics.n_species:
+            if len(coverages) != self._phase.n_species:
                 raise ValueError('Incorrect number of site coverages specified')
             cdef np.ndarray[np.double_t, ndim=1] data = \
                     np.ascontiguousarray(coverages, dtype=np.double)
@@ -893,7 +956,22 @@ cdef class ReactorSurface:
 
         .. versionadded:: 3.1
         """
-        return self._reactor
+        if len(self._reactors) > 1:
+            warnings.warn("ReactorSurface.reactor: Call is ambiguous because surface is"
+                " linked to multiple reactors. Use 'ReactorSurface.reactors' instead.",
+                UserWarning)
+
+        return self._reactors[0]
+
+    @property
+    def reactors(self):
+        """
+        A list of of `Reactor` objects containing phases that participate in reactions
+        on this surface.
+
+        .. versionadded:: 3.2
+        """
+        return self._reactors
 
     def draw(self, graph=None, *, graph_attr=None, node_attr=None,
              surface_edge_attr=None,  print_state=False, species=None,
@@ -937,23 +1015,53 @@ cdef class ReactorSurface:
         return draw_surface(self, graph, graph_attr, node_attr, surface_edge_attr,
                             print_state, species, species_units)
 
-    def add_sensitivity_reaction(self, int m):
-        """
-        Specifies that the sensitivity of the state variables with respect to
-        reaction ``m`` should be computed. ``m`` is the 0-based reaction index.
-        The Surface must be installed on a reactor and part of a network first.
-        """
-        self.surface.addSensitivityReaction(m)
+
+cdef class ConnectorNode:
+    """
+    Common base class for walls and flow devices.
+    """
+    node_type = "none"
+
+    def __cinit__(self, ReactorBase left=None, ReactorBase right=None, *,
+                  ReactorBase upstream=None, ReactorBase downstream=None,
+                  name="(none)", **kwargs):
+        # ensure that both naming conventions (Wall and FlowDevice) are covered
+        cdef ReactorBase r0 = left or upstream
+        cdef ReactorBase r1 = right or downstream
+        if isinstance(r0, ReactorBase) and isinstance(r1, ReactorBase):
+            self._node = newConnectorNode(stringify(self.node_type),
+                                          r0._rbase, r1._rbase, stringify(name))
+            self.node = self._node.get()
+            return
+        raise TypeError(f"Invalid reactor types: {r0} and {r1}.")
+
+    @property
+    def type(self):
+        """The type of the connector."""
+        return pystr(self.node.type())
+
+    @property
+    def name(self):
+        """The name of the connector."""
+        return pystr(self.node.name())
+
+    @name.setter
+    def name(self, name):
+        self.node.setName(stringify(name))
+
+    def __reduce__(self):
+        raise NotImplementedError('Reactor object is not picklable')
+
+    def __copy__(self):
+        raise NotImplementedError('Reactor object is not copyable')
 
 
-cdef class WallBase:
+cdef class WallBase(ConnectorNode):
     """
     Common base class for walls.
     """
-    wall_type = "none"
-    def __cinit__(self, *args, name="(none)", **kwargs):
-        self._wall = newWall(stringify(self.wall_type), stringify(name))
-        self.wall = self._wall.get()
+    def __cinit__(self, *args, **kwargs):
+        self.wall = <CxxWall*>(self.node)
 
     def __init__(self, left, right, *, name="(none)", A=None, K=None, U=None,
                  Q=None, velocity=None, edge_attr=None):
@@ -969,14 +1077,14 @@ cdef class WallBase:
             the type of the wall and *n* is an integer assigned in the order walls are
             detected.
         :param A:
-            Wall area [m^2]. Defaults to 1.0 m^2.
+            Wall area [m²]. Defaults to 1.0 m².
         :param K:
             Wall expansion rate parameter [m/s/Pa]. Defaults to 0.0.
         :param U:
-            Overall heat transfer coefficient [W/m^2]. Defaults to 0.0
+            Overall heat transfer coefficient [W/m²/K]. Defaults to 0.0
             (adiabatic wall).
         :param Q:
-            Heat flux function :math:`q_0(t)` [W/m^2]. Optional. Default:
+            Heat flux function :math:`q_0(t)` [W/m²]. Optional. Default:
             :math:`q_0(t) = 0.0`.
         :param velocity:
             Wall velocity function :math:`v_0(t)` [m/s].
@@ -992,8 +1100,6 @@ cdef class WallBase:
         self._velocity_func = None
         self._heat_flux_func = None
 
-        self._install(left, right)
-
         if A is not None:
             self.area = A
         if K is not None:
@@ -1006,32 +1112,14 @@ cdef class WallBase:
             self.velocity = velocity
         self.edge_attr = edge_attr or {}
 
-    def _install(self, ReactorBase left, ReactorBase right):
-        """
-        Install this Wall between two `Reactor` objects or between a
-        `Reactor` and a `Reservoir`.
-        """
         left._add_wall(self)
         right._add_wall(self)
-        self.wall.install(deref(left.rbase), deref(right.rbase))
         # Keep references to prevent premature garbage collection
         self._left_reactor = left
         self._right_reactor = right
 
-    property type:
-        """The type of the wall."""
-        def __get__(self):
-            return pystr(self.wall.type())
-
-    property name:
-        """The name of the wall."""
-        def __get__(self):
-            return pystr(self.wall.name())
-        def __set__(self, name):
-            self.wall.setName(stringify(name))
-
     property area:
-        """ The wall area [m^2]. """
+        """The wall area [m²]."""
         def __get__(self):
             return self.wall.area()
         def __set__(self, double value):
@@ -1058,7 +1146,7 @@ cdef class WallBase:
     @property
     def expansion_rate(self):
         """
-        Get the rate of volumetric change [m^3/s] associated with the wall at the
+        Get the rate of volumetric change [m³/s] associated with the wall at the
         current reactor network time. A positive value corresponds to the left-hand
         reactor volume increasing, and the right-hand reactor volume decreasing.
 
@@ -1145,7 +1233,7 @@ cdef class Wall(WallBase):
     :math:`q_0(t)` is a specified function of time. The heat flux is positive
     when heat flows from the reactor on the left to the reactor on the right.
     """
-    wall_type = "Wall"
+    node_type = "Wall"
 
     property expansion_rate_coeff:
         """
@@ -1158,7 +1246,7 @@ cdef class Wall(WallBase):
             (<CxxWall*>(self.wall)).setExpansionRateCoeff(val)
 
     property heat_transfer_coeff:
-        """the overall heat transfer coefficient [W/m^2/K]"""
+        """The overall heat transfer coefficient [W/m²/K]."""
         def __get__(self):
             return (<CxxWall*>(self.wall)).getHeatTransferCoeff()
         def __set__(self, double value):
@@ -1190,12 +1278,12 @@ cdef class Wall(WallBase):
             f = Func1(v)
 
         self._velocity_func = f
-        (<CxxWall*>(self.wall)).setVelocity(f.func)
+        (<CxxWall*>(self.wall)).setVelocity(f._func)
 
     @property
     def heat_flux(self):
         """
-        Heat flux [W/m^2] across the wall. May be either set to a constant or
+        Heat flux [W/m²] across the wall. May be either set to a constant or
         an arbitrary function of time. See `Func1`.
 
         .. versionadded:: 3.0
@@ -1211,10 +1299,10 @@ cdef class Wall(WallBase):
             f = Func1(q)
 
         self._heat_flux_func = f
-        (<CxxWall*>self.wall).setHeatFlux(f.func)
+        (<CxxWall*>self.wall).setHeatFlux(f._func)
 
 
-cdef class FlowDevice:
+cdef class FlowDevice(ConnectorNode):
     """
     Base class for devices that allow flow between reactors.
 
@@ -1225,37 +1313,15 @@ cdef class FlowDevice:
     across a FlowDevice, and the pressure difference equals the difference in
     pressure between the upstream and downstream reactors.
     """
-    flowdevice_type = "none"
-    def __cinit__(self, *args, name="(none)", **kwargs):
-        self._dev = newFlowDevice(stringify(self.flowdevice_type), stringify(name))
-        self.dev = self._dev.get()
+    def __cinit__(self, *args, **kwargs):
+        self.dev = <CxxFlowDevice*>(self.node)
 
     def __init__(self, upstream, downstream, *, name="(none)", edge_attr=None):
         assert self.dev != NULL
         self._rate_func = None
         self.edge_attr = edge_attr or {}
-        self._install(upstream, downstream)
-
-    property type:
-        """The type of the flow device."""
-        def __get__(self):
-            return pystr(self.dev.type())
-
-    property name:
-        """The name of the flow device."""
-        def __get__(self):
-            return pystr(self.dev.name())
-        def __set__(self, name):
-            self.dev.setName(stringify(name))
-
-    def _install(self, ReactorBase upstream, ReactorBase downstream):
-        """
-        Install the device between the ``upstream`` (source) and ``downstream``
-        (destination) reactors or reservoirs.
-        """
         upstream._add_outlet(self)
         downstream._add_inlet(self)
-        self.dev.install(deref(upstream.rbase), deref(downstream.rbase))
         # Keep references to prevent premature garbage collection
         self._upstream = upstream
         self._downstream = downstream
@@ -1312,7 +1378,7 @@ cdef class FlowDevice:
         else:
             f = Func1(k)
         self._rate_func = f
-        self.dev.setPressureFunction(f.func)
+        self.dev.setPressureFunction(f._func)
 
     @property
     def time_function(self):
@@ -1339,8 +1405,25 @@ cdef class FlowDevice:
         else:
             g = Func1(k)
         self._time_func = g
-        self.dev.setTimeFunction(g.func)
+        self.dev.setTimeFunction(g._func)
 
+    @property
+    def device_coefficient(self):
+        """
+        Device coefficient (defined by derived class).
+
+        Example:
+
+        >>> v = Valve(res1, reactor1)
+        >>> v.device_coefficient = 1e-4  # Set the 'valve coefficient'
+
+        .. versionadded:: 3.2
+        """
+        return self.dev.deviceCoefficient()
+
+    @device_coefficient.setter
+    def device_coefficient(self, double value):
+        self.dev.setDeviceCoefficient(value)
 
     def draw(self, graph=None, *, graph_attr=None, node_attr=None, edge_attr=None):
         """
@@ -1394,10 +1477,10 @@ cdef class MassFlowController(FlowDevice):
     that this capability should be used with caution, since no account is
     taken of the work required to do this.
     """
-    flowdevice_type = "MassFlowController"
+    node_type = "MassFlowController"
 
-    def __init__(self, upstream, downstream, *, name="(none)", mdot=1., **kwargs):
-        super().__init__(upstream, downstream, name=name, **kwargs)
+    def __init__(self, upstream, downstream, *, name="(none)", mdot=1., edge_attr=None):
+        super().__init__(upstream, downstream, name=name, edge_attr=edge_attr)
         self.mass_flow_rate = mdot
 
     property mass_flow_coeff:
@@ -1468,10 +1551,10 @@ cdef class Valve(FlowDevice):
     value, very small pressure differences will result in flow between the
     reactors that counteracts the pressure difference.
     """
-    flowdevice_type = "Valve"
+    node_type = "Valve"
 
-    def __init__(self, upstream, downstream, *, name="(none)", K=1., **kwargs):
-        super().__init__(upstream, downstream, name=name, **kwargs)
+    def __init__(self, upstream, downstream, *, name="(none)", K=1., edge_attr=None):
+        super().__init__(upstream, downstream, name=name, edge_attr=edge_attr)
         if isinstance(K, _numbers.Real):
             self.valve_coeff = K
         else:
@@ -1511,10 +1594,11 @@ cdef class PressureController(FlowDevice):
 
     where :math:`f` is the arbitrary function of a single argument.
     """
-    flowdevice_type = "PressureController"
+    node_type = "PressureController"
 
-    def __init__(self, upstream, downstream, *, name="(none)", primary=None, K=1.):
-        super().__init__(upstream, downstream, name=name)
+    def __init__(self, upstream, downstream, *,
+                 name="(none)", primary=None, K=1., edge_attr=None):
+        super().__init__(upstream, downstream, name=name, edge_attr=edge_attr)
         if primary is not None:
             self.primary = primary
         if isinstance(K, _numbers.Real):
@@ -1544,7 +1628,7 @@ cdef class PressureController(FlowDevice):
 
     @primary.setter
     def primary(self, FlowDevice d):
-        (<CxxPressureController*>self.dev).setPrimary(d.dev)
+        self.dev.setPrimary(d._node)
 
 
 cdef class ReactorNet:
@@ -1563,11 +1647,26 @@ cdef class ReactorNet:
     """
     def __init__(self, reactors=()):
         self._reactors = []  # prevents premature garbage collection
-        for R in reactors:
-            self.add_reactor(R)
+        cdef vector[shared_ptr[CxxReactorBase]] cxx_reactors
+        cdef Reactor r
+        for r in reactors:
+            self._reactors.append(r)
+            cxx_reactors.push_back(r._rbase)
+        self._net = CxxNewReactorNet(cxx_reactors)
+        self.net = self._net.get()
 
     def add_reactor(self, Reactor r):
-        """Add a reactor to the network."""
+        """
+        Add a reactor to the network.
+
+        .. deprecated:: 3.2
+
+            After Cantera 3.2, a change of reactor net contents after instantiation
+            will be disabled and this method will be removed.
+        """
+        warnings.warn("ReactorNet.add_reactor: A change of reactor net contents after "
+            "instantiation will be disabled and this method will be removed.",
+            DeprecationWarning)
         self._reactors.append(r)
         self.net.addReactor(deref(r.reactor))
 
@@ -1592,6 +1691,57 @@ cdef class ReactorNet:
         returned.
         """
         return self.net.step()
+
+    def solve_steady(self, int loglevel=0):
+        """
+        Solve directly for the steady-state solution. This approach is generally more
+        efficient than time marching to the steady-state (using the
+        `advance_to_steady_state` method), but imposes a few limitations:
+
+        - The volume of control volume reactor types (such as `Reactor` and
+          `IdealGasMoleReactor`) must be constant; no moving walls can be used.
+        - The mass of constant pressure reactor types (such as `ConstPressureReactor`
+          and `IdealGasConstPressureReactor`) must be constant; if flow devices are
+          used, inlet and outlet flows must be balanced.
+        - The solver is currently not compatible with the `ConstPressureMoleReactor` or
+          `IdealGasConstPressureMoleReactor` classes.
+        - Only ideal gas reactor types can be used for when the energy equation is
+          disabled (fixed temperature simulations).
+        - Reacting surfaces are not yet supported.
+
+        :param loglevel:
+            Print information about solver progress to aid in understanding
+            cases where the solver fails to converge. Higher levels are more verbose.
+
+            - 0: No logging.
+            - 1: Basic info about each steady-state attempt and round of time stepping.
+            - 2: Adds details about each time step and steady-state Newton iteration.
+            - 3: Adds details about Newton iterations for each time step.
+            - 4: Adds details about state variables that are limiting steady-state
+              Newton step sizes.
+            - 5: Adds details about state variables that are limiting time-stepping
+              Newton step sizes.
+            - 6: Print current state vector after different solver stages
+            - 7: Print current residual vector after different solver stages
+
+        Uses the hybrid time marching / damped Newton's method solver implemented by
+        classes :ct:`SteadyStateSystem` and :ct:`MultiNewton`.
+
+        .. versionadded:: 3.2
+        """
+        self.net.solveSteady(loglevel)
+
+    def steady_jacobian(self, float rdt=0.0):
+        """
+        Get the Jacobian used by the steady-state solver.
+
+        :param rdt:
+            Reciprocal of the pseudo-timestep [1/s]. Default of 0.0 returns the
+            steady-state Jacobian.
+
+        .. versionadded:: 3.2
+        """
+        return get_from_sparse(self.net.steadyJacobian(rdt), self.n_vars, self.n_vars)
 
     def initialize(self):
         """
@@ -1626,7 +1776,7 @@ cdef class ReactorNet:
     @property
     def distance(self):
         """
-        The current distance[ m] along the length of the reactor network, for reactors
+        The current distance [m] along the length of the reactor network, for reactors
         that are solved as a function of space.
         """
         return self.net.distance()
@@ -1989,11 +2139,11 @@ cdef class ReactorNet:
 
     property preconditioner:
         """Preconditioner associated with integrator"""
-        def __set__(self, PreconditionerBase precon):
+        def __set__(self, SystemJacobian precon):
             # set preconditioner
-            self.net.setPreconditioner(precon.pbase)
+            self.net.setPreconditioner(precon._base)
             # set problem type as default of preconditioner
-            self.linear_solver_type = precon.precon_linear_solver_type
+            self.linear_solver_type = precon.linear_solver_type
 
     property linear_solver_type:
         """
@@ -2001,10 +2151,10 @@ cdef class ReactorNet:
 
             Options for this property include:
 
-              - `"DENSE"`
-              - `"GMRES"`
-              - `"BAND"`
-              - `"DIAG"`
+            - `"DENSE"`
+            - `"GMRES"`
+            - `"BAND"`
+            - `"DIAG"`
 
         """
         def __set__(self, linear_solver_type):

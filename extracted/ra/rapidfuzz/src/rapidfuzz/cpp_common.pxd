@@ -1,5 +1,3 @@
-# distutils: language=c++
-
 from cpython.object cimport PyObject
 from cpython.pycapsule cimport PyCapsule_GetPointer, PyCapsule_IsValid, PyCapsule_New
 from libc.stddef cimport wchar_t
@@ -33,7 +31,7 @@ from array import array
 pandas_NA = None
 
 cdef extern from "rapidfuzz/details/types.hpp" namespace "rapidfuzz" nogil:
-    cpdef enum class EditType:
+    cdef enum class EditType:
         None    = 0,
         Replace = 1,
         Insert  = 2,

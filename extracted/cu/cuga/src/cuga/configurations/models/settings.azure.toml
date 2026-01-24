@@ -1,0 +1,74 @@
+[agent.task_decomposition.model]
+platform = "azure"
+model_name = "gpt-4o"
+api_version ="2024-08-06"
+temperature = 0.1
+max_tokens = 1000
+
+
+[agent.planner.model]
+platform = "azure"
+model_name = "gpt-4o"
+api_version ="2024-08-06"
+temperature = 0.1
+max_tokens = 5000
+
+
+[agent.chat.model]
+platform = "azure"
+model_name = "gpt-4o"
+api_version ="2024-08-06"
+temperature = 0.1
+max_tokens = 5000
+
+
+[agent.plan_controller.model]
+platform = "azure"
+model_name = "gpt-4o"
+api_version ="2024-08-06"
+temperature = 0.1
+max_tokens = 5000
+
+
+[agent.final_answer.model]
+platform = "azure"
+model_name = "gpt-4o"
+api_version ="2024-08-06"
+temperature = 0.1
+max_tokens = 15000
+
+[agent.code.model]
+platform = "azure"
+model_name = "gpt-4o"
+api_version ="2024-08-06"
+temperature = 0.1
+max_tokens = 3000
+
+[agent.code_planner.model]
+platform = "azure"
+model_name = "gpt-4o"
+api_version ="2024-08-06"
+temperature = 0.1
+max_tokens = 3000
+
+[agent.qa.model]
+platform = "azure"
+model_name = "gpt-4o"
+api_version ="2024-08-06"
+temperature = 0.1
+max_tokens = 4000
+
+[agent.action.model]
+platform = "azure"
+model_name = "gpt-4o"
+api_version ="2024-08-06"
+temperature = 0.1
+max_tokens = 400
+
+
+[agent.shortlister.model]
+platform = "azure"
+model_name = "gpt-4o"
+api_version ="2024-08-06"
+temperature = 0.1
+max_tokens = 7000

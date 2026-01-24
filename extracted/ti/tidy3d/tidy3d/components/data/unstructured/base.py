@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import numbers
 from abc import ABC, abstractmethod
-from typing import Literal, Optional, Union
+from os import PathLike
+from typing import Any, Literal, Optional, Union
 
 import numpy as np
 import pydantic.v1 as pd
@@ -280,7 +281,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
 
     @cached_property
     @abstractmethod
-    def _points_3d_array(self):
+    def _points_3d_array(self) -> None:
         """3D coordinates of grid points."""
 
     """ Grid cleaning """
@@ -359,7 +360,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
 
     """ Arithmetic operations """
 
-    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+    def __array_ufunc__(self, ufunc, method, *inputs: Any, **kwargs: Any):
         """Override of numpy functions."""
 
         out = kwargs.get("out", ())
@@ -413,7 +414,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
     @classmethod
     @abstractmethod
     @requires_vtk
-    def _vtk_cell_type(cls):
+    def _vtk_cell_type(cls) -> None:
         """VTK cell type to use in the VTK representation."""
 
     @cached_property
@@ -474,8 +475,9 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
 
     @staticmethod
     @requires_vtk
-    def _read_vtkUnstructuredGrid(fname: str):
+    def _read_vtkUnstructuredGrid(fname: PathLike):
         """Load a :class:`vtkUnstructuredGrid` from a file."""
+        fname = str(fname)
         reader = vtk["mod"].vtkXMLUnstructuredGridReader()
         reader.SetFileName(fname)
         reader.Update()
@@ -485,8 +487,9 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
 
     @staticmethod
     @requires_vtk
-    def _read_vtkLegacyFile(fname: str):
+    def _read_vtkLegacyFile(fname: PathLike):
         """Load a grid from a legacy `.vtk` file."""
+        fname = str(fname)
         reader = vtk["mod"].vtkGenericDataObjectReader()
         reader.SetFileName(fname)
         reader.Update()
@@ -532,7 +535,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
     @requires_vtk
     def from_vtu(
         cls,
-        file: str,
+        file: PathLike,
         field: Optional[str] = None,
         remove_degenerate_cells: bool = False,
         remove_unused_points: bool = False,
@@ -542,7 +545,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
 
         Parameters
         ----------
-        file : str
+        file : PathLike
             Full path to the .vtu file to load the unstructured data from.
         field : str = None
             Name of the field to load.
@@ -571,7 +574,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
     @requires_vtk
     def from_vtk(
         cls,
-        file: str,
+        file: PathLike,
         field: Optional[str] = None,
         remove_degenerate_cells: bool = False,
         remove_unused_points: bool = False,
@@ -581,7 +584,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
 
         Parameters
         ----------
-        file : str
+        file : PathLike
             Full path to the .vtk file to load the unstructured data from.
         field : str = None
             Name of the field to load.
@@ -607,15 +610,15 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
         )
 
     @requires_vtk
-    def to_vtu(self, fname: str):
+    def to_vtu(self, fname: PathLike) -> None:
         """Exports unstructured grid data into a .vtu file.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the .vtu file to save the unstructured data to.
         """
-
+        fname = str(fname)
         writer = vtk["mod"].vtkXMLUnstructuredGridWriter()
         writer.SetFileName(fname)
         writer.SetInputData(self._vtk_obj)
@@ -710,7 +713,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
 
         return values
 
-    def get_cell_values(self, **kwargs):
+    def get_cell_values(self, **kwargs: Any):
         """This function returns the cell values for the fields stored in the UnstructuredGridDataset.
         If multiple fields are stored per point, like in an IndexedVoltageDataArray, cell values
         will be provided for each of the fields unless a selection argument is provided, e.g., voltage=0.2
@@ -729,7 +732,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
         return values[self.cells].mean(dim="vertex_index").values
 
     @abstractmethod
-    def get_cell_volumes(self):
+    def get_cell_volumes(self) -> None:
         """Get the volumes associated to each cell."""
 
     """ Grid operations """
@@ -881,7 +884,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
         max_samples_per_step: int = DEFAULT_MAX_SAMPLES_PER_STEP,
         max_cells_per_step: int = DEFAULT_MAX_CELLS_PER_STEP,
         rel_tol: float = DEFAULT_TOLERANCE_CELL_FINDING,
-        **coords_kwargs,
+        **coords_kwargs: Any,
     ) -> XrDataArray:
         """Interpolate data along spatial dimensions x, y, and z and/or non-spatial dimensions.
         For spatial sampling points must provide all x, y, and z.
@@ -959,7 +962,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
 
         return result
 
-    def _non_spatial_interp(self, method="linear", fill_value=np.nan, **coords_kwargs):
+    def _non_spatial_interp(self, method="linear", fill_value=np.nan, **coords_kwargs: Any):
         """Interpolate data at non-spatial dimensions using xarray's interp() function.
 
         Parameters
@@ -1701,7 +1704,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
         y: Union[float, ArrayLike] = None,
         z: Union[float, ArrayLike] = None,
         method: Optional[Literal["None", "nearest", "pad", "ffill", "backfill", "bfill"]] = None,
-        **sel_kwargs,
+        **sel_kwargs: Any,
     ) -> Union[UnstructuredGridDataset, XrDataArray]:
         """Extract/interpolate data along one or more spatial or non-spatial directions. Must provide at least one argument
         among 'x', 'y', 'z' or non-spatial dimensions through additional arguments. Along spatial dimensions a suitable slicing of
@@ -1730,7 +1733,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
     def _non_spatial_sel(
         self,
         method=None,
-        **sel_kwargs,
+        **sel_kwargs: Any,
     ) -> XrDataArray:
         """Select/interpolate data along one or more non-Cartesian directions.
 
@@ -1757,7 +1760,7 @@ class UnstructuredGridDataset(Dataset, np.lib.mixins.NDArrayOperatorsMixin, ABC)
 
     def isel(
         self,
-        **sel_kwargs,
+        **sel_kwargs: Any,
     ) -> XrDataArray:
         """Select data along one or more non-Cartesian directions by coordinate index.
 

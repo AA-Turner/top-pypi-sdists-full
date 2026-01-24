@@ -1,9 +1,9 @@
-from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 from rest_framework.reverse import reverse
 
 from wbcore import serializers as wb_serializers
 from wbcore import shares
+from wbcore.contrib.authentication.models.users import User
 from wbcore.contrib.authentication.serializers import UserRepresentationSerializer
 from wbcore.contrib.icons import WBIcon
 from wbcore.metadata.configs.buttons import ActionButton, ButtonConfig
@@ -35,7 +35,7 @@ class DefaultShareSerializer(wb_serializers.Serializer):
     )
     share_recipients = wb_serializers.PrimaryKeyRelatedField(
         many=True,
-        queryset=get_user_model().objects.all(),
+        queryset=User.objects.all(),
         label=_("Recipient"),
         required=False,
         depends_on=[{"field": "share", "options": {}}],

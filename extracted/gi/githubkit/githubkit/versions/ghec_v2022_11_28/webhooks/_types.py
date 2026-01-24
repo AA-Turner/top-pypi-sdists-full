@@ -53,6 +53,10 @@ from .dismissal_request_code_scanning import Event as DismissalRequestCodeScanni
 from .dismissal_request_code_scanning import (
     action_types as dismissal_request_code_scanning_action_types,
 )
+from .dismissal_request_dependabot import Event as DismissalRequestDependabotEvent
+from .dismissal_request_dependabot import (
+    action_types as dismissal_request_dependabot_action_types,
+)
 from .dismissal_request_secret_scanning import (
     Event as DismissalRequestSecretScanningEvent,
 )
@@ -109,6 +113,16 @@ from .org_block import Event as OrgBlockEvent
 from .org_block import action_types as org_block_action_types
 from .organization import Event as OrganizationEvent
 from .organization import action_types as organization_action_types
+from .organization_custom_property import Event as OrganizationCustomPropertyEvent
+from .organization_custom_property import (
+    action_types as organization_custom_property_action_types,
+)
+from .organization_custom_property_values import (
+    Event as OrganizationCustomPropertyValuesEvent,
+)
+from .organization_custom_property_values import (
+    action_types as organization_custom_property_values_action_types,
+)
 from .package import Event as PackageEvent
 from .package import action_types as package_action_types
 from .page_build import Event as PageBuildEvent
@@ -203,7 +217,6 @@ from .workflow_run import action_types as workflow_run_action_types
 WebhookEvent = Union[
     BranchProtectionConfigurationEvent,
     BranchProtectionRuleEvent,
-    ExemptionRequestPushRulesetEvent,
     ExemptionRequestSecretScanningEvent,
     CheckRunEvent,
     CheckSuiteEvent,
@@ -222,7 +235,9 @@ WebhookEvent = Union[
     DiscussionEvent,
     DiscussionCommentEvent,
     DismissalRequestCodeScanningEvent,
+    DismissalRequestDependabotEvent,
     DismissalRequestSecretScanningEvent,
+    ExemptionRequestPushRulesetEvent,
     ForkEvent,
     GithubAppAuthorizationEvent,
     GollumEvent,
@@ -240,6 +255,8 @@ WebhookEvent = Union[
     MetaEvent,
     MilestoneEvent,
     OrgBlockEvent,
+    OrganizationCustomPropertyEvent,
+    OrganizationCustomPropertyValuesEvent,
     OrganizationEvent,
     PackageEvent,
     PageBuildEvent,
@@ -285,7 +302,6 @@ WebhookEvent = Union[
 webhook_action_types = {
     "branch_protection_configuration": branch_protection_configuration_action_types,
     "branch_protection_rule": branch_protection_rule_action_types,
-    "exemption_request_push_ruleset": exemption_request_push_ruleset_action_types,
     "exemption_request_secret_scanning": exemption_request_secret_scanning_action_types,
     "check_run": check_run_action_types,
     "check_suite": check_suite_action_types,
@@ -304,7 +320,9 @@ webhook_action_types = {
     "discussion": discussion_action_types,
     "discussion_comment": discussion_comment_action_types,
     "dismissal_request_code_scanning": dismissal_request_code_scanning_action_types,
+    "dismissal_request_dependabot": dismissal_request_dependabot_action_types,
     "dismissal_request_secret_scanning": dismissal_request_secret_scanning_action_types,
+    "exemption_request_push_ruleset": exemption_request_push_ruleset_action_types,
     "fork": fork_action_types,
     "github_app_authorization": github_app_authorization_action_types,
     "gollum": gollum_action_types,
@@ -322,6 +340,8 @@ webhook_action_types = {
     "meta": meta_action_types,
     "milestone": milestone_action_types,
     "org_block": org_block_action_types,
+    "organization_custom_property": organization_custom_property_action_types,
+    "organization_custom_property_values": organization_custom_property_values_action_types,
     "organization": organization_action_types,
     "package": package_action_types,
     "page_build": page_build_action_types,
@@ -367,7 +387,6 @@ webhook_action_types = {
 webhook_event_types = {
     "branch_protection_configuration": BranchProtectionConfigurationEvent,
     "branch_protection_rule": BranchProtectionRuleEvent,
-    "exemption_request_push_ruleset": ExemptionRequestPushRulesetEvent,
     "exemption_request_secret_scanning": ExemptionRequestSecretScanningEvent,
     "check_run": CheckRunEvent,
     "check_suite": CheckSuiteEvent,
@@ -386,7 +405,9 @@ webhook_event_types = {
     "discussion": DiscussionEvent,
     "discussion_comment": DiscussionCommentEvent,
     "dismissal_request_code_scanning": DismissalRequestCodeScanningEvent,
+    "dismissal_request_dependabot": DismissalRequestDependabotEvent,
     "dismissal_request_secret_scanning": DismissalRequestSecretScanningEvent,
+    "exemption_request_push_ruleset": ExemptionRequestPushRulesetEvent,
     "fork": ForkEvent,
     "github_app_authorization": GithubAppAuthorizationEvent,
     "gollum": GollumEvent,
@@ -404,6 +425,8 @@ webhook_event_types = {
     "meta": MetaEvent,
     "milestone": MilestoneEvent,
     "org_block": OrgBlockEvent,
+    "organization_custom_property": OrganizationCustomPropertyEvent,
+    "organization_custom_property_values": OrganizationCustomPropertyValuesEvent,
     "organization": OrganizationEvent,
     "package": PackageEvent,
     "page_build": PageBuildEvent,

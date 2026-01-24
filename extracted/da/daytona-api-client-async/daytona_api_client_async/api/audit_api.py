@@ -17,11 +17,10 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import Field, StrictFloat, StrictInt, StrictStr
+from datetime import datetime
+from pydantic import Field, StrictStr
 from typing import Optional, Union
 from typing_extensions import Annotated
-from daytona_api_client_async.models.audit_log import AuditLog
-from daytona_api_client_async.models.create_audit_log import CreateAuditLog
 from daytona_api_client_async.models.paginated_audit_logs import PaginatedAuditLogs
 
 from daytona_api_client_async.api_client import ApiClient, RequestSerialized
@@ -43,282 +42,13 @@ class AuditApi:
 
 
     @validate_call
-    async def create_audit_log(
-        self,
-        create_audit_log: CreateAuditLog,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> AuditLog:
-        """Create audit log entry
-
-
-        :param create_audit_log: (required)
-        :type create_audit_log: CreateAuditLog
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._create_audit_log_serialize(
-            create_audit_log=create_audit_log,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '201': "AuditLog",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    @validate_call
-    async def create_audit_log_with_http_info(
-        self,
-        create_audit_log: CreateAuditLog,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[AuditLog]:
-        """Create audit log entry
-
-
-        :param create_audit_log: (required)
-        :type create_audit_log: CreateAuditLog
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._create_audit_log_serialize(
-            create_audit_log=create_audit_log,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '201': "AuditLog",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    async def create_audit_log_without_preload_content(
-        self,
-        create_audit_log: CreateAuditLog,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-        """Create audit log entry
-
-
-        :param create_audit_log: (required)
-        :type create_audit_log: CreateAuditLog
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._create_audit_log_serialize(
-            create_audit_log=create_audit_log,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '201': "AuditLog",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _create_audit_log_serialize(
-        self,
-        create_audit_log,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[
-            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
-        ] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        # process the query parameters
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-        if create_audit_log is not None:
-            _body_params = create_audit_log
-
-
-        # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    'application/json'
-                ]
-            )
-
-        # set the HTTP header `Content-Type`
-        if _content_type:
-            _header_params['Content-Type'] = _content_type
-        else:
-            _default_content_type = (
-                self.api_client.select_header_content_type(
-                    [
-                        'application/json'
-                    ]
-                )
-            )
-            if _default_content_type is not None:
-                _header_params['Content-Type'] = _default_content_type
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'bearer', 
-            'oauth2'
-        ]
-
-        return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/audit',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-
-
-
-    @validate_call
     async def get_all_audit_logs(
         self,
-        limit: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Number of items per page (default: 10)")] = None,
-        page: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Page number (default: 1)")] = None,
+        page: Annotated[Optional[Union[Annotated[float, Field(strict=True, ge=1)], Annotated[int, Field(strict=True, ge=1)]]], Field(description="Page number of the results")] = None,
+        limit: Annotated[Optional[Union[Annotated[float, Field(le=200, strict=True, ge=1)], Annotated[int, Field(le=200, strict=True, ge=1)]]], Field(description="Number of results per page")] = None,
+        var_from: Annotated[Optional[datetime], Field(description="From date (ISO 8601 format)")] = None,
+        to: Annotated[Optional[datetime], Field(description="To date (ISO 8601 format)")] = None,
+        next_token: Annotated[Optional[StrictStr], Field(description="Token for cursor-based pagination. When provided, takes precedence over page parameter.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -335,10 +65,16 @@ class AuditApi:
         """Get all audit logs
 
 
-        :param limit: Number of items per page (default: 10)
-        :type limit: float
-        :param page: Page number (default: 1)
+        :param page: Page number of the results
         :type page: float
+        :param limit: Number of results per page
+        :type limit: float
+        :param var_from: From date (ISO 8601 format)
+        :type var_from: datetime
+        :param to: To date (ISO 8601 format)
+        :type to: datetime
+        :param next_token: Token for cursor-based pagination. When provided, takes precedence over page parameter.
+        :type next_token: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -362,8 +98,11 @@ class AuditApi:
         """ # noqa: E501
 
         _param = self._get_all_audit_logs_serialize(
-            limit=limit,
             page=page,
+            limit=limit,
+            var_from=var_from,
+            to=to,
+            next_token=next_token,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -387,8 +126,11 @@ class AuditApi:
     @validate_call
     async def get_all_audit_logs_with_http_info(
         self,
-        limit: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Number of items per page (default: 10)")] = None,
-        page: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Page number (default: 1)")] = None,
+        page: Annotated[Optional[Union[Annotated[float, Field(strict=True, ge=1)], Annotated[int, Field(strict=True, ge=1)]]], Field(description="Page number of the results")] = None,
+        limit: Annotated[Optional[Union[Annotated[float, Field(le=200, strict=True, ge=1)], Annotated[int, Field(le=200, strict=True, ge=1)]]], Field(description="Number of results per page")] = None,
+        var_from: Annotated[Optional[datetime], Field(description="From date (ISO 8601 format)")] = None,
+        to: Annotated[Optional[datetime], Field(description="To date (ISO 8601 format)")] = None,
+        next_token: Annotated[Optional[StrictStr], Field(description="Token for cursor-based pagination. When provided, takes precedence over page parameter.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -405,10 +147,16 @@ class AuditApi:
         """Get all audit logs
 
 
-        :param limit: Number of items per page (default: 10)
-        :type limit: float
-        :param page: Page number (default: 1)
+        :param page: Page number of the results
         :type page: float
+        :param limit: Number of results per page
+        :type limit: float
+        :param var_from: From date (ISO 8601 format)
+        :type var_from: datetime
+        :param to: To date (ISO 8601 format)
+        :type to: datetime
+        :param next_token: Token for cursor-based pagination. When provided, takes precedence over page parameter.
+        :type next_token: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -432,8 +180,11 @@ class AuditApi:
         """ # noqa: E501
 
         _param = self._get_all_audit_logs_serialize(
-            limit=limit,
             page=page,
+            limit=limit,
+            var_from=var_from,
+            to=to,
+            next_token=next_token,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -457,8 +208,11 @@ class AuditApi:
     @validate_call
     async def get_all_audit_logs_without_preload_content(
         self,
-        limit: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Number of items per page (default: 10)")] = None,
-        page: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Page number (default: 1)")] = None,
+        page: Annotated[Optional[Union[Annotated[float, Field(strict=True, ge=1)], Annotated[int, Field(strict=True, ge=1)]]], Field(description="Page number of the results")] = None,
+        limit: Annotated[Optional[Union[Annotated[float, Field(le=200, strict=True, ge=1)], Annotated[int, Field(le=200, strict=True, ge=1)]]], Field(description="Number of results per page")] = None,
+        var_from: Annotated[Optional[datetime], Field(description="From date (ISO 8601 format)")] = None,
+        to: Annotated[Optional[datetime], Field(description="To date (ISO 8601 format)")] = None,
+        next_token: Annotated[Optional[StrictStr], Field(description="Token for cursor-based pagination. When provided, takes precedence over page parameter.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -475,10 +229,16 @@ class AuditApi:
         """Get all audit logs
 
 
-        :param limit: Number of items per page (default: 10)
-        :type limit: float
-        :param page: Page number (default: 1)
+        :param page: Page number of the results
         :type page: float
+        :param limit: Number of results per page
+        :type limit: float
+        :param var_from: From date (ISO 8601 format)
+        :type var_from: datetime
+        :param to: To date (ISO 8601 format)
+        :type to: datetime
+        :param next_token: Token for cursor-based pagination. When provided, takes precedence over page parameter.
+        :type next_token: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -502,8 +262,11 @@ class AuditApi:
         """ # noqa: E501
 
         _param = self._get_all_audit_logs_serialize(
-            limit=limit,
             page=page,
+            limit=limit,
+            var_from=var_from,
+            to=to,
+            next_token=next_token,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -522,8 +285,11 @@ class AuditApi:
 
     def _get_all_audit_logs_serialize(
         self,
-        limit,
         page,
+        limit,
+        var_from,
+        to,
+        next_token,
         _request_auth,
         _content_type,
         _headers,
@@ -546,13 +312,43 @@ class AuditApi:
 
         # process the path parameters
         # process the query parameters
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
         if limit is not None:
             
             _query_params.append(('limit', limit))
             
-        if page is not None:
+        if var_from is not None:
+            if isinstance(var_from, datetime):
+                _query_params.append(
+                    (
+                        'from',
+                        var_from.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('from', var_from))
             
-            _query_params.append(('page', page))
+        if to is not None:
+            if isinstance(to, datetime):
+                _query_params.append(
+                    (
+                        'to',
+                        to.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('to', to))
+            
+        if next_token is not None:
+            
+            _query_params.append(('nextToken', next_token))
             
         # process the header parameters
         # process the form parameters
@@ -596,8 +392,11 @@ class AuditApi:
     async def get_organization_audit_logs(
         self,
         organization_id: Annotated[StrictStr, Field(description="Organization ID")],
-        limit: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Number of items per page (default: 10)")] = None,
-        page: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Page number (default: 1)")] = None,
+        page: Annotated[Optional[Union[Annotated[float, Field(strict=True, ge=1)], Annotated[int, Field(strict=True, ge=1)]]], Field(description="Page number of the results")] = None,
+        limit: Annotated[Optional[Union[Annotated[float, Field(le=200, strict=True, ge=1)], Annotated[int, Field(le=200, strict=True, ge=1)]]], Field(description="Number of results per page")] = None,
+        var_from: Annotated[Optional[datetime], Field(description="From date (ISO 8601 format)")] = None,
+        to: Annotated[Optional[datetime], Field(description="To date (ISO 8601 format)")] = None,
+        next_token: Annotated[Optional[StrictStr], Field(description="Token for cursor-based pagination. When provided, takes precedence over page parameter.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -616,10 +415,16 @@ class AuditApi:
 
         :param organization_id: Organization ID (required)
         :type organization_id: str
-        :param limit: Number of items per page (default: 10)
-        :type limit: float
-        :param page: Page number (default: 1)
+        :param page: Page number of the results
         :type page: float
+        :param limit: Number of results per page
+        :type limit: float
+        :param var_from: From date (ISO 8601 format)
+        :type var_from: datetime
+        :param to: To date (ISO 8601 format)
+        :type to: datetime
+        :param next_token: Token for cursor-based pagination. When provided, takes precedence over page parameter.
+        :type next_token: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -644,8 +449,11 @@ class AuditApi:
 
         _param = self._get_organization_audit_logs_serialize(
             organization_id=organization_id,
-            limit=limit,
             page=page,
+            limit=limit,
+            var_from=var_from,
+            to=to,
+            next_token=next_token,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -670,8 +478,11 @@ class AuditApi:
     async def get_organization_audit_logs_with_http_info(
         self,
         organization_id: Annotated[StrictStr, Field(description="Organization ID")],
-        limit: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Number of items per page (default: 10)")] = None,
-        page: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Page number (default: 1)")] = None,
+        page: Annotated[Optional[Union[Annotated[float, Field(strict=True, ge=1)], Annotated[int, Field(strict=True, ge=1)]]], Field(description="Page number of the results")] = None,
+        limit: Annotated[Optional[Union[Annotated[float, Field(le=200, strict=True, ge=1)], Annotated[int, Field(le=200, strict=True, ge=1)]]], Field(description="Number of results per page")] = None,
+        var_from: Annotated[Optional[datetime], Field(description="From date (ISO 8601 format)")] = None,
+        to: Annotated[Optional[datetime], Field(description="To date (ISO 8601 format)")] = None,
+        next_token: Annotated[Optional[StrictStr], Field(description="Token for cursor-based pagination. When provided, takes precedence over page parameter.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -690,10 +501,16 @@ class AuditApi:
 
         :param organization_id: Organization ID (required)
         :type organization_id: str
-        :param limit: Number of items per page (default: 10)
-        :type limit: float
-        :param page: Page number (default: 1)
+        :param page: Page number of the results
         :type page: float
+        :param limit: Number of results per page
+        :type limit: float
+        :param var_from: From date (ISO 8601 format)
+        :type var_from: datetime
+        :param to: To date (ISO 8601 format)
+        :type to: datetime
+        :param next_token: Token for cursor-based pagination. When provided, takes precedence over page parameter.
+        :type next_token: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -718,8 +535,11 @@ class AuditApi:
 
         _param = self._get_organization_audit_logs_serialize(
             organization_id=organization_id,
-            limit=limit,
             page=page,
+            limit=limit,
+            var_from=var_from,
+            to=to,
+            next_token=next_token,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -744,8 +564,11 @@ class AuditApi:
     async def get_organization_audit_logs_without_preload_content(
         self,
         organization_id: Annotated[StrictStr, Field(description="Organization ID")],
-        limit: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Number of items per page (default: 10)")] = None,
-        page: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Page number (default: 1)")] = None,
+        page: Annotated[Optional[Union[Annotated[float, Field(strict=True, ge=1)], Annotated[int, Field(strict=True, ge=1)]]], Field(description="Page number of the results")] = None,
+        limit: Annotated[Optional[Union[Annotated[float, Field(le=200, strict=True, ge=1)], Annotated[int, Field(le=200, strict=True, ge=1)]]], Field(description="Number of results per page")] = None,
+        var_from: Annotated[Optional[datetime], Field(description="From date (ISO 8601 format)")] = None,
+        to: Annotated[Optional[datetime], Field(description="To date (ISO 8601 format)")] = None,
+        next_token: Annotated[Optional[StrictStr], Field(description="Token for cursor-based pagination. When provided, takes precedence over page parameter.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -764,10 +587,16 @@ class AuditApi:
 
         :param organization_id: Organization ID (required)
         :type organization_id: str
-        :param limit: Number of items per page (default: 10)
-        :type limit: float
-        :param page: Page number (default: 1)
+        :param page: Page number of the results
         :type page: float
+        :param limit: Number of results per page
+        :type limit: float
+        :param var_from: From date (ISO 8601 format)
+        :type var_from: datetime
+        :param to: To date (ISO 8601 format)
+        :type to: datetime
+        :param next_token: Token for cursor-based pagination. When provided, takes precedence over page parameter.
+        :type next_token: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -792,8 +621,11 @@ class AuditApi:
 
         _param = self._get_organization_audit_logs_serialize(
             organization_id=organization_id,
-            limit=limit,
             page=page,
+            limit=limit,
+            var_from=var_from,
+            to=to,
+            next_token=next_token,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -813,8 +645,11 @@ class AuditApi:
     def _get_organization_audit_logs_serialize(
         self,
         organization_id,
-        limit,
         page,
+        limit,
+        var_from,
+        to,
+        next_token,
         _request_auth,
         _content_type,
         _headers,
@@ -839,13 +674,43 @@ class AuditApi:
         if organization_id is not None:
             _path_params['organizationId'] = organization_id
         # process the query parameters
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
         if limit is not None:
             
             _query_params.append(('limit', limit))
             
-        if page is not None:
+        if var_from is not None:
+            if isinstance(var_from, datetime):
+                _query_params.append(
+                    (
+                        'from',
+                        var_from.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('from', var_from))
             
-            _query_params.append(('page', page))
+        if to is not None:
+            if isinstance(to, datetime):
+                _query_params.append(
+                    (
+                        'to',
+                        to.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('to', to))
+            
+        if next_token is not None:
+            
+            _query_params.append(('nextToken', next_token))
             
         # process the header parameters
         # process the form parameters

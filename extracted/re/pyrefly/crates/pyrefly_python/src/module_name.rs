@@ -35,6 +35,92 @@ static MODULE_NAME_INTERNER: Interner<String> = Interner::new();
 #[derive(Clone, Dupe, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ModuleName(Intern<String>);
 
+/// Indicates whether a module name was found on the guaranteed search path
+/// or via fallback heuristics.
+#[derive(Clone, Dupe, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ModuleNameKind {
+    /// A module name found on the normal, configured search path.
+    /// This is reliable for determining project structure.
+    Guaranteed,
+    /// A module name inferred using fallback search path heuristics.
+    /// This may not be reliable for determining project structure.
+    Fallback,
+}
+
+/// A module name that tracks whether it was found on the guaranteed search path
+/// or via fallback heuristics.
+///
+/// Fallback module names may not be reliable for determining project structure,
+/// since they were inferred using heuristic search paths rather than explicit configuration.
+///
+/// Note: Equality, hashing, and ordering only consider the underlying ModuleName,
+/// not the kind. This ensures that modules with the same name are treated identically
+/// regardless of how their name was discovered.
+#[derive(Clone, Dupe, Copy, Debug)]
+pub struct ModuleNameWithKind {
+    name: ModuleName,
+    kind: ModuleNameKind,
+}
+
+impl Hash for ModuleNameWithKind {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}
+
+impl PartialEq for ModuleNameWithKind {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl Eq for ModuleNameWithKind {}
+
+impl PartialOrd for ModuleNameWithKind {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ModuleNameWithKind {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.name.cmp(&other.name)
+    }
+}
+
+impl ModuleNameWithKind {
+    /// Create a guaranteed module name.
+    pub fn guaranteed(name: ModuleName) -> Self {
+        Self {
+            name,
+            kind: ModuleNameKind::Guaranteed,
+        }
+    }
+
+    /// Create a fallback module name.
+    pub fn fallback(name: ModuleName) -> Self {
+        Self {
+            name,
+            kind: ModuleNameKind::Fallback,
+        }
+    }
+
+    /// Get the underlying module name, regardless of whether it's guaranteed or fallback.
+    pub fn name(&self) -> ModuleName {
+        self.name
+    }
+
+    /// Get the kind of this module name (Guaranteed or Fallback).
+    pub fn kind(&self) -> ModuleNameKind {
+        self.kind
+    }
+
+    /// Returns true if this module name was created using fallback heuristics.
+    pub fn is_fallback(&self) -> bool {
+        self.kind == ModuleNameKind::Fallback
+    }
+}
+
 impl<To: 'static> Visit<To> for ModuleName {
     const RECURSE_CONTAINS: bool = false;
     fn recurse<'a>(&'a self, _: &mut dyn FnMut(&'a To)) {}
@@ -104,12 +190,20 @@ impl ModuleName {
         Self::from_str("builtins")
     }
 
+    pub fn extra_builtins() -> Self {
+        Self::from_str("__builtins__")
+    }
+
     pub fn typing() -> Self {
         Self::from_str("typing")
     }
 
     pub fn typing_extensions() -> Self {
         Self::from_str("typing_extensions")
+    }
+
+    pub fn future() -> Self {
+        Self::from_str("__future__")
     }
 
     pub fn types() -> Self {
@@ -152,8 +246,50 @@ impl ModuleName {
         Self::from_str("pydantic.main")
     }
 
+    #[allow(dead_code)]
+    pub fn pydantic_settings() -> Self {
+        Self::from_str("pydantic_settings.main")
+    }
+
     pub fn pydantic_root_model() -> Self {
         Self::from_str("pydantic.root_model")
+    }
+
+    #[allow(dead_code)]
+    pub fn pydantic_dataclasses() -> Self {
+        Self::from_str("pydantic.dataclasses")
+    }
+
+    pub fn django_models_enums() -> Self {
+        Self::from_str("django.db.models.enums")
+    }
+
+    pub fn django_models() -> Self {
+        Self::from_str("django.db.models.base")
+    }
+
+    pub fn django_models_fields() -> Self {
+        Self::from_str("django.db.models.fields")
+    }
+
+    pub fn django_models_fields_related() -> Self {
+        Self::from_str("django.db.models.fields.related")
+    }
+
+    pub fn django_models_fields_related_descriptors() -> Self {
+        Self::from_str("django.db.models.fields.related_descriptors")
+    }
+
+    pub fn django_utils_functional() -> Self {
+        Self::from_str("django.utils.functional")
+    }
+
+    pub fn marshmallow_schema() -> Self {
+        Self::from_str("marshmallow.schema")
+    }
+
+    pub fn pydantic_types() -> Self {
+        Self::from_str("pydantic.types")
     }
 
     /// The "unknown" module name, which corresponds to `__unknown__`.
@@ -184,7 +320,9 @@ impl ModuleName {
             None => {}
             Some(file_name) => {
                 let splits: Vec<&str> = file_name.rsplitn(2, '.').collect();
-                if splits.len() != 2 || !(splits[0] == "py" || splits[0] == "pyi") {
+                if splits.len() != 2
+                    || !(splits[0] == "py" || splits[0] == "pyi" || splits[0] == "ipynb")
+                {
                     return Err(anyhow::anyhow!(PathConversionError::InvalidExtension {
                         file_name: file_name.to_owned(),
                     }));
@@ -285,7 +423,29 @@ impl ModuleName {
         path: &Path,
         includes: impl Iterator<Item = &'a PathBuf>,
     ) -> Option<ModuleName> {
-        // Return a module name, and a boolean as to whether it is any good.
+        Self::from_path_impl(path, includes)
+    }
+
+    /// If the module is on the search path or fallback search path, return its name from that path.
+    /// Returns a ModuleNameWithKind indicating whether the name was found on the normal search path
+    /// or using fallback paths.
+    pub fn from_path_with_fallback<'a>(
+        path: &Path,
+        normal_includes: impl Iterator<Item = &'a PathBuf>,
+        fallback_includes: impl Iterator<Item = &'a PathBuf>,
+    ) -> Option<ModuleNameWithKind> {
+        // Try normal includes first (guaranteed)
+        if let Some(name) = Self::from_path_impl(path, normal_includes) {
+            return Some(ModuleNameWithKind::guaranteed(name));
+        }
+        // Try fallback includes
+        Self::from_path_impl(path, fallback_includes).map(ModuleNameWithKind::fallback)
+    }
+
+    fn from_path_impl<'a>(
+        path: &Path,
+        includes: impl Iterator<Item = &'a PathBuf>,
+    ) -> Option<ModuleName> {
         fn path_to_module(mut path: &Path) -> Option<ModuleName> {
             if path.file_stem() == Some(dunder::INIT.as_str().as_ref()) {
                 path = path.parent()?;
@@ -314,6 +474,12 @@ impl ModuleName {
             }
         }
         None
+    }
+
+    /// Pop off the last name component from this [`ModuleName`]. If the `ModuleName`
+    /// would be empty, return `None` instead.
+    pub fn parent(&self) -> Option<Self> {
+        Some(Self::from_str(self.as_str().rsplit_once('.')?.0))
     }
 }
 
@@ -387,8 +553,10 @@ mod tests {
         }
         assert_module_name("foo.py", "foo");
         assert_module_name("foo.pyi", "foo");
+        assert_module_name("foo.ipynb", "foo");
         assert_module_name("foo/bar.py", "foo.bar");
         assert_module_name("foo/bar.pyi", "foo.bar");
+        assert_module_name("foo/bar.ipynb", "foo.bar");
         assert_module_name("foo/bar/__init__.py", "foo.bar");
         assert_module_name("foo/bar/__init__.pyi", "foo.bar");
 

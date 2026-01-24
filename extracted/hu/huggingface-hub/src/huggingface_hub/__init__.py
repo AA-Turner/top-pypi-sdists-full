@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.35.1"
+__version__ = "1.3.3"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -63,6 +63,8 @@ _SUBMOD_ATTRS = {
         "InferenceEndpointType",
     ],
     "_jobs_api": [
+        "JobAccelerator",
+        "JobHardware",
         "JobInfo",
         "JobOwner",
         "JobStage",
@@ -111,6 +113,10 @@ _SUBMOD_ATTRS = {
         "WebhooksServer",
         "webhook_endpoint",
     ],
+    "cli._cli_utils": [
+        "check_cli_update",
+        "typer_factory",
+    ],
     "community": [
         "Discussion",
         "DiscussionComment",
@@ -131,6 +137,7 @@ _SUBMOD_ATTRS = {
         "REPO_TYPE_SPACE",
         "TF2_WEIGHTS_NAME",
         "TF_WEIGHTS_NAME",
+        "is_offline_mode",
     ],
     "fastai_utils": [
         "_save_pretrained_fastai",
@@ -138,6 +145,7 @@ _SUBMOD_ATTRS = {
         "push_to_hub_fastai",
     ],
     "file_download": [
+        "DryRunFileInfo",
         "HfFileMetadata",
         "_CACHED_NO_EXIST",
         "get_hf_file_metadata",
@@ -159,6 +167,9 @@ _SUBMOD_ATTRS = {
         "GitRefs",
         "HfApi",
         "ModelInfo",
+        "Organization",
+        "RepoFile",
+        "RepoFolder",
         "RepoUrl",
         "SpaceInfo",
         "User",
@@ -205,19 +216,21 @@ _SUBMOD_ATTRS = {
         "edit_discussion_comment",
         "enable_webhook",
         "fetch_job_logs",
+        "fetch_job_metrics",
         "file_exists",
         "get_collection",
         "get_dataset_tags",
         "get_discussion_details",
         "get_full_repo_name",
         "get_inference_endpoint",
+        "get_local_safetensors_metadata",
         "get_model_tags",
+        "get_organization_overview",
         "get_paths_info",
         "get_repo_discussions",
         "get_safetensors_metadata",
         "get_space_runtime",
         "get_space_variables",
-        "get_token_permission",
         "get_user_overview",
         "get_webhook",
         "grant_access",
@@ -225,13 +238,16 @@ _SUBMOD_ATTRS = {
         "inspect_scheduled_job",
         "list_accepted_access_requests",
         "list_collections",
+        "list_daily_papers",
         "list_datasets",
         "list_inference_catalog",
         "list_inference_endpoints",
         "list_jobs",
+        "list_jobs_hardware",
         "list_lfs_files",
         "list_liked_repos",
         "list_models",
+        "list_organization_followers",
         "list_organization_members",
         "list_papers",
         "list_pending_access_requests",
@@ -249,6 +265,7 @@ _SUBMOD_ATTRS = {
         "model_info",
         "move_repo",
         "paper_info",
+        "parse_local_safetensors_file_metadata",
         "parse_safetensors_file_metadata",
         "pause_inference_endpoint",
         "pause_space",
@@ -278,11 +295,11 @@ _SUBMOD_ATTRS = {
         "update_collection_metadata",
         "update_inference_endpoint",
         "update_repo_settings",
-        "update_repo_visibility",
         "update_webhook",
         "upload_file",
         "upload_folder",
         "upload_large_folder",
+        "verify_repo_checksums",
         "whoami",
     ],
     "hf_file_system": [
@@ -290,6 +307,7 @@ _SUBMOD_ATTRS = {
         "HfFileSystemFile",
         "HfFileSystemResolvedPath",
         "HfFileSystemStreamFile",
+        "hffs",
     ],
     "hub_mixin": [
         "ModelHubMixin",
@@ -369,6 +387,14 @@ _SUBMOD_ATTRS = {
         "ImageSegmentationOutputElement",
         "ImageSegmentationParameters",
         "ImageSegmentationSubtask",
+        "ImageTextToImageInput",
+        "ImageTextToImageOutput",
+        "ImageTextToImageParameters",
+        "ImageTextToImageTargetSize",
+        "ImageTextToVideoInput",
+        "ImageTextToVideoOutput",
+        "ImageTextToVideoParameters",
+        "ImageTextToVideoTargetSize",
         "ImageToImageInput",
         "ImageToImageOutput",
         "ImageToImageParameters",
@@ -471,15 +497,6 @@ _SUBMOD_ATTRS = {
     "inference._mcp.mcp_client": [
         "MCPClient",
     ],
-    "inference_api": [
-        "InferenceApi",
-    ],
-    "keras_mixin": [
-        "KerasModelHubMixin",
-        "from_pretrained_keras",
-        "push_to_hub_keras",
-        "save_pretrained_keras",
-    ],
     "repocard": [
         "DatasetCard",
         "ModelCard",
@@ -497,12 +514,8 @@ _SUBMOD_ATTRS = {
         "ModelCardData",
         "SpaceCardData",
     ],
-    "repository": [
-        "Repository",
-    ],
     "serialization": [
         "StateDictSplit",
-        "get_tf_storage_size",
         "get_torch_storage_id",
         "get_torch_storage_size",
         "load_state_dict_from_file",
@@ -510,7 +523,6 @@ _SUBMOD_ATTRS = {
         "save_torch_model",
         "save_torch_state_dict",
         "split_state_dict_into_shards_factory",
-        "split_tf_state_dict_into_shards",
         "split_torch_state_dict_into_shards",
     ],
     "serialization._dduf": [
@@ -520,6 +532,8 @@ _SUBMOD_ATTRS = {
         "read_dduf_file",
     ],
     "utils": [
+        "ASYNC_CLIENT_FACTORY_T",
+        "CLIENT_FACTORY_T",
         "CacheNotFound",
         "CachedFileInfo",
         "CachedRepoInfo",
@@ -527,14 +541,17 @@ _SUBMOD_ATTRS = {
         "CorruptedCacheException",
         "DeleteCacheStrategy",
         "HFCacheInfo",
-        "HfFolder",
         "cached_assets_path",
-        "configure_http_backend",
+        "close_session",
         "dump_environment_info",
+        "get_async_session",
         "get_session",
         "get_token",
+        "hf_raise_for_status",
         "logging",
         "scan_cache_dir",
+        "set_async_client_factory",
+        "set_client_factory",
     ],
 }
 
@@ -550,6 +567,7 @@ _SUBMOD_ATTRS = {
 # ```
 
 __all__ = [
+    "ASYNC_CLIENT_FACTORY_T",
     "Agent",
     "AsyncInferenceClient",
     "AudioClassificationInput",
@@ -564,6 +582,7 @@ __all__ = [
     "AutomaticSpeechRecognitionOutput",
     "AutomaticSpeechRecognitionOutputChunk",
     "AutomaticSpeechRecognitionParameters",
+    "CLIENT_FACTORY_T",
     "CONFIG_NAME",
     "CacheNotFound",
     "CachedFileInfo",
@@ -632,6 +651,7 @@ __all__ = [
     "DocumentQuestionAnsweringInputData",
     "DocumentQuestionAnsweringOutputElement",
     "DocumentQuestionAnsweringParameters",
+    "DryRunFileInfo",
     "EvalResult",
     "FLAX_WEIGHTS_NAME",
     "FeatureExtractionInput",
@@ -652,7 +672,6 @@ __all__ = [
     "HfFileSystemFile",
     "HfFileSystemResolvedPath",
     "HfFileSystemStreamFile",
-    "HfFolder",
     "ImageClassificationInput",
     "ImageClassificationOutputElement",
     "ImageClassificationOutputTransform",
@@ -661,6 +680,14 @@ __all__ = [
     "ImageSegmentationOutputElement",
     "ImageSegmentationParameters",
     "ImageSegmentationSubtask",
+    "ImageTextToImageInput",
+    "ImageTextToImageOutput",
+    "ImageTextToImageParameters",
+    "ImageTextToImageTargetSize",
+    "ImageTextToVideoInput",
+    "ImageTextToVideoOutput",
+    "ImageTextToVideoParameters",
+    "ImageTextToVideoTargetSize",
     "ImageToImageInput",
     "ImageToImageOutput",
     "ImageToImageParameters",
@@ -674,7 +701,6 @@ __all__ = [
     "ImageToVideoOutput",
     "ImageToVideoParameters",
     "ImageToVideoTargetSize",
-    "InferenceApi",
     "InferenceClient",
     "InferenceEndpoint",
     "InferenceEndpointError",
@@ -682,11 +708,12 @@ __all__ = [
     "InferenceEndpointTimeoutError",
     "InferenceEndpointType",
     "InferenceTimeoutError",
+    "JobAccelerator",
+    "JobHardware",
     "JobInfo",
     "JobOwner",
     "JobStage",
     "JobStatus",
-    "KerasModelHubMixin",
     "MCPClient",
     "ModelCard",
     "ModelCardData",
@@ -699,6 +726,7 @@ __all__ = [
     "ObjectDetectionInput",
     "ObjectDetectionOutputElement",
     "ObjectDetectionParameters",
+    "Organization",
     "PYTORCH_WEIGHTS_NAME",
     "Padding",
     "PyTorchModelHubMixin",
@@ -710,8 +738,9 @@ __all__ = [
     "REPO_TYPE_MODEL",
     "REPO_TYPE_SPACE",
     "RepoCard",
+    "RepoFile",
+    "RepoFolder",
     "RepoUrl",
-    "Repository",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
     "SpaceCard",
@@ -824,8 +853,9 @@ __all__ = [
     "cancel_access_request",
     "cancel_job",
     "change_discussion_status",
+    "check_cli_update",
+    "close_session",
     "comment_discussion",
-    "configure_http_backend",
     "create_branch",
     "create_collection",
     "create_commit",
@@ -860,25 +890,26 @@ __all__ = [
     "export_entries_as_dduf",
     "export_folder_as_dduf",
     "fetch_job_logs",
+    "fetch_job_metrics",
     "file_exists",
     "from_pretrained_fastai",
-    "from_pretrained_keras",
+    "get_async_session",
     "get_collection",
     "get_dataset_tags",
     "get_discussion_details",
     "get_full_repo_name",
     "get_hf_file_metadata",
     "get_inference_endpoint",
+    "get_local_safetensors_metadata",
     "get_model_tags",
+    "get_organization_overview",
     "get_paths_info",
     "get_repo_discussions",
     "get_safetensors_metadata",
     "get_session",
     "get_space_runtime",
     "get_space_variables",
-    "get_tf_storage_size",
     "get_token",
-    "get_token_permission",
     "get_torch_storage_id",
     "get_torch_storage_size",
     "get_user_overview",
@@ -886,18 +917,24 @@ __all__ = [
     "grant_access",
     "hf_hub_download",
     "hf_hub_url",
+    "hf_raise_for_status",
+    "hffs",
     "inspect_job",
     "inspect_scheduled_job",
     "interpreter_login",
+    "is_offline_mode",
     "list_accepted_access_requests",
     "list_collections",
+    "list_daily_papers",
     "list_datasets",
     "list_inference_catalog",
     "list_inference_endpoints",
     "list_jobs",
+    "list_jobs_hardware",
     "list_lfs_files",
     "list_liked_repos",
     "list_models",
+    "list_organization_followers",
     "list_organization_members",
     "list_papers",
     "list_pending_access_requests",
@@ -926,13 +963,13 @@ __all__ = [
     "notebook_login",
     "paper_info",
     "parse_huggingface_oauth",
+    "parse_local_safetensors_file_metadata",
     "parse_safetensors_file_metadata",
     "pause_inference_endpoint",
     "pause_space",
     "permanently_delete_lfs_files",
     "preupload_lfs_files",
     "push_to_hub_fastai",
-    "push_to_hub_keras",
     "read_dduf_file",
     "reject_access_request",
     "rename_discussion",
@@ -948,30 +985,31 @@ __all__ = [
     "run_as_future",
     "run_job",
     "run_uv_job",
-    "save_pretrained_keras",
     "save_torch_model",
     "save_torch_state_dict",
     "scale_to_zero_inference_endpoint",
     "scan_cache_dir",
+    "set_async_client_factory",
+    "set_client_factory",
     "set_space_sleep_time",
     "snapshot_download",
     "space_info",
     "split_state_dict_into_shards_factory",
-    "split_tf_state_dict_into_shards",
     "split_torch_state_dict_into_shards",
     "super_squash_history",
     "suspend_scheduled_job",
     "try_to_load_from_cache",
+    "typer_factory",
     "unlike",
     "update_collection_item",
     "update_collection_metadata",
     "update_inference_endpoint",
     "update_repo_settings",
-    "update_repo_visibility",
     "update_webhook",
     "upload_file",
     "upload_folder",
     "upload_large_folder",
+    "verify_repo_checksums",
     "webhook_endpoint",
     "whoami",
 ]
@@ -1087,6 +1125,8 @@ if TYPE_CHECKING:  # pragma: no cover
         InferenceEndpointType,  # noqa: F401
     )
     from ._jobs_api import (
+        JobAccelerator,  # noqa: F401
+        JobHardware,  # noqa: F401
         JobInfo,  # noqa: F401
         JobOwner,  # noqa: F401
         JobStage,  # noqa: F401
@@ -1131,6 +1171,10 @@ if TYPE_CHECKING:  # pragma: no cover
         WebhooksServer,  # noqa: F401
         webhook_endpoint,  # noqa: F401
     )
+    from .cli._cli_utils import (
+        check_cli_update,  # noqa: F401
+        typer_factory,  # noqa: F401
+    )
     from .community import (
         Discussion,  # noqa: F401
         DiscussionComment,  # noqa: F401
@@ -1151,6 +1195,7 @@ if TYPE_CHECKING:  # pragma: no cover
         REPO_TYPE_SPACE,  # noqa: F401
         TF2_WEIGHTS_NAME,  # noqa: F401
         TF_WEIGHTS_NAME,  # noqa: F401
+        is_offline_mode,  # noqa: F401
     )
     from .fastai_utils import (
         _save_pretrained_fastai,  # noqa: F401
@@ -1159,6 +1204,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .file_download import (
         _CACHED_NO_EXIST,  # noqa: F401
+        DryRunFileInfo,  # noqa: F401
         HfFileMetadata,  # noqa: F401
         get_hf_file_metadata,  # noqa: F401
         hf_hub_download,  # noqa: F401
@@ -1179,6 +1225,9 @@ if TYPE_CHECKING:  # pragma: no cover
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
         ModelInfo,  # noqa: F401
+        Organization,  # noqa: F401
+        RepoFile,  # noqa: F401
+        RepoFolder,  # noqa: F401
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
         User,  # noqa: F401
@@ -1225,19 +1274,21 @@ if TYPE_CHECKING:  # pragma: no cover
         edit_discussion_comment,  # noqa: F401
         enable_webhook,  # noqa: F401
         fetch_job_logs,  # noqa: F401
+        fetch_job_metrics,  # noqa: F401
         file_exists,  # noqa: F401
         get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
         get_full_repo_name,  # noqa: F401
         get_inference_endpoint,  # noqa: F401
+        get_local_safetensors_metadata,  # noqa: F401
         get_model_tags,  # noqa: F401
+        get_organization_overview,  # noqa: F401
         get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
-        get_token_permission,  # noqa: F401
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
@@ -1245,13 +1296,16 @@ if TYPE_CHECKING:  # pragma: no cover
         inspect_scheduled_job,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
+        list_daily_papers,  # noqa: F401
         list_datasets,  # noqa: F401
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_jobs,  # noqa: F401
+        list_jobs_hardware,  # noqa: F401
         list_lfs_files,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_models,  # noqa: F401
+        list_organization_followers,  # noqa: F401
         list_organization_members,  # noqa: F401
         list_papers,  # noqa: F401
         list_pending_access_requests,  # noqa: F401
@@ -1269,6 +1323,7 @@ if TYPE_CHECKING:  # pragma: no cover
         model_info,  # noqa: F401
         move_repo,  # noqa: F401
         paper_info,  # noqa: F401
+        parse_local_safetensors_file_metadata,  # noqa: F401
         parse_safetensors_file_metadata,  # noqa: F401
         pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
@@ -1298,11 +1353,11 @@ if TYPE_CHECKING:  # pragma: no cover
         update_collection_metadata,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
         update_repo_settings,  # noqa: F401
-        update_repo_visibility,  # noqa: F401
         update_webhook,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
         upload_large_folder,  # noqa: F401
+        verify_repo_checksums,  # noqa: F401
         whoami,  # noqa: F401
     )
     from .hf_file_system import (
@@ -1310,6 +1365,7 @@ if TYPE_CHECKING:  # pragma: no cover
         HfFileSystemFile,  # noqa: F401
         HfFileSystemResolvedPath,  # noqa: F401
         HfFileSystemStreamFile,  # noqa: F401
+        hffs,  # noqa: F401
     )
     from .hub_mixin import (
         ModelHubMixin,  # noqa: F401
@@ -1387,6 +1443,14 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageSegmentationOutputElement,  # noqa: F401
         ImageSegmentationParameters,  # noqa: F401
         ImageSegmentationSubtask,  # noqa: F401
+        ImageTextToImageInput,  # noqa: F401
+        ImageTextToImageOutput,  # noqa: F401
+        ImageTextToImageParameters,  # noqa: F401
+        ImageTextToImageTargetSize,  # noqa: F401
+        ImageTextToVideoInput,  # noqa: F401
+        ImageTextToVideoOutput,  # noqa: F401
+        ImageTextToVideoParameters,  # noqa: F401
+        ImageTextToVideoTargetSize,  # noqa: F401
         ImageToImageInput,  # noqa: F401
         ImageToImageOutput,  # noqa: F401
         ImageToImageParameters,  # noqa: F401
@@ -1485,13 +1549,6 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .inference._mcp.agent import Agent  # noqa: F401
     from .inference._mcp.mcp_client import MCPClient  # noqa: F401
-    from .inference_api import InferenceApi  # noqa: F401
-    from .keras_mixin import (
-        KerasModelHubMixin,  # noqa: F401
-        from_pretrained_keras,  # noqa: F401
-        push_to_hub_keras,  # noqa: F401
-        save_pretrained_keras,  # noqa: F401
-    )
     from .repocard import (
         DatasetCard,  # noqa: F401
         ModelCard,  # noqa: F401
@@ -1509,10 +1566,8 @@ if TYPE_CHECKING:  # pragma: no cover
         ModelCardData,  # noqa: F401
         SpaceCardData,  # noqa: F401
     )
-    from .repository import Repository  # noqa: F401
     from .serialization import (
         StateDictSplit,  # noqa: F401
-        get_tf_storage_size,  # noqa: F401
         get_torch_storage_id,  # noqa: F401
         get_torch_storage_size,  # noqa: F401
         load_state_dict_from_file,  # noqa: F401
@@ -1520,7 +1575,6 @@ if TYPE_CHECKING:  # pragma: no cover
         save_torch_model,  # noqa: F401
         save_torch_state_dict,  # noqa: F401
         split_state_dict_into_shards_factory,  # noqa: F401
-        split_tf_state_dict_into_shards,  # noqa: F401
         split_torch_state_dict_into_shards,  # noqa: F401
     )
     from .serialization._dduf import (
@@ -1530,6 +1584,8 @@ if TYPE_CHECKING:  # pragma: no cover
         read_dduf_file,  # noqa: F401
     )
     from .utils import (
+        ASYNC_CLIENT_FACTORY_T,  # noqa: F401
+        CLIENT_FACTORY_T,  # noqa: F401
         CachedFileInfo,  # noqa: F401
         CachedRepoInfo,  # noqa: F401
         CachedRevisionInfo,  # noqa: F401
@@ -1537,12 +1593,15 @@ if TYPE_CHECKING:  # pragma: no cover
         CorruptedCacheException,  # noqa: F401
         DeleteCacheStrategy,  # noqa: F401
         HFCacheInfo,  # noqa: F401
-        HfFolder,  # noqa: F401
         cached_assets_path,  # noqa: F401
-        configure_http_backend,  # noqa: F401
+        close_session,  # noqa: F401
         dump_environment_info,  # noqa: F401
+        get_async_session,  # noqa: F401
         get_session,  # noqa: F401
         get_token,  # noqa: F401
+        hf_raise_for_status,  # noqa: F401
         logging,  # noqa: F401
         scan_cache_dir,  # noqa: F401
+        set_async_client_factory,  # noqa: F401
+        set_client_factory,  # noqa: F401
     )

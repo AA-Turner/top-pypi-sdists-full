@@ -62,13 +62,10 @@ class IdentityClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `time`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `time[asc]` will sort the results by `time` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `time`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `time[asc]` will sort the results by `time` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         include_raw_data : typing.Optional[bool]
             Include the raw data from the SIEM in the response. Defaults to `false`.
@@ -278,13 +275,10 @@ class IdentityClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `uid`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `email_addr[asc]` will sort the results by `email_addr` in
-            ascending order. The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `uid`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `email_addr[asc]` will sort the results by `email_addr` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -678,13 +672,10 @@ class IdentityClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `uid`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `email_addr[asc]` will sort the results by `email_addr` in
-            ascending order. The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `uid`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `email_addr[asc]` will sort the results by `email_addr` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1941,6 +1932,183 @@ class IdentityClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
+    def get_user_picture(
+        self,
+        user_id: UserId,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.Iterator[bytes]:
+        """
+        Returns the profile picture for a user as binary image data. The Content-Type header indicates the image format (e.g., image/jpeg, image/png).
+
+        Parameters
+        ----------
+        user_id : UserId
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Yields
+        ------
+        typing.Iterator[bytes]
+
+        Examples
+        --------
+        from synqly import SynqlyEngine
+
+        client = SynqlyEngine(
+            token="YOUR_TOKEN",
+        )
+        client.identity.get_user_picture(
+            user_id="string",
+        )
+        """
+        with self._client_wrapper.httpx_client.stream(
+            f"v1/identity/users/{jsonable_encoder(user_id)}/picture",
+            method="GET",
+            request_options=request_options,
+        ) as _response:
+            try:
+                if 200 <= _response.status_code < 300:
+                    for _chunk in _response.iter_bytes():
+                        yield _chunk
+                    return
+                _response.read()
+                if _response.status_code == 400:
+                    raise BadRequestError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 401:
+                    raise UnauthorizedError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 403:
+                    raise ForbiddenError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 404:
+                    raise NotFoundError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 405:
+                    raise MethodNotAllowedError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 409:
+                    raise ConflictError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 415:
+                    raise UnsupportedMediaTypeError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 429:
+                    raise TooManyRequestsError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 500:
+                    raise InternalServerError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 501:
+                    raise NotImplementedError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 502:
+                    raise BadGatewayError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 503:
+                    raise ServiceUnavailableError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 504:
+                    raise GatewayTimeoutError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                _response_json = _response.json()
+            except JSONDecodeError:
+                raise ApiError(status_code=_response.status_code, body=_response.text)
+            raise ApiError(status_code=_response.status_code, body=_response_json)
+
 
 class AsyncIdentityClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -1972,13 +2140,10 @@ class AsyncIdentityClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `time`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `time[asc]` will sort the results by `time` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `time`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `time[asc]` will sort the results by `time` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         include_raw_data : typing.Optional[bool]
             Include the raw data from the SIEM in the response. Defaults to `false`.
@@ -2196,13 +2361,10 @@ class AsyncIdentityClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `uid`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `email_addr[asc]` will sort the results by `email_addr` in
-            ascending order. The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `uid`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `email_addr[asc]` will sort the results by `email_addr` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2612,13 +2774,10 @@ class AsyncIdentityClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `uid`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `email_addr[asc]` will sort the results by `email_addr` in
-            ascending order. The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `uid`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `email_addr[asc]` will sort the results by `email_addr` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -3930,3 +4089,188 @@ class AsyncIdentityClient:
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def get_user_picture(
+        self,
+        user_id: UserId,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.AsyncIterator[bytes]:
+        """
+        Returns the profile picture for a user as binary image data. The Content-Type header indicates the image format (e.g., image/jpeg, image/png).
+
+        Parameters
+        ----------
+        user_id : UserId
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Yields
+        ------
+        typing.AsyncIterator[bytes]
+
+        Examples
+        --------
+        import asyncio
+
+        from synqly import AsyncSynqlyEngine
+
+        client = AsyncSynqlyEngine(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.identity.get_user_picture(
+                user_id="string",
+            )
+
+
+        asyncio.run(main())
+        """
+        async with self._client_wrapper.httpx_client.stream(
+            f"v1/identity/users/{jsonable_encoder(user_id)}/picture",
+            method="GET",
+            request_options=request_options,
+        ) as _response:
+            try:
+                if 200 <= _response.status_code < 300:
+                    async for _chunk in _response.aiter_bytes():
+                        yield _chunk
+                    return
+                await _response.aread()
+                if _response.status_code == 400:
+                    raise BadRequestError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 401:
+                    raise UnauthorizedError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 403:
+                    raise ForbiddenError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 404:
+                    raise NotFoundError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 405:
+                    raise MethodNotAllowedError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 409:
+                    raise ConflictError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 415:
+                    raise UnsupportedMediaTypeError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 429:
+                    raise TooManyRequestsError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 500:
+                    raise InternalServerError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 501:
+                    raise NotImplementedError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 502:
+                    raise BadGatewayError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 503:
+                    raise ServiceUnavailableError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                if _response.status_code == 504:
+                    raise GatewayTimeoutError(
+                        typing.cast(
+                            Problem,
+                            construct_type(
+                                type_=Problem,  # type: ignore
+                                object_=_response.json(),
+                            ),
+                        )
+                    )
+                _response_json = _response.json()
+            except JSONDecodeError:
+                raise ApiError(status_code=_response.status_code, body=_response.text)
+            raise ApiError(status_code=_response.status_code, body=_response_json)

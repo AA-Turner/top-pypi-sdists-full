@@ -93,9 +93,8 @@ option(GLSLANG_TESTS "Enable glslang testing" ${GLSLANG_TESTS_DEFAULT})
 option(GLSLANG_ENABLE_INSTALL "Enable glslang installation" ${GLSLANG_ENABLE_INSTALL_DEFAULT})
 
 option(ENABLE_SPIRV "Enables SPIRV output support" ON)
-option(ENABLE_SPVREMAPPER "Enables building of SPVRemapper" ON)
 
-option(ENABLE_GLSLANG_BINARIES "Builds glslang and spirv-remap" ON)
+option(ENABLE_GLSLANG_BINARIES "Builds glslang" ON)
 
 option(ENABLE_GLSLANG_JS "If using Emscripten, build glslang.js. Otherwise, builds a sample executable for binary-size testing.")
 cmake_dependent_option(ENABLE_EMSCRIPTEN_SINGLE_FILE
@@ -139,7 +138,7 @@ else()
 endif()
 
 if(${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
-    add_compile_options(-Wall -Wmaybe-uninitialized -Wuninitialized -Wunused -Wunused-local-typedefs -Wimplicit-fallthrough
+    add_compile_options(-Wall -Wmaybe-uninitialized -Wuninitialized -Wunused -Wunused-local-typedefs -Wno-implicit-fallthrough
                         -Wunused-parameter -Wunused-value  -Wunused-variable -Wunused-but-set-parameter -Wunused-but-set-variable)
     if(NOT ENABLE_RTTI)
         add_compile_options(-fno-rtti)
@@ -158,7 +157,7 @@ if(${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
         endif()
     endif()
 elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang" AND NOT MSVC)
-    add_compile_options(-Wall -Wuninitialized -Wunused -Wunused-local-typedefs -Wimplicit-fallthrough
+    add_compile_options(-Wall -Wuninitialized -Wunused -Wunused-local-typedefs -Wno-implicit-fallthrough
                         -Wunused-parameter -Wunused-value  -Wunused-variable)
     if(NOT ENABLE_RTTI)
         add_compile_options(-fno-rtti)
@@ -185,6 +184,12 @@ elseif(MSVC)
     endif()
 endif()
 
+if (PROJECT_IS_TOP_LEVEL)
+    # enable parallel builds for msbuild
+    list(APPEND CMAKE_VS_GLOBALS UseMultiToolTask=true)
+    list(APPEND CMAKE_VS_GLOBALS EnforceProcessCountAcrossBuilds=true)
+endif()
+
 # NOTE we could potentially replace this logic with COMPILE_WARNING_AS_ERROR if cmake minimum is bumped to >= 3.24
 if (BUILD_WERROR)
     if (NOT MSVC)
@@ -206,8 +211,8 @@ if(ENABLE_GLSLANG_JS)
     endif()
 endif()
 
-# Request C++17
-set(CMAKE_CXX_STANDARD 17)
+# Request C++14
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -330,25 +335,22 @@ if(GLSLANG_TESTS)
     if (isMultiConfig)
         set(RESULTS_PATH ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/localResults)
         set(VALIDATOR_PATH ${CMAKE_CURRENT_BINARY_DIR}/StandAlone/$<CONFIG>/glslang)
-        set(REMAP_PATH ${CMAKE_CURRENT_BINARY_DIR}/StandAlone/$<CONFIG>/spirv-remap)
     else()
         set(RESULTS_PATH ${CMAKE_CURRENT_BINARY_DIR}/localResults)
         set(VALIDATOR_PATH ${CMAKE_CURRENT_BINARY_DIR}/StandAlone/glslang)
-        set(REMAP_PATH ${CMAKE_CURRENT_BINARY_DIR}/StandAlone/spirv-remap)
     endif()
 
-    if(WIN32 AND BUILD_SHARED_LIBS)
-        # The TARGET_RUNTIME_DLL_DIRS feature requires CMake 3.27 or greater.
-        if(CMAKE_VERSION VERSION_LESS "3.27")
-            message(WARNING "The Windows shared library test configuration requires CMake 3.27 or greater")
-        else()
-            add_test(NAME glslang-testsuite
-                COMMAND bash ${IGNORE_CR_FLAG} runtests ${RESULTS_PATH} ${VALIDATOR_PATH} ${REMAP_PATH}
-                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Test/)
+    # The TARGET_RUNTIME_DLL_DIRS feature requires CMake 3.27 or greater.
+    if(WIN32 AND BUILD_SHARED_LIBS AND CMAKE_VERSION VERSION_LESS "3.27")
+        message(WARNING "The Windows shared library test configuration requires CMake 3.27 or greater")
+    else()
+        add_test(NAME glslang-testsuite
+            COMMAND bash ${IGNORE_CR_FLAG} runtests ${RESULTS_PATH} ${VALIDATOR_PATH}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Test/)
 
-            # Prepend paths to shared libraries.
+        # Prepend paths to shared libraries.
+        if (BUILD_SHARED_LIBS)
             set_tests_properties(glslang-testsuite PROPERTIES ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<JOIN:$<TARGET_RUNTIME_DLL_DIRS:glslang-standalone>,\;>")
-            set_tests_properties(glslang-testsuite PROPERTIES ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<JOIN:$<TARGET_RUNTIME_DLL_DIRS:spirv-remap>,\;>")
         endif()
     endif()
 endif()

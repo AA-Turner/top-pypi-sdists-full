@@ -9,37 +9,24 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
+
+from .group_0003 import SimpleUser
+from .group_0083 import Team
 
 
-class Meta(GitHubModel):
-    """Meta
+class PullRequestReviewRequest(GitHubModel):
+    """Pull Request Review Request
 
-    The metadata associated with the creation/updates to the user.
+    Pull Request Review Request
     """
 
-    resource_type: Literal["User", "Group"] = Field(
-        alias="resourceType", description="A type of a resource"
-    )
-    created: Missing[str] = Field(
-        default=UNSET, description="A date and time when the user was created."
-    )
-    last_modified: Missing[str] = Field(
-        default=UNSET,
-        alias="lastModified",
-        description="A data and time when the user was last modified.",
-    )
-    location: Missing[str] = Field(
-        default=UNSET, description="A URL location of an object"
-    )
+    users: list[SimpleUser] = Field()
+    teams: list[Team] = Field()
 
 
-model_rebuild(Meta)
+model_rebuild(PullRequestReviewRequest)
 
-__all__ = ("Meta",)
+__all__ = ("PullRequestReviewRequest",)

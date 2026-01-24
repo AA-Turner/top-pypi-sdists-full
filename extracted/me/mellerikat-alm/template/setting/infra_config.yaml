@@ -1,0 +1,13 @@
+AIC_URI: https://aicond.host/
+AWS_KEY_PROFILE: meerkat-dev
+GCP_CRENDENTIALS: key.json
+BUILD_METHOD: codebuild
+CODEBUILD_ENV_COMPUTE_TYPE: BUILD_GENERAL1_SMALL
+CODEBUILD_ENV_TYPE: LINUX_CONTAINER
+LOGIN_MODE: static
+REGION: ap-northeast-2
+REPOSITORY_TAGS:
+  - key: Owner
+    value: Meerkat
+VERSION: ""
+WORKSPACE_NAME: ""

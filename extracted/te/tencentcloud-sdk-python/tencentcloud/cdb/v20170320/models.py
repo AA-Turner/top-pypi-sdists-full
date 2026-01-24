@@ -3196,7 +3196,7 @@ class BackupConfig(AbstractModel):
         r"""
         :param _ReplicationMode: 第二个从库复制方式，可能的返回值：async-异步，semisync-半同步
         :type ReplicationMode: str
-        :param _Zone: 第二个从库可用区的正式名称，如ap-shanghai-1
+        :param _Zone: 第二个从库可用区的正式名称，如 ap-shanghai-2
         :type Zone: str
         :param _Vip: 第二个从库内网IP地址
         :type Vip: str
@@ -3221,7 +3221,7 @@ class BackupConfig(AbstractModel):
 
     @property
     def Zone(self):
-        r"""第二个从库可用区的正式名称，如ap-shanghai-1
+        r"""第二个从库可用区的正式名称，如 ap-shanghai-2
         :rtype: str
         """
         return self._Zone
@@ -4535,7 +4535,13 @@ class CdbSellType(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TypeName: 售卖实例名称。Z3是高可用类型对应规格中的DeviceType包含UNIVERSAL,EXCLUSIVE；CVM是基础版类型对应规格中的DeviceType是BASIC；TKE是基础型v2类型对应规格中的DeviceType是BASIC_V2。
+        :param _TypeName: 售卖实例名称。
+Z3：是高可用类型，对应规格中的 DeviceType，包含 UNIVERSAL，EXCLUSIVE。
+CVM：是基础版类型，对应规格中的 DeviceType 是 BASIC（已下线）。
+TKE：是基础版v2类型，对应规格中的 DeviceType 是 BASIC_V2。
+CLOUD_NATIVE_CLUSTER：表示云盘版标准型。
+CLOUD_NATIVE_CLUSTER_EXCLUSIVE：表示云盘版加强型。
+ECONOMICAL：表示经济型。
         :type TypeName: str
         :param _EngineVersion: 引擎版本号
         :type EngineVersion: list of str
@@ -4548,7 +4554,13 @@ class CdbSellType(AbstractModel):
 
     @property
     def TypeName(self):
-        r"""售卖实例名称。Z3是高可用类型对应规格中的DeviceType包含UNIVERSAL,EXCLUSIVE；CVM是基础版类型对应规格中的DeviceType是BASIC；TKE是基础型v2类型对应规格中的DeviceType是BASIC_V2。
+        r"""售卖实例名称。
+Z3：是高可用类型，对应规格中的 DeviceType，包含 UNIVERSAL，EXCLUSIVE。
+CVM：是基础版类型，对应规格中的 DeviceType 是 BASIC（已下线）。
+TKE：是基础版v2类型，对应规格中的 DeviceType 是 BASIC_V2。
+CLOUD_NATIVE_CLUSTER：表示云盘版标准型。
+CLOUD_NATIVE_CLUSTER_EXCLUSIVE：表示云盘版加强型。
+ECONOMICAL：表示经济型。
         :rtype: str
         """
         return self._TypeName
@@ -4706,9 +4718,9 @@ class CdbZoneSellConf(AbstractModel):
         :type IsSupportIpv6: bool
         :param _EngineType: 可支持的售卖数据库引擎类型
         :type EngineType: list of str
-        :param _CloudNativeClusterStatus: 集群版实例在当前可用区的售卖状态。可能的返回值为：1-上线；3-停售；4-不展示
+        :param _CloudNativeClusterStatus: 云盘版实例在当前可用区的售卖状态。可能的返回值为：1-上线；3-停售；4-不展示
         :type CloudNativeClusterStatus: int
-        :param _DiskTypeConf: 集群版或者单节点基础型支持的磁盘类型。
+        :param _DiskTypeConf: 云盘版或者单节点基础型支持的磁盘类型。
         :type DiskTypeConf: list of DiskTypeConfigItem
         """
         self._Status = None
@@ -4980,7 +4992,7 @@ class CdbZoneSellConf(AbstractModel):
 
     @property
     def CloudNativeClusterStatus(self):
-        r"""集群版实例在当前可用区的售卖状态。可能的返回值为：1-上线；3-停售；4-不展示
+        r"""云盘版实例在当前可用区的售卖状态。可能的返回值为：1-上线；3-停售；4-不展示
         :rtype: int
         """
         return self._CloudNativeClusterStatus
@@ -4991,7 +5003,7 @@ class CdbZoneSellConf(AbstractModel):
 
     @property
     def DiskTypeConf(self):
-        r"""集群版或者单节点基础型支持的磁盘类型。
+        r"""云盘版或者单节点基础型支持的磁盘类型。
         :rtype: list of DiskTypeConfigItem
         """
         return self._DiskTypeConf
@@ -5262,7 +5274,7 @@ class CheckMigrateClusterResponse(AbstractModel):
 
 
 class CheckMigrateResult(AbstractModel):
-    r"""迁移集群版校验结果
+    r"""迁移云盘版校验结果
 
     """
 
@@ -5924,7 +5936,7 @@ class CloseWanServiceResponse(AbstractModel):
 
 
 class ClusterInfo(AbstractModel):
-    r"""集群版节点信息
+    r"""云盘版节点信息
 
     """
 
@@ -5990,7 +6002,7 @@ class ClusterInfo(AbstractModel):
 
 
 class ClusterNodeInfo(AbstractModel):
-    r"""集群版实例节点信息
+    r"""云盘版实例节点信息
 
     """
 
@@ -6086,7 +6098,7 @@ class ClusterNodeInfo(AbstractModel):
 
 
 class ClusterTopology(AbstractModel):
-    r"""集群版的节点拓扑配置。
+    r"""云盘版的节点拓扑配置。
 
     """
 
@@ -7898,7 +7910,7 @@ class CreateCloneInstanceRequest(AbstractModel):
 说明：此参数和 SpecifiedBackupId 参数需要2选1进行设置。
         :type SpecifiedRollbackTime: str
         :param _SpecifiedBackupId: 如果需要克隆实例回档到指定备份集，则指定该值为备份文件的 Id。请使用 [查询数据备份文件列表](/document/api/236/15842)。
-说明：如果是克隆双节点、三节点实例，备份文件为物理备份，如果是克隆单节点、集群版实例，备份文件为快照备份。
+说明：如果是克隆双节点、三节点实例，备份文件为物理备份，如果是克隆单节点、云盘版实例，备份文件为快照备份。
         :type SpecifiedBackupId: int
         :param _UniqVpcId: 私有网络 ID，请使用 [查询私有网络列表](/document/api/215/15778)。
         :type UniqVpcId: str
@@ -7924,7 +7936,7 @@ class CreateCloneInstanceRequest(AbstractModel):
         :type SlaveZone: str
         :param _BackupZone: 备库 2 的可用区信息，默认为空，克隆强同步主实例时可指定该参数。
         :type BackupZone: str
-        :param _DeviceType: 克隆实例类型。支持值包括："UNIVERSAL" - 通用型实例，"EXCLUSIVE" - 独享型实例，"CLOUD_NATIVE_CLUSTER" - 集群版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 集群版加强型。不指定则默认为通用型。
+        :param _DeviceType: 克隆实例类型。支持值包括："UNIVERSAL" - 通用型实例，"EXCLUSIVE" - 独享型实例，"CLOUD_NATIVE_CLUSTER" - 云盘版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 云盘版加强型。不指定则默认为通用型。
         :type DeviceType: str
         :param _InstanceNodes: 新克隆实例节点数。如果需要克隆出三节点实例， 请将该值设置为3 或指定 BackupZone 参数。如果需要克隆出两节点实例，请将该值设置为2。默认克隆出两节点实例。
         :type InstanceNodes: int
@@ -7940,12 +7952,14 @@ class CreateCloneInstanceRequest(AbstractModel):
         :type PayType: str
         :param _Period: 实例时长，PayType为PRE_PAID时必传，单位：月，可选值包括 [1,2,3,4,5,6,7,8,9,10,11,12,24,36]。
         :type Period: int
-        :param _ClusterTopology: 集群版节点拓扑配置。
+        :param _ClusterTopology: 云盘版节点拓扑配置。
         :type ClusterTopology: :class:`tencentcloud.cdb.v20170320.models.ClusterTopology`
         :param _SrcRegion: 原实例所在地域名，当传入异地备份时为必选项，例：ap-guangzhou
         :type SrcRegion: str
         :param _SpecifiedSubBackupId: 异地数据备份id
         :type SpecifiedSubBackupId: int
+        :param _MasterZone: 新产生的克隆实例主库的可用区信息，默认同源实例 Zone 的值。
+        :type MasterZone: str
         """
         self._InstanceId = None
         self._SpecifiedRollbackTime = None
@@ -7973,6 +7987,7 @@ class CreateCloneInstanceRequest(AbstractModel):
         self._ClusterTopology = None
         self._SrcRegion = None
         self._SpecifiedSubBackupId = None
+        self._MasterZone = None
 
     @property
     def InstanceId(self):
@@ -8000,7 +8015,7 @@ class CreateCloneInstanceRequest(AbstractModel):
     @property
     def SpecifiedBackupId(self):
         r"""如果需要克隆实例回档到指定备份集，则指定该值为备份文件的 Id。请使用 [查询数据备份文件列表](/document/api/236/15842)。
-说明：如果是克隆双节点、三节点实例，备份文件为物理备份，如果是克隆单节点、集群版实例，备份文件为快照备份。
+说明：如果是克隆双节点、三节点实例，备份文件为物理备份，如果是克隆单节点、云盘版实例，备份文件为快照备份。
         :rtype: int
         """
         return self._SpecifiedBackupId
@@ -8143,7 +8158,7 @@ class CreateCloneInstanceRequest(AbstractModel):
 
     @property
     def DeviceType(self):
-        r"""克隆实例类型。支持值包括："UNIVERSAL" - 通用型实例，"EXCLUSIVE" - 独享型实例，"CLOUD_NATIVE_CLUSTER" - 集群版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 集群版加强型。不指定则默认为通用型。
+        r"""克隆实例类型。支持值包括："UNIVERSAL" - 通用型实例，"EXCLUSIVE" - 独享型实例，"CLOUD_NATIVE_CLUSTER" - 云盘版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 云盘版加强型。不指定则默认为通用型。
         :rtype: str
         """
         return self._DeviceType
@@ -8231,7 +8246,7 @@ class CreateCloneInstanceRequest(AbstractModel):
 
     @property
     def ClusterTopology(self):
-        r"""集群版节点拓扑配置。
+        r"""云盘版节点拓扑配置。
         :rtype: :class:`tencentcloud.cdb.v20170320.models.ClusterTopology`
         """
         return self._ClusterTopology
@@ -8261,6 +8276,17 @@ class CreateCloneInstanceRequest(AbstractModel):
     @SpecifiedSubBackupId.setter
     def SpecifiedSubBackupId(self, SpecifiedSubBackupId):
         self._SpecifiedSubBackupId = SpecifiedSubBackupId
+
+    @property
+    def MasterZone(self):
+        r"""新产生的克隆实例主库的可用区信息，默认同源实例 Zone 的值。
+        :rtype: str
+        """
+        return self._MasterZone
+
+    @MasterZone.setter
+    def MasterZone(self, MasterZone):
+        self._MasterZone = MasterZone
 
 
     def _deserialize(self, params):
@@ -8297,6 +8323,7 @@ class CreateCloneInstanceRequest(AbstractModel):
             self._ClusterTopology._deserialize(params.get("ClusterTopology"))
         self._SrcRegion = params.get("SrcRegion")
         self._SpecifiedSubBackupId = params.get("SpecifiedSubBackupId")
+        self._MasterZone = params.get("MasterZone")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8518,10 +8545,10 @@ class CreateDBInstanceHourRequest(AbstractModel):
         :param _Volume: 实例硬盘大小，单位：GB，请使用 [获取云数据库可售卖规格](https://cloud.tencent.com/document/api/236/17229) 接口获取可创建的硬盘范围。
         :type Volume: int
         :param _EngineVersion: MySQL 版本，值包括：5.5、5.6、5.7和8.0，请使用 [获取云数据库可售卖规格](https://cloud.tencent.com/document/api/236/17229) 接口获取可创建的实例版本。
-说明：创建非集群版实例时，请根据需要指定实例版本（推荐5.7或8.0），若此参数不填，则默认值为5.6；若创建的是集群版实例，则此参数仅能指定为5.7或8.0。
+说明：创建非云盘版实例时，请根据需要指定实例版本（推荐5.7或8.0），若此参数不填，则默认值为8.0；若创建的是云盘版实例，则此参数仅能指定为5.7或8.0。
         :type EngineVersion: str
         :param _UniqVpcId: 私有网络 ID，请使用 [查询私有网络列表](/document/api/215/15778)。
-说明：如果创建的是集群版实例，此参数为必填且为私有网络类型。若此项不填，则系统会选择默认的 VPC。
+说明：如果创建的是云盘版实例，此参数为必填且为私有网络类型。若此项不填，则系统会选择默认的 VPC。
         :type UniqVpcId: str
         :param _UniqSubnetId: 私有网络下的子网 ID，如果设置了 UniqVpcId，则 UniqSubnetId 必填，请使用 [查询子网列表](/document/api/215/15784)。
 说明：若此项不填，则系统会选择默认 VPC 下的默认子网。
@@ -8529,7 +8556,7 @@ class CreateDBInstanceHourRequest(AbstractModel):
         :param _ProjectId: 项目 ID，不填为默认项目。
         :type ProjectId: int
         :param _Zone: 可用区信息，请使用 [获取云数据库可售卖规格](https://cloud.tencent.com/document/api/236/17229) 接口获取可创建的可用区。
-说明：若您创建单节点、双节点、三节点实例，此参数为必填项，请指定可用区，若不指定可用区，则系统会自动选择一个可用区（可能不是您希望部署的可用区）；若您创建集群版实例，此参数不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置。
+说明：若您创建单节点、双节点、三节点实例，此参数为必填项，请指定可用区，若不指定可用区，则系统会自动选择一个可用区（可能不是您希望部署的可用区）；若您创建云盘版实例，此参数不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置。
         :type Zone: str
         :param _MasterInstanceId: 实例 ID，购买只读实例或者灾备实例时必填，该字段表示只读实例或者灾备实例的主实例 ID，请使用 [查询实例列表](https://cloud.tencent.com/document/api/236/15872) 接口查询云数据库实例 ID。
         :type MasterInstanceId: str
@@ -8551,7 +8578,7 @@ class CreateDBInstanceHourRequest(AbstractModel):
         :param _DeployMode: 多可用区域，默认为 0，支持值包括：0 - 表示单可用区，1 - 表示多可用区，购买主实例时可指定该参数，购买只读实例或者灾备实例时指定该参数无意义。
         :type DeployMode: int
         :param _SlaveZone: 备库 1 的可用区信息。
-说明：双节点、三节点实例请指定此参数值，若不指定，则默认为 Zone 的值；集群版实例此参数可不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置；单节点实例为单可用区，无需指定此参数。
+说明：双节点、三节点实例请指定此参数值，若不指定，则默认为 Zone 的值；云盘版实例此参数可不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置；单节点实例为单可用区，无需指定此参数。
         :type SlaveZone: str
         :param _BackupZone: 备库 2 的可用区信息，默认为空，购买三节点主实例时可指定该参数。
         :type BackupZone: str
@@ -8569,8 +8596,8 @@ class CreateDBInstanceHourRequest(AbstractModel):
         :type DeployGroupId: str
         :param _ClientToken: 用于保证请求幂等性的字符串。该字符串由客户生成，需保证不同请求之间在48小时内唯一，最大值不超过64个ASCII字符。若不指定该参数，则无法保证请求的幂等性。
         :type ClientToken: str
-        :param _DeviceType: 实例隔离类型。支持值包括："UNIVERSAL" - 通用型实例，"EXCLUSIVE" - 独享型实例，"BASIC_V2" - ONTKE 单节点实例，"CLOUD_NATIVE_CLUSTER" - 集群版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 集群版加强型。不指定则默认为通用型实例。
-说明：如果创建的是集群版实例，此参数为必填。
+        :param _DeviceType: 实例隔离类型。支持值包括："UNIVERSAL" - 通用型实例，"EXCLUSIVE" - 独享型实例，"BASIC_V2" - ONTKE 单节点实例，"CLOUD_NATIVE_CLUSTER" - 云盘版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 云盘版加强型。不指定则默认为通用型实例。
+说明：如果创建的是云盘版实例，此参数为必填。
         :type DeviceType: str
         :param _ParamTemplateId: 参数模板 id。
 备注：如您使用自定义参数模板 id，可传入自定义参数模板 id；如您计划使用默认参数模板，该参数模板 id 传入 id 无效，需设置 ParamTemplateType。
@@ -8596,16 +8623,18 @@ class CreateDBInstanceHourRequest(AbstractModel):
         :type EngineType: str
         :param _Vips: 指定实例的IP列表。仅支持主实例指定，按实例顺序，不足则按未指定处理。
         :type Vips: list of str
-        :param _DataProtectVolume: 集群版实例的数据保护空间大小，单位 GB，设置范围1 - 10。
+        :param _DataProtectVolume: 云盘版实例的数据保护空间大小，单位 GB，设置范围1 - 10。
         :type DataProtectVolume: int
-        :param _ClusterTopology: 集群版节点拓扑配置。
-说明：若购买的是集群版实例，此参数为必填，需设置集群版实例的 RW 和 RO 节点拓扑，RO 节点范围是1 - 5个，请至少设置1个 RO 节点。
+        :param _ClusterTopology: 云盘版节点拓扑配置。
+说明：若购买的是云盘版实例，此参数为必填，需设置云盘版实例的 RW 和 RO 节点拓扑，RO 节点范围是1 - 5个，请至少设置1个 RO 节点。
         :type ClusterTopology: :class:`tencentcloud.cdb.v20170320.models.ClusterTopology`
-        :param _DiskType: 硬盘类型，单节点（云盘版）或者集群版实例可以指定此参数。CLOUD_SSD 表示 SSD 云硬盘，CLOUD_HSSD 表示增强型 SSD 云硬盘。
-说明：单节点（云盘版）、集群版实例硬盘类型所支持的地域略有不同，具体支持情况请参考 [地域和可用区](https://cloud.tencent.com/document/product/236/8458)。
+        :param _DiskType: 硬盘类型，单节点（云盘）或者云盘版实例可以指定此参数。CLOUD_SSD 表示 SSD 云硬盘，CLOUD_HSSD 表示增强型 SSD 云硬盘，CLOUD_PREMIUM 表示高性能云硬盘。
+说明：单节点（云盘）、云盘版实例硬盘类型所支持的地域略有不同，具体支持情况请参考 [地域和可用区](https://cloud.tencent.com/document/product/236/8458)。
         :type DiskType: str
         :param _ClusterType: 集群类型:cage——金融围拢，cdc——CDB ON CDC；dedicate——独享集群
         :type ClusterType: str
+        :param _DestroyProtect: 开启或关闭实例销毁保护。on-开启，off-关闭
+        :type DestroyProtect: str
         """
         self._GoodsNum = None
         self._Memory = None
@@ -8648,6 +8677,7 @@ class CreateDBInstanceHourRequest(AbstractModel):
         self._ClusterTopology = None
         self._DiskType = None
         self._ClusterType = None
+        self._DestroyProtect = None
 
     @property
     def GoodsNum(self):
@@ -8685,7 +8715,7 @@ class CreateDBInstanceHourRequest(AbstractModel):
     @property
     def EngineVersion(self):
         r"""MySQL 版本，值包括：5.5、5.6、5.7和8.0，请使用 [获取云数据库可售卖规格](https://cloud.tencent.com/document/api/236/17229) 接口获取可创建的实例版本。
-说明：创建非集群版实例时，请根据需要指定实例版本（推荐5.7或8.0），若此参数不填，则默认值为5.6；若创建的是集群版实例，则此参数仅能指定为5.7或8.0。
+说明：创建非云盘版实例时，请根据需要指定实例版本（推荐5.7或8.0），若此参数不填，则默认值为8.0；若创建的是云盘版实例，则此参数仅能指定为5.7或8.0。
         :rtype: str
         """
         return self._EngineVersion
@@ -8697,7 +8727,7 @@ class CreateDBInstanceHourRequest(AbstractModel):
     @property
     def UniqVpcId(self):
         r"""私有网络 ID，请使用 [查询私有网络列表](/document/api/215/15778)。
-说明：如果创建的是集群版实例，此参数为必填且为私有网络类型。若此项不填，则系统会选择默认的 VPC。
+说明：如果创建的是云盘版实例，此参数为必填且为私有网络类型。若此项不填，则系统会选择默认的 VPC。
         :rtype: str
         """
         return self._UniqVpcId
@@ -8732,7 +8762,7 @@ class CreateDBInstanceHourRequest(AbstractModel):
     @property
     def Zone(self):
         r"""可用区信息，请使用 [获取云数据库可售卖规格](https://cloud.tencent.com/document/api/236/17229) 接口获取可创建的可用区。
-说明：若您创建单节点、双节点、三节点实例，此参数为必填项，请指定可用区，若不指定可用区，则系统会自动选择一个可用区（可能不是您希望部署的可用区）；若您创建集群版实例，此参数不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置。
+说明：若您创建单节点、双节点、三节点实例，此参数为必填项，请指定可用区，若不指定可用区，则系统会自动选择一个可用区（可能不是您希望部署的可用区）；若您创建云盘版实例，此参数不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置。
         :rtype: str
         """
         return self._Zone
@@ -8835,7 +8865,7 @@ class CreateDBInstanceHourRequest(AbstractModel):
     @property
     def SlaveZone(self):
         r"""备库 1 的可用区信息。
-说明：双节点、三节点实例请指定此参数值，若不指定，则默认为 Zone 的值；集群版实例此参数可不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置；单节点实例为单可用区，无需指定此参数。
+说明：双节点、三节点实例请指定此参数值，若不指定，则默认为 Zone 的值；云盘版实例此参数可不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置；单节点实例为单可用区，无需指定此参数。
         :rtype: str
         """
         return self._SlaveZone
@@ -8934,8 +8964,8 @@ class CreateDBInstanceHourRequest(AbstractModel):
 
     @property
     def DeviceType(self):
-        r"""实例隔离类型。支持值包括："UNIVERSAL" - 通用型实例，"EXCLUSIVE" - 独享型实例，"BASIC_V2" - ONTKE 单节点实例，"CLOUD_NATIVE_CLUSTER" - 集群版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 集群版加强型。不指定则默认为通用型实例。
-说明：如果创建的是集群版实例，此参数为必填。
+        r"""实例隔离类型。支持值包括："UNIVERSAL" - 通用型实例，"EXCLUSIVE" - 独享型实例，"BASIC_V2" - ONTKE 单节点实例，"CLOUD_NATIVE_CLUSTER" - 云盘版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 云盘版加强型。不指定则默认为通用型实例。
+说明：如果创建的是云盘版实例，此参数为必填。
         :rtype: str
         """
         return self._DeviceType
@@ -9069,7 +9099,7 @@ class CreateDBInstanceHourRequest(AbstractModel):
 
     @property
     def DataProtectVolume(self):
-        r"""集群版实例的数据保护空间大小，单位 GB，设置范围1 - 10。
+        r"""云盘版实例的数据保护空间大小，单位 GB，设置范围1 - 10。
         :rtype: int
         """
         return self._DataProtectVolume
@@ -9080,8 +9110,8 @@ class CreateDBInstanceHourRequest(AbstractModel):
 
     @property
     def ClusterTopology(self):
-        r"""集群版节点拓扑配置。
-说明：若购买的是集群版实例，此参数为必填，需设置集群版实例的 RW 和 RO 节点拓扑，RO 节点范围是1 - 5个，请至少设置1个 RO 节点。
+        r"""云盘版节点拓扑配置。
+说明：若购买的是云盘版实例，此参数为必填，需设置云盘版实例的 RW 和 RO 节点拓扑，RO 节点范围是1 - 5个，请至少设置1个 RO 节点。
         :rtype: :class:`tencentcloud.cdb.v20170320.models.ClusterTopology`
         """
         return self._ClusterTopology
@@ -9092,8 +9122,8 @@ class CreateDBInstanceHourRequest(AbstractModel):
 
     @property
     def DiskType(self):
-        r"""硬盘类型，单节点（云盘版）或者集群版实例可以指定此参数。CLOUD_SSD 表示 SSD 云硬盘，CLOUD_HSSD 表示增强型 SSD 云硬盘。
-说明：单节点（云盘版）、集群版实例硬盘类型所支持的地域略有不同，具体支持情况请参考 [地域和可用区](https://cloud.tencent.com/document/product/236/8458)。
+        r"""硬盘类型，单节点（云盘）或者云盘版实例可以指定此参数。CLOUD_SSD 表示 SSD 云硬盘，CLOUD_HSSD 表示增强型 SSD 云硬盘，CLOUD_PREMIUM 表示高性能云硬盘。
+说明：单节点（云盘）、云盘版实例硬盘类型所支持的地域略有不同，具体支持情况请参考 [地域和可用区](https://cloud.tencent.com/document/product/236/8458)。
         :rtype: str
         """
         return self._DiskType
@@ -9112,6 +9142,17 @@ class CreateDBInstanceHourRequest(AbstractModel):
     @ClusterType.setter
     def ClusterType(self, ClusterType):
         self._ClusterType = ClusterType
+
+    @property
+    def DestroyProtect(self):
+        r"""开启或关闭实例销毁保护。on-开启，off-关闭
+        :rtype: str
+        """
+        return self._DestroyProtect
+
+    @DestroyProtect.setter
+    def DestroyProtect(self, DestroyProtect):
+        self._DestroyProtect = DestroyProtect
 
 
     def _deserialize(self, params):
@@ -9170,6 +9211,7 @@ class CreateDBInstanceHourRequest(AbstractModel):
             self._ClusterTopology._deserialize(params.get("ClusterTopology"))
         self._DiskType = params.get("DiskType")
         self._ClusterType = params.get("ClusterType")
+        self._DestroyProtect = params.get("DestroyProtect")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -9254,10 +9296,10 @@ class CreateDBInstanceRequest(AbstractModel):
         :param _GoodsNum: 实例数量，默认值为1, 最小值1，最大值为100。
         :type GoodsNum: int
         :param _Zone: 可用区信息，请使用 [获取云数据库可售卖规格](https://cloud.tencent.com/document/api/236/17229) 接口获取可创建的可用区。
-说明：若您创建单节点、双节点、三节点实例，此参数为必填项，请指定可用区，若不指定可用区，则系统会自动选择一个可用区（可能不是您希望部署的可用区）；若您创建集群版实例，此参数不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置。
+说明：若您创建单节点、双节点、三节点实例，此参数为必填项，请指定可用区，若不指定可用区，则系统会自动选择一个可用区（可能不是您希望部署的可用区）；若您创建云盘版实例，此参数不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置。
         :type Zone: str
         :param _UniqVpcId: 私有网络 ID，请使用 [查询私有网络列表](/document/api/215/15778)。
-说明：如果创建的是集群版实例，此参数为必填且为私有网络类型。若此项不填，则系统会选择默认的 VPC。
+说明：如果创建的是云盘版实例，此参数为必填且为私有网络类型。若此项不填，则系统会选择默认的 VPC。
         :type UniqVpcId: str
         :param _UniqSubnetId: 私有网络下的子网 ID，如果设置了 UniqVpcId，则 UniqSubnetId 必填，请使用 [查询子网列表](/document/api/215/15784)。
 说明：若此项不填，则系统会选择默认 VPC 下的默认子网。
@@ -9273,7 +9315,7 @@ class CreateDBInstanceRequest(AbstractModel):
         :param _MasterInstanceId: 实例 ID，购买只读实例或灾备实例时必填，该字段表示只读实例或灾备实例的主实例 ID，请使用 [查询实例列表](https://cloud.tencent.com/document/api/236/15872) 接口查询云数据库实例 ID。
         :type MasterInstanceId: str
         :param _EngineVersion: MySQL 版本，值包括：5.5、5.6、5.7和8.0，请使用 [获取云数据库可售卖规格](https://cloud.tencent.com/document/api/236/17229) 接口获取可创建的实例版本。
-说明：创建非集群版实例时，请根据需要指定实例版本（推荐5.7或8.0），若此参数不填，则默认值为5.6；若创建的是集群版实例，则此参数仅能指定为5.7或8.0。
+说明：创建非云盘版实例时，请根据需要指定实例版本（推荐5.7或8.0），若此参数不填，则默认值为8.0；若创建的是云盘版实例，则此参数仅能指定为5.7或8.0。
         :type EngineVersion: str
         :param _Password: 设置 root 账号密码，密码规则：8 - 64 个字符，至少包含字母、数字、字符（支持的字符：_+-&=!@#$%^*()）中的两种，购买主实例时可指定该参数，购买只读实例或者灾备实例时指定该参数无意义。
         :type Password: str
@@ -9282,7 +9324,7 @@ class CreateDBInstanceRequest(AbstractModel):
         :param _DeployMode: 多可用区域，默认为 0，支持值包括：0 - 表示单可用区，1 - 表示多可用区。
         :type DeployMode: int
         :param _SlaveZone: 备库 1 的可用区信息。
-说明：双节点、三节点实例请指定此参数值，若不指定，则默认为 Zone 的值；集群版实例此参数可不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置；单节点实例为单可用区，无需指定此参数。
+说明：双节点、三节点实例请指定此参数值，若不指定，则默认为 Zone 的值；云盘版实例此参数可不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置；单节点实例为单可用区，无需指定此参数。
         :type SlaveZone: str
         :param _ParamList: 参数列表，参数格式如 ParamList.0.Name=auto_increment&ParamList.0.Value=1。可通过 [查询默认的可设置参数列表](https://cloud.tencent.com/document/api/236/32662) 查询支持设置的参数。
 说明：表名大小写敏感的开启和关闭可通过参数 lower_case_table_names 进行设置，参数值为0表示开启，参数值为1表示关闭，若不设置则此参数默认值为0。若您创建的是 MySQL 8.0 版本的实例，则需要在创建实例时通过设置 lower_case_table_names 参数来开启或关闭表名大小写敏感，创建实例后无法修改参数，即创建后无法修改表名大小写敏感。其他数据库版本的实例支持在创建实例后修改 lower_case_table_names 参数。创建实例时设置表名大小写敏感的 API 调用方法请参见本文中的示例3。
@@ -9305,8 +9347,8 @@ class CreateDBInstanceRequest(AbstractModel):
         :type DeployGroupId: str
         :param _ClientToken: 用于保证请求幂等性的字符串。该字符串由客户生成，需保证不同请求之间在48小时内唯一，最大值不超过64个ASCII字符。若不指定该参数，则无法保证请求的幂等性。
         :type ClientToken: str
-        :param _DeviceType: 实例隔离类型。支持值包括："UNIVERSAL" - 通用型实例，"EXCLUSIVE" - 独享型实例，"BASIC_V2" - ONTKE 单节点实例，"CLOUD_NATIVE_CLUSTER" - 集群版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 集群版加强型。不指定则默认为通用型实例。
-说明：如果创建的是集群版实例，此参数为必填。
+        :param _DeviceType: 实例隔离类型。支持值包括："UNIVERSAL" - 通用型实例，"EXCLUSIVE" - 独享型实例，"BASIC_V2" - ONTKE 单节点实例，"CLOUD_NATIVE_CLUSTER" - 云盘版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 云盘版加强型。不指定则默认为通用型实例。
+说明：如果创建的是云盘版实例，此参数为必填。
         :type DeviceType: str
         :param _ParamTemplateId: 参数模板 id。
 备注：如您使用自定义参数模板 id，可传入自定义参数模板 id；如您计划使用默认参数模板，该参数模板 id 传入 id 无效，需设置 ParamTemplateType。
@@ -9333,14 +9375,16 @@ class CreateDBInstanceRequest(AbstractModel):
         :type EngineType: str
         :param _Vips: 指定实例的IP列表。仅支持主实例指定，按实例顺序，不足则按未指定处理。
         :type Vips: list of str
-        :param _DataProtectVolume: 集群版实例的数据保护空间大小，单位 GB，设置范围1 - 10。
+        :param _DataProtectVolume: 云盘版实例的数据保护空间大小，单位 GB，设置范围1 - 10。
         :type DataProtectVolume: int
-        :param _ClusterTopology: 集群版节点拓扑配置。
-说明：若购买的是集群版实例，此参数为必填，需设置集群版实例的 RW 和 RO 节点拓扑，RO 节点范围是1 - 5个，请至少设置1个 RO 节点。
+        :param _ClusterTopology: 云盘版节点拓扑配置。
+说明：若购买的是云盘版实例，此参数为必填，需设置云盘版实例的 RW 和 RO 节点拓扑，RO 节点范围是1 - 5个，请至少设置1个 RO 节点。
         :type ClusterTopology: :class:`tencentcloud.cdb.v20170320.models.ClusterTopology`
-        :param _DiskType: 磁盘类型，单节点（云盘版）或者集群版实例可以指定此参数。CLOUD_SSD 表示 SSD 云硬盘，CLOUD_HSSD 表示增强型 SSD 云硬盘。
-说明：单节点（云盘版）、集群版实例硬盘类型所支持的地域略有不同，具体支持情况请参考 [地域和可用区](https://cloud.tencent.com/document/product/236/8458)。
+        :param _DiskType: 磁盘类型，单节点（云盘版）或者云盘版实例可以指定此参数。CLOUD_SSD 表示 SSD 云硬盘，CLOUD_HSSD 表示增强型 SSD 云硬盘，CLOUD_PREMIUM 表示高性能云硬盘。
+说明：单节点（云盘版）、云盘版实例硬盘类型所支持的地域略有不同，具体支持情况请参考 [地域和可用区](https://cloud.tencent.com/document/product/236/8458)。
         :type DiskType: str
+        :param _DestroyProtect: 开启或关闭实例销毁保护。on-开启，off-关闭
+        :type DestroyProtect: str
         """
         self._Memory = None
         self._Volume = None
@@ -9383,6 +9427,7 @@ class CreateDBInstanceRequest(AbstractModel):
         self._DataProtectVolume = None
         self._ClusterTopology = None
         self._DiskType = None
+        self._DestroyProtect = None
 
     @property
     def Memory(self):
@@ -9431,7 +9476,7 @@ class CreateDBInstanceRequest(AbstractModel):
     @property
     def Zone(self):
         r"""可用区信息，请使用 [获取云数据库可售卖规格](https://cloud.tencent.com/document/api/236/17229) 接口获取可创建的可用区。
-说明：若您创建单节点、双节点、三节点实例，此参数为必填项，请指定可用区，若不指定可用区，则系统会自动选择一个可用区（可能不是您希望部署的可用区）；若您创建集群版实例，此参数不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置。
+说明：若您创建单节点、双节点、三节点实例，此参数为必填项，请指定可用区，若不指定可用区，则系统会自动选择一个可用区（可能不是您希望部署的可用区）；若您创建云盘版实例，此参数不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置。
         :rtype: str
         """
         return self._Zone
@@ -9443,7 +9488,7 @@ class CreateDBInstanceRequest(AbstractModel):
     @property
     def UniqVpcId(self):
         r"""私有网络 ID，请使用 [查询私有网络列表](/document/api/215/15778)。
-说明：如果创建的是集群版实例，此参数为必填且为私有网络类型。若此项不填，则系统会选择默认的 VPC。
+说明：如果创建的是云盘版实例，此参数为必填且为私有网络类型。若此项不填，则系统会选择默认的 VPC。
         :rtype: str
         """
         return self._UniqVpcId
@@ -9513,7 +9558,7 @@ class CreateDBInstanceRequest(AbstractModel):
     @property
     def EngineVersion(self):
         r"""MySQL 版本，值包括：5.5、5.6、5.7和8.0，请使用 [获取云数据库可售卖规格](https://cloud.tencent.com/document/api/236/17229) 接口获取可创建的实例版本。
-说明：创建非集群版实例时，请根据需要指定实例版本（推荐5.7或8.0），若此参数不填，则默认值为5.6；若创建的是集群版实例，则此参数仅能指定为5.7或8.0。
+说明：创建非云盘版实例时，请根据需要指定实例版本（推荐5.7或8.0），若此参数不填，则默认值为8.0；若创建的是云盘版实例，则此参数仅能指定为5.7或8.0。
         :rtype: str
         """
         return self._EngineVersion
@@ -9558,7 +9603,7 @@ class CreateDBInstanceRequest(AbstractModel):
     @property
     def SlaveZone(self):
         r"""备库 1 的可用区信息。
-说明：双节点、三节点实例请指定此参数值，若不指定，则默认为 Zone 的值；集群版实例此参数可不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置；单节点实例为单可用区，无需指定此参数。
+说明：双节点、三节点实例请指定此参数值，若不指定，则默认为 Zone 的值；云盘版实例此参数可不填，请通过参数 ClusterTopology 进行读写节点和只读节点的可用区配置；单节点实例为单可用区，无需指定此参数。
         :rtype: str
         """
         return self._SlaveZone
@@ -9680,8 +9725,8 @@ class CreateDBInstanceRequest(AbstractModel):
 
     @property
     def DeviceType(self):
-        r"""实例隔离类型。支持值包括："UNIVERSAL" - 通用型实例，"EXCLUSIVE" - 独享型实例，"BASIC_V2" - ONTKE 单节点实例，"CLOUD_NATIVE_CLUSTER" - 集群版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 集群版加强型。不指定则默认为通用型实例。
-说明：如果创建的是集群版实例，此参数为必填。
+        r"""实例隔离类型。支持值包括："UNIVERSAL" - 通用型实例，"EXCLUSIVE" - 独享型实例，"BASIC_V2" - ONTKE 单节点实例，"CLOUD_NATIVE_CLUSTER" - 云盘版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 云盘版加强型。不指定则默认为通用型实例。
+说明：如果创建的是云盘版实例，此参数为必填。
         :rtype: str
         """
         return self._DeviceType
@@ -9816,7 +9861,7 @@ class CreateDBInstanceRequest(AbstractModel):
 
     @property
     def DataProtectVolume(self):
-        r"""集群版实例的数据保护空间大小，单位 GB，设置范围1 - 10。
+        r"""云盘版实例的数据保护空间大小，单位 GB，设置范围1 - 10。
         :rtype: int
         """
         return self._DataProtectVolume
@@ -9827,8 +9872,8 @@ class CreateDBInstanceRequest(AbstractModel):
 
     @property
     def ClusterTopology(self):
-        r"""集群版节点拓扑配置。
-说明：若购买的是集群版实例，此参数为必填，需设置集群版实例的 RW 和 RO 节点拓扑，RO 节点范围是1 - 5个，请至少设置1个 RO 节点。
+        r"""云盘版节点拓扑配置。
+说明：若购买的是云盘版实例，此参数为必填，需设置云盘版实例的 RW 和 RO 节点拓扑，RO 节点范围是1 - 5个，请至少设置1个 RO 节点。
         :rtype: :class:`tencentcloud.cdb.v20170320.models.ClusterTopology`
         """
         return self._ClusterTopology
@@ -9839,8 +9884,8 @@ class CreateDBInstanceRequest(AbstractModel):
 
     @property
     def DiskType(self):
-        r"""磁盘类型，单节点（云盘版）或者集群版实例可以指定此参数。CLOUD_SSD 表示 SSD 云硬盘，CLOUD_HSSD 表示增强型 SSD 云硬盘。
-说明：单节点（云盘版）、集群版实例硬盘类型所支持的地域略有不同，具体支持情况请参考 [地域和可用区](https://cloud.tencent.com/document/product/236/8458)。
+        r"""磁盘类型，单节点（云盘版）或者云盘版实例可以指定此参数。CLOUD_SSD 表示 SSD 云硬盘，CLOUD_HSSD 表示增强型 SSD 云硬盘，CLOUD_PREMIUM 表示高性能云硬盘。
+说明：单节点（云盘版）、云盘版实例硬盘类型所支持的地域略有不同，具体支持情况请参考 [地域和可用区](https://cloud.tencent.com/document/product/236/8458)。
         :rtype: str
         """
         return self._DiskType
@@ -9848,6 +9893,17 @@ class CreateDBInstanceRequest(AbstractModel):
     @DiskType.setter
     def DiskType(self, DiskType):
         self._DiskType = DiskType
+
+    @property
+    def DestroyProtect(self):
+        r"""开启或关闭实例销毁保护。on-开启，off-关闭
+        :rtype: str
+        """
+        return self._DestroyProtect
+
+    @DestroyProtect.setter
+    def DestroyProtect(self, DestroyProtect):
+        self._DestroyProtect = DestroyProtect
 
 
     def _deserialize(self, params):
@@ -9906,6 +9962,7 @@ class CreateDBInstanceRequest(AbstractModel):
             self._ClusterTopology = ClusterTopology()
             self._ClusterTopology._deserialize(params.get("ClusterTopology"))
         self._DiskType = params.get("DiskType")
+        self._DestroyProtect = params.get("DestroyProtect")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12054,11 +12111,17 @@ class DescribeAccountsRequest(AbstractModel):
         :type Limit: int
         :param _AccountRegexp: 匹配账号名的正则表达式，规则同 MySQL 官网。
         :type AccountRegexp: str
+        :param _SortBy: 默认无排序，支持：ASC、DESC、asc、desc
+        :type SortBy: str
+        :param _OrderBy: 待排序的时间字段，可选：CreateTime(账号创建时间)、ModifyTime(账号更新时间)、ModifyPasswordTime(密码修改时间)
+        :type OrderBy: str
         """
         self._InstanceId = None
         self._Offset = None
         self._Limit = None
         self._AccountRegexp = None
+        self._SortBy = None
+        self._OrderBy = None
 
     @property
     def InstanceId(self):
@@ -12104,12 +12167,36 @@ class DescribeAccountsRequest(AbstractModel):
     def AccountRegexp(self, AccountRegexp):
         self._AccountRegexp = AccountRegexp
 
+    @property
+    def SortBy(self):
+        r"""默认无排序，支持：ASC、DESC、asc、desc
+        :rtype: str
+        """
+        return self._SortBy
+
+    @SortBy.setter
+    def SortBy(self, SortBy):
+        self._SortBy = SortBy
+
+    @property
+    def OrderBy(self):
+        r"""待排序的时间字段，可选：CreateTime(账号创建时间)、ModifyTime(账号更新时间)、ModifyPasswordTime(密码修改时间)
+        :rtype: str
+        """
+        return self._OrderBy
+
+    @OrderBy.setter
+    def OrderBy(self, OrderBy):
+        self._OrderBy = OrderBy
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
         self._Offset = params.get("Offset")
         self._Limit = params.get("Limit")
         self._AccountRegexp = params.get("AccountRegexp")
+        self._SortBy = params.get("SortBy")
+        self._OrderBy = params.get("OrderBy")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12341,6 +12428,8 @@ class DescribeAuditConfigResponse(AbstractModel):
         :type LogType: str
         :param _IsClosing: 是否正在关闭审计。目前支持的值包括："false"-否，"true"-是
         :type IsClosing: str
+        :param _IsOpening: 是否正在开启审计。目前支持的值包括："false"-否，"true"-是
+        :type IsOpening: str
         :param _CreateTime: 审计服务开通时间。
         :type CreateTime: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
@@ -12349,6 +12438,7 @@ class DescribeAuditConfigResponse(AbstractModel):
         self._LogExpireDay = None
         self._LogType = None
         self._IsClosing = None
+        self._IsOpening = None
         self._CreateTime = None
         self._RequestId = None
 
@@ -12386,6 +12476,17 @@ class DescribeAuditConfigResponse(AbstractModel):
         self._IsClosing = IsClosing
 
     @property
+    def IsOpening(self):
+        r"""是否正在开启审计。目前支持的值包括："false"-否，"true"-是
+        :rtype: str
+        """
+        return self._IsOpening
+
+    @IsOpening.setter
+    def IsOpening(self, IsOpening):
+        self._IsOpening = IsOpening
+
+    @property
     def CreateTime(self):
         r"""审计服务开通时间。
         :rtype: str
@@ -12412,6 +12513,7 @@ class DescribeAuditConfigResponse(AbstractModel):
         self._LogExpireDay = params.get("LogExpireDay")
         self._LogType = params.get("LogType")
         self._IsClosing = params.get("IsClosing")
+        self._IsOpening = params.get("IsOpening")
         self._CreateTime = params.get("CreateTime")
         self._RequestId = params.get("RequestId")
 
@@ -14296,14 +14398,14 @@ class DescribeBackupOverviewRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Product: 需要查询备份概览的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点云盘版实例，mysql-cluster 指云盘版（原集群版）实例。
+        :param _Product: 需要查询备份概览的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点（云盘）实例，mysql-cluster 指云盘版实例。
         :type Product: str
         """
         self._Product = None
 
     @property
     def Product(self):
-        r"""需要查询备份概览的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点云盘版实例，mysql-cluster 指云盘版（原集群版）实例。
+        r"""需要查询备份概览的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点（云盘）实例，mysql-cluster 指云盘版实例。
         :rtype: str
         """
         return self._Product
@@ -14465,7 +14567,7 @@ class DescribeBackupSummariesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Product: 需要查询备份实时统计的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点云盘版实例，mysql-cluster 指云盘版（原集群版）实例。
+        :param _Product: 需要查询备份实时统计的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点（云盘）实例，mysql-cluster 指云盘版实例。
         :type Product: str
         :param _Offset: 分页查询数据的偏移量，默认为0。
         :type Offset: int
@@ -14484,7 +14586,7 @@ class DescribeBackupSummariesRequest(AbstractModel):
 
     @property
     def Product(self):
-        r"""需要查询备份实时统计的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点云盘版实例，mysql-cluster 指云盘版（原集群版）实例。
+        r"""需要查询备份实时统计的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点（云盘）实例，mysql-cluster 指云盘版实例。
         :rtype: str
         """
         return self._Product
@@ -14753,14 +14855,14 @@ class DescribeBinlogBackupOverviewRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Product: 需要查询日志备份概览的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点云盘版实例，mysql-cluster 指云盘版（原集群版）实例。
+        :param _Product: 需要查询日志备份概览的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点（云盘）实例，mysql-cluster 指云盘版实例。
         :type Product: str
         """
         self._Product = None
 
     @property
     def Product(self):
-        r"""需要查询日志备份概览的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点云盘版实例，mysql-cluster 指云盘版（原集群版）实例。
+        r"""需要查询日志备份概览的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点（云盘）实例，mysql-cluster 指云盘版实例。
         :rtype: str
         """
         return self._Product
@@ -15734,11 +15836,11 @@ class DescribeCpuExpandHistoryRequest(AbstractModel):
         :type Status: str
         :param _StartTime: 查询的开始时间。只能查看30天内的扩容历史，格式为 Integer 的时间戳（秒级）。
         :type StartTime: int
-        :param _EndTime: 查询的结束时间。只能查看30天内的扩容历史，格式为 Integer 的时间戳（秒级）。
+        :param _EndTime: 查询的结束时间，默认为当前时间。只能查看30天内的扩容历史，格式为 Integer 的时间戳（秒级）。
         :type EndTime: int
         :param _Offset: 分页入参
         :type Offset: int
-        :param _Limit: 分页入参
+        :param _Limit: 分页入参，默认20
         :type Limit: int
         """
         self._InstanceId = None
@@ -15795,7 +15897,7 @@ class DescribeCpuExpandHistoryRequest(AbstractModel):
 
     @property
     def EndTime(self):
-        r"""查询的结束时间。只能查看30天内的扩容历史，格式为 Integer 的时间戳（秒级）。
+        r"""查询的结束时间，默认为当前时间。只能查看30天内的扩容历史，格式为 Integer 的时间戳（秒级）。
         :rtype: int
         """
         return self._EndTime
@@ -15817,7 +15919,7 @@ class DescribeCpuExpandHistoryRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""分页入参
+        r"""分页入参，默认20
         :rtype: int
         """
         return self._Limit
@@ -16394,7 +16496,7 @@ class DescribeDBInstanceConfigResponse(AbstractModel):
         :type ProtectMode: int
         :param _DeployMode: 主实例部署方式，可能的返回值：0 - 单可用部署，1 - 多可用区部署。
         :type DeployMode: int
-        :param _Zone: 实例可用区信息，格式如 "ap-shanghai-1"。
+        :param _Zone: 实例可用区信息，格式如 "ap-shanghai-2"。
         :type Zone: str
         :param _SlaveConfig: 备库的配置信息。
 注意：此字段可能返回 null，表示取不到有效值。
@@ -16439,7 +16541,7 @@ class DescribeDBInstanceConfigResponse(AbstractModel):
 
     @property
     def Zone(self):
-        r"""实例可用区信息，格式如 "ap-shanghai-1"。
+        r"""实例可用区信息，格式如 "ap-shanghai-2"。
         :rtype: str
         """
         return self._Zone
@@ -17003,7 +17105,7 @@ class DescribeDBInstancesRequest(AbstractModel):
         :type SubnetIds: list of int non-negative
         :param _CdbErrors: 是否锁定标记，可选值：0 - 不锁定，1 - 锁定，默认为0。
         :type CdbErrors: list of int
-        :param _OrderBy: 返回结果集排序的字段，目前支持："InstanceId"，"InstanceName"，"CreateTime"，"DeadlineTime"。
+        :param _OrderBy: 返回结果集排序的字段，目前支持："instanceId"，"instanceName"，"createTime"，"deadlineTime"。
         :type OrderBy: str
         :param _OrderDirection: 返回结果集排序方式。目前支持值："ASC" - 表示升序，"DESC" - 表示降序，默认为 "DESC"。
         :type OrderDirection: str
@@ -17045,7 +17147,7 @@ class DescribeDBInstancesRequest(AbstractModel):
         :type ProxyIds: list of str
         :param _EngineTypes: 数据库引擎类型。可选值为：InnoDB、RocksDB。
         :type EngineTypes: list of str
-        :param _QueryClusterInfo: 是否获取集群版实例节点信息，可填：true 或 false。默认为 false。
+        :param _QueryClusterInfo: 是否获取云盘版实例节点信息，可填：true 或 false。默认为 false。
         :type QueryClusterInfo: bool
         """
         self._ProjectId = None
@@ -17252,7 +17354,7 @@ class DescribeDBInstancesRequest(AbstractModel):
 
     @property
     def OrderBy(self):
-        r"""返回结果集排序的字段，目前支持："InstanceId"，"InstanceName"，"CreateTime"，"DeadlineTime"。
+        r"""返回结果集排序的字段，目前支持："instanceId"，"instanceName"，"createTime"，"deadlineTime"。
         :rtype: str
         """
         return self._OrderBy
@@ -17474,7 +17576,7 @@ class DescribeDBInstancesRequest(AbstractModel):
 
     @property
     def QueryClusterInfo(self):
-        r"""是否获取集群版实例节点信息，可填：true 或 false。默认为 false。
+        r"""是否获取云盘版实例节点信息，可填：true 或 false。默认为 false。
         :rtype: bool
         """
         return self._QueryClusterInfo
@@ -18153,14 +18255,14 @@ class DescribeDataBackupOverviewRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Product: 需要查询数据备份概览的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点云盘版实例，mysql-cluster 指云盘版（原集群版）实例。
+        :param _Product: 需要查询数据备份概览的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点（云盘）实例，mysql-cluster 指云盘版实例。
         :type Product: str
         """
         self._Product = None
 
     @property
     def Product(self):
-        r"""需要查询数据备份概览的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点云盘版实例，mysql-cluster 指云盘版（原集群版）实例。
+        r"""需要查询数据备份概览的云数据库产品类型。可取值为：mysql 指双节点/三节点的高可用实例，mysql-basic 指单节点（云盘）实例，mysql-cluster 指云盘版实例。
         :rtype: str
         """
         return self._Product
@@ -19576,6 +19678,105 @@ class DescribeInstanceParamsResponse(AbstractModel):
     @property
     def Items(self):
         r"""参数详情。
+        :rtype: list of ParameterDetail
+        """
+        return self._Items
+
+    @Items.setter
+    def Items(self, Items):
+        self._Items = Items
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TotalCount = params.get("TotalCount")
+        if params.get("Items") is not None:
+            self._Items = []
+            for item in params.get("Items"):
+                obj = ParameterDetail()
+                obj._deserialize(item)
+                self._Items.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeInstancePasswordComplexityRequest(AbstractModel):
+    r"""DescribeInstancePasswordComplexity请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例ID 
+        :type InstanceId: str
+        """
+        self._InstanceId = None
+
+    @property
+    def InstanceId(self):
+        r"""实例ID 
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeInstancePasswordComplexityResponse(AbstractModel):
+    r"""DescribeInstancePasswordComplexity返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCount: 密码复杂度相关参数总数
+        :type TotalCount: int
+        :param _Items: 密码复杂度参数详情，policy取值范围["","LOW","MEDIUM"],空或者LOW表示：密码复杂度关，MEDIUM表示：密码复杂度开；当policy参数值是MEDIUM时，以下参数才有意义，length:取值范围[8-64],表示：最少字符数；mixed_case_count：取值范围[1-16]，表示大写字母和小写字母的最少个数。number_count：取值范围[1-16]，表示数字字符的最少个数。special_char_count：取值范围[1-16]，表示特殊字符的最少个数。
+        :type Items: list of ParameterDetail
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TotalCount = None
+        self._Items = None
+        self._RequestId = None
+
+    @property
+    def TotalCount(self):
+        r"""密码复杂度相关参数总数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def Items(self):
+        r"""密码复杂度参数详情，policy取值范围["","LOW","MEDIUM"],空或者LOW表示：密码复杂度关，MEDIUM表示：密码复杂度开；当policy参数值是MEDIUM时，以下参数才有意义，length:取值范围[8-64],表示：最少字符数；mixed_case_count：取值范围[1-16]，表示大写字母和小写字母的最少个数。number_count：取值范围[1-16]，表示数字字符的最少个数。special_char_count：取值范围[1-16]，表示特殊字符的最少个数。
         :rtype: list of ParameterDetail
         """
         return self._Items
@@ -23586,7 +23787,7 @@ class DiskTypeConfigItem(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _DeviceType: 磁盘对应的实例类型。仅支持单节点基础型和集群版。
+        :param _DeviceType: 磁盘对应的实例类型。仅支持单节点（云盘）和云盘版。
         :type DeviceType: str
         :param _DiskType: 可以选择的磁盘类型列表。
         :type DiskType: list of str
@@ -23596,7 +23797,7 @@ class DiskTypeConfigItem(AbstractModel):
 
     @property
     def DeviceType(self):
-        r"""磁盘对应的实例类型。仅支持单节点基础型和集群版。
+        r"""磁盘对应的实例类型。仅支持单节点（云盘）和云盘版。
         :rtype: str
         """
         return self._DeviceType
@@ -24777,6 +24978,16 @@ class InstanceDbAuditStatus(AbstractModel):
         :type OldRule: bool
         :param _RuleTemplateIds: 实例所应用的规则模板。
         :type RuleTemplateIds: list of str
+        :param _TrialStatus: 限免状态
+        :type TrialStatus: str
+        :param _TrialStartTime: 限免开启时间
+        :type TrialStartTime: int
+        :param _TrialDuration: 限免持续时间
+        :type TrialDuration: int
+        :param _TrialCloseTime: 限免关闭时间
+        :type TrialCloseTime: int
+        :param _TrialDescribeLogHours: 限免期查询日志时长
+        :type TrialDescribeLogHours: int
         """
         self._InstanceId = None
         self._AuditStatus = None
@@ -24793,6 +25004,11 @@ class InstanceDbAuditStatus(AbstractModel):
         self._RealStorage = None
         self._OldRule = None
         self._RuleTemplateIds = None
+        self._TrialStatus = None
+        self._TrialStartTime = None
+        self._TrialDuration = None
+        self._TrialCloseTime = None
+        self._TrialDescribeLogHours = None
 
     @property
     def InstanceId(self):
@@ -24974,6 +25190,61 @@ class InstanceDbAuditStatus(AbstractModel):
     def RuleTemplateIds(self, RuleTemplateIds):
         self._RuleTemplateIds = RuleTemplateIds
 
+    @property
+    def TrialStatus(self):
+        r"""限免状态
+        :rtype: str
+        """
+        return self._TrialStatus
+
+    @TrialStatus.setter
+    def TrialStatus(self, TrialStatus):
+        self._TrialStatus = TrialStatus
+
+    @property
+    def TrialStartTime(self):
+        r"""限免开启时间
+        :rtype: int
+        """
+        return self._TrialStartTime
+
+    @TrialStartTime.setter
+    def TrialStartTime(self, TrialStartTime):
+        self._TrialStartTime = TrialStartTime
+
+    @property
+    def TrialDuration(self):
+        r"""限免持续时间
+        :rtype: int
+        """
+        return self._TrialDuration
+
+    @TrialDuration.setter
+    def TrialDuration(self, TrialDuration):
+        self._TrialDuration = TrialDuration
+
+    @property
+    def TrialCloseTime(self):
+        r"""限免关闭时间
+        :rtype: int
+        """
+        return self._TrialCloseTime
+
+    @TrialCloseTime.setter
+    def TrialCloseTime(self, TrialCloseTime):
+        self._TrialCloseTime = TrialCloseTime
+
+    @property
+    def TrialDescribeLogHours(self):
+        r"""限免期查询日志时长
+        :rtype: int
+        """
+        return self._TrialDescribeLogHours
+
+    @TrialDescribeLogHours.setter
+    def TrialDescribeLogHours(self, TrialDescribeLogHours):
+        self._TrialDescribeLogHours = TrialDescribeLogHours
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -24993,6 +25264,11 @@ class InstanceDbAuditStatus(AbstractModel):
         self._RealStorage = params.get("RealStorage")
         self._OldRule = params.get("OldRule")
         self._RuleTemplateIds = params.get("RuleTemplateIds")
+        self._TrialStatus = params.get("TrialStatus")
+        self._TrialStartTime = params.get("TrialStartTime")
+        self._TrialDuration = params.get("TrialDuration")
+        self._TrialCloseTime = params.get("TrialCloseTime")
+        self._TrialDescribeLogHours = params.get("TrialDescribeLogHours")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -25100,16 +25376,22 @@ class InstanceInfo(AbstractModel):
         :type EngineType: str
         :param _MaxDelayTime: 最大延迟阈值
         :type MaxDelayTime: int
-        :param _DiskType: 实例磁盘类型，仅云盘版实例才返回该值。可能的值为 CLOUD_SSD：SSD云硬盘， CLOUD_HSSD：增强型SSD云硬盘
+        :param _DiskType: 实例磁盘类型，仅云盘版和单节点（云盘）实例才会返回有效值。
+说明：
+1. 若返回："DiskType": "CLOUD_HSSD"，则表示该实例磁盘类型为增强型 SSD 云硬盘。
+2. 若返回："DiskType": "CLOUD_SSD"，则表示该实例磁盘类型为 SSD 云硬盘。
+3. 若返回："DiskType": ""，且参数 DeviceType 值为 UNIVERSAL 或 EXCLUSIVE，则表示该实例采用的是本地 SSD 盘。
         :type DiskType: str
         :param _ExpandCpu: 当前扩容的CPU核心数。
         :type ExpandCpu: int
-        :param _ClusterInfo: 实例集群版节点信息
+        :param _ClusterInfo: 云盘版实例节点信息
         :type ClusterInfo: list of ClusterInfo
         :param _AnalysisNodeInfos: 分析引擎节点列表
         :type AnalysisNodeInfos: list of AnalysisNodeInfo
         :param _DeviceBandwidth: 设备带宽，单位G。当DeviceClass不为空时此参数才有效。例：25-表示当前设备带宽为25G；10-表示当前设备带宽为10G。
         :type DeviceBandwidth: int
+        :param _DestroyProtect: 实例销毁保护状态，on表示开启保护，否则为关闭保护
+        :type DestroyProtect: str
         """
         self._WanStatus = None
         self._Zone = None
@@ -25161,6 +25443,7 @@ class InstanceInfo(AbstractModel):
         self._ClusterInfo = None
         self._AnalysisNodeInfos = None
         self._DeviceBandwidth = None
+        self._DestroyProtect = None
 
     @property
     def WanStatus(self):
@@ -25659,7 +25942,11 @@ class InstanceInfo(AbstractModel):
 
     @property
     def DiskType(self):
-        r"""实例磁盘类型，仅云盘版实例才返回该值。可能的值为 CLOUD_SSD：SSD云硬盘， CLOUD_HSSD：增强型SSD云硬盘
+        r"""实例磁盘类型，仅云盘版和单节点（云盘）实例才会返回有效值。
+说明：
+1. 若返回："DiskType": "CLOUD_HSSD"，则表示该实例磁盘类型为增强型 SSD 云硬盘。
+2. 若返回："DiskType": "CLOUD_SSD"，则表示该实例磁盘类型为 SSD 云硬盘。
+3. 若返回："DiskType": ""，且参数 DeviceType 值为 UNIVERSAL 或 EXCLUSIVE，则表示该实例采用的是本地 SSD 盘。
         :rtype: str
         """
         return self._DiskType
@@ -25681,7 +25968,7 @@ class InstanceInfo(AbstractModel):
 
     @property
     def ClusterInfo(self):
-        r"""实例集群版节点信息
+        r"""云盘版实例节点信息
         :rtype: list of ClusterInfo
         """
         return self._ClusterInfo
@@ -25711,6 +25998,17 @@ class InstanceInfo(AbstractModel):
     @DeviceBandwidth.setter
     def DeviceBandwidth(self, DeviceBandwidth):
         self._DeviceBandwidth = DeviceBandwidth
+
+    @property
+    def DestroyProtect(self):
+        r"""实例销毁保护状态，on表示开启保护，否则为关闭保护
+        :rtype: str
+        """
+        return self._DestroyProtect
+
+    @DestroyProtect.setter
+    def DestroyProtect(self, DestroyProtect):
+        self._DestroyProtect = DestroyProtect
 
 
     def _deserialize(self, params):
@@ -25795,6 +26093,7 @@ class InstanceInfo(AbstractModel):
                 obj._deserialize(item)
                 self._AnalysisNodeInfos.append(obj)
         self._DeviceBandwidth = params.get("DeviceBandwidth")
+        self._DestroyProtect = params.get("DestroyProtect")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -26581,7 +26880,7 @@ class MasterInfo(AbstractModel):
 
 
 class MigrateClusterRoInfo(AbstractModel):
-    r"""一键迁移集群版只读实例信息
+    r"""一键迁移云盘版只读实例信息
 
     """
 
@@ -26599,7 +26898,7 @@ class MigrateClusterRoInfo(AbstractModel):
         :type DiskType: str
         :param _Zone: 可用区
         :type Zone: str
-        :param _DeviceType: 迁移实例类型。支持值包括： "CLOUD_NATIVE_CLUSTER" - 标准型集群版实例， "CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 加强型集群版实例。
+        :param _DeviceType: 迁移实例类型。支持值包括： "CLOUD_NATIVE_CLUSTER" - 云盘版标准型实例， "CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 云盘版加强型实例。
         :type DeviceType: str
         :param _RoGroupId: 只读实例所在ro组，例：cdbrg-xxx
         :type RoGroupId: str
@@ -26684,7 +26983,7 @@ class MigrateClusterRoInfo(AbstractModel):
 
     @property
     def DeviceType(self):
-        r"""迁移实例类型。支持值包括： "CLOUD_NATIVE_CLUSTER" - 标准型集群版实例， "CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 加强型集群版实例。
+        r"""迁移实例类型。支持值包括： "CLOUD_NATIVE_CLUSTER" - 云盘版标准型实例， "CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 云盘版加强型实例。
         :rtype: str
         """
         return self._DeviceType
@@ -27101,10 +27400,13 @@ class ModifyAccountPasswordRequest(AbstractModel):
         :type NewPassword: str
         :param _Accounts: 云数据库账号。可通过 [DescribeAccounts](https://cloud.tencent.com/document/api/236/17499) 接口获取。
         :type Accounts: list of Account
+        :param _SkipValidatePassword: 是否跳过校验密码复杂度
+        :type SkipValidatePassword: bool
         """
         self._InstanceId = None
         self._NewPassword = None
         self._Accounts = None
+        self._SkipValidatePassword = None
 
     @property
     def InstanceId(self):
@@ -27139,6 +27441,21 @@ class ModifyAccountPasswordRequest(AbstractModel):
     def Accounts(self, Accounts):
         self._Accounts = Accounts
 
+    @property
+    def SkipValidatePassword(self):
+        warnings.warn("parameter `SkipValidatePassword` is deprecated", DeprecationWarning) 
+
+        r"""是否跳过校验密码复杂度
+        :rtype: bool
+        """
+        return self._SkipValidatePassword
+
+    @SkipValidatePassword.setter
+    def SkipValidatePassword(self, SkipValidatePassword):
+        warnings.warn("parameter `SkipValidatePassword` is deprecated", DeprecationWarning) 
+
+        self._SkipValidatePassword = SkipValidatePassword
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -27149,6 +27466,7 @@ class ModifyAccountPasswordRequest(AbstractModel):
                 obj = Account()
                 obj._deserialize(item)
                 self._Accounts.append(obj)
+        self._SkipValidatePassword = params.get("SkipValidatePassword")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -28579,9 +28897,12 @@ class ModifyBackupEncryptionStatusRequest(AbstractModel):
         :type InstanceId: str
         :param _EncryptionStatus: 设置实例新增的自动物理备份文件默认加密状态。可选值为 on或者off。
         :type EncryptionStatus: str
+        :param _BinlogEncryptionStatus: 设置实例新增的自动日志备份文件默认加密状态。可选值为 on或者off。
+        :type BinlogEncryptionStatus: str
         """
         self._InstanceId = None
         self._EncryptionStatus = None
+        self._BinlogEncryptionStatus = None
 
     @property
     def InstanceId(self):
@@ -28605,10 +28926,22 @@ class ModifyBackupEncryptionStatusRequest(AbstractModel):
     def EncryptionStatus(self, EncryptionStatus):
         self._EncryptionStatus = EncryptionStatus
 
+    @property
+    def BinlogEncryptionStatus(self):
+        r"""设置实例新增的自动日志备份文件默认加密状态。可选值为 on或者off。
+        :rtype: str
+        """
+        return self._BinlogEncryptionStatus
+
+    @BinlogEncryptionStatus.setter
+    def BinlogEncryptionStatus(self, BinlogEncryptionStatus):
+        self._BinlogEncryptionStatus = BinlogEncryptionStatus
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
         self._EncryptionStatus = params.get("EncryptionStatus")
+        self._BinlogEncryptionStatus = params.get("BinlogEncryptionStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -29194,6 +29527,115 @@ class ModifyDBInstanceLogToCLSResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ModifyDBInstanceModesRequest(AbstractModel):
+    r"""ModifyDBInstanceModes请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例ID，格式如：cdb-c1nl9rpv，与云数据库控制台页面中显示的实例ID相同。
+        :type InstanceId: str
+        :param _Mode: 云数据库的模式，目前仅支持传入 "protectMode" 表示修改主从同步方式。
+        :type Mode: str
+        :param _ProtectMode: 数据同步方式，可选值：0-异步复制，1-半同步复制，2-强同步复制。
+        :type ProtectMode: int
+        """
+        self._InstanceId = None
+        self._Mode = None
+        self._ProtectMode = None
+
+    @property
+    def InstanceId(self):
+        r"""实例ID，格式如：cdb-c1nl9rpv，与云数据库控制台页面中显示的实例ID相同。
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def Mode(self):
+        r"""云数据库的模式，目前仅支持传入 "protectMode" 表示修改主从同步方式。
+        :rtype: str
+        """
+        return self._Mode
+
+    @Mode.setter
+    def Mode(self, Mode):
+        self._Mode = Mode
+
+    @property
+    def ProtectMode(self):
+        r"""数据同步方式，可选值：0-异步复制，1-半同步复制，2-强同步复制。
+        :rtype: int
+        """
+        return self._ProtectMode
+
+    @ProtectMode.setter
+    def ProtectMode(self, ProtectMode):
+        self._ProtectMode = ProtectMode
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._Mode = params.get("Mode")
+        self._ProtectMode = params.get("ProtectMode")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyDBInstanceModesResponse(AbstractModel):
+    r"""ModifyDBInstanceModes返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _AsyncRequestId: 异步任务的请求ID，可使用此ID查询异步任务的执行结果。
+        :type AsyncRequestId: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._AsyncRequestId = None
+        self._RequestId = None
+
+    @property
+    def AsyncRequestId(self):
+        r"""异步任务的请求ID，可使用此ID查询异步任务的执行结果。
+        :rtype: str
+        """
+        return self._AsyncRequestId
+
+    @AsyncRequestId.setter
+    def AsyncRequestId(self, AsyncRequestId):
+        self._AsyncRequestId = AsyncRequestId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._AsyncRequestId = params.get("AsyncRequestId")
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyDBInstanceNameRequest(AbstractModel):
     r"""ModifyDBInstanceName请求参数结构体
 
@@ -29457,7 +29899,7 @@ class ModifyDBInstanceSecurityGroupsRequest(AbstractModel):
         :type SecurityGroupIds: list of str
         :param _ForReadonlyInstance: 当传入只读实例 ID 时，默认操作的是对应只读组的安全组。如果需要操作只读实例 ID 的安全组， 需要将该入参置为 True。默认为 False。
         :type ForReadonlyInstance: bool
-        :param _OpResourceId: 变更集群版实例只读组时，InstanceId 传实例 ID，需要额外指定该参数表示操作只读组。 如果操作读写节点则不需指定该参数。
+        :param _OpResourceId: 变更云盘版实例只读组时，InstanceId 传实例 ID，需要额外指定该参数表示操作只读组。 如果操作读写节点则不需指定该参数。
         :type OpResourceId: str
         """
         self._InstanceId = None
@@ -29501,7 +29943,7 @@ class ModifyDBInstanceSecurityGroupsRequest(AbstractModel):
 
     @property
     def OpResourceId(self):
-        r"""变更集群版实例只读组时，InstanceId 传实例 ID，需要额外指定该参数表示操作只读组。 如果操作读写节点则不需指定该参数。
+        r"""变更云盘版实例只读组时，InstanceId 传实例 ID，需要额外指定该参数表示操作只读组。 如果操作读写节点则不需指定该参数。
         :rtype: str
         """
         return self._OpResourceId
@@ -33356,7 +33798,7 @@ class ProxyNodeCustom(AbstractModel):
 
 
 class ReadWriteNode(AbstractModel):
-    r"""集群版 RW 节点的配置。
+    r"""云盘版 RW 节点的配置。
 
     """
 
@@ -33364,7 +33806,7 @@ class ReadWriteNode(AbstractModel):
         r"""
         :param _Zone: RW 节点所在可用区。
         :type Zone: str
-        :param _NodeId: 升级集群版实例时，如果要调整只读节点可用区，需要指定节点id。
+        :param _NodeId: 升级云盘版实例时，如果要调整只读节点可用区，需要指定节点 ID。
         :type NodeId: str
         """
         self._Zone = None
@@ -33383,7 +33825,7 @@ class ReadWriteNode(AbstractModel):
 
     @property
     def NodeId(self):
-        r"""升级集群版实例时，如果要调整只读节点可用区，需要指定节点id。
+        r"""升级云盘版实例时，如果要调整只读节点可用区，需要指定节点 ID。
         :rtype: str
         """
         return self._NodeId
@@ -33407,7 +33849,7 @@ class ReadWriteNode(AbstractModel):
 
 
 class ReadonlyNode(AbstractModel):
-    r"""集群版的 RO 节点配置。
+    r"""云盘版的 RO 节点配置。
 
     """
 
@@ -33417,7 +33859,7 @@ class ReadonlyNode(AbstractModel):
         :type IsRandomZone: str
         :param _Zone: 指定该节点分布在哪个可用区。
         :type Zone: str
-        :param _NodeId: 升级集群版实例时，如果要调整只读节点可用区，需要指定节点id。
+        :param _NodeId: 升级云盘版实例时，如果要调整只读节点可用区，需要指定节点 ID。
         :type NodeId: str
         """
         self._IsRandomZone = None
@@ -33448,7 +33890,7 @@ class ReadonlyNode(AbstractModel):
 
     @property
     def NodeId(self):
-        r"""升级集群版实例时，如果要调整只读节点可用区，需要指定节点id。
+        r"""升级云盘版实例时，如果要调整只读节点可用区，需要指定节点 ID。
         :rtype: str
         """
         return self._NodeId
@@ -33641,7 +34083,10 @@ class ReloadBalanceProxyNodeRequest(AbstractModel):
         r"""
         :param _ProxyGroupId: 代理组 ID。可通过 [DescribeCdbProxyInfo](https://cloud.tencent.com/document/api/236/90585) 接口获取。
         :type ProxyGroupId: str
-        :param _ProxyAddressId: 代理组地址 ID。可通过 [DescribeCdbProxyInfo](https://cloud.tencent.com/document/api/236/90585) 接口获取。如果不传则会对所有代理组地址进行负载均衡。
+        :param _ProxyAddressId: 代理组地址 ID。可通过 [DescribeCdbProxyInfo](https://cloud.tencent.com/document/api/236/90585) 接口获取。
+说明：
+1. 对于双节点实例而言，此参数为非必填，如果不传则会对所有代理组地址进行负载均衡。
+2. 对于云盘版实例而言，此参数为必填。
         :type ProxyAddressId: str
         """
         self._ProxyGroupId = None
@@ -33660,7 +34105,10 @@ class ReloadBalanceProxyNodeRequest(AbstractModel):
 
     @property
     def ProxyAddressId(self):
-        r"""代理组地址 ID。可通过 [DescribeCdbProxyInfo](https://cloud.tencent.com/document/api/236/90585) 接口获取。如果不传则会对所有代理组地址进行负载均衡。
+        r"""代理组地址 ID。可通过 [DescribeCdbProxyInfo](https://cloud.tencent.com/document/api/236/90585) 接口获取。
+说明：
+1. 对于双节点实例而言，此参数为非必填，如果不传则会对所有代理组地址进行负载均衡。
+2. 对于云盘版实例而言，此参数为必填。
         :rtype: str
         """
         return self._ProxyAddressId
@@ -34583,7 +35031,7 @@ class RoInstanceInfo(AbstractModel):
         :type Weight: int
         :param _Region: RO实例所在区域名称，如ap-shanghai
         :type Region: str
-        :param _Zone: RO可用区的正式名称，如ap-shanghai-1
+        :param _Zone: RO可用区的正式名称，如 ap-shanghai-2
         :type Zone: str
         :param _InstanceId: RO实例ID，格式如：cdbro-c1nl9rpv
         :type InstanceId: str
@@ -34704,7 +35152,7 @@ class RoInstanceInfo(AbstractModel):
 
     @property
     def Zone(self):
-        r"""RO可用区的正式名称，如ap-shanghai-1
+        r"""RO可用区的正式名称，如 ap-shanghai-2
         :rtype: str
         """
         return self._Zone
@@ -36018,7 +36466,7 @@ class SlaveConfig(AbstractModel):
         r"""
         :param _ReplicationMode: 从库复制方式，可能的返回值：aysnc-异步，semisync-半同步
         :type ReplicationMode: str
-        :param _Zone: 从库可用区的正式名称，如ap-shanghai-1
+        :param _Zone: 从库可用区的正式名称，如 ap-shanghai-2
         :type Zone: str
         """
         self._ReplicationMode = None
@@ -36037,7 +36485,7 @@ class SlaveConfig(AbstractModel):
 
     @property
     def Zone(self):
-        r"""从库可用区的正式名称，如ap-shanghai-1
+        r"""从库可用区的正式名称，如 ap-shanghai-2
         :rtype: str
         """
         return self._Zone
@@ -37640,8 +38088,11 @@ class SwitchForUpgradeRequest(AbstractModel):
         r"""
         :param _InstanceId: 实例 ID，格式如：cdb-c1nl9rpv，与云数据库控制台页面中显示的实例 ID 相同。
         :type InstanceId: str
+        :param _IsRelatedSwitch: 是否开启关联切换，true为开启，false为关闭，默认false
+        :type IsRelatedSwitch: bool
         """
         self._InstanceId = None
+        self._IsRelatedSwitch = None
 
     @property
     def InstanceId(self):
@@ -37654,9 +38105,21 @@ class SwitchForUpgradeRequest(AbstractModel):
     def InstanceId(self, InstanceId):
         self._InstanceId = InstanceId
 
+    @property
+    def IsRelatedSwitch(self):
+        r"""是否开启关联切换，true为开启，false为关闭，默认false
+        :rtype: bool
+        """
+        return self._IsRelatedSwitch
+
+    @IsRelatedSwitch.setter
+    def IsRelatedSwitch(self, IsRelatedSwitch):
+        self._IsRelatedSwitch = IsRelatedSwitch
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
+        self._IsRelatedSwitch = params.get("IsRelatedSwitch")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -38915,7 +39378,7 @@ class UpgradeDBInstanceRequest(AbstractModel):
         :type ZoneId: str
         :param _RoTransType: 针对跨集群搬迁场景，选择同可用区RO的处理逻辑。together-同可用区RO跟随主实例迁移至目标可用区（默认选项），severally-同可用区RO保持原部署模式、不迁移至目标可用区。
         :type RoTransType: str
-        :param _ClusterTopology: 集群版节点拓扑配置。
+        :param _ClusterTopology: 云盘版节点拓扑配置。
         :type ClusterTopology: :class:`tencentcloud.cdb.v20170320.models.ClusterTopology`
         :param _CheckFastUpgradeReboot: 检查原地升级是否需要重启，1 检查， 0 不检查。如果值为1，检查为原地升级需要重启，则会停止升级并进行返回提示，如果为原地升级不重启，则正常执行升级流程。
         :type CheckFastUpgradeReboot: int
@@ -39142,7 +39605,7 @@ class UpgradeDBInstanceRequest(AbstractModel):
 
     @property
     def ClusterTopology(self):
-        r"""集群版节点拓扑配置。
+        r"""云盘版节点拓扑配置。
         :rtype: :class:`tencentcloud.cdb.v20170320.models.ClusterTopology`
         """
         return self._ClusterTopology

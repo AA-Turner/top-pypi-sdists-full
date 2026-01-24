@@ -132,6 +132,22 @@ std::pair<MacroActualArgumentListSyntax*, Trivia> Preprocessor::handleTopLevelMa
     return {actualArgs, Trivia()};
 }
 
+static bool shouldImplicitConcat(Token left, Token right) {
+    auto check = [](TokenKind kind) {
+        switch (kind) {
+            case TokenKind::IntegerLiteral:
+            case TokenKind::RealLiteral:
+            case TokenKind::TimeLiteral:
+            case TokenKind::Identifier:
+            case TokenKind::SystemIdentifier:
+                return true;
+            default:
+                return LF::isKeyword(kind);
+        }
+    };
+    return check(left.kind) && check(right.kind);
+}
+
 bool Preprocessor::applyMacroOps(std::span<Token const> tokens, SmallVectorBase<Token>& dest) {
     SmallVector<Trivia, 8> emptyArgTrivia;
     SmallVector<Token, 8> stringifyBuffer;
@@ -141,6 +157,13 @@ bool Preprocessor::applyMacroOps(std::span<Token const> tokens, SmallVectorBase<
     Token extraToAppend;
     bool anyNewMacros = false;
     bool didConcat = false;
+    bool syntheticIsLineComment = false;
+
+    auto finishSyntheticComment = [&] {
+        emptyArgTrivia.append_range(syntheticComment.trivia());
+        emptyArgTrivia.push_back(Lexer::commentify(alloc, sourceManager, commentBuffer));
+        syntheticComment = Token();
+    };
 
     for (size_t i = 0; i < tokens.size(); i++) {
         Token newToken;
@@ -217,7 +240,7 @@ bool Preprocessor::applyMacroOps(std::span<Token const> tokens, SmallVectorBase<
                         }
                     }
                 }
-                else if (syntheticComment) {
+                else if (syntheticComment && !syntheticIsLineComment) {
                     // Check for a *``/ to end the synthetic comment. Otherwise ignore the paste,
                     // since this is just going to become a comment anyway.
                     if (commentBuffer.back().kind == TokenKind::Star &&
@@ -225,23 +248,23 @@ bool Preprocessor::applyMacroOps(std::span<Token const> tokens, SmallVectorBase<
                         commentBuffer.push_back(tokens[i + 1]);
                         i++;
 
-                        emptyArgTrivia.append_range(syntheticComment.trivia());
-                        emptyArgTrivia.push_back(
-                            Lexer::commentify(alloc, sourceManager, commentBuffer));
-                        syntheticComment = Token();
+                        finishSyntheticComment();
                     }
                 }
-                else {
-                    // Dest cannot be empty here, though it's not easy to see why at first glance.
+                else if (!dest.empty()) {
                     Token left = dest.back();
                     Token right = tokens[i + 1];
 
-                    // Other tools allow concatenating a '/' with a '*' to form a block comment.
+                    // Other tools allow concatenating a '/' with a '*' to form a block comment
+                    // (and similarly '/' with '/' for a line comment).
                     // This seems like utter nonsense but real world code depends on it so
                     // we have to support it as well.
-                    if (left.kind == TokenKind::Slash && right.kind == TokenKind::Star) {
+                    if (left.kind == TokenKind::Slash &&
+                        (right.kind == TokenKind::Star || right.kind == TokenKind::Slash)) {
+
                         commentBuffer.clear();
                         syntheticComment = left;
+                        syntheticIsLineComment = right.kind == TokenKind::Slash;
                         dest.pop_back();
                         ++i;
 
@@ -263,17 +286,30 @@ bool Preprocessor::applyMacroOps(std::span<Token const> tokens, SmallVectorBase<
                 }
                 break;
             default: {
-                // If last iteration we did a token concatenation, check whether this token
-                // is right next to it (not leading trivia). If so, we should try to
-                // continue the concatenation process.
-                if (didConcat && token.trivia().empty() && emptyArgTrivia.empty()) {
-                    newToken = Lexer::concatenateTokens(alloc, sourceManager, dest.back(), token);
-                    if (newToken) {
-                        dest.pop_back();
-                        nextDidConcat = true;
-                        break;
+                if (token.trivia().empty() && emptyArgTrivia.empty() && !stringify &&
+                    !syntheticComment) {
+                    // If last iteration we did a token concatenation, check whether this
+                    // token is right next to it (not leading trivia). If so, we should try
+                    // to continue the concatenation process.
+                    //
+                    // Additionally, if we find two tokens back to back that should have
+                    // been lexed as a single identifier, we know that the second token
+                    // could only have come from expanding out a macro. Other tools implicitly
+                    // concatenate in this case, so we will do the same for compatibility.
+                    if (didConcat || (!dest.empty() && shouldImplicitConcat(dest.back(), token))) {
+                        newToken = Lexer::concatenateTokens(alloc, sourceManager, dest.back(),
+                                                            token);
+                        if (newToken) {
+                            dest.pop_back();
+                            nextDidConcat = true;
+                            break;
+                        }
                     }
                 }
+
+                // Check if we found the end of a synthetic line comment.
+                if (syntheticComment && syntheticIsLineComment && !token.isOnSameLine())
+                    finishSyntheticComment();
 
                 // Otherwise take the token as it is.
                 newToken = token;
@@ -347,8 +383,21 @@ bool Preprocessor::applyMacroOps(std::span<Token const> tokens, SmallVectorBase<
         stringifyBuffer.push_back(newToken);
     }
 
-    if (stringify)
+    if (stringify) {
         addDiag(diag::ExpectedMacroStringifyEnd, stringify.location());
+    }
+    else if (syntheticComment) {
+        if (syntheticIsLineComment) {
+            auto loc = syntheticComment.location();
+            finishSyntheticComment();
+
+            dest.push_back(
+                Token(alloc, TokenKind::EmptyMacroArgument, emptyArgTrivia.copy(alloc), ""sv, loc));
+        }
+        else {
+            addDiag(diag::ExpectedMacroCommentEnd, syntheticComment.location());
+        }
+    }
 
     return anyNewMacros;
 }
@@ -709,23 +758,31 @@ bool Preprocessor::expandIntrinsic(MacroIntrinsic intrinsic, MacroExpansion& exp
     SmallVector<char> text;
     switch (intrinsic) {
         case MacroIntrinsic::File: {
+            std::string_view macroName = "__FILE__";
+            SourceLocation macroLoc = sourceManager.createExpansionLoc(loc, expansion.getRange(),
+                                                                       macroName);
+
             std::string_view fileName = sourceManager.getFileName(loc);
             text.push_back('"');
             text.append_range(fileName);
             text.push_back('"');
 
             std::string_view rawText = toStringView(text.copy(alloc));
-            Token token(alloc, TokenKind::StringLiteral, {}, rawText, loc, fileName);
-            expansion.append(token, loc);
+            Token token(alloc, TokenKind::StringLiteral, {}, rawText, macroLoc, fileName);
+            expansion.append(token, macroLoc, loc, expansion.getRange());
             break;
         }
         case MacroIntrinsic::Line: {
+            std::string_view macroName = "__LINE__";
+            SourceLocation macroLoc = sourceManager.createExpansionLoc(loc, expansion.getRange(),
+                                                                       macroName);
+
             size_t lineNum = sourceManager.getLineNumber(loc);
             uintToStr(text, static_cast<uint64_t>(lineNum));
 
             std::string_view rawText = toStringView(text.copy(alloc));
-            Token token(alloc, TokenKind::IntegerLiteral, {}, rawText, loc, lineNum);
-            expansion.append(token, loc);
+            Token token(alloc, TokenKind::IntegerLiteral, {}, rawText, macroLoc, lineNum);
+            expansion.append(token, macroLoc, loc, expansion.getRange());
             break;
         }
         case MacroIntrinsic::None:

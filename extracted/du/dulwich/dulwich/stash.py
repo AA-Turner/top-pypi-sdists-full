@@ -21,9 +21,15 @@
 
 """Stash handling."""
 
+__all__ = [
+    "DEFAULT_STASH_REF",
+    "CommitKwargs",
+    "Stash",
+]
+
 import os
 import sys
-from typing import TYPE_CHECKING, Optional, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from .diff_tree import tree_changes
 from .file import GitFile
@@ -34,7 +40,6 @@ from .index import (
     commit_tree,
     index_entry_from_stat,
     iter_fresh_objects,
-    iter_tree_contents,
     symlink,
     update_working_tree,
     validate_path,
@@ -42,7 +47,8 @@ from .index import (
     validate_path_element_hfs,
     validate_path_element_ntfs,
 )
-from .objects import S_IFGITLINK, Blob, Commit, ObjectID
+from .object_store import iter_tree_contents
+from .objects import S_IFGITLINK, Blob, Commit, ObjectID, TreeEntry
 from .reflog import drop_reflog_entry, read_reflog
 from .refs import Ref
 
@@ -58,7 +64,7 @@ class CommitKwargs(TypedDict, total=False):
     author: bytes
 
 
-DEFAULT_STASH_REF = b"refs/stash"
+DEFAULT_STASH_REF = Ref(b"refs/stash")
 
 
 class Stash:
@@ -68,6 +74,12 @@ class Stash:
     """
 
     def __init__(self, repo: "Repo", ref: Ref = DEFAULT_STASH_REF) -> None:
+        """Initialize Stash.
+
+        Args:
+          repo: Repository object
+          ref: Stash reference name
+        """
         self._ref = ref
         self._repo = repo
 
@@ -76,6 +88,11 @@ class Stash:
         return os.path.join(self._repo.commondir(), "logs", os.fsdecode(self._ref))
 
     def stashes(self) -> list["Entry"]:
+        """Get list of stash entries.
+
+        Returns:
+          List of stash entries in chronological order
+        """
         try:
             with GitFile(self._reflog_path, "rb") as f:
                 return list(reversed(list(read_reflog(f))))
@@ -124,7 +141,9 @@ class Stash:
 
         # Get current HEAD to determine if we can apply cleanly
         try:
-            current_head = self._repo.refs[b"HEAD"]
+            from dulwich.refs import HEADREF
+
+            current_head = self._repo.refs[HEADREF]
         except KeyError:
             raise ValueError("Cannot pop stash: no HEAD")
 
@@ -151,10 +170,16 @@ class Stash:
             symlink_fn = symlink
         else:
 
-            def symlink_fn(source, target) -> None:  # type: ignore
-                mode = "w" + ("b" if isinstance(source, bytes) else "")
-                with open(target, mode) as f:
-                    f.write(source)
+            def symlink_fn(  # type: ignore[misc,unused-ignore]
+                src: str | bytes,
+                dst: str | bytes,
+                target_is_directory: bool = False,
+                *,
+                dir_fd: int | None = None,
+            ) -> None:
+                mode = "w" + ("b" if isinstance(src, bytes) else "")
+                with open(dst, mode) as f:
+                    f.write(src)
 
         # Get blob normalizer for line ending conversion
         blob_normalizer = self._repo.get_blob_normalizer()
@@ -174,26 +199,40 @@ class Stash:
             index_tree_id = index_commit.tree
 
             # Update index entries from the stashed index tree
-            for entry in iter_tree_contents(self._repo.object_store, index_tree_id):
-                if not validate_path(entry.path, validate_path_element):
+            tree_entry: TreeEntry
+            for tree_entry in iter_tree_contents(
+                self._repo.object_store, index_tree_id
+            ):
+                assert (
+                    tree_entry.path is not None
+                    and tree_entry.mode is not None
+                    and tree_entry.sha is not None
+                )
+                if not validate_path(tree_entry.path, validate_path_element):
                     continue
 
                 # Add to index with stage 0 (normal)
                 # Get file stats for the entry
-                full_path = _tree_to_fs_path(repo_path, entry.path)
+                full_path = _tree_to_fs_path(repo_path, tree_entry.path)
                 try:
                     st = os.lstat(full_path)
                 except FileNotFoundError:
                     # File doesn't exist yet, use dummy stats
-                    st = os.stat_result((entry.mode, 0, 0, 0, 0, 0, 0, 0, 0, 0))
-                repo_index[entry.path] = index_entry_from_stat(st, entry.sha)
+                    st = os.stat_result((tree_entry.mode, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+                repo_index[tree_entry.path] = index_entry_from_stat(st, tree_entry.sha)
 
         # Apply working tree changes from the stash
-        for entry in iter_tree_contents(self._repo.object_store, stash_tree_id):
-            if not validate_path(entry.path, validate_path_element):
+        tree_entry2: TreeEntry
+        for tree_entry2 in iter_tree_contents(self._repo.object_store, stash_tree_id):
+            assert (
+                tree_entry2.path is not None
+                and tree_entry2.mode is not None
+                and tree_entry2.sha is not None
+            )
+            if not validate_path(tree_entry2.path, validate_path_element):
                 continue
 
-            full_path = _tree_to_fs_path(repo_path, entry.path)
+            full_path = _tree_to_fs_path(repo_path, tree_entry2.path)
 
             # Create parent directories if needed
             parent_dir = os.path.dirname(full_path)
@@ -201,39 +240,43 @@ class Stash:
                 os.makedirs(parent_dir)
 
             # Write the file
-            if entry.mode == S_IFGITLINK:
+            if tree_entry2.mode == S_IFGITLINK:
                 # Submodule - just create directory
                 if not os.path.isdir(full_path):
                     os.mkdir(full_path)
                 st = os.lstat(full_path)
             else:
-                obj = self._repo.object_store[entry.sha]
+                obj = self._repo.object_store[tree_entry2.sha]
                 assert isinstance(obj, Blob)
                 # Apply blob normalization for checkout if normalizer is provided
                 if blob_normalizer is not None:
-                    obj = blob_normalizer.checkout_normalize(obj, entry.path)
+                    obj = blob_normalizer.checkout_normalize(obj, tree_entry2.path)
                 st = build_file_from_blob(
                     obj,
-                    entry.mode,
+                    tree_entry2.mode,
                     full_path,
                     honor_filemode=honor_filemode,
-                    symlink_fn=symlink_fn,
+                    symlink_fn=symlink_fn,  # type: ignore[arg-type,unused-ignore]
                 )
 
             # Update index if the file wasn't already staged
-            if entry.path not in repo_index:
+            if tree_entry2.path not in repo_index:
                 # Update with file stats from disk
-                repo_index[entry.path] = index_entry_from_stat(st, entry.sha)
+                repo_index[tree_entry2.path] = index_entry_from_stat(
+                    st, tree_entry2.sha
+                )
             else:
-                existing_entry = repo_index[entry.path]
+                existing_entry = repo_index[tree_entry2.path]
 
                 if (
                     isinstance(existing_entry, IndexEntry)
-                    and existing_entry.mode == entry.mode
-                    and existing_entry.sha == entry.sha
+                    and existing_entry.mode == tree_entry2.mode
+                    and existing_entry.sha == tree_entry2.sha
                 ):
                     # Update with file stats from disk
-                    repo_index[entry.path] = index_entry_from_stat(st, entry.sha)
+                    repo_index[tree_entry2.path] = index_entry_from_stat(
+                        st, tree_entry2.sha
+                    )
 
         # Write the updated index
         repo_index.write()
@@ -245,9 +288,9 @@ class Stash:
 
     def push(
         self,
-        committer: Optional[bytes] = None,
-        author: Optional[bytes] = None,
-        message: Optional[bytes] = None,
+        committer: bytes | None = None,
+        author: bytes | None = None,
+        message: bytes | None = None,
     ) -> ObjectID:
         """Create a new stash.
 
@@ -273,6 +316,7 @@ class Stash:
             message=b"Index stash",
             merge_heads=[self._repo.head()],
             no_verify=True,
+            sign=False,
             ref=None,  # Don't update any ref
             **commit_kwargs,
         )
@@ -299,12 +343,13 @@ class Stash:
         # TODO(jelmer): Just pass parents into do_commit()?
         self._repo.refs[self._ref] = self._repo.head()
 
-        cid = self._repo.get_worktree().commit(
+        cid: ObjectID = self._repo.get_worktree().commit(
             ref=self._ref,
             tree=stash_tree_id,
             message=message,
             merge_heads=[index_commit_id],
             no_verify=True,
+            sign=False,
             **commit_kwargs,
         )
 
@@ -330,7 +375,9 @@ class Stash:
         return cid
 
     def __getitem__(self, index: int) -> "Entry":
+        """Get stash entry by index."""
         return list(self.stashes())[index]
 
     def __len__(self) -> int:
+        """Return number of stash entries."""
         return len(list(self.stashes()))

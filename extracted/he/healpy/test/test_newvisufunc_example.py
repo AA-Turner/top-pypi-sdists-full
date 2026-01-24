@@ -179,6 +179,48 @@ def test_projview_cart_graticule_vertical_cbar(map_data):
         projection_type="cart",
     )
 
+def test_projview_cart_lonra_latra(map_data):
+    projview(
+        map_data,
+        coord=["G"],
+        projection_type="cart",
+        lonra=[-30, 30],
+        latra=[-30, 30],
+)
+
+def test_projview_lonra_latra_error(map_data):
+    # Test that both lonra and latra raise error for mollweide (default projection)
+    with pytest.raises(ValueError):
+        projview(
+            map_data,
+            coord=["G"],
+            lonra=[-30, 30],
+            latra=[-30, 30],
+    )
+
+def test_projview_lambert_lonra_error(map_data):
+    # Test that lonra raises error for lambert projection
+    with pytest.raises(ValueError, match="lonra cannot be set for projection_type='lambert'"):
+        projview(
+            map_data,
+            coord=["G"],
+            projection_type="lambert",
+            lonra=[-30, 30],
+        )
+
+def test_projview_lambert_half_sky(map_data):
+    # Test lambert projection with half sky using latra
+    projview(
+        map_data,
+        coord=["G"],
+        projection_type="lambert",
+        latra=[0, 90],
+        graticule=True,
+        graticule_labels=True,
+        title="Lambert half-sky projection",
+    )
+
+
 
 def test_projview_3d(map_data):
     projview(
@@ -499,23 +541,6 @@ def test_projview_symlog_normalization(map_data):
     )
     plt.tight_layout()
 
-    def test_projview_mollweide_badcolor(map_data):
-        projview(
-            map_data,
-            coord=["G"],
-            graticule=True,
-            graticule_labels=True,
-            unit="cbar label",
-            xlabel="longitude",
-            ylabel="latitude",
-            cb_orientation="vertical",
-            min=-0.05,
-            max=0.05,
-            latitude_grid_spacing=45,
-            projection_type="mollweide",
-            title="Mollweide projection with badcolor",
-            badcolor="red",
-        )
 
     def test_projview_cart_bgcolor(map_data):
         projview(
@@ -531,3 +556,106 @@ def test_projview_symlog_normalization(map_data):
             title="Cart projection with bgcolor",
             bgcolor="lightblue",
         )
+
+
+def test_projview_no_colorbar(map_data):
+    """Test that colorbar can be hidden with cbar=False"""
+    projview(
+        map_data,
+        coord=["G"],
+        cbar=False,
+        projection_type="mollweide",
+        title="Map without colorbar",
+    )
+    # Verify no colorbar was created by checking figure
+    fig = plt.gcf()
+    # A figure with colorbar has more than 1 axes
+    # Without colorbar, should have exactly 1 axes
+    assert len(fig.axes) == 1
+    plt.close('all')
+
+
+def test_projview_none_map_with_cbar():
+    """Test that m=None works correctly even with cbar=True (default)"""
+    # This should not raise an error even though cbar defaults to True
+    projview(
+        m=None,
+        coord=["G"],
+        projection_type="mollweide",
+        title="Blank map for overplotting",
+    )
+    # Should complete without error
+    plt.close('all')
+
+
+def test_projview_none_map_explicit_cbar_false():
+    """Test that m=None with explicit cbar=False works"""
+    projview(
+        m=None,
+        coord=["G"],
+        cbar=False,
+        projection_type="mollweide",
+        title="Blank map with explicit cbar=False",
+    )
+    plt.close('all')
+
+
+
+def test_projview_mollweide_badcolor(map_data):
+    projview(
+        map_data,
+        coord=["G"],
+        graticule=True,
+        graticule_labels=True,
+        unit="cbar label",
+        xlabel="longitude",
+        ylabel="latitude",
+        cb_orientation="vertical",
+        min=-0.05,
+        max=0.05,
+        latitude_grid_spacing=45,
+        projection_type="mollweide",
+        title="Mollweide projection with badcolor",
+        badcolor="red",
+    )
+
+
+def test_projview_cart_bgcolor(map_data):
+    projview(
+        map_data,
+        coord=["G"],
+        graticule=True,
+        graticule_labels=True,
+        unit="cbar label",
+        xlabel="longitude",
+        ylabel="latitude",
+        cb_orientation="horizontal",
+        projection_type="cart",
+        title="Cart projection with bgcolor",
+        bgcolor="lightblue",
+    )
+
+
+def test_projview_colormap_object_preservation(map_data):
+    """Test that projview preserves user-modified Colormap object colors"""
+    # Create a colormap with custom bad/under colors
+    colormap = plt.get_cmap('viridis').copy()
+    colormap.set_bad('white')
+    colormap.set_under('yellow')
+    
+    # Call projview with the modified colormap
+    projview(
+        map_data,
+        cmap=colormap,
+        projection_type='hammer'
+    )
+    
+    # Get the colormap from the plot
+    ax = plt.gca()
+    if hasattr(ax, 'collections') and len(ax.collections) > 0:
+        plot_cmap = ax.collections[0].get_cmap()
+        # Verify colors are preserved
+        bad_is_white = np.allclose(plot_cmap._rgba_bad[:3], [1.0, 1.0, 1.0])
+        under_is_yellow = np.allclose(plot_cmap._rgba_under[:3], [1.0, 1.0, 0.0])
+        assert bad_is_white, f"projview should preserve Colormap bad color, got {plot_cmap._rgba_bad}"
+        assert under_is_yellow, f"projview should preserve Colormap under color, got {plot_cmap._rgba_under}"

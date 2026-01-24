@@ -38,7 +38,7 @@ def convert_excel_date(expr: pl.Expr) -> pl.Expr:
         │ 39690 │
         │ 37118 │
         └───────┘
-        >>> expression = pl.col('date').convert_excel_date().alias('date_')
+        >>> expression = pl.col("date").convert_excel_date().alias("date_")
         >>> df.with_columns(expression)
         shape: (3, 2)
         ┌───────┬────────────┐
@@ -86,13 +86,13 @@ def convert_matlab_date(expr: pl.Expr) -> pl.Expr:
         │ 737124.4985   │
         │ 737124.0      │
         └───────────────┘
-        >>> expression = pl.col('date').convert_matlab_date().alias('date_')
+        >>> expression = pl.col("date").convert_matlab_date().alias("date_")
         >>> df.with_columns(expression)
         shape: (4, 2)
         ┌───────────────┬─────────────────────────┐
         │ date          ┆ date_                   │
         │ ---           ┆ ---                     │
-        │ f64           ┆ datetime[μs]            │
+        │ f64           ┆ datetime[ms]            │
         ╞═══════════════╪═════════════════════════╡
         │ 737125.0      ┆ 2018-03-06 00:00:00     │
         │ 737124.815863 ┆ 2018-03-05 19:34:50.563 │
@@ -108,5 +108,5 @@ def convert_matlab_date(expr: pl.Expr) -> pl.Expr:
     # https://stackoverflow.com/questions/13965740/converting-matlabs-datenum-format-to-python
     expression = expr.sub(719529).mul(86_400_000)
     expression = pl.duration(milliseconds=expression)
-    expression += pl.datetime(year=1970, month=1, day=1)
+    expression += pl.datetime(year=1970, month=1, day=1, time_unit="ms")
     return expression

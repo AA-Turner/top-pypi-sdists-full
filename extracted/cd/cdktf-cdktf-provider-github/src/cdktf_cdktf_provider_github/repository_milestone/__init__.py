@@ -1,7 +1,7 @@
 r'''
 # `github_repository_milestone`
 
-Refer to the Terraform Registry for docs: [`github_repository_milestone`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone).
+Refer to the Terraform Registry for docs: [`github_repository_milestone`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RepositoryMilestone(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.repositoryMilestone.RepositoryMilestone",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone github_repository_milestone}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone github_repository_milestone}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class RepositoryMilestone(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone github_repository_milestone} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone github_repository_milestone} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param owner: The owner of the GitHub Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#owner RepositoryMilestone#owner}
-        :param repository: The name of the GitHub Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#repository RepositoryMilestone#repository}
-        :param title: The title of the milestone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#title RepositoryMilestone#title}
-        :param description: A description of the milestone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#description RepositoryMilestone#description}
-        :param due_date: The milestone due date. In 'yyyy-mm-dd' format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#due_date RepositoryMilestone#due_date}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#id RepositoryMilestone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param state: The state of the milestone. Either 'open' or 'closed'. Default: 'open'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#state RepositoryMilestone#state}
+        :param owner: The owner of the GitHub Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#owner RepositoryMilestone#owner}
+        :param repository: The name of the GitHub Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#repository RepositoryMilestone#repository}
+        :param title: The title of the milestone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#title RepositoryMilestone#title}
+        :param description: A description of the milestone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#description RepositoryMilestone#description}
+        :param due_date: The milestone due date. In 'yyyy-mm-dd' format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#due_date RepositoryMilestone#due_date}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#id RepositoryMilestone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param state: The state of the milestone. Either 'open' or 'closed'. Default: 'open'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#state RepositoryMilestone#state}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class RepositoryMilestone(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RepositoryMilestone to import.
-        :param import_from_id: The id of the existing RepositoryMilestone that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RepositoryMilestone that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RepositoryMilestone to import is found.
         '''
         if __debug__:
@@ -333,13 +333,13 @@ class RepositoryMilestoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param owner: The owner of the GitHub Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#owner RepositoryMilestone#owner}
-        :param repository: The name of the GitHub Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#repository RepositoryMilestone#repository}
-        :param title: The title of the milestone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#title RepositoryMilestone#title}
-        :param description: A description of the milestone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#description RepositoryMilestone#description}
-        :param due_date: The milestone due date. In 'yyyy-mm-dd' format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#due_date RepositoryMilestone#due_date}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#id RepositoryMilestone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param state: The state of the milestone. Either 'open' or 'closed'. Default: 'open'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#state RepositoryMilestone#state}
+        :param owner: The owner of the GitHub Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#owner RepositoryMilestone#owner}
+        :param repository: The name of the GitHub Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#repository RepositoryMilestone#repository}
+        :param title: The title of the milestone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#title RepositoryMilestone#title}
+        :param description: A description of the milestone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#description RepositoryMilestone#description}
+        :param due_date: The milestone due date. In 'yyyy-mm-dd' format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#due_date RepositoryMilestone#due_date}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#id RepositoryMilestone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param state: The state of the milestone. Either 'open' or 'closed'. Default: 'open'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#state RepositoryMilestone#state}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -455,7 +455,7 @@ class RepositoryMilestoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def owner(self) -> builtins.str:
         '''The owner of the GitHub Repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#owner RepositoryMilestone#owner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#owner RepositoryMilestone#owner}
         '''
         result = self._values.get("owner")
         assert result is not None, "Required property 'owner' is missing"
@@ -465,7 +465,7 @@ class RepositoryMilestoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository(self) -> builtins.str:
         '''The name of the GitHub Repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#repository RepositoryMilestone#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#repository RepositoryMilestone#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -475,7 +475,7 @@ class RepositoryMilestoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def title(self) -> builtins.str:
         '''The title of the milestone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#title RepositoryMilestone#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#title RepositoryMilestone#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -485,7 +485,7 @@ class RepositoryMilestoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the milestone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#description RepositoryMilestone#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#description RepositoryMilestone#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -494,14 +494,14 @@ class RepositoryMilestoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def due_date(self) -> typing.Optional[builtins.str]:
         '''The milestone due date. In 'yyyy-mm-dd' format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#due_date RepositoryMilestone#due_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#due_date RepositoryMilestone#due_date}
         '''
         result = self._values.get("due_date")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#id RepositoryMilestone#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#id RepositoryMilestone#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -513,7 +513,7 @@ class RepositoryMilestoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def state(self) -> typing.Optional[builtins.str]:
         '''The state of the milestone. Either 'open' or 'closed'. Default: 'open'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_milestone#state RepositoryMilestone#state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_milestone#state RepositoryMilestone#state}
         '''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)

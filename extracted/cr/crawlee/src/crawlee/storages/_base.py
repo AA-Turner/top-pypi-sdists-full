@@ -3,12 +3,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+from crawlee._utils.docs import docs_group
+
 if TYPE_CHECKING:
     from crawlee.configuration import Configuration
     from crawlee.storage_clients._base import StorageClient
-    from crawlee.storage_clients.models import StorageMetadata
+    from crawlee.storage_clients.models import DatasetMetadata, KeyValueStoreMetadata, RequestQueueMetadata
 
 
+@docs_group('Storages')
 class Storage(ABC):
     """Base class for storages."""
 
@@ -22,15 +25,9 @@ class Storage(ABC):
     def name(self) -> str | None:
         """Get the storage name."""
 
-    @property
     @abstractmethod
-    def storage_object(self) -> StorageMetadata:
-        """Get the full storage object."""
-
-    @storage_object.setter
-    @abstractmethod
-    def storage_object(self, storage_object: StorageMetadata) -> None:
-        """Set the full storage object."""
+    async def get_metadata(self) -> DatasetMetadata | KeyValueStoreMetadata | RequestQueueMetadata:
+        """Get the storage metadata."""
 
     @classmethod
     @abstractmethod
@@ -39,6 +36,7 @@ class Storage(ABC):
         *,
         id: str | None = None,
         name: str | None = None,
+        alias: str | None = None,
         configuration: Configuration | None = None,
         storage_client: StorageClient | None = None,
     ) -> Storage:
@@ -46,7 +44,10 @@ class Storage(ABC):
 
         Args:
             id: The storage ID.
-            name: The storage name.
+            name: The storage name (global scope, persists across runs). Name can only contain letters "a" through "z",
+                the digits "0" through "9", and the hyphen ("-") but only in the middle of the string
+                (e.g. "my-value-1").
+            alias: The storage alias (run scope, creates unnamed storage).
             configuration: Configuration object used during the storage creation or restoration process.
             storage_client: Underlying storage client to use. If not provided, the default global storage client
                 from the service locator will be used.
@@ -55,3 +56,11 @@ class Storage(ABC):
     @abstractmethod
     async def drop(self) -> None:
         """Drop the storage, removing it from the underlying storage client and clearing the cache."""
+
+    @abstractmethod
+    async def purge(self) -> None:
+        """Purge the storage, removing all items from the underlying storage client.
+
+        This method does not remove the storage itself, e.g. don't remove the metadata,
+        but clears all items within it.
+        """

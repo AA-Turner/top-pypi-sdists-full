@@ -45,26 +45,31 @@ jobs:
             runs-on:
               intel: [windows-latest]
         python:
-          - major-dot-minor: '3.9'
-            cibw-build: 'cp39-*'
-            manylinux: manylinux_2_28
-            matrix: '3.9'
           - major-dot-minor: '3.10'
             cibw-build: 'cp310-*'
             manylinux: manylinux_2_28
             matrix: '3.10'
+            cibuildwheel: 'cibuildwheel==2.23.3'
           - major-dot-minor: '3.11'
             cibw-build: 'cp311-*'
             manylinux: manylinux_2_28
             matrix: '3.11'
+            cibuildwheel: 'cibuildwheel==3.2.1'
           - major-dot-minor: '3.12'
             cibw-build: 'cp312-*'
             manylinux: manylinux_2_28
             matrix: '3.12'
+            cibuildwheel: 'cibuildwheel==3.2.1'
           - major-dot-minor: '3.13'
             cibw-build: 'cp313-*'
             manylinux: manylinux_2_28
             matrix: '3.13'
+            cibuildwheel: 'cibuildwheel==3.2.1'
+          - major-dot-minor: '3.14'
+            cibw-build: 'cp314-*'
+            manylinux: manylinux_2_28
+            matrix: '3.14'
+            cibuildwheel: 'cibuildwheel==3.2.1'
         arch:
           - name: ARM
             matrix: arm
@@ -88,7 +93,7 @@ jobs:
       uses: Chia-Network/actions/clean-workspace@main
 
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
@@ -107,7 +112,7 @@ jobs:
         CIBW_BUILD_VERBOSITY_LINUX: 0
         CIBW_BUILD_VERBOSITY_WINDOWS: 0
         CIBW_BUILD: ${{ matrix.python.cibw-build }}
-        CIBW_SKIP: '*-manylinux_i686 *-win32 *-musllinux_*'
+        CIBW_SKIP: 'cp31?t-* *-manylinux_i686 *-win32 *-musllinux_*'
         CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.python.manylinux }}
         CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.python.manylinux }}
         CIBW_BEFORE_ALL_LINUX: >
@@ -122,10 +127,10 @@ jobs:
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: py.test -v {project}/tests
       run:
-        pipx run --spec='cibuildwheel==2.21.3' cibuildwheel --output-dir dist 2>&1
+        pipx run --spec=${{ matrix.python.cibuildwheel }} cibuildwheel --output-dir dist 2>&1
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: packages-${{ matrix.os.name }}-py-${{ matrix.python.major-dot-minor }}-${{ matrix.arch.name }}
         path: ./dist
@@ -143,8 +148,8 @@ jobs:
               arm: [Linux, ARM64]
               intel: [ubuntu-latest]
         python:
-          - major-dot-minor: '3.10'
-            matrix: '3.10'
+          - major-dot-minor: '3.12'
+            matrix: '3.12'
         arch:
           - name: Intel
             matrix: intel
@@ -154,7 +159,7 @@ jobs:
       uses: Chia-Network/actions/clean-workspace@main
 
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
@@ -168,7 +173,7 @@ jobs:
         python -m build --sdist --outdir dist .
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: packages-sdist
         path: ./dist
@@ -186,8 +191,8 @@ jobs:
               arm: [Linux, ARM64]
               intel: [ubuntu-latest]
         python:
-          - major-dot-minor: '3.10'
-            matrix: '3.10'
+          - major-dot-minor: '3.12'
+            matrix: '3.12'
         arch:
           - name: Intel
             matrix: intel
@@ -197,7 +202,7 @@ jobs:
       uses: Chia-Network/actions/clean-workspace@main
 
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
@@ -232,8 +237,8 @@ jobs:
               arm: [Linux, ARM64]
               intel: [ubuntu-latest]
         python:
-          - major-dot-minor: '3.10'
-            matrix: '3.10'
+          - major-dot-minor: '3.12'
+            matrix: '3.12'
         arch:
           - name: Intel
             matrix: intel
@@ -243,7 +248,7 @@ jobs:
       uses: Chia-Network/actions/clean-workspace@main
 
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
@@ -257,7 +262,7 @@ jobs:
         python-version: ${{ matrix.python.major-dot-minor }}
 
     - name: Download artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v6
       with:
         merge-multiple: true
         pattern: packages-*

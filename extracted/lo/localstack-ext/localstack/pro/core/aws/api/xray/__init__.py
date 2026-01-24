@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -183,7 +183,7 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 404
-    ResourceName: Optional[AmazonResourceName]
+    ResourceName: AmazonResourceName | None
 
 
 class RuleLimitExceededException(ServiceException):
@@ -210,21 +210,21 @@ class TooManyTagsException(ServiceException):
     code: str = "TooManyTagsException"
     sender_fault: bool = False
     status_code: int = 400
-    ResourceName: Optional[AmazonResourceName]
+    ResourceName: AmazonResourceName | None
 
 
-AliasNames = List[String]
+AliasNames = list[String]
 
 
 class Alias(TypedDict, total=False):
     """An alias for an edge."""
 
-    Name: Optional[String]
-    Names: Optional[AliasNames]
-    Type: Optional[String]
+    Name: String | None
+    Names: AliasNames | None
+    Type: String | None
 
 
-AliasList = List[Alias]
+AliasList = list[Alias]
 
 
 class AnnotationValue(TypedDict, total=False):
@@ -232,33 +232,33 @@ class AnnotationValue(TypedDict, total=False):
     Boolean, or String.
     """
 
-    NumberValue: Optional[NullableDouble]
-    BooleanValue: Optional[NullableBoolean]
-    StringValue: Optional[String]
+    NumberValue: NullableDouble | None
+    BooleanValue: NullableBoolean | None
+    StringValue: String | None
 
 
-ServiceNames = List[String]
+ServiceNames = list[String]
 
 
 class ServiceId(TypedDict, total=False):
-    Name: Optional[String]
-    Names: Optional[ServiceNames]
-    AccountId: Optional[String]
-    Type: Optional[String]
+    Name: String | None
+    Names: ServiceNames | None
+    AccountId: String | None
+    Type: String | None
 
 
-ServiceIds = List[ServiceId]
+ServiceIds = list[ServiceId]
 
 
 class ValueWithServiceIds(TypedDict, total=False):
     """Information about a segment annotation."""
 
-    AnnotationValue: Optional[AnnotationValue]
-    ServiceIds: Optional[ServiceIds]
+    AnnotationValue: AnnotationValue | None
+    ServiceIds: ServiceIds | None
 
 
-ValuesWithServiceIds = List[ValueWithServiceIds]
-Annotations = Dict[AnnotationKey, ValuesWithServiceIds]
+ValuesWithServiceIds = list[ValueWithServiceIds]
+Annotations = dict[AnnotationKey, ValuesWithServiceIds]
 
 
 class AnomalousService(TypedDict, total=False):
@@ -266,37 +266,37 @@ class AnomalousService(TypedDict, total=False):
     rates.
     """
 
-    ServiceId: Optional[ServiceId]
+    ServiceId: ServiceId | None
 
 
-AnomalousServiceList = List[AnomalousService]
-AttributeMap = Dict[AttributeKey, AttributeValue]
+AnomalousServiceList = list[AnomalousService]
+AttributeMap = dict[AttributeKey, AttributeValue]
 
 
 class AvailabilityZoneDetail(TypedDict, total=False):
     """A list of Availability Zones corresponding to the segments in a trace."""
 
-    Name: Optional[String]
+    Name: String | None
 
 
 class BackendConnectionErrors(TypedDict, total=False):
-    TimeoutCount: Optional[NullableInteger]
-    ConnectionRefusedCount: Optional[NullableInteger]
-    HTTPCode4XXCount: Optional[NullableInteger]
-    HTTPCode5XXCount: Optional[NullableInteger]
-    UnknownHostCount: Optional[NullableInteger]
-    OtherCount: Optional[NullableInteger]
+    TimeoutCount: NullableInteger | None
+    ConnectionRefusedCount: NullableInteger | None
+    HTTPCode4XXCount: NullableInteger | None
+    HTTPCode5XXCount: NullableInteger | None
+    UnknownHostCount: NullableInteger | None
+    OtherCount: NullableInteger | None
 
 
-TraceIdList = List[TraceId]
+TraceIdList = list[TraceId]
 
 
 class BatchGetTracesRequest(ServiceRequest):
     TraceIds: TraceIdList
-    NextToken: Optional[String]
+    NextToken: String | None
 
 
-UnprocessedTraceIdList = List[TraceId]
+UnprocessedTraceIdList = list[TraceId]
 
 
 class Segment(TypedDict, total=False):
@@ -312,29 +312,29 @@ class Segment(TypedDict, total=False):
     in the *Amazon Web Services X-Ray Developer Guide*.
     """
 
-    Id: Optional[SegmentId]
-    Document: Optional[SegmentDocument]
+    Id: SegmentId | None
+    Document: SegmentDocument | None
 
 
-SegmentList = List[Segment]
+SegmentList = list[Segment]
 
 
 class Trace(TypedDict, total=False):
     """A collection of segment documents with matching trace IDs."""
 
-    Id: Optional[TraceId]
-    Duration: Optional[NullableDouble]
-    LimitExceeded: Optional[NullableBoolean]
-    Segments: Optional[SegmentList]
+    Id: TraceId | None
+    Duration: NullableDouble | None
+    LimitExceeded: NullableBoolean | None
+    Segments: SegmentList | None
 
 
-TraceList = List[Trace]
+TraceList = list[Trace]
 
 
 class BatchGetTracesResult(TypedDict, total=False):
-    Traces: Optional[TraceList]
-    UnprocessedTraceIds: Optional[UnprocessedTraceIdList]
-    NextToken: Optional[String]
+    Traces: TraceList | None
+    UnprocessedTraceIds: UnprocessedTraceIdList | None
+    NextToken: String | None
 
 
 class CancelTraceRetrievalRequest(ServiceRequest):
@@ -366,34 +366,34 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class InsightsConfiguration(TypedDict, total=False):
     """The structure containing configurations related to insights."""
 
-    InsightsEnabled: Optional[NullableBoolean]
-    NotificationsEnabled: Optional[NullableBoolean]
+    InsightsEnabled: NullableBoolean | None
+    NotificationsEnabled: NullableBoolean | None
 
 
 class CreateGroupRequest(ServiceRequest):
     GroupName: GroupName
-    FilterExpression: Optional[FilterExpression]
-    InsightsConfiguration: Optional[InsightsConfiguration]
-    Tags: Optional[TagList]
+    FilterExpression: FilterExpression | None
+    InsightsConfiguration: InsightsConfiguration | None
+    Tags: TagList | None
 
 
 class Group(TypedDict, total=False):
     """Details and metadata for a group."""
 
-    GroupName: Optional[String]
-    GroupARN: Optional[String]
-    FilterExpression: Optional[String]
-    InsightsConfiguration: Optional[InsightsConfiguration]
+    GroupName: String | None
+    GroupARN: String | None
+    FilterExpression: String | None
+    InsightsConfiguration: InsightsConfiguration | None
 
 
 class CreateGroupResult(TypedDict, total=False):
-    Group: Optional[Group]
+    Group: Group | None
 
 
 class SamplingRateBoost(TypedDict, total=False):
@@ -412,8 +412,8 @@ class SamplingRule(TypedDict, total=False):
     properties.
     """
 
-    RuleName: Optional[RuleName]
-    RuleARN: Optional[String]
+    RuleName: RuleName | None
+    RuleARN: String | None
     ResourceARN: ResourceARN
     Priority: Priority
     FixedRate: FixedRate
@@ -424,13 +424,13 @@ class SamplingRule(TypedDict, total=False):
     HTTPMethod: HTTPMethod
     URLPath: URLPath
     Version: Version
-    Attributes: Optional[AttributeMap]
-    SamplingRateBoost: Optional[SamplingRateBoost]
+    Attributes: AttributeMap | None
+    SamplingRateBoost: SamplingRateBoost | None
 
 
 class CreateSamplingRuleRequest(ServiceRequest):
     SamplingRule: SamplingRule
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 Timestamp = datetime
@@ -442,18 +442,18 @@ class SamplingRuleRecord(TypedDict, total=False):
     and its metadata.
     """
 
-    SamplingRule: Optional[SamplingRule]
-    CreatedAt: Optional[Timestamp]
-    ModifiedAt: Optional[Timestamp]
+    SamplingRule: SamplingRule | None
+    CreatedAt: Timestamp | None
+    ModifiedAt: Timestamp | None
 
 
 class CreateSamplingRuleResult(TypedDict, total=False):
-    SamplingRuleRecord: Optional[SamplingRuleRecord]
+    SamplingRuleRecord: SamplingRuleRecord | None
 
 
 class DeleteGroupRequest(ServiceRequest):
-    GroupName: Optional[GroupName]
-    GroupARN: Optional[GroupARN]
+    GroupName: GroupName | None
+    GroupARN: GroupARN | None
 
 
 class DeleteGroupResult(TypedDict, total=False):
@@ -462,7 +462,7 @@ class DeleteGroupResult(TypedDict, total=False):
 
 class DeleteResourcePolicyRequest(ServiceRequest):
     PolicyName: PolicyName
-    PolicyRevisionId: Optional[PolicyRevisionId]
+    PolicyRevisionId: PolicyRevisionId | None
 
 
 class DeleteResourcePolicyResult(TypedDict, total=False):
@@ -470,12 +470,12 @@ class DeleteResourcePolicyResult(TypedDict, total=False):
 
 
 class DeleteSamplingRuleRequest(ServiceRequest):
-    RuleName: Optional[String]
-    RuleARN: Optional[String]
+    RuleName: String | None
+    RuleARN: String | None
 
 
 class DeleteSamplingRuleResult(TypedDict, total=False):
-    SamplingRuleRecord: Optional[SamplingRuleRecord]
+    SamplingRuleRecord: SamplingRuleRecord | None
 
 
 class HistogramEntry(TypedDict, total=False):
@@ -484,11 +484,11 @@ class HistogramEntry(TypedDict, total=False):
     axis.
     """
 
-    Value: Optional[Double]
-    Count: Optional[Integer]
+    Value: Double | None
+    Count: Integer | None
 
 
-Histogram = List[HistogramEntry]
+Histogram = list[HistogramEntry]
 NullableLong = int
 
 
@@ -497,8 +497,8 @@ class FaultStatistics(TypedDict, total=False):
     code.
     """
 
-    OtherCount: Optional[NullableLong]
-    TotalCount: Optional[NullableLong]
+    OtherCount: NullableLong | None
+    TotalCount: NullableLong | None
 
 
 class ErrorStatistics(TypedDict, total=False):
@@ -506,19 +506,19 @@ class ErrorStatistics(TypedDict, total=False):
     code.
     """
 
-    ThrottleCount: Optional[NullableLong]
-    OtherCount: Optional[NullableLong]
-    TotalCount: Optional[NullableLong]
+    ThrottleCount: NullableLong | None
+    OtherCount: NullableLong | None
+    TotalCount: NullableLong | None
 
 
 class EdgeStatistics(TypedDict, total=False):
     """Response statistics for an edge."""
 
-    OkCount: Optional[NullableLong]
-    ErrorStatistics: Optional[ErrorStatistics]
-    FaultStatistics: Optional[FaultStatistics]
-    TotalCount: Optional[NullableLong]
-    TotalResponseTime: Optional[NullableDouble]
+    OkCount: NullableLong | None
+    ErrorStatistics: ErrorStatistics | None
+    FaultStatistics: FaultStatistics | None
+    TotalCount: NullableLong | None
+    TotalResponseTime: NullableDouble | None
 
 
 class Edge(TypedDict, total=False):
@@ -528,17 +528,17 @@ class Edge(TypedDict, total=False):
     event from an SNS queue.
     """
 
-    ReferenceId: Optional[NullableInteger]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    SummaryStatistics: Optional[EdgeStatistics]
-    ResponseTimeHistogram: Optional[Histogram]
-    Aliases: Optional[AliasList]
-    EdgeType: Optional[String]
-    ReceivedEventAgeHistogram: Optional[Histogram]
+    ReferenceId: NullableInteger | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    SummaryStatistics: EdgeStatistics | None
+    ResponseTimeHistogram: Histogram | None
+    Aliases: AliasList | None
+    EdgeType: String | None
+    ReceivedEventAgeHistogram: Histogram | None
 
 
-EdgeList = List[Edge]
+EdgeList = list[Edge]
 
 
 class EncryptionConfig(TypedDict, total=False):
@@ -546,19 +546,19 @@ class EncryptionConfig(TypedDict, total=False):
     settings.
     """
 
-    KeyId: Optional[String]
-    Status: Optional[EncryptionStatus]
-    Type: Optional[EncryptionType]
+    KeyId: String | None
+    Status: EncryptionStatus | None
+    Type: EncryptionType | None
 
 
 class RootCauseException(TypedDict, total=False):
     """The exception associated with a root cause."""
 
-    Name: Optional[String]
-    Message: Optional[String]
+    Name: String | None
+    Message: String | None
 
 
-RootCauseExceptions = List[RootCauseException]
+RootCauseExceptions = list[RootCauseException]
 
 
 class ErrorRootCauseEntity(TypedDict, total=False):
@@ -566,12 +566,12 @@ class ErrorRootCauseEntity(TypedDict, total=False):
     trace summary error.
     """
 
-    Name: Optional[String]
-    Exceptions: Optional[RootCauseExceptions]
-    Remote: Optional[NullableBoolean]
+    Name: String | None
+    Exceptions: RootCauseExceptions | None
+    Remote: NullableBoolean | None
 
 
-ErrorRootCauseEntityPath = List[ErrorRootCauseEntity]
+ErrorRootCauseEntityPath = list[ErrorRootCauseEntity]
 
 
 class ErrorRootCauseService(TypedDict, total=False):
@@ -579,25 +579,25 @@ class ErrorRootCauseService(TypedDict, total=False):
     error.
     """
 
-    Name: Optional[String]
-    Names: Optional[ServiceNames]
-    Type: Optional[String]
-    AccountId: Optional[String]
-    EntityPath: Optional[ErrorRootCauseEntityPath]
-    Inferred: Optional[NullableBoolean]
+    Name: String | None
+    Names: ServiceNames | None
+    Type: String | None
+    AccountId: String | None
+    EntityPath: ErrorRootCauseEntityPath | None
+    Inferred: NullableBoolean | None
 
 
-ErrorRootCauseServices = List[ErrorRootCauseService]
+ErrorRootCauseServices = list[ErrorRootCauseService]
 
 
 class ErrorRootCause(TypedDict, total=False):
     """The root cause of a trace summary error."""
 
-    Services: Optional[ErrorRootCauseServices]
-    ClientImpacting: Optional[NullableBoolean]
+    Services: ErrorRootCauseServices | None
+    ClientImpacting: NullableBoolean | None
 
 
-ErrorRootCauses = List[ErrorRootCause]
+ErrorRootCauses = list[ErrorRootCause]
 
 
 class FaultRootCauseEntity(TypedDict, total=False):
@@ -605,12 +605,12 @@ class FaultRootCauseEntity(TypedDict, total=False):
     trace summary fault error.
     """
 
-    Name: Optional[String]
-    Exceptions: Optional[RootCauseExceptions]
-    Remote: Optional[NullableBoolean]
+    Name: String | None
+    Exceptions: RootCauseExceptions | None
+    Remote: NullableBoolean | None
 
 
-FaultRootCauseEntityPath = List[FaultRootCauseEntity]
+FaultRootCauseEntityPath = list[FaultRootCauseEntity]
 
 
 class FaultRootCauseService(TypedDict, total=False):
@@ -618,25 +618,25 @@ class FaultRootCauseService(TypedDict, total=False):
     fault.
     """
 
-    Name: Optional[String]
-    Names: Optional[ServiceNames]
-    Type: Optional[String]
-    AccountId: Optional[String]
-    EntityPath: Optional[FaultRootCauseEntityPath]
-    Inferred: Optional[NullableBoolean]
+    Name: String | None
+    Names: ServiceNames | None
+    Type: String | None
+    AccountId: String | None
+    EntityPath: FaultRootCauseEntityPath | None
+    Inferred: NullableBoolean | None
 
 
-FaultRootCauseServices = List[FaultRootCauseService]
+FaultRootCauseServices = list[FaultRootCauseService]
 
 
 class FaultRootCause(TypedDict, total=False):
     """The root cause information for a trace summary fault."""
 
-    Services: Optional[FaultRootCauseServices]
-    ClientImpacting: Optional[NullableBoolean]
+    Services: FaultRootCauseServices | None
+    ClientImpacting: NullableBoolean | None
 
 
-FaultRootCauses = List[FaultRootCause]
+FaultRootCauses = list[FaultRootCause]
 
 
 class ForecastStatistics(TypedDict, total=False):
@@ -644,8 +644,8 @@ class ForecastStatistics(TypedDict, total=False):
     service has become anomalous and if an insight should be created.
     """
 
-    FaultCountHigh: Optional[NullableLong]
-    FaultCountLow: Optional[NullableLong]
+    FaultCountHigh: NullableLong | None
+    FaultCountLow: NullableLong | None
 
 
 class GetEncryptionConfigRequest(ServiceRequest):
@@ -653,54 +653,54 @@ class GetEncryptionConfigRequest(ServiceRequest):
 
 
 class GetEncryptionConfigResult(TypedDict, total=False):
-    EncryptionConfig: Optional[EncryptionConfig]
+    EncryptionConfig: EncryptionConfig | None
 
 
 class GetGroupRequest(ServiceRequest):
-    GroupName: Optional[GroupName]
-    GroupARN: Optional[GroupARN]
+    GroupName: GroupName | None
+    GroupARN: GroupARN | None
 
 
 class GetGroupResult(TypedDict, total=False):
-    Group: Optional[Group]
+    Group: Group | None
 
 
 class GetGroupsRequest(ServiceRequest):
-    NextToken: Optional[GetGroupsNextToken]
+    NextToken: GetGroupsNextToken | None
 
 
 class GroupSummary(TypedDict, total=False):
     """Details for a group without metadata."""
 
-    GroupName: Optional[String]
-    GroupARN: Optional[String]
-    FilterExpression: Optional[String]
-    InsightsConfiguration: Optional[InsightsConfiguration]
+    GroupName: String | None
+    GroupARN: String | None
+    FilterExpression: String | None
+    InsightsConfiguration: InsightsConfiguration | None
 
 
-GroupSummaryList = List[GroupSummary]
+GroupSummaryList = list[GroupSummary]
 
 
 class GetGroupsResult(TypedDict, total=False):
-    Groups: Optional[GroupSummaryList]
-    NextToken: Optional[String]
+    Groups: GroupSummaryList | None
+    NextToken: String | None
 
 
 class GetIndexingRulesRequest(ServiceRequest):
-    NextToken: Optional[String]
+    NextToken: String | None
 
 
 class ProbabilisticRuleValue(TypedDict, total=False):
     """The indexing rule configuration for probabilistic sampling."""
 
     DesiredSamplingPercentage: NullableDouble
-    ActualSamplingPercentage: Optional[NullableDouble]
+    ActualSamplingPercentage: NullableDouble | None
 
 
 class IndexingRuleValue(TypedDict, total=False):
     """The indexing rule configuration."""
 
-    Probabilistic: Optional[ProbabilisticRuleValue]
+    Probabilistic: ProbabilisticRuleValue | None
 
 
 class IndexingRule(TypedDict, total=False):
@@ -708,31 +708,31 @@ class IndexingRule(TypedDict, total=False):
     through the CloudWatchLogs destination and indexed by X-Ray.
     """
 
-    Name: Optional[RuleName]
-    ModifiedAt: Optional[Timestamp]
-    Rule: Optional[IndexingRuleValue]
+    Name: RuleName | None
+    ModifiedAt: Timestamp | None
+    Rule: IndexingRuleValue | None
 
 
-IndexingRuleList = List[IndexingRule]
+IndexingRuleList = list[IndexingRule]
 
 
 class GetIndexingRulesResult(TypedDict, total=False):
-    IndexingRules: Optional[IndexingRuleList]
-    NextToken: Optional[String]
+    IndexingRules: IndexingRuleList | None
+    NextToken: String | None
 
 
 class GetInsightEventsRequest(ServiceRequest):
     InsightId: InsightId
-    MaxResults: Optional[GetInsightEventsMaxResults]
-    NextToken: Optional[Token]
+    MaxResults: GetInsightEventsMaxResults | None
+    NextToken: Token | None
 
 
 class RequestImpactStatistics(TypedDict, total=False):
     """Statistics that describe how the incident has impacted a service."""
 
-    FaultCount: Optional[NullableLong]
-    OkCount: Optional[NullableLong]
-    TotalCount: Optional[NullableLong]
+    FaultCount: NullableLong | None
+    OkCount: NullableLong | None
+    TotalCount: NullableLong | None
 
 
 class InsightEvent(TypedDict, total=False):
@@ -741,35 +741,35 @@ class InsightEvent(TypedDict, total=False):
     events in the Impact Timeline on the Inspect page in the X-Ray console.
     """
 
-    Summary: Optional[EventSummaryText]
-    EventTime: Optional[Timestamp]
-    ClientRequestImpactStatistics: Optional[RequestImpactStatistics]
-    RootCauseServiceRequestImpactStatistics: Optional[RequestImpactStatistics]
-    TopAnomalousServices: Optional[AnomalousServiceList]
+    Summary: EventSummaryText | None
+    EventTime: Timestamp | None
+    ClientRequestImpactStatistics: RequestImpactStatistics | None
+    RootCauseServiceRequestImpactStatistics: RequestImpactStatistics | None
+    TopAnomalousServices: AnomalousServiceList | None
 
 
-InsightEventList = List[InsightEvent]
+InsightEventList = list[InsightEvent]
 
 
 class GetInsightEventsResult(TypedDict, total=False):
-    InsightEvents: Optional[InsightEventList]
-    NextToken: Optional[Token]
+    InsightEvents: InsightEventList | None
+    NextToken: Token | None
 
 
 class GetInsightImpactGraphRequest(ServiceRequest):
     InsightId: InsightId
     StartTime: Timestamp
     EndTime: Timestamp
-    NextToken: Optional[Token]
+    NextToken: Token | None
 
 
 class InsightImpactGraphEdge(TypedDict, total=False):
     """The connection between two service in an insight impact graph."""
 
-    ReferenceId: Optional[NullableInteger]
+    ReferenceId: NullableInteger | None
 
 
-InsightImpactGraphEdgeList = List[InsightImpactGraphEdge]
+InsightImpactGraphEdgeList = list[InsightImpactGraphEdge]
 
 
 class InsightImpactGraphService(TypedDict, total=False):
@@ -778,32 +778,32 @@ class InsightImpactGraphService(TypedDict, total=False):
     an application used.
     """
 
-    ReferenceId: Optional[NullableInteger]
-    Type: Optional[String]
-    Name: Optional[String]
-    Names: Optional[ServiceNames]
-    AccountId: Optional[String]
-    Edges: Optional[InsightImpactGraphEdgeList]
+    ReferenceId: NullableInteger | None
+    Type: String | None
+    Name: String | None
+    Names: ServiceNames | None
+    AccountId: String | None
+    Edges: InsightImpactGraphEdgeList | None
 
 
-InsightImpactGraphServiceList = List[InsightImpactGraphService]
+InsightImpactGraphServiceList = list[InsightImpactGraphService]
 
 
 class GetInsightImpactGraphResult(TypedDict, total=False):
-    InsightId: Optional[InsightId]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    ServiceGraphStartTime: Optional[Timestamp]
-    ServiceGraphEndTime: Optional[Timestamp]
-    Services: Optional[InsightImpactGraphServiceList]
-    NextToken: Optional[Token]
+    InsightId: InsightId | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    ServiceGraphStartTime: Timestamp | None
+    ServiceGraphEndTime: Timestamp | None
+    Services: InsightImpactGraphServiceList | None
+    NextToken: Token | None
 
 
 class GetInsightRequest(ServiceRequest):
     InsightId: InsightId
 
 
-InsightCategoryList = List[InsightCategory]
+InsightCategoryList = list[InsightCategory]
 
 
 class Insight(TypedDict, total=False):
@@ -811,87 +811,87 @@ class Insight(TypedDict, total=False):
     insight. Insights tracks emergent issues within your applications.
     """
 
-    InsightId: Optional[InsightId]
-    GroupARN: Optional[GroupARN]
-    GroupName: Optional[GroupName]
-    RootCauseServiceId: Optional[ServiceId]
-    Categories: Optional[InsightCategoryList]
-    State: Optional[InsightState]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    Summary: Optional[InsightSummaryText]
-    ClientRequestImpactStatistics: Optional[RequestImpactStatistics]
-    RootCauseServiceRequestImpactStatistics: Optional[RequestImpactStatistics]
-    TopAnomalousServices: Optional[AnomalousServiceList]
+    InsightId: InsightId | None
+    GroupARN: GroupARN | None
+    GroupName: GroupName | None
+    RootCauseServiceId: ServiceId | None
+    Categories: InsightCategoryList | None
+    State: InsightState | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    Summary: InsightSummaryText | None
+    ClientRequestImpactStatistics: RequestImpactStatistics | None
+    RootCauseServiceRequestImpactStatistics: RequestImpactStatistics | None
+    TopAnomalousServices: AnomalousServiceList | None
 
 
 class GetInsightResult(TypedDict, total=False):
-    Insight: Optional[Insight]
+    Insight: Insight | None
 
 
-InsightStateList = List[InsightState]
+InsightStateList = list[InsightState]
 
 
 class GetInsightSummariesRequest(ServiceRequest):
-    States: Optional[InsightStateList]
-    GroupARN: Optional[GroupARN]
-    GroupName: Optional[GroupName]
+    States: InsightStateList | None
+    GroupARN: GroupARN | None
+    GroupName: GroupName | None
     StartTime: Timestamp
     EndTime: Timestamp
-    MaxResults: Optional[GetInsightSummariesMaxResults]
-    NextToken: Optional[Token]
+    MaxResults: GetInsightSummariesMaxResults | None
+    NextToken: Token | None
 
 
 class InsightSummary(TypedDict, total=False):
     """Information that describes an insight."""
 
-    InsightId: Optional[InsightId]
-    GroupARN: Optional[GroupARN]
-    GroupName: Optional[GroupName]
-    RootCauseServiceId: Optional[ServiceId]
-    Categories: Optional[InsightCategoryList]
-    State: Optional[InsightState]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    Summary: Optional[InsightSummaryText]
-    ClientRequestImpactStatistics: Optional[RequestImpactStatistics]
-    RootCauseServiceRequestImpactStatistics: Optional[RequestImpactStatistics]
-    TopAnomalousServices: Optional[AnomalousServiceList]
-    LastUpdateTime: Optional[Timestamp]
+    InsightId: InsightId | None
+    GroupARN: GroupARN | None
+    GroupName: GroupName | None
+    RootCauseServiceId: ServiceId | None
+    Categories: InsightCategoryList | None
+    State: InsightState | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    Summary: InsightSummaryText | None
+    ClientRequestImpactStatistics: RequestImpactStatistics | None
+    RootCauseServiceRequestImpactStatistics: RequestImpactStatistics | None
+    TopAnomalousServices: AnomalousServiceList | None
+    LastUpdateTime: Timestamp | None
 
 
-InsightSummaryList = List[InsightSummary]
+InsightSummaryList = list[InsightSummary]
 
 
 class GetInsightSummariesResult(TypedDict, total=False):
-    InsightSummaries: Optional[InsightSummaryList]
-    NextToken: Optional[Token]
+    InsightSummaries: InsightSummaryList | None
+    NextToken: Token | None
 
 
 class GetRetrievedTracesGraphRequest(ServiceRequest):
     RetrievalToken: RetrievalToken
-    NextToken: Optional[String]
+    NextToken: String | None
 
 
 class GraphLink(TypedDict, total=False):
     """The relation between two services."""
 
-    ReferenceType: Optional[String]
-    SourceTraceId: Optional[String]
-    DestinationTraceIds: Optional[TraceIdList]
+    ReferenceType: String | None
+    SourceTraceId: String | None
+    DestinationTraceIds: TraceIdList | None
 
 
-LinksList = List[GraphLink]
+LinksList = list[GraphLink]
 
 
 class ServiceStatistics(TypedDict, total=False):
     """Response statistics for a service."""
 
-    OkCount: Optional[NullableLong]
-    ErrorStatistics: Optional[ErrorStatistics]
-    FaultStatistics: Optional[FaultStatistics]
-    TotalCount: Optional[NullableLong]
-    TotalResponseTime: Optional[NullableDouble]
+    OkCount: NullableLong | None
+    ErrorStatistics: ErrorStatistics | None
+    FaultStatistics: FaultStatistics | None
+    TotalCount: NullableLong | None
+    TotalResponseTime: NullableDouble | None
 
 
 class Service(TypedDict, total=False):
@@ -900,19 +900,19 @@ class Service(TypedDict, total=False):
     an application used.
     """
 
-    ReferenceId: Optional[NullableInteger]
-    Name: Optional[String]
-    Names: Optional[ServiceNames]
-    Root: Optional[NullableBoolean]
-    AccountId: Optional[String]
-    Type: Optional[String]
-    State: Optional[String]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    Edges: Optional[EdgeList]
-    SummaryStatistics: Optional[ServiceStatistics]
-    DurationHistogram: Optional[Histogram]
-    ResponseTimeHistogram: Optional[Histogram]
+    ReferenceId: NullableInteger | None
+    Name: String | None
+    Names: ServiceNames | None
+    Root: NullableBoolean | None
+    AccountId: String | None
+    Type: String | None
+    State: String | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    Edges: EdgeList | None
+    SummaryStatistics: ServiceStatistics | None
+    DurationHistogram: Histogram | None
+    ResponseTimeHistogram: Histogram | None
 
 
 class RetrievedService(TypedDict, total=False):
@@ -921,33 +921,33 @@ class RetrievedService(TypedDict, total=False):
     applications that an application used.
     """
 
-    Service: Optional[Service]
-    Links: Optional[LinksList]
+    Service: Service | None
+    Links: LinksList | None
 
 
-RetrievedServicesList = List[RetrievedService]
+RetrievedServicesList = list[RetrievedService]
 
 
 class GetRetrievedTracesGraphResult(TypedDict, total=False):
-    RetrievalStatus: Optional[RetrievalStatus]
-    Services: Optional[RetrievedServicesList]
-    NextToken: Optional[String]
+    RetrievalStatus: RetrievalStatus | None
+    Services: RetrievedServicesList | None
+    NextToken: String | None
 
 
 class GetSamplingRulesRequest(ServiceRequest):
-    NextToken: Optional[String]
+    NextToken: String | None
 
 
-SamplingRuleRecordList = List[SamplingRuleRecord]
+SamplingRuleRecordList = list[SamplingRuleRecord]
 
 
 class GetSamplingRulesResult(TypedDict, total=False):
-    SamplingRuleRecords: Optional[SamplingRuleRecordList]
-    NextToken: Optional[String]
+    SamplingRuleRecords: SamplingRuleRecordList | None
+    NextToken: String | None
 
 
 class GetSamplingStatisticSummariesRequest(ServiceRequest):
-    NextToken: Optional[String]
+    NextToken: String | None
 
 
 class SamplingStatisticSummary(TypedDict, total=False):
@@ -955,19 +955,19 @@ class SamplingStatisticSummary(TypedDict, total=False):
     for a 10-second window.
     """
 
-    RuleName: Optional[String]
-    Timestamp: Optional[Timestamp]
-    RequestCount: Optional[Integer]
-    BorrowCount: Optional[Integer]
-    SampledCount: Optional[Integer]
+    RuleName: String | None
+    Timestamp: Timestamp | None
+    RequestCount: Integer | None
+    BorrowCount: Integer | None
+    SampledCount: Integer | None
 
 
-SamplingStatisticSummaryList = List[SamplingStatisticSummary]
+SamplingStatisticSummaryList = list[SamplingStatisticSummary]
 
 
 class GetSamplingStatisticSummariesResult(TypedDict, total=False):
-    SamplingStatisticSummaries: Optional[SamplingStatisticSummaryList]
-    NextToken: Optional[String]
+    SamplingStatisticSummaries: SamplingStatisticSummaryList | None
+    NextToken: String | None
 
 
 class SamplingBoostStatisticsDocument(TypedDict, total=False):
@@ -985,7 +985,7 @@ class SamplingBoostStatisticsDocument(TypedDict, total=False):
     SampledAnomalyCount: SampledAnomalyCount
 
 
-SamplingBoostStatisticsDocumentList = List[SamplingBoostStatisticsDocument]
+SamplingBoostStatisticsDocumentList = list[SamplingBoostStatisticsDocument]
 
 
 class SamplingStatisticsDocument(TypedDict, total=False):
@@ -1000,15 +1000,15 @@ class SamplingStatisticsDocument(TypedDict, total=False):
     Timestamp: Timestamp
     RequestCount: RequestCount
     SampledCount: SampledCount
-    BorrowCount: Optional[BorrowCount]
+    BorrowCount: BorrowCount | None
 
 
-SamplingStatisticsDocumentList = List[SamplingStatisticsDocument]
+SamplingStatisticsDocumentList = list[SamplingStatisticsDocument]
 
 
 class GetSamplingTargetsRequest(ServiceRequest):
     SamplingStatisticsDocuments: SamplingStatisticsDocumentList
-    SamplingBoostStatisticsDocuments: Optional[SamplingBoostStatisticsDocumentList]
+    SamplingBoostStatisticsDocuments: SamplingBoostStatisticsDocumentList | None
 
 
 class UnprocessedStatistics(TypedDict, total=False):
@@ -1017,12 +1017,12 @@ class UnprocessedStatistics(TypedDict, total=False):
     that X-Ray could not process.
     """
 
-    RuleName: Optional[String]
-    ErrorCode: Optional[String]
-    Message: Optional[String]
+    RuleName: String | None
+    ErrorCode: String | None
+    Message: String | None
 
 
-UnprocessedStatisticsList = List[UnprocessedStatistics]
+UnprocessedStatisticsList = list[UnprocessedStatistics]
 
 
 class SamplingBoost(TypedDict, total=False):
@@ -1043,81 +1043,81 @@ class SamplingTargetDocument(TypedDict, total=False):
     `GetSamplingTargets <https://docs.aws.amazon.com/xray/latest/api/API_GetSamplingTargets.html>`__.
     """
 
-    RuleName: Optional[String]
-    FixedRate: Optional[Double]
-    ReservoirQuota: Optional[NullableInteger]
-    ReservoirQuotaTTL: Optional[Timestamp]
-    Interval: Optional[NullableInteger]
-    SamplingBoost: Optional[SamplingBoost]
+    RuleName: String | None
+    FixedRate: Double | None
+    ReservoirQuota: NullableInteger | None
+    ReservoirQuotaTTL: Timestamp | None
+    Interval: NullableInteger | None
+    SamplingBoost: SamplingBoost | None
 
 
-SamplingTargetDocumentList = List[SamplingTargetDocument]
+SamplingTargetDocumentList = list[SamplingTargetDocument]
 
 
 class GetSamplingTargetsResult(TypedDict, total=False):
-    SamplingTargetDocuments: Optional[SamplingTargetDocumentList]
-    LastRuleModification: Optional[Timestamp]
-    UnprocessedStatistics: Optional[UnprocessedStatisticsList]
-    UnprocessedBoostStatistics: Optional[UnprocessedStatisticsList]
+    SamplingTargetDocuments: SamplingTargetDocumentList | None
+    LastRuleModification: Timestamp | None
+    UnprocessedStatistics: UnprocessedStatisticsList | None
+    UnprocessedBoostStatistics: UnprocessedStatisticsList | None
 
 
 class GetServiceGraphRequest(ServiceRequest):
     StartTime: Timestamp
     EndTime: Timestamp
-    GroupName: Optional[GroupName]
-    GroupARN: Optional[GroupARN]
-    NextToken: Optional[String]
+    GroupName: GroupName | None
+    GroupARN: GroupARN | None
+    NextToken: String | None
 
 
-ServiceList = List[Service]
+ServiceList = list[Service]
 
 
 class GetServiceGraphResult(TypedDict, total=False):
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    Services: Optional[ServiceList]
-    ContainsOldGroupVersions: Optional[Boolean]
-    NextToken: Optional[String]
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    Services: ServiceList | None
+    ContainsOldGroupVersions: Boolean | None
+    NextToken: String | None
 
 
 class GetTimeSeriesServiceStatisticsRequest(ServiceRequest):
     StartTime: Timestamp
     EndTime: Timestamp
-    GroupName: Optional[GroupName]
-    GroupARN: Optional[GroupARN]
-    EntitySelectorExpression: Optional[EntitySelectorExpression]
-    Period: Optional[NullableInteger]
-    ForecastStatistics: Optional[NullableBoolean]
-    NextToken: Optional[String]
+    GroupName: GroupName | None
+    GroupARN: GroupARN | None
+    EntitySelectorExpression: EntitySelectorExpression | None
+    Period: NullableInteger | None
+    ForecastStatistics: NullableBoolean | None
+    NextToken: String | None
 
 
 class TimeSeriesServiceStatistics(TypedDict, total=False):
     """A list of TimeSeriesStatistic structures."""
 
-    Timestamp: Optional[Timestamp]
-    EdgeSummaryStatistics: Optional[EdgeStatistics]
-    ServiceSummaryStatistics: Optional[ServiceStatistics]
-    ServiceForecastStatistics: Optional[ForecastStatistics]
-    ResponseTimeHistogram: Optional[Histogram]
+    Timestamp: Timestamp | None
+    EdgeSummaryStatistics: EdgeStatistics | None
+    ServiceSummaryStatistics: ServiceStatistics | None
+    ServiceForecastStatistics: ForecastStatistics | None
+    ResponseTimeHistogram: Histogram | None
 
 
-TimeSeriesServiceStatisticsList = List[TimeSeriesServiceStatistics]
+TimeSeriesServiceStatisticsList = list[TimeSeriesServiceStatistics]
 
 
 class GetTimeSeriesServiceStatisticsResult(TypedDict, total=False):
-    TimeSeriesServiceStatistics: Optional[TimeSeriesServiceStatisticsList]
-    ContainsOldGroupVersions: Optional[Boolean]
-    NextToken: Optional[String]
+    TimeSeriesServiceStatistics: TimeSeriesServiceStatisticsList | None
+    ContainsOldGroupVersions: Boolean | None
+    NextToken: String | None
 
 
 class GetTraceGraphRequest(ServiceRequest):
     TraceIds: TraceIdList
-    NextToken: Optional[String]
+    NextToken: String | None
 
 
 class GetTraceGraphResult(TypedDict, total=False):
-    Services: Optional[ServiceList]
-    NextToken: Optional[String]
+    Services: ServiceList | None
+    NextToken: String | None
 
 
 class GetTraceSegmentDestinationRequest(ServiceRequest):
@@ -1125,25 +1125,25 @@ class GetTraceSegmentDestinationRequest(ServiceRequest):
 
 
 class GetTraceSegmentDestinationResult(TypedDict, total=False):
-    Destination: Optional[TraceSegmentDestination]
-    Status: Optional[TraceSegmentDestinationStatus]
+    Destination: TraceSegmentDestination | None
+    Status: TraceSegmentDestinationStatus | None
 
 
 class SamplingStrategy(TypedDict, total=False):
     """The name and value of a sampling rule to apply to a trace summary."""
 
-    Name: Optional[SamplingStrategyName]
-    Value: Optional[NullableDouble]
+    Name: SamplingStrategyName | None
+    Value: NullableDouble | None
 
 
 class GetTraceSummariesRequest(ServiceRequest):
     StartTime: Timestamp
     EndTime: Timestamp
-    TimeRangeType: Optional[TimeRangeType]
-    Sampling: Optional[NullableBoolean]
-    SamplingStrategy: Optional[SamplingStrategy]
-    FilterExpression: Optional[FilterExpression]
-    NextToken: Optional[String]
+    TimeRangeType: TimeRangeType | None
+    Sampling: NullableBoolean | None
+    SamplingStrategy: SamplingStrategy | None
+    FilterExpression: FilterExpression | None
+    NextToken: String | None
 
 
 class ResponseTimeRootCauseEntity(TypedDict, total=False):
@@ -1151,12 +1151,12 @@ class ResponseTimeRootCauseEntity(TypedDict, total=False):
     response time warning.
     """
 
-    Name: Optional[String]
-    Coverage: Optional[NullableDouble]
-    Remote: Optional[NullableBoolean]
+    Name: String | None
+    Coverage: NullableDouble | None
+    Remote: NullableBoolean | None
 
 
-ResponseTimeRootCauseEntityPath = List[ResponseTimeRootCauseEntity]
+ResponseTimeRootCauseEntityPath = list[ResponseTimeRootCauseEntity]
 
 
 class ResponseTimeRootCauseService(TypedDict, total=False):
@@ -1164,100 +1164,100 @@ class ResponseTimeRootCauseService(TypedDict, total=False):
     warning.
     """
 
-    Name: Optional[String]
-    Names: Optional[ServiceNames]
-    Type: Optional[String]
-    AccountId: Optional[String]
-    EntityPath: Optional[ResponseTimeRootCauseEntityPath]
-    Inferred: Optional[NullableBoolean]
+    Name: String | None
+    Names: ServiceNames | None
+    Type: String | None
+    AccountId: String | None
+    EntityPath: ResponseTimeRootCauseEntityPath | None
+    Inferred: NullableBoolean | None
 
 
-ResponseTimeRootCauseServices = List[ResponseTimeRootCauseService]
+ResponseTimeRootCauseServices = list[ResponseTimeRootCauseService]
 
 
 class ResponseTimeRootCause(TypedDict, total=False):
     """The root cause information for a response time warning."""
 
-    Services: Optional[ResponseTimeRootCauseServices]
-    ClientImpacting: Optional[NullableBoolean]
+    Services: ResponseTimeRootCauseServices | None
+    ClientImpacting: NullableBoolean | None
 
 
-ResponseTimeRootCauses = List[ResponseTimeRootCause]
-TraceAvailabilityZones = List[AvailabilityZoneDetail]
+ResponseTimeRootCauses = list[ResponseTimeRootCause]
+TraceAvailabilityZones = list[AvailabilityZoneDetail]
 
 
 class InstanceIdDetail(TypedDict, total=False):
     """A list of EC2 instance IDs corresponding to the segments in a trace."""
 
-    Id: Optional[String]
+    Id: String | None
 
 
-TraceInstanceIds = List[InstanceIdDetail]
+TraceInstanceIds = list[InstanceIdDetail]
 
 
 class ResourceARNDetail(TypedDict, total=False):
     """A list of resources ARNs corresponding to the segments in a trace."""
 
-    ARN: Optional[String]
+    ARN: String | None
 
 
-TraceResourceARNs = List[ResourceARNDetail]
+TraceResourceARNs = list[ResourceARNDetail]
 
 
 class TraceUser(TypedDict, total=False):
     """Information about a user recorded in segment documents."""
 
-    UserName: Optional[String]
-    ServiceIds: Optional[ServiceIds]
+    UserName: String | None
+    ServiceIds: ServiceIds | None
 
 
-TraceUsers = List[TraceUser]
+TraceUsers = list[TraceUser]
 
 
 class Http(TypedDict, total=False):
     """Information about an HTTP request."""
 
-    HttpURL: Optional[String]
-    HttpStatus: Optional[NullableInteger]
-    HttpMethod: Optional[String]
-    UserAgent: Optional[String]
-    ClientIp: Optional[String]
+    HttpURL: String | None
+    HttpStatus: NullableInteger | None
+    HttpMethod: String | None
+    UserAgent: String | None
+    ClientIp: String | None
 
 
 class TraceSummary(TypedDict, total=False):
     """Metadata generated from the segment documents in a trace."""
 
-    Id: Optional[TraceId]
-    StartTime: Optional[Timestamp]
-    Duration: Optional[NullableDouble]
-    ResponseTime: Optional[NullableDouble]
-    HasFault: Optional[NullableBoolean]
-    HasError: Optional[NullableBoolean]
-    HasThrottle: Optional[NullableBoolean]
-    IsPartial: Optional[NullableBoolean]
-    Http: Optional[Http]
-    Annotations: Optional[Annotations]
-    Users: Optional[TraceUsers]
-    ServiceIds: Optional[ServiceIds]
-    ResourceARNs: Optional[TraceResourceARNs]
-    InstanceIds: Optional[TraceInstanceIds]
-    AvailabilityZones: Optional[TraceAvailabilityZones]
-    EntryPoint: Optional[ServiceId]
-    FaultRootCauses: Optional[FaultRootCauses]
-    ErrorRootCauses: Optional[ErrorRootCauses]
-    ResponseTimeRootCauses: Optional[ResponseTimeRootCauses]
-    Revision: Optional[Integer]
-    MatchedEventTime: Optional[Timestamp]
+    Id: TraceId | None
+    StartTime: Timestamp | None
+    Duration: NullableDouble | None
+    ResponseTime: NullableDouble | None
+    HasFault: NullableBoolean | None
+    HasError: NullableBoolean | None
+    HasThrottle: NullableBoolean | None
+    IsPartial: NullableBoolean | None
+    Http: Http | None
+    Annotations: Annotations | None
+    Users: TraceUsers | None
+    ServiceIds: ServiceIds | None
+    ResourceARNs: TraceResourceARNs | None
+    InstanceIds: TraceInstanceIds | None
+    AvailabilityZones: TraceAvailabilityZones | None
+    EntryPoint: ServiceId | None
+    FaultRootCauses: FaultRootCauses | None
+    ErrorRootCauses: ErrorRootCauses | None
+    ResponseTimeRootCauses: ResponseTimeRootCauses | None
+    Revision: Integer | None
+    MatchedEventTime: Timestamp | None
 
 
-TraceSummaryList = List[TraceSummary]
+TraceSummaryList = list[TraceSummary]
 
 
 class GetTraceSummariesResult(TypedDict, total=False):
-    TraceSummaries: Optional[TraceSummaryList]
-    ApproximateTime: Optional[Timestamp]
-    TracesProcessedCount: Optional[NullableLong]
-    NextToken: Optional[String]
+    TraceSummaries: TraceSummaryList | None
+    ApproximateTime: Timestamp | None
+    TracesProcessedCount: NullableLong | None
+    NextToken: String | None
 
 
 class ProbabilisticRuleValueUpdate(TypedDict, total=False):
@@ -1269,11 +1269,11 @@ class ProbabilisticRuleValueUpdate(TypedDict, total=False):
 class IndexingRuleValueUpdate(TypedDict, total=False):
     """Update to an indexing rule."""
 
-    Probabilistic: Optional[ProbabilisticRuleValueUpdate]
+    Probabilistic: ProbabilisticRuleValueUpdate | None
 
 
 class ListResourcePoliciesRequest(ServiceRequest):
-    NextToken: Optional[ResourcePolicyNextToken]
+    NextToken: ResourcePolicyNextToken | None
 
 
 class ResourcePolicy(TypedDict, total=False):
@@ -1282,24 +1282,24 @@ class ResourcePolicy(TypedDict, total=False):
     with a specific Amazon Web Services account.
     """
 
-    PolicyName: Optional[PolicyName]
-    PolicyDocument: Optional[PolicyDocument]
-    PolicyRevisionId: Optional[PolicyRevisionId]
-    LastUpdatedTime: Optional[Timestamp]
+    PolicyName: PolicyName | None
+    PolicyDocument: PolicyDocument | None
+    PolicyRevisionId: PolicyRevisionId | None
+    LastUpdatedTime: Timestamp | None
 
 
-ResourcePolicyList = List[ResourcePolicy]
+ResourcePolicyList = list[ResourcePolicy]
 
 
 class ListResourcePoliciesResult(TypedDict, total=False):
-    ResourcePolicies: Optional[ResourcePolicyList]
-    NextToken: Optional[ResourcePolicyNextToken]
+    ResourcePolicies: ResourcePolicyList | None
+    NextToken: ResourcePolicyNextToken | None
 
 
 class ListRetrievedTracesRequest(ServiceRequest):
     RetrievalToken: RetrievalToken
-    TraceFormat: Optional[TraceFormatType]
-    NextToken: Optional[String]
+    TraceFormat: TraceFormatType | None
+    NextToken: String | None
 
 
 class Span(TypedDict, total=False):
@@ -1307,85 +1307,85 @@ class Span(TypedDict, total=False):
     represents a unit of work or an operation performed by a service.
     """
 
-    Id: Optional[SpanId]
-    Document: Optional[SpanDocument]
+    Id: SpanId | None
+    Document: SpanDocument | None
 
 
-SpanList = List[Span]
+SpanList = list[Span]
 
 
 class RetrievedTrace(TypedDict, total=False):
     """Retrieved collection of spans with matching trace IDs."""
 
-    Id: Optional[TraceId]
-    Duration: Optional[NullableDouble]
-    Spans: Optional[SpanList]
+    Id: TraceId | None
+    Duration: NullableDouble | None
+    Spans: SpanList | None
 
 
-TraceSpanList = List[RetrievedTrace]
+TraceSpanList = list[RetrievedTrace]
 
 
 class ListRetrievedTracesResult(TypedDict, total=False):
-    RetrievalStatus: Optional[RetrievalStatus]
-    TraceFormat: Optional[TraceFormatType]
-    Traces: Optional[TraceSpanList]
-    NextToken: Optional[String]
+    RetrievalStatus: RetrievalStatus | None
+    TraceFormat: TraceFormatType | None
+    Traces: TraceSpanList | None
+    NextToken: String | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
     ResourceARN: AmazonResourceName
-    NextToken: Optional[String]
+    NextToken: String | None
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[TagList]
-    NextToken: Optional[String]
+    Tags: TagList | None
+    NextToken: String | None
 
 
 class PutEncryptionConfigRequest(ServiceRequest):
-    KeyId: Optional[EncryptionKeyId]
+    KeyId: EncryptionKeyId | None
     Type: EncryptionType
 
 
 class PutEncryptionConfigResult(TypedDict, total=False):
-    EncryptionConfig: Optional[EncryptionConfig]
+    EncryptionConfig: EncryptionConfig | None
 
 
 class PutResourcePolicyRequest(ServiceRequest):
     PolicyName: PolicyName
     PolicyDocument: PolicyDocument
-    PolicyRevisionId: Optional[PolicyRevisionId]
-    BypassPolicyLockoutCheck: Optional[Boolean]
+    PolicyRevisionId: PolicyRevisionId | None
+    BypassPolicyLockoutCheck: Boolean | None
 
 
 class PutResourcePolicyResult(TypedDict, total=False):
-    ResourcePolicy: Optional[ResourcePolicy]
+    ResourcePolicy: ResourcePolicy | None
 
 
 class TelemetryRecord(TypedDict, total=False):
     Timestamp: Timestamp
-    SegmentsReceivedCount: Optional[NullableInteger]
-    SegmentsSentCount: Optional[NullableInteger]
-    SegmentsSpilloverCount: Optional[NullableInteger]
-    SegmentsRejectedCount: Optional[NullableInteger]
-    BackendConnectionErrors: Optional[BackendConnectionErrors]
+    SegmentsReceivedCount: NullableInteger | None
+    SegmentsSentCount: NullableInteger | None
+    SegmentsSpilloverCount: NullableInteger | None
+    SegmentsRejectedCount: NullableInteger | None
+    BackendConnectionErrors: BackendConnectionErrors | None
 
 
-TelemetryRecordList = List[TelemetryRecord]
+TelemetryRecordList = list[TelemetryRecord]
 
 
 class PutTelemetryRecordsRequest(ServiceRequest):
     TelemetryRecords: TelemetryRecordList
-    EC2InstanceId: Optional[EC2InstanceId]
-    Hostname: Optional[Hostname]
-    ResourceARN: Optional[ResourceARN]
+    EC2InstanceId: EC2InstanceId | None
+    Hostname: Hostname | None
+    ResourceARN: ResourceARN | None
 
 
 class PutTelemetryRecordsResult(TypedDict, total=False):
     pass
 
 
-TraceSegmentDocumentList = List[TraceSegmentDocument]
+TraceSegmentDocumentList = list[TraceSegmentDocument]
 
 
 class PutTraceSegmentsRequest(ServiceRequest):
@@ -1395,37 +1395,37 @@ class PutTraceSegmentsRequest(ServiceRequest):
 class UnprocessedTraceSegment(TypedDict, total=False):
     """Information about a segment that failed processing."""
 
-    Id: Optional[String]
-    ErrorCode: Optional[String]
-    Message: Optional[String]
+    Id: String | None
+    ErrorCode: String | None
+    Message: String | None
 
 
-UnprocessedTraceSegmentList = List[UnprocessedTraceSegment]
+UnprocessedTraceSegmentList = list[UnprocessedTraceSegment]
 
 
 class PutTraceSegmentsResult(TypedDict, total=False):
-    UnprocessedTraceSegments: Optional[UnprocessedTraceSegmentList]
+    UnprocessedTraceSegments: UnprocessedTraceSegmentList | None
 
 
 class SamplingRuleUpdate(TypedDict, total=False):
     """A document specifying changes to a sampling rule's configuration."""
 
-    RuleName: Optional[RuleName]
-    RuleARN: Optional[String]
-    ResourceARN: Optional[ResourceARN]
-    Priority: Optional[NullableInteger]
-    FixedRate: Optional[NullableDouble]
-    ReservoirSize: Optional[NullableInteger]
-    Host: Optional[Host]
-    ServiceName: Optional[ServiceName]
-    ServiceType: Optional[ServiceType]
-    HTTPMethod: Optional[HTTPMethod]
-    URLPath: Optional[URLPath]
-    Attributes: Optional[AttributeMap]
-    SamplingRateBoost: Optional[SamplingRateBoost]
+    RuleName: RuleName | None
+    RuleARN: String | None
+    ResourceARN: ResourceARN | None
+    Priority: NullableInteger | None
+    FixedRate: NullableDouble | None
+    ReservoirSize: NullableInteger | None
+    Host: Host | None
+    ServiceName: ServiceName | None
+    ServiceType: ServiceType | None
+    HTTPMethod: HTTPMethod | None
+    URLPath: URLPath | None
+    Attributes: AttributeMap | None
+    SamplingRateBoost: SamplingRateBoost | None
 
 
-TraceIdListForRetrieval = List[TraceId]
+TraceIdListForRetrieval = list[TraceId]
 
 
 class StartTraceRetrievalRequest(ServiceRequest):
@@ -1435,10 +1435,10 @@ class StartTraceRetrievalRequest(ServiceRequest):
 
 
 class StartTraceRetrievalResult(TypedDict, total=False):
-    RetrievalToken: Optional[RetrievalToken]
+    RetrievalToken: RetrievalToken | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -1460,14 +1460,14 @@ class UntagResourceResponse(TypedDict, total=False):
 
 
 class UpdateGroupRequest(ServiceRequest):
-    GroupName: Optional[GroupName]
-    GroupARN: Optional[GroupARN]
-    FilterExpression: Optional[FilterExpression]
-    InsightsConfiguration: Optional[InsightsConfiguration]
+    GroupName: GroupName | None
+    GroupARN: GroupARN | None
+    FilterExpression: FilterExpression | None
+    InsightsConfiguration: InsightsConfiguration | None
 
 
 class UpdateGroupResult(TypedDict, total=False):
-    Group: Optional[Group]
+    Group: Group | None
 
 
 class UpdateIndexingRuleRequest(ServiceRequest):
@@ -1476,7 +1476,7 @@ class UpdateIndexingRuleRequest(ServiceRequest):
 
 
 class UpdateIndexingRuleResult(TypedDict, total=False):
-    IndexingRule: Optional[IndexingRule]
+    IndexingRule: IndexingRule | None
 
 
 class UpdateSamplingRuleRequest(ServiceRequest):
@@ -1484,21 +1484,21 @@ class UpdateSamplingRuleRequest(ServiceRequest):
 
 
 class UpdateSamplingRuleResult(TypedDict, total=False):
-    SamplingRuleRecord: Optional[SamplingRuleRecord]
+    SamplingRuleRecord: SamplingRuleRecord | None
 
 
 class UpdateTraceSegmentDestinationRequest(ServiceRequest):
-    Destination: Optional[TraceSegmentDestination]
+    Destination: TraceSegmentDestination | None
 
 
 class UpdateTraceSegmentDestinationResult(TypedDict, total=False):
-    Destination: Optional[TraceSegmentDestination]
-    Status: Optional[TraceSegmentDestinationStatus]
+    Destination: TraceSegmentDestination | None
+    Status: TraceSegmentDestinationStatus | None
 
 
 class XrayApi:
-    service = "xray"
-    version = "2016-04-12"
+    service: str = "xray"
+    version: str = "2016-04-12"
 
     @handler("BatchGetTraces")
     def batch_get_traces(

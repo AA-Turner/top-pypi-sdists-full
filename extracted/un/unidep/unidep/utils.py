@@ -12,7 +12,7 @@ import sys
 import warnings
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, NamedTuple, cast
+from typing import Any, Literal, NamedTuple, cast
 
 from unidep._version import __version__
 from unidep.platform_definitions import (
@@ -293,6 +293,17 @@ class PathWithExtras(NamedTuple):
         if not isinstance(other, PathWithExtras):
             return NotImplemented
         return self.path == other.path and set(self.extras) == set(other.extras)
+
+
+LocalDependencyUse = Literal["local", "pypi", "skip"]
+
+
+class LocalDependency(NamedTuple):
+    """A local dependency with optional PyPI alternative and `use` mode."""
+
+    local: str
+    pypi: str | None = None
+    use: LocalDependencyUse = "local"
 
 
 def parse_folder_or_filename(folder_or_file: str | Path) -> PathWithExtras:

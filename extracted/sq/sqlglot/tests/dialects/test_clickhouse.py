@@ -32,7 +32,6 @@ class TestClickhouse(Validator):
 
         expr = parse_one("count(x)")
         self.assertEqual(expr.sql(dialect="clickhouse"), "COUNT(x)")
-        self.assertIsNone(expr._meta)
 
         self.validate_identity('SELECT DISTINCT ON ("id") * FROM t')
         self.validate_identity("SELECT 1 OR (1 = 2)")
@@ -189,6 +188,10 @@ class TestClickhouse(Validator):
             "SELECT generate_series FROM generate_series(0, 10) AS g(x)",
         )
         self.validate_identity(
+            "SELECT t.c FROM (SELECT arrayJoin([1,2,3,4,5]) AS c) AS t WHERE (t.c + 0) NOT IN (1,2)",
+            "SELECT t.c FROM (SELECT arrayJoin([1, 2, 3, 4, 5]) AS c) AS t WHERE NOT ((t.c + 0) IN (1, 2))",
+        )
+        self.validate_identity(
             "SELECT * FROM t1, t2",
             "SELECT * FROM t1 CROSS JOIN t2",
         )
@@ -329,6 +332,18 @@ class TestClickhouse(Validator):
             },
         )
         self.validate_all(
+            "has([1], x)",
+            read={
+                "clickhouse": "has([1], x)",
+                "presto": "CONTAINS(ARRAY[1], x)",
+                "spark": "ARRAY_CONTAINS(ARRAY(1), x)",
+            },
+            write={
+                "presto": "CONTAINS(ARRAY[1], x)",
+                "spark": "ARRAY_CONTAINS(ARRAY(1), x)",
+            },
+        )
+        self.validate_all(
             "SELECT CAST('2020-01-01' AS Nullable(DateTime)) + INTERVAL '500' MICROSECOND",
             read={
                 "duckdb": "SELECT TIMESTAMP '2020-01-01' + INTERVAL '500 us'",
@@ -428,6 +443,7 @@ class TestClickhouse(Validator):
                 "mysql": "SELECT 1 XOR 0 XOR 1",
             },
         )
+        self.validate_identity("SELECT xor(0, 1, 1, 0)")
         self.validate_all(
             "CONCAT(a, b)",
             read={
@@ -436,7 +452,7 @@ class TestClickhouse(Validator):
             },
             write={
                 "mysql": "CONCAT(a, b)",
-                "postgres": "CONCAT(a, b)",
+                "postgres": "a || b",
             },
         )
         self.validate_all(
@@ -631,7 +647,7 @@ class TestClickhouse(Validator):
             "SELECT name FROM data WHERE NOT ((SELECT DISTINCT name FROM data) IS NULL)",
         )
 
-        self.validate_identity("SELECT 1_2_3_4_5", "SELECT 12345")
+        self.validate_identity("SELECT 1_2_3_4_5")
         self.validate_identity("SELECT 1_b", "SELECT 1_b")
         self.validate_identity(
             "SELECT COUNT(1) FROM table SETTINGS additional_table_filters = {'a': 'b', 'c': 'd'}"
@@ -648,6 +664,21 @@ class TestClickhouse(Validator):
         self.validate_identity("cosineDistance(x, y)")
         self.validate_identity("L2Distance(x, y)")
         self.validate_identity("tuple(1 = 1, 'foo' = 'foo')")
+
+        self.validate_identity("SELECT LIKE(a, b)", "SELECT a LIKE b")
+        self.validate_identity("SELECT notLike(a, b)", "SELECT NOT a LIKE b")
+        self.validate_identity("SELECT ilike(a, b)", "SELECT a ILIKE b")
+
+        self.validate_identity("currentDatabase()", "CURRENT_DATABASE()")
+        self.validate_identity("currentSchemas(TRUE)", "CURRENT_SCHEMAS(TRUE)")
+
+        self.validate_identity(
+            "SELECT quantilesExactExclusive(0.25, 0.5, 0.75)(x) AS y FROM (SELECT number AS x FROM num)"
+        )
+
+        self.validate_identity("SELECT or(0, 1, -2)", "SELECT 0 OR 1 OR -2")
+        self.validate_identity("SELECT and(1, 2, 3)", "SELECT 1 AND 2 AND 3")
+        self.validate_identity("SELECT or(and(3, 0), 5)", "SELECT (3 AND 0) OR 5")
 
     def test_clickhouse_values(self):
         ast = self.parse_one("SELECT * FROM VALUES (1, 2, 3)")
@@ -696,8 +727,8 @@ class TestClickhouse(Validator):
         self.validate_identity("WITH test1 AS (SELECT i + 1, j + 1 FROM test1) SELECT * FROM test1")
 
         query = parse_one("""WITH (SELECT 1) AS y SELECT * FROM y""", read="clickhouse")
-        self.assertIsInstance(query.args["with"].expressions[0].this, exp.Subquery)
-        self.assertEqual(query.args["with"].expressions[0].alias, "y")
+        self.assertIsInstance(query.args["with_"].expressions[0].this, exp.Subquery)
+        self.assertEqual(query.args["with_"].expressions[0].alias, "y")
 
         query = "WITH 1 AS var SELECT var"
         for error_level in [ErrorLevel.IGNORE, ErrorLevel.RAISE, ErrorLevel.IMMEDIATE]:
@@ -961,12 +992,12 @@ ORDER BY tuple()""",
   sum_hits UInt64
 )
 ENGINE=MergeTree
-PRIMARY KEY (id, toStartOfDay(timestamp), timestamp)
+PRIMARY KEY (id, dateTrunc('DAY', timestamp), timestamp)
 TTL
   timestamp + INTERVAL '1' DAY
 GROUP BY
   id,
-  toStartOfDay(timestamp)
+  dateTrunc('DAY', timestamp)
 SET
   max_hits = max(max_hits),
   sum_hits = sum(sum_hits)""",
@@ -1501,3 +1532,55 @@ LIFETIME(MIN 0 MAX 0)""",
                     "INFO:sqlglot:Applying array index offset (1)",
                 ],
             )
+
+    def test_to_start_of(self):
+        for unit in ("SECOND", "DAY", "YEAR"):
+            self.validate_all(
+                f"toStartOf{unit}(x)",
+                write={
+                    "databricks": f"DATE_TRUNC('{unit}', x)",
+                    "duckdb": f"DATE_TRUNC('{unit}', x)",
+                    "doris": f"DATE_TRUNC(x, '{unit}')",
+                    "presto": f"DATE_TRUNC('{unit}', x)",
+                    "spark": f"DATE_TRUNC('{unit}', x)",
+                },
+            )
+
+        self.validate_all(
+            "toMonday(x)",
+            write={
+                "databricks": "DATE_TRUNC('WEEK', x)",
+                "duckdb": "DATE_TRUNC('WEEK', x)",
+                "doris": "DATE_TRUNC(x, 'WEEK')",
+                "presto": "DATE_TRUNC('WEEK', x)",
+                "spark": "DATE_TRUNC('WEEK', x)",
+            },
+        )
+
+    def test_string_split(self):
+        self.validate_all(
+            "splitByString('s', x)",
+            read={
+                "bigquery": "SPLIT(x, 's')",
+                "duckdb": "STRING_SPLIT(x, 's')",
+            },
+            write={
+                "clickhouse": "splitByString('s', x)",
+                "doris": "SPLIT_BY_STRING(x, 's')",
+                "duckdb": "STR_SPLIT(x, 's')",
+                "hive": r"SPLIT(x, CONCAT('\\Q', 's', '\\E'))",
+            },
+        )
+        self.validate_all(
+            r"splitByRegexp('\\d+', x)",
+            read={
+                "duckdb": r"STRING_SPLIT_REGEX(x, '\d+')",
+                "hive": r"SPLIT(x, '\\d+')",
+            },
+            write={
+                "clickhouse": r"splitByRegexp('\\d+', x)",
+                "duckdb": r"STR_SPLIT_REGEX(x, '\d+')",
+                "hive": r"SPLIT(x, '\\d+')",
+            },
+        )
+        self.validate_identity("splitByChar('', x)")

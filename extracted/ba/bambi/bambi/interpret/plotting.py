@@ -1,10 +1,9 @@
-from typing import Union
+import warnings
 
-import arviz as az
-from arviz.plots.backends.matplotlib import create_axes_grid
-from arviz.plots.plot_utils import default_grid
 import numpy as np
 import pandas as pd
+
+from matplotlib.pyplot import subplots
 from pandas.api.types import is_categorical_dtype, is_numeric_dtype, is_string_dtype
 
 from bambi.models import Model
@@ -18,16 +17,14 @@ def _plot_differences(
     model: Model,
     conditional_info: ConditionalInfo,
     summary_df: pd.DataFrame,
-    average_by: Union[str, list, None] = None,
+    average_by: str | list | None = None,
     transforms=None,
     legend: bool = True,
     ax=None,
     fig_kwargs=None,
     subplot_kwargs=None,
 ):
-    """
-    Common function used for both 'plot_comparisons' and 'plot_slopes'.
-    """
+    """Common function used for both 'plot_comparisons' and 'plot_slopes'."""
     if (subplot_kwargs and not average_by) or (subplot_kwargs and average_by):
         for key, value in subplot_kwargs.items():
             conditional_info.covariates.update({key: value})
@@ -82,9 +79,9 @@ def _plot_differences(
 
 def plot_predictions(
     model: Model,
-    idata: az.InferenceData,
-    conditional: Union[str, list, dict, None] = None,
-    average_by: Union[str, list, None] = None,
+    idata: "InferenceData",
+    conditional: str | list | dict | None = None,
+    average_by: str | list | None = None,
     target: str = "mean",
     sample_new_groups: bool = False,
     pps: bool = False,
@@ -112,10 +109,10 @@ def plot_predictions(
         The covariates we would like to average by. The passed covariate(s) will marginalize
         over the other covariates in the model. If True, it averages over all covariates
         in the model to obtain the average estimate. Defaults to `None`.
-    target : str
+    target : str, optional
         Which model parameter to plot. Defaults to 'mean'. Passing a parameter into target only
         works when pps is False as the target may not be available in the posterior predictive
-        distribution.
+        distribution. Defaults to `"mean"`.
     sample_new_groups : bool, optional
         If the model contains group-level effects, and data is passed for unseen groups, whether
         to sample from the new groups. Defaults to `False`.
@@ -125,7 +122,7 @@ def plot_predictions(
         Whether to compute the highest density interval (defaults to True) or the quantiles.
     prob : float, optional
         The probability for the credibility intervals. Must be between 0 and 1. Defaults to 0.94.
-        Changing the global variable `az.rcParam["stats.hdi_prob"]` affects this default.
+        Changing the global variable `az.rcParam["stats.ci_prob"]` affects this default.
     legend : bool, optional
         Whether to automatically include a legend in the plot. Defaults to `True`.
     transforms : dict, optional
@@ -153,7 +150,7 @@ def plot_predictions(
     ValueError
         If `conditional` and `average_by` are both `None`.
         If length of `conditional` is greater than 3 and `average_by` is `None`.
-        If main covariate is not numeric or categoric.
+        If main covariate is not numeric or categorical.
     """
     if conditional is None and average_by is None:
         raise ValueError("Must specify at least one of 'conditional' or 'average_by'.")
@@ -240,10 +237,10 @@ def plot_predictions(
 
 def plot_comparisons(
     model: Model,
-    idata: az.InferenceData,
-    contrast: Union[str, dict, list],
-    conditional: Union[str, dict, list, None] = None,
-    average_by: Union[str, list, None] = None,
+    idata: "InferenceData",
+    contrast: str | dict | list,
+    conditional: str | dict | list | None = None,
+    average_by: str | list | None = None,
     comparison_type: str = "diff",
     sample_new_groups: bool = False,
     use_hdi: bool = True,
@@ -280,7 +277,7 @@ def plot_comparisons(
         Whether to compute the highest density interval (defaults to True) or the quantiles.
     prob : float, optional
         The probability for the credibility intervals. Must be between 0 and 1. Defaults to 0.94.
-        Changing the global variable `az.rcParam["stats.hdi_prob"]` affects this default.
+        Changing the global variable `az.rcParam["stats.ci_prob"]` affects this default.
     legend : bool, optional
         Whether to automatically include a legend in the plot. Defaults to `True`.
     transforms : dict, optional
@@ -382,10 +379,10 @@ def plot_comparisons(
 
 def plot_slopes(
     model: Model,
-    idata: az.InferenceData,
-    wrt: Union[str, dict],
-    conditional: Union[str, dict, list, None] = None,
-    average_by: Union[str, list] = None,
+    idata: "InferenceData",
+    wrt: str | dict,
+    conditional: str | dict | list | None = None,
+    average_by: str | list = None,
     eps: float = 1e-4,
     slope: str = "dydx",
     sample_new_groups: bool = False,
@@ -437,7 +434,7 @@ def plot_slopes(
         Whether to compute the highest density interval (defaults to True) or the quantiles.
     prob : float, optional
         The probability for the credibility intervals. Must be between 0 and 1. Defaults to 0.94.
-        Changing the global variable `az.rcParam["stats.hdi_prob"]` affects this default.
+        Changing the global variable `az.rcParam["stats.ci_prob"]` affects this default.
     transforms : dict, optional
         Transformations that are applied to each of the variables being plotted. The keys are the
         name of the variables, and the values are functions to be applied. Defaults to `None`.
@@ -538,3 +535,80 @@ def plot_slopes(
         fig_kwargs=fig_kwargs,
         subplot_kwargs=subplot_kwargs,
     )
+
+
+def create_axes_grid(length_plotters, rows=1, cols=1, backend_kwargs=None):
+    """Create figure and axes for grids with multiple plots.
+
+    Parameters
+    ----------
+    length_plotters : int
+        Number of axes required
+    rows : int
+        Number of rows
+    cols : int
+        Number of columns
+    backend_kwargs: dict, optional
+        kwargs for backend figure.
+
+    Returns
+    -------
+    fig : matplotlib figure
+    axes : matplotlib axes
+    """
+    if backend_kwargs is None:
+        backend_kwargs = {}
+
+    fig, axes = subplots(rows, cols, **backend_kwargs)
+    extra = (rows * cols) - length_plotters
+    if extra > 0:
+        for (row, col), ax in np.ndenumerate(axes):
+            if (row * cols + col + 1) > length_plotters:
+                ax.set_axis_off()
+    return fig, axes
+
+
+def default_grid(n_items, grid=None, max_cols=4, min_cols=3):  # noqa: D202
+    """Make a grid for subplots.
+
+    Tries to get as close to sqrt(n_items) x sqrt(n_items) as it can, but allows for custom logic.
+
+    Parameters
+    ----------
+    n_items : int
+        Number of panels required
+    grid : tuple
+        Number of rows and columns
+    max_cols : int
+        Maximum number of columns, inclusive
+    min_cols : int
+        Minimum number of columns, inclusive
+
+    Returns
+    -------
+    (int, int)
+        Rows and columns, so that rows * columns >= n_items
+    """
+
+    if grid is None:
+
+        def in_bounds(val):
+            return np.clip(val, min_cols, max_cols)
+
+        if n_items <= max_cols:
+            return 1, n_items
+        ideal = in_bounds(round(n_items**0.5))
+
+        for offset in (0, 1, -1, 2, -2):
+            cols = in_bounds(ideal + offset)
+            rows, extra = divmod(n_items, cols)
+            if extra == 0:
+                return rows, cols
+        return n_items // ideal + 1, ideal
+    else:
+        rows, cols = grid
+        if rows * cols < n_items:
+            raise ValueError("The number of rows times columns is less than the number of subplots")
+        if (rows * cols) - n_items >= cols:
+            warnings.warn("The number of rows times columns is larger than necessary")
+        return rows, cols

@@ -11,12 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""MAC wrapper.
-"""
+"""MAC wrapper."""
 
-from typing import Type
+from typing import Optional, Type
 
 from tink.proto import tink_pb2
+from tink import _monitoring
 from tink import core
 from tink.mac import _mac
 
@@ -24,31 +24,49 @@ from tink.mac import _mac
 class _WrappedMac(_mac.Mac):
   """Implements Mac for a set of Mac primitives."""
 
-  def __init__(self, pset: core.PrimitiveSet):
+  def __init__(
+      self,
+      pset: core.PrimitiveSet,
+      compute_monitor: Optional[_monitoring.KeyUsageMonitor] = None,
+      verify_monitor: Optional[_monitoring.KeyUsageMonitor] = None,
+  ):
     self._primitive_set = pset
+    self._compute_monitor = compute_monitor
+    self._verify_monitor = verify_monitor
 
   def compute_mac(self, data: bytes) -> bytes:
     primary = self._primitive_set.primary()
     if primary.output_prefix_type == tink_pb2.LEGACY:
-      return primary.identifier + primary.primitive.compute_mac(
-          data + core.crypto_format.LEGACY_START_BYTE)
+      result = primary.identifier + primary.primitive.compute_mac(
+          data + core.crypto_format.LEGACY_START_BYTE
+      )
     else:
-      return primary.identifier + primary.primitive.compute_mac(data)
+      result = primary.identifier + primary.primitive.compute_mac(data)
+
+    if self._compute_monitor:
+      self._compute_monitor.log(primary.key_id, len(data))
+
+    return result
 
   def verify_mac(self, mac_value: bytes, data: bytes) -> None:
     if len(mac_value) <= core.crypto_format.NON_RAW_PREFIX_SIZE:
+      if self._verify_monitor:
+        self._verify_monitor.log_failure()
       # This also rejects raw MAC with size of 4 bytes or fewer. Those MACs are
       # clearly insecure, thus should be discouraged.
       raise core.TinkError('tag too short')
-    prefix = mac_value[:core.crypto_format.NON_RAW_PREFIX_SIZE]
-    mac_no_prefix = mac_value[core.crypto_format.NON_RAW_PREFIX_SIZE:]
+    prefix = mac_value[: core.crypto_format.NON_RAW_PREFIX_SIZE]
+    mac_no_prefix = mac_value[core.crypto_format.NON_RAW_PREFIX_SIZE :]
     for entry in self._primitive_set.primitive_from_identifier(prefix):
       try:
         if entry.output_prefix_type == tink_pb2.LEGACY:
           entry.primitive.verify_mac(mac_no_prefix, data + b'\x00')
         else:
           entry.primitive.verify_mac(mac_no_prefix, data)
+
         # If there is no exception, the MAC is valid and we can return.
+        if self._verify_monitor:
+          self._verify_monitor.log(entry.key_id, len(mac_no_prefix))
         return
       except core.TinkError:
         pass
@@ -57,10 +75,17 @@ class _WrappedMac(_mac.Mac):
     for entry in self._primitive_set.raw_primitives():
       try:
         entry.primitive.verify_mac(mac_value, data)
+
         # If there is no exception, the MAC is valid and we can return.
+        if self._verify_monitor:
+          self._verify_monitor.log(entry.key_id, len(mac_value))
         return
       except core.TinkError:
         pass
+
+    if self._verify_monitor:
+      self._verify_monitor.log_failure()
+
     raise core.TinkError('invalid MAC')
 
 
@@ -83,3 +108,26 @@ class MacWrapper(core.PrimitiveWrapper[_mac.Mac, _mac.Mac]):
 
   def input_primitive_class(self) -> Type[_mac.Mac]:
     return _mac.Mac
+
+  def _wrap_with_monitoring_info(
+      self,
+      pset: core.PrimitiveSet,
+      monitoring_keyset_info: _monitoring.MonitoringKeySetInfo,
+  ) -> _mac.Mac:
+    compute_key_usage_monitor = _monitoring.get_key_usage_monitor_or_none(
+        _monitoring.MonitoringContext(
+            primitive='mac',
+            api_function='compute_mac',
+            keyset_info=monitoring_keyset_info,
+        )
+    )
+    verify_key_usage_monitor = _monitoring.get_key_usage_monitor_or_none(
+        _monitoring.MonitoringContext(
+            primitive='mac',
+            api_function='verify_mac',
+            keyset_info=monitoring_keyset_info,
+        )
+    )
+    return _WrappedMac(
+        pset, compute_key_usage_monitor, verify_key_usage_monitor
+    )

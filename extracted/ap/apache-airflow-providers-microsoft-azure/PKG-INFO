@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-microsoft-azure
-Version: 12.7.1
+Version: 12.10.2
 Summary: Provider package apache-airflow-providers-microsoft-azure for Apache Airflow
 Keywords: airflow-provider,microsoft.azure,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
+License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
@@ -14,13 +15,15 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
-Requires-Dist: apache-airflow>=2.10.0
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: apache-airflow>=2.11.0
+Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: adlfs>=2023.10.0
 Requires-Dist: azure-batch>=8.0.0
 Requires-Dist: azure-cosmos>=4.6.0
@@ -36,13 +39,13 @@ Requires-Dist: azure-storage-file-share>=12.7.0
 Requires-Dist: azure-servicebus>=7.12.1
 Requires-Dist: azure-synapse-spark>=0.2.0
 Requires-Dist: azure-synapse-artifacts>=0.17.0
-Requires-Dist: adal>=1.2.7
 Requires-Dist: azure-storage-file-datalake>=12.9.1
-Requires-Dist: azure-kusto-data>=4.1.0,!=4.6.0
+Requires-Dist: azure-kusto-data>=4.1.0,!=4.6.0,!=5.0.0
 Requires-Dist: azure-mgmt-datafactory>=2.0.0
 Requires-Dist: azure-mgmt-containerregistry>=8.0.0
 Requires-Dist: azure-mgmt-containerinstance>=10.1.0
 Requires-Dist: msgraph-core>=1.3.3
+Requires-Dist: msgraphfs>=0.3.0
 Requires-Dist: microsoft-kiota-http>=1.9.4,<2.0.0
 Requires-Dist: microsoft-kiota-serialization-json>=1.9.4
 Requires-Dist: microsoft-kiota-serialization-text>=1.9.4
@@ -50,18 +53,16 @@ Requires-Dist: microsoft-kiota-abstractions>=1.9.4,<2.0.0
 Requires-Dist: microsoft-kiota-authentication-azure>=1.9.4,<2.0.0
 Requires-Dist: msal-extensions>=1.3.0
 Requires-Dist: apache-airflow-providers-amazon ; extra == "amazon"
-Requires-Dist: apache-airflow-providers-common-compat ; extra == "common-compat"
 Requires-Dist: apache-airflow-providers-oracle ; extra == "oracle"
 Requires-Dist: apache-airflow-providers-sftp ; extra == "sftp"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/12.7.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/12.7.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/12.10.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/12.10.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
 Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 Provides-Extra: amazon
-Provides-Extra: common-compat
 Provides-Extra: oracle
 Provides-Extra: sftp
 
@@ -90,7 +91,7 @@ Provides-Extra: sftp
 
 Package ``apache-airflow-providers-microsoft-azure``
 
-Release: ``12.7.1``
+Release: ``12.10.2``
 
 
 `Microsoft Azure <https://azure.microsoft.com/>`__
@@ -103,7 +104,7 @@ This is a provider package for ``microsoft.azure`` provider. All classes for thi
 are in ``airflow.providers.microsoft.azure`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/12.7.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/12.10.2/>`_.
 
 Installation
 ------------
@@ -117,39 +118,40 @@ The package supports the following python versions: 3.10,3.11,3.12,3.13
 Requirements
 ------------
 
-========================================  ===================
-PIP package                               Version required
-========================================  ===================
-``apache-airflow``                        ``>=2.10.0``
-``adlfs``                                 ``>=2023.10.0``
-``azure-batch``                           ``>=8.0.0``
-``azure-cosmos``                          ``>=4.6.0``
-``azure-mgmt-cosmosdb``                   ``>=3.0.0``
-``azure-datalake-store``                  ``>=0.0.45``
-``azure-identity``                        ``>=1.3.1``
-``azure-keyvault-secrets``                ``>=4.1.0``
-``azure-mgmt-datalake-store``             ``>=0.5.0``
-``azure-mgmt-resource``                   ``>=2.2.0``
-``azure-storage-blob``                    ``>=12.26.0``
-``azure-mgmt-storage``                    ``>=16.0.0``
-``azure-storage-file-share``              ``>=12.7.0``
-``azure-servicebus``                      ``>=7.12.1``
-``azure-synapse-spark``                   ``>=0.2.0``
-``azure-synapse-artifacts``               ``>=0.17.0``
-``adal``                                  ``>=1.2.7``
-``azure-storage-file-datalake``           ``>=12.9.1``
-``azure-kusto-data``                      ``>=4.1.0,!=4.6.0``
-``azure-mgmt-datafactory``                ``>=2.0.0``
-``azure-mgmt-containerregistry``          ``>=8.0.0``
-``azure-mgmt-containerinstance``          ``>=10.1.0``
-``msgraph-core``                          ``>=1.3.3``
-``microsoft-kiota-http``                  ``>=1.9.4,<2.0.0``
-``microsoft-kiota-serialization-json``    ``>=1.9.4``
-``microsoft-kiota-serialization-text``    ``>=1.9.4``
-``microsoft-kiota-abstractions``          ``>=1.9.4,<2.0.0``
-``microsoft-kiota-authentication-azure``  ``>=1.9.4,<2.0.0``
-``msal-extensions``                       ``>=1.3.0``
-========================================  ===================
+==========================================  ===========================
+PIP package                                 Version required
+==========================================  ===========================
+``apache-airflow``                          ``>=2.11.0``
+``apache-airflow-providers-common-compat``  ``>=1.11.0``
+``adlfs``                                   ``>=2023.10.0``
+``azure-batch``                             ``>=8.0.0``
+``azure-cosmos``                            ``>=4.6.0``
+``azure-mgmt-cosmosdb``                     ``>=3.0.0``
+``azure-datalake-store``                    ``>=0.0.45``
+``azure-identity``                          ``>=1.3.1``
+``azure-keyvault-secrets``                  ``>=4.1.0``
+``azure-mgmt-datalake-store``               ``>=0.5.0``
+``azure-mgmt-resource``                     ``>=2.2.0``
+``azure-storage-blob``                      ``>=12.26.0``
+``azure-mgmt-storage``                      ``>=16.0.0``
+``azure-storage-file-share``                ``>=12.7.0``
+``azure-servicebus``                        ``>=7.12.1``
+``azure-synapse-spark``                     ``>=0.2.0``
+``azure-synapse-artifacts``                 ``>=0.17.0``
+``azure-storage-file-datalake``             ``>=12.9.1``
+``azure-kusto-data``                        ``>=4.1.0,!=4.6.0,!=5.0.0``
+``azure-mgmt-datafactory``                  ``>=2.0.0``
+``azure-mgmt-containerregistry``            ``>=8.0.0``
+``azure-mgmt-containerinstance``            ``>=10.1.0``
+``msgraph-core``                            ``>=1.3.3``
+``msgraphfs``                               ``>=0.3.0``
+``microsoft-kiota-http``                    ``>=1.9.4,<2.0.0``
+``microsoft-kiota-serialization-json``      ``>=1.9.4``
+``microsoft-kiota-serialization-text``      ``>=1.9.4``
+``microsoft-kiota-abstractions``            ``>=1.9.4,<2.0.0``
+``microsoft-kiota-authentication-azure``    ``>=1.9.4,<2.0.0``
+``msal-extensions``                         ``>=1.3.0``
+==========================================  ===========================
 
 Cross provider package dependencies
 -----------------------------------
@@ -186,5 +188,5 @@ Extra              Dependencies
 =================  ==========================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/12.7.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/12.10.2/changelog.html>`_.
 

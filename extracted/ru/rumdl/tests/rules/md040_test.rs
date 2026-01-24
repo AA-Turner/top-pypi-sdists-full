@@ -6,7 +6,7 @@ use rumdl_lib::rules::MD040FencedCodeLanguage;
 fn test_valid_code_blocks() {
     let rule = MD040FencedCodeLanguage;
     let content = "```rust\nfn main() {}\n```\n```python\nprint('hello')\n```";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 }
@@ -15,7 +15,7 @@ fn test_valid_code_blocks() {
 fn test_missing_language() {
     let rule = MD040FencedCodeLanguage;
     let content = "```\nsome code\n```";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1);
     let fixed = rule.fix(&ctx).unwrap();
@@ -26,7 +26,7 @@ fn test_missing_language() {
 fn test_multiple_code_blocks() {
     let rule = MD040FencedCodeLanguage;
     let content = "```rust\nfn main() {}\n```\n```\nsome code\n```\n```python\nprint('hello')\n```";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1);
     let fixed = rule.fix(&ctx).unwrap();
@@ -40,7 +40,7 @@ fn test_multiple_code_blocks() {
 fn test_empty_code_block() {
     let rule = MD040FencedCodeLanguage;
     let content = "```\n```";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1);
     let fixed = rule.fix(&ctx).unwrap();
@@ -51,18 +51,18 @@ fn test_empty_code_block() {
 fn test_indented_code_block() {
     let rule = MD040FencedCodeLanguage;
     let content = "  ```\n  some code\n  ```";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1);
     let fixed = rule.fix(&ctx).unwrap();
-    assert_eq!(fixed, "```text\n  some code\n```");
+    assert_eq!(fixed, "  ```text\n  some code\n  ```");
 }
 
 #[test]
 fn test_mixed_code_blocks() {
     let rule = MD040FencedCodeLanguage;
     let content = "```rust\nfn main() {}\n```\nSome text\n```\nmore code\n```\n```js\nconsole.log('hi');\n```";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1);
     let fixed = rule.fix(&ctx).unwrap();
@@ -76,7 +76,7 @@ fn test_mixed_code_blocks() {
 fn test_preserve_whitespace() {
     let rule = MD040FencedCodeLanguage;
     let content = "```   \nsome code\n```";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1);
     let fixed = rule.fix(&ctx).unwrap();
@@ -88,10 +88,11 @@ fn test_nested_code_blocks_no_false_positives() {
     let rule = MD040FencedCodeLanguage;
     // Test the case where we have a markdown code block containing python code
     // The inner ```python and ``` should NOT be treated as separate code blocks
-    let content = "```markdown\n1. First item\n\n   ```python\n   code_in_list()\n   ```\n\n2. Second item\n```";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    // NOTE: Using 4-space indent so inner fences don't close the outer block (per CommonMark)
+    let content = "```markdown\n1. First item\n\n    ```python\n    code_in_list()\n    ```\n\n2. Second item\n```";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    // Should find no issues - the closing ``` should not be flagged as missing language
+    // Should find no issues - the 4-space indented inner fences are content, not code blocks
     assert!(
         result.is_empty(),
         "Nested code blocks should not generate false positives"
@@ -105,14 +106,19 @@ fn test_nested_code_blocks_no_false_positives() {
 #[test]
 fn test_indented_closing_fence_not_flagged() {
     let rule = MD040FencedCodeLanguage;
-    // Test that indented closing fences are not treated as new opening fences
-    let content = "```markdown\nSome content\n   ```python\n   code()\n   ```\nMore content\n```";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    // Test that 4-space indented fences are not treated as separate code blocks
+    // NOTE: Per CommonMark, 0-3 space indent DOES close the outer block
+    // Using 4-space indent to ensure content is treated as part of outer block
+    let content = "```markdown\nSome content\n    ```python\n    code()\n    ```\nMore content\n```";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    // Should find no issues - the indented ``` should not close the outer block
-    assert!(result.is_empty(), "Indented closing fences should not be flagged");
+    // Should find no issues - 4-space indented fences are content, not code blocks
+    assert!(
+        result.is_empty(),
+        "4-space indented fences should be content, not separate blocks"
+    );
 
-    // Test that fix doesn't add 'text' to closing fences
+    // Test that fix doesn't add 'text' to content inside code blocks
     let fixed = rule.fix(&ctx).unwrap();
     assert_eq!(
         fixed, content,
@@ -120,6 +126,6 @@ fn test_indented_closing_fence_not_flagged() {
     );
     assert!(
         !fixed.contains("```text"),
-        "Fix should not add 'text' to closing fences"
+        "Fix should not add 'text' to content inside code blocks"
     );
 }

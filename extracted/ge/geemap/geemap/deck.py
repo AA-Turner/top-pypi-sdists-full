@@ -6,62 +6,90 @@
 # *******************************************************************************#
 
 import os
+from typing import Optional
+
+import box
+import ee
 
 from .common import *
-from .osm import *
-from .geemap import basemaps
+from . import coreutils
 from . import examples
-from typing import Optional
+from .geemap import basemaps
+from .osm import *
+
 
 try:
     import pydeck as pdk
 
 except ImportError:
     raise ImportError(
-        "pydeck needs to be installed to use this module. Use 'pip install pydeck' to install the package. See https://deckgl.readthedocs.io/en/latest/installation.html for more details."
+        "pydeck needs to be installed to use this module. "
+        "Use 'pip install pydeck' to install the package. "
+        "See https://deckgl.readthedocs.io/en/latest/installation.html "
+        "for more details."
     )
 
 
 class Layer(pdk.Layer):
-    """Configures a deck.gl layer for rendering on a map. Parameters passed here will be specific to the particular deck.gl layer that you are choosing to use.
-    Please see the deck.gl Layer catalog (https://deck.gl/docs/api-reference/layers) to determine the particular parameters of your layer.
-    You are highly encouraged to look at the examples in the pydeck documentation.
+    """Configures a deck.gl layer for rendering on a map.
+
+    Parameters passed here will be specific to the particular deck.gl layer that you are
+    choosing to use. Please see the deck.gl Layer catalog
+    (https://deck.gl/docs/api-reference/layers) to determine the particular parameters
+    of your layer. You are highly encouraged to look at the examples in the pydeck
+    documentation.
     """
 
-    def __init__(self, type, data=None, id=None, use_binary_transport=None, **kwargs):
+    # TODO: Rename `type` and `id` as they are buildins.
+    def __init__(
+        self,
+        type: str,
+        data: str | None = None,
+        id=None,
+        use_binary_transport: bool = None,
+        **kwargs,
+    ):
         """Initialize a Layer object.
 
         Args:
-            type (str):  Type of layer to render, e.g., HexagonLayer. See deck.gl Layer catalog (https://deck.gl/docs/api-reference/layers)
-            data (str, optional): Unique name for layer. Defaults to None.
-            id (str | dict | pandas.DataFrame, optional): Either a URL of data to load in or an array of data. Defaults to None.
-            use_binary_transport (bool, optional): Boolean indicating binary data. Defaults to None.
+            type: Type of layer to render, e.g., HexagonLayer. See deck.gl Layer
+                catalog (https://deck.gl/docs/api-reference/layers)
+            data: Unique name for layer. Defaults to None.
+            id (str | dict | pandas.DataFrame, optional): Either a URL of data to load
+                in or an array of data. Defaults to None.
+            use_binary_transport: Boolean indicating binary data.
+                Defaults to None.
         """
         super().__init__(type, data, id, use_binary_transport, **kwargs)
 
 
 class Map(pdk.Deck):
-    """The Map class inherits pydeck.Deck.
+    """The Map class inherits pydeck.Deck."""
 
-    Returns:
-        object: pydeck.Deck object.
-    """
-
-    def __init__(self, center=(20, 0), zoom=1.2, height=800, width=None, **kwargs):
+    def __init__(
+        self,
+        center: tuple[float, float] = (20, 0),
+        zoom: float = 1.2,
+        height: int = 800,
+        width: int = None,
+        **kwargs,
+    ):
         """Initialize a Map object.
 
         Args:
-            center (tuple, optional): Center of the map in the format of (lat, lon). Defaults to (20, 0).
-            zoom (int, optional): The map zoom level. Defaults to 1.2.
-            height (int, optional): The map height. Note that the height has no effect in Jupyter notebook. Only works for streamlit. Defaults to 800.
-            width (int, optional): The map width. Note that the height has no effect in Jupyter notebook. Only works for streamlit. Defaults to None.
+            center: Center of the map in the format of (lat, lon). Defaults to (20, 0).
+            zoom: The map zoom level. Defaults to 1.2.
+            height: The map height. Note that the height has no effect in Jupyter
+                notebook. Only works for streamlit. Defaults to 800.
+            width: The map width. Note that the height has no effect in Jupyter
+                notebook. Only works for streamlit. Defaults to None.
         """
-        # Authenticates Earth Engine and initializes an Earth Engine session
+        # Authenticates Earth Engine and initializes an Earth Engine session.
         if "ee_initialize" not in kwargs.keys():
             kwargs["ee_initialize"] = True
 
         if kwargs["ee_initialize"]:
-            ee_initialize()
+            coreutils.ee_initialize()
 
         kwargs.pop("ee_initialize")
 
@@ -79,13 +107,13 @@ class Map(pdk.Deck):
 
         super().__init__(**kwargs)
 
-    def add_layer(self, layer, layer_name=None, **kwargs):
+    def add_layer(self, layer, layer_name: str | None = None, **kwargs) -> None:
         """Add a layer to the map.
 
         Args:
             layer (pydeck.Layer): A pydeck Layer object.
-            layer_name (str, optional): Sets the layer 'id' for the pydeck Layer object.
-            **kwargs (Any): Additional keyword arguments for the pydeck Layer object.
+            layer_name: Sets the layer 'id' for the pydeck Layer object.
+            **kwargs: Additional keyword arguments for the pydeck Layer object.
         """
 
         try:
@@ -102,18 +130,22 @@ class Map(pdk.Deck):
         except Exception as e:
             raise Exception(e)
 
-    def add_ee_layer(self, ee_object, vis_params={}, name=None, **kwargs):
+    def add_ee_layer(
+        self,
+        ee_object,
+        # TODO(schwehr): Do not use a mutable object as the default.
+        vis_params: dict[Any, Any] = {},
+        name: str | None = None,
+        **kwargs,
+    ):
         """Adds a given EE object to the map as a layer.
 
         Args:
             ee_object (Collection|Feature|Image|MapId): The object to add to the map.
-            vis_params (dict, optional): The visualization parameters. Defaults to {}.
-            name (str, optional): The name of the layer. Defaults to 'Layer N'.
-            **kwargs (Any): Additional keyword arguments for the pydeck Layer object.
+            vis_params: The visualization parameters. Defaults to {}.
+            name: The name of the layer. Defaults to 'Layer N'.
+            **kwargs: Additional keyword arguments for the pydeck Layer object.
         """
-        import ee
-        from box import Box
-
         image = None
 
         if vis_params is None:
@@ -130,7 +162,10 @@ class Map(pdk.Deck):
             and not isinstance(ee_object, ee.Feature)
             and not isinstance(ee_object, ee.Geometry)
         ):
-            err_str = "\n\nThe image argument in 'addLayer' function must be an instance of one of ee.Image, ee.Geometry, ee.Feature or ee.FeatureCollection."
+            err_str = (
+                "\n\nThe image argument in 'addLayer' function must be an instance of "
+                "one of ee.Image, ee.Geometry, ee.Feature or ee.FeatureCollection."
+            )
             raise AttributeError(err_str)
 
         if (
@@ -166,14 +201,14 @@ class Map(pdk.Deck):
         if "palette" in vis_params:
             if isinstance(vis_params["palette"], tuple):
                 vis_params["palette"] = list(vis_params["palette"])
-            if isinstance(vis_params["palette"], Box):
+            if isinstance(vis_params["palette"], box.Box):
                 try:
                     vis_params["palette"] = vis_params["palette"]["default"]
                 except Exception as e:
                     print("The provided palette is invalid.")
                     raise Exception(e)
             elif isinstance(vis_params["palette"], str):
-                vis_params["palette"] = check_cmap(vis_params["palette"])
+                vis_params["palette"] = coreutils.check_cmap(vis_params["palette"])
             elif not isinstance(vis_params["palette"], list):
                 raise ValueError(
                     "The palette must be a list of colors or a string or a Box object."
@@ -189,7 +224,7 @@ class Map(pdk.Deck):
         """Adds a basemap to the map.
 
         Args:
-            basemap (str): Can be one of string from pydeck_basemaps. Defaults to 'HYBRID'.
+            basemap: Can be one of string from pydeck_basemaps. Defaults to 'HYBRID'.
         """
         import xyzservices
 
@@ -227,21 +262,20 @@ class Map(pdk.Deck):
     def add_gdf(
         self,
         gdf,
-        layer_name: Optional[str] = None,
-        random_color_column: Optional[str] = None,
+        layer_name: str | None = None,
+        random_color_column: str | None = None,
         **kwargs,
     ) -> None:
         """Adds a GeoPandas GeoDataFrame to the map.
 
         Args:
             gdf (GeoPandas.GeoDataFrame): The GeoPandas GeoDataFrame to add to the map.
-            layer_name (str, optional): The layer name to be used. Defaults to None.
-            random_color_column (str, optional): The column name to use for random color. Defaults to None.
+            layer_name: The layer name to be used. Defaults to None.
+            random_color_column: Column name to use for random color. Defaults to None.
 
         Raises:
             TypeError: gdf must be a GeoPandas GeoDataFrame.
         """
-
         try:
             import geopandas as gpd
 
@@ -249,7 +283,7 @@ class Map(pdk.Deck):
                 raise TypeError("gdf must be a GeoPandas GeoDataFrame.")
 
             if layer_name is None:
-                layer_name = "layer_" + random_string(3)
+                layer_name = "layer_" + coreutils.random_string(3)
 
             if "pickable" not in kwargs:
                 kwargs["pickable"] = True
@@ -297,16 +331,16 @@ class Map(pdk.Deck):
     def add_vector(
         self,
         filename: str,
-        layer_name: Optional[str] = None,
-        random_color_column: Optional[str] = None,
+        layer_name: str | None = None,
+        random_color_column: str | None = None,
         **kwargs,
     ) -> None:
         """Adds a vector file to the map.
 
         Args:
-            filename (str): The input file path to the vector dataset.
-            layer_name (str, optional): The layer name to be used. Defaults to None.
-            random_color_column (str, optional): The column name to use for random color. Defaults to None.
+            filename: The input file path to the vector dataset.
+            layer_name: The layer name to be used. Defaults to None.
+            random_color_column: Column name to use for random color. Defaults to None.
 
         Raises:
             FileNotFoundError: The provided vector file could not be found.
@@ -330,16 +364,16 @@ class Map(pdk.Deck):
     def add_geojson(
         self,
         filename: str,
-        layer_name: Optional[str] = None,
-        random_color_column: Optional[str] = None,
+        layer_name: str | None = None,
+        random_color_column: str | None = None,
         **kwargs,
     ) -> None:
         """Adds a GeoJSON file to the map.
 
         Args:
-            filename (str): The input file path to the vector dataset.
-            layer_name (str, optional): The layer name to be used. Defaults to None.
-            random_color_column (str, optional): The column name to use for random color. Defaults to None.
+            filename: The input file path to the vector dataset.
+            layer_name: The layer name to be used. Defaults to None.
+            random_color_column: Column name to use for random color. Defaults to None.
 
         Raises:
             FileNotFoundError: The provided vector file could not be found.
@@ -349,16 +383,16 @@ class Map(pdk.Deck):
     def add_shp(
         self,
         filename: str,
-        layer_name: Optional[str] = None,
-        random_color_column: Optional[str] = None,
+        layer_name: str | None = None,
+        random_color_column: str | None = None,
         **kwargs,
     ) -> None:
         """Adds a shapefile to the map.
 
         Args:
-            filename (str): The input file path to the vector dataset.
-            layer_name (str, optional): The layer name to be used. Defaults to None.
-            random_color_column (str, optional): The column name to use for random color. Defaults to None.
+            filename: The input file path to the vector dataset.
+            layer_name: The layer name to be used. Defaults to None.
+            random_color_column: Column name to use for random color. Defaults to None.
 
         Raises:
             FileNotFoundError: The provided vector file could not be found.
@@ -368,16 +402,16 @@ class Map(pdk.Deck):
     def add_kml(
         self,
         filename: str,
-        layer_name: Optional[str] = None,
-        random_color_column: Optional[str] = None,
+        layer_name: str | None = None,
+        random_color_column: str | None = None,
         **kwargs,
     ) -> None:
         """Adds a KML file to the map.
 
         Args:
-            filename (str): The input file path to the vector dataset.
-            layer_name (str, optional): The layer name to be used. Defaults to None.
-            random_color_column (str, optional): The column name to use for random color. Defaults to None.
+            filename: The input file path to the vector dataset.
+            layer_name): The layer name to be used. Defaults to None.
+            random_color_column: Column name to use for random color. Defaults to None.
 
         Raises:
             FileNotFoundError: The provided vector file could not be found.

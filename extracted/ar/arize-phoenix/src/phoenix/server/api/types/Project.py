@@ -1,16 +1,15 @@
 import operator
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Optional, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Optional, cast
 
 import strawberry
 from aioitertools.itertools import groupby, islice
 from openinference.semconv.trace import SpanAttributes
 from sqlalchemy import and_, case, desc, distinct, exists, func, or_, select
 from sqlalchemy.dialects import postgresql, sqlite
-from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.expression import tuple_
 from sqlalchemy.sql.functions import percentile_cont
-from strawberry import ID, UNSET, Private, lazy
+from strawberry import ID, UNSET, lazy
 from strawberry.relay import Connection, Edge, Node, NodeID, PageInfo
 from strawberry.types import Info
 from typing_extensions import assert_never
@@ -21,8 +20,8 @@ from phoenix.db.helpers import SupportedSQLDialect, date_trunc
 from phoenix.server.api.context import Context
 from phoenix.server.api.exceptions import BadRequest
 from phoenix.server.api.input_types.ProjectSessionSort import (
-    ProjectSessionColumn,
     ProjectSessionSort,
+    ProjectSessionSortConfig,
 )
 from phoenix.server.api.input_types.SpanSort import SpanColumn, SpanSort, SpanSortConfig
 from phoenix.server.api.input_types.TimeBinConfig import TimeBinConfig, TimeBinScale
@@ -31,7 +30,7 @@ from phoenix.server.api.types.AnnotationConfig import AnnotationConfig, to_gql_a
 from phoenix.server.api.types.AnnotationSummary import AnnotationSummary
 from phoenix.server.api.types.CostBreakdown import CostBreakdown
 from phoenix.server.api.types.DocumentEvaluationSummary import DocumentEvaluationSummary
-from phoenix.server.api.types.GenerativeModel import GenerativeModel, to_gql_generative_model
+from phoenix.server.api.types.GenerativeModel import GenerativeModel
 from phoenix.server.api.types.pagination import (
     ConnectionArgs,
     Cursor,
@@ -41,7 +40,7 @@ from phoenix.server.api.types.pagination import (
     connection_from_cursors_and_nodes,
     connection_from_list,
 )
-from phoenix.server.api.types.ProjectSession import ProjectSession, to_gql_project_session
+from phoenix.server.api.types.ProjectSession import ProjectSession
 from phoenix.server.api.types.SortDir import SortDir
 from phoenix.server.api.types.Span import Span
 from phoenix.server.api.types.SpanCostSummary import SpanCostSummary
@@ -59,12 +58,11 @@ if TYPE_CHECKING:
 
 @strawberry.type
 class Project(Node):
-    _table: ClassVar[type[models.Base]] = models.Project
-    project_rowid: NodeID[int]
-    db_project: Private[models.Project] = UNSET
+    id: NodeID[int]
+    db_record: strawberry.Private[Optional[models.Project]] = None
 
     def __post_init__(self) -> None:
-        if self.db_project and self.project_rowid != self.db_project.id:
+        if self.db_record and self.id != self.db_record.id:
             raise ValueError("Project ID mismatch")
 
     @strawberry.field
@@ -72,11 +70,11 @@ class Project(Node):
         self,
         info: Info[Context, None],
     ) -> str:
-        if self.db_project:
-            name = self.db_project.name
+        if self.db_record:
+            name = self.db_record.name
         else:
             name = await info.context.data_loaders.project_fields.load(
-                (self.project_rowid, models.Project.name),
+                (self.id, models.Project.name),
             )
         return name
 
@@ -85,11 +83,11 @@ class Project(Node):
         self,
         info: Info[Context, None],
     ) -> str:
-        if self.db_project:
-            gradient_start_color = self.db_project.gradient_start_color
+        if self.db_record:
+            gradient_start_color = self.db_record.gradient_start_color
         else:
             gradient_start_color = await info.context.data_loaders.project_fields.load(
-                (self.project_rowid, models.Project.gradient_start_color),
+                (self.id, models.Project.gradient_start_color),
             )
         return gradient_start_color
 
@@ -98,11 +96,11 @@ class Project(Node):
         self,
         info: Info[Context, None],
     ) -> str:
-        if self.db_project:
-            gradient_end_color = self.db_project.gradient_end_color
+        if self.db_record:
+            gradient_end_color = self.db_record.gradient_end_color
         else:
             gradient_end_color = await info.context.data_loaders.project_fields.load(
-                (self.project_rowid, models.Project.gradient_end_color),
+                (self.id, models.Project.gradient_end_color),
             )
         return gradient_end_color
 
@@ -112,7 +110,7 @@ class Project(Node):
         info: Info[Context, None],
     ) -> Optional[datetime]:
         start_time = await info.context.data_loaders.min_start_or_max_end_times.load(
-            (self.project_rowid, "start"),
+            (self.id, "start"),
         )
         start_time, _ = right_open_time_range(start_time, None)
         return start_time
@@ -123,7 +121,7 @@ class Project(Node):
         info: Info[Context, None],
     ) -> Optional[datetime]:
         end_time = await info.context.data_loaders.min_start_or_max_end_times.load(
-            (self.project_rowid, "end"),
+            (self.id, "end"),
         )
         _, end_time = right_open_time_range(None, end_time)
         return end_time
@@ -144,7 +142,7 @@ class Project(Node):
         return await info.context.data_loaders.record_counts.load(
             (
                 "span",
-                self.project_rowid,
+                self.id,
                 time_range or None,
                 filter_condition or None,
                 session_filter_condition or None,
@@ -167,7 +165,7 @@ class Project(Node):
         return await info.context.data_loaders.record_counts.load(
             (
                 "trace",
-                self.project_rowid,
+                self.id,
                 time_range or None,
                 filter_condition or None,
                 session_filter_condition or None,
@@ -182,7 +180,7 @@ class Project(Node):
         filter_condition: Optional[str] = UNSET,
     ) -> float:
         return await info.context.data_loaders.token_counts.load(
-            ("total", self.project_rowid, time_range, filter_condition),
+            ("total", self.id, time_range, filter_condition),
         )
 
     @strawberry.field
@@ -193,7 +191,7 @@ class Project(Node):
         filter_condition: Optional[str] = UNSET,
     ) -> float:
         return await info.context.data_loaders.token_counts.load(
-            ("prompt", self.project_rowid, time_range, filter_condition),
+            ("prompt", self.id, time_range, filter_condition),
         )
 
     @strawberry.field
@@ -204,7 +202,7 @@ class Project(Node):
         filter_condition: Optional[str] = UNSET,
     ) -> float:
         return await info.context.data_loaders.token_counts.load(
-            ("completion", self.project_rowid, time_range, filter_condition),
+            ("completion", self.id, time_range, filter_condition),
         )
 
     @strawberry.field
@@ -222,7 +220,7 @@ class Project(Node):
             )
         summary = await info.context.data_loaders.span_cost_summary_by_project.load(
             (
-                self.project_rowid,
+                self.id,
                 time_range or None,
                 filter_condition or None,
                 session_filter_condition or None,
@@ -260,7 +258,7 @@ class Project(Node):
         return await info.context.data_loaders.latency_ms_quantile.load(
             (
                 "trace",
-                self.project_rowid,
+                self.id,
                 time_range or None,
                 filter_condition or None,
                 session_filter_condition or None,
@@ -285,7 +283,7 @@ class Project(Node):
         return await info.context.data_loaders.latency_ms_quantile.load(
             (
                 "span",
-                self.project_rowid,
+                self.id,
                 time_range or None,
                 filter_condition or None,
                 session_filter_condition or None,
@@ -298,12 +296,12 @@ class Project(Node):
         stmt = (
             select(models.Trace)
             .where(models.Trace.trace_id == str(trace_id))
-            .where(models.Trace.project_rowid == self.project_rowid)
+            .where(models.Trace.project_rowid == self.id)
         )
         async with info.context.db() as session:
             if (trace := await session.scalar(stmt)) is None:
                 return None
-        return Trace(trace_rowid=trace.id, db_trace=trace)
+        return Trace(id=trace.id, db_record=trace)
 
     @strawberry.field
     async def spans(
@@ -322,7 +320,7 @@ class Project(Node):
         if root_spans_only and not filter_condition and sort and sort.col is SpanColumn.startTime:
             return await _paginate_span_by_trace_start_time(
                 db=info.context.db,
-                project_rowid=self.project_rowid,
+                project_rowid=self.id,
                 time_range=time_range,
                 first=first,
                 after=after,
@@ -333,7 +331,7 @@ class Project(Node):
             select(models.Span.id)
             .select_from(models.Span)
             .join(models.Trace)
-            .where(models.Trace.project_rowid == self.project_rowid)
+            .where(models.Trace.project_rowid == self.id)
         )
         if time_range:
             if time_range.start:
@@ -355,12 +353,16 @@ class Project(Node):
             if sort_config and cursor.sort_column:
                 sort_column = cursor.sort_column
                 compare = operator.lt if sort_config.dir is SortDir.desc else operator.gt
-                stmt = stmt.where(
-                    compare(
-                        tuple_(sort_config.orm_expression, models.Span.id),
-                        (sort_column.value, cursor.rowid),
+                if sort_column.type is CursorSortColumnDataType.NULL:
+                    stmt = stmt.where(sort_config.orm_expression.is_(None))
+                    stmt = stmt.where(compare(models.Span.id, cursor.rowid))
+                else:
+                    stmt = stmt.where(
+                        compare(
+                            tuple_(sort_config.orm_expression, models.Span.id),
+                            (sort_column.value, cursor.rowid),
+                        )
                     )
-                )
             else:
                 stmt = stmt.where(models.Span.id > cursor.rowid)
         stmt = stmt.order_by(cursor_rowid_column)
@@ -398,7 +400,7 @@ class Project(Node):
                         type=sort_config.column_data_type,
                         value=span_record[1],
                     )
-                cursors_and_nodes.append((cursor, Span(span_rowid=span_rowid)))
+                cursors_and_nodes.append((cursor, Span(id=span_rowid)))
             has_next_page = True
             try:
                 await span_records.__anext__()
@@ -428,12 +430,12 @@ class Project(Node):
                 ans = await session.scalar(
                     select(table).filter_by(
                         session_id=session_id,
-                        project_id=self.project_rowid,
+                        project_id=self.id,
                     )
                 )
             if ans:
                 return connection_from_list(
-                    data=[to_gql_project_session(ans)],
+                    data=[ProjectSession(id=ans.id, db_record=ans)],
                     args=ConnectionArgs(),
                 )
             elif not filter_io_substring:
@@ -441,7 +443,7 @@ class Project(Node):
                     data=[],
                     args=ConnectionArgs(),
                 )
-        stmt = select(table).filter_by(project_id=self.project_rowid)
+        stmt = select(table).filter_by(project_id=self.id)
         if time_range:
             if time_range.start:
                 stmt = stmt.where(time_range.start <= table.start_time)
@@ -450,79 +452,36 @@ class Project(Node):
         if filter_io_substring:
             filtered_session_rowids = get_filtered_session_rowids_subquery(
                 session_filter_condition=filter_io_substring,
-                project_rowids=[self.project_rowid],
+                project_rowids=[self.id],
                 start_time=time_range.start if time_range else None,
                 end_time=time_range.end if time_range else None,
             )
             stmt = stmt.where(table.id.in_(filtered_session_rowids))
+        sort_config: Optional[ProjectSessionSortConfig] = None
+        cursor_rowid_column: Any = table.id
         if sort:
-            key: ColumnElement[Any]
-            if sort.col is ProjectSessionColumn.startTime:
-                key = table.start_time.label("key")
-            elif sort.col is ProjectSessionColumn.endTime:
-                key = table.end_time.label("key")
-            elif (
-                sort.col is ProjectSessionColumn.tokenCountTotal
-                or sort.col is ProjectSessionColumn.numTraces
-            ):
-                if sort.col is ProjectSessionColumn.tokenCountTotal:
-                    sort_subq = (
-                        select(
-                            models.Trace.project_session_rowid.label("id"),
-                            func.sum(models.Span.cumulative_llm_token_count_total).label("key"),
-                        )
-                        .join_from(models.Trace, models.Span)
-                        .where(models.Span.parent_id.is_(None))
-                        .group_by(models.Trace.project_session_rowid)
-                    ).subquery()
-                elif sort.col is ProjectSessionColumn.numTraces:
-                    sort_subq = (
-                        select(
-                            models.Trace.project_session_rowid.label("id"),
-                            func.count(models.Trace.id).label("key"),
-                        ).group_by(models.Trace.project_session_rowid)
-                    ).subquery()
+            sort_config = sort.update_orm_expr(stmt)
+            stmt = sort_config.stmt
+            if sort_config.dir is SortDir.desc:
+                cursor_rowid_column = desc(cursor_rowid_column)
+        if after:
+            cursor = Cursor.from_string(after)
+            if sort_config and cursor.sort_column:
+                sort_column = cursor.sort_column
+                compare = operator.lt if sort_config.dir is SortDir.desc else operator.gt
+                if sort_column.type is CursorSortColumnDataType.NULL:
+                    stmt = stmt.where(sort_config.orm_expression.is_(None))
+                    stmt = stmt.where(compare(table.id, cursor.rowid))
                 else:
-                    assert_never(sort.col)
-                key = sort_subq.c.key
-                stmt = stmt.join(sort_subq, table.id == sort_subq.c.id)
-            elif sort.col is ProjectSessionColumn.costTotal:
-                sort_subq = (
-                    select(
-                        models.Trace.project_session_rowid.label("id"),
-                        func.sum(models.SpanCost.total_cost).label("key"),
+                    stmt = stmt.where(
+                        compare(
+                            tuple_(sort_config.orm_expression, table.id),
+                            (sort_column.value, cursor.rowid),
+                        )
                     )
-                    .join_from(
-                        models.Trace,
-                        models.SpanCost,
-                        models.Trace.id == models.SpanCost.trace_rowid,
-                    )
-                    .group_by(models.Trace.project_session_rowid)
-                ).subquery()
-                key = sort_subq.c.key
-                stmt = stmt.join(sort_subq, table.id == sort_subq.c.id)
             else:
-                assert_never(sort.col)
-            stmt = stmt.add_columns(key)
-            if sort.dir is SortDir.asc:
-                stmt = stmt.order_by(key.asc(), table.id.asc())
-            else:
-                stmt = stmt.order_by(key.desc(), table.id.desc())
-            if after:
-                cursor = Cursor.from_string(after)
-                assert cursor.sort_column is not None
-                compare = operator.lt if sort.dir is SortDir.desc else operator.gt
-                stmt = stmt.where(
-                    compare(
-                        tuple_(key, table.id),
-                        (cursor.sort_column.value, cursor.rowid),
-                    )
-                )
-        else:
-            stmt = stmt.order_by(table.id.desc())
-            if after:
-                cursor = Cursor.from_string(after)
                 stmt = stmt.where(table.id < cursor.rowid)
+        stmt = stmt.order_by(cursor_rowid_column)
         if first:
             stmt = stmt.limit(
                 first + 1  # over-fetch by one to determine whether there's a next page
@@ -533,13 +492,15 @@ class Project(Node):
             async for record in islice(records, first):
                 project_session = record[0]
                 cursor = Cursor(rowid=project_session.id)
-                if sort:
+                if sort_config:
                     assert len(record) > 1
                     cursor.sort_column = CursorSortColumn(
-                        type=sort.col.data_type,
+                        type=sort_config.column_data_type,
                         value=record[1],
                     )
-                cursors_and_nodes.append((cursor, to_gql_project_session(project_session)))
+                cursors_and_nodes.append(
+                    (cursor, ProjectSession(id=project_session.id, db_record=project_session))
+                )
             has_next_page = True
             try:
                 await records.__anext__()
@@ -562,7 +523,7 @@ class Project(Node):
         stmt = (
             select(distinct(models.TraceAnnotation.name))
             .join(models.Trace)
-            .where(models.Trace.project_rowid == self.project_rowid)
+            .where(models.Trace.project_rowid == self.id)
         )
         async with info.context.db() as session:
             return list(await session.scalars(stmt))
@@ -579,7 +540,23 @@ class Project(Node):
             select(distinct(models.SpanAnnotation.name))
             .join(models.Span)
             .join(models.Trace, models.Span.trace_rowid == models.Trace.id)
-            .where(models.Trace.project_rowid == self.project_rowid)
+            .where(models.Trace.project_rowid == self.id)
+        )
+        async with info.context.db() as session:
+            return list(await session.scalars(stmt))
+
+    @strawberry.field(
+        description="Names of all available annotations for sessions. "
+        "(The list contains no duplicates.)"
+    )  # type: ignore
+    async def session_annotation_names(
+        self,
+        info: Info[Context, None],
+    ) -> list[str]:
+        stmt = (
+            select(distinct(models.ProjectSessionAnnotation.name))
+            .join(models.ProjectSession)
+            .where(models.ProjectSession.project_id == self.id)
         )
         async with info.context.db() as session:
             return list(await session.scalars(stmt))
@@ -596,7 +573,7 @@ class Project(Node):
             select(distinct(models.DocumentAnnotation.name))
             .join(models.Span)
             .join(models.Trace, models.Span.trace_rowid == models.Trace.id)
-            .where(models.Trace.project_rowid == self.project_rowid)
+            .where(models.Trace.project_rowid == self.id)
             .where(models.DocumentAnnotation.annotator_kind == "LLM")
         )
         if span_id:
@@ -621,7 +598,7 @@ class Project(Node):
         return await info.context.data_loaders.annotation_summaries.load(
             (
                 "trace",
-                self.project_rowid,
+                self.id,
                 time_range or None,
                 filter_condition or None,
                 session_filter_condition or None,
@@ -646,7 +623,7 @@ class Project(Node):
         return await info.context.data_loaders.annotation_summaries.load(
             (
                 "span",
-                self.project_rowid,
+                self.id,
                 time_range or None,
                 filter_condition or None,
                 session_filter_condition or None,
@@ -663,7 +640,7 @@ class Project(Node):
         filter_condition: Optional[str] = UNSET,
     ) -> Optional[DocumentEvaluationSummary]:
         return await info.context.data_loaders.document_evaluation_summaries.load(
-            (self.project_rowid, time_range, filter_condition, evaluation_name),
+            (self.id, time_range, filter_condition, evaluation_name),
         )
 
     @strawberry.field
@@ -671,7 +648,7 @@ class Project(Node):
         self,
         info: Info[Context, None],
     ) -> Optional[datetime]:
-        return info.context.last_updated_at.get(self._table, self.project_rowid)
+        return info.context.last_updated_at.get(models.Project, self.id)
 
     @strawberry.field
     async def validate_span_filter_condition(
@@ -704,7 +681,7 @@ class Project(Node):
             stmt = span_filter(select(models.Span))
             dialect = info.context.db.dialect
             if dialect is SupportedSQLDialect.POSTGRESQL:
-                str(stmt.compile(dialect=sqlite.dialect()))  # type: ignore[no-untyped-call]
+                str(stmt.compile(dialect=sqlite.dialect()))
             elif dialect is SupportedSQLDialect.SQLITE:
                 str(stmt.compile(dialect=postgresql.dialect()))  # type: ignore[no-untyped-call]
             else:
@@ -732,7 +709,7 @@ class Project(Node):
             before=before if isinstance(before, CursorString) else None,
         )
         loader = info.context.data_loaders.annotation_configs_by_project
-        configs = await loader.load(self.project_rowid)
+        configs = await loader.load(self.id)
         data = [to_gql_annotation_config(config) for config in configs]
         return connection_from_list(data=data, args=args)
 
@@ -743,9 +720,7 @@ class Project(Node):
     ) -> Annotated["ProjectTraceRetentionPolicy", lazy(".ProjectTraceRetentionPolicy")]:
         from .ProjectTraceRetentionPolicy import ProjectTraceRetentionPolicy
 
-        id_ = await info.context.data_loaders.trace_retention_policy_id_by_project_id.load(
-            self.project_rowid
-        )
+        id_ = await info.context.data_loaders.trace_retention_policy_id_by_project_id.load(self.id)
         return ProjectTraceRetentionPolicy(id=id_)
 
     @strawberry.field
@@ -753,11 +728,11 @@ class Project(Node):
         self,
         info: Info[Context, None],
     ) -> datetime:
-        if self.db_project:
-            created_at = self.db_project.created_at
+        if self.db_record:
+            created_at = self.db_record.created_at
         else:
             created_at = await info.context.data_loaders.project_fields.load(
-                (self.project_rowid, models.Project.created_at),
+                (self.id, models.Project.created_at),
             )
         return created_at
 
@@ -766,11 +741,11 @@ class Project(Node):
         self,
         info: Info[Context, None],
     ) -> datetime:
-        if self.db_project:
-            updated_at = self.db_project.updated_at
+        if self.db_record:
+            updated_at = self.db_record.updated_at
         else:
             updated_at = await info.context.data_loaders.project_fields.load(
-                (self.project_rowid, models.Project.updated_at),
+                (self.id, models.Project.updated_at),
             )
         return updated_at
 
@@ -816,7 +791,7 @@ class Project(Node):
                 ),
             )
             .join_from(models.Span, models.Trace)
-            .where(models.Trace.project_rowid == self.project_rowid)
+            .where(models.Trace.project_rowid == self.id)
             .group_by(bucket)
             .order_by(bucket)
         )
@@ -890,7 +865,7 @@ class Project(Node):
         bucket = date_trunc(dialect, field, models.Trace.start_time, utc_offset_minutes)
         stmt = (
             select(bucket, func.count(models.Trace.id))
-            .where(models.Trace.project_rowid == self.project_rowid)
+            .where(models.Trace.project_rowid == self.id)
             .group_by(bucket)
             .order_by(bucket)
         )
@@ -973,7 +948,7 @@ class Project(Node):
                 onclause=trace_error_status_counts.c.trace_rowid == models.Trace.id,
                 isouter=True,
             )
-            .where(models.Trace.project_rowid == self.project_rowid)
+            .where(models.Trace.project_rowid == self.id)
             .group_by(bucket)
             .order_by(bucket)
         )
@@ -1045,7 +1020,7 @@ class Project(Node):
                 field = "year"
         bucket = date_trunc(dialect, field, models.Trace.start_time, utc_offset_minutes)
 
-        stmt = select(bucket).where(models.Trace.project_rowid == self.project_rowid)
+        stmt = select(bucket).where(models.Trace.project_rowid == self.id)
         if time_range.start:
             stmt = stmt.where(time_range.start <= models.Trace.start_time)
         if time_range.end:
@@ -1160,7 +1135,7 @@ class Project(Node):
                 models.SpanCost,
                 onclause=models.SpanCost.trace_rowid == models.Trace.id,
             )
-            .where(models.Trace.project_rowid == self.project_rowid)
+            .where(models.Trace.project_rowid == self.id)
             .group_by(bucket)
             .order_by(bucket)
         )
@@ -1243,7 +1218,7 @@ class Project(Node):
                 models.SpanCost,
                 onclause=models.SpanCost.trace_rowid == models.Trace.id,
             )
-            .where(models.Trace.project_rowid == self.project_rowid)
+            .where(models.Trace.project_rowid == self.id)
             .group_by(bucket)
             .order_by(bucket)
         )
@@ -1330,7 +1305,7 @@ class Project(Node):
                 models.Trace,
                 onclause=models.Span.trace_rowid == models.Trace.id,
             )
-            .where(models.Trace.project_rowid == self.project_rowid)
+            .where(models.Trace.project_rowid == self.id)
             .group_by(bucket, models.SpanAnnotation.name)
             .order_by(bucket)
         )
@@ -1417,7 +1392,7 @@ class Project(Node):
                     models.Trace,
                     models.SpanCost.trace_rowid == models.Trace.id,
                 )
-                .where(models.Trace.project_rowid == self.project_rowid)
+                .where(models.Trace.project_rowid == self.id)
                 .where(models.SpanCost.model_id.isnot(None))
                 .where(models.SpanCost.span_start_time >= time_range.start)
                 .group_by(models.GenerativeModel.id)
@@ -1444,10 +1419,8 @@ class Project(Node):
                     start=time_range.start,
                     end=time_range.end,
                 )
-                gql_model = to_gql_generative_model(model)
-                gql_model.add_cached_cost_summary(
-                    self.project_rowid, cache_time_range, cost_summary
-                )
+                gql_model = GenerativeModel(id=model.id, db_record=model)
+                gql_model.add_cached_cost_summary(self.id, cache_time_range, cost_summary)
                 results.append(gql_model)
             return results
 
@@ -1479,7 +1452,7 @@ class Project(Node):
                     models.Trace,
                     models.SpanCost.trace_rowid == models.Trace.id,
                 )
-                .where(models.Trace.project_rowid == self.project_rowid)
+                .where(models.Trace.project_rowid == self.id)
                 .where(models.SpanCost.model_id.isnot(None))
                 .where(models.SpanCost.span_start_time >= time_range.start)
                 .group_by(models.GenerativeModel.id)
@@ -1506,10 +1479,8 @@ class Project(Node):
                     start=time_range.start,
                     end=time_range.end,
                 )
-                gql_model = to_gql_generative_model(model)
-                gql_model.add_cached_cost_summary(
-                    self.project_rowid, cache_time_range, cost_summary
-                )
+                gql_model = GenerativeModel(id=model.id, db_record=model)
+                gql_model.add_cached_cost_summary(self.id, cache_time_range, cost_summary)
                 results.append(gql_model)
             return results
 
@@ -1779,7 +1750,7 @@ async def _paginate_span_by_trace_start_time(
             first_record = group[0]
             # Only create edge if trace has a root span
             if (span_rowid := first_record[2]) is not None:
-                edges.append(Edge(node=Span(span_rowid=span_rowid), cursor=str(cursor)))
+                edges.append(Edge(node=Span(id=span_rowid), cursor=str(cursor)))
         has_next_page = True
         try:
             await records.__anext__()
@@ -1822,6 +1793,6 @@ def to_gql_project(project: models.Project) -> Project:
     Converts an ORM project to a GraphQL project.
     """
     return Project(
-        project_rowid=project.id,
-        db_project=project,
+        id=project.id,
+        db_record=project,
     )

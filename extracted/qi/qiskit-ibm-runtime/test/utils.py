@@ -18,7 +18,7 @@ import time
 import itertools
 import unittest
 from unittest import mock
-from typing import Dict, Optional, Any
+from typing import Any
 from datetime import datetime
 from ddt import data, unpack
 
@@ -41,7 +41,7 @@ from qiskit_ibm_runtime.models import (
     BackendProperties,
     BackendConfiguration,
 )
-from qiskit_ibm_runtime.runtime_job import RuntimeJob
+from qiskit_ibm_runtime.runtime_job_v2 import RuntimeJobV2
 from qiskit_ibm_runtime.exceptions import RuntimeInvalidStateError
 
 
@@ -72,7 +72,7 @@ def setup_test_logging(logger: logging.Logger, filename: str) -> None:
 
 def most_busy_backend(
     service: QiskitRuntimeService,
-    instance: Optional[str] = None,
+    instance: str | None = None,
 ) -> IBMBackend:
     """Return the most busy backend for the provider given.
 
@@ -113,7 +113,7 @@ def get_large_circuit(backend: IBMBackend) -> QuantumCircuit:
     return circuit
 
 
-def cancel_job_safe(job: RuntimeJob, logger: logging.Logger) -> bool:
+def cancel_job_safe(job: RuntimeJobV2, logger: logging.Logger) -> bool:
     """Cancel a runtime job."""
     try:
         job.cancel()
@@ -152,13 +152,13 @@ def get_real_device(service):
 def mock_wait_for_final_state(service, job):
     """replace `wait_for_final_state` with a mock function"""
     return mock.patch.object(
-        RuntimeJob,
+        RuntimeJobV2,
         "wait_for_final_state",
         side_effect=service._get_api_client().wait_for_final_state(job.job_id()),
     )
 
 
-def dict_paritally_equal(dict1: Dict, dict2: Dict) -> bool:
+def dict_paritally_equal(dict1: dict, dict2: dict) -> bool:
     """Determine whether all keys in dict2 are in dict1 and have same values."""
     for key, val in dict2.items():
         if isinstance(val, dict):
@@ -218,9 +218,9 @@ def dict_keys_equal(dict1: dict, dict2: dict, exclude_keys: list = None) -> bool
 
 def create_faulty_backend(
     model_backend: Backend,
-    faulty_qubit: Optional[int] = None,
-    faulty_edge: Optional[tuple] = None,
-    faulty_q1_property: Optional[int] = None,
+    faulty_qubit: int | None = None,
+    faulty_edge: tuple | None = None,
+    faulty_q1_property: int | None = None,
 ) -> IBMBackend:
     """Create an IBMBackend that has faulty qubits and/or edges.
 
@@ -279,8 +279,8 @@ def create_faulty_backend(
 
 def get_mocked_backend(
     name: str = "ibm_gotham",
-    configuration: Optional[Dict] = None,
-    properties: Optional[Dict] = None,
+    configuration: dict | None = None,
+    properties: dict | None = None,
 ) -> IBMBackend:
     """Return a mock backend."""
 
@@ -298,7 +298,9 @@ def get_mocked_backend(
     mock_api_client.backend_properties = lambda *args, **kwargs: properties
     mock_api_client.session_details = mock.MagicMock(return_value={"mode": "dedicated"})
     mock_backend = IBMBackend(
-        configuration=configuration, service=mock_service, api_client=mock_api_client
+        configuration=configuration,  # type: ignore[arg-type]
+        service=mock_service,
+        api_client=mock_api_client,
     )
     mock_backend.name = name
     mock_backend._instance = None
@@ -330,7 +332,7 @@ def get_mocked_batch(backend: Any = None) -> mock.MagicMock:
     return batch
 
 
-def submit_and_cancel(backend: IBMBackend, logger: logging.Logger) -> RuntimeJob:
+def submit_and_cancel(backend: IBMBackend, logger: logging.Logger) -> RuntimeJobV2:
     """Submit and cancel a job.
 
     Args:
@@ -473,5 +475,5 @@ def remap_observables(observables, isa_circuit):
 class MockSession(Session):
     """Mock for session class"""
 
-    _circuits_map: Dict[str, QuantumCircuit] = {}
+    _circuits_map: dict[str, QuantumCircuit] = {}
     _instance = None

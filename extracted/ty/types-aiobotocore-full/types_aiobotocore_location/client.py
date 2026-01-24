@@ -3,7 +3,7 @@ Type annotations for location service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -154,12 +155,6 @@ from .type_defs import (
     VerifyDevicePositionResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -170,14 +165,14 @@ __all__ = ("LocationServiceClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class LocationServiceClient(AioBaseClient):
@@ -217,7 +212,7 @@ class LocationServiceClient(AioBaseClient):
 
     async def associate_tracker_consumer(
         self, **kwargs: Unpack[AssociateTrackerConsumerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates an association between a geofence collection and a tracker resource.
 
@@ -293,10 +288,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[CalculateRouteRequestTypeDef]
     ) -> CalculateRouteResponseTypeDef:
         """
-        <a
-        href="https://docs.aws.amazon.com/location/previous/developerguide/calculate-route.html">Calculates
-        a route</a> given the following required parameters:
-        <code>DeparturePosition</code> and <code>DestinationPosition</code>.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/calculate_route.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#calculate_route)
@@ -306,10 +299,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[CalculateRouteMatrixRequestTypeDef]
     ) -> CalculateRouteMatrixResponseTypeDef:
         """
-        <a
-        href="https://docs.aws.amazon.com/location/previous/developerguide/calculate-route-matrix.html">
-        Calculates a route matrix</a> given the following required parameters:
-        <code>DeparturePositions</code> and <code>DestinationPositions</code>.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/calculate_route_matrix.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#calculate_route_matrix)
@@ -340,8 +331,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[CreateMapRequestTypeDef]
     ) -> CreateMapResponseTypeDef:
         """
-        Creates a map resource in your Amazon Web Services account, which provides map
-        tiles of different styles sourced from global location data providers.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/create_map.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#create_map)
@@ -351,7 +342,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[CreatePlaceIndexRequestTypeDef]
     ) -> CreatePlaceIndexResponseTypeDef:
         """
-        Creates a place index resource in your Amazon Web Services account.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/create_place_index.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#create_place_index)
@@ -361,7 +353,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[CreateRouteCalculatorRequestTypeDef]
     ) -> CreateRouteCalculatorResponseTypeDef:
         """
-        Creates a route calculator resource in your Amazon Web Services account.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/create_route_calculator.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#create_route_calculator)
@@ -380,7 +373,7 @@ class LocationServiceClient(AioBaseClient):
 
     async def delete_geofence_collection(
         self, **kwargs: Unpack[DeleteGeofenceCollectionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a geofence collection from your Amazon Web Services account.
 
@@ -388,7 +381,7 @@ class LocationServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#delete_geofence_collection)
         """
 
-    async def delete_key(self, **kwargs: Unpack[DeleteKeyRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_key(self, **kwargs: Unpack[DeleteKeyRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified API key.
 
@@ -396,9 +389,10 @@ class LocationServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#delete_key)
         """
 
-    async def delete_map(self, **kwargs: Unpack[DeleteMapRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_map(self, **kwargs: Unpack[DeleteMapRequestTypeDef]) -> dict[str, Any]:
         """
-        Deletes a map resource from your Amazon Web Services account.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/delete_map.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#delete_map)
@@ -406,9 +400,10 @@ class LocationServiceClient(AioBaseClient):
 
     async def delete_place_index(
         self, **kwargs: Unpack[DeletePlaceIndexRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Deletes a place index resource from your Amazon Web Services account.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/delete_place_index.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#delete_place_index)
@@ -416,15 +411,16 @@ class LocationServiceClient(AioBaseClient):
 
     async def delete_route_calculator(
         self, **kwargs: Unpack[DeleteRouteCalculatorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Deletes a route calculator resource from your Amazon Web Services account.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/delete_route_calculator.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#delete_route_calculator)
         """
 
-    async def delete_tracker(self, **kwargs: Unpack[DeleteTrackerRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_tracker(self, **kwargs: Unpack[DeleteTrackerRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a tracker resource from your Amazon Web Services account.
 
@@ -456,7 +452,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeMapRequestTypeDef]
     ) -> DescribeMapResponseTypeDef:
         """
-        Retrieves the map resource details.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/describe_map.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#describe_map)
@@ -466,7 +463,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[DescribePlaceIndexRequestTypeDef]
     ) -> DescribePlaceIndexResponseTypeDef:
         """
-        Retrieves the place index resource details.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/describe_place_index.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#describe_place_index)
@@ -476,7 +474,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeRouteCalculatorRequestTypeDef]
     ) -> DescribeRouteCalculatorResponseTypeDef:
         """
-        Retrieves the route calculator resource details.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/describe_route_calculator.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#describe_route_calculator)
@@ -494,7 +493,7 @@ class LocationServiceClient(AioBaseClient):
 
     async def disassociate_tracker_consumer(
         self, **kwargs: Unpack[DisassociateTrackerConsumerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the association between a tracker resource and a geofence collection.
 
@@ -548,7 +547,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[GetMapGlyphsRequestTypeDef]
     ) -> GetMapGlyphsResponseTypeDef:
         """
-        Retrieves glyphs used to display labels on a map.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/get_map_glyphs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#get_map_glyphs)
@@ -558,7 +558,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[GetMapSpritesRequestTypeDef]
     ) -> GetMapSpritesResponseTypeDef:
         """
-        Retrieves the sprite sheet corresponding to a map resource.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/get_map_sprites.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#get_map_sprites)
@@ -568,7 +569,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[GetMapStyleDescriptorRequestTypeDef]
     ) -> GetMapStyleDescriptorResponseTypeDef:
         """
-        Retrieves the map style descriptor from a map resource.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/get_map_style_descriptor.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#get_map_style_descriptor)
@@ -578,7 +580,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[GetMapTileRequestTypeDef]
     ) -> GetMapTileResponseTypeDef:
         """
-        Retrieves a vector data tile from the map resource.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/get_map_tile.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#get_map_tile)
@@ -586,7 +589,8 @@ class LocationServiceClient(AioBaseClient):
 
     async def get_place(self, **kwargs: Unpack[GetPlaceRequestTypeDef]) -> GetPlaceResponseTypeDef:
         """
-        Finds a place by its unique ID.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/get_place.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#get_place)
@@ -632,7 +636,8 @@ class LocationServiceClient(AioBaseClient):
 
     async def list_maps(self, **kwargs: Unpack[ListMapsRequestTypeDef]) -> ListMapsResponseTypeDef:
         """
-        Lists map resources in your Amazon Web Services account.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/list_maps.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#list_maps)
@@ -642,7 +647,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[ListPlaceIndexesRequestTypeDef]
     ) -> ListPlaceIndexesResponseTypeDef:
         """
-        Lists place index resources in your Amazon Web Services account.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/list_place_indexes.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#list_place_indexes)
@@ -652,7 +658,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[ListRouteCalculatorsRequestTypeDef]
     ) -> ListRouteCalculatorsResponseTypeDef:
         """
-        Lists route calculator resources in your Amazon Web Services account.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/list_route_calculators.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#list_route_calculators)
@@ -704,7 +711,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[SearchPlaceIndexForPositionRequestTypeDef]
     ) -> SearchPlaceIndexForPositionResponseTypeDef:
         """
-        Reverse geocodes a given coordinate and returns a legible address.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/search_place_index_for_position.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#search_place_index_for_position)
@@ -714,8 +722,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[SearchPlaceIndexForSuggestionsRequestTypeDef]
     ) -> SearchPlaceIndexForSuggestionsResponseTypeDef:
         """
-        Generates suggestions for addresses and points of interest based on partial or
-        misspelled free-form text.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/search_place_index_for_suggestions.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#search_place_index_for_suggestions)
@@ -725,14 +733,14 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[SearchPlaceIndexForTextRequestTypeDef]
     ) -> SearchPlaceIndexForTextResponseTypeDef:
         """
-        Geocodes free-form text, such as an address, name, city, or region to allow you
-        to search for Places or points of interest.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/search_place_index_for_text.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#search_place_index_for_text)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags (key-value pairs) to the specified Amazon Location
         Service resource.
@@ -741,7 +749,7 @@ class LocationServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified Amazon Location resource.
 
@@ -773,7 +781,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateMapRequestTypeDef]
     ) -> UpdateMapResponseTypeDef:
         """
-        Updates the specified properties of a given map resource.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/update_map.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#update_map)
@@ -783,7 +792,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[UpdatePlaceIndexRequestTypeDef]
     ) -> UpdatePlaceIndexResponseTypeDef:
         """
-        Updates the specified properties of a given place index resource.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/update_place_index.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#update_place_index)
@@ -793,7 +803,8 @@ class LocationServiceClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateRouteCalculatorRequestTypeDef]
     ) -> UpdateRouteCalculatorResponseTypeDef:
         """
-        Updates the specified properties for a given route calculator resource.
+        <important> <p>This operation is no longer current and may be deprecated in the
+        future.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/update_route_calculator.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#update_route_calculator)
@@ -950,7 +961,7 @@ class LocationServiceClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

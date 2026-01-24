@@ -113,9 +113,9 @@ class ODSFormat:
         def is_real_cell(cell):
             return cell.hasChildNodes() or not cell.getAttribute('numbercolumnsrepeated')
 
-        for i, row in enumerate(sheet.childNodes):
-            if row.tagName != 'table:table-row':
-                continue
+        rows = (row for row in sheet.childNodes if row.tagName == "table:table-row")
+
+        for i, row in enumerate(rows):
             if i < skip_lines:
                 continue
             row_vals = [cls.read_cell(cell) for cell in row.childNodes if is_real_cell(cell)]
@@ -155,7 +155,10 @@ class ODSFormat:
         if not cell.childNodes:
             value = getattr(cell, 'data', None)
             if value is None:
-                value = cell.getAttribute('value')
+                try:
+                    value = cell.getAttribute('value')
+                except ValueError:
+                    pass
             if value is None:
                 return ''
             if value_type == 'float':
@@ -165,9 +168,7 @@ class ODSFormat:
             return value  # Any other type default to 'string'
 
         for subnode in cell.childNodes:
-            value = cls.read_cell(subnode, value_type)
-            if value:
-                return value
+            return cls.read_cell(subnode, value_type)
 
     @classmethod
     def import_set(cls, dset, in_stream, headers=True, skip_lines=0):

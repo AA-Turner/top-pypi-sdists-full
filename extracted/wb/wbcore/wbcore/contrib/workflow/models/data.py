@@ -28,7 +28,10 @@ class Data(WBModel):
                 serializers.DateTimeField(),
                 serializers.BooleanField(),
             ]
-            return {data_type: serializer_field for data_type, serializer_field in zip(cls, serializer_fields)}
+            return {
+                data_type: serializer_field
+                for data_type, serializer_field in zip(cls, serializer_fields, strict=False)
+            }
 
         @classmethod
         def get_cast_mapping(cls) -> dict:
@@ -39,7 +42,7 @@ class Data(WBModel):
                 datetime.strptime,
                 bool,
             ]
-            return {data_type: cast_callable for data_type, cast_callable in zip(cls, cast_callables)}
+            return {data_type: cast_callable for data_type, cast_callable in zip(cls, cast_callables, strict=False)}
 
     workflow = models.ForeignKey(
         to="workflow.Workflow",
@@ -176,8 +179,8 @@ class Data(WBModel):
                 format_str = "%d.%m.%Y %H:%M:%S"
             try:
                 casted_object = data_object.strftime(format_str)
-            except AttributeError:
-                raise ValueError(gettext("Date(time) type selected but no date(time) object provided!"))
+            except AttributeError as e:
+                raise ValueError(gettext("Date(time) type selected but no date(time) object provided!")) from e
 
         elif data_type == cls.DataType.BOOL:
             if data_object is True:

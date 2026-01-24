@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-igraph
-Version: 0.11.9
+Version: 1.0.0
 Summary: High performance graph data structures and algorithms (legacy package)
 Home-page: https://igraph.org/python
 Author: Tamas Nepusz
@@ -33,7 +33,7 @@ Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.6
 License-File: LICENSE
-Requires-Dist: igraph==0.11.9
+Requires-Dist: igraph==1.0.0
 Provides-Extra: cairo
 Requires-Dist: cairocffi>=1.2.0; extra == "cairo"
 Provides-Extra: matplotlib

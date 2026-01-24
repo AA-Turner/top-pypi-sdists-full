@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyroute2
-Version: 0.9.4
+Version: 0.9.5
 Summary: Python Netlink library
 Author-email: Peter Saveliev <peter@svinota.eu>
 License-Expression: GPL-2.0-or-later OR Apache-2.0

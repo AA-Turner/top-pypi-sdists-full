@@ -8,7 +8,7 @@ T = TypeVar("T", bound="ListQueueResponse200ItemRawFlowModulesItemSuspendResumeF
 
 @_attrs_define
 class ListQueueResponse200ItemRawFlowModulesItemSuspendResumeFormSchema:
-    """ """
+    """JSON Schema for the resume form"""
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

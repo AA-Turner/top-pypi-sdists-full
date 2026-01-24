@@ -32,7 +32,7 @@ class ScheduleTarget(ModelNormal):
 
     def __init__(self_, id: str, type: ScheduleTargetType, **kwargs):
         """
-        Represents a schedule target for an escalation policy step, including its ID and resource type.
+        Represents a schedule target for an escalation policy step, including its ID and resource type. This is a shortcut for a configured schedule target with position set to 'current'.
 
         :param id: Specifies the unique identifier of the schedule resource.
         :type id: str

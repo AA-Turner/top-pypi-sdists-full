@@ -46,7 +46,7 @@ history = open('CHANGELOG.rst').read().replace('.. :changelog:', '')
 
 setup(
     name='django-json-widget',
-    version='2.0.3',
+    version='2.1.1',
     description="""Django json widget is an alternative widget that makes it easy to edit the jsonfield field of django.""",
     long_description=readme + '\n\n' + history,
     author='José Manuel Rivas',
@@ -65,16 +65,15 @@ setup(
         'Framework :: Django :: 3.2',
         'Framework :: Django :: 4.2',
         'Framework :: Django :: 5.0',
+        'Framework :: Django :: 5.2',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
     ],
 )

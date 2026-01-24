@@ -11,6 +11,9 @@ __all__ = [
     "ResponseEngineResponseEngineRetellLm",
     "ResponseEngineResponseEngineCustomLm",
     "ResponseEngineResponseEngineConversationFlow",
+    "CustomSttConfig",
+    "IvrOption",
+    "IvrOptionAction",
     "PiiConfig",
     "PostCallAnalysisData",
     "PostCallAnalysisDataStringAnalysisData",
@@ -24,6 +27,7 @@ __all__ = [
     "VoicemailOptionActionVoicemailActionPrompt",
     "VoicemailOptionActionVoicemailActionStaticText",
     "VoicemailOptionActionVoicemailActionHangup",
+    "VoicemailOptionActionVoicemailActionBridgeTransfer",
 ]
 
 
@@ -64,7 +68,31 @@ ResponseEngine: TypeAlias = Union[
 ]
 
 
+class CustomSttConfig(BaseModel):
+    """Custom STT configuration. Only used when stt_mode is set to custom."""
+
+    endpointing_ms: int
+    """Endpointing timeout in milliseconds. Minimum is 100 for azure, 10 for deepgram."""
+
+    provider: Literal["azure", "deepgram"]
+    """The STT provider to use."""
+
+
+class IvrOptionAction(BaseModel):
+    type: Literal["hangup"]
+
+
+class IvrOption(BaseModel):
+    """
+    If this option is set, the call will try to detect IVR in the first 3 minutes of the call. Actions defined will be applied when the IVR is detected. Set this to null to disable IVR detection.
+    """
+
+    action: IvrOptionAction
+
+
 class PiiConfig(BaseModel):
+    """Configuration for PII scrubbing from transcripts and recordings."""
+
     categories: List[
         Literal[
             "person_name",
@@ -80,6 +108,7 @@ class PiiConfig(BaseModel):
             "pin",
             "medical_id",
             "date_of_birth",
+            "customer_account_number",
         ]
     ]
     """List of PII categories to scrub from transcripts and recordings."""
@@ -158,7 +187,7 @@ class PronunciationDictionary(BaseModel):
 
 
 class UserDtmfOptions(BaseModel):
-    digit_limit: Optional[int] = None
+    digit_limit: Optional[float] = None
     """
     The maximum number of digits allowed in the user's DTMF (Dual-Tone
     Multi-Frequency) input per turn. Once this limit is reached, the input is
@@ -168,7 +197,7 @@ class UserDtmfOptions(BaseModel):
     termination_key: Optional[str] = None
     """A single key that signals the end of DTMF input.
 
-    Acceptable values include any digit (0–9), the pound/hash symbol (#), or the
+    Acceptable values include any digit (0-9), the pound/hash symbol (#), or the
     asterisk (\\**).
     """
 
@@ -200,14 +229,23 @@ class VoicemailOptionActionVoicemailActionHangup(BaseModel):
     type: Literal["hangup"]
 
 
+class VoicemailOptionActionVoicemailActionBridgeTransfer(BaseModel):
+    type: Literal["bridge_transfer"]
+
+
 VoicemailOptionAction: TypeAlias = Union[
     VoicemailOptionActionVoicemailActionPrompt,
     VoicemailOptionActionVoicemailActionStaticText,
     VoicemailOptionActionVoicemailActionHangup,
+    VoicemailOptionActionVoicemailActionBridgeTransfer,
 ]
 
 
 class VoicemailOption(BaseModel):
+    """
+    If this option is set, the call will try to detect voicemail in the first 3 minutes of the call. Actions defined (hangup, or leave a message) will be applied when the voicemail is detected. Set this to null to disable voicemail detection.
+    """
+
     action: VoicemailOptionAction
 
 
@@ -227,6 +265,9 @@ class AgentResponse(BaseModel):
     It is used to generate responses for the agent. You need to create a Response
     Engine first before attaching it to an agent.
     """
+
+    version: int
+    """Version of the agent."""
 
     voice_id: str
     """Unique voice id used for the agent.
@@ -252,24 +293,18 @@ class AgentResponse(BaseModel):
 
     - `coffee-shop`: Coffee shop ambience with people chatting in background.
       [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/coffee-shop.wav)
-
     - `convention-hall`: Convention hall ambience, with some echo and people
       chatting in background.
       [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/convention-hall.wav)
-
     - `summer-outdoor`: Summer outdoor ambience with cicada chirping.
       [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/summer-outdoor.wav)
-
     - `mountain-outdoor`: Mountain outdoor ambience with birds singing.
       [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/mountain-outdoor.wav)
-
     - `static-noise`: Constant static noise.
       [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/static-noise.wav)
-
     - `call-center`: Call center work noise.
       [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/call-center.wav)
-
-    Set to `null` to remove ambient sound from this agent.
+      Set to `null` to remove ambient sound from this agent.
     """
 
     ambient_sound_volume: Optional[float] = None
@@ -277,6 +312,19 @@ class AgentResponse(BaseModel):
 
     Value ranging from [0,2]. Lower value means quieter ambient sound, while higher
     value means louder ambient sound. If unset, default value 1 will apply.
+    """
+
+    analysis_successful_prompt: Optional[str] = None
+    """
+    Prompt to determine whether the post call or chat analysis should mark the
+    interaction as successful. Set to null to use the default prompt.
+    """
+
+    analysis_summary_prompt: Optional[str] = None
+    """Prompt to guide how the post call or chat analysis summary should be generated.
+
+    When unset, the default system prompt is used. Set to null to use the default
+    prompt.
     """
 
     backchannel_frequency: Optional[float] = None
@@ -295,7 +343,7 @@ class AgentResponse(BaseModel):
     backchannel words will apply. Check out
     [backchannel default words](/agent/interaction-configuration#backchannel) for
     more details. Note that certain voices do not work too well with certain words,
-    so it's recommended to expeirment before adding any words.
+    so it's recommended to experiment before adding any words.
     """
 
     begin_message_delay_ms: Optional[int] = None
@@ -312,6 +360,9 @@ class AgentResponse(BaseModel):
     these words are more likely to get transcribed. Commonly used for names, brands,
     street, etc.
     """
+
+    custom_stt_config: Optional[CustomSttConfig] = None
+    """Custom STT configuration. Only used when stt_mode is set to custom."""
 
     data_storage_setting: Optional[Literal["everything", "everything_except_pii", "basic_attributes_only"]] = None
     """
@@ -335,6 +386,12 @@ class AgentResponse(BaseModel):
     phrases like "yeah", "uh-huh" to signify interest and engagement). Backchannel
     when enabled tends to show up more in longer user utterances. If not set, agent
     will not backchannel.
+    """
+
+    enable_voicemail_detection: Optional[bool] = None
+    """If set to true, will detect whether the call enters a voicemail.
+
+    Note that this feature is only available for phone calls.
     """
 
     end_call_after_silence_ms: Optional[int] = None
@@ -362,8 +419,21 @@ class AgentResponse(BaseModel):
     agent would never be interrupted.
     """
 
+    is_public: Optional[bool] = None
+    """Whether the agent is public.
+
+    When set to true, the agent is available for public agent preview link.
+    """
+
     is_published: Optional[bool] = None
     """Whether the agent is published."""
+
+    ivr_option: Optional[IvrOption] = None
+    """
+    If this option is set, the call will try to detect IVR in the first 3 minutes of
+    the call. Actions defined will be applied when the IVR is detected. Set this to
+    null to disable IVR detection.
+    """
 
     language: Optional[
         Literal[
@@ -389,11 +459,11 @@ class AgentResponse(BaseModel):
             "nl-BE",
             "pl-PL",
             "tr-TR",
-            "th-TH",
             "vi-VN",
             "ro-RO",
             "bg-BG",
             "ca-ES",
+            "th-TH",
             "da-DK",
             "fi-FI",
             "el-GR",
@@ -402,6 +472,33 @@ class AgentResponse(BaseModel):
             "no-NO",
             "sk-SK",
             "sv-SE",
+            "lt-LT",
+            "lv-LV",
+            "ms-MY",
+            "af-ZA",
+            "ar-SA",
+            "az-AZ",
+            "bs-BA",
+            "cy-GB",
+            "fa-IR",
+            "fil-PH",
+            "gl-ES",
+            "he-IL",
+            "hr-HR",
+            "hy-AM",
+            "is-IS",
+            "kk-KZ",
+            "kn-IN",
+            "mk-MK",
+            "mr-IN",
+            "ne-NP",
+            "sl-SI",
+            "sr-RS",
+            "sw-KE",
+            "ta-IN",
+            "ur-IN",
+            "yue-CN",
+            "uk-UA",
             "multi",
         ]
     ] = None
@@ -409,7 +506,7 @@ class AgentResponse(BaseModel):
 
     For instance, selecting `en-GB` optimizes speech recognition for British
     English. If unset, will use default value `en-US`. Select `multi` for
-    multilingual support, currently this supports Spanish and English.
+    multilingual support.
     """
 
     max_call_duration_ms: Optional[int] = None
@@ -449,24 +546,22 @@ class AgentResponse(BaseModel):
 
     post_call_analysis_model: Optional[
         Literal[
-            "gpt-4o",
-            "gpt-4o-mini",
             "gpt-4.1",
             "gpt-4.1-mini",
             "gpt-4.1-nano",
             "gpt-5",
+            "gpt-5.1",
+            "gpt-5.2",
             "gpt-5-mini",
             "gpt-5-nano",
-            "claude-4.0-sonnet",
-            "claude-3.7-sonnet",
-            "claude-3.5-haiku",
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
+            "claude-4.5-sonnet",
+            "claude-4.5-haiku",
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite",
+            "gemini-3.0-flash",
         ]
     ] = None
-    """The model to use for post call analysis. Default to gpt-4o-mini."""
+    """The model to use for post call analysis. Default to gpt-4.1-mini."""
 
     pronunciation_dictionary: Optional[List[PronunciationDictionary]] = None
     """
@@ -504,22 +599,39 @@ class AgentResponse(BaseModel):
     Default to 30000 (30 s). Valid range is [5000, 90000].
     """
 
-    stt_mode: Optional[Literal["fast", "accurate"]] = None
+    signed_url_expiration_ms: Optional[int] = None
+    """The expiration time for the signed url in milliseconds.
+
+    Only applicable when opt_in_signed_url is true. If not set, default value of
+    86400000 (24 hours) will apply.
+    """
+
+    stt_mode: Optional[Literal["fast", "accurate", "custom"]] = None
     """If set, determines whether speech to text should focus on latency or accuracy.
 
-    Default to fast mode.
+    Default to fast mode. When set to custom, custom_stt_config must be provided.
     """
 
     user_dtmf_options: Optional[UserDtmfOptions] = None
 
-    version: Optional[int] = None
-    """Version of the agent."""
+    version_description: Optional[str] = None
+    """Optional description of the agent version.
+
+    Used for your own reference and documentation.
+    """
 
     vocab_specialization: Optional[Literal["general", "medical"]] = None
     """If set, determines the vocabulary set to use for transcription.
 
     This setting only applies for English agents, for non English agent, this
     setting is a no-op. Default to general.
+    """
+
+    voice_emotion: Optional[str] = None
+    """Controls the emotional tone of the agent's voice.
+
+    Currently supported for Cartesia and Minimax TTS providers. If unset, no emotion
+    will be used.
     """
 
     voice_model: Optional[
@@ -529,15 +641,20 @@ class AgentResponse(BaseModel):
             "eleven_turbo_v2_5",
             "eleven_flash_v2_5",
             "eleven_multilingual_v2",
+            "sonic-2",
+            "sonic-3",
+            "sonic-3-latest",
+            "sonic-turbo",
             "tts-1",
             "gpt-4o-mini-tts",
+            "speech-02-turbo",
         ]
     ] = None
-    """Optionally set the voice model used for the selected voice.
+    """Select the voice model used for the selected voice.
 
-    Currently only elevenlab voices have voice model selections. Set to null to
-    remove voice model selection, and default ones will apply. Check out the
-    dashboard for details on each voice model.
+    Each provider has a set of available voice models. Set to null to remove voice
+    model selection, and default ones will apply. Check out dashboard for more
+    details of each voice model.
     """
 
     voice_speed: Optional[float] = None
@@ -553,6 +670,21 @@ class AgentResponse(BaseModel):
     Value ranging from [0,2]. Lower value means more stable, and higher value means
     more variant speech generation. Currently this setting only applies to `11labs`
     voices. If unset, default value 1 will apply.
+    """
+
+    voicemail_detection_timeout_ms: Optional[int] = None
+    """
+    Configures when to stop running voicemail detection, as it becomes unlikely to
+    hit voicemail after a couple minutes, and keep running it will only have
+    negative impact. The minimum value allowed is 5,000 ms (5 s), and maximum value
+    allowed is 180,000 (3 minutes). By default, this is set to 30,000 (30 s).
+    """
+
+    voicemail_message: Optional[str] = None
+    """The message to be played when the call enters a voicemail.
+
+    Note that this feature is only available for phone calls. If you want to hangup
+    after hitting voicemail, set this to empty string.
     """
 
     voicemail_option: Optional[VoicemailOption] = None

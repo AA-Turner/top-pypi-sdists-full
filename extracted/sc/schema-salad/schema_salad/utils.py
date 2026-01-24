@@ -3,7 +3,7 @@ import os
 import sys
 from collections.abc import Iterable, Mapping, MutableSequence
 from io import BufferedWriter
-from typing import IO, TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
+from typing import IO, TYPE_CHECKING, Any, Callable, Final, Optional, TypeVar, Union
 
 import requests
 from rdflib.graph import Graph
@@ -14,14 +14,12 @@ from ruamel.yaml.main import YAML
 if TYPE_CHECKING:
     from .fetcher import Fetcher
 
-from importlib.resources import as_file, files
-
 if sys.version_info >= (3, 11):
     from importlib.resources.abc import Traversable
 else:
     from importlib.abc import Traversable
 
-__all__ = ["files", "as_file", "Traversable"]
+__all__: Final = ["Traversable"]
 
 ContextType = dict[str, Union[dict[str, Any], str, Iterable[str]]]
 DocumentType = TypeVar("DocumentType", CommentedSeq, CommentedMap)
@@ -63,8 +61,8 @@ def flatten(thing: Any, ltypes: Any = (list, tuple)) -> Any:
     if not isinstance(thing, ltypes):
         return [thing]
 
-    ltype = type(thing)
-    lst = list(thing)
+    ltype: Final = type(thing)
+    lst: Final = list(thing)
     i = 0
     while i < len(lst):
         while isinstance(lst[i], ltypes):
@@ -128,7 +126,7 @@ def yaml_no_ts() -> YAML:
 
     Such datetime objects can't be easily dumped into JSON.
     """
-    yaml = YAML(typ="rt")
+    yaml: Final = YAML(typ="rt")
     yaml.preserve_quotes = True  # type: ignore
     yaml.Constructor = _RoundTripNoTimeStampConstructor
     return yaml

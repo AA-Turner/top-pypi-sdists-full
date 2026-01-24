@@ -12,21 +12,13 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /*
- * Locking in a free threaded build
+ * Locking patterns for the proxy registry
  *
- * The GIL protects against a couple of races that can
- * cause problems in maintaining these registries. For the
- * free threaded build a mutex is used to protect against
- * these races.
- *
- * XXX: Need to rephrase this comment, the race is also present
- *      in regular builds due to invoking Python code while
- *      creating proxies. Also keeping the code patterns the same
- *      should result in cleaner code overall.
- *
- * Otherwise the GIL and no-GIL builds use the same code patterns to
- * protect against races due to giving up the GIL when calling back
- * into the interpreter (for the no-GIL build).
+ * The patterns are needed for both the regular and
+ * free-threading build. PyObjC calls back into Python
+ * at a number of places, which means that we cannot
+ * fully rely on the GIL to maintain consistency without
+ * following these patterns.
  *
  * * For the Objective-C to Python registry:
  *
@@ -59,10 +51,6 @@ NS_ASSUME_NONNULL_BEGIN
  *     allowed. Because of this the race is also present while using
  *     the GIL and the GIL is taken in ``-release``.
  *
- *     TODO: Switch to a weak value mapping that removes the race in
- *     both build types, with at worse a need to lock the mapping itself
- *     while using it.
- *
  *   + As with the other registry there is a race between creating a
  *     new proxy object and registering it.
  *
@@ -74,14 +62,19 @@ NS_ASSUME_NONNULL_BEGIN
 
 extern int PyObjC_InitProxyRegistry(PyObject*);
 
-extern PyObject* PyObjC_RegisterPythonProxy(id original, PyObject* proxy) __attribute__((warn_unused_result));
-extern id NS_RETURNS_RETAINED _Nullable PyObjC_RegisterObjCProxy(PyObject* original, id proxy) __attribute__((warn_unused_result));
+extern PyObject* PyObjC_RegisterPythonProxy(id original, PyObject* proxy)
+    __attribute__((warn_unused_result));
+extern id NS_RETURNS_RETAINED _Nullable PyObjC_RegisterObjCProxy(PyObject* original,
+                                                                 id        proxy)
+    __attribute__((warn_unused_result));
 
 extern void PyObjC_UnregisterPythonProxy(id original, PyObject* proxy);
 extern void PyObjC_UnregisterObjCProxy(PyObject* original, id proxy);
 
-extern id _Nullable NS_RETURNS_RETAINED PyObjC_FindObjCProxy(PyObject* original) __attribute__((warn_unused_result));
-extern PyObject* _Nullable PyObjC_FindPythonProxy(id original) __attribute__((warn_unused_result));
+extern id _Nullable NS_RETURNS_RETAINED PyObjC_FindObjCProxy(PyObject* original)
+    __attribute__((warn_unused_result));
+extern PyObject* _Nullable PyObjC_FindPythonProxy(id original)
+    __attribute__((warn_unused_result));
 
 NS_ASSUME_NONNULL_END
 

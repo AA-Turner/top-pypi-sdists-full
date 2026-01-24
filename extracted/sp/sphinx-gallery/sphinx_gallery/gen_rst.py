@@ -32,7 +32,7 @@ import sphinx.util
 from sphinx.errors import ConfigError, ExtensionError
 from sphinx.util.console import blue, bold, red
 
-from . import glr_path_static, py_source_parser
+from . import glr_path_static, py_source_parser, rst_source_parser
 from .backreferences import (
     THUMBNAIL_PARENT_DIV,
     THUMBNAIL_PARENT_DIV_CLOSE,
@@ -64,6 +64,7 @@ from .utils import (
     _replace_md5,
     _write_json,
     get_md5sum,
+    iter_gallery_header_filenames,
     optipng,
     scale_image,
     status_iterator,
@@ -444,13 +445,19 @@ def _get_gallery_header(dir_, gallery_conf, raise_error=True):
         if os.path.isfile(fpth):
             return None
     # Next look for GALLERY_HEADER.[ext] (and for backward-compatibility README.[ext]
-    extensions = [".txt"] + sorted(gallery_conf["source_suffix"])
-    for ext in extensions:
-        for fname in ("GALLERY_HEADER", "README", "readme"):
-            fpth = os.path.join(dir_, fname + ext)
-            if os.path.isfile(fpth):
-                return fpth
+    for fname in iter_gallery_header_filenames(gallery_conf):
+        fpth = os.path.join(dir_, fname)
+        if os.path.isfile(fpth):
+            return fpth
     if raise_error:
+        extensions = list(
+            sorted(
+                set(
+                    os.path.splitext(fname)[1]
+                    for fname in iter_gallery_header_filenames(gallery_conf)
+                )
+            )
+        )
         raise ExtensionError(
             "Example directory {} does not have a GALLERY_HEADER file with "
             "one of the expected file extensions {}. Please write one to "
@@ -810,6 +817,9 @@ def _get_parser(fname, gallery_conf):
     if fname.endswith(".py"):
         parser = py_source_parser
         language = "Python"
+    elif fname.endswith(".rst"):
+        parser = rst_source_parser
+        language = "RST"
     else:
         parser = BlockParser(fname, gallery_conf)
         language = parser.language
@@ -1452,7 +1462,7 @@ EXAMPLE_HEADER = """
         :class: sphx-glr-download-link-note
 
         :ref:`Go to the end <sphx_glr_download_{1}>`
-        to download the full example code.{2}
+        to download the full example code{2}
 
 .. rst-class:: sphx-glr-example-title
 
@@ -1528,7 +1538,14 @@ def rst_blocks(
             block_separator = (
                 "\n\n" if not script_block.content.endswith("\n") else "\n"
             )
-            example_rst += script_block.content + block_separator
+            # Remove "# noqa: E501" at the end of any lines (issue #1403)
+            text_content = re.sub(
+                r"^(.*)( +# noqa: ?E501 *)$",
+                r"\1",  # replace with first capturing group
+                script_block.content,
+                flags=re.MULTILINE,
+            )
+            example_rst += text_content + block_separator
 
     return example_rst
 
@@ -1569,16 +1586,17 @@ def save_rst_example(
     jupyterlite_conf = gallery_conf["jupyterlite"]
     is_jupyterlite_enabled = jupyterlite_conf is not None
 
-    interactive_example_text = ""
     if is_binder_enabled or is_jupyterlite_enabled:
-        interactive_example_text += " or to run this example in your browser via "
+        interactive_example_text = " or to run this example in your browser via "
+    else:
+        interactive_example_text = "."
 
     if is_binder_enabled and is_jupyterlite_enabled:
-        interactive_example_text += "JupyterLite or Binder"
+        interactive_example_text += "JupyterLite or Binder."
     elif is_binder_enabled:
-        interactive_example_text += "Binder"
+        interactive_example_text += "Binder."
     elif is_jupyterlite_enabled:
-        interactive_example_text += "JupyterLite"
+        interactive_example_text += "JupyterLite."
 
     example_rst = (
         EXAMPLE_HEADER.format(example_fname, ref_fname, interactive_example_text)

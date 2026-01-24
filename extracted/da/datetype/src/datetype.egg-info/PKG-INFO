@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: datetype
-Version: 2025.2.13
+Version: 2025.11.30
 Summary: A type wrapper for the standard library `datetime` that supplies stricter checks, such as making 'datetime' not substitutable for 'date', and separating out Naive and Aware datetimes into separate, mutually-incompatible types.
 Author-email: Glyph <glyph@twistedmatrix.com>
 License: The "typeshed" project is licensed under the terms of the Apache license, as
@@ -241,8 +241,11 @@ License: The "typeshed" project is licensed under the terms of the Apache licens
         
         = = = = =
         
+Project-URL: Homepage, https://github.com/glyph/DateType
+Project-URL: Documentation, https://datetype.readthedocs.io/en/latest/
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.11
@@ -254,6 +257,7 @@ Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: typing_extensions; python_version < "3.8"
+Dynamic: license-file
 
 # DateType
 

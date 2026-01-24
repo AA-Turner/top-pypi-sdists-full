@@ -1,27 +1,65 @@
-[build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
-
 [project]
 name = "audioread"
+version = "3.1.0"
+description = "Multi-library, cross-platform audio decoding."
 authors = [
-    {name = "Adrian Sampson", email = "adrian@radbox.org"}
+    { name = "Adrian Sampson", email = "adrian@radbox.org" },
 ]
 readme = "README.rst"
-requires-python = ">=3.6"
-dynamic = ["version", "description"]
-urls.Home = "https://github.com/beetbox/audioread"
+license = "MIT"
+requires-python = ">=3.9"
 classifiers = [
-    'Topic :: Multimedia :: Sound/Audio :: Conversion',
-    'Intended Audience :: Developers',
-    'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.8',
-    'Programming Language :: Python :: 3.9',
-    'Programming Language :: Python :: 3.10',
-    'Programming Language :: Python :: 3.11',
+    "Topic :: Multimedia :: Sound/Audio :: Conversion",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "standard-aifc; python_version >= '3.13'",
+    "standard-sunau; python_version >= '3.13'",
 ]
 
+[project.urls]
+Homepage = "https://github.com/beetbox/audioread"
+Repository = "https://github.com/beetbox/audioread"
+"Bug Tracker" = "https://github.com/beetbox/audioread/issues"
+
 [project.optional-dependencies]
-test = [
-    "tox"
-]
+test = ["pytest >= 8.4.2", "pytest-cov >= 7.0.0"]
+mad = ["pymad[mad] (>=0.11.3,<0.12.0)"]
+gi = ["pygobject (>=3.54.2,<4.0.0)"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pipx-install]
+poethepoet = ">=0.26"
+poetry = ">=2.1"
+
+[tool.poetry.requires-plugins]
+poethepoet = ">=0.32"
+
+[tool.poe.tasks.test]
+help = "Run tests with pytest"
+cmd = "pytest $OPTS"
+env.OPTS.default = "-p no:cov"
+
+[tool.poe.tasks.test-with-coverage]
+help = "Run tests and record coverage"
+ref = "test"
+# record coverage in audioread package
+# save xml for coverage upload to coveralls
+# save html report for local dev use
+# measure coverage across logical branches
+# show which tests cover specific lines in the code (see the HTML report)
+env.OPTS = """
+--cov=audioread
+--cov-report=xml:.reports/coverage.xml
+--cov-report=html:.reports/html
+--cov-branch
+--cov-context=test
+"""

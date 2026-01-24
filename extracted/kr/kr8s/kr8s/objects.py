@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, Kr8s Developers (See LICENSE for list)
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, Kr8s Developers (See LICENSE for list)
 # SPDX-License-Identifier: BSD 3-Clause License
 """Objects to represent Kubernetes resources.
 
@@ -241,6 +241,7 @@ class Pod(APIObjectSyncMixin, _Pod):
         stderr: BinaryIO | None = None,
         check: bool = True,
         capture_output: bool = True,
+        timeout: int | None = None,
     ) -> CompletedExec:
         return as_sync_func(self.async_exec)(
             command,
@@ -250,6 +251,7 @@ class Pod(APIObjectSyncMixin, _Pod):
             stderr=stderr,
             check=check,
             capture_output=capture_output,
+            timeout=timeout,
         )
 
     def tolerate(  # type: ignore[override]

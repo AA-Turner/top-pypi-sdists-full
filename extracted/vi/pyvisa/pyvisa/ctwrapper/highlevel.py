@@ -89,7 +89,7 @@ class IVIVisaLibrary(highlevel.VisaLibraryBase):
         add_user_dll_extra_paths()
 
         # Try to find IVI libraries using known names.
-        tmp: List[str]
+        tmp: List[str | None]
         tmp = [
             find_library(library_path)
             for library_path in ("visa", "visa32", "visa32.dll", "visa64", "visa64.dll")
@@ -287,7 +287,7 @@ class IVIVisaLibrary(highlevel.VisaLibraryBase):
                 find_list,
                 return_counter,
                 instrument_description,
-                err,
+                _err,
             ) = self._find_resources(  # type: ignore
                 session, query
             )

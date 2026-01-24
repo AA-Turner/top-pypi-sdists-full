@@ -15,7 +15,7 @@ class TestRuleAcceptance(RuleAcceptance):
         )
 
     def test_rule_pabot(self):
-        self.check_rule(src_files=["pabot_run_keywords.robot"], expected_file="expected_output_pabot.txt")
+        self.check_rule(src_files=["pabot_run_keywords.robot"], expected_file=None)
 
     def test_convention_first_word_capitalized(self):
         self.check_rule(

@@ -2,7 +2,6 @@ use std::{path::Path, sync::Arc};
 
 mod ac;
 pub mod auth;
-pub mod base64_decode;
 pub mod config;
 #[allow(dead_code)]
 pub mod executor;
@@ -11,7 +10,6 @@ pub mod impls;
 pub mod quota;
 pub mod server;
 mod server_middleware;
-mod tower_tracing;
 mod traced_json;
 mod types;
 

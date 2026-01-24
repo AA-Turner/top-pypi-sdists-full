@@ -5,6 +5,7 @@ import numpy as np
 import torch
 
 import ase
+import ase.geometry
 from ase.calculators.singlepoint import SinglePointCalculator, SinglePointDFTCalculator
 from ase.calculators.calculator import all_properties as ase_all_properties
 from ase.stress import full_3x3_to_voigt_6_stress, voigt_6_to_full_3x3_stress
@@ -136,6 +137,14 @@ def from_ase(
                     ), (
                         f"graph cartesian tensor {key} should be (1, 3, 3) after adding batch dim, got {add_fields[key].shape}"
                     )
+
+    # NOTE: if cell is not present, ASE defaults to (3, 3) matrix of zeros
+    # i.e.
+    # if cell is None:
+    #     cell = np.zeros((3, 3))
+    # self.set_cell(cell)
+
+    # c.f. https://gitlab.com/ase/ase/-/blob/master/ase/atoms.py?ref_type=heads#L114
 
     data = {
         AtomicDataDict.POSITIONS_KEY: atoms.positions,

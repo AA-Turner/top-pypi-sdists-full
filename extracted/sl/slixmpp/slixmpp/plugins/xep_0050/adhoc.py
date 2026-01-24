@@ -7,6 +7,7 @@ import asyncio
 import functools
 import logging
 import time
+import typing
 
 from slixmpp import Iq
 from slixmpp.exceptions import XMPPError
@@ -20,6 +21,10 @@ from slixmpp.plugins.xep_0004 import Form
 
 
 log = logging.getLogger(__name__)
+
+
+SessionDict = dict[str, typing.Any]
+TimeoutHandlerType = typing.Callable[[SessionDict], typing.Awaitable[None]]
 
 
 class XEP_0050(BasePlugin):
@@ -58,6 +63,8 @@ class XEP_0050(BasePlugin):
     default_config = {
         'session_db': None
     }
+    commands: dict[tuple[str, str], tuple[str, typing.Callable, TimeoutHandlerType | None, float]]
+    _timeout_tasks: dict[str, asyncio.Task]
 
     def plugin_init(self):
         """Start the XEP-0050 plugin."""
@@ -66,6 +73,7 @@ class XEP_0050(BasePlugin):
             self.sessions = {}
 
         self.commands = {}
+        self._timeout_tasks = {}
 
         self.xmpp.register_handler(
             Callback("Ad-Hoc Execute",
@@ -113,7 +121,10 @@ class XEP_0050(BasePlugin):
     # =================================================================
     # Server side (command provider) API
 
-    def add_command(self, jid=None, node=None, name='', handler=None):
+    def add_command(self, jid=None, node=None, name='', handler=None,
+                    *,
+                    timeout: float = 0,
+                    timeout_handler: TimeoutHandlerType | None = None):
         """
         Make a new command available to external entities.
 
@@ -131,6 +142,11 @@ class XEP_0050(BasePlugin):
         :param handler: A function that will generate the response to the
                         initial command request, as well as enforcing any
                         access control policies.
+        :param timeout: A timeout, in seconds, after which a session for
+            this command will be cancelled. 0 by default, which means no timeout.
+        :param timeout_handler: Optionally, a custom handler that will be called
+            on timeout, with the session dict, before the "cancel" IQ is sent
+            to the XMPP client.
         """
         if jid is None:
             jid = self.xmpp.boundjid
@@ -155,7 +171,7 @@ class XEP_0050(BasePlugin):
                                            jid=jid)
         self.xmpp['xep_0030'].add_feature(Command.namespace, None, jid)
 
-        self.commands[(item_jid, node)] = (name, handler)
+        self.commands[(item_jid, node)] = (name, handler, timeout_handler, timeout)
 
     def new_session(self):
         """Return a new session ID."""
@@ -193,7 +209,7 @@ class XEP_0050(BasePlugin):
         sessionid = self.new_session()
         node = iq['command']['node']
         key = (iq['to'].full, node)
-        name, handler = self.commands.get(key, ('Not found', None))
+        name, handler, _, _ = self.commands.get(key, ('Not found', None, None, 0))
         if not handler:
             log.debug('Command not found: %s, %s', key, self.commands)
             raise XMPPError('item-not-found')
@@ -224,6 +240,7 @@ class XEP_0050(BasePlugin):
                            'prev': None,
                            'cancel': None}
 
+        self._reset_timeout_task(initial_session, iq)
         session = await _await_if_needed(handler, iq, initial_session)
 
         self._process_command_response(iq, session)
@@ -237,6 +254,7 @@ class XEP_0050(BasePlugin):
         """
         sessionid = iq['command']['sessionid']
         session = self.sessions.get(sessionid)
+        self._reset_timeout_task(session, iq)
 
         if session:
             handler = session['next']
@@ -263,6 +281,7 @@ class XEP_0050(BasePlugin):
         """
         sessionid = iq['command']['sessionid']
         session = self.sessions.get(sessionid)
+        self._reset_timeout_task(session, iq)
 
         if session:
             handler = session['prev']
@@ -289,6 +308,7 @@ class XEP_0050(BasePlugin):
         :param session: A dictionary of relevant session data.
         """
         sessionid = session['id']
+        self._reset_timeout_task(session, iq)
 
         payload = session['payload']
         if payload is None:
@@ -347,6 +367,7 @@ class XEP_0050(BasePlugin):
         """
         node = iq['command']['node']
         sessionid = iq['command']['sessionid']
+        self._cancel_timeout_task(sessionid)
 
         session = self.sessions.get(sessionid)
 
@@ -378,6 +399,7 @@ class XEP_0050(BasePlugin):
         node = iq['command']['node']
         sessionid = iq['command']['sessionid']
         session = self.sessions.get(sessionid)
+        self._cancel_timeout_task(sessionid)
 
         if session:
             handler = session['next']
@@ -418,6 +440,30 @@ class XEP_0050(BasePlugin):
         else:
             raise XMPPError('item-not-found')
 
+    def _reset_timeout_task(self, session: SessionDict, iq: Iq) -> None:
+        key = (iq['to'].full, iq['command']['node'])
+        _, _, handler, timeout = self.commands.get(key, ("Not found", None, None, 0))
+
+        self._cancel_timeout_task(session["id"])
+
+        if not timeout:
+            return
+
+        async def timer() -> None:
+            await asyncio.sleep(timeout)
+            if handler is not None:
+                await handler(session)
+            session['jid'] = iq.get_from()
+            self.cancel_command(session)
+            self._cancel_timeout_task(session["id"])
+
+        self._timeout_tasks[session["id"]] = asyncio.create_task(timer())
+
+    def _cancel_timeout_task(self, sessionid: str) -> None:
+        existing = self._timeout_tasks.pop(sessionid, None)
+        if existing is not None and not existing.done():
+            existing.cancel()
+
     # =================================================================
     # Client side (command user) API
 
@@ -430,7 +476,7 @@ class XEP_0050(BasePlugin):
                       combination handled by this Slixmpp instance and
                       no stanzas need to be sent.
                       Otherwise, a disco stanza must be sent to the
-                      remove JID to retrieve the items.
+                      remote JID to retrieve the items.
         :param iterator: If True, return a result set iterator using
                          the XEP-0059 plugin, if the plugin is loaded.
                          Otherwise the parameter is ignored.

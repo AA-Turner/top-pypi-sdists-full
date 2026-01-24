@@ -39,7 +39,11 @@ class TaskTableConfig(object):
         'text': 'str',
         'job_id': 'str',
         'exception_type': 'str',
-        'attempts': 'TaskAttempts'
+        'attempts': 'TaskAttempts',
+        'data_operator_id': 'str',
+        'latest_attempt_only': 'bool',
+        'node_id': 'str',
+        'actor_id': 'str'
     }
 
     attribute_map = {
@@ -49,10 +53,14 @@ class TaskTableConfig(object):
         'text': 'text',
         'job_id': 'job_id',
         'exception_type': 'exception_type',
-        'attempts': 'attempts'
+        'attempts': 'attempts',
+        'data_operator_id': 'data_operator_id',
+        'latest_attempt_only': 'latest_attempt_only',
+        'node_id': 'node_id',
+        'actor_id': 'actor_id'
     }
 
-    def __init__(self, task_id=None, function_name=None, current_state=None, text=None, job_id=None, exception_type=None, attempts=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, task_id=None, function_name=None, current_state=None, text=None, job_id=None, exception_type=None, attempts=None, data_operator_id=None, latest_attempt_only=None, node_id=None, actor_id=None, local_vars_configuration=None):  # noqa: E501
         """TaskTableConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +73,10 @@ class TaskTableConfig(object):
         self._job_id = None
         self._exception_type = None
         self._attempts = None
+        self._data_operator_id = None
+        self._latest_attempt_only = None
+        self._node_id = None
+        self._actor_id = None
         self.discriminator = None
 
         if task_id is not None:
@@ -81,6 +93,14 @@ class TaskTableConfig(object):
             self.exception_type = exception_type
         if attempts is not None:
             self.attempts = attempts
+        if data_operator_id is not None:
+            self.data_operator_id = data_operator_id
+        if latest_attempt_only is not None:
+            self.latest_attempt_only = latest_attempt_only
+        if node_id is not None:
+            self.node_id = node_id
+        if actor_id is not None:
+            self.actor_id = actor_id
 
     @property
     def task_id(self):
@@ -228,6 +248,90 @@ class TaskTableConfig(object):
         """
 
         self._attempts = attempts
+
+    @property
+    def data_operator_id(self):
+        """Gets the data_operator_id of this TaskTableConfig.  # noqa: E501
+
+
+        :return: The data_operator_id of this TaskTableConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._data_operator_id
+
+    @data_operator_id.setter
+    def data_operator_id(self, data_operator_id):
+        """Sets the data_operator_id of this TaskTableConfig.
+
+
+        :param data_operator_id: The data_operator_id of this TaskTableConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._data_operator_id = data_operator_id
+
+    @property
+    def latest_attempt_only(self):
+        """Gets the latest_attempt_only of this TaskTableConfig.  # noqa: E501
+
+
+        :return: The latest_attempt_only of this TaskTableConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._latest_attempt_only
+
+    @latest_attempt_only.setter
+    def latest_attempt_only(self, latest_attempt_only):
+        """Sets the latest_attempt_only of this TaskTableConfig.
+
+
+        :param latest_attempt_only: The latest_attempt_only of this TaskTableConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._latest_attempt_only = latest_attempt_only
+
+    @property
+    def node_id(self):
+        """Gets the node_id of this TaskTableConfig.  # noqa: E501
+
+
+        :return: The node_id of this TaskTableConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._node_id
+
+    @node_id.setter
+    def node_id(self, node_id):
+        """Sets the node_id of this TaskTableConfig.
+
+
+        :param node_id: The node_id of this TaskTableConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._node_id = node_id
+
+    @property
+    def actor_id(self):
+        """Gets the actor_id of this TaskTableConfig.  # noqa: E501
+
+
+        :return: The actor_id of this TaskTableConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._actor_id
+
+    @actor_id.setter
+    def actor_id(self, actor_id):
+        """Sets the actor_id of this TaskTableConfig.
+
+
+        :param actor_id: The actor_id of this TaskTableConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._actor_id = actor_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

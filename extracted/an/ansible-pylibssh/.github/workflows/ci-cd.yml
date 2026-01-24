@@ -3,6 +3,7 @@
 name: 🧪
 
 on:  # yamllint disable-line rule:truthy
+  merge_group:
   push:  # publishes to TestPyPI pushes to the main branch
     branches:  # any branch but not tag
     - >-
@@ -72,11 +73,11 @@ concurrency:
 env:
   FORCE_COLOR: 1  # Request colored output from CLI tools supporting it
   MYPY_FORCE_COLOR: 1  # MyPy's color enforcement
-  PIP_DISABLE_PIP_VERSION_CHECK: 1
-  PIP_NO_PYTHON_VERSION_WARNING: 1
-  PIP_NO_WARN_SCRIPT_LOCATION: 1
+  PIP_DISABLE_PIP_VERSION_CHECK: 1  # Hide "there's a newer pip" message
+  PIP_NO_PYTHON_VERSION_WARNING: 1  # Hide "this Python is deprecated" message
+  PIP_NO_WARN_SCRIPT_LOCATION: 1  # Hide "script dir is not in $PATH" message
   PY_COLORS: 1  # Recognized by the `py` package, dependency of `pytest`
-  TOX_PARALLEL_NO_SPINNER: 1
+  TOX_PARALLEL_NO_SPINNER: 1  # Disable tox's parallel run spinner animation
   TOX_TESTENV_PASSENV: >-  # Make tox-wrapped tools see color requests
     FORCE_COLOR
     MYPY_FORCE_COLOR
@@ -84,7 +85,7 @@ env:
     PY_COLORS
     PYTEST_THEME
     PYTEST_THEME_MODE
-  TOX_VERSION: tox < 4.12
+  TOX_VERSION: tox
 
 run-name: >-
   ${{
@@ -117,10 +118,15 @@ jobs:
 
   pre-setup:
     name: ⚙️ Pre-set global build settings
+
     runs-on: ubuntu-latest
+
+    timeout-minutes: 1
+
     defaults:
       run:
         shell: python
+
     outputs:
       # NOTE: These aren't env vars because the `${{ env }}` context is
       # NOTE: inaccessible when passing inputs to reusable workflows.
@@ -159,7 +165,7 @@ jobs:
         ${{ steps.changelog-draft-name.outputs.filename-base }}.rst
     steps:
     - name: Switch to using Python 3.11 by default
-      uses: actions/setup-python@v5.1.0
+      uses: actions/setup-python@v5.3.0
       with:
         python-version: 3.11
     - name: >-
@@ -269,7 +275,7 @@ jobs:
     - name: Set up pip cache
       if: >-
         steps.request-check.outputs.release-requested != 'true'
-      uses: actions/cache@v4.0.2
+      uses: actions/cache@v4
       with:
         path: >-
           ${{
@@ -303,6 +309,7 @@ jobs:
         pip install
         --user
         setuptools-scm
+        --constraint=requirements-build.txt
       shell: bash
     - name: Set the current dist version from Git
       if: steps.request-check.outputs.release-requested != 'true'
@@ -413,7 +420,7 @@ jobs:
       👷📝 ${{ needs.pre-setup.outputs.git-tag }} changelog
       [mode: ${{
         fromJSON(needs.pre-setup.outputs.is-untagged-devel)
-        && 'nightly' || ''
+        && 'test' || ''
       }}${{
         fromJSON(needs.pre-setup.outputs.release-requested)
         && 'release' || ''
@@ -421,18 +428,49 @@ jobs:
         (
           !fromJSON(needs.pre-setup.outputs.is-untagged-devel)
           && !fromJSON(needs.pre-setup.outputs.release-requested)
-        ) && 'test' || ''
+        ) && 'nightly' || ''
       }}]
     needs:
     - pre-setup
     runs-on: ubuntu-latest
 
+    timeout-minutes: 2  # network is slow sometimes
+
     env:
       TOXENV: make-changelog
 
     steps:
+    - name: Disable dpkg triggers to speed up apt
+      # yamllint disable rule:line-length
+      run: |
+        INITRAMFS_CONF="/etc/initramfs-tools/update-initramfs.conf"
+        DPKG_TRIGGERS="/var/lib/dpkg/triggers/File"
+
+        if [ -e $INITRAMFS_CONF ]; then
+            sudo sed -i 's/yes/no/g' $INITRAMFS_CONF
+        fi
+        echo 'set man-db/auto-update false' | sudo debconf-communicate >/dev/null
+        sudo dpkg-reconfigure man-db
+
+        if [ -e $DPKG_TRIGGERS ]; then
+            sudo sed '/fontconfig/d' -i $DPKG_TRIGGERS
+            sudo sed '/install-info/d' -i $DPKG_TRIGGERS
+            sudo sed '/mime/d' -i $DPKG_TRIGGERS
+            sudo sed '/hicolor-icon-theme/d' -i $DPKG_TRIGGERS
+        fi
+
+        echo "force-unsafe-io" | sudo tee -a /etc/dpkg/dpkg.cfg.d/force-unsafe-io
+
+        if [ -a /usr/bin/eatmydata ]; then
+          echo "eatmydata available"
+          echo -e '#!/bin/sh\nexec eatmydata /usr/bin/dpkg $@' | sudo tee /usr/local/bin/dpkg && sudo chmod +x /usr/local/bin/dpkg
+          echo -e '#!/bin/sh\nexec eatmydata /usr/bin/apt $@' | sudo tee /usr/local/bin/apt && sudo chmod +x /usr/local/bin/apt
+          echo -e '#!/bin/sh\nexec eatmydata /usr/bin/apt-get $@' | sudo tee /usr/local/bin/apt-get && sudo chmod +x /usr/local/bin/apt-get
+        fi
+      # yamllint enable rule:line-length
+
     - name: Switch to using Python 3.11
-      uses: actions/setup-python@v5.1.0
+      uses: actions/setup-python@v5.3.0
       with:
         python-version: 3.11
 
@@ -462,7 +500,7 @@ jobs:
             print(f'py-hash-key={hash}', file=outputs_file)
       shell: python
     - name: Set up pip cache
-      uses: actions/cache@v4.0.2
+      uses: actions/cache@v4
       with:
         path: >-
           ${{
@@ -509,7 +547,7 @@ jobs:
       # Refs:
       # * https://github.community/t/github-actions-bot-email-address/17204/6
       # * https://github.com/actions/checkout/issues/13#issuecomment-724415212
-      uses: fregante/setup-git-user@v2.0.1
+      uses: fregante/setup-git-user@v2
 
     - name: Generate changelog draft to a temporary file
       run: >-
@@ -591,7 +629,7 @@ jobs:
     - name: Verify that expected patch got created
       run: ls -1 '${{ needs.pre-setup.outputs.changelog-patch-name }}'
     - name: Save the package bump patch as a GHA artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: changelog
         path: |
@@ -619,40 +657,40 @@ jobs:
     - pre-setup  # transitive, for accessing settings
     strategy:
       matrix:
-        os:
+        runner-vm-os:
         - macos-13
     uses: ./.github/workflows/reusable-cibuildwheel.yml
     with:
-      os: ${{ matrix.os }}
-      wheel-tags-to-skip: >-
-        ${{
-        !fromJSON(needs.pre-setup.outputs.release-requested)
-        && '*_i686
-        *-macosx_universal2
-        *-musllinux_*
-        *-win32
-        *_arm64
-        pp*'
-        || ''
-        }}
+      runner-vm-os: ${{ matrix.runner-vm-os }}
+      timeout-minutes: 9
       source-tarball-name: >-
         ${{ needs.pre-setup.outputs.sdist-artifact-name }}
       dists-artifact-name: >-
         ${{ needs.pre-setup.outputs.dists-artifact-name }}
-      # cython-tracing: >-  # Cython line tracing for coverage collection
-      #   ${{
-      #     (
-      #       github.event_name == 'push'
-      #       && contains(github.ref, 'refs/tags/')
-      #     )
-      #     && 'false'
-      #     || 'true'
-      #   }}
-      cython-tracing: >-  # Cython line tracing for coverage collection
-        ${{
+      # CIBW_CONFIG_SETTINGS: `with-cython-tracing` — for coverage collection
+      # CIBW_ARCHS_MACOS=all x86_64 arm64 universal2
+      environment-variables: |-
+        CIBW_ARCHS_MACOS=native
+
+        CIBW_CONFIG_SETTINGS<<EOF
+        with-cython-tracing=${{
           fromJSON(needs.pre-setup.outputs.profiling-enabled)
           && 'true'
           || 'false'
+        }}
+        EOF
+
+        ${{
+          !fromJSON(needs.pre-setup.outputs.release-requested)
+          && 'CIBW_SKIP<<EOF
+          *_i686
+          *-macosx_universal2
+          *-musllinux_*
+          *-win32
+          *_arm64
+          pp*
+        EOF'
+          || ''
         }}
 
   build-bin-manylinux-tested-arches:
@@ -669,105 +707,41 @@ jobs:
           !fromJSON(needs.pre-setup.outputs.is-untagged-devel)
           && !fromJSON(needs.pre-setup.outputs.release-requested)
         ) && 'test' || ''
-      }}] manylinux
+      }}] manylinux [tested]
     needs:
     - build-src
     - pre-setup  # transitive, for accessing settings
-    strategy:
-      matrix:
-        manylinux-python-target:
-        # NOTE: Must be from this list:
-        # NOTE: $ podman run -it --rm \
-        # NOTE:   quay.io/pypa/manylinux2014_x86_64 \
-        # NOTE:   ls -1 /opt/python
-        - cp36-cp36m
-        - cp37-cp37m
-        - cp38-cp38
-        - cp39-cp39
-        - cp310-cp310
-        - cp311-cp311
-        - cp312-cp312
-        manylinux-year-target:
-        - 2014
-        - _2_24
-        - _2_28
-        manylinux-image-target:
-        # NOTE: Keep in sync with `build-manylinux-container-images.yml`.
-        # NOTE: Ordered from "heavy" to "fast".
-        - arch: x86_64
-          qemu_arch: amd64
-        include:
-        # NOTE: manylinux2010 only on x86_64
-        - manylinux-python-target: cp36-cp36m
-          manylinux-image-target:
-            arch: x86_64
-            qemu_arch: amd64
-          manylinux-year-target: 2010
-        - manylinux-python-target: cp37-cp37m
-          manylinux-image-target:
-            arch: x86_64
-            qemu_arch: amd64
-          manylinux-year-target: 2010
-        - manylinux-python-target: cp38-cp38
-          manylinux-image-target:
-            arch: x86_64
-            qemu_arch: amd64
-          manylinux-year-target: 2010
-        - manylinux-python-target: cp39-cp39
-          manylinux-image-target:
-            arch: x86_64
-            qemu_arch: amd64
-          manylinux-year-target: 2010
-        - manylinux-python-target: cp310-cp310
-          manylinux-image-target:
-            arch: x86_64
-            qemu_arch: amd64
-          manylinux-year-target: 2010
-        # NOTE: manylinux1 caps out at Python 3.9
-        - manylinux-python-target: cp36-cp36m
-          manylinux-image-target:
-            arch: x86_64
-            qemu_arch: amd64
-          manylinux-year-target: 1
-        - manylinux-python-target: cp37-cp37m
-          manylinux-image-target:
-            arch: x86_64
-            qemu_arch: amd64
-          manylinux-year-target: 1
-        - manylinux-python-target: cp38-cp38
-          manylinux-image-target:
-            arch: x86_64
-            qemu_arch: amd64
-          manylinux-year-target: 1
-        - manylinux-python-target: cp39-cp39
-          manylinux-image-target:
-            arch: x86_64
-            qemu_arch: amd64
-          manylinux-year-target: 1
-        exclude:
-        # NOTE: cp312-cp312 unavailable before _2_28
-        - manylinux-python-target: cp312-cp312
-          manylinux-year-target: 2014
-        - manylinux-python-target: cp312-cp312
-          manylinux-year-target: _2_24
-
-    uses: ./.github/workflows/reusable-build-wheel.yml
+    uses: ./.github/workflows/reusable-cibuildwheel.yml
     with:
-      # qemu: ${{ matrix.qemu }}
+      runner-vm-os: ubuntu-latest
+      timeout-minutes: 9
       source-tarball-name: >-
         ${{ needs.pre-setup.outputs.sdist-artifact-name }}
       dists-artifact-name: >-
         ${{ needs.pre-setup.outputs.dists-artifact-name }}
-      wheel-artifact-name: ${{ needs.pre-setup.outputs.wheel-artifact-name }}
-      cache-key-files: ${{ needs.pre-setup.outputs.cache-key-files }}
-      release-requested: >-
-        ${{ needs.pre-setup.outputs.release-requested }}
-      manylinux-python-target: ${{ matrix.manylinux-python-target }}
-      manylinux-year-target: ${{ matrix.manylinux-year-target }}
-      manylinux-image-target-arch: >-
-        ${{ matrix.manylinux-image-target.arch }}
-      manylinux-image-target-qemu-arch: >-
-        ${{ matrix.manylinux-image-target.qemu_arch }}
+      # CIBW_CONFIG_SETTINGS: `with-cython-tracing` — for coverage collection
+      # CIBW_ARCHS_MACOS=all x86_64 arm64 universal2
+      environment-variables: |-
+        CIBW_ARCHS_MACOS=native
+
+        CIBW_CONFIG_SETTINGS<<EOF
+        with-cython-tracing=${{
+          fromJSON(needs.pre-setup.outputs.profiling-enabled)
+          && 'true'
+          || 'false'
+        }}
+        EOF
+
+        ${{
+          !fromJSON(needs.pre-setup.outputs.release-requested)
+          && 'CIBW_SKIP<<EOF
+          *_i686
+          *-musllinux_*
+          *-*linux_{aarch64,ppc64le,s390x}
+          pp*
+        EOF'
+          || ''
+        }}
 
   build-bin-manylinux-odd-arches:
     name: >-
@@ -783,59 +757,45 @@ jobs:
           !fromJSON(needs.pre-setup.outputs.is-untagged-devel)
           && !fromJSON(needs.pre-setup.outputs.release-requested)
         ) && 'test' || ''
-      }}] manylinux
+      }}] manylinux [odd]
     needs:
     - build-src
     - pre-setup  # transitive, for accessing settings
-    strategy:
-      matrix:
-        manylinux-python-target:
-        # NOTE: Must be from this list:
-        # NOTE: $ podman run -it --rm \
-        # NOTE:   quay.io/pypa/manylinux2014_x86_64 \
-        # NOTE:   ls -1 /opt/python
-        - cp36-cp36m
-        - cp37-cp37m
-        - cp38-cp38
-        - cp39-cp39
-        - cp310-cp310
-        - cp311-cp311
-        - cp312-cp312
-        manylinux-year-target:
-        - 2014
-        - _2_24
-        - _2_28
-        manylinux-image-target:
-        # NOTE: Keep in sync with `build-manylinux-container-images.yml`.
-        # NOTE: Ordered from "heavy" to "fast".
-        - arch: aarch64
-          qemu_arch: arm64
-        - arch: s390x
-        - arch: ppc64le
-        exclude:
-        # NOTE: cp312-cp312 unavailable before _2_28
-        - manylinux-python-target: cp312-cp312
-          manylinux-year-target: 2014
-        - manylinux-python-target: cp312-cp312
-          manylinux-year-target: _2_24
-
-    uses: ./.github/workflows/reusable-build-wheel.yml
+    uses: ./.github/workflows/reusable-cibuildwheel.yml
     with:
-      # qemu: ${{ matrix.qemu }}
+      runner-vm-os: ubuntu-latest
+      timeout-minutes: 70
       source-tarball-name: >-
         ${{ needs.pre-setup.outputs.sdist-artifact-name }}
       dists-artifact-name: >-
         ${{ needs.pre-setup.outputs.dists-artifact-name }}
-      wheel-artifact-name: ${{ needs.pre-setup.outputs.wheel-artifact-name }}
-      cache-key-files: ${{ needs.pre-setup.outputs.cache-key-files }}
-      release-requested: >-
-        ${{ needs.pre-setup.outputs.release-requested }}
-      manylinux-python-target: ${{ matrix.manylinux-python-target }}
-      manylinux-year-target: ${{ matrix.manylinux-year-target }}
-      manylinux-image-target-arch: >-
-        ${{ matrix.manylinux-image-target.arch }}
-      manylinux-image-target-qemu-arch: >-
-        ${{ matrix.manylinux-image-target.qemu_arch }}
+      qemu: true
+      # CIBW_ARCHS_LINUX: Build emulated architectures if QEMU, else "auto"
+      # CIBW_CONFIG_SETTINGS: `with-cython-tracing` — for coverage collection
+      # CIBW_ARCHS_MACOS=all x86_64 arm64 universal2
+      environment-variables: |-
+        CIBW_ARCHS_LINUX=all
+
+        CIBW_ARCHS_MACOS=native
+
+        CIBW_CONFIG_SETTINGS<<EOF
+        with-cython-tracing=${{
+          fromJSON(needs.pre-setup.outputs.profiling-enabled)
+          && 'true'
+          || 'false'
+        }}
+        EOF
+
+        ${{
+          !fromJSON(needs.pre-setup.outputs.release-requested)
+          && 'CIBW_SKIP<<EOF
+          *_i686
+          *-musllinux_*
+          *-*linux_x86_64
+          pp*
+        EOF'
+          || ''
+        }}
 
   build-src:
     name: >-
@@ -857,11 +817,15 @@ jobs:
     - build-changelog
     - pre-setup  # transitive, for accessing settings
     runs-on: ${{ matrix.runner-vm-os }}
+
+    timeout-minutes: 2
+
     strategy:
       matrix:
         python-version:
-        - 3.8
-        - 3.7
+        - >-
+          3.10
+        - 3.9
         runner-vm-os:
         - ubuntu-22.04
         store-sdist-to-artifact:
@@ -870,9 +834,6 @@ jobs:
         - python-version: 3.12
           runner-vm-os: ubuntu-22.04
           store-sdist-to-artifact: true
-        - python-version: 3.6  # EOL, only provided for older OSs
-          runner-vm-os: ubuntu-20.04
-          store-sdist-to-artifact: false
 
     env:
       PEP517_BUILD_ARGS: --sdist
@@ -880,7 +841,7 @@ jobs:
 
     steps:
     - name: Switch to using Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5.1.0
+      uses: actions/setup-python@v5.3.0
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -895,7 +856,7 @@ jobs:
         ref: ${{ github.event.inputs.release-committish }}
 
     - name: Fetch the GHA artifact with the version patch
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: changelog
     - name: Apply the changelog patch but do not commit it
@@ -930,7 +891,7 @@ jobs:
             print(f'py-hash-key={hash}', file=outputs_file)
       shell: python
     - name: Set up pip cache
-      uses: actions/cache@v4.0.2
+      uses: actions/cache@v4
       with:
         path: >-
           ${{
@@ -1036,7 +997,7 @@ jobs:
         'dist/${{ needs.pre-setup.outputs.sdist-artifact-name }}'
     - name: Store the source distribution package
       if: fromJSON(matrix.store-sdist-to-artifact)
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ needs.pre-setup.outputs.dists-artifact-name }}
         # NOTE: Exact expected file names are specified here
@@ -1060,22 +1021,10 @@ jobs:
     strategy:
       matrix:
         target-container:
-        - tag: fedora:38
         - tag: fedora:39
         - tag: fedora:40
-        - tag: centos/centos:stream8
-          registry: quay.io
-        # No matching package to install: 'python3dist(wheel)'
-        # - tag: centos/centos:stream9
-        #   registry: quay.io
-        - tag: ubi8/ubi:8.5
-          registry: registry.access.redhat.com
-        - tag: ubi8/ubi:8.6
-          registry: registry.access.redhat.com
-        - tag: ubi8/ubi:8.7
-          registry: registry.access.redhat.com
-        - tag: ubi8/ubi:8.8
-          registry: registry.access.redhat.com
+        - tag: fedora:41
+        - tag: fedora:42
         - tag: ubi9/ubi:9.0.0
           registry: registry.access.redhat.com
         - tag: ubi9/ubi:9.1
@@ -1088,6 +1037,9 @@ jobs:
           registry: registry.access.redhat.com
 
     runs-on: ubuntu-latest
+
+    timeout-minutes: 5
+
     container:
       # NOTE: GHA has poor support for concat which is why I resorted to
       # NOTE: using this ugly ternary syntax
@@ -1104,13 +1056,6 @@ jobs:
           matrix.target-container.tag
         }}
 
-    continue-on-error: >-  # Stub for in-matrix "allowed-failures"
-      ${{
-        contains(matrix.target-container.tag, '--DISABLED--')
-        && true
-        || false
-      }}
-
     steps:
     - name: Produce artifact name
       id: distribution-meta
@@ -1118,43 +1063,20 @@ jobs:
         dist_tag=$(rpm --eval '%{?dist}')
         echo "dist-tag=${dist_tag}" >> "${GITHUB_OUTPUT}"
 
-    - name: Patch CentOS Stream 8 repository URLs
-      if: >-
-        matrix.target-container.tag == 'centos/centos:stream8'
-      run: >-
-        sed -i
-        -e 's/mirrorlist/#mirrorlist/g'
-        -e
-        's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g'
-        /etc/yum.repos.d/CentOS-*
-      shell: bash -eEuo pipefail {0}
-
-    - name: Enable EPEL repository
-      if: contains(matrix.target-container.tag, 'centos')
-      run: dnf install --assumeyes epel-release
-
     - name: Install build tooling
       run: >-
         dnf install
         --assumeyes
         dnf-plugins-core
         rpm-build
-        ${{
-            !contains(matrix.target-container.tag, 'ubi')
-            && 'rpmdevtools rpmlint'
-            || ''
-        }}
+        rpmdevtools
+        rpmlint
 
-    - name: Create rpmbuild directory structure on a community distro
-      if: >-
-        !contains(matrix.target-container.tag, 'ubi')
+    - name: Create rpmbuild directory structure
       run: rpmdev-setuptree
-    - name: Create rpmbuild directory structure on RHEL
-      if: contains(matrix.target-container.tag, 'ubi')
-      run: mkdir -pv ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
     - name: Retrieve the project source from an sdist inside the GHA artifact
-      uses: re-actors/checkout-python-sdist@release/v1
+      uses: re-actors/checkout-python-sdist@release/v2
       with:
         source-tarball-name: ${{ needs.pre-setup.outputs.sdist-artifact-name }}
         workflow-artifact-name: >-
@@ -1167,14 +1089,13 @@ jobs:
         packaging/rpm/ansible-pylibssh.spec
 
     - name: Download all the dists  # because `rpmlint` executes the spec file
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        name: ${{ needs.pre-setup.outputs.dists-artifact-name }}
+        pattern: ${{ needs.pre-setup.outputs.dists-artifact-name }}*
         path: dist/
+        merge-multiple: true
 
     - name: Lint the RPM spec file
-      if: >-
-        !contains(matrix.target-container.tag, 'ubi')
       run: rpmlint packaging/rpm/ansible-pylibssh.spec
 
     - name: Copy sdist to the sources dir
@@ -1183,39 +1104,15 @@ jobs:
         'dist/${{ needs.pre-setup.outputs.sdist-artifact-name }}'
         ~/rpmbuild/SOURCES/
 
-    - name: Install static test dependencies missing from UBI9
-      if: contains(matrix.target-container.tag, 'ubi9')
+    - name: Install transitive deps for build deps in external repos
+      if: contains(matrix.target-container.tag, 'ubi')
       run: >-
-        rpm
-        -ivh
-        --nodeps
-        https://rpmfind.net/linux/centos-stream/"$(
-          rpm --eval '%{rhel}'
-        )"-stream/CRB/x86_64/os/Packages/python3-pytest-6.2.2-6${{
-          steps.distribution-meta.outputs.dist-tag
-        }}.noarch.rpm
-        https://rpmfind.net/linux/centos-stream/"$(
-          rpm --eval '%{rhel}'
-        )"-stream/CRB/x86_64/os/Packages/python3-wheel-0.36.2-7${{
-          steps.distribution-meta.outputs.dist-tag
-        }}.noarch.rpm
-
-    - name: Install static test dependencies missing from UBI8
-      if: contains(matrix.target-container.tag, 'ubi8')
-      run: >-
-        rpm
-        -ivh
-        --nodeps
-        https://vault.centos.org/"$(
-          rpm --eval '%{rhel}'
-        )".4.2105/BaseOS/x86_64/os/Packages/openssh-8.0p1-6${{
-          steps.distribution-meta.outputs.dist-tag
-        }}_4.2.x86_64.rpm
-        https://rpmfind.net/linux/epel/"$(
-          rpm --eval '%{rhel}'
-        )"/Everything/x86_64/Packages/p/python3-toml-0.10.0-3${{
-          steps.distribution-meta.outputs.dist-tag
-        }}.noarch.rpm
+        dnf install
+        --assumeyes
+        python3-packaging
+        python3-pluggy
+        python3-py
+        python3-tomli
 
     - name: Install static test dependencies missing from all UBIs
       if: contains(matrix.target-container.tag, 'ubi')
@@ -1225,101 +1122,55 @@ jobs:
         --nodeps
         https://rpmfind.net/linux/epel/"$(
           rpm --eval '%{rhel}'
-        )"/Everything/x86_64/Packages/p/python3-pytest-cov-${{
-          contains(matrix.target-container.tag, 'ubi9')
-          && '4.0.0-2'
-          || '2.6.0-1'
-        }}${{ steps.distribution-meta.outputs.dist-tag }}.noarch.rpm
-        https://rpmfind.net/linux/epel/"$(
-          rpm --eval '%{rhel}'
-        )"/Everything/x86_64/Packages/p/python3-pytest-forked-${{
-          contains(matrix.target-container.tag, 'ubi9')
-          && '1.4.0'
-          || '1.0.2'
-        }}-1${{
+        )"/Everything/x86_64/Packages/p/python3-pytest-cov-4.0.0-2${{
           steps.distribution-meta.outputs.dist-tag
         }}.noarch.rpm
         https://rpmfind.net/linux/epel/"$(
           rpm --eval '%{rhel}'
-        )"/Everything/x86_64/Packages/p/python3-pytest-xdist-${{
-          contains(matrix.target-container.tag, 'ubi9')
-          && '2.5.0-2'
-          || '1.24.1-1'
-        }}${{ steps.distribution-meta.outputs.dist-tag }}.noarch.rpm
+        )"/Everything/x86_64/Packages/p/python3-pytest-xdist-2.5.0-2${{
+          steps.distribution-meta.outputs.dist-tag
+        }}.noarch.rpm
         https://rpmfind.net/linux/epel/"$(
           rpm --eval '%{rhel}'
-        )"/Everything/x86_64/Packages/${{
-          contains(matrix.target-container.tag, 'ubi9')
-          && 't'
-          || 'p'
-        }}/${{
-          !contains(matrix.target-container.tag, 'ubi9')
-          && 'python3-'
-          || ''
-        }}tox-${{
-          contains(matrix.target-container.tag, 'ubi9')
-          && '3.28.0-1'
-          || '3.4.0-2'
-        }}${{ steps.distribution-meta.outputs.dist-tag }}.noarch.rpm
+        )"/Everything/x86_64/Packages/t/tox-3.28.0-1${{
+          steps.distribution-meta.outputs.dist-tag
+        }}.noarch.rpm
         https://rpmfind.net/linux/epel/"$(
           rpm --eval '%{rhel}'
-        )"/Everything/x86_64/Packages/p/python3-execnet-${{
-          contains(matrix.target-container.tag, 'ubi9')
-          && '1.9.0-3'
-          || '1.7.1-1'
-        }}${{ steps.distribution-meta.outputs.dist-tag }}.noarch.rpm
-        https://${{
-          contains(matrix.target-container.tag, '8')
-          && 'vault.centos.org'
-          || 'rpmfind.net/linux'
-        }}/${{
-          contains(matrix.target-container.tag, 'ubi9')
-          && 'epel'
-          || 'centos'
-        }}/"$(
-          rpm --eval '%{rhel}'
-        )"${{
-          !contains(matrix.target-container.tag, 'ubi9')
-          && '-stream'
-          || ''
-        }}/${{
-          contains(matrix.target-container.tag, 'ubi9')
-          && 'Everything'
-          || 'AppStream'
-        }}/x86_64/${{
-          !contains(matrix.target-container.tag, 'ubi9')
-          && 'os/'
-          || ''
-        }}Packages/${{
-          contains(matrix.target-container.tag, 'ubi9')
-          && 'p/'
-          || ''
-        }}python3-coverage-${{
-          contains(matrix.target-container.tag, 'ubi9')
-          && '6.2-1'
-          || '4.5.1-9'
-        }}${{ steps.distribution-meta.outputs.dist-tag }}.x86_64.rpm
+        )"/Everything/x86_64/Packages/p/python3-filelock-3.7.1-1${{
+          steps.distribution-meta.outputs.dist-tag
+        }}.noarch.rpm
         https://rpmfind.net/linux/epel/"$(
           rpm --eval '%{rhel}'
-        )"/Everything/x86_64/Packages/p/python3-apipkg-${{
-          contains(matrix.target-container.tag, 'ubi9')
-          && '2.1.1-1'
-          || '1.5-6'
-        }}${{ steps.distribution-meta.outputs.dist-tag }}.noarch.rpm
+        )"/Everything/x86_64/Packages/p/python3-tox-current-env-0.0.16-1${{
+          steps.distribution-meta.outputs.dist-tag
+        }}.noarch.rpm
+        https://rpmfind.net/linux/epel/"$(
+          rpm --eval '%{rhel}'
+        )"/Everything/x86_64/Packages/p/python3-execnet-1.9.0-3${{
+          steps.distribution-meta.outputs.dist-tag
+        }}.noarch.rpm
+        https://rpmfind.net/linux/epel/"$(
+          rpm --eval '%{rhel}'
+        )"/Everything/x86_64/Packages/p/python3-coverage-6.2-1${{
+          steps.distribution-meta.outputs.dist-tag
+        }}.x86_64.rpm
+        https://rpmfind.net/linux/epel/"$(
+          rpm --eval '%{rhel}'
+        )"/Everything/x86_64/Packages/p/python3-expandvars-0.12.0-1${{
+          steps.distribution-meta.outputs.dist-tag
+        }}.noarch.rpm
 
     - name: Install static build requirements
       run: dnf builddep --assumeyes --spec packaging/rpm/ansible-pylibssh.spec
 
-    - name: Fetch sources and patches on a community distro
-      if: >-
-        !contains(matrix.target-container.tag, 'ubi')
+    - name: Fetch sources and patches
       run: >-
         spectool --all --get-files --sourcedir
         packaging/rpm/ansible-pylibssh.spec
 
-    - name: Resolve and install dynamic build deps and build an SRPM on Fedora
+    - name: Resolve and install dynamic build deps and build an SRPM
       # Ref: https://github.com/rpm-software-management/rpm/commit/58dcfdd
-      if: contains(matrix.target-container.tag, 'fedora')
       run: |
         while :
         do
@@ -1337,38 +1188,25 @@ jobs:
             }}.buildreqs.nosrc.rpm
         done
 
-    - name: Build an SRPM on RHELish
-      if: >-
-        !contains(matrix.target-container.tag, 'fedora')
-      run: >-
-        rpmbuild
-        ${{
-            contains(matrix.target-container.tag, 'ubi')
-            && '--undefine=_disable_source_fetch'
-            || ''
-        }}
-        -bs
-        packaging/rpm/ansible-pylibssh.spec
-
     - name: Build binary RPMs
       run: >-
         rpmbuild
         --rebuild
-        $HOME/rpmbuild/SRPMS/python-ansible-pylibssh-${{
+        "$HOME/rpmbuild/SRPMS/python-ansible-pylibssh-${{
             needs.pre-setup.outputs.dist-version
         }}-1${{
           steps.distribution-meta.outputs.dist-tag
-        }}.src.rpm
+        }}.src.rpm"
     - name: Install the packaged binary RPM on the system
       run: >-
         dnf
         install
         --assumeyes
-        $HOME/rpmbuild/RPMS/x86_64/python3-ansible-pylibssh-${{
+        "$HOME/rpmbuild/RPMS/x86_64/python3-ansible-pylibssh-${{
             needs.pre-setup.outputs.dist-version
         }}-1${{
           steps.distribution-meta.outputs.dist-tag
-        }}.x86_64.rpm
+        }}.x86_64.rpm"
 
     - name: Smoke-test the installed library
       run: >-
@@ -1382,7 +1220,7 @@ jobs:
         );
         echo "artifact-id=${normalized_container_id}" >> "${GITHUB_OUTPUT}"
     - name: Store RPM and SRPM as artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ steps.artifact-name.outputs.artifact-id }}--srpm-n-rpm
         path: |
@@ -1402,18 +1240,12 @@ jobs:
         - "3.11"
         - "3.10"
         - 3.9
-        - 3.8
-        - 3.7
-        - 3.6
         runner-vm-os:
+        - ubuntu-24.04
         - ubuntu-22.04
-        - ubuntu-20.04
         dist-type:
         - binary
         - source
-        exclude:
-        - runner-vm-os: ubuntu-22.04
-          python-version: 3.6  # EOL, only provided for older OSs
 
     uses: ./.github/workflows/reusable-tests.yml
     with:
@@ -1444,17 +1276,11 @@ jobs:
         - "3.11"
         - "3.10"
         - 3.9
-        - 3.8
-        - 3.7
-        - 3.6
         runner-vm-os:
         - macos-13
         dist-type:
         - binary
         - source
-        exclude:
-        - runner-vm-os: ubuntu-22.04
-          python-version: 3.6  # EOL, only provided for older OSs
 
     uses: ./.github/workflows/reusable-tests.yml
     with:
@@ -1482,17 +1308,19 @@ jobs:
     - pre-setup  # transitive, for accessing settings
     runs-on: ubuntu-latest
 
+    timeout-minutes: 1
+
     env:
       TOXENV: metadata-validation
 
     steps:
     - name: Switch to using Python 3.11 by default
-      uses: actions/setup-python@v5.1.0
+      uses: actions/setup-python@v5.3.0
       with:
         python-version: 3.11
 
     - name: Retrieve the project source from an sdist inside the GHA artifact
-      uses: re-actors/checkout-python-sdist@release/v1
+      uses: re-actors/checkout-python-sdist@release/v2
       with:
         source-tarball-name: ${{ needs.pre-setup.outputs.sdist-artifact-name }}
         workflow-artifact-name: >-
@@ -1518,7 +1346,7 @@ jobs:
             print(f'py-hash-key={hash}', file=outputs_file)
       shell: python
     - name: Set up pip cache
-      uses: actions/cache@v4.0.2
+      uses: actions/cache@v4
       with:
         path: >-
           ${{
@@ -1545,10 +1373,11 @@ jobs:
     - name: Pre-populate tox env
       run: python -m tox -p auto --parallel-live -vvvv --notest
     - name: Download all the dists
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        name: ${{ needs.pre-setup.outputs.dists-artifact-name }}
+        pattern: ${{ needs.pre-setup.outputs.dists-artifact-name }}*
         path: dist/
+        merge-multiple: true
     - name: Verify metadata
       run: python -m tox -p auto --parallel-live -vvvv
 
@@ -1565,6 +1394,8 @@ jobs:
 
     runs-on: Ubuntu-latest
 
+    timeout-minutes: 1
+
     steps:
     - name: Decide whether the needed jobs succeeded or failed
       uses: re-actors/alls-green@release/v1
@@ -1578,7 +1409,9 @@ jobs:
         jobs: ${{ toJSON(needs) }}
 
   publish-pypi:
-    name: Publish 🐍📦 ${{ needs.pre-setup.outputs.git-tag }} to PyPI
+    name: >-
+      📦
+      Publish ${{ needs.pre-setup.outputs.git-tag }} to PyPI
     needs:
     - check
     - pre-setup  # transitive, for accessing settings
@@ -1587,6 +1420,8 @@ jobs:
       && needs.check.result == 'success'
       && fromJSON(needs.pre-setup.outputs.release-requested)
     runs-on: ubuntu-latest
+
+    timeout-minutes: 5  # docker+network are slow sometimes
 
     environment:
       name: pypi
@@ -1601,16 +1436,24 @@ jobs:
 
     steps:
     - name: Download all the dists
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        name: ${{ needs.pre-setup.outputs.dists-artifact-name }}
+        pattern: >-
+          ${{ needs.pre-setup.outputs.dists-artifact-name }}*
         path: dist/
+        merge-multiple: true
     - name: >-
-        Publish 🐍📦 ${{ needs.pre-setup.outputs.git-tag }} to PyPI
+        📦
+        Publish ${{ needs.pre-setup.outputs.git-tag }} to PyPI
+        🔏
       uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        attestations: true
 
   publish-testpypi:
-    name: Publish 🐍📦 ${{ needs.pre-setup.outputs.git-tag }} to TestPyPI
+    name: >-
+      📦
+      Publish ${{ needs.pre-setup.outputs.git-tag }} to TestPyPI
     needs:
     - check
     - pre-setup  # transitive, for accessing settings
@@ -1622,6 +1465,8 @@ jobs:
         || fromJSON(needs.pre-setup.outputs.release-requested)
       )
     runs-on: ubuntu-latest
+
+    timeout-minutes: 5  # docker+network are slow sometimes
 
     environment:
       name: testpypi
@@ -1636,14 +1481,19 @@ jobs:
 
     steps:
     - name: Download all the dists
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        name: ${{ needs.pre-setup.outputs.dists-artifact-name }}
+        pattern: >-
+          ${{ needs.pre-setup.outputs.dists-artifact-name }}*
         path: dist/
+        merge-multiple: true
     - name: >-
-        Publish 🐍📦  ${{ needs.pre-setup.outputs.git-tag }} to TestPyPI
+        📦
+        Publish ${{ needs.pre-setup.outputs.git-tag }} to TestPyPI
+        🔏
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
+        attestations: true
         repository-url: https://test.pypi.org/legacy/
 
   post-release-repo-update:
@@ -1657,6 +1507,8 @@ jobs:
       always()
       && needs.publish-pypi.result == 'success'
     runs-on: ubuntu-latest
+
+    timeout-minutes: 1
 
     outputs:
       pull_request_url: ${{ steps.pr.outputs.pull_request_url }}
@@ -1716,10 +1568,10 @@ jobs:
       # Refs:
       # * https://github.community/t/github-actions-bot-email-address/17204/6
       # * https://github.com/actions/checkout/issues/13#issuecomment-724415212
-      uses: fregante/setup-git-user@v2.0.1
+      uses: fregante/setup-git-user@v2
     - name: Fetch the GHA artifact with the version patch
       if: steps.existing-remote-tag-check.outputs.already-exists != 'true'
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: changelog
 
@@ -1812,6 +1664,8 @@ jobs:
       && needs.post-release-repo-update.result == 'success'
     runs-on: ubuntu-latest
 
+    timeout-minutes: 3
+
     permissions:
       contents: write
       discussions: write
@@ -1819,12 +1673,13 @@ jobs:
 
     steps:
     - name: Download all the dists
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        name: ${{ needs.pre-setup.outputs.dists-artifact-name }}
+        pattern: ${{ needs.pre-setup.outputs.dists-artifact-name }}*
         path: dist/
+        merge-multiple: true
     - name: Fetch the GHA artifact with the version patch
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: changelog
 
@@ -1892,7 +1747,7 @@ jobs:
       shell: bash
 
     - name: Sign the dists with Sigstore
-      uses: sigstore/gh-action-sigstore-python@v2.1.1
+      uses: sigstore/gh-action-sigstore-python@v3.0.0
       with:
         inputs: >-
           dist/${{ needs.pre-setup.outputs.sdist-artifact-name }}
@@ -1902,21 +1757,20 @@ jobs:
         Publish a GitHub Release for
         ${{ needs.pre-setup.outputs.git-tag }}
         with Sigstore-signed artifacts
-      uses: ncipollo/release-action@v1.14.0
+      uses: ncipollo/release-action@v1
       with:
         allowUpdates: false
         artifactErrorsFailBuild: false
         artifacts: |
           dist/${{ needs.pre-setup.outputs.sdist-artifact-name }}
-          dist/${{ needs.pre-setup.outputs.sdist-artifact-name }}.sigstore
+          dist/${{ needs.pre-setup.outputs.sdist-artifact-name }}.sigstore.json
           dist/${{ needs.pre-setup.outputs.wheel-artifact-name }}
-          dist/${{ needs.pre-setup.outputs.wheel-artifact-name }}.sigstore
+          dist/${{ needs.pre-setup.outputs.wheel-artifact-name }}.sigstore.json
         artifactContentType: raw  # Because whl and tgz are of different types
         bodyFile: release-notes.md
         discussionCategory: Announcements
         draft: false
         name: ${{ needs.pre-setup.outputs.git-tag }}
-        # omitBody: false
         omitBodyDuringUpdate: true
         omitName: false
         omitNameDuringUpdate: true
@@ -1941,6 +1795,8 @@ jobs:
       )
     runs-on: ubuntu-latest
 
+    timeout-minutes: 5
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}/simple/ansible-pylibssh/
@@ -1964,13 +1820,14 @@ jobs:
         --pre
         ansible-pylibssh
     - name: Download all the dists
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        name: ${{ needs.pre-setup.outputs.dists-artifact-name }}
+        pattern: ${{ needs.pre-setup.outputs.dists-artifact-name }}*
         path: dist/
+        merge-multiple: true
 
     - name: Switch to Python 3.11
-      uses: actions/setup-python@v5.1.0
+      uses: actions/setup-python@v5.3.0
       with:
         python-version: 3.11
     - name: >-
@@ -1993,7 +1850,7 @@ jobs:
             print(f'py-hash-key={hash}', file=outputs_file)
       shell: python
     - name: Set up pip cache
-      uses: actions/cache@v4.0.2
+      uses: actions/cache@v4
       with:
         path: >-
           ${{
@@ -2017,9 +1874,9 @@ jobs:
       run: |
         python -m dumb_pypi.main \
           --package-list <(ls dist/) \
-          --packages-url https://raw.githubusercontent.com/${{
-            github.repository
-          }}/gh-pages/dist \
+          --packages-url "https://${{
+            github.repository_owner
+          }}.github.io/${GITHUB_REPOSITORY#$GITHUB_REPOSITORY_OWNER/}/dist" \
           --output-dir gh-pages-dumb-pypi
       shell: bash
 

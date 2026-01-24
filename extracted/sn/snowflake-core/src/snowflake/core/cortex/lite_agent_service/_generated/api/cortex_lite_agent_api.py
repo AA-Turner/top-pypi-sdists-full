@@ -322,7 +322,7 @@ class CortexLiteAgentApi:
         # process the body parameter
         _body_params = None
 
-        if _params["agent_run_request"]:
+        if _params["agent_run_request"] is not None:
             _body_params = _params["agent_run_request"]
 
         # set the HTTP header `Accept`

@@ -165,7 +165,7 @@ class CkafkaClient(AbstractClient):
 
 
     def CreateDatahubTopic(self, request):
-        r"""This API is used to create a DataHub topic.
+        r"""This API is used to create a DIP topic.
 
         :param request: Request instance for CreateDatahubTopic.
         :type request: :class:`tencentcloud.ckafka.v20190819.models.CreateDatahubTopicRequest`
@@ -187,20 +187,20 @@ class CkafkaClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
-    def CreateInstancePost(self, request):
-        r"""This API is used to create a pay-as-you-go instance.  It will be deprecated in future versions. We recommend that you use the `CreatePostPaidInstance` API instead.  You can call this API via SDK or the TencentCloud API console to create a pay-as-you-go CKafka instance,  which is an alternate option for making a purchase in the console.
+    def CreateInstancePre(self, request):
+        r"""This API is used to create prepaid annual and monthly instances. It only supports creating Pro Edition instances.
 
-        :param request: Request instance for CreateInstancePost.
-        :type request: :class:`tencentcloud.ckafka.v20190819.models.CreateInstancePostRequest`
-        :rtype: :class:`tencentcloud.ckafka.v20190819.models.CreateInstancePostResponse`
+        :param request: Request instance for CreateInstancePre.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.CreateInstancePreRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.CreateInstancePreResponse`
 
         """
         try:
             params = request._serialize()
             headers = request.headers
-            body = self.call("CreateInstancePost", params, headers=headers)
+            body = self.call("CreateInstancePre", params, headers=headers)
             response = json.loads(body)
-            model = models.CreateInstancePostResponse()
+            model = models.CreateInstancePreResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -247,6 +247,29 @@ class CkafkaClient(AbstractClient):
             body = self.call("CreatePostPaidInstance", params, headers=headers)
             response = json.loads(body)
             model = models.CreatePostPaidInstanceResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateRoute(self, request):
+        r"""This API is used to add instance routes.
+
+        :param request: Request instance for CreateRoute.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.CreateRouteRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.CreateRouteResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateRoute", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateRouteResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -348,8 +371,100 @@ class CkafkaClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DeleteAclRule(self, request):
+        r"""This API is used to delete an ACL rule.
+
+        :param request: Request instance for DeleteAclRule.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.DeleteAclRuleRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.DeleteAclRuleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteAclRule", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteAclRuleResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteGroup(self, request):
+        r"""Delete consumer groups.
+
+        :param request: Request instance for DeleteGroup.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.DeleteGroupRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.DeleteGroupResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteGroup", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteGroupResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteGroupSubscribeTopic(self, request):
+        r"""This API is used to delete topics subscribed by a consumption group. The consumption group status must be Empty.
+
+        :param request: Request instance for DeleteGroupSubscribeTopic.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.DeleteGroupSubscribeTopicRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.DeleteGroupSubscribeTopicResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteGroupSubscribeTopic", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteGroupSubscribeTopicResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteInstancePost(self, request):
+        r"""This API is used to delete post-payment instances. It directly performs instance termination by calling API deletion without associating connectors and tasks in pre-check.
+
+        :param request: Request instance for DeleteInstancePost.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.DeleteInstancePostRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.DeleteInstancePostResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteInstancePost", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteInstancePostResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DeleteInstancePre(self, request):
-        r"""This API is used to delete a monthly subscribed (prepaid) instance.
+        r"""This API is used to delete prepaid instances. It performs isolation and deletion actions on the instance. After successful execution, the instance will be directly deleted and terminated. By calling API deletion, it directly performs instance termination without associating connectors and tasks in pre-check.
 
         :param request: Request instance for DeleteInstancePre.
         :type request: :class:`tencentcloud.ckafka.v20190819.models.DeleteInstancePreRequest`
@@ -532,20 +647,20 @@ class CkafkaClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
-    def DescribeAppInfo(self, request):
-        r"""This API is used to query the user list.
+    def DescribeCkafkaVersion(self, request):
+        r"""This API is used to query instance version information.
 
-        :param request: Request instance for DescribeAppInfo.
-        :type request: :class:`tencentcloud.ckafka.v20190819.models.DescribeAppInfoRequest`
-        :rtype: :class:`tencentcloud.ckafka.v20190819.models.DescribeAppInfoResponse`
+        :param request: Request instance for DescribeCkafkaVersion.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.DescribeCkafkaVersionRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.DescribeCkafkaVersionResponse`
 
         """
         try:
             params = request._serialize()
             headers = request.headers
-            body = self.call("DescribeAppInfo", params, headers=headers)
+            body = self.call("DescribeCkafkaVersion", params, headers=headers)
             response = json.loads(body)
-            model = models.DescribeAppInfoResponse()
+            model = models.DescribeCkafkaVersionResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -601,8 +716,31 @@ class CkafkaClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeCvmInfo(self, request):
+        r"""This API is used to get instance information corresponding to backend CVM, including cvmId and ip. It is for Pro Edition, while Standard Edition returns empty data.
+
+        :param request: Request instance for DescribeCvmInfo.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.DescribeCvmInfoRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.DescribeCvmInfoResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeCvmInfo", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeCvmInfoResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeDatahubTopic(self, request):
-        r"""This API is used to get the DataHub topic attributes.
+        r"""This API is used to retrieve DIP topic attributes.
 
         :param request: Request instance for DescribeDatahubTopic.
         :type request: :class:`tencentcloud.ckafka.v20190819.models.DescribeDatahubTopicRequest`
@@ -717,7 +855,7 @@ class CkafkaClient(AbstractClient):
 
 
     def DescribeInstanceAttributes(self, request):
-        r"""This API is used to get instance attributes.
+        r"""This API is used to obtain instance attributes.
 
         :param request: Request instance for DescribeInstanceAttributes.
         :type request: :class:`tencentcloud.ckafka.v20190819.models.DescribeInstanceAttributesRequest`
@@ -740,7 +878,7 @@ class CkafkaClient(AbstractClient):
 
 
     def DescribeInstances(self, request):
-        r"""This API is used to get the list of CKafka instances under a user account.
+        r"""This API is used to search for a list of TDMQ CKafka instances under a user account.
 
         :param request: Request instance for DescribeInstances.
         :type request: :class:`tencentcloud.ckafka.v20190819.models.DescribeInstancesRequest`
@@ -776,6 +914,29 @@ class CkafkaClient(AbstractClient):
             body = self.call("DescribeInstancesDetail", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeInstancesDetailResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeModifyType(self, request):
+        r"""This API is used to query instance specification change types.
+
+        :param request: Request instance for DescribeModifyType.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.DescribeModifyTypeRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.DescribeModifyTypeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeModifyType", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeModifyTypeResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -822,6 +983,29 @@ class CkafkaClient(AbstractClient):
             body = self.call("DescribeRoute", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeRouteResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeSecurityGroupRoutes(self, request):
+        r"""This API is used to retrieve the security group route information list.
+
+        :param request: Request instance for DescribeSecurityGroupRoutes.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.DescribeSecurityGroupRoutesRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.DescribeSecurityGroupRoutesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeSecurityGroupRoutes", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeSecurityGroupRoutesResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -879,7 +1063,7 @@ class CkafkaClient(AbstractClient):
 
 
     def DescribeTopicAttributes(self, request):
-        r"""This API is used to get topic attributes.
+        r"""This API is used to retrieve topic attributes.
 
         :param request: Request instance for DescribeTopicAttributes.
         :type request: :class:`tencentcloud.ckafka.v20190819.models.DescribeTopicAttributesRequest`
@@ -993,6 +1177,29 @@ class CkafkaClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeTypeInstances(self, request):
+        r"""This API is used to search for a list of TDMQ CKafka instances of the specified type under a user account.
+
+        :param request: Request instance for DescribeTypeInstances.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.DescribeTypeInstancesRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.DescribeTypeInstancesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeTypeInstances", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeTypeInstancesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeUser(self, request):
         r"""This API is used to query user information.
 
@@ -1062,6 +1269,29 @@ class CkafkaClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def FetchMessageListByTimestamp(self, request):
+        r"""This API is used to query a message list by timestamp.
+
+        :param request: Request instance for FetchMessageListByTimestamp.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.FetchMessageListByTimestampRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.FetchMessageListByTimestampResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("FetchMessageListByTimestamp", params, headers=headers)
+            response = json.loads(body)
+            model = models.FetchMessageListByTimestampResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def InquireCkafkaPrice(self, request):
         r"""This API is used to purchase a CKafka instance or query the instance renewal price.
 
@@ -1085,8 +1315,31 @@ class CkafkaClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def InstanceScalingDown(self, request):
+        r"""This API is used to perform downsizing on a pay-as-you-go instance.
+
+        :param request: Request instance for InstanceScalingDown.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.InstanceScalingDownRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.InstanceScalingDownResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("InstanceScalingDown", params, headers=headers)
+            response = json.loads(body)
+            model = models.InstanceScalingDownResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyAclRule(self, request):
-        r"""This API is used to modify an ACL policy, and currently only supports specifying whether to apply the preset rule to new topics.
+        r"""This API is used to modify ACL policy, currently only support whether to apply preset rules to newly-added topics.
 
         :param request: Request instance for ModifyAclRule.
         :type request: :class:`tencentcloud.ckafka.v20190819.models.ModifyAclRuleRequest`
@@ -1109,7 +1362,7 @@ class CkafkaClient(AbstractClient):
 
 
     def ModifyDatahubTopic(self, request):
-        r"""This API is used to modify the DataHub topic attributes.
+        r"""This API is used to modify DIP topic attributes.
 
         :param request: Request instance for ModifyDatahubTopic.
         :type request: :class:`tencentcloud.ckafka.v20190819.models.ModifyDatahubTopicRequest`
@@ -1178,7 +1431,7 @@ class CkafkaClient(AbstractClient):
 
 
     def ModifyInstancePre(self, request):
-        r"""This API is used to change the configurations of a prepaid instance, such as disk capacity and bandwidth.
+        r"""This API is used to change the configuration of prepaid instances, adjust disks, modify bandwidth, and manage partitions.
 
         :param request: Request instance for ModifyInstancePre.
         :type request: :class:`tencentcloud.ckafka.v20190819.models.ModifyInstancePreRequest`
@@ -1214,6 +1467,29 @@ class CkafkaClient(AbstractClient):
             body = self.call("ModifyPassword", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyPasswordResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyRoutineMaintenanceTask(self, request):
+        r"""This API is used to set automated ops attributes.
+
+        :param request: Request instance for ModifyRoutineMaintenanceTask.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.ModifyRoutineMaintenanceTaskRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.ModifyRoutineMaintenanceTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyRoutineMaintenanceTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyRoutineMaintenanceTaskResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1260,6 +1536,29 @@ class CkafkaClient(AbstractClient):
             body = self.call("SendMessage", params, headers=headers)
             response = json.loads(body)
             model = models.SendMessageResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def UpgradeBrokerVersion(self, request):
+        r"""This API is used to upgrade the broker version.
+
+        :param request: Request instance for UpgradeBrokerVersion.
+        :type request: :class:`tencentcloud.ckafka.v20190819.models.UpgradeBrokerVersionRequest`
+        :rtype: :class:`tencentcloud.ckafka.v20190819.models.UpgradeBrokerVersionResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("UpgradeBrokerVersion", params, headers=headers)
+            response = json.loads(body)
+            model = models.UpgradeBrokerVersionResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

@@ -1,8 +1,17 @@
 # api_wrapper.py
-from typing import Any, Dict, List, Optional
 import fnmatch
-from ...tools.elitea_base import BaseCodeToolApiWrapper
+from typing import Any, Dict, List, Optional
+
+from gitlab import GitlabGetError
+from langchain_core.tools import ToolException
 from pydantic import create_model, Field, model_validator, SecretStr, PrivateAttr
+
+from ..code_indexer_toolkit import CodeIndexerToolkit
+from ..utils.available_tools_decorator import extend_with_parent_available_tools
+from ..elitea_base import extend_with_file_operations, BaseCodeToolApiWrapper
+from ..utils.content_parser import parse_file_content
+from .utils import get_position
+from ..utils.tool_prompts import EDIT_FILE_DESCRIPTION, UPDATE_FILE_PROMPT_WITH_PATH
 
 AppendFileModel = create_model(
     "AppendFileModel",
@@ -14,7 +23,7 @@ DeleteFileModel = create_model(
     "DeleteFileModel",
     file_path=(str, Field(description="The path of the file")),
     branch=(str, Field(description="The branch to delete the file from")),
-    commit_message=(str, Field(default=None, description="Commit message for deleting the file. Optional.")),
+    commit_message=(Optional[str], Field(default=None, description="Commit message for deleting the file. Optional.")),
 )
 CreateFileModel = create_model(
     "CreateFileModel",
@@ -29,7 +38,7 @@ ReadFileModel = create_model(
 )
 UpdateFileModel = create_model(
     "UpdateFileModel",
-    file_query=(str, Field(description="The file query string")),
+    file_query=(str, Field(description=UPDATE_FILE_PROMPT_WITH_PATH)),
     branch=(str, Field(description="The branch to update the file in")),
 )
 CommentOnIssueModel = create_model(
@@ -46,6 +55,11 @@ CreatePullRequestModel = create_model(
     pr_body=(str, Field(description="The body of the pull request")),
     branch=(str, Field(description="The branch to create the pull request from")),
 )
+CommentOnPRModel = create_model(
+    "CommentOnPRModel",
+    pr_number=(int, Field(description="The number of the pull request/merge request")),
+    comment=(str, Field(description="The comment text to add")),
+)
 
 CreateBranchModel = create_model(
     "CreateBranchModel",
@@ -53,7 +67,7 @@ CreateBranchModel = create_model(
 )
 ListBranchesInRepoModel = create_model(
     "ListBranchesInRepoModel",
-    limit=(Optional[int], Field(default=20, description="Maximum number of branches to return. If not provided, all branches will be returned.")),
+    limit=(Optional[int], Field(default=20, description="Maximum number of branches to return. If not provided, all branches will be returned.", gt=0)),
     branch_wildcard=(Optional[str], Field(default=None, description="Wildcard pattern to filter branches by name. If not provided, all branches will be returned."))
 
 )
@@ -84,9 +98,9 @@ GetPRChangesModel = create_model(
 CreatePRChangeCommentModel = create_model(
     "CreatePRChangeCommentModel",
     pr_number=(int, Field(description="GitLab Merge Request (Pull Request) number")),
-    file_path=(str, Field(description="File path of the changed file")),
-    line_number=(int, Field(description="Line number from the diff for a changed file")),
-    comment=(str, Field(description="Comment content")),
+    file_path=(str, Field(description="File path of the changed file as shown in the diff")),
+    line_number=(int, Field(description="Line index (0-based) from the diff output. Use get_pr_changes first to see the diff and identify the correct line index to comment on.")),
+    comment=(str, Field(description="Comment content to add to the specific line")),
 )
 GetCommitsModel = create_model(
     "GetCommitsModel",
@@ -97,18 +111,32 @@ GetCommitsModel = create_model(
     author=(Optional[str], Field(description="Author name", default=None)),
 )
 
-class GitLabAPIWrapper(BaseCodeToolApiWrapper):
+class GitLabAPIWrapper(CodeIndexerToolkit):
     url: str
     repository: str
     private_token: SecretStr
     branch: Optional[str] = 'main'
     _git: Any = PrivateAttr()
-    _repo_instance: Any = PrivateAttr()
     _active_branch: Any = PrivateAttr()
+    
+    # Import file operation methods from BaseCodeToolApiWrapper
+    read_file_chunk = BaseCodeToolApiWrapper.read_file_chunk
+    read_multiple_files = BaseCodeToolApiWrapper.read_multiple_files
+    search_file = BaseCodeToolApiWrapper.search_file
+    edit_file = BaseCodeToolApiWrapper.edit_file
+
+    @staticmethod
+    def _sanitize_url(url: str) -> str:
+        """Remove trailing slash from URL if present."""
+        return url.rstrip('/') if url else url
 
     @model_validator(mode='before')
     @classmethod
-    def validate_toolkit(cls, values: Dict) -> Dict:
+    def validate_toolkit_before(cls, values: Dict) -> Dict:
+        return super().validate_toolkit(values)
+
+    @model_validator(mode='after')
+    def validate_toolkit(self):
         try:
            import gitlab
         except ImportError:
@@ -116,22 +144,34 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
                 "python-gitlab is not installed. "
                 "Please install it with `pip install python-gitlab`"
             )
-
+        self.repository = self._sanitize_url(self.repository)
         g = gitlab.Gitlab(
-            url=values['url'],
-            private_token=values['private_token'],
+            url=self._sanitize_url(self.url),
+            private_token=self.private_token.get_secret_value(),
             keep_base_url=True,
         )
 
         g.auth()
-        cls._repo_instance = g.projects.get(values.get('repository'))
-        cls._git = g
-        cls._active_branch = values.get('branch')
-        return values
+        self._git = g
+        self._active_branch = self.branch
+        return self
+
+    @property
+    def repo_instance(self):
+        if not hasattr(self, "_repo_instance") or self._repo_instance is None:
+            try:
+                if self._git and self.repository:
+                    self._repo_instance = self._git.projects.get(self.repository)
+                else:
+                    self._repo_instance = None
+            except Exception as e:
+                # Only raise when accessed, not during initialization
+                raise ToolException(e)
+        return self._repo_instance
 
     def set_active_branch(self, branch_name: str) -> str:
         self._active_branch = branch_name
-        self._repo_instance.default_branch = branch_name
+        self.repo_instance.default_branch = branch_name
         return f"Active branch set to {branch_name}"
 
     def list_branches_in_repo(self, limit: Optional[int] = 20, branch_wildcard: Optional[str] = None) -> List[str]:
@@ -146,7 +186,7 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
             List[str]: List containing names of branches
         """
         try:
-            branches = self._repo_instance.branches.list(get_all=True)
+            branches = self.repo_instance.branches.list(get_all=True)
             
             if branch_wildcard:
                 branches = [branch for branch in branches if fnmatch.fnmatch(branch.name, branch_wildcard)]
@@ -173,7 +213,7 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
 
     def _get_all_files(self, path: str = None, recursive: bool = True, branch: str = None):
         branch = branch if branch else self._active_branch
-        return self._repo_instance.repository_tree(path=path, ref=branch, recursive=recursive, all=True)
+        return self.repo_instance.repository_tree(path=path, ref=branch, recursive=recursive, all=True)
 
     # overrided for indexer
     def _get_files(self, path: str = None, recursive: bool = True, branch: str = None):
@@ -185,17 +225,31 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
         Get the commit hash of a file in a specific branch.
         """
         try:
-            file = self._repo_instance.files.get(file_path, branch)
+            file = self.repo_instance.files.get(file_path, branch)
             return file.commit_id
         except Exception as e:
             return f"Unable to get commit hash for {file_path} due to error:\n{e}"
 
-    def _read_file(self, file_path: str, branch: str):
-        return self.read_file(file_path, branch)
+    def _read_file(self, file_path: str, branch: str, **kwargs):
+        """
+        Read a file from specified branch with optional partial read support.
+        
+        Parameters:
+            file_path: the file path
+            branch: the branch to read the file from
+            **kwargs: Additional parameters (offset, limit, head, tail) - currently ignored,
+                     partial read handled client-side by base class methods
+        
+        Returns:
+            File content as string
+        """
+        # Default to active branch if branch is None, consistent with other methods
+        branch = branch if branch else self._active_branch
+        return str(self.read_file(file_path, branch))
 
     def create_branch(self, branch_name: str) -> str:
         try:
-            self._repo_instance.branches.create(
+            self.repo_instance.branches.create(
                 {
                     'branch': branch_name,
                     'ref': self._active_branch,
@@ -218,7 +272,7 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
         return parsed
 
     def get_issues(self) -> str:
-        issues = self._repo_instance.issues.list(state="opened")
+        issues = self.repo_instance.issues.list(state="opened")
         if len(issues) > 0:
             parsed_issues = self.parse_issues(issues)
             parsed_issues_str = (
@@ -229,7 +283,7 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
             return "No open issues available"
 
     def get_issue(self, issue_number: int) -> Dict[str, Any]:
-        issue = self._repo_instance.issues.get(issue_number)
+        issue = self.repo_instance.issues.get(issue_number)
         page = 0
         comments: List[dict] = []
         while len(comments) <= 10:
@@ -255,7 +309,7 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
             commits are already in the {self.branch} branch"""
         else:
             try:
-                pr = self._repo_instance.mergerequests.create(
+                pr = self.repo_instance.mergerequests.create(
                     {
                         "source_branch": branch,
                         "target_branch": self.branch,
@@ -272,16 +326,39 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
         issue_number = int(comment_query.split("\n\n")[0])
         comment = comment_query[len(str(issue_number)) + 2 :]
         try:
-            issue = self._repo_instance.issues.get(issue_number)
+            issue = self.repo_instance.issues.get(issue_number)
             issue.notes.create({"body": comment})
             return "Commented on issue " + str(issue_number)
         except Exception as e:
             return "Unable to make comment due to error:\n" + str(e)
 
+    def comment_on_pr(self, pr_number: int, comment: str) -> str:
+        """
+        Add a comment to a pull request (merge request) in GitLab.
+
+        This method adds a general comment to the entire merge request,
+        not tied to specific code lines or file changes.
+
+        Parameters:
+            pr_number: GitLab Merge Request (Pull Request) number
+            comment: Comment text to add
+
+        Returns:
+            Success message or error description
+        """
+        try:
+            mr = self.repo_instance.mergerequests.get(pr_number)
+            mr.notes.create({"body": comment})
+            return "Commented on merge request " + str(pr_number)
+        except Exception as e:
+            return "Unable to make comment due to error:\n" + str(e)
+
     def create_file(self, file_path: str, file_contents: str, branch: str) -> str:
+        # Default to active branch if branch is None
+        branch = branch if branch else self._active_branch
         try:
             self.set_active_branch(branch)
-            self._repo_instance.files.get(file_path, branch)
+            self.repo_instance.files.get(file_path, branch)
             return f"File already exists at {file_path}. Use update_file instead"
         except Exception:
             data = {
@@ -290,53 +367,131 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
                 "file_path": file_path,
                 "content": file_contents,
             }
-            self._repo_instance.files.create(data)
+            self.repo_instance.files.create(data)
 
             return "Created file " + file_path
 
     def read_file(self, file_path: str, branch: str) -> str:
+        # Default to active branch if branch is None
+        branch = branch if branch else self._active_branch
         self.set_active_branch(branch)
-        file = self._repo_instance.files.get(file_path, branch)
-        return file.decode().decode("utf-8")
+        file = self.repo_instance.files.get(file_path, branch)
+        return parse_file_content(file_name=file_path,
+                                  file_content=file.decode(),
+                                  llm=self.llm)
+    
+    def _write_file(
+        self,
+        file_path: str,
+        content: str,
+        branch: str = None,
+        commit_message: str = None
+    ) -> str:
+        """
+        Write content to a file (create or update).
+        
+        Parameters:
+            file_path: Path to the file
+            content: New file content
+            branch: Branch name (uses active branch if None)
+            commit_message: Commit message
+            
+        Returns:
+            Success message
+        """
+        try:
+            branch = branch or self._active_branch
+            
+            if branch == self.branch:
+                raise ToolException(
+                    f"Cannot commit directly to the {self.branch} branch. "
+                    "Please create a new branch and try again."
+                )
+            
+            self.set_active_branch(branch)
+            
+            # Check if file exists
+            try:
+                self.repo_instance.files.get(file_path, branch)
+                # File exists, update it
+                commit = {
+                    "branch": branch,
+                    "commit_message": commit_message or f"Update {file_path}",
+                    "actions": [
+                        {
+                            "action": "update",
+                            "file_path": file_path,
+                            "content": content,
+                        }
+                    ],
+                }
+                self.repo_instance.commits.create(commit)
+                return f"Updated file {file_path}"
+            except:
+                # File doesn't exist, create it
+                data = {
+                    "branch": branch,
+                    "commit_message": commit_message or f"Create {file_path}",
+                    "file_path": file_path,
+                    "content": content,
+                }
+                self.repo_instance.files.create(data)
+                return f"Created file {file_path}"
+        except Exception as e:
+            raise ToolException(f"Unable to write file {file_path}: {str(e)}")
 
     def update_file(self, file_query: str, branch: str) -> str:
+        """
+        Update file using edit_file functionality.
+
+        This method now delegates to edit_file which uses OLD/NEW markers.
+        For backwards compatibility, it extracts the file_path from the query.
+
+        Expected format:
+            file_path
+            OLD <<<<
+            old content
+            >>>> OLD
+            NEW <<<<
+            new content
+            >>>> NEW
+
+        Args:
+            file_query: File path on first line, followed by OLD/NEW markers
+            branch: Branch to update the file in
+
+        Returns:
+            Success or error message
+        """
         if branch == self.branch:
             return (
-                "You're attempting to commit to the directly"
+                "You're attempting to commit directly "
                 f"to the {self.branch} branch, which is protected. "
                 "Please create a new branch and try again."
             )
         try:
-            file_path: str = file_query.split("\n")[0]
-            self.set_active_branch(branch)
-            file_content = self.read_file(file_path, branch)
-            updated_file_content = file_content
-            for old, new in self.extract_old_new_pairs(file_query):
-                if not old.strip():
-                    continue
-                updated_file_content = updated_file_content.replace(old, new)
-
-            if file_content == updated_file_content:
+            # Split into lines and find first non-empty line for file_path
+            lines = file_query.split("\n")
+            first_non_empty_idx = None
+            for i, line in enumerate(lines):
+                if line.strip():
+                    first_non_empty_idx = i
+                    break
+            
+            if first_non_empty_idx is None:
                 return (
-                    "File content was not updated because old content was not found or empty."
-                    "It may be helpful to use the read_file action to get "
-                    "the current file contents."
+                    "Invalid file_query format. Expected first non-empty line to be the file path "
+                    "followed by OLD/NEW blocks."
                 )
 
-            commit = {
-                "branch": branch,
-                "commit_message": "Create " + file_path,
-                "actions": [
-                    {
-                        "action": "update",
-                        "file_path": file_path,
-                        "content": updated_file_content,
-                    }
-                ],
-            }
+            file_path = lines[first_non_empty_idx].strip()
+            # Keep all lines after file_path line (preserving empty lines)
+            edit_content = "\n".join(lines[first_non_empty_idx + 1:])
 
-            self._repo_instance.commits.create(commit)
-            return "Updated file " + file_path
+            # Delegate to edit_file method with appropriate commit message
+            commit_message = f"Update {file_path}"
+            return self.edit_file(file_path, edit_content, branch, commit_message)
+
         except Exception as e:
             return "Unable to update file due to error:\n" + str(e)
 
@@ -365,7 +520,7 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
                 ],
             }
 
-            self._repo_instance.commits.create(commit)
+            self.repo_instance.commits.create(commit)
             return "Updated file " + file_path
         except Exception as e:
             return "Unable to update file due to error:\n" + str(e)
@@ -375,23 +530,54 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
             self.set_active_branch(branch)
             if not commit_message:
                 commit_message = f"Delete {file_path}"
-            self._repo_instance.files.delete(file_path, branch, commit_message)
+            self.repo_instance.files.delete(file_path, branch, commit_message)
             return f"Deleted file {file_path}"
         except Exception as e:
             return f"Unable to delete file due to error:\n{e}"
 
     def get_pr_changes(self, pr_number: int) -> str:
-        mr = self._repo_instance.mergerequests.get(pr_number)
+        mr = self.repo_instance.mergerequests.get(pr_number)
         res = f"title: {mr.title}\ndescription: {mr.description}\n\n"
         for change in mr.changes()["changes"]:
             res += f"diff --git a/{change['old_path']} b/{change['new_path']}\n{change['diff']}\n"
         return res
 
     def create_pr_change_comment(self, pr_number: int, file_path: str, line_number: int, comment: str) -> str:
-        mr = self._repo_instance.mergerequests.get(pr_number)
-        position = {"position_type": "text", "new_path": file_path, "new_line": line_number}
-        mr.discussions.create({"body": comment, "position": position})
-        return "Comment added"
+        """
+        Create a comment on a specific line in a pull request (merge request) change in GitLab.
+
+        This method adds an inline comment to a specific line in the diff of a merge request.
+        The line_number parameter refers to the line index in the diff output (0-based),
+        not the line number in the original file.
+
+        **Important**: Use get_pr_changes first to see the diff and identify the correct
+        line index for commenting.
+
+        Parameters:
+            pr_number: GitLab Merge Request number
+            file_path: Path to the file being commented on (as shown in the diff)
+            line_number: Line index from the diff (0-based index)
+            comment: Comment text to add
+
+        Returns:
+            Success message or error description
+        """
+        try:
+            mr = self.repo_instance.mergerequests.get(pr_number)
+        except GitlabGetError as e:
+            if e.response_code == 404:
+                raise ToolException(f"Merge request number {pr_number} wasn't found: {e}")
+            raise ToolException(f"Error retrieving merge request {pr_number}: {e}")
+
+        try:
+            # Calculate proper position with SHA references and line mappings
+            position = get_position(file_path=file_path, line_number=line_number, mr=mr)
+
+            # Create discussion with the comment
+            mr.discussions.create({"body": comment, "position": position})
+            return f"Comment added successfully to line {line_number} in {file_path} on MR #{pr_number}"
+        except Exception as e:
+            raise ToolException(f"Failed to create comment on MR #{pr_number}: {e}")
 
     def get_commits(self, sha: Optional[str] = None, path: Optional[str] = None, since: Optional[str] = None, until: Optional[str] = None, author: Optional[str] = None):
         params = {}
@@ -405,7 +591,7 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
             params["until"] = until
         if author:
             params["author"] = author
-        commits = self._repo_instance.commits.list(**params)
+        commits = self.repo_instance.commits.list(**params)
         return [
             {
                 "sha": commit.id,
@@ -417,6 +603,8 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
             for commit in commits
         ]
 
+    @extend_with_parent_available_tools
+    @extend_with_file_operations
     def get_available_tools(self):
         return [
             {
@@ -468,6 +656,12 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
                 "args_schema": CommentOnIssueModel,
             },
             {
+                "name": "comment_on_pr",
+                "ref": self.comment_on_pr,
+                "description": self.comment_on_pr.__doc__ or "Comment on a pull request (merge request) in the repository.",
+                "args_schema": CommentOnPRModel,
+            },
+            {
                 "name": "create_file",
                 "ref": self.create_file,
                 "description": self.create_file.__doc__ or "Create a new file in the repository.",
@@ -482,7 +676,7 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
             {
                 "name": "update_file",
                 "ref": self.update_file,
-                "description": self.update_file.__doc__ or "Update the contents of a file in the repository.",
+                "description": EDIT_FILE_DESCRIPTION,
                 "args_schema": UpdateFileModel,
             },
             {
@@ -512,7 +706,7 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
             {
                 "name": "create_pr_change_comment",
                 "ref": self.create_pr_change_comment,
-                "description": "Create a comment on a pull request change.",
+                "description": self.create_pr_change_comment.__doc__ or "Create an inline comment on a specific line in a pull request change. Use get_pr_changes first to see the diff and identify the line index for commenting. The line_number is a 0-based index from the diff output, not the file line number.",
                 "args_schema": CreatePRChangeCommentModel,
             },
             {
@@ -521,4 +715,4 @@ class GitLabAPIWrapper(BaseCodeToolApiWrapper):
                 "description": "Retrieve a list of commits from the repository.",
                 "args_schema": GetCommitsModel,
             }
-        ] + self._get_vector_search_tools()
+        ]

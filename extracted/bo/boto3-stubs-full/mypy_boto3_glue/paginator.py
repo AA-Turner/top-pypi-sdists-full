@@ -3,7 +3,7 @@ Type annotations for glue service client paginators.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -34,6 +34,7 @@ Usage::
         ListConnectionTypesPaginator,
         ListEntitiesPaginator,
         ListJobsPaginator,
+        ListMaterializedViewRefreshTaskRunsPaginator,
         ListRegistriesPaginator,
         ListSchemaVersionsPaginator,
         ListSchemasPaginator,
@@ -68,6 +69,7 @@ Usage::
     list_connection_types_paginator: ListConnectionTypesPaginator = client.get_paginator("list_connection_types")
     list_entities_paginator: ListEntitiesPaginator = client.get_paginator("list_entities")
     list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
+    list_materialized_view_refresh_task_runs_paginator: ListMaterializedViewRefreshTaskRunsPaginator = client.get_paginator("list_materialized_view_refresh_task_runs")
     list_registries_paginator: ListRegistriesPaginator = client.get_paginator("list_registries")
     list_schema_versions_paginator: ListSchemaVersionsPaginator = client.get_paginator("list_schema_versions")
     list_schemas_paginator: ListSchemasPaginator = client.get_paginator("list_schemas")
@@ -130,6 +132,8 @@ from .type_defs import (
     ListEntitiesResponseTypeDef,
     ListJobsRequestPaginateTypeDef,
     ListJobsResponseTypeDef,
+    ListMaterializedViewRefreshTaskRunsRequestPaginateTypeDef,
+    ListMaterializedViewRefreshTaskRunsResponseTypeDef,
     ListRegistriesInputPaginateTypeDef,
     ListRegistriesResponseTypeDef,
     ListSchemasInputPaginateTypeDef,
@@ -175,6 +179,7 @@ __all__ = (
     "ListConnectionTypesPaginator",
     "ListEntitiesPaginator",
     "ListJobsPaginator",
+    "ListMaterializedViewRefreshTaskRunsPaginator",
     "ListRegistriesPaginator",
     "ListSchemaVersionsPaginator",
     "ListSchemasPaginator",
@@ -644,6 +649,31 @@ class ListJobsPaginator(_ListJobsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListJobs.html#Glue.Paginator.ListJobs.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/paginators/#listjobspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListMaterializedViewRefreshTaskRunsPaginatorBase = Paginator[
+        ListMaterializedViewRefreshTaskRunsResponseTypeDef
+    ]
+else:
+    _ListMaterializedViewRefreshTaskRunsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListMaterializedViewRefreshTaskRunsPaginator(
+    _ListMaterializedViewRefreshTaskRunsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListMaterializedViewRefreshTaskRuns.html#Glue.Paginator.ListMaterializedViewRefreshTaskRuns)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/paginators/#listmaterializedviewrefreshtaskrunspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListMaterializedViewRefreshTaskRunsRequestPaginateTypeDef]
+    ) -> PageIterator[ListMaterializedViewRefreshTaskRunsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListMaterializedViewRefreshTaskRuns.html#Glue.Paginator.ListMaterializedViewRefreshTaskRuns.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/paginators/#listmaterializedviewrefreshtaskrunspaginator)
         """
 
 

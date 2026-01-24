@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import random
+import shutil
 import string
 import sys
 import time
@@ -275,10 +276,11 @@ def _client(name: str, region: str) -> Any:
 def _get_role(
     role_name: str, region: str, boto3_session: Optional[boto3.Session] = None
 ) -> Optional[Boto3Resource]:
-    if boto3_session is None:
-        iam = _resource("iam", region)
-    else:
-        iam = boto3_session.resource("iam")
+    iam = (
+        _resource("iam", region)
+        if boto3_session is None
+        else boto3_session.resource("iam")
+    )
     role = iam.Role(role_name)  # type: ignore
     try:
         role.load()
@@ -463,10 +465,9 @@ def get_wheel_url(
     else:
         platform = "manylinux2014_x86_64"
 
-    if py_version in _LEGACY_PY_VERSIONS:
-        py_version_malloc = f"{py_version}m"
-    else:
-        py_version_malloc = py_version
+    py_version_malloc = (
+        f"{py_version}m" if py_version in _LEGACY_PY_VERSIONS else py_version
+    )
 
     if "dev" in ray_version:
         ray_release = f"master/{ray_commit}"
@@ -482,8 +483,6 @@ def get_wheel_url(
 
 @contextmanager
 def updating_printer() -> Generator[Callable[[str], None], None, None]:
-    import shutil
-
     cols, _ = shutil.get_terminal_size()
 
     def print_status(status: str) -> None:
@@ -600,7 +599,7 @@ def wait_for_session_start(
 
 
 def populate_session_args(cluster_config_str: str, config_file_name: str) -> str:
-    import jinja2
+    import jinja2  # noqa: PLC0415 - codex_reason("gpt5.2", "optional templating dependency for config rendering")
 
     env = jinja2.Environment()
     t = env.parse(cluster_config_str)
@@ -636,7 +635,7 @@ def validate_non_negative_arg(ctx, param, value):  # noqa: ARG001
     """
     Checks that an integer option to click command is non-negative.
     """
-    if value < 0:
+    if value is not None and value < 0:
         raise click.ClickException(
             f"Please specify a non-negative value for {param.opts[0]}"
         )
@@ -662,6 +661,32 @@ def validate_service_state_filter(
                 f"'{state_str}' is not a valid value for {param.opts[0]}. Allowed values: {allowed_values_str}"
             )
 
+    return [s.upper() for s in value]
+
+
+def validate_workspace_state_filter(
+    ctx, param, value: Tuple[str, ...]  # noqa: ARG001
+) -> List[str]:
+    """Validate WorkspaceState values (case-insensitive) and return uppercase."""
+    if not value:
+        return []
+
+    # Import here to avoid circular dependency
+    from anyscale.workspace.models import (  # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular dependency during CLI import")
+        WorkspaceState,
+    )
+
+    allowable_values_upper = {s.value.upper() for s in WorkspaceState}
+    allowed_values_str = ", ".join(s.value for s in WorkspaceState)
+
+    for state_str in value:
+        state_upper = state_str.upper()
+        if state_upper not in allowable_values_upper:
+            raise click.ClickException(
+                f"'{state_str}' is not a valid value for {param.opts[0]}. Allowed values: {allowed_values_str}"
+            )
+
+    # Return uppercase WorkspaceState values (e.g., "RUNNING")
     return [s.upper() for s in value]
 
 
@@ -798,9 +823,7 @@ def credentials_check_sanity(credentials_str: str) -> bool:
     if credentials_str.startswith("sss_"):
         return True
     # Future token style
-    if credentials_str.startswith("a") and credentials_str.count("_") > 0:
-        return True
-    return False
+    return bool(credentials_str.startswith("a") and credentials_str.count("_") > 0)
 
 
 def get_current_cluster_id() -> Optional[str]:
@@ -998,7 +1021,7 @@ def get_latest_ray_version():
 def get_ray_and_py_version_for_default_cluster_env() -> Tuple[str, str]:
     py_version = "".join(str(x) for x in sys.version_info[0:2])
     try:
-        import ray
+        import ray  # noqa: PLC0415 - codex_reason("gpt5.2", "optional Ray dependency for local version check")
 
         ray_version = ray.__version__
         if version.parse(ray_version) < version.parse(MINIMUM_RAY_VERSION):
@@ -1034,7 +1057,9 @@ def validate_job_config_dict(
         config_dict["compute_config"], str
     ):
         compute_config = get_cluster_compute_from_name(
-            config_dict["compute_config"], api_client
+            config_dict["compute_config"],
+            api_client,
+            cloud_name=config_dict.get("cloud"),
         )
     elif "compute_config_id" in config_dict:
         cluster_compute_id = config_dict["compute_config_id"]

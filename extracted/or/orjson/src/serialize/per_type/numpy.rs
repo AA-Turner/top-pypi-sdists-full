@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
+// Copyright ijl (2018-2025), Ben Sully (2021), Nazar Kostetskyi (2022), Aviram Hassan (2020-2021)
 
+use crate::ffi::{Py_intptr_t, Py_ssize_t, PyObject, PyTypeObject};
 use crate::opt::Opt;
 use crate::serialize::buffer::SmallFixedBuffer;
 use crate::serialize::error::SerializeError;
@@ -8,12 +10,11 @@ use crate::serialize::per_type::{
 };
 use crate::serialize::serializer::PyObjectSerializer;
 use crate::str::PyStr;
-use crate::typeref::{load_numpy_types, ARRAY_STRUCT_STR, DESCR_STR, DTYPE_STR, NUMPY_TYPES};
+use crate::typeref::{ARRAY_STRUCT_STR, DESCR_STR, DTYPE_STR, NUMPY_TYPES, load_numpy_types};
 use crate::util::isize_to_usize;
 use core::ffi::{c_char, c_int, c_void};
-use jiff::civil::DateTime;
 use jiff::Timestamp;
-use pyo3_ffi::{PyObject, PyTypeObject, Py_intptr_t, Py_ssize_t};
+use jiff::civil::DateTime;
 use serde::ser::{self, Serialize, SerializeSeq, Serializer};
 use std::fmt;
 
@@ -196,11 +197,13 @@ impl NumpyArray {
     #[cfg_attr(feature = "optimize", optimize(size))]
     pub fn new(ptr: *mut PyObject, opts: Opt) -> Result<Self, PyArrayError> {
         let capsule = ffi!(PyObject_GetAttr(ptr, ARRAY_STRUCT_STR));
+        debug_assert!(!capsule.is_null());
         let array = unsafe {
             (*capsule.cast::<PyCapsule>())
                 .pointer
                 .cast::<PyArrayInterface>()
         };
+        debug_assert!(!array.is_null());
         if unsafe { (*array).two != 2 } {
             ffi!(Py_DECREF(capsule));
             Err(PyArrayError::Malformed)
@@ -323,9 +326,11 @@ impl Serialize for NumpyArray {
     where
         S: Serializer,
     {
-        if unlikely!(!(self.depth >= self.dimensions() || self.shape()[self.depth] != 0)) {
+        if !(self.depth >= self.dimensions() || self.shape()[self.depth] != 0) {
+            cold_path!();
             ZeroListSerializer::new().serialize(serializer)
         } else if !self.children.is_empty() {
+            cold_path!();
             let mut seq = serializer.serialize_seq(None).unwrap();
             for child in &self.children {
                 seq.serialize_element(child).unwrap();
@@ -886,7 +891,7 @@ impl Serialize for DataTypeBool {
 }
 
 pub(crate) struct NumpyScalar {
-    ptr: *mut pyo3_ffi::PyObject,
+    ptr: *mut PyObject,
     opts: Opt,
 }
 
@@ -1246,7 +1251,7 @@ impl NumpyDatetimeUnit {
         let dtype = ffi!(PyObject_GetAttr(ptr, DTYPE_STR));
         let descr = ffi!(PyObject_GetAttr(dtype, DESCR_STR));
         let el0 = ffi!(PyList_GET_ITEM(descr, 0));
-        let descr_str = unsafe { crate::ffi::PyTuple_GET_ITEM(el0, 1) };
+        let descr_str = ffi!(PyTuple_GET_ITEM(el0, 1));
         let uni = unsafe { PyStr::from_ptr_unchecked(descr_str).to_str().unwrap() };
         if uni.len() < 5 {
             return Self::NaT;

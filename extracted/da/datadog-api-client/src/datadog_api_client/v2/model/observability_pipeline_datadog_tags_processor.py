@@ -3,11 +3,13 @@
 # Copyright 2019-Present Datadog, Inc.
 from __future__ import annotations
 
-from typing import List, TYPE_CHECKING
+from typing import List, Union, TYPE_CHECKING
 
 from datadog_api_client.model_utils import (
     ModelNormal,
     cached_property,
+    unset,
+    UnsetType,
 )
 
 
@@ -38,9 +40,10 @@ class ObservabilityPipelineDatadogTagsProcessor(ModelNormal):
 
         return {
             "action": (ObservabilityPipelineDatadogTagsProcessorAction,),
+            "display_name": (str,),
+            "enabled": (bool,),
             "id": (str,),
             "include": (str,),
-            "inputs": ([str],),
             "keys": ([str],),
             "mode": (ObservabilityPipelineDatadogTagsProcessorMode,),
             "type": (ObservabilityPipelineDatadogTagsProcessorType,),
@@ -48,9 +51,10 @@ class ObservabilityPipelineDatadogTagsProcessor(ModelNormal):
 
     attribute_map = {
         "action": "action",
+        "display_name": "display_name",
+        "enabled": "enabled",
         "id": "id",
         "include": "include",
-        "inputs": "inputs",
         "keys": "keys",
         "mode": "mode",
         "type": "type",
@@ -59,28 +63,34 @@ class ObservabilityPipelineDatadogTagsProcessor(ModelNormal):
     def __init__(
         self_,
         action: ObservabilityPipelineDatadogTagsProcessorAction,
+        enabled: bool,
         id: str,
         include: str,
-        inputs: List[str],
         keys: List[str],
         mode: ObservabilityPipelineDatadogTagsProcessorMode,
         type: ObservabilityPipelineDatadogTagsProcessorType,
+        display_name: Union[str, UnsetType] = unset,
         **kwargs,
     ):
         """
         The ``datadog_tags`` processor includes or excludes specific Datadog tags in your logs.
 
+        **Supported pipeline types:** logs
+
         :param action: The action to take on tags with matching keys.
         :type action: ObservabilityPipelineDatadogTagsProcessorAction
 
-        :param id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (for example, as the ``input`` to downstream components).
+        :param display_name: The display name for a component.
+        :type display_name: str, optional
+
+        :param enabled: Indicates whether the processor is enabled.
+        :type enabled: bool
+
+        :param id: The unique identifier for this component. Used in other parts of the pipeline to reference this component (for example, as the ``input`` to downstream components).
         :type id: str
 
         :param include: A Datadog search query used to determine which logs this processor targets.
         :type include: str
-
-        :param inputs: A list of component IDs whose output is used as the ``input`` for this component.
-        :type inputs: [str]
 
         :param keys: A list of tag keys.
         :type keys: [str]
@@ -91,12 +101,14 @@ class ObservabilityPipelineDatadogTagsProcessor(ModelNormal):
         :param type: The processor type. The value should always be ``datadog_tags``.
         :type type: ObservabilityPipelineDatadogTagsProcessorType
         """
+        if display_name is not unset:
+            kwargs["display_name"] = display_name
         super().__init__(kwargs)
 
         self_.action = action
+        self_.enabled = enabled
         self_.id = id
         self_.include = include
-        self_.inputs = inputs
         self_.keys = keys
         self_.mode = mode
         self_.type = type

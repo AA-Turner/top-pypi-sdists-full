@@ -57,9 +57,8 @@ class QrackSimulator:
         isPaged=True,
         isCpuGpuHybrid=True,
         isOpenCL=True,
-        isHostPointer=(
-            True if os.environ.get("PYQRACK_HOST_POINTER_DEFAULT_ON") else False
-        ),
+        isHostPointer=(True if os.environ.get("PYQRACK_HOST_POINTER_DEFAULT_ON") else False),
+        isSparse=False,
         noise=0,
         pyzxCircuit=None,
         qiskitCircuit=None,
@@ -78,7 +77,6 @@ class QrackSimulator:
                 "Cannot clone a QrackSimulator and specify its qubit length at the same time, in QrackSimulator constructor!"
             )
 
-        self.is_tensor_network = isTensorNetwork
         self.is_pure_stabilizer = False
 
         if cloneSid > -1:
@@ -99,6 +97,7 @@ class QrackSimulator:
                 isCpuGpuHybrid,
                 isOpenCL,
                 isHostPointer,
+                isSparse,
             )
 
         self._throw_if_error()
@@ -116,36 +115,45 @@ class QrackSimulator:
             Qrack.qrack_lib.destroy(self.sid)
             self.sid = None
 
-    def _int_byref(self, a):
+    @staticmethod
+    def _int_byref(a):
         return (ctypes.c_int * len(a))(*a)
 
-    def _ulonglong_byref(self, a):
+    @staticmethod
+    def _ulonglong_byref(a):
         return (ctypes.c_ulonglong * len(a))(*a)
 
-    def _longlong_byref(self, a):
+    @staticmethod
+    def _longlong_byref(a):
         return (ctypes.c_longlong * len(a))(*a)
 
-    def _double_byref(self, a):
+    @staticmethod
+    def _double_byref(a):
         return (ctypes.c_double * len(a))(*a)
 
-    def _complex_byref(self, a):
+    @staticmethod
+    def _complex_byref(a):
         t = [(c.real, c.imag) for c in a]
-        return self._double_byref([float(item) for sublist in t for item in sublist])
+        return QrackSimulator._double_byref([float(item) for sublist in t for item in sublist])
 
-    def _real1_byref(self, a):
+    @staticmethod
+    def _real1_byref(a):
         # This needs to be c_double, if PyQrack is built with fp64.
         if Qrack.fppow < 6:
             return (ctypes.c_float * len(a))(*a)
         return (ctypes.c_double * len(a))(*a)
 
-    def _bool_byref(self, a):
+    @staticmethod
+    def _bool_byref(a):
         return (ctypes.c_bool * len(a))(*a)
 
-    def _qrack_complex_byref(self, a):
+    @staticmethod
+    def _qrack_complex_byref(a):
         t = [(c.real, c.imag) for c in a]
-        return self._real1_byref([float(item) for sublist in t for item in sublist])
+        return QrackSimulator._real1_byref([float(item) for sublist in t for item in sublist])
 
-    def _to_ubyte(self, nv, v):
+    @staticmethod
+    def _to_ubyte(nv, v):
         c = math.floor((nv - 1) / 8) + 1
         b = (ctypes.c_ubyte * (c * (1 << nv)))()
         n = 0
@@ -157,7 +165,8 @@ class QrackSimulator:
 
         return b
 
-    def _to_ulonglong(self, m, v):
+    @staticmethod
+    def _to_ulonglong(m, v):
         b = (ctypes.c_ulonglong * (m * len(v)))()
         n = 0
         for u in v:
@@ -169,7 +178,8 @@ class QrackSimulator:
         return b
 
     # See https://stackoverflow.com/questions/5389507/iterating-over-every-two-elements-in-a-list#answer-30426000
-    def _pairwise(self, it):
+    @staticmethod
+    def _pairwise(it):
         it = iter(it)
         while True:
             try:
@@ -195,7 +205,7 @@ class QrackSimulator:
 
     def set_device_list(self, d):
         """Set the GPU device ID"""
-        Qrack.qrack_lib.set_device_list(self.sid, len(d), self._longlong_byref(d))
+        Qrack.qrack_lib.set_device_list(self.sid, len(d), QrackSimulator._longlong_byref(d))
         self._throw_if_error()
 
     def clone(self):
@@ -359,7 +369,7 @@ class QrackSimulator:
             raise ValueError(
                 "2x2 matrix 'm' in QrackSimulator.mtrx() must contain at least 4 elements."
             )
-        Qrack.qrack_lib.Mtrx(self.sid, self._complex_byref(m), q)
+        Qrack.qrack_lib.Mtrx(self.sid, QrackSimulator._complex_byref(m), q)
         self._throw_if_error()
 
     def r(self, b, ph, q):
@@ -399,9 +409,9 @@ class QrackSimulator:
         Qrack.qrack_lib.Exp(
             self.sid,
             len(b),
-            self._ulonglong_byref(b),
+            QrackSimulator._ulonglong_byref(b),
             ctypes.c_double(ph),
-            self._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(q),
         )
         self._throw_if_error()
 
@@ -418,7 +428,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MCX(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MCX(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def mcy(self, c, q):
@@ -434,7 +444,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MCY(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MCY(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def mcz(self, c, q):
@@ -450,7 +460,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MCZ(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MCZ(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def mch(self, c, q):
@@ -466,7 +476,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MCH(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MCH(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def mcs(self, c, q):
@@ -482,7 +492,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MCS(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MCS(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def mct(self, c, q):
@@ -498,7 +508,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MCT(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MCT(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def mcadjs(self, c, q):
@@ -514,7 +524,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MCAdjS(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MCAdjS(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def mcadjt(self, c, q):
@@ -530,7 +540,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MCAdjT(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MCAdjT(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def mcu(self, c, q, th, ph, la):
@@ -552,7 +562,7 @@ class QrackSimulator:
         Qrack.qrack_lib.MCU(
             self.sid,
             len(c),
-            self._ulonglong_byref(c),
+            QrackSimulator._ulonglong_byref(c),
             q,
             ctypes.c_double(th),
             ctypes.c_double(ph),
@@ -580,7 +590,11 @@ class QrackSimulator:
                 "2x2 matrix 'm' in QrackSimulator.mcmtrx() must contain at least 4 elements."
             )
         Qrack.qrack_lib.MCMtrx(
-            self.sid, len(c), self._ulonglong_byref(c), self._complex_byref(m), q
+            self.sid,
+            len(c),
+            QrackSimulator._ulonglong_byref(c),
+            QrackSimulator._complex_byref(m),
+            q,
         )
         self._throw_if_error()
 
@@ -596,7 +610,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MACX(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MACX(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def macy(self, c, q):
@@ -612,7 +626,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MACY(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MACY(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def macz(self, c, q):
@@ -628,7 +642,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MACZ(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MACZ(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def mach(self, c, q):
@@ -644,7 +658,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MACH(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MACH(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def macs(self, c, q):
@@ -660,7 +674,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MACS(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MACS(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def mact(self, c, q):
@@ -676,7 +690,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MACT(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MACT(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def macadjs(self, c, q):
@@ -692,7 +706,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MACAdjS(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MACAdjS(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def macadjt(self, c, q):
@@ -708,7 +722,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MACAdjT(self.sid, len(c), self._ulonglong_byref(c), q)
+        Qrack.qrack_lib.MACAdjT(self.sid, len(c), QrackSimulator._ulonglong_byref(c), q)
         self._throw_if_error()
 
     def macu(self, c, q, th, ph, la):
@@ -730,7 +744,7 @@ class QrackSimulator:
         Qrack.qrack_lib.MACU(
             self.sid,
             len(c),
-            self._ulonglong_byref(c),
+            QrackSimulator._ulonglong_byref(c),
             q,
             ctypes.c_double(th),
             ctypes.c_double(ph),
@@ -758,7 +772,11 @@ class QrackSimulator:
                 "2x2 matrix 'm' in QrackSimulator.macmtrx() must contain at least 4 elements."
             )
         Qrack.qrack_lib.MACMtrx(
-            self.sid, len(c), self._ulonglong_byref(c), self._complex_byref(m), q
+            self.sid,
+            len(c),
+            QrackSimulator._ulonglong_byref(c),
+            QrackSimulator._complex_byref(m),
+            q,
         )
         self._throw_if_error()
 
@@ -783,7 +801,12 @@ class QrackSimulator:
                 "2x2 matrix 'm' in QrackSimulator.ucmtrx() must contain at least 4 elements."
             )
         Qrack.qrack_lib.UCMtrx(
-            self.sid, len(c), self._ulonglong_byref(c), self._complex_byref(m), q, p
+            self.sid,
+            len(c),
+            QrackSimulator._ulonglong_byref(c),
+            QrackSimulator._complex_byref(m),
+            q,
+            p,
         )
         self._throw_if_error()
 
@@ -807,7 +830,11 @@ class QrackSimulator:
                 "Multiplex matrix 'm' in QrackSimulator.multiplex1_mtrx() must contain at least (4 * 2 ** len(c)) elements."
             )
         Qrack.qrack_lib.Multiplex1Mtrx(
-            self.sid, len(c), self._ulonglong_byref(c), q, self._complex_byref(m)
+            self.sid,
+            len(c),
+            QrackSimulator._ulonglong_byref(c),
+            q,
+            QrackSimulator._complex_byref(m),
         )
         self._throw_if_error()
 
@@ -822,7 +849,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MX(self.sid, len(q), self._ulonglong_byref(q))
+        Qrack.qrack_lib.MX(self.sid, len(q), QrackSimulator._ulonglong_byref(q))
         self._throw_if_error()
 
     def my(self, q):
@@ -836,7 +863,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MY(self.sid, len(q), self._ulonglong_byref(q))
+        Qrack.qrack_lib.MY(self.sid, len(q), QrackSimulator._ulonglong_byref(q))
         self._throw_if_error()
 
     def mz(self, q):
@@ -850,7 +877,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.MZ(self.sid, len(q), self._ulonglong_byref(q))
+        Qrack.qrack_lib.MZ(self.sid, len(q), QrackSimulator._ulonglong_byref(q))
         self._throw_if_error()
 
     def mcr(self, b, ph, c, q):
@@ -873,7 +900,7 @@ class QrackSimulator:
             ctypes.c_ulonglong(b),
             ctypes.c_double(ph),
             len(c),
-            self._ulonglong_byref(c),
+            QrackSimulator._ulonglong_byref(c),
             q,
         )
         self._throw_if_error()
@@ -897,11 +924,11 @@ class QrackSimulator:
         Qrack.qrack_lib.MCExp(
             self.sid,
             len(b),
-            self._ulonglong_byref(b),
+            QrackSimulator._ulonglong_byref(b),
             ctypes.c_double(ph),
             len(cs),
-            self._ulonglong_byref(cs),
-            self._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(cs),
+            QrackSimulator._ulonglong_byref(q),
         )
         self._throw_if_error()
 
@@ -965,9 +992,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.FSim(
-            self.sid, ctypes.c_double(th), ctypes.c_double(ph), qi1, qi2
-        )
+        Qrack.qrack_lib.FSim(self.sid, ctypes.c_double(th), ctypes.c_double(ph), qi1, qi2)
         self._throw_if_error()
 
     def cswap(self, c, qi1, qi2):
@@ -983,7 +1008,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.CSWAP(self.sid, len(c), self._ulonglong_byref(c), qi1, qi2)
+        Qrack.qrack_lib.CSWAP(self.sid, len(c), QrackSimulator._ulonglong_byref(c), qi1, qi2)
         self._throw_if_error()
 
     def acswap(self, c, qi1, qi2):
@@ -999,7 +1024,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.ACSWAP(self.sid, len(c), self._ulonglong_byref(c), qi1, qi2)
+        Qrack.qrack_lib.ACSWAP(self.sid, len(c), QrackSimulator._ulonglong_byref(c), qi1, qi2)
         self._throw_if_error()
 
     # standard operations
@@ -1083,7 +1108,7 @@ class QrackSimulator:
         if len(b) != len(q):
             raise RuntimeError("Lengths of list parameters are mismatched.")
         result = Qrack.qrack_lib.Measure(
-            self.sid, len(b), self._int_byref(b), self._ulonglong_byref(q)
+            self.sid, len(b), QrackSimulator._int_byref(b), QrackSimulator._ulonglong_byref(q)
         )
         self._throw_if_error()
         return result
@@ -1104,8 +1129,8 @@ class QrackSimulator:
         Returns:
             list of measurement result.
         """
-        m = self._ulonglong_byref([0] * s)
-        Qrack.qrack_lib.MeasureShots(self.sid, len(q), self._ulonglong_byref(q), s, m)
+        m = QrackSimulator._ulonglong_byref([0] * s)
+        Qrack.qrack_lib.MeasureShots(self.sid, len(q), QrackSimulator._ulonglong_byref(q), s, m)
         self._throw_if_error()
         return [m[i] for i in range(s)]
 
@@ -1121,7 +1146,8 @@ class QrackSimulator:
         self._throw_if_error()
 
     # arithmetic-logic-unit (ALU)
-    def _split_longs(self, a):
+    @staticmethod
+    def _split_longs(a):
         """Split operation
 
         Splits the given integer into 64 bit numbers.
@@ -1144,7 +1170,8 @@ class QrackSimulator:
             a = a >> 64
         return aParts
 
-    def _split_longs_2(self, a, m):
+    @staticmethod
+    def _split_longs_2(a, m):
         """Split simultanoues operation
 
         Splits 2 integers into same number of 64 bit numbers.
@@ -1183,13 +1210,13 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        aParts = self._split_longs(a)
+        aParts = QrackSimulator._split_longs(a)
         Qrack.qrack_lib.ADD(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(aParts),
             len(q),
-            self._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(q),
         )
         self._throw_if_error()
 
@@ -1205,13 +1232,13 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        aParts = self._split_longs(a)
+        aParts = QrackSimulator._split_longs(a)
         Qrack.qrack_lib.SUB(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(aParts),
             len(q),
-            self._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(q),
         )
         self._throw_if_error()
 
@@ -1229,14 +1256,14 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        aParts = self._split_longs(a)
+        aParts = QrackSimulator._split_longs(a)
         Qrack.qrack_lib.ADDS(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(aParts),
             s,
             len(q),
-            self._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(q),
         )
         self._throw_if_error()
 
@@ -1254,14 +1281,14 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        aParts = self._split_longs(a)
+        aParts = QrackSimulator._split_longs(a)
         Qrack.qrack_lib.SUBS(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(aParts),
             s,
             len(q),
-            self._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(q),
         )
         self._throw_if_error()
 
@@ -1279,27 +1306,23 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot mul()! (Turn off just this option, in the constructor.)
+            RuntimeError: QrackStabilizer cannot mul()! (Create a QrackSimulator instead.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot mul()! (Turn off just this option, in the constructor.)"
-            )
         if self.is_pure_stabilizer:
             raise RuntimeError(
-                "QrackStabilizer cannot mul()! (Create a QrackSimulator instead, also with isTensorNetwork=False.)"
+                "QrackStabilizer cannot mul()! (Create a QrackSimulator instead.)"
             )
 
         if len(q) != len(o):
             raise RuntimeError("Lengths of list parameters are mismatched.")
-        aParts = self._split_longs(a)
+        aParts = QrackSimulator._split_longs(a)
         Qrack.qrack_lib.MUL(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(aParts),
             len(q),
-            self._ulonglong_byref(q),
-            self._ulonglong_byref(o),
+            QrackSimulator._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(o),
         )
         self._throw_if_error()
 
@@ -1318,27 +1341,23 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot div()! (Turn off just this option, in the constructor.)
+            RuntimeError: QrackStabilizer cannot div()! (Create a QrackSimulator instead.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot div()! (Turn off just this option, in the constructor.)"
-            )
         if self.is_pure_stabilizer:
             raise RuntimeError(
-                "QrackStabilizer cannot div()! (Create a QrackSimulator instead, also with isTensorNetwork=False.)"
+                "QrackStabilizer cannot div()! (Create a QrackSimulator instead.)"
             )
 
         if len(q) != len(o):
             raise RuntimeError("Lengths of list parameters are mismatched.")
-        aParts = self._split_longs(a)
+        aParts = QrackSimulator._split_longs(a)
         Qrack.qrack_lib.DIV(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(aParts),
             len(q),
-            self._ulonglong_byref(q),
-            self._ulonglong_byref(o),
+            QrackSimulator._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(o),
         )
         self._throw_if_error()
 
@@ -1359,15 +1378,15 @@ class QrackSimulator:
         """
         if len(q) != len(o):
             raise RuntimeError("Lengths of list parameters are mismatched.")
-        aParts, mParts = self._split_longs_2(a, m)
+        aParts, mParts = QrackSimulator._split_longs_2(a, m)
         Qrack.qrack_lib.MULN(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
-            self._ulonglong_byref(mParts),
+            QrackSimulator._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(mParts),
             len(q),
-            self._ulonglong_byref(q),
-            self._ulonglong_byref(o),
+            QrackSimulator._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(o),
         )
         self._throw_if_error()
 
@@ -1389,15 +1408,15 @@ class QrackSimulator:
         """
         if len(q) != len(o):
             raise RuntimeError("Lengths of list parameters are mismatched.")
-        aParts, mParts = self._split_longs_2(a, m)
+        aParts, mParts = QrackSimulator._split_longs_2(a, m)
         Qrack.qrack_lib.DIVN(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
-            self._ulonglong_byref(mParts),
+            QrackSimulator._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(mParts),
             len(q),
-            self._ulonglong_byref(q),
-            self._ulonglong_byref(o),
+            QrackSimulator._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(o),
         )
         self._throw_if_error()
 
@@ -1415,28 +1434,24 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot pown()! (Turn off just this option, in the constructor.)
+            RuntimeError: QrackStabilizer cannot pown()! (Create a QrackSimulator instead.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot pown()! (Turn off just this option, in the constructor.)"
-            )
         if self.is_pure_stabilizer:
             raise RuntimeError(
-                "QrackStabilizer cannot pown()! (Create a QrackSimulator instead, also with isTensorNetwork=False.)"
+                "QrackStabilizer cannot pown()! (Create a QrackSimulator instead.)"
             )
 
         if len(q) != len(o):
             raise RuntimeError("Lengths of list parameters are mismatched.")
-        aParts, mParts = self._split_longs_2(a, m)
+        aParts, mParts = QrackSimulator._split_longs_2(a, m)
         Qrack.qrack_lib.POWN(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
-            self._ulonglong_byref(mParts),
+            QrackSimulator._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(mParts),
             len(q),
-            self._ulonglong_byref(q),
-            self._ulonglong_byref(o),
+            QrackSimulator._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(o),
         )
         self._throw_if_error()
 
@@ -1454,15 +1469,15 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        aParts = self._split_longs(a)
+        aParts = QrackSimulator._split_longs(a)
         Qrack.qrack_lib.MCADD(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(aParts),
             len(c),
-            self._ulonglong_byref(c),
+            QrackSimulator._ulonglong_byref(c),
             len(q),
-            self._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(q),
         )
         self._throw_if_error()
 
@@ -1480,15 +1495,15 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        aParts = self._split_longs(a)
+        aParts = QrackSimulator._split_longs(a)
         Qrack.qrack_lib.MCSUB(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(aParts),
             len(c),
-            self._ulonglong_byref(c),
+            QrackSimulator._ulonglong_byref(c),
             len(q),
-            self._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(q),
         )
         self._throw_if_error()
 
@@ -1508,28 +1523,24 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot mcmul()! (Turn off just this option, in the constructor.)
+            RuntimeError: QrackStabilizer cannot mcmul()! (Create a QrackSimulator instead.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot mcmul()! (Turn off just this option, in the constructor.)"
-            )
         if self.is_pure_stabilizer:
             raise RuntimeError(
-                "QrackStabilizer cannot mcmul()! (Create a QrackSimulator instead, also with isTensorNetwork=False.)"
+                "QrackStabilizer cannot mcmul()! (Create a QrackSimulator instead.)"
             )
 
         if len(q) != len(o):
             raise RuntimeError("Lengths of list parameters are mismatched.")
-        aParts = self._split_longs(a)
+        aParts = QrackSimulator._split_longs(a)
         Qrack.qrack_lib.MCMUL(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(aParts),
             len(c),
-            self._ulonglong_byref(c),
+            QrackSimulator._ulonglong_byref(c),
             len(q),
-            self._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(q),
         )
         self._throw_if_error()
 
@@ -1550,28 +1561,24 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot mcdiv()! (Turn off just this option, in the constructor.)
+            RuntimeError: QrackStabilizer cannot mcdiv()! (Create a QrackSimulator instead.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot mcdiv()! (Turn off just this option, in the constructor.)"
-            )
         if self.is_pure_stabilizer:
             raise RuntimeError(
-                "QrackStabilizer cannot mcdiv()! (Create a QrackSimulator instead, also with isTensorNetwork=False.)"
+                "QrackStabilizer cannot mcdiv()! (Create a QrackSimulator instead.)"
             )
 
         if len(q) != len(o):
             raise RuntimeError("Lengths of list parameters are mismatched.")
-        aParts = self._split_longs(a)
+        aParts = QrackSimulator._split_longs(a)
         Qrack.qrack_lib.MCDIV(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(aParts),
             len(c),
-            self._ulonglong_byref(c),
+            QrackSimulator._ulonglong_byref(c),
             len(q),
-            self._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(q),
         )
         self._throw_if_error()
 
@@ -1594,17 +1601,17 @@ class QrackSimulator:
         """
         if len(q) != len(o):
             raise RuntimeError("Lengths of list parameters are mismatched.")
-        aParts, mParts = self._split_longs_2(a, m)
+        aParts, mParts = QrackSimulator._split_longs_2(a, m)
         Qrack.qrack_lib.MCMULN(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(aParts),
             len(c),
-            self._ulonglong_byref(c),
-            self._ulonglong_byref(mParts),
+            QrackSimulator._ulonglong_byref(c),
+            QrackSimulator._ulonglong_byref(mParts),
             len(q),
-            self._ulonglong_byref(q),
-            self._ulonglong_byref(o),
+            QrackSimulator._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(o),
         )
         self._throw_if_error()
 
@@ -1628,17 +1635,17 @@ class QrackSimulator:
         """
         if len(q) != len(o):
             raise RuntimeError("Lengths of list parameters are mismatched.")
-        aParts, mParts = self._split_longs_2(a, m)
+        aParts, mParts = QrackSimulator._split_longs_2(a, m)
         Qrack.qrack_lib.MCDIVN(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(aParts),
             len(c),
-            self._ulonglong_byref(c),
-            self._ulonglong_byref(mParts),
+            QrackSimulator._ulonglong_byref(c),
+            QrackSimulator._ulonglong_byref(mParts),
             len(q),
-            self._ulonglong_byref(q),
-            self._ulonglong_byref(o),
+            QrackSimulator._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(o),
         )
         self._throw_if_error()
 
@@ -1658,30 +1665,26 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot mcpown()! (Turn off just this option, in the constructor.)
+            RuntimeError: QrackStabilizer cannot mcpown()! (Create a QrackSimulator instead.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot mcpown()! (Turn off just this option, in the constructor.)"
-            )
         if self.is_pure_stabilizer:
             raise RuntimeError(
-                "QrackStabilizer cannot mcpown()! (Create a QrackSimulator instead, also with isTensorNetwork=False.)"
+                "QrackStabilizer cannot mcpown()! (Create a QrackSimulator instead.)"
             )
 
         if len(q) != len(o):
             raise RuntimeError("Lengths of list parameters are mismatched.")
-        aParts, mParts = self._split_longs_2(a, m)
+        aParts, mParts = QrackSimulator._split_longs_2(a, m)
         Qrack.qrack_lib.MCPOWN(
             self.sid,
             len(aParts),
-            self._ulonglong_byref(aParts),
+            QrackSimulator._ulonglong_byref(aParts),
             len(c),
-            self._ulonglong_byref(c),
-            self._ulonglong_byref(mParts),
+            QrackSimulator._ulonglong_byref(c),
+            QrackSimulator._ulonglong_byref(mParts),
             len(q),
-            self._ulonglong_byref(q),
-            self._ulonglong_byref(o),
+            QrackSimulator._ulonglong_byref(q),
+            QrackSimulator._ulonglong_byref(o),
         )
         self._throw_if_error()
 
@@ -1699,24 +1702,20 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot lda()! (Turn off just this option, in the constructor.)
+            RuntimeError: QrackStabilizer cannot lda()! (Create a QrackSimulator instead.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot lda()! (Turn off just this option, in the constructor.)"
-            )
         if self.is_pure_stabilizer:
             raise RuntimeError(
-                "QrackStabilizer cannot lda()! (Create a QrackSimulator instead, also with isTensorNetwork=False.)"
+                "QrackStabilizer cannot lda()! (Create a QrackSimulator instead.)"
             )
 
         Qrack.qrack_lib.LDA(
             self.sid,
             len(qi),
-            self._ulonglong_byref(qi),
+            QrackSimulator._ulonglong_byref(qi),
             len(qv),
-            self._ulonglong_byref(qv),
-            self._to_ubyte(len(qv), t),
+            QrackSimulator._ulonglong_byref(qv),
+            QrackSimulator._to_ubyte(len(qv), t),
         )
         self._throw_if_error()
 
@@ -1733,25 +1732,21 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot adc()! (Turn off just this option, in the constructor.)
+            RuntimeError: QrackStabilizer cannot adc()! (Create a QrackSimulator instead.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot adc()! (Turn off just this option, in the constructor.)"
-            )
         if self.is_pure_stabilizer:
             raise RuntimeError(
-                "QrackStabilizer cannot adc()! (Create a QrackSimulator instead, also with isTensorNetwork=False.)"
+                "QrackStabilizer cannot adc()! (Create a QrackSimulator instead.)"
             )
 
         Qrack.qrack_lib.ADC(
             self.sid,
             s,
             len(qi),
-            self._ulonglong_byref(qi),
+            QrackSimulator._ulonglong_byref(qi),
             len(qv),
-            self._ulonglong_byref(qv),
-            self._to_ubyte(len(qv), t),
+            QrackSimulator._ulonglong_byref(qv),
+            QrackSimulator._to_ubyte(len(qv), t),
         )
         self._throw_if_error()
 
@@ -1768,25 +1763,21 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot sbc()! (Turn off just this option, in the constructor.)
+            RuntimeError: QrackStabilizer cannot sbc()! (Create a QrackSimulator instead.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot sbc()! (Turn off just this option, in the constructor.)"
-            )
         if self.is_pure_stabilizer:
             raise RuntimeError(
-                "QrackStabilizer cannot sbc()! (Create a QrackSimulator instead, also with isTensorNetwork=False.)"
+                "QrackStabilizer cannot sbc()! (Create a QrackSimulator instead.)"
             )
 
         Qrack.qrack_lib.SBC(
             self.sid,
             s,
             len(qi),
-            self._ulonglong_byref(qi),
+            QrackSimulator._ulonglong_byref(qi),
             len(qv),
-            self._ulonglong_byref(qv),
-            self._to_ubyte(len(qv), t),
+            QrackSimulator._ulonglong_byref(qv),
+            QrackSimulator._to_ubyte(len(qv), t),
         )
         self._throw_if_error()
 
@@ -1804,19 +1795,18 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot hash()! (Turn off just this option, in the constructor.)
+            RuntimeError: QrackStabilizer cannot hash()! (Create a QrackSimulator instead.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot hash()! (Turn off just this option, in the constructor.)"
-            )
         if self.is_pure_stabilizer:
             raise RuntimeError(
-                "QrackStabilizer cannot hash()! (Create a QrackSimulator instead, also with isTensorNetwork=False.)"
+                "QrackStabilizer cannot hash()! (Create a QrackSimulator instead.)"
             )
 
         Qrack.qrack_lib.Hash(
-            self.sid, len(q), self._ulonglong_byref(q), self._to_ubyte(len(q), t)
+            self.sid,
+            len(q),
+            QrackSimulator._ulonglong_byref(q),
+            QrackSimulator._to_ubyte(len(q), t),
         )
         self._throw_if_error()
 
@@ -2037,7 +2027,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.QFT(self.sid, len(qs), self._ulonglong_byref(qs))
+        Qrack.qrack_lib.QFT(self.sid, len(qs), QrackSimulator._ulonglong_byref(qs))
         self._throw_if_error()
 
     def iqft(self, qs):
@@ -2052,7 +2042,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.IQFT(self.sid, len(qs), self._ulonglong_byref(qs))
+        Qrack.qrack_lib.IQFT(self.sid, len(qs), QrackSimulator._ulonglong_byref(qs))
         self._throw_if_error()
 
     # pseudo-quantum
@@ -2119,14 +2109,8 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot compose()! (Turn off just this option, in the constructor.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot compose()! (Turn off just this option, in the constructor.)"
-            )
-
-        Qrack.qrack_lib.Compose(self.sid, other.sid, self._ulonglong_byref(q))
+        Qrack.qrack_lib.Compose(self.sid, other.sid, QrackSimulator._ulonglong_byref(q))
         self._throw_if_error()
 
     def decompose(self, q):
@@ -2139,20 +2123,14 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot decompose()! (Turn off just this option, in the constructor.)
 
         Returns:
             Decomposed subsystem simulator.
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot decompose()! (Turn off just this option, in the constructor.)"
-            )
-
         other = QrackSimulator()
         Qrack.qrack_lib.destroy(other.sid)
         l = len(q)
-        other.sid = Qrack.qrack_lib.Decompose(self.sid, l, self._ulonglong_byref(q))
+        other.sid = Qrack.qrack_lib.Decompose(self.sid, l, QrackSimulator._ulonglong_byref(q))
         self._throw_if_error()
         return other
 
@@ -2167,15 +2145,9 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot dispose()! (Turn off just this option, in the constructor.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot dispose()! (Turn off just this option, in the constructor.)"
-            )
-
         l = len(q)
-        Qrack.qrack_lib.Dispose(self.sid, l, self._ulonglong_byref(q))
+        Qrack.qrack_lib.Dispose(self.sid, l, QrackSimulator._ulonglong_byref(q))
         self._throw_if_error()
 
     ## miscellaneous
@@ -2245,7 +2217,7 @@ class QrackSimulator:
         Raises:
             RuntimeError: QrackSimulator raised an exception.
         """
-        Qrack.qrack_lib.InKet(self.sid, self._qrack_complex_byref(ket))
+        Qrack.qrack_lib.InKet(self.sid, QrackSimulator._qrack_complex_byref(ket))
         self._throw_if_error()
 
     def out_ket(self):
@@ -2262,10 +2234,10 @@ class QrackSimulator:
             list representing the state vector.
         """
         amp_count = 1 << self.num_qubits()
-        ket = self._qrack_complex_byref([complex(0, 0)] * amp_count)
+        ket = QrackSimulator._qrack_complex_byref([complex(0, 0)] * amp_count)
         Qrack.qrack_lib.OutKet(self.sid, ket)
         self._throw_if_error()
-        return [complex(r, i) for r, i in self._pairwise(ket)]
+        return [complex(r, i) for r, i in QrackSimulator._pairwise(ket)]
 
     def out_probs(self):
         """Get basis dimension probabilities
@@ -2280,7 +2252,7 @@ class QrackSimulator:
             list representing the basis dimension probabilities.
         """
         prob_count = 1 << self.num_qubits()
-        probs = self._real1_byref([0.0] * prob_count)
+        probs = QrackSimulator._real1_byref([0.0] * prob_count)
         Qrack.qrack_lib.OutProbs(self.sid, probs)
         self._throw_if_error()
         return list(probs)
@@ -2300,10 +2272,12 @@ class QrackSimulator:
         """
         amp_count = 1 << len(q)
         sqr_amp_count = amp_count * amp_count
-        flat_rdm = self._qrack_complex_byref([complex(0, 0)] * sqr_amp_count)
-        Qrack.qrack_lib.OutReducedDensityMatrix(self.sid, len(q), self._ulonglong_byref(q), flat_rdm)
+        flat_rdm = QrackSimulator._qrack_complex_byref([complex(0, 0)] * sqr_amp_count)
+        Qrack.qrack_lib.OutReducedDensityMatrix(
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), flat_rdm
+        )
         self._throw_if_error()
-        return [complex(r, i) for r, i in self._pairwise(flat_rdm)]
+        return [complex(r, i) for r, i in QrackSimulator._pairwise(flat_rdm)]
 
     def highest_prob_perm(self):
         """Get the permutation (bit string) with the highest probability
@@ -2365,8 +2339,8 @@ class QrackSimulator:
         Returns:
             list representing the state vector.
         """
-        probs = self._real1_byref([0.0] * (1 << len(q)))
-        Qrack.qrack_lib.ProbAll(self.sid, len(q), self._ulonglong_byref(q), probs)
+        probs = QrackSimulator._real1_byref([0.0] * (1 << len(q)))
+        Qrack.qrack_lib.ProbAll(self.sid, len(q), QrackSimulator._ulonglong_byref(q), probs)
         self._throw_if_error()
         return list(probs)
 
@@ -2428,7 +2402,7 @@ class QrackSimulator:
         if len(q) != len(c):
             raise RuntimeError("prob_perm argument lengths do not match.")
         result = Qrack.qrack_lib.PermutationProb(
-            self.sid, len(q), self._ulonglong_byref(q), self._bool_byref(c)
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), QrackSimulator._bool_byref(c)
         )
         self._throw_if_error()
         return result
@@ -2456,7 +2430,7 @@ class QrackSimulator:
         if len(q) != len(c):
             raise RuntimeError("prob_perm argument lengths do not match.")
         result = Qrack.qrack_lib.PermutationProbRdm(
-            self.sid, len(q), self._ulonglong_byref(q), self._bool_byref(c), r
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), QrackSimulator._bool_byref(c), r
         )
         self._throw_if_error()
         return result
@@ -2477,7 +2451,7 @@ class QrackSimulator:
             Expectation value
         """
         result = Qrack.qrack_lib.PermutationExpectation(
-            self.sid, len(q), self._ulonglong_byref(q)
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q)
         )
         self._throw_if_error()
         return result
@@ -2500,7 +2474,7 @@ class QrackSimulator:
             Expectation value
         """
         result = Qrack.qrack_lib.PermutationExpectationRdm(
-            self.sid, len(q), self._ulonglong_byref(q), r
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), r
         )
         self._throw_if_error()
         return result
@@ -2526,7 +2500,11 @@ class QrackSimulator:
             raise RuntimeError("factorized_expectation argument lengths do not match.")
         m = max([(x.bit_length() + 63) // 64 for x in c])
         result = Qrack.qrack_lib.FactorizedExpectation(
-            self.sid, len(q), self._ulonglong_byref(q), m, self._to_ulonglong(m, c)
+            self.sid,
+            len(q),
+            QrackSimulator._ulonglong_byref(q),
+            m,
+            QrackSimulator._to_ulonglong(m, c),
         )
         self._throw_if_error()
         return result
@@ -2551,12 +2529,15 @@ class QrackSimulator:
             Expectation value
         """
         if (len(q) << 1) != len(c):
-            raise RuntimeError(
-                "factorized_expectation_rdm argument lengths do not match."
-            )
+            raise RuntimeError("factorized_expectation_rdm argument lengths do not match.")
         m = max([(x.bit_length() + 63) // 64 for x in c])
         result = Qrack.qrack_lib.FactorizedExpectationRdm(
-            self.sid, len(q), self._ulonglong_byref(q), m, self._to_ulonglong(m, c), r
+            self.sid,
+            len(q),
+            QrackSimulator._ulonglong_byref(q),
+            m,
+            QrackSimulator._to_ulonglong(m, c),
+            r,
         )
         self._throw_if_error()
         return result
@@ -2579,11 +2560,9 @@ class QrackSimulator:
             Expectation value
         """
         if (len(q) << 1) != len(c):
-            raise RuntimeError(
-                "factorized_expectation_rdm argument lengths do not match."
-            )
+            raise RuntimeError("factorized_expectation_rdm argument lengths do not match.")
         result = Qrack.qrack_lib.FactorizedExpectationFp(
-            self.sid, len(q), self._ulonglong_byref(q), self._real1_byref(c)
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), QrackSimulator._real1_byref(c)
         )
         self._throw_if_error()
         return result
@@ -2608,11 +2587,9 @@ class QrackSimulator:
             Expectation value
         """
         if (len(q) << 1) != len(c):
-            raise RuntimeError(
-                "factorized_expectation_fp_rdm argument lengths do not match."
-            )
+            raise RuntimeError("factorized_expectation_fp_rdm argument lengths do not match.")
         result = Qrack.qrack_lib.FactorizedExpectationFpRdm(
-            self.sid, len(q), self._ulonglong_byref(q), self._real1_byref(c), r
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), QrackSimulator._real1_byref(c), r
         )
         self._throw_if_error()
         return result
@@ -2636,7 +2613,7 @@ class QrackSimulator:
         if (3 * len(q)) != len(b):
             raise RuntimeError("unitary_expectation argument lengths do not match.")
         result = Qrack.qrack_lib.UnitaryExpectation(
-            self.sid, len(q), self._ulonglong_byref(q), self._real1_byref(b)
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), QrackSimulator._real1_byref(b)
         )
         self._throw_if_error()
         return result
@@ -2660,7 +2637,7 @@ class QrackSimulator:
         if (len(q) << 2) != len(b):
             raise RuntimeError("matrix_expectation argument lengths do not match.")
         result = Qrack.qrack_lib.MatrixExpectation(
-            self.sid, len(q), self._ulonglong_byref(q), self._complex_byref(b)
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), QrackSimulator._complex_byref(b)
         )
         self._throw_if_error()
         return result
@@ -2692,9 +2669,9 @@ class QrackSimulator:
         result = Qrack.qrack_lib.UnitaryExpectationEigenVal(
             self.sid,
             len(q),
-            self._ulonglong_byref(q),
-            self._real1_byref(b),
-            self._real1_byref(e),
+            QrackSimulator._ulonglong_byref(q),
+            QrackSimulator._real1_byref(b),
+            QrackSimulator._real1_byref(e),
         )
         self._throw_if_error()
         return result
@@ -2726,9 +2703,9 @@ class QrackSimulator:
         result = Qrack.qrack_lib.MatrixExpectationEigenVal(
             self.sid,
             len(q),
-            self._ulonglong_byref(q),
-            self._complex_byref(b),
-            self._real1_byref(e),
+            QrackSimulator._ulonglong_byref(q),
+            QrackSimulator._complex_byref(b),
+            QrackSimulator._real1_byref(e),
         )
         self._throw_if_error()
         return result
@@ -2753,7 +2730,7 @@ class QrackSimulator:
         if len(q) != len(b):
             raise RuntimeError("pauli_expectation argument lengths do not match.")
         result = Qrack.qrack_lib.PauliExpectation(
-            self.sid, len(q), self._ulonglong_byref(q), self._ulonglong_byref(b)
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), QrackSimulator._ulonglong_byref(b)
         )
         self._throw_if_error()
         return result
@@ -2773,7 +2750,7 @@ class QrackSimulator:
         Returns:
             float variance
         """
-        result = Qrack.qrack_lib.Variance(self.sid, len(q), self._ulonglong_byref(q))
+        result = Qrack.qrack_lib.Variance(self.sid, len(q), QrackSimulator._ulonglong_byref(q))
         self._throw_if_error()
         return result
 
@@ -2795,7 +2772,7 @@ class QrackSimulator:
             variance
         """
         result = Qrack.qrack_lib.VarianceRdm(
-            self.sid, len(q), self._ulonglong_byref(q), r
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), r
         )
         self._throw_if_error()
         return result
@@ -2821,7 +2798,11 @@ class QrackSimulator:
             raise RuntimeError("factorized_variance argument lengths do not match.")
         m = max([(x.bit_length() + 63) // 64 for x in c])
         result = Qrack.qrack_lib.FactorizedVariance(
-            self.sid, len(q), self._ulonglong_byref(q), m, self._to_ulonglong(m, c)
+            self.sid,
+            len(q),
+            QrackSimulator._ulonglong_byref(q),
+            m,
+            QrackSimulator._to_ulonglong(m, c),
         )
         self._throw_if_error()
         return result
@@ -2849,7 +2830,12 @@ class QrackSimulator:
             raise RuntimeError("factorized_variance_rdm argument lengths do not match.")
         m = max([(x.bit_length() + 63) // 64 for x in c])
         result = Qrack.qrack_lib.FactorizedVarianceRdm(
-            self.sid, len(q), self._ulonglong_byref(q), m, self._to_ulonglong(m, c), r
+            self.sid,
+            len(q),
+            QrackSimulator._ulonglong_byref(q),
+            m,
+            QrackSimulator._to_ulonglong(m, c),
+            r,
         )
         self._throw_if_error()
         return result
@@ -2874,7 +2860,7 @@ class QrackSimulator:
         if (len(q) << 1) != len(c):
             raise RuntimeError("factorized_variance_rdm argument lengths do not match.")
         result = Qrack.qrack_lib.FactorizedVarianceFp(
-            self.sid, len(q), self._ulonglong_byref(q), self._real1_byref(c)
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), QrackSimulator._real1_byref(c)
         )
         self._throw_if_error()
         return result
@@ -2899,11 +2885,9 @@ class QrackSimulator:
             variance
         """
         if (len(q) << 1) != len(c):
-            raise RuntimeError(
-                "factorized_variance_fp_rdm argument lengths do not match."
-            )
+            raise RuntimeError("factorized_variance_fp_rdm argument lengths do not match.")
         result = Qrack.qrack_lib.FactorizedVarianceFpRdm(
-            self.sid, len(q), self._ulonglong_byref(q), self._real1_byref(c), r
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), QrackSimulator._real1_byref(c), r
         )
         self._throw_if_error()
         return result
@@ -2927,7 +2911,7 @@ class QrackSimulator:
         if (3 * len(q)) != len(b):
             raise RuntimeError("unitary_variance argument lengths do not match.")
         result = Qrack.qrack_lib.UnitaryVariance(
-            self.sid, len(q), self._ulonglong_byref(q), self._real1_byref(b)
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), QrackSimulator._real1_byref(b)
         )
         self._throw_if_error()
         return result
@@ -2951,7 +2935,7 @@ class QrackSimulator:
         if (len(q) << 2) != len(b):
             raise RuntimeError("matrix_variance argument lengths do not match.")
         result = Qrack.qrack_lib.MatrixVariance(
-            self.sid, len(q), self._ulonglong_byref(q), self._complex_byref(b)
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), QrackSimulator._complex_byref(b)
         )
         self._throw_if_error()
         return result
@@ -2983,9 +2967,9 @@ class QrackSimulator:
         result = Qrack.qrack_lib.UnitaryVarianceEigenVal(
             self.sid,
             len(q),
-            self._ulonglong_byref(q),
-            self._real1_byref(b),
-            self._real1_byref(e),
+            QrackSimulator._ulonglong_byref(q),
+            QrackSimulator._real1_byref(b),
+            QrackSimulator._real1_byref(e),
         )
         self._throw_if_error()
         return result
@@ -3017,9 +3001,9 @@ class QrackSimulator:
         result = Qrack.qrack_lib.MatrixVarianceEigenVal(
             self.sid,
             len(q),
-            self._ulonglong_byref(q),
-            self._complex_byref(b),
-            self._real1_byref(e),
+            QrackSimulator._ulonglong_byref(q),
+            QrackSimulator._complex_byref(b),
+            QrackSimulator._real1_byref(e),
         )
         self._throw_if_error()
         return result
@@ -3044,7 +3028,7 @@ class QrackSimulator:
         if len(q) != len(b):
             raise RuntimeError("pauli_variance argument lengths do not match.")
         result = Qrack.qrack_lib.PauliVariance(
-            self.sid, len(q), self._ulonglong_byref(q), self._ulonglong_byref(b)
+            self.sid, len(q), QrackSimulator._ulonglong_byref(q), QrackSimulator._ulonglong_byref(b)
         )
         self._throw_if_error()
         return result
@@ -3068,7 +3052,7 @@ class QrackSimulator:
         if len(b) != len(q):
             raise RuntimeError("Lengths of list parameters are mismatched.")
         result = Qrack.qrack_lib.JointEnsembleProbability(
-            self.sid, len(b), self._ulonglong_byref(b), q
+            self.sid, len(b), QrackSimulator._ulonglong_byref(b), q
         )
         self._throw_if_error()
         return result
@@ -3085,19 +3069,15 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot phase_parity()! (Turn off just this option, in the constructor.)
+            RuntimeError: QrackStabilizer cannot phase_parity()! (Create a QrackSimulator instead.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot phase_parity()! (Turn off just this option, in the constructor.)"
-            )
         if self.is_pure_stabilizer:
             raise RuntimeError(
-                "QrackStabilizer cannot phase_parity()! (Create a QrackSimulator instead, also with isTensorNetwork=False.)"
+                "QrackStabilizer cannot phase_parity()! (Create a QrackSimulator instead.)"
             )
 
         Qrack.qrack_lib.PhaseParity(
-            self.sid, ctypes.c_double(la), len(q), self._ulonglong_byref(q)
+            self.sid, ctypes.c_double(la), len(q), QrackSimulator._ulonglong_byref(q)
         )
         self._throw_if_error()
 
@@ -3112,18 +3092,14 @@ class QrackSimulator:
 
         Raises:
             RuntimeError: QrackSimulator raised an exception.
-            RuntimeError: QrackSimulator with isTensorNetwork=True option cannot phase_root_n()! (Turn off just this option, in the constructor.)
+            RuntimeError: QrackStabilizer cannot phase_root_n()! (Create a QrackSimulator instead.)
         """
-        if self.is_tensor_network:
-            raise RuntimeError(
-                "QrackSimulator with isTensorNetwork=True option cannot phase_root_n()! (Turn off just this option, in the constructor.)"
-            )
         if self.is_pure_stabilizer:
             raise RuntimeError(
-                "QrackStabilizer cannot phase_root_n()! (Create a QrackSimulator instead, also with isTensorNetwork=False.)"
+                "QrackStabilizer cannot phase_root_n()! (Create a QrackSimulator instead.)"
             )
 
-        Qrack.qrack_lib.PhaseRootN(self.sid, n, len(q), self._ulonglong_byref(q))
+        Qrack.qrack_lib.PhaseRootN(self.sid, n, len(q), QrackSimulator._ulonglong_byref(q))
         self._throw_if_error()
 
     def try_separate_1qb(self, qi1):
@@ -3180,7 +3156,7 @@ class QrackSimulator:
             State of all the qubits.
         """
         result = Qrack.qrack_lib.TrySeparateTol(
-            self.sid, len(qs), self._ulonglong_byref(qs), t
+            self.sid, len(qs), QrackSimulator._ulonglong_byref(qs), t
         )
         self._throw_if_error()
         return result
@@ -3196,7 +3172,7 @@ class QrackSimulator:
         Raises:
             Runtimeerror: QrackSimulator raised an exception.
         """
-        result = Qrack.qrack_lib.Separate(self.sid, len(qs), self._ulonglong_byref(qs))
+        result = Qrack.qrack_lib.Separate(self.sid, len(qs), QrackSimulator._ulonglong_byref(qs))
         self._throw_if_error()
 
     def get_unitary_fidelity(self):
@@ -3305,6 +3281,21 @@ class QrackSimulator:
         Qrack.qrack_lib.SetTInjection(self.sid, iti)
         self._throw_if_error()
 
+    def set_use_exact_near_clifford(self, enc):
+        """Set option to use exact near-Clifford simulation
+
+        If t-injection is available, this method turns exact near-Clifford
+        simulation off/on. (Default is on.) Approximate methods are faster.
+
+        Args:
+            enc: "on/off" for exact near-Clifford simulation
+
+        Raises:
+            RuntimeError: QrackSimulator raised an exception.
+        """
+        Qrack.qrack_lib.SetUseExactNearClifford(self.sid, enc)
+        self._throw_if_error()
+
     def set_noise_parameter(self, np):
         """Set noise parameter option
 
@@ -3318,6 +3309,41 @@ class QrackSimulator:
             RuntimeError: QrackSimulator raised an exception.
         """
         Qrack.qrack_lib.SetNoiseParameter(self.sid, np)
+        self._throw_if_error()
+
+    def set_ace_max_qb(self, qb):
+        """Set "automatic circuit elision" (ACE) max qubits
+
+        If isSchmidtDecompose=True, maximum entangled subsytem size
+        of this simulator will be capped to 'qb', and entangling
+        gates that would exceed that size are replaced with gate
+        shadows.
+
+        Args:
+            qb: maximum subsystem qubits
+
+        Raises:
+            RuntimeError: QrackSimulator raised an exception.
+        """
+        Qrack.qrack_lib.SetAceMaxQb(self.sid, qb)
+        self._throw_if_error()
+
+    def set_sparse_ace_max_mb(self, mb):
+        """Set sparse "automatic circuit elision" (ACE) max memory
+
+        If isSchmidtDecompose=True, isSparse=True, and
+        isOpenCL=False, maximum subsytem size memory MB of this
+        simulator will be capped to 'mb', and entangling gates
+        that would exceed that size are replaced with gate
+        shadows.
+
+        Args:
+            mb: maximum subsystem memory in MB
+
+        Raises:
+            RuntimeError: QrackSimulator raised an exception.
+        """
+        Qrack.qrack_lib.SetSparseAceMaxMb(self.sid, mb)
         self._throw_if_error()
 
     def normalize(self):
@@ -3501,9 +3527,7 @@ class QrackSimulator:
             "swap",
         ]
         try:
-            circ = transpile(
-                clifford_circ, basis_gates=basis_gates, optimization_level=2
-            )
+            circ = transpile(clifford_circ, basis_gates=basis_gates, optimization_level=2)
         except:
             circ = clifford_circ
 
@@ -3599,9 +3623,7 @@ class QrackSimulator:
                         )
                     elif op.name == "h":
                         non_clifford = np.matmul(
-                            np.array(
-                                [[sqrt1_2, sqrt1_2], [sqrt1_2, -sqrt1_2]], np.complex128
-                            ),
+                            np.array([[sqrt1_2, sqrt1_2], [sqrt1_2, -sqrt1_2]], np.complex128),
                             non_clifford,
                         )
                     elif op.name == "x":
@@ -3709,9 +3731,7 @@ class QrackSimulator:
                     j += 1
                     continue
 
-                if (q1 == i) and (
-                    (op.name == "cx") or (op.name == "cy") or (op.name == "cz")
-                ):
+                if (q1 == i) and ((op.name == "cx") or (op.name == "cy") or (op.name == "cz")):
                     if np.isclose(np.abs(non_clifford[0][1]), 0) and np.isclose(
                         np.abs(non_clifford[1][0]), 0
                     ):
@@ -3777,9 +3797,7 @@ class QrackSimulator:
                     elif op.name == "h":
                         non_clifford = np.matmul(
                             non_clifford,
-                            np.array(
-                                [[sqrt1_2, sqrt1_2], [sqrt1_2, -sqrt1_2]], np.complex128
-                            ),
+                            np.array([[sqrt1_2, sqrt1_2], [sqrt1_2, -sqrt1_2]], np.complex128),
                         )
                     elif op.name == "x":
                         non_clifford = np.matmul(
@@ -3969,12 +3987,8 @@ class QrackSimulator:
             qasm = qasm3.dumps(circ)
         except:
             qasm = circ.qasm()
-        qasm = qasm.replace(
-            "qreg q[" + str(circ.width()) + "];", "qreg q[" + str(width) + "];"
-        )
-        highest_index = max(
-            [int(x) for x in re.findall(r"\[(.*?)\]", qasm) if x.isdigit()]
-        )
+        qasm = qasm.replace("qreg q[" + str(circ.width()) + "];", "qreg q[" + str(width) + "];")
+        highest_index = max([int(x) for x in re.findall(r"\[(.*?)\]", qasm) if x.isdigit()])
         if highest_index != width:
             qasm = qasm.replace(
                 "qreg q[" + str(width) + "];", "qreg q[" + str(highest_index) + "];"
@@ -4089,17 +4103,11 @@ class QrackSimulator:
                 (-1 * float(operation.params[1])) + math.pi / 2,
             )
         elif name == "rx":
-            self._sim.r(
-                Pauli.PauliX, float(operation.params[0]), operation.qubits[0]._index
-            )
+            self._sim.r(Pauli.PauliX, float(operation.params[0]), operation.qubits[0]._index)
         elif name == "ry":
-            self._sim.r(
-                Pauli.PauliY, float(operation.params[0]), operation.qubits[0]._index
-            )
+            self._sim.r(Pauli.PauliY, float(operation.params[0]), operation.qubits[0]._index)
         elif name == "rz":
-            self._sim.r(
-                Pauli.PauliZ, float(operation.params[0]), operation.qubits[0]._index
-            )
+            self._sim.r(Pauli.PauliZ, float(operation.params[0]), operation.qubits[0]._index)
         elif name == "h":
             self._sim.h(operation.qubits[0]._index)
         elif name == "x":
@@ -4151,21 +4159,13 @@ class QrackSimulator:
                 float(operation.params[2]),
             )
         elif name == "cx":
-            self._sim.mcx(
-                [q._index for q in operation.qubits[0:1]], operation.qubits[1]._index
-            )
+            self._sim.mcx([q._index for q in operation.qubits[0:1]], operation.qubits[1]._index)
         elif name == "cy":
-            self._sim.mcy(
-                [q._index for q in operation.qubits[0:1]], operation.qubits[1]._index
-            )
+            self._sim.mcy([q._index for q in operation.qubits[0:1]], operation.qubits[1]._index)
         elif name == "cz":
-            self._sim.mcz(
-                [q._index for q in operation.qubits[0:1]], operation.qubits[1]._index
-            )
+            self._sim.mcz([q._index for q in operation.qubits[0:1]], operation.qubits[1]._index)
         elif name == "ch":
-            self._sim.mch(
-                [q._index for q in operation.qubits[0:1]], operation.qubits[1]._index
-            )
+            self._sim.mch([q._index for q in operation.qubits[0:1]], operation.qubits[1]._index)
         elif name == "cp":
             self._sim.mcmtrx(
                 [q._index for q in operation.qubits[0:1]],
@@ -4191,34 +4191,20 @@ class QrackSimulator:
                 operation.qubits[1]._index,
             )
         elif name == "dcx":
-            self._sim.mcx(
-                [q._index for q in operation.qubits[0:1]], operation.qubits[1]._index
-            )
+            self._sim.mcx([q._index for q in operation.qubits[0:1]], operation.qubits[1]._index)
             self._sim.mcx(operation.qubits[1:2]._index, operation.qubits[0]._index)
         elif name == "ccx":
-            self._sim.mcx(
-                [q._index for q in operation.qubits[0:2]], operation.qubits[2]._index
-            )
+            self._sim.mcx([q._index for q in operation.qubits[0:2]], operation.qubits[2]._index)
         elif name == "ccy":
-            self._sim.mcy(
-                [q._index for q in operation.qubits[0:2]], operation.qubits[2]._index
-            )
+            self._sim.mcy([q._index for q in operation.qubits[0:2]], operation.qubits[2]._index)
         elif name == "ccz":
-            self._sim.mcz(
-                [q._index for q in operation.qubits[0:2]], operation.qubits[2]._index
-            )
+            self._sim.mcz([q._index for q in operation.qubits[0:2]], operation.qubits[2]._index)
         elif name == "mcx":
-            self._sim.mcx(
-                [q._index for q in operation.qubits[0:-1]], operation.qubits[-1]._index
-            )
+            self._sim.mcx([q._index for q in operation.qubits[0:-1]], operation.qubits[-1]._index)
         elif name == "mcy":
-            self._sim.mcy(
-                [q._index for q in operation.qubits[0:-1]], operation.qubits[-1]._index
-            )
+            self._sim.mcy([q._index for q in operation.qubits[0:-1]], operation.qubits[-1]._index)
         elif name == "mcz":
-            self._sim.mcz(
-                [q._index for q in operation.qubits[0:-1]], operation.qubits[-1]._index
-            )
+            self._sim.mcz([q._index for q in operation.qubits[0:-1]], operation.qubits[-1]._index)
         elif name == "swap":
             self._sim.swap(operation.qubits[0]._index, operation.qubits[1]._index)
         elif name == "iswap":
@@ -4270,9 +4256,9 @@ class QrackSimulator:
                         cregbit = clbit
 
                     regbit = 1 << cregbit
-                    self._classical_register = (
-                        self._classical_register & (~regbit)
-                    ) | (qubit_outcome << cregbit)
+                    self._classical_register = (self._classical_register & (~regbit)) | (
+                        qubit_outcome << cregbit
+                    )
 
         elif name == "bfunc":
             mask = int(operation.mask, 16)
@@ -4387,9 +4373,7 @@ class QrackSimulator:
             if operation.name == "id" or operation.name == "barrier":
                 continue
 
-            if is_initializing and (
-                (operation.name == "measure") or (operation.name == "reset")
-            ):
+            if is_initializing and ((operation.name == "measure") or (operation.name == "reset")):
                 continue
 
             is_initializing = False
@@ -4447,14 +4431,13 @@ class QrackSimulator:
                 self._sample_cregbits = []
 
         if self._sample_measure and (len(self._sample_qubits) > 0):
-            _data = self._add_sample_measure(
-                self._sample_qubits, self._sample_clbits, self._shots
-            )
+            _data = self._add_sample_measure(self._sample_qubits, self._sample_clbits, self._shots)
 
         del self._sim
 
         return _data
 
+    @staticmethod
     def get_qiskit_basis_gates():
         return [
             "id",

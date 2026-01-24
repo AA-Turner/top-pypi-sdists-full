@@ -1,10 +1,9 @@
 import os
 from pathlib import Path
-import traceback
 from dotenv import load_dotenv
 
-from adam.config import Config
-from adam.k8s_utils.kube_context import KubeContext
+from adam.utils import creating_dir, debug, log_exc
+from adam.utils_k8s.kube_context import KubeContext
 
 class CredCache:
     # the singleton pattern
@@ -15,7 +14,7 @@ class CredCache:
 
     def __init__(self):
         if not hasattr(self, 'env_f'):
-            self.dir = f'{Path.home()}/.kaqing'
+            self.dir = creating_dir(f'{Path.home()}/.kaqing')
             self.env_f = f'{self.dir}/.credentials'
             # immutable - cannot reload with different file content
             load_dotenv(dotenv_path=self.env_f)
@@ -34,10 +33,8 @@ class CredCache:
     def cache(self, username: str, password: str = None):
         if os.path.exists(self.env_f):
             with open(self.env_f, 'w') as file:
-                try:
+                with log_exc():
                     file.truncate()
-                except:
-                    Config().debug(traceback.format_exc())
 
         updated = []
         updated.append(f'IDP_USERNAME={username}')
@@ -46,8 +43,6 @@ class CredCache:
             updated.append(f'IDP_PASSWORD={password}')
 
         if updated:
-            if not os.path.exists(self.env_f):
-                os.makedirs(self.dir, exist_ok=True)
             with open(self.env_f, 'w') as file:
                 file.write('\n'.join(updated))
 
@@ -56,4 +51,4 @@ class CredCache:
             if password:
                 self.overrides['IDP_PASSWORD'] = password
 
-            Config().debug(f'Cached username: {username}, password: {password}, try load: {self.get_username()}')
+            debug(f'Cached username: {username}, password: {password}, try load: {self.get_username()}')

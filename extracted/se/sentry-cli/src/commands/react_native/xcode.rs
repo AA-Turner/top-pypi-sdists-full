@@ -22,6 +22,7 @@ use crate::utils::args::{validate_distribution, ArgExt as _};
 use crate::utils::file_search::ReleaseFileSearch;
 use crate::utils::file_upload::UploadContext;
 use crate::utils::fs::TempFile;
+use crate::utils::non_empty::NonEmptyVec;
 use crate::utils::sourcemaps::SourceMapProcessor;
 use crate::utils::system::propagate_exit_status;
 use crate::utils::xcode::InfoPlist;
@@ -339,17 +340,18 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
     let wait = matches.get_flag("wait") || wait_for_secs.is_some();
     let max_wait = wait_for_secs.map_or(DEFAULT_MAX_WAIT, std::time::Duration::from_secs);
 
+    let projects = NonEmptyVec::from([project]);
+
     if dist_from_env.is_err() && release_from_env.is_err() && matches.get_flag("no_auto_release") {
         processor.upload(&UploadContext {
             org: &org,
-            projects: &[project],
+            projects: projects.as_non_empty_slice(),
             release: None,
             dist: None,
             note: None,
             wait,
             max_wait,
-            dedupe: false,
-            chunk_upload_options: chunk_upload_options.as_ref(),
+            chunk_upload_options: &chunk_upload_options,
         })?;
     } else {
         let (dist, release_name) = match (&dist_from_env, &release_from_env) {
@@ -378,29 +380,26 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
             None => {
                 processor.upload(&UploadContext {
                     org: &org,
-                    projects: &[project],
+                    projects: projects.as_non_empty_slice(),
                     release: release_name.as_deref(),
                     dist: dist.as_deref(),
                     note: None,
                     wait,
                     max_wait,
-                    dedupe: false,
-                    chunk_upload_options: chunk_upload_options.as_ref(),
+                    chunk_upload_options: &chunk_upload_options,
                 })?;
             }
             Some(dists) => {
-                let projects = &[project];
                 for dist in dists {
                     processor.upload(&UploadContext {
                         org: &org,
-                        projects,
+                        projects: projects.as_non_empty_slice(),
                         release: release_name.as_deref(),
                         dist: Some(dist),
                         note: None,
                         wait,
                         max_wait,
-                        dedupe: false,
-                        chunk_upload_options: chunk_upload_options.as_ref(),
+                        chunk_upload_options: &chunk_upload_options,
                     })?;
                 }
             }

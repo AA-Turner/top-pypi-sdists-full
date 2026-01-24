@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Iterable, List, cast
+from typing import cast
+from collections.abc import Iterable
 
 from grimp import ImportGraph
 
@@ -83,8 +84,7 @@ class ForbiddenContract(Contract):
             for forbidden_module in sorted(forbidden_modules_in_graph, key=sort_key):
                 output.verbose_print(
                     verbose,
-                    "Searching for import chains from "
-                    f"{source_module} to {forbidden_module}...",
+                    f"Searching for import chains from {source_module} to {forbidden_module}...",
                 )
                 with settings.TIMER as timer:
                     subpackage_chain_data = {
@@ -95,7 +95,10 @@ class ForbiddenContract(Contract):
 
                     if str(self.allow_indirect_imports).lower() == "true":
                         chains = self._get_direct_chains(
-                            source_module, forbidden_module, graph, self.as_packages  # type:ignore
+                            source_module,
+                            forbidden_module,
+                            graph,
+                            self.as_packages,  # type:ignore
                         )
                     else:
                         chains = graph.find_shortest_chains(
@@ -143,17 +146,23 @@ class ForbiddenContract(Contract):
             metadata={"invalid_chains": sorted(invalid_chains, key=chain_sort_key)},
         )
 
-    def render_broken_contract(self, check: "ContractCheck") -> None:
+    def render_broken_contract(self, check: ContractCheck) -> None:
         count = 0
         for chains_data in check.metadata["invalid_chains"]:
-            downstream, upstream = chains_data["downstream_module"], chains_data["upstream_module"]
+            downstream, upstream = (
+                chains_data["downstream_module"],
+                chains_data["upstream_module"],
+            )
             output.print_error(f"{downstream} is not allowed to import {upstream}:")
             output.new_line()
             count += len(chains_data["chains"])
             for chain in chains_data["chains"]:
                 first_line = True
                 for direct_import in chain:
-                    importer, imported = direct_import["importer"], direct_import["imported"]
+                    importer, imported = (
+                        direct_import["importer"],
+                        direct_import["imported"],
+                    )
                     line_numbers = format_line_numbers(direct_import["line_numbers"])
                     import_string = f"{importer} -> {imported} ({line_numbers})"
                     if first_line:
@@ -193,7 +202,7 @@ class ForbiddenContract(Contract):
         root_packages = [Module(name) for name in self.session_options["root_packages"]]
         return {
             forbidden_module
-            for forbidden_module in cast(List[Module], forbidden_modules)
+            for forbidden_module in cast(list[Module], forbidden_modules)
             if not any(
                 forbidden_module.is_in_package(root_package) for root_package in root_packages
             )

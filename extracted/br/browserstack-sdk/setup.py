@@ -25,11 +25,13 @@ requirements=[
         'pytest-xdist',
         'pytest-rerunfailures',
         'robotframework-retryfailed',
-        'protobuf==4.25.8',
+        "protobuf==4.25.8;python_version<'3.14'",
+        "protobuf==6.33.0;python_version>='3.14'",
         'watchdog',
         'filelock',
         "grpcio==1.62.3;python_version<'3.13'",
-        "grpcio==1.70.0;python_version>='3.13'",
+        "grpcio==1.70.0;python_version=='3.13'",
+        "grpcio==1.75.1;python_version>='3.14'"
     ]
 
 

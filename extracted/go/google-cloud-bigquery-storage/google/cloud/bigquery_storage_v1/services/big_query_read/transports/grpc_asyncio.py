@@ -149,8 +149,9 @@ class BigQueryReadGrpcAsyncIOTransport(BigQueryReadTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -201,9 +202,10 @@ class BigQueryReadGrpcAsyncIOTransport(BigQueryReadTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -385,9 +387,9 @@ class BigQueryReadGrpcAsyncIOTransport(BigQueryReadTransport):
 
         Reads rows from the stream in the format prescribed
         by the ReadSession. Each response contains one or more
-        table rows, up to a maximum of 100 MiB per response;
-        read requests which attempt to read individual rows
-        larger than 100 MiB will fail.
+        table rows, up to a maximum of 128 MB per response; read
+        requests which attempt to read individual rows larger
+        than 128 MB will fail.
 
         Each request also returns a set of stream statistics
         reflecting the current state of the stream.

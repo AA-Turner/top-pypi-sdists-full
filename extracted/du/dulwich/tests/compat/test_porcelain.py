@@ -27,7 +27,7 @@ from unittest import skipIf
 from dulwich import porcelain
 from dulwich.tests.utils import build_commit_graph
 
-from ..test_porcelain import PorcelainGpgTestCase
+from ..porcelain import PorcelainGpgTestCase
 from .utils import CompatTestCase, run_git_or_fail
 
 try:
@@ -43,7 +43,7 @@ except ImportError:
 class TagCreateSignTestCase(PorcelainGpgTestCase, CompatTestCase):
     def test_sign(self) -> None:
         # Test that dulwich signatures can be verified by CGit
-        c1, c2, c3 = build_commit_graph(
+        _c1, _c2, c3 = build_commit_graph(
             self.repo.object_store, [[1], [2, 1], [3, 1, 2]]
         )
         self.repo.refs[b"HEAD"] = c3.id
@@ -67,7 +67,7 @@ class TagCreateSignTestCase(PorcelainGpgTestCase, CompatTestCase):
 
     def test_verify(self) -> None:
         # Test that CGit signatures can be verified by dulwich
-        c1, c2, c3 = build_commit_graph(
+        _c1, _c2, c3 = build_commit_graph(
             self.repo.object_store, [[1], [2, 1], [3, 1, 2]]
         )
         self.repo.refs[b"HEAD"] = c3.id
@@ -109,7 +109,7 @@ class CommitCreateSignTestCase(PorcelainGpgTestCase, CompatTestCase):
             self.repo.path,
             b"messy message messiah",
             b"foo <foo@b.ar>",
-            signoff=True,
+            sign=True,
         )
 
         run_git_or_fail(

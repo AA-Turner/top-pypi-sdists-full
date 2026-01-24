@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.8.11,<0.9.0"]
+requires = ["uv_build>=0.9.16,<0.10.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -8,7 +8,7 @@ module-root = ""
 [project]
 name = "optype"
 description = "Building Blocks for Precise & Flexible Type Hints"
-version = "0.13.4"
+version = "0.15.0"
 authors = [{ name = "Joren Hammudoglu", email = "jhammudoglu@gmail.com" }]
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
@@ -52,7 +52,7 @@ dependencies = ["typing-extensions>=4.10; python_version<'3.13'"]
 [project.optional-dependencies]
 numpy = [
   "numpy>=1.25",
-  "numpy-typing-compat>=20250818.1.25,<20250819",
+  "numpy-typing-compat>=20250818.1.25,<20251207",
 ]
 
 [project.urls]
@@ -67,21 +67,23 @@ extra = [
   "optype[numpy]",
 ]
 lint = [
-  "dprint-py>=0.50.1.4",
-  "ruff>=0.12.9",
-  "sp-repo-review[cli]>=2025.5.2",
+  "dprint-py>=0.50.2.0",
+  "ruff>=0.14.8",
+  "sp-repo-review[cli]>=2025.11.21",
 ]
 test = [
   { include-group = "extra" },
-  "beartype>=0.21.0",
-  "pytest>=8.4.1",
-  "typing-extensions>=4.14.1",
+  "beartype>=0.22.8",
+  "pytest>=9.0.2",
+  "typing-extensions>=4.15.0",
 ]
 type = [
   { include-group = "extra" },
   { include-group = "test" },
-  "basedpyright>=1.31.2",
-  "mypy[faster-cache]>=1.17.1",
+  "basedpyright>=1.35.0",
+  "mypy[faster-cache]>=1.19.0",
+  "pyrefly==0.44.2",
+  "ty==0.0.1a32",
 ]
 dev = [
   { include-group = "extra" },
@@ -110,6 +112,11 @@ enable_error_code = [
 warn_return_any = false
 warn_unreachable = false # numpy-typing-compat compat
 
+# pyrefly
+
+[tool.pyrefly]
+project-includes = ["optype", "examples", "tests"]
+
 # [based]pyright
 
 [tool.pyright]
@@ -125,22 +132,41 @@ reportExplicitAny = false # sometimes there's no way around it
 reportImplicitStringConcatenation = false # not a linter
 reportPrivateUsage = false # dupe of PLC2701
 reportPrivateImportUsage = false # dupe of PLC2701
-reportShadowedImports = false # buggy
 reportUnreachable = false # nothing wrong with `if sys.version_info() >= ...`
 reportUnusedCallResult = false # https://github.com/microsoft/pyright/issues/8650
 reportUnusedImport = false # dupe of F401
 reportUnusedVariable = false # dupe of F841
 
+# ty
+
+[tool.ty]
+
+[tool.ty.environment]
+python-platform = "all"
+python-version = "3.11" # unlike mypy and pyright, this doesn't depend on the Python env
+
+[tool.ty.src]
+include = [
+  "optype",
+  # there are  too many false positives in these dirs for now
+  # "examples",
+  # "tests",
+]
+
+[tool.ty.rules]
+# unused-ignore-comment = "warn"  # will also complain about mypy `# type: ignore` comments
+possibly-unresolved-reference = "error"
+
 # pytest
 
-[tool.pytest.ini_options]
-minversion = "8.0"
+[tool.pytest]
+minversion = "9.0"
 testpaths = ["optype", "examples", "tests"]
-addopts = ["-ra", "--doctest-modules", "--strict-config", "--strict-markers"]
+addopts = ["-ra", "--doctest-modules"]
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL", "ELLIPSIS"]
 filterwarnings = ["error"]
-log_cli_level = "INFO"
-xfail_strict = true
+log_level = "INFO"
+strict = true
 
 # repo-review
 
@@ -151,7 +177,7 @@ ignore = [
   "RTD100", # Uses ReadTheDocs
 ]
 
-# tox
+# ruff
 
 [tool.ruff]
 src = ["optype", "examples", "tests"]
@@ -241,6 +267,8 @@ env_list = [
   "3.14",
   "dprint",
   "ruff",
+  "ty",
+  "pyrefly",
   "mypy",
   "pyright",
   "pyright-verify",
@@ -290,6 +318,30 @@ commands = [
   ],
 ]
 
+[tool.tox.env.ty]
+description = "ty"
+runner = "uv-venv-lock-runner"
+dependency_groups = ["type"]
+commands = [
+  [
+    "ty",
+    "check",
+    { replace = "posargs", default = [], extend = true },
+  ],
+]
+
+[tool.tox.env.pyrefly]
+description = "pyrefly"
+runner = "uv-venv-lock-runner"
+dependency_groups = ["type"]
+commands = [
+  [
+    "pyrefly",
+    "check",
+    { replace = "posargs", default = [], extend = true },
+  ],
+]
+
 [tool.tox.env.mypy]
 description = "mypy"
 runner = "uv-venv-lock-runner"
@@ -323,6 +375,8 @@ description = "repo-review"
 runner = "uv-venv-lock-runner"
 dependency_groups = ["lint"]
 commands = [["repo-review", "."]]
+
+# typos
 
 [tool.typos.default]
 extend-ignore-identifiers-re = [

@@ -1,7 +1,6 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
-from functools import cached_property
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from starlette.applications import (
@@ -12,7 +11,7 @@ from marimo import _loggers
 from marimo._ai._tools.base import ToolBase, ToolContext
 from marimo._ai._tools.tools_registry import SUPPORTED_BACKEND_AND_MCP_TOOLS
 from marimo._config.config import CopilotMode
-from marimo._server.ai.mcp import get_mcp_client
+from marimo._server.ai.mcp.client import get_mcp_client
 from marimo._server.ai.tools.types import (
     FunctionArgs,
     ToolCallResult,
@@ -20,7 +19,6 @@ from marimo._server.ai.tools.types import (
     ToolSource,
     ValidationFunction,
 )
-from marimo._server.api.deps import AppState
 from marimo._utils.once import once
 
 if TYPE_CHECKING:
@@ -42,13 +40,6 @@ class ToolManager:
         self._validation_functions: dict[str, ValidationFunction] = {}
         self.app: Starlette = app
 
-    @cached_property
-    def _enable_mcp_tools(self) -> bool:
-        # This may be stale but it is ok, since we want to enable MCP on startup
-        app_state = AppState.from_app(self.app)
-        config = app_state.config_manager.get_config()
-        return bool(config.get("experimental", {}).get("mcp_docs", False))
-
     @once
     def _init_backend_tools(self) -> None:
         """Initialize backend tools. We lazily register tools here instead of in the constructor for performance"""
@@ -62,7 +53,8 @@ class ToolManager:
         """Register a backend tool with its handler function and optional validator."""
         name = tool.name
         tool_definition, validation_function = tool.as_backend_tool(
-            mode=["ask"]
+            # TODO: Tools should define their own supported modes
+            mode=["ask", "agent"]
         )
         self._tools[name] = tool_definition
         self._backend_handlers[name] = tool.__call__
@@ -70,21 +62,13 @@ class ToolManager:
 
         LOGGER.debug(f"Registered backend tool: {name}")
 
-    def _register_frontend_tool(self, tool: ToolDefinition) -> None:
-        """Register a frontend tool (definition only - no handler or validator needed)."""
-        if tool.source != "frontend":
-            raise ValueError("Tool source must be 'frontend'")
-
-        self._tools[tool.name] = tool
-        LOGGER.debug(f"Registered frontend tool: {tool.name}")
-
     def _get_all_tools(self) -> list[ToolDefinition]:
-        """Get all available frontend, backend, and MCP tools."""
+        """Get all available backend, and MCP tools."""
         self._init_backend_tools()
 
-        local_tools = list(self._tools.values())
+        backend_tools = list(self._tools.values())
         mcp_tools = self._list_mcp_tools()
-        all_tools = local_tools + mcp_tools
+        all_tools = backend_tools + mcp_tools
         return all_tools
 
     def get_tools_for_mode(self, mode: CopilotMode) -> list[ToolDefinition]:
@@ -111,10 +95,11 @@ class ToolManager:
                 if tool and tool.source == "backend":
                     return tool
             elif source == "frontend":
-                # Check if it's a frontend tool
-                tool = self._tools.get(name)
-                if tool and tool.source == "frontend":
-                    return tool
+                # ToolManager does not handle frontend tools
+                LOGGER.warning(
+                    f"Tool {name} is a frontend tool and should not be accessed in the backend."
+                )
+                return None
             elif source == "mcp":
                 # Check MCP tools
                 mcp_tools = self._list_mcp_tools()
@@ -168,9 +153,6 @@ class ToolManager:
 
     def _list_mcp_tools(self) -> list[ToolDefinition]:
         """Get all MCP tools from the MCP client."""
-        if not self._enable_mcp_tools:
-            return []
-
         try:
             mcp_client = get_mcp_client()
             mcp_tools = mcp_client.get_all_tools()
@@ -194,8 +176,9 @@ class ToolManager:
             description=mcp_tool.description or "No description available",
             parameters=mcp_tool.inputSchema,
             source="mcp",
-            mode=["ask"],  # MCP tools available in ask mode for now
-            # TODO(bjoaquinc): change default mode to "agent" when we add agent mode
+            # MCP tools available in ask mode and agent mode
+            # TODO: Determine which tools to support in agent mode
+            mode=["ask", "agent"],
         )
 
     async def invoke_tool(
@@ -295,7 +278,7 @@ class ToolManager:
 
             else:
                 # Unknown tool source
-                system_error = f"Unknown tool source: {tool.source} for tool {tool_name}. Supported sources are: backend, frontend, mcp."
+                system_error = f"Unknown tool source: {tool.source} for tool {tool_name}. Supported sources are: backend and mcp."
                 LOGGER.error(system_error)
                 return ToolCallResult(
                     tool_name=tool_name,
@@ -352,9 +335,7 @@ def setup_tool_manager(app: Starlette) -> None:
     global _TOOL_MANAGER
     if _TOOL_MANAGER is None:
         _TOOL_MANAGER = ToolManager(app)
-        LOGGER.info(
-            f"ToolManager initialized with {len(_TOOL_MANAGER._tools)} backend/frontend tools"
-        )
+        LOGGER.info("ToolManager initialized")
 
 
 def get_tool_manager() -> ToolManager:

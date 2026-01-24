@@ -3,7 +3,7 @@ Type annotations for ds-data service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ds_data/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,16 +17,11 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import Union
 
 from .literals import GroupScopeType, GroupTypeType, MemberTypeType, UpdateTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -89,7 +84,7 @@ class AttributeValueOutputTypeDef(TypedDict):
     BOOL: NotRequired[bool]
     N: NotRequired[int]
     S: NotRequired[str]
-    SS: NotRequired[List[str]]
+    SS: NotRequired[list[str]]
 
 class AttributeValueTypeDef(TypedDict):
     BOOL: NotRequired[bool]
@@ -100,7 +95,7 @@ class AttributeValueTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -210,7 +205,7 @@ class GroupTypeDef(TypedDict):
     DistinguishedName: NotRequired[str]
     GroupScope: NotRequired[GroupScopeType]
     GroupType: NotRequired[GroupTypeType]
-    OtherAttributes: NotRequired[Dict[str, AttributeValueOutputTypeDef]]
+    OtherAttributes: NotRequired[dict[str, AttributeValueOutputTypeDef]]
     SID: NotRequired[str]
 
 class UserTypeDef(TypedDict):
@@ -219,7 +214,7 @@ class UserTypeDef(TypedDict):
     EmailAddress: NotRequired[str]
     Enabled: NotRequired[bool]
     GivenName: NotRequired[str]
-    OtherAttributes: NotRequired[Dict[str, AttributeValueOutputTypeDef]]
+    OtherAttributes: NotRequired[dict[str, AttributeValueOutputTypeDef]]
     SID: NotRequired[str]
     Surname: NotRequired[str]
     UserPrincipalName: NotRequired[str]
@@ -243,7 +238,7 @@ class DescribeGroupResultTypeDef(TypedDict):
     DistinguishedName: str
     GroupScope: GroupScopeType
     GroupType: GroupTypeType
-    OtherAttributes: Dict[str, AttributeValueOutputTypeDef]
+    OtherAttributes: dict[str, AttributeValueOutputTypeDef]
     Realm: str
     SAMAccountName: str
     SID: str
@@ -255,7 +250,7 @@ class DescribeUserResultTypeDef(TypedDict):
     EmailAddress: str
     Enabled: bool
     GivenName: str
-    OtherAttributes: Dict[str, AttributeValueOutputTypeDef]
+    OtherAttributes: dict[str, AttributeValueOutputTypeDef]
     Realm: str
     SAMAccountName: str
     SID: str
@@ -265,7 +260,7 @@ class DescribeUserResultTypeDef(TypedDict):
 
 class ListGroupsForMemberResultTypeDef(TypedDict):
     DirectoryId: str
-    Groups: List[GroupSummaryTypeDef]
+    Groups: list[GroupSummaryTypeDef]
     MemberRealm: str
     Realm: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -273,7 +268,7 @@ class ListGroupsForMemberResultTypeDef(TypedDict):
 
 class ListGroupsResultTypeDef(TypedDict):
     DirectoryId: str
-    Groups: List[GroupSummaryTypeDef]
+    Groups: list[GroupSummaryTypeDef]
     Realm: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -319,7 +314,7 @@ class SearchUsersRequestPaginateTypeDef(TypedDict):
 class ListGroupMembersResultTypeDef(TypedDict):
     DirectoryId: str
     MemberRealm: str
-    Members: List[MemberTypeDef]
+    Members: list[MemberTypeDef]
     Realm: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -327,13 +322,13 @@ class ListGroupMembersResultTypeDef(TypedDict):
 class ListUsersResultTypeDef(TypedDict):
     DirectoryId: str
     Realm: str
-    Users: List[UserSummaryTypeDef]
+    Users: list[UserSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class SearchGroupsResultTypeDef(TypedDict):
     DirectoryId: str
-    Groups: List[GroupTypeDef]
+    Groups: list[GroupTypeDef]
     Realm: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -341,7 +336,7 @@ class SearchGroupsResultTypeDef(TypedDict):
 class SearchUsersResultTypeDef(TypedDict):
     DirectoryId: str
     Realm: str
-    Users: List[UserTypeDef]
+    Users: list[UserTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

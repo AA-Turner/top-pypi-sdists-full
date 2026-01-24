@@ -2,8 +2,6 @@
 """
 # pyright: reportPrivateImportUsage=false
 
-from __future__ import annotations
-
 import multiprocessing
 import os
 from concurrent.futures import ProcessPoolExecutor

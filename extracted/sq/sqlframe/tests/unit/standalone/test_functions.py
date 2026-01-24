@@ -1,5 +1,6 @@
 import datetime
 import inspect
+import operator
 
 import pytest
 from sqlglot import expressions as exp
@@ -12,26 +13,22 @@ from sqlframe.standalone import functions as SF
 
 @pytest.mark.parametrize("name,func", inspect.getmembers(SF, inspect.isfunction))
 def test_invoke_anonymous(name, func):
-    # array_size - converts to `size` but `array_size` and `size` behave differently
-    # exists - the spark exists takes a lambda function and the exists in SQLGlot seems more basic
-    # make_interval - SQLGlot doesn't support week
-    # to_char - convert to a cast that ignores the format provided
-    # ltrim/rtrim - don't seem to convert correctly on some engines
-    # unix_micros - it is actually supported just an engine specific override uses an anonymous function
-    # format_string - seemed like a complex match that had overrides so not worth it
-    # bit_count - requires an override for DuckDB
     ignore_funcs = {
-        "array_size",
-        "exists",
-        "make_interval",
-        "to_char",
-        "ltrim",
-        "rtrim",
+        "array_size",  # converts to `size` but `array_size` and `size` behave differently
+        "exists",  # the spark exists takes a lambda function and the exists in SQLGlot seems more basic
+        "make_interval",  # SQLGlot doesn't support week
+        "to_char",  # convert to a cast that ignores the format provided
+        "ltrim",  # don't seem to convert correctly on some engines
+        "rtrim",  # don't seem to convert correctly on some engines
         "ascii",
-        "current_schema",
-        "unix_micros",
-        "format_string",
-        "bit_count",
+        "unix_micros",  # it is actually supported just an engine specific override uses an anonymous function
+        "format_string",  # seemed like a complex match that had overrides so not worth it
+        "bit_count",  # requires an override for DuckDB
+        "grouping_id",  # Snowflake and DuckDB stopped working when switching to expressions
+        "current_catalog",  # Anonymous is needed for spark override
+        "localtimestamp",  # Anonymous is needed for spark override
+        "skewness",  # Has complex overrides already so just not updating it
+        "sort_array",  # Anonymous is need for some engines but not all
     }
     if "invoke_anonymous_function" in inspect.getsource(func) and name not in ignore_funcs:
         func = parse_one(f"{name}()", read="spark", error_level=ErrorLevel.IGNORE)
@@ -57,8 +54,8 @@ def test_invoke_anonymous(name, func):
         ),
         (SF.lit({"cola": 1, "colb": "test"}), "MAP('cola', 1, 'colb', 'test')"),
         (SF.lit(Row(cola=1, colb="test")), "STRUCT(1 AS cola, 'test' AS colb)"),
-        (SF.lit(float("inf")), "'inf'"),
-        (SF.lit(float("-inf")), "'-inf'"),
+        (SF.lit(float("inf")), "CAST('inf' AS FLOAT)"),
+        (SF.lit(float("-inf")), "CAST('-inf' AS FLOAT)"),
     ],
 )
 def test_lit(expression, expected):
@@ -2823,6 +2820,16 @@ def test_from_csv(expression, expected):
             ),
             "AGGREGATE(cola, 0, (accumulator, target) -> (accumulator + target), accumulator -> (accumulator * 2))",
         ),
+        # Test operator.add
+        (
+            SF.aggregate("cola", SF.lit(0), operator.add),
+            "AGGREGATE(cola, 0, (a, b) -> (a + b))",
+        ),
+        # Test operator.mul with finish function
+        (
+            SF.aggregate("cola", SF.lit(1), operator.mul, lambda acc: acc * 2),
+            "AGGREGATE(cola, 1, (a, b) -> (a * b), acc -> (acc * 2))",
+        ),
     ],
 )
 def test_aggregate(expression, expected):
@@ -3418,7 +3425,7 @@ def test_curdate(expression, expected):
 @pytest.mark.parametrize(
     "expression, expected",
     [
-        (SF.current_catalog(), "CURRENT_CATALOG()"),
+        (SF.current_catalog(), "CURRENT_CATALOG"),
     ],
 )
 def test_current_catalog(expression, expected):
@@ -3874,8 +3881,7 @@ def test_ln(expression, expected):
 @pytest.mark.parametrize(
     "expression, expected",
     [
-        (SF.localtimestamp(), "LOCALTIMESTAMP()"),
-        (SF.localtimestamp(), "LOCALTIMESTAMP()"),
+        (SF.localtimestamp(), "LOCALTIMESTAMP"),
     ],
 )
 def test_localtimestamp(expression, expected):

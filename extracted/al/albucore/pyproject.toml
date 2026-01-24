@@ -5,7 +5,7 @@ requires = [ "setuptools>=45", "wheel" ]
 
 [project]
 name = "albucore"
-version = "0.0.33"
+version = "0.0.36"
 
 description = "High-performance image processing functions for deep learning and computer vision."
 readme = "README.md"
@@ -14,7 +14,7 @@ license = { file = "LICENSE" }
 maintainers = [ { name = "Vladimir Iglovikov" } ]
 
 authors = [ { name = "Vladimir Iglovikov" } ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -24,18 +24,29 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Scientific/Engineering :: Image Processing",
   "Topic :: Software Development :: Libraries",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Typing :: Typed",
 ]
-dynamic = [ "dependencies" ]
+
+dependencies = [
+  "numpy>=1.24.4",
+  "simsimd>=5.9.2",
+  "stringzilla>=3.10.4",
+]
+
+[project.optional-dependencies]
+contrib = ["opencv-contrib-python>=4.9.0.80"]
+contrib-headless = ["opencv-contrib-python-headless>=4.9.0.80"]
+gui = ["opencv-python>=4.9.0.80"]
+headless = ["opencv-python-headless>=4.9.0.80"]
 
 [tool.setuptools]
 packages = { find = { include = [
@@ -45,14 +56,14 @@ packages = { find = { include = [
   "benchmark",
 ] } }
 
-package-data = { albumentations = [ "*.txt", "*.md" ] }
+package-data = { albucore = [ "py.typed" ] }
 
 [tool.setuptools.exclude-package-data]
 "*" = [ "tests*", "tools*", "benchmark*", "conda.recipe*" ]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
-target-version = "py39"
+target-version = "py310"
 
 line-length = 120
 indent-width = 4
@@ -127,7 +138,7 @@ lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 lint.pydocstyle.convention = "google"
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 ignore_missing_imports = true
 follow_imports = "silent"
 warn_redundant_casts = true

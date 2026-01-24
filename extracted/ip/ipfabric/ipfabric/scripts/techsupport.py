@@ -96,7 +96,7 @@ def main():  # noqa:C901
     args = parse_args(parser)
 
     console.log(f"[bold blue]Initializing Techsupport API with base_url={args.base_url}...[/bold blue]")
-    ipf = IPFClient(snapshot_id=args.snapshot, base_url=args.base_url, auth=args.auth)
+    ipf = IPFClient(snapshot_id=args.snapshot, base_url=args.base_url, auth=args.auth, verify=(not args.insecure))
     ipf._client.headers["user-agent"] += "; ipf_techsupport"
     jobs = Jobs(client=ipf)
 

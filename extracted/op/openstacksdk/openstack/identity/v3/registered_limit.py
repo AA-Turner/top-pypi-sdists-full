@@ -115,7 +115,8 @@ class RegisteredLimit(resource.Resource):
                     body = body[self.resource_key]
 
                 # Keystone supports bunch create for registered limit. So the
-                # response body for creating registered_limit is a list instead of dict.
+                # response body for creating registered_limit is a list instead
+                # of dict.
                 if isinstance(body, list):
                     body = body[0]
 
@@ -149,4 +150,4 @@ class RegisteredLimit(resource.Resource):
         self._header.attributes.update(headers)
         self._header.clean()
         self._update_location()
-        dict.update(self, self.to_dict())  # type: ignore
+        dict.update(self, self.to_dict())

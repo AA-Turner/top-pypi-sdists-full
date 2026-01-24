@@ -12,9 +12,10 @@ import contextlib
 import dataclasses
 import datetime
 import enum
-from collections.abc import AsyncIterator, Collection, Iterable, Mapping, MutableMapping, Sequence
+from collections.abc import AsyncIterator, Callable, Collection, \
+                            Iterable, Mapping, MutableMapping, Sequence
 from contextvars import ContextVar
-from typing import Any, AsyncContextManager, Callable, NewType, Optional, Protocol, TypeVar
+from typing import Any, AsyncContextManager, NewType, Protocol, TypeVar
 
 from kopf._cogs.configs import configuration
 from kopf._cogs.helpers import typedefs
@@ -33,8 +34,8 @@ class TemporaryError(Exception):
     """ A potentially recoverable error, should be retried. """
     def __init__(
             self,
-            __msg: Optional[str] = None,
-            delay: Optional[float] = DEFAULT_RETRY_DELAY,
+            __msg: str | None = None,
+            delay: float | None = DEFAULT_RETRY_DELAY,
     ) -> None:
         super().__init__(__msg)
         self.delay = delay
@@ -78,50 +79,28 @@ class Outcome:
     (for YAML/JSON serialisation) rather than the actual in-memory objects.
     """
     final: bool
-    delay: Optional[float] = None
-    result: Optional[Result] = None
-    exception: Optional[Exception] = None
+    delay: float | None = None
+    result: Result | None = None
+    exception: Exception | None = None
     subrefs: Collection[ids.HandlerId] = ()
 
 
-@dataclasses.dataclass(frozen=True)
-class HandlerState:
+class HandlerState(Protocol):
     """
-    A persisted state of a single handler, as stored on the resource's status.
+    A minimal necessary protocol (interface) of a handler's runtime state.
 
-    Note the difference: `Outcome` is for in-memory results of handlers,
-    which is then additionally converted before being storing as a state.
-
-    Active handler states are those used in .done/.delays for the current
-    handling cycle & the current cause. Passive handler states are those
-    carried over for logging of counts/extras, and for final state purging,
-    but not participating in the current handling cycle.
+    The implementation and detailed fields are in `progression.HandlerState`.
     """
-    started: Optional[datetime.datetime] = None  # None means this information was lost.
-    stopped: Optional[datetime.datetime] = None  # None means it is still running (e.g. delayed).
-    delayed: Optional[datetime.datetime] = None  # None means it is finished (succeeded/failed).
-    retries: int = 0
-    success: bool = False
-    failure: bool = False
-
-    @property
-    def finished(self) -> bool:
-        return bool(self.success or self.failure)
-
-    @property
-    def sleeping(self) -> bool:
-        ts = self.delayed
-        now = datetime.datetime.now(datetime.timezone.utc)
-        return not self.finished and ts is not None and ts > now
+    started: datetime.datetime
+    retries: int
 
     @property
     def awakened(self) -> bool:
-        return bool(not self.finished and not self.sleeping)
+        raise NotImplementedError
 
     @property
     def runtime(self) -> datetime.timedelta:
-        now = datetime.datetime.now(datetime.timezone.utc)
-        return now - (self.started if self.started else now)
+        raise NotImplementedError
 
 
 class State(Mapping[ids.HandlerId, HandlerState]):
@@ -147,11 +126,11 @@ class Handler:
     """ A handler is a function bound with its behavioral constraints. """
     id: ids.HandlerId
     fn: invocation.Invokable
-    param: Optional[Any]
-    errors: Optional[ErrorsMode]
-    timeout: Optional[float]
-    retries: Optional[int]
-    backoff: Optional[float]
+    param: Any | None
+    errors: ErrorsMode | None
+    timeout: float | None
+    retries: int | None
+    backoff: float | None
 
     # Used in the logs. Overridden in some (but not all) handler types for better log messages.
     def __str__(self) -> str:
@@ -175,7 +154,7 @@ class LifeCycleFn(Protocol):
 
 # The task-local context; propagated down the stack instead of multiple kwargs.
 # Used in `@kopf.subhandler` and `kopf.execute()` to add/get the sub-handlers.
-sublifecycle_var: ContextVar[Optional[LifeCycleFn]] = ContextVar('sublifecycle_var')
+sublifecycle_var: ContextVar[LifeCycleFn | None] = ContextVar('sublifecycle_var')
 subsettings_var: ContextVar[configuration.OperatorSettings] = ContextVar('subsettings_var')
 subrefs_var: ContextVar[Iterable[set[ids.HandlerId]]] = ContextVar('subrefs_var')
 handler_var: ContextVar[Handler] = ContextVar('handler_var')
@@ -235,7 +214,7 @@ async def execute_handler_once(
         handler: Handler,
         cause: Cause,
         state: HandlerState,
-        lifecycle: Optional[LifeCycleFn] = None,
+        lifecycle: LifeCycleFn | None = None,
         extra_context: ExtraContext = no_extra_context,
         default_errors: ErrorsMode = ErrorsMode.TEMPORARY,
 ) -> Outcome:
@@ -265,9 +244,10 @@ async def execute_handler_once(
     try:
         logger.debug(f"{handler} is invoked.")
 
+        # Strict checks — contrary to the look-ahead checks below, which are approximate.
+        # The unforeseen extra time could be added by e.g. operator or cluster downtime.
         if handler.timeout is not None and state.runtime.total_seconds() >= handler.timeout:
             raise HandlerTimeoutError(f"{handler} has timed out after {state.runtime}.")
-
         if handler.retries is not None and state.retries >= handler.retries:
             raise HandlerRetriesError(f"{handler} has exceeded {state.retries} retries.")
 
@@ -275,7 +255,7 @@ async def execute_handler_once(
             handler=handler,
             cause=cause,
             retry=state.retries,
-            started=state.started or datetime.datetime.now(datetime.timezone.utc),  # "or" is for type-checking.
+            started=state.started,
             runtime=state.runtime,
             settings=settings,
             lifecycle=lifecycle,  # just a default for the sub-handlers, not used directly.
@@ -295,11 +275,30 @@ async def execute_handler_once(
 
     # Definitely a temporary error, regardless of the error strictness.
     except TemporaryError as e:
-        logger.error(f"{handler} failed temporarily: {str(e) or repr(e)}")
-        return Outcome(final=False, exception=e, delay=e.delay, subrefs=subrefs)
+        # Maybe false-negative but never false-positive checks to save extra cycles & time wasted.
+        lookahead_runtime = state.runtime.total_seconds() + (e.delay or 0)
+        lookahead_timeout = handler.timeout is not None and lookahead_runtime >= handler.timeout
+        lookahead_retries = handler.retries is not None and state.retries + 1 >= handler.retries
+        if lookahead_timeout:
+            msg = (
+                f"{handler} failed temporarily but will time out after {handler.timeout} seconds: "
+                f"{str(e) or repr(e)}"
+            )
+            logger.error(msg)
+            return Outcome(final=True, exception=HandlerTimeoutError(msg), subrefs=subrefs)
+        elif lookahead_retries:
+            msg = (
+                f"{handler} failed temporarily but will exceed {handler.retries} retries: "
+                f"{str(e) or repr(e)}"
+            )
+            logger.error(msg)
+            return Outcome(final=True, exception=HandlerRetriesError(msg), subrefs=subrefs)
+        else:
+            logger.error(f"{handler} failed temporarily: {str(e) or repr(e)}")
+            return Outcome(final=False, exception=e, delay=e.delay, subrefs=subrefs)
 
     # Same as permanent errors below, but with better logging for our internal cases.
-    except HandlerTimeoutError as e:
+    except (HandlerTimeoutError, HandlerRetriesError) as e:
         logger.error(f"{str(e) or repr(e)}")  # already formatted
         return Outcome(final=True, exception=e, subrefs=subrefs)
         # TODO: report the handling failure somehow (beside logs/events). persistent status?
@@ -312,14 +311,46 @@ async def execute_handler_once(
 
     # Regular errors behave as either temporary or permanent depending on the error strictness.
     except Exception as e:
+        # Maybe false-negative but never false-positive checks to save extra cycles & time wasted.
+        lookahead_runtime = state.runtime.total_seconds() + backoff
+        lookahead_timeout = handler.timeout is not None and lookahead_runtime >= handler.timeout
+        lookahead_retries = handler.retries is not None and state.retries + 1 >= handler.retries
         if errors_mode == ErrorsMode.IGNORED:
-            logger.exception(f"{handler} failed with an exception. Will ignore.")
+            msg = (
+                f"{handler} failed with an exception and will ignore it: "
+                f"{str(e) or repr(e)}"
+            )
+            logger.exception(msg)
             return Outcome(final=True, subrefs=subrefs)
+        elif errors_mode == ErrorsMode.TEMPORARY and lookahead_timeout:
+            msg = (
+                f"{handler} failed with an exception and will stop now "
+                f"(it would time out in {handler.timeout} seconds on the next attempt): "
+                f"{str(e) or repr(e)}"
+            )
+            logger.exception(msg)
+            return Outcome(final=True, exception=HandlerTimeoutError(msg), subrefs=subrefs)
+        elif errors_mode == ErrorsMode.TEMPORARY and lookahead_retries:
+            msg = (
+                f"{handler} failed with an exception and will stop now "
+                f"(it would exceed {handler.retries} retries on the next attempt): "
+                f"{str(e) or repr(e)}"
+            )
+            logger.exception(msg)
+            return Outcome(final=True, exception=HandlerRetriesError(msg), subrefs=subrefs)
         elif errors_mode == ErrorsMode.TEMPORARY:
-            logger.exception(f"{handler} failed with an exception. Will retry.")
+            msg = (
+                f"{handler} failed with an exception and will try again in {backoff} seconds: "
+                f"{str(e) or repr(e)}"
+            )
+            logger.exception(msg)
             return Outcome(final=False, exception=e, delay=backoff, subrefs=subrefs)
         elif errors_mode == ErrorsMode.PERMANENT:
-            logger.exception(f"{handler} failed with an exception. Will stop.")
+            msg = (
+                f"{handler} failed with an exception and will stop now: "
+                f"{str(e) or repr(e)}"
+            )
+            logger.exception(msg)
             return Outcome(final=True, exception=e, subrefs=subrefs)
             # TODO: report the handling failure somehow (beside logs/events). persistent status?
         else:
@@ -339,10 +370,10 @@ async def invoke_handler(
         started: datetime.datetime,
         runtime: datetime.timedelta,
         settings: configuration.OperatorSettings,
-        lifecycle: Optional[LifeCycleFn],
+        lifecycle: LifeCycleFn | None,
         subrefs: set[ids.HandlerId],
         extra_context: ExtraContext,
-) -> Optional[Result]:
+) -> Result | None:
     """
     Invoke one handler only, according to the calling conventions.
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c), 2016-2023, SISSA (International School for Advanced Studies).
+# Copyright (c), 2016-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -108,7 +108,7 @@ class WsdlComponent:
         try:
             return self.unmap_qname(elem.attrib[attribute_name])
         except KeyError:
-            return  # a missing attribute is already caught by XSD validator
+            return None  # a missing attribute is already caught by XSD validator
 
 
 class WsdlMessage(WsdlComponent):
@@ -496,7 +496,7 @@ class Wsdl11Document(XmlDocument):
             if cls is None:
                 cls = XMLSchema10
 
-            xsd_filepath = f'{SCHEMAS_DIR}WSDL/wsdl.xsd'
+            xsd_filepath = str(SCHEMAS_DIR.joinpath('WSDL', 'wsdl.xsd'))
             if isinstance(schema, XMLSchemaBase):
                 self.schema = schema
             else:
@@ -574,9 +574,9 @@ class Wsdl11Document(XmlDocument):
         return self.maps.services
 
     def parse_error(self, message):
-        if self.validation == 'strict':
+        if self._validation == 'strict':
             raise WsdlParseError(message)
-        elif self.validation == 'lax':
+        elif self._validation == 'lax':
             self.errors.append(WsdlParseError(message))
 
     def _parse_types(self):
@@ -663,7 +663,7 @@ class Wsdl11Document(XmlDocument):
             source=url,
             maps=self.maps,
             namespaces=self._init_namespaces,
-            validation=self.validation,
+            validation=self._validation,
             base_url=self.base_url,
             allow=self.allow,
             defuse=self.defuse,

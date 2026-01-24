@@ -3,7 +3,7 @@ Type annotations for kafka service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -12,6 +12,7 @@ Usage::
 
     from types_aiobotocore_kafka.client import KafkaClient
     from types_aiobotocore_kafka.paginator import (
+        DescribeTopicPartitionsPaginator,
         ListClientVpcConnectionsPaginator,
         ListClusterOperationsPaginator,
         ListClusterOperationsV2Paginator,
@@ -23,6 +24,7 @@ Usage::
         ListNodesPaginator,
         ListReplicatorsPaginator,
         ListScramSecretsPaginator,
+        ListTopicsPaginator,
         ListVpcConnectionsPaginator,
     )
 
@@ -30,6 +32,7 @@ Usage::
     with session.create_client("kafka") as client:
         client: KafkaClient
 
+        describe_topic_partitions_paginator: DescribeTopicPartitionsPaginator = client.get_paginator("describe_topic_partitions")
         list_client_vpc_connections_paginator: ListClientVpcConnectionsPaginator = client.get_paginator("list_client_vpc_connections")
         list_cluster_operations_paginator: ListClusterOperationsPaginator = client.get_paginator("list_cluster_operations")
         list_cluster_operations_v2_paginator: ListClusterOperationsV2Paginator = client.get_paginator("list_cluster_operations_v2")
@@ -41,6 +44,7 @@ Usage::
         list_nodes_paginator: ListNodesPaginator = client.get_paginator("list_nodes")
         list_replicators_paginator: ListReplicatorsPaginator = client.get_paginator("list_replicators")
         list_scram_secrets_paginator: ListScramSecretsPaginator = client.get_paginator("list_scram_secrets")
+        list_topics_paginator: ListTopicsPaginator = client.get_paginator("list_topics")
         list_vpc_connections_paginator: ListVpcConnectionsPaginator = client.get_paginator("list_vpc_connections")
     ```
 """
@@ -53,6 +57,8 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    DescribeTopicPartitionsRequestPaginateTypeDef,
+    DescribeTopicPartitionsResponseTypeDef,
     ListClientVpcConnectionsRequestPaginateTypeDef,
     ListClientVpcConnectionsResponseTypeDef,
     ListClusterOperationsRequestPaginateTypeDef,
@@ -75,6 +81,8 @@ from .type_defs import (
     ListReplicatorsResponseTypeDef,
     ListScramSecretsRequestPaginateTypeDef,
     ListScramSecretsResponseTypeDef,
+    ListTopicsRequestPaginateTypeDef,
+    ListTopicsResponseTypeDef,
     ListVpcConnectionsRequestPaginateTypeDef,
     ListVpcConnectionsResponseTypeDef,
 )
@@ -85,6 +93,7 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "DescribeTopicPartitionsPaginator",
     "ListClientVpcConnectionsPaginator",
     "ListClusterOperationsPaginator",
     "ListClusterOperationsV2Paginator",
@@ -96,8 +105,27 @@ __all__ = (
     "ListNodesPaginator",
     "ListReplicatorsPaginator",
     "ListScramSecretsPaginator",
+    "ListTopicsPaginator",
     "ListVpcConnectionsPaginator",
 )
+
+if TYPE_CHECKING:
+    _DescribeTopicPartitionsPaginatorBase = AioPaginator[DescribeTopicPartitionsResponseTypeDef]
+else:
+    _DescribeTopicPartitionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class DescribeTopicPartitionsPaginator(_DescribeTopicPartitionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/paginator/DescribeTopicPartitions.html#Kafka.Paginator.DescribeTopicPartitions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/paginators/#describetopicpartitionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeTopicPartitionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[DescribeTopicPartitionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/paginator/DescribeTopicPartitions.html#Kafka.Paginator.DescribeTopicPartitions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/paginators/#describetopicpartitionspaginator)
+        """
 
 if TYPE_CHECKING:
     _ListClientVpcConnectionsPaginatorBase = AioPaginator[ListClientVpcConnectionsResponseTypeDef]
@@ -297,6 +325,24 @@ class ListScramSecretsPaginator(_ListScramSecretsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/paginator/ListScramSecrets.html#Kafka.Paginator.ListScramSecrets.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/paginators/#listscramsecretspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListTopicsPaginatorBase = AioPaginator[ListTopicsResponseTypeDef]
+else:
+    _ListTopicsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListTopicsPaginator(_ListTopicsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/paginator/ListTopics.html#Kafka.Paginator.ListTopics)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/paginators/#listtopicspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTopicsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListTopicsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/paginator/ListTopics.html#Kafka.Paginator.ListTopics.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/paginators/#listtopicspaginator)
         """
 
 if TYPE_CHECKING:

@@ -3,11 +3,13 @@ from uuid import UUID
 from typing import Type
 
 from vellum.client.core.api_error import ApiError
+from vellum.workflows.environment import EnvironmentVariables
 from vellum.workflows.nodes.displayable.code_execution_node.node import CodeExecutionNode
 from vellum.workflows.references.vellum_secret import VellumSecretReference
+from vellum.workflows.state.base import BaseState
 from vellum.workflows.workflows.base import BaseWorkflow
-from vellum_ee.workflows.display.exceptions import NodeValidationError
 from vellum_ee.workflows.display.nodes.vellum.code_execution_node import BaseCodeExecutionNodeDisplay
+from vellum_ee.workflows.display.utils.exceptions import NodeValidationError
 from vellum_ee.workflows.display.workflows.get_vellum_workflow_display_class import get_workflow_display
 
 
@@ -32,7 +34,7 @@ def _display_class_with_node_input_ids_by_name_with_inputs_prefix(Node: Type[Cod
 @pytest.mark.parametrize(
     ["GetDisplayClass", "expected_input_id"],
     [
-        (_no_display_class, "a5dbe403-0b00-4df6-b8f7-ed5f7794b003"),
+        (_no_display_class, "20ff166f-af59-4515-8ff5-205226c01aa4"),
         (_display_class_with_node_input_ids_by_name, "fba6a4d5-835a-4e99-afb7-f6a4aed15110"),
         (_display_class_with_node_input_ids_by_name_with_inputs_prefix, "fba6a4d5-835a-4e99-afb7-f6a4aed15110"),
     ],
@@ -81,7 +83,7 @@ def test_serialize_node__code_node_inputs(GetDisplayClass, expected_input_id):
             },
         },
         {
-            "id": "9774d864-c76d-4a1a-8181-b632ed3ab87c",
+            "id": "50678b9f-bdea-41c0-bc3d-425ea38466ee",
             "key": "code",
             "value": {
                 "combinator": "OR",
@@ -97,7 +99,7 @@ def test_serialize_node__code_node_inputs(GetDisplayClass, expected_input_id):
             },
         },
         {
-            "id": "34742235-5699-45cd-9d34-bce3745e743d",
+            "id": "6d2840f3-a5c1-4376-8616-ced4fffc6cf2",
             "key": "runtime",
             "value": {
                 "combinator": "OR",
@@ -172,6 +174,59 @@ def test_serialize_node__with_non_exist_code_input_path():
     assert "Filepath 'non_existent_file.py' does not exist" in str(exc_info.value)
 
 
+def test_serialize_node__with_environment_variable_references():
+    """
+    Tests that environment variable references in code node inputs serialize correctly.
+    """
+
+    # GIVEN a code node with environment variable references in code_inputs
+    class MyCodeExecutionNode(CodeExecutionNode):
+        code_inputs = {
+            "api_key": EnvironmentVariables.get("MY_API_KEY"),
+            "other_config": {"nested_key": EnvironmentVariables.get("NESTED_KEY")},
+        }
+
+    # AND a workflow with the code node
+    class Workflow(BaseWorkflow):
+        graph = MyCodeExecutionNode
+
+    # WHEN the workflow is serialized
+    workflow_display = get_workflow_display(workflow_class=Workflow)
+    serialized_workflow: dict = workflow_display.serialize()
+
+    # THEN the node should properly serialize the environment variable references
+    my_code_execution_node = next(
+        node for node in serialized_workflow["workflow_raw_data"]["nodes"] if node["type"] == "CODE_EXECUTION"
+    )
+
+    # AND the api_key input should be serialized as an ENVIRONMENT_VARIABLE
+    api_key_input = next(inp for inp in my_code_execution_node["inputs"] if inp["key"] == "api_key")
+    assert api_key_input["value"] == {
+        "combinator": "OR",
+        "rules": [
+            {
+                "type": "ENVIRONMENT_VARIABLE",
+                "data": {
+                    "environment_variable": "MY_API_KEY",
+                },
+            }
+        ],
+    }
+
+    # AND the nested environment variable should also be serialized correctly
+    other_config_input = next(inp for inp in my_code_execution_node["inputs"] if inp["key"] == "other_config")
+    assert other_config_input["value"]["combinator"] == "OR"
+    assert len(other_config_input["value"]["rules"]) == 1
+    assert other_config_input["value"]["rules"][0]["type"] == "CONSTANT_VALUE"
+    nested_data = other_config_input["value"]["rules"][0]["data"]
+    assert nested_data["type"] == "JSON"
+    assert nested_data["value"]["type"] == "DICTIONARY_REFERENCE"
+    assert len(nested_data["value"]["entries"]) == 1
+    assert nested_data["value"]["entries"][0]["key"] == "nested_key"
+    assert nested_data["value"]["entries"][0]["value"]["type"] == "ENVIRONMENT_VARIABLE"
+    assert nested_data["value"]["entries"][0]["value"]["environment_variable"] == "NESTED_KEY"
+
+
 def test_serialize_node__with_non_exist_code_input_path_with_dry_run():
     # GIVEN a code node with a non-existent code input path
     class MyNode(CodeExecutionNode):
@@ -194,16 +249,16 @@ def test_serialize_node__with_non_exist_code_input_path_with_dry_run():
                     "type": "ENTRYPOINT",
                     "inputs": [],
                     "data": {"label": "Entrypoint Node", "source_handle_id": "3e2a3f52-5047-4e2e-9a21-37bd43c63250"},
-                    "display_data": {"position": {"x": 0.0, "y": -50.0}},
+                    "display_data": {"position": {"x": 0.0, "y": 0.0}},
                     "base": None,
                     "definition": None,
                 },
                 {
-                    "id": "ac90c0ce-f393-438c-a24f-e5e9a9286182",
+                    "id": "f41cebba-a048-4852-a3d7-0f3100927166",
                     "type": "CODE_EXECUTION",
                     "inputs": [
                         {
-                            "id": "a0b9d6f6-ce59-4075-8db6-866781bc73ef",
+                            "id": "b807bd5f-7d49-4597-89cf-044aa84cf8d6",
                             "key": "code",
                             "value": {
                                 "rules": [{"type": "CONSTANT_VALUE", "data": {"type": "JSON", "value": None}}],
@@ -211,7 +266,7 @@ def test_serialize_node__with_non_exist_code_input_path_with_dry_run():
                             },
                         },
                         {
-                            "id": "58598cc8-aa8a-4b4f-99fb-09f6815b6c01",
+                            "id": "dcd1e1a4-49e2-4d6b-95f9-8ec5fd2f8f5d",
                             "key": "runtime",
                             "value": {
                                 "rules": [
@@ -224,16 +279,16 @@ def test_serialize_node__with_non_exist_code_input_path_with_dry_run():
                     "data": {
                         "label": "My Node",
                         "error_output_id": None,
-                        "source_handle_id": "7afa3858-f50c-4116-936a-a401e3b2c60f",
-                        "target_handle_id": "3a39ea63-9f86-4891-a902-0216a7190720",
-                        "code_input_id": "a0b9d6f6-ce59-4075-8db6-866781bc73ef",
-                        "runtime_input_id": "58598cc8-aa8a-4b4f-99fb-09f6815b6c01",
+                        "source_handle_id": "dc9edb2e-4392-4a2c-ab92-cc1b9c0cbd53",
+                        "target_handle_id": "66e7ef63-518b-40e7-911a-e38e8bcaec81",
+                        "code_input_id": "b807bd5f-7d49-4597-89cf-044aa84cf8d6",
+                        "runtime_input_id": "dcd1e1a4-49e2-4d6b-95f9-8ec5fd2f8f5d",
                         "output_type": "STRING",
                         "packages": [],
-                        "output_id": "00b2120e-b642-46e4-8276-5f3c69d8a6cb",
-                        "log_output_id": "47e3eeca-4bf8-492e-b8ac-28c7d389c886",
+                        "output_id": "98cae9b9-45cc-4897-a0f5-df250b56c00d",
+                        "log_output_id": "66c06c97-a9d1-4abf-840f-3f6c29709612",
                     },
-                    "display_data": {"position": {"x": 200.0, "y": -50.0}},
+                    "display_data": {"position": {"x": 0.0, "y": 0.0}},
                     "base": {
                         "name": "CodeExecutionNode",
                         "module": ["vellum", "workflows", "nodes", "displayable", "code_execution_node", "node"],
@@ -250,17 +305,33 @@ def test_serialize_node__with_non_exist_code_input_path_with_dry_run():
                             "test_code_execution_node",
                         ],
                     },
-                    "ports": [{"id": "7afa3858-f50c-4116-936a-a401e3b2c60f", "name": "default", "type": "DEFAULT"}],
-                    "trigger": {"id": "3a39ea63-9f86-4891-a902-0216a7190720", "merge_behavior": "AWAIT_ANY"},
+                    "ports": [{"id": "dc9edb2e-4392-4a2c-ab92-cc1b9c0cbd53", "name": "default", "type": "DEFAULT"}],
+                    "trigger": {"id": "66e7ef63-518b-40e7-911a-e38e8bcaec81", "merge_behavior": "AWAIT_ANY"},
+                    "outputs": [
+                        {
+                            "id": "98cae9b9-45cc-4897-a0f5-df250b56c00d",
+                            "name": "result",
+                            "schema": {"type": "string"},
+                            "type": "STRING",
+                            "value": None,
+                        },
+                        {
+                            "id": "66c06c97-a9d1-4abf-840f-3f6c29709612",
+                            "name": "log",
+                            "schema": {"type": "string"},
+                            "type": "STRING",
+                            "value": None,
+                        },
+                    ],
                 },
             ],
             "edges": [
                 {
-                    "id": "ab6ef06e-df2c-4877-9c3e-9d7261b39748",
+                    "id": "85e0961e-f968-49a0-beed-e21373f0ecda",
                     "source_node_id": "9b9e2a5d-01a4-46b2-80a3-d9484b2c0e08",
                     "source_handle_id": "3e2a3f52-5047-4e2e-9a21-37bd43c63250",
-                    "target_node_id": "ac90c0ce-f393-438c-a24f-e5e9a9286182",
-                    "target_handle_id": "3a39ea63-9f86-4891-a902-0216a7190720",
+                    "target_node_id": "f41cebba-a048-4852-a3d7-0f3100927166",
+                    "target_handle_id": "66e7ef63-518b-40e7-911a-e38e8bcaec81",
                     "type": "DEFAULT",
                 }
             ],
@@ -275,3 +346,43 @@ def test_serialize_node__with_non_exist_code_input_path_with_dry_run():
         "state_variables": [],
         "output_variables": [],
     }
+
+
+def test_serialize_node__with_custom_output_type():
+    # GIVEN a code node with a custom output type
+    class MyNode(CodeExecutionNode[BaseState, dict[str, int]]):
+        code = """\
+return {
+    "hello": 1,
+}
+"""
+
+    # AND a workflow with the code node
+    class Workflow(BaseWorkflow):
+        graph = MyNode
+
+    # WHEN we serialize the workflow
+    workflow_display = get_workflow_display(workflow_class=Workflow)
+    serialized_workflow: dict = workflow_display.serialize()
+
+    # THEN the node's outputs should serialize correctly
+    my_code_execution_node = next(
+        node for node in serialized_workflow["workflow_raw_data"]["nodes"] if node["type"] == "CODE_EXECUTION"
+    )
+    assert my_code_execution_node["outputs"] == [
+        {
+            "id": "01de8e8b-5e0e-4344-93b0-e002bbaed840",
+            "name": "result",
+            "value": None,
+            "type": "JSON",
+            "schema": {"type": "object", "additionalProperties": {"type": "integer"}},
+        },
+        {
+            "id": "64bf62e0-adc7-48cc-b689-8bf9b7e4eeef",
+            "name": "log",
+            "value": None,
+            "type": "STRING",
+            "schema": {"type": "string"},
+        },
+    ]
+    assert my_code_execution_node["data"]["output_type"] == "JSON"

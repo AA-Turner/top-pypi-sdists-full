@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: qiskit
-Version: 2.2.0
+Version: 2.3.0
 Summary: An open-source SDK for working with quantum computers at the level of extended quantum circuits, operators, and primitives.
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
-License: Apache 2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://www.ibm.com/quantum/qiskit
 Project-URL: Documentation, https://quantum.cloud.ibm.com/docs
 Project-URL: API Reference, https://quantum.cloud.ibm.com/docs/api/qiskit
@@ -14,18 +14,16 @@ Keywords: qiskit,quantum circuit,quantum computing,quantum programming language,
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: rustworkx>=0.15.0
@@ -149,11 +147,18 @@ The power of quantum computing cannot be simulated on classical computers and yo
 However, running a quantum circuit on hardware requires rewriting to the basis gates and connectivity of the quantum hardware.
 The tool that does this is the [transpiler](https://quantum.cloud.ibm.com/docs/api/qiskit/transpiler), and Qiskit includes transpiler passes for synthesis, optimization, mapping, and scheduling.
 However, it also includes a default compiler, which works very well in most examples.
-The following code will map the example circuit to the `basis_gates = ["cz", "sx", "rz"]` and a linear chain of qubits $0 \rightarrow 1 \rightarrow 2$ with the `coupling_map = [[0, 1], [1, 2]]`.
+The following code will map the example circuit to the `basis_gates = ["cz", "sx", "rz"]` and a
+bidirectional linear chain of qubits $0 \leftrightarrow 1 \leftrightarrow 2$ with the
+`coupling_map = [[0, 1], [1, 0], [1, 2], [2, 1]]`.
 
 ```python
 from qiskit import transpile
-qc_transpiled = transpile(qc, basis_gates=["cz", "sx", "rz"], coupling_map=[[0, 1], [1, 2]], optimization_level=3)
+from qiskit.transpiler import Target, CouplingMap
+target = Target.from_configuration(
+    basis_gates=["cz", "sx", "rz"],
+    coupling_map=CouplingMap.from_line(3),
+)
+qc_transpiled = transpile(qc, target=target)
 ```
 
 ### Executing your code on real quantum hardware

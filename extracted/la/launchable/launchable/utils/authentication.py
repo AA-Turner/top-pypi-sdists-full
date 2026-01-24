@@ -8,6 +8,10 @@ from .env_keys import ORGANIZATION_KEY, TOKEN_KEY, WORKSPACE_KEY
 
 
 def get_org_workspace():
+    '''
+    Returns (org,ws) tuple from LAUNCHABLE_TOKEN, or (None,None) if not found.
+    Use ensure_org_workspace() if this is supposed to be an error condition
+    '''
     token = os.getenv(TOKEN_KEY)
     if token:
         try:
@@ -15,7 +19,7 @@ def get_org_workspace():
             org, workspace = user.split("/", 1)
             return org, workspace
         except ValueError:
-            return None, None
+            raise click.UsageError(click.style("Invalid value in LAUNCHABLE_TOKEN environment variable.", fg="red"))
 
     return os.getenv(ORGANIZATION_KEY), os.getenv(WORKSPACE_KEY)
 
@@ -25,9 +29,7 @@ def ensure_org_workspace() -> Tuple[str, str]:
     if org is None or workspace is None:
         raise click.UsageError(
             click.style(
-                "Could not identify Launchable organization/workspace. "
-                "Please confirm if you set LAUNCHABLE_TOKEN or LAUNCHABLE_ORGANIZATION and "
-                "LAUNCHABLE_WORKSPACE environment variables",
+                "LAUNCHABLE_TOKEN environment variable not set. Nor the LAUNCHABLE_ORGANIZATION and LAUNCHABLE_WORKSPACE combo if you are using https://help.launchableinc.com/sending-data-to-launchable/using-the-launchable-cli/getting-started/migration-to-github-oidc-auth/)",  # noqa: E501
                 fg="red"))
     return org, workspace
 

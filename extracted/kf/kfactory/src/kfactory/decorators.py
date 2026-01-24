@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import inspect
 from collections import defaultdict
+from collections.abc import Callable
 from enum import StrEnum
 from pathlib import Path
 from threading import RLock
@@ -51,6 +52,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
 
     from .layout import KCLayout
+    from .schematic import TSchematic
 
 
 def _parse_params(
@@ -322,22 +324,14 @@ def _post_process(
 class WrappedKCellFunc(Generic[KCellParams, KC]):
     _f: Callable[KCellParams, KC]
     _f_orig: Callable[KCellParams, ProtoTKCell[Any]]
+    _f_schematic: Callable[KCellParams, TSchematic[Any]] | None = None
     cache: Cache[int, KC] | dict[int, Any]
     name: str
     kcl: KCLayout
     output_type: type[KC]
     lvs_equivalent_ports: list[list[str]] | None = None
     ports_definition: PortsDefinition | None = None
-
-    @property
-    def __name__(self) -> str:
-        if self.name is None:
-            raise ValueError(f"{self._f} does not have a name")
-        return self.name
-
-    @__name__.setter
-    def __name__(self, value: str) -> None:
-        self.name = value
+    tags: set[str]
 
     def __init__(
         self,
@@ -363,11 +357,15 @@ class WrappedKCellFunc(Generic[KCellParams, KC]):
         debug_names: bool,
         lvs_equivalent_ports: list[list[str]] | None = None,
         ports: PortsDefinition | None = None,
+        tags: Sequence[str] | None = None,
+        schematic_function: Callable[KCellParams, TSchematic[Any]] | None = None,
     ) -> None:
         self.kcl = kcl
         self.output_type = output_type
-        self.name = _get_function_name(f)
+        self.name = basename or _get_function_name(f)
         self.ports_definition = ports.copy() if ports is not None else None
+        self.tags = set(tags) if tags else set()
+        self._f_schematic = schematic_function
 
         @functools.wraps(f)
         def wrapper_autocell(
@@ -574,6 +572,19 @@ class WrappedKCellFunc(Generic[KCellParams, KC]):
         self.kcl.cleanup()
         self.cache.clear()
 
+    def schematic_driven(self) -> bool:
+        return self._f_schematic is not None
+
+    def get_schematic(
+        self, *args: KCellParams.args, **kwargs: KCellParams.kwargs
+    ) -> TSchematic[Any]:
+        if self._f_schematic is None:
+            raise ValueError(
+                f"(D)KCellFunction {self.name} is not schematic driven and therefore"
+                " cannot return a schematic."
+            )
+        return self._f_schematic(*args, **kwargs)
+
 
 class WrappedVKCellFunc(Generic[KCellParams, VK]):
     _f: Callable[KCellParams, VK]
@@ -584,16 +595,7 @@ class WrappedVKCellFunc(Generic[KCellParams, VK]):
     output_type: type[VK]
     lvs_equivalent_ports: list[list[str]] | None = None
     ports_definition: PortsDefinition | None = None
-
-    @property
-    def __name__(self) -> str:
-        if self.name is None:
-            raise ValueError(f"{self._f} does not have a name")
-        return self.name
-
-    @__name__.setter
-    def __name__(self, value: str) -> None:
-        self.name = value
+    tags: set[str]
 
     def __init__(
         self,
@@ -614,11 +616,13 @@ class WrappedVKCellFunc(Generic[KCellParams, VK]):
         post_process: Iterable[Callable[[VKCell], None]],
         lvs_equivalent_ports: list[list[str]] | None = None,
         ports: PortsDefinition | None = None,
+        tags: Sequence[str] | None = None,
     ) -> None:
         self.kcl = kcl
         self.output_type = output_type
-        self.name = _get_function_name(f)
+        self.name = basename or _get_function_name(f)
         self.ports_definitions = ports.copy() if ports is not None else None
+        self.tags = set(tags) if tags else set()
 
         @functools.wraps(f)
         def wrapper_autocell(

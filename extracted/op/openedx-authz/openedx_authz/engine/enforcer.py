@@ -1,0 +1,283 @@
+"""
+Core authorization enforcer for Open edX AuthZ system.
+
+Provides a Casbin SyncedEnforcer instance with extended adapter for database policy
+storage and automatic policy synchronization.
+
+Components:
+    - Enforcer: Main SyncedEnforcer instance for policy evaluation
+    - Adapter: ExtendedAdapter for filtered database policy loading
+
+Usage:
+    from openedx_authz.engine.enforcer import AuthzEnforcer
+    allowed = enforcer.enforce(user, resource, action)
+
+Requires `CASBIN_MODEL` setting.
+"""
+
+import logging
+from copy import deepcopy
+from uuid import uuid4
+
+from casbin import SyncedEnforcer
+from casbin.util.log import DEFAULT_LOGGING, configure_logging
+from casbin_adapter.enforcer import initialize_enforcer
+from django.conf import settings
+
+from openedx_authz.engine.adapter import ExtendedAdapter
+from openedx_authz.models.engine import PolicyCacheControl
+
+
+def libraries_v2_enabled() -> bool:
+    """Dummy toggle that is always enabled."""
+    return True
+
+
+if getattr(settings, "SERVICE_VARIANT", None) == "cms":
+    try:
+        from cms.djangoapps.contentstore.toggles import libraries_v2_enabled
+    except ImportError:
+        # If the CMS is not available, use the dummy toggle.
+        pass
+
+logger = logging.getLogger(__name__)
+
+
+class AuthzEnforcer:
+    """Singleton class to manage the Casbin SyncedEnforcer instance.
+
+    Ensures a single enforcer instance is created safely and configured with the
+    ExtendedAdapter for policy management and automatic synchronization.
+
+    There are two main use cases for this class:
+
+    1. Directly get the enforcer instance and initialize it if needed::
+
+        from openedx_authz.engine.enforcer import AuthzEnforcer
+        enforcer = AuthzEnforcer.get_enforcer()
+        allowed = enforcer.enforce(user, resource, action)
+
+    2. Instantiate the class to get the singleton enforcer instance::
+
+        from openedx_authz.engine.enforcer import AuthzEnforcer
+        enforcer = AuthzEnforcer()
+        allowed = enforcer.get_enforcer().enforce(user, resource, action)
+
+    Any of the two approaches will yield the same singleton enforcer instance.
+
+    Attributes:
+        _enforcer (SyncedEnforcer): The singleton enforcer instance.
+        _adapter (ExtendedAdapter): The singleton adapter instance.
+    """
+
+    _enforcer = None
+    _adapter = None
+    _last_policy_loaded_version = None
+
+    def __new__(cls):
+        """Singleton pattern to ensure a single enforcer instance."""
+        if cls._enforcer is None:
+            cls._enforcer = cls._initialize_enforcer()
+        return cls._enforcer
+
+    @classmethod
+    def configure_enforcer_auto_loading(cls, auto_load_policy_interval: int = None):
+        """Enable auto-load policy and auto-save on the enforcer.
+
+        This method ensures that the singleton enforcer instance is created
+        and ready for use.
+
+        Returns:
+            None
+        """
+        if not cls._enforcer.is_auto_loading_running():
+            cls._enforcer.start_auto_load_policy(auto_load_policy_interval)
+
+    @classmethod
+    def is_auto_save_enabled(cls) -> bool:
+        """Check if auto-save is currently enabled on the enforcer.
+
+        Returns:
+            bool: True if auto-save is enabled, False otherwise
+        """
+        if cls._enforcer is None:
+            return False
+        return cls._enforcer._e.auto_save  # pylint: disable=protected-access
+
+    @classmethod
+    def configure_enforcer_auto_save(cls, auto_save_policy: bool):
+        """Configure auto-save on the enforcer.
+
+        This method ensures that auto-save is enabled or disabled based on
+        the auto_save_policy parameter.
+
+        Args:
+            auto_save_policy: True to enable auto-save, False to disable
+
+        Returns:
+            None
+        """
+        if cls.is_auto_save_enabled() != auto_save_policy:
+            cls._enforcer.enable_auto_save(auto_save_policy)
+
+    @classmethod
+    def deactivate_enforcer(cls):
+        """Deactivate the current enforcer instance, if any.
+
+        This method stops the auto-load policy thread. It can be used in testing
+        or when re-initialization of the enforcer is needed. IT DOES NOT
+        clear the singleton instance to avoid initializing it again unintentionally.
+
+        Returns:
+            None
+        """
+        if cls._enforcer is not None:
+            try:
+                cls._enforcer.stop_auto_load_policy()
+                cls._enforcer.enable_auto_save(False)
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.error(f"Error stopping auto-load policy thread: {e}")
+
+    @classmethod
+    def configure_enforcer_auto_save_and_load(cls):
+        """Enable auto-load policy and auto-save on the enforcer.
+
+        This method ensures that the singleton enforcer instance is configured
+        for auto-load and auto-save based on settings.
+
+        Returns:
+            None
+        """
+        auto_load_policy_interval = getattr(settings, "CASBIN_AUTO_LOAD_POLICY_INTERVAL", 0)
+        auto_save_policy = getattr(settings, "CASBIN_AUTO_SAVE_POLICY", True)
+
+        if auto_load_policy_interval > 0:
+            cls.configure_enforcer_auto_loading(auto_load_policy_interval)
+
+        cls.configure_enforcer_auto_save(auto_save_policy)
+
+    @classmethod
+    def _configure_logging(cls) -> None:
+        """Configure logging levels for Casbin's internal loggers.
+
+        This controls the verbosity of Casbin's policy evaluation and role management
+        logging. The log level defaults to WARNING if CASBIN_LOG_LEVEL is not set.
+        """
+        log_level = getattr(settings, "CASBIN_LOG_LEVEL", "WARNING")
+        casbin_logging = deepcopy(DEFAULT_LOGGING)
+        for logger_name in casbin_logging["loggers"]:
+            casbin_logging["loggers"][logger_name]["level"] = log_level
+        configure_logging(casbin_logging)
+
+    @classmethod
+    def load_policy_if_needed(cls):
+        """Load policy if the last load version indicates it's needed.
+
+        This method checks if the policy needs to be reloaded comparing
+        the last load version with the version in the cache invalidation model,
+        and reloads it if necessary.
+
+        Returns:
+            None
+        """
+        last_version = PolicyCacheControl.get_version()
+
+        if last_version is None:
+            # No version in cache control; initialize it
+            last_version = uuid4()
+            PolicyCacheControl.set_version(last_version)
+            logger.info("Initialized policy last modified version in cache control.")
+
+        if cls._last_policy_loaded_version is None or last_version != cls._last_policy_loaded_version:
+            # Policy has been modified since last load; reload it
+            cls._enforcer.load_policy()
+            cls._last_policy_loaded_version = last_version
+            logger.info(f"Reloaded policy to version {last_version}")
+
+    @classmethod
+    def invalidate_policy_cache(cls):
+        """Invalidate the current policy cache to force a reload on next check.
+
+        This method updates the last modified version in the cache invalidation model
+        to a new UUID, indicating that the policy has changed.
+
+        Returns:
+            None
+        """
+        new_version = uuid4()
+        PolicyCacheControl.set_version(new_version)
+        logger.info(f"Invalidated policy cache to version {new_version}")
+
+    @classmethod
+    def get_enforcer(cls) -> SyncedEnforcer:
+        """Get the enforcer instance, creating it if needed.
+
+        Returns:
+            SyncedEnforcer: The singleton enforcer instance.
+        """
+        if cls._enforcer is None:
+            cls._enforcer = cls._initialize_enforcer()
+
+        # (re)load policy if needed
+        cls.load_policy_if_needed()
+
+        # HACK: This code block will only be useful when in Ulmo to deactivate
+        # the enforcer when the new library experience is disabled. It should be
+        # removed for the next release cycle.
+        # When replaced, we will only need to configure the enforcer here. Which
+        # is in charge of enabling/disabling auto-load and auto-save.
+        if libraries_v2_enabled():
+            cls.configure_enforcer_auto_save_and_load()
+        else:
+            cls.deactivate_enforcer()
+
+        return cls._enforcer
+
+    @classmethod
+    def get_adapter(cls) -> ExtendedAdapter:
+        """Get the adapter instance, getting it from the enforcer if needed.
+
+        Returns:
+            ExtendedAdapter: The singleton adapter instance.
+        """
+        if cls._adapter is None:
+            # We need to access the protected member _e to get the adapter from the base enforcer
+            # which the SyncedEnforcer wraps.
+            cls._adapter = cls.get_enforcer()._e.adapter  # pylint: disable=protected-access
+        return cls._adapter
+
+    @classmethod
+    def _initialize_enforcer(cls) -> SyncedEnforcer:
+        """
+        Create and configure the Casbin SyncedEnforcer instance.
+
+        This method initializes the SyncedEnforcer with the ExtendedAdapter
+        for database policy storage and automatic policy synchronization.
+        It also initializes the enforcer with the specified database alias from settings.
+
+        Returns:
+            SyncedEnforcer: Configured Casbin enforcer with adapter and auto-sync
+        """
+        # Avoid circular import
+        from openedx_authz.engine.matcher import is_admin_or_superuser_check  # pylint: disable=import-outside-toplevel
+
+        # Configure logging BEFORE initialize_enforcer() because it creates a ProxyEnforcer
+        # that doesn't pass logging config and would use Casbin's defaults
+        cls._configure_logging()
+
+        db_alias = getattr(settings, "CASBIN_DB_ALIAS", "default")
+
+        try:
+            # Initialize the enforcer with the specified database alias to set up the adapter.
+            # Best to lazy load it when it's first used to ensure the database is ready and avoid
+            # issues when the app is not fully loaded (e.g., while pulling translations, etc.).
+            initialize_enforcer(db_alias)
+        except Exception as e:
+            logger.error(f"Failed to initialize Casbin enforcer with DB alias '{db_alias}': {e}")
+            raise
+
+        adapter = ExtendedAdapter()
+        enforcer = SyncedEnforcer(settings.CASBIN_MODEL, adapter)
+        enforcer.add_function("is_staff_or_superuser", is_admin_or_superuser_check)
+
+        return enforcer

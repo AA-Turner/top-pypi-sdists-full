@@ -22,8 +22,8 @@ from packaging.specifiers import SpecifierSet
 
 from rucio.common import config
 from rucio.common.client import get_client_vo
-from rucio.common.constants import DEFAULT_VO
-from rucio.common.exception import InvalidAlgorithmName, PolicyPackageIsNotVersioned, PolicyPackageVersionError
+from rucio.common.constants import DEFAULT_VO, POLICY_ALGORITHM_TYPES, POLICY_ALGORITHM_TYPES_LITERAL
+from rucio.common.exception import InvalidAlgorithmName, InvalidPolicyPackageAlgorithmType, PolicyPackageIsNotVersioned, PolicyPackageVersionError
 from rucio.version import current_version
 
 if TYPE_CHECKING:
@@ -75,9 +75,9 @@ class PolicyPackageAlgorithms:
         - the key is the algorithm type
         - the value is a dictionary of algorithm names and their callables
     """
-    _ALGORITHMS: dict[str, dict[str, 'Callable[..., Any]']] = {}
+    _ALGORITHMS: dict[POLICY_ALGORITHM_TYPES_LITERAL, dict[str, 'Callable[..., Any]']] = {}
     _loaded_policy_modules = False
-    _default_algorithms: dict[str, 'Callable[..., Any]'] = {}
+    _default_algorithms: dict[str, Optional['Callable[..., Any]']] = {}
 
     def __init__(self) -> None:
         if not self._loaded_policy_modules:
@@ -85,12 +85,15 @@ class PolicyPackageAlgorithms:
             self._loaded_policy_modules = True
 
     @classmethod
-    def _get_default_algorithm(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str, vo: str = "") -> Optional['Callable[..., Any]']:
+    def _get_default_algorithm(cls: type[PolicyPackageAlgorithmsT], algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL, vo: str = "") -> Optional['Callable[..., Any]']:
         """
         Gets the default algorithm of this type, if present in the policy package.
         The default algorithm is the function named algorithm_type within the module named algorithm_type.
         Returns None if no default algorithm present.
         """
+        if algorithm_type not in POLICY_ALGORITHM_TYPES:
+            raise InvalidPolicyPackageAlgorithmType(algorithm_type)
+
         # check if default algorithm for this VO is already cached
         type_for_vo = vo + "_" + algorithm_type
         if type_for_vo in cls._default_algorithms:
@@ -102,52 +105,71 @@ class PolicyPackageAlgorithms:
                 vo = ''
             package = cls._get_policy_package_name(vo)
         except (NoOptionError, NoSectionError):
+            cls._default_algorithms[type_for_vo] = default_algorithm
             return default_algorithm
 
         module_name = package + "." + algorithm_type
+        LOGGER.info('Attempting to find algorithm %s in default location %s...' % (algorithm_type, module_name))
         try:
             module = importlib.import_module(module_name)
 
             if hasattr(module, algorithm_type):
                 default_algorithm = getattr(module, algorithm_type)
-                cls._default_algorithms[type_for_vo] = default_algorithm
+        except ModuleNotFoundError:
+            LOGGER.info('Algorithm %s not found in default location %s' % (algorithm_type, module_name))
         except ImportError:
-            LOGGER.info('Policy algorithm module %s could not be loaded' % module_name)
+            LOGGER.info('Algorithm %s found in default location %s, but could not be loaded' % (algorithm_type, module_name))
+        # if the default algorithm is not present, this will store None and we will
+        # not attempt to load the same algorithm again
+        cls._default_algorithms[type_for_vo] = default_algorithm
         return default_algorithm
 
     @classmethod
-    def _get_one_algorithm(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str, name: str) -> 'Callable[..., Any]':
+    def _get_one_algorithm(cls: type[PolicyPackageAlgorithmsT], algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL, name: str) -> 'Callable[..., Any]':
         """
         Get the algorithm from the dictionary of algorithms
         """
+        if algorithm_type not in POLICY_ALGORITHM_TYPES:
+            raise InvalidPolicyPackageAlgorithmType(algorithm_type)
         return cls._ALGORITHMS[algorithm_type][name]
 
     @classmethod
-    def _get_algorithms(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str) -> dict[str, 'Callable[..., Any]']:
+    def _get_algorithms(cls: type[PolicyPackageAlgorithmsT], algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL) -> dict[str, 'Callable[..., Any]']:
         """
         Get the dictionary of algorithms for a given type
         """
+        if algorithm_type not in POLICY_ALGORITHM_TYPES:
+            raise InvalidPolicyPackageAlgorithmType(algorithm_type)
         return cls._ALGORITHMS[algorithm_type]
 
     @classmethod
     def _register(
             cls: type[PolicyPackageAlgorithmsT],
-            algorithm_type: str, algorithm_dict: dict[str, 'Callable[..., Any]']) -> None:
+            algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL,
+            algorithm_dict: dict[str, 'Callable[..., Any]']) -> None:
         """
         Provided a dictionary of callable function,
         and the associated algorithm type,
         register it as one of the valid algorithms.
         """
+        if algorithm_type not in POLICY_ALGORITHM_TYPES:
+            raise InvalidPolicyPackageAlgorithmType(algorithm_type)
+
         if algorithm_type in cls._ALGORITHMS:
             cls._ALGORITHMS[algorithm_type].update(algorithm_dict)
         else:
             cls._ALGORITHMS[algorithm_type] = algorithm_dict
 
     @classmethod
-    def _supports(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str, name: str) -> bool:
+    def _supports(
+            cls: type[PolicyPackageAlgorithmsT],
+            algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL,
+            name: str) -> bool:
         """
         Check if a algorithm is supported by the plugin
         """
+        if algorithm_type not in POLICY_ALGORITHM_TYPES:
+            raise InvalidPolicyPackageAlgorithmType(algorithm_type)
         return name in cls._ALGORITHMS.get(algorithm_type, {})
 
     @classmethod
@@ -173,8 +195,11 @@ class PolicyPackageAlgorithms:
             # on server, list all VOs and register their algorithms
             else:
                 from rucio.core.vo import list_vos
+                from rucio.db.sqla.constants import DatabaseOperationType
+                from rucio.db.sqla.session import db_session
                 # policy package per VO
-                vos = list_vos()
+                with db_session(DatabaseOperationType.READ) as session:
+                    vos = list_vos(session=session)
                 for vo in vos:
                     cls._try_importing_policy(vo['vo'])
 
@@ -195,10 +220,6 @@ class PolicyPackageAlgorithms:
 
             if hasattr(module, 'get_algorithms'):
                 all_algorithms = module.get_algorithms()
-
-                # for backward compatibility, rename 'surl' to 'non_deterministic_pfn' here
-                if 'surl' in all_algorithms:
-                    all_algorithms['non_deterministic_pfn'] = all_algorithms['surl']
 
                 # check that the names are correctly prefixed for multi-VO
                 if vo:

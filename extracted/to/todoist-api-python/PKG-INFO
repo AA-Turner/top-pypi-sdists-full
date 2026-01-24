@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: todoist_api_python
-Version: 3.1.0
+Version: 3.2.1
 Summary: Official Python SDK for the Todoist API.
 Project-URL: Homepage, https://github.com/Doist/todoist-api-python
 Project-URL: Repository, https://github.com/Doist/todoist-api-python
-Project-URL: Documentation, https://developer.todoist.com/rest/
+Project-URL: Documentation, https://doist.github.io/todoist-api-python
 Author-email: Doist Developers <dev@doist.com>
 License-Expression: MIT
 License-File: LICENSE

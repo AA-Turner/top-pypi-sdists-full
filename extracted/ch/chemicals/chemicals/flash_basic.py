@@ -48,17 +48,23 @@ Equilibrium Constants
 """
 
 
-from fluids.numerics import NotBoundedError, brenth, exp, log, newton, oscillation_checker, secant
+from fluids.numerics import brenth, exp, log, newton, secant
 
 from chemicals.rachford_rice import flash_inner_loop
 from chemicals.utils import mark_numba_uncacheable
 
-__all__ = ['K_value','Wilson_K_value', 'PR_water_K_value', 'flash_wilson',
-           'flash_Tb_Tc_Pc', 'flash_ideal']
+__all__ = [
+    "K_value",
+    "PR_water_K_value",
+    "Wilson_K_value",
+    "flash_Tb_Tc_Pc",
+    "flash_ideal",
+    "flash_wilson",
+]
 
 
 def K_value(P=None, Psat=None, phi_l=None, phi_g=None, gamma=None, Poynting=1.0):
-    r'''Calculates the equilibrium K-value assuming Raoult's law,
+    r"""Calculates the equilibrium K-value assuming Raoult's law,
     or an equation of state model, or an activity coefficient model,
     or a combined equation of state-activity model.
 
@@ -175,7 +181,7 @@ def K_value(P=None, Psat=None, phi_l=None, phi_g=None, gamma=None, Poynting=1.0)
        Wiley-VCH, 2012.
     .. [2] Skogestad, Sigurd. Chemical and Energy Process Engineering. 1st
        edition. Boca Raton, FL: CRC Press, 2008.
-    '''
+    """
     try:
         if gamma is not None:
             if phi_l is not None:
@@ -185,12 +191,12 @@ def K_value(P=None, Psat=None, phi_l=None, phi_g=None, gamma=None, Poynting=1.0)
             return phi_l/phi_g
         return Psat/P
     except:
-        raise TypeError('Input must consist of one set from (P, Psat, phi_l, '
-                        'phi_g, gamma), (P, Psat, gamma), (phi_l, phi_g), (P, Psat)')
+        raise TypeError("Input must consist of one set from (P, Psat, phi_l, "
+                        "phi_g, gamma), (P, Psat, gamma), (phi_l, phi_g), (P, Psat)")
 
 
 def Wilson_K_value(T, P, Tc, Pc, omega):
-    r'''Calculates the equilibrium K-value for a component using Wilson's
+    r"""Calculates the equilibrium K-value for a component using Wilson's
     heuristic mode. This is very useful for initialization of stability tests
     and flashes.
 
@@ -250,12 +256,12 @@ def Wilson_K_value(T, P, Tc, Pc, omega):
        Equilibrium Calculations for Systems Containing Water." The Canadian
        Journal of Chemical Engineering, December 1, 1976.
        https://doi.org/10.1002/cjce.5450540620.
-    '''
+    """
     return Pc/P*exp(5.37*(1.0 + omega)*(1.0 - Tc/T))
 
 
 def PR_water_K_value(T, P, Tc, Pc):
-    r'''Calculates the equilibrium K-value for a component against water
+    r"""Calculates the equilibrium K-value for a component against water
     according to the Peng and Robinson (1976) heuristic.
 
     .. math::
@@ -295,7 +301,7 @@ def PR_water_K_value(T, P, Tc, Pc):
        Equilibrium Calculations for Systems Containing Water." The Canadian
        Journal of Chemical Engineering, December 1, 1976.
        https://doi.org/10.1002/cjce.5450540620.
-    '''
+    """
     Tr = T/Tc
     Pr = P/Pc
     return 1e6*Pr/Tr
@@ -330,7 +336,7 @@ def err_Wilson_PVF(T_guess, N, P_inv, VF, Tcs, Pcs, Ks, zs, xs, x50s):
 
 @mark_numba_uncacheable
 def flash_wilson(zs, Tcs, Pcs, omegas, T=None, P=None, VF=None):
-    r'''PVT flash model using Wilson's equation - useful for obtaining initial
+    r"""PVT flash model using Wilson's equation - useful for obtaining initial
     guesses for more rigorous models, or it can be used as its own model.
     Capable of solving with two of `T`, `P`, and `VF` for the other one;
     that results in three solve modes, but for `VF=1` and `VF=0`, there are
@@ -392,7 +398,7 @@ def flash_wilson(zs, Tcs, Pcs, omegas, T=None, P=None, VF=None):
     >>> zs = [0.4, 0.6]
     >>> flash_wilson(zs=zs, Tcs=Tcs, Pcs=Pcs, omegas=omegas, T=300, P=1e5)
     (300, 100000.0, 0.422194532936, [0.02093881508003, 0.979061184919], [0.918774185622, 0.0812258143])
-    '''
+    """
     T_MAX = 50000.0
     N = len(zs)
     # Assume T and P to begin with
@@ -514,7 +520,7 @@ def flash_wilson(zs, Tcs, Pcs, omegas, T=None, P=None, VF=None):
 
 
 def flash_Tb_Tc_Pc(zs, Tbs, Tcs, Pcs, T=None, P=None, VF=None):
-    r'''PVT flash model using a model published in [1]_, which provides a PT
+    r"""PVT flash model using a model published in [1]_, which provides a PT
     surface using only each compound's boiling temperature and critical
     temperature and pressure. This is useful for obtaining initial
     guesses for more rigorous models, or it can be used as its own model.
@@ -589,12 +595,12 @@ def flash_Tb_Tc_Pc(zs, Tbs, Tcs, Pcs, T=None, P=None, VF=None):
 
     References
     ----------
-    .. [1] Kandula, Vamshi Krishna, John C. Telotte, and F. Carl Knopf. "It`s
+    .. [1] Kandula, Vamshi Krishna, John C. Telotte, and F. Carl Knopf. "It's
        Not as Easy as It Looks: Revisiting Peng—Robinson Equation of State
        Convergence Issues for Dew Point, Bubble Point and Flash Calculations."
        International Journal of Mechanical Engineering Education 41, no. 3
        (July 1, 2013): 188-202. https://doi.org/10.7227/IJMEE.41.3.2.
-    '''
+    """
     T_MAX = 50000
     N = len(zs)
     cmps = range(N)
@@ -602,7 +608,6 @@ def flash_Tb_Tc_Pc(zs, Tbs, Tcs, Pcs, T=None, P=None, VF=None):
     if T is not None and P is not None:
         Ks = [Pcs[i]**((1.0/T - 1.0/Tbs[i])/(1.0/Tcs[i] - 1.0/Tbs[i]))/P for i in cmps]
         return (T, P) + flash_inner_loop(zs=zs, Ks=Ks, check=True)
-
 
     if T is not None and VF == 0:
         P_bubble = 0.0
@@ -625,11 +630,10 @@ def flash_Tb_Tc_Pc(zs, Tbs, Tcs, Pcs, T=None, P=None, VF=None):
             T_calc, P_calc, VF_calc, xs, ys = flash_Tb_Tc_Pc(zs, Tbs, Tcs, Pcs, T=T, P=P)
             info[:] = T_calc, P_calc, VF_calc, xs, ys
             return VF_calc - VF
-        P = brenth(err, P_low, P_high)
+        P = secant(err, x0=0.5*(P_low + P_high), low=P_low, high=P_high, bisection=True)
         return tuple(info)
 
     elif P is not None and VF == 1:
-        checker = oscillation_checker()
         def to_solve(T_guess):
             T_guess = abs(T_guess)
             P_dew = 0.
@@ -637,58 +641,39 @@ def flash_Tb_Tc_Pc(zs, Tbs, Tcs, Pcs, T=None, P=None, VF=None):
                 P_dew += zs[i]/( Pcs[i]**((1.0/T_guess - 1.0/Tbs[i])/(1.0/Tcs[i] - 1.0/Tbs[i])) )
             P_dew = 1./P_dew
             err = P_dew - P
-            if checker(T_guess, err):
-                raise ValueError("Oscillation")
-#            print(T_guess, err)
             return err
 
         Tc_pseudo = sum([Tcs[i]*zs[i] for i in cmps])
         T_guess = 0.666*Tc_pseudo
         try:
-            T_dew = abs(secant(to_solve, T_guess, maxiter=50, ytol=1e-2)) # , high=Tc_pseudo*3
+            T_dew = abs(secant(to_solve, T_guess, maxiter=50, ytol=1e-2, additional_guesses=True))
         except:
             T_dew = None
         if T_dew is None or T_dew > T_MAX*5.0:
-            # Went insanely high T, bound it with brenth
+            # Got stuck in a region floats don't change (exponential) or converged to a falses solution at high T
             T_low_guess = sum([.1*Tcs[i]*zs[i] for i in cmps])
-            checker = oscillation_checker(both_sides=True, minimum_progress=.05)
-            try:
-                T_dew = brenth(to_solve, T_MAX, T_low_guess)
-            except NotBoundedError:
-                raise Exception(f"Bisecting solver could not find a solution between {T_MAX:g} K and {T_low_guess:g} K")
+            T_dew = abs(secant(to_solve, T_guess, low=T_low_guess, high=T_MAX, bisection=True, maxiter=50, ytol=1e-2, additional_guesses=True))
         return flash_Tb_Tc_Pc(zs, Tbs, Tcs, Pcs, T=T_dew, P=P)
 
     elif P is not None and VF == 0:
-        checker = oscillation_checker()
         def to_solve(T_guess):
             T_guess = abs(T_guess)
             P_bubble = 0.0
             for i in cmps:
                 P_bubble += zs[i]*Pcs[i]**((1.0/T_guess - 1.0/Tbs[i])/(1.0/Tcs[i] - 1.0/Tbs[i]))
-
             err = P_bubble - P
-            if checker(T_guess, err):
-                raise ValueError("Oscillation")
-
-#            print(T_guess, err)
             return err
         # 2/3 average critical point
         Tc_pseudo = sum([Tcs[i]*zs[i] for i in cmps])
         T_guess = 0.55*Tc_pseudo
         try:
             T_bubble = abs(secant(to_solve, T_guess, maxiter=50, ytol=1e-2)) # , high=Tc_pseudo*4
-        except Exception as e:
-#            print(e)
-            checker = oscillation_checker(both_sides=True, minimum_progress=.05)
+        except:
             T_bubble = None
         if T_bubble is None or T_bubble > T_MAX*5.0:
-            # Went insanely high T (or could not converge because went too high), bound it with brenth
+            # Went insanely high T (or could not converge because went too high), bound it
             T_low_guess = 0.1*Tc_pseudo
-            try:
-                T_bubble = brenth(to_solve, T_MAX, T_low_guess)
-            except NotBoundedError:
-                raise Exception(f"Bisecting solver could not find a solution between {T_MAX:g} K and {T_low_guess:g} K")
-
+            T_bubble = abs(secant(to_solve, T_guess, low=T_low_guess, high=T_MAX, maxiter=50, ytol=1e-2, bisection=True)) # , high=Tc_pseudo*4
         return flash_Tb_Tc_Pc(zs, Tbs, Tcs, Pcs, T=T_bubble, P=P)
     elif P is not None and VF is not None:
         T_low = flash_Tb_Tc_Pc(zs, Tbs, Tcs, Pcs, P=P, VF=1)[0]
@@ -698,14 +683,14 @@ def flash_Tb_Tc_Pc(zs, Tbs, Tcs, Pcs, T=None, P=None, VF=None):
             T_calc, P_calc, VF_calc, xs, ys = flash_Tb_Tc_Pc(zs, Tbs, Tcs, Pcs, T=T, P=P)
             info[:] = T_calc, P_calc, VF_calc, xs, ys
             return VF_calc - VF
-        P = brenth(err, T_low, T_high)
+        P = secant(err, x0=0.5*(T_low + T_high), low=T_low, high=T_high, bisection=True, xtol=1e-10)
         return tuple(info)
     else:
         raise ValueError("Provide two of P, T, and VF")
 
 
 def flash_ideal(zs, funcs, Tcs=None, T=None, P=None, VF=None):
-    r'''PVT flash model using ideal, composition-independent equation.
+    r"""PVT flash model using ideal, composition-independent equation.
     Solves the various cases of composition-independent models.
 
     Capable of solving with two of `T`, `P`, and `VF` for the other one;
@@ -828,7 +813,7 @@ def flash_ideal(zs, funcs, Tcs=None, T=None, P=None, VF=None):
 
     Note that while this works for PT composition independent flashes - an
     outer iterating loop is needed for composition dependence!
-    '''
+    """
     T_MAX = 50000.0
     N = len(zs)
     cmps = range(N)

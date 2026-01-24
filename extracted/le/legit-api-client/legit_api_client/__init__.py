@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.4279"
+__version__ = "1.1.4634"
 
 # Define package exports
 __all__ = [
@@ -30,6 +30,7 @@ __all__ = [
     "IntegrationsApi",
     "IssuesApi",
     "IssuesV2Api",
+    "ModelsApi",
     "PoliciesApi",
     "ProductUnitsApi",
     "RepositoriesApi",
@@ -48,6 +49,7 @@ __all__ = [
     "ApiAttributeError",
     "ApiException",
     "AddIssueCommentDto",
+    "AiModelReputationDto",
     "AiSecretValidationResult",
     "AmazonEcrKeyIntegrationCreateDto",
     "AmazonEcrKeyIntegrationEditDto",
@@ -152,6 +154,7 @@ __all__ = [
     "IssueOpeningReasonDto",
     "IssueOriginDto",
     "IssueOriginParams",
+    "IssueReachability",
     "IssueSortingColumn",
     "IssueStatus",
     "IssueTagDto",
@@ -168,6 +171,7 @@ __all__ = [
     "LegitScoreRequirementType",
     "ListSortDirection",
     "ManualCheckDto",
+    "ModelReputation",
     "OriginType",
     "PackageSource",
     "PackageType",
@@ -190,10 +194,13 @@ __all__ = [
     "ProductUnitDto",
     "ProductUnitDtoCustomFieldsValue",
     "ProductUnitEnvironment",
+    "ProductUnitIssueDto",
     "ProductUnitNameDto",
     "ProductUnitType",
     "ProgrammingLanguage",
     "RepositoriesToContainersOperationDto",
+    "RepositoryAutomaticBusinessImpactFactor",
+    "RepositoryContextFieldDto",
     "RepositoryControlDto",
     "RepositoryDirectory",
     "RepositoryDto",
@@ -212,6 +219,7 @@ __all__ = [
     "SecretsDataDto",
     "Severity",
     "SnoozedType",
+    "SourceDto",
     "StringCustomerFacingCursorPagedDto",
     "TagDto",
     "TagSource",
@@ -241,6 +249,7 @@ from legit_api_client.api.dependencies_v2_api import DependenciesV2Api as Depend
 from legit_api_client.api.integrations_api import IntegrationsApi as IntegrationsApi
 from legit_api_client.api.issues_api import IssuesApi as IssuesApi
 from legit_api_client.api.issues_v2_api import IssuesV2Api as IssuesV2Api
+from legit_api_client.api.models_api import ModelsApi as ModelsApi
 from legit_api_client.api.policies_api import PoliciesApi as PoliciesApi
 from legit_api_client.api.product_units_api import ProductUnitsApi as ProductUnitsApi
 from legit_api_client.api.repositories_api import RepositoriesApi as RepositoriesApi
@@ -263,6 +272,7 @@ from legit_api_client.exceptions import ApiException as ApiException
 
 # import models into sdk package
 from legit_api_client.models.add_issue_comment_dto import AddIssueCommentDto as AddIssueCommentDto
+from legit_api_client.models.ai_model_reputation_dto import AiModelReputationDto as AiModelReputationDto
 from legit_api_client.models.ai_secret_validation_result import AiSecretValidationResult as AiSecretValidationResult
 from legit_api_client.models.amazon_ecr_key_integration_create_dto import AmazonEcrKeyIntegrationCreateDto as AmazonEcrKeyIntegrationCreateDto
 from legit_api_client.models.amazon_ecr_key_integration_edit_dto import AmazonEcrKeyIntegrationEditDto as AmazonEcrKeyIntegrationEditDto
@@ -367,6 +377,7 @@ from legit_api_client.models.issue_ignoring_reason_dto import IssueIgnoringReaso
 from legit_api_client.models.issue_opening_reason_dto import IssueOpeningReasonDto as IssueOpeningReasonDto
 from legit_api_client.models.issue_origin_dto import IssueOriginDto as IssueOriginDto
 from legit_api_client.models.issue_origin_params import IssueOriginParams as IssueOriginParams
+from legit_api_client.models.issue_reachability import IssueReachability as IssueReachability
 from legit_api_client.models.issue_sorting_column import IssueSortingColumn as IssueSortingColumn
 from legit_api_client.models.issue_status import IssueStatus as IssueStatus
 from legit_api_client.models.issue_tag_dto import IssueTagDto as IssueTagDto
@@ -383,6 +394,7 @@ from legit_api_client.models.legit_score_requirement_group_type import LegitScor
 from legit_api_client.models.legit_score_requirement_type import LegitScoreRequirementType as LegitScoreRequirementType
 from legit_api_client.models.list_sort_direction import ListSortDirection as ListSortDirection
 from legit_api_client.models.manual_check_dto import ManualCheckDto as ManualCheckDto
+from legit_api_client.models.model_reputation import ModelReputation as ModelReputation
 from legit_api_client.models.origin_type import OriginType as OriginType
 from legit_api_client.models.package_source import PackageSource as PackageSource
 from legit_api_client.models.package_type import PackageType as PackageType
@@ -405,10 +417,13 @@ from legit_api_client.models.product_unit_asset_dto import ProductUnitAssetDto a
 from legit_api_client.models.product_unit_dto import ProductUnitDto as ProductUnitDto
 from legit_api_client.models.product_unit_dto_custom_fields_value import ProductUnitDtoCustomFieldsValue as ProductUnitDtoCustomFieldsValue
 from legit_api_client.models.product_unit_environment import ProductUnitEnvironment as ProductUnitEnvironment
+from legit_api_client.models.product_unit_issue_dto import ProductUnitIssueDto as ProductUnitIssueDto
 from legit_api_client.models.product_unit_name_dto import ProductUnitNameDto as ProductUnitNameDto
 from legit_api_client.models.product_unit_type import ProductUnitType as ProductUnitType
 from legit_api_client.models.programming_language import ProgrammingLanguage as ProgrammingLanguage
 from legit_api_client.models.repositories_to_containers_operation_dto import RepositoriesToContainersOperationDto as RepositoriesToContainersOperationDto
+from legit_api_client.models.repository_automatic_business_impact_factor import RepositoryAutomaticBusinessImpactFactor as RepositoryAutomaticBusinessImpactFactor
+from legit_api_client.models.repository_context_field_dto import RepositoryContextFieldDto as RepositoryContextFieldDto
 from legit_api_client.models.repository_control_dto import RepositoryControlDto as RepositoryControlDto
 from legit_api_client.models.repository_directory import RepositoryDirectory as RepositoryDirectory
 from legit_api_client.models.repository_dto import RepositoryDto as RepositoryDto
@@ -427,6 +442,7 @@ from legit_api_client.models.secret_issue_validity_status import SecretIssueVali
 from legit_api_client.models.secrets_data_dto import SecretsDataDto as SecretsDataDto
 from legit_api_client.models.severity import Severity as Severity
 from legit_api_client.models.snoozed_type import SnoozedType as SnoozedType
+from legit_api_client.models.source_dto import SourceDto as SourceDto
 from legit_api_client.models.string_customer_facing_cursor_paged_dto import StringCustomerFacingCursorPagedDto as StringCustomerFacingCursorPagedDto
 from legit_api_client.models.tag_dto import TagDto as TagDto
 from legit_api_client.models.tag_source import TagSource as TagSource
@@ -441,3 +457,4 @@ from legit_api_client.models.workspace_group_tree_node_dto import WorkspaceGroup
 from legit_api_client.models.workspace_hierarchy_dto import WorkspaceHierarchyDto as WorkspaceHierarchyDto
 from legit_api_client.models.workspace_tree_node_dto import WorkspaceTreeNodeDto as WorkspaceTreeNodeDto
 from legit_api_client.models.workspace_type import WorkspaceType as WorkspaceType
+

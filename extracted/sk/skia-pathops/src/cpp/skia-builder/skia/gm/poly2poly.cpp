@@ -22,6 +22,7 @@
 #include "include/core/SkTypeface.h"
 #include "include/utils/SkTextUtils.h"
 #include "tools/Resources.h"
+#include "tools/fonts/FontToolUtils.h"
 
 #include <stdint.h>
 
@@ -30,18 +31,12 @@ public:
     Poly2PolyGM() {}
 
 protected:
+    SkString getName() const override { return SkString("poly2poly"); }
 
-    SkString onShortName() override {
-        return SkString("poly2poly");
-    }
-
-    SkISize onISize() override {
-        return SkISize::Make(835, 840);
-    }
+    SkISize getISize() override { return SkISize::Make(835, 840); }
 
     static void doDraw(SkCanvas* canvas, const SkFont& font, SkPaint* paint, const int isrc[],
                        const int idst[], int count) {
-        SkMatrix matrix;
         SkPoint src[4], dst[4];
 
         for (int i = 0; i < count; i++) {
@@ -50,8 +45,9 @@ protected:
         }
 
         canvas->save();
-        matrix.setPolyToPoly(src, dst, count);
-        canvas->concat(matrix);
+        if (auto mx = SkMatrix::PolyToPoly({src, count}, {dst, count})) {
+            canvas->concat(*mx);
+        }
 
         paint->setColor(SK_ColorGRAY);
         paint->setStyle(SkPaint::kStroke_Style);
@@ -73,7 +69,10 @@ protected:
     }
 
     void onOnceBeforeDraw() override {
-        fEmFace = MakeResourceAsTypeface("fonts/Em.ttf");
+        fEmFace = ToolUtils::CreateTypefaceFromResource("fonts/Em.ttf");
+        if (!fEmFace) {
+            fEmFace = ToolUtils::DefaultPortableTypeface();
+        }
     }
 
     void onDraw(SkCanvas* canvas) override {

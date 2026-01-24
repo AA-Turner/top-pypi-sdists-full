@@ -1,0 +1,53 @@
+Metadata-Version: 2.1
+Name: case-convert
+Version: 1.1.0
+Summary: Cross library to convert case with permissive input
+Home-page: https://gitlab.com/olive007/case-convert
+Author: SECRET Olivier
+Author-email: pypi-package-case_convert@devo.live
+License: UNKNOWN
+Description: # Convert Case
+        Cross-language library to convert case with permissive inputs.
+        
+        ## Language supported
+        The library is available in:
+        - [js](#code-example-javascript)
+        - [python](#code-example-python)
+        
+        ## Code examples 
+        ### Code example: JavaScript 
+        
+        ```js
+        import { camelCase } from "../src/index";
+        
+        camelCase("helloGreat world");  // helloGreatWorld
+        camelCase("__hello Great--world");  // helloGreatWorld
+        ```
+        
+        ### Code example: Python
+        ```python
+        from case_convert import camel_case
+        
+        camel_case("helloGreat world")  # helloGreatWorld
+        camel_case("__hello Great--world")  # helloGreatWorld
+        ```
+        
+        ## Cases supported
+        The library can convert to the following cases:
+        - camel
+        - kebab
+        - pascal
+        - snake
+        - upper
+        
+        ## Issues/Bug report or improvement ideas
+        https://gitlab.com/olive007/case-convert/-/issues
+        
+        ## License
+        GNU Lesser General Public License v3 or later (LGPLv3+)
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown

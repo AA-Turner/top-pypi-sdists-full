@@ -6,7 +6,6 @@ import pickle
 import pkgutil
 import sys
 import threading
-import traceback
 from collections import defaultdict
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
@@ -42,6 +41,7 @@ from canvas_sdk.effects.simple_api import Response
 from canvas_sdk.events import Event, EventRequest, EventResponse, EventType
 from canvas_sdk.handlers.simple_api.websocket import DenyConnection
 from canvas_sdk.protocols import ClinicalQualityMeasure
+from canvas_sdk.templates.utils import _engine_for_plugin
 from canvas_sdk.utils import metrics
 from canvas_sdk.utils.metrics import measured
 from logger import log
@@ -95,10 +95,6 @@ if SENTRY_DSN:
     global_scope.set_tag("logger", "python")
     global_scope.set_tag("source", "plugin-runner")
     global_scope.set_tag("production_customer", "yes" if IS_PRODUCTION_CUSTOMER else "no")
-
-# when we import plugins we'll use the module name directly so we need to add the plugin
-# directory to the path
-sys.path.append(PLUGIN_DIRECTORY)
 
 Plugin = TypedDict(
     "Plugin",
@@ -231,7 +227,7 @@ class PluginRunner(PluginRunnerServicer):
                         p for p in relevant_plugins if p.startswith(f"{plugin_name}:")
                     ]
                 except Exception as ex:
-                    log.error(
+                    log.exception(
                         f"Failed to decode identifier for event {event_name} with context {event.context}"
                     )
                     sentry_sdk.capture_exception(ex)
@@ -268,6 +264,7 @@ class PluginRunner(PluginRunnerServicer):
                     handler_name = metrics.get_qualified_name(handler.compute)
                     with metrics.measure(
                         name=handler_name,
+                        track_queries=True,
                         extra_tags={
                             "plugin": base_plugin_name,
                             "event": event_name,
@@ -281,6 +278,8 @@ class PluginRunner(PluginRunnerServicer):
                                 plugin_name=base_plugin_name,
                                 classname=classname,
                                 handler_name=handler_name,
+                                actor=event.actor.id,
+                                source=event.source,
                             )
                             for effect in _effects
                         ]
@@ -292,12 +291,7 @@ class PluginRunner(PluginRunnerServicer):
                         log.info(f"{plugin_name}.compute() completed.")
 
                 except Exception as e:
-                    log.error(f"Encountered exception in plugin {plugin_name}:")
-
-                    for error_line_with_newlines in traceback.format_exception(e):
-                        for error_line in error_line_with_newlines.split("\n"):
-                            log.error(error_line)
-
+                    log.exception(f"Encountered exception in plugin {plugin_name}")
                     sentry_sdk.capture_exception(e)
                     continue
 
@@ -419,6 +413,9 @@ def synchronize_plugins(run_once: bool = False) -> None:
         if "action" not in data:
             continue
 
+        # clear the template engine cache so that any template changes
+        # from plugins are picked up
+        _engine_for_plugin.cache_clear()
         plugin_name = data.get("plugin", None)
         try:
             if data["action"] == "reload":
@@ -429,6 +426,7 @@ def synchronize_plugins(run_once: bool = False) -> None:
                         log.info(
                             f'synchronize_plugins: installing/reloading plugin "{plugin_name}" for action=reload'
                         )
+                        unload_plugin(plugin_name)
                         install_plugin(plugin_name, attributes=plugin)
                         plugin_dir = pathlib.Path(PLUGIN_DIRECTORY) / plugin_name
                         load_plugin(plugin_dir.resolve())
@@ -451,7 +449,7 @@ def synchronize_plugins(run_once: bool = False) -> None:
             if plugin_name:
                 message += f' for plugin "{plugin_name}"'
 
-            log.error(f"synchronize_plugins: {message}: {e}")
+            log.exception(f"synchronize_plugins: {message}")
             sentry_sdk.capture_exception(e)
 
         if run_once:
@@ -468,7 +466,7 @@ def synchronize_plugins_and_report_errors() -> None:
         try:
             synchronize_plugins()
         except Exception as e:
-            log.error(f"synchronize_plugins: error: {e}")
+            log.exception("synchronize_plugins: error")
             sentry_sdk.capture_exception(e)
 
         # don't crush redis if we're retrying in a tight loop
@@ -569,7 +567,7 @@ def load_or_reload_plugin(path: pathlib.Path) -> bool:
     try:
         manifest_json: PluginManifest = json.loads(manifest_json_str)
     except Exception as e:
-        log.error(f'Unable to load plugin "{name}": {e}')
+        log.exception(f'Unable to load plugin "{name}"')
         sentry_sdk.capture_exception(e)
 
         return False
@@ -581,7 +579,7 @@ def load_or_reload_plugin(path: pathlib.Path) -> bool:
         try:
             secrets_json = json.load(secrets_file.open())
         except Exception as e:
-            log.error(f'Unable to load secrets for plugin "{name}": {str(e)}')
+            log.exception(f'Unable to load secrets for plugin "{name}"')
             sentry_sdk.capture_exception(e)
 
     # TODO add existing schema validation from Michela here
@@ -590,7 +588,7 @@ def load_or_reload_plugin(path: pathlib.Path) -> bool:
             "components"
         ].get("applications", [])
     except Exception as e:
-        log.error(f'Unable to load plugin "{name}": {str(e)}')
+        log.exception(f'Unable to load plugin "{name}"')
         sentry_sdk.capture_exception(e)
 
         return False
@@ -604,7 +602,7 @@ def load_or_reload_plugin(path: pathlib.Path) -> bool:
             handler_module, handler_class = handler["class"].split(":")
             name_and_class = f"{name}:{handler_module}:{handler_class}"
         except ValueError as e:
-            log.error(f'Unable to parse class for plugin "{name}": "{handler["class"]}"')
+            log.exception(f'Unable to parse class for plugin "{name}": "{handler["class"]}"')
             sentry_sdk.capture_exception(e)
 
             any_failed = True
@@ -634,13 +632,8 @@ def load_or_reload_plugin(path: pathlib.Path) -> bool:
                     "secrets": secrets_json,
                 }
         except Exception as e:
-            log.error(f'Error importing module "{name_and_class}": {e}')
-
-            for error_line in traceback.format_exception(e):
-                log.error(error_line)
-
+            log.exception(f"Error importing module '{name_and_class}'")
             sentry_sdk.capture_exception(e)
-
             any_failed = True
 
     return not any_failed
@@ -698,6 +691,11 @@ def load_plugins(specified_plugin_paths: list[str] | None = None) -> None:
             path_to_append = pathlib.Path(".") / plugin_path.parent
             sys.path.append(path_to_append.as_posix())
     else:
+        # Add plugin directory to path only when actually loading plugins (not at module import time)
+        # to avoid polluting Python's import cache during test collection
+        if PLUGIN_DIRECTORY not in sys.path:
+            sys.path.append(PLUGIN_DIRECTORY)
+
         candidates = os.listdir(PLUGIN_DIRECTORY)
 
         # convert to Paths

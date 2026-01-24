@@ -1,8 +1,6 @@
 from decimal import Decimal
-from typing import List, Dict
 
 import a_sync
-from a_sync import cgather
 from a_sync.a_sync import HiddenMethodDescriptor
 from brownie import chain
 from typing_extensions import Self
@@ -45,17 +43,17 @@ class DieselPool(ContractBase):
     __underlying__: HiddenMethodDescriptor[Self, ERC20]
 
     async def exchange_rate(self, block: Block) -> Decimal:
-        underlying: ERC20
-        pool, underlying = await cgather(self.__contract__, self.__underlying__)
+        # `__contract__` and `__underlying__` are both cached after the first call, so we will await them without gather
+        pool = await self.__contract__
+        underlying = await self.__underlying__
         scale = await underlying.__scale__
-        return Decimal(await pool.fromDiesel.coroutine(scale, block_identifier=block)) / Decimal(
-            scale
-        )
+        converted = await pool.fromDiesel.coroutine(scale, block_identifier=block)
+        return Decimal(converted) / scale
 
     async def get_price(self, block: Block, skip_cache: bool = ENVS.SKIP_CACHE) -> Decimal:
-        underlying, exchange_rate = await cgather(
-            self.__underlying__, self.exchange_rate(block, sync=False)
-        )
+        # `self.__underlying__` is cached after the first call, so we will await these without gather
+        underlying = await self.__underlying__
+        exchange_rate = await self.exchange_rate(block, sync=False)
         und_price = await underlying.price(block, skip_cache=skip_cache, sync=False)
         return Decimal(und_price) * exchange_rate
 
@@ -78,7 +76,7 @@ class Gearbox(a_sync.ASyncGenericBase):
         if chain.id != Network.Mainnet:
             raise UnsupportedNetwork("gearbox not supported on this network")
         self.asynchronous = asynchronous
-        self._dtokens: Dict[ERC20, DieselPool] = {}
+        self._dtokens: dict[ERC20, DieselPool] = {}
         super().__init__()
 
     @a_sync.aka.cached_property
@@ -86,14 +84,14 @@ class Gearbox(a_sync.ASyncGenericBase):
         return await Contract.coroutine(registry)
 
     @a_sync_ttl_cache
-    async def pools(self) -> List[DieselPool]:
+    async def pools(self) -> list[DieselPool]:
         registry = await self.registry
         return [
             DieselPool(pool, asynchronous=self.asynchronous) for pool in await registry.getPools
         ]
 
-    async def diesel_tokens(self) -> Dict[ERC20, DieselPool]:
-        pools: List[DieselPool] = await self.pools(sync=False)
+    async def diesel_tokens(self) -> dict[ERC20, DieselPool]:
+        pools: list[DieselPool] = await self.pools(sync=False)
         return dict(zip(await DieselPool.diesel_token.map(pools).values(pop=True), pools))
 
     async def is_diesel_token(self, token: Address) -> bool:

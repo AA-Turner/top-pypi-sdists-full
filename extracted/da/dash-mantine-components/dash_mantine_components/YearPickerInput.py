@@ -1445,7 +1445,7 @@ Keyword arguments:
 
 - yearsListFormat (string; optional):
     dayjs format for years list, `'YYYY'` by default."""
-    _children_props = ['popoverProps.middlewares.flip.boundary', 'modalProps.overlayProps.children', 'modalProps.title', 'modalProps.closeButtonProps.children', 'modalProps.closeButtonProps.icon', 'clearButtonProps.children', 'clearButtonProps.icon', 'leftSection', 'rightSection', 'label', 'description', 'error']
+    _children_props: typing.List[str] = ['popoverProps.middlewares.flip.boundary', 'modalProps.overlayProps.children', 'modalProps.title', 'modalProps.closeButtonProps.children', 'modalProps.closeButtonProps.icon', 'clearButtonProps.children', 'clearButtonProps.icon', 'leftSection', 'rightSection', 'label', 'description', 'error']
     _base_nodes = ['leftSection', 'rightSection', 'label', 'description', 'error', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'YearPickerInput'

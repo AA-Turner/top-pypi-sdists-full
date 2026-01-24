@@ -3,7 +3,7 @@ Type annotations for cloudsearch service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudsearch/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import (
@@ -29,12 +30,6 @@ from .literals import (
     TLSSecurityPolicyType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -151,7 +146,7 @@ class BuildSuggestersRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -387,17 +382,17 @@ class AnalysisSchemeTypeDef(TypedDict):
 
 
 class BuildSuggestersResponseTypeDef(TypedDict):
-    FieldNames: List[str]
+    FieldNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class IndexDocumentsResponseTypeDef(TypedDict):
-    FieldNames: List[str]
+    FieldNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListDomainNamesResponseTypeDef(TypedDict):
-    DomainNames: Dict[str, str]
+    DomainNames: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -509,7 +504,7 @@ class DeleteExpressionResponseTypeDef(TypedDict):
 
 
 class DescribeExpressionsResponseTypeDef(TypedDict):
-    Expressions: List[ExpressionStatusTypeDef]
+    Expressions: list[ExpressionStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -544,7 +539,7 @@ class DeleteDomainResponseTypeDef(TypedDict):
 
 
 class DescribeDomainsResponseTypeDef(TypedDict):
-    DomainStatusList: List[DomainStatusTypeDef]
+    DomainStatusList: list[DomainStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -579,7 +574,7 @@ class DeleteAnalysisSchemeResponseTypeDef(TypedDict):
 
 
 class DescribeAnalysisSchemesResponseTypeDef(TypedDict):
-    AnalysisSchemes: List[AnalysisSchemeStatusTypeDef]
+    AnalysisSchemes: list[AnalysisSchemeStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -594,7 +589,7 @@ class DeleteSuggesterResponseTypeDef(TypedDict):
 
 
 class DescribeSuggestersResponseTypeDef(TypedDict):
-    Suggesters: List[SuggesterStatusTypeDef]
+    Suggesters: list[SuggesterStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -609,5 +604,5 @@ class DeleteIndexFieldResponseTypeDef(TypedDict):
 
 
 class DescribeIndexFieldsResponseTypeDef(TypedDict):
-    IndexFields: List[IndexFieldStatusTypeDef]
+    IndexFields: list[IndexFieldStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

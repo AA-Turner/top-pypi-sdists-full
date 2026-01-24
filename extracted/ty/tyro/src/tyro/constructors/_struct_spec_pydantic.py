@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import functools
 import sys
 from typing import TYPE_CHECKING, Any, Dict
 
 from typing_extensions import cast
 
 from .. import _docstrings, _resolver
-from .._singleton import MISSING_AND_MISSING_NONPROP, MISSING_NONPROP
+from .._singleton import MISSING_NONPROP, is_missing
 from ._struct_spec import StructConstructorSpec, StructFieldSpec, StructTypeInfo
 
 if TYPE_CHECKING:
@@ -22,10 +23,7 @@ def _get_pydantic_v1_field_default(
     """Helper for getting the default instance for a Pydantic field."""
 
     # Try grabbing default from parent instance.
-    if (
-        parent_default_instance not in MISSING_AND_MISSING_NONPROP
-        and parent_default_instance is not None
-    ):
+    if not is_missing(parent_default_instance) and parent_default_instance is not None:
         # Populate default from some parent, eg `default=` in `tyro.cli()`.
         if hasattr(parent_default_instance, name):
             return getattr(parent_default_instance, name)
@@ -45,10 +43,7 @@ def _get_pydantic_v2_field_default(
     """Helper for getting the default instance for a Pydantic field."""
 
     # Try grabbing default from parent instance.
-    if (
-        parent_default_instance not in MISSING_AND_MISSING_NONPROP
-        and parent_default_instance is not None
-    ):
+    if not is_missing(parent_default_instance) and parent_default_instance is not None:
         # Populate default from some parent, eg `default=` in `tyro.cli()`.
         if hasattr(parent_default_instance, name):
             return getattr(parent_default_instance, name)
@@ -108,8 +103,11 @@ def pydantic_rule(info: StructTypeInfo) -> StructConstructorSpec | None:
         for pd1_field in cast(Dict[str, Any], cls_cast.__fields__).values():
             helptext = pd1_field.field_info.description
             if helptext is None:
-                helptext = _docstrings.get_field_docstring(
-                    info.type, pd1_field.name, info.markers
+                helptext = functools.partial(
+                    _docstrings.get_field_docstring,
+                    info.type,
+                    pd1_field.name,
+                    info.markers,
                 )
 
             default = _get_pydantic_v1_field_default(
@@ -131,8 +129,8 @@ def pydantic_rule(info: StructTypeInfo) -> StructConstructorSpec | None:
         for name, pd2_field in cast(Any, info.type).model_fields.items():
             helptext = pd2_field.description
             if helptext is None:
-                helptext = _docstrings.get_field_docstring(
-                    info.type, name, info.markers
+                helptext = functools.partial(
+                    _docstrings.get_field_docstring, info.type, name, info.markers
                 )
 
             default = _get_pydantic_v2_field_default(name, pd2_field, info.default)

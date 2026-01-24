@@ -15,6 +15,7 @@ from sqlmesh.core.engine_adapter.mixins import (
     GetCurrentCatalogFromFunctionMixin,
     ClusteredByMixin,
     RowDiffMixin,
+    GrantsFromInfoSchemaMixin,
 )
 from sqlmesh.core.engine_adapter.shared import (
     CatalogSupport,
@@ -34,7 +35,12 @@ if t.TYPE_CHECKING:
     import pandas as pd
 
     from sqlmesh.core._typing import SchemaName, SessionProperties, TableName
-    from sqlmesh.core.engine_adapter._typing import DF, Query, QueryOrDF, SnowparkSession
+    from sqlmesh.core.engine_adapter._typing import (
+        DF,
+        Query,
+        QueryOrDF,
+        SnowparkSession,
+    )
     from sqlmesh.core.node import IntervalUnit
 
 
@@ -46,7 +52,9 @@ if t.TYPE_CHECKING:
         "drop_catalog": CatalogSupport.REQUIRES_SET_CATALOG,  # needs a catalog to issue a query to information_schema.databases even though the result is global
     }
 )
-class SnowflakeEngineAdapter(GetCurrentCatalogFromFunctionMixin, ClusteredByMixin, RowDiffMixin):
+class SnowflakeEngineAdapter(
+    GetCurrentCatalogFromFunctionMixin, ClusteredByMixin, RowDiffMixin, GrantsFromInfoSchemaMixin
+):
     DIALECT = "snowflake"
     SUPPORTS_MATERIALIZED_VIEWS = True
     SUPPORTS_MATERIALIZED_VIEW_SCHEMA = True
@@ -54,6 +62,7 @@ class SnowflakeEngineAdapter(GetCurrentCatalogFromFunctionMixin, ClusteredByMixi
     SUPPORTS_MANAGED_MODELS = True
     CURRENT_CATALOG_EXPRESSION = exp.func("current_database")
     SUPPORTS_CREATE_DROP_CATALOG = True
+    SUPPORTS_METADATA_TABLE_LAST_MODIFIED_TS = True
     SUPPORTED_DROP_CASCADE_OBJECT_KINDS = ["DATABASE", "SCHEMA", "TABLE"]
     SCHEMA_DIFFER_KWARGS = {
         "parameterized_type_defaults": {
@@ -73,6 +82,9 @@ class SnowflakeEngineAdapter(GetCurrentCatalogFromFunctionMixin, ClusteredByMixi
     MANAGED_TABLE_KIND = "DYNAMIC TABLE"
     SNOWPARK = "snowpark"
     SUPPORTS_QUERY_EXECUTION_TRACKING = True
+    SUPPORTS_GRANTS = True
+    CURRENT_USER_OR_ROLE_EXPRESSION: exp.Expression = exp.func("CURRENT_ROLE")
+    USE_CATALOG_IN_GRANTS = True
 
     @contextlib.contextmanager
     def session(self, properties: SessionProperties) -> t.Iterator[None]:
@@ -126,6 +138,23 @@ class SnowflakeEngineAdapter(GetCurrentCatalogFromFunctionMixin, ClusteredByMixi
     @property
     def catalog_support(self) -> CatalogSupport:
         return CatalogSupport.FULL_SUPPORT
+
+    @staticmethod
+    def _grant_object_kind(table_type: DataObjectType) -> str:
+        if table_type == DataObjectType.VIEW:
+            return "VIEW"
+        if table_type == DataObjectType.MATERIALIZED_VIEW:
+            return "MATERIALIZED VIEW"
+        if table_type == DataObjectType.MANAGED_TABLE:
+            return "DYNAMIC TABLE"
+        return "TABLE"
+
+    def _get_current_schema(self) -> str:
+        """Returns the current default schema for the connection."""
+        result = self.fetchone("SELECT CURRENT_SCHEMA()")
+        if not result or not result[0]:
+            raise SQLMeshError("Unable to determine current schema")
+        return str(result[0])
 
     def _create_catalog(self, catalog_name: exp.Identifier) -> None:
         props = exp.Properties(
@@ -378,6 +407,8 @@ class SnowflakeEngineAdapter(GetCurrentCatalogFromFunctionMixin, ClusteredByMixi
             elif isinstance(df, pd.DataFrame):
                 from snowflake.connector.pandas_tools import write_pandas
 
+                ordered_df = df[list(source_columns_to_types)]
+
                 # Workaround for https://github.com/snowflakedb/snowflake-connector-python/issues/1034
                 # The above issue has already been fixed upstream, but we keep the following
                 # line anyway in order to support a wider range of Snowflake versions.
@@ -388,16 +419,16 @@ class SnowflakeEngineAdapter(GetCurrentCatalogFromFunctionMixin, ClusteredByMixi
 
                 # See: https://stackoverflow.com/a/75627721
                 for column, kind in source_columns_to_types.items():
-                    if is_datetime64_any_dtype(df.dtypes[column]):
+                    if is_datetime64_any_dtype(ordered_df.dtypes[column]):
                         if kind.is_type("date"):  # type: ignore
-                            df[column] = pd.to_datetime(df[column]).dt.date  # type: ignore
-                        elif getattr(df.dtypes[column], "tz", None) is not None:  # type: ignore
-                            df[column] = pd.to_datetime(df[column]).dt.strftime(
+                            ordered_df[column] = pd.to_datetime(ordered_df[column]).dt.date  # type: ignore
+                        elif getattr(ordered_df.dtypes[column], "tz", None) is not None:  # type: ignore
+                            ordered_df[column] = pd.to_datetime(ordered_df[column]).dt.strftime(
                                 "%Y-%m-%d %H:%M:%S.%f%z"
                             )  # type: ignore
                         # https://github.com/snowflakedb/snowflake-connector-python/issues/1677
                         else:  # type: ignore
-                            df[column] = pd.to_datetime(df[column]).dt.strftime(
+                            ordered_df[column] = pd.to_datetime(ordered_df[column]).dt.strftime(
                                 "%Y-%m-%d %H:%M:%S.%f"
                             )  # type: ignore
 
@@ -407,7 +438,7 @@ class SnowflakeEngineAdapter(GetCurrentCatalogFromFunctionMixin, ClusteredByMixi
 
                 write_pandas(
                     self._connection_pool.get(),
-                    df,
+                    ordered_df,
                     temp_table.name,
                     schema=temp_table.db or None,
                     database=database.sql(dialect=self.dialect) if database else None,
@@ -530,13 +561,32 @@ class SnowflakeEngineAdapter(GetCurrentCatalogFromFunctionMixin, ClusteredByMixi
             for row in df.rename(columns={col: col.lower() for col in df.columns}).itertuples()
         ]
 
+    def _get_grant_expression(self, table: exp.Table) -> exp.Expression:
+        # Upon execute the catalog in table expressions are properly normalized to handle the case where a user provides
+        # the default catalog in their connection config. This doesn't though update catalogs in strings like when querying
+        # the information schema. So we need to manually replace those here.
+        expression = super()._get_grant_expression(table)
+        for col_exp in expression.find_all(exp.Column):
+            if col_exp.this.name == "table_catalog":
+                and_exp = col_exp.parent
+                assert and_exp is not None, "Expected column expression to have a parent"
+                assert and_exp.expression, "Expected AND expression to have an expression"
+                normalized_catalog = self._normalize_catalog(
+                    exp.table_("placeholder", db="placeholder", catalog=and_exp.expression.this)
+                )
+                and_exp.set(
+                    "expression",
+                    exp.Literal.string(normalized_catalog.args["catalog"].alias_or_name),
+                )
+        return expression
+
     def set_current_catalog(self, catalog: str) -> None:
         self.execute(exp.Use(this=exp.to_identifier(catalog)))
 
     def set_current_schema(self, schema: str) -> None:
         self.execute(exp.Use(kind="SCHEMA", this=to_schema(schema)))
 
-    def _to_sql(self, expression: exp.Expression, quote: bool = True, **kwargs: t.Any) -> str:
+    def _normalize_catalog(self, expression: exp.Expression) -> exp.Expression:
         # note: important to use self._default_catalog instead of the self.default_catalog property
         # otherwise we get RecursionError: maximum recursion depth exceeded
         # because it calls get_current_catalog(), which executes a query, which needs the default catalog, which calls get_current_catalog()... etc
@@ -569,8 +619,12 @@ class SnowflakeEngineAdapter(GetCurrentCatalogFromFunctionMixin, ClusteredByMixi
             # Snowflake connection config. This is because the catalog present on the model gets normalized and quoted to match
             # the source dialect, which isnt always compatible with Snowflake
             expression = expression.transform(catalog_rewriter)
+        return expression
 
-        return super()._to_sql(expression=expression, quote=quote, **kwargs)
+    def _to_sql(self, expression: exp.Expression, quote: bool = True, **kwargs: t.Any) -> str:
+        return super()._to_sql(
+            expression=self._normalize_catalog(expression), quote=quote, **kwargs
+        )
 
     def _create_column_comments(
         self,
@@ -667,3 +721,18 @@ class SnowflakeEngineAdapter(GetCurrentCatalogFromFunctionMixin, ClusteredByMixi
             self._connection_pool.set_attribute(self.SNOWPARK, None)
 
         return super().close()
+
+    def get_table_last_modified_ts(self, table_names: t.List[TableName]) -> t.List[int]:
+        from sqlmesh.utils.date import to_timestamp
+
+        num_tables = len(table_names)
+
+        query = "SELECT LAST_ALTERED FROM INFORMATION_SCHEMA.TABLES WHERE"
+        for i, table_name in enumerate(table_names):
+            table = exp.to_table(table_name)
+            query += f"""(TABLE_NAME = '{table.name}' AND TABLE_SCHEMA = '{table.db}' AND TABLE_CATALOG = '{table.catalog}')"""
+            if i < num_tables - 1:
+                query += " OR "
+
+        result = self.fetchall(query)
+        return [to_timestamp(row[0]) for row in result]

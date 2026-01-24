@@ -20,6 +20,8 @@ from .helpers import *
 from .models import (
     Application,
     AutomatedDocument,
+    CustomApplication,
+    CustomApplicationSource,
     BatchMonitoringJob,
     BatchMonitoringJobDefinition,
     BatchPredictionJob,
@@ -103,6 +105,7 @@ from .models import (
     Project,
     RatingTable,
     RatingTableModel,
+    Recipe,
     RegisteredModel,
     RegisteredModelVersion,
     registry,

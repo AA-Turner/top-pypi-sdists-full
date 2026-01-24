@@ -146,27 +146,12 @@ def _restart_on_unavailable(
 
         except ServiceUnavailable:
             del item_buffer[:]
-            with trace_call(
-                trace_name,
-                session,
-                attributes,
-                observability_options=observability_options,
-                metadata=metadata,
-            ) as span, MetricsCapture():
-                request.resume_token = resume_token
-                if transaction is not None:
-                    transaction_selector = transaction._build_transaction_selector_pb()
-                request.transaction = transaction_selector
-                attempt += 1
-                iterator = method(
-                    request=request,
-                    metadata=request_id_manager.metadata_with_request_id(
-                        nth_request,
-                        attempt,
-                        metadata,
-                        span,
-                    ),
-                )
+            request.resume_token = resume_token
+            if transaction is not None:
+                transaction_selector = transaction._build_transaction_selector_pb()
+            request.transaction = transaction_selector
+            attempt += 1
+            iterator = None
             continue
 
         except InternalServerError as exc:
@@ -177,27 +162,12 @@ def _restart_on_unavailable(
             if not resumable_error:
                 raise
             del item_buffer[:]
-            with trace_call(
-                trace_name,
-                session,
-                attributes,
-                observability_options=observability_options,
-                metadata=metadata,
-            ) as span, MetricsCapture():
-                request.resume_token = resume_token
-                if transaction is not None:
-                    transaction_selector = transaction._build_transaction_selector_pb()
-                attempt += 1
-                request.transaction = transaction_selector
-                iterator = method(
-                    request=request,
-                    metadata=request_id_manager.metadata_with_request_id(
-                        nth_request,
-                        attempt,
-                        metadata,
-                        span,
-                    ),
-                )
+            request.resume_token = resume_token
+            if transaction is not None:
+                transaction_selector = transaction._build_transaction_selector_pb()
+            attempt += 1
+            request.transaction = transaction_selector
+            iterator = None
             continue
 
         if len(item_buffer) == 0:
@@ -409,7 +379,11 @@ class _SnapshotBase(_SessionWrapper):
             method=streaming_read_method,
             request=read_request,
             metadata=metadata,
-            trace_attributes={"table_id": table, "columns": columns},
+            trace_attributes={
+                "table_id": table,
+                "columns": columns,
+                "request_options": request_options,
+            },
             column_info=column_info,
             lazy_decode=lazy_decode,
         )
@@ -601,7 +575,7 @@ class _SnapshotBase(_SessionWrapper):
             method=execute_streaming_sql_method,
             request=execute_sql_request,
             metadata=metadata,
-            trace_attributes={"db.statement": sql},
+            trace_attributes={"db.statement": sql, "request_options": request_options},
             column_info=column_info,
             lazy_decode=lazy_decode,
         )
@@ -897,12 +871,18 @@ class _SnapshotBase(_SessionWrapper):
 
         return [partition.partition_token for partition in response.partitions]
 
-    def _begin_transaction(self, mutation: Mutation = None) -> bytes:
+    def _begin_transaction(
+        self, mutation: Mutation = None, transaction_tag: str = None
+    ) -> bytes:
         """Begins a transaction on the database.
 
         :type mutation: :class:`~google.cloud.spanner_v1.mutation.Mutation`
         :param mutation: (Optional) Mutation to include in the begin transaction
             request. Required for mutation-only transactions with multiplexed sessions.
+
+        :type transaction_tag: str
+        :param transaction_tag: (Optional) Transaction tag to include in the begin transaction
+            request.
 
         :rtype: bytes
         :returns: identifier for the transaction.
@@ -927,6 +907,17 @@ class _SnapshotBase(_SessionWrapper):
                 (_metadata_with_leader_aware_routing(database._route_to_leader_enabled))
             )
 
+        begin_request_kwargs = {
+            "session": session.name,
+            "options": self._build_transaction_selector_pb().begin,
+            "mutation_key": mutation,
+        }
+
+        if transaction_tag:
+            begin_request_kwargs["request_options"] = RequestOptions(
+                transaction_tag=transaction_tag
+            )
+
         with trace_call(
             name=f"CloudSpanner.{type(self).__name__}.begin",
             session=session,
@@ -938,9 +929,7 @@ class _SnapshotBase(_SessionWrapper):
 
             def wrapped_method():
                 begin_transaction_request = BeginTransactionRequest(
-                    session=session.name,
-                    options=self._build_transaction_selector_pb().begin,
-                    mutation_key=mutation,
+                    **begin_request_kwargs
                 )
                 begin_transaction_method = functools.partial(
                     api.begin_transaction,

@@ -133,7 +133,7 @@ class GetNotificationPolicyWebhooksResult:
 
     @_builtins.property
     @pulumi.getter(name="webhookId")
-    def webhook_id(self) -> Optional[_builtins.str]:
+    def webhook_id(self) -> _builtins.str:
         """
         The unique identifier of a webhook
         """
@@ -169,7 +169,7 @@ def get_notification_policy_webhooks(account_id: Optional[_builtins.str] = None,
     import pulumi_cloudflare as cloudflare
 
     example_notification_policy_webhooks = cloudflare.get_notification_policy_webhooks(account_id="023e105f4ecef8ad9ca31a8372d0c353",
-        webhook_id="b115d5ec-15c6-41ee-8b76-92c449b5227b")
+        webhook_id="b115d5ec15c641ee8b7692c449b5227b")
     ```
 
 
@@ -194,7 +194,7 @@ def get_notification_policy_webhooks(account_id: Optional[_builtins.str] = None,
         url=pulumi.get(__ret__, 'url'),
         webhook_id=pulumi.get(__ret__, 'webhook_id'))
 def get_notification_policy_webhooks_output(account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                            webhook_id: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
+                                            webhook_id: Optional[pulumi.Input[_builtins.str]] = None,
                                             opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetNotificationPolicyWebhooksResult]:
     """
     ## Example Usage
@@ -204,7 +204,7 @@ def get_notification_policy_webhooks_output(account_id: Optional[pulumi.Input[_b
     import pulumi_cloudflare as cloudflare
 
     example_notification_policy_webhooks = cloudflare.get_notification_policy_webhooks(account_id="023e105f4ecef8ad9ca31a8372d0c353",
-        webhook_id="b115d5ec-15c6-41ee-8b76-92c449b5227b")
+        webhook_id="b115d5ec15c641ee8b7692c449b5227b")
     ```
 
 

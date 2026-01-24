@@ -3,7 +3,7 @@ Type annotations for application-signals service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -29,12 +30,14 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListEntityEventsPaginator,
     ListServiceDependenciesPaginator,
     ListServiceDependentsPaginator,
     ListServiceLevelObjectiveExclusionWindowsPaginator,
     ListServiceLevelObjectivesPaginator,
     ListServiceOperationsPaginator,
     ListServicesPaginator,
+    ListServiceStatesPaginator,
 )
 from .type_defs import (
     BatchGetServiceLevelObjectiveBudgetReportInputTypeDef,
@@ -48,6 +51,12 @@ from .type_defs import (
     GetServiceLevelObjectiveInputTypeDef,
     GetServiceLevelObjectiveOutputTypeDef,
     GetServiceOutputTypeDef,
+    ListAuditFindingsInputTypeDef,
+    ListAuditFindingsOutputTypeDef,
+    ListEntityEventsInputTypeDef,
+    ListEntityEventsOutputTypeDef,
+    ListGroupingAttributeDefinitionsInputTypeDef,
+    ListGroupingAttributeDefinitionsOutputTypeDef,
     ListServiceDependenciesInputTypeDef,
     ListServiceDependenciesOutputTypeDef,
     ListServiceDependentsInputTypeDef,
@@ -60,20 +69,18 @@ from .type_defs import (
     ListServiceOperationsOutputTypeDef,
     ListServicesInputTypeDef,
     ListServicesOutputTypeDef,
+    ListServiceStatesInputTypeDef,
+    ListServiceStatesOutputTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    PutGroupingConfigurationInputTypeDef,
+    PutGroupingConfigurationOutputTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateServiceLevelObjectiveInputTypeDef,
     UpdateServiceLevelObjectiveOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -82,13 +89,13 @@ else:
 __all__ = ("CloudWatchApplicationSignalsClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class CloudWatchApplicationSignalsClient(AioBaseClient):
     """
@@ -158,9 +165,17 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#create_service_level_objective)
         """
 
+    async def delete_grouping_configuration(self) -> dict[str, Any]:
+        """
+        Deletes the grouping configuration for this account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/delete_grouping_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#delete_grouping_configuration)
+        """
+
     async def delete_service_level_objective(
         self, **kwargs: Unpack[DeleteServiceLevelObjectiveInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified service level objective.
 
@@ -186,6 +201,39 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/get_service_level_objective.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#get_service_level_objective)
+        """
+
+    async def list_audit_findings(
+        self, **kwargs: Unpack[ListAuditFindingsInputTypeDef]
+    ) -> ListAuditFindingsOutputTypeDef:
+        """
+        Returns a list of audit findings that provide automated analysis of service
+        behavior and root cause analysis.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/list_audit_findings.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#list_audit_findings)
+        """
+
+    async def list_entity_events(
+        self, **kwargs: Unpack[ListEntityEventsInputTypeDef]
+    ) -> ListEntityEventsOutputTypeDef:
+        """
+        Returns a list of change events for a specific entity, such as deployments,
+        configuration changes, or other state-changing activities.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/list_entity_events.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#list_entity_events)
+        """
+
+    async def list_grouping_attribute_definitions(
+        self, **kwargs: Unpack[ListGroupingAttributeDefinitionsInputTypeDef]
+    ) -> ListGroupingAttributeDefinitionsOutputTypeDef:
+        """
+        Returns the current grouping configuration for this account, including all
+        custom grouping attribute definitions that have been configured.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/list_grouping_attribute_definitions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#list_grouping_attribute_definitions)
         """
 
     async def list_service_dependencies(
@@ -240,6 +288,17 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#list_service_operations)
         """
 
+    async def list_service_states(
+        self, **kwargs: Unpack[ListServiceStatesInputTypeDef]
+    ) -> ListServiceStatesOutputTypeDef:
+        """
+        Returns information about the last deployment and other change states of
+        services.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/list_service_states.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#list_service_states)
+        """
+
     async def list_services(
         self, **kwargs: Unpack[ListServicesInputTypeDef]
     ) -> ListServicesOutputTypeDef:
@@ -260,7 +319,17 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#list_tags_for_resource)
         """
 
-    async def start_discovery(self) -> Dict[str, Any]:
+    async def put_grouping_configuration(
+        self, **kwargs: Unpack[PutGroupingConfigurationInputTypeDef]
+    ) -> PutGroupingConfigurationOutputTypeDef:
+        """
+        Creates or updates the grouping configuration for this account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/put_grouping_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#put_grouping_configuration)
+        """
+
+    async def start_discovery(self) -> dict[str, Any]:
         """
         Enables this Amazon Web Services account to be able to use CloudWatch
         Application Signals by creating the
@@ -270,7 +339,7 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#start_discovery)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags (key-value pairs) to the specified CloudWatch
         resource, such as a service level objective.
@@ -279,7 +348,7 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified resource.
 
@@ -295,6 +364,17 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/update_service_level_objective.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#update_service_level_objective)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_entity_events"]
+    ) -> ListEntityEventsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]
@@ -354,6 +434,17 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_service_states"]
+    ) -> ListServiceStatesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_services"]
     ) -> ListServicesPaginator:
         """
@@ -371,7 +462,7 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -1,0 +1,217 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2021-2026
+"""
+Operation protocol interfaces.
+
+This module defines protocol interfaces for operational tasks like
+scheduling, caching, and parameter visibility management.
+"""
+
+from __future__ import annotations
+
+from abc import abstractmethod
+import asyncio
+from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+from aiohomematic.const import DeviceDescription, Interface, ParameterData, ParamsetKey
+from aiohomematic.type_aliases import AsyncTaskFactoryAny, CoroutineAny
+
+if TYPE_CHECKING:
+    from aiohomematic.interfaces import ChannelProtocol
+    from aiohomematic.store import CacheName, CacheStatistics
+    from aiohomematic.store.types import IncidentSeverity, IncidentSnapshot, IncidentType, PingPongJournal
+
+
+@runtime_checkable
+class TaskSchedulerProtocol(Protocol):
+    """
+    Protocol for scheduling async tasks.
+
+    Implemented by Looper.
+    """
+
+    @abstractmethod
+    def async_add_executor_job[T](
+        self, target: Callable[..., T], *args: Any, name: str, executor: ThreadPoolExecutor | None = None
+    ) -> asyncio.Future[T]:
+        """Add an executor job from within the event_loop."""
+
+    @abstractmethod
+    async def block_till_done(self, *, wait_time: float | None = None) -> None:
+        """Block until all pending work is done."""
+
+    @abstractmethod
+    def cancel_tasks(self) -> None:
+        """Cancel running tasks."""
+
+    @abstractmethod
+    def create_task(self, *, target: CoroutineAny | AsyncTaskFactoryAny, name: str) -> None:
+        """Create and schedule an async task."""
+
+
+@runtime_checkable
+class ParameterVisibilityProviderProtocol(Protocol):
+    """
+    Protocol for accessing parameter visibility information.
+
+    Implemented by ParameterVisibilityRegistry.
+    """
+
+    @abstractmethod
+    def is_relevant_paramset(self, *, channel: ChannelProtocol, paramset_key: ParamsetKey) -> bool:
+        """
+        Return if a paramset is relevant.
+
+        Required to load MASTER paramsets, which are not initialized by default.
+        """
+
+    @abstractmethod
+    def model_is_ignored(self, *, model: str) -> bool:
+        """Check if a model should be ignored for custom data points."""
+
+    @abstractmethod
+    def parameter_is_hidden(self, *, channel: ChannelProtocol, paramset_key: ParamsetKey, parameter: str) -> bool:
+        """Check if a parameter is hidden."""
+
+    @abstractmethod
+    def parameter_is_un_ignored(
+        self, *, channel: ChannelProtocol, paramset_key: ParamsetKey, parameter: str, custom_only: bool = False
+    ) -> bool:
+        """Check if a parameter is un-ignored (visible)."""
+
+    @abstractmethod
+    def should_skip_parameter(
+        self, *, channel: ChannelProtocol, paramset_key: ParamsetKey, parameter: str, parameter_is_un_ignored: bool
+    ) -> bool:
+        """Determine if a parameter should be skipped."""
+
+
+@runtime_checkable
+class DeviceDetailsProviderProtocol(Protocol):
+    """
+    Protocol for accessing device details.
+
+    Implemented by DeviceDescriptionRegistry.
+    """
+
+    @abstractmethod
+    def get_address_id(self, *, address: str) -> int:
+        """Get an ID for an address."""
+
+    @abstractmethod
+    def get_channel_rooms(self, *, channel_address: str) -> set[str]:
+        """Get rooms for a channel."""
+
+    @abstractmethod
+    def get_device_rooms(self, *, device_address: str) -> set[str]:
+        """Get rooms for a device."""
+
+    @abstractmethod
+    def get_function_text(self, *, address: str) -> str | None:
+        """Get function text for an address."""
+
+    @abstractmethod
+    def get_interface(self, *, address: str) -> Interface:
+        """Get interface for an address."""
+
+    @abstractmethod
+    def get_name(self, *, address: str) -> str | None:
+        """Get name for an address."""
+
+
+@runtime_checkable
+class DeviceDescriptionProviderProtocol(Protocol):
+    """
+    Protocol for accessing device descriptions.
+
+    Implemented by DeviceDescriptionRegistry.
+    """
+
+    @abstractmethod
+    def get_device_description(self, *, interface_id: str, address: str) -> DeviceDescription:
+        """Get device description."""
+
+    @abstractmethod
+    def get_device_with_channels(self, *, interface_id: str, device_address: str) -> Mapping[str, DeviceDescription]:
+        """Get device with all channel descriptions."""
+
+
+@runtime_checkable
+class ParamsetDescriptionProviderProtocol(Protocol):
+    """
+    Protocol for accessing paramset descriptions.
+
+    Implemented by ParamsetDescriptionRegistry.
+    """
+
+    @abstractmethod
+    def get_channel_paramset_descriptions(
+        self, *, interface_id: str, channel_address: str
+    ) -> Mapping[ParamsetKey, Mapping[str, ParameterData]]:
+        """Get all paramset descriptions for a channel."""
+
+    @abstractmethod
+    def get_parameter_data(
+        self, *, interface_id: str, channel_address: str, paramset_key: ParamsetKey, parameter: str
+    ) -> ParameterData | None:
+        """Get parameter data from paramset description."""
+
+    @abstractmethod
+    def has_parameter(
+        self, *, interface_id: str, channel_address: str, paramset_key: ParamsetKey, parameter: str
+    ) -> bool:
+        """Check if a parameter exists in the paramset description."""
+
+    @abstractmethod
+    def is_in_multiple_channels(self, *, channel_address: str, parameter: str) -> bool:
+        """Check if parameter is in multiple channels per device."""
+
+
+@runtime_checkable
+class CacheWithStatisticsProtocol(Protocol):
+    """
+    Protocol for caches that provide statistics.
+
+    Caches implementing this protocol provide local counters for hits, misses,
+    and evictions that can be read directly by MetricsAggregator without
+    requiring EventBus events.
+    """
+
+    @property
+    @abstractmethod
+    def name(self) -> CacheName:
+        """Return the cache name for identification."""
+
+    @property
+    @abstractmethod
+    def size(self) -> int:
+        """Return current number of entries in the cache."""
+
+    @property
+    @abstractmethod
+    def statistics(self) -> CacheStatistics:
+        """Return the cache statistics container."""
+
+
+@runtime_checkable
+class IncidentRecorderProtocol(Protocol):
+    """
+    Protocol for recording diagnostic incidents.
+
+    Implemented by IncidentStore.
+    """
+
+    @abstractmethod
+    async def record_incident(
+        self,
+        *,
+        incident_type: IncidentType,
+        severity: IncidentSeverity,
+        message: str,
+        interface_id: str | None = None,
+        context: dict[str, Any] | None = None,
+        journal: PingPongJournal | None = None,
+    ) -> IncidentSnapshot:
+        """Record a new incident and persist it."""

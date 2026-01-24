@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hvplot
-Version: 0.12.1
+Version: 0.12.2
 Summary: A high-level plotting API for the PyData ecosystem built on HoloViews.
 Project-URL: Homepage, https://hvplot.holoviz.org
 Project-URL: Source, http://github.com/holoviz/hvplot
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
@@ -33,8 +34,8 @@ Requires-Dist: param<3.0,>=1.12.0
 Provides-Extra: dev-extras
 Requires-Dist: setuptools-scm>=6; extra == 'dev-extras'
 Provides-Extra: doc
-Requires-Dist: bokeh-sampledata; (python_version >= '3.10') and extra == 'doc'
-Requires-Dist: dask[dataframe]<2025.1.0,>=2021.3.0; extra == 'doc'
+Requires-Dist: bokeh-sampledata>=2025.0; extra == 'doc'
+Requires-Dist: dask[dataframe]>=2021.3.0; extra == 'doc'
 Requires-Dist: datashader>=0.6.5; extra == 'doc'
 Requires-Dist: duckdb; extra == 'doc'
 Requires-Dist: fugue-sql-antlr>=0.2.0; extra == 'doc'
@@ -70,8 +71,8 @@ Requires-Dist: streamz>=0.3.0; extra == 'doc'
 Requires-Dist: xarray>=0.18.2; extra == 'doc'
 Requires-Dist: xyzservices>=2022.9.0; extra == 'doc'
 Provides-Extra: examples
-Requires-Dist: bokeh-sampledata; (python_version >= '3.10') and extra == 'examples'
-Requires-Dist: dask[dataframe]<2025.1.0,>=2021.3.0; extra == 'examples'
+Requires-Dist: bokeh-sampledata>=2025.0; extra == 'examples'
+Requires-Dist: dask[dataframe]>=2021.3.0; extra == 'examples'
 Requires-Dist: datashader>=0.6.5; extra == 'examples'
 Requires-Dist: duckdb; extra == 'examples'
 Requires-Dist: fugue-sql-antlr>=0.2.0; extra == 'examples'
@@ -103,8 +104,8 @@ Requires-Dist: streamz>=0.3.0; extra == 'examples'
 Requires-Dist: xarray>=0.18.2; extra == 'examples'
 Requires-Dist: xyzservices>=2022.9.0; extra == 'examples'
 Provides-Extra: examples-tests
-Requires-Dist: bokeh-sampledata; (python_version >= '3.10') and extra == 'examples-tests'
-Requires-Dist: dask[dataframe]<2025.1.0,>=2021.3.0; extra == 'examples-tests'
+Requires-Dist: bokeh-sampledata>=2025.0; extra == 'examples-tests'
+Requires-Dist: dask[dataframe]>=2021.3.0; extra == 'examples-tests'
 Requires-Dist: datashader>=0.6.5; extra == 'examples-tests'
 Requires-Dist: duckdb; extra == 'examples-tests'
 Requires-Dist: fugue-sql-antlr>=0.2.0; extra == 'examples-tests'
@@ -163,10 +164,10 @@ Requires-Dist: pyviz-comms>=0.0.1a1; extra == 'hvdev'
 Provides-Extra: hvdev-geo
 Requires-Dist: geoviews>=0.0.1a1; extra == 'hvdev-geo'
 Provides-Extra: tests
-Requires-Dist: bokeh-sampledata; (python_version >= '3.10') and extra == 'tests'
+Requires-Dist: bokeh-sampledata; extra == 'tests'
 Requires-Dist: cftime; extra == 'tests'
 Requires-Dist: dask; extra == 'tests'
-Requires-Dist: dask[dataframe]<2025.1.0; extra == 'tests'
+Requires-Dist: dask[dataframe]; extra == 'tests'
 Requires-Dist: duckdb; extra == 'tests'
 Requires-Dist: fugue-sql-antlr>=0.2.0; extra == 'tests'
 Requires-Dist: fugue[sql]; extra == 'tests'
@@ -190,9 +191,9 @@ Requires-Dist: spatialpandas; extra == 'tests'
 Requires-Dist: sqlglot; extra == 'tests'
 Requires-Dist: xarray; extra == 'tests'
 Provides-Extra: tests-core
-Requires-Dist: bokeh-sampledata; (python_version >= '3.10') and extra == 'tests-core'
+Requires-Dist: bokeh-sampledata; extra == 'tests-core'
 Requires-Dist: cftime; extra == 'tests-core'
-Requires-Dist: dask[dataframe]<2025.1.0; extra == 'tests-core'
+Requires-Dist: dask[dataframe]; extra == 'tests-core'
 Requires-Dist: ipywidgets; extra == 'tests-core'
 Requires-Dist: matplotlib; extra == 'tests-core'
 Requires-Dist: numpydoc; extra == 'tests-core'

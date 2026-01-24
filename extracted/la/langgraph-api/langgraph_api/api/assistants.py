@@ -1,6 +1,8 @@
+from functools import partial
 from typing import Any
 from uuid import uuid4
 
+import jsonschema_rs
 import structlog
 
 # TODO: Remove dependency on langchain-core here.
@@ -11,12 +13,22 @@ from starlette.exceptions import HTTPException
 from starlette.responses import Response
 from starlette.routing import BaseRoute
 
+from langgraph_api import _checkpointer as api_checkpointer
 from langgraph_api import store as api_store
-from langgraph_api.feature_flags import USE_RUNTIME_CONTEXT_API
+from langgraph_api.encryption.middleware import (
+    decrypt_response,
+    decrypt_responses,
+    encrypt_request,
+)
+from langgraph_api.feature_flags import (
+    IS_POSTGRES_OR_GRPC_BACKEND,
+    USE_RUNTIME_CONTEXT_API,
+)
 from langgraph_api.graph import get_assistant_id, get_graph
+from langgraph_api.grpc.ops import Assistants as GrpcAssistants
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
-from langgraph_api.schema import ASSISTANT_FIELDS
+from langgraph_api.schema import ASSISTANT_ENCRYPTION_FIELDS, ASSISTANT_FIELDS
 from langgraph_api.serde import json_loads
 from langgraph_api.utils import (
     fetchone,
@@ -32,14 +44,21 @@ from langgraph_api.validation import (
     AssistantSearchRequest,
     AssistantVersionChange,
     AssistantVersionsSearchRequest,
+    ConfigValidator,
 )
-from langgraph_runtime.checkpoint import Checkpointer
-from langgraph_runtime.database import connect
-from langgraph_runtime.ops import Assistants
+from langgraph_runtime.database import connect as base_connect
 from langgraph_runtime.retry import retry_db
 
 logger = structlog.stdlib.get_logger(__name__)
 
+if IS_POSTGRES_OR_GRPC_BACKEND:
+    CrudAssistants = GrpcAssistants
+else:
+    from langgraph_runtime.ops import Assistants
+
+    CrudAssistants = Assistants
+
+connect = partial(base_connect, supports_core_api=IS_POSTGRES_OR_GRPC_BACKEND)
 
 EXCLUDED_CONFIG_SCHEMA = (
     "__pregel_checkpointer",
@@ -55,7 +74,7 @@ def _get_configurable_jsonschema(graph: Pregel) -> dict:
 
     Important: we only return the `configurable` part of the schema.
 
-    The default get_config_schema method returns the entire schema (RunnableConfig),
+    The default get_config_schema method returns the entire schema (Config),
     which includes other root keys like "max_concurrency", which we
     do not want to expose.
 
@@ -111,21 +130,21 @@ def _graph_schemas(graph: Pregel) -> dict:
         input_schema = graph.get_input_jsonschema()
     except Exception as e:
         logger.warning(
-            f"Failed to get input schema for graph {graph.name} with error: `{str(e)}`"
+            f"Failed to get input schema for graph {graph.name} with error: `{e!s}`"
         )
         input_schema = None
     try:
         output_schema = graph.get_output_jsonschema()
     except Exception as e:
         logger.warning(
-            f"Failed to get output schema for graph {graph.name} with error: `{str(e)}`"
+            f"Failed to get output schema for graph {graph.name} with error: `{e!s}`"
         )
         output_schema = None
     try:
         state_schema = _state_jsonschema(graph)
     except Exception as e:
         logger.warning(
-            f"Failed to get state schema for graph {graph.name} with error: `{str(e)}`"
+            f"Failed to get state schema for graph {graph.name} with error: `{e!s}`"
         )
         state_schema = None
 
@@ -133,7 +152,7 @@ def _graph_schemas(graph: Pregel) -> dict:
         config_schema = _get_configurable_jsonschema(graph)
     except Exception as e:
         logger.warning(
-            f"Failed to get config schema for graph {graph.name} with error: `{str(e)}`"
+            f"Failed to get config schema for graph {graph.name} with error: `{e!s}`"
         )
         config_schema = None
 
@@ -142,7 +161,7 @@ def _graph_schemas(graph: Pregel) -> dict:
             context_schema = graph.get_context_jsonschema()
         except Exception as e:
             logger.warning(
-                f"Failed to get context schema for graph {graph.name} with error: `{str(e)}`"
+                f"Failed to get context schema for graph {graph.name} with error: `{e!s}`"
             )
             context_schema = graph.config_schema()  # type: ignore[deprecated]
     else:
@@ -163,19 +182,40 @@ async def create_assistant(request: ApiRequest) -> ApiResponse:
     payload = await request.json(AssistantCreate)
     if assistant_id := payload.get("assistant_id"):
         validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
+    config = payload.get("config")
+    if config:
+        try:
+            ConfigValidator.validate(config)
+        except jsonschema_rs.ValidationError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+
+    encrypted_payload = await encrypt_request(
+        payload,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+    )
+
     async with connect() as conn:
-        assistant = await Assistants.put(
+        assistant = await CrudAssistants.put(
             conn,
             assistant_id or str(uuid4()),
-            config=payload.get("config") or {},
-            context=payload.get("context") or {},
+            config=encrypted_payload.get("config") or {},
+            context=encrypted_payload.get("context"),  # None if not provided
             graph_id=payload["graph_id"],
-            metadata=payload.get("metadata") or {},
+            metadata=encrypted_payload.get("metadata") or {},
             if_exists=payload.get("if_exists") or "raise",
             name=payload.get("name") or "Untitled",
             description=payload.get("description"),
         )
-    return ApiResponse(await fetchone(assistant, not_found_code=409))
+
+    # Decrypt metadata, config, and context in response
+    assistant_data = await fetchone(assistant, not_found_code=409)
+    assistant_data = await decrypt_response(
+        assistant_data,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+    )
+    return ApiResponse(assistant_data)
 
 
 @retry_db
@@ -186,10 +226,17 @@ async def search_assistants(
     payload = await request.json(AssistantSearchRequest)
     select = validate_select_columns(payload.get("select") or None, ASSISTANT_FIELDS)
     offset = int(payload.get("offset") or 0)
+    config = payload.get("config")
+    if config:
+        try:
+            ConfigValidator.validate(config)
+        except jsonschema_rs.ValidationError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
     async with connect() as conn:
-        assistants_iter, next_offset = await Assistants.search(
+        assistants_iter, next_offset = await CrudAssistants.search(
             conn,
             graph_id=payload.get("graph_id"),
+            name=payload.get("name"),
             metadata=payload.get("metadata"),
             limit=int(payload.get("limit") or 10),
             offset=offset,
@@ -200,7 +247,15 @@ async def search_assistants(
     assistants, response_headers = await get_pagination_headers(
         assistants_iter, next_offset, offset
     )
-    return ApiResponse(assistants, headers=response_headers)
+
+    # Decrypt metadata, config, and context in all returned assistants
+    decrypted_assistants = await decrypt_responses(
+        assistants,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+    )
+
+    return ApiResponse(decrypted_assistants, headers=response_headers)
 
 
 @retry_db
@@ -210,9 +265,10 @@ async def count_assistants(
     """Count assistants."""
     payload = await request.json(AssistantCountRequest)
     async with connect() as conn:
-        count = await Assistants.count(
+        count = await CrudAssistants.count(
             conn,
             graph_id=payload.get("graph_id"),
+            name=payload.get("name"),
             metadata=payload.get("metadata"),
         )
     return ApiResponse(count)
@@ -226,8 +282,16 @@ async def get_assistant(
     """Get an assistant by ID."""
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     async with connect() as conn:
-        assistant = await Assistants.get(conn, assistant_id)
-    return ApiResponse(await fetchone(assistant))
+        assistant = await CrudAssistants.get(conn, assistant_id)
+
+    # Decrypt metadata, config, and context in response
+    assistant_data = await fetchone(assistant)
+    assistant_data = await decrypt_response(
+        assistant_data,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+    )
+    return ApiResponse(assistant_data)
 
 
 @retry_db
@@ -238,7 +302,7 @@ async def get_assistant_graph(
     assistant_id = get_assistant_id(str(request.path_params["assistant_id"]))
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     async with connect() as conn:
-        assistant_ = await Assistants.get(conn, assistant_id)
+        assistant_ = await CrudAssistants.get(conn, assistant_id)
         assistant = await fetchone(assistant_)
     config = json_loads(assistant["config"])
     configurable = config.setdefault("configurable", {})
@@ -247,8 +311,9 @@ async def get_assistant_graph(
     async with get_graph(
         assistant["graph_id"],
         config,
-        checkpointer=Checkpointer(),
+        checkpointer=(await api_checkpointer.get_checkpointer()),
         store=(await api_store.get_store()),
+        is_for_execution=False,
     ) as graph:
         xray: bool | int = False
         xray_query = request.query_params.get("xray")
@@ -295,43 +360,45 @@ async def get_assistant_subgraphs(
     assistant_id = request.path_params["assistant_id"]
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     async with connect() as conn:
-        assistant_ = await Assistants.get(conn, assistant_id)
+        assistant_ = await CrudAssistants.get(conn, assistant_id)
         assistant = await fetchone(assistant_)
-        config = json_loads(assistant["config"])
-        configurable = config.setdefault("configurable", {})
-        configurable.update(get_configurable_headers(request.headers))
-        async with get_graph(
-            assistant["graph_id"],
-            config,
-            checkpointer=Checkpointer(),
-            store=(await api_store.get_store()),
-        ) as graph:
-            namespace = request.path_params.get("namespace")
 
-            if isinstance(graph, BaseRemotePregel):
-                return ApiResponse(
-                    await graph.fetch_subgraphs(
+    config = json_loads(assistant["config"])
+    configurable = config.setdefault("configurable", {})
+    configurable.update(get_configurable_headers(request.headers))
+    async with get_graph(
+        assistant["graph_id"],
+        config,
+        checkpointer=(await api_checkpointer.get_checkpointer()),
+        store=(await api_store.get_store()),
+        is_for_execution=False,
+    ) as graph:
+        namespace = request.path_params.get("namespace")
+
+        if isinstance(graph, BaseRemotePregel):
+            return ApiResponse(
+                await graph.fetch_subgraphs(
+                    namespace=namespace,
+                    recurse=request.query_params.get("recurse", "False")
+                    in ("true", "True"),
+                )
+            )
+
+        try:
+            return ApiResponse(
+                {
+                    ns: _graph_schemas(subgraph)
+                    async for ns, subgraph in graph.aget_subgraphs(
                         namespace=namespace,
                         recurse=request.query_params.get("recurse", "False")
                         in ("true", "True"),
                     )
-                )
-
-            try:
-                return ApiResponse(
-                    {
-                        ns: _graph_schemas(subgraph)
-                        async for ns, subgraph in graph.aget_subgraphs(
-                            namespace=namespace,
-                            recurse=request.query_params.get("recurse", "False")
-                            in ("true", "True"),
-                        )
-                    }
-                )
-            except NotImplementedError:
-                raise HTTPException(
-                    422, detail="The graph does not support visualization"
-                ) from None
+                }
+            )
+        except NotImplementedError:
+            raise HTTPException(
+                422, detail="The graph does not support visualization"
+            ) from None
 
 
 @retry_db
@@ -342,39 +409,40 @@ async def get_assistant_schemas(
     assistant_id = request.path_params["assistant_id"]
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     async with connect() as conn:
-        assistant_ = await Assistants.get(conn, assistant_id)
-        # TODO Implementa  cache so we can de-dent and release this connection.
+        assistant_ = await CrudAssistants.get(conn, assistant_id)
         assistant = await fetchone(assistant_)
-        config = json_loads(assistant["config"])
-        configurable = config.setdefault("configurable", {})
-        configurable.update(get_configurable_headers(request.headers))
-        async with get_graph(
-            assistant["graph_id"],
-            config,
-            checkpointer=Checkpointer(),
-            store=(await api_store.get_store()),
-        ) as graph:
-            if isinstance(graph, BaseRemotePregel):
-                schemas = await graph.fetch_state_schema()
-                return ApiResponse(
-                    {
-                        "graph_id": assistant["graph_id"],
-                        "input_schema": schemas.get("input"),
-                        "output_schema": schemas.get("output"),
-                        "state_schema": schemas.get("state"),
-                        "config_schema": schemas.get("config"),
-                        "context_schema": schemas.get("context"),
-                    }
-                )
 
-            schemas = _graph_schemas(graph)
-
+    config = json_loads(assistant["config"])
+    configurable = config.setdefault("configurable", {})
+    configurable.update(get_configurable_headers(request.headers))
+    async with get_graph(
+        assistant["graph_id"],
+        config,
+        checkpointer=(await api_checkpointer.get_checkpointer()),
+        store=(await api_store.get_store()),
+        is_for_execution=False,
+    ) as graph:
+        if isinstance(graph, BaseRemotePregel):
+            schemas = await graph.fetch_state_schema()
             return ApiResponse(
                 {
                     "graph_id": assistant["graph_id"],
-                    **schemas,
+                    "input_schema": schemas.get("input"),
+                    "output_schema": schemas.get("output"),
+                    "state_schema": schemas.get("state"),
+                    "config_schema": schemas.get("config"),
+                    "context_schema": schemas.get("context"),
                 }
             )
+
+        schemas = _graph_schemas(graph)
+
+        return ApiResponse(
+            {
+                "graph_id": assistant["graph_id"],
+                **schemas,
+            }
+        )
 
 
 @retry_db
@@ -385,27 +453,58 @@ async def patch_assistant(
     assistant_id = request.path_params["assistant_id"]
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     payload = await request.json(AssistantPatch)
+    config = payload.get("config")
+    if config:
+        try:
+            ConfigValidator.validate(config)
+        except jsonschema_rs.ValidationError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+
+    encrypted_fields = await encrypt_request(
+        payload,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+    )
+
     async with connect() as conn:
-        assistant = await Assistants.patch(
+        assistant = await CrudAssistants.patch(
             conn,
             assistant_id,
-            config=payload.get("config"),
-            context=payload.get("context"),
+            config=encrypted_fields.get("config"),
+            context=encrypted_fields.get("context"),
             graph_id=payload.get("graph_id"),
-            metadata=payload.get("metadata"),
+            metadata=encrypted_fields.get("metadata"),
             name=payload.get("name"),
             description=payload.get("description"),
         )
-    return ApiResponse(await fetchone(assistant))
+
+    # Decrypt metadata, config, and context in response
+    assistant_data = await fetchone(assistant)
+    assistant_data = await decrypt_response(
+        assistant_data,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+    )
+    return ApiResponse(assistant_data)
 
 
 @retry_db
 async def delete_assistant(request: ApiRequest) -> Response:
-    """Delete an assistant by ID."""
+    """Delete an assistant by ID.
+
+    Query params:
+        delete_threads: If "true", delete all threads where
+            metadata.assistant_id matches this assistant.
+    """
     assistant_id = request.path_params["assistant_id"]
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
-    async with connect() as conn:
-        aid = await Assistants.delete(conn, assistant_id)
+    delete_threads = request.query_params.get("delete_threads", "").lower() == "true"
+
+    aid = await CrudAssistants.delete(
+        None,
+        assistant_id,
+        delete_threads=delete_threads,
+    )
     await fetchone(aid)
     return Response(status_code=204)
 
@@ -417,7 +516,7 @@ async def get_assistant_versions(request: ApiRequest) -> ApiResponse:
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     payload = await request.json(AssistantVersionsSearchRequest)
     async with connect() as conn:
-        assistants_iter = await Assistants.get_versions(
+        assistants_iter = await CrudAssistants.get_versions(
             conn,
             assistant_id,
             metadata=payload.get("metadata") or {},
@@ -429,7 +528,15 @@ async def get_assistant_versions(request: ApiRequest) -> ApiResponse:
         raise HTTPException(
             status_code=404, detail=f"Assistant {assistant_id} not found"
         )
-    return ApiResponse(assistants)
+
+    # Decrypt metadata, config, and context in all assistant versions
+    decrypted_assistants = await decrypt_responses(
+        assistants,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+    )
+
+    return ApiResponse(decrypted_assistants)
 
 
 @retry_db
@@ -439,10 +546,18 @@ async def set_latest_assistant_version(request: ApiRequest) -> ApiResponse:
     payload = await request.json(AssistantVersionChange)
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     async with connect() as conn:
-        assistant = await Assistants.set_latest(
+        assistant = await CrudAssistants.set_latest(
             conn, assistant_id, payload.get("version")
         )
-    return ApiResponse(await fetchone(assistant, not_found_code=404))
+
+    # Decrypt metadata, config, and context in response
+    assistant_data = await fetchone(assistant, not_found_code=404)
+    assistant_data = await decrypt_response(
+        assistant_data,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+    )
+    return ApiResponse(assistant_data)
 
 
 assistants_routes: list[BaseRoute] = [

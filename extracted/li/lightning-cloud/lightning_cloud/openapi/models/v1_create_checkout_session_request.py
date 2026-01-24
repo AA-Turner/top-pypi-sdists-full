@@ -43,8 +43,11 @@ class V1CreateCheckoutSessionRequest(object):
     swagger_types = {
         'amount': 'float',
         'capture_method': 'str',
+        'gclid': 'str',
         'org_id': 'str',
         'project_id': 'str',
+        'redirect_url_cancelled': 'str',
+        'redirect_url_succeeded': 'str',
         'transaction_type': 'str',
         'wallet_type': 'CreateCheckoutSessionRequestWalletType'
     }
@@ -52,18 +55,24 @@ class V1CreateCheckoutSessionRequest(object):
     attribute_map = {
         'amount': 'amount',
         'capture_method': 'captureMethod',
+        'gclid': 'gclid',
         'org_id': 'orgId',
         'project_id': 'projectId',
+        'redirect_url_cancelled': 'redirectUrlCancelled',
+        'redirect_url_succeeded': 'redirectUrlSucceeded',
         'transaction_type': 'transactionType',
         'wallet_type': 'walletType'
     }
 
-    def __init__(self, amount: 'float' =None, capture_method: 'str' =None, org_id: 'str' =None, project_id: 'str' =None, transaction_type: 'str' =None, wallet_type: 'CreateCheckoutSessionRequestWalletType' =None):  # noqa: E501
+    def __init__(self, amount: 'float' =None, capture_method: 'str' =None, gclid: 'str' =None, org_id: 'str' =None, project_id: 'str' =None, redirect_url_cancelled: 'str' =None, redirect_url_succeeded: 'str' =None, transaction_type: 'str' =None, wallet_type: 'CreateCheckoutSessionRequestWalletType' =None):  # noqa: E501
         """V1CreateCheckoutSessionRequest - a model defined in Swagger"""  # noqa: E501
         self._amount = None
         self._capture_method = None
+        self._gclid = None
         self._org_id = None
         self._project_id = None
+        self._redirect_url_cancelled = None
+        self._redirect_url_succeeded = None
         self._transaction_type = None
         self._wallet_type = None
         self.discriminator = None
@@ -71,10 +80,16 @@ class V1CreateCheckoutSessionRequest(object):
             self.amount = amount
         if capture_method is not None:
             self.capture_method = capture_method
+        if gclid is not None:
+            self.gclid = gclid
         if org_id is not None:
             self.org_id = org_id
         if project_id is not None:
             self.project_id = project_id
+        if redirect_url_cancelled is not None:
+            self.redirect_url_cancelled = redirect_url_cancelled
+        if redirect_url_succeeded is not None:
+            self.redirect_url_succeeded = redirect_url_succeeded
         if transaction_type is not None:
             self.transaction_type = transaction_type
         if wallet_type is not None:
@@ -123,9 +138,31 @@ class V1CreateCheckoutSessionRequest(object):
         self._capture_method = capture_method
 
     @property
+    def gclid(self) -> 'str':
+        """Gets the gclid of this V1CreateCheckoutSessionRequest.  # noqa: E501
+
+
+        :return: The gclid of this V1CreateCheckoutSessionRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._gclid
+
+    @gclid.setter
+    def gclid(self, gclid: 'str'):
+        """Sets the gclid of this V1CreateCheckoutSessionRequest.
+
+
+        :param gclid: The gclid of this V1CreateCheckoutSessionRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._gclid = gclid
+
+    @property
     def org_id(self) -> 'str':
         """Gets the org_id of this V1CreateCheckoutSessionRequest.  # noqa: E501
 
+        Ignored if `wallet_type` is not `Org`.  # noqa: E501
 
         :return: The org_id of this V1CreateCheckoutSessionRequest.  # noqa: E501
         :rtype: str
@@ -136,6 +173,7 @@ class V1CreateCheckoutSessionRequest(object):
     def org_id(self, org_id: 'str'):
         """Sets the org_id of this V1CreateCheckoutSessionRequest.
 
+        Ignored if `wallet_type` is not `Org`.  # noqa: E501
 
         :param org_id: The org_id of this V1CreateCheckoutSessionRequest.  # noqa: E501
         :type: str
@@ -147,6 +185,7 @@ class V1CreateCheckoutSessionRequest(object):
     def project_id(self) -> 'str':
         """Gets the project_id of this V1CreateCheckoutSessionRequest.  # noqa: E501
 
+        Ignored if `wallet_type` is not `Project`.  # noqa: E501
 
         :return: The project_id of this V1CreateCheckoutSessionRequest.  # noqa: E501
         :rtype: str
@@ -157,12 +196,55 @@ class V1CreateCheckoutSessionRequest(object):
     def project_id(self, project_id: 'str'):
         """Sets the project_id of this V1CreateCheckoutSessionRequest.
 
+        Ignored if `wallet_type` is not `Project`.  # noqa: E501
 
         :param project_id: The project_id of this V1CreateCheckoutSessionRequest.  # noqa: E501
         :type: str
         """
 
         self._project_id = project_id
+
+    @property
+    def redirect_url_cancelled(self) -> 'str':
+        """Gets the redirect_url_cancelled of this V1CreateCheckoutSessionRequest.  # noqa: E501
+
+
+        :return: The redirect_url_cancelled of this V1CreateCheckoutSessionRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._redirect_url_cancelled
+
+    @redirect_url_cancelled.setter
+    def redirect_url_cancelled(self, redirect_url_cancelled: 'str'):
+        """Sets the redirect_url_cancelled of this V1CreateCheckoutSessionRequest.
+
+
+        :param redirect_url_cancelled: The redirect_url_cancelled of this V1CreateCheckoutSessionRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._redirect_url_cancelled = redirect_url_cancelled
+
+    @property
+    def redirect_url_succeeded(self) -> 'str':
+        """Gets the redirect_url_succeeded of this V1CreateCheckoutSessionRequest.  # noqa: E501
+
+
+        :return: The redirect_url_succeeded of this V1CreateCheckoutSessionRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._redirect_url_succeeded
+
+    @redirect_url_succeeded.setter
+    def redirect_url_succeeded(self, redirect_url_succeeded: 'str'):
+        """Sets the redirect_url_succeeded of this V1CreateCheckoutSessionRequest.
+
+
+        :param redirect_url_succeeded: The redirect_url_succeeded of this V1CreateCheckoutSessionRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._redirect_url_succeeded = redirect_url_succeeded
 
     @property
     def transaction_type(self) -> 'str':

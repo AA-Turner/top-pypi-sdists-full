@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2025, Jice and the libtcod contributors.
+ * Copyright © 2008-2026, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+/// @file config.h
+/// Libtcod config header.
 #pragma once
 #ifndef LIBTCOD_CONFIG_H_
 #define LIBTCOD_CONFIG_H_
@@ -129,8 +131,9 @@
 
 #ifdef __GNUC__
 /// Used to suppress internal header warnings.
-#define TCODLIB_BEGIN_IGNORE_DEPRECATIONS \
-  _Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wdeprecated\"")
+#define TCODLIB_BEGIN_IGNORE_DEPRECATIONS                                           \
+  _Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wdeprecated\"") \
+      _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
 #define TCODLIB_END_IGNORE_DEPRECATIONS _Pragma("GCC diagnostic pop")
 #elif defined(_MSC_VER)
 #define TCODLIB_BEGIN_IGNORE_DEPRECATIONS _Pragma("warning(push)") _Pragma("warning(disable : 4996)")

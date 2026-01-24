@@ -88,7 +88,7 @@ class UnsupportedVersion(RPCDispatcherError):
     def __init__(self, version, method=None):
         msg = "Endpoint does not support RPC version %s" % version
         if method:
-            msg = "{}. Attempted method: {}".format(msg, method)
+            msg = f"{msg}. Attempted method: {method}"
         super().__init__(msg)
         self.version = version
         self.method = method
@@ -177,7 +177,7 @@ class RPCDispatcher(dispatcher.DispatcherBase):
                          " for namespace and version filtering.  It must" + \
                          " be of type oslo_messaging.Target. Do not" + \
                          " define an Endpoint method named 'target'"
-                raise TypeError("{}: endpoint={}".format(errmsg, ep))
+                raise TypeError(f"{errmsg}: endpoint={ep}")
 
             # Check if we have an attribute named 'oslo_rpc_server_ping'
             oslo_rpc_server_ping = getattr(ep, 'oslo_rpc_server_ping', None)
@@ -186,7 +186,7 @@ class RPCDispatcher(dispatcher.DispatcherBase):
                          " attribute which can be use to ping the" + \
                          " endpoint. Please avoid using any oslo_* " + \
                          " naming."
-                LOG.warning("{} (endpoint={})".format(errmsg, ep))
+                LOG.warning(f"{errmsg} (endpoint={ep})")
 
         self.endpoints = endpoints
 
@@ -243,16 +243,16 @@ class RPCDispatcher(dispatcher.DispatcherBase):
             client_timeout = cm_heartbeat_interval = 0
 
         if cm_heartbeat_interval < 1:
-            LOG.warning('Client provided an invalid timeout value of %r' % (
-                incoming.client_timeout))
+            LOG.warning('Client provided an invalid timeout value of %r',
+                        incoming.client_timeout)
             return
 
         while not event.wait(cm_heartbeat_interval):
             LOG.debug(
                 'Sending call-monitor heartbeat for active call to %(method)s '
-                '(interval=%(interval)i)' % (
-                    {'method': incoming.message.get('method'),
-                     'interval': cm_heartbeat_interval}))
+                '(interval=%(interval)i)',
+                {'method': incoming.message.get('method'),
+                 'interval': cm_heartbeat_interval})
             try:
                 incoming.heartbeat()
             except Exception as exc:
@@ -260,8 +260,8 @@ class RPCDispatcher(dispatcher.DispatcherBase):
                 # client has died. Nothing to do here but exit the watchdog
                 # thread. If the client is still alive (dead broker) then its
                 # RPC will timeout as expected.
-                LOG.debug("Call-monitor heartbeat failed: %(exc)s"
-                          % ({'exc': exc}))
+                LOG.debug("Call-monitor heartbeat failed: %(exc)s",
+                          {'exc': exc})
                 break
 
     def dispatch(self, incoming):

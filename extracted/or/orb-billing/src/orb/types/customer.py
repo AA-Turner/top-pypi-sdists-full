@@ -14,11 +14,15 @@ __all__ = [
     "Hierarchy",
     "AccountingSyncConfiguration",
     "AccountingSyncConfigurationAccountingProvider",
+    "PaymentConfiguration",
+    "PaymentConfigurationPaymentProvider",
     "ReportingConfiguration",
 ]
 
 
 class Hierarchy(BaseModel):
+    """The hierarchical relationships for this customer."""
+
     children: List[CustomerMinified]
 
     parent: Optional[CustomerMinified] = None
@@ -36,11 +40,51 @@ class AccountingSyncConfiguration(BaseModel):
     excluded: bool
 
 
+class PaymentConfigurationPaymentProvider(BaseModel):
+    provider_type: Literal["stripe"]
+    """The payment provider to configure."""
+
+    excluded_payment_method_types: Optional[List[str]] = None
+    """List of Stripe payment method types to exclude for this customer.
+
+    Excluded payment methods will not be available for the customer to select during
+    payment, and will not be used for auto-collection. If a customer's default
+    payment method becomes excluded, Orb will attempt to use the next available
+    compatible payment method for auto-collection.
+    """
+
+
+class PaymentConfiguration(BaseModel):
+    """
+    Payment configuration for the customer, applicable when using Orb Invoicing with a supported payment provider such as Stripe.
+    """
+
+    payment_providers: Optional[List[PaymentConfigurationPaymentProvider]] = None
+    """Provider-specific payment configuration."""
+
+
 class ReportingConfiguration(BaseModel):
     exempt: bool
 
 
 class Customer(BaseModel):
+    """
+    A customer is a buyer of your products, and the other party to the billing relationship.
+
+    In Orb, customers are assigned system generated identifiers automatically, but it's often desirable to have these
+    match existing identifiers in your system. To avoid having to denormalize Orb ID information, you can pass in an
+    `external_customer_id` with your own identifier. See
+    [Customer ID Aliases](/events-and-metrics/customer-aliases) for further information about how these
+    aliases work in Orb.
+
+    In addition to having an identifier in your system, a customer may exist in a payment provider solution like
+    Stripe. Use the `payment_provider_id` and the `payment_provider` enum field to express this mapping.
+
+    A customer also has a timezone (from the standard [IANA timezone database](https://www.iana.org/time-zones)), which
+    defaults to your account's timezone. See [Timezone localization](/essentials/timezones) for
+    information on what this timezone parameter influences within Orb.
+    """
+
     id: str
 
     additional_emails: List[str]
@@ -220,6 +264,7 @@ class Customer(BaseModel):
     | Peru                   | `pe_ruc`     | Peruvian RUC Number                                                                                     |
     | Philippines            | `ph_tin`     | Philippines Tax Identification Number                                                                   |
     | Poland                 | `eu_vat`     | European VAT Number                                                                                     |
+    | Poland                 | `pl_nip`     | Polish Tax ID Number                                                                                    |
     | Portugal               | `eu_vat`     | European VAT Number                                                                                     |
     | Romania                | `eu_vat`     | European VAT Number                                                                                     |
     | Romania                | `ro_tin`     | Romanian Tax ID Number                                                                                  |
@@ -268,5 +313,18 @@ class Customer(BaseModel):
     """
 
     accounting_sync_configuration: Optional[AccountingSyncConfiguration] = None
+
+    automatic_tax_enabled: Optional[bool] = None
+    """Whether automatic tax calculation is enabled for this customer.
+
+    This field is nullable for backwards compatibility but will always return a
+    boolean value.
+    """
+
+    payment_configuration: Optional[PaymentConfiguration] = None
+    """
+    Payment configuration for the customer, applicable when using Orb Invoicing with
+    a supported payment provider such as Stripe.
+    """
 
     reporting_configuration: Optional[ReportingConfiguration] = None

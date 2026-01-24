@@ -6,7 +6,7 @@ use rumdl_lib::rules::code_fence_utils::CodeFenceStyle;
 fn test_consistent_backticks() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Backtick);
     let content = "# Code blocks\n\n```\ncode here\n```\n\n```rust\nmore code\n```";
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 }
@@ -15,7 +15,7 @@ fn test_consistent_backticks() {
 fn test_consistent_tildes() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Tilde);
     let content = "# Code blocks\n\n~~~\ncode here\n~~~\n\n~~~rust\nmore code\n~~~";
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 }
@@ -24,7 +24,7 @@ fn test_consistent_tildes() {
 fn test_mixed_fences_prefer_backticks() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Backtick);
     let content = "# Mixed blocks\n\n```\nbacktick block\n```\n\n~~~\ntilde block\n~~~";
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 2);
     let fixed = rule.fix(&ctx).unwrap();
@@ -38,7 +38,7 @@ fn test_mixed_fences_prefer_backticks() {
 fn test_mixed_fences_prefer_tildes() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Tilde);
     let content = "# Mixed blocks\n\n```\nbacktick block\n```\n\n~~~\ntilde block\n~~~";
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 2);
     let fixed = rule.fix(&ctx).unwrap();
@@ -52,7 +52,7 @@ fn test_mixed_fences_prefer_tildes() {
 fn test_consistent_style_first_backtick() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
     let content = "# Mixed blocks\n\n```\nbacktick block\n```\n\n~~~\ntilde block\n~~~";
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 2);
     let fixed = rule.fix(&ctx).unwrap();
@@ -65,14 +65,15 @@ fn test_consistent_style_first_backtick() {
 #[test]
 fn test_consistent_style_first_tilde() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
+    // One tilde and one backtick fence - tie prefers backticks
     let content = "# Mixed blocks\n\n~~~\ntilde block\n~~~\n\n```\nbacktick block\n```";
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 2);
     let fixed = rule.fix(&ctx).unwrap();
     assert_eq!(
         fixed,
-        "# Mixed blocks\n\n~~~\ntilde block\n~~~\n\n~~~\nbacktick block\n~~~"
+        "# Mixed blocks\n\n```\ntilde block\n```\n\n```\nbacktick block\n```"
     );
 }
 
@@ -80,7 +81,7 @@ fn test_consistent_style_first_tilde() {
 fn test_empty_content() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
     let content = "";
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 }
@@ -89,7 +90,7 @@ fn test_empty_content() {
 fn test_no_code_blocks() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
     let content = "# Just a heading\n\nSome regular text\n\n> A blockquote";
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 }
@@ -118,7 +119,7 @@ print("Hello")
 The outer block uses backticks.
 "#;
 
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should only check the outer fence markers, not the ones inside
@@ -149,7 +150,7 @@ fn test_fence_inside_indented_code_block() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
     let content = "First fence:\n\n```rust\ncode\n```\n\nIndented block with fence:\n\n    ```python\n    # This is shown as text\n    ```";
 
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should not consider the fence inside indented block
@@ -158,16 +159,16 @@ fn test_fence_inside_indented_code_block() {
 
 #[test]
 fn test_fence_with_language_and_attributes() {
-    // Test detection with various fence formats
+    // Test detection with various fence formats - tie prefers backticks
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
     let content = "~~~typescript {.numberLines startFrom=\"100\"}\ncode\n~~~\n\n```rust\nmore code\n```";
 
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // First fence is tilde, so backtick fence should be flagged
+    // Tie (1 tilde, 1 backtick) prefers backticks, so tilde fence should be flagged
     assert_eq!(result.len(), 2, "Should flag inconsistent style");
-    assert!(result[0].message.contains("use ~~~ instead of ```"));
+    assert!(result[0].message.contains("use ``` instead of ~~~"));
 }
 
 #[test]
@@ -176,7 +177,7 @@ fn test_empty_fences() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Backtick);
     let content = "```\n```\n\n~~~\n~~~";
 
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     assert_eq!(result.len(), 2, "Should flag tilde fences");
@@ -190,7 +191,7 @@ fn test_fence_in_blockquote() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
     let content = "> Quote with code:\n> \n> ```js\n> console.log('test');\n> ```\n\n~~~python\nprint('test')\n~~~";
 
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Note: Code blocks in blockquotes might not be detected by the simple fence detection
@@ -204,7 +205,7 @@ fn test_long_fence_markers() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Tilde);
     let content = "``````javascript\ncode\n``````\n\n~~~~~ruby\ncode\n~~~~~";
 
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     assert_eq!(result.len(), 2, "Should handle long fence markers");
@@ -218,7 +219,7 @@ fn test_unclosed_fence_style_detection() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
     let content = "~~~python\nprint('unclosed')";
 
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should still detect tilde style even if unclosed
@@ -234,7 +235,7 @@ fn test_nested_different_fence_types() {
     let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Backtick);
     let content = "```outer\n~~~inner\ncontent\n~~~\n```";
 
-    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Inner tilde fences should be treated as content, not actual fences

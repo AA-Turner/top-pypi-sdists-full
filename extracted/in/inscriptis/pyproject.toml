@@ -1,66 +1,137 @@
-[tool.poetry]
+[project]
 name = "inscriptis"
-version = "2.6.0"
-authors = ["Albert Weichselbraun <albert.weichselbraun@fhgr.ch>", "Fabian Odoni <fabian.odoni@fhgr.ch>"]
+version = "2.7.0"
 description = "inscriptis - HTML to text converter."
-keywords = ["HTML", "converter", "text"]
-classifiers = [
-        'Development Status :: 5 - Production/Stable',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: Apache Software License',
-        'Topic :: Text Processing',
-        'Topic :: Text Processing :: Markup :: HTML',
-        'Topic :: Utilities',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
-        'Programming Language :: Python :: 3.12',
-        'Programming Language :: Python :: 3.13',
-    ]
-homepage = "https://github.com/weblyzard/inscriptis"
-repository = "https://github.com/weblyzard/inscriptis"
-documentation = "https://inscriptis.readthedocs.io/en"
 license = "Apache-2.0"
 readme = "README.rst"
+requires-python = ">=3.10,<3.15"
 
-packages = [
-   {include = "inscriptis", from="src"},
+authors = [
+        { name = "Albert Weichselbraun", email = "albert.weichselbraun@fhgr.ch" },
+        { name = "Fabian Odoni", email = "fabian.odoni@fhgr.ch" }
 ]
 
+keywords = ["HTML", "converter", "text"]
 
-[tool.poetry.scripts]
+classifiers = [
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Developers",
+        "Topic :: Text Processing",
+        "Topic :: Text Processing :: Markup :: HTML",
+        "Topic :: Utilities",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",        
+    ]
+    
+
+dependencies = [
+  "requests>=2.32.3,<3.0.0",
+  "lxml>=5.4.0,<6.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/weblyzard/inscriptis"
+Repository = "https://github.com/weblyzard/inscriptis"
+Documentation = "https://inscriptis.readthedocs.io/en/latest/"
+
+[project.scripts]
 inscript = "inscriptis.cli.inscript:cli"
 inscriptis-api = "inscriptis.service.web:start"
 
+[project.optional-dependencies]
+web-service = [
+  "fastapi>=0.115.11,<1.0.0",
+  "uvicorn>=0.34.0,<1.0.0"
+]
 
-[tool.poetry.extras]
-web-service = ["fastapi", "uvicorn"]
-
-
-[tool.poetry.dependencies]
-python = "^3.9 || ^3.10 || ^3.11 || ^3.12 || ^3.13"
-requests = ">=2.32.2"
-lxml = ">=4.9.3"
-
-# optional dependencies
-fastapi = { version = "^0.115.11", optional = true }
-uvicorn = { version = "^0.34.0", optional = true }
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.5"
-
-
+[dependency-groups]
+dev = [
+    "pytest>=9.0.1",
+    "fastapi>=0.115.11,<1.0.0",
+    "ruff>=0.14.5",
+    "httpx>=0.28.1",
+    "uvicorn>=0.38.0",
+    "ty>=0.0.1a26",
+    "pytest-cov>=7.0.0",
+    "safety>=3.7.0",
+    "tox>=4.23.0",
+]
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+sources = ["src"]
+
+# code formatting with ruff
+[tool.ruff]
+line-length = 120
+target-version = "py311"  # adjust as needed
+extend-exclude = ["*.html", "*.json", "*.txt", "/a", "/b", "docs/conf.py"]
+src = ["src", "tests", "benchmarking", "examples"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint]
+select = [
+    "A",      # flake8-builtins
+    "B",      # flake8-bugbear
+    "COM",    # flake8-commas - trailing commas
+    "BLE",    # flake8-blind-except - avoid bare except
+    "D",      # flake8-docstrings
+    "C4",     # flake8-comprehensions
+    "E",      # pycodestyle
+    "EM",     # flake8-errmsg
+    "F",      # Pyflakes
+    "FA",     # flake8-future-annotations - use modern annotations
+    "ICN",    # flake8-import-conventions - standard import aliases
+    "PIE",    # flake8-pie
+    "PLE",    # pylint equivalents
+    "PLW",    # pylint equivalents
+    "PTH",    # flake8-use-pathlib - prefer pathlib over os.path
+    "PYI",    # flake8-pyi
+    "Q",      # flake8-quotes
+    "N",      # flake8-naming
+    "SIM",    # flake8-simplify
+    "I",      # isort
+    "RET",    # flake8-return
+    "RSE", "SLOT", "TID", "TC", "C90", "PERF", "E", "W", 
+    "FURB", "RUF", "TRY", "YTT",
+    "TCH",    # flake8-type-checking - optimize type checking imports
+    "S",      # flake8-bandit (security) — replaces dlint/bandit
+    "UP",     # pyupgrade
+]
+
+ignore = [
+    "D102",   # missing docstring in public method
+    "D105",   # missing docstring in magic method
+    "D107",   # missing docstring in __init__
+    "D203",   # incorrect-blank-line-before-class
+    "D213",   # multi-line-summary-second-line
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+  "S101",   # allow asserts
+  "D",      # no dockstring checks
+  "S310",   # allow URLs
+  "PTH",    # prefer pathlib
+]
+"benchmarking/*.py" = [
+  "S310",   # allow URLs
+  "S603",   # call: check for execution of untrusted input
+  "PTH",    # prefer pathlib  
+] 
 
 
-# code formatting with black
-[tool.black]
-line-length = 88
-target-version = ["py39", "py310", "py311", "py312", "py313"]
-extend-exclude = '\.html$|\.json$|\.txt$|/a$|/b$'
-include = '''
-  ^/src/|^/tests/|^/benchmarking/|^/examples/
-'''
+[tool.ty.src]
+root="./src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=inscriptis --cov-report=term-missing"

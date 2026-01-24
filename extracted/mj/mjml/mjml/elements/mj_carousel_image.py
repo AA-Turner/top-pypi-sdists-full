@@ -28,6 +28,7 @@ class MjCarouselImage(BodyComponent):
     @classmethod
     def default_attrs(cls):
         return {
+            'alt'   : '',
             'target': '_blank',
         }
 
@@ -91,13 +92,7 @@ class MjCarouselImage(BodyComponent):
             width=width,
         )
 
-        return f'''
-            <a {a_attrs}>
-                <label {self.html_attrs(for_=f'mj-carousel-{carouselId}-radio-{imgIndex}')}>
-                    <img {img_attrs}/>
-                </label>
-            </a>
-        '''
+        return f'<a {a_attrs}><label {self.html_attrs(for_=f"mj-carousel-{carouselId}-radio-{imgIndex}")}><img {img_attrs}/></label></a>'  # noqa: E501
 
     def renderRadio(self):
         index = self.props['index']

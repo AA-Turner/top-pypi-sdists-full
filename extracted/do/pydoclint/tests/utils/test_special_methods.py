@@ -1,5 +1,4 @@
 import ast
-from typing import Optional
 
 import pytest
 
@@ -39,18 +38,20 @@ hello_world = property
 
 class A:
     @hello_world
+    @morning
     def method1(self):
         pass
 """
 
 
 @pytest.mark.parametrize(
-    'src, decorator, expected',
+    ('src', 'decorator', 'expected'),
     [
         (src1, 'something', False),
         (src2, 'property', True),
-        (src3, 'property', True),
+        (src3, 'property', False),  # because `@property` is not outermost
         (src4, 'hello_world', True),
+        (src4, 'morning', False),  # because `@morning` isn't outermost
         (src4, 'property', False),
     ],
 )
@@ -59,7 +60,7 @@ def testCheckMethodContainsSpecifiedDecorator(
         decorator: str,
         expected: bool,
 ) -> None:
-    def getMethod1(tree_: ast.AST) -> Optional[ast.FunctionDef]:
+    def getMethod1(tree_: ast.AST) -> ast.FunctionDef | None:
         for node_ in ast.walk(tree_):
             if isinstance(node_, ast.FunctionDef) and node_.name == 'method1':
                 return node_

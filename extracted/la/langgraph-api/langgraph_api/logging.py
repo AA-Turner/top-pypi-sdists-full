@@ -120,6 +120,30 @@ class JSONRenderer:
         return json_dumpb(event_dict).decode()
 
 
+# same as Formatter, but always uses JSONRenderer. Used by OTLP log handler for self hosted logging
+class OTLPFormatter(structlog.stdlib.ProcessorFormatter):
+    def __init__(self, *args, **kwargs) -> None:
+        if len(args) == 3:
+            fmt, datefmt, style = args
+            kwargs["fmt"] = fmt
+            kwargs["datefmt"] = datefmt
+            kwargs["style"] = style
+        else:
+            raise RuntimeError(
+                f"OTLPFormatter expected 3 positional arguments (fmt, datefmt, style), "
+                f"but got {len(args)} arguments."
+            )
+        super().__init__(
+            processors=[
+                structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+                AddLoggingContext(),
+                JSONRenderer(),
+            ],
+            foreign_pre_chain=shared_processors,
+            **kwargs,
+        )
+
+
 LEVELS = logging.getLevelNamesMapping()
 
 

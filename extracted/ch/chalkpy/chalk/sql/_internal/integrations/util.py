@@ -4,6 +4,7 @@ import pyarrow as pa
 
 from chalk.features._encoding.pyarrow import pyarrow_to_polars
 from chalk.utils.df_utils import pa_cast, pa_table_to_pl_df
+from chalk.utils.pl_helpers import str_json_decode_compat
 
 
 def convert_hex_to_binary(table: pa.Table, cols_to_convert: List[str]) -> pa.Table:
@@ -60,7 +61,7 @@ def json_parse_and_cast(tbl: pa.Table, schema: Mapping[str, pa.DataType]) -> pa.
             expr = pl.col(col_name)
             if pl_df.schema[col_name] == pl.Binary():
                 expr = expr.cast(pl.Utf8())
-            expr = expr.str.json_extract(pl_dtype).alias(col_name)
+            expr = str_json_decode_compat(expr, pl_dtype).alias(col_name)
             pl_exprs.append(expr)
 
         pl_df = pl_df.with_columns(pl_exprs)

@@ -17,9 +17,13 @@ import pprint
 import re  # noqa: F401
 import json
 
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
+from legit_api_client.models.closing_reason import ClosingReason
+from legit_api_client.models.issue_status import IssueStatus
 from legit_api_client.models.issue_type import IssueType
+from legit_api_client.models.origin_type import OriginType
 from legit_api_client.models.severity import Severity
 from typing import Optional, Set
 from typing_extensions import Self
@@ -32,7 +36,14 @@ class BasicIssue(BaseModel):
     severity: Optional[Severity] = Field(default=None, description="Severity level of the issue")
     id: Optional[StrictStr] = Field(default=None, description="Unique identifier for the issue")
     score: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Risk score of the issue (0-100)")
-    __properties: ClassVar[List[str]] = ["issueType", "severity", "id", "score"]
+    status: Optional[IssueStatus] = Field(default=None, description="Current status of the issue")
+    detected_at: Optional[datetime] = Field(default=None, description="Timestamp when the issue was first detected by legit, in ISO 8601 format", alias="detectedAt")
+    last_closed_at: Optional[datetime] = Field(default=None, description="Timestamp when the issue was last closed (if applicable), in ISO 8601 format", alias="lastClosedAt")
+    closing_reason: Optional[ClosingReason] = Field(default=None, description="Reason why the issue was closed (if applicable)", alias="closingReason")
+    origin_type: Optional[OriginType] = Field(default=None, description="Type of asset where the issue was found", alias="originType")
+    origin_id: Optional[StrictStr] = Field(default=None, description="Identifier of the asset where the issue was found", alias="originId")
+    policy_name: Optional[StrictStr] = Field(default=None, description="Name of the policy that detected this issue", alias="policyName")
+    __properties: ClassVar[List[str]] = ["issueType", "severity", "id", "score", "status", "detectedAt", "lastClosedAt", "closingReason", "originType", "originId", "policyName"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -83,6 +94,31 @@ class BasicIssue(BaseModel):
         if self.score is None and "score" in self.model_fields_set:
             _dict['score'] = None
 
+        # set to None if detected_at (nullable) is None
+        # and model_fields_set contains the field
+        if self.detected_at is None and "detected_at" in self.model_fields_set:
+            _dict['detectedAt'] = None
+
+        # set to None if last_closed_at (nullable) is None
+        # and model_fields_set contains the field
+        if self.last_closed_at is None and "last_closed_at" in self.model_fields_set:
+            _dict['lastClosedAt'] = None
+
+        # set to None if closing_reason (nullable) is None
+        # and model_fields_set contains the field
+        if self.closing_reason is None and "closing_reason" in self.model_fields_set:
+            _dict['closingReason'] = None
+
+        # set to None if origin_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.origin_id is None and "origin_id" in self.model_fields_set:
+            _dict['originId'] = None
+
+        # set to None if policy_name (nullable) is None
+        # and model_fields_set contains the field
+        if self.policy_name is None and "policy_name" in self.model_fields_set:
+            _dict['policyName'] = None
+
         return _dict
 
     @classmethod
@@ -98,7 +134,14 @@ class BasicIssue(BaseModel):
             "issueType": obj.get("issueType"),
             "severity": obj.get("severity"),
             "id": obj.get("id"),
-            "score": obj.get("score")
+            "score": obj.get("score"),
+            "status": obj.get("status"),
+            "detectedAt": obj.get("detectedAt"),
+            "lastClosedAt": obj.get("lastClosedAt"),
+            "closingReason": obj.get("closingReason"),
+            "originType": obj.get("originType"),
+            "originId": obj.get("originId"),
+            "policyName": obj.get("policyName")
         })
         return _obj
 

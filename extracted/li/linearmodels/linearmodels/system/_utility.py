@@ -2,17 +2,16 @@ from __future__ import annotations
 
 from typing import cast
 
-import numpy
 import numpy as np
+from numpy import ndarray
 from numpy.linalg import inv, matrix_rank
-import pandas
 import pandas as pd
 
 import linearmodels.typing.data
 
 
 def blocked_column_product(
-    x: linearmodels.typing.data.ArraySequence, s: linearmodels.typing.data.Float64Array
+    x: linearmodels.typing.ArraySequence, s: linearmodels.typing.data.Float64Array
 ) -> linearmodels.typing.data.Float64Array:
     """
     Parameters
@@ -39,7 +38,7 @@ def blocked_column_product(
 
 
 def blocked_diag_product(
-    x: linearmodels.typing.data.ArraySequence, s: linearmodels.typing.data.Float64Array
+    x: linearmodels.typing.ArraySequence, s: linearmodels.typing.data.Float64Array
 ) -> linearmodels.typing.data.Float64Array:
     """
     Parameters
@@ -58,9 +57,7 @@ def blocked_diag_product(
     k = len(x)
     out = []
     for i in range(k):
-        row = []
-        for j in range(k):
-            row.append(s[i, j] * x[j])
+        row = [s[i, j] * x[j] for j in range(k)]
         row_arr = np.hstack(row)
         out.append(row_arr)
 
@@ -68,7 +65,7 @@ def blocked_diag_product(
 
 
 def blocked_inner_prod(
-    x: linearmodels.typing.data.ArraySequence, s: linearmodels.typing.data.Float64Array
+    x: linearmodels.typing.ArraySequence, s: linearmodels.typing.data.Float64Array
 ) -> linearmodels.typing.data.Float64Array:
     r"""
     Parameters
@@ -98,14 +95,14 @@ def blocked_inner_prod(
     s_is_diag = np.all(np.asarray((s - np.diag(np.diag(s))) == 0.0))
 
     w0 = widths[0]
-    homogeneous = all([w == w0 for w in widths])
+    homogeneous = all(w == w0 for w in widths)
     if homogeneous and not s_is_diag:
         # Fast path when all x have same number of columns
         # Slower than diag case when k is large since many 0s
         xa = np.hstack(x)
         return xa.T @ xa * np.kron(s, np.ones((w0, w0)))
 
-    cum_width = np.cumsum([0] + widths)
+    cum_width = np.cumsum([0, *widths])
     total = sum(widths)
     out: np.ndarray = np.zeros((total, total))
 
@@ -131,12 +128,12 @@ def blocked_inner_prod(
             out[sel_i, sel_j] = prod
             out[sel_j, sel_i] = prod.T
 
-    return cast(np.ndarray, out)
+    return cast("np.ndarray", out)
 
 
 def blocked_cross_prod(
-    x: linearmodels.typing.data.ArraySequence,
-    z: linearmodels.typing.data.ArraySequence,
+    x: linearmodels.typing.ArraySequence,
+    z: linearmodels.typing.ArraySequence,
     s: linearmodels.typing.data.Float64Array,
 ) -> linearmodels.typing.data.Float64Array:
     r"""
@@ -240,8 +237,8 @@ class LinearConstraint:
 
     def __init__(
         self,
-        r: pandas.DataFrame | numpy.ndarray,
-        q: pandas.Series | numpy.ndarray | None = None,
+        r: pd.DataFrame | ndarray,
+        q: pd.Series | ndarray | None = None,
         num_params: int | None = None,
         require_pandas: bool = True,
     ) -> None:
@@ -262,7 +259,8 @@ class LinearConstraint:
                 raise TypeError("q must be a Series or an array")
             if r.shape[0] != q.shape[0]:
                 raise ValueError("Constraint inputs are not shape compatible")
-            q_pd = pd.Series(q, index=r_pd.index)
+            q_pd = pd.Series(q)
+            q_pd.index = r_pd.index
         else:
             q_pd = pd.Series(np.zeros(r_pd.shape[0]), index=r_pd.index)
         self._q_pd = q_pd
@@ -286,7 +284,7 @@ class LinearConstraint:
         if self._num_params is not None:
             if r.shape[1] != self._num_params:
                 raise ValueError(
-                    "r is incompatible with the number of model " "parameters"
+                    "r is incompatible with the number of model parameters"
                 )
         rq = np.c_[r, q[:, None]]
         if not np.all(np.isfinite(rq)) or matrix_rank(rq) < rq.shape[0]:
@@ -307,11 +305,15 @@ class LinearConstraint:
         t, left = vecs[:, : k - c], vecs[:, k - c :]
         q = self._qa[:, None]
         a = q.T @ inv(left.T @ r.T) @ left.T
-        self._t, self._l, self._a = t, left, a
+        self._t, self._l, self._a = (
+            cast("linearmodels.typing.data.FloatArray2D", t),
+            cast("linearmodels.typing.data.FloatArray2D", left),
+            cast("linearmodels.typing.data.FloatArray2D", a),
+        )
         self._computed = True
 
     @property
-    def r(self) -> pandas.DataFrame:
+    def r(self) -> pd.DataFrame:
         """Constraint loading matrix"""
         return self._r_pd
 
@@ -366,6 +368,6 @@ class LinearConstraint:
         return self._a
 
     @property
-    def q(self) -> pandas.Series | numpy.ndarray:
+    def q(self) -> pd.Series | ndarray:
         """Constrain target values"""
         return self._q_pd

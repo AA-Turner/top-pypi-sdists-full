@@ -20,6 +20,8 @@ from .common import (
     Query,
     QueryList,
     Resp,
+    RespFromAttrs,
+    RespObject,
     RootResp,
     StrDict,
     UserXmlData,
@@ -57,7 +59,7 @@ class Ping(MethodView):
         """summary
 
         description"""
-        return jsonify(msg="pong"), 202, request.context.headers.dict()
+        return jsonify(msg="pong"), 202, request.context.headers.model_dump()
 
 
 class FileUploadView(MethodView):
@@ -206,7 +208,7 @@ class ReturnListView(MethodView):
     def get(self):
         pre_serialize = bool(int(request.args.get("pre_serialize", default=0)))
         data = [JSON(name="user1", limit=1), JSON(name="user2", limit=2)]
-        return [entry.dict() if pre_serialize else entry for entry in data]
+        return [entry.model_dump() if pre_serialize else entry for entry in data]
 
 
 class ReturnMakeResponseView(MethodView):
@@ -219,7 +221,9 @@ class ReturnMakeResponseView(MethodView):
         model_data = request.context.json
         headers = request.context.headers
         response = make_response(
-            Resp(name=model_data.name, score=[model_data.limit]).dict(), 201, headers
+            Resp(name=model_data.name, score=[model_data.limit]).model_dump(),
+            201,
+            headers,
         )
         response.set_cookie(
             key="test_cookie",
@@ -239,7 +243,9 @@ class ReturnMakeResponseView(MethodView):
         model_data = request.context.query
         headers = request.context.headers
         response = make_response(
-            Resp(name=model_data.name, score=[model_data.limit]).dict(), 201, headers
+            Resp(name=model_data.name, score=[model_data.limit]).model_dump(),
+            201,
+            headers,
         )
         response.set_cookie(
             key="test_cookie",
@@ -285,6 +291,12 @@ class StringStatusView(MethodView):
     @api.validate()
     def get(self):
         return "Response text string", 200
+
+
+class ForcedSerializeView(MethodView):
+    @api.validate(resp=Response(HTTP_200=RespFromAttrs), force_resp_serialize=True)
+    def get(self):
+        return RespObject(name="flask", score=[1, 2, 3], comment="hello")
 
 
 app.add_url_rule("/ping", view_func=Ping.as_view("ping"))
@@ -352,6 +364,10 @@ app.add_url_rule(
 app.add_url_rule(
     "/api/custom_error",
     view_func=CustomErrorView.as_view("custom_error_view"),
+)
+app.add_url_rule(
+    "/api/force_serialize",
+    view_func=ForcedSerializeView.as_view("force_serialize_view"),
 )
 
 # INFO: ensures that spec is calculated and cached _after_ registering

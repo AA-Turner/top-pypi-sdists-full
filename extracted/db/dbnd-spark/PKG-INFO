@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dbnd-spark
-Version: 1.0.28.1
+Version: 1.0.30.1
 Summary: Machine Learning Orchestration
 Home-page: https://github.com/databand-ai/dbnd
 Author: Evgeny Shulman
@@ -29,7 +29,7 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: dbnd==1.0.28.1
+Requires-Dist: dbnd==1.0.30.1
 Provides-Extra: tests
 Requires-Dist: pandas<2.0.0,>=0.17.1; extra == "tests"
 Requires-Dist: pyspark==2.4.4; python_version < "3.8" and extra == "tests"

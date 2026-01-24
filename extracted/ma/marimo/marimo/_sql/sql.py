@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import os
@@ -11,6 +11,7 @@ from marimo._sql.engines.dbapi import DBAPIConnection, DBAPIEngine
 from marimo._sql.engines.duckdb import DuckDBEngine
 from marimo._sql.engines.sqlalchemy import SQLAlchemyEngine
 from marimo._sql.engines.types import QueryEngine
+from marimo._sql.error_utils import MarimoSQLException, is_sql_parse_error
 from marimo._sql.get_engines import SUPPORTED_ENGINES
 from marimo._sql.utils import (
     extract_explain_content,
@@ -39,14 +40,17 @@ def sql(
     By default, this uses duckdb to execute the query. Any dataframes in the global
     namespace can be used inside the query.
 
-    You can also pass a custom engine to execute queries against other databases. The custom engine must be a DBAPI 2.0 compatible engine.
+    You can also pass a custom engine to execute queries against other databases.
+    The custom engine can be a DB-API 2.0 compatible connection (PEP 249), including
+    DB-API wrappers provided by ADBC drivers.
 
     The result of the query is displayed in the UI if output is True.
 
     Args:
         query: The SQL query to execute.
         output: Whether to display the result in the UI. Defaults to True.
-        engine: Optional SQL engine to use. Can be a SQLAlchemy, DuckDB, Clickhouse, Redshift, Ibis, or DBAPI 2.0 compatible engine.
+        engine: Optional SQL engine to use. Can be a SQLAlchemy, DuckDB, Clickhouse,
+            Redshift, Ibis, or DB-API 2.0 compatible connection (including ADBC drivers).
                If None, uses DuckDB.
 
     Returns:
@@ -75,13 +79,29 @@ def sql(
                 "Unsupported engine. Must be a SQLAlchemy, Ibis, Clickhouse, DuckDB, Redshift or DBAPI 2.0 compatible engine."
             )
 
-    df = sql_engine.execute(query)
+    try:
+        df = sql_engine.execute(query)
+    except Exception as e:
+        if is_sql_parse_error(e):
+            # NB. raising _from_ creates a noisier stack trace, but preserves
+            # the original exception context for debugging.
+            raise MarimoSQLException(
+                message=str(e),
+                sql_statement=query,
+                sql_line=None,
+                sql_col=None,
+                hint=None,
+            ) from e
+        raise
+
     if df is None:
         return None
 
-    has_limit = _query_includes_limit(query)
+    has_limit = False
     try:
         default_result_limit = get_default_result_limit()
+        if default_result_limit is not None:
+            has_limit = _query_includes_limit(query)
     except OSError:
         default_result_limit = None
 

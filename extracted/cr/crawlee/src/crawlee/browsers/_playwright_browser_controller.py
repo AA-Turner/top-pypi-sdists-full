@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from asyncio import Lock
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, cast
 
@@ -12,6 +13,7 @@ from typing_extensions import override
 from crawlee._utils.docs import docs_group
 from crawlee.browsers._browser_controller import BrowserController
 from crawlee.fingerprint_suite import HeaderGenerator
+from crawlee.fingerprint_suite._header_generator import fingerprint_browser_type_from_playwright_browser_type
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -26,7 +28,7 @@ from logging import getLogger
 logger = getLogger(__name__)
 
 
-@docs_group('Classes')
+@docs_group('Browser management')
 class PlaywrightBrowserController(BrowserController):
     """Controller for managing Playwright browser instances and their pages.
 
@@ -75,6 +77,19 @@ class PlaywrightBrowserController(BrowserController):
         self._last_page_opened_at = datetime.now(timezone.utc)
 
         self._total_opened_pages = 0
+
+        self._context_creation_lock: Lock | None = None
+
+    async def _get_context_creation_lock(self) -> Lock:
+        """Get context checking and creation lock.
+
+        It should be done with lock to prevent multiple concurrent attempts to create context, which could lead to
+        memory leak as one of the two concurrently created contexts will become orphaned and not properly closed.
+        """
+        if self._context_creation_lock:
+            return self._context_creation_lock
+        self._context_creation_lock = Lock()
+        return self._context_creation_lock
 
     @property
     @override
@@ -136,12 +151,6 @@ class PlaywrightBrowserController(BrowserController):
         Raises:
             ValueError: If the browser has reached the maximum number of open pages.
         """
-        if not self._browser_context:
-            self._browser_context = await self._create_browser_context(
-                browser_new_context_options=browser_new_context_options,
-                proxy_info=proxy_info,
-            )
-
         if not self.has_free_capacity:
             raise ValueError('Cannot open more pages in this browser.')
 
@@ -153,11 +162,12 @@ class PlaywrightBrowserController(BrowserController):
             )
             page = await new_context.new_page()
         else:
-            if not self._browser_context:
-                self._browser_context = await self._create_browser_context(
-                    browser_new_context_options=browser_new_context_options,
-                    proxy_info=proxy_info,
-                )
+            async with await self._get_context_creation_lock():
+                if not self._browser_context:
+                    self._browser_context = await self._create_browser_context(
+                        browser_new_context_options=browser_new_context_options,
+                        proxy_info=proxy_info,
+                    )
             page = await self._browser_context.new_page()
 
         # Handle page close event
@@ -168,7 +178,6 @@ class PlaywrightBrowserController(BrowserController):
         self._last_page_opened_at = datetime.now(timezone.utc)
 
         self._total_opened_pages += 1
-
         return page
 
     @override
@@ -205,10 +214,9 @@ class PlaywrightBrowserController(BrowserController):
         `self._fingerprint_generator` is available.
         """
         browser_new_context_options = dict(browser_new_context_options) if browser_new_context_options else {}
-
         if proxy_info:
             if browser_new_context_options.get('proxy'):
-                logger.warning("browser_new_context_options['proxy'] overriden by explicit `proxy_info` argument.")
+                logger.warning("browser_new_context_options['proxy'] overridden by explicit `proxy_info` argument.")
 
             browser_new_context_options['proxy'] = ProxySettings(
                 server=f'{proxy_info.scheme}://{proxy_info.hostname}:{proxy_info.port}',
@@ -234,7 +242,7 @@ class PlaywrightBrowserController(BrowserController):
                         'sec-ch-ua-mobile',
                         'sec-ch-ua-platform',
                     },
-                    browser_type=self.browser_type,
+                    browser_type=fingerprint_browser_type_from_playwright_browser_type(self.browser_type),
                 )
             )
         else:
@@ -243,5 +251,4 @@ class PlaywrightBrowserController(BrowserController):
         browser_new_context_options['extra_http_headers'] = browser_new_context_options.get(
             'extra_http_headers', extra_http_headers
         )
-
         return await self._browser.new_context(**browser_new_context_options)

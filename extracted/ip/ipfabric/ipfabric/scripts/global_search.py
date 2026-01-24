@@ -75,7 +75,7 @@ Default Tables for MAC Search:
     )
     args = shared_args(arg_parser, "ipf_global_search")
 
-    ipf = IPFClient(snapshot_id=args.snapshot, base_url=args.base_url, auth=args.auth)
+    ipf = IPFClient(snapshot_id=args.snapshot, base_url=args.base_url, auth=args.auth, verify=(not args.insecure))
     ipf._client.headers["user-agent"] += "; ipf_global_search"
     gs = GlobalSearch(client=ipf)
     if args.regex:

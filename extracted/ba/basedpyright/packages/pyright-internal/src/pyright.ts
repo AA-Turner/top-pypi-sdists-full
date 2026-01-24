@@ -16,6 +16,7 @@ import { timingStats } from './common/timing';
 import chalk from 'chalk';
 import commandLineArgs, { CommandLineOptions, OptionDefinition } from 'command-line-args';
 import * as os from 'os';
+import isCI from 'is-ci';
 
 import { ChildProcess, fork } from 'child_process';
 import { AnalysisResults } from './analyzer/analysis';
@@ -50,7 +51,7 @@ import * as core from '@actions/core';
 import * as command from '@actions/core/lib/command';
 import { convertDiagnostics } from 'pyright-to-gitlab-ci/src/converter';
 import path from 'path';
-import { pluralize } from './common/stringUtils';
+import { pluralize, userFacingOptionsList } from './common/stringUtils';
 import {
     allTypeCheckingModes,
     ConfigOptions,
@@ -58,6 +59,7 @@ import {
     getDiagLevelDiagnosticRules,
 } from './common/configOptions';
 import { writeFileSync } from 'fs';
+import { BaselineMode, baselineModes } from './baseline';
 
 type SeverityLevel = 'error' | 'warning' | 'information';
 
@@ -171,6 +173,7 @@ async function processArgs(): Promise<ExitStatus> {
         { name: 'outputjson', type: Boolean },
         { name: 'gitlabcodequality', type: String },
         { name: 'writebaseline', type: Boolean },
+        { name: 'baselinemode', type: String },
         { name: 'project', alias: 'p', type: String },
         { name: 'pythonpath', type: String },
         { name: 'pythonplatform', type: String },
@@ -179,7 +182,7 @@ async function processArgs(): Promise<ExitStatus> {
         { name: 'stats', type: Boolean },
         { name: 'threads', type: parseThreadsArgValue },
         { name: 'typeshed-path', type: String },
-        { name: 'baseline-file', type: String },
+        { name: 'baselinefile', type: String },
         { name: 'typeshedpath', alias: 't', type: String },
         { name: 'venv-path', type: String },
         { name: 'venvpath', alias: 'v', type: String },
@@ -276,6 +279,24 @@ async function processArgs(): Promise<ExitStatus> {
                 console.error(`'threads' option cannot be used with '${arg}' option`);
                 return ExitStatus.ParameterError;
             }
+        }
+    }
+
+    if (args.baselinemode) {
+        const incompatibleArgs = ['writebaseline'];
+        for (const arg of incompatibleArgs) {
+            if (args[arg] !== undefined) {
+                console.error(`'baselinemode' option cannot be used with '${arg}' option`);
+                return ExitStatus.ParameterError;
+            }
+        }
+        if (!baselineModes.includes(args.baselinemode)) {
+            console.error(
+                `'baselinemode' option must be one of ${userFacingOptionsList(baselineModes)} (found: ${
+                    args.baselinemode
+                })`
+            );
+            return ExitStatus.ParameterError;
         }
     }
 
@@ -379,8 +400,8 @@ async function processArgs(): Promise<ExitStatus> {
         options.configSettings.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshedpath']));
     }
 
-    if (args['baseline-file']) {
-        options.configSettings.baselineFile = combinePaths(process.cwd(), normalizePath(args['baseline-file']));
+    if (args['baselinefile']) {
+        options.configSettings.baselineFile = combinePaths(process.cwd(), normalizePath(args['baselinefile']));
     }
 
     if (args.createstub) {
@@ -457,6 +478,7 @@ async function processArgs(): Promise<ExitStatus> {
         hostFactory: () => new FullAccessHost(serviceProvider),
         // Refresh service 2 seconds after the last library file change is detected.
         libraryReanalysisTimeProvider: () => 2 * 1000,
+        shouldRunAnalysis: () => true,
     });
 
     if ('threads' in args) {
@@ -480,6 +502,12 @@ async function processArgs(): Promise<ExitStatus> {
     return runSingleThreaded(args, options, service, minSeverityLevel, output);
 }
 
+const filterOutBaselinedDiagnostics = (filesWithDiagnostics: readonly FileDiagnostics[]): readonly FileDiagnostics[] =>
+    filesWithDiagnostics.map((file) => ({
+        ...file,
+        diagnostics: file.diagnostics.filter((diagnostic) => !diagnostic.baselined),
+    }));
+
 const outputResults = (
     args: CommandLineOptions,
     options: PyrightCommandLineOptions,
@@ -488,8 +516,19 @@ const outputResults = (
     minSeverityLevel: SeverityLevel,
     output: ConsoleInterface
 ) => {
-    const baselineFile = service.backgroundAnalysisProgram.program.baselineHandler;
-    const baselineDiffMessage = baselineFile.write(args.writebaseline, true, results.diagnostics)?.getSummaryMessage();
+    let baselineMode: BaselineMode;
+    if (args.writebaseline) {
+        baselineMode = 'force';
+    } else if (args.baselinemode) {
+        baselineMode = args.baselinemode;
+    } else {
+        baselineMode = isCI ? 'lock' : 'auto';
+    }
+    const baselineDiffMessage = service.backgroundAnalysisProgram.writeBaseline(
+        baselineMode,
+        true,
+        results.diagnostics
+    );
     if (baselineDiffMessage) {
         console.info(baselineDiffMessage);
     }
@@ -498,7 +537,7 @@ const outputResults = (
     const fileDiagnostics = [...results.diagnostics].sort((a, b) =>
         a.fileUri.toString() < b.fileUri.toString() ? -1 : 1
     );
-    const filteredDiagnostics = baselineFile.filterOutBaselinedDiagnostics(fileDiagnostics);
+    const filteredDiagnostics = filterOutBaselinedDiagnostics(fileDiagnostics);
 
     const treatWarningsAsErrors =
         !!args.warnings ||
@@ -585,7 +624,7 @@ async function runSingleThreaded(
 
         checkForErrors(exitStatus, output);
 
-        if (args.createstub && results.requiringAnalysisCount.files === 0) {
+        if (args.createstub) {
             try {
                 service.writeTypeStub(cancellationNone);
                 service.dispose();
@@ -859,6 +898,7 @@ function runWorkerMessageLoop(workerNum: number, tempFolderName: string) {
                     hostFactory: () => new FullAccessHost(serviceProvider!),
                     // Refresh service 2 seconds after the last library file change is detected.
                     libraryReanalysisTimeProvider: () => 2 * 1000,
+                    shouldRunAnalysis: () => true,
                 });
 
                 service.setCompletionCallback((results) => {

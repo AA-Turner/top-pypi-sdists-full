@@ -40,9 +40,9 @@ impl<T: PyBase> Owned<T> {
 }
 
 impl<T: PyBase> Owned<T> {
-    pub(crate) fn cast<U: PyStaticType>(self) -> Option<Owned<U>> {
+    pub(crate) fn cast_exact<U: PyStaticType>(self) -> Option<Owned<U>> {
         let inner = self.py_owned();
-        inner.as_py_obj().cast().map(Owned::new).or_else(|| {
+        inner.as_py_obj().cast_exact().map(Owned::new).or_else(|| {
             // Casting failed, but don't forget to decref the original object
             unsafe { Py_DECREF(inner.as_ptr()) };
             None
@@ -82,6 +82,12 @@ impl<T: PyBase> std::ops::Deref for Owned<T> {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl<T: PyBase> std::ops::DerefMut for Owned<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
     }
 }
 

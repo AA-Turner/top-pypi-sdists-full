@@ -23,9 +23,9 @@ from ._base import NamespacedClient
 from .utils import (
     SKIP_IN_PATH,
     Stability,
+    _availability_warning,
     _quote,
     _rewrite_parameters,
-    _stability_warning,
 )
 
 
@@ -36,6 +36,9 @@ class CatClient(NamespacedClient):
         self,
         *,
         name: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         expand_wildcards: t.Optional[
             t.Union[
@@ -80,6 +83,9 @@ class CatClient(NamespacedClient):
         local: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
         s: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        time: t.Optional[
+            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
+        ] = None,
         v: t.Optional[bool] = None,
     ) -> t.Union[ObjectApiResponse[t.Any], TextApiResponse]:
         """
@@ -95,6 +101,14 @@ class CatClient(NamespacedClient):
 
         :param name: A comma-separated list of aliases to retrieve. Supports wildcards
             (`*`). To retrieve all aliases, omit this parameter or use `*` or `_all`.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param expand_wildcards: The type of index that wildcard patterns can match.
             If the request can target data streams, this argument determines whether
             wildcard expressions match hidden data streams. It supports comma-separated
@@ -112,6 +126,12 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -122,6 +142,8 @@ class CatClient(NamespacedClient):
             __path_parts = {}
             __path = "/_cat/aliases"
         __query: t.Dict[str, t.Any] = {}
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if expand_wildcards is not None:
@@ -142,6 +164,8 @@ class CatClient(NamespacedClient):
             __query["pretty"] = pretty
         if s is not None:
             __query["s"] = s
+        if time is not None:
+            __query["time"] = time
         if v is not None:
             __query["v"] = v
         __headers = {"accept": "text/plain,application/json"}
@@ -213,6 +237,9 @@ class CatClient(NamespacedClient):
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
         s: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        time: t.Optional[
+            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
+        ] = None,
         v: t.Optional[bool] = None,
     ) -> t.Union[ObjectApiResponse[t.Any], TextApiResponse]:
         """
@@ -227,7 +254,14 @@ class CatClient(NamespacedClient):
 
         :param node_id: A comma-separated list of node identifiers or names used to limit
             the returned information.
-        :param bytes: The unit used to display byte values.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: A comma-separated list of columns names to display. It supports simple
@@ -242,6 +276,12 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -274,6 +314,8 @@ class CatClient(NamespacedClient):
             __query["pretty"] = pretty
         if s is not None:
             __query["s"] = s
+        if time is not None:
+            __query["time"] = time
         if v is not None:
             __query["v"] = v
         __headers = {"accept": "text/plain,application/json"}
@@ -291,6 +333,9 @@ class CatClient(NamespacedClient):
         self,
         *,
         name: t.Optional[str] = None,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
@@ -330,6 +375,9 @@ class CatClient(NamespacedClient):
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
         s: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        time: t.Optional[
+            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
+        ] = None,
         v: t.Optional[bool] = None,
     ) -> t.Union[ObjectApiResponse[t.Any], TextApiResponse]:
         """
@@ -346,6 +394,14 @@ class CatClient(NamespacedClient):
 
         :param name: The name of the component template. It accepts wildcard expressions.
             If it is omitted, all component templates are returned.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: A comma-separated list of columns names to display. It supports simple
@@ -360,6 +416,12 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -370,6 +432,8 @@ class CatClient(NamespacedClient):
             __path_parts = {}
             __path = "/_cat/component_templates"
         __query: t.Dict[str, t.Any] = {}
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -390,6 +454,8 @@ class CatClient(NamespacedClient):
             __query["pretty"] = pretty
         if s is not None:
             __query["s"] = s
+        if time is not None:
+            __query["time"] = time
         if v is not None:
             __query["v"] = v
         __headers = {"accept": "text/plain,application/json"}
@@ -407,6 +473,9 @@ class CatClient(NamespacedClient):
         self,
         *,
         index: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
@@ -420,6 +489,9 @@ class CatClient(NamespacedClient):
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
         s: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        time: t.Optional[
+            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
+        ] = None,
         v: t.Optional[bool] = None,
     ) -> t.Union[ObjectApiResponse[t.Any], TextApiResponse]:
         """
@@ -437,6 +509,14 @@ class CatClient(NamespacedClient):
         :param index: A comma-separated list of data streams, indices, and aliases used
             to limit the request. It supports wildcards (`*`). To target all data streams
             and indices, omit this parameter or use `*` or `_all`.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: A comma-separated list of columns names to display. It supports simple
@@ -446,6 +526,12 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -456,6 +542,8 @@ class CatClient(NamespacedClient):
             __path_parts = {}
             __path = "/_cat/count"
         __query: t.Dict[str, t.Any] = {}
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -472,6 +560,8 @@ class CatClient(NamespacedClient):
             __query["pretty"] = pretty
         if s is not None:
             __query["s"] = s
+        if time is not None:
+            __query["time"] = time
         if v is not None:
             __query["v"] = v
         __headers = {"accept": "text/plain,application/json"}
@@ -507,6 +597,9 @@ class CatClient(NamespacedClient):
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
         s: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        time: t.Optional[
+            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
+        ] = None,
         v: t.Optional[bool] = None,
     ) -> t.Union[ObjectApiResponse[t.Any], TextApiResponse]:
         """
@@ -522,7 +615,14 @@ class CatClient(NamespacedClient):
 
         :param fields: Comma-separated list of fields used to limit returned information.
             To retrieve all fields, omit this parameter.
-        :param bytes: The unit used to display byte values.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: A comma-separated list of columns names to display. It supports simple
@@ -532,6 +632,12 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -560,6 +666,8 @@ class CatClient(NamespacedClient):
             __query["pretty"] = pretty
         if s is not None:
             __query["s"] = s
+        if time is not None:
+            __query["time"] = time
         if v is not None:
             __query["v"] = v
         __headers = {"accept": "text/plain,application/json"}
@@ -576,6 +684,9 @@ class CatClient(NamespacedClient):
     def health(
         self,
         *,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
@@ -607,6 +718,14 @@ class CatClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/cat-health.html>`_
 
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: List of columns to appear in the response. Supports simple wildcards.
@@ -615,13 +734,20 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
-        :param time: The unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param ts: If true, returns `HH:MM:SS` and Unix epoch timestamps.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_cat/health"
         __query: t.Dict[str, t.Any] = {}
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -737,7 +863,14 @@ class CatClient(NamespacedClient):
         :param index: Comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
             and indices, omit this parameter or use `*` or `_all`.
-        :param bytes: The unit used to display byte values.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param expand_wildcards: The type of index that wildcard patterns can match.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
@@ -753,7 +886,12 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
-        :param time: The unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -810,6 +948,9 @@ class CatClient(NamespacedClient):
     def master(
         self,
         *,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
@@ -820,6 +961,9 @@ class CatClient(NamespacedClient):
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
         s: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        time: t.Optional[
+            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
+        ] = None,
         v: t.Optional[bool] = None,
     ) -> t.Union[ObjectApiResponse[t.Any], TextApiResponse]:
         """
@@ -832,6 +976,14 @@ class CatClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/cat-master.html>`_
 
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: List of columns to appear in the response. Supports simple wildcards.
@@ -845,11 +997,19 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_cat/master"
         __query: t.Dict[str, t.Any] = {}
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -870,6 +1030,8 @@ class CatClient(NamespacedClient):
             __query["pretty"] = pretty
         if s is not None:
             __query["s"] = s
+        if time is not None:
+            __query["time"] = time
         if v is not None:
             __query["v"] = v
         __headers = {"accept": "text/plain,application/json"}
@@ -1012,8 +1174,15 @@ class CatClient(NamespacedClient):
 
         :param id: The ID of the data frame analytics to fetch
         :param allow_no_match: Whether to ignore if a wildcard expression matches no
-            configs. (This includes `_all` string or when no configs have been specified)
-        :param bytes: The unit in which to display byte values
+            configs. (This includes `_all` string or when no configs have been specified.)
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: Comma-separated list of column names to display.
@@ -1021,7 +1190,12 @@ class CatClient(NamespacedClient):
             be combined with any other query string option.
         :param s: Comma-separated list of column names or column aliases used to sort
             the response.
-        :param time: Unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -1072,6 +1246,9 @@ class CatClient(NamespacedClient):
         *,
         datafeed_id: t.Optional[str] = None,
         allow_no_match: t.Optional[bool] = None,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
@@ -1187,6 +1364,14 @@ class CatClient(NamespacedClient):
             array when there are no matches and the subset of results when there are
             partial matches. If `false`, the API returns a 404 status code when there
             are no matches or only partial matches.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: Comma-separated list of column names to display.
@@ -1194,7 +1379,12 @@ class CatClient(NamespacedClient):
             be combined with any other query string option.
         :param s: Comma-separated list of column names or column aliases used to sort
             the response.
-        :param time: The unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -1207,6 +1397,8 @@ class CatClient(NamespacedClient):
         __query: t.Dict[str, t.Any] = {}
         if allow_no_match is not None:
             __query["allow_no_match"] = allow_no_match
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -1552,7 +1744,14 @@ class CatClient(NamespacedClient):
             array when there are no matches and the subset of results when there are
             partial matches. If `false`, the API returns a 404 status code when there
             are no matches or only partial matches.
-        :param bytes: The unit used to display byte values.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: Comma-separated list of column names to display.
@@ -1560,7 +1759,12 @@ class CatClient(NamespacedClient):
             be combined with any other query string option.
         :param s: Comma-separated list of column names or column aliases used to sort
             the response.
-        :param time: The unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -1737,7 +1941,14 @@ class CatClient(NamespacedClient):
             when there are no matches and the subset of results when there are partial
             matches. If `false`, the API returns a 404 status code when there are no
             matches or only partial matches.
-        :param bytes: The unit used to display byte values.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param from_: Skips the specified number of transforms.
@@ -1747,7 +1958,12 @@ class CatClient(NamespacedClient):
         :param s: A comma-separated list of column names or aliases used to sort the
             response.
         :param size: The maximum number of transforms to display.
-        :param time: Unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -1800,6 +2016,9 @@ class CatClient(NamespacedClient):
     def nodeattrs(
         self,
         *,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
@@ -1810,6 +2029,9 @@ class CatClient(NamespacedClient):
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
         s: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        time: t.Optional[
+            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
+        ] = None,
         v: t.Optional[bool] = None,
     ) -> t.Union[ObjectApiResponse[t.Any], TextApiResponse]:
         """
@@ -1822,6 +2044,14 @@ class CatClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/cat-nodeattrs.html>`_
 
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: List of columns to appear in the response. Supports simple wildcards.
@@ -1835,11 +2065,19 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_cat/nodeattrs"
         __query: t.Dict[str, t.Any] = {}
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -1860,6 +2098,8 @@ class CatClient(NamespacedClient):
             __query["pretty"] = pretty
         if s is not None:
             __query["s"] = s
+        if time is not None:
+            __query["time"] = time
         if v is not None:
             __query["v"] = v
         __headers = {"accept": "text/plain,application/json"}
@@ -2098,7 +2338,14 @@ class CatClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/cat-nodes.html>`_
 
-        :param bytes: The unit used to display byte values.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param full_id: If `true`, return the full node ID. If `false`, return the shortened
@@ -2113,7 +2360,12 @@ class CatClient(NamespacedClient):
         :param s: A comma-separated list of column names or aliases that determines the
             sort order. Sorting defaults to ascending and can be changed by setting `:asc`
             or `:desc` as a suffix to the column name.
-        :param time: The unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str] = {}
@@ -2161,6 +2413,9 @@ class CatClient(NamespacedClient):
     def pending_tasks(
         self,
         *,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
@@ -2186,6 +2441,14 @@ class CatClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/cat-pending-tasks.html>`_
 
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: List of columns to appear in the response. Supports simple wildcards.
@@ -2199,12 +2462,19 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
-        :param time: Unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_cat/pending_tasks"
         __query: t.Dict[str, t.Any] = {}
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -2243,6 +2513,9 @@ class CatClient(NamespacedClient):
     def plugins(
         self,
         *,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
@@ -2254,6 +2527,9 @@ class CatClient(NamespacedClient):
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
         s: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        time: t.Optional[
+            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
+        ] = None,
         v: t.Optional[bool] = None,
     ) -> t.Union[ObjectApiResponse[t.Any], TextApiResponse]:
         """
@@ -2266,6 +2542,14 @@ class CatClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/cat-plugins.html>`_
 
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: List of columns to appear in the response. Supports simple wildcards.
@@ -2280,11 +2564,19 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_cat/plugins"
         __query: t.Dict[str, t.Any] = {}
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -2307,6 +2599,8 @@ class CatClient(NamespacedClient):
             __query["pretty"] = pretty
         if s is not None:
             __query["s"] = s
+        if time is not None:
+            __query["time"] = time
         if v is not None:
             __query["v"] = v
         __headers = {"accept": "text/plain,application/json"}
@@ -2425,7 +2719,14 @@ class CatClient(NamespacedClient):
             to limit the request. Supports wildcards (`*`). To target all data streams
             and indices, omit this parameter or use `*` or `_all`.
         :param active_only: If `true`, the response only includes ongoing shard recoveries.
-        :param bytes: The unit used to display byte values.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param detailed: If `true`, the response includes detailed information about
             shard recoveries.
         :param format: Specifies the format to return the columnar data in, can be set
@@ -2437,7 +2738,12 @@ class CatClient(NamespacedClient):
         :param s: A comma-separated list of column names or aliases that determines the
             sort order. Sorting defaults to ascending and can be changed by setting `:asc`
             or `:desc` as a suffix to the column name.
-        :param time: The unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -2488,6 +2794,9 @@ class CatClient(NamespacedClient):
     def repositories(
         self,
         *,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
@@ -2498,6 +2807,9 @@ class CatClient(NamespacedClient):
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
         s: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        time: t.Optional[
+            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
+        ] = None,
         v: t.Optional[bool] = None,
     ) -> t.Union[ObjectApiResponse[t.Any], TextApiResponse]:
         """
@@ -2510,6 +2822,14 @@ class CatClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/cat-repositories.html>`_
 
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: List of columns to appear in the response. Supports simple wildcards.
@@ -2523,11 +2843,19 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_cat/repositories"
         __query: t.Dict[str, t.Any] = {}
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -2548,6 +2876,8 @@ class CatClient(NamespacedClient):
             __query["pretty"] = pretty
         if s is not None:
             __query["s"] = s
+        if time is not None:
+            __query["time"] = time
         if v is not None:
             __query["v"] = v
         __headers = {"accept": "text/plain,application/json"}
@@ -2565,10 +2895,20 @@ class CatClient(NamespacedClient):
         self,
         *,
         index: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        allow_closed: t.Optional[bool] = None,
+        allow_no_indices: t.Optional[bool] = None,
         bytes: t.Optional[
             t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
         ] = None,
         error_trace: t.Optional[bool] = None,
+        expand_wildcards: t.Optional[
+            t.Union[
+                t.Sequence[
+                    t.Union[str, t.Literal["all", "closed", "hidden", "none", "open"]]
+                ],
+                t.Union[str, t.Literal["all", "closed", "hidden", "none", "open"]],
+            ]
+        ] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
         h: t.Optional[
@@ -2619,10 +2959,15 @@ class CatClient(NamespacedClient):
         ] = None,
         help: t.Optional[bool] = None,
         human: t.Optional[bool] = None,
+        ignore_throttled: t.Optional[bool] = None,
+        ignore_unavailable: t.Optional[bool] = None,
         local: t.Optional[bool] = None,
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
         s: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        time: t.Optional[
+            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
+        ] = None,
         v: t.Optional[bool] = None,
     ) -> t.Union[ObjectApiResponse[t.Any], TextApiResponse]:
         """
@@ -2639,13 +2984,36 @@ class CatClient(NamespacedClient):
         :param index: A comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
             and indices, omit this parameter or use `*` or `_all`.
-        :param bytes: The unit used to display byte values.
+        :param allow_closed: If true, allow closed indices to be returned in the response
+            otherwise if false, keep the legacy behaviour of throwing an exception if
+            index pattern matches closed indices
+        :param allow_no_indices: If false, the request returns an error if any wildcard
+            expression, index alias, or _all value targets only missing or closed indices.
+            This behavior applies even if the request targets other open indices. For
+            example, a request targeting foo*,bar* returns an error if an index starts
+            with foo but no index starts with bar.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
+        :param expand_wildcards: Type of index that wildcard expressions can match. If
+            the request can target data streams, this argument determines whether wildcard
+            expressions match hidden data streams. Supports comma-separated values, such
+            as open,hidden.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: A comma-separated list of columns names to display. It supports simple
             wildcards.
         :param help: When set to `true` will output available columns. This option can't
             be combined with any other query string option.
+        :param ignore_throttled: If true, concrete, expanded or aliased indices are ignored
+            when frozen.
+        :param ignore_unavailable: If true, missing or closed indices are not included
+            in the response.
         :param local: If `true`, the request computes the list of selected nodes from
             the local cluster state. If `false` the list of selected nodes are computed
             from the cluster state of the master node. In both cases the coordinating
@@ -2654,6 +3022,12 @@ class CatClient(NamespacedClient):
         :param s: A comma-separated list of column names or aliases that determines the
             sort order. Sorting defaults to ascending and can be changed by setting `:asc`
             or `:desc` as a suffix to the column name.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -2664,10 +3038,16 @@ class CatClient(NamespacedClient):
             __path_parts = {}
             __path = "/_cat/segments"
         __query: t.Dict[str, t.Any] = {}
+        if allow_closed is not None:
+            __query["allow_closed"] = allow_closed
+        if allow_no_indices is not None:
+            __query["allow_no_indices"] = allow_no_indices
         if bytes is not None:
             __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
+        if expand_wildcards is not None:
+            __query["expand_wildcards"] = expand_wildcards
         if filter_path is not None:
             __query["filter_path"] = filter_path
         if format is not None:
@@ -2678,6 +3058,10 @@ class CatClient(NamespacedClient):
             __query["help"] = help
         if human is not None:
             __query["human"] = human
+        if ignore_throttled is not None:
+            __query["ignore_throttled"] = ignore_throttled
+        if ignore_unavailable is not None:
+            __query["ignore_unavailable"] = ignore_unavailable
         if local is not None:
             __query["local"] = local
         if master_timeout is not None:
@@ -2686,6 +3070,8 @@ class CatClient(NamespacedClient):
             __query["pretty"] = pretty
         if s is not None:
             __query["s"] = s
+        if time is not None:
+            __query["time"] = time
         if v is not None:
             __query["v"] = v
         __headers = {"accept": "text/plain,application/json"}
@@ -2889,7 +3275,14 @@ class CatClient(NamespacedClient):
         :param index: A comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
             and indices, omit this parameter or use `*` or `_all`.
-        :param bytes: The unit used to display byte values.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: List of columns to appear in the response. Supports simple wildcards.
@@ -2899,7 +3292,12 @@ class CatClient(NamespacedClient):
         :param s: A comma-separated list of column names or aliases that determines the
             sort order. Sorting defaults to ascending and can be changed by setting `:asc`
             or `:desc` as a suffix to the column name.
-        :param time: The unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -2949,6 +3347,9 @@ class CatClient(NamespacedClient):
         self,
         *,
         repository: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
@@ -3019,6 +3420,14 @@ class CatClient(NamespacedClient):
         :param repository: A comma-separated list of snapshot repositories used to limit
             the request. Accepts wildcard expressions. `_all` returns all repositories.
             If any repository fails during the request, Elasticsearch returns an error.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: A comma-separated list of columns names to display. It supports simple
@@ -3031,7 +3440,12 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
-        :param time: Unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -3042,6 +3456,8 @@ class CatClient(NamespacedClient):
             __path_parts = {}
             __path = "/_cat/snapshots"
         __query: t.Dict[str, t.Any] = {}
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -3077,11 +3493,14 @@ class CatClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     def tasks(
         self,
         *,
         actions: t.Optional[t.Sequence[str]] = None,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         detailed: t.Optional[bool] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
@@ -3111,6 +3530,14 @@ class CatClient(NamespacedClient):
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/cat-tasks.html>`_
 
         :param actions: The task action names, which are used to limit the response.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param detailed: If `true`, the response includes detailed information about
             shard recoveries.
         :param format: Specifies the format to return the columnar data in, can be set
@@ -3124,7 +3551,12 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
-        :param time: Unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param timeout: Period to wait for a response. If no response is received before
             the timeout expires, the request fails and returns an error.
         :param v: When set to `true` will enable verbose output.
@@ -3136,6 +3568,8 @@ class CatClient(NamespacedClient):
         __query: t.Dict[str, t.Any] = {}
         if actions is not None:
             __query["actions"] = actions
+        if bytes is not None:
+            __query["bytes"] = bytes
         if detailed is not None:
             __query["detailed"] = detailed
         if error_trace is not None:
@@ -3181,6 +3615,9 @@ class CatClient(NamespacedClient):
         self,
         *,
         name: t.Optional[str] = None,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
@@ -3191,6 +3628,9 @@ class CatClient(NamespacedClient):
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
         s: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        time: t.Optional[
+            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
+        ] = None,
         v: t.Optional[bool] = None,
     ) -> t.Union[ObjectApiResponse[t.Any], TextApiResponse]:
         """
@@ -3206,6 +3646,14 @@ class CatClient(NamespacedClient):
 
         :param name: The name of the template to return. Accepts wildcard expressions.
             If omitted, all templates are returned.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: List of columns to appear in the response. Supports simple wildcards.
@@ -3219,6 +3667,12 @@ class CatClient(NamespacedClient):
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -3229,6 +3683,8 @@ class CatClient(NamespacedClient):
             __path_parts = {}
             __path = "/_cat/templates"
         __query: t.Dict[str, t.Any] = {}
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -3249,6 +3705,8 @@ class CatClient(NamespacedClient):
             __query["pretty"] = pretty
         if s is not None:
             __query["s"] = s
+        if time is not None:
+            __query["time"] = time
         if v is not None:
             __query["v"] = v
         __headers = {"accept": "text/plain,application/json"}
@@ -3266,6 +3724,9 @@ class CatClient(NamespacedClient):
         self,
         *,
         thread_pool_patterns: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
@@ -3349,6 +3810,14 @@ class CatClient(NamespacedClient):
 
         :param thread_pool_patterns: A comma-separated list of thread pool names used
             to limit the request. Accepts wildcard expressions.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param h: List of columns to appear in the response. Supports simple wildcards.
@@ -3362,7 +3831,12 @@ class CatClient(NamespacedClient):
         :param s: A comma-separated list of column names or aliases that determines the
             sort order. Sorting defaults to ascending and can be changed by setting `:asc`
             or `:desc` as a suffix to the column name.
-        :param time: The unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -3373,6 +3847,8 @@ class CatClient(NamespacedClient):
             __path_parts = {}
             __path = "/_cat/thread_pool"
         __query: t.Dict[str, t.Any] = {}
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -3415,6 +3891,9 @@ class CatClient(NamespacedClient):
         *,
         transform_id: t.Optional[str] = None,
         allow_no_match: t.Optional[bool] = None,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         format: t.Optional[str] = None,
@@ -3614,6 +4093,14 @@ class CatClient(NamespacedClient):
             array when there are no matches and the subset of results when there are
             partial matches. If `false`, the request returns a 404 status code when there
             are no matches or only partial matches.
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
         :param format: Specifies the format to return the columnar data in, can be set
             to `text`, `json`, `cbor`, `yaml`, or `smile`.
         :param from_: Skips the specified number of transforms.
@@ -3623,7 +4110,12 @@ class CatClient(NamespacedClient):
         :param s: Comma-separated list of column names or column aliases used to sort
             the response.
         :param size: The maximum number of transforms to obtain.
-        :param time: The unit used to display time values.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
         :param v: When set to `true` will enable verbose output.
         """
         __path_parts: t.Dict[str, str]
@@ -3636,6 +4128,8 @@ class CatClient(NamespacedClient):
         __query: t.Dict[str, t.Any] = {}
         if allow_no_match is not None:
             __query["allow_no_match"] = allow_no_match
+        if bytes is not None:
+            __query["bytes"] = bytes
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:

@@ -119,6 +119,9 @@ FAILEDOPERATION_GETALIAS = 'FailedOperation.GetAlias'
 # 获取函数代码地址失败。
 FAILEDOPERATION_GETFUNCTIONADDRESS = 'FailedOperation.GetFunctionAddress'
 
+# InstanceIsolationEnabled 状态不正确。
+FAILEDOPERATION_INSTANCEISOLATIONENABLED = 'FailedOperation.InstanceIsolationEnabled'
+
 # InstanceNotFound 实例不存在。
 FAILEDOPERATION_INSTANCENOTFOUND = 'FailedOperation.InstanceNotFound'
 
@@ -130,6 +133,9 @@ FAILEDOPERATION_INSUFFICIENTRESOURCES = 'FailedOperation.InsufficientResources'
 
 # 调用函数失败。
 FAILEDOPERATION_INVOKEFUNCTION = 'FailedOperation.InvokeFunction'
+
+# 混合节点配置异常。
+FAILEDOPERATION_MIXNODECONFIG = 'FailedOperation.MixNodeConfig'
 
 # 命名空间已存在，请勿重复创建。
 FAILEDOPERATION_NAMESPACE = 'FailedOperation.Namespace'
@@ -175,6 +181,9 @@ FAILEDOPERATION_RESERVEDINPROGRESS = 'FailedOperation.ReservedInProgress'
 
 # ServiceClosed 请确认后再操作。
 FAILEDOPERATION_SERVICECLOSED = 'FailedOperation.ServiceClosed'
+
+# SessionName参数异常。
+FAILEDOPERATION_SESSIONNAME = 'FailedOperation.SessionName'
 
 # 更新自定义域名失败，SSL异常。
 FAILEDOPERATION_SSL = 'FailedOperation.Ssl'
@@ -623,6 +632,9 @@ INVALIDPARAMETERVALUE_PERMISSION = 'InvalidParameterValue.Permission'
 # PluginConfig 参数异常。
 INVALIDPARAMETERVALUE_PLUGINCONFIG = 'InvalidParameterValue.PluginConfig'
 
+# 端口号不符合规范，请参考文档修正之后重试。
+INVALIDPARAMETERVALUE_PORT = 'InvalidParameterValue.Port'
+
 # ProtocolType参数传入错误。
 INVALIDPARAMETERVALUE_PROTOCOLTYPE = 'InvalidParameterValue.ProtocolType'
 
@@ -646,6 +658,9 @@ INVALIDPARAMETERVALUE_QUALIFIER = 'InvalidParameterValue.Qualifier'
 
 # 查询版本详情，版本参数传入错误。
 INVALIDPARAMETERVALUE_QUERYVERSION = 'InvalidParameterValue.QueryVersion'
+
+# 就绪探测参数错误，请根据文档或者错误提示修正之后重试。
+INVALIDPARAMETERVALUE_READINESSPROBE = 'InvalidParameterValue.ReadinessProbe'
 
 # 企业版镜像实例ID[RegistryId]传值错误。
 INVALIDPARAMETERVALUE_REGISTRYID = 'InvalidParameterValue.RegistryId'

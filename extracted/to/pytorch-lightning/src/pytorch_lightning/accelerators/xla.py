@@ -15,7 +15,7 @@ from typing import Any
 
 from typing_extensions import override
 
-from lightning_fabric.accelerators import _AcceleratorRegistry
+from lightning_fabric.accelerators.registry import _AcceleratorRegistry
 from lightning_fabric.accelerators.xla import XLAAccelerator as FabricXLAAccelerator
 from lightning_fabric.utilities.types import _DEVICE
 from pytorch_lightning.accelerators.accelerator import Accelerator
@@ -49,7 +49,16 @@ class XLAAccelerator(Accelerator, FabricXLAAccelerator):
             "avg. peak memory (MB)": peak_memory,
         }
 
+    @staticmethod
+    @override
+    def name() -> str:
+        return "tpu"
+
     @classmethod
     @override
     def register_accelerators(cls, accelerator_registry: _AcceleratorRegistry) -> None:
-        accelerator_registry.register("tpu", cls, description=cls.__name__)
+        accelerator_registry.register(
+            cls.name(),
+            cls,
+            description=cls.__name__,
+        )

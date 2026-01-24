@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.686379                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.848736                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -47,6 +47,28 @@ def get_snowflake_token(user: str = '', role: str = '', integration: str = '') -
         The role to which the token will be scoped to
     integration: str
         The name of the snowflake integration to use. If not set, an existing integration will be used provided that only one exists per perimeter. If integration is not set and more than one exists, then we raise an exception.
+    """
+    ...
+
+def get_oauth_connection_params(user: str = '', role: str = '', integration: str = '', **kwargs) -> typing.Dict:
+    """
+    Get OAuth connection parameters for Snowflake authentication using Outerbounds integration.
+    
+    This is a helper function that returns connection parameters dict that can be used
+    with both snowflake-connector-python and snowflake-snowpark-python.
+    
+    user: str
+        The user name used to authenticate with snowflake
+    role: str
+        The role to request when connecting with snowflake
+    integration: str
+        The name of the snowflake integration to use. If not set, an existing integration
+        will be used provided that only one exists in the current perimeter.
+    kwargs: dict
+        Additional arguments to include in the connection parameters
+    
+    Returns:
+        Dict with connection parameters including OAuth token
     """
     ...
 

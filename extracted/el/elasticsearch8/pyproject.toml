@@ -74,7 +74,7 @@ dev = [
     "orjson",
     "numpy",
     "simsimd",
-    "pyarrow",
+    "pyarrow; python_version<'3.14'",
     "pandas",
     "mapbox-vector-tile",
     "jinja2",
@@ -98,7 +98,7 @@ Homepage = "https://github.com/elastic/elasticsearch8-py"
 
 [tool.hatch.version]
 path = "elasticsearch8/_version.py"
-pattern = "__versionstr__ = \"(?P<version>[^']+)\""
+pattern = "__versionstr__ = \"(?P<version>[^']+?)\""
 
 [tool.hatch.build.targets.sdist]
 include = [

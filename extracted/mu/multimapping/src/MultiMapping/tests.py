@@ -58,8 +58,8 @@ class TestMultiMapping(unittest.TestCase):
     def test_contains(self):
         m = self._makeOne()
         m.push({'spam': 1})
-        self.assertTrue('spam' in m)
-        self.assertFalse('eggs' in m)
+        self.assertIn('spam', m)
+        self.assertNotIn('eggs', m)
 
     def test_has_key(self):
         m = self._makeOne()
@@ -74,4 +74,4 @@ class TestMultiMapping(unittest.TestCase):
 
     def test_is_extension_class(self):
         from ExtensionClass import Base
-        self.assertTrue(isinstance(self._makeOne(), Base))
+        self.assertIsInstance(self._makeOne(), Base)

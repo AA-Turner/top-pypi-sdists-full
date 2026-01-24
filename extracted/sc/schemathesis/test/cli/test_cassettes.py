@@ -37,7 +37,7 @@ def load_response_body(cassette, idx):
 @pytest.mark.operations("success", "upload_file")
 def test_store_cassette(cli, schema_url, cassette_path, hypothesis_max_examples, args, mode):
     hypothesis_max_examples = hypothesis_max_examples or 2
-    result = cli.run(
+    cli.run_and_assert(
         schema_url,
         f"--report-vcr-path={cassette_path}",
         f"--max-examples={hypothesis_max_examples}",
@@ -46,27 +46,46 @@ def test_store_cassette(cli, schema_url, cassette_path, hypothesis_max_examples,
         "--checks=not_a_server_error",
         *args,
     )
-    assert result.exit_code == ExitCode.OK, result.stdout
     cassette = load_cassette(cassette_path)
     interactions = cassette["http_interactions"]
-    assert interactions[0]["status"] == "SUCCESS"
+    assert len(interactions) >= 2
     assert cassette["seed"] == 1
-    if mode == "all":
-        assert interactions[0]["generation"]["mode"] in ["positive", "negative"]
-    else:
-        assert interactions[0]["generation"]["mode"] == mode
-    assert interactions[0]["phase"]["name"] in ("explicit", "coverage", "generate")
-    assert float(interactions[0]["response"]["elapsed"]) >= 0
-    if mode == "positive":
-        assert load_response_body(cassette, 0) == '{"success": true}'
+
+    # Basic validation on all interactions
     assert all("checks" in interaction for interaction in interactions)
-    assert len(interactions[0]["checks"]) == 1
-    assert interactions[0]["checks"][0] == {
-        "name": "not_a_server_error",
-        "status": "SUCCESS",
-        "message": None,
-    }
-    assert len(interactions[1]["checks"]) == 1
+    for interaction in interactions:
+        assert len(interaction["checks"]) >= 1
+        assert float(interaction["response"]["elapsed"]) >= 0
+
+    # In positive mode, verify we have the /success response
+    if mode == "positive":
+        # Find the /success interaction (operation order may vary)
+        success_idx = None
+        for idx in range(len(interactions)):
+            body = load_response_body(cassette, idx)
+            if '{"success": true}' in body:
+                success_idx = idx
+                break
+        assert success_idx is not None, "Could not find /success interaction in positive mode"
+        success_interaction = interactions[success_idx]
+        assert success_interaction["status"] == "SUCCESS"
+        assert success_interaction["generation"]["mode"] == mode
+        assert success_interaction["phase"]["name"] in ("explicit", "coverage", "generate")
+        assert len(success_interaction["checks"]) == 1
+        assert success_interaction["checks"][0] == {
+            "name": "not_a_server_error",
+            "status": "SUCCESS",
+            "message": None,
+        }
+    else:
+        # In other modes, just verify first interaction has expected properties
+        first_interaction = interactions[0]
+        assert first_interaction["status"] == "SUCCESS"
+        if mode == "all":
+            assert first_interaction["generation"]["mode"] in ["positive", "negative"]
+        else:
+            assert first_interaction["generation"]["mode"] == mode
+        assert first_interaction["phase"]["name"] in ("explicit", "coverage", "generate")
     for interaction in interactions:
         if interaction["phase"]["name"] == "coverage":
             if interaction["generation"]["mode"] == "negative" and not interaction["phase"]["data"][
@@ -77,42 +96,50 @@ def test_store_cassette(cli, schema_url, cassette_path, hypothesis_max_examples,
                 assert interaction["phase"]["data"]["parameter_location"] is not None
 
 
-@pytest.mark.parametrize("format", ["vcr", "har"])
+@pytest.mark.parametrize("format", ["vcr", "har", "ndjson"])
 @pytest.mark.operations("slow")
 @pytest.mark.openapi_version("3.0")
 def test_store_timeout(cli, schema_url, cassette_path, format):
-    result = cli.run(
+    cli.run_and_assert(
         schema_url,
         f"--report-{format}-path={cassette_path}",
         "--max-examples=1",
         "--request-timeout=0.001",
         "--seed=1",
         "--mode=positive",
+        exit_code=ExitCode.TESTS_FAILED,
     )
-    assert result.exit_code == ExitCode.TESTS_FAILED, result.stdout
     if format == "vcr":
         cassette = load_cassette(cassette_path)
         assert cassette["http_interactions"][0]["status"] == "ERROR"
         assert cassette["seed"] == 1
         assert cassette["http_interactions"][0]["response"] is None
-    else:
+    elif format == "har":
         with cassette_path.open(encoding="utf-8") as fd:
             data = json.load(fd)
             assert len(data["log"]["entries"]) == 3
             assert data["log"]["entries"][1]["response"]["bodySize"] == -1
+    else:
+        # ndjson format (externally tagged)
+        events = []
+        with cassette_path.open(encoding="utf-8") as fd:
+            for line in fd:
+                events.append(json.loads(line))
+        assert "Initialize" in events[0]
+        assert events[0]["Initialize"]["seed"] == 1
 
 
 @pytest.mark.operations("flaky")
 def test_interaction_status(cli, openapi3_schema_url, hypothesis_max_examples, cassette_path):
     # See GH-695
     # When an API operation has responses with SUCCESS and FAILURE statuses
-    result = cli.run(
+    cli.run_and_assert(
         openapi3_schema_url,
         f"--report-vcr-path={cassette_path}",
         f"--max-examples={hypothesis_max_examples or 5}",
         "--seed=1",
+        exit_code=ExitCode.TESTS_FAILED,
     )
-    assert result.exit_code == ExitCode.TESTS_FAILED, result.stdout
     cassette = load_cassette(cassette_path)
     assert len(cassette["http_interactions"]) >= 1
     # Then their statuses should be reflected in the "status" field
@@ -148,7 +175,7 @@ def test_bad_yaml_headers(ctx, cli, cassette_path, hypothesis_max_examples, open
         },
         format="yaml",
     )
-    result = cli.run(
+    result = cli.run_and_assert(
         str(schema_path),
         f"--url={openapi3_base_url}",
         f"--max-examples={hypothesis_max_examples or 1}",
@@ -156,8 +183,6 @@ def test_bad_yaml_headers(ctx, cli, cassette_path, hypothesis_max_examples, open
         "--checks=not_a_server_error",
         "--mode=positive",
     )
-    # Then the test run should be successful
-    assert result.exit_code == ExitCode.OK, result.stdout
     # And there should be no signs of encoding errors
     assert "UnicodeEncodeError" not in result.stdout
     # And the cassette should be correctly recorded
@@ -189,7 +214,7 @@ def test_run_subprocess(testdir, cassette_path, hypothesis_max_examples, schema_
 def test_har_format(cli, schema_url, cassette_path, hypothesis_max_examples, args, value):
     cassette_path = cassette_path.with_suffix(".har")
     auth = "secret"
-    result = cli.run(
+    result = cli.run_and_assert(
         schema_url,
         f"--report-har-path={cassette_path}",
         f"--max-examples={hypothesis_max_examples or 1}",
@@ -198,8 +223,8 @@ def test_har_format(cli, schema_url, cassette_path, hypothesis_max_examples, arg
         f"-H Authorization: {auth}",
         f"--output-sanitize={value}",
         *args,
+        exit_code=ExitCode.TESTS_FAILED,
     )
-    assert result.exit_code == ExitCode.TESTS_FAILED, result.stdout
     assert str(cassette_path) in result.stdout
     assert cassette_path.exists()
     with cassette_path.open(encoding="utf-8") as fd:
@@ -269,7 +294,7 @@ def request_args(request, tmp_path):
 @pytest.mark.operations("headers")
 def test_output_sanitization(cli, openapi2_schema_url, hypothesis_max_examples, cassette_path, value):
     auth = "secret-auth"
-    result = cli.run(
+    cli.run_and_assert(
         openapi2_schema_url,
         f"--report-vcr-path={cassette_path}",
         f"--max-examples={hypothesis_max_examples or 5}",
@@ -279,7 +304,6 @@ def test_output_sanitization(cli, openapi2_schema_url, hypothesis_max_examples, 
         "--checks=not_a_server_error",
         "--mode=positive",
     )
-    assert result.exit_code == ExitCode.OK, result.stdout
     cassette = load_cassette(cassette_path)
 
     if value == "true":
@@ -329,14 +353,20 @@ def test_report_dir(cli, schema_url, tmp_path, in_config):
     kwargs = {}
     if in_config:
         kwargs["config"] = {
-            "reports": {"vcr": {"enabled": True}, "har": {"enabled": True}, "directory": str(report_dir)}
+            "reports": {
+                "vcr": {"enabled": True},
+                "har": {"enabled": True},
+                "ndjson": {"enabled": True},
+                "directory": str(report_dir),
+            }
         }
     else:
-        args = [f"--report-dir={report_dir}", "--report=vcr,har", *args]
+        args = [f"--report-dir={report_dir}", "--report=vcr,har,ndjson", *args]
     cli.run(schema_url, *args, **kwargs)
     # Then all reports should be created in the specified directory
     assert list(report_dir.glob("*.yaml"))
     assert list(report_dir.glob("*.json"))
+    assert list(report_dir.glob("*.ndjson"))
 
 
 @given(text=st.text())

@@ -20,25 +20,27 @@ import tempfile
 import time
 import zipfile
 from builtins import bytes, input
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 import argcomplete
 import botocore
 import click
 import hjson as json
-import pkg_resources
 import requests
 import slugify
 import toml
 import yaml
-from click import BaseCommand, Context
+from click import Command, Context
 from click.exceptions import ClickException
 from click.globals import push_context
 from dateutil import parser
 
-from .core import API_GATEWAY_REGIONS, Zappa
+from . import __version__
+from .core import API_GATEWAY_REGIONS, DEFAULT_AWS_REGION, Zappa
 from .utilities import (
+    DEFAULT_EFS_MOUNT_POINT,
     check_new_version_available,
     detect_django_settings,
     detect_flask_apps,
@@ -67,6 +69,8 @@ CUSTOM_SETTINGS = [
 ]
 
 BOTO3_CONFIG_DOCS_URL = "https://boto3.readthedocs.io/en/latest/guide/quickstart.html#configuration"
+DEFAULT_APP_FUNCTION = "app.app"
+DEFAULT_EXCLUDES = ["boto3", "dateutil", "botocore", "s3transfer", "concurrent"]
 
 
 ##
@@ -81,7 +85,7 @@ class ZappaCLI:
     """
 
     # CLI
-    vargs = None
+    vargs: Optional[Dict[str, Any]] = None
     command = None
     stage_env = None
 
@@ -108,6 +112,7 @@ class ZappaCLI:
     zip_path = None
     handler_path = None
     vpc_config = None
+    efs_config = None  # List of EFS configurations
     memory_size = None
     ephemeral_storage = None
     use_apigateway = None
@@ -124,6 +129,7 @@ class ZappaCLI:
     additional_text_mimetypes = None
     tags = []  # type: ignore[var-annotated]
     layers = None
+    use_function_url = False
     architecture = None
 
     stage_name_env_pattern = re.compile("^[a-zA-Z0-9_]+$")
@@ -199,7 +205,7 @@ class ZappaCLI:
             "-v",
             "--version",
             action="version",
-            version=pkg_resources.get_distribution("zappa").version,
+            version=__version__,
             help="Print the zappa version",
         )
         parser.add_argument("--color", default="auto", choices=["auto", "never", "always"])
@@ -226,6 +232,11 @@ class ZappaCLI:
         # https://github.com/Miserlou/Zappa/issues/891
         group.add_argument("--disable_progress", action="store_true", help="Disable progress bars.")
         group.add_argument("--no_venv", action="store_true", help="Skip venv check.")
+        group.add_argument(
+            "--create-settings",
+            action="store_true",
+            help="Create a default zappa_settings.json file if none exists and no environment variables are set.",
+        )
 
         ##
         # Certify
@@ -258,6 +269,17 @@ class ZappaCLI:
         # Init
         ##
         subparsers.add_parser("init", help="Initialize Zappa app.")
+
+        ##
+        # Settings
+        ##
+        settings_parser = subparsers.add_parser(
+            "settings", help="Create zappa_settings.json file with optional configuration."
+        )
+        settings_parser.add_argument(
+            "--config", action="append", help="Configuration setting in format key=value (e.g., --config binary_support=false)"
+        )
+        settings_parser.add_argument("--stage", default="dev", help="Stage environment name (default: dev)")
 
         ##
         # Package
@@ -296,6 +318,14 @@ class ZappaCLI:
             help=("When invoking remotely, invoke this python as a string," " not as a modular path."),
         )
         invoke_parser.add_argument("--no-color", action="store_true", help=("Don't color the output"))
+        invoke_parser.add_argument(
+            "--client-context",
+            help="The ClientContext to send to the Lambda function. Must be valid JSON.",
+        )
+        invoke_parser.add_argument(
+            "--qualifier",
+            help="The qualifier (version or alias) of the lambda version to invoke. $LATEST if omitted.",
+        )
         invoke_parser.add_argument("command_rest")
 
         ##
@@ -306,9 +336,23 @@ class ZappaCLI:
         manage_parser.add_argument("--all", action="store_true", help=all_help)
         manage_parser.add_argument("command_rest", nargs="+", help=rest_help)
         manage_parser.add_argument("--no-color", action="store_true", help=("Don't color the output"))
+        manage_parser.add_argument(
+            "--client-context",
+            help="The ClientContext to send to the Lambda function. Must be valid JSON.",
+        )
+        manage_parser.add_argument(
+            "--qualifier",
+            help="The qualifier (version or alias) of the lambda version to execute the command on. $LATEST if omitted.",
+        )
+
         # This is explicitly added here because this is the only subcommand that doesn't inherit from env_parser
         # https://github.com/Miserlou/Zappa/issues/1002
         manage_parser.add_argument("-s", "--settings_file", help="The path to a Zappa settings file.")
+        manage_parser.add_argument(
+            "--create-settings",
+            action="store_true",
+            help="Create a default zappa_settings.json file if none exists and no environment variables are set.",
+        )
 
         ##
         # Rollback
@@ -494,6 +538,10 @@ class ZappaCLI:
             self.init()
             return
 
+        if self.command == "settings":
+            self.settings()
+            return
+
         # Make sure there isn't a new version available
         if not self.vargs.get("json"):
             self.check_for_update()
@@ -549,6 +597,26 @@ class ZappaCLI:
         if self.vargs.get("app_function", None):
             self.app_function = self.vargs["app_function"]
 
+        # Check if we should create settings for manage command
+        if command == "manage" and self.vargs.get("create_settings"):
+            # Generate settings using environment variables and defaults
+            settings = self._generate_settings_dict(stage=self.api_stage)
+
+            # Write settings to zappa_settings.json
+            import json
+
+            settings_file_path = Path("zappa_settings.json")
+
+            with settings_file_path.open("w", encoding="utf8") as zappa_settings_file:
+                json_output = json.dumps(settings, sort_keys=True, indent=4)
+                zappa_settings_file.write(json_output)
+
+            click.echo(
+                click.style("Created ", fg="green", bold=True)
+                + click.style("zappa_settings.json", bold=True)
+                + " with environment variables and defaults."
+            )
+
         # Load our settings, based on api_stage.
         try:
             self.load_settings(self.vargs.get("settings_file"))
@@ -589,6 +657,8 @@ class ZappaCLI:
                 self.vargs["command_rest"],
                 raw_python=self.vargs["raw"],
                 no_color=self.vargs["no_color"],
+                client_context=self.vargs["client_context"],
+                qualifier=self.vargs["qualifier"],
             )
         elif command == "manage":  # pragma: no cover
             if not self.vargs.get("command_rest"):
@@ -610,6 +680,8 @@ class ZappaCLI:
                 command,
                 command="manage",
                 no_color=self.vargs["no_color"],
+                client_context=self.vargs["client_context"],
+                qualifier=self.vargs["qualifier"],
             )
 
         elif command == "tail":  # pragma: no cover
@@ -698,6 +770,8 @@ class ZappaCLI:
             cors_options=self.cors,
             description=self.apigateway_description,
             endpoint_configuration=self.endpoint_configuration,
+            apigateway_version=self.apigateway_version,
+            stage_name=self.api_stage,
         )
 
         if not output:
@@ -742,6 +816,19 @@ class ZappaCLI:
                             bold=True,
                         )
                         + "\n"
+                    )
+
+        # Create or resolve EFS configurations
+        if self.efs_config:
+            for efs in self.efs_config:
+                if "Arn" not in efs:
+                    # Auto-create EFS resources for entries without an ARN
+                    efs["Arn"] = self.zappa.create_efs(
+                        lambda_name=self.lambda_name,
+                        vpc_config=self.vpc_config,
+                        mount_path=efs["LocalMountPath"],
+                        throughput_mode=efs.get("ThroughputMode", "bursting"),
+                        performance_mode=efs.get("PerformanceMode", "generalPurpose"),
                     )
 
         # Make sure this isn't already deployed.
@@ -807,11 +894,19 @@ class ZappaCLI:
         except botocore.client.ClientError:
             # Register the Lambda function with that zip as the source
             # You'll also need to define the path to your lambda_handler code.
+            # Prepare EFS config for Lambda API (list of {Arn, LocalMountPath})
+            lambda_efs_config = (
+                [{"Arn": efs["Arn"], "LocalMountPath": efs["LocalMountPath"]} for efs in self.efs_config]
+                if self.efs_config
+                else []
+            )
+
             kwargs = dict(
                 handler=self.lambda_handler,
                 description=self.lambda_description,
                 vpc_config=self.vpc_config,
                 dead_letter_config=self.dead_letter_config,
+                efs_config=lambda_efs_config,
                 timeout=self.timeout_seconds,
                 memory_size=self.memory_size,
                 ephemeral_storage=self.ephemeral_storage,
@@ -854,6 +949,13 @@ class ZappaCLI:
             )
             self.zappa.deploy_lambda_alb(**kwargs)
 
+        if self.use_function_url:
+            kwargs = dict(
+                function_name=self.lambda_arn,
+                function_url_config=self.function_url_config,
+            )
+            self.zappa.deploy_lambda_function_url(**kwargs)
+
         if self.use_apigateway:
             # Create and configure the API Gateway
             self.zappa.create_stack_template(
@@ -865,6 +967,8 @@ class ZappaCLI:
                 cors_options=self.cors,
                 description=self.apigateway_description,
                 endpoint_configuration=self.endpoint_configuration,
+                apigateway_version=self.apigateway_version,
+                stage_name=self.api_stage,
             )
 
             self.zappa.update_stack(
@@ -874,21 +978,27 @@ class ZappaCLI:
                 disable_progress=self.disable_progress,
             )
 
-            api_id = self.zappa.get_api_id(self.lambda_name)
+            api_id = self.zappa.get_api_id(self.lambda_name, apigateway_version=self.apigateway_version)
 
-            # Add binary support
-            if self.binary_support:
+            # Add binary support (v1 only - v2 handles binary automatically)
+            if self.binary_support and self.apigateway_version == "v1":
                 self.zappa.add_binary_support(api_id=api_id, cors=self.cors)
 
-            # Add payload compression
-            if self.stage_config.get("payload_compression", True):
+            # Add payload compression (v1 only)
+            if self.stage_config.get("payload_compression", True) and self.apigateway_version == "v1":
                 self.zappa.add_api_compression(
                     api_id=api_id,
                     min_compression_size=self.stage_config.get("payload_minimum_compression_size", 0),
                 )
 
             # Deploy the API!
-            endpoint_url = self.deploy_api_gateway(api_id)
+            if self.apigateway_version == "v1":
+                endpoint_url = self.deploy_api_gateway(api_id)
+            else:
+                # API Gateway v2 uses AutoDeploy, no need to call deploy
+                endpoint_url = self.zappa.get_api_url(
+                    self.lambda_name, self.api_stage, apigateway_version=self.apigateway_version
+                )
             deployment_string = deployment_string + ": {}".format(endpoint_url)
 
             # Create/link API key
@@ -981,6 +1091,19 @@ class ZappaCLI:
                     )
                     sys.exit(-1)
 
+            # Create or resolve EFS configurations
+            if self.efs_config:
+                for efs in self.efs_config:
+                    if "Arn" not in efs:
+                        # Auto-create EFS resources for entries without an ARN
+                        efs["Arn"] = self.zappa.create_efs(
+                            lambda_name=self.lambda_name,
+                            vpc_config=self.vpc_config,
+                            mount_path=efs["LocalMountPath"],
+                            throughput_mode=efs.get("ThroughputMode", "bursting"),
+                            performance_mode=efs.get("PerformanceMode", "generalPurpose"),
+                        )
+
             # Create the Lambda Zip,
             if not no_upload:
                 self.create_package()
@@ -1050,6 +1173,13 @@ class ZappaCLI:
         if not source_zip and not no_upload and not docker_image_uri:
             self.remove_uploaded_zip()
 
+        # Prepare EFS config for Lambda API (list of {Arn, LocalMountPath})
+        lambda_efs_config = (
+            [{"Arn": efs["Arn"], "LocalMountPath": efs["LocalMountPath"]} for efs in self.efs_config]
+            if self.efs_config
+            else []
+        )
+
         # Update the configuration, in case there are changes.
         self.lambda_arn = self.zappa.update_lambda_configuration(
             lambda_arn=self.lambda_arn,
@@ -1057,6 +1187,7 @@ class ZappaCLI:
             handler=self.lambda_handler,
             description=self.lambda_description,
             vpc_config=self.vpc_config,
+            efs_config=lambda_efs_config,
             timeout=self.timeout_seconds,
             memory_size=self.memory_size,
             ephemeral_storage=self.ephemeral_storage,
@@ -1083,6 +1214,8 @@ class ZappaCLI:
                 cors_options=self.cors,
                 description=self.apigateway_description,
                 endpoint_configuration=self.endpoint_configuration,
+                apigateway_version=self.apigateway_version,
+                stage_name=self.api_stage,
             )
             self.zappa.update_stack(
                 self.lambda_name,
@@ -1092,31 +1225,48 @@ class ZappaCLI:
                 disable_progress=self.disable_progress,
             )
 
-            api_id = self.zappa.get_api_id(self.lambda_name)
+            api_id = self.zappa.get_api_id(self.lambda_name, apigateway_version=self.apigateway_version)
 
-            # Update binary support
-            if self.binary_support:
-                self.zappa.add_binary_support(api_id=api_id, cors=self.cors)
-            else:
-                self.zappa.remove_binary_support(api_id=api_id, cors=self.cors)
+            # Update binary support (v1 only - v2 handles binary automatically)
+            if self.apigateway_version == "v1":
+                if self.binary_support:
+                    self.zappa.add_binary_support(api_id=api_id, cors=self.cors)
+                else:
+                    self.zappa.remove_binary_support(api_id=api_id, cors=self.cors)
 
-            if self.stage_config.get("payload_compression", True):
-                self.zappa.add_api_compression(
-                    api_id=api_id,
-                    min_compression_size=self.stage_config.get("payload_minimum_compression_size", 0),
-                )
-            else:
-                self.zappa.remove_api_compression(api_id=api_id)
+                if self.stage_config.get("payload_compression", True):
+                    self.zappa.add_api_compression(
+                        api_id=api_id,
+                        min_compression_size=self.stage_config.get("payload_minimum_compression_size", 0),
+                    )
+                else:
+                    self.zappa.remove_api_compression(api_id=api_id)
 
             # It looks a bit like we might actually be using this just to get the URL,
             # but we're also updating a few of the APIGW settings.
-            endpoint_url = self.deploy_api_gateway(api_id)
+            if self.apigateway_version == "v1":
+                endpoint_url = self.deploy_api_gateway(api_id)
+            else:
+                # API Gateway v2 uses AutoDeploy, no need to call deploy
+                # Get the URL directly
+                endpoint_url = self.zappa.get_api_url(
+                    self.lambda_name, self.api_stage, apigateway_version=self.apigateway_version
+                )
 
             if self.stage_config.get("domain", None):
                 endpoint_url = self.stage_config.get("domain")
 
         else:
             endpoint_url = None
+
+        if self.use_function_url:
+            kwargs = dict(
+                function_name=self.lambda_arn,
+                function_url_config=self.function_url_config,
+            )
+            self.zappa.update_lambda_function_url(**kwargs)
+        else:
+            self.zappa.delete_lambda_function_url(self.lambda_arn)
 
         self.schedule()
 
@@ -1237,6 +1387,24 @@ class ZappaCLI:
         self.zappa.delete_lambda_function(self.lambda_name)
         if remove_logs:
             self.zappa.remove_lambda_function_logs(self.lambda_name)
+
+        # Delete auto-created EFS resources
+        # Check if any EFS entries were auto-created (no Arn in original config)
+        raw_efs_config = self.stage_config.get("efs_config", None)
+        if raw_efs_config:
+            # Normalize to list to check for auto-created entries
+            if raw_efs_config is True:
+                has_auto_created = True
+            elif isinstance(raw_efs_config, dict):
+                has_auto_created = "Arn" not in raw_efs_config
+            elif isinstance(raw_efs_config, list):
+                has_auto_created = any("Arn" not in efs for efs in raw_efs_config)
+            else:
+                has_auto_created = False
+
+            if has_auto_created:
+                click.echo("Deleting auto-created EFS resources...")
+                self.zappa.delete_efs(self.lambda_name)
 
         click.echo(click.style("Done", fg="green", bold=True) + "!")
 
@@ -1364,7 +1532,7 @@ class ZappaCLI:
             removed_arns = self.zappa.remove_async_sns_topic(self.lambda_name)
             click.echo("SNS Topic removed: %s" % ", ".join(removed_arns))
 
-    def invoke(self, function_name, raw_python=False, command=None, no_color=False):
+    def invoke(self, function_name, raw_python=False, command=None, no_color=False, client_context=None, qualifier=None):
         """
         Invoke a remote function.
         """
@@ -1378,6 +1546,7 @@ class ZappaCLI:
             command = {"raw_command": function_name}
         else:
             command = {key: function_name}
+        client_context = base64.b64encode(client_context.encode("utf-8")).decode("utf-8") if client_context else None
 
         # Can't use hjson
         import json as json
@@ -1386,6 +1555,8 @@ class ZappaCLI:
             self.lambda_name,
             json.dumps(command),
             invocation_type="RequestResponse",
+            client_context=client_context,
+            qualifier=qualifier,
         )
 
         print(self.format_lambda_response(response, not no_color))
@@ -1533,8 +1704,8 @@ class ZappaCLI:
             function_invocations = self.zappa.cloudwatch.get_metric_statistics(
                 Namespace="AWS/Lambda",
                 MetricName="Invocations",
-                StartTime=datetime.utcnow() - timedelta(days=1),
-                EndTime=datetime.utcnow(),
+                StartTime=datetime.now(timezone.utc) - timedelta(days=1),
+                EndTime=datetime.now(timezone.utc),
                 Period=1440,
                 Statistics=["Sum"],
                 Dimensions=[{"Name": "FunctionName", "Value": "{}".format(self.lambda_name)}],
@@ -1545,8 +1716,8 @@ class ZappaCLI:
             function_errors = self.zappa.cloudwatch.get_metric_statistics(
                 Namespace="AWS/Lambda",
                 MetricName="Errors",
-                StartTime=datetime.utcnow() - timedelta(days=1),
-                EndTime=datetime.utcnow(),
+                StartTime=datetime.now(timezone.utc) - timedelta(days=1),
+                EndTime=datetime.now(timezone.utc),
                 Period=1440,
                 Statistics=["Sum"],
                 Dimensions=[{"Name": "FunctionName", "Value": "{}".format(self.lambda_name)}],
@@ -1564,14 +1735,15 @@ class ZappaCLI:
 
         # URLs
         if self.use_apigateway:
-            api_url = self.zappa.get_api_url(self.lambda_name, self.api_stage)
+            api_url = self.zappa.get_api_url(self.lambda_name, self.api_stage, apigateway_version=self.apigateway_version)
 
             status_dict["API Gateway URL"] = api_url
 
-            # Api Keys
-            api_id = self.zappa.get_api_id(self.lambda_name)
-            for api_key in self.zappa.get_api_keys(api_id, self.api_stage):
-                status_dict["API Gateway x-api-key"] = api_key
+            # Api Keys (v1 only - v2 doesn't support API keys in the same way)
+            if self.apigateway_version == "v1":
+                api_id = self.zappa.get_api_id(self.lambda_name, apigateway_version=self.apigateway_version)
+                for api_key in self.zappa.get_api_keys(api_id, self.api_stage):
+                    status_dict["API Gateway x-api-key"] = api_key
 
             # There literally isn't a better way to do this.
             # AWS provides no way to tie a APIGW domain name to its Lambda function.
@@ -1583,6 +1755,17 @@ class ZappaCLI:
                     status_dict["Domain URL"] += "/" + base_path
             else:
                 status_dict["Domain URL"] = "None Supplied"
+
+        # Function URL
+        if self.use_function_url:
+            try:
+                response = self.zappa.lambda_client.list_function_url_configs(FunctionName=self.lambda_name, MaxItems=50)
+                if response.get("FunctionUrlConfigs"):
+                    status_dict["Function URL"] = response["FunctionUrlConfigs"][0]["FunctionUrl"]
+                else:
+                    status_dict["Function URL"] = "Not configured"
+            except Exception:
+                status_dict["Function URL"] = "Error retrieving"
 
         # Scheduled Events
         event_rules = self.zappa.get_event_rules_for_lambda(lambda_arn=self.lambda_arn)
@@ -1646,7 +1829,130 @@ class ZappaCLI:
         else:
             return True
 
-    def init(self, settings_file="zappa_settings.json"):
+    def _get_init_env(self) -> str:
+        # Create Env
+        while True:
+            click.echo(
+                "Your Zappa configuration can support multiple production stages, like '"
+                + click.style("dev", bold=True)
+                + "', '"
+                + click.style("staging", bold=True)
+                + "', and '"
+                + click.style("production", bold=True)
+                + "'."
+            )
+            env = input("What do you want to call this environment (default 'dev'): ") or "dev"
+            try:
+                self.check_stage_name(env)
+                break
+            except ValueError:
+                click.echo(click.style("Stage names must match a-zA-Z0-9_", fg="red"))
+        return env
+
+    def _get_init_profile(self, default_profile: str, profiles: dict, profile_names: list) -> tuple[str, dict]:
+        while True:
+            profile_name = (
+                input(
+                    "We found the following profiles: {}, and {}. "
+                    "Which would you like us to use? (default '{}'): ".format(
+                        ", ".join(profile_names[:-1]),
+                        profile_names[-1],
+                        default_profile,
+                    )
+                )
+                or default_profile
+            )
+            if profile_name in profiles:
+                profile = profiles[profile_name]
+                break
+            else:
+                click.echo("Please enter a valid name for your AWS profile.")
+        return profile_name, profile
+
+    def _get_init_bucket(self, default_bucket: str) -> str:
+        while True:
+            bucket = input("What do you want to call your bucket? (default '%s'): " % default_bucket) or default_bucket
+
+            if is_valid_bucket_name(bucket):
+                break
+
+            click.echo(click.style("Invalid bucket name!", bold=True))
+            click.echo("S3 buckets must be named according to the following rules:")
+            click.echo(
+                """* Bucket names must be unique across all existing bucket names in Amazon S3.
+* Bucket names must comply with DNS naming conventions.
+* Bucket names must be at least 3 and no more than 63 characters long.
+* Bucket names must not contain uppercase characters or underscores.
+* Bucket names must start with a lowercase letter or number.
+* Bucket names must be a series of one or more labels. Adjacent labels are separated
+  by a single period (.). Bucket names can contain lowercase letters, numbers, and
+  hyphens. Each label must start and end with a lowercase letter or a number.
+* Bucket names must not be formatted as an IP address (for example, 192.168.5.4).
+* When you use virtual hosted–style buckets with Secure Sockets Layer (SSL), the SSL
+  wildcard certificate only matches buckets that don't contain periods. To work around
+  this, use HTTP or write your own certificate verification logic. We recommend that
+  you do not use periods (".") in bucket names when using virtual hosted–style buckets.
+"""
+            )
+        return bucket
+
+    def _get_init_django_settings(self, matches: list) -> str:  # type: ignore
+        django_settings = None
+        while django_settings in [None, ""]:
+            if matches:
+                click.echo(
+                    "We discovered: "
+                    + click.style(
+                        ", ".join("{}".format(i) for v, i in enumerate(matches)),
+                        bold=True,
+                    )
+                )
+                django_settings = input("Where are your project's settings? (default '%s'): " % matches[0]) or matches[0]
+            else:
+                click.echo("(This will likely be something like 'your_project.settings')")
+                django_settings = input("Where are your project's settings?: ")
+        return django_settings  # type: ignore
+
+    def _get_init_app_function(self, matches: list[str]) -> str:  # type: ignore
+        """Get the flask app function from the user."""
+        app_function = None
+        while app_function in [None, ""]:
+            if matches:
+                click.echo(
+                    "We discovered: "
+                    + click.style(
+                        ", ".join("{}".format(i) for v, i in enumerate(matches)),
+                        bold=True,
+                    )
+                )
+                app_function = input("Where is your app's function? (default '%s'): " % matches[0]) or matches[0]
+            else:
+                app_function = input("Where is your app's function?: ")
+        return app_function  # type: ignore
+
+    def _get_init_global_settings(self) -> tuple[str, bool]:
+        global_deployment = False
+        while True:
+            global_type = input(
+                "Would you like to deploy this application "
+                + click.style("globally", bold=True)
+                + "? (default 'n') [y/n/(p)rimary]: "
+            )
+            if not global_type:
+                break
+            if global_type.lower() in ["y", "yes", "p", "primary"]:
+                global_deployment = True
+                break
+            if global_type.lower() in ["n", "no"]:
+                global_deployment = False
+                break
+        return global_type, global_deployment
+
+    def _get_init_confirm(self) -> str:
+        confirm = input("\nDoes this look " + click.style("okay", bold=True, fg="green") + "? (default 'y') [y/n]: ") or "yes"
+        return confirm
+
+    def init(self, settings_file: str = "zappa_settings.json"):
         """
         Initialize a new Zappa project by creating a new zappa_settings.json in a guided process.
         This should probably be broken up into few separate componants once it's stable.
@@ -1657,7 +1963,8 @@ class ZappaCLI:
         self.check_venv()
 
         # Ensure that we don't already have a zappa_settings file.
-        if os.path.isfile(settings_file):
+        settings_file_filepath = Path(settings_file).resolve()
+        if settings_file_filepath.exists() and settings_file_filepath.is_file():
             raise ClickException(
                 "This project already has a " + click.style("{0!s} file".format(settings_file), fg="red", bold=True) + "!"
             )
@@ -1686,23 +1993,7 @@ class ZappaCLI:
         click.echo("This `init` command will help you create and configure your new Zappa deployment.")
         click.echo("Let's get started!\n")
 
-        # Create Env
-        while True:
-            click.echo(
-                "Your Zappa configuration can support multiple production stages, like '"
-                + click.style("dev", bold=True)
-                + "', '"
-                + click.style("staging", bold=True)
-                + "', and '"
-                + click.style("production", bold=True)
-                + "'."
-            )
-            env = input("What do you want to call this environment (default 'dev'): ") or "dev"
-            try:
-                self.check_stage_name(env)
-                break
-            except ValueError:
-                click.echo(click.style("Stage names must match a-zA-Z0-9_", fg="red"))
+        env = self._get_init_env()
 
         # Detect AWS profiles and regions
         # If anyone knows a more straightforward way to easily detect and
@@ -1735,23 +2026,7 @@ class ZappaCLI:
             else:
                 default_profile = profile_names[0]
 
-            while True:
-                profile_name = (
-                    input(
-                        "We found the following profiles: {}, and {}. "
-                        "Which would you like us to use? (default '{}'): ".format(
-                            ", ".join(profile_names[:-1]),
-                            profile_names[-1],
-                            default_profile,
-                        )
-                    )
-                    or default_profile
-                )
-                if profile_name in profiles:
-                    profile = profiles[profile_name]
-                    break
-                else:
-                    click.echo("Please enter a valid name for your AWS profile.")
+            profile_name, profile = self._get_init_profile(default_profile, profiles, profile_names)
 
         profile_region = profile.get("region") if profile else None
 
@@ -1761,30 +2036,7 @@ class ZappaCLI:
         )
         click.echo("If you don't have a bucket yet, we'll create one for you too.")
         default_bucket = "zappa-" + "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(9))
-        while True:
-            bucket = input("What do you want to call your bucket? (default '%s'): " % default_bucket) or default_bucket
-
-            if is_valid_bucket_name(bucket):
-                break
-
-            click.echo(click.style("Invalid bucket name!", bold=True))
-            click.echo("S3 buckets must be named according to the following rules:")
-            click.echo(
-                """* Bucket names must be unique across all existing bucket names in Amazon S3.
-* Bucket names must comply with DNS naming conventions.
-* Bucket names must be at least 3 and no more than 63 characters long.
-* Bucket names must not contain uppercase characters or underscores.
-* Bucket names must start with a lowercase letter or number.
-* Bucket names must be a series of one or more labels. Adjacent labels are separated
-  by a single period (.). Bucket names can contain lowercase letters, numbers, and
-  hyphens. Each label must start and end with a lowercase letter or a number.
-* Bucket names must not be formatted as an IP address (for example, 192.168.5.4).
-* When you use virtual hosted–style buckets with Secure Sockets Layer (SSL), the SSL
-  wildcard certificate only matches buckets that don't contain periods. To work around
-  this, use HTTP or write your own certificate verification logic. We recommend that
-  you do not use periods (".") in bucket names when using virtual hosted–style buckets.
-"""
-            )
+        bucket = self._get_init_bucket(default_bucket)
 
         # Detect Django/Flask
         try:  # pragma: no cover
@@ -1806,51 +2058,20 @@ class ZappaCLI:
         if has_django:  # pragma: no cover
             click.echo("It looks like this is a " + click.style("Django", bold=True) + " application!")
             click.echo("What is the " + click.style("module path", bold=True) + " to your projects's Django settings?")
-            django_settings = None
-
             matches = detect_django_settings()
-            while django_settings in [None, ""]:
-                if matches:
-                    click.echo(
-                        "We discovered: "
-                        + click.style(
-                            ", ".join("{}".format(i) for v, i in enumerate(matches)),
-                            bold=True,
-                        )
-                    )
-                    django_settings = input("Where are your project's settings? (default '%s'): " % matches[0]) or matches[0]
-                else:
-                    click.echo("(This will likely be something like 'your_project.settings')")
-                    django_settings = input("Where are your project's settings?: ")
+            django_settings = self._get_init_django_settings(matches)
             django_settings = django_settings.replace("'", "")
             django_settings = django_settings.replace('"', "")
         else:
-            matches = None
+            matches = []
             if has_flask:
                 click.echo("It looks like this is a " + click.style("Flask", bold=True) + " application.")
                 matches = detect_flask_apps()
             click.echo("What's the " + click.style("modular path", bold=True) + " to your app's function?")
             click.echo("This will likely be something like 'your_module.app'.")
-            app_function = None
-            while app_function in [None, ""]:
-                if matches:
-                    click.echo(
-                        "We discovered: "
-                        + click.style(
-                            ", ".join("{}".format(i) for v, i in enumerate(matches)),
-                            bold=True,
-                        )
-                    )
-                    app_function = input("Where is your app's function? (default '%s'): " % matches[0]) or matches[0]
-                else:
-                    app_function = input("Where is your app's function?: ")
+            app_function = self._get_init_app_function(matches)
             app_function = app_function.replace("'", "")
             app_function = app_function.replace('"', "")
-
-        # TODO: Create VPC?
-        # Memory size? Time limit?
-        # Domain? LE keys? Region?
-        # 'Advanced Settings' mode?
 
         # Globalize
         click.echo(
@@ -1859,32 +2080,15 @@ class ZappaCLI:
             + " in order to provide fast global service."
         )
         click.echo("If you are using Zappa for the first time, you probably don't want to do this!")
-        global_deployment = False
-        while True:
-            global_type = input(
-                "Would you like to deploy this application "
-                + click.style("globally", bold=True)
-                + "? (default 'n') [y/n/(p)rimary]: "
-            )
-            if not global_type:
-                break
-            if global_type.lower() in ["y", "yes", "p", "primary"]:
-                global_deployment = True
-                break
-            if global_type.lower() in ["n", "no"]:
-                global_deployment = False
-                break
+        global_type, global_deployment = self._get_init_global_settings()
 
-        # The given environment name
-        zappa_settings = {
-            env: {
-                "profile_name": profile_name,
-                "s3_bucket": bucket,
-                "runtime": get_venv_from_python_version(),
-                "project_name": self.get_project_name(),
-                "exclude": ["boto3", "dateutil", "botocore", "s3transfer", "concurrent"],
-            }
-        }
+        # Generate base settings using the shared method
+        zappa_settings = self._generate_settings_dict(stage=env)
+
+        # Update with init-specific values
+        if profile_name is not None:
+            zappa_settings[env]["profile_name"] = profile_name
+        zappa_settings[env]["s3_bucket"] = bucket
 
         if profile_region:
             zappa_settings[env]["aws_region"] = profile_region
@@ -1903,7 +2107,9 @@ class ZappaCLI:
 
             for region in additional_regions:
                 env_name = env + "_" + region.replace("-", "_")
-                g_env = {env_name: {"extends": env, "aws_region": region}}
+                g_env: Dict[str, Dict[str, Union[bool, int, str, dict, list]]] = {
+                    env_name: {"extends": env, "aws_region": region}
+                }
                 zappa_settings.update(g_env)
 
         import json as json  # hjson is fine for loading, not fine for writing.
@@ -1913,13 +2119,13 @@ class ZappaCLI:
         click.echo("\nOkay, here's your " + click.style("zappa_settings.json", bold=True) + ":\n")
         click.echo(click.style(zappa_settings_json, fg="yellow", bold=False))
 
-        confirm = input("\nDoes this look " + click.style("okay", bold=True, fg="green") + "? (default 'y') [y/n]: ") or "yes"
+        confirm = self._get_init_confirm()
         if confirm[0] not in ["y", "Y", "yes", "YES"]:
             click.echo("" + click.style("Sorry", bold=True, fg="red") + " to hear that! Please init again.")
             return
 
         # Write
-        with open("zappa_settings.json", "w") as zappa_settings_file:
+        with settings_file_filepath.open("w", encoding="utf8") as zappa_settings_file:
             zappa_settings_file.write(zappa_settings_json)
 
         if global_deployment:
@@ -1963,6 +2169,131 @@ class ZappaCLI:
         click.echo(" ~ Team " + click.style("Zappa", bold=True) + "!")
 
         return
+
+    def _parse_config_value(self, value: str) -> Union[bool, int, str, dict, list]:
+        """
+        Parse a configuration value string into the appropriate type.
+        Attempts to parse as JSON first (for dicts/arrays), then converts
+        'true'/'false' to boolean, numeric strings to integers,
+        and returns other values as strings.
+        """
+        # Try JSON parsing first (handles dicts, arrays, and JSON primitives)
+        if value.startswith("{") or value.startswith("["):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                pass  # Fall through to other parsing
+
+        # Handle booleans
+        if value.lower() in {"true", "false"}:
+            return value.lower() == "true"
+
+        # Handle integers
+        elif value.isdigit():
+            return int(value)
+
+        # Default to string
+        else:
+            return value
+
+    def _get_config_from_environment_and_args(
+        self, env_prefix: str = "ZAPPA_", config_args: Optional[List[str]] = None
+    ) -> Dict[str, Union[bool, int, str, dict, list]]:
+        """
+        Common method to extract and parse configuration from environment variables
+        and command-line config arguments.
+
+        Args:
+            env_prefix: Prefix for environment variables (default: "ZAPPA_")
+            config_args: List of key=value config arguments from command line
+
+        Returns:
+            dict: Configuration dictionary with parsed values
+        """
+        config: Dict[str, Union[bool, int, str, dict, list]] = {}
+
+        # Read environment variables with specified prefix
+        for key, value in os.environ.items():
+            if key.startswith(env_prefix):
+                config_key = key[len(env_prefix) :].lower()  # Remove prefix and convert to lowercase
+                config[config_key] = self._parse_config_value(value)
+
+        # Parse command-line config arguments (these take precedence)
+        if config_args:
+            for config_item in config_args:
+                if "=" in config_item:
+                    key, value = config_item.split("=", 1)
+                    config[key.lower()] = self._parse_config_value(value)
+                else:
+                    raise ValueError(f"Invalid config format '{config_item}'. Use key=value format.")
+
+        return config
+
+    def _generate_settings_dict(
+        self, stage: Optional[str] = None, config_args: Optional[List[str]] = None
+    ) -> Dict[str, Dict[str, Union[bool, int, str, dict, list]]]:
+        """
+        Generate settings dictionary with optional command-line arguments and environment variables.
+        This method is used by both the settings command and load_settings_file.
+
+        Args:
+            stage: Stage environment name (default: 'dev')
+            config_args: List of key=value config arguments from command line
+
+        Returns:
+            dict: Settings dictionary structure
+        """
+        # Get stage from parameters or command arguments, default to 'dev'
+        if stage is None:
+            stage = self.vargs.get("stage", "dev") if self.vargs is not None else "dev"
+
+        # Base configuration structure with init defaults
+        settings = {
+            stage: {
+                "app_function": DEFAULT_APP_FUNCTION,
+                "aws_region": DEFAULT_AWS_REGION,
+                "runtime": get_venv_from_python_version(),
+                "project_name": self.get_project_name(),
+                "exclude": DEFAULT_EXCLUDES,
+            }
+        }
+
+        # Get configuration from environment variables and command-line args
+        config = self._get_config_from_environment_and_args(env_prefix="ZAPPA_", config_args=config_args)
+
+        # Apply configuration to settings (will override defaults)
+        settings[stage].update(config)
+
+        # django_settings and app_function are mutually exclusive
+        # If django_settings is provided, remove app_function from the settings
+        if "django_settings" in settings[stage]:
+            settings[stage].pop("app_function", None)
+
+        return settings
+
+    def settings(self):
+        """
+        Create zappa_settings.json configuration with optional command-line arguments and environment variables.
+        """
+        import json
+
+        # Use the shared settings generation method
+        try:
+            config_args = self.vargs.get("config")
+            settings = self._generate_settings_dict(config_args=config_args)
+        except ValueError as e:
+            click.echo(f"Error: {e}", err=True)
+            return 1
+
+        # Output JSON to stdout with sorted keys
+        try:
+            json_output = json.dumps(settings, indent=4, sort_keys=True)
+            click.echo(json_output)
+        except Exception as e:
+            click.echo(f"Error: Failed to generate JSON output: {e}", err=True)
+            return 1
+
+        return 0
 
     def certify(self, no_confirm=True, manual=False):
         """
@@ -2062,39 +2393,55 @@ class ZappaCLI:
         # Custom SSL / ACM
         else:
             route53 = self.stage_config.get("route53_enabled", True)
-            if not self.zappa.get_domain_name(self.domain, route53=route53):
-                dns_name = self.zappa.create_domain_name(
-                    domain_name=self.domain,
-                    certificate_name=self.domain + "-Zappa-Cert",
-                    certificate_body=certificate_body,
-                    certificate_private_key=certificate_private_key,
-                    certificate_chain=certificate_chain,
-                    certificate_arn=cert_arn,
-                    lambda_name=self.lambda_name,
-                    stage=self.api_stage,
-                    base_path=base_path,
+            if self.use_apigateway:
+                if not self.zappa.get_domain_name(self.domain, route53=route53):
+                    dns_name = self.zappa.create_domain_name(
+                        domain_name=self.domain,
+                        certificate_name=self.domain + "-Zappa-Cert",
+                        certificate_body=certificate_body,
+                        certificate_private_key=certificate_private_key,
+                        certificate_chain=certificate_chain,
+                        certificate_arn=cert_arn,
+                        lambda_name=self.lambda_name,
+                        stage=self.api_stage,
+                        base_path=base_path,
+                    )
+                    if route53:
+                        self.zappa.update_route53_records(self.domain, dns_name)
+                    print(
+                        "Created a new domain name with supplied certificate. "
+                        "Please note that it can take up to 40 minutes for this domain to be "
+                        "created and propagated through AWS, but it requires no further work on your part."
+                    )
+                else:
+                    self.zappa.update_domain_name(
+                        domain_name=self.domain,
+                        certificate_name=self.domain + "-Zappa-Cert",
+                        certificate_body=certificate_body,
+                        certificate_private_key=certificate_private_key,
+                        certificate_chain=certificate_chain,
+                        certificate_arn=cert_arn,
+                        lambda_name=self.lambda_name,
+                        stage=self.api_stage,
+                        route53=route53,
+                        base_path=base_path,
+                    )
+
+                cert_success = True
+
+            if self.use_function_url:
+                self.lambda_arn = self.zappa.get_lambda_function(function_name=self.lambda_name)
+                dns_name = self.zappa.update_lambda_function_url_domains(
+                    self.lambda_arn, self.function_url_domains, cert_arn, self.function_url_cloudfront_config
                 )
                 if route53:
-                    self.zappa.update_route53_records(self.domain, dns_name)
+                    for domain in self.function_url_domains:
+                        self.zappa.update_route53_records(domain, dns_name)
                 print(
                     "Created a new domain name with supplied certificate. "
                     "Please note that it can take up to 40 minutes for this domain to be "
                     "created and propagated through AWS, but it requires no further work on your part."
                 )
-            else:
-                self.zappa.update_domain_name(
-                    domain_name=self.domain,
-                    certificate_name=self.domain + "-Zappa-Cert",
-                    certificate_body=certificate_body,
-                    certificate_private_key=certificate_private_key,
-                    certificate_chain=certificate_chain,
-                    certificate_arn=cert_arn,
-                    lambda_name=self.lambda_name,
-                    stage=self.api_stage,
-                    route53=route53,
-                    base_path=base_path,
-                )
-
             cert_success = True
 
         if cert_success:
@@ -2181,8 +2528,7 @@ class ZappaCLI:
         Print a warning if there's a new Zappa version available.
         """
         try:
-            version = pkg_resources.require("zappa")[0].version
-            updateable = check_new_version_available(version)
+            updateable = check_new_version_available(__version__)
             if updateable:
                 click.echo(
                     click.style("Important!", fg="yellow", bold=True)
@@ -2206,13 +2552,7 @@ class ZappaCLI:
         Returns the loaded Zappa object.
         """
 
-        # Ensure we're passed a valid settings file.
-        if not settings_file:
-            settings_file = self.get_json_or_yaml_settings()
-        if not os.path.isfile(settings_file):
-            raise ClickException("Please configure your zappa_settings file.")
-
-        # Load up file
+        # Load up settings (from file or environment)
         self.load_settings_file(settings_file)
 
         # Make sure that this stage is our settings
@@ -2239,6 +2579,41 @@ class ZappaCLI:
             "zappa-" + "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(9)),
         )
         self.vpc_config = self.stage_config.get("vpc_config", {})
+
+        # Load and validate EFS configuration
+        raw_efs_config = self.stage_config.get("efs_config", None)
+        self.efs_config = []
+
+        if raw_efs_config:
+            if not self.vpc_config:
+                raise ClickException("efs_config requires vpc_config to be set")
+
+            # Normalize configuration to list format
+            if raw_efs_config is True:
+                # Minimal config: efs_config: true -> single mount at default path
+                self.efs_config = [{"LocalMountPath": DEFAULT_EFS_MOUNT_POINT}]
+            elif isinstance(raw_efs_config, dict):
+                # Single dict config -> wrap in list
+                self.efs_config = [raw_efs_config]
+            elif isinstance(raw_efs_config, list):
+                self.efs_config = raw_efs_config
+
+            # Validate each EFS entry
+            mount_paths = set()
+            for idx, efs in enumerate(self.efs_config):
+                # Default LocalMountPath
+                if "LocalMountPath" not in efs:
+                    efs["LocalMountPath"] = DEFAULT_EFS_MOUNT_POINT
+
+                # Validate LocalMountPath format
+                if not efs["LocalMountPath"].startswith("/mnt/"):
+                    raise ClickException(f"efs_config[{idx}] LocalMountPath must start with '/mnt/'")
+
+                # Ensure unique mount paths
+                if efs["LocalMountPath"] in mount_paths:
+                    raise ClickException(f"efs_config[{idx}] LocalMountPath '{efs['LocalMountPath']}' is not unique")
+                mount_paths.add(efs["LocalMountPath"])
+
         self.memory_size = self.stage_config.get("memory_size", 512)
         self.ephemeral_storage = self.stage_config.get("ephemeral_storage", {"Size": 512})
 
@@ -2279,6 +2654,7 @@ class ZappaCLI:
         if self.use_apigateway:
             self.use_apigateway = self.stage_config.get("apigateway_enabled", True)
         self.apigateway_description = self.stage_config.get("apigateway_description", None)
+        self.apigateway_version = self.stage_config.get("apigateway_version", "v1")
 
         self.lambda_handler = self.stage_config.get("lambda_handler", "handler.lambda_handler")
         # DEPRECATED. https://github.com/Miserlou/Zappa/issues/456
@@ -2317,6 +2693,25 @@ class ZappaCLI:
         self.use_alb = self.stage_config.get("alb_enabled", False)
         self.alb_vpc_config = self.stage_config.get("alb_vpc_config", {})
 
+        # function URL settings
+        self.use_function_url = self.stage_config.get("function_url_enabled", False)
+        self.function_url_domains = self.stage_config.get("function_url_domains", [])
+        self.function_url_cloudfront_config = self.stage_config.get("function_url_cloudfront_config", {})
+
+        default_function_url_config = {
+            "authorizer": "NONE",
+            "cors": {
+                "allowedOrigins": ["*"],
+                "allowedHeaders": ["*"],
+                "allowedMethods": ["*"],
+                "allowCredentials": False,
+                "exposedResponseHeaders": ["*"],
+                "maxAge": 0,
+            },
+        }
+        default_function_url_config.update(self.stage_config.get("function_url_config", {}))
+        self.function_url_config = default_function_url_config
+
         # Additional tags
         self.tags = self.stage_config.get("tags", {})
 
@@ -2344,6 +2739,22 @@ class ZappaCLI:
                         setting_val = f.read()
                 setattr(self.zappa, setting, setting_val)
 
+        # Automatically add EFS permissions when efs_config is provided
+        if self.efs_config and self.manage_roles:
+            efs_permission = {
+                "Effect": "Allow",
+                "Action": [
+                    "elasticfilesystem:ClientMount",
+                    "elasticfilesystem:ClientWrite",
+                    "elasticfilesystem:DescribeMountTargets",
+                ],
+                "Resource": "*",
+            }
+            if self.zappa.extra_permissions:
+                self.zappa.extra_permissions.append(efs_permission)
+            else:
+                self.zappa.extra_permissions = [efs_permission]
+
         if self.app_function:
             self.collision_warning(self.app_function)
             if self.app_function[-3:] == ".py":
@@ -2359,20 +2770,23 @@ class ZappaCLI:
     def get_json_or_yaml_settings(self, settings_name="zappa_settings"):
         """
         Return zappa_settings path as JSON or YAML (or TOML), as appropriate.
+        Returns None if no settings file exists.
         """
         zs_json = settings_name + ".json"
         zs_yml = settings_name + ".yml"
         zs_yaml = settings_name + ".yaml"
         zs_toml = settings_name + ".toml"
 
-        # Must have at least one
+        # Raise ClickException if no settings file exists
         if (
             not os.path.isfile(zs_json)
             and not os.path.isfile(zs_yml)
             and not os.path.isfile(zs_yaml)
             and not os.path.isfile(zs_toml)
         ):
-            raise ClickException("Please configure a zappa_settings file or call `zappa init`.")
+            raise ClickException(
+                "No settings file found. Expected one of: {}, {}, {}, {}".format(zs_json, zs_toml, zs_yml, zs_yaml)
+            )
 
         # Prefer JSON
         if os.path.isfile(zs_json):
@@ -2388,33 +2802,54 @@ class ZappaCLI:
 
     def load_settings_file(self, settings_file=None):
         """
-        Load our settings file.
+        Load our settings file. If no settings file exists, attempt to generate
+        settings from environment variables.
         """
 
         if not settings_file:
-            settings_file = self.get_json_or_yaml_settings()
-        if not os.path.isfile(settings_file):
-            raise ClickException("Please configure your zappa_settings file or call `zappa init`.")
+            try:
+                settings_file = self.get_json_or_yaml_settings()
+            except ClickException:
+                # No settings file found, we'll generate from environment variables
+                settings_file = None
 
-        path, ext = os.path.splitext(settings_file)
-        if ext == ".yml" or ext == ".yaml":
-            with open(settings_file) as yaml_file:
-                try:
-                    self.zappa_settings = yaml.safe_load(yaml_file)
-                except ValueError:  # pragma: no cover
-                    raise ValueError("Unable to load the Zappa settings YAML. It may be malformed.")
-        elif ext == ".toml":
-            with open(settings_file) as toml_file:
-                try:
-                    self.zappa_settings = toml.load(toml_file)
-                except ValueError:  # pragma: no cover
-                    raise ValueError("Unable to load the Zappa settings TOML. It may be malformed.")
+        if settings_file and os.path.isfile(settings_file):
+            # Load from file
+            path, ext = os.path.splitext(settings_file)
+            if ext == ".yml" or ext == ".yaml":
+                with open(settings_file) as yaml_file:
+                    try:
+                        self.zappa_settings = yaml.safe_load(yaml_file)
+                    except ValueError:  # pragma: no cover
+                        raise ValueError("Unable to load the Zappa settings YAML. It may be malformed.")
+            elif ext == ".toml":
+                with open(settings_file) as toml_file:
+                    try:
+                        self.zappa_settings = toml.load(toml_file)
+                    except ValueError:  # pragma: no cover
+                        raise ValueError("Unable to load the Zappa settings TOML. It may be malformed.")
+            else:
+                with open(settings_file) as json_file:
+                    try:
+                        self.zappa_settings = json.load(json_file)
+                    except ValueError:  # pragma: no cover
+                        raise ValueError("Unable to load the Zappa settings JSON. It may be malformed.")
         else:
-            with open(settings_file) as json_file:
-                try:
-                    self.zappa_settings = json.load(json_file)
-                except ValueError:  # pragma: no cover
-                    raise ValueError("Unable to load the Zappa settings JSON. It may be malformed.")
+
+            # No settings file exists, try to generate default from environment
+            stage = self.stage_env if self.stage_env else "dev"
+
+            # Use the common settings generation method
+            self.zappa_settings = self._generate_settings_dict(stage=stage)
+
+            # Check if we got valid settings from environment
+            # If no settings were provided via environment variables, the dict will only have defaults
+            stage_config = self._get_config_from_environment_and_args()
+            if not stage_config:
+                raise ClickException(
+                    "No zappa_settings file found and no ZAPPA_ environment variables set.\n"
+                    "Please configure your zappa_settings file, use 'zappa init', or set ZAPPA_ environment variables."
+                )
 
     def create_package(self, output=None, use_zappa_release: Optional[str] = None):
         """
@@ -2444,7 +2879,7 @@ class ZappaCLI:
             # Make sure the normal venv is not included in the handler's zip
             exclude = self.stage_config.get("exclude", [])
             cur_venv = self.zappa.get_current_venv()  # type: ignore[attr-defined]
-            exclude.append(cur_venv.split("/")[-1])
+            exclude.append(cur_venv.name)
             self.handler_path = self.zappa.create_lambda_zip(  # type: ignore[attr-defined]
                 prefix="handler_{0!s}".format(self.lambda_name),
                 venv=self.zappa.create_handler_venv(use_zappa_release=use_zappa_release),  # type: ignore[attr-defined]
@@ -3035,14 +3470,14 @@ def shamelessly_promote():
 
 def disable_click_colors():
     """
-    Set a Click context where colors are disabled. Creates a throwaway BaseCommand
+    Set a Click context where colors are disabled. Creates a throwaway Command
     to play nicely with the Context constructor.
     The intended side-effect here is that click.echo() checks this context and will
     suppress colors.
     https://github.com/pallets/click/blob/e1aa43a3/click/globals.py#L39
     """
 
-    ctx = Context(BaseCommand("AllYourBaseAreBelongToUs"))
+    ctx = Context(Command("AllYourBaseAreBelongToUs"))
     ctx.color = False
     push_context(ctx)
 

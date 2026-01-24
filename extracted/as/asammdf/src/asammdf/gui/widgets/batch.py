@@ -133,7 +133,7 @@ class BatchWidget(Ui_batch_widget, QtWidgets.QWidget):
 
         self.filter_view.setCurrentIndex(-1)
         self.filter_view.currentIndexChanged.connect(self.update_channel_tree)
-        self.filter_view.setCurrentText(self._settings.value("filter_view", "Internal file structure"))
+        self.filter_view.setCurrentText(self._settings.value("mdf/filter_view", "Internal file structure"))
 
         self.load_can_database_btn.clicked.connect(self.load_can_database)
         self.load_lin_database_btn.clicked.connect(self.load_lin_database)
@@ -291,7 +291,7 @@ class BatchWidget(Ui_batch_widget, QtWidgets.QWidget):
 
     def extract_bus_logging_finished(self):
         if self._progress.error is None:
-            message = self._progress.result
+            message = self._progress.output
 
             self.output_info_bus.setPlainText("\n".join(message))
         self._progress = None
@@ -428,7 +428,7 @@ class BatchWidget(Ui_batch_widget, QtWidgets.QWidget):
 
     def extract_bus_csv_logging_finished(self):
         if self._progress.error is None:
-            message = self._progress.result
+            message = self._progress.output
 
             self.output_info_bus.setPlainText("\n".join(message))
 
@@ -968,8 +968,8 @@ class BatchWidget(Ui_batch_widget, QtWidgets.QWidget):
                 apply_text="Set raster channel",
             )
             dlg.setModal(True)
-            dlg.exec_()
-            result = dlg.result
+            dlg.exec()
+            result = dlg.payload
             if result:
                 name = list(result)[0]
                 self.raster_channel.setCurrentText(name)
@@ -1015,8 +1015,8 @@ class BatchWidget(Ui_batch_widget, QtWidgets.QWidget):
                 apply_text="Check signals",
             )
             dlg.setModal(True)
-            dlg.exec_()
-            result = dlg.result
+            dlg.exec()
+            result = dlg.payload
 
             if result:
                 if view.currentText() == "Internal file structure":
@@ -1495,6 +1495,8 @@ class BatchWidget(Ui_batch_widget, QtWidgets.QWidget):
                     f"Cutting from {opts.cut_start}s to {opts.cut_stop}s from \n{source_file}"
                 )
 
+                inplace=not opts.cut_time_from_zero
+
                 # cut self.mdf
                 target = mdf.cut
                 result = target(
@@ -1504,9 +1506,12 @@ class BatchWidget(Ui_batch_widget, QtWidgets.QWidget):
                     version=opts.mdf_version if output_format == "MDF" else "4.10",
                     time_from_zero=opts.cut_time_from_zero,
                     progress=progress,
+                    inplace=inplace,
                 )
 
-                mdf.close()
+                if not inplace:
+                    mdf.close()
+                    
                 mdf = result
 
                 mdf.configure(
@@ -1974,7 +1979,7 @@ MultiRasterSeparator;&
         self.oned_as.currentTextChanged.connect(self.store_export_setttings)
 
     def restore_export_settings(self):
-        self.output_format.setCurrentText(self._settings.value("export_batch", "MDF"))
+        self.output_format.setCurrentText(self._settings.value("export_batch/format", "MDF"))
 
         self.mdf_version.setCurrentText(self._settings.setValue("export_batch/MDF/version", "4.10"))
         self.mdf_compression.setCurrentText(self._settings.value("export_batch/MDF/compression", "transposed deflate"))

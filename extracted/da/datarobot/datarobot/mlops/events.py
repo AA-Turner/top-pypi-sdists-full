@@ -47,28 +47,20 @@ class MLOpsEvent(APIObject):
 
     _path = "remoteEvents/"
 
-    _moderation_data = t.Dict(
-        {
-            t.Key("guard_name", optional=True): String(
-                max_length=MAX_GUARD_NAME_LENGTH, allow_blank=True
-            ),
-            t.Key("metric_name", optional=True): String(
-                max_length=MAX_GUARD_NAME_LENGTH, allow_blank=True
-            ),
-        }
-    ).allow_extra("*")
+    _moderation_data = t.Dict({
+        t.Key("guard_name", optional=True): String(max_length=MAX_GUARD_NAME_LENGTH, allow_blank=True),
+        t.Key("metric_name", optional=True): String(max_length=MAX_GUARD_NAME_LENGTH, allow_blank=True),
+    }).allow_extra("*")
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("title", optional=True): String(max_length=PE_LABEL_MAX_LENGTH),
-            t.Key("status_type", optional=True): t.Enum(*[e.value for e in EventStatusType]),
-            t.Key("type"): t.Enum(*[e.value for e in RemoteEventType]),
-            t.Key("timestamp"): String(),
-            t.Key("message", optional=True): String(max_length=EVENT_MESSAGE_MAX_LENGTH),
-            t.Key("moderation_data", optional=True): _moderation_data,
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("title", optional=True): String(max_length=PE_LABEL_MAX_LENGTH),
+        t.Key("status_type", optional=True): t.Enum(*[e.value for e in EventStatusType]),
+        t.Key("type"): t.Enum(*[e.value for e in RemoteEventType]),
+        t.Key("timestamp"): String(),
+        t.Key("message", optional=True): String(max_length=EVENT_MESSAGE_MAX_LENGTH),
+        t.Key("moderation_data", optional=True): _moderation_data,
+    }).allow_extra("*")
 
     def __init__(
         self,

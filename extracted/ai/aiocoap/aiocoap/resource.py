@@ -32,6 +32,7 @@ from . import error
 from . import interfaces
 from .numbers.contentformat import ContentFormat
 from .numbers.codes import Code
+from .numbers import uri_path_abbrev
 from .pipe import Pipe
 from .util.linkformat import Link, LinkFormat
 
@@ -48,7 +49,7 @@ def hashing_etag(request: message.Message, response: message.Message):
 
     Note that this method is not ideal from a server performance point of view
     (a file server, for example, might want to hash only the stat() result of a
-    file instead of reading it in full), but it saves bandwith for the simple
+    file instead of reading it in full), but it saves bandwidth for the simple
     cases.
 
     >>> from aiocoap import *
@@ -59,7 +60,7 @@ def hashing_etag(request: message.Message, response: message.Message):
     >>> resp.payload = b'hello'
     >>> hashing_etag(req, resp)
     >>> resp                                            # doctest: +ELLIPSIS
-    <aiocoap.Message at ... 2.03 Valid ... 1 option(s)>
+    <aiocoap.Message: 2.03 Valid outgoing, 1 option(s)...>
     """
 
     if response.code != Code.CONTENT and response.code is not None:
@@ -110,6 +111,7 @@ class Resource(_ExposesWellknownAttributes, interfaces.Resource):
         return True
 
     async def render(self, request):
+        assert request.direction is message.Direction.INCOMING
         if not request.code.is_request():
             raise error.UnsupportedMethod()
         m = getattr(self, "render_%s" % str(request.code).lower(), None)
@@ -190,7 +192,7 @@ def link_format_to_message(
     default_ct=ContentFormat.LINKFORMAT,
 ) -> message.Message:
     """Given a LinkFormat object, render it to a response message, picking a
-    suitable conent format from a given request.
+    suitable content format from a given request.
 
     It returns a Not Acceptable response if something unsupported was queried.
 
@@ -377,7 +379,7 @@ class Site(interfaces.ObservableResource, PathCapable):
         original_request_uri = getattr(
             request,
             "_original_request_uri",
-            request.get_request_uri(local_is_server=True),
+            request.get_request_uri(),
         )
 
         if request.opt.uri_path in self._resources:
@@ -459,6 +461,24 @@ class Site(interfaces.ObservableResource, PathCapable):
         return LinkFormat(links)
 
     async def render_to_pipe(self, request: Pipe):
+        # As soon as we use the provided render_to_pipe that fans out to
+        # needs_blockwise_assembly etc, we'll have multiple methods that all
+        # need to agree on how the path is processed, even before we go into
+        # the site dispatch -- so we better resolve this now (exercising our
+        # liberties as a library proxy) and provide a consistent view.
+        if request.request.opt.uri_path_abbrev is not None:
+            if request.request.opt.uri_path:
+                # Conflicting options
+                raise error.BadOption()
+            try:
+                request.request.opt.uri_path = uri_path_abbrev._map[
+                    request.request.opt.uri_path_abbrev
+                ]
+            except KeyError:
+                # Unknown option
+                raise error.BadOption() from None
+            request.request.opt.uri_path_abbrev = None
+
         try:
             child, subrequest = self._find_child_and_pathstripped_message(
                 request.request

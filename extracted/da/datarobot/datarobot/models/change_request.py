@@ -27,35 +27,31 @@ if TYPE_CHECKING:
 class ChangeRequest(APIObject):  # pylint: disable=missing-class-docstring
     _path = "changeRequests/"
 
-    _user_operations = t.Dict(
-        {
-            t.Key("can_update"): t.Bool(),
-            t.Key("can_resolve"): t.Bool(),
-            t.Key("can_cancel"): t.Bool(),
-            t.Key("can_comment"): t.Bool(),
-            t.Key("can_review"): t.Bool(),
-        }
-    ).ignore_extra("*")
+    _user_operations = t.Dict({
+        t.Key("can_update"): t.Bool(),
+        t.Key("can_resolve"): t.Bool(),
+        t.Key("can_cancel"): t.Bool(),
+        t.Key("can_comment"): t.Bool(),
+        t.Key("can_review"): t.Bool(),
+    }).ignore_extra("*")
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("entity_type"): String(),
-            t.Key("entity_id"): String(),
-            t.Key("action"): String(),
-            t.Key("change"): t.Or(t.Dict(allow_extra="*"), t.Null()),
-            t.Key("change_version_id"): String(),
-            t.Key("status"): String(),
-            t.Key("auto_apply"): t.Bool(),
-            t.Key("user_id"): String(),
-            t.Key("user_name"): t.Or(String(allow_blank=True), t.Null()),
-            t.Key("comment"): String(allow_blank=True),
-            t.Key("num_approvals_required"): Int(),
-            t.Key("created_at"): String(),
-            t.Key("updated_at"): String(),
-            t.Key("user_operations"): _user_operations,
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("entity_type"): String(),
+        t.Key("entity_id"): String(),
+        t.Key("action"): String(),
+        t.Key("change"): t.Or(t.Dict(allow_extra="*"), t.Null()),
+        t.Key("change_version_id"): String(),
+        t.Key("status"): String(),
+        t.Key("auto_apply"): t.Bool(),
+        t.Key("user_id"): String(),
+        t.Key("user_name"): t.Or(String(allow_blank=True), t.Null()),
+        t.Key("comment"): String(allow_blank=True),
+        t.Key("num_approvals_required"): Int(),
+        t.Key("created_at"): String(),
+        t.Key("updated_at"): String(),
+        t.Key("user_operations"): _user_operations,
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -93,11 +89,7 @@ class ChangeRequest(APIObject):  # pylint: disable=missing-class-docstring
 
     def __repr__(self) -> str:
         return (
-            "{}(id={id}, "
-            "entity_type={entity_type}, "
-            "entity_id={entity_id}, "
-            "action={action}, "
-            "status={status})"
+            "{}(id={id}, entity_type={entity_type}, entity_id={entity_id}, action={action}, status={status})"
         ).format(
             self.__class__.__name__,
             id=self.id,
@@ -315,25 +307,21 @@ class ChangeRequest(APIObject):  # pylint: disable=missing-class-docstring
         -------
         ChangeRequestReview
         """
-        return ChangeRequestReview.create(
-            self.id, "changesRequested", self.change_version_id, comment
-        )
+        return ChangeRequestReview.create(self.id, "changesRequested", self.change_version_id, comment)
 
 
 class ChangeRequestReview(APIObject):  # pylint: disable=missing-class-docstring
     _path = "changeRequests/{}/reviews/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("change_request_id"): String(),
-            t.Key("change_version_id"): String(),
-            t.Key("status"): String(),
-            t.Key("comment"): String(allow_blank=True),
-            t.Key("user_id"): String(),
-            t.Key("user_name"): t.Or(String(allow_blank=True), t.Null()),
-            t.Key("created_at"): String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("change_request_id"): String(),
+        t.Key("change_version_id"): String(),
+        t.Key("status"): String(),
+        t.Key("comment"): String(allow_blank=True),
+        t.Key("user_id"): String(),
+        t.Key("user_name"): t.Or(String(allow_blank=True), t.Null()),
+        t.Key("created_at"): String(),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -356,9 +344,7 @@ class ChangeRequestReview(APIObject):  # pylint: disable=missing-class-docstring
         self.created_at = created_at
 
     def __repr__(self) -> str:
-        return (
-            "{}(change_request_id={change_request_id}, " "status={status}, " "comment='{comment}')"
-        ).format(
+        return ("{}(change_request_id={change_request_id}, status={status}, comment='{comment}')").format(
             self.__class__.__name__,
             change_request_id=self.change_request_id,
             status=self.status,

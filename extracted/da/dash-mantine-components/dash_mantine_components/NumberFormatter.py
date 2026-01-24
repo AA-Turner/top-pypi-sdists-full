@@ -79,7 +79,7 @@ Keyword arguments:
 
 - value (string | number; optional):
     Value to format."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'NumberFormatter'

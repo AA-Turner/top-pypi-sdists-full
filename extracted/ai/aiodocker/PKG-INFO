@@ -1,40 +1,42 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: aiodocker
-Version: 0.24.0
+Version: 0.25.0
 Summary: A simple Docker HTTP API wrapper written with asyncio and aiohttp.
 License: Apache 2.0
+License-File: LICENSE
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9.0
-Requires-Dist: aiohttp>=3.8
-Provides-Extra: ci
-Requires-Dist: aiohttp==3.11.6; extra == 'ci'
-Requires-Dist: async-timeout==5.0.1; extra == 'ci'
-Requires-Dist: multidict==6.1.0; extra == 'ci'
-Requires-Dist: yarl==1.17.2; extra == 'ci'
+Requires-Python: >=3.10.0
+Requires-Dist: aiohttp>=3.10
 Provides-Extra: dev
-Requires-Dist: async-timeout==5.0.1; extra == 'dev'
-Requires-Dist: codecov==2.1.13; extra == 'dev'
-Requires-Dist: mypy==1.13.0; extra == 'dev'
-Requires-Dist: packaging==24.1; extra == 'dev'
-Requires-Dist: pre-commit>=3.5.0; extra == 'dev'
-Requires-Dist: pytest-asyncio==0.24.0; extra == 'dev'
-Requires-Dist: pytest-cov==6.0.0; extra == 'dev'
-Requires-Dist: pytest-sugar==1.0.0; extra == 'dev'
-Requires-Dist: pytest==8.3.3; extra == 'dev'
-Requires-Dist: ruff-lsp==0.0.58; extra == 'dev'
-Requires-Dist: ruff==0.7.1; extra == 'dev'
-Requires-Dist: towncrier==24.8.0; extra == 'dev'
+Requires-Dist: aiohttp==3.13.2; extra == 'dev'
+Requires-Dist: towncrier==25.8.0; extra == 'dev'
 Provides-Extra: doc
 Requires-Dist: alabaster==1.0.0; extra == 'doc'
-Requires-Dist: sphinx-autodoc-typehints==2.4.4; extra == 'doc'
 Requires-Dist: sphinx==8.1.3; extra == 'doc'
-Requires-Dist: sphinxcontrib-asyncio==0.3.0; extra == 'doc'
+Provides-Extra: lint
+Requires-Dist: mypy==1.19.0; extra == 'lint'
+Requires-Dist: pre-commit>=3.5.0; extra == 'lint'
+Requires-Dist: ruff==0.14.8; extra == 'lint'
+Requires-Dist: types-paramiko; extra == 'lint'
+Provides-Extra: ssh
+Requires-Dist: asyncssh>=2.14.0; extra == 'ssh'
+Requires-Dist: paramiko>=2.9.0; extra == 'ssh'
+Provides-Extra: test
+Requires-Dist: async-timeout~=5.0.1; extra == 'test'
+Requires-Dist: asyncssh>=2.14.0; extra == 'test'
+Requires-Dist: codecov==2.1.13; extra == 'test'
+Requires-Dist: packaging==25.0; extra == 'test'
+Requires-Dist: paramiko>=2.9.0; extra == 'test'
+Requires-Dist: pytest-asyncio==1.3.0; extra == 'test'
+Requires-Dist: pytest-cov==7.0.0; extra == 'test'
+Requires-Dist: pytest-sugar==1.1.1; extra == 'test'
+Requires-Dist: pytest==9.0.2; extra == 'test'
+Requires-Dist: testcontainers==4.13.3; extra == 'test'
 Description-Content-Type: text/x-rst
 
 ==============================
@@ -49,11 +51,11 @@ AsyncIO bindings for docker.io
    :target: https://pypi.org/project/aiodocker/
    :alt: Python Versions
 
-.. image:: https://github.com/aio-libs/aiodocker/actions/workflows/ci-cd.yml/badge.svg?branch=master
-   :target: https://github.com/aio-libs/aiodocker/actions/workflows/ci-cd.yml?query=branch%3Amaster
+.. image:: https://github.com/aio-libs/aiodocker/actions/workflows/ci-cd.yml/badge.svg?branch=main
+   :target: https://github.com/aio-libs/aiodocker/actions/workflows/ci-cd.yml?query=branch%3Amain
    :alt: GitHub Actions status for the main branch
 
-.. image:: https://codecov.io/gh/aio-libs/aiodocker/branch/master/graph/badge.svg
+.. image:: https://codecov.io/gh/aio-libs/aiodocker/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/aio-libs/aiodocker
    :alt: Code Coverage
 

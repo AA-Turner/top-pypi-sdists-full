@@ -4,7 +4,7 @@ import inspect
 import re
 from argparse import HelpFormatter
 from contextlib import suppress
-from typing import Any, Callable, Dict, Optional, Set, Tuple, Type
+from typing import Any, Callable, Optional
 
 from ._common import load_value_mode, parent_parser
 from ._optionals import (
@@ -130,18 +130,18 @@ def jsonnet_load(stream, path="", ext_vars=None):
     return json_or_yaml_load(val)
 
 
-loaders: Dict[str, Callable] = {
+loaders: dict[str, Callable] = {
     "yaml": yaml_load,
     "json": json_load,
     "toml": toml_load,
 }
-loader_exceptions: Dict[str, Tuple[Type[Exception], ...]] = {}
-loader_json_superset: Dict[str, bool] = {
+loader_exceptions: dict[str, tuple[type[Exception], ...]] = {}
+loader_json_superset: dict[str, bool] = {
     "yaml": True,
     "json": True,
     "toml": False,
 }
-loader_params: Dict[str, Set[str]] = {}
+loader_params: dict[str, set[str]] = {}
 
 
 def get_load_value_mode() -> str:
@@ -153,7 +153,7 @@ def get_load_value_mode() -> str:
     return mode
 
 
-def get_loader_exceptions(mode: Optional[str] = None) -> Tuple[Type[Exception], ...]:
+def get_loader_exceptions(mode: Optional[str] = None) -> tuple[type[Exception], ...]:
     if mode is None:
         mode = get_load_value_mode()
     if mode not in loader_exceptions:
@@ -196,10 +196,12 @@ def load_value(value: str, simple_types: bool = False, **kwargs):
     loaded_value = load_basic(value)
 
     mode = get_load_value_mode()
-    if loaded_value is not_loaded and not loader_json_superset[mode]:
+    if loaded_value is not_loaded and not loader_json_superset.get(mode, True):
         loaded_value = load_list_or_dict(value)
 
     if loaded_value is not_loaded:
+        if mode not in loaders and mode in {"omegaconf", "omegaconf+"}:
+            set_omegaconf_loader(mode)
         loader = loaders[mode]
         load_kwargs = {}
         if kwargs and mode in loader_params:
@@ -255,7 +257,7 @@ def toml_dump(data):
     return toml_dumps(data)
 
 
-dumpers: Dict[str, Callable] = {
+dumpers: dict[str, Callable] = {
     "yaml": yaml_dump,
     "json": json_compact_dump,
     "json_compact": json_compact_dump,
@@ -266,7 +268,7 @@ dumpers: Dict[str, Callable] = {
 if ruamel_support:
     dumpers["yaml_comments"] = yaml_comments_dump
 
-comment_prefix: Dict[str, str] = {
+comment_prefix: dict[str, str] = {
     "yaml": "# ",
     "yaml_comments": "# ",
     "jsonnet": "// ",
@@ -279,10 +281,16 @@ def check_valid_dump_format(dump_format: str):
         raise ValueError(f'Unknown output format "{dump_format}".')
 
 
-def dump_using_format(parser: ArgumentParser, data: dict, dump_format: str) -> str:
+def dump_using_format(parser: ArgumentParser, data: dict, dump_format: str, with_comments: bool = False) -> str:
     if dump_format == "parser_mode":
         dump_format = parser.parser_mode if parser.parser_mode in dumpers else "yaml"
-    args = (data, parser) if dump_format == "yaml_comments" else (data,)
+    if with_comments:
+        if f"{dump_format}_comments" not in dumpers:
+            if dump_format == "yaml":
+                raise ValueError("ruamel.yaml is required for dumping YAML with comments.")
+            raise ValueError(f"Dumping with comments is not supported for format '{dump_format}'.")
+        dump_format = f"{dump_format}_comments"
+    args = (data, parser) if dump_format.endswith("_comments") else (data,)
     dump = dumpers[dump_format](*args)
     if parser.dump_header and comment_prefix.get(dump_format):
         prefix = comment_prefix[dump_format]
@@ -294,7 +302,7 @@ def dump_using_format(parser: ArgumentParser, data: dict, dump_format: str) -> s
 def set_loader(
     mode: str,
     loader_fn: Callable[[str], Any],
-    exceptions: Tuple[Type[Exception], ...] = (),
+    exceptions: tuple[type[Exception], ...] = (),
     json_superset: bool = True,
 ):
     """Sets the value loader function to be used when parsing with a certain mode.
@@ -339,14 +347,14 @@ def set_omegaconf_loader(mode="omegaconf"):
     if omegaconf_support and mode not in loaders:
         from ._optionals import get_omegaconf_loader
 
-        loader = yaml_load if mode == "omegaconf+" else get_omegaconf_loader()
+        loader = get_omegaconf_loader(mode)
         set_loader(mode, loader, get_loader_exceptions("yaml"))
 
 
 set_loader("jsonnet", jsonnet_load, get_loader_exceptions("jsonnet"))
 
 
-def create_help_formatter_with_comments(formatter_class: Type[HelpFormatter]) -> Type[HelpFormatter]:
+def create_help_formatter_with_comments(formatter_class: type[HelpFormatter]) -> type[HelpFormatter]:
     """Creates a dynamic class that combines a formatter with YAML comment functionality.
 
     Args:

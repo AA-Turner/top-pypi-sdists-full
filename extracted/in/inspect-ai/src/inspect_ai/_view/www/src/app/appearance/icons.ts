@@ -61,18 +61,23 @@ export const ApplicationIcons = {
   confirm: "bi bi-check",
   copy: "bi bi-copy",
   display: "bi bi-card-text",
+  downloadLog: "bi bi-download",
   epoch: (epoch: string) => {
     return `bi bi-${epoch}-circle`;
   },
+  edit: "bi bi-pencil-square",
   error: "bi bi-exclamation-circle-fill",
   eval: "bi bi-info-circle-fill",
   "eval-set": "bi bi-list-task",
-  "expand-all": "bi bi-arrows-expand",
-  "expand-down": "bi bi-chevron-down",
+  expand: {
+    all: "bi bi-arrows-expand",
+    down: "bi bi-chevron-down",
+  },
   file: "bi bi-file-code",
   filter: "bi bi-funnel",
   folder: "bi bi-folder",
   fork: "bi bi-signpost-split",
+  flow: "ii inspect-flow",
   home: "bi bi-house",
   info: "bi bi-info-circle",
   input: "bi bi-terminal",
@@ -88,6 +93,7 @@ export const ApplicationIcons = {
     execution: "bi bi-stopwatch",
   },
   link: "bi bi-link-45deg",
+  loading: "bi bi-arrow-clockwise",
   logging: loggingIcons,
   menu: "bi bi-list",
   messages: "bi bi-chat-right-text",
@@ -102,6 +108,7 @@ export const ApplicationIcons = {
     back: "ii inspect-icon-back",
     forward: "ii inspect-icon-forward",
     inspectLogo: "ii inspect-icon-16",
+    tasks: "ii inspect-icon-tasks",
   },
 
   next: "bi bi-chevron-right",
@@ -137,6 +144,11 @@ export const ApplicationIcons = {
   step: "bi bi-fast-forward-btn",
   subtask: "bi bi-subtract",
   success: "bi bi-check-circle-fill",
+  toggle: {
+    // combination of toggle-on and toggle2-off looked best for our default button font size
+    on: "bi bi-toggle-on",
+    off: "bi bi-toggle2-off",
+  },
   transcript: "bi bi-list-columns-reverse",
   tree: {
     open: "bi bi-caret-down-fill",

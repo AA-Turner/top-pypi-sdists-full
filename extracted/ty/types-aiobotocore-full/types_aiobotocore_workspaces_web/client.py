@@ -3,7 +3,7 @@ Type annotations for workspaces-web service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces_web/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -165,12 +166,6 @@ from .type_defs import (
     UpdateUserSettingsResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -181,15 +176,15 @@ __all__ = ("WorkSpacesWebClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class WorkSpacesWebClient(AioBaseClient):
@@ -411,7 +406,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def delete_browser_settings(
         self, **kwargs: Unpack[DeleteBrowserSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes browser settings.
 
@@ -421,7 +416,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def delete_data_protection_settings(
         self, **kwargs: Unpack[DeleteDataProtectionSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes data protection settings.
 
@@ -431,7 +426,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def delete_identity_provider(
         self, **kwargs: Unpack[DeleteIdentityProviderRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the identity provider.
 
@@ -441,7 +436,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def delete_ip_access_settings(
         self, **kwargs: Unpack[DeleteIpAccessSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes IP access settings.
 
@@ -451,7 +446,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def delete_network_settings(
         self, **kwargs: Unpack[DeleteNetworkSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes network settings.
 
@@ -459,7 +454,7 @@ class WorkSpacesWebClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces_web/client/#delete_network_settings)
         """
 
-    async def delete_portal(self, **kwargs: Unpack[DeletePortalRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_portal(self, **kwargs: Unpack[DeletePortalRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a web portal.
 
@@ -469,7 +464,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def delete_session_logger(
         self, **kwargs: Unpack[DeleteSessionLoggerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a session logger resource.
 
@@ -479,7 +474,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def delete_trust_store(
         self, **kwargs: Unpack[DeleteTrustStoreRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the trust store.
 
@@ -489,7 +484,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def delete_user_access_logging_settings(
         self, **kwargs: Unpack[DeleteUserAccessLoggingSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes user access logging settings.
 
@@ -499,7 +494,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def delete_user_settings(
         self, **kwargs: Unpack[DeleteUserSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes user settings.
 
@@ -509,7 +504,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def disassociate_browser_settings(
         self, **kwargs: Unpack[DisassociateBrowserSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates browser settings from a web portal.
 
@@ -519,7 +514,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def disassociate_data_protection_settings(
         self, **kwargs: Unpack[DisassociateDataProtectionSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates data protection settings from a web portal.
 
@@ -529,7 +524,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def disassociate_ip_access_settings(
         self, **kwargs: Unpack[DisassociateIpAccessSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates IP access settings from a web portal.
 
@@ -539,7 +534,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def disassociate_network_settings(
         self, **kwargs: Unpack[DisassociateNetworkSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates network settings from a web portal.
 
@@ -549,7 +544,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def disassociate_session_logger(
         self, **kwargs: Unpack[DisassociateSessionLoggerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a session logger from a portal.
 
@@ -559,7 +554,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def disassociate_trust_store(
         self, **kwargs: Unpack[DisassociateTrustStoreRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a trust store from a web portal.
 
@@ -569,7 +564,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def disassociate_user_access_logging_settings(
         self, **kwargs: Unpack[DisassociateUserAccessLoggingSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates user access logging settings from a web portal.
 
@@ -579,7 +574,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def disassociate_user_settings(
         self, **kwargs: Unpack[DisassociateUserSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates user settings from a web portal.
 
@@ -587,7 +582,7 @@ class WorkSpacesWebClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces_web/client/#disassociate_user_settings)
         """
 
-    async def expire_session(self, **kwargs: Unpack[ExpireSessionRequestTypeDef]) -> Dict[str, Any]:
+    async def expire_session(self, **kwargs: Unpack[ExpireSessionRequestTypeDef]) -> dict[str, Any]:
         """
         Expires an active secure browser session.
 
@@ -855,7 +850,7 @@ class WorkSpacesWebClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces_web/client/#list_user_settings)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or overwrites one or more tags for the specified resource.
 
@@ -863,7 +858,7 @@ class WorkSpacesWebClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces_web/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified resource.
 
@@ -1012,7 +1007,7 @@ class WorkSpacesWebClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

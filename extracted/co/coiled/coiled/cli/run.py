@@ -29,8 +29,11 @@ from coiled.utils import (
     unset_single_thread_defaults,
 )
 from coiled.v2.cluster import ClusterKwargs
+from coiled.v2.cluster_comms import use_comm_rpc
+from coiled.v2.core import Cloud
 from coiled.v2.widgets.rich import LightRichClusterWidget
 
+from ..filestore import FilestoreManager
 from .sync import SYNC_TARGET, start_sync, stop_sync
 from .utils import CONTEXT_SETTINGS
 
@@ -45,20 +48,37 @@ USER_CONTAINER_NAME = "tmp-user-1"
 
 
 class KeepaliveSession:
-    def __init__(self, cluster, prefix="", monitor_proc_activity=False):
+    def __init__(self, cluster, comms=None, prefix="", monitor_proc_activity=False):
         self.cluster = cluster
+        self.comms = comms
         self.monitor_proc_activity = monitor_proc_activity
         rand_uuid = short_random_string()
         self.session_id = f"{prefix}-{rand_uuid}" if prefix else rand_uuid
 
+        if self.comms:
+            self.cloud = Cloud.current(asynchronous=False)
+
     def __enter__(self):
         # keepalive session lets us use keepalive without dask client
-        self.cluster._call_scheduler_comm(
-            "coiled_add_keepalive_session", name=self.session_id, monitor_proc_activity=self.monitor_proc_activity
-        )
+        if self.cluster:
+            self.cluster._call_scheduler_comm(
+                "coiled_add_keepalive_session", name=self.session_id, monitor_proc_activity=self.monitor_proc_activity
+            )
+        elif self.comms:
+            use_comm_rpc(
+                self.cloud,
+                self.comms,
+                "coiled_add_keepalive_session",
+                name=self.session_id,
+                monitor_proc_activity=self.monitor_proc_activity,
+            )
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.cluster._call_scheduler_comm("coiled_end_keepalive_session", name=self.session_id)
+        if self.cluster:
+            self.cluster._call_scheduler_comm("coiled_end_keepalive_session", name=self.session_id)
+        elif self.comms:
+            use_comm_rpc(self.cloud, self.comms, "coiled_end_keepalive_session", name=self.session_id)
+            self.cloud.close()
 
 
 def get_ssh_connection(cloud, cluster_id) -> fabric.connection.Connection:
@@ -105,7 +125,7 @@ def write_files_into_container(connection, container_name: str, files: Dict[str,
         )
 
 
-def upload_file(connection, f, specified_root=None) -> str:
+def upload_file(connection: fabric.Connection, f: str, specified_root=None, remote_root="/scratch") -> str:
     cwd = os.path.abspath(os.path.curdir)
     base = os.path.basename(f)
     is_under_cwd = os.path.commonpath((os.path.abspath(f), cwd)) == cwd
@@ -131,16 +151,16 @@ def upload_file(connection, f, specified_root=None) -> str:
         # For example, if user specified `--file /absolute/subdir/`, then preserve path structure relative
         # to `/absolute/subdir/`, so `/absolute/subdir/foo/bar.txt` would go to `/scratch/subdir/foo/bar.txt`.
         specified_path_dir = os.path.dirname(os.path.relpath(f, relative_to))
-        remote_dir = f"/scratch/{specified_path_dir}/"
+        remote_dir = f"{remote_root}/{specified_path_dir}/"
         make_remote_dir(connection, remote_dir)
     else:
-        remote_dir = "/scratch/"
+        remote_dir = f"{remote_root}/"
 
     connection.put(f, remote_dir)
 
     # we want path on Linux VM, which might not match os.path.join run client-side, so join path manually
     # remote_dir should already end in "/"
-    return f"{remote_dir}{base}"
+    return f"{remote_dir}{base}".replace("//", "/")
 
 
 def run_via_ssh(
@@ -238,7 +258,7 @@ def run_via_ssh(
 
     if container and "/uv:" in container and command_string.startswith("uv"):
         command_string = (
-            "(apt update && apt upgrade && apt install -y --no-install-recommends ca-certificates) "
+            "(apt update -y && apt upgrade -y && apt install -y --no-install-recommends ca-certificates) "
             "2>&1 > /dev/null\n"
             f"{command_string}"
         )
@@ -550,6 +570,13 @@ def get_entrypoint(connection, container_name) -> str:
     default=None,
     help="Non-default value for shm_size (for example, '3 GiB').",
 )
+@click.option(
+    "--filestore",
+    "filestore_names",
+    default=None,
+    multiple=True,
+    help="Name of filestore to attach; can be specified multiple times for multiple filestores.",
+)
 @click.argument("command", nargs=-1)
 def run(
     name: str | None,
@@ -580,6 +607,7 @@ def run(
     package_sync_strict,
     package_sync_conda_extras,
     docker_shm_size,
+    filestore_names,
     command,
 ):
     """
@@ -615,6 +643,7 @@ def run(
         package_sync_strict=package_sync_strict,
         package_sync_conda_extras=package_sync_conda_extras,
         docker_shm_size=docker_shm_size,
+        filestore_names=filestore_names,
     )
     sys.exit(info["exit_code"])
 
@@ -652,6 +681,7 @@ def start_run(
     package_sync_strict: bool = False,
     package_sync_conda_extras: List[str] | None = None,
     docker_shm_size: str | None = None,
+    filestore_names: list[str] | None = None,
 ):
     runtime_env_dict = dict_from_key_val_list(env)
     tags = dict_from_key_val_list(tag)
@@ -694,9 +724,20 @@ def start_run(
     # fail early if user specified `--file` that doesn't exist
     check_explicit_files(file)
 
+    filestores_to_attach = []
+
     try:
         with coiled.Cloud(workspace=workspace or account) as cloud:
             workspace = workspace or cloud.default_workspace
+
+            if filestore_names:
+                filestores = FilestoreManager.get_or_create_filestores(
+                    names=filestore_names,
+                    workspace=workspace,
+                    region=region,
+                )
+                filestores_to_attach.extend([{"id": fs["id"], "input": True, "output": True} for fs in filestores])
+
             with LightRichClusterWidget(
                 workspace=workspace,
                 title=f"Running [bold]{coiled.utils.join_command_parts(command)}[/bold]",
@@ -737,6 +778,7 @@ def start_run(
                     "package_sync_conda_extras": package_sync_conda_extras,
                     "backend_options": {"docker_shm_size": docker_shm_size} if docker_shm_size else None,
                     "unset_single_threading_variables": True,
+                    "filestores_to_attach": filestores_to_attach,
                 }
                 cluster_kwargs["name"] = name or f"run-{short_random_string()}"
                 cluster_kwargs["cloud"] = cloud

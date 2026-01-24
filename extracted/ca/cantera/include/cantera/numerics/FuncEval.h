@@ -137,6 +137,28 @@ public:
      */
     int preconditioner_solve_nothrow(double* rhs, double* output);
 
+    //! Number of event/root functions exposed to the integrator.
+    //! 0 indicates root finding is disabled.
+    virtual size_t nRootFunctions() const {
+        return 0;
+    }
+
+    /**
+     * Evaluate the event/root functions currently in play.
+     * Integrators invoke this whenever root finding is enabled; implementations
+     * should fill `gout` with the function values.
+     * @param[in] t Time at which to evaluate the root functions
+     * @param[in] y Current solution vector at time *t* of length neq()
+     * @param[out] gout Array of length nRootFunctions() to be filled with the
+     *      values of the root functions
+     */
+    virtual void evalRootFunctions(double t, const double* y, double* gout) { }
+
+    //! Wrapper for evalRootFunctions that converts exceptions to return codes.
+    //! @returns 0 for a successful evaluation, 1 after a potentially-
+    //!     recoverable error, or -1 after an unrecoverable error.
+    int evalRootFunctionsNoThrow(double t, const double* y, double* gout);
+
     //! Fill in the vector *y* with the current state of the system.
     //! Used for getting the initial state for ODE systems.
     virtual void getState(double* y) {

@@ -3,7 +3,7 @@ Type annotations for iotfleetwise service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotfleetwise/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -150,12 +151,6 @@ from .type_defs import (
     UpdateVehicleResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -166,17 +161,17 @@ __all__ = ("IoTFleetWiseClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DecoderManifestValidationException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidNodeException: Type[BotocoreClientError]
-    InvalidSignalsException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DecoderManifestValidationException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidNodeException: type[BotocoreClientError]
+    InvalidSignalsException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class IoTFleetWiseClient(BaseClient):
@@ -216,7 +211,7 @@ class IoTFleetWiseClient(BaseClient):
 
     def associate_vehicle_fleet(
         self, **kwargs: Unpack[AssociateVehicleFleetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds, or associates, a vehicle with a fleet.
 
@@ -388,7 +383,7 @@ class IoTFleetWiseClient(BaseClient):
 
     def disassociate_vehicle_fleet(
         self, **kwargs: Unpack[DisassociateVehicleFleetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes, or disassociates, a vehicle from a fleet.
 
@@ -672,7 +667,7 @@ class IoTFleetWiseClient(BaseClient):
 
     def put_logging_options(
         self, **kwargs: Unpack[PutLoggingOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates the logging option.
 
@@ -690,7 +685,7 @@ class IoTFleetWiseClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotfleetwise/client/#register_account)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds to or modifies the tags of the given resource.
 
@@ -698,7 +693,7 @@ class IoTFleetWiseClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotfleetwise/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the given tags (metadata) from the resource.
 

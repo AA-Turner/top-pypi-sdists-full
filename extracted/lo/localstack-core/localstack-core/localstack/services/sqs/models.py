@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import heapq
 import inspect
@@ -15,6 +16,7 @@ from localstack.aws.api.sqs import (
     AttributeNameList,
     InvalidAttributeName,
     Message,
+    MessageAttributeNameList,
     MessageSystemAttributeName,
     QueueAttributeMap,
     QueueAttributeName,
@@ -29,12 +31,15 @@ from localstack.services.sqs.exceptions import (
 )
 from localstack.services.sqs.queue import InterruptiblePriorityQueue, InterruptibleQueue
 from localstack.services.sqs.utils import (
+    create_message_attribute_hash,
     encode_move_task_handle,
     encode_receipt_handle,
     extract_receipt_handle_info,
     global_message_sequence,
     guess_endpoint_strategy_and_host,
     is_message_deduplication_id_required,
+    message_filter_attributes,
+    message_filter_message_attributes,
 )
 from localstack.services.stores import AccountRegionBundle, BaseStore, LocalAttribute
 from localstack.utils.aws.arns import get_partition
@@ -153,7 +158,7 @@ class SqsMessage:
         """
         Returns false if the message has a visibility deadline that is in the future.
 
-        :return: whether the message is visibile or not.
+        :return: whether the message is visible or not.
         """
         if self.visibility_deadline is None:
             return True
@@ -188,6 +193,41 @@ class SqsMessage:
 
     def __repr__(self):
         return f"SqsMessage(id={self.message_id},group={self.message_group_id})"
+
+
+def to_sqs_api_message(
+    standard_message: SqsMessage,
+    attribute_names: AttributeNameList = None,
+    message_attribute_names: MessageAttributeNameList = None,
+) -> Message:
+    """
+    Utility function to convert an SQS message from LocalStack's internal representation to the AWS API
+    concept 'Message', which is the format returned by the ``ReceiveMessage`` operation.
+
+    :param standard_message: A LocalStack SQS message
+    :param attribute_names: the attribute name list to filter
+    :param message_attribute_names: the message attribute names to filter
+    :return: a copy of the original Message with updated message attributes and MD5 attribute hash sums
+    """
+    # prepare message for receiver
+    message = copy.deepcopy(standard_message.message)
+
+    # update system attributes of the message copy
+    message["Attributes"][MessageSystemAttributeName.ApproximateFirstReceiveTimestamp] = str(
+        int((standard_message.first_received or 0) * 1000)
+    )
+
+    # filter attributes for receiver
+    message_filter_attributes(message, attribute_names)
+    message_filter_message_attributes(message, message_attribute_names)
+    if message.get("MessageAttributes"):
+        message["MD5OfMessageAttributes"] = create_message_attribute_hash(
+            message["MessageAttributes"]
+        )
+    else:
+        # delete the value that was computed when creating the message
+        message.pop("MD5OfMessageAttributes", None)
+    return message
 
 
 class ReceiveMessageResult:
@@ -274,7 +314,8 @@ class SqsQueue:
     purge_timestamp: float | None
 
     delayed: set[SqsMessage]
-    inflight: set[SqsMessage]
+    # Simulating an ordered set in python. Only the keys are used and of interest.
+    inflight: dict[SqsMessage, None]
     receipts: dict[str, SqsMessage]
 
     def __init__(self, name: str, region: str, account_id: str, attributes=None, tags=None) -> None:
@@ -286,7 +327,7 @@ class SqsQueue:
         self.tags = tags or {}
 
         self.delayed = set()
-        self.inflight = set()
+        self.inflight = {}
         self.receipts = {}
 
         self.attributes = self.default_attributes()
@@ -473,7 +514,7 @@ class SqsQueue:
                 )
                 # Terminating the visibility timeout for a message
                 # https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html#terminating-message-visibility-timeout
-                self.inflight.remove(standard_message)
+                del self.inflight[standard_message]
                 self._put_message(standard_message)
 
     def remove(self, receipt_handle: str):
@@ -566,8 +607,16 @@ class SqsQueue:
                     standard_message,
                     self.arn,
                 )
-                self.inflight.remove(standard_message)
+                del self.inflight[standard_message]
                 self._put_message(standard_message)
+
+    def add_inflight_message(self, message: SqsMessage):
+        """
+        We are simulating an ordered set with a dict. When a value is added, it is added as key to the dict, which
+        is all we need. Hence all "values" in this ordered set are None
+        :param message: The message to put in flight
+        """
+        self.inflight[message] = None
 
     def enqueue_delayed_messages(self):
         if not self.delayed:
@@ -739,7 +788,6 @@ class SqsQueue:
 
 class StandardQueue(SqsQueue):
     visible: InterruptiblePriorityQueue[SqsMessage]
-    inflight: set[SqsMessage]
 
     def __init__(self, name: str, region: str, account_id: str, attributes=None, tags=None) -> None:
         super().__init__(name, region, account_id, attributes, tags)
@@ -883,13 +931,13 @@ class StandardQueue(SqsQueue):
             if message.visibility_timeout == 0:
                 self.visible.put_nowait(message)
             else:
-                self.inflight.add(message)
+                self.add_inflight_message(message)
 
         return result
 
     def _on_remove_message(self, message: SqsMessage):
         try:
-            self.inflight.remove(message)
+            del self.inflight[message]
         except KeyError:
             # this likely means the message was removed with an expired receipt handle unfortunately this
             # means we need to scan the queue for the element and remove it from there, and then re-heapify
@@ -1013,8 +1061,7 @@ class FifoQueue(SqsQueue):
             message.delay_seconds = value
 
     def _pre_delete_checks(self, message: SqsMessage, receipt_handle: str) -> None:
-        _, _, _, last_received = extract_receipt_handle_info(receipt_handle)
-        if time.time() - float(last_received) > message.visibility_timeout:
+        if message.is_visible:
             raise InvalidParameterValueException(
                 f"Value {receipt_handle} for parameter ReceiptHandle is invalid. Reason: The receipt handle has expired."
             )
@@ -1109,6 +1156,26 @@ class FifoQueue(SqsQueue):
             # if the group was previously empty, it was not yet added back to the queue
             elif previously_empty:
                 self.message_group_queue.put_nowait(message_group)
+
+    def requeue_inflight_messages(self):
+        if not self.inflight:
+            return
+
+        with self.mutex:
+            messages = list(self.inflight)
+            for standard_message in messages:
+                # in fifo, an invisible message blocks potentially visible messages afterwards
+                # this can happen for example if multiple message of the same group are received at once, then one
+                # message of this batch has its visibility timeout extended
+                if not standard_message.is_visible:
+                    return
+                LOG.debug(
+                    "re-queueing inflight messages %s into queue %s",
+                    standard_message,
+                    self.arn,
+                )
+                del self.inflight[standard_message]
+                self._put_message(standard_message)
 
     def remove_expired_messages(self):
         with self.mutex:
@@ -1239,8 +1306,7 @@ class FifoQueue(SqsQueue):
                 if message.visibility_timeout == 0:
                     self._put_message(message)
                 else:
-                    self.inflight.add(message)
-
+                    self.add_inflight_message(message)
         return result
 
     def _on_remove_message(self, message: SqsMessage):
@@ -1249,7 +1315,7 @@ class FifoQueue(SqsQueue):
 
         with self.mutex:
             try:
-                self.inflight.remove(message)
+                del self.inflight[message]
             except KeyError:
                 # in FIFO queues, this should not happen, as expired receipt handles cannot be used to
                 # delete a message.

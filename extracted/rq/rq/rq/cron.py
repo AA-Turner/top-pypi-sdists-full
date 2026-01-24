@@ -35,7 +35,7 @@ class CronJob:
         kwargs: Optional[Dict] = None,
         interval: Optional[int] = None,
         cron: Optional[str] = None,
-        timeout: Optional[int] = None,
+        job_timeout: Optional[int] = None,
         result_ttl: int = 500,
         ttl: Optional[int] = None,
         failure_ttl: Optional[int] = None,
@@ -68,7 +68,7 @@ class CronJob:
             cron_iter = croniter(self.cron, now())
             self.next_run_time = cron_iter.get_next(datetime)
         self.job_options: Dict[str, Any] = {
-            'timeout': timeout,
+            'job_timeout': job_timeout,
             'result_ttl': result_ttl,
             'ttl': ttl,
             'failure_ttl': failure_ttl,
@@ -189,7 +189,7 @@ class CronScheduler:
         kwargs: Optional[Dict] = None,
         interval: Optional[int] = None,
         cron: Optional[str] = None,
-        timeout: Optional[int] = None,
+        job_timeout: Optional[int] = None,
         result_ttl: int = 500,
         ttl: Optional[int] = None,
         failure_ttl: Optional[int] = None,
@@ -203,7 +203,7 @@ class CronScheduler:
             kwargs=kwargs,
             interval=interval,
             cron=cron,
-            timeout=timeout,
+            job_timeout=job_timeout,
             result_ttl=result_ttl,
             ttl=ttl,
             failure_ttl=failure_ttl,
@@ -467,21 +467,21 @@ class CronScheduler:
         self.log.info(f'CronScheduler {self.name}: registering death...')
         cron_scheduler_registry.unregister(self, pipeline)
 
-    def heartbeat(self, pipeline: Optional[Pipeline] = None) -> None:
+    def heartbeat(self) -> None:
         """Send a heartbeat to update this scheduler's last seen timestamp in the registry
-
-        Args:
-            pipeline: Redis pipeline to use. If None, uses self.connection
+        and extend the scheduler's Redis hash TTL.
         """
-        connection = pipeline if pipeline is not None else self.connection
+        with self.connection.pipeline() as pipe:
+            pipe.zadd(cron_scheduler_registry.get_registry_key(), {self.name: time.time()}, xx=True, ch=True)
+            pipe.expire(self.key, 120)
+            results = pipe.execute()
 
-        # Use current timestamp as score to track when scheduler was last seen
-        # Use ch=True to get count of changed elements (includes score updates)
-        result = connection.zadd(cron_scheduler_registry.get_registry_key(), {self.name: time.time()}, xx=True, ch=True)
-        if result:
-            self.log.debug(f'CronScheduler {self.name}: heartbeat sent successfully')
-        else:
-            self.log.warning(f'CronScheduler {self.name}: heartbeat failed - scheduler not found in registry')
+            # Check zadd result (first command in pipeline)
+            zadd_result = results[0]
+            if zadd_result:
+                self.log.debug(f'CronScheduler {self.name}: heartbeat sent successfully')
+            else:
+                self.log.warning(f'CronScheduler {self.name}: heartbeat failed - scheduler not found in registry')
 
     @property
     def last_heartbeat(self) -> Optional[datetime]:
@@ -510,7 +510,7 @@ def register(
     kwargs: Optional[Dict] = None,
     interval: Optional[int] = None,
     cron: Optional[str] = None,
-    timeout: Optional[int] = None,
+    job_timeout: Optional[int] = None,
     result_ttl: int = 500,
     ttl: Optional[int] = None,
     failure_ttl: Optional[int] = None,
@@ -540,7 +540,7 @@ def register(
         'kwargs': kwargs,
         'interval': interval,
         'cron': cron,
-        'timeout': timeout,
+        'job_timeout': job_timeout,
         'result_ttl': result_ttl,
         'ttl': ttl,
         'failure_ttl': failure_ttl,

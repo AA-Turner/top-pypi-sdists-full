@@ -23,11 +23,9 @@ from hypothesis import (
     settings,
 )
 from lxml.etree import (
-    LXML_VERSION,
     XPathResultError,
     _Element,
     _ElementTree,
-    _ElementUnicodeResult,
     tostring,
 )
 from lxml.html import (
@@ -50,17 +48,13 @@ from .._testutils.errors import (
     raise_unexpected_kwarg,
     raise_wrong_pos_arg_count,
 )
+from .._testutils.marker import byte_bug_marker
 
 if sys.version_info >= (3, 11):
     from typing import reveal_type
 else:
     from typing_extensions import reveal_type
 
-
-byte_bug_marker = pytest.mark.xfail(
-    LXML_VERSION[:3] == (5, 1, 0),
-    reason="lxml 5.1.0 has bug in bytes support of html processing functions",
-)
 
 _BASE_HREF = "http://dummy.base"
 
@@ -95,11 +89,23 @@ class TestInputOutputType:
                 _ = iterlinks(bad_input)
             # _MethodFunc performs deepcopy on input for following functions,
             # which raises TypeError on non-pickerable objects
-            with pytest.raises((AttributeError, TypeError)):
+            # pyrefly: ignore[no-matching-overload]
+            with pytest.raises((
+                AttributeError,
+                TypeError,
+            )):
                 _ = make_links_absolute(bad_input, _BASE_HREF)
-            with pytest.raises((AttributeError, TypeError)):
+            # pyrefly: ignore[no-matching-overload]
+            with pytest.raises((
+                AttributeError,
+                TypeError,
+            )):
                 _ = resolve_base_href(bad_input)
-            with pytest.raises((AttributeError, TypeError)):
+            # pyrefly: ignore[no-matching-overload]
+            with pytest.raises((
+                AttributeError,
+                TypeError,
+            )):
                 _ = rewrite_links(bad_input, lambda _: None)
 
     @byte_bug_marker
@@ -132,7 +138,7 @@ class TestInputOutputType:
         bightml_root: HtmlElement,
     ) -> None:
         for data in (html2_bytes, html2_str, bightml_root):
-            itr = iterlinks(data)  # type: ignore[type-var]
+            itr = iterlinks(data)
             reveal_type(itr)
             for link in itr:
                 reveal_type(link)
@@ -205,7 +211,11 @@ class TestFindRelLinksArg:
         # Besides instances of str, bytes and bytearray, the aforementioned
         # types themselves also has 'lower' attribute, so using them as
         # input raises TypeError instead (unbound method needs argument)
-        with pytest.raises((AttributeError, TypeError)):
+        # pyrefly: ignore[no-matching-overload]
+        with pytest.raises((
+            AttributeError,
+            TypeError,
+        )):
             _ = find_rel_links(disposable_html_element, t)
 
 
@@ -249,14 +259,18 @@ class TestFindClassArg:
         self, disposable_html_element: HtmlElement, t: Any
     ) -> None:
         # _wrapXPathObject can produce different exceptions
-        with pytest.raises((XPathResultError, TypeError)):
+        # pyrefly: ignore[no-matching-overload]
+        with pytest.raises((
+            XPathResultError,
+            TypeError,
+        )):
             _ = find_class(disposable_html_element, t)
 
     # Several basic types are acceptable as XPathObject and thus stringified,
     # yet they will never ever match class names
     def test_wrong_type_no_raise(self, disposable_html_element: HtmlElement) -> None:
         arg: Any
-        for arg in (  # pyright: ignore[reportAssignmentType,reportUnknownVariableType]
+        for arg in (
             None,
             tuple(),
             True,
@@ -267,7 +281,7 @@ class TestFindClassArg:
             range(1, 1),  # degenerates to nothing
             Decimal(1),
         ):
-            elems = find_class(disposable_html_element, arg)
+            elems = find_class(disposable_html_element, cast(Any, arg))  # pyright: ignore[reportUnnecessaryCast]
             assert len(elems) == 0
 
 
@@ -275,19 +289,13 @@ class TestResolveBaseHrefArg:
     def test_handle_failures_arg_ok(
         self, disposable_html_with_base_href: HtmlElement
     ) -> None:
-        old_links = [
-            cast(_ElementUnicodeResult, link)
-            for link in disposable_html_with_base_href.xpath("//a/@href")
-        ]
+        old_links: list[str] = disposable_html_with_base_href.xpath("//a/@href")
         for arg in ("discard", "ignore", None):
             new_root = resolve_base_href(
                 disposable_html_with_base_href,
-                arg,  # type: ignore[arg-type,call-overload]
+                arg,
             )
-            new_links = [
-                cast(_ElementUnicodeResult, link)
-                for link in new_root.xpath("//a/@href")
-            ]
+            new_links: list[str] = new_root.xpath("//a/@href")
             for old, new in zip(old_links, new_links):
                 if old.startswith("http"):
                     assert old == new
@@ -303,7 +311,11 @@ class TestResolveBaseHrefArg:
         assume(thing not in ("ignore", "discard"))
         # collection raises TypeError instead
         # because of error in constructing exception
-        with pytest.raises((ValueError, TypeError)):
+        # pyrefly: ignore[no-matching-overload]
+        with pytest.raises((
+            ValueError,
+            TypeError,
+        )):
             _ = resolve_base_href(disposable_html_with_base_href, handle_failures=thing)
 
     @settings(max_examples=5)
@@ -324,20 +336,14 @@ class TestMakeLinksAbsoluteArg:
     def test_handle_failures_valid_type(
         self, disposable_html_with_base_href: HtmlElement
     ) -> None:
-        old_links = [
-            cast(_ElementUnicodeResult, link)
-            for link in disposable_html_with_base_href.xpath("//a/@href")
-        ]
+        old_links: list[str] = disposable_html_with_base_href.xpath("//a/@href")
         for arg in ("discard", "ignore", None):
             new_root = make_links_absolute(
                 disposable_html_with_base_href,
                 _BASE_HREF,
-                handle_failures=arg,  # type: ignore[arg-type,call-overload]
+                handle_failures=arg,
             )
-            new_links = [
-                cast(_ElementUnicodeResult, link)
-                for link in new_root.xpath("//a/@href")
-            ]
+            new_links: list[str] = new_root.xpath("//a/@href")
             for old, new in zip(old_links, new_links):
                 if old.startswith("http"):
                     assert old == new
@@ -351,7 +357,11 @@ class TestMakeLinksAbsoluteArg:
         self, disposable_html_with_base_href: HtmlElement, thing: Any
     ) -> None:
         assume(thing not in ("ignore", "discard"))
-        with pytest.raises((ValueError, TypeError)):
+        # pyrefly: ignore[no-matching-overload]
+        with pytest.raises((
+            ValueError,
+            TypeError,
+        )):
             _ = make_links_absolute(
                 disposable_html_with_base_href, _BASE_HREF, handle_failures=thing
             )
@@ -366,7 +376,7 @@ class TestMakeLinksAbsoluteArg:
         self, disposable_html_with_base_href: HtmlElement, thing: Any
     ) -> None:
         # Falsy values short circuited by urljoin() and never raises
-        assume(thing is NotImplemented or bool(thing))
+        assume(thing is not NotImplemented and bool(thing))
         with pytest.raises(TypeError, match="Cannot mix str and non-str arguments"):
             _ = make_links_absolute(disposable_html_with_base_href, base_url=thing)
 
@@ -429,7 +439,7 @@ class TestRewriteLinksArg:
         self, disposable_html_with_base_href: HtmlElement, thing: Any
     ) -> None:
         # Falsy values got short circuited by urljoin() and never raises
-        assume(thing is NotImplemented or bool(thing))
+        assume(thing is not NotImplemented and bool(thing))
         with pytest.raises(TypeError, match="Cannot mix str and non-str arguments"):
             _ = rewrite_links(disposable_html_with_base_href, str, base_href=thing)
 
@@ -465,7 +475,7 @@ class TestMethodFuncBug:
 
         for input in (str_content, bytes_content):
             with raise_unexpected_kwarg:
-                _ = make_links_absolute(  # type: ignore[call-overload]
+                _ = make_links_absolute(  # type: ignore[var-annotated]
                     input, _BASE_HREF, resolve_base_href=True
                 )
         _ = make_links_absolute(
@@ -474,7 +484,7 @@ class TestMethodFuncBug:
 
         for input in (str_content, bytes_content):
             with raise_unexpected_kwarg:
-                _ = make_links_absolute(  # type: ignore[call-overload]
+                _ = make_links_absolute(  # type: ignore[var-annotated]
                     input, _BASE_HREF, handle_failures=None
                 )
         _ = make_links_absolute(
@@ -488,9 +498,7 @@ class TestMethodFuncBug:
         for encoding in ("utf-8", str):
             content = tostring(disposable_html_with_base_href, encoding=encoding)
             with raise_unexpected_kwarg:
-                _ = resolve_base_href(  # type: ignore[call-overload]
-                    content, handle_failures=None
-                )
+                _ = resolve_base_href(content, handle_failures=None)
         _ = resolve_base_href(disposable_html_with_base_href, handle_failures=None)
 
     def test_rewrite_links(
@@ -502,21 +510,19 @@ class TestMethodFuncBug:
 
         for input in (str_content, byte_content):
             with raise_unexpected_kwarg:
-                _ = rewrite_links(  # type: ignore[call-overload]
-                    input, link_repl_func=str
-                )
+                _ = rewrite_links(input, link_repl_func=str)
         _ = rewrite_links(disposable_html_with_base_href, link_repl_func=str)
 
         for input in (str_content, byte_content):
             with raise_unexpected_kwarg:
-                _ = rewrite_links(  # type: ignore[call-overload]
+                _ = rewrite_links(  # type: ignore[var-annotated]
                     input, str, resolve_base_href=False
                 )
         _ = rewrite_links(disposable_html_with_base_href, str, resolve_base_href=False)
 
         for input in (str_content, byte_content):
             with raise_unexpected_kwarg:
-                _ = rewrite_links(  # type: ignore[call-overload]
+                _ = rewrite_links(  # type: ignore[var-annotated]
                     input, str, base_href=_BASE_HREF
                 )
         _ = rewrite_links(disposable_html_with_base_href, str, base_href=_BASE_HREF)

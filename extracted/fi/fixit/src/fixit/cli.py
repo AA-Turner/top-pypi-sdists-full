@@ -14,8 +14,8 @@ import click
 from fixit import __version__
 
 from .api import fixit_paths, print_result
-from .config import collect_rules, generate_config, parse_rule
-from .ftypes import Config, Options, QualifiedRule, Tags
+from .config import collect_rules, generate_config, parse_rule, validate_config
+from .ftypes import Config, LSPOptions, Options, OutputFormat, QualifiedRule, Tags
 from .rule import LintRule
 from .testing import generate_lint_rule_test_cases
 from .util import capture
@@ -72,13 +72,31 @@ def splash(
     default="",
     help="Override configured rules",
 )
+@click.option(
+    "--output-format",
+    "-o",
+    type=click.Choice([o.name for o in OutputFormat], case_sensitive=False),
+    show_choices=True,
+    default=None,
+    help="Select output format type",
+)
+@click.option(
+    "--output-template",
+    type=str,
+    default="",
+    help="Python format template to use with output format 'custom'",
+)
+@click.option("--print-metrics", is_flag=True, help="Print metrics of this run")
 def main(
     ctx: click.Context,
     debug: Optional[bool],
     config_file: Optional[Path],
     tags: str,
     rules: str,
-):
+    output_format: Optional[OutputFormat],
+    output_template: str,
+    print_metrics: bool,
+) -> None:
     level = logging.WARNING
     if debug is not None:
         level = logging.DEBUG if debug else logging.ERROR
@@ -95,6 +113,9 @@ def main(
                 if r
             }
         ),
+        output_format=output_format,
+        output_template=output_template,
+        print_metrics=print_metrics,
     )
 
 
@@ -106,7 +127,7 @@ def lint(
     ctx: click.Context,
     diff: bool,
     paths: Sequence[Path],
-):
+) -> None:
     """
     lint one or more paths and return suggestions
 
@@ -121,10 +142,17 @@ def lint(
     visited: Set[Path] = set()
     dirty: Set[Path] = set()
     autofixes = 0
-    for result in fixit_paths(paths, options=options):
+    config = generate_config(options=options)
+    for result in fixit_paths(
+        paths, options=options, metrics_hook=print if options.print_metrics else None
+    ):
         visited.add(result.path)
-
-        if print_result(result, show_diff=diff):
+        if print_result(
+            result,
+            show_diff=diff,
+            output_format=config.output_format,
+            output_template=config.output_template,
+        ):
             dirty.add(result.path)
             if result.violation:
                 exit_code |= 1
@@ -153,7 +181,7 @@ def fix(
     interactive: bool,
     diff: bool,
     paths: Sequence[Path],
-):
+) -> None:
     """
     lint and autofix one or more files and return results
 
@@ -177,13 +205,26 @@ def fix(
 
     # TODO: make this parallel
     generator = capture(
-        fixit_paths(paths, autofix=autofix, options=options, parallel=False)
+        fixit_paths(
+            paths,
+            autofix=autofix,
+            options=options,
+            parallel=False,
+            metrics_hook=print if options.print_metrics else None,
+        )
     )
+    config = generate_config(options=options)
     for result in generator:
         visited.add(result.path)
         # for STDIN, we need STDOUT to equal the fixed content, so
         # move everything else to STDERR
-        if print_result(result, show_diff=interactive or diff, stderr=is_stdin):
+        if print_result(
+            result,
+            show_diff=interactive or diff,
+            stderr=is_stdin,
+            output_format=config.output_format,
+            output_template=config.output_template,
+        ):
             dirty.add(result.path)
             if autofix and result.violation and result.violation.autofixable:
                 autofixes += 1
@@ -194,7 +235,7 @@ def fix(
                 "Apply autofix?", default="y", type=click.Choice("ynq", False)
             )
             if answer == "y":
-                generator.respond(True)
+                generator.respond(True)  # noqa: B038
                 fixed += 1
             elif answer == "q":
                 break
@@ -205,8 +246,42 @@ def fix(
 
 @main.command()
 @click.pass_context
+@click.option("--stdio", type=bool, default=True, help="Serve LSP over stdio")
+@click.option("--tcp", type=int, help="Port to serve LSP over")
+@click.option("--ws", type=int, help="Port to serve WS over")
+@click.option(
+    "--debounce-interval",
+    type=float,
+    default=LSPOptions.debounce_interval,
+    help="Delay in seconds for server-side debounce",
+)
+def lsp(
+    ctx: click.Context,
+    stdio: bool,
+    tcp: Optional[int],
+    ws: Optional[int],
+    debounce_interval: float,
+) -> None:
+    """
+    Start server for:
+    https://microsoft.github.io/language-server-protocol/
+    """
+    from .lsp import LSP
+
+    main_options = ctx.obj
+    lsp_options = LSPOptions(
+        tcp=tcp,
+        ws=ws,
+        stdio=stdio,
+        debounce_interval=debounce_interval,
+    )
+    LSP(main_options, lsp_options).start()
+
+
+@main.command()
+@click.pass_context
 @click.argument("rules", nargs=-1, required=True, type=str)
-def test(ctx: click.Context, rules: Sequence[str]):
+def test(ctx: click.Context, rules: Sequence[str]) -> None:
     """
     test lint rules and their VALID/INVALID cases
     """
@@ -230,7 +305,7 @@ def test(ctx: click.Context, rules: Sequence[str]):
 @main.command()
 @click.pass_context
 @click.argument("paths", nargs=-1, type=click.Path(path_type=Path))
-def upgrade(ctx: click.Context, paths: Sequence[Path]):
+def upgrade(ctx: click.Context, paths: Sequence[Path]) -> None:
     """
     upgrade lint rules and apply deprecation fixes
 
@@ -245,7 +320,7 @@ def upgrade(ctx: click.Context, paths: Sequence[Path]):
 @main.command()
 @click.pass_context
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, path_type=Path))
-def debug(ctx: click.Context, paths: Sequence[Path]):
+def debug(ctx: click.Context, paths: Sequence[Path]) -> None:
     """
     print materialized configuration for paths
     """
@@ -274,3 +349,23 @@ def debug(ctx: click.Context, paths: Sequence[Path]):
             "disabled:",
             sorted(f"{rule()} ({reason})" for rule, reason in disabled.items()),
         )
+
+
+@main.command(name="validate-config")
+@click.pass_context
+@click.argument("path", nargs=1, type=click.Path(exists=True, path_type=Path))
+def validate_config_command(ctx: click.Context, path: Path) -> None:
+    """
+    validate the config provided
+    """
+    exceptions = validate_config(path)
+
+    try:
+        from rich import print as pprint
+    except ImportError:
+        from pprint import pprint  # type: ignore
+
+    if exceptions:
+        for e in exceptions:
+            pprint(e)
+        exit(-1)

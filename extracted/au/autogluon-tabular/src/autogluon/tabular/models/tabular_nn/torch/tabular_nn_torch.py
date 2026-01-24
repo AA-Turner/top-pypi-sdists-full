@@ -50,6 +50,7 @@ class TabularNeuralNetTorchModel(AbstractNeuralNetworkModel):
     ag_key = "NN_TORCH"
     ag_name = "NeuralNetTorch"
     ag_priority = 25
+    seed_name = "seed_value"
 
     # Constants used throughout this class:
     unique_category_str = np.nan  # string used to represent missing values and unknown categories for categorical features.
@@ -191,7 +192,7 @@ class TabularNeuralNetTorchModel(AbstractNeuralNetworkModel):
 
         processor_kwargs, optimizer_kwargs, fit_kwargs, loss_kwargs, params = self._prepare_params(params=params)
 
-        seed_value = params.pop("seed_value", 0)
+        seed_value = params.pop(self.seed_name, self.default_random_seed)
 
         self._num_cpus_infer = params.pop("_num_cpus_infer", 1)
         if seed_value is not None:  # Set seeds
@@ -370,7 +371,6 @@ class TabularNeuralNetTorchModel(AbstractNeuralNetworkModel):
         best_epoch = 0
         best_val_metric = -np.inf  # higher = better
         best_val_update = 0
-        val_improve_epoch = 0  # most recent epoch where validation-score strictly improved
         start_fit_time = time.time()
         if time_limit is not None:
             time_limit = time_limit - (start_fit_time - start_time)
@@ -495,7 +495,7 @@ class TabularNeuralNetTorchModel(AbstractNeuralNetworkModel):
 
             if time_limit is not None:
                 time_elapsed = time.time() - start_fit_time
-                time_epoch_average = time_elapsed / (epoch + 1)
+                time_epoch_average = time_elapsed / max(epoch, 1)  # avoid divide by 0
                 time_left = time_limit - time_elapsed
                 if time_left < time_epoch_average:
                     logger.log(20, f"\tRan out of time, stopping training early. (Stopping on epoch {epoch})")

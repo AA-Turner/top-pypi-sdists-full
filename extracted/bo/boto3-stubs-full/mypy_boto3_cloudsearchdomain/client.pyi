@@ -3,7 +3,7 @@ Type annotations for cloudsearchdomain service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudsearchdomain/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -34,11 +35,6 @@ from .type_defs import (
     UploadDocumentsResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -47,9 +43,9 @@ else:
 __all__ = ("CloudSearchDomainClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    DocumentServiceException: Type[BotocoreClientError]
-    SearchException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DocumentServiceException: type[BotocoreClientError]
+    SearchException: type[BotocoreClientError]
 
 class CloudSearchDomainClient(BaseClient):
     """

@@ -43,16 +43,14 @@ class OverallModerationConfig(APIObject):
 
     _path = "overallModerationConfiguration/"
 
-    _converter = t.Dict(
-        {
-            t.Key("timeout_sec"): t.Int(),
-            t.Key("timeout_action"): t.Enum(*[e.value for e in ModerationTimeoutActionType]),
-            t.Key("entity_id"): t.String(),
-            t.Key("entity_type"): t.Enum(*[e.value for e in ModerationGuardEntityType]),
-            t.Key("updated_at", optional=True): t.String(),
-            t.Key("updater_id", optional=True): t.String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("timeout_sec"): t.Int(),
+        t.Key("timeout_action"): t.Enum(*[e.value for e in ModerationTimeoutActionType]),
+        t.Key("entity_id"): t.String(),
+        t.Key("entity_type"): t.Enum(*[e.value for e in ModerationGuardEntityType]),
+        t.Key("updated_at", optional=True): t.String(),
+        t.Key("updater_id", optional=True): t.String(),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -95,9 +93,7 @@ class OverallModerationConfig(APIObject):
     def _template_path(cls, template_id: str) -> str:
         return f"{cls._path}{template_id}/"
 
-    def _update_values(
-        self: OverallModerationConfig, new_response: OverallModerationConfig
-    ) -> None:
+    def _update_values(self: OverallModerationConfig, new_response: OverallModerationConfig) -> None:
         # called by update() and refresh()
         fields = self._fields()
         for attr in fields:
@@ -105,9 +101,7 @@ class OverallModerationConfig(APIObject):
             setattr(self, attr, new_value)
 
     @classmethod
-    def find(
-        cls, entity_id: str, entity_type: ModerationGuardEntityType
-    ) -> Optional[OverallModerationConfig]:
+    def find(cls, entity_id: str, entity_type: ModerationGuardEntityType) -> Optional[OverallModerationConfig]:
         """Find overall configuration by entity ID and entity type.
         Each entity (such as a customModelVersion) may have at most 1 overall moderation configuration.
 
@@ -139,9 +133,7 @@ class OverallModerationConfig(APIObject):
         return cls.from_location(cls._path, params=params)
 
     @classmethod
-    def locate(
-        cls, entity_id: str, entity_type: ModerationGuardEntityType
-    ) -> OverallModerationConfig:
+    def locate(cls, entity_id: str, entity_type: ModerationGuardEntityType) -> OverallModerationConfig:
         """Find overall configuration by entity ID and entity type.
         This version of find() expects the object to exist. Its return type is not optional.
 

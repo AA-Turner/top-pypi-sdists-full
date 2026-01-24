@@ -117,3 +117,26 @@ def test_meshgrid():
 
     assert Y.shape == Y_xy.shape
     assert xp.all(Y == Y_xy)
+
+    # repeat with an explicit indexing
+    X, Y = xp.meshgrid(x, y, indexing='ij')
+
+    # output of torch.meshgrid(x, y, indexing='ij')
+    X_ij, Y_ij = xp.asarray([[1], [2]]), xp.asarray([[4], [4]])
+
+    assert X.shape == X_ij.shape
+    assert xp.all(X == X_ij)
+
+    assert Y.shape == Y_ij.shape
+    assert xp.all(Y == Y_ij)
+
+
+def test_argsort_stable():
+    """Verify that argsort defaults to a stable sort."""
+    # Bare pytorch defaults to an unstable sort, and the array_api_compat wrapper
+    # enforces the stable=True default.
+    # cf https://github.com/data-apis/array-api-compat/pull/356 and
+    # https://github.com/data-apis/array-api-tests/pull/390#issuecomment-3452868329
+
+    t = xp.zeros(50)    # should be >16
+    assert xp.all(xp.argsort(t) == xp.arange(50))

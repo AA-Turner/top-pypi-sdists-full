@@ -9,11 +9,9 @@ pub mod strong_style;
 pub mod blockquote_utils;
 
 mod md001_heading_increment;
-mod md002_first_heading_h1;
 mod md003_heading_style;
 pub mod md004_unordered_list_style;
 mod md005_list_indent;
-mod md006_start_bullets;
 mod md007_ul_indent;
 mod md009_trailing_spaces;
 mod md010_no_hard_tabs;
@@ -54,14 +52,26 @@ mod md054_link_image_style;
 mod md055_table_pipe_style;
 mod md056_table_column_count;
 mod md058_blanks_around_tables;
+mod md059_link_text;
+mod md060_table_format;
+mod md061_forbidden_terms;
+mod md062_link_destination_whitespace;
+mod md063_heading_capitalization;
+mod md064_no_multiple_consecutive_spaces;
+mod md065_blanks_around_horizontal_rules;
+mod md066_footnote_validation;
+mod md067_footnote_definition_order;
+mod md068_empty_footnote_definition;
+mod md069_no_duplicate_list_markers;
+mod md070_nested_code_fence;
+mod md071_blank_line_after_frontmatter;
+mod md072_frontmatter_key_sort;
 
 pub use md001_heading_increment::MD001HeadingIncrement;
-pub use md002_first_heading_h1::MD002FirstHeadingH1;
 pub use md003_heading_style::MD003HeadingStyle;
 pub use md004_unordered_list_style::MD004UnorderedListStyle;
 pub use md004_unordered_list_style::UnorderedListStyle;
 pub use md005_list_indent::MD005ListIndent;
-pub use md006_start_bullets::MD006StartBullets;
 pub use md007_ul_indent::MD007ULIndent;
 pub use md009_trailing_spaces::MD009TrailingSpaces;
 pub use md010_no_hard_tabs::MD010NoHardTabs;
@@ -102,6 +112,20 @@ pub use md054_link_image_style::MD054LinkImageStyle;
 pub use md055_table_pipe_style::MD055TablePipeStyle;
 pub use md056_table_column_count::MD056TableColumnCount;
 pub use md058_blanks_around_tables::MD058BlanksAroundTables;
+pub use md059_link_text::MD059LinkText;
+pub use md060_table_format::MD060TableFormat;
+pub use md061_forbidden_terms::MD061ForbiddenTerms;
+pub use md062_link_destination_whitespace::MD062LinkDestinationWhitespace;
+pub use md063_heading_capitalization::MD063HeadingCapitalization;
+pub use md064_no_multiple_consecutive_spaces::MD064NoMultipleConsecutiveSpaces;
+pub use md065_blanks_around_horizontal_rules::MD065BlanksAroundHorizontalRules;
+pub use md066_footnote_validation::MD066FootnoteValidation;
+pub use md067_footnote_definition_order::MD067FootnoteDefinitionOrder;
+pub use md068_empty_footnote_definition::MD068EmptyFootnoteDefinition;
+pub use md069_no_duplicate_list_markers::MD069NoDuplicateListMarkers;
+pub use md070_nested_code_fence::MD070NestedCodeFence;
+pub use md071_blank_line_after_frontmatter::MD071BlankLineAfterFrontmatter;
+pub use md072_frontmatter_key_sort::MD072FrontmatterKeySort;
 
 mod md012_no_multiple_blanks;
 pub use md012_no_multiple_blanks::MD012NoMultipleBlanks;
@@ -134,11 +158,9 @@ pub fn all_rules(config: &crate::config::Config) -> Vec<Box<dyn Rule>> {
     type RuleCtor = fn(&crate::config::Config) -> Box<dyn Rule>;
     const RULES: &[(&str, RuleCtor)] = &[
         ("MD001", MD001HeadingIncrement::from_config),
-        ("MD002", MD002FirstHeadingH1::from_config),
         ("MD003", MD003HeadingStyle::from_config),
         ("MD004", MD004UnorderedListStyle::from_config),
         ("MD005", MD005ListIndent::from_config),
-        ("MD006", MD006StartBullets::from_config),
         ("MD007", MD007ULIndent::from_config),
         ("MD009", MD009TrailingSpaces::from_config),
         ("MD010", MD010NoHardTabs::from_config),
@@ -187,6 +209,20 @@ pub fn all_rules(config: &crate::config::Config) -> Vec<Box<dyn Rule>> {
         ("MD056", MD056TableColumnCount::from_config),
         ("MD057", MD057ExistingRelativeLinks::from_config),
         ("MD058", MD058BlanksAroundTables::from_config),
+        ("MD059", MD059LinkText::from_config),
+        ("MD060", MD060TableFormat::from_config),
+        ("MD061", MD061ForbiddenTerms::from_config),
+        ("MD062", MD062LinkDestinationWhitespace::from_config),
+        ("MD063", MD063HeadingCapitalization::from_config),
+        ("MD064", MD064NoMultipleConsecutiveSpaces::from_config),
+        ("MD065", MD065BlanksAroundHorizontalRules::from_config),
+        ("MD066", MD066FootnoteValidation::from_config),
+        ("MD067", MD067FootnoteDefinitionOrder::from_config),
+        ("MD068", MD068EmptyFootnoteDefinition::from_config),
+        ("MD069", MD069NoDuplicateListMarkers::from_config),
+        ("MD070", MD070NestedCodeFence::from_config),
+        ("MD071", MD071BlankLineAfterFrontmatter::from_config),
+        ("MD072", MD072FrontmatterKeySort::from_config),
     ];
     RULES.iter().map(|(_, ctor)| ctor(config)).collect()
 }

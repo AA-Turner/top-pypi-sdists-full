@@ -34,13 +34,20 @@ import os
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 
 # If Python itself provides an exception, use that
 import unittest
+from collections.abc import Sequence
 from typing import ClassVar
 from unittest import SkipTest, expectedFailure, skipIf
 from unittest import TestCase as _TestCase
+
+
+class DependencyMissing(SkipTest):
+    def __init__(self, dependency: str) -> None:
+        super().__init__(f"Dependency {dependency} missing")
 
 
 class TestCase(_TestCase):
@@ -49,7 +56,7 @@ class TestCase(_TestCase):
         self.overrideEnv("HOME", "/nonexistent")
         self.overrideEnv("GIT_CONFIG_NOSYSTEM", "1")
 
-    def overrideEnv(self, name, value) -> None:
+    def overrideEnv(self, name: str, value: str | None) -> None:
         def restore() -> None:
             if oldval is not None:
                 os.environ[name] = oldval
@@ -69,12 +76,13 @@ class BlackboxTestCase(TestCase):
 
     # TODO(jelmer): Include more possible binary paths.
     bin_directories: ClassVar[list[str]] = [
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "bin")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bin")),
+        sysconfig.get_path("scripts"),
         "/usr/bin",
         "/usr/local/bin",
     ]
 
-    def bin_path(self, name):
+    def bin_path(self, name: str) -> str:
         """Determine the full path of a binary.
 
         Args:
@@ -88,7 +96,7 @@ class BlackboxTestCase(TestCase):
         else:
             raise SkipTest(f"Unable to find binary {name}")
 
-    def run_command(self, name, args):
+    def run_command(self, name: str, args: Sequence[str]) -> subprocess.Popen[bytes]:
         """Run a Dulwich command.
 
         Args:
@@ -113,17 +121,19 @@ class BlackboxTestCase(TestCase):
         )
 
 
-def self_test_suite():
+def self_test_suite() -> unittest.TestSuite:
     names = [
+        "__init__",
+        "__main__",
+        "aiohttp",
         "annotate",
+        "approxidate",
         "archive",
         "attrs",
         "bisect",
+        "bitmap",
         "blackbox",
         "bundle",
-        "cli",
-        "cli_cherry_pick",
-        "cli_merge",
         "client",
         "cloud_gcs",
         "commit_graph",
@@ -131,57 +141,92 @@ def self_test_suite():
         "credentials",
         "diff",
         "diff_tree",
+        "diffstat",
         "dumb",
         "fastexport",
         "file",
+        "filter_branch",
+        "filters",
         "gc",
         "grafts",
         "graph",
-        "greenthreads",
         "hooks",
         "ignore",
         "index",
         "lfs",
+        "lfs_integration",
         "line_ending",
         "log_utils",
         "lru_cache",
         "mailmap",
+        "maintenance",
+        "mbox",
         "merge",
         "merge_drivers",
+        "midx",
         "missing_obj_finder",
         "notes",
+        "object_filters",
+        "object_format",
+        "object_store",
         "objects",
         "objectspec",
-        "object_store",
         "pack",
         "patch",
-        "porcelain",
-        "porcelain_cherry_pick",
-        "porcelain_filters",
-        "porcelain_lfs",
-        "porcelain_merge",
-        "porcelain_notes",
         "protocol",
         "rebase",
         "reflog",
         "refs",
         "reftable",
         "repository",
+        "rerere",
         "server",
+        "sha256",
+        "sha256_pack",
+        "signature",
+        "source",
         "sparse_patterns",
         "stash",
+        "stripspace",
         "submodule",
+        "trailers",
         "utils",
         "walk",
         "web",
+        "whitespace",
         "worktree",
     ]
     module_names = ["tests.test_" + name for name in names]
+    cli_names = [
+        "cherry_pick",
+        "cli",
+        "merge",
+    ]
+    module_names += ["tests.cli.test_" + name for name in cli_names]
+    porcelain_names = [
+        "annotate",
+        "bisect",
+        "cherry_pick",
+        "filters",
+        "ignore",
+        "lfs",
+        "maintenance",
+        "mbox",
+        "merge",
+        "notes",
+        "rebase",
+        "submodule",
+        "tag",
+        "worktree",
+    ]
+    module_names += ["tests.porcelain"] + [
+        "tests.porcelain.test_" + name for name in porcelain_names
+    ]
     loader = unittest.TestLoader()
     return loader.loadTestsFromNames(module_names)
 
 
-def tutorial_test_suite():
+def tutorial_test_suite() -> unittest.TestSuite:
     tutorial = [
         "introduction",
         "file-format",
@@ -194,7 +239,7 @@ def tutorial_test_suite():
 
     to_restore = []
 
-    def overrideEnv(name, value) -> None:
+    def overrideEnv(name: str, value: str | None) -> None:
         oldval = os.environ.get(name)
         if value is not None:
             os.environ[name] = value
@@ -202,17 +247,17 @@ def tutorial_test_suite():
             del os.environ[name]
         to_restore.append((name, oldval))
 
-    def setup(test) -> None:
-        test.__old_cwd = os.getcwd()
-        test.tempdir = tempfile.mkdtemp()
-        test.globs.update({"tempdir": test.tempdir})
-        os.chdir(test.tempdir)
+    def setup(test: doctest.DocTest) -> None:
+        test.__old_cwd = os.getcwd()  # type: ignore[attr-defined]
+        test.tempdir = tempfile.mkdtemp()  # type: ignore[attr-defined]
+        test.globs.update({"tempdir": test.tempdir})  # type: ignore[attr-defined]
+        os.chdir(test.tempdir)  # type: ignore[attr-defined]
         overrideEnv("HOME", "/nonexistent")
         overrideEnv("GIT_CONFIG_NOSYSTEM", "1")
 
-    def teardown(test) -> None:
-        os.chdir(test.__old_cwd)
-        shutil.rmtree(test.tempdir)
+    def teardown(test: doctest.DocTest) -> None:
+        os.chdir(test.__old_cwd)  # type: ignore[attr-defined]
+        shutil.rmtree(test.tempdir)  # type: ignore[attr-defined]
         for name, oldval in to_restore:
             if oldval is not None:
                 os.environ[name] = oldval
@@ -229,7 +274,7 @@ def tutorial_test_suite():
     )
 
 
-def nocompat_test_suite():
+def nocompat_test_suite() -> unittest.TestSuite:
     result = unittest.TestSuite()
     result.addTests(self_test_suite())
     result.addTests(tutorial_test_suite())
@@ -239,7 +284,7 @@ def nocompat_test_suite():
     return result
 
 
-def compat_test_suite():
+def compat_test_suite() -> unittest.TestSuite:
     result = unittest.TestSuite()
     from .compat import test_suite as compat_test_suite
 
@@ -247,7 +292,7 @@ def compat_test_suite():
     return result
 
 
-def test_suite():
+def test_suite() -> unittest.TestSuite:
     result = unittest.TestSuite()
     result.addTests(self_test_suite())
     if sys.platform != "win32":

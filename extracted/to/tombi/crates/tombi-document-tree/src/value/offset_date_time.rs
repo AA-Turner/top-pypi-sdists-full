@@ -1,15 +1,15 @@
 use tombi_ast::TombiValueCommentDirective;
 
 use crate::{
-    support::chrono::try_new_offset_date_time, value::collect_comment_directives_and_errors,
     DocumentTreeAndErrors, IntoDocumentTreeAndErrors, ValueImpl, ValueType,
+    support::chrono::try_new_offset_date_time, value::collect_comment_directives_and_errors,
 };
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OffsetDateTime {
     value: tombi_date_time::OffsetDateTime,
     range: tombi_text::Range,
-    pub(crate) comment_directives: Option<Box<Vec<TombiValueCommentDirective>>>,
+    pub(crate) comment_directives: Option<Vec<TombiValueCommentDirective>>,
 }
 
 impl OffsetDateTime {
@@ -30,7 +30,7 @@ impl OffsetDateTime {
 
     #[inline]
     pub fn comment_directives(&self) -> Option<&[TombiValueCommentDirective]> {
-        self.comment_directives.as_deref().map(|v| &**v)
+        self.comment_directives.as_deref()
     }
 }
 

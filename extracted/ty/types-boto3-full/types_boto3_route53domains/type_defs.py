@@ -3,7 +3,7 @@ Type annotations for route53domains service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53domains/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -35,12 +36,6 @@ from .literals import (
     TransferableType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -149,7 +144,7 @@ class AcceptDomainTransferFromAnotherAwsAccountRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -269,7 +264,7 @@ class GetDomainDetailRequestTypeDef(TypedDict):
 
 class NameserverOutputTypeDef(TypedDict):
     Name: str
-    GlueIps: NotRequired[List[str]]
+    GlueIps: NotRequired[list[str]]
 
 
 class GetDomainSuggestionsRequestTypeDef(TypedDict):
@@ -495,7 +490,7 @@ class AssociateDelegationSignerToDomainRequestTypeDef(TypedDict):
 
 class ViewBillingResponseTypeDef(TypedDict):
     NextPageMarker: str
-    BillingRecords: List[BillingRecordTypeDef]
+    BillingRecords: list[BillingRecordTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -519,7 +514,7 @@ class ContactDetailOutputTypeDef(TypedDict):
     PhoneNumber: NotRequired[str]
     Email: NotRequired[str]
     Fax: NotRequired[str]
-    ExtraParams: NotRequired[List[ExtraParamTypeDef]]
+    ExtraParams: NotRequired[list[ExtraParamTypeDef]]
 
 
 class ContactDetailTypeDef(TypedDict):
@@ -549,12 +544,12 @@ class DomainPriceTypeDef(TypedDict):
 
 
 class GetDomainSuggestionsResponseTypeDef(TypedDict):
-    SuggestionsList: List[DomainSuggestionTypeDef]
+    SuggestionsList: list[DomainSuggestionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListDomainsResponseTypeDef(TypedDict):
-    Domains: List[DomainSummaryTypeDef]
+    Domains: list[DomainSummaryTypeDef]
     NextPageMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -616,13 +611,13 @@ class ViewBillingRequestTypeDef(TypedDict):
 
 
 class ListOperationsResponseTypeDef(TypedDict):
-    Operations: List[OperationSummaryTypeDef]
+    Operations: list[OperationSummaryTypeDef]
     NextPageMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForDomainResponseTypeDef(TypedDict):
-    TagList: List[TagTypeDef]
+    TagList: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -636,7 +631,7 @@ NameserverUnionTypeDef = Union[NameserverTypeDef, NameserverOutputTypeDef]
 
 class GetDomainDetailResponseTypeDef(TypedDict):
     DomainName: str
-    Nameservers: List[NameserverOutputTypeDef]
+    Nameservers: list[NameserverOutputTypeDef]
     AutoRenew: bool
     AdminContact: ContactDetailOutputTypeDef
     RegistrantContact: ContactDetailOutputTypeDef
@@ -655,8 +650,8 @@ class GetDomainDetailResponseTypeDef(TypedDict):
     ExpirationDate: datetime
     Reseller: str
     DnsSec: str
-    StatusList: List[str]
-    DnssecKeys: List[DnssecKeyTypeDef]
+    StatusList: list[str]
+    DnssecKeys: list[DnssecKeyTypeDef]
     BillingContact: ContactDetailOutputTypeDef
     BillingPrivacy: bool
     ResponseMetadata: ResponseMetadataTypeDef
@@ -666,7 +661,7 @@ ContactDetailUnionTypeDef = Union[ContactDetailTypeDef, ContactDetailOutputTypeD
 
 
 class ListPricesResponseTypeDef(TypedDict):
-    Prices: List[DomainPriceTypeDef]
+    Prices: list[DomainPriceTypeDef]
     NextPageMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 

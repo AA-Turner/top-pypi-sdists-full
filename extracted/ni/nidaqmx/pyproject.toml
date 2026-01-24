@@ -1,18 +1,9 @@
-[tool.poetry]
+[project]
 name = "nidaqmx"
-version = "1.2.0"
-license = "MIT"
 description = "NI-DAQmx Python API"
-authors = ["NI <opensource@ni.com>"]
-maintainers = [
-  "Zach Hindes <zach.hindes@ni.com>",
-  "Maxx Boehme <maxx.boehme@ni.com>",
-  "Brad Keryan <brad.keryan@ni.com>",
-]
-readme = "README.rst"
-repository = "https://github.com/ni/nidaqmx-python"
-documentation = "https://nidaqmx-python.readthedocs.io"
+license = "MIT"
 keywords = ["nidaqmx", "nidaq", "daqmx", "daq"]
+version = "1.4.0"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
@@ -27,50 +18,81 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Topic :: System :: Hardware :: Hardware Drivers",
 ]
+dynamic = ["dependencies"]
+readme = "README.rst"
+authors = [{name = "NI", email = "opensource@ni.com"}]
+maintainers = [
+  {name = "Zach Hindes", email = "zach.hindes@ni.com"},
+  {name = "Maxx Boehme", email = "maxx.boehme@ni.com"},
+  {name = "Brad Keryan", email = "brad.keryan@ni.com"},
+]
+requires-python = '>=3.9,<4.0'
+
+[project.urls]
+repository = "https://github.com/ni/nidaqmx-python"
+documentation = "https://nidaqmx-python.readthedocs.io"
+
+[project.scripts]
+nidaqmx = 'nidaqmx.__main__:main'
+
+[project.optional-dependencies]
+grpc = ['grpcio (>=1.49.0,<2.0)', 'protobuf (>=4.21)', 'ni-grpcdevice-v1-proto (>=1.0.0)', 'ni-protobuf-types (>=1.0.0)']
+
+[tool.poetry]
+
 exclude = ["nidaqmx/tests"]
 packages = [{ include = "nidaqmx", from = "generated" }]
+requires-poetry = '>=2.1,<3.0'
 
 [tool.poetry.dependencies]
-python = "^3.9"
+# NumPy 2.0.x is the last version that supports Python 3.9, but it crashes with Python 3.13.
 numpy = [
-  { version = ">=1.22", python = ">=3.9,<3.12" },
-  { version = ">=1.26", python = ">=3.12,<3.13" },
-  { version = ">=2.1", python = "^3.13" },
+  { version = ">=1.22", python = ">=3.9,<3.13" },
+  { version = ">=2.1", python = "^3.13" }
 ]
 deprecation = ">=2.1"
-grpcio = { version = ">=1.49.0,<2.0", optional = true }
-protobuf = { version = ">=4.21", optional = true }
 hightime = ">=0.2.2"
 tzlocal = "^5.0"
 python-decouple = ">=3.8"
-click = [
-  { version = ">=8.0.0,<8.2.0", python = ">=3.9,<3.10" },
-  { version = ">=8.0.0", python = "^3.10" },
-]
+click = ">=8.0.0"
 distro = { version = ">=1.9.0", platform = "linux" }
 requests = ">=2.25.0"
-
-[tool.poetry.extras]
-grpc = ["grpcio", "protobuf"]
+typing_extensions = { version = ">=4.0.0" }
+nitypes = {version=">=1.0.1"}
 
 [tool.poetry.group.codegen.dependencies]
 Mako = "^1.2"
 grpcio-tools = [
+  # requires protobuf v4 or later
   { version = "1.49.1", python = ">=3.9,<3.12" },
   { version = "1.59.0", python = ">=3.12,<3.13" },
-  { version = "1.67.0", python = "^3.13" },
+  # requires protobuf v5 or later
+  { version = "1.67.0", python = ">=3.13,<3.14" },
+  # requires protobuf v6 or later
+  { version = "1.75.1", python = "^3.14" },
 ]
-mypy-protobuf = ">=3.4"
+# mypy-protobuf 3.6 is the last version that supports protobuf v4.
+mypy-protobuf = [
+  # requires protobuf v4 or later
+  {version = ">=3.4,<3.7", python = ">=3.9,<3.14"},
+  # requires protobuf v6 or later
+  {version = ">=3.4", python = "^3.14"}
+]
 
 [tool.poetry.group.docs]
 optional = true
 
 [tool.poetry.group.docs.dependencies]
-Sphinx = { version = ">=8.2", python = "^3.11" }
+# The latest Sphinx requires a recent Python version.
+Sphinx = [
+  { version = ">=8.1", python = ">=3.10,<3.11" },
+  { version = ">=8.2", python = "^3.11" },
+]
 sphinx-rtd-theme = ">=1.0.0"
 toml = ">=0.10.2"
 
@@ -88,32 +110,43 @@ nptdms = ">=1.9.0"
 [tool.poetry.group.lint.dependencies]
 bandit = { version = ">=1.7", extras = ["toml"] }
 ni-python-styleguide = ">=0.4.1"
-mypy = ">=1.0"
+mypy = { version = ">=1.0", markers = "implementation_name != 'pypy'" }
 types-protobuf = ">=4.21"
 types-requests = ">=2.25.0"
 types-grpcio = ">=1.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = ">=7.2"
+pytest-benchmark = ">=5.1"
 pytest-cov = ">=4.0"
 pytest-mock = ">=3.0"
 pykka = ">=3.0"
 tox = ">=3.24"
-
-[tool.poetry.scripts]
-nidaqmx = 'nidaqmx.__main__:main'
+click = [
+  { version = ">=8.0.0,<8.2.0", python = ">=3.9,<3.10" },
+  { version = ">=8.0.0", python = "^3.10" },
+]
+# Specify additional NumPy version constraints to speed up locking and test with binary wheels that support PyPy.
+numpy = [
+  { version = ">=1.22", python = ">=3.9,<3.12", markers = "implementation_name != 'pypy'" },
+  { version = ">=1.26", python = ">=3.12,<3.13", markers = "implementation_name != 'pypy'" },
+  { version = ">=2.1", python = "^3.13", markers = "implementation_name != 'pypy'" },
+  { version = ">=2.1", python = ">=3.10,<3.11", markers = "implementation_name == 'pypy'" },
+  { version = ">=2.3", python = "^3.11", markers = "implementation_name == 'pypy'" },
+]
 
 [tool.black]
 line-length = 100
-extend_exclude = ".tox/|docs/|generated/|src/codegen/metadata/|src/codegen/templates/|src/handwritten/"
+extend_exclude = ".tox/|docs/|generated/|src/codegen/metadata/|src/codegen/templates/|third_party/"
 
 [tool.ni-python-styleguide]
-extend_exclude = ".tox,docs,generated,src/codegen/metadata,src/codegen/templates,src/handwritten"
+extend_exclude = ".tox,docs,generated,src/codegen/metadata,src/codegen/templates,third_party"
+application-import-names = "nidaqmx"
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules --strict-markers"
 filterwarnings = ["always::ImportWarning", "always::ResourceWarning"]
-testpaths = ["tests"]
+testpaths = ["tests/acceptance", "tests/component", "tests/legacy", "tests/unit"]
 markers = [
   # Defines custom markers used by nidaqmx tests. Prevents PytestUnknownMarkWarning.
   "library_only(reason=...): run the test with only the library interpreter implementation.",
@@ -131,17 +164,19 @@ markers = [
   "grpc_session_name: specifies GrpcSessionOptions.session_name.",
   "grpc_session_initialization_behavior: specifies GrpcSessionOptions.initialization_behavior.",
   "temporary_grpc_channel(options=...): specifies that the test uses a separate gRPC channel.",
+  "disable_feature_toggle: specifies a feature toggle to disable for the test function/module.",
+  "enable_feature_toggle: specifies a feature toggle to enable for the test function/module.",
+  "use_code_readiness: specifies a code readiness level to use for the test function/module.",
 ]
 
 [build-system]
-requires = ["poetry-core>=1.8"]
+requires = ["poetry-core>=2.1,<3.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
-files = "generated/,tests/"
+files = "examples/,generated/,tests/"
 check_untyped_defs = true
 namespace_packages = true
-plugins = "numpy.typing.mypy_plugin"
 warn_redundant_casts = true
 warn_unreachable = true
 warn_unused_configs = true
@@ -154,11 +189,13 @@ module = [
   # https://github.com/briancurtin/deprecation/issues/56 - Add type information (PEP 561)
   "deprecation.*",
   "grpc.experimental.*",
-  # https://github.com/ni/hightime/issues/4 - Add type annotations
-  "hightime.*",
   "importlib_metadata",
   "mako.*",
   "nidaqmx.*",
+  # https://github.com/ionelmc/pytest-benchmark/issues/212 - Add type annotations
+  "pytest_benchmark.*",
+  # https://github.com/adamreeve/npTDMS/issues/301 - Type Hints/Annotations
+  "nptdms.*",
 ]
 ignore_missing_imports = true
 
@@ -166,6 +203,17 @@ ignore_missing_imports = true
 # mypy-protobuf codegen has some unused ignores.
 module = ["nidaqmx._stubs.*"]
 warn_unused_ignores = false
+
+[tool.pyright]
+typeCheckingMode = "basic"
+reportArgumentType = false
+reportAttributeAccessIssue = false
+reportGeneralTypeIssues = false
+reportInvalidTypeForm = false
+reportOperatorIssue = false
+reportOptionalIterable = false
+reportOptionalMemberAccess = false
+reportReturnType = false
 
 [tool.bandit]
 skips = [

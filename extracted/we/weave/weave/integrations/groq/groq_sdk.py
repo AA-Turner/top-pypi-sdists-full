@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 import importlib
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+from groq.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
+from groq.types.chat.chat_completion import Choice
+from groq.types.chat.chat_completion_chunk import Choice as ChoiceChunk
+from groq.types.completion_usage import CompletionUsage
 
 import weave
 from weave.integrations.patcher import MultiPatcher, NoOpPatcher, SymbolPatcher
@@ -9,7 +15,7 @@ from weave.trace.autopatch import IntegrationSettings, OpSettings
 from weave.trace.op import _add_accumulator
 
 if TYPE_CHECKING:
-    from groq.types.chat import ChatCompletion, ChatCompletionChunk
+    pass
 
 
 _groq_patcher: MultiPatcher | None = None
@@ -18,11 +24,6 @@ _groq_patcher: MultiPatcher | None = None
 def groq_accumulator(
     acc: ChatCompletion | None, value: ChatCompletionChunk
 ) -> ChatCompletion:
-    from groq.types.chat import ChatCompletion, ChatCompletionMessage
-    from groq.types.chat.chat_completion import Choice
-    from groq.types.chat.chat_completion_chunk import Choice as ChoiceChunk
-    from groq.types.completion_usage import CompletionUsage
-
     if acc is None:
         choices = []
         for choice in value.choices:
@@ -118,10 +119,16 @@ def get_groq_patcher(
     base = settings.op_settings
 
     chat_completions_settings = base.model_copy(
-        update={"name": base.name or "groq.chat.completions.create"}
+        update={
+            "name": base.name or "groq.chat.completions.create",
+            "kind": base.kind or "llm",
+        }
     )
     async_chat_completions_settings = base.model_copy(
-        update={"name": base.name or "groq.async.chat.completions.create"}
+        update={
+            "name": base.name or "groq.async.chat.completions.create",
+            "kind": base.kind or "llm",
+        }
     )
 
     _groq_patcher = MultiPatcher(

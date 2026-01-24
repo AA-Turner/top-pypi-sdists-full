@@ -2,6 +2,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Literal
 
+from typing_extensions import TypeAlias
+
 class PythonImport:
     module_path: str
     line_number: int
@@ -36,7 +38,7 @@ def create_computation_cache_key(
     file_dependencies: list[str],
     env_dependencies: list[str],
     backend: str,
-    respect_gitignore: bool,
+    respect_gitignore: RespectGitIgnore,
 ) -> str: ...
 def check_computation_cache(
     project_root: Path, cache_key: str
@@ -134,6 +136,9 @@ RuleSetting = Literal["error", "warn", "off"]
 
 RootModuleTreatment = Literal["allow", "ignore", "dependenciesonly", "forbid"]
 
+# ideally this should be using the new type alias syntax. see https://github.com/astral-sh/ruff/issues/21677
+RespectGitIgnore: TypeAlias = bool | Literal["if_git_repo"]
+
 class RulesConfig:
     unused_ignore_directives: RuleSetting
     require_ignore_directive_reasons: RuleSetting
@@ -142,13 +147,13 @@ class ProjectConfig:
     cache: CacheConfig
     external: ExternalDependencyConfig
     exclude: list[str]
-    source_roots: list[str]
+    source_roots: list[Path]
     exact: bool
-    disable_logging: bool
     ignore_type_checking_imports: bool
     include_string_imports: bool
     forbid_circular_dependencies: bool
-    respect_gitignore: bool
+    layers_explicit_depends_on: bool
+    respect_gitignore: RespectGitIgnore
     # [DEPRECATED] Just reading this to print a warning
     use_regex_matching: bool
     rules: RulesConfig

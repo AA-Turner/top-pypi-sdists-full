@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import time
+import warnings
 from pathlib import Path
 from typing import Optional, List, ClassVar, Dict, Any
 
@@ -23,7 +24,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from pydantic_yaml import to_yaml_str
 
 from kodexa.model import Document
-from kodexa.model.model import Ref
+from kodexa.model.model import Ref, ProcessingStep
 from kodexa.model.objects import (
     AggregatedModelCost,
     PageUser,
@@ -108,6 +109,18 @@ from kodexa.model.objects import (
     PageTaskTag,
     Note,
     PageNote,
+    KnowledgeFeatureType,
+    KnowledgeFeature,
+    KnowledgeItemType,
+    KnowledgeItem,
+    KnowledgeSet,
+    KnowledgeSetStatus,
+    PageKnowledgeFeatureType,
+    PageKnowledgeFeature,
+    PageKnowledgeItemType,
+    PageKnowledgeItem,
+    PageKnowledgeSet,
+    QueryContext,
 )
 
 logger = logging.getLogger()
@@ -1315,7 +1328,7 @@ class TaskTemplateEndpoint(EntityEndpoint, TaskTemplate):
     """
 
     def get_type(self) -> str:
-        return "taskTemplates"
+        return "task-templates"
 
 
 class TaskTemplatesEndpoint(EntitiesEndpoint):
@@ -1324,7 +1337,7 @@ class TaskTemplatesEndpoint(EntitiesEndpoint):
     """
 
     def get_type(self) -> str:
-        return "taskTemplates"
+        return "task-templates"
 
     def get_instance_class(self, object_dict=None):
         return TaskTemplateEndpoint
@@ -1465,6 +1478,158 @@ class PageNoteEndpoint(PageNote, PageEndpoint):
 
     def get_type(self) -> Optional[str]:
         return "notes"
+
+
+# Knowledge Domain Endpoints
+
+class KnowledgeFeatureTypeEndpoint(EntityEndpoint, KnowledgeFeatureType):
+    """
+    Represents a knowledge feature type endpoint.
+    """
+    def get_type(self) -> str:
+        return "knowledge-feature-types"
+
+
+class KnowledgeFeatureTypesEndpoint(EntitiesEndpoint):
+    """
+    Represents knowledge feature types endpoints.
+    """
+    def get_type(self) -> str:
+        return "knowledge-feature-types"
+
+    def get_instance_class(self, object_dict=None):
+        return KnowledgeFeatureTypeEndpoint
+
+    def get_page_class(self, object_dict=None):
+        return PageKnowledgeFeatureTypeEndpoint
+
+
+class PageKnowledgeFeatureTypeEndpoint(PageKnowledgeFeatureType, PageEndpoint):
+    """
+    Represents a page knowledge feature type endpoint.
+    """
+    def get_type(self) -> Optional[str]:
+        return "knowledge-feature-types"
+
+
+class KnowledgeFeatureEndpoint(EntityEndpoint, KnowledgeFeature):
+    """
+    Represents a knowledge feature endpoint.
+    """
+    def get_type(self) -> str:
+        return "knowledge-features"
+
+
+class KnowledgeFeaturesEndpoint(EntitiesEndpoint):
+    """
+    Represents knowledge features endpoints.
+    """
+    def get_type(self) -> str:
+        return "knowledge-features"
+
+    def get_instance_class(self, object_dict=None):
+        return KnowledgeFeatureEndpoint
+
+    def get_page_class(self, object_dict=None):
+        return PageKnowledgeFeatureEndpoint
+
+
+class PageKnowledgeFeatureEndpoint(PageKnowledgeFeature, PageEndpoint):
+    """
+    Represents a page knowledge feature endpoint.
+    """
+    def get_type(self) -> Optional[str]:
+        return "knowledge-features"
+
+
+class KnowledgeItemTypeEndpoint(EntityEndpoint, KnowledgeItemType):
+    """
+    Represents a knowledge item type endpoint.
+    """
+    def get_type(self) -> str:
+        return "knowledge-item-types"
+
+
+class KnowledgeItemTypesEndpoint(EntitiesEndpoint):
+    """
+    Represents knowledge item types endpoints.
+    """
+    def get_type(self) -> str:
+        return "knowledge-item-types"
+
+    def get_instance_class(self, object_dict=None):
+        return KnowledgeItemTypeEndpoint
+
+    def get_page_class(self, object_dict=None):
+        return PageKnowledgeItemTypeEndpoint
+
+
+class PageKnowledgeItemTypeEndpoint(PageKnowledgeItemType, PageEndpoint):
+    """
+    Represents a page knowledge item type endpoint.
+    """
+    def get_type(self) -> Optional[str]:
+        return "knowledge-item-types"
+
+
+class KnowledgeItemEndpoint(EntityEndpoint, KnowledgeItem):
+    """
+    Represents a knowledge item endpoint.
+    """
+    def get_type(self) -> str:
+        return "knowledge-items"
+
+
+class KnowledgeItemsEndpoint(EntitiesEndpoint):
+    """
+    Represents knowledge items endpoints.
+    """
+    def get_type(self) -> str:
+        return "knowledge-items"
+
+    def get_instance_class(self, object_dict=None):
+        return KnowledgeItemEndpoint
+
+    def get_page_class(self, object_dict=None):
+        return PageKnowledgeItemEndpoint
+
+
+class PageKnowledgeItemEndpoint(PageKnowledgeItem, PageEndpoint):
+    """
+    Represents a page knowledge item endpoint.
+    """
+    def get_type(self) -> Optional[str]:
+        return "knowledge-items"
+
+
+class KnowledgeSetEndpoint(EntityEndpoint, KnowledgeSet):
+    """
+    Represents a knowledge set endpoint.
+    """
+    def get_type(self) -> str:
+        return "knowledge-sets"
+
+
+class KnowledgeSetsEndpoint(EntitiesEndpoint):
+    """
+    Represents knowledge sets endpoints.
+    """
+    def get_type(self) -> str:
+        return "knowledge-sets"
+
+    def get_instance_class(self, object_dict=None):
+        return KnowledgeSetEndpoint
+
+    def get_page_class(self, object_dict=None):
+        return PageKnowledgeSetEndpoint
+
+
+class PageKnowledgeSetEndpoint(PageKnowledgeSet, PageEndpoint):
+    """
+    Represents a page knowledge set endpoint.
+    """
+    def get_type(self) -> Optional[str]:
+        return "knowledge-sets"
 
 
 class PageTaskTemplateEndpoint(PageTask, PageEndpoint):
@@ -4709,31 +4874,64 @@ class DocumentFamilyEndpoint(DocumentFamily, ClientEndpoint):
 
     """Represents a document family endpoint"""
 
+    def _document_family_url(self, suffix: str = "") -> str:
+        """
+        Build a document family URL scoped to the document families controller.
+        """
+        base_url = f"/api/document-families/{self.id}"
+        if suffix:
+            if not suffix.startswith("/"):
+                suffix = f"/{suffix}"
+            return f"{base_url}{suffix}"
+        return base_url
+
     def update(self):
         """
         Update the document family.
         """
-        url = f"/api/stores/{self.store_ref.replace(':', '/')}/families/{self.id}"
-        response = self.client.put(url, body=self.model_dump(mode="json", by_alias=True))
-        self.change_sequence = response.json()["changeSequence"]
+        response = self.client.put(
+            self._document_family_url(),
+            body=self.model_dump(mode="json", by_alias=True),
+        )
+        process_response(response)
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        if isinstance(payload, dict):
+            self.change_sequence = payload.get("changeSequence", self.change_sequence)
+        return self
 
     def set_active_assistant(self, assistant: Assistant):
         """
         Set the active assistant.
         """
-        url = f"/api/stores/{self.store_ref.replace(':', '/')}/families/{self.id}/activeAssistant"
-        response = self.client.put(url, body=assistant.model_dump(mode="json", by_alias=True))
+        response = self.client.put(
+            self._document_family_url("activeAssistant"),
+            body=assistant.model_dump(mode="json", by_alias=True),
+        )
         process_response(response)
-        self.change_sequence = response.json()["changeSequence"]
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        if isinstance(payload, dict):
+            self.change_sequence = payload.get("changeSequence", self.change_sequence)
+        return self
 
     def clear_active_assistant(self):
         """
         Clear the active assistant.
         """
-        url = f"/api/stores/{self.store_ref.replace(':', '/')}/families/{self.id}/activeAssistant"
-        response = self.client.delete(url)
+        response = self.client.delete(self._document_family_url("activeAssistant"))
         process_response(response)
-        self.change_sequence = response.json()["changeSequence"]
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        if isinstance(payload, dict):
+            self.change_sequence = payload.get("changeSequence", self.change_sequence)
+        return self
 
     def rename(self, new_name: str):
         """
@@ -4756,40 +4954,51 @@ class DocumentFamilyEndpoint(DocumentFamily, ClientEndpoint):
         """
         Lock the document family.
         """
-        url = f"/api/stores/{self.store_ref.replace(':', '/')}/families/{self.id}/lock"
-        response = self.client.put(url)
+        response = self.client.put(self._document_family_url("lock"))
         process_response(response)
-        self.change_sequence = response.json()["changeSequence"]
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        if isinstance(payload, dict):
+            self.change_sequence = payload.get("changeSequence", self.change_sequence)
+        return self
 
     def unlock(self):
         """
         Unlock the document family.
         """
-        url = f"/api/stores/{self.store_ref.replace(':', '/')}/families/{self.id}/unlock"
-        response = self.client.put(url)
+        response = self.client.put(self._document_family_url("unlock"))
         process_response(response)
-        self.change_sequence = response.json()["changeSequence"]
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        if isinstance(payload, dict):
+            self.change_sequence = payload.get("changeSequence", self.change_sequence)
+        return self
 
     def touch(self):
         """
         Update the document family.
         """
-        url = f"/api/documentFamilies/{self.id}/touch"
-        response = self.client.get(url)
+        response = self.client.get(self._document_family_url("touch"))
         process_response(response)
 
-    def get_external_data(self) -> dict:
+    def get_external_data(self, key: Optional[str] = None) -> dict:
         """
         Get the external data of the document family.
 
         Returns:
             DocumentExternalData: The external data of the document family.
         """
-        url = f"/api/documentFamilies/{self.id}/externalData"
-        response = self.client.get(url)
+        params = {"key": key} if key is not None else None
+        response = self.client.get(
+            self._document_family_url("externalData"), params=params
+        )
         return response.json()
 
-    def set_external_data(self, external_data: dict) -> dict:
+    def set_external_data(self, external_data: dict, key: Optional[str] = None) -> dict:
         """
         Set the external data of the document family.
 
@@ -4799,9 +5008,31 @@ class DocumentFamilyEndpoint(DocumentFamily, ClientEndpoint):
         Returns:
             dict: The updated external data of the document family.
         """
-        url = f"/api/documentFamilies/{self.id}/externalData"
-        response = self.client.put(url, body=external_data)
+        params = {"key": key} if key is not None else None
+        response = self.client.put(
+            self._document_family_url("externalData"),
+            body=external_data,
+            params=params,
+        )
         return response.json()
+
+    def get_external_data_keys(self) -> List[str]:
+        """
+        Get the keys available for external data on this document family.
+        """
+        response = self.client.get(self._document_family_url("externalDataKeys"))
+        return response.json()
+
+    def get_steps(self) -> List[ProcessingStep]:
+        """
+        Get the processing steps for this document family.
+        """
+        response = self.client.get(self._document_family_url("steps"))
+        process_response(response)
+        return [
+            ProcessingStep.model_validate(step)
+            for step in response.json()
+        ]
 
     def get_json(
             self,
@@ -4814,7 +5045,6 @@ class DocumentFamilyEndpoint(DocumentFamily, ClientEndpoint):
         """Get the JSON export for the document family
 
         Args:
-            project_id str: The project ID
             friendly_names (bool): Whether to use friendly names. Defaults to False
             include_ids (bool): Whether to include the IDs. Defaults to True
             include_exceptions (bool): Whether to include the exceptions. Defaults to False
@@ -4823,22 +5053,57 @@ class DocumentFamilyEndpoint(DocumentFamily, ClientEndpoint):
         Returns:
             str: The JSON
         """
-        if project_id is None:
-            raise Exception(
-                f"Project ID is required"
+
+        if project_id is not None:
+            warnings.warn(
+                "project_id parameter is deprecated and will be ignored.",
+                DeprecationWarning,
+                stacklevel=2,
             )
 
-        url = f"/api/stores/{self.store_ref.replace(':', '/')}/families/{self.id}/dataObjects"
-        params = {
-            "format": "json",
-            "friendlyNames": friendly_names,
-            "projectId": project_id,
-            "includeIds": include_ids,
-            "includeExceptions": include_exceptions,
-            "inlineAudits": inline_audits,
-        }
+        return self.get_data_export(
+            format="json",
+            friendly_names=friendly_names,
+            include_ids=include_ids,
+            include_exceptions=include_exceptions,
+            inline_audits=inline_audits,
+        )
 
-        response = self.client.get(url, params=params)
+    def get_data_export(
+            self,
+            format: str,
+            path: Optional[str] = None,
+            query_context: Optional[QueryContext] = None,
+            root_name: str = "",
+            friendly_names: bool = True,
+            include_ids: bool = True,
+            include_exceptions: bool = False,
+            inline_audits: bool = False,
+    ) -> str:
+        """
+        Export the document family data into the requested format.
+        """
+        params: Dict[str, Any] = {
+            "format": format,
+            "rootName": root_name,
+            "friendlyNames": str(friendly_names).lower(),
+            "includeIds": str(include_ids).lower(),
+            "includeExceptions": str(include_exceptions).lower(),
+            "inlineAudits": str(inline_audits).lower(),
+        }
+        if path is not None:
+            params["path"] = path
+
+        if query_context is not None:
+            if isinstance(query_context, QueryContext):
+                params["queryContext"] = json.dumps(
+                    query_context.model_dump(by_alias=True, exclude_none=True)
+                )
+            else:
+                params["queryContext"] = json.dumps(query_context)
+
+        response = self.client.get(self._document_family_url("data"), params=params)
+        process_response(response)
         return response.text
 
     def export(self) -> bytes:
@@ -4848,10 +5113,7 @@ class DocumentFamilyEndpoint(DocumentFamily, ClientEndpoint):
         Returns:
             bytes: The exported document family.
         """
-        url = (
-            f"/api/stores/{self.store_ref.replace(':', '/')}/families/{self.id}/export"
-        )
-        get_response = self.client.get(url)
+        get_response = self.client.get(self._document_family_url("export"))
         process_response(get_response)
         return get_response.content
 
@@ -4898,9 +5160,8 @@ class DocumentFamilyEndpoint(DocumentFamily, ClientEndpoint):
 
         start = time.time()
         while time.time() - start < timeout:
-            url = f"/api/stores/{self.store_ref.replace(':', '/')}/families/{self.id}"
             updated_document_family = DocumentFamilyEndpoint.model_validate(
-                self.client.get(url).json()
+                self.client.get(self._document_family_url()).json()
             ).set_client(self.client)
             if mixin and mixin in updated_document_family.mixins:
                 return updated_document_family
@@ -4918,7 +5179,7 @@ class DocumentFamilyEndpoint(DocumentFamily, ClientEndpoint):
         Delete the document family.
         """
         logger.info("Deleting document family %s", self.id)
-        url = f"/api/stores/{self.store_ref.replace(':', '/')}/families/{self.id}"
+        url = self._document_family_url()
         if self.client.exists(url):
             self.client.delete(url)
         else:
@@ -5006,10 +5267,51 @@ class DocumentFamilyEndpoint(DocumentFamily, ClientEndpoint):
         Args:
             document_status (DocumentStatus): The document status to set.
         """
-        url = (
-            f"/api/stores/{self.store_ref.replace(':', '/')}/families/{self.id}/status"
+        response = self.client.put(
+            self._document_family_url("status"),
+            body=document_status.model_dump(by_alias=True),
         )
-        self.client.put(url, body=document_status.model_dump(by_alias=True))
+        process_response(response)
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        if isinstance(payload, dict):
+            self.change_sequence = payload.get("changeSequence", self.change_sequence)
+
+    def add_knowledge_feature(
+            self, knowledge_feature: KnowledgeFeature
+    ) -> KnowledgeFeature:
+        """
+        Add a knowledge feature to the document family.
+        """
+        response = self.client.post(
+            self._document_family_url("addKnowledgeFeature"),
+            body=knowledge_feature.model_dump(mode="json", by_alias=True),
+        )
+        process_response(response)
+        return KnowledgeFeature.model_validate(response.json())
+
+    def remove_knowledge_feature(
+            self, knowledge_feature: KnowledgeFeature
+    ) -> KnowledgeFeature:
+        """
+        Remove a knowledge feature from the document family.
+        """
+        response = self.client.post(
+            self._document_family_url("removeKnowledgeFeature"),
+            body=knowledge_feature.model_dump(mode="json", by_alias=True),
+        )
+        process_response(response)
+        return KnowledgeFeature.model_validate(response.json())
+
+    def assess_knowledge(self) -> Dict[str, Any]:
+        """
+        Assess the document family for knowledge sets and features.
+        """
+        response = self.client.post(self._document_family_url("assess"))
+        process_response(response)
+        return response.json()
 
     def add_document(
             self, document: Document, content_object: Optional[ContentObject] = None,
@@ -5059,10 +5361,7 @@ class DocumentFamilyEndpoint(DocumentFamily, ClientEndpoint):
         Returns:
             bytes: The exported document family.
         """
-        url = (
-            f"/api/stores/{self.store_ref.replace(':', '/')}/families/{self.id}/export"
-        )
-        get_response = self.client.get(url)
+        get_response = self.client.get(self._document_family_url("export"))
         return get_response.content
 
     def replace_tags(
@@ -6848,6 +7147,11 @@ class KodexaClient:
         users (UsersEndpoint): An endpoint for users.
         workspaces (WorkspacesEndpoint): An endpoint for workspaces.
         notes (NotesEndpoint): An endpoint for notes.
+        knowledge_feature_types (KnowledgeFeatureTypesEndpoint): An endpoint for knowledge feature types.
+        knowledge_features (KnowledgeFeaturesEndpoint): An endpoint for knowledge features.
+        knowledge_item_types (KnowledgeItemTypesEndpoint): An endpoint for knowledge item types.
+        knowledge_items (KnowledgeItemsEndpoint): An endpoint for knowledge items.
+        knowledge_sets (KnowledgeSetsEndpoint): An endpoint for knowledge sets.
     """
 
     def __init__(self, url=None, access_token=None, profile=None):
@@ -6879,6 +7183,11 @@ class KodexaClient:
         self.workspaces = WorkspacesEndpoint(self)
         self.data_exceptions = DataExceptionsEndpoint(self)
         self.notes = NotesEndpoint(self)
+        self.knowledge_feature_types = KnowledgeFeatureTypesEndpoint(self)
+        self.knowledge_features = KnowledgeFeaturesEndpoint(self)
+        self.knowledge_item_types = KnowledgeItemTypesEndpoint(self)
+        self.knowledge_items = KnowledgeItemsEndpoint(self)
+        self.knowledge_sets = KnowledgeSetsEndpoint(self)
         self.model_costs = ModelCostsEndpoint(self)
 
     @staticmethod
@@ -7476,12 +7785,18 @@ class KodexaClient:
                 "taskActivity": TaskActivityEndpoint,
                 "taskDocumentFamily": TaskDocumentFamilyEndpoint,
                 "taskTag": TaskTagEndpoint,
-                "taskTemplate": TaskTemplateEndpoint,
+                "taskTemplate": TaskTemplateEndpoint,  # deprecated pre-7.5
+                "task-templates": TaskTemplateEndpoint,
                 "taxonomy": TaxonomyEndpoint,
                 "user": UserEndpoint,
                 "workspace": WorkspaceEndpoint,
                 "note": NoteEndpoint,
                 "notes": NoteEndpoint,
+                "knowledge-sets": KnowledgeSetEndpoint,
+                "knowledge-features": KnowledgeFeatureEndpoint,
+                "knowledge-items": KnowledgeItemEndpoint,
+                "knowledge-item-types": KnowledgeItemTypeEndpoint,
+                "knowledge-feature-types": KnowledgeFeatureTypeEndpoint,
             }
 
             if component_type in known_components:

@@ -7,16 +7,35 @@
 
 #include "src/gpu/ganesh/effects/GrYUVtoRGBEffect.h"
 
+#include "include/core/SkAlphaType.h"
+#include "include/core/SkImageInfo.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkSamplingOptions.h"
 #include "include/core/SkYUVAInfo.h"
+#include "include/private/SkSLSampleUsage.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkTo.h"
+#include "include/private/gpu/ganesh/GrTypesPriv.h"
+#include "src/core/SkSLTypeShared.h"
+#include "src/core/SkYUVAInfoLocation.h"
 #include "src/core/SkYUVMath.h"
 #include "src/gpu/KeyBuilder.h"
-#include "src/gpu/ganesh/GrTexture.h"
+#include "src/gpu/ganesh/GrSurfaceProxyView.h"
 #include "src/gpu/ganesh/GrYUVATextureProxies.h"
 #include "src/gpu/ganesh/effects/GrMatrixEffect.h"
 #include "src/gpu/ganesh/effects/GrTextureEffect.h"
 #include "src/gpu/ganesh/glsl/GrGLSLFragmentShaderBuilder.h"
-#include "src/gpu/ganesh/glsl/GrGLSLProgramBuilder.h"
-#include "src/sksl/SkSLUtil.h"
+#include "src/gpu/ganesh/glsl/GrGLSLProgramDataManager.h"
+#include "src/gpu/ganesh/glsl/GrGLSLUniformHandler.h"
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <string>
+#include <utility>
+
+struct GrShaderCaps;
 
 static void border_colors(const GrYUVATextureProxies& yuvaProxies, float planeBorders[4][4]) {
     float m[20];
@@ -58,7 +77,7 @@ std::unique_ptr<GrFragmentProcessor> GrYUVtoRGBEffect::Make(const GrYUVATextureP
         GrSurfaceProxyView view = yuvaProxies.makeView(i);
         SkMatrix planeMatrix = yuvaProxies.yuvaInfo().originMatrix();
         // The returned matrix is a view matrix but we need a local matrix.
-        SkAssertResult(planeMatrix.invert(&planeMatrix));
+        planeMatrix = planeMatrix.invert().value_or(SkMatrix());
         SkRect planeSubset;
         SkRect planeDomain;
         bool makeLinearWithSnap = false;
@@ -228,7 +247,7 @@ GrYUVtoRGBEffect::GrYUVtoRGBEffect(std::unique_ptr<GrFragmentProcessor> planeFPs
     }
 }
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
 SkString GrYUVtoRGBEffect::onDumpInfo() const {
     SkString str("(");
     for (int i = 0; i < SkYUVAInfo::kYUVAChannelCount; ++i) {

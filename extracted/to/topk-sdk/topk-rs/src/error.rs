@@ -3,6 +3,9 @@ use std::time::Duration;
 use tonic::Status;
 use tracing::error;
 
+pub const MAX_VECTOR_DIMENSION: u32 = 16_384; // Double the size of `8192` which is the largest widely used vector dimension.
+pub const MAX_MATRIX_DIMENSION: u32 = 1024; // 8 * 128 which is the commonly used multi-vector dimension.
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("lsn timeout")]
@@ -40,6 +43,9 @@ pub enum Error {
 
     #[error("request too large: {0}")]
     RequestTooLarge(String),
+
+    #[error("input error: {0}")]
+    Input(anyhow::Error),
 
     #[error("internal error: {0}")]
     Internal(String),
@@ -79,6 +85,7 @@ impl Error {
             Error::MalformedResponse(_) => false,
             Error::Unexpected(_) => false,
             Error::Internal(_) => false,
+            Error::Input(_) => false,
         }
     }
 
@@ -139,7 +146,7 @@ impl From<Status> for Error {
     }
 }
 
-#[derive(Debug, thiserror::Error, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq, serde::Serialize, serde::Deserialize, Clone)]
 pub enum SchemaValidationError {
     #[error("field `{field}` has no data type")]
     MissingDataType { field: String },
@@ -164,14 +171,26 @@ pub enum SchemaValidationError {
         data_type: String,
     },
 
-    #[error("vector field `{field}` cannot be have zero dimension")]
+    #[error("invalid vector index spec for field `{field}`: {message}")]
+    InvalidVectorIndexSpec { field: String, message: String },
+
+    #[error("vector field `{field}` cannot have zero dimension")]
     VectorDimensionCannotBeZero { field: String },
+
+    #[error("vector field `{field}` cannot have dimension greater than {MAX_VECTOR_DIMENSION}")]
+    VectorDimensionTooLarge { field: String, dimension: u32 },
+
+    #[error("matrix field `{field}` cannot have zero dimension")]
+    MatrixDimensionCannotBeZero { field: String },
+
+    #[error("matrix field `{field}` cannot have dimension greater than {MAX_MATRIX_DIMENSION}")]
+    MatrixDimensionTooLarge { field: String, dimension: u32 },
 
     #[error("Invalid semantic index for field `{field}. Error: {error}`")]
     InvalidSemanticIndex { field: String, error: String },
 }
 
-#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize, Clone)]
 pub enum DocumentValidationError {
     MissingId {
         doc_offset: usize,
@@ -211,6 +230,19 @@ pub enum DocumentValidationError {
         got_dimension: usize,
     },
 
+    InvalidMatrixDimension {
+        doc_id: String,
+        field: String,
+        expected_dimension: usize,
+        got_dimension: usize,
+    },
+
+    InvalidMatrix {
+        doc_id: String,
+        field: String,
+        reason: String,
+    },
+
     InvalidSparseVector {
         doc_id: String,
         field: String,
@@ -230,17 +262,21 @@ pub enum DocumentValidationError {
         max_size_bytes: u64,
         got_size_bytes: u64,
     },
+
+    DocumentNotFound {
+        doc_id: String,
+    },
 }
 
-#[derive(PartialEq, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(PartialEq, Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub enum CollectionValidationError {
     InvalidName(String),
 }
 
-#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct ValidationErrorBag<T: Serialize>(Vec<T>);
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize, Clone)]
+pub struct ValidationErrorBag<T: Serialize + Clone>(Vec<T>);
 
-impl<T: Serialize + DeserializeOwned> ValidationErrorBag<T> {
+impl<T: Serialize + DeserializeOwned + Clone> ValidationErrorBag<T> {
     pub fn new(errors: Vec<T>) -> Self {
         Self(errors)
     }
@@ -274,7 +310,7 @@ impl<T: Serialize + DeserializeOwned> ValidationErrorBag<T> {
     }
 }
 
-impl<T: Serialize> From<ValidationErrorBag<T>> for tonic::Status {
+impl<T: Serialize + Clone> From<ValidationErrorBag<T>> for tonic::Status {
     fn from(err: ValidationErrorBag<T>) -> Self {
         match serde_json::to_string(&err) {
             Ok(message) => tonic::Status::invalid_argument(message),
@@ -286,7 +322,7 @@ impl<T: Serialize> From<ValidationErrorBag<T>> for tonic::Status {
     }
 }
 
-impl<T: Serialize + DeserializeOwned> TryFrom<tonic::Status> for ValidationErrorBag<T> {
+impl<T: Serialize + DeserializeOwned + Clone> TryFrom<tonic::Status> for ValidationErrorBag<T> {
     type Error = serde_json::Error;
 
     fn try_from(status: tonic::Status) -> Result<Self, Self::Error> {

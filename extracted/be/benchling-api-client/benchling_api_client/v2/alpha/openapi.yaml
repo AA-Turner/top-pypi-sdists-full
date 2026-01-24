@@ -2780,6 +2780,7 @@ components:
       - custom_entity_link
       - entity_link
       - mixture_link
+      - molecule_link
       - dropdown
       - part_link
       - translation_link
@@ -5199,6 +5200,7 @@ components:
       - custom_entity_link
       - entity_link
       - mixture_link
+      - molecule_link
       - dropdown
       - part_link
       - translation_link
@@ -5666,6 +5668,20 @@ components:
       - v2.workflowTaskGroup.created
       - v2.workflowTaskGroup.mappingCompleted
       - v2.workflowTaskGroup.updated.watchers
+      - v3.customEntity.created
+      - v3.customEntity.updated
+      - v3.dnaOligo.created
+      - v3.dnaOligo.updated
+      - v3.dnaSequence.created
+      - v3.dnaSequence.updated
+      - v3.entry.created
+      - v3.project.created
+      - v3.project.updated
+      - v3.rnaOligo.created
+      - v3.rnaOligo.updated
+      - v3.rnaSequence.created
+      - v3.rnaSequence.updated
+      - v3.run.created
       type: string
     MixturePrepTableNotePart:
       allOf:
@@ -5850,6 +5866,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/ArchiveRecord'
           nullable: true
+        authors:
+          items:
+            $ref: '#/components/schemas/UserSummary'
+          type: array
         bases:
           description: Base pairs of the Oligo.
           example: ACTTTTT
@@ -5969,7 +5989,6 @@ components:
       allOf:
       - $ref: '#/components/schemas/OligoBaseRequest'
       - required:
-        - bases
         - name
     OligoCreate:
       additionalProperties: false
@@ -7115,8 +7134,8 @@ tags:
     assigned to access an item.
   name: Collaborations
 - description: 'Benchling supports custom entities for biological entities that are
-    neither sequences or proteins. Custom entities must have an entity schema set
-    and can have both schema fields and custom fields.
+    neither DNA, RNA, nor AA sequences. Custom entities must have an entity schema
+    set and can have both schema fields and custom fields.
 
     '
   name: Custom Entities

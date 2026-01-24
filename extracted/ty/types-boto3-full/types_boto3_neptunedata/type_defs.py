@@ -3,7 +3,7 @@ Type annotations for neptunedata service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_neptunedata/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -34,12 +35,6 @@ from .literals import (
     StatisticsAutoGenerationModeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -164,7 +159,7 @@ class CancelGremlinQueryInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -248,7 +243,7 @@ class DeleteStatisticsValueMapTypeDef(TypedDict):
 
 class EdgeStructureTypeDef(TypedDict):
     count: NotRequired[int]
-    edgeProperties: NotRequired[List[str]]
+    edgeProperties: NotRequired[list[str]]
 
 
 class ExecuteFastResetInputTypeDef(TypedDict):
@@ -280,7 +275,7 @@ class ExecuteGremlinQueryInputTypeDef(TypedDict):
 class GremlinQueryStatusAttributesTypeDef(TypedDict):
     message: NotRequired[str]
     code: NotRequired[int]
-    attributes: NotRequired[Dict[str, Any]]
+    attributes: NotRequired[dict[str, Any]]
 
 
 class ExecuteOpenCypherExplainQueryInputTypeDef(TypedDict):
@@ -306,7 +301,7 @@ class QueryEvalStatsTypeDef(TypedDict):
     waited: NotRequired[int]
     elapsed: NotRequired[int]
     cancelled: NotRequired[bool]
-    subqueries: NotRequired[Dict[str, Any]]
+    subqueries: NotRequired[dict[str, Any]]
 
 
 class GetLoaderJobStatusInputTypeDef(TypedDict):
@@ -403,7 +398,7 @@ class ListLoaderJobsInputTypeDef(TypedDict):
 
 
 class LoaderIdResultTypeDef(TypedDict):
-    loadIds: NotRequired[List[str]]
+    loadIds: NotRequired[list[str]]
 
 
 class ListMLDataProcessingJobsInputTypeDef(TypedDict):
@@ -444,8 +439,8 @@ class ManageSparqlStatisticsInputTypeDef(TypedDict):
 
 class NodeStructureTypeDef(TypedDict):
     count: NotRequired[int]
-    nodeProperties: NotRequired[List[str]]
-    distinctOutgoingEdgeLabels: NotRequired[List[str]]
+    nodeProperties: NotRequired[list[str]]
+    distinctOutgoingEdgeLabels: NotRequired[list[str]]
 
 
 PropertygraphDataTypeDef = TypedDict(
@@ -454,7 +449,7 @@ PropertygraphDataTypeDef = TypedDict(
         "id": str,
         "type": str,
         "key": str,
-        "value": Dict[str, Any],
+        "value": dict[str, Any],
         "from": NotRequired[str],
         "to": NotRequired[str],
     },
@@ -463,7 +458,7 @@ PropertygraphDataTypeDef = TypedDict(
 
 class SubjectStructureTypeDef(TypedDict):
     count: NotRequired[int]
-    predicates: NotRequired[List[str]]
+    predicates: NotRequired[list[str]]
 
 
 class SparqlDataTypeDef(TypedDict):
@@ -578,39 +573,39 @@ class ExecuteOpenCypherExplainQueryOutputTypeDef(TypedDict):
 
 
 class ExecuteOpenCypherQueryOutputTypeDef(TypedDict):
-    results: Dict[str, Any]
+    results: dict[str, Any]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetLoaderJobStatusOutputTypeDef(TypedDict):
     status: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListMLDataProcessingJobsOutputTypeDef(TypedDict):
-    ids: List[str]
+    ids: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListMLEndpointsOutputTypeDef(TypedDict):
-    ids: List[str]
+    ids: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListMLModelTrainingJobsOutputTypeDef(TypedDict):
-    ids: List[str]
+    ids: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListMLModelTransformJobsOutputTypeDef(TypedDict):
-    ids: List[str]
+    ids: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class StartLoaderJobOutputTypeDef(TypedDict):
     status: str
-    payload: Dict[str, str]
+    payload: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -708,8 +703,8 @@ class ExecuteFastResetOutputTypeDef(TypedDict):
 class ExecuteGremlinQueryOutputTypeDef(TypedDict):
     requestId: str
     status: GremlinQueryStatusAttributesTypeDef
-    result: Dict[str, Any]
-    meta: Dict[str, Any]
+    result: dict[str, Any]
+    meta: dict[str, Any]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -722,11 +717,11 @@ class GetEngineStatusOutputTypeDef(TypedDict):
     gremlin: QueryLanguageVersionTypeDef
     sparql: QueryLanguageVersionTypeDef
     opencypher: QueryLanguageVersionTypeDef
-    labMode: Dict[str, str]
+    labMode: dict[str, str]
     rollingBackTrxCount: int
     rollingBackTrxEarliestStartTime: str
-    features: Dict[str, Dict[str, Any]]
-    settings: Dict[str, str]
+    features: dict[str, dict[str, Any]]
+    settings: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -777,7 +772,7 @@ GetMLModelTrainingJobOutputTypeDef = TypedDict(
         "processingJob": MlResourceDefinitionTypeDef,
         "hpoJob": MlResourceDefinitionTypeDef,
         "modelTransformJob": MlResourceDefinitionTypeDef,
-        "mlModels": List[MlConfigDefinitionTypeDef],
+        "mlModels": list[MlConfigDefinitionTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -788,7 +783,7 @@ GetMLModelTransformJobOutputTypeDef = TypedDict(
         "id": str,
         "baseProcessingJob": MlResourceDefinitionTypeDef,
         "remoteModelTransformJob": MlResourceDefinitionTypeDef,
-        "models": List[MlConfigDefinitionTypeDef],
+        "models": list[MlConfigDefinitionTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -817,21 +812,21 @@ class PropertygraphSummaryTypeDef(TypedDict):
     numEdges: NotRequired[int]
     numNodeLabels: NotRequired[int]
     numEdgeLabels: NotRequired[int]
-    nodeLabels: NotRequired[List[str]]
-    edgeLabels: NotRequired[List[str]]
+    nodeLabels: NotRequired[list[str]]
+    edgeLabels: NotRequired[list[str]]
     numNodeProperties: NotRequired[int]
     numEdgeProperties: NotRequired[int]
-    nodeProperties: NotRequired[List[Dict[str, int]]]
-    edgeProperties: NotRequired[List[Dict[str, int]]]
+    nodeProperties: NotRequired[list[dict[str, int]]]
+    edgeProperties: NotRequired[list[dict[str, int]]]
     totalNodePropertyValues: NotRequired[int]
     totalEdgePropertyValues: NotRequired[int]
-    nodeStructures: NotRequired[List[NodeStructureTypeDef]]
-    edgeStructures: NotRequired[List[EdgeStructureTypeDef]]
+    nodeStructures: NotRequired[list[NodeStructureTypeDef]]
+    edgeStructures: NotRequired[list[EdgeStructureTypeDef]]
 
 
 class PropertygraphRecordTypeDef(TypedDict):
     commitTimestampInMillis: int
-    eventId: Dict[str, str]
+    eventId: dict[str, str]
     data: PropertygraphDataTypeDef
     op: str
     isLastOp: NotRequired[bool]
@@ -842,14 +837,14 @@ class RDFGraphSummaryTypeDef(TypedDict):
     numDistinctPredicates: NotRequired[int]
     numQuads: NotRequired[int]
     numClasses: NotRequired[int]
-    classes: NotRequired[List[str]]
-    predicates: NotRequired[List[Dict[str, int]]]
-    subjectStructures: NotRequired[List[SubjectStructureTypeDef]]
+    classes: NotRequired[list[str]]
+    predicates: NotRequired[list[dict[str, int]]]
+    subjectStructures: NotRequired[list[SubjectStructureTypeDef]]
 
 
 class SparqlRecordTypeDef(TypedDict):
     commitTimestampInMillis: int
-    eventId: Dict[str, str]
+    eventId: dict[str, str]
     data: SparqlDataTypeDef
     op: str
     isLastOp: NotRequired[bool]
@@ -867,14 +862,14 @@ class StatisticsTypeDef(TypedDict):
 class ListGremlinQueriesOutputTypeDef(TypedDict):
     acceptedQueryCount: int
     runningQueryCount: int
-    queries: List[GremlinQueryStatusTypeDef]
+    queries: list[GremlinQueryStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListOpenCypherQueriesOutputTypeDef(TypedDict):
     acceptedQueryCount: int
     runningQueryCount: int
-    queries: List[GremlinQueryStatusTypeDef]
+    queries: list[GremlinQueryStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -887,10 +882,10 @@ class PropertygraphSummaryValueMapTypeDef(TypedDict):
 GetPropertygraphStreamOutputTypeDef = TypedDict(
     "GetPropertygraphStreamOutputTypeDef",
     {
-        "lastEventId": Dict[str, str],
+        "lastEventId": dict[str, str],
         "lastTrxTimestampInMillis": int,
         "format": str,
-        "records": List[PropertygraphRecordTypeDef],
+        "records": list[PropertygraphRecordTypeDef],
         "totalRecords": int,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -906,10 +901,10 @@ class RDFGraphSummaryValueMapTypeDef(TypedDict):
 GetSparqlStreamOutputTypeDef = TypedDict(
     "GetSparqlStreamOutputTypeDef",
     {
-        "lastEventId": Dict[str, str],
+        "lastEventId": dict[str, str],
         "lastTrxTimestampInMillis": int,
         "format": str,
-        "records": List[SparqlRecordTypeDef],
+        "records": list[SparqlRecordTypeDef],
         "totalRecords": int,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },

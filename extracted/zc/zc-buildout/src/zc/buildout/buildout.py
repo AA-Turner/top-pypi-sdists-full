@@ -278,6 +278,7 @@ _buildout_default_options = _annotate_section({
     'bin-directory': 'bin',
     'develop-eggs-directory': 'develop-eggs',
     'eggs-directory': 'eggs',
+    'eggs-directory-version': 'v5',
     'executable': sys.executable,
     'find-links': '',
     'install-from-cache': 'false',
@@ -564,6 +565,7 @@ class Buildout(DictMixin):
             bool_option(options, 'prefer-final'))
         zc.buildout.easy_install.use_dependency_links(
             bool_option(options, 'use-dependency-links'))
+        zc.buildout.easy_install.index_url(options.get('index', '').strip())
         zc.buildout.easy_install.allow_picked_versions(
                 bool_option(options, 'allow-picked-versions'))
         self.show_picked_versions = bool_option(options,
@@ -574,6 +576,22 @@ class Buildout(DictMixin):
 
         download_cache = options.get('download-cache')
         extends_cache = options.get('extends-cache')
+
+        # Since zc.buildout version 5 we maintain separate directories for each
+        # buildout eggs format version.  Current idea: we use v5 from zc.buildout
+        # 5.x onwards.  Later versions will likely also use v5, as the current
+        # expectation is that they will be compatible, just like zc.buildout
+        # 1.x through 4.x are compatible.
+        # If you know what you are doing, you can set eggs-directory-version to
+        # an empty string.  This can be fine if you don't have any previous eggs
+        # and only use zc.buildout 5 or later.  It should also be fine in case
+        # you don't use any namespace packages; but you would be wrong, because
+        # you are using zc.buildout and probably zc.recipe.egg, so you use the
+        # zc namespace.  Still, if those are the only two packages, it might
+        # possibly work.
+        if options['eggs-directory-version']:
+            options['eggs-directory'] = os.path.join(
+                options['eggs-directory'], options['eggs-directory-version'])
 
         if bool_option(options, 'abi-tag-eggs', 'false'):
             from zc.buildout.pep425tags import get_abi_tag
@@ -904,6 +922,7 @@ class Buildout(DictMixin):
 
         if self.show_picked_versions or self.update_versions_file:
             self._print_picked_versions()
+        self._print_namespace_packages()
         self._unload_extensions()
 
     def _update_installed(self, **buildout_options):
@@ -944,7 +963,11 @@ class Buildout(DictMixin):
                 os.mkdir(d)
 
     def _develop(self):
-        """Install sources by running setup.py develop on them
+        """Install sources by running in editable mode.
+
+        Traditionally: run `setup.py develop` on them.
+        Nowadays: run `pip install -e` on them, as there may not be a `setup.py`,
+        but `pyproject.toml` instead, using for example `hatchling`.
         """
         __doing__ = 'Processing directories listed in the develop option'
 
@@ -1309,6 +1332,29 @@ class Buildout(DictMixin):
             f.close()
             print_("Picked versions have been written to " +
                    self.update_versions_file)
+
+    def _print_namespace_packages(self):
+        namespace_packages = zc.buildout.easy_install.get_namespace_packages()
+        if not namespace_packages:
+            # Don't print empty output.
+            return
+        print("""
+** WARNING **
+Some development packages are using old style namespace packages.
+You should switch to native namespaces (PEP 420).
+If you get a ModuleNotFound or an ImportError when importing a package
+from one of these namespaces, you can try this as a temporary workaround:
+
+    pip install horse-with-no-namespace
+
+Note: installing horse-with-no-namespace with buildout will not work.
+You must install it into the virtualenv with pip (or uv) before running the buildout.
+
+The following list shows the affected packages and their namespaces:
+"""
+)
+        for key, value in namespace_packages:
+            print(f"* {key}: {', '.join(value.splitlines())}")
 
     @command
     def setup(self, args):

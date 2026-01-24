@@ -14,13 +14,13 @@ __all__ = ['skeleton_str']
 # js: skeleton(...)
 def skeleton_str(*,
     inlineStyle,
-    title='', content='', backgroundColor='', breakpoint='480px', lang=None,
+    title='', content='', backgroundColor='', breakpoint='480px', lang=None, dir_=None,
     fonts=None, mediaQueries=None,
     headStyle=None, componentsHeadStyle=(), style=(), headRaw=(),
     classes=None,
     preview = None,
     defaultAttributes=None
-    ):
+    ) -> str:
 
     apply_breakpoints = lambda values: tuple(map(lambda v: v(breakpoint), values))
     components_head_style_strs = apply_breakpoints(componentsHeadStyle)
@@ -37,31 +37,39 @@ def skeleton_str(*,
         def _add_breakpoint(v):
             return v(breakpoint)
         return tuple(map(_add_breakpoint, values))
-    head_style_strs = apply_breakpoints(headStyle)
-    extra_style = f'<style type="text/css">{"".join(style or "")}</style>'
+    _combined_head_style_attrs = (
+        *components_head_style_strs,
+        *apply_breakpoints(headStyle),
+    )
+    combined_head_style_content = '\n'.join(_combined_head_style_attrs)
+    if style:
+        extra_style_content = ''.join(style or '')
+        extra_style = f'<style type="text/css">{extra_style_content}</style>'
+    else:
+        extra_style = ''
 
     tmpl_vars = {
         'title'          : title,
         'content'        : content,
         'langAttribute'  : f'lang="{lang}" ' if lang else '',
+        'dirAttribute'   : f'dir="{dir_}" ' if dir_ else '',
         'backgroundColor': f'background-color:{backgroundColor};' if backgroundColor else '',
 
         'font_tags_str'  : buildFontsTags(content, inlineStyle, fonts=fonts),
         'media_queries_str'  : buildMediaQueriesTags(breakpoint, mediaQueries),
-        'components_head_style_str': '\n'.join(components_head_style_strs),
-        'head_style_strs': '\n'.join(head_style_strs),
+        'combined_head_style': combined_head_style_content.strip(),
         'extra_style': extra_style,
         'headRaw_str': '\n'.join(filter(is_not_nil, headRaw or ())),
         'preview_str'    : buildPreview(preview),
     }
 
     skeleton_tmpl = Template(skeleton_tmpl_str)
-    return skeleton_tmpl.render(tmpl_vars)
+    return str(skeleton_tmpl.render(tmpl_vars))
 
 
 skeleton_tmpl_str_raw = '''\
     <!doctype html>
-    <html {{ langAttribute }}xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+    <html {{ langAttribute }}{{ dirAttribute }}xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
       <head>
         <title>
           {{ title }}
@@ -95,11 +103,11 @@ skeleton_tmpl_str_raw = '''\
         <![endif]-->
         {{ font_tags_str }}
         {{ media_queries_str }}
+        {% if combined_head_style -%}
         <style type="text/css">
-
-        {{ components_head_style_str }}
-        {{ head_style_strs }}
+          {{ combined_head_style }}
         </style>
+        {%- endif %}
         {{ extra_style }}
         {{ headRaw_str }}
       </head>
@@ -107,6 +115,6 @@ skeleton_tmpl_str_raw = '''\
         {{ preview_str }}
         {{ content }}
       </body>
-    </html>''' # noqa: line-too-long
+    </html>''' # noqa: E501
 
 skeleton_tmpl_str = textwrap.dedent(skeleton_tmpl_str_raw)

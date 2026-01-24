@@ -1,18 +1,27 @@
 # built-in dependencies
-from typing import Any, Dict, List, Union, Optional, Sequence, IO
+from typing import Any, Dict, List, Union, Optional, Sequence, IO, cast
 from collections import defaultdict
 
 # 3rd party dependencies
 import numpy as np
+from numpy.typing import NDArray
+from lightphe import LightPHE
 
 # project dependencies
 from deepface.commons import image_utils
 from deepface.modules import modeling, detection, preprocessing
 from deepface.models.FacialRecognition import FacialRecognition
+from deepface.modules.normalization import normalize_embedding_l2, normalize_embedding_minmax
+from deepface.modules.encryption import encrypt_embeddings
+from deepface.modules.exceptions import SpoofDetected
+from deepface.commons.logger import Logger
+
+logger = Logger()
 
 
+# pylint: disable=too-many-positional-arguments
 def represent(
-    img_path: Union[str, IO[bytes], np.ndarray, Sequence[Union[str, np.ndarray, IO[bytes]]]],
+    img_path: Union[str, IO[bytes], NDArray[Any], Sequence[Union[str, NDArray[Any], IO[bytes]]]],
     model_name: str = "VGG-Face",
     enforce_detection: bool = True,
     detector_backend: str = "opencv",
@@ -21,6 +30,10 @@ def represent(
     normalization: str = "base",
     anti_spoofing: bool = False,
     max_faces: Optional[int] = None,
+    l2_normalize: bool = False,
+    minmax_normalize: bool = False,
+    return_face: bool = False,
+    cryptosystem: Optional[LightPHE] = None,
 ) -> Union[List[Dict[str, Any]], List[List[Dict[str, Any]]]]:
     """
     Represent facial images as multi-dimensional vector embeddings.
@@ -39,8 +52,9 @@ def represent(
             Default is True. Set to False to avoid the exception for low-resolution images.
 
         detector_backend (string): face detector backend. Options: 'opencv', 'retinaface',
-            'mtcnn', 'ssd', 'dlib', 'mediapipe', 'yolov8', 'yolov11n', 'yolov11s',
-            'yolov11m', 'centerface' or 'skip'.
+            'mtcnn', 'ssd', 'dlib', 'mediapipe', 'yolov8n', 'yolov8m', 'yolov8l', 'yolov11n',
+            'yolov11s', 'yolov11m', 'yolov11l', 'yolov12n', 'yolov12s', 'yolov12m', 'yolov12l'
+            'centerface' or 'skip'.
 
         align (boolean): Perform alignment based on the eye positions.
 
@@ -52,6 +66,21 @@ def represent(
         anti_spoofing (boolean): Flag to enable anti spoofing (default is False).
 
         max_faces (int): Set a limit on the number of faces to be processed (default is None).
+
+        l2_normalize (bool): Flag to enable L2 normalization (unit vector normalization)
+            of the output embeddings
+
+        minmax_normalize (bool): Flag to enable min-max normalization of the output embeddings
+            to the range [0, 1].
+
+        return_face (bool): If True, the detected face images will also be returned along
+            with embeddings. Default is False.
+
+        cryptosystem (LightPHE): An instance of a partially homomorphic encryption system
+            to encrypt the output embeddings. If provided, the embeddings will be encrypted
+            using the specified cryptosystem. Then, you will be able to perform homomorphic
+            operations on the encrypted embeddings without decrypting them first.
+            Check out the repo to find out more: https://github.com/serengil/lightphe
 
     Returns:
         results (List[Dict[str, Any]] or List[Dict[str, Any]]): A list of dictionaries.
@@ -67,6 +96,8 @@ def represent(
             the full image area and is nonsensical.
         - face_confidence (float): Confidence score of face detection. If `detector_backend` is set
             to 'skip', the confidence will be 0 and is nonsensical.
+        - encrypted_embedding (List[Any]): Encrypted multidimensional vector representing
+            facial features. This field is included only if a `cryptosystem` is provided.
     """
     resp_objs = []
 
@@ -89,15 +120,18 @@ def represent(
         target_size = model.input_shape
         if detector_backend != "skip":
             # Images are returned in RGB format.
-            img_objs = detection.extract_faces(
-                img_path=single_img_path,
-                detector_backend=detector_backend,
-                grayscale=False,
-                enforce_detection=enforce_detection,
-                align=align,
-                expand_percentage=expand_percentage,
-                anti_spoofing=anti_spoofing,
-                max_faces=max_faces,
+            img_objs: List[Dict[str, Any]] = cast(
+                List[Dict[str, Any]],
+                detection.extract_faces(
+                    img_path=single_img_path,
+                    detector_backend=detector_backend,
+                    grayscale=False,
+                    enforce_detection=enforce_detection,
+                    align=align,
+                    expand_percentage=expand_percentage,
+                    anti_spoofing=anti_spoofing,
+                    max_faces=max_faces,
+                ),
             )
         else:  # skip
             # Try load. If load error, will raise exception internal
@@ -131,7 +165,7 @@ def represent(
 
         for img_obj in img_objs:
             if anti_spoofing is True and img_obj.get("is_real", True) is False:
-                raise ValueError("Spoof detected in the given image.")
+                raise SpoofDetected("Spoof detected in the given image.")
 
             img = img_obj["face"]
 
@@ -157,20 +191,34 @@ def represent(
             batch_indexes.append(idx)
 
     # Convert list of images to a numpy array for batch processing
-    batch_images = np.concatenate(batch_images, axis=0)
+    batch_images_np = np.concatenate(batch_images, axis=0)
 
     # Forward pass through the model for the entire batch
-    embeddings = model.forward(batch_images)
+    embeddings = model.forward(batch_images_np)
+
+    if minmax_normalize:
+        embeddings = normalize_embedding_minmax(model_name, embeddings)
+
+    if l2_normalize:
+        embeddings = normalize_embedding_l2(embeddings)
+
+    encrypted_embeddings = encrypt_embeddings(embeddings, cryptosystem)
 
     resp_objs_dict = defaultdict(list)
     for idy, batch_index in enumerate(batch_indexes):
-        resp_objs_dict[batch_index].append(
-            {
-                "embedding": embeddings if len(batch_images) == 1 else embeddings[idy],
-                "facial_area": batch_regions[idy],
-                "face_confidence": batch_confidences[idy],
-            }
-        )
+        resp_obj = {
+            "embedding": embeddings if len(batch_images) == 1 else embeddings[idy],
+            "facial_area": batch_regions[idy],
+            "face_confidence": batch_confidences[idy],
+        }
+
+        if return_face:
+            resp_obj["face"] = batch_images_np[idy]
+        if cryptosystem is not None and encrypted_embeddings is not None:
+            resp_obj["encrypted_embedding"] = (
+                encrypted_embeddings if len(batch_images) == 1 else encrypted_embeddings[idy]
+            )
+        resp_objs_dict[batch_index].append(resp_obj)
 
     resp_objs = [resp_objs_dict[idx] for idx in range(len(images))]
 

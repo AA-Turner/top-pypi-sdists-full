@@ -166,6 +166,7 @@ mod builtins {
     use super::*;
 
     use crate::error::ErrorKind;
+    use crate::format_utils::{format_filter, FormatStyle};
     use crate::utils::{safe_sort, splitn_whitespace};
     use crate::value::merge_object::{MergeDict, MergeSeq};
     use crate::value::ops::{self, as_f64, LenIterWrap};
@@ -739,7 +740,8 @@ mod builtins {
     /// The filter accepts a few keyword arguments:
     ///
     /// * `case_sensitive`: set to `true` to make the sorting of strings case sensitive.
-    /// * `attribute`: can be set to an attribute or dotted path to sort by that attribute
+    /// * `attribute`: can be set to an attribute or dotted path to sort by that attribute.
+    ///   can be a comma-separated list of attributes forming a composite key like "age, name".
     /// * `reverse`: set to `true` to sort in reverse.
     ///
     /// ```jinja
@@ -749,6 +751,8 @@ mod builtins {
     /// {{ users|sort(attribute="age") }}
     /// # Sort users by age attribute in ascending order.
     /// {{ users|sort(attribute="age", reverse=true) }}
+    /// # Sort cities by their name, and sort those with the same name by their state.
+    /// {{ cities|sort(attribute="name, state") }}
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn sort(state: &State, value: Value, kwargs: Kwargs) -> Result<Value, Error> {
@@ -756,14 +760,45 @@ mod builtins {
             Error::new(ErrorKind::InvalidOperation, "cannot convert value to list").with_source(err)
         }))
         .collect::<Vec<_>>();
+
         let case_sensitive = ok!(kwargs.get::<Option<bool>>("case_sensitive")).unwrap_or(false);
+
         if let Some(attr) = ok!(kwargs.get::<Option<&str>>("attribute")) {
-            safe_sort(&mut items, |a, b| {
-                match (a.get_path(attr), b.get_path(attr)) {
-                    (Ok(a), Ok(b)) => cmp_helper(&a, &b, case_sensitive),
-                    _ => Ordering::Equal,
-                }
-            })?;
+            let keys: Vec<_> = attr
+                .split(',')
+                .filter_map(|key| {
+                    let trimmed = key.trim();
+                    if !key.is_empty() {
+                        Some(trimmed)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            if keys.len() > 1 {
+                // More than one keys
+                safe_sort(&mut items, |a, b| {
+                    let key_a = Value::from_iter(
+                        keys.iter()
+                            .map(|k| a.get_path_or_default(k, &Value::UNDEFINED)),
+                    );
+                    let key_b = Value::from_iter(
+                        keys.iter()
+                            .map(|k| b.get_path_or_default(k, &Value::UNDEFINED)),
+                    );
+                    cmp_helper(&key_a, &key_b, case_sensitive)
+                })?;
+            } else {
+                // Fast path for a more common case of single key
+                let key = if !keys.is_empty() { keys[0] } else { attr };
+                safe_sort(&mut items, |a, b| {
+                    match (a.get_path(key), b.get_path(key)) {
+                        (Ok(a), Ok(b)) => cmp_helper(&a, &b, case_sensitive),
+                        _ => Ordering::Equal,
+                    }
+                })?;
+            }
         } else {
             safe_sort(&mut items, |a, b| cmp_helper(a, b, case_sensitive))?;
         }
@@ -1613,6 +1648,30 @@ mod builtins {
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn pprint(value: &Value) -> String {
         format!("{value:#?}")
+    }
+
+    /// Apply the given values to a [printf-style] format string.
+    ///
+    /// ```jinja
+    /// {{ "%s, %s!"|format(greeting, name) }}
+    /// -> Hello, World!
+    /// ```
+    ///
+    /// In many cases, the [str.format()] style could be more convenient than the
+    /// printf-style formatting:
+    ///
+    /// ```jinja
+    /// {{ "{}, {name}!".format(greeting, name="Alice") }}
+    /// -> Hello, Alice!
+    /// ```
+    ///
+    /// This option is available through `minijinja-contrib`'s `pycompat` feature.
+    ///
+    /// [printf-style]: https://docs.python.org/3/library/stdtypes.html#printf-style-string-formatting
+    /// [str.format()]: https://docs.python.org/3/library/string.html#format-string-syntax
+    #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
+    pub fn format(format_str: &str, format_args: Rest<Value>) -> Result<String, Error> {
+        format_filter(FormatStyle::Printf, format_str, &format_args)
     }
 }
 

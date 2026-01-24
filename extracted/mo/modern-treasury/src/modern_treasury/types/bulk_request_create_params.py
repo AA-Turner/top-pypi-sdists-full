@@ -258,6 +258,11 @@ Please use ResourcePaymentOrderAsyncCreateRequestReceivingAccountRoutingDetail i
 
 
 class ResourcePaymentOrderAsyncCreateRequestReceivingAccount(TypedDict, total=False):
+    """Either `receiving_account` or `receiving_account_id` must be present.
+
+    When using `receiving_account_id`, you may pass the id of an external account or an internal account.
+    """
+
     account_details: Iterable[ResourcePaymentOrderAsyncCreateRequestReceivingAccountAccountDetail]
 
     account_type: ExternalAccountType
@@ -483,6 +488,9 @@ class ResourcePaymentOrderAsyncCreateRequest(TypedDict, total=False):
     an internal account.
     """
 
+    reconciliation_status: Literal["unreconciled", "tentatively_reconciled", "reconciled"]
+    """One of `unreconciled`, `tentatively_reconciled` or `reconciled`."""
+
     remittance_information: Optional[str]
     """For `ach`, this field will be passed through on an addenda record.
 
@@ -577,6 +585,32 @@ class ResourceExpectedPaymentCreateRequest(TypedDict, total=False):
 
     Value in specified currency's smallest unit. e.g. $10 would be represented
     as 1000.
+    """
+
+    amount_reconciled: Optional[int]
+    """The amount reconciled for this expected payment.
+
+    Value in specified currency's smallest unit. e.g. $10 would be represented
+    as 1000.
+    """
+
+    amount_reconciled_direction: Optional[Literal["credit", "debit"]]
+    """One of credit or debit.
+
+    Indicates whether amount_reconciled is a credit or debit amount.
+    """
+
+    amount_unreconciled: Optional[int]
+    """The amount that remains unreconciled for this expected payment.
+
+    Value in specified currency's smallest unit. e.g. $10 would be represented
+    as 1000.
+    """
+
+    amount_unreconciled_direction: Optional[Literal["credit", "debit"]]
+    """One of credit or debit.
+
+    Indicates whether amount_unreconciled is a credit or debit amount.
     """
 
     amount_upper_bound: Optional[int]
@@ -951,6 +985,11 @@ Please use ResourcePaymentOrderUpdateRequestWithIDReceivingAccountRoutingDetail 
 
 
 class ResourcePaymentOrderUpdateRequestWithIDReceivingAccount(TypedDict, total=False):
+    """Either `receiving_account` or `receiving_account_id` must be present.
+
+    When using `receiving_account_id`, you may pass the id of an external account or an internal account.
+    """
+
     account_details: Iterable[ResourcePaymentOrderUpdateRequestWithIDReceivingAccountAccountDetail]
 
     account_type: ExternalAccountType
@@ -1158,6 +1197,9 @@ class ResourcePaymentOrderUpdateRequestWithID(TypedDict, total=False):
     an internal account.
     """
 
+    reconciliation_status: Literal["unreconciled", "tentatively_reconciled", "reconciled"]
+    """One of `unreconciled`, `tentatively_reconciled` or `reconciled`."""
+
     remittance_information: Optional[str]
     """For `ach`, this field will be passed through on an addenda record.
 
@@ -1187,6 +1229,7 @@ class ResourcePaymentOrderUpdateRequestWithID(TypedDict, total=False):
         "completed",
         "denied",
         "failed",
+        "held",
         "needs_approval",
         "pending",
         "processing",
@@ -1260,6 +1303,32 @@ class ResourceExpectedPaymentUpdateRequestWithID(TypedDict, total=False):
 
     Value in specified currency's smallest unit. e.g. $10 would be represented
     as 1000.
+    """
+
+    amount_reconciled: Optional[int]
+    """The amount reconciled for this expected payment.
+
+    Value in specified currency's smallest unit. e.g. $10 would be represented
+    as 1000.
+    """
+
+    amount_reconciled_direction: Optional[Literal["credit", "debit"]]
+    """One of credit or debit.
+
+    Indicates whether amount_reconciled is a credit or debit amount.
+    """
+
+    amount_unreconciled: Optional[int]
+    """The amount that remains unreconciled for this expected payment.
+
+    Value in specified currency's smallest unit. e.g. $10 would be represented
+    as 1000.
+    """
+
+    amount_unreconciled_direction: Optional[Literal["credit", "debit"]]
+    """One of credit or debit.
+
+    Indicates whether amount_unreconciled is a credit or debit amount.
     """
 
     amount_upper_bound: Optional[int]

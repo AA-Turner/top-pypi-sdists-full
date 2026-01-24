@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 
 	"github.com/go-task/task/v3/errors"
 	"github.com/go-task/task/v3/internal/deepcopy"
@@ -13,7 +13,7 @@ import (
 
 // Task represents a task
 type Task struct {
-	Task          string
+	Task          string `hash:"ignore"`
 	Cmds          []*Cmd
 	Deps          []*Dep
 	Label         string
@@ -36,18 +36,19 @@ type Task struct {
 	Interactive   bool
 	Internal      bool
 	Method        string
-	Prefix        string
+	Prefix        string `hash:"ignore"`
 	IgnoreError   bool
 	Run           string
 	Platforms     []*Platform
 	Watch         bool
 	Location      *Location
+	Failfast      bool
 	// Populated during merging
-	Namespace            string
+	Namespace            string `hash:"ignore"`
 	IncludeVars          *Vars
 	IncludedTaskfileVars *Vars
 
-	FullName string
+	FullName string `hash:"ignore"`
 }
 
 func (t *Task) Name() string {
@@ -143,6 +144,7 @@ func (t *Task) UnmarshalYAML(node *yaml.Node) error {
 			Platforms     []*Platform
 			Requires      *Requires
 			Watch         bool
+			Failfast      bool
 		}
 		if err := node.Decode(&task); err != nil {
 			return errors.NewTaskfileDecodeError(err, node)
@@ -181,6 +183,7 @@ func (t *Task) UnmarshalYAML(node *yaml.Node) error {
 		t.Platforms = task.Platforms
 		t.Requires = task.Requires
 		t.Watch = task.Watch
+		t.Failfast = task.Failfast
 		return nil
 	}
 
@@ -226,6 +229,7 @@ func (t *Task) DeepCopy() *Task {
 		Requires:             t.Requires.DeepCopy(),
 		Namespace:            t.Namespace,
 		FullName:             t.FullName,
+		Failfast:             t.Failfast,
 	}
 	return c
 }

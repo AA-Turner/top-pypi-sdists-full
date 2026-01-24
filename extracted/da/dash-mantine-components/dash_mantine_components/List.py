@@ -260,7 +260,7 @@ Keyword arguments:
 - withPadding (boolean; optional):
     Determines whether list items should be offset with padding,
     `False` by default."""
-    _children_props = ['icon']
+    _children_props: typing.List[str] = ['icon']
     _base_nodes = ['icon', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'List'

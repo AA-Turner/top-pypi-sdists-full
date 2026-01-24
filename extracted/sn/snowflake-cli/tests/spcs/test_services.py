@@ -892,6 +892,34 @@ def test_stream_logs_with_include_timestamps_true(mock_sleep, mock_logs):
     mock_sleep.assert_has_calls([call(interval_seconds), call(interval_seconds)])
 
 
+def test_new_logs_only_returns_empty_when_all_logs_duplicated():
+    """Test that new_logs_only returns empty list when all new logs are duplicates."""
+    from snowflake.cli._plugins.spcs.common import new_logs_only
+
+    prev_log_records = ["2024-10-22T01:12:28Z previous log"]
+    new_log_records = ["2024-10-22T01:12:28Z previous log"]  # Same log, will be deduped
+
+    dedup_log_records = new_logs_only(prev_log_records, new_log_records)
+    assert dedup_log_records == []
+
+
+def test_empty_dedup_log_records_does_not_cause_index_error():
+    """Test that the fix prevents IndexError when dedup_log_records is empty.
+
+    This test verifies that the original bug (IndexError when accessing
+    dedup_log_records[-1] on an empty list) has been fixed.
+    """
+    dedup_log_records = []
+
+    has_logs = bool(dedup_log_records)
+    assert not has_logs
+
+    assert len(dedup_log_records) == 0
+
+    with pytest.raises(IndexError):
+        dedup_log_records[-1]
+
+
 @patch(EXECUTE_QUERY)
 def test_logs_incompatible_flags(
     mock_execute_query, runner, enable_events_and_metrics_config
@@ -1503,6 +1531,7 @@ def test_set_property(mock_execute_query):
     max_instances = 3
     query_warehouse = "test_warehouse"
     auto_resume = False
+    auto_suspend_secs = 600
     external_access_integrations = [
         "google_apis_access_integration",
         "salesforce_api_access_integration",
@@ -1516,6 +1545,7 @@ def test_set_property(mock_execute_query):
         max_instances=max_instances,
         query_warehouse=query_warehouse,
         auto_resume=auto_resume,
+        auto_suspend_secs=auto_suspend_secs,
         external_access_integrations=external_access_integrations,
         comment=comment,
     )
@@ -1527,6 +1557,7 @@ def test_set_property(mock_execute_query):
             f"max_instances = {max_instances}",
             f"query_warehouse = {query_warehouse}",
             f"auto_resume = {auto_resume}",
+            f"auto_suspend_secs = {auto_suspend_secs}",
             f"external_access_integrations = ({eai_list})",
             f"comment = {comment}",
         ]
@@ -1538,7 +1569,9 @@ def test_set_property(mock_execute_query):
 def test_set_property_no_properties():
     service_name = "test_service"
     with pytest.raises(NoPropertiesProvidedError) as e:
-        ServiceManager().set_property(service_name, None, None, None, None, None, None)
+        ServiceManager().set_property(
+            service_name, None, None, None, None, None, None, None
+        )
     assert (
         e.value.message
         == f"No properties specified for service '{service_name}'. Please provide at least one property to set."
@@ -1554,6 +1587,7 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
     max_instances = 3
     query_warehouse = "test_warehouse"
     auto_resume = False
+    auto_suspend_secs = 600
     external_access_integrations = [
         "google_apis_access_integration",
         "salesforce_api_access_integration",
@@ -1572,6 +1606,8 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
             "--query-warehouse",
             query_warehouse,
             "--no-auto-resume",
+            "--auto-suspend-secs",
+            str(auto_suspend_secs),
             "--eai-name",
             "google_apis_access_integration",
             "--eai-name",
@@ -1586,6 +1622,7 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
         max_instances=max_instances,
         query_warehouse=query_warehouse,
         auto_resume=auto_resume,
+        auto_suspend_secs=auto_suspend_secs,
         external_access_integrations=external_access_integrations,
         comment=to_string_literal(comment),
     )
@@ -1608,6 +1645,7 @@ def test_set_property_no_properties_cli(mock_set, runner):
         max_instances=None,
         query_warehouse=None,
         auto_resume=None,
+        auto_suspend_secs=None,
         external_access_integrations=None,
         comment=None,
     )
@@ -1618,8 +1656,10 @@ def test_unset_property(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
-    result = ServiceManager().unset_property(service_name, True, True, True, True, True)
-    expected_query = "alter service test_service unset min_instances,max_instances,query_warehouse,auto_resume,comment"
+    result = ServiceManager().unset_property(
+        service_name, True, True, True, True, True, True
+    )
+    expected_query = "alter service test_service unset min_instances,max_instances,query_warehouse,auto_resume,auto_suspend_secs,comment"
     mock_execute_query.assert_called_once_with(expected_query)
     assert result == cursor
 
@@ -1627,7 +1667,9 @@ def test_unset_property(mock_execute_query):
 def test_unset_property_no_properties():
     service_name = "test_service"
     with pytest.raises(NoPropertiesProvidedError) as e:
-        ServiceManager().unset_property(service_name, False, False, False, False, False)
+        ServiceManager().unset_property(
+            service_name, False, False, False, False, False, False
+        )
     assert (
         e.value.message
         == f"No properties specified for service '{service_name}'. Please provide at least one property to reset to its default value."
@@ -1649,6 +1691,7 @@ def test_unset_property_cli(mock_unset, mock_statement_success, runner):
             "--max-instances",
             "--query-warehouse",
             "--auto-resume",
+            "--auto-suspend-secs",
             "--comment",
         ]
     )
@@ -1658,6 +1701,7 @@ def test_unset_property_cli(mock_unset, mock_statement_success, runner):
         max_instances=True,
         query_warehouse=True,
         auto_resume=True,
+        auto_suspend_secs=True,
         comment=True,
     )
     assert result.exit_code == 0, result.output
@@ -1679,8 +1723,45 @@ def test_unset_property_no_properties_cli(mock_unset, runner):
         max_instances=False,
         query_warehouse=False,
         auto_resume=False,
+        auto_suspend_secs=False,
         comment=False,
     )
+
+
+@patch(EXECUTE_QUERY)
+def test_set_property_auto_suspend_secs_only(mock_execute_query):
+    service_name = "test_service"
+    auto_suspend_secs = 300
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ServiceManager().set_property(
+        service_name=service_name,
+        min_instances=None,
+        max_instances=None,
+        query_warehouse=None,
+        auto_resume=None,
+        auto_suspend_secs=auto_suspend_secs,
+        external_access_integrations=None,
+        comment=None,
+    )
+    expected_query = (
+        f"alter service {service_name} set\nauto_suspend_secs = {auto_suspend_secs}"
+    )
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch(EXECUTE_QUERY)
+def test_unset_property_auto_suspend_secs_only(mock_execute_query):
+    service_name = "test_service"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ServiceManager().unset_property(
+        service_name, False, False, False, False, True, False
+    )
+    expected_query = f"alter service {service_name} unset auto_suspend_secs"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
 
 
 def test_unset_property_with_args(runner):

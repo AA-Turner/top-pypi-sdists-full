@@ -17,15 +17,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 
 from .literals import ResourceTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -74,7 +69,7 @@ __all__ = (
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -118,7 +113,7 @@ class ListAttachedLinksInputTypeDef(TypedDict):
 class ListAttachedLinksItemTypeDef(TypedDict):
     Label: NotRequired[str]
     LinkArn: NotRequired[str]
-    ResourceTypes: NotRequired[List[str]]
+    ResourceTypes: NotRequired[list[str]]
 
 class ListLinksInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
@@ -128,7 +123,7 @@ class ListLinksItemTypeDef(TypedDict):
     Arn: NotRequired[str]
     Id: NotRequired[str]
     Label: NotRequired[str]
-    ResourceTypes: NotRequired[List[str]]
+    ResourceTypes: NotRequired[list[str]]
     SinkArn: NotRequired[str]
 
 class ListSinksInputTypeDef(TypedDict):
@@ -159,14 +154,14 @@ class CreateSinkOutputTypeDef(TypedDict):
     Arn: str
     Id: str
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSinkOutputTypeDef(TypedDict):
     Arn: str
     Id: str
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSinkPolicyOutputTypeDef(TypedDict):
@@ -176,7 +171,7 @@ class GetSinkPolicyOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutSinkPolicyOutputTypeDef(TypedDict):
@@ -200,17 +195,17 @@ class ListSinksInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAttachedLinksOutputTypeDef(TypedDict):
-    Items: List[ListAttachedLinksItemTypeDef]
+    Items: list[ListAttachedLinksItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListLinksOutputTypeDef(TypedDict):
-    Items: List[ListLinksItemTypeDef]
+    Items: list[ListLinksItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListSinksOutputTypeDef(TypedDict):
-    Items: List[ListSinksItemTypeDef]
+    Items: list[ListSinksItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -227,9 +222,9 @@ class CreateLinkOutputTypeDef(TypedDict):
     Label: str
     LabelTemplate: str
     LinkConfiguration: LinkConfigurationTypeDef
-    ResourceTypes: List[str]
+    ResourceTypes: list[str]
     SinkArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetLinkOutputTypeDef(TypedDict):
@@ -238,9 +233,9 @@ class GetLinkOutputTypeDef(TypedDict):
     Label: str
     LabelTemplate: str
     LinkConfiguration: LinkConfigurationTypeDef
-    ResourceTypes: List[str]
+    ResourceTypes: list[str]
     SinkArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateLinkInputTypeDef(TypedDict):
@@ -255,7 +250,7 @@ class UpdateLinkOutputTypeDef(TypedDict):
     Label: str
     LabelTemplate: str
     LinkConfiguration: LinkConfigurationTypeDef
-    ResourceTypes: List[str]
+    ResourceTypes: list[str]
     SinkArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef

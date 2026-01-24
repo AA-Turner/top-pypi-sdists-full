@@ -25,13 +25,11 @@ jobs:
       matrix:
         toolchain: [ gcc, llvm, intel ]
         include:
-          - os: macos-13
-            toolchain: macos
           - os: macos-latest
             toolchain: macos
-          - os: windows-2019
-            toolchain: windows
           - os: windows-latest
+            toolchain: windows
+          - os: windows-11-arm
             toolchain: windows
     steps:
       - name: Enable msvc toolchain on windows
@@ -45,7 +43,7 @@ jobs:
           printenv >> $GITHUB_ENV
           echo $PATH >> $GITHUB_PATH
         if: matrix.toolchain == 'intel'
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: lukka/get-cmake@latest
@@ -69,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.9", "3.10", "3.x" ]
+        python-version: [ "3.9", "3.10", "3.x", "3.14t" ]
         numpy-runtime: [ "" ]
         pre: [ "" ]
         include:
@@ -83,11 +81,11 @@ jobs:
           - python-version: "3.12"
             numpy-runtime: "<2.0"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Setup python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: ${{ matrix.pre || false }}
@@ -114,7 +112,7 @@ jobs:
           - cmake: latestrc
             experimental: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: lukka/get-cmake@latest
@@ -140,7 +138,7 @@ jobs:
     env:
       SPGLIB_SANITIZER: ${{ matrix.sanitizer }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: lukka/get-cmake@latest
       - name: Run CMake configuration for ${{ matrix.toolchain }} toolchain
         uses: lukka/run-cmake@v10

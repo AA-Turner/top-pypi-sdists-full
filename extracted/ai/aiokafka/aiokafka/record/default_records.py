@@ -56,11 +56,11 @@
 
 import struct
 import time
-from collections.abc import Sized
+from collections.abc import Callable, Collection, Sized
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Union, final
+from typing import Any, final
 
-from typing_extensions import Self, TypeIs, assert_never
+from typing_extensions import Self
 
 import aiokafka.codec as codecs
 from aiokafka.codec import (
@@ -81,14 +81,6 @@ from ._protocols import (
     DefaultRecordBatchProtocol,
     DefaultRecordMetadataProtocol,
     DefaultRecordProtocol,
-)
-from ._types import (
-    CodecGzipT,
-    CodecLz4T,
-    CodecMaskT,
-    CodecNoneT,
-    CodecSnappyT,
-    CodecZstdT,
 )
 from .util import calc_crc32c, decode_varint, encode_varint, size_of_varint
 
@@ -116,12 +108,12 @@ class DefaultRecordBase:
     CRC_OFFSET = struct.calcsize(">qiib")
     AFTER_LEN_OFFSET = struct.calcsize(">qi")
 
-    CODEC_MASK: CodecMaskT = 0x07
-    CODEC_NONE: CodecNoneT = 0x00
-    CODEC_GZIP: CodecGzipT = 0x01
-    CODEC_SNAPPY: CodecSnappyT = 0x02
-    CODEC_LZ4: CodecLz4T = 0x03
-    CODEC_ZSTD: CodecZstdT = 0x04
+    CODEC_MASK = 0x07
+    CODEC_NONE = 0x00
+    CODEC_GZIP = 0x01
+    CODEC_SNAPPY = 0x02
+    CODEC_LZ4 = 0x03
+    CODEC_ZSTD = 0x04
     TIMESTAMP_TYPE_MASK = 0x08
     TRANSACTIONAL_MASK = 0x10
     CONTROL_MASK = 0x20
@@ -131,9 +123,7 @@ class DefaultRecordBase:
 
     NO_PARTITION_LEADER_EPOCH = -1
 
-    def _assert_has_codec(
-        self, compression_type: int
-    ) -> TypeIs[Union[CodecGzipT, CodecSnappyT, CodecLz4T, CodecZstdT]]:
+    def _assert_has_codec(self, compression_type: int) -> bool:
         if compression_type == self.CODEC_GZIP:
             checker, name = codecs.has_gzip, "gzip"
         elif compression_type == self.CODEC_SNAPPY:
@@ -155,7 +145,7 @@ class DefaultRecordBase:
 
 @final
 class _DefaultRecordBatchPy(DefaultRecordBase, DefaultRecordBatchProtocol):
-    def __init__(self, buffer: Union[bytes, bytearray, memoryview]) -> None:
+    def __init__(self, buffer: bytes | bytearray | memoryview) -> None:
         self._buffer = bytearray(buffer)
         self._header_data: tuple[
             int, int, int, int, int, int, int, int, int, int, int, int, int
@@ -240,7 +230,10 @@ class _DefaultRecordBatchPy(DefaultRecordBase, DefaultRecordBatchProtocol):
                 elif compression_type == self.CODEC_ZSTD:
                     uncompressed = zstd_decode(data.tobytes())
                 else:
-                    assert_never(compression_type)
+                    # Must not be possible
+                    raise RuntimeError(
+                        f"Invalid compression codec {compression_type:#04x}"
+                    )
                 self._buffer = bytearray(uncompressed)
                 self._pos = 0
         self._decompressed = True
@@ -293,7 +286,7 @@ class _DefaultRecordBatchPy(DefaultRecordBase, DefaultRecordBatchProtocol):
             raise CorruptRecordException(
                 f"Found invalid number of record headers {header_count}"
             )
-        headers: list[tuple[str, Optional[bytes]]] = []
+        headers: list[tuple[str, bytes | None]] = []
         while header_count:
             # Header key is of type String, that can't be None
             h_key_len, pos = decode_varint(buffer, pos)
@@ -361,14 +354,14 @@ class _DefaultRecordBatchPy(DefaultRecordBase, DefaultRecordBatchProtocol):
 @final
 @dataclass(frozen=True)
 class _DefaultRecordPy(DefaultRecordProtocol):
-    __slots__ = ("offset", "timestamp", "timestamp_type", "key", "value", "headers")
+    __slots__ = ("headers", "key", "offset", "timestamp", "timestamp_type", "value")
 
     offset: int
     timestamp: int
     timestamp_type: int
-    key: Optional[bytes]
-    value: Optional[bytes]
-    headers: list[tuple[str, Optional[bytes]]]
+    key: bytes | None
+    value: bytes | None
+    headers: list[tuple[str, bytes | None]]
 
     @property
     def checksum(self) -> None:
@@ -410,8 +403,8 @@ class _DefaultRecordBatchBuilderPy(
         self._producer_epoch = producer_epoch
         self._base_sequence = base_sequence
 
-        self._first_timestamp: Optional[int] = None
-        self._max_timestamp: Optional[int] = None
+        self._first_timestamp: int | None = None
+        self._max_timestamp: int | None = None
         self._last_offset = 0
         self._num_records = 0
 
@@ -430,25 +423,21 @@ class _DefaultRecordBatchBuilderPy(
     def append(
         self,
         offset: int,
-        timestamp: Optional[int],
-        key: Optional[bytes],
-        value: Optional[bytes],
-        headers: list[tuple[str, Optional[bytes]]],
+        timestamp: int | None,
+        key: bytes | None,
+        value: bytes | None,
+        headers: list[tuple[str, bytes | None]],
         # Cache for LOAD_FAST opcodes
         encode_varint: Callable[[int, Callable[[int], None]], int] = encode_varint,
         size_of_varint: Callable[[int], int] = size_of_varint,
         get_type: Callable[[Any], type] = type,
         type_int: type[int] = int,
         time_time: Callable[[], float] = time.time,
-        byte_like: tuple[type[bytes], type[bytearray], type[memoryview]] = (
-            bytes,
-            bytearray,
-            memoryview,
-        ),
+        byte_like: Collection[type] = (bytes, bytearray, memoryview),
         bytearray_type: type[bytearray] = bytearray,
         len_func: Callable[[Sized], int] = len,
         zero_len_varint: int = 1,
-    ) -> Optional["_DefaultRecordMetadataPy"]:
+    ) -> "_DefaultRecordMetadataPy | None":
         """Write message to messageset buffer with MsgVersion 2"""
         # Check types
         if get_type(offset) != type_int:
@@ -564,7 +553,10 @@ class _DefaultRecordBatchBuilderPy(
             elif self._compression_type == self.CODEC_ZSTD:
                 compressed = zstd_encode(data)
             else:
-                assert_never(self._compression_type)
+                # Must not be possible
+                raise RuntimeError(
+                    f"Invalid compression codec {self._compression_type:#04x}"
+                )
             compressed_size = len(compressed)
             if len(data) <= compressed_size:
                 # We did not get any benefit from compression, lets send
@@ -591,9 +583,9 @@ class _DefaultRecordBatchBuilderPy(
         self,
         offset: int,
         timestamp: int,
-        key: Optional[bytes],
-        value: Optional[bytes],
-        headers: list[tuple[str, Optional[bytes]]],
+        key: bytes | None,
+        value: bytes | None,
+        headers: list[tuple[str, bytes | None]],
     ) -> int:
         if self._first_timestamp is not None:
             timestamp_delta = timestamp - self._first_timestamp
@@ -610,9 +602,9 @@ class _DefaultRecordBatchBuilderPy(
     @classmethod
     def size_of(
         cls,
-        key: Optional[bytes],
-        value: Optional[bytes],
-        headers: list[tuple[str, Optional[bytes]]],
+        key: bytes | None,
+        value: bytes | None,
+        headers: list[tuple[str, bytes | None]],
     ) -> int:
         size = 0
         # Key size
@@ -643,9 +635,9 @@ class _DefaultRecordBatchBuilderPy(
     @classmethod
     def estimate_size_in_bytes(
         cls,
-        key: Optional[bytes],
-        value: Optional[bytes],
-        headers: list[tuple[str, Optional[bytes]]],
+        key: bytes | None,
+        value: bytes | None,
+        headers: list[tuple[str, bytes | None]],
     ) -> int:
         """Get the upper bound estimate on the size of record"""
         return (
@@ -677,7 +669,7 @@ class _DefaultRecordBatchBuilderPy(
 @final
 @dataclass(frozen=True)
 class _DefaultRecordMetadataPy(DefaultRecordMetadataProtocol):
-    __slots__ = ("size", "timestamp", "offset")
+    __slots__ = ("offset", "size", "timestamp")
 
     offset: int
     size: int

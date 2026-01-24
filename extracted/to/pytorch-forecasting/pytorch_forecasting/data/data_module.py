@@ -23,7 +23,7 @@ from pytorch_forecasting.data.encoders import (
 from pytorch_forecasting.data.timeseries import TimeSeries
 from pytorch_forecasting.utils._coerce import _coerce_to_dict
 
-NORMALIZER = Union[TorchNormalizer, NaNLabelEncoder, EncoderNormalizer]
+NORMALIZER = TorchNormalizer | EncoderNormalizer | NaNLabelEncoder
 
 
 class EncoderDecoderTimeSeriesDataModule(LightningDataModule):
@@ -85,25 +85,25 @@ class EncoderDecoderTimeSeriesDataModule(LightningDataModule):
         self,
         time_series_dataset: TimeSeries,
         max_encoder_length: int = 30,
-        min_encoder_length: Optional[int] = None,
+        min_encoder_length: int | None = None,
         max_prediction_length: int = 1,
-        min_prediction_length: Optional[int] = None,
-        min_prediction_idx: Optional[int] = None,
+        min_prediction_length: int | None = None,
+        min_prediction_idx: int | None = None,
         allow_missing_timesteps: bool = False,
         add_relative_time_idx: bool = False,
         add_target_scales: bool = False,
-        add_encoder_length: Union[bool, str] = "auto",
-        target_normalizer: Union[
-            NORMALIZER, str, list[NORMALIZER], tuple[NORMALIZER], None
-        ] = "auto",
-        categorical_encoders: Optional[dict[str, NaNLabelEncoder]] = None,
-        scalers: Optional[
-            dict[
-                str,
-                Union[StandardScaler, RobustScaler, TorchNormalizer, EncoderNormalizer],
-            ]
-        ] = None,
-        randomize_length: Union[None, tuple[float, float], bool] = False,
+        add_encoder_length: bool | str = "auto",
+        target_normalizer: NORMALIZER
+        | str
+        | list[NORMALIZER]
+        | tuple[NORMALIZER]
+        | None = "auto",
+        categorical_encoders: dict[str, NaNLabelEncoder] | None = None,
+        scalers: dict[
+            str, StandardScaler | RobustScaler | TorchNormalizer | EncoderNormalizer
+        ]
+        | None = None,
+        randomize_length: None | tuple[float, float] | bool = False,
         batch_size: int = 32,
         num_workers: int = 0,
         train_val_test_split: tuple = (0.7, 0.15, 0.15),
@@ -127,7 +127,8 @@ class EncoderDecoderTimeSeriesDataModule(LightningDataModule):
         self.train_val_test_split = train_val_test_split
 
         warn(
-            "TimeSeries is part of an experimental rework of the "
+            "EncoderDecoderTimeSeriesDataModule is part of an experimental "
+            "rework of the "
             "pytorch-forecasting data layer, "
             "scheduled for release with v2.0.0. "
             "The API is not stable and may change without prior warning. "
@@ -151,6 +152,7 @@ class EncoderDecoderTimeSeriesDataModule(LightningDataModule):
         self._min_encoder_length = min_encoder_length or max_encoder_length
         self._categorical_encoders = _coerce_to_dict(categorical_encoders)
         self._scalers = _coerce_to_dict(scalers)
+        self.n_targets = len(self.time_series_metadata["cols"]["y"])
 
         self.categorical_indices = []
         self.continuous_indices = []
@@ -382,6 +384,13 @@ class EncoderDecoderTimeSeriesDataModule(LightningDataModule):
         def __getitem__(self, idx):
             """Retrieve a processed time series window for dataloader input.
 
+            Parameters
+            ----------
+            idx : int
+                Index of the window to retrieve from the dataset.
+
+            Returns
+            -------
             x : dict
                 Dictionary containing model inputs:
 
@@ -405,6 +414,8 @@ class EncoderDecoderTimeSeriesDataModule(LightningDataModule):
                   Time indices for the encoder sequence.
                 * ``decoder_time_idx`` : tensor of shape (pred_length,)
                   Time indices for the decoder sequence.
+                * ``target_past`` : torch.Tensor of shape (enc_length,)
+                  Historical target values for the encoder sequence.
                 * ``target_scale`` : tensor of shape (1,)
                   Scaling factor for the target values.
                 * ``encoder_mask`` : tensor of shape (enc_length,)
@@ -420,8 +431,10 @@ class EncoderDecoderTimeSeriesDataModule(LightningDataModule):
                 * ``static_continuous_features`` : tensor of shape (1, 0), optional
                   Placeholder for static continuous features (currently empty).
 
-            y : tensor of shape ``(pred_length, n_targets)``
+            y : torch.Tensor or list of torch.Tensor
                 Target values for the decoder sequence.
+                If ``n_targets`` > 1, a list of tensors each of shape (pred_length,)
+                is returned. Otherwise, a tensor of shape (pred_length,) is returned.
             """
             series_idx, start_idx, enc_length, pred_length = self.windows[idx]
             data = self.data_module._preprocess_data(series_idx)
@@ -430,8 +443,8 @@ class EncoderDecoderTimeSeriesDataModule(LightningDataModule):
             encoder_indices = slice(start_idx, start_idx + enc_length)
             decoder_indices = slice(start_idx + enc_length, end_idx)
 
-            target_scale = data["target"][encoder_indices]
-            target_scale = target_scale[~torch.isnan(target_scale)].abs().mean()
+            target_past = data["target"][encoder_indices]
+            target_scale = target_past[~torch.isnan(target_past)].abs().mean()
             if torch.isnan(target_scale) or target_scale == 0:
                 target_scale = torch.tensor(1.0)
 
@@ -503,6 +516,7 @@ class EncoderDecoderTimeSeriesDataModule(LightningDataModule):
                 "decoder_lengths": torch.tensor(pred_length),
                 "decoder_target_lengths": torch.tensor(pred_length),
                 "groups": data["group"],
+                "target_past": target_past,
                 "encoder_time_idx": torch.arange(enc_length),
                 "decoder_time_idx": torch.arange(enc_length, enc_length + pred_length),
                 "target_scale": target_scale,
@@ -546,8 +560,11 @@ class EncoderDecoderTimeSeriesDataModule(LightningDataModule):
                     )
 
             y = data["target"][decoder_indices]
-            if y.ndim == 1:
-                y = y.unsqueeze(-1)
+
+            if self.data_module.n_targets > 1:
+                y = [t.squeeze(-1) for t in torch.split(y, 1, dim=1)]
+            else:
+                y = y.squeeze(-1)
 
             return x, y
 
@@ -606,7 +623,7 @@ class EncoderDecoderTimeSeriesDataModule(LightningDataModule):
 
         return windows
 
-    def setup(self, stage: Optional[str] = None):
+    def setup(self, stage: str | None = None):
         """Prepare the datasets for training, validation, testing, or prediction.
 
         Parameters
@@ -713,6 +730,7 @@ class EncoderDecoderTimeSeriesDataModule(LightningDataModule):
                 [x["decoder_target_lengths"] for x, _ in batch]
             ),
             "groups": torch.stack([x["groups"] for x, _ in batch]),
+            "target_past": torch.stack([x["target_past"] for x, _ in batch]),
             "encoder_time_idx": torch.stack([x["encoder_time_idx"] for x, _ in batch]),
             "decoder_time_idx": torch.stack([x["decoder_time_idx"] for x, _ in batch]),
             "target_scale": torch.stack([x["target_scale"] for x, _ in batch]),
@@ -728,5 +746,13 @@ class EncoderDecoderTimeSeriesDataModule(LightningDataModule):
                 [x["static_continuous_features"] for x, _ in batch]
             )
 
-        y_batch = torch.stack([y for _, y in batch])
+        if isinstance(batch[0][1], list | tuple):
+            num_targets = len(batch[0][1])
+            y_batch = []
+            for i in range(num_targets):
+                target_tensors = [sample_y[i] for _, sample_y in batch]
+                stacked_target = torch.stack(target_tensors)
+                y_batch.append(stacked_target)
+        else:
+            y_batch = torch.stack([y for _, y in batch])
         return x_batch, y_batch

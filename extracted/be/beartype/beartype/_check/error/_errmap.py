@@ -16,7 +16,7 @@ from beartype.typing import (
     Dict,
     Optional,
 )
-from beartype._data.hint.pep.sign.datapepsigncls import HintSign
+from beartype._data.hint.sign.datahintsigncls import HintSign
 from beartype._check.error.errcause import ViolationCause
 
 # ....................{ GLOBALS                            }....................
@@ -39,16 +39,16 @@ def _init() -> None:
 
     # ....................{ IMPORTS                        }....................
     # Defer heavyweight imports.
-    from beartype._data.hint.pep.sign.datapepsigns import (
+    from beartype._data.hint.sign.datahintsigns import (
         HintSignAnnotated,
         HintSignForwardRef,
         HintSignLiteral,
         HintSignNoReturn,
-        HintSignPep484585GenericUnsubscripted,
-        HintSignTupleFixed,
+        HintSignPep484585GenericUnsubbed,
+        HintSignPep484585TupleFixed,
         HintSignType,
     )
-    from beartype._data.hint.pep.sign.datapepsignset import (
+    from beartype._data.hint.sign.datahintsignset import (
         HINT_SIGNS_MAPPING,
         HINT_SIGNS_ORIGIN_ISINSTANCEABLE,
         HINT_SIGNS_CONTAINER_ARGS_1,
@@ -111,9 +111,9 @@ def _init() -> None:
         HintSignNoReturn: find_cause_pep484_noreturn,
 
         # ....................{ PEP (484|585)              }....................
-        HintSignPep484585GenericUnsubscripted: (
+        HintSignPep484585GenericUnsubbed: (
             find_cause_pep484585_generic_unsubbed),
-        HintSignTupleFixed: find_cause_pep484585_tuple_fixed,
+        HintSignPep484585TupleFixed: find_cause_pep484585_tuple_fixed,
         HintSignType: find_cause_pep484585_subclass,
 
         # ....................{ PEP 586                    }....................

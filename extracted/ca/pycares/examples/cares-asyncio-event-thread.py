@@ -7,19 +7,13 @@ import pycares
 
 class DNSResolver:
     def __init__(self, loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
-        # Use event_thread=True for automatic event handling in a separate thread
-        self._channel = pycares.Channel(event_thread=True)
+        self._channel = pycares.Channel()
         self.loop = loop or asyncio.get_running_loop()
 
     def query(
         self, name: str, query_type: int, cb: Callable[[Any, Optional[int]], None]
     ) -> None:
         self._channel.query(name, query_type, cb)
-
-    def gethostbyname(
-        self, name: str, cb: Callable[[Any, Optional[int]], None]
-    ) -> None:
-        self._channel.gethostbyname(name, socket.AF_INET, cb)
 
     def close(self) -> None:
         """Thread-safe shutdown of the channel."""
@@ -39,11 +33,15 @@ async def main() -> None:
             if error == pycares.errno.ARES_ECANCELLED:
                 cancelled_count += 1
                 print(f"Query for {query_name} was CANCELLED")
+            elif error:
+                completed_count += 1
+                print(f"Query for {query_name} failed - Error: {error}")
             else:
                 completed_count += 1
-                print(
-                    f"Query for {query_name} completed - Result: {result}, Error: {error}"
-                )
+                print(f"Query for {query_name} completed successfully:")
+                print(f"  Answer: {len(result.answer)} records, TTL: {result.answer[0].ttl if result.answer else 'N/A'}s")
+                print(f"  Authority: {len(result.authority)} records")
+                print(f"  Additional: {len(result.additional)} records")
 
         return _cb
 
@@ -63,8 +61,7 @@ async def main() -> None:
     # Second batch - these will be cancelled
     resolver.query("github.com", pycares.QUERY_TYPE_A, cb("github.com"))
     resolver.query("stackoverflow.com", pycares.QUERY_TYPE_A, cb("stackoverflow.com"))
-    resolver.gethostbyname("python.org", cb("python.org"))
-    query_count += 3
+    query_count += 2
 
     # Immediately close - this will cancel pending queries
     print("\n=== Closing resolver (cancelling pending queries) ===")
@@ -78,10 +75,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    # Check if c-ares supports threads
-    if pycares.ares_threadsafety():
-        # For Python 3.7+
-        asyncio.run(main())
-    else:
-        print("c-ares was not compiled with thread support")
-        print("Please see examples/cares-asyncio.py for sock_state_cb usage")
+    asyncio.run(main())

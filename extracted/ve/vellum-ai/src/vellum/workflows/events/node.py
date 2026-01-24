@@ -1,8 +1,11 @@
+import json
 from typing import TYPE_CHECKING, Any, Dict, Generic, List, Literal, Optional, Set, Type, Union
 
 from pydantic import SerializationInfo, field_serializer, model_serializer
 
 from vellum.client.core.pydantic_utilities import UniversalBaseModel
+from vellum.client.types import SeverityEnum
+from vellum.utils.json_encoder import VellumJsonEncoder
 from vellum.workflows.errors import WorkflowError
 from vellum.workflows.expressions.accessor import AccessorExpression
 from vellum.workflows.outputs.base import BaseOutput
@@ -136,6 +139,15 @@ class NodeExecutionFulfilledEvent(_BaseNodeEvent, Generic[OutputsType]):
             and serialized["body"]["invoked_ports"] is None
         ):
             del serialized["body"]["invoked_ports"]
+
+        if (
+            self._event_max_size is not None
+            and len(json.dumps(serialized, cls=VellumJsonEncoder)) > self._event_max_size
+            and "body" in serialized
+            and isinstance(serialized["body"], dict)
+        ):
+            serialized["body"]["outputs"] = {}
+
         return serialized
 
 
@@ -171,6 +183,17 @@ class NodeExecutionResumedEvent(_BaseNodeEvent):
     body: NodeExecutionResumedBody
 
 
+class NodeExecutionLogBody(_BaseNodeExecutionBody):
+    attributes: Optional[Dict[str, Any]] = None
+    severity: SeverityEnum
+    message: str
+
+
+class NodeExecutionLogEvent(_BaseNodeEvent):
+    name: Literal["node.execution.log"] = "node.execution.log"
+    body: NodeExecutionLogBody
+
+
 NodeEvent = Union[
     NodeExecutionInitiatedEvent,
     NodeExecutionStreamingEvent,
@@ -178,4 +201,5 @@ NodeEvent = Union[
     NodeExecutionRejectedEvent,
     NodeExecutionPausedEvent,
     NodeExecutionResumedEvent,
+    NodeExecutionLogEvent,
 ]

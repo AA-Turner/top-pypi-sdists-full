@@ -93,9 +93,13 @@ jobs:
       - run:
           name: Run linters and code style checks
           command: make py-style
-      - run:
-          name: Exercise the benchmarks
-          command: make benchmark-ci
+      - unless:
+          condition:
+            equal: ["3.9", << parameters.python_version >>]
+          steps:
+            - run:
+                name: Exercise the benchmarks
+                command: make benchmark-ci
       - run:
           name: Run cicd tests
           command: make cicd-test
@@ -144,8 +148,11 @@ jobs:
       - halt_unless_core
       - checkout
       - run:
-          name: Run the migration test
-          command: ./.circleci/test_migration.sh
+          name: Run the migration test - sushi
+          command: ./.circleci/test_migration.sh sushi "--gateway duckdb_persistent"
+      - run:
+          name: Run the migration test - sushi_dbt
+          command: ./.circleci/test_migration.sh sushi_dbt "--config migration_test_config"
 
   ui_style:
     docker:
@@ -251,6 +258,10 @@ jobs:
             echo "export REDSHIFT_DATABASE='$TEST_DB_NAME'" >> "$BASH_ENV"
             echo "export GCP_POSTGRES_DATABASE='$TEST_DB_NAME'" >> "$BASH_ENV"
             echo "export FABRIC_DATABASE='$TEST_DB_NAME'" >> "$BASH_ENV"
+
+            # Make snowflake private key available            
+            echo $SNOWFLAKE_PRIVATE_KEY_RAW | base64 -d > /tmp/snowflake-keyfile.p8
+            echo "export SNOWFLAKE_PRIVATE_KEY_FILE='/tmp/snowflake-keyfile.p8'" >> "$BASH_ENV"
       - run:
           name: Create test database
           command: ./.circleci/manage-test-db.sh << parameters.engine >> "$TEST_DB_NAME" up

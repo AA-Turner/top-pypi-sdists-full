@@ -63,6 +63,10 @@ class SingleTurnSample(BaseSample):
         List of contexts retrieved for the query.
     reference_contexts : Optional[List[str]]
         List of reference contexts for the query.
+    retrieved_context_ids : Optional[List[Union[str, int]]]
+        List of IDs for retrieved contexts.
+    reference_context_ids : Optional[List[Union[str, int]]]
+        List of IDs for reference contexts.
     response : Optional[str]
         The generated response for the query.
     multi_responses : Optional[List[str]]
@@ -71,15 +75,26 @@ class SingleTurnSample(BaseSample):
         The reference answer for the query.
     rubric : Optional[Dict[str, str]]
         Evaluation rubric for the sample.
+    persona_name : Optional[str]
+        Name of the persona used in query generation.
+    query_style : Optional[str]
+        Style of the generated query (e.g., formal, casual).
+    query_length : Optional[str]
+        Length category of the query (e.g., short, medium, long).
     """
 
     user_input: t.Optional[str] = None
     retrieved_contexts: t.Optional[t.List[str]] = None
     reference_contexts: t.Optional[t.List[str]] = None
+    retrieved_context_ids: t.Optional[t.List[t.Union[str, int]]] = None
+    reference_context_ids: t.Optional[t.List[t.Union[str, int]]] = None
     response: t.Optional[str] = None
     multi_responses: t.Optional[t.List[str]] = None
     reference: t.Optional[str] = None
     rubrics: t.Optional[t.Dict[str, str]] = None
+    persona_name: t.Optional[str] = None
+    query_style: t.Optional[str] = None
+    query_length: t.Optional[str] = None
 
 
 class MultiTurnSample(BaseSample):
@@ -113,7 +128,7 @@ class MultiTurnSample(BaseSample):
         messages: t.List[t.Union[HumanMessage, AIMessage, ToolMessage]],
     ) -> t.List[t.Union[HumanMessage, AIMessage, ToolMessage]]:
         """Validates the user input messages."""
-        if not (
+        if not all(
             isinstance(m, (HumanMessage, AIMessage, ToolMessage)) for m in messages
         ):
             raise ValueError(
@@ -308,6 +323,10 @@ class EvaluationDataset(RagasDataset[SingleTurnSampleOrMultiTurnSample]):
     ----------
     samples : List[BaseSample]
         A list of evaluation samples.
+    backend : Optional[str]
+        The backend to use for storing the dataset (e.g., "local/csv"). Default is None.
+    name : Optional[str]
+        The name of the dataset. Default is None.
 
     Methods
     -------
@@ -332,6 +351,9 @@ class EvaluationDataset(RagasDataset[SingleTurnSampleOrMultiTurnSample]):
     from_jsonl(path)
         Creates an EvaluationDataset from a JSONL file.
     """
+
+    backend: t.Optional[str] = None
+    name: t.Optional[str] = None
 
     @t.overload
     def __getitem__(self, idx: int) -> SingleTurnSampleOrMultiTurnSample: ...
@@ -366,7 +388,12 @@ class EvaluationDataset(RagasDataset[SingleTurnSampleOrMultiTurnSample]):
         return rows
 
     @classmethod
-    def from_list(cls, data: t.List[t.Dict]) -> EvaluationDataset:
+    def from_list(
+        cls,
+        data: t.List[t.Dict],
+        backend: t.Optional[str] = None,
+        name: t.Optional[str] = None,
+    ) -> EvaluationDataset:
         samples = []
         if all(
             "user_input" in item and isinstance(data[0]["user_input"], list)
@@ -375,7 +402,7 @@ class EvaluationDataset(RagasDataset[SingleTurnSampleOrMultiTurnSample]):
             samples.extend(MultiTurnSample(**sample) for sample in data)
         else:
             samples.extend(SingleTurnSample(**sample) for sample in data)
-        return cls(samples=samples)
+        return cls(samples=samples, backend=backend, name=name)
 
     def __repr__(self) -> str:
         return f"EvaluationDataset(features={self.features()}, len={len(self.samples)})"

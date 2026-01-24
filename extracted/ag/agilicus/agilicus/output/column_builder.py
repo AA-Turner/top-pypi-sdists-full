@@ -29,7 +29,10 @@ class ColumnBuilder:
             found = m.group(2)
             for option in found.split(","):
                 split_str = option.split("=")
-                all_options[split_str[0]] = split_str[1]
+                if split_str[1] == "true" or split_str[1] == "false":
+                    all_options[split_str[0]] = bool(split_str[1])
+                else:
+                    all_options[split_str[0]] = split_str[1]
             table_name = m.group(1)
         columns = self.build_columns(format_doc, subtable_column_name=table_name)
         return table.subtable(
@@ -48,7 +51,9 @@ class ColumnBuilder:
             for option in found.split(","):
                 split_str = option.split("=")
                 all_options[split_str[0]] = split_str[1]
-            return table.column(m.group(1), optional=True, **all_options)
+            if all_options.get("optional") is None:
+                all_options["optional"] = True
+            return table.column(m.group(1), **all_options)
         return table.column(column_name, optional=True)
 
     def build_columns(

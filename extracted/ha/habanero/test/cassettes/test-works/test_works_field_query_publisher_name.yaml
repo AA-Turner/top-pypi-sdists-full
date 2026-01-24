@@ -1,0 +1,1038 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - api.crossref.org
+      user-agent:
+      - python-httpx/0.27.2 habanero/1.2.6.91
+      x-user-agent:
+      - python-httpx/0.27.2 habanero/1.2.6.91
+    method: GET
+    uri: https://api.crossref.org/works?query.publisher-name=Universidade%20Federal%20de%20Santa%20Maria
+  response:
+    content: '{"status":"ok","message-type":"work-list","message-version":"1.0.0","message":{"facets":{},"total-results":5240961,"items":[{"indexed":{"date-parts":[[2022,11,2]],"date-time":"2022-11-02T05:19:26Z","timestamp":1667366366772},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","issue":"3","license":[{"start":{"date-parts":[[2022,10,22]],"date-time":"2022-10-22T00:00:00Z","timestamp":1666396800000},"content-version":"unspecified","delay-in-days":0,"URL":"https:\/\/creativecommons.org\/licenses\/by\/4.0\/"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["ReA
+      UFSM"],"abstract":"<jats:p>Purpose: This study aimed to analyze how the career-building
+      process of sustainable entrepreneurs occurs from the perspective of sustainable
+      careers and how the influential factors in their career decisions are related
+      to the dimensions and characteristics of sustainable careers.\nDesign\/methodology\/approach:
+      This is a qualitative study carried out by analyzing three Brazilian entrepreneurs\u2019
+      life stories. Subsequently, the data were submitted to narrative analysis using
+      the Atlas.ti software and then interpreted using sustainable career\u2019s dimensions
+      and characteristics.\nFindings: The study corroborates the literature on entrepreneurship,
+      sustainability, and careers, shedding new light on the career decision process
+      of sustainable entrepreneurs from the assumptions of the sustainable career
+      perspective. We identified the emergence of influential categories as a disorienting
+      dilemma, the importance of agency and meaning dimensions and the career coherence
+      with values, quality of life, and self-fulfillment. In addition, sustainable
+      entrepreneurship appears to be in line with the ideals of decent work, allowing
+      for individual well-being, matching life and career values, and long-term employability.\nOriginality:
+      The sustainable career perspective offers an innovative, dynamic, and systemic
+      perspective to understanding the professional trajectories of sustainable entrepreneurs,
+      considering their learning along their trajectory, crossing different social
+      spaces, experiences, and creations, which allow them to improve the adaptability
+      necessary for the sustainability of their careers.<\/jats:p>","DOI":"10.5902\/1983465970062","type":"journal-article","created":{"date-parts":[[2022,11,1]],"date-time":"2022-11-01T19:45:57Z","timestamp":1667331957000},"page":"469-490","source":"Crossref","is-referenced-by-count":0,"title":["Creating
+      sustainable businesses and careers: analysis of entrepreneurs\u2019 life stories
+      through the lens of career sustainability"],"prefix":"10.5902","volume":"15","author":[{"given":"La\u00eds
+      Viera","family":"Trevisan","sequence":"first","affiliation":[]},{"given":"Patr\u00edcia
+      B\u00f6ck","family":"Bandeira","sequence":"additional","affiliation":[]},{"given":"Eliane
+      Alves da","family":"Silva","sequence":"additional","affiliation":[]},{"given":"Angela
+      Beatriz Busato","family":"Scheffer","sequence":"additional","affiliation":[]},{"given":"Eug\u00eanio
+      \u00c1vila","family":"Pedrozo","sequence":"additional","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2022,10,22]]},"container-title":["Revista
+      de Administra\u00e7\u00e3o da UFSM"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/reaufsm\/article\/download\/70062\/49219","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/reaufsm\/article\/download\/70062\/49219","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2022,11,1]],"date-time":"2022-11-01T19:45:57Z","timestamp":1667331957000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/reaufsm\/article\/view\/70062"}},"issued":{"date-parts":[[2022,10,22]]},"references-count":0,"journal-issue":{"issue":"3","published-online":{"date-parts":[[2022,10,22]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/1983465970062","ISSN":["1983-4659","1983-4659"],"issn-type":[{"value":"1983-4659","type":"electronic"},{"value":"1983-4659","type":"print"}],"published":{"date-parts":[[2022,10,22]]}},{"indexed":{"date-parts":[[2023,9,9]],"date-time":"2023-09-09T04:56:11Z","timestamp":1694235371342},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","license":[{"start":{"date-parts":[[2023,9,6]],"date-time":"2023-09-06T00:00:00Z","timestamp":1693958400000},"content-version":"unspecified","delay-in-days":0,"URL":"https:\/\/creativecommons.org\/licenses\/by-nc\/4.0"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Educa\u00e7\u00e3o"],"abstract":"<jats:p>Este
+      artigo objetiva discutir sobre sa\u00fade mental daprofessora da Educa\u00e7\u00e3o
+      B\u00e1sica, assim como conhecer os efeitos da pandemia em sua doc\u00eancia
+      a partir de uma perspectiva de g\u00eanero. Trata-se de uma revis\u00e3o da
+      literatura nacional e internacional, ancorada em um levantamento bibliogr\u00e1fico
+      realizado a partir de artigos cient\u00edficos, documentos legais, livros e
+      websites. O estudo est\u00e1 dividido em cinco t\u00f3picos, para facilitar
+      a compreens\u00e3o do leitor. Sendo tais: 1) Caminhos metodol\u00f3gicos percorridos;
+      2) O debate te\u00f3rico em torno da fun\u00e7\u00e3o do estado, da fam\u00edlia
+      e da sociedade para a oferta da Educa\u00e7\u00e3o em tempos pand\u00eamicos;
+      3) Efeitos da pandemia na sa\u00fade mental das professoras da Educa\u00e7\u00e3o
+      B\u00e1sica; 4) Ser professora, ser mulher na Educa\u00e7\u00e3o B\u00e1sica:
+      dificuldades e supera\u00e7\u00f5es em sua doc\u00eancia em tempos de pandemia;
+      e 5) Considera\u00e7\u00f5es finais.Percebe-se quea pandemia da COVID-19 transformou
+      a vida das professoras, afetando diretamente a sua vida pessoal e profissional.Cada
+      mulher vivenciou e ainda continua a experienciar situa\u00e7\u00f5es adversas
+      de um modo particular. Posto isto, reconhece-se que estes eventos estressantes
+      naescola podem tamb\u00e9m nos ensinar, visto que, n\u00e3o basta falar sobre
+      o Ensino Remoto ministrado em formato de home-office pelas professoras da Educa\u00e7\u00e3o
+      B\u00e1sica, mas \u00e9 necess\u00e1rio referenciar o contexto em que a maioria
+      delas est\u00e1 inserida durante esse tipo de trabalho, pois est\u00e3o sujeitasao
+      adoecimento mental gerado por elementos relacionados \u00e0 doc\u00eancia, como
+      estresse, ansiedade e depress\u00e3o.Conclui-se que \u00e9 necess\u00e1rio o
+      desenvolvimento de interven\u00e7\u00f5es da Psicologia com a finalidade de
+      promo\u00e7\u00e3o da sa\u00fade mental dessas professoras.<\/jats:p>","DOI":"10.5902\/1984644470057","type":"journal-article","created":{"date-parts":[[2023,9,9]],"date-time":"2023-09-09T01:47:57Z","timestamp":1694224077000},"source":"Crossref","is-referenced-by-count":0,"title":["Sa\u00fade
+      mental da professora e os efeitos da pandemia em sua doc\u00eancia na Educa\u00e7\u00e3o
+      B\u00e1sica: um olhar a partir da perspectiva de g\u00eanero"],"prefix":"10.5902","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-5943-540X","authenticated-orcid":false,"given":"Mara
+      Dantas","family":"Pereira","sequence":"first","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0003-4006-0254","authenticated-orcid":false,"given":"Loriene
+      Assis Dourado","family":"Duarte","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0001-6471-3876","authenticated-orcid":false,"given":"Dinamara
+      Garcia","family":"Feldens","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0001-9149-3020","authenticated-orcid":false,"given":"Joilson
+      Pereira da","family":"Silva","sequence":"additional","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2023,9,6]]},"container-title":["Educa\u00e7\u00e3o"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/download\/70057\/61664","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/download\/70057\/61665","content-type":"text\/html","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/download\/70057\/61664","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,9,9]],"date-time":"2023-09-09T01:47:58Z","timestamp":1694224078000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/view\/70057"}},"issued":{"date-parts":[[2023,9,6]]},"references-count":0,"URL":"http:\/\/dx.doi.org\/10.5902\/1984644470057","ISSN":["1984-6444"],"issn-type":[{"value":"1984-6444","type":"electronic"}],"published":{"date-parts":[[2023,9,6]]}},{"indexed":{"date-parts":[[2022,11,23]],"date-time":"2022-11-23T05:36:27Z","timestamp":1669181787947},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","license":[{"start":{"date-parts":[[2022,11,21]],"date-time":"2022-11-21T00:00:00Z","timestamp":1668988800000},"content-version":"unspecified","delay-in-days":0,"URL":"https:\/\/creativecommons.org\/licenses\/by-nc\/4.0"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Educa\u00e7\u00e3o"],"abstract":"<jats:p>O
+      artigo prop\u00f5e uma discuss\u00e3o sobre o acesso \u00e0 educa\u00e7\u00e3o
+      b\u00e1sica, no Brasil e na Guin\u00e9-Bissau, como a\u00e7\u00e3o p\u00fablica
+      capaz de garantir o direito \u00e0 educa\u00e7\u00e3o em sociedades modernas
+      ocidentais. Aborda a democratiza\u00e7\u00e3o da educa\u00e7\u00e3o no contexto
+      do direito de acesso \u00e0 escola, enfatizando a trajet\u00f3ria de tais direitos
+      nos contextos brasileiro e guineense. No escopo te\u00f3rico, adota uma teoria
+      de justi\u00e7a social cuja amplitude enfatiza as injusti\u00e7as socioecon\u00f4micas
+      (dimens\u00e3o da redistribui\u00e7\u00e3o) e culturais (dimens\u00e3o do reconhecimento).
+      Em termos metodol\u00f3gicos, trata-se de um estudo comparado que se utiliza
+      de dados de natureza quali-quantitativos associados \u00e0 pesquisa bibliogr\u00e1fica,
+      tendo como unidade de compara\u00e7\u00e3o a legisla\u00e7\u00e3o educacional
+      do Brasil e da Guin\u00e9-Bissau. A an\u00e1lise destaca que, na d\u00e9cada
+      de 1980, o Brasil iniciou a redemocratiza\u00e7\u00e3o das institui\u00e7\u00f5es
+      p\u00fablicas com prop\u00f3sitos que envolveram a\u00e7\u00f5es dos governos
+      (municipal, estadual, federal) e da sociedade civil organizada para a educa\u00e7\u00e3o
+      p\u00fablica. J\u00e1 a Guin\u00e9-Bissau \u00e9 um pa\u00eds, no sentido moderno,
+      muito jovem, tanto no que diz respeito \u00e0 sua emancipa\u00e7\u00e3o pol\u00edtica
+      quanto ao regime democr\u00e1tico; nesse pa\u00eds, o acesso \u00e0 escola \u00e9
+      resultado de um processo ainda em constru\u00e7\u00e3o e consolida\u00e7\u00e3o,
+      atrav\u00e9s das coopera\u00e7\u00f5es com organismos internacionais e \u201cparceiros\u201d,
+      como o Brasil. Conclui-se, portanto, que h\u00e1 aproxima\u00e7\u00f5es nos
+      dom\u00ednios educacional e cultural, mesmo com distanciamentos hist\u00f3ricos
+      a serem tamb\u00e9m compreendidos e considerados, nessas \u00e1reas.<\/jats:p>","DOI":"10.5902\/1984644464036","type":"journal-article","created":{"date-parts":[[2022,11,22]],"date-time":"2022-11-22T01:38:44Z","timestamp":1669081124000},"source":"Crossref","is-referenced-by-count":0,"title":["Acesso
+      \u00e0 educa\u00e7\u00e3o b\u00e1sica no Brasil e na Guin\u00e9-Bissau: o direito
+      \u00e0 educa\u00e7\u00e3o em diferentes contextos sociais"],"prefix":"10.5902","author":[{"ORCID":"http:\/\/orcid.org\/0000-0003-4322-2829","authenticated-orcid":false,"given":"Neusa
+      Chaves","family":"Batista","sequence":"first","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-9845-6908","authenticated-orcid":false,"given":"Eliane
+      Helena","family":"Menegotti","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-5722-0704","authenticated-orcid":false,"given":"F\u00e1tima
+      Rodrigues","family":"Ehlert","sequence":"additional","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2022,11,21]]},"container-title":["Educa\u00e7\u00e3o"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/download\/64036\/49400","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/download\/64036\/49401","content-type":"text\/html","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/download\/64036\/49400","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2022,11,23]],"date-time":"2022-11-23T01:38:33Z","timestamp":1669167513000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/view\/64036"}},"issued":{"date-parts":[[2022,11,21]]},"references-count":0,"URL":"http:\/\/dx.doi.org\/10.5902\/1984644464036","ISSN":["1984-6444"],"issn-type":[{"value":"1984-6444","type":"electronic"}],"published":{"date-parts":[[2022,11,21]]}},{"indexed":{"date-parts":[[2023,1,1]],"date-time":"2023-01-01T06:14:47Z","timestamp":1672553687348},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","license":[{"start":{"date-parts":[[2022,12,27]],"date-time":"2022-12-27T00:00:00Z","timestamp":1672099200000},"content-version":"unspecified","delay-in-days":0,"URL":"https:\/\/creativecommons.org\/licenses\/by-nc\/4.0"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Educa\u00e7\u00e3o"],"abstract":"<jats:p>O
+      objetivo do texto \u00e9 apresentar uma leitura hermen\u00eautica do filme E
+      Buda desabou de vergonha para, numa perspectiva antropol\u00f3gica, abordar
+      o brincar e a constru\u00e7\u00e3o da autonomia da crian\u00e7a. O cinema, abordado
+      aqui como itiner\u00e1rio de forma\u00e7\u00e3o, apresenta-se como uma importante
+      ferramenta te\u00f3rico-metodol\u00f3gica para trazer \u00e0 tona elementos
+      de forma\u00e7\u00e3o humana. Num contexto em que estudantes do sexo feminino
+      s\u00e3o exclu\u00eddas de quase todas as oportunidades educacionais no Afeganist\u00e3o
+      at\u00e9 2001, com instala\u00e7\u00e3o do regime talib\u00e3, Bakhtai, uma
+      garotinha afeg\u00e3 de etnia hazara, de seis anos de idade, fica determinada
+      em ir para escola ao ver seu vizinho Abbas ler em voz alta. \u00c9 enfrentando
+      uma trajet\u00f3ria com diversas barreiras presente em sua cultura que Bahktai
+      busca aprender hist\u00f3rias divertidas. Conclui-se que a leitura do filme,
+      enquanto texto de outra cultura, \u00e9 um importante aliado para a forma\u00e7\u00e3o
+      de professores por evidenciar elementos para uma reflex\u00e3o sobre limites
+      e possibilidades do protagonismo infantil na cultura onde a crian\u00e7a vive.<\/jats:p>","DOI":"10.5902\/1984644465700","type":"journal-article","created":{"date-parts":[[2022,12,28]],"date-time":"2022-12-28T01:40:09Z","timestamp":1672191609000},"source":"Crossref","is-referenced-by-count":0,"title":["Ir
+      \u00e0 escola noutra cultura: uma leitura hermen\u00eautica do filme \u201cE
+      Buda desabou de vergonha\u201d"],"prefix":"10.5902","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-4398-6514","authenticated-orcid":false,"given":"Angela
+      Lima","family":"Bittencourt","sequence":"first","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-4693-9027","authenticated-orcid":false,"given":"Elni
+      Elisa","family":"Willms","sequence":"additional","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2022,12,27]]},"container-title":["Educa\u00e7\u00e3o"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/download\/65700\/50921","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/download\/65700\/50922","content-type":"text\/html","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/download\/65700\/50921","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,1,1]],"date-time":"2023-01-01T01:40:17Z","timestamp":1672537217000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/view\/65700"}},"issued":{"date-parts":[[2022,12,27]]},"references-count":0,"URL":"http:\/\/dx.doi.org\/10.5902\/1984644465700","ISSN":["1984-6444"],"issn-type":[{"value":"1984-6444","type":"electronic"}],"published":{"date-parts":[[2022,12,27]]}},{"indexed":{"date-parts":[[2023,1,1]],"date-time":"2023-01-01T06:14:52Z","timestamp":1672553692677},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","license":[{"start":{"date-parts":[[2022,12,27]],"date-time":"2022-12-27T00:00:00Z","timestamp":1672099200000},"content-version":"unspecified","delay-in-days":0,"URL":"https:\/\/creativecommons.org\/licenses\/by-nc\/4.0"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Educa\u00e7\u00e3o"],"abstract":"<jats:p>Este
+      texto exp\u00f5e an\u00e1lises sobre a Base Nacional Comum Curricular (BNCC,
+      2017) e a produ\u00e7\u00e3o intelectual de cr\u00edtica, suportadas como territ\u00f3rio
+      e\/ou mercado lingu\u00edstico contradit\u00f3rio, que per se representam o
+      processo brasileiro de reorienta\u00e7\u00e3o curricular. Incursiona-se por
+      conceitos e no\u00e7\u00f5es trazidos pelo empreendimento bourdesiano, particularmente
+      a edifica\u00e7\u00e3o da viol\u00eancia simb\u00f3lica na imposi\u00e7\u00e3o
+      de um conjunto (arbitr\u00e1rio) de referentes culturais, como mecanismo de
+      preserva\u00e7\u00e3o (e legitima\u00e7\u00e3o) da cultura dominante e dos sistemas
+      de domina\u00e7\u00e3o. Articula-se o m\u00e9todo praxiol\u00f3gico, organizado
+      a partir de estudos bibliogr\u00e1ficos e documentais, fundados nos conceitos
+      operacionais de campo, habitus e doxa douta.<\/jats:p>","DOI":"10.5902\/1984644464618","type":"journal-article","created":{"date-parts":[[2022,12,28]],"date-time":"2022-12-28T01:40:54Z","timestamp":1672191654000},"source":"Crossref","is-referenced-by-count":0,"title":["Discursos
+      Pol\u00edtico-curriculares endere\u00e7ados \u00e0 Educa\u00e7\u00e3o Especial"],"prefix":"10.5902","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-7106-690X","authenticated-orcid":false,"given":"Fabiany
+      de C\u00e1ssia Tavares","family":"Silva","sequence":"first","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2022,12,27]]},"container-title":["Educa\u00e7\u00e3o"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/download\/64618\/50911","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/download\/64618\/50912","content-type":"text\/html","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/download\/64618\/50911","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,1,1]],"date-time":"2023-01-01T01:41:03Z","timestamp":1672537263000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/reveducacao\/article\/view\/64618"}},"issued":{"date-parts":[[2022,12,27]]},"references-count":0,"URL":"http:\/\/dx.doi.org\/10.5902\/1984644464618","ISSN":["1984-6444"],"issn-type":[{"value":"1984-6444","type":"electronic"}],"published":{"date-parts":[[2022,12,27]]}},{"indexed":{"date-parts":[[2023,8,26]],"date-time":"2023-08-26T04:27:24Z","timestamp":1693024044923},"reference-count":49,"publisher":"Universidade
+      Federal de Santa Maria","issue":"3","license":[{"start":{"date-parts":[[2023,8,25]],"date-time":"2023-08-25T00:00:00Z","timestamp":1692921600000},"content-version":"unspecified","delay-in-days":0,"URL":"https:\/\/creativecommons.org\/licenses\/by\/4.0\/"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["ReA
+      UFSM"],"abstract":"<jats:p>Purpose: To analyze the feasibility of a reverse
+      logistics process in the footwear production, using two technologies from industry
+      4.0 \u2013 RFID and Cloud Computing.\nMethodology: A case study was carried
+      out in a large footwear industry, located in southern region of the country;
+      qualitative approach, with data collection through semi-structured interviews,
+      documental research (internal digital records\/intranet) and non-participant
+      systematic observation.\nFindings: The empirical data showed that the two technologies
+      analyzed, RFID and Cloud Computing, are already implemented in some operations
+      in the company, and offer technical conditions to operationalize the reverse
+      logistics process.\nOriginality\/value: Industrial operations promote various
+      actions to adapt to environmental standards, both legal ones, already in force,
+      and the recommended ones, resulting from pressure from society, increasingly
+      aware of the need for changes in processes that negatively impact the environment.
+      Among these actions, the adoption of reverse logistics stands out, considered
+      one of the structuring axes of the National Solid Waste Policy, enacted in 2010.
+      This analysis, regarding the contribution of these two technologies is justified
+      by intentions of footwear companies to employ these technologies in the manufacturing
+      process.<\/jats:p>","DOI":"10.5902\/1983465972167","type":"journal-article","created":{"date-parts":[[2023,8,25]],"date-time":"2023-08-25T21:31:12Z","timestamp":1692999072000},"page":"e6","source":"Crossref","is-referenced-by-count":0,"title":["Analysis
+      of the feasibility of reverse logistics in footwear production employing technologies
+      RFID and Cloud Computing"],"prefix":"10.5902","volume":"16","author":[{"ORCID":"http:\/\/orcid.org\/0000-0003-4258-4780","authenticated-orcid":false,"given":"Dusan","family":"Schreiber","sequence":"first","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0001-7242-875X","authenticated-orcid":false,"given":"Silaine
+      Carini","family":"Sander","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-5585-7779","authenticated-orcid":false,"given":"Vilson
+      Jos\u00e9","family":"Becker","sequence":"additional","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2023,8,25]]},"reference":[{"key":"1253756","doi-asserted-by":"crossref","unstructured":"Abdulrahman,
+      M. D., Gunasekaran, A., & Subramanian, N. (2014). Critical barriers in implementing
+      reverse logistics in the Chinese manufacturing sectors. International Journal
+      of Production Economics, 147, 460-471. Retrieved from https:\/\/isiarticles.com\/bundles\/Article\/pre\/pdf\/1446.pdf.
+      doi: https:\/\/doi.org\/10.1016\/j.ijpe.2012.08.003","DOI":"10.1016\/j.ijpe.2012.08.003"},{"key":"1253757","unstructured":"\u00c1vila,
+      A. M. (2012). Identifica\u00e7\u00e3o por radiofrequ\u00eancia: tecnologia inteligente,
+      hospital eficiente, qualidade e seguran\u00e7a para o paciente (Trabalho de
+      conclus\u00e3o de curso). Instituto de Comunica\u00e7\u00e3o e Informa\u00e7\u00e3o
+      Cient\u00edfica e Tecnol\u00f3gica em Sa\u00fade \u2013 ICICT, Porto Alegre,
+      RS, Brasil. Retrieved from https:\/\/docs.bvsalud.org\/biblioref\/coleciona-sus\/2012\/28499\/28499-469.pdf"},{"key":"1253758","unstructured":"Bardin,
+      L. (2011). An\u00e1lise de conte\u00fado. Coimbra: Edi\u00e7\u00f5es 70."},{"key":"1253759","doi-asserted-by":"crossref","unstructured":"Bender,
+      R. (2004). Why do companies use performance-related pay for their executive
+      directors? Corporate Governance, 12(4), 521-533. Retrieved from https:\/\/onlinelibrary.wiley.com\/doi\/abs\/10.1111\/j.1467-8683.2004.00391.x.
+      doi: https:\/\/doi.org\/10.1111\/j.1467-8683.2004.00391.x","DOI":"10.1111\/j.1467-8683.2004.00391.x"},{"key":"1253760","doi-asserted-by":"crossref","unstructured":"Bouzon,
+      M., Govindan, K., & Rodriguez, C. M. T. (2015). Reducing the extraction of minerals:
+      reverse logistics in the machinery manufacturing industry sector in Brazil using
+      ISM approach. Resources Policy, 46, 27-36. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S0301420715000173.
+      doi: https:\/\/doi.org\/10.1016\/j.resourpol.2015.02.001","DOI":"10.1016\/j.resourpol.2015.02.001"},{"key":"1253761","doi-asserted-by":"crossref","unstructured":"Camboim,
+      K., & Alencar, F. (2018). Requisitos n\u00e3o funcionais e sustentabilidade
+      para computa\u00e7\u00e3o em nuvem: uma revis\u00e3o sistem\u00e1tica da literatura.
+      Workshop on Requirements Engineering Proceedings, Rio de Janeiro, RJ, Brasil,
+      21. Retrieved from http:\/\/wer.inf.puc-rio.br\/WERpapers\/artigos\/artigos_WER18\/WER_2018_paper_27.pdf","DOI":"10.17771\/PUCRio.wer.inf2018-27"},{"key":"1253762","doi-asserted-by":"crossref","unstructured":"Ca\u00f1avate,
+      A. M., Monteiro, M. G. B., Freitas, M. C. V., & Borges, M. M. (2017). Os arquivos
+      empresariais em Portugal: do tradicional ao cloud computing. Perspectivas em
+      Ci\u00eancia da Informa\u00e7\u00e3o, 22(3), 210-251. Retrieved from https:\/\/www.scielo.br\/j\/pci\/a\/5zLPVxgvnj53cRKpNVH6c5g\/?lang=pt.
+      doi: https:\/\/doi.org\/10.1590\/1981-5344\/3189","DOI":"10.1590\/1981-5344\/3189"},{"key":"1253763","unstructured":"Centro
+      de Gest\u00e3o e Estudos Estrat\u00e9gicos. (2020). Lei de Inform\u00e1tica:
+      resultados, desafios e oportunidades para o setor de TIC no Brasil. Contribui\u00e7\u00f5es
+      ao aprimoramento da pol\u00edtica para o setor de TIC no Brasil (Vol. 2). Bras\u00edlia,
+      DF: CGEE. Retrieved from b283f134-75a4-4506-ab1d-74699b5215ac (cgee.org.br)"},{"key":"1253764","doi-asserted-by":"crossref","unstructured":"Cheah,
+      C. G., Chia, W. Y., Lai, S. F., Chew, K. W., Chia, S. R., & Show, P. L. (2022).
+      Innovation designs of industry 4.0 based solid waste management: Machinery and
+      digital circular economy. Environmental Research, 213. Retrieved fromhttps:\/\/www.sciencedirect.com\/science\/article\/pii\/S001393512200946X?via%3Dihub.
+      doi: https:\/\/doi.org\/10.1016\/j.envres.2022.113619","DOI":"10.1016\/j.envres.2022.113619"},{"key":"1253765","doi-asserted-by":"crossref","unstructured":"Dacin,
+      M. T., Goodstein, J., & Scott, W. R. (2002). Institutional theory and institutional
+      change: introduction to the special research forum. The Academy of Management
+      Journal, 45(1), 45-56. Retrieved from https:\/\/www.jstor.org\/stable\/3069284.
+      doi: https:\/\/doi.org\/10.2307\/3069284","DOI":"10.5465\/amj.2002.6283388"},{"key":"1253766","doi-asserted-by":"crossref","unstructured":"Demajorovic,
+      J., & Migliano, J. E. B. (2013). Pol\u00edtica Nacional de Res\u00edduos S\u00f3lidos
+      e suas implica\u00e7\u00f5es na cadeia da log\u00edstica reversa de microcomputadores
+      no Brasil. Gest\u00e3o & Regionalidade, 29(87), 64-80. Retrieved from https:\/\/www.redalyc.org\/pdf\/1334\/133429359006.pdf","DOI":"10.13037\/gr.vol29n87.2155"},{"key":"1253767","unstructured":"Deslandes,
+      S. F., Cruz, O., Neto, & Gomes, R. (2002). Pesquisa social: teoria, m\u00e9todo
+      e criatividade (21a ed.). Petr\u00f3polis: Editora Vozes."},{"key":"1253768","doi-asserted-by":"crossref","unstructured":"DiMaggio,
+      P., & Powell, W. (1983). The Iron Cage revisited: Institutional isomorphism
+      and collective rationality in organizational fields. American Sociological Review,
+      48(2), 147-160. Retrieved from https:\/\/www.jstor.org\/stable\/2095101. doi:
+      https:\/\/doi.org\/10.2307\/2095101","DOI":"10.2307\/2095101"},{"key":"1253769","doi-asserted-by":"crossref","unstructured":"Ding,
+      L., Wang, T., & Chan, P. W. (2023). Forward and reverse logistics for circular
+      economy in construction: A systematic literature review. Journal of Cleaner
+      Production, 388. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S0959652623001397?via%3Dihub.
+      doi: https:\/\/doi.org\/10.1016\/j.jclepro.2023.135981","DOI":"10.1016\/j.jclepro.2023.135981"},{"key":"1253770","unstructured":"Fonseca,
+      J. J. S. (2002). Metodologia da pesquisa cient\u00edfica. Cear\u00e1: UECE.
+      Retrieved from http:\/\/www.ia.ufrrj.br\/ppgea\/conteudo\/conteudo-2012-1\/1SF\/Sandra\/apostilaMetodologia.pdf"},{"key":"1253771","unstructured":"Gerhardt,
+      T. E., & Silveira, D. T. (2009). M\u00e9todos de pesquisa. Porto Alegre: Editora
+      da UFRGS."},{"key":"1253772","unstructured":"Gil, A. C. (2002). Como elaborar
+      projetos de pesquisa (4a ed.). S\u00e3o Paulo: Editora Atlas."},{"key":"1253773","doi-asserted-by":"crossref","unstructured":"Gjeldum,
+      N., Mladineo, M., Crnjac; M., Veza; I., & Aljinovic; A. (2018). Performance
+      analysis of the RFID system for optimal design of the intelligent assembly line
+      in the learning factory. Procedia Manufacturing, 23, 63-68. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S2351978918304669?via%3Dihub.
+      doi: https:\/\/doi.org\/10.1016\/j.promfg.2018.03.162","DOI":"10.1016\/j.promfg.2018.03.162"},{"key":"1253774","doi-asserted-by":"crossref","unstructured":"Jia,
+      L., & Mo, S. (2022). Research on the agile management system of workshop production
+      resources. Journal of Physics: Conference Series, 2390. Retrieved from https:\/\/iopscience.iop.org\/article\/10.1088\/1742-6596\/2390\/1\/012064.
+      doi: https:\/\/doi.org\/10.1088\/1742-6596\/2390\/1\/012064","DOI":"10.1088\/1742-6596\/2390\/1\/012064"},{"key":"1253775","doi-asserted-by":"crossref","unstructured":"Kannan,
+      D., Solanki, R., Darbari, J. D., Govindan, K., & Jha, P. C. (2023). A novel
+      bi-objective optimization model for an eco-efficient reverse logistics network
+      design configuration. Journal of Cleaner Production, 394. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S0959652623005152?via%3Dihub.
+      doi: https:\/\/doi.org\/10.1016\/j.jclepro.2023.136357","DOI":"10.1016\/j.jclepro.2023.136357"},{"key":"1253776","unstructured":"Leite,
+      P. R. (2017). Log\u00edstica reversa: Sustentabilidade e competitividade (3a
+      ed.). S\u00e3o Paulo: Saraiva Uni."},{"key":"1253777","doi-asserted-by":"crossref","unstructured":"Liu,
+      W.; & Gao, Z. (2014). Study on IOT based architecture of logistics service supply
+      chain. International Journal of Grid and Distributed Computing, 7(1), 169-178.
+      Retrieved from http:\/\/article.nadiapub.com\/IJGDC\/vol7_no1\/15.pdf. doi:
+      http:\/\/dx.doi.org\/10.14257\/ijgdc.2014.7.1.15","DOI":"10.14257\/ijgdc.2014.7.1.15"},{"key":"1253778","doi-asserted-by":"crossref","unstructured":"Marchisotti,
+      G. G., Joia, L. A., & Carvalho, R. B. A. (2019). A representa\u00e7\u00e3o social
+      de \u2018cloud computing\u2019 pela percep\u00e7\u00e3o dos profissionais brasileiros
+      de tecnologia da informa\u00e7\u00e3o. Revista de Administra\u00e7\u00e3o de
+      Empresas, 59(1), 16-28. Retrieved from https:\/\/www.scielo.br\/j\/rae\/a\/WWwJktBV7PnZCRWDT5DvNnj\/abstract\/?lang=pt.
+      doi: https:\/\/doi.org\/10.1590\/S0034-759020190103","DOI":"10.1590\/s0034-759020190103"},{"key":"1253779","unstructured":"McAfee,
+      A., & Brynjolfsson, E. (October, 2012). Big data: the management revolution.
+      Harvard Business Review, Decision Making and Problem Solving. Retrieved from
+      https:\/\/hbr.org\/2012\/10\/big-data-the-management-revolution"},{"key":"1253780","doi-asserted-by":"crossref","unstructured":"Meyer,
+      J. W. & Rowan, B. (1977). Institutionalized organizations: Formal structure
+      as myth and ceremony. American Journal of Sociology, 83(2), 340-363. Retrieved
+      from https:\/\/www.jstor.org\/stable\/2778293","DOI":"10.1086\/226550"},{"key":"1253781","unstructured":"Minayo,
+      M. C. S. (Ed.). (2002). Pesquisa social: teoria, m\u00e9todo e criatividade.
+      Vozes."},{"key":"1253782","unstructured":"Minayo, M. C. S. (2010). Introdu\u00e7\u00e3o.
+      In M. C. S. Minayo, S. G. Assis, & E. R. Souza (Eds.). Avalia\u00e7\u00e3o por
+      triangula\u00e7\u00e3o de m\u00e9todos: abordagem de programas sociais (pp.
+      19-51). Rio de Janeiro: Editora Fiocruz."},{"key":"1253783","unstructured":"Minist\u00e9rio
+      do Meio Ambiente. (2009). Programa Nacional de Capacita\u00e7\u00e3o de Gestores
+      Ambientais: licenciamento ambiental (2a ed.). Bras\u00edlia, DF: MMA. Retrieved
+      from http:\/\/www.bibliotecaflorestal.ufv.br\/handle\/123456789\/5152"},{"key":"1253784","doi-asserted-by":"crossref","unstructured":"Mishra,
+      A., Dutta, P., Jayasankar, S., Jain, P., & Mathiyazhagan, K. (2023). A review
+      of reverse logistics and closed-loop supply chains in the perspective of circular
+      economy. Benchmarking: An International Journal, 30(3), 975-1020. Retrieved
+      from https:\/\/www.emerald.com\/insight\/content\/doi\/10.1108\/BIJ-11-2021-0669\/full\/html.
+      https:\/\/doi.org\/10.1108\/BIJ-11-2021-0669","DOI":"10.1108\/BIJ-11-2021-0669"},{"key":"1253785","unstructured":"Motorola
+      Solutions (2014). Motorola-s Manufacturing RFID Solutions. Chicago, IL: Motorola
+      Inc. Retrieved from https:\/\/www.rfidjournal.com\/wp-content\/uploads\/2020\/01\/335.pdf"},{"key":"1253786","doi-asserted-by":"crossref","unstructured":"Liu,
+      F., Tong, J., Mao, J., Bohn, R. B., Messina, J. V., Badger, M. L., & Leaf, D.
+      M. (2011). NIST cloud computing reference architecture. Gaithersburg, MD: NIST
+      Publications. doi: https:\/\/doi.org\/10.6028\/NIST.SP.500-292","DOI":"10.6028\/NIST.SP.500-292"},{"key":"1253787","doi-asserted-by":"crossref","unstructured":"Oztemel,
+      E., & Gursev, S. (2020). Literature review of Industry 4.0 and related technologies.
+      Journal of Intelligent Manufacturing, 31(1), 127-182. Retrieved from https:\/\/link-springer-com.ez47.periodicos.capes.gov.br\/article\/10.1007\/s10845-018-1433-8.
+      doi: https:\/\/doi-org.ez310.periodicos.capes.gov.br\/10.1007\/s10845-018-1433-8","DOI":"10.1007\/s10845-018-1433-8"},{"key":"1253788","doi-asserted-by":"crossref","unstructured":"Pacheco,
+      D. A. J., Jung, C. F., & Azambuja, M. C. (2021). Towards industry 4.0 in practice:
+      a novel RFID-based intelligent system for monitoring and optimisation of production
+      systems. Journal of Intelligent Manufacturing, 34, 1165-1181. Retrieved from
+      https:\/\/link.springer.com\/article\/10.1007\/s10845-021-01840-w. doi: https:\/\/doi.org\/10.1007\/s10845-021-01840-w","DOI":"10.1007\/s10845-021-01840-w"},{"key":"1253789","unstructured":"Pedro,
+      I. S. G. (2012). Estudo do potencial de aplicabilidade da tecnologia RFID em
+      meio hospitalar (Disserta\u00e7\u00e3o de mestrado). Universidade da Beira Interior,
+      Covilh\u00e3, Portugal. Retrieved from http:\/\/hdl.handle.net\/10400.6\/2434"},{"key":"1253790","doi-asserted-by":"crossref","unstructured":"Perera,
+      C., Liu, C. H., Jayawardena, S., & Chen, M. (2015). Context-aware computing
+      in the internet of things: a survey on internet of things from industrial market
+      perspective. IEEE Access, 2(1), 1660-1679. https:\/\/arxiv.org\/abs\/1502.00164.","DOI":"10.1109\/ACCESS.2015.2389854"},{"key":"1253791","doi-asserted-by":"crossref","unstructured":"Plentz,
+      N. D., & Tocchetto, M. L. (2014). O ecodesign na ind\u00fastria de cal\u00e7ados:
+      proposta para um mercado em transforma\u00e7\u00e3o. Revista Eletr\u00f4nica
+      em Gest\u00e3o, Educa\u00e7\u00e3o e Tecnologia Ambiental, 18(3), 1022-1036.
+      Retrieved from https:\/\/periodicos.ufsm.br\/index.php\/reget\/article\/view\/13830.
+      doi: https:\/\/doi.org\/10.5902\/2236117013830","DOI":"10.5902\/2236117013830"},{"key":"1253792","unstructured":"Ruppenthal,
+      J. E. (2014). Gest\u00e3o ambiental. Santa Maria, RS: UFSM\/CTISM."},{"key":"1253793","doi-asserted-by":"crossref","unstructured":"Sabi,
+      H. M., Uzoka, F. M. E., Langmia, K., & Njeh, F. N. (2016). Conceptualizing a
+      model for adoption of cloud computing in education. International Journal of
+      Information Management, 36(2), 183-191. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S0268401215001115.
+      doi: https:\/\/doi.org\/10.1016\/j.ijinfomgt.2015.11.010","DOI":"10.1016\/j.ijinfomgt.2015.11.010"},{"key":"1253794","unstructured":"Schwab,
+      K. (2017). The Fourth Industrial Revolution. New York City: Currency Books."},{"key":"1253795","doi-asserted-by":"crossref","unstructured":"Shaharudin,
+      M. R., Zailani, S., & Tan, K. C. (2015). Barriers to product returns and recovery
+      management in a developing country: investigation using multiple methods. Journal
+      of Cleaner Production, 96, 220-232. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S0959652613009256.
+      doi: https:\/\/doi.org\/10.1016\/j.jclepro.2013.12.071","DOI":"10.1016\/j.jclepro.2013.12.071"},{"key":"1253796","unstructured":"Souza,
+      U., & Nunes, F. (2020). Ind\u00fastria 4.0 e a Cadeia De Suprimentos em uma
+      empresa de automa\u00e7\u00e3o no Vale dos Sinos: uma proposta de mapa conceitual.
+      Journal of Lean Systems, 5(1), 01-28. Retrieved from https:\/\/www.researchgate.net\/publication\/338487339_Industria_40_e_a_Cadeia_De_Suprimentos_em_uma_Empresa_de_Automacao_no_Vale_dos_Sinos_uma_Proposta_de_Mapa_Conceitual_Industry_40_and_the_supply_chain_in_an_automation_company_in_the_vale_dos_sinos_a_c"},{"key":"1253797","unstructured":"Tachizawa,
+      T., & Andrade, R. O. B. (2012). Gest\u00e3o socioambiental: estrat\u00e9gias
+      na nova era da sustentabilidade. Rio de Janeiro: Editora Campus."},{"key":"1253798","doi-asserted-by":"crossref","unstructured":"Tibben\u2010Lembke,
+      R. S., & Rogers, D. S. (2002). Differences between forward and reverse logistics
+      in a retail environment. Supply Chain Management, 7(5), 271-282. Retrieved from
+      https:\/\/www.emerald.com\/insight\/content\/doi\/10.1108\/13598540210447719\/full\/html.
+      doi: https:\/\/doi.org\/10.1108\/13598540210447719","DOI":"10.1108\/13598540210447719"},{"key":"1253799","doi-asserted-by":"crossref","unstructured":"Vaquero,
+      L., Rodero-Merino, L., Caceres, J., & Lindner, M. (2009). A break in the clouds:
+      Towards a cloud definition. ACM SIGCOMM Comput. Commun. Rev., 39(1), 50-55.
+      Retrieved from https:\/\/dl.acm.org\/doi\/10.1145\/1496091.1496100. doi: https:\/\/doi.org\/10.1145\/1496091.1496100.","DOI":"10.1145\/1496091.1496100"},{"key":"1253800","doi-asserted-by":"crossref","unstructured":"Varriale,
+      V., Cammarano, A., Michelino, F., & Caputo, M. (2021). Sustainable supply chains
+      with blockchain, IoT and RFID: A simulation on order management. Sustainability,
+      13(11). Retrieved from https:\/\/www.mdpi.com\/2071-1050\/13\/11\/6372. doi:
+      https:\/\/doi.org\/10.3390\/su13116372","DOI":"10.3390\/su13116372"},{"key":"1253801","doi-asserted-by":"crossref","unstructured":"Wang,
+      S., Wan, J., Zhang, D., Li, D., & Zhang, C. (2016). Towards smart factory for
+      industry 4.0: a self-organized multi-agent system with big data based feedback
+      and coordination. Comput Network, 101(2), 158-168. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S1389128615005046?via%3Dihub.
+      doi: https:\/\/doi.org\/10.1016\/j.comnet.2015.12.017","DOI":"10.1016\/j.comnet.2015.12.017"},{"key":"1253802","unstructured":"Yin,
+      R. K. (2010). Estudo de caso: Planejamento e m\u00e9todos (4a ed.). Porto Alegre:
+      Bookman Editora."},{"key":"1253803","doi-asserted-by":"crossref","unstructured":"Zeng,
+      H., Chen, X., Viao, X., & Zhou, Z. (2017). Institutional pressures, sustainable
+      supply chain management, and circular economy capability: Empirical evidence
+      from Chinese eco-industrial park firms. Journal of Cleaner Production, 155(2),
+      54-65. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S0959652616317139?via%3Dihub.
+      doi: https:\/\/doi.org\/10.1016\/j.jclepro.2016.10.093","DOI":"10.1016\/j.jclepro.2016.10.093"},{"key":"1253804","doi-asserted-by":"crossref","unstructured":"Zhou,
+      K., Liu, T., & Zhou, L. A. (2015, August). Industry 4.0: towards future industrial
+      opportunities and challenges. 12th International Conference on Fuzzy Systems
+      and Knowledge Discovery Proceedings, Zhangjiajie, China, 12. Retrieved from
+      https:\/\/ieeexplore.ieee.org\/document\/7382284. doi: https:\/\/doi.org\/10.1109\/FSKD.2015.7382284","DOI":"10.1109\/FSKD.2015.7382284"}],"container-title":["Revista
+      de Administra\u00e7\u00e3o da UFSM"],"deposited":{"date-parts":[[2023,8,25]],"date-time":"2023-08-25T21:32:08Z","timestamp":1692999128000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/reaufsm\/article\/view\/72167"}},"issued":{"date-parts":[[2023,8,25]]},"references-count":49,"journal-issue":{"issue":"3","published-online":{"date-parts":[[2023,8,3]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/1983465972167","ISSN":["1983-4659","1983-4659"],"issn-type":[{"value":"1983-4659","type":"electronic"},{"value":"1983-4659","type":"print"}],"published":{"date-parts":[[2023,8,25]]}},{"indexed":{"date-parts":[[2023,8,26]],"date-time":"2023-08-26T08:42:41Z","timestamp":1693039361108},"reference-count":67,"publisher":"Universidade
+      Federal de Santa Maria","issue":"3","license":[{"start":{"date-parts":[[2023,8,25]],"date-time":"2023-08-25T00:00:00Z","timestamp":1692921600000},"content-version":"unspecified","delay-in-days":0,"URL":"https:\/\/creativecommons.org\/licenses\/by\/4.0\/"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["ReA
+      UFSM"],"abstract":"<jats:p>Purpose: This paper aims to understand the relationship
+      between actors'' roles in an entrepreneurial ecosystem from the perspective
+      of Quintuple Helix to promote Social Innovation.\nMethodology: Participatory
+      action research was carried out during the planning and execution of a project
+      involving University, industry, government, and different actors of society
+      inserted in an entrepreneurial ecosystem.\nFindings: The data were analyzed
+      following Kemmis and Mctaggart (2007): plan, act and observe, and reflect. Based
+      on the Helix concept, the case is characterized as an entrepreneurial ecosystem
+      with the interaction between a group of actors. The results reinforce the importance
+      of collaboration in the process of social innovation and understanding the role
+      of each actor.\nPractical implications: The results can help public, private,
+      and non-profit organizations identify their actions, reflect on potential partnerships,
+      and design initiatives capable of generating Social Innovation.\nSocial implications:
+      Training of artists to be creators of prints, facilitating their insertion in
+      the job market; integration between students and civil society association;
+      connection between footwear industry and civil society association by the donation
+      of pairs of sneakers for children.\nOriginality\/value: This research can help
+      public, private, and non-profit organizations to identify their actions, reflect
+      on potential partnerships, and design initiatives capable of generating social
+      innovation. We emphasize the importance of engagement, collaboration, and value
+      creation for those involved in social innovation processes.<\/jats:p>","DOI":"10.5902\/1983465972398","type":"journal-article","created":{"date-parts":[[2023,8,25]],"date-time":"2023-08-25T21:31:08Z","timestamp":1692999068000},"page":"e5","source":"Crossref","is-referenced-by-count":0,"title":["Beyond
+      what the eyes can see: art as a way of connecting actors and promoting social
+      innovation"],"prefix":"10.5902","volume":"16","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-5160-9831","authenticated-orcid":false,"given":"Paola
+      Schmitt","family":"Figueir\u00f3","sequence":"first","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-6499-3588","authenticated-orcid":false,"given":"Bruno
+      Anicet","family":"Bittencourt","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-7471-073X","authenticated-orcid":false,"given":"Nathan
+      Pedroni de","family":"Oliveira","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-9233-3149","authenticated-orcid":false,"given":"Katiuscia
+      Thais","family":"Flores","sequence":"additional","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2023,8,25]]},"reference":[{"key":"1253975","doi-asserted-by":"crossref","unstructured":"Acs,
+      Z. J., Estrin, S., Mickiewicz, T., & Szerb, L. (2018). Entrepreneurship, institutional
+      economics, and economic growth: An ecosystem perspective. Small Business Economics,
+      51(2), 501\u2013514. Retrieved from https:\/\/link.springer.com\/article\/10.1007\/s11187-018-0013-9.
+      doi: https:\/\/ doi.org\/10.1007\/s11187-018-0013-9","DOI":"10.1007\/s11187-018-0013-9"},{"key":"1253976","doi-asserted-by":"crossref","unstructured":"Adner,
+      R., Oxley, J. E., & Silverman, B. S. (2013). Collaboration and competition in
+      business ecosystems (Vol. 30). Bingley, England: Emerald Publishing Limited.","DOI":"10.1108\/S0742-3322(2013)0000030018"},{"key":"1253977","doi-asserted-by":"crossref","unstructured":"Agostini,
+      M. R., Mor\u00e1s, C., D\u2019Agostini, M., & Carra, L. V. A. (2020). An overview
+      of the theme of social innovation in the three sectors: a research in the studies
+      of the gaucho universities. Revista de Administra\u00e7\u00e3o da UFSM, 13,
+      1571\u20131590. Retrieved from https:\/\/periodicos.ufsm.br\/reaufsm\/article\/view\/44270.
+      doi: https:\/\/doi.org\/10.5902\/1983465944270","DOI":"10.5902\/1983465944270"},{"key":"1253978","doi-asserted-by":"crossref","unstructured":"Alvedalen,
+      J., & Boschma, R. (2017). A critical review of entrepreneurial ecosystems research:
+      Towards a future research agenda. European Planning Studies, 25(6), 887\u2013903.
+      Retrieved from https:\/\/www.tandfonline.com\/doi\/full\/10.1080\/09654313.2017.1299694.
+      doi: https:\/\/doi.org\/10.1080\/09654313.2017.1299694","DOI":"10.1080\/09654313.2017.1299694"},{"key":"1253979","doi-asserted-by":"crossref","unstructured":"Andion,
+      C., Ronconi, L., Moraes, R. L., Gonsalves, A. K. R., & Serafim, L. B. D. (2017).
+      Sociedade civil e inova\u00e7\u00e3o social na esfera p\u00fablica: uma perspectiva
+      pragmatista. Revista de Administra\u00e7\u00e3o P\u00fablica, 51(3), 369-387.
+      Retrieved from https:\/\/www.scielo.br\/j\/rap\/a\/sM48Ppm4gsfY3DkswsMJp6N\/.
+      doi: https:\/\/doi.org\/10.1590\/0034-7612143195","DOI":"10.1590\/0034-7612143195"},{"key":"1253980","doi-asserted-by":"crossref","unstructured":"Andr\u00e9,
+      I., & Abreu, A. (2006). Dimens\u00f5es e espa\u00e7os da inova\u00e7\u00e3o
+      social. Finisterra, 41(81). Retrieved from https:\/\/revistas.rcaap.pt\/finisterra\/article\/view\/1465.
+      doi: https:\/\/doi.org\/10.18055\/Finis1465","DOI":"10.18055\/Finis1465"},{"key":"1253981","doi-asserted-by":"crossref","unstructured":"Audretsch,
+      D. B., Eichler, G. M., & Schwarz, E. J. (2022). Emerging needs of social innovators
+      and social innovation ecosystems. International Entrepreneurship and Management
+      Journal, 18, 217\u2013254. Retrieved from https:\/\/link.springer.com\/article\/10.1007\/s11365-021-00789-9.
+      doi: https:\/\/doi.org\/10.1007\/s11365-021-00789-9","DOI":"10.1007\/s11365-021-00789-9"},{"key":"1253982","unstructured":"Barbosa,
+      F. V., Coelho, C. N., Vieira, L. M., Ara\u00fajo, P. M., Torga, E. M. M. F.,
+      & Medeiros, R. (2019). Inova\u00e7\u00e3o social e empreendedorismo: O caso
+      do Projeto Incluir. Anais do XLIII Encontro da ANPAD - EnANPAD 2019, S\u00e3o
+      Paulo, SP, Brasil, 43. Retrieved from https:\/\/repositorio.ufmg.br\/handle\/1843\/56323"},{"key":"1253983","doi-asserted-by":"crossref","unstructured":"Barki,
+      E., Comini, G., Cunliffe, A., Hart, S., & Rai, S. (2015). Social entrepreneurship
+      and social business: Retrospective and prospective research. Revista de Administra\u00e7\u00e3o
+      de Empresas, 55(4), 380-384. Retrieved from https:\/\/www.scielo.br\/j\/rae\/a\/N4kzrjj9jdkxNhjWWVxvJbJ\/.
+      doi: https:\/\/doi.org\/10.1590\/S0034-759020150402","DOI":"10.1590\/S0034-759020150402"},{"key":"1253984","doi-asserted-by":"crossref","unstructured":"Benneworth,
+      P., & Cunha, J. (2015). Universities\u2019 contributions to social innovation:
+      reflections in theory & practice. European Journal of Innovation Management,
+      18(4), 508-527. Retrieved from https:\/\/www.emerald.com\/insight\/content\/doi\/10.1108\/EJIM-10-2013-0099\/full\/html.
+      doi: https:\/\/doi.org\/10.1108\/EJIM-10-2013-0099","DOI":"10.1108\/EJIM-10-2013-0099"},{"key":"1253985","doi-asserted-by":"crossref","unstructured":"Bignetti,
+      L. P. (2011). As inova\u00e7\u00f5es sociais: uma incurs\u00e3o por ideias,
+      tend\u00eancias e focos de pesquisa. Ci\u00eancias Sociais Unisinos, 47(1),
+      3-14. Retrieved from https:\/\/revistas.unisinos.br\/index.php\/ciencias_sociais\/article\/view\/1040.
+      doi: https:\/\/doi.org\/10.4013\/1040","DOI":"10.4013\/csu.2011.47.1.01"},{"key":"1253986","doi-asserted-by":"crossref","unstructured":"Bittencourt,
+      B. A., & Figueir\u00f3, P. S. (2020). Innovation ecosystems articulation and
+      shared value creation. Cadernos EBAPE.BR, 17(4), 1002-1015. Retrieved from https:\/\/www.scielo.br\/j\/cebape\/a\/DbYmxGh5SXdNnhyY4YRcmSK\/?lang=en.
+      doi: https:\/\/doi.org\/10.1590\/1679-395174403x","DOI":"10.1590\/1679-395174403x"},{"key":"1253987","unstructured":"Bonfim,
+      G., Parisotto, I. R. S. dos, & Miranda, R. L de. (2019). Os est\u00e1gios do
+      empreendedorismo social no Projeto Gastromotiva. Anais do VIII Encontro de Administra\u00e7\u00e3o
+      P\u00fablica da ANPAD \u2013 EnAPG, Fortaleza, CE, Brasil, 8. Retrieved from
+      https:\/\/pdfs.semanticscholar.org\/23c4\/40bf8243d4b195fedb2795d4a5760bbe767e.pdf"},{"key":"1253988","doi-asserted-by":"crossref","unstructured":"Bozhikin,
+      I., Macke, J., & Costa, L. F. da (2019). The role of government and key non-state
+      actors in social entrepreneurship: A systematic literature review. Journal of
+      Cleaner Production, 226, 730\u2013 747. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S0959652619311540?via%3Dihub.
+      doi: https:\/\/doi.org\/10.1016\/j.jclepro.2019.04.076","DOI":"10.1016\/j.jclepro.2019.04.076"},{"key":"1253989","unstructured":"Brand\u00e3o,
+      C. R. (1984). Repensando a Pesquisa Participante. S\u00e3o Paulo: Editora Brasiliense."},{"key":"1253990","doi-asserted-by":"crossref","unstructured":"Cajaiba-Santana,
+      G. (2014). Social innovation: Moving the field forward. A conceptual framework.
+      Technological Forecasting and Social Change, 82, 42-51. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S0040162513001236.
+      doi: https:\/\/doi.org\/10.1016\/j.techfore.2013.05.008","DOI":"10.1016\/j.techfore.2013.05.008"},{"key":"1253991","doi-asserted-by":"crossref","unstructured":"Carayannis,
+      E. G., & Campbell, D. F. (2010). Triple Helix, Quadruple Helix and Quintuple
+      Helix and how do knowledge, innovation and the environment relate to each other?
+      a proposed framework for a trans-disciplinary analysis of sustainable development
+      and social ecology. International Journal of Social Ecology and Sustainable
+      Development, 1(1), 41-69. Retrieved from https:\/\/www.researchgate.net\/publication\/273268696_Triple_Helix_Quadruple_Helix_and_Quintuple_Helix_and_How_Do_Knowledge_Innovation_and_the_Environment_Relate_To_Each_Other.
+      doi: http:\/\/dx.doi.org\/10.4018\/jsesd.2010010105","DOI":"10.4018\/jsesd.2010010105"},{"key":"1253992","doi-asserted-by":"crossref","unstructured":"Carayannis,
+      E. G., Grigoroudis, E., Stamati, D., & Valvi, T. (2019). Social business model
+      innovation: A quadruple\/quintuple helix-based social innovation ecosystem.
+      IEEE Transactions on Engineering Management, 68(1), 235-248. Retrieved from
+      https:\/\/ieeexplore.ieee.org\/document\/8720229. doi: https:\/\/doi.org\/10.1109\/TEM.2019.2914408","DOI":"10.1109\/TEM.2019.2914408"},{"key":"1253993","doi-asserted-by":"crossref","unstructured":"Cloitre,
+      A., Paulino, V. S. dos, & Theodoraki, C. (2022), The quadruple\/quintuple helix
+      model in entrepreneurial ecosystems: an institutional perspective on the space
+      case study. R&D Management, 53(4), 675-694. Retrieved from https:\/\/onlinelibrary.wiley.com\/doi\/10.1111\/radm.12547.
+      doi: https:\/\/doi.org\/10.1111\/radm.12547","DOI":"10.1111\/radm.12547"},{"key":"1253994","unstructured":"Cloutier,
+      J. (2003). Qu''est-ce que l''innovation sociale? Montr\u00e9al: Crises."},{"key":"1253995","doi-asserted-by":"crossref","unstructured":"Comini,
+      G. M., Fischer, R. M., & D''amario, E. Q. (2022). Social business and social
+      innovation: the Brazilian experience. Innovation & Management Review, 19(2),
+      140-155. Retrieved from https:\/\/www.revistas.usp.br\/rai\/article\/view\/197011.
+      doi: https:\/\/doi.org\/10.1108\/INMR-06-2020-0081","DOI":"10.1108\/INMR-06-2020-0081"},{"key":"1253996","doi-asserted-by":"crossref","unstructured":"Correia,
+      S. \u00c9. N., Oliveira, V., & Gomez, C. R. P. (2016). Dimensions of social
+      innovation and the roles of organizational actor: the proposition of a framework.
+      RAM, Revista de Administra\u00e7\u00e3o Mackenzie, 17(6), 102-133. Retrieved
+      from https:\/\/www.scielo.br\/j\/ram\/a\/HwLymtzCxtW7wQshNGxrMFg\/abstract\/?lang=en.
+      doi: https:\/\/doi.org\/10.1590\/1678-69712016\/administracao.v17n6p102-133","DOI":"10.1590\/1678-69712016\/administracao.v17n6p102-133"},{"key":"1253997","doi-asserted-by":"crossref","unstructured":"Cruz,
+      T. S. da, Gomes, S. S. M., Figueiredo, P. S., Sampaio, M. S., Dias, J. M., F\u00ba,
+      & Ferreiro, J. V., Neto (2020). Factors Influencing the Attitudes of Individuals
+      in Favor of Sustainable Development: A Study with Students in the Field of Management.
+      Revista de Administra\u00e7\u00e3o da UFSM, 13, 1133-1153. Retrieved from https:\/\/periodicos.ufsm.br\/reaufsm\/article\/view\/42707.
+      doi: 10.5902\/ 19834659 42707.","DOI":"10.5902\/1983465942707"},{"key":"1253998","doi-asserted-by":"crossref","unstructured":"Dahlander,
+      L., & Frederiksen, L. (2012). The core and cosmopolitans: A relational view
+      of innovation in user communities. Organization science, 23(4), 988-1007. Retrieved
+      from https:\/\/www.jstor.org\/stable\/23252445","DOI":"10.1287\/orsc.1110.0673"},{"key":"1253999","doi-asserted-by":"crossref","unstructured":"Silva,
+      M. de, & Wright, M. (2019). Entrepreneurial co\u2010creation: societal impact
+      through open innovation. R&D Management, 49(3), 318-342. Retrieved from https:\/\/onlinelibrary.wiley.com\/doi\/10.1111\/radm.12362.
+      doi: https:\/\/doi.org\/10.1111\/radm.12362","DOI":"10.1111\/radm.12362"},{"key":"1254000","doi-asserted-by":"crossref","unstructured":"Dedehayir,
+      O., M\u00e4kinen, S. J., & Ortt, J. R. (2018). Roles during innovation ecosystem
+      genesis: A literature review. Technological Forecasting and Social Change, 136,
+      18-29. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S0040162516307867.
+      doi: https:\/\/doi.org\/10.1016\/j.techfore.2016.11.028","DOI":"10.1016\/j.techfore.2016.11.028"},{"key":"1254001","doi-asserted-by":"crossref","unstructured":"Domanski,
+      D., Howaldt, J., Kaletka, C., (2019). A comprehensive concept of social innovation
+      and its implications for the local context \u2013 on the growing importance
+      of social innovation ecosystems and infrastructures. European Planning Studies,
+      28(3), 454-474. Retrieved from https:\/\/www.tandfonline.com\/doi\/full\/10.1080\/09654313.2019.1639397.
+      doi: https:\/\/doi.org\/10.1080\/09654313.2019.1639397","DOI":"10.1080\/09654313.2019.1639397"},{"key":"1254002","doi-asserted-by":"crossref","unstructured":"Duchek,
+      S. (2018). Entrepreneurial resilience: A biographical analysis of successful
+      entrepreneurs. International Entrepreneurship and Management Journal, 14(2),
+      429\u2013455. Retrieved from https:\/\/link.springer.com\/article\/10.1007\/s11365-017-0467-2.
+      doi: https:\/\/doi.org\/10.1007\/s11365-017-0467-2","DOI":"10.1007\/s11365-017-0467-2"},{"key":"1254003","doi-asserted-by":"crossref","unstructured":"Eichler,
+      G., & Schwarz, E. (2019). What Sustainable Development Goals Do Social Innovations
+      Address? A Systematic Review and Content Analysis of Social Innovation Literature.
+      Sustainability, 11(2), 522. Retrieved from https:\/\/www.mdpi.com\/2071-1050\/11\/2\/522.
+      doi: https:\/\/doi.org\/10.3390\/su11020522","DOI":"10.3390\/su11020522"},{"key":"1254004","doi-asserted-by":"crossref","unstructured":"Etzkowitz,
+      H., & Leydesdorff, L. (2000). The dynamics of innovation: from National Systems
+      and \u201cMode 2\u201d to a Triple Helix of university\u2013industry\u2013government
+      relations. Research policy, 29(2), 109-123. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S0048733399000554.
+      doi: 10.1016\/S0048-7333(99)00055-4","DOI":"10.1016\/S0048-7333(99)00055-4"},{"key":"1254005","doi-asserted-by":"crossref","unstructured":"Fulgencio,
+      H., & Fever, H. L. (2016). What is the social innovation system? A state-of-the-art
+      review. International Journal of Business Innovation and Research, 2(10), 434-452.
+      Retrieved from https:\/\/www.researchgate.net\/publication\/286012958_What_is_the_social_innovation_system_A_state-of-the-art_review.
+      doi: http:\/\/dx.doi.org\/10.1504\/IJBIR.2016.074837","DOI":"10.1504\/IJBIR.2016.074837"},{"key":"1254006","doi-asserted-by":"crossref","unstructured":"Howaldt,
+      J., Kaletka, C., & Schr\u00f6der, A. (2017). Social entrepreneurs: Important
+      actors within an ecosystem of social innovation. European Public & Social Innovation
+      Review, 1(2). Retrieved from https:\/\/pub.sinnergiak.org\/esir\/article\/view\/43.
+      doi: https:\/\/doi.org\/10.31637\/epsir.16-2.4","DOI":"10.31637\/epsir.16-2.4"},{"key":"1254007","doi-asserted-by":"crossref","unstructured":"Isenberg,
+      D. J. (2016). Applying the Ecosystem Metaphor to Entrepreneurship: Uses and
+      Abuses. The Antitrust Bulletin, 61(4), 564\u2013573. Retrieved from https:\/\/journals.sagepub.com\/doi\/10.1177\/0003603X16676162.
+      doi: https:\/\/doi.org\/10.1177\/0003603X16676162","DOI":"10.1177\/0003603X16676162"},{"key":"1254008","unstructured":"Isenberg,
+      D. J. (2010). How to start an entrepreneurial revolution. Harvard business review,
+      88(6), 40-50."},{"key":"1254009","unstructured":"Kemmis, S.m & Mctaggart. (2007).
+      Participatory Action Research. In N. K. Denzin, & Y. Lincoln. Handbook of qualitative
+      research (3rd. ed.). Thousand Oaks, CA: Sage Publications."},{"key":"1254010","doi-asserted-by":"crossref","unstructured":"Kristensson,
+      P., Gustafsson, A., & Archer, T. (2004). Harnessing the creative potential among
+      users. Journal of product innovation management, 21(1), 4-14. Retrieved from
+      https:\/\/onlinelibrary.wiley.com\/doi\/10.1111\/j.0737-6782.2004.00050.x. doi:
+      https:\/\/doi.org\/10.1111\/j.0737-6782.2004.00050.x","DOI":"10.1111\/j.0737-6782.2004.00050.x"},{"key":"1254011","doi-asserted-by":"crossref","unstructured":"Lamine,
+      W., Anderson, A., Jack, S. L., & Fayolle, A. (2021) Entrepreneurial space and
+      the freedom for entre-preneurship: institutional settings, policy, and action
+      in the space industry. Strategic Entrepreneurship Journal, 15(2), 309\u2013340.
+      Retrieved from https:\/\/onlinelibrary.wiley.com\/doi\/10.1002\/sej.1392. https:\/\/doi.org\/10.1002\/sej.1392","DOI":"10.1002\/sej.1392"},{"key":"1254012","doi-asserted-by":"crossref","unstructured":"Lazzeretti,
+      L., & Capone, F. (2020). The role of education in the entrepreneurial ecosystem:
+      the case of''Made in Italy Tuscany Academy''in the Florence fashion city. International
+      Journal of Entrepreneurship and Small Business, 40(2), 270-290.","DOI":"10.1504\/IJESB.2020.107753"},{"key":"1254013","doi-asserted-by":"crossref","unstructured":"M\u00fcller,
+      L., Silva, T. L. da, & Ribeiro, L. A. (2020). Sustainable community development
+      - applicability and global contextualization of urban indicators. Revista de
+      Administra\u00e7\u00e3o da UFSM, 13, 1441\u20131458. Retrieved from https:\/\/periodicos.ufsm.br\/reaufsm\/article\/view\/45233.
+      doi: https:\/\/doi.org\/10.5902\/1983465945233","DOI":"10.5902\/1983465945233"},{"key":"1254014","unstructured":"Murray,
+      R., Caulier-Grice, J., & Mulgan, G. (2010). The open book of social innovation.
+      London: The Young Foundation."},{"key":"1254015","doi-asserted-by":"crossref","unstructured":"Ndou,
+      V., & Schiuma, G. (2020). The role of social innovation for a knowledge-based
+      local development: insights from the literature review. International Journal
+      of Knowledge-Based Development, 11(1), 6-25. Retrieved from https:\/\/ideas.repec.org\/a\/ids\/ijkbde\/v11y2020i1p6-25.html","DOI":"10.1504\/IJKBD.2020.10028477"},{"key":"1254016","doi-asserted-by":"crossref","unstructured":"Petrovskaya,
+      I., & Mirakyan, A. (2017). A mission of service: social entrepreneur as a servant
+      leader. International Journal of Entrepreneurial Behavior & Research, 24(3),
+      755-767. Retrieved from https:\/\/www.emerald.com\/insight\/content\/doi\/10.1108\/IJEBR-02-2016-0057\/full\/html.
+      doi: 10.1108\/IJEBR-02-2016-0057","DOI":"10.1108\/IJEBR-02-2016-0057"},{"key":"1254017","doi-asserted-by":"crossref","unstructured":"Rao-Nicholson,
+      R., Vorley, T., & Khan, Z. (2017). Social innovation in emerging economies:
+      A national systems of innovation-based approach. Technological Forecasting and
+      Social Change, 121, 228\u2013237. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S0040162517303359?via%3Dihub.
+      doi: https:\/\/doi.org\/10.1016\/j.techfore.2017.03.013","DOI":"10.1016\/j.techfore.2017.03.013"},{"key":"1254018","doi-asserted-by":"crossref","unstructured":"Ratinho,
+      T., Amezcua, A., Honig, B., & Zeng, Z. (2020). Supporting entrepreneurs: A systematic
+      review of literature and an agenda for research. Technological Forecasting and
+      Social Change, 154. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S0040162518311399?via%3Dihub.
+      doi: https:\/\/doi.org\/10.1016\/j.techfore.2020.119956","DOI":"10.1016\/j.techfore.2020.119956"},{"key":"1254019","doi-asserted-by":"crossref","unstructured":"Repo,
+      P., & Matschoss, K. (2020). Social innovation for sustainability challenges.
+      Sustainability, 12(1), 319. Retrieved from https:\/\/www.mdpi.com\/2071-1050\/12\/1\/319.
+      doi: https:\/\/doi.org\/10.3390\/su12010319","DOI":"10.3390\/su12010319"},{"key":"1254020","doi-asserted-by":"crossref","unstructured":"Rodrigues,
+      M. D. C. A., Nogueira, C., & Pinto, H. (2023). Inova\u00e7\u00f5es sociais para
+      a utiliza\u00e7\u00e3o sustent\u00e1vel da \u00e1gua. Experi\u00eancias de pequena
+      escala em Lajedo de Timba\u00faba (Brasil) e Tamera (Portugal). Cidades, Comunidades
+      e Territ\u00f3rios, 55-73. Retrieved from https:\/\/estudogeral.uc.pt\/handle\/10316\/107289.
+      doi: https:\/\/doi.org\/10.15847\/cct.28095","DOI":"10.15847\/cct.28095"},{"key":"1254021","doi-asserted-by":"crossref","unstructured":"S\u00e1nchez-Hern\u00e1ndez,
+      M. I., Dorado-Mayorga, E., Pereira-\u00c1lvarez, G. A., Osorio-Atehort\u00faa,
+      U., Malavera-Pineda, S. M., & Montoya-Quintero, J. A. (2020). Sustainable entrepreneurship
+      and new business models: A market research in Colombia. Revista de Administra\u00e7\u00e3o
+      da UFSM, 13(4), 875-894. Retrieved from https:\/\/periodicos.ufsm.br\/reaufsm\/article\/view\/55278.
+      doi: 10.5902\/1983465955278","DOI":"10.5902\/1983465955278"},{"key":"1254022","doi-asserted-by":"crossref","unstructured":"Scuotto,
+      A., Cicellin, M., & Consiglio, S. (2023). Social bricolage and business model
+      innovation: a framework for social entrepreneurship organizations. Journal of
+      Small Business and Enterprise Development, 30(2), 234-267. Retrieved from https:\/\/www.emerald.com\/insight\/content\/doi\/10.1108\/JSBED-02-2022-0094\/full\/html#abstract","DOI":"10.1108\/JSBED-02-2022-0094"},{"key":"1254023","unstructured":"Sebrae.
+      (2021). Mapeamento de Startups Digitais do Rio Grande do Sul 2016. Bras\u00edlia:
+      Sebrae. Retrieved from https:\/\/www.sebraers.com.br\/images\/pdf\/MAPEAMENTO%20-%20STARTUPS%20-%20RS%20-%20COMPLETO.pdf"},{"key":"1254024","unstructured":"Segatto,
+      A. P., Silva, R. L. M., & Justen, G. S. (2019). Configura\u00e7\u00e3o de parcerias
+      em inova\u00e7\u00e3o social nos contextos brasileiro e brit\u00e2nico. Anais
+      do XLIII Encontro da ANPAD - EnANPAD 2019, S\u00e3o Paulo, SP, Brasil, 43. Retrieved
+      from https:\/\/www.researchgate.net\/publication\/336283993_Configuracao_de_Parcerias_em_Inovacao_Social_nos_Contextos_Brasileiro_e_Britanico"},{"key":"1254025","doi-asserted-by":"crossref","unstructured":"Sheik,
+      A., Rooyen, D. van, & Mazzei, M. (2022). Social innovation in South Africa:
+      building inclusive economies? Social Enterprise Journal, 19(1), 1-22. Retrieved
+      from https:\/\/www.emerald.com\/insight\/content\/doi\/10.1108\/SEJ-07-2021-0060\/full\/html.
+      doi: 10.1108\/SEJ-07-2021-0060","DOI":"10.1108\/SEJ-07-2021-0060"},{"key":"1254026","doi-asserted-by":"crossref","unstructured":"Simatupang,
+      T. M., Schwab, A., & Lantu, D. (2015). Introduction: Building sustainable entrepreneurship
+      ecosystems. International Journal of Entrepreneurship and Small Business, 26(4),
+      389-398. Retrieved from https:\/\/www.researchgate.net\/publication\/323905829_Building_Sustainable_Entrepreneurship_Ecosystems.
+      doi: http:\/\/dx.doi.org\/10.2139\/ssrn.3161598","DOI":"10.2139\/ssrn.3161598"},{"key":"1254027","doi-asserted-by":"crossref","unstructured":"Spigel,
+      B. (2017). The relational organization of entrepreneurial ecosystems. Entrepreneurship
+      theory and practice, 41(1), 49-72. Retrieved from https:\/\/journals.sagepub.com\/doi\/10.1111\/etap.12167.
+      doi: https:\/\/doi.org\/10.1111\/etap.12167","DOI":"10.1111\/etap.12167"},{"key":"1254028","doi-asserted-by":"crossref","unstructured":"Stam,
+      E. (2015). Entrepreneurial ecosystems and regional policy: a sympathetic critique.
+      European Planning Studies, 23(9), 1759-1769. Retrieved from https:\/\/www.tandfonline.com\/doi\/full\/10.1080\/09654313.2015.1061484.
+      doi: https:\/\/doi.org\/10.1080\/09654313.2015.1061484","DOI":"10.1080\/09654313.2015.1061484"},{"key":"1254029","doi-asserted-by":"crossref","unstructured":"Stam,
+      E., & Ven, A. van de. (2021). Entrepreneurial ecosystem elements. Small Business
+      Economics, 56(2), 809\u2013832. Retrieved from https:\/\/link.springer.com\/article\/10.1007\/s11187-019-00270-6#citeas.
+      doi: https:\/\/doi.org\/10.1007\/s11187-019-00270-6","DOI":"10.1007\/s11187-019-00270-6"},{"key":"1254030","doi-asserted-by":"crossref","unstructured":"Surie,
+      G., & Groen, A. (2017). The importance of social entrepreneurship in national
+      systems of innovation \u2014 An introduction. Technological Forecasting and
+      Social Change, 121, 181\u2013183. Retrieved from https:\/\/www.sciencedirect.com\/science\/article\/pii\/S0040162517306170.
+      doi: https:\/\/doi. org\/10.1016\/j.techfore.2017.05.010","DOI":"10.1016\/j.techfore.2017.05.010"},{"key":"1254031","unstructured":"Thiollent,
+      M. (2003). Metodologia da pesquisa-a\u00e7\u00e3o. S\u00e3o Paulo: Cortez editora."},{"key":"1254032","doi-asserted-by":"crossref","unstructured":"Thomas,
+      L. D. W., & Ritala, P. (2021). Ecosystem legitimacy emergence: a collective
+      action view. Journal of Management, 48(3), 515\u2013541. Retrieved from https:\/\/journals.sagepub.com\/doi\/full\/10.1177\/0149206320986617
+      https:\/\/doi.org\/10.1177\/0149206320986617","DOI":"10.1177\/0149206320986617"},{"key":"1254033","doi-asserted-by":"crossref","unstructured":"Thomaz,
+      I. F., & Catal\u00e3o-Lopes, M. (2019). Improving the Mentoring Process for
+      Social Entrepreneurship in Portugal: A Qualitative Study. Journal of Social
+      Entrepreneurship, 10(3), 367\u2013379. Retrieved from https:\/\/www.tandfonline.com\/doi\/full\/10.1080\/19420676.2018.1561497.
+      doi: https:\/\/doi.org\/10.1080\/19420676.2018.1561497","DOI":"10.1080\/19420676.2018.1561497"},{"key":"1254034","doi-asserted-by":"crossref","unstructured":"Thompson,
+      T. A., Purdy, J. M., & Ventresca, M. J. (2018). How entrepreneurial ecosystems
+      take form: Evidence from social impact initiatives in Seattle. Strategic Entrepreneurship
+      Journal, 12(1), 96\u2013116. Retrieved from https:\/\/onlinelibrary.wiley.com\/doi\/10.1002\/sej.1285.
+      doi: https:\/\/doi.org\/10.1002\/sej.1285","DOI":"10.1002\/sej.1285"},{"key":"1254035","doi-asserted-by":"crossref","unstructured":"Toivonen,
+      T. (2016). What is the social innovation community? Conceptualizing an emergent
+      collaborative organization. Journal of Social Entrepreneurship, 7(1), 49-73.
+      Retrieved from https:\/\/www.tandfonline.com\/doi\/full\/10.1080\/19420676.2014.997779.
+      doi: https:\/\/doi.org\/10.1080\/19420676.2014.997779","DOI":"10.1080\/19420676.2014.997779"},{"key":"1254036","unstructured":"Torlig,
+      E. G. D. S., & Resende, P. C., Jr. (2019). Framework de Inova\u00e7\u00e3o Social
+      em uma Abordagem Integrativa: Dos Desafios Sociais aos Resultados em uma Perspectiva
+      Universidade-Governo-Comunidade. Anais do XLIII Encontro da ANPAD - EnANPAD
+      2019, S\u00e3o Paulo, SP, Brasil, 43."},{"key":"1254037","unstructured":"Universidade
+      Feevale (2022). Feevale Techpark: inova\u00e7\u00e3o, desenvolvimento tecnol\u00f3gico
+      e empreendedorismo. Retrieved from https:\/\/feevaletechpark.com.br\/sobre-o-parque-tecnologico\/"},{"key":"1254038","unstructured":"Hippel,
+      E. von. (1988). The sources of innovation. Oxford: Oxford University Press."},{"key":"1254039","doi-asserted-by":"crossref","unstructured":"Wirth,
+      S., Tschumi, P., Mayer, H., & Tanner, M. B. (2023). Change agency in social
+      innovation: an analysis of activities in social innovation processes. Regional
+      Studies, Regional Science, 10(1), 33-51. Retrieved from https:\/\/www.tandfonline.com\/doi\/full\/10.1080\/21681376.2022.2157324.
+      doi: https:\/\/doi.org\/10.1080\/21681376.2022.2157324","DOI":"10.1080\/21681376.2022.2157324"},{"key":"1254040","doi-asserted-by":"crossref","unstructured":"Zahra,
+      S. A., Wright, M., & Abdelgawad, S. G. (2014). Contextualization and the advancement
+      of entrepreneurship research. International Small Business Journal, 32(5), 479-500.
+      Retrieved from https:\/\/journals.sagepub.com\/doi\/10.1177\/0266242613519807.
+      doi: 10.1177\/0266242613519807","DOI":"10.1177\/0266242613519807"},{"key":"1254041","unstructured":"Zarelli,
+      P. R., Carvalho, A. P., Kock, M. L. (2019). Inova\u00e7\u00e3o social: An\u00e1lise
+      em habitats de inova\u00e7\u00e3o. Anais do XLIII Encontro da ANPAD - EnANPAD
+      2019, S\u00e3o Paulo, SP, Brasil, 43."}],"container-title":["Revista de Administra\u00e7\u00e3o
+      da UFSM"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/reaufsm\/article\/download\/72398\/61588","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/reaufsm\/article\/download\/72398\/61588","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,8,25]],"date-time":"2023-08-25T21:32:07Z","timestamp":1692999127000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/reaufsm\/article\/view\/72398"}},"issued":{"date-parts":[[2023,8,25]]},"references-count":67,"journal-issue":{"issue":"3","published-online":{"date-parts":[[2023,8,3]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/1983465972398","ISSN":["1983-4659","1983-4659"],"issn-type":[{"value":"1983-4659","type":"electronic"},{"value":"1983-4659","type":"print"}],"published":{"date-parts":[[2023,8,25]]}},{"indexed":{"date-parts":[[2022,9,8]],"date-time":"2022-09-08T02:12:56Z","timestamp":1662603176711},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","license":[{"start":{"date-parts":[[2022,9,5]],"date-time":"2022-09-05T00:00:00Z","timestamp":1662336000000},"content-version":"unspecified","delay-in-days":0,"URL":"http:\/\/creativecommons.org\/licenses\/by-nc-sa\/4.0"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Kinesis"],"abstract":"<jats:p>Neste
+      ensaio, propomo-nos a discutir as poss\u00edveis rela\u00e7\u00f5es do movimento
+      humano, presentes no esporte e na experi\u00eancia. Concebemos a domina\u00e7\u00e3o
+      do corpo e do movimento a partir do esporte, para chegarmos \u00e0 discuss\u00e3o
+      dos sentidos atribu\u00eddos \u00e0 pr\u00e1tica esportiva. Apresentamos algumas
+      considera\u00e7\u00f5es e alternativas a serem pensadas em rela\u00e7\u00e3o
+      \u00e0 dimens\u00e3o da experi\u00eancia no movimento e no ensino a partir da
+      perspectiva do \u201cse-movimentar\u201d, com exemplos de algumas pr\u00e1ticas.
+      Consideramos que a abertura para a experi\u00eancia pode possibilitar um reencontro
+      com o prazer da pr\u00e1tica esportiva, valorizando dimens\u00f5es sens\u00edveis
+      do \u201cse-movimentar\u201d. Essa perspectiva nos d\u00e1 indicativos de que
+      a experi\u00eancia pode aparecer no processo educativo n\u00e3o somente como
+      um meio, mas tamb\u00e9m como finalidade educativa e formadora.\nPalavras-chave:
+      Esporte; Movimento; Experi\u00eancia<\/jats:p>","DOI":"10.5902\/2316546467871","type":"journal-article","created":{"date-parts":[[2022,9,6]],"date-time":"2022-09-06T01:36:25Z","timestamp":1662428185000},"source":"Crossref","is-referenced-by-count":0,"title":["Contrapontos
+      para a Educa\u00e7\u00e3o F\u00edsica: a rela\u00e7\u00e3o esporte, movimento
+      e experi\u00eancia"],"prefix":"10.5902","volume":"40","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-4384-4487","authenticated-orcid":false,"given":"Felipe
+      Barroso de","family":"Castro","sequence":"first","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-1277-982X","authenticated-orcid":false,"given":"Elenor","family":"Kunz","sequence":"additional","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2022,9,5]]},"container-title":["Kinesis"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/kinesis\/article\/download\/67871\/48819","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/kinesis\/article\/download\/67871\/48819","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2022,9,8]],"date-time":"2022-09-08T01:38:52Z","timestamp":1662601132000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/kinesis\/article\/view\/67871"}},"issued":{"date-parts":[[2022,9,5]]},"references-count":0,"URL":"http:\/\/dx.doi.org\/10.5902\/2316546467871","ISSN":["2316-5464","0102-8308"],"issn-type":[{"value":"2316-5464","type":"electronic"},{"value":"0102-8308","type":"print"}],"published":{"date-parts":[[2022,9,5]]}},{"indexed":{"date-parts":[[2022,9,8]],"date-time":"2022-09-08T02:13:27Z","timestamp":1662603207189},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","issue":"2","license":[{"start":{"date-parts":[[2022,9,7]],"date-time":"2022-09-07T00:00:00Z","timestamp":1662508800000},"content-version":"unspecified","delay-in-days":0,"URL":"http:\/\/creativecommons.org\/licenses\/by-nc-sa\/4.0"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["CadCom"],"abstract":"<jats:p>Este
+      trabalho produz uma an\u00e1lise da obra Cova 312 com objetivo de identificar
+      como interagem concomitantemente os elementos dos estilos investigativo e liter\u00e1rio.
+      A metodologia da pesquisa \u00e9 a an\u00e1lise de conte\u00fado, sendo enquadrada
+      no tipo descritiva. Os resultados evidenciam as etapas de uma investiga\u00e7\u00e3o
+      jornal\u00edstica e certificam o corpus como tal, revelam ainda que \u00e9 poss\u00edvel
+      ao jornalismo utilizar literatura para exercer seu importante papel na sociedade.<\/jats:p>","DOI":"10.5902\/2316882x65378","type":"journal-article","created":{"date-parts":[[2022,9,8]],"date-time":"2022-09-08T01:36:07Z","timestamp":1662600967000},"source":"Crossref","is-referenced-by-count":0,"title":["T\u00e9cnica
+      e eleg\u00e2ncia: uma an\u00e1lise do livro Cova 312 por suas caracter\u00edsticas
+      investigativas e liter\u00e1rias"],"prefix":"10.5902","volume":"26","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-9555-0106","authenticated-orcid":false,"given":"Lu\u00edsa","family":"Da
+      Rosa Miorando","sequence":"first","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2022,9,7]]},"container-title":["Cadernos
+      de Comunica\u00e7\u00e3o"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/ccomunicacao\/article\/download\/65378\/48837","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/ccomunicacao\/article\/download\/65378\/48837","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2022,9,8]],"date-time":"2022-09-08T01:36:07Z","timestamp":1662600967000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/ccomunicacao\/article\/view\/65378"}},"issued":{"date-parts":[[2022,9,7]]},"references-count":0,"journal-issue":{"issue":"2","published-online":{"date-parts":[[2022,9,7]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/2316882x65378","ISSN":["2316-882X","1677-9061"],"issn-type":[{"value":"2316-882X","type":"electronic"},{"value":"1677-9061","type":"print"}],"published":{"date-parts":[[2022,9,7]]}},{"indexed":{"date-parts":[[2023,12,20]],"date-time":"2023-12-20T19:01:16Z","timestamp":1703098876294},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","issue":"1","license":[{"start":{"date-parts":[[2022,10,3]],"date-time":"2022-10-03T00:00:00Z","timestamp":1664755200000},"content-version":"unspecified","delay-in-days":0,"URL":"http:\/\/creativecommons.org\/licenses\/by-nc-nd\/4.0"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["RECDUFSM"],"abstract":"<jats:p>O
+      artigo objetiva responder em que medida a utiliza\u00e7\u00e3o de algoritmos
+      de precifica\u00e7\u00e3o por agentes de mercado pode resultar na pr\u00e1tica
+      de il\u00edcitos anticoncorrenciais. Para tanto, realiza-se a revis\u00e3o de
+      literatura sobre o tema, para, a partir dos cen\u00e1rios desenhados em plano
+      hipot\u00e9tico elaborar estudo de caso, tendo o contexto jur\u00eddico brasileiro
+      por base, das hip\u00f3teses formuladas teoricamente. Inicia-se o trabalho pela
+      recupera\u00e7\u00e3o dos contornos conceituais associados aos algoritmos de
+      precifica\u00e7\u00e3o, enquadrados dentro da teoria da regula\u00e7\u00e3o
+      algor\u00edtmica. Em seguida, contextualiza-se os algoritmos de precifica\u00e7\u00e3o
+      dentro do cen\u00e1rio dos mercados em plataforma, com aportes te\u00f3ricos
+      da literatura associada \u00e0 an\u00e1lise dos mercados de dois lados. Em seguida,
+      com base nos relat\u00f3rios de autoridades concorrenciais, formula-se duas
+      hip\u00f3teses em que os algoritmos de precifica\u00e7\u00e3o podem ter repercuss\u00f5es
+      concorrenciais. Por fim, submete-se \u00e0s hip\u00f3teses \u00e0 an\u00e1lise
+      jur\u00eddica, tomando com base a sistematiza\u00e7\u00e3o doutrin\u00e1ria
+      do artigo 36 da Lei. 12.529\/2011 e as caracter\u00edsticas estruturais dos
+      il\u00edcitos anticoncorrenciais. Conclui-se que os algoritmos de precifica\u00e7\u00e3o
+      podem levar \u00e0 pr\u00e1tica de il\u00edcitos anticonrrenciais, observadas
+      condi\u00e7\u00f5es espec\u00edficas.<\/jats:p>","DOI":"10.5902\/1981369440973","type":"journal-article","created":{"date-parts":[[2023,1,31]],"date-time":"2023-01-31T17:43:30Z","timestamp":1675187010000},"page":"e40973","source":"Crossref","is-referenced-by-count":1,"title":["ALGORITMOS
+      DE PRECIFICA\u00c7\u00c3O E DIREITO CONCORRENCIAL"],"prefix":"10.5902","volume":"17","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-0110-1538","authenticated-orcid":false,"given":"Ana
+      Oliveira","family":"Frazao","sequence":"first","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0003-4364-3009","authenticated-orcid":false,"given":"Carlos","family":"Goettenauer","sequence":"additional","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2022,10,3]]},"container-title":["Revista
+      Eletr\u00f4nica do Curso de Direito da UFSM"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/revistadireito\/article\/download\/40973\/49152","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/revistadireito\/article\/download\/40973\/49152","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,1,31]],"date-time":"2023-01-31T17:43:31Z","timestamp":1675187011000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/revistadireito\/article\/view\/40973"}},"issued":{"date-parts":[[2022,10,3]]},"references-count":0,"journal-issue":{"issue":"1","published-online":{"date-parts":[[2022,10,3]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/1981369440973","ISSN":["1981-3694","1981-3694"],"issn-type":[{"value":"1981-3694","type":"electronic"},{"value":"1981-3694","type":"print"}],"published":{"date-parts":[[2022,10,3]]}},{"indexed":{"date-parts":[[2023,12,23]],"date-time":"2023-12-23T00:14:22Z","timestamp":1703290462843},"reference-count":71,"publisher":"Universidade
+      Federal de Santa Maria","issue":"18","license":[{"start":{"date-parts":[[2023,8,23]],"date-time":"2023-08-23T00:00:00Z","timestamp":1692748800000},"content-version":"unspecified","delay-in-days":0,"URL":"https:\/\/creativecommons.org\/licenses\/by-nc-sa\/4.0"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["RGC"],"abstract":"<jats:p>A
+      igualdade de g\u00eanero est\u00e1 entre as prioridades dos Objetivos de Desenvolvimento
+      Sustent\u00e1vel das Na\u00e7\u00f5es Unidas at\u00e9 2030, como foco na redu\u00e7\u00e3o
+      da pobreza, conserva\u00e7\u00e3o ambiental e justi\u00e7a social em regi\u00f5es
+      como o Brasil. Neste estudo, o principal objetivo \u00e9 quantificar a participa\u00e7\u00e3o
+      e contribui\u00e7\u00e3o das mulheres na gest\u00e3o de cooperativas da agricultura
+      familiar no estado de Santa Catarina. A coleta de dados foi realizada com dirigentes
+      e\/ou lideran\u00e7as de cooperativas da agricultura familiar entre dezembro
+      de 2019 e agosto de 2020. Os resultados indicam que a participa\u00e7\u00e3o
+      feminina na gest\u00e3o da cooperativa, seja no conselho de administra\u00e7\u00e3o,
+      fiscal ou na assembleia geral \u00e9 pequena. Apesar da baixa participa\u00e7\u00e3o,
+      as cooperativas reconhecem que as mulheres s\u00e3o as principais respons\u00e1veis
+      pelas atividades econ\u00f4micas desenvolvidas, com destaque para hortifrutigranjeiros,
+      agroind\u00fastria e leite. A contradi\u00e7\u00e3o entre o papel da mulher
+      na etapa produtiva (agr\u00edcola) e decis\u00f3ria (cooperativa) \u00e9 um
+      indicativo de desigualdade de g\u00eanero nas cooperativas estudadas.<\/jats:p>","DOI":"10.5902\/2359043266716","type":"journal-article","created":{"date-parts":[[2023,9,26]],"date-time":"2023-09-26T17:57:28Z","timestamp":1695751048000},"page":"e11","source":"Crossref","is-referenced-by-count":0,"title":["Participa\u00e7\u00e3o
+      das mulheres em cooperativas da agricultura familiar em Santa Catarina"],"prefix":"10.5902","volume":"9","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-0991-3602","authenticated-orcid":false,"given":"Jo\u00e3o
+      Guilherme Dal Belo","family":"Leite","sequence":"first","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0009-0009-0932-3942","authenticated-orcid":false,"given":"Luana
+      Koling","family":"Lorenzi","sequence":"additional","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2023,8,23]]},"reference":[{"key":"1227426","unstructured":"ABRAMOVAY,
+      Ricardo. Semin\u00e1rio Nacional de Assist\u00eancia T\u00e9cnica e extens\u00e3o
+      Rural, 1997, Bras\u00edlia, DF. GIPAF. Uma nova extens\u00e3o para a agricultura
+      familiar-anais. Bras\u00edlia: PNUD, 1997."},{"key":"1227427","unstructured":"AIMTR-SUL.
+      Nenhuma Trabalhadora Rural Sem Documento. Cartilha de forma\u00e7\u00e3o. n.
+      1, agosto de 1994."},{"key":"1227428","doi-asserted-by":"crossref","unstructured":"ALLEN,
+      Kerrie Elizabeth. The social space (s) of rural women. Rural Society, v. 12,
+      n. 1, p. 27-44, 2002.","DOI":"10.5172\/rsj.12.1.27"},{"key":"1227429","unstructured":"AMORIM,
+      Luci Suzana Bedin; STADUTO, Jefferson Andronio Ramundo. Desenvolvimento territorial
+      rural: a agroind\u00fastria familiar no oeste do Paran\u00e1. Revista de Economia
+      Agr\u00edcola, S\u00e3o Paulo, v. 55, n. 1, p. 15-29. 2008. Dispon\u00edvel
+      em: http:\/\/www.iea.agricultura.sp.gov.br\/ftpiea\/publicar\/REA1-0708a2.pdf."},{"key":"1227430","unstructured":"ARZABE,
+      Cristina; PONTES, Alice Gouveia; SOUSA, Nylman Corr\u00eaa Isaac; ABREU, D\u00e9bora
+      dos Santos Barcellos de. Esfor\u00e7os para a igualdade de g\u00eanero no mundo,
+      no Brasil e na Embrapa. In: ARZABE, Cristina; COSTA, Val\u00e9ria Cristina (Org.).
+      Igualdade de g\u00eanero. Bras\u00edlia: Embrapa, 2018."},{"key":"1227431","doi-asserted-by":"crossref","unstructured":"BALDISSARELLI,
+      Juciele Marta; HULSE, Levi; KLAES, Luiz Salgado. A inser\u00e7\u00e3o das mulheres
+      no cooperativismo videirense. Revista Vis\u00e3o: Gest\u00e3o Organizacional,
+      v. 7, n. 1, p. 80-94, 2018.","DOI":"10.33362\/visao.v7i1.1540"},{"key":"1227432","unstructured":"BONI,
+      Valdete; QUARESMA, S\u00edlvia Jurema. Aprendendo a entrevistar: como fazer
+      entrevistas em Ci\u00eancias Sociais. Em Tese, vol. 2 n.\u00b0 1, p. 68-80,
+      2005."},{"key":"1227433","doi-asserted-by":"crossref","unstructured":"BRANDTH,
+      Berit. Agricultural body-building: Incorporations of gender, body, and work.
+      Journal of Rural Studies, vol. 22, n. 1, p. 17-27, 2006.","DOI":"10.1016\/j.jrurstud.2005.05.009"},{"key":"1227434","unstructured":"BRASIL.
+      Fundo Nacional de desenvolvimento da Educa\u00e7\u00e3o. Merenda escolar. Bras\u00edlia:
+      FNDE, 2014. Dispon\u00edvel em: http:\/\/ www.fnde.gov.br."},{"key":"1227435","unstructured":"BRASIL.
+      Fundo Nacional de Desenvolvimento da Educa\u00e7\u00e3o. Lei 13.987 de 07 de
+      abril de 2020. Dispon\u00edvel em: https:\/\/www.in.gov.br\/en\/web\/dou\/-\/lei-n-13.987-de-7-de-abril-de-2020-251562793."},{"key":"1227436","unstructured":"BRASIL.
+      Lei N\u00ba 11.326, De 24 De Julho De 2006. Dispon\u00edvel em: http:\/\/www.planalto.gov.br\/ccivil_03\/_Ato2004-2006\/2006\/Lei\/L11326.htm."},{"key":"1227437","unstructured":"BRASIL.
+      Resolu\u00e7\u00e3o N\u00ba 510, de 07 de abril de 2016. Conselho Nacional de
+      Sa\u00fade. Dispon\u00edvel em: http:\/\/conselho.saude.gov.br\/resolucoes\/2016\/Reso510.pdf."},{"key":"1227438","unstructured":"CHAYANOV,
+      Alexander. A teoria das cooperativas camponesas. Porto Alegre: UFRGS, 2017."},{"key":"1227439","doi-asserted-by":"crossref","unstructured":"DA
+      CUNHA, Marcia Borin et al . As mulheres na ci\u00eancia: o interesse das estudantes
+      brasileiras pela carreira cient\u00edfica. Educaci\u00f3n qu\u00edmica, v. 25,
+      n. 4, p. 407-417, 2014.","DOI":"10.1016\/S0187-893X(14)70060-6"},{"key":"1227440","unstructured":"DE
+      MELO, L\u00edgia Albuquerque. A mulher agricultora: rela\u00e7\u00e3o \u00edntima
+      com a \u00e1gua. Encontro Internacional Fazendo G\u00eanero, v. 9, 2010."},{"key":"1227441","unstructured":"DE
+      MELO, Paulo C\u00e9sar Tavares; VILELA, Nirlene Junqueira. Import\u00e2ncia
+      da cadeia produtiva brasileira de hortali\u00e7as. In: 13\u00ba Reuni\u00e3o
+      Ordin\u00e1ria da C\u00e2mara Setorial da Cadeia Produtiva de Hortali\u00e7as.
+      Bras\u00edlia: MAPA, 2007."},{"key":"1227442","doi-asserted-by":"crossref","unstructured":"DE
+      HEREDIA, Beatriz Maria Al\u00e1sia; CINTR\u00c3O, Ros\u00e2ngela Pezza. G\u00eanero
+      e acesso a pol\u00edticas p\u00fablicas no meio rural brasileiro. Revista Nera,
+      n. 8, p. 1-28, 2012.","DOI":"10.47946\/rnera.v0i8.1443"},{"key":"1227443","unstructured":"DESER
+      \u2013 CEMTR. Departamento Sindical de Estudos Rurais. Comiss\u00e3o Estadual
+      de Mulheres Trabalhadoras Rurais do Paran\u00e1. G\u00eanero e Agricultura Familiar:
+      cotidiano de vida e trabalho na produ\u00e7\u00e3o de leite. 1. ed. Curitiba,
+      1996."},{"key":"1227444","doi-asserted-by":"crossref","unstructured":"DE OLIVEIRA,
+      Nadja Simone Menezes Nery et al . Coopera\u00e7\u00e3o e empoderamento feminino:
+      an\u00e1lise do \u00cdndice de Empoderamento e Desenvolvimento de G\u00eanero
+      (IEDG) em uma cooperativa agr\u00e1ria no Paran\u00e1: Cooperation and female
+      empowerment: analysis of the Gender Empowerment and Development Index (IEDG)
+      in an agrarian cooperative in Paran\u00e1, Brazil. Estudos Sociedade e Agricultura,
+      v. 26, n. 3, p. 630-655, 2018.","DOI":"10.36920\/esa-v26n3-7"},{"key":"1227445","unstructured":"DUARTE,
+      Juliane Salapata; JUSTIN, Bruno Engel; SOUZA, Allan; GRISA, Catia; BOLTER, Jairo.
+      \u201cReinven\u00e7\u00e3o\u201d e inclus\u00e3o socioprodutiva a partir dos
+      mercados alimentares digitais no Litoral Norte do Rio Grande do Sul. In: NIEDERLE,
+      Paulo; SCHNEIDER, Sergio; CASSOL, Abel. Mercados alimentares digitais: inclus\u00e3o
+      produtiva, cooperativismo e pol\u00edticas p\u00fablicas. Porto Alegre: Editora
+      da UFRGS, 2021. (p. 128)"},{"key":"1227446","unstructured":"ESTEVAM, Dimas de
+      Oliveria; MARCOLINO, Julia; LANZARINI, Joelcy Jos\u00e9 S\u00e1; MADEIRA, Kristian.
+      Cooperativismo virtual: o caso da cooperativa de produ\u00e7\u00e3o agroindustrial
+      familiar de Nova Veneza (COOFANOVE), Santa Catarina. Cadernos de Ci\u00eancia
+      & Tecnologia, Bras\u00edlia, v. 28, n. 2, p. 485-507, 2011."},{"key":"1227447","unstructured":"FAO.
+      Food and Agriculture Organization. A import\u00e2ncia das mulheres rurais no
+      desenvolvimento sustent\u00e1vel do futuro. 2017. Dispon\u00edvel em: http:\/\/www.fao.org\/brasil\/noticias\/detail-events\/pt\/c\/1238916\/."},{"key":"1227448","unstructured":"FARIAS,
+      Cleusa Maria; GIL, Marcelo Freitas. Cooperativismo. Pelotas: Instituto Federal
+      de Educa\u00e7\u00e3o, Ci\u00eancia e Tecnologia; Santa Maria: Universidade
+      Federal de Santa Maria, Col\u00e9gio T\u00e9cnico Industrial de Santa Maria;
+      Rede e-Tec Brasil, 2013."},{"key":"1227449","doi-asserted-by":"crossref","unstructured":"FERREIRA,
+      Marco Aur\u00e9lio Marques; BRAGA, Marcelo Jos\u00e9. Diversifica\u00e7\u00e3o
+      e competitividade nas cooperativas agropecu\u00e1rias. Revista de Administra\u00e7\u00e3o
+      Contempor\u00e2nea, v. 8, n. 4, p. 33-55, 2004.","DOI":"10.1590\/S1415-65552004000400003"},{"key":"1227450","unstructured":"FERRARI,
+      Dilvan Luiz ; MELLO, M\u00e1rcio Antoio de; TESTA, Vilson Marcos; SILVESTRO,
+      Milton Luiz. Agricultores familiares, exclus\u00e3o e desafios para inser\u00e7\u00e3o
+      econ\u00f4mica na produ\u00e7\u00e3o de leite em Santa Catarina. Informa\u00e7\u00f5es
+      Econ\u00f4micas, S\u00e3o Paulo, v. 35, n. 1, p. 22-36, 2005."},{"key":"1227451","unstructured":"GASPARETO,
+      Sirlei Antoninha Kroth. As jovens do Movimento de Mulheres Camponesas (MMC):
+      trabalho, fam\u00edlia e projetos de vida. Disserta\u00e7\u00e3o (Mestrado em
+      Ci\u00eancias Sociais) \u2013 Universidade Federal de Campina Grande, 2009."},{"key":"1227452","unstructured":"GASSON,
+      Ruth.; ERRINGTON, Andrew. The farm family business. Wallingford: Cab International,
+      1993."},{"key":"1227453","doi-asserted-by":"crossref","unstructured":"GASSON,
+      Ruth.; SHAW, A e WINTER, M. Characteristics of farm household pluriactivity
+      in East and Mid Devon. Center for Rural studies. Cirencester, 1992","DOI":"10.1016\/0743-0167(92)90052-8"},{"key":"1227454","unstructured":"GAZOLLA,
+      Marcio. Agricultura familiar, seguran\u00e7a alimentar e pol\u00edticas p\u00fablicas:
+      uma an\u00e1lise a partir da produ\u00e7\u00e3o para autoconsumo no territ\u00f3rio
+      do Alto Uruguai\/RS. Disserta\u00e7\u00e3o (Mestrado em Desenvolvimento Rural)
+      \u2013 Universidade Federal do Rio Grande do Sul, Porto Alegre, 2004."},{"key":"1227455","doi-asserted-by":"crossref","unstructured":"GAZOLLA,
+      Marcio; SCHNEIDER, Sergio. Qual \"fortalecimento\" da agricultura familiar?:
+      uma an\u00e1lise do Pronaf cr\u00e9dito de custeio e investimento no Rio Grande
+      do Sul. Revista de Economia e Sociologia Rural, v. 51, n. 1, p. 45-68, 2013.","DOI":"10.1590\/S0103-20032013000100003"},{"key":"1227456","unstructured":"GIANEZINI,
+      Miguelangelo. O cooperativismo e seu papel no processo de desenvolvimento local:
+      experi\u00eancias no m\u00e9dio norte de Mato Grosso. Economia Solid\u00e1ria
+      e A\u00e7\u00e3o Cooperativa-ESAC, v. 5, n. 1, p. 37-50, 2010."},{"key":"1227457","unstructured":"GRADE,
+      Ma\u00edra Soalheiro; BASSO, Dirceu. O cooperativismo enquanto institui\u00e7\u00e3o
+      para o enfrentamento \u00e0 desigualdade de g\u00eanero no meio rural. Orbis
+      Latina, v. 9, n. 1, p. 157-171, 2019."},{"key":"1227458","unstructured":"KERGOAT,
+      Dani\u00e8le. Divis\u00e3o sexual do trabalho e rela\u00e7\u00f5es sociais de
+      sexo. In: HIRATA, Helena; LABORIE, Fran\u00e7oise ; DOAR\u00c9, H\u00e9l\u00e8ne
+      Le; SENOTIER, Dani\u00e8le (org.). Dicion\u00e1rio cr\u00edtico do feminismo.
+      S\u00e3o Paulo: Unesp, 2009."},{"key":"1227459","unstructured":"IBGE - Instituto
+      Brasileiro de Geografia e Estat\u00edstica. Censo Agropecu\u00e1rio de 2017.
+      Dispon\u00edvel em: https:\/\/biblioteca.ibge.gov.br\/visualizacao\/periodicos\/3096\/agro_2017_resultados_definitivos.pdf."},{"key":"1227460","unstructured":"IBGE
+      - Instituto Brasileiro de Geografia e Estat\u00edstica. Estat\u00edsticas de
+      g\u00eanero: uma an\u00e1lise dos resultados do censo demogr\u00e1fico 2010.
+      Coordena\u00e7\u00e3o de popula\u00e7\u00e3o e indicadores sociais. Bras\u00edlia,
+      2014."},{"key":"1227461","unstructured":"IBGE - Instituto Brasileiro de Geografia
+      e Estat\u00edstica. Estat\u00edsticas de G\u00eanero: Indicadores sociais das
+      mulheres no Brasil. Bras\u00edlia, v. 2, 2018."},{"key":"1227462","unstructured":"LAUSCHNER,
+      Roque. Cooperativismo e agricultura familiar. Mimeo, p. 7. 1994."},{"key":"1227463","unstructured":"LEAL,
+      Adriana Ribeiro; COTRIM, D\u00e9cio. A Inser\u00e7\u00e3o das Mulheres no Cooperativismo:
+      estudo de caso COOMAFITT. Emater RS, 2013. Dispon\u00edvel em: http:\/\/www.emater.tche.br\/site\/arquivos_pdf\/teses\/Adriana%20Leal.pdf."},{"key":"1227464","doi-asserted-by":"crossref","unstructured":"MAIA,
+      Marta Andrade; ALVES, Daniela Cristina. Cooperativismo e Agricultura Familiar:
+      um estudo de caso. Revista de Administra\u00e7\u00e3o IMED, v. 3, n. 3, p. 194-208,
+      2013.","DOI":"10.18256\/2237-7956\/raimed.v3n3p194-208"},{"key":"1227465","unstructured":"MARCONE,
+      Stef\u00e2nia. G\u00eanero e igualdade: estrat\u00e9gia e desenvolvimento do
+      cooperativismo e do associativismo. Relat\u00f3rio final I F\u00f3rum Nacional
+      de G\u00eanero, Cooperativismo e Associativismo. Bras\u00edlia. p. 23-38, 2009."},{"key":"1227466","doi-asserted-by":"crossref","unstructured":"MATTEI,
+      Lauro. O papel e a import\u00e2ncia da agricultura familiar no desenvolvimento
+      rural brasileiro contempor\u00e2neo. Revista Econ\u00f4mica do Nordeste, v.
+      45, n. 5, p. 83-92, 2014.","DOI":"10.61673\/ren.2014.500"},{"key":"1227467","unstructured":"MARTINS,
+      Vagner Azarias; MARGARIDO, Mario Antonio; BUENO, Carlos Roberto Ferreira. Altera\u00e7\u00e3o
+      no perfil de compra de frutas, legumes e verduras nos supermercados e feiras
+      livres na cidade de S\u00e3o Paulo. Informa\u00e7\u00f5es Econ\u00f4micas, v.
+      37, n. 2, p. 30-37, 2007."},{"key":"1227468","unstructured":"MIOR, Luiz Carlos.
+      Agricultores familiares, agroind\u00fastrias e redes de desenvolvimento rural.
+      Chapec\u00f3: Argos,338 p. 2005."},{"key":"1227469","unstructured":"NETO, Sigismundo
+      Bialoskorski; NAGANO, Marcelo Seido; DA COSTA MORAES, Marcelo Botelho. Utiliza\u00e7\u00e3o
+      de redes neurais artificiais para avalia\u00e7\u00e3o socioecon\u00f4mica: uma
+      aplica\u00e7\u00e3o em cooperativas. Revista de Administra\u00e7\u00e3o-RAUSP,
+      v. 41, n. 1, p. 59-68, 2006."},{"key":"1227470","unstructured":"NEUMANN, Pedro
+      Selvino et al . A agroind\u00fastria familiar de vinho na regi\u00e3o da quarta
+      col\u00f4nia do Rio Grande do Sul. In: Congresso Brasileiro de Sistemas de Produ\u00e7\u00e3o,
+      7., 2007, Fortaleza. Anais [...] Fortaleza: Agricultura Familiar, Pol\u00edticas
+      P\u00fablicas e Inclus\u00e3o Social, 2007."},{"key":"1227471","doi-asserted-by":"crossref","unstructured":"NICHELE,
+      Fernanda Severo; WAQUIL, Paulo Dabdab. Agroind\u00fastria familiar rural, qualidade
+      da produ\u00e7\u00e3o artesanal e o enfoque da teoria das conven\u00e7\u00f5es.
+      Ci\u00eancia Rural, v. 41, n. 12, p. 2230-2235, 2011.","DOI":"10.1590\/S0103-84782011001200030"},{"key":"1227472","unstructured":"NOVELLINO,
+      Maria Salet Ferreira. Os estudos sobre feminiza\u00e7\u00e3o da pobreza e pol\u00edticas
+      p\u00fablicas para mulheres. In: XIV Encontro Nacional de Estudos Populacionais,
+      ABEP, Caxamb\u00fa. Anais [...] Caxamb\u00fa, 2004."},{"key":"1227473","unstructured":"OCESC.
+      Presta\u00e7\u00e3o de contas e relat\u00f3rio de atividades. Florian\u00f3polis,
+      2018."},{"key":"1227474","unstructured":"OCESC. Consolidado do Sistema Cooperativo
+      Catarinense. N\u00fameros. Florian\u00f3polis, 2022."},{"key":"1227475","unstructured":"OIT,
+      Organiza\u00e7\u00e3o internacional do Trabalho. Perspectivas sociales y del
+      empleo en el mundo: tendencias del empleo femenino Tendencias. 75 p. 2017. Dispon\u00edvel
+      em: https:\/\/www.ilo.org\/wcmsp5\/groups\/public\/dgreports\/inst\/documents\/publication\/wcms_557080.pdf."},{"key":"1227476","unstructured":"PAULILO,
+      Maria Ignez. Movimento de Mulheres Agricultoras: terra e matrimonio. In: PAULILLO.
+      M. I. SCHMIDT, Wilson.(org.) Agricultura e espa\u00e7o rural em Santa Catarina.
+      Fpolis:Editora da UFSC, 2003."},{"key":"1227477","unstructured":"PAULILO, Maria
+      Ignez. O peso do trabalho leve. Revista Ci\u00eancia Hoje, v. 5, n. 28, p. 64-70,
+      1987."},{"key":"1227478","doi-asserted-by":"crossref","unstructured":"PEREIRA,
+      Viviane; BRITO, Tayrine; PEREIRA, Samanta. A feira-livre como importante mercado
+      para a agricultura familiar em Concei\u00e7\u00e3o do Mato Dentro (MG). Revista
+      Ci\u00eancias Humanas, v. 10, n. 2, 2017. Dispon\u00edvel em: https:\/\/www.rchunitau.com.br\/index.php\/rch\/article\/view\/383\/239.
+      Acessado em: 09 fev. 2021.","DOI":"10.32813\/rchv10n22017artigo6"},{"key":"1227479","unstructured":"Pires,
+      M. L. L. S. O Cooperativismo agr\u00edcola como uma forma de neutralizar as
+      desvantagens competitivas da agricultura familiar. Em an\u00e1lise a Coopercaju.
+      In: XXXIII Congresso Brasileiro de Ci\u00eancias da Comunica\u00e7\u00e3o, Caxias
+      do Sul, RS, Brasil, 2010."},{"key":"1227480","unstructured":"PRESNO, Nora. As
+      cooperativas e os desafios da competitividade. Estudos Sociedade e Agricultura,
+      v. 9, n. 2, p. 119-144, 2001."},{"key":"1227481","unstructured":"REISDORFER,
+      Vitor Kochhann. Introdu\u00e7\u00e3o ao cooperativismo. Santa Maria: Universidade
+      Federal de Santa Maria, Col\u00e9gio Polit\u00e9cnico, Rede e-Tec Brasil, 2014."},{"key":"1227482","doi-asserted-by":"crossref","unstructured":"RIGOLIN,
+      Camila Carneiro Dias; HAYASHI, Carlos Roberto Massao; HAYASHI, M. C. P. I. M\u00e9tricas
+      da participa\u00e7\u00e3o feminina na ci\u00eancia e tecnologia no contexto
+      dos INCTs: primeiras aproxima\u00e7\u00f5es. Liinc em Revista, v. 9, n. 1, p.
+      143- 170, maio 2013.","DOI":"10.18617\/liinc.v9i1.524"},{"key":"1227483","unstructured":"SABOURIN,
+      Eric. Associativismo, Cooperativismo e Economia solid\u00e1ria no meio rural.
+      Bras\u00edlia: Universidade de Bras\u00edlia, Centro de Estudos Avan\u00e7ados
+      Multidisciplinares, N\u00facleo de Estudos Avan\u00e7ados, v. 6. n. 23, 2006."},{"key":"1227484","doi-asserted-by":"crossref","unstructured":"SALVARO,
+      Giovana Ilka Jacinto; ESTEVAM, Dimas de Oliveira; FELIPE, Daiane Fernandes.
+      Mulheres em cooperativas rurais virtuais: reflex\u00f5es sobre g\u00eanero e
+      subjetividade. Psicologia: Ci\u00eancia e Profiss\u00e3o, v. 34, n. 2, p. 390-405,
+      2014.","DOI":"10.1590\/1982-3703000262013"},{"key":"1227485","unstructured":"SCHMITZ,
+      Aline Motter. O trabalho das mulheres agricultoras familiares na atividade leiteira.
+      Disserta\u00e7\u00e3o de Mestrado (Programa de P\u00f3s-Gradua\u00e7\u00e3o
+      em Geografia ) - Universidade Estadual do Oeste do Paran\u00e1, Francisco Beltr\u00e3o,
+      2014."},{"key":"1227486","unstructured":"SCHNEIDER, Sergio. A pluriatividade
+      na agricultura familiar. SciELO-Editora da UFRGS, 2003."},{"key":"1227487","unstructured":"SCHWENGBER,
+      Isabela. Mulheres no comando. Agropecu\u00e1ria Catarinense, v. 31, n. 1, p.
+      20-26, 2018."},{"key":"1227488","doi-asserted-by":"crossref","unstructured":"SILIPRANDI,
+      Emma; CINTR\u00c3O, Ros\u00e2ngela. As mulheres agricultoras no Programa de
+      Aquisi\u00e7\u00e3o de Alimentos (PAA). Seguran\u00e7a Alimentar e Nutricional,
+      v. 18, n. 2, p. 13-32, 2011.","DOI":"10.20396\/san.v18i2.8634675"},{"key":"1227489","unstructured":"SILVA,
+      Carolina Braz de Castilho; SCHNEIDER, S\u00e9rgio. G\u00eanero, trabalho rural
+      e pluriatividade. G\u00eanero, trabalho rural e pluriatividade. In: SCOTT, Parry;
+      CORDEIRO, Rosineide; MENEZES, Marilda (Org.). G\u00eanero e gera\u00e7\u00e3o
+      em contextos rurais. Florian\u00f3polis: Ed. Mulheres, 2010."},{"key":"1227490","unstructured":"SILVA,
+      Emanuel Sampaio et al. Panorama do cooperativismo brasileiro: hist\u00f3ria,
+      cen\u00e1rios e tend\u00eancias. Revista uniRcoop, v. 1, n. 2, p. 75-102, 2003."},{"key":"1227491","unstructured":"SILVA,
+      Monica Nardine et al. A agricultura familiar e os circuitos curtos de comercializa\u00e7\u00e3o
+      de alimentos: estudo de caso da feira livre do munic\u00edpio de Jaguar\u00e3o,
+      RS, Brasil. Revista Espacios, v. 38, n. 47, 2017."},{"key":"1227492","doi-asserted-by":"crossref","unstructured":"STROPASOLAS,
+      Valmir Luiz. O valor (do) casamento na agricultura familiar. Revista Estudos
+      Feministas, v. 12, n. 1, p. 253-267, 2004.","DOI":"10.1590\/S0104-026X2004000100013"},{"key":"1227493","unstructured":"SU\u00c1REZ,
+      Nelly del Carmen. Procesos y din\u00e1mica rurales. Una lectura desde el enfoque
+      de g\u00e9nero. Revista Luna Azul, 27, 94-103, 2008."},{"key":"1227494","doi-asserted-by":"crossref","unstructured":"TRICHES,
+      Rozane Marcia; SCHABARUM, Joseane Carla; GIOMBELLI, Giovana Paludo. Demanda
+      de Produtos da Agricultura Familiar e Condicionantes para a Aquisi\u00e7\u00e3o
+      de Produtos Org\u00e2nicos e Agroecol\u00f3gicos pela Alimenta\u00e7\u00e3o
+      Escolar no Sudoeste do Estado do Paran\u00e1. Demand for products from family
+      farms and conditions for the acquisition. Revista Nera, n. 31, p. 91-110, 2016.","DOI":"10.47946\/rnera.v0i31.4095"},{"key":"1227495","unstructured":"UNDP.
+      Transformando Nosso Mundo. A Agenda 2030 para o Desenvolvimento Sustent\u00e1vel.
+      v. 15, 2016. Dispon\u00edvel em: http:\/\/www.mds.gov.br\/webarquivos\/publicacao\/Brasil_Amigo_Pesso_Idosa\/Agenda2030.pdf."},{"key":"1227496","unstructured":"WESZ
+      JR., Valdemar Jo\u00e3o; TRENTIN, Iran Carlos Lovis; FILIPPI, Eduardo Ernesto.
+      Os reflexos das agroind\u00fastrias familiares para o desenvolvimento das \u00e1reas
+      rurais no Brasil. In: Congresso Internacional de la RedSIAL. Anais [\u2026]
+      Mar del Plata, 2008."}],"container-title":["Revista de Gest\u00e3o e Organiza\u00e7\u00f5es
+      Cooperativas"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/rgc\/article\/download\/66716\/61108","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/rgc\/article\/download\/66716\/61108","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,12,22]],"date-time":"2023-12-22T20:28:47Z","timestamp":1703276927000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/rgc\/article\/view\/66716"}},"issued":{"date-parts":[[2023,8,23]]},"references-count":71,"journal-issue":{"issue":"18","published-online":{"date-parts":[[2023,1,20]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/2359043266716","ISSN":["2359-0432","2446-7103"],"issn-type":[{"value":"2359-0432","type":"electronic"},{"value":"2446-7103","type":"print"}],"published":{"date-parts":[[2023,8,23]]}},{"indexed":{"date-parts":[[2023,10,12]],"date-time":"2023-10-12T05:16:31Z","timestamp":1697087791822},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","issue":"3","content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Literatura
+      e Autoritarismo"],"abstract":"<jats:p>O prop\u00f3sito deste trabalho consiste
+      na an\u00e1lise da representa\u00e7\u00e3o da mulher nos contos\u00a0Natal na
+      barca, de Lygia Fagundes Telles e\u00a0A imita\u00e7\u00e3o da rosa, de Clarice
+      Lispector. A pesquisa busca mostrar que as atitudes das figuras femininas est\u00e3o
+      circunscritas dentro dos limites impostos pela tradi\u00e7\u00e3o patriarcal.<\/jats:p>","DOI":"10.5902\/1679849x74212","type":"journal-article","created":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:43:18Z","timestamp":1696995798000},"source":"Crossref","is-referenced-by-count":0,"title":["O
+      cotidiano feminino em contos de Lygia Fagundes Telles e Clarice Lispector"],"prefix":"10.5902","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-7104-1833","authenticated-orcid":false,"given":"Lizandro
+      Carlos","family":"Calegari","sequence":"first","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2004,1,1]]},"container-title":["Literatura
+      e Autoritarismo"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74212\/51635","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74212\/51635","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:43:18Z","timestamp":1696995798000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/view\/74212"}},"issued":{"date-parts":[[2004,1,1]]},"references-count":0,"journal-issue":{"issue":"3","published-online":{"date-parts":[[2004,1,1]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/1679849x74212","ISSN":["1679-849X","1679-849X"],"issn-type":[{"value":"1679-849X","type":"electronic"},{"value":"1679-849X","type":"print"}],"published":{"date-parts":[[2004,1,1]]}},{"indexed":{"date-parts":[[2023,10,12]],"date-time":"2023-10-12T05:16:33Z","timestamp":1697087793135},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","issue":"1","content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Literatura
+      e Autoritarismo"],"abstract":"<jats:p>No matter what other issues are raised
+      with respect to Juan Guti\u00e9rrez Alea''s 1993 film Fresa y chocolate, it
+      is fundamental to hold in view a dominant question: Why do David and Diego never
+      fuck. This matter is never directly addressed by the film, and consequently,
+      it is never answered. Moreover, so much of the critical commentary (characteristically
+      in reviews of the film and its relationship to the sociohistorical parameters
+      of postrevolutionary filmmaking in Cuba) focuses on their relationship as a
+      paradigm for \"tolerance\" in Cuban society toward difference, sexual difference,
+      specifically, but individual difference in general, in the context of the struggle
+      in Cuba to affirm institutional and personal values that do not impose as an
+      imperative the need for the individual, the citizen, to conform to a rigid of
+      social behavior.<\/jats:p>","DOI":"10.5902\/1679849x74299","type":"journal-article","created":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:46:17Z","timestamp":1696995977000},"source":"Crossref","is-referenced-by-count":0,"title":["Fresa
+      y chocolate"],"prefix":"10.5902","author":[{"given":"David William","family":"Foster","sequence":"first","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2003,9,1]]},"container-title":["Literatura
+      e Autoritarismo"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74299\/51621","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74299\/51621","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:46:18Z","timestamp":1696995978000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/view\/74299"}},"issued":{"date-parts":[[2003,9,1]]},"references-count":0,"journal-issue":{"issue":"1","published-online":{"date-parts":[[2003,9,1]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/1679849x74299","ISSN":["1679-849X","1679-849X"],"issn-type":[{"value":"1679-849X","type":"electronic"},{"value":"1679-849X","type":"print"}],"published":{"date-parts":[[2003,9,1]]}},{"indexed":{"date-parts":[[2023,10,12]],"date-time":"2023-10-12T05:15:40Z","timestamp":1697087740048},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","issue":"9","content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Literatura
+      e Autoritarismo"],"abstract":"<jats:p>Esta edi\u00e7\u00e3o da revista eletr\u00f4nica
+      Literatura e Autoritarismo, visando oportunizar o debate acad\u00eamico amplo,
+      apresenta estudos liter\u00e1rios dedicados a obras deposit\u00e1rias da tens\u00e3o
+      entre lembran\u00e7a e esquecimento da repress\u00e3o pol\u00edtica praticada
+      no Brasil durante o regime militar, bem como em outros pa\u00edses. O subt\u00edtulo
+      Mem\u00f3rias da repress\u00e3o aponta para a necessidade de recordar o passado
+      e de refletir, tamb\u00e9m atrav\u00e9s da literatura, sobre a viol\u00eancia
+      pol\u00edtica e seus desdobramentos na vida das pessoas que a ela estiveram
+      expostas.<\/jats:p>","DOI":"10.5902\/1679849x74230","type":"journal-article","created":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:27:49Z","timestamp":1696994869000},"source":"Crossref","is-referenced-by-count":0,"title":["Apresenta\u00e7\u00e3o
+      - Mem\u00f3rias da Repress\u00e3o"],"prefix":"10.5902","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-8221-1869","authenticated-orcid":false,"given":"Rosani
+      \u00darsula Ketzer","family":"Umbach","sequence":"first","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0003-4113-5553","authenticated-orcid":false,"given":"Jo\u00e3o
+      Luis Pereira","family":"Ourique","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-7104-1833","authenticated-orcid":false,"given":"Lizandro
+      Carlos","family":"Calegari","sequence":"additional","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2007,1,1]]},"container-title":["Literatura
+      e Autoritarismo"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74230\/51591","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74230\/51591","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:27:49Z","timestamp":1696994869000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/view\/74230"}},"issued":{"date-parts":[[2007,1,1]]},"references-count":0,"journal-issue":{"issue":"9","published-online":{"date-parts":[[2007,1,1]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/1679849x74230","ISSN":["1679-849X","1679-849X"],"issn-type":[{"value":"1679-849X","type":"electronic"},{"value":"1679-849X","type":"print"}],"published":{"date-parts":[[2007,1,1]]}},{"indexed":{"date-parts":[[2023,10,12]],"date-time":"2023-10-12T05:17:11Z","timestamp":1697087831556},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","issue":"1","content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Literatura
+      e Autoritarismo"],"abstract":"<jats:p>O artigo analisa o livro\u00a0Las genealog\u00edas,
+      da escritora mexicana Margo Glantz no \u00e2mbito de uma pesquisa sobre narrativas
+      de viagem contempor\u00e2neas. A pesquisa tem como ponto de partida algumas
+      perguntas: como se constr\u00f3i a mem\u00f3ria atrav\u00e9s da escrita? Como
+      se constr\u00f3i a mem\u00f3ria de uma gera\u00e7\u00e3o? Como escrever a partir
+      da experi\u00eancia alheia? As narrativas em quest\u00e3o s\u00e3o textos h\u00edbridos,
+      que atravessam as fronteiras de g\u00eanero, situadas entre o di\u00e1rio, a
+      fic\u00e7\u00e3o e o ensaio, e abrem novos espa\u00e7os para a mem\u00f3ria.
+      No caso espec\u00edfico de\u00a0Las genealogias, examino as maneiras de explorar
+      os limites do testemunho familiar, quando a hist\u00f3ria narrada n\u00e3o pertence
+      inteiramente a quem escreve, observando o esfor\u00e7o de constru\u00e7\u00e3o
+      de um elo entre gera\u00e7\u00f5es, mas sobretudo de cria\u00e7\u00e3o de um
+      terreno comum entre elas.<\/jats:p>","DOI":"10.5902\/1679849x74593","type":"journal-article","created":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:14:56Z","timestamp":1696994096000},"source":"Crossref","is-referenced-by-count":0,"title":["Escrita,
+      mem\u00f3ria e alteridade em Las genealog\u00edas, de Margo Glantz"],"prefix":"10.5902","author":[{"ORCID":"http:\/\/orcid.org\/0000-0003-4731-5707","authenticated-orcid":false,"given":"Paloma","family":"Vidal","sequence":"first","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2008,11,16]]},"container-title":["Literatura
+      e Autoritarismo"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74593\/51748","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74593\/51748","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:14:57Z","timestamp":1696994097000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/view\/74593"}},"issued":{"date-parts":[[2008,11,16]]},"references-count":0,"journal-issue":{"issue":"1","published-online":{"date-parts":[[2008,11,16]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/1679849x74593","ISSN":["1679-849X","1679-849X"],"issn-type":[{"value":"1679-849X","type":"electronic"},{"value":"1679-849X","type":"print"}],"published":{"date-parts":[[2008,11,16]]}},{"indexed":{"date-parts":[[2023,10,12]],"date-time":"2023-10-12T05:10:31Z","timestamp":1697087431302},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","issue":"2","content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Literatura
+      e Autoritarismo"],"abstract":"<jats:p>Este ensaio foi estruturado a partir da
+      an\u00e1lise de uma outra dimens\u00e3o intelectual de Torquato Neto, talvez
+      a menos conhecida: sua atua\u00e7\u00e3o como jornalista. Entre 1971 e 1972,
+      Torquato Neto manteve uma coluna, chamada Geleia Geral, no Jornal a \u00daltima
+      Hora, do Rio de Janeiro. Os temas - como a forma - dessas colunas s\u00e3o muito
+      variados, mas alguns s\u00e3o recorrentes: cinema \u00e9 um deles. Este artigo
+      se concentrar somente nas quest\u00f5es sobre cinema e sua articula\u00e7\u00e3o
+      como mecanismo de combate ao autoritarismo.<\/jats:p>","DOI":"10.5902\/1679849x74653","type":"journal-article","created":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:06:21Z","timestamp":1696993581000},"page":"e5","source":"Crossref","is-referenced-by-count":0,"title":["Torquato
+      Neto na Geleia Geral brasileira"],"prefix":"10.5902","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-1825-0097","authenticated-orcid":false,"given":"Marcus
+      Vin\u00edcius C\u00e2mara","family":"Brasileiro","sequence":"first","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2009,12,10]]},"container-title":["Literatura
+      e Autoritarismo"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74653\/51776","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74653\/51776","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:06:22Z","timestamp":1696993582000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/view\/74653"}},"issued":{"date-parts":[[2009,12,10]]},"references-count":0,"journal-issue":{"issue":"2","published-online":{"date-parts":[[2009,12,10]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/1679849x74653","ISSN":["1679-849X","1679-849X"],"issn-type":[{"value":"1679-849X","type":"electronic"},{"value":"1679-849X","type":"print"}],"published":{"date-parts":[[2009,12,10]]}},{"indexed":{"date-parts":[[2023,10,12]],"date-time":"2023-10-12T05:12:19Z","timestamp":1697087539841},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","issue":"2","content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Literatura
+      e Autoritarismo"],"abstract":"<jats:p>This paper analyzes and compares a Brazilian
+      neo-naturalist novel with one written in Spain. Despite the geographic and cultural
+      distance between the authors, Graciliano Ramos and Camilo Jos\u00e9 Cela, and
+      the striking differences in their backgrounds, there are remarkable similarities
+      in their novels that reflect the aftermath of civil war and dislocation of society
+      that both authors suffered. The narrative structure and literary antecedents
+      of both novels are explored. Gracilianos\u2019 interpretation of the genre includes
+      regionalism and romanticism, while Cela\u2019s is colored by tremendismo. In
+      both there are significant departures from the Naturalism of Zola.<\/jats:p>","DOI":"10.5902\/1679849x74599","type":"journal-article","created":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:06:57Z","timestamp":1696993617000},"page":"e3","source":"Crossref","is-referenced-by-count":0,"title":["Two
+      confessional novels: a comparison of S\u00e3o Bernardo with La Familia de Pascual
+      Duarte"],"prefix":"10.5902","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-1825-0097","authenticated-orcid":false,"given":"M.
+      W.","family":"Stannard","sequence":"first","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2009,12,10]]},"container-title":["Literatura
+      e Autoritarismo"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74599\/51754","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74599\/51754","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:06:58Z","timestamp":1696993618000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/view\/74599"}},"issued":{"date-parts":[[2009,12,10]]},"references-count":0,"journal-issue":{"issue":"2","published-online":{"date-parts":[[2009,12,10]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/1679849x74599","ISSN":["1679-849X","1679-849X"],"issn-type":[{"value":"1679-849X","type":"electronic"},{"value":"1679-849X","type":"print"}],"published":{"date-parts":[[2009,12,10]]}},{"indexed":{"date-parts":[[2023,10,12]],"date-time":"2023-10-12T05:07:47Z","timestamp":1697087267189},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","issue":"12","content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Literatura
+      e Autoritarismo"],"abstract":"<jats:p>O objetivo deste artigo \u00e9 analisar
+      o romance de fic\u00e7\u00e3o cient\u00edfica\u00a0O sonho de ferro\u00a0(1971),
+      de Norman Spinrad, a partir do conceito de metafic\u00e7\u00e3o historiogr\u00e1fica
+      elaborado por Linda Hutcheon. Al\u00e9m de definir o conceito de Hutcheon, juntamente
+      com seu oposto, o pastiche, e problematizar acerca dos estudos da cultura de
+      massa, a proposta principal deste trabalho \u00e9 discutir a par\u00f3dia de
+      Spinrad a respeito das id\u00e9ias autorit\u00e1rias e racistas identificadas
+      nas\u00a0pulp fictions\u00a0norte-americanas da primeira metade do s\u00e9culo
+      XX.<\/jats:p>","DOI":"10.5902\/1679849x73927","type":"journal-article","created":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:19:32Z","timestamp":1696994372000},"source":"Crossref","is-referenced-by-count":0,"title":["E
+      se Hitler escrevesse uma fic\u00e7\u00e3o cient\u00edfica?: uma an\u00e1lise
+      de O sonho de ferro, de Norman Spinrad"],"prefix":"10.5902","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-4358-2114","authenticated-orcid":false,"given":"Rodolfo
+      Rorato","family":"Londero","sequence":"first","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2008,7,1]]},"container-title":["Literatura
+      e Autoritarismo"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/73927\/51238","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/73927\/51238","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:19:32Z","timestamp":1696994372000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/view\/73927"}},"issued":{"date-parts":[[2008,7,1]]},"references-count":0,"journal-issue":{"issue":"12","published-online":{"date-parts":[[2008,7,1]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/1679849x73927","ISSN":["1679-849X","1679-849X"],"issn-type":[{"value":"1679-849X","type":"electronic"},{"value":"1679-849X","type":"print"}],"published":{"date-parts":[[2008,7,1]]}},{"indexed":{"date-parts":[[2023,10,12]],"date-time":"2023-10-12T05:06:24Z","timestamp":1697087184154},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","issue":"14","content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Literatura
+      e Autoritarismo"],"abstract":"<jats:p>Limite branco\u00a0foi o primeiro romance
+      escrito por Caio Fernando Abreu. Nessa obra, \u00e9 estabelecida uma rela\u00e7\u00e3o
+      entre a mudan\u00e7a de cidade e a passagem de tempo para o protagonista. A
+      passagem da inf\u00e2ncia para a adolesc\u00eancia est\u00e1 relacionada com
+      a mudan\u00e7a de Passo da Guanxuma para Porto Alegre. A ruptura com a cidade
+      pequena, associada ao abandono do ambiente familiar, permite o ingresso em outra
+      atmosfera, menos ing\u00eanua e, pretensamente, adulta marcada pela ida para
+      a cidade grande. A idade adulta, assim, est\u00e1 vinculada ao ingresso na grande
+      metr\u00f3pole: o Rio de Janeiro, destacando mais uma fase de amadurecimento
+      do protagonista. Nesse trabalho, abordou-se a quest\u00e3o do estrangeiro, daquele
+      que se desloca de um lugar para outro e que apresenta dificuldades para adaptar-se
+      ao novo espa\u00e7o, e a representa\u00e7\u00e3o que a cidade de Passo da Guanxuma
+      assume no romance analisado, enquanto cidade pequena associada \u00e0 inf\u00e2ncia.<\/jats:p>","DOI":"10.5902\/1679849x73896","type":"journal-article","created":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:08:49Z","timestamp":1696993729000},"page":"47-57","source":"Crossref","is-referenced-by-count":0,"title":["Representa\u00e7\u00f5es
+      acerca do estrangeiro e da cidade interiorana em Limite Branco, de Caio Fernando
+      Abreu"],"prefix":"10.5902","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-3813-7091","authenticated-orcid":false,"given":"Ana
+      Paula","family":"Cantarelli","sequence":"first","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2009,7,1]]},"container-title":["Literatura
+      e Autoritarismo"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/73896\/51208","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/73896\/51208","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:08:49Z","timestamp":1696993729000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/view\/73896"}},"issued":{"date-parts":[[2009,7,1]]},"references-count":0,"journal-issue":{"issue":"14","published-online":{"date-parts":[[2009,7,1]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/1679849x73896","ISSN":["1679-849X","1679-849X"],"issn-type":[{"value":"1679-849X","type":"electronic"},{"value":"1679-849X","type":"print"}],"published":{"date-parts":[[2009,7,1]]}},{"indexed":{"date-parts":[[2023,10,12]],"date-time":"2023-10-12T05:06:27Z","timestamp":1697087187134},"reference-count":0,"publisher":"Universidade
+      Federal de Santa Maria","issue":"2","content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Literatura
+      e Autoritarismo"],"abstract":"<jats:p>This paper highlights the growing feminist
+      hip hop movement in Brazil. While women have always been present in hip hop
+      culture, this article analyzes two contemporary \u201ctexts\u201d that illustrate
+      the ways that current artists are using break-dance to combat gender oppression.
+      The July, 2009 Hip Hop Mulher Forum held in S\u00e3o Paulo, Brazil and the 2006
+      Tata Amaral film\u00a0Ant\u00f4nia\u00a0provide examples of how contemporary
+      female artists struggle to reconcile the ways that they have been socialized
+      to perform their gender with the freedom that hip hop culture facilitates. This
+      paper presents the \u201cmis-performance\u201d of gender and the possibilities
+      for disciplined artists to improvise within a highly disciplined cultural context
+      and artistic culture.<\/jats:p>","DOI":"10.5902\/1679849x74663","type":"journal-article","created":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:05:28Z","timestamp":1696993528000},"page":"e8","source":"Crossref","is-referenced-by-count":0,"title":["Bodily
+      dichotomies: performing repression and freedom in brazilian feminist hip hop"],"prefix":"10.5902","author":[{"ORCID":"http:\/\/orcid.org\/0000-0001-5507-7257","authenticated-orcid":false,"given":"Naomi
+      P.","family":"Wood","sequence":"first","affiliation":[]}],"member":"4419","published-online":{"date-parts":[[2009,12,10]]},"container-title":["Literatura
+      e Autoritarismo"],"link":[{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74663\/51790","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/download\/74663\/51790","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,10,11]],"date-time":"2023-10-11T03:05:28Z","timestamp":1696993528000},"score":26.44099,"resource":{"primary":{"URL":"https:\/\/periodicos.ufsm.br\/LA\/article\/view\/74663"}},"issued":{"date-parts":[[2009,12,10]]},"references-count":0,"journal-issue":{"issue":"2","published-online":{"date-parts":[[2009,12,10]]}},"URL":"http:\/\/dx.doi.org\/10.5902\/1679849x74663","ISSN":["1679-849X","1679-849X"],"issn-type":[{"value":"1679-849X","type":"electronic"},{"value":"1679-849X","type":"print"}],"published":{"date-parts":[[2009,12,10]]}}],"items-per-page":20,"query":{"start-index":0,"search-terms":null}}}'
+    headers:
+      access-control-allow-headers:
+      - X-Requested-With, Accept, Accept-Encoding, Accept-Charset, Accept-Language,
+        Accept-Ranges, Cache-Control
+      access-control-allow-origin:
+      - '*'
+      access-control-expose-headers:
+      - Link
+      connection:
+      - close
+      content-encoding:
+      - gzip
+      content-type:
+      - application/json
+      date:
+      - Sun, 13 Oct 2024 04:36:47 GMT
+      permissions-policy:
+      - interest-cohort=()
+      server:
+      - Jetty(9.4.40.v20210413)
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-api-pool:
+      - public
+      x-rate-limit-interval:
+      - 1s
+      x-rate-limit-limit:
+      - '50'
+      x-ratelimit-interval:
+      - 1s
+      x-ratelimit-limit:
+      - '50'
+    http_version: HTTP/1.1
+    status_code: 200
+version: 1

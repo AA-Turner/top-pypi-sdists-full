@@ -16,7 +16,6 @@ short_description: Configure domain controller entries.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.1.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -213,6 +215,13 @@ options:
                 aliases: ['change-detection-period']
                 type: int
                 description: Minutes to detect a configuration change in the Active Directory server
+            domain_name_src:
+                aliases: ['domain-name-src']
+                type: str
+                description: Domain name src.
+                choices:
+                    - 'server'
+                    - 'client'
 '''
 
 EXAMPLES = '''
@@ -228,8 +237,8 @@ EXAMPLES = '''
     - name: Configure domain controller entries.
       fortinet.fortimanager.fmgr_user_domaincontroller:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -264,6 +273,7 @@ EXAMPLES = '''
           # username: <string>
           # change_detection: <value in [disable, enable]>
           # change_detection_period: <integer>
+          # domain_name_src: <value in [server, client]>
 '''
 
 RETURN = '''
@@ -320,6 +330,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'user_domaincontroller': {
             'type': 'dict',
             'v_range': [['6.2.1', '']],
@@ -358,7 +369,8 @@ def main():
                 'source-port': {'v_range': [['7.0.0', '']], 'type': 'int'},
                 'username': {'v_range': [['7.0.0', '']], 'type': 'str'},
                 'change-detection': {'v_range': [['7.2.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'change-detection-period': {'v_range': [['7.2.3', '']], 'type': 'int'}
+                'change-detection-period': {'v_range': [['7.2.3', '']], 'type': 'int'},
+                'domain-name-src': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'choices': ['server', 'client'], 'type': 'str'}
             }
         }
     }

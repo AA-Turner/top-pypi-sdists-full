@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import datetime
 import typing
 
@@ -23,7 +23,8 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         """
         The consolidation period requested
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32,7 +33,8 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         """
         The consolidator instance
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41,7 +43,8 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         """
         The associated security exchange hours instance
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54,7 +57,8 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         """
         The associated data time zone
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -109,7 +113,8 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         """
         Determines a bar start time and period
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -121,7 +126,8 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         """
         Will forward the underlying consolidated bar to consumers on this object
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -129,7 +135,8 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         """
         Perform late initialization based on the datas symbol
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -153,11 +160,12 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         """
         ...
 
-    def use_strict_end_time(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+    def use_strict_end_time(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
         """
         Useful for testing
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 

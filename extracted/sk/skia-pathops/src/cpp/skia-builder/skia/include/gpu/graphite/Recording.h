@@ -9,12 +9,15 @@
 #define skgpu_graphite_Recording_DEFINED
 
 #include "include/core/SkRefCnt.h"
-#include "include/private/SkChecksum.h"
+#include "include/private/base/SkAPI.h"
 #include "include/private/base/SkTArray.h"
-
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <unordered_set>
 #include <vector>
+
+struct SkISize;
 
 namespace skgpu {
 class RefCntedCallback;
@@ -22,24 +25,21 @@ class RefCntedCallback;
 
 namespace skgpu::graphite {
 
+class Caps;
 class CommandBuffer;
 class RecordingPriv;
 class Resource;
 class ResourceProvider;
-class TaskGraph;
+class TaskList;
 class Texture;
 class TextureInfo;
 class TextureProxy;
 
-class Recording final {
+class SK_API Recording final {
 public:
     ~Recording();
 
     RecordingPriv priv();
-
-#if GRAPHITE_TEST_UTILS
-    bool isTargetProxyInstantiated() const;
-#endif
 
 private:
     friend class Recorder;  // for ctor and LazyProxyData
@@ -49,7 +49,8 @@ private:
     // replay, and it handles the target proxy's instantiation with the provided target.
     class LazyProxyData {
     public:
-        LazyProxyData(const TextureInfo&);
+        LazyProxyData(const Caps*, SkISize dimensions, const TextureInfo&);
+        ~LazyProxyData();
 
         TextureProxy* lazyProxy();
         sk_sp<TextureProxy> refLazyProxy();
@@ -62,21 +63,22 @@ private:
     };
 
     struct ProxyHash {
-        std::size_t operator()(const sk_sp<TextureProxy>& proxy) const {
-            return SkGoodHash()(proxy.get());
-        }
+        std::size_t operator()(const sk_sp<TextureProxy>& proxy) const;
     };
 
-    Recording(std::unique_ptr<TaskGraph>,
-              std::unordered_set<sk_sp<TextureProxy>, ProxyHash>&& nonVolatileLazyProxies,
-              std::unordered_set<sk_sp<TextureProxy>, ProxyHash>&& volatileLazyProxies,
+    Recording(uint32_t uniqueID,
+              uint32_t recorderID,
               std::unique_ptr<LazyProxyData> targetProxyData,
-              SkTArray<sk_sp<RefCntedCallback>>&& finishedProcs);
+              skia_private::TArray<sk_sp<RefCntedCallback>>&& finishedProcs);
 
-    bool addCommands(CommandBuffer*, ResourceProvider*);
     void addResourceRef(sk_sp<Resource>);
 
-    std::unique_ptr<TaskGraph> fGraph;
+    // Used to verify ordering if recorder ID is not SK_InvalidGenID
+    uint32_t fUniqueID;
+    uint32_t fRecorderID;
+
+    // This is held by a pointer instead of being inline to allow TaskList to be forward declared.
+    std::unique_ptr<TaskList> fRootTaskList;
     // We don't always take refs to all resources used by specific Tasks (e.g. a common buffer used
     // for uploads). Instead we'll just hold onto one ref for those Resources outside the Tasks.
     // Those refs are stored in the array here and will eventually be passed onto a CommandBuffer
@@ -88,7 +90,7 @@ private:
 
     std::unique_ptr<LazyProxyData> fTargetProxyData;
 
-    SkTArray<sk_sp<RefCntedCallback>> fFinishedProcs;
+    skia_private::TArray<sk_sp<RefCntedCallback>> fFinishedProcs;
 };
 
 } // namespace skgpu::graphite

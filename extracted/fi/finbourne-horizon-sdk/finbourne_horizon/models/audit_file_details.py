@@ -18,15 +18,16 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, constr 
-from finbourne_horizon.models.audit_file_type import AuditFileType
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 class AuditFileDetails(BaseModel):
     """
     Holds information about Horizon Audit Files  # noqa: E501
     """
-    file_type: AuditFileType = Field(..., alias="fileType")
+    file_type:  StrictStr = Field(...,alias="fileType", description="The type of the audit file") 
     file_path_and_name:  StrictStr = Field(...,alias="filePathAndName", description="The file path and name") 
     __properties = ["fileType", "filePathAndName"]
 
@@ -78,3 +79,5 @@ class AuditFileDetails(BaseModel):
             "file_path_and_name": obj.get("filePathAndName")
         })
         return _obj
+
+AuditFileDetails.update_forward_refs()

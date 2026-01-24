@@ -1,20 +1,18 @@
 Metadata-Version: 2.4
 Name: neo4j-rust-ext
-Version: 5.28.2.1
+Version: 6.1.0.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development
-Requires-Dist: neo4j==5.28.2
+Requires-Dist: neo4j==6.1.0
 Requires-Dist: neo4j[numpy] ; extra == 'numpy'
 Requires-Dist: neo4j[pandas] ; extra == 'pandas'
 Requires-Dist: neo4j[pyarrow] ; extra == 'pyarrow'
@@ -28,14 +26,14 @@ Summary: Rust Extensions for a Faster Neo4j Bolt Driver for Python
 Keywords: neo4j,graph,database
 Author-email: "Neo4j, Inc." <drivers@neo4j.com>
 License-Expression: Apache-2.0 AND MIT
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Homepage, https://neo4j.com/
-Project-URL: Repository, https://github.com/neo4j/neo4j-python-driver-rust-ext
-Project-URL: Issue Tracker, https://github.com/neo4j/neo4j-python-driver-rust-ext/issues
 Project-URL: Changelog, https://github.com/neo4j/neo4j-python-driver-rust-ext/blob/HEAD/CHANGELOG.md
-Project-URL: Forum, https://community.neo4j.com/c/drivers-stacks/python/
 Project-URL: Discord, https://discord.com/invite/neo4j
+Project-URL: Forum, https://community.neo4j.com/c/drivers-stacks/python/
+Project-URL: Homepage, https://neo4j.com/
+Project-URL: Issue Tracker, https://github.com/neo4j/neo4j-python-driver-rust-ext/issues
+Project-URL: Repository, https://github.com/neo4j/neo4j-python-driver-rust-ext
 
 # Rust Extensions for a Faster Neo4j Bolt Driver for Python
 
@@ -64,6 +62,11 @@ However, make sure the versions match if you do so or leave the version of one o
 
 If you experience issues with the driver, consider troubleshooting without the Rust extension first.
 For that, simply make sure you haven't installed `neo4j-rust-ext` but *only* `neo4j`.
+
+> [!NOTE]
+> For pre-release versions of the driver (alpha, beta, etc.), the version scheme is slightly different:  
+> `neo4j == X.Y.ZaA` (for alpha - `a` is not a variable number but a literal) needs to be replaced with `neo4j-rust-ext == X.Y.Z.NaA` where `N` needs to be explicitly specified and cannot be `*`.
+> This is a limitation of allowed version identifiers in the Python packaging ecosystem.
 
 
 ## Requirements

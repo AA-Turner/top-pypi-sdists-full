@@ -1,7 +1,9 @@
+from datetime import date
+
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
-from canvas_sdk.v1.data.base import IdentifiableModel, Model
+from canvas_sdk.v1.data.base import IdentifiableModel, Model, TimestampedModel
 from canvas_sdk.v1.data.common import (
     AddressState,
     AddressType,
@@ -10,6 +12,16 @@ from canvas_sdk.v1.data.common import (
     ContactPointSystem,
     ContactPointUse,
 )
+
+
+class CoverageRank(models.IntegerChoices):
+    """CoverageRank."""
+
+    PRIMARY = 1, "Primary"
+    SECONDARY = 2, "Secondary"
+    TERTIARY = 3, "Tertiary"
+    QUATERNARY = 4, "Quaternary"
+    QUINARY = 5, "Quinary"
 
 
 class CoverageStack(models.TextChoices):
@@ -145,14 +157,12 @@ class TransactorType(models.TextChoices):
     BCBS = "bcbs", "Blue Cross Blue Shield"
 
 
-class Coverage(IdentifiableModel):
+class Coverage(TimestampedModel, IdentifiableModel):
     """Coverage."""
 
     class Meta:
         db_table = "canvas_sdk_data_api_coverage_001"
 
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
     patient = models.ForeignKey(
         "v1.Patient", on_delete=models.DO_NOTHING, related_name="coverages", null=True
     )
@@ -163,34 +173,54 @@ class Coverage(IdentifiableModel):
         "v1.Patient", on_delete=models.DO_NOTHING, related_name="subscribed_coverages", null=True
     )
     patient_relationship_to_subscriber = models.CharField(
-        choices=CoverageRelationshipCode.choices, max_length=2
+        choices=CoverageRelationshipCode.choices,
+        max_length=2,
+        default=CoverageRelationshipCode.SELF,
     )
     issuer = models.ForeignKey(
         "v1.Transactor", on_delete=models.DO_NOTHING, related_name="coverages", null=True
     )
-    id_number = models.CharField(max_length=100)
-    plan = models.CharField(max_length=255)
-    sub_plan = models.CharField(max_length=255)
-    group = models.CharField(max_length=255)
-    sub_group = models.CharField(max_length=255)
-    employer = models.CharField(max_length=255)
-    coverage_start_date = models.DateField()
-    coverage_end_date = models.DateField()
-    coverage_rank = models.IntegerField()
-    state = models.CharField(choices=CoverageState.choices, max_length=20)
-    plan_type = models.CharField(choices=CoverageType.choices, max_length=20)
-    coverage_type = models.CharField(choices=TransactorCoverageType.choices, max_length=64)
+    id_number = models.CharField(max_length=100, blank=True, default="")
+    plan = models.CharField(max_length=255, blank=True, default="")
+    sub_plan = models.CharField(max_length=255, blank=True, default="")
+    group = models.CharField(max_length=255, default="", blank=True)
+    sub_group = models.CharField(max_length=255, default="", blank=True)
+    employer = models.CharField(max_length=255, default="", blank=True)
+    coverage_start_date = models.DateField(default=date.today)
+    coverage_end_date = models.DateField(null=True)
+    coverage_rank = models.IntegerField(choices=CoverageRank.choices, default=CoverageRank.PRIMARY)
+    state = models.CharField(
+        choices=CoverageState.choices, max_length=20, default=CoverageState.ACTIVE
+    )
+    plan_type = models.CharField(
+        choices=CoverageType.choices, max_length=20, default=CoverageType.COMMERCIAL
+    )
+    coverage_type = models.CharField(
+        choices=TransactorCoverageType.choices, max_length=64, null=True, blank=True
+    )
     issuer_address = models.ForeignKey(
         "v1.TransactorAddress",
         on_delete=models.DO_NOTHING,
         related_name="coverages",
         null=True,
+        blank=True,
     )
     issuer_phone = models.ForeignKey(
-        "v1.TransactorPhone", on_delete=models.DO_NOTHING, related_name="coverages", null=True
+        "v1.TransactorPhone",
+        on_delete=models.DO_NOTHING,
+        related_name="coverages",
+        null=True,
+        blank=True,
     )
-    comments = models.TextField()
-    stack = models.CharField(choices=CoverageStack.choices, max_length=8)
+    comments = models.TextField(default="", blank=True)
+    stack = models.CharField(
+        choices=CoverageStack.choices,
+        default=CoverageStack.IN_USE,
+        max_length=8,
+        db_index=True,
+    )
+    comments = models.TextField(default="", blank=True)
+    subscriber_identifier = models.CharField(max_length=100, blank=True, default="")
 
     def __str__(self) -> str:
         return f"id={self.id}"
@@ -236,14 +266,12 @@ class Transactor(Model):
     )
 
 
-class TransactorAddress(IdentifiableModel):
+class TransactorAddress(TimestampedModel, IdentifiableModel):
     """TransactorAddress."""
 
     class Meta:
         db_table = "canvas_sdk_data_quality_and_revenue_transactoraddress_001"
 
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
     line1 = models.CharField(max_length=255)
     line2 = models.CharField(max_length=255)
     city = models.CharField(max_length=255)
@@ -266,14 +294,12 @@ class TransactorAddress(IdentifiableModel):
         return f"id={self.id}"
 
 
-class TransactorPhone(IdentifiableModel):
+class TransactorPhone(TimestampedModel, IdentifiableModel):
     """TransactorPhone."""
 
     class Meta:
         db_table = "canvas_sdk_data_quality_and_revenue_transactorphone_001"
 
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
     system = models.CharField(choices=ContactPointSystem.choices, max_length=20)
     value = models.CharField(max_length=100)
     use = models.CharField(choices=ContactPointUse.choices, max_length=20)
@@ -288,11 +314,25 @@ class TransactorPhone(IdentifiableModel):
         return f"id={self.id}"
 
 
+class EligibilitySummary(TimestampedModel, IdentifiableModel):
+    """EligibilitySummary."""
+
+    class Meta:
+        db_table = "canvas_sdk_data_quality_and_revenue_eligibilitysummary_001"
+
+    coverage = models.OneToOneField(
+        "v1.Coverage", on_delete=models.CASCADE, related_name="eligibility_summary"
+    )
+    copay_cents = models.IntegerField(null=True)
+    coinsurance = models.IntegerField(null=True)
+
+
 __exports__ = (
     "CoverageStack",
     "CoverageState",
     "CoverageType",
     "CoverageRelationshipCode",
+    "EligibilitySummary",
     "TransactorCoverageType",
     "TransactorType",
     "Coverage",

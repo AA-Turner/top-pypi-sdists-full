@@ -11,20 +11,29 @@ from .fallback_gladia_transcriber_language import FallbackGladiaTranscriberLangu
 from .fallback_gladia_transcriber_language_behaviour import FallbackGladiaTranscriberLanguageBehaviour
 from .fallback_gladia_transcriber_languages import FallbackGladiaTranscriberLanguages
 from .fallback_gladia_transcriber_model import FallbackGladiaTranscriberModel
+from .fallback_gladia_transcriber_provider import FallbackGladiaTranscriberProvider
 from .fallback_gladia_transcriber_region import FallbackGladiaTranscriberRegion
 from .gladia_custom_vocabulary_config_dto import GladiaCustomVocabularyConfigDto
 
 
 class FallbackGladiaTranscriber(UncheckedBaseModel):
-    provider: typing.Literal["gladia"] = pydantic.Field(default="gladia")
+    provider: FallbackGladiaTranscriberProvider = pydantic.Field()
     """
     This is the transcription provider that will be used.
     """
 
-    model: typing.Optional[FallbackGladiaTranscriberModel] = None
+    model: typing.Optional[FallbackGladiaTranscriberModel] = pydantic.Field(default=None)
+    """
+    This is the Gladia model that will be used. Default is 'fast'
+    """
+
     language_behaviour: typing_extensions.Annotated[
         typing.Optional[FallbackGladiaTranscriberLanguageBehaviour], FieldMetadata(alias="languageBehaviour")
-    ] = None
+    ] = pydantic.Field(default=None)
+    """
+    Defines how the transcription model detects the audio language. Default value is 'automatic single language'.
+    """
+
     language: typing.Optional[FallbackGladiaTranscriberLanguage] = pydantic.Field(default=None)
     """
     Defines the language to use for the transcription. Required when languageBehaviour is 'manual'.

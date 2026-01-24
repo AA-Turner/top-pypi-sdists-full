@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: fido2
-Version: 2.0.0
+Version: 2.1.1
 Summary: FIDO2/WebAuthn library for implementing clients and servers.
 License: Copyright (c) 2018 Yubico AB
          All rights reserved.
@@ -28,6 +28,9 @@ License: Copyright (c) 2018 Yubico AB
          THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
          OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-File: COPYING
+License-File: COPYING.APLv2
+License-File: COPYING.MPLv2
 Keywords: fido2,webauthn,ctap,u2f
 Author: Dain Nilsson
 Author-email: <dain@yubico.com>
@@ -45,7 +48,7 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: pcsc
-Requires-Dist: cryptography (>=2.6,!=35,<48)
+Requires-Dist: cryptography (>=2.6,!=35,<49)
 Requires-Dist: pyscard (>=1.9,<3) ; extra == "pcsc"
 Project-URL: Homepage, https://github.com/Yubico/python-fido2
 Description-Content-Type: text/plain
@@ -148,11 +151,8 @@ https://github.com/LudovicRousseau/pyscard/blob/master/INSTALL.md.
 
 
 === Development
-For development of the library we use https://python-poetry.org/[poetry]. To
-set up the dev environment, run this command in the root directory of the
-repository:
-
-  poetry install
+For development of the library we use https://docs.astral.sh/uv/[uv].
+Follow the uv Getting Started guide to install and configure it.
 
 We also use https://pre-commit.com/[pre-commit] to run some scans on the code
 prior to committing.
@@ -165,6 +165,6 @@ WARNING: These tests are destructive, and will factory reset the device under te
 As a safety precaution, the tests will only run on a device that is in a newly reset
 state, as far as the test runner can tell.
 
-  poetry run pytest
+  uv run pytest
 
 

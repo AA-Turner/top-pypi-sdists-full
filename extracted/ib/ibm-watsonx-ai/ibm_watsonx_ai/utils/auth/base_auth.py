@@ -1,9 +1,10 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import threading
@@ -27,6 +28,14 @@ class BaseAuth(ABC):
     _token: str | None = None
 
     def get_token(self) -> str:
+        """Returns the token.
+
+        :returns: token to be used with service
+        :rtype: str
+        """
+        raise NotImplementedError()
+
+    async def aget_token(self) -> str:
         """Returns the token.
 
         :returns: token to be used with service
@@ -77,13 +86,12 @@ class RefreshableTokenAuth(BaseAuth, ABC):
         on_token_refresh: Callable[[], None] | None,
         refreshing_timedelta: timedelta | None = None,
     ) -> None:
-        self._session = api_client._session
-        self._credentials = api_client.credentials
-        self._href_definitions = api_client._href_definitions
+        self._api_client = api_client
         self._on_token_creation = on_token_creation
         self._on_token_refresh = on_token_refresh
         self._refreshing_timedelta = refreshing_timedelta
         self._lock = threading.Lock()
+        self._async_lock = asyncio.Lock()
 
     def get_token(self) -> str:
         """Returns the token. If the token will be about to expire, it will be refreshed.
@@ -106,6 +114,32 @@ class RefreshableTokenAuth(BaseAuth, ABC):
 
             if self._is_refresh_needed():
                 self._save_token_data(self._refresh_token())
+                if self._on_token_refresh:
+                    self._on_token_refresh()
+
+            return self._token
+
+    async def aget_token(self) -> str:
+        """Returns the token asynchronously. If the token will be about to expire, it will be refreshed.
+
+        :returns: token to be used with service
+        :rtype: str
+        """
+        # serve token if it is ready and not refreshing without lock
+        if self._token is not None and not self._is_refresh_needed():
+            return self._token
+
+        async with self._async_lock:
+            if self._token is None:
+                self._save_token_data(await self._agenerate_token())
+                self._set_refreshing_timedelta_if_needed()
+
+                if self._on_token_creation:
+                    self._on_token_creation()
+                return self._token
+
+            if self._is_refresh_needed():
+                self._save_token_data(await self._arefresh_token())
                 if self._on_token_refresh:
                     self._on_token_refresh()
 
@@ -134,6 +168,14 @@ class RefreshableTokenAuth(BaseAuth, ABC):
         """
         raise NotImplementedError()
 
+    async def _agenerate_token(self) -> TokenInfo:
+        """Generate token from scratch using user provided credentials.
+
+        :returns: token info to be used by auth method
+        :rtype: TokenInfo
+        """
+        raise NotImplementedError()
+
     def _refresh_token(
         self,
     ) -> TokenInfo:
@@ -144,6 +186,17 @@ class RefreshableTokenAuth(BaseAuth, ABC):
         """
         # if not provided implementation, refresh is handled as generation from creds
         return self._generate_token()
+
+    async def _arefresh_token(
+        self,
+    ) -> TokenInfo:
+        """Refresh token.
+
+        :returns: token info to be used by auth method
+        :rtype: TokenInfo
+        """
+        # if not provided implementation, refresh is handled as generation from creds
+        return await self._agenerate_token()
 
     def _is_refresh_needed(self) -> bool:
         """Check if the time of expiration is below minimal expiration timedelta.
@@ -201,6 +254,14 @@ class TokenAuth(BaseAuth):
         self.set_token(token)
 
     def get_token(self) -> str:
+        """Returns the token. The token will not be refreshed.
+
+        :returns: token to be used with service
+        :rtype: str
+        """
+        return self._token
+
+    async def aget_token(self) -> str:
         """Returns the token. The token will not be refreshed.
 
         :returns: token to be used with service
@@ -270,7 +331,9 @@ def get_auth_method(
             token=creds.token,
             on_token_set=on_token_set,
         )
-    elif getattr(creds, "token_function", False):  # token function passed
+    elif any(
+        getattr(creds, key, None) for key in ["token_function", "atoken_function"]
+    ):  # token function passed
         from ibm_watsonx_ai.utils.auth.jwt_token_function_auth import (
             JWTTokenFunctionAuth,
         )

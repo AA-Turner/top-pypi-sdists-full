@@ -1,5 +1,3 @@
-from typing import Optional
-
 from ...asset import Asset
 from ...call_builder.base.base_call_builder import BaseCallBuilder
 
@@ -11,7 +9,7 @@ class BaseTradeAggregationsCallBuilder(BaseCallBuilder):
 
     Trade Aggregations facilitate efficient gathering of historical trade data.
 
-    See `List Trade Aggregations <https://developers.stellar.org/api/aggregations/trade-aggregations/list/>`__ for more information.
+    See `List Trade Aggregations <https://developers.stellar.org/docs/data/apis/horizon/api-reference/list-trade-aggregations>`__ for more information.
 
     :param base: base asset
     :param counter: counter asset
@@ -31,9 +29,9 @@ class BaseTradeAggregationsCallBuilder(BaseCallBuilder):
         base: Asset,
         counter: Asset,
         resolution: int,
-        start_time: Optional[int] = None,
-        end_time: Optional[int] = None,
-        offset: Optional[int] = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        offset: int | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)

@@ -14,17 +14,21 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::VarianceMap;
+use crate::alt::types::abstract_class::AbstractClassMembers;
 use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
+use crate::alt::types::decorated_function::Decorator;
 use crate::alt::types::decorated_function::UndecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
 use crate::alt::types::yields::YieldResult;
+use crate::binding::binding::AnnAssignHasValue;
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::AnnotationWithTarget;
 use crate::binding::binding::Binding;
+use crate::binding::binding::BindingAbstractClassCheck;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingClass;
 use crate::binding::binding::BindingClassBaseType;
@@ -34,6 +38,7 @@ use crate::binding::binding::BindingClassMro;
 use crate::binding::binding::BindingClassSynthesizedFields;
 use crate::binding::binding::BindingConsistentOverrideCheck;
 use crate::binding::binding::BindingDecoratedFunction;
+use crate::binding::binding::BindingDecorator;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingExport;
 use crate::binding::binding::BindingLegacyTypeParam;
@@ -43,8 +48,8 @@ use crate::binding::binding::BindingVariance;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::EmptyAnswer;
-use crate::binding::binding::Initialized;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyAbstractClassCheck;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassBaseType;
@@ -54,6 +59,7 @@ use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyConsistentOverrideCheck;
 use crate::binding::binding::KeyDecoratedFunction;
+use crate::binding::binding::KeyDecorator;
 use crate::binding::binding::KeyExpect;
 use crate::binding::binding::KeyExport;
 use crate::binding::binding::KeyLegacyTypeParam;
@@ -97,10 +103,11 @@ pub trait Solve<Ans: LookupAnswer>: Keyed {
     fn record_recursive(
         _answers: &AnswersSolver<Ans>,
         _range: TextRange,
-        _answer: &Arc<Self::Answer>,
+        answer: Arc<Self::Answer>,
         _recursive: Var,
         _errors: &ErrorCollector,
-    ) {
+    ) -> Arc<Self::Answer> {
+        answer
     }
 }
 
@@ -124,11 +131,14 @@ impl<Ans: LookupAnswer> Solve<Ans> for Key {
     fn record_recursive(
         answers: &AnswersSolver<Ans>,
         range: TextRange,
-        answer: &Arc<TypeInfo>,
+        answer: Arc<TypeInfo>,
         recursive: Var,
         errors: &ErrorCollector,
-    ) {
-        answers.record_recursive(range, answer.ty().clone(), recursive, errors);
+    ) -> Arc<TypeInfo> {
+        let ty_info = answer
+            .arc_clone()
+            .map_ty(|ty| answers.record_recursive(range, ty, recursive, errors));
+        Arc::new(ty_info)
     }
 }
 
@@ -180,11 +190,28 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyExport {
     fn record_recursive(
         answers: &AnswersSolver<Ans>,
         range: TextRange,
-        answer: &Arc<Type>,
+        answer: Arc<Type>,
         recursive: Var,
         errors: &ErrorCollector,
-    ) {
-        answers.record_recursive(range, answer.as_ref().clone(), recursive, errors);
+    ) -> Arc<Type> {
+        Arc::new(answers.record_recursive(range, answer.as_ref().clone(), recursive, errors))
+    }
+}
+
+impl<Ans: LookupAnswer> Solve<Ans> for KeyDecorator {
+    fn solve(
+        answers: &AnswersSolver<Ans>,
+        binding: &BindingDecorator,
+        errors: &ErrorCollector,
+    ) -> Arc<Decorator> {
+        answers.solve_decorator(binding, errors)
+    }
+
+    fn promote_recursive(_: Var) -> Self::Answer {
+        Decorator {
+            ty: Type::any_implicit(),
+            deprecation: None,
+        }
     }
 }
 
@@ -316,7 +343,7 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyAnnotation {
 
     fn promote_recursive(_: Var) -> Self::Answer {
         AnnotationWithTarget {
-            target: AnnotationTarget::Assign(Name::default(), Initialized::Yes),
+            target: AnnotationTarget::Assign(Name::default(), AnnAssignHasValue::Yes),
             annotation: Annotation::default(),
         }
     }
@@ -347,6 +374,24 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyClassMro {
 
     fn promote_recursive(_: Var) -> Self::Answer {
         ClassMro::recursive()
+    }
+}
+
+impl<Ans: LookupAnswer> Solve<Ans> for KeyAbstractClassCheck {
+    fn solve(
+        answers: &AnswersSolver<Ans>,
+        binding: &BindingAbstractClassCheck,
+        errors: &ErrorCollector,
+    ) -> Arc<AbstractClassMembers> {
+        if let Some(cls) = &answers.get_idx(binding.class_idx).0 {
+            answers.solve_abstract_members(cls, errors)
+        } else {
+            Arc::new(AbstractClassMembers::recursive())
+        }
+    }
+
+    fn promote_recursive(_: Var) -> Self::Answer {
+        AbstractClassMembers::recursive()
     }
 }
 

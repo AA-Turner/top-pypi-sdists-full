@@ -24,8 +24,11 @@ HUMAN_EVALUATOR_OPTIONS = "lmnr.span.human_evaluator_options"
 ASSOCIATION_PROPERTIES = "lmnr.association.properties"
 SESSION_ID = "session_id"
 USER_ID = "user_id"
+METADATA = "metadata"
 TRACE_TYPE = "trace_type"
 TRACING_LEVEL = "tracing_level"
+ROLLOUT_SESSION_ID = "rollout_session_id"
+ROLLOUT_SESSION_ID_ATTR = "lmnr.rollout.session_id"
 
 
 # exposed to the user, configurable

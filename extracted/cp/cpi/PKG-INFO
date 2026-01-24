@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cpi
-Version: 2.0.8
+Version: 2.0.10
 Summary: Quickly adjust U.S. dollars for inflation using the Consumer Price Index (CPI)
 Home-page: https://palewi.re/docs/cpi/
 Author: Ben Welsh
@@ -19,6 +19,21 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: License :: OSI Approved :: MIT License
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: requests
+Requires-Dist: click
+Requires-Dist: python-dateutil
+Requires-Dist: pandas
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: summary
 
 ### Links
 

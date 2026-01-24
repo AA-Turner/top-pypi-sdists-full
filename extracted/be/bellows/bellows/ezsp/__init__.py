@@ -3,35 +3,37 @@
 from __future__ import annotations
 
 import asyncio
+from asyncio import timeout as asyncio_timeout
 import collections
+from collections.abc import Callable, Generator
 import contextlib
 import dataclasses
 import functools
 import logging
-import sys
-from typing import Any, Callable, Generator
+from typing import Any
 import urllib.parse
-
-from bellows.ash import NcpFailure
-
-if sys.version_info[:2] < (3, 11):
-    from async_timeout import timeout as asyncio_timeout  # pragma: no cover
-else:
-    from asyncio import timeout as asyncio_timeout  # pragma: no cover
 
 import zigpy.config
 
+from bellows.ash import NcpFailure
 import bellows.config as conf
-from bellows.exception import EzspError, InvalidCommandError
+from bellows.exception import EzspError, InvalidCommandError, InvalidCommandPayload
 from bellows.ezsp import xncp
 from bellows.ezsp.config import DEFAULT_CONFIG, RuntimeConfig, ValueConfig
-from bellows.ezsp.xncp import FirmwareFeatures, FlowControlType
+from bellows.ezsp.xncp import (
+    FirmwareFeatures,
+    FlowControlType,
+    GetRouteTableEntryRsp,
+    GetTxPowerInfoRsp,
+)
 import bellows.types as t
 import bellows.uart
 
-from . import v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v16, v17
+from . import v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v16, v17, v18
 
-EZSP_LATEST = v17.EZSPv17.VERSION
+RESET_ATTEMPTS = 3
+
+EZSP_LATEST = v18.EZSPv18.VERSION
 LOGGER = logging.getLogger(__name__)
 MTOR_MIN_INTERVAL = 60
 MTOR_MAX_INTERVAL = 3600
@@ -59,6 +61,7 @@ class EZSP:
         v14.EZSPv14.VERSION: v14.EZSPv14,
         v16.EZSPv16.VERSION: v16.EZSPv16,
         v17.EZSPv17.VERSION: v17.EZSPv17,
+        v18.EZSPv18.VERSION: v18.EZSPv18,
     }
 
     def __init__(self, device_config: dict, application: Any | None = None):
@@ -112,14 +115,14 @@ class EZSP:
         parsed_path = urllib.parse.urlparse(self._config[conf.CONF_DEVICE_PATH])
         return parsed_path.scheme == "socket"
 
-    async def startup_reset(self) -> None:
+    async def _startup_reset(self) -> None:
         """Start EZSP and reset the stack."""
         # `zigbeed` resets on startup
         if self.is_tcp_serial_port:
             try:
                 async with asyncio_timeout(NETWORK_COORDINATOR_STARTUP_RESET_WAIT):
                     await self._gw.wait_for_startup_reset()
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
             else:
                 LOGGER.debug("Received a reset on startup, not resetting again")
@@ -131,16 +134,30 @@ class EZSP:
         await self.version()
         await self.get_xncp_features()
 
+    async def startup_reset(self) -> None:
+        for attempt in range(RESET_ATTEMPTS):
+            self._protocol = v4.EZSPv4(self.handle_callback, self._gw)
+
+            try:
+                await self._startup_reset()
+                break
+            except Exception as exc:
+                if attempt + 1 < RESET_ATTEMPTS:
+                    LOGGER.debug(
+                        "EZSP startup/reset failed, retrying (%d/%d): %r",
+                        attempt + 1,
+                        RESET_ATTEMPTS,
+                        exc,
+                    )
+                    continue
+
+                await self.disconnect()
+                raise
+
     async def connect(self, *, use_thread: bool = True) -> None:
         assert self._gw is None
         self._gw = await bellows.uart.connect(self._config, self, use_thread=use_thread)
-
-        try:
-            self._protocol = v4.EZSPv4(self.handle_callback, self._gw)
-            await self.startup_reset()
-        except Exception:
-            await self.disconnect()
-            raise
+        await self.startup_reset()
 
     async def reset(self):
         LOGGER.debug("Resetting EZSP")
@@ -623,7 +640,8 @@ class EZSP:
         ezsp_config = {}
         ezsp_values = {}
 
-        for cfg in DEFAULT_CONFIG[self._ezsp_version]:
+        # If a protocol version is not explicitly supported, use config for the latest
+        for cfg in DEFAULT_CONFIG.get(self._ezsp_version, DEFAULT_CONFIG[EZSP_LATEST]):
             if isinstance(cfg, RuntimeConfig):
                 ezsp_config[cfg.config_id.name] = dataclasses.replace(
                     cfg, config_id=t.EzspConfigId[cfg.config_id.name]
@@ -730,20 +748,22 @@ class EZSP:
         LOGGER.debug("Sending XNCP frame: %s", req_frame)
         status, data = await self.customFrame(req_frame.serialize())
 
-        if status != t.EmberStatus.SUCCESS:
+        if t.sl_Status.from_ember_status(status) != t.sl_Status.OK:
             raise InvalidCommandError("XNCP is not supported")
 
         try:
             rsp_frame = xncp.XncpCommand.from_bytes(data)
         except ValueError:
-            raise InvalidCommandError(f"Invalid XNCP response: {data!r}")
+            raise InvalidCommandPayload(
+                f"Invalid XNCP response: {data!r}", raw_bytes=data
+            )
 
         if isinstance(rsp_frame.payload, xncp.Unknown):
             raise InvalidCommandError(f"XNCP firmware does not support {payload}")
 
         LOGGER.debug("Received XNCP frame: %s", rsp_frame)
 
-        if rsp_frame.status != t.EmberStatus.SUCCESS:
+        if t.sl_Status.from_ember_status(rsp_frame.status) != t.sl_Status.OK:
             raise InvalidCommandError(f"XNCP response error: {rsp_frame.status}")
 
         return rsp_frame.payload
@@ -781,7 +801,15 @@ class EZSP:
 
     async def xncp_get_chip_info(self) -> xncp.GetChipInfoRsp:
         """Get the part number."""
-        return await self.send_xncp_frame(xncp.GetChipInfoReq())
+
+        try:
+            return await self.send_xncp_frame(xncp.GetChipInfoReq())
+        except InvalidCommandPayload:
+            # Beta firmwares had a bug with this command
+            return xncp.GetChipInfoRsp(
+                ram_size=262144,
+                part_number="EFR32MG24A420F1536IM40",
+            )
 
     async def get_default_adapter_concurrency(self) -> int:
         """Get the recommended concurrency based on chip information."""
@@ -796,3 +824,33 @@ class EZSP:
 
         # Usually 262144 bytes for MG24
         return 32
+
+    async def xncp_get_route_table_entry(
+        self, index: t.uint8_t
+    ) -> GetRouteTableEntryRsp:
+        """Get a route table entry."""
+        return await self.send_xncp_frame(xncp.GetRouteTableEntryReq(index=index))
+
+    async def xncp_set_route_table_entry(
+        self,
+        index: t.uint8_t,
+        destination: t.NWK,
+        next_hop: t.NWK,
+        status: t.RouteRecordStatus,
+        cost: t.uint8_t,
+    ) -> None:
+        """Set a route table entry."""
+        await self.send_xncp_frame(
+            xncp.SetRouteTableEntryReq(
+                index=index,
+                destination=destination,
+                next_hop=next_hop,
+                status=status,
+                cost=cost,
+            )
+        )
+
+    async def xncp_get_tx_power_info(self, country_code: str) -> GetTxPowerInfoRsp:
+        """Get maximum and recommended TX power for a country (ISO 3166-1 alpha-2)."""
+        code = country_code.upper().encode("ascii")
+        return await self.send_xncp_frame(xncp.GetTxPowerInfoReq(country_code=code))

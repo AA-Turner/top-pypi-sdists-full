@@ -31,7 +31,7 @@ def construct_YoutubeDL(module, obj, user_opts, system_opts=None):
         module.YoutubeDL.deprecation_warning = util.false
 
     if cfg := config("config-file"):
-        with open(util.expand_path(cfg)) as fp:
+        with open(util.expand_path(cfg), encoding="utf-8") as fp:
             contents = fp.read()
         argv = shlex.split(contents, comments=True)
 
@@ -55,6 +55,8 @@ def construct_YoutubeDL(module, obj, user_opts, system_opts=None):
         opts["min_filesize"] = text.parse_bytes(config("filesize-min"), None)
     if opts.get("max_filesize") is None:
         opts["max_filesize"] = text.parse_bytes(config("filesize-max"), None)
+    if opts.get("overwrites") is None and not config("skip", True):
+        opts["overwrites"] = True
     if opts.get("ratelimit") is None:
         if rate := config("rate"):
             func = util.build_selection_func(rate, 0, text.parse_bytes)
@@ -262,7 +264,7 @@ def parse_command_line(module, argv):
         else module.match_filter_func(opts.match_filter))
 
     if cookiesfrombrowser := getattr(opts, "cookiesfrombrowser", None):
-        pattern = util.re(r"""(?x)
+        pattern = text.re(r"""(?x)
             (?P<name>[^+:]+)
             (?:\s*\+\s*(?P<keyring>[^:]+))?
             (?:\s*:\s*(?!:)(?P<profile>.+?))?
@@ -528,7 +530,7 @@ def legacy_postprocessors(opts, module, ytdlp, compat_opts):
             if len(dur) == 2 and all(t is not None for t in dur):
                 remove_ranges.append(tuple(dur))
                 continue
-        remove_chapters_patterns.append(util.re(regex))
+        remove_chapters_patterns.append(text.re(regex))
     if opts.remove_chapters or sponsorblock_query:
         postprocessors.append({
             "key": "ModifyChapters",

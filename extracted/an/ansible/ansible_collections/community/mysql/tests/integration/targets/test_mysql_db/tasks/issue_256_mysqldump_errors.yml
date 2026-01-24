@@ -82,6 +82,7 @@
         state: dump
         name: all
         target: /tmp/full-dump-without-t1.sql.gz
+        pipefail: false
       register: full_dump_without_t1_gz_without_fix
       ignore_errors: true
 
@@ -119,6 +120,7 @@
         state: dump
         name: db2
         target: /tmp/dump-db2-without_t1.sql.gz
+        pipefail: false
       register: dump_db2_without_t1_gz_without_fix
       ignore_errors: true
 

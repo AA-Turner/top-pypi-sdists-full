@@ -6,13 +6,11 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .create_structured_output_dto_model import CreateStructuredOutputDtoModel
     from .structured_output_controller_find_all_request_sort_order import (
         StructuredOutputControllerFindAllRequestSortOrder,
     )
     from .update_structured_output_dto_model import UpdateStructuredOutputDtoModel
 _dynamic_imports: typing.Dict[str, str] = {
-    "CreateStructuredOutputDtoModel": ".create_structured_output_dto_model",
     "StructuredOutputControllerFindAllRequestSortOrder": ".structured_output_controller_find_all_request_sort_order",
     "UpdateStructuredOutputDtoModel": ".update_structured_output_dto_model",
 }
@@ -24,8 +22,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -37,8 +37,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = [
-    "CreateStructuredOutputDtoModel",
-    "StructuredOutputControllerFindAllRequestSortOrder",
-    "UpdateStructuredOutputDtoModel",
-]
+__all__ = ["StructuredOutputControllerFindAllRequestSortOrder", "UpdateStructuredOutputDtoModel"]

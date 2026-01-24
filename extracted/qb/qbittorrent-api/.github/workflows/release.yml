@@ -12,11 +12,12 @@ jobs:
     secrets: inherit
     with:
       attest: "true"
+      run-dev-tests: "false"
 
   release:
     name: Create Release
     needs: ci
-    if: needs.ci.result == 'success'
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -27,18 +28,18 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> ${GITHUB_OUTPUT}
 
       - name: Set up Python
-        uses: actions/setup-python@v5.6.0
+        uses: actions/setup-python@v6.0.0
         with:
           python-version: 3.x
 
       - name: Get packages
-        uses: actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@v6.0.0
         with:
           name: Packages
           path: dist
 
       - name: Create release
-        uses: ncipollo/release-action@v1.18.0
+        uses: ncipollo/release-action@v1.20.0
         with:
           name: release-${{ steps.build-vars.outputs.version }}
           draft: true

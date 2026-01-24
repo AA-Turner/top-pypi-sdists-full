@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Union, Mapping
+from typing import Any, Mapping
 from typing_extensions import Self, override
 
 import httpx
@@ -11,13 +11,13 @@ import httpx
 from . import _exceptions
 from ._qs import Querystring
 from ._types import (
-    NOT_GIVEN,
     Omit,
     Timeout,
     NotGiven,
     Transport,
     ProxiesTypes,
     RequestOptions,
+    not_given,
 )
 from ._utils import is_given, get_async_library
 from ._version import __version__
@@ -58,13 +58,15 @@ class Knock(SyncAPIClient):
 
     # client options
     api_key: str
+    branch: str | None
 
     def __init__(
         self,
         *,
         api_key: str | None = None,
+        branch: str | None = None,
         base_url: str | httpx.URL | None = None,
-        timeout: Union[float, Timeout, None, NotGiven] = NOT_GIVEN,
+        timeout: float | Timeout | None | NotGiven = not_given,
         max_retries: int = DEFAULT_MAX_RETRIES,
         default_headers: Mapping[str, str] | None = None,
         default_query: Mapping[str, object] | None = None,
@@ -84,7 +86,9 @@ class Knock(SyncAPIClient):
     ) -> None:
         """Construct a new synchronous Knock client instance.
 
-        This automatically infers the `api_key` argument from the `KNOCK_API_KEY` environment variable if it is not provided.
+        This automatically infers the following arguments from their corresponding environment variables if they are not provided:
+        - `api_key` from `KNOCK_API_KEY`
+        - `branch` from `KNOCK_BRANCH`
         """
         if api_key is None:
             api_key = os.environ.get("KNOCK_API_KEY")
@@ -93,6 +97,10 @@ class Knock(SyncAPIClient):
                 "The api_key client option must be set either by passing api_key to the client or by setting the KNOCK_API_KEY environment variable"
             )
         self.api_key = api_key
+
+        if branch is None:
+            branch = os.environ.get("KNOCK_BRANCH")
+        self.branch = branch
 
         if base_url is None:
             base_url = os.environ.get("KNOCK_BASE_URL")
@@ -109,6 +117,8 @@ class Knock(SyncAPIClient):
             custom_query=default_query,
             _strict_response_validation=_strict_response_validation,
         )
+
+        self._idempotency_header = "Idempotency-Key"
 
         self.users = users.UsersResource(self)
         self.objects = objects.ObjectsResource(self)
@@ -141,6 +151,7 @@ class Knock(SyncAPIClient):
         return {
             **super().default_headers,
             "X-Stainless-Async": "false",
+            "X-Knock-Branch": self.branch if self.branch is not None else Omit(),
             **self._custom_headers,
         }
 
@@ -148,10 +159,11 @@ class Knock(SyncAPIClient):
         self,
         *,
         api_key: str | None = None,
+        branch: str | None = None,
         base_url: str | httpx.URL | None = None,
-        timeout: float | Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | Timeout | None | NotGiven = not_given,
         http_client: httpx.Client | None = None,
-        max_retries: int | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = not_given,
         default_headers: Mapping[str, str] | None = None,
         set_default_headers: Mapping[str, str] | None = None,
         default_query: Mapping[str, object] | None = None,
@@ -182,6 +194,7 @@ class Knock(SyncAPIClient):
         http_client = http_client or self._client
         return self.__class__(
             api_key=api_key or self.api_key,
+            branch=branch or self.branch,
             base_url=base_url or self.base_url,
             timeout=self.timeout if isinstance(timeout, NotGiven) else timeout,
             http_client=http_client,
@@ -246,13 +259,15 @@ class AsyncKnock(AsyncAPIClient):
 
     # client options
     api_key: str
+    branch: str | None
 
     def __init__(
         self,
         *,
         api_key: str | None = None,
+        branch: str | None = None,
         base_url: str | httpx.URL | None = None,
-        timeout: Union[float, Timeout, None, NotGiven] = NOT_GIVEN,
+        timeout: float | Timeout | None | NotGiven = not_given,
         max_retries: int = DEFAULT_MAX_RETRIES,
         default_headers: Mapping[str, str] | None = None,
         default_query: Mapping[str, object] | None = None,
@@ -272,7 +287,9 @@ class AsyncKnock(AsyncAPIClient):
     ) -> None:
         """Construct a new async AsyncKnock client instance.
 
-        This automatically infers the `api_key` argument from the `KNOCK_API_KEY` environment variable if it is not provided.
+        This automatically infers the following arguments from their corresponding environment variables if they are not provided:
+        - `api_key` from `KNOCK_API_KEY`
+        - `branch` from `KNOCK_BRANCH`
         """
         if api_key is None:
             api_key = os.environ.get("KNOCK_API_KEY")
@@ -281,6 +298,10 @@ class AsyncKnock(AsyncAPIClient):
                 "The api_key client option must be set either by passing api_key to the client or by setting the KNOCK_API_KEY environment variable"
             )
         self.api_key = api_key
+
+        if branch is None:
+            branch = os.environ.get("KNOCK_BRANCH")
+        self.branch = branch
 
         if base_url is None:
             base_url = os.environ.get("KNOCK_BASE_URL")
@@ -297,6 +318,8 @@ class AsyncKnock(AsyncAPIClient):
             custom_query=default_query,
             _strict_response_validation=_strict_response_validation,
         )
+
+        self._idempotency_header = "Idempotency-Key"
 
         self.users = users.AsyncUsersResource(self)
         self.objects = objects.AsyncObjectsResource(self)
@@ -329,6 +352,7 @@ class AsyncKnock(AsyncAPIClient):
         return {
             **super().default_headers,
             "X-Stainless-Async": f"async:{get_async_library()}",
+            "X-Knock-Branch": self.branch if self.branch is not None else Omit(),
             **self._custom_headers,
         }
 
@@ -336,10 +360,11 @@ class AsyncKnock(AsyncAPIClient):
         self,
         *,
         api_key: str | None = None,
+        branch: str | None = None,
         base_url: str | httpx.URL | None = None,
-        timeout: float | Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | Timeout | None | NotGiven = not_given,
         http_client: httpx.AsyncClient | None = None,
-        max_retries: int | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = not_given,
         default_headers: Mapping[str, str] | None = None,
         set_default_headers: Mapping[str, str] | None = None,
         default_query: Mapping[str, object] | None = None,
@@ -370,6 +395,7 @@ class AsyncKnock(AsyncAPIClient):
         http_client = http_client or self._client
         return self.__class__(
             api_key=api_key or self.api_key,
+            branch=branch or self.branch,
             base_url=base_url or self.base_url,
             timeout=self.timeout if isinstance(timeout, NotGiven) else timeout,
             http_client=http_client,

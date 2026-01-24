@@ -157,7 +157,8 @@ class UserActivityChart(viewsets.ChartViewSet):
                 cum_times = pd.Series(
                     dt
                     for group in [
-                        pd.date_range(start, end, freq="Min") for start, end in zip(dff.date, dff.latest_refresh)
+                        pd.date_range(start, end, freq="Min")
+                        for start, end in zip(dff.date, dff.latest_refresh, strict=False)
                     ]
                     for dt in group
                 ).value_counts()

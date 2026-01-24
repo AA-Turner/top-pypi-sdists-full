@@ -3,7 +3,7 @@ Type annotations for ds service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -55,6 +55,7 @@ __all__ = (
     "ListLogSubscriptionsPaginatorName",
     "ListSchemaExtensionsPaginatorName",
     "ListTagsForResourcePaginatorName",
+    "NetworkTypeType",
     "OSVersionType",
     "PaginatorName",
     "RadiusAuthenticationProtocolType",
@@ -107,7 +108,7 @@ DescribeSnapshotsPaginatorName = Literal["describe_snapshots"]
 DescribeTrustsPaginatorName = Literal["describe_trusts"]
 DescribeUpdateDirectoryPaginatorName = Literal["describe_update_directory"]
 DirectoryConfigurationStatusType = Literal["Default", "Failed", "Requested", "Updated", "Updating"]
-DirectoryEditionType = Literal["Enterprise", "Standard"]
+DirectoryEditionType = Literal["Enterprise", "Hybrid", "Standard"]
 DirectorySizeType = Literal["Large", "Small"]
 DirectoryStageType = Literal[
     "Active",
@@ -140,6 +141,7 @@ ListIpRoutesPaginatorName = Literal["list_ip_routes"]
 ListLogSubscriptionsPaginatorName = Literal["list_log_subscriptions"]
 ListSchemaExtensionsPaginatorName = Literal["list_schema_extensions"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
+NetworkTypeType = Literal["Dual-stack", "IPv4", "IPv6"]
 OSVersionType = Literal["SERVER_2012", "SERVER_2019"]
 RadiusAuthenticationProtocolType = Literal["CHAP", "MS-CHAPv1", "MS-CHAPv2", "PAP"]
 RadiusStatusType = Literal["Completed", "Creating", "Failed"]
@@ -189,7 +191,7 @@ TrustStateType = Literal[
 ]
 TrustTypeType = Literal["External", "Forest"]
 UpdateStatusType = Literal["UpdateFailed", "Updated", "Updating"]
-UpdateTypeType = Literal["OS"]
+UpdateTypeType = Literal["NETWORK", "OS", "SIZE"]
 DirectoryServiceServiceName = Literal["ds"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -217,7 +219,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -287,6 +288,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -332,7 +334,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -385,7 +386,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -424,8 +424,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -460,6 +458,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -469,6 +468,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -479,6 +479,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -500,8 +503,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -516,15 +517,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -555,6 +557,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -595,6 +598,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

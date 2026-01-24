@@ -8,11 +8,11 @@ import re
 import typing as t
 import urllib.parse
 
-from globus_sdk import utils
-from globus_sdk._types import ScopeCollectionType
+from globus_sdk._internal.utils import slash_join
+from globus_sdk._missing import MISSING, MissingType, filter_missing
 from globus_sdk.exc import GlobusSDKUsageError
+from globus_sdk.scopes import Scope, ScopeParser
 
-from .._common import stringify_requested_scopes
 from ..response import OAuthAuthorizationCodeResponse
 from .base import GlobusOAuthFlowManager
 
@@ -22,8 +22,8 @@ if t.TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-def make_native_app_challenge(
-    verifier: str | None = None,
+def _make_native_app_challenge(
+    verifier: str | MissingType = MISSING,
 ) -> tuple[str, str]:
     """
     Produce a challenge and verifier for the Native App flow.
@@ -41,22 +41,24 @@ def make_native_app_challenge(
         contain the following characters: [a-zA-Z0-9~_.-].
     """
 
-    if verifier:
+    if isinstance(verifier, str):
         if not 43 <= len(verifier) <= 128:
             raise GlobusSDKUsageError(
                 f"verifier must be 43-128 characters long: {len(verifier)}"
             )
         if bool(re.search(r"[^a-zA-Z0-9~_.-]", verifier)):
             raise GlobusSDKUsageError("verifier contained invalid characters")
+
+        code_verifier: str = verifier
     else:
         log.debug(
             "Autogenerating verifier secret. On low-entropy systems "
             "this may be insecure"
         )
+        code_verifier = (
+            base64.urlsafe_b64encode(os.urandom(32)).decode("utf-8").rstrip("=")
+        )
 
-    code_verifier = verifier or base64.urlsafe_b64encode(os.urandom(32)).decode(
-        "utf-8"
-    ).rstrip("=")
     # hash it, pull out a digest
     hashed_verifier = hashlib.sha256(code_verifier.encode("utf-8")).digest()
     # urlsafe base64 encode that hash and strip the padding
@@ -80,8 +82,7 @@ class GlobusNativeAppFlowManager(GlobusOAuthFlowManager):
     :param auth_client: The client object on which this flow is based.
         It is used to extract default values for the flow, and also to make calls to the
         Auth service.
-    :param requested_scopes: The scopes on the token(s) being requested. Defaults to
-        ``openid profile email urn:globus:auth:scope:transfer.api.globus.org:all``
+    :param requested_scopes: The scopes on the token(s) being requested.
     :param redirect_uri: The page that users should be directed to after authenticating
         at the authorize URL. Defaults to 'https://auth.globus.org/v2/web/auth-code',
         which displays the resulting ``auth_code`` for users to copy-paste back into
@@ -101,12 +102,12 @@ class GlobusNativeAppFlowManager(GlobusOAuthFlowManager):
     def __init__(
         self,
         auth_client: globus_sdk.NativeAppAuthClient,
-        requested_scopes: ScopeCollectionType | None = None,
-        redirect_uri: str | None = None,
+        requested_scopes: str | Scope | t.Iterable[str | Scope],
+        redirect_uri: str | MissingType = MISSING,
         state: str = "_default",
-        verifier: str | None = None,
+        verifier: str | MissingType = MISSING,
         refresh_tokens: bool = False,
-        prefill_named_grant: str | None = None,
+        prefill_named_grant: str | MissingType = MISSING,
     ) -> None:
         self.auth_client = auth_client
 
@@ -123,19 +124,18 @@ class GlobusNativeAppFlowManager(GlobusOAuthFlowManager):
             )
 
         # convert scopes iterable to string immediately on load
-        # and default to the default requested scopes
-        self.requested_scopes = stringify_requested_scopes(requested_scopes)
+        self.requested_scopes = ScopeParser.serialize(requested_scopes)
 
         # default to `/v2/web/auth-code` on whatever environment we're looking
         # at -- most typically it will be `https://auth.globus.org/`
         self.redirect_uri = redirect_uri or (
-            utils.slash_join(auth_client.base_url, "/v2/web/auth-code")
+            slash_join(auth_client.base_url, "/v2/web/auth-code")
         )
 
         # make a challenge and secret to keep
         # if the verifier is provided, it will just be passed back to us, and
         # if not, one will be generated
-        self.verifier, self.challenge = make_native_app_challenge(verifier)
+        self.verifier, self.challenge = _make_native_app_challenge(verifier)
 
         # store the remaining parameters directly, with no transformation
         self.refresh_tokens = refresh_tokens
@@ -152,7 +152,7 @@ class GlobusNativeAppFlowManager(GlobusOAuthFlowManager):
             f"verifier=<REDACTED>,challenge={self.challenge}"
         )
 
-        if prefill_named_grant is not None:
+        if prefill_named_grant is not MISSING:
             log.debug(f"prefill_named_grant={self.prefill_named_grant}")
 
     def get_authorize_url(self, query_params: dict[str, t.Any] | None = None) -> str:
@@ -168,7 +168,7 @@ class GlobusNativeAppFlowManager(GlobusOAuthFlowManager):
         either to your provided ``redirect_uri`` or to the default location,
         with the ``auth_code`` embedded in a query parameter.
         """
-        authorize_base_url = utils.slash_join(
+        authorize_base_url = slash_join(
             self.auth_client.base_url, "/v2/oauth2/authorize"
         )
         log.debug(f"Building authorization URI. Base URL: {authorize_base_url}")
@@ -183,11 +183,10 @@ class GlobusNativeAppFlowManager(GlobusOAuthFlowManager):
             "code_challenge": self.challenge,
             "code_challenge_method": "S256",
             "access_type": (self.refresh_tokens and "offline") or "online",
+            "prefill_named_grant": self.prefill_named_grant,
+            **(query_params or {}),
         }
-        if self.prefill_named_grant is not None:
-            params["prefill_named_grant"] = self.prefill_named_grant
-        if query_params:
-            params.update(query_params)
+        params = filter_missing(params)
 
         encoded_params = urllib.parse.urlencode(params)
         return f"{authorize_base_url}?{encoded_params}"

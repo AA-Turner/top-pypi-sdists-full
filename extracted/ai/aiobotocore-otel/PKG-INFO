@@ -1,0 +1,39 @@
+Metadata-Version: 2.4
+Name: aiobotocore-otel
+Version: 1.2.0
+Summary: OpenTelemetry aiobotocore instrumentation
+Author-email: Krzysztof Jagiello <hello@kjagiello.com>
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+Requires-Dist: aiobotocore<3.2.0,>=2.24.0
+Requires-Dist: opentelemetry-api~=1.0
+Requires-Dist: opentelemetry-instrumentation>=0.40b0
+Requires-Dist: opentelemetry-propagator-aws-xray~=1.0
+Requires-Dist: opentelemetry-semantic-conventions>=0.40b0
+Provides-Extra: instruments
+Requires-Dist: aiobotocore; extra == 'instruments'
+Description-Content-Type: text/markdown
+
+# OpenTelemetry aiobotocore instrumentation
+
+[![PyPI version](https://badge.fury.io/py/aiobotocore-otel.svg)](https://badge.fury.io/py/aiobotocore-otel)
+
+This library allows tracing requests made by the [aiobotocore] library.
+
+[aiobotocore]: https://github.com/aio-libs/aiobotocore
+
+## Disclaimer
+
+This repository is a fork of [opentelemetry-instrumentation-botocore], modified to support aiobotocore.
+
+[opentelemetry-instrumentation-botocore]: https://pypi.org/project/opentelemetry-instrumentation-botocore/

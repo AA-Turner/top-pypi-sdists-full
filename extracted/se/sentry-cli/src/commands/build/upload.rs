@@ -1,0 +1,1060 @@
+use std::borrow::Cow;
+use std::io::Write as _;
+use std::path::Path;
+
+use anyhow::{anyhow, bail, Context as _, Result};
+use clap::{Arg, ArgAction, ArgMatches, Command};
+use indicatif::ProgressStyle;
+use log::{debug, info, warn};
+use sha1_smol::Digest;
+use symbolic::common::ByteView;
+use zip::write::SimpleFileOptions;
+use zip::{DateTime, ZipWriter};
+
+use crate::api::{Api, AuthenticatedApi, ChunkedBuildRequest, ChunkedFileState, VcsInfo};
+use crate::config::Config;
+use crate::utils::args::ArgExt as _;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+use crate::utils::build::{handle_asset_catalogs, ipa_to_xcarchive, is_apple_app, is_ipa_file};
+use crate::utils::build::{
+    is_aab_file, is_apk_file, is_zip_file, normalize_directory, write_version_metadata,
+};
+use crate::utils::chunks::{upload_chunks, Chunk};
+use crate::utils::ci::is_ci;
+use crate::utils::fs::get_sha1_checksums;
+use crate::utils::fs::TempDir;
+use crate::utils::fs::TempFile;
+use crate::utils::progress::ProgressBar;
+use crate::utils::vcs::{
+    self, get_github_base_ref, get_github_head_ref, get_github_pr_number, get_provider_from_remote,
+    get_repo_from_remote_preserve_case, git_repo_base_ref, git_repo_base_repo_name_preserve_case,
+    git_repo_head_ref, git_repo_remote_url,
+};
+
+pub fn make_command(command: Command) -> Command {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    const HELP_TEXT: &str =
+        "The path to the build to upload. Supported files include Apk, Aab, XCArchive, and IPA.";
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    const HELP_TEXT: &str =
+        "The path to the build to upload. Supported files include Apk, and Aab.";
+    command
+        .about("Upload builds to a project.")
+        .long_about("Upload builds to a project.\n\nThis feature only works with Sentry SaaS.")
+        .org_arg()
+        .project_arg(false)
+        .arg(
+            Arg::new("paths")
+                .value_name("PATH")
+                .help(HELP_TEXT)
+                .num_args(1..)
+                .action(ArgAction::Append)
+                .required(true),
+        )
+        .arg(
+            Arg::new("head_sha")
+                .long("head-sha")
+                .value_parser(parse_sha_allow_empty)
+                .help("The VCS commit sha to use for the upload. If not provided, the current commit sha will be used.")
+        )
+        .arg(
+            Arg::new("base_sha")
+                .long("base-sha")
+                .value_parser(parse_sha_allow_empty)
+                .help("The VCS commit's base sha to use for the upload. If not provided, the merge-base of the current and remote branch will be used.")
+        )
+        .arg(
+            Arg::new("vcs_provider")
+                .long("vcs-provider")
+                .help("The VCS provider to use for the upload. If not provided, the current provider will be used.")
+        )
+        .arg(
+            Arg::new("head_repo_name")
+                .long("head-repo-name")
+                .help("The name of the git repository to use for the upload (e.g. organization/repository). If not provided, the current repository will be used.")
+        )
+        .arg(
+            Arg::new("base_repo_name")
+                .long("base-repo-name")
+                .help("The name of the git repository to use for the upload (e.g. organization/repository). If not provided, the current repository will be used.")
+        )
+        .arg(
+            Arg::new("head_ref")
+                .long("head-ref")
+                .help("The reference (branch) to use for the upload. If not provided, the current reference will be used.")
+        )
+        .arg(
+            Arg::new("base_ref")
+                .long("base-ref")
+                .help("The base reference (branch) to use for the upload. If not provided, the merge-base with the remote tracking branch will be used.")
+        )
+        .arg(
+            Arg::new("pr_number")
+                .long("pr-number")
+                .value_parser(clap::value_parser!(u32))
+                .help("The pull request number to use for the upload. If not provided and running \
+                    in a pull_request-triggered GitHub Actions workflow, the PR number will be automatically \
+                    detected from GitHub Actions environment variables.")
+        )
+        .arg(
+            Arg::new("build_configuration")
+                .long("build-configuration")
+                .help("The build configuration to use for the upload. If not provided, the current version will be used.")
+        )
+        .arg(
+            Arg::new("release_notes")
+                .long("release-notes")
+                .help("The release notes to use for the upload.")
+        )
+        .arg(
+            Arg::new("force_git_metadata")
+                .long("force-git-metadata")
+                .action(ArgAction::SetTrue)
+                .conflicts_with("no_git_metadata")
+                .help("Force collection and sending of git metadata (branch, commit, etc.). \
+                    If neither this nor --no-git-metadata is specified, git metadata is \
+                    automatically collected when running in most CI environments.")
+        )
+        .arg(
+            Arg::new("no_git_metadata")
+                .long("no-git-metadata")
+                .action(ArgAction::SetTrue)
+                .conflicts_with("force_git_metadata")
+                .help("Disable collection and sending of git metadata.")
+        )
+}
+
+/// Parse plugin info from SENTRY_PIPELINE environment variable.
+/// Format: "sentry-gradle-plugin/4.12.0" or "sentry-fastlane-plugin/1.2.3"
+/// Returns (plugin_name, plugin_version) if a recognized plugin is found, (None, None) otherwise.
+fn parse_plugin_from_pipeline(pipeline: Option<String>) -> (Option<String>, Option<String>) {
+    pipeline
+        .and_then(|pipeline| {
+            let parts: Vec<&str> = pipeline.splitn(2, '/').collect();
+            if parts.len() == 2 {
+                let name = parts[0];
+                let version = parts[1];
+
+                // Only extract known Sentry plugins
+                if name == "sentry-gradle-plugin" || name == "sentry-fastlane-plugin" {
+                    debug!("Detected {name} version {version} from SENTRY_PIPELINE");
+                    Some((name.to_owned(), version.to_owned()))
+                } else {
+                    debug!("SENTRY_PIPELINE contains unrecognized plugin: {name}");
+                    None
+                }
+            } else {
+                debug!("SENTRY_PIPELINE format not recognized: {pipeline}");
+                None
+            }
+        })
+        .unzip()
+}
+
+pub fn execute(matches: &ArgMatches) -> Result<()> {
+    let config = Config::current();
+    let path_strings = matches
+        .get_many::<String>("paths")
+        .expect("paths argument is required");
+
+    // Collect git metadata if running in CI, unless explicitly enabled or disabled.
+    let should_collect_git_metadata =
+        matches.get_flag("force_git_metadata") || (!matches.get_flag("no_git_metadata") && is_ci());
+
+    debug!(
+        "Git metadata collection: {}",
+        if should_collect_git_metadata {
+            "enabled"
+        } else {
+            "disabled"
+        }
+    );
+
+    // Always collect git metadata, but only perform automatic inference when enabled
+    let vcs_info = collect_git_metadata(matches, &config, should_collect_git_metadata);
+
+    let build_configuration = matches.get_one("build_configuration").map(String::as_str);
+    let release_notes = matches.get_one("release_notes").map(String::as_str);
+
+    let (plugin_name, plugin_version) = parse_plugin_from_pipeline(config.get_pipeline_env());
+
+    let api = Api::current();
+    let authenticated_api = api.authenticated()?;
+
+    debug!("Starting upload for {} paths", path_strings.len());
+
+    let mut normalized_zips = vec![];
+    for path_string in path_strings {
+        let path: &Path = path_string.as_ref();
+        debug!("Processing artifact at path: {}", path.display());
+
+        if !path.exists() {
+            return Err(anyhow!("Path does not exist: {}", path.display()));
+        }
+
+        let byteview = ByteView::open(path)?;
+        debug!("Loaded file with {} bytes", byteview.len());
+
+        validate_is_supported_build(path, &byteview)?;
+
+        let normalized_zip = if path.is_file() {
+            debug!("Normalizing file: {}", path.display());
+            handle_file(
+                path,
+                &byteview,
+                plugin_name.as_deref(),
+                plugin_version.as_deref(),
+            )?
+        } else if path.is_dir() {
+            debug!("Normalizing directory: {}", path.display());
+            handle_directory(path, plugin_name.as_deref(), plugin_version.as_deref()).with_context(
+                || {
+                    format!(
+                        "Failed to generate uploadable bundle for directory {}",
+                        path.display()
+                    )
+                },
+            )?
+        } else {
+            Err(anyhow!(
+                "Path {} is neither a file nor a directory, cannot upload",
+                path.display()
+            ))?
+        };
+
+        debug!(
+            "Successfully normalized to: {}",
+            normalized_zip.path().display()
+        );
+        normalized_zips.push((path, normalized_zip));
+    }
+
+    let config = Config::current();
+    let (org, project) = config.get_org_and_project(matches)?;
+
+    let mut uploaded_paths_and_urls = vec![];
+    let mut errored_paths_and_reasons = vec![];
+    for (path, zip) in normalized_zips {
+        info!("Uploading file: {}", path.display());
+        let bytes = ByteView::open(zip.path())?;
+        match upload_file(
+            &authenticated_api,
+            &bytes,
+            &org,
+            &project,
+            build_configuration,
+            release_notes,
+            &vcs_info,
+        ) {
+            Ok(artifact_url) => {
+                info!("Successfully uploaded file: {}", path.display());
+                uploaded_paths_and_urls.push((path.to_path_buf(), artifact_url));
+            }
+            Err(e) => {
+                debug!("Failed to upload file at path {}: {e}", path.display());
+                errored_paths_and_reasons.push((path.to_path_buf(), e));
+            }
+        }
+    }
+
+    if !errored_paths_and_reasons.is_empty() {
+        warn!(
+            "Failed to upload {} file{}:",
+            errored_paths_and_reasons.len(),
+            if errored_paths_and_reasons.len() == 1 {
+                ""
+            } else {
+                "s"
+            }
+        );
+        for (path, reason) in errored_paths_and_reasons {
+            warn!("  - {}", path.display());
+            warn!("    Error: {reason:#}");
+        }
+    }
+
+    if uploaded_paths_and_urls.is_empty() {
+        bail!("Failed to upload any files");
+    } else {
+        println!(
+            "Successfully uploaded {} file{} to Sentry",
+            uploaded_paths_and_urls.len(),
+            if uploaded_paths_and_urls.len() == 1 {
+                ""
+            } else {
+                "s"
+            }
+        );
+        if uploaded_paths_and_urls.len() < 3 {
+            for (path, artifact_url) in &uploaded_paths_and_urls {
+                println!("  - {} ({artifact_url})", path.display());
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Collects git metadata from arguments and VCS introspection.
+///
+/// When `auto_collect` is false, only explicitly provided values are collected;
+/// automatic inference from git repository and CI environment is skipped.
+fn collect_git_metadata(
+    matches: &ArgMatches,
+    config: &Config,
+    auto_collect: bool,
+) -> VcsInfo<'static> {
+    let head_sha = matches
+        .get_one::<Option<Digest>>("head_sha")
+        .map(|d| d.as_ref().cloned())
+        .or_else(|| auto_collect.then(|| vcs::find_head_sha().ok()))
+        .flatten();
+
+    let cached_remote = config.get_cached_vcs_remote();
+    let (vcs_provider, head_repo_name, head_ref, base_ref, base_repo_name) = {
+        let repo = if auto_collect {
+            git2::Repository::open_from_env().ok()
+        } else {
+            None
+        };
+        let repo_ref = repo.as_ref();
+        let remote_url = repo_ref.and_then(|repo| git_repo_remote_url(repo, &cached_remote).ok());
+
+        let vcs_provider = matches
+            .get_one("vcs_provider")
+            .cloned()
+            .or_else(|| {
+                auto_collect
+                    .then(|| remote_url.as_ref().map(|url| get_provider_from_remote(url)))?
+            })
+            .unwrap_or_default();
+
+        let head_repo_name = matches
+            .get_one("head_repo_name")
+            .cloned()
+            .or_else(|| {
+                auto_collect.then(|| {
+                    remote_url
+                        .as_ref()
+                        .map(|url| get_repo_from_remote_preserve_case(url))
+                })?
+            })
+            .unwrap_or_default();
+
+        let head_ref = matches
+            .get_one("head_ref")
+            .cloned()
+            .or_else(|| auto_collect.then(get_github_head_ref)?)
+            .or_else(|| {
+                auto_collect.then(|| {
+                    repo_ref.and_then(|r| match git_repo_head_ref(r) {
+                        Ok(ref_name) => {
+                            debug!("Found current branch reference: {ref_name}");
+                            Some(ref_name)
+                        }
+                        Err(e) => {
+                            debug!("No valid branch reference found (likely detached HEAD): {e}");
+                            None
+                        }
+                    })
+                })?
+            })
+            .unwrap_or_default();
+
+        let base_ref = matches
+            .get_one("base_ref")
+            .cloned()
+            .or_else(|| auto_collect.then(get_github_base_ref)?)
+            .or_else(|| {
+                auto_collect.then(|| {
+                    repo_ref.and_then(|r| match git_repo_base_ref(r, &cached_remote) {
+                        Ok(base_ref_name) => {
+                            debug!("Found base reference: {base_ref_name}");
+                            Some(base_ref_name)
+                        }
+                        Err(e) => {
+                            info!("Could not detect base branch reference: {e}");
+                            None
+                        }
+                    })
+                })?
+            })
+            .unwrap_or_default();
+
+        let base_repo_name = matches
+            .get_one("base_repo_name")
+            .cloned()
+            .or_else(|| {
+                auto_collect.then(|| {
+                    repo_ref.and_then(|r| match git_repo_base_repo_name_preserve_case(r) {
+                        Ok(Some(base_repo_name)) => {
+                            debug!("Found base repository name: {base_repo_name}");
+                            Some(base_repo_name)
+                        }
+                        Ok(None) => {
+                            debug!("No base repository found - not a fork");
+                            None
+                        }
+                        Err(e) => {
+                            warn!("Could not detect base repository name: {e}");
+                            None
+                        }
+                    })
+                })?
+            })
+            .unwrap_or_default();
+
+        (
+            vcs_provider,
+            head_repo_name,
+            head_ref,
+            base_ref,
+            base_repo_name,
+        )
+    };
+
+    let base_sha_from_user = matches.get_one::<Option<Digest>>("base_sha").is_some();
+    let base_ref_from_user = matches.get_one::<String>("base_ref").is_some();
+
+    let mut base_sha = matches
+        .get_one::<Option<Digest>>("base_sha")
+        .map(|d| d.as_ref().cloned())
+        .or_else(|| {
+            if auto_collect {
+                Some(
+                    vcs::find_base_sha(&cached_remote)
+                        .inspect_err(|e| debug!("Error finding base SHA: {e}"))
+                        .ok()
+                        .flatten(),
+                )
+            } else {
+                None
+            }
+        })
+        .flatten();
+
+    let mut base_ref = base_ref;
+
+    // If base_sha equals head_sha and both were auto-inferred, skip setting base_sha and base_ref
+    if !base_sha_from_user
+        && !base_ref_from_user
+        && base_sha.is_some()
+        && head_sha.is_some()
+        && base_sha == head_sha
+    {
+        debug!(
+            "Base SHA equals head SHA ({}), and both were auto-inferred. Skipping base_sha and base_ref, but keeping head_sha.",
+            base_sha.expect("base_sha is Some at this point")
+        );
+        base_sha = None;
+        base_ref = "".into();
+    }
+
+    let pr_number = matches.get_one("pr_number").copied().or_else(|| {
+        if auto_collect {
+            get_github_pr_number()
+        } else {
+            None
+        }
+    });
+
+    VcsInfo {
+        head_sha,
+        base_sha,
+        vcs_provider: Cow::Owned(vcs_provider),
+        head_repo_name: Cow::Owned(head_repo_name),
+        base_repo_name: Cow::Owned(base_repo_name),
+        head_ref: Cow::Owned(head_ref),
+        base_ref: Cow::Owned(base_ref),
+        pr_number,
+    }
+}
+
+fn handle_file(
+    path: &Path,
+    byteview: &ByteView,
+    plugin_name: Option<&str>,
+    plugin_version: Option<&str>,
+) -> Result<TempFile> {
+    // Handle IPA files by converting them to XCArchive
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    if is_zip_file(byteview) && is_ipa_file(byteview)? {
+        debug!("Converting IPA file to XCArchive structure");
+        let archive_temp_dir = TempDir::create()?;
+        return ipa_to_xcarchive(path, byteview, &archive_temp_dir)
+            .and_then(|path| handle_directory(&path, plugin_name, plugin_version))
+            .with_context(|| format!("Failed to process IPA file {}", path.display()));
+    }
+
+    normalize_file(path, byteview, plugin_name, plugin_version).with_context(|| {
+        format!(
+            "Failed to generate uploadable bundle for file {}",
+            path.display()
+        )
+    })
+}
+
+fn validate_is_supported_build(path: &Path, bytes: &[u8]) -> Result<()> {
+    debug!("Validating build format for: {}", path.display());
+
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    if is_apple_app(path)? {
+        debug!("Detected XCArchive directory");
+        return Ok(());
+    }
+
+    // Check if the file is a zip file (then AAB, APK, or IPA)
+    if is_zip_file(bytes) {
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        debug!("File is a zip, checking for AAB/APK/IPA format");
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        debug!("File is a zip, checking for AAB/APK format");
+
+        if is_aab_file(bytes)? {
+            debug!("Detected AAB file");
+            return Ok(());
+        }
+
+        if is_apk_file(bytes)? {
+            debug!("Detected APK file");
+            return Ok(());
+        }
+
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        if is_ipa_file(bytes)? {
+            debug!("Detected IPA file");
+            return Ok(());
+        }
+    }
+
+    debug!("File format validation failed");
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    let format_list = "APK, AAB, XCArchive, or IPA";
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    let format_list = "APK, or AAB";
+
+    Err(anyhow!(
+        "File is not a recognized supported build format ({format_list}): {}",
+        path.display()
+    ))
+}
+
+// For APK and AAB files, we'll copy them directly into the zip
+fn normalize_file(
+    path: &Path,
+    bytes: &[u8],
+    plugin_name: Option<&str>,
+    plugin_version: Option<&str>,
+) -> Result<TempFile> {
+    debug!("Creating normalized zip for file: {}", path.display());
+
+    let temp_file = TempFile::create()?;
+    let mut zip = ZipWriter::new(temp_file.open()?);
+
+    let file_name = path
+        .file_name()
+        .expect("Failed to get file name")
+        .to_str()
+        .with_context(|| format!("Failed to get relative path for {}", path.display()))?;
+
+    debug!("Adding file to zip: {file_name}");
+
+    // Need to set the last modified time to a fixed value to ensure consistent checksums
+    // This is important as an optimization to avoid re-uploading the same chunks if they're already on the server
+    // but the last modified time being different will cause checksums to be different.
+    let options = SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Zstd)
+        .last_modified_time(DateTime::default());
+
+    zip.start_file(file_name, options)?;
+    zip.write_all(bytes)?;
+
+    write_version_metadata(&mut zip, plugin_name, plugin_version)?;
+
+    zip.finish()?;
+    debug!("Successfully created normalized zip for file");
+    Ok(temp_file)
+}
+
+fn handle_directory(
+    path: &Path,
+    plugin_name: Option<&str>,
+    plugin_version: Option<&str>,
+) -> Result<TempFile> {
+    let temp_dir = TempDir::create()?;
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    if is_apple_app(path)? {
+        handle_asset_catalogs(path, temp_dir.path());
+    }
+    normalize_directory(path, temp_dir.path(), plugin_name, plugin_version)
+}
+
+/// Returns artifact url if upload was successful.
+fn upload_file(
+    api: &AuthenticatedApi,
+    bytes: &[u8],
+    org: &str,
+    project: &str,
+    build_configuration: Option<&str>,
+    release_notes: Option<&str>,
+    vcs_info: &VcsInfo<'_>,
+) -> Result<String> {
+    debug!(
+        "Uploading file to organization: {org}, project: {project}, build_configuration: {}, vcs_info: {vcs_info:?}",
+        build_configuration.unwrap_or("unknown"),
+    );
+
+    let chunk_upload_options = api.get_chunk_upload_options(org)?;
+
+    let progress_style =
+        ProgressStyle::default_spinner().template("{spinner} Preparing for upload...");
+    let pb = ProgressBar::new_spinner();
+    pb.enable_steady_tick(100);
+    pb.set_style(progress_style);
+
+    let chunk_size = chunk_upload_options.chunk_size;
+    let (checksum, checksums) = get_sha1_checksums(bytes, chunk_size);
+    let mut chunks = bytes
+        .chunks(chunk_size.into())
+        .zip(checksums.iter())
+        .map(|(data, checksum)| Chunk((*checksum, data)))
+        .collect::<Vec<_>>();
+
+    pb.finish_with_duration("Preparing for upload");
+
+    // In the normal case we go through this loop exactly twice:
+    // 1. state=not_found
+    //    server tells us the we need to send every chunk and we do so
+    // 2. artifact_url set so we're done (likely state=created)
+    //
+    // In the case where all the chunks are already on the server we go
+    // through only once:
+    // 1. state=created, artifact_url set
+    //
+    // In the case where something went wrong (which could be on either
+    // iteration of the loop) we get:
+    // n. state=error, artifact_url unset
+
+    let result = loop {
+        let response = api.assemble_build(
+            org,
+            project,
+            &ChunkedBuildRequest {
+                checksum,
+                chunks: &checksums,
+                build_configuration,
+                release_notes,
+                vcs_info,
+            },
+        )?;
+        chunks.retain(|Chunk((digest, _))| response.missing_chunks.contains(digest));
+
+        if !chunks.is_empty() {
+            let upload_progress_style = ProgressStyle::default_bar().template(
+                "{prefix:.dim} Uploading files...\
+               \n{wide_bar}  {bytes}/{total_bytes} ({eta})",
+            );
+            upload_chunks(&chunks, &chunk_upload_options, upload_progress_style)?;
+        }
+
+        // state.is_err() is not the same as this since it also returns
+        // true for ChunkedFileState::NotFound.
+        if response.state == ChunkedFileState::Error {
+            let message = response.detail.as_deref().unwrap_or("unknown error");
+            bail!("Failed to process uploaded files: {message}");
+        }
+
+        if let Some(artifact_url) = response.artifact_url {
+            break Ok(artifact_url);
+        }
+
+        if response.state.is_finished() {
+            bail!("File upload is_finished() but did not succeeded or error");
+        }
+    };
+
+    result
+}
+
+/// Utility function to parse a SHA1 digest, allowing empty strings.
+///
+/// Empty strings result in Ok(None), otherwise we return the parsed digest
+/// or an error if the SHA is invalid.
+fn parse_sha_allow_empty(sha: &str) -> Result<Option<Digest>> {
+    if sha.is_empty() {
+        return Ok(None);
+    }
+
+    let digest = sha
+        .parse()
+        .with_context(|| format!("{sha} is not a valid SHA1 digest"))?;
+
+    Ok(Some(digest))
+}
+
+#[cfg(not(windows))]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ini::Ini;
+    use std::fs;
+    use std::os::unix::fs::symlink;
+    use std::path::PathBuf;
+    use zip::ZipArchive;
+
+    #[test]
+    fn test_normalize_directory_preserves_top_level_directory_name() -> Result<()> {
+        let temp_dir = crate::utils::fs::TempDir::create()?;
+        let test_dir = temp_dir.path().join("MyApp.xcarchive");
+        fs::create_dir_all(test_dir.join("Products"))?;
+        fs::write(test_dir.join("Products").join("app.txt"), "test content")?;
+
+        let result_zip = normalize_directory(&test_dir, temp_dir.path(), None, None)?;
+        let zip_file = fs::File::open(result_zip.path())?;
+        let mut archive = ZipArchive::new(zip_file)?;
+        let file = archive.by_index(0)?;
+        let file_path = file.name();
+        assert_eq!(file_path, "MyApp.xcarchive/Products/app.txt");
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    fn test_xcarchive_upload_includes_parsed_assets() -> Result<()> {
+        // Test that XCArchive uploads include parsed asset catalogs
+        let xcarchive_path = Path::new("tests/integration/_fixtures/build/archive.xcarchive");
+
+        // Process the XCArchive directory
+        let result = handle_directory(xcarchive_path, None, None)?;
+
+        // Verify the resulting zip contains parsed assets
+        let zip_file = fs::File::open(result.path())?;
+        let mut archive = ZipArchive::new(zip_file)?;
+
+        let mut has_parsed_assets = false;
+        for i in 0..archive.len() {
+            let file = archive.by_index(i)?;
+            let file_name = file
+                .enclosed_name()
+                .ok_or(anyhow!("Failed to get file name"))?;
+            if file_name.to_string_lossy().contains("ParsedAssets") {
+                has_parsed_assets = true;
+                break;
+            }
+        }
+
+        assert!(
+            has_parsed_assets,
+            "XCArchive upload should include parsed asset catalogs"
+        );
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    fn test_ipa_upload_includes_parsed_assets() -> Result<()> {
+        // Test that IPA uploads handle missing asset catalogs gracefully
+        let ipa_path = Path::new("tests/integration/_fixtures/build/ipa_with_asset.ipa");
+        let byteview = ByteView::open(ipa_path)?;
+
+        // Process the IPA file - this should work even without asset catalogs
+        let result = handle_file(ipa_path, &byteview, None, None)?;
+
+        let zip_file = fs::File::open(result.path())?;
+        let mut archive = ZipArchive::new(zip_file)?;
+
+        let mut has_parsed_assets = false;
+        for i in 0..archive.len() {
+            let file = archive.by_index(i)?;
+            let file_name = file
+                .enclosed_name()
+                .ok_or(anyhow!("Failed to get file name"))?;
+            if file_name.to_string_lossy().contains("ParsedAssets") {
+                has_parsed_assets = true;
+                break;
+            }
+        }
+
+        assert!(
+            has_parsed_assets,
+            "XCArchive upload should include parsed asset catalogs"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_normalize_directory_preserves_symlinks() -> Result<()> {
+        let temp_dir = crate::utils::fs::TempDir::create()?;
+        let test_dir = temp_dir.path().join("TestApp.xcarchive");
+        fs::create_dir_all(test_dir.join("Products"))?;
+
+        // Create a regular file
+        fs::write(test_dir.join("Products").join("app.txt"), "test content")?;
+
+        // Create a symlink pointing to the regular file
+        let symlink_path = test_dir.join("Products").join("app_link.txt");
+        symlink("app.txt", &symlink_path)?;
+
+        let result_zip = normalize_directory(&test_dir, temp_dir.path(), None, None)?;
+        let zip_file = fs::File::open(result_zip.path())?;
+        let mut archive = ZipArchive::new(zip_file)?;
+
+        // Check that both the regular file and symlink are in the zip
+        let mut has_regular_file = false;
+        let mut has_symlink = false;
+
+        for i in 0..archive.len() {
+            let file = archive.by_index(i)?;
+            let file_name = file.name();
+
+            if file_name == "TestApp.xcarchive/Products/app.txt" {
+                has_regular_file = true;
+                // Verify it's actually a regular file, not a symlink
+                assert!(
+                    !file.is_symlink(),
+                    "app.txt should be a regular file, not a symlink"
+                );
+            } else if file_name == "TestApp.xcarchive/Products/app_link.txt" {
+                has_symlink = true;
+                // Verify it's actually a symlink
+                assert!(
+                    file.is_symlink(),
+                    "app_link.txt should be a symlink in the zip"
+                );
+            }
+        }
+
+        assert!(has_regular_file, "Regular file should be in zip");
+        assert!(has_symlink, "Symlink should be preserved in zip");
+        Ok(())
+    }
+
+    #[test]
+    fn test_collect_git_metadata_respects_explicit_values_when_auto_collect_disabled() {
+        // Create a mock ArgMatches with explicit --head-sha and --vcs-provider values
+        let app = make_command(Command::new("test"));
+        let matches = app
+            .try_get_matches_from(vec![
+                "test",
+                "--org",
+                "test-org",
+                "--project",
+                "test-project",
+                "--head-sha",
+                "1234567890123456789012345678901234567890",
+                "--vcs-provider",
+                "custom-vcs",
+                "dummy.apk",
+            ])
+            .unwrap();
+
+        // Create a minimal config without binding it globally
+        let config = Config::from_file(PathBuf::from("dummy.ini"), Ini::new());
+
+        // When auto_collect is false, explicit values should still be collected
+        let metadata = collect_git_metadata(&matches, &config, false);
+
+        // Explicit values should be present
+        assert!(
+            metadata.head_sha.is_some(),
+            "Explicit --head-sha should be collected even with auto_collect=false"
+        );
+        assert_eq!(
+            metadata.vcs_provider.as_ref(),
+            "custom-vcs",
+            "Explicit --vcs-provider should be used with auto_collect=false"
+        );
+
+        // But automatic inference should not happen for fields without explicit values
+        assert_eq!(
+            metadata.head_repo_name.as_ref(),
+            "",
+            "head_repo_name should be empty with auto_collect=false and no explicit value"
+        );
+    }
+
+    #[test]
+    fn test_collect_git_metadata_skips_auto_inference_when_disabled() {
+        // Create a mock ArgMatches without any explicit git metadata values
+        let app = make_command(Command::new("test"));
+        let matches = app
+            .try_get_matches_from(vec![
+                "test",
+                "--org",
+                "test-org",
+                "--project",
+                "test-project",
+                "dummy.apk",
+            ])
+            .unwrap();
+
+        // Create a minimal config without binding it globally
+        let config = Config::from_file(PathBuf::from("dummy.ini"), Ini::new());
+
+        // When auto_collect is false and no explicit values provided,
+        // we should get empty metadata
+        let metadata = collect_git_metadata(&matches, &config, false);
+
+        // With auto_collect=false, we should get empty values
+        assert_eq!(
+            metadata.vcs_provider.as_ref(),
+            "",
+            "vcs_provider should be empty with auto_collect=false and no explicit value"
+        );
+        assert_eq!(
+            metadata.head_repo_name.as_ref(),
+            "",
+            "head_repo_name should be empty with auto_collect=false and no explicit value"
+        );
+        assert_eq!(
+            metadata.head_ref.as_ref(),
+            "",
+            "head_ref should be empty with auto_collect=false and no explicit value"
+        );
+    }
+
+    #[test]
+    fn test_metadata_includes_gradle_plugin_version() -> Result<()> {
+        let temp_dir = crate::utils::fs::TempDir::create()?;
+        let test_dir = temp_dir.path().join("TestApp.xcarchive");
+        fs::create_dir_all(test_dir.join("Products"))?;
+        fs::write(test_dir.join("Products").join("app.txt"), "test content")?;
+
+        let result_zip = normalize_directory(
+            &test_dir,
+            temp_dir.path(),
+            Some("sentry-gradle-plugin"),
+            Some("4.12.0"),
+        )?;
+        let zip_file = fs::File::open(result_zip.path())?;
+        let mut archive = ZipArchive::new(zip_file)?;
+
+        // Find and read the metadata file
+        let metadata_file = archive.by_name(".sentry-cli-metadata.txt")?;
+        let metadata_content = std::io::read_to_string(metadata_file)?;
+
+        assert!(
+            metadata_content.contains("sentry-cli-version:"),
+            "Metadata should contain sentry-cli-version"
+        );
+        assert!(
+            metadata_content.contains("sentry-gradle-plugin: 4.12.0"),
+            "Metadata should contain sentry-gradle-plugin"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_metadata_includes_fastlane_plugin_version() -> Result<()> {
+        let temp_dir = crate::utils::fs::TempDir::create()?;
+        let test_dir = temp_dir.path().join("TestApp.xcarchive");
+        fs::create_dir_all(test_dir.join("Products"))?;
+        fs::write(test_dir.join("Products").join("app.txt"), "test content")?;
+
+        let result_zip = normalize_directory(
+            &test_dir,
+            temp_dir.path(),
+            Some("sentry-fastlane-plugin"),
+            Some("1.2.3"),
+        )?;
+        let zip_file = fs::File::open(result_zip.path())?;
+        let mut archive = ZipArchive::new(zip_file)?;
+
+        // Find and read the metadata file
+        let metadata_file = archive.by_name(".sentry-cli-metadata.txt")?;
+        let metadata_content = std::io::read_to_string(metadata_file)?;
+
+        assert!(
+            metadata_content.contains("sentry-cli-version:"),
+            "Metadata should contain sentry-cli-version"
+        );
+        assert!(
+            metadata_content.contains("sentry-fastlane-plugin: 1.2.3"),
+            "Metadata should contain sentry-fastlane-plugin"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_metadata_without_plugin() -> Result<()> {
+        let temp_dir = crate::utils::fs::TempDir::create()?;
+        let test_dir = temp_dir.path().join("TestApp.xcarchive");
+        fs::create_dir_all(test_dir.join("Products"))?;
+        fs::write(test_dir.join("Products").join("app.txt"), "test content")?;
+
+        // No plugin info provided
+        let result_zip = normalize_directory(&test_dir, temp_dir.path(), None, None)?;
+        let zip_file = fs::File::open(result_zip.path())?;
+        let mut archive = ZipArchive::new(zip_file)?;
+
+        let metadata_file = archive.by_name(".sentry-cli-metadata.txt")?;
+        let metadata_content = std::io::read_to_string(metadata_file)?;
+
+        // Should only contain sentry-cli-version
+        assert!(
+            metadata_content.contains("sentry-cli-version:"),
+            "Metadata should contain sentry-cli-version"
+        );
+
+        // Should not have any other lines besides the version
+        let line_count = metadata_content.lines().count();
+        assert_eq!(
+            line_count, 1,
+            "Should only have one line when no plugin info"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_gradle_plugin_from_pipeline() {
+        let (name, version) =
+            parse_plugin_from_pipeline(Some("sentry-gradle-plugin/4.12.0".to_owned()));
+        assert_eq!(name, Some("sentry-gradle-plugin".to_owned()));
+        assert_eq!(version, Some("4.12.0".to_owned()));
+    }
+
+    #[test]
+    fn test_parse_fastlane_plugin_from_pipeline() {
+        let (name, version) =
+            parse_plugin_from_pipeline(Some("sentry-fastlane-plugin/1.2.3".to_owned()));
+        assert_eq!(name, Some("sentry-fastlane-plugin".to_owned()));
+        assert_eq!(version, Some("1.2.3".to_owned()));
+    }
+
+    #[test]
+    fn test_parse_unrecognized_plugin_from_pipeline() {
+        let (name, version) =
+            parse_plugin_from_pipeline(Some("some-other-plugin/1.0.0".to_owned()));
+        assert_eq!(name, None, "Unrecognized plugin should return None");
+        assert_eq!(version, None, "Unrecognized plugin should return None");
+    }
+
+    #[test]
+    fn test_parse_invalid_pipeline_format() {
+        let (name, version) = parse_plugin_from_pipeline(Some("no-slash-in-value".to_owned()));
+        assert_eq!(name, None, "Invalid format should return None");
+        assert_eq!(version, None, "Invalid format should return None");
+    }
+
+    #[test]
+    fn test_parse_empty_pipeline() {
+        let (name, version) = parse_plugin_from_pipeline(None);
+        assert_eq!(name, None, "Empty pipeline should return None");
+        assert_eq!(version, None, "Empty pipeline should return None");
+    }
+
+    #[test]
+    fn test_parse_pipeline_with_extra_slashes() {
+        let (name, version) =
+            parse_plugin_from_pipeline(Some("sentry-gradle-plugin/4.12.0/extra".to_owned()));
+        assert_eq!(
+            name,
+            Some("sentry-gradle-plugin".to_owned()),
+            "Should parse correctly even with extra slashes"
+        );
+        assert_eq!(
+            version,
+            Some("4.12.0/extra".to_owned()),
+            "Version should include everything after first slash"
+        );
+    }
+}

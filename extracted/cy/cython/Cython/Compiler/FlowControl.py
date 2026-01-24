@@ -337,7 +337,8 @@ class NameAssignment:
         self.is_arg = False
         self.is_deletion = False
         self.inferred_type = None
-        # For generator expression targets, the rhs can have a different scope than the lhs.
+        # For generator expression targets in comprehensions (and possibly other things),
+        # the rhs can have a different scope than the lhs.
         self.rhs_scope = rhs_scope
 
     def __repr__(self):
@@ -804,7 +805,7 @@ class ControlFlowAnalysis(CythonTransform):
                 entry = self.env.lookup(lhs.name)
             if entry is None:  # TODO: This shouldn't happen...
                 return
-            self.flow.mark_assignment(lhs, rhs, entry, rhs_scope=rhs_scope)
+            self.flow.mark_assignment(lhs, rhs, entry, rhs_scope=(rhs_scope or self.env))
         elif lhs.is_sequence_constructor:
             for i, arg in enumerate(lhs.args):
                 if arg.is_starred:
@@ -1025,20 +1026,19 @@ class ControlFlowAnalysis(CythonTransform):
                                     sequence = sequence.args[0]
         if isinstance(sequence, ExprNodes.SimpleCallNode):
             function = sequence.function
-            if sequence.self is None and function.is_name:
+            if sequence.self is None and function.is_name and function.name in ('range', 'xrange'):
                 entry = env.lookup(function.name)
-                if not entry or entry.is_builtin:
-                    if function.name in ('range', 'xrange'):
-                        is_special = True
-                        for arg in sequence.args[:2]:
-                            self.mark_assignment(target, arg, rhs_scope=node.iterator.expr_scope)
-                        if len(sequence.args) > 2:
-                            self.mark_assignment(target, self.constant_folder(
-                                ExprNodes.binop_node(node.pos,
-                                                     '+',
-                                                     sequence.args[0],
-                                                     sequence.args[2])),
-                                                rhs_scope=node.iterator.expr_scope)
+                if entry and entry.is_type and entry.type is Builtin.range_type:
+                    is_special = True
+                    for arg in sequence.args[:2]:
+                        self.mark_assignment(target, arg, rhs_scope=node.iterator.expr_scope)
+                    if len(sequence.args) > 2:
+                        self.mark_assignment(target, self.constant_folder(
+                            ExprNodes.binop_node(node.pos,
+                                                    '+',
+                                                    sequence.args[0],
+                                                    sequence.args[2])),
+                                            rhs_scope=node.iterator.expr_scope)
 
         if not is_special:
             # A for-loop basically translates to subsequent calls to
@@ -1086,9 +1086,6 @@ class ControlFlowAnalysis(CythonTransform):
             assert False, type(node)
 
         # Body block
-        if isinstance(node, Nodes.ParallelRangeNode):
-            # In case of an invalid
-            self._delete_privates(node, exclude=node.target.entry)
 
         self.flow.nextblock()
         self._visit(node.body)
@@ -1140,8 +1137,8 @@ class ControlFlowAnalysis(CythonTransform):
         for private_node in node.assigned_nodes:
             private_node.entry.error_on_uninitialized = True
 
-        self._delete_privates(node)
         self.visitchildren(node)
+        # lastprivate isn't allowed/doesn't make sense for a parallel (non-for) block
         self._delete_privates(node)
 
         return node
@@ -1233,7 +1230,7 @@ class ControlFlowAnalysis(CythonTransform):
             entry_point = self.flow.newblock(parent=self.flow.block)
             self.flow.nextblock()
             if clause.target:
-                self.mark_assignment(clause.target)
+                self.mark_assignment(clause.target, clause.exc_value)
             self._visit(clause.body)
             if self.flow.block:
                 self.flow.block.add_child(next_block)

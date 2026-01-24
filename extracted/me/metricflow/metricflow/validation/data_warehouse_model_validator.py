@@ -32,7 +32,7 @@ from dbt_semantic_interfaces.validations.validator_helpers import (
 from metricflow_semantics.model.semantic_manifest_lookup import SemanticManifestLookup
 from metricflow_semantics.specs.dunder_column_association_resolver import DunderColumnAssociationResolver
 from metricflow_semantics.specs.instance_spec import LinkableInstanceSpec
-from metricflow_semantics.specs.measure_spec import MeasureSpec
+from metricflow_semantics.specs.simple_metric_input_spec import SimpleMetricInputSpec
 from metricflow_semantics.specs.spec_set import InstanceSpecSet
 from metricflow_semantics.sql.sql_bind_parameters import SqlBindParameterSet
 
@@ -66,7 +66,10 @@ class QueryRenderingTools:
             column_association_resolver=DunderColumnAssociationResolver(),
             semantic_manifest_lookup=self.semantic_manifest_lookup,
         )
-        self.converter = SemanticModelToDataSetConverter(column_association_resolver=DunderColumnAssociationResolver())
+        self.converter = SemanticModelToDataSetConverter(
+            column_association_resolver=DunderColumnAssociationResolver(),
+            manifest_lookup=self.semantic_manifest_lookup,
+        )
         self.plan_converter = DataflowToSqlPlanConverter(
             column_association_resolver=DunderColumnAssociationResolver(),
             semantic_manifest_lookup=self.semantic_manifest_lookup,
@@ -104,13 +107,12 @@ class DataWarehouseTaskBuilder:
         render_tools: QueryRenderingTools, semantic_model: SemanticModel
     ) -> Sequence[DataflowPlanNode]:
         """Builds and returns the SemanticModelDataSet node for the given semantic model."""
-        fetched_semantic_model = render_tools.semantic_manifest_lookup.semantic_model_lookup.get_by_reference(
-            SemanticModelReference(semantic_model_name=semantic_model.name)
-        )
-        assert fetched_semantic_model is not None
-
         source_nodes = render_tools.source_node_builder.create_from_data_sets(
-            (render_tools.converter.create_sql_source_data_set(fetched_semantic_model),)
+            (
+                render_tools.converter.create_sql_source_data_set(
+                    SemanticModelReference(semantic_model_name=semantic_model.name)
+                ),
+            )
         ).source_nodes_for_metric_queries
 
         assert len(source_nodes) >= 1
@@ -176,7 +178,8 @@ class DataWarehouseTaskBuilder:
         render_tools = QueryRenderingTools(manifest=manifest)
 
         tasks: List[DataWarehouseValidationTask] = []
-        for semantic_model in manifest.semantic_models:
+        model_lookup = render_tools.semantic_manifest_lookup.semantic_model_lookup
+        for model_reference, semantic_model in model_lookup.model_reference_to_model.items():
             if not semantic_model.dimensions:
                 continue
 
@@ -186,7 +189,7 @@ class DataWarehouseTaskBuilder:
             source_node = cls._semantic_model_nodes(render_tools=render_tools, semantic_model=semantic_model)[0]
 
             semantic_model_sub_tasks: List[DataWarehouseValidationTask] = []
-            dataset = render_tools.converter.create_sql_source_data_set(semantic_model)
+            dataset = render_tools.converter.create_sql_source_data_set(model_reference)
 
             dimension_specs = DataWarehouseTaskBuilder._remove_entity_link_specs(
                 dataset.instance_set.spec_set.dimension_specs
@@ -233,8 +236,8 @@ class DataWarehouseTaskBuilder:
                             ),
                             element_type=SemanticModelElementType.DIMENSION,
                         ),
-                        error_message=f"Unable to query dimension `{spec.qualified_name}` on semantic model `{semantic_model.name}` in data warehouse",
-                        description=f"Validating dimension `{spec.qualified_name}` in semantic_model `{semantic_model.name}`",
+                        error_message=f"Unable to query dimension `{spec.dunder_name}` on semantic model `{semantic_model.name}` in data warehouse",
+                        description=f"Validating dimension `{spec.dunder_name}` in semantic_model `{semantic_model.name}`",
                     )
                 )
 
@@ -283,7 +286,8 @@ class DataWarehouseTaskBuilder:
         render_tools = QueryRenderingTools(manifest=manifest)
 
         tasks: List[DataWarehouseValidationTask] = []
-        for semantic_model in manifest.semantic_models:
+        model_lookup = render_tools.semantic_manifest_lookup.semantic_model_lookup
+        for model_reference, semantic_model in model_lookup.model_reference_to_model.items():
             if not semantic_model.entities:
                 continue
             if semantic_model_filters is not None and semantic_model.name not in semantic_model_filters:
@@ -292,7 +296,7 @@ class DataWarehouseTaskBuilder:
             source_node = cls._semantic_model_nodes(render_tools=render_tools, semantic_model=semantic_model)[0]
 
             semantic_model_sub_tasks: List[DataWarehouseValidationTask] = []
-            dataset = render_tools.converter.create_sql_source_data_set(semantic_model)
+            dataset = render_tools.converter.create_sql_source_data_set(model_reference)
             semantic_model_specs = DataWarehouseTaskBuilder._remove_entity_link_specs(
                 dataset.instance_set.spec_set.entity_specs
             )
@@ -348,54 +352,59 @@ class DataWarehouseTaskBuilder:
         return tasks
 
     @classmethod
-    def gen_measure_tasks(
+    def gen_simple_metric_tasks(
         cls,
         manifest: SemanticManifest,
         sql_client: SqlClient,
         semantic_model_filters: Optional[Sequence[str]] = None,
     ) -> List[DataWarehouseValidationTask]:
-        """Generates a list of tasks for validating the measures of the manifest.
+        """Generates a list of tasks for validating the simple-metric inputs of the manifest.
 
         The high level tasks returned are "short cut" queries which try to
-        query all the measures for a given semantic model. If that query fails,
-        one or more of the measures is incorrectly specified. Thus if the
-        query fails, there are subtasks which query the individual measures
+        query all the simple-metric inputs for a given semantic model. If that query fails,
+        one or more of the simple-metric inputs is incorrectly specified. Thus if the
+        query fails, there are subtasks which query the individual simple-metric inputs
         on the semantic model to identify which have issues.
         """
         render_tools = QueryRenderingTools(manifest=manifest)
 
         tasks: List[DataWarehouseValidationTask] = []
-        for semantic_model in manifest.semantic_models:
-            if not semantic_model.measures:
-                continue
+        manifest_object_lookup = render_tools.semantic_manifest_lookup.manifest_object_lookup
+        for lookup in manifest_object_lookup.simple_metric_model_lookups:
+            semantic_model = lookup.semantic_model
+            model_reference = semantic_model.reference
 
             if semantic_model_filters is not None and semantic_model.name not in semantic_model_filters:
                 continue
 
             source_nodes = cls._semantic_model_nodes(render_tools=render_tools, semantic_model=semantic_model)
-            dataset = render_tools.converter.create_sql_source_data_set(semantic_model)
-            semantic_model_specs = dataset.instance_set.spec_set.measure_specs
+            dataset = render_tools.converter.create_sql_source_data_set(model_reference)
+            semantic_model_specs = dataset.instance_set.spec_set.simple_metric_input_specs
 
-            source_node_by_measure_spec: Dict[MeasureSpec, DataflowPlanNode] = {}
-            measure_specs_source_node_pair = []
+            source_node_by_simple_metric_input_spec: Dict[SimpleMetricInputSpec, DataflowPlanNode] = {}
+            simple_metric_specs_and_source_node_pair = []
             for source_node in source_nodes:
-                measure_specs = render_tools.node_resolver.get_output_data_set(
+                simple_metric_input_specs = render_tools.node_resolver.get_output_data_set(
                     source_node
-                ).instance_set.spec_set.measure_specs
-                source_node_by_measure_spec.update({measure_spec: source_node for measure_spec in measure_specs})
-                measure_specs_source_node_pair.append((measure_specs, source_node))
+                ).instance_set.spec_set.simple_metric_input_specs
+                source_node_by_simple_metric_input_spec.update(
+                    {simple_metric_input_spec: source_node for simple_metric_input_spec in simple_metric_input_specs}
+                )
+                simple_metric_specs_and_source_node_pair.append((simple_metric_input_specs, source_node))
 
             source_node_to_sub_task: DefaultDict[
                 DataflowPlanNode, List[DataWarehouseValidationTask]
             ] = collections.defaultdict(list)
             for spec in semantic_model_specs:
-                obtained_source_node = source_node_by_measure_spec.get(spec)
-                assert obtained_source_node, f"Unable to find generated source node for measure: {spec.element_name}"
+                obtained_source_node = source_node_by_simple_metric_input_spec.get(spec)
+                assert (
+                    obtained_source_node
+                ), f"Unable to find generated source node for simple-metric input: {spec.element_name}"
 
                 filter_elements_node = FilterElementsNode.create(
                     parent_node=obtained_source_node,
                     include_specs=InstanceSpecSet(
-                        measure_specs=(spec,),
+                        simple_metric_input_specs=(spec,),
                     ),
                 )
                 source_node_to_sub_task[obtained_source_node].append(
@@ -404,7 +413,7 @@ class DataWarehouseTaskBuilder:
                             cls.renderize,
                             sql_client=sql_client,
                             plan_converter=render_tools.plan_converter,
-                            plan_id=f"{semantic_model.name}_measure_{spec.element_name}_validation",
+                            plan_id=f"{semantic_model.name}_simple_metric_{spec.element_name}_validation",
                             nodes=filter_elements_node,
                         ),
                         context=SemanticModelElementContext(
@@ -414,14 +423,15 @@ class DataWarehouseTaskBuilder:
                             ),
                             element_type=SemanticModelElementType.MEASURE,
                         ),
-                        error_message=f"Unable to query measure `{spec.element_name}` on semantic model `{semantic_model.name}` in data warehouse",
-                        description=f"Validating measure `{spec.element_name}` in semantic_model `{semantic_model.name}`",
+                        error_message=f"Unable to query simple-metric input `{spec.element_name}` on semantic model `{semantic_model.name}` in data warehouse",
+                        description=f"Validating simple-metric input `{spec.element_name}` in semantic_model `{semantic_model.name}`",
                     )
                 )
 
-            for measure_specs, source_node in measure_specs_source_node_pair:
+            for simple_metric_input_specs, source_node in simple_metric_specs_and_source_node_pair:
                 filter_elements_node = FilterElementsNode.create(
-                    parent_node=source_node, include_specs=InstanceSpecSet(measure_specs=measure_specs)
+                    parent_node=source_node,
+                    include_specs=InstanceSpecSet(simple_metric_input_specs=simple_metric_input_specs),
                 )
                 tasks.append(
                     DataWarehouseValidationTask(
@@ -429,16 +439,16 @@ class DataWarehouseTaskBuilder:
                             cls.renderize,
                             sql_client=sql_client,
                             plan_converter=render_tools.plan_converter,
-                            plan_id=f"{semantic_model.name}_all_measures_validation",
+                            plan_id=f"{semantic_model.name}_all_simple_metric_inputs_validation",
                             nodes=filter_elements_node,
                         ),
                         context=SemanticModelContext(
                             file_context=FileContext.from_metadata(metadata=semantic_model.metadata),
                             semantic_model=SemanticModelReference(semantic_model_name=semantic_model.name),
                         ),
-                        error_message=f"Failed to query measures in data warehouse for semantic model `{semantic_model.name}`",
+                        error_message=f"Failed to query simple-metric inputs in data warehouse for semantic model `{semantic_model.name}`",
                         on_fail_subtasks=source_node_to_sub_task[source_node],
-                        description=f"Validating all measures in semantic_model `{semantic_model.name}`",
+                        description=f"Validating all simple-metric inputs in semantic_model `{semantic_model.name}`",
                     )
                 )
         return tasks
@@ -625,10 +635,10 @@ class DataWarehouseModelValidator:
         tasks = DataWarehouseTaskBuilder.gen_entity_tasks(manifest=manifest, sql_client=self._sql_client)
         return self.run_tasks(tasks=tasks, timeout=timeout)
 
-    def validate_measures(
+    def validate_simple_metrics(
         self, manifest: SemanticManifest, timeout: Optional[int] = None
     ) -> SemanticManifestValidationResults:
-        """Generates a list of tasks for validating the measures of the manifest and then runs them.
+        """Generates a list of tasks for validating the simple metrics of the manifest and then runs them.
 
         Args:
             manifest: SemanticManifest which to run data warehouse validations on
@@ -637,7 +647,7 @@ class DataWarehouseModelValidator:
         Returns:
             A list of validation issues. If there are no validation issues, an empty list is returned.
         """
-        tasks = DataWarehouseTaskBuilder.gen_measure_tasks(manifest=manifest, sql_client=self._sql_client)
+        tasks = DataWarehouseTaskBuilder.gen_simple_metric_tasks(manifest=manifest, sql_client=self._sql_client)
         return self.run_tasks(tasks=tasks, timeout=timeout)
 
     def validate_metrics(

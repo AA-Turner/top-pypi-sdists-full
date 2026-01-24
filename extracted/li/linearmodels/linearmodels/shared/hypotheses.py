@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from linearmodels.compat.formulaic import monkey_patch_materializers
-
 from collections.abc import Mapping
 
 from formulaic.utils.constraints import LinearConstraints
@@ -10,9 +8,6 @@ from pandas import Series
 from scipy.stats import chi2, f
 
 import linearmodels.typing.data
-
-# Monkey patch parsers if needed, remove once formulaic updated
-monkey_patch_materializers()
 
 
 class WaldTestStatistic:
@@ -71,7 +66,9 @@ class WaldTestStatistic:
     @property
     def critical_values(self) -> dict[str, float] | None:
         """Critical values test for common test sizes"""
-        return dict(zip(["10%", "5%", "1%"], self.dist.ppf([0.9, 0.95, 0.99])))
+        return dict(
+            zip(["10%", "5%", "1%"], self.dist.ppf([0.9, 0.95, 0.99]), strict=False)
+        )
 
     @property
     def null(self) -> str:
@@ -196,14 +193,14 @@ def _parse_single(constraint: str) -> tuple[str, float]:
     parts = constraint.split("=")
     try:
         value = float(parts[-1])
-    except Exception:
-        raise TypeError(_constraint_error.format(cons=constraint))
+    except Exception as exc:
+        raise TypeError(_constraint_error.format(cons=constraint)) from exc
     expr = "=".join(parts[:-1])
     return expr, value
 
 
 def _reparse_constraint_formula(
-    formula: str | list[str] | dict[str, float]
+    formula: str | list[str] | dict[str, float],
 ) -> str | dict[str, float]:
     # TODO: Test against variable names constaining , or =
     if isinstance(formula, Mapping):

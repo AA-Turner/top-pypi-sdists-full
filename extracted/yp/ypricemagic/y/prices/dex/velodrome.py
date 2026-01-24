@@ -1,5 +1,4 @@
 import logging
-from typing import List, Optional, Set, Tuple
 
 import a_sync
 import dank_mids
@@ -43,10 +42,10 @@ class VelodromePool(UniswapV2Pool):
     def __init__(
         self,
         address: AnyAddressType,
-        token0: Optional[AnyAddressType] = None,
-        token1: Optional[AnyAddressType] = None,
-        stable: Optional[bool] = None,
-        deploy_block: Optional[int] = None,
+        token0: AnyAddressType | None = None,
+        token1: AnyAddressType | None = None,
+        stable: bool | None = None,
+        deploy_block: int | None = None,
         *,
         asynchronous: bool = False,
     ):
@@ -114,7 +113,7 @@ class VelodromeRouterV2(SolidlyRouterBase):
     @a_sync_ttl_cache
     async def pool_for(
         self, input_token: Address, output_token: Address, stable: bool
-    ) -> Optional[Address]:
+    ) -> Address | None:
         """
         Get the pool address for a given pair of tokens and stability preference.
 
@@ -148,7 +147,7 @@ class VelodromeRouterV2(SolidlyRouterBase):
     @eth_retry.auto_retry
     async def get_pool(
         self, input_token: Address, output_token: Address, stable: bool, block: Block
-    ) -> Optional[VelodromePool]:
+    ) -> VelodromePool | None:
         """
         Get the :class:`VelodromePool` instance for a given pair of tokens and stability preference.
 
@@ -176,7 +175,7 @@ class VelodromeRouterV2(SolidlyRouterBase):
 
     @a_sync.aka.cached_property
     @stuck_coro_debugger
-    async def pools(self) -> Set[VelodromePool]:
+    async def pools(self) -> set[VelodromePool]:
         """
         Fetch all Velodrome pools.
 
@@ -249,12 +248,12 @@ class VelodromeRouterV2(SolidlyRouterBase):
         )
         return pools
 
-    __pools__: HiddenMethodDescriptor[Self, Set[VelodromePool]]
+    __pools__: HiddenMethodDescriptor[Self, set[VelodromePool]]
 
     @stuck_coro_debugger
     async def get_routes_from_path(
         self, path: Path, block: Block
-    ) -> List[Tuple[Address, Address, bool]]:
+    ) -> list[tuple[Address, Address, bool]]:
         """
         Get the routes for a given path of tokens.
 
@@ -281,8 +280,8 @@ class VelodromeRouterV2(SolidlyRouterBase):
         for i in range(len(path) - 1):
             input_token, output_token = path[i], path[i + 1]
             # Try for a stable pool first and use that if available
-            stable_pool: Optional[VelodromePool]
-            unstable_pool: Optional[VelodromePool]
+            stable_pool: VelodromePool | None
+            unstable_pool: VelodromePool | None
             stable_pool, unstable_pool = await cgather(
                 self.get_pool(input_token, output_token, True, block, sync=False),
                 self.get_pool(input_token, output_token, False, block, sync=False),
@@ -352,7 +351,7 @@ class VelodromeRouterV2(SolidlyRouterBase):
         logger.debug("initing poolid %s", poolid)
 
         try:
-            pool = await self._all_pools.coroutine(poolid)
+            pool = await self._all_pools.coroutine([poolid])
         except ContractLogicError:
             # sometimes a failure returns None above,
             # sometimes it raises ContractLogicError.

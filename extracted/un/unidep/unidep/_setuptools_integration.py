@@ -11,16 +11,24 @@ import configparser
 import contextlib
 import os
 import sys
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, NamedTuple
 
+from ruamel.yaml import YAML
+
 from unidep._conflicts import resolve_conflicts
-from unidep._dependencies_parsing import parse_local_dependencies, parse_requirements
+from unidep._dependencies_parsing import (
+    _load,
+    get_local_dependencies,
+    parse_requirements,
+)
 from unidep.utils import (
     UnsupportedPlatformError,
     build_pep508_environment_marker,
     identify_current_platform,
+    is_pip_installable,
     parse_folder_or_filename,
+    split_path_and_extras,
     warn,
 )
 
@@ -94,7 +102,19 @@ class Dependencies(NamedTuple):
     extras: dict[str, list[str]]
 
 
-def get_python_dependencies(
+def _path_to_file_uri(path: PurePath) -> str:
+    """Return a RFC 8089 compliant file URI for an absolute path."""
+    # Keep in sync with CI helper and discussion in
+    # https://github.com/basnijholt/unidep/pull/214#issuecomment-2568663364
+    if isinstance(path, Path):
+        target = path if path.is_absolute() else path.resolve()
+        return target.as_uri()
+
+    uri_path = path.as_posix().lstrip("/")
+    return f"file:///{uri_path.replace(' ', '%20')}"
+
+
+def get_python_dependencies(  # noqa: PLR0912
     filename: str
     | Path
     | Literal["requirements.yaml", "pyproject.toml"] = "requirements.yaml",  # noqa: PYI051
@@ -133,24 +153,52 @@ def get_python_dependencies(
         section: filter_python_dependencies(resolve_conflicts(reqs, platforms))
         for section, reqs in requirements.optional_dependencies.items()
     }
-    if include_local_dependencies:
-        local_dependencies = parse_local_dependencies(
-            p.path_with_extras,
-            check_pip_installable=True,
-            verbose=verbose,
-            raise_if_missing=False,  # skip if local dep is not found
-            # We don't need to warn about skipping the dependencies of
-            # the local dependencies. That is only relevant for the
-            # `unidep install` commands.
-            warn_non_managed=False,
-        )
-        for paths in local_dependencies.values():
-            for path in paths:
-                name = _package_name_from_path(path)
-                # TODO: Consider doing this properly using pathname2url  # noqa: FIX002
-                # https://github.com/basnijholt/unidep/pull/214#issuecomment-2568663364
-                uri = path.as_posix().replace(" ", "%20")
-                dependencies.append(f"{name} @ file://{uri}")
+    # Always process local dependencies to handle PyPI alternatives
+    yaml = YAML(typ="rt")
+    data = _load(p.path, yaml)
+
+    # Process each local dependency
+    for local_dep_obj in get_local_dependencies(data):
+        if local_dep_obj.use == "skip":
+            continue
+        if local_dep_obj.use == "pypi":
+            # Already added to pip dependencies when parsing requirements.
+            continue
+        local_path, extras_list = split_path_and_extras(local_dep_obj.local)
+        abs_local = (p.path.parent / local_path).resolve()
+
+        # If include_local_dependencies is False (UNIDEP_SKIP_LOCAL_DEPS=1),
+        # always use PyPI alternative if available, skip otherwise
+        if not include_local_dependencies:
+            if local_dep_obj.pypi:
+                dependencies.append(local_dep_obj.pypi)
+            continue
+
+        # Original behavior when include_local_dependencies is True
+        # Handle wheel and zip files
+        if abs_local.suffix in (".whl", ".zip"):
+            if abs_local.exists():
+                # Local wheel exists - use it
+                uri = _path_to_file_uri(abs_local)
+                dependencies.append(f"{abs_local.name} @ {uri}")
+            elif local_dep_obj.pypi:
+                # Wheel doesn't exist - use PyPI alternative
+                dependencies.append(local_dep_obj.pypi)
+            continue
+
+        # Check if local path exists
+        if abs_local.exists() and is_pip_installable(abs_local):
+            # Local development - use file:// URL
+            name = _package_name_from_path(abs_local)
+            uri = _path_to_file_uri(abs_local)
+            dep_str = f"{name} @ {uri}"
+            if extras_list:
+                dep_str = f"{name}[{','.join(extras_list)}] @ {uri}"
+            dependencies.append(dep_str)
+        elif local_dep_obj.pypi:
+            # Built wheel - local path doesn't exist, use PyPI alternative
+            dependencies.append(local_dep_obj.pypi)
+        # else: path doesn't exist and no PyPI alternative - skip
 
     return Dependencies(dependencies=dependencies, extras=extras)
 

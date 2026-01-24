@@ -5,6 +5,7 @@ import requests
 import subprocess
 import sys
 import time
+from filelock import FileLock
 import selenium.webdriver.chrome.service
 import selenium.webdriver.chrome.webdriver
 import selenium.webdriver.common.service
@@ -117,6 +118,7 @@ class Chrome(selenium.webdriver.chrome.webdriver.WebDriver):
         self.patcher = None
         import fasteners
         from seleniumbase.fixtures import constants
+        from seleniumbase.fixtures import shared_utils
         if patch_driver:
             uc_lock = fasteners.InterProcessLock(
                 constants.MultiBrowser.DRIVER_FIXING_LOCK
@@ -161,7 +163,7 @@ class Chrome(selenium.webdriver.chrome.webdriver.WebDriver):
         from seleniumbase import config as sb_config
         if (
             (("-n" in sys.argv) or (" -n=" in arg_join) or ("-c" in sys.argv))
-            or (hasattr(sb_config, "multi_proxy") and sb_config.multi_proxy)
+            or getattr(sb_config, "multi_proxy", None)
             or not special_port_free
         ):
             debug_port = selenium.webdriver.common.service.utils.free_port()
@@ -195,9 +197,7 @@ class Chrome(selenium.webdriver.chrome.webdriver.WebDriver):
                 except IndexError:
                     pass
         if not user_data_dir:
-            if hasattr(options, "user_data_dir") and getattr(
-                options, "user_data_dir", None
-            ):
+            if getattr(options, "user_data_dir", None):
                 options.add_argument(
                     "--user-data-dir=%s" % options.user_data_dir
                 )
@@ -284,10 +284,11 @@ class Chrome(selenium.webdriver.chrome.webdriver.WebDriver):
                     options.binary_location, *options.arguments
                 )
             else:
-                gui_lock = fasteners.InterProcessLock(
-                    constants.MultiBrowser.PYAUTOGUILOCK
-                )
+                gui_lock = FileLock(constants.MultiBrowser.PYAUTOGUILOCK)
                 with gui_lock:
+                    shared_utils.make_writable(
+                        constants.MultiBrowser.PYAUTOGUILOCK
+                    )
                     browser = subprocess.Popen(
                         [options.binary_location, *options.arguments],
                         stdin=subprocess.PIPE,
@@ -402,9 +403,7 @@ class Chrome(selenium.webdriver.chrome.webdriver.WebDriver):
 
     def add_cdp_listener(self, event_name, callback):
         if (
-            hasattr(self, "reactor")
-            and self.reactor
-            and self.reactor is not None
+            getattr(self, "reactor", None)
             and isinstance(self.reactor, Reactor)
         ):
             self.reactor.add_event_handler(event_name, callback)
@@ -413,8 +412,7 @@ class Chrome(selenium.webdriver.chrome.webdriver.WebDriver):
 
     def clear_cdp_listeners(self):
         if (
-            hasattr(self, "reactor")
-            and self.reactor
+            getattr(self, "reactor", None)
             and isinstance(self.reactor, Reactor)
         ):
             self.reactor.handlers.clear()
@@ -523,7 +521,13 @@ class Chrome(selenium.webdriver.chrome.webdriver.WebDriver):
         with suppress(Exception):
             for window_handle in self.window_handles:
                 self.switch_to.window(window_handle)
-                if self.current_url.startswith("chrome-extension://"):
+                current_url = None
+                if hasattr(self, "cdp") and hasattr(self.cdp, "driver"):
+                    with suppress(Exception):
+                        current_url = self.cdp.get_current_url()
+                if not current_url:
+                    current_url = self.current_url
+                if current_url.startswith("chrome-extension://"):
                     # https://issues.chromium.org/issues/396611138
                     # (Remove the Linux conditional when resolved)
                     # (So that close() is always called)

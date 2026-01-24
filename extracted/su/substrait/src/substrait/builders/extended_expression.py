@@ -1,17 +1,19 @@
-from datetime import date
 import itertools
+from datetime import date
+from typing import Any, Callable, Iterable, Union
+
 import substrait.gen.proto.algebra_pb2 as stalg
-import substrait.gen.proto.type_pb2 as stp
 import substrait.gen.proto.extended_expression_pb2 as stee
 import substrait.gen.proto.extensions.extensions_pb2 as ste
+import substrait.gen.proto.type_pb2 as stp
 from substrait.extension_registry import ExtensionRegistry
-from substrait.utils import (
-    type_num_names,
-    merge_extension_uris,
-    merge_extension_declarations,
-)
 from substrait.type_inference import infer_extended_expression_schema
-from typing import Callable, Any, Union, Iterable
+from substrait.utils import (
+    merge_extension_declarations,
+    merge_extension_uris,
+    merge_extension_urns,
+    type_num_names,
+)
 
 UnboundExtendedExpression = Callable[
     [stp.NamedStruct, ExtensionRegistry], stee.ExtendedExpression
@@ -20,7 +22,7 @@ ExtendedExpressionOrUnbound = Union[stee.ExtendedExpression, UnboundExtendedExpr
 
 
 def _alias_or_inferred(
-    alias: Union[Iterable[str], str],
+    alias: Union[Iterable[str], str, None],
     op: str,
     args: Iterable[str],
 ):
@@ -43,7 +45,7 @@ def resolve_expression(
 
 
 def literal(
-    value: Any, type: stp.Type, alias: Union[Iterable[str], str] = None
+    value: Any, type: stp.Type, alias: Union[Iterable[str], str, None] = None
 ) -> UnboundExtendedExpression:
     """Builds a resolver for ExtendedExpression containing a literal expression"""
 
@@ -153,7 +155,7 @@ def literal(
     return resolve
 
 
-def column(field: Union[str, int], alias: Union[Iterable[str], str] = None):
+def column(field: Union[str, int], alias: Union[Iterable[str], str, None] = None):
     """Builds a resolver for ExtendedExpression containing a FieldReference expression
 
     Accepts either an index or a field name of a desired field.
@@ -204,10 +206,10 @@ def column(field: Union[str, int], alias: Union[Iterable[str], str] = None):
 
 
 def scalar_function(
-    uri: str,
+    urn: str,
     function: str,
     expressions: Iterable[ExtendedExpressionOrUnbound],
-    alias: Union[Iterable[str], str] = None,
+    alias: Union[Iterable[str], str, None] = None,
 ):
     """Builds a resolver for ExtendedExpression containing a ScalarFunction expression"""
 
@@ -224,26 +226,43 @@ def scalar_function(
 
         signature = [typ for es in expression_schemas for typ in es.types]
 
-        func = registry.lookup_function(uri, function, signature)
+        func = registry.lookup_function(urn, function, signature)
 
         if not func:
             raise Exception(f"Unknown function {function} for {signature}")
 
-        func_extension_uris = [
-            ste.SimpleExtensionURI(
-                extension_uri_anchor=registry.lookup_uri(uri), uri=uri
+        func_extension_urns = [
+            ste.SimpleExtensionURN(
+                extension_urn_anchor=registry.lookup_urn(urn), urn=urn
             )
         ]
+
+        # Create URI extension for backwards compatibility during URI -> URN migration
+        uri = registry._uri_urn_bimap.get_uri(urn)
+        func_extension_uris = []
+        if uri:
+            uri_anchor = registry.lookup_uri_anchor(uri)
+            if uri_anchor:
+                func_extension_uris = [
+                    ste.SimpleExtensionURI(extension_uri_anchor=uri_anchor, uri=uri)
+                ]
 
         func_extensions = [
             ste.SimpleExtensionDeclaration(
                 extension_function=ste.SimpleExtensionDeclaration.ExtensionFunction(
-                    extension_uri_reference=registry.lookup_uri(uri),
+                    extension_urn_reference=registry.lookup_urn(urn),
+                    extension_uri_reference=registry.lookup_uri_anchor(uri)
+                    if uri
+                    else 0,
                     function_anchor=func[0].anchor,
-                    name=function,
+                    name=str(func[0]),
                 )
             )
         ]
+
+        extension_urns = merge_extension_urns(
+            func_extension_urns, *[b.extension_urns for b in bound_expressions]
+        )
 
         extension_uris = merge_extension_uris(
             func_extension_uris, *[b.extension_uris for b in bound_expressions]
@@ -276,6 +295,7 @@ def scalar_function(
                 )
             ],
             base_schema=base_schema,
+            extension_urns=extension_urns,
             extension_uris=extension_uris,
             extensions=extensions,
         )
@@ -284,10 +304,10 @@ def scalar_function(
 
 
 def aggregate_function(
-    uri: str,
+    urn: str,
     function: str,
     expressions: Iterable[ExtendedExpressionOrUnbound],
-    alias: Union[Iterable[str], str] = None,
+    alias: Union[Iterable[str], str, None] = None,
 ):
     """Builds a resolver for ExtendedExpression containing a AggregateFunction measure"""
 
@@ -304,26 +324,43 @@ def aggregate_function(
 
         signature = [typ for es in expression_schemas for typ in es.types]
 
-        func = registry.lookup_function(uri, function, signature)
+        func = registry.lookup_function(urn, function, signature)
 
         if not func:
             raise Exception(f"Unknown function {function} for {signature}")
 
-        func_extension_uris = [
-            ste.SimpleExtensionURI(
-                extension_uri_anchor=registry.lookup_uri(uri), uri=uri
+        func_extension_urns = [
+            ste.SimpleExtensionURN(
+                extension_urn_anchor=registry.lookup_urn(urn), urn=urn
             )
         ]
+
+        # Create URI extension for backwards compatibility during URI -> URN migration
+        uri = registry._uri_urn_bimap.get_uri(urn)
+        func_extension_uris = []
+        if uri:
+            uri_anchor = registry.lookup_uri_anchor(uri)
+            if uri_anchor:
+                func_extension_uris = [
+                    ste.SimpleExtensionURI(extension_uri_anchor=uri_anchor, uri=uri)
+                ]
 
         func_extensions = [
             ste.SimpleExtensionDeclaration(
                 extension_function=ste.SimpleExtensionDeclaration.ExtensionFunction(
-                    extension_uri_reference=registry.lookup_uri(uri),
+                    extension_urn_reference=registry.lookup_urn(urn),
+                    extension_uri_reference=registry.lookup_uri_anchor(uri)
+                    if uri
+                    else 0,
                     function_anchor=func[0].anchor,
-                    name=function,
+                    name=str(func[0]),
                 )
             )
         ]
+
+        extension_urns = merge_extension_urns(
+            func_extension_urns, *[b.extension_urns for b in bound_expressions]
+        )
 
         extension_uris = merge_extension_uris(
             func_extension_uris, *[b.extension_uris for b in bound_expressions]
@@ -352,6 +389,7 @@ def aggregate_function(
                 )
             ],
             base_schema=base_schema,
+            extension_urns=extension_urns,
             extension_uris=extension_uris,
             extensions=extensions,
         )
@@ -361,11 +399,11 @@ def aggregate_function(
 
 # TODO bounds, sorts
 def window_function(
-    uri: str,
+    urn: str,
     function: str,
     expressions: Iterable[ExtendedExpressionOrUnbound],
     partitions: Iterable[ExtendedExpressionOrUnbound] = [],
-    alias: Union[Iterable[str], str] = None,
+    alias: Union[Iterable[str], str, None] = None,
 ):
     """Builds a resolver for ExtendedExpression containing a WindowFunction expression"""
 
@@ -386,26 +424,45 @@ def window_function(
 
         signature = [typ for es in expression_schemas for typ in es.types]
 
-        func = registry.lookup_function(uri, function, signature)
+        func = registry.lookup_function(urn, function, signature)
 
         if not func:
             raise Exception(f"Unknown function {function} for {signature}")
 
-        func_extension_uris = [
-            ste.SimpleExtensionURI(
-                extension_uri_anchor=registry.lookup_uri(uri), uri=uri
+        func_extension_urns = [
+            ste.SimpleExtensionURN(
+                extension_urn_anchor=registry.lookup_urn(urn), urn=urn
             )
         ]
+
+        # Create URI extension for backwards compatibility during URI -> URN migration
+        uri = registry._uri_urn_bimap.get_uri(urn)
+        func_extension_uris = []
+        if uri:
+            uri_anchor = registry.lookup_uri_anchor(uri)
+            if uri_anchor:
+                func_extension_uris = [
+                    ste.SimpleExtensionURI(extension_uri_anchor=uri_anchor, uri=uri)
+                ]
 
         func_extensions = [
             ste.SimpleExtensionDeclaration(
                 extension_function=ste.SimpleExtensionDeclaration.ExtensionFunction(
-                    extension_uri_reference=registry.lookup_uri(uri),
+                    extension_urn_reference=registry.lookup_urn(urn),
+                    extension_uri_reference=registry.lookup_uri_anchor(uri)
+                    if uri
+                    else 0,
                     function_anchor=func[0].anchor,
-                    name=function,
+                    name=str(func[0]),
                 )
             )
         ]
+
+        extension_urns = merge_extension_urns(
+            func_extension_urns,
+            *[b.extension_urns for b in bound_expressions],
+            *[b.extension_urns for b in bound_partitions],
+        )
 
         extension_uris = merge_extension_uris(
             func_extension_uris,
@@ -445,6 +502,7 @@ def window_function(
                 )
             ],
             base_schema=base_schema,
+            extension_urns=extension_urns,
             extension_uris=extension_uris,
             extensions=extensions,
         )
@@ -455,7 +513,7 @@ def window_function(
 def if_then(
     ifs: Iterable[tuple[ExtendedExpressionOrUnbound, ExtendedExpressionOrUnbound]],
     _else: ExtendedExpressionOrUnbound,
-    alias: Union[Iterable[str], str] = None,
+    alias: Union[Iterable[str], str, None] = None,
 ):
     """Builds a resolver for ExtendedExpression containing an IfThen expression"""
 
@@ -476,6 +534,12 @@ def if_then(
             *[b[0].extension_uris for b in bound_ifs],
             *[b[1].extension_uris for b in bound_ifs],
             bound_else.extension_uris,
+        )
+
+        extension_urns = merge_extension_urns(
+            *[b[0].extension_urns for b in bound_ifs],
+            *[b[1].extension_urns for b in bound_ifs],
+            bound_else.extension_urns,
         )
 
         extensions = merge_extension_declarations(
@@ -524,6 +588,7 @@ def if_then(
             ],
             base_schema=base_schema,
             extension_uris=extension_uris,
+            extension_urns=extension_urns,
             extensions=extensions,
         )
 
@@ -556,6 +621,12 @@ def switch(
             bound_else.extension_uris,
         )
 
+        extension_urns = merge_extension_urns(
+            bound_match.extension_urns,
+            *[b.extension_urns for _, b in bound_ifs],
+            bound_else.extension_urns,
+        )
+
         extensions = merge_extension_declarations(
             bound_match.extensions,
             *[b.extensions for _, b in bound_ifs],
@@ -584,6 +655,7 @@ def switch(
                 )
             ],
             base_schema=base_schema,
+            extension_urns=extension_urns,
             extension_uris=extension_uris,
             extensions=extensions,
         )
@@ -604,6 +676,10 @@ def singular_or_list(
 
         extension_uris = merge_extension_uris(
             bound_value.extension_uris, *[b.extension_uris for b in bound_options]
+        )
+
+        extension_urns = merge_extension_urns(
+            bound_value.extension_urns, *[b.extension_urns for b in bound_options]
         )
 
         extensions = merge_extension_declarations(
@@ -627,6 +703,7 @@ def singular_or_list(
                 )
             ],
             base_schema=base_schema,
+            extension_urns=extension_urns,
             extension_uris=extension_uris,
             extensions=extensions,
         )
@@ -653,7 +730,12 @@ def multi_or_list(
             *[e.extension_uris for b in bound_options for e in b],
         )
 
-        extensions = merge_extension_uris(
+        extension_urns = merge_extension_urns(
+            *[b.extension_urns for b in bound_value],
+            *[e.extension_urns for b in bound_options for e in b],
+        )
+
+        extensions = merge_extension_declarations(
             *[b.extensions for b in bound_value],
             *[e.extensions for b in bound_options for e in b],
         )
@@ -678,6 +760,7 @@ def multi_or_list(
                 )
             ],
             base_schema=base_schema,
+            extension_urns=extension_urns,
             extension_uris=extension_uris,
             extensions=extensions,
         )
@@ -685,7 +768,11 @@ def multi_or_list(
     return resolve
 
 
-def cast(input: ExtendedExpressionOrUnbound, type: stp.Type):
+def cast(
+    input: ExtendedExpressionOrUnbound,
+    type: stp.Type,
+    alias: Union[Iterable[str], str, None] = None,
+):
     """Builds a resolver for ExtendedExpression containing a cast expression"""
 
     def resolve(
@@ -703,10 +790,13 @@ def cast(input: ExtendedExpressionOrUnbound, type: stp.Type):
                             failure_behavior=stalg.Expression.Cast.FAILURE_BEHAVIOR_RETURN_NULL,
                         )
                     ),
-                    output_names=["cast"],  # TODO construct name from inputs
+                    output_names=_alias_or_inferred(
+                        alias, "cast", [bound_input.referred_expr[0].output_names[0]]
+                    ),
                 )
             ],
             base_schema=base_schema,
+            extension_urns=bound_input.extension_urns,
             extension_uris=bound_input.extension_uris,
             extensions=bound_input.extensions,
         )

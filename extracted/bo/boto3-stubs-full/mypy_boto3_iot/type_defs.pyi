@@ -3,7 +3,7 @@ Type annotations for iot service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -45,6 +46,8 @@ from .literals import (
     CertificateStatusType,
     CommandExecutionStatusType,
     CommandNamespaceType,
+    CommandParameterTypeType,
+    CommandParameterValueComparisonOperatorType,
     ComparisonOperatorType,
     ConfidenceLevelType,
     ConfigNameType,
@@ -76,6 +79,7 @@ from .literals import (
     ModelStatusType,
     NamedShadowIndexingModeType,
     OTAUpdateStatusType,
+    OutputFormatType,
     PackageVersionActionType,
     PackageVersionStatusType,
     ProtocolType,
@@ -101,12 +105,6 @@ from .literals import (
     ViolationEventTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -172,6 +170,8 @@ __all__ = (
     "AwsJobPresignedUrlConfigTypeDef",
     "AwsJobRateIncreaseCriteriaTypeDef",
     "AwsJobTimeoutConfigTypeDef",
+    "AwsJsonSubstitutionCommandPreprocessorConfigTypeDef",
+    "BatchConfigTypeDef",
     "BehaviorCriteriaOutputTypeDef",
     "BehaviorCriteriaTypeDef",
     "BehaviorCriteriaUnionTypeDef",
@@ -213,12 +213,20 @@ __all__ = (
     "CommandParameterOutputTypeDef",
     "CommandParameterTypeDef",
     "CommandParameterUnionTypeDef",
+    "CommandParameterValueComparisonOperandOutputTypeDef",
+    "CommandParameterValueComparisonOperandTypeDef",
+    "CommandParameterValueComparisonOperandUnionTypeDef",
+    "CommandParameterValueConditionOutputTypeDef",
+    "CommandParameterValueConditionTypeDef",
+    "CommandParameterValueConditionUnionTypeDef",
+    "CommandParameterValueNumberRangeTypeDef",
     "CommandParameterValueOutputTypeDef",
     "CommandParameterValueTypeDef",
     "CommandParameterValueUnionTypeDef",
     "CommandPayloadOutputTypeDef",
     "CommandPayloadTypeDef",
     "CommandPayloadUnionTypeDef",
+    "CommandPreprocessorTypeDef",
     "CommandSummaryTypeDef",
     "ConfigurationDetailsTypeDef",
     "ConfigurationTypeDef",
@@ -461,6 +469,7 @@ __all__ = (
     "GetTopicRuleDestinationResponseTypeDef",
     "GetTopicRuleRequestTypeDef",
     "GetTopicRuleResponseTypeDef",
+    "GetV2LoggingOptionsRequestTypeDef",
     "GetV2LoggingOptionsResponseTypeDef",
     "GroupNameAndArnTypeDef",
     "HttpActionHeaderTypeDef",
@@ -696,6 +705,7 @@ __all__ = (
     "ListViolationEventsResponseTypeDef",
     "LocationActionTypeDef",
     "LocationTimestampTypeDef",
+    "LogEventConfigurationTypeDef",
     "LogTargetConfigurationTypeDef",
     "LogTargetTypeDef",
     "LoggingOptionsPayloadTypeDef",
@@ -1044,11 +1054,11 @@ class StepFunctionsActionTypeDef(TypedDict):
 
 class MetricValueOutputTypeDef(TypedDict):
     count: NotRequired[int]
-    cidrs: NotRequired[List[str]]
-    ports: NotRequired[List[int]]
+    cidrs: NotRequired[list[str]]
+    ports: NotRequired[list[int]]
     number: NotRequired[float]
-    numbers: NotRequired[List[float]]
-    strings: NotRequired[List[str]]
+    numbers: NotRequired[list[float]]
+    strings: NotRequired[list[str]]
 
 class ViolationEventAdditionalInfoTypeDef(TypedDict):
     confidenceLevel: NotRequired[ConfidenceLevelType]
@@ -1067,7 +1077,7 @@ class AddThingToThingGroupRequestTypeDef(TypedDict):
     overrideDynamicGroups: NotRequired[bool]
 
 class AddThingsToThingGroupParamsOutputTypeDef(TypedDict):
-    thingGroupNames: List[str]
+    thingGroupNames: list[str]
     overrideDynamicGroups: NotRequired[bool]
 
 class AddThingsToThingGroupParamsTypeDef(TypedDict):
@@ -1076,7 +1086,7 @@ class AddThingsToThingGroupParamsTypeDef(TypedDict):
 
 class AggregationTypeOutputTypeDef(TypedDict):
     name: AggregationTypeNameType
-    values: NotRequired[List[str]]
+    values: NotRequired[list[str]]
 
 class AggregationTypeTypeDef(TypedDict):
     name: AggregationTypeNameType
@@ -1103,7 +1113,7 @@ class AssetPropertyVariantTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -1131,7 +1141,7 @@ class AttachThingPrincipalRequestTypeDef(TypedDict):
     thingPrincipalType: NotRequired[ThingPrincipalTypeType]
 
 class AttributePayloadOutputTypeDef(TypedDict):
-    attributes: NotRequired[Dict[str, str]]
+    attributes: NotRequired[dict[str, str]]
     merge: NotRequired[bool]
 
 class AttributePayloadTypeDef(TypedDict):
@@ -1140,7 +1150,7 @@ class AttributePayloadTypeDef(TypedDict):
 
 class AuditCheckConfigurationOutputTypeDef(TypedDict):
     enabled: NotRequired[bool]
-    configuration: NotRequired[Dict[ConfigNameType, str]]
+    configuration: NotRequired[dict[ConfigNameType, str]]
 
 class AuditCheckConfigurationTypeDef(TypedDict):
     enabled: NotRequired[bool]
@@ -1173,8 +1183,8 @@ class AuditMitigationActionsTaskMetadataTypeDef(TypedDict):
 
 class AuditMitigationActionsTaskTargetOutputTypeDef(TypedDict):
     auditTaskId: NotRequired[str]
-    findingIds: NotRequired[List[str]]
-    auditCheckToReasonCodeFilter: NotRequired[Dict[str, List[str]]]
+    findingIds: NotRequired[list[str]]
+    auditCheckToReasonCodeFilter: NotRequired[dict[str, list[str]]]
 
 class AuditMitigationActionsTaskTargetTypeDef(TypedDict):
     auditTaskId: NotRequired[str]
@@ -1192,7 +1202,7 @@ class AuditTaskMetadataTypeDef(TypedDict):
     taskType: NotRequired[AuditTaskTypeType]
 
 class AuthInfoOutputTypeDef(TypedDict):
-    resources: List[str]
+    resources: list[str]
     actionType: NotRequired[ActionTypeType]
 
 class AuthInfoTypeDef(TypedDict):
@@ -1208,7 +1218,7 @@ class AuthorizerDescriptionTypeDef(TypedDict):
     authorizerArn: NotRequired[str]
     authorizerFunctionArn: NotRequired[str]
     tokenKeyName: NotRequired[str]
-    tokenSigningPublicKeys: NotRequired[Dict[str, str]]
+    tokenSigningPublicKeys: NotRequired[dict[str, str]]
     status: NotRequired[AuthorizerStatusType]
     creationDate: NotRequired[datetime]
     lastModifiedDate: NotRequired[datetime]
@@ -1234,6 +1244,14 @@ class AwsJobPresignedUrlConfigTypeDef(TypedDict):
 
 class AwsJobTimeoutConfigTypeDef(TypedDict):
     inProgressTimeoutInMinutes: NotRequired[int]
+
+class AwsJsonSubstitutionCommandPreprocessorConfigTypeDef(TypedDict):
+    outputFormat: OutputFormatType
+
+class BatchConfigTypeDef(TypedDict):
+    maxBatchOpenMs: NotRequired[int]
+    maxBatchSize: NotRequired[int]
+    maxBatchSizeBytes: NotRequired[int]
 
 class MachineLearningDetectionConfigTypeDef(TypedDict):
     confidenceLevel: ConfidenceLevelType
@@ -1357,6 +1375,14 @@ class CommandParameterValueOutputTypeDef(TypedDict):
     D: NotRequired[float]
     BIN: NotRequired[bytes]
     UL: NotRequired[str]
+
+CommandParameterValueNumberRangeTypeDef = TypedDict(
+    "CommandParameterValueNumberRangeTypeDef",
+    {
+        "min": str,
+        "max": str,
+    },
+)
 
 class CommandPayloadOutputTypeDef(TypedDict):
     content: NotRequired[bytes]
@@ -1752,7 +1778,7 @@ class DetectMitigationActionsTaskStatisticsTypeDef(TypedDict):
     actionsFailed: NotRequired[int]
 
 class DetectMitigationActionsTaskTargetOutputTypeDef(TypedDict):
-    violationIds: NotRequired[List[str]]
+    violationIds: NotRequired[list[str]]
     securityProfileName: NotRequired[str]
     behaviorName: NotRequired[str]
 
@@ -1924,6 +1950,14 @@ class GetTopicRuleDestinationRequestTypeDef(TypedDict):
 class GetTopicRuleRequestTypeDef(TypedDict):
     ruleName: str
 
+class GetV2LoggingOptionsRequestTypeDef(TypedDict):
+    verbose: NotRequired[bool]
+
+class LogEventConfigurationTypeDef(TypedDict):
+    eventType: str
+    logLevel: NotRequired[LogLevelType]
+    logDestination: NotRequired[str]
+
 class GroupNameAndArnTypeDef(TypedDict):
     groupName: NotRequired[str]
     groupArn: NotRequired[str]
@@ -1956,7 +1990,7 @@ class IssuerCertificateIdentifierTypeDef(TypedDict):
     issuerCertificateSerialNumber: NotRequired[str]
 
 class JobExecutionStatusDetailsTypeDef(TypedDict):
-    detailsMap: NotRequired[Dict[str, str]]
+    detailsMap: NotRequired[dict[str, str]]
 
 class JobExecutionSummaryTypeDef(TypedDict):
     status: NotRequired[JobExecutionStatusType]
@@ -1971,7 +2005,7 @@ class RetryCriteriaTypeDef(TypedDict):
     numberOfRetries: int
 
 class JobProcessDetailsTypeDef(TypedDict):
-    processingTargets: NotRequired[List[str]]
+    processingTargets: NotRequired[list[str]]
     numberOfCanceledThings: NotRequired[int]
     numberOfSucceededThings: NotRequired[int]
     numberOfFailedThings: NotRequired[int]
@@ -2127,7 +2161,7 @@ class ManagedJobTemplateSummaryTypeDef(TypedDict):
     templateArn: NotRequired[str]
     templateName: NotRequired[str]
     description: NotRequired[str]
-    environments: NotRequired[List[str]]
+    environments: NotRequired[list[str]]
     templateVersion: NotRequired[str]
 
 class ListMitigationActionsRequestTypeDef(TypedDict):
@@ -2397,7 +2431,7 @@ class ThingAttributeTypeDef(TypedDict):
     thingName: NotRequired[str]
     thingTypeName: NotRequired[str]
     thingArn: NotRequired[str]
-    attributes: NotRequired[Dict[str, str]]
+    attributes: NotRequired[dict[str, str]]
     version: NotRequired[int]
 
 class ListTopicRuleDestinationsRequestTypeDef(TypedDict):
@@ -2513,8 +2547,8 @@ class ThingGroupDocumentTypeDef(TypedDict):
     thingGroupName: NotRequired[str]
     thingGroupId: NotRequired[str]
     thingGroupDescription: NotRequired[str]
-    attributes: NotRequired[Dict[str, str]]
-    parentGroupNames: NotRequired[List[str]]
+    attributes: NotRequired[dict[str, str]]
+    parentGroupNames: NotRequired[list[str]]
 
 class SetDefaultAuthorizerRequestTypeDef(TypedDict):
     authorizerName: str
@@ -2522,11 +2556,6 @@ class SetDefaultAuthorizerRequestTypeDef(TypedDict):
 class SetDefaultPolicyVersionRequestTypeDef(TypedDict):
     policyName: str
     policyVersionId: str
-
-class SetV2LoggingOptionsRequestTypeDef(TypedDict):
-    roleArn: NotRequired[str]
-    defaultLogLevel: NotRequired[LogLevelType]
-    disableAllLogs: NotRequired[bool]
 
 class SigningProfileParameterTypeDef(TypedDict):
     certificateArn: NotRequired[str]
@@ -2568,14 +2597,14 @@ class VpcDestinationConfigurationTypeDef(TypedDict):
     securityGroups: NotRequired[Sequence[str]]
 
 class VpcDestinationSummaryTypeDef(TypedDict):
-    subnetIds: NotRequired[List[str]]
-    securityGroups: NotRequired[List[str]]
+    subnetIds: NotRequired[list[str]]
+    securityGroups: NotRequired[list[str]]
     vpcId: NotRequired[str]
     roleArn: NotRequired[str]
 
 class VpcDestinationPropertiesTypeDef(TypedDict):
-    subnetIds: NotRequired[List[str]]
-    securityGroups: NotRequired[List[str]]
+    subnetIds: NotRequired[list[str]]
+    securityGroups: NotRequired[list[str]]
     vpcId: NotRequired[str]
     roleArn: NotRequired[str]
 
@@ -2657,7 +2686,7 @@ class ValidationErrorTypeDef(TypedDict):
     errorMessage: NotRequired[str]
 
 class AbortConfigOutputTypeDef(TypedDict):
-    criteriaList: List[AbortCriteriaTypeDef]
+    criteriaList: list[AbortCriteriaTypeDef]
 
 class AbortConfigTypeDef(TypedDict):
     criteriaList: Sequence[AbortCriteriaTypeDef]
@@ -2669,13 +2698,13 @@ class MetricDatumTypeDef(TypedDict):
 AggregationTypeUnionTypeDef = Union[AggregationTypeTypeDef, AggregationTypeOutputTypeDef]
 
 class AllowedTypeDef(TypedDict):
-    policies: NotRequired[List[PolicyTypeDef]]
+    policies: NotRequired[list[PolicyTypeDef]]
 
 class ExplicitDenyTypeDef(TypedDict):
-    policies: NotRequired[List[PolicyTypeDef]]
+    policies: NotRequired[list[PolicyTypeDef]]
 
 class ImplicitDenyTypeDef(TypedDict):
-    policies: NotRequired[List[PolicyTypeDef]]
+    policies: NotRequired[list[PolicyTypeDef]]
 
 class AssetPropertyValueTypeDef(TypedDict):
     value: AssetPropertyVariantTypeDef
@@ -2785,7 +2814,7 @@ class CreatePackageVersionResponseTypeDef(TypedDict):
     packageName: str
     versionName: str
     description: str
-    attributes: Dict[str, str]
+    attributes: dict[str, str]
     status: PackageVersionStatusType
     errorReason: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2864,7 +2893,7 @@ class DescribeCertificateProviderResponseTypeDef(TypedDict):
     certificateProviderName: str
     certificateProviderArn: str
     lambdaFunctionArn: str
-    accountDefaultForOperations: List[Literal["CreateCertificateFromCsr"]]
+    accountDefaultForOperations: list[Literal["CreateCertificateFromCsr"]]
     creationDate: datetime
     lastModifiedDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2884,7 +2913,7 @@ DescribeDimensionResponseTypeDef = TypedDict(
         "name": str,
         "arn": str,
         "type": Literal["TOPIC_FILTER"],
-        "stringValues": List[str],
+        "stringValues": list[str],
         "creationDate": datetime,
         "lastModifiedDate": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -2928,7 +2957,7 @@ class DescribeScheduledAuditResponseTypeDef(TypedDict):
     frequency: AuditFrequencyType
     dayOfMonth: str
     dayOfWeek: DayOfWeekType
-    targetCheckNames: List[str]
+    targetCheckNames: list[str]
     scheduledAuditName: str
     scheduledAuditArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2954,7 +2983,7 @@ class DescribeThingResponseTypeDef(TypedDict):
     thingId: str
     thingArn: str
     thingTypeName: str
-    attributes: Dict[str, str]
+    attributes: dict[str, str]
     version: int
     billingGroupName: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3016,85 +3045,79 @@ class GetThingConnectivityDataResponseTypeDef(TypedDict):
     disconnectReason: DisconnectReasonValueType
     ResponseMetadata: ResponseMetadataTypeDef
 
-class GetV2LoggingOptionsResponseTypeDef(TypedDict):
-    roleArn: str
-    defaultLogLevel: LogLevelType
-    disableAllLogs: bool
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class ListAttachedPoliciesResponseTypeDef(TypedDict):
-    policies: List[PolicyTypeDef]
+    policies: list[PolicyTypeDef]
     nextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCustomMetricsResponseTypeDef(TypedDict):
-    metricNames: List[str]
+    metricNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListDimensionsResponseTypeDef(TypedDict):
-    dimensionNames: List[str]
+    dimensionNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListIndicesResponseTypeDef(TypedDict):
-    indexNames: List[str]
+    indexNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListPoliciesResponseTypeDef(TypedDict):
-    policies: List[PolicyTypeDef]
+    policies: list[PolicyTypeDef]
     nextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListPolicyPrincipalsResponseTypeDef(TypedDict):
-    principals: List[str]
+    principals: list[str]
     nextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListPrincipalPoliciesResponseTypeDef(TypedDict):
-    policies: List[PolicyTypeDef]
+    policies: list[PolicyTypeDef]
     nextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListPrincipalThingsResponseTypeDef(TypedDict):
-    things: List[str]
+    things: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListRoleAliasesResponseTypeDef(TypedDict):
-    roleAliases: List[str]
+    roleAliases: list[str]
     nextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTargetsForPolicyResponseTypeDef(TypedDict):
-    targets: List[str]
+    targets: list[str]
     nextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListThingPrincipalsResponseTypeDef(TypedDict):
-    principals: List[str]
+    principals: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListThingRegistrationTaskReportsResponseTypeDef(TypedDict):
-    resourceLinks: List[str]
+    resourceLinks: list[str]
     reportType: ReportTypeType
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListThingRegistrationTasksResponseTypeDef(TypedDict):
-    taskIds: List[str]
+    taskIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListThingsInBillingGroupResponseTypeDef(TypedDict):
-    things: List[str]
+    things: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListThingsInThingGroupResponseTypeDef(TypedDict):
-    things: List[str]
+    things: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3115,7 +3138,7 @@ class RegisterCertificateWithoutCAResponseTypeDef(TypedDict):
 
 class RegisterThingResponseTypeDef(TypedDict):
     certificatePem: str
-    resourceArns: Dict[str, str]
+    resourceArns: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SetDefaultAuthorizerResponseTypeDef(TypedDict):
@@ -3142,7 +3165,7 @@ class StartThingRegistrationTaskResponseTypeDef(TypedDict):
 class TestInvokeAuthorizerResponseTypeDef(TypedDict):
     isAuthenticated: bool
     principalId: str
-    policyDocuments: List[str]
+    policyDocuments: list[str]
     refreshAfterInSeconds: int
     disconnectAfterInSeconds: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3188,7 +3211,7 @@ UpdateDimensionResponseTypeDef = TypedDict(
         "name": str,
         "arn": str,
         "type": Literal["TOPIC_FILTER"],
-        "stringValues": List[str],
+        "stringValues": list[str],
         "creationDate": datetime,
         "lastModifiedDate": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -3244,12 +3267,12 @@ AuditCheckConfigurationUnionTypeDef = Union[
 ]
 
 class ListAuditMitigationActionsExecutionsResponseTypeDef(TypedDict):
-    actionsExecutions: List[AuditMitigationActionExecutionMetadataTypeDef]
+    actionsExecutions: list[AuditMitigationActionExecutionMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAuditMitigationActionsTasksResponseTypeDef(TypedDict):
-    tasks: List[AuditMitigationActionsTaskMetadataTypeDef]
+    tasks: list[AuditMitigationActionsTaskMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3259,12 +3282,12 @@ AuditMitigationActionsTaskTargetUnionTypeDef = Union[
 
 class DescribeAccountAuditConfigurationResponseTypeDef(TypedDict):
     roleArn: str
-    auditNotificationTargetConfigurations: Dict[Literal["SNS"], AuditNotificationTargetTypeDef]
-    auditCheckConfigurations: Dict[str, AuditCheckConfigurationOutputTypeDef]
+    auditNotificationTargetConfigurations: dict[Literal["SNS"], AuditNotificationTargetTypeDef]
+    auditCheckConfigurations: dict[str, AuditCheckConfigurationOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAuditTasksResponseTypeDef(TypedDict):
-    tasks: List[AuditTaskMetadataTypeDef]
+    tasks: list[AuditTaskMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3279,7 +3302,7 @@ class DescribeDefaultAuthorizerResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAuthorizersResponseTypeDef(TypedDict):
-    authorizers: List[AuthorizerSummaryTypeDef]
+    authorizers: list[AuthorizerSummaryTypeDef]
     nextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3291,6 +3314,9 @@ class AwsJobExponentialRolloutRateTypeDef(TypedDict):
     incrementFactor: float
     rateIncreaseCriteria: AwsJobRateIncreaseCriteriaTypeDef
 
+class CommandPreprocessorTypeDef(TypedDict):
+    awsJsonSubstitution: NotRequired[AwsJsonSubstitutionCommandPreprocessorConfigTypeDef]
+
 class BehaviorCriteriaOutputTypeDef(TypedDict):
     comparisonOperator: NotRequired[ComparisonOperatorType]
     value: NotRequired[MetricValueOutputTypeDef]
@@ -3301,7 +3327,7 @@ class BehaviorCriteriaOutputTypeDef(TypedDict):
     mlDetectionConfig: NotRequired[MachineLearningDetectionConfigTypeDef]
 
 class GetBehaviorModelTrainingSummariesResponseTypeDef(TypedDict):
-    summaries: List[BehaviorModelTrainingSummaryTypeDef]
+    summaries: list[BehaviorModelTrainingSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3347,7 +3373,7 @@ class MqttContextTypeDef(TypedDict):
 
 class GetBucketsAggregationResponseTypeDef(TypedDict):
     totalCount: int
-    buckets: List[BucketTypeDef]
+    buckets: list[BucketTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BucketsAggregationTypeTypeDef(TypedDict):
@@ -3368,7 +3394,7 @@ class CACertificateDescriptionTypeDef(TypedDict):
     certificateMode: NotRequired[CertificateModeType]
 
 class ListCACertificatesResponseTypeDef(TypedDict):
-    certificates: List[CACertificateTypeDef]
+    certificates: list[CACertificateTypeDef]
     nextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3389,17 +3415,17 @@ class CertificateDescriptionTypeDef(TypedDict):
     certificateMode: NotRequired[CertificateModeType]
 
 class ListCertificateProvidersResponseTypeDef(TypedDict):
-    certificateProviders: List[CertificateProviderSummaryTypeDef]
+    certificateProviders: list[CertificateProviderSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListCertificatesByCAResponseTypeDef(TypedDict):
-    certificates: List[CertificateTypeDef]
+    certificates: list[CertificateTypeDef]
     nextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCertificatesResponseTypeDef(TypedDict):
-    certificates: List[CertificateTypeDef]
+    certificates: list[CertificateTypeDef]
     nextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3410,18 +3436,26 @@ class CustomCodeSigningOutputTypeDef(TypedDict):
     signatureAlgorithm: NotRequired[str]
 
 class ListCommandExecutionsResponseTypeDef(TypedDict):
-    commandExecutions: List[CommandExecutionSummaryTypeDef]
+    commandExecutions: list[CommandExecutionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class CommandParameterOutputTypeDef(TypedDict):
-    name: str
-    value: NotRequired[CommandParameterValueOutputTypeDef]
-    defaultValue: NotRequired[CommandParameterValueOutputTypeDef]
-    description: NotRequired[str]
+class CommandParameterValueComparisonOperandOutputTypeDef(TypedDict):
+    number: NotRequired[str]
+    numbers: NotRequired[list[str]]
+    string: NotRequired[str]
+    strings: NotRequired[list[str]]
+    numberRange: NotRequired[CommandParameterValueNumberRangeTypeDef]
+
+class CommandParameterValueComparisonOperandTypeDef(TypedDict):
+    number: NotRequired[str]
+    numbers: NotRequired[Sequence[str]]
+    string: NotRequired[str]
+    strings: NotRequired[Sequence[str]]
+    numberRange: NotRequired[CommandParameterValueNumberRangeTypeDef]
 
 class ListCommandsResponseTypeDef(TypedDict):
-    commands: List[CommandSummaryTypeDef]
+    commands: list[CommandSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3434,7 +3468,7 @@ class DescribeEncryptionConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeEventConfigurationsResponseTypeDef(TypedDict):
-    eventConfigurations: Dict[EventTypeType, ConfigurationTypeDef]
+    eventConfigurations: dict[EventTypeType, ConfigurationTypeDef]
     creationDate: datetime
     lastModifiedDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3559,7 +3593,7 @@ class CreateScheduledAuditRequestTypeDef(TypedDict):
     tags: NotRequired[Sequence[TagTypeDef]]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3596,7 +3630,7 @@ class SchedulingConfigOutputTypeDef(TypedDict):
     startTime: NotRequired[str]
     endTime: NotRequired[str]
     endBehavior: NotRequired[JobEndBehaviorType]
-    maintenanceWindows: NotRequired[List[MaintenanceWindowTypeDef]]
+    maintenanceWindows: NotRequired[list[MaintenanceWindowTypeDef]]
 
 class SchedulingConfigTypeDef(TypedDict):
     startTime: NotRequired[str]
@@ -3664,7 +3698,7 @@ class DescribeAuditTaskResponseTypeDef(TypedDict):
     taskStartTime: datetime
     taskStatistics: TaskStatisticsTypeDef
     scheduledAuditName: str
-    auditDetails: Dict[str, AuditCheckDetailsTypeDef]
+    auditDetails: dict[str, AuditCheckDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RegisterCACertificateRequestTypeDef(TypedDict):
@@ -3687,7 +3721,7 @@ class DescribeDomainConfigurationResponseTypeDef(TypedDict):
     domainConfigurationName: str
     domainConfigurationArn: str
     domainName: str
-    serverCertificates: List[ServerCertificateSummaryTypeDef]
+    serverCertificates: list[ServerCertificateSummaryTypeDef]
     authorizerConfig: AuthorizerConfigTypeDef
     domainConfigurationStatus: DomainConfigurationStatusType
     serviceType: ServiceTypeType
@@ -3705,8 +3739,8 @@ class DescribeManagedJobTemplateResponseTypeDef(TypedDict):
     templateArn: str
     description: str
     templateVersion: str
-    environments: List[str]
-    documentParameters: List[DocumentParameterTypeDef]
+    environments: list[str]
+    documentParameters: list[DocumentParameterTypeDef]
     document: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3718,7 +3752,7 @@ class DestinationTypeDef(TypedDict):
     s3Destination: NotRequired[S3DestinationTypeDef]
 
 class ListDetectMitigationActionsExecutionsResponseTypeDef(TypedDict):
-    actionsExecutions: List[DetectMitigationActionExecutionTypeDef]
+    actionsExecutions: list[DetectMitigationActionExecutionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3727,7 +3761,7 @@ DetectMitigationActionsTaskTargetUnionTypeDef = Union[
 ]
 
 class ListDomainConfigurationsResponseTypeDef(TypedDict):
-    domainConfigurations: List[DomainConfigurationSummaryTypeDef]
+    domainConfigurations: list[DomainConfigurationSummaryTypeDef]
     nextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3736,7 +3770,7 @@ class DynamoDBv2ActionTypeDef(TypedDict):
     putItem: PutItemInputTypeDef
 
 class GetEffectivePoliciesResponseTypeDef(TypedDict):
-    effectivePolicies: List[EffectivePolicyTypeDef]
+    effectivePolicies: list[EffectivePolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ExponentialRolloutRateTypeDef(TypedDict):
@@ -3746,8 +3780,8 @@ class ExponentialRolloutRateTypeDef(TypedDict):
 
 class ThingGroupIndexingConfigurationOutputTypeDef(TypedDict):
     thingGroupIndexingMode: ThingGroupIndexingModeType
-    managedFields: NotRequired[List[FieldTypeDef]]
-    customFields: NotRequired[List[FieldTypeDef]]
+    managedFields: NotRequired[list[FieldTypeDef]]
+    customFields: NotRequired[list[FieldTypeDef]]
 
 class ThingGroupIndexingConfigurationTypeDef(TypedDict):
     thingGroupIndexingMode: ThingGroupIndexingModeType
@@ -3769,13 +3803,13 @@ class FileLocationTypeDef(TypedDict):
     s3Location: NotRequired[S3LocationTypeDef]
 
 class ListFleetMetricsResponseTypeDef(TypedDict):
-    fleetMetrics: List[FleetMetricNameAndArnTypeDef]
+    fleetMetrics: list[FleetMetricNameAndArnTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class IndexingFilterOutputTypeDef(TypedDict):
-    namedShadowNames: NotRequired[List[str]]
-    geoLocations: NotRequired[List[GeoLocationTargetTypeDef]]
+    namedShadowNames: NotRequired[list[str]]
+    geoLocations: NotRequired[list[GeoLocationTargetTypeDef]]
 
 class IndexingFilterTypeDef(TypedDict):
     namedShadowNames: NotRequired[Sequence[str]]
@@ -4082,8 +4116,8 @@ class GetCommandExecutionResponseTypeDef(TypedDict):
     targetArn: str
     status: CommandExecutionStatusType
     statusReason: StatusReasonTypeDef
-    result: Dict[str, CommandExecutionResultTypeDef]
-    parameters: Dict[str, CommandParameterValueOutputTypeDef]
+    result: dict[str, CommandExecutionResultTypeDef]
+    parameters: dict[str, CommandParameterValueOutputTypeDef]
     executionTimeoutSeconds: int
     createdAt: datetime
     lastUpdatedAt: datetime
@@ -4101,31 +4135,44 @@ class UpdatePackageConfigurationRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 class GetPercentilesResponseTypeDef(TypedDict):
-    percentiles: List[PercentPairTypeDef]
+    percentiles: list[PercentPairTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetStatisticsResponseTypeDef(TypedDict):
     statistics: StatisticsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetV2LoggingOptionsResponseTypeDef(TypedDict):
+    roleArn: str
+    defaultLogLevel: LogLevelType
+    disableAllLogs: bool
+    eventConfigurations: list[LogEventConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class SetV2LoggingOptionsRequestTypeDef(TypedDict):
+    roleArn: NotRequired[str]
+    defaultLogLevel: NotRequired[LogLevelType]
+    disableAllLogs: NotRequired[bool]
+    eventConfigurations: NotRequired[Sequence[LogEventConfigurationTypeDef]]
+
 class ListBillingGroupsResponseTypeDef(TypedDict):
-    billingGroups: List[GroupNameAndArnTypeDef]
+    billingGroups: list[GroupNameAndArnTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListThingGroupsForThingResponseTypeDef(TypedDict):
-    thingGroups: List[GroupNameAndArnTypeDef]
+    thingGroups: list[GroupNameAndArnTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListThingGroupsResponseTypeDef(TypedDict):
-    thingGroups: List[GroupNameAndArnTypeDef]
+    thingGroups: list[GroupNameAndArnTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ThingGroupMetadataTypeDef(TypedDict):
     parentGroupName: NotRequired[str]
-    rootToParentThingGroups: NotRequired[List[GroupNameAndArnTypeDef]]
+    rootToParentThingGroups: NotRequired[list[GroupNameAndArnTypeDef]]
     creationDate: NotRequired[datetime]
 
 class HttpAuthorizationTypeDef(TypedDict):
@@ -4153,28 +4200,28 @@ class JobExecutionSummaryForThingTypeDef(TypedDict):
     jobExecutionSummary: NotRequired[JobExecutionSummaryTypeDef]
 
 class JobExecutionsRetryConfigOutputTypeDef(TypedDict):
-    criteriaList: List[RetryCriteriaTypeDef]
+    criteriaList: list[RetryCriteriaTypeDef]
 
 class JobExecutionsRetryConfigTypeDef(TypedDict):
     criteriaList: Sequence[RetryCriteriaTypeDef]
 
 class ListJobsResponseTypeDef(TypedDict):
-    jobs: List[JobSummaryTypeDef]
+    jobs: list[JobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListJobTemplatesResponseTypeDef(TypedDict):
-    jobTemplates: List[JobTemplateSummaryTypeDef]
+    jobTemplates: list[JobTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class KafkaActionOutputTypeDef(TypedDict):
     destinationArn: str
     topic: str
-    clientProperties: Dict[str, str]
+    clientProperties: dict[str, str]
     key: NotRequired[str]
     partition: NotRequired[str]
-    headers: NotRequired[List[KafkaActionHeaderTypeDef]]
+    headers: NotRequired[list[KafkaActionHeaderTypeDef]]
 
 class KafkaActionTypeDef(TypedDict):
     destinationArn: str
@@ -4206,76 +4253,76 @@ class ListCommandExecutionsRequestTypeDef(TypedDict):
     commandArn: NotRequired[str]
 
 class ListManagedJobTemplatesResponseTypeDef(TypedDict):
-    managedJobTemplates: List[ManagedJobTemplateSummaryTypeDef]
+    managedJobTemplates: list[ManagedJobTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListMitigationActionsResponseTypeDef(TypedDict):
-    actionIdentifiers: List[MitigationActionIdentifierTypeDef]
+    actionIdentifiers: list[MitigationActionIdentifierTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListOTAUpdatesResponseTypeDef(TypedDict):
-    otaUpdates: List[OTAUpdateSummaryTypeDef]
+    otaUpdates: list[OTAUpdateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListOutgoingCertificatesResponseTypeDef(TypedDict):
-    outgoingCertificates: List[OutgoingCertificateTypeDef]
+    outgoingCertificates: list[OutgoingCertificateTypeDef]
     nextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListPackageVersionsResponseTypeDef(TypedDict):
-    packageVersionSummaries: List[PackageVersionSummaryTypeDef]
+    packageVersionSummaries: list[PackageVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListPackagesResponseTypeDef(TypedDict):
-    packageSummaries: List[PackageSummaryTypeDef]
+    packageSummaries: list[PackageSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListPolicyVersionsResponseTypeDef(TypedDict):
-    policyVersions: List[PolicyVersionTypeDef]
+    policyVersions: list[PolicyVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListPrincipalThingsV2ResponseTypeDef(TypedDict):
-    principalThingObjects: List[PrincipalThingObjectTypeDef]
+    principalThingObjects: list[PrincipalThingObjectTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListProvisioningTemplateVersionsResponseTypeDef(TypedDict):
-    versions: List[ProvisioningTemplateVersionSummaryTypeDef]
+    versions: list[ProvisioningTemplateVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListProvisioningTemplatesResponseTypeDef(TypedDict):
-    templates: List[ProvisioningTemplateSummaryTypeDef]
+    templates: list[ProvisioningTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListSbomValidationResultsResponseTypeDef(TypedDict):
-    validationResultSummaries: List[SbomValidationResultSummaryTypeDef]
+    validationResultSummaries: list[SbomValidationResultSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListScheduledAuditsResponseTypeDef(TypedDict):
-    scheduledAudits: List[ScheduledAuditMetadataTypeDef]
+    scheduledAudits: list[ScheduledAuditMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListSecurityProfilesResponseTypeDef(TypedDict):
-    securityProfileIdentifiers: List[SecurityProfileIdentifierTypeDef]
+    securityProfileIdentifiers: list[SecurityProfileIdentifierTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListStreamsResponseTypeDef(TypedDict):
-    streams: List[StreamSummaryTypeDef]
+    streams: list[StreamSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTargetsForSecurityProfileResponseTypeDef(TypedDict):
-    securityProfileTargets: List[SecurityProfileTargetTypeDef]
+    securityProfileTargets: list[SecurityProfileTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -4284,17 +4331,17 @@ class SecurityProfileTargetMappingTypeDef(TypedDict):
     target: NotRequired[SecurityProfileTargetTypeDef]
 
 class ListThingPrincipalsV2ResponseTypeDef(TypedDict):
-    thingPrincipalObjects: List[ThingPrincipalObjectTypeDef]
+    thingPrincipalObjects: list[ThingPrincipalObjectTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListThingsResponseTypeDef(TypedDict):
-    things: List[ThingAttributeTypeDef]
+    things: list[ThingAttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTopicRulesResponseTypeDef(TypedDict):
-    rules: List[TopicRuleListItemTypeDef]
+    rules: list[TopicRuleListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -4336,7 +4383,7 @@ class MitigationActionParamsTypeDef(TypedDict):
     publishFindingToSnsParams: NotRequired[PublishFindingToSnsParamsTypeDef]
 
 class Mqtt5ConfigurationOutputTypeDef(TypedDict):
-    propagatingAttributes: NotRequired[List[PropagatingAttributeTypeDef]]
+    propagatingAttributes: NotRequired[list[PropagatingAttributeTypeDef]]
 
 class Mqtt5ConfigurationTypeDef(TypedDict):
     propagatingAttributes: NotRequired[Sequence[PropagatingAttributeTypeDef]]
@@ -4347,7 +4394,7 @@ class MqttHeadersOutputTypeDef(TypedDict):
     responseTopic: NotRequired[str]
     correlationData: NotRequired[str]
     messageExpiry: NotRequired[str]
-    userProperties: NotRequired[List[UserPropertyTypeDef]]
+    userProperties: NotRequired[list[UserPropertyTypeDef]]
 
 class MqttHeadersTypeDef(TypedDict):
     payloadFormatIndicator: NotRequired[str]
@@ -4373,8 +4420,8 @@ class ThingDocumentTypeDef(TypedDict):
     thingName: NotRequired[str]
     thingId: NotRequired[str]
     thingTypeName: NotRequired[str]
-    thingGroupNames: NotRequired[List[str]]
-    attributes: NotRequired[Dict[str, str]]
+    thingGroupNames: NotRequired[list[str]]
+    attributes: NotRequired[dict[str, str]]
     shadow: NotRequired[str]
     deviceDefender: NotRequired[str]
     connectivity: NotRequired[ThingConnectivityTypeDef]
@@ -4383,7 +4430,7 @@ class TimestreamActionOutputTypeDef(TypedDict):
     roleArn: str
     databaseName: str
     tableName: str
-    dimensions: List[TimestreamDimensionTypeDef]
+    dimensions: list[TimestreamDimensionTypeDef]
     timestamp: NotRequired[TimestreamTimestampTypeDef]
 
 class TimestreamActionTypeDef(TypedDict):
@@ -4417,13 +4464,13 @@ class TopicRuleDestinationTypeDef(TypedDict):
 
 class ValidateSecurityProfileBehaviorsResponseTypeDef(TypedDict):
     valid: bool
-    validationErrors: List[ValidationErrorTypeDef]
+    validationErrors: list[ValidationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 AbortConfigUnionTypeDef = Union[AbortConfigTypeDef, AbortConfigOutputTypeDef]
 
 class ListMetricValuesResponseTypeDef(TypedDict):
-    metricDatumList: List[MetricDatumTypeDef]
+    metricDatumList: list[MetricDatumTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -4456,7 +4503,7 @@ class DeniedTypeDef(TypedDict):
     explicitDeny: NotRequired[ExplicitDenyTypeDef]
 
 class PutAssetPropertyValueEntryOutputTypeDef(TypedDict):
-    propertyValues: List[AssetPropertyValueTypeDef]
+    propertyValues: list[AssetPropertyValueTypeDef]
     entryId: NotRequired[str]
     assetId: NotRequired[str]
     propertyId: NotRequired[str]
@@ -4551,21 +4598,14 @@ class DescribeCertificateResponseTypeDef(TypedDict):
     certificateDescription: CertificateDescriptionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class GetCommandResponseTypeDef(TypedDict):
-    commandId: str
-    commandArn: str
-    namespace: CommandNamespaceType
-    displayName: str
-    description: str
-    mandatoryParameters: List[CommandParameterOutputTypeDef]
-    payload: CommandPayloadOutputTypeDef
-    roleArn: str
-    createdAt: datetime
-    lastUpdatedAt: datetime
-    deprecated: bool
-    pendingDeletion: bool
-    ResponseMetadata: ResponseMetadataTypeDef
+class CommandParameterValueConditionOutputTypeDef(TypedDict):
+    comparisonOperator: CommandParameterValueComparisonOperatorType
+    operand: CommandParameterValueComparisonOperandOutputTypeDef
 
+CommandParameterValueComparisonOperandUnionTypeDef = Union[
+    CommandParameterValueComparisonOperandTypeDef,
+    CommandParameterValueComparisonOperandOutputTypeDef,
+]
 ViolationEventOccurrenceRangeUnionTypeDef = Union[
     ViolationEventOccurrenceRangeTypeDef, ViolationEventOccurrenceRangeOutputTypeDef
 ]
@@ -4622,7 +4662,7 @@ class GetPackageVersionResponseTypeDef(TypedDict):
     packageName: str
     versionName: str
     description: str
-    attributes: Dict[str, str]
+    attributes: dict[str, str]
     artifact: PackageVersionArtifactTypeDef
     status: PackageVersionStatusType
     errorReason: str
@@ -4645,7 +4685,7 @@ class StreamInfoTypeDef(TypedDict):
     streamArn: NotRequired[str]
     streamVersion: NotRequired[int]
     description: NotRequired[str]
-    files: NotRequired[List[StreamFileTypeDef]]
+    files: NotRequired[list[StreamFileTypeDef]]
     createdAt: NotRequired[datetime]
     lastUpdatedAt: NotRequired[datetime]
     roleArn: NotRequired[str]
@@ -4663,8 +4703,8 @@ ThingIndexingConfigurationOutputTypeDef = TypedDict(
         "thingConnectivityIndexingMode": NotRequired[ThingConnectivityIndexingModeType],
         "deviceDefenderIndexingMode": NotRequired[DeviceDefenderIndexingModeType],
         "namedShadowIndexingMode": NotRequired[NamedShadowIndexingModeType],
-        "managedFields": NotRequired[List[FieldTypeDef]],
-        "customFields": NotRequired[List[FieldTypeDef]],
+        "managedFields": NotRequired[list[FieldTypeDef]],
+        "customFields": NotRequired[list[FieldTypeDef]],
         "filter": NotRequired[IndexingFilterOutputTypeDef],
     },
 )
@@ -4697,26 +4737,30 @@ class DescribeThingGroupResponseTypeDef(TypedDict):
 class HttpActionOutputTypeDef(TypedDict):
     url: str
     confirmationUrl: NotRequired[str]
-    headers: NotRequired[List[HttpActionHeaderTypeDef]]
+    headers: NotRequired[list[HttpActionHeaderTypeDef]]
     auth: NotRequired[HttpAuthorizationTypeDef]
+    enableBatching: NotRequired[bool]
+    batchConfig: NotRequired[BatchConfigTypeDef]
 
 class HttpActionTypeDef(TypedDict):
     url: str
     confirmationUrl: NotRequired[str]
     headers: NotRequired[Sequence[HttpActionHeaderTypeDef]]
     auth: NotRequired[HttpAuthorizationTypeDef]
+    enableBatching: NotRequired[bool]
+    batchConfig: NotRequired[BatchConfigTypeDef]
 
 class DescribeJobExecutionResponseTypeDef(TypedDict):
     execution: JobExecutionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListJobExecutionsForJobResponseTypeDef(TypedDict):
-    executionSummaries: List[JobExecutionSummaryForJobTypeDef]
+    executionSummaries: list[JobExecutionSummaryForJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListJobExecutionsForThingResponseTypeDef(TypedDict):
-    executionSummaries: List[JobExecutionSummaryForThingTypeDef]
+    executionSummaries: list[JobExecutionSummaryForThingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -4726,12 +4770,12 @@ JobExecutionsRetryConfigUnionTypeDef = Union[
 KafkaActionUnionTypeDef = Union[KafkaActionTypeDef, KafkaActionOutputTypeDef]
 
 class ListSecurityProfilesForTargetResponseTypeDef(TypedDict):
-    securityProfileTargetMappings: List[SecurityProfileTargetMappingTypeDef]
+    securityProfileTargetMappings: list[SecurityProfileTargetMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListV2LoggingLevelsResponseTypeDef(TypedDict):
-    logTargetConfigurations: List[LogTargetConfigurationTypeDef]
+    logTargetConfigurations: list[LogTargetConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -4770,7 +4814,7 @@ MitigationActionParamsUnionTypeDef = Union[
 
 class ThingTypePropertiesOutputTypeDef(TypedDict):
     thingTypeDescription: NotRequired[str]
-    searchableAttributes: NotRequired[List[str]]
+    searchableAttributes: NotRequired[list[str]]
     mqtt5Configuration: NotRequired[Mqtt5ConfigurationOutputTypeDef]
 
 class ThingTypePropertiesTypeDef(TypedDict):
@@ -4852,12 +4896,12 @@ class ListAuditSuppressionsRequestTypeDef(TypedDict):
 class NonCompliantResourceTypeDef(TypedDict):
     resourceType: NotRequired[ResourceTypeType]
     resourceIdentifier: NotRequired[ResourceIdentifierTypeDef]
-    additionalInfo: NotRequired[Dict[str, str]]
+    additionalInfo: NotRequired[dict[str, str]]
 
 class RelatedResourceTypeDef(TypedDict):
     resourceType: NotRequired[ResourceTypeType]
     resourceIdentifier: NotRequired[ResourceIdentifierTypeDef]
-    additionalInfo: NotRequired[Dict[str, str]]
+    additionalInfo: NotRequired[dict[str, str]]
 
 class UpdateAuditSuppressionRequestTypeDef(TypedDict):
     checkName: str
@@ -4867,8 +4911,8 @@ class UpdateAuditSuppressionRequestTypeDef(TypedDict):
     description: NotRequired[str]
 
 class SearchIndexResponseTypeDef(TypedDict):
-    things: List[ThingDocumentTypeDef]
-    thingGroups: List[ThingGroupDocumentTypeDef]
+    things: list[ThingDocumentTypeDef]
+    thingGroups: list[ThingGroupDocumentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -4878,7 +4922,7 @@ class CreateTopicRuleDestinationRequestTypeDef(TypedDict):
     destinationConfiguration: TopicRuleDestinationConfigurationTypeDef
 
 class ListTopicRuleDestinationsResponseTypeDef(TypedDict):
-    destinationSummaries: List[TopicRuleDestinationSummaryTypeDef]
+    destinationSummaries: list[TopicRuleDestinationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -4895,10 +4939,10 @@ class AuthResultTypeDef(TypedDict):
     allowed: NotRequired[AllowedTypeDef]
     denied: NotRequired[DeniedTypeDef]
     authDecision: NotRequired[AuthDecisionType]
-    missingContextValues: NotRequired[List[str]]
+    missingContextValues: NotRequired[list[str]]
 
 class IotSiteWiseActionOutputTypeDef(TypedDict):
-    putAssetPropertyValueEntries: List[PutAssetPropertyValueEntryOutputTypeDef]
+    putAssetPropertyValueEntries: list[PutAssetPropertyValueEntryOutputTypeDef]
     roleArn: str
 
 PutAssetPropertyValueEntryUnionTypeDef = Union[
@@ -4948,10 +4992,10 @@ class DescribeSecurityProfileResponseTypeDef(TypedDict):
     securityProfileName: str
     securityProfileArn: str
     securityProfileDescription: str
-    behaviors: List[BehaviorOutputTypeDef]
-    alertTargets: Dict[Literal["SNS"], AlertTargetTypeDef]
-    additionalMetricsToRetain: List[str]
-    additionalMetricsToRetainV2: List[MetricToRetainTypeDef]
+    behaviors: list[BehaviorOutputTypeDef]
+    alertTargets: dict[Literal["SNS"], AlertTargetTypeDef]
+    additionalMetricsToRetain: list[str]
+    additionalMetricsToRetainV2: list[MetricToRetainTypeDef]
     version: int
     creationDate: datetime
     lastModifiedDate: datetime
@@ -4962,10 +5006,10 @@ class UpdateSecurityProfileResponseTypeDef(TypedDict):
     securityProfileName: str
     securityProfileArn: str
     securityProfileDescription: str
-    behaviors: List[BehaviorOutputTypeDef]
-    alertTargets: Dict[Literal["SNS"], AlertTargetTypeDef]
-    additionalMetricsToRetain: List[str]
-    additionalMetricsToRetainV2: List[MetricToRetainTypeDef]
+    behaviors: list[BehaviorOutputTypeDef]
+    alertTargets: dict[Literal["SNS"], AlertTargetTypeDef]
+    additionalMetricsToRetain: list[str]
+    additionalMetricsToRetainV2: list[MetricToRetainTypeDef]
     version: int
     creationDate: datetime
     lastModifiedDate: datetime
@@ -4990,11 +5034,21 @@ class CustomCodeSigningTypeDef(TypedDict):
     hashAlgorithm: NotRequired[str]
     signatureAlgorithm: NotRequired[str]
 
-class CommandParameterTypeDef(TypedDict):
-    name: str
-    value: NotRequired[CommandParameterValueUnionTypeDef]
-    defaultValue: NotRequired[CommandParameterValueUnionTypeDef]
-    description: NotRequired[str]
+CommandParameterOutputTypeDef = TypedDict(
+    "CommandParameterOutputTypeDef",
+    {
+        "name": str,
+        "type": NotRequired[CommandParameterTypeType],
+        "value": NotRequired[CommandParameterValueOutputTypeDef],
+        "defaultValue": NotRequired[CommandParameterValueOutputTypeDef],
+        "valueConditions": NotRequired[list[CommandParameterValueConditionOutputTypeDef]],
+        "description": NotRequired[str],
+    },
+)
+
+class CommandParameterValueConditionTypeDef(TypedDict):
+    comparisonOperator: CommandParameterValueComparisonOperatorType
+    operand: CommandParameterValueComparisonOperandUnionTypeDef
 
 class StartDetectMitigationActionsTaskRequestTypeDef(TypedDict):
     taskId: str
@@ -5022,8 +5076,8 @@ class DescribeJobTemplateResponseTypeDef(TypedDict):
     abortConfig: AbortConfigOutputTypeDef
     timeoutConfig: TimeoutConfigTypeDef
     jobExecutionsRetryConfig: JobExecutionsRetryConfigOutputTypeDef
-    maintenanceWindows: List[MaintenanceWindowTypeDef]
-    destinationPackageVersions: List[str]
+    maintenanceWindows: list[MaintenanceWindowTypeDef]
+    destinationPackageVersions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class JobTypeDef(TypedDict):
@@ -5034,7 +5088,7 @@ class JobTypeDef(TypedDict):
     forceCanceled: NotRequired[bool]
     reasonCode: NotRequired[str]
     comment: NotRequired[str]
-    targets: NotRequired[List[str]]
+    targets: NotRequired[list[str]]
     description: NotRequired[str]
     presignedUrlConfig: NotRequired[PresignedUrlConfigTypeDef]
     jobExecutionsRolloutConfig: NotRequired[JobExecutionsRolloutConfigTypeDef]
@@ -5047,11 +5101,11 @@ class JobTypeDef(TypedDict):
     namespaceId: NotRequired[str]
     jobTemplateArn: NotRequired[str]
     jobExecutionsRetryConfig: NotRequired[JobExecutionsRetryConfigOutputTypeDef]
-    documentParameters: NotRequired[Dict[str, str]]
+    documentParameters: NotRequired[dict[str, str]]
     isConcurrent: NotRequired[bool]
     schedulingConfig: NotRequired[SchedulingConfigOutputTypeDef]
-    scheduledJobRollouts: NotRequired[List[ScheduledJobRolloutTypeDef]]
-    destinationPackageVersions: NotRequired[List[str]]
+    scheduledJobRollouts: NotRequired[list[ScheduledJobRolloutTypeDef]]
+    destinationPackageVersions: NotRequired[list[str]]
 
 class DescribeStreamResponseTypeDef(TypedDict):
     streamInfo: StreamInfoTypeDef
@@ -5117,10 +5171,10 @@ class DescribeAuditMitigationActionsTaskResponseTypeDef(TypedDict):
     taskStatus: AuditMitigationActionsTaskStatusType
     startTime: datetime
     endTime: datetime
-    taskStatistics: Dict[str, TaskStatisticsForAuditCheckTypeDef]
+    taskStatistics: dict[str, TaskStatisticsForAuditCheckTypeDef]
     target: AuditMitigationActionsTaskTargetOutputTypeDef
-    auditCheckToActionsMapping: Dict[str, List[str]]
-    actionsDefinition: List[MitigationActionTypeDef]
+    auditCheckToActionsMapping: dict[str, list[str]]
+    actionsDefinition: list[MitigationActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DetectMitigationActionsTaskSummaryTypeDef(TypedDict):
@@ -5132,7 +5186,7 @@ class DetectMitigationActionsTaskSummaryTypeDef(TypedDict):
     violationEventOccurrenceRange: NotRequired[ViolationEventOccurrenceRangeOutputTypeDef]
     onlyActiveViolationsIncluded: NotRequired[bool]
     suppressedAlertsIncluded: NotRequired[bool]
-    actionsDefinition: NotRequired[List[MitigationActionTypeDef]]
+    actionsDefinition: NotRequired[list[MitigationActionTypeDef]]
     taskStatistics: NotRequired[DetectMitigationActionsTaskStatisticsTypeDef]
 
 class CreateMitigationActionRequestTypeDef(TypedDict):
@@ -5171,7 +5225,7 @@ class RepublishActionTypeDef(TypedDict):
     headers: NotRequired[MqttHeadersUnionTypeDef]
 
 class ListAuditSuppressionsResponseTypeDef(TypedDict):
-    suppressions: List[AuditSuppressionTypeDef]
+    suppressions: list[AuditSuppressionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -5183,18 +5237,18 @@ class AuditFindingTypeDef(TypedDict):
     findingTime: NotRequired[datetime]
     severity: NotRequired[AuditFindingSeverityType]
     nonCompliantResource: NotRequired[NonCompliantResourceTypeDef]
-    relatedResources: NotRequired[List[RelatedResourceTypeDef]]
+    relatedResources: NotRequired[list[RelatedResourceTypeDef]]
     reasonForNonCompliance: NotRequired[str]
     reasonForNonComplianceCode: NotRequired[str]
     isSuppressed: NotRequired[bool]
 
 class ListRelatedResourcesForAuditFindingResponseTypeDef(TypedDict):
-    relatedResources: List[RelatedResourceTypeDef]
+    relatedResources: list[RelatedResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class TestAuthorizationResponseTypeDef(TypedDict):
-    authResults: List[AuthResultTypeDef]
+    authResults: list[AuthResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 ActionOutputTypeDef = TypedDict(
@@ -5231,17 +5285,37 @@ class IotSiteWiseActionTypeDef(TypedDict):
     roleArn: str
 
 class ListActiveViolationsResponseTypeDef(TypedDict):
-    activeViolations: List[ActiveViolationTypeDef]
+    activeViolations: list[ActiveViolationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListViolationEventsResponseTypeDef(TypedDict):
-    violationEvents: List[ViolationEventTypeDef]
+    violationEvents: list[ViolationEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 CustomCodeSigningUnionTypeDef = Union[CustomCodeSigningTypeDef, CustomCodeSigningOutputTypeDef]
-CommandParameterUnionTypeDef = Union[CommandParameterTypeDef, CommandParameterOutputTypeDef]
+
+class GetCommandResponseTypeDef(TypedDict):
+    commandId: str
+    commandArn: str
+    namespace: CommandNamespaceType
+    displayName: str
+    description: str
+    mandatoryParameters: list[CommandParameterOutputTypeDef]
+    payload: CommandPayloadOutputTypeDef
+    payloadTemplate: str
+    preprocessor: CommandPreprocessorTypeDef
+    roleArn: str
+    createdAt: datetime
+    lastUpdatedAt: datetime
+    deprecated: bool
+    pendingDeletion: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+CommandParameterValueConditionUnionTypeDef = Union[
+    CommandParameterValueConditionTypeDef, CommandParameterValueConditionOutputTypeDef
+]
 
 class OTAUpdateFileOutputTypeDef(TypedDict):
     fileName: NotRequired[str]
@@ -5249,7 +5323,7 @@ class OTAUpdateFileOutputTypeDef(TypedDict):
     fileVersion: NotRequired[str]
     fileLocation: NotRequired[FileLocationTypeDef]
     codeSigning: NotRequired[CodeSigningOutputTypeDef]
-    attributes: NotRequired[Dict[str, str]]
+    attributes: NotRequired[dict[str, str]]
 
 class DescribeJobResponseTypeDef(TypedDict):
     documentSource: str
@@ -5273,12 +5347,12 @@ class DescribeDetectMitigationActionsTaskResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDetectMitigationActionsTasksResponseTypeDef(TypedDict):
-    tasks: List[DetectMitigationActionsTaskSummaryTypeDef]
+    tasks: list[DetectMitigationActionsTaskSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListThingTypesResponseTypeDef(TypedDict):
-    thingTypes: List[ThingTypeDefinitionTypeDef]
+    thingTypes: list[ThingTypeDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -5298,7 +5372,7 @@ class DescribeAuditFindingResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAuditFindingsResponseTypeDef(TypedDict):
-    findings: List[AuditFindingTypeDef]
+    findings: list[AuditFindingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -5307,7 +5381,7 @@ class TopicRuleTypeDef(TypedDict):
     sql: NotRequired[str]
     description: NotRequired[str]
     createdAt: NotRequired[datetime]
-    actions: NotRequired[List[ActionOutputTypeDef]]
+    actions: NotRequired[list[ActionOutputTypeDef]]
     ruleDisabled: NotRequired[bool]
     awsIotSqlVersion: NotRequired[str]
     errorAction: NotRequired[ActionOutputTypeDef]
@@ -5319,15 +5393,17 @@ class CodeSigningTypeDef(TypedDict):
     startSigningJobParameter: NotRequired[StartSigningJobParameterTypeDef]
     customCodeSigning: NotRequired[CustomCodeSigningUnionTypeDef]
 
-class CreateCommandRequestTypeDef(TypedDict):
-    commandId: str
-    namespace: NotRequired[CommandNamespaceType]
-    displayName: NotRequired[str]
-    description: NotRequired[str]
-    payload: NotRequired[CommandPayloadUnionTypeDef]
-    mandatoryParameters: NotRequired[Sequence[CommandParameterUnionTypeDef]]
-    roleArn: NotRequired[str]
-    tags: NotRequired[Sequence[TagTypeDef]]
+CommandParameterTypeDef = TypedDict(
+    "CommandParameterTypeDef",
+    {
+        "name": str,
+        "type": NotRequired[CommandParameterTypeType],
+        "value": NotRequired[CommandParameterValueUnionTypeDef],
+        "defaultValue": NotRequired[CommandParameterValueUnionTypeDef],
+        "valueConditions": NotRequired[Sequence[CommandParameterValueConditionUnionTypeDef]],
+        "description": NotRequired[str],
+    },
+)
 
 class OTAUpdateInfoTypeDef(TypedDict):
     otaUpdateId: NotRequired[str]
@@ -5335,17 +5411,17 @@ class OTAUpdateInfoTypeDef(TypedDict):
     creationDate: NotRequired[datetime]
     lastModifiedDate: NotRequired[datetime]
     description: NotRequired[str]
-    targets: NotRequired[List[str]]
-    protocols: NotRequired[List[ProtocolType]]
+    targets: NotRequired[list[str]]
+    protocols: NotRequired[list[ProtocolType]]
     awsJobExecutionsRolloutConfig: NotRequired[AwsJobExecutionsRolloutConfigTypeDef]
     awsJobPresignedUrlConfig: NotRequired[AwsJobPresignedUrlConfigTypeDef]
     targetSelection: NotRequired[TargetSelectionType]
-    otaUpdateFiles: NotRequired[List[OTAUpdateFileOutputTypeDef]]
+    otaUpdateFiles: NotRequired[list[OTAUpdateFileOutputTypeDef]]
     otaUpdateStatus: NotRequired[OTAUpdateStatusType]
     awsIotJobId: NotRequired[str]
     awsIotJobArn: NotRequired[str]
     errorInfo: NotRequired[ErrorInfoTypeDef]
-    additionalParameters: NotRequired[Dict[str, str]]
+    additionalParameters: NotRequired[dict[str, str]]
 
 BehaviorUnionTypeDef = Union[BehaviorTypeDef, BehaviorOutputTypeDef]
 
@@ -5383,6 +5459,7 @@ ActionTypeDef = TypedDict(
     },
 )
 CodeSigningUnionTypeDef = Union[CodeSigningTypeDef, CodeSigningOutputTypeDef]
+CommandParameterUnionTypeDef = Union[CommandParameterTypeDef, CommandParameterOutputTypeDef]
 
 class GetOTAUpdateResponseTypeDef(TypedDict):
     otaUpdateInfo: OTAUpdateInfoTypeDef
@@ -5424,6 +5501,18 @@ class OTAUpdateFileTypeDef(TypedDict):
     fileLocation: NotRequired[FileLocationTypeDef]
     codeSigning: NotRequired[CodeSigningUnionTypeDef]
     attributes: NotRequired[Mapping[str, str]]
+
+class CreateCommandRequestTypeDef(TypedDict):
+    commandId: str
+    namespace: NotRequired[CommandNamespaceType]
+    displayName: NotRequired[str]
+    description: NotRequired[str]
+    payload: NotRequired[CommandPayloadUnionTypeDef]
+    payloadTemplate: NotRequired[str]
+    preprocessor: NotRequired[CommandPreprocessorTypeDef]
+    mandatoryParameters: NotRequired[Sequence[CommandParameterUnionTypeDef]]
+    roleArn: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
 
 class TopicRulePayloadTypeDef(TypedDict):
     sql: str

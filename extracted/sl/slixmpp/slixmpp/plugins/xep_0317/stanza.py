@@ -1,6 +1,9 @@
+import warnings
+from typing import Iterable
+
 from slixmpp import Presence
+from slixmpp.types import HatTuple
 from slixmpp.xmlstream import ElementBase, register_stanza_plugin
-from typing import List, Tuple
 
 NS = 'urn:xmpp:hats:0'
 
@@ -27,11 +30,13 @@ class Hats(ElementBase):
     namespace = NS
     plugin_attrib = 'hats'
 
-    def add_hats(self, data: List[Tuple[str, str]]) -> None:
-        for uri, title in data:
+    def add_hats(self, hats: Iterable[HatTuple | tuple[str, str, float]]) -> None:
+        for uri, title, hue in hats:
             hat = Hat()
             hat["uri"] = uri
             hat["title"] = title
+            if hue is not None:
+                hat["hue"] = hue
             self.append(hat)
 
 
@@ -49,8 +54,19 @@ class Hat(ElementBase):
     name = 'hat'
     plugin_attrib = 'hat'
     namespace = NS
-    interfaces = {'title', 'uri'}
+    interfaces = {'title', 'uri', 'hue'}
     plugin_multi_attrib = "hats"
+
+    def set_hue(self, hue: float) -> None:
+        self._set_attr("hue", str(hue))
+
+    def get_hue(self) -> float | None:
+        hue = self._get_attr("hue",)
+        try:
+            return None if hue == "" else float(hue)
+        except ValueError:
+            warnings.warn(f"Not a valid hue value: {hue}")
+            return None
 
 
 def register_plugin() -> None:

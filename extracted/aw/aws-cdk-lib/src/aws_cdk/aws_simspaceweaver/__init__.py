@@ -64,6 +64,329 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     TreeInspector as _TreeInspector_488e0dd5,
 )
+from ..interfaces.aws_simspaceweaver import (
+    ISimulationRef as _ISimulationRef_91d712eb,
+    SimulationReference as _SimulationReference_4bd7f392,
+)
+
+
+@jsii.implements(_IInspectable_c2943556, _ISimulationRef_91d712eb)
+class CfnSimulation(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_simspaceweaver.CfnSimulation",
+):
+    '''Use the ``AWS::SimSpaceWeaver::Simulation`` resource to specify a simulation that CloudFormation starts in the AWS Cloud , in your AWS account .
+
+    In the resource properties section of your template, provide the name of an existing IAM role configured with the proper permissions, and the name of an existing Amazon S3 bucket. Your account must have permissions to read the Amazon S3 bucket. The Amazon S3 bucket must contain a valid schema. The schema must refer to simulation assets that are already uploaded to the AWS Cloud . For more information, see the `detailed tutorial <https://docs.aws.amazon.com/simspaceweaver/latest/userguide/getting-started_detailed.html>`_ in the *AWS SimSpace Weaver User Guide* .
+
+    Specify a ``SnapshotS3Location`` to start a simulation from a snapshot instead of from a schema. When you start a simulation from a snapshot, SimSpace Weaver initializes the entity data in the State Fabric with data saved in the snapshot, starts the spatial and service apps that were running when the snapshot was created, and restores the clock to the appropriate tick. Your app zip files must be in the same location in Amazon S3 as they were in for the original simulation. You must start any custom apps separately. For more information about snapshots, see `Snapshots <https://docs.aws.amazon.com/simspaceweaver/latest/userguide/working-with_snapshots.html>`_ in the *AWS SimSpace Weaver User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-simspaceweaver-simulation.html
+    :cloudformationResource: AWS::SimSpaceWeaver::Simulation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_simspaceweaver as simspaceweaver
+        
+        cfn_simulation = simspaceweaver.CfnSimulation(self, "MyCfnSimulation",
+            name="name",
+            role_arn="roleArn",
+        
+            # the properties below are optional
+            maximum_duration="maximumDuration",
+            schema_s3_location=simspaceweaver.CfnSimulation.S3LocationProperty(
+                bucket_name="bucketName",
+                object_key="objectKey"
+            ),
+            snapshot_s3_location=simspaceweaver.CfnSimulation.S3LocationProperty(
+                bucket_name="bucketName",
+                object_key="objectKey"
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        role_arn: builtins.str,
+        maximum_duration: typing.Optional[builtins.str] = None,
+        schema_s3_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimulation.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        snapshot_s3_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimulation.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SimSpaceWeaver::Simulation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the simulation.
+        :param role_arn: The Amazon Resource Name (ARN) of the AWS Identity and Access Management ( IAM ) role that the simulation assumes to perform actions. For more information about ARNs, see `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* . For more information about IAM roles, see `IAM roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html>`_ in the *AWS Identity and Access Management User Guide* .
+        :param maximum_duration: The maximum running time of the simulation, specified as a number of minutes (m or M), hours (h or H), or days (d or D). The simulation stops when it reaches this limit. The maximum value is ``14D`` , or its equivalent in the other units. The default value is ``14D`` . A value equivalent to ``0`` makes the simulation immediately transition to ``STOPPING`` as soon as it reaches ``STARTED`` .
+        :param schema_s3_location: The location of the simulation schema in Amazon Simple Storage Service ( Amazon S3 ). For more information about Amazon S3 , see the `*Amazon Simple Storage Service User Guide* <https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html>`_ . Provide a ``SchemaS3Location`` to start your simulation from a schema. If you provide a ``SchemaS3Location`` then you can't provide a ``SnapshotS3Location`` .
+        :param snapshot_s3_location: The location of the snapshot in Amazon Simple Storage Service ( Amazon S3 ). For more information about Amazon S3 , see the `*Amazon Simple Storage Service User Guide* <https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html>`_ . Provide a ``SnapshotS3Location`` to start your simulation from a snapshot. If you provide a ``SnapshotS3Location`` then you can't provide a ``SchemaS3Location`` .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49a18eff4f0bb5a69b0bd9ec4308865d3a99b9833d34d09dc1d10808b54c7b66)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSimulationProps(
+            name=name,
+            role_arn=role_arn,
+            maximum_duration=maximum_duration,
+            schema_s3_location=schema_s3_location,
+            snapshot_s3_location=snapshot_s3_location,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSimulation")
+    @builtins.classmethod
+    def arn_for_simulation(cls, resource: "_ISimulationRef_91d712eb") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8adc9ed4305b9c3eb4265eda59f6afceb6078f409c1b7facf0d5ebf4a1a7f912)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSimulation", [resource]))
+
+    @jsii.member(jsii_name="fromSimulationName")
+    @builtins.classmethod
+    def from_simulation_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        simulation_name: builtins.str,
+    ) -> "_ISimulationRef_91d712eb":
+        '''Creates a new ISimulationRef from a simulationName.
+
+        :param scope: -
+        :param id: -
+        :param simulation_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38fc8e5779df1d285a56e558dbef426fcda347eabd323a01eadb0da3cc170d89)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument simulation_name", value=simulation_name, expected_type=type_hints["simulation_name"])
+        return typing.cast("_ISimulationRef_91d712eb", jsii.sinvoke(cls, "fromSimulationName", [scope, id, simulation_name]))
+
+    @jsii.member(jsii_name="isCfnSimulation")
+    @builtins.classmethod
+    def is_cfn_simulation(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSimulation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e9dd959a6b678d92078079111428aab4f7e6f3803135a0b8e073466f74178f3a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSimulation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a5e211ad7b3d49f5cb4da59f7dc84b6d22a3e802292f57f2c44fe93c3c9ff344)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65af4962335a3edb9ad4f69b98f35694c832172a61202cc9cfed67b004c64dca)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDescribePayload")
+    def attr_describe_payload(self) -> builtins.str:
+        '''The JSON blob that the `DescribeSimulation <https://docs.aws.amazon.com/simspaceweaver/latest/APIReference/API_DescribeSimulation.html>`_ action returns.
+
+        :cloudformationAttribute: DescribePayload
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDescribePayload"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="simulationRef")
+    def simulation_ref(self) -> "_SimulationReference_4bd7f392":
+        '''A reference to a Simulation resource.'''
+        return typing.cast("_SimulationReference_4bd7f392", jsii.get(self, "simulationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the simulation.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cee178cc692dbe490816570d9a4e2e7a1337df4dada160c359d1e63f9610a019)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the AWS Identity and Access Management ( IAM ) role that the simulation assumes to perform actions.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8cf80826f07ceb33872e230ca4db5787964200674ba7f1acac6b09dd5c724ba1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maximumDuration")
+    def maximum_duration(self) -> typing.Optional[builtins.str]:
+        '''The maximum running time of the simulation, specified as a number of minutes (m or M), hours (h or H), or days (d or D).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "maximumDuration"))
+
+    @maximum_duration.setter
+    def maximum_duration(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a94aed77c22b4214ad09ce3c32e695147377205b63da1699fb7e1e3b97467dc9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maximumDuration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaS3Location")
+    def schema_s3_location(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulation.S3LocationProperty"]]:
+        '''The location of the simulation schema in Amazon Simple Storage Service ( Amazon S3 ).'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulation.S3LocationProperty"]], jsii.get(self, "schemaS3Location"))
+
+    @schema_s3_location.setter
+    def schema_s3_location(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulation.S3LocationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19e5b9acd452852f4eb9cb770f11aaf43e111ff00ccb82a5824b65ae6869ef67)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "schemaS3Location", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotS3Location")
+    def snapshot_s3_location(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulation.S3LocationProperty"]]:
+        '''The location of the snapshot in Amazon Simple Storage Service ( Amazon S3 ).'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulation.S3LocationProperty"]], jsii.get(self, "snapshotS3Location"))
+
+    @snapshot_s3_location.setter
+    def snapshot_s3_location(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulation.S3LocationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eae2ce65a01ef04b46cbcb9953c071289e4b3d8a6e8631a73da64120010bc9c2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotS3Location", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_simspaceweaver.CfnSimulation.S3LocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket_name": "bucketName", "object_key": "objectKey"},
+    )
+    class S3LocationProperty:
+        def __init__(
+            self,
+            *,
+            bucket_name: builtins.str,
+            object_key: builtins.str,
+        ) -> None:
+            '''A location in Amazon Simple Storage Service ( Amazon S3 ) where SimSpace Weaver stores simulation data, such as your app .zip files and schema file. For more information about Amazon S3 , see the `*Amazon Simple Storage Service User Guide* <https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html>`_ .
+
+            :param bucket_name: The name of an Amazon S3 bucket. For more information about buckets, see `Creating, configuring, and working with Amazon S3 buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-buckets-s3.html>`_ in the *Amazon Simple Storage Service User Guide* .
+            :param object_key: The key name of an object in Amazon S3. For more information about Amazon S3 objects and object keys, see `Uploading, downloading, and working with objects in Amazon S3 <https://docs.aws.amazon.com/AmazonS3/latest/userguide/uploading-downloading-objects.html>`_ in the *Amazon Simple Storage Service User Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-simspaceweaver-simulation-s3location.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_simspaceweaver as simspaceweaver
+                
+                s3_location_property = simspaceweaver.CfnSimulation.S3LocationProperty(
+                    bucket_name="bucketName",
+                    object_key="objectKey"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9bb956d9a2c736c24db9fd8ada0f1dbf623d28b2a7e7a0086505b12c3381d40d)
+                check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+                check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket_name": bucket_name,
+                "object_key": object_key,
+            }
+
+        @builtins.property
+        def bucket_name(self) -> builtins.str:
+            '''The name of an Amazon S3 bucket.
+
+            For more information about buckets, see `Creating, configuring, and working with Amazon S3 buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-buckets-s3.html>`_ in the *Amazon Simple Storage Service User Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-simspaceweaver-simulation-s3location.html#cfn-simspaceweaver-simulation-s3location-bucketname
+            '''
+            result = self._values.get("bucket_name")
+            assert result is not None, "Required property 'bucket_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def object_key(self) -> builtins.str:
+            '''The key name of an object in Amazon S3.
+
+            For more information about Amazon S3 objects and object keys, see `Uploading, downloading, and working with objects in Amazon S3 <https://docs.aws.amazon.com/AmazonS3/latest/userguide/uploading-downloading-objects.html>`_ in the *Amazon Simple Storage Service User Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-simspaceweaver-simulation-s3location.html#cfn-simspaceweaver-simulation-s3location-objectkey
+            '''
+            result = self._values.get("object_key")
+            assert result is not None, "Required property 'object_key' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3LocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.data_type(
@@ -84,8 +407,8 @@ class CfnSimulationProps:
         name: builtins.str,
         role_arn: builtins.str,
         maximum_duration: typing.Optional[builtins.str] = None,
-        schema_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSimulation.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        snapshot_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSimulation.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        schema_s3_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimulation.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        snapshot_s3_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimulation.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSimulation``.
 
@@ -174,7 +497,7 @@ class CfnSimulationProps:
     @builtins.property
     def schema_s3_location(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimulation.S3LocationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulation.S3LocationProperty"]]:
         '''The location of the simulation schema in Amazon Simple Storage Service ( Amazon S3 ).
 
         For more information about Amazon S3 , see the `*Amazon Simple Storage Service User Guide* <https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html>`_ .
@@ -186,12 +509,12 @@ class CfnSimulationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-simspaceweaver-simulation.html#cfn-simspaceweaver-simulation-schemas3location
         '''
         result = self._values.get("schema_s3_location")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimulation.S3LocationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulation.S3LocationProperty"]], result)
 
     @builtins.property
     def snapshot_s3_location(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimulation.S3LocationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulation.S3LocationProperty"]]:
         '''The location of the snapshot in Amazon Simple Storage Service ( Amazon S3 ).
 
         For more information about Amazon S3 , see the `*Amazon Simple Storage Service User Guide* <https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html>`_ .
@@ -203,7 +526,7 @@ class CfnSimulationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-simspaceweaver-simulation.html#cfn-simspaceweaver-simulation-snapshots3location
         '''
         result = self._values.get("snapshot_s3_location")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimulation.S3LocationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulation.S3LocationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -217,395 +540,12 @@ class CfnSimulationProps:
         )
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_simspaceweaver.ISimulationRef")
-class ISimulationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Simulation.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="simulationRef")
-    def simulation_ref(self) -> "SimulationReference":
-        '''(experimental) A reference to a Simulation resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISimulationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Simulation.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_simspaceweaver.ISimulationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="simulationRef")
-    def simulation_ref(self) -> "SimulationReference":
-        '''(experimental) A reference to a Simulation resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SimulationReference", jsii.get(self, "simulationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISimulationRef).__jsii_proxy_class__ = lambda : _ISimulationRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_simspaceweaver.SimulationReference",
-    jsii_struct_bases=[],
-    name_mapping={"simulation_name": "simulationName"},
-)
-class SimulationReference:
-    def __init__(self, *, simulation_name: builtins.str) -> None:
-        '''A reference to a Simulation resource.
-
-        :param simulation_name: The Name of the Simulation resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_simspaceweaver as simspaceweaver
-            
-            simulation_reference = simspaceweaver.SimulationReference(
-                simulation_name="simulationName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dddd5fa06e4e456d63391820a64b56411c90384b46dbe38dfdbd2ac1cb8a58c0)
-            check_type(argname="argument simulation_name", value=simulation_name, expected_type=type_hints["simulation_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "simulation_name": simulation_name,
-        }
-
-    @builtins.property
-    def simulation_name(self) -> builtins.str:
-        '''The Name of the Simulation resource.'''
-        result = self._values.get("simulation_name")
-        assert result is not None, "Required property 'simulation_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SimulationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, ISimulationRef)
-class CfnSimulation(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_simspaceweaver.CfnSimulation",
-):
-    '''Use the ``AWS::SimSpaceWeaver::Simulation`` resource to specify a simulation that AWS CloudFormation starts in the AWS Cloud , in your AWS account .
-
-    In the resource properties section of your template, provide the name of an existing IAM role configured with the proper permissions, and the name of an existing Amazon S3 bucket. Your account must have permissions to read the Amazon S3 bucket. The Amazon S3 bucket must contain a valid schema. The schema must refer to simulation assets that are already uploaded to the AWS Cloud . For more information, see the `detailed tutorial <https://docs.aws.amazon.com/simspaceweaver/latest/userguide/getting-started_detailed.html>`_ in the *AWS SimSpace Weaver User Guide* .
-
-    Specify a ``SnapshotS3Location`` to start a simulation from a snapshot instead of from a schema. When you start a simulation from a snapshot, SimSpace Weaver initializes the entity data in the State Fabric with data saved in the snapshot, starts the spatial and service apps that were running when the snapshot was created, and restores the clock to the appropriate tick. Your app zip files must be in the same location in Amazon S3 as they were in for the original simulation. You must start any custom apps separately. For more information about snapshots, see `Snapshots <https://docs.aws.amazon.com/simspaceweaver/latest/userguide/working-with_snapshots.html>`_ in the *AWS SimSpace Weaver User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-simspaceweaver-simulation.html
-    :cloudformationResource: AWS::SimSpaceWeaver::Simulation
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_simspaceweaver as simspaceweaver
-        
-        cfn_simulation = simspaceweaver.CfnSimulation(self, "MyCfnSimulation",
-            name="name",
-            role_arn="roleArn",
-        
-            # the properties below are optional
-            maximum_duration="maximumDuration",
-            schema_s3_location=simspaceweaver.CfnSimulation.S3LocationProperty(
-                bucket_name="bucketName",
-                object_key="objectKey"
-            ),
-            snapshot_s3_location=simspaceweaver.CfnSimulation.S3LocationProperty(
-                bucket_name="bucketName",
-                object_key="objectKey"
-            )
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        name: builtins.str,
-        role_arn: builtins.str,
-        maximum_duration: typing.Optional[builtins.str] = None,
-        schema_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSimulation.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        snapshot_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSimulation.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param name: The name of the simulation.
-        :param role_arn: The Amazon Resource Name (ARN) of the AWS Identity and Access Management ( IAM ) role that the simulation assumes to perform actions. For more information about ARNs, see `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* . For more information about IAM roles, see `IAM roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html>`_ in the *AWS Identity and Access Management User Guide* .
-        :param maximum_duration: The maximum running time of the simulation, specified as a number of minutes (m or M), hours (h or H), or days (d or D). The simulation stops when it reaches this limit. The maximum value is ``14D`` , or its equivalent in the other units. The default value is ``14D`` . A value equivalent to ``0`` makes the simulation immediately transition to ``STOPPING`` as soon as it reaches ``STARTED`` .
-        :param schema_s3_location: The location of the simulation schema in Amazon Simple Storage Service ( Amazon S3 ). For more information about Amazon S3 , see the `*Amazon Simple Storage Service User Guide* <https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html>`_ . Provide a ``SchemaS3Location`` to start your simulation from a schema. If you provide a ``SchemaS3Location`` then you can't provide a ``SnapshotS3Location`` .
-        :param snapshot_s3_location: The location of the snapshot in Amazon Simple Storage Service ( Amazon S3 ). For more information about Amazon S3 , see the `*Amazon Simple Storage Service User Guide* <https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html>`_ . Provide a ``SnapshotS3Location`` to start your simulation from a snapshot. If you provide a ``SnapshotS3Location`` then you can't provide a ``SchemaS3Location`` .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49a18eff4f0bb5a69b0bd9ec4308865d3a99b9833d34d09dc1d10808b54c7b66)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnSimulationProps(
-            name=name,
-            role_arn=role_arn,
-            maximum_duration=maximum_duration,
-            schema_s3_location=schema_s3_location,
-            snapshot_s3_location=snapshot_s3_location,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5e211ad7b3d49f5cb4da59f7dc84b6d22a3e802292f57f2c44fe93c3c9ff344)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65af4962335a3edb9ad4f69b98f35694c832172a61202cc9cfed67b004c64dca)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDescribePayload")
-    def attr_describe_payload(self) -> builtins.str:
-        '''The JSON blob that the `DescribeSimulation <https://docs.aws.amazon.com/simspaceweaver/latest/APIReference/API_DescribeSimulation.html>`_ action returns.
-
-        :cloudformationAttribute: DescribePayload
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrDescribePayload"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="simulationRef")
-    def simulation_ref(self) -> SimulationReference:
-        '''A reference to a Simulation resource.'''
-        return typing.cast(SimulationReference, jsii.get(self, "simulationRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the simulation.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cee178cc692dbe490816570d9a4e2e7a1337df4dada160c359d1e63f9610a019)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="roleArn")
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the AWS Identity and Access Management ( IAM ) role that the simulation assumes to perform actions.'''
-        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
-
-    @role_arn.setter
-    def role_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cf80826f07ceb33872e230ca4db5787964200674ba7f1acac6b09dd5c724ba1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="maximumDuration")
-    def maximum_duration(self) -> typing.Optional[builtins.str]:
-        '''The maximum running time of the simulation, specified as a number of minutes (m or M), hours (h or H), or days (d or D).'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "maximumDuration"))
-
-    @maximum_duration.setter
-    def maximum_duration(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a94aed77c22b4214ad09ce3c32e695147377205b63da1699fb7e1e3b97467dc9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maximumDuration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="schemaS3Location")
-    def schema_s3_location(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimulation.S3LocationProperty"]]:
-        '''The location of the simulation schema in Amazon Simple Storage Service ( Amazon S3 ).'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimulation.S3LocationProperty"]], jsii.get(self, "schemaS3Location"))
-
-    @schema_s3_location.setter
-    def schema_s3_location(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimulation.S3LocationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19e5b9acd452852f4eb9cb770f11aaf43e111ff00ccb82a5824b65ae6869ef67)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schemaS3Location", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="snapshotS3Location")
-    def snapshot_s3_location(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimulation.S3LocationProperty"]]:
-        '''The location of the snapshot in Amazon Simple Storage Service ( Amazon S3 ).'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimulation.S3LocationProperty"]], jsii.get(self, "snapshotS3Location"))
-
-    @snapshot_s3_location.setter
-    def snapshot_s3_location(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimulation.S3LocationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eae2ce65a01ef04b46cbcb9953c071289e4b3d8a6e8631a73da64120010bc9c2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotS3Location", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_simspaceweaver.CfnSimulation.S3LocationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"bucket_name": "bucketName", "object_key": "objectKey"},
-    )
-    class S3LocationProperty:
-        def __init__(
-            self,
-            *,
-            bucket_name: builtins.str,
-            object_key: builtins.str,
-        ) -> None:
-            '''A location in Amazon Simple Storage Service ( Amazon S3 ) where SimSpace Weaver stores simulation data, such as your app .zip files and schema file. For more information about Amazon S3 , see the `*Amazon Simple Storage Service User Guide* <https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html>`_ .
-
-            :param bucket_name: The name of an Amazon S3 bucket. For more information about buckets, see `Creating, configuring, and working with Amazon S3 buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-buckets-s3.html>`_ in the *Amazon Simple Storage Service User Guide* .
-            :param object_key: The key name of an object in Amazon S3. For more information about Amazon S3 objects and object keys, see `Uploading, downloading, and working with objects in Amazon S3 <https://docs.aws.amazon.com/AmazonS3/latest/userguide/uploading-downloading-objects.html>`_ in the *Amazon Simple Storage Service User Guide* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-simspaceweaver-simulation-s3location.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_simspaceweaver as simspaceweaver
-                
-                s3_location_property = simspaceweaver.CfnSimulation.S3LocationProperty(
-                    bucket_name="bucketName",
-                    object_key="objectKey"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9bb956d9a2c736c24db9fd8ada0f1dbf623d28b2a7e7a0086505b12c3381d40d)
-                check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
-                check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "bucket_name": bucket_name,
-                "object_key": object_key,
-            }
-
-        @builtins.property
-        def bucket_name(self) -> builtins.str:
-            '''The name of an Amazon S3 bucket.
-
-            For more information about buckets, see `Creating, configuring, and working with Amazon S3 buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-buckets-s3.html>`_ in the *Amazon Simple Storage Service User Guide* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-simspaceweaver-simulation-s3location.html#cfn-simspaceweaver-simulation-s3location-bucketname
-            '''
-            result = self._values.get("bucket_name")
-            assert result is not None, "Required property 'bucket_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def object_key(self) -> builtins.str:
-            '''The key name of an object in Amazon S3.
-
-            For more information about Amazon S3 objects and object keys, see `Uploading, downloading, and working with objects in Amazon S3 <https://docs.aws.amazon.com/AmazonS3/latest/userguide/uploading-downloading-objects.html>`_ in the *Amazon Simple Storage Service User Guide* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-simspaceweaver-simulation-s3location.html#cfn-simspaceweaver-simulation-s3location-objectkey
-            '''
-            result = self._values.get("object_key")
-            assert result is not None, "Required property 'object_key' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "S3LocationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 __all__ = [
     "CfnSimulation",
     "CfnSimulationProps",
-    "ISimulationRef",
-    "SimulationReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__ffc14fdb1da790b4cfe1614eb2f8982246ef563b4e0f372f8730236621b7952b(
-    *,
-    name: builtins.str,
-    role_arn: builtins.str,
-    maximum_duration: typing.Optional[builtins.str] = None,
-    schema_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulation.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    snapshot_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulation.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dddd5fa06e4e456d63391820a64b56411c90384b46dbe38dfdbd2ac1cb8a58c0(
-    *,
-    simulation_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__49a18eff4f0bb5a69b0bd9ec4308865d3a99b9833d34d09dc1d10808b54c7b66(
     scope: _constructs_77d1e7e8.Construct,
@@ -616,6 +556,26 @@ def _typecheckingstub__49a18eff4f0bb5a69b0bd9ec4308865d3a99b9833d34d09dc1d10808b
     maximum_duration: typing.Optional[builtins.str] = None,
     schema_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulation.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     snapshot_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulation.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8adc9ed4305b9c3eb4265eda59f6afceb6078f409c1b7facf0d5ebf4a1a7f912(
+    resource: _ISimulationRef_91d712eb,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38fc8e5779df1d285a56e558dbef426fcda347eabd323a01eadb0da3cc170d89(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    simulation_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9dd959a6b678d92078079111428aab4f7e6f3803135a0b8e073466f74178f3a(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -666,6 +626,17 @@ def _typecheckingstub__9bb956d9a2c736c24db9fd8ada0f1dbf623d28b2a7e7a0086505b12c3
     *,
     bucket_name: builtins.str,
     object_key: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ffc14fdb1da790b4cfe1614eb2f8982246ef563b4e0f372f8730236621b7952b(
+    *,
+    name: builtins.str,
+    role_arn: builtins.str,
+    maximum_duration: typing.Optional[builtins.str] = None,
+    schema_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulation.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snapshot_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulation.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

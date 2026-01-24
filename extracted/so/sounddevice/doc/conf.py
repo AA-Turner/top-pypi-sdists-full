@@ -3,7 +3,7 @@ import sys
 import os
 from subprocess import check_output
 
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath('../src'))
 sys.path.insert(0, os.path.abspath('.'))
 
 # Fake import to avoid actually loading CFFI and the PortAudio library
@@ -35,7 +35,7 @@ napoleon_use_rtype = False
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
-    'numpy': ('https://docs.scipy.org/doc/numpy/', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
 }
 
 master_doc = 'index'

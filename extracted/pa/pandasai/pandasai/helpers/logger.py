@@ -22,8 +22,9 @@ import sys
 import time
 from typing import List
 
+from pydantic import BaseModel
+
 from pandasai.helpers.telemetry import scarf_analytics
-from pandasai.pydantic import BaseModel
 
 from .path import find_closest
 

@@ -3,7 +3,7 @@ Type annotations for es service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_es/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -52,12 +53,6 @@ from .literals import (
     VpcEndpointStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -263,7 +258,7 @@ class AcceptInboundCrossClusterSearchConnectionRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -280,7 +275,7 @@ class TagTypeDef(TypedDict):
 
 class AdditionalLimitTypeDef(TypedDict):
     LimitName: NotRequired[str]
-    LimitValues: NotRequired[List[str]]
+    LimitValues: NotRequired[list[str]]
 
 class MasterUserOptionsTypeDef(TypedDict):
     MasterUserARN: NotRequired[str]
@@ -370,7 +365,7 @@ class ColdStorageOptionsTypeDef(TypedDict):
 
 class CompatibleVersionsMapTypeDef(TypedDict):
     SourceVersion: NotRequired[str]
-    TargetVersions: NotRequired[List[str]]
+    TargetVersions: NotRequired[list[str]]
 
 class DomainEndpointOptionsTypeDef(TypedDict):
     EnforceHTTPS: NotRequired[bool]
@@ -519,9 +514,9 @@ class ModifyingPropertiesTypeDef(TypedDict):
 
 class VPCDerivedInfoTypeDef(TypedDict):
     VPCId: NotRequired[str]
-    SubnetIds: NotRequired[List[str]]
-    AvailabilityZones: NotRequired[List[str]]
-    SecurityGroupIds: NotRequired[List[str]]
+    SubnetIds: NotRequired[list[str]]
+    AvailabilityZones: NotRequired[list[str]]
+    SecurityGroupIds: NotRequired[list[str]]
 
 class GetCompatibleElasticsearchVersionsRequestTypeDef(TypedDict):
     DomainName: NotRequired[str]
@@ -618,7 +613,7 @@ class StartElasticsearchServiceSoftwareUpdateRequestTypeDef(TypedDict):
 
 class StorageTypeLimitTypeDef(TypedDict):
     LimitName: NotRequired[str]
-    LimitValues: NotRequired[List[str]]
+    LimitValues: NotRequired[list[str]]
 
 class UpgradeElasticsearchDomainRequestTypeDef(TypedDict):
     DomainName: str
@@ -628,7 +623,7 @@ class UpgradeElasticsearchDomainRequestTypeDef(TypedDict):
 class UpgradeStepItemTypeDef(TypedDict):
     UpgradeStep: NotRequired[UpgradeStepType]
     UpgradeStepStatus: NotRequired[UpgradeStatusType]
-    Issues: NotRequired[List[str]]
+    Issues: NotRequired[list[str]]
     ProgressPercent: NotRequired[float]
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -641,12 +636,12 @@ class GetUpgradeStatusResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListElasticsearchInstanceTypesResponseTypeDef(TypedDict):
-    ElasticsearchInstanceTypes: List[ESPartitionInstanceTypeType]
+    ElasticsearchInstanceTypes: list[ESPartitionInstanceTypeType]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListElasticsearchVersionsResponseTypeDef(TypedDict):
-    ElasticsearchVersions: List[str]
+    ElasticsearchVersions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -660,7 +655,7 @@ class AccessPoliciesStatusTypeDef(TypedDict):
     Status: OptionStatusTypeDef
 
 class AdvancedOptionsStatusTypeDef(TypedDict):
-    Options: Dict[str, str]
+    Options: dict[str, str]
     Status: OptionStatusTypeDef
 
 class ElasticsearchVersionStatusTypeDef(TypedDict):
@@ -672,7 +667,7 @@ class AddTagsRequestTypeDef(TypedDict):
     TagList: Sequence[TagTypeDef]
 
 class ListTagsResponseTypeDef(TypedDict):
-    TagList: List[TagTypeDef]
+    TagList: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AuthorizeVpcEndpointAccessResponseTypeDef(TypedDict):
@@ -680,7 +675,7 @@ class AuthorizeVpcEndpointAccessResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListVpcEndpointAccessResponseTypeDef(TypedDict):
-    AuthorizedPrincipalList: List[AuthorizedPrincipalTypeDef]
+    AuthorizedPrincipalList: list[AuthorizedPrincipalTypeDef]
     NextToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -699,8 +694,8 @@ class AutoTuneMaintenanceScheduleTypeDef(TypedDict):
 
 class CancelDomainConfigChangeResponseTypeDef(TypedDict):
     DryRun: bool
-    CancelledChangeIds: List[str]
-    CancelledChangeProperties: List[CancelledChangePropertyTypeDef]
+    CancelledChangeIds: list[str]
+    CancelledChangeProperties: list[CancelledChangePropertyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CancelElasticsearchServiceSoftwareUpdateResponseTypeDef(TypedDict):
@@ -722,10 +717,10 @@ class ChangeProgressStatusDetailsTypeDef(TypedDict):
     ChangeId: NotRequired[str]
     StartTime: NotRequired[datetime]
     Status: NotRequired[OverallChangeStatusType]
-    PendingProperties: NotRequired[List[str]]
-    CompletedProperties: NotRequired[List[str]]
+    PendingProperties: NotRequired[list[str]]
+    CompletedProperties: NotRequired[list[str]]
     TotalNumberOfStages: NotRequired[int]
-    ChangeProgressStages: NotRequired[List[ChangeProgressStageTypeDef]]
+    ChangeProgressStages: NotRequired[list[ChangeProgressStageTypeDef]]
     ConfigChangeStatus: NotRequired[ConfigChangeStatusType]
     LastUpdatedTime: NotRequired[datetime]
     InitiatedBy: NotRequired[InitiatedByType]
@@ -735,7 +730,7 @@ class CognitoOptionsStatusTypeDef(TypedDict):
     Status: OptionStatusTypeDef
 
 class GetCompatibleElasticsearchVersionsResponseTypeDef(TypedDict):
-    CompatibleElasticsearchVersions: List[CompatibleVersionsMapTypeDef]
+    CompatibleElasticsearchVersions: list[CompatibleVersionsMapTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DomainEndpointOptionsStatusTypeDef(TypedDict):
@@ -751,7 +746,7 @@ class EncryptionAtRestOptionsStatusTypeDef(TypedDict):
     Status: OptionStatusTypeDef
 
 class LogPublishingOptionsStatusTypeDef(TypedDict):
-    Options: NotRequired[Dict[LogTypeType, LogPublishingOptionTypeDef]]
+    Options: NotRequired[dict[LogTypeType, LogPublishingOptionTypeDef]]
     Status: NotRequired[OptionStatusTypeDef]
 
 class NodeToNodeEncryptionOptionsStatusTypeDef(TypedDict):
@@ -808,12 +803,12 @@ class DeleteVpcEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListVpcEndpointsForDomainResponseTypeDef(TypedDict):
-    VpcEndpointSummaryList: List[VpcEndpointSummaryTypeDef]
+    VpcEndpointSummaryList: list[VpcEndpointSummaryTypeDef]
     NextToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListVpcEndpointsResponseTypeDef(TypedDict):
-    VpcEndpointSummaryList: List[VpcEndpointSummaryTypeDef]
+    VpcEndpointSummaryList: list[VpcEndpointSummaryTypeDef]
     NextToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -853,7 +848,7 @@ class ListElasticsearchVersionsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListDomainNamesResponseTypeDef(TypedDict):
-    DomainNames: List[DomainInfoTypeDef]
+    DomainNames: list[DomainInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DomainPackageDetailsTypeDef(TypedDict):
@@ -905,7 +900,7 @@ class VpcEndpointTypeDef(TypedDict):
 
 class GetPackageVersionHistoryResponseTypeDef(TypedDict):
     PackageID: str
-    PackageVersionHistoryList: List[PackageVersionHistoryTypeDef]
+    PackageVersionHistoryList: list[PackageVersionHistoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -926,7 +921,7 @@ class ReservedElasticsearchInstanceOfferingTypeDef(TypedDict):
     UsagePrice: NotRequired[float]
     CurrencyCode: NotRequired[str]
     PaymentOption: NotRequired[ReservedElasticsearchInstancePaymentOptionType]
-    RecurringCharges: NotRequired[List[RecurringChargeTypeDef]]
+    RecurringCharges: NotRequired[list[RecurringChargeTypeDef]]
 
 class ReservedElasticsearchInstanceTypeDef(TypedDict):
     ReservationName: NotRequired[str]
@@ -941,7 +936,7 @@ class ReservedElasticsearchInstanceTypeDef(TypedDict):
     ElasticsearchInstanceCount: NotRequired[int]
     State: NotRequired[str]
     PaymentOption: NotRequired[ReservedElasticsearchInstancePaymentOptionType]
-    RecurringCharges: NotRequired[List[RecurringChargeTypeDef]]
+    RecurringCharges: NotRequired[list[RecurringChargeTypeDef]]
 
 class SAMLOptionsInputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
@@ -962,13 +957,13 @@ class SAMLOptionsOutputTypeDef(TypedDict):
 class StorageTypeTypeDef(TypedDict):
     StorageTypeName: NotRequired[str]
     StorageSubTypeName: NotRequired[str]
-    StorageTypeLimits: NotRequired[List[StorageTypeLimitTypeDef]]
+    StorageTypeLimits: NotRequired[list[StorageTypeLimitTypeDef]]
 
 class UpgradeHistoryTypeDef(TypedDict):
     UpgradeName: NotRequired[str]
     StartTimestamp: NotRequired[datetime]
     UpgradeStatus: NotRequired[UpgradeStatusType]
-    StepsList: NotRequired[List[UpgradeStepItemTypeDef]]
+    StepsList: NotRequired[list[UpgradeStepItemTypeDef]]
 
 class AutoTuneTypeDef(TypedDict):
     AutoTuneType: NotRequired[Literal["SCHEDULED_ACTION"]]
@@ -977,7 +972,7 @@ class AutoTuneTypeDef(TypedDict):
 class AutoTuneOptionsExtraTypeDef(TypedDict):
     DesiredState: NotRequired[AutoTuneDesiredStateType]
     RollbackOnDisable: NotRequired[RollbackOnDisableType]
-    MaintenanceSchedules: NotRequired[List[AutoTuneMaintenanceScheduleOutputTypeDef]]
+    MaintenanceSchedules: NotRequired[list[AutoTuneMaintenanceScheduleOutputTypeDef]]
 
 AutoTuneMaintenanceScheduleUnionTypeDef = Union[
     AutoTuneMaintenanceScheduleTypeDef, AutoTuneMaintenanceScheduleOutputTypeDef
@@ -997,7 +992,7 @@ class DeleteOutboundCrossClusterSearchConnectionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeOutboundCrossClusterSearchConnectionsResponseTypeDef(TypedDict):
-    CrossClusterSearchConnections: List[OutboundCrossClusterSearchConnectionTypeDef]
+    CrossClusterSearchConnections: list[OutboundCrossClusterSearchConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1010,12 +1005,12 @@ class DissociatePackageResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDomainsForPackageResponseTypeDef(TypedDict):
-    DomainPackageDetailsList: List[DomainPackageDetailsTypeDef]
+    DomainPackageDetailsList: list[DomainPackageDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListPackagesForDomainResponseTypeDef(TypedDict):
-    DomainPackageDetailsList: List[DomainPackageDetailsTypeDef]
+    DomainPackageDetailsList: list[DomainPackageDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1028,7 +1023,7 @@ class DeletePackageResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribePackagesResponseTypeDef(TypedDict):
-    PackageDetailsList: List[PackageDetailsTypeDef]
+    PackageDetailsList: list[PackageDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1045,8 +1040,8 @@ class CreateVpcEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeVpcEndpointsResponseTypeDef(TypedDict):
-    VpcEndpoints: List[VpcEndpointTypeDef]
-    VpcEndpointErrors: List[VpcEndpointErrorTypeDef]
+    VpcEndpoints: list[VpcEndpointTypeDef]
+    VpcEndpointErrors: list[VpcEndpointErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateVpcEndpointResponseTypeDef(TypedDict):
@@ -1062,7 +1057,7 @@ class DeleteInboundCrossClusterSearchConnectionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeInboundCrossClusterSearchConnectionsResponseTypeDef(TypedDict):
-    CrossClusterSearchConnections: List[InboundCrossClusterSearchConnectionTypeDef]
+    CrossClusterSearchConnections: list[InboundCrossClusterSearchConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1071,12 +1066,12 @@ class RejectInboundCrossClusterSearchConnectionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeReservedElasticsearchInstanceOfferingsResponseTypeDef(TypedDict):
-    ReservedElasticsearchInstanceOfferings: List[ReservedElasticsearchInstanceOfferingTypeDef]
+    ReservedElasticsearchInstanceOfferings: list[ReservedElasticsearchInstanceOfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DescribeReservedElasticsearchInstancesResponseTypeDef(TypedDict):
-    ReservedElasticsearchInstances: List[ReservedElasticsearchInstanceTypeDef]
+    ReservedElasticsearchInstances: list[ReservedElasticsearchInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1095,17 +1090,17 @@ class AdvancedSecurityOptionsTypeDef(TypedDict):
     AnonymousAuthEnabled: NotRequired[bool]
 
 class LimitsTypeDef(TypedDict):
-    StorageTypes: NotRequired[List[StorageTypeTypeDef]]
+    StorageTypes: NotRequired[list[StorageTypeTypeDef]]
     InstanceLimits: NotRequired[InstanceLimitsTypeDef]
-    AdditionalLimits: NotRequired[List[AdditionalLimitTypeDef]]
+    AdditionalLimits: NotRequired[list[AdditionalLimitTypeDef]]
 
 class GetUpgradeHistoryResponseTypeDef(TypedDict):
-    UpgradeHistories: List[UpgradeHistoryTypeDef]
+    UpgradeHistories: list[UpgradeHistoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DescribeDomainAutoTunesResponseTypeDef(TypedDict):
-    AutoTunes: List[AutoTuneTypeDef]
+    AutoTunes: list[AutoTuneTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1131,7 +1126,7 @@ class ElasticsearchDomainStatusTypeDef(TypedDict):
     Created: NotRequired[bool]
     Deleted: NotRequired[bool]
     Endpoint: NotRequired[str]
-    Endpoints: NotRequired[Dict[str, str]]
+    Endpoints: NotRequired[dict[str, str]]
     Processing: NotRequired[bool]
     UpgradeProcessing: NotRequired[bool]
     ElasticsearchVersion: NotRequired[str]
@@ -1142,18 +1137,18 @@ class ElasticsearchDomainStatusTypeDef(TypedDict):
     CognitoOptions: NotRequired[CognitoOptionsTypeDef]
     EncryptionAtRestOptions: NotRequired[EncryptionAtRestOptionsTypeDef]
     NodeToNodeEncryptionOptions: NotRequired[NodeToNodeEncryptionOptionsTypeDef]
-    AdvancedOptions: NotRequired[Dict[str, str]]
-    LogPublishingOptions: NotRequired[Dict[LogTypeType, LogPublishingOptionTypeDef]]
+    AdvancedOptions: NotRequired[dict[str, str]]
+    LogPublishingOptions: NotRequired[dict[LogTypeType, LogPublishingOptionTypeDef]]
     ServiceSoftwareOptions: NotRequired[ServiceSoftwareOptionsTypeDef]
     DomainEndpointOptions: NotRequired[DomainEndpointOptionsTypeDef]
     AdvancedSecurityOptions: NotRequired[AdvancedSecurityOptionsTypeDef]
     AutoTuneOptions: NotRequired[AutoTuneOptionsOutputTypeDef]
     ChangeProgressDetails: NotRequired[ChangeProgressDetailsTypeDef]
     DomainProcessingStatus: NotRequired[DomainProcessingStatusTypeType]
-    ModifyingProperties: NotRequired[List[ModifyingPropertiesTypeDef]]
+    ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
 
 class DescribeElasticsearchInstanceTypeLimitsResponseTypeDef(TypedDict):
-    LimitsByRole: Dict[str, LimitsTypeDef]
+    LimitsByRole: dict[str, LimitsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateElasticsearchDomainRequestTypeDef(TypedDict):
@@ -1207,7 +1202,7 @@ class ElasticsearchDomainConfigTypeDef(TypedDict):
     AdvancedSecurityOptions: NotRequired[AdvancedSecurityOptionsStatusTypeDef]
     AutoTuneOptions: NotRequired[AutoTuneOptionsStatusTypeDef]
     ChangeProgressDetails: NotRequired[ChangeProgressDetailsTypeDef]
-    ModifyingProperties: NotRequired[List[ModifyingPropertiesTypeDef]]
+    ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
 
 class CreateElasticsearchDomainResponseTypeDef(TypedDict):
     DomainStatus: ElasticsearchDomainStatusTypeDef
@@ -1222,7 +1217,7 @@ class DescribeElasticsearchDomainResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeElasticsearchDomainsResponseTypeDef(TypedDict):
-    DomainStatusList: List[ElasticsearchDomainStatusTypeDef]
+    DomainStatusList: list[ElasticsearchDomainStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeElasticsearchDomainConfigResponseTypeDef(TypedDict):

@@ -17,10 +17,9 @@
 # limitations under the License.                                           #
 ############################################################################
 import logging
-from typing import List, Optional, Union
+from typing import Optional, Union, Sequence
 
 from lsprotocol import types
-
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +32,9 @@ class PositionCodec:
         ] = types.PositionEncodingKind.Utf16,
     ):
         self.encoding = encoding
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}, encoding {self.encoding}>"
 
     @classmethod
     def is_char_beyond_multilingual_plane(cls, char: str) -> bool:
@@ -47,6 +49,16 @@ class PositionCodec:
         """
         return sum(self.is_char_beyond_multilingual_plane(ch) for ch in chars)
 
+    def utf8_bytes(self, char: str) -> int:
+        codepoint = ord(char)
+        if codepoint < 0x80:
+            return 1
+        if codepoint < 0x800:
+            return 2
+        if codepoint < 0x10000:
+            return 3
+        return 4
+
     def client_num_units(self, chars: str):
         """
         Calculate the length of `str` in client-supported UTF-[32|16|8] code units.
@@ -59,12 +71,12 @@ class PositionCodec:
             return utf32_units
 
         if self.encoding == types.PositionEncodingKind.Utf8:
-            return utf32_units + (self.utf16_unit_offset(chars) * 2)
+            return sum(self.utf8_bytes(c) for c in chars)
 
         return utf32_units + self.utf16_unit_offset(chars)
 
     def position_from_client_units(
-        self, lines: List[str], position: types.Position
+        self, lines: Sequence[str], position: types.Position
     ) -> types.Position:
         """
         Convert the position.character from UTF-[32|16|8] code units to UTF-32.
@@ -84,7 +96,7 @@ class PositionCodec:
         see: https://github.com/microsoft/language-server-protocol/issues/376
 
         Arguments:
-            lines (list):
+            lines (sequence):
                 The content of the document which the position refers to.
             position (Position):
                 The line and character offset in UTF-[32|16|8] code units.
@@ -121,15 +133,12 @@ class PositionCodec:
                 break
 
             _current_char = _line[utf32_index]
-            _is_double_width = PositionCodec.is_char_beyond_multilingual_plane(
-                _current_char
-            )
-            if _is_double_width:
-                if self.encoding == types.PositionEncodingKind.Utf32:
-                    _client_index += 1
-                if self.encoding == types.PositionEncodingKind.Utf8:
-                    _client_index += 4
-                _client_index += 2
+            if self.encoding == types.PositionEncodingKind.Utf8:
+                _client_index += self.utf8_bytes(_current_char)
+            elif self.encoding == types.PositionEncodingKind.Utf16:
+                _client_index += (
+                    2 if self.is_char_beyond_multilingual_plane(_current_char) else 1
+                )
             else:
                 _client_index += 1
             utf32_index += 1
@@ -138,14 +147,14 @@ class PositionCodec:
         return position
 
     def position_to_client_units(
-        self, lines: List[str], position: types.Position
+        self, lines: Sequence[str], position: types.Position
     ) -> types.Position:
         """
         Convert the position.character from its internal UTF-32 representation
         to client-supported UTF-[32|16|8] code units.
 
         Arguments:
-            lines (list):
+            lines (sequence):
                 The content of the document which the position refers to.
             position (Position):
                 The line and character offset in UTF-32 code units.
@@ -165,13 +174,13 @@ class PositionCodec:
             return types.Position(line=len(lines), character=0)
 
     def range_from_client_units(
-        self, lines: List[str], range: types.Range
+        self, lines: Sequence[str], range: types.Range
     ) -> types.Range:
         """
         Convert range.[start|end].character from UTF-[32|16|8] code units to UTF-32.
 
         Arguments:
-            lines (list):
+            lines (sequence):
                 The content of the document which the range refers to.
             range (Range):
                 The line and character offset in UTF-[32|16|8] code units.
@@ -186,19 +195,19 @@ class PositionCodec:
         return range_new
 
     def range_to_client_units(
-        self, lines: List[str], range: types.Range
+        self, lines: Sequence[str], range: types.Range
     ) -> types.Range:
         """
         Convert range.[start|end].character from UTF-32 to UTF-[32|16|8] code units.
 
         Arguments:
-            lines (list):
+            lines (sequence):
                 The content of the document which the range refers to.
             range (Range):
-                The line and character offset in  code units.
+                The line and character offset in code points.
 
         Returns:
-            The range with `character` offsets being converted to UTF-[32|16|8] code units.
+            The range with `character` offsets converted to UTF-[32|16|8] code units.
         """
         return types.Range(
             start=self.position_to_client_units(lines, range.start),

@@ -27,14 +27,16 @@ __all__ = [
 ]
 
 import io
-import warnings
 import sys
+from typing import Any
 
 from fixtures import CompoundFixture, Fixture
+from twisted.internet import defer
 
 from testtools.content import Content, text_content
 from testtools.content_type import UTF8_TEXT
 from testtools.runtest import RunTest, _raise_force_fail_error
+
 from ._deferred import extract_result
 from ._spinner import (
     NoResultError,
@@ -43,16 +45,14 @@ from ._spinner import (
     trap_unhandled_errors,
 )
 
-from twisted.internet import defer
-
 try:
     from twisted.logger import globalLogPublisher
 except ImportError:
-    globalLogPublisher = None
+    globalLogPublisher = None  # type: ignore[assignment]
 from twisted.python import log
 
 try:
-    from twisted.trial.unittest import _LogObserver
+    from twisted.trial.unittest import _LogObserver  # type: ignore[attr-defined]
 except ImportError:
     from twisted.trial._synctest import _LogObserver
 
@@ -182,18 +182,6 @@ class CaptureTwistedLogs(Fixture):
         )
 
 
-def run_with_log_observers(observers, function, *args, **kwargs):
-    """Run 'function' with the given Twisted log observers."""
-    warnings.warn(
-        "run_with_log_observers is deprecated since 1.8.2.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    with _NoTwistedLogObservers():
-        with _TwistedLogObservers(observers):
-            return function(*args, **kwargs)
-
-
 # Observer of the Twisted log that we install during tests.
 #
 # This is a global so that users can call flush_logged_errors errors in their
@@ -318,7 +306,7 @@ class AsynchronousDeferredRunTest(_DeferredRunTest):
         return AsynchronousDeferredRunTestFactory()
 
     @defer.inlineCallbacks
-    def _run_cleanups(self):
+    def _run_cleanups(self, result=None):
         """Run the cleanups on the test case.
 
         We expect that the cleanups on the test case can also return
@@ -335,7 +323,7 @@ class AsynchronousDeferredRunTest(_DeferredRunTest):
                 exc_info = sys.exc_info()
                 self.case._report_traceback(exc_info)
                 last_exception = exc_info[1]
-        defer.returnValue(last_exception)
+        return last_exception
 
     def _make_spinner(self):
         """Make the `Spinner` to be used to run the tests."""
@@ -349,7 +337,7 @@ class AsynchronousDeferredRunTest(_DeferredRunTest):
         call addSuccess on the result, because there's reactor clean up that
         we needs to be done afterwards.
         """
-        fails = []
+        fails: list[Any] = []
 
         def fail_if_exception_caught(exception_caught):
             if self.exception_caught == exception_caught:
@@ -418,7 +406,7 @@ class AsynchronousDeferredRunTest(_DeferredRunTest):
 
     def _get_log_fixture(self):
         """Return the log fixture we're configured to use."""
-        fixtures = []
+        fixtures: list[Fixture] = []
         # TODO: Expose these fixtures and deprecate both of these options in
         # favour of them.
         if self._suppress_twisted_logging:
@@ -443,7 +431,10 @@ class AsynchronousDeferredRunTest(_DeferredRunTest):
                 self.case.addDetail(name, detail)
             with _ErrorObserver(_log_observer) as error_fixture:
                 successful, unhandled = self._blocking_run_deferred(spinner)
-            for logged_error in error_fixture.flush_logged_errors():
+            # FIXME(stephenfin): Something is off with the __enter__ method on
+            # Fixture: mypy is incorrectly identifying the type as Fixture
+            # instead of _ErrorObserver
+            for logged_error in error_fixture.flush_logged_errors():  # type: ignore
                 successful = False
                 self._got_user_failure(logged_error, tb_label="logged-error")
 
@@ -524,9 +515,8 @@ def assert_fails_with(d, *exc_types, **kwargs):
         if failure.check(*exc_types):
             return failure.value
         raise failureException(
-            "{} raised instead of {}:\n {}".format(
-                failure.type.__name__, expected_names, failure.getTraceback()
-            )
+            f"{failure.type.__name__} raised instead of {expected_names}:\n"
+            f" {failure.getTraceback()}"
         )
 
     return d.addCallbacks(got_success, got_failure)
@@ -540,8 +530,9 @@ class UncleanReactorError(Exception):
             self,
             "The reactor still thinks it needs to do things. Close all "
             "connections, kill all processes and make sure all delayed "
-            "calls have either fired or been cancelled:\n%s"
-            % "".join(map(self._get_junk_info, junk)),
+            "calls have either fired or been cancelled:\n{}".format(
+                "".join(map(self._get_junk_info, junk))
+            ),
         )
 
     def _get_junk_info(self, junk):

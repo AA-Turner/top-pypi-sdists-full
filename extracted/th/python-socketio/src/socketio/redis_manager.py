@@ -1,13 +1,22 @@
 import logging
-import pickle
 import time
 from urllib.parse import urlparse
 
 try:
     import redis
-except ImportError:
+    from redis.exceptions import RedisError
+except ImportError:  # pragma: no cover
     redis = None
+    RedisError = None
 
+try:
+    import valkey
+    from valkey.exceptions import ValkeyError
+except ImportError:  # pragma: no cover
+    valkey = None
+    ValkeyError = None
+
+from engineio import json
 from .pubsub_manager import PubSubManager
 
 logger = logging.getLogger('socketio')
@@ -18,7 +27,7 @@ def parse_redis_sentinel_url(url):
     redis+sentinel://[:password]@host1:port1,host2:port2,.../db/service_name
     """
     parsed_url = urlparse(url)
-    if parsed_url.scheme != 'redis+sentinel':
+    if parsed_url.scheme not in {'redis+sentinel', 'valkey+sentinel'}:
         raise ValueError('Invalid Redis Sentinel URL')
     sentinels = []
     for host_port in parsed_url.netloc.split('@')[-1].split(','):
@@ -39,7 +48,7 @@ def parse_redis_sentinel_url(url):
     return sentinels, service_name, kwargs
 
 
-class RedisManager(PubSubManager):  # pragma: no cover
+class RedisManager(PubSubManager):
     """Redis based client manager.
 
     This class implements a Redis backend for event sharing across multiple
@@ -71,16 +80,14 @@ class RedisManager(PubSubManager):  # pragma: no cover
 
     def __init__(self, url='redis://localhost:6379/0', channel='socketio',
                  write_only=False, logger=None, redis_options=None):
-        if redis is None:
-            raise RuntimeError('Redis package is not installed '
-                               '(Run "pip install redis" in your '
-                               'virtualenv).')
+        super().__init__(channel=channel, write_only=write_only, logger=logger)
         self.redis_url = url
         self.redis_options = redis_options or {}
-        self._redis_connect()
-        super().__init__(channel=channel, write_only=write_only, logger=logger)
+        self.connected = False
+        self.redis = None
+        self.pubsub = None
 
-    def initialize(self):
+    def initialize(self):  # pragma: no cover
         super().initialize()
 
         monkey_patched = True
@@ -95,56 +102,95 @@ class RedisManager(PubSubManager):  # pragma: no cover
                 'Redis requires a monkey patched socket library to work '
                 'with ' + self.server.async_mode)
 
+    def _get_redis_module_and_error(self):
+        parsed_url = urlparse(self.redis_url)
+        scheme = parsed_url.scheme.split('+', 1)[0].lower()
+        if scheme in ['redis', 'rediss']:
+            if redis is None or RedisError is None:
+                raise RuntimeError('Redis package is not installed '
+                                   '(Run "pip install redis" '
+                                   'in your virtualenv).')
+            return redis, RedisError
+        if scheme in ['valkey', 'valkeys']:
+            if valkey is None or ValkeyError is None:
+                raise RuntimeError('Valkey package is not installed '
+                                   '(Run "pip install valkey" '
+                                   'in your virtualenv).')
+            return valkey, ValkeyError
+        if scheme == 'unix':
+            if redis is None or RedisError is None:
+                if valkey is None or ValkeyError is None:
+                    raise RuntimeError('Redis package is not installed '
+                                       '(Run "pip install redis" '
+                                       'or "pip install valkey" '
+                                       'in your virtualenv).')
+                else:
+                    return valkey, ValkeyError
+            else:
+                return redis, RedisError
+        error_msg = f'Unsupported Redis URL scheme: {scheme}'
+        raise ValueError(error_msg)
+
     def _redis_connect(self):
-        if not self.redis_url.startswith('redis+sentinel://'):
-            self.redis = redis.Redis.from_url(self.redis_url,
-                                              **self.redis_options)
-        else:
+        module, _ = self._get_redis_module_and_error()
+        parsed_url = urlparse(self.redis_url)
+        if parsed_url.scheme in {"redis+sentinel", "valkey+sentinel"}:
             sentinels, service_name, connection_kwargs = \
                 parse_redis_sentinel_url(self.redis_url)
             kwargs = self.redis_options
             kwargs.update(connection_kwargs)
-            sentinel = redis.sentinel.Sentinel(sentinels, **kwargs)
+            sentinel = module.sentinel.Sentinel(sentinels, **kwargs)
             self.redis = sentinel.master_for(service_name or self.channel)
+        else:
+            self.redis = module.Redis.from_url(self.redis_url,
+                                               **self.redis_options)
         self.pubsub = self.redis.pubsub(ignore_subscribe_messages=True)
+        self.connected = True
 
-    def _publish(self, data):
-        retry = True
-        while True:
+    def _publish(self, data):  # pragma: no cover
+        _, error = self._get_redis_module_and_error()
+        for retries_left in range(1, -1, -1):  # 2 attempts
             try:
-                if not retry:
+                if not self.connected:
                     self._redis_connect()
-                return self.redis.publish(self.channel, pickle.dumps(data))
-            except redis.exceptions.RedisError:
-                if retry:
-                    logger.error('Cannot publish to redis... retrying')
-                    retry = False
+                return self.redis.publish(self.channel, json.dumps(data))
+            except error as exc:
+                if retries_left > 0:
+                    logger.error(
+                        'Cannot publish to redis... retrying',
+                        extra={"redis_exception": str(exc)}
+                    )
+                    self.connected = False
                 else:
-                    logger.error('Cannot publish to redis... giving up')
+                    logger.error(
+                        'Cannot publish to redis... giving up',
+                        extra={"redis_exception": str(exc)}
+                    )
                     break
 
-    def _redis_listen_with_retries(self):
+    def _redis_listen_with_retries(self):  # pragma: no cover
+        _, error = self._get_redis_module_and_error()
         retry_sleep = 1
-        connect = False
+        subscribed = False
         while True:
             try:
-                if connect:
+                if not subscribed:
                     self._redis_connect()
                     self.pubsub.subscribe(self.channel)
                     retry_sleep = 1
                 yield from self.pubsub.listen()
-            except redis.exceptions.RedisError:
+            except error as exc:
                 logger.error('Cannot receive from redis... '
-                             'retrying in {} secs'.format(retry_sleep))
-                connect = True
+                             f'retrying in {retry_sleep} secs',
+                             extra={"redis_exception": str(exc)})
+                subscribed = False
                 time.sleep(retry_sleep)
                 retry_sleep *= 2
                 if retry_sleep > 60:
                     retry_sleep = 60
 
-    def _listen(self):
+    def _listen(self):  # pragma: no cover
         channel = self.channel.encode('utf-8')
-        self.pubsub.subscribe(self.channel)
         for message in self._redis_listen_with_retries():
             if message['channel'] == channel and \
                     message['type'] == 'message' and 'data' in message:

@@ -1,42 +1,10 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import QuantConnect.Configuration
 import System
 import System.Collections.Generic
-
-
-class CommandLineOption(System.Object):
-    """Auxiliary class to keep information about a specific command line option"""
-
-    @property
-    def type(self) -> typing.Any:
-        """Command line option type"""
-        ...
-
-    @property
-    def description(self) -> str:
-        """Command line option description"""
-        ...
-
-    @property
-    def name(self) -> str:
-        """Command line option name"""
-        ...
-
-    def __init__(self, name: str, type: typing.Any, description: str = ...) -> None:
-        """Command line option contructor"""
-        ...
-
-
-class OptimizerArgumentParser(System.Object):
-    """Command Line arguments parser for Lean Optimizer"""
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Parse and construct the args"""
-        ...
 
 
 class ReportArgumentParser(System.Object):
@@ -45,6 +13,20 @@ class ReportArgumentParser(System.Object):
     @staticmethod
     def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
         """Parse and construct the args."""
+        ...
+
+
+class ToolboxArgumentParser(System.Object):
+    """Command Line arguments parser for Toolbox configuration"""
+
+    @staticmethod
+    def get_tickers(options_object: System.Collections.Generic.Dictionary[str, System.Object]) -> typing.List[str]:
+        """Helper method to get the tickers from the provided options"""
+        ...
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Argument parser contructor"""
         ...
 
 
@@ -82,6 +64,7 @@ class Config(System.Object):
         Get the matching config setting from the file searching for this key.
         
         :param key: String key value we're seaching for in the config file.
+        :param default_value: 
         :returns: String value of the configuration setting or empty string if nothing found.
         """
         ...
@@ -136,7 +119,11 @@ class Config(System.Object):
 
     @staticmethod
     def merge_command_line_arguments_with_configuration(cli_arguments: System.Collections.Generic.Dictionary[str, System.Object]) -> None:
-        """Merge CLI arguments with configuration file + load custom config file via CLI arg"""
+        """
+        Merge CLI arguments with configuration file + load custom config file via CLI arg
+        
+        :param cli_arguments: 
+        """
         ...
 
     @staticmethod
@@ -161,12 +148,57 @@ class Config(System.Object):
 
     @staticmethod
     def set_configuration_file(file_name: str) -> None:
-        """Set configuration file on-fly"""
+        """
+        Set configuration file on-fly
+        
+        :param file_name: 
+        """
         ...
 
     @staticmethod
     def write(target_path: str = None) -> None:
         """Write the contents of the serialized configuration back to the disk."""
+        ...
+
+
+class OptimizerArgumentParser(System.Object):
+    """Command Line arguments parser for Lean Optimizer"""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Parse and construct the args"""
+        ...
+
+
+class CommandLineOption(System.Object):
+    """Auxiliary class to keep information about a specific command line option"""
+
+    @property
+    def type(self) -> typing.Any:
+        """Command line option type"""
+        ...
+
+    @property
+    def description(self) -> str:
+        """Command line option description"""
+        ...
+
+    @property
+    def name(self) -> str:
+        """Command line option name"""
+        ...
+
+    def __init__(self, name: str, type: typing.Any, description: str = ...) -> None:
+        """Command line option contructor"""
+        ...
+
+
+class LeanArgumentParser(System.Object):
+    """Command Line arguments parser for Lean configuration"""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Argument parser contructor"""
         ...
 
 
@@ -201,29 +233,6 @@ class ApplicationParser(System.Object):
     @staticmethod
     def print_message_and_exit(exit_code: int = 0, message: str = ...) -> None:
         """Prints a message advising the user to use the --help parameter for more information"""
-        ...
-
-
-class ToolboxArgumentParser(System.Object):
-    """Command Line arguments parser for Toolbox configuration"""
-
-    @staticmethod
-    def get_tickers(options_object: System.Collections.Generic.Dictionary[str, System.Object]) -> typing.List[str]:
-        """Helper method to get the tickers from the provided options"""
-        ...
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Argument parser contructor"""
-        ...
-
-
-class LeanArgumentParser(System.Object):
-    """Command Line arguments parser for Lean configuration"""
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Argument parser contructor"""
         ...
 
 

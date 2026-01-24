@@ -23,6 +23,13 @@ namespace ba = boost::algorithm;
 namespace Cantera
 {
 
+LatticeSolidPhase::LatticeSolidPhase()
+{
+    warn_deprecated("class LatticeSolidPhase", "To be removed after Cantera 3.2. No "
+        "known usage exists, and the model does not satisfy several basic thermodynamic"
+        "identities. See https://github.com/Cantera/cantera/issues/1310.");
+}
+
 double LatticeSolidPhase::minTemp(size_t k) const
 {
     if (k != npos) {
@@ -333,7 +340,7 @@ void LatticeSolidPhase::getSpeciesParameters(const string& name,
     // Use child lattice phases to determine species parameters so that these
     // are set consistently
     for (const auto& phase : m_lattice) {
-        if (phase->speciesIndex(name) != npos) {
+        if (phase->speciesIndex(name, false) != npos) {
             phase->getSpeciesParameters(name, speciesNode);
             break;
         }

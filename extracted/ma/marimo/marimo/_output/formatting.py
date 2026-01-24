@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 """Formatting protocol
 
 This module defines a protocol for implementing objects that can be displayed
@@ -18,7 +18,6 @@ taking precedence over the MIME protocol.
 from __future__ import annotations
 
 import json
-import os
 import traceback
 from dataclasses import dataclass
 from html import escape
@@ -29,7 +28,7 @@ from marimo._messaging.mimetypes import KnownMimeType
 from marimo._output.builder import h
 from marimo._output.formatters.repr_formatters import maybe_get_repr_formatter
 from marimo._output.formatters.utils import src_or_src_doc
-from marimo._output.hypertext import Html
+from marimo._output.hypertext import Html, is_no_js
 from marimo._output.rich_help import mddoc
 from marimo._output.utils import flatten_string
 from marimo._plugins.core.media import io_to_data_url
@@ -67,7 +66,16 @@ class FormatterRegistry:
             return None
 
         # Search for formatters in the object's type hierarchy
-        for t in top_level_type.mro():
+        try:
+            mro_list = top_level_type.mro()
+        except BaseException as e:  # noqa: E722
+            # Some exotic metaclasses or broken types may raise when calling mro
+            LOGGER.warning(
+                "Failed to read MRO for type %s: %s", top_level_type, str(e)
+            )
+            return None
+
+        for t in mro_list:
             if t in self.formatters:
                 formatter = self.formatters[t]
                 # Add to formatters dict to avoid re-searching
@@ -149,9 +157,7 @@ def get_formatter(
 
     # If not explicitly opinionated, we defer to the environment.
     if include_opinionated is None:
-        include_opinionated = (
-            os.getenv("MARIMO_NO_JS", "false").lower() == "false"
-        )
+        include_opinionated = not is_no_js()
 
     # Plain opts out of opinionated formatters
     if isinstance(obj, Plain):

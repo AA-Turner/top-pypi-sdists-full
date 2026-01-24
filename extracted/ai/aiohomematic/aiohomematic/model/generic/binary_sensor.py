@@ -1,14 +1,15 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
-"""Module for data points implemented using the binary_sensor category."""
+# Copyright (c) 2021-2026
+"""
+Generic binary sensor data points for boolean state values.
+
+Public API of this module is defined by __all__.
+"""
 
 from __future__ import annotations
 
-from typing import cast
-
 from aiohomematic.const import DataPointCategory
 from aiohomematic.model.generic.data_point import GenericDataPoint
-from aiohomematic.property_decorators import state_property
 
 
 class DpBinarySensor(GenericDataPoint[bool | None, bool]):
@@ -22,9 +23,8 @@ class DpBinarySensor(GenericDataPoint[bool | None, bool]):
 
     _category = DataPointCategory.BINARY_SENSOR
 
-    @state_property
-    def value(self) -> bool | None:
-        """Return the value of the data_point."""
+    def _get_value(self) -> bool | None:
+        """Return the value for readings."""
         if self._value is not None:
-            return cast(bool | None, self._value)
-        return cast(bool | None, self._default)
+            return self._value
+        return self._default

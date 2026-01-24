@@ -1,7 +1,7 @@
 package ast
 
 import (
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 
 	"github.com/go-task/task/v3/errors"
 	"github.com/go-task/task/v3/internal/deepcopy"
@@ -93,6 +93,7 @@ func (c *Cmd) UnmarshalYAML(node *yaml.Node) error {
 			c.Vars = cmdStruct.Vars
 			c.For = cmdStruct.For
 			c.Silent = cmdStruct.Silent
+			c.IgnoreError = cmdStruct.IgnoreError
 			return nil
 		}
 

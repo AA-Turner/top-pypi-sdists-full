@@ -35,16 +35,20 @@ class CreateWorkspaceTemplateVersion(object):
     openapi_types = {
         'image_uri': 'str',
         'compute_configs': 'dict(str, str)',
-        'artifacts': 'WorkspaceSystemArtifacts'
+        'artifacts': 'WorkspaceSystemArtifacts',
+        'source_workspace_id': 'str',
+        'idle_termination_minutes': 'int'
     }
 
     attribute_map = {
         'image_uri': 'image_uri',
         'compute_configs': 'compute_configs',
-        'artifacts': 'artifacts'
+        'artifacts': 'artifacts',
+        'source_workspace_id': 'source_workspace_id',
+        'idle_termination_minutes': 'idle_termination_minutes'
     }
 
-    def __init__(self, image_uri=None, compute_configs=None, artifacts=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, image_uri=None, compute_configs=None, artifacts=None, source_workspace_id=None, idle_termination_minutes=None, local_vars_configuration=None):  # noqa: E501
         """CreateWorkspaceTemplateVersion - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -53,6 +57,8 @@ class CreateWorkspaceTemplateVersion(object):
         self._image_uri = None
         self._compute_configs = None
         self._artifacts = None
+        self._source_workspace_id = None
+        self._idle_termination_minutes = None
         self.discriminator = None
 
         if image_uri is not None:
@@ -61,6 +67,10 @@ class CreateWorkspaceTemplateVersion(object):
             self.compute_configs = compute_configs
         if artifacts is not None:
             self.artifacts = artifacts
+        if source_workspace_id is not None:
+            self.source_workspace_id = source_workspace_id
+        if idle_termination_minutes is not None:
+            self.idle_termination_minutes = idle_termination_minutes
 
     @property
     def image_uri(self):
@@ -130,6 +140,52 @@ class CreateWorkspaceTemplateVersion(object):
         """
 
         self._artifacts = artifacts
+
+    @property
+    def source_workspace_id(self):
+        """Gets the source_workspace_id of this CreateWorkspaceTemplateVersion.  # noqa: E501
+
+        Source workspace ID to copy image_uri, compute_configs, and artifacts from. If both source_workspace_id and artifacts are provided, artifacts will take precedence.  # noqa: E501
+
+        :return: The source_workspace_id of this CreateWorkspaceTemplateVersion.  # noqa: E501
+        :rtype: str
+        """
+        return self._source_workspace_id
+
+    @source_workspace_id.setter
+    def source_workspace_id(self, source_workspace_id):
+        """Sets the source_workspace_id of this CreateWorkspaceTemplateVersion.
+
+        Source workspace ID to copy image_uri, compute_configs, and artifacts from. If both source_workspace_id and artifacts are provided, artifacts will take precedence.  # noqa: E501
+
+        :param source_workspace_id: The source_workspace_id of this CreateWorkspaceTemplateVersion.  # noqa: E501
+        :type: str
+        """
+
+        self._source_workspace_id = source_workspace_id
+
+    @property
+    def idle_termination_minutes(self):
+        """Gets the idle_termination_minutes of this CreateWorkspaceTemplateVersion.  # noqa: E501
+
+        Idle termination minutes for this version  # noqa: E501
+
+        :return: The idle_termination_minutes of this CreateWorkspaceTemplateVersion.  # noqa: E501
+        :rtype: int
+        """
+        return self._idle_termination_minutes
+
+    @idle_termination_minutes.setter
+    def idle_termination_minutes(self, idle_termination_minutes):
+        """Sets the idle_termination_minutes of this CreateWorkspaceTemplateVersion.
+
+        Idle termination minutes for this version  # noqa: E501
+
+        :param idle_termination_minutes: The idle_termination_minutes of this CreateWorkspaceTemplateVersion.  # noqa: E501
+        :type: int
+        """
+
+        self._idle_termination_minutes = idle_termination_minutes
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -1,8 +1,10 @@
 from contextlib import suppress
 from typing import Self
 
+from celery import shared_task
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import FieldDoesNotExist, FieldError
-from django.db import models
+from django.db import models, transaction
 from django.db.models.signals import post_delete, pre_delete
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -13,8 +15,10 @@ from wbcore.contrib.color.enums import WBColor
 from wbcore.contrib.color.fields import ColorField
 from wbcore.contrib.icons import WBIcon
 from wbcore.contrib.icons.models import IconField
-from wbcore.signals import post_clone
+from wbcore.signals import post_clone, pre_merge
+from wbcore.signals.merge import post_merge
 from wbcore.utils.enum import ChoiceEnum
+from wbcore.workers import Queue
 
 
 def get_and_update_or_create(model, filter_params, defaults):
@@ -107,7 +111,7 @@ class Status(ChoiceEnum):
     @classmethod
     def get_color_map(cls):
         colors = [WBColor.YELLOW_LIGHT.value, WBColor.RED_LIGHT.value, WBColor.GREEN_LIGHT.value]
-        return [choice for choice in zip(cls, colors)]
+        return [choice for choice in zip(cls, colors, strict=False)]
 
 
 class PrimaryMixin(models.Model):
@@ -153,8 +157,12 @@ class PrimaryMixin(models.Model):
         if self.can_update_primary_field:
             related_qs = self.get_related_queryset()
             if self.primary:
-                related_qs = related_qs.exclude(id=self.id)  # if self id is None, it will not exclude anything
-                related_qs.update(primary=False)
+                related_qs = related_qs.exclude(id=self.id).filter(
+                    primary=True
+                )  # if self id is None, it will not exclude anything
+                if related_qs.exists():
+                    self.previous_primary_entity = related_qs.first()
+                    related_qs.update(primary=False)
             elif not related_qs.filter(primary=True).exists():
                 self.primary = True
         super().save(*args, **kwargs)
@@ -273,7 +281,8 @@ class ResolvableModelMixin(models.Model):
     resolved = models.BooleanField(default=False, verbose_name="Resolved")
 
     def delete(self, *args, **kwargs):
-        assert not self.resolved, "Resolved Entities cannot be deleted."
+        if self.resolved:
+            raise ValueError("Resolved Entities cannot be deleted.")
         super().delete(*args, **kwargs)
 
 
@@ -290,3 +299,64 @@ class CloneMixin(models.Model):
 
     class Meta:
         abstract = True
+
+
+class MergeError(ValueError):
+    pass
+
+
+class MergeMixin(models.Model):
+    """
+    Abstract Django model mixin that provides a standardized interface for merging
+    two model instances of the same type, typically used to consolidate duplicate
+    records (e.g., merging two Instruments, Clients, or Accounts).
+    """
+
+    @property
+    def is_mergeable(self) -> bool:
+        return True
+
+    def get_merge_senders_kwargs(self, merged_object):
+        # Default implementation: return tuple of (sender, main, merged) for signal dispatch.
+        # Subclasses can override to yield multiple entries if related models require updates.
+        # ideal for multi-inheritance
+        yield (self.__class__, merged_object, self)
+
+    def _merge(self, merged_object, **kwargs):
+        # Must be implemented by subclasses. It should define the data
+        # or relationship consolidation logic between self and merged_object.
+        # Example: transfer related foreign key references, update counters, etc.
+        raise NotImplementedError()
+
+    def merge(self, merged_object, dispatch: bool = True, **kwargs):
+        with transaction.atomic():  # We want this to either succeed fully or fail
+            if dispatch:
+                for sender, casted_merged_object, casted_main_object in self.get_merge_senders_kwargs(merged_object):
+                    pre_merge.send(
+                        sender=sender, merged_object=casted_merged_object, main_object=casted_main_object
+                    )  # default signal dispatch for the Instrument class
+                # We refresh the reference in case the underlying signal receivers modify these objects
+                self.refresh_from_db()
+                merged_object.refresh_from_db()
+            self._merge(merged_object, **kwargs)
+            # We delete finally the merged object. All unlikage should have been done in the signal receivers function
+            if isinstance(merged_object, DeleteToDisableMixin):
+                merged_object.delete(no_deletion=False)
+            else:
+                merged_object.delete()
+
+            self.save()
+            post_merge.send(sender=self.__class__, merged_object=merged_object, main_object=self)
+
+    class Meta:
+        abstract = True
+
+
+@shared_task(queue=Queue.DEFAULT.value)
+def merge_as_task(content_type_id: int, main_object_id: int, merged_object_id: int):
+    content_type = ContentType.objects.get(id=content_type_id)
+    with suppress(content_type.model_class().DoesNotExist):
+        main_object = content_type.get_object_for_this_type(id=main_object_id)
+        merged_object = content_type.get_object_for_this_type(id=merged_object_id)
+        if hasattr(main_object, "merge") and callable(main_object.merge):
+            main_object.merge(merged_object)

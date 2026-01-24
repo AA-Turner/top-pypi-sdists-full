@@ -1,5 +1,10 @@
-import unittest.mock
+import sys
 from typing import Any
+
+if sys.version_info >= (3, 11):
+    SubclassableAny = Any
+else:  # pragma: no cover
+    from typing_extensions import Any as SubclassableAny
 
 
 class Singleton:
@@ -17,17 +22,23 @@ class Singleton:
         pass
 
 
-# We'll inherit from unittest.mock.Mock for MISSING types to help with
-# typeguard error suppression.
-# https://typeguard.readthedocs.io/en/latest/features.html#support-for-mock-objects
+# We subclass `Any` to prevent typeguard from failing for MISSING types.
+#
+# https://github.com/agronholm/typeguard/blob/dd98a9a0ff050166716120cc8614fa90d710a879/src/typeguard/_checkers.py#L933-L935
 
 
-class PropagatingMissingType(Singleton, unittest.mock.Mock):
-    pass
+class PropagatingMissingType(Singleton, SubclassableAny):
+    """Type for the :data:`tyro.MISSING` singleton."""
+
+    def __repr__(self) -> str:
+        return "tyro.MISSING"
 
 
-class NonpropagatingMissingType(Singleton, unittest.mock.Mock):
-    pass
+class NonpropagatingMissingType(Singleton, SubclassableAny):
+    """Type for the :data:`tyro.MISSING_NONPROP` singleton."""
+
+    def __repr__(self) -> str:
+        return "tyro.MISSING_NONPROP"
 
 
 class ExcludeFromCallType(Singleton):
@@ -64,7 +75,7 @@ When used, the 'missing' semantics do not propagate to children. For example:
 
 .. code-block:: python
 
-    def main(inner: Dataclass = tyro.constructors.MISSING_NONPROP) -> None:
+    def main(inner: Dataclass = tyro.MISSING_NONPROP) -> None:
         ...
 
     tyro.cli(main)
@@ -82,20 +93,25 @@ where default values for fields belonging to ``Dataclass`` will be taken from
 the dataclass definition.
 """
 
-# When total=False in a TypedDict, we exclude fields from the constructor by default.
-NOT_REQUIRED_BUT_WE_DONT_KNOW_THE_VALUE = NotRequiredButWeDontKnowTheValueType()
-
 
 EXCLUDE_FROM_CALL = ExcludeFromCallType()
+"""Singleton indicating that an argument should not be passed into a field
+constructor. This is used for :py:class:`typing.TypedDict`."""
 
 
-MISSING_AND_MISSING_NONPROP = (
-    MISSING,
-    MISSING_NONPROP,
-)
-"""Singletons that are considered missing values when generating CLI interfaces."""
+def is_missing(value: Any) -> bool:
+    """Check if a value is a missing sentinel (MISSING or MISSING_NONPROP).
 
-DEFAULT_SENTINEL_SINGLETONS = MISSING_AND_MISSING_NONPROP + (
-    NOT_REQUIRED_BUT_WE_DONT_KNOW_THE_VALUE,
-    EXCLUDE_FROM_CALL,
-)
+    Uses identity checks to avoid issues with types like numpy arrays that have
+    ambiguous truth values when compared with `==` or `in`.
+    """
+    return value is MISSING or value is MISSING_NONPROP
+
+
+def is_sentinel(value: Any) -> bool:
+    """Check if a value is any default sentinel (MISSING, MISSING_NONPROP, or EXCLUDE_FROM_CALL).
+
+    Uses identity checks to avoid issues with types like numpy arrays that have
+    ambiguous truth values when compared with `==` or `in`.
+    """
+    return value is MISSING or value is MISSING_NONPROP or value is EXCLUDE_FROM_CALL

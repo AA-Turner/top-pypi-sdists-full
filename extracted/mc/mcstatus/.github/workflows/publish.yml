@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 env:
-  PYTHON_VERSION: "3.13"
+  PYTHON_VERSION: "3.14"
 
 jobs:
   build:
@@ -29,13 +29,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           # Do a full clone for uv-dynamic-versioning to pick up the git version
           fetch-depth: 0
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
           python-version: ${{ env.PYTHON_VERSION }}
@@ -72,7 +72,7 @@ jobs:
         run: uv build --all-packages
 
       - name: Upload build files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: "dist"
           path: "dist/"
@@ -91,7 +91,7 @@ jobs:
 
     steps:
       - name: Download the distribution files from build artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: "dist"
           path: "dist/"
@@ -116,7 +116,7 @@ jobs:
 
     steps:
       - name: Download the distribution files from build artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: "dist"
           path: "dist/"

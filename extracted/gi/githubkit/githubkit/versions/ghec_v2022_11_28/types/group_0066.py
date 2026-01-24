@@ -9,16 +9,42 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Union
 from typing_extensions import NotRequired, TypedDict
 
 
-class CodeScanningAnalysisToolType(TypedDict):
-    """CodeScanningAnalysisTool"""
+class GetAuditLogStreamConfigType(TypedDict):
+    """Get an audit log streaming configuration
 
-    name: NotRequired[str]
-    version: NotRequired[Union[str, None]]
-    guid: NotRequired[Union[str, None]]
+    Get an audit log streaming configuration for an enterprise.
+    """
+
+    id: int
+    stream_type: str
+    stream_details: str
+    enabled: bool
+    created_at: _dt.datetime
+    updated_at: _dt.datetime
+    paused_at: NotRequired[Union[_dt.datetime, None]]
 
 
-__all__ = ("CodeScanningAnalysisToolType",)
+class GetAuditLogStreamConfigTypeForResponse(TypedDict):
+    """Get an audit log streaming configuration
+
+    Get an audit log streaming configuration for an enterprise.
+    """
+
+    id: int
+    stream_type: str
+    stream_details: str
+    enabled: bool
+    created_at: str
+    updated_at: str
+    paused_at: NotRequired[Union[str, None]]
+
+
+__all__ = (
+    "GetAuditLogStreamConfigType",
+    "GetAuditLogStreamConfigTypeForResponse",
+)

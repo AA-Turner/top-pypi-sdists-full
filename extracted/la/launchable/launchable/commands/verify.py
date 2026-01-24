@@ -11,7 +11,7 @@ import click
 from launchable.utils.env_keys import TOKEN_KEY
 from launchable.utils.tracking import Tracking, TrackingClient
 
-from ..utils.authentication import get_org_workspace
+from ..utils.authentication import get_org_workspace, ensure_org_workspace
 from ..utils.click import emoji
 from ..utils.commands import Command
 from ..utils.http_client import DEFAULT_BASE_URL
@@ -88,18 +88,15 @@ def verify(context: click.core.Context):
     click.echo("Java command: " + repr(java))
     click.echo("launchable version: " + repr(version))
 
-    if org is None or workspace is None:
-        msg = (
-            "Could not identify Launchable organization/workspace. "
-            "Please confirm if you set LAUNCHABLE_TOKEN or LAUNCHABLE_ORGANIZATION and LAUNCHABLE_WORKSPACE "
-            "environment variables"
-        )
+    # raise an error here after we print out the basic diagnostics if LAUNCHABLE_TOKEN is not set.
+    try:
+        ensure_org_workspace()
+    except click.UsageError as e:
         tracking_client.send_error_event(
             event_name=Tracking.ErrorEvent.INTERNAL_CLI_ERROR,
-            stack_trace=msg
+            stack_trace=e.message
         )
-        raise click.UsageError(
-            click.style(msg, fg="red"))
+        raise e
 
     try:
         res = client.request("get", "verification")

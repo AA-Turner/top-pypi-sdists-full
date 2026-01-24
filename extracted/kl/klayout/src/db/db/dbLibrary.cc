@@ -146,8 +146,27 @@ Library::is_retired (const db::cell_index_type library_cell_index) const
 }
 
 void
+Library::rename (const std::string &name)
+{
+  if (name != get_name () && db::LibraryManager::initialized ()) {
+
+    std::pair<bool, lib_id_type> n2l = db::LibraryManager::instance ().lib_by_name (name, get_technologies ());
+    if (n2l.first && n2l.second != get_id ()) {
+      //  remove any existing library that has our target name/tech combination
+      db::LibraryManager::instance ().delete_lib (db::LibraryManager::instance ().lib (n2l.second));
+    }
+
+    db::LibraryManager::instance ().rename (get_id (), name);
+
+  }
+}
+
+void
 Library::refresh ()
 {
+  std::string name = reload ();
+  rename (name);
+
   layout ().refresh ();
   remap_to (this);
 }
@@ -271,6 +290,9 @@ Library::remap_to (db::Library *other)
   //  Do a cleanup later since the referrers now might have invalid proxy instances
   for (std::set<db::Layout *>::const_iterator c = needs_cleanup.begin (); c != needs_cleanup.end (); ++c) {
     (*c)->cleanup ();
+    //  forces an update of the cell tree in the application - this will reflect the changed name
+    //  of the library reference
+    (*c)->invalidate_hier ();
   }
 }
 

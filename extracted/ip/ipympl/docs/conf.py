@@ -14,6 +14,7 @@ import inspect
 #
 import os
 import sys
+from intersphinx_registry import get_intersphinx_mapping
 
 try:
     from ipympl import __version__ as release
@@ -50,12 +51,9 @@ primary_domain = "py"
 nitpicky = True  # warn if cross-references are missing
 
 # Intersphinx settings
-intersphinx_mapping = {
-    "ipywidgets": ("https://ipywidgets.readthedocs.io/en/stable", None),
-    "matplotlib": ("https://matplotlib.org/stable", None),
-    "numpy": ("https://numpy.org/doc/stable", None),
-    "python": ("https://docs.python.org/3", None),
-}
+intersphinx_mapping = get_intersphinx_mapping(
+    packages={"ipywidgets", "matplotlib", "numpy", "python"}
+)
 
 
 # Settings for copybutton
@@ -66,11 +64,11 @@ copybutton_prompt_text = r">>> |\.\.\. "  # doctest
 linkcheck_anchors = False
 linkcheck_ignore = []  # type: ignore
 
-execution_timeout = -1
-jupyter_execute_notebooks = "off"
+nb_execution_timeout = -1
+nb_execution_mode = "off"
 if "EXECUTE_NB" in os.environ:
     print("\033[93;1mWill run Jupyter notebooks!\033[0m")
-    jupyter_execute_notebooks = "force"
+    nb_execution_mode = "force"
 
 # Settings for myst-parser
 myst_enable_extensions = [

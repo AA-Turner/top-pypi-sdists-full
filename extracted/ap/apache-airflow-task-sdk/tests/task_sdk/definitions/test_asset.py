@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Callable
+from collections.abc import Callable
 from unittest import mock
 
 import pytest
@@ -46,31 +46,59 @@ ASSET_MODULE_PATH = "airflow.sdk.definitions.asset"
 
 
 @pytest.mark.parametrize(
-    ["name"],
+    "sql_conn_value, name, should_raise",
     [
-        pytest.param("", id="empty"),
-        pytest.param("\n\t", id="whitespace"),
-        pytest.param("a" * 1501, id="too_long"),
-        pytest.param("😊", id="non-ascii"),
+        pytest.param("mysql://localhost/db", "", True, id="mysql-empty"),
+        pytest.param("mysql://localhost/db", "\n\t", True, id="mysql-whitespace"),
+        pytest.param("mysql://localhost/db", "a" * 1501, True, id="mysql-too-long"),
+        pytest.param("mysql://localhost/db", "😊", True, id="mysql-non-ascii"),
+        pytest.param("sqlite:///:memory:", "", True, id="sqlite-empty"),
+        pytest.param("sqlite:///:memory:", "\n\t", True, id="sqlite-whitespace"),
+        pytest.param("sqlite:///:memory:", "a" * 1501, True, id="sqlite-too-long"),
+        pytest.param("sqlite:///:memory:", "😊", False, id="sqlite-non-ascii"),
+        pytest.param("postgresql://localhost/db", "", True, id="postgres-empty"),
+        pytest.param("postgresql://localhost/db", "\n\t", True, id="postgres-whitespace"),
+        pytest.param("postgresql://localhost/db", "a" * 1501, True, id="postgres-too-long"),
+        pytest.param("postgresql://localhost/db", "😊", False, id="postgres-non-ascii"),
     ],
 )
-def test_invalid_names(name):
-    with pytest.raises(ValueError):
+def test_invalid_names(sql_conn_value, name, should_raise, monkeypatch):
+    monkeypatch.setattr("airflow.sdk.definitions.asset.SQL_ALCHEMY_CONN", sql_conn_value)
+    if should_raise:
+        with pytest.raises(ValueError):
+            Asset(name=name)
+    else:
         Asset(name=name)
 
 
 @pytest.mark.parametrize(
-    ["uri"],
+    "sql_conn_value, uri, should_raise",
     [
-        pytest.param("", id="empty"),
-        pytest.param("\n\t", id="whitespace"),
-        pytest.param("a" * 1501, id="too_long"),
-        pytest.param("airflow://xcom/dag/task", id="reserved_scheme"),
-        pytest.param("😊", id="non-ascii"),
+        pytest.param("mysql://localhost/db", "", True, id="mysql-empty"),
+        pytest.param("mysql://localhost/db", "\n\t", True, id="mysql-whitespace"),
+        pytest.param("mysql://localhost/db", "a" * 1501, True, id="mysql-too-long"),
+        pytest.param("mysql://localhost/db", "airflow://xcom/dag/task", True, id="mysql-reserved-scheme"),
+        pytest.param("mysql://localhost/db", "😊", True, id="mysql-non-ascii"),
+        pytest.param("sqlite:///:memory:", "", True, id="sqlite-empty"),
+        pytest.param("sqlite:///:memory:", "\n\t", True, id="sqlite-whitespace"),
+        pytest.param("sqlite:///:memory:", "a" * 1501, True, id="sqlite-too-long"),
+        pytest.param("sqlite:///:memory:", "airflow://xcom/dag/task", True, id="sqlite-reserved-scheme"),
+        pytest.param("sqlite:///:memory:", "😊", False, id="sqlite-non-ascii"),
+        pytest.param("postgresql://localhost/db", "", True, id="postgres-empty"),
+        pytest.param("postgresql://localhost/db", "\n\t", True, id="postgres-whitespace"),
+        pytest.param("postgresql://localhost/db", "a" * 1501, True, id="postgres-too-long"),
+        pytest.param(
+            "postgresql://localhost/db", "airflow://xcom/dag/task", True, id="postgres-reserved-scheme"
+        ),
+        pytest.param("postgresql://localhost/db", "😊", False, id="postgres-non-ascii"),
     ],
 )
-def test_invalid_uris(uri):
-    with pytest.raises(ValueError):
+def test_invalid_uris(sql_conn_value, uri, should_raise, monkeypatch):
+    monkeypatch.setattr("airflow.sdk.definitions.asset.SQL_ALCHEMY_CONN", sql_conn_value)
+    if should_raise:
+        with pytest.raises(ValueError):
+            Asset(uri=uri)
+    else:
         Asset(uri=uri)
 
 
@@ -116,17 +144,22 @@ def test_uri_with_scheme(uri: str, normalized: str) -> None:
     assert os.fspath(asset) == normalized
 
 
-def test_uri_with_auth() -> None:
-    with pytest.warns(UserWarning, match="username") as record:
-        asset = Asset("ftp://user@localhost/foo.txt")
+def test_uri_with_password() -> None:
+    with pytest.warns(UserWarning, match="password") as record:
+        asset = Asset("ftp://user:password@localhost/foo.txt")
     assert len(record) == 1
     assert str(record[0].message) == (
-        "An Asset URI should not contain auth info (e.g. username or "
-        "password). It has been automatically dropped."
+        "An Asset URI should not contain a password. User info has been automatically dropped."
     )
     EmptyOperator(task_id="task1", outlets=[asset])
     assert asset.uri == "ftp://localhost/foo.txt"
     assert os.fspath(asset) == "ftp://localhost/foo.txt"
+
+
+def test_uri_without_password() -> None:
+    uri = "abfss://filesystem@account.dfs.core.windows.net/path"
+    asset = Asset(uri)
+    assert asset.uri == uri
 
 
 def test_uri_without_scheme():
@@ -218,14 +251,14 @@ def create_test_assets():
 def test_asset_trigger_setup_and_serialization(create_test_assets):
     assets = create_test_assets
 
-    # Create DAG with asset triggers
+    # Create Dag with asset triggers
     with DAG(dag_id="test", schedule=AssetAny(*assets), catchup=False) as dag:
         EmptyOperator(task_id="hello")
 
     # Verify assets are set up correctly
-    assert isinstance(dag.timetable.asset_condition, AssetAny), "DAG assets should be an instance of AssetAny"
+    assert isinstance(dag.timetable.asset_condition, AssetAny), "Dag assets should be an instance of AssetAny"
 
-    # Round-trip the DAG through serialization
+    # Round-trip the Dag through serialization
     deserialized_dag = SerializedDAG.deserialize_dag(SerializedDAG.serialize_dag(dag))
 
     # Verify serialization and deserialization integrity
@@ -244,7 +277,7 @@ def assets_equal(a1: BaseAsset, a2: BaseAsset) -> bool:
     if isinstance(a1, Asset) and isinstance(a2, Asset):
         return a1.uri == a2.uri
 
-    if isinstance(a1, (AssetAny, AssetAll)) and isinstance(a2, (AssetAny, AssetAll)):
+    if isinstance(a1, (AssetAny, AssetAll)) and isinstance(a2, AssetAny | AssetAll):
         if len(a1.objects) != len(a2.objects):
             return False
 

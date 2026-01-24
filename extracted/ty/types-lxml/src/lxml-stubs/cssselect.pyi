@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Literal, overload
 
 import cssselect as _csel
@@ -10,8 +8,6 @@ from ._types import _ET, _ElementOrTree, _XPathNSArg, _XPathVarArg
 from .etree import XPath
 from .html import HtmlElement
 from .objectify import ObjectifiedElement
-
-_CSSTransArg = LxmlTranslator | Literal["xml", "html", "xhtml"]  # noqa: F821
 
 __all__ = [
     "SelectorSyntaxError",
@@ -28,6 +24,8 @@ class LxmlTranslator(_csel.GenericTranslator):
     def xpath_contains_function(
         self, xpath: XPathExpr, function: Function
     ) -> XPathExpr: ...
+
+_CSSTransArg = LxmlTranslator | Literal["xml", "html", "xhtml"]
 
 class LxmlHTMLTranslator(LxmlTranslator, _csel.HTMLTranslator):
     pass

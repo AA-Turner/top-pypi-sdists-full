@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pilgram.css import blending  # noqa
 from pilgram.css.brightness import brightness
 from pilgram.css.contrast import contrast
 from pilgram.css.grayscale import grayscale
@@ -19,8 +20,4 @@ from pilgram.css.hue_rotate import hue_rotate
 from pilgram.css.saturate import saturate
 from pilgram.css.sepia import sepia
 
-from pilgram.css import blending  # noqa
-
-__all__ = [
-    'brightness', 'contrast', 'grayscale', 'hue_rotate', 'saturate', 'sepia'
-]
+__all__ = ["brightness", "contrast", "grayscale", "hue_rotate", "saturate", "sepia"]

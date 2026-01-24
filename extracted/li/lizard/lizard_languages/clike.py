@@ -19,7 +19,7 @@ class CCppCommentsMixin(object):  # pylint: disable=R0903
 class CLikeReader(CodeReader, CCppCommentsMixin):
     ''' This is the reader for C, C++ and Java. '''
 
-    ext = ["c", "cpp", "cc", "mm", "cxx", "h", "hpp"]
+    ext = ["c", "cpp", "cc", "cxx", "h", "hpp"]
     language_names = ['cpp', 'c']
     macro_pattern = re.compile(r"#\s*(\w+)\s*(.*)", re.M | re.S)
 
@@ -32,8 +32,11 @@ class CLikeReader(CodeReader, CCppCommentsMixin):
 
     @staticmethod
     def generate_tokens(source_code, addition='', token_class=None):
-        # Add pattern for floating point literals to the token generation
-        addition = r"|(?:\d*\.\d+(?:[eE][-+]?\d+)?)" + \
+        # Add pattern for C++ raw string literals R"delimiter(content)delimiter"
+        # The delimiter can be empty or up to 16 chars (excluding parentheses, backslash, whitespace)
+        # Using a simplified pattern that handles most cases
+        addition = r"|R\"[^(\\]*\((?:[^)]|\)[^\"])*\)[^(\\]*\"" + \
+                  r"|(?:\d*\.\d+(?:[eE][-+]?\d+)?)" + \
                   r"|(?:\d+\.(?:\d+)?(?:[eE][-+]?\d+)?)" + \
                   addition
         return CodeReader.generate_tokens(source_code, addition, token_class)
@@ -54,7 +57,7 @@ class CLikeReader(CodeReader, CCppCommentsMixin):
                     elif macro.group(1) == 'include':
                         yield "#include"
                         yield macro.group(2) or "\"\""
-                    for _ in macro.group(2).splitlines()[1:]:
+                    for _ in macro.group(2).split('\n')[1:]:
                         yield '\n'
                 else:
                     yield token
@@ -162,6 +165,11 @@ class CLikeStates(CodeStateMachine):
     def _state_global(self, token):
         if token[0].isalpha() or token[0] in '_~':
             self.try_new_function(token)
+        elif token == '[':
+            # Check if this might be a lambda expression (C++ only)
+            # Java doesn't have lambda expressions, so skip lambda detection for Java
+            if not hasattr(self, 'class_name'):  # JavaStates has class_name attribute
+                self._state = self._state_lambda_check
 
     def _state_function(self, token):
         if token == '(':
@@ -310,3 +318,57 @@ class CLikeStates(CodeStateMachine):
     def _state_attribute(self, _):
         "Ignores function attributes with C++11 syntax, i.e., [[ attribute ]]."
         pass
+
+    def _state_lambda_check(self, token):
+        """Check if this is a lambda expression or a function attribute."""
+        if token == ']':
+            # This is a lambda expression [](params) or [capture](params)
+            # Skip the lambda and continue parsing normally
+            self._state = self._state_lambda_params
+        elif token == '[':
+            # This is a function attribute [[attribute]]
+            self._state = self._state_attribute
+        else:
+            # This is a lambda with capture list [capture](params)
+            # Skip until we find the closing bracket
+            self._state = self._state_lambda_capture
+
+    def _state_lambda_params(self, token):
+        """Handle lambda parameters and body."""
+        if token == '(':
+            # Start of parameter list, skip until closing parenthesis
+            self._state = self._state_lambda_param_list
+        else:
+            # No parameters, check for body
+            self._state = self._state_lambda_body
+
+    def _state_lambda_param_list(self, token):
+        """Handle lambda parameter list."""
+        if token == ')':
+            # End of parameter list, check for body
+            self._state = self._state_lambda_body
+        # Otherwise, continue in parameter list
+
+    def _state_lambda_body(self, token):
+        """Handle lambda body."""
+        if token == '{':
+            # Start of lambda body, skip until closing brace
+            self._state = self._state_lambda_body_skip
+        elif token == ';':
+            # Lambda without body, just a semicolon
+            self._state = self._state_global
+        # Otherwise, continue
+
+    def _state_lambda_body_skip(self, token):
+        """Skip lambda body until closing brace."""
+        if token == '}':
+            # End of lambda body, continue parsing normally
+            self._state = self._state_global
+        # Otherwise, continue skipping
+
+    def _state_lambda_capture(self, token):
+        """Handle lambda capture list."""
+        if token == ']':
+            # End of capture list, continue parsing normally
+            self._state = self._state_global
+        # Otherwise, continue in capture list

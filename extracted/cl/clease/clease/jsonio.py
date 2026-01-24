@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict
+from typing import Any
 
 from ase.io import jsonio as aseio
 from ase.utils import reader, writer
@@ -163,12 +163,12 @@ def jsonable(name):
 class AttrSavable:
     """Mixin for saving simple attrs classes"""
 
-    def todict(self) -> Dict[str, Any]:
+    def todict(self) -> dict[str, Any]:
         """Convert into a dictionary representation."""
         # Disable recursive, since the json module takes care of that
         return attr.asdict(self, recurse=False)
 
     @classmethod
-    def from_dict(cls, dct: Dict[str, Any]):
+    def from_dict(cls, dct: dict[str, Any]):
         """Load an instance of the class from a dictionary."""
         return cls(**dct)

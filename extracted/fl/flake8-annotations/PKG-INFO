@@ -1,38 +1,38 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: flake8-annotations
-Version: 3.1.1
+Version: 3.2.0
 Summary: Flake8 Type Annotation Checks
-Home-page: https://github.com/sco1/flake8-annotations
-License: MIT
-Author: S Co1
-Author-email: sco1.git@gmail.com
-Requires-Python: >=3.8.1
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Environment :: Console
+Author: sco1
+Author-email: sco1 <sco1.git@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Framework :: Flake8
+Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 6 - Mature
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Typing :: Typed
-Requires-Dist: attrs (>=21.4)
-Requires-Dist: flake8 (>=5.0)
-Project-URL: Issue Tracker, https://github.com/sco1/flake8-annotations/issues
+Requires-Dist: flake8>=5.0
+Requires-Python: >=3.10
+Project-URL: Changelog, https://github.com/sco1/flake8-annotations/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://github.com/sco1/flake8-annotations/blob/main/README.md
+Project-URL: Homepage, https://github.com/sco1/
+Project-URL: Issues, https://github.com/sco1/flake8-annotations/issues
 Project-URL: Repository, https://github.com/sco1/flake8-annotations
 Description-Content-Type: text/markdown
 
 # flake8-annotations
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/flake8-annotations/3.1.1?logo=python&logoColor=FFD43B)](https://pypi.org/project/flake8-annotations/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/flake8-annotations/3.2.0?logo=python&logoColor=FFD43B)](https://pypi.org/project/flake8-annotations/)
 [![PyPI](https://img.shields.io/pypi/v/flake8-annotations?logo=Python&logoColor=FFD43B)](https://pypi.org/project/flake8-annotations/)
 [![PyPI - License](https://img.shields.io/pypi/l/flake8-annotations?color=magenta)](https://github.com/sco1/flake8-annotations/blob/main/LICENSE)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/sco1/flake8-annotations/main.svg)](https://results.pre-commit.ci/latest/github/sco1/flake8-annotations/main)
@@ -64,7 +64,7 @@ cog.out(
 ]]] -->
 ```bash
 $ flake8 --version
-7.0.0 (flake8-annotations: 3.1.1, mccabe: 0.7.0, pycodestyle: 2.11.1, pyflakes: 3.2.0) CPython 3.12.3 on Darwin
+7.3.0 (flake8-annotations: 3.2.0, mccabe: 0.7.0, pycodestyle: 2.14.0, pyflakes: 3.4.0) CPython 3.14.0 on Darwin
 ```
 <!-- [[[end]]] -->
 
@@ -239,32 +239,3 @@ Support is only provided for the following patterns:
   * `import typing as <alias>; foo: <alias>.Any`
 
 Nested dynamic types (e.g. `typing.Tuple[typing.Any]`) and redefinition (e.g. `from typing import Any as Foo`) will not be identified.
-
-## Contributing
-### Python Version Support
-A best attempt is made to support Python versions until they reach EOL, after which support will be formally dropped by the next minor or major release of this package, whichever arrives first. The status of Python versions can be found [here](https://devguide.python.org/versions/).
-
-### Development Environment
-This project uses [Poetry](https://python-poetry.org/) to manage dependencies. With your fork cloned to your local machine, you can install the project and its dependencies to create a development environment using:
-
-```bash
-$ poetry install
-```
-
-Note: An editable installation of `flake8-annotations` in the developer environment is required in order for the plugin to be registered for Flake8. By default, Poetry includes an editable install of the project itself when `poetry install` is invoked.
-
-A [pre-commit](https://pre-commit.com) configuration is also provided to create a pre-commit hook so linting errors aren't committed:
-
-```bash
-$ pre-commit install
-```
-
-### Testing & Coverage
-A [pytest](https://docs.pytest.org/en/latest/) suite is provided, with coverage reporting from [pytest-cov](https://github.com/pytest-dev/pytest-cov). A [tox](https://github.com/tox-dev/tox/) configuration is provided to test across all supported versions of Python. Testing will be skipped for Python versions that cannot be found.
-
-```bash
-$ tox
-```
-
-Details on missing coverage, including in the test suite, is provided in the report to allow the user to generate additional tests for full coverage.
-

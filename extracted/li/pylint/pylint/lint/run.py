@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from pylint import config
-from pylint.checkers.utils import clear_lru_caches
+from pylint.checkers.clear_lru_cache import clear_lru_caches
 from pylint.config._pylint_config import (
     _handle_pylint_config_commands,
     _register_generate_config_options,
@@ -172,7 +172,6 @@ group are mutually exclusive.",
         self.linter = linter = self.LinterClass(
             _make_run_options(self),
             option_groups=self.option_groups,
-            pylintrc=self._rcfile,
         )
         # register standard checkers
         linter.load_default_plugins()

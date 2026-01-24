@@ -21,16 +21,26 @@ import re
 import socket
 import sys
 import traceback
+from types import TracebackType
+from typing import Any, cast, TypeAlias, TypedDict
 
 from dateutil import tz
 
+from oslo_config import cfg
 from oslo_context import context as context_utils
 from oslo_serialization import jsonutils
 from oslo_utils import encodeutils
 
+_SysExcInfoType: TypeAlias = (
+    tuple[type[BaseException], BaseException, TracebackType | None]
+    | tuple[None, None, None]
+)
 
-def _dictify_context(context):
-    if getattr(context, 'get_logging_values', None):
+
+def _dictify_context(
+    context: context_utils.RequestContext | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(context, context_utils.RequestContext):
         return context.get_logging_values()
     # This dict only style logging format will become deprecated
     # when projects using a dictionary object for context are updated
@@ -45,21 +55,20 @@ def _dictify_context(context):
 _CONF = None
 
 
-def _store_global_conf(conf):
+def _store_global_conf(conf: cfg.ConfigOpts) -> cfg.ConfigOpts:
     global _CONF
     _CONF = conf
 
 
-def _update_record_with_context(record):
+def _update_record_with_context(
+    record: logging.LogRecord,
+) -> context_utils.RequestContext | None:
     """Given a log record, update it with context information.
 
     The request context, if there is one, will either be passed with the
     incoming record or in the global thread-local store.
     """
-    context = record.__dict__.get(
-        'context',
-        context_utils.get_current()
-    )
+    context = record.__dict__.get('context', context_utils.get_current())
     if context:
         d = _dictify_context(context)
         # Copy the context values directly onto the record so they can be
@@ -70,20 +79,18 @@ def _update_record_with_context(record):
     return context
 
 
-def _ensure_unicode(msg):
-    """Do our best to turn the input argument into a unicode object.
-    """
+def _ensure_unicode(msg: Any) -> str:
+    """Do our best to turn the input argument into a unicode object."""
     if isinstance(msg, str):
         return msg
     if not isinstance(msg, bytes):
         return str(msg)
     return encodeutils.safe_decode(
-        msg,
-        incoming='utf-8',
-        errors='xmlcharrefreplace')
+        msg, incoming='utf-8', errors='xmlcharrefreplace'
+    )
 
 
-def _get_error_summary(record):
+def _get_error_summary(record: logging.LogRecord) -> str:
     """Return the error summary
 
     If there is no active exception, return the default.
@@ -113,8 +120,13 @@ def _get_error_summary(record):
         # that uses the value simpler.
         if not exc_info[0]:
             exc_info = None
-        elif exc_info[0] in (TypeError, ValueError,
-                             KeyError, AttributeError, ImportError):
+        elif exc_info[0] in (
+            TypeError,
+            ValueError,
+            KeyError,
+            AttributeError,
+            ImportError,
+        ):
             # NOTE(dhellmann): Do not include information about
             # common built-in exceptions used to detect cases of
             # bad or missing data. We don't use isinstance() here
@@ -145,7 +157,7 @@ def _get_error_summary(record):
                 error_summary = error_summary.split('\n', 1)[0]
         except TypeError as type_err:
             # Work around https://bugs.python.org/issue28603
-            error_summary = "<exception with %s>" % str(type_err)
+            error_summary = f"<exception with {str(type_err)}>"
         finally:
             # Remove the local reference to the exception and
             # traceback to avoid a memory leak through the frame
@@ -155,50 +167,85 @@ def _get_error_summary(record):
     return error_summary
 
 
-class _ReplaceFalseValue(dict):
-    def __getitem__(self, key):
+class _ReplaceFalseValue(dict[str, Any]):
+    def __getitem__(self, key: str) -> Any:
         return dict.get(self, key, None) or '-'
 
 
 _MSG_KEY_REGEX = re.compile(r'(%+)\((\w+)\)')
 
 
-def _json_dumps_with_fallback(obj):
+def _json_dumps_with_fallback(obj: Any) -> str:
     # Bug #1593641: If an object cannot be serialized to JSON, convert
     # it using repr() to prevent serialization errors. Using repr() is
     # not ideal, but serialization errors are unexpected on logs,
     # especially when the code using logs is not aware that the
     # JSONFormatter will be used.
     convert = functools.partial(jsonutils.to_primitive, fallback=repr)
-    return jsonutils.dumps(obj, default=convert)
+    return cast(str, jsonutils.dumps(obj, default=convert))
+
+
+class JSONLogRecord(TypedDict):
+    message: str
+    asctime: str
+    name: str
+    msg: str
+    args: Any
+    levelname: str
+    levelno: int
+    pathname: str
+    filename: str
+    module: str
+    lineno: int
+    funcname: str
+    created: float
+    msecs: float
+    relative_created: float
+    thread: int | None
+    thread_name: str | None
+    process_name: str | None
+    process: int | None
+    traceback: str | None
+    hostname: str | None
+    error_summary: str
+    context: dict[str, Any]
+    extra: dict[str, Any]
 
 
 class JSONFormatter(logging.Formatter):
-    def __init__(self, fmt=None, datefmt=None, style='%'):
-        # NOTE(sfinucan) we ignore the fmt and style arguments, but they're
+    def __init__(
+        self,
+        fmt: str | None = None,
+        datefmt: str | None = None,
+        style: str = '%',
+    ):
+        # NOTE(stephenfin) we ignore the fmt and style arguments, but they're
         # still there since logging.config.fileConfig passes the former in
         # Python < 3.2 and both in Python >= 3.2
         self.datefmt = datefmt
         try:
-            self.hostname = socket.gethostname()
+            self.hostname: str | None = socket.gethostname()
         except OSError:
             self.hostname = None
 
-    def formatException(self, ei, strip_newlines=True):
+    def formatException(
+        self, ei: _SysExcInfoType, *, strip_newlines: bool = True
+    ) -> str:
         try:
             lines = traceback.format_exception(*ei)
         except TypeError as type_error:
             # Work around https://bugs.python.org/issue28603
             msg = str(type_error)
-            lines = ['<Unprintable exception due to %s>\n' % msg]
+            lines = [f'<Unprintable exception due to {msg}>\n']
         if strip_newlines:
-            lines = [filter(
-                lambda x: x,
-                line.rstrip().splitlines()) for line in lines]
-            lines = list(itertools.chain(*lines))
-        return lines
+            _lines = [
+                filter(lambda x: x, line.rstrip().splitlines())
+                for line in lines
+            ]
+            lines = list(itertools.chain(*_lines))
+        return '\n'.join(lines)
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         args = record.args
         if isinstance(args, dict):
             msg_keys = _MSG_KEY_REGEX.findall(record.msg)
@@ -210,28 +257,33 @@ class JSONFormatter(logging.Formatter):
             # the value to be formatted.  Don't filter anything.
             if msg_keys:
                 args = {k: v for k, v in args.items() if k in msg_keys}
-        message = {'message': record.getMessage(),
-                   'asctime': self.formatTime(record, self.datefmt),
-                   'name': record.name,
-                   'msg': record.msg,
-                   'args': args,
-                   'levelname': record.levelname,
-                   'levelno': record.levelno,
-                   'pathname': record.pathname,
-                   'filename': record.filename,
-                   'module': record.module,
-                   'lineno': record.lineno,
-                   'funcname': record.funcName,
-                   'created': record.created,
-                   'msecs': record.msecs,
-                   'relative_created': record.relativeCreated,
-                   'thread': record.thread,
-                   'thread_name': record.threadName,
-                   'process_name': record.processName,
-                   'process': record.process,
-                   'traceback': None,
-                   'hostname': self.hostname,
-                   'error_summary': _get_error_summary(record)}
+
+        message: JSONLogRecord = {
+            'message': record.getMessage(),
+            'asctime': self.formatTime(record, self.datefmt),
+            'name': record.name,
+            'msg': record.msg,
+            'args': args,
+            'levelname': record.levelname,
+            'levelno': record.levelno,
+            'pathname': record.pathname,
+            'filename': record.filename,
+            'module': record.module,
+            'lineno': record.lineno,
+            'funcname': record.funcName,
+            'created': record.created,
+            'msecs': record.msecs,
+            'relative_created': record.relativeCreated,
+            'thread': record.thread,
+            'thread_name': record.threadName,
+            'process_name': record.processName,
+            'process': record.process,
+            'traceback': None,
+            'hostname': self.hostname,
+            'error_summary': _get_error_summary(record),
+            'context': {},
+            'extra': {},
+        }
 
         # Build the extra values that were given to us, including
         # the context.
@@ -252,8 +304,7 @@ class JSONFormatter(logging.Formatter):
             message['context'] = _dictify_context(extra['context'])
         elif context:
             message['context'] = _dictify_context(context)
-        else:
-            message['context'] = {}
+
         extra.pop('context', None)
         message['extra'] = extra
 
@@ -273,50 +324,60 @@ class FluentFormatter(logging.Formatter):
     .. versionadded:: 3.17
     """
 
-    def __init__(self, fmt=None, datefmt=None, style='%s'):
+    def __init__(
+        self,
+        fmt: str | None = None,
+        datefmt: str | None = None,
+        style: str = '%',
+    ):
         # NOTE(sfinucan) we ignore the fmt and style arguments for the same
         # reason as JSONFormatter.
         self.datefmt = datefmt
         try:
-            self.hostname = socket.gethostname()
+            self.hostname: str | None = socket.gethostname()
         except OSError:
             self.hostname = None
         self.cmdline = " ".join(sys.argv)
         try:
             # check if running under uwsgi
             import uwsgi
+
             svc_name = uwsgi.opt.get("name")
-            self.uwsgi_name = svc_name
+            self.uwsgi_name: str | None = svc_name
         except Exception:
             self.uwsgi_name = None
 
-    def formatException(self, exc_info, strip_newlines=True):
+    def formatException(
+        self, ei: _SysExcInfoType, *, strip_newlines: bool = True
+    ) -> str:
         try:
-            lines = traceback.format_exception(*exc_info)
+            lines = traceback.format_exception(*ei)
         except TypeError as type_error:
             # Work around https://bugs.python.org/issue28603
             msg = str(type_error)
-            lines = ['<Unprintable exception due to %s>\n' % msg]
+            lines = [f'<Unprintable exception due to {msg}>\n']
         if strip_newlines:
-            lines = functools.reduce(lambda a,
-                                     line: a + line.rstrip().splitlines(),
-                                     lines, [])
-        return lines
+            lines = functools.reduce(
+                lambda a, line: a + line.rstrip().splitlines(), lines, []
+            )
+        return '\n'.join(lines)
 
-    def format(self, record):
-        message = {'message': record.getMessage(),
-                   'time': self.formatTime(record, self.datefmt),
-                   'name': record.name,
-                   'level': record.levelname,
-                   'filename': record.filename,
-                   'lineno': record.lineno,
-                   'module': record.module,
-                   'funcname': record.funcName,
-                   'process_name': record.processName,
-                   'cmdline': self.cmdline,
-                   'hostname': self.hostname,
-                   'traceback': None,
-                   'error_summary': _get_error_summary(record)}
+    def format(self, record: logging.LogRecord) -> Any:
+        message = {
+            'message': record.getMessage(),
+            'time': self.formatTime(record, self.datefmt),
+            'name': record.name,
+            'level': record.levelname,
+            'filename': record.filename,
+            'lineno': record.lineno,
+            'module': record.module,
+            'funcname': record.funcName,
+            'process_name': record.processName,
+            'cmdline': self.cmdline,
+            'hostname': self.hostname,
+            'traceback': None,
+            'error_summary': _get_error_summary(record),
+        }
 
         # Build the extra values that were given to us, including
         # the context.
@@ -376,7 +437,7 @@ class ContextFormatter(logging.Formatter):
     the data in a dict representation of the context.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize ContextFormatter instance
 
         Takes additional keyword arguments which can be used in the message
@@ -395,7 +456,7 @@ class ContextFormatter(logging.Formatter):
 
         logging.Formatter.__init__(self, *args, **kwargs)
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         """Uses contextstring if request_id is set, otherwise default."""
         # store project info
         record.project = self.project
@@ -410,13 +471,13 @@ class ContextFormatter(logging.Formatter):
         context = _update_record_with_context(record)
         if instance:
             try:
-                instance_extra = (self.conf.instance_format
-                                  % instance)
+                instance_extra = self.conf.instance_format % instance
             except TypeError:
                 instance_extra = instance
         elif instance_uuid:
-            instance_extra = (self.conf.instance_uuid_format
-                              % {'uuid': instance_uuid})
+            instance_extra = self.conf.instance_uuid_format % {
+                'uuid': instance_uuid
+            }
         elif context:
             # FIXME(dhellmann): We should replace these nova-isms with
             # more generic handling in the Context class.  See the
@@ -429,22 +490,30 @@ class ContextFormatter(logging.Formatter):
             resource_uuid = getattr(context, 'resource_uuid', None)
 
             if instance:
-                instance_extra = (self.conf.instance_format
-                                  % {'uuid': instance})
+                instance_extra = self.conf.instance_format % {'uuid': instance}
             elif instance_uuid:
-                instance_extra = (self.conf.instance_uuid_format
-                                  % {'uuid': instance_uuid})
+                instance_extra = self.conf.instance_uuid_format % {
+                    'uuid': instance_uuid
+                }
             elif resource_uuid:
-                instance_extra = (self.conf.instance_uuid_format
-                                  % {'uuid': resource_uuid})
+                instance_extra = self.conf.instance_uuid_format % {
+                    'uuid': resource_uuid
+                }
 
         record.instance = instance_extra
 
         # NOTE(sdague): default the fancier formatting params
         # to an empty string so we don't throw an exception if
         # they get used
-        for key in ('instance', 'color', 'user_identity', 'resource',
-                    'user_name', 'project_name', 'global_request_id'):
+        for key in (
+            'instance',
+            'color',
+            'user_identity',
+            'resource',
+            'user_name',
+            'project_name',
+            'global_request_id',
+        ):
             if key not in record.__dict__:
                 record.__dict__[key] = ''
 
@@ -453,8 +522,8 @@ class ContextFormatter(logging.Formatter):
         # get_logging_values of oslo.context.
         if context:
             record.user_identity = (
-                self.conf.logging_user_identity_format %
-                _ReplaceFalseValue(_dictify_context(context))
+                self.conf.logging_user_identity_format
+                % _ReplaceFalseValue(_dictify_context(context))
             )
 
         if record.__dict__.get('request_id'):
@@ -465,22 +534,26 @@ class ContextFormatter(logging.Formatter):
         # Cache the formatted traceback on the record, Logger will
         # respect our formatted copy
         if record.exc_info:
-            record.exc_text = self.formatException(record.exc_info, record)
+            record.exc_text = self.formatException(
+                record.exc_info, record=record
+            )
 
         record.error_summary = _get_error_summary(record)
         if '%(error_summary)s' in fmt:
             # If we have been told explicitly how to format the error
             # summary, make sure there is always a default value for
             # it.
-            record.error_summary = record.error_summary or '-'
-        elif record.error_summary:
+            record.error_summary = getattr(record, 'error_summary') or '-'
+        elif getattr(record, 'error_summary'):
             # If we have not been told how to format the error and
             # there is an error to summarize, make sure the format
             # string includes the bits we need to include it.
             fmt += ': %(error_summary)s'
 
-        if (record.levelno == logging.DEBUG and
-                self.conf.logging_debug_format_suffix):
+        if (
+            record.levelno == logging.DEBUG
+            and self.conf.logging_debug_format_suffix
+        ):
             fmt += " " + self.conf.logging_debug_format_suffix
 
         self._compute_iso_time(record)
@@ -493,28 +566,30 @@ class ContextFormatter(logging.Formatter):
         except TypeError as err:
             # Something went wrong, report that instead so we at least
             # get the error message.
-            record.msg = 'Error formatting log line msg={!r} err={!r}'.format(
-                record.msg, err).replace('%', '*')
+            record.msg = (
+                f'Error formatting log line msg={record.msg!r} err={err!r}'
+            ).replace('%', '*')
             return logging.Formatter.format(self, record)
 
-    def formatException(self, exc_info, record=None):
+    def formatException(
+        self, ei: _SysExcInfoType, *, record: logging.LogRecord | None = None
+    ) -> str:
         """Format exception output with CONF.logging_exception_prefix."""
         if not record:
             try:
-                return logging.Formatter.formatException(self, exc_info)
+                return logging.Formatter.formatException(self, ei)
             except TypeError as type_error:
                 # Work around https://bugs.python.org/issue28603
                 msg = str(type_error)
-                return '<Unprintable exception due to %s>\n' % msg
+                return f'<Unprintable exception due to {msg}>\n'
 
         stringbuffer = io.StringIO()
         try:
-            traceback.print_exception(exc_info[0], exc_info[1], exc_info[2],
-                                      None, stringbuffer)
+            traceback.print_exception(ei[0], ei[1], ei[2], None, stringbuffer)
         except TypeError as type_error:
             # Work around https://bugs.python.org/issue28603
             msg = str(type_error)
-            stringbuffer.write('<Unprintable exception due to %s>\n' % msg)
+            stringbuffer.write(f'<Unprintable exception due to {msg}>\n')
 
         lines = stringbuffer.getvalue().split('\n')
         stringbuffer.close()
@@ -527,15 +602,18 @@ class ContextFormatter(logging.Formatter):
         formatted_lines = []
         for line in lines:
             pl = self.conf.logging_exception_prefix % record.__dict__
-            fl = '{}{}'.format(pl, line)
+            fl = f'{pl}{line}'
             formatted_lines.append(fl)
         return '\n'.join(formatted_lines)
 
-    def _compute_iso_time(self, record):
+    def _compute_iso_time(self, record: logging.LogRecord) -> None:
         # set iso8601 timestamp
         localtz = tz.tzlocal()
-        record.isotime = datetime.datetime.fromtimestamp(
-            record.created).replace(tzinfo=localtz).isoformat()
+        record.isotime = (
+            datetime.datetime.fromtimestamp(record.created)
+            .replace(tzinfo=localtz)
+            .isoformat()
+        )
         if record.created == int(record.created):
             # NOTE(stpierre): when the timestamp includes no
             # microseconds -- e.g., 1450274066.000000 -- then the
@@ -543,5 +621,6 @@ class ContextFormatter(logging.Formatter):
             # a result, in literally one in a million cases
             # isoformat() looks different. This adds microseconds when
             # that happens.
-            record.isotime = "{}.000000{}".format(record.isotime[:-6],
-                                                  record.isotime[-6:])
+            record.isotime = (
+                f"{record.isotime[:-6]}.000000{record.isotime[-6:]}"  # type: ignore
+            )

@@ -7,11 +7,14 @@ import re
 import textwrap
 
 from .. import grammars
-from ..collections import OrderedSet as oset
 from ..exceptions import CodegenError
 from ..objectmodel import BASE_CLASS_TOKEN, Node
 from ..util import compress_seq, indent, safe_name, timestamp, trim
 from .cgbase import CodeGenerator, ModelRenderer
+
+
+def codegen(model):
+    return PythonCodeGenerator().render(model)
 
 
 class PythonCodeGenerator(CodeGenerator):
@@ -26,22 +29,18 @@ class PythonCodeGenerator(CodeGenerator):
         return renderer
 
 
-def codegen(model):
-    return PythonCodeGenerator().render(model)
-
-
 class Base(ModelRenderer):
     def defines(self):
         return self.node.defines()
 
     def make_defines_declaration(self):
         defines = compress_seq(self.defines())
-        ldefs = oset(safe_name(d) for d, value in defines if value)
-        sdefs = oset(
+        ldefs = {safe_name(d) for d, value in defines if value}
+        sdefs = {
             safe_name(d)
             for d, value in defines
             if not value and d not in ldefs
-        )
+        }
 
         if not (sdefs or ldefs):
             return ''
@@ -510,7 +509,7 @@ class Grammar(Base):
                 # Any changes you make to it will be overwritten the next time
                 # the file is generated.
 
-                # ruff: noqa: C405, I001, F401, SIM117
+                # ruff: noqa: RUF100, C405, I001, F401, SIM117
 
                 import sys
                 from pathlib import Path
@@ -530,7 +529,6 @@ class Grammar(Base):
                     def __init__(self, text, /, config: ParserConfig | None = None, **settings):
                         config = ParserConfig.new(
                             config,
-                            owner=self,
                             whitespace={whitespace},
                             nameguard={nameguard},
                             ignorecase={ignorecase},
@@ -549,7 +547,6 @@ class Grammar(Base):
                     def __init__(self, /, config: ParserConfig | None = None, **settings):
                         config = ParserConfig.new(
                             config,
-                            owner=self,
                             whitespace={whitespace},
                             nameguard={nameguard},
                             ignorecase={ignorecase},

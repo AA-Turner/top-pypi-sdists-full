@@ -435,7 +435,7 @@ class SchemaApi:
         # process the body parameter
         _body_params = None
 
-        if _params["var_schema"]:
+        if _params["var_schema"] is not None:
             _body_params = _params["var_schema"]
 
         # set the HTTP header `Accept`
@@ -744,7 +744,7 @@ class SchemaApi:
         # process the body parameter
         _body_params = None
 
-        if _params["var_schema"]:
+        if _params["var_schema"] is not None:
             _body_params = _params["var_schema"]
 
         # set the HTTP header `Accept`
@@ -1098,7 +1098,7 @@ class SchemaApi:
         # process the body parameter
         _body_params = None
 
-        if _params["schema_clone"]:
+        if _params["schema_clone"] is not None:
             _body_params = _params["schema_clone"]
 
         # set the HTTP header `Accept`

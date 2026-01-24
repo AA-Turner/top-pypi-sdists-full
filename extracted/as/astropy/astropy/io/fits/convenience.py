@@ -466,7 +466,7 @@ def writeto(
     )
 
 
-def table_to_hdu(table, character_as_bytes=False):
+def table_to_hdu(table, character_as_bytes=False, name=None):
     """
     Convert an `~astropy.table.Table` object to a FITS
     `~astropy.io.fits.BinTableHDU`.
@@ -479,6 +479,8 @@ def table_to_hdu(table, character_as_bytes=False):
         Whether to return bytes for string columns when accessed from the HDU.
         By default this is `False` and (unicode) strings are returned, but for
         large tables this may use up a lot of memory.
+    name : str
+        Name to be populated in ``EXTNAME`` keyword.
 
     Returns
     -------
@@ -551,7 +553,7 @@ def table_to_hdu(table, character_as_bytes=False):
             # Be careful that we do not set null for columns that were not masked!
             int_formats = ("B", "I", "J", "K")
             if (
-                col.format in int_formats or col.format.p_format in int_formats
+                col.format.format in int_formats or col.format.p_format in int_formats
             ) and hasattr(table[col.name], "mask"):
                 fill_value = tarray[col.name].fill_value
                 col.null = fill_value.astype(int)
@@ -559,6 +561,9 @@ def table_to_hdu(table, character_as_bytes=False):
         table_hdu = BinTableHDU.from_columns(
             tarray, header=hdr, character_as_bytes=character_as_bytes
         )
+
+    if name is not None:
+        table_hdu.name = name
 
     # Set units and format display for output HDU
     for col in table_hdu.columns:

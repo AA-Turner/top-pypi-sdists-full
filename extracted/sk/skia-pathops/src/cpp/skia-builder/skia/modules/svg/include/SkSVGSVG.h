@@ -8,13 +8,19 @@
 #ifndef SkSVGSVG_DEFINED
 #define SkSVGSVG_DEFINED
 
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkSize.h"
+#include "include/private/base/SkAPI.h"
 #include "modules/svg/include/SkSVGContainer.h"
+#include "modules/svg/include/SkSVGNode.h"
 #include "modules/svg/include/SkSVGTypes.h"
-#include "src/base/SkTLazy.h"
+#include "modules/svg/include/SkSVGValue.h"
 
 class SkSVGLengthContext;
+class SkSVGRenderContext;
+enum class SkSVGAttribute;
 
-class SkSVGSVG : public SkSVGContainer {
+class SK_API SkSVGSVG : public SkSVGContainer {
 public:
     enum class Type {
         kRoot,

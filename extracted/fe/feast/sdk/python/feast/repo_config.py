@@ -84,6 +84,7 @@ ONLINE_STORE_CLASS_FOR_TYPE = {
     "qdrant": "feast.infra.online_stores.qdrant_online_store.qdrant.QdrantOnlineStore",
     "couchbase.online": "feast.infra.online_stores.couchbase_online_store.couchbase.CouchbaseOnlineStore",
     "milvus": "feast.infra.online_stores.milvus_online_store.milvus.MilvusOnlineStore",
+    "hybrid": "feast.infra.online_stores.hybrid_online_store.hybrid_online_store.HybridOnlineStore",
     **LEGACY_ONLINE_STORE_CLASS_FOR_TYPE,
 }
 
@@ -152,6 +153,12 @@ class RegistryConfig(FeastBaseModel):
      set to infinity by setting TTL to 0 seconds, which means the cache will only be loaded once and will never
      expire. Users can manually refresh the cache by calling feature_store.refresh_registry() """
 
+    cache_mode: StrictStr = "sync"
+    """str: Cache mode type. Possible options are 'sync' (immediate refresh after each write operation) and
+     'thread' (asynchronous background refresh at cache_ttl_seconds intervals). In 'sync' mode, registry changes
+     are immediately visible. In 'thread' mode, changes may take up to
+     cache_ttl_seconds to be visible."""
+
     s3_additional_kwargs: Optional[Dict[str, str]] = None
     """ Dict[str, str]: Extra arguments to pass to boto3 when writing the registry file to S3. """
 
@@ -176,6 +183,14 @@ class RegistryConfig(FeastBaseModel):
         return path
 
 
+class MaterializationConfig(BaseModel):
+    """Configuration options for feature materialization behavior."""
+
+    pull_latest_features: StrictBool = False
+    """ bool: If true, feature retrieval jobs will only pull the latest feature values for each entity.
+        If false, feature retrieval jobs will pull all feature values within the specified time range. """
+
+
 class RepoConfig(FeastBaseModel):
     """Repo config. Typically loaded from `feature_store.yaml`"""
 
@@ -183,6 +198,10 @@ class RepoConfig(FeastBaseModel):
     """ str: This acts as a Feast unique project identifier. This can be any alphanumeric string and can have '_' but can not start with '_'.
         You can have multiple independent feature repositories deployed to the same cloud
         provider account, as long as they have different project identifier.
+    """
+
+    project_description: Optional[StrictStr] = None
+    """ str: Optional description of the project to provide context about the project's purpose and usage.
     """
 
     provider: StrictStr = "local"
@@ -228,6 +247,11 @@ class RepoConfig(FeastBaseModel):
 
     coerce_tz_aware: Optional[bool] = True
     """ If True, coerces entity_df timestamp columns to be timezone aware (to UTC by default). """
+
+    materialization_config: MaterializationConfig = Field(
+        MaterializationConfig(), alias="materialization"
+    )
+    """ MaterializationConfig: Configuration options for feature materialization behavior. """
 
     def __init__(self, **data: Any):
         super().__init__(**data)
@@ -424,6 +448,7 @@ class RepoConfig(FeastBaseModel):
             online_config_class(**values["online_store"])
         except ValidationError as e:
             raise e
+
         return values
 
     @model_validator(mode="before")
@@ -479,13 +504,27 @@ class RepoConfig(FeastBaseModel):
 
     @field_validator("project")
     @classmethod
-    def _validate_project_name(cls, v: str) -> str:
+    def _validate_project_name(cls, v: str, info: ValidationInfo) -> str:
+        # Deferred import to avoid circular dependency during package initialization.
         from feast.repo_operations import is_valid_name
+
+        sqlite_compatible = False
+
+        online_store = info.data.get("online_store") if info else None
+        if online_store is None or online_store == {}:
+            sqlite_compatible = True
+        elif isinstance(online_store, dict):
+            sqlite_compatible = online_store.get("type", "sqlite") == "sqlite"
 
         if not is_valid_name(v):
             raise ValueError(
                 f"Project name, {v}, should only have "
                 f"alphanumerical values, underscores, and hyphens but not start with an underscore or hyphen."
+            )
+
+        if sqlite_compatible and "-" in v:
+            raise ValueError(
+                "Project names for SQLite online stores cannot contain hyphens because they are used in table names."
             )
         return v
 

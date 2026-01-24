@@ -20,12 +20,20 @@ import typing as t
 from elastic_transport import ObjectApiResponse
 
 from ._base import NamespacedClient
-from .utils import SKIP_IN_PATH, _quote, _rewrite_parameters
+from .utils import (
+    SKIP_IN_PATH,
+    Stability,
+    Visibility,
+    _availability_warning,
+    _quote,
+    _rewrite_parameters,
+)
 
 
 class ShutdownClient(NamespacedClient):
 
     @_rewrite_parameters()
+    @_availability_warning(Stability.STABLE, Visibility.PRIVATE)
     def delete_node(
         self,
         *,
@@ -33,19 +41,15 @@ class ShutdownClient(NamespacedClient):
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
-        master_timeout: t.Optional[
-            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
-        ] = None,
+        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
-        timeout: t.Optional[
-            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
-        ] = None,
+        timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
         .. raw:: html
 
-          <p>Cancel node shutdown preparations.
-          Remove a node from the shutdown list so it can resume normal operations.
+          <p>Cancel node shutdown preparations.</p>
+          <p>Remove a node from the shutdown list so it can resume normal operations.
           You must explicitly clear the shutdown request when a node rejoins the cluster or when a node has permanently left the cluster.
           Shutdown requests are never removed automatically by Elasticsearch.</p>
           <p>NOTE: This feature is designed for indirect use by Elastic Cloud, Elastic Cloud Enterprise, and Elastic Cloud on Kubernetes.
@@ -90,6 +94,7 @@ class ShutdownClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
+    @_availability_warning(Stability.STABLE, Visibility.PRIVATE)
     def get_node(
         self,
         *,
@@ -97,9 +102,7 @@ class ShutdownClient(NamespacedClient):
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
-        master_timeout: t.Optional[
-            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
-        ] = None,
+        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -114,7 +117,8 @@ class ShutdownClient(NamespacedClient):
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-shutdown-get-node>`_
 
-        :param node_id: Which node for which to retrieve the shutdown status
+        :param node_id: Comma-separated list of nodes for which to retrieve the shutdown
+            status
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
@@ -150,6 +154,7 @@ class ShutdownClient(NamespacedClient):
     @_rewrite_parameters(
         body_fields=("reason", "type", "allocation_delay", "target_node_name"),
     )
+    @_availability_warning(Stability.STABLE, Visibility.PRIVATE)
     def put_node(
         self,
         *,
@@ -162,14 +167,10 @@ class ShutdownClient(NamespacedClient):
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
-        master_timeout: t.Optional[
-            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
-        ] = None,
+        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
         target_node_name: t.Optional[str] = None,
-        timeout: t.Optional[
-            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
-        ] = None,
+        timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
         """

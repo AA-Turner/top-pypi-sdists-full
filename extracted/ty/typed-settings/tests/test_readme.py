@@ -5,7 +5,6 @@ Extract examples from the README and assert they work.
 import pathlib
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 import pytest
 
@@ -69,7 +68,7 @@ def example(request: pytest.FixtureRequest, tmp_path: Path) -> Example:
     command.
     """
     example_lines = request.param
-    code_lines: Optional[list[str]] = None
+    code_lines: list[str] | None = None
     for line in example_lines:  # pragma: no cover
         if line.startswith("```") and len(line) > 3:
             code_lines = []

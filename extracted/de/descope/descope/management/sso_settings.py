@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from descope._auth_base import AuthBase
+from descope._http_base import HTTPBase
 from descope.management.common import MgmtV1
 
 
@@ -92,6 +92,9 @@ class SSOOIDCSettings:
         prompt: Optional[List[str]] = None,
         grant_type: Optional[str] = None,
         issuer: Optional[str] = None,
+        groups_priority: Optional[
+            List[str]
+        ] = None,  # list of group names in priority order (first = highest priority)
     ):
         self.name = name
         self.client_id = client_id
@@ -108,6 +111,7 @@ class SSOOIDCSettings:
         self.prompt = prompt
         self.grant_type = grant_type
         self.issuer = issuer
+        self.groups_priority = groups_priority
 
 
 class SSOSAMLSettings:
@@ -123,6 +127,10 @@ class SSOSAMLSettings:
         attribute_mapping: Optional[AttributeMapping] = None,
         role_mappings: Optional[List[RoleMapping]] = None,
         default_sso_roles: Optional[List[str]] = None,
+        idp_additional_certs: Optional[List[str]] = None,
+        groups_priority: Optional[
+            List[str]
+        ] = None,  # list of group names in priority order (first = highest priority)
         # NOTICE - the following fields should be overridden only in case of SSO migration, otherwise, do not modify these fields
         sp_acs_url: Optional[str] = None,
         sp_entity_id: Optional[str] = None,
@@ -133,8 +141,10 @@ class SSOSAMLSettings:
         self.attribute_mapping = attribute_mapping
         self.role_mappings = role_mappings
         self.default_sso_roles = default_sso_roles
+        self.idp_additional_certs = idp_additional_certs
         self.sp_acs_url = sp_acs_url
         self.sp_entity_id = sp_entity_id
+        self.groups_priority = groups_priority
 
 
 class SSOSAMLSettingsByMetadata:
@@ -148,6 +158,9 @@ class SSOSAMLSettingsByMetadata:
         attribute_mapping: Optional[AttributeMapping] = None,
         role_mappings: Optional[List[RoleMapping]] = None,
         default_sso_roles: Optional[List[str]] = None,
+        groups_priority: Optional[
+            List[str]
+        ] = None,  # list of group names in priority order (first = highest priority)
         # NOTICE - the following fields should be overridden only in case of SSO migration, otherwise, do not modify these fields
         sp_acs_url: Optional[str] = None,
         sp_entity_id: Optional[str] = None,
@@ -158,9 +171,10 @@ class SSOSAMLSettingsByMetadata:
         self.default_sso_roles = default_sso_roles
         self.sp_acs_url = sp_acs_url
         self.sp_entity_id = sp_entity_id
+        self.groups_priority = groups_priority
 
 
-class SSOSettings(AuthBase):
+class SSOSettings(HTTPBase):
     def load_settings(
         self,
         tenant_id: str,
@@ -174,17 +188,43 @@ class SSOSettings(AuthBase):
         Return value (dict):
         Containing the loaded SSO settings information.
         Return dict in the format:
-             {"tenant": {"id": "T2AAAA", "name": "myTenantName", "selfProvisioningDomains": [], "customAttributes": {}, "authType": "saml", "domains": ["lulu", "kuku"]}, "saml": {"idpEntityId": "", "idpSSOUrl": "", "idpCertificate": "", "idpMetadataUrl": "https://dummy.com/metadata", "spEntityId": "", "spACSUrl": "", "spCertificate": "", "attributeMapping": {"name": "name", "email": "email", "username": "", "phoneNumber": "phone", "group": "", "givenName": "", "middleName": "", "familyName": "", "picture": "", "customAttributes": {}}, "groupsMapping": [], "redirectUrl": ""}, "oidc": {"name": "", "clientId": "", "clientSecret": "", "redirectUrl": "", "authUrl": "", "tokenUrl": "", "userDataUrl": "", "scope": [], "JWKsUrl": "", "userAttrMapping": {"loginId": "sub", "username": "", "name": "name", "email": "email", "phoneNumber": "phone_number", "verifiedEmail": "email_verified", "verifiedPhone": "phone_number_verified", "picture": "picture", "givenName": "given_name", "middleName": "middle_name", "familyName": "family_name"}, "manageProviderTokens": False, "callbackDomain": "", "prompt": [], "grantType": "authorization_code", "issuer": ""}}
+             {"tenant": {"id": "T2AAAA", "name": "myTenantName", "selfProvisioningDomains": [], "customAttributes": {}, "authType": "saml", "domains": ["lulu", "kuku"]}, "saml": {"idpEntityId": "", "idpSSOUrl": "", "idpCertificate": "", "idpAdditionalCertificates": [], "idpMetadataUrl": "https://dummy.com/metadata", "spEntityId": "", "spACSUrl": "", "spCertificate": "", "attributeMapping": {"name": "name", "email": "email", "username": "", "phoneNumber": "phone", "group": "", "givenName": "", "middleName": "", "familyName": "", "picture": "", "customAttributes": {}}, "groupsMapping": [], "redirectUrl": ""}, "oidc": {"name": "", "clientId": "", "clientSecret": "", "redirectUrl": "", "authUrl": "", "tokenUrl": "", "userDataUrl": "", "scope": [], "JWKsUrl": "", "userAttrMapping": {"loginId": "sub", "username": "", "name": "name", "email": "email", "phoneNumber": "phone_number", "verifiedEmail": "email_verified", "verifiedPhone": "phone_number_verified", "picture": "picture", "givenName": "given_name", "middleName": "middle_name", "familyName": "family_name"}, "manageProviderTokens": False, "callbackDomain": "", "prompt": [], "grantType": "authorization_code", "issuer": ""}}
 
         Raise:
         AuthException: raised if load configuration operation fails
         """
-        response = self._auth.do_get(
+        response = self._http.get(
             uri=MgmtV1.sso_load_settings_path,
             params={"tenantId": tenant_id},
-            pswd=self._auth.management_key,
         )
         return response.json()
+
+    def recalculate_sso_mappings(
+        self,
+        tenant_id: str,
+        sso_id: Optional[str] = None,
+    ):
+        """
+        Recalculate SSO group to role mappings for all users in a tenant.
+
+        This method triggers a recalculation of user roles based on the current SSO group mappings.
+        It will update the roles for all users in the tenant who have SSO group mappings.
+
+        Args:
+        tenant_id (str): The tenant ID (required)
+        sso_id (str): Optional, specify to recalculate mappings for a specific SSO configuration
+
+        Raise:
+        AuthException: raised if recalculation operation fails
+        """
+        body = {"tenantId": tenant_id}
+        if sso_id:
+            body["ssoId"] = sso_id
+
+        self._http.post(
+            uri=MgmtV1.sso_recalculate_mappings_path,
+            body=body,
+        )
 
     def delete_settings(
         self,
@@ -199,10 +239,9 @@ class SSOSettings(AuthBase):
         Raise:
         AuthException: raised if delete operation fails
         """
-        self._auth.do_delete(
+        self._http.delete(
             MgmtV1.sso_settings_path,
-            {"tenantId": tenant_id},
-            pswd=self._auth.management_key,
+            params={"tenantId": tenant_id},
         )
 
     def configure_oidc_settings(
@@ -223,12 +262,11 @@ class SSOSettings(AuthBase):
         AuthException: raised if configuration operation fails
         """
 
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.sso_configure_oidc_settings,
-            SSOSettings._compose_configure_oidc_settings_body(
+            body=SSOSettings._compose_configure_oidc_settings_body(
                 tenant_id, settings, domains
             ),
-            pswd=self._auth.management_key,
         )
 
     def configure_saml_settings(
@@ -251,12 +289,11 @@ class SSOSettings(AuthBase):
         AuthException: raised if configuration operation fails
         """
 
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.sso_configure_saml_settings,
-            SSOSettings._compose_configure_saml_settings_body(
+            body=SSOSettings._compose_configure_saml_settings_body(
                 tenant_id, settings, redirect_url, domains
             ),
-            pswd=self._auth.management_key,
         )
 
     def configure_saml_settings_by_metadata(
@@ -279,12 +316,11 @@ class SSOSettings(AuthBase):
         AuthException: raised if configuration operation fails
         """
 
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.sso_configure_saml_by_metadata_settings,
-            SSOSettings._compose_configure_saml_settings_by_metadata_body(
+            body=SSOSettings._compose_configure_saml_settings_by_metadata_body(
                 tenant_id, settings, redirect_url, domains
             ),
-            pswd=self._auth.management_key,
         )
 
     # DEPRECATED
@@ -306,10 +342,9 @@ class SSOSettings(AuthBase):
         Raise:
         AuthException: raised if configuration operation fails
         """
-        response = self._auth.do_get(
+        response = self._http.get(
             uri=MgmtV1.sso_settings_path,
             params={"tenantId": tenant_id},
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -339,12 +374,11 @@ class SSOSettings(AuthBase):
         Raise:
         AuthException: raised if configuration operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.sso_settings_path,
-            SSOSettings._compose_configure_body(
+            body=SSOSettings._compose_configure_body(
                 tenant_id, idp_url, entity_id, idp_cert, redirect_url, domains
             ),
-            pswd=self._auth.management_key,
         )
 
     # DEPRECATED
@@ -369,12 +403,11 @@ class SSOSettings(AuthBase):
         Raise:
         AuthException: raised if configuration operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.sso_metadata_path,
-            SSOSettings._compose_metadata_body(
+            body=SSOSettings._compose_metadata_body(
                 tenant_id, idp_metadata_url, redirect_url, domains
             ),
-            pswd=self._auth.management_key,
         )
 
     # DEPRECATED
@@ -397,12 +430,11 @@ class SSOSettings(AuthBase):
         Raise:
         AuthException: raised if configuration operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.sso_mapping_path,
-            SSOSettings._compose_mapping_body(
+            body=SSOSettings._compose_mapping_body(
                 tenant_id, role_mappings, attribute_mapping
             ),
-            pswd=self._auth.management_key,
         )
 
     @staticmethod
@@ -523,6 +555,7 @@ class SSOSettings(AuthBase):
                 "prompt": settings.prompt,
                 "grantType": settings.grant_type,
                 "issuer": settings.issuer,
+                "groupsPriority": settings.groups_priority,
             },
             "domains": domains,
         }
@@ -546,6 +579,7 @@ class SSOSettings(AuthBase):
                 "idpUrl": settings.idp_url,
                 "entityId": settings.idp_entity_id,
                 "idpCert": settings.idp_cert,
+                "idpAdditionalCerts": settings.idp_additional_certs,
                 "spACSUrl": settings.sp_acs_url,
                 "spEntityId": settings.sp_entity_id,
                 "attributeMapping": attr_mapping,
@@ -553,6 +587,7 @@ class SSOSettings(AuthBase):
                     settings.role_mappings
                 ),
                 "defaultSSORoles": settings.default_sso_roles,
+                "groupsPriority": settings.groups_priority,
             },
             "redirectUrl": redirect_url,
             "domains": domains,
@@ -582,6 +617,7 @@ class SSOSettings(AuthBase):
                     settings.role_mappings
                 ),
                 "defaultSSORoles": settings.default_sso_roles,
+                "groupsPriority": settings.groups_priority,
             },
             "redirectUrl": redirect_url,
             "domains": domains,

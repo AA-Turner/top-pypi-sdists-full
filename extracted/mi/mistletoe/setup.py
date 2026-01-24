@@ -1,15 +1,21 @@
 from setuptools import setup
 import mistletoe
 
+with open('README.md', 'r', encoding='utf-8') as f:
+    long_description = f.read()
+
 setup(
     name='mistletoe',
     version=mistletoe.__version__,
     description='A fast, extensible Markdown parser in pure Python.',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     url='https://github.com/miyuchina/mistletoe',
     author='Mi Yu',
     author_email='hello@afteryu.me',
     license='MIT',
     packages=['mistletoe', 'mistletoe.contrib'],
+    package_data={'mistletoe': ['py.typed']},
     entry_points={'console_scripts': ['mistletoe = mistletoe.__main__:main']},
     classifiers=[
         'Development Status :: 5 - Production/Stable',

@@ -91,6 +91,7 @@ class CustomTool:
             version="1.0.0",
             scopes=[],
             slug=self.slug,
+            status="active",
             toolkit=tool_list_response.ItemToolkit(
                 logo="",
                 name=self.toolkit or "custom",
@@ -103,6 +104,7 @@ class CustomTool:
                 toolkit=tool_list_response.ItemDeprecatedToolkit(logo=str()),
                 is_deprecated=False,
             ),
+            is_deprecated=False,
             no_auth=False,
             tags=[],
         )

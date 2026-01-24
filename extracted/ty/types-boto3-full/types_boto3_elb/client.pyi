@@ -3,7 +3,7 @@ Type annotations for elb service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elb/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -76,12 +77,6 @@ from .type_defs import (
 )
 from .waiter import AnyInstanceInServiceWaiter, InstanceDeregisteredWaiter, InstanceInServiceWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -90,29 +85,29 @@ else:
 __all__ = ("ElasticLoadBalancingClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessPointNotFoundException: Type[BotocoreClientError]
-    CertificateNotFoundException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DependencyThrottleException: Type[BotocoreClientError]
-    DuplicateAccessPointNameException: Type[BotocoreClientError]
-    DuplicateListenerException: Type[BotocoreClientError]
-    DuplicatePolicyNameException: Type[BotocoreClientError]
-    DuplicateTagKeysException: Type[BotocoreClientError]
-    InvalidConfigurationRequestException: Type[BotocoreClientError]
-    InvalidEndPointException: Type[BotocoreClientError]
-    InvalidSchemeException: Type[BotocoreClientError]
-    InvalidSecurityGroupException: Type[BotocoreClientError]
-    InvalidSubnetException: Type[BotocoreClientError]
-    ListenerNotFoundException: Type[BotocoreClientError]
-    LoadBalancerAttributeNotFoundException: Type[BotocoreClientError]
-    OperationNotPermittedException: Type[BotocoreClientError]
-    PolicyNotFoundException: Type[BotocoreClientError]
-    PolicyTypeNotFoundException: Type[BotocoreClientError]
-    SubnetNotFoundException: Type[BotocoreClientError]
-    TooManyAccessPointsException: Type[BotocoreClientError]
-    TooManyPoliciesException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    UnsupportedProtocolException: Type[BotocoreClientError]
+    AccessPointNotFoundException: type[BotocoreClientError]
+    CertificateNotFoundException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DependencyThrottleException: type[BotocoreClientError]
+    DuplicateAccessPointNameException: type[BotocoreClientError]
+    DuplicateListenerException: type[BotocoreClientError]
+    DuplicatePolicyNameException: type[BotocoreClientError]
+    DuplicateTagKeysException: type[BotocoreClientError]
+    InvalidConfigurationRequestException: type[BotocoreClientError]
+    InvalidEndPointException: type[BotocoreClientError]
+    InvalidSchemeException: type[BotocoreClientError]
+    InvalidSecurityGroupException: type[BotocoreClientError]
+    InvalidSubnetException: type[BotocoreClientError]
+    ListenerNotFoundException: type[BotocoreClientError]
+    LoadBalancerAttributeNotFoundException: type[BotocoreClientError]
+    OperationNotPermittedException: type[BotocoreClientError]
+    PolicyNotFoundException: type[BotocoreClientError]
+    PolicyTypeNotFoundException: type[BotocoreClientError]
+    SubnetNotFoundException: type[BotocoreClientError]
+    TooManyAccessPointsException: type[BotocoreClientError]
+    TooManyPoliciesException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    UnsupportedProtocolException: type[BotocoreClientError]
 
 class ElasticLoadBalancingClient(BaseClient):
     """
@@ -149,7 +144,7 @@ class ElasticLoadBalancingClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elb/client/#generate_presigned_url)
         """
 
-    def add_tags(self, **kwargs: Unpack[AddTagsInputTypeDef]) -> Dict[str, Any]:
+    def add_tags(self, **kwargs: Unpack[AddTagsInputTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the specified load balancer.
 
@@ -192,7 +187,7 @@ class ElasticLoadBalancingClient(BaseClient):
 
     def create_app_cookie_stickiness_policy(
         self, **kwargs: Unpack[CreateAppCookieStickinessPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generates a stickiness policy with sticky session lifetimes that follow that of
         an application-generated cookie.
@@ -203,7 +198,7 @@ class ElasticLoadBalancingClient(BaseClient):
 
     def create_lb_cookie_stickiness_policy(
         self, **kwargs: Unpack[CreateLBCookieStickinessPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generates a stickiness policy with sticky session lifetimes controlled by the
         lifetime of the browser (user-agent) or a specified expiration period.
@@ -224,7 +219,7 @@ class ElasticLoadBalancingClient(BaseClient):
 
     def create_load_balancer_listeners(
         self, **kwargs: Unpack[CreateLoadBalancerListenerInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates one or more listeners for the specified load balancer.
 
@@ -234,7 +229,7 @@ class ElasticLoadBalancingClient(BaseClient):
 
     def create_load_balancer_policy(
         self, **kwargs: Unpack[CreateLoadBalancerPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a policy with the specified attributes for the specified load balancer.
 
@@ -244,7 +239,7 @@ class ElasticLoadBalancingClient(BaseClient):
 
     def delete_load_balancer(
         self, **kwargs: Unpack[DeleteAccessPointInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified load balancer.
 
@@ -254,7 +249,7 @@ class ElasticLoadBalancingClient(BaseClient):
 
     def delete_load_balancer_listeners(
         self, **kwargs: Unpack[DeleteLoadBalancerListenerInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified listeners from the specified load balancer.
 
@@ -264,7 +259,7 @@ class ElasticLoadBalancingClient(BaseClient):
 
     def delete_load_balancer_policy(
         self, **kwargs: Unpack[DeleteLoadBalancerPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified policy from the specified load balancer.
 
@@ -408,7 +403,7 @@ class ElasticLoadBalancingClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elb/client/#register_instances_with_load_balancer)
         """
 
-    def remove_tags(self, **kwargs: Unpack[RemoveTagsInputTypeDef]) -> Dict[str, Any]:
+    def remove_tags(self, **kwargs: Unpack[RemoveTagsInputTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified load balancer.
 
@@ -418,7 +413,7 @@ class ElasticLoadBalancingClient(BaseClient):
 
     def set_load_balancer_listener_ssl_certificate(
         self, **kwargs: Unpack[SetLoadBalancerListenerSSLCertificateInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sets the certificate that terminates the specified listener's SSL connections.
 
@@ -428,7 +423,7 @@ class ElasticLoadBalancingClient(BaseClient):
 
     def set_load_balancer_policies_for_backend_server(
         self, **kwargs: Unpack[SetLoadBalancerPoliciesForBackendServerInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Replaces the set of policies associated with the specified port on which the
         EC2 instance is listening with a new set of policies.
@@ -439,7 +434,7 @@ class ElasticLoadBalancingClient(BaseClient):
 
     def set_load_balancer_policies_of_listener(
         self, **kwargs: Unpack[SetLoadBalancerPoliciesOfListenerInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Replaces the current set of policies for the specified load balancer port with
         the specified set of policies.

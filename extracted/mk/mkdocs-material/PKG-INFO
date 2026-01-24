@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-material
-Version: 9.6.20
+Version: 9.7.1
 Summary: Documentation that simply works
 Project-URL: Homepage, https://squidfunk.github.io/mkdocs-material/
 Project-URL: Bug Tracker, https://github.com/squidfunk/mkdocs-material/issues
@@ -19,18 +19,17 @@ Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Text Processing :: Markup :: HTML
 Requires-Python: >=3.8
-Requires-Dist: babel~=2.10
-Requires-Dist: backrefs~=5.7.post1
-Requires-Dist: click<8.2.2
-Requires-Dist: colorama~=0.4
-Requires-Dist: jinja2~=3.1
-Requires-Dist: markdown~=3.2
-Requires-Dist: mkdocs-material-extensions~=1.3
-Requires-Dist: mkdocs~=1.6
-Requires-Dist: paginate~=0.5
-Requires-Dist: pygments~=2.16
-Requires-Dist: pymdown-extensions~=10.2
-Requires-Dist: requests~=2.26
+Requires-Dist: babel>=2.10
+Requires-Dist: backrefs>=5.7.post1
+Requires-Dist: colorama>=0.4
+Requires-Dist: jinja2>=3.1
+Requires-Dist: markdown>=3.2
+Requires-Dist: mkdocs-material-extensions>=1.3
+Requires-Dist: mkdocs>=1.6
+Requires-Dist: paginate>=0.5
+Requires-Dist: pygments>=2.16
+Requires-Dist: pymdown-extensions>=10.2
+Requires-Dist: requests>=2.30
 Provides-Extra: git
 Requires-Dist: mkdocs-git-committers-plugin-2<3,>=1.1; extra == 'git'
 Requires-Dist: mkdocs-git-revision-date-localized-plugin>=1.2.4,~=1.2; extra == 'git'
@@ -72,10 +71,6 @@ Description-Content-Type: text/markdown
   <a href="https://hub.docker.com/r/squidfunk/mkdocs-material/"><img
     src="https://img.shields.io/docker/pulls/squidfunk/mkdocs-material"
     alt="Docker Pulls"
-  /></a>
-  <a href="https://github.com/sponsors/squidfunk"><img
-    src="https://img.shields.io/github/sponsors/squidfunk"
-    alt="Sponsors"
   /></a>
 </p>
 
@@ -213,8 +208,8 @@ Description-Content-Type: text/markdown
   <a href="https://invers.com/" target=_blank><img
     src="https://raw.githubusercontent.com/squidfunk/mkdocs-material/master/.github/assets/sponsors/sponsor-invers.png" height="58"
   /></a>
-  <a href="https://maxar.com/" target=_blank><img
-    src="https://raw.githubusercontent.com/squidfunk/mkdocs-material/master/.github/assets/sponsors/sponsor-maxar.png" height="58"
+  <a href="https://vantor.com/" target=_blank><img
+    src="https://raw.githubusercontent.com/squidfunk/mkdocs-material/master/.github/assets/sponsors/sponsor-vantor.png" height="58"
   /></a>
   <a href="https://www.equipmentshare.com/" target=_blank><img
     src="https://raw.githubusercontent.com/squidfunk/mkdocs-material/master/.github/assets/sponsors/sponsor-equipmentshare.png" height="58"

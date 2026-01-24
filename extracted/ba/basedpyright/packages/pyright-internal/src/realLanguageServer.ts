@@ -21,6 +21,7 @@ import { AnalysisResults } from './analyzer/analysis';
 import { CacheManager } from './analyzer/cacheManager';
 import { ImportResolver } from './analyzer/importResolver';
 import { isPythonBinary } from './analyzer/pythonPathUtils';
+import { serverBaselineModes, ServerBaselineMode } from './baseline';
 import { CommandController } from './commands/commandController';
 import { ConfigOptions, SignatureDisplayType } from './common/configOptions';
 import { ConsoleWithLogLevel, LogLevel, convertLogLevel } from './common/console';
@@ -173,6 +174,16 @@ export abstract class RealLanguageServer extends LanguageServerBase {
                     serverSettings.baselineFile = resolvePathWithEnvVariables(workspace, baselineFile, workspaces);
                 }
 
+                const baselineMode = pythonAnalysisSection.baselineMode;
+                if (serverBaselineModes.includes(baselineMode)) {
+                    serverSettings.baselineMode = baselineMode as ServerBaselineMode;
+                }
+
+                const configFilePath = pythonAnalysisSection.configFilePath;
+                if (configFilePath && isString(configFilePath)) {
+                    serverSettings.configFilePath = resolvePathWithEnvVariables(workspace, configFilePath, workspaces);
+                }
+
                 const diagnosticSeverityOverrides = pythonAnalysisSection.diagnosticSeverityOverrides;
                 if (diagnosticSeverityOverrides) {
                     for (const [name, value] of Object.entries(diagnosticSeverityOverrides)) {
@@ -272,7 +283,7 @@ export abstract class RealLanguageServer extends LanguageServerBase {
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : error;
             this.connection.sendNotification(ShowMessageNotification.type, {
-                message: errorMessage,
+                message: String(errorMessage),
                 type: MessageType.Error,
             });
         }
@@ -329,7 +340,7 @@ export abstract class RealLanguageServer extends LanguageServerBase {
         let displayingProgress = false;
         let workDoneProgress: Promise<WorkDoneProgressServerReporter> | undefined;
         return {
-            isDisplayingProgess: () => displayingProgress,
+            isDisplayingProgress: () => displayingProgress,
             isEnabled: (data: AnalysisResults) => true,
             begin: () => {
                 displayingProgress = true;

@@ -20,7 +20,7 @@ from typing_extensions import Self
 
 class TaskStatus(str, Enum):
     """
-    The current status of the task, indicating whether it is pending, completed, error, or canceled.
+    The current status of the task, indicating whether it is pending, completed, error, canceled, or deleted.
     """
 
     """
@@ -30,6 +30,7 @@ class TaskStatus(str, Enum):
     COMPLETED = 'completed'
     CANCELED = 'canceled'
     ERROR = 'error'
+    DELETED = 'deleted'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

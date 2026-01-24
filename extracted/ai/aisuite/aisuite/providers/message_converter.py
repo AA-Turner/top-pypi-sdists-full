@@ -1,5 +1,11 @@
+"""Base message converter for OpenAI-compliant providers."""
+
 from aisuite.framework import ChatCompletionResponse
-from aisuite.framework.message import Message, ChatCompletionMessageToolCall
+from aisuite.framework.message import (
+    Message,
+    ChatCompletionMessageToolCall,
+    CompletionUsage,
+)
 
 
 class OpenAICompliantMessageConverter:
@@ -35,8 +41,7 @@ class OpenAICompliantMessageConverter:
             transformed_messages.append(tmsg)
         return transformed_messages
 
-    @staticmethod
-    def convert_response(response_data) -> ChatCompletionResponse:
+    def convert_response(self, response_data) -> ChatCompletionResponse:
         """Normalize the response to match OpenAI's response format."""
         completion_response = ChatCompletionResponse()
         choice = response_data["choices"][0]
@@ -45,6 +50,9 @@ class OpenAICompliantMessageConverter:
         # Set basic message content
         completion_response.choices[0].message.content = message["content"]
         completion_response.choices[0].message.role = message.get("role", "assistant")
+        # Conditionally parse usage data if it exists.
+        if usage_data := response_data.get("usage"):
+            completion_response.usage = self.get_completion_usage(usage_data)
 
         # Handle tool calls if present
         if "tool_calls" in message and message["tool_calls"] is not None:
@@ -60,3 +68,13 @@ class OpenAICompliantMessageConverter:
             completion_response.choices[0].message.tool_calls = tool_calls
 
         return completion_response
+
+    def get_completion_usage(self, usage_data: dict):
+        """Get the usage statistics from a usage data dictionary."""
+        return CompletionUsage(
+            completion_tokens=usage_data.get("completion_tokens"),
+            prompt_tokens=usage_data.get("prompt_tokens"),
+            total_tokens=usage_data.get("total_tokens"),
+            prompt_tokens_details=usage_data.get("prompt_tokens_details"),
+            completion_tokens_details=usage_data.get("completion_tokens_details"),
+        )

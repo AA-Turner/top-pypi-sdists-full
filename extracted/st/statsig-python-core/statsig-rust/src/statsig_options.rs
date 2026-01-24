@@ -1,6 +1,7 @@
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 
+use crate::console_capture::console_capture_options::ConsoleCaptureOptions;
 use crate::data_store_interface::DataStoreTrait;
 use crate::evaluation::dynamic_value::DynamicValue;
 use crate::event_logging_adapter::EventLoggingAdapter;
@@ -12,7 +13,7 @@ use crate::{
     log_d, log_w, serialize_if_not_none, ConfigCompressionMode, ObservabilityClient,
     OverrideAdapter, SpecAdapterConfig, SpecsAdapter,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::sync::{Arc, Weak};
 
@@ -27,7 +28,6 @@ pub struct StatsigOptions {
     pub disable_all_logging: Option<bool>,
     pub disable_country_lookup: Option<bool>,
     pub disable_network: Option<bool>, // Disable all out-going network including get configs, log_events...
-    pub disable_user_agent_parsing: Option<bool>,
 
     pub enable_id_lists: Option<bool>,
     pub environment: Option<String>,
@@ -66,7 +66,12 @@ pub struct StatsigOptions {
 
     pub proxy_config: Option<ProxyConfig>,
 
-    pub __experimental_ua_parsing_enabled: Option<bool>,
+    pub console_capture_options: Option<ConsoleCaptureOptions>,
+
+    pub use_third_party_ua_parser: Option<bool>,
+    pub disable_disk_access: Option<bool>,
+
+    pub experimental_flags: Option<HashSet<String>>,
 }
 
 impl StatsigOptions {
@@ -110,6 +115,15 @@ impl StatsigOptionsBuilder {
     #[must_use]
     pub fn specs_sync_interval_ms(mut self, specs_sync_interval_ms: Option<u32>) -> Self {
         self.inner.specs_sync_interval_ms = specs_sync_interval_ms;
+        self
+    }
+
+    #[must_use]
+    pub fn spec_adapters_config(
+        mut self,
+        spec_adapters_config: Option<Vec<SpecAdapterConfig>>,
+    ) -> Self {
+        self.inner.spec_adapters_config = spec_adapters_config;
         self
     }
 
@@ -253,12 +267,6 @@ impl StatsigOptionsBuilder {
     }
 
     #[must_use]
-    pub fn disable_user_agent_parsing(mut self, disable_user_agent_parsing: Option<bool>) -> Self {
-        self.inner.disable_user_agent_parsing = disable_user_agent_parsing;
-        self
-    }
-
-    #[must_use]
     pub fn disable_country_lookup(mut self, disable_country_lookup: Option<bool>) -> Self {
         self.inner.disable_country_lookup = disable_country_lookup;
         self
@@ -291,6 +299,12 @@ impl StatsigOptionsBuilder {
     }
 
     #[must_use]
+    pub fn use_third_party_ua_parser(mut self, use_third_party_ua_parser: Option<bool>) -> Self {
+        self.inner.use_third_party_ua_parser = use_third_party_ua_parser;
+        self
+    }
+
+    #[must_use]
     pub fn init_timeout_ms(mut self, init_timeout_ms: Option<u64>) -> Self {
         self.inner.init_timeout_ms = init_timeout_ms;
         self
@@ -302,6 +316,15 @@ impl StatsigOptionsBuilder {
     }
 
     // interface related options
+
+    #[must_use]
+    pub fn persistent_storage(
+        mut self,
+        persistent_storage: Option<Arc<dyn PersistentStorage>>,
+    ) -> Self {
+        self.inner.persistent_storage = persistent_storage;
+        self
+    }
 
     #[must_use]
     pub fn observability_client(mut self, client: Option<Weak<dyn ObservabilityClient>>) -> Self {

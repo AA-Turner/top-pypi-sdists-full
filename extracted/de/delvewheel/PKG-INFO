@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: delvewheel
-Version: 1.11.1
+Version: 1.12.0
 Summary: Self-contained wheels for Windows
 Author-email: Aohan Dang <adang1345@gmail.com>
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/adang1345/delvewheel
 Project-URL: Documentation, https://github.com/adang1345/delvewheel/blob/master/README.md
 Project-URL: Changelog, https://github.com/adang1345/delvewheel/blob/master/CHANGELOG.md
 Platform: Windows
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.9
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Environment :: Console
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: Microsoft :: Windows
@@ -33,6 +34,8 @@ Dynamic: license-file
 `delvewheel` is a command-line tool for creating self-contained Python wheel packages for Windows that have DLL dependencies that may not be present on the target system. It is functionally similar to [`auditwheel`](https://github.com/pypa/auditwheel) (for Linux) and [`delocate`](https://github.com/matthew-brett/delocate) (for macOS).
 
 Suppose that you have built a Python wheel for Windows containing an extension module, and the wheel depends on DLLs that are present in the build environment but may not be present on the end user's machine. This tool determines which DLLs a wheel depends on (aside from system libraries) and copies those DLLs into the wheel. This tool also takes extra steps to avoid [DLL hell](https://en.wikipedia.org/wiki/DLL_hell) and to ensure that the DLLs are properly loaded at runtime.
+
+_Note_: Redistributing third-party DLLs may have copyright or licensing implications, so be sure to review and comply with the relevant licenses before including them in your wheel.
 
 ## Installation
 
@@ -54,13 +57,15 @@ The environment used to run `delvewheel` does _not_ need to match the target env
 
 ## Usage
 
-`delvewheel show`: show external DLLs that the wheel depends on
+`delvewheel show WHEEL`: show external DLLs that the wheel depends on
 
-`delvewheel repair`: copy external DLL dependencies into the wheel and patch the wheel so that these libraries are loaded at runtime
+`delvewheel repair WHEEL`: copy external DLL dependencies into the wheel and patch the wheel so that these libraries are loaded at runtime
 
-`delvewheel needed`: list the direct DLL dependencies of a single executable
+`delvewheel needed EXECUTABLE`: list the direct DLL dependencies of a single executable
 
 `delvewheel` uses the `PATH` environment variable to search for DLL dependencies. To specify an additional directory to search for DLLs, add the location of the DLL to the `PATH` environment variable or use the `--add-path` option.
+
+`delvewheel show` and `delvewheel repair` support specifying multiple wheels in a single invocation. They also support using the `*` wildcard in the wheel filename.
 
 For a summary of additional command-line options, use the `-h` option (`delvewheel -h`, `delvewheel show -h`, `delvewheel repair -h`, `delvewheel needed -h`).
 
@@ -71,8 +76,8 @@ The path separator to use in the following options is `';'` on Windows and `':'`
 `delvewheel show`
 - `--add-path PATHS`: additional path(s) to search for DLLs, path-separator-delimited. These paths are searched in the given order before those in the `PATH` environment variable.
 - `--include DLLS`: name(s) of additional DLL(s) to vendor into the wheel, path-separator-delimited. We do not automatically search for dependencies of these DLLs unless another included DLL depends on them. If you use this option, it is your responsibility to ensure that the additional DLL is found at load time.
-- `--exclude DLLS`: name(s) of DLL(s) to specifically exclude from the wheel, path-separator-delimited. Dependencies of these DLLs are also automatically excluded if no other included DLL depends on them.
-- `--ignore-existing`: don't search for or vendor in DLLs that are already in the wheel. We still search for and vendor in dependencies of these DLLs if they are not in the wheel. This flag is meant for simpler integration with other DLL bundling tools/techniques but is not a catch-all. If you use this flag, it is your responsibility to ensure that the DLLs that are already in the wheel are loaded correctly.
+- `--exclude DLLS`: name(s) of DLL(s) to specifically exclude from the wheel, path-separator-delimited. Dependencies of these DLLs are also automatically excluded if no other included DLL depends on them. The `*` wildcard is supported.
+- `--ignore-existing`: don't search for or vendor in DLLs that are already in the wheel. We still search for and vendor in dependencies of these DLLs if they are not in the wheel and are transitive dependencies of existing extension modules. This flag is meant for simpler integration with other DLL bundling tools/techniques but is not a catch-all. If you use this flag, it is your responsibility to ensure that the DLLs that are already in the wheel are loaded correctly.
 - `--analyze-existing`: analyze and vendor in dependencies of DLLs that are already in the wheel. If you use this option, it is your responsibility to ensure that these dependencies are found at load time.
 - `--analyze-existing-exes`: analyze and vendor in dependencies of EXEs that are in the wheel. If you use this option, it is your responsibility to ensure that these dependencies are found at load time.
 - `-v`: verbosity
@@ -83,8 +88,8 @@ The path separator to use in the following options is `';'` on Windows and `':'`
 `delvewheel repair`
 - `--add-path PATHS`: additional path(s) to search for DLLs, path-separator-delimited. These paths are searched in the given order before those in the `PATH` environment variable.
 - `--include DLLS`: name(s) of additional DLL(s) to vendor into the wheel, path-separator-delimited. We do not automatically search for or vendor in dependencies of these DLLs unless another included DLL depends on them. We do not mangle the names of these DLLs or their direct dependencies. If you use this option, it is your responsibility to ensure that the additional DLL is found at load time.
-- `--exclude DLLS`: name(s) of DLL(s) to specifically exclude from the wheel, path-separator-delimited. Dependencies of these DLLs are also automatically excluded if no other included DLL depends on them.
-- `--ignore-existing`: don't search for or vendor in DLLs that are already in the wheel. Don't mangle the names of these DLLs. Don't mangle the names of their direct dependencies unless `--with-mangle` is specified. We still search for and vendor in dependencies of these DLLs if they are not in the wheel. This flag is meant for simpler integration with other DLL bundling tools/techniques but is not a catch-all. If you use this flag, it is your responsibility to ensure that the DLLs that are already in the wheel are loaded correctly.
+- `--exclude DLLS`: name(s) of DLL(s) to specifically exclude from the wheel, path-separator-delimited. Dependencies of these DLLs are also automatically excluded if no other included DLL depends on them. The `*` wildcard is supported.
+- `--ignore-existing`: don't search for or vendor in DLLs that are already in the wheel. Don't mangle the names of these DLLs. Don't mangle the names of their direct dependencies unless `--with-mangle` is specified. We still search for and vendor in dependencies of these DLLs if they are not in the wheel and are transitive dependencies of existing extension modules. This flag is meant for simpler integration with other DLL bundling tools/techniques but is not a catch-all. If you use this flag, it is your responsibility to ensure that the DLLs that are already in the wheel are loaded correctly.
 - `--analyze-existing`: analyze and vendor in dependencies of DLLs that are already in the wheel. These dependencies are name-mangled by default. If you use this option, it is your responsibility to ensure that these dependencies are found at load time.
 - `--analyze-existing-exes`: analyze and vendor in dependencies of EXEs that are in the wheel. These dependencies are name-mangled by default. If you use this option, it is your responsibility to ensure that these dependencies are found at load time.
 - `-v`: verbosity
@@ -92,7 +97,7 @@ The path separator to use in the following options is `';'` on Windows and `':'`
   - `-vv`: level 2, include warnings from `pefile`
 - `--extract-dir DIR`: directory to store extracted contents of wheel for debug use (default is a temp directory)
 - `-w TARGET`,`--wheel-dir TARGET`: directory to write the repaired wheel (default is `wheelhouse` relative to current working directory)
-- `--no-mangle DLLS`: name(s) of DLL(s) not to mangle, path-separator-delimited
+- `--no-mangle DLLS`: name(s) of DLL(s) not to mangle, path-separator-delimited. The `*` wildcard is supported.
 - `--no-mangle-all`: don't mangle any DLL names
 - `--with-mangle`: see `--ignore-existing`
 - `--strip`: strip DLLs that contain an overlay when name-mangling. The GNU `strip` utility must be present in `PATH`.

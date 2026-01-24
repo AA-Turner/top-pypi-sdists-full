@@ -5,4 +5,4 @@ since your modifications would be overwritten.
 """
 
 
-from keras_tuner.src.engine.hypermodel import HyperModel
+from keras_tuner.src.engine.hypermodel import HyperModel as HyperModel

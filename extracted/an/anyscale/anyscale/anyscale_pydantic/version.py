@@ -1,3 +1,8 @@
+import platform
+import sys
+from importlib import import_module
+from pathlib import Path
+
 __all__ = 'compiled', 'VERSION', 'version_info'
 
 VERSION = '1.10.12'
@@ -14,11 +19,6 @@ else:  # pragma: no cover
 
 
 def version_info() -> str:
-    import platform
-    import sys
-    from importlib import import_module
-    from pathlib import Path
-
     optional_deps = []
     for p in ('devtools', 'dotenv', 'email-validator', 'typing-extensions'):
         try:

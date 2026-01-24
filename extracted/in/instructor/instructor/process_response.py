@@ -13,13 +13,13 @@ def __getattr__(name: str):
         f"Please update your imports to use 'instructor.processing.response.{name}' instead:\n"
         "  from instructor.processing.response import process_response",
         DeprecationWarning,
-        stacklevel=2
+        stacklevel=2,
     )
-    
+
     from .processing import response as processing_response
-    
+
     # Try to get the attribute from the processing.response module
     if hasattr(processing_response, name):
         return getattr(processing_response, name)
-    
+
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

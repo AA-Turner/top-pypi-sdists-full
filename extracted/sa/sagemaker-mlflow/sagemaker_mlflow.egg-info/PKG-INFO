@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker-mlflow
-Version: 0.1.1
+Version: 0.2.0
 Summary: AWS Plugin for MLflow with SageMaker
 Home-page: https://github.com/aws/sagemaker-mlflow
 Author: Amazon Web Services
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >= 3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -30,10 +31,12 @@ Requires-Dist: pytest-rerunfailures; extra == "test"
 Requires-Dist: pytest-timeout; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: scikit-learn; extra == "test"
+Requires-Dist: moto; extra == "test"
 Provides-Extra: test-prerelease
 Requires-Dist: mlflow; extra == "test-prerelease"
 Requires-Dist: packaging; extra == "test-prerelease"
 Requires-Dist: pytest; extra == "test-prerelease"
+Requires-Dist: moto; extra == "test-prerelease"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
@@ -116,6 +119,9 @@ tox --skip-env "black.*|flake8|typing|twine" -- test/integration
 ```
 
 #### Available test environments by default
-tox.ini contains support for py39, py310, py311, with mlflow 2.11.* and 2.12.*.
+tox.ini contains support for:
+- Python 3.9: mlflow 2.8.*, 2.9.*, 2.10.*, 2.11.*, 2.12.*, 2.13.*, 2.16.*, 3.0.0
+- Python 3.10/3.11: mlflow 2.8.*, 2.9.*, 2.10.*, 2.11.*, 2.12.*, 2.13.*, 2.16.*, 3.0.0, 3.4.0
+
 To add test environments on tox for additional versions of python or mlflow, modify the
 environment configs in `envlist`, as well as `deps` and `depends` in `[testenv]`.

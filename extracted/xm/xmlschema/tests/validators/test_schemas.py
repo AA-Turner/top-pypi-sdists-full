@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c), 2016-2020, SISSA (International School for Advanced Studies).
+# Copyright (c), 2016-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -46,6 +46,12 @@ class TestXMLSchema10(XsdValidatorTestCase):
     def test_schema_subclasses(self):
         self.assertIs(CustomXMLSchema.meta_schema, XMLSchema10.meta_schema)
         self.assertIs(self.CustomXMLSchema.meta_schema, self.schema_class.meta_schema)
+
+    def test_meta_schema_urls(self):
+        k = 0
+        for k, schema in enumerate(self.schema_class.meta_schema.maps.schemas):
+            self.assertRegex(schema.url, r'file://.*\.xsd')
+        self.assertGreaterEqual(k, 2)
 
     def test_schema_validation(self):
         schema = self.schema_class(self.vh_xsd_file)
@@ -377,15 +383,17 @@ class TestXMLSchema10(XsdValidatorTestCase):
         # With string argument
         with self.assertRaises(ValueError) as ctx:
             self.schema_class(self.vh_xsd_file, loglevel='all')
-        self.assertEqual(str(ctx.exception), "'all' is not a valid loglevel")
+        self.assertIn("invalid value 'all' for optional argument 'loglevel'",
+                      str(ctx.exception))
 
         with self.assertLogs('xmlschema', level='INFO') as ctx:
             self.schema_class(self.vh_xsd_file, loglevel='INFO')
         self.assertEqual(len(ctx.output), 7)
 
-        with self.assertLogs('xmlschema', level='INFO') as ctx:
+        with self.assertRaises(ValueError) as ctx:
             self.schema_class(self.vh_xsd_file, loglevel='  Info ')
-        self.assertEqual(len(ctx.output), 7)
+        self.assertIn("invalid value '  Info ' for optional argument 'loglevel'",
+                      str(ctx.exception))
 
     def test_target_namespace(self):
         schema = self.schema_class(dedent("""\
@@ -494,7 +502,7 @@ class TestXMLSchema10(XsdValidatorTestCase):
 
         with self.assertRaises(TypeError) as ctx:
             self.schema_class(self.col_schema, global_maps=col_schema)  # noqa
-        self.assertIn(" for argument 'source'", str(ctx.exception))
+        self.assertIn(" for non-default argument 'source'", str(ctx.exception))
 
         schema = self.schema_class(source, global_maps=col_schema.maps)
         self.assertIs(col_schema.maps, schema.maps)
@@ -1078,10 +1086,8 @@ class TestXMLSchema11(TestXMLSchema10):
         xml_file = self.casepath('examples/vehicles/vehicles.xml')
 
         schema = self.schema_class(schema_file)
-        with self.assertRaises(XMLSchemaValidationError) as ctx:
-            schema.decode(xml_file, '/vh:vehicles/vh:bikes/vh:bike[2]')
-
-        self.assertIn("maybe you have to provide a different path", ctx.exception.reason)
+        obj = schema.decode(xml_file, '/vh:vehicles/vh:bikes/vh:bike[2]')
+        self.assertEqual(obj, {'@make': 'Yamaha', '@model': 'XS650'})
 
 
 class TestXMLSchemaMeta(unittest.TestCase):

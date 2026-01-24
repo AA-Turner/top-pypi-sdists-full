@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
-use std::io::{copy, Read, Seek, SeekFrom, Write};
+use std::io::{Read, Seek, SeekFrom, Write, copy};
 use std::mem::size_of;
 use std::ops::Add;
 use std::sync::Arc;
@@ -121,7 +121,7 @@ pub struct MDBShardFileFooter {
     // The creation time of this shard, in seconds since the epoc
     pub shard_creation_timestamp: u64,
 
-    // The time, in seconds since the epoc, after which this shard is no longer assumed to be valid.
+    // The time, in seconds since the epoch, after which this shard is no longer assumed to be valid.
     // Locally created shards do not have an expiry.
     pub shard_key_expiry: u64,
 
@@ -1619,8 +1619,8 @@ pub mod test_routines {
             assert_eq!(result_m, result_f);
 
             // Make sure retriving the expected file.
-            if result_m.is_some() {
-                assert_eq!(result_m.unwrap().metadata.file_hash, *k);
+            if let Some(rm) = result_m {
+                assert_eq!(rm.metadata.file_hash, *k);
                 assert_eq!(result_f.unwrap().metadata.file_hash, *k);
             }
         }

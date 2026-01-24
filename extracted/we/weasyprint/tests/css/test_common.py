@@ -1,10 +1,12 @@
 """Test the CSS parsing, cascade, inherited and computed values."""
 
+from math import isclose
+
 import pytest
 
-from weasyprint import CSS, default_url_fetcher
+from weasyprint import CSS
 from weasyprint.css import find_stylesheets, get_all_computed_styles
-from weasyprint.urls import path2url
+from weasyprint.urls import URLFetcher, path2url
 
 from ..testing_utils import (  # isort:skip
     BASE_URL, FakeHTML, assert_no_logs, capture_logs, resource_path)
@@ -15,8 +17,8 @@ def test_find_stylesheets():
     html = FakeHTML(resource_path('doc1.html'))
 
     sheets = list(find_stylesheets(
-        html.wrapper_element, 'print', default_url_fetcher, html.base_url,
-        font_config=None, counter_style=None, page_rules=None))
+        html.wrapper_element, 'print', URLFetcher(), html.base_url, font_config=None,
+        counter_style=None, color_profiles=None, page_rules=None, layers=None))
     assert len(sheets) == 2
     # Also test that stylesheets are in tree order.
     sheet_names = [
@@ -163,7 +165,7 @@ def test_important():
 
 
 @assert_no_logs
-@pytest.mark.parametrize('value, width', (
+@pytest.mark.parametrize(('value', 'width'), [
     ('96px', 96),
     ('1in', 96),
     ('72pt', 96),
@@ -173,29 +175,50 @@ def test_important():
     ('101.6q', 96),
     ('1.1em', 11),
     ('1.1rem', 17.6),
-    # TODO: ch and ex units don't work with font-face, see computed_values.py.
-    # ('1.1ch', 11),
-    # ('1.5ex', 12),
-    # ('1.1lh', 13.2),
-    # ('1.1rlh', 17.6),
-))
+    ('1.1ch', 11),
+    ('1.1rch', 17.6),
+    ('1.1cap', 11),
+    ('1.1rcap', 17.6),
+    ('1.5ex', 12),
+    ('2rex', 25.6),
+    ('1ic', 20),
+    ('1ric', 32),
+    ('1.1lh', 13.2),
+    ('1.1rlh', 26.4),
+])
 def test_units(value, width):
     document = FakeHTML(base_url=BASE_URL, string='''
       <html style="font: 16px / 1.5 weasyprint">
       <body style="font: 10px / 1.2 weasyprint">
-      <p style="margin-left: %s"></p>''' % value)
+      <p style="margin-left: %s"></p>
+      <p style="margin-left: %s"></p>
+      ''' % (value, value.upper()))
     page, = document.render().pages
     html, = page._page_box.children
     body, = html.children
-    p, = body.children
-    assert p.margin_left == width
+    p1, p2 = body.children
+    assert p1.margin_left == p2.margin_left
+    assert isclose(p1.margin_left, width, rel_tol=0.01)
 
 
-@pytest.mark.parametrize('media, width, warning', (
+@assert_no_logs
+@pytest.mark.parametrize('property', ['line-height', 'font-size'])
+def test_recursive_lh(property):
+    document = FakeHTML(base_url=BASE_URL, string='''
+      <html style="%s: 1lh">
+      <body style="%s: 1rlh">a''' % (property, property))
+    document.render().pages
+    document = FakeHTML(base_url=BASE_URL, string='''
+      <html style="%s: 1rlh">
+      <body style="%s: 1lh">a''' % (property, property))
+    document.render().pages
+
+
+@pytest.mark.parametrize(('media', 'width', 'warning'), [
     ('@media screen { @page { size: 10px } }', 20, False),
     ('@media print { @page { size: 10px } }', 10, False),
     ('@media ("unknown content") { @page { size: 10px } }', 20, True),
-))
+])
 def test_media_queries(media, width, warning):
     document = FakeHTML(string='<p>a<span>b')
     with capture_logs() as logs:

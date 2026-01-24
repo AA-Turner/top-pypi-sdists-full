@@ -1,7 +1,5 @@
 import markdown
 from django.conf import settings
-from markdown.extensions.tables import TableExtension
-from markdown_blockdiag import BlockdiagExtension
 from rest_framework.response import Response
 
 

@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import functools
 import inspect
-import sys
-from collections.abc import Callable as CallableABC
+import types
+from collections.abc import Callable
 from typing import (
     Any,
-    Callable,
     ForwardRef,
     Literal,
+    ParamSpec,
     TypeVar,
     Union,
     get_args,
@@ -16,12 +16,6 @@ from typing import (
 )
 
 from daft.errors import UDFException
-
-if sys.version_info < (3, 10):
-    from typing_extensions import ParamSpec
-else:
-    from typing import ParamSpec
-
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -87,30 +81,30 @@ def type_check_function(func: Callable[..., Any], *args: Any, **kwargs: Any) -> 
         origin_T = get_origin(T)
 
         # Handle Callable types
-        if (origin_T is CallableABC or T is CallableABC) and isinstance(CallableABC, type):
-            return isinstance(value, CallableABC)
+        if (origin_T is Callable or T is Callable) and isinstance(Callable, type):
+            return isinstance(value, Callable)
 
         # Handle generic types that are subclasses of Callable
         if (
             origin_T is not None
             and hasattr(origin_T, "__mro__")
-            and CallableABC in getattr(origin_T, "__mro__", [])
-            and isinstance(CallableABC, type)
+            and Callable in getattr(origin_T, "__mro__", [])
+            and isinstance(Callable, type)
         ):
-            return isinstance(value, CallableABC)
+            return isinstance(value, Callable)
 
         # T is a builtin primitive type, like `int`
         if origin_T is None:
             return isinstance(value, T)
 
+        # T is a `typing.Union` or `types.UnionType` (X | Y syntax in Python 3.10+)
+        if origin_T is Union or origin_T is types.UnionType:
+            union_types = get_args(T)
+            return any(isinstance_helper(value, union_type) for union_type in union_types)
+
         # T is a generic type, like `typing.List` or builtin container like `list`
         if isinstance(origin_T, type):
             return isinstance(value, origin_T)
-
-        # T is a `typing.Union`
-        if origin_T is Union:
-            union_types = get_args(T)
-            return any(isinstance_helper(value, union_type) for union_type in union_types)
 
         # T is a `typing.Literal`
         if origin_T is Literal:

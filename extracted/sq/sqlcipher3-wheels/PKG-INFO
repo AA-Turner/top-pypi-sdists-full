@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlcipher3-wheels
-Version: 0.5.5.post0
+Version: 0.5.7
 Summary: DB-API 2.0 interface for SQLCipher 3.x
 Author-email: Charles Leifer <coleifer@gmail.com>, laggykiller <chaudominic2@gmail.com>
 License: zlib/libpng

@@ -12,14 +12,27 @@ import re
 import subprocess
 import sys
 import threading
-import unicodedata
-from collections.abc import Callable, Iterable
+from collections.abc import (
+    Callable,
+    Iterable,
+)
 from difflib import SequenceMatcher
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional, TextIO, TypeVar, Union, cast, get_type_hints
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    TextIO,
+    TypeVar,
+    Union,
+    cast,
+)
 
 from . import constants
-from .argparse_custom import ChoicesProviderFunc, CompleterFunc
+from . import string_utils as su
+from .argparse_custom import (
+    ChoicesProviderFunc,
+    CompleterFunc,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     import cmd2  # noqa: F401
@@ -29,43 +42,6 @@ else:
     PopenTextIO = subprocess.Popen
 
 _T = TypeVar('_T')
-
-
-def is_quoted(arg: str) -> bool:
-    """Check if a string is quoted.
-
-    :param arg: the string being checked for quotes
-    :return: True if a string is quoted
-    """
-    return len(arg) > 1 and arg[0] == arg[-1] and arg[0] in constants.QUOTES
-
-
-def quote_string(arg: str) -> str:
-    """Quote a string."""
-    quote = "'" if '"' in arg else '"'
-
-    return quote + arg + quote
-
-
-def quote_string_if_needed(arg: str) -> str:
-    """Quote a string if it contains spaces and isn't already quoted."""
-    if is_quoted(arg) or ' ' not in arg:
-        return arg
-
-    return quote_string(arg)
-
-
-def strip_quotes(arg: str) -> str:
-    """Strip outer quotes from a string.
-
-     Applies to both single and double quotes.
-
-    :param arg:  string to strip outer quotes from
-    :return: same string with potentially outer quotes stripped
-    """
-    if is_quoted(arg):
-        arg = arg[1:-1]
-    return arg
 
 
 def to_bool(val: Any) -> bool:
@@ -95,37 +71,44 @@ class Settable:
     def __init__(
         self,
         name: str,
-        val_type: Union[type[Any], Callable[[Any], Any]],
+        val_type: type[Any] | Callable[[Any], Any],
         description: str,
         settable_object: object,
         *,
-        settable_attrib_name: Optional[str] = None,
-        onchange_cb: Optional[Callable[[str, _T, _T], Any]] = None,
-        choices: Optional[Iterable[Any]] = None,
-        choices_provider: Optional[ChoicesProviderFunc] = None,
-        completer: Optional[CompleterFunc] = None,
+        settable_attrib_name: str | None = None,
+        onchange_cb: Callable[[str, _T, _T], Any] | None = None,
+        choices: Iterable[Any] | None = None,
+        choices_provider: ChoicesProviderFunc | None = None,
+        completer: CompleterFunc | None = None,
     ) -> None:
         """Settable Initializer.
 
-        :param name: name of the instance attribute being made settable
-        :param val_type: callable used to cast the string value from the command line into its proper type and
-                         even validate its value. Setting this to bool provides tab completion for true/false and
-                         validation using to_bool(). The val_type function should raise an exception if it fails.
-                         This exception will be caught and printed by Cmd.do_set().
-        :param description: string describing this setting
-        :param settable_object: object to which the instance attribute belongs (e.g. self)
-        :param settable_attrib_name: name which displays to the user in the output of the set command.
-                                     Defaults to `name` if not specified.
-        :param onchange_cb: optional function or method to call when the value of this settable is altered
-                            by the set command. (e.g. onchange_cb=self.debug_changed)
+        :param name: The user-facing name for this setting in the CLI.
+        :param val_type: A callable used to cast the string value from the CLI into its
+                         proper type and validate it. This function should raise an
+                         exception (like ValueError or TypeError) if the conversion or
+                         validation fails, which will be caught and displayed to the user
+                         by the set command. For example, setting this to int ensures the
+                         input is a valid integer. Specifying bool automatically provides
+                         tab completion for 'true' and 'false' and uses a built-in function
+                         for conversion and validation.
+        :param description: A concise string that describes the purpose of this setting.
+        :param settable_object: The object that owns the attribute being made settable (e.g. self).
+        :param settable_attrib_name: The name of the attribute on the settable_object that
+                                     will be modified. This defaults to the value of the name
+                                     parameter if not specified.
+        :param onchange_cb: An optional function or method to call when the value of this
+                            setting is altered by the set command. The callback is invoked
+                            only if the new value is different from the old one.
 
-                            Cmd.do_set() passes the following 3 arguments to onchange_cb:
-                                param_name: str - name of the changed parameter
-                                old_value: Any - the value before being changed
-                                new_value: Any - the value after being changed
+                            It receives three arguments:
+                                param_name: str - name of the parameter
+                                old_value: Any - the parameter's old value
+                                new_value: Any - the parameter's new value
 
-        The following optional settings provide tab completion for a parameter's values. They correspond to the
-        same settings in argparse-based tab completion. A maximum of one of these should be provided.
+        The following optional settings provide tab completion for a parameter's values.
+        They correspond to the same settings in argparse-based tab completion. A maximum
+        of one of these should be provided.
 
         :param choices: iterable of accepted values
         :param choices_provider: function that provides choices for this argument
@@ -150,11 +133,13 @@ class Settable:
         self.choices_provider = choices_provider
         self.completer = completer
 
-    def get_value(self) -> Any:
+    @property
+    def value(self) -> Any:
         """Get the value of the settable attribute."""
         return getattr(self.settable_obj, self.settable_attrib_name)
 
-    def set_value(self, value: Any) -> None:
+    @value.setter
+    def value(self, value: Any) -> None:
         """Set the settable attribute on the specified destination object.
 
         :param value: new value to set
@@ -168,7 +153,7 @@ class Settable:
             raise ValueError(f"invalid choice: {new_value!r} (choose from {choices_str})")
 
         # Try to update the settable's value
-        orig_value = self.get_value()
+        orig_value = self.value
         setattr(self.settable_obj, self.settable_attrib_name, new_value)
 
         # Check if we need to call an onchange callback
@@ -183,14 +168,12 @@ def is_text_file(file_path: str) -> bool:
     :return: True if the file is a non-empty text file, otherwise False
     :raises OSError: if file can't be read
     """
-    import codecs
-
     expanded_path = os.path.abspath(os.path.expanduser(file_path.strip()))
     valid_text_file = False
 
     # Only need to check for utf-8 compliance since that covers ASCII, too
     try:
-        with codecs.open(expanded_path, encoding='utf-8', errors='strict') as f:
+        with open(expanded_path, encoding='utf-8', errors='strict') as f:
             # Make sure the file has only utf-8 text and is not empty
             if sum(1 for _ in f) > 0:
                 valid_text_file = True
@@ -216,15 +199,6 @@ def remove_duplicates(list_to_prune: list[_T]) -> list[_T]:
     return list(temp_dict.keys())
 
 
-def norm_fold(astr: str) -> str:
-    """Normalize and casefold Unicode strings for saner comparisons.
-
-    :param astr: input unicode string
-    :return: a normalized and case-folded version of the input string
-    """
-    return unicodedata.normalize('NFC', astr).casefold()
-
-
 def alphabetical_sort(list_to_sort: Iterable[str]) -> list[str]:
     """Sorts a list of strings alphabetically.
 
@@ -237,10 +211,10 @@ def alphabetical_sort(list_to_sort: Iterable[str]) -> list[str]:
     :param list_to_sort: the list being sorted
     :return: the sorted list
     """
-    return sorted(list_to_sort, key=norm_fold)
+    return sorted(list_to_sort, key=su.norm_fold)
 
 
-def try_int_or_force_to_lower_case(input_str: str) -> Union[int, str]:
+def try_int_or_force_to_lower_case(input_str: str) -> int | str:
     """Try to convert the passed-in string to an integer. If that fails, it converts it to lower case using norm_fold.
 
     :param input_str: string to convert
@@ -249,10 +223,10 @@ def try_int_or_force_to_lower_case(input_str: str) -> Union[int, str]:
     try:
         return int(input_str)
     except ValueError:
-        return norm_fold(input_str)
+        return su.norm_fold(input_str)
 
 
-def natural_keys(input_str: str) -> list[Union[int, str]]:
+def natural_keys(input_str: str) -> list[int | str]:
     """Convert a string into a list of integers and strings to support natural sorting (see natural_sort).
 
     For example: natural_keys('abc123def') -> ['abc', '123', 'def']
@@ -285,7 +259,7 @@ def quote_specific_tokens(tokens: list[str], tokens_to_quote: list[str]) -> None
     """
     for i, token in enumerate(tokens):
         if token in tokens_to_quote:
-            tokens[i] = quote_string(token)
+            tokens[i] = su.quote(token)
 
 
 def unquote_specific_tokens(tokens: list[str], tokens_to_unquote: list[str]) -> None:
@@ -295,7 +269,7 @@ def unquote_specific_tokens(tokens: list[str], tokens_to_unquote: list[str]) -> 
     :param tokens_to_unquote: the tokens, which if present in tokens, to unquote
     """
     for i, token in enumerate(tokens):
-        unquoted_token = strip_quotes(token)
+        unquoted_token = su.strip_quotes(token)
         if unquoted_token in tokens_to_unquote:
             tokens[i] = unquoted_token
 
@@ -306,9 +280,9 @@ def expand_user(token: str) -> str:
     :param token: the string to expand
     """
     if token:
-        if is_quoted(token):
+        if su.is_quoted(token):
             quote_char = token[0]
-            token = strip_quotes(token)
+            token = su.strip_quotes(token)
         else:
             quote_char = ''
 
@@ -330,7 +304,7 @@ def expand_user_in_tokens(tokens: list[str]) -> None:
         tokens[index] = expand_user(tokens[index])
 
 
-def find_editor() -> Optional[str]:
+def find_editor() -> str | None:
     """Set cmd2.Cmd.DEFAULT_EDITOR. If EDITOR env variable is set, that will be used.
 
     Otherwise the function will look for a known editor in directories specified by PATH env variable.
@@ -339,9 +313,9 @@ def find_editor() -> Optional[str]:
     editor = os.environ.get('EDITOR')
     if not editor:
         if sys.platform[:3] == 'win':
-            editors = ['code.cmd', 'notepad++.exe', 'notepad.exe']
+            editors = ['edit', 'code.cmd', 'notepad++.exe', 'notepad.exe']
         else:
-            editors = ['vim', 'vi', 'emacs', 'nano', 'pico', 'joe', 'code', 'subl', 'atom', 'gedit', 'geany', 'kate']
+            editors = ['vim', 'vi', 'emacs', 'nano', 'pico', 'joe', 'code', 'subl', 'gedit', 'kate']
 
         # Get a list of every directory in the PATH environment variable and ignore symbolic links
         env_path = os.getenv('PATH')
@@ -469,7 +443,7 @@ class StdSim:
         """Get the internal contents as bytes."""
         return bytes(self.buffer.byte_buf)
 
-    def read(self, size: Optional[int] = -1) -> str:
+    def read(self, size: int | None = -1) -> str:
         """Read from the internal contents as a str and then clear them out.
 
         :param size: Number of bytes to read from the stream
@@ -551,7 +525,7 @@ class ProcReader:
     If neither are pipes, then the process will run normally and no output will be captured.
     """
 
-    def __init__(self, proc: PopenTextIO, stdout: Union[StdSim, TextIO], stderr: Union[StdSim, TextIO]) -> None:
+    def __init__(self, proc: PopenTextIO, stdout: StdSim | TextIO, stderr: StdSim | TextIO) -> None:
         """ProcReader initializer.
 
         :param proc: the Popen process being read from
@@ -633,7 +607,7 @@ class ProcReader:
                 self._write_bytes(write_stream, available)
 
     @staticmethod
-    def _write_bytes(stream: Union[StdSim, TextIO], to_write: Union[bytes, str]) -> None:
+    def _write_bytes(stream: StdSim | TextIO, to_write: bytes | str) -> None:
         """Write bytes to a stream.
 
         :param stream: the stream being written to
@@ -682,422 +656,31 @@ class RedirectionSavedState:
 
     def __init__(
         self,
-        self_stdout: Union[StdSim, TextIO],
-        sys_stdout: Union[StdSim, TextIO],
-        pipe_proc_reader: Optional[ProcReader],
+        self_stdout: StdSim | TextIO,
+        stdouts_match: bool,
+        pipe_proc_reader: ProcReader | None,
         saved_redirecting: bool,
     ) -> None:
         """RedirectionSavedState initializer.
 
         :param self_stdout: saved value of Cmd.stdout
-        :param sys_stdout: saved value of sys.stdout
+        :param stdouts_match: True if Cmd.stdout is equal to sys.stdout
         :param pipe_proc_reader: saved value of Cmd._cur_pipe_proc_reader
         :param saved_redirecting: saved value of Cmd._redirecting.
         """
         # Tells if command is redirecting
         self.redirecting = False
 
-        # Used to restore values after redirection ends
+        # Used to restore stdout values after redirection ends
         self.saved_self_stdout = self_stdout
-        self.saved_sys_stdout = sys_stdout
+        self.stdouts_match = stdouts_match
 
         # Used to restore values after command ends regardless of whether the command redirected
         self.saved_pipe_proc_reader = pipe_proc_reader
         self.saved_redirecting = saved_redirecting
 
 
-def _remove_overridden_styles(styles_to_parse: list[str]) -> list[str]:
-    """Filter a style list down to only those which would still be in effect if all were processed in order.
-
-    Utility function for align_text() / truncate_line().
-
-    This is mainly used to reduce how many style strings are stored in memory when
-    building large multiline strings with ANSI styles. We only need to carry over
-    styles from previous lines that are still in effect.
-
-    :param styles_to_parse: list of styles to evaluate.
-    :return: list of styles that are still in effect.
-    """
-    from . import (
-        ansi,
-    )
-
-    class StyleState:
-        """Keeps track of what text styles are enabled."""
-
-        def __init__(self) -> None:
-            # Contains styles still in effect, keyed by their index in styles_to_parse
-            self.style_dict: dict[int, str] = {}
-
-            # Indexes into style_dict
-            self.reset_all: Optional[int] = None
-            self.fg: Optional[int] = None
-            self.bg: Optional[int] = None
-            self.intensity: Optional[int] = None
-            self.italic: Optional[int] = None
-            self.overline: Optional[int] = None
-            self.strikethrough: Optional[int] = None
-            self.underline: Optional[int] = None
-
-    # Read the previous styles in order and keep track of their states
-    style_state = StyleState()
-
-    for index, style in enumerate(styles_to_parse):
-        # For styles types that we recognize, only keep their latest value from styles_to_parse.
-        # All unrecognized style types will be retained and their order preserved.
-        if style in (str(ansi.TextStyle.RESET_ALL), str(ansi.TextStyle.ALT_RESET_ALL)):
-            style_state = StyleState()
-            style_state.reset_all = index
-        elif ansi.STD_FG_RE.match(style) or ansi.EIGHT_BIT_FG_RE.match(style) or ansi.RGB_FG_RE.match(style):
-            if style_state.fg is not None:
-                style_state.style_dict.pop(style_state.fg)
-            style_state.fg = index
-        elif ansi.STD_BG_RE.match(style) or ansi.EIGHT_BIT_BG_RE.match(style) or ansi.RGB_BG_RE.match(style):
-            if style_state.bg is not None:
-                style_state.style_dict.pop(style_state.bg)
-            style_state.bg = index
-        elif style in (
-            str(ansi.TextStyle.INTENSITY_BOLD),
-            str(ansi.TextStyle.INTENSITY_DIM),
-            str(ansi.TextStyle.INTENSITY_NORMAL),
-        ):
-            if style_state.intensity is not None:
-                style_state.style_dict.pop(style_state.intensity)
-            style_state.intensity = index
-        elif style in (str(ansi.TextStyle.ITALIC_ENABLE), str(ansi.TextStyle.ITALIC_DISABLE)):
-            if style_state.italic is not None:
-                style_state.style_dict.pop(style_state.italic)
-            style_state.italic = index
-        elif style in (str(ansi.TextStyle.OVERLINE_ENABLE), str(ansi.TextStyle.OVERLINE_DISABLE)):
-            if style_state.overline is not None:
-                style_state.style_dict.pop(style_state.overline)
-            style_state.overline = index
-        elif style in (str(ansi.TextStyle.STRIKETHROUGH_ENABLE), str(ansi.TextStyle.STRIKETHROUGH_DISABLE)):
-            if style_state.strikethrough is not None:
-                style_state.style_dict.pop(style_state.strikethrough)
-            style_state.strikethrough = index
-        elif style in (str(ansi.TextStyle.UNDERLINE_ENABLE), str(ansi.TextStyle.UNDERLINE_DISABLE)):
-            if style_state.underline is not None:
-                style_state.style_dict.pop(style_state.underline)
-            style_state.underline = index
-
-        # Store this style and its location in the dictionary
-        style_state.style_dict[index] = style
-
-    return list(style_state.style_dict.values())
-
-
-class TextAlignment(Enum):
-    """Horizontal text alignment."""
-
-    LEFT = 1
-    CENTER = 2
-    RIGHT = 3
-
-
-def align_text(
-    text: str,
-    alignment: TextAlignment,
-    *,
-    fill_char: str = ' ',
-    width: Optional[int] = None,
-    tab_width: int = 4,
-    truncate: bool = False,
-) -> str:
-    """Align text for display within a given width. Supports characters with display widths greater than 1.
-
-    ANSI style sequences do not count toward the display width. If text has line breaks, then each line is aligned
-    independently.
-
-    There are convenience wrappers around this function: align_left(), align_center(), and align_right()
-
-    :param text: text to align (can contain multiple lines)
-    :param alignment: how to align the text
-    :param fill_char: character that fills the alignment gap. Defaults to space. (Cannot be a line breaking character)
-    :param width: display width of the aligned text. Defaults to width of the terminal.
-    :param tab_width: any tabs in the text will be replaced with this many spaces. if fill_char is a tab, then it will
-                      be converted to one space.
-    :param truncate: if True, then each line will be shortened to fit within the display width. The truncated
-                     portions are replaced by a '…' character. Defaults to False.
-    :return: aligned text
-    :raises TypeError: if fill_char is more than one character (not including ANSI style sequences)
-    :raises ValueError: if text or fill_char contains an unprintable character
-    :raises ValueError: if width is less than 1
-    """
-    import io
-    import shutil
-
-    from . import (
-        ansi,
-    )
-
-    if width is None:
-        # Prior to Python 3.11 this can return 0, so use a fallback if needed.
-        width = shutil.get_terminal_size().columns or constants.DEFAULT_TERMINAL_WIDTH
-
-    if width < 1:
-        raise ValueError("width must be at least 1")
-
-    # Convert tabs to spaces
-    text = text.replace('\t', ' ' * tab_width)
-    fill_char = fill_char.replace('\t', ' ')
-
-    # Save fill_char with no styles for use later
-    stripped_fill_char = ansi.strip_style(fill_char)
-    if len(stripped_fill_char) != 1:
-        raise TypeError("Fill character must be exactly one character long")
-
-    fill_char_width = ansi.style_aware_wcswidth(fill_char)
-    if fill_char_width == -1:
-        raise (ValueError("Fill character is an unprintable character"))
-
-    # Isolate the style chars before and after the fill character. We will use them when building sequences of
-    # fill characters. Instead of repeating the style characters for each fill character, we'll wrap each sequence.
-    fill_char_style_begin, fill_char_style_end = fill_char.split(stripped_fill_char)
-
-    lines = text.splitlines() if text else ['']
-
-    text_buf = io.StringIO()
-
-    # ANSI style sequences that may affect subsequent lines will be cancelled by the fill_char's style.
-    # To avoid this, we save styles which are still in effect so we can restore them when beginning the next line.
-    # This also allows lines to be used independently and still have their style. TableCreator does this.
-    previous_styles: list[str] = []
-
-    for index, line in enumerate(lines):
-        if index > 0:
-            text_buf.write('\n')
-
-        if truncate:
-            line = truncate_line(line, width)  # noqa: PLW2901
-
-        line_width = ansi.style_aware_wcswidth(line)
-        if line_width == -1:
-            raise (ValueError("Text to align contains an unprintable character"))
-
-        # Get list of styles in this line
-        line_styles = list(get_styles_dict(line).values())
-
-        # Calculate how wide each side of filling needs to be
-        total_fill_width = 0 if line_width >= width else width - line_width
-        # Even if the line needs no fill chars, there may be styles sequences to restore
-
-        if alignment == TextAlignment.LEFT:
-            left_fill_width = 0
-            right_fill_width = total_fill_width
-        elif alignment == TextAlignment.CENTER:
-            left_fill_width = total_fill_width // 2
-            right_fill_width = total_fill_width - left_fill_width
-        else:
-            left_fill_width = total_fill_width
-            right_fill_width = 0
-
-        # Determine how many fill characters are needed to cover the width
-        left_fill = (left_fill_width // fill_char_width) * stripped_fill_char
-        right_fill = (right_fill_width // fill_char_width) * stripped_fill_char
-
-        # In cases where the fill character display width didn't divide evenly into
-        # the gap being filled, pad the remainder with space.
-        left_fill += ' ' * (left_fill_width - ansi.style_aware_wcswidth(left_fill))
-        right_fill += ' ' * (right_fill_width - ansi.style_aware_wcswidth(right_fill))
-
-        # Don't allow styles in fill characters and text to affect one another
-        if fill_char_style_begin or fill_char_style_end or previous_styles or line_styles:
-            if left_fill:
-                left_fill = ansi.TextStyle.RESET_ALL + fill_char_style_begin + left_fill + fill_char_style_end
-            left_fill += ansi.TextStyle.RESET_ALL
-
-            if right_fill:
-                right_fill = ansi.TextStyle.RESET_ALL + fill_char_style_begin + right_fill + fill_char_style_end
-            right_fill += ansi.TextStyle.RESET_ALL
-
-        # Write the line and restore styles from previous lines which are still in effect
-        text_buf.write(left_fill + ''.join(previous_styles) + line + right_fill)
-
-        # Update list of styles that are still in effect for the next line
-        previous_styles.extend(line_styles)
-        previous_styles = _remove_overridden_styles(previous_styles)
-
-    return text_buf.getvalue()
-
-
-def align_left(
-    text: str, *, fill_char: str = ' ', width: Optional[int] = None, tab_width: int = 4, truncate: bool = False
-) -> str:
-    """Left align text for display within a given width. Supports characters with display widths greater than 1.
-
-    ANSI style sequences do not count toward the display width. If text has line breaks, then each line is aligned
-    independently.
-
-    :param text: text to left align (can contain multiple lines)
-    :param fill_char: character that fills the alignment gap. Defaults to space. (Cannot be a line breaking character)
-    :param width: display width of the aligned text. Defaults to width of the terminal.
-    :param tab_width: any tabs in the text will be replaced with this many spaces. if fill_char is a tab, then it will
-                      be converted to one space.
-    :param truncate: if True, then text will be shortened to fit within the display width. The truncated portion is
-                     replaced by a '…' character. Defaults to False.
-    :return: left-aligned text
-    :raises TypeError: if fill_char is more than one character (not including ANSI style sequences)
-    :raises ValueError: if text or fill_char contains an unprintable character
-    :raises ValueError: if width is less than 1
-    """
-    return align_text(text, TextAlignment.LEFT, fill_char=fill_char, width=width, tab_width=tab_width, truncate=truncate)
-
-
-def align_center(
-    text: str, *, fill_char: str = ' ', width: Optional[int] = None, tab_width: int = 4, truncate: bool = False
-) -> str:
-    """Center text for display within a given width. Supports characters with display widths greater than 1.
-
-    ANSI style sequences do not count toward the display width. If text has line breaks, then each line is aligned
-    independently.
-
-    :param text: text to center (can contain multiple lines)
-    :param fill_char: character that fills the alignment gap. Defaults to space. (Cannot be a line breaking character)
-    :param width: display width of the aligned text. Defaults to width of the terminal.
-    :param tab_width: any tabs in the text will be replaced with this many spaces. if fill_char is a tab, then it will
-                      be converted to one space.
-    :param truncate: if True, then text will be shortened to fit within the display width. The truncated portion is
-                     replaced by a '…' character. Defaults to False.
-    :return: centered text
-    :raises TypeError: if fill_char is more than one character (not including ANSI style sequences)
-    :raises ValueError: if text or fill_char contains an unprintable character
-    :raises ValueError: if width is less than 1
-    """
-    return align_text(text, TextAlignment.CENTER, fill_char=fill_char, width=width, tab_width=tab_width, truncate=truncate)
-
-
-def align_right(
-    text: str, *, fill_char: str = ' ', width: Optional[int] = None, tab_width: int = 4, truncate: bool = False
-) -> str:
-    """Right align text for display within a given width. Supports characters with display widths greater than 1.
-
-    ANSI style sequences do not count toward the display width. If text has line breaks, then each line is aligned
-    independently.
-
-    :param text: text to right align (can contain multiple lines)
-    :param fill_char: character that fills the alignment gap. Defaults to space. (Cannot be a line breaking character)
-    :param width: display width of the aligned text. Defaults to width of the terminal.
-    :param tab_width: any tabs in the text will be replaced with this many spaces. if fill_char is a tab, then it will
-                      be converted to one space.
-    :param truncate: if True, then text will be shortened to fit within the display width. The truncated portion is
-                     replaced by a '…' character. Defaults to False.
-    :return: right-aligned text
-    :raises TypeError: if fill_char is more than one character (not including ANSI style sequences)
-    :raises ValueError: if text or fill_char contains an unprintable character
-    :raises ValueError: if width is less than 1
-    """
-    return align_text(text, TextAlignment.RIGHT, fill_char=fill_char, width=width, tab_width=tab_width, truncate=truncate)
-
-
-def truncate_line(line: str, max_width: int, *, tab_width: int = 4) -> str:
-    """Truncate a single line to fit within a given display width.
-
-    Any portion of the string that is truncated is replaced by a '…' character. Supports characters with display widths greater
-    than 1. ANSI style sequences do not count toward the display width.
-
-    If there are ANSI style sequences in the string after where truncation occurs, this function will append them
-    to the returned string.
-
-    This is done to prevent issues caused in cases like: truncate_line(Fg.BLUE + hello + Fg.RESET, 3)
-    In this case, "hello" would be truncated before Fg.RESET resets the color from blue. Appending the remaining style
-    sequences makes sure the style is in the same state had the entire string been printed. align_text() relies on this
-    behavior when preserving style over multiple lines.
-
-    :param line: text to truncate
-    :param max_width: the maximum display width the resulting string is allowed to have
-    :param tab_width: any tabs in the text will be replaced with this many spaces
-    :return: line that has a display width less than or equal to width
-    :raises ValueError: if text contains an unprintable character like a newline
-    :raises ValueError: if max_width is less than 1
-    """
-    import io
-
-    from . import (
-        ansi,
-    )
-
-    # Handle tabs
-    line = line.replace('\t', ' ' * tab_width)
-
-    if ansi.style_aware_wcswidth(line) == -1:
-        raise (ValueError("text contains an unprintable character"))
-
-    if max_width < 1:
-        raise ValueError("max_width must be at least 1")
-
-    if ansi.style_aware_wcswidth(line) <= max_width:
-        return line
-
-    # Find all style sequences in the line
-    styles_dict = get_styles_dict(line)
-
-    # Add characters one by one and preserve all style sequences
-    done = False
-    index = 0
-    total_width = 0
-    truncated_buf = io.StringIO()
-
-    while not done:
-        # Check if a style sequence is at this index. These don't count toward display width.
-        if index in styles_dict:
-            truncated_buf.write(styles_dict[index])
-            style_len = len(styles_dict[index])
-            styles_dict.pop(index)
-            index += style_len
-            continue
-
-        char = line[index]
-        char_width = ansi.style_aware_wcswidth(char)
-
-        # This char will make the text too wide, add the ellipsis instead
-        if char_width + total_width >= max_width:
-            char = constants.HORIZONTAL_ELLIPSIS
-            char_width = ansi.style_aware_wcswidth(char)
-            done = True
-
-        total_width += char_width
-        truncated_buf.write(char)
-        index += 1
-
-    # Filter out overridden styles from the remaining ones
-    remaining_styles = _remove_overridden_styles(list(styles_dict.values()))
-
-    # Append the remaining styles to the truncated text
-    truncated_buf.write(''.join(remaining_styles))
-
-    return truncated_buf.getvalue()
-
-
-def get_styles_dict(text: str) -> dict[int, str]:
-    """Return an OrderedDict containing all ANSI style sequences found in a string.
-
-    The structure of the dictionary is:
-        key: index where sequences begins
-        value: ANSI style sequence found at index in text
-
-    Keys are in ascending order
-
-    :param text: text to search for style sequences
-    """
-    from . import (
-        ansi,
-    )
-
-    start = 0
-    styles = collections.OrderedDict()
-
-    while True:
-        match = ansi.ANSI_STYLE_RE.search(text, start)
-        if match is None:
-            break
-        styles[match.start()] = match.group()
-        start += len(match.group())
-
-    return styles
-
-
-def categorize(func: Union[Callable[..., Any], Iterable[Callable[..., Any]]], category: str) -> None:
+def categorize(func: Callable[..., Any] | Iterable[Callable[..., Any]], category: str) -> None:
     """Categorize a function.
 
     The help command output will group the passed function under the
@@ -1123,12 +706,12 @@ def categorize(func: Union[Callable[..., Any], Iterable[Callable[..., Any]]], ca
         for item in func:
             setattr(item, constants.CMD_ATTR_HELP_CATEGORY, category)
     elif inspect.ismethod(func):
-        setattr(func.__func__, constants.CMD_ATTR_HELP_CATEGORY, category)  # type: ignore[attr-defined]
+        setattr(func.__func__, constants.CMD_ATTR_HELP_CATEGORY, category)
     else:
         setattr(func, constants.CMD_ATTR_HELP_CATEGORY, category)
 
 
-def get_defining_class(meth: Callable[..., Any]) -> Optional[type[Any]]:
+def get_defining_class(meth: Callable[..., Any]) -> type[Any] | None:
     """Attempt to resolve the class that defined a method.
 
     Inspired by implementation published here:
@@ -1142,7 +725,7 @@ def get_defining_class(meth: Callable[..., Any]) -> Optional[type[Any]]:
     if inspect.ismethod(meth) or (
         inspect.isbuiltin(meth) and hasattr(meth, '__self__') and hasattr(meth.__self__, '__class__')
     ):
-        for cls in inspect.getmro(meth.__self__.__class__):  # type: ignore[attr-defined]
+        for cls in inspect.getmro(meth.__self__.__class__):
             if meth.__name__ in cls.__dict__:
                 return cls
         meth = getattr(meth, '__func__', meth)  # fallback to __qualname__ parsing
@@ -1225,8 +808,8 @@ MIN_SIMIL_TO_CONSIDER = 0.7
 
 
 def suggest_similar(
-    requested_command: str, options: Iterable[str], similarity_function_to_use: Optional[Callable[[str, str], float]] = None
-) -> Optional[str]:
+    requested_command: str, options: Iterable[str], similarity_function_to_use: Callable[[str, str], float] | None = None
+) -> str | None:
     """Given a requested command and an iterable of possible options returns the most similar (if any is similar).
 
     :param requested_command: The command entered by the user
@@ -1247,24 +830,21 @@ def suggest_similar(
 
 
 def get_types(func_or_method: Callable[..., Any]) -> tuple[dict[str, Any], Any]:
-    """Use typing.get_type_hints() to extract type hints for parameters and return value.
+    """Use inspect.get_annotations() to extract type hints for parameters and return value.
 
-    This exists because the inspect module doesn't have a safe way of doing this that works
-    both with and without importing annotations from __future__ until Python 3.10.
-
-    TODO: Once cmd2 only supports Python 3.10+, change to use inspect.get_annotations(eval_str=True)
+    This is a thin convenience wrapper around inspect.get_annotations() that treats the return value
+    annotation separately.
 
     :param func_or_method: Function or method to return the type hints for
-    :return tuple with first element being dictionary mapping param names to type hints
-            and second element being return type hint, unspecified, returns None
+    :return: tuple with first element being dictionary mapping param names to type hints
+            and second element being the return type hint or None if there is no return value type hint
+    :raises ValueError: if the `func_or_method` argument is not a valid object to pass to `inspect.get_annotations`
     """
     try:
-        type_hints = get_type_hints(func_or_method)  # Get dictionary of type hints
+        type_hints = inspect.get_annotations(func_or_method, eval_str=True)  # Get dictionary of type hints
     except TypeError as exc:
         raise ValueError("Argument passed to get_types should be a function or method") from exc
     ret_ann = type_hints.pop('return', None)  # Pop off the return annotation if it exists
     if inspect.ismethod(func_or_method):
         type_hints.pop('self', None)  # Pop off `self` hint for methods
-    if ret_ann is type(None):
-        ret_ann = None  # Simplify logic to just return None instead of NoneType
     return type_hints, ret_ann

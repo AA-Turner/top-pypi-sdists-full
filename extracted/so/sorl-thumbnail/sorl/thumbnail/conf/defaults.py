@@ -1,4 +1,6 @@
-from django.conf import settings
+class DefaultRGB(str):
+    pass
+
 
 # When True ThumbnailNode.render can raise errors
 THUMBNAIL_DEBUG = False
@@ -30,8 +32,8 @@ THUMBNAIL_IDENTIFY = 'identify'
 THUMBNAIL_VIPSTHUMBNAIL = 'vipsthumbnail'
 THUMBNAIL_VIPSHEADER = 'vipsheader'
 
-# Storage for the generated thumbnails
-THUMBNAIL_STORAGE = settings.STORAGES['default']['BACKEND']
+# Storage for the generated thumbnails, as an alias of the Django STORAGES setting.
+THUMBNAIL_STORAGE = 'default'
 
 # Redis settings
 THUMBNAIL_REDIS_DB = 0
@@ -67,7 +69,7 @@ THUMBNAIL_PRESERVE_FORMAT = False
 
 # Colorspace, backends are required to implement: RGB, GRAY
 # Setting this to None will keep the original colorspace.
-THUMBNAIL_COLORSPACE = 'RGB'
+THUMBNAIL_COLORSPACE = DefaultRGB('RGB')
 
 # Should we upscale images by default
 THUMBNAIL_UPSCALE = True

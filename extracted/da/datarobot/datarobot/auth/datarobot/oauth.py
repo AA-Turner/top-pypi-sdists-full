@@ -165,11 +165,9 @@ class _DROAuthUserProfile(_DRSchema):
         if self.raw:
             raw_data = dict(self.raw)
 
-        raw_data.update(
-            {
-                "description": self.description,
-            }
-        )
+        raw_data.update({
+            "description": self.description,
+        })
 
         return Profile(
             id=self.sub,
@@ -208,9 +206,7 @@ class AsyncOAuth(AsyncOAuthComponent):
         user_agent: str | None = None,
         follow_redirects: bool = True,
         timeout: float | httpx.Timeout | None = 5.0,
-        ssl_verify: Union[
-            bool, "ssl.SSLContext"
-        ] = True,  # just "|" thrown "unsupported operand type" error
+        ssl_verify: Union[bool, "ssl.SSLContext"] = True,  # just "|" thrown "unsupported operand type" error
     ) -> None:
         """
         Initialize the AsyncOAuth client.
@@ -235,17 +231,13 @@ class AsyncOAuth(AsyncOAuthComponent):
             datarobot_endpoint = os.environ.get("DATAROBOT_ENDPOINT")
 
         if not datarobot_endpoint:
-            raise ValueError(
-                "DATAROBOT_ENDPOINT must be set in the environment or passed as an argument."
-            )
+            raise ValueError("DATAROBOT_ENDPOINT must be set in the environment or passed as an argument.")
 
         if datarobot_api_token is None:
             datarobot_api_token = os.environ.get("DATAROBOT_API_TOKEN")
 
         if not datarobot_api_token:
-            raise ValueError(
-                "DATAROBOT_API_TOKEN must be set in the environment or passed as arguments."
-            )
+            raise ValueError("DATAROBOT_API_TOKEN must be set in the environment or passed as arguments.")
 
         if not datarobot_endpoint.endswith("/"):
             datarobot_endpoint = datarobot_endpoint + "/"
@@ -454,9 +446,7 @@ class AsyncOAuth(AsyncOAuthComponent):
         """
 
         if identity_id is None:
-            raise OAuthValidationErr(
-                "Identity ID is required to obtain new access token via DataRobot API"
-            )
+            raise OAuthValidationErr("Identity ID is required to obtain new access token via DataRobot API")
 
         resp = await self._http_client.post(
             urljoin(
@@ -503,9 +493,7 @@ class AsyncOAuth(AsyncOAuthComponent):
             OAuthServiceError: For any other errors.
         """
         if identity_id is None:
-            raise OAuthValidationErr(
-                "Identity ID is required to obtain new access token via DataRobot API"
-            )
+            raise OAuthValidationErr("Identity ID is required to obtain new access token via DataRobot API")
 
         resp = await self._http_client.get(
             urljoin(

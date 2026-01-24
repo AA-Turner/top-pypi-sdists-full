@@ -4,6 +4,7 @@ import os
 from typing import Dict, Any
 from .config import (
     CoreConfig,
+    AuthType,
     MergingNotAllowedFieldsException,
     ConfigValidationFailedException,
     RequiredFieldMissingException,
@@ -12,11 +13,6 @@ from .config import (
 CODE_PACKAGE_PREFIX = "mf.obp-apps"
 
 CAPSULE_DEBUG = os.environ.get("OUTERBOUNDS_CAPSULE_DEBUG", False)
-
-
-class classproperty(property):
-    def __get__(self, owner_self, owner_cls):
-        return self.fget(owner_cls)
 
 
 class AppConfigError(Exception):
@@ -40,19 +36,6 @@ def _try_loading_yaml(file):
     except ImportError:
         pass
     return None
-
-
-class AuthType:
-    BROWSER = "Browser"
-    API = "API"
-
-    @classmethod
-    def enums(cls):
-        return [cls.BROWSER, cls.API]
-
-    @classproperty
-    def default(cls):
-        return cls.BROWSER
 
 
 class AppConfig:

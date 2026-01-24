@@ -1,7 +1,5 @@
 """
 """
-from __future__ import annotations
-
 import inspect
 from functools import wraps
 from packaging import version
@@ -19,7 +17,6 @@ from gradio.helpers import Progress
 from gradio.helpers import TrackedIterable
 from gradio.queueing import Queue
 from typing_extensions import ParamSpec
-from typing_extensions import TypeAlias
 
 from ..utils import SimpleQueue
 from .types import GeneratorResQueueResult
@@ -38,7 +35,7 @@ try:
 except AttributeError: # pragma: no cover
     Success = gr.Info
 
-Level: TypeAlias = "Literal['success', 'info', 'warning']"
+Level = Literal['success', 'info', 'warning']
 
 def modal(level: Level):
     if level == 'info':

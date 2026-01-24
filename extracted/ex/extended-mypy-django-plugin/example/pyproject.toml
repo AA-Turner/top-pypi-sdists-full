@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "djangoexample"
+dynamic = ["version"]
+description = "Example django project"
+license = { text = "MIT" }
+authors = [
+    { name = "Stephen Moore", email = "stephen@delfick.com" },
+]
+dependencies = [
+    "django>=4.2.16",
+    "psycopg2-binary==2.9.10",
+]
+
+[tool.hatch.version]
+path = "djangoexample/version.py"
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "/djangoexample",
+]

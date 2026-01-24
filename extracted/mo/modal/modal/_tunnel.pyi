@@ -54,13 +54,19 @@ class Tunnel:
         ...
 
 def _forward(
-    port: int, *, unencrypted: bool = False, client: typing.Optional[modal.client._Client] = None
+    port: int,
+    *,
+    unencrypted: bool = False,
+    h2_enabled: bool = False,
+    client: typing.Optional[modal.client._Client] = None,
 ) -> typing.AsyncContextManager[Tunnel]:
     '''Expose a port publicly from inside a running Modal container, with TLS.
 
     If `unencrypted` is set, this also exposes the TCP socket without encryption on a random port
     number. This can be used to SSH into a container (see example below). Note that it is on the public Internet, so
     make sure you are using a secure protocol over TCP.
+
+    If `h2_enabled` is set, the TLS server will advertise support for HTTP/2.
 
     **Important:** This is an experimental API which may change in the future.
 
@@ -171,13 +177,21 @@ def _forward(
 
 class __forward_spec(typing_extensions.Protocol):
     def __call__(
-        self, /, port: int, *, unencrypted: bool = False, client: typing.Optional[modal.client.Client] = None
+        self,
+        /,
+        port: int,
+        *,
+        unencrypted: bool = False,
+        h2_enabled: bool = False,
+        client: typing.Optional[modal.client.Client] = None,
     ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[Tunnel]:
         '''Expose a port publicly from inside a running Modal container, with TLS.
 
         If `unencrypted` is set, this also exposes the TCP socket without encryption on a random port
         number. This can be used to SSH into a container (see example below). Note that it is on the public Internet, so
         make sure you are using a secure protocol over TCP.
+
+        If `h2_enabled` is set, the TLS server will advertise support for HTTP/2.
 
         **Important:** This is an experimental API which may change in the future.
 
@@ -287,13 +301,21 @@ class __forward_spec(typing_extensions.Protocol):
         ...
 
     def aio(
-        self, /, port: int, *, unencrypted: bool = False, client: typing.Optional[modal.client.Client] = None
+        self,
+        /,
+        port: int,
+        *,
+        unencrypted: bool = False,
+        h2_enabled: bool = False,
+        client: typing.Optional[modal.client.Client] = None,
     ) -> typing.AsyncContextManager[Tunnel]:
         '''Expose a port publicly from inside a running Modal container, with TLS.
 
         If `unencrypted` is set, this also exposes the TCP socket without encryption on a random port
         number. This can be used to SSH into a container (see example below). Note that it is on the public Internet, so
         make sure you are using a secure protocol over TCP.
+
+        If `h2_enabled` is set, the TLS server will advertise support for HTTP/2.
 
         **Important:** This is an experimental API which may change in the future.
 

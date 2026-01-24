@@ -202,15 +202,19 @@ class Contracter(torch.nn.Module):
             dim=0,
             dim_size=scatter_dim_size,
         )
-        x2 = torch.index_select(x2_scatter, 0, idxs)
 
         # === perform TP ===
         # convert to strided shape
         x1 = x1.reshape(-1, self.mul, self.base_dim1)
-        x2 = x2.reshape(-1, self.mul, self.base_dim2)
-        return self._contract(x1, x2)
+        x2_scatter = x2_scatter.reshape(-1, self.mul, self.base_dim2)
+        return self._contract_conv(x1, x2_scatter, idxs)
 
-    def _contract(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
+    def _contract_conv(
+        self, x1: torch.Tensor, x2: torch.Tensor, idxs: torch.Tensor
+    ) -> torch.Tensor:
+        # index select from scattered x2
+        x2 = torch.index_select(x2, 0, idxs)
+
         # for shared weights, we can precontract weights and w3j so they can be frozen together
         # this is usually advantageous for inference, since the weights would have to be
         # multiplied in anyway at some point

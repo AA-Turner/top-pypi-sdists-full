@@ -1,22 +1,21 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeAlias
 from warnings import warn
 
-import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.lifecycle import SpecStates
 from ibm_watsonx_ai.metanames import ScriptMetaNames
 from ibm_watsonx_ai.utils import (
     DATA_ASSETS_DETAILS_TYPE,
     modify_details_for_script_and_shiny,
 )
-from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
+from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid, get_from_json
 from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
     ForbiddenActionForGitBasedProject,
@@ -91,18 +90,24 @@ class Script(WMLResource):
 
             return final_response
 
-        return self._get_asset_based_resource(
+        details = self._get_asset_based_resource(
             script_id, "script", get_required_elements, limit=limit, get_all=get_all
         )
 
-    def store(self, meta_props: dict, file_path: str) -> dict:
+        for resource in details.get("resources", []):
+            resource["metadata"]["id"] = resource["metadata"]["asset_id"]
+            del resource["metadata"]["asset_id"]
+
+        return details
+
+    def store(self, meta_props: dict, file_path: str | Path) -> dict:
         """Create a script asset and upload content to it.
 
         :param meta_props: name to be given to the script asset
         :type meta_props: dict
 
         :param file_path: path to the content file to be uploaded
-        :type file_path: str
+        :type file_path: str | Path
 
         :return: metadata of the stored script asset
         :rtype: dict
@@ -112,26 +117,31 @@ class Script(WMLResource):
         .. code-block:: python
 
             metadata = {
-                client.script.ConfigurationMetaNames.NAME: 'my first script',
-                client.script.ConfigurationMetaNames.DESCRIPTION: 'description of the script',
-                client.script.ConfigurationMetaNames.SOFTWARE_SPEC_ID: '0cdb0f1e-5376-4f4d-92dd-da3b69aa9bda'
+                client.script.ConfigurationMetaNames.NAME: "my first script",
+                client.script.ConfigurationMetaNames.DESCRIPTION: "description of the script",
+                client.script.ConfigurationMetaNames.SOFTWARE_SPEC_ID: "0cdb0f1e-5376-4f4d-92dd-da3b69aa9bda",
             }
 
-            asset_details = client.script.store(meta_props=metadata, file_path="/path/to/file")
+            asset_details = client.script.store(
+                meta_props=metadata, file_path="/path/to/file"
+            )
 
         """
-        if self._client.project_type == "local_git_storage":
+        if self._client.is_git_based_project:
             raise ForbiddenActionForGitBasedProject(
                 reason="Storing Scripts is not supported for git based project."
             )
 
         Script._validate_type(meta_props, "meta_props", dict, True)
-        Script._validate_type(file_path, "file_path", str, True)
+        Script._validate_type(file_path, "file_path", [str, Path], True, True)
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
         script_meta = self.ConfigurationMetaNames._generate_resource_metadata(
             meta_props, with_validation=True, client=self._client
         )
 
-        name, extension = os.path.splitext(file_path)
+        extension = file_path.suffix
 
         response = self._create_asset(script_meta, file_path, extension)
 
@@ -147,7 +157,7 @@ class Script(WMLResource):
         return final_response
 
     def _create_asset(
-        self, script_meta: dict[str, Any], file_path: str, extension: str = ".py"
+        self, script_meta: dict[str, Any], file_path: Path, extension: str = ".py"
     ) -> dict[str, Any]:
         # Step1: Create a data asset
         name = script_meta["metadata"]["name"]
@@ -191,13 +201,17 @@ class Script(WMLResource):
                     "resources"
                 ]:
                     if "life_cycle" in sw_spec["metadata"]:
-                        sw_configuration = (
-                            sw_spec["entity"]
-                            .get("software_specification", {})
-                            .get("software_configuration", {})
+                        sw_configuration = get_from_json(
+                            sw_spec,
+                            [
+                                "entity",
+                                "software_specification",
+                                "software_configuration",
+                            ],
+                            {},
                         )
                         if (
-                            sw_configuration.get("platform", {}).get("name") == "r"
+                            get_from_json(sw_configuration, ["platform", "name"]) == "r"
                             and len(sw_configuration.get("included_packages", [])) > 1
                         ):
                             if (
@@ -337,15 +351,15 @@ class Script(WMLResource):
         print("Creating Script asset...")
 
         if self._client.CLOUD_PLATFORM_SPACES:
-            creation_response = requests.post(
-                self._client._href_definitions.get_assets_href(),
+            creation_response = self._client.httpx_client.post(
+                url=self._client._href_definitions.get_assets_href(),
                 headers=self._client._get_headers(),
                 params=self._client._params(),
                 json=asset_meta,
             )
         else:  # if self._client.ICP_PLATFORM_SPACES
-            creation_response = requests.post(
-                self._client._href_definitions.get_data_assets_href(),
+            creation_response = self._client.httpx_client.post(
+                url=self._client._href_definitions.get_data_assets_href(),
                 headers=self._client._get_headers(),
                 params=self._client._params(),
                 json=asset_meta,
@@ -360,8 +374,8 @@ class Script(WMLResource):
             asset_id = asset_details["metadata"]["asset_id"]
             attachment_meta = {"asset_type": "script", "name": "attachment_" + asset_id}
 
-            attachment_response = requests.post(
-                self._client._href_definitions.get_attachments_href(asset_id),
+            attachment_response = self._client.httpx_client.post(
+                url=self._client._href_definitions.get_attachments_href(asset_id),
                 headers=self._client._get_headers(),
                 params=self._client._params(),
                 json=attachment_meta,
@@ -375,27 +389,31 @@ class Script(WMLResource):
 
                 # Step3: Put content to attachment
                 try:
-                    with open(file_path, "rb") as f:
+                    with file_path.open("rb") as f:
                         if not self._client.ICP_PLATFORM_SPACES:
-                            put_response = requests.put(attachment_url, data=f.read())
+                            put_response = self._client.httpx_client.put(
+                                url=attachment_url, content=f.read()
+                            )
                         else:
-                            put_response = requests.put(
-                                self._credentials.url + attachment_url,
+                            put_response = self._client.httpx_client.put(
+                                url=self._credentials.url + attachment_url,
                                 files={"file": (name, f, "application/octet-stream")},
                             )
                 except Exception as e:
-                    deletion_response = requests.delete(
-                        self._client._href_definitions.get_data_asset_href(asset_id),
+                    deletion_response = self._client.httpx_client.delete(
+                        url=self._client._href_definitions.get_data_asset_href(
+                            asset_id
+                        ),
                         params=self._client._params(),
                         headers=self._client._get_headers(),
                     )
                     print(deletion_response.status_code)
-                    raise WMLClientError("Failed while reading a file.", e)
+                    raise WMLClientError("Failed while reading a file.", str(e))
 
                 if put_response.status_code == 201 or put_response.status_code == 200:
                     # Step4: Complete attachment
-                    complete_response = requests.post(
-                        self._client._href_definitions.get_attachment_complete_href(
+                    complete_response = self._client.httpx_client.post(
+                        url=self._client._href_definitions.get_attachment_complete_href(
                             asset_id, attachment_id
                         ),
                         headers=self._client._get_headers(),
@@ -450,8 +468,8 @@ class Script(WMLResource):
         if limit is not None:
             data.update({"limit": limit})
 
-        response = requests.post(
-            href,
+        response = self._client.httpx_client.post(
+            url=href,
             params=self._client._params(),
             headers=self._client._get_headers(),
             json=data,
@@ -474,7 +492,7 @@ class Script(WMLResource):
     def download(
         self,
         asset_id: str | None = None,
-        filename: str | None = None,
+        filename: str | Path | None = None,
         rev_id: str | None = None,
         **kwargs: Any,
     ) -> str:
@@ -484,7 +502,7 @@ class Script(WMLResource):
         :type asset_id: str
 
         :param filename: filename to be used for the downloaded file
-        :type filename: str
+        :type filename: str | Path
 
         :param rev_id: revision ID
         :type rev_id: str, optional
@@ -502,6 +520,8 @@ class Script(WMLResource):
             raise TypeError(
                 "download() missing 1 required positional argument: 'filename'"
             )
+        if isinstance(filename, str):
+            filename = Path(filename)
 
         asset_id = _get_id_from_deprecated_uid(
             kwargs, asset_id, "asset", can_be_none=False
@@ -522,14 +542,14 @@ class Script(WMLResource):
             params.update({"revision_id": rev_id})
 
         if not self._client.ICP_PLATFORM_SPACES:
-            asset_response = requests.get(
-                self._client._href_definitions.get_asset_href(asset_id),
+            asset_response = self._client.httpx_client.get(
+                url=self._client._href_definitions.get_asset_href(asset_id),
                 params=params,
                 headers=self._client._get_headers(),
             )
         else:
-            asset_response = requests.get(
-                self._client._href_definitions.get_data_asset_href(asset_id),
+            asset_response = self._client.httpx_client.get(
+                url=self._client._href_definitions.get_data_asset_href(asset_id),
                 params=params,
                 headers=self._client._get_headers(),
             )
@@ -537,8 +557,10 @@ class Script(WMLResource):
 
         attachment_id = asset_details["attachments"][0]["id"]
 
-        response = requests.get(
-            self._client._href_definitions.get_attachment_href(asset_id, attachment_id),
+        response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_attachment_href(
+                asset_id, attachment_id
+            ),
             params=params,
             headers=self._client._get_headers(),
         )
@@ -546,13 +568,15 @@ class Script(WMLResource):
         if response.status_code == 200:
             attachment_signed_url = response.json()["url"]
             if "connection_id" in asset_details["attachments"][0]:
-                att_response = requests.get(attachment_signed_url)
+                att_response = self._client.httpx_client.get(url=attachment_signed_url)
             else:
                 if not self._client.ICP_PLATFORM_SPACES:
-                    att_response = requests.get(attachment_signed_url)
+                    att_response = self._client.httpx_client.get(
+                        url=attachment_signed_url
+                    )
                 else:
-                    att_response = requests.get(
-                        self._credentials.url + attachment_signed_url
+                    att_response = self._client.httpx_client.get(
+                        url=self._credentials.url + attachment_signed_url
                     )
             if att_response.status_code != 200:
                 raise ApiRequestFailure(
@@ -561,23 +585,23 @@ class Script(WMLResource):
 
             downloaded_asset = att_response.content
             try:
-                with open(filename, "wb") as f:
+                with filename.open("wb") as f:
                     f.write(downloaded_asset)
                 print(
                     "Successfully saved data asset content to file: '{}'".format(
                         filename
                     )
                 )
-                return os.path.abspath(filename)
+                return str(filename.resolve())
             except IOError as e:
                 raise WMLClientError(
                     "Saving asset with artifact_url to local file: '{}' failed.".format(
                         filename
                     ),
-                    e,
+                    str(e),
                 )
         else:
-            raise WMLClientError("Failed while downloading the asset " + asset_id)  # type: ignore
+            raise WMLClientError("Failed while downloading the asset " + asset_id)
 
     @staticmethod
     def get_id(asset_details: dict) -> str:
@@ -599,7 +623,7 @@ class Script(WMLResource):
         Script._validate_type_of_details(asset_details, DATA_ASSETS_DETAILS_TYPE)
 
         return WMLResource._get_required_element_from_dict(
-            asset_details, "data_assets_details", ["metadata", "guid"]
+            asset_details, "data_assets_details", ["metadata", "guid"], str
         )
 
     @staticmethod
@@ -624,14 +648,14 @@ class Script(WMLResource):
         Script._validate_type_of_details(asset_details, DATA_ASSETS_DETAILS_TYPE)
 
         return WMLResource._get_required_element_from_dict(
-            asset_details, "asset_details", ["metadata", "href"]
+            asset_details, "asset_details", ["metadata", "href"], str
         )
 
     def update(
         self,
         script_id: str | None = None,
         meta_props: dict | None = None,
-        file_path: str | None = None,
+        file_path: str | Path | None = None,
         **kwargs: Any,
     ) -> dict:
         """Update a script with metadata, attachment, or both.
@@ -639,11 +663,11 @@ class Script(WMLResource):
         :param script_id: ID of the script
         :type script_id: str
 
-        :param meta_props: changes for the script matadata
+        :param meta_props: changes for the script metadata
         :type meta_props: dict, optional
 
         :param file_path: file path to the new attachment
-        :type file_path: str, optional
+        :type file_path: str | Path, optional
 
         :return: updated metadata of the script
         :rtype: dict
@@ -654,6 +678,9 @@ class Script(WMLResource):
 
             script_details = client.script.update(script_id, meta, content_path)
         """
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
         script_id = _get_id_from_deprecated_uid(
             kwargs, script_id, "script", can_be_none=False
         )
@@ -682,8 +709,8 @@ class Script(WMLResource):
         # STEP 4. Get the updated script record and return
 
         # STEP 1
-        response = requests.get(
-            url, params=self._client._params(), headers=self._client._get_headers()
+        response = self._client.httpx_client.get(
+            url=url, params=self._client._params(), headers=self._client._get_headers()
         )
 
         if response.status_code != 200:
@@ -747,8 +774,8 @@ class Script(WMLResource):
                     script_id
                 )
 
-                response_patch = requests.patch(
-                    meta_patch_url,
+                response_patch = self._client.httpx_client.patch(
+                    url=meta_patch_url,
                     json=meta_patch_payload,
                     params=self._client._params(),
                     headers=self._client._get_headers(),
@@ -764,8 +791,8 @@ class Script(WMLResource):
                     + "/attributes/script"
                 )
 
-                response_patch = requests.patch(
-                    entity_patch_url,
+                response_patch = self._client.httpx_client.patch(
+                    url=entity_patch_url,
                     json=entity_patch_payload,
                     params=self._client._params(),
                     headers=self._client._get_headers(),
@@ -792,8 +819,8 @@ class Script(WMLResource):
         # Have to fetch again to reflect updated asset and attachment ids
         url = self._client._href_definitions.get_asset_href(script_id)
 
-        response = requests.get(
-            url, params=self._client._params(), headers=self._client._get_headers()
+        response = self._client.httpx_client.get(
+            url=url, params=self._client._params(), headers=self._client._get_headers()
         )
 
         if response.status_code != 200:
@@ -806,18 +833,18 @@ class Script(WMLResource):
                     "Failure during {}.".format("getting script to update"), response
                 )
 
-        response = self._get_required_element_from_response(
+        response_data = self._get_required_element_from_response(
             self._handle_response(200, "Get script details", response)
         )
 
-        entity = response["entity"]
+        entity = response_data["entity"]
 
         try:
             del entity["script"]["ml_version"]
         except KeyError:
             pass
 
-        final_response = {"metadata": response["metadata"], "entity": entity}
+        final_response = {"metadata": response_data["metadata"], "entity": entity}
 
         return final_response
 
@@ -863,8 +890,8 @@ class Script(WMLResource):
                 "Cannot delete script that has existing deployments. Please delete all associated deployments and try again"
             )
 
-        response = requests.delete(
-            self._client._href_definitions.get_asset_href(asset_id),
+        response = self._client.httpx_client.delete(
+            url=self._client._href_definitions.get_asset_href(asset_id),
             params=self._client._params(),
             headers=self._client._get_headers(),
         )
@@ -957,7 +984,7 @@ class Script(WMLResource):
         script_values = [
             (
                 m["metadata"]["asset_id"],
-                m["metadata"]["revision_id"],
+                str(m["metadata"]["revision_id"]),
                 m["metadata"]["name"],
                 m["metadata"]["commit_info"]["committed_at"],
             )
@@ -1064,7 +1091,7 @@ class Script(WMLResource):
             if "revision_id" in response_data["metadata"]:
                 revision_id = response_data["metadata"]["revision_id"]
                 metadata.update(
-                    {"revision_id": response_data["metadata"]["revision_id"]}
+                    {"revision_id": str(response_data["metadata"]["revision_id"])}
                 )
 
             if "attachments" in response_data and response_data["attachments"]:

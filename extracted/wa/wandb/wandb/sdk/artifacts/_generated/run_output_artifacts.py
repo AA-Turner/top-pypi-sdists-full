@@ -7,45 +7,35 @@ from typing import List, Optional
 
 from pydantic import Field
 
-from wandb._pydantic import GQLBase
+from wandb._pydantic import GQLResult
 
-from .fragments import ArtifactFragment
+from .fragments import ArtifactFragment, PageInfoFragment
 
 
-class RunOutputArtifacts(GQLBase):
+class RunOutputArtifacts(GQLResult):
     project: Optional[RunOutputArtifactsProject]
 
 
-class RunOutputArtifactsProject(GQLBase):
+class RunOutputArtifactsProject(GQLResult):
     run: Optional[RunOutputArtifactsProjectRun]
 
 
-class RunOutputArtifactsProjectRun(GQLBase):
-    output_artifacts: Optional[RunOutputArtifactsProjectRunOutputArtifacts] = Field(
-        alias="outputArtifacts"
-    )
+class RunOutputArtifactsProjectRun(GQLResult):
+    artifacts: Optional[RunOutputArtifactsProjectRunArtifacts]
 
 
-class RunOutputArtifactsProjectRunOutputArtifacts(GQLBase):
+class RunOutputArtifactsProjectRunArtifacts(GQLResult):
     total_count: int = Field(alias="totalCount")
-    edges: List[RunOutputArtifactsProjectRunOutputArtifactsEdges]
-    page_info: RunOutputArtifactsProjectRunOutputArtifactsPageInfo = Field(
-        alias="pageInfo"
-    )
+    page_info: PageInfoFragment = Field(alias="pageInfo")
+    edges: List[RunOutputArtifactsProjectRunArtifactsEdges]
 
 
-class RunOutputArtifactsProjectRunOutputArtifactsEdges(GQLBase):
+class RunOutputArtifactsProjectRunArtifactsEdges(GQLResult):
     node: Optional[ArtifactFragment]
-    cursor: str
-
-
-class RunOutputArtifactsProjectRunOutputArtifactsPageInfo(GQLBase):
-    end_cursor: Optional[str] = Field(alias="endCursor")
-    has_next_page: bool = Field(alias="hasNextPage")
 
 
 RunOutputArtifacts.model_rebuild()
 RunOutputArtifactsProject.model_rebuild()
 RunOutputArtifactsProjectRun.model_rebuild()
-RunOutputArtifactsProjectRunOutputArtifacts.model_rebuild()
-RunOutputArtifactsProjectRunOutputArtifactsEdges.model_rebuild()
+RunOutputArtifactsProjectRunArtifacts.model_rebuild()
+RunOutputArtifactsProjectRunArtifactsEdges.model_rebuild()

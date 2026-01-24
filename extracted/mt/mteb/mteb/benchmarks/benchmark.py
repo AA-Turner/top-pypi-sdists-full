@@ -1,21 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Annotated
+from collections.abc import Iterator, Sequence
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Literal
 
-from pydantic import AnyUrl, BeforeValidator, TypeAdapter
+import pandas as pd
 
-from mteb.load_results.load_results import load_results
+from mteb.abstasks.abstask import AbsTask
+from mteb.types import StrURL
 
 if TYPE_CHECKING:
-    from mteb.abstasks.AbsTask import AbsTask
-    from mteb.load_results.benchmark_results import BenchmarkResults
-
-http_url_adapter = TypeAdapter(AnyUrl)
-UrlString = Annotated[
-    str, BeforeValidator(lambda value: str(http_url_adapter.validate_python(value)))
-]  # Allows the type to be a string, but ensures that the string is a URL
+    from mteb.results import BenchmarkResults
 
 
 @dataclass
@@ -24,13 +19,14 @@ class Benchmark:
 
     Args:
         name: The name of the benchmark
+        aliases: Alternative names for the benchmark
         tasks: The tasks within the benchmark.
         description: A description of the benchmark, should include its intended goal and potentially a description of its construction
         reference: A link reference, to a source containing additional information typically to a paper, leaderboard or github.
         citation: A bibtex citation
         contacts: The people to contact in case of a problem in the benchmark, preferably a GitHub handle.
 
-    Example:
+    Examples:
         >>> Benchmark(
         ...     name="MTEB(custom)",
         ...     tasks=mteb.get_tasks(
@@ -43,32 +39,141 @@ class Benchmark:
 
     name: str
     tasks: Sequence[AbsTask]
+    aliases: Sequence[str] = field(default_factory=tuple)
     description: str | None = None
-    reference: UrlString | None = None
+    reference: StrURL | None = None
     citation: str | None = None
     contacts: list[str] | None = None
     display_on_leaderboard: bool = True
     icon: str | None = None
     display_name: str | None = None
+    language_view: list[str] | Literal["all"] = field(default_factory=list)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[AbsTask]:
         return iter(self.tasks)
 
     def __len__(self) -> int:
         return len(self.tasks)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> AbsTask:
         return self.tasks[index]
 
-    def load_results(
-        self, base_results: None | BenchmarkResults = None
-    ) -> BenchmarkResults:
-        if not hasattr(self, "results_cache"):
-            self.results_cache = {}
-        if base_results in self.results_cache:
-            return self.results_cache[base_results]
-        if base_results is None:
-            base_results = load_results()
-        results = base_results.select_tasks(self.tasks)
-        self.results_cache[base_results] = results
-        return results
+    def _create_summary_table(
+        self, benchmark_results: BenchmarkResults
+    ) -> pd.DataFrame:
+        """Create summary table. Called by the leaderboard app.
+
+        Returns:
+            A pandas DataFrame representing the summary results.
+        """
+        from mteb.benchmarks._create_table import (
+            _create_summary_table_from_benchmark_results,
+        )
+
+        return _create_summary_table_from_benchmark_results(benchmark_results)
+
+    def _create_per_task_table(
+        self, benchmark_results: BenchmarkResults
+    ) -> pd.DataFrame:
+        """Create per-task table. Called by the leaderboard app.
+
+        Returns:
+            A pandas DataFrame representing the per-task results.
+        """
+        from mteb.benchmarks._create_table import (
+            _create_per_task_table_from_benchmark_results,
+        )
+
+        return _create_per_task_table_from_benchmark_results(benchmark_results)
+
+    def _create_per_language_table(
+        self, benchmark_results: BenchmarkResults
+    ) -> pd.DataFrame:
+        """Create per-language table. Called by the leaderboard app.
+
+        Returns:
+            A pandas DataFrame representing the per-language results.
+        """
+        from mteb.benchmarks._create_table import (
+            _create_per_language_table_from_benchmark_results,
+        )
+
+        if self.language_view == "all" or len(self.language_view) > 0:
+            return _create_per_language_table_from_benchmark_results(
+                benchmark_results, self.language_view
+            )
+        else:
+            no_results_frame = pd.DataFrame(
+                {
+                    "No results": [
+                        "The per-language table is not available for this benchmark."
+                    ]
+                }
+            )
+            return no_results_frame
+
+
+class RtebBenchmark(Benchmark):
+    """Wrapper for RTEB benchmark."""
+
+    def _create_summary_table(
+        self, benchmark_results: BenchmarkResults
+    ) -> pd.DataFrame:
+        from mteb.benchmarks._create_table import (
+            _create_summary_table_mean_public_private,
+        )
+
+        joint_table = _create_summary_table_mean_public_private(
+            benchmark_results, exclude_private_from_borda=True
+        )
+        # issue 3902: temporary remove the private column from RTEB summary table
+        if "Mean (Private)" in joint_table.columns:
+            joint_table = joint_table.drop(columns=["Mean (Private)"])
+        # For RTEB: all tasks are Retrieval type, so Retrieval column = Mean (Task)
+        # but due to 3902, if Private column existed, Mean (Task) was the mean of Public and Private so instead we drop Mean (Task) and rename Mean (Public) to Mean (Task)
+        joint_table = joint_table.rename(columns={"Retrieval": "Mean (Task)"})
+        if "Mean (Task)" in joint_table.columns:
+            joint_table = joint_table.drop(columns=["Mean (Task)"])
+        joint_table = joint_table.rename(columns={"Mean (Public)": "Mean (Task)"})
+
+        return joint_table
+
+
+class HUMEBenchmark(Benchmark):
+    """Wrapper for HUME benchmark."""
+
+    def _create_summary_table(
+        self, benchmark_results: BenchmarkResults
+    ) -> pd.DataFrame:
+        from mteb.benchmarks._create_table import _create_summary_table_mean_subset
+
+        return _create_summary_table_mean_subset(benchmark_results)
+
+
+class MIEBBenchmark(Benchmark):
+    """Wrapper for MIEB benchmark."""
+
+    def _create_summary_table(
+        self, benchmark_results: BenchmarkResults
+    ) -> pd.DataFrame:
+        from mteb.benchmarks._create_table import _create_summary_table_mean_task_type
+
+        return _create_summary_table_mean_task_type(benchmark_results)
+
+
+class VidoreBenchmark(Benchmark):
+    """Wrapper for Vidore3 benchmark."""
+
+    def _create_summary_table(
+        self, benchmark_results: BenchmarkResults
+    ) -> pd.DataFrame:
+        from mteb.benchmarks._create_table import (
+            _create_summary_table_mean_public_private,
+        )
+
+        joint_table = _create_summary_table_mean_public_private(benchmark_results)
+        # For ViDoRe (V1, V2, V3): all tasks are Document Understanding type, so Document Understanding column = Mean (Task)
+        joint_table = joint_table.rename(
+            columns={"Document Understanding": "Mean (Task)"}
+        )
+        return joint_table

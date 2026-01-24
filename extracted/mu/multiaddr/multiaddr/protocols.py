@@ -49,6 +49,7 @@ __all__ = ("PROTOCOLS", "REGISTRY", "Protocol")
 P_IP4 = 0x04
 P_IP6 = 0x29
 P_IP6ZONE = 0x2A
+P_IPCIDR = 0x2B
 P_TCP = 0x06
 P_UDP = 0x0111
 P_DCCP = 0x21
@@ -65,6 +66,8 @@ P_WS = 0x01DD
 P_WSS = 0x01DE
 P_ONION = 0x01BC
 P_ONION3 = 0x01BD
+P_GARLIC64 = 0x1BE
+P_GARLIC32 = 0x1BF
 P_P2P_CIRCUIT = 0x0122
 P_DNS = 0x35
 P_DNS4 = 0x36
@@ -78,7 +81,10 @@ P_HTTP_PATH = 0x01E1
 P_SNI = 0x01C1
 P_NOISE = 0x01C6
 P_WEBTRANSPORT = 0x01D1
+P_WEBRTC_DIRECT = 0x118
+P_WEBRTC = 0x119
 P_MEMORY = 0x309
+P_CERTHASH = 0x1D2
 
 
 class Protocol:
@@ -144,20 +150,26 @@ PROTOCOLS = [
     Protocol(P_DCCP, "dccp", "uint16be"),
     Protocol(P_IP6, "ip6", "ip6"),
     Protocol(P_IP6ZONE, "ip6zone", "utf8"),
+    Protocol(P_IPCIDR, "ipcidr", "ipcidr"),
     Protocol(P_DNS, "dns", "domain"),
     Protocol(P_DNS4, "dns4", "domain"),
     Protocol(P_DNS6, "dns6", "domain"),
     Protocol(P_DNSADDR, "dnsaddr", "domain"),
+    Protocol(P_SNI, "sni", "domain"),
+    Protocol(P_NOISE, "noise", None),
     Protocol(P_SCTP, "sctp", "uint16be"),
     Protocol(P_UDT, "udt", None),
     Protocol(P_UTP, "utp", None),
     Protocol(P_P2P, "p2p", "cid"),
     Protocol(P_ONION, "onion", "onion"),
     Protocol(P_ONION3, "onion3", "onion3"),
+    Protocol(P_GARLIC64, "garlic64", "garlic64"),
+    Protocol(P_GARLIC32, "garlic32", "garlic32"),
     Protocol(P_QUIC, "quic", None),
     Protocol(P_QUIC1, "quic-v1", None),
     Protocol(P_HTTP, "http", None),
     Protocol(P_HTTPS, "https", None),
+    Protocol(P_HTTP_PATH, "http-path", "http_path"),
     Protocol(P_TLS, "tls", None),
     Protocol(P_WS, "ws", None),
     Protocol(P_WSS, "wss", None),
@@ -167,7 +179,10 @@ PROTOCOLS = [
     Protocol(P_P2P_CIRCUIT, "p2p-circuit", None),
     Protocol(P_WEBTRANSPORT, "webtransport", None),
     Protocol(P_UNIX, "unix", "fspath"),
+    Protocol(P_WEBRTC_DIRECT, "webrtc-direct", None),
+    Protocol(P_WEBRTC, "webrtc", None),
     Protocol(P_MEMORY, "memory", "memory"),
+    Protocol(P_CERTHASH, "certhash", "certhash"),
 ]
 
 

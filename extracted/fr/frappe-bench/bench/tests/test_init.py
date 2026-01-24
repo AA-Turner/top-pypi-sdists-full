@@ -121,6 +121,19 @@ class TestBenchInit(TestBenchBase):
 
 		self.assertTrue(FRAPPE_APP in states)
 
+	def test_install_app_from_setup(self):
+		app_name = "test-app"
+		setup_file_contents = f"""
+from setuptools import setup, findpackages
+setup(name='{app_name}', version='0.1.0', packages=find_packages())
+				"""
+		
+		from bench.utils.app import get_app_name_from_setup
+
+		parsed_app_name = get_app_name_from_setup(setup_file_contents)
+
+		self.assertEqual(parsed_app_name, app_name)
+
 	def test_install_app(self):
 		bench_name = "test-bench"
 		site_name = "install-app.test"

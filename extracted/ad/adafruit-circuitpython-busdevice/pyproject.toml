@@ -12,7 +12,7 @@ requires = [
 [project]
 name = "adafruit-circuitpython-busdevice"
 description = "CircuitPython bus device classes to manage bus sharing."
-version = "5.2.13"
+version = "5.2.15"
 readme = "README.rst"
 authors = [
     {name = "Adafruit Industries", email = "circuitpython@adafruit.com"}

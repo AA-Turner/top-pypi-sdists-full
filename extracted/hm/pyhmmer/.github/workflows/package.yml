@@ -15,7 +15,7 @@ jobs:
       with:
         submodules: true
     - name: Build manylinux wheels
-      uses: pypa/cibuildwheel@v2.22.0
+      uses: pypa/cibuildwheel@v3.2.1
       env:
         CIBW_ARCHS: aarch64
         CIBW_BUILD: 'cp*-manylinux_aarch64'
@@ -35,7 +35,7 @@ jobs:
       with:
         submodules: true
     - name: Build manylinux wheels
-      uses: pypa/cibuildwheel@v2.22.0
+      uses: pypa/cibuildwheel@v3.2.1
       env:
         CIBW_ARCHS: x86_64
         CIBW_BUILD: 'cp*-manylinux_x86_64'
@@ -55,7 +55,7 @@ jobs:
       with:
         submodules: true
     - name: Build manylinux wheels
-      uses: pypa/cibuildwheel@v2.22.0
+      uses: pypa/cibuildwheel@v3.2.1
       env:
         CIBW_ARCHS: x86_64
         CIBW_BUILD: 'cp*-macosx_x86_64'
@@ -75,7 +75,7 @@ jobs:
       with:
         submodules: true
     - name: Build manylinux wheels
-      uses: pypa/cibuildwheel@v2.22.0
+      uses: pypa/cibuildwheel@v3.2.1
       env:
         CIBW_ARCHS: arm64
         CIBW_BUILD: 'cp*-macosx_arm64'
@@ -85,6 +85,34 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: wheels-macosx_arm64
+        path: dist/*
+
+  wheel-win-amd64:
+    name: Build Windows wheels (AMD64)
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Set up MinGW
+      id: setup
+      uses: egor-tensin/setup-mingw@v3
+      with:
+        platform: x64
+    - name: Build manylinux wheels
+      uses: pypa/cibuildwheel@v3.2.1
+      env:
+        CC: "${{ steps.setup.outputs.gcc }}"
+        CMAKE_GENERATOR: Ninja
+        CMAKE_GENERATOR_PLATFORM: ""
+        CIBW_ARCHS: AMD64
+        CIBW_BUILD: 'cp*-win_amd64'
+        CIBW_BUILD_VERBOSITY: 2
+      with:
+        output-dir: dist
+    - uses: actions/upload-artifact@v4
+      with:
+        name: wheels-win_amd64
         path: dist/*
 
   sdist:
@@ -144,6 +172,7 @@ jobs:
     - wheel-linux-x86_64
     - wheel-macos-x86_64
     - wheel-macos-aarch64
+    - wheel-win-amd64
     steps:
     - name: Download source distribution
       uses: actions/download-artifact@v4
@@ -153,6 +182,7 @@ jobs:
         merge-multiple: true
     - name: Download wheel distributions
       uses: actions/download-artifact@v4
+      if: "!contains(github.ref, 'rc') && !contains(github.ref, 'alpha') && !contains(github.ref, 'dev')"  # don't upload wheels for alpha/dev/rc releases
       with:
         pattern: wheels-*
         path: dist/
@@ -179,7 +209,7 @@ jobs:
   aur:
     environment: Arch Linux User Repository
     runs-on: ubuntu-latest
-    if: "!contains(github.ref, 'rc') && !contains(github.ref, 'alpha') && !contains(github.ref, 'post')"
+    if: "!contains(github.ref, 'rc') && !contains(github.ref, 'alpha') && !contains(github.ref, 'post') && !contains(github.ref, 'dev')"
     name: Update AUR package
     needs:
     - sdist

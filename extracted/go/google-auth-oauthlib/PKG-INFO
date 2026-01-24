@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: google-auth-oauthlib
-Version: 1.2.2
+Version: 1.2.4
 Summary: Google Authentication Library
 Home-page: https://github.com/GoogleCloudPlatform/google-auth-library-python-oauthlib
 Author: Google Cloud Platform
@@ -8,13 +8,14 @@ Author-email: googleapis-packages@google.com
 License: Apache 2.0
 Keywords: google auth oauth client oauthlib
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -23,12 +24,24 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.6
+Requires-Python: >=3.7
 License-File: LICENSE
-Requires-Dist: google-auth>=2.15.0
+Requires-Dist: google-auth!=2.43.0,!=2.44.0,!=2.45.0,<3.0.0,>=2.15.0
 Requires-Dist: requests-oauthlib>=0.7.0
 Provides-Extra: tool
 Requires-Dist: click>=6.0.0; extra == "tool"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 oauthlib integration for Google Auth
 ====================================
@@ -63,16 +76,19 @@ The latest documentation is available at `google-auth-oauthlib.googleapis.dev`_.
 
 Supported Python Versions
 -------------------------
-Python >= 3.6
+Python >= 3.7
 
 
 Unsupported Python Versions
 ---------------------------
 
-Python == 2.7, Python == 3.5.
+Python == 2.7, Python < 3.7.
 
 The last version of this library compatible with Python 2.7 and 3.5 is
 `google-auth-oauthlib==0.4.1`.
+
+The last version of this library compatible with Python 3.6 is
+`google-auth-oauthlib==1.2.2`.
 
 License
 -------

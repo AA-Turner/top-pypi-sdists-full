@@ -297,6 +297,7 @@ LiteralCodeLanguage = Literal[
 ]
 
 def construct_theme_var(theme: str) -> Var[Theme]: ...
+
 @dataclasses.dataclass(init=False)
 class Theme:
     a11y_dark: ClassVar[Var[Theme]] = construct_theme_var("a11yDark")

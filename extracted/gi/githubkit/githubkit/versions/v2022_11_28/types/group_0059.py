@@ -9,29 +9,26 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
 from typing_extensions import TypedDict
 
-
-class MarketplaceListingPlanType(TypedDict):
-    """Marketplace Listing Plan
-
-    Marketplace Listing Plan
-    """
-
-    url: str
-    accounts_url: str
-    id: int
-    number: int
-    name: str
-    description: str
-    monthly_price_in_cents: int
-    yearly_price_in_cents: int
-    price_model: Literal["FREE", "FLAT_RATE", "PER_UNIT"]
-    has_free_trial: bool
-    unit_name: Union[str, None]
-    state: str
-    bullets: list[str]
+from .group_0060 import ForkEventPropForkeeType, ForkEventPropForkeeTypeForResponse
 
 
-__all__ = ("MarketplaceListingPlanType",)
+class ForkEventType(TypedDict):
+    """ForkEvent"""
+
+    action: str
+    forkee: ForkEventPropForkeeType
+
+
+class ForkEventTypeForResponse(TypedDict):
+    """ForkEvent"""
+
+    action: str
+    forkee: ForkEventPropForkeeTypeForResponse
+
+
+__all__ = (
+    "ForkEventType",
+    "ForkEventTypeForResponse",
+)

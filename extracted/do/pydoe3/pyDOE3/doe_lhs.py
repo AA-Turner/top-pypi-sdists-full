@@ -19,6 +19,8 @@ from scipy import stats
 from scipy import linalg
 from numpy import ma
 
+from warnings import warn
+
 __all__ = ["lhs"]
 
 
@@ -29,6 +31,7 @@ def lhs(
     iterations=None,
     random_state=None,
     correlation_matrix=None,
+    seed=None,
 ):
     """
     Generate a latin-hypercube design
@@ -50,9 +53,12 @@ def lhs(
         The number of iterations in the maximin and correlations algorithms
         (Default: 5).
     randomstate : np.random.RandomState, int
+         DEPRECATED! It will be removed in a future release. Use seed parameter instead.
          Random state (or seed-number) which controls the seed and random draws
     correlation_matrix : ndarray
          Enforce correlation between factors (only used in lhsmu)
+    seed : int or np.random.Generator
+         Seed or np.random.Generator which controls random draws
 
     Returns
     -------
@@ -64,56 +70,77 @@ def lhs(
     -------
     A 3-factor design (defaults to 3 samples)::
 
-        >>> lhs(3, random_state=42)
-        array([[0.12484671, 0.95539205, 0.24399798],
-               [0.53288616, 0.38533955, 0.86703834],
-               [0.68602787, 0.31690477, 0.38533151]])
+        >>> lhs(3, seed=42)
+        array([[0.25798535, 0.14629281, 0.65854078],
+               [0.56578934, 0.9286881 , 0.28619931],
+               [0.9203799 , 0.36472578, 0.70937121]])
 
     A 4-factor design with 6 samples::
 
-        >>> lhs(4, samples=6, random_state=42)
-        array([[0.06242335, 0.19266575, 0.88202411, 0.89439364],
-               [0.19266977, 0.53538985, 0.53030416, 0.49498498],
-               [0.71737371, 0.75412607, 0.17634727, 0.71520486],
-               [0.63874044, 0.85658231, 0.33676408, 0.31102936],
-               [0.43351917, 0.45134543, 0.12199899, 0.53056742],
-               [0.93530882, 0.15845238, 0.7386575 , 0.09977641]])
+        >>> lhs(4, samples=6, seed=42)
+        array([[0.60731085, 0.32927039, 0.8046052 , 0.98218685],
+               [0.35468561, 0.67730288, 0.14309965, 0.77194407],
+               [0.18236289, 0.89242099, 0.29352328, 0.53787312],
+               [0.75909746, 0.63712694, 0.395133  , 0.48779416],
+               [0.95968129, 0.40839766, 0.99511634, 0.116228  ],
+               [0.12899267, 0.07314641, 0.57390237, 0.29767738]])
 
     A 2-factor design with 5 centered samples::
 
-        >>> lhs(2, samples=5, criterion='center', random_state=42)
-        array([[0.1, 0.9],
-               [0.5, 0.5],
-               [0.7, 0.1],
-               [0.3, 0.7],
-               [0.9, 0.3]])
+        >>> lhs(2, samples=5, criterion='center', seed=42)
+        array([[0.9, 0.1],
+               [0.1, 0.7],
+               [0.5, 0.9],
+               [0.7, 0.5],
+               [0.3, 0.3]])
 
     A 3-factor design with 4 samples where the minimum distance between
     all samples has been maximized::
 
-        >>> lhs(3, samples=4, criterion='maximin', random_state=42)
-        array([[0.69754389, 0.2997106 , 0.96250964],
-               [0.10585037, 0.09872038, 0.73157522],
-               [0.25351996, 0.65148999, 0.07337204],
-               [0.91276926, 0.97873992, 0.42783549]])
+        >>> lhs(3, samples=4, criterion='maximin', seed=42)
+        array([[0.91547913, 0.46335077, 0.05364617],
+               [0.51457569, 0.10917935, 0.94597455],
+               [0.35213216, 0.57034597, 0.30848487],
+               [0.00770446, 0.88925804, 0.57339844]])
 
     A 4-factor design with 5 samples where the samples are as uncorrelated
     as possible (within 10 iterations)::
 
-        >>> lhs(4, samples=5, criterion='correlation', iterations=10, random_state=42)
-        array([[0.4846803 , 0.74226839, 0.23305339, 0.97000772],
-               [0.98526018, 0.11735023, 0.75803511, 0.20312728],
-               [0.10793843, 0.2592547 , 0.98299194, 0.72119199],
-               [0.25519984, 0.4789763 , 0.19305106, 0.12140685],
-               [0.63976848, 0.93021541, 0.45869763, 0.40281596]])
+        >>> lhs(4, samples=5, criterion='correlation', iterations=10, seed=42)
+        array([[0.15479121, 0.49007719, 0.68868284, 0.35721286],
+               [0.21883547, 0.39512447, 0.4741596 , 0.64544774],
+               [0.42562273, 0.08777569, 0.35222794, 0.92633288],
+               [0.91091696, 0.76455232, 0.96552623, 0.585353  ],
+               [0.72877302, 0.81276345, 0.17171958, 0.13947361]])
 
     """
     H = None
 
     if random_state is None:
-        random_state = np.random.RandomState()
+        random_state = np.random.default_rng()
+    elif isinstance(random_state, np.random.RandomState):
+        warn(
+            "Using random_state is deprecated "
+            "and will raise an error in a future version. Please "
+            "use seed parameter and pass a np.random.Generator",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     elif not isinstance(random_state, np.random.RandomState):
+        warn(
+            "Passing a seed or integer to random_state is deprecated "
+            "and will raise an error in a future version. Please "
+            "use seed parameter",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         random_state = np.random.RandomState(random_state)
+
+    if seed is not None:
+        if isinstance(seed, np.random.Generator):
+            random_state = seed
+        else:
+            random_state = np.random.default_rng(seed)
 
     if samples is None:
         samples = n
@@ -164,18 +191,21 @@ def _lhsclassic(n, samples, randomstate):
     cut = np.linspace(0, 1, samples + 1)
 
     # Fill points uniformly in each interval
-    u = randomstate.rand(samples, n)
+    u = (
+        randomstate.rand(samples, n)
+        if isinstance(randomstate, np.random.RandomState)
+        else randomstate.random((samples, n))
+    )
+
     a = cut[:samples]
     b = cut[1 : samples + 1]
-    rdpoints = np.zeros_like(u)
-    for j in range(n):
-        rdpoints[:, j] = u[:, j] * (b - a) + a
 
     # Make the random pairings
-    H = np.zeros_like(rdpoints)
+    H = np.empty_like(u)
+
     for j in range(n):
-        order = randomstate.permutation(range(samples))
-        H[:, j] = rdpoints[order, j]
+        rdpoints = u[:, j] * (b - a) + a
+        H[:, j] = rdpoints[randomstate.permutation(samples)]
 
     return H
 
@@ -188,7 +218,11 @@ def _lhscentered(n, samples, randomstate):
     cut = np.linspace(0, 1, samples + 1)
 
     # Fill points uniformly in each interval
-    u = randomstate.rand(samples, n)
+    u = (
+        randomstate.rand(samples, n)
+        if isinstance(randomstate, np.random.RandomState)
+        else randomstate.random((samples, n))
+    )
     a = cut[:samples]
     b = cut[1 : samples + 1]
     _center = (a + b) / 2
@@ -243,18 +277,13 @@ def _lhscorrelate(n, samples, iterations, randomstate):
 ################################################################################
 
 
-def _lhsmu(N, samples=None, corr=None, random_state=None, M=5):
-    if random_state is None:
-        random_state = np.random.RandomState()
-    elif not isinstance(random_state, np.random.RandomState):
-        random_state = np.random.RandomState(random_state)
-
+def _lhsmu(N, samples=None, corr=None, randomstate=None, M=5):
     if samples is None:
         samples = N
 
     I = M * samples  # noqa
 
-    rdpoints = random_state.uniform(size=(I, N))
+    rdpoints = randomstate.uniform(size=(I, N))
 
     dist = spatial.distance.cdist(rdpoints, rdpoints, metric="euclidean")
     D_ij = ma.masked_array(dist, mask=np.identity(I))
@@ -297,5 +326,5 @@ def _lhsmu(N, samples=None, corr=None, random_state=None, M=5):
             high = float(l + 1) / samples
 
             l_pos = rank == l
-            H[l_pos] = random_state.uniform(low, high, size=N)
+            H[l_pos] = randomstate.uniform(low, high, size=N)
     return H

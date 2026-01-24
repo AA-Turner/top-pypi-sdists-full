@@ -160,7 +160,7 @@ async def print_sum(x, y):
     await t1
     await t2
 
-loop = asyncio.get_event_loop()
+loop = asyncio.new_event_loop()
 loop.run_until_complete(print_sum(1, 2))
 loop.close()
 """
@@ -259,6 +259,11 @@ class TestCommandLineBasic(CmdlineTmpl):
         self.template(["viztracer", "-o", "result.html", "cmdline_test.py"], expected_output_file="result.html")
         self.template(["viztracer", "-o", "result.json", "cmdline_test.py"], expected_output_file="result.json")
         self.template(["viztracer", "-o", "result.json.gz", "cmdline_test.py"], expected_output_file="result.json.gz")
+
+        self.template(["viztracer", "cmdline_test.py", "-o", "result.txt"],
+                      success=False,
+                      expected_output_file=None,
+                      expected_stdout='Only html, json and gz are supported')
 
     def test_unique_outputfile(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -558,6 +563,7 @@ class TestCommandLineBasic(CmdlineTmpl):
                       expected_output_file="result.json",
                       expected_entries=2)
 
+    @skipIf(hasattr(sys, "_is_gil_enabled") and not sys._is_gil_enabled(), "trio does not support free-threaded Python")
     @package_matrix(["~trio", "trio"])
     def test_log_async(self):
         def check_func(data):
@@ -571,6 +577,7 @@ class TestCommandLineBasic(CmdlineTmpl):
                       expected_output_file="result.json",
                       check_func=check_func)
 
+    @skipIf(hasattr(sys, "_is_gil_enabled") and not sys._is_gil_enabled(), "trio does not support free-threaded Python")
     @package_matrix(["~trio", "trio"])
     @skipIf(importlib.util.find_spec("trio") is None, reason="Trio-specific test")
     def test_log_trio(self):

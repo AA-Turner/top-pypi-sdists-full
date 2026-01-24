@@ -11,12 +11,14 @@ import dataclasses
 import logging
 import pathlib
 import typing as t
-import warnings
 
 from libtmux._internal.query_list import QueryList
-from libtmux.constants import WINDOW_DIRECTION_FLAG_MAP, WindowDirection
+from libtmux.common import tmux_cmd
+from libtmux.constants import WINDOW_DIRECTION_FLAG_MAP, OptionScope, WindowDirection
 from libtmux.formats import FORMAT_SEPARATOR
+from libtmux.hooks import HooksMixin
 from libtmux.neo import Obj, fetch_obj, fetch_objs
+from libtmux.options import OptionsMixin
 from libtmux.pane import Pane
 from libtmux.window import Window
 
@@ -24,9 +26,6 @@ from . import exc
 from .common import (
     EnvironmentMixin,
     WindowDict,
-    handle_option_error,
-    has_gte_version,
-    has_version,
     session_check_name,
 )
 
@@ -49,7 +48,12 @@ logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass()
-class Session(Obj, EnvironmentMixin):
+class Session(
+    Obj,
+    EnvironmentMixin,
+    OptionsMixin,
+    HooksMixin,
+):
     """:term:`tmux(1)` :term:`Session` [session_manual]_.
 
     Holds :class:`Window` objects.
@@ -92,6 +96,8 @@ class Session(Obj, EnvironmentMixin):
        https://man.openbsd.org/tmux.1#DESCRIPTION. Accessed April 1st, 2018.
     """
 
+    default_option_scope: OptionScope | None = None
+    default_hook_scope: OptionScope | None = None
     server: Server
 
     def __enter__(self) -> Self:
@@ -239,153 +245,6 @@ class Session(Obj, EnvironmentMixin):
     Commands (tmux-like)
     """
 
-    def set_option(
-        self,
-        option: str,
-        value: str | int,
-        global_: bool = False,
-    ) -> Session:
-        """Set option ``$ tmux set-option <option> <value>``.
-
-        Parameters
-        ----------
-        option : str
-            the window option. such as 'default-shell'.
-        value : str, int, or bool
-            True/False will turn in 'on' and 'off'. You can also enter 'on' or
-            'off' directly.
-        _global : bool, optional
-            check for option globally across all servers (-g)
-
-        Raises
-        ------
-        :exc:`exc.OptionError`, :exc:`exc.UnknownOption`,
-        :exc:`exc.InvalidOption`, :exc:`exc.AmbiguousOption`
-
-        Notes
-        -----
-        .. todo::
-
-            Needs tests
-        """
-        if isinstance(value, bool) and value:
-            value = "on"
-        elif isinstance(value, bool) and not value:
-            value = "off"
-
-        tmux_args: tuple[str | int, ...] = ()
-
-        if global_:
-            tmux_args += ("-g",)
-
-        assert isinstance(option, str)
-        assert isinstance(value, (str, int))
-
-        tmux_args += (
-            option,
-            value,
-        )
-
-        proc = self.cmd("set-option", *tmux_args)
-
-        if isinstance(proc.stderr, list) and len(proc.stderr):
-            handle_option_error(proc.stderr[0])
-
-        return self
-
-    def show_options(
-        self,
-        global_: bool | None = False,
-    ) -> dict[str, str | int]:
-        """Return dict of options for the session.
-
-        Parameters
-        ----------
-        _global : bool, optional
-            Pass ``-g`` flag for global variable (server-wide)
-
-        Returns
-        -------
-        :py:obj:`dict`
-
-        Notes
-        -----
-        Uses ``_global`` for keyword name instead of ``global`` to avoid
-        colliding with reserved keyword.
-        """
-        tmux_args: tuple[str, ...] = ()
-
-        if global_:
-            tmux_args += ("-g",)
-
-        tmux_args += ("show-options",)
-        session_output = self.cmd(*tmux_args).stdout
-
-        session_options: dict[str, str | int] = {}
-        for item in session_output:
-            key, val = item.split(" ", maxsplit=1)
-            assert isinstance(key, str)
-            assert isinstance(val, str)
-
-            if isinstance(val, str) and val.isdigit():
-                session_options[key] = int(val)
-
-        return session_options
-
-    def show_option(
-        self,
-        option: str,
-        global_: bool = False,
-    ) -> str | int | bool | None:
-        """Return option value for the target session.
-
-        Parameters
-        ----------
-        option : str
-            option name
-        _global : bool, optional
-            use global option scope, same as ``-g``
-
-        Returns
-        -------
-        str, int, or bool
-
-        Raises
-        ------
-        :exc:`exc.OptionError`, :exc:`exc.UnknownOption`,
-        :exc:`exc.InvalidOption`, :exc:`exc.AmbiguousOption`
-
-        Notes
-        -----
-        Uses ``_global`` for keyword name instead of ``global`` to avoid
-        colliding with reserved keyword.
-
-        Test and return True/False for on/off string.
-        """
-        tmux_args: tuple[str, ...] = ()
-
-        if global_:
-            tmux_args += ("-g",)
-
-        tmux_args += (option,)
-
-        cmd = self.cmd("show-options", *tmux_args)
-
-        if isinstance(cmd.stderr, list) and len(cmd.stderr):
-            handle_option_error(cmd.stderr[0])
-
-        if not len(cmd.stdout):
-            return None
-
-        value_raw: list[str] = next(item.split(" ") for item in cmd.stdout)
-
-        assert isinstance(value_raw[0], str)
-        assert isinstance(value_raw[1], str)
-
-        value: str | int = int(value_raw[1]) if value_raw[1].isdigit() else value_raw[1]
-
-        return value
-
     def select_window(self, target_window: str | int) -> Window:
         """Select window and return the selected window.
 
@@ -469,8 +328,6 @@ class Session(Obj, EnvironmentMixin):
 
         if proc.stderr:
             raise exc.LibTmuxException(proc.stderr)
-
-        self.refresh()
 
         return self
 
@@ -569,16 +426,7 @@ class Session(Obj, EnvironmentMixin):
         proc = self.cmd("rename-session", new_name)
 
         if proc.stderr:
-            if has_version("2.7") and "no current client" in proc.stderr:
-                """tmux 2.7 raises "no current client" warning on BSD systems.
-
-                Should be fixed next release:
-
-                - https://www.mail-archive.com/tech@openbsd.org/msg45186.html
-                - https://marc.info/?l=openbsd-cvs&m=152183263526828&w=2
-                """
-            else:
-                raise exc.LibTmuxException(proc.stderr)
+            raise exc.LibTmuxException(proc.stderr)
 
         self.refresh()
 
@@ -621,7 +469,7 @@ class Session(Obj, EnvironmentMixin):
                 window upon completion is desired.
 
         direction : WindowDirection, optional
-            Insert window before or after target window (tmux 3.2+).
+            Insert window before or after target window.
 
         target_window : str, optional
             Used by :meth:`Window.new_window` to specify the target window.
@@ -636,11 +484,6 @@ class Session(Obj, EnvironmentMixin):
 
         Examples
         --------
-        .. ::
-            >>> import pytest
-            >>> from libtmux.common import has_lt_version
-            >>> if has_lt_version('3.2'):
-            ...     pytest.skip('direction doctests require tmux 3.2 or newer')
         >>> window_initial = session.new_window(window_name='Example')
         >>> window_initial
         Window(@... 2:Example, Session($1 libtmux_...))
@@ -680,7 +523,6 @@ class Session(Obj, EnvironmentMixin):
 
         # Catch empty string and default (`None`)
         if start_directory:
-            # as of 2014-02-08 tmux 1.9-dev doesn't expand ~ in new-window -c.
             start_directory = pathlib.Path(start_directory).expanduser()
             window_args += (f"-c{start_directory}",)
 
@@ -689,33 +531,18 @@ class Session(Obj, EnvironmentMixin):
             window_args += ("-n", window_name)
 
         if environment:
-            if has_gte_version("3.0"):
-                for k, v in environment.items():
-                    window_args += (f"-e{k}={v}",)
-            else:
-                logger.warning(
-                    "Environment flag ignored, requires tmux 3.0 or newer.",
-                )
+            for k, v in environment.items():
+                window_args += (f"-e{k}={v}",)
 
         if direction is not None:
-            if has_gte_version("3.2"):
-                window_args += (WINDOW_DIRECTION_FLAG_MAP[direction],)
-            else:
-                logger.warning(
-                    "Direction flag ignored, requires tmux 3.1 or newer.",
-                )
+            window_args += (WINDOW_DIRECTION_FLAG_MAP[direction],)
 
         target: str | None = None
         if window_index is not None:
             # empty string for window_index will use the first one available
             target = f"{self.session_id}:{window_index}"
         if target_window:
-            if has_gte_version("3.2"):
-                target = target_window
-            else:
-                logger.warning(
-                    "Window target ignored, requires tmux 3.1 or newer.",
-                )
+            target = target_window
         elif window_index is not None:
             # empty string for window_index will use the first one available
             window_args += (f"-t{self.session_id}:{window_index}",)
@@ -731,7 +558,7 @@ class Session(Obj, EnvironmentMixin):
         window_output = cmd.stdout[0]
 
         window_formatters = dict(
-            zip(["window_id"], window_output.split(FORMAT_SEPARATOR)),
+            zip(["window_id"], window_output.split(FORMAT_SEPARATOR), strict=False),
         )
 
         return Window.from_window_id(
@@ -748,7 +575,12 @@ class Session(Obj, EnvironmentMixin):
         Parameters
         ----------
         target_window : str, optional
-            window to kill
+            Window to kill.
+
+        Raises
+        ------
+        :exc:`libtmux.exc.LibTmuxException`
+            If tmux returns an error.
         """
         if target_window:
             if isinstance(target_window, int):
@@ -814,12 +646,11 @@ class Session(Obj, EnvironmentMixin):
 
            Deprecated in favor of :meth:`.active_pane`.
         """
-        warnings.warn(
-            "Session.attached_pane() is deprecated in favor of Session.active_pane()",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Session.attached_pane",
+            replacement="Session.active_pane",
+            version="0.31.0",
         )
-        return self.active_window.active_pane
 
     @property
     def attached_window(self) -> Window:
@@ -831,13 +662,11 @@ class Session(Obj, EnvironmentMixin):
 
            Deprecated in favor of :meth:`.active_window`.
         """
-        warnings.warn(
-            "Session.attached_window() is deprecated in favor of "
-            + "Session.active_window()",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Session.attached_window",
+            replacement="Session.active_window",
+            version="0.31.0",
         )
-        return self.active_window
 
     def attach_session(self) -> Session:
         """Return ``$ tmux attach-session`` aka alias: ``$ tmux attach``.
@@ -848,17 +677,11 @@ class Session(Obj, EnvironmentMixin):
 
            Deprecated in favor of :meth:`.attach()`.
         """
-        warnings.warn(
-            "Session.attach_session() is deprecated in favor of Session.attach()",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Session.attach_session()",
+            replacement="Session.attach()",
+            version="0.30.0",
         )
-        proc = self.cmd("attach-session")
-
-        if proc.stderr:
-            raise exc.LibTmuxException(proc.stderr)
-
-        return self
 
     def kill_session(self) -> None:
         """Destroy session.
@@ -869,47 +692,41 @@ class Session(Obj, EnvironmentMixin):
 
            Deprecated in favor of :meth:`.kill()`.
         """
-        warnings.warn(
-            "Session.kill_session() is deprecated in favor of Session.kill()",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Session.kill_session()",
+            replacement="Session.kill()",
+            version="0.30.0",
         )
-        proc = self.cmd("kill-session")
-
-        if proc.stderr:
-            raise exc.LibTmuxException(proc.stderr)
 
     def get(self, key: str, default: t.Any | None = None) -> t.Any:
         """Return key-based lookup. Deprecated by attributes.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Deprecated by attribute lookup.e.g. ``session['session_name']`` is now
            accessed via ``session.session_name``.
 
         """
-        warnings.warn(
-            "Session.get() is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Session.get()",
+            replacement="direct attribute access (e.g., session.session_name)",
+            version="0.17.0",
         )
-        return getattr(self, key, default)
 
     def __getitem__(self, key: str) -> t.Any:
         """Return item lookup by key. Deprecated in favor of attributes.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Deprecated in favor of attributes. e.g. ``session['session_name']`` is now
            accessed via ``session.session_name``.
 
         """
-        warnings.warn(
-            f"Item lookups, e.g. session['{key}'] is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Session[key] lookup",
+            replacement="direct attribute access (e.g., session.session_name)",
+            version="0.17.0",
         )
-        return getattr(self, key)
 
     def get_by_id(self, session_id: str) -> Window | None:
         """Return window by id. Deprecated in favor of :meth:`.windows.get()`.
@@ -919,104 +736,94 @@ class Session(Obj, EnvironmentMixin):
            Deprecated by :meth:`.windows.get()`.
 
         """
-        warnings.warn(
-            "Session.get_by_id() is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Session.get_by_id()",
+            replacement="Session.windows.get(window_id=..., default=None)",
+            version="0.16.0",
         )
-        return self.windows.get(window_id=session_id, default=None)
 
     def where(self, kwargs: dict[str, t.Any]) -> list[Window]:
         """Filter through windows, return list of :class:`Window`.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Deprecated by :meth:`.windows.filter()`.
 
         """
-        warnings.warn(
-            "Session.where() is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Session.where()",
+            replacement="Session.windows.filter()",
+            version="0.17.0",
         )
-        try:
-            return self.windows.filter(**kwargs)
-        except IndexError:
-            return []
 
     def find_where(self, kwargs: dict[str, t.Any]) -> Window | None:
         """Filter through windows, return first :class:`Window`.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Slated to be removed in favor of :meth:`.windows.get()`.
 
         """
-        warnings.warn(
-            "Session.find_where() is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Session.find_where()",
+            replacement="Session.windows.get(default=None, **kwargs)",
+            version="0.17.0",
         )
-        return self.windows.get(default=None, **kwargs)
 
     def _list_windows(self) -> list[WindowDict]:
         """Return list of windows (deprecated in favor of :attr:`.windows`).
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Slated to be removed in favor of :attr:`.windows`.
 
         """
-        warnings.warn(
-            "Session._list_windows() is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Session._list_windows()",
+            replacement="Session.windows property",
+            version="0.17.0",
         )
-        return [w.__dict__ for w in self.windows]
 
     @property
     def _windows(self) -> list[WindowDict]:
         """Property / alias to return :meth:`Session._list_windows`.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Slated to be removed in favor of :attr:`.windows`.
 
         """
-        warnings.warn(
-            "Session._windows is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Session._windows",
+            replacement="Session.windows property",
+            version="0.17.0",
         )
-        return self._list_windows()
 
     def list_windows(self) -> list[Window]:
         """Return a list of :class:`Window` from the ``tmux(1)`` session.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Slated to be removed in favor of :attr:`.windows`.
 
         """
-        warnings.warn(
-            "Session.list_windows() is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Session.list_windows()",
+            replacement="Session.windows property",
+            version="0.17.0",
         )
-        return self.windows
 
     @property
     def children(self) -> QueryList[Window]:
         """Was used by TmuxRelationalObject (but that's longer used in this class).
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Slated to be removed in favor of :attr:`.windows`.
 
         """
-        warnings.warn(
-            "Session.children is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Session.children",
+            replacement="Session.windows property",
+            version="0.17.0",
         )
-        return self.windows

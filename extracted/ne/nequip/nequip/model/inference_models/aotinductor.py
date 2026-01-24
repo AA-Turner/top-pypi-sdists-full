@@ -37,7 +37,7 @@ def load_aotinductor_model(
 
     # check device compatibility
     compile_device = metadata["AOTI_DEVICE_KEY"]
-    if compile_device != device:
+    if torch.device(compile_device) != torch.device(device):
         raise RuntimeError(
             f"`{compile_path}` was compiled for `{compile_device}` and won't work with device={device}, use device={compile_device} instead."
         )
@@ -50,13 +50,11 @@ def load_aotinductor_model(
 
     # process per-edge-type cutoffs if present
     if graph_model.PER_EDGE_TYPE_CUTOFF_KEY in metadata:
-        from nequip.nn.embedding.utils import parse_per_edge_type_cutoff_metadata
+        from nequip.nn.embedding.utils import cutoff_str_to_fulldict
 
         cutoff_str = metadata[graph_model.PER_EDGE_TYPE_CUTOFF_KEY]
-        metadata[graph_model.PER_EDGE_TYPE_CUTOFF_KEY] = (
-            parse_per_edge_type_cutoff_metadata(
-                cutoff_str, metadata[graph_model.TYPE_NAMES_KEY]
-            )
+        metadata[graph_model.PER_EDGE_TYPE_CUTOFF_KEY] = cutoff_str_to_fulldict(
+            cutoff_str, metadata[graph_model.TYPE_NAMES_KEY]
         )
     else:
         metadata[graph_model.PER_EDGE_TYPE_CUTOFF_KEY] = None

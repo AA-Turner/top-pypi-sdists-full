@@ -12,18 +12,15 @@ class GumroadOAuth2Adapter(OAuth2Adapter):
 
     settings = app_settings.PROVIDERS.get(provider_id, {})
     provider_base_url = settings.get("GUMROAD_URL")
-    access_token_url = "{0}/oauth/token".format(provider_base_url)
-    authorize_url = "{0}/oauth/authorize".format(provider_base_url)
+    access_token_url = f"{provider_base_url}/oauth/token"
+    authorize_url = f"{provider_base_url}/oauth/authorize"
     profile_url = "https://api.gumroad.com/v2/user"
 
     def complete_login(self, request, app, token, response):
-        resp = (
-            get_adapter()
-            .get_requests_session()
-            .get(self.profile_url, params={"access_token": token.token})
-        )
-        resp.raise_for_status()
-        extra_data = resp.json()
+        with get_adapter().get_requests_session() as sess:
+            resp = sess.get(self.profile_url, params={"access_token": token.token})
+            resp.raise_for_status()
+            extra_data = resp.json()
 
         return self.get_provider().sociallogin_from_response(
             request, extra_data["user"]

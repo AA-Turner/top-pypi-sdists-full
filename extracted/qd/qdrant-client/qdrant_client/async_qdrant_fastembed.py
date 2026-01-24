@@ -11,13 +11,14 @@
 
 import uuid
 from itertools import tee
-from typing import Any, Iterable, Optional, Sequence, Union, get_args
+from typing import Any, Iterable, Sequence, get_args
 from copy import deepcopy
 import numpy as np
 from pydantic import BaseModel
 from qdrant_client import grpc
-from qdrant_client.common.client_warnings import show_warning
+from qdrant_client.common.client_warnings import show_warning, show_warning_once
 from qdrant_client.async_client_base import AsyncQdrantBase
+from qdrant_client.embed.embedder import Embedder
 from qdrant_client.embed.model_embedder import ModelEmbedder
 from qdrant_client.http import models
 from qdrant_client.conversions import common_types as types
@@ -39,12 +40,14 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
     DEFAULT_BATCH_SIZE = 8
     _FASTEMBED_INSTALLED: bool
 
-    def __init__(self, parser: ModelSchemaParser, **kwargs: Any):
-        self._embedding_model_name: Optional[str] = None
-        self._sparse_embedding_model_name: Optional[str] = None
-        self._model_embedder = ModelEmbedder(parser=parser, **kwargs)
+    def __init__(self, parser: ModelSchemaParser, is_local_mode: bool, server_version: str | None):
         self.__class__._FASTEMBED_INSTALLED = FastEmbedMisc.is_installed()
-        super().__init__(**kwargs)
+        self._embedding_model_name: str | None = None
+        self._sparse_embedding_model_name: str | None = None
+        self._model_embedder = ModelEmbedder(
+            parser=parser, is_local_mode=is_local_mode, server_version=server_version
+        )
+        super().__init__()
 
     @classmethod
     async def list_text_models(cls) -> dict[str, tuple[int, models.Distance]]:
@@ -100,18 +103,18 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
         return self._embedding_model_name
 
     @property
-    def sparse_embedding_model_name(self) -> Optional[str]:
+    def sparse_embedding_model_name(self) -> str | None:
         return self._sparse_embedding_model_name
 
     def set_model(
         self,
         embedding_model_name: str,
-        max_length: Optional[int] = None,
-        cache_dir: Optional[str] = None,
-        threads: Optional[int] = None,
-        providers: Optional[Sequence["OnnxProvider"]] = None,
+        max_length: int | None = None,
+        cache_dir: str | None = None,
+        threads: int | None = None,
+        providers: Sequence["OnnxProvider"] | None = None,
         cuda: bool = False,
-        device_ids: Optional[list[int]] = None,
+        device_ids: list[int] | None = None,
         lazy_load: bool = False,
         **kwargs: Any,
     ) -> None:
@@ -162,12 +165,12 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
 
     def set_sparse_model(
         self,
-        embedding_model_name: Optional[str],
-        cache_dir: Optional[str] = None,
-        threads: Optional[int] = None,
-        providers: Optional[Sequence["OnnxProvider"]] = None,
+        embedding_model_name: str | None,
+        cache_dir: str | None = None,
+        threads: int | None = None,
+        providers: Sequence["OnnxProvider"] | None = None,
         cuda: bool = False,
-        device_ids: Optional[list[int]] = None,
+        device_ids: list[int] | None = None,
         lazy_load: bool = False,
         **kwargs: Any,
     ) -> None:
@@ -231,13 +234,14 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
     def _get_or_init_model(
         self,
         model_name: str,
-        cache_dir: Optional[str] = None,
-        threads: Optional[int] = None,
-        providers: Optional[Sequence["OnnxProvider"]] = None,
+        cache_dir: str | None = None,
+        threads: int | None = None,
+        providers: Sequence["OnnxProvider"] | None = None,
         deprecated: bool = False,
         **kwargs: Any,
     ) -> "TextEmbedding":
         FastEmbedMisc.import_fastembed()
+        assert isinstance(self._model_embedder.embedder, Embedder)
         return self._model_embedder.embedder.get_or_init_model(
             model_name=model_name,
             cache_dir=cache_dir,
@@ -250,13 +254,14 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
     def _get_or_init_sparse_model(
         self,
         model_name: str,
-        cache_dir: Optional[str] = None,
-        threads: Optional[int] = None,
-        providers: Optional[Sequence["OnnxProvider"]] = None,
+        cache_dir: str | None = None,
+        threads: int | None = None,
+        providers: Sequence["OnnxProvider"] | None = None,
         deprecated: bool = False,
         **kwargs: Any,
     ) -> "SparseTextEmbedding":
         FastEmbedMisc.import_fastembed()
+        assert isinstance(self._model_embedder.embedder, Embedder)
         return self._model_embedder.embedder.get_or_init_sparse_model(
             model_name=model_name,
             cache_dir=cache_dir,
@@ -272,7 +277,7 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
         embedding_model_name: str = DEFAULT_EMBEDDING_MODEL,
         batch_size: int = 32,
         embed_type: str = "default",
-        parallel: Optional[int] = None,
+        parallel: int | None = None,
     ) -> Iterable[tuple[str, list[float]]]:
         embedding_model = self._get_or_init_model(model_name=embedding_model_name, deprecated=True)
         (documents_a, documents_b) = tee(documents, 2)
@@ -298,7 +303,7 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
         documents: Iterable[str],
         embedding_model_name: str = DEFAULT_EMBEDDING_MODEL,
         batch_size: int = 32,
-        parallel: Optional[int] = None,
+        parallel: int | None = None,
     ) -> Iterable[types.SparseVector]:
         sparse_embedding_model = self._get_or_init_sparse_model(
             model_name=embedding_model_name, deprecated=True
@@ -320,7 +325,7 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
         model_name = self.embedding_model_name.split("/")[-1].lower()
         return f"fast-{model_name}"
 
-    def get_sparse_vector_field_name(self) -> Optional[str]:
+    def get_sparse_vector_field_name(self) -> str | None:
         """
         Returns name of the vector field in qdrant collection, used by current fastembed model.
         Returns:
@@ -364,11 +369,11 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
 
     def _points_iterator(
         self,
-        ids: Optional[Iterable[models.ExtendedPointId]],
-        metadata: Optional[Iterable[dict[str, Any]]],
+        ids: Iterable[models.ExtendedPointId] | None,
+        metadata: Iterable[dict[str, Any]] | None,
         encoded_docs: Iterable[tuple[str, list[float]]],
         ids_accumulator: list,
-        sparse_vectors: Optional[Iterable[types.SparseVector]] = None,
+        sparse_vectors: Iterable[types.SparseVector] | None = None,
     ) -> Iterable[models.PointStruct]:
         if ids is None:
             ids = iter(lambda: uuid.uuid4().hex, None)
@@ -417,7 +422,7 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
                     modifier == models.Modifier.IDF
                 ), f"{self.sparse_embedding_model_name} requires modifier IDF, current modifier is {modifier}"
 
-    def get_embedding_size(self, model_name: Optional[str] = None) -> int:
+    def get_embedding_size(self, model_name: str | None = None) -> int:
         """Get the size of the embeddings produced by the specified model.
 
         Args:
@@ -436,9 +441,9 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
 
     def get_fastembed_vector_params(
         self,
-        on_disk: Optional[bool] = None,
-        quantization_config: Optional[models.QuantizationConfig] = None,
-        hnsw_config: Optional[models.HnswConfigDiff] = None,
+        on_disk: bool | None = None,
+        quantization_config: models.QuantizationConfig | None = None,
+        hnsw_config: models.HnswConfigDiff | None = None,
     ) -> dict[str, models.VectorParams]:
         """
         Generates vector configuration, compatible with fastembed models.
@@ -464,8 +469,8 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
         }
 
     def get_fastembed_sparse_vector_params(
-        self, on_disk: Optional[bool] = None, modifier: Optional[models.Modifier] = None
-    ) -> Optional[dict[str, models.SparseVectorParams]]:
+        self, on_disk: bool | None = None, modifier: models.Modifier | None = None
+    ) -> dict[str, models.SparseVectorParams] | None:
         """
         Generates vector configuration, compatible with fastembed sparse models.
 
@@ -490,12 +495,12 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
         self,
         collection_name: str,
         documents: Iterable[str],
-        metadata: Optional[Iterable[dict[str, Any]]] = None,
-        ids: Optional[Iterable[models.ExtendedPointId]] = None,
+        metadata: Iterable[dict[str, Any]] | None = None,
+        ids: Iterable[models.ExtendedPointId] | None = None,
         batch_size: int = 32,
-        parallel: Optional[int] = None,
+        parallel: int | None = None,
         **kwargs: Any,
-    ) -> list[Union[str, int]]:
+    ) -> list[str | int]:
         """
         Adds text documents into qdrant collection.
         If collection does not exist, it will be created with default parameters.
@@ -527,6 +532,9 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
             List of IDs of added documents. If no ids provided, UUIDs will be randomly generated on client side.
 
         """
+        show_warning_once(
+            "`add` method has been deprecated and will be removed in 1.17. Instead, inference can be done internally within regular methods like `upsert` by wrapping data into `models.Document` or `models.Image`."
+        )
         encoded_docs = self._embed_documents(
             documents=documents,
             embedding_model_name=self.embedding_model_name,
@@ -574,7 +582,7 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
         self,
         collection_name: str,
         query_text: str,
-        query_filter: Optional[models.Filter] = None,
+        query_filter: models.Filter | None = None,
         limit: int = 10,
         **kwargs: Any,
     ) -> list[QueryResponse]:
@@ -592,12 +600,15 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
                 - Exclude vectors which doesn't fit given conditions.
                 - If `None` - search among all vectors
             limit: How many results return
-            **kwargs: Additional search parameters. See `qdrant_client.models.SearchRequest` for details.
+            **kwargs: Additional search parameters. See `qdrant_client.models.QueryRequest` for details.
 
         Returns:
             list[types.ScoredPoint]: List of scored points.
 
         """
+        show_warning_once(
+            "`query` method has been deprecated and will be removed in 1.17. Instead, inference can be done internally within regular methods like `query_points` by wrapping data into `models.Document` or `models.Image`."
+        )
         embedding_model_inst = self._get_or_init_model(
             model_name=self.embedding_model_name, deprecated=True
         )
@@ -605,16 +616,17 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
         query_vector = embeddings[0].tolist()
         if self.sparse_embedding_model_name is None:
             return self._scored_points_to_query_responses(
-                await self.search(
-                    collection_name=collection_name,
-                    query_vector=models.NamedVector(
-                        name=self.get_vector_field_name(), vector=query_vector
-                    ),
-                    query_filter=query_filter,
-                    limit=limit,
-                    with_payload=True,
-                    **kwargs,
-                )
+                (
+                    await self.query_points(
+                        collection_name=collection_name,
+                        query=query_vector,
+                        using=self.get_vector_field_name(),
+                        query_filter=query_filter,
+                        limit=limit,
+                        with_payload=True,
+                        **kwargs,
+                    )
+                ).points
             )
         sparse_embedding_model_inst = self._get_or_init_sparse_model(
             model_name=self.sparse_embedding_model_name, deprecated=True
@@ -623,34 +635,36 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
         sparse_query_vector = models.SparseVector(
             indices=sparse_vector.indices.tolist(), values=sparse_vector.values.tolist()
         )
-        dense_request = models.SearchRequest(
-            vector=models.NamedVector(name=self.get_vector_field_name(), vector=query_vector),
+        dense_request = models.QueryRequest(
+            query=query_vector,
+            using=self.get_vector_field_name(),
             filter=query_filter,
             limit=limit,
             with_payload=True,
             **kwargs,
         )
-        sparse_request = models.SearchRequest(
-            vector=models.NamedSparseVector(
-                name=self.get_sparse_vector_field_name(), vector=sparse_query_vector
-            ),
+        sparse_request = models.QueryRequest(
+            query=sparse_query_vector,
+            using=self.get_sparse_vector_field_name(),
             filter=query_filter,
             limit=limit,
             with_payload=True,
             **kwargs,
         )
-        (dense_request_response, sparse_request_response) = await self.search_batch(
+        (dense_request_response, sparse_request_response) = await self.query_batch_points(
             collection_name=collection_name, requests=[dense_request, sparse_request]
         )
         return self._scored_points_to_query_responses(
-            reciprocal_rank_fusion([dense_request_response, sparse_request_response], limit=limit)
+            reciprocal_rank_fusion(
+                [dense_request_response.points, sparse_request_response.points], limit=limit
+            )
         )
 
     async def query_batch(
         self,
         collection_name: str,
         query_texts: list[str],
-        query_filter: Optional[models.Filter] = None,
+        query_filter: models.Filter | None = None,
         limit: int = 10,
         **kwargs: Any,
     ) -> list[list[QueryResponse]]:
@@ -668,22 +682,24 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
                 - If `None` - search among all vectors
                 This filter will be applied to all search requests.
             limit: How many results return
-            **kwargs: Additional search parameters. See `qdrant_client.models.SearchRequest` for details.
+            **kwargs: Additional search parameters. See `qdrant_client.models.QueryRequest` for details.
 
         Returns:
             list[list[QueryResponse]]: List of lists of responses for each query text.
 
         """
+        show_warning_once(
+            "`query_batch` method has been deprecated and will be removed in 1.17. Instead, inference can be done internally within regular methods like `query_batch_points` by wrapping data into `models.Document` or `models.Image`."
+        )
         embedding_model_inst = self._get_or_init_model(
             model_name=self.embedding_model_name, deprecated=True
         )
         query_vectors = list(embedding_model_inst.query_embed(query=query_texts))
         requests = []
         for vector in query_vectors:
-            request = models.SearchRequest(
-                vector=models.NamedVector(
-                    name=self.get_vector_field_name(), vector=vector.tolist()
-                ),
+            request = models.QueryRequest(
+                query=vector.tolist(),
+                using=self.get_vector_field_name(),
                 filter=query_filter,
                 limit=limit,
                 with_payload=True,
@@ -691,8 +707,12 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
             )
             requests.append(request)
         if self.sparse_embedding_model_name is None:
-            responses = await self.search_batch(collection_name=collection_name, requests=requests)
-            return [self._scored_points_to_query_responses(response) for response in responses]
+            responses = await self.query_batch_points(
+                collection_name=collection_name, requests=requests
+            )
+            return [
+                self._scored_points_to_query_responses(response.points) for response in responses
+            ]
         sparse_embedding_model_inst = self._get_or_init_sparse_model(
             model_name=self.sparse_embedding_model_name, deprecated=True
         )
@@ -703,21 +723,22 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
             for sparse_vector in sparse_embedding_model_inst.embed(documents=query_texts)
         ]
         for sparse_vector in sparse_query_vectors:
-            request = models.SearchRequest(
-                vector=models.NamedSparseVector(
-                    name=self.get_sparse_vector_field_name(), vector=sparse_vector
-                ),
+            request = models.QueryRequest(
+                using=self.get_sparse_vector_field_name(),
+                query=sparse_vector,
                 filter=query_filter,
                 limit=limit,
                 with_payload=True,
                 **kwargs,
             )
             requests.append(request)
-        responses = await self.search_batch(collection_name=collection_name, requests=requests)
+        responses = await self.query_batch_points(
+            collection_name=collection_name, requests=requests
+        )
         dense_responses = responses[: len(query_texts)]
         sparse_responses = responses[len(query_texts) :]
         responses = [
-            reciprocal_rank_fusion([dense_response, sparse_response], limit=limit)
+            reciprocal_rank_fusion([dense_response.points, sparse_response.points], limit=limit)
             for (dense_response, sparse_response) in zip(dense_responses, sparse_responses)
         ]
         return [self._scored_points_to_query_responses(response) for response in responses]
@@ -725,19 +746,17 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
     @classmethod
     def _resolve_query(
         cls,
-        query: Union[
-            types.PointId,
-            list[float],
-            list[list[float]],
-            types.SparseVector,
-            types.Query,
-            types.NumpyArray,
-            models.Document,
-            models.Image,
-            models.InferenceObject,
-            None,
-        ],
-    ) -> Optional[models.Query]:
+        query: types.PointId
+        | list[float]
+        | list[list[float]]
+        | types.SparseVector
+        | types.Query
+        | types.NumpyArray
+        | models.Document
+        | models.Image
+        | models.InferenceObject
+        | None,
+    ) -> models.Query | None:
         """Resolves query interface into a models.Query object
 
         Args:
@@ -749,7 +768,7 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
         Raises:
             ValueError: if query is not of supported type
         """
-        if isinstance(query, get_args(types.Query)) or isinstance(query, grpc.Query):
+        if isinstance(query, get_args(types.Query)):
             return query
         if isinstance(query, types.SparseVector):
             return models.NearestQuery(nearest=query)
@@ -796,11 +815,10 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
 
     def _embed_models(
         self,
-        raw_models: Union[BaseModel, Iterable[BaseModel]],
+        raw_models: BaseModel | Iterable[BaseModel],
         is_query: bool = False,
-        batch_size: Optional[int] = None,
+        batch_size: int | None = None,
     ) -> Iterable[BaseModel]:
-        FastEmbedMisc.import_fastembed()
         yield from self._model_embedder.embed_models(
             raw_models=raw_models,
             is_query=is_query,
@@ -809,11 +827,10 @@ class AsyncQdrantFastembedMixin(AsyncQdrantBase):
 
     def _embed_models_strict(
         self,
-        raw_models: Iterable[Union[dict[str, BaseModel], BaseModel]],
-        batch_size: Optional[int] = None,
-        parallel: Optional[int] = None,
+        raw_models: Iterable[dict[str, BaseModel] | BaseModel],
+        batch_size: int | None = None,
+        parallel: int | None = None,
     ) -> Iterable[BaseModel]:
-        FastEmbedMisc.import_fastembed()
         yield from self._model_embedder.embed_models_strict(
             raw_models=raw_models,
             batch_size=batch_size or self.DEFAULT_BATCH_SIZE,

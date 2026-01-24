@@ -3,7 +3,7 @@ Main interface for cognito-sync service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_sync/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

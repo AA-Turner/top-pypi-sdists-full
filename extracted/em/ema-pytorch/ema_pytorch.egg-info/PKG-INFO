@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ema-pytorch
-Version: 0.7.7
+Version: 0.7.9
 Summary: Easy way to keep track of exponential moving average version of your pytorch module
 Home-page: https://github.com/lucidrains/ema-pytorch
 Author: Phil Wang
@@ -15,3 +15,13 @@ Classifier: Programming Language :: Python :: 3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=2.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary

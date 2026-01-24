@@ -80,6 +80,11 @@ public:
     /// @a location must be a file location.
     size_t getColumnNumber(SourceLocation location) const;
 
+    /// Gets the display column number for a given source location, accounting for
+    /// UTF-8 character widths and tab expansion.
+    /// @a location must be a file location.
+    size_t getDisplayColumnNumber(SourceLocation location) const;
+
     /// Gets a location that indicates from where the given buffer was included.
     /// @a location must be a file location.
     SourceLocation getIncludedFrom(BufferID buffer) const;
@@ -180,6 +185,10 @@ public:
     /// for diagnostic reporting purposes. This is on by default but can be
     /// disabled to always use the simple filename.
     void setDisableProximatePaths(bool set) { disableProximatePaths = set; }
+
+    /// Sets whether to disable "local" include path lookup, where include directives search
+    /// relative to the file containing the directive first.
+    void setDisableLocalIncludes(bool set) { disableLocalIncludes = set; }
 
     /// Adds a line directive at the given location.
     void addLineDirective(SourceLocation location, size_t lineNum, std::string_view name,
@@ -323,6 +332,7 @@ private:
 
     std::atomic<uint32_t> unnamedBufferCount = 0;
     bool disableProximatePaths = false;
+    bool disableLocalIncludes = false;
 
     template<IsLock TLock>
     FileInfo* getFileInfo(BufferID buffer, TLock& lock);

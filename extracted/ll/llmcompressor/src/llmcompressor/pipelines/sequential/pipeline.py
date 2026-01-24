@@ -7,7 +7,6 @@ from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
 from llmcompressor.core import LifecycleCallbacks, active_session
-from llmcompressor.modeling.prepare import moe_calibration_context
 from llmcompressor.modifiers.utils.hooks import HooksMixin
 from llmcompressor.pipelines.cache import IntermediatesCache
 from llmcompressor.pipelines.registry import CalibrationPipeline
@@ -16,7 +15,11 @@ from llmcompressor.pipelines.sequential.helpers import (
     get_sequential_targets,
     trace_subgraphs,
 )
-from llmcompressor.utils.helpers import DisableQuantization, calibration_forward_context
+from llmcompressor.utils.helpers import (
+    DISABLE_QAC_MODIFIERS,
+    DisableQuantization,
+    calibration_forward_context,
+)
 
 if TYPE_CHECKING:
     from llmcompressor.args.dataset_arguments import DatasetArguments
@@ -63,7 +66,6 @@ class SequentialPipeline(CalibrationPipeline):
         # prepare to trace subgraphs
         modifiers = session.lifecycle.recipe.modifiers
         sequential_targets = get_sequential_targets(modifiers, model, dataset_args)
-
         ignore = dataset_args.tracing_ignore
 
         # trace subgraphs
@@ -73,9 +75,10 @@ class SequentialPipeline(CalibrationPipeline):
 
         LifecycleCallbacks.calibration_epoch_start()
 
-        # TODO: remove this to enable quantization aware calibration for GPTQ and AWQ
+        # TODO: remove this to enable quantization aware calibration
+        # for GPTQ, AWQ and AutoRound.
         disable_qac = any(
-            type(mod).__name__ in ["GPTQModifier", "AWQModifier"]
+            type(mod).__name__ in DISABLE_QAC_MODIFIERS
             for mod in session.lifecycle.recipe.modifiers
         )
 
@@ -85,11 +88,11 @@ class SequentialPipeline(CalibrationPipeline):
             if not dataset_args.quantization_aware_calibration or disable_qac:
                 stack.enter_context(DisableQuantization(model))
 
-            if dataset_args.calibrate_moe_context:
-                moe_calibration_context(model, stack)
-
             # prepare intermediates cache
-            activations = IntermediatesCache.from_dataloader(dataloader, model_device)
+            offload_device = torch.device(dataset_args.sequential_offload_device)
+            activations = IntermediatesCache.from_dataloader(
+                dataloader, model_device, offload_device=offload_device
+            )
 
             for subgraph_index, subgraph in enumerate(subgraphs):
                 # prepare tqdm description texts
@@ -103,7 +106,7 @@ class SequentialPipeline(CalibrationPipeline):
                         inputs = activations.fetch(batch_idx, subgraph.input_names)
                         subgraph.forward(model, **inputs)
 
-                    LifecycleCallbacks.sequential_epoch_end()
+                    LifecycleCallbacks.sequential_epoch_end(subgraph)
 
                     # this pass does not trigger modifier hooks
                     # and is only used for capturing outputs of newly compressed modules

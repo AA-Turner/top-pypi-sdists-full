@@ -1,6 +1,8 @@
+import datetime
 from typing import Any, cast, Dict, List, Optional, Type, TypeVar, Union
 
 import attr
+from dateutil.parser import isoparse
 
 from ..extensions import NotPresentError, UnknownType
 from ..models.archive_record import ArchiveRecord
@@ -27,6 +29,7 @@ class WorkflowTaskSchema:
     _default_responsible_parties: Union[Unset, List[PartySummary]] = UNSET
     _execution_type: Union[Unset, WorkflowTaskSchemaExecutionType] = UNSET
     _flowchart_config: Union[Unset, WorkflowFlowchartConfigSummary] = UNSET
+    _modified_at: Union[Unset, datetime.datetime] = UNSET
     _can_set_assignee_on_task_creation: Union[Unset, bool] = UNSET
     _default_creation_folder_id: Union[Unset, None, str] = UNSET
     _default_entry_execution_folder_id: Union[Unset, None, str] = UNSET
@@ -61,6 +64,7 @@ class WorkflowTaskSchema:
         fields.append("default_responsible_parties={}".format(repr(self._default_responsible_parties)))
         fields.append("execution_type={}".format(repr(self._execution_type)))
         fields.append("flowchart_config={}".format(repr(self._flowchart_config)))
+        fields.append("modified_at={}".format(repr(self._modified_at)))
         fields.append(
             "can_set_assignee_on_task_creation={}".format(repr(self._can_set_assignee_on_task_creation))
         )
@@ -99,6 +103,10 @@ class WorkflowTaskSchema:
         flowchart_config: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self._flowchart_config, Unset):
             flowchart_config = self._flowchart_config.to_dict()
+
+        modified_at: Union[Unset, str] = UNSET
+        if not isinstance(self._modified_at, Unset):
+            modified_at = self._modified_at.isoformat()
 
         can_set_assignee_on_task_creation = self._can_set_assignee_on_task_creation
         default_creation_folder_id = self._default_creation_folder_id
@@ -163,6 +171,8 @@ class WorkflowTaskSchema:
             field_dict["executionType"] = execution_type
         if flowchart_config is not UNSET:
             field_dict["flowchartConfig"] = flowchart_config
+        if modified_at is not UNSET:
+            field_dict["modifiedAt"] = modified_at
         if can_set_assignee_on_task_creation is not UNSET:
             field_dict["canSetAssigneeOnTaskCreation"] = can_set_assignee_on_task_creation
         if default_creation_folder_id is not UNSET:
@@ -252,6 +262,21 @@ class WorkflowTaskSchema:
             if strict:
                 raise
             flowchart_config = cast(Union[Unset, WorkflowFlowchartConfigSummary], UNSET)
+
+        def get_modified_at() -> Union[Unset, datetime.datetime]:
+            modified_at: Union[Unset, datetime.datetime] = UNSET
+            _modified_at = d.pop("modifiedAt")
+            if _modified_at is not None and not isinstance(_modified_at, Unset):
+                modified_at = isoparse(cast(str, _modified_at))
+
+            return modified_at
+
+        try:
+            modified_at = get_modified_at()
+        except KeyError:
+            if strict:
+                raise
+            modified_at = cast(Union[Unset, datetime.datetime], UNSET)
 
         def get_can_set_assignee_on_task_creation() -> Union[Unset, bool]:
             can_set_assignee_on_task_creation = d.pop("canSetAssigneeOnTaskCreation")
@@ -536,6 +561,7 @@ class WorkflowTaskSchema:
             default_responsible_parties=default_responsible_parties,
             execution_type=execution_type,
             flowchart_config=flowchart_config,
+            modified_at=modified_at,
             can_set_assignee_on_task_creation=can_set_assignee_on_task_creation,
             default_creation_folder_id=default_creation_folder_id,
             default_entry_execution_folder_id=default_entry_execution_folder_id,
@@ -618,6 +644,21 @@ class WorkflowTaskSchema:
     @flowchart_config.deleter
     def flowchart_config(self) -> None:
         self._flowchart_config = UNSET
+
+    @property
+    def modified_at(self) -> datetime.datetime:
+        """ DateTime the Oligo was last modified. """
+        if isinstance(self._modified_at, Unset):
+            raise NotPresentError(self, "modified_at")
+        return self._modified_at
+
+    @modified_at.setter
+    def modified_at(self, value: datetime.datetime) -> None:
+        self._modified_at = value
+
+    @modified_at.deleter
+    def modified_at(self) -> None:
+        self._modified_at = UNSET
 
     @property
     def can_set_assignee_on_task_creation(self) -> bool:

@@ -3,7 +3,7 @@ Type annotations for observabilityadmin service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -12,8 +12,11 @@ Usage::
 
     from types_aiobotocore_observabilityadmin.client import CloudWatchObservabilityAdminServiceClient
     from types_aiobotocore_observabilityadmin.paginator import (
+        ListCentralizationRulesForOrganizationPaginator,
         ListResourceTelemetryForOrganizationPaginator,
         ListResourceTelemetryPaginator,
+        ListS3TableIntegrationsPaginator,
+        ListTelemetryPipelinesPaginator,
         ListTelemetryRulesForOrganizationPaginator,
         ListTelemetryRulesPaginator,
     )
@@ -22,8 +25,11 @@ Usage::
     with session.create_client("observabilityadmin") as client:
         client: CloudWatchObservabilityAdminServiceClient
 
+        list_centralization_rules_for_organization_paginator: ListCentralizationRulesForOrganizationPaginator = client.get_paginator("list_centralization_rules_for_organization")
         list_resource_telemetry_for_organization_paginator: ListResourceTelemetryForOrganizationPaginator = client.get_paginator("list_resource_telemetry_for_organization")
         list_resource_telemetry_paginator: ListResourceTelemetryPaginator = client.get_paginator("list_resource_telemetry")
+        list_s3_table_integrations_paginator: ListS3TableIntegrationsPaginator = client.get_paginator("list_s3_table_integrations")
+        list_telemetry_pipelines_paginator: ListTelemetryPipelinesPaginator = client.get_paginator("list_telemetry_pipelines")
         list_telemetry_rules_for_organization_paginator: ListTelemetryRulesForOrganizationPaginator = client.get_paginator("list_telemetry_rules_for_organization")
         list_telemetry_rules_paginator: ListTelemetryRulesPaginator = client.get_paginator("list_telemetry_rules")
     ```
@@ -37,10 +43,16 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    ListCentralizationRulesForOrganizationInputPaginateTypeDef,
+    ListCentralizationRulesForOrganizationOutputTypeDef,
     ListResourceTelemetryForOrganizationInputPaginateTypeDef,
     ListResourceTelemetryForOrganizationOutputTypeDef,
     ListResourceTelemetryInputPaginateTypeDef,
     ListResourceTelemetryOutputTypeDef,
+    ListS3TableIntegrationsInputPaginateTypeDef,
+    ListS3TableIntegrationsOutputTypeDef,
+    ListTelemetryPipelinesInputPaginateTypeDef,
+    ListTelemetryPipelinesOutputTypeDef,
     ListTelemetryRulesForOrganizationInputPaginateTypeDef,
     ListTelemetryRulesForOrganizationOutputTypeDef,
     ListTelemetryRulesInputPaginateTypeDef,
@@ -54,11 +66,39 @@ else:
 
 
 __all__ = (
+    "ListCentralizationRulesForOrganizationPaginator",
     "ListResourceTelemetryForOrganizationPaginator",
     "ListResourceTelemetryPaginator",
+    "ListS3TableIntegrationsPaginator",
+    "ListTelemetryPipelinesPaginator",
     "ListTelemetryRulesForOrganizationPaginator",
     "ListTelemetryRulesPaginator",
 )
+
+
+if TYPE_CHECKING:
+    _ListCentralizationRulesForOrganizationPaginatorBase = AioPaginator[
+        ListCentralizationRulesForOrganizationOutputTypeDef
+    ]
+else:
+    _ListCentralizationRulesForOrganizationPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListCentralizationRulesForOrganizationPaginator(
+    _ListCentralizationRulesForOrganizationPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListCentralizationRulesForOrganization.html#CloudWatchObservabilityAdminService.Paginator.ListCentralizationRulesForOrganization)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/paginators/#listcentralizationrulesfororganizationpaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCentralizationRulesForOrganizationInputPaginateTypeDef]
+    ) -> AioPageIterator[ListCentralizationRulesForOrganizationOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListCentralizationRulesForOrganization.html#CloudWatchObservabilityAdminService.Paginator.ListCentralizationRulesForOrganization.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/paginators/#listcentralizationrulesfororganizationpaginator)
+        """
 
 
 if TYPE_CHECKING:
@@ -104,6 +144,48 @@ class ListResourceTelemetryPaginator(_ListResourceTelemetryPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListResourceTelemetry.html#CloudWatchObservabilityAdminService.Paginator.ListResourceTelemetry.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/paginators/#listresourcetelemetrypaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListS3TableIntegrationsPaginatorBase = AioPaginator[ListS3TableIntegrationsOutputTypeDef]
+else:
+    _ListS3TableIntegrationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListS3TableIntegrationsPaginator(_ListS3TableIntegrationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListS3TableIntegrations.html#CloudWatchObservabilityAdminService.Paginator.ListS3TableIntegrations)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/paginators/#lists3tableintegrationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListS3TableIntegrationsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListS3TableIntegrationsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListS3TableIntegrations.html#CloudWatchObservabilityAdminService.Paginator.ListS3TableIntegrations.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/paginators/#lists3tableintegrationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListTelemetryPipelinesPaginatorBase = AioPaginator[ListTelemetryPipelinesOutputTypeDef]
+else:
+    _ListTelemetryPipelinesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListTelemetryPipelinesPaginator(_ListTelemetryPipelinesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListTelemetryPipelines.html#CloudWatchObservabilityAdminService.Paginator.ListTelemetryPipelines)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/paginators/#listtelemetrypipelinespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTelemetryPipelinesInputPaginateTypeDef]
+    ) -> AioPageIterator[ListTelemetryPipelinesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListTelemetryPipelines.html#CloudWatchObservabilityAdminService.Paginator.ListTelemetryPipelines.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/paginators/#listtelemetrypipelinespaginator)
         """
 
 

@@ -67,10 +67,9 @@ TEST_CASE("LightningKokkosSimulator::unit_tests", "[unit tests]") {
         LKsim->AllocateQubits(2);
         REQUIRE(LKsim->GetNumQubits() == 4);
         LKsim->ReleaseQubit(0);
-        REQUIRE(
-            LKsim->GetNumQubits() ==
-            4); // releasing only one qubit does not change the total number.
-        LKsim->ReleaseAllQubits();
+        REQUIRE(LKsim->GetNumQubits() == 3);
+        Qs.insert(Qs.end(), {1, 2, 3});
+        LKsim->ReleaseQubits(Qs);
         REQUIRE(LKsim->GetNumQubits() ==
                 0); // releasing all qubits resets the simulator.
     }
@@ -743,6 +742,44 @@ TEST_CASE("LightningKokkosSimulator::GateSet", "[GateSet]") {
         REQUIRE_THROWS_WITH(
             LKsim->MatrixOperation(matrix, {Qs[0]}, false, {Qs[1]}, {}),
             Catch::Contains("Controlled wires/values size mismatch"));
+    }
+
+    SECTION("Controlled GlobalPhase (multi-qubit)") {
+        std::unique_ptr<LKSimulator> LKsim = std::make_unique<LKSimulator>();
+
+        constexpr std::size_t n_qubits = 4;
+        std::vector<intptr_t> Qs;
+        Qs.reserve(n_qubits);
+
+        for (std::size_t i = 0; i < n_qubits; i++) {
+            Qs[i] = LKsim->AllocateQubit();
+        }
+
+        LKsim->NamedOperation("GlobalPhase", {M_PI}, {}, false);
+        LKsim->NamedOperation("GlobalPhase", {M_PI_2}, {}, true);
+        LKsim->NamedOperation("GlobalPhase", {M_PI_2}, {}, false, {Qs[3]},
+                              {true});
+        LKsim->NamedOperation("GlobalPhase", {M_PI_4}, {}, false,
+                              {Qs[1], Qs[0]}, {true, false});
+
+        ObsIdType pz = LKsim->Observable(ObsId::PauliZ, {}, {Qs[0]});
+        CHECK(LKsim->Expval(pz) == Approx(1.0).margin(1e-5));
+    }
+
+    SECTION("Controlled GlobalPhase (1-qubit)") {
+        std::unique_ptr<LKSimulator> LKsim = std::make_unique<LKSimulator>();
+
+        std::vector<intptr_t> Qs{LKsim->AllocateQubit()};
+
+        LKsim->NamedOperation("GlobalPhase", {M_PI}, {}, false);
+        LKsim->NamedOperation("GlobalPhase", {M_PI_2}, {}, true);
+        LKsim->NamedOperation("GlobalPhase", {M_PI_2}, {}, false, {Qs[0]},
+                              {true});
+        LKsim->NamedOperation("GlobalPhase", {M_PI_2}, {}, false, {Qs[0]},
+                              {false});
+
+        ObsIdType pz = LKsim->Observable(ObsId::PauliZ, {}, {Qs[0]});
+        CHECK(LKsim->Expval(pz) == Approx(1.0).margin(1e-5));
     }
 
     SECTION("Test setStateVector") {

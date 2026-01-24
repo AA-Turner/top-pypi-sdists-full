@@ -1,6 +1,5 @@
-import base64
 import logging
-import cloudpickle
+import json
 from threading import Thread
 from typing import Any, Optional, Tuple, Dict, List
 
@@ -60,6 +59,7 @@ class FlaskRPCServer(RPCServer):
             -1.0 if timeout is None else to_timedelta(timeout).total_seconds()
         )
         self._server: Optional[FlaskRPCServer._Thread] = None
+        self._log = logging.getLogger()
 
     def make_client(self, handler: Any) -> RPCClient:
         """Add ``handler`` and correspondent :class:`~.FlaskRPCClient`
@@ -77,6 +77,14 @@ class FlaskRPCServer(RPCServer):
 
     def start_server(self) -> None:
         """Start Flask RPC server"""
+        msg = (
+            "Starting RPC server on %s:%s. "
+            "This server has no authentication and relies on network isolation. "
+            "Ensure proper VPC/firewall configuration in production. "
+            "See https://fugue-tutorials.readthedocs.io/tutorials/resources/"
+            "security.html"
+        )
+        self._log.warning(msg, self._host, self._port)
         app = Flask("FlaskRPCServer")
         app.route("/invoke", methods=["POST"])(self._invoke)
         self._server = FlaskRPCServer._Thread(app, self._host, self._port)
@@ -122,10 +130,10 @@ class FlaskRPCClient(RPCClient):
 
 
 def _encode(*args: Any, **kwargs: Any) -> str:
-    data = base64.b64encode(cloudpickle.dumps(dict(args=args, kwargs=kwargs)))
-    return data.decode("ascii")
+    data = json.dumps(dict(args=args, kwargs=kwargs))
+    return data
 
 
 def _decode(data: str) -> Tuple[List[Any], Dict[str, Any]]:
-    data = cloudpickle.loads(base64.b64decode(data.encode("ascii")))
+    data = json.loads(data)
     return data["args"], data["kwargs"]  # type: ignore

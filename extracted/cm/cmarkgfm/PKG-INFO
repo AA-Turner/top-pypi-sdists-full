@@ -1,29 +1,28 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cmarkgfm
-Version: 2024.11.20
+Version: 2025.10.22
 Summary: Minimal bindings to GitHub's fork of cmark
-Home-page: https://github.com/theacodes/cmarkgfm
-Author: The Python Packaging Authority
-Author-email: me@thea.codes, pypa-dev@googlegroups.com
+Author-email: The Python Packaging Authority <me@thea.codes>, pypa-dev@googlegroups.com
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/theacodes/cmarkgfm
 Project-URL: Bug Reports, https://github.com/theacodes/cmarkgfm/issues
 Project-URL: Funding, https://donate.pypi.org
 Project-URL: Source, https://github.com/theacodes/cmarkgfm
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Build Tools
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: cffi>=1.15.0
+Requires-Dist: cffi>=2.0.0
+Dynamic: license-file
 
 cmarkgfm - Python bindings to GitHub's cmark
 ============================================
@@ -39,7 +38,7 @@ and can be installed with `pip` or `pipenv`::
     pip install --user cmarkgfm
     pipenv install cmarkgfm
 
-Wheels are provided for macOS, Linux, and Windows for Python 3.6, 3.7, 3.8, 3.9, 3.10 and 3.11.
+Wheels are provided for macOS, Linux, and Windows for Python 3.9, 3.10, 3.11, 3.12, 3.13, and 3.14.
 
 
 Usage

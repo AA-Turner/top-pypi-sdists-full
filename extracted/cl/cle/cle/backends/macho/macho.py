@@ -99,8 +99,6 @@ class MachO(Backend):
     sizeofcmds: int
 
     def __init__(self, *args, **kwargs):
-        log.warning("The Mach-O backend is not well-supported. Good luck!")
-
         super().__init__(*args, **kwargs)
         self.symbols = SymbolList(key=self._get_symbol_relative_addr)
 
@@ -110,7 +108,7 @@ class MachO(Backend):
         self.cpusubtype = None
         self.filetype: int = None
         self.flags = None  # binary flags
-        self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
+        self.imported_libraries: list[str] = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
         self.sections_by_ordinal = [None]  # ordinal 0 = None == Self
         self.exports_by_name = {}  # note exports is currently a raw and unprocessed datastructure.
         # If we intend to use it we must first upgrade it to a class or somesuch
@@ -133,6 +131,11 @@ class MachO(Backend):
         self._indexed_strtab: dict[int, bytes] | None = None
         self._dyld_chained_fixups_offset: int | None = None
         self._dyld_imports: list[AbstractMachOSymbol] = []
+        self.indirect_symtab_off: int | None = None  # offset of the indirect symbol table
+        self.indirect_syms: int = 0  # number of indirect symbols
+        self._stubs: dict[str, int] = {}
+        self._cached_stubs = None
+        self._cached_reverse_stubs = None
 
         # For some analysis the insertion order of the symbols is relevant and needs to be kept.
         # This is has to be separate from self.symbols because the latter is sorted by address
@@ -149,7 +152,7 @@ class MachO(Backend):
 
             # parse the mach header:
             # (ignore all irrelevant fields)
-            (_, self.cputype, self.cpusubtype, self.filetype, self.ncmds, self.sizeofcmds, self.flags) = self._unpack(
+            _, self.cputype, self.cpusubtype, self.filetype, self.ncmds, self.sizeofcmds, self.flags = self._unpack(
                 "7I", binary_file, 0, 28
             )
 
@@ -244,6 +247,30 @@ class MachO(Backend):
             log.info("Parsing binding bytecode stream")
             self.do_binding()
 
+        self._load_stubs()
+
+    @property
+    def stubs(self):
+        """
+        Maps names to addresses.
+        """
+        if self._cached_stubs is None:
+            self._cached_stubs = {k: AT.from_rva(v, self).to_mva() for k, v in self._stubs.items()}
+        return self._cached_stubs
+
+    plt = stubs
+
+    @property
+    def reverse_stubs(self):
+        """
+        Maps addresses to names.
+        """
+        if self._cached_reverse_stubs is None:
+            self._cached_reverse_stubs = {AT.from_rva(v, self).to_mva(): k for k, v in self._stubs.items()}
+        return self._cached_reverse_stubs
+
+    reverse_plt = reverse_stubs
+
     def set_arch(self, arch):
         super().set_arch(arch)
         self.memory = CryptSentinel(arch=arch)
@@ -258,7 +285,7 @@ class MachO(Backend):
         return True
 
     def _parse_load_commands(self, lc_offset):
-        # Possible optimization: Remove all unecessary calls to seek()
+        # Possible optimization: Remove all unnecessary calls to seek()
         # Load commands have a common structure: First 4 bytes identify the command by a magic number
         # second 4 bytes determine the commands size. Everything after this generic "header" is command-specific
         # this makes parsing the commands easy.
@@ -269,7 +296,7 @@ class MachO(Backend):
         offset = lc_offset
         while count < self.ncmds and (offset - lc_offset) < self.sizeofcmds:
             count += 1
-            (cmd, size) = self._unpack("II", binary_file, offset, 8)
+            cmd, size = self._unpack("II", binary_file, offset, 8)
 
             # check for segments that interest us
             if cmd in [LC.LC_SEGMENT, LC.LC_SEGMENT_64]:  # LC_SEGMENT,LC_SEGMENT_64
@@ -301,16 +328,16 @@ class MachO(Backend):
             elif cmd in [LC.LC_ENCRYPTION_INFO, LC.LC_ENCRYPTION_INFO_64]:  # LC_ENCRYPTION_INFO(_64)
                 log.debug("Found LC_ENCRYPTION_INFO @ %#x", offset)
                 # Store the offset and size of the encrypted section for later
-                (_, _, cryptoff, cryptsize, cryptid) = self._unpack("5I", binary_file, offset, 20)
+                _, _, cryptoff, cryptsize, cryptid = self._unpack("5I", binary_file, offset, 20)
                 self.memory.set_crypt_info(cryptid, cryptoff, cryptsize)
 
             elif cmd in [LC.LC_DYLD_CHAINED_FIXUPS]:
                 log.info("Found LC_DYLD_CHAINED_FIXUPS @ %#x", offset)
-                (_, _, dataoff, datasize) = self._unpack("4I", binary_file, offset, 16)
+                _, _, dataoff, datasize = self._unpack("4I", binary_file, offset, 16)
                 self._dyld_chained_fixups_offset: int = dataoff
             elif cmd in [LC.LC_BUILD_VERSION]:
                 log.info("Found LC_BUILD_VERSION @ %#x", offset)
-                (_, _, _platform, minos, _sdk, _ntools) = self._unpack("6I", binary_file, offset, 6 * 4)
+                _, _, _platform, minos, _sdk, _ntools = self._unpack("6I", binary_file, offset, 6 * 4)
                 patch = (minos >> (8 * 0)) & 0xFF
                 minor = (minos >> (8 * 1)) & 0xFF
                 major = (minos >> (8 * 2)) & 0xFFFF
@@ -318,11 +345,11 @@ class MachO(Backend):
                 log.info("Found minimum version %s", ".".join([str(i) for i in self._minimum_version]))
             elif cmd in [LC.LC_DYLD_EXPORTS_TRIE]:
                 log.info("Found LC_DYLD_EXPORTS_TRIE @ %#x", offset)
-                (_, _, dataoff, datasize) = self._unpack("4I", binary_file, offset, 16)
+                _, _, dataoff, datasize = self._unpack("4I", binary_file, offset, 16)
                 self.export_blob = self._read(binary_file, dataoff, datasize)
             elif cmd in [LC.LC_DYSYMTAB]:
-                # TODO: This probably relevant for library loading and symbols, but it isn't clear how yet
-                pass
+                log.info("Found LC_DYSYMTAB @ %#x", offset)
+                self._load_dysymtab(binary_file, offset)
             else:
                 try:
                     log.warning("%s is not handled yet", LC(cmd).name)
@@ -477,6 +504,129 @@ class MachO(Backend):
 
         self.binding_done = True
 
+    def _load_stubs(self):
+        if "__TEXT,__stubs" not in self.sections_map:
+            log.debug("No __TEXT,__stubs section found, skipping stub loading")
+            return
+
+        stubs_section = self.sections_map["__TEXT,__stubs"]
+        if not isinstance(stubs_section, MachOSection):
+            log.debug("__TEXT,__stubs is not a MachOSection, skipping stub loading")
+            return
+
+        reloc_by_destaddr: dict[int, MachOSymbolRelocation] = {}
+
+        for reloc in self.relocs:
+            if isinstance(reloc, MachOSymbolRelocation):
+                reloc_by_destaddr[reloc.dest_addr] = reloc
+
+        if not reloc_by_destaddr:
+            return
+
+        stub_addr_by_got_addr: dict[int, int] = {}
+
+        # attempt 1: AARCH64 stubs look like the following:
+        # Pattern 1:
+        # __stubs:000000010000061C                 ADRP            X16, #_puts_ptr@PAGE
+        # __stubs:0000000100000620                 LDR             X16, [X16,#_puts_ptr@PAGEOFF]
+        # __stubs:0000000100000624                 BR              X16 ; __imp__puts
+        # OR
+        # Pattern 2:
+        # __stubs:0000000100003DB0                 NOP
+        # __stubs:0000000100003DB4                 LDR             X16, [PC,#offset]
+        # __stubs:0000000100003DB8                 BR              X16
+        if self.arch.name == "AARCH64":
+            for addr in range(stubs_section.vaddr, stubs_section.vaddr + stubs_section.memsize, 4 * 3):
+                rel_addr = AT.from_lva(addr, self).to_rva()
+                instr_bytes = self.memory.load(rel_addr, 4 * 3)
+                if len(instr_bytes) != 4 * 3:
+                    break
+                first_instr = instr_bytes[0:4]
+
+                if first_instr[3] & 0x9F == 0x90:
+                    # First instruction is ADRP, Try Pattern 1
+                    adrp_instr = instr_bytes[0:4]
+                    ldr_instr = instr_bytes[4:8]
+                    br_instr = instr_bytes[8:12]
+                    # parse ADRP
+                    adrp_imm = (
+                        ((adrp_instr[3] >> 5) & 0x3)
+                        | (adrp_instr[2] << 13)
+                        | (adrp_instr[1] << 5)
+                        | ((adrp_instr[0] >> 5) << 2)
+                    ) << 12
+                    adrp_reg = adrp_instr[0] & 0x1F
+                    # parse LDR
+                    if ldr_instr[3] & 0xBF != 0xB9 or ldr_instr[2] & 0xC0 != 0x40:
+                        continue
+                    ldr_imm = (((ldr_instr[2] & 0x3F) << 6) | ((ldr_instr[1] >> 2) & 0x3F)) * 8
+                    ldr_regn = ((ldr_instr[1] & 3) << 3) | (ldr_instr[0] >> 5)
+                    ldr_regt = ldr_instr[0] & 0x1F
+                    if ldr_regn != adrp_reg:
+                        continue
+                    # parse BR
+                    if (
+                        br_instr[3] != 0xD6
+                        or br_instr[2] != 0x1F
+                        or br_instr[1] & 0xFC != 0x00
+                        or br_instr[0] & 0x1F != 0
+                    ):
+                        continue
+                    br_reg = (br_instr[0] >> 5) | ((br_instr[1] & 7) << 3)
+                    if ldr_regt == br_reg:
+                        # likely a stub
+                        got_addr = (addr & 0xFFFFFFFFFFFFF000) + adrp_imm + ldr_imm
+                        stub_addr_by_got_addr[got_addr] = addr
+
+                elif first_instr == b"\x1f\x20\x03\xd5":
+                    # First instruction is NOP, Try Pattern 2
+                    ldr_instr = instr_bytes[4:8]
+                    br_instr = instr_bytes[8:12]
+                    # parse LDR
+                    if ldr_instr[3] & 0x3F != 0x18:
+                        continue
+                    imm19 = (ldr_instr[0] >> 5) | (ldr_instr[1] << 3) | (ldr_instr[2] << 11)
+                    # Sign extend if bit 18 is set
+                    if imm19 & 0x40000:
+                        imm19 = imm19 - 0x80000
+                    ldr_imm = imm19 * 4
+                    ldr_regt = ldr_instr[0] & 0x1F
+                    # parse BR
+                    if (
+                        br_instr[3] != 0xD6
+                        or br_instr[2] != 0x1F
+                        or br_instr[1] & 0xFC != 0x00
+                        or br_instr[0] & 0x1F != 0
+                    ):
+                        continue
+                    br_reg = (br_instr[0] >> 5) | ((br_instr[1] & 7) << 3)
+                    if ldr_regt == br_reg:
+                        # likely a stub
+                        got_addr = (addr + 4) + ldr_imm
+                        stub_addr_by_got_addr[got_addr] = addr
+
+        # attempt 2: x86_64 stubs look like the following:
+        # __stubs:0000000100003F12                 jmp     cs:_fclose_ptr
+        elif self.arch.name == "AMD64":
+            for addr in range(stubs_section.vaddr, stubs_section.vaddr + stubs_section.memsize, 6):
+                rel_addr = AT.from_lva(addr, self).to_rva()
+                instr_bytes = self.memory.load(rel_addr, 6)
+                if len(instr_bytes) != 6:
+                    break
+                if instr_bytes[0] != 0xFF or instr_bytes[1] != 0x25:
+                    continue
+                # parse JMP
+                disp = struct.unpack("<I", instr_bytes[2:6])[0]
+                got_addr = addr + 6 + disp
+                stub_addr_by_got_addr[got_addr] = addr
+
+        for got_addr, addr in stub_addr_by_got_addr.items():
+            got_rva = AT.from_lva(got_addr, self).to_rva()
+            if got_rva in reloc_by_destaddr:
+                reloc = reloc_by_destaddr[got_rva]
+                # found it!
+                self._stubs[reloc.symbol.name] = AT.from_lva(addr, self).to_rva()
+
     def _parse_exports(self):
         """
         Parses the exports trie
@@ -589,7 +739,7 @@ class MachO(Backend):
     def _load_lc_data_in_code(self, f, off):
         log.debug("Parsing data in code")
 
-        (_, _, dataoff, datasize) = self._unpack("4I", f, off, 16)
+        _, _, dataoff, datasize = self._unpack("4I", f, off, 16)
         for i in range(dataoff, datasize, 8):
             blob = self._unpack("IHH", f, i, 8)
             self.lc_data_in_code.append(blob)
@@ -599,7 +749,7 @@ class MachO(Backend):
     def _load_lc_function_starts(self, f, off):
         # note that the logic below is based on Apple's dyldinfo.cpp, no official docs seem to exist
         log.debug("Parsing function starts")
-        (_, _, dataoff, datasize) = self._unpack("4I", f, off, 16)
+        _, _, dataoff, datasize = self._unpack("4I", f, off, 16)
 
         i = 0
         end = datasize
@@ -635,7 +785,7 @@ class MachO(Backend):
             log.error("More than one entry point for main detected, abort.")
             raise CLEInvalidBinaryError()
 
-        (_, _, self.entryoff, _) = self._unpack("2I2Q", f, offset, 24)
+        _, _, self.entryoff, _ = self._unpack("2I2Q", f, offset, 24)
         log.debug("LC_MAIN: entryoff=%#x", self.entryoff)
 
     def _load_lc_unixthread(self, f, offset):
@@ -662,10 +812,10 @@ class MachO(Backend):
         log.debug("LC_UNIXTHREAD: __pc=%#x", self.unixthread_pc)
 
     def _load_dylib_info(self, f, offset):
-        (_, _, name_offset, _, _, _) = self._unpack("6I", f, offset, 24)
-        lib_path = self.parse_lc_str(f, offset + name_offset)
+        _, _, name_offset, _, _, _ = self._unpack("6I", f, offset, 24)
+        lib_path = self.parse_lc_str(f, offset + name_offset).decode("utf-8", errors="replace")
         log.debug("Adding library %r", lib_path)
-        lib_base_name = lib_path.decode("utf-8").rsplit("/", 1)[-1]
+        lib_base_name = lib_path.rsplit("/", 1)[-1]
         self.deps.append(lib_base_name)
         self.imported_libraries.append(lib_path)
 
@@ -673,7 +823,7 @@ class MachO(Backend):
         """
         Extracts information blobs for rebasing, binding and export
         """
-        (_, _, roff, rsize, boff, bsize, wboff, wbsize, lboff, lbsize, eoff, esize) = self._unpack("12I", f, offset, 48)
+        _, _, roff, rsize, boff, bsize, wboff, wbsize, lboff, lbsize, eoff, esize = self._unpack("12I", f, offset, 48)
 
         def blob_or_None(f: BufferedReader, off: int, size: int) -> bytes | None:  # helper
             return self._read(f, off, size) if off != 0 and size != 0 else None
@@ -693,7 +843,7 @@ class MachO(Backend):
         :return:
         """
 
-        (_, _, symoff, nsyms, stroff, strsize) = self._unpack("6I", f, offset, 24)
+        _, _, symoff, nsyms, stroff, strsize = self._unpack("6I", f, offset, 24)
 
         # load string table
         self.strtab = self._read(f, stroff, strsize)
@@ -710,6 +860,43 @@ class MachO(Backend):
         self.symtab_nsyms = nsyms
         self.symtab_offset = symoff
 
+    def _load_dysymtab(self, f, offset: int) -> None:
+        """
+        Handles loading of the dynamic symbol table
+        :param f: input file
+        :param offset: offset to the LC_DYSYMTAB structure
+        :return:
+        """
+
+        (
+            _,
+            _,
+            _ilocalsym,
+            _nlocalsym,
+            _iextdefsym,
+            _nextdefsym,
+            _iundefsym,
+            _nundefsym,
+            _tocoff,
+            _ntoc,
+            _modtaboff,
+            _nmodtab,
+            _extrefsymoff,
+            _nextrefsyms,
+            indirectsymoff,
+            nindirectsyms,
+            _extreloff,
+            _nextrel,
+            _locreloff,
+            _nlocrel,
+        ) = self._unpack("20I", f, offset, 80)
+
+        if nindirectsyms == 0:
+            return
+
+        self.indirect_symtab_off = indirectsymoff
+        self.indirect_syms = nindirectsyms
+
     def _parse_symbols(self, f):
         # parse the symbol entries and create (unresolved) MachOSymbols.
         if self.arch.bits == 64:
@@ -723,7 +910,7 @@ class MachO(Backend):
             # The relevant struct is nlist_64 which is defined and documented in mach-o/nlist.h
             offset_in_symtab = i * structsize
             offset = offset_in_symtab + self.symtab_offset
-            (n_strx, n_type, n_sect, n_desc, n_value) = self._unpack(packstr, f, offset, structsize)
+            n_strx, n_type, n_sect, n_desc, n_value = self._unpack(packstr, f, offset, structsize)
             log.debug("Adding symbol # %d @ %#x: %s,%s,%s,%s,%s", i, offset, n_strx, n_type, n_sect, n_desc, n_value)
             sym = SymbolTableSymbol(self, offset_in_symtab, n_strx, n_type, n_sect, n_desc, n_value)
             self.symbols.add(sym)
@@ -770,12 +957,12 @@ class MachO(Backend):
         is64 = self.arch.bits == 64
         if not is64:
             segment_s_size = 56
-            (_, _, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags) = self._unpack(
+            _, _, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags = self._unpack(
                 "2I16s8I", f, offset, segment_s_size
             )
         else:
             segment_s_size = 72
-            (_, _, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags) = self._unpack(
+            _, _, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags = self._unpack(
                 "2I16s4Q4I", f, offset, segment_s_size
             )
 
@@ -840,6 +1027,7 @@ class MachO(Backend):
             # Store section
             seg.sections.append(sec)
             self.sections.append(sec)
+            self.sections_map[sec.full_name] = sec
 
         # add to sections_by_ordinal
         self.sections_by_ordinal.extend(seg.sections)

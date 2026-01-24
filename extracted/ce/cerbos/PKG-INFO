@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cerbos
-Version: 0.14.0
+Version: 0.15.1
 Summary: SDK for working with Cerbos: an open core, language-agnostic, scalable authorization solution
 Author-Email: Cerbos Developers <sdk+python@cerbos.dev>
 License: Apache-2.0
@@ -9,7 +9,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development :: Libraries
 Project-URL: Homepage, https://cerbos.dev
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: dataclasses-json>=0.5.7
 Requires-Dist: requests-toolbelt>=0.9.1
 Requires-Dist: httpx[http2]>=0.22.0
@@ -23,7 +23,7 @@ Requires-Dist: protobuf>=6.31.0
 Requires-Dist: grpcio-status>=1.73.0
 Requires-Dist: circuitbreaker>=2.1.3
 Provides-Extra: testcontainers
-Requires-Dist: testcontainers>=3.5.3; extra == "testcontainers"
+Requires-Dist: testcontainers>=4.13.3; extra == "testcontainers"
 Description-Content-Type: text/markdown
 
 Cerbos Python SDK

@@ -388,11 +388,11 @@ def reciprocal(): ...
 def round(): ...
 
 
-@_as_xelemwise(ps.scalar_maximum)
+@_as_xelemwise(ps.maximum)
 def maximum(): ...
 
 
-@_as_xelemwise(ps.scalar_minimum)
+@_as_xelemwise(ps.minimum)
 def minimum(): ...
 
 
@@ -510,6 +510,11 @@ def softmax(x, dim=None):
     """Compute the softmax of an XTensorVariable along a specified dimension."""
     exp_x = exp(x)
     return exp_x / exp_x.sum(dim=dim)
+
+
+def logsumexp(x, dim=None):
+    """Compute the logsumexp of an XTensorVariable along a specified dimension."""
+    return log(exp(x).sum(dim=dim))
 
 
 class Dot(XOp):

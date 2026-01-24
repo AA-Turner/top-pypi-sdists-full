@@ -1,9 +1,10 @@
 import contextlib
 import warnings
-from collections.abc import AsyncIterator, Generator
+from collections.abc import AsyncIterator, Generator, Sequence
 from typing import Any, NoReturn, Self
 
 from icechunk import (
+    ChunkType,
     ConflictSolver,
     Diff,
     RepositoryConfig,
@@ -190,6 +191,50 @@ class Session:
             for coord in batch:
                 yield tuple(coord)
 
+    def chunk_type(
+        self,
+        array_path: str,
+        chunk_coordinates: Sequence[int],
+    ) -> ChunkType:
+        """
+        Return the chunk type for the specified coordinates
+
+        Parameters
+        ----------
+        array_path : str
+            The path to the array inside the Zarr store. Example: "/groupA/groupB/outputs/my-array".
+        chunk_coordinates: Sequence[int]
+            A sequence of integers (list or tuple) used to locate the chunk. Example: [0, 1, 5].
+
+        Returns
+        -------
+        ChunkType
+            One of the supported chunk types.
+        """
+        return self._session.chunk_type(array_path, chunk_coordinates)
+
+    async def chunk_type_async(
+        self,
+        array_path: str,
+        chunk_coordinates: Sequence[int],
+    ) -> ChunkType:
+        """
+        Return the chunk type for the specified coordinates
+
+        Parameters
+        ----------
+        array_path : str
+            The path to the array inside the Zarr store. Example: "/groupA/groupB/outputs/my-array".
+        chunk_coordinates: Sequence[int]
+            A sequence of integers (list or tuple) used to locate the chunk. Example: [0, 1, 5].
+
+        Returns
+        -------
+        ChunkType
+            One of the supported chunk types.
+        """
+        return await self._session.chunk_type_async(array_path, chunk_coordinates)
+
     def merge(self, *others: "ForkSession") -> None:
         """
         Merge the changes for this session with the changes from another session.
@@ -318,6 +363,68 @@ class Session:
             message, metadata, rebase_with=rebase_with, rebase_tries=rebase_tries
         )
 
+    def flush(
+        self,
+        message: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        """
+        Save the changes in the session to a new snapshot without modifying the current branch.
+
+        When successful, the writable session is completed and the session is now read-only and based on the new snapshot. The ID of the new snapshot is returned.
+
+        Parameters
+        ----------
+        message : str
+            The message to write with the commit.
+        metadata : dict[str, Any] | None, optional
+            Additional metadata to store with the commit snapshot.
+
+        Returns
+        -------
+        str
+            The ID of the new snapshot.
+        """
+        if self._allow_changes:
+            warnings.warn(
+                "Committing a session after forking, and without merging will not work. "
+                "Merge back in the remote changes first using Session.merge().",
+                UserWarning,
+                stacklevel=2,
+            )
+        return self._session.flush(message, metadata)
+
+    async def flush_async(
+        self,
+        message: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        """
+        Save the changes in the session to a new snapshot without modifying the current branch.
+
+        When successful, the writable session is completed and the session is now read-only and based on the new snapshot. The ID of the new snapshot is returned.
+
+        Parameters
+        ----------
+        message : str
+            The message to write with the commit.
+        metadata : dict[str, Any] | None, optional
+            Additional metadata to store with the commit snapshot.
+
+        Returns
+        -------
+        str
+            The ID of the new snapshot.
+        """
+        if self._allow_changes:
+            warnings.warn(
+                "Flushing a session after forking, and without merging will not work. "
+                "Merge back in the remote changes first using Session.merge().",
+                UserWarning,
+                stacklevel=2,
+            )
+        return await self._session.flush_async(message, metadata)
+
     def rebase(self, solver: ConflictSolver) -> None:
         """
         Rebase the session to the latest ancestry of the branch.
@@ -359,6 +466,24 @@ class Session:
         await self._session.rebase_async(solver)
 
     def fork(self) -> "ForkSession":
+        """
+        Create a child session that can be pickled to a worker job and later merged.
+
+        This method supports Icechunk's distributed, collaborative jobs. A coordinator task creates a new session using
+        `Repository.writable_session`. Then `Session.fork` is called repeatedly to create as many serializable sessions
+        as worker jobs. Each new `ForkSession` is pickled to the worker that uses it to do all its writes.
+        Finally, the `ForkSessions` are pickled back to the coordinator that uses `ForkSession.merge` to merge them
+        back into the original session and `commit`.
+
+        Learn more about collaborative writes at https://icechunk.io/en/latest/parallel/
+
+        Raises
+        ------
+        ValueError
+            When `self` already has uncommitted changes.
+        ValueError
+            When `self` is read-only.
+        """
         if self.has_uncommitted_changes:
             raise ValueError(
                 "Cannot fork a Session with uncommitted changes. "
@@ -369,7 +494,11 @@ class Session:
                 "You should not need to fork a read-only session. Read-only sessions can be pickled and transmitted directly."
             )
         self._allow_changes = True
-        return ForkSession(self._session)
+        # force a deep-copy of the underlying Session,
+        # so that multiple forks can be created and
+        # used independently in a local session.
+        # See test_dask.py::test_fork_session_deep_copies for an example
+        return ForkSession(PySession.from_bytes(self._session.as_bytes()))
 
 
 class ForkSession(Session):
@@ -428,6 +557,28 @@ class ForkSession(Session):
     ) -> NoReturn:
         raise TypeError(
             "Cannot commit a fork of a Session. If you are using uncooperative writes, "
+            "please send the Repository object to your workers, not a Session. "
+            "See https://icechunk.io/en/stable/icechunk-python/parallel/#distributed-writes for more."
+        )
+
+    def flush(
+        self,
+        message: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> NoReturn:
+        raise TypeError(
+            "Cannot flush a fork of a Session. If you are using uncooperative writes, "
+            "please send the Repository object to your workers, not a Session. "
+            "See https://icechunk.io/en/stable/icechunk-python/parallel/#distributed-writes for more."
+        )
+
+    async def flush_async(
+        self,
+        message: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> NoReturn:
+        raise TypeError(
+            "Cannot flush a fork of a Session. If you are using uncooperative writes, "
             "please send the Repository object to your workers, not a Session. "
             "See https://icechunk.io/en/stable/icechunk-python/parallel/#distributed-writes for more."
         )

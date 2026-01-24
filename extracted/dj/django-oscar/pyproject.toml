@@ -33,7 +33,7 @@ dependencies = [
     # PIL is required for image fields, Pillow is the "friendly" PIL fork
     "pillow>=6.0",
     # We use the ModelFormSetView from django-extra-views for the basket page
-    "django-extra-views>=0.13,<0.16",
+    "django-extra-views>=0.13,<0.17",
     # Search support
     "django-haystack>=3.0b1",
     # Treebeard is used for categories
@@ -58,7 +58,7 @@ docs = [
     "Sphinx>=5.0",
     "sphinxcontrib-spelling==8.0.1",
     "sphinx_rtd_theme==3.0.2",
-    "sphinx-issues==5.0.0",
+    "sphinx-issues==5.0.1",
     "sorl-thumbnail>=12.10.0,<13.0.0",
     "easy-thumbnails>=2.9,<2.11",
 ]
@@ -80,8 +80,8 @@ test = [
     "psycopg2-binary>=2.8,<2.10",
     "sorl-thumbnail>=12.10.0,<13.0.0",
     "easy-thumbnails>=2.9,<2.11",
-    "django-environ>=0.4,<0.12",
-    "whitenoise>=6.7.0,<6.9",
+    "django-environ>=0.4,<0.13",
+    "whitenoise>=6.7.0,<6.10",
     "pycountry"
 ]
 sorl-thumbnail = [

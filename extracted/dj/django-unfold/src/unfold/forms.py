@@ -1,5 +1,5 @@
 from collections.abc import Generator
-from typing import Optional, Union
+from typing import Any, Union
 
 from django import forms
 from django.contrib.admin.forms import (
@@ -8,6 +8,7 @@ from django.contrib.admin.forms import (
 from django.contrib.admin.forms import (
     AdminPasswordChangeForm as BaseAdminOwnPasswordChangeForm,
 )
+from django.contrib.admin.views.main import ChangeListSearchForm
 from django.contrib.auth.forms import (
     AdminPasswordChangeForm as BaseAdminPasswordChangeForm,
 )
@@ -52,20 +53,20 @@ class ActionForm(forms.Form):
             {
                 "class": " ".join(
                     [
-                        "appearance-none",
-                        "!bg-white/20",
-                        "font-medium",
-                        "grow",
-                        "px-3",
-                        "py-2",
-                        "pr-8",
-                        "rounded-default",
-                        "!text-white",
-                        "truncate",
-                        "!outline-primary-400",
-                        "dark:!outline-primary-700",
-                        "*:text-base-700",
-                        "lg:w-72",
+                        "group-[.changelist-actions]:appearance-none",
+                        "group-[.changelist-actions]:!bg-white/20",
+                        "group-[.changelist-actions]:font-medium",
+                        "group-[.changelist-actions]:grow",
+                        "group-[.changelist-actions]:px-2",
+                        "group-[.changelist-actions]:py-1",
+                        "group-[.changelist-actions]:pr-8",
+                        "group-[.changelist-actions]:rounded-default",
+                        "group-[.changelist-actions]:!text-current",
+                        "group-[.changelist-actions]:truncate",
+                        "group-[.changelist-actions]:!outline-primary-400",
+                        "group-[.changelist-actions]:dark:!outline-primary-700",
+                        "group-[.changelist-actions]:*:text-base-700",
+                        "group-[.changelist-actions]:lg:w-72",
                     ]
                 ),
                 "aria-label": _("Select action to run"),
@@ -78,18 +79,25 @@ class ActionForm(forms.Form):
         label="",
         required=False,
         initial=0,
-        widget=forms.HiddenInput({"class": "select-across"}),
+        widget=forms.HiddenInput(
+            {
+                "class": "select-across",
+                "x-model": "selectAcross",
+            }
+        ),
     )
 
 
 class AuthenticationForm(AdminAuthenticationForm):
     def __init__(
         self,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
         *args,
         **kwargs,
     ) -> None:
         super().__init__(request, *args, **kwargs)
+
+        self.fields["username"].widget.attrs["autofocus"] = ""
 
         self.fields["username"].widget.attrs["class"] = " ".join(BASE_INPUT_CLASSES)
         self.fields["password"].widget.attrs["class"] = " ".join(BASE_INPUT_CLASSES)
@@ -192,14 +200,14 @@ class Fieldline(BaseFieldline):
 
 
 class PaginationFormSetMixin:
-    queryset: Optional[QuerySet] = None
-    request: Optional[HttpRequest] = None
-    per_page: Optional[int] = None
+    queryset: QuerySet | None = None
+    request: HttpRequest | None = None
+    per_page: int | None = None
 
     def __init__(
         self,
-        request: Optional[HttpRequest] = None,
-        per_page: Optional[int] = None,
+        request: HttpRequest | None = None,
+        per_page: int | None = None,
         *args,
         **kwargs,
     ):
@@ -240,3 +248,13 @@ class PaginationInlineFormSet(PaginationFormSetMixin, BaseInlineFormSet):
 
 class PaginationGenericInlineFormSet(PaginationFormSetMixin, BaseGenericInlineFormSet):
     pass
+
+
+class DatasetChangeListSearchForm(ChangeListSearchForm):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        search_var = kwargs.pop("search_var")
+        super().__init__(*args, **kwargs)
+
+        self.fields = {
+            search_var: forms.CharField(required=False, strip=False),
+        }

@@ -20,6 +20,10 @@ ALL_BENCHMARKS = [bm.stem for bm in BENCHMARK_FILES]
 
 LIMITED_API_VERSION = max((3, 12), sys.version_info[:2])
 
+PYTHON_VERSION = "%d.%d.%d" % sys.version_info[:3]
+if hasattr(sys, '_is_gil_enabled') and not sys._is_gil_enabled():
+    PYTHON_VERSION += 't'
+
 
 try:
     from distutils import sysconfig
@@ -75,6 +79,36 @@ def compile_benchmarks(cython_dir: pathlib.Path, bm_files: list[pathlib.Path], c
     run(
         [sys.executable, str(cython_dir / "cythonize.py"), f"-j{bm_count or 1}", "-i", *bm_files, *cythonize_args],
         cwd=cython_dir,
+        c_macros=c_macros,
+        tmp_dir=tmp_dir,
+    )
+
+def compile_shared_benchmarks(cython_dir: pathlib.Path, bm_files: list[pathlib.Path], c_macros=None, tmp_dir=None):
+    extensions = "\n".join([f'''Extension("{bm_file.name.split('.')[0]}", ["{bm_file}"]),''' for bm_file in bm_files])
+    with open(tmp_dir / 'setup.py', 'w') as setup_file:
+        setup_file.write(f'''
+from Cython.Build import cythonize
+from Cython.Compiler import Options
+from setuptools import setup, Extension
+
+extensions = [
+    {extensions}
+    Extension("_cyutility", sources=["{tmp_dir}/_cyutility.c"]),
+]
+
+setup(
+  ext_modules = cythonize(extensions, shared_utility_qualified_name = '_cyutility')
+)
+'''
+    )
+    rev_hash = get_git_rev(rev_dir=cython_dir)
+    bm_list = ', '.join(bm_file.stem for bm_file in bm_files)
+    bm_count = len(bm_files)
+    logging.info(f"Compiling {bm_count} benchmark{'s' if bm_count != 1 else ''} with Cython gitrev {rev_hash}: {bm_list}")
+    run(
+        [sys.executable, "setup.py", "build_ext", "-i"],
+        cwd=tmp_dir,
+        pythonpath=cython_dir,
         c_macros=c_macros,
         tmp_dir=tmp_dir,
     )
@@ -235,8 +269,8 @@ def run_benchmarks(bm_dir, benchmarks, pythonpath=None, profiler=None):
     return timings
 
 
-def benchmark_revisions(benchmarks, revisions, cythonize_args=None, profiler=None, limited_revisions=(), show_size=False):
-    python_version = "Python %d.%d.%d" % sys.version_info[:3]
+def benchmark_revisions(benchmarks, revisions, cythonize_args=None, profiler=None, limited_revisions=(), shared_revisions=(), show_size=False):
+    python_version = f"Python {PYTHON_VERSION}"
     logging.info(f"### Comparing revisions in {python_version}: {' '.join(revisions)}.")
     logging.info(f"CFLAGS={os.environ.get('CFLAGS', DISTUTILS_CFLAGS)}")
 
@@ -270,10 +304,20 @@ def benchmark_revisions(benchmarks, revisions, cythonize_args=None, profiler=Non
                 show_size=show_size,
             )
 
+        if revision in shared_revisions:
+            logging.info(
+                f"### Preparing benchmark run for {revision_name} (Shared Cython module).")
+            rev_key = 'S-' + revision_name
+            timings[rev_key], sizes[rev_key] = benchmark_revision(
+                revision, benchmarks, cythonize_args, profiler, plain_python,
+                show_size=show_size, use_shared_module=True
+            )
+
     return timings, sizes
 
 
-def benchmark_revision(revision, benchmarks, cythonize_args=None, profiler=None, plain_python=False, c_macros=None, show_size=False):
+def benchmark_revision(
+        revision, benchmarks, cythonize_args=None, profiler=None, plain_python=False, c_macros=None, show_size=False, use_shared_module=False):
     with_profiler = None if plain_python else profiler
 
     if with_profiler:
@@ -294,7 +338,10 @@ def benchmark_revision(revision, benchmarks, cythonize_args=None, profiler=None,
             bm_files = [bm_file for bm_file in bm_files if bm_file.suffix == '.py']
             benchmarks = [bm_file.stem for bm_file in bm_files]
         else:
-            compile_benchmarks(cython_dir, bm_files, cythonize_args, c_macros=c_macros, tmp_dir=base_dir_str)
+            if use_shared_module:
+                compile_shared_benchmarks(cython_dir, bm_files, c_macros=c_macros, tmp_dir=bm_dir)
+            else:
+                compile_benchmarks(cython_dir, bm_files, cythonize_args, c_macros=c_macros, tmp_dir=base_dir_str)
             if show_size:
                 sizes = measure_benchmark_sizes(bm_files)
 
@@ -307,7 +354,6 @@ def benchmark_revision(revision, benchmarks, cythonize_args=None, profiler=None,
 def report_revision_timings(rev_timings, csv_out=None):
     units = {"nsec": 1e-9, "usec": 1e-6, "msec": 1e-3, "sec": 1.0}
     scales = [(scale, unit) for unit, scale in reversed(units.items())]  # biggest first
-    pyversion = "%d.%d.%d" % sys.version_info[:3]
 
     def format_time(t):
         pos_t = abs(t)
@@ -342,7 +388,7 @@ def report_revision_timings(rev_timings, csv_out=None):
                 f"    {revision_name[:25]:25} = {format_time(tmin):>12}, {format_time(tmed):>12}, {format_time(tmax):>12}{diff_str}"
             )
             if csv_out is not None:
-                csv_out.writerow([benchmark, revision_name, pyversion, format_time(tmin), format_time(tmed), format_time(tmax), diff_str])
+                csv_out.writerow([benchmark, revision_name, PYTHON_VERSION, format_time(tmin), format_time(tmed), format_time(tmax), diff_str])
 
     for revision_name, diffs in differences.items():
         diffs.sort(reverse=True)
@@ -358,10 +404,15 @@ def report_revision_timings(rev_timings, csv_out=None):
             for absdiff, pdiff, tdiff, benchmark in diffs:
                 if absdiff < cutoff:
                     break
-                logging.info(f"    {benchmark[:25]:<25}:  {pdiff:+8.1f} %   /  {'+' if tdiff > 0 else '-'}{format_time(abs(tdiff))}")
+                diff_str = (
+                    f'+{format_time(tdiff)}' if tdiff > 1e-9 else
+                    f'-{format_time(-tdiff)}' if tdiff < -1e-9 else
+                    '±0'
+                )
+                logging.info(f"    {benchmark[:25]:<25}:  {pdiff:+8.1f} %   /  {diff_str}")
 
 
-def report_revision_sizes(rev_sizes):
+def report_revision_sizes(rev_sizes, csv_out=None):
     sizes_by_benchmark = collections.defaultdict(list)
     for revision_name, bm_size in rev_sizes.items():
         if bm_size is None:
@@ -380,6 +431,8 @@ def report_revision_sizes(rev_sizes):
                 pdiffs_by_revision[revision_name].append(pdiff)
                 diff_str = f"  ({pdiff:+8.1f} %)"
             logging.info(f"    {revision_name[:25]:25}:  {size} bytes{diff_str}")
+            if csv_out is not None:
+                csv_out.writerow([benchmark, revision_name, PYTHON_VERSION, size, diff_str])
 
     logging.info(f"### Average size changes:")
     for revision_name, pdiffs in pdiffs_by_revision.items():
@@ -409,6 +462,11 @@ def parse_args(args):
         help="Also run the benchmarks for REVISION against the Limited C-API.",
     )
     parser.add_argument(
+        "--with-shared-module",
+        dest="with_shared_module", action="append", default=[],
+        help="Also run the benchmarks for REVISION against the module using shared module.",
+    )
+    parser.add_argument(
         "--perf",
         dest="profiler", action="store_const", const="perf", default=None,
         help="Run Linux 'perf record' on the benchmark process.",
@@ -431,7 +489,12 @@ def parse_args(args):
     parser.add_argument(
         "--report",
         dest="report_csv", default=None, metavar="FILE",
-        help="Write a CSV report to FILE."
+        help="Write a CSV report of the timings to FILE."
+    )
+    parser.add_argument(
+        "--report-size",
+        dest="report_sizes_csv", default=None, metavar="FILE",
+        help="Write a CSV report of the module sizes to FILE."
     )
 
     return parser.parse_known_args(args)
@@ -453,20 +516,30 @@ if __name__ == '__main__':
         logging.error("No benchmarks selected!")
         sys.exit(1)
 
-    revisions = list({rev: rev for rev in (options.revisions + options.with_limited_api)})  # deduplicate in order
+    revisions = list({rev: rev for rev in (options.revisions + options.with_limited_api + options.with_shared_module)})  # deduplicate in order
     if options.with_python:
         revisions.append('Python')
+
+    show_sizes = bool(options.show_size or options.report_sizes_csv)
+
     timings, sizes = benchmark_revisions(
         benchmarks, revisions, cythonize_args,
         profiler=options.profiler,
         limited_revisions=options.with_limited_api,
-        show_size=options.show_size
+        shared_revisions=options.with_shared_module,
+        show_size=show_sizes,
     )
+
     if options.report_csv:
         with open(options.report_csv, "w") as f:
             import csv
             report_revision_timings(timings, csv_out=csv.writer(f))
     else:
         report_revision_timings(timings)
-    if options.show_size:
+
+    if options.report_sizes_csv:
+        with open(options.report_sizes_csv, "w") as f:
+            import csv
+            report_revision_sizes(sizes, csv_out=csv.writer(f))
+    elif show_sizes:
         report_revision_sizes(sizes)

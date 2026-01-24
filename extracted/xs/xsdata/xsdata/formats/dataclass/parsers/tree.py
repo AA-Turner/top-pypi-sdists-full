@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Optional
 
 from xsdata.formats.dataclass.models.elements import XmlType, XmlVar
 from xsdata.formats.dataclass.parsers.bases import NodeParser, Parsed
@@ -17,7 +16,7 @@ class TreeParser(NodeParser):
 
     def start(
         self,
-        clazz: Optional[type],
+        clazz: type | None,
         queue: list[XmlNode],
         objects: list[Parsed],
         qname: str,

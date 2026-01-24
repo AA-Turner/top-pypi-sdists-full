@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dogpile.cache
-Version: 1.4.1
+Version: 1.5.0
 Summary: A caching front-end based on the Dogpile lock.
 Author-email: Mike Bayer <mike_mp@zzzcomputing.com>
 License-Expression: MIT
@@ -12,14 +12,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: decorator>=4.0.0
 Requires-Dist: stevedore>=3.0.0
 Requires-Dist: typing_extensions>=4.0.1; python_version < "3.11"
 Provides-Extra: pifpaf
-Requires-Dist: pifpaf>=3.2.0; extra == "pifpaf"
+Requires-Dist: pifpaf>=3.3.0; extra == "pifpaf"
 Provides-Extra: pymemcache
 Requires-Dist: pymemcache; extra == "pymemcache"
 Provides-Extra: memcached

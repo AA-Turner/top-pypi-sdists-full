@@ -1,87 +1,49 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Union
-from typing_extensions import Literal, TypeAlias
+from typing_extensions import Literal
 
 from pydantic import Field as FieldInfo
 
 from .._models import BaseModel
 
-__all__ = ["FileCreatePresignedURLResponse", "UnionMember0", "UnionMember1", "UnionMember2"]
+__all__ = ["FileCreatePresignedURLResponse", "Metadata"]
 
 
-class UnionMember0(BaseModel):
-    id: str
-    """ID of the request file. Example: "f1e2d3c4b5a6" """
+class Metadata(BaseModel):
+    storage_backend: Literal["s3", "azure_blob_storage"]
+    """Storage backend used for the file.
 
-    existing_url: str
-    """URL of the existing request file.
-
-    Example: "https://storage.example.com/projects/123/files/photo-1234.jpg"
+    If this is azure, use `x-ms-blob-type` header to set the blob type to
+    `BlockBlob` while uploading the file
     """
 
-    existing_url: str = FieldInfo(alias="existingUrl")
-    """[DEPRECATED] Use existing_url instead.
 
-    URL of the existing request file. Example:
-    "https://storage.example.com/projects/123/files/photo-1234.jpg"
+class FileCreatePresignedURLResponse(BaseModel):
+    id: str
+    """ID of the request file. Example: "req_file_9mZn4qR8sXwT" """
+
+    key: str
+    """Object storage upload location.
+
+    Example:
+    "projects/prj_xyz789/requests/slack/SLACK_UPLOAD_FILE/document_9mZn4q.docx"
     """
 
-    key: str
-    """S3 upload location. Example: "projects/123/files/photo-1234.jpg" """
-
-    type: Literal["existing"]
-    """Indicates the file already exists and does not need to be uploaded again"""
-
-
-class UnionMember1(BaseModel):
-    id: str
-    """ID of the request file. Example: "f1e2d3c4b5a6" """
-
-    key: str
-    """S3 upload location. Example: "projects/123/files/photo-1234.jpg" """
+    metadata: Metadata
 
     new_presigned_url: str
     """Presigned URL for upload.
 
     Example:
-    "https://storage.example.com/projects/123/files/photo-1234.jpg?X-Amz-Algorithm=..."
+    "https://storage.composio.dev/projects/prj_xyz789/requests/slack/document_9mZn4q.docx?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=3600..."
     """
 
     new_presigned_url: str = FieldInfo(alias="newPresignedUrl")
     """[DEPRECATED] Use new_presigned_url instead.
 
     Presigned URL for upload. Example:
-    "https://storage.example.com/projects/123/files/photo-1234.jpg?X-Amz-Algorithm=..."
+    "https://storage.composio.dev/projects/prj_xyz789/requests/slack/document_9mZn4q.docx?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=3600..."
     """
 
     type: Literal["new"]
-    """Indicates this is a new file that needs to be uploaded"""
-
-
-class UnionMember2(BaseModel):
-    id: str
-    """ID of the request file. Example: "f1e2d3c4b5a6" """
-
-    key: str
-    """S3 upload location. Example: "projects/123/files/photo-1234.jpg" """
-
-    type: Literal["update"]
-    """Indicates this file exists but needs to be updated with a new version"""
-
-    update_presigned_url: str
-    """Presigned URL for upload.
-
-    Example:
-    "https://storage.example.com/projects/123/files/photo-1234.jpg?X-Amz-Algorithm=..."
-    """
-
-    update_presigned_url: str = FieldInfo(alias="updatePresignedUrl")
-    """[DEPRECATED] Use update_presigned_url instead.
-
-    Presigned URL for upload. Example:
-    "https://storage.example.com/projects/123/files/photo-1234.jpg?X-Amz-Algorithm=..."
-    """
-
-
-FileCreatePresignedURLResponse: TypeAlias = Union[UnionMember0, UnionMember1, UnionMember2]
+    """[DEPRECATED] Indicates this is a new file that needs to be uploaded"""

@@ -18,7 +18,7 @@ class TransactionLedgerWindow(NextGenWindow):
     """TransactionLedger class with methods to interact with transaction ledger window."""
 
     @property
-    def window(self):
+    def window(self) -> WindowSpecification:
         """Return the BatchLedger window element."""
         return self.desktop_app.dialog.child_window(auto_id="BatchLedger", control_type="Window")
 
@@ -183,7 +183,7 @@ class TransactionLedgerWindow(NextGenWindow):
                 row_source = row.children(title="Source")[0].get_value()
                 row_billed = convert_to_decimal(row.children(title="Billed")[0].get_value())
                 row_tran_code = row.children(title="Tran Code")[0].get_value()
-            except Exception as e:
+            except (IndexError, AttributeError, ValueError) as e:
                 self.logger.warning(f"Skipping row due to error: {e}")
                 continue
             source_match = row_source == source_value

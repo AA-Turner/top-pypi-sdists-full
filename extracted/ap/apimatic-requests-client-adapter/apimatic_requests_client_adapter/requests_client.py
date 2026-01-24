@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
+from apimatic_core_interfaces.client.http_client_provider import HttpClientProvider
 from requests.packages import urllib3
 from cachecontrol import CacheControl
 from apimatic_core_interfaces.client.http_client import HttpClient
 from apimatic_core_interfaces.types.http_method_enum import HttpMethodEnum
-from requests import session
+from requests import session, Session
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -28,40 +29,54 @@ class RequestsClient(HttpClient):
                  override_http_client_configuration=False,
                  response_factory=None,
                  proxies=None):
-        """The constructor.
+        """Initialize the HTTP client configuration.
 
         Args:
-            timeout (float): The default global timeout(seconds).
-            cache (bool): Flag to enable/disable cache in the http client.
+            timeout (float): Default timeout (in seconds) for all HTTP requests.
+            cache (bool): Whether to enable caching in the HTTP client.
             max_retries (int): Total number of retries to allow.
-            backoff_factor (float): A backoff factor to apply between attempts after the second try.
-            retry_statuses (iterable): A set of integer HTTP status codes that we should force a retry on.
-            retry_methods (iterable): Set of HTTP method verbs that we should retry on.
-            verify (bool): Flag to enable/disable verification of SSL certificate on the host.
-            http_client_instance (HttpClient): The custom HTTP client instance to use.
-            override_http_client_configuration (bool): Flag to override configuration for the custom HTTP client.
-            response_factory (ResponseFactory): The response factory to convert actual server response to SDK response.
-            proxies (Dict[str, str]): A dictionary mapping protocol to the URL of the proxy.
-
+            backoff_factor (float): Backoff factor between retry attempts after failures.
+            retry_statuses (iterable): HTTP status codes that should trigger retries.
+            retry_methods (iterable): HTTP methods that should be retried.
+            verify (bool): Whether to verify SSL certificates for requests.
+            http_client_instance (Union[Session, HttpClientProvider, Any]): Custom HTTP client instance to use.
+            override_http_client_configuration (bool): Whether to override settings for a custom HTTP client.
+            response_factory (ResponseFactory): Converts raw responses to SDK response objects.
+            proxies (Dict[str, str]): Proxy mapping for network requests.
         """
         if not verify:
+            # Disable SSL warnings if verification is disabled
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-        if http_client_instance is None:
-            self.create_default_http_client(timeout, cache, max_retries,
-                                            backoff_factor, retry_statuses,
-                                            retry_methods, verify, proxies)
-        else:
-            if override_http_client_configuration:
-                http_client_instance.timeout = timeout
-                if hasattr(http_client_instance, 'session'):
-                    http_client_instance.session.verify = verify
-                    self.update_retry_strategy(http_client_instance.session, max_retries, backoff_factor,
-                                               retry_statuses, retry_methods)
+        http_session = self._get_http_session(http_client_instance)
 
-            self.timeout = http_client_instance.timeout
-            if hasattr(http_client_instance, 'session'):
-                self.session = http_client_instance.session
+        if http_session is not None:
+            self._configure_http_session(
+                http_session,
+                override_http_client_configuration,
+                verify,
+                max_retries,
+                backoff_factor,
+                retry_statuses,
+                retry_methods,
+            )
+            self.timeout = http_client_instance.timeout\
+                if not override_http_client_configuration and hasattr(http_client_instance, "timeout")\
+                else timeout
+            self.session = http_session
+        else:
+            # When No custom HTTP client provided → create a default client
+            self.create_default_http_client(
+                timeout,
+                cache,
+                max_retries,
+                backoff_factor,
+                retry_statuses,
+                retry_methods,
+                verify,
+                proxies,
+            )
+
         self.response_factory = response_factory
 
     def create_default_http_client(self,
@@ -99,6 +114,33 @@ class RequestsClient(HttpClient):
         if proxies is not None:
             self.session.proxies.update(proxies)
         self.session.verify = verify
+
+    def _configure_http_session(self, client_session, should_override, verify_ssl,
+                                max_retries, backoff_factor,
+                                retry_statuses, retry_methods):
+        """Configure retry strategy and SSL verification for a given session.
+
+        Args:
+            client_session (Session): The HTTP session object to configure.
+            should_override (bool): Flag to determine if configuration should be overridden.
+            verify_ssl (bool): Whether to verify SSL certificates.
+            max_retries (int): Total number of retries to allow.
+            backoff_factor (float): A backoff factor to apply between retry attempts.
+            retry_statuses (iterable): Set of HTTP status codes that should trigger a retry.
+            retry_methods (iterable): Set of HTTP methods that should be retried.
+        """
+        if not should_override:
+            return
+
+        # Apply SSL verification and retry configuration
+        client_session.verify = verify_ssl
+        self.update_retry_strategy(
+            client_session,
+            max_retries,
+            backoff_factor,
+            retry_statuses,
+            retry_methods,
+        )
 
     def force_retries(self, request, should_retry=None):
         """Reset retries according to each request
@@ -195,3 +237,16 @@ class RequestsClient(HttpClient):
                 adapter.max_retries.raise_on_status = False
             if hasattr(adapter, 'max_retries') and hasattr(adapter.max_retries, 'raise_on_redirect'):
                 adapter.max_retries.raise_on_redirect = False
+
+    @staticmethod
+    def _get_http_session(http_client_instance):
+        if http_client_instance is None:
+            return None
+
+        if isinstance(http_client_instance, Session):
+            return http_client_instance
+
+        if isinstance(http_client_instance, HttpClientProvider):
+            return http_client_instance.session
+
+        return getattr(http_client_instance, "session", None)

@@ -16,6 +16,15 @@ from edgar.datatools import compress_dataframe
 from edgar.files.html_documents import Block, HtmlDocument, LinkBlock, TableBlock, table_to_markdown
 from edgar.richtools import repr_rich
 
+# Deprecation warning for legacy ChunkedDocument
+warnings.warn(
+    "edgar.files.htmltools module (including ChunkedDocument) is deprecated and will be removed in v6.0. "
+    "Please use edgar.documents.HTMLParser instead. "
+    "See migration guide: https://edgartools.readthedocs.io/en/latest/migration/",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 __all__ = [
     "Element",
     "extract_tables",
@@ -41,7 +50,7 @@ class Element:
 
 
 def extract_tables(html_str: str,
-                   table_filters: List = None) -> List[pd.DataFrame]:
+                   table_filters: Optional[List] = None) -> List[pd.DataFrame]:
     table_filters = table_filters or [filter_tiny_table]
     tables = pd.read_html(StringIO(html_str))
     # Compress and filter the tables
@@ -257,8 +266,8 @@ def _render_blocks_using_old_markdown_tables(blocks:List[Block]):
     ]).strip()
 
 def chunks2df(chunks: List[List[Block]],
-              item_detector: Callable[[pd.Series], pd.Series] = detect_int_items,
-              item_adjuster: Callable[[pd.DataFrame, Dict[str, Any]], pd.DataFrame] = adjust_detected_items,
+              item_detector: Optional[Callable] = detect_int_items,
+              item_adjuster: Optional[Callable] = adjust_detected_items,
               item_structure=None,
               ) -> pd.DataFrame:
     """Convert the chunks to a dataframe
@@ -378,11 +387,13 @@ class ChunkedDocument:
         # Handle cases where the item has the decimal point e.g. 5.02
         part = part.replace('.', r'\.')
         item = item.replace('.', r'\.')
-        pattern_part = re.compile(rf'^{part}$', flags=re.IGNORECASE)
-        pattern_item = re.compile(rf'^{item}$', flags=re.IGNORECASE)
+        # Use string patterns with case=False since pandas str.match ignores
+        # flags from compiled regex patterns (fixes issue #454)
+        pattern_part = rf'^{part}$'
+        pattern_item = rf'^{item}$'
 
-        item_mask = chunk_df["Item"].str.match(pattern_item)
-        part_mask = chunk_df["Part"].str.match(pattern_part)
+        item_mask = chunk_df["Item"].str.match(pattern_item, case=False)
+        part_mask = chunk_df["Part"].str.match(pattern_part, case=False)
         toc_mask = ~(~chunk_df.Toc.notnull() & chunk_df.Toc)
         empty_mask = ~chunk_df.Empty
         mask = part_mask & item_mask & toc_mask & empty_mask

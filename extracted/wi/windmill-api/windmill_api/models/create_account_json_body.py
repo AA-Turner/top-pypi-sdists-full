@@ -22,6 +22,7 @@ class CreateAccountJsonBody:
             flow only)
         cc_token_url (Union[Unset, str]): OAuth token URL override for resource-level authentication (client_credentials
             flow only)
+        mcp_server_url (Union[Unset, str]): MCP server URL for MCP OAuth token refresh
     """
 
     refresh_token: str
@@ -31,6 +32,7 @@ class CreateAccountJsonBody:
     cc_client_id: Union[Unset, str] = UNSET
     cc_client_secret: Union[Unset, str] = UNSET
     cc_token_url: Union[Unset, str] = UNSET
+    mcp_server_url: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -41,6 +43,7 @@ class CreateAccountJsonBody:
         cc_client_id = self.cc_client_id
         cc_client_secret = self.cc_client_secret
         cc_token_url = self.cc_token_url
+        mcp_server_url = self.mcp_server_url
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -59,6 +62,8 @@ class CreateAccountJsonBody:
             field_dict["cc_client_secret"] = cc_client_secret
         if cc_token_url is not UNSET:
             field_dict["cc_token_url"] = cc_token_url
+        if mcp_server_url is not UNSET:
+            field_dict["mcp_server_url"] = mcp_server_url
 
         return field_dict
 
@@ -79,6 +84,8 @@ class CreateAccountJsonBody:
 
         cc_token_url = d.pop("cc_token_url", UNSET)
 
+        mcp_server_url = d.pop("mcp_server_url", UNSET)
+
         create_account_json_body = cls(
             refresh_token=refresh_token,
             expires_in=expires_in,
@@ -87,6 +94,7 @@ class CreateAccountJsonBody:
             cc_client_id=cc_client_id,
             cc_client_secret=cc_client_secret,
             cc_token_url=cc_token_url,
+            mcp_server_url=mcp_server_url,
         )
 
         create_account_json_body.additional_properties = d

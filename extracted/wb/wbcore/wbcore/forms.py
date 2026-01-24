@@ -39,10 +39,10 @@ def nonrelated_inlineformset_factory(
     """
     FormSet factory that sets an explicit queryset on new classes.
     """
-    FormSet = modelformset_factory(model, formset=formset, **kwargs)
-    FormSet.real_queryset = queryset
-    FormSet.save_new_instance = save_new_instance
-    return FormSet
+    form = modelformset_factory(model, formset=formset, **kwargs)
+    form.real_queryset = queryset
+    form.save_new_instance = save_new_instance
+    return form
 
 
 class ContentTypeMultiValueField(forms.fields.MultiValueField):

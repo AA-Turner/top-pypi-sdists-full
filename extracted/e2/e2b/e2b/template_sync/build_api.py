@@ -1,39 +1,37 @@
-import io
-import os
-from glob import glob
-import tarfile
 import time
-from typing import Callable, Literal, Optional, List
 from types import TracebackType
+from typing import Callable, Literal, Optional, List, Union
 
 import httpx
 
-from e2b.template.types import TemplateType, LogEntry
-from e2b.api.client.client import AuthenticatedClient
+from e2b.api import handle_api_exception
 from e2b.api.client.api.templates import (
-    post_v2_templates,
+    post_v3_templates,
     get_templates_template_id_files_hash,
     post_v_2_templates_template_id_builds_build_id,
     get_templates_template_id_builds_build_id_status,
+    get_templates_aliases_alias,
 )
+from e2b.api.client.client import AuthenticatedClient
 from e2b.api.client.models import (
-    TemplateBuildRequestV2,
+    TemplateBuildRequestV3,
     TemplateBuildStartV2,
     TemplateBuildFileUpload,
     TemplateBuild,
     Error,
 )
-from e2b.api import handle_api_exception
-from e2b.template.exceptions import BuildException, FileUploadException
-from e2b.template.utils import get_build_step_index
+from e2b.exceptions import BuildException, FileUploadException, TemplateException
+from e2b.template.logger import LogEntry
+from e2b.template.types import TemplateType
+from e2b.template.utils import get_build_step_index, tar_file_stream
 
 
 def request_build(
     client: AuthenticatedClient, name: str, cpu_count: int, memory_mb: int
 ):
-    res = post_v2_templates.sync_detailed(
+    res = post_v3_templates.sync_detailed(
         client=client,
-        body=TemplateBuildRequestV2(
+        body=TemplateBuildRequestV3(
             alias=name,
             cpu_count=cpu_count,
             memory_mb=memory_mb,
@@ -81,29 +79,21 @@ def get_file_upload_link(
 
 
 def upload_file(
+    api_client: AuthenticatedClient,
     file_name: str,
     context_path: str,
     url: str,
-    stack_trace: Optional[TracebackType] = None,
+    ignore_patterns: List[str],
+    resolve_symlinks: bool,
+    stack_trace: Optional[TracebackType],
 ):
-    tar_buffer = io.BytesIO()
-
     try:
-        with tarfile.open(fileobj=tar_buffer, mode="w:gz") as tar:
-            src_path = os.path.join(context_path, file_name)
-            files = glob(src_path, recursive=True)
-            for file in files:
-                arcname = os.path.relpath(file, context_path)
-                tar.add(file, arcname=arcname)
-    except Exception as e:
-        raise FileUploadException(f"Failed to create tar file: {e}").with_traceback(
-            stack_trace
+        tar_buffer = tar_file_stream(
+            file_name, context_path, ignore_patterns, resolve_symlinks
         )
-
-    try:
-        with httpx.Client() as client:
-            response = client.put(url, content=tar_buffer.getvalue())
-            response.raise_for_status()
+        client = api_client.get_httpx_client()
+        response = client.put(url, content=tar_buffer.getvalue())
+        response.raise_for_status()
     except httpx.HTTPStatusError as e:
         raise FileUploadException(f"Failed to upload file: {e}").with_traceback(
             stack_trace
@@ -162,7 +152,7 @@ def wait_for_build_finish(
     build_id: str,
     on_build_logs: Optional[Callable[[LogEntry], None]] = None,
     logs_refresh_frequency: float = 0.2,
-    stack_traces: List[TracebackType] = [],
+    stack_traces: List[Union[TracebackType, None]] = [],
 ):
     logs_offset = 0
     status: Literal["building", "waiting", "ready", "error"] = "building"
@@ -208,3 +198,35 @@ def wait_for_build_finish(
         time.sleep(logs_refresh_frequency)
 
     raise BuildException("Unknown build error occurred.")
+
+
+def check_alias_exists(client: AuthenticatedClient, alias: str) -> bool:
+    """
+    Check if a template with the given alias exists.
+
+    Args:
+        client: Authenticated API client
+        alias: Template alias to check
+
+    Returns:
+        True if the alias exists, False otherwise
+    """
+    res = get_templates_aliases_alias.sync_detailed(
+        alias=alias,
+        client=client,
+    )
+
+    # If we get a NotFound, the alias doesn't exist
+    if res.status_code == 404:
+        return False
+
+    # If we get a Forbidden, alias exists, but you are not owner
+    if res.status_code == 403:
+        return True
+
+    # Handle other errors
+    if res.status_code >= 300:
+        raise handle_api_exception(res, TemplateException)
+
+    # If we get Ok with data, you are owner and the alias exists
+    return res.parsed is not None

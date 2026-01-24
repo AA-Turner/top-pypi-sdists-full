@@ -6,7 +6,7 @@ from numpy.testing import assert_almost_equal
 import pytest
 from statsmodels.datasets import macrodata
 
-from arch.utility import cov_nw
+from arch.utility.cov import cov_nw
 
 
 class TestVarNW:
@@ -66,9 +66,9 @@ class TestVarNW:
 
     def test_errors(self):
         y = self.rng.randn(100, 2)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"lags must be weakly smaller than"):
             cov_nw(y, 200)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"axis must be less than the"):
             cov_nw(y, axis=3)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"ddof must be strictly smaller"):
             cov_nw(y, ddof=200)

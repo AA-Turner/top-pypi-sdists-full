@@ -27,16 +27,17 @@ class IDPropertyGroup:
     def items(self) -> None:
         """Iterate through the items in the dict; behaves like dictionary method items."""
 
-    def keys(self) -> None:
-        """Return the keys associated with this group as a list of strings."""
+    def keys(self) -> IDPropertyGroupViewKeys:
+        """Return the keys associated with this group.
+
+        :return: The keys.
+        """
 
     def pop(self, key: str, default: typing.Any) -> None:
         """Remove an item from the group, returning a Python representation.
 
         :param key: Name of item to remove.
-        :type key: str
         :param default: Value to return when key isnt found, otherwise raise an exception.
-        :type default: typing.Any
         """
 
     def to_dict(self) -> None:
@@ -46,7 +47,6 @@ class IDPropertyGroup:
         """Update key, values.
 
         :param other: Updates the values in the group with this.
-        :type other: dict[str, typing.Any] | typing_extensions.Self
         """
 
     def values(self) -> None:

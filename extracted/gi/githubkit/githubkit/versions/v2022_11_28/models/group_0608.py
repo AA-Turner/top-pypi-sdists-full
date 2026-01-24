@@ -9,7 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
+from typing import Literal
 
 from pydantic import Field
 
@@ -18,19 +18,22 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 from .group_0003 import SimpleUser
-from .group_0442 import EnterpriseWebhooks
-from .group_0443 import SimpleInstallation
-from .group_0444 import OrganizationSimpleWebhooks
-from .group_0445 import RepositoryWebhooks
-from .group_0453 import WebhooksUser
-from .group_0462 import WebhooksIssue
+from .group_0473 import EnterpriseWebhooks
+from .group_0474 import SimpleInstallation
+from .group_0475 import OrganizationSimpleWebhooks
+from .group_0476 import RepositoryWebhooks
+from .group_0609 import WebhookIssueCommentCreatedPropComment
+from .group_0610 import WebhookIssueCommentCreatedPropIssue
 
 
-class WebhookIssuesAssigned(GitHubModel):
-    """issues assigned event"""
+class WebhookIssueCommentCreated(GitHubModel):
+    """issue_comment created event"""
 
-    action: Literal["assigned"] = Field(description="The action that was performed.")
-    assignee: Missing[Union[WebhooksUser, None]] = Field(default=UNSET, title="User")
+    action: Literal["created"] = Field()
+    comment: WebhookIssueCommentCreatedPropComment = Field(
+        title="issue comment",
+        description="The [comment](https://docs.github.com/rest/issues/comments#get-an-issue-comment) itself.",
+    )
     enterprise: Missing[EnterpriseWebhooks] = Field(
         default=UNSET,
         title="Enterprise",
@@ -41,9 +44,8 @@ class WebhookIssuesAssigned(GitHubModel):
         title="Simple Installation",
         description='The GitHub App installation. Webhook payloads contain the `installation` property when the event is configured\nfor and sent to a GitHub App. For more information,\nsee "[Using webhooks with GitHub Apps](https://docs.github.com/apps/creating-github-apps/registering-a-github-app/using-webhooks-with-github-apps)."',
     )
-    issue: WebhooksIssue = Field(
-        title="Issue",
-        description="The [issue](https://docs.github.com/rest/issues/issues#get-an-issue) itself.",
+    issue: WebhookIssueCommentCreatedPropIssue = Field(
+        description="The [issue](https://docs.github.com/rest/issues/issues#get-an-issue) the comment belongs to."
     )
     organization: Missing[OrganizationSimpleWebhooks] = Field(
         default=UNSET,
@@ -57,6 +59,6 @@ class WebhookIssuesAssigned(GitHubModel):
     sender: SimpleUser = Field(title="Simple User", description="A GitHub user.")
 
 
-model_rebuild(WebhookIssuesAssigned)
+model_rebuild(WebhookIssueCommentCreated)
 
-__all__ = ("WebhookIssuesAssigned",)
+__all__ = ("WebhookIssueCommentCreated",)

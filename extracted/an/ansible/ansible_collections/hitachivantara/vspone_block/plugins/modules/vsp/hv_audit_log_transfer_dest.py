@@ -40,12 +40,14 @@ options:
     required: False
     suboptions:
       transfer_protocol:
-        description: Protocol used for transferring audit logs.
+        description: Protocol used for transferring audit logs. Required for Setting the transfer
+          destination tasks.
         type: str
         required: true
         choices: [TLS, UDP]
       location_name:
-        description: Name of the location or identifier.
+        description: Name of the location or identifier. Required for Setting the transfer
+          destination tasks.
         type: str
         required: true
       retries:
@@ -66,15 +68,18 @@ options:
         required: false
         suboptions:
           is_enabled:
-            description: Whether the primary syslog server is enabled.
+            description: Whether the primary syslog server is enabled. Required for Setting the
+              transfer destination tasks.
             type: bool
             required: true
           ip_address:
-            description: IP address of the primary syslog server.
+            description: IP address of the primary syslog server. Optional for Setting the transfer
+              destination tasks.
             type: str
             required: false
           port:
-            description: Port used by the primary syslog server.
+            description: Port used by the primary syslog server. Optional for Setting the transfer
+              destination tasks.
             type: int
             required: false
           client_cert_file_name:
@@ -95,15 +100,18 @@ options:
         required: false
         suboptions:
           is_enabled:
-            description: Whether the secondary syslog server is enabled.
+            description: Whether the secondary syslog server is enabled. Required for Setting the transfer
+              destination tasks.
             type: bool
             required: true
           ip_address:
-            description: IP address of the secondary syslog server.
+            description: IP address of the secondary syslog server. Optional for Setting the transfer
+              destination tasks.
             type: str
             required: false
           port:
-            description: Port used by the secondary syslog server.
+            description: Port used by the secondary syslog server. Optional for Setting the transfer destination
+              tasks.
             type: int
             required: false
           client_cert_file_name:
@@ -138,14 +146,14 @@ EXAMPLES = """
         ip_address: "203.0.113.1"
         port: 514
         client_cert_file_name: "client-cert.pem"
-        client_cert_file_password: "certpass"
+        client_cert_file_password: "CHANGE_ME_SET_YOUR_PASSWORD"
         root_cert_file_name: "root-cert.pem"
       secondary_syslog_server:
         is_enabled: false
         ip_address: "203.0.113.2"
         port: 514
         client_cert_file_name: "client-cert2.pem"
-        client_cert_file_password: "certpass2"
+        client_cert_file_password: "CHANGE_ME_SET_YOUR_PASSWORD"
         root_cert_file_name: "root-cert2.pem"
 """
 

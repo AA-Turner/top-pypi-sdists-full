@@ -3,7 +3,7 @@ Type annotations for sqs service ServiceResource.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sqs/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -24,6 +24,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator, Sequence
 
 from boto3.resources.base import ResourceMeta, ServiceResource
 from boto3.resources.collection import ResourceCollection
@@ -49,12 +50,6 @@ from .type_defs import (
     SetQueueAttributesRequestQueueSetAttributesTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Iterator, Sequence
-else:
-    from typing import Dict, Iterator, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -113,7 +108,7 @@ class ServiceResourceQueuesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sqs/service_resource/#serviceresourcequeuescollection)
         """
 
-    def pages(self) -> Iterator[List[Queue]]:
+    def pages(self) -> Iterator[list[Queue]]:
         """
         A generator which yields pages of Queues.
 
@@ -173,7 +168,7 @@ class QueueDeadLetterSourceQueuesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sqs/service_resource/#queuedead_letter_source_queues)
         """
 
-    def pages(self) -> Iterator[List[Queue]]:
+    def pages(self) -> Iterator[list[Queue]]:
         """
         A generator which yields pages of Queues.
 
@@ -201,9 +196,9 @@ class Message(ServiceResource):
     message_id: str
     md5_of_body: str
     body: str
-    attributes: Dict[MessageSystemAttributeNameType, str]
+    attributes: dict[MessageSystemAttributeNameType, str]
     md5_of_message_attributes: str
-    message_attributes: Dict[str, MessageAttributeValueOutputTypeDef]
+    message_attributes: dict[str, MessageAttributeValueOutputTypeDef]
     meta: SQSResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -252,7 +247,7 @@ class Queue(ServiceResource):
 
     url: str
     dead_letter_source_queues: QueueDeadLetterSourceQueuesCollection
-    attributes: Dict[QueueAttributeNameType, str]
+    attributes: dict[QueueAttributeNameType, str]
     meta: SQSResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -317,7 +312,7 @@ class Queue(ServiceResource):
 
     def receive_messages(
         self, **kwargs: Unpack[ReceiveMessageRequestQueueReceiveMessagesTypeDef]
-    ) -> List[_Message]:
+    ) -> list[_Message]:
         """
         Retrieves one or more messages (up to 10), from the specified queue.
 

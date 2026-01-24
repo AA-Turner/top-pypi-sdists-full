@@ -7,14 +7,18 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.create_eval_dto import CreateEvalDto
 from ..types.create_eval_dto_messages_item import CreateEvalDtoMessagesItem
+from ..types.create_eval_dto_type import CreateEvalDtoType
+from ..types.eval import Eval
 from ..types.eval_paginated_response import EvalPaginatedResponse
 from ..types.eval_run import EvalRun
 from ..types.eval_run_paginated_response import EvalRunPaginatedResponse
-from ..types.eval_run_target_assistant import EvalRunTargetAssistant
 from .raw_client import AsyncRawEvalClient, RawEvalClient
+from .types.create_eval_run_dto_target import CreateEvalRunDtoTarget
+from .types.create_eval_run_dto_type import CreateEvalRunDtoType
 from .types.eval_controller_get_paginated_request_sort_order import EvalControllerGetPaginatedRequestSortOrder
 from .types.eval_controller_get_runs_paginated_request_sort_order import EvalControllerGetRunsPaginatedRequestSortOrder
 from .types.update_eval_dto_messages_item import UpdateEvalDtoMessagesItem
+from .types.update_eval_dto_type import UpdateEvalDtoType
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -128,17 +132,24 @@ class EvalClient:
         self,
         *,
         messages: typing.Sequence[CreateEvalDtoMessagesItem],
+        type: CreateEvalDtoType,
         name: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> None:
+    ) -> Eval:
         """
         Parameters
         ----------
         messages : typing.Sequence[CreateEvalDtoMessagesItem]
             This is the mock conversation that will be used to evaluate the flow of the conversation.
+
             Mock Messages are used to simulate the flow of the conversation
+
             Evaluation Messages are used as checkpoints in the flow where the model's response to previous conversation needs to be evaluated to check the content and tool calls
+
+        type : CreateEvalDtoType
+            This is the type of the eval.
+            Currently it is fixed to `chat.mockConversation`.
 
         name : typing.Optional[str]
             This is the name of the eval.
@@ -153,7 +164,8 @@ class EvalClient:
 
         Returns
         -------
-        None
+        Eval
+
 
         Examples
         --------
@@ -163,15 +175,20 @@ class EvalClient:
             token="YOUR_TOKEN",
         )
         client.eval.eval_controller_create(
-            messages=[ChatEvalAssistantMessageMock()],
+            messages=[
+                ChatEvalAssistantMessageMock(
+                    role="assistant",
+                )
+            ],
+            type="chat.mockConversation",
         )
         """
         _response = self._raw_client.eval_controller_create(
-            messages=messages, name=name, description=description, request_options=request_options
+            messages=messages, type=type, name=name, description=description, request_options=request_options
         )
         return _response.data
 
-    def eval_controller_get(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+    def eval_controller_get(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Eval:
         """
         Parameters
         ----------
@@ -182,7 +199,8 @@ class EvalClient:
 
         Returns
         -------
-        None
+        Eval
+
 
         Examples
         --------
@@ -198,7 +216,7 @@ class EvalClient:
         _response = self._raw_client.eval_controller_get(id, request_options=request_options)
         return _response.data
 
-    def eval_controller_remove(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+    def eval_controller_remove(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Eval:
         """
         Parameters
         ----------
@@ -209,7 +227,8 @@ class EvalClient:
 
         Returns
         -------
-        None
+        Eval
+
 
         Examples
         --------
@@ -232,9 +251,9 @@ class EvalClient:
         messages: typing.Optional[typing.Sequence[UpdateEvalDtoMessagesItem]] = OMIT,
         name: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
-        type: typing.Optional[typing.Literal["chat.mockConversation"]] = OMIT,
+        type: typing.Optional[UpdateEvalDtoType] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> None:
+    ) -> Eval:
         """
         Parameters
         ----------
@@ -242,7 +261,9 @@ class EvalClient:
 
         messages : typing.Optional[typing.Sequence[UpdateEvalDtoMessagesItem]]
             This is the mock conversation that will be used to evaluate the flow of the conversation.
+
             Mock Messages are used to simulate the flow of the conversation
+
             Evaluation Messages are used as checkpoints in the flow where the model's response to previous conversation needs to be evaluated to check the content and tool calls
 
         name : typing.Optional[str]
@@ -253,7 +274,7 @@ class EvalClient:
             This is the description of the eval.
             This helps describe the eval and its purpose in detail. It will not be used to evaluate the flow of the conversation.
 
-        type : typing.Optional[typing.Literal["chat.mockConversation"]]
+        type : typing.Optional[UpdateEvalDtoType]
             This is the type of the eval.
             Currently it is fixed to `chat.mockConversation`.
 
@@ -262,7 +283,8 @@ class EvalClient:
 
         Returns
         -------
-        None
+        Eval
+
 
         Examples
         --------
@@ -308,7 +330,9 @@ class EvalClient:
         _response = self._raw_client.eval_controller_get_run(id, request_options=request_options)
         return _response.data
 
-    def eval_controller_remove_run(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+    def eval_controller_remove_run(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> EvalRun:
         """
         Parameters
         ----------
@@ -319,7 +343,8 @@ class EvalClient:
 
         Returns
         -------
-        None
+        EvalRun
+
 
         Examples
         --------
@@ -427,7 +452,8 @@ class EvalClient:
     def eval_controller_run(
         self,
         *,
-        target: EvalRunTargetAssistant,
+        target: CreateEvalRunDtoTarget,
+        type: CreateEvalRunDtoType,
         eval: typing.Optional[CreateEvalDto] = OMIT,
         eval_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -435,8 +461,12 @@ class EvalClient:
         """
         Parameters
         ----------
-        target : EvalRunTargetAssistant
+        target : CreateEvalRunDtoTarget
             This is the target that will be run against the eval
+
+        type : CreateEvalRunDtoType
+            This is the type of the run.
+            Currently it is fixed to `eval`.
 
         eval : typing.Optional[CreateEvalDto]
             This is the transient eval that will be run
@@ -460,11 +490,14 @@ class EvalClient:
             token="YOUR_TOKEN",
         )
         client.eval.eval_controller_run(
-            target=EvalRunTargetAssistant(),
+            target=EvalRunTargetAssistant(
+                type="assistant",
+            ),
+            type="eval",
         )
         """
         _response = self._raw_client.eval_controller_run(
-            target=target, eval=eval, eval_id=eval_id, request_options=request_options
+            target=target, type=type, eval=eval, eval_id=eval_id, request_options=request_options
         )
         return _response.data
 
@@ -585,17 +618,24 @@ class AsyncEvalClient:
         self,
         *,
         messages: typing.Sequence[CreateEvalDtoMessagesItem],
+        type: CreateEvalDtoType,
         name: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> None:
+    ) -> Eval:
         """
         Parameters
         ----------
         messages : typing.Sequence[CreateEvalDtoMessagesItem]
             This is the mock conversation that will be used to evaluate the flow of the conversation.
+
             Mock Messages are used to simulate the flow of the conversation
+
             Evaluation Messages are used as checkpoints in the flow where the model's response to previous conversation needs to be evaluated to check the content and tool calls
+
+        type : CreateEvalDtoType
+            This is the type of the eval.
+            Currently it is fixed to `chat.mockConversation`.
 
         name : typing.Optional[str]
             This is the name of the eval.
@@ -610,7 +650,8 @@ class AsyncEvalClient:
 
         Returns
         -------
-        None
+        Eval
+
 
         Examples
         --------
@@ -625,18 +666,23 @@ class AsyncEvalClient:
 
         async def main() -> None:
             await client.eval.eval_controller_create(
-                messages=[ChatEvalAssistantMessageMock()],
+                messages=[
+                    ChatEvalAssistantMessageMock(
+                        role="assistant",
+                    )
+                ],
+                type="chat.mockConversation",
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.eval_controller_create(
-            messages=messages, name=name, description=description, request_options=request_options
+            messages=messages, type=type, name=name, description=description, request_options=request_options
         )
         return _response.data
 
-    async def eval_controller_get(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+    async def eval_controller_get(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Eval:
         """
         Parameters
         ----------
@@ -647,7 +693,8 @@ class AsyncEvalClient:
 
         Returns
         -------
-        None
+        Eval
+
 
         Examples
         --------
@@ -671,7 +718,7 @@ class AsyncEvalClient:
         _response = await self._raw_client.eval_controller_get(id, request_options=request_options)
         return _response.data
 
-    async def eval_controller_remove(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+    async def eval_controller_remove(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Eval:
         """
         Parameters
         ----------
@@ -682,7 +729,8 @@ class AsyncEvalClient:
 
         Returns
         -------
-        None
+        Eval
+
 
         Examples
         --------
@@ -713,9 +761,9 @@ class AsyncEvalClient:
         messages: typing.Optional[typing.Sequence[UpdateEvalDtoMessagesItem]] = OMIT,
         name: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
-        type: typing.Optional[typing.Literal["chat.mockConversation"]] = OMIT,
+        type: typing.Optional[UpdateEvalDtoType] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> None:
+    ) -> Eval:
         """
         Parameters
         ----------
@@ -723,7 +771,9 @@ class AsyncEvalClient:
 
         messages : typing.Optional[typing.Sequence[UpdateEvalDtoMessagesItem]]
             This is the mock conversation that will be used to evaluate the flow of the conversation.
+
             Mock Messages are used to simulate the flow of the conversation
+
             Evaluation Messages are used as checkpoints in the flow where the model's response to previous conversation needs to be evaluated to check the content and tool calls
 
         name : typing.Optional[str]
@@ -734,7 +784,7 @@ class AsyncEvalClient:
             This is the description of the eval.
             This helps describe the eval and its purpose in detail. It will not be used to evaluate the flow of the conversation.
 
-        type : typing.Optional[typing.Literal["chat.mockConversation"]]
+        type : typing.Optional[UpdateEvalDtoType]
             This is the type of the eval.
             Currently it is fixed to `chat.mockConversation`.
 
@@ -743,7 +793,8 @@ class AsyncEvalClient:
 
         Returns
         -------
-        None
+        Eval
+
 
         Examples
         --------
@@ -809,7 +860,7 @@ class AsyncEvalClient:
 
     async def eval_controller_remove_run(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> None:
+    ) -> EvalRun:
         """
         Parameters
         ----------
@@ -820,7 +871,8 @@ class AsyncEvalClient:
 
         Returns
         -------
-        None
+        EvalRun
+
 
         Examples
         --------
@@ -944,7 +996,8 @@ class AsyncEvalClient:
     async def eval_controller_run(
         self,
         *,
-        target: EvalRunTargetAssistant,
+        target: CreateEvalRunDtoTarget,
+        type: CreateEvalRunDtoType,
         eval: typing.Optional[CreateEvalDto] = OMIT,
         eval_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -952,8 +1005,12 @@ class AsyncEvalClient:
         """
         Parameters
         ----------
-        target : EvalRunTargetAssistant
+        target : CreateEvalRunDtoTarget
             This is the target that will be run against the eval
+
+        type : CreateEvalRunDtoType
+            This is the type of the run.
+            Currently it is fixed to `eval`.
 
         eval : typing.Optional[CreateEvalDto]
             This is the transient eval that will be run
@@ -982,13 +1039,16 @@ class AsyncEvalClient:
 
         async def main() -> None:
             await client.eval.eval_controller_run(
-                target=EvalRunTargetAssistant(),
+                target=EvalRunTargetAssistant(
+                    type="assistant",
+                ),
+                type="eval",
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.eval_controller_run(
-            target=target, eval=eval, eval_id=eval_id, request_options=request_options
+            target=target, type=type, eval=eval, eval_id=eval_id, request_options=request_options
         )
         return _response.data

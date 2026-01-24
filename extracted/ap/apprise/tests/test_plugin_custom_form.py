@@ -199,7 +199,7 @@ apprise_url_tests = (
         "form://user:pass@localhost:8082",
         {
             "instance": NotifyForm,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
         },
@@ -209,7 +209,7 @@ apprise_url_tests = (
         {
             "instance": NotifyForm,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),
@@ -480,6 +480,8 @@ def test_plugin_custom_form_edge_cases(mock_get, mock_post):
     # `message`
     assert "msg" in details[1]["data"]
     assert details[1]["data"]["msg"] == "body"
+    assert details[1]["data"]["type"] == NotifyType.INFO.value
+    assert "NotifyType." not in str(details[1]["data"])
 
     assert instance.url(privacy=False).startswith(
         "form://localhost:8080/command?"

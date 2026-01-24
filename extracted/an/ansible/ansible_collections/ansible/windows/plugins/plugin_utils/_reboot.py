@@ -14,6 +14,7 @@ interface is not final and count be subject to change.
 # See also: https://github.com/ansible/community/issues/539#issuecomment-780839686
 # Please open an issue if you have questions about this.
 
+import base64
 import datetime
 import json
 import random
@@ -176,14 +177,14 @@ def reboot_host(
     # This command may be wrapped in other shells or command making it hard to detect what shutdown.exe actually
     # returned. We use this hackery to return a json that contains the stdout/stderr/rc as a structured object for our
     # code to parse and detect if something went wrong.
-    reboot_command = """$ErrorActionPreference = 'Continue'
+    reboot_command = r"""$ErrorActionPreference = 'Continue'
 
 if ($%s) {
     Remove-Item -LiteralPath '%s' -Force -ErrorAction SilentlyContinue
 }
 
 $stdout = $null
-$stderr = . { shutdown.exe /r /t %s /c %s | Set-Variable stdout } 2>&1 | ForEach-Object ToString
+$stderr = . { C:\Windows\System32\shutdown.exe /r /t %s /c %s | Set-Variable stdout } 2>&1 | ForEach-Object ToString
 
 ConvertTo-Json -Compress -InputObject @{
     stdout = (@($stdout) -join "`n")
@@ -443,7 +444,9 @@ def _execute_command(
     # Need to wrap the command in our PowerShell encoded wrapper. This is done to align the command input to a
     # common shell and to allow the psrp connection plugin to report the correct exit code without manually setting
     # $LASTEXITCODE for just that plugin.
-    command = connection._shell._encode_script(command)
+    pwsh_script = command + "; If (-not $?) { If (Get-Variable LASTEXITCODE -ErrorAction SilentlyContinue) { exit $LASTEXITCODE } Else { exit 1 } }"
+    encoded_command = base64.b64encode(pwsh_script.encode("utf-16-le")).decode()
+    command = f"PowerShell -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -EncodedCommand {encoded_command}"
 
     try:
         rc, stdout, stderr = connection.exec_command(
@@ -518,7 +521,7 @@ def _perform_reboot(
 
         # Try to abort (this may fail if it was already aborted)
         rc, stdout, stderr = _execute_command(
-            task_action, connection, "shutdown.exe /a"
+            task_action, connection, r"C:\Windows\System32\shutdown.exe /a"
         )
         display.vvvv(
             f"{task_action}: result from trying to abort existing shutdown - rc: {rc}, stdout: {stdout}, stderr: {stderr}"

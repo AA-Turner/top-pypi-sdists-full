@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import ClassVar
+from typing import ClassVar, TypeAlias
 
 import pytest
-from typing_extensions import TypeAlias
 
 from fastapi_pagination import LimitOffsetPage, LimitOffsetParams, Page, Params, paginate, set_page
 from fastapi_pagination.bases import AbstractParams
 from fastapi_pagination.cursor import CursorParams
+from fastapi_pagination.pydantic import IS_PYDANTIC_V2
 from tests.utils import normalize, parse_obj
 
 from .builder import SuiteBuilder
@@ -53,6 +53,7 @@ SuiteDecl: TypeAlias = tuple[
     AbstractParams,
     PaginationType,
     PaginationCaseType,
+    bool,
     str,
 ]
 
@@ -62,6 +63,7 @@ class BasePaginationTestSuite:
     pagination_types: ClassVar[set[PaginationType]] = {}
     case_types: ClassVar[set[PaginationCaseType]] = {}
     include_total: ClassVar[bool] = True
+    add_pydantic_v1_suites: ClassVar[bool] = False
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -74,14 +76,11 @@ class BasePaginationTestSuite:
         if not cls.pagination_types:
             cls.pagination_types = collect_pagination_types(cls)
 
-        suites = [
-            pytest.param(param, pagination_type, pagination_case_type, id=id_)
-            for param, pagination_type, pagination_case_type, id_ in cls.generate_suites()
-        ]
+        suites = [pytest.param(*values, id=id_) for *values, id_ in cls._add_pydantic_v1_suites(cls.generate_suites())]
 
         if suites:
             marker = pytest.mark.parametrize(
-                ("params", "pagination_type", "pagination_case_type"),
+                ("params", "pagination_type", "pagination_case_type", "pydantic_v1"),
                 suites,
             )
 
@@ -93,6 +92,7 @@ class BasePaginationTestSuite:
                 params,
                 pagination_type,
                 pagination_case_type,
+                pydantic_v1,
                 entities,
                 builder,
             ):
@@ -101,6 +101,7 @@ class BasePaginationTestSuite:
                     params,
                     pagination_type,
                     pagination_case_type,
+                    pydantic_v1,
                     entities,
                     builder,
                 )
@@ -108,13 +109,12 @@ class BasePaginationTestSuite:
             cls.test_pagination = _run_pagination
 
         cursor_suites = [
-            pytest.param(param, pagination_type, pagination_case_type, id=id_)
-            for param, pagination_type, pagination_case_type, id_ in cls.generate_cursor_suites()
+            pytest.param(*values, id=id_) for *values, id_ in cls._add_pydantic_v1_suites(cls.generate_cursor_suites())
         ]
 
         if cursor_suites:
             marker = pytest.mark.parametrize(
-                ("params", "pagination_type", "pagination_case_type"),
+                ("params", "pagination_type", "pagination_case_type", "pydantic_v1"),
                 cursor_suites,
             )
 
@@ -126,6 +126,7 @@ class BasePaginationTestSuite:
                 params,
                 pagination_type,
                 pagination_case_type,
+                pydantic_v1,
                 entities,
                 builder,
             ):
@@ -134,6 +135,7 @@ class BasePaginationTestSuite:
                     params,
                     pagination_type,
                     pagination_case_type,
+                    pydantic_v1,
                     entities,
                     builder,
                 )
@@ -141,30 +143,40 @@ class BasePaginationTestSuite:
             cls.test_cursor_pagination = _run_cursor_pagination
 
     @classmethod
+    def _add_pydantic_v1_suites(cls, suites: Iterable[SuiteDecl]) -> Iterable[SuiteDecl]:
+        for param, pagination_type, pagination_case_type, _, id_ in suites:
+            yield param, pagination_type, pagination_case_type, False, id_
+
+            if IS_PYDANTIC_V2 and cls.add_pydantic_v1_suites:
+                yield param, pagination_type, pagination_case_type, True, f"{id_}-pydantic-v1-compatible"
+
+    @classmethod
     def generate_suites(cls) -> Iterable[SuiteDecl]:
         if "page-size" in cls.pagination_types:
             for case in {*cls.case_types} - {"optional"}:
-                for param, name in zip(_default_params, _params_desc):
-                    yield param, "page-size", case, f"page-size-{case}-{name}"
+                for param, name in zip(_default_params, _params_desc, strict=False):
+                    yield param, "page-size", case, False, f"page-size-{case}-{name}"
 
             if "optional" in cls.case_types:
                 yield (
                     MakeOptionalPage[Page].__params_type__(),
                     "page-size",
                     "optional",
+                    False,
                     "page-size-optional",
                 )
 
         if "limit-offset" in cls.pagination_types:
             for case in {*cls.case_types} - {"optional"}:
-                for param, name in zip(_limit_offset_params, _params_desc):
-                    yield param, "limit-offset", case, f"limit-offset-{case}-{name}"
+                for param, name in zip(_limit_offset_params, _params_desc, strict=False):
+                    yield param, "limit-offset", case, False, f"limit-offset-{case}-{name}"
 
             if "optional" in cls.case_types:
                 yield (
                     MakeOptionalPage[LimitOffsetPage].__params_type__(),
                     "limit-offset",
                     "optional",
+                    False,
                     "limit-offset-optional",
                 )
 
@@ -175,7 +187,7 @@ class BasePaginationTestSuite:
         if "default" not in cls.case_types:
             return
 
-        yield CursorParams(size=22), "cursor", "default", "cursor-default"
+        yield CursorParams(size=22), "cursor", "default", False, "cursor-default"
 
     @classmethod
     def create_builder(cls) -> SuiteBuilder:
@@ -191,6 +203,7 @@ class BasePaginationTestSuite:
         params,
         pagination_type,
         pagination_case_type,
+        pydantic_v1,
         entities,
         builder,
     ):
@@ -198,7 +211,7 @@ class BasePaginationTestSuite:
         entities = self._prepare_cursor_entities(entities)
         cursor = params.cursor
         size = params.size
-        cls = builder.get_response_model_for(pagination_type, pagination_case_type)
+        cls = builder.get_response_model_for(pagination_type, pagination_case_type, pydantic_v1)
 
         while entities:
             http_params = params.dict(exclude_none=True)
@@ -233,6 +246,7 @@ class BasePaginationTestSuite:
         params,
         pagination_type,
         pagination_case_type,
+        pydantic_v1,
         entities,
         builder,
     ):
@@ -241,7 +255,7 @@ class BasePaginationTestSuite:
         response = await client.get(path, params=params.dict(exclude_none=True))
         response.raise_for_status()
 
-        cls = builder.get_response_model_for(pagination_type, pagination_case_type)
+        cls = builder.get_response_model_for(pagination_type, pagination_case_type, pydantic_v1)
 
         with set_page(cls):
             expected = self._normalize_expected(paginate(entities, params))

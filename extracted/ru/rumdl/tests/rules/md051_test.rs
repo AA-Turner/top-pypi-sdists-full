@@ -5,9 +5,11 @@ use rumdl_lib::utils::anchor_styles::AnchorStyle;
 
 #[test]
 fn test_valid_link_fragment() {
+    // Test internal link (fragment only) - should validate against current document
     let ctx = LintContext::new(
-        "# Test Heading\n\nThis is a [link](somepath#test-heading) to the heading.",
+        "# Test Heading\n\nThis is a [link](#test-heading) to the heading.",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let rule = MD051LinkFragments::new();
     let result = rule.check(&ctx).unwrap();
@@ -16,9 +18,11 @@ fn test_valid_link_fragment() {
 
 #[test]
 fn test_invalid_link_fragment() {
+    // Test internal link with wrong fragment - should flag as invalid
     let ctx = LintContext::new(
-        "# Test Heading\n\nThis is a [link](somepath#wrong-heading) to the heading.",
+        "# Test Heading\n\nThis is a [link](#wrong-heading) to the heading.",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let rule = MD051LinkFragments::new();
     let result = rule.check(&ctx).unwrap();
@@ -27,9 +31,11 @@ fn test_invalid_link_fragment() {
 
 #[test]
 fn test_multiple_headings() {
+    // Test internal links to multiple headings
     let ctx = LintContext::new(
-        "# First Heading\n\n## Second Heading\n\n[Link 1](somepath#first-heading)\n[Link 2](somepath#second-heading)",
+        "# First Heading\n\n## Second Heading\n\n[Link 1](#first-heading)\n[Link 2](#second-heading)",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let rule = MD051LinkFragments::new();
     let result = rule.check(&ctx).unwrap();
@@ -38,9 +44,11 @@ fn test_multiple_headings() {
 
 #[test]
 fn test_special_characters() {
+    // Test internal link with special characters in heading
     let ctx = LintContext::new(
-        "# Test & Heading!\n\nThis is a [link](somepath#test--heading) to the heading.",
+        "# Test & Heading!\n\nThis is a [link](#test--heading) to the heading.",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let rule = MD051LinkFragments::new();
     let result = rule.check(&ctx).unwrap();
@@ -54,6 +62,7 @@ fn test_no_fragments() {
     let ctx = LintContext::new(
         "# Test Heading\n\nThis is a [link](https://example.com) without fragment.",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let rule = MD051LinkFragments::new();
     let result = rule.check(&ctx).unwrap();
@@ -62,7 +71,7 @@ fn test_no_fragments() {
 
 #[test]
 fn test_empty_content() {
-    let ctx = LintContext::new("", rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new("", rumdl_lib::config::MarkdownFlavor::Standard, None);
     let rule = MD051LinkFragments::new();
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
@@ -70,9 +79,11 @@ fn test_empty_content() {
 
 #[test]
 fn test_multiple_invalid_fragments() {
+    // Test multiple internal links with invalid fragments
     let ctx = LintContext::new(
-        "# Test Heading\n\n[Link 1](somepath#wrong1)\n[Link 2](somepath#wrong2)",
+        "# Test Heading\n\n[Link 1](#wrong1)\n[Link 2](#wrong2)",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let rule = MD051LinkFragments::new();
     let result = rule.check(&ctx).unwrap();
@@ -89,6 +100,7 @@ fn test_case_sensitivity() {
 [Valid Link Different Case](#MY-HEADING)
 "#,
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
 
     let rule = MD051LinkFragments::new();
@@ -105,25 +117,28 @@ fn test_case_sensitivity() {
 
 #[test]
 fn test_complex_heading_structures() {
+    // Test internal links with various heading styles (ATX and Setext)
     let ctx = LintContext::new(
-        "# Heading 1\n\nSome text\n\nHeading 2\n-------\n\n### Heading 3\n\n[Link to 1](somepath#heading-1)\n[Link to 2](somepath#heading-2)\n[Link to 3](somepath#heading-3)\n[Link to missing](somepath#heading-4)",
+        "# Heading 1\n\nSome text\n\nHeading 2\n-------\n\n### Heading 3\n\n[Link to 1](#heading-1)\n[Link to 2](#heading-2)\n[Link to 3](#heading-3)\n[Link to missing](#heading-4)",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let rule = MD051LinkFragments::new();
 
     let result = rule.check(&ctx).unwrap();
 
-    // With our improved implementation, we expect only the missing heading to fail
+    // Only the missing heading should be flagged
     assert_eq!(result.len(), 1);
 
     // Test with special characters in headings/links
     let ctx = LintContext::new(
-        "# Heading & Special! Characters\n\n[Link](somepath#heading--special-characters)\n[Bad Link](somepath#heading-special-characters-bad)",
+        "# Heading & Special! Characters\n\n[Link](#heading--special-characters)\n[Bad Link](#heading-special-characters-bad)",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let result = rule.check(&ctx).unwrap();
 
-    // With our improved implementation, only truly invalid fragments should fail
+    // Only the invalid fragment should fail
     assert_eq!(result.len(), 1);
 }
 
@@ -138,6 +153,7 @@ fn test_heading_id_generation() {
 [Link with multiple hyphens](#heading-1)
 "#,
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
 
     let rule = MD051LinkFragments::new();
@@ -155,6 +171,7 @@ fn test_heading_to_fragment_edge_cases() {
     let ctx = LintContext::new(
         "# Heading\n\n# Heading\n\n[Link 1](somepath#heading)\n[Link 2](somepath#heading-1)",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let rule = MD051LinkFragments::new();
 
@@ -166,6 +183,7 @@ fn test_heading_to_fragment_edge_cases() {
     let ctx = LintContext::new(
         "# @#$%^\n\n[Link](somepath#)",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 0);
@@ -174,6 +192,7 @@ fn test_heading_to_fragment_edge_cases() {
     let ctx = LintContext::new(
         "# Heading\n\n[Internal](somepath#heading)\n[External](https://example.com#heading)",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 0);
@@ -184,6 +203,7 @@ fn test_fragment_in_code_blocks() {
     let ctx = LintContext::new(
         "# Real Heading\n\n```markdown\n# Fake Heading\n[Link](somepath#fake-heading)\n```\n\n[Link](somepath#real-heading)",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let rule = MD051LinkFragments::new();
 
@@ -200,6 +220,7 @@ fn test_fragment_in_code_blocks() {
     let ctx = LintContext::new(
         "```markdown\n# Code Heading\n```\n\n[Link](#code-heading)",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let result = rule.check(&ctx).unwrap();
     println!("Second test has {} warnings", result.len());
@@ -220,6 +241,7 @@ fn test_fragment_with_complex_content() {
 [Link to heading](#heading-with-bold-and-italic)
 "#,
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
 
     let rule = MD051LinkFragments::new();
@@ -245,6 +267,7 @@ fn test_nested_formatting_in_fragments() {
 [Link to heading](#heading-with-bold-italic-text)
 "#,
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
 
     let rule = MD051LinkFragments::new();
@@ -269,6 +292,7 @@ fn test_multiple_formatting_styles() {
 [Link to heading](#heading-with-underscores-and-asterisks-mixed)
 "#,
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
 
     let rule = MD051LinkFragments::new();
@@ -293,6 +317,7 @@ fn test_complex_nested_formatting() {
 [Link to heading](#bold-with-italic-and-code-and-link)
 "#,
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
 
     let rule = MD051LinkFragments::with_anchor_style(AnchorStyle::KramdownGfm);
@@ -314,6 +339,7 @@ fn test_formatting_edge_cases() {
 [Link to nested formatting](#heading-with-apartialbold-and-italic-with-nested-formatting)
 "#,
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
 
     let rule = MD051LinkFragments::new();
@@ -363,7 +389,7 @@ fn test_performance_md051() {
     // Measure performance
     let start = std::time::Instant::now();
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     let duration = start.elapsed();
 
@@ -384,6 +410,7 @@ fn test_inline_code_spans() {
     let ctx = LintContext::new(
         "# Real Heading\n\nThis is a real link: [Link](somepath#real-heading)\n\nThis is a code example: `[Example](#missing-section)`",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let rule = MD051LinkFragments::new();
 
@@ -396,6 +423,7 @@ fn test_inline_code_spans() {
     let ctx = LintContext::new(
         "# Heading One\n\n`[Invalid](#missing)` and [Valid](#heading-one) and `[Another Invalid](#nowhere)`",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
     let result = rule.check(&ctx).unwrap();
 
@@ -406,6 +434,7 @@ fn test_inline_code_spans() {
     let ctx = LintContext::new(
         "# Heading One\n\n`[Example](#missing-section)` and [Invalid Link](#section-two)",
         rumdl_lib::config::MarkdownFlavor::Standard,
+        None,
     );
 
     // Debug: Let's check what the LintContext contains
@@ -415,7 +444,10 @@ fn test_inline_code_spans() {
     for (i, line_info) in ctx.lines.iter().enumerate() {
         println!(
             "Line {}: content='{}', in_code_block={}, byte_offset={}",
-            i, line_info.content, line_info.in_code_block, line_info.byte_offset
+            i,
+            line_info.content(ctx.content),
+            line_info.in_code_block,
+            line_info.byte_offset
         );
         if let Some(heading) = &line_info.heading {
             println!("  Has heading: level={}, text='{}'", heading.level, heading.text);
@@ -453,7 +485,7 @@ fn test_readme_fragments_debug() {
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Test the actual rule
     println!("\nRunning MD051 check on README-like content:");
@@ -519,7 +551,7 @@ fn test_md051_fragment_generation_regression() {
     for (heading, expected_fragment) in test_cases {
         // Create a test document with the heading and a link to it
         let content = format!("# {heading}\n\n[Link](#{expected_fragment})");
-        let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // If the fragment generation is correct, there should be no warnings
@@ -559,7 +591,7 @@ fn test_md051_real_world_scenarios() {
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // All links should be valid with the fixed algorithm
@@ -593,7 +625,7 @@ fn test_md051_ampersand_variations() {
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // All ampersand cases should be handled correctly
@@ -633,7 +665,7 @@ And some cross-file links that should be ignored by MD051:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should only have one warning for the missing internal fragment
@@ -681,7 +713,7 @@ Test various link types:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should only flag the invalid fragment-only link
@@ -732,7 +764,7 @@ Fragment-only links (should be validated):
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should only flag the invalid fragment-only link
@@ -768,8 +800,6 @@ Cross-file links (should be ignored):
 - [Empty fragment](file.md#)
 - [Archive file](data.tar.gz#section)
 - [Backup file](config.ini.backup#settings)
-
-Ambiguous paths (treated as fragment-only links and validated):
 - [No extension with dot](.gitignore#rules)
 - [Hidden no extension](.hidden#section)
 - [No extension](somefile#section)
@@ -780,24 +810,21 @@ Fragment-only tests:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // Should flag the invalid fragment-only link plus the ambiguous paths without extensions
-    assert_eq!(
-        result.len(),
-        4,
-        "Expected 4 warnings: 1 invalid fragment + 3 ambiguous paths"
-    );
+    // Should flag only the invalid fragment-only link:
+    // - `#nonexistent` - invalid fragment-only link
+    // NOT flagged (all treated as cross-file links):
+    // - `somefile#section` - GitHub-style extension-less cross-file link
+    // - `.gitignore#rules` - hidden dotfile with extension
+    // - `.hidden#section` - hidden file reference
+    assert_eq!(result.len(), 1, "Expected 1 warning for invalid fragment-only link");
 
-    // Check that we get warnings for the ambiguous paths and invalid fragment
+    // Check that we get warning for the invalid fragment
     let warning_messages: Vec<&str> = result.iter().map(|w| w.message.as_str()).collect();
-    let contains_rules = warning_messages.iter().any(|msg| msg.contains("rules"));
-    let contains_section = warning_messages.iter().any(|msg| msg.contains("section"));
     let contains_nonexistent = warning_messages.iter().any(|msg| msg.contains("nonexistent"));
 
-    assert!(contains_rules, "Should warn about #rules fragment");
-    assert!(contains_section, "Should warn about #section fragment");
     assert!(contains_nonexistent, "Should warn about #nonexistent fragment");
 }
 
@@ -813,11 +840,11 @@ Cross-file links (should be ignored):
 - [URL with port](http://example.com:8080/file.md#section)
 - [Network path](//server/file.md#section)
 - [Absolute path](/absolute/file.md#section)
-
-Ambiguous paths without clear extensions (treated as fragment-only):
 - [No extension](somefile#section)
-- [Dot but no extension](file.#section)
 - [Hidden file](.hidden#section)
+
+Ambiguous paths (dot but empty extension, fragment validated):
+- [Dot but no extension](file.#section)
 - [Trailing dot](file.#section)
 
 Fragment-only (should be validated):
@@ -826,14 +853,19 @@ Fragment-only (should be validated):
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // Should flag ambiguous paths without extensions plus the invalid fragment
+    // Should flag:
+    // - `file.#section` x2 - has dot but empty extension (ambiguous, validates fragment)
+    // - `#invalid-heading` - invalid fragment-only
+    // NOT flagged (all treated as cross-file links):
+    // - `somefile#section` - GitHub-style extension-less
+    // - `.hidden#section` - hidden file reference
     assert_eq!(
         result.len(),
-        5,
-        "Expected 5 warnings: 4 ambiguous paths + 1 invalid fragment"
+        3,
+        "Expected 3 warnings: 2 trailing dot + 1 invalid fragment"
     );
 
     // Verify we get warnings for the expected fragments
@@ -841,7 +873,10 @@ Fragment-only (should be validated):
     let contains_section = warning_messages.iter().filter(|msg| msg.contains("section")).count();
     let contains_invalid = warning_messages.iter().any(|msg| msg.contains("invalid-heading"));
 
-    assert_eq!(contains_section, 4, "Should have 4 warnings about #section fragment");
+    assert_eq!(
+        contains_section, 2,
+        "Should have 2 warnings about #section from trailing dot paths"
+    );
     assert!(contains_invalid, "Should warn about #invalid-heading fragment");
 }
 
@@ -874,7 +909,7 @@ Fragment validation:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should only flag the invalid fragment-only link
@@ -902,7 +937,7 @@ fn test_performance_stress_case() {
     content.push_str("- [Invalid](#missing)\n");
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should only flag the one invalid fragment
@@ -927,11 +962,10 @@ Cross-file links with Unicode/special chars (should be ignored):
 - [Spaces in filename](my file.md#section)
 - [Numbers in extension](file.md2#section)
 - [Mixed case extension](FILE.Md#section)
-
-Ambiguous paths (treated as fragment-only):
-- [Special chars no extension](file@name#section)
 - [Unicode no extension](文档#section)
-- [Spaces no extension](my file#section)
+
+Paths with special chars (not extension-less, fragment validated):
+- [Special chars no extension](file@name#section)
 
 Fragment tests:
 - [Valid unicode](#café--restaurant)
@@ -940,25 +974,32 @@ Fragment tests:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // Should flag ambiguous paths + invalid fragment = 4 warnings
-    // 3 ambiguous paths (#section) + 1 missing fragment
-    // Note: #café--restaurant should NOT be flagged as it matches "Café & Restaurant" heading
-    // (& becomes -- per GitHub spec)
+    // Should flag:
+    // - `file@name#section` → @ is not valid in extension-less paths, so validates fragment
+    // - `#missing-heading` → invalid fragment
+    // NOT flagged:
+    // - `文档#section` → Unicode chars are alphanumeric, treated as extension-less cross-file link
+    // - `#café--restaurant` → matches "Café & Restaurant" heading
+    // Note: [Spaces no extension](my file#section) is NOT detected because pulldown-cmark
+    // correctly rejects URLs with unencoded spaces per CommonMark spec
     assert_eq!(
         result.len(),
-        4,
-        "Expected 4 warnings: 3 ambiguous paths + 1 invalid fragment"
+        2,
+        "Expected 2 warnings: 1 path with special char + 1 invalid fragment"
     );
 
     let warning_messages: Vec<&str> = result.iter().map(|w| w.message.as_str()).collect();
-    let contains_section = warning_messages.iter().filter(|msg| msg.contains("section")).count();
+    let contains_section = warning_messages.iter().any(|msg| msg.contains("section"));
     let contains_missing = warning_messages.iter().any(|msg| msg.contains("missing-heading"));
     let contains_cafe = warning_messages.iter().any(|msg| msg.contains("café-restaurant"));
 
-    assert_eq!(contains_section, 3, "Should have 3 warnings about #section fragment");
+    assert!(
+        contains_section,
+        "Should warn about #section fragment from file@name#section"
+    );
     assert!(contains_missing, "Should warn about #missing-heading fragment");
     assert!(
         !contains_cafe,
@@ -1000,7 +1041,7 @@ Fragment-only validation tests:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should flag only 1 invalid fragment - ambiguous paths are now treated as cross-file links
@@ -1034,7 +1075,7 @@ Fragment-only tests:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should only flag the invalid fragment
@@ -1069,20 +1110,27 @@ Fragment tests with normalization:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // Should flag the invalid fragment variations (case-insensitive matching is correct)
-    assert_eq!(result.len(), 2, "Expected 2 warnings for invalid fragment variations");
+    // Should flag only the invalid symbol fragment
+    // Note: [Invalid spacing](#multiple   spaces) is NOT detected because pulldown-cmark
+    // correctly rejects URLs with unencoded spaces per CommonMark spec
+    assert_eq!(
+        result.len(),
+        1,
+        "Expected 1 warning for invalid fragment with unencoded &"
+    );
 
     let warning_messages: Vec<&str> = result.iter().map(|w| w.message.as_str()).collect();
     let contains_symbols = warning_messages
         .iter()
         .any(|msg| msg.contains("special-characters-&-symbols"));
-    let contains_spacing = warning_messages.iter().any(|msg| msg.contains("multiple   spaces"));
 
-    assert!(contains_symbols, "Should warn about symbol fragment");
-    assert!(contains_spacing, "Should warn about spacing fragment");
+    assert!(
+        contains_symbols,
+        "Should warn about & symbol in fragment (should be --)"
+    );
 }
 
 #[test]
@@ -1106,7 +1154,7 @@ Fragment-only (should be validated):
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should only flag the invalid fragment
@@ -1138,7 +1186,7 @@ Malformed and edge case links:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should flag the invalid fragment and potentially malformed links
@@ -1167,7 +1215,7 @@ fn test_performance_with_many_links() {
     content.push_str("- [Invalid](#nonexistent)\n");
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     let start = std::time::Instant::now();
     let result = rule.check(&ctx).unwrap();
@@ -1223,7 +1271,7 @@ Links that should fail:
 - [Link to nonexistent](#nonexistent-id)
 "#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let rule = MD051LinkFragments::new();
     let result = rule.check(&ctx).unwrap();
 
@@ -1275,7 +1323,7 @@ Links that should fail:
 - [Nonexistent](#nonexistent)
 "#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let rule = MD051LinkFragments::new();
     let result = rule.check(&ctx).unwrap();
 
@@ -1329,7 +1377,7 @@ Links that should fail:
 - [Nonexistent](#nonexistent-next-line)
 "#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let rule = MD051LinkFragments::new();
     let result = rule.check(&ctx).unwrap();
 
@@ -1376,7 +1424,7 @@ Links:
 - [Next Line Class](#next-line-class)
 "#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let rule = MD051LinkFragments::new();
     let result = rule.check(&ctx).unwrap();
 
@@ -1406,7 +1454,7 @@ Links for testing:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     println!("Number of errors: {}", result.len());
@@ -1441,7 +1489,7 @@ There will be another section.
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should have no errors - link to second section should work
@@ -1468,7 +1516,7 @@ Links to test:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should have no errors - all complex punctuation should be handled correctly
@@ -1497,7 +1545,7 @@ Links to test:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should have no errors - ampersands and colons should be handled correctly
@@ -1529,7 +1577,7 @@ Links to test:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should have no errors - mixed punctuation should be handled correctly
@@ -1558,7 +1606,7 @@ Links to test:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should have no errors - consecutive hyphens should be collapsed
@@ -1590,7 +1638,7 @@ Links to test:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should have no errors - all edge cases should work
@@ -1619,7 +1667,7 @@ Links to test:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should only have 1 error for #missing
@@ -1653,7 +1701,7 @@ Links to test:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should only have 1 error for #does-not-exist
@@ -1675,7 +1723,7 @@ Links to test:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should have 1 error - anchors in code blocks don't count
@@ -1695,7 +1743,7 @@ Links to test:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should have 1 error for second-id
@@ -1726,7 +1774,7 @@ Links to test:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should only have 1 error for #wrong
@@ -1750,7 +1798,7 @@ Links to test:
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should have 2 errors for wrong case
@@ -1773,7 +1821,7 @@ fn test_html_anchors_parity_with_markdownlint() {
 
 ## Acknowledgements<a id="acknowledgements"></a>
 
-## Who's Using Ruff?<a id="whos-using-ruff"></a>
+## Who's Using Ruff?<a id="whose-using-ruff"></a>
 
 ## License<a id="license"></a>
 
@@ -1784,12 +1832,12 @@ Table of contents:
 1. [Contributing](#contributing)
 1. [Support](#support)
 1. [Acknowledgements](#acknowledgements)
-1. [Who's Using Ruff?](#whos-using-ruff)
+1. [Who's Using Ruff?](#whose-using-ruff)
 1. [License](#license)
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // All links should be valid - no errors
@@ -1820,7 +1868,7 @@ Content with arrows.
 "#;
 
     let rule = MD051LinkFragments::new();
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // All links should be valid with the fixed arrow pattern handling
@@ -1829,4 +1877,790 @@ Content with arrows.
         0,
         "Arrow patterns in headers should generate correct anchors (issue #82)"
     );
+}
+
+// Extension-less cross-file link tests
+// These tests verify that MD051 correctly recognizes and validates
+// extension-less markdown links like `[link](page#section)` that resolve to `page.md#section`.
+// Note: Due to file size, comprehensive edge case tests are in separate modules below.
+mod extensionless_links {
+    use rumdl_lib::config::{Config, MarkdownFlavor};
+    use rumdl_lib::rule::Rule;
+    use rumdl_lib::rules::MD051LinkFragments;
+    use rumdl_lib::workspace_index::WorkspaceIndex;
+    use std::fs;
+    use tempfile::tempdir;
+
+    /// Test the exact scenario from REMAINING-ISSUES.md
+    ///
+    /// Pattern: `[b#header1](b#header1)` where `b.md` exists
+    /// Expected: Should recognize as cross-file link and validate fragment exists in b.md
+    #[test]
+    fn test_extensionless_link_exact_reproduction() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        // Create target file with heading
+        let target_file = base_path.join("b.md");
+        fs::write(&target_file, "# header1\n\nContent here.\n").unwrap();
+
+        // Create source file with extension-less link
+        let source_file = base_path.join("a.md");
+        let source_content = r#"# Source Document
+
+This links to [header1 in b](b#header1).
+"#;
+        fs::write(&source_file, source_content).unwrap();
+
+        // Get all rules
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+
+        // Lint and index both files
+        let source_content_str = fs::read_to_string(&source_file).unwrap();
+        let target_content_str = fs::read_to_string(&target_file).unwrap();
+
+        let (_, source_index) = rumdl_lib::lint_and_index(
+            &source_content_str,
+            &rules,
+            false,
+            MarkdownFlavor::default(),
+            None,
+            None,
+        );
+        let (_, target_index) = rumdl_lib::lint_and_index(
+            &target_content_str,
+            &rules,
+            false,
+            MarkdownFlavor::default(),
+            None,
+            None,
+        );
+
+        // Build workspace index
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+        workspace_index.insert_file(target_file.clone(), target_index.clone());
+
+        // Verify target file has the heading indexed
+        let target_file_index = workspace_index.get_file(&target_file).unwrap();
+        assert!(
+            target_file_index.has_anchor("header1"),
+            "Target file should have 'header1' anchor indexed"
+        );
+
+        // Verify extension-less link is recognized as cross-file
+        let has_cross_file_link = source_index
+            .cross_file_links
+            .iter()
+            .any(|link| link.target_path == "b" && link.fragment == "header1");
+
+        assert!(
+            has_cross_file_link,
+            "Extension-less link 'b#header1' should be recognized as cross-file link.\n\
+             Cross-file links found: {:?}",
+            source_index.cross_file_links
+        );
+
+        // Run cross-file validation
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        // Should have NO warnings because the fragment exists
+        assert_eq!(
+            warnings.len(),
+            0,
+            "Extension-less link to existing fragment should have no warnings.\n\
+             Current warnings: {warnings:?}",
+        );
+    }
+
+    /// Test extension-less link to non-existent fragment
+    #[test]
+    fn test_extensionless_link_missing_fragment() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        // Create target file WITHOUT the heading
+        let target_file = base_path.join("page.md");
+        fs::write(&target_file, "# Other Heading\n\nContent.\n").unwrap();
+
+        // Create source file with extension-less link to missing fragment
+        let source_file = base_path.join("index.md");
+        let source_content = r#"# Index
+
+Link to [missing section](page#missing-section).
+"#;
+        fs::write(&source_file, source_content).unwrap();
+
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+
+        let source_content_str = fs::read_to_string(&source_file).unwrap();
+        let target_content_str = fs::read_to_string(&target_file).unwrap();
+
+        let (_, source_index) = rumdl_lib::lint_and_index(
+            &source_content_str,
+            &rules,
+            false,
+            MarkdownFlavor::default(),
+            None,
+            None,
+        );
+        let (_, target_index) = rumdl_lib::lint_and_index(
+            &target_content_str,
+            &rules,
+            false,
+            MarkdownFlavor::default(),
+            None,
+            None,
+        );
+
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+        workspace_index.insert_file(target_file.clone(), target_index.clone());
+
+        // Verify link is recognized as cross-file
+        let has_cross_file_link = source_index
+            .cross_file_links
+            .iter()
+            .any(|link| link.target_path == "page" && link.fragment == "missing-section");
+
+        assert!(
+            has_cross_file_link,
+            "Extension-less link 'page#missing-section' should be recognized as cross-file"
+        );
+
+        // Run validation - should warn about missing fragment
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        assert_eq!(
+            warnings.len(),
+            1,
+            "Should warn about missing fragment in extension-less link"
+        );
+        assert!(
+            warnings[0].message.contains("missing-section"),
+            "Warning should mention the missing fragment"
+        );
+        assert!(
+            warnings[0].message.contains("page"),
+            "Warning should mention the target file"
+        );
+    }
+
+    /// Test extension-less links in subdirectories
+    #[test]
+    fn test_extensionless_link_subdirectory() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        // Create subdirectory structure
+        let docs_dir = base_path.join("docs");
+        fs::create_dir_all(&docs_dir).unwrap();
+
+        let target_file = docs_dir.join("guide.md");
+        fs::write(&target_file, "# Getting Started\n\n## Installation\n\n## Usage\n").unwrap();
+
+        let source_file = base_path.join("README.md");
+        let source_content = r#"# Main README
+
+See the [installation guide](docs/guide#installation).
+"#;
+        fs::write(&source_file, source_content).unwrap();
+
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+
+        let source_content_str = fs::read_to_string(&source_file).unwrap();
+        let target_content_str = fs::read_to_string(&target_file).unwrap();
+
+        let (_, source_index) = rumdl_lib::lint_and_index(
+            &source_content_str,
+            &rules,
+            false,
+            MarkdownFlavor::default(),
+            None,
+            None,
+        );
+        let (_, target_index) = rumdl_lib::lint_and_index(
+            &target_content_str,
+            &rules,
+            false,
+            MarkdownFlavor::default(),
+            None,
+            None,
+        );
+
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+        workspace_index.insert_file(target_file.clone(), target_index.clone());
+
+        // Verify link is recognized
+        let has_cross_file_link = source_index
+            .cross_file_links
+            .iter()
+            .any(|link| link.target_path == "docs/guide" && link.fragment == "installation");
+
+        assert!(
+            has_cross_file_link,
+            "Extension-less link in subdirectory should be recognized"
+        );
+
+        // Should validate successfully
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        assert_eq!(
+            warnings.len(),
+            0,
+            "Extension-less link to existing fragment in subdirectory should be valid"
+        );
+    }
+
+    /// Test that extension-less links are distinguished from fragment-only links
+    #[test]
+    fn test_extensionless_vs_fragment_only() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        let target_file = base_path.join("other.md");
+        fs::write(&target_file, "# Target Heading\n").unwrap();
+
+        let source_file = base_path.join("main.md");
+        let source_content = r#"# Main Document
+
+## Local Section
+
+- [Fragment only](#local-section) - should validate against THIS file
+- [Extension-less cross-file](other#target-heading) - should validate against other.md
+- [Extension-less missing](other#missing) - should warn about missing fragment
+"#;
+        fs::write(&source_file, source_content).unwrap();
+
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+
+        let source_content_str = fs::read_to_string(&source_file).unwrap();
+        let target_content_str = fs::read_to_string(&target_file).unwrap();
+
+        let (_, source_index) = rumdl_lib::lint_and_index(
+            &source_content_str,
+            &rules,
+            false,
+            MarkdownFlavor::default(),
+            None,
+            None,
+        );
+        let (_, target_index) = rumdl_lib::lint_and_index(
+            &target_content_str,
+            &rules,
+            false,
+            MarkdownFlavor::default(),
+            None,
+            None,
+        );
+
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+        workspace_index.insert_file(target_file.clone(), target_index.clone());
+
+        // Fragment-only link should NOT be in cross_file_links
+        let has_fragment_only = source_index
+            .cross_file_links
+            .iter()
+            .any(|link| link.target_path.is_empty() || link.target_path == "#");
+
+        assert!(
+            !has_fragment_only,
+            "Fragment-only link should NOT be in cross_file_links"
+        );
+
+        // Extension-less link SHOULD be in cross_file_links
+        let has_extensionless = source_index
+            .cross_file_links
+            .iter()
+            .any(|link| link.target_path == "other");
+
+        assert!(
+            has_extensionless,
+            "Extension-less link 'other#target-heading' should be in cross_file_links"
+        );
+
+        // Run validation
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        // Should only warn about the missing fragment in other.md
+        assert_eq!(
+            warnings.len(),
+            1,
+            "Should only warn about missing fragment in extension-less link"
+        );
+        assert!(
+            warnings[0].message.contains("missing"),
+            "Warning should be about missing fragment"
+        );
+    }
+
+    /// Test edge case: extension-less link where file doesn't exist
+    #[test]
+    fn test_extensionless_link_file_not_exists() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        // Don't create the target file - it doesn't exist
+        let source_file = base_path.join("index.md");
+        let source_content = r#"# Index
+
+Link to [non-existent](nonexistent#section).
+"#;
+        fs::write(&source_file, source_content).unwrap();
+
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+
+        let source_content_str = fs::read_to_string(&source_file).unwrap();
+        let (_, source_index) = rumdl_lib::lint_and_index(
+            &source_content_str,
+            &rules,
+            false,
+            MarkdownFlavor::default(),
+            None,
+            None,
+        );
+
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+
+        // Link should still be recognized as cross-file (even if file doesn't exist)
+        let has_cross_file_link = source_index
+            .cross_file_links
+            .iter()
+            .any(|link| link.target_path == "nonexistent");
+
+        assert!(
+            has_cross_file_link,
+            "Extension-less link should be recognized even if file doesn't exist yet"
+        );
+
+        // Validation should skip (file not in workspace index)
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        // No warnings because file isn't in workspace index
+        assert_eq!(
+            warnings.len(),
+            0,
+            "No warnings for files not in workspace (expected behavior)"
+        );
+    }
+
+    /// Test that extension-less links work with various markdown extensions
+    #[test]
+    fn test_extensionless_link_markdown_variants() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        // Test .markdown extension
+        let target1 = base_path.join("page.markdown");
+        fs::write(&target1, "# Page Markdown\n").unwrap();
+
+        // Test .md extension
+        let target2 = base_path.join("doc.md");
+        fs::write(&target2, "# Doc MD\n").unwrap();
+
+        let source_file = base_path.join("index.md");
+        let source_content = r#"# Index
+
+- [Page](page#page-markdown)
+- [Doc](doc#doc-md)
+"#;
+        fs::write(&source_file, source_content).unwrap();
+
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+
+        let source_content_str = fs::read_to_string(&source_file).unwrap();
+        let target1_content = fs::read_to_string(&target1).unwrap();
+        let target2_content = fs::read_to_string(&target2).unwrap();
+
+        let (_, source_index) = rumdl_lib::lint_and_index(
+            &source_content_str,
+            &rules,
+            false,
+            MarkdownFlavor::default(),
+            None,
+            None,
+        );
+        let (_, target1_index) =
+            rumdl_lib::lint_and_index(&target1_content, &rules, false, MarkdownFlavor::default(), None, None);
+        let (_, target2_index) =
+            rumdl_lib::lint_and_index(&target2_content, &rules, false, MarkdownFlavor::default(), None, None);
+
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+        workspace_index.insert_file(target1.clone(), target1_index.clone());
+        workspace_index.insert_file(target2.clone(), target2_index.clone());
+
+        // Both links should be recognized
+        let has_page_link = source_index
+            .cross_file_links
+            .iter()
+            .any(|link| link.target_path == "page");
+        let has_doc_link = source_index
+            .cross_file_links
+            .iter()
+            .any(|link| link.target_path == "doc");
+
+        assert!(
+            has_page_link && has_doc_link,
+            "Both extension-less links should be recognized"
+        );
+
+        // Both should validate successfully
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        assert_eq!(
+            warnings.len(),
+            0,
+            "Extension-less links to .md and .markdown files should both work"
+        );
+    }
+}
+
+// =============================================================================
+// URL-Encoded CJK Fragment Tests
+// =============================================================================
+// When documentation tools, browsers, or CI/CD systems generate markdown links
+// with CJK fragments, they often URL-encode non-ASCII characters. Both forms
+// should work: raw CJK (#インストール) and URL-encoded (#%E3%82%A4...).
+
+mod url_encoded_cjk_tests {
+    use super::*;
+    use rumdl_lib::config::{Config, MarkdownFlavor};
+    use rumdl_lib::rules::MD051LinkFragments;
+    use rumdl_lib::workspace_index::WorkspaceIndex;
+    use std::fs;
+    use tempfile::tempdir;
+
+    /// Test: Raw CJK fragment should work (baseline)
+    #[test]
+    fn test_raw_cjk_fragment_works() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        // Target file with Japanese heading
+        let target_file = base_path.join("target.md");
+        fs::write(&target_file, "# Target\n\n## インストール\n\nContent here.\n").unwrap();
+
+        // Source file with raw CJK link
+        let source_file = base_path.join("source.md");
+        fs::write(&source_file, "# Source\n\n[Install](target.md#インストール)\n").unwrap();
+
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+        let target_content = fs::read_to_string(&target_file).unwrap();
+        let source_content = fs::read_to_string(&source_file).unwrap();
+
+        let (_, target_index) =
+            rumdl_lib::lint_and_index(&target_content, &rules, false, MarkdownFlavor::default(), None, None);
+        let (_, source_index) =
+            rumdl_lib::lint_and_index(&source_content, &rules, false, MarkdownFlavor::default(), None, None);
+
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(target_file.clone(), target_index);
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        assert!(warnings.is_empty(), "Raw CJK fragment should work: {warnings:?}");
+    }
+
+    /// Test: URL-encoded Japanese fragment should work
+    /// "インストール" URL-encoded = "%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB"
+    #[test]
+    fn test_url_encoded_japanese_fragment() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        let target_file = base_path.join("target.md");
+        fs::write(&target_file, "# Target\n\n## インストール\n\nContent here.\n").unwrap();
+
+        // Source file with URL-encoded CJK link
+        let source_file = base_path.join("source.md");
+        fs::write(
+            &source_file,
+            "# Source\n\n[Install](target.md#%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB)\n",
+        )
+        .unwrap();
+
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+        let target_content = fs::read_to_string(&target_file).unwrap();
+        let source_content = fs::read_to_string(&source_file).unwrap();
+
+        let (_, target_index) =
+            rumdl_lib::lint_and_index(&target_content, &rules, false, MarkdownFlavor::default(), None, None);
+        let (_, source_index) =
+            rumdl_lib::lint_and_index(&source_content, &rules, false, MarkdownFlavor::default(), None, None);
+
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(target_file.clone(), target_index);
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        assert!(
+            warnings.is_empty(),
+            "URL-encoded Japanese fragment should match raw anchor: {warnings:?}"
+        );
+    }
+
+    /// Test: URL-encoded Korean fragment should work
+    /// "한국어" URL-encoded = "%ED%95%9C%EA%B5%AD%EC%96%B4"
+    #[test]
+    fn test_url_encoded_korean_fragment() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        let target_file = base_path.join("target.md");
+        fs::write(&target_file, "# Target\n\n## 한국어\n\nKorean content.\n").unwrap();
+
+        let source_file = base_path.join("source.md");
+        fs::write(
+            &source_file,
+            "# Source\n\n[Korean](target.md#%ED%95%9C%EA%B5%AD%EC%96%B4)\n",
+        )
+        .unwrap();
+
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+        let target_content = fs::read_to_string(&target_file).unwrap();
+        let source_content = fs::read_to_string(&source_file).unwrap();
+
+        let (_, target_index) =
+            rumdl_lib::lint_and_index(&target_content, &rules, false, MarkdownFlavor::default(), None, None);
+        let (_, source_index) =
+            rumdl_lib::lint_and_index(&source_content, &rules, false, MarkdownFlavor::default(), None, None);
+
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(target_file.clone(), target_index);
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        assert!(
+            warnings.is_empty(),
+            "URL-encoded Korean fragment should match raw anchor: {warnings:?}"
+        );
+    }
+
+    /// Test: URL-encoded Chinese fragment should work
+    /// "中文" URL-encoded = "%E4%B8%AD%E6%96%87"
+    #[test]
+    fn test_url_encoded_chinese_fragment() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        let target_file = base_path.join("target.md");
+        fs::write(&target_file, "# Target\n\n## 中文\n\nChinese content.\n").unwrap();
+
+        let source_file = base_path.join("source.md");
+        fs::write(&source_file, "# Source\n\n[Chinese](target.md#%E4%B8%AD%E6%96%87)\n").unwrap();
+
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+        let target_content = fs::read_to_string(&target_file).unwrap();
+        let source_content = fs::read_to_string(&source_file).unwrap();
+
+        let (_, target_index) =
+            rumdl_lib::lint_and_index(&target_content, &rules, false, MarkdownFlavor::default(), None, None);
+        let (_, source_index) =
+            rumdl_lib::lint_and_index(&source_content, &rules, false, MarkdownFlavor::default(), None, None);
+
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(target_file.clone(), target_index);
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        assert!(
+            warnings.is_empty(),
+            "URL-encoded Chinese fragment should match raw anchor: {warnings:?}"
+        );
+    }
+
+    /// Test: Mixed encoding (ASCII + URL-encoded CJK)
+    /// "mixed-テスト" with テスト URL-encoded = "mixed-%E3%83%86%E3%82%B9%E3%83%88"
+    #[test]
+    fn test_mixed_encoding_fragment() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        let target_file = base_path.join("target.md");
+        fs::write(&target_file, "# Target\n\n## Mixed テスト\n\nMixed content.\n").unwrap();
+
+        let source_file = base_path.join("source.md");
+        // GitHub generates: #mixed-テスト, URL-encoded: #mixed-%E3%83%86%E3%82%B9%E3%83%88
+        fs::write(
+            &source_file,
+            "# Source\n\n[Mixed](target.md#mixed-%E3%83%86%E3%82%B9%E3%83%88)\n",
+        )
+        .unwrap();
+
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+        let target_content = fs::read_to_string(&target_file).unwrap();
+        let source_content = fs::read_to_string(&source_file).unwrap();
+
+        let (_, target_index) =
+            rumdl_lib::lint_and_index(&target_content, &rules, false, MarkdownFlavor::default(), None, None);
+        let (_, source_index) =
+            rumdl_lib::lint_and_index(&source_content, &rules, false, MarkdownFlavor::default(), None, None);
+
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(target_file.clone(), target_index);
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        assert!(
+            warnings.is_empty(),
+            "Mixed ASCII + URL-encoded CJK should work: {warnings:?}"
+        );
+    }
+
+    /// Test: Invalid URL encoding falls back gracefully
+    #[test]
+    fn test_invalid_url_encoding_fallback() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        let target_file = base_path.join("target.md");
+        fs::write(&target_file, "# Target\n\n## Valid Heading\n\nContent.\n").unwrap();
+
+        // Invalid URL encoding: %ZZ is not valid
+        let source_file = base_path.join("source.md");
+        fs::write(&source_file, "# Source\n\n[Bad](target.md#%ZZ%invalid)\n").unwrap();
+
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+        let target_content = fs::read_to_string(&target_file).unwrap();
+        let source_content = fs::read_to_string(&source_file).unwrap();
+
+        let (_, target_index) =
+            rumdl_lib::lint_and_index(&target_content, &rules, false, MarkdownFlavor::default(), None, None);
+        let (_, source_index) =
+            rumdl_lib::lint_and_index(&source_content, &rules, false, MarkdownFlavor::default(), None, None);
+
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(target_file.clone(), target_index);
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        // Should still warn (invalid encoding doesn't match any anchor)
+        assert_eq!(warnings.len(), 1, "Invalid URL encoding should warn");
+    }
+
+    /// Test: Case-insensitive URL encoding (%E3 vs %e3)
+    #[test]
+    fn test_url_encoding_case_insensitive() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        let target_file = base_path.join("target.md");
+        fs::write(&target_file, "# Target\n\n## テスト\n\nContent.\n").unwrap();
+
+        // Use lowercase hex: %e3%83%86%e3%82%b9%e3%83%88 instead of %E3%83%86%E3%82%B9%E3%83%88
+        let source_file = base_path.join("source.md");
+        fs::write(
+            &source_file,
+            "# Source\n\n[Test](target.md#%e3%83%86%e3%82%b9%e3%83%88)\n",
+        )
+        .unwrap();
+
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+        let target_content = fs::read_to_string(&target_file).unwrap();
+        let source_content = fs::read_to_string(&source_file).unwrap();
+
+        let (_, target_index) =
+            rumdl_lib::lint_and_index(&target_content, &rules, false, MarkdownFlavor::default(), None, None);
+        let (_, source_index) =
+            rumdl_lib::lint_and_index(&source_content, &rules, false, MarkdownFlavor::default(), None, None);
+
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(target_file.clone(), target_index);
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        assert!(warnings.is_empty(), "Lowercase URL encoding should work: {warnings:?}");
+    }
+
+    /// Test: CJK heading with spaces becomes hyphenated anchor
+    /// "한국어 테스트" -> "#한국어-테스트" URL-encoded = "#%ED%95%9C%EA%B5%AD%EC%96%B4-%ED%85%8C%EC%8A%A4%ED%8A%B8"
+    #[test]
+    fn test_url_encoded_cjk_with_spaces() {
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        let target_file = base_path.join("target.md");
+        fs::write(&target_file, "# Target\n\n## 한국어 테스트\n\nContent.\n").unwrap();
+
+        // GitHub converts spaces to hyphens: 한국어-테스트
+        let source_file = base_path.join("source.md");
+        fs::write(
+            &source_file,
+            "# Source\n\n[Test](target.md#%ED%95%9C%EA%B5%AD%EC%96%B4-%ED%85%8C%EC%8A%A4%ED%8A%B8)\n",
+        )
+        .unwrap();
+
+        let rules = rumdl_lib::rules::all_rules(&Config::default());
+        let target_content = fs::read_to_string(&target_file).unwrap();
+        let source_content = fs::read_to_string(&source_file).unwrap();
+
+        let (_, target_index) =
+            rumdl_lib::lint_and_index(&target_content, &rules, false, MarkdownFlavor::default(), None, None);
+        let (_, source_index) =
+            rumdl_lib::lint_and_index(&source_content, &rules, false, MarkdownFlavor::default(), None, None);
+
+        let mut workspace_index = WorkspaceIndex::new();
+        workspace_index.insert_file(target_file.clone(), target_index);
+        workspace_index.insert_file(source_file.clone(), source_index.clone());
+
+        let md051 = MD051LinkFragments::default();
+        let warnings = md051
+            .cross_file_check(&source_file, &source_index, &workspace_index)
+            .unwrap();
+
+        assert!(
+            warnings.is_empty(),
+            "URL-encoded CJK with spaces->hyphens should work: {warnings:?}"
+        );
+    }
 }

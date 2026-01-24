@@ -1,5 +1,5 @@
-mod actions;
-mod header;
+pub mod actions;
+pub mod header;
 pub mod minimal;
 pub mod summary;
 mod tests;
@@ -22,7 +22,7 @@ pub struct Savegame {
     pub zheader: RecHeader,
     pub log_version: u32,
     pub meta: Meta,
-    #[br(parse_with = until_eof)]
+    #[br(parse_with = until_eof, args(zheader.version_major))]
     pub operations: Vec<Operation>,
 }
 
@@ -43,13 +43,30 @@ pub struct Meta {
 }
 
 #[binrw]
+#[br(stream = s)]
 #[derive(Serialize, Debug)]
+pub struct ChapterData {
+    chapter_end: u32,
+    chapter_address: u32,
+    #[br(calc=s.stream_position().unwrap())]
+    current_position: u64,
+    #[br(count = (chapter_end as u64) - current_position)]
+    chapter_data: Vec<u8>,
+}
+
+#[binrw]
+#[derive(Serialize, Debug)]
+#[br(import(major: u16))]
 pub enum Operation {
     #[br(magic = 1u32)]
     Action {
         length: u32,
-        #[br(pad_after = 4, pad_size_to = length, args(length))]
+        #[br(pad_size_to = length, args(length, major))]
         action_data: actions::ActionData,
+        world_time: u32,
+        #[serde(skip_serializing)]
+        #[br(if(matches!(action_data, actions::ActionData::Chapter { player_id: _, action_length: _ })))]
+        chap: Option<ChapterData>,
     },
     #[br(magic = 2u32)]
     Sync {
@@ -60,16 +77,9 @@ pub enum Operation {
         checksum: Option<SyncChecksum>,
     },
     #[br(magic = 3u32)]
-    Viewlock {
-        x: f32,
-        y: f32,
-        player_id: u32,
-    },
+    Viewlock { x: f32, y: f32, player_id: u32 },
     #[br(magic = 4u32)]
-    Chat {
-        padding: [u8; 4],
-        text: LenString,
-    },
+    Chat { padding: [u8; 4], text: LenString },
     #[br(magic = 5u32)]
     AddAttribute {
         player_id: u8,
@@ -83,41 +93,11 @@ pub enum Operation {
         version: u32,
         #[br(seek_before = SeekFrom::Current(-8))]
         num_blocks: u32,
-        #[br(count = num_blocks, seek_before = SeekFrom::Current(-8))]
+        #[br(count = num_blocks, seek_before = SeekFrom::Current(-8), restore_position)]
         blocks: Vec<PostGameBlock>,
-        #[br(seek_before = SeekFrom::End(-8), ignore)]
-        realignment_field: (),
-        #[br(magic = b"\xce\xa4\x59\xb1\x05\xdb\x7b\x43", ignore)]
+        version_repeat: u32,
+        #[br(magic = b"\xce\xa4\x59\xb1\x05\xdb\x7b\x43")]
         end_bit: (),
-    },
-    Embedded {
-        embedded: EmbeddedOperation,
-    },
-}
-
-#[binrw]
-#[derive(Serialize, Debug)]
-pub enum EmbeddedOperation {
-    #[br(magic = 0u16)]
-    Header {
-        data: u8,
-        // NOTE: This should break. Have not found savegame with such Embed
-    },
-    #[br(magic = 9024u16)]
-    Chat {
-        data: u8,
-        // NOTE: This should break. Have not found savegame with such Embed
-    },
-    #[br(magic = 65535u16)]
-    Other {
-        data: u8,
-        // NOTE: This should break. Have not found savegame with such Embed
-    },
-    Unknown {
-        length: u16,
-        #[serde(skip_serializing)]
-        #[br(count = length)]
-        data: Vec<u8>,
     },
 }
 
@@ -139,7 +119,7 @@ pub enum PostGameBlock {
         num_leaderboards: u32,
         #[br(count = num_leaderboards)]
         leaderboards: Vec<Leaderboard>,
-        #[br(seek_before = SeekFrom::Current(-(length as i64) - 4), ignore)]
+        #[br(seek_before = SeekFrom::Current(-(length as i64) - 4))]
         realignment_field: (),
     },
 }
@@ -380,7 +360,7 @@ impl Savegame {
             .collect()
     }
 
-    pub fn get_summary(&self) -> summary::SavegameSummary {
+    pub fn get_summary(&self) -> summary::SavegameSummary<'_> {
         summary::SavegameSummary {
             header: summary::SummaryHeader {
                 game: &self.zheader.game,

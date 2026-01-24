@@ -5,46 +5,44 @@ import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 from pytorch_optimizer.optimizer.agc import agc
 
 
 class Ranger25(BaseOptimizer):
-    r"""Mixin' every fancy optimizer hacks.
+    """Mixin' every fancy optimizer hacks.
 
-        Here's the components
-            * ADOPT
-            * AdEMAMix
-            * Cautious
-            * StableAdamW or Adam-atan2
-            * OrthoGrad
-            * Adaptive gradient clipping
-            * Lookahead
+    Here's the components:
+        * ADOPT
+        * AdEMAMix
+        * Cautious
+        * StableAdamW or Adam-atan2
+        * OrthoGrad
+        * Adaptive gradient clipping
+        * Lookahead
+        * Cautious Weight Decay
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param alpha: float. usually between 4 and 10 would work well.
-    :param t_alpha_beta3: Optional[float]. total number of iterations is preferred when needed.
-    :param cautious: bool. whether to use the Cautious variant.
-    :param stable_adamw: bool. whether to use stable AdamW variant.
-    :param orthograd: bool. whether to use OrthoGrad variant.
-    :param eps: Optional[float]. term added to the denominator to improve numerical stability. when eps is None and
-        stable_adamw is False, adam-atan2 feature will be used.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        weight_decay (float): Weight decay (L2 penalty).
+        alpha (float): Usually between 4 and 10 works well.
+        t_alpha_beta3 (Optional[float]): Total number of iterations is preferred when needed.
+        cautious (bool): Whether to use the Cautious variant.
+        stable_adamw (bool): Whether to use stable AdamW variant.
+        orthograd (bool): Whether to use OrthoGrad variant.
+        eps (Optional[float]): Term added to the denominator to improve numerical stability.
+            When eps is None and stable_adamw is False, adam-atan2 feature will be used.
+        maximize (bool): Maximize the objective w.r.t the parameters instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-3,
-        betas: BETAS = (0.9, 0.98, 0.9999),
+        betas: Betas = (0.9, 0.98, 0.9999),
         weight_decay: float = 1e-3,
-        weight_decouple: bool = True,
-        fixed_decay: bool = False,
         alpha: float = 5.0,
         t_alpha_beta3: Optional[float] = None,
         lookahead_merge_time: int = 5,
@@ -72,12 +70,10 @@ class Ranger25(BaseOptimizer):
         self.orthograd = orthograd
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'weight_decay': weight_decay,
-            'weight_decouple': weight_decouple,
-            'fixed_decay': fixed_decay,
             'alpha': alpha,
             't_alpha_beta3': t_alpha_beta3,
             'eps': eps if (eps is not None) or (eps is None and not stable_adamw) else 1e-8,
@@ -88,7 +84,10 @@ class Ranger25(BaseOptimizer):
     def __str__(self) -> str:
         return 'Ranger25'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -142,8 +141,8 @@ class Ranger25(BaseOptimizer):
             p.grad.copy_(g_ortho_scaled.view_as(p.grad))
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
@@ -153,11 +152,8 @@ class Ranger25(BaseOptimizer):
                 self.apply_orthogonal_gradients(group['params'])
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2, beta3 = group['betas']
 
@@ -180,15 +176,6 @@ class Ranger25(BaseOptimizer):
 
                 state = self.state[p]
 
-                self.apply_weight_decay(
-                    p=p,
-                    grad=grad,
-                    lr=group['lr'],
-                    weight_decay=group['weight_decay'],
-                    weight_decouple=group['weight_decouple'],
-                    fixed_decay=group['fixed_decay'],
-                )
-
                 grad.copy_(agc(p, grad))
 
                 exp_avg, exp_avg_sq, exp_avg_slow = state['exp_avg'], state['exp_avg_sq'], state['exp_avg_slow']
@@ -202,6 +189,9 @@ class Ranger25(BaseOptimizer):
                 exp_avg_slow.mul_(beta3_t).add_(normed_grad, alpha=1.0 - beta3_t)
 
                 update = exp_avg.clone()
+
+                self.apply_cautious_weight_decay(p, update, group['lr'], group['weight_decay'])
+
                 if self.cautious:
                     self.apply_cautious(update, grad)
 

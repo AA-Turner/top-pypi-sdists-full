@@ -46,13 +46,14 @@ class FactQuery:
         self._filters = []
         self._transformations = []
         self._aggregations = []
-        self._include_dimensions = True
+        self._include_dimensions = False
         self._include_contexts = True
         self._include_element_info = True
         self._sort_by = None
         self._sort_ascending = True
         self._limit = None
         self._statement_type = None
+        self._requested_dimension = None  # GH-607: Track requested dimension for accurate member_label
 
     def by_concept(self, pattern: str, exact: bool = False) -> FactQuery:
         """
@@ -271,6 +272,13 @@ class FactQuery:
             self._filters.append(lambda f: not any(key.startswith('dim_') for key in f.keys()))
             return self
 
+        # GH-574: When filtering by dimension, automatically include dimension columns in output
+        # since the user is explicitly working with dimensional data
+        self._include_dimensions = True
+
+        # GH-607: Store the requested dimension for accurate member_label selection in to_dataframe()
+        self._requested_dimension = dimension
+
         # Normalize the input dimension to match stored format
         normalized_dim = self._normalize_dimension_key(dimension)
 
@@ -385,6 +393,108 @@ class FactQuery:
                 return True
 
         return False
+
+    def _get_member_label(self, member_value: str) -> str:
+        """
+        Look up human-readable label for a dimension member value.
+
+        GH-607: Extracted as helper to reduce duplication between get_facts() and
+        _update_dimension_fields_for_requested_dimension().
+
+        Args:
+            member_value: The dimension member value (e.g., 'us-gaap:BuildingMember')
+
+        Returns:
+            Human-readable label, or the original value if not found
+        """
+        if not member_value:
+            return member_value
+
+        # Normalize to match element catalog key format (colons -> underscores)
+        member_normalized = member_value.replace(':', '_')
+
+        if member_normalized in self._facts_view.xbrl.element_catalog:
+            mem_element = self._facts_view.xbrl.element_catalog[member_normalized]
+            # Try labels in order of preference
+            for role in ['http://www.xbrl.org/2003/role/verboseLabel',
+                         'http://www.xbrl.org/2003/role/terseLabel',
+                         'http://www.xbrl.org/2003/role/label']:
+                if role in mem_element.labels:
+                    label = mem_element.labels[role]
+                    # Clean up label (remove [Member], etc.)
+                    return label.replace('[Member]', '').strip()
+
+        return member_value
+
+    def _update_dimension_fields_for_requested_dimension(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Update dimension fields to reflect the specifically requested dimension.
+
+        GH-607: When by_dimension() is called with a specific dimension (e.g., "PropertyPlantAndEquipmentByTypeAxis"),
+        the dimension_member_label should show the member of THAT dimension, not an arbitrary first one.
+
+        For example, if a fact has both srt:RangeAxis=Minimum and us-gaap:PropertyPlantAndEquipmentByTypeAxis=Building,
+        and the user queries by PropertyPlantAndEquipmentByTypeAxis, they should see "Building" not "Minimum".
+
+        Note: This assumes dimension local names don't contain underscores (standard XBRL taxonomies use camelCase).
+
+        Args:
+            df: DataFrame with fact results
+
+        Returns:
+            DataFrame with updated dimension fields
+        """
+        if not self._requested_dimension or df.empty:
+            return df
+
+        # Find the dim_* column that matches the requested dimension
+        dim_cols = [col for col in df.columns if col.startswith('dim_')]
+        matching_col = None
+        for col in dim_cols:
+            if self._dimension_key_matches(col, self._requested_dimension):
+                matching_col = col
+                break
+
+        if not matching_col:
+            return df
+
+        # Extract the dimension name from the column
+        # e.g., 'dim_us-gaap_StatementBusinessSegmentsAxis' -> 'us-gaap:StatementBusinessSegmentsAxis'
+        # Note: We only replace the first underscore after removing 'dim_' prefix,
+        # since that's the namespace:localName separator. Standard XBRL uses camelCase for local names.
+        dim_col_name = matching_col[4:]  # Remove 'dim_' prefix
+
+        # Find the position of the namespace separator (first underscore after namespace prefix)
+        # Namespace prefixes like 'us-gaap', 'srt', 'dei' don't contain underscores
+        parts = dim_col_name.split('_', 1)  # Split on first underscore only
+        if len(parts) == 2:
+            dim_name = f"{parts[0]}:{parts[1]}"
+        else:
+            dim_name = dim_col_name
+
+        # Create a copy to avoid modifying the original
+        df = df.copy()
+
+        # Vectorized update: Get the member values from the matching dimension column
+        member_values = df[matching_col]
+
+        # Update dimension and member columns
+        df['dimension'] = dim_name
+        df['member'] = member_values
+
+        # Look up labels for each unique member value (more efficient than row-by-row)
+        unique_members = member_values.dropna().unique()
+        label_map = {m: self._get_member_label(m) for m in unique_members}
+
+        # Apply the label mapping
+        df['dimension_member_label'] = member_values.map(label_map)
+
+        # Also update the 'label' column to match (GH-597 behavior for dimensional data)
+        # Only update where we have a valid dimension_member_label
+        mask = df['dimension_member_label'].notna()
+        df.loc[mask, 'label'] = df.loc[mask, 'dimension_member_label']
+
+        return df
 
     def by_statement_type(self, statement_type: str) -> FactQuery:
         """
@@ -688,9 +798,18 @@ class FactQuery:
 
         df = pd.DataFrame(results)
 
+        # GH-607: When a specific dimension was requested via by_dimension(),
+        # update dimension fields to reflect that dimension's member info
+        if self._requested_dimension and self._include_dimensions:
+            df = self._update_dimension_fields_for_requested_dimension(df)
+
         # Filter columns based on inclusion flags
         if not self._include_dimensions:
-            df = df.loc[:, [col for col in df.columns if not col.startswith('dim_')]]
+            # Exclude both dim_* columns (old style) and structured dimension columns (GH-574)
+            dimension_cols = {'dimension', 'member', 'dimension_label', 'member_label', 'full_dimension_label',
+                              'dimension_axis', 'dimension_member', 'dimension_member_label'}
+            df = df.loc[:, [col for col in df.columns
+                            if not col.startswith('dim_') and col not in dimension_cols]]
 
         if not self._include_contexts:
             context_cols = ['context_ref', 'entity_identifier', 'entity_scheme',
@@ -710,7 +829,8 @@ class FactQuery:
             columns = [col for col in columns if col in df.columns]
             df = df[list(columns)]
         # skip these columns
-        skip_columns = ['fact_key', 'original_label', 'period_key']
+        # Note: period_key is now included for time series analysis (Issue #464)
+        skip_columns = ['fact_key', 'original_label']
 
         if 'statement_role' in df.columns:
             # Change the statement_role to statement name
@@ -721,7 +841,8 @@ class FactQuery:
 
         # order columns
         first_columns = [col for col in
-                         ['concept', 'label', 'value', 'numeric_value', 'period_start', 'period_end', 'period_instant',
+                         ['concept', 'label', 'balance', 'preferred_sign', 'weight', 'value', 'numeric_value',
+                          'period_key', 'period_start', 'period_end', 'period_instant',
                           'decimals', 'statement_type', 'statement_name']
                          if col in df.columns]
         columns = first_columns + [col for col in df.columns
@@ -892,16 +1013,74 @@ class FactsView:
 
                 # Add dimensions - handle both object and dict representation
                 if hasattr(context, 'dimensions') and context.dimensions:
-                    # Check if dimensions is a dict or an attribute
+                    dimensions_dict = None
                     if isinstance(context.dimensions, dict):
-                        for dim_name, dim_value in context.dimensions.items():
-                            dim_key = f"dim_{dim_name.replace(':', '_')}"
-                            fact_dict[dim_key] = dim_value
+                        dimensions_dict = context.dimensions
                     elif hasattr(context.dimensions, 'items'):
-                        # Handle case where dimensions has items() method but isn't a dict
-                        for dim_name, dim_value in context.dimensions.items():
+                        dimensions_dict = dict(context.dimensions.items())
+
+                    if dimensions_dict:
+                        # Add raw dim_ columns for backwards compatibility
+                        for dim_name, dim_value in dimensions_dict.items():
                             dim_key = f"dim_{dim_name.replace(':', '_')}"
                             fact_dict[dim_key] = dim_value
+
+                        # Issue #574: Add structured dimension fields (dimension, member, dimension_label)
+                        # Use the last dimension for member_label (most specific in multi-dimensional cases)
+                        dimension_metadata = []
+                        for dim_name, dim_value in dimensions_dict.items():
+                            dim_label = dim_name
+                            mem_label = dim_value
+
+                            # Look up human-readable dimension label from element catalog
+                            dim_name_normalized = dim_name.replace(':', '_')
+                            if dim_name_normalized in self.xbrl.element_catalog:
+                                dim_element = self.xbrl.element_catalog[dim_name_normalized]
+                                for role in ['http://www.xbrl.org/2003/role/terseLabel',
+                                             'http://www.xbrl.org/2003/role/label']:
+                                    if role in dim_element.labels:
+                                        dim_label = dim_element.labels[role]
+                                        break
+
+                            # Look up human-readable member label from element catalog
+                            dim_value_normalized = dim_value.replace(':', '_')
+                            if dim_value_normalized in self.xbrl.element_catalog:
+                                mem_element = self.xbrl.element_catalog[dim_value_normalized]
+                                for role in ['http://www.xbrl.org/2003/role/verboseLabel',
+                                             'http://www.xbrl.org/2003/role/terseLabel',
+                                             'http://www.xbrl.org/2003/role/label']:
+                                    if role in mem_element.labels:
+                                        mem_label = mem_element.labels[role]
+                                        break
+
+                            # Clean up labels (remove [Axis], [Member], etc.)
+                            dim_label = dim_label.replace('[Axis]', '').replace('[Domain]', '').strip()
+                            mem_label = mem_label.replace('[Member]', '').strip()
+
+                            dimension_metadata.append({
+                                'dimension': dim_name,
+                                'member': dim_value,
+                                'dimension_label': dim_label,
+                                'member_label': mem_label
+                            })
+
+                        if dimension_metadata:
+                            # Use first dimension for axis/member (primary dimension)
+                            primary_dim = dimension_metadata[0]
+                            fact_dict['dimension'] = primary_dim['dimension']
+                            fact_dict['member'] = primary_dim['member']
+
+                            # Use last dimension's member_label for dimension_label (backward compat)
+                            last_dim = dimension_metadata[-1]
+                            fact_dict['dimension_label'] = last_dim['member_label']
+                            # GH-603: Use PRIMARY dimension's member_label for consistency with statements
+                            # e.g., for GOOGL "YouTube ads" should show "YouTube ads", not "Google Services"
+                            fact_dict['dimension_member_label'] = primary_dim['member_label']
+
+                            # Full dimension label for backwards compatibility
+                            # Format: "Axis Label: Member Label" for each dimension
+                            full_labels = [f"{d['dimension_label']}: {d['member_label']}" for d in dimension_metadata]
+                            fact_dict['full_dimension_label'] = ", ".join(full_labels)
 
                 # Get period key from context_period_map if available
                 period_key = self.xbrl.context_period_map.get(fact.context_ref)
@@ -917,10 +1096,10 @@ class FactsView:
             if element_id in self.xbrl.element_catalog:
                 element = self.xbrl.element_catalog[element_id]
 
-                # First look up preferred_label from presentation trees 
+                # First look up preferred_label from presentation trees
                 # to ensure label consistency between rendering and facts
                 preferred_label = None
-                for role, tree in self.xbrl.presentation_trees.items():
+                for _role, tree in self.xbrl.presentation_trees.items():
                     if element_id in tree.all_nodes:
                         # Get presentation node to find preferred_label
                         pres_node = tree.all_nodes[element_id]
@@ -942,6 +1121,43 @@ class FactsView:
                 # Store original label (will be used for standardization comparison)
                 fact_dict['original_label'] = label
 
+                # Issue #597: For dimensional facts, use dimension member label instead of concept label
+                # This makes Facts API consistent with Statement API behavior where dimensional
+                # breakdowns show the member label (e.g., "Equity Method Investment...") rather
+                # than the parent concept label (e.g., "Total Assets")
+                if 'dimension_member_label' in fact_dict and fact_dict['dimension_member_label']:
+                    fact_dict['label'] = fact_dict['dimension_member_label']
+
+                # Add balance from element catalog (Issue #463)
+                # Balance indicates accounting classification (debit/credit)
+                # Try element catalog first, then fall back to static US-GAAP mapping
+                balance = element.balance
+                if balance is None:
+                    # Import here to avoid circular dependencies
+                    from edgar.xbrl.parsers.concepts import get_balance_type
+                    # Try to get balance from static mapping using the original concept ID
+                    balance = get_balance_type(fact.element_id)
+                fact_dict['balance'] = balance  # "debit", "credit", or None
+
+                # Add preferred_sign from presentation linkbase (Issue #463)
+                # Convert preferredLabel to a numeric sign multiplier for display
+                # -1 means "negate for display", 1 means "use as-is", None means "not specified"
+                if preferred_label:
+                    # Common preferredLabel values that indicate negation
+                    negation_labels = [
+                        'negatedLabel',
+                        'http://www.xbrl.org/2003/role/negatedLabel',
+                        'negatedTerseLabel',
+                        'http://www.xbrl.org/2003/role/negatedTerseLabel',
+                        'negatedPeriodStartLabel',
+                        'http://www.xbrl.org/2003/role/negatedPeriodStartLabel',
+                        'negatedPeriodEndLabel',
+                        'http://www.xbrl.org/2003/role/negatedPeriodEndLabel'
+                    ]
+                    fact_dict['preferred_sign'] = -1 if preferred_label in negation_labels else 1
+                else:
+                    fact_dict['preferred_sign'] = None
+
                 # Determine statement type by checking presentation trees using our precomputed mapping
                 for role, tree in self.xbrl.presentation_trees.items():
                     if element_id in tree.all_nodes and role in role_to_statement_type:
@@ -949,6 +1165,12 @@ class FactsView:
                         fact_dict['statement_type'] = statement_type
                         fact_dict['statement_role'] = statement_role
                         break
+
+            # Add weight from calculation tree (Issue #463)
+            # Weight indicates calculation role (1.0 = add, -1.0 = subtract)
+            # Note: Weight is role-specific, use primary statement role when available
+            statement_type = fact_dict.get('statement_type')
+            fact_dict['weight'] = self._get_primary_weight(element_id, statement_type)
 
             enriched_facts.append(fact_dict)
 
@@ -1205,8 +1427,8 @@ class FactsView:
 
         return period_views
 
-    def pivot_by_period(self, concept_pattern: str = None,
-                        statement_type: str = None) -> pd.DataFrame:
+    def pivot_by_period(self, concept_pattern: Optional[str] = None,
+                        statement_type: Optional[str] = None) -> pd.DataFrame:
         """
         Create a pivoted view of facts by period.
 
@@ -1247,8 +1469,8 @@ class FactsView:
         return df  # Return original DataFrame if pivoting isn't possible
 
     def pivot_by_dimension(self, dimension: str,
-                           concept_pattern: str = None,
-                           period_key: str = None) -> pd.DataFrame:
+                           concept_pattern: Optional[str] = None,
+                           period_key: Optional[str] = None) -> pd.DataFrame:
         """
         Create a pivoted view of facts by dimension values.
 
@@ -1343,7 +1565,7 @@ class FactsView:
         return df[columns]
 
     def facts_history(self, concept: str, date_col: str = 'period_end',
-                      include_dimensions: bool = True) -> pd.DataFrame:
+                      include_dimensions: bool = False) -> pd.DataFrame:
         """
         Get the history of a concept across time, optionally including dimensions.
 
@@ -1399,6 +1621,50 @@ class FactsView:
             result['fiscal_year'] = df['fiscal_year']
 
         return result
+
+    def _get_primary_weight(self, element_id: str, statement_type: Optional[str]) -> Optional[float]:
+        """
+        Get calculation weight for element from primary statement role.
+
+        Weight is role-specific (same concept can have different weights in different statements).
+        Returns weight from primary statement role if available.
+
+        Args:
+            element_id: Normalized element ID (e.g., 'us_gaap_Revenue')
+            statement_type: Statement type ('IncomeStatement', 'BalanceSheet', etc.)
+
+        Returns:
+            Weight value (typically 1.0 or -1.0) or None if not in calculations
+        """
+        if not hasattr(self.xbrl, 'calculation_trees'):
+            return None
+
+        # Try to find weight in calculation trees
+        for role_uri, calc_tree in self.xbrl.calculation_trees.items():
+            # Prefer calculation tree matching the statement type
+            if statement_type:
+                role_lower = role_uri.lower()
+                if statement_type == "IncomeStatement" and "income" in role_lower:
+                    node = calc_tree.all_nodes.get(element_id)
+                    if node:
+                        return node.weight
+                elif statement_type == "BalanceSheet" and ("balance" in role_lower or "position" in role_lower):
+                    node = calc_tree.all_nodes.get(element_id)
+                    if node:
+                        return node.weight
+                elif statement_type == "CashFlowStatement" and "cash" in role_lower:
+                    node = calc_tree.all_nodes.get(element_id)
+                    if node:
+                        return node.weight
+
+        # Fallback: return first weight found in any role
+        for calc_tree in self.xbrl.calculation_trees.values():
+            node = calc_tree.all_nodes.get(element_id)
+            if node:
+                return node.weight
+
+        # Not found in any calculation tree
+        return None
 
     def clear_cache(self) -> None:
         """Clear cached data."""

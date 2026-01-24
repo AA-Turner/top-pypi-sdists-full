@@ -3,7 +3,7 @@ Type annotations for managedblockchain service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_managedblockchain/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -35,12 +36,6 @@ from .literals import (
     VoteValueType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -156,7 +151,7 @@ AccessorTypeDef = TypedDict(
         "Status": NotRequired[AccessorStatusType],
         "CreationDate": NotRequired[datetime],
         "Arn": NotRequired[str],
-        "Tags": NotRequired[Dict[str, str]],
+        "Tags": NotRequired[dict[str, str]],
         "NetworkType": NotRequired[AccessorNetworkTypeType],
     },
 )
@@ -175,7 +170,7 @@ class CreateAccessorInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -385,12 +380,12 @@ class GetAccessorOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAccessorsOutputTypeDef(TypedDict):
-    Accessors: List[AccessorSummaryTypeDef]
+    Accessors: list[AccessorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class InvitationTypeDef(TypedDict):
@@ -402,7 +397,7 @@ class InvitationTypeDef(TypedDict):
     Arn: NotRequired[str]
 
 class ListNetworksOutputTypeDef(TypedDict):
-    Networks: List[NetworkSummaryTypeDef]
+    Networks: list[NetworkSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -411,22 +406,22 @@ class ListAccessorsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMembersOutputTypeDef(TypedDict):
-    Members: List[MemberSummaryTypeDef]
+    Members: list[MemberSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListNodesOutputTypeDef(TypedDict):
-    Nodes: List[NodeSummaryTypeDef]
+    Nodes: list[NodeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListProposalVotesOutputTypeDef(TypedDict):
-    ProposalVotes: List[VoteSummaryTypeDef]
+    ProposalVotes: list[VoteSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListProposalsOutputTypeDef(TypedDict):
-    Proposals: List[ProposalSummaryTypeDef]
+    Proposals: list[ProposalSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -451,15 +446,15 @@ class NodeFrameworkAttributesTypeDef(TypedDict):
     Ethereum: NotRequired[NodeEthereumAttributesTypeDef]
 
 class ProposalActionsOutputTypeDef(TypedDict):
-    Invitations: NotRequired[List[InviteActionTypeDef]]
-    Removals: NotRequired[List[RemoveActionTypeDef]]
+    Invitations: NotRequired[list[InviteActionTypeDef]]
+    Removals: NotRequired[list[RemoveActionTypeDef]]
 
 class ProposalActionsTypeDef(TypedDict):
     Invitations: NotRequired[Sequence[InviteActionTypeDef]]
     Removals: NotRequired[Sequence[RemoveActionTypeDef]]
 
 class ListInvitationsOutputTypeDef(TypedDict):
-    Invitations: List[InvitationTypeDef]
+    Invitations: list[InvitationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -481,7 +476,7 @@ class NetworkTypeDef(TypedDict):
     VotingPolicy: NotRequired[VotingPolicyTypeDef]
     Status: NotRequired[NetworkStatusType]
     CreationDate: NotRequired[datetime]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     Arn: NotRequired[str]
 
 class ProposalTypeDef(TypedDict):
@@ -497,7 +492,7 @@ class ProposalTypeDef(TypedDict):
     YesVoteCount: NotRequired[int]
     NoVoteCount: NotRequired[int]
     OutstandingVoteCount: NotRequired[int]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     Arn: NotRequired[str]
 
 ProposalActionsUnionTypeDef = Union[ProposalActionsTypeDef, ProposalActionsOutputTypeDef]
@@ -541,7 +536,7 @@ class MemberTypeDef(TypedDict):
     LogPublishingConfiguration: NotRequired[MemberLogPublishingConfigurationTypeDef]
     Status: NotRequired[MemberStatusType]
     CreationDate: NotRequired[datetime]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     Arn: NotRequired[str]
     KmsKeyArn: NotRequired[str]
 
@@ -567,7 +562,7 @@ class NodeTypeDef(TypedDict):
     StateDB: NotRequired[StateDBTypeType]
     Status: NotRequired[NodeStatusType]
     CreationDate: NotRequired[datetime]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     Arn: NotRequired[str]
     KmsKeyArn: NotRequired[str]
 

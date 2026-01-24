@@ -30,7 +30,7 @@ def login(request):
     redirect_url = request.build_absolute_uri(reverse(callback))
     # Draugiem mandates a weak hashing algorithm.
     redirect_url_hash = md5(
-        (app.secret + redirect_url).encode("utf-8")
+        f"{app.secret}{redirect_url}".encode("utf-8")
     ).hexdigest()  # nosec
     params = {
         "app": app.client_id,
@@ -38,7 +38,7 @@ def login(request):
         "redirect": redirect_url,
     }
     SocialLogin.stash_state(request)
-    return HttpResponseRedirect("%s?%s" % (AUTHORIZE_URL, urlencode(params)))
+    return HttpResponseRedirect(f"{AUTHORIZE_URL}?{urlencode(params)}")
 
 
 @csrf_exempt
@@ -74,16 +74,11 @@ def callback(request):
 
 def draugiem_complete_login(request, app, code):
     provider = get_adapter().get_provider(request, DraugiemProvider.id)
-    response = (
-        get_adapter()
-        .get_requests_session()
-        .get(
-            ACCESS_TOKEN_URL,
-            {"action": "authorize", "app": app.secret, "code": code},
-        )
-    )
-    response.raise_for_status()
-    response_json = response.json()
+    with get_adapter().get_requests_session() as sess:
+        params = {"action": "authorize", "app": app.secret, "code": code}
+        response = sess.get(ACCESS_TOKEN_URL, params=params)
+        response.raise_for_status()
+        response_json = response.json()
 
     if "error" in response_json:
         raise DraugiemApiError(response_json["error"])

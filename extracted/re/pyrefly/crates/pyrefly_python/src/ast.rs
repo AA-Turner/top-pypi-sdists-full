@@ -16,6 +16,7 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprBooleanLiteral;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ExprNoneLiteral;
+use ruff_python_ast::ExprStringLiteral;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Parameter;
@@ -30,6 +31,9 @@ use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtIf;
 use ruff_python_ast::StringFlags;
 use ruff_python_ast::StringLiteral;
+use ruff_python_ast::StringLiteralFlags;
+use ruff_python_ast::StringLiteralValue;
+use ruff_python_ast::name::Name;
 use ruff_python_ast::visitor::source_order::SourceOrderVisitor;
 use ruff_python_ast::visitor::source_order::TraversalSignal;
 use ruff_python_parser::ParseError;
@@ -84,20 +88,23 @@ impl<'a> SourceOrderVisitor<'a> for CoveringNodeVisitor<'a> {
 }
 
 impl Ast {
-    pub fn parse(contents: &str) -> (ModModule, Vec<ParseError>, Vec<UnsupportedSyntaxError>) {
-        Ast::parse_with_version(contents, PythonVersion::default())
+    pub fn parse(
+        contents: &str,
+        source_type: PySourceType,
+    ) -> (ModModule, Vec<ParseError>, Vec<UnsupportedSyntaxError>) {
+        Ast::parse_with_version(contents, PythonVersion::default(), source_type)
     }
 
     pub fn parse_with_version(
         contents: &str,
         version: PythonVersion,
+        source_type: PySourceType,
     ) -> (ModModule, Vec<ParseError>, Vec<UnsupportedSyntaxError>) {
         // PySourceType of Python vs Stub doesn't actually change the parsing
-        let options =
-            ParseOptions::from(PySourceType::Python).with_target_version(RuffPythonVersion {
-                major: version.major as u8,
-                minor: version.minor as u8,
-            });
+        let options = ParseOptions::from(source_type).with_target_version(RuffPythonVersion {
+            major: version.major as u8,
+            minor: version.minor as u8,
+        });
         let res = parse_unchecked(contents, options)
             .try_into_module()
             .unwrap();
@@ -205,11 +212,27 @@ impl Ast {
         Identifier::new(x.id, x.range)
     }
 
+    /// Returns true if this is a synthesized empty name from parser error recovery.
+    ///
+    /// The parser uses empty identifiers when recovering from syntax errors.
+    /// Treat any empty identifier as synthesized, even if we still know the range, so
+    /// downstream stages don't try to bind it.
+    pub fn is_synthesized_empty_name(x: &ExprName) -> bool {
+        x.id.as_str().is_empty()
+    }
+
+    /// Same as `is_synthesized_empty_name` but for `Identifier` instead of `ExprName`.
+    pub fn is_synthesized_empty_identifier(x: &Identifier) -> bool {
+        x.id.as_str().is_empty()
+    }
+
     /// Calls a function on all of the names bound by this lvalue expression.
     pub fn expr_lvalue<'a>(x: &'a Expr, f: &mut impl FnMut(&'a ExprName)) {
         match x {
             Expr::Name(x) => {
-                f(x);
+                if !Self::is_synthesized_empty_name(x) {
+                    f(x);
+                }
             }
             Expr::Tuple(x) => {
                 for x in &x.elts {
@@ -280,11 +303,11 @@ impl Ast {
     pub fn pattern_match_singleton_to_expr(x: &PatternMatchSingleton) -> Expr {
         match x.value {
             Singleton::None => Expr::NoneLiteral(ExprNoneLiteral {
-                node_index: AtomicNodeIndex::dummy(),
+                node_index: AtomicNodeIndex::default(),
                 range: x.range,
             }),
             Singleton::True | Singleton::False => Expr::BooleanLiteral(ExprBooleanLiteral {
-                node_index: AtomicNodeIndex::dummy(),
+                node_index: AtomicNodeIndex::default(),
                 range: x.range,
                 value: x.value == Singleton::True,
             }),
@@ -308,5 +331,35 @@ impl Ast {
         let mut covering_nodes = visitor.covering_nodes;
         covering_nodes.reverse();
         covering_nodes
+    }
+
+    pub fn str_expr(s: &str, range: TextRange) -> Expr {
+        Expr::StringLiteral(ExprStringLiteral {
+            node_index: AtomicNodeIndex::default(),
+            range,
+            value: StringLiteralValue::single(StringLiteral {
+                node_index: AtomicNodeIndex::default(),
+                range,
+                value: s.into(),
+                flags: StringLiteralFlags::empty(),
+            }),
+        })
+    }
+
+    pub fn contains_await(expr: &Expr) -> bool {
+        let mut found = false;
+        // Recursive function that checks this node and recurses to children
+        fn check(expr: &Expr, found: &mut bool) {
+            if matches!(expr, Expr::Await(_)) {
+                *found = true;
+            }
+            expr.recurse(&mut |child: &Expr| check(child, found));
+        }
+        expr.visit(&mut |node: &Expr| check(node, &mut found));
+        found
+    }
+
+    pub fn is_mangled_attr(name: &Name) -> bool {
+        name.starts_with("__") && !name.ends_with("__")
     }
 }

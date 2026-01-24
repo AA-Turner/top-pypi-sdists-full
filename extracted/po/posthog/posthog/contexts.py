@@ -21,7 +21,11 @@ class ContextScope:
         self.capture_exceptions = capture_exceptions
         self.session_id: Optional[str] = None
         self.distinct_id: Optional[str] = None
+        self.device_id: Optional[str] = None
         self.tags: Dict[str, Any] = {}
+        self.capture_exception_code_variables: Optional[bool] = None
+        self.code_variables_mask_patterns: Optional[list] = None
+        self.code_variables_ignore_patterns: Optional[list] = None
 
     def set_session_id(self, session_id: str):
         self.session_id = session_id
@@ -29,8 +33,20 @@ class ContextScope:
     def set_distinct_id(self, distinct_id: str):
         self.distinct_id = distinct_id
 
+    def set_device_id(self, device_id: str):
+        self.device_id = device_id
+
     def add_tag(self, key: str, value: Any):
         self.tags[key] = value
+
+    def set_capture_exception_code_variables(self, enabled: bool):
+        self.capture_exception_code_variables = enabled
+
+    def set_code_variables_mask_patterns(self, mask_patterns: list):
+        self.code_variables_mask_patterns = mask_patterns
+
+    def set_code_variables_ignore_patterns(self, ignore_patterns: list):
+        self.code_variables_ignore_patterns = ignore_patterns
 
     def get_parent(self):
         return self.parent
@@ -49,15 +65,42 @@ class ContextScope:
             return self.parent.get_distinct_id()
         return None
 
+    def get_device_id(self) -> Optional[str]:
+        if self.device_id is not None:
+            return self.device_id
+        if self.parent is not None and not self.fresh:
+            return self.parent.get_device_id()
+        return None
+
     def collect_tags(self) -> Dict[str, Any]:
-        tags = self.tags.copy()
         if self.parent and not self.fresh:
             # We want child tags to take precedence over parent tags,
-            # so we can't use a simple update here, instead collecting
-            # the parent tags and then updating with the child tags.
-            new_tags = self.parent.collect_tags()
-            tags.update(new_tags)
-        return tags
+            # so collect parent tags first, then update with child tags.
+            tags = self.parent.collect_tags()
+            tags.update(self.tags)
+            return tags
+        return self.tags.copy()
+
+    def get_capture_exception_code_variables(self) -> Optional[bool]:
+        if self.capture_exception_code_variables is not None:
+            return self.capture_exception_code_variables
+        if self.parent is not None and not self.fresh:
+            return self.parent.get_capture_exception_code_variables()
+        return None
+
+    def get_code_variables_mask_patterns(self) -> Optional[list]:
+        if self.code_variables_mask_patterns is not None:
+            return self.code_variables_mask_patterns
+        if self.parent is not None and not self.fresh:
+            return self.parent.get_code_variables_mask_patterns()
+        return None
+
+    def get_code_variables_ignore_patterns(self) -> Optional[list]:
+        if self.code_variables_ignore_patterns is not None:
+            return self.code_variables_ignore_patterns
+        if self.parent is not None and not self.fresh:
+            return self.parent.get_code_variables_ignore_patterns()
+        return None
 
 
 _context_stack: contextvars.ContextVar[Optional[ContextScope]] = contextvars.ContextVar(
@@ -240,6 +283,87 @@ def get_context_distinct_id() -> Optional[str]:
     current_context = _get_current_context()
     if current_context:
         return current_context.get_distinct_id()
+    return None
+
+
+def set_context_device_id(device_id: str) -> None:
+    """
+    Set the device ID for the current context, associating all feature flag requests in this or
+    child contexts with the given device ID (unless set_context_device_id is called again).
+    Entering a fresh context will clear the context-level device ID.
+
+    Args:
+        device_id: The device ID to associate with the current context and its children.
+
+    Category:
+        Contexts
+    """
+    current_context = _get_current_context()
+    if current_context:
+        current_context.set_device_id(device_id)
+
+
+def get_context_device_id() -> Optional[str]:
+    """
+    Get the device ID for the current context.
+
+    Returns:
+        The device ID if set, None otherwise
+
+    Category:
+        Contexts
+    """
+    current_context = _get_current_context()
+    if current_context:
+        return current_context.get_device_id()
+    return None
+
+
+def set_capture_exception_code_variables_context(enabled: bool) -> None:
+    """
+    Set whether code variables are captured for the current context.
+    """
+    current_context = _get_current_context()
+    if current_context:
+        current_context.set_capture_exception_code_variables(enabled)
+
+
+def set_code_variables_mask_patterns_context(mask_patterns: list) -> None:
+    """
+    Variable names matching these patterns will be masked with *** when capturing code variables.
+    """
+    current_context = _get_current_context()
+    if current_context:
+        current_context.set_code_variables_mask_patterns(mask_patterns)
+
+
+def set_code_variables_ignore_patterns_context(ignore_patterns: list) -> None:
+    """
+    Variable names matching these patterns will be ignored completely when capturing code variables.
+    """
+    current_context = _get_current_context()
+    if current_context:
+        current_context.set_code_variables_ignore_patterns(ignore_patterns)
+
+
+def get_capture_exception_code_variables_context() -> Optional[bool]:
+    current_context = _get_current_context()
+    if current_context:
+        return current_context.get_capture_exception_code_variables()
+    return None
+
+
+def get_code_variables_mask_patterns_context() -> Optional[list]:
+    current_context = _get_current_context()
+    if current_context:
+        return current_context.get_code_variables_mask_patterns()
+    return None
+
+
+def get_code_variables_ignore_patterns_context() -> Optional[list]:
+    current_context = _get_current_context()
+    if current_context:
+        return current_context.get_code_variables_ignore_patterns()
     return None
 
 

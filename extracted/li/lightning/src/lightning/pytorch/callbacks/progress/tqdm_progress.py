@@ -276,7 +276,7 @@ class TQDMProgressBar(ProgressBar):
         self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", outputs: STEP_OUTPUT, batch: Any, batch_idx: int
     ) -> None:
         n = batch_idx + 1
-        if self._should_update(n, self.train_progress_bar.total):
+        if self.train_progress_bar is not None and self._should_update(n, self.train_progress_bar.total):
             _update_n(self.train_progress_bar, n)
             self.train_progress_bar.set_postfix(self.get_metrics(trainer, pl_module))
 
@@ -326,7 +326,7 @@ class TQDMProgressBar(ProgressBar):
         dataloader_idx: int = 0,
     ) -> None:
         n = batch_idx + 1
-        if self._should_update(n, self.val_progress_bar.total):
+        if self.val_progress_bar is not None and self._should_update(n, self.val_progress_bar.total):
             _update_n(self.val_progress_bar, n)
 
     @override
@@ -369,7 +369,7 @@ class TQDMProgressBar(ProgressBar):
         dataloader_idx: int = 0,
     ) -> None:
         n = batch_idx + 1
-        if self._should_update(n, self.test_progress_bar.total):
+        if self.test_progress_bar is not None and self._should_update(n, self.test_progress_bar.total):
             _update_n(self.test_progress_bar, n)
 
     @override
@@ -410,7 +410,7 @@ class TQDMProgressBar(ProgressBar):
         dataloader_idx: int = 0,
     ) -> None:
         n = batch_idx + 1
-        if self._should_update(n, self.predict_progress_bar.total):
+        if self.predict_progress_bar is not None and self._should_update(n, self.predict_progress_bar.total):
             _update_n(self.predict_progress_bar, n)
 
     @override

@@ -1,7 +1,6 @@
 import json
 import threading
 import time
-import traceback
 import requests
 from urllib.parse import urlparse
 
@@ -9,7 +8,7 @@ from adam.log import Log
 from adam.sso.idp import Idp
 from adam.sso.idp_login import IdpLogin
 from adam.config import Config
-from adam.utils import json_to_csv, lines_to_tabular, log, log2
+from adam.utils import debug, debug_trace, json_to_csv, tabulize, log2, log_exc
 from adam.apps import Apps
 
 class AppLogin:
@@ -62,11 +61,9 @@ class AppSession:
                     if r.status_code >= 200 and r.status_code < 300 or r.status_code == 400:
                         try:
                             js = r.json()
-                            try:
+                            with log_exc(js):
                                 header, lines = json_to_csv(js, delimiter='\t')
-                                log(lines_to_tabular(lines, header=header, separator='\t'))
-                            except:
-                                log(js)
+                                tabulize(lines, header=header, separator='\t')
                         except:
                             if urlparse(r.url).hostname != urlparse(uri).hostname and not retried:
                                 app_login = app_session.login(idp_uri=app_login.idp_uri, forced=forced, use_token_from_env=False, use_cached_creds=False)
@@ -76,7 +73,7 @@ class AppSession:
 
                             if r.text:
                                 log2(f'{r.status_code} {r.url} Failed parsing the results.')
-                                Config().debug(r.text)
+                                debug(r.text)
                     else:
                         log2(r.status_code)
                         log2(r.text)
@@ -115,7 +112,7 @@ class AppSession:
             try:
                 # oidc/login may hang
                 timeout = Config().get('app.login.timeout', 5)
-                Config().debug(f'-> {idp_login.app_login_url}')
+                debug(f'-> {idp_login.app_login_url}')
                 session.post(idp_login.app_login_url, headers=headers, data=form_data, timeout=timeout)
             except Exception:
                 pass
@@ -133,7 +130,7 @@ class AppSession:
                 check_uri = Config().get('app.login.session-check-url', 'https://{host}/{env}/{app}/api/8/C3/userSessionToken')
                 check_uri = check_uri.replace('{host}', self.host).replace('{env}', self.env).replace('{app}', 'c3')
                 r = session.get(check_uri)
-                Config().debug(f'{r.status_code} {check_uri}')
+                debug(f'{r.status_code} {check_uri}')
 
                 res_text = r.text
                 js = json.loads(res_text)
@@ -142,10 +139,10 @@ class AppSession:
                     break
 
                 app_access_token = js['signedToken']
-                Config().debug(f'{r.text}')
+                debug(f'{r.text}')
 
                 self.app_login = AppLogin(session, app_access_token, idp_uri)
-            except Exception:
+            except Exception as e:
                 try:
                     need = urlparse(r.url).hostname
                     if idp_login.idp_uri:
@@ -158,7 +155,7 @@ class AppSession:
                         log2(f"Invalid username/password.")
                     break
                 finally:
-                    Config().debug(traceback.format_exc())
+                    debug_trace()
 
                     if 'res_text' in locals():
                         Log.log_to_file(res_text)

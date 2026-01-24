@@ -9,20 +9,24 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing_extensions import TypedDict
 
-from .group_0020 import RepositoryType
+
+class ParticipationStatsType(TypedDict):
+    """Participation Stats"""
+
+    all_: list[int]
+    owner: list[int]
 
 
-class StarredRepositoryType(TypedDict):
-    """Starred Repository
+class ParticipationStatsTypeForResponse(TypedDict):
+    """Participation Stats"""
 
-    Starred Repository
-    """
-
-    starred_at: datetime
-    repo: RepositoryType
+    all_: list[int]
+    owner: list[int]
 
 
-__all__ = ("StarredRepositoryType",)
+__all__ = (
+    "ParticipationStatsType",
+    "ParticipationStatsTypeForResponse",
+)

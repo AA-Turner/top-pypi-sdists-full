@@ -123,6 +123,7 @@ fn eval_raw_eq(l: Literal, r: Literal, op: String) -> PyResult<bool> {
         (Literal::Bool(a), Literal::Int(b)) => Ok(a as isize == b),
         (Literal::Bool(a), Literal::Bool(b)) => Ok(a == b),
         (Literal::Str(a), Literal::Str(b)) => Ok(a == b),
+        (Literal::Uuid(a), Literal::Uuid(b)) => Ok(a == b),
         (Literal::None(()), Literal::None(())) => Ok(true),
         (Literal::None(()), _) => Ok(false),
         (_, Literal::None(())) => Ok(false),
@@ -210,6 +211,19 @@ pub fn eval_ast<'py>(
 
         AST::Binary { left, op, right } => {
             let l = eval_ast(py, left, catalog, context)?;
+            match op {
+                Operator::And => {
+                    if !l.is_truthy() {
+                        return Ok(l);
+                    }
+                }
+                Operator::Or => {
+                    if l.is_truthy() {
+                        return Ok(l);
+                    }
+                }
+                _ => (),
+            }
             let r = eval_ast(py, right, catalog, context)?;
 
             match op {
@@ -241,6 +255,7 @@ pub fn eval_ast<'py>(
                 Some(Literal::Dict(v)) => Ok(Literal::Dict(v.clone())),
                 Some(Literal::Object(v)) => Ok(Literal::Object(v.clone())),
                 Some(Literal::XNode(ref node)) => {
+                    debug!("Rendering node from expression with context {:?}", context);
                     let resp = catalog.render_node(py, node, context);
                     resp.map(|markup| Literal::Str(markup))
                 }
@@ -356,7 +371,7 @@ pub fn eval_ast<'py>(
                     let res = catalog.call(py, ident.as_str(), &py_args, &py_kwargs)?;
                     Literal::downcast(py, res)
                 }
-                Literal::Object(o) => Python::with_gil(|py| {
+                Literal::Object(o) => Python::attach(|py| {
                     let res = o.obj().call(py, py_args, Some(&py_kwargs))?;
                     Literal::downcast(py, res.into_bound(py))
                 }),

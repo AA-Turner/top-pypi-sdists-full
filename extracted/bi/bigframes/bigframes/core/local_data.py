@@ -25,6 +25,7 @@ from typing import Any, Callable, cast, Generator, Iterable, Literal, Optional, 
 import uuid
 
 import geopandas  # type: ignore
+import numpy
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -83,20 +84,39 @@ class ManagedArrowTable:
         return mat
 
     @classmethod
-    def from_pyarrow(self, table: pa.Table) -> ManagedArrowTable:
-        columns: list[pa.ChunkedArray] = []
-        fields: list[schemata.SchemaItem] = []
-        for name, arr in zip(table.column_names, table.columns):
-            new_arr, bf_type = _adapt_chunked_array(arr)
-            columns.append(new_arr)
-            fields.append(schemata.SchemaItem(name, bf_type))
+    def from_pyarrow(
+        cls, table: pa.Table, schema: Optional[schemata.ArraySchema] = None
+    ) -> ManagedArrowTable:
+        if schema is not None:
+            pa_fields = []
+            for item in schema.items:
+                pa_type = _get_managed_storage_type(item.dtype)
+                pa_fields.append(
+                    pyarrow.field(
+                        item.column,
+                        pa_type,
+                        nullable=not pyarrow.types.is_list(pa_type),
+                    )
+                )
+            pa_schema = pyarrow.schema(pa_fields)
+            # assumption: needed transformations can be handled by simple cast.
+            mat = ManagedArrowTable(table.cast(pa_schema), schema)
+            mat.validate()
+            return mat
+        else:  # infer bigframes schema
+            columns: list[pa.ChunkedArray] = []
+            fields: list[schemata.SchemaItem] = []
+            for name, arr in zip(table.column_names, table.columns):
+                new_arr, bf_type = _adapt_chunked_array(arr)
+                columns.append(new_arr)
+                fields.append(schemata.SchemaItem(name, bf_type))
 
-        mat = ManagedArrowTable(
-            pa.table(columns, names=table.column_names),
-            schemata.ArraySchema(tuple(fields)),
-        )
-        mat.validate()
-        return mat
+            mat = ManagedArrowTable(
+                pa.table(columns, names=table.column_names),
+                schemata.ArraySchema(tuple(fields)),
+            )
+            mat.validate()
+            return mat
 
     def to_arrow(
         self,
@@ -105,12 +125,21 @@ class ManagedArrowTable:
         geo_format: Literal["wkb", "wkt"] = "wkt",
         duration_type: Literal["int", "duration"] = "duration",
         json_type: Literal["string"] = "string",
+        sample_rate: Optional[float] = None,
+        max_chunksize: Optional[int] = None,
     ) -> tuple[pa.Schema, Iterable[pa.RecordBatch]]:
         if geo_format != "wkt":
             raise NotImplementedError(f"geo format {geo_format} not yet implemented")
         assert json_type == "string"
 
-        batches = self.data.to_batches()
+        data = self.data
+
+        # This exists for symmetry with remote sources, but sampling local data like this shouldn't really happen
+        if sample_rate is not None:
+            to_take = numpy.random.rand(data.num_rows) < sample_rate
+            data = data.filter(to_take)
+
+        batches = data.to_batches(max_chunksize=max_chunksize)
         schema = self.data.schema
         if duration_type == "int":
             schema = _schema_durations_to_ints(schema)
@@ -234,9 +263,16 @@ def _iter_table(
         value_generator = iter_array(
             array.flatten(), bigframes.dtypes.get_array_inner_type(dtype)
         )
-        for (start, end) in _pairwise(array.offsets):
-            arr_size = end.as_py() - start.as_py()
-            yield list(itertools.islice(value_generator, arr_size))
+        offset_generator = iter_array(array.offsets, bigframes.dtypes.INT_DTYPE)
+
+        start_offset = None
+        end_offset = None
+        for offset in offset_generator:
+            start_offset = end_offset
+            end_offset = offset
+            if start_offset is not None:
+                arr_size = end_offset - start_offset
+                yield list(itertools.islice(value_generator, arr_size))
 
     @iter_array.register
     def _(
@@ -248,8 +284,15 @@ def _iter_table(
             sub_generators[field_name] = iter_array(array.field(field_name), dtype)
 
         keys = list(sub_generators.keys())
-        for row_values in zip(*sub_generators.values()):
-            yield {key: value for key, value in zip(keys, row_values)}
+        is_null_generator = iter_array(array.is_null(), bigframes.dtypes.BOOL_DTYPE)
+
+        for values in zip(is_null_generator, *sub_generators.values()):
+            is_row_null = values[0]
+            row_values = values[1:]
+            if not is_row_null:
+                yield {key: value for key, value in zip(keys, row_values)}
+            else:
+                yield None
 
     for batch in table.to_batches():
         sub_generators: dict[str, Generator[Any, None, None]] = {}
@@ -452,7 +495,9 @@ def _append_offsets(
 ) -> Iterable[pa.RecordBatch]:
     offset = 0
     for batch in batches:
-        offsets = pa.array(range(offset, offset + batch.num_rows), type=pa.int64())
+        offsets = pa.array(
+            range(offset, offset + batch.num_rows), size=batch.num_rows, type=pa.int64()
+        )
         batch_w_offsets = pa.record_batch(
             [*batch.columns, offsets],
             schema=batch.schema.append(pa.field(offsets_col_name, pa.int64())),
@@ -472,16 +517,3 @@ def _schema_durations_to_ints(schema: pa.Schema) -> pa.Schema:
     return pa.schema(
         pa.field(field.name, _durations_to_ints(field.type)) for field in schema
     )
-
-
-def _pairwise(iterable):
-    do_yield = False
-    a = None
-    b = None
-    for item in iterable:
-        a = b
-        b = item
-        if do_yield:
-            yield (a, b)
-        else:
-            do_yield = True

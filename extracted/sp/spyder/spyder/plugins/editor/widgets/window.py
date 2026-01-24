@@ -27,9 +27,9 @@ from qtpy.QtWidgets import (QAction, QApplication, QMainWindow, QSplitter,
 from spyder.api.plugins import Plugins
 from spyder.api.config.decorators import on_conf_change
 from spyder.api.config.mixins import SpyderConfigurationObserver
+from spyder.api.translations import _
 from spyder.api.widgets.toolbars import ApplicationToolbar
 from spyder.api.widgets.mixins import SpyderWidgetMixin
-from spyder.config.base import _
 from spyder.plugins.editor.widgets.splitter import EditorSplitter
 from spyder.plugins.editor.widgets.status import (CursorPositionStatus,
                                                   EncodingStatus, EOLStatus,
@@ -41,10 +41,13 @@ from spyder.plugins.mainmenu.api import (
 )
 from spyder.plugins.outlineexplorer.main_widget import OutlineExplorerWidget
 from spyder.plugins.toolbar.api import ApplicationToolbars
-from spyder.py3compat import qbytearray_to_str
 from spyder.utils.palette import SpyderPalette
-from spyder.utils.qthelpers import create_toolbutton
-from spyder.utils.stylesheet import APP_STYLESHEET
+from spyder.utils.qthelpers import create_toolbutton, qbytearray_to_str
+from spyder.utils.stylesheet import (
+    AppStyle,
+    APP_STYLESHEET,
+    PANES_TABBAR_STYLESHEET,
+)
 from spyder.widgets.findreplace import FindReplace
 
 
@@ -54,10 +57,10 @@ logger = logging.getLogger(__name__)
 # ---- Constants
 # -----------------------------------------------------------------------------
 class EditorMainWindowMenus:
-    View = "view"
+    Window = "window"
 
 
-class ViewMenuSections:
+class WindowMenuSections:
     Outline = "outline"
     Toolbars = "toolbars"
 
@@ -204,9 +207,24 @@ class EditorWidget(QSplitter, SpyderConfigurationObserver):
 
         self.editorstacks.append(editorstack)
         self.main_widget.last_focused_editorstack[self.parent()] = editorstack
+
+        # Setting attributes
         editorstack.set_closable(len(self.editorstacks) > 1)
         editorstack.set_outlineexplorer(self.outlineexplorer)
         editorstack.set_find_widget(self.find_widget)
+
+        # Adjust style.
+        # This is necessary to give some space between the tabwidget pane and
+        # the splitter separator and borders around it.
+        css = PANES_TABBAR_STYLESHEET.get_copy().get_stylesheet()
+        css['QTabWidget::pane'].setValues(
+            marginLeft=f"{AppStyle.MarginSize}px",
+            marginRight=f"{AppStyle.MarginSize}px",
+            marginBottom=f"{AppStyle.MarginSize}px",
+        )
+        editorstack.tabs.setStyleSheet(css.toString())
+
+        # Signals
         editorstack.reset_statusbar.connect(self.readwrite_status.hide)
         editorstack.reset_statusbar.connect(self.encoding_status.hide)
         editorstack.reset_statusbar.connect(self.cursorpos_status.hide)
@@ -217,6 +235,8 @@ class EditorWidget(QSplitter, SpyderConfigurationObserver):
         editorstack.sig_editor_cursor_position_changed.connect(
             self.cursorpos_status.update_cursor_position)
         editorstack.sig_refresh_eol_chars.connect(self.eol_status.update_eol)
+
+        # Register stack
         self.main_widget.register_editorstack(editorstack)
 
     def __print_editorstacks(self):
@@ -390,14 +410,14 @@ class EditorMainWindow(QMainWindow, SpyderWidgetMixin):
             ApplicationMenus.Source,
             ApplicationMenus.Run,
             ApplicationMenus.Tools,
-            EditorMainWindowMenus.View,
+            EditorMainWindowMenus.Window,
             ApplicationMenus.Help
         ]
 
         for menu_id in menu_list:
-            if menu_id == EditorMainWindowMenus.View:
-                view_menu = self._create_view_menu()
-                self.menuBar().addMenu(view_menu)
+            if menu_id == EditorMainWindowMenus.Window:
+                window_menu = self._create_window_menu()
+                self.menuBar().addMenu(window_menu)
             else:
                 # This is necessary to run tests for this widget without
                 # Spyder's main window
@@ -472,12 +492,12 @@ class EditorMainWindow(QMainWindow, SpyderWidgetMixin):
 
     # ---- Private API
     # -------------------------------------------------------------------------
-    def _create_view_menu(self):
+    def _create_window_menu(self):
         # Create menu
-        view_menu = self._create_menu(
-            menu_id=EditorMainWindowMenus.View,
+        window_menu = self._create_menu(
+            menu_id=EditorMainWindowMenus.Window,
             parent=self,
-            title=_("&View"),
+            title=_("&Window"),
             register=False,
             MenuClass=ApplicationMenu
         )
@@ -490,12 +510,12 @@ class EditorMainWindow(QMainWindow, SpyderWidgetMixin):
             option="show_outline_in_editor_window"
         )
 
-        view_menu.add_action(
+        window_menu.add_action(
             self.toggle_outline_action,
-            section=ViewMenuSections.Outline
+            section=WindowMenuSections.Outline
         )
 
-        # Add toolbar toggle view actions
+        # Add toolbar toggle window actions
         visible_toolbars = self.get_conf(
             'last_visible_toolbars',
             section='toolbar'
@@ -512,12 +532,12 @@ class EditorMainWindow(QMainWindow, SpyderWidgetMixin):
                 toolbar_action.setChecked(True)
                 toolbar.setVisible(True)
 
-            view_menu.add_action(
+            window_menu.add_action(
                 toolbar_action,
-                section=ViewMenuSections.Toolbars
+                section=WindowMenuSections.Toolbars
             )
 
-        return view_menu
+        return window_menu
 
 
 class EditorMainWidgetExample(QSplitter):
@@ -597,8 +617,6 @@ class EditorMainWidgetExample(QSplitter):
             oe_btn = create_toolbutton(self)
             editorstack.add_corner_widgets_to_tabbar([5, oe_btn])
 
-        action = QAction(self)
-        editorstack.set_io_actions(action, action, action, action)
         font = QFont("Courier New")
         font.setPointSize(10)
         editorstack.set_default_font(font, color_scheme='Spyder')

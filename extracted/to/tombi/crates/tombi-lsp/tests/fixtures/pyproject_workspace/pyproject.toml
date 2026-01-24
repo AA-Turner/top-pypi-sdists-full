@@ -1,0 +1,20 @@
+[project]
+name = "workspace"
+version = "0.1.0"
+dependencies = [
+  "anyio>=4.0",
+  "pydantic>=2.10",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.3",
+  "ruff>=0.7.4",
+]
+
+[tool.uv.workspace]
+members = [
+  "members/app",
+  "members/app2",
+  "members/app3",
+]

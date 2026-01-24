@@ -203,6 +203,9 @@ class PaymentOrderCreateParams(TypedDict, total=False):
     an internal account.
     """
 
+    reconciliation_status: Literal["unreconciled", "tentatively_reconciled", "reconciled"]
+    """One of `unreconciled`, `tentatively_reconciled` or `reconciled`."""
+
     remittance_information: Optional[str]
     """For `ach`, this field will be passed through on an addenda record.
 
@@ -271,28 +274,27 @@ class Accounting(TypedDict, total=False):
 
 
 class Document(TypedDict, total=False):
-    documentable_id: Required[str]
-    """The unique identifier for the associated object."""
-
-    documentable_type: Required[
-        Literal[
-            "counterparties",
-            "expected_payments",
-            "external_accounts",
-            "identifications",
-            "incoming_payment_details",
-            "internal_accounts",
-            "organizations",
-            "payment_orders",
-            "transactions",
-            "connections",
-        ]
-    ]
-
     file: Required[FileTypes]
 
     document_type: str
     """A category given to the document, can be `null`."""
+
+    documentable_id: str
+    """The unique identifier for the associated object."""
+
+    documentable_type: Literal[
+        "connections",
+        "counterparties",
+        "expected_payments",
+        "external_accounts",
+        "identifications",
+        "incoming_payment_details",
+        "internal_accounts",
+        "legal_entities",
+        "organizations",
+        "payment_orders",
+        "transactions",
+    ]
 
 
 Documents = Document
@@ -438,6 +440,11 @@ Please use ReceivingAccountRoutingDetail instead.
 
 
 class ReceivingAccount(TypedDict, total=False):
+    """Either `receiving_account` or `receiving_account_id` must be present.
+
+    When using `receiving_account_id`, you may pass the id of an external account or an internal account.
+    """
+
     account_details: Iterable[ReceivingAccountAccountDetail]
 
     account_type: ExternalAccountType

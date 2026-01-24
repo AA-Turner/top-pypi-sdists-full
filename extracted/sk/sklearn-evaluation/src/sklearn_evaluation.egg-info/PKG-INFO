@@ -1,0 +1,12 @@
+Metadata-Version: 2.1
+Name: sklearn-evaluation
+Version: 0.12.2
+Summary: scikit-learn model evaluation made easy: plots, tables andmarkdown reports.
+Home-page: http://github.com/ploomber/sklearn-evaluation
+Download-URL: https://github.com/ploomber/sklearn-evaluation/tarball/0.12.2
+Author: Ploomber
+Author-email: contact@ploomber.io
+License: Apache 2
+Keywords: datascience,machinelearning
+Provides-Extra: dev
+License-File: LICENSE

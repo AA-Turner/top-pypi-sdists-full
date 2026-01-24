@@ -18,18 +18,11 @@ def apply_pose_asset(
 ) -> None:
     """Apply the given Pose Action to the rig
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param asset_library_type: Asset Library Type
-    :type asset_library_type: bpy.stub_internal.rna_enums.AssetLibraryTypeItems | None
     :param asset_library_identifier: Asset Library Identifier
-    :type asset_library_identifier: str
     :param relative_asset_identifier: Relative Asset Identifier
-    :type relative_asset_identifier: str
     :param blend_factor: Blend Factor, Amount that the pose is applied on top of the existing poses. A negative value will subtract the pose instead of adding it
-    :type blend_factor: float | None
     :param flipped: Apply Flipped, When enabled, applies the pose flipped over the X-axis
-    :type flipped: bool | None
     """
 
 def asset_delete(
@@ -37,11 +30,7 @@ def asset_delete(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete the selected Pose Asset
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete the selected Pose Asset"""
 
 def asset_modify(
     execution_context: int | str | None = None,
@@ -52,8 +41,6 @@ def asset_modify(
 ) -> None:
     """Update the selected pose asset in the asset library from the currently selected bones. The mode defines how the asset is updated
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param mode: Overwrite Mode, Specify which parts of the pose asset are overwritten
 
     ADJUST
@@ -67,7 +54,6 @@ def asset_modify(
 
     REMOVE
     Remove Selected Bones -- Remove channels of the selection from the pose asset.
-        :type mode: typing.Literal['ADJUST','REPLACE','ADD','REMOVE'] | None
     """
 
 def blend_pose_asset(
@@ -85,42 +71,12 @@ def blend_pose_asset(
 ) -> None:
     """Blend the given Pose Action to the rig
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param asset_library_type: Asset Library Type
-    :type asset_library_type: bpy.stub_internal.rna_enums.AssetLibraryTypeItems | None
     :param asset_library_identifier: Asset Library Identifier
-    :type asset_library_identifier: str
     :param relative_asset_identifier: Relative Asset Identifier
-    :type relative_asset_identifier: str
     :param blend_factor: Blend Factor, Amount that the pose is applied on top of the existing poses. A negative value will subtract the pose instead of adding it
-    :type blend_factor: float | None
     :param flipped: Apply Flipped, When enabled, applies the pose flipped over the X-axis
-    :type flipped: bool | None
     :param release_confirm: Confirm on Release, Always confirm operation when releasing button
-    :type release_confirm: bool | None
-    """
-
-def convert_old_object_poselib(
-    execution_context: int | str | None = None,
-    undo: bool | None = None,
-    /,
-) -> None:
-    """Create a pose asset for each pose marker in this legacy pose library data-block
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
-
-def convert_old_poselib(
-    execution_context: int | str | None = None,
-    undo: bool | None = None,
-    /,
-) -> None:
-    """Create a pose asset for each pose marker in the current action
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
     """
 
 def copy_as_asset(
@@ -128,11 +84,7 @@ def copy_as_asset(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create a new pose asset on the clipboard, to be pasted into an Asset Browser
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create a new pose asset on the clipboard, to be pasted into an Asset Browser"""
 
 def create_pose_asset(
     execution_context: int | str | None = None,
@@ -145,14 +97,9 @@ def create_pose_asset(
 ) -> None:
     """Create a new asset from the selected bones in the scene
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param pose_name: Pose Name, Name for the new pose asset
-    :type pose_name: str
     :param asset_library_reference: Library, Asset library used to store the new pose
-    :type asset_library_reference: str | None
     :param catalog_path: Catalog, Catalog to use for the new asset
-    :type catalog_path: str
     """
 
 def paste_asset(
@@ -160,11 +107,7 @@ def paste_asset(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Paste the Asset that was previously copied using Copy As Asset
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Paste the Asset that was previously copied using Copy As Asset"""
 
 def pose_asset_select_bones(
     execution_context: int | str | None = None,
@@ -176,12 +119,8 @@ def pose_asset_select_bones(
 ) -> None:
     """Select those bones that are used in this pose
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param select: Select
-    :type select: bool | None
     :param flipped: Flipped
-    :type flipped: bool | None
     """
 
 def restore_previous_action(
@@ -189,8 +128,4 @@ def restore_previous_action(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Switch back to the previous Action, after creating a pose asset
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Switch back to the previous Action, after creating a pose asset"""

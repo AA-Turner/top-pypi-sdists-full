@@ -4,9 +4,13 @@
 
 import ast
 import os
+import platform
 import shutil
 import sys
+import sysconfig
 import textwrap
+
+from unittest.mock import Mock
 
 
 if sys.version_info < (3, 11):
@@ -198,7 +202,7 @@ def test_user_args(package_user_args, tmp_path, monkeypatch):
         'dist-args': ('cli-dist',),
         'setup-args': ('cli-setup',),
         'compile-args': ('cli-compile',),
-        'install-args': ('cli-install',),
+        'install-args': ('--skip-subprojects=cli',),
     }
 
     with in_git_repo_context():
@@ -220,16 +224,15 @@ def test_user_args(package_user_args, tmp_path, monkeypatch):
     # check that the user options are passed to the invoked commands
     expected = [
         # sdist: calls to 'meson setup' and 'meson dist'
-        ['config-setup', 'cli-setup'],
-        ['config-dist', 'cli-dist'],
+        {'config-setup', 'cli-setup'},
+        {'config-dist', 'cli-dist'},
         # wheel: calls to 'meson setup', 'meson compile', and 'meson install'
-        ['config-setup', 'cli-setup'],
-        ['config-compile', 'cli-compile'],
-        ['config-install', 'cli-install'],
+        {'config-setup', 'cli-setup'},
+        {'config-compile', 'cli-compile'},
+        {'--skip-subprojects=config', '--skip-subprojects=cli'},
     ]
     for expected_args, cmd_args in zip(expected, args):
-        for arg in expected_args:
-            assert arg in cmd_args
+        assert expected_args.issubset(cmd_args)
 
 
 @pytest.mark.parametrize('package', ('top-level', 'meson-args'))
@@ -373,3 +376,37 @@ def test_archflags_envvar_parsing_invalid(package_purelib_and_platlib, monkeypat
     finally:
         # revert environment variable setting done by the in-process build
         os.environ.pop('_PYTHON_HOST_PLATFORM', None)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 13), reason='requires Python 3.13 or higher')
+@pytest.mark.parametrize('multiarch', [
+    'arm64-iphoneos',
+    'arm64-iphonesimulator',
+    'x86_64-iphonesimulator',
+])
+def test_ios_project(package_simple, monkeypatch, multiarch, tmp_path):
+    arch, abi = multiarch.split('-')
+    subsystem = 'ios-simulator' if abi == 'iphonesimulator' else 'ios'
+
+    # Mock being on iOS
+    monkeypatch.setattr(sys, 'platform', 'ios')
+    monkeypatch.setattr(platform, 'machine', Mock(return_value=arch))
+    monkeypatch.setattr(sysconfig, 'get_platform', Mock(return_value=f'ios-13.0-{multiarch}'))
+    ios_ver = platform.IOSVersionInfo('iOS', '13.0', 'iPhone', multiarch.endswith('simulator'))
+    monkeypatch.setattr(platform, 'ios_ver', Mock(return_value=ios_ver))
+
+    # Create an iOS project.
+    project = mesonpy.Project(source_dir=package_simple, build_dir=tmp_path)
+
+    # Meson configuration points at the cross file
+    assert project._meson_args['setup'][-2:] == ['--cross-file', os.fspath(tmp_path / 'meson-python-cross-file.ini')]
+
+    # Meson config files exist, and have some relevant keys
+    assert (tmp_path / 'meson-python-native-file.ini').exists()
+    assert (tmp_path / 'meson-python-cross-file.ini').exists()
+
+    cross_config = (tmp_path / 'meson-python-cross-file.ini').read_text()
+
+    assert "\nsystem = 'ios'\n" in cross_config
+    assert f"\nc = '{arch}-apple-{subsystem}-clang'\n" in cross_config
+    assert f"\nsubsystem = '{subsystem}'\n" in cross_config

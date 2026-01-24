@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.9.10,<0.10.0"]
+build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
@@ -12,12 +12,17 @@ dev = [
   "hatch>=1.14.1",
   "pyyaml>=6.0.2",
   "packaging>=21.0",
-  "pytest-xdist>=3.8.0"
+  "pytest-xdist>=3.8.0",
+  "pytest-timeout>=2.4.0",
+  "structlog>=25.5.0",
+  "starlette>=0.39.0",
+  "uvicorn>=0.32.0",
+  "time-machine>=2.19.0,<3.0.0"
 ]
 
 [project]
 name = "llama-index-workflows"
-version = "2.4.0"
+version = "2.13.0"
 description = "An event-driven, async-first, step-based way to control the execution flow of AI applications like Agents."
 readme = "README.md"
 license = "MIT"
@@ -31,15 +36,7 @@ dependencies = [
 
 [project.optional-dependencies]
 server = ["starlette>=0.39.0", "uvicorn>=0.32.0"]
-
-[tool.basedpyright]
-typeCheckingMode = "standard"
-
-[tool.coverage.run]
-omit = ["tests/*"]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/workflows"]
+client = ["httpx>=0.28.1,<1"]
 
 [tool.hatch.envs.server]
 features = ["server"]
@@ -50,3 +47,7 @@ openapi = "python -m workflows.server.server --output openapi.json"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.uv.build-backend]
+module-name = "workflows"

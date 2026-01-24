@@ -20,6 +20,8 @@ from typing import NamedTuple
 from typing import NoReturn
 from typing import Sequence
 
+from Cython.Compiler.Errors import init_thread
+
 if sys.version_info >= (3, 11):  # pragma: no cover
     import tomllib
 else:  # pragma: no cover
@@ -40,6 +42,7 @@ from Cython.Compiler.ExprNodes import DictComprehensionAppendNode
 from Cython.Compiler.ExprNodes import DictNode
 from Cython.Compiler.ExprNodes import FloatNode
 from Cython.Compiler.ExprNodes import FormattedValueNode
+from Cython.Compiler.ExprNodes import GeneratorExpressionNode
 from Cython.Compiler.ExprNodes import ImportNode
 from Cython.Compiler.ExprNodes import IndexNode
 from Cython.Compiler.ExprNodes import IntNode
@@ -387,20 +390,22 @@ def visit_dict_node(
             )
 
 
-def _traverse_file(  # noqa: PLR0915
+def _traverse_file(  # noqa: PLR0915,PLR0913
     code: str,
     filename: str,
     lines: Mapping[int, str],
     *,
-    skip_check: bool = False,
-    violations: list[tuple[int, int, str]] | None = None,
-) -> tuple[list[Token], list[Token], list[str], list[str]]:
+    skip_check: bool,
+    violations: list[tuple[int, int, str]] | None,
+    ban_relative_imports: bool,
+) -> tuple[list[Token], list[Token], list[str]]:
     """
     skip_check: only for when traversing an included file
     """
     try:
         context = StringParseContext(filename)
         context.set_language_level(3)
+        init_thread()
         tree = parse_from_strings(filename, code, context=context)
     except Exception as exp:  # pragma: no cover
         # If Cython can't parse this file, just skip it.
@@ -480,6 +485,28 @@ def _traverse_file(  # noqa: PLR0915
                             "Found useless import alias",
                         ),
                     )
+            if ban_relative_imports and node.relative_level:
+                violations.append(
+                    (
+                        node.pos[1],
+                        node.pos[2],
+                        "Found relative import",
+                    ),
+                )
+
+        if (
+            ban_relative_imports
+            and isinstance(node, FromImportStatNode)
+            and isinstance(getattr(node, "module", None), ImportNode)
+            and node.module.level
+        ):
+            violations.append(
+                (
+                    node.pos[1],
+                    node.pos[2],
+                    "Found relative import",
+                ),
+            )
 
         if isinstance(node, (IfClauseNode, AssertStatNode)):
             if CYTHON_VERSION > ("3",) or isinstance(
@@ -628,12 +655,48 @@ def _traverse_file(  # noqa: PLR0915
                 ),
             )
 
-        if isinstance(node, ExprStatNode) and isinstance(node.expr, UnicodeNode):
+        if (
+            isinstance(node, ExprStatNode)
+            and isinstance(node.expr, UnicodeNode)
+            and isinstance(node_parent.parent, StatListNode)
+        ):
+            try:
+                idx = node_parent.parent.stats.index(node)
+            except ValueError:  # pragma: no cover
+                pass  # defensive check
+            else:
+                if not isinstance(
+                    node_parent.parent.stats[idx - 1], SingleAssignmentNode
+                ):
+                    violations.append(
+                        (
+                            node.pos[1],
+                            node.pos[2] + 1,
+                            "pointless string statement",
+                        ),
+                    )
+
+        if (
+            isinstance(node, SimpleCallNode)
+            and isinstance(node.function, NameNode)
+            and hasattr(node.function, "name")
+            and node.args
+            and len(node.args) == 1
+            and isinstance(node.args[0], (GeneratorExpressionNode, ComprehensionNode))
+            and (
+                node.function.name in {"list", "set"}
+                or (
+                    node.function.name == "dict"
+                    and isinstance(node.args[0].loop.target, TupleNode)
+                    and len(node.args[0].loop.target.args) == 2
+                )
+            )
+        ):
             violations.append(
                 (
                     node.pos[1],
                     node.pos[2] + 1,
-                    "pointless string statement",
+                    f"unnecessary {node.function.name} + generator (just use a {node.function.name} comprehension)",
                 ),
             )
 
@@ -703,7 +766,7 @@ def _traverse_file(  # noqa: PLR0915
                 if isinstance(_import, UnicodeNode)
             )
 
-    return names, imported_names, global_names, exported_imports
+    return names, imported_names, exported_imports
 
 
 def sanitise_input(
@@ -752,23 +815,29 @@ def run_ast_checks(
     code: str,
     filename: str,
     violations: list[tuple[int, int, str]],
+    *,
+    ban_relative_imports: bool,
 ) -> dict[int, str]:
     code, lines, included_texts = sanitise_input(code, filename)
-    names, imported_names, global_names, exported_imports = _traverse_file(
+    names, imported_names, exported_imports = _traverse_file(
         code,
         filename,
         lines,
         violations=violations,
+        ban_relative_imports=ban_relative_imports,
+        skip_check=False,
     )
 
     included_names = []
     for _code in included_texts:
         _code, _lines, __ = sanitise_input(_code, filename)
-        _included_names, _, __, ___ = _traverse_file(
+        _included_names, _, __ = _traverse_file(
             _code,
             filename,
             _lines,
             skip_check=True,
+            violations=None,
+            ban_relative_imports=False,
         )
         included_names.extend(_included_names)
     for _import in imported_names:
@@ -828,6 +897,7 @@ def _main(  # noqa: PLR0913
     ext: str,
     line_length: int = 88,
     no_pycodestyle: bool = False,
+    ban_relative_imports: bool = False,
     ignore: set[str] | None = None,
 ) -> int:
     if ignore is None:
@@ -840,7 +910,9 @@ def _main(  # noqa: PLR0913
     lines = {}
     if ext == ".pyx":
         with contextlib.suppress(CythonParseError):
-            lines = run_ast_checks(code, filename, violations)
+            lines = run_ast_checks(
+                code, filename, violations, ban_relative_imports=ban_relative_imports
+            )
 
     ret = 0
     for lineno, col, message in sorted(violations):
@@ -923,6 +995,7 @@ def main(argv: Sequence[str] | None = None) -> int:  # pragma: no cover
     parser.add_argument("--max-line-length", type=int, default=88)
     parser.add_argument("--no-pycodestyle", action="store_true")
     parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument("--ban-relative-imports", action="store_true")
     parser.add_argument(
         "--ignore",
         nargs="*",
@@ -941,7 +1014,7 @@ def main(argv: Sequence[str] | None = None) -> int:  # pragma: no cover
 
     if not isinstance(args.ignore, list):
         args.ignore = [args.ignore]
-    ignore = {code.strip() for s in args.ignore for code in s.split(",")}
+    ignore: set[str] = {code.strip() for s in args.ignore for code in s.split(",")}
 
     for path in paths:
         if path.is_file():
@@ -969,6 +1042,7 @@ def main(argv: Sequence[str] | None = None) -> int:  # pragma: no cover
                 line_length=args.max_line_length,
                 no_pycodestyle=args.no_pycodestyle,
                 ext=ext,
+                ban_relative_imports=args.ban_relative_imports,
                 ignore=ignore,
             )
     return ret

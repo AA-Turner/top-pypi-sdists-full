@@ -10,6 +10,7 @@ from tidy3d.components.material.solver_types import (
     HeatMediumType,
     OpticalMediumType,
 )
+from tidy3d.components.types.base import TYPE_TAG_STR
 
 
 class MultiPhysicsMedium(Tidy3dBaseModel):
@@ -32,9 +33,9 @@ class MultiPhysicsMedium(Tidy3dBaseModel):
         >>> default_multiphysics_Si = td.MultiPhysicsMedium(
         ...     optical=td.material_library['cSi']['Green2008'],
         ...     charge=td.SemiconductorMedium(
-        ...         N_c=2.86e19,
-        ...         N_v=3.1e19,
-        ...         E_g=1.11,
+        ...         N_c=td.ConstantEffectiveDOS(N=2.86e19),
+        ...         N_v=td.ConstantEffectiveDOS(N=3.1e19),
+        ...         E_g=td.ConstantEnergyBandGap(eg=1.11),
         ...         mobility_n=td.CaugheyThomasMobility(
         ...             mu_min=52.2,
         ...             mu=1471.0,
@@ -74,8 +75,8 @@ class MultiPhysicsMedium(Tidy3dBaseModel):
         ...             c2=0.5,
         ...             min_N=1e15,
         ...         ),
-        ...         N_a=0,
-        ...         N_d=0
+        ...         N_a=[td.ConstantDoping(concentration=1e15)],
+        ...         N_d=[td.ConstantDoping(concentration=1e15)]
         ...     )
         ... )
     """
@@ -83,7 +84,10 @@ class MultiPhysicsMedium(Tidy3dBaseModel):
     name: Optional[str] = pd.Field(None, title="Name", description="Medium name")
 
     optical: Optional[OpticalMediumType] = pd.Field(
-        None, title="Optical properties", description="Specifies optical properties."
+        None,
+        title="Optical properties",
+        description="Specifies optical properties.",
+        discriminator=TYPE_TAG_STR,
     )
 
     # electrical: Optional[ElectricalMediumType] = pd.Field(
@@ -93,11 +97,17 @@ class MultiPhysicsMedium(Tidy3dBaseModel):
     # )
 
     heat: Optional[HeatMediumType] = pd.Field(
-        None, title="Heat properties", description="Specifies properties for Heat simulations."
+        None,
+        title="Heat properties",
+        description="Specifies properties for Heat simulations.",
+        discriminator=TYPE_TAG_STR,
     )
 
     charge: Optional[ChargeMediumType] = pd.Field(
-        None, title="Charge properties", description="Specifies properties for Charge simulations."
+        None,
+        title="Charge properties",
+        description="Specifies properties for Charge simulations.",
+        discriminator=TYPE_TAG_STR,
     )
 
     def __getattr__(self, name: str):
@@ -157,6 +167,8 @@ class MultiPhysicsMedium(Tidy3dBaseModel):
             "_incompatible_material_types": self.optical,
             "frequency_range": self.optical,
             "eps_model": self.optical,
+            "n_cfl": self.optical,
+            "allow_gain": self.optical,
         }
 
         if name == "_has_incompatibilities":

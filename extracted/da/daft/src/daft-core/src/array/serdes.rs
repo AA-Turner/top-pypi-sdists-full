@@ -4,7 +4,7 @@ use serde::ser::SerializeMap;
 
 use super::{DataArray, FixedSizeListArray, ListArray, StructArray, ops::as_arrow::AsArrow};
 #[cfg(feature = "python")]
-use crate::datatypes::PythonArray;
+use crate::prelude::PythonArray;
 use crate::{
     datatypes::{
         BinaryArray, BooleanArray, DaftLogicalType, DaftPrimitiveType, DataType, ExtensionArray,
@@ -58,7 +58,7 @@ impl<T: DaftPrimitiveType> serde::Serialize for DataArray<T> {
     {
         let mut s = serializer.serialize_map(Some(2))?;
         s.serialize_entry("field", self.field())?;
-        s.serialize_entry("values", &IterSer::new(self.as_arrow().iter()))?;
+        s.serialize_entry("values", &IterSer::new(self.as_arrow2().iter()))?;
         s.end()
     }
 }
@@ -70,7 +70,7 @@ impl serde::Serialize for Utf8Array {
     {
         let mut s = serializer.serialize_map(Some(2))?;
         s.serialize_entry("field", self.field())?;
-        s.serialize_entry("values", &IterSer::new(self.as_arrow().iter()))?;
+        s.serialize_entry("values", &IterSer::new(self.as_arrow2().iter()))?;
         s.end()
     }
 }
@@ -82,7 +82,7 @@ impl serde::Serialize for BooleanArray {
     {
         let mut s = serializer.serialize_map(Some(2))?;
         s.serialize_entry("field", self.field())?;
-        s.serialize_entry("values", &IterSer::new(self.as_arrow().iter()))?;
+        s.serialize_entry("values", &IterSer::new(self.as_arrow2().iter()))?;
         s.end()
     }
 }
@@ -94,7 +94,7 @@ impl serde::Serialize for BinaryArray {
     {
         let mut s = serializer.serialize_map(Some(2))?;
         s.serialize_entry("field", self.field())?;
-        s.serialize_entry("values", &IterSer::new(self.as_arrow().iter()))?;
+        s.serialize_entry("values", &IterSer::new(self.as_arrow2().iter()))?;
         s.end()
     }
 }
@@ -106,7 +106,7 @@ impl serde::Serialize for FixedSizeBinaryArray {
     {
         let mut s = serializer.serialize_map(Some(2))?;
         s.serialize_entry("field", self.field())?;
-        s.serialize_entry("values", &IterSer::new(self.as_arrow().iter()))?;
+        s.serialize_entry("values", &IterSer::new(self.as_arrow2().iter()))?;
         s.end()
     }
 }
@@ -133,7 +133,7 @@ impl serde::Serialize for ExtensionArray {
         let values = if let DataType::Extension(_, inner, _) = self.data_type() {
             Series::try_from((
                 "physical",
-                self.data.convert_logical_type(inner.to_arrow().unwrap()),
+                self.data.convert_logical_type(inner.to_arrow2().unwrap()),
             ))
             .unwrap()
         } else {
@@ -146,11 +146,17 @@ impl serde::Serialize for ExtensionArray {
 
 #[cfg(feature = "python")]
 impl serde::Serialize for PythonArray {
-    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        panic!("Rust Serde is not implemented for Python Arrays")
+        let mut s = serializer.serialize_map(Some(2))?;
+        s.serialize_entry("field", self.field())?;
+        s.serialize_entry(
+            "values",
+            &IterSer::new(self.to_pickled_arrow2().unwrap().iter()),
+        )?;
+        s.end()
     }
 }
 
@@ -164,10 +170,11 @@ impl serde::Serialize for StructArray {
         let mut values = Vec::with_capacity(self.children.len() + 1);
         values.extend(self.children.iter().map(Some));
 
-        let validity = self
-            .validity()
-            .map(|b| BooleanArray::from(("validity", b.clone())).into_series());
-        values.push(validity.as_ref());
+        let nulls = self.nulls().map(|b| {
+            let bitmap = daft_arrow::buffer::from_null_buffer(b.clone());
+            BooleanArray::from(("validity", bitmap)).into_series()
+        });
+        values.push(nulls.as_ref());
 
         s.serialize_entry("field", self.field.as_ref())?;
         s.serialize_entry("values", &values)?;
@@ -185,18 +192,19 @@ impl serde::Serialize for ListArray {
 
         values.push(Some(&self.flat_child));
 
-        let arrow2_offsets = arrow2::array::Int64Array::new(
-            arrow2::datatypes::DataType::Int64,
+        let arrow2_offsets = daft_arrow::array::Int64Array::new(
+            daft_arrow::datatypes::DataType::Int64,
             self.offsets().buffer().clone(),
             None,
         );
         let offsets = Int64Array::from(("offsets", Box::new(arrow2_offsets))).into_series();
         values.push(Some(&offsets));
 
-        let validity = self
-            .validity()
-            .map(|b| BooleanArray::from(("validity", b.clone())).into_series());
-        values.push(validity.as_ref());
+        let nulls = self.nulls().map(|b| {
+            let bitmap = daft_arrow::buffer::from_null_buffer(b.clone());
+            BooleanArray::from(("validity", bitmap)).into_series()
+        });
+        values.push(nulls.as_ref());
 
         s.serialize_entry("field", self.field.as_ref())?;
         s.serialize_entry("values", &values)?;
@@ -211,10 +219,11 @@ impl serde::Serialize for FixedSizeListArray {
     {
         let mut s = serializer.serialize_map(Some(2))?;
 
-        let validity = self
-            .validity()
-            .map(|b| BooleanArray::from(("validity", b.clone())).into_series());
-        let values = vec![Some(&self.flat_child), validity.as_ref()];
+        let nulls = self.nulls().map(|b| {
+            let bitmap = daft_arrow::buffer::from_null_buffer(b.clone());
+            BooleanArray::from(("validity", bitmap)).into_series()
+        });
+        let values = vec![Some(&self.flat_child), nulls.as_ref()];
         s.serialize_entry("field", self.field.as_ref())?;
         s.serialize_entry("values", &values)?;
         s.end()
@@ -244,7 +253,7 @@ impl serde::Serialize for IntervalArray {
     {
         let mut s = serializer.serialize_map(Some(2))?;
         s.serialize_entry("field", self.field())?;
-        s.serialize_entry("values", &IterSer::new(self.as_arrow().iter()))?;
+        s.serialize_entry("values", &IterSer::new(self.as_arrow2().iter()))?;
         s.end()
     }
 }

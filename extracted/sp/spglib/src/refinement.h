@@ -25,6 +25,8 @@ ExactStructure *ref_get_exact_structure_and_symmetry(Spacegroup *spacegroup,
                                                      Cell const *cell,
                                                      int const *mapping_table,
                                                      double const symprec);
+Symmetry *ref_get_primitive_symmetry(double const t_mat[3][3],
+                                     Symmetry const *sym);
 void ref_free_exact_structure(ExactStructure *exstr);
 int ref_find_similar_bravais_lattice(Spacegroup *spacegroup,
                                      double const symprec);

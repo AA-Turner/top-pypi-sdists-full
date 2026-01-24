@@ -4,6 +4,7 @@ import functools
 import inspect
 import os
 import sys
+import typing
 from collections import defaultdict
 from textwrap import TextWrapper
 
@@ -43,7 +44,7 @@ class ShowVersion(SwitchError):
 
 
 class SwitchParseInfo:
-    __slots__ = ["swname", "val", "index", "__weakref__"]
+    __slots__ = ["__weakref__", "index", "swname", "val"]
 
     def __init__(self, swname, val, index):
         self.swname = swname
@@ -288,8 +289,9 @@ class Application:
         """
 
         def wrapper(subapp):
-            subname = subapp if isinstance(subapp, str) else subapp.__name__
-            attrname = f"_subcommand_{subname}"
+            # Use the subcommand name (not subapp name) to ensure uniqueness
+            # This allows the same subapp to be registered under multiple names
+            attrname = f"_subcommand_{name}"
             setattr(cls, attrname, Subcommand(name, subapp))
             return subapp
 
@@ -504,11 +506,6 @@ class Application:
 
         m = inspect.getfullargspec(self.main)
 
-        if sys.version_info < (3, 10):
-            sig = inspect.signature(self.main)
-        else:
-            sig = inspect.signature(self.main, eval_str=True)
-
         max_args = sys.maxsize if m.varargs else len(m.args) - 1
         min_args = len(m.args) - 1 - (len(m.defaults) if m.defaults else 0)
         if len(tailargs) < min_args:
@@ -539,19 +536,13 @@ class Application:
             )
 
         elif hasattr(m, "annotations") and m.annotations:
+            annotations = typing.get_type_hints(self.main)
             args_names = list(m.args[1:])
             positional = [None] * len(args_names)
             varargs = None
 
             # All args are positional, so convert kargs to positional
-            for item in m.annotations:
-                annotation = (
-                    sig.parameters[item].annotation
-                    if item != "return"
-                    else sig.return_annotation
-                )
-                if sys.version_info < (3, 10) and isinstance(annotation, str):
-                    annotation = eval(annotation)
+            for item, annotation in annotations.items():
                 if item == m.varargs:
                     varargs = annotation
                 elif item != "return":
@@ -603,7 +594,7 @@ class Application:
         exit code of the application.
 
         .. note::
-           Setting ``exit`` to ``False`` is intendend for testing/debugging purposes only -- do
+           Setting ``exit`` to ``False`` is intended for testing/debugging purposes only -- do
            not override it in other situations.
         """
         if argv is None:
@@ -696,7 +687,10 @@ class Application:
                 )
             elif not swinfo.argtype:
                 # a flag
-                if val not in (True, False, None, Flag):
+                # If val is False or None, skip adding the flag (treat as not present)
+                if val in (False, None):
+                    continue
+                if val not in (True, Flag):
                     raise SwitchError(T_("Switch {0} is a boolean flag").format(swname))
                 p = ()
             else:

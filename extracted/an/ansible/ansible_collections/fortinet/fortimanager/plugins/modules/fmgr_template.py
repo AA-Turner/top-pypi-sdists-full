@@ -16,7 +16,6 @@ short_description: Require device/vdom scope member
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -158,8 +160,8 @@ EXAMPLES = '''
     - name: Require device/vdom scope member
       fortinet.fortimanager.fmgr_template:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -235,6 +237,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'template': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -249,9 +252,12 @@ def main():
                 'position': {'v_range': [['7.4.2', '']], 'choices': ['post-vdom-copy', 'prep-vdom-copy'], 'type': 'str'},
                 'option': {'v_range': [['7.6.0', '']], 'type': 'list', 'choices': ['sdwan-overlay', 'sdwan-manager'], 'elements': 'str'},
                 'scope member': {
-                    'v_range': [['7.4.7', '7.4.7']],
+                    'v_range': [['7.4.7', '7.4.8'], ['7.6.4', '']],
                     'type': 'list',
-                    'options': {'name': {'v_range': [['7.4.7', '7.4.7']], 'type': 'str'}, 'vdom': {'v_range': [['7.4.7', '7.4.7']], 'type': 'str'}},
+                    'options': {
+                        'name': {'v_range': [['7.4.7', '7.4.8'], ['7.6.4', '']], 'type': 'str'},
+                        'vdom': {'v_range': [['7.4.7', '7.4.8'], ['7.6.4', '']], 'type': 'str'}
+                    },
                     'elements': 'dict'
                 }
             }

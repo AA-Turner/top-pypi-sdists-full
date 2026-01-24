@@ -2,18 +2,19 @@ from __future__ import annotations
 
 import json
 import os
-import uuid
 from contextlib import AbstractContextManager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import Enum
 from types import TracebackType
-from typing import List, Literal, Optional, Type, TypedDict
+from typing import TYPE_CHECKING, List, Literal, Optional, Type, TypedDict
 
-from opentelemetry.trace import Span, Status, StatusCode, use_span
+if TYPE_CHECKING:
+    from opentelemetry.trace import Span
+
 from sqlalchemy.orm import Session
 
-from dbos._utils import GlobalParams
+from dbos._utils import GlobalParams, generate_uuid
 
 from ._logger import dbos_logger
 from ._tracer import dbos_tracer
@@ -78,8 +79,8 @@ class ContextSpan:
         context_manager: The context manager that is used to manage the span's lifecycle.
     """
 
-    span: Span
-    context_manager: AbstractContextManager[Span]
+    span: "Span"
+    context_manager: "AbstractContextManager[Span]"
 
 
 class DBOSContext:
@@ -118,6 +119,8 @@ class DBOSContext:
         self.deduplication_id: Optional[str] = None
         # A user-specified priority for the enqueuing workflow.
         self.priority: Optional[int] = None
+        # If the workflow is enqueued on a partitioned queue, its partition key
+        self.queue_partition_key: Optional[str] = None
 
     def create_child(self) -> DBOSContext:
         rv = DBOSContext()
@@ -147,7 +150,7 @@ class DBOSContext:
                 self.logger.warning(
                     f"Multiple workflows started in the same SetWorkflowID block. Only the first workflow is assigned the specified workflow ID; subsequent workflows will use a generated workflow ID."
                 )
-            wfid = str(uuid.uuid4())
+            wfid = generate_uuid()
         return wfid
 
     def start_workflow(
@@ -217,19 +220,21 @@ class DBOSContext:
 
     """ Return the current DBOS span if any. It must be a span created by DBOS."""
 
-    def get_current_dbos_span(self) -> Optional[Span]:
+    def get_current_dbos_span(self) -> "Optional[Span]":
         if len(self.context_spans) > 0:
             return self.context_spans[-1].span
         return None
 
     """ Return the current active span if any. It might not be a DBOS span."""
 
-    def get_current_active_span(self) -> Optional[Span]:
+    def get_current_active_span(self) -> "Optional[Span]":
         return dbos_tracer.get_current_span()
 
     def _start_span(self, attributes: TracedAttributes) -> None:
         if dbos_tracer.disable_otlp:
             return
+        from opentelemetry.trace import use_span
+
         attributes["operationUUID"] = (
             self.workflow_id if len(self.workflow_id) > 0 else None
         )
@@ -257,6 +262,8 @@ class DBOSContext:
     def _end_span(self, exc_value: Optional[BaseException]) -> None:
         if dbos_tracer.disable_otlp:
             return
+        from opentelemetry.trace import Status, StatusCode
+
         context_span = self.context_spans.pop()
         if exc_value is None:
             context_span.span.set_status(Status(StatusCode.OK))
@@ -473,6 +480,7 @@ class SetEnqueueOptions:
         deduplication_id: Optional[str] = None,
         priority: Optional[int] = None,
         app_version: Optional[str] = None,
+        queue_partition_key: Optional[str] = None,
     ) -> None:
         self.created_ctx = False
         self.deduplication_id: Optional[str] = deduplication_id
@@ -485,6 +493,8 @@ class SetEnqueueOptions:
         self.saved_priority: Optional[int] = None
         self.app_version: Optional[str] = app_version
         self.saved_app_version: Optional[str] = None
+        self.queue_partition_key = queue_partition_key
+        self.saved_queue_partition_key: Optional[str] = None
 
     def __enter__(self) -> SetEnqueueOptions:
         # Code to create a basic context
@@ -499,6 +509,8 @@ class SetEnqueueOptions:
         ctx.priority = self.priority
         self.saved_app_version = ctx.app_version
         ctx.app_version = self.app_version
+        self.saved_queue_partition_key = ctx.queue_partition_key
+        ctx.queue_partition_key = self.queue_partition_key
         return self
 
     def __exit__(
@@ -511,6 +523,7 @@ class SetEnqueueOptions:
         curr_ctx.deduplication_id = self.saved_deduplication_id
         curr_ctx.priority = self.saved_priority
         curr_ctx.app_version = self.saved_app_version
+        curr_ctx.queue_partition_key = self.saved_queue_partition_key
         # Code to clean up the basic context if we created it
         if self.created_ctx:
             _clear_local_dbos_context()

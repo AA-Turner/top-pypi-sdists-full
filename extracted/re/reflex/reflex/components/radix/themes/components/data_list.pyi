@@ -5,7 +5,7 @@
 # ------------------------------------------------------
 from collections.abc import Mapping, Sequence
 from types import SimpleNamespace
-from typing import Any, Literal
+from typing import Any
 
 from reflex.components.core.breakpoints import Breakpoints
 from reflex.components.radix.themes.base import RadixThemesComponent
@@ -17,24 +17,6 @@ class DataListRoot(RadixThemesComponent):
     def create(
         cls,
         *children,
-        orientation: Breakpoints[str, Literal["horizontal", "vertical"]]
-        | Literal["horizontal", "vertical"]
-        | Var[
-            Breakpoints[str, Literal["horizontal", "vertical"]]
-            | Literal["horizontal", "vertical"]
-        ]
-        | None = None,
-        size: Breakpoints[str, Literal["1", "2", "3"]]
-        | Literal["1", "2", "3"]
-        | Var[Breakpoints[str, Literal["1", "2", "3"]] | Literal["1", "2", "3"]]
-        | None = None,
-        trim: Breakpoints[str, Literal["both", "end", "normal", "start"]]
-        | Literal["both", "end", "normal", "start"]
-        | Var[
-            Breakpoints[str, Literal["both", "end", "normal", "start"]]
-            | Literal["both", "end", "normal", "start"]
-        ]
-        | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -70,9 +52,6 @@ class DataListRoot(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            orientation: The orientation of the data list item: "horizontal" | "vertical"
-            size: The size of the data list item: "1" | "2" | "3"
-            trim: Trims the leading whitespace from the start or end of the text.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -90,15 +69,6 @@ class DataListItem(RadixThemesComponent):
     def create(
         cls,
         *children,
-        align: Breakpoints[
-            str, Literal["baseline", "center", "end", "start", "stretch"]
-        ]
-        | Literal["baseline", "center", "end", "start", "stretch"]
-        | Var[
-            Breakpoints[str, Literal["baseline", "center", "end", "start", "stretch"]]
-            | Literal["baseline", "center", "end", "start", "stretch"]
-        ]
-        | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -134,7 +104,6 @@ class DataListItem(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            align: The alignment of the data list item within its container.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -152,77 +121,6 @@ class DataListLabel(RadixThemesComponent):
     def create(
         cls,
         *children,
-        width: Breakpoints[str, str]
-        | Var[Breakpoints[str, str] | str]
-        | str
-        | None = None,
-        min_width: Breakpoints[str, str]
-        | Var[Breakpoints[str, str] | str]
-        | str
-        | None = None,
-        max_width: Breakpoints[str, str]
-        | Var[Breakpoints[str, str] | str]
-        | str
-        | None = None,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -258,10 +156,6 @@ class DataListLabel(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            width: The width of the component
-            min_width: The minimum width of the component
-            max_width: The maximum width of the component
-            color_scheme: The color scheme for the DataList component.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

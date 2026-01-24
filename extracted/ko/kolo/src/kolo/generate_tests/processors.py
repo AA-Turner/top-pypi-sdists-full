@@ -1,10 +1,7 @@
-from datetime import datetime
 from itertools import chain
 from typing import List
 
-from ..db import SchemaNotFoundError, load_schema_for_commit_sha
 from ..django_schema import get_schema_for_commit
-from ..git import COMMIT_SHA
 from .factories import build_factories, import_factories
 from .loaders import import_string
 from .outbound import parse_outbound_frames
@@ -114,10 +111,10 @@ def process_django_version(context):
 def process_time_travel(context):
     """Choose time_machine unless only freezegun is installed"""
     try:
-        import time_machine
+        import time_machine  # noqa: F401
     except ImportError:
         try:
-            import freezegun
+            import freezegun  # noqa: F401
         except ImportError:  # pragma: no cover
             pass
         else:

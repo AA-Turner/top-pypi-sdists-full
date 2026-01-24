@@ -1,18 +1,17 @@
-use crate::py_digest::{PyDigest, PyHexDigest};
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyModuleMethods, PyString};
 use pyo3::{Bound, PyResult, Python, pyfunction, wrap_pyfunction};
-use ryo3_core::PyLock;
+use ryo3_core::RyMutex;
+use ryo3_core::types::{PyDigest, PyHexDigest};
 use std::hash::Hasher;
-use std::sync::Mutex;
 use twox_hash::XxHash32;
 
-#[pyclass(name = "xxh32", frozen)]
+#[pyclass(name = "xxh32", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3.xxhash"))]
 pub struct PyXxHash32 {
     seed: u32,
-    hasher: Mutex<XxHash32>,
+    hasher: RyMutex<XxHash32, true>,
 }
 
 #[pymethods]
@@ -28,12 +27,12 @@ impl PyXxHash32 {
                 hasher.write(s.as_ref());
                 Self {
                     seed,
-                    hasher: Mutex::new(hasher),
+                    hasher: hasher.into(),
                 }
             }
             None => Self {
                 seed,
-                hasher: Mutex::new(hasher),
+                hasher: hasher.into(),
             },
         }
     }
@@ -80,32 +79,33 @@ impl PyXxHash32 {
     }
 
     #[expect(clippy::needless_pass_by_value)]
-    fn update(&self, data: ryo3_bytes::PyBytes) -> PyResult<()> {
-        // self.hasher.update(b.as_ref());
-        let mut hasher = self.hasher.py_lock()?;
-        hasher.write(data.as_ref());
-        Ok(())
+    fn update(&self, py: Python<'_>, data: ryo3_bytes::PyBytes) -> PyResult<()> {
+        py.detach(|| {
+            let mut hasher = self.hasher.py_lock()?;
+            hasher.write(data.as_ref());
+            Ok(())
+        })
     }
 
     fn copy(&self) -> PyResult<Self> {
         let hasher = self.hasher.py_lock()?;
         Ok(Self {
-            hasher: Mutex::new(hasher.clone()),
+            hasher: hasher.clone().into(),
             seed: self.seed,
         })
     }
-
-    fn reset(&self) -> PyResult<()> {
+    #[pyo3(signature = (*, seed = None))]
+    fn reset(&self, seed: Option<u32>) -> PyResult<()> {
         let mut h = self.hasher.py_lock()?;
-        *h = XxHash32::with_seed(self.seed);
+        *h = XxHash32::with_seed(seed.unwrap_or(self.seed));
         Ok(())
     }
 
     #[expect(clippy::needless_pass_by_value)]
     #[staticmethod]
-    #[pyo3(signature = (data, *, seed = None))]
-    fn oneshot(data: ryo3_bytes::PyBytes, seed: Option<u32>) -> u32 {
-        XxHash32::oneshot(seed.unwrap_or(0), data.as_ref())
+    #[pyo3(signature = (data, *, seed = 0))]
+    fn oneshot(py: Python<'_>, data: ryo3_bytes::PyBytes, seed: u32) -> u32 {
+        py.detach(|| XxHash32::oneshot(seed, data.as_ref()))
     }
 }
 
@@ -114,24 +114,23 @@ impl PyXxHash32 {
 // ====================================================================================
 #[expect(clippy::needless_pass_by_value)]
 #[pyfunction]
-#[pyo3(signature = (data, *, seed = None))]
-pub fn xxh32_digest(data: ryo3_bytes::PyBytes, seed: Option<u32>) -> PyDigest<u32> {
-    let digest = twox_hash::XxHash32::oneshot(seed.unwrap_or(0), data.as_ref());
-    PyDigest(digest)
+#[pyo3(signature = (data, *, seed = 0))]
+pub fn xxh32_digest(py: Python<'_>, data: ryo3_bytes::PyBytes, seed: u32) -> PyDigest<u32> {
+    py.detach(|| twox_hash::XxHash32::oneshot(seed, data.as_ref()).into())
 }
 
 #[expect(clippy::needless_pass_by_value)]
 #[pyfunction]
-#[pyo3(signature = (data, *, seed = None))]
-pub fn xxh32_intdigest(data: ryo3_bytes::PyBytes, seed: Option<u32>) -> u32 {
-    twox_hash::XxHash32::oneshot(seed.unwrap_or(0), data.as_ref())
+#[pyo3(signature = (data, *, seed = 0))]
+pub fn xxh32_intdigest(py: Python<'_>, data: ryo3_bytes::PyBytes, seed: u32) -> u32 {
+    py.detach(|| twox_hash::XxHash32::oneshot(seed, data.as_ref()))
 }
 
 #[expect(clippy::needless_pass_by_value)]
 #[pyfunction]
-#[pyo3(signature = (data, *, seed = None))]
-pub fn xxh32_hexdigest(data: ryo3_bytes::PyBytes, seed: Option<u32>) -> PyHexDigest<u32> {
-    twox_hash::XxHash32::oneshot(seed.unwrap_or(0), data.as_ref()).into()
+#[pyo3(signature = (data, *, seed = 0))]
+pub fn xxh32_hexdigest(py: Python<'_>, data: ryo3_bytes::PyBytes, seed: u32) -> PyHexDigest<u32> {
+    py.detach(|| twox_hash::XxHash32::oneshot(seed, data.as_ref()).into())
 }
 
 pub fn pymod_add(m: &Bound<'_, PyModule>) -> PyResult<()> {

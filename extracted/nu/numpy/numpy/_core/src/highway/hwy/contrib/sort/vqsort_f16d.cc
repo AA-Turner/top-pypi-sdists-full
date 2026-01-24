@@ -14,6 +14,7 @@
 // limitations under the License.
 
 #include "hwy/contrib/sort/vqsort.h"  // VQSort
+#include "hwy/nanobenchmark.h"        //
 
 #undef HWY_TARGET_INCLUDE
 #define HWY_TARGET_INCLUDE "hwy/contrib/sort/vqsort_f16d.cc"
@@ -33,7 +34,7 @@ void SortF16Desc(float16_t* HWY_RESTRICT keys, const size_t num) {
 #else
   (void)keys;
   (void)num;
-  HWY_ASSERT(0);
+  if (Unpredictable1()) HWY_ASSERT(0);
 #endif
 }
 
@@ -45,7 +46,7 @@ void PartialSortF16Desc(float16_t* HWY_RESTRICT keys, const size_t num,
   (void)keys;
   (void)num;
   (void)k;
-  HWY_ASSERT(0);
+  if (Unpredictable1()) HWY_ASSERT(0);
 #endif
 }
 
@@ -57,7 +58,7 @@ void SelectF16Desc(float16_t* HWY_RESTRICT keys, const size_t num,
   (void)keys;
   (void)num;
   (void)k;
-  HWY_ASSERT(0);
+  if (Unpredictable1()) HWY_ASSERT(0);
 #endif
 }
 
@@ -87,6 +88,11 @@ void VQPartialSort(float16_t* HWY_RESTRICT keys, const size_t n, const size_t k,
 void VQSelect(float16_t* HWY_RESTRICT keys, const size_t n, const size_t k,
               SortDescending) {
   HWY_DYNAMIC_DISPATCH(SelectF16Desc)(keys, n, k);
+}
+
+void Sorter::operator()(float16_t* HWY_RESTRICT keys, size_t n,
+                        SortDescending tag) const {
+  VQSort(keys, n, tag);
 }
 
 }  // namespace hwy

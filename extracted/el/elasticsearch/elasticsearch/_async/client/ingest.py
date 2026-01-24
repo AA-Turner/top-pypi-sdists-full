@@ -151,8 +151,8 @@ class IngestClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Delete pipelines.
-          Delete one or more ingest pipelines.</p>
+          <p>Delete pipelines.</p>
+          <p>Delete one or more ingest pipelines.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-ingest-delete-pipeline>`_
@@ -204,8 +204,8 @@ class IngestClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Get GeoIP statistics.
-          Get download statistics for GeoIP2 databases that are used with the GeoIP processor.</p>
+          <p>Get GeoIP statistics.</p>
+          <p>Get download statistics for GeoIP2 databases that are used with the GeoIP processor.</p>
 
 
         `<https://www.elastic.co/docs/reference/enrich-processor/geoip-processor>`_
@@ -355,7 +355,7 @@ class IngestClient(NamespacedClient):
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
-        :param summary: Return pipelines without their definitions (default: false)
+        :param summary: Return pipelines without their definitions
         """
         __path_parts: t.Dict[str, str]
         if id not in SKIP_IN_PATH:
@@ -399,8 +399,8 @@ class IngestClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Run a grok processor.
-          Extract structured fields out of a single text field within a document.
+          <p>Run a grok processor.</p>
+          <p>Extract structured fields out of a single text field within a document.
           You must choose which field to extract matched fields from, as well as the grok pattern you expect will match.
           A grok pattern is like a regular expression that supports aliased expressions that can be reused.</p>
 
@@ -580,6 +580,7 @@ class IngestClient(NamespacedClient):
         body_fields=(
             "deprecated",
             "description",
+            "field_access_pattern",
             "meta",
             "on_failure",
             "processors",
@@ -594,6 +595,9 @@ class IngestClient(NamespacedClient):
         deprecated: t.Optional[bool] = None,
         description: t.Optional[str] = None,
         error_trace: t.Optional[bool] = None,
+        field_access_pattern: t.Optional[
+            t.Union[str, t.Literal["classic", "flexible"]]
+        ] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
         if_version: t.Optional[int] = None,
@@ -609,8 +613,8 @@ class IngestClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Create or update a pipeline.
-          Changes made using this API take effect immediately.</p>
+          <p>Create or update a pipeline.</p>
+          <p>Changes made using this API take effect immediately.</p>
 
 
         `<https://www.elastic.co/docs/manage-data/ingest/transform-enrich/ingest-pipelines>`_
@@ -621,6 +625,8 @@ class IngestClient(NamespacedClient):
             or updating a non-deprecated index template, Elasticsearch will emit a deprecation
             warning.
         :param description: Description of the ingest pipeline.
+        :param field_access_pattern: Controls how processors in this pipeline should
+            read and write data on a document's source.
         :param if_version: Required version for optimistic concurrency control for pipeline
             updates
         :param master_timeout: Period to wait for a connection to the master node. If
@@ -667,6 +673,8 @@ class IngestClient(NamespacedClient):
                 __body["deprecated"] = deprecated
             if description is not None:
                 __body["description"] = description
+            if field_access_pattern is not None:
+                __body["field_access_pattern"] = field_access_pattern
             if meta is not None:
                 __body["_meta"] = meta
             if on_failure is not None:

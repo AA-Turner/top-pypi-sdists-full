@@ -33,43 +33,56 @@ class CreateWorkspaceRequest(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'auth_type': 'str',
+        'bearer_token': 'str',
         'delete_protection_enabled': 'bool',
         'description': 'str',
         'instance_type_id': 'str',
         'name': 'str',
         'password': 'str',
         'project_name': 'str',
+        'public_access_enabled': 'bool',
         'tags': 'list[TagForCreateWorkspaceInput]',
         'username': 'str'
     }
 
     attribute_map = {
+        'auth_type': 'AuthType',
+        'bearer_token': 'BearerToken',
         'delete_protection_enabled': 'DeleteProtectionEnabled',
         'description': 'Description',
         'instance_type_id': 'InstanceTypeId',
         'name': 'Name',
         'password': 'Password',
         'project_name': 'ProjectName',
+        'public_access_enabled': 'PublicAccessEnabled',
         'tags': 'Tags',
         'username': 'Username'
     }
 
-    def __init__(self, delete_protection_enabled=None, description=None, instance_type_id=None, name=None, password=None, project_name=None, tags=None, username=None, _configuration=None):  # noqa: E501
+    def __init__(self, auth_type=None, bearer_token=None, delete_protection_enabled=None, description=None, instance_type_id=None, name=None, password=None, project_name=None, public_access_enabled=None, tags=None, username=None, _configuration=None):  # noqa: E501
         """CreateWorkspaceRequest - a model defined in Swagger"""  # noqa: E501
         if _configuration is None:
             _configuration = Configuration()
         self._configuration = _configuration
 
+        self._auth_type = None
+        self._bearer_token = None
         self._delete_protection_enabled = None
         self._description = None
         self._instance_type_id = None
         self._name = None
         self._password = None
         self._project_name = None
+        self._public_access_enabled = None
         self._tags = None
         self._username = None
         self.discriminator = None
 
+        if auth_type is not None:
+            self.auth_type = auth_type
+        if bearer_token is not None:
+            self.bearer_token = bearer_token
         if delete_protection_enabled is not None:
             self.delete_protection_enabled = delete_protection_enabled
         if description is not None:
@@ -80,10 +93,54 @@ class CreateWorkspaceRequest(object):
             self.password = password
         if project_name is not None:
             self.project_name = project_name
+        if public_access_enabled is not None:
+            self.public_access_enabled = public_access_enabled
         if tags is not None:
             self.tags = tags
         if username is not None:
             self.username = username
+
+    @property
+    def auth_type(self):
+        """Gets the auth_type of this CreateWorkspaceRequest.  # noqa: E501
+
+
+        :return: The auth_type of this CreateWorkspaceRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._auth_type
+
+    @auth_type.setter
+    def auth_type(self, auth_type):
+        """Sets the auth_type of this CreateWorkspaceRequest.
+
+
+        :param auth_type: The auth_type of this CreateWorkspaceRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._auth_type = auth_type
+
+    @property
+    def bearer_token(self):
+        """Gets the bearer_token of this CreateWorkspaceRequest.  # noqa: E501
+
+
+        :return: The bearer_token of this CreateWorkspaceRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._bearer_token
+
+    @bearer_token.setter
+    def bearer_token(self, bearer_token):
+        """Sets the bearer_token of this CreateWorkspaceRequest.
+
+
+        :param bearer_token: The bearer_token of this CreateWorkspaceRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._bearer_token = bearer_token
 
     @property
     def delete_protection_enabled(self):
@@ -214,6 +271,27 @@ class CreateWorkspaceRequest(object):
         """
 
         self._project_name = project_name
+
+    @property
+    def public_access_enabled(self):
+        """Gets the public_access_enabled of this CreateWorkspaceRequest.  # noqa: E501
+
+
+        :return: The public_access_enabled of this CreateWorkspaceRequest.  # noqa: E501
+        :rtype: bool
+        """
+        return self._public_access_enabled
+
+    @public_access_enabled.setter
+    def public_access_enabled(self, public_access_enabled):
+        """Sets the public_access_enabled of this CreateWorkspaceRequest.
+
+
+        :param public_access_enabled: The public_access_enabled of this CreateWorkspaceRequest.  # noqa: E501
+        :type: bool
+        """
+
+        self._public_access_enabled = public_access_enabled
 
     @property
     def tags(self):

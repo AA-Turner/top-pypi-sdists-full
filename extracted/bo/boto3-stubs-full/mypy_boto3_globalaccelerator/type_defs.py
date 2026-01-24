@@ -3,7 +3,7 @@ Type annotations for globalaccelerator service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_globalaccelerator/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import (
@@ -33,12 +34,6 @@ from .literals import (
     ProtocolType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -203,7 +198,7 @@ class AcceleratorEventTypeDef(TypedDict):
 
 class IpSetTypeDef(TypedDict):
     IpFamily: NotRequired[str]
-    IpAddresses: NotRequired[List[str]]
+    IpAddresses: NotRequired[list[str]]
     IpAddressFamily: NotRequired[IpAddressFamilyType]
 
 
@@ -219,7 +214,7 @@ class CustomRoutingEndpointDescriptionTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -303,7 +298,7 @@ class CustomRoutingAcceleratorAttributesTypeDef(TypedDict):
 class CustomRoutingDestinationDescriptionTypeDef(TypedDict):
     FromPort: NotRequired[int]
     ToPort: NotRequired[int]
-    Protocols: NotRequired[List[ProtocolType]]
+    Protocols: NotRequired[list[ProtocolType]]
 
 
 class DeleteAcceleratorRequestTypeDef(TypedDict):
@@ -516,13 +511,13 @@ class AcceleratorTypeDef(TypedDict):
     Name: NotRequired[str]
     IpAddressType: NotRequired[IpAddressTypeType]
     Enabled: NotRequired[bool]
-    IpSets: NotRequired[List[IpSetTypeDef]]
+    IpSets: NotRequired[list[IpSetTypeDef]]
     DnsName: NotRequired[str]
     Status: NotRequired[AcceleratorStatusType]
     CreatedTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
     DualStackDnsName: NotRequired[str]
-    Events: NotRequired[List[AcceleratorEventTypeDef]]
+    Events: NotRequired[list[AcceleratorEventTypeDef]]
 
 
 class CustomRoutingAcceleratorTypeDef(TypedDict):
@@ -530,7 +525,7 @@ class CustomRoutingAcceleratorTypeDef(TypedDict):
     Name: NotRequired[str]
     IpAddressType: NotRequired[IpAddressTypeType]
     Enabled: NotRequired[bool]
-    IpSets: NotRequired[List[IpSetTypeDef]]
+    IpSets: NotRequired[list[IpSetTypeDef]]
     DnsName: NotRequired[str]
     Status: NotRequired[CustomRoutingAcceleratorStatusType]
     CreatedTime: NotRequired[datetime]
@@ -543,7 +538,7 @@ class AddCustomRoutingEndpointsRequestTypeDef(TypedDict):
 
 
 class AddCustomRoutingEndpointsResponseTypeDef(TypedDict):
-    EndpointDescriptions: List[CustomRoutingEndpointDescriptionTypeDef]
+    EndpointDescriptions: list[CustomRoutingEndpointDescriptionTypeDef]
     EndpointGroupArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -558,7 +553,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class ListCrossAccountResourceAccountsResponseTypeDef(TypedDict):
-    ResourceOwnerAwsAccountIds: List[str]
+    ResourceOwnerAwsAccountIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -573,7 +568,7 @@ class AddEndpointsRequestTypeDef(TypedDict):
 
 
 class AddEndpointsResponseTypeDef(TypedDict):
-    EndpointDescriptions: List[EndpointDescriptionTypeDef]
+    EndpointDescriptions: list[EndpointDescriptionTypeDef]
     EndpointGroupArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -581,8 +576,8 @@ class AddEndpointsResponseTypeDef(TypedDict):
 class AttachmentTypeDef(TypedDict):
     AttachmentArn: NotRequired[str]
     Name: NotRequired[str]
-    Principals: NotRequired[List[str]]
-    Resources: NotRequired[List[ResourceTypeDef]]
+    Principals: NotRequired[list[str]]
+    Resources: NotRequired[list[ResourceTypeDef]]
     LastModifiedTime: NotRequired[datetime]
     CreatedTime: NotRequired[datetime]
 
@@ -599,7 +594,7 @@ class UpdateCrossAccountAttachmentRequestTypeDef(TypedDict):
 class ByoipCidrTypeDef(TypedDict):
     Cidr: NotRequired[str]
     State: NotRequired[ByoipCidrStateType]
-    Events: NotRequired[List[ByoipCidrEventTypeDef]]
+    Events: NotRequired[list[ByoipCidrEventTypeDef]]
 
 
 class ProvisionByoipCidrRequestTypeDef(TypedDict):
@@ -634,7 +629,7 @@ class CreateCustomRoutingAcceleratorRequestTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -670,14 +665,14 @@ CreateListenerRequestTypeDef = TypedDict(
 
 class CustomRoutingListenerTypeDef(TypedDict):
     ListenerArn: NotRequired[str]
-    PortRanges: NotRequired[List[PortRangeTypeDef]]
+    PortRanges: NotRequired[list[PortRangeTypeDef]]
 
 
 ListenerTypeDef = TypedDict(
     "ListenerTypeDef",
     {
         "ListenerArn": NotRequired[str],
-        "PortRanges": NotRequired[List[PortRangeTypeDef]],
+        "PortRanges": NotRequired[list[PortRangeTypeDef]],
         "Protocol": NotRequired[ProtocolType],
         "ClientAffinity": NotRequired[ClientAffinityType],
     },
@@ -717,14 +712,14 @@ class CreateEndpointGroupRequestTypeDef(TypedDict):
 class EndpointGroupTypeDef(TypedDict):
     EndpointGroupArn: NotRequired[str]
     EndpointGroupRegion: NotRequired[str]
-    EndpointDescriptions: NotRequired[List[EndpointDescriptionTypeDef]]
+    EndpointDescriptions: NotRequired[list[EndpointDescriptionTypeDef]]
     TrafficDialPercentage: NotRequired[float]
     HealthCheckPort: NotRequired[int]
     HealthCheckProtocol: NotRequired[HealthCheckProtocolType]
     HealthCheckPath: NotRequired[str]
     HealthCheckIntervalSeconds: NotRequired[int]
     ThresholdCount: NotRequired[int]
-    PortOverrides: NotRequired[List[PortOverrideTypeDef]]
+    PortOverrides: NotRequired[list[PortOverrideTypeDef]]
 
 
 class UpdateEndpointGroupRequestTypeDef(TypedDict):
@@ -740,7 +735,7 @@ class UpdateEndpointGroupRequestTypeDef(TypedDict):
 
 
 class ListCrossAccountResourcesResponseTypeDef(TypedDict):
-    CrossAccountResources: List[CrossAccountResourceTypeDef]
+    CrossAccountResources: list[CrossAccountResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -758,13 +753,13 @@ class UpdateCustomRoutingAcceleratorAttributesResponseTypeDef(TypedDict):
 class CustomRoutingEndpointGroupTypeDef(TypedDict):
     EndpointGroupArn: NotRequired[str]
     EndpointGroupRegion: NotRequired[str]
-    DestinationDescriptions: NotRequired[List[CustomRoutingDestinationDescriptionTypeDef]]
-    EndpointDescriptions: NotRequired[List[CustomRoutingEndpointDescriptionTypeDef]]
+    DestinationDescriptions: NotRequired[list[CustomRoutingDestinationDescriptionTypeDef]]
+    EndpointDescriptions: NotRequired[list[CustomRoutingEndpointDescriptionTypeDef]]
 
 
 class DestinationPortMappingTypeDef(TypedDict):
     AcceleratorArn: NotRequired[str]
-    AcceleratorSocketAddresses: NotRequired[List[SocketAddressTypeDef]]
+    AcceleratorSocketAddresses: NotRequired[list[SocketAddressTypeDef]]
     EndpointGroupArn: NotRequired[str]
     EndpointId: NotRequired[str]
     EndpointGroupRegion: NotRequired[str]
@@ -778,7 +773,7 @@ class PortMappingTypeDef(TypedDict):
     EndpointGroupArn: NotRequired[str]
     EndpointId: NotRequired[str]
     DestinationSocketAddress: NotRequired[SocketAddressTypeDef]
-    Protocols: NotRequired[List[CustomRoutingProtocolType]]
+    Protocols: NotRequired[list[CustomRoutingProtocolType]]
     DestinationTrafficState: NotRequired[CustomRoutingDestinationTrafficStateType]
 
 
@@ -852,7 +847,7 @@ class DescribeAcceleratorResponseTypeDef(TypedDict):
 
 
 class ListAcceleratorsResponseTypeDef(TypedDict):
-    Accelerators: List[AcceleratorTypeDef]
+    Accelerators: list[AcceleratorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -873,7 +868,7 @@ class DescribeCustomRoutingAcceleratorResponseTypeDef(TypedDict):
 
 
 class ListCustomRoutingAcceleratorsResponseTypeDef(TypedDict):
-    Accelerators: List[CustomRoutingAcceleratorTypeDef]
+    Accelerators: list[CustomRoutingAcceleratorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -894,7 +889,7 @@ class DescribeCrossAccountAttachmentResponseTypeDef(TypedDict):
 
 
 class ListCrossAccountAttachmentsResponseTypeDef(TypedDict):
-    CrossAccountAttachments: List[AttachmentTypeDef]
+    CrossAccountAttachments: list[AttachmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -915,7 +910,7 @@ class DeprovisionByoipCidrResponseTypeDef(TypedDict):
 
 
 class ListByoipCidrsResponseTypeDef(TypedDict):
-    ByoipCidrs: List[ByoipCidrTypeDef]
+    ByoipCidrs: list[ByoipCidrTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -941,7 +936,7 @@ class DescribeCustomRoutingListenerResponseTypeDef(TypedDict):
 
 
 class ListCustomRoutingListenersResponseTypeDef(TypedDict):
-    Listeners: List[CustomRoutingListenerTypeDef]
+    Listeners: list[CustomRoutingListenerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -962,7 +957,7 @@ class DescribeListenerResponseTypeDef(TypedDict):
 
 
 class ListListenersResponseTypeDef(TypedDict):
-    Listeners: List[ListenerTypeDef]
+    Listeners: list[ListenerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -983,7 +978,7 @@ class DescribeEndpointGroupResponseTypeDef(TypedDict):
 
 
 class ListEndpointGroupsResponseTypeDef(TypedDict):
-    EndpointGroups: List[EndpointGroupTypeDef]
+    EndpointGroups: list[EndpointGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1004,18 +999,18 @@ class DescribeCustomRoutingEndpointGroupResponseTypeDef(TypedDict):
 
 
 class ListCustomRoutingEndpointGroupsResponseTypeDef(TypedDict):
-    EndpointGroups: List[CustomRoutingEndpointGroupTypeDef]
+    EndpointGroups: list[CustomRoutingEndpointGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListCustomRoutingPortMappingsByDestinationResponseTypeDef(TypedDict):
-    DestinationPortMappings: List[DestinationPortMappingTypeDef]
+    DestinationPortMappings: list[DestinationPortMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListCustomRoutingPortMappingsResponseTypeDef(TypedDict):
-    PortMappings: List[PortMappingTypeDef]
+    PortMappings: list[PortMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

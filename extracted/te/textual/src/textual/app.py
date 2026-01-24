@@ -518,7 +518,7 @@ class App(Generic[ReturnType], DOMNode):
         "inline": lambda app: app.is_inline,
         "ansi": lambda app: app.ansi_color,
         "nocolor": lambda app: app.no_color,
-    }  # type: ignore[assignment]
+    }
 
     title: Reactive[str] = Reactive("", compute=False)
     """The title of the app, displayed in the header."""
@@ -561,7 +561,7 @@ class App(Generic[ReturnType], DOMNode):
                 will be loaded in order.
             watch_css: Reload CSS if the files changed. This is set automatically if
                 you are using `textual run` with the `dev` switch.
-            ansi_color: Allow ANSI colors if `True`, or convert ANSI colors to to RGB if `False`.
+            ansi_color: Allow ANSI colors if `True`, or convert ANSI colors to RGB if `False`.
 
         Raises:
             CssPathError: When the supplied CSS path(s) are an unexpected type.
@@ -617,6 +617,9 @@ class App(Generic[ReturnType], DOMNode):
         self._sync_available = False
 
         self.mouse_over: Widget | None = None
+        """The widget directly under the mouse."""
+        self.hover_over: Widget | None = None
+        """The first widget with a hover style under the mouse."""
         self.mouse_captured: Widget | None = None
         self._driver: Driver | None = None
         self._exit_renderables: list[RenderableType] = []
@@ -1016,10 +1019,11 @@ class App(Generic[ReturnType], DOMNode):
         if not self._batch_count:
             self.check_idle()
 
-    def _delay_update(self, delay: float = 0.05) -> None:
+    def delay_update(self, delay: float = 0.05) -> None:
         """Delay updates for a short period of time.
 
         May be used to mask a brief transition.
+        Consider this method only if you aren't able to use `App.batch_update`.
 
         Args:
             delay: Delay before updating.
@@ -1032,7 +1036,7 @@ class App(Generic[ReturnType], DOMNode):
             if not self._batch_count:
                 self.screen.refresh()
 
-        self.set_timer(delay, end_batch, name="_delay_update")
+        self.set_timer(delay, end_batch, name="delay_update")
 
     @contextmanager
     def _context(self) -> Generator[None, None, None]:
@@ -1252,25 +1256,25 @@ class App(Generic[ReturnType], DOMNode):
         """
         if not self.ansi_color:
             yield SystemCommand(
-                "Change theme",
+                "Theme",
                 "Change the current theme",
                 self.action_change_theme,
             )
         yield SystemCommand(
-            "Quit the application",
+            "Quit",
             "Quit the application as soon as possible",
             self.action_quit,
         )
 
         if screen.query("HelpPanel"):
             yield SystemCommand(
-                "Hide keys and help panel",
+                "Keys",
                 "Hide the keys and widget help panel",
                 self.action_hide_help_panel,
             )
         else:
             yield SystemCommand(
-                "Show keys and help panel",
+                "Keys",
                 "Show help for the focused widget and a summary of available keys",
                 self.action_show_help_panel,
             )
@@ -1287,7 +1291,7 @@ class App(Generic[ReturnType], DOMNode):
             )
 
         yield SystemCommand(
-            "Save screenshot",
+            "Screenshot",
             "Save an SVG 'screenshot' of the current screen",
             lambda: self.set_timer(0.1, self.deliver_screenshot),
         )
@@ -1565,6 +1569,14 @@ class App(Generic[ReturnType], DOMNode):
             width, height = self.console.size
         return Size(width, height)
 
+    @property
+    def viewport_size(self) -> Size:
+        """Get the viewport size (size of the screen)."""
+        try:
+            return self.screen.size
+        except (ScreenStackError, NoScreen):
+            return self.size
+
     def _get_inline_height(self) -> int:
         """Get the inline height (height when in inline mode).
 
@@ -1812,7 +1824,7 @@ class App(Generic[ReturnType], DOMNode):
     ) -> str | None:
         """Deliver a screenshot of the app.
 
-        This with save the screenshot when running locally, or serve it when the app
+        This will save the screenshot when running locally, or serve it when the app
         is running in a web browser.
 
         Args:
@@ -2087,7 +2099,7 @@ class App(Generic[ReturnType], DOMNode):
 
         # Launch the app in the "background"
 
-        app_task = create_task(run_app(app), name=f"run_test {app}")
+        self._task = app_task = create_task(run_app(app), name=f"run_test {app}")
 
         # Wait until the app has performed all startup routines.
         await app_ready_event.wait()
@@ -2098,6 +2110,7 @@ class App(Generic[ReturnType], DOMNode):
                 await pilot._wait_for_screen()
                 yield pilot
             finally:
+                await asyncio.sleep(0)
                 # Shutdown the app cleanly
                 await app._shutdown()
                 await app_task
@@ -2166,7 +2179,9 @@ class App(Generic[ReturnType], DOMNode):
 
         self._thread_init()
 
-        app._loop = asyncio.get_running_loop()
+        loop = app._loop = asyncio.get_running_loop()
+        if hasattr(asyncio, "eager_task_factory"):
+            loop.set_task_factory(asyncio.eager_task_factory)
         with app._context():
             try:
                 await app._process_messages(
@@ -2387,16 +2402,26 @@ class App(Generic[ReturnType], DOMNode):
         """
         return self.screen.get_child_by_type(expect_type)
 
-    def update_styles(self, node: DOMNode) -> None:
+    def update_styles(self, node: DOMNode, animate: bool = True) -> None:
         """Immediately update the styles of this node and all descendant nodes.
 
-        Should be called whenever CSS classes / pseudo classes change.
+        Called by Textual whenever CSS classes / pseudo classes change.
         For example, when you hover over a button, the :hover pseudo class
         will be added, and this method is called to apply the corresponding
         :hover styles.
+
+        Args:
+            node: Node to update.
+            animate: Enable animation?
         """
-        descendants = node.walk_children(with_self=True)
-        self.stylesheet.update_nodes(descendants, animate=True)
+        if isinstance(node, App):
+            for screen in reversed(self.screen_stack):
+                screen.update_node_styles(animate=animate)
+                if not (screen.is_modal and screen.styles.background.a < 1):
+                    break
+        else:
+            descendants = node.walk_children(with_self=True)
+            self.stylesheet.update_nodes(descendants, animate=animate)
 
     def mount(
         self,
@@ -2422,8 +2447,8 @@ class App(Generic[ReturnType], DOMNode):
             MountError: If there is a problem with the mount request.
 
         Note:
-            Only one of ``before`` or ``after`` can be provided. If both are
-            provided a ``MountError`` will be raised.
+            Only one of `before` or `after` can be provided. If both are
+            provided a `MountError` will be raised.
         """
         return self.screen.mount(*widgets, before=before, after=after)
 
@@ -2452,8 +2477,8 @@ class App(Generic[ReturnType], DOMNode):
             MountError: If there is a problem with the mount request.
 
         Note:
-            Only one of ``before`` or ``after`` can be provided. If both are
-            provided a ``MountError`` will be raised.
+            Only one of `before` or `after` can be provided. If both are
+            provided a `MountError` will be raised.
         """
         return self.mount(*widgets, before=before, after=after)
 
@@ -2954,7 +2979,9 @@ class App(Generic[ReturnType], DOMNode):
 
         previous_screen = screen_stack.pop()
         previous_screen._pop_result_callback()
-        self.screen.post_message(events.ScreenResume())
+        self.screen.post_message(
+            events.ScreenResume(refresh_styles=previous_screen.styles.background.a < 0)
+        )
         self.log.system(f"{self.screen} is active")
 
         async def do_pop() -> None:
@@ -2999,7 +3026,9 @@ class App(Generic[ReturnType], DOMNode):
         """
         self.screen.set_focus(widget, scroll_visible)
 
-    def _set_mouse_over(self, widget: Widget | None) -> None:
+    def _set_mouse_over(
+        self, widget: Widget | None, hover_widget: Widget | None
+    ) -> None:
         """Called when the mouse is over another widget.
 
         Args:
@@ -3021,6 +3050,18 @@ class App(Generic[ReturnType], DOMNode):
                 finally:
                     self.mouse_over = widget
 
+        current_hover_over = self.hover_over
+        if current_hover_over is not None:
+            current_hover_over.mouse_hover = False
+
+        if hover_widget is not None:
+            hover_widget.mouse_hover = True
+            if hover_widget._has_hover_style:
+                hover_widget.update_node_styles()
+        if current_hover_over is not None and current_hover_over._has_hover_style:
+            current_hover_over.update_node_styles()
+        self.hover_over = hover_widget
+
     def _update_mouse_over(self, screen: Screen) -> None:
         """Updates the mouse over after the next refresh.
 
@@ -3035,12 +3076,16 @@ class App(Generic[ReturnType], DOMNode):
         async def check_mouse() -> None:
             """Check if the mouse over widget has changed."""
             try:
-                widget, _ = screen.get_widget_at(*self.mouse_position)
+                hover_widgets = screen.get_hover_widgets_at(*self.mouse_position)
             except NoWidget:
                 pass
             else:
-                if widget is not self.mouse_over:
-                    self._set_mouse_over(widget)
+                mouse_over, hover_over = hover_widgets.widgets
+                if (
+                    mouse_over is not self.mouse_over
+                    or hover_over is not self.hover_over
+                ):
+                    self._set_mouse_over(mouse_over, hover_over)
 
         self.call_after_refresh(check_mouse)
 
@@ -3405,7 +3450,6 @@ class App(Generic[ReturnType], DOMNode):
         Args:
             parent: Parent node.
             child: The child widget to register.
-            widgets: The widget to register.
             before: A location to mount before.
             after: A location to mount after.
         """
@@ -3442,7 +3486,6 @@ class App(Generic[ReturnType], DOMNode):
             self._registry.add(child)
             child._attach(parent)
             child._post_register(self)
-            child._start_messages()
 
     def _register(
         self,
@@ -3495,6 +3538,7 @@ class App(Generic[ReturnType], DOMNode):
                     self._register(widget, *widget._nodes, cache=cache)
         for widget in new_widgets:
             apply_stylesheet(widget, cache=cache)
+            widget._start_messages()
 
         if not self._running:
             # If the app is not running, prevent awaiting of the widget tasks
@@ -3630,8 +3674,9 @@ class App(Generic[ReturnType], DOMNode):
         stylesheet.reparse()
         stylesheet.update(self.app, animate=animate)
         try:
-            self.screen._refresh_layout(self.size)
-            self.screen._css_update_count = self._css_update_count
+            if self.screen.is_mounted:
+                self.screen._refresh_layout(self.size)
+                self.screen._css_update_count = self._css_update_count
         except ScreenError:
             pass
         # The other screens in the stack will need to know about some style
@@ -4214,7 +4259,7 @@ class App(Generic[ReturnType], DOMNode):
 
     def _watch_app_focus(self, focus: bool) -> None:
         """Respond to changes in app focus."""
-        self.screen._update_styles()
+        self.screen.update_node_styles()
         if focus:
             # If we've got a last-focused widget, if it still has a screen,
             # and if the screen is still the current screen and if nothing
@@ -4548,9 +4593,11 @@ class App(Generic[ReturnType], DOMNode):
             # app, and we don't want to have the driver auto-restart
             # application mode when the application comes back to the
             # foreground, in this context.
-            with self._driver.no_automatic_restart(), redirect_stdout(
-                sys.__stdout__
-            ), redirect_stderr(sys.__stderr__):
+            with (
+                self._driver.no_automatic_restart(),
+                redirect_stdout(sys.__stdout__),
+                redirect_stderr(sys.__stderr__),
+            ):
                 yield
             # We're done with the dev's code so resume application mode.
             self._driver.resume_application_mode()
@@ -4796,7 +4843,7 @@ class App(Generic[ReturnType], DOMNode):
                 self.notify("Saved screenshot", title="Screenshot")
             else:
                 self.notify(
-                    f"Saved screenshot to [green]{str(event.path)!r}",
+                    f"Saved screenshot to [$text-success]{str(event.path)!r}",
                     title="Screenshot",
                 )
 

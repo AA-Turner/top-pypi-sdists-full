@@ -44,11 +44,13 @@ impl StatsigRuntime {
         }
 
         let global = StatsigGlobal::get();
-        let rt = global
+        let mut rt = global
             .tokio_runtime
             .try_lock_for(Duration::from_secs(5))
             .ok_or_else(|| StatsigErr::LockFailure("Failed to lock tokio runtime".to_string()))?;
-
+        if rt.is_none() {
+            *rt = Some(Arc::new(create_new_runtime()));
+        }
         if let Some(rt) = rt.as_ref() {
             return Ok(rt.handle().clone());
         }
@@ -169,6 +171,21 @@ impl StatsigRuntime {
             .map_err(|e| StatsigErr::ThreadFailure(e.to_string()))?;
 
         Ok(())
+    }
+
+    pub fn get_running_task_ids(&self) -> Vec<(String, String)> {
+        let tasks = match self.spawned_tasks.try_lock_for(Duration::from_secs(5)) {
+            Some(lock) => lock,
+            None => {
+                log_e!(TAG, "Failed to lock spawned tasks for get_running_task_ids");
+                return Vec::new();
+            }
+        };
+
+        tasks
+            .keys()
+            .map(|key| (key.tag.clone(), key.tokio_id.to_string()))
+            .collect()
     }
 
     fn insert_join_handle(&self, tag: &str, handle: JoinHandle<()>) -> tokio::task::Id {

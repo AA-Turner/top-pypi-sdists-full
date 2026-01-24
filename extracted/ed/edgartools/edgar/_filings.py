@@ -5,13 +5,14 @@ import re
 import webbrowser
 from contextlib import nullcontext
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from functools import cached_property, lru_cache
 from io import BytesIO
 from os import PathLike
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
+import httpcore
 import httpx
 import numpy as np
 import pandas as pd
@@ -30,6 +31,7 @@ from rich.text import Text
 from edgar._markdown import text_to_markdown
 from edgar._party import Address
 from edgar.attachments import Attachment, Attachments, AttachmentServer, FilingHomepage
+from edgar.config import SEC_ARCHIVE_URL
 from edgar.core import (
     DataPager,
     IntString,
@@ -47,15 +49,14 @@ from edgar.core import (
     log,
     parallel_thread_map,
     quarters_in_year,
-    sec_edgar,
 )
 from edgar.dates import InvalidDateException
-from edgar.files.html import Document
+from edgar.documents import HTMLParser, ParserConfig
 from edgar.files.html_documents import get_clean_html
 from edgar.files.htmltools import html_sections
 from edgar.files.markdown import to_markdown
 from edgar.filtering import filter_by_accession_number, filter_by_cik, filter_by_date, filter_by_exchange, filter_by_form, filter_by_ticker
-from edgar.formatting import accession_number_text, display_size
+from edgar.display.formatting import accession_number_text, display_size
 from edgar.headers import FilingDirectory, IndexHeaders
 from edgar.httprequests import download_file, download_text, download_text_between_tags
 from edgar.reference import describe_form
@@ -63,6 +64,7 @@ from edgar.reference.tickers import Exchange, find_ticker, find_ticker_safe
 from edgar.richtools import Docs, print_rich, repr_rich, rich_to_text
 from edgar.search import BM25Search, RegexSearch
 from edgar.sgml import FilingHeader, FilingSGML, Reports, Statements
+from edgar.filesystem import EdgarPath
 from edgar.storage import is_using_local_storage, local_filing_path
 from edgar.xbrl import XBRL, XBRLFilingWithNoXbrlData
 
@@ -88,10 +90,9 @@ __all__ = [
     'filing_date_to_year_quarters'
 ]
 
-full_index_url = "https://www.sec.gov/Archives/edgar/full-index/{}/QTR{}/{}.{}"
-daily_index_url = "https://www.sec.gov/Archives/edgar/daily-index/{}/QTR{}/{}.{}.idx"
+from edgar.urls import build_daily_index_url, build_full_index_url
 
-filing_homepage_url_re = re.compile(f"{sec_edgar}/data/[0-9]{1,}/[0-9]{10}-[0-9]{2}-[0-9]{4}-index.html")
+filing_homepage_url_re = re.compile(f"{SEC_ARCHIVE_URL}/data/[0-9]{{1,}}/[0-9]{{10}}-[0-9]{{2}}-[0-9]{{4}}-index.html")
 
 full_or_daily = ['daily', 'full']
 index_types = ['form', 'company', 'xbrl']
@@ -139,6 +140,102 @@ def is_valid_date(date_str: str, date_format: str = "%Y-%m-%d") -> bool:
         return True
     except ValueError:
         return False
+
+
+def _get_data_staleness_days(latest_date: Optional[Union[datetime, date, str]]) -> int:
+    """
+    Calculate how many days old the latest filing date is.
+
+    Args:
+        latest_date: The most recent filing_date in the dataset, or None if no records exist
+
+    Returns:
+        Number of days between latest_date and today, or a large number if latest_date is None
+    """
+    # Handle None case (no records in dataset)
+    if latest_date is None:
+        return 999999  # Return large number to indicate no data available
+
+    # Convert string to date if needed
+    if isinstance(latest_date, str):
+        latest_date = datetime.strptime(latest_date, "%Y-%m-%d").date()
+    # Convert to date if datetime
+    elif isinstance(latest_date, datetime):
+        latest_date = latest_date.date()
+
+    today = date.today()
+    return (today - latest_date).days
+
+
+def _is_requesting_current_filings(filing_date_param: Optional[str]) -> bool:
+    """
+    Check if the user's date filter likely expects current-day data.
+    This is used to determine whether to show staleness warnings.
+
+    Args:
+        filing_date_param: The filing_date parameter from filter() or get_filings()
+
+    Returns:
+        True if the parameter requests today's filings (single date = today) OR
+        a date range starting within past 6 months that includes today
+    """
+    if not filing_date_param:
+        return False
+
+    from datetime import timedelta
+
+    from edgar.dates import extract_dates
+
+    today = date.today()
+    six_months_ago = today - timedelta(days=180)
+
+    try:
+        start_date, end_date, is_range = extract_dates(filing_date_param)
+
+        # Check if user is requesting today's filings (single date)
+        if not is_range and start_date.date() == today:
+            return True
+
+        # For date ranges: warn if start is within past 6 months AND range includes today
+        if is_range:
+            start = start_date.date() if start_date else date.min
+            end = end_date.date() if end_date else date.max
+
+            # Only warn if range starts within past 6 months AND includes today
+            # This catches cases like "2025-10-02:" which likely expects current data
+            if start >= six_months_ago and start <= today <= end:
+                return True
+
+    except Exception:
+        # If date parsing fails, don't warn
+        return False
+
+    return False
+
+
+def _warn_use_current_filings(reason: str, latest_date: Optional[Union[datetime, date]] = None):
+    """
+    Display a warning suggesting the user should use get_current_filings() instead.
+
+    Args:
+        reason: Brief explanation of why current_filings is needed
+        latest_date: Optional latest date in the dataset for context
+    """
+    date_info = ""
+    if latest_date:
+        if isinstance(latest_date, datetime):
+            latest_date = latest_date.date()
+        days_old = _get_data_staleness_days(latest_date)
+        date_info = f" (latest filing: {latest_date}, {days_old} day{'s' if days_old != 1 else ''} ago)"
+
+    log.warning(f"""
+⚠️  {reason}{date_info}
+
+For today's real-time filings, use:
+    get_current_filings(page_size=None)  # Gets all current filings
+
+Note: Quarterly indexes are updated daily but typically lag by 1 business day.
+    """.strip())
 
 
 def get_previous_quarter(year, quarter) -> Tuple[int, int]:
@@ -354,7 +451,7 @@ def fetch_filing_index(year_and_quarter: YearAndQuarter,
                        index: str
                        ):
     year, quarter = year_and_quarter
-    url = full_index_url.format(year, quarter, index, "gz")
+    url = build_full_index_url(year, quarter, index, "gz")
     try:
         index_table = fetch_filing_index_at_url(url, index)
         return (year, quarter), index_table
@@ -370,7 +467,7 @@ def fetch_daily_filing_index(date: str,
                              index: str = 'form'):
     year, month, day = date.split("-")
     quarter = (int(month) - 1) // 3 + 1
-    url = daily_index_url.format(year, quarter, index, date.replace("-", ""))
+    url = build_daily_index_url(int(year), quarter, date.replace("-", ""), "idx")
     index_table = fetch_filing_index_at_url(url, index, filing_date_format='%Y%m%d')
     return index_table
 
@@ -462,7 +559,11 @@ class Filings:
         """Save the filing index as parquet"""
         self.save_parquet(location)
 
-    def download(self, data_directory: Optional[str] = None):
+    def download(self, data_directory: Optional[str] = None,
+                 compress: bool = True,
+                 compression_level: int = 6,
+                 upload_to_cloud: bool = False,
+                 disable_progress: bool = False):
         """
         Download the filings based on the accession numbers in this Filings object.
 
@@ -471,20 +572,53 @@ class Filings:
 
         Args:
             data_directory: Directory to save the downloaded files. Defaults to the Edgar data directory.
+            compress: Whether to compress the extracted files to save disk space. Default is True.
+            compression_level: Compression level for gzip (1-9, with 9 being highest compression). Default is 6.
+            upload_to_cloud: If True, upload downloaded filings to cloud storage after download. Default is False.
+            disable_progress: If True, suppress progress bars. Useful for logging environments. Default is False.
         """
         from edgar.storage import download_filings
-        download_filings(data_directory=data_directory, 
+        download_filings(data_directory=data_directory,
                          overwrite_existing=True,
-                         filings=self)
+                         filings=self,
+                         compress=compress,
+                         compression_level=compression_level,
+                         upload_to_cloud=upload_to_cloud,
+                         disable_progress=disable_progress)
 
-    def get_filing_at(self, item: int):
-        """Get the filing at the specified index"""
+    def get_filing_at(self, item: int, enrich: bool = True):
+        """Get filing at index, optionally enriching with related entities"""
+        # Get the primary filing data
+        accession_no = self.data['accession_number'][item].as_py()
+
+        related_entities = []
+        if enrich:
+            # Use PyArrow to find all entities with same accession number
+            # Limit search to nearby entries for performance (+/- 10 positions)
+            start = max(0, item - 10)
+            end = min(len(self.data), item + 11)
+
+            # Slice the data and search efficiently
+            slice_data = self.data.slice(start, end - start)
+            mask = pc.equal(slice_data['accession_number'], accession_no)
+
+            for idx in range(len(mask)):
+                if mask[idx].as_py():
+                    actual_idx = start + idx
+                    if actual_idx != item:  # Skip the primary filing
+                        related_entities.append({
+                            'cik': slice_data['cik'][idx].as_py(),
+                            'company': slice_data['company'][idx].as_py()
+                        })
+
+        # Create Filing with related entities
         return Filing(
             cik=self.data['cik'][item].as_py(),
             company=self.data['company'][item].as_py(),
             form=self.data['form'][item].as_py(),
             filing_date=self.data['filing_date'][item].as_py(),
-            accession_no=self.data['accession_number'][item].as_py(),
+            accession_no=accession_no,
+            related_entities=related_entities
         )
 
     @property
@@ -496,12 +630,12 @@ class Filings:
     @property
     def start_date(self) -> Optional[str]:
         """Return the start date for the filings"""
-        return str(self.date_range[0]) if self.date_range[0] else self.date_range[0]
+        return str(self.date_range[0]) if self.date_range[0] else None
 
     @property
-    def end_date(self) -> str:
+    def end_date(self) -> Optional[str]:
         """Return the end date for the filings"""
-        return str(self.date_range[1]) if self.date_range[1] else self.date_range[1]
+        return str(self.date_range[1]) if self.date_range[1] else None
 
     def latest(self, n: int = 1):
         """Get the latest n filings"""
@@ -509,19 +643,30 @@ class Filings:
         sort_indices_top = sort_indices[:min(n, len(sort_indices))]
         latest_filing_index = pc.take(data=self.data, indices=sort_indices_top)
         filings = Filings(latest_filing_index)
+
+        # Warn if data appears stale (>1 day old)
+        if len(filings) > 0:
+            latest_date = filings.date_range[1]
+            days_old = _get_data_staleness_days(latest_date)
+            if days_old >= 2:
+                _warn_use_current_filings(
+                    "This dataset's latest filing is from recent days",
+                    latest_date
+                )
+
         if len(filings) == 1:
             return filings[0]
         return filings
 
     def filter(self, *,
                form: Optional[Union[str, List[IntString]]] = None,
-               amendments: bool = None,
+               amendments: Optional[bool] = None,
                filing_date: Optional[str] = None,
                date: Optional[str] = None,
-               cik: Union[IntString, List[IntString]] = None,
-               exchange: Union[str, List[str], Exchange, List[Exchange]] = None,
-               ticker: Union[str, List[str]] = None,
-               accession_number: Union[str, List[str]] = None) -> 'Filings':
+               cik: Optional[Union[IntString, List[IntString]]] = None,
+               exchange: Optional[Union[str, List[str], Exchange, List[Exchange]]] = None,
+               ticker: Optional[Union[str, List[str]]] = None,
+               accession_number: Optional[Union[str, List[str]]] = None) -> 'Filings':
         """
         Get some filings
 
@@ -559,8 +704,8 @@ class Filings:
 
         # Filter by form
         if forms:
-            filing_index = filter_by_form(filing_index, form=forms, amendments=amendments)
-        elif amendments is not None:
+            filing_index = filter_by_form(filing_index, form=forms, amendments=amendments if amendments is not None else False)
+        elif amendments is not None and filing_index.num_rows > 0:
             # Get the unique values of the form as a pylist
             forms = list(set([form.replace("/A", "") for form in pc.unique(filing_index['form']).to_pylist()]))
             filing_index = filter_by_form(filing_index, form=forms, amendments=amendments)
@@ -570,6 +715,13 @@ class Filings:
         if filing_date:
             try:
                 filing_index = filter_by_date(filing_index, filing_date, 'filing_date')
+                # Warn if user is requesting today's filings but data is from yesterday
+                if _is_requesting_current_filings(filing_date):
+                    latest_date = self.date_range[1]
+                    if latest_date is not None and _get_data_staleness_days(latest_date) >= 1:
+                        _warn_use_current_filings(
+                            f"Filtering for current-day filings, but data only includes filings through {latest_date.date() if isinstance(latest_date, datetime) else latest_date}"
+                        )
             except InvalidDateException as e:
                 log.error(e)
                 return Filings(_empty_filing_index())
@@ -580,6 +732,12 @@ class Filings:
 
         # Filter by exchange
         if exchange:
+            # Convert Exchange enum to string if needed
+            from edgar.reference.tickers import Exchange as ExchangeEnum
+            if isinstance(exchange, ExchangeEnum):
+                exchange = exchange.value
+            elif isinstance(exchange, list):
+                exchange = [e.value if isinstance(e, ExchangeEnum) else e for e in exchange]
             filing_index = filter_by_exchange(filing_index, exchange)
 
         if ticker:
@@ -769,6 +927,111 @@ class Filings:
             self._hash = hash(tuple(hash_components))
         return self._hash
 
+    def to_context(self, detail: str = 'standard') -> str:
+        """
+        Returns AI-optimized collection summary for language models.
+
+        This method provides structured information about the filings collection in a markdown-KV format
+        that is optimized for AI agent navigation and discovery.
+
+        Args:
+            detail: Level of detail to include:
+                - 'minimal': Basic collection info (~100 tokens)
+                - 'standard': Adds sample entries (~250 tokens)
+                - 'full': Adds form breakdown (~400 tokens)
+
+        Returns:
+            Markdown-KV formatted context string optimized for LLMs
+
+        Example:
+            >>> filings = get_filings(2024, 1, form='C')
+            >>> print(filings.to_context('standard'))
+            FILINGS COLLECTION
+
+            Total: 150 filings
+            Forms: C, C-U, C-AR
+            Date Range: 2024-01-01 to 2024-03-31
+
+            AVAILABLE ACTIONS:
+              - Use .latest() to get most recent filing
+              - Use [index] to access specific filing (e.g., filings[0])
+              - Use .filter(form='C') to narrow by form type
+              - Use .docs for detailed API documentation
+
+            SAMPLE FILINGS:
+              0. Form C - 2024-03-29 - ViiT Health Inc
+              1. Form C - 2024-03-28 - Artisan Creative Inc
+              2. Form C-U - 2024-03-28 - TechStart LLC
+              ... (147 more)
+        """
+        lines = []
+
+        # Header
+        lines.append("FILINGS COLLECTION")
+        lines.append("")
+
+        # Always include count
+        count = len(self)
+        lines.append(f"Total: {count} filings" if count != 1 else "Total: 1 filing")
+
+        # Get unique form types using PyArrow
+        if count > 0:
+            forms_column = self.data['form']
+            unique_forms = sorted(set(forms_column.to_pylist()))
+
+            # Truncate form list if too many to avoid token bloat
+            MAX_FORMS_TO_SHOW = 5
+            if len(unique_forms) > MAX_FORMS_TO_SHOW:
+                shown = ', '.join(unique_forms[:MAX_FORMS_TO_SHOW])
+                remaining = len(unique_forms) - MAX_FORMS_TO_SHOW
+                lines.append(f"Forms: {shown} (+{remaining} more)")
+            else:
+                lines.append(f"Forms: {', '.join(unique_forms)}")
+
+            # Get date range
+            try:
+                start_date, end_date = self.date_range
+                lines.append(f"Date Range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+            except Exception:
+                pass  # Date range not available
+
+        lines.append("")
+        lines.append("AVAILABLE ACTIONS:")
+        lines.append("  - Use .latest() to get most recent filing")
+        lines.append("  - Use [index] to access specific filing (e.g., filings[0])")
+        lines.append("  - Use .filter(form='C') to narrow by form type")
+        lines.append("  - Use .docs for detailed API documentation")
+
+        if detail in ['standard', 'full'] and count > 0:
+            # Show sample entries
+            lines.append("")
+            lines.append("SAMPLE FILINGS:")
+            sample_size = min(3, count)
+            for i in range(sample_size):
+                try:
+                    form = self.data['form'][i].as_py()
+                    filing_date = self.data['filing_date'][i].as_py()
+                    company = self.data['company'][i].as_py()
+                    lines.append(f"  {i}. Form {form} - {filing_date} - {company}")
+                except Exception:
+                    pass  # Skip if there's an issue with this entry
+
+            if count > sample_size:
+                lines.append(f"  ... ({count - sample_size} more)")
+
+        if detail == 'full' and count > 0:
+            # Form breakdown using PyArrow compute
+            from collections import Counter
+            forms_list = self.data['form'].to_pylist()
+            form_counts = Counter(forms_list)
+
+            lines.append("")
+            lines.append("FORM BREAKDOWN:")
+            for form, cnt in sorted(form_counts.items()):
+                lines.append(f"  {form}: {cnt} {'filing' if cnt == 1 else 'filings'}")
+
+        return "\n".join(lines)
+
     def __rich__(self) -> Panel:
         # Create table with appropriate columns and styling
         table = Table(
@@ -789,12 +1052,33 @@ class Filings:
         table.add_column("Company", style="bold green", width=38, no_wrap=True)
         table.add_column("Filing Date", width=11)
         table.add_column("Accession Number", width=20)
+        table.add_column(" ", width=1, style="cyan dim")  # Group indicator column
 
         # Get current page from data pager
         current_page = self.data_pager.current()
 
         # Calculate start index for proper indexing
         start_idx = self._original_state.page_start if self._original_state else self.data_pager.start_index
+
+        # Identify groups of consecutive filings with same accession number
+        groups = {}
+        accession_numbers = [current_page['accession_number'][i].as_py() for i in range(len(current_page))]
+
+        for i in range(len(accession_numbers)):
+            acc_no = accession_numbers[i]
+
+            # Check previous and next accession numbers
+            prev_acc = accession_numbers[i-1] if i > 0 else None
+            next_acc = accession_numbers[i+1] if i < len(accession_numbers)-1 else None
+
+            if acc_no != prev_acc and acc_no == next_acc:
+                groups[i] = '┐'  # Start of group
+            elif acc_no == prev_acc and acc_no == next_acc:
+                groups[i] = '│'  # Middle of group
+            elif acc_no == prev_acc and acc_no != next_acc:
+                groups[i] = '┘'  # End of group
+            else:
+                groups[i] = ' '   # Standalone filing
 
         # Iterate through rows in current page
         for i in range(len(current_page)):
@@ -808,7 +1092,8 @@ class Filings:
                 ticker,
                 current_page['company'][i].as_py(),
                 str(current_page['filing_date'][i].as_py()),
-                accession_number_text(current_page['accession_number'][i].as_py())
+                accession_number_text(current_page['accession_number'][i].as_py()),
+                groups.get(i, ' ')  # Add group indicator
             ]
             table.add_row(*row)
 
@@ -908,19 +1193,27 @@ def get_filings(year: Optional[Years] = None,
 
     So you can download for 2020, [2020,2021,2022] or range(2020, 2023)
 
+    ⚠️  CALENDAR YEAR, NOT FISCAL YEAR: The year and quarter parameters refer to when the filing
+        was submitted to the SEC (calendar year), NOT the fiscal year the filing covers.
+        For example, a 10-K for fiscal year ending March 2024 filed in June 2024 would be found
+        with get_filings(2024), not get_filings(2023).
+
+    ⚠️  DATA FRESHNESS: This function uses quarterly indexes that are updated daily but typically
+        lag by 1 business day. For today's filings or real-time data, use get_current_filings() instead.
+
     Examples
 
     >>> from edgar import get_filings
 
-    >>> filings_ = get_filings(2021) # Get filings for 2021
+    >>> filings_ = get_filings(2021) # Get filings filed in calendar year 2021
 
-    >>> filings_ = get_filings(2021, 4) # Get filings for 2021 Q4
+    >>> filings_ = get_filings(2021, 4) # Get filings filed in Q4 2021 (Oct-Dec)
 
-    >>> filings_ = get_filings(2021, [3,4]) # Get filings for 2021 Q3 and Q4
+    >>> filings_ = get_filings(2021, [3,4]) # Get filings filed in Q3 and Q4 2021
 
-    >>> filings_ = get_filings([2020, 2021]) # Get filings for 2020 and 2021
+    >>> filings_ = get_filings([2020, 2021]) # Get filings filed in 2020 and 2021
 
-    >>> filings_ = get_filings([2020, 2021], 4) # Get filings for Q4 of 2020 and 2021
+    >>> filings_ = get_filings([2020, 2021], 4) # Get filings filed in Q4 of 2020 and 2021
 
     >>> filings_ = get_filings(range(2010, 2021)) # Get filings between 2010 and 2021 - does not include 2021
 
@@ -931,9 +1224,13 @@ def get_filings(year: Optional[Years] = None,
     >>> filings_ = get_filings(2021, 4, filing_date="2021-10-01:2021-10-10") # Get filings for 2021 Q4 between
                                                                             # "2021-10-01" and "2021-10-10"
 
+    For today's filings:
+    >>> from edgar import get_current_filings
+    >>> current = get_current_filings(form="10-K", page_size=None)  # All current filings
 
-    :param year The year of the filing
-    :param quarter The quarter of the filing
+
+    :param year The calendar year when filing was submitted (not fiscal year)
+    :param quarter The calendar quarter when filing was submitted (1-4)
     :param form The form or forms as a string e.g. "10-K" or a List ["10-K", "8-K"]
     :param amendments If True will expand the list of forms to include amendments e.g. "10-K/A"
     :param filing_date The filing date to filter by in YYYY-MM-DD format
@@ -961,7 +1258,10 @@ def get_filings(year: Optional[Years] = None,
         # Expand quarters for the year to date so use expand_quarters(year, quarter=None)
         year_and_quarters: YearAndQuarters = expand_quarters(year, quarter=None)
     else:
-        year_and_quarters: YearAndQuarters = expand_quarters(year, quarter)
+        # Convert range to list if needed for type compatibility
+        year_param = list(year) if isinstance(year, range) else year
+        quarter_param = list(quarter) if isinstance(quarter, range) else quarter
+        year_and_quarters: YearAndQuarters = expand_quarters(year_param, quarter_param)
 
     if len(year_and_quarters) == 0:
         log.warning(f"""
@@ -979,6 +1279,16 @@ def get_filings(year: Optional[Years] = None,
 
     if form or filing_date:
         filings = filings.filter(form=form, amendments=amendments, filing_date=filing_date)
+
+    # Warn if using defaults and data appears stale
+    if defaults_used and filings and len(filings) > 0:
+        latest_date = filings.date_range[1]
+        days_old = _get_data_staleness_days(latest_date)
+        if days_old >= 2:
+            _warn_use_current_filings(
+                "The current quarter's filings are from recent days",
+                latest_date
+            )
 
     if not filings:
         if defaults_used:
@@ -1068,7 +1378,8 @@ class Filing:
                  company: str,
                  form: str,
                  filing_date: str,
-                 accession_no: str):
+                 accession_no: str,
+                 related_entities: Optional[List[Dict]] = None):
         self.cik = cik
         self.company = company
         self.form = form
@@ -1077,6 +1388,9 @@ class Filing:
         self._filing_homepage = None
         self._sgml = None
 
+        # New: Store related entities from index
+        self._related_entities = related_entities or []
+
     @property
     def docs(self):
         return Docs(self)
@@ -1084,6 +1398,95 @@ class Filing:
     @property
     def accession_number(self):
         return self.accession_no
+
+    @property
+    def all_ciks(self) -> List[int]:
+        """Get all CIKs including related entities"""
+        # If we have related entities from the index, use those
+        if self._related_entities:
+            ciks = [self.cik]
+            ciks.extend(e['cik'] for e in self._related_entities)
+            return sorted(list(set(ciks)))
+
+        # Otherwise, check the header for all filers
+        try:
+            header = self.header
+            if header and header.filers and len(header.filers) > 1:
+                # Multiple filers in header
+                ciks = []
+                for filer in header.filers:
+                    if filer.company_information and filer.company_information.cik:
+                        # Convert CIK string to int, removing leading zeros
+                        cik_int = int(filer.company_information.cik.lstrip('0'))
+                        ciks.append(cik_int)
+                if ciks:
+                    return sorted(list(set(ciks)))
+        except Exception as e:
+            # Log warning when header access fails
+            log.warning(
+                f"Could not access header for multi-entity detection in Filing "
+                f"(accession_no={self.accession_no}, cik={self.cik}): {str(e)}. "
+                f"This may occur if the accession number is invalid or the filing doesn't exist on EDGAR."
+            )
+
+        return [self.cik]
+
+    @property
+    def all_entities(self) -> List[Dict[str, Any]]:
+        """Get all entity information"""
+        # If we have related entities from the index, use those
+        if self._related_entities:
+            entities = [{'cik': self.cik, 'company': self.company}]
+            entities.extend(self._related_entities)
+            return entities
+
+        # Otherwise, check the header for all filers
+        try:
+            header = self.header
+            if header and header.filers and len(header.filers) > 1:
+                # Multiple filers in header
+                entities = []
+                for filer in header.filers:
+                    if filer.company_information and filer.company_information.cik:
+                        # Convert CIK string to int, removing leading zeros
+                        cik_int = int(filer.company_information.cik.lstrip('0'))
+                        entities.append({
+                            'cik': cik_int,
+                            'company': filer.company_information.name or f'CIK {cik_int}'
+                        })
+                if entities:
+                    return entities
+        except Exception as e:
+            # Log warning when header access fails
+            log.warning(
+                f"Could not access header for entity information in Filing "
+                f"(accession_no={self.accession_no}, cik={self.cik}): {str(e)}. "
+                f"This may occur if the accession number is invalid or the filing doesn't exist on EDGAR."
+            )
+
+        return [{'cik': self.cik, 'company': self.company}]
+
+    @property
+    def is_multi_entity(self) -> bool:
+        """Check if this filing has multiple entities"""
+        # First check if we have related entities from the index
+        if len(self._related_entities) > 0:
+            return True
+
+        # Otherwise, check the header for multiple filers
+        try:
+            header = self.header
+            if header and header.filers and len(header.filers) > 1:
+                return True
+        except Exception as e:
+            # Log warning when header access fails
+            log.warning(
+                f"Could not access header for multi-entity check in Filing "
+                f"(accession_no={self.accession_no}, cik={self.cik}): {str(e)}. "
+                f"This may occur if the accession number is invalid or the filing doesn't exist on EDGAR."
+            )
+
+        return False
 
     @property
     def document(self):
@@ -1172,8 +1575,14 @@ class Filing:
         """Convert the html of the main filing document to text"""
         html_content = self.html()
         if html_content and is_probably_html(html_content):
-            document = Document.parse(html_content)
-            return rich_to_text(document)
+            parser = HTMLParser(ParserConfig(form=self.form))
+            document = parser.parse(html_content)
+
+            # Return empty string for empty documents (e.g., XML-only filings like TA-1/A)
+            if document.is_empty:
+                return ""
+
+            return rich_to_text(document, width=500)  # Wide enough for tables without truncation
         else:
             text_extract_attachments = self.attachments.query("document_type == 'TEXT-EXTRACT'")
             if len(text_extract_attachments) > 0 and text_extract_attachments.get_by_index(0) is not None:
@@ -1213,21 +1622,58 @@ class Filing:
         if html:
             clean_html = get_clean_html(html)
             if clean_html:
-                return to_markdown(clean_html, include_page_breaks=include_page_breaks, start_page_number=start_page_number)
+                markdown_result = to_markdown(clean_html, include_page_breaks=include_page_breaks, start_page_number=start_page_number)
+                if markdown_result:
+                    return markdown_result
         text_content = self.text()
+        # Return empty string for empty content (e.g., XML-only filings)
+        if not text_content:
+            return ""
         return text_to_markdown(text_content)
 
     def view(self):
         """Preview this filing's primary document as markdown. This should display in the console"""
         html_content = self.html()
         if html_content and is_probably_html(html_content):
-            document = Document.parse(html_content)
+            parser = HTMLParser(ParserConfig(form=self.form))
+            document = parser.parse(html_content)
             print_rich(document)
         else:
             # Fallback to text content for forms without HTML (like UPLOAD forms)
             text_content = self.text()
             if text_content:
                 print(text_content)
+
+    @lru_cache(maxsize=4)
+    def parse(self) -> Optional['Document']:
+        """
+        Parse the primary HTML document into a structured Document object.
+
+        Returns a Document with a parsed node tree suitable for advanced operations
+        like DocumentSearch, section extraction, and structured navigation.
+
+        Returns:
+            Parsed Document object, or None if HTML is not available
+
+        Example:
+            >>> from edgar import Company
+            >>> from edgar.documents.search import DocumentSearch
+            >>> company = Company("AAPL")
+            >>> filing = company.get_filings(form="10-K").latest(1)
+            >>> document = filing.parse()
+            >>> searcher = DocumentSearch(document)
+            >>> results = searcher.ranked_search("revenue growth", top_k=5)
+
+        Note:
+            This method is cached - subsequent calls return the same Document object.
+            For simple text extraction, use filing.text() instead.
+            For XBRL data, use filing.xbrl() instead.
+        """
+        html_content = self.html()
+        if not html_content or not is_probably_html(html_content):
+            return None
+        parser = HTMLParser(ParserConfig(form=self.form))
+        return parser.parse(html_content)
 
     def xbrl(self) -> Optional[XBRL]:
         """
@@ -1238,6 +1684,21 @@ class Filing:
             return XBRL.from_filing(self)
         except XBRLFilingWithNoXbrlData:
             return None
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadTimeout,
+                httpcore.TimeoutException, httpcore.ConnectError, httpcore.NetworkError) as e:
+            # Provide helpful message when local storage is enabled but filing content is missing
+            if is_using_local_storage():
+                log.error(
+                    f"Network error accessing filing content for {self.accession_no}. "
+                    f"You have local storage enabled, but filing documents are not downloaded.\n\n"
+                    f"download_edgar_data() only downloads metadata (company info, filing indexes).\n"
+                    f"To access filing.xbrl() offline, you must also download the actual filing documents:\n\n"
+                    f"    from edgar import download_filings\n"
+                    f"    download_filings('{self.filing_date}')\n\n"
+                    f"Alternatively, use EntityFacts for offline financial data:\n"
+                    f"    company.get_facts().income_statement()\n"
+                )
+            raise
 
     def serve(self, port: int = 8000) -> AttachmentServer:
         """Serve the filings on a local server
@@ -1271,7 +1732,7 @@ class Filing:
     def filing_directory(self) -> FilingDirectory:
         return FilingDirectory.load(self.base_dir)
 
-    def _local_path(self) -> Path:
+    def _local_path(self) -> Union[Path, EdgarPath]:
         """
         Get the local path for the filing
         """
@@ -1356,6 +1817,8 @@ class Filing:
         """
         index_headers_url = f"{self.base_dir}/{self.accession_no}-index-headers.html"
         index_header_text = download_text(index_headers_url)
+        if index_header_text is None:
+            raise ValueError(f"Could not download index headers from {index_headers_url}")
         return IndexHeaders.load(index_header_text)
 
     def to_dict(self) -> Dict[str, Union[str, int]]:
@@ -1440,7 +1903,7 @@ class Filing:
 
     @property
     def homepage_url(self) -> str:
-        return f"{sec_edgar}/data/{self.cik}/{self.accession_no}-index.html"
+        return f"{SEC_ARCHIVE_URL}/data/{self.cik}/{self.accession_no}-index.html"
 
     @property
     def text_url(self) -> str:
@@ -1452,7 +1915,7 @@ class Filing:
 
     @property
     def base_dir(self) -> str:
-        return f"{sec_edgar}/data/{self.cik}/{self.accession_no.replace('-', '')}"
+        return f"{SEC_ARCHIVE_URL}/data/{self.cik}/{self.accession_no.replace('-', '')}"
 
     @property
     def url(self) -> str:
@@ -1510,17 +1973,21 @@ class Filing:
                 log.warning(f"Filing {self.accession_no} not found in local storage. Downloading from SEC ...")
                 from edgar.entity import download_entity_submissions_from_sec, parse_entity_submissions
                 submissions_json = download_entity_submissions_from_sec(self.cik)
+                if submissions_json is None:
+                    log.error(f"Could not download entity submissions for CIK {self.cik}")
+                    return company._empty_company_filings()
                 c_from_sec = parse_entity_submissions(submissions_json)
                 filings = c_from_sec.get_filings(accession_number=self.accession_no)
 
                 if not filings or filings.empty:
                     # Shouldn't get here
-                    return company.get_empty_filings()
+                    return company._empty_company_filings()
             else:
-                return company.get_empty_filings()
+                return company._empty_company_filings()
         file_number = filings[0].file_number
         return company.get_filings(file_number=file_number,
                                    sort_by=[("filing_date", "ascending"), ("accession_number", "ascending")])
+
 
     def __hash__(self):
         return hash(self.accession_no)
@@ -1537,6 +2004,123 @@ class Filing:
                               "Filing Date": self.filing_date,
                               "Company": self.company,
                               "CIK": self.cik}]).set_index("Accession Number")
+
+    def to_context(self, detail: str = 'standard') -> str:
+        """
+        Returns AI-optimized filing metadata for language models.
+
+        This method provides structured information about the filing in a markdown-KV format
+        that is optimized for AI agent navigation and discovery.
+
+        Args:
+            detail: Level of detail to include:
+                - 'minimal': Basic filing info (~100 tokens)
+                - 'standard': Adds available actions and methods (~250 tokens)
+                - 'full': Adds document details and XBRL status (~500 tokens)
+
+        Returns:
+            Markdown-KV formatted context string optimized for LLMs
+
+        Example:
+            >>> filing = filings[0]
+            >>> print(filing.to_context('standard'))
+            FILING: Form C
+
+            Company: ViiT Health Inc
+            CIK: 1881570
+            Filed: 2025-06-11
+            Accession: 0001670254-25-000647
+
+            AVAILABLE ACTIONS:
+              - Use .obj() to parse as structured data
+                Returns: FormC (crowdfunding offering details)
+              - Use .docs for detailed API documentation
+              - Use .xbrl() for financial statements (if available)
+              - Use .document() for structured text extraction
+              - Use .attachments for exhibits (5 documents)
+        """
+        from edgar import get_obj_info
+
+        lines = []
+
+        # Header
+        lines.append(f"FILING: Form {self.form}")
+        lines.append("")
+
+        # Always include basic info
+        lines.append(f"Company: {self.company}")
+        lines.append(f"CIK: {self.cik}")
+        lines.append(f"Filed: {self.filing_date}")
+        lines.append(f"Accession: {self.accession_no}")
+
+        # Add period of report if available and not minimal
+        if detail in ['standard', 'full']:
+            try:
+                period = self.period_of_report
+                if period:
+                    lines.append(f"Period: {period}")
+            except Exception:
+                pass  # Period not available for all filing types
+
+        # Add multi-entity info if present
+        if self.is_multi_entity and detail != 'minimal':
+            num_entities = len(self.all_ciks)
+            lines.append(f"Multi-Entity Filing: {num_entities} entities")
+
+        if detail in ['standard', 'full']:
+            lines.append("")
+            lines.append("AVAILABLE ACTIONS:")
+
+            # Check if this form has a structured data object
+            has_obj, obj_type, obj_desc = get_obj_info(self.form)
+            if has_obj:
+                lines.append("  - Use .obj() to parse as structured data")
+                lines.append(f"    Returns: {obj_type} ({obj_desc})")
+
+            # Mention .docs for API documentation
+            lines.append("  - Use .docs for detailed API documentation")
+
+            # Check for XBRL availability (non-blocking check)
+            has_xbrl = False
+            if detail == 'full':
+                try:
+                    # Only do full check in 'full' mode
+                    xbrl_data = self.xbrl()
+                    has_xbrl = xbrl_data is not None
+                except Exception:
+                    pass
+
+            xbrl_hint = "for financial statements" if has_xbrl or self.form in ['10-K', '10-Q', '20-F', '8-K', '6-K'] else "(if available)"
+            lines.append(f"  - Use .xbrl() {xbrl_hint}")
+
+            lines.append("  - Use .document() for structured text extraction")
+
+            # Add attachments info if available
+            try:
+                num_attachments = len(self.attachments)
+                lines.append(f"  - Use .attachments for exhibits ({num_attachments} documents)")
+            except Exception:
+                lines.append("  - Use .attachments for exhibits")
+
+        if detail == 'full':
+            lines.append("")
+            lines.append("DOCUMENTS:")
+            try:
+                primary_docs = self.primary_documents
+                if primary_docs and len(primary_docs) > 0:
+                    lines.append(f"  Primary: {primary_docs[0].document}")
+                else:
+                    lines.append("  Primary: N/A")
+            except Exception:
+                lines.append("  Primary: N/A")
+
+            # Add XBRL status
+            if has_xbrl:
+                lines.append("  XBRL: Available")
+            elif self.form in ['10-K', '10-Q', '20-F', '8-K', '6-K']:
+                lines.append("  XBRL: Check with .xbrl()")
+
+        return "\n".join(lines)
 
     def __str__(self):
         """
@@ -1562,17 +2146,42 @@ class Filing:
         ticker = find_ticker_safe(self.cik)
         ticker = f"{ticker}" if ticker else ""
 
+        # Check for multi-entity (without triggering header lookup)
+        has_related = hasattr(self, '_related_entities') and self._related_entities
+
+        # Build the title components
+        title_parts = [
+            (f"Form {self.form} ", "bold"),
+            (self.company, "bold green"),
+            " ",
+            (f"[{self.cik}] ", "dim"),
+        ]
+
+        if ticker:
+            title_parts.append((ticker, "bold yellow"))
+
+        # Add multi-entity indicator if present
+        if has_related:
+            num_related = len(self._related_entities)
+            title_parts.extend([
+                " ",
+                (f"(+{num_related} {'entity' if num_related == 1 else 'entities'})", "cyan dim")
+            ])
+
         # The title of the panel
-        title = Text.assemble((f"Form {self.form} ", "bold"),
-                              (self.company, "bold green"),
-                              " ",
-                              (f"[{self.cik}] ", "dim"),
-                              (ticker, "bold yellow")
-                              )
+        title = Text.assemble(*title_parts)
+
         # The subtitle of the panel
-        subtitle = Text(describe_form(self.form, False), "dim")
+        form_description = describe_form(self.form, False)
+        subtitle = Text.assemble(
+            (form_description, "dim"),
+            " • ",
+            ("filing.docs", "cyan dim"),
+            (" for usage guide", "dim")
+        )
 
         attachments = self.attachments
+
         # The filing information table
         filing_info_table = Table("Accession Number", "Filing Date", "Period of Report", "Documents",
                                   header_style="dim",
@@ -1581,12 +2190,45 @@ class Filing:
                                   Text(str(self.filing_date), "bold"),
                                   Text(self.period_of_report or "-", "bold"),
                                   f"{len(attachments)}")
+
+        # Build content elements
+        elements = [filing_info_table]
+
+        # Add entities table if multi-entity filing
+        if has_related:
+            # Add spacing and header
+            elements.append(Text())  # Empty line for spacing
+            elements.append(Text("All Entities:", style="bold dim"))
+
+            # Create entities table
+            entities_table = Table(
+                "CIK", "Company",
+                header_style="dim",
+                box=box.SIMPLE,
+                show_edge=False,
+                padding=(0, 1)
+            )
+
+            # Add primary entity
+            entities_table.add_row(
+                Text(str(self.cik), style="dim"),
+                Text(self.company, style="bold green")
+            )
+
+            # Add related entities
+            for entity in self._related_entities:
+                entities_table.add_row(
+                    Text(str(entity.get('cik', '')), style="dim"),
+                    Text(entity.get('company', ''), style="green")
+                )
+
+            elements.append(entities_table)
+
         return Panel(
-            Group(filing_info_table),
+            Group(*elements),
             title=title,
             subtitle=subtitle,
             box=box.ROUNDED,
-            height=8,
             expand=False
         )
 
@@ -1648,6 +2290,54 @@ def get_filing_by_accession(accession_number: str, year: int):
             return filing
 
     return None
+
+
+def get_by_accession_number_enriched(accession_number: str):
+    """Get filing with all related entities populated using PyArrow"""
+    year = int("19" + accession_number[11:13]) if accession_number[11] == '9' else int("20" + accession_number[11:13])
+
+    # Find all entities with this accession number
+    all_entities = []
+    for quarter in range(1, 5):
+        filings = _get_cached_filings(year=year, quarter=quarter)
+        if filings:
+            # Use PyArrow filtering (same pattern as Filings.get())
+            mask = pc.equal(filings.data['accession_number'], accession_number)
+            # Convert mask to indices
+            indices = []
+            for i in range(len(mask)):
+                if mask[i].as_py():
+                    indices.append(i)
+
+            if len(indices) > 0:
+                # Extract all matching entities efficiently
+                for idx in indices:
+                    all_entities.append({
+                        'cik': filings.data['cik'][idx].as_py(),
+                        'company': filings.data['company'][idx].as_py(),
+                        'form': filings.data['form'][idx].as_py(),
+                        'filing_date': filings.data['filing_date'][idx].as_py()
+                    })
+                break  # Found matches, no need to check other quarters
+
+    if all_entities:
+        # Return first entity as primary, with others as related
+        primary = all_entities[0]
+        related = all_entities[1:] if len(all_entities) > 1 else []
+
+        # Create enriched Filing
+        filing = Filing(
+            cik=primary['cik'],
+            company=primary['company'],
+            form=primary['form'],
+            filing_date=primary['filing_date'],
+            accession_no=accession_number,
+            related_entities=related
+        )
+        return filing
+
+    # Fall back to current behavior if not found
+    return get_by_accession_number(accession_number)
 
 
 def get_by_accession_number(accession_number: str, show_progress: bool = False):

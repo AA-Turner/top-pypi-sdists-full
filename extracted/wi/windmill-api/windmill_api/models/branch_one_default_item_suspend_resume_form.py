@@ -14,9 +14,10 @@ T = TypeVar("T", bound="BranchOneDefaultItemSuspendResumeForm")
 
 @_attrs_define
 class BranchOneDefaultItemSuspendResumeForm:
-    """
+    """Form schema for collecting input when resuming
+
     Attributes:
-        schema (Union[Unset, BranchOneDefaultItemSuspendResumeFormSchema]):
+        schema (Union[Unset, BranchOneDefaultItemSuspendResumeFormSchema]): JSON Schema for the resume form
     """
 
     schema: Union[Unset, "BranchOneDefaultItemSuspendResumeFormSchema"] = UNSET

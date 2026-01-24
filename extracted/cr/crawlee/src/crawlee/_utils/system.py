@@ -5,7 +5,7 @@ import sys
 from contextlib import suppress
 from datetime import datetime, timezone
 from logging import getLogger
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import psutil
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, PlainValidator
@@ -36,22 +36,30 @@ else:
 class CpuInfo(BaseModel):
     """Information about the CPU usage."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(validate_by_name=True, validate_by_alias=True)
 
     used_ratio: Annotated[float, Field(alias='usedRatio')]
     """The ratio of CPU currently in use, represented as a float between 0 and 1."""
 
-    created_at: datetime = Field(
-        alias='createdAt',
-        default_factory=lambda: datetime.now(timezone.utc),
-    )
-    """The time at which the measurement was taken."""
+    # Workaround for Pydantic and type checkers when using Annotated with default_factory
+    if TYPE_CHECKING:
+        created_at: datetime = datetime.now(timezone.utc)
+        """The time at which the measurement was taken."""
+    else:
+        created_at: Annotated[
+            datetime,
+            Field(
+                alias='createdAt',
+                default_factory=lambda: datetime.now(timezone.utc),
+            ),
+        ]
+        """The time at which the measurement was taken."""
 
 
 class MemoryUsageInfo(BaseModel):
     """Information about the memory usage."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(validate_by_name=True, validate_by_alias=True)
 
     current_size: Annotated[
         ByteSize,
@@ -61,22 +69,38 @@ class MemoryUsageInfo(BaseModel):
     ]
     """Memory usage of the current Python process and its children."""
 
-    created_at: datetime = Field(
-        alias='createdAt',
-        default_factory=lambda: datetime.now(timezone.utc),
-    )
-    """The time at which the measurement was taken."""
+    # Workaround for Pydantic and type checkers when using Annotated with default_factory
+    if TYPE_CHECKING:
+        created_at: datetime = datetime.now(timezone.utc)
+        """The time at which the measurement was taken."""
+    else:
+        created_at: Annotated[
+            datetime,
+            Field(
+                alias='createdAt',
+                default_factory=lambda: datetime.now(timezone.utc),
+            ),
+        ]
+        """The time at which the measurement was taken."""
 
 
 class MemoryInfo(MemoryUsageInfo):
     """Information about system memory."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(validate_by_name=True, validate_by_alias=True)
 
     total_size: Annotated[
         ByteSize, PlainValidator(ByteSize.validate), PlainSerializer(lambda size: size.bytes), Field(alias='totalSize')
     ]
     """Total memory available in the system."""
+
+    system_wide_used_size: Annotated[
+        ByteSize,
+        PlainValidator(ByteSize.validate),
+        PlainSerializer(lambda size: size.bytes),
+        Field(alias='systemWideUsedSize'),
+    ]
+    """Total memory used by all processes system-wide (including non-crawlee processes)."""
 
 
 def get_cpu_info() -> CpuInfo:
@@ -108,9 +132,10 @@ def get_memory_info() -> MemoryInfo:
         with suppress(psutil.NoSuchProcess):
             current_size_bytes += _get_used_memory(child)
 
-    total_size_bytes = psutil.virtual_memory().total
+    vm = psutil.virtual_memory()
 
     return MemoryInfo(
-        total_size=ByteSize(total_size_bytes),
+        total_size=ByteSize(vm.total),
         current_size=ByteSize(current_size_bytes),
+        system_wide_used_size=ByteSize(vm.total - vm.available),
     )

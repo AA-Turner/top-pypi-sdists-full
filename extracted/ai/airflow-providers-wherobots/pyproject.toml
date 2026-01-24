@@ -1,0 +1,36 @@
+[project]
+name = "airflow-providers-wherobots"
+version = "1.4.3"
+description = "Airflow extension for communicating with Wherobots Cloud"
+authors = [{ name = "zongsi.zhang", email = "zongsi@wherobots.com" }]
+requires-python = ">=3.9, <3.13"
+readme = "README.md"
+dependencies = [
+    "wherobots-python-dbapi>=0.19.0",
+    "pydantic~=2.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/wherobots/airflow-provider-wherobots"
+Tracker = "https://github.com/wherobots/airflow-provider-wherobots"
+
+[dependency-groups]
+dev = [
+    "apache-airflow>=2.7.0,<3",
+    "pytest>=8.1.1,<9",
+    "requests-mock>=1.12.1,<2",
+    "aioresponses>=0.7.4,<0.8",
+    "pytest-asyncio>=0.24.0,<0.25",
+    "responses>=0.25.3,<0.26",
+    "pytest-mock>=3.14.0,<4",
+    "polyfactory~=2.16",
+    "mypy>=1.14.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.mypy]
+strict = true
+show_error_codes = true

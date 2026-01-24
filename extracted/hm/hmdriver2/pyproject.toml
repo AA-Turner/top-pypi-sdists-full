@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "hmdriver2"
+version = "1.4.4"
+description = "UI Automation Framework for Harmony Next"
+authors = ["codematrixer <chenli_gogo@163.com>"]
+license = "MIT"
+readme = "README.md"
+include = ["*/assets/*"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+lxml = "^5.3.0"
+
+[tool.poetry.extras]
+opencv-python = ["opencv-python-headless"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

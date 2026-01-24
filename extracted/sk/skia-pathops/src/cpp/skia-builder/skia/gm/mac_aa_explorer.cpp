@@ -15,6 +15,8 @@
 #include "include/core/SkScalar.h"
 #include "include/core/SkTypeface.h"
 #include "include/core/SkTypes.h"
+#include "src/utils/mac/SkUniqueCFRef.h"
+#include "tools/fonts/FontToolUtils.h"
 
 #include <string.h>
 #include <initializer_list>
@@ -79,17 +81,21 @@ static void test_mac_fonts(SkCanvas* canvas, SkScalar size, SkScalar xpos) {
 
     for (SkColorType ct : {kRGBA_8888_SkColorType, kGray_8_SkColorType, kAlpha_8_SkColorType}) {
         SkImageInfo ii = SkImageInfo::Make(w, h, ct, kPremul_SkAlphaType);
-        auto surf = SkSurface::MakeRaster(ii);
+        auto surf = SkSurfaces::Raster(ii);
         SkPixmap pm;
         surf->peekPixels(&pm);
-        CGContextRef ctx = make_cg_ctx(pm);
-        CGContextSelectFont(ctx, "Times", size, kCGEncodingMacRoman);
+        SkUniqueCFRef<CGContextRef> ctx(make_cg_ctx(pm));
+        SkUniqueCFRef<CTFontRef> ctFont(CTFontCreateWithName(CFSTR("Times"), size, nullptr));
+        UniChar uni = 'A';
+        CGGlyph glyph;
+        CTFontGetGlyphsForCharacters(ctFont.get(), &uni, &glyph, 1);
 
         SkScalar x = 1;
         for (bool smooth : {false, true}) {
             surf->getCanvas()->clear(ct == kAlpha_8_SkColorType ? 0 : 0xFFFFFFFF);
-            CGContextSetShouldSmoothFonts(ctx, smooth);
-            CGContextShowTextAtPoint(ctx, 2 + xpos, 2, "A", 1);
+            CGContextSetShouldSmoothFonts(ctx.get(), smooth);
+            CGPoint point = {2 + xpos, 2};
+            CTFontDrawGlyphs(ctFont.get(), &glyph, &point, 1, ctx.get());
 
             surf->draw(canvas, x, y);
             x += pm.width();
@@ -113,9 +119,9 @@ protected:
         return DrawResult::kOk;
     }
 
-    SkISize onISize() override { return { 1024, 768 }; }
+    SkISize getISize() override { return {1024, 768}; }
 
-    SkString onShortName() override { return SkString("macaatest"); }
+    SkString getName() const override { return SkString("macaatest"); }
 
     bool onChar(SkUnichar uni) override {
         switch (uni) {
@@ -147,8 +153,11 @@ DEF_SIMPLE_GM(macaa_colors, canvas, 800, 500) {
     const char str[] = "Hamburgefons";
     const size_t len = strlen(str);
 
-    SkFont font;
-    font.setTypeface(SkTypeface::MakeFromName("Times", SkFontStyle()));
+    sk_sp<SkTypeface> face = ToolUtils::CreateTestTypeface("Times", SkFontStyle());
+    if (!face) {
+        face = ToolUtils::DefaultPortableTypeface();
+    }
+    SkFont font(face, 12);
 
     for (size_t i = 0; i < std::size(colors); i += 2) {
         canvas->save();

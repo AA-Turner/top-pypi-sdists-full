@@ -3,7 +3,7 @@ Type annotations for acm service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_acm/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -58,11 +59,6 @@ from .type_defs import (
 )
 from .waiter import CertificateValidatedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -71,23 +67,23 @@ else:
 __all__ = ("ACMClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InvalidArgsException: Type[BotocoreClientError]
-    InvalidArnException: Type[BotocoreClientError]
-    InvalidDomainValidationOptionsException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidStateException: Type[BotocoreClientError]
-    InvalidTagException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    RequestInProgressException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TagPolicyException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InvalidArgsException: type[BotocoreClientError]
+    InvalidArnException: type[BotocoreClientError]
+    InvalidDomainValidationOptionsException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidStateException: type[BotocoreClientError]
+    InvalidTagException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    RequestInProgressException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TagPolicyException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class ACMClient(AioBaseClient):
     """
@@ -315,7 +311,7 @@ class ACMClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

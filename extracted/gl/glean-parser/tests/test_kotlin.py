@@ -276,7 +276,10 @@ def test_event_extra_keys_in_correct_order(tmp_path):
         assert "bob:" in content
         assert "charlie:" in content
         assert ": EventExtras" in content
-        assert 'allowedExtraKeys = listOf("And1WithExtraCasing", "alice", "bob", "charlie")' in content
+        assert (
+            'allowedExtraKeys = listOf("And1WithExtraCasing", "alice", "bob", "charlie")'
+            in content
+        )
 
 
 def test_arguments_are_generated_in_deterministic_order(tmp_path):
@@ -331,6 +334,9 @@ def test_event_extra_keys_with_types(tmp_path):
         assert (
             'allowedExtraKeys = listOf("enabled", "preference", "swapped")' in content
         )
+        assert "map.put(\"enabled\", it.toString())" in content
+        assert "map.put(\"preference\", it)" in content
+        assert "map.put(\"swapped\", it.toString())" in content
 
 
 def test_reasons(tmp_path):
@@ -394,8 +400,7 @@ def test_object_metric(tmp_path):
         assert "data class ThreadsObject(" in content
         assert "data class ThreadsObjectItem(" in content
         assert (
-            "var frames: ThreadsObjectItemFrames = ThreadsObjectItemFrames"
-            in content
+            "var frames: ThreadsObjectItemFrames = ThreadsObjectItemFrames" in content
         )
 
         assert "data class ThreadsObjectItemFramesItem(" in content

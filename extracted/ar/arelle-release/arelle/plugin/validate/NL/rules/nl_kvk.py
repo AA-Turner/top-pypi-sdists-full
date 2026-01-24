@@ -3,37 +3,33 @@ See COPYRIGHT.md for copyright information.
 """
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date
-from typing import Any, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
+import regex
 from lxml.etree import Element
 
+from arelle import ModelDocument, XbrlConst, XmlUtil
 from arelle.LinkbaseType import LinkbaseType
 from arelle.ModelDtsObject import ModelConcept, ModelLink, ModelResource, ModelType
 from arelle.ModelInstanceObject import ModelInlineFact
 from arelle.ModelObject import ModelObject
 from arelle.PrototypeDtsObject import PrototypeObject
-from arelle.ValidateDuplicateFacts import getDuplicateFactSets
-from arelle.XbrlConst import parentChild, standardLabel
-from arelle.XmlValidateConst import VALID
-
-from arelle import XbrlConst, XmlUtil, ModelDocument
-from arelle.ValidateXbrl import ValidateXbrl
 from arelle.typing import TypeGetText
 from arelle.utils.PluginHooks import ValidationHook
+from arelle.utils.validate.Concepts import isExtensionUri, getExtensionConcepts
 from arelle.utils.validate.Decorator import validation
 from arelle.utils.validate.DetectScriptsInXhtml import containsScriptMarkers
 from arelle.utils.validate.ESEFImage import ImageValidationParameters, validateImage
 from arelle.utils.validate.Validation import Validation
-from arelle.ValidateDuplicateFacts import getHashEquivalentFactGroups, getAspectEqualFacts
-from arelle.utils.validate.ValidationUtil import etreeIterWithDepth
-from ..DisclosureSystems import (ALL_NL_INLINE_DISCLOSURE_SYSTEMS, NL_INLINE_GAAP_IFRS_DISCLOSURE_SYSTEMS,
-                                 NL_INLINE_GAAP_OTHER_DISCLOSURE_SYSTEMS)
-from ..PluginValidationDataExtension import (
-    PluginValidationDataExtension,
+from arelle.ValidateDuplicateFacts import getAspectEqualFacts, getDuplicateFactSets, getHashEquivalentFactGroups
+from arelle.ValidateXbrl import ValidateXbrl
+from arelle.XbrlConst import parentChild, standardLabel
+from arelle.XmlValidateConst import VALID
+
+from ..Constants import (
     ALLOWABLE_LANGUAGES,
     DEFAULT_MEMBER_ROLE_URI,
     DISALLOWED_IXT_NAMESPACES,
@@ -42,19 +38,30 @@ from ..PluginValidationDataExtension import (
     MAX_REPORT_PACKAGE_SIZE_MBS,
     NON_DIMENSIONALIZED_LINE_ITEM_LINKROLES,
     QN_DOMAIN_ITEM_TYPES,
+    STANDARD_TAXONOMY_URL_PREFIXES,
     SUPPORTED_IMAGE_TYPES_BY_IS_FILE,
     TAXONOMY_URLS_BY_YEAR,
     XBRLI_IDENTIFIER_PATTERN,
     XBRLI_IDENTIFIER_SCHEMA,
 )
+from ..DisclosureSystems import (
+    DISCLOSURE_SYSTEM_NL_INLINE_2025,
+    DISCLOSURE_SYSTEM_NL_INLINE_MULTI_TARGET,
+    ALL_NL_INLINE_DISCLOSURE_SYSTEMS,
+    NL_INLINE_GAAP_IFRS_DISCLOSURE_SYSTEMS,
+    NL_INLINE_GAAP_OTHER_DISCLOSURE_SYSTEMS,
+    NL_INLINE_MULTI_TARGET_DISCLOSURE_SYSTEMS,
+    NL_INLINE_OTHER_DISCLOSURE_SYSTEMS,
+)
+from ..PluginValidationDataExtension import PluginValidationDataExtension
 
 if TYPE_CHECKING:
-    from arelle.ModelXbrl import ModelXbrl
     from arelle.ModelValue import QName
+    from arelle.ModelXbrl import ModelXbrl
 
 _: TypeGetText
 
-DOCTYPE_XHTML_PATTERN = re.compile(r"^<!(?:DOCTYPE\s+)\s*html(?:PUBLIC\s+)?(?:.*-//W3C//DTD\s+(X?HTML)\s)?.*>$", re.IGNORECASE)
+DOCTYPE_XHTML_PATTERN = regex.compile(r"^<!(?:DOCTYPE\s+)\s*html(?:PUBLIC\s+)?(?:.*-//W3C//DTD\s+(X?HTML)\s)?.*>$", regex.IGNORECASE)
 
 
 def _getReportingPeriodDateValue(modelXbrl: ModelXbrl, qname: QName) -> date | None:
@@ -751,7 +758,7 @@ def rule_nl_kvk_3_5_2_3(
     """
     badLangsUsed = set()
     for ixdsHtmlRootElt in val.modelXbrl.ixdsHtmlElements:
-        for uncast_elt, depth in etreeIterWithDepth(ixdsHtmlRootElt):
+        for uncast_elt in ixdsHtmlRootElt.iter():
             elt = cast(Any, uncast_elt)
             xmlLang = elt.get("{http://www.w3.org/XML/1998/namespace}lang")
             if xmlLang and xmlLang not in ALLOWABLE_LANGUAGES:
@@ -1082,8 +1089,12 @@ def rule_nl_kvk_4_1_2_2(
     """
     reportingPeriod = pluginData.getReportingPeriod(val.modelXbrl)
     extensionData = pluginData.getExtensionData(val.modelXbrl)
-    matches = extensionData.extensionImportedUrls & TAXONOMY_URLS_BY_YEAR.get(reportingPeriod or '', set())
-    if not reportingPeriod or not matches:
+    applicableVersionUsed = bool(
+        reportingPeriod
+        and (taxonomyUrls := TAXONOMY_URLS_BY_YEAR.get(reportingPeriod, set()))
+        and extensionData.extensionImportedUrls & taxonomyUrls
+    )
+    if not applicableVersionUsed:
         yield Validation.error(
             codes='NL.NL-KVK.4.1.2.2.incorrectKvkTaxonomyVersionUsed',
             msg=_('The extension taxonomy MUST import the applicable version of the taxonomy files prepared by KVK '
@@ -1244,7 +1255,8 @@ def rule_nl_kvk_4_2_2_2(
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    NL-KVK.4.2.2.2: Domain members MUST have domainItemType data type as defined in https://www.xbrl.org/dtr/type/2022-03-31/types.xsd.
+    NL-KVK.4.2.2.2: Domain members MUST have domainItemType data type as defined in
+    https://www.xbrl.org/dtr/type/2022-03-31/types.xsd or https://www.xbrl.org/dtr/type/2024-01-31/types.xsd
     """
     domainMembersWrongType = []
     domainMembers = pluginData.getDimensionalData(val.modelXbrl).domainMembers
@@ -1323,6 +1335,29 @@ def rule_nl_kvk_4_3_1_1(
             modelObject=(anchor, anchor.fromModelObject, anchor.toModelObject),
             qname1=anchor.fromModelObject.qname,
             qname2=anchor.toModelObject.qname
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=DISCLOSURE_SYSTEM_NL_INLINE_2025,
+)
+def rule_nl_kvk_4_3_1_2(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.4.3.1.2: An extension element SHOULD be anchored to a taxonomy element with a compatible data type.
+    """
+    anchorData = pluginData.getAnchorData(val.modelXbrl)
+    if len(anchorData.extConceptsNotAnchoredToSameDerivedType) > 0:
+        yield Validation.warning(
+            codes="NL.NL-KVK.4.3.1.2.incompatibleDataTypeAnchoringRelationship",
+            msg=_("The extension and taxonomy concepts that participate in anchoring relationships must "
+                  "either have the same type or one concept type must derive from the other."),
+            modelObject=anchorData.extConceptsNotAnchoredToSameDerivedType,
         )
 
 
@@ -1512,7 +1547,7 @@ def rule_nl_kvk_4_4_3_1(
     NL-KVK.4.4.3.1: The extension taxonomy MUST not modify (prohibit and/or override) default members assigned to dimensions by the KVK taxonomy
     """
     for modelLink in cast(list[ModelLink], val.modelXbrl.baseSets[XbrlConst.dimensionDefault, None, None, None]):
-        if not pluginData.isExtensionUri(modelLink.modelDocument.uri, val.modelXbrl):
+        if not isExtensionUri(modelLink.modelDocument.uri, val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES):
             continue
         for linkChild in modelLink:
             if (
@@ -1522,7 +1557,7 @@ def rule_nl_kvk_4_4_3_1(
             ):
                 fromLabel = linkChild.get(XbrlConst.qnXlinkFrom.clarkNotation)
                 for fromResource in modelLink.labeledResources[fromLabel]:
-                    if not pluginData.isExtensionUri(fromResource.modelDocument.uri, val.modelXbrl):
+                    if not isExtensionUri(fromResource.modelDocument.uri, val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES):
                         yield Validation.error(
                             codes='NL.NL-KVK.4.4.3.1.extensionTaxonomyOverridesDefaultMembers',
                              msg=_('A default member does not match the default member settings of the taxonomy. '
@@ -1666,7 +1701,7 @@ def rule_nl_kvk_4_4_5_2(
                 hasCoreLabel = False
                 hasExtensionLabel = False
                 for label in labels:
-                    if pluginData.isExtensionUri(label.modelDocument.uri, val.modelXbrl):
+                    if isExtensionUri(label.modelDocument.uri, val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES):
                         hasExtensionLabel = True
                     else:
                         hasCoreLabel = True
@@ -1703,7 +1738,7 @@ def rule_nl_kvk_4_4_6_1(
                 if (object is None or
                         object.isAbstract or
                         object in conceptsUsed or
-                        not pluginData.isExtensionUri(rel.modelDocument.uri, val.modelXbrl)):
+                        not isExtensionUri(rel.modelDocument.uri, val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES)):
                     continue
                 if arcrole in (XbrlConst.parentChild, XbrlConst.summationItems):
                     unreportedLbLocs.add(rel.fromLocator)
@@ -1721,23 +1756,27 @@ def rule_nl_kvk_4_4_6_1(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
-    disclosureSystems=NL_INLINE_GAAP_OTHER_DISCLOSURE_SYSTEMS,
+    disclosureSystems=NL_INLINE_OTHER_DISCLOSURE_SYSTEMS,
 )
-def rule_nl_kvk_5_1_3_1(
+def rule_nl_kvk_5_1_3_1_and_6_1_3_1(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
         *args: Any,
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    NL-KVK.5.1.3.1: Validate that the imported taxonomy matches the KVK-specified entry point.
+    NL-KVK.5.1.3.1 and NL-KVK.6.1.3.1: Validate that the imported taxonomy matches the KVK-specified entry point.
         - https://www.nltaxonomie.nl/kvk/2024-12-31/kvk-annual-report-other-gaap.xsd
+        - https://www.nltaxonomie.nl/kvk/2025-12-31/kvk-annual-report-other.xsd
     """
     uris = {doc[0].uri for doc in val.modelXbrl.namespaceDocs.values()}
     matches = uris & EFFECTIVE_KVK_GAAP_OTHER_ENTRYPOINT_FILES
     if not matches:
+        base_code = '5.1.3.1.requiredEntryPointOtherGaapNotReferenced'
+        if str(val.disclosureSystem.name) in DISCLOSURE_SYSTEM_NL_INLINE_MULTI_TARGET:
+            base_code = '6.1.3.1.requiredEntryPointOtherNotReferenced'
         yield Validation.error(
-            codes='NL.NL-KVK.5.1.3.1.requiredEntryPointOtherGaapNotReferenced',
+            codes=f'NL.NL-KVK.{base_code}',
             msg=_('The extension taxonomy must import the entry point of the taxonomy files prepared by KVK.'),
             modelObject=val.modelXbrl.modelDocument
         )
@@ -1745,24 +1784,31 @@ def rule_nl_kvk_5_1_3_1(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
-    disclosureSystems=NL_INLINE_GAAP_OTHER_DISCLOSURE_SYSTEMS,
+    disclosureSystems=NL_INLINE_OTHER_DISCLOSURE_SYSTEMS,
 )
-def rule_nl_kvk_5_1_3_2(
+def rule_nl_kvk_5_1_3_2_and_6_1_3_2(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
         *args: Any,
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    NL-KVK.5.1.3.2: The legal entity's report MUST import the applicable version of
+    NL-KVK.5.1.3.2 and NL-KVK.6.1.3.2: The legal entity's report MUST import the applicable version of
                     the taxonomy files prepared by KVK.
     """
     reportingPeriod = pluginData.getReportingPeriod(val.modelXbrl)
     uris = {doc[0].uri for doc in val.modelXbrl.namespaceDocs.values()}
-    matches = uris & TAXONOMY_URLS_BY_YEAR.get(reportingPeriod or '', set())
-    if not reportingPeriod or not matches:
+    applicableVersionUsed = bool(
+        reportingPeriod
+        and (taxonomyUrls := TAXONOMY_URLS_BY_YEAR.get(reportingPeriod, set()))
+        and uris & taxonomyUrls
+    )
+    if not applicableVersionUsed:
+        base_code = '5.1.3.2.incorrectVersionEntryPointOtherGaapReferenced'
+        if str(val.disclosureSystem.name) in DISCLOSURE_SYSTEM_NL_INLINE_MULTI_TARGET:
+            base_code = '6.1.3.2.incorrectVersionEntryPointOtherReferenced'
         yield Validation.error(
-            codes='NL.NL-KVK.5.1.3.2.incorrectVersionEntryPointOtherGaapReferenced',
+            codes=f'NL.NL-KVK.{base_code}',
             msg=_('The report MUST import the applicable version of the taxonomy files prepared by KVK '
                   'for the reported financial reporting period. Verify the taxonomy version and make sure '
                   'that FinancialReportingPeriod are tagged correctly.'),
@@ -1772,23 +1818,101 @@ def rule_nl_kvk_5_1_3_2(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
-    disclosureSystems=ALL_NL_INLINE_DISCLOSURE_SYSTEMS,
+    disclosureSystems=NL_INLINE_MULTI_TARGET_DISCLOSURE_SYSTEMS,
 )
-def rule_nl_kvk_6_1_1_1(
+def rule_nl_kvk_6_1_3_3(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
         *args: Any,
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    NL-KVK.6.1.1.1: The size of the report package MUST NOT exceed 100 MB.
+    NL-KVK.6.1.3.3: The target attribute “filing-information” MUST be used for the content of the required elements
+                    for filing with the Business Register
+    """
+    targetElements = {elt.get("target") for elt in pluginData.getTargetElements(val.modelXbrl)}
+    if len(targetElements) > 2 or 'filing-information' not in targetElements or 'default' not in targetElements:
+        yield Validation.error(
+            codes='NL.NL-KVK.6.1.3.3.requiredTargetAttributeNotUsed',
+            msg=_('The target attribute `filing-information` MUST be used for the content of the required '
+                  'elements for filing with the Business Register.'),
+            modelObject=targetElements
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=NL_INLINE_GAAP_OTHER_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_7_1_4_2(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.7.1.4.2: The concept kvk:AnnualReportOfForeignGroupHeadForExemptionUnderArticle403 MUST NOT be reported with
+                    a value of “False”.
+    """
+    factsInError = []
+    articleFacts = val.modelXbrl.factsByQname.get(pluginData.AnnualReportOfForeignGroupHeadForExemptionUnderArticle403Qn, set())
+    for fact in articleFacts:
+        if fact is not None and fact.xValid >= VALID and fact.xValue == 'False':
+            factsInError.append(fact)
+    if len(factsInError) > 0:
+        yield Validation.error(
+            codes='NL.NL-KVK.7.1.4.2.reportedConcept403NotExpected',
+            msg=_('A fact or facts tagged with `kvk:AnnualReportOfForeignGroupHeadForExemptionUnderArticle403` is incorrectly marked as False.'),
+            modelObject=factsInError
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=NL_INLINE_GAAP_OTHER_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_7_2_1_2(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.7.2.1.2: The concept kvk:AnnualReportOfForeignGroupHeadForExemptionUnderArticle408 MUST NOT be reported with
+                    a value of “False”.
+    """
+    factsInError = []
+    articleFacts = val.modelXbrl.factsByQname.get(pluginData.AnnualReportOfForeignGroupHeadForExemptionUnderArticle408Qn, set())
+    for fact in articleFacts:
+        if fact is not None and fact.xValid >= VALID and fact.xValue == 'False':
+            factsInError.append(fact)
+    if len(factsInError) > 0:
+        yield Validation.error(
+            codes='NL.NL-KVK.7.2.1.2.reportedConcept408NotExpected',
+            msg=_('A fact or facts tagged with `kvk:AnnualReportOfForeignGroupHeadForExemptionUnderArticle408` is incorrectly marked as False.'),
+            modelObject=factsInError
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ALL_NL_INLINE_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_8_1_1_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.8.1.1.1: The size of the report package MUST NOT exceed 100 MB.
     """
     size = val.modelXbrl.fileSource.getBytesSize()
     if size is None:
         return  # File size is not available, cannot validate
     if size > MAX_REPORT_PACKAGE_SIZE_MBS * 1_000_000:  # Interpretting MB as megabytes (1,000,000 bytes)
         yield Validation.error(
-            codes='NL.NL-KVK.6.1.1.1.reportPackageMaximumSizeExceeded',
+            codes='NL.NL-KVK.8.1.1.1.reportPackageMaximumSizeExceeded',
             msg=_('The size of the report package must not exceed %(maxSize)s MBs, size is %(size)s MBs.'),
             modelObject=val.modelXbrl, maxSize=MAX_REPORT_PACKAGE_SIZE_MBS, size=int(size/1000000)
         )
@@ -1882,7 +2006,7 @@ def rule_nl_kvk_RTS_Annex_IV_Par_4_1(
         coreConcepts = []
         extensionConcepts = []
         for concept in concepts:
-            if pluginData.isExtensionUri(concept.modelDocument.uri, val.modelXbrl):
+            if isExtensionUri(concept.modelDocument.uri, val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES):
                 extensionConcepts.append(concept)
             else:
                 coreConcepts.append(concept)
@@ -1917,7 +2041,7 @@ def rule_nl_kvk_RTS_Annex_IV_Par_4_2(
     NL-KVK.RTS_Annex_IV_Par_4_2: Extension elements must be equipped with an appropriate balance attribute.
     """
     errors = []
-    for concept in pluginData.getExtensionConcepts(val.modelXbrl):
+    for concept in getExtensionConcepts(val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES):
         if concept.isMonetary and concept.balance is None:
             errors.append(concept)
     if len(errors) > 0:

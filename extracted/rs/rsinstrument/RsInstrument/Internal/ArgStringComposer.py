@@ -114,7 +114,7 @@ def compose_cmd_string_from_struct_args(args: Dict[int, ArgStruct], composer: St
 	# Once the first open list argument is detected, continue further
 	while arg_ix < arg_count and args[arg_ix].is_open_list is False:
 		arg = args[arg_ix]
-		if arg.has_value(values_obj) is False:
+		if not arg.has_value(values_obj):
 			arg.assert_is_optional(values_obj)
 			# The optional argument, which has no value. End the entire string_arg composition
 			opt_null_ix = arg_ix

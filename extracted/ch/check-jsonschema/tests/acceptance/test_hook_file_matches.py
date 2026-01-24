@@ -80,6 +80,10 @@ _HOOKID_PATH_MAP = {
             "bamboo-specs/README.md",
         ),
     },
+    "check-citation-file-format": {
+        "good": ("CITATION.cff",),
+        "bad": ("CITATION.yml",),
+    },
     "check-codecov": {
         "good": (
             "codecov.yml",
@@ -140,6 +144,16 @@ _HOOKID_PATH_MAP = {
         ),
         "bad": (".github/actions/foo/other.yaml",),
     },
+    "check-github-discussion": {
+        "good": (
+            ".github/DISCUSSION_TEMPLATE/announcements.yaml",
+            ".github/DISCUSSION_TEMPLATE/office-hours.yml",
+        ),
+        "bad": (
+            ".github/discussion.yml",
+            ".github/DISCUSSION_TEMPLATE/not-a-discussion.txt",
+        ),
+    },
     "check-github-issue-config": {
         "good": (".github/ISSUE_TEMPLATE/config.yml",),
         "bad": (
@@ -172,9 +186,9 @@ _HOOKID_PATH_MAP = {
             ".gitlab-ci.yml",
             ".gitlab/.gitlab-ci.yml",
             "gitlab/.gitlab-ci.yml",
+            ".gitlab-ci.yaml",
         ),
         "bad": (
-            ".gitlab-ci.yaml",
             "gitlab-ci.yml",
             ".gitlab/gitlab-ci.yml",
             "gitlab/gitlab-ci.yml",

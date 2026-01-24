@@ -24,39 +24,19 @@ MATCHMAKING_WS_URI = "wss://matchmaking.textarena.ai/ws"
 MATCHMAKING_HTTP_URI = "https://matchmaking.textarena.ai"
 
 # Environment ID mapping
-NAME_TO_ID_DICT = { # TODO update with more games that map to Supabase
+NAME_TO_ID_DICT = { 
     "Chess-v0": 0,
-    "ConnectFour-v0": 1,
     "DontSayIt-v0": 3,
-    "Battleship-v0": 5,
     "LiarsDice-v0": 6,
     "SimpleNegotiation-v0": 8,
-    "Poker-v0": 9,
     "SpellingBee-v0": 10,
-    "SpiteAndMalice-v0": 11,
-    "Stratego-v0": 12,
-    "Tak-v0": 13,
-    "TruthAndDeception-v0": 14,
-    "UltimateTicTacToe-v0": 15,
-    "WordChains-v0": 16,
     "TicTacToe-v0": 35,
-    "Breakthrough-v0": 37,
-    "Checkers-v0": 38,
-    "KuhnPoker-v0": 46,
-    "LetterAuction-v0": 47,
-    "MemoryGame-v0": 48,
-    "Nim-v0": 50,
     "Othello-v0": 51,
     "PigDice-v0": 52,
-    "SimpleBlindAuction-v0": 56,
-    "Snake-v0": 69,
+    "Poker-v0": 68,
+    "Snake-v0-standard": 70,
     "SecretMafia-v0": 75,
-    "WildTicTacToe-v0": 77,
-    "ReverseTicTacToe-v0": 78,
-    "RandomizedTicTacToe-v0": 79,
-    "QuantumTicTacToe-v0": 80,
-    "IteratedRockPaperScissors-v0": 81,
-    "Subset-v0": [0, 3, 35, 51, 52, 63, 66, 67, 68, 70, 75, 81]
+    "SimpleTak-v0": 84,
 }
 
 def strip_env_variant(env_id: str) -> str:
@@ -1131,13 +1111,9 @@ def make_online(
 
 MGC_NAME_TO_ID_DICT = {
     "SecretMafia-v0": 75,
-    
     "Codenames-v0":  65,
     "ColonelBlotto-v0": 82,
     "ThreePlayerIPD-v0": 83,
-    # testing
-    "ConnectFour-v0":  1,
-    "DontSayIt-v0": 3,
 }
 
 

@@ -1,18 +1,16 @@
-from typing import Optional
-
 import a_sync
 from async_lru import alru_cache
 from brownie.convert.datatypes import EthAddress
+from brownie.exceptions import ContractNotFound
 
 from y import ENVIRONMENT_VARIABLES as ENVS
 from y.classes.common import ERC20
 from y.constants import CHAINID
 from y.contracts import Contract
 from y.datatypes import AnyAddressType
+from y.exceptions import ContractNotVerified
 from y.networks import Network
 from y.prices import magic
-from y.exceptions import ContractNotVerified
-from brownie.exceptions import ContractNotFound
 
 
 @a_sync.a_sync(default="sync")
@@ -53,7 +51,7 @@ async def is_solidex_deposit(token: AnyAddressType) -> bool:
 @a_sync.a_sync(default="sync")
 async def get_price(
     token: AnyAddressType,
-    block: Optional[int] = None,
+    block: int | None = None,
     skip_cache: bool = ENVS.SKIP_CACHE,
 ):
     """

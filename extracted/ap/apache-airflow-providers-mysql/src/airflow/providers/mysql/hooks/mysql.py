@@ -24,18 +24,13 @@ import logging
 from typing import TYPE_CHECKING, Any, Union
 from urllib.parse import quote_plus, urlencode
 
-from airflow.exceptions import AirflowOptionalProviderFeatureException
+from airflow.providers.common.compat.sdk import AirflowOptionalProviderFeatureException
 from airflow.providers.common.sql.hooks.sql import DbApiHook
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from airflow.providers.mysql.version_compat import AIRFLOW_V_3_0_PLUS
-
-    if AIRFLOW_V_3_0_PLUS:
-        from airflow.sdk import Connection
-    else:
-        from airflow.models.connection import Connection  # type: ignore[assignment]
+    from airflow.providers.common.compat.sdk import Connection
 
     try:
         from mysql.connector.abstracts import MySQLConnectionAbstract

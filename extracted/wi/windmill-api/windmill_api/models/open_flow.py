@@ -15,12 +15,15 @@ T = TypeVar("T", bound="OpenFlow")
 
 @_attrs_define
 class OpenFlow:
-    """
+    """Top-level flow definition containing metadata, configuration, and the flow structure
+
     Attributes:
-        summary (str):
-        value (OpenFlowValue):
-        description (Union[Unset, str]):
-        schema (Union[Unset, OpenFlowSchema]):
+        summary (str): Short description of what this flow does
+        value (OpenFlowValue): The flow structure containing modules and optional preprocessor/failure handlers
+        description (Union[Unset, str]): Detailed documentation for this flow
+        schema (Union[Unset, OpenFlowSchema]): JSON Schema for flow inputs. Use this to define input parameters, their
+            types, defaults, and validation. For resource inputs, set type to 'object' and format to 'resource-<type>'
+            (e.g., 'resource-stripe')
     """
 
     summary: str

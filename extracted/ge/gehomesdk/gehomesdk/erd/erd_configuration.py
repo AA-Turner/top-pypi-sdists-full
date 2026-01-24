@@ -23,6 +23,7 @@ class ErdConfigurationEntry:
 
     def erd_decode(self, value: str) -> Any:
         return self.converter.erd_decode(value)
+    
     def erd_encode(self, value: Any) -> str:
         return self.converter.erd_encode(value)
 
@@ -143,10 +144,11 @@ _configuration = [
     ErdConfigurationEntry(ErdCode.DISHWASHER_TEMPERATURE, ErdUserTemperatureSettingConverter(), ErdCodeClass.DISHWASHER_SENSOR),
     ErdConfigurationEntry(ErdCode.DISHWASHER_DRYING, ErdUserDryingSettingConverter(), ErdCodeClass.DISHWASHER_SENSOR),
     ErdConfigurationEntry(ErdCode.DISHWASHER_WASH_ZONE, ErdUserZoneSettingConverter(), ErdCodeClass.DISHWASHER_SENSOR),
-    ErdConfigurationEntry(ErdCode.DISHWASHER_STEAM, ErdBoolConverter(), ErdDataType.BOOL),
-    ErdConfigurationEntry(ErdCode.DISHWASHER_BOTTLE_JETS, ErdBoolConverter(), ErdDataType.BOOL),
-    ErdConfigurationEntry(ErdCode.DISHWASHER_IS_CLEAN, ErdReadOnlyBoolConverter(), ErdDataType.BOOL),
-    ErdConfigurationEntry(ErdCode.DISHWASHER_REMOTE_START_ENABLE, ErdReadOnlyBoolConverter(), ErdDataType.BOOL),
+    ErdConfigurationEntry(ErdCode.DISHWASHER_STEAM, ErdBoolConverter(), ErdCodeClass.DISHWASHER_SENSOR, ErdDataType.BOOL),
+    ErdConfigurationEntry(ErdCode.DISHWASHER_BOTTLE_JETS, ErdBoolConverter(), ErdCodeClass.DISHWASHER_SENSOR, ErdDataType.BOOL),
+    ErdConfigurationEntry(ErdCode.DISHWASHER_IS_CLEAN, ErdReadOnlyBoolConverter(), ErdCodeClass.DISHWASHER_SENSOR, ErdDataType.BOOL),
+    ErdConfigurationEntry(ErdCode.DISHWASHER_REMOTE_START_ENABLE, ErdReadOnlyBoolConverter(), ErdCodeClass.DISHWASHER_SENSOR, ErdDataType.BOOL),
+    ErdConfigurationEntry(ErdCode.DISHWASHER_REMOTE_START_COMMAND, ErdRemoteCommandConverter(), ErdCodeClass.DISHWASHER_SENSOR, ErdDataType.BOOL),
     ErdConfigurationEntry(ErdCode.DISHWASHER_ERROR, ErdErrorStateConverter(), ErdCodeClass.DISHWASHER_SENSOR),
 
     ErdConfigurationEntry(ErdCode.DISHWASHER_UPPER_TIME_REMAINING, ErdReadOnlyTimeSpanConverter(), ErdCodeClass.TIMER, ErdDataType.TIMESPAN),
@@ -154,6 +156,8 @@ _configuration = [
     ErdConfigurationEntry(ErdCode.DISHWASHER_UPPER_REMINDERS, ErdRemindersSettingConverter(), ErdCodeClass.DISHWASHER_SENSOR),
     ErdConfigurationEntry(ErdCode.DISHWASHER_UPPER_DOOR_STATUS, ErdDishwasherDoorStatusConverter(), ErdCodeClass.DOOR),
     ErdConfigurationEntry(ErdCode.DISHWASHER_UPPER_USER_SETTING, ErdUserSettingConverter(), ErdCodeClass.DISHWASHER_SENSOR),
+    ErdConfigurationEntry(ErdCode.DISHWASHER_UPPER_REMOTE_START_ENABLE, ErdReadOnlyBoolConverter(), ErdCodeClass.DISHWASHER_SENSOR, ErdDataType.BOOL),
+    ErdConfigurationEntry(ErdCode.DISHWASHER_UPPER_REMOTE_START_COMMAND, ErdRemoteCommandConverter(), ErdCodeClass.DISHWASHER_SENSOR, ErdDataType.BOOL),
 
     # Laundry
     ErdConfigurationEntry(ErdCode.LAUNDRY_MACHINE_STATE, MachineStateConverter(), ErdCodeClass.LAUNDRY_SENSOR),
@@ -273,9 +277,14 @@ _configuration = [
 
     # Water Heater
     ErdConfigurationEntry(ErdCode.WH_HEATER_MODE, ErdWaterHeaterModeConverter(), ErdCodeClass.WATERHEATER_SENSOR),
+    ErdConfigurationEntry(ErdCode.WH_HEATER_VACATION_FALLBACK_MODE, ErdWaterHeaterModeConverter(), ErdCodeClass.WATERHEATER_SENSOR),
     ErdConfigurationEntry(ErdCode.WH_HEATER_TARGET_TEMPERATURE, ErdWaterHeaterTemperatureConverter(), ErdCodeClass.TEMPERATURE_CONTROL, ErdDataType.FLOAT),
+    ErdConfigurationEntry(ErdCode.WH_HEATER_VACATION_TEMPERATURE, ErdWaterHeaterTemperatureConverter(), ErdCodeClass.TEMPERATURE_CONTROL, ErdDataType.FLOAT),
     ErdConfigurationEntry(ErdCode.WH_HEATER_TEMPERATURE, ErdWaterHeaterTemperatureConverter(), ErdCodeClass.TEMPERATURE_CONTROL, ErdDataType.FLOAT),
     ErdConfigurationEntry(ErdCode.WH_HEATER_MODE_HOURS_REMAINING, ErdTimeSpanConverter(uom="hours"), ErdCodeClass.TIMER, ErdDataType.TIMESPAN),
+    ErdConfigurationEntry(ErdCode.WH_HEATER_MIXING_VALVE_TANK_CAPACITY, ErdWaterHeaterMixingValveTankCapacityConverter(), ErdCodeClass.WATERHEATER_SENSOR),
+    ErdConfigurationEntry(ErdCode.WH_HEATER_MIXING_VALVE_AVAILABLE_TANK_CAPACITIES, ErdWaterHeaterMixingValveAvailableTankCapacitiesConverter(), ErdCodeClass.WATERHEATER_SENSOR),
+    ErdConfigurationEntry(ErdCode.WH_HEATER_AVAILABLE_MODES, ErdWaterHeaterAvailableModesConverter(), ErdCodeClass.WATERHEATER_SENSOR),
     ErdConfigurationEntry(ErdCode.WH_HEATER_MIN_MAX_TEMPERATURE, ErdWaterHeaterMinMaxTemperatureConverter(), ErdCodeClass.WATERHEATER_SENSOR),
     ErdConfigurationEntry(ErdCode.WH_HEATER_VACATION_MODE_MAX_TIME, ErdTimeSpanConverter(uom="hours"), ErdCodeClass.WATERHEATER_SENSOR, ErdDataType.TIMESPAN),
     ErdConfigurationEntry(ErdCode.WH_HEATER_ELECTRIC_MODE_MAX_TIME, ErdTimeSpanConverter(uom="hours"), ErdCodeClass.WATERHEATER_SENSOR, ErdDataType.TIMESPAN),
@@ -283,21 +292,33 @@ _configuration = [
     ErdConfigurationEntry(ErdCode.WH_HEATER_BOOST_CONTROL, ErdOnOffConverter(), ErdCodeClass.WATERHEATER_SENSOR),
     ErdConfigurationEntry(ErdCode.WH_HEATER_ACTIVE_STATE, ErdOnOffConverter(), ErdCodeClass.WATERHEATER_SENSOR),
     ErdConfigurationEntry(ErdCode.WH_HEATER_ACTIVE_CONTROL, ErdOnOffConverter(), ErdCodeClass.WATERHEATER_SENSOR),
+    ErdConfigurationEntry(ErdCode.WH_HEATER_TANK_SIZE, ErdReadOnlyIntConverter(), ErdCodeClass.LIQUID_VOLUME, ErdDataType.INT),
+    ErdConfigurationEntry(ErdCode.WH_HEATER_ANODE_ROD_REMAINING, ErdReadOnlyIntConverter(), ErdCodeClass.PERCENTAGE, ErdDataType.INT),
+    ErdConfigurationEntry(ErdCode.WH_HEATER_TIME_TO_TEMPERATURE, ErdTimeSpanConverter(uom="minutes"), ErdCodeClass.TIMER, ErdDataType.TIMESPAN),
+    ErdConfigurationEntry(ErdCode.WH_HEATER_HOT_WATER_REMAINING, ErdReadOnlyIntConverter(), ErdCodeClass.LIQUID_VOLUME, ErdDataType.INT),
+    ErdConfigurationEntry(ErdCode.WH_HEATER_SHUTOFF_WATER_VALVE_STATE, ErdWaterHeaterShutoffWaterValveStateConverter(), ErdCodeClass.WATERHEATER_SENSOR),
+    
 
     #AC
     ErdConfigurationEntry(ErdCode.AC_TARGET_TEMPERATURE, ErdAcTargetTemperatureConverter(), ErdCodeClass.NON_ZERO_TEMPERATURE, ErdDataType.INT),
+    ErdConfigurationEntry(ErdCode.AC_TARGET_HEATING_TEMPERATURE, ErdAcTargetTemperatureConverter(), ErdCodeClass.NON_ZERO_TEMPERATURE, ErdDataType.INT),
     ErdConfigurationEntry(ErdCode.AC_FAN_SETTING, ErdAcFanSettingConverter(), ErdCodeClass.FAN),
     ErdConfigurationEntry(ErdCode.AC_OPERATION_MODE, ErdAcOperationModeConverter(), ErdCodeClass.AC_SENSOR),
     ErdConfigurationEntry(ErdCode.AC_AMBIENT_TEMPERATURE, ErdReadOnlyIntConverter(), ErdCodeClass.NON_ZERO_TEMPERATURE, ErdDataType.INT),
+    ErdConfigurationEntry(ErdCode.AC_CUMULATIVE_ENERGY, ErdReadOnlyIntConverter(), ErdCodeClass.ENERGY, ErdDataType.INT),
     ErdConfigurationEntry(ErdCode.AC_FILTER_STATUS, ErdAcFilterStatusConverter(), ErdCodeClass.AC_SENSOR),
     ErdConfigurationEntry(ErdCode.AC_POWER_STATUS, ErdOnOffConverter(), ErdCodeClass.AC_SENSOR),
-    
+    ErdConfigurationEntry(ErdCode.AC_AVAILABLE_MODES, ErdAcAvailableModesConverter(), ErdCodeClass.AC_SENSOR),
+    ErdConfigurationEntry(ErdCode.AC_AVAILABLE_FAN_SPEEDS, ErdAcAvailableFanSpeedsConverter(), ErdCodeClass.AC_SENSOR),
+    ErdConfigurationEntry(ErdCode.AC_TURBO_QUIET_MODE, ErdAcTurboQuietModeConverter(), ErdCodeClass.AC_SENSOR),
+    ErdConfigurationEntry(ErdCode.AC_AVAILABLE_TURBO_QUIET_MODES, ErdAcAvailableTurboQuietModesConverter(), ErdCodeClass.AC_SENSOR),
+    ErdConfigurationEntry(ErdCode.AC_TURBO_QUIET_STATUS, ErdAcTurboQuietModeConverter(), ErdCodeClass.AC_SENSOR),
+
     #Window AC
     ErdConfigurationEntry(ErdCode.WAC_DEMAND_RESPONSE_POWER, ErdWacDemandResponsePowerConverter(), ErdCodeClass.POWER, ErdDataType.FLOAT),
     ErdConfigurationEntry(ErdCode.WAC_DEMAND_RESPONSE_STATE, ErdWacDemandResponseStateConverter(), ErdCodeClass.AC_SENSOR),
 
     #Split AC
-    ErdConfigurationEntry(ErdCode.SAC_AVAILABLE_MODES, ErdSacAvailableModesConverter(), ErdCodeClass.AC_SENSOR),
     ErdConfigurationEntry(ErdCode.SAC_SLEEP_MODE, ErdOnOffConverter(), ErdCodeClass.AC_SENSOR),
     ErdConfigurationEntry(ErdCode.SAC_TARGET_TEMPERATURE_RANGE, ErdSacTargetTemperatureRangeConverter(), ErdCodeClass.AC_SENSOR),
     ErdConfigurationEntry(ErdCode.SAC_AUTO_SWING_MODE, ErdOnOffConverter(), ErdCodeClass.AC_SENSOR),
@@ -316,6 +337,13 @@ _configuration = [
     ErdConfigurationEntry(ErdCode.HOOD_DELAY_OFF, ErdOnOffConverter(), ErdCodeClass.HOOD_SENSOR),
     ErdConfigurationEntry(ErdCode.HOOD_TIMER, ErdTimeSpanConverter(uom="seconds"), ErdCodeClass.TIMER, ErdDataType.TIMESPAN),
     ErdConfigurationEntry(ErdCode.HOOD_TIMER_AVAILABILITY, ErdOnOffConverter(), ErdCodeClass.HOOD_SENSOR),
+
+    ErdConfigurationEntry(ErdCode.HOOD_ACTUAL_FAN_SPEED, ErdHoodFanSpeedConverter(), ErdCodeClass.FAN),
+    ErdConfigurationEntry(ErdCode.HOOD_REQUESTED_FAN_SPEED, ErdHoodFanSpeedConverter(), ErdCodeClass.FAN),
+    ErdConfigurationEntry(ErdCode.HOOD_AVAILABLE_FAN_SPEEDS, ErdIntConverter(length=1), ErdCodeClass.HOOD_SENSOR, ErdDataType.INT),
+    ErdConfigurationEntry(ErdCode.HOOD_ACTUAL_LIGHT_LEVEL, ErdHoodLightLevelNewConverter(), ErdCodeClass.LIGHT),
+    ErdConfigurationEntry(ErdCode.HOOD_REQUESTED_LIGHT_LEVEL, ErdHoodLightLevelNewConverter(), ErdCodeClass.LIGHT),
+    ErdConfigurationEntry(ErdCode.HOOD_AVAILABLE_LIGHT_LEVELS, ErdIntConverter(length=1), ErdCodeClass.HOOD_SENSOR, ErdDataType.INT),
 
     #Opal Ice Maker
     ErdConfigurationEntry(ErdCode.OIM_STATUS, ErdOimStatusConverter(), ErdCodeClass.OIM_SENSOR),

@@ -1,28 +1,28 @@
 Metadata-Version: 2.4
 Name: apispec
-Version: 6.8.4
+Version: 6.9.0
 Summary: A pluggable API specification generator. Currently supports the OpenAPI Specification (f.k.a. the Swagger specification).
 Keywords: apispec,swagger,openapi,specification,oas,documentation,spec,rest,api
 Author-email: Steven Loria <sloria1@gmail.com>
 Maintainer-email: Steven Loria <sloria1@gmail.com>, Jérôme Lafréchoux <jerome@jolimont.fr>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Requires-Dist: packaging>=21.3
 Requires-Dist: apispec[tests] ; extra == "dev"
 Requires-Dist: tox ; extra == "dev"
 Requires-Dist: pre-commit>=3.5,<5.0 ; extra == "dev"
 Requires-Dist: apispec[marshmallow] ; extra == "docs"
-Requires-Dist: pyyaml==6.0.2 ; extra == "docs"
+Requires-Dist: pyyaml==6.0.3 ; extra == "docs"
 Requires-Dist: sphinx==8.2.3 ; extra == "docs"
 Requires-Dist: sphinx-issues==5.0.1 ; extra == "docs"
 Requires-Dist: sphinx-rtd-theme==3.0.2 ; extra == "docs"

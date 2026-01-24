@@ -1,5 +1,3 @@
-from typing import Optional
-
 from ...asset import Asset
 from ...call_builder.base import BaseTradeAggregationsCallBuilder
 from ...call_builder.call_builder_sync.base_call_builder import BaseCallBuilder
@@ -14,7 +12,7 @@ class TradeAggregationsCallBuilder(BaseCallBuilder, BaseTradeAggregationsCallBui
 
     Trade Aggregations facilitate efficient gathering of historical trade data.
 
-    See `List Trade Aggregations <https://developers.stellar.org/api/aggregations/trade-aggregations/list/>`__ for more information.
+    See `List Trade Aggregations <https://developers.stellar.org/docs/data/apis/horizon/api-reference/list-trade-aggregations>`__ for more information.
 
     :param horizon_url: Horizon server URL.
     :param client: The client instance used to send request.
@@ -37,9 +35,9 @@ class TradeAggregationsCallBuilder(BaseCallBuilder, BaseTradeAggregationsCallBui
         base: Asset,
         counter: Asset,
         resolution: int,
-        start_time: Optional[int] = None,
-        end_time: Optional[int] = None,
-        offset: Optional[int] = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        offset: int | None = None,
     ) -> None:
         super().__init__(
             horizon_url=horizon_url,

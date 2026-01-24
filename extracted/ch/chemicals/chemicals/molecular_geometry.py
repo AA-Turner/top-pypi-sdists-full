@@ -38,8 +38,14 @@ Lookup Functions
 
 """
 
-__all__ = ['RG', 'RG_methods', 'RG_all_methods',
-           'linear', 'linear_methods', 'linear_all_methods']
+__all__ = [
+    "RG",
+    "RG_all_methods",
+    "RG_methods",
+    "linear",
+    "linear_all_methods",
+    "linear_methods",
+]
 
 from chemicals import data_reader as dr
 from chemicals.data_reader import (
@@ -51,24 +57,24 @@ from chemicals.data_reader import (
     retrieve_from_df_dict,
 )
 from chemicals.miscdata import CHEMSEP, PSI4_2022A
-from chemicals.utils import PY37, can_load_data, mark_numba_incompatible, os_path_join, source_path
+from chemicals.utils import mark_numba_incompatible, os_path_join, source_path
 
 # Register data sources and lazy load them
 
-folder = os_path_join(source_path, 'Misc')
-register_df_source(folder, 'psi4_radius_of_gyrations.tsv')
-register_df_source(folder, 'chemsep_radius_of_gyrations.tsv')
+folder = os_path_join(source_path, "Misc")
+register_df_source(folder, "psi4_radius_of_gyrations.tsv")
+register_df_source(folder, "chemsep_radius_of_gyrations.tsv")
 
-register_df_source(folder, 'psi4_linear.tsv')
+register_df_source(folder, "psi4_linear.tsv")
 
 _RG_data_loaded = False
 @mark_numba_incompatible
 def _load_RG_data():
     global _RG_data_loaded, radius_of_gyration_data_psi4_2022a, linear_data_psi4_2022a
     global RG_sources, linear_sources, radius_of_gyration_data_chemsep
-    radius_of_gyration_data_psi4_2022a = data_source('psi4_radius_of_gyrations.tsv')
-    radius_of_gyration_data_chemsep = data_source('chemsep_radius_of_gyrations.tsv')
-    linear_data_psi4_2022a = data_source('psi4_linear.tsv')
+    radius_of_gyration_data_psi4_2022a = data_source("psi4_radius_of_gyrations.tsv")
+    radius_of_gyration_data_chemsep = data_source("chemsep_radius_of_gyrations.tsv")
+    linear_data_psi4_2022a = data_source("psi4_linear.tsv")
     RG_sources = {
         PSI4_2022A: radius_of_gyration_data_psi4_2022a,
         CHEMSEP: radius_of_gyration_data_chemsep,
@@ -77,20 +83,17 @@ def _load_RG_data():
     linear_sources = {
         PSI4_2022A: linear_data_psi4_2022a,
     }
+    _RG_data_loaded = True
 
-if PY37:
-    def __getattr__(name):
-        if name in ('radius_of_gyration_data_psi4_2022a',
-                    'radius_of_gyration_data_chemsep',
-                    'linear_data_psi4_2022a',
-                    'RG_sources',
-                    'linear_sources'):
-            _load_RG_data()
-            return globals()[name]
-        raise AttributeError(f"module {__name__} has no attribute {name}")
-else:
-    if can_load_data:
+def __getattr__(name):
+    if name in ("radius_of_gyration_data_psi4_2022a",
+                "radius_of_gyration_data_chemsep",
+                "linear_data_psi4_2022a",
+                "RG_sources",
+                "linear_sources"):
         _load_RG_data()
+        return globals()[name]
+    raise AttributeError(f"module {__name__} has no attribute {name}")
 
 #  Refractive index functions
 
@@ -118,11 +121,11 @@ def RG_methods(CASRN):
     RG
     """
     if not _RG_data_loaded: _load_RG_data()
-    return list_available_methods_from_df_dict(RG_sources, CASRN, 'RG')
+    return list_available_methods_from_df_dict(RG_sources, CASRN, "RG")
 
 @mark_numba_incompatible
 def RG(CASRN, method=None):
-    r'''This function handles the retrieval of a chemical's radius of gyration.
+    r"""This function handles the retrieval of a chemical's radius of gyration.
     Lookup is based on CASRNs. Will automatically select a data source
     to use if no method is provided; returns None if the data is not available.
 
@@ -170,15 +173,15 @@ def RG(CASRN, method=None):
        https://doi.org/10.1002/wcms.93.
     .. [2] Kooijman, Harry A., and Ross Taylor. The ChemSep Book. Books on
        Demand Norderstedt, Germany, 2000.
-    '''
+    """
     if dr.USE_CONSTANTS_DATABASE and method is None:
-        val, found = database_constant_lookup(CASRN, 'RG')
+        val, found = database_constant_lookup(CASRN, "RG")
         if found: return val
     if not _RG_data_loaded: _load_RG_data()
     if method:
-        value = retrieve_from_df_dict(RG_sources, CASRN, 'RG', method)
+        value = retrieve_from_df_dict(RG_sources, CASRN, "RG", method)
     else:
-        value = retrieve_any_from_df_dict(RG_sources, CASRN, 'RG')
+        value = retrieve_any_from_df_dict(RG_sources, CASRN, "RG")
     return value
 
 
@@ -207,11 +210,11 @@ def linear_methods(CASRN):
     linear
     """
     if not _RG_data_loaded: _load_RG_data()
-    return list_available_methods_from_df_dict(linear_sources, CASRN, 'linear')
+    return list_available_methods_from_df_dict(linear_sources, CASRN, "linear")
 
 @mark_numba_incompatible
 def linear(CASRN, method=None):
-    r'''This function handles the retrieval whether or not a chemical is linear.
+    r"""This function handles the retrieval whether or not a chemical is linear.
     Lookup is based on CASRNs. Will automatically select a data source
     to use if no method is provided; returns None if the data is not available.
 
@@ -256,13 +259,13 @@ def linear(CASRN, method=None):
        Mintz, et al. "Psi4: An Open-Source Ab Initio Electronic Structure
        Program." WIREs Computational Molecular Science 2, no. 4 (2012): 556-65.
        https://doi.org/10.1002/wcms.93.
-    '''
+    """
     if dr.USE_CONSTANTS_DATABASE and method is None:
-        val, found = database_constant_lookup(CASRN, 'linear')
+        val, found = database_constant_lookup(CASRN, "linear")
         if found: return bool(val)
     if not _RG_data_loaded: _load_RG_data()
     if method:
-        value = retrieve_from_df_dict(linear_sources, CASRN, 'linear', method)
+        value = retrieve_from_df_dict(linear_sources, CASRN, "linear", method)
     else:
-        value = retrieve_any_from_df_dict(linear_sources, CASRN, 'linear')
+        value = retrieve_any_from_df_dict(linear_sources, CASRN, "linear")
     return bool(value)

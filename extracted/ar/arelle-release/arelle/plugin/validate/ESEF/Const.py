@@ -10,7 +10,6 @@ from arelle.FunctionIxt import ixtNamespaces
 from arelle.ModelValue import QName, qname
 from arelle.XmlValidate import lexicalPatterns
 
-styleIxHiddenPattern = re.compile(r"(.*[^\w]|^)-esef-ix-hidden\s*:\s*([\w.-]+).*")
 styleCssHiddenPattern = re.compile(r"(.*[^\w]|^)display\s*:\s*none([^\w].*|$)")
 datetimePattern = lexicalPatterns["XBRLI_DATEUNION"]
 docTypeXhtmlPattern = re.compile(r"^<!(?:DOCTYPE\s+)\s*html(?:PUBLIC\s+)?(?:.*-//W3C//DTD\s+(X?HTML)\s)?.*>$", re.IGNORECASE)
@@ -80,18 +79,17 @@ LineItemsNotQualifiedLinkroles = (
     "http://www.esma.europa.eu/xbrl/role/cor/esef_role-999999",
 )
 
-qnDomainItemTypes = frozenset((
+qnDomainItemTypesBefore2023 = frozenset((
     qname("{http://www.xbrl.org/dtr/type/non-numeric}nonnum:domainItemType"),
-    qname("{http://www.xbrl.org/dtr/type/2020-01-21}nonnum:domainItemType"),
+    qname("{http://www.xbrl.org/dtr/type/2020-01-21}dtr-types:domainItemType"),
 ))
 
-
 qnDomainItemTypes2023 = frozenset((
-    qname("{http://www.xbrl.org/dtr/type/2020-01-21}nonnum:domainItemType"),
+    qname("{http://www.xbrl.org/dtr/type/2020-01-21}dtr-types:domainItemType"),
 ))
 
 qnDomainItemTypes2024 = frozenset((
-    qname("{http://www.xbrl.org/dtr/type/2022-03-31}nonnum:domainItemType"),
+    qname("{http://www.xbrl.org/dtr/type/2022-03-31}dtr-types:domainItemType"),
 ))
 
 
@@ -118,6 +116,9 @@ filenameRegexes = {
     "pre": r"(.{1,})-[0-9]{4}-[0-9]{2}-[0-9]{2}_pre[.]xml$",
     "ref": r"(.{1,})-[0-9]{4}-[0-9]{2}-[0-9]{2}_ref[.]xml$",
 }
+
+reportBasenamePattern = "{base}-{date}-{version}-{lang}"
+reportBasenameRegex = re.compile(r"(.{1,})-[0-9]{4}-[0-9]{2}-[0-9]{2}-[1-9]-[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$")
 
 mandatory: set[QName] = set()  # mandatory element qnames
 

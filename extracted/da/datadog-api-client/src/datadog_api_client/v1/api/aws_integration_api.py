@@ -305,7 +305,7 @@ class AWSIntegrationApi:
     ) -> AWSAccountCreateResponse:
         """Create an AWS integration. **Deprecated**.
 
-        Create a Datadog-Amazon Web Services integration.
+        **This endpoint is deprecated - use the V2 endpoints instead.** Create a Datadog-Amazon Web Services integration.
         Using the ``POST`` method updates your integration configuration
         by adding your new configuration to the existing one in your Datadog organization.
         A unique AWS Account ID for role based authentication.
@@ -324,9 +324,9 @@ class AWSIntegrationApi:
         self,
         body: AWSEventBridgeCreateRequest,
     ) -> AWSEventBridgeCreateResponse:
-        """Create an Amazon EventBridge source.
+        """Create an Amazon EventBridge source. **Deprecated**.
 
-        Create an Amazon EventBridge source.
+        **This endpoint is deprecated - use the V2 endpoints instead.** Create an Amazon EventBridge source.
 
         :param body: Create an Amazon EventBridge source for an AWS account with a given name and region.
         :type body: AWSEventBridgeCreateRequest
@@ -335,6 +335,7 @@ class AWSIntegrationApi:
         kwargs: Dict[str, Any] = {}
         kwargs["body"] = body
 
+        warnings.warn("create_aws_event_bridge_source is deprecated", DeprecationWarning, stacklevel=2)
         return self._create_aws_event_bridge_source_endpoint.call_with_http_info(**kwargs)
 
     def create_aws_tag_filter(
@@ -362,7 +363,7 @@ class AWSIntegrationApi:
     ) -> AWSAccountCreateResponse:
         """Generate a new external ID. **Deprecated**.
 
-        Generate a new AWS external ID for a given AWS account ID and role name pair.
+        **This endpoint is deprecated - use the V2 endpoints instead.** Generate a new AWS external ID for a given AWS account ID and role name pair.
 
         :param body: Your Datadog role delegation name.
             For more information about your AWS account Role name,
@@ -382,7 +383,7 @@ class AWSIntegrationApi:
     ) -> dict:
         """Delete an AWS integration. **Deprecated**.
 
-        Delete a Datadog-AWS integration matching the specified ``account_id`` and ``role_name parameters``.
+        **This endpoint is deprecated - use the V2 endpoints instead.** Delete a Datadog-AWS integration matching the specified ``account_id`` and ``role_name parameters``.
 
         :param body: AWS request object
         :type body: AWSAccountDeleteRequest
@@ -398,9 +399,9 @@ class AWSIntegrationApi:
         self,
         body: AWSEventBridgeDeleteRequest,
     ) -> AWSEventBridgeDeleteResponse:
-        """Delete an Amazon EventBridge source.
+        """Delete an Amazon EventBridge source. **Deprecated**.
 
-        Delete an Amazon EventBridge source.
+        **This endpoint is deprecated - use the V2 endpoints instead.** Delete an Amazon EventBridge source.
 
         :param body: Delete the Amazon EventBridge source with the given name, region, and associated AWS account.
         :type body: AWSEventBridgeDeleteRequest
@@ -409,6 +410,7 @@ class AWSIntegrationApi:
         kwargs: Dict[str, Any] = {}
         kwargs["body"] = body
 
+        warnings.warn("delete_aws_event_bridge_source is deprecated", DeprecationWarning, stacklevel=2)
         return self._delete_aws_event_bridge_source_endpoint.call_with_http_info(**kwargs)
 
     def delete_aws_tag_filter(
@@ -434,7 +436,7 @@ class AWSIntegrationApi:
     ) -> List[str]:
         """List namespace rules. **Deprecated**.
 
-        List all namespace rules for a given Datadog-AWS integration. This endpoint takes no arguments.
+        **This endpoint is deprecated - use the V2 endpoints instead.** List all namespace rules for a given Datadog-AWS integration. This endpoint takes no arguments.
 
         :rtype: [str]
         """
@@ -451,7 +453,7 @@ class AWSIntegrationApi:
     ) -> AWSAccountListResponse:
         """List all AWS integrations. **Deprecated**.
 
-        List all Datadog-AWS integrations available in your Datadog organization.
+        **This endpoint is deprecated - use the V2 endpoints instead.** List all Datadog-AWS integrations available in your Datadog organization.
 
         :param account_id: Only return AWS accounts that matches this ``account_id``.
         :type account_id: str, optional
@@ -477,13 +479,14 @@ class AWSIntegrationApi:
     def list_aws_event_bridge_sources(
         self,
     ) -> AWSEventBridgeListResponse:
-        """Get all Amazon EventBridge sources.
+        """Get all Amazon EventBridge sources. **Deprecated**.
 
-        Get all Amazon EventBridge sources.
+        **This endpoint is deprecated - use the V2 endpoints instead.** Get all Amazon EventBridge sources.
 
         :rtype: AWSEventBridgeListResponse
         """
         kwargs: Dict[str, Any] = {}
+        warnings.warn("list_aws_event_bridge_sources is deprecated", DeprecationWarning, stacklevel=2)
         return self._list_aws_event_bridge_sources_endpoint.call_with_http_info(**kwargs)
 
     def list_aws_tag_filters(
@@ -514,7 +517,7 @@ class AWSIntegrationApi:
     ) -> dict:
         """Update an AWS integration. **Deprecated**.
 
-        Update a Datadog-Amazon Web Services integration.
+        **This endpoint is deprecated - use the V2 endpoints instead.** Update a Datadog-Amazon Web Services integration.
 
         :param body: AWS request object
         :type body: AWSAccount

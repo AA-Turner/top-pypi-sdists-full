@@ -34,6 +34,7 @@ def legacy_api(
     *old_positionals: str,
     category: type[Warning] = DeprecationWarning,
     stacklevel: int = 2,
+    skip_file_prefixes: tuple[str, ...] = (),
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Legacy API wrapper.
 
@@ -66,6 +67,9 @@ def legacy_api(
     stacklevel
         The stacklevel to use for the deprecation warning.
         By default, the first stack frame is the call site of the wrapped function.
+    skip_file_prefixes
+        A sequence of file path prefixes to skip when determining the stacklevel.
+        Supported since Python 3.12. See :func:`warnings.warn` documentation.
 
     """
 
@@ -78,10 +82,11 @@ def legacy_api(
 
         @wraps(fn)
         def fn_compatible(*args_all: P.args, **kw: P.kwargs) -> R:
+            __tracebackhide__ = True
+
             if len(args_all) <= n_positional:
                 return fn(*args_all, **kw)
 
-            args_pos: P.args
             args_pos, args_rest = args_all[:n_positional], args_all[n_positional:]
 
             if len(args_rest) > len(old_positionals):
@@ -92,15 +97,20 @@ def legacy_api(
                 )
                 raise TypeError(msg)
             warn(
-                f"The specified parameters {old_positionals[:len(args_rest)]!r} are "
+                f"The specified parameters {old_positionals[: len(args_rest)]!r} are "
                 "no longer positional. "
                 f"Please specify them like `{old_positionals[0]}={args_rest[0]!r}`",
                 category=category,
                 stacklevel=stacklevel,
+                **(
+                    {"skip_file_prefixes": skip_file_prefixes}
+                    if sys.version_info >= (3, 12)
+                    else {}
+                ),
             )
-            kw_new: P.kwargs = {**kw, **dict(zip(old_positionals, args_rest))}
+            kw_new = {**kw, **dict(zip(old_positionals, args_rest))}
 
-            return fn(*args_pos, **kw_new)
+            return fn(*args_pos, **kw_new)  # type: ignore[arg-type]
 
         return fn_compatible
 

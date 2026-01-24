@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use fs_err as fs;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -107,7 +107,7 @@ pub struct RemainingCoreMetadata {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use indoc::indoc;
 

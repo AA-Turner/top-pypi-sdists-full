@@ -1,4 +1,4 @@
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from .. import xdr as stellar_xdr
 from ..muxed_account import MuxedAccount
@@ -16,7 +16,7 @@ class AccountMerge(Operation):
 
     Threshold: High
 
-    See `Account Merge <https://developers.stellar.org/docs/start/list-of-operations/#account-merge>`_ for more information.
+    See `Account Merge <https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#account-merge>`_ for more information.
 
     :param destination: Destination to merge the source account into.
     :param source: The source account for the operation. Defaults to the transaction's source account.
@@ -29,8 +29,8 @@ class AccountMerge(Operation):
 
     def __init__(
         self,
-        destination: Union[MuxedAccount, str],
-        source: Optional[Union[MuxedAccount, str]] = None,
+        destination: MuxedAccount | str,
+        source: MuxedAccount | str | None = None,
     ) -> None:
         super().__init__(source)
         if isinstance(destination, str):

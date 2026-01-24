@@ -1,3 +1,4 @@
+use futures::future::try_join_all;
 use futures::{Stream, StreamExt, TryStreamExt};
 use lazy_static::lazy_static;
 use reqwest::StatusCode;
@@ -5,42 +6,71 @@ use reqwest_eventsource::Event;
 use secrecy::{ExposeSecret, SecretString};
 use serde::de::IntoDeserializer;
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::borrow::Cow;
-use std::sync::OnceLock;
 
 use crate::http::TensorzeroHttpClient;
 use std::time::Duration;
 use tokio::time::Instant;
 use url::Url;
-#[cfg(test)]
-use uuid::Uuid;
 
 use crate::cache::ModelProviderRequest;
+use crate::embeddings::EmbeddingEncodingFormat;
+use crate::embeddings::{
+    Embedding, EmbeddingInput, EmbeddingProvider, EmbeddingProviderRequestInfo,
+    EmbeddingProviderResponse, EmbeddingRequest,
+};
 use crate::endpoints::inference::InferenceCredentials;
-use crate::error::{warn_discarded_thought_block, DisplayOrDebugGateway, Error, ErrorDetails};
+use crate::error::{
+    DelayedError, DisplayOrDebugGateway, Error, ErrorDetails, warn_discarded_thought_block,
+};
+use crate::inference::InferenceProvider;
+use crate::inference::types::ObjectStorageFile;
 use crate::inference::types::batch::StartBatchProviderInferenceResponse;
 use crate::inference::types::batch::{BatchRequestRow, PollBatchInferenceResponse};
-use crate::inference::types::file::require_image;
-use crate::inference::types::resolved_input::FileWithPath;
+use crate::inference::types::chat_completion_inference_params::{
+    ChatCompletionInferenceParamsV2, warn_inference_parameter_not_supported,
+};
+use crate::inference::types::file::{mime_type_to_audio_format, mime_type_to_ext};
+use crate::inference::types::usage::raw_usage_entries_from_value;
+use crate::inference::types::{
+    ApiType, FinishReason, ProviderInferenceResponseArgs, ProviderInferenceResponseStreamInner,
+};
 use crate::inference::types::{
     ContentBlock, ContentBlockChunk, ContentBlockOutput, Latency, ModelInferenceRequest,
     ModelInferenceRequestJsonMode, PeekableProviderInferenceResponseStream,
     ProviderInferenceResponse, ProviderInferenceResponseChunk, RequestMessage, Role, Text,
-    TextChunk, Usage,
+    TextChunk, ThoughtChunk, Unknown, Usage,
+    resolved_input::{FileUrl, LazyFile},
 };
-use crate::inference::types::{
-    FinishReason, ProviderInferenceResponseArgs, ProviderInferenceResponseStreamInner,
+use crate::model::{Credential, ModelProvider};
+use crate::tool::{FunctionToolConfig, ToolCall, ToolCallChunk, ToolChoice};
+use tensorzero_types::content::{Thought, ThoughtSummaryBlock};
+use tensorzero_types_providers::openrouter::{
+    ReasoningConfig as OpenRouterReasoningConfig, ReasoningDetail as OpenRouterReasoningDetail,
 };
-use crate::inference::InferenceProvider;
-use crate::model::{build_creds_caching_default, Credential, CredentialLocation, ModelProvider};
-use crate::tool::{ToolCall, ToolCallChunk, ToolChoice, ToolConfig};
+use uuid::Uuid;
 
+use crate::providers::chat_completions::prepare_chat_completion_tools;
 use crate::providers::helpers::{
-    inject_extra_request_data_and_send, inject_extra_request_data_and_send_eventsource,
+    convert_stream_error, inject_extra_request_data_and_send,
+    inject_extra_request_data_and_send_eventsource, warn_cannot_forward_url_if_missing_mime_type,
+};
+
+use super::chat_completions::{
+    ChatCompletionAllowedToolsMode, ChatCompletionTool, ChatCompletionToolChoice,
+    ChatCompletionToolChoiceString,
+};
+// Import unified OpenAI types for allowed_tools support
+use super::openai::{
+    AllowedToolsChoice as OpenAIAllowedToolsChoice,
+    AllowedToolsConstraint as OpenAIAllowedToolsConstraint, AllowedToolsMode,
+    SpecificToolFunction as OpenAISpecificToolFunction, ToolReference,
 };
 
 use crate::inference::TensorZeroEventError;
+use crate::inference::types::extra_body::FullExtraBodyConfig;
+use crate::providers::openai::OpenAIEmbeddingUsage;
 
 lazy_static! {
     static ref OPENROUTER_DEFAULT_BASE_URL: Url = {
@@ -50,39 +80,30 @@ lazy_static! {
     };
 }
 
-fn default_api_key_location() -> CredentialLocation {
-    CredentialLocation::Env("OPENROUTER_API_KEY".to_string())
-}
-
 const PROVIDER_NAME: &str = "OpenRouter";
 pub const PROVIDER_TYPE: &str = "openrouter";
 
+type PreparedOpenRouterToolsResult<'a> = (
+    Option<Vec<OpenRouterTool<'a>>>,
+    Option<OpenRouterToolChoice<'a>>,
+    Option<bool>,
+);
+
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-#[cfg_attr(test, ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export))]
 pub struct OpenRouterProvider {
     model_name: String,
     #[serde(skip)]
     credentials: OpenRouterCredentials,
 }
 
-static DEFAULT_CREDENTIALS: OnceLock<OpenRouterCredentials> = OnceLock::new();
-
 impl OpenRouterProvider {
-    pub fn new(
-        model_name: String,
-        api_key_location: Option<CredentialLocation>,
-    ) -> Result<Self, Error> {
-        let credentials = build_creds_caching_default(
-            api_key_location,
-            default_api_key_location(),
-            PROVIDER_TYPE,
-            &DEFAULT_CREDENTIALS,
-        )?;
-        Ok(OpenRouterProvider {
+    pub fn new(model_name: String, credentials: OpenRouterCredentials) -> Self {
+        OpenRouterProvider {
             model_name,
             credentials,
-        })
+        }
     }
 
     pub fn model_name(&self) -> &str {
@@ -95,6 +116,10 @@ pub enum OpenRouterCredentials {
     Static(SecretString),
     Dynamic(String),
     None,
+    WithFallback {
+        default: Box<OpenRouterCredentials>,
+        fallback: Box<OpenRouterCredentials>,
+    },
 }
 
 impl TryFrom<Credential> for OpenRouterCredentials {
@@ -106,6 +131,12 @@ impl TryFrom<Credential> for OpenRouterCredentials {
             Credential::Dynamic(key_name) => Ok(OpenRouterCredentials::Dynamic(key_name)),
             Credential::None => Ok(OpenRouterCredentials::None),
             Credential::Missing => Ok(OpenRouterCredentials::None),
+            Credential::WithFallback { default, fallback } => {
+                Ok(OpenRouterCredentials::WithFallback {
+                    default: Box::new((*default).try_into()?),
+                    fallback: Box::new((*fallback).try_into()?),
+                })
+            }
             _ => Err(Error::new(ErrorDetails::Config {
                 message: "Invalid api_key_location for OpenRouter provider".to_string(),
             })),
@@ -117,20 +148,32 @@ impl OpenRouterCredentials {
     pub fn get_api_key<'a>(
         &'a self,
         dynamic_api_keys: &'a InferenceCredentials,
-    ) -> Result<Option<&'a SecretString>, Error> {
+    ) -> Result<Option<&'a SecretString>, DelayedError> {
         match self {
             OpenRouterCredentials::Static(api_key) => Ok(Some(api_key)),
             OpenRouterCredentials::Dynamic(key_name) => {
                 Some(dynamic_api_keys.get(key_name).ok_or_else(|| {
-                    ErrorDetails::ApiKeyMissing {
+                    DelayedError::new(ErrorDetails::ApiKeyMissing {
                         provider_name: PROVIDER_NAME.to_string(),
                         message: format!("Dynamic api key `{key_name}` is missing"),
-                    }
-                    .into()
+                    })
                 }))
                 .transpose()
             }
             OpenRouterCredentials::None => Ok(None),
+            OpenRouterCredentials::WithFallback { default, fallback } => {
+                // Try default first, fall back to fallback if it fails
+                match default.get_api_key(dynamic_api_keys) {
+                    Ok(key) => Ok(key),
+                    Err(e) => {
+                        e.log_at_level(
+                            "Using fallback credential, as default credential is unavailable: ",
+                            tracing::Level::WARN,
+                        );
+                        fallback.get_api_key(dynamic_api_keys)
+                    }
+                }
+            }
         }
     }
 }
@@ -144,9 +187,12 @@ impl InferenceProvider for OpenRouterProvider {
         model_provider: &'a ModelProvider,
     ) -> Result<ProviderInferenceResponse, Error> {
         let request_url = get_chat_url(&OPENROUTER_DEFAULT_BASE_URL)?;
-        let api_key = self.credentials.get_api_key(dynamic_api_keys)?;
+        let api_key = self
+            .credentials
+            .get_api_key(dynamic_api_keys)
+            .map_err(|e| e.log())?;
         let start_time = Instant::now();
-        let request_body_obj = OpenRouterRequest::new(&self.model_name, request.request)?;
+        let request_body_obj = OpenRouterRequest::new(&self.model_name, request.request).await?;
         let request_body = serde_json::to_value(request_body_obj).map_err(|e| {
             Error::new(ErrorDetails::Serialization {
                 message: format!(
@@ -209,6 +255,7 @@ impl InferenceProvider for OpenRouterProvider {
                 latency,
                 raw_request: raw_request.clone(),
                 generic_request: request.request,
+                model_inference_id: request.model_inference_id,
             }
             .try_into()?)
         } else {
@@ -237,22 +284,28 @@ impl InferenceProvider for OpenRouterProvider {
             request,
             provider_name: _,
             model_name,
+            otlp_config: _,
+            model_inference_id,
         }: ModelProviderRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
         model_provider: &'a ModelProvider,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
-        let request_body = serde_json::to_value(OpenRouterRequest::new(&self.model_name, request)?)
-            .map_err(|e| {
-                Error::new(ErrorDetails::Serialization {
-                    message: format!(
-                        "Error serializing OpenRouter request: {}",
-                        DisplayOrDebugGateway::new(e)
-                    ),
-                })
-            })?;
+        let request_body =
+            serde_json::to_value(OpenRouterRequest::new(&self.model_name, request).await?)
+                .map_err(|e| {
+                    Error::new(ErrorDetails::Serialization {
+                        message: format!(
+                            "Error serializing OpenRouter request: {}",
+                            DisplayOrDebugGateway::new(e)
+                        ),
+                    })
+                })?;
         let request_url = get_chat_url(&OPENROUTER_DEFAULT_BASE_URL)?;
-        let api_key = self.credentials.get_api_key(dynamic_api_keys)?;
+        let api_key = self
+            .credentials
+            .get_api_key(dynamic_api_keys)
+            .map_err(|e| e.log())?;
         let start_time = Instant::now();
         let mut request_builder = http_client
             .post(request_url)
@@ -277,6 +330,8 @@ impl InferenceProvider for OpenRouterProvider {
             PROVIDER_TYPE.to_string(),
             event_source.map_err(TensorZeroEventError::EventSource),
             start_time,
+            &raw_request,
+            model_inference_id,
         )
         .peekable();
         Ok((stream, raw_request))
@@ -307,26 +362,117 @@ impl InferenceProvider for OpenRouterProvider {
     }
 }
 
-pub async fn convert_stream_error(provider_type: String, e: reqwest_eventsource::Error) -> Error {
-    let message = e.to_string();
-    let mut raw_response = None;
-    if let reqwest_eventsource::Error::InvalidStatusCode(_, resp) = e {
-        raw_response = resp.text().await.ok();
+impl EmbeddingProvider for OpenRouterProvider {
+    async fn embed(
+        &self,
+        request: &EmbeddingRequest,
+        client: &TensorzeroHttpClient,
+        dynamic_api_keys: &InferenceCredentials,
+        model_provider_data: &EmbeddingProviderRequestInfo,
+    ) -> Result<EmbeddingProviderResponse, Error> {
+        let api_key = self
+            .credentials
+            .get_api_key(dynamic_api_keys)
+            .map_err(|e| e.log())?;
+        let request_body = OpenRouterEmbeddingRequest::new(
+            &self.model_name,
+            &request.input,
+            request.encoding_format,
+        );
+        let request_url = get_embedding_url(&OPENROUTER_DEFAULT_BASE_URL)?;
+        let start_time = Instant::now();
+        let mut request_builder = client
+            .post(request_url)
+            .header("X-Title", "TensorZero")
+            .header("HTTP-Referer", "https://www.tensorzero.com/");
+        if let Some(api_key) = api_key {
+            request_builder = request_builder.bearer_auth(api_key.expose_secret());
+        }
+
+        let request_body_value = serde_json::to_value(&request_body).map_err(|e| {
+            Error::new(ErrorDetails::Serialization {
+                message: format!(
+                    "Error serializing OpenRouter embedding request: {}",
+                    DisplayOrDebugGateway::new(e)
+                ),
+            })
+        })?;
+
+        let (res, raw_request) = inject_extra_request_data_and_send(
+            PROVIDER_TYPE,
+            &FullExtraBodyConfig::default(), // No overrides supported
+            &Default::default(),             // No extra headers for embeddings yet
+            model_provider_data,
+            &self.model_name,
+            request_body_value,
+            request_builder,
+        )
+        .await?;
+        if res.status().is_success() {
+            let raw_response = res.text().await.map_err(|e| {
+                Error::new(ErrorDetails::InferenceServer {
+                    message: format!(
+                        "Error parsing text response: {}",
+                        DisplayOrDebugGateway::new(e)
+                    ),
+                    raw_request: Some(raw_request.clone()),
+                    raw_response: None,
+                    provider_type: PROVIDER_TYPE.to_string(),
+                })
+            })?;
+
+            let response: OpenRouterEmbeddingResponse = serde_json::from_str(&raw_response)
+                .map_err(|e| {
+                    Error::new(ErrorDetails::InferenceServer {
+                        message: format!(
+                            "Error parsing JSON response: {}",
+                            DisplayOrDebugGateway::new(e)
+                        ),
+                        raw_request: Some(raw_request.clone()),
+                        raw_response: Some(raw_response.clone()),
+                        provider_type: PROVIDER_TYPE.to_string(),
+                    })
+                })?;
+            let latency = Latency::NonStreaming {
+                response_time: start_time.elapsed(),
+            };
+
+            Ok(OpenRouterEmbeddingResponseWithMetadata {
+                response,
+                latency,
+                request: request_body,
+                raw_response,
+            }
+            .try_into()?)
+        } else {
+            Err(handle_openrouter_error(
+                &raw_request,
+                res.status(),
+                &res.text().await.map_err(|e| {
+                    Error::new(ErrorDetails::InferenceServer {
+                        message: format!(
+                            "Error parsing error response: {}",
+                            DisplayOrDebugGateway::new(e)
+                        ),
+                        raw_request: Some(raw_request.clone()),
+                        raw_response: None,
+                        provider_type: PROVIDER_TYPE.to_string(),
+                    })
+                })?,
+                PROVIDER_TYPE,
+            ))
+        }
     }
-    ErrorDetails::InferenceServer {
-        message,
-        raw_request: None,
-        raw_response,
-        provider_type,
-    }
-    .into()
 }
 
 pub fn stream_openrouter(
     provider_type: String,
     event_source: impl Stream<Item = Result<Event, TensorZeroEventError>> + Send + 'static,
     start_time: Instant,
+    raw_request: &str,
+    model_inference_id: Uuid,
 ) -> ProviderInferenceResponseStreamInner {
+    let raw_request = raw_request.to_string();
     let mut tool_call_ids = Vec::new();
     Box::pin(async_stream::stream! {
         futures::pin_mut!(event_source);
@@ -338,7 +484,7 @@ pub fn stream_openrouter(
                             yield Err(e);
                         }
                         TensorZeroEventError::EventSource(e) => {
-                            yield Err(convert_stream_error(provider_type.clone(), e).await);
+                            yield Err(convert_stream_error(raw_request.clone(), provider_type.clone(), *e, None).await);
                         }
                     }
                 }
@@ -353,14 +499,21 @@ pub fn stream_openrouter(
                                 message: format!(
                                     "Error parsing chunk. Error: {e}",
                                 ),
-                                raw_request: None,
+                                raw_request: Some(raw_request.clone()),
                                 raw_response: Some(message.data.clone()),
                                 provider_type: provider_type.clone(),
                             }));
 
                         let latency = start_time.elapsed();
                         let stream_message = data.and_then(|d| {
-                            openrouter_to_tensorzero_chunk(message.data, d, latency, &mut tool_call_ids)
+                            openrouter_to_tensorzero_chunk(
+                                message.data,
+                                d,
+                                latency,
+                                &mut tool_call_ids,
+                                model_inference_id,
+                                &provider_type,
+                            )
                         });
                         yield stream_message;
                     }
@@ -376,6 +529,18 @@ pub(super) fn get_chat_url(base_url: &Url) -> Result<Url, Error> {
         url.set_path(&format!("{}/", url.path()));
     }
     url.join("chat/completions").map_err(|e| {
+        Error::new(ErrorDetails::InvalidBaseUrl {
+            message: e.to_string(),
+        })
+    })
+}
+
+fn get_embedding_url(base_url: &Url) -> Result<Url, Error> {
+    let mut url = base_url.clone();
+    if !url.path().ends_with('/') {
+        url.set_path(&format!("{}/", url.path()));
+    }
+    url.join("embeddings").map_err(|e| {
         Error::new(ErrorDetails::InvalidBaseUrl {
             message: e.to_string(),
         })
@@ -429,6 +594,99 @@ pub(super) fn handle_openrouter_error(
     }
 }
 
+// Embedding-related structures
+#[derive(Debug, Serialize)]
+struct OpenRouterEmbeddingRequest<'a> {
+    model: &'a str,
+    input: &'a EmbeddingInput,
+    // Note: OpenRouter doesn't support the dimensions parameter
+    encoding_format: EmbeddingEncodingFormat,
+}
+
+impl<'a> OpenRouterEmbeddingRequest<'a> {
+    fn new(
+        model: &'a str,
+        input: &'a EmbeddingInput,
+        encoding_format: EmbeddingEncodingFormat,
+    ) -> Self {
+        Self {
+            model,
+            input,
+            encoding_format,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct OpenRouterEmbeddingResponse {
+    data: Vec<OpenRouterEmbeddingData>,
+    usage: Option<OpenAIEmbeddingUsage>,
+}
+
+struct OpenRouterEmbeddingResponseWithMetadata<'a> {
+    response: OpenRouterEmbeddingResponse,
+    latency: Latency,
+    request: OpenRouterEmbeddingRequest<'a>,
+    raw_response: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct OpenRouterEmbeddingData {
+    embedding: Embedding,
+}
+
+impl<'a> TryFrom<OpenRouterEmbeddingResponseWithMetadata<'a>> for EmbeddingProviderResponse {
+    type Error = Error;
+    fn try_from(
+        response: OpenRouterEmbeddingResponseWithMetadata<'a>,
+    ) -> Result<Self, Self::Error> {
+        let OpenRouterEmbeddingResponseWithMetadata {
+            response,
+            latency,
+            request,
+            raw_response,
+        } = response;
+        let raw_request = serde_json::to_string(&request).map_err(|e| {
+            Error::new(ErrorDetails::InferenceServer {
+                message: format!(
+                    "Error serializing request body as JSON: {}",
+                    DisplayOrDebugGateway::new(e)
+                ),
+                raw_request: Some(serde_json::to_string(&request).unwrap_or_default()),
+                raw_response: None,
+                provider_type: PROVIDER_TYPE.to_string(),
+            })
+        })?;
+
+        let embeddings = response
+            .data
+            .into_iter()
+            .map(|embedding| embedding.embedding)
+            .collect();
+        let provider_usage = response.usage;
+        let usage = provider_usage.clone().map(Into::into).unwrap_or_default();
+        let raw_usage_value = openrouter_usage_from_raw_response(&raw_response);
+        let mut embedding_response = EmbeddingProviderResponse::new(
+            embeddings,
+            request.input.clone(),
+            raw_request,
+            raw_response,
+            usage,
+            latency,
+            None,
+        );
+        embedding_response.raw_usage = raw_usage_value.map(|usage| {
+            raw_usage_entries_from_value(
+                embedding_response.id,
+                PROVIDER_TYPE,
+                ApiType::Embeddings,
+                usage,
+            )
+        });
+        Ok(embedding_response)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub(super) struct OpenRouterSystemRequestMessage<'a> {
     pub content: Cow<'a, str>,
@@ -456,6 +714,8 @@ where
     }
 }
 
+// Signature dictated by Serde
+#[expect(clippy::ref_option)]
 fn serialize_optional_text_content_vec<S>(
     content: &Option<Vec<OpenRouterContentBlock<'_>>>,
     serializer: S,
@@ -471,9 +731,21 @@ where
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum OpenRouterContentBlock<'a> {
-    Text { text: Cow<'a, str> },
-    ImageUrl { image_url: OpenRouterImageUrl },
-    Unknown { data: Cow<'a, Value> },
+    Text {
+        text: Cow<'a, str>,
+    },
+    ImageUrl {
+        image_url: OpenRouterImageUrl,
+    },
+    File {
+        file: OpenRouterFile<'a>,
+    },
+    InputAudio {
+        input_audio: OpenRouterInputAudio<'a>,
+    },
+    Unknown {
+        data: Cow<'a, Value>,
+    },
 }
 
 impl Serialize for OpenRouterContentBlock<'_> {
@@ -484,13 +756,27 @@ impl Serialize for OpenRouterContentBlock<'_> {
         #[derive(Serialize)]
         #[serde(tag = "type", rename_all = "snake_case")]
         enum Helper<'a> {
-            Text { text: &'a str },
-            ImageUrl { image_url: &'a OpenRouterImageUrl },
+            Text {
+                text: &'a str,
+            },
+            ImageUrl {
+                image_url: &'a OpenRouterImageUrl,
+            },
+            File {
+                file: &'a OpenRouterFile<'a>,
+            },
+            InputAudio {
+                input_audio: &'a OpenRouterInputAudio<'a>,
+            },
         }
         match self {
             OpenRouterContentBlock::Text { text } => Helper::Text { text }.serialize(serializer),
             OpenRouterContentBlock::ImageUrl { image_url } => {
                 Helper::ImageUrl { image_url }.serialize(serializer)
+            }
+            OpenRouterContentBlock::File { file } => Helper::File { file }.serialize(serializer),
+            OpenRouterContentBlock::InputAudio { input_audio } => {
+                Helper::InputAudio { input_audio }.serialize(serializer)
             }
             OpenRouterContentBlock::Unknown { data } => data.serialize(serializer),
         }
@@ -501,6 +787,22 @@ impl Serialize for OpenRouterContentBlock<'_> {
 #[serde(rename_all = "snake_case")]
 pub struct OpenRouterImageUrl {
     pub url: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct OpenRouterFile<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_data: Option<Cow<'a, str>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filename: Option<Cow<'a, str>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct OpenRouterInputAudio<'a> {
+    pub data: Cow<'a, str>,
+    pub format: Cow<'a, str>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -538,6 +840,9 @@ pub(super) struct OpenRouterAssistantRequestMessage<'a> {
     pub content: Option<Vec<OpenRouterContentBlock<'a>>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<OpenRouterRequestToolCall<'a>>>,
+    /// Reasoning details for multi-turn reasoning support
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_details: Option<Vec<OpenRouterReasoningDetail>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -563,6 +868,8 @@ impl OpenRouterRequestMessage<'_> {
             OpenRouterRequestMessage::User(msg) => msg.content.iter().any(|c| match c {
                 OpenRouterContentBlock::Text { text } => text.to_lowercase().contains(value),
                 OpenRouterContentBlock::ImageUrl { .. } => false,
+                OpenRouterContentBlock::File { .. } => false,
+                OpenRouterContentBlock::InputAudio { .. } => false,
                 // Don't inspect the contents of 'unknown' blocks
                 OpenRouterContentBlock::Unknown { data: _ } => false,
             }),
@@ -573,6 +880,8 @@ impl OpenRouterRequestMessage<'_> {
                             text.to_lowercase().contains(value)
                         }
                         OpenRouterContentBlock::ImageUrl { .. } => false,
+                        OpenRouterContentBlock::File { .. } => false,
+                        OpenRouterContentBlock::InputAudio { .. } => false,
                         // Don't inspect the contents of 'unknown' blocks
                         OpenRouterContentBlock::Unknown { data: _ } => false,
                     })
@@ -585,13 +894,20 @@ impl OpenRouterRequestMessage<'_> {
     }
 }
 
-pub(super) fn prepare_openrouter_messages<'a>(
+pub(super) async fn prepare_openrouter_messages<'a>(
     request: &'a ModelInferenceRequest<'_>,
 ) -> Result<Vec<OpenRouterRequestMessage<'a>>, Error> {
-    let mut messages = Vec::with_capacity(request.messages.len());
-    for message in &request.messages {
-        messages.extend(tensorzero_to_openrouter_messages(message)?);
-    }
+    let fetch_and_encode = request.fetch_and_encode_input_files_before_inference;
+    let mut messages: Vec<_> = try_join_all(
+        request
+            .messages
+            .iter()
+            .map(|msg| tensorzero_to_openrouter_messages(msg, fetch_and_encode)),
+    )
+    .await?
+    .into_iter()
+    .flatten()
+    .collect();
     if let Some(system_msg) = tensorzero_to_openrouter_system_message(
         request.system.as_deref(),
         request.json_mode,
@@ -606,23 +922,20 @@ pub(super) fn prepare_openrouter_messages<'a>(
 /// Otherwise convert the tool choice and tools to OpenRouter format
 pub(super) fn prepare_openrouter_tools<'a>(
     request: &'a ModelInferenceRequest,
-) -> (
-    Option<Vec<OpenRouterTool<'a>>>,
-    Option<OpenRouterToolChoice<'a>>,
-    Option<bool>,
-) {
-    match &request.tool_config {
-        None => (None, None, None),
-        Some(tool_config) => {
-            if tool_config.tools_available.is_empty() {
-                return (None, None, None);
-            }
-            let tools = Some(tool_config.tools_available.iter().map(Into::into).collect());
-            let tool_choice = Some((&tool_config.tool_choice).into());
-            let parallel_tool_calls = tool_config.parallel_tool_calls;
-            (tools, tool_choice, parallel_tool_calls)
-        }
-    }
+) -> Result<PreparedOpenRouterToolsResult<'a>, Error> {
+    let (tools, tool_choice, parallel_tool_calls) = prepare_chat_completion_tools(request, true)?;
+
+    // Convert from ChatCompletionTool to OpenRouterTool
+    let openrouter_tools = tools.map(|t| t.into_iter().map(OpenRouterTool::from).collect());
+
+    // Convert from ChatCompletionToolChoice to OpenRouterToolChoice
+    let openrouter_tool_choice = tool_choice.map(OpenRouterToolChoice::from);
+
+    Ok((
+        openrouter_tools,
+        openrouter_tool_choice,
+        parallel_tool_calls,
+    ))
 }
 
 /// This function is complicated only by the fact that OpenRouter and Azure require
@@ -674,17 +987,113 @@ pub(super) fn tensorzero_to_openrouter_system_message<'a>(
     }
 }
 
-pub(super) fn tensorzero_to_openrouter_messages(
-    message: &RequestMessage,
-) -> Result<Vec<OpenRouterRequestMessage<'_>>, Error> {
-    match message.role {
-        Role::User => tensorzero_to_openrouter_user_messages(&message.content),
-        Role::Assistant => tensorzero_to_openrouter_assistant_messages(&message.content),
+async fn prepare_openrouter_file_content_block(
+    file: &LazyFile,
+    fetch_and_encode_input_files_before_inference: bool,
+) -> Result<OpenRouterContentBlock<'static>, Error> {
+    match file {
+        LazyFile::Url {
+            file_url:
+                FileUrl {
+                    mime_type,
+                    url,
+                    detail,
+                    filename: _,
+                },
+            future: _,
+        } if !fetch_and_encode_input_files_before_inference
+            && matches!(
+                mime_type.as_ref().map(mime::MediaType::type_),
+                Some(mime::IMAGE) | None
+            ) =>
+        {
+            if detail.is_some() {
+                tracing::warn!(
+                    "The image detail parameter is not supported by OpenRouter. The `detail` field will be ignored."
+                );
+            }
+            warn_cannot_forward_url_if_missing_mime_type(
+                file,
+                fetch_and_encode_input_files_before_inference,
+                PROVIDER_TYPE,
+            );
+            Ok(OpenRouterContentBlock::ImageUrl {
+                image_url: OpenRouterImageUrl {
+                    url: url.to_string(),
+                },
+            })
+        }
+        _ => {
+            let resolved_file = file.resolve().await?;
+            let ObjectStorageFile { file, data } = &*resolved_file;
+            let base64_url = format!("data:{};base64,{}", file.mime_type, data);
+
+            if file.mime_type.type_() == mime::IMAGE {
+                if file.detail.is_some() {
+                    tracing::warn!(
+                        "The image detail parameter is not supported by OpenRouter. The `detail` field will be ignored."
+                    );
+                }
+                Ok(OpenRouterContentBlock::ImageUrl {
+                    image_url: OpenRouterImageUrl { url: base64_url },
+                })
+            } else if file.mime_type.type_() == mime::AUDIO {
+                let format = mime_type_to_audio_format(&file.mime_type)?;
+                Ok(OpenRouterContentBlock::InputAudio {
+                    input_audio: OpenRouterInputAudio {
+                        data: Cow::Owned(data.clone()),
+                        format: Cow::Owned(format.to_string()),
+                    },
+                })
+            } else {
+                let filename = if let Some(ref user_filename) = file.filename {
+                    // Use the user-provided filename if available
+                    Cow::Owned(user_filename.clone())
+                } else {
+                    // Otherwise, generate a filename with the appropriate extension
+                    let suffix = mime_type_to_ext(&file.mime_type)?.ok_or_else(|| {
+                        Error::new(ErrorDetails::InvalidMessage {
+                            message: format!("Mime type {} has no filetype suffix", file.mime_type),
+                        })
+                    })?;
+                    Cow::Owned(format!("input.{suffix}"))
+                };
+                Ok(OpenRouterContentBlock::File {
+                    file: OpenRouterFile {
+                        file_data: Some(Cow::Owned(base64_url)),
+                        filename: Some(filename),
+                    },
+                })
+            }
+        }
     }
 }
 
-fn tensorzero_to_openrouter_user_messages(
+pub(super) async fn tensorzero_to_openrouter_messages(
+    message: &RequestMessage,
+    fetch_and_encode_input_files_before_inference: bool,
+) -> Result<Vec<OpenRouterRequestMessage<'_>>, Error> {
+    match message.role {
+        Role::User => {
+            tensorzero_to_openrouter_user_messages(
+                &message.content,
+                fetch_and_encode_input_files_before_inference,
+            )
+            .await
+        }
+        Role::Assistant => {
+            tensorzero_to_openrouter_assistant_messages(
+                &message.content,
+                fetch_and_encode_input_files_before_inference,
+            )
+            .await
+        }
+    }
+}
+
+async fn tensorzero_to_openrouter_user_messages(
     content_blocks: &[ContentBlock],
+    fetch_and_encode_input_files_before_inference: bool,
 ) -> Result<Vec<OpenRouterRequestMessage<'_>>, Error> {
     // We need to separate the tool result messages from the user content blocks.
 
@@ -712,26 +1121,18 @@ fn tensorzero_to_openrouter_user_messages(
                 ));
             }
             ContentBlock::File(file) => {
-                let FileWithPath {
-                    file,
-                    storage_path: _,
-                } = &**file;
-                require_image(&file.mime_type, PROVIDER_TYPE)?;
-                user_content_blocks.push(OpenRouterContentBlock::ImageUrl {
-                    image_url: OpenRouterImageUrl {
-                        // This will only produce an error if we pass in a bad
-                        // `Base64Image` (with missing image data)
-                        url: format!("data:{};base64,{}", file.mime_type, file.data()?),
-                    },
-                });
+                user_content_blocks.push(
+                    prepare_openrouter_file_content_block(
+                        file,
+                        fetch_and_encode_input_files_before_inference,
+                    )
+                    .await?,
+                );
             }
             ContentBlock::Thought(thought) => {
                 warn_discarded_thought_block(PROVIDER_TYPE, thought);
             }
-            ContentBlock::Unknown {
-                data,
-                model_provider_name: _,
-            } => {
+            ContentBlock::Unknown(Unknown { data, .. }) => {
                 user_content_blocks.push(OpenRouterContentBlock::Unknown {
                     data: Cow::Borrowed(data),
                 });
@@ -751,12 +1152,14 @@ fn tensorzero_to_openrouter_user_messages(
     Ok(messages)
 }
 
-fn tensorzero_to_openrouter_assistant_messages(
+async fn tensorzero_to_openrouter_assistant_messages(
     content_blocks: &[ContentBlock],
+    fetch_and_encode_input_files_before_inference: bool,
 ) -> Result<Vec<OpenRouterRequestMessage<'_>>, Error> {
     // We need to separate the tool result messages from the assistant content blocks.
     let mut assistant_content_blocks = Vec::new();
     let mut assistant_tool_calls = Vec::new();
+    let mut reasoning_details = Vec::new();
 
     for block in content_blocks {
         match block {
@@ -783,26 +1186,23 @@ fn tensorzero_to_openrouter_assistant_messages(
                 }));
             }
             ContentBlock::File(file) => {
-                let FileWithPath {
-                    file,
-                    storage_path: _,
-                } = &**file;
-                require_image(&file.mime_type, PROVIDER_TYPE)?;
-                assistant_content_blocks.push(OpenRouterContentBlock::ImageUrl {
-                    image_url: OpenRouterImageUrl {
-                        // This will only produce an error if we pass in a bad
-                        // `Base64File` (with missing image data)
-                        url: format!("data:{};base64,{}", file.mime_type, file.data()?),
-                    },
-                });
+                assistant_content_blocks.push(
+                    prepare_openrouter_file_content_block(
+                        file,
+                        fetch_and_encode_input_files_before_inference,
+                    )
+                    .await?,
+                );
             }
             ContentBlock::Thought(thought) => {
-                warn_discarded_thought_block(PROVIDER_TYPE, thought);
+                // Only include reasoning_details if the thought was produced by OpenRouter
+                if thought.provider_type.as_deref() == Some(PROVIDER_TYPE) {
+                    reasoning_details.extend(thought_to_openrouter_reasoning_details(thought));
+                } else {
+                    warn_discarded_thought_block(PROVIDER_TYPE, thought);
+                }
             }
-            ContentBlock::Unknown {
-                data,
-                model_provider_name: _,
-            } => {
+            ContentBlock::Unknown(Unknown { data, .. }) => {
                 assistant_content_blocks.push(OpenRouterContentBlock::Unknown {
                     data: Cow::Borrowed(data),
                 });
@@ -810,23 +1210,29 @@ fn tensorzero_to_openrouter_assistant_messages(
         }
     }
 
-    let content = match assistant_content_blocks.len() {
-        0 => None,
-        _ => Some(assistant_content_blocks),
-    };
-
     let tool_calls = match assistant_tool_calls.len() {
         0 => None,
         _ => Some(assistant_tool_calls),
     };
 
-    if content.is_none() && tool_calls.is_none() {
+    let reasoning_details = match reasoning_details.len() {
+        0 => None,
+        _ => Some(reasoning_details),
+    };
+
+    let content = match assistant_content_blocks.len() {
+        0 => None,
+        _ => Some(assistant_content_blocks),
+    };
+
+    if content.is_none() && tool_calls.is_none() && reasoning_details.is_none() {
         return Ok(vec![]);
     }
 
     let message = OpenRouterRequestMessage::Assistant(OpenRouterAssistantRequestMessage {
         content,
         tool_calls,
+        reasoning_details,
     });
 
     Ok(vec![message])
@@ -890,8 +1296,8 @@ pub(super) struct OpenRouterTool<'a> {
     pub(super) strict: bool,
 }
 
-impl<'a> From<&'a ToolConfig> for OpenRouterTool<'a> {
-    fn from(tool: &'a ToolConfig) -> Self {
+impl<'a> From<&'a FunctionToolConfig> for OpenRouterTool<'a> {
+    fn from(tool: &'a FunctionToolConfig) -> Self {
         OpenRouterTool {
             r#type: OpenRouterToolType::Function,
             function: OpenRouterFunction {
@@ -904,11 +1310,26 @@ impl<'a> From<&'a ToolConfig> for OpenRouterTool<'a> {
     }
 }
 
+impl<'a> From<ChatCompletionTool<'a>> for OpenRouterTool<'a> {
+    fn from(tool: ChatCompletionTool<'a>) -> Self {
+        OpenRouterTool {
+            r#type: OpenRouterToolType::Function,
+            function: OpenRouterFunction {
+                name: tool.function.name,
+                description: tool.function.description,
+                parameters: tool.function.parameters,
+            },
+            strict: tool.strict,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub(super) enum OpenRouterToolChoice<'a> {
     String(OpenRouterToolChoiceString),
     Specific(SpecificToolChoice<'a>),
+    AllowedTools(OpenAIAllowedToolsChoice<'a>),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -952,12 +1373,59 @@ impl<'a> From<&'a ToolChoice> for OpenRouterToolChoice<'a> {
     }
 }
 
+impl<'a> From<ChatCompletionToolChoice<'a>> for OpenRouterToolChoice<'a> {
+    fn from(tool_choice: ChatCompletionToolChoice<'a>) -> Self {
+        match tool_choice {
+            ChatCompletionToolChoice::String(tc_string) => match tc_string {
+                ChatCompletionToolChoiceString::None => {
+                    OpenRouterToolChoice::String(OpenRouterToolChoiceString::None)
+                }
+                ChatCompletionToolChoiceString::Auto => {
+                    OpenRouterToolChoice::String(OpenRouterToolChoiceString::Auto)
+                }
+                ChatCompletionToolChoiceString::Required => {
+                    OpenRouterToolChoice::String(OpenRouterToolChoiceString::Required)
+                }
+            },
+            ChatCompletionToolChoice::Specific(specific) => {
+                OpenRouterToolChoice::Specific(SpecificToolChoice {
+                    r#type: OpenRouterToolType::Function,
+                    function: SpecificToolFunction {
+                        name: specific.function.name,
+                    },
+                })
+            }
+            ChatCompletionToolChoice::AllowedTools(allowed_tools) => {
+                // Convert from common ChatCompletionAllowedToolsChoice to OpenAI AllowedToolsChoice
+                OpenRouterToolChoice::AllowedTools(OpenAIAllowedToolsChoice {
+                    r#type: allowed_tools.r#type,
+                    allowed_tools: OpenAIAllowedToolsConstraint {
+                        mode: match allowed_tools.allowed_tools.mode {
+                            ChatCompletionAllowedToolsMode::Auto => AllowedToolsMode::Auto,
+                            ChatCompletionAllowedToolsMode::Required => AllowedToolsMode::Required,
+                        },
+                        tools: allowed_tools
+                            .allowed_tools
+                            .tools
+                            .into_iter()
+                            .map(|tool_ref| ToolReference::Function {
+                                function: OpenAISpecificToolFunction {
+                                    name: tool_ref.function.name,
+                                },
+                            })
+                            .collect(),
+                    },
+                })
+            }
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub(super) struct StreamOptions {
     pub(super) include_usage: bool,
 }
 
-/// This struct defines the supported parameters for the OpenRouter API
 /// See the [OpenRouter API documentation](https://platform.openrouter.com/docs/api-reference/chat/create)
 /// for more details.
 /// We are not handling logprobs, top_logprobs, n,
@@ -992,10 +1460,45 @@ struct OpenRouterRequest<'a> {
     parallel_tool_calls: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     stop: Option<Cow<'a, [String]>>,
+    /// Reasoning configuration for models that support it.
+    /// Maps `reasoning_effort` to `effort` and `thinking_budget_tokens` to `max_tokens`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning: Option<OpenRouterReasoningConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    verbosity: Option<String>,
+}
+
+fn apply_inference_params(
+    request: &mut OpenRouterRequest,
+    inference_params: &ChatCompletionInferenceParamsV2,
+) {
+    let ChatCompletionInferenceParamsV2 {
+        reasoning_effort,
+        service_tier,
+        thinking_budget_tokens,
+        verbosity,
+    } = inference_params;
+
+    // Build reasoning config if either reasoning_effort or thinking_budget_tokens is set
+    if reasoning_effort.is_some() || thinking_budget_tokens.is_some() {
+        let reasoning_config = OpenRouterReasoningConfig {
+            effort: reasoning_effort.clone(),
+            max_tokens: *thinking_budget_tokens,
+        };
+        request.reasoning = Some(reasoning_config);
+    }
+
+    if service_tier.is_some() {
+        warn_inference_parameter_not_supported(PROVIDER_NAME, "service_tier", None);
+    }
+
+    if verbosity.is_some() {
+        request.verbosity.clone_from(verbosity);
+    }
 }
 
 impl<'a> OpenRouterRequest<'a> {
-    pub fn new(
+    pub async fn new(
         model: &'a str,
         request: &'a ModelInferenceRequest<'_>,
     ) -> Result<OpenRouterRequest<'a>, Error> {
@@ -1008,27 +1511,26 @@ impl<'a> OpenRouterRequest<'a> {
         } else {
             None
         };
-        let mut messages = prepare_openrouter_messages(request)?;
+        let mut messages = prepare_openrouter_messages(request).await?;
 
-        let (tools, tool_choice, mut parallel_tool_calls) = prepare_openrouter_tools(request);
+        let (tools, tool_choice, mut parallel_tool_calls) = prepare_openrouter_tools(request)?;
         if model.to_lowercase().starts_with("o1") && parallel_tool_calls == Some(false) {
             parallel_tool_calls = None;
         }
 
-        if model.to_lowercase().starts_with("o1-mini") {
-            if let Some(OpenRouterRequestMessage::System(_)) = messages.first() {
-                if let OpenRouterRequestMessage::System(system_msg) = messages.remove(0) {
-                    let user_msg = OpenRouterRequestMessage::User(OpenRouterUserRequestMessage {
-                        content: vec![OpenRouterContentBlock::Text {
-                            text: system_msg.content,
-                        }],
-                    });
-                    messages.insert(0, user_msg);
-                }
-            }
+        if model.to_lowercase().starts_with("o1-mini")
+            && let Some(OpenRouterRequestMessage::System(_)) = messages.first()
+            && let OpenRouterRequestMessage::System(system_msg) = messages.remove(0)
+        {
+            let user_msg = OpenRouterRequestMessage::User(OpenRouterUserRequestMessage {
+                content: vec![OpenRouterContentBlock::Text {
+                    text: system_msg.content,
+                }],
+            });
+            messages.insert(0, user_msg);
         }
 
-        Ok(OpenRouterRequest {
+        let mut openrouter_request = OpenRouterRequest {
             messages,
             model,
             temperature: request.temperature,
@@ -1044,16 +1546,20 @@ impl<'a> OpenRouterRequest<'a> {
             tool_choice,
             parallel_tool_calls,
             stop: request.borrow_stop_sequences(),
-        })
+            reasoning: None,
+            verbosity: None,
+        };
+
+        apply_inference_params(&mut openrouter_request, &request.inference_params_v2);
+
+        Ok(openrouter_request)
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub(super) struct OpenRouterUsage {
-    pub prompt_tokens: u32,
-    #[serde(default)]
-    pub completion_tokens: u32,
-    pub total_tokens: u32,
+    pub prompt_tokens: Option<u32>,
+    pub completion_tokens: Option<u32>,
 }
 
 impl From<OpenRouterUsage> for Usage {
@@ -1094,6 +1600,9 @@ pub(super) struct OpenRouterResponseMessage {
     pub(super) content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) tool_calls: Option<Vec<OpenRouterResponseToolCall>>,
+    /// Reasoning details for models that support reasoning tokens
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) reasoning_details: Option<Vec<OpenRouterReasoningDetail>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -1142,6 +1651,7 @@ struct OpenRouterResponseWithMetadata<'a> {
     raw_request: String,
     generic_request: &'a ModelInferenceRequest<'a>,
     raw_response: String,
+    model_inference_id: Uuid,
 }
 
 impl<'a> TryFrom<OpenRouterResponseWithMetadata<'a>> for ProviderInferenceResponse {
@@ -1153,6 +1663,7 @@ impl<'a> TryFrom<OpenRouterResponseWithMetadata<'a>> for ProviderInferenceRespon
             raw_request,
             raw_response,
             generic_request,
+            model_inference_id,
         } = value;
         if response.choices.len() != 1 {
             return Err(ErrorDetails::InferenceServer {
@@ -1180,6 +1691,13 @@ impl<'a> TryFrom<OpenRouterResponseWithMetadata<'a>> for ProviderInferenceRespon
                 provider_type: PROVIDER_TYPE.to_string(),
             }))?;
         let mut content: Vec<ContentBlockOutput> = Vec::new();
+        // Process reasoning_details first (thoughts should come before content)
+        if let Some(reasoning_details) = message.reasoning_details {
+            for detail in reasoning_details {
+                let thought = openrouter_reasoning_detail_to_thought(detail);
+                content.push(ContentBlockOutput::Thought(thought));
+            }
+        }
         if let Some(text) = message.content {
             content.push(text.into());
         }
@@ -1188,6 +1706,14 @@ impl<'a> TryFrom<OpenRouterResponseWithMetadata<'a>> for ProviderInferenceRespon
                 content.push(ContentBlockOutput::ToolCall(tool_call.into()));
             }
         };
+        let raw_usage = openrouter_usage_from_raw_response(&raw_response).map(|usage| {
+            raw_usage_entries_from_value(
+                model_inference_id,
+                PROVIDER_TYPE,
+                ApiType::ChatCompletions,
+                usage,
+            )
+        });
         let usage = response.usage.into();
         let system = generic_request.system.clone();
         let messages = generic_request.messages.clone();
@@ -1199,11 +1725,179 @@ impl<'a> TryFrom<OpenRouterResponseWithMetadata<'a>> for ProviderInferenceRespon
                 raw_request,
                 raw_response: raw_response.clone(),
                 usage,
-                latency,
+                raw_usage,
+                relay_raw_response: None,
+                provider_latency: latency,
                 finish_reason: Some(finish_reason.into()),
+                id: model_inference_id,
             },
         ))
     }
+}
+
+/// Convert an OpenRouter reasoning detail to a TensorZero Thought block.
+fn openrouter_reasoning_detail_to_thought(detail: OpenRouterReasoningDetail) -> Thought {
+    match detail {
+        OpenRouterReasoningDetail::Text {
+            text,
+            signature,
+            format,
+            index: _, // index is only used for streaming chunk grouping
+        } => Thought {
+            text,
+            signature,
+            summary: None,
+            provider_type: Some(PROVIDER_TYPE.to_string()),
+            extra_data: format.map(|f| json!({"format": f})),
+        },
+        OpenRouterReasoningDetail::Summary {
+            summary,
+            format,
+            index: _, // index is only used for streaming chunk grouping
+        } => Thought {
+            text: None,
+            signature: None,
+            summary: Some(vec![ThoughtSummaryBlock::SummaryText { text: summary }]),
+            provider_type: Some(PROVIDER_TYPE.to_string()),
+            extra_data: format.map(|f| json!({"format": f})),
+        },
+        OpenRouterReasoningDetail::Encrypted {
+            data,
+            format,
+            index: _, // index is only used for streaming chunk grouping
+        } => Thought {
+            text: None,
+            // Store encrypted data in signature field for multi-turn support
+            signature: Some(data),
+            summary: None,
+            provider_type: Some(PROVIDER_TYPE.to_string()),
+            extra_data: Some(json!({"format": format, "encrypted": true})),
+        },
+    }
+}
+
+/// Convert an OpenRouter reasoning detail to a TensorZero ThoughtChunk for streaming.
+///
+/// Uses the stable `index` field from the detail if present, otherwise falls back to
+/// the provided `fallback_id` (typically from enumerate position). This ensures chunks
+/// are grouped correctly even when OpenRouter streams different subsets of reasoning
+/// details across chunks.
+fn openrouter_reasoning_detail_to_thought_chunk(
+    detail: OpenRouterReasoningDetail,
+    fallback_id: String,
+) -> ThoughtChunk {
+    match detail {
+        OpenRouterReasoningDetail::Text {
+            text,
+            signature,
+            format,
+            index,
+        } => {
+            let id = index.map(|i| i.to_string()).unwrap_or(fallback_id);
+            ThoughtChunk {
+                id,
+                text,
+                signature,
+                summary_id: None,
+                summary_text: None,
+                provider_type: Some(PROVIDER_TYPE.to_string()),
+                extra_data: format.map(|f| json!({"format": f})),
+            }
+        }
+        OpenRouterReasoningDetail::Summary {
+            summary,
+            format,
+            index,
+        } => {
+            let id = index.map(|i| i.to_string()).unwrap_or(fallback_id);
+            ThoughtChunk {
+                id: id.clone(),
+                text: None,
+                signature: None,
+                summary_id: Some(id),
+                summary_text: Some(summary),
+                provider_type: Some(PROVIDER_TYPE.to_string()),
+                extra_data: format.map(|f| json!({"format": f})),
+            }
+        }
+        OpenRouterReasoningDetail::Encrypted {
+            data,
+            format,
+            index,
+        } => {
+            let id = index.map(|i| i.to_string()).unwrap_or(fallback_id);
+            ThoughtChunk {
+                id,
+                text: None,
+                // Store encrypted data in signature field for multi-turn support
+                signature: Some(data),
+                summary_id: None,
+                summary_text: None,
+                provider_type: Some(PROVIDER_TYPE.to_string()),
+                extra_data: Some(json!({"format": format, "encrypted": true})),
+            }
+        }
+    }
+}
+
+/// Convert a TensorZero Thought to OpenRouter reasoning details for multi-turn support.
+/// This reconstructs the appropriate reasoning detail type based on the fields present.
+fn thought_to_openrouter_reasoning_details(thought: &Thought) -> Vec<OpenRouterReasoningDetail> {
+    let mut details = Vec::new();
+
+    let extra_data = thought.extra_data.as_ref();
+
+    // Check if this was an encrypted block (based on extra_data)
+    let is_encrypted = extra_data
+        .and_then(|d| d.get("encrypted"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    // Extract format from extra_data if present
+    let format = extra_data
+        .and_then(|d| d.get("format"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    // If encrypted, reconstruct from signature field
+    if is_encrypted {
+        if let Some(data) = &thought.signature {
+            details.push(OpenRouterReasoningDetail::Encrypted {
+                data: data.clone(),
+                format: format.unwrap_or_else(|| "raw".to_string()),
+                index: None, // index is only used for streaming chunk grouping
+            });
+        }
+    } else {
+        // Handle text reasoning (includes signature-only cases for multi-turn)
+        if thought.text.is_some() || thought.signature.is_some() {
+            details.push(OpenRouterReasoningDetail::Text {
+                text: thought.text.clone(),
+                signature: thought.signature.clone(),
+                format,
+                index: None, // index is only used for streaming chunk grouping
+            });
+        }
+        // Handle summary reasoning
+        if let Some(summary_blocks) = &thought.summary {
+            for block in summary_blocks {
+                match block {
+                    ThoughtSummaryBlock::SummaryText { text } => {
+                        details.push(OpenRouterReasoningDetail::Summary {
+                            summary: text.clone(),
+                            format: extra_data
+                                .and_then(|d| d.get("format"))
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string()),
+                            index: None, // index is only used for streaming chunk grouping
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    details
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -1231,6 +1925,9 @@ struct OpenRouterDelta {
     content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tool_calls: Option<Vec<OpenRouterToolCallChunk>>,
+    /// Reasoning details for streaming responses from models that support reasoning tokens
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning_details: Option<Vec<OpenRouterReasoningDetail>>,
 }
 
 // Custom deserializer function for empty string to None
@@ -1276,6 +1973,8 @@ fn openrouter_to_tensorzero_chunk(
     mut chunk: OpenRouterChatChunk,
     latency: Duration,
     tool_call_ids: &mut Vec<String>,
+    model_inference_id: Uuid,
+    provider_type: &str,
 ) -> Result<ProviderInferenceResponseChunk, Error> {
     if chunk.choices.len() > 1 {
         return Err(ErrorDetails::InferenceServer {
@@ -1286,12 +1985,28 @@ fn openrouter_to_tensorzero_chunk(
         }
         .into());
     }
+    let raw_usage = openrouter_usage_from_raw_response(&raw_message).map(|usage| {
+        raw_usage_entries_from_value(
+            model_inference_id,
+            provider_type,
+            ApiType::ChatCompletions,
+            usage,
+        )
+    });
     let usage = chunk.usage.map(Into::into);
     let mut content = vec![];
     let mut finish_reason = None;
     if let Some(choice) = chunk.choices.pop() {
         if let Some(choice_finish_reason) = choice.finish_reason {
             finish_reason = Some(choice_finish_reason.into());
+        }
+        // Process reasoning_details first (thoughts should come before content)
+        if let Some(reasoning_details) = choice.delta.reasoning_details {
+            for (idx, detail) in reasoning_details.into_iter().enumerate() {
+                let thought_chunk =
+                    openrouter_reasoning_detail_to_thought_chunk(detail, idx.to_string());
+                content.push(ContentBlockChunk::Thought(thought_chunk));
+            }
         }
         if let Some(text) = choice.delta.content {
             content.push(ContentBlockChunk::Text(TextChunk {
@@ -1329,22 +2044,25 @@ fn openrouter_to_tensorzero_chunk(
         }
     }
 
-    Ok(ProviderInferenceResponseChunk::new(
+    Ok(ProviderInferenceResponseChunk::new_with_raw_usage(
         content,
         usage,
         raw_message,
         latency,
         finish_reason,
+        raw_usage,
     ))
+}
+
+fn openrouter_usage_from_raw_response(raw_response: &str) -> Option<Value> {
+    serde_json::from_str::<Value>(raw_response)
+        .ok()
+        .and_then(|value| value.get("usage").filter(|v| !v.is_null()).cloned())
 }
 
 #[cfg(test)]
 mod tests {
-
-    use std::borrow::Cow;
-
-    use serde_json::json;
-
+    use super::*;
     use crate::{
         inference::types::{FunctionType, RequestMessage},
         providers::test_helpers::{
@@ -1352,8 +2070,8 @@ mod tests {
         },
         tool::ToolCallConfig,
     };
-
-    use super::*;
+    use serde_json::json;
+    use std::borrow::Cow;
 
     #[test]
     fn test_get_chat_url() {
@@ -1480,8 +2198,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_openrouter_request_new() {
+    #[tokio::test]
+    async fn test_openrouter_request_new() {
         // Test basic request
         let basic_request = ModelInferenceRequest {
             inference_id: Uuid::now_v7(),
@@ -1511,9 +2229,11 @@ mod tests {
             ..Default::default()
         };
 
-        let openrouter_request = OpenRouterRequest::new("gpt-3.5-turbo", &basic_request).unwrap();
+        let openrouter_request = OpenRouterRequest::new("gpt-4.1-mini", &basic_request)
+            .await
+            .unwrap();
 
-        assert_eq!(openrouter_request.model, "gpt-3.5-turbo");
+        assert_eq!(openrouter_request.model, "gpt-4.1-mini");
         assert_eq!(openrouter_request.messages.len(), 2);
         assert_eq!(openrouter_request.temperature, Some(0.7));
         assert_eq!(openrouter_request.max_completion_tokens, Some(100));
@@ -1550,7 +2270,9 @@ mod tests {
             ..Default::default()
         };
 
-        let openrouter_request = OpenRouterRequest::new("gpt-4", &request_with_tools).unwrap();
+        let openrouter_request = OpenRouterRequest::new("gpt-4", &request_with_tools)
+            .await
+            .unwrap();
 
         assert_eq!(openrouter_request.model, "gpt-4");
         assert_eq!(openrouter_request.messages.len(), 2); // We'll add a system message containing Json to fit OpenRouter requirements
@@ -1602,7 +2324,9 @@ mod tests {
             ..Default::default()
         };
 
-        let openrouter_request = OpenRouterRequest::new("gpt-4", &request_with_tools).unwrap();
+        let openrouter_request = OpenRouterRequest::new("gpt-4", &request_with_tools)
+            .await
+            .unwrap();
 
         assert_eq!(openrouter_request.model, "gpt-4");
         assert_eq!(openrouter_request.messages.len(), 1);
@@ -1643,7 +2367,9 @@ mod tests {
             ..Default::default()
         };
 
-        let openrouter_request = OpenRouterRequest::new("gpt-4", &request_with_tools).unwrap();
+        let openrouter_request = OpenRouterRequest::new("gpt-4", &request_with_tools)
+            .await
+            .unwrap();
 
         assert_eq!(openrouter_request.model, "gpt-4");
         assert_eq!(openrouter_request.messages.len(), 1);
@@ -1663,8 +2389,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_openrouter_new_request_o1() {
+    #[tokio::test]
+    async fn test_openrouter_new_request_o1() {
         let request = ModelInferenceRequest {
             inference_id: Uuid::now_v7(),
             messages: vec![RequestMessage {
@@ -1687,7 +2413,9 @@ mod tests {
             ..Default::default()
         };
 
-        let openrouter_request = OpenRouterRequest::new("o1-preview", &request).unwrap();
+        let openrouter_request = OpenRouterRequest::new("o1-preview", &request)
+            .await
+            .unwrap();
 
         assert_eq!(openrouter_request.model, "o1-preview");
         assert_eq!(openrouter_request.messages.len(), 1);
@@ -1725,7 +2453,9 @@ mod tests {
         };
 
         let openrouter_request_with_system =
-            OpenRouterRequest::new("o1-mini", &request_with_system).unwrap();
+            OpenRouterRequest::new("o1-mini", &request_with_system)
+                .await
+                .unwrap();
 
         // Check that the system message was converted to a user message
         assert_eq!(openrouter_request_with_system.messages.len(), 2);
@@ -1762,13 +2492,13 @@ mod tests {
                 message: OpenRouterResponseMessage {
                     content: Some("Hello, world!".to_string()),
                     tool_calls: None,
+                    reasoning_details: None,
                 },
                 finish_reason: OpenRouterFinishReason::Stop,
             }],
             usage: OpenRouterUsage {
-                prompt_tokens: 10,
-                completion_tokens: 20,
-                total_tokens: 30,
+                prompt_tokens: Some(10),
+                completion_tokens: Some(20),
             },
         };
         let generic_request = ModelInferenceRequest {
@@ -1795,7 +2525,7 @@ mod tests {
 
         let request_body = OpenRouterRequest {
             messages: vec![],
-            model: "gpt-3.5-turbo",
+            model: "gpt-4.1-mini",
             temperature: Some(0.5),
             top_p: Some(0.5),
             presence_penalty: Some(0.5),
@@ -1809,6 +2539,8 @@ mod tests {
             tool_choice: None,
             parallel_tool_calls: None,
             stop: None,
+            reasoning: None,
+            verbosity: None,
         };
         let raw_request = serde_json::to_string(&request_body).unwrap();
         let raw_response = "test_response".to_string();
@@ -1820,6 +2552,7 @@ mod tests {
             raw_request: raw_request.clone(),
             generic_request: &generic_request,
             raw_response: raw_response.clone(),
+            model_inference_id: Uuid::now_v7(),
         });
         assert!(result.is_ok());
         let inference_response = result.unwrap();
@@ -1827,11 +2560,11 @@ mod tests {
             inference_response.output,
             vec!["Hello, world!".to_string().into()]
         );
-        assert_eq!(inference_response.usage.input_tokens, 10);
-        assert_eq!(inference_response.usage.output_tokens, 20);
+        assert_eq!(inference_response.usage.input_tokens, Some(10));
+        assert_eq!(inference_response.usage.output_tokens, Some(20));
         assert_eq!(inference_response.finish_reason, Some(FinishReason::Stop));
         assert_eq!(
-            inference_response.latency,
+            inference_response.provider_latency,
             Latency::NonStreaming {
                 response_time: Duration::from_millis(100)
             }
@@ -1861,12 +2594,12 @@ mod tests {
                             arguments: "{}".to_string(),
                         },
                     }]),
+                    reasoning_details: None,
                 },
             }],
             usage: OpenRouterUsage {
-                prompt_tokens: 15,
-                completion_tokens: 25,
-                total_tokens: 40,
+                prompt_tokens: Some(15),
+                completion_tokens: Some(25),
             },
         };
         let generic_request = ModelInferenceRequest {
@@ -1893,7 +2626,7 @@ mod tests {
 
         let request_body = OpenRouterRequest {
             messages: vec![],
-            model: "gpt-3.5-turbo",
+            model: "gpt-4.1-mini",
             temperature: Some(0.5),
             top_p: Some(0.5),
             presence_penalty: Some(0.5),
@@ -1907,6 +2640,8 @@ mod tests {
             tool_choice: None,
             parallel_tool_calls: None,
             stop: None,
+            reasoning: None,
+            verbosity: None,
         };
         let raw_request = serde_json::to_string(&request_body).unwrap();
         let result = ProviderInferenceResponse::try_from(OpenRouterResponseWithMetadata {
@@ -1917,6 +2652,7 @@ mod tests {
             raw_request: raw_request.clone(),
             generic_request: &generic_request,
             raw_response: raw_response.clone(),
+            model_inference_id: Uuid::now_v7(),
         });
         assert!(result.is_ok());
         let inference_response = result.unwrap();
@@ -1928,14 +2664,14 @@ mod tests {
                 arguments: "{}".to_string(),
             })]
         );
-        assert_eq!(inference_response.usage.input_tokens, 15);
-        assert_eq!(inference_response.usage.output_tokens, 25);
+        assert_eq!(inference_response.usage.input_tokens, Some(15));
+        assert_eq!(inference_response.usage.output_tokens, Some(25));
         assert_eq!(
             inference_response.finish_reason,
             Some(FinishReason::ToolCall)
         );
         assert_eq!(
-            inference_response.latency,
+            inference_response.provider_latency,
             Latency::NonStreaming {
                 response_time: Duration::from_millis(110)
             }
@@ -1954,14 +2690,13 @@ mod tests {
         let invalid_response_no_choices = OpenRouterResponse {
             choices: vec![],
             usage: OpenRouterUsage {
-                prompt_tokens: 5,
-                completion_tokens: 0,
-                total_tokens: 5,
+                prompt_tokens: Some(5),
+                completion_tokens: Some(0),
             },
         };
         let request_body = OpenRouterRequest {
             messages: vec![],
-            model: "gpt-3.5-turbo",
+            model: "gpt-4.1-mini",
             temperature: Some(0.5),
             top_p: Some(0.9),
             presence_penalty: Some(0.1),
@@ -1975,6 +2710,8 @@ mod tests {
             tool_choice: None,
             parallel_tool_calls: None,
             stop: None,
+            reasoning: None,
+            verbosity: None,
         };
         let result = ProviderInferenceResponse::try_from(OpenRouterResponseWithMetadata {
             response: invalid_response_no_choices,
@@ -1984,6 +2721,7 @@ mod tests {
             raw_request: serde_json::to_string(&request_body).unwrap(),
             generic_request: &generic_request,
             raw_response: raw_response.clone(),
+            model_inference_id: Uuid::now_v7(),
         });
         assert!(result.is_err());
         let err = result.unwrap_err();
@@ -1998,6 +2736,7 @@ mod tests {
                     message: OpenRouterResponseMessage {
                         content: Some("Choice 1".to_string()),
                         tool_calls: None,
+                        reasoning_details: None,
                     },
                     finish_reason: OpenRouterFinishReason::Stop,
                 },
@@ -2007,19 +2746,19 @@ mod tests {
                     message: OpenRouterResponseMessage {
                         content: Some("Choice 2".to_string()),
                         tool_calls: None,
+                        reasoning_details: None,
                     },
                 },
             ],
             usage: OpenRouterUsage {
-                prompt_tokens: 10,
-                completion_tokens: 10,
-                total_tokens: 20,
+                prompt_tokens: Some(10),
+                completion_tokens: Some(10),
             },
         };
 
         let request_body = OpenRouterRequest {
             messages: vec![],
-            model: "gpt-3.5-turbo",
+            model: "gpt-4.1-mini",
             temperature: Some(0.5),
             top_p: Some(0.9),
             presence_penalty: Some(0.1),
@@ -2033,6 +2772,8 @@ mod tests {
             tool_choice: None,
             parallel_tool_calls: None,
             stop: None,
+            reasoning: None,
+            verbosity: None,
         };
         let result = ProviderInferenceResponse::try_from(OpenRouterResponseWithMetadata {
             response: invalid_response_multiple_choices,
@@ -2042,6 +2783,7 @@ mod tests {
             raw_request: serde_json::to_string(&request_body).unwrap(),
             generic_request: &generic_request,
             raw_response: raw_response.clone(),
+            model_inference_id: Uuid::now_v7(),
         });
         assert!(result.is_err());
         let err = result.unwrap_err();
@@ -2073,7 +2815,7 @@ mod tests {
             ..Default::default()
         };
         let (tools, tool_choice, parallel_tool_calls) =
-            prepare_openrouter_tools(&request_with_tools);
+            prepare_openrouter_tools(&request_with_tools).unwrap();
         let tools = tools.unwrap();
         assert_eq!(tools.len(), 2);
         assert_eq!(tools[0].function.name, WEATHER_TOOL.name());
@@ -2088,9 +2830,9 @@ mod tests {
         let parallel_tool_calls = parallel_tool_calls.unwrap();
         assert!(parallel_tool_calls);
         let tool_config = ToolCallConfig {
-            tools_available: vec![],
             tool_choice: ToolChoice::Required,
             parallel_tool_calls: Some(true),
+            ..Default::default()
         };
 
         // Test no tools but a tool choice and make sure tool choice output is None
@@ -2116,16 +2858,18 @@ mod tests {
             ..Default::default()
         };
         let (tools, tool_choice, parallel_tool_calls) =
-            prepare_openrouter_tools(&request_without_tools);
+            prepare_openrouter_tools(&request_without_tools).unwrap();
         assert!(tools.is_none());
         assert!(tool_choice.is_none());
         assert!(parallel_tool_calls.is_none());
     }
 
-    #[test]
-    fn test_tensorzero_to_openrouter_messages() {
+    #[tokio::test]
+    async fn test_tensorzero_to_openrouter_messages() {
         let content_blocks = vec!["Hello".to_string().into()];
-        let openrouter_messages = tensorzero_to_openrouter_user_messages(&content_blocks).unwrap();
+        let openrouter_messages = tensorzero_to_openrouter_user_messages(&content_blocks, true)
+            .await
+            .unwrap();
         assert_eq!(openrouter_messages.len(), 1);
         match &openrouter_messages[0] {
             OpenRouterRequestMessage::User(content) => {
@@ -2144,7 +2888,9 @@ mod tests {
             "Hello".to_string().into(),
             "How are you?".to_string().into(),
         ];
-        let openrouter_messages = tensorzero_to_openrouter_user_messages(&content_blocks).unwrap();
+        let openrouter_messages = tensorzero_to_openrouter_user_messages(&content_blocks, true)
+            .await
+            .unwrap();
         assert_eq!(openrouter_messages.len(), 1);
         match &openrouter_messages[0] {
             OpenRouterRequestMessage::User(content) => {
@@ -2173,7 +2919,9 @@ mod tests {
         });
         let content_blocks = vec!["Hello".to_string().into(), tool_block];
         let openrouter_messages =
-            tensorzero_to_openrouter_assistant_messages(&content_blocks).unwrap();
+            tensorzero_to_openrouter_assistant_messages(&content_blocks, true)
+                .await
+                .unwrap();
         assert_eq!(openrouter_messages.len(), 1);
         match &openrouter_messages[0] {
             OpenRouterRequestMessage::Assistant(content) => {
@@ -2200,6 +2948,7 @@ mod tests {
                 delta: OpenRouterDelta {
                     content: Some("Hello".to_string()),
                     tool_calls: None,
+                    reasoning_details: None,
                 },
                 finish_reason: Some(OpenRouterFinishReason::Stop),
             }],
@@ -2211,6 +2960,8 @@ mod tests {
             chunk.clone(),
             Duration::from_millis(50),
             &mut tool_call_ids,
+            Uuid::now_v7(),
+            PROVIDER_TYPE,
         )
         .unwrap();
         assert_eq!(
@@ -2235,6 +2986,7 @@ mod tests {
                             arguments: Some("{\"hello\":\"world\"}".to_string()),
                         },
                     }]),
+                    reasoning_details: None,
                 },
             }],
             usage: None,
@@ -2244,6 +2996,8 @@ mod tests {
             chunk.clone(),
             Duration::from_millis(50),
             &mut tool_call_ids,
+            Uuid::now_v7(),
+            PROVIDER_TYPE,
         )
         .unwrap();
         assert_eq!(
@@ -2269,6 +3023,7 @@ mod tests {
                             arguments: Some("{\"hello\":\"world\"}".to_string()),
                         },
                     }]),
+                    reasoning_details: None,
                 },
             }],
             usage: None,
@@ -2278,6 +3033,8 @@ mod tests {
             chunk.clone(),
             Duration::from_millis(50),
             &mut tool_call_ids,
+            Uuid::now_v7(),
+            PROVIDER_TYPE,
         )
         .unwrap_err();
         let details = error.get_details();
@@ -2304,6 +3061,7 @@ mod tests {
                             arguments: Some("{\"hello\":\"world\"}".to_string()),
                         },
                     }]),
+                    reasoning_details: None,
                 },
             }],
             usage: None,
@@ -2313,6 +3071,8 @@ mod tests {
             chunk.clone(),
             Duration::from_millis(50),
             &mut tool_call_ids,
+            Uuid::now_v7(),
+            PROVIDER_TYPE,
         )
         .unwrap();
         assert_eq!(
@@ -2329,28 +3089,66 @@ mod tests {
 
         // Check a chunk with no choices and only usage
         // Test a correct new tool chunk
+        let usage = OpenRouterUsage {
+            prompt_tokens: Some(10),
+            completion_tokens: Some(20),
+        };
         let chunk = OpenRouterChatChunk {
             choices: vec![],
-            usage: Some(OpenRouterUsage {
-                prompt_tokens: 10,
-                completion_tokens: 20,
-                total_tokens: 30,
-            }),
+            usage: Some(usage.clone()),
         };
+        let model_inference_id = Uuid::now_v7();
+        let raw_message = serde_json::json!({
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 20,
+                "total_tokens": 30,
+                "prompt_tokens_details": {
+                    "cached_tokens": 2
+                },
+                "completion_tokens_details": {
+                    "reasoning_tokens": 1
+                }
+            }
+        })
+        .to_string();
         let message = openrouter_to_tensorzero_chunk(
-            "my_raw_chunk".to_string(),
+            raw_message,
             chunk.clone(),
             Duration::from_millis(50),
             &mut tool_call_ids,
+            model_inference_id,
+            PROVIDER_TYPE,
         )
         .unwrap();
+        let expected_raw_usage = Some(raw_usage_entries_from_value(
+            model_inference_id,
+            PROVIDER_TYPE,
+            ApiType::ChatCompletions,
+            serde_json::json!({
+                "prompt_tokens": 10,
+                "completion_tokens": 20,
+                "total_tokens": 30,
+                "prompt_tokens_details": {
+                    "cached_tokens": 2
+                },
+                "completion_tokens_details": {
+                    "reasoning_tokens": 1
+                }
+            }),
+        ));
         assert_eq!(message.content, vec![]);
         assert_eq!(
             message.usage,
             Some(Usage {
-                input_tokens: 10,
-                output_tokens: 20,
-            })
+                input_tokens: Some(10),
+                output_tokens: Some(20),
+            }),
+            "expected usage to include provider raw_usage entries"
+        );
+        assert_eq!(
+            message.raw_usage, expected_raw_usage,
+            "expected raw_usage to include provider raw_usage entries"
         );
     }
 
@@ -2391,7 +3189,7 @@ mod tests {
             _ => panic!("Expected JsonSchema format"),
         }
 
-        // Test JSON mode Strict with schema but gpt-3.5
+        // Test JSON mode Strict with schema but gpt-3.5-turbo (does not support strict mode)
         let json_mode = ModelInferenceRequestJsonMode::Strict;
         let schema = serde_json::json!({
             "type": "object",
@@ -2435,6 +3233,7 @@ mod tests {
                     text: "Sure, here is the data.".into(),
                 }]),
                 tool_calls: None,
+                reasoning_details: None,
             }),
         ];
         let expected = Some(OpenRouterRequestMessage::System(
@@ -2459,6 +3258,7 @@ mod tests {
                     text: "I am fine, thank you!".into(),
                 }]),
                 tool_calls: None,
+                reasoning_details: None,
             }),
         ];
         let expected_content = "Respond using JSON.\n\nSystem instructions".to_string();
@@ -2484,6 +3284,7 @@ mod tests {
                     text: "I am fine, thank you!".into(),
                 }]),
                 tool_calls: None,
+                reasoning_details: None,
             }),
         ];
         let expected = Some(OpenRouterRequestMessage::System(
@@ -2508,6 +3309,7 @@ mod tests {
                     text: "I am fine, thank you!".into(),
                 }]),
                 tool_calls: None,
+                reasoning_details: None,
             }),
         ];
         let expected = Some(OpenRouterRequestMessage::System(
@@ -2550,6 +3352,7 @@ mod tests {
                     text: "Sure, here's one for you.".into(),
                 }]),
                 tool_calls: None,
+                reasoning_details: None,
             }),
         ];
         let expected = Some(OpenRouterRequestMessage::System(
@@ -2574,6 +3377,7 @@ mod tests {
                     text: "Here's the summary.".into(),
                 }]),
                 tool_calls: None,
+                reasoning_details: None,
             }),
         ];
 
@@ -2715,6 +3519,466 @@ mod tests {
         assert_eq!(
             serialized,
             r#"{"content":[{"type":"text","text":"My first message"},{"type":"text","text":"My second message"}]}"#
+        );
+    }
+
+    #[test]
+    fn test_openrouter_apply_inference_params_called() {
+        let inference_params = ChatCompletionInferenceParamsV2 {
+            reasoning_effort: Some("high".to_string()),
+            service_tier: None,
+            thinking_budget_tokens: Some(1024),
+            verbosity: Some("low".to_string()),
+        };
+        let mut request = OpenRouterRequest {
+            messages: vec![],
+            model: "test-model",
+            temperature: None,
+            max_completion_tokens: None,
+            seed: None,
+            top_p: None,
+            presence_penalty: None,
+            frequency_penalty: None,
+            stream: false,
+            stream_options: None,
+            response_format: None,
+            tools: None,
+            tool_choice: None,
+            parallel_tool_calls: None,
+            stop: None,
+            reasoning: None,
+            verbosity: None,
+        };
+
+        apply_inference_params(&mut request, &inference_params);
+
+        // Test that reasoning config is built with both effort and max_tokens
+        assert_eq!(
+            request.reasoning,
+            Some(OpenRouterReasoningConfig {
+                effort: Some("high".to_string()),
+                max_tokens: Some(1024),
+            }),
+            "reasoning config should contain both effort and max_tokens"
+        );
+
+        // Test that verbosity is applied correctly
+        assert_eq!(request.verbosity, Some("low".to_string()));
+    }
+
+    #[test]
+    fn test_openrouter_reasoning_config_serialization() {
+        // Test with both fields
+        let config = OpenRouterReasoningConfig {
+            effort: Some("medium".to_string()),
+            max_tokens: Some(2048),
+        };
+        let json = serde_json::to_value(&config).unwrap();
+        assert_eq!(json["effort"], "medium");
+        assert_eq!(json["max_tokens"], 2048);
+
+        // Test with only effort
+        let config = OpenRouterReasoningConfig {
+            effort: Some("low".to_string()),
+            max_tokens: None,
+        };
+        let json = serde_json::to_value(&config).unwrap();
+        assert_eq!(json["effort"], "low");
+        assert!(json.get("max_tokens").is_none());
+
+        // Test with only max_tokens
+        let config = OpenRouterReasoningConfig {
+            effort: None,
+            max_tokens: Some(512),
+        };
+        let json = serde_json::to_value(&config).unwrap();
+        assert!(json.get("effort").is_none());
+        assert_eq!(json["max_tokens"], 512);
+    }
+
+    #[test]
+    fn test_openrouter_parse_reasoning_details() {
+        // Test parsing reasoning.text
+        let json_text = json!({
+            "type": "reasoning.text",
+            "text": "Let me think about this...",
+            "signature": "abc123",
+            "format": "raw"
+        });
+        let detail: OpenRouterReasoningDetail = serde_json::from_value(json_text).unwrap();
+        assert!(
+            matches!(detail, OpenRouterReasoningDetail::Text { text, signature, format, .. }
+                if text == Some("Let me think about this...".to_string())
+                    && signature == Some("abc123".to_string())
+                    && format == Some("raw".to_string())),
+            "should parse reasoning.text correctly"
+        );
+
+        // Test parsing reasoning.text with signature only (no text field - multi-turn response)
+        let json_text_signature_only = json!({
+            "type": "reasoning.text",
+            "signature": "EpsDCkgICxAC...",
+            "format": "anthropic-claude-v1"
+        });
+        let detail: OpenRouterReasoningDetail =
+            serde_json::from_value(json_text_signature_only).unwrap();
+        assert!(
+            matches!(detail, OpenRouterReasoningDetail::Text { text, signature, format, .. }
+                if text.is_none()
+                    && signature == Some("EpsDCkgICxAC...".to_string())
+                    && format == Some("anthropic-claude-v1".to_string())),
+            "should parse reasoning.text with signature only"
+        );
+
+        // Test parsing reasoning.summary
+        let json_summary = json!({
+            "type": "reasoning.summary",
+            "summary": "The answer is 42.",
+            "format": "markdown"
+        });
+        let detail: OpenRouterReasoningDetail = serde_json::from_value(json_summary).unwrap();
+        assert!(
+            matches!(detail, OpenRouterReasoningDetail::Summary { summary, format, .. }
+                if summary == "The answer is 42."
+                    && format == Some("markdown".to_string())),
+            "should parse reasoning.summary correctly"
+        );
+
+        // Test parsing reasoning.encrypted
+        let json_encrypted = json!({
+            "type": "reasoning.encrypted",
+            "data": "encrypted_data_here",
+            "format": "aes-256"
+        });
+        let detail: OpenRouterReasoningDetail = serde_json::from_value(json_encrypted).unwrap();
+        assert!(
+            matches!(detail, OpenRouterReasoningDetail::Encrypted { data, format, .. }
+                if data == "encrypted_data_here"
+                    && format == "aes-256"),
+            "should parse reasoning.encrypted correctly"
+        );
+
+        // Test parsing reasoning.summary with `index` field (sent by OpenRouter in streaming)
+        let json_summary_with_index = json!({
+            "type": "reasoning.summary",
+            "summary": "First",
+            "format": "xai-responses-v1",
+            "index": 0
+        });
+        let detail: OpenRouterReasoningDetail =
+            serde_json::from_value(json_summary_with_index).unwrap();
+        assert!(
+            matches!(detail, OpenRouterReasoningDetail::Summary { summary, format, index }
+                if summary == "First"
+                    && format == Some("xai-responses-v1".to_string())
+                    && index == Some(0)),
+            "should parse reasoning.summary with index field"
+        );
+    }
+
+    #[test]
+    fn test_openrouter_streaming_chunk_with_reasoning_details() {
+        // Test parsing a streaming chunk with reasoning_details (actual format from OpenRouter)
+        let chunk_json = json!({
+            "id": "gen-1768936600-test",
+            "provider": "xAI",
+            "model": "x-ai/grok-3-mini",
+            "object": "chat.completion.chunk",
+            "created": 1768936600,
+            "choices": [{
+                "index": 0,
+                "delta": {
+                    "role": "assistant",
+                    "content": "",
+                    "reasoning": "First",
+                    "reasoning_details": [{
+                        "type": "reasoning.summary",
+                        "summary": "First",
+                        "format": "xai-responses-v1",
+                        "index": 0
+                    }]
+                },
+                "finish_reason": null,
+                "native_finish_reason": null,
+                "logprobs": null
+            }]
+        });
+        let chunk: OpenRouterChatChunk = serde_json::from_value(chunk_json).unwrap();
+        assert_eq!(chunk.choices.len(), 1, "should have one choice");
+        let delta = &chunk.choices[0].delta;
+        assert!(
+            delta.reasoning_details.is_some(),
+            "reasoning_details should be present"
+        );
+        let details = delta.reasoning_details.as_ref().unwrap();
+        assert_eq!(details.len(), 1, "should have one reasoning detail");
+        assert!(
+            matches!(&details[0], OpenRouterReasoningDetail::Summary { summary, .. } if summary == "First"),
+            "should parse reasoning.summary from streaming chunk"
+        );
+    }
+
+    #[test]
+    fn test_openrouter_reasoning_detail_to_thought() {
+        // Test Text conversion
+        let text_detail = OpenRouterReasoningDetail::Text {
+            text: Some("Thinking...".to_string()),
+            signature: Some("sig123".to_string()),
+            format: Some("raw".to_string()),
+            index: None,
+        };
+        let thought = openrouter_reasoning_detail_to_thought(text_detail);
+        assert_eq!(
+            thought.text,
+            Some("Thinking...".to_string()),
+            "text should be set"
+        );
+        assert_eq!(
+            thought.signature,
+            Some("sig123".to_string()),
+            "signature should be preserved"
+        );
+        assert_eq!(
+            thought.provider_type,
+            Some(PROVIDER_TYPE.to_string()),
+            "provider_type should be openrouter"
+        );
+        assert!(thought.summary.is_none(), "summary should be None for text");
+        assert_eq!(
+            thought.extra_data,
+            Some(json!({"format": "raw"})),
+            "format should be in extra_data"
+        );
+
+        // Test Summary conversion
+        let summary_detail = OpenRouterReasoningDetail::Summary {
+            summary: "The conclusion is...".to_string(),
+            format: None,
+            index: None,
+        };
+        let thought = openrouter_reasoning_detail_to_thought(summary_detail);
+        assert!(thought.text.is_none(), "text should be None for summary");
+        assert!(
+            thought.signature.is_none(),
+            "signature should be None for summary"
+        );
+        assert_eq!(
+            thought.summary.as_ref().unwrap().len(),
+            1,
+            "should have one summary block"
+        );
+        assert_eq!(thought.extra_data, None, "no format means no extra_data");
+
+        // Test Encrypted conversion
+        let encrypted_detail = OpenRouterReasoningDetail::Encrypted {
+            data: "encrypted_blob".to_string(),
+            format: "custom".to_string(),
+            index: None,
+        };
+        let thought = openrouter_reasoning_detail_to_thought(encrypted_detail);
+        assert!(thought.text.is_none(), "text should be None for encrypted");
+        assert_eq!(
+            thought.signature,
+            Some("encrypted_blob".to_string()),
+            "encrypted data in signature"
+        );
+        assert_eq!(
+            thought.extra_data,
+            Some(json!({"format": "custom", "encrypted": true})),
+            "encrypted flag and format should be in extra_data"
+        );
+    }
+
+    #[test]
+    fn test_openrouter_thought_to_reasoning_details() {
+        // Test Text Thought conversion
+        let text_thought = Thought {
+            text: Some("I'm reasoning...".to_string()),
+            signature: Some("sig456".to_string()),
+            summary: None,
+            provider_type: Some(PROVIDER_TYPE.to_string()),
+            extra_data: Some(json!({"format": "raw"})),
+        };
+        let details = thought_to_openrouter_reasoning_details(&text_thought);
+        assert_eq!(details.len(), 1, "should produce one detail");
+        assert!(
+            matches!(&details[0], OpenRouterReasoningDetail::Text { text, signature, format, index }
+                if *text == Some("I'm reasoning...".to_string())
+                    && *signature == Some("sig456".to_string())
+                    && *format == Some("raw".to_string())
+                    && index.is_none()),
+            "should convert to Text detail"
+        );
+
+        // Test Summary Thought conversion
+        let summary_thought = Thought {
+            text: None,
+            signature: None,
+            summary: Some(vec![ThoughtSummaryBlock::SummaryText {
+                text: "Summary here".to_string(),
+            }]),
+            provider_type: Some(PROVIDER_TYPE.to_string()),
+            extra_data: Some(json!({"format": "markdown"})),
+        };
+        let details = thought_to_openrouter_reasoning_details(&summary_thought);
+        assert_eq!(details.len(), 1, "should produce one detail");
+        assert!(
+            matches!(&details[0], OpenRouterReasoningDetail::Summary { summary, format, index }
+                if summary == "Summary here"
+                    && *format == Some("markdown".to_string())
+                    && index.is_none()),
+            "should convert to Summary detail"
+        );
+
+        // Test Encrypted Thought conversion
+        let encrypted_thought = Thought {
+            text: None,
+            signature: Some("encrypted_data".to_string()),
+            summary: None,
+            provider_type: Some(PROVIDER_TYPE.to_string()),
+            extra_data: Some(json!({"format": "aes-256", "encrypted": true})),
+        };
+        let details = thought_to_openrouter_reasoning_details(&encrypted_thought);
+        assert_eq!(details.len(), 1, "should produce one detail");
+        assert!(
+            matches!(&details[0], OpenRouterReasoningDetail::Encrypted { data, format, index }
+                if data == "encrypted_data"
+                    && format == "aes-256"
+                    && index.is_none()),
+            "should convert to Encrypted detail"
+        );
+    }
+
+    #[test]
+    fn test_openrouter_reasoning_detail_roundtrip() {
+        // Test that Text -> Thought -> ReasoningDetail preserves data
+        // Note: index is not preserved through roundtrip (it's only for streaming chunk grouping)
+        let original_text = OpenRouterReasoningDetail::Text {
+            text: Some("Reasoning process".to_string()),
+            signature: Some("signature_value".to_string()),
+            format: Some("raw".to_string()),
+            index: None,
+        };
+        let thought = openrouter_reasoning_detail_to_thought(original_text.clone());
+        let roundtripped = thought_to_openrouter_reasoning_details(&thought);
+        assert_eq!(
+            roundtripped.len(),
+            1,
+            "should have one detail after roundtrip"
+        );
+        assert_eq!(
+            roundtripped[0], original_text,
+            "Text detail should roundtrip"
+        );
+
+        // Test that Encrypted -> Thought -> ReasoningDetail preserves data
+        let original_encrypted = OpenRouterReasoningDetail::Encrypted {
+            data: "encrypted_content".to_string(),
+            format: "custom_format".to_string(),
+            index: None,
+        };
+        let thought = openrouter_reasoning_detail_to_thought(original_encrypted.clone());
+        let roundtripped = thought_to_openrouter_reasoning_details(&thought);
+        assert_eq!(
+            roundtripped.len(),
+            1,
+            "should have one detail after roundtrip"
+        );
+        assert_eq!(
+            roundtripped[0], original_encrypted,
+            "Encrypted detail should roundtrip"
+        );
+    }
+
+    #[test]
+    fn test_openrouter_streaming_reasoning_details_stable_index() {
+        // This test verifies that when OpenRouter provides an `index` field in reasoning_details,
+        // we use it for stable chunk grouping instead of the enumerate position.
+        //
+        // Scenario: OpenRouter streams two chunks:
+        // - Chunk 1: [Text(index=0, "Hello "), Summary(index=1, "Sum1")]
+        // - Chunk 2: [Summary(index=1, " Sum2")] (only summary, no text)
+        //
+        // Without stable index: Chunk 2's summary would get id "0" (from enumerate),
+        // causing it to be grouped with the wrong thought.
+        //
+        // With stable index: Both summaries get id "1", correctly grouping them together.
+
+        // Chunk 1: Text at index 0, Summary at index 1
+        let detail_text = OpenRouterReasoningDetail::Text {
+            text: Some("Hello ".to_string()),
+            signature: None,
+            format: None,
+            index: Some(0),
+        };
+        let detail_summary1 = OpenRouterReasoningDetail::Summary {
+            summary: "Sum1".to_string(),
+            format: None,
+            index: Some(1),
+        };
+
+        // Convert with fallback ids that would be wrong without index
+        let chunk_text =
+            openrouter_reasoning_detail_to_thought_chunk(detail_text, "99".to_string());
+        let chunk_summary1 =
+            openrouter_reasoning_detail_to_thought_chunk(detail_summary1, "98".to_string());
+
+        // Text should use index 0, not fallback 99
+        assert_eq!(
+            chunk_text.id, "0",
+            "Text chunk should use index field, not fallback"
+        );
+        // Summary should use index 1, not fallback 98
+        assert_eq!(
+            chunk_summary1.id, "1",
+            "Summary chunk should use index field, not fallback"
+        );
+        assert_eq!(
+            chunk_summary1.summary_id,
+            Some("1".to_string()),
+            "Summary id should also use index"
+        );
+
+        // Chunk 2: Only Summary at index 1 (simulating partial streaming)
+        let detail_summary2 = OpenRouterReasoningDetail::Summary {
+            summary: " Sum2".to_string(),
+            format: None,
+            index: Some(1),
+        };
+
+        // Even though this is first in chunk 2's array (would be enumerate index 0),
+        // it should use the stable index 1
+        let chunk_summary2 =
+            openrouter_reasoning_detail_to_thought_chunk(detail_summary2, "0".to_string());
+
+        assert_eq!(
+            chunk_summary2.id, "1",
+            "Second summary chunk should use stable index 1, not enumerate position 0"
+        );
+        assert_eq!(
+            chunk_summary2.summary_id,
+            Some("1".to_string()),
+            "Summary id should match"
+        );
+
+        // Both summary chunks have the same id "1", so collect_chunks will correctly
+        // merge them into a single thought with summary "Sum1 Sum2"
+    }
+
+    #[test]
+    fn test_openrouter_streaming_reasoning_details_fallback_to_enumerate() {
+        // When no index is provided, we should fall back to the enumerate position
+        let detail_text = OpenRouterReasoningDetail::Text {
+            text: Some("Thinking...".to_string()),
+            signature: None,
+            format: None,
+            index: None,
+        };
+
+        let chunk = openrouter_reasoning_detail_to_thought_chunk(detail_text, "5".to_string());
+        assert_eq!(
+            chunk.id, "5",
+            "Should fall back to provided id when index is None"
         );
     }
 }

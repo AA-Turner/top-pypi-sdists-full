@@ -1,10 +1,12 @@
-"""Test ChatFireworks API wrapper
+"""Test ChatFireworks API wrapper.
 
 You will need FIREWORKS_API_KEY set in your environment to run these tests.
 """
 
+from __future__ import annotations
+
 import json
-from typing import Annotated, Any, Literal, Optional
+from typing import Annotated, Any, Literal
 
 import pytest
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessageChunk
@@ -18,10 +20,7 @@ _MODEL = "accounts/fireworks/models/llama-v3p1-8b-instruct"
 
 def test_tool_choice_bool() -> None:
     """Test that tool choice is respected just passing in True."""
-
-    llm = ChatFireworks(
-        model="accounts/fireworks/models/llama-v3p1-70b-instruct", temperature=0
-    )
+    llm = ChatFireworks(model="fireworks/kimi-k2-instruct-0905")
 
     class MyTool(BaseModel):
         name: str
@@ -47,7 +46,7 @@ async def test_astream() -> None:
     """Test streaming tokens from ChatFireworks."""
     llm = ChatFireworks(model=_MODEL)
 
-    full: Optional[BaseMessageChunk] = None
+    full: BaseMessageChunk | None = None
     chunks_with_token_counts = 0
     chunks_with_response_metadata = 0
     async for token in llm.astream("I'm Pickle Rick"):
@@ -56,14 +55,17 @@ async def test_astream() -> None:
         full = token if full is None else full + token
         if token.usage_metadata is not None:
             chunks_with_token_counts += 1
-        if token.response_metadata:
+        if token.response_metadata and not set(token.response_metadata.keys()).issubset(
+            {"model_provider", "output_version"}
+        ):
             chunks_with_response_metadata += 1
     if chunks_with_token_counts != 1 or chunks_with_response_metadata != 1:
-        raise AssertionError(
+        msg = (
             "Expected exactly one chunk with token counts or response_metadata. "
             "AIMessageChunk aggregation adds / appends counts and metadata. Check that "
             "this is behaving properly."
         )
+        raise AssertionError(msg)
     assert isinstance(full, AIMessageChunk)
     assert full.usage_metadata is not None
     assert full.usage_metadata["input_tokens"] > 0
@@ -74,6 +76,7 @@ async def test_astream() -> None:
     )
     assert isinstance(full.response_metadata["model_name"], str)
     assert full.response_metadata["model_name"]
+    assert full.response_metadata["model_provider"] == "fireworks"
 
 
 async def test_abatch_tags() -> None:
@@ -99,8 +102,9 @@ def test_invoke() -> None:
     """Test invoke tokens from ChatFireworks."""
     llm = ChatFireworks(model=_MODEL)
 
-    result = llm.invoke("I'm Pickle Rick", config=dict(tags=["foo"]))
+    result = llm.invoke("I'm Pickle Rick", config={"tags": ["foo"]})
     assert isinstance(result.content, str)
+    assert result.response_metadata["model_provider"] == "fireworks"
 
 
 def _get_joke_class(
@@ -122,18 +126,18 @@ def _get_joke_class(
         punchline: Annotated[str, ..., "answer to resolve the joke"]
 
     def validate_joke_dict(result: Any) -> bool:
-        return all(key in ["setup", "punchline"] for key in result.keys())
+        return all(key in ["setup", "punchline"] for key in result)
 
     if schema_type == "pydantic":
         return Joke, validate_joke
 
-    elif schema_type == "typeddict":
+    if schema_type == "typeddict":
         return JokeDict, validate_joke_dict
 
-    elif schema_type == "json_schema":
+    if schema_type == "json_schema":
         return Joke.model_json_schema(), validate_joke_dict
-    else:
-        raise ValueError("Invalid schema type")
+    msg = "Invalid schema type"
+    raise ValueError(msg)
 
 
 @pytest.mark.parametrize("schema_type", ["pydantic", "typeddict", "json_schema"])

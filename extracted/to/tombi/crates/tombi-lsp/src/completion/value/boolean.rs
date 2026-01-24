@@ -1,13 +1,12 @@
 use tombi_comment_directive::value::{BooleanCommonFormatRules, BooleanCommonLintRules};
-use tombi_extension::CompletionKind;
 use tombi_future::Boxable;
 use tombi_schema_store::{Accessor, BooleanSchema, CurrentSchema, SchemaUri};
 
 use crate::{
     comment_directive::get_key_table_value_comment_directive_content_and_schema_uri,
     completion::{
-        comment::get_tombi_comment_directive_content_completion_contents, CompletionContent,
-        CompletionEdit, CompletionHint, FindCompletionContents,
+        CompletionContent, CompletionEdit, CompletionHint, FindCompletionContents,
+        comment::get_tombi_comment_directive_content_completion_contents,
     },
 };
 
@@ -34,15 +33,13 @@ impl FindCompletionContents for tombi_document_tree::Boolean {
                     BooleanCommonFormatRules,
                     BooleanCommonLintRules,
                 >(self.comment_directives(), position, accessors)
-            {
-                if let Some(completions) = get_tombi_comment_directive_content_completion_contents(
+                && let Some(completions) = get_tombi_comment_directive_content_completion_contents(
                     comment_directive_context,
                     schema_uri,
                 )
                 .await
-                {
-                    return completions;
-                }
+            {
+                return completions;
             }
 
             Vec::with_capacity(0)
@@ -70,41 +67,63 @@ impl FindCompletionContents for BooleanSchema {
 
         async move {
             let schema_uri = current_schema.map(|schema| schema.schema_uri.as_ref());
+            let mut completion_items = Vec::new();
 
             if let Some(const_value) = &self.const_value {
                 let label = const_value.to_string();
                 let edit = CompletionEdit::new_literal(&label, position, completion_hint);
-                return vec![CompletionContent::new_const_value(
-                    CompletionKind::Boolean,
+                completion_items.push(CompletionContent::new_const_value(
                     label,
                     self.title.clone(),
                     self.description.clone(),
                     edit,
                     schema_uri,
                     self.deprecated,
-                )];
+                ));
+
+                return completion_items;
             }
 
-            if let Some(enumerate) = &self.enumerate {
-                enumerate
-                    .iter()
-                    .map(|value| {
-                        let label = value.to_string();
-                        let edit = CompletionEdit::new_literal(&label, position, completion_hint);
-                        CompletionContent::new_enumerate_value(
-                            CompletionKind::Boolean,
-                            value.to_string(),
-                            self.title.clone(),
-                            self.description.clone(),
-                            edit,
-                            schema_uri,
-                            self.deprecated,
-                        )
-                    })
-                    .collect()
-            } else {
-                type_hint_boolean(position, schema_uri, completion_hint)
+            if let Some(r#enum) = &self.r#enum {
+                completion_items.extend(r#enum.iter().map(|value| {
+                    let label = value.to_string();
+                    let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                    CompletionContent::new_enum_value(
+                        value.to_string(),
+                        self.title.clone(),
+                        self.description.clone(),
+                        edit,
+                        schema_uri,
+                        self.deprecated,
+                    )
+                }));
+
+                return completion_items;
             }
+
+            if let Some(examples) = &self.examples {
+                for example in examples {
+                    let label = example.to_string();
+                    if completion_items.iter().any(|item| item.label == label) {
+                        continue;
+                    }
+                    let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                    completion_items.push(CompletionContent::new_example_value(
+                        label,
+                        self.title.clone(),
+                        self.description.clone(),
+                        edit,
+                        schema_uri,
+                        self.deprecated,
+                    ));
+                }
+            }
+
+            if completion_items.is_empty() {
+                completion_items = type_hint_boolean(position, schema_uri, completion_hint);
+            }
+
+            completion_items
         }
         .boxed()
     }

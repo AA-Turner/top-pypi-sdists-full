@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import copy
+import math
 import time
 from contextlib import closing
 from threading import Event, RLock, Thread
@@ -25,6 +26,7 @@ from aws_advanced_python_wrapper.errors import (AwsWrapperError,
                                                 UnsupportedOperationError)
 from aws_advanced_python_wrapper.host_availability import HostAvailability
 from aws_advanced_python_wrapper.hostinfo import HostInfo, HostRole
+from aws_advanced_python_wrapper.pep249_methods import DbApiMethod
 from aws_advanced_python_wrapper.plugin import Plugin
 from aws_advanced_python_wrapper.utils.concurrent import ConcurrentDict
 from aws_advanced_python_wrapper.utils.log import Logger
@@ -99,8 +101,8 @@ class LimitlessPlugin(Plugin):
 
 
 class LimitlessPluginFactory:
-
-    def get_instance(self, plugin_service: PluginService, props: Properties) -> Plugin:
+    @staticmethod
+    def get_instance(plugin_service: PluginService, props: Properties) -> Plugin:
         return LimitlessPlugin(plugin_service, props)
 
 
@@ -232,7 +234,7 @@ class LimitlessQueryHelper:
         query = aurora_limitless_dialect.limitless_router_endpoint_query
 
         with closing(connection.cursor()) as cursor:
-            self._plugin_service.driver_dialect.execute("Cursor.execute",
+            self._plugin_service.driver_dialect.execute(DbApiMethod.CURSOR_EXECUTE.method_name,
                                                         lambda: cursor.execute(query),
                                                         query,
                                                         exec_timeout=LimitlessQueryHelper._DEFAULT_QUERY_TIMEOUT_SEC)
@@ -248,7 +250,7 @@ class LimitlessQueryHelper:
         host_name: str = result[0]
         cpu: float = float(result[1])
 
-        weight: int = round(10 - (cpu * 10))
+        weight: int = 10 - math.floor(cpu * 10)
         if weight < 1 or weight > 10:
             weight = 1
             logger.debug("LimitlessRouterMonitor.InvalidRouterLoad", host_name, cpu)

@@ -1,0 +1,257 @@
+Metadata-Version: 2.4
+Name: sqlalchemy-jdbcapi
+Version: 2.2.1
+Summary: Modern SQLAlchemy dialect for JDBC connections with native implementation
+Author: Pavel Henrykhsen
+Author-email: Danesh Patel <danesh_patel@outlook.com>
+Maintainer-email: Danesh Patel <danesh_patel@outlook.com>
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/daneshpatel/sqlalchemy-jdbcapi
+Project-URL: Documentation, https://sqlalchemy-jdbcapi.readthedocs.io
+Project-URL: Repository, https://github.com/daneshpatel/sqlalchemy-jdbcapi
+Project-URL: Issues, https://github.com/daneshpatel/sqlalchemy-jdbcapi/issues
+Project-URL: Changelog, https://github.com/daneshpatel/sqlalchemy-jdbcapi/blob/main/CHANGELOG.md
+Keywords: sqlalchemy,jdbc,database,postgresql,oracle,mysql,sql-server,db2,oceanbase
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Database
+Classifier: Topic :: Database :: Front-Ends
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: AUTHORS
+Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: JPype1>=1.5.0
+Provides-Extra: odbc
+Requires-Dist: pyodbc>=5.0.0; extra == "odbc"
+Provides-Extra: dataframe
+Requires-Dist: pandas>=2.0.0; extra == "dataframe"
+Requires-Dist: polars>=0.20.0; extra == "dataframe"
+Requires-Dist: pyarrow>=14.0.0; extra == "dataframe"
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.12.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Requires-Dist: pytest-xdist>=3.5.0; extra == "dev"
+Requires-Dist: mypy>=1.8.0; extra == "dev"
+Requires-Dist: ruff>=0.2.0; extra == "dev"
+Requires-Dist: pre-commit>=3.6.0; extra == "dev"
+Requires-Dist: tox>=4.11.0; extra == "dev"
+Requires-Dist: build>=1.0.0; extra == "dev"
+Requires-Dist: twine>=5.0.0; extra == "dev"
+Requires-Dist: bump2version>=1.0.1; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx>=7.2.0; extra == "docs"
+Requires-Dist: furo>=2024.1.29; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints>=1.25.0; extra == "docs"
+Requires-Dist: sphinx-copybutton>=0.5.2; extra == "docs"
+Requires-Dist: myst-parser>=2.0.0; extra == "docs"
+Provides-Extra: types
+Requires-Dist: types-python-dateutil; extra == "types"
+Provides-Extra: all
+Requires-Dist: sqlalchemy-jdbcapi[dataframe,dev,docs,odbc,types]; extra == "all"
+Dynamic: license-file
+
+# SQLAlchemy JDBC/ODBC API
+
+[![CI](https://github.com/daneshpatel/sqlalchemy-jdbcapi/workflows/CI/badge.svg)](https://github.com/daneshpatel/sqlalchemy-jdbcapi/actions)
+[![PyPI version](https://img.shields.io/pypi/v/sqlalchemy-jdbcapi.svg)](https://pypi.org/project/sqlalchemy-jdbcapi/)
+[![Python versions](https://img.shields.io/pypi/pyversions/sqlalchemy-jdbcapi.svg)](https://pypi.org/project/sqlalchemy-jdbcapi/)
+[![License](https://img.shields.io/pypi/l/sqlalchemy-jdbcapi.svg)](LICENSE)
+[![Downloads](https://img.shields.io/pypi/dm/sqlalchemy-jdbcapi.svg)](https://pypi.org/project/sqlalchemy-jdbcapi/)
+
+Modern, type-safe SQLAlchemy dialect for JDBC and ODBC connections with native Python implementation.
+
+> **Community Help Needed**: We don't have access to all database systems for thorough testing. If you encounter issues connecting to a particular database, please [raise an issue](https://github.com/daneshpatel/sqlalchemy-jdbcapi/issues) - we rely on community feedback to improve support for all databases.
+
+## Features
+
+-  **Automatic JDBC driver download** from Maven Central (zero configuration!)
+-  **ODBC support** for native database connectivity
+-  **Full SQLAlchemy integration** (ORM, reflection, Alembic, Inspector API)
+-  **DataFrame integration** (pandas, polars, pyarrow)
+- ️ **18 database dialects** (PostgreSQL, Oracle, MySQL, MariaDB, SQL Server, DB2, SQLite, OceanBase, GBase 8s, IBM iSeries, MS Access, Apache Phoenix)
+-  **Asyncio support** for Core and ORM operations
+-  **HikariCP connection pooling** for high-performance connections
+-  **Database X-Ray** for query monitoring and performance tracing
+-  **Modern Python 3.10+** with full type hints
+-  **SQLAlchemy 2.0+** compatible
+
+## Installation
+
+```bash
+# Basic installation
+pip install sqlalchemy-jdbcapi
+
+# With DataFrame support
+pip install sqlalchemy-jdbcapi[dataframe]
+
+# With ODBC support
+pip install sqlalchemy-jdbcapi[odbc]
+```
+
+### JDBC Requirements
+
+JDBC requires Java Runtime Environment (JRE) 8+:
+
+```bash
+# Check Java installation
+java -version
+
+# Install on Ubuntu/Debian
+sudo apt-get install default-jre
+
+# Install on macOS
+brew install openjdk
+```
+
+## Quick Start
+
+### JDBC (Recommended - Auto-Download)
+
+```python
+from sqlalchemy import create_engine
+
+# PostgreSQL - driver downloads automatically!
+engine = create_engine('jdbcapi+postgresql://user:password@localhost/mydb')
+
+# Oracle
+engine = create_engine('jdbcapi+oracle://user:password@localhost:1521/ORCL')
+
+# MySQL
+engine = create_engine('jdbcapi+mysql://user:password@localhost/mydb')
+```
+
+### ODBC (Alternative - No JVM)
+
+```python
+from sqlalchemy import create_engine
+
+# Requires OS-installed ODBC driver
+engine = create_engine('odbcapi+postgresql://user:password@localhost/mydb')
+```
+
+### Usage Example
+
+```python
+from sqlalchemy import create_engine, text
+
+engine = create_engine('jdbcapi+postgresql://user:pass@localhost/db')
+
+with engine.connect() as conn:
+    result = conn.execute(text("SELECT * FROM users"))
+    for row in result:
+        print(row)
+```
+
+## Documentation
+
+📖 **[Full Documentation](https://daneshpatel.github.io/sqlalchemy-jdbcapi/)** (Recommended)
+
+### Quick Links
+
+- **[Quick Start Guide](docs/quickstart.md)** - Get started in 5 minutes
+- **[Usage Guide](docs/usage.md)** - Comprehensive examples
+- **[Drivers Guide](docs/drivers.md)** - Driver installation & configuration
+- **[SQLAlchemy Integration](docs/sqlalchemy_integration.md)** - ORM, reflection, Alembic
+- **[Examples](docs/examples.md)** - Code examples for all databases
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues & solutions
+
+## Supported Databases
+
+| Database | JDBC | ODBC | Auto-Download | Async |
+|----------|------|------|---------------|-------|
+| PostgreSQL | ✅ | ✅ | ✅ | ✅ |
+| Oracle | ✅ | ✅ | ✅ | ✅ |
+| MySQL | ✅ | ✅ | ✅ | ✅ |
+| MariaDB | ✅ | ✅ | ✅ | ✅ |
+| SQL Server | ✅ | ✅ | ✅ | ✅ |
+| DB2 | ✅ | ❌ | ✅ | ✅ |
+| SQLite | ✅ | ❌ | ✅ | ✅ |
+| OceanBase | ✅ | ❌ | ✅ | ❌ |
+| GBase 8s | ✅ | ❌ | ✅ | ❌ |
+| IBM iSeries | ✅ | ❌ | ✅ | ❌ |
+| MS Access | ✅ | ❌ | ✅ | ❌ |
+| Apache Phoenix | ✅ | ❌ | ✅ | ❌ |
+
+See **[Drivers Guide](docs/drivers.md)** for detailed configuration.
+
+## What's New in 2.1
+
+Version 2.1 adds major new capabilities:
+
+-  **New database dialects**: GBase 8s, IBM iSeries, MS Access, Apache Phoenix/Avatica
+-  **Asyncio support**: Full async/await for Core and ORM operations
+-  **HikariCP integration**: High-performance connection pooling
+-  **Database X-Ray**: Query monitoring, metrics, and performance tracing
+-  **Docker test suite**: Functional tests with real databases
+
+## What's New in 2.0
+
+Version 2.0 was a complete modernization:
+
+-  Native JDBC implementation (replaced JayDeBeApi)
+-  Added ODBC support
+-  DataFrame integration (pandas, polars, pyarrow)
+-  Full SQLAlchemy native dialect (ORM, reflection, Alembic)
+-  Expanded from 3 to 12 database dialects
+-  Modern Python 3.10+ with complete type hints
+-  SQLAlchemy 2.0+ support
+
+See **[CHANGELOG.md](CHANGELOG.md)** for migration guide.
+
+## Contributing
+
+We welcome contributions! Please see:
+
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
+- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** - Community guidelines
+- **[SECURITY.md](SECURITY.md)** - Security policy
+
+## Development
+
+```bash
+# Clone repository
+git clone https://github.com/daneshpatel/sqlalchemy-jdbcapi.git
+cd sqlalchemy-jdbcapi
+
+# Install in development mode
+pip install -e ".[dev]"
+
+# Run tests
+pytest tests/
+
+# Run linting
+ruff check src tests
+```
+
+See **[Contributing Guide](CONTRIBUTING.md)** for detailed instructions.
+
+## License
+
+This project is licensed under the Apache License 2.0 - see [LICENSE](LICENSE) file for details.
+
+## Links
+
+- **[Documentation](https://daneshpatel.github.io/sqlalchemy-jdbcapi/)** - Full documentation
+- **[PyPI](https://pypi.org/project/sqlalchemy-jdbcapi/)** - Package on PyPI
+- **[GitHub](https://github.com/daneshpatel/sqlalchemy-jdbcapi)** - Source code
+- **[Issues](https://github.com/daneshpatel/sqlalchemy-jdbcapi/issues)** - Bug reports & feature requests
+- **[Changelog](CHANGELOG.md)** - Version history
+
+## Support
+
+- **Issues**: Report bugs or request features on [GitHub Issues](https://github.com/daneshpatel/sqlalchemy-jdbcapi/issues)
+- **Discussions**: Ask questions on [GitHub Discussions](https://github.com/daneshpatel/sqlalchemy-jdbcapi/discussions)
+

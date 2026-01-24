@@ -28,7 +28,7 @@ class UpdateNatsTriggerJsonBody:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, UpdateNatsTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, UpdateNatsTriggerJsonBodyRetry]):
+        retry (Union[Unset, UpdateNatsTriggerJsonBodyRetry]): Retry configuration for failed module executions
     """
 
     nats_resource_path: str

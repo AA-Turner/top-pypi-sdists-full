@@ -12,7 +12,7 @@ from .insights import (
     InsightsResourceWithStreamingResponse,
     AsyncInsightsResourceWithStreamingResponse,
 )
-from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
 from ....._utils import maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
@@ -22,16 +22,15 @@ from ....._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from ....._base_client import make_request_options
+from .....pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
+from ....._base_client import AsyncPaginator, make_request_options
 from .....types.ai.conversations import (
     insight_group_update_params,
     insight_group_insight_groups_params,
     insight_group_retrieve_insight_groups_params,
 )
+from .....types.ai.conversations.insight_template_group import InsightTemplateGroup
 from .....types.ai.conversations.insight_template_group_detail import InsightTemplateGroupDetail
-from .....types.ai.conversations.insight_group_retrieve_insight_groups_response import (
-    InsightGroupRetrieveInsightGroupsResponse,
-)
 
 __all__ = ["InsightGroupsResource", "AsyncInsightGroupsResource"]
 
@@ -151,7 +150,7 @@ class InsightGroupsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> None:
         """
         Delete insight group by ID
 
@@ -168,12 +167,13 @@ class InsightGroupsResource(SyncAPIResource):
         """
         if not group_id:
             raise ValueError(f"Expected a non-empty value for `group_id` but received {group_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
             f"/ai/conversations/insight-groups/{group_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=object,
+            cast_to=NoneType,
         )
 
     def insight_groups(
@@ -220,21 +220,19 @@ class InsightGroupsResource(SyncAPIResource):
     def retrieve_insight_groups(
         self,
         *,
-        page: insight_group_retrieve_insight_groups_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> InsightGroupRetrieveInsightGroupsResponse:
+    ) -> SyncDefaultFlatPagination[InsightTemplateGroup]:
         """
         Get all insight groups
 
         Args:
-          page: Consolidated page parameter (deepObject style). Originally: page[number],
-              page[size]
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -243,18 +241,23 @@ class InsightGroupsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return self._get(
+        return self._get_api_list(
             "/ai/conversations/insight-groups",
+            page=SyncDefaultFlatPagination[InsightTemplateGroup],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
                 query=maybe_transform(
-                    {"page": page}, insight_group_retrieve_insight_groups_params.InsightGroupRetrieveInsightGroupsParams
+                    {
+                        "page_number": page_number,
+                        "page_size": page_size,
+                    },
+                    insight_group_retrieve_insight_groups_params.InsightGroupRetrieveInsightGroupsParams,
                 ),
             ),
-            cast_to=InsightGroupRetrieveInsightGroupsResponse,
+            model=InsightTemplateGroup,
         )
 
 
@@ -373,7 +376,7 @@ class AsyncInsightGroupsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> None:
         """
         Delete insight group by ID
 
@@ -390,12 +393,13 @@ class AsyncInsightGroupsResource(AsyncAPIResource):
         """
         if not group_id:
             raise ValueError(f"Expected a non-empty value for `group_id` but received {group_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
             f"/ai/conversations/insight-groups/{group_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=object,
+            cast_to=NoneType,
         )
 
     async def insight_groups(
@@ -439,24 +443,22 @@ class AsyncInsightGroupsResource(AsyncAPIResource):
             cast_to=InsightTemplateGroupDetail,
         )
 
-    async def retrieve_insight_groups(
+    def retrieve_insight_groups(
         self,
         *,
-        page: insight_group_retrieve_insight_groups_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> InsightGroupRetrieveInsightGroupsResponse:
+    ) -> AsyncPaginator[InsightTemplateGroup, AsyncDefaultFlatPagination[InsightTemplateGroup]]:
         """
         Get all insight groups
 
         Args:
-          page: Consolidated page parameter (deepObject style). Originally: page[number],
-              page[size]
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -465,18 +467,23 @@ class AsyncInsightGroupsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return await self._get(
+        return self._get_api_list(
             "/ai/conversations/insight-groups",
+            page=AsyncDefaultFlatPagination[InsightTemplateGroup],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=await async_maybe_transform(
-                    {"page": page}, insight_group_retrieve_insight_groups_params.InsightGroupRetrieveInsightGroupsParams
+                query=maybe_transform(
+                    {
+                        "page_number": page_number,
+                        "page_size": page_size,
+                    },
+                    insight_group_retrieve_insight_groups_params.InsightGroupRetrieveInsightGroupsParams,
                 ),
             ),
-            cast_to=InsightGroupRetrieveInsightGroupsResponse,
+            model=InsightTemplateGroup,
         )
 
 

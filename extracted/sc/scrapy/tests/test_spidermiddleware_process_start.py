@@ -2,7 +2,6 @@ import warnings
 from asyncio import sleep
 
 import pytest
-from twisted.trial.unittest import TestCase
 
 from scrapy import Spider, signals
 from scrapy.exceptions import ScrapyDeprecationWarning
@@ -47,7 +46,7 @@ class UniversalSpiderMiddleware:
         raise NotImplementedError
 
 
-# Spiders and spider middlewares for MainTestCase._test_wrap
+# Spiders and spider middlewares for TestMain._test_wrap
 
 
 class ModernWrapSpider(Spider):
@@ -106,7 +105,7 @@ class DeprecatedWrapSpiderMiddleware:
         yield ITEM_C
 
 
-class MainTestCase(TestCase):
+class TestMain:
     async def _test(self, spider_middlewares, spider_cls, expected_items):
         actual_items = []
 
@@ -118,7 +117,7 @@ class MainTestCase(TestCase):
         }
         crawler = get_crawler(spider_cls, settings_dict=settings)
         crawler.signals.connect(track_item, signals.item_scraped)
-        await maybe_deferred_to_future(crawler.crawl())
+        await crawler.crawl_async()
         assert crawler.stats.get_value("finish_reason") == "finished"
         assert actual_items == expected_items, f"{actual_items=} != {expected_items=}"
 

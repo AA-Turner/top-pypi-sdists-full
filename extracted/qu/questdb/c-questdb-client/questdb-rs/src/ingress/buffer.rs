@@ -21,13 +21,15 @@
  *  limitations under the License.
  *
  ******************************************************************************/
-use crate::ingress::ndarr::{check_and_get_array_bytes_size, ArrayElementSealed};
+
+use crate::ingress::decimal::DecimalView;
+use crate::ingress::ndarr::{ArrayElementSealed, check_and_get_array_bytes_size};
 use crate::ingress::{
-    ndarr, ArrayElement, DebugBytes, NdArrayView, ProtocolVersion, Timestamp, TimestampMicros,
-    TimestampNanos, ARRAY_BINARY_FORMAT_TYPE, DOUBLE_BINARY_FORMAT_TYPE, MAX_ARRAY_DIMS,
-    MAX_NAME_LEN_DEFAULT,
+    ARRAY_BINARY_FORMAT_TYPE, ArrayElement, DOUBLE_BINARY_FORMAT_TYPE, DebugBytes, MAX_ARRAY_DIMS,
+    MAX_NAME_LEN_DEFAULT, NdArrayView, ProtocolVersion, Timestamp, TimestampMicros, TimestampNanos,
+    ndarr,
 };
-use crate::{error, Error};
+use crate::{Error, error};
 use std::fmt::{Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::slice::from_raw_parts_mut;
@@ -281,7 +283,7 @@ impl<'a> TryFrom<&'a str> for TableName<'a> {
     }
 }
 
-impl<'a> AsRef<str> for TableName<'a> {
+impl AsRef<str> for TableName<'_> {
     fn as_ref(&self) -> &str {
         self.name
     }
@@ -368,7 +370,7 @@ impl<'a> TryFrom<&'a str> for ColumnName<'a> {
     }
 }
 
-impl<'a> AsRef<str> for ColumnName<'a> {
+impl AsRef<str> for ColumnName<'_> {
     fn as_ref(&self) -> &str {
         self.name
     }
@@ -975,6 +977,103 @@ impl Buffer {
         Ok(self)
     }
 
+    /// Record a decimal value for the given column.
+    ///
+    /// ```no_run
+    /// # use questdb::Result;
+    /// # use questdb::ingress::{Buffer, SenderBuilder};
+    /// # fn main() -> Result<()> {
+    /// # let mut sender = SenderBuilder::from_conf("https::addr=localhost:9000;")?.build()?;
+    /// # let mut buffer = sender.new_buffer();
+    /// # buffer.table("x")?;
+    /// buffer.column_dec("col_name", "123.45")?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// When specifying a decimal as a string, use a '.' to separate the whole from the
+    /// fractional parts. For example, "12.20".
+    /// Infinity is encoded as "+Infinity" or "-Infinity", while NaN as "NaN".
+    /// Note that Infinity and NaN values decay to nulls when stored in the database.
+    /// or
+    ///
+    /// ```no_run
+    /// # use questdb::Result;
+    /// # use questdb::ingress::{Buffer, SenderBuilder};
+    /// use questdb::ingress::ColumnName;
+    ///
+    /// # fn main() -> Result<()> {
+    /// # let mut sender = SenderBuilder::from_conf("https::addr=localhost:9000;")?.build()?;
+    /// # let mut buffer = sender.new_buffer();
+    /// # buffer.table("x")?;
+    /// let col_name = ColumnName::new("col_name")?;
+    /// buffer.column_dec(col_name, "123.45")?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// With `rust_decimal` feature enabled:
+    ///
+    /// ```no_run
+    /// # #[cfg(feature = "rust_decimal")]
+    /// # {
+    /// # use questdb::Result;
+    /// # use questdb::ingress::{Buffer, SenderBuilder};
+    /// use rust_decimal::Decimal;
+    /// use std::str::FromStr;
+    ///
+    /// # fn main() -> Result<()> {
+    /// # let mut sender = SenderBuilder::from_conf("https::addr=localhost:9000;")?.build()?;
+    /// # let mut buffer = sender.new_buffer();
+    /// # buffer.table("x")?;
+    /// let value = Decimal::from_str("123.45").unwrap();
+    /// buffer.column_dec("col_name", &value)?;
+    /// # Ok(())
+    /// # }
+    /// # }
+    /// ```
+    ///
+    /// With `bigdecimal` feature enabled:
+    ///
+    /// ```no_run
+    /// # #[cfg(feature = "bigdecimal")]
+    /// # {
+    /// # use questdb::Result;
+    /// # use questdb::ingress::{Buffer, SenderBuilder};
+    /// use bigdecimal::BigDecimal;
+    /// use std::str::FromStr;
+    ///
+    /// # fn main() -> Result<()> {
+    /// # let mut sender = SenderBuilder::from_conf("https::addr=localhost:9000;")?.build()?;
+    /// # let mut buffer = sender.new_buffer();
+    /// # buffer.table("x")?;
+    /// let value = BigDecimal::from_str("0.123456789012345678901234567890").unwrap();
+    /// buffer.column_dec("col_name", &value)?;
+    /// # Ok(())
+    /// # }
+    /// # }
+    /// ```
+    pub fn column_dec<'a, N, S>(&mut self, name: N, value: S) -> crate::Result<&mut Self>
+    where
+        N: TryInto<ColumnName<'a>>,
+        S: TryInto<DecimalView<'a>>,
+        Error: From<N::Error>,
+        Error: From<S::Error>,
+    {
+        if self.protocol_version < ProtocolVersion::V3 {
+            return Err(error::fmt!(
+                ProtocolVersionError,
+                "Protocol version {} does not support the decimal datatype",
+                self.protocol_version
+            ));
+        }
+
+        let value: DecimalView = value.try_into()?;
+        self.write_column_key(name)?;
+        value.serialize(&mut self.output);
+        Ok(self)
+    }
+
     /// Record a multidimensional array value for the given column.
     ///
     /// Supports arrays with up to [`MAX_ARRAY_DIMS`] dimensions. The array elements must
@@ -1030,10 +1129,11 @@ impl Buffer {
         D: ArrayElement + ArrayElementSealed,
         Error: From<N::Error>,
     {
-        if self.protocol_version == ProtocolVersion::V1 {
+        if self.protocol_version < ProtocolVersion::V2 {
             return Err(error::fmt!(
                 ProtocolVersionError,
-                "Protocol version v1 does not support array datatype",
+                "Protocol version {} does not support array datatype",
+                self.protocol_version
             ));
         }
         let ndim = view.ndim();
@@ -1148,11 +1248,19 @@ impl Buffer {
     {
         self.write_column_key(name)?;
         let timestamp: Timestamp = value.try_into()?;
-        let timestamp: TimestampMicros = timestamp.try_into()?;
+        let (number, suffix) = match (self.protocol_version, timestamp) {
+            (ProtocolVersion::V1, _) => {
+                let timestamp: TimestampMicros = timestamp.try_into()?;
+                (timestamp.as_i64(), b't')
+            }
+            (_, Timestamp::Micros(ts)) => (ts.as_i64(), b't'),
+            (_, Timestamp::Nanos(ts)) => (ts.as_i64(), b'n'),
+        };
+
         let mut buf = itoa::Buffer::new();
-        let printed = buf.format(timestamp.as_i64());
+        let printed = buf.format(number);
         self.output.extend_from_slice(printed.as_bytes());
-        self.output.push(b't');
+        self.output.push(suffix);
         Ok(self)
     }
 
@@ -1202,23 +1310,28 @@ impl Buffer {
         self.check_op(Op::At)?;
         let timestamp: Timestamp = timestamp.try_into()?;
 
-        // https://github.com/rust-lang/rust/issues/115880
-        let timestamp: crate::Result<TimestampNanos> = timestamp.try_into();
-        let timestamp: TimestampNanos = timestamp?;
+        let (number, termination) = match (self.protocol_version, timestamp) {
+            (ProtocolVersion::V1, _) => {
+                let timestamp: crate::Result<TimestampNanos> = timestamp.try_into();
+                (timestamp?.as_i64(), "\n")
+            }
+            (_, Timestamp::Micros(micros)) => (micros.as_i64(), "t\n"),
+            (_, Timestamp::Nanos(nanos)) => (nanos.as_i64(), "n\n"),
+        };
 
-        let epoch_nanos = timestamp.as_i64();
-        if epoch_nanos < 0 {
+        if number < 0 {
             return Err(error::fmt!(
                 InvalidTimestamp,
                 "Timestamp {} is negative. It must be >= 0.",
-                epoch_nanos
+                number
             ));
         }
+
         let mut buf = itoa::Buffer::new();
-        let printed = buf.format(epoch_nanos);
+        let printed = buf.format(number);
         self.output.push(b' ');
         self.output.extend_from_slice(printed.as_bytes());
-        self.output.push(b'\n');
+        self.output.extend_from_slice(termination.as_bytes());
         self.state.op_case = OpCase::MayFlushOrTable;
         self.state.row_count += 1;
         Ok(())

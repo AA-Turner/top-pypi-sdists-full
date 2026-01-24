@@ -18,11 +18,8 @@ def add_object_align_init(
     """Return a matrix using the operator settings and view context.
 
     :param context: The context to use.
-    :type context: bpy.types.Context
     :param operator: The operator, checked for location and rotation properties.
-    :type operator: bpy.types.Operator
     :return: the matrix from the context and settings.
-    :rtype: mathutils.Matrix
     """
 
 def object_add_grid_scale(context) -> None:
@@ -44,15 +41,10 @@ def object_data_add(
     location, rotation and layer.
 
         :param context: The context to use.
-        :type context: bpy.types.Context
         :param obdata: Valid object data to used for the new object or None.
-        :type obdata: None | bpy.types.ID
         :param operator: The operator, checked for location and rotation properties.
-        :type operator: bpy.types.Operator | None
         :param name: Optional name
-        :type name: str | None
         :return: the newly created object in the scene.
-        :rtype: bpy.types.Object
     """
 
 def object_report_if_active_shape_key_is_locked(
@@ -61,9 +53,7 @@ def object_report_if_active_shape_key_is_locked(
     """Checks if the active shape key of the specified object is locked, and reports an error if so.If the object has no shape keys, there is nothing to lock, and the function returns False.
 
     :param obj: Object to check.
-    :type obj: bpy.types.Object
     :param operator: Currently running operator to report the error through. Use None to suppress emitting the message.
-    :type operator: bpy.types.Operator
     :return: True if the shape key was locked.
     """
 
@@ -80,12 +70,8 @@ def world_to_camera_view(
     as well as perspective/ortho projections.
 
         :param scene: Scene to use for frame size.
-        :type scene: bpy.types.Scene
         :param obj: Camera object.
-        :type obj: bpy.types.Object
         :param coord: World space location.
-        :type coord: collections.abc.Sequence[float] | mathutils.Vector
         :return: a vector where X and Y map to the view plane and
     Z is the depth on the view axis.
-        :rtype: mathutils.Vector
     """

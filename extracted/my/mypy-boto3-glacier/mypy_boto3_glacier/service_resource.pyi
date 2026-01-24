@@ -3,7 +3,7 @@ Type annotations for glacier service ServiceResource.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glacier/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -28,6 +28,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator, Sequence
 
 from boto3.resources.base import ResourceMeta, ServiceResource
 from boto3.resources.collection import ResourceCollection
@@ -54,11 +55,6 @@ from .type_defs import (
     UploadMultipartPartOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import list as List
-    from collections.abc import Iterator, Sequence
-else:
-    from typing import Iterator, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -125,7 +121,7 @@ class ServiceResourceVaultsCollection(ResourceCollection):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glacier/service_resource/#serviceresourcevaultscollection)
         """
 
-    def pages(self) -> Iterator[List[Vault]]:
+    def pages(self) -> Iterator[list[Vault]]:
         """
         A generator which yields pages of Vaults.
 
@@ -183,7 +179,7 @@ class AccountVaultsCollection(ResourceCollection):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glacier/service_resource/#accountvaults)
         """
 
-    def pages(self) -> Iterator[List[Vault]]:
+    def pages(self) -> Iterator[list[Vault]]:
         """
         A generator which yields pages of Vaults.
 
@@ -241,7 +237,7 @@ class VaultCompletedJobsCollection(ResourceCollection):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glacier/service_resource/#vaultcompleted_jobs)
         """
 
-    def pages(self) -> Iterator[List[Job]]:
+    def pages(self) -> Iterator[list[Job]]:
         """
         A generator which yields pages of Jobs.
 
@@ -299,7 +295,7 @@ class VaultFailedJobsCollection(ResourceCollection):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glacier/service_resource/#vaultfailed_jobs)
         """
 
-    def pages(self) -> Iterator[List[Job]]:
+    def pages(self) -> Iterator[list[Job]]:
         """
         A generator which yields pages of Jobs.
 
@@ -357,7 +353,7 @@ class VaultJobsCollection(ResourceCollection):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glacier/service_resource/#vaultjobs)
         """
 
-    def pages(self) -> Iterator[List[Job]]:
+    def pages(self) -> Iterator[list[Job]]:
         """
         A generator which yields pages of Jobs.
 
@@ -415,7 +411,7 @@ class VaultJobsInProgressCollection(ResourceCollection):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glacier/service_resource/#vaultjobs_in_progress)
         """
 
-    def pages(self) -> Iterator[List[Job]]:
+    def pages(self) -> Iterator[list[Job]]:
         """
         A generator which yields pages of Jobs.
 
@@ -473,7 +469,7 @@ class VaultMultipartUplaodsCollection(ResourceCollection):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glacier/service_resource/#vaultmultipart_uplaods)
         """
 
-    def pages(self) -> Iterator[List[MultipartUpload]]:
+    def pages(self) -> Iterator[list[MultipartUpload]]:
         """
         A generator which yields pages of MultipartUploads.
 
@@ -531,7 +527,7 @@ class VaultMultipartUploadsCollection(ResourceCollection):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glacier/service_resource/#vaultmultipart_uploads)
         """
 
-    def pages(self) -> Iterator[List[MultipartUpload]]:
+    def pages(self) -> Iterator[list[MultipartUpload]]:
         """
         A generator which yields pages of MultipartUploads.
 
@@ -589,7 +585,7 @@ class VaultSucceededJobsCollection(ResourceCollection):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glacier/service_resource/#vaultsucceeded_jobs)
         """
 
-    def pages(self) -> Iterator[List[Job]]:
+    def pages(self) -> Iterator[list[Job]]:
         """
         A generator which yields pages of Jobs.
 
@@ -796,9 +792,9 @@ class MultipartUpload(ServiceResource):
         self, **kwargs: Unpack[CompleteMultipartUploadInputMultipartUploadCompleteTypeDef]
     ) -> ArchiveCreationOutputTypeDef:
         """
-        You call this operation to inform Amazon S3 Glacier (Glacier) that all the
-        archive parts have been uploaded and that Glacier can now assemble the archive
-        from the uploaded parts.
+        You call this operation to inform Amazon Glacier (Glacier) that all the archive
+        parts have been uploaded and that Glacier can now assemble the archive from the
+        uploaded parts.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glacier/multipartupload/complete.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glacier/service_resource/#multipartuploadcomplete-method)
@@ -844,7 +840,7 @@ class Notification(ServiceResource):
     account_id: str
     vault_name: str
     sns_topic: str
-    events: List[str]
+    events: list[str]
     meta: GlacierResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

@@ -21,6 +21,10 @@ __all__ = [
     'AccessPosixProfileArgsDict',
     'ConnectorAs2ConfigArgs',
     'ConnectorAs2ConfigArgsDict',
+    'ConnectorEgressConfigArgs',
+    'ConnectorEgressConfigArgsDict',
+    'ConnectorEgressConfigVpcLatticeArgs',
+    'ConnectorEgressConfigVpcLatticeArgsDict',
     'ConnectorSftpConfigArgs',
     'ConnectorSftpConfigArgsDict',
     'ServerEndpointDetailsArgs',
@@ -39,6 +43,16 @@ __all__ = [
     'UserHomeDirectoryMappingArgsDict',
     'UserPosixProfileArgs',
     'UserPosixProfileArgsDict',
+    'WebAppEndpointDetailsArgs',
+    'WebAppEndpointDetailsArgsDict',
+    'WebAppEndpointDetailsVpcArgs',
+    'WebAppEndpointDetailsVpcArgsDict',
+    'WebAppIdentityProviderDetailsArgs',
+    'WebAppIdentityProviderDetailsArgsDict',
+    'WebAppIdentityProviderDetailsIdentityCenterConfigArgs',
+    'WebAppIdentityProviderDetailsIdentityCenterConfigArgsDict',
+    'WebAppWebAppUnitArgs',
+    'WebAppWebAppUnitArgsDict',
     'WorkflowOnExceptionStepArgs',
     'WorkflowOnExceptionStepArgsDict',
     'WorkflowOnExceptionStepCopyStepDetailsArgs',
@@ -379,6 +393,89 @@ class ConnectorAs2ConfigArgs:
     @message_subject.setter
     def message_subject(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "message_subject", value)
+
+
+if not MYPY:
+    class ConnectorEgressConfigArgsDict(TypedDict):
+        vpc_lattice: NotRequired[pulumi.Input['ConnectorEgressConfigVpcLatticeArgsDict']]
+        """
+        VPC Lattice configuration for routing connector traffic through customer VPCs. Fields documented below.
+        """
+elif False:
+    ConnectorEgressConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ConnectorEgressConfigArgs:
+    def __init__(__self__, *,
+                 vpc_lattice: Optional[pulumi.Input['ConnectorEgressConfigVpcLatticeArgs']] = None):
+        """
+        :param pulumi.Input['ConnectorEgressConfigVpcLatticeArgs'] vpc_lattice: VPC Lattice configuration for routing connector traffic through customer VPCs. Fields documented below.
+        """
+        if vpc_lattice is not None:
+            pulumi.set(__self__, "vpc_lattice", vpc_lattice)
+
+    @_builtins.property
+    @pulumi.getter(name="vpcLattice")
+    def vpc_lattice(self) -> Optional[pulumi.Input['ConnectorEgressConfigVpcLatticeArgs']]:
+        """
+        VPC Lattice configuration for routing connector traffic through customer VPCs. Fields documented below.
+        """
+        return pulumi.get(self, "vpc_lattice")
+
+    @vpc_lattice.setter
+    def vpc_lattice(self, value: Optional[pulumi.Input['ConnectorEgressConfigVpcLatticeArgs']]):
+        pulumi.set(self, "vpc_lattice", value)
+
+
+if not MYPY:
+    class ConnectorEgressConfigVpcLatticeArgsDict(TypedDict):
+        resource_configuration_arn: pulumi.Input[_builtins.str]
+        """
+        ARN of the VPC Lattice Resource Configuration that defines the target SFTP server location. Must point to a valid Resource Configuration in a VPC with appropriate network connectivity to the SFTP server.
+        """
+        port_number: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Port number for connecting to the SFTP server through VPC Lattice. Defaults to 22 if not specified. Must match the port on which the target SFTP server is listening. Valid values are between 1 and 65535.
+        """
+elif False:
+    ConnectorEgressConfigVpcLatticeArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ConnectorEgressConfigVpcLatticeArgs:
+    def __init__(__self__, *,
+                 resource_configuration_arn: pulumi.Input[_builtins.str],
+                 port_number: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.str] resource_configuration_arn: ARN of the VPC Lattice Resource Configuration that defines the target SFTP server location. Must point to a valid Resource Configuration in a VPC with appropriate network connectivity to the SFTP server.
+        :param pulumi.Input[_builtins.int] port_number: Port number for connecting to the SFTP server through VPC Lattice. Defaults to 22 if not specified. Must match the port on which the target SFTP server is listening. Valid values are between 1 and 65535.
+        """
+        pulumi.set(__self__, "resource_configuration_arn", resource_configuration_arn)
+        if port_number is not None:
+            pulumi.set(__self__, "port_number", port_number)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceConfigurationArn")
+    def resource_configuration_arn(self) -> pulumi.Input[_builtins.str]:
+        """
+        ARN of the VPC Lattice Resource Configuration that defines the target SFTP server location. Must point to a valid Resource Configuration in a VPC with appropriate network connectivity to the SFTP server.
+        """
+        return pulumi.get(self, "resource_configuration_arn")
+
+    @resource_configuration_arn.setter
+    def resource_configuration_arn(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "resource_configuration_arn", value)
+
+    @_builtins.property
+    @pulumi.getter(name="portNumber")
+    def port_number(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Port number for connecting to the SFTP server through VPC Lattice. Defaults to 22 if not specified. Must match the port on which the target SFTP server is listening. Valid values are between 1 and 65535.
+        """
+        return pulumi.get(self, "port_number")
+
+    @port_number.setter
+    def port_number(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "port_number", value)
 
 
 if not MYPY:
@@ -972,6 +1069,247 @@ class UserPosixProfileArgs:
     @secondary_gids.setter
     def secondary_gids(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.int]]]]):
         pulumi.set(self, "secondary_gids", value)
+
+
+if not MYPY:
+    class WebAppEndpointDetailsArgsDict(TypedDict):
+        vpc: NotRequired[pulumi.Input['WebAppEndpointDetailsVpcArgsDict']]
+        """
+        Block defining VPC configuration for hosting the web app endpoint within a VPC. See Vpc below.
+        """
+elif False:
+    WebAppEndpointDetailsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WebAppEndpointDetailsArgs:
+    def __init__(__self__, *,
+                 vpc: Optional[pulumi.Input['WebAppEndpointDetailsVpcArgs']] = None):
+        """
+        :param pulumi.Input['WebAppEndpointDetailsVpcArgs'] vpc: Block defining VPC configuration for hosting the web app endpoint within a VPC. See Vpc below.
+        """
+        if vpc is not None:
+            pulumi.set(__self__, "vpc", vpc)
+
+    @_builtins.property
+    @pulumi.getter
+    def vpc(self) -> Optional[pulumi.Input['WebAppEndpointDetailsVpcArgs']]:
+        """
+        Block defining VPC configuration for hosting the web app endpoint within a VPC. See Vpc below.
+        """
+        return pulumi.get(self, "vpc")
+
+    @vpc.setter
+    def vpc(self, value: Optional[pulumi.Input['WebAppEndpointDetailsVpcArgs']]):
+        pulumi.set(self, "vpc", value)
+
+
+if not MYPY:
+    class WebAppEndpointDetailsVpcArgsDict(TypedDict):
+        subnet_ids: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
+        """
+        List of subnet IDs within the VPC where the web app endpoint will be deployed. These subnets must be in the same VPC specified in the `vpc_id` parameter.
+        """
+        vpc_id: pulumi.Input[_builtins.str]
+        """
+        ID of the VPC where the web app endpoint will be hosted. The VPC must be dual-stack, meaning it supports both IPv4 and IPv6 addressing.
+        """
+        security_group_ids: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        List of security group IDs that control access to the web app endpoint. If not specified, the VPC's default security group is used.
+        """
+        vpc_endpoint_id: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        ID of the VPC endpoint created for the web app.
+        """
+elif False:
+    WebAppEndpointDetailsVpcArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WebAppEndpointDetailsVpcArgs:
+    def __init__(__self__, *,
+                 subnet_ids: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]],
+                 vpc_id: pulumi.Input[_builtins.str],
+                 security_group_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 vpc_endpoint_id: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] subnet_ids: List of subnet IDs within the VPC where the web app endpoint will be deployed. These subnets must be in the same VPC specified in the `vpc_id` parameter.
+        :param pulumi.Input[_builtins.str] vpc_id: ID of the VPC where the web app endpoint will be hosted. The VPC must be dual-stack, meaning it supports both IPv4 and IPv6 addressing.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] security_group_ids: List of security group IDs that control access to the web app endpoint. If not specified, the VPC's default security group is used.
+        :param pulumi.Input[_builtins.str] vpc_endpoint_id: ID of the VPC endpoint created for the web app.
+        """
+        pulumi.set(__self__, "subnet_ids", subnet_ids)
+        pulumi.set(__self__, "vpc_id", vpc_id)
+        if security_group_ids is not None:
+            pulumi.set(__self__, "security_group_ids", security_group_ids)
+        if vpc_endpoint_id is not None:
+            pulumi.set(__self__, "vpc_endpoint_id", vpc_endpoint_id)
+
+    @_builtins.property
+    @pulumi.getter(name="subnetIds")
+    def subnet_ids(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
+        """
+        List of subnet IDs within the VPC where the web app endpoint will be deployed. These subnets must be in the same VPC specified in the `vpc_id` parameter.
+        """
+        return pulumi.get(self, "subnet_ids")
+
+    @subnet_ids.setter
+    def subnet_ids(self, value: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        pulumi.set(self, "subnet_ids", value)
+
+    @_builtins.property
+    @pulumi.getter(name="vpcId")
+    def vpc_id(self) -> pulumi.Input[_builtins.str]:
+        """
+        ID of the VPC where the web app endpoint will be hosted. The VPC must be dual-stack, meaning it supports both IPv4 and IPv6 addressing.
+        """
+        return pulumi.get(self, "vpc_id")
+
+    @vpc_id.setter
+    def vpc_id(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "vpc_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="securityGroupIds")
+    def security_group_ids(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        List of security group IDs that control access to the web app endpoint. If not specified, the VPC's default security group is used.
+        """
+        return pulumi.get(self, "security_group_ids")
+
+    @security_group_ids.setter
+    def security_group_ids(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "security_group_ids", value)
+
+    @_builtins.property
+    @pulumi.getter(name="vpcEndpointId")
+    def vpc_endpoint_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        ID of the VPC endpoint created for the web app.
+        """
+        return pulumi.get(self, "vpc_endpoint_id")
+
+    @vpc_endpoint_id.setter
+    def vpc_endpoint_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "vpc_endpoint_id", value)
+
+
+if not MYPY:
+    class WebAppIdentityProviderDetailsArgsDict(TypedDict):
+        identity_center_config: NotRequired[pulumi.Input['WebAppIdentityProviderDetailsIdentityCenterConfigArgsDict']]
+        """
+        Block that describes the values to use for the IAM Identity Center settings. See Identity center config below.
+        """
+elif False:
+    WebAppIdentityProviderDetailsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WebAppIdentityProviderDetailsArgs:
+    def __init__(__self__, *,
+                 identity_center_config: Optional[pulumi.Input['WebAppIdentityProviderDetailsIdentityCenterConfigArgs']] = None):
+        """
+        :param pulumi.Input['WebAppIdentityProviderDetailsIdentityCenterConfigArgs'] identity_center_config: Block that describes the values to use for the IAM Identity Center settings. See Identity center config below.
+        """
+        if identity_center_config is not None:
+            pulumi.set(__self__, "identity_center_config", identity_center_config)
+
+    @_builtins.property
+    @pulumi.getter(name="identityCenterConfig")
+    def identity_center_config(self) -> Optional[pulumi.Input['WebAppIdentityProviderDetailsIdentityCenterConfigArgs']]:
+        """
+        Block that describes the values to use for the IAM Identity Center settings. See Identity center config below.
+        """
+        return pulumi.get(self, "identity_center_config")
+
+    @identity_center_config.setter
+    def identity_center_config(self, value: Optional[pulumi.Input['WebAppIdentityProviderDetailsIdentityCenterConfigArgs']]):
+        pulumi.set(self, "identity_center_config", value)
+
+
+if not MYPY:
+    class WebAppIdentityProviderDetailsIdentityCenterConfigArgsDict(TypedDict):
+        application_arn: NotRequired[pulumi.Input[_builtins.str]]
+        instance_arn: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        ARN of the IAM Identity Center used for the web app.
+        """
+        role: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        ARN of an identity bearer role for your web app.
+        """
+elif False:
+    WebAppIdentityProviderDetailsIdentityCenterConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WebAppIdentityProviderDetailsIdentityCenterConfigArgs:
+    def __init__(__self__, *,
+                 application_arn: Optional[pulumi.Input[_builtins.str]] = None,
+                 instance_arn: Optional[pulumi.Input[_builtins.str]] = None,
+                 role: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] instance_arn: ARN of the IAM Identity Center used for the web app.
+        :param pulumi.Input[_builtins.str] role: ARN of an identity bearer role for your web app.
+        """
+        if application_arn is not None:
+            pulumi.set(__self__, "application_arn", application_arn)
+        if instance_arn is not None:
+            pulumi.set(__self__, "instance_arn", instance_arn)
+        if role is not None:
+            pulumi.set(__self__, "role", role)
+
+    @_builtins.property
+    @pulumi.getter(name="applicationArn")
+    def application_arn(self) -> Optional[pulumi.Input[_builtins.str]]:
+        return pulumi.get(self, "application_arn")
+
+    @application_arn.setter
+    def application_arn(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "application_arn", value)
+
+    @_builtins.property
+    @pulumi.getter(name="instanceArn")
+    def instance_arn(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        ARN of the IAM Identity Center used for the web app.
+        """
+        return pulumi.get(self, "instance_arn")
+
+    @instance_arn.setter
+    def instance_arn(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "instance_arn", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def role(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        ARN of an identity bearer role for your web app.
+        """
+        return pulumi.get(self, "role")
+
+    @role.setter
+    def role(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "role", value)
+
+
+if not MYPY:
+    class WebAppWebAppUnitArgsDict(TypedDict):
+        provisioned: pulumi.Input[_builtins.int]
+elif False:
+    WebAppWebAppUnitArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WebAppWebAppUnitArgs:
+    def __init__(__self__, *,
+                 provisioned: pulumi.Input[_builtins.int]):
+        pulumi.set(__self__, "provisioned", provisioned)
+
+    @_builtins.property
+    @pulumi.getter
+    def provisioned(self) -> pulumi.Input[_builtins.int]:
+        return pulumi.get(self, "provisioned")
+
+    @provisioned.setter
+    def provisioned(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "provisioned", value)
 
 
 if not MYPY:

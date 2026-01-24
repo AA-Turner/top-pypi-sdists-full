@@ -16,7 +16,7 @@ from ..types import (
     external_account_verify_params,
     external_account_complete_verification_params,
 )
-from .._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
+from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -58,37 +58,34 @@ class ExternalAccounts(SyncAPIResource):
         self,
         *,
         counterparty_id: Optional[str],
-        query_external_id: str | NotGiven = NOT_GIVEN,
-        account_details: Iterable[external_account_create_params.AccountDetail] | NotGiven = NOT_GIVEN,
-        account_type: ExternalAccountType | NotGiven = NOT_GIVEN,
-        contact_details: Iterable[ContactDetailCreateRequestParam] | NotGiven = NOT_GIVEN,
-        body_external_id: Optional[str] | NotGiven = NOT_GIVEN,
-        ledger_account: LedgerAccountCreateRequest | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
-        party_address: AddressRequest | NotGiven = NOT_GIVEN,
-        party_identifier: str | NotGiven = NOT_GIVEN,
-        party_name: str | NotGiven = NOT_GIVEN,
-        party_type: Optional[Literal["business", "individual"]] | NotGiven = NOT_GIVEN,
-        plaid_processor_token: str | NotGiven = NOT_GIVEN,
-        routing_details: Iterable[external_account_create_params.RoutingDetail] | NotGiven = NOT_GIVEN,
+        account_details: Iterable[external_account_create_params.AccountDetail] | Omit = omit,
+        account_type: ExternalAccountType | Omit = omit,
+        contact_details: Iterable[ContactDetailCreateRequestParam] | Omit = omit,
+        external_id: Optional[str] | Omit = omit,
+        ledger_account: LedgerAccountCreateRequest | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        name: Optional[str] | Omit = omit,
+        party_address: AddressRequest | Omit = omit,
+        party_identifier: str | Omit = omit,
+        party_name: str | Omit = omit,
+        party_type: Optional[Literal["business", "individual"]] | Omit = omit,
+        plaid_processor_token: str | Omit = omit,
+        routing_details: Iterable[external_account_create_params.RoutingDetail] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExternalAccount:
         """
         create external account
 
         Args:
-          query_external_id: An optional user-defined 180 character unique identifier.
-
           account_type: Can be `checking`, `savings` or `other`.
 
-          body_external_id: An optional user-defined 180 character unique identifier.
+          external_id: An optional user-defined 180 character unique identifier.
 
           ledger_account: Specifies a ledger account object that will be created with the external
               account. The resulting ledger account is linked to the external account for
@@ -129,7 +126,7 @@ class ExternalAccounts(SyncAPIResource):
                     "account_details": account_details,
                     "account_type": account_type,
                     "contact_details": contact_details,
-                    "body_external_id": body_external_id,
+                    "external_id": external_id,
                     "ledger_account": ledger_account,
                     "metadata": metadata,
                     "name": name,
@@ -148,9 +145,6 @@ class ExternalAccounts(SyncAPIResource):
                 extra_body=extra_body,
                 timeout=timeout,
                 idempotency_key=idempotency_key,
-                query=maybe_transform(
-                    {"query_external_id": query_external_id}, external_account_create_params.ExternalAccountCreateParams
-                ),
             ),
             cast_to=ExternalAccount,
         )
@@ -164,7 +158,7 @@ class ExternalAccounts(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ExternalAccount:
         """
         show external account
@@ -192,19 +186,19 @@ class ExternalAccounts(SyncAPIResource):
         self,
         id: str,
         *,
-        account_type: ExternalAccountType | NotGiven = NOT_GIVEN,
-        counterparty_id: Optional[str] | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
-        party_address: AddressRequest | NotGiven = NOT_GIVEN,
-        party_name: str | NotGiven = NOT_GIVEN,
-        party_type: Optional[Literal["business", "individual"]] | NotGiven = NOT_GIVEN,
+        account_type: ExternalAccountType | Omit = omit,
+        counterparty_id: Optional[str] | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        name: Optional[str] | Omit = omit,
+        party_address: AddressRequest | Omit = omit,
+        party_name: str | Omit = omit,
+        party_type: Optional[Literal["business", "individual"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExternalAccount:
         """
@@ -262,18 +256,18 @@ class ExternalAccounts(SyncAPIResource):
     def list(
         self,
         *,
-        after_cursor: Optional[str] | NotGiven = NOT_GIVEN,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        external_id: str | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        party_name: str | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
+        after_cursor: Optional[str] | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        external_id: str | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        party_name: str | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncPage[ExternalAccount]:
         """
         list external accounts
@@ -327,7 +321,7 @@ class ExternalAccounts(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> None:
         """
@@ -363,13 +357,13 @@ class ExternalAccounts(SyncAPIResource):
         self,
         id: str,
         *,
-        amounts: Iterable[int] | NotGiven = NOT_GIVEN,
+        amounts: Iterable[int] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExternalAccount:
         """
@@ -446,15 +440,15 @@ class ExternalAccounts(SyncAPIResource):
             "wire",
             "zengin",
         ],
-        currency: Currency | NotGiven = NOT_GIVEN,
-        fallback_type: Literal["ach"] | NotGiven = NOT_GIVEN,
-        priority: Literal["high", "normal"] | NotGiven = NOT_GIVEN,
+        currency: Currency | Omit = omit,
+        fallback_type: Literal["ach"] | Omit = omit,
+        priority: Literal["high", "normal"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExternalAccountVerifyResponse:
         """
@@ -539,37 +533,34 @@ class AsyncExternalAccounts(AsyncAPIResource):
         self,
         *,
         counterparty_id: Optional[str],
-        query_external_id: str | NotGiven = NOT_GIVEN,
-        account_details: Iterable[external_account_create_params.AccountDetail] | NotGiven = NOT_GIVEN,
-        account_type: ExternalAccountType | NotGiven = NOT_GIVEN,
-        contact_details: Iterable[ContactDetailCreateRequestParam] | NotGiven = NOT_GIVEN,
-        body_external_id: Optional[str] | NotGiven = NOT_GIVEN,
-        ledger_account: LedgerAccountCreateRequest | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
-        party_address: AddressRequest | NotGiven = NOT_GIVEN,
-        party_identifier: str | NotGiven = NOT_GIVEN,
-        party_name: str | NotGiven = NOT_GIVEN,
-        party_type: Optional[Literal["business", "individual"]] | NotGiven = NOT_GIVEN,
-        plaid_processor_token: str | NotGiven = NOT_GIVEN,
-        routing_details: Iterable[external_account_create_params.RoutingDetail] | NotGiven = NOT_GIVEN,
+        account_details: Iterable[external_account_create_params.AccountDetail] | Omit = omit,
+        account_type: ExternalAccountType | Omit = omit,
+        contact_details: Iterable[ContactDetailCreateRequestParam] | Omit = omit,
+        external_id: Optional[str] | Omit = omit,
+        ledger_account: LedgerAccountCreateRequest | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        name: Optional[str] | Omit = omit,
+        party_address: AddressRequest | Omit = omit,
+        party_identifier: str | Omit = omit,
+        party_name: str | Omit = omit,
+        party_type: Optional[Literal["business", "individual"]] | Omit = omit,
+        plaid_processor_token: str | Omit = omit,
+        routing_details: Iterable[external_account_create_params.RoutingDetail] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExternalAccount:
         """
         create external account
 
         Args:
-          query_external_id: An optional user-defined 180 character unique identifier.
-
           account_type: Can be `checking`, `savings` or `other`.
 
-          body_external_id: An optional user-defined 180 character unique identifier.
+          external_id: An optional user-defined 180 character unique identifier.
 
           ledger_account: Specifies a ledger account object that will be created with the external
               account. The resulting ledger account is linked to the external account for
@@ -610,7 +601,7 @@ class AsyncExternalAccounts(AsyncAPIResource):
                     "account_details": account_details,
                     "account_type": account_type,
                     "contact_details": contact_details,
-                    "body_external_id": body_external_id,
+                    "external_id": external_id,
                     "ledger_account": ledger_account,
                     "metadata": metadata,
                     "name": name,
@@ -629,9 +620,6 @@ class AsyncExternalAccounts(AsyncAPIResource):
                 extra_body=extra_body,
                 timeout=timeout,
                 idempotency_key=idempotency_key,
-                query=await async_maybe_transform(
-                    {"query_external_id": query_external_id}, external_account_create_params.ExternalAccountCreateParams
-                ),
             ),
             cast_to=ExternalAccount,
         )
@@ -645,7 +633,7 @@ class AsyncExternalAccounts(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ExternalAccount:
         """
         show external account
@@ -673,19 +661,19 @@ class AsyncExternalAccounts(AsyncAPIResource):
         self,
         id: str,
         *,
-        account_type: ExternalAccountType | NotGiven = NOT_GIVEN,
-        counterparty_id: Optional[str] | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
-        party_address: AddressRequest | NotGiven = NOT_GIVEN,
-        party_name: str | NotGiven = NOT_GIVEN,
-        party_type: Optional[Literal["business", "individual"]] | NotGiven = NOT_GIVEN,
+        account_type: ExternalAccountType | Omit = omit,
+        counterparty_id: Optional[str] | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        name: Optional[str] | Omit = omit,
+        party_address: AddressRequest | Omit = omit,
+        party_name: str | Omit = omit,
+        party_type: Optional[Literal["business", "individual"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExternalAccount:
         """
@@ -743,18 +731,18 @@ class AsyncExternalAccounts(AsyncAPIResource):
     def list(
         self,
         *,
-        after_cursor: Optional[str] | NotGiven = NOT_GIVEN,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        external_id: str | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        party_name: str | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
+        after_cursor: Optional[str] | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        external_id: str | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        party_name: str | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[ExternalAccount, AsyncPage[ExternalAccount]]:
         """
         list external accounts
@@ -808,7 +796,7 @@ class AsyncExternalAccounts(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> None:
         """
@@ -844,13 +832,13 @@ class AsyncExternalAccounts(AsyncAPIResource):
         self,
         id: str,
         *,
-        amounts: Iterable[int] | NotGiven = NOT_GIVEN,
+        amounts: Iterable[int] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExternalAccount:
         """
@@ -927,15 +915,15 @@ class AsyncExternalAccounts(AsyncAPIResource):
             "wire",
             "zengin",
         ],
-        currency: Currency | NotGiven = NOT_GIVEN,
-        fallback_type: Literal["ach"] | NotGiven = NOT_GIVEN,
-        priority: Literal["high", "normal"] | NotGiven = NOT_GIVEN,
+        currency: Currency | Omit = omit,
+        fallback_type: Literal["ach"] | Omit = omit,
+        priority: Literal["high", "normal"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExternalAccountVerifyResponse:
         """

@@ -1,15 +1,16 @@
 Metadata-Version: 2.4
 Name: synchronicity
-Version: 0.10.2
+Version: 0.11.1
 Summary: Export blocking and async library versions from a single async implementation
 Author: Modal Labs
 License-File: LICENSE
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.9
-Requires-Dist: sigtools>=4.0.1
+Requires-Python: >=3.10
 Requires-Dist: typing-extensions>=4.12.2
+Provides-Extra: compile
+Requires-Dist: sigtools>=4.0.1; extra == 'compile'
 Description-Content-Type: text/markdown
 
 ![CI/CD badge](https://github.com/erikbern/synchronicity/actions/workflows/ci.yml/badge.svg)
@@ -231,7 +232,9 @@ Static type support for wrappers
 
 One issue with the wrapper functions and classes is that they will have different argument and return value types than the wrapped originals (e.g. an AsyncGenerator becomes a Generator after being wrapped). This type transformation can't easily be expressed statically in Python's typing system.
 
-For this reason, synchronicity includes a basic type stub (.pyi) generation tool (`python -m synchronicity.type_stubs`) that takes Python modules names as inputs and emits a `.pyi` file for each module with static types translating any synchronicity-wrapped classes or functions.
+For this reason, synchronicity includes a basic type stub (.pyi) compilation tool. This cli tool has some additional dependencies that you can install via `pip install synchronicity[compile]` (the `compile` extra is only needed for *generating* the type stubs, not using them - so you don't have to include it in distributed libraries using synchroncity).
+
+The cli tool `python -m synchronicity.type_stubs` takes Python modules names as inputs and emits `.pyi` files for each module. The type stubs have static types translating any synchronicity-wrapped classes or functions.
 
 Since the `.pyi` file will sometimes "shadow" the original file, which you still might want to type check for issues in the implementation code, a good practice is to separate wrappers and wrapped implementation code into separate modules and only emit type stubs for the "wrapper modules".  
 

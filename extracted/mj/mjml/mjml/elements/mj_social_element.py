@@ -142,6 +142,7 @@ class MjSocialElement(BodyComponent):
             'target'         : '_blank',
             'text-decoration': 'none',
             'vertical-align' : 'middle',
+            'alt'           : '',
         }
 
     # js: getStyles()
@@ -175,6 +176,7 @@ class MjSocialElement(BodyComponent):
             'tdText': {
                 'vertical-align': 'middle',
                 'padding'       : self.getAttribute('text-padding'),
+                'text-align'    : self.getAttribute('align'),
             },
             'text'  : {
                 'color'          : self.getAttribute('color'),
@@ -203,16 +205,13 @@ class MjSocialElement(BodyComponent):
     def render(self):
         attributes = self.getSocialAttributes()
         iconSize = attributes['icon-size']
-        iconHeight = attributes['icon-height']
         hasLink = bool(self.getAttribute('href'))
 
         def get_img():
-            height, _ = widthParser(iconHeight or iconSize)
             width, _ = widthParser(iconSize)
             img_attrs = self.html_attrs(
                 alt    = self.getAttribute('alt'),
                 title  = self.getAttribute('title'),
-                height = height,
                 src    = attributes['src'],
                 style  = 'img',
                 width  = width,
@@ -227,7 +226,11 @@ class MjSocialElement(BodyComponent):
                     rel    = self.getAttribute('rel'),
                     target = self.getAttribute('target'),
                 )
-                return f'<a {link_attrs}>{img}</a>'
+                return f'''
+                    <a {link_attrs}>
+                      {img}
+                    </a>
+                '''
             return img
 
         def get_text(content):
@@ -238,9 +241,17 @@ class MjSocialElement(BodyComponent):
                     rel    = self.getAttribute('rel'),
                     target = self.getAttribute('target'),
                 )
-                return f'<a {link_attrs}>{content}</a>'
+                return f'''
+                    <a {link_attrs}>
+                      {content}
+                    </a>
+                '''
 
-            return f'<span {self.html_attrs(style="text")}>{content}</span>'
+            return f'''
+                <span {self.html_attrs(style="text")}>
+                  {content}
+                </span>
+            '''
 
         content_html = ''
         content = self.getContent()

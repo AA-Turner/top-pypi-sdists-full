@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
-Name: amazon-dax-client
-Version: 2.0.4
+Name: amazon_dax_client
+Version: 2.0.6
 Summary: Amazon DAX Client for Python
 Home-page: https://aws.amazon.com/dynamodb/dax/
 Author: Amazon Web Services
@@ -121,6 +121,14 @@ Please use these community resources for getting help.
 
 Changes
 -------
+**v2.0.6**
+
+ * Update antlr requirement to 4.13.2 
+
+**v2.0.5**
+ 
+ * Add support for IPv6 and Dual Stack DAX Clusters.
+
 **v2.0.4**
 
  * Add support for Python 3.9, 3.10, 3.11, 3.12, 3.13

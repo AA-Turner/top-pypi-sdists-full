@@ -70,6 +70,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "convention": "basic",
     "filter_commits": None,
     "in_place": False,
+    "include_all": False,
     "input": DEFAULT_CHANGELOG_FILE,
     "marker_line": DEFAULT_MARKER_LINE,
     "omit_empty_versions": False,
@@ -347,8 +348,18 @@ def get_parser() -> argparse.ArgumentParser:
         metavar="SECTIONS",
         dest="sections",
         help="A comma-separated list of sections to render. "
+        "Use `:all:` to include all available sections for the selected convention. "
         "See the available sections for each supported convention in the description. "
         "Default: unset (None).",
+    )
+    parser.add_argument(
+        "-a",
+        "--include-all",
+        action="store_true",
+        dest="include_all",
+        help="Include all commits, even those without a recognized type. "
+        "These commits will be rendered in a 'Misc' section at the end of each version. "
+        "Default: unset (false).",
     )
     parser.add_argument(
         "-t",
@@ -556,6 +567,7 @@ def build(
     bump: str | None = None,
     zerover: bool = True,  # noqa: FBT001,FBT002
     filter_commits: str | None = None,
+    include_all: bool = False,  # noqa: FBT001,FBT002
     versioning: Literal["pep440", "semver"] = "semver",
     **kwargs: Any,  # noqa: ARG001
 ) -> Changelog:
@@ -574,6 +586,7 @@ def build(
         bump: Whether to try and bump to a given version.
         zerover: Keep major version at zero, even for breaking changes.
         filter_commits: The Git revision-range used to filter commits in git-log.
+        include_all: Whether to include commits without a recognized type.
         versioning: Versioning scheme to use when grouping commits and bumping versions.
         **kwargs: Swallowing kwargs to allow passing all settings at once.
 
@@ -600,6 +613,7 @@ def build(
         bump=bump,
         zerover=zerover,
         filter_commits=filter_commits,
+        include_all=include_all,
         versioning=versioning,
     )
 
@@ -757,6 +771,7 @@ def build_and_render(
     filter_commits: str | None = None,
     jinja_context: dict[str, Any] | None = None,
     versioning: Literal["pep440", "semver"] = "semver",
+    include_all: bool = False,  # noqa: FBT001,FBT002
     **kwargs: Any,  # noqa: ARG001
 ) -> tuple[Changelog, str]:
     """Build a changelog and render it.
@@ -782,6 +797,7 @@ def build_and_render(
         bump: Whether to try and bump to a given version.
         zerover: Keep major version at zero, even for breaking changes.
         filter_commits: The Git revision-range used to filter commits in git-log.
+        include_all: Whether to include commits without a recognized type.
         jinja_context: Key/value pairs passed to the Jinja template.
         versioning: Versioning scheme to use when grouping commits and bumping versions.
         **kwargs: Swallowing kwargs to allow passing all settings at once.
@@ -804,6 +820,7 @@ def build_and_render(
         bump=bump,
         zerover=zerover,
         filter_commits=filter_commits,
+        include_all=include_all,
         versioning=versioning,
     )
     rendered = render(

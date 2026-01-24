@@ -1,0 +1,30 @@
+# Used to for Herbie tests on Windows
+# .github/workflows/tests-conda.yml
+
+name: herbie-test
+channels:
+  - conda-forge
+dependencies:
+  # Binaries
+  - eccodes
+  - geos
+  - proj
+  - python
+
+  # Python requirements
+  - cartopy
+  - cfgrib
+  - beautifulsoup4
+  - matplotlib
+  - metpy
+  - numpy
+  - pandas
+  - pyproj
+  - requests
+  - scikit-learn
+  - toml
+  - xarray
+
+  # Testing
+  - pytest
+  - pytest-cov

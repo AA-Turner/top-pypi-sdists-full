@@ -59,24 +59,34 @@
     during the next eviction cycle.
 */
 
-use super::{get_healthy_worker_indices, CacheAwareConfig, LoadBalancingPolicy};
-use crate::core::Worker;
-use crate::metrics::RouterMetrics;
-use crate::tree::Tree;
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Duration;
-use tracing::debug;
+use std::sync::Arc;
+
+use dashmap::DashMap;
+use rand::Rng;
+use tracing::{debug, warn};
+
+use super::{
+    get_healthy_worker_indices, normalize_model_key, tree::Tree, utils::PeriodicTask,
+    CacheAwareConfig, LoadBalancingPolicy, SelectWorkerInfo,
+};
+use crate::{
+    core::Worker,
+    mesh::{tree_ops::TreeOperation, OptionalMeshSyncManager},
+};
 
 /// Cache-aware routing policy
 ///
 /// Routes requests based on cache affinity when load is balanced,
 /// switches to shortest-queue routing when load is imbalanced.
+/// Maintains separate trees per model for multi-model support.
+/// Supports mesh synchronization of tree operations across cluster nodes.
+/// When mesh is not enabled, the policy works independently without synchronization.
 #[derive(Debug)]
 pub struct CacheAwarePolicy {
     config: CacheAwareConfig,
-    tree: Arc<Mutex<Tree>>,
-    eviction_handle: Option<thread::JoinHandle<()>>,
+    trees: Arc<DashMap<String, Arc<Tree>>>,
+    mesh_sync: OptionalMeshSyncManager,
+    _eviction_task: Option<PeriodicTask>,
 }
 
 impl CacheAwarePolicy {
@@ -85,153 +95,381 @@ impl CacheAwarePolicy {
     }
 
     pub fn with_config(config: CacheAwareConfig) -> Self {
-        let tree = Arc::new(Mutex::new(Tree::new()));
+        let trees = Arc::new(DashMap::<String, Arc<Tree>>::new());
 
         // Start background eviction thread if configured
-        let eviction_handle = if config.eviction_interval_secs > 0 {
-            let tree_clone = Arc::clone(&tree);
+        let eviction_task = if config.eviction_interval_secs > 0 {
+            let trees_clone = Arc::clone(&trees);
             let max_tree_size = config.max_tree_size;
-            let interval = config.eviction_interval_secs;
 
-            Some(thread::spawn(move || loop {
-                thread::sleep(Duration::from_secs(interval));
+            Some(PeriodicTask::spawn(
+                config.eviction_interval_secs,
+                "Eviction",
+                move || {
+                    for tree_ref in trees_clone.iter() {
+                        let model_id = tree_ref.key();
+                        let tree = tree_ref.value();
+                        tree.evict_tenant_by_size(max_tree_size);
 
-                if let Ok(tree_guard) = tree_clone.lock() {
-                    tree_guard.evict_tenant_by_size(max_tree_size);
-                    debug!("Cache eviction completed, max_size: {}", max_tree_size);
-                }
-            }))
+                        debug!(
+                            "Cache eviction completed for model {}, max_size: {}",
+                            model_id, max_tree_size
+                        );
+                    }
+                },
+            ))
         } else {
             None
         };
 
         Self {
             config,
-            tree,
-            eviction_handle,
+            trees,
+            mesh_sync: None,
+            _eviction_task: eviction_task,
         }
     }
 
-    /// Initialize the tree with worker URLs
-    pub fn init_workers(&self, workers: &[Box<dyn Worker>]) {
-        if let Ok(tree) = self.tree.lock() {
-            for worker in workers {
+    /// Set mesh sync manager (can be called after construction)
+    pub fn set_mesh_sync(&mut self, mesh_sync: OptionalMeshSyncManager) {
+        self.mesh_sync = mesh_sync.clone();
+        if mesh_sync.is_some() {
+            self.restore_tree_state_from_mesh();
+        }
+    }
+
+    /// Initialize the tree with worker URLs (used only during initial setup)
+    pub fn init_workers(&self, workers: &[Arc<dyn Worker>]) {
+        // Group workers by model
+        let mut model_workers: std::collections::HashMap<String, Vec<&Arc<dyn Worker>>> =
+            std::collections::HashMap::new();
+        for worker in workers {
+            let tree_key = normalize_model_key(worker.model_id());
+            model_workers
+                .entry(tree_key.to_string())
+                .or_default()
+                .push(worker);
+        }
+
+        // Initialize tree for each model
+        for (tree_key, model_workers) in model_workers {
+            let tree = self
+                .trees
+                .entry(tree_key)
+                .or_insert_with(|| Arc::new(Tree::new()));
+            for worker in model_workers {
                 tree.insert("", worker.url());
             }
         }
     }
 
+    /// Add a single worker to the tree (incremental update)
+    pub fn add_worker(&self, worker: &dyn Worker) {
+        let tree_key = normalize_model_key(worker.model_id());
+        let tree = self
+            .trees
+            .entry(tree_key.to_string())
+            .or_insert_with(|| Arc::new(Tree::new()));
+        tree.insert("", worker.url());
+    }
+
+    /// Add a worker by URL and model (for backward compatibility)
+    pub fn add_worker_by_url(&self, url: &str, model_id: &str) {
+        let tree = self
+            .trees
+            .entry(model_id.to_string())
+            .or_insert_with(|| Arc::new(Tree::new()));
+        tree.insert("", url);
+    }
+
     /// Remove a worker from the tree
-    pub fn remove_worker(&self, url: &str) {
-        if let Ok(tree) = self.tree.lock() {
-            tree.remove_tenant(url);
+    pub fn remove_worker(&self, worker: &dyn Worker) {
+        let tree_key = normalize_model_key(worker.model_id());
+        if let Some(tree) = self.trees.get(tree_key) {
+            tree.remove_tenant(worker.url());
+        }
+    }
+
+    /// Remove a worker by URL (removes from all model trees for backward compatibility)
+    pub fn remove_worker_by_url(&self, url: &str) {
+        // Remove from all trees since we don't know which model it belongs to
+        for tree_ref in self.trees.iter() {
+            tree_ref.value().remove_tenant(url);
+        }
+    }
+
+    /// Restore tree state from mesh store
+    /// This is called during initialization to rebuild trees from synchronized state
+    fn restore_tree_state_from_mesh(&self) {
+        if let Some(ref mesh_sync) = self.mesh_sync {
+            // Get all tree states from mesh
+            // We need to iterate through all models that have tree states
+            // For now, we'll restore trees for models that are already in our trees map
+            // In a full implementation, we might want to query mesh for all tree states
+
+            for tree_ref in self.trees.iter() {
+                let model_id = tree_ref.key();
+                if let Some(tree_state) = mesh_sync.get_tree_state(model_id) {
+                    debug!(
+                        "Restoring tree state for model {} with {} operations",
+                        model_id,
+                        tree_state.operations.len()
+                    );
+
+                    let tree = tree_ref.value();
+                    // Apply all operations to rebuild the tree
+                    for operation in &tree_state.operations {
+                        match operation {
+                            TreeOperation::Insert(insert_op) => {
+                                tree.insert(&insert_op.text, &insert_op.tenant);
+                            }
+                            TreeOperation::Remove(remove_op) => {
+                                tree.remove_tenant(&remove_op.tenant);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Normalize model_id for mesh synchronization
+    /// Converts "unknown" or empty to "default" for consistency
+    fn normalize_mesh_model_id(model_id: &str) -> &str {
+        if model_id.is_empty() || model_id == "unknown" {
+            "default"
+        } else {
+            model_id
+        }
+    }
+
+    /// Apply remote tree operation from mesh
+    /// This is called when receiving tree state updates from other nodes
+    pub fn apply_remote_tree_operation(&self, model_id: &str, operation: &TreeOperation) {
+        let tree_key = Self::normalize_mesh_model_id(model_id);
+
+        let tree = self
+            .trees
+            .entry(tree_key.to_string())
+            .or_insert_with(|| Arc::new(Tree::new()));
+
+        match operation {
+            TreeOperation::Insert(insert_op) => {
+                tree.insert(&insert_op.text, &insert_op.tenant);
+                debug!(
+                    "Applied remote tree insert: model={}, text={}, tenant={}",
+                    model_id, insert_op.text, insert_op.tenant
+                );
+            }
+            TreeOperation::Remove(remove_op) => {
+                tree.remove_tenant(&remove_op.tenant);
+                debug!(
+                    "Applied remote tree remove: model={}, tenant={}",
+                    model_id, remove_op.tenant
+                );
+            }
         }
     }
 
     /// Run cache eviction to prevent unbounded growth
     pub fn evict_cache(&self, max_size: usize) {
-        if let Ok(tree) = self.tree.lock() {
+        for tree_ref in self.trees.iter() {
+            let model_id = tree_ref.key();
+            let tree = tree_ref.value();
             tree.evict_tenant_by_size(max_size);
+            debug!(
+                "Cache eviction for model {}, max_size: {}",
+                model_id, max_size
+            );
         }
+    }
+
+    fn select_worker_min_load(
+        &self,
+        workers: &[Arc<dyn Worker>],
+        request_text: &Option<&str>,
+        healthy_indices: &[usize],
+        model_id: &str,
+        max_load: usize,
+        min_load: usize,
+    ) -> Option<usize> {
+        // Log load balancing trigger (only compute worker loads if debug enabled)
+        if tracing::enabled!(tracing::Level::DEBUG) {
+            let worker_loads: Vec<(&str, usize)> =
+                workers.iter().map(|w| (w.url(), w.load())).collect();
+            debug!(
+                "Load balancing triggered | max: {} | min: {} | workers: {:?}",
+                max_load, min_load, worker_loads
+            );
+        }
+
+        // Use shortest queue when imbalanced
+        let min_load_idx = healthy_indices
+            .iter()
+            .min_by_key(|&&idx| workers[idx].load())
+            .copied()?;
+
+        // Even in imbalanced mode, update the tree to maintain cache state
+        if let Some(text) = request_text {
+            // Get the tree reference without locking the entire HashMap
+            // DashMap only locks the specific shard containing this key
+            let tree = self.trees.get(model_id).map(|entry| entry.value().clone());
+
+            if let Some(tree) = tree {
+                let worker_url = workers[min_load_idx].url();
+                // Now we can work with the tree without holding the HashMap lock
+                tree.insert(text, worker_url);
+
+                // Sync insert operation to mesh if enabled (no-op if mesh is not enabled)
+                if let Some(ref mesh_sync) = self.mesh_sync {
+                    use crate::mesh::tree_ops::TreeInsertOp;
+                    let op = TreeOperation::Insert(TreeInsertOp {
+                        text: text.to_string(),
+                        tenant: worker_url.to_string(),
+                    });
+                    let mesh_model_id = Self::normalize_mesh_model_id(model_id);
+                    if let Err(e) = mesh_sync.sync_tree_operation(mesh_model_id.to_string(), op) {
+                        warn!("Failed to sync tree insert operation to mesh: {}", e);
+                    }
+                }
+            } else {
+                debug!(
+                    "Warning: No tree found for model '{}', skipping cache update",
+                    model_id
+                );
+            }
+        }
+
+        // Increment processed counter
+        workers[min_load_idx].increment_processed();
+
+        Some(min_load_idx)
     }
 }
 
 impl LoadBalancingPolicy for CacheAwarePolicy {
-    fn select_worker(
-        &self,
-        workers: &[Box<dyn Worker>],
-        request_text: Option<&str>,
-    ) -> Option<usize> {
+    fn select_worker(&self, workers: &[Arc<dyn Worker>], info: &SelectWorkerInfo) -> Option<usize> {
+        let request_text = info.request_text;
         let healthy_indices = get_healthy_worker_indices(workers);
 
         if healthy_indices.is_empty() {
             return None;
         }
 
-        // Get current load statistics
-        let loads: Vec<usize> = workers.iter().map(|w| w.load()).collect();
-        let max_load = *loads.iter().max().unwrap_or(&0);
-        let min_load = *loads.iter().min().unwrap_or(&0);
+        // Determine the model for this set of workers (router pre-filters by model)
+        // All workers should be from the same model
+        let model_id = normalize_model_key(workers[healthy_indices[0]].model_id());
+
+        // Get current load statistics - compute min/max in single pass without allocation
+        let (min_load, max_load) = workers.iter().fold((usize::MAX, 0usize), |(min, max), w| {
+            let load = w.load();
+            (min.min(load), max.max(load))
+        });
+        let min_load = if min_load == usize::MAX { 0 } else { min_load };
 
         // Check if load is imbalanced
         let is_imbalanced = max_load.saturating_sub(min_load) > self.config.balance_abs_threshold
             && (max_load as f32) > (min_load as f32 * self.config.balance_rel_threshold);
 
         if is_imbalanced {
-            // Log load balancing trigger
-            let worker_loads: Vec<(String, usize)> = workers
-                .iter()
-                .map(|w| (w.url().to_string(), w.load()))
-                .collect();
-
-            debug!(
-                "Load balancing triggered | max: {} | min: {} | workers: {:?}",
-                max_load, min_load, worker_loads
+            return self.select_worker_min_load(
+                workers,
+                &request_text,
+                &healthy_indices,
+                model_id,
+                max_load,
+                min_load,
             );
-
-            RouterMetrics::record_load_balancing_event();
-            RouterMetrics::set_load_range(max_load, min_load);
-
-            // Use shortest queue when imbalanced
-            let min_load_idx = healthy_indices
-                .iter()
-                .min_by_key(|&&idx| workers[idx].load())
-                .copied()?;
-
-            // Increment processed counter
-            workers[min_load_idx].increment_processed();
-            RouterMetrics::record_processed_request(workers[min_load_idx].url());
-
-            return Some(min_load_idx);
         }
 
         // Use cache-aware routing when balanced
         let text = request_text.unwrap_or("");
 
-        if let Ok(tree) = self.tree.lock() {
-            let (matched_text, matched_worker) = tree.prefix_match(text);
-            let match_rate = if text.is_empty() {
+        // Get the tree reference without locking the entire HashMap
+        // DashMap only locks the specific shard containing this key
+        let tree = self.trees.get(model_id).map(|entry| entry.value().clone());
+
+        if let Some(tree) = tree {
+            // Now we work with the tree without holding the HashMap lock
+            // Use prefix_match_with_counts to avoid redundant chars().count() calls
+            let result = tree.prefix_match_with_counts(text);
+            let match_rate = if result.input_char_count == 0 {
                 0.0
             } else {
-                matched_text.chars().count() as f32 / text.chars().count() as f32
+                result.matched_char_count as f32 / result.input_char_count as f32
             };
 
-            let selected_url = if match_rate > self.config.cache_threshold {
-                RouterMetrics::record_cache_hit();
-                matched_worker.to_string()
+            // Select worker without String allocation
+            let selected_idx = if match_rate > self.config.cache_threshold {
+                // Cache hit path: find worker by URL (compare &str directly, no allocation)
+                let tenant_url: &str = &result.tenant;
+                workers
+                    .iter()
+                    .position(|w| w.url() == tenant_url)
+                    .filter(|&idx| workers[idx].is_healthy())
             } else {
-                RouterMetrics::record_cache_miss();
-                tree.get_smallest_tenant()
+                // Low cache match: use worker with minimum load
+                healthy_indices
+                    .iter()
+                    .min_by_key(|&&idx| workers[idx].load())
+                    .copied()
             };
 
-            // Find the index of the selected worker
-            let selected_idx = workers.iter().position(|w| w.url() == selected_url)?;
+            if let Some(idx) = selected_idx {
+                // Update the tree with this request (use worker URL directly, no allocation)
+                tree.insert(text, workers[idx].url());
 
-            // Only proceed if the worker is healthy
-            if !workers[selected_idx].is_healthy() {
-                return healthy_indices.first().copied();
+                // Sync insert operation to mesh if enabled (no-op if mesh is not enabled)
+                if let Some(ref mesh_sync) = self.mesh_sync {
+                    use crate::mesh::tree_ops::TreeInsertOp;
+                    let op = TreeOperation::Insert(TreeInsertOp {
+                        text: text.to_string(),
+                        tenant: workers[idx].url().to_string(),
+                    });
+                    let mesh_model_id = Self::normalize_mesh_model_id(model_id);
+                    if let Err(e) = mesh_sync.sync_tree_operation(mesh_model_id.to_string(), op) {
+                        warn!("Failed to sync tree insert operation to mesh: {}", e);
+                    }
+                }
+
+                // Increment processed counter
+                workers[idx].increment_processed();
+
+                return Some(idx);
             }
 
-            // Update the tree with this request
-            tree.insert(text, &selected_url);
+            // Selected worker no longer exists or unhealthy, remove stale tenant from tree
+            if match_rate > self.config.cache_threshold {
+                let tenant_url: &str = &result.tenant;
+                tree.remove_tenant(tenant_url);
+                debug!("Removed stale worker {} from cache tree", tenant_url);
 
-            // Increment processed counter
-            workers[selected_idx].increment_processed();
-            RouterMetrics::record_processed_request(&selected_url);
+                // Sync removal to mesh if enabled (no-op if mesh is not enabled)
+                if let Some(ref mesh_sync) = self.mesh_sync {
+                    use crate::mesh::tree_ops::TreeRemoveOp;
+                    let op = TreeOperation::Remove(TreeRemoveOp {
+                        tenant: tenant_url.to_string(),
+                    });
+                    let mesh_model_id = Self::normalize_mesh_model_id(model_id);
+                    if let Err(e) = mesh_sync.sync_tree_operation(mesh_model_id.to_string(), op) {
+                        warn!("Failed to sync tree remove operation to mesh: {}", e);
+                    }
+                }
+            }
 
-            return Some(selected_idx);
+            // Fallback to first healthy worker
+            healthy_indices.first().copied()
+        } else {
+            // No tree for this model, log warning and use random selection
+            debug!(
+                "Warning: No tree found for model '{}', using random worker selection",
+                model_id
+            );
+            // Return a random healthy worker
+            let mut rng = rand::rng();
+            let random_idx = rng.random_range(0..healthy_indices.len());
+            Some(healthy_indices[random_idx])
         }
-
-        // Fallback to first healthy worker if tree operations fail
-        healthy_indices.first().copied()
-    }
-
-    fn name(&self) -> &'static str {
-        "cache_aware"
-    }
-
-    fn needs_request_text(&self) -> bool {
-        true // Cache-aware policy needs request text for cache affinity
     }
 
     fn on_request_complete(&self, worker_url: &str, success: bool) {
@@ -246,39 +484,16 @@ impl LoadBalancingPolicy for CacheAwarePolicy {
         }
     }
 
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
+    fn name(&self) -> &'static str {
+        "cache_aware"
     }
 
-    fn select_worker_pair(
-        &self,
-        prefill_workers: &[Box<dyn Worker>],
-        decode_workers: &[Box<dyn Worker>],
-        request_text: Option<&str>,
-    ) -> Option<(usize, usize)> {
-        // DEPRECATED: This method is no longer used when separate policies are configured.
-        // The PD router now uses separate policies for prefill and decode selection.
-        // This implementation remains for backward compatibility when a single policy is used.
+    fn needs_request_text(&self) -> bool {
+        true // Cache-aware policy needs request text for cache affinity
+    }
 
-        // In PD mode with single policy:
-        // - Prefill: Use cache-aware routing for better cache utilization
-        // - Decode: Use least-load routing for better load distribution
-
-        // Select prefill worker using cache-aware logic
-        let prefill_idx = self.select_worker(prefill_workers, request_text)?;
-
-        // Select decode worker using least-load logic
-        let healthy_decode = get_healthy_worker_indices(decode_workers);
-        if healthy_decode.is_empty() {
-            return None;
-        }
-
-        let decode_idx = healthy_decode
-            .iter()
-            .min_by_key(|&&idx| decode_workers[idx].load())
-            .copied()?;
-
-        Some((prefill_idx, decode_idx))
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -288,22 +503,10 @@ impl Default for CacheAwarePolicy {
     }
 }
 
-impl Drop for CacheAwarePolicy {
-    fn drop(&mut self) {
-        // Note: We can't properly stop the eviction thread since it's in an infinite loop
-        // In a production system, we'd use a channel or atomic flag to signal shutdown
-        if let Some(handle) = self.eviction_handle.take() {
-            // The thread will continue running until the program exits
-            // This is acceptable for now since the router typically runs for the lifetime of the program
-            drop(handle);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{BasicWorker, WorkerType};
+    use crate::core::{BasicWorkerBuilder, WorkerType};
 
     #[test]
     fn test_cache_aware_with_balanced_load() {
@@ -313,29 +516,57 @@ mod tests {
             ..Default::default()
         };
         let policy = CacheAwarePolicy::with_config(config);
-        let workers: Vec<Box<dyn Worker>> = vec![
-            Box::new(BasicWorker::new(
-                "http://w1:8000".to_string(),
-                WorkerType::Regular,
-            )),
-            Box::new(BasicWorker::new(
-                "http://w2:8000".to_string(),
-                WorkerType::Regular,
-            )),
+        let workers: Vec<Arc<dyn Worker>> = vec![
+            Arc::new(
+                BasicWorkerBuilder::new("http://w1:8000")
+                    .worker_type(WorkerType::Regular)
+                    .api_key("test_api_key")
+                    .build(),
+            ),
+            Arc::new(
+                BasicWorkerBuilder::new("http://w2:8000")
+                    .worker_type(WorkerType::Regular)
+                    .api_key("test_api_key")
+                    .build(),
+            ),
         ];
 
         // Initialize the policy with workers
         policy.init_workers(&workers);
 
         // First request should be distributed
-        let idx1 = policy.select_worker(&workers, Some("hello world")).unwrap();
+        let idx1 = policy
+            .select_worker(
+                &workers,
+                &SelectWorkerInfo {
+                    request_text: Some("hello world"),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
 
         // Same request should go to same worker (cache hit)
-        let idx2 = policy.select_worker(&workers, Some("hello world")).unwrap();
+        let idx2 = policy
+            .select_worker(
+                &workers,
+                &SelectWorkerInfo {
+                    request_text: Some("hello world"),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         assert_eq!(idx1, idx2);
 
         // Similar request should also go to same worker
-        let idx3 = policy.select_worker(&workers, Some("hello")).unwrap();
+        let idx3 = policy
+            .select_worker(
+                &workers,
+                &SelectWorkerInfo {
+                    request_text: Some("hello"),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         assert_eq!(idx1, idx3);
     }
 
@@ -349,8 +580,12 @@ mod tests {
             max_tree_size: 10000,
         });
 
-        let worker1 = BasicWorker::new("http://w1:8000".to_string(), WorkerType::Regular);
-        let worker2 = BasicWorker::new("http://w2:8000".to_string(), WorkerType::Regular);
+        let worker1 = BasicWorkerBuilder::new("http://w1:8000")
+            .worker_type(WorkerType::Regular)
+            .build();
+        let worker2 = BasicWorkerBuilder::new("http://w2:8000")
+            .worker_type(WorkerType::Regular)
+            .build();
 
         // Create significant load imbalance
         for _ in 0..20 {
@@ -358,12 +593,16 @@ mod tests {
         }
         // worker2 has load 0
 
-        let workers: Vec<Box<dyn Worker>> = vec![Box::new(worker1), Box::new(worker2)];
+        let workers: Vec<Arc<dyn Worker>> = vec![Arc::new(worker1), Arc::new(worker2)];
         policy.init_workers(&workers);
 
         // Should select worker2 (lower load) despite cache affinity
+        let info = SelectWorkerInfo {
+            request_text: Some("test"),
+            ..Default::default()
+        };
         for _ in 0..5 {
-            let idx = policy.select_worker(&workers, Some("test")).unwrap();
+            let idx = policy.select_worker(&workers, &info).unwrap();
             assert_eq!(idx, 1); // Should always pick worker2
         }
     }
@@ -375,29 +614,260 @@ mod tests {
             ..Default::default()
         };
         let policy = CacheAwarePolicy::with_config(config);
-        let workers: Vec<Box<dyn Worker>> = vec![
-            Box::new(BasicWorker::new(
-                "http://w1:8000".to_string(),
-                WorkerType::Regular,
-            )),
-            Box::new(BasicWorker::new(
-                "http://w2:8000".to_string(),
-                WorkerType::Regular,
-            )),
+        let workers: Vec<Arc<dyn Worker>> = vec![
+            Arc::new(
+                BasicWorkerBuilder::new("http://w1:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
+            Arc::new(
+                BasicWorkerBuilder::new("http://w2:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
         ];
 
         policy.init_workers(&workers);
 
         // Route some requests
-        policy.select_worker(&workers, Some("test1"));
-        policy.select_worker(&workers, Some("test2"));
+        policy.select_worker(
+            &workers,
+            &SelectWorkerInfo {
+                request_text: Some("test1"),
+                ..Default::default()
+            },
+        );
+        policy.select_worker(
+            &workers,
+            &SelectWorkerInfo {
+                request_text: Some("test2"),
+                ..Default::default()
+            },
+        );
 
         // Remove a worker
-        policy.remove_worker("http://w1:8000");
+        policy.remove_worker_by_url("http://w1:8000");
         workers[0].set_healthy(false);
 
         // All requests should now go to worker2
-        let idx = policy.select_worker(&workers, Some("test1")).unwrap();
+        let idx = policy
+            .select_worker(
+                &workers,
+                &SelectWorkerInfo {
+                    request_text: Some("test1"),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         assert_eq!(idx, 1);
+    }
+
+    #[test]
+    fn test_cache_aware_sync_tree_operation_to_mesh() {
+        use std::sync::Arc;
+
+        use crate::mesh::{stores::StateStores, sync::MeshSyncManager};
+
+        let stores = Arc::new(StateStores::with_self_name("node1".to_string()));
+        let mesh_sync = Arc::new(MeshSyncManager::new(stores, "node1".to_string()));
+
+        let config = CacheAwareConfig {
+            eviction_interval_secs: 0,
+            ..Default::default()
+        };
+        let mut policy = CacheAwarePolicy::with_config(config);
+        policy.set_mesh_sync(Some(mesh_sync.clone()));
+
+        let workers: Vec<Arc<dyn Worker>> = vec![Arc::new(
+            BasicWorkerBuilder::new("http://w1:8000")
+                .worker_type(WorkerType::Regular)
+                .api_key("test_api_key")
+                .build(),
+        )];
+
+        policy.init_workers(&workers);
+
+        // Select worker with a request - should sync to mesh
+        let _idx = policy
+            .select_worker(
+                &workers,
+                &SelectWorkerInfo {
+                    request_text: Some("test request"),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
+        // Verify tree operation was synced to mesh
+        let tree_state = mesh_sync.get_tree_state("default");
+        assert!(tree_state.is_some());
+        let tree = tree_state.unwrap();
+        assert!(!tree.operations.is_empty());
+    }
+
+    #[test]
+    fn test_cache_aware_restore_tree_state_from_mesh() {
+        use std::sync::Arc;
+
+        use crate::mesh::{
+            stores::StateStores,
+            sync::MeshSyncManager,
+            tree_ops::{TreeInsertOp, TreeOperation},
+        };
+
+        let stores = Arc::new(StateStores::with_self_name("node1".to_string()));
+        let mesh_sync = Arc::new(MeshSyncManager::new(stores, "node1".to_string()));
+
+        // Pre-populate mesh with tree state
+        let op1 = TreeOperation::Insert(TreeInsertOp {
+            text: "test_text_1".to_string(),
+            tenant: "http://w1:8000".to_string(),
+        });
+        mesh_sync
+            .sync_tree_operation("model1".to_string(), op1)
+            .unwrap();
+
+        let op2 = TreeOperation::Insert(TreeInsertOp {
+            text: "test_text_2".to_string(),
+            tenant: "http://w2:8000".to_string(),
+        });
+        mesh_sync
+            .sync_tree_operation("model1".to_string(), op2)
+            .unwrap();
+
+        let config = CacheAwareConfig {
+            eviction_interval_secs: 0,
+            ..Default::default()
+        };
+        let mut policy = CacheAwarePolicy::with_config(config);
+        policy.set_mesh_sync(Some(mesh_sync.clone()));
+
+        // Initialize with a model to trigger restore
+        let _workers: Vec<Arc<dyn Worker>> = vec![Arc::new(
+            BasicWorkerBuilder::new("http://w1:8000")
+                .worker_type(WorkerType::Regular)
+                .api_key("test_api_key")
+                .build(),
+        )];
+
+        // Create a tree entry for model1 to trigger restore
+        let _tree = policy
+            .trees
+            .entry("model1".to_string())
+            .or_insert_with(|| Arc::new(Tree::new()));
+
+        // Manually trigger restore (normally done in constructor)
+        // For testing, we'll verify the tree state exists in mesh
+        let tree_state = mesh_sync.get_tree_state("model1");
+        assert!(tree_state.is_some());
+        let state = tree_state.unwrap();
+        assert_eq!(state.operations.len(), 2);
+    }
+
+    #[test]
+    fn test_cache_aware_apply_remote_tree_operation() {
+        use std::sync::Arc;
+
+        use crate::mesh::{
+            stores::StateStores,
+            sync::MeshSyncManager,
+            tree_ops::{TreeInsertOp, TreeOperation},
+        };
+
+        let stores = Arc::new(StateStores::with_self_name("node1".to_string()));
+        let mesh_sync = Arc::new(MeshSyncManager::new(stores, "node1".to_string()));
+
+        let config = CacheAwareConfig {
+            eviction_interval_secs: 0,
+            ..Default::default()
+        };
+        let mut policy = CacheAwarePolicy::with_config(config);
+        policy.set_mesh_sync(Some(mesh_sync.clone()));
+
+        // Apply remote tree operation
+        let remote_op = TreeOperation::Insert(TreeInsertOp {
+            text: "remote_text".to_string(),
+            tenant: "http://remote:8000".to_string(),
+        });
+
+        policy.apply_remote_tree_operation("model1", &remote_op);
+
+        // Verify the tree was updated
+        let tree = policy.trees.get("model1");
+        assert!(tree.is_some());
+    }
+
+    #[test]
+    fn test_cache_aware_multi_node_consistency() {
+        use std::sync::Arc;
+
+        use crate::mesh::{
+            stores::StateStores,
+            sync::MeshSyncManager,
+            tree_ops::{TreeInsertOp, TreeOperation},
+        };
+
+        // Simulate two nodes
+        let stores1 = Arc::new(StateStores::with_self_name("node1".to_string()));
+        let mesh_sync1 = Arc::new(MeshSyncManager::new(stores1.clone(), "node1".to_string()));
+
+        let stores2 = Arc::new(StateStores::with_self_name("node2".to_string()));
+        let mesh_sync2 = Arc::new(MeshSyncManager::new(stores2.clone(), "node2".to_string()));
+
+        let config = CacheAwareConfig {
+            eviction_interval_secs: 0,
+            ..Default::default()
+        };
+
+        let mut _policy1 = CacheAwarePolicy::with_config(config.clone());
+        _policy1.set_mesh_sync(Some(mesh_sync1.clone()));
+        let mut _policy2 = CacheAwarePolicy::with_config(config);
+        _policy2.set_mesh_sync(Some(mesh_sync2.clone()));
+
+        // Node1 syncs a tree operation
+        let op = TreeOperation::Insert(TreeInsertOp {
+            text: "shared_text".to_string(),
+            tenant: "http://shared:8000".to_string(),
+        });
+        mesh_sync1
+            .sync_tree_operation("model1".to_string(), op.clone())
+            .unwrap();
+
+        // Node2 should be able to get the tree state
+        let tree_state = mesh_sync2.get_tree_state("model1");
+        // Note: In a real scenario, this would be synced via gossip protocol
+        // For unit test, we verify the sync mechanism works
+        // Tree state may or may not exist depending on sync timing
+        let _ = tree_state;
+    }
+
+    #[test]
+    fn test_cache_aware_without_mesh() {
+        let config = CacheAwareConfig {
+            eviction_interval_secs: 0,
+            ..Default::default()
+        };
+        let policy = CacheAwarePolicy::with_config(config);
+
+        let workers: Vec<Arc<dyn Worker>> = vec![Arc::new(
+            BasicWorkerBuilder::new("http://w1:8000")
+                .worker_type(WorkerType::Regular)
+                .api_key("test_api_key")
+                .build(),
+        )];
+
+        policy.init_workers(&workers);
+
+        // Should work without mesh
+        let idx = policy
+            .select_worker(
+                &workers,
+                &SelectWorkerInfo {
+                    request_text: Some("test request"),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(idx, 0);
     }
 }

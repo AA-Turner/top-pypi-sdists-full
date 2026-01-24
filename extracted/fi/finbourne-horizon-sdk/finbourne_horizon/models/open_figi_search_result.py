@@ -18,15 +18,17 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.open_figi_data import OpenFigiData
 
 class OpenFigiSearchResult(BaseModel):
     """
     Response coming back from a search request to OpenFIGI  # noqa: E501
     """
-    results: conlist(OpenFigiData) = Field(..., description="Enumerable list of OpenFIGI results")
+    results: List[OpenFigiData] = Field(description="Enumerable list of OpenFIGI results")
     perm_id_uri:  Optional[StrictStr] = Field(None,alias="permIdUri", description="URI of the related PermID response, if requested") 
     __properties = ["results", "permIdUri"]
 
@@ -90,3 +92,5 @@ class OpenFigiSearchResult(BaseModel):
             "perm_id_uri": obj.get("permIdUri")
         })
         return _obj
+
+OpenFigiSearchResult.update_forward_refs()

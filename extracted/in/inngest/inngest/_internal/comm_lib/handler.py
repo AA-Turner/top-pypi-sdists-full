@@ -35,8 +35,8 @@ class CommHandler:
     _fns: dict[str, function.Function[typing.Any]]
     _framework: server_lib.Framework
     _mode: server_lib.ServerKind
-    _signing_key: typing.Optional[str]
-    _signing_key_fallback: typing.Optional[str]
+    _signing_key: str | None
+    _signing_key_fallback: str | None
 
     def __init__(
         self,
@@ -44,7 +44,7 @@ class CommHandler:
         client: client_lib.Inngest,
         framework: server_lib.Framework,
         functions: list[function.Function[typing.Any]],
-        streaming: typing.Optional[const.Streaming],
+        streaming: const.Streaming | None,
     ) -> None:
         # In-band syncing is opt-out.
         self._allow_in_band_sync = not env_lib.is_false(
@@ -52,6 +52,7 @@ class CommHandler:
         )
 
         self._client = client
+        self._http_client = client._http_client
         self._mode = client._mode
         self._api_origin = client.api_origin
         self._fns = {fn.get_id(): fn for fn in functions}
@@ -104,8 +105,8 @@ class CommHandler:
     async def post(
         self,
         req: CommRequest,
-        request_signing_key: types.MaybeError[typing.Optional[str]],
-    ) -> typing.Union[CommResponse, Exception]:
+        request_signing_key: types.MaybeError[str | None],
+    ) -> CommResponse | Exception:
         params = parse_query_params(req.query_params)
         if isinstance(params, Exception):
             return params
@@ -121,6 +122,7 @@ class CommHandler:
         middleware = middleware_lib.MiddlewareManager.from_client(
             self._client,
             req.raw_request,
+            req.timings,
         )
 
         request = server_lib.ServerRequest.from_raw(req.body)
@@ -144,16 +146,17 @@ class CommHandler:
             # to big, so the Executor is telling the SDK to fetch them from the
             # API
 
-            fetched_events, fetched_steps = await asyncio.gather(
-                self._client._get_batch(request.ctx.run_id),
-                self._client._get_steps(request.ctx.run_id),
-            )
-            if isinstance(fetched_events, Exception):
-                return fetched_events
-            events = fetched_events
-            if isinstance(fetched_steps, Exception):
-                return fetched_steps
-            steps = fetched_steps
+            with req.timings.use_api:
+                fetched_events, fetched_steps = await asyncio.gather(
+                    self._client._get_batch(request.ctx.run_id),
+                    self._client._get_steps(request.ctx.run_id),
+                )
+                if isinstance(fetched_events, Exception):
+                    return fetched_events
+                events = fetched_events
+                if isinstance(fetched_steps, Exception):
+                    return fetched_steps
+                steps = fetched_steps
         if events is None:
             # Should be unreachable. The Executor should always either send the
             # batch or tell the SDK to fetch the batch
@@ -181,6 +184,7 @@ class CommHandler:
                                 middleware,
                                 request,
                                 params.step_id,
+                                req.timings,
                             ),
                             middleware,
                             step_lib.StepIDCounter(),
@@ -199,6 +203,7 @@ class CommHandler:
                     self._client.env,
                     self._framework,
                     server_kind,
+                    req.timings,
                 )
 
             call_res = await call_res_task
@@ -220,6 +225,7 @@ class CommHandler:
                             middleware,
                             request,
                             params.step_id,
+                            req.timings,
                         ),
                         middleware,
                         step_lib.StepIDCounter(),
@@ -251,8 +257,8 @@ class CommHandler:
     def post_sync(
         self,
         req: CommRequest,
-        request_signing_key: types.MaybeError[typing.Optional[str]],
-    ) -> typing.Union[CommResponse, Exception]:
+        request_signing_key: types.MaybeError[str | None],
+    ) -> CommResponse | Exception:
         params = parse_query_params(req.query_params)
         if isinstance(params, Exception):
             return params
@@ -268,6 +274,7 @@ class CommHandler:
         middleware = middleware_lib.MiddlewareManager.from_client(
             self._client,
             req.raw_request,
+            req.timings,
         )
 
         request = server_lib.ServerRequest.from_raw(req.body)
@@ -291,15 +298,18 @@ class CommHandler:
             # to big, so the Executor is telling the SDK to fetch them from the
             # API
 
-            fetched_events = self._client._get_batch_sync(request.ctx.run_id)
-            if isinstance(fetched_events, Exception):
-                return fetched_events
-            events = fetched_events
+            with req.timings.use_api:
+                fetched_events = self._client._get_batch_sync(
+                    request.ctx.run_id
+                )
+                if isinstance(fetched_events, Exception):
+                    return fetched_events
+                events = fetched_events
 
-            fetched_steps = self._client._get_steps_sync(request.ctx.run_id)
-            if isinstance(fetched_steps, Exception):
-                return fetched_steps
-            steps = fetched_steps
+                fetched_steps = self._client._get_steps_sync(request.ctx.run_id)
+                if isinstance(fetched_steps, Exception):
+                    return fetched_steps
+                steps = fetched_steps
         if events is None:
             # Should be unreachable. The Executor should always either send the
             # batch or tell the SDK to fetch the batch
@@ -324,6 +334,7 @@ class CommHandler:
                         middleware,
                         request,
                         params.step_id,
+                        req.timings,
                     ),
                     middleware,
                     step_lib.StepIDCounter(),
@@ -371,7 +382,7 @@ class CommHandler:
     def get_sync(
         self,
         req: CommRequest,
-        request_signing_key: types.MaybeError[typing.Optional[str]],
+        request_signing_key: types.MaybeError[str | None],
     ) -> types.MaybeError[CommResponse]:
         """Handle Dev Server's auto-discovery."""
 
@@ -409,8 +420,8 @@ class CommHandler:
     async def put(
         self: CommHandler,
         req: CommRequest,
-        request_signing_key: types.MaybeError[typing.Optional[str]],
-    ) -> typing.Union[CommResponse, Exception]:
+        request_signing_key: types.MaybeError[str | None],
+    ) -> CommResponse | Exception:
         """Handle a PUT request."""
 
         self._client.logger.debug("Syncing app")
@@ -421,7 +432,7 @@ class CommHandler:
             == server_lib.SyncKind.IN_BAND.value
             and self._allow_in_band_sync
         ):
-            err: typing.Optional[Exception] = None
+            err: Exception | None = None
             if isinstance(request_signing_key, Exception):
                 err = request_signing_key
             elif request_signing_key is None:
@@ -440,8 +451,8 @@ class CommHandler:
     def put_sync(
         self: CommHandler,
         req: CommRequest,
-        request_signing_key: types.MaybeError[typing.Optional[str]],
-    ) -> typing.Union[CommResponse, Exception]:
+        request_signing_key: types.MaybeError[str | None],
+    ) -> CommResponse | Exception:
         """Handle a PUT request."""
 
         self._client.logger.debug("Syncing app")
@@ -452,7 +463,7 @@ class CommHandler:
             == server_lib.SyncKind.IN_BAND.value
             and self._allow_in_band_sync
         ):
-            err: typing.Optional[Exception] = None
+            err: Exception | None = None
             if isinstance(request_signing_key, Exception):
                 err = request_signing_key
             elif request_signing_key is None:
@@ -472,12 +483,9 @@ class CommHandler:
 def _build_inspection_response(
     handler: CommHandler,
     req: CommRequest,
-    request_signing_key: types.MaybeError[typing.Optional[str]],
+    request_signing_key: types.MaybeError[str | None],
 ) -> types.MaybeError[
-    typing.Union[
-        server_lib.AuthenticatedInspection,
-        server_lib.UnauthenticatedInspection,
-    ]
+    server_lib.AuthenticatedInspection | server_lib.UnauthenticatedInspection
 ]:
     server_kind = transforms.get_server_kind(req.headers)
     if isinstance(server_kind, Exception):
@@ -523,12 +531,7 @@ def _build_inspection_response(
             signing_key_hash=signing_key_hash,
         )
 
-    authentication_succeeded: typing.Optional[typing.Literal[False]] = None
-    if isinstance(request_signing_key, Exception):
-        authentication_succeeded = False
-
     return server_lib.UnauthenticatedInspection(
-        authentication_succeeded=authentication_succeeded,
         function_count=len(handler._fns),
         has_event_key=handler._client.event_key is not None,
         has_signing_key=handler._signing_key is not None,
@@ -545,7 +548,7 @@ class Syncer:
         self,
         handler: CommHandler,
         req: CommRequest,
-        request_signing_key: types.MaybeError[typing.Optional[str]],
+        request_signing_key: types.MaybeError[str | None],
     ) -> types.MaybeError[CommResponse]:
         if not isinstance(request_signing_key, str):
             # This should be checked earlier, but we'll also check it here since
@@ -608,7 +611,7 @@ class Syncer:
         self,
         handler: CommHandler,
         req: CommRequest,
-    ) -> types.MaybeError[typing.Union[CommResponse, httpx.Request]]:
+    ) -> types.MaybeError[CommResponse | httpx.Request]:
         app_url = net.create_serve_url(
             public_path=req.public_path,
             request_url=req.request_url,
@@ -677,7 +680,7 @@ class Syncer:
         # with the concurrency scope.
         body = transforms.deep_strip_none(body)
 
-        return handler._client._http_client_sync.build_request(
+        return handler._http_client.build_httpx_request(
             "POST",
             registration_url,
             headers=headers,
@@ -730,8 +733,8 @@ class Syncer:
         self._logger.debug(f"Sending out-of-band sync request to {prep.url}")
 
         res = await net.fetch_with_auth_fallback(
-            handler._client._http_client,
-            handler._client._http_client_sync,
+            handler._http_client._http_client,
+            handler._http_client._http_client_sync,
             prep,
             signing_key=handler._signing_key,
             signing_key_fallback=handler._signing_key_fallback,
@@ -755,7 +758,7 @@ class Syncer:
         self._logger.debug(f"Sending out-of-band sync request to {prep.url}")
 
         res = net.fetch_with_auth_fallback_sync(
-            handler._client._http_client_sync,
+            handler._http_client._http_client_sync,
             prep,
             signing_key=handler._signing_key,
             signing_key_fallback=handler._signing_key_fallback,

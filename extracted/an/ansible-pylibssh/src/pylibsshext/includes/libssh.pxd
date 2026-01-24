@@ -27,6 +27,10 @@ cdef extern from "libssh/libssh.h" nogil:
         pass
     ctypedef ssh_session_struct* ssh_session
 
+    cdef struct ssh_string_struct:
+        pass
+    ctypedef ssh_string_struct* ssh_string
+
     cdef struct ssh_key_struct:
         pass
     ctypedef ssh_key_struct* ssh_key

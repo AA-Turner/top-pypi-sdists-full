@@ -18,7 +18,6 @@ import dataclasses
 from typing import Any, Generic, Sequence, Tuple, Type, cast, get_args
 
 from absl import logging
-from etils import epath
 import jax
 from jax import tree_util as jtu
 import jax.numpy as jnp
@@ -26,6 +25,7 @@ import numpy as np
 from orbax.checkpoint._src.futures import future
 from orbax.checkpoint._src.metadata import sharding as sharding_metadata
 from orbax.checkpoint._src.metadata import value as value_metadata
+from orbax.checkpoint._src.serialization import type_handler_registry
 from orbax.checkpoint._src.serialization import type_handlers as type_handlers_v0
 from orbax.checkpoint._src.serialization import types as types_v0
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
@@ -33,7 +33,6 @@ from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.serialization import array_leaf_handler
 from orbax.checkpoint.experimental.v1._src.serialization import numpy_leaf_handler
 from orbax.checkpoint.experimental.v1._src.serialization import scalar_leaf_handler
-from orbax.checkpoint.experimental.v1._src.serialization import string_leaf_handler
 from orbax.checkpoint.experimental.v1._src.serialization import types
 from orbax.checkpoint.experimental.v1._src.synchronization import synchronization
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
@@ -50,17 +49,17 @@ class V0Metadata(value_metadata.Metadata):
 
 
 class _PathAwaitingCreation(path_types.PathAwaitingCreation):
-  """Implementation of `PathAwaitingCreation` that awaits contracted signals."""
+  """Implementation of :py:class:`~.v1.path.PathAwaitingCreation` that awaits contracted signals."""
 
   def __init__(self, path: path_types.Path, operation_id: str):
     self._path = path
     self._operation_id = operation_id
 
   def __truediv__(
-      self, other: path_types.PathAwaitingCreation | path_types.PathLike
+      self, other: path_types.PathLike
   ) -> path_types.PathAwaitingCreation:
-    if isinstance(other, path_types.PathAwaitingCreation):
-      other = other.path
+    if not isinstance(other, path_types.PathLike):
+      raise TypeError(f'Expected PathLike, got {type(other)}.')
     return _PathAwaitingCreation(self._path / other, self._operation_id)
 
   async def await_creation(self) -> path_types.Path:
@@ -75,8 +74,8 @@ class _PathAwaitingCreation(path_types.PathAwaitingCreation):
 def _keypath_from_param_name(param_name: str) -> tree_types.PyTreeKeyPath:
   """Converts a param name to a PyTreeKeyPath.
 
-  This is based on reversing of the name construction from tree/utils.py's
-  param_name_from_keypath.
+  This is based on reversing the name construction from `tree/utils.py`'s
+  `param_name_from_keypath`.
 
   Args:
     param_name: A string representing the parameter name.
@@ -114,18 +113,21 @@ def _construct_deserialization_param(
     info: types_v0.ParamInfo,
     restore_args: types_v0.RestoreArgs,
 ) -> types.DeserializationParam[
-    array_leaf_handler.AbstractArray
-    | numpy_leaf_handler.AbstractNumpy
-    | scalar_leaf_handler.AbstractScalar
-    | string_leaf_handler.AbstractString
+    types.AbstractShardedArray
+    | types.AbstractArray
+    | Type[types.AbstractArray]
+    | types.AbstractScalar
+    | Type[types.AbstractScalar]
+    | types.AbstractString
+    | Type[types.AbstractString]
     | None
 ]:
-  """Constructs a DeserializationParam from a ParamInfo and RestoreArg."""
+  """Constructs a :py:class:`~.v1.serialization.DeserializationParam` from a ParamInfo and :py:class:`~orbax.checkpoint.type_handlers.RestoreArgs`."""
 
   logging.vlog(1, 'compatibility.py: restore_args: %s', restore_args)
 
   if restore_args.restore_type == np.ndarray:
-    # Numpy type
+    # NumPy type
     value = numpy_leaf_handler.NumpyShapeDtype(
         dtype=restore_args.dtype,
         shape=None,
@@ -137,7 +139,7 @@ def _construct_deserialization_param(
     logging.vlog(1, 'Scalar restore_type set to: %s', restore_args.restore_type)
     value = restore_args.restore_type
   elif isinstance(restore_args, type_handlers_v0.ArrayRestoreArgs):
-    # JAX Array type, construct value as jax.ShapeDtypeStruct.
+    # JAX Array type, construct value as `jax.ShapeDtypeStruct`.
     arg = cast(type_handlers_v0.ArrayRestoreArgs, restore_args)
 
     logging.info(
@@ -157,15 +159,8 @@ def _construct_deserialization_param(
     else:
       sharding = None
 
-    if sharding is None:
-      # it's a numpy type
-      value = numpy_leaf_handler.NumpyShapeDtype(
-          dtype=arg.dtype,
-          shape=arg.shape,
-      )
-    else:
-      # it's a jax.Array type
-      value = jax.ShapeDtypeStruct(arg.shape, arg.dtype, sharding=sharding)
+    # Restore as jax.Array regardless of whether sharding is None.
+    value = jax.ShapeDtypeStruct(arg.shape, arg.dtype, sharding=sharding)
   elif info.write_shape is not None:
     # TODO(dnlng): this is needed due to write_shape is passed into the
     # metadata() call, and then returned metadata will include this write_shape
@@ -258,10 +253,10 @@ def _validate_deserialization_infos(
 
 def _convert_v1_metadata_to_v0(
     name: str,
-    directory: epath.Path | None,
-    metadata: array_leaf_handler.AbstractArray,
+    directory: path_types.Path | None,
+    metadata: types.AbstractShardedArray,
 ) -> value_metadata.Metadata:
-  """Wrap V1 metadata into V0Metadata."""
+  """Wrap V1 metadata into :py:class:`~.V0Metadata`."""
   return V0Metadata(
       name=name,
       directory=directory,
@@ -382,7 +377,11 @@ class CompatibleTypeHandler(
 
     ret = []
     for info, metadata in zip(infos, metadatas):
-      ret.append(_convert_v1_metadata_to_v0(info.name, info.path, metadata))
+      ret.append(
+          _convert_v1_metadata_to_v0(
+              info.name, info.parent_dir / info.name, metadata
+          )
+      )
     return ret
 
   def memory_size(
@@ -411,11 +410,20 @@ class CompatibleTypeHandler(
     ):
       return self._leaf_handler._handler_impl._array_metadata_store  # pylint: disable=protected-access
     else:
-      logging.warning(
+      logging.info(
           'Cannot resolve _array_metadata_store for this v1 leaf handler: %r',
           self._leaf_handler,
       )
       return None
+
+  @property
+  def has_dispatcher(self) -> bool:
+    if hasattr(self._leaf_handler, '_handler_impl') and hasattr(
+        self._leaf_handler._handler_impl, 'has_dispatcher'  # pylint: disable=protected-access
+    ):
+      return self._leaf_handler._handler_impl.has_dispatcher  # pylint: disable=protected-access
+    else:
+      return False
 
 
 def get_v0_type_handler_registry(
@@ -459,4 +467,4 @@ def get_v0_type_handler_registry(
             typestr=_get_typestr(leaf_type),
         ),
     ))
-  return type_handlers_v0.create_type_handler_registry(*handlers)
+  return type_handler_registry.create_type_handler_registry(*handlers)

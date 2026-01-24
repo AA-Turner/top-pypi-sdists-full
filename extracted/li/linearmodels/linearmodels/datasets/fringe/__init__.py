@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 from pandas import DataFrame
+
+from linearmodels import datasets
 
 # noinspection SpellCheckingInspection,SpellCheckingInspection
 DESCR = """
@@ -50,6 +50,5 @@ vserat                   (vacdays+sicklve)/annearn
 
 
 def load() -> DataFrame:
-    from linearmodels import datasets
 
     return datasets.load(__file__, "fringe.csv.bz2")

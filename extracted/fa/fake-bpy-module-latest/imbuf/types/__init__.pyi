@@ -14,49 +14,31 @@ import numpy.typing as npt
 
 class ImBuf:
     channels: int
-    """ Number of bit-planes.
-
-    :type: int
-    """
+    """ Number of color channels."""
 
     filepath: str
-    """ filepath associated with this image.
-
-    :type: str
-    """
+    """ filepath associated with this image."""
 
     planes: int
-    """ Number of bits associated with this image.
-
-    :type: int
-    """
+    """ Number of bits per pixel."""
 
     ppm: tuple[float, float]
-    """ pixels per meter.
-
-    :type: tuple[float, float]
-    """
+    """ pixels per meter."""
 
     size: tuple[int, int]
-    """ size of the image in pixels.
-
-    :type: tuple[int, int]
-    """
+    """ size of the image in pixels."""
 
     def copy(self) -> typing_extensions.Self:
         """
 
         :return: A copy of the image.
-        :rtype: typing_extensions.Self
         """
 
     def crop(self, min: tuple[int, int], max: tuple[int, int]) -> None:
         """Crop the image.
 
         :param min: X, Y minimum.
-        :type min: tuple[int, int]
         :param max: X, Y maximum.
-        :type max: tuple[int, int]
         """
 
     def free(self) -> None:
@@ -66,7 +48,5 @@ class ImBuf:
         """Resize the image.
 
         :param size: New size.
-        :type size: tuple[int, int]
         :param method: Method of resizing (FAST, BILINEAR)
-        :type method: str
         """

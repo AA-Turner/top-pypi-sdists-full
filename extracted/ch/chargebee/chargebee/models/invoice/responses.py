@@ -125,6 +125,7 @@ class DiscountResponse(Model):
     raw_data: Dict[Any, Any] = None
     amount: int = None
     description: str = None
+    line_item_id: str = None
     entity_type: str = None
     discount_type: str = None
     entity_id: str = None
@@ -158,6 +159,20 @@ class LinkedPaymentResponse(Model):
 
 
 @dataclass
+class ReferenceTransactionResponse(Model):
+    raw_data: Dict[Any, Any] = None
+    applied_amount: int = None
+    applied_at: int = None
+    txn_id: str = None
+    txn_status: str = None
+    txn_date: int = None
+    txn_amount: int = None
+    txn_type: str = None
+    amount_capturable: int = None
+    authorization_reason: str = None
+
+
+@dataclass
 class DunningAttemptResponse(Model):
     raw_data: Dict[Any, Any] = None
     attempt: int = None
@@ -166,6 +181,7 @@ class DunningAttemptResponse(Model):
     created_at: int = None
     txn_status: str = None
     txn_amount: int = None
+    retry_engine: str = None
 
 
 @dataclass
@@ -241,7 +257,6 @@ class ShippingAddressResponse(Model):
     country: str = None
     zip: str = None
     validation_status: str = None
-    index: int = None
 
 
 @dataclass
@@ -321,6 +336,7 @@ class InvoiceResponse(Model):
     voided_at: int = None
     resource_version: int = None
     updated_at: int = None
+    line_items_next_offset: str = None
     first_invoice: bool = None
     new_sales_amount: int = None
     has_advance_charges: bool = None
@@ -340,6 +356,7 @@ class InvoiceResponse(Model):
     taxes: List[TaxResponse] = None
     tax_origin: TaxOriginResponse = None
     linked_payments: List[LinkedPaymentResponse] = None
+    reference_transactions: List[ReferenceTransactionResponse] = None
     dunning_attempts: List[DunningAttemptResponse] = None
     applied_credits: List[AppliedCreditResponse] = None
     adjustment_credit_notes: List[AdjustmentCreditNoteResponse] = None

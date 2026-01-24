@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import gzip
 import io
-from typing import Literal
+import typing as t
 
 import pytest
 
@@ -14,6 +14,13 @@ def test_10x10y_round_trip() -> None:
     output_data = ry.gzip_encode(input_data)
     assert output_data is not None
     decoded = ry.gzip_decode(output_data)
+    assert ry.is_gzipped(output_data)
+    assert decoded == input_data
+
+    output_data_alias = ry.gzip(input_data)
+    assert output_data_alias is not None
+    assert ry.is_gzipped(output_data_alias)
+    decoded = ry.gunzip(output_data_alias)
     assert decoded == input_data
 
 
@@ -45,9 +52,8 @@ def test_ry_vs_stdlib_compress() -> None:
     assert ry_compressed is not None
 
     # Decompress with stdlib gzip
-    with io.BytesIO(ry_compressed) as f:
-        with gzip.GzipFile(fileobj=f, mode="rb") as gzf:
-            stdlib_decompressed = gzf.read()
+    with io.BytesIO(ry_compressed) as f, gzip.GzipFile(fileobj=f, mode="rb") as gzf:
+        stdlib_decompressed = gzf.read()
     assert stdlib_decompressed == input_data
 
 
@@ -74,9 +80,8 @@ def test_cross_compatibility() -> None:
     assert ry_compressed is not None
 
     # Decompress with stdlib gzip
-    with io.BytesIO(ry_compressed) as f:
-        with gzip.GzipFile(fileobj=f, mode="rb") as gzf:
-            stdlib_decompressed = gzf.read()
+    with io.BytesIO(ry_compressed) as f, gzip.GzipFile(fileobj=f, mode="rb") as gzf:
+        stdlib_decompressed = gzf.read()
     assert stdlib_decompressed == input_data
 
     # stdlib gzip
@@ -92,7 +97,7 @@ def test_cross_compatibility() -> None:
 
 
 @pytest.mark.parametrize("quality", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-def test_quality_gzip(quality: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) -> None:
+def test_quality_gzip(quality: t.Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) -> None:
     input_data = b"XXXXXXXXXXYYYYYYYYYY"
     output_data = ry.gzip_encode(input_data, quality=quality)
     assert output_data is not None
@@ -101,8 +106,18 @@ def test_quality_gzip(quality: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) -> None:
     assert decoded == input_data
 
 
+@pytest.mark.parametrize("quality", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+def test_quality_gzip_aliases(quality: t.Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) -> None:
+    input_data = b"XXXXXXXXXXYYYYYYYYYY"
+    output_data = ry.gzip(input_data, quality=quality)
+    assert output_data is not None
+    decoded = ry.gunzip(output_data)
+    assert isinstance(decoded, ry.Bytes)
+    assert decoded == input_data
+
+
 @pytest.mark.parametrize("quality", ["best", "fast"])
-def test_quality_gzip_string(quality: Literal["best", "fast"]) -> None:
+def test_quality_gzip_string(quality: t.Literal["best", "fast"]) -> None:
     input_data = b"XXXXXXXXXXYYYYYYYYYY"
     output_data = ry.gzip_encode(input_data, quality=quality)
     assert output_data is not None
@@ -110,11 +125,18 @@ def test_quality_gzip_string(quality: Literal["best", "fast"]) -> None:
     assert decoded == input_data
 
 
-def test_gzip_quality_value_error() -> None:
-    with pytest.raises(ValueError) as e:
-        ry.gzip(b"test", quality=10)  # type: ignore[arg-type]
-    s = str(e.value)
-    assert (
-        "Invalid compression level; valid levels are int 0-9 or string 'fast' or 'best'"
-        in s
-    )
+@pytest.mark.parametrize("quality", [-1, 10, "invalid", 5.5, None])
+def test_gzip_quality_value_error(
+    quality: str | float | None,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="Invalid compression level; valid levels are int 0-9 or string 'fast' or 'best'",
+    ):
+        _r = ry.gzip_encode(b"data", quality=quality)  # type: ignore[arg-type]
+
+    with pytest.raises(
+        ValueError,
+        match="Invalid compression level; valid levels are int 0-9 or string 'fast' or 'best'",
+    ):
+        _r = ry.gzip(b"data", quality=quality)  # type: ignore[arg-type]

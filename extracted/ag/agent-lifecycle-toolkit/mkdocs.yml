@@ -1,0 +1,142 @@
+# Project information
+site_name: Agent Lifecycle Toolkit
+site_url: https://agenttoolkit.github.io/agent-lifecycle-toolkit
+site_description: >-
+  The Agent Lifecycle Toolkit (ALTK) is a library of components to help agent builders improve their agent with minimal integration effort and setup.
+
+# Repository
+repo_name: AgentToolkit/agent-lifecycle-toolkit
+repo_url: https://github.com/AgentToolkit/agent-lifecycle-toolkit
+
+# Copyright
+copyright: >
+  Copyright &copy; 2025 Agent Lifecycle Toolkit (ALTK) project –
+  <a href="#__consent">Change cookie settings</a>
+
+# Configuration
+theme:
+  name: material
+  features:
+    - content.tabs.link
+    - content.code.annotate
+    - content.code.copy
+    - content.tooltips
+    - announce.dismiss
+    - navigation.footer
+    - navigation.tabs
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.path
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - search.suggest
+    - toc.follow
+  language: en
+  palette:
+    # Default dark mode
+    - scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to light mode
+
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to dark mode
+
+    # System preference (dark)
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to system preference
+  font:
+    text: Roboto
+    code: Roboto Mono
+  favicon: assets/logo-32x32.png
+  logo: assets/logo-512x512.png
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home:
+    - ALTK: index.md
+    - Installation:
+      - Installation: installation/index.md
+    - Getting started:
+      - Getting started: getting_started/index.md
+    - Usage:
+      - Usage: usage/index.md
+  - Concepts:
+    - Lifecycle:
+      - Lifecycle Stages: concepts/lifecycle.md
+    - ALTK components:
+      - Summary: concepts/components/summary.md
+    - Components:
+        - Spotlight: concepts/components/spotlight.md
+        - Retrieval Augmented Thinking: concepts/components/rat.md
+        - Refraction: concepts/components/refraction.md
+        - SPARC: concepts/components/sparc.md
+        - Silent Review: concepts/components/silent-review.md
+        - JSON Processor: concepts/components/json-processor.md
+        - RAG Repair: concepts/components/rag-repair.md
+        - Policy Guard: concepts/components/policy-guard.md
+        - Test Case Generation: concepts/components/test-case-generation.md
+        - Tool Enrichment: concepts/components/tool-enrichment.md
+        - Tool Validation: concepts/components/tool-validation.md
+  - Examples:
+      Examples: examples/index.md
+  - Integrations:
+      Integrations: integrations/index.md
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github-alt
+      link: https://github.com/AgentToolkit/agent-lifecycle-toolkit/
+  consent:
+    title: Cookie consent
+    description: >-
+      We use cookies to recognize your repeated visits and preferences, as well
+      as to measure the effectiveness of our documentation and whether users
+      find what they're searching for. With your consent, you're helping us to
+      make our documentation better.
+  analytics:
+    provider: google
+    property: !ENV GOOGLE_ANALYTICS_KEY
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - admonition
+  - pymdownx.arithmatex:
+      generic: true
+  - footnotes
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.mark
+  - attr_list
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+
+plugins:
+  - include-markdown
+  - search

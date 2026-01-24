@@ -1954,7 +1954,7 @@ class CreateDomainRequest(AbstractModel):
         :type Domain: str
         :param _GroupId: 域名分组ID。可以通过接口DescribeDomainGroupList查看当前域名分组信息
         :type GroupId: int
-        :param _IsMark: 是否星标域名，”yes”、”no” 分别代表是和否。
+        :param _IsMark: 是否星标域名，"yes"、"no" 分别代表是和否。
         :type IsMark: str
         :param _TransferSubDomain: 添加子域名时，是否迁移相关父域名的解析记录。不传默认为 true
         :type TransferSubDomain: bool
@@ -1991,7 +1991,7 @@ class CreateDomainRequest(AbstractModel):
 
     @property
     def IsMark(self):
-        r"""是否星标域名，”yes”、”no” 分别代表是和否。
+        r"""是否星标域名，"yes"、"no" 分别代表是和否。
         :rtype: str
         """
         return self._IsMark
@@ -6136,7 +6136,7 @@ SPAM：封禁
         :type RecordCountBegin: int
         :param _RecordCountEnd: 要获取域名的记录数查询区间终点。
         :type RecordCountEnd: int
-        :param _ProjectId: 项目ID
+        :param _ProjectId: 项目ID，"帐号中心-项目管理"拿到项目ID
         :type ProjectId: int
         :param _Tags: 标签过滤
         :type Tags: list of TagItemFilter
@@ -6327,7 +6327,7 @@ SPAM：封禁
 
     @property
     def ProjectId(self):
-        r"""项目ID
+        r"""项目ID，"帐号中心-项目管理"拿到项目ID
         :rtype: int
         """
         return self._ProjectId
@@ -11520,7 +11520,7 @@ class DomainInfo(AbstractModel):
         r"""
         :param _DomainId: 域名ID
         :type DomainId: int
-        :param _Status: 域名状态
+        :param _Status: 域名状态，正常：ENABLE，暂停：PAUSE，封禁：SPAM
         :type Status: str
         :param _Grade: 域名套餐等级
         :type Grade: str
@@ -11528,7 +11528,7 @@ class DomainInfo(AbstractModel):
         :type GroupId: int
         :param _IsMark: 是否星标域名
         :type IsMark: str
-        :param _TTL: TTL(DNS记录缓存时间)
+        :param _TTL: TTL(DNS记录缓存时间)，单位：秒
         :type TTL: int
         :param _CnameSpeedup: cname加速启用状态
         :type CnameSpeedup: str
@@ -11536,7 +11536,7 @@ class DomainInfo(AbstractModel):
         :type Remark: str
         :param _Punycode: 域名Punycode
         :type Punycode: str
-        :param _DnsStatus: 域名DNS状态
+        :param _DnsStatus: 域名DNS状态，错误：dnserror，正常：空字符串
         :type DnsStatus: str
         :param _DnspodNsList: 域名的NS列表
         :type DnspodNsList: list of str
@@ -11636,7 +11636,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def Status(self):
-        r"""域名状态
+        r"""域名状态，正常：ENABLE，暂停：PAUSE，封禁：SPAM
         :rtype: str
         """
         return self._Status
@@ -11680,7 +11680,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def TTL(self):
-        r"""TTL(DNS记录缓存时间)
+        r"""TTL(DNS记录缓存时间)，单位：秒
         :rtype: int
         """
         return self._TTL
@@ -11724,7 +11724,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def DnsStatus(self):
-        r"""域名DNS状态
+        r"""域名DNS状态，错误：dnserror，正常：空字符串
         :rtype: str
         """
         return self._DnsStatus
@@ -12053,7 +12053,7 @@ class DomainListItem(AbstractModel):
         :type Name: str
         :param _Status: 域名的状态，正常：ENABLE，暂停：PAUSE，封禁：SPAM
         :type Status: str
-        :param _TTL: 域名默认的解析记录默认TTL值
+        :param _TTL: 域名默认的解析记录默认TTL值，单位：秒
         :type TTL: int
         :param _CNAMESpeedup: 是否开启CNAME加速，开启：ENABLE，未开启：DISABLE
         :type CNAMESpeedup: str
@@ -12154,7 +12154,7 @@ class DomainListItem(AbstractModel):
 
     @property
     def TTL(self):
-        r"""域名默认的解析记录默认TTL值
+        r"""域名默认的解析记录默认TTL值，单位：秒
         :rtype: int
         """
         return self._TTL
@@ -12488,7 +12488,7 @@ class DomainShareUserInfo(AbstractModel):
         r"""
         :param _DomainShareId: 共享记录ID
         :type DomainShareId: int
-        :param _Mode: 共享模式。r-只读；w-可写；rw-可读写。
+        :param _Mode: 共享模式。r-只读；rw-可读写。
         :type Mode: str
         :param _Nickname: 共享到的用户昵称
         :type Nickname: str
@@ -12519,7 +12519,7 @@ class DomainShareUserInfo(AbstractModel):
 
     @property
     def Mode(self):
-        r"""共享模式。r-只读；w-可写；rw-可读写。
+        r"""共享模式。r-只读；rw-可读写。
         :rtype: str
         """
         return self._Mode
@@ -13670,6 +13670,100 @@ class LockInfo(AbstractModel):
         
 
 
+class ModifyDomainCNAMESpeedupStatusBatchRequest(AbstractModel):
+    r"""ModifyDomainCNAMESpeedupStatusBatch请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DomainList: 域名列表
+        :type DomainList: list of str
+        :param _Status: 状态。ENABLE-开启；DISABLE-关闭。
+        :type Status: str
+        """
+        self._DomainList = None
+        self._Status = None
+
+    @property
+    def DomainList(self):
+        r"""域名列表
+        :rtype: list of str
+        """
+        return self._DomainList
+
+    @DomainList.setter
+    def DomainList(self, DomainList):
+        self._DomainList = DomainList
+
+    @property
+    def Status(self):
+        r"""状态。ENABLE-开启；DISABLE-关闭。
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+
+    def _deserialize(self, params):
+        self._DomainList = params.get("DomainList")
+        self._Status = params.get("Status")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyDomainCNAMESpeedupStatusBatchResponse(AbstractModel):
+    r"""ModifyDomainCNAMESpeedupStatusBatch返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: 任务 ID
+        :type JobId: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._JobId = None
+        self._RequestId = None
+
+    @property
+    def JobId(self):
+        r"""任务 ID
+        :rtype: int
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyDomainCustomLineRequest(AbstractModel):
     r"""ModifyDomainCustomLine请求参数结构体
 
@@ -13999,6 +14093,100 @@ class ModifyDomainOwnerResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ModifyDomainRecursiveStatusBatchRequest(AbstractModel):
+    r"""ModifyDomainRecursiveStatusBatch请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DomainList: 域名列表
+        :type DomainList: list of str
+        :param _Status: ENABLE-开启；DISABLE-关闭。
+        :type Status: str
+        """
+        self._DomainList = None
+        self._Status = None
+
+    @property
+    def DomainList(self):
+        r"""域名列表
+        :rtype: list of str
+        """
+        return self._DomainList
+
+    @DomainList.setter
+    def DomainList(self, DomainList):
+        self._DomainList = DomainList
+
+    @property
+    def Status(self):
+        r"""ENABLE-开启；DISABLE-关闭。
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+
+    def _deserialize(self, params):
+        self._DomainList = params.get("DomainList")
+        self._Status = params.get("Status")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyDomainRecursiveStatusBatchResponse(AbstractModel):
+    r"""ModifyDomainRecursiveStatusBatch返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: 任务 ID
+        :type JobId: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._JobId = None
+        self._RequestId = None
+
+    @property
+    def JobId(self):
+        r"""任务 ID
+        :rtype: int
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyDomainRemarkRequest(AbstractModel):
     r"""ModifyDomainRemark请求参数结构体
 
@@ -14102,7 +14290,7 @@ class ModifyDomainStatusRequest(AbstractModel):
         r"""
         :param _Domain: 域名
         :type Domain: str
-        :param _Status: 域名状态，”enable” 、”disable” 分别代表启用和暂停
+        :param _Status: 域名状态，"enable"、"disable" 分别代表启用和暂停
         :type Status: str
         :param _DomainId: 域名 ID 。参数 DomainId 优先级比参数 Domain 高，如果传递参数 DomainId 将忽略参数 Domain 。可以通过接口DescribeDomainList查到所有的Domain以及DomainId
         :type DomainId: int
@@ -14124,7 +14312,7 @@ class ModifyDomainStatusRequest(AbstractModel):
 
     @property
     def Status(self):
-        r"""域名状态，”enable” 、”disable” 分别代表启用和暂停
+        r"""域名状态，"enable"、"disable" 分别代表启用和暂停
         :rtype: str
         """
         return self._Status
@@ -14690,7 +14878,7 @@ class ModifyPackageAutoRenewRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ResourceId: 资源ID。可以在控制台查看所有的资源
+        :param _ResourceId: 计费资源ID
         :type ResourceId: str
         :param _Status: enable 开启自动续费；disable 关闭自动续费
         :type Status: str
@@ -14700,7 +14888,7 @@ class ModifyPackageAutoRenewRequest(AbstractModel):
 
     @property
     def ResourceId(self):
-        r"""资源ID。可以在控制台查看所有的资源
+        r"""计费资源ID
         :rtype: str
         """
         return self._ResourceId
@@ -14736,6 +14924,115 @@ class ModifyPackageAutoRenewRequest(AbstractModel):
 
 class ModifyPackageAutoRenewResponse(AbstractModel):
     r"""ModifyPackageAutoRenew返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyPackageDomainRequest(AbstractModel):
+    r"""ModifyPackageDomain请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Operation: 操作类型：change: 套餐换域名；unbind: 解绑套餐域名；bind: 套餐绑定域名。
+        :type Operation: str
+        :param _DomainId: 域名ID。Operation为change时必传，代表更换前的域名。
+        :type DomainId: int
+        :param _NewDomainId: 域名ID。Operation为change或bind时必传，代表更换后或要绑定的域名。
+        :type NewDomainId: int
+        :param _ResourceId: 套餐资源ID。Operation为bind或unbind时必传，代表将要操作的套餐资源。
+        :type ResourceId: str
+        """
+        self._Operation = None
+        self._DomainId = None
+        self._NewDomainId = None
+        self._ResourceId = None
+
+    @property
+    def Operation(self):
+        r"""操作类型：change: 套餐换域名；unbind: 解绑套餐域名；bind: 套餐绑定域名。
+        :rtype: str
+        """
+        return self._Operation
+
+    @Operation.setter
+    def Operation(self, Operation):
+        self._Operation = Operation
+
+    @property
+    def DomainId(self):
+        r"""域名ID。Operation为change时必传，代表更换前的域名。
+        :rtype: int
+        """
+        return self._DomainId
+
+    @DomainId.setter
+    def DomainId(self, DomainId):
+        self._DomainId = DomainId
+
+    @property
+    def NewDomainId(self):
+        r"""域名ID。Operation为change或bind时必传，代表更换后或要绑定的域名。
+        :rtype: int
+        """
+        return self._NewDomainId
+
+    @NewDomainId.setter
+    def NewDomainId(self, NewDomainId):
+        self._NewDomainId = NewDomainId
+
+    @property
+    def ResourceId(self):
+        r"""套餐资源ID。Operation为bind或unbind时必传，代表将要操作的套餐资源。
+        :rtype: str
+        """
+        return self._ResourceId
+
+    @ResourceId.setter
+    def ResourceId(self, ResourceId):
+        self._ResourceId = ResourceId
+
+
+    def _deserialize(self, params):
+        self._Operation = params.get("Operation")
+        self._DomainId = params.get("DomainId")
+        self._NewDomainId = params.get("NewDomainId")
+        self._ResourceId = params.get("ResourceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyPackageDomainResponse(AbstractModel):
+    r"""ModifyPackageDomain返回参数结构体
 
     """
 
@@ -16177,9 +16474,9 @@ class ModifyTXTRecordRequest(AbstractModel):
         :type DomainId: int
         :param _SubDomain: 主机记录，如 www，如果不传，默认为 @。
         :type SubDomain: str
-        :param _RecordLineId: 线路的 ID，通过 API 记录线路获得，英文字符串，比如：10=1。参数RecordLineId优先级高于RecordLine，如果同时传递二者，优先使用RecordLineId参数。
+        :param _RecordLineId: 线路的 ID，通过 API 记录线路获得，字符串，比如：10=1。参数RecordLineId优先级高于RecordLine，如果同时传递二者，优先使用RecordLineId参数。
         :type RecordLineId: str
-        :param _TTL: TTL，范围1-604800，不同等级域名最小值不同。
+        :param _TTL: TTL，范围1-604800，不同等级域名最小值不同。单位：秒
         :type TTL: int
         :param _Status: 记录初始状态，取值范围为 ENABLE 和 DISABLE 。默认为 ENABLE ，如果传入 DISABLE，解析不会生效，也不会验证负载均衡的限制。
         :type Status: str
@@ -16265,7 +16562,7 @@ class ModifyTXTRecordRequest(AbstractModel):
 
     @property
     def RecordLineId(self):
-        r"""线路的 ID，通过 API 记录线路获得，英文字符串，比如：10=1。参数RecordLineId优先级高于RecordLine，如果同时传递二者，优先使用RecordLineId参数。
+        r"""线路的 ID，通过 API 记录线路获得，字符串，比如：10=1。参数RecordLineId优先级高于RecordLine，如果同时传递二者，优先使用RecordLineId参数。
         :rtype: str
         """
         return self._RecordLineId
@@ -16276,7 +16573,7 @@ class ModifyTXTRecordRequest(AbstractModel):
 
     @property
     def TTL(self):
-        r"""TTL，范围1-604800，不同等级域名最小值不同。
+        r"""TTL，范围1-604800，不同等级域名最小值不同。单位：秒
         :rtype: int
         """
         return self._TTL
@@ -17657,9 +17954,9 @@ class RecordListItem(AbstractModel):
         :type MonitorStatus: str
         :param _Remark: 记录备注说明
         :type Remark: str
-        :param _TTL: 记录缓存时间
+        :param _TTL: 记录缓存时间，单位：秒
         :type TTL: int
-        :param _MX: MX值，只有MX记录有
+        :param _MX: MX值
         :type MX: int
         :param _DefaultNS: 是否是默认的ns记录
         :type DefaultNS: bool
@@ -17803,7 +18100,7 @@ class RecordListItem(AbstractModel):
 
     @property
     def TTL(self):
-        r"""记录缓存时间
+        r"""记录缓存时间，单位：秒
         :rtype: int
         """
         return self._TTL
@@ -17814,7 +18111,7 @@ class RecordListItem(AbstractModel):
 
     @property
     def MX(self):
-        r"""MX值，只有MX记录有
+        r"""MX值
         :rtype: int
         """
         return self._MX
@@ -19219,19 +19516,19 @@ class UserInfo(AbstractModel):
         :type Id: int
         :param _Email: 用户账号, 邮箱格式
         :type Email: str
-        :param _Status: 账号状态：”enabled”: 正常；”disabled”: 被封禁
+        :param _Status: 账号状态: "enabled": 正常; "disabled": 被封禁
         :type Status: str
         :param _Telephone: 电话号码
         :type Telephone: str
-        :param _EmailVerified: 邮箱是否通过验证：”yes”: 通过；”no”: 未通过
+        :param _EmailVerified: 邮箱是否通过验证："yes": 通过; "no": 未通过
         :type EmailVerified: str
-        :param _TelephoneVerified: 手机是否通过验证：”yes”: 通过；”no”: 未通过
+        :param _TelephoneVerified: 手机是否通过验证："yes": 通过； "no": 未通过
         :type TelephoneVerified: str
         :param _UserGrade: 账号等级, 按照用户账号下域名等级排序, 选取一个最高等级为账号等级, 具体对应情况参见域名等级。
         :type UserGrade: str
         :param _RealName: 用户名称, 企业用户对应为公司名称
         :type RealName: str
-        :param _WechatBinded: 是否绑定微信：”yes”: 通过；”no”: 未通过
+        :param _WechatBinded: 是否绑定微信： "yes": 通过； "no": 未通过
         :type WechatBinded: str
         :param _Uin: 用户UIN
         :type Uin: int
@@ -19289,7 +19586,7 @@ class UserInfo(AbstractModel):
 
     @property
     def Status(self):
-        r"""账号状态：”enabled”: 正常；”disabled”: 被封禁
+        r"""账号状态: "enabled": 正常; "disabled": 被封禁
         :rtype: str
         """
         return self._Status
@@ -19311,7 +19608,7 @@ class UserInfo(AbstractModel):
 
     @property
     def EmailVerified(self):
-        r"""邮箱是否通过验证：”yes”: 通过；”no”: 未通过
+        r"""邮箱是否通过验证："yes": 通过; "no": 未通过
         :rtype: str
         """
         return self._EmailVerified
@@ -19322,7 +19619,7 @@ class UserInfo(AbstractModel):
 
     @property
     def TelephoneVerified(self):
-        r"""手机是否通过验证：”yes”: 通过；”no”: 未通过
+        r"""手机是否通过验证："yes": 通过； "no": 未通过
         :rtype: str
         """
         return self._TelephoneVerified
@@ -19355,7 +19652,7 @@ class UserInfo(AbstractModel):
 
     @property
     def WechatBinded(self):
-        r"""是否绑定微信：”yes”: 通过；”no”: 未通过
+        r"""是否绑定微信： "yes": 通过； "no": 未通过
         :rtype: str
         """
         return self._WechatBinded

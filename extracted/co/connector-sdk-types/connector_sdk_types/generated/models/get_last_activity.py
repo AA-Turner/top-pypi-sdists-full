@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
+from connector_sdk_types.oai.fingerprint import request_fingerprint
 
 
 class GetLastActivity(BaseModel):
@@ -71,3 +72,6 @@ class GetLastActivity(BaseModel):
             return cls.model_validate(obj)
         _obj = cls.model_validate({"account_ids": obj.get("account_ids")})
         return _obj
+
+    def fingerprint(self) -> str:
+        return request_fingerprint(self)

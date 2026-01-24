@@ -608,9 +608,7 @@ def test_atexit(tmpdir, monkeypatch, num_messages, http2):
 
     for _ in range({num_messages}):
         capture_message("HI")
-    """.format(
-                transport=transport, options=options, num_messages=num_messages
-            )
+    """.format(transport=transport, options=options, num_messages=num_messages)
         )
     )
 
@@ -753,7 +751,7 @@ def test_cyclic_data(sentry_init, capture_events):
     assert data == {"not_cyclic2": "", "not_cyclic": "", "is_cyclic": "<cyclic>"}
 
 
-def test_databag_depth_stripping(sentry_init, capture_events, benchmark):
+def test_databag_depth_stripping(sentry_init, capture_events):
     sentry_init()
     events = capture_events()
 
@@ -761,58 +759,71 @@ def test_databag_depth_stripping(sentry_init, capture_events, benchmark):
     for _ in range(100000):
         value = [value]
 
-    @benchmark
-    def inner():
-        del events[:]
-        try:
-            a = value  # noqa
-            1 / 0
-        except Exception:
-            capture_exception()
+    del events[:]
+    try:
+        a = value  # noqa
+        1 / 0
+    except Exception:
+        capture_exception()
 
-        (event,) = events
+    (event,) = events
 
-        assert len(json.dumps(event)) < 10000
+    stacktrace_frame = event["exception"]["values"][0]["stacktrace"]["frames"][0]
+    a_var = stacktrace_frame["vars"]["a"]
+
+    assert type(a_var) == list
+    assert len(a_var) == 1 and type(a_var[0]) == list
+
+    first_level_list = a_var[0]
+    assert type(first_level_list) == list
+    assert len(first_level_list) == 1
+
+    second_level_list = first_level_list[0]
+    assert type(second_level_list) == list
+    assert len(second_level_list) == 1
+
+    third_level_list = second_level_list[0]
+    assert type(third_level_list) == list
+    assert len(third_level_list) == 1
+
+    inner_value_repr = third_level_list[0]
+    assert type(inner_value_repr) == str
 
 
-def test_databag_string_stripping(sentry_init, capture_events, benchmark):
+def test_databag_string_stripping(sentry_init, capture_events):
     sentry_init()
     events = capture_events()
 
-    @benchmark
-    def inner():
-        del events[:]
-        try:
-            a = "A" * DEFAULT_MAX_VALUE_LENGTH * 10  # noqa
-            1 / 0
-        except Exception:
-            capture_exception()
+    del events[:]
+    try:
+        a = "A" * DEFAULT_MAX_VALUE_LENGTH * 10  # noqa
+        1 / 0
+    except Exception:
+        capture_exception()
 
-        (event,) = events
+    (event,) = events
 
-        assert len(json.dumps(event)) < DEFAULT_MAX_VALUE_LENGTH * 10
+    assert len(json.dumps(event)) < DEFAULT_MAX_VALUE_LENGTH * 10
 
 
-def test_databag_breadth_stripping(sentry_init, capture_events, benchmark):
+def test_databag_breadth_stripping(sentry_init, capture_events):
     sentry_init()
     events = capture_events()
 
-    @benchmark
-    def inner():
-        del events[:]
-        try:
-            a = ["a"] * 1000000  # noqa
-            1 / 0
-        except Exception:
-            capture_exception()
+    del events[:]
+    try:
+        a = ["a"] * 1000000  # noqa
+        1 / 0
+    except Exception:
+        capture_exception()
 
-        (event,) = events
+    (event,) = events
 
-        assert (
-            len(event["exception"]["values"][0]["stacktrace"]["frames"][0]["vars"]["a"])
-            == MAX_DATABAG_BREADTH
-        )
-        assert len(json.dumps(event)) < 10000
+    assert (
+        len(event["exception"]["values"][0]["stacktrace"]["frames"][0]["vars"]["a"])
+        == MAX_DATABAG_BREADTH
+    )
+    assert len(json.dumps(event)) < 10000
 
 
 def test_chained_exceptions(sentry_init, capture_events):
@@ -1170,7 +1181,8 @@ def test_debug_option(
         (None, "t", DEFAULT_SPOTLIGHT_URL),
         (None, "1", DEFAULT_SPOTLIGHT_URL),
         (True, None, DEFAULT_SPOTLIGHT_URL),
-        (True, "http://localhost:8080/slurp", DEFAULT_SPOTLIGHT_URL),
+        # Per spec: spotlight=True + env URL -> use env URL
+        (True, "http://localhost:8080/slurp", "http://localhost:8080/slurp"),
         ("http://localhost:8080/slurp", "f", "http://localhost:8080/slurp"),
         (None, "http://localhost:8080/slurp", "http://localhost:8080/slurp"),
     ],
@@ -1194,20 +1206,19 @@ def test_spotlight_option(
 
     client = sentry_sdk.get_client()
     url = client.spotlight.url if client.spotlight else None
-    assert (
-        url == spotlight_url_expected
-    ), f"With config {client_option} and env {env_var_value}"
+    assert url == spotlight_url_expected, (
+        f"With config {client_option} and env {env_var_value}"
+    )
 
 
 class IssuesSamplerTestConfig:
     def __init__(
         self,
-        expected_events,
-        sampler_function=None,
-        sample_rate=None,
-        exception_to_raise=Exception,
-    ):
-        # type: (int, Optional[Callable[[Event], Union[float, bool]]], Optional[float], type[Exception]) -> None
+        expected_events: int,
+        sampler_function: "Optional[Callable[[Event], Union[float, bool]]]" = None,
+        sample_rate: "Optional[float]" = None,
+        exception_to_raise: "type[Exception]" = Exception,
+    ) -> None:
         self.sampler_function_mock = (
             None
             if sampler_function is None
@@ -1217,14 +1228,12 @@ class IssuesSamplerTestConfig:
         self.sample_rate = sample_rate
         self.exception_to_raise = exception_to_raise
 
-    def init_sdk(self, sentry_init):
-        # type: (Callable[[*Any], None]) -> None
+    def init_sdk(self, sentry_init: "Callable[[*Any], None]") -> None:
         sentry_init(
             error_sampler=self.sampler_function_mock, sample_rate=self.sample_rate
         )
 
-    def raise_exception(self):
-        # type: () -> None
+    def raise_exception(self) -> None:
         raise self.exception_to_raise()
 
 

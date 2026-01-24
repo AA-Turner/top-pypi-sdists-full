@@ -73,6 +73,1707 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
+from ..interfaces.aws_ec2 import (
+    IEIPRef as _IEIPRef_60d698bd,
+    ISecurityGroupRef as _ISecurityGroupRef_efa4ff18,
+    ISubnetRef as _ISubnetRef_ac31e361,
+    IVPCRef as _IVPCRef_f02a11df,
+)
+from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
+from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
+from ..interfaces.aws_redshift import (
+    ClusterParameterGroupReference as _ClusterParameterGroupReference_a53380a4,
+    ClusterReference as _ClusterReference_5953359c,
+    ClusterSecurityGroupIngressReference as _ClusterSecurityGroupIngressReference_8e92a780,
+    ClusterSecurityGroupReference as _ClusterSecurityGroupReference_18f94e00,
+    ClusterSubnetGroupReference as _ClusterSubnetGroupReference_8dcb457e,
+    EndpointAccessReference as _EndpointAccessReference_b8e22302,
+    EndpointAuthorizationReference as _EndpointAuthorizationReference_5dbd4723,
+    EventSubscriptionReference as _EventSubscriptionReference_087e2478,
+    IClusterParameterGroupRef as _IClusterParameterGroupRef_daa0f332,
+    IClusterRef as _IClusterRef_635abd9d,
+    IClusterSecurityGroupIngressRef as _IClusterSecurityGroupIngressRef_ce01bab2,
+    IClusterSecurityGroupRef as _IClusterSecurityGroupRef_b934aac2,
+    IClusterSubnetGroupRef as _IClusterSubnetGroupRef_ee5ee341,
+    IEndpointAccessRef as _IEndpointAccessRef_4af7d2c6,
+    IEndpointAuthorizationRef as _IEndpointAuthorizationRef_458f885b,
+    IEventSubscriptionRef as _IEventSubscriptionRef_a40a2567,
+    IIntegrationRef as _IIntegrationRef_8879a683,
+    IScheduledActionRef as _IScheduledActionRef_c873f019,
+    IntegrationReference as _IntegrationReference_5a0a4ae7,
+    ScheduledActionReference as _ScheduledActionReference_57ba8aae,
+)
+from ..interfaces.aws_sns import ITopicRef as _ITopicRef_29aa9a88
+
+
+@jsii.implements(_IInspectable_c2943556, _IClusterRef_635abd9d, _ITaggable_36806126)
+class CfnCluster(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_redshift.CfnCluster",
+):
+    '''Specifies a cluster. A *cluster* is a fully managed data warehouse that consists of a set of compute nodes.
+
+    To create a cluster in Virtual Private Cloud (VPC), you must provide a cluster subnet group name. The cluster subnet group identifies the subnets of your VPC that Amazon Redshift uses when creating the cluster. For more information about managing clusters, go to `Amazon Redshift Clusters <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-clusters.html>`_ in the *Amazon Redshift Cluster Management Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html
+    :cloudformationResource: AWS::Redshift::Cluster
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_redshift as redshift
+        
+        # namespace_resource_policy: Any
+        
+        cfn_cluster = redshift.CfnCluster(self, "MyCfnCluster",
+            cluster_type="clusterType",
+            db_name="dbName",
+            master_username="masterUsername",
+            node_type="nodeType",
+        
+            # the properties below are optional
+            allow_version_upgrade=False,
+            aqua_configuration_status="aquaConfigurationStatus",
+            automated_snapshot_retention_period=123,
+            availability_zone="availabilityZone",
+            availability_zone_relocation=False,
+            availability_zone_relocation_status="availabilityZoneRelocationStatus",
+            classic=False,
+            cluster_identifier="clusterIdentifier",
+            cluster_parameter_group_name="clusterParameterGroupName",
+            cluster_security_groups=["clusterSecurityGroups"],
+            cluster_subnet_group_name="clusterSubnetGroupName",
+            cluster_version="clusterVersion",
+            defer_maintenance=False,
+            defer_maintenance_duration=123,
+            defer_maintenance_end_time="deferMaintenanceEndTime",
+            defer_maintenance_start_time="deferMaintenanceStartTime",
+            destination_region="destinationRegion",
+            elastic_ip="elasticIp",
+            encrypted=False,
+            endpoint=redshift.CfnCluster.EndpointProperty(
+                address="address",
+                port="port"
+            ),
+            enhanced_vpc_routing=False,
+            hsm_client_certificate_identifier="hsmClientCertificateIdentifier",
+            hsm_configuration_identifier="hsmConfigurationIdentifier",
+            iam_roles=["iamRoles"],
+            kms_key_id="kmsKeyId",
+            logging_properties=redshift.CfnCluster.LoggingPropertiesProperty(
+                bucket_name="bucketName",
+                log_destination_type="logDestinationType",
+                log_exports=["logExports"],
+                s3_key_prefix="s3KeyPrefix"
+            ),
+            maintenance_track_name="maintenanceTrackName",
+            manage_master_password=False,
+            manual_snapshot_retention_period=123,
+            master_password_secret_kms_key_id="masterPasswordSecretKmsKeyId",
+            master_user_password="masterUserPassword",
+            multi_az=False,
+            namespace_resource_policy=namespace_resource_policy,
+            number_of_nodes=123,
+            owner_account="ownerAccount",
+            port=123,
+            preferred_maintenance_window="preferredMaintenanceWindow",
+            publicly_accessible=False,
+            resource_action="resourceAction",
+            revision_target="revisionTarget",
+            rotate_encryption_key=False,
+            snapshot_cluster_identifier="snapshotClusterIdentifier",
+            snapshot_copy_grant_name="snapshotCopyGrantName",
+            snapshot_copy_manual=False,
+            snapshot_copy_retention_period=123,
+            snapshot_identifier="snapshotIdentifier",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            vpc_security_group_ids=["vpcSecurityGroupIds"]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        cluster_type: builtins.str,
+        db_name: builtins.str,
+        master_username: builtins.str,
+        node_type: builtins.str,
+        allow_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        aqua_configuration_status: typing.Optional[builtins.str] = None,
+        automated_snapshot_retention_period: typing.Optional[jsii.Number] = None,
+        availability_zone: typing.Optional[builtins.str] = None,
+        availability_zone_relocation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        availability_zone_relocation_status: typing.Optional[builtins.str] = None,
+        classic: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        cluster_identifier: typing.Optional[builtins.str] = None,
+        cluster_parameter_group_name: typing.Optional[typing.Union[builtins.str, "_IClusterParameterGroupRef_daa0f332"]] = None,
+        cluster_security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18", "_IClusterSecurityGroupRef_b934aac2"]]] = None,
+        cluster_subnet_group_name: typing.Optional[typing.Union[builtins.str, "_IClusterSubnetGroupRef_ee5ee341"]] = None,
+        cluster_version: typing.Optional[builtins.str] = None,
+        defer_maintenance: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        defer_maintenance_duration: typing.Optional[jsii.Number] = None,
+        defer_maintenance_end_time: typing.Optional[builtins.str] = None,
+        defer_maintenance_start_time: typing.Optional[builtins.str] = None,
+        destination_region: typing.Optional[builtins.str] = None,
+        elastic_ip: typing.Optional[typing.Union[builtins.str, "_IEIPRef_60d698bd"]] = None,
+        encrypted: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        hsm_client_certificate_identifier: typing.Optional[builtins.str] = None,
+        hsm_configuration_identifier: typing.Optional[builtins.str] = None,
+        iam_roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IRoleRef_8400221f"]]] = None,
+        kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        logging_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.LoggingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_track_name: typing.Optional[builtins.str] = None,
+        manage_master_password: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
+        master_password_secret_kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        master_user_password: typing.Optional[builtins.str] = None,
+        multi_az: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        namespace_resource_policy: typing.Any = None,
+        number_of_nodes: typing.Optional[jsii.Number] = None,
+        owner_account: typing.Optional[builtins.str] = None,
+        port: typing.Optional[jsii.Number] = None,
+        preferred_maintenance_window: typing.Optional[builtins.str] = None,
+        publicly_accessible: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        resource_action: typing.Optional[builtins.str] = None,
+        revision_target: typing.Optional[builtins.str] = None,
+        rotate_encryption_key: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        snapshot_cluster_identifier: typing.Optional[builtins.str] = None,
+        snapshot_copy_grant_name: typing.Optional[builtins.str] = None,
+        snapshot_copy_manual: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        snapshot_copy_retention_period: typing.Optional[jsii.Number] = None,
+        snapshot_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Redshift::Cluster``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param cluster_type: The type of the cluster. When cluster type is specified as. - ``single-node`` , the *NumberOfNodes* parameter is not required. - ``multi-node`` , the *NumberOfNodes* parameter is required. Valid Values: ``multi-node`` | ``single-node`` Default: ``multi-node``
+        :param db_name: The name of the first database to be created when the cluster is created. To create additional databases after the cluster is created, connect to the cluster with a SQL client and use SQL commands to create a database. For more information, go to `Create a Database <https://docs.aws.amazon.com/redshift/latest/dg/t_creating_database.html>`_ in the Amazon Redshift Database Developer Guide. Default: ``dev`` Constraints: - Must contain 1 to 64 alphanumeric characters. - Must contain only lowercase letters. - Cannot be a word that is reserved by the service. A list of reserved words can be found in `Reserved Words <https://docs.aws.amazon.com/redshift/latest/dg/r_pg_keywords.html>`_ in the Amazon Redshift Database Developer Guide.
+        :param master_username: The user name associated with the admin user account for the cluster that is being created. Constraints: - Must be 1 - 128 alphanumeric characters or hyphens. The user name can't be ``PUBLIC`` . - Must contain only lowercase letters, numbers, underscore, plus sign, period (dot), at symbol (@), or hyphen. - The first character must be a letter. - Must not contain a colon (:) or a slash (/). - Cannot be a reserved word. A list of reserved words can be found in `Reserved Words <https://docs.aws.amazon.com/redshift/latest/dg/r_pg_keywords.html>`_ in the Amazon Redshift Database Developer Guide.
+        :param node_type: The node type to be provisioned for the cluster. For information about node types, go to `Working with Clusters <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-clusters.html#how-many-nodes>`_ in the *Amazon Redshift Cluster Management Guide* . Valid Values: ``dc2.large`` | ``dc2.8xlarge`` | ``ra3.large`` | ``ra3.xlplus`` | ``ra3.4xlarge`` | ``ra3.16xlarge``
+        :param allow_version_upgrade: If ``true`` , major version upgrades can be applied during the maintenance window to the Amazon Redshift engine that is running on the cluster. When a new major version of the Amazon Redshift engine is released, you can request that the service automatically apply upgrades during the maintenance window to the Amazon Redshift engine that is running on your cluster. Default: ``true``
+        :param aqua_configuration_status: This parameter is retired. It does not set the AQUA configuration status. Amazon Redshift automatically determines whether to use AQUA (Advanced Query Accelerator).
+        :param automated_snapshot_retention_period: The number of days that automated snapshots are retained. If the value is 0, automated snapshots are disabled. Even if automated snapshots are disabled, you can still create manual snapshots when you want with `CreateClusterSnapshot <https://docs.aws.amazon.com/redshift/latest/APIReference/API_CreateClusterSnapshot.html>`_ in the *Amazon Redshift API Reference* . Default: ``1`` Constraints: Must be a value from 0 to 35.
+        :param availability_zone: The EC2 Availability Zone (AZ) in which you want Amazon Redshift to provision the cluster. For example, if you have several EC2 instances running in a specific Availability Zone, then you might want the cluster to be provisioned in the same zone in order to decrease network latency. Default: A random, system-chosen Availability Zone in the region that is specified by the endpoint. Example: ``us-east-2d`` Constraint: The specified Availability Zone must be in the same region as the current endpoint.
+        :param availability_zone_relocation: The option to enable relocation for an Amazon Redshift cluster between Availability Zones after the cluster is created.
+        :param availability_zone_relocation_status: Describes the status of the Availability Zone relocation operation.
+        :param classic: A boolean value indicating whether the resize operation is using the classic resize process. If you don't provide this parameter or set the value to ``false`` , the resize type is elastic.
+        :param cluster_identifier: A unique identifier for the cluster. You use this identifier to refer to the cluster for any subsequent cluster operations such as deleting or modifying. The identifier also appears in the Amazon Redshift console. Constraints: - Must contain from 1 to 63 alphanumeric characters or hyphens. - Alphabetic characters must be lowercase. - First character must be a letter. - Cannot end with a hyphen or contain two consecutive hyphens. - Must be unique for all clusters within an AWS account . Example: ``myexamplecluster``
+        :param cluster_parameter_group_name: The name of the parameter group to be associated with this cluster. Default: The default Amazon Redshift cluster parameter group. For information about the default parameter group, go to `Working with Amazon Redshift Parameter Groups <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-parameter-groups.html>`_ Constraints: - Must be 1 to 255 alphanumeric characters or hyphens. - First character must be a letter. - Cannot end with a hyphen or contain two consecutive hyphens.
+        :param cluster_security_groups: A list of security groups to be associated with this cluster. Default: The default cluster security group for Amazon Redshift.
+        :param cluster_subnet_group_name: The name of a cluster subnet group to be associated with this cluster. If this parameter is not provided the resulting cluster will be deployed outside virtual private cloud (VPC).
+        :param cluster_version: The version of the Amazon Redshift engine software that you want to deploy on the cluster. The version selected runs on all the nodes in the cluster. Constraints: Only version 1.0 is currently available. Example: ``1.0``
+        :param defer_maintenance: A Boolean indicating whether to enable the deferred maintenance window.
+        :param defer_maintenance_duration: An integer indicating the duration of the maintenance window in days. If you specify a duration, you can't specify an end time. The duration must be 45 days or less.
+        :param defer_maintenance_end_time: A timestamp for the end of the time period when we defer maintenance.
+        :param defer_maintenance_start_time: A timestamp indicating the start time for the deferred maintenance window.
+        :param destination_region: The destination region that snapshots are automatically copied to when cross-region snapshot copy is enabled.
+        :param elastic_ip: The Elastic IP (EIP) address for the cluster. Constraints: The cluster must be provisioned in EC2-VPC and publicly-accessible through an Internet gateway. Don't specify the Elastic IP address for a publicly accessible cluster with availability zone relocation turned on. For more information about provisioning clusters in EC2-VPC, go to `Supported Platforms to Launch Your Cluster <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-clusters.html#cluster-platforms>`_ in the Amazon Redshift Cluster Management Guide.
+        :param encrypted: If ``true`` , the data in the cluster is encrypted at rest. If you set the value on this parameter to ``false`` , the request will fail. Default: true
+        :param endpoint: The connection endpoint.
+        :param enhanced_vpc_routing: An option that specifies whether to create the cluster with enhanced VPC routing enabled. To create a cluster that uses enhanced VPC routing, the cluster must be in a VPC. For more information, see `Enhanced VPC Routing <https://docs.aws.amazon.com/redshift/latest/mgmt/enhanced-vpc-routing.html>`_ in the Amazon Redshift Cluster Management Guide. If this option is ``true`` , enhanced VPC routing is enabled. Default: false
+        :param hsm_client_certificate_identifier: Specifies the name of the HSM client certificate the Amazon Redshift cluster uses to retrieve the data encryption keys stored in an HSM.
+        :param hsm_configuration_identifier: Specifies the name of the HSM configuration that contains the information the Amazon Redshift cluster can use to retrieve and store keys in an HSM.
+        :param iam_roles: A list of AWS Identity and Access Management (IAM) roles that can be used by the cluster to access other AWS services. You must supply the IAM roles in their Amazon Resource Name (ARN) format. The maximum number of IAM roles that you can associate is subject to a quota. For more information, go to `Quotas and limits <https://docs.aws.amazon.com/redshift/latest/mgmt/amazon-redshift-limits.html>`_ in the *Amazon Redshift Cluster Management Guide* .
+        :param kms_key_id: The AWS Key Management Service (KMS) key ID of the encryption key that you want to use to encrypt data in the cluster.
+        :param logging_properties: Specifies logging information, such as queries and connection attempts, for the specified Amazon Redshift cluster.
+        :param maintenance_track_name: An optional parameter for the name of the maintenance track for the cluster. If you don't provide a maintenance track name, the cluster is assigned to the ``current`` track.
+        :param manage_master_password: If ``true`` , Amazon Redshift uses AWS Secrets Manager to manage this cluster's admin credentials. You can't use ``MasterUserPassword`` if ``ManageMasterPassword`` is true. If ``ManageMasterPassword`` is false or not set, Amazon Redshift uses ``MasterUserPassword`` for the admin user account's password.
+        :param manual_snapshot_retention_period: The default number of days to retain a manual snapshot. If the value is -1, the snapshot is retained indefinitely. This setting doesn't change the retention period of existing snapshots. The value must be either -1 or an integer between 1 and 3,653.
+        :param master_password_secret_kms_key_id: The ID of the AWS Key Management Service (KMS) key used to encrypt and store the cluster's admin credentials secret. You can only use this parameter if ``ManageMasterPassword`` is true.
+        :param master_user_password: The password associated with the admin user account for the cluster that is being created. You can't use ``MasterUserPassword`` if ``ManageMasterPassword`` is ``true`` . Constraints: - Must be between 8 and 64 characters in length. - Must contain at least one uppercase letter. - Must contain at least one lowercase letter. - Must contain one number. - Can be any printable ASCII character (ASCII code 33-126) except ``'`` (single quote), ``"`` (double quote), ``\\`` , ``/`` , or ``@`` .
+        :param multi_az: A boolean indicating whether Amazon Redshift should deploy the cluster in two Availability Zones. The default is false.
+        :param namespace_resource_policy: The policy that is attached to a resource.
+        :param number_of_nodes: The number of compute nodes in the cluster. This parameter is required when the *ClusterType* parameter is specified as ``multi-node`` . For information about determining how many nodes you need, go to `Working with Clusters <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-clusters.html#how-many-nodes>`_ in the *Amazon Redshift Cluster Management Guide* . If you don't specify this parameter, you get a single-node cluster. When requesting a multi-node cluster, you must specify the number of nodes that you want in the cluster. Default: ``1`` Constraints: Value must be at least 1 and no more than 100.
+        :param owner_account: The AWS account used to create or copy the snapshot. Required if you are restoring a snapshot you do not own, optional if you own the snapshot.
+        :param port: The port number on which the cluster accepts incoming connections. The cluster is accessible only via the JDBC and ODBC connection strings. Part of the connection string requires the port on which the cluster will listen for incoming connections. Default: ``5439`` Valid Values: - For clusters with ra3 nodes - Select a port within the ranges ``5431-5455`` or ``8191-8215`` . (If you have an existing cluster with ra3 nodes, it isn't required that you change the port to these ranges.) - For clusters with dc2 nodes - Select a port within the range ``1150-65535`` .
+        :param preferred_maintenance_window: The weekly time range (in UTC) during which automated cluster maintenance can occur. Format: ``ddd:hh24:mi-ddd:hh24:mi`` Default: A 30-minute window selected at random from an 8-hour block of time per region, occurring on a random day of the week. For more information about the time blocks for each region, see `Maintenance Windows <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-clusters.html#rs-maintenance-windows>`_ in Amazon Redshift Cluster Management Guide. Valid Days: Mon | Tue | Wed | Thu | Fri | Sat | Sun Constraints: Minimum 30-minute window.
+        :param publicly_accessible: If ``true`` , the cluster can be accessed from a public network. Default: false
+        :param resource_action: The Amazon Redshift operation to be performed. Supported operations are ``pause-cluster`` , ``resume-cluster`` , and ``failover-primary-compute`` .
+        :param revision_target: Describes a ``RevisionTarget`` object.
+        :param rotate_encryption_key: Rotates the encryption keys for a cluster.
+        :param snapshot_cluster_identifier: The name of the cluster the source snapshot was created from. This parameter is required if your user or role has a policy containing a snapshot resource element that specifies anything other than * for the cluster name.
+        :param snapshot_copy_grant_name: The name of the snapshot copy grant.
+        :param snapshot_copy_manual: Indicates whether to apply the snapshot retention period to newly copied manual snapshots instead of automated snapshots.
+        :param snapshot_copy_retention_period: The number of days to retain automated snapshots in the destination AWS Region after they are copied from the source AWS Region . By default, this only changes the retention period of copied automated snapshots. If you decrease the retention period for automated snapshots that are copied to a destination AWS Region , Amazon Redshift deletes any existing automated snapshots that were copied to the destination AWS Region and that fall outside of the new retention period. Constraints: Must be at least 1 and no more than 35 for automated snapshots. If you specify the ``manual`` option, only newly copied manual snapshots will have the new retention period. If you specify the value of -1 newly copied manual snapshots are retained indefinitely. Constraints: The number of days must be either -1 or an integer between 1 and 3,653 for manual snapshots.
+        :param snapshot_identifier: The name of the snapshot from which to create the new cluster. This parameter isn't case sensitive. You must specify this parameter or ``snapshotArn`` , but not both. Example: ``my-snapshot-id``
+        :param tags: A list of tag instances.
+        :param vpc_security_group_ids: A list of Virtual Private Cloud (VPC) security groups to be associated with the cluster. Default: The default VPC security group is associated with the cluster.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f6d25f70797e3ae67b635ec776926582ff0be975c8173c4af217f7f6e3bd404b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnClusterProps(
+            cluster_type=cluster_type,
+            db_name=db_name,
+            master_username=master_username,
+            node_type=node_type,
+            allow_version_upgrade=allow_version_upgrade,
+            aqua_configuration_status=aqua_configuration_status,
+            automated_snapshot_retention_period=automated_snapshot_retention_period,
+            availability_zone=availability_zone,
+            availability_zone_relocation=availability_zone_relocation,
+            availability_zone_relocation_status=availability_zone_relocation_status,
+            classic=classic,
+            cluster_identifier=cluster_identifier,
+            cluster_parameter_group_name=cluster_parameter_group_name,
+            cluster_security_groups=cluster_security_groups,
+            cluster_subnet_group_name=cluster_subnet_group_name,
+            cluster_version=cluster_version,
+            defer_maintenance=defer_maintenance,
+            defer_maintenance_duration=defer_maintenance_duration,
+            defer_maintenance_end_time=defer_maintenance_end_time,
+            defer_maintenance_start_time=defer_maintenance_start_time,
+            destination_region=destination_region,
+            elastic_ip=elastic_ip,
+            encrypted=encrypted,
+            endpoint=endpoint,
+            enhanced_vpc_routing=enhanced_vpc_routing,
+            hsm_client_certificate_identifier=hsm_client_certificate_identifier,
+            hsm_configuration_identifier=hsm_configuration_identifier,
+            iam_roles=iam_roles,
+            kms_key_id=kms_key_id,
+            logging_properties=logging_properties,
+            maintenance_track_name=maintenance_track_name,
+            manage_master_password=manage_master_password,
+            manual_snapshot_retention_period=manual_snapshot_retention_period,
+            master_password_secret_kms_key_id=master_password_secret_kms_key_id,
+            master_user_password=master_user_password,
+            multi_az=multi_az,
+            namespace_resource_policy=namespace_resource_policy,
+            number_of_nodes=number_of_nodes,
+            owner_account=owner_account,
+            port=port,
+            preferred_maintenance_window=preferred_maintenance_window,
+            publicly_accessible=publicly_accessible,
+            resource_action=resource_action,
+            revision_target=revision_target,
+            rotate_encryption_key=rotate_encryption_key,
+            snapshot_cluster_identifier=snapshot_cluster_identifier,
+            snapshot_copy_grant_name=snapshot_copy_grant_name,
+            snapshot_copy_manual=snapshot_copy_manual,
+            snapshot_copy_retention_period=snapshot_copy_retention_period,
+            snapshot_identifier=snapshot_identifier,
+            tags=tags,
+            vpc_security_group_ids=vpc_security_group_ids,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnCluster")
+    @builtins.classmethod
+    def is_cfn_cluster(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCluster.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db2c796415911125c712caed0f3a07ce4f652b4485a75e8a654f778bf118c677)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCluster", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6df99dcbb5445a88a0bb9445a37f1ba9bcd5cf462c2a8d8f24a91415f085d07a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d3cd522d882ff9ce54b9361b6991edd7e86d6cb4b5b0fd3d4f0ff14a1dc41eb7)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrClusterNamespaceArn")
+    def attr_cluster_namespace_arn(self) -> builtins.str:
+        '''The namespace Amazon Resource Name (ARN) of the cluster.
+
+        :cloudformationAttribute: ClusterNamespaceArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrClusterNamespaceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDeferMaintenanceIdentifier")
+    def attr_defer_maintenance_identifier(self) -> builtins.str:
+        '''A unique identifier for the maintenance window.
+
+        :cloudformationAttribute: DeferMaintenanceIdentifier
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDeferMaintenanceIdentifier"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpointAddress")
+    def attr_endpoint_address(self) -> builtins.str:
+        '''The connection endpoint for the Amazon Redshift cluster.
+
+        For example: ``examplecluster.cg034hpkmmjt.us-east-1.redshift.amazonaws.com`` .
+
+        :cloudformationAttribute: Endpoint.Address
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpointAddress"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpointPort")
+    def attr_endpoint_port(self) -> builtins.str:
+        '''The port number on which the Amazon Redshift cluster accepts connections.
+
+        For example: ``5439`` .
+
+        :cloudformationAttribute: Endpoint.Port
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpointPort"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMasterPasswordSecretArn")
+    def attr_master_password_secret_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the cluster's admin user credentials secret.
+
+        :cloudformationAttribute: MasterPasswordSecretArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMasterPasswordSecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRef")
+    def cluster_ref(self) -> "_ClusterReference_5953359c":
+        '''A reference to a Cluster resource.'''
+        return typing.cast("_ClusterReference_5953359c", jsii.get(self, "clusterRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterType")
+    def cluster_type(self) -> builtins.str:
+        '''The type of the cluster.
+
+        When cluster type is specified as.
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "clusterType"))
+
+    @cluster_type.setter
+    def cluster_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b228c18c00d6efcc3f5f513f526c5588459dbc4716e98017abe3c85b8869edcf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbName")
+    def db_name(self) -> builtins.str:
+        '''The name of the first database to be created when the cluster is created.'''
+        return typing.cast(builtins.str, jsii.get(self, "dbName"))
+
+    @db_name.setter
+    def db_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d9a6569f04f712a8617c29ce39f051b6b7718c2759016fd8c2a5129f2c3a9fc0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="masterUsername")
+    def master_username(self) -> builtins.str:
+        '''The user name associated with the admin user account for the cluster that is being created.'''
+        return typing.cast(builtins.str, jsii.get(self, "masterUsername"))
+
+    @master_username.setter
+    def master_username(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d32dd6d1faa4bf4d38fbc9173d77c54548a2fb5386ec97451b20f4a4e928001a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "masterUsername", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeType")
+    def node_type(self) -> builtins.str:
+        '''The node type to be provisioned for the cluster.'''
+        return typing.cast(builtins.str, jsii.get(self, "nodeType"))
+
+    @node_type.setter
+    def node_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd39ef012e3b964f5c72dcc3385a8861f7af2aed9a450ea99e69c540c77b2af3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nodeType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="allowVersionUpgrade")
+    def allow_version_upgrade(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''If ``true`` , major version upgrades can be applied during the maintenance window to the Amazon Redshift engine that is running on the cluster.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "allowVersionUpgrade"))
+
+    @allow_version_upgrade.setter
+    def allow_version_upgrade(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b7ca48fbd412a24c0cb2a878179eca6e182ee7d8c69be5b4dbcc9862b44f73c1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "allowVersionUpgrade", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="aquaConfigurationStatus")
+    def aqua_configuration_status(self) -> typing.Optional[builtins.str]:
+        '''This parameter is retired.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "aquaConfigurationStatus"))
+
+    @aqua_configuration_status.setter
+    def aqua_configuration_status(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6cdce8be072a8ad4655038a048a780e28c874f470b860ba5efeeb19c470e71b0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "aquaConfigurationStatus", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="automatedSnapshotRetentionPeriod")
+    def automated_snapshot_retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The number of days that automated snapshots are retained.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "automatedSnapshotRetentionPeriod"))
+
+    @automated_snapshot_retention_period.setter
+    def automated_snapshot_retention_period(
+        self,
+        value: typing.Optional[jsii.Number],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed5582d6104bfbddace4e373fcab8d459431100b894b1a16de7955842e400de2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "automatedSnapshotRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZone")
+    def availability_zone(self) -> typing.Optional[builtins.str]:
+        '''The EC2 Availability Zone (AZ) in which you want Amazon Redshift to provision the cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityZone"))
+
+    @availability_zone.setter
+    def availability_zone(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c65bcbcfa0b5c942ee2dc4ddc36123d19ebb2e20f61c7d530335b08b87aa98e0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZoneRelocation")
+    def availability_zone_relocation(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''The option to enable relocation for an Amazon Redshift cluster between Availability Zones after the cluster is created.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "availabilityZoneRelocation"))
+
+    @availability_zone_relocation.setter
+    def availability_zone_relocation(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c1b7e4b7b94737e4e8b1853309ee5372d1269f37dcf09d4ee449f352e5c55c0c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "availabilityZoneRelocation", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZoneRelocationStatus")
+    def availability_zone_relocation_status(self) -> typing.Optional[builtins.str]:
+        '''Describes the status of the Availability Zone relocation operation.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityZoneRelocationStatus"))
+
+    @availability_zone_relocation_status.setter
+    def availability_zone_relocation_status(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6634fb9f81aef0b48d0404fc2c8ec19d02a04b1a9d7c65863692e53f28a978b6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "availabilityZoneRelocationStatus", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="classic")
+    def classic(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''A boolean value indicating whether the resize operation is using the classic resize process.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "classic"))
+
+    @classic.setter
+    def classic(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f86549952f63853b3a6d50c0ea714bcad7fc4bcbeea239762fe3bc3035e81531)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "classic", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterIdentifier")
+    def cluster_identifier(self) -> typing.Optional[builtins.str]:
+        '''A unique identifier for the cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterIdentifier"))
+
+    @cluster_identifier.setter
+    def cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d01d7ad2f21e729a4d05a6c6c40c03bbeff0a26976f99e7487e40fe7c6aec7e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterParameterGroupName")
+    def cluster_parameter_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the parameter group to be associated with this cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterParameterGroupName"))
+
+    @cluster_parameter_group_name.setter
+    def cluster_parameter_group_name(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b14873e72b628e6b816d839111208ef6aa6af543ebe87c8be7b488ef5566b602)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterParameterGroupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterSecurityGroups")
+    def cluster_security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of security groups to be associated with this cluster.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "clusterSecurityGroups"))
+
+    @cluster_security_groups.setter
+    def cluster_security_groups(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a651f09ef507bb8529243e4a1dc4c6db1ed0753b890fafe63aa18f8ed2fed90c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterSecurityGroups", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterSubnetGroupName")
+    def cluster_subnet_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of a cluster subnet group to be associated with this cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterSubnetGroupName"))
+
+    @cluster_subnet_group_name.setter
+    def cluster_subnet_group_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a6de3cf6594b7e052bda7985e485f86e4d3c373ccc8db3221e45f5e1dd17325)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterSubnetGroupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterVersion")
+    def cluster_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the Amazon Redshift engine software that you want to deploy on the cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterVersion"))
+
+    @cluster_version.setter
+    def cluster_version(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__55a998895e7e966b871bd67fe918e51ba3671e2c2b298eb8eb34d7f51d07206e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deferMaintenance")
+    def defer_maintenance(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''A Boolean indicating whether to enable the deferred maintenance window.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "deferMaintenance"))
+
+    @defer_maintenance.setter
+    def defer_maintenance(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4237433b5883296c8faff34d0e01925a666684fbee40ec2906e948a41d50e503)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deferMaintenance", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deferMaintenanceDuration")
+    def defer_maintenance_duration(self) -> typing.Optional[jsii.Number]:
+        '''An integer indicating the duration of the maintenance window in days.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "deferMaintenanceDuration"))
+
+    @defer_maintenance_duration.setter
+    def defer_maintenance_duration(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b38793f2500254714c6067bec6f72a5a038c50d8bc9b6b03b375518dce428a13)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deferMaintenanceDuration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deferMaintenanceEndTime")
+    def defer_maintenance_end_time(self) -> typing.Optional[builtins.str]:
+        '''A timestamp for the end of the time period when we defer maintenance.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deferMaintenanceEndTime"))
+
+    @defer_maintenance_end_time.setter
+    def defer_maintenance_end_time(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__707a603887573fd509d9f52453e8a586dcbece345650487f919175b7a32ce0f1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deferMaintenanceEndTime", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deferMaintenanceStartTime")
+    def defer_maintenance_start_time(self) -> typing.Optional[builtins.str]:
+        '''A timestamp indicating the start time for the deferred maintenance window.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deferMaintenanceStartTime"))
+
+    @defer_maintenance_start_time.setter
+    def defer_maintenance_start_time(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd9fc695606c0a941294d8fb46b82ad186d9cc0f1ceecc9efea154fa51e57d2b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deferMaintenanceStartTime", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="destinationRegion")
+    def destination_region(self) -> typing.Optional[builtins.str]:
+        '''The destination region that snapshots are automatically copied to when cross-region snapshot copy is enabled.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "destinationRegion"))
+
+    @destination_region.setter
+    def destination_region(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9affeaf50223bc3ddba02727393f5841690e26871908e7f312f79f76ce20857c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "destinationRegion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="elasticIp")
+    def elastic_ip(self) -> typing.Optional[builtins.str]:
+        '''The Elastic IP (EIP) address for the cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "elasticIp"))
+
+    @elastic_ip.setter
+    def elastic_ip(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8af4905b0871175bb94d0e68d7844830025c4dfe81acb2f97d60012f417d079f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "elasticIp", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encrypted")
+    def encrypted(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''If ``true`` , the data in the cluster is encrypted at rest.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "encrypted"))
+
+    @encrypted.setter
+    def encrypted(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57b1075c71946fea633b06672f811d3ed06a3627779b2123983ff2dbad9432e7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encrypted", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="endpoint")
+    def endpoint(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]]:
+        '''The connection endpoint.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]], jsii.get(self, "endpoint"))
+
+    @endpoint.setter
+    def endpoint(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91af587b7f602d533107461b26deea688b9ac30f8cff34b2f281da70b5f20be0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "endpoint", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enhancedVpcRouting")
+    def enhanced_vpc_routing(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''An option that specifies whether to create the cluster with enhanced VPC routing enabled.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enhancedVpcRouting"))
+
+    @enhanced_vpc_routing.setter
+    def enhanced_vpc_routing(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38f39b0b2b5df52249767c8cb6463c876078868c14687667fd735f0b6d22fb18)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enhancedVpcRouting", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="hsmClientCertificateIdentifier")
+    def hsm_client_certificate_identifier(self) -> typing.Optional[builtins.str]:
+        '''Specifies the name of the HSM client certificate the Amazon Redshift cluster uses to retrieve the data encryption keys stored in an HSM.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "hsmClientCertificateIdentifier"))
+
+    @hsm_client_certificate_identifier.setter
+    def hsm_client_certificate_identifier(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5024cde1beb60571770fd7108dbe12a4a475dfeac6bf7a1e1027e2081e58e486)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hsmClientCertificateIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="hsmConfigurationIdentifier")
+    def hsm_configuration_identifier(self) -> typing.Optional[builtins.str]:
+        '''Specifies the name of the HSM configuration that contains the information the Amazon Redshift cluster can use to retrieve and store keys in an HSM.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "hsmConfigurationIdentifier"))
+
+    @hsm_configuration_identifier.setter
+    def hsm_configuration_identifier(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__23dbabcc0b1bd43d467873c3ad184988bc516c60957ee94cf9abaf50268fff8d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hsmConfigurationIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="iamRoles")
+    def iam_roles(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of AWS Identity and Access Management (IAM) roles that can be used by the cluster to access other AWS services.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "iamRoles"))
+
+    @iam_roles.setter
+    def iam_roles(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__772c14b10e457f7456acacbd7c571e904d8d7e32ccc4be7e64dfdc23417fd3e0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "iamRoles", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS Key Management Service (KMS) key ID of the encryption key that you want to use to encrypt data in the cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9b9e3255675fa581da5945ef20b026be1c2c1fc9d1bad30a7bf9c5e63e884f60)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="loggingProperties")
+    def logging_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.LoggingPropertiesProperty"]]:
+        '''Specifies logging information, such as queries and connection attempts, for the specified Amazon Redshift cluster.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.LoggingPropertiesProperty"]], jsii.get(self, "loggingProperties"))
+
+    @logging_properties.setter
+    def logging_properties(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.LoggingPropertiesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__faccaac60f090449dba9f2adeeb99fa490f6f2532ea91a0f5372422d57002f26)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "loggingProperties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maintenanceTrackName")
+    def maintenance_track_name(self) -> typing.Optional[builtins.str]:
+        '''An optional parameter for the name of the maintenance track for the cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "maintenanceTrackName"))
+
+    @maintenance_track_name.setter
+    def maintenance_track_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fdec41d5a2f886a294c35cbf10b6f505571be31e2c00a5a1c57a87a34cf49426)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maintenanceTrackName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="manageMasterPassword")
+    def manage_master_password(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''If ``true`` , Amazon Redshift uses AWS Secrets Manager to manage this cluster's admin credentials.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "manageMasterPassword"))
+
+    @manage_master_password.setter
+    def manage_master_password(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__080a467a54b42730471573ef0e1a0c26e7b4f7d5ec0a07e9f75f4d8e6d3e25bf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "manageMasterPassword", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="manualSnapshotRetentionPeriod")
+    def manual_snapshot_retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The default number of days to retain a manual snapshot.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "manualSnapshotRetentionPeriod"))
+
+    @manual_snapshot_retention_period.setter
+    def manual_snapshot_retention_period(
+        self,
+        value: typing.Optional[jsii.Number],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__47928702ad781fa3915ff0f5068c3b692ff5d8d891b871ca8319d3632cdffe22)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "manualSnapshotRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="masterPasswordSecretKmsKeyId")
+    def master_password_secret_kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the AWS Key Management Service (KMS) key used to encrypt and store the cluster's admin credentials secret.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "masterPasswordSecretKmsKeyId"))
+
+    @master_password_secret_kms_key_id.setter
+    def master_password_secret_kms_key_id(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e26594c22a23597c2bcb39be035e857bb61d132ed89a50d4d58e1a8f8c369e12)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "masterPasswordSecretKmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="masterUserPassword")
+    def master_user_password(self) -> typing.Optional[builtins.str]:
+        '''The password associated with the admin user account for the cluster that is being created.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "masterUserPassword"))
+
+    @master_user_password.setter
+    def master_user_password(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__15113bc0292eb3a900fcad9d620cd08c320a19dfce07db8d055112a353c48cba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "masterUserPassword", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="multiAz")
+    def multi_az(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''A boolean indicating whether Amazon Redshift should deploy the cluster in two Availability Zones.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "multiAz"))
+
+    @multi_az.setter
+    def multi_az(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0db0b21e9462c7db4bfbc5794a72cfec5dad80450cd1acb8174563927b06fa69)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "multiAz", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="namespaceResourcePolicy")
+    def namespace_resource_policy(self) -> typing.Any:
+        '''The policy that is attached to a resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "namespaceResourcePolicy"))
+
+    @namespace_resource_policy.setter
+    def namespace_resource_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5431251482e82a3c7a9d17e22a4cb6824e051b833670ac56c609436771ba3037)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "namespaceResourcePolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="numberOfNodes")
+    def number_of_nodes(self) -> typing.Optional[jsii.Number]:
+        '''The number of compute nodes in the cluster.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "numberOfNodes"))
+
+    @number_of_nodes.setter
+    def number_of_nodes(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b646aacda3a7612936e7568c66769cf203d6286890366d0346d5c38410b0d8b3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "numberOfNodes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ownerAccount")
+    def owner_account(self) -> typing.Optional[builtins.str]:
+        '''The AWS account used to create or copy the snapshot.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ownerAccount"))
+
+    @owner_account.setter
+    def owner_account(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__52bf6c5c1ccac8e9a203c7d7459384ca20fe2bd847c219060b148ce817130552)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ownerAccount", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="port")
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The port number on which the cluster accepts incoming connections.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "port"))
+
+    @port.setter
+    def port(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7a336566c0c0ca699ff01424a213ca87bb14f46bd413f3548c40bf33f2efa36b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="preferredMaintenanceWindow")
+    def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
+        '''The weekly time range (in UTC) during which automated cluster maintenance can occur.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "preferredMaintenanceWindow"))
+
+    @preferred_maintenance_window.setter
+    def preferred_maintenance_window(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9692ea98b60bb6630f40e5fdbf329c062ea1111b09de0a06388619337bba7451)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="publiclyAccessible")
+    def publicly_accessible(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''If ``true`` , the cluster can be accessed from a public network.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "publiclyAccessible"))
+
+    @publicly_accessible.setter
+    def publicly_accessible(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da6f0bb2273ecadf755efeb5a905c9ee82720866a8ce8f61a2c6d3d21eb9300b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "publiclyAccessible", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceAction")
+    def resource_action(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Redshift operation to be performed.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "resourceAction"))
+
+    @resource_action.setter
+    def resource_action(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3fb4e2cacc7f73b63f83b3db029d401ee0e2b0f5ba058212b603e71548aac621)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceAction", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="revisionTarget")
+    def revision_target(self) -> typing.Optional[builtins.str]:
+        '''Describes a ``RevisionTarget`` object.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "revisionTarget"))
+
+    @revision_target.setter
+    def revision_target(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9a194ca9d86844bb3b3e45b505b5c6b5cfc6e7394cda5b168c597edf84cd5a57)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "revisionTarget", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="rotateEncryptionKey")
+    def rotate_encryption_key(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Rotates the encryption keys for a cluster.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "rotateEncryptionKey"))
+
+    @rotate_encryption_key.setter
+    def rotate_encryption_key(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1bf5df20a75b52e1cdb3d7517d4cb1b82f3940133ad5667db9df487314abf2a2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rotateEncryptionKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotClusterIdentifier")
+    def snapshot_cluster_identifier(self) -> typing.Optional[builtins.str]:
+        '''The name of the cluster the source snapshot was created from.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "snapshotClusterIdentifier"))
+
+    @snapshot_cluster_identifier.setter
+    def snapshot_cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e02d3c6ace6da2f11c5895ef3151ab4e22925463fd7aa7f5ae7818e0ad18d5ed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotCopyGrantName")
+    def snapshot_copy_grant_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the snapshot copy grant.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "snapshotCopyGrantName"))
+
+    @snapshot_copy_grant_name.setter
+    def snapshot_copy_grant_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b48178e0c2c9351bf3494f98a7ba9056b7d4796545f2aee976d0338e14e8eb3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotCopyGrantName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotCopyManual")
+    def snapshot_copy_manual(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether to apply the snapshot retention period to newly copied manual snapshots instead of automated snapshots.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "snapshotCopyManual"))
+
+    @snapshot_copy_manual.setter
+    def snapshot_copy_manual(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__88f25e386153f816099eeca0eba6c12a2141a4398dd600a4a5bcfba56a506c9c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotCopyManual", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotCopyRetentionPeriod")
+    def snapshot_copy_retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The number of days to retain automated snapshots in the destination AWS Region after they are copied from the source AWS Region .'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "snapshotCopyRetentionPeriod"))
+
+    @snapshot_copy_retention_period.setter
+    def snapshot_copy_retention_period(
+        self,
+        value: typing.Optional[jsii.Number],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87d1d0fe426ee03be5f64341988115cbe1d5afd95c0b6861542b95a8abb56740)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotCopyRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotIdentifier")
+    def snapshot_identifier(self) -> typing.Optional[builtins.str]:
+        '''The name of the snapshot from which to create the new cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "snapshotIdentifier"))
+
+    @snapshot_identifier.setter
+    def snapshot_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cba9391bc97d92920ae3a792b5478605ed68dd5607ac8946d0f1a69fcb651dfc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tag instances.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5764b8f0fdd9373a15be01abce350629381e233414237e16a244d4691af89468)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcSecurityGroupIds")
+    def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of Virtual Private Cloud (VPC) security groups to be associated with the cluster.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "vpcSecurityGroupIds"))
+
+    @vpc_security_group_ids.setter
+    def vpc_security_group_ids(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__596c101c9c404cca151b1203ca97bd2d503f355f47622224daa47f385e650be8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_redshift.CfnCluster.EndpointProperty",
+        jsii_struct_bases=[],
+        name_mapping={"address": "address", "port": "port"},
+    )
+    class EndpointProperty:
+        def __init__(
+            self,
+            *,
+            address: typing.Optional[builtins.str] = None,
+            port: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Describes a connection endpoint.
+
+            :param address: The DNS address of the cluster. This property is read only.
+            :param port: The port that the database engine is listening on. This property is read only.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-endpoint.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_redshift as redshift
+                
+                endpoint_property = redshift.CfnCluster.EndpointProperty(
+                    address="address",
+                    port="port"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5f4b31c37417a3cee773773bc1a0a140f366a4e0e7ed41054ce4a4eb796ba219)
+                check_type(argname="argument address", value=address, expected_type=type_hints["address"])
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if address is not None:
+                self._values["address"] = address
+            if port is not None:
+                self._values["port"] = port
+
+        @builtins.property
+        def address(self) -> typing.Optional[builtins.str]:
+            '''The DNS address of the cluster.
+
+            This property is read only.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-endpoint.html#cfn-redshift-cluster-endpoint-address
+            '''
+            result = self._values.get("address")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def port(self) -> typing.Optional[builtins.str]:
+            '''The port that the database engine is listening on.
+
+            This property is read only.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-endpoint.html#cfn-redshift-cluster-endpoint-port
+            '''
+            result = self._values.get("port")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EndpointProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_redshift.CfnCluster.LoggingPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "bucket_name": "bucketName",
+            "log_destination_type": "logDestinationType",
+            "log_exports": "logExports",
+            "s3_key_prefix": "s3KeyPrefix",
+        },
+    )
+    class LoggingPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            bucket_name: typing.Optional[builtins.str] = None,
+            log_destination_type: typing.Optional[builtins.str] = None,
+            log_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
+            s3_key_prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies logging information, such as queries and connection attempts, for the specified Amazon Redshift cluster.
+
+            :param bucket_name: The name of an existing S3 bucket where the log files are to be stored. Constraints: - Must be in the same region as the cluster - The cluster must have read bucket and put object permissions
+            :param log_destination_type: The log destination type. An enum with possible values of ``s3`` and ``cloudwatch`` .
+            :param log_exports: The collection of exported log types. Possible values are ``connectionlog`` , ``useractivitylog`` , and ``userlog`` .
+            :param s3_key_prefix: The prefix applied to the log file names. Valid characters are any letter from any language, any whitespace character, any numeric character, and the following characters: underscore ( ``_`` ), period ( ``.`` ), colon ( ``:`` ), slash ( ``/`` ), equal ( ``=`` ), plus ( ``+`` ), backslash ( ``\\`` ), hyphen ( ``-`` ), at symbol ( ``@`` ).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-loggingproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_redshift as redshift
+                
+                logging_properties_property = redshift.CfnCluster.LoggingPropertiesProperty(
+                    bucket_name="bucketName",
+                    log_destination_type="logDestinationType",
+                    log_exports=["logExports"],
+                    s3_key_prefix="s3KeyPrefix"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c7aec990e988274953eb37b89aa72be860b6d20fca7dd87507fb1bd44a65b7b9)
+                check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+                check_type(argname="argument log_destination_type", value=log_destination_type, expected_type=type_hints["log_destination_type"])
+                check_type(argname="argument log_exports", value=log_exports, expected_type=type_hints["log_exports"])
+                check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if bucket_name is not None:
+                self._values["bucket_name"] = bucket_name
+            if log_destination_type is not None:
+                self._values["log_destination_type"] = log_destination_type
+            if log_exports is not None:
+                self._values["log_exports"] = log_exports
+            if s3_key_prefix is not None:
+                self._values["s3_key_prefix"] = s3_key_prefix
+
+        @builtins.property
+        def bucket_name(self) -> typing.Optional[builtins.str]:
+            '''The name of an existing S3 bucket where the log files are to be stored.
+
+            Constraints:
+
+            - Must be in the same region as the cluster
+            - The cluster must have read bucket and put object permissions
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-loggingproperties.html#cfn-redshift-cluster-loggingproperties-bucketname
+            '''
+            result = self._values.get("bucket_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def log_destination_type(self) -> typing.Optional[builtins.str]:
+            '''The log destination type.
+
+            An enum with possible values of ``s3`` and ``cloudwatch`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-loggingproperties.html#cfn-redshift-cluster-loggingproperties-logdestinationtype
+            '''
+            result = self._values.get("log_destination_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def log_exports(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The collection of exported log types.
+
+            Possible values are ``connectionlog`` , ``useractivitylog`` , and ``userlog`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-loggingproperties.html#cfn-redshift-cluster-loggingproperties-logexports
+            '''
+            result = self._values.get("log_exports")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def s3_key_prefix(self) -> typing.Optional[builtins.str]:
+            '''The prefix applied to the log file names.
+
+            Valid characters are any letter from any language, any whitespace character, any numeric character, and the following characters: underscore ( ``_`` ), period ( ``.`` ), colon ( ``:`` ), slash ( ``/`` ), equal ( ``=`` ), plus ( ``+`` ), backslash ( ``\\`` ), hyphen ( ``-`` ), at symbol ( ``@`` ).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-loggingproperties.html#cfn-redshift-cluster-loggingproperties-s3keyprefix
+            '''
+            result = self._values.get("s3_key_prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LoggingPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, _IClusterParameterGroupRef_daa0f332, _ITaggable_36806126)
+class CfnClusterParameterGroup(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_redshift.CfnClusterParameterGroup",
+):
+    '''Describes a parameter group.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clusterparametergroup.html
+    :cloudformationResource: AWS::Redshift::ClusterParameterGroup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_redshift as redshift
+        
+        cfn_cluster_parameter_group = redshift.CfnClusterParameterGroup(self, "MyCfnClusterParameterGroup",
+            description="description",
+            parameter_group_family="parameterGroupFamily",
+        
+            # the properties below are optional
+            parameter_group_name="parameterGroupName",
+            parameters=[redshift.CfnClusterParameterGroup.ParameterProperty(
+                parameter_name="parameterName",
+                parameter_value="parameterValue"
+            )],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        description: builtins.str,
+        parameter_group_family: builtins.str,
+        parameter_group_name: typing.Optional[builtins.str] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnClusterParameterGroup.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Redshift::ClusterParameterGroup``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param description: The description of the parameter group.
+        :param parameter_group_family: The name of the cluster parameter group family that this cluster parameter group is compatible with. You can create a custom parameter group and then associate your cluster with it. For more information, see `Amazon Redshift parameter groups <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-parameter-groups.html>`_ .
+        :param parameter_group_name: The name of the cluster parameter group.
+        :param parameters: An array of parameters to be modified. A maximum of 20 parameters can be modified in a single request. For each parameter to be modified, you must supply at least the parameter name and parameter value; other name-value pairs of the parameter are optional. For the workload management (WLM) configuration, you must supply all the name-value pairs in the wlm_json_configuration parameter.
+        :param tags: The list of tags for the cluster parameter group.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4414ca463de61620f73bf7c02eb829639136d7dcc505964ba4d9e9618286c69)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnClusterParameterGroupProps(
+            description=description,
+            parameter_group_family=parameter_group_family,
+            parameter_group_name=parameter_group_name,
+            parameters=parameters,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForClusterParameterGroup")
+    @builtins.classmethod
+    def arn_for_cluster_parameter_group(
+        cls,
+        resource: "_IClusterParameterGroupRef_daa0f332",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea38799ab30cd9c2507371a51b5c9d00383209b119dc58579f842fdf9f0f8295)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForClusterParameterGroup", [resource]))
+
+    @jsii.member(jsii_name="fromParameterGroupName")
+    @builtins.classmethod
+    def from_parameter_group_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        parameter_group_name: builtins.str,
+    ) -> "_IClusterParameterGroupRef_daa0f332":
+        '''Creates a new IClusterParameterGroupRef from a parameterGroupName.
+
+        :param scope: -
+        :param id: -
+        :param parameter_group_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4fcc0dd642456f37020bcfe38fd9cfd482cbd79750adda84ea8706f1e6df408)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
+        return typing.cast("_IClusterParameterGroupRef_daa0f332", jsii.sinvoke(cls, "fromParameterGroupName", [scope, id, parameter_group_name]))
+
+    @jsii.member(jsii_name="isCfnClusterParameterGroup")
+    @builtins.classmethod
+    def is_cfn_cluster_parameter_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnClusterParameterGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bf0a59d408f5d1eaeef0fa60d503ddb54ebf886fc9fb90ab024e2df3990905c4)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnClusterParameterGroup", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__33c3f5debe7a54728cc11b0bbd4cd3ef9a8b793416272ffb149cec7294e16c50)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9b7d74938a95ad8692c806f56ca7eec2add84b72ad04dfdd43dbf75c8f82078c)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterParameterGroupRef")
+    def cluster_parameter_group_ref(self) -> "_ClusterParameterGroupReference_a53380a4":
+        '''A reference to a ClusterParameterGroup resource.'''
+        return typing.cast("_ClusterParameterGroupReference_a53380a4", jsii.get(self, "clusterParameterGroupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> builtins.str:
+        '''The description of the parameter group.'''
+        return typing.cast(builtins.str, jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa01b978d978b525b22dfcc1d5e7ed1fdba8f3423e58633da46999cf64b6145e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterGroupFamily")
+    def parameter_group_family(self) -> builtins.str:
+        '''The name of the cluster parameter group family that this cluster parameter group is compatible with.'''
+        return typing.cast(builtins.str, jsii.get(self, "parameterGroupFamily"))
+
+    @parameter_group_family.setter
+    def parameter_group_family(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__31d55e60eeba305c90c4c7a8c50b43e6bf8362044925cc46818a03d69862ee99)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameterGroupFamily", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterGroupName")
+    def parameter_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the cluster parameter group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "parameterGroupName"))
+
+    @parameter_group_name.setter
+    def parameter_group_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__71389da0b60c4def288c7b3fb2b371fda4f4162f1eb827248ad420d596ae579c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameterGroupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnClusterParameterGroup.ParameterProperty"]]]]:
+        '''An array of parameters to be modified.
+
+        A maximum of 20 parameters can be modified in a single request.
+        '''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnClusterParameterGroup.ParameterProperty"]]]], jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnClusterParameterGroup.ParameterProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f6965bfa88c2fcb264091e20f622accf9bf23be5cacdb3362545db9e6c9696c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The list of tags for the cluster parameter group.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed9d60dbe1f8113e3b7f1c5d9cd93fced6c4ccd359227db112e355b0839bdd7b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_redshift.CfnClusterParameterGroup.ParameterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "parameter_name": "parameterName",
+            "parameter_value": "parameterValue",
+        },
+    )
+    class ParameterProperty:
+        def __init__(
+            self,
+            *,
+            parameter_name: builtins.str,
+            parameter_value: builtins.str,
+        ) -> None:
+            '''Describes a parameter in a cluster parameter group.
+
+            :param parameter_name: The name of the parameter.
+            :param parameter_value: The value of the parameter. If ``ParameterName`` is ``wlm_json_configuration`` , then the maximum size of ``ParameterValue`` is 8000 characters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-clusterparametergroup-parameter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_redshift as redshift
+                
+                parameter_property = redshift.CfnClusterParameterGroup.ParameterProperty(
+                    parameter_name="parameterName",
+                    parameter_value="parameterValue"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__240e23a4f4e09dcaf1a5943661993a46709536c604817503e522b63ccc6ccf48)
+                check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+                check_type(argname="argument parameter_value", value=parameter_value, expected_type=type_hints["parameter_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "parameter_name": parameter_name,
+                "parameter_value": parameter_value,
+            }
+
+        @builtins.property
+        def parameter_name(self) -> builtins.str:
+            '''The name of the parameter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-clusterparametergroup-parameter.html#cfn-redshift-clusterparametergroup-parameter-parametername
+            '''
+            result = self._values.get("parameter_name")
+            assert result is not None, "Required property 'parameter_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def parameter_value(self) -> builtins.str:
+            '''The value of the parameter.
+
+            If ``ParameterName`` is ``wlm_json_configuration`` , then the maximum size of ``ParameterValue`` is 8000 characters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-clusterparametergroup-parameter.html#cfn-redshift-clusterparametergroup-parameter-parametervalue
+            '''
+            result = self._values.get("parameter_value")
+            assert result is not None, "Required property 'parameter_value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ParameterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.data_type(
@@ -93,8 +1794,8 @@ class CfnClusterParameterGroupProps:
         description: builtins.str,
         parameter_group_family: builtins.str,
         parameter_group_name: typing.Optional[builtins.str] = None,
-        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnClusterParameterGroup.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnClusterParameterGroup.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnClusterParameterGroup``.
 
@@ -109,6 +1810,7 @@ class CfnClusterParameterGroupProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_redshift as redshift
@@ -181,7 +1883,7 @@ class CfnClusterParameterGroupProps:
     @builtins.property
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnClusterParameterGroup.ParameterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnClusterParameterGroup.ParameterProperty"]]]]:
         '''An array of parameters to be modified. A maximum of 20 parameters can be modified in a single request.
 
         For each parameter to be modified, you must supply at least the parameter name and parameter value; other name-value pairs of the parameter are optional.
@@ -191,16 +1893,16 @@ class CfnClusterParameterGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clusterparametergroup.html#cfn-redshift-clusterparametergroup-parameters
         '''
         result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnClusterParameterGroup.ParameterProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnClusterParameterGroup.ParameterProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The list of tags for the cluster parameter group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clusterparametergroup.html#cfn-redshift-clusterparametergroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -280,54 +1982,54 @@ class CfnClusterProps:
         db_name: builtins.str,
         master_username: builtins.str,
         node_type: builtins.str,
-        allow_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        allow_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         aqua_configuration_status: typing.Optional[builtins.str] = None,
         automated_snapshot_retention_period: typing.Optional[jsii.Number] = None,
         availability_zone: typing.Optional[builtins.str] = None,
-        availability_zone_relocation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        availability_zone_relocation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         availability_zone_relocation_status: typing.Optional[builtins.str] = None,
-        classic: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        classic: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         cluster_identifier: typing.Optional[builtins.str] = None,
-        cluster_parameter_group_name: typing.Optional[builtins.str] = None,
-        cluster_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cluster_subnet_group_name: typing.Optional[builtins.str] = None,
+        cluster_parameter_group_name: typing.Optional[typing.Union[builtins.str, "_IClusterParameterGroupRef_daa0f332"]] = None,
+        cluster_security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18", "_IClusterSecurityGroupRef_b934aac2"]]] = None,
+        cluster_subnet_group_name: typing.Optional[typing.Union[builtins.str, "_IClusterSubnetGroupRef_ee5ee341"]] = None,
         cluster_version: typing.Optional[builtins.str] = None,
-        defer_maintenance: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        defer_maintenance: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         defer_maintenance_duration: typing.Optional[jsii.Number] = None,
         defer_maintenance_end_time: typing.Optional[builtins.str] = None,
         defer_maintenance_start_time: typing.Optional[builtins.str] = None,
         destination_region: typing.Optional[builtins.str] = None,
-        elastic_ip: typing.Optional[builtins.str] = None,
-        encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        elastic_ip: typing.Optional[typing.Union[builtins.str, "_IEIPRef_60d698bd"]] = None,
+        encrypted: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         hsm_client_certificate_identifier: typing.Optional[builtins.str] = None,
         hsm_configuration_identifier: typing.Optional[builtins.str] = None,
-        iam_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        logging_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.LoggingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iam_roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IRoleRef_8400221f"]]] = None,
+        kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        logging_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.LoggingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         maintenance_track_name: typing.Optional[builtins.str] = None,
-        manage_master_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        manage_master_password: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
-        master_password_secret_kms_key_id: typing.Optional[builtins.str] = None,
+        master_password_secret_kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
         master_user_password: typing.Optional[builtins.str] = None,
-        multi_az: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        multi_az: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         namespace_resource_policy: typing.Any = None,
         number_of_nodes: typing.Optional[jsii.Number] = None,
         owner_account: typing.Optional[builtins.str] = None,
         port: typing.Optional[jsii.Number] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
-        publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        publicly_accessible: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         resource_action: typing.Optional[builtins.str] = None,
         revision_target: typing.Optional[builtins.str] = None,
-        rotate_encryption_key: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        rotate_encryption_key: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         snapshot_cluster_identifier: typing.Optional[builtins.str] = None,
         snapshot_copy_grant_name: typing.Optional[builtins.str] = None,
-        snapshot_copy_manual: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        snapshot_copy_manual: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         snapshot_copy_retention_period: typing.Optional[jsii.Number] = None,
         snapshot_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCluster``.
 
@@ -389,6 +2091,7 @@ class CfnClusterProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_redshift as redshift
@@ -692,7 +2395,7 @@ class CfnClusterProps:
     @builtins.property
     def allow_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''If ``true`` , major version upgrades can be applied during the maintenance window to the Amazon Redshift engine that is running on the cluster.
 
         When a new major version of the Amazon Redshift engine is released, you can request that the service automatically apply upgrades during the maintenance window to the Amazon Redshift engine that is running on your cluster.
@@ -702,7 +2405,7 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-allowversionupgrade
         '''
         result = self._values.get("allow_version_upgrade")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def aqua_configuration_status(self) -> typing.Optional[builtins.str]:
@@ -750,13 +2453,13 @@ class CfnClusterProps:
     @builtins.property
     def availability_zone_relocation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''The option to enable relocation for an Amazon Redshift cluster between Availability Zones after the cluster is created.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-availabilityzonerelocation
         '''
         result = self._values.get("availability_zone_relocation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def availability_zone_relocation_status(self) -> typing.Optional[builtins.str]:
@@ -770,7 +2473,7 @@ class CfnClusterProps:
     @builtins.property
     def classic(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''A boolean value indicating whether the resize operation is using the classic resize process.
 
         If you don't provide this parameter or set the value to ``false`` , the resize type is elastic.
@@ -778,7 +2481,7 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-classic
         '''
         result = self._values.get("classic")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def cluster_identifier(self) -> typing.Optional[builtins.str]:
@@ -802,7 +2505,9 @@ class CfnClusterProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def cluster_parameter_group_name(self) -> typing.Optional[builtins.str]:
+    def cluster_parameter_group_name(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IClusterParameterGroupRef_daa0f332"]]:
         '''The name of the parameter group to be associated with this cluster.
 
         Default: The default Amazon Redshift cluster parameter group. For information about the default parameter group, go to `Working with Amazon Redshift Parameter Groups <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-parameter-groups.html>`_
@@ -816,10 +2521,12 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-clusterparametergroupname
         '''
         result = self._values.get("cluster_parameter_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IClusterParameterGroupRef_daa0f332"]], result)
 
     @builtins.property
-    def cluster_security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
+    def cluster_security_groups(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18", "_IClusterSecurityGroupRef_b934aac2"]]]:
         '''A list of security groups to be associated with this cluster.
 
         Default: The default cluster security group for Amazon Redshift.
@@ -827,10 +2534,12 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-clustersecuritygroups
         '''
         result = self._values.get("cluster_security_groups")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18", "_IClusterSecurityGroupRef_b934aac2"]]], result)
 
     @builtins.property
-    def cluster_subnet_group_name(self) -> typing.Optional[builtins.str]:
+    def cluster_subnet_group_name(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IClusterSubnetGroupRef_ee5ee341"]]:
         '''The name of a cluster subnet group to be associated with this cluster.
 
         If this parameter is not provided the resulting cluster will be deployed outside virtual private cloud (VPC).
@@ -838,7 +2547,7 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-clustersubnetgroupname
         '''
         result = self._values.get("cluster_subnet_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IClusterSubnetGroupRef_ee5ee341"]], result)
 
     @builtins.property
     def cluster_version(self) -> typing.Optional[builtins.str]:
@@ -858,13 +2567,13 @@ class CfnClusterProps:
     @builtins.property
     def defer_maintenance(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''A Boolean indicating whether to enable the deferred maintenance window.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-defermaintenance
         '''
         result = self._values.get("defer_maintenance")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def defer_maintenance_duration(self) -> typing.Optional[jsii.Number]:
@@ -905,7 +2614,9 @@ class CfnClusterProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def elastic_ip(self) -> typing.Optional[builtins.str]:
+    def elastic_ip(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IEIPRef_60d698bd"]]:
         '''The Elastic IP (EIP) address for the cluster.
 
         Constraints: The cluster must be provisioned in EC2-VPC and publicly-accessible through an Internet gateway. Don't specify the Elastic IP address for a publicly accessible cluster with availability zone relocation turned on. For more information about provisioning clusters in EC2-VPC, go to `Supported Platforms to Launch Your Cluster <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-clusters.html#cluster-platforms>`_ in the Amazon Redshift Cluster Management Guide.
@@ -913,12 +2624,12 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-elasticip
         '''
         result = self._values.get("elastic_ip")
-        return typing.cast(typing.Optional[builtins.str], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IEIPRef_60d698bd"]], result)
 
     @builtins.property
     def encrypted(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''If ``true`` , the data in the cluster is encrypted at rest.
 
         If you set the value on this parameter to ``false`` , the request will fail.
@@ -928,23 +2639,23 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-encrypted
         '''
         result = self._values.get("encrypted")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def endpoint(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.EndpointProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]]:
         '''The connection endpoint.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-endpoint
         '''
         result = self._values.get("endpoint")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.EndpointProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]], result)
 
     @builtins.property
     def enhanced_vpc_routing(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''An option that specifies whether to create the cluster with enhanced VPC routing enabled.
 
         To create a cluster that uses enhanced VPC routing, the cluster must be in a VPC. For more information, see `Enhanced VPC Routing <https://docs.aws.amazon.com/redshift/latest/mgmt/enhanced-vpc-routing.html>`_ in the Amazon Redshift Cluster Management Guide.
@@ -956,7 +2667,7 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-enhancedvpcrouting
         '''
         result = self._values.get("enhanced_vpc_routing")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def hsm_client_certificate_identifier(self) -> typing.Optional[builtins.str]:
@@ -977,7 +2688,9 @@ class CfnClusterProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def iam_roles(self) -> typing.Optional[typing.List[builtins.str]]:
+    def iam_roles(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IRoleRef_8400221f"]]]:
         '''A list of AWS Identity and Access Management (IAM) roles that can be used by the cluster to access other AWS services.
 
         You must supply the IAM roles in their Amazon Resource Name (ARN) format.
@@ -987,27 +2700,29 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-iamroles
         '''
         result = self._values.get("iam_roles")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IRoleRef_8400221f"]]], result)
 
     @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
+    def kms_key_id(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]]:
         '''The AWS Key Management Service (KMS) key ID of the encryption key that you want to use to encrypt data in the cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-kmskeyid
         '''
         result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]], result)
 
     @builtins.property
     def logging_properties(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.LoggingPropertiesProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.LoggingPropertiesProperty"]]:
         '''Specifies logging information, such as queries and connection attempts, for the specified Amazon Redshift cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-loggingproperties
         '''
         result = self._values.get("logging_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.LoggingPropertiesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.LoggingPropertiesProperty"]], result)
 
     @builtins.property
     def maintenance_track_name(self) -> typing.Optional[builtins.str]:
@@ -1023,7 +2738,7 @@ class CfnClusterProps:
     @builtins.property
     def manage_master_password(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''If ``true`` , Amazon Redshift uses AWS Secrets Manager to manage this cluster's admin credentials.
 
         You can't use ``MasterUserPassword`` if ``ManageMasterPassword`` is true. If ``ManageMasterPassword`` is false or not set, Amazon Redshift uses ``MasterUserPassword`` for the admin user account's password.
@@ -1031,7 +2746,7 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-managemasterpassword
         '''
         result = self._values.get("manage_master_password")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def manual_snapshot_retention_period(self) -> typing.Optional[jsii.Number]:
@@ -1047,7 +2762,9 @@ class CfnClusterProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def master_password_secret_kms_key_id(self) -> typing.Optional[builtins.str]:
+    def master_password_secret_kms_key_id(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]]:
         '''The ID of the AWS Key Management Service (KMS) key used to encrypt and store the cluster's admin credentials secret.
 
         You can only use this parameter if ``ManageMasterPassword`` is true.
@@ -1055,7 +2772,7 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-masterpasswordsecretkmskeyid
         '''
         result = self._values.get("master_password_secret_kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]], result)
 
     @builtins.property
     def master_user_password(self) -> typing.Optional[builtins.str]:
@@ -1079,7 +2796,7 @@ class CfnClusterProps:
     @builtins.property
     def multi_az(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''A boolean indicating whether Amazon Redshift should deploy the cluster in two Availability Zones.
 
         The default is false.
@@ -1087,7 +2804,7 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-multiaz
         '''
         result = self._values.get("multi_az")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def namespace_resource_policy(self) -> typing.Any:
@@ -1166,7 +2883,7 @@ class CfnClusterProps:
     @builtins.property
     def publicly_accessible(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''If ``true`` , the cluster can be accessed from a public network.
 
         Default: false
@@ -1174,7 +2891,7 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-publiclyaccessible
         '''
         result = self._values.get("publicly_accessible")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def resource_action(self) -> typing.Optional[builtins.str]:
@@ -1199,13 +2916,13 @@ class CfnClusterProps:
     @builtins.property
     def rotate_encryption_key(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Rotates the encryption keys for a cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-rotateencryptionkey
         '''
         result = self._values.get("rotate_encryption_key")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def snapshot_cluster_identifier(self) -> typing.Optional[builtins.str]:
@@ -1230,13 +2947,13 @@ class CfnClusterProps:
     @builtins.property
     def snapshot_copy_manual(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Indicates whether to apply the snapshot retention period to newly copied manual snapshots instead of automated snapshots.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-snapshotcopymanual
         '''
         result = self._values.get("snapshot_copy_manual")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def snapshot_copy_retention_period(self) -> typing.Optional[jsii.Number]:
@@ -1273,16 +2990,18 @@ class CfnClusterProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tag instances.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
-    def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+    def vpc_security_group_ids(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]]:
         '''A list of Virtual Private Cloud (VPC) security groups to be associated with the cluster.
 
         Default: The default VPC security group is associated with the cluster.
@@ -1290,7 +3009,7 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html#cfn-redshift-cluster-vpcsecuritygroupids
         '''
         result = self._values.get("vpc_security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1302,6 +3021,340 @@ class CfnClusterProps:
         return "CfnClusterProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IClusterSecurityGroupRef_b934aac2, _ITaggable_36806126)
+class CfnClusterSecurityGroup(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_redshift.CfnClusterSecurityGroup",
+):
+    '''Specifies a new Amazon Redshift security group. You use security groups to control access to non-VPC clusters.
+
+    For information about managing security groups, go to `Amazon Redshift Cluster Security Groups <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-security-groups.html>`_ in the *Amazon Redshift Cluster Management Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clustersecuritygroup.html
+    :cloudformationResource: AWS::Redshift::ClusterSecurityGroup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_redshift as redshift
+        
+        cfn_cluster_security_group = redshift.CfnClusterSecurityGroup(self, "MyCfnClusterSecurityGroup",
+            description="description",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        description: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Redshift::ClusterSecurityGroup``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param description: A description for the security group.
+        :param tags: Specifies an arbitrary set of tags (key–value pairs) to associate with this security group. Use tags to manage your resources.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9b22efcbba45de188c12e3a4ec10ac826aa23627c8a9c1ab33ac3ab92f1db7ca)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnClusterSecurityGroupProps(description=description, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnClusterSecurityGroup")
+    @builtins.classmethod
+    def is_cfn_cluster_security_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnClusterSecurityGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a40b57bb56e8b5bea40fe944586bf267bf082fd99cba7ddfa1985a6bbf4d6f34)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnClusterSecurityGroup", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf91138ab4de58056c692e7a90e9c37175b85888798658fb335eb1fda9dc46ef)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c67faf71bfcbce5abc9c55181019e84dee71de571bd99a7bb417425f307fe805)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterSecurityGroupRef")
+    def cluster_security_group_ref(self) -> "_ClusterSecurityGroupReference_18f94e00":
+        '''A reference to a ClusterSecurityGroup resource.'''
+        return typing.cast("_ClusterSecurityGroupReference_18f94e00", jsii.get(self, "clusterSecurityGroupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> builtins.str:
+        '''A description for the security group.'''
+        return typing.cast(builtins.str, jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b860785f063213d814fda288a338005f7a7bdf25187251589ec205640c547a66)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies an arbitrary set of tags (key–value pairs) to associate with this security group.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__defdac711f3e7a77b19ec04bc132d682928b4f21ff6be172e15e2ac9f0cd6e8c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, _IClusterSecurityGroupIngressRef_ce01bab2)
+class CfnClusterSecurityGroupIngress(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_redshift.CfnClusterSecurityGroupIngress",
+):
+    '''Adds an inbound (ingress) rule to an Amazon Redshift security group.
+
+    Depending on whether the application accessing your cluster is running on the Internet or an Amazon EC2 instance, you can authorize inbound access to either a Classless Interdomain Routing (CIDR)/Internet Protocol (IP) range or to an Amazon EC2 security group. You can add as many as 20 ingress rules to an Amazon Redshift security group.
+
+    If you authorize access to an Amazon EC2 security group, specify *EC2SecurityGroupName* and *EC2SecurityGroupOwnerId* . The Amazon EC2 security group and Amazon Redshift cluster must be in the same AWS Region .
+
+    If you authorize access to a CIDR/IP address range, specify *CIDRIP* . For an overview of CIDR blocks, see the Wikipedia article on `Classless Inter-Domain Routing <https://docs.aws.amazon.com/http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing>`_ .
+
+    You must also associate the security group with a cluster so that clients running on these IP addresses or the EC2 instance are authorized to connect to the cluster. For information about managing security groups, go to `Working with Security Groups <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-security-groups.html>`_ in the *Amazon Redshift Cluster Management Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clustersecuritygroupingress.html
+    :cloudformationResource: AWS::Redshift::ClusterSecurityGroupIngress
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_redshift as redshift
+        
+        cfn_cluster_security_group_ingress = redshift.CfnClusterSecurityGroupIngress(self, "MyCfnClusterSecurityGroupIngress",
+            cluster_security_group_name="clusterSecurityGroupName",
+        
+            # the properties below are optional
+            cidrip="cidrip",
+            ec2_security_group_name="ec2SecurityGroupName",
+            ec2_security_group_owner_id="ec2SecurityGroupOwnerId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        cluster_security_group_name: builtins.str,
+        cidrip: typing.Optional[builtins.str] = None,
+        ec2_security_group_name: typing.Optional[builtins.str] = None,
+        ec2_security_group_owner_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::Redshift::ClusterSecurityGroupIngress``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param cluster_security_group_name: The name of the security group to which the ingress rule is added.
+        :param cidrip: The IP range to be added the Amazon Redshift security group.
+        :param ec2_security_group_name: The EC2 security group to be added the Amazon Redshift security group.
+        :param ec2_security_group_owner_id: The AWS account number of the owner of the security group specified by the *EC2SecurityGroupName* parameter. The AWS Access Key ID is not an acceptable value. Example: ``111122223333`` Conditional. If you specify the ``EC2SecurityGroupName`` property, you must specify this property.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__41697fee2951713c64e294c4e4850203dbc7d20174c1fed5347f5918875e54ff)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnClusterSecurityGroupIngressProps(
+            cluster_security_group_name=cluster_security_group_name,
+            cidrip=cidrip,
+            ec2_security_group_name=ec2_security_group_name,
+            ec2_security_group_owner_id=ec2_security_group_owner_id,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnClusterSecurityGroupIngress")
+    @builtins.classmethod
+    def is_cfn_cluster_security_group_ingress(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnClusterSecurityGroupIngress.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__69014c8f4f09c3b872102b3f597a62546f34fba05dd0a3ea8980fd34bc397a20)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnClusterSecurityGroupIngress", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5daaf061a9776bc828b5e17868e3a5341ceac5a9921dfd313ea5696175e61dc)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d33bff3b3590906995d56f375a2e2ff36b57c39243b7809fae2071ef39734a92)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''Specifies an inbound (ingress) rule for an Amazon Redshift security group.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterSecurityGroupIngressRef")
+    def cluster_security_group_ingress_ref(
+        self,
+    ) -> "_ClusterSecurityGroupIngressReference_8e92a780":
+        '''A reference to a ClusterSecurityGroupIngress resource.'''
+        return typing.cast("_ClusterSecurityGroupIngressReference_8e92a780", jsii.get(self, "clusterSecurityGroupIngressRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterSecurityGroupName")
+    def cluster_security_group_name(self) -> builtins.str:
+        '''The name of the security group to which the ingress rule is added.'''
+        return typing.cast(builtins.str, jsii.get(self, "clusterSecurityGroupName"))
+
+    @cluster_security_group_name.setter
+    def cluster_security_group_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__450127f44d7b9d46222076daeb75aef61dc74ee7b8c0361931cbc378b77f2b61)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterSecurityGroupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="cidrip")
+    def cidrip(self) -> typing.Optional[builtins.str]:
+        '''The IP range to be added the Amazon Redshift security group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cidrip"))
+
+    @cidrip.setter
+    def cidrip(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc70f827b8b8bd4fd90e9971cafaa821209d83d7fb903364e18ca0bd12bb4fa7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cidrip", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ec2SecurityGroupName")
+    def ec2_security_group_name(self) -> typing.Optional[builtins.str]:
+        '''The EC2 security group to be added the Amazon Redshift security group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ec2SecurityGroupName"))
+
+    @ec2_security_group_name.setter
+    def ec2_security_group_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__305455f9fef2cb5c555b60efcd3ef9258c1c90d3a8215d9e5d93dbcc7b9829a2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ec2SecurityGroupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ec2SecurityGroupOwnerId")
+    def ec2_security_group_owner_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS account number of the owner of the security group specified by the *EC2SecurityGroupName* parameter.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ec2SecurityGroupOwnerId"))
+
+    @ec2_security_group_owner_id.setter
+    def ec2_security_group_owner_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea6866c86f6e401834ff96949921e03d99488382c3dc85fdb956991534d7d684)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ec2SecurityGroupOwnerId", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1429,7 +3482,7 @@ class CfnClusterSecurityGroupProps:
         self,
         *,
         description: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnClusterSecurityGroup``.
 
@@ -1441,6 +3494,7 @@ class CfnClusterSecurityGroupProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_redshift as redshift
@@ -1476,7 +3530,7 @@ class CfnClusterSecurityGroupProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies an arbitrary set of tags (key–value pairs) to associate with this security group.
 
         Use tags to manage your resources.
@@ -1484,7 +3538,7 @@ class CfnClusterSecurityGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clustersecuritygroup.html#cfn-redshift-clustersecuritygroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1498,3753 +3552,7 @@ class CfnClusterSecurityGroupProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.CfnClusterSubnetGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "subnet_ids": "subnetIds",
-        "tags": "tags",
-    },
-)
-class CfnClusterSubnetGroupProps:
-    def __init__(
-        self,
-        *,
-        description: builtins.str,
-        subnet_ids: typing.Sequence[builtins.str],
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnClusterSubnetGroup``.
-
-        :param description: A description for the subnet group.
-        :param subnet_ids: An array of VPC subnet IDs. A maximum of 20 subnets can be modified in a single request.
-        :param tags: Specifies an arbitrary set of tags (key–value pairs) to associate with this subnet group. Use tags to manage your resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clustersubnetgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            cfn_cluster_subnet_group_props = redshift.CfnClusterSubnetGroupProps(
-                description="description",
-                subnet_ids=["subnetIds"],
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7629b191964d0b486283403d34c774eed1fd92a00727981a023ae6012064b43)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "description": description,
-            "subnet_ids": subnet_ids,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def description(self) -> builtins.str:
-        '''A description for the subnet group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clustersubnetgroup.html#cfn-redshift-clustersubnetgroup-description
-        '''
-        result = self._values.get("description")
-        assert result is not None, "Required property 'description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def subnet_ids(self) -> typing.List[builtins.str]:
-        '''An array of VPC subnet IDs.
-
-        A maximum of 20 subnets can be modified in a single request.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clustersubnetgroup.html#cfn-redshift-clustersubnetgroup-subnetids
-        '''
-        result = self._values.get("subnet_ids")
-        assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies an arbitrary set of tags (key–value pairs) to associate with this subnet group.
-
-        Use tags to manage your resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clustersubnetgroup.html#cfn-redshift-clustersubnetgroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnClusterSubnetGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.CfnEndpointAccessProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "cluster_identifier": "clusterIdentifier",
-        "endpoint_name": "endpointName",
-        "subnet_group_name": "subnetGroupName",
-        "vpc_security_group_ids": "vpcSecurityGroupIds",
-        "resource_owner": "resourceOwner",
-    },
-)
-class CfnEndpointAccessProps:
-    def __init__(
-        self,
-        *,
-        cluster_identifier: builtins.str,
-        endpoint_name: builtins.str,
-        subnet_group_name: builtins.str,
-        vpc_security_group_ids: typing.Sequence[builtins.str],
-        resource_owner: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEndpointAccess``.
-
-        :param cluster_identifier: The cluster identifier of the cluster associated with the endpoint.
-        :param endpoint_name: The name of the endpoint.
-        :param subnet_group_name: The subnet group name where Amazon Redshift chooses to deploy the endpoint.
-        :param vpc_security_group_ids: The security group that defines the ports, protocols, and sources for inbound traffic that you are authorizing into your endpoint.
-        :param resource_owner: The AWS account ID of the owner of the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointaccess.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            cfn_endpoint_access_props = redshift.CfnEndpointAccessProps(
-                cluster_identifier="clusterIdentifier",
-                endpoint_name="endpointName",
-                subnet_group_name="subnetGroupName",
-                vpc_security_group_ids=["vpcSecurityGroupIds"],
-            
-                # the properties below are optional
-                resource_owner="resourceOwner"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb4208897e368488438ba6d463b7b2649df77c181ed9a0aabd7edf470cf9972e)
-            check_type(argname="argument cluster_identifier", value=cluster_identifier, expected_type=type_hints["cluster_identifier"])
-            check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
-            check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
-            check_type(argname="argument vpc_security_group_ids", value=vpc_security_group_ids, expected_type=type_hints["vpc_security_group_ids"])
-            check_type(argname="argument resource_owner", value=resource_owner, expected_type=type_hints["resource_owner"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cluster_identifier": cluster_identifier,
-            "endpoint_name": endpoint_name,
-            "subnet_group_name": subnet_group_name,
-            "vpc_security_group_ids": vpc_security_group_ids,
-        }
-        if resource_owner is not None:
-            self._values["resource_owner"] = resource_owner
-
-    @builtins.property
-    def cluster_identifier(self) -> builtins.str:
-        '''The cluster identifier of the cluster associated with the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointaccess.html#cfn-redshift-endpointaccess-clusteridentifier
-        '''
-        result = self._values.get("cluster_identifier")
-        assert result is not None, "Required property 'cluster_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def endpoint_name(self) -> builtins.str:
-        '''The name of the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointaccess.html#cfn-redshift-endpointaccess-endpointname
-        '''
-        result = self._values.get("endpoint_name")
-        assert result is not None, "Required property 'endpoint_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def subnet_group_name(self) -> builtins.str:
-        '''The subnet group name where Amazon Redshift chooses to deploy the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointaccess.html#cfn-redshift-endpointaccess-subnetgroupname
-        '''
-        result = self._values.get("subnet_group_name")
-        assert result is not None, "Required property 'subnet_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpc_security_group_ids(self) -> typing.List[builtins.str]:
-        '''The security group that defines the ports, protocols, and sources for inbound traffic that you are authorizing into your endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointaccess.html#cfn-redshift-endpointaccess-vpcsecuritygroupids
-        '''
-        result = self._values.get("vpc_security_group_ids")
-        assert result is not None, "Required property 'vpc_security_group_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def resource_owner(self) -> typing.Optional[builtins.str]:
-        '''The AWS account ID of the owner of the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointaccess.html#cfn-redshift-endpointaccess-resourceowner
-        '''
-        result = self._values.get("resource_owner")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEndpointAccessProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.CfnEndpointAuthorizationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "account": "account",
-        "cluster_identifier": "clusterIdentifier",
-        "force": "force",
-        "vpc_ids": "vpcIds",
-    },
-)
-class CfnEndpointAuthorizationProps:
-    def __init__(
-        self,
-        *,
-        account: builtins.str,
-        cluster_identifier: builtins.str,
-        force: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        vpc_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEndpointAuthorization``.
-
-        :param account: The AWS account ID of either the cluster owner (grantor) or grantee. If ``Grantee`` parameter is true, then the ``Account`` value is of the grantor.
-        :param cluster_identifier: The cluster identifier.
-        :param force: Indicates whether to force the revoke action. If true, the Redshift-managed VPC endpoints associated with the endpoint authorization are also deleted.
-        :param vpc_ids: The virtual private cloud (VPC) identifiers to grant access to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointauthorization.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            cfn_endpoint_authorization_props = redshift.CfnEndpointAuthorizationProps(
-                account="account",
-                cluster_identifier="clusterIdentifier",
-            
-                # the properties below are optional
-                force=False,
-                vpc_ids=["vpcIds"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea42c43e99e9da3eea3440151d10e74f104e3b13161b1b46186517cdfb455151)
-            check_type(argname="argument account", value=account, expected_type=type_hints["account"])
-            check_type(argname="argument cluster_identifier", value=cluster_identifier, expected_type=type_hints["cluster_identifier"])
-            check_type(argname="argument force", value=force, expected_type=type_hints["force"])
-            check_type(argname="argument vpc_ids", value=vpc_ids, expected_type=type_hints["vpc_ids"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "account": account,
-            "cluster_identifier": cluster_identifier,
-        }
-        if force is not None:
-            self._values["force"] = force
-        if vpc_ids is not None:
-            self._values["vpc_ids"] = vpc_ids
-
-    @builtins.property
-    def account(self) -> builtins.str:
-        '''The AWS account ID of either the cluster owner (grantor) or grantee.
-
-        If ``Grantee`` parameter is true, then the ``Account`` value is of the grantor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointauthorization.html#cfn-redshift-endpointauthorization-account
-        '''
-        result = self._values.get("account")
-        assert result is not None, "Required property 'account' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cluster_identifier(self) -> builtins.str:
-        '''The cluster identifier.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointauthorization.html#cfn-redshift-endpointauthorization-clusteridentifier
-        '''
-        result = self._values.get("cluster_identifier")
-        assert result is not None, "Required property 'cluster_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def force(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether to force the revoke action.
-
-        If true, the Redshift-managed VPC endpoints associated with the endpoint authorization are also deleted.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointauthorization.html#cfn-redshift-endpointauthorization-force
-        '''
-        result = self._values.get("force")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def vpc_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The virtual private cloud (VPC) identifiers to grant access to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointauthorization.html#cfn-redshift-endpointauthorization-vpcids
-        '''
-        result = self._values.get("vpc_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEndpointAuthorizationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.CfnEventSubscriptionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "subscription_name": "subscriptionName",
-        "enabled": "enabled",
-        "event_categories": "eventCategories",
-        "severity": "severity",
-        "sns_topic_arn": "snsTopicArn",
-        "source_ids": "sourceIds",
-        "source_type": "sourceType",
-        "tags": "tags",
-    },
-)
-class CfnEventSubscriptionProps:
-    def __init__(
-        self,
-        *,
-        subscription_name: builtins.str,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
-        severity: typing.Optional[builtins.str] = None,
-        sns_topic_arn: typing.Optional[builtins.str] = None,
-        source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        source_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEventSubscription``.
-
-        :param subscription_name: The name of the event subscription to be created. Constraints: - Cannot be null, empty, or blank. - Must contain from 1 to 255 alphanumeric characters or hyphens. - First character must be a letter. - Cannot end with a hyphen or contain two consecutive hyphens.
-        :param enabled: A boolean value; set to ``true`` to activate the subscription, and set to ``false`` to create the subscription but not activate it.
-        :param event_categories: Specifies the Amazon Redshift event categories to be published by the event notification subscription. Values: configuration, management, monitoring, security, pending
-        :param severity: Specifies the Amazon Redshift event severity to be published by the event notification subscription. Values: ERROR, INFO
-        :param sns_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic used to transmit the event notifications. The ARN is created by Amazon SNS when you create a topic and subscribe to it.
-        :param source_ids: A list of one or more identifiers of Amazon Redshift source objects. All of the objects must be of the same type as was specified in the source type parameter. The event subscription will return only events generated by the specified objects. If not specified, then events are returned for all objects within the source type specified. Example: my-cluster-1, my-cluster-2 Example: my-snapshot-20131010
-        :param source_type: The type of source that will be generating the events. For example, if you want to be notified of events generated by a cluster, you would set this parameter to cluster. If this value is not specified, events are returned for all Amazon Redshift objects in your AWS account . You must specify a source type in order to specify source IDs. Valid values: cluster, cluster-parameter-group, cluster-security-group, cluster-snapshot, and scheduled-action.
-        :param tags: A list of tag instances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            cfn_event_subscription_props = redshift.CfnEventSubscriptionProps(
-                subscription_name="subscriptionName",
-            
-                # the properties below are optional
-                enabled=False,
-                event_categories=["eventCategories"],
-                severity="severity",
-                sns_topic_arn="snsTopicArn",
-                source_ids=["sourceIds"],
-                source_type="sourceType",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__882750ef34f06482c6644922124100661565513fabbad49eed142788cd66cfa8)
-            check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument event_categories", value=event_categories, expected_type=type_hints["event_categories"])
-            check_type(argname="argument severity", value=severity, expected_type=type_hints["severity"])
-            check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
-            check_type(argname="argument source_ids", value=source_ids, expected_type=type_hints["source_ids"])
-            check_type(argname="argument source_type", value=source_type, expected_type=type_hints["source_type"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "subscription_name": subscription_name,
-        }
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if event_categories is not None:
-            self._values["event_categories"] = event_categories
-        if severity is not None:
-            self._values["severity"] = severity
-        if sns_topic_arn is not None:
-            self._values["sns_topic_arn"] = sns_topic_arn
-        if source_ids is not None:
-            self._values["source_ids"] = source_ids
-        if source_type is not None:
-            self._values["source_type"] = source_type
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def subscription_name(self) -> builtins.str:
-        '''The name of the event subscription to be created.
-
-        Constraints:
-
-        - Cannot be null, empty, or blank.
-        - Must contain from 1 to 255 alphanumeric characters or hyphens.
-        - First character must be a letter.
-        - Cannot end with a hyphen or contain two consecutive hyphens.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-subscriptionname
-        '''
-        result = self._values.get("subscription_name")
-        assert result is not None, "Required property 'subscription_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A boolean value;
-
-        set to ``true`` to activate the subscription, and set to ``false`` to create the subscription but not activate it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-enabled
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def event_categories(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the Amazon Redshift event categories to be published by the event notification subscription.
-
-        Values: configuration, management, monitoring, security, pending
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-eventcategories
-        '''
-        result = self._values.get("event_categories")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def severity(self) -> typing.Optional[builtins.str]:
-        '''Specifies the Amazon Redshift event severity to be published by the event notification subscription.
-
-        Values: ERROR, INFO
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-severity
-        '''
-        result = self._values.get("severity")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sns_topic_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the Amazon SNS topic used to transmit the event notifications.
-
-        The ARN is created by Amazon SNS when you create a topic and subscribe to it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-snstopicarn
-        '''
-        result = self._values.get("sns_topic_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def source_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of one or more identifiers of Amazon Redshift source objects.
-
-        All of the objects must be of the same type as was specified in the source type parameter. The event subscription will return only events generated by the specified objects. If not specified, then events are returned for all objects within the source type specified.
-
-        Example: my-cluster-1, my-cluster-2
-
-        Example: my-snapshot-20131010
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-sourceids
-        '''
-        result = self._values.get("source_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def source_type(self) -> typing.Optional[builtins.str]:
-        '''The type of source that will be generating the events.
-
-        For example, if you want to be notified of events generated by a cluster, you would set this parameter to cluster. If this value is not specified, events are returned for all Amazon Redshift objects in your AWS account . You must specify a source type in order to specify source IDs.
-
-        Valid values: cluster, cluster-parameter-group, cluster-security-group, cluster-snapshot, and scheduled-action.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-sourcetype
-        '''
-        result = self._values.get("source_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tag instances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEventSubscriptionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.CfnIntegrationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "source_arn": "sourceArn",
-        "target_arn": "targetArn",
-        "additional_encryption_context": "additionalEncryptionContext",
-        "integration_name": "integrationName",
-        "kms_key_id": "kmsKeyId",
-        "tags": "tags",
-    },
-)
-class CfnIntegrationProps:
-    def __init__(
-        self,
-        *,
-        source_arn: builtins.str,
-        target_arn: builtins.str,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        integration_name: typing.Optional[builtins.str] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIntegration``.
-
-        :param source_arn: The Amazon Resource Name (ARN) of the database used as the source for replication.
-        :param target_arn: The Amazon Resource Name (ARN) of the Amazon Redshift data warehouse to use as the target for replication.
-        :param additional_encryption_context: The encryption context for the integration. For more information, see `Encryption context <https://docs.aws.amazon.com/>`_ in the *AWS Key Management Service Developer Guide* .
-        :param integration_name: The name of the integration.
-        :param kms_key_id: The AWS Key Management Service ( AWS KMS) key identifier for the key used to encrypt the integration.
-        :param tags: The list of tags associated with the integration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            cfn_integration_props = redshift.CfnIntegrationProps(
-                source_arn="sourceArn",
-                target_arn="targetArn",
-            
-                # the properties below are optional
-                additional_encryption_context={
-                    "additional_encryption_context_key": "additionalEncryptionContext"
-                },
-                integration_name="integrationName",
-                kms_key_id="kmsKeyId",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0772e4da780df63d61457c13aa77602f5d56797dbd993866c4876270813500e3)
-            check_type(argname="argument source_arn", value=source_arn, expected_type=type_hints["source_arn"])
-            check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
-            check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
-            check_type(argname="argument integration_name", value=integration_name, expected_type=type_hints["integration_name"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "source_arn": source_arn,
-            "target_arn": target_arn,
-        }
-        if additional_encryption_context is not None:
-            self._values["additional_encryption_context"] = additional_encryption_context
-        if integration_name is not None:
-            self._values["integration_name"] = integration_name
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def source_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the database used as the source for replication.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html#cfn-redshift-integration-sourcearn
-        '''
-        result = self._values.get("source_arn")
-        assert result is not None, "Required property 'source_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the Amazon Redshift data warehouse to use as the target for replication.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html#cfn-redshift-integration-targetarn
-        '''
-        result = self._values.get("target_arn")
-        assert result is not None, "Required property 'target_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def additional_encryption_context(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''The encryption context for the integration.
-
-        For more information, see `Encryption context <https://docs.aws.amazon.com/>`_ in the *AWS Key Management Service Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html#cfn-redshift-integration-additionalencryptioncontext
-        '''
-        result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def integration_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the integration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html#cfn-redshift-integration-integrationname
-        '''
-        result = self._values.get("integration_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The AWS Key Management Service ( AWS KMS) key identifier for the key used to encrypt the integration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html#cfn-redshift-integration-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The list of tags associated with the integration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html#cfn-redshift-integration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIntegrationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.CfnScheduledActionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "scheduled_action_name": "scheduledActionName",
-        "enable": "enable",
-        "end_time": "endTime",
-        "iam_role": "iamRole",
-        "schedule": "schedule",
-        "scheduled_action_description": "scheduledActionDescription",
-        "start_time": "startTime",
-        "target_action": "targetAction",
-    },
-)
-class CfnScheduledActionProps:
-    def __init__(
-        self,
-        *,
-        scheduled_action_name: builtins.str,
-        enable: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        end_time: typing.Optional[builtins.str] = None,
-        iam_role: typing.Optional[builtins.str] = None,
-        schedule: typing.Optional[builtins.str] = None,
-        scheduled_action_description: typing.Optional[builtins.str] = None,
-        start_time: typing.Optional[builtins.str] = None,
-        target_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScheduledAction.ScheduledActionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnScheduledAction``.
-
-        :param scheduled_action_name: The name of the scheduled action.
-        :param enable: If true, the schedule is enabled. If false, the scheduled action does not trigger. For more information about ``state`` of the scheduled action, see ``ScheduledAction`` .
-        :param end_time: The end time in UTC when the schedule is no longer active. After this time, the scheduled action does not trigger.
-        :param iam_role: The IAM role to assume to run the scheduled action. This IAM role must have permission to run the Amazon Redshift API operation in the scheduled action. This IAM role must allow the Amazon Redshift scheduler (Principal scheduler.redshift.amazonaws.com) to assume permissions on your behalf. For more information about the IAM role to use with the Amazon Redshift scheduler, see `Using Identity-Based Policies for Amazon Redshift <https://docs.aws.amazon.com/redshift/latest/mgmt/redshift-iam-access-control-identity-based.html>`_ in the *Amazon Redshift Cluster Management Guide* .
-        :param schedule: The schedule for a one-time (at format) or recurring (cron format) scheduled action. Schedule invocations must be separated by at least one hour. Format of at expressions is " ``at(yyyy-mm-ddThh:mm:ss)`` ". For example, " ``at(2016-03-04T17:27:00)`` ". Format of cron expressions is " ``cron(Minutes Hours Day-of-month Month Day-of-week Year)`` ". For example, " ``cron(0 10 ? * MON *)`` ". For more information, see `Cron Expressions <https://docs.aws.amazon.com//AmazonCloudWatch/latest/events/ScheduledEvents.html#CronExpressions>`_ in the *Amazon CloudWatch Events User Guide* .
-        :param scheduled_action_description: The description of the scheduled action.
-        :param start_time: The start time in UTC when the schedule is active. Before this time, the scheduled action does not trigger.
-        :param target_action: A JSON format string of the Amazon Redshift API operation with input parameters. " ``{\\"ResizeCluster\\":{\\"NodeType\\":\\"ra3.4xlarge\\",\\"ClusterIdentifier\\":\\"my-test-cluster\\",\\"NumberOfNodes\\":3}}`` ".
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            cfn_scheduled_action_props = redshift.CfnScheduledActionProps(
-                scheduled_action_name="scheduledActionName",
-            
-                # the properties below are optional
-                enable=False,
-                end_time="endTime",
-                iam_role="iamRole",
-                schedule="schedule",
-                scheduled_action_description="scheduledActionDescription",
-                start_time="startTime",
-                target_action=redshift.CfnScheduledAction.ScheduledActionTypeProperty(
-                    pause_cluster=redshift.CfnScheduledAction.PauseClusterMessageProperty(
-                        cluster_identifier="clusterIdentifier"
-                    ),
-                    resize_cluster=redshift.CfnScheduledAction.ResizeClusterMessageProperty(
-                        cluster_identifier="clusterIdentifier",
-            
-                        # the properties below are optional
-                        classic=False,
-                        cluster_type="clusterType",
-                        node_type="nodeType",
-                        number_of_nodes=123
-                    ),
-                    resume_cluster=redshift.CfnScheduledAction.ResumeClusterMessageProperty(
-                        cluster_identifier="clusterIdentifier"
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b8f33670db3a11840dd3dde7157d6c714dfbdf357d1a2d7ffab1191d271b169)
-            check_type(argname="argument scheduled_action_name", value=scheduled_action_name, expected_type=type_hints["scheduled_action_name"])
-            check_type(argname="argument enable", value=enable, expected_type=type_hints["enable"])
-            check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
-            check_type(argname="argument iam_role", value=iam_role, expected_type=type_hints["iam_role"])
-            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-            check_type(argname="argument scheduled_action_description", value=scheduled_action_description, expected_type=type_hints["scheduled_action_description"])
-            check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
-            check_type(argname="argument target_action", value=target_action, expected_type=type_hints["target_action"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "scheduled_action_name": scheduled_action_name,
-        }
-        if enable is not None:
-            self._values["enable"] = enable
-        if end_time is not None:
-            self._values["end_time"] = end_time
-        if iam_role is not None:
-            self._values["iam_role"] = iam_role
-        if schedule is not None:
-            self._values["schedule"] = schedule
-        if scheduled_action_description is not None:
-            self._values["scheduled_action_description"] = scheduled_action_description
-        if start_time is not None:
-            self._values["start_time"] = start_time
-        if target_action is not None:
-            self._values["target_action"] = target_action
-
-    @builtins.property
-    def scheduled_action_name(self) -> builtins.str:
-        '''The name of the scheduled action.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-scheduledactionname
-        '''
-        result = self._values.get("scheduled_action_name")
-        assert result is not None, "Required property 'scheduled_action_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def enable(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If true, the schedule is enabled.
-
-        If false, the scheduled action does not trigger. For more information about ``state`` of the scheduled action, see ``ScheduledAction`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-enable
-        '''
-        result = self._values.get("enable")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def end_time(self) -> typing.Optional[builtins.str]:
-        '''The end time in UTC when the schedule is no longer active.
-
-        After this time, the scheduled action does not trigger.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-endtime
-        '''
-        result = self._values.get("end_time")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def iam_role(self) -> typing.Optional[builtins.str]:
-        '''The IAM role to assume to run the scheduled action.
-
-        This IAM role must have permission to run the Amazon Redshift API operation in the scheduled action. This IAM role must allow the Amazon Redshift scheduler (Principal scheduler.redshift.amazonaws.com) to assume permissions on your behalf. For more information about the IAM role to use with the Amazon Redshift scheduler, see `Using Identity-Based Policies for Amazon Redshift <https://docs.aws.amazon.com/redshift/latest/mgmt/redshift-iam-access-control-identity-based.html>`_ in the *Amazon Redshift Cluster Management Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-iamrole
-        '''
-        result = self._values.get("iam_role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def schedule(self) -> typing.Optional[builtins.str]:
-        '''The schedule for a one-time (at format) or recurring (cron format) scheduled action.
-
-        Schedule invocations must be separated by at least one hour.
-
-        Format of at expressions is " ``at(yyyy-mm-ddThh:mm:ss)`` ". For example, " ``at(2016-03-04T17:27:00)`` ".
-
-        Format of cron expressions is " ``cron(Minutes Hours Day-of-month Month Day-of-week Year)`` ". For example, " ``cron(0 10 ? * MON *)`` ". For more information, see `Cron Expressions <https://docs.aws.amazon.com//AmazonCloudWatch/latest/events/ScheduledEvents.html#CronExpressions>`_ in the *Amazon CloudWatch Events User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-schedule
-        '''
-        result = self._values.get("schedule")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def scheduled_action_description(self) -> typing.Optional[builtins.str]:
-        '''The description of the scheduled action.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-scheduledactiondescription
-        '''
-        result = self._values.get("scheduled_action_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def start_time(self) -> typing.Optional[builtins.str]:
-        '''The start time in UTC when the schedule is active.
-
-        Before this time, the scheduled action does not trigger.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-starttime
-        '''
-        result = self._values.get("start_time")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def target_action(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScheduledAction.ScheduledActionTypeProperty"]]:
-        '''A JSON format string of the Amazon Redshift API operation with input parameters.
-
-        " ``{\\"ResizeCluster\\":{\\"NodeType\\":\\"ra3.4xlarge\\",\\"ClusterIdentifier\\":\\"my-test-cluster\\",\\"NumberOfNodes\\":3}}`` ".
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-targetaction
-        '''
-        result = self._values.get("target_action")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScheduledAction.ScheduledActionTypeProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnScheduledActionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.ClusterParameterGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={"parameter_group_name": "parameterGroupName"},
-)
-class ClusterParameterGroupReference:
-    def __init__(self, *, parameter_group_name: builtins.str) -> None:
-        '''A reference to a ClusterParameterGroup resource.
-
-        :param parameter_group_name: The ParameterGroupName of the ClusterParameterGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            cluster_parameter_group_reference = redshift.ClusterParameterGroupReference(
-                parameter_group_name="parameterGroupName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d034d945d45f5eb1de18e5b0b86433f9248e9a3631dea166a3f53fe4d53de3bd)
-            check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "parameter_group_name": parameter_group_name,
-        }
-
-    @builtins.property
-    def parameter_group_name(self) -> builtins.str:
-        '''The ParameterGroupName of the ClusterParameterGroup resource.'''
-        result = self._values.get("parameter_group_name")
-        assert result is not None, "Required property 'parameter_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ClusterParameterGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.ClusterReference",
-    jsii_struct_bases=[],
-    name_mapping={"cluster_identifier": "clusterIdentifier"},
-)
-class ClusterReference:
-    def __init__(self, *, cluster_identifier: builtins.str) -> None:
-        '''A reference to a Cluster resource.
-
-        :param cluster_identifier: The ClusterIdentifier of the Cluster resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            cluster_reference = redshift.ClusterReference(
-                cluster_identifier="clusterIdentifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46a856bb41dfc5bebc0f0bf912039b13ac4eda162b6f24288c5d811036fc752d)
-            check_type(argname="argument cluster_identifier", value=cluster_identifier, expected_type=type_hints["cluster_identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cluster_identifier": cluster_identifier,
-        }
-
-    @builtins.property
-    def cluster_identifier(self) -> builtins.str:
-        '''The ClusterIdentifier of the Cluster resource.'''
-        result = self._values.get("cluster_identifier")
-        assert result is not None, "Required property 'cluster_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ClusterReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.ClusterSecurityGroupIngressReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "cluster_security_group_ingress_id": "clusterSecurityGroupIngressId",
-    },
-)
-class ClusterSecurityGroupIngressReference:
-    def __init__(self, *, cluster_security_group_ingress_id: builtins.str) -> None:
-        '''A reference to a ClusterSecurityGroupIngress resource.
-
-        :param cluster_security_group_ingress_id: The Id of the ClusterSecurityGroupIngress resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            cluster_security_group_ingress_reference = redshift.ClusterSecurityGroupIngressReference(
-                cluster_security_group_ingress_id="clusterSecurityGroupIngressId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdae8c28c68b834753b28dd1a08688ce59da7e5f1f522412c3b5d59af49c5fe7)
-            check_type(argname="argument cluster_security_group_ingress_id", value=cluster_security_group_ingress_id, expected_type=type_hints["cluster_security_group_ingress_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cluster_security_group_ingress_id": cluster_security_group_ingress_id,
-        }
-
-    @builtins.property
-    def cluster_security_group_ingress_id(self) -> builtins.str:
-        '''The Id of the ClusterSecurityGroupIngress resource.'''
-        result = self._values.get("cluster_security_group_ingress_id")
-        assert result is not None, "Required property 'cluster_security_group_ingress_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ClusterSecurityGroupIngressReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.ClusterSecurityGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={"cluster_security_group_id": "clusterSecurityGroupId"},
-)
-class ClusterSecurityGroupReference:
-    def __init__(self, *, cluster_security_group_id: builtins.str) -> None:
-        '''A reference to a ClusterSecurityGroup resource.
-
-        :param cluster_security_group_id: The Id of the ClusterSecurityGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            cluster_security_group_reference = redshift.ClusterSecurityGroupReference(
-                cluster_security_group_id="clusterSecurityGroupId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8129fb8a20ceda61c5bfbeae979cbc6f959d790cd588f3dfe16605e8cb1e0ea)
-            check_type(argname="argument cluster_security_group_id", value=cluster_security_group_id, expected_type=type_hints["cluster_security_group_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cluster_security_group_id": cluster_security_group_id,
-        }
-
-    @builtins.property
-    def cluster_security_group_id(self) -> builtins.str:
-        '''The Id of the ClusterSecurityGroup resource.'''
-        result = self._values.get("cluster_security_group_id")
-        assert result is not None, "Required property 'cluster_security_group_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ClusterSecurityGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.ClusterSubnetGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={"cluster_subnet_group_name": "clusterSubnetGroupName"},
-)
-class ClusterSubnetGroupReference:
-    def __init__(self, *, cluster_subnet_group_name: builtins.str) -> None:
-        '''A reference to a ClusterSubnetGroup resource.
-
-        :param cluster_subnet_group_name: The ClusterSubnetGroupName of the ClusterSubnetGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            cluster_subnet_group_reference = redshift.ClusterSubnetGroupReference(
-                cluster_subnet_group_name="clusterSubnetGroupName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f5cc7460fd80145b52f6db8caa73f0e98c6c591a2066e5607c3343dd710ffa7)
-            check_type(argname="argument cluster_subnet_group_name", value=cluster_subnet_group_name, expected_type=type_hints["cluster_subnet_group_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cluster_subnet_group_name": cluster_subnet_group_name,
-        }
-
-    @builtins.property
-    def cluster_subnet_group_name(self) -> builtins.str:
-        '''The ClusterSubnetGroupName of the ClusterSubnetGroup resource.'''
-        result = self._values.get("cluster_subnet_group_name")
-        assert result is not None, "Required property 'cluster_subnet_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ClusterSubnetGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.EndpointAccessReference",
-    jsii_struct_bases=[],
-    name_mapping={"endpoint_name": "endpointName"},
-)
-class EndpointAccessReference:
-    def __init__(self, *, endpoint_name: builtins.str) -> None:
-        '''A reference to a EndpointAccess resource.
-
-        :param endpoint_name: The EndpointName of the EndpointAccess resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            endpoint_access_reference = redshift.EndpointAccessReference(
-                endpoint_name="endpointName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8eebb12b92cab21a5d3fe5bdc6e5f7a4e7f04e23091d09ee329492dfe4b0f266)
-            check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "endpoint_name": endpoint_name,
-        }
-
-    @builtins.property
-    def endpoint_name(self) -> builtins.str:
-        '''The EndpointName of the EndpointAccess resource.'''
-        result = self._values.get("endpoint_name")
-        assert result is not None, "Required property 'endpoint_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EndpointAccessReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.EndpointAuthorizationReference",
-    jsii_struct_bases=[],
-    name_mapping={"account": "account", "cluster_identifier": "clusterIdentifier"},
-)
-class EndpointAuthorizationReference:
-    def __init__(
-        self,
-        *,
-        account: builtins.str,
-        cluster_identifier: builtins.str,
-    ) -> None:
-        '''A reference to a EndpointAuthorization resource.
-
-        :param account: The Account of the EndpointAuthorization resource.
-        :param cluster_identifier: The ClusterIdentifier of the EndpointAuthorization resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            endpoint_authorization_reference = redshift.EndpointAuthorizationReference(
-                account="account",
-                cluster_identifier="clusterIdentifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc4c5d6df10f061e349f8d3b8ca29032fa6486f5dc4b8c2ffa98a32e0c03d8a2)
-            check_type(argname="argument account", value=account, expected_type=type_hints["account"])
-            check_type(argname="argument cluster_identifier", value=cluster_identifier, expected_type=type_hints["cluster_identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "account": account,
-            "cluster_identifier": cluster_identifier,
-        }
-
-    @builtins.property
-    def account(self) -> builtins.str:
-        '''The Account of the EndpointAuthorization resource.'''
-        result = self._values.get("account")
-        assert result is not None, "Required property 'account' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cluster_identifier(self) -> builtins.str:
-        '''The ClusterIdentifier of the EndpointAuthorization resource.'''
-        result = self._values.get("cluster_identifier")
-        assert result is not None, "Required property 'cluster_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EndpointAuthorizationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.EventSubscriptionReference",
-    jsii_struct_bases=[],
-    name_mapping={"subscription_name": "subscriptionName"},
-)
-class EventSubscriptionReference:
-    def __init__(self, *, subscription_name: builtins.str) -> None:
-        '''A reference to a EventSubscription resource.
-
-        :param subscription_name: The SubscriptionName of the EventSubscription resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            event_subscription_reference = redshift.EventSubscriptionReference(
-                subscription_name="subscriptionName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__271c721bdf904feae0e278bf551d328966d15f2865d010ed5f746f68e34c405b)
-            check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "subscription_name": subscription_name,
-        }
-
-    @builtins.property
-    def subscription_name(self) -> builtins.str:
-        '''The SubscriptionName of the EventSubscription resource.'''
-        result = self._values.get("subscription_name")
-        assert result is not None, "Required property 'subscription_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EventSubscriptionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_redshift.IClusterParameterGroupRef")
-class IClusterParameterGroupRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ClusterParameterGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterParameterGroupRef")
-    def cluster_parameter_group_ref(self) -> ClusterParameterGroupReference:
-        '''(experimental) A reference to a ClusterParameterGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IClusterParameterGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ClusterParameterGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_redshift.IClusterParameterGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterParameterGroupRef")
-    def cluster_parameter_group_ref(self) -> ClusterParameterGroupReference:
-        '''(experimental) A reference to a ClusterParameterGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ClusterParameterGroupReference, jsii.get(self, "clusterParameterGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IClusterParameterGroupRef).__jsii_proxy_class__ = lambda : _IClusterParameterGroupRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_redshift.IClusterRef")
-class IClusterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Cluster.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterRef")
-    def cluster_ref(self) -> ClusterReference:
-        '''(experimental) A reference to a Cluster resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IClusterRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Cluster.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_redshift.IClusterRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterRef")
-    def cluster_ref(self) -> ClusterReference:
-        '''(experimental) A reference to a Cluster resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_redshift.IClusterSecurityGroupIngressRef")
-class IClusterSecurityGroupIngressRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ClusterSecurityGroupIngress.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterSecurityGroupIngressRef")
-    def cluster_security_group_ingress_ref(
-        self,
-    ) -> ClusterSecurityGroupIngressReference:
-        '''(experimental) A reference to a ClusterSecurityGroupIngress resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IClusterSecurityGroupIngressRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ClusterSecurityGroupIngress.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_redshift.IClusterSecurityGroupIngressRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterSecurityGroupIngressRef")
-    def cluster_security_group_ingress_ref(
-        self,
-    ) -> ClusterSecurityGroupIngressReference:
-        '''(experimental) A reference to a ClusterSecurityGroupIngress resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ClusterSecurityGroupIngressReference, jsii.get(self, "clusterSecurityGroupIngressRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IClusterSecurityGroupIngressRef).__jsii_proxy_class__ = lambda : _IClusterSecurityGroupIngressRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_redshift.IClusterSecurityGroupRef")
-class IClusterSecurityGroupRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ClusterSecurityGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterSecurityGroupRef")
-    def cluster_security_group_ref(self) -> ClusterSecurityGroupReference:
-        '''(experimental) A reference to a ClusterSecurityGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IClusterSecurityGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ClusterSecurityGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_redshift.IClusterSecurityGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterSecurityGroupRef")
-    def cluster_security_group_ref(self) -> ClusterSecurityGroupReference:
-        '''(experimental) A reference to a ClusterSecurityGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ClusterSecurityGroupReference, jsii.get(self, "clusterSecurityGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IClusterSecurityGroupRef).__jsii_proxy_class__ = lambda : _IClusterSecurityGroupRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_redshift.IClusterSubnetGroupRef")
-class IClusterSubnetGroupRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ClusterSubnetGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterSubnetGroupRef")
-    def cluster_subnet_group_ref(self) -> ClusterSubnetGroupReference:
-        '''(experimental) A reference to a ClusterSubnetGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IClusterSubnetGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ClusterSubnetGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_redshift.IClusterSubnetGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterSubnetGroupRef")
-    def cluster_subnet_group_ref(self) -> ClusterSubnetGroupReference:
-        '''(experimental) A reference to a ClusterSubnetGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ClusterSubnetGroupReference, jsii.get(self, "clusterSubnetGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IClusterSubnetGroupRef).__jsii_proxy_class__ = lambda : _IClusterSubnetGroupRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_redshift.IEndpointAccessRef")
-class IEndpointAccessRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a EndpointAccess.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="endpointAccessRef")
-    def endpoint_access_ref(self) -> EndpointAccessReference:
-        '''(experimental) A reference to a EndpointAccess resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEndpointAccessRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EndpointAccess.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_redshift.IEndpointAccessRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="endpointAccessRef")
-    def endpoint_access_ref(self) -> EndpointAccessReference:
-        '''(experimental) A reference to a EndpointAccess resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EndpointAccessReference, jsii.get(self, "endpointAccessRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEndpointAccessRef).__jsii_proxy_class__ = lambda : _IEndpointAccessRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_redshift.IEndpointAuthorizationRef")
-class IEndpointAuthorizationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a EndpointAuthorization.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="endpointAuthorizationRef")
-    def endpoint_authorization_ref(self) -> EndpointAuthorizationReference:
-        '''(experimental) A reference to a EndpointAuthorization resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEndpointAuthorizationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EndpointAuthorization.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_redshift.IEndpointAuthorizationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="endpointAuthorizationRef")
-    def endpoint_authorization_ref(self) -> EndpointAuthorizationReference:
-        '''(experimental) A reference to a EndpointAuthorization resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EndpointAuthorizationReference, jsii.get(self, "endpointAuthorizationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEndpointAuthorizationRef).__jsii_proxy_class__ = lambda : _IEndpointAuthorizationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_redshift.IEventSubscriptionRef")
-class IEventSubscriptionRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a EventSubscription.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="eventSubscriptionRef")
-    def event_subscription_ref(self) -> EventSubscriptionReference:
-        '''(experimental) A reference to a EventSubscription resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEventSubscriptionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EventSubscription.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_redshift.IEventSubscriptionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="eventSubscriptionRef")
-    def event_subscription_ref(self) -> EventSubscriptionReference:
-        '''(experimental) A reference to a EventSubscription resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EventSubscriptionReference, jsii.get(self, "eventSubscriptionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEventSubscriptionRef).__jsii_proxy_class__ = lambda : _IEventSubscriptionRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_redshift.IIntegrationRef")
-class IIntegrationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Integration.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="integrationRef")
-    def integration_ref(self) -> "IntegrationReference":
-        '''(experimental) A reference to a Integration resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IIntegrationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Integration.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_redshift.IIntegrationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="integrationRef")
-    def integration_ref(self) -> "IntegrationReference":
-        '''(experimental) A reference to a Integration resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("IntegrationReference", jsii.get(self, "integrationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IIntegrationRef).__jsii_proxy_class__ = lambda : _IIntegrationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_redshift.IScheduledActionRef")
-class IScheduledActionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ScheduledAction.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduledActionRef")
-    def scheduled_action_ref(self) -> "ScheduledActionReference":
-        '''(experimental) A reference to a ScheduledAction resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IScheduledActionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ScheduledAction.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_redshift.IScheduledActionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduledActionRef")
-    def scheduled_action_ref(self) -> "ScheduledActionReference":
-        '''(experimental) A reference to a ScheduledAction resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ScheduledActionReference", jsii.get(self, "scheduledActionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IScheduledActionRef).__jsii_proxy_class__ = lambda : _IScheduledActionRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.IntegrationReference",
-    jsii_struct_bases=[],
-    name_mapping={"integration_arn": "integrationArn"},
-)
-class IntegrationReference:
-    def __init__(self, *, integration_arn: builtins.str) -> None:
-        '''A reference to a Integration resource.
-
-        :param integration_arn: The IntegrationArn of the Integration resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            integration_reference = redshift.IntegrationReference(
-                integration_arn="integrationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92b0020afcb20aa639f1b9ad89f42e44b226a181e4ac01dd7d5fe256c1d23954)
-            check_type(argname="argument integration_arn", value=integration_arn, expected_type=type_hints["integration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "integration_arn": integration_arn,
-        }
-
-    @builtins.property
-    def integration_arn(self) -> builtins.str:
-        '''The IntegrationArn of the Integration resource.'''
-        result = self._values.get("integration_arn")
-        assert result is not None, "Required property 'integration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "IntegrationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshift.ScheduledActionReference",
-    jsii_struct_bases=[],
-    name_mapping={"scheduled_action_name": "scheduledActionName"},
-)
-class ScheduledActionReference:
-    def __init__(self, *, scheduled_action_name: builtins.str) -> None:
-        '''A reference to a ScheduledAction resource.
-
-        :param scheduled_action_name: The ScheduledActionName of the ScheduledAction resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshift as redshift
-            
-            scheduled_action_reference = redshift.ScheduledActionReference(
-                scheduled_action_name="scheduledActionName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd0c8fca02bf332733091fbd675b0506e14c5ac6996644a207e25fb3bb2ab69b)
-            check_type(argname="argument scheduled_action_name", value=scheduled_action_name, expected_type=type_hints["scheduled_action_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "scheduled_action_name": scheduled_action_name,
-        }
-
-    @builtins.property
-    def scheduled_action_name(self) -> builtins.str:
-        '''The ScheduledActionName of the ScheduledAction resource.'''
-        result = self._values.get("scheduled_action_name")
-        assert result is not None, "Required property 'scheduled_action_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ScheduledActionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IClusterRef, _ITaggable_36806126)
-class CfnCluster(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_redshift.CfnCluster",
-):
-    '''Specifies a cluster. A *cluster* is a fully managed data warehouse that consists of a set of compute nodes.
-
-    To create a cluster in Virtual Private Cloud (VPC), you must provide a cluster subnet group name. The cluster subnet group identifies the subnets of your VPC that Amazon Redshift uses when creating the cluster. For more information about managing clusters, go to `Amazon Redshift Clusters <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-clusters.html>`_ in the *Amazon Redshift Cluster Management Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html
-    :cloudformationResource: AWS::Redshift::Cluster
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_redshift as redshift
-        
-        # namespace_resource_policy: Any
-        
-        cfn_cluster = redshift.CfnCluster(self, "MyCfnCluster",
-            cluster_type="clusterType",
-            db_name="dbName",
-            master_username="masterUsername",
-            node_type="nodeType",
-        
-            # the properties below are optional
-            allow_version_upgrade=False,
-            aqua_configuration_status="aquaConfigurationStatus",
-            automated_snapshot_retention_period=123,
-            availability_zone="availabilityZone",
-            availability_zone_relocation=False,
-            availability_zone_relocation_status="availabilityZoneRelocationStatus",
-            classic=False,
-            cluster_identifier="clusterIdentifier",
-            cluster_parameter_group_name="clusterParameterGroupName",
-            cluster_security_groups=["clusterSecurityGroups"],
-            cluster_subnet_group_name="clusterSubnetGroupName",
-            cluster_version="clusterVersion",
-            defer_maintenance=False,
-            defer_maintenance_duration=123,
-            defer_maintenance_end_time="deferMaintenanceEndTime",
-            defer_maintenance_start_time="deferMaintenanceStartTime",
-            destination_region="destinationRegion",
-            elastic_ip="elasticIp",
-            encrypted=False,
-            endpoint=redshift.CfnCluster.EndpointProperty(
-                address="address",
-                port="port"
-            ),
-            enhanced_vpc_routing=False,
-            hsm_client_certificate_identifier="hsmClientCertificateIdentifier",
-            hsm_configuration_identifier="hsmConfigurationIdentifier",
-            iam_roles=["iamRoles"],
-            kms_key_id="kmsKeyId",
-            logging_properties=redshift.CfnCluster.LoggingPropertiesProperty(
-                bucket_name="bucketName",
-                log_destination_type="logDestinationType",
-                log_exports=["logExports"],
-                s3_key_prefix="s3KeyPrefix"
-            ),
-            maintenance_track_name="maintenanceTrackName",
-            manage_master_password=False,
-            manual_snapshot_retention_period=123,
-            master_password_secret_kms_key_id="masterPasswordSecretKmsKeyId",
-            master_user_password="masterUserPassword",
-            multi_az=False,
-            namespace_resource_policy=namespace_resource_policy,
-            number_of_nodes=123,
-            owner_account="ownerAccount",
-            port=123,
-            preferred_maintenance_window="preferredMaintenanceWindow",
-            publicly_accessible=False,
-            resource_action="resourceAction",
-            revision_target="revisionTarget",
-            rotate_encryption_key=False,
-            snapshot_cluster_identifier="snapshotClusterIdentifier",
-            snapshot_copy_grant_name="snapshotCopyGrantName",
-            snapshot_copy_manual=False,
-            snapshot_copy_retention_period=123,
-            snapshot_identifier="snapshotIdentifier",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            vpc_security_group_ids=["vpcSecurityGroupIds"]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        cluster_type: builtins.str,
-        db_name: builtins.str,
-        master_username: builtins.str,
-        node_type: builtins.str,
-        allow_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        aqua_configuration_status: typing.Optional[builtins.str] = None,
-        automated_snapshot_retention_period: typing.Optional[jsii.Number] = None,
-        availability_zone: typing.Optional[builtins.str] = None,
-        availability_zone_relocation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        availability_zone_relocation_status: typing.Optional[builtins.str] = None,
-        classic: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        cluster_identifier: typing.Optional[builtins.str] = None,
-        cluster_parameter_group_name: typing.Optional[builtins.str] = None,
-        cluster_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cluster_subnet_group_name: typing.Optional[builtins.str] = None,
-        cluster_version: typing.Optional[builtins.str] = None,
-        defer_maintenance: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        defer_maintenance_duration: typing.Optional[jsii.Number] = None,
-        defer_maintenance_end_time: typing.Optional[builtins.str] = None,
-        defer_maintenance_start_time: typing.Optional[builtins.str] = None,
-        destination_region: typing.Optional[builtins.str] = None,
-        elastic_ip: typing.Optional[builtins.str] = None,
-        encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        hsm_client_certificate_identifier: typing.Optional[builtins.str] = None,
-        hsm_configuration_identifier: typing.Optional[builtins.str] = None,
-        iam_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        logging_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.LoggingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        maintenance_track_name: typing.Optional[builtins.str] = None,
-        manage_master_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
-        master_password_secret_kms_key_id: typing.Optional[builtins.str] = None,
-        master_user_password: typing.Optional[builtins.str] = None,
-        multi_az: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        namespace_resource_policy: typing.Any = None,
-        number_of_nodes: typing.Optional[jsii.Number] = None,
-        owner_account: typing.Optional[builtins.str] = None,
-        port: typing.Optional[jsii.Number] = None,
-        preferred_maintenance_window: typing.Optional[builtins.str] = None,
-        publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        resource_action: typing.Optional[builtins.str] = None,
-        revision_target: typing.Optional[builtins.str] = None,
-        rotate_encryption_key: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        snapshot_cluster_identifier: typing.Optional[builtins.str] = None,
-        snapshot_copy_grant_name: typing.Optional[builtins.str] = None,
-        snapshot_copy_manual: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        snapshot_copy_retention_period: typing.Optional[jsii.Number] = None,
-        snapshot_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param cluster_type: The type of the cluster. When cluster type is specified as. - ``single-node`` , the *NumberOfNodes* parameter is not required. - ``multi-node`` , the *NumberOfNodes* parameter is required. Valid Values: ``multi-node`` | ``single-node`` Default: ``multi-node``
-        :param db_name: The name of the first database to be created when the cluster is created. To create additional databases after the cluster is created, connect to the cluster with a SQL client and use SQL commands to create a database. For more information, go to `Create a Database <https://docs.aws.amazon.com/redshift/latest/dg/t_creating_database.html>`_ in the Amazon Redshift Database Developer Guide. Default: ``dev`` Constraints: - Must contain 1 to 64 alphanumeric characters. - Must contain only lowercase letters. - Cannot be a word that is reserved by the service. A list of reserved words can be found in `Reserved Words <https://docs.aws.amazon.com/redshift/latest/dg/r_pg_keywords.html>`_ in the Amazon Redshift Database Developer Guide.
-        :param master_username: The user name associated with the admin user account for the cluster that is being created. Constraints: - Must be 1 - 128 alphanumeric characters or hyphens. The user name can't be ``PUBLIC`` . - Must contain only lowercase letters, numbers, underscore, plus sign, period (dot), at symbol (@), or hyphen. - The first character must be a letter. - Must not contain a colon (:) or a slash (/). - Cannot be a reserved word. A list of reserved words can be found in `Reserved Words <https://docs.aws.amazon.com/redshift/latest/dg/r_pg_keywords.html>`_ in the Amazon Redshift Database Developer Guide.
-        :param node_type: The node type to be provisioned for the cluster. For information about node types, go to `Working with Clusters <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-clusters.html#how-many-nodes>`_ in the *Amazon Redshift Cluster Management Guide* . Valid Values: ``dc2.large`` | ``dc2.8xlarge`` | ``ra3.large`` | ``ra3.xlplus`` | ``ra3.4xlarge`` | ``ra3.16xlarge``
-        :param allow_version_upgrade: If ``true`` , major version upgrades can be applied during the maintenance window to the Amazon Redshift engine that is running on the cluster. When a new major version of the Amazon Redshift engine is released, you can request that the service automatically apply upgrades during the maintenance window to the Amazon Redshift engine that is running on your cluster. Default: ``true``
-        :param aqua_configuration_status: This parameter is retired. It does not set the AQUA configuration status. Amazon Redshift automatically determines whether to use AQUA (Advanced Query Accelerator).
-        :param automated_snapshot_retention_period: The number of days that automated snapshots are retained. If the value is 0, automated snapshots are disabled. Even if automated snapshots are disabled, you can still create manual snapshots when you want with `CreateClusterSnapshot <https://docs.aws.amazon.com/redshift/latest/APIReference/API_CreateClusterSnapshot.html>`_ in the *Amazon Redshift API Reference* . Default: ``1`` Constraints: Must be a value from 0 to 35.
-        :param availability_zone: The EC2 Availability Zone (AZ) in which you want Amazon Redshift to provision the cluster. For example, if you have several EC2 instances running in a specific Availability Zone, then you might want the cluster to be provisioned in the same zone in order to decrease network latency. Default: A random, system-chosen Availability Zone in the region that is specified by the endpoint. Example: ``us-east-2d`` Constraint: The specified Availability Zone must be in the same region as the current endpoint.
-        :param availability_zone_relocation: The option to enable relocation for an Amazon Redshift cluster between Availability Zones after the cluster is created.
-        :param availability_zone_relocation_status: Describes the status of the Availability Zone relocation operation.
-        :param classic: A boolean value indicating whether the resize operation is using the classic resize process. If you don't provide this parameter or set the value to ``false`` , the resize type is elastic.
-        :param cluster_identifier: A unique identifier for the cluster. You use this identifier to refer to the cluster for any subsequent cluster operations such as deleting or modifying. The identifier also appears in the Amazon Redshift console. Constraints: - Must contain from 1 to 63 alphanumeric characters or hyphens. - Alphabetic characters must be lowercase. - First character must be a letter. - Cannot end with a hyphen or contain two consecutive hyphens. - Must be unique for all clusters within an AWS account . Example: ``myexamplecluster``
-        :param cluster_parameter_group_name: The name of the parameter group to be associated with this cluster. Default: The default Amazon Redshift cluster parameter group. For information about the default parameter group, go to `Working with Amazon Redshift Parameter Groups <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-parameter-groups.html>`_ Constraints: - Must be 1 to 255 alphanumeric characters or hyphens. - First character must be a letter. - Cannot end with a hyphen or contain two consecutive hyphens.
-        :param cluster_security_groups: A list of security groups to be associated with this cluster. Default: The default cluster security group for Amazon Redshift.
-        :param cluster_subnet_group_name: The name of a cluster subnet group to be associated with this cluster. If this parameter is not provided the resulting cluster will be deployed outside virtual private cloud (VPC).
-        :param cluster_version: The version of the Amazon Redshift engine software that you want to deploy on the cluster. The version selected runs on all the nodes in the cluster. Constraints: Only version 1.0 is currently available. Example: ``1.0``
-        :param defer_maintenance: A Boolean indicating whether to enable the deferred maintenance window.
-        :param defer_maintenance_duration: An integer indicating the duration of the maintenance window in days. If you specify a duration, you can't specify an end time. The duration must be 45 days or less.
-        :param defer_maintenance_end_time: A timestamp for the end of the time period when we defer maintenance.
-        :param defer_maintenance_start_time: A timestamp indicating the start time for the deferred maintenance window.
-        :param destination_region: The destination region that snapshots are automatically copied to when cross-region snapshot copy is enabled.
-        :param elastic_ip: The Elastic IP (EIP) address for the cluster. Constraints: The cluster must be provisioned in EC2-VPC and publicly-accessible through an Internet gateway. Don't specify the Elastic IP address for a publicly accessible cluster with availability zone relocation turned on. For more information about provisioning clusters in EC2-VPC, go to `Supported Platforms to Launch Your Cluster <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-clusters.html#cluster-platforms>`_ in the Amazon Redshift Cluster Management Guide.
-        :param encrypted: If ``true`` , the data in the cluster is encrypted at rest. If you set the value on this parameter to ``false`` , the request will fail. Default: true
-        :param endpoint: The connection endpoint.
-        :param enhanced_vpc_routing: An option that specifies whether to create the cluster with enhanced VPC routing enabled. To create a cluster that uses enhanced VPC routing, the cluster must be in a VPC. For more information, see `Enhanced VPC Routing <https://docs.aws.amazon.com/redshift/latest/mgmt/enhanced-vpc-routing.html>`_ in the Amazon Redshift Cluster Management Guide. If this option is ``true`` , enhanced VPC routing is enabled. Default: false
-        :param hsm_client_certificate_identifier: Specifies the name of the HSM client certificate the Amazon Redshift cluster uses to retrieve the data encryption keys stored in an HSM.
-        :param hsm_configuration_identifier: Specifies the name of the HSM configuration that contains the information the Amazon Redshift cluster can use to retrieve and store keys in an HSM.
-        :param iam_roles: A list of AWS Identity and Access Management (IAM) roles that can be used by the cluster to access other AWS services. You must supply the IAM roles in their Amazon Resource Name (ARN) format. The maximum number of IAM roles that you can associate is subject to a quota. For more information, go to `Quotas and limits <https://docs.aws.amazon.com/redshift/latest/mgmt/amazon-redshift-limits.html>`_ in the *Amazon Redshift Cluster Management Guide* .
-        :param kms_key_id: The AWS Key Management Service (KMS) key ID of the encryption key that you want to use to encrypt data in the cluster.
-        :param logging_properties: Specifies logging information, such as queries and connection attempts, for the specified Amazon Redshift cluster.
-        :param maintenance_track_name: An optional parameter for the name of the maintenance track for the cluster. If you don't provide a maintenance track name, the cluster is assigned to the ``current`` track.
-        :param manage_master_password: If ``true`` , Amazon Redshift uses AWS Secrets Manager to manage this cluster's admin credentials. You can't use ``MasterUserPassword`` if ``ManageMasterPassword`` is true. If ``ManageMasterPassword`` is false or not set, Amazon Redshift uses ``MasterUserPassword`` for the admin user account's password.
-        :param manual_snapshot_retention_period: The default number of days to retain a manual snapshot. If the value is -1, the snapshot is retained indefinitely. This setting doesn't change the retention period of existing snapshots. The value must be either -1 or an integer between 1 and 3,653.
-        :param master_password_secret_kms_key_id: The ID of the AWS Key Management Service (KMS) key used to encrypt and store the cluster's admin credentials secret. You can only use this parameter if ``ManageMasterPassword`` is true.
-        :param master_user_password: The password associated with the admin user account for the cluster that is being created. You can't use ``MasterUserPassword`` if ``ManageMasterPassword`` is ``true`` . Constraints: - Must be between 8 and 64 characters in length. - Must contain at least one uppercase letter. - Must contain at least one lowercase letter. - Must contain one number. - Can be any printable ASCII character (ASCII code 33-126) except ``'`` (single quote), ``"`` (double quote), ``\\`` , ``/`` , or ``@`` .
-        :param multi_az: A boolean indicating whether Amazon Redshift should deploy the cluster in two Availability Zones. The default is false.
-        :param namespace_resource_policy: The policy that is attached to a resource.
-        :param number_of_nodes: The number of compute nodes in the cluster. This parameter is required when the *ClusterType* parameter is specified as ``multi-node`` . For information about determining how many nodes you need, go to `Working with Clusters <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-clusters.html#how-many-nodes>`_ in the *Amazon Redshift Cluster Management Guide* . If you don't specify this parameter, you get a single-node cluster. When requesting a multi-node cluster, you must specify the number of nodes that you want in the cluster. Default: ``1`` Constraints: Value must be at least 1 and no more than 100.
-        :param owner_account: The AWS account used to create or copy the snapshot. Required if you are restoring a snapshot you do not own, optional if you own the snapshot.
-        :param port: The port number on which the cluster accepts incoming connections. The cluster is accessible only via the JDBC and ODBC connection strings. Part of the connection string requires the port on which the cluster will listen for incoming connections. Default: ``5439`` Valid Values: - For clusters with ra3 nodes - Select a port within the ranges ``5431-5455`` or ``8191-8215`` . (If you have an existing cluster with ra3 nodes, it isn't required that you change the port to these ranges.) - For clusters with dc2 nodes - Select a port within the range ``1150-65535`` .
-        :param preferred_maintenance_window: The weekly time range (in UTC) during which automated cluster maintenance can occur. Format: ``ddd:hh24:mi-ddd:hh24:mi`` Default: A 30-minute window selected at random from an 8-hour block of time per region, occurring on a random day of the week. For more information about the time blocks for each region, see `Maintenance Windows <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-clusters.html#rs-maintenance-windows>`_ in Amazon Redshift Cluster Management Guide. Valid Days: Mon | Tue | Wed | Thu | Fri | Sat | Sun Constraints: Minimum 30-minute window.
-        :param publicly_accessible: If ``true`` , the cluster can be accessed from a public network. Default: false
-        :param resource_action: The Amazon Redshift operation to be performed. Supported operations are ``pause-cluster`` , ``resume-cluster`` , and ``failover-primary-compute`` .
-        :param revision_target: Describes a ``RevisionTarget`` object.
-        :param rotate_encryption_key: Rotates the encryption keys for a cluster.
-        :param snapshot_cluster_identifier: The name of the cluster the source snapshot was created from. This parameter is required if your user or role has a policy containing a snapshot resource element that specifies anything other than * for the cluster name.
-        :param snapshot_copy_grant_name: The name of the snapshot copy grant.
-        :param snapshot_copy_manual: Indicates whether to apply the snapshot retention period to newly copied manual snapshots instead of automated snapshots.
-        :param snapshot_copy_retention_period: The number of days to retain automated snapshots in the destination AWS Region after they are copied from the source AWS Region . By default, this only changes the retention period of copied automated snapshots. If you decrease the retention period for automated snapshots that are copied to a destination AWS Region , Amazon Redshift deletes any existing automated snapshots that were copied to the destination AWS Region and that fall outside of the new retention period. Constraints: Must be at least 1 and no more than 35 for automated snapshots. If you specify the ``manual`` option, only newly copied manual snapshots will have the new retention period. If you specify the value of -1 newly copied manual snapshots are retained indefinitely. Constraints: The number of days must be either -1 or an integer between 1 and 3,653 for manual snapshots.
-        :param snapshot_identifier: The name of the snapshot from which to create the new cluster. This parameter isn't case sensitive. You must specify this parameter or ``snapshotArn`` , but not both. Example: ``my-snapshot-id``
-        :param tags: A list of tag instances.
-        :param vpc_security_group_ids: A list of Virtual Private Cloud (VPC) security groups to be associated with the cluster. Default: The default VPC security group is associated with the cluster.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6d25f70797e3ae67b635ec776926582ff0be975c8173c4af217f7f6e3bd404b)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnClusterProps(
-            cluster_type=cluster_type,
-            db_name=db_name,
-            master_username=master_username,
-            node_type=node_type,
-            allow_version_upgrade=allow_version_upgrade,
-            aqua_configuration_status=aqua_configuration_status,
-            automated_snapshot_retention_period=automated_snapshot_retention_period,
-            availability_zone=availability_zone,
-            availability_zone_relocation=availability_zone_relocation,
-            availability_zone_relocation_status=availability_zone_relocation_status,
-            classic=classic,
-            cluster_identifier=cluster_identifier,
-            cluster_parameter_group_name=cluster_parameter_group_name,
-            cluster_security_groups=cluster_security_groups,
-            cluster_subnet_group_name=cluster_subnet_group_name,
-            cluster_version=cluster_version,
-            defer_maintenance=defer_maintenance,
-            defer_maintenance_duration=defer_maintenance_duration,
-            defer_maintenance_end_time=defer_maintenance_end_time,
-            defer_maintenance_start_time=defer_maintenance_start_time,
-            destination_region=destination_region,
-            elastic_ip=elastic_ip,
-            encrypted=encrypted,
-            endpoint=endpoint,
-            enhanced_vpc_routing=enhanced_vpc_routing,
-            hsm_client_certificate_identifier=hsm_client_certificate_identifier,
-            hsm_configuration_identifier=hsm_configuration_identifier,
-            iam_roles=iam_roles,
-            kms_key_id=kms_key_id,
-            logging_properties=logging_properties,
-            maintenance_track_name=maintenance_track_name,
-            manage_master_password=manage_master_password,
-            manual_snapshot_retention_period=manual_snapshot_retention_period,
-            master_password_secret_kms_key_id=master_password_secret_kms_key_id,
-            master_user_password=master_user_password,
-            multi_az=multi_az,
-            namespace_resource_policy=namespace_resource_policy,
-            number_of_nodes=number_of_nodes,
-            owner_account=owner_account,
-            port=port,
-            preferred_maintenance_window=preferred_maintenance_window,
-            publicly_accessible=publicly_accessible,
-            resource_action=resource_action,
-            revision_target=revision_target,
-            rotate_encryption_key=rotate_encryption_key,
-            snapshot_cluster_identifier=snapshot_cluster_identifier,
-            snapshot_copy_grant_name=snapshot_copy_grant_name,
-            snapshot_copy_manual=snapshot_copy_manual,
-            snapshot_copy_retention_period=snapshot_copy_retention_period,
-            snapshot_identifier=snapshot_identifier,
-            tags=tags,
-            vpc_security_group_ids=vpc_security_group_ids,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6df99dcbb5445a88a0bb9445a37f1ba9bcd5cf462c2a8d8f24a91415f085d07a)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3cd522d882ff9ce54b9361b6991edd7e86d6cb4b5b0fd3d4f0ff14a1dc41eb7)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrClusterNamespaceArn")
-    def attr_cluster_namespace_arn(self) -> builtins.str:
-        '''The namespace Amazon Resource Name (ARN) of the cluster.
-
-        :cloudformationAttribute: ClusterNamespaceArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrClusterNamespaceArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDeferMaintenanceIdentifier")
-    def attr_defer_maintenance_identifier(self) -> builtins.str:
-        '''A unique identifier for the maintenance window.
-
-        :cloudformationAttribute: DeferMaintenanceIdentifier
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrDeferMaintenanceIdentifier"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrEndpointAddress")
-    def attr_endpoint_address(self) -> builtins.str:
-        '''The connection endpoint for the Amazon Redshift cluster.
-
-        For example: ``examplecluster.cg034hpkmmjt.us-east-1.redshift.amazonaws.com`` .
-
-        :cloudformationAttribute: Endpoint.Address
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrEndpointAddress"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrEndpointPort")
-    def attr_endpoint_port(self) -> builtins.str:
-        '''The port number on which the Amazon Redshift cluster accepts connections.
-
-        For example: ``5439`` .
-
-        :cloudformationAttribute: Endpoint.Port
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrEndpointPort"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrMasterPasswordSecretArn")
-    def attr_master_password_secret_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) for the cluster's admin user credentials secret.
-
-        :cloudformationAttribute: MasterPasswordSecretArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrMasterPasswordSecretArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterRef")
-    def cluster_ref(self) -> ClusterReference:
-        '''A reference to a Cluster resource.'''
-        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterType")
-    def cluster_type(self) -> builtins.str:
-        '''The type of the cluster.
-
-        When cluster type is specified as.
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "clusterType"))
-
-    @cluster_type.setter
-    def cluster_type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b228c18c00d6efcc3f5f513f526c5588459dbc4716e98017abe3c85b8869edcf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dbName")
-    def db_name(self) -> builtins.str:
-        '''The name of the first database to be created when the cluster is created.'''
-        return typing.cast(builtins.str, jsii.get(self, "dbName"))
-
-    @db_name.setter
-    def db_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9a6569f04f712a8617c29ce39f051b6b7718c2759016fd8c2a5129f2c3a9fc0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="masterUsername")
-    def master_username(self) -> builtins.str:
-        '''The user name associated with the admin user account for the cluster that is being created.'''
-        return typing.cast(builtins.str, jsii.get(self, "masterUsername"))
-
-    @master_username.setter
-    def master_username(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d32dd6d1faa4bf4d38fbc9173d77c54548a2fb5386ec97451b20f4a4e928001a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUsername", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="nodeType")
-    def node_type(self) -> builtins.str:
-        '''The node type to be provisioned for the cluster.'''
-        return typing.cast(builtins.str, jsii.get(self, "nodeType"))
-
-    @node_type.setter
-    def node_type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd39ef012e3b964f5c72dcc3385a8861f7af2aed9a450ea99e69c540c77b2af3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "nodeType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="allowVersionUpgrade")
-    def allow_version_upgrade(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If ``true`` , major version upgrades can be applied during the maintenance window to the Amazon Redshift engine that is running on the cluster.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "allowVersionUpgrade"))
-
-    @allow_version_upgrade.setter
-    def allow_version_upgrade(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7ca48fbd412a24c0cb2a878179eca6e182ee7d8c69be5b4dbcc9862b44f73c1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allowVersionUpgrade", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="aquaConfigurationStatus")
-    def aqua_configuration_status(self) -> typing.Optional[builtins.str]:
-        '''This parameter is retired.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "aquaConfigurationStatus"))
-
-    @aqua_configuration_status.setter
-    def aqua_configuration_status(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6cdce8be072a8ad4655038a048a780e28c874f470b860ba5efeeb19c470e71b0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "aquaConfigurationStatus", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="automatedSnapshotRetentionPeriod")
-    def automated_snapshot_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''The number of days that automated snapshots are retained.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "automatedSnapshotRetentionPeriod"))
-
-    @automated_snapshot_retention_period.setter
-    def automated_snapshot_retention_period(
-        self,
-        value: typing.Optional[jsii.Number],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed5582d6104bfbddace4e373fcab8d459431100b894b1a16de7955842e400de2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "automatedSnapshotRetentionPeriod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="availabilityZone")
-    def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''The EC2 Availability Zone (AZ) in which you want Amazon Redshift to provision the cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityZone"))
-
-    @availability_zone.setter
-    def availability_zone(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c65bcbcfa0b5c942ee2dc4ddc36123d19ebb2e20f61c7d530335b08b87aa98e0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="availabilityZoneRelocation")
-    def availability_zone_relocation(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''The option to enable relocation for an Amazon Redshift cluster between Availability Zones after the cluster is created.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "availabilityZoneRelocation"))
-
-    @availability_zone_relocation.setter
-    def availability_zone_relocation(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1b7e4b7b94737e4e8b1853309ee5372d1269f37dcf09d4ee449f352e5c55c0c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZoneRelocation", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="availabilityZoneRelocationStatus")
-    def availability_zone_relocation_status(self) -> typing.Optional[builtins.str]:
-        '''Describes the status of the Availability Zone relocation operation.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityZoneRelocationStatus"))
-
-    @availability_zone_relocation_status.setter
-    def availability_zone_relocation_status(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6634fb9f81aef0b48d0404fc2c8ec19d02a04b1a9d7c65863692e53f28a978b6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZoneRelocationStatus", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="classic")
-    def classic(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A boolean value indicating whether the resize operation is using the classic resize process.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "classic"))
-
-    @classic.setter
-    def classic(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f86549952f63853b3a6d50c0ea714bcad7fc4bcbeea239762fe3bc3035e81531)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "classic", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterIdentifier")
-    def cluster_identifier(self) -> typing.Optional[builtins.str]:
-        '''A unique identifier for the cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterIdentifier"))
-
-    @cluster_identifier.setter
-    def cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d01d7ad2f21e729a4d05a6c6c40c03bbeff0a26976f99e7487e40fe7c6aec7e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterParameterGroupName")
-    def cluster_parameter_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the parameter group to be associated with this cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterParameterGroupName"))
-
-    @cluster_parameter_group_name.setter
-    def cluster_parameter_group_name(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b14873e72b628e6b816d839111208ef6aa6af543ebe87c8be7b488ef5566b602)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterParameterGroupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterSecurityGroups")
-    def cluster_security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of security groups to be associated with this cluster.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "clusterSecurityGroups"))
-
-    @cluster_security_groups.setter
-    def cluster_security_groups(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a651f09ef507bb8529243e4a1dc4c6db1ed0753b890fafe63aa18f8ed2fed90c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterSecurityGroups", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterSubnetGroupName")
-    def cluster_subnet_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of a cluster subnet group to be associated with this cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterSubnetGroupName"))
-
-    @cluster_subnet_group_name.setter
-    def cluster_subnet_group_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a6de3cf6594b7e052bda7985e485f86e4d3c373ccc8db3221e45f5e1dd17325)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterSubnetGroupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterVersion")
-    def cluster_version(self) -> typing.Optional[builtins.str]:
-        '''The version of the Amazon Redshift engine software that you want to deploy on the cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterVersion"))
-
-    @cluster_version.setter
-    def cluster_version(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55a998895e7e966b871bd67fe918e51ba3671e2c2b298eb8eb34d7f51d07206e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="deferMaintenance")
-    def defer_maintenance(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A Boolean indicating whether to enable the deferred maintenance window.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "deferMaintenance"))
-
-    @defer_maintenance.setter
-    def defer_maintenance(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4237433b5883296c8faff34d0e01925a666684fbee40ec2906e948a41d50e503)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deferMaintenance", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="deferMaintenanceDuration")
-    def defer_maintenance_duration(self) -> typing.Optional[jsii.Number]:
-        '''An integer indicating the duration of the maintenance window in days.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "deferMaintenanceDuration"))
-
-    @defer_maintenance_duration.setter
-    def defer_maintenance_duration(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b38793f2500254714c6067bec6f72a5a038c50d8bc9b6b03b375518dce428a13)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deferMaintenanceDuration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="deferMaintenanceEndTime")
-    def defer_maintenance_end_time(self) -> typing.Optional[builtins.str]:
-        '''A timestamp for the end of the time period when we defer maintenance.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deferMaintenanceEndTime"))
-
-    @defer_maintenance_end_time.setter
-    def defer_maintenance_end_time(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__707a603887573fd509d9f52453e8a586dcbece345650487f919175b7a32ce0f1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deferMaintenanceEndTime", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="deferMaintenanceStartTime")
-    def defer_maintenance_start_time(self) -> typing.Optional[builtins.str]:
-        '''A timestamp indicating the start time for the deferred maintenance window.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deferMaintenanceStartTime"))
-
-    @defer_maintenance_start_time.setter
-    def defer_maintenance_start_time(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd9fc695606c0a941294d8fb46b82ad186d9cc0f1ceecc9efea154fa51e57d2b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deferMaintenanceStartTime", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="destinationRegion")
-    def destination_region(self) -> typing.Optional[builtins.str]:
-        '''The destination region that snapshots are automatically copied to when cross-region snapshot copy is enabled.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "destinationRegion"))
-
-    @destination_region.setter
-    def destination_region(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9affeaf50223bc3ddba02727393f5841690e26871908e7f312f79f76ce20857c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "destinationRegion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="elasticIp")
-    def elastic_ip(self) -> typing.Optional[builtins.str]:
-        '''The Elastic IP (EIP) address for the cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "elasticIp"))
-
-    @elastic_ip.setter
-    def elastic_ip(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8af4905b0871175bb94d0e68d7844830025c4dfe81acb2f97d60012f417d079f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "elasticIp", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="encrypted")
-    def encrypted(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If ``true`` , the data in the cluster is encrypted at rest.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "encrypted"))
-
-    @encrypted.setter
-    def encrypted(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57b1075c71946fea633b06672f811d3ed06a3627779b2123983ff2dbad9432e7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encrypted", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="endpoint")
-    def endpoint(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.EndpointProperty"]]:
-        '''The connection endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.EndpointProperty"]], jsii.get(self, "endpoint"))
-
-    @endpoint.setter
-    def endpoint(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.EndpointProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91af587b7f602d533107461b26deea688b9ac30f8cff34b2f281da70b5f20be0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "endpoint", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enhancedVpcRouting")
-    def enhanced_vpc_routing(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''An option that specifies whether to create the cluster with enhanced VPC routing enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enhancedVpcRouting"))
-
-    @enhanced_vpc_routing.setter
-    def enhanced_vpc_routing(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38f39b0b2b5df52249767c8cb6463c876078868c14687667fd735f0b6d22fb18)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enhancedVpcRouting", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="hsmClientCertificateIdentifier")
-    def hsm_client_certificate_identifier(self) -> typing.Optional[builtins.str]:
-        '''Specifies the name of the HSM client certificate the Amazon Redshift cluster uses to retrieve the data encryption keys stored in an HSM.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "hsmClientCertificateIdentifier"))
-
-    @hsm_client_certificate_identifier.setter
-    def hsm_client_certificate_identifier(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5024cde1beb60571770fd7108dbe12a4a475dfeac6bf7a1e1027e2081e58e486)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hsmClientCertificateIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="hsmConfigurationIdentifier")
-    def hsm_configuration_identifier(self) -> typing.Optional[builtins.str]:
-        '''Specifies the name of the HSM configuration that contains the information the Amazon Redshift cluster can use to retrieve and store keys in an HSM.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "hsmConfigurationIdentifier"))
-
-    @hsm_configuration_identifier.setter
-    def hsm_configuration_identifier(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23dbabcc0b1bd43d467873c3ad184988bc516c60957ee94cf9abaf50268fff8d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hsmConfigurationIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="iamRoles")
-    def iam_roles(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of AWS Identity and Access Management (IAM) roles that can be used by the cluster to access other AWS services.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "iamRoles"))
-
-    @iam_roles.setter
-    def iam_roles(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__772c14b10e457f7456acacbd7c571e904d8d7e32ccc4be7e64dfdc23417fd3e0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "iamRoles", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="kmsKeyId")
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The AWS Key Management Service (KMS) key ID of the encryption key that you want to use to encrypt data in the cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
-
-    @kms_key_id.setter
-    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b9e3255675fa581da5945ef20b026be1c2c1fc9d1bad30a7bf9c5e63e884f60)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="loggingProperties")
-    def logging_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.LoggingPropertiesProperty"]]:
-        '''Specifies logging information, such as queries and connection attempts, for the specified Amazon Redshift cluster.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.LoggingPropertiesProperty"]], jsii.get(self, "loggingProperties"))
-
-    @logging_properties.setter
-    def logging_properties(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.LoggingPropertiesProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__faccaac60f090449dba9f2adeeb99fa490f6f2532ea91a0f5372422d57002f26)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggingProperties", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="maintenanceTrackName")
-    def maintenance_track_name(self) -> typing.Optional[builtins.str]:
-        '''An optional parameter for the name of the maintenance track for the cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "maintenanceTrackName"))
-
-    @maintenance_track_name.setter
-    def maintenance_track_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fdec41d5a2f886a294c35cbf10b6f505571be31e2c00a5a1c57a87a34cf49426)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maintenanceTrackName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="manageMasterPassword")
-    def manage_master_password(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If ``true`` , Amazon Redshift uses AWS Secrets Manager to manage this cluster's admin credentials.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "manageMasterPassword"))
-
-    @manage_master_password.setter
-    def manage_master_password(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__080a467a54b42730471573ef0e1a0c26e7b4f7d5ec0a07e9f75f4d8e6d3e25bf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "manageMasterPassword", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="manualSnapshotRetentionPeriod")
-    def manual_snapshot_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''The default number of days to retain a manual snapshot.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "manualSnapshotRetentionPeriod"))
-
-    @manual_snapshot_retention_period.setter
-    def manual_snapshot_retention_period(
-        self,
-        value: typing.Optional[jsii.Number],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47928702ad781fa3915ff0f5068c3b692ff5d8d891b871ca8319d3632cdffe22)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "manualSnapshotRetentionPeriod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="masterPasswordSecretKmsKeyId")
-    def master_password_secret_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the AWS Key Management Service (KMS) key used to encrypt and store the cluster's admin credentials secret.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "masterPasswordSecretKmsKeyId"))
-
-    @master_password_secret_kms_key_id.setter
-    def master_password_secret_kms_key_id(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e26594c22a23597c2bcb39be035e857bb61d132ed89a50d4d58e1a8f8c369e12)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterPasswordSecretKmsKeyId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="masterUserPassword")
-    def master_user_password(self) -> typing.Optional[builtins.str]:
-        '''The password associated with the admin user account for the cluster that is being created.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "masterUserPassword"))
-
-    @master_user_password.setter
-    def master_user_password(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15113bc0292eb3a900fcad9d620cd08c320a19dfce07db8d055112a353c48cba)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUserPassword", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="multiAz")
-    def multi_az(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A boolean indicating whether Amazon Redshift should deploy the cluster in two Availability Zones.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "multiAz"))
-
-    @multi_az.setter
-    def multi_az(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0db0b21e9462c7db4bfbc5794a72cfec5dad80450cd1acb8174563927b06fa69)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "multiAz", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="namespaceResourcePolicy")
-    def namespace_resource_policy(self) -> typing.Any:
-        '''The policy that is attached to a resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "namespaceResourcePolicy"))
-
-    @namespace_resource_policy.setter
-    def namespace_resource_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5431251482e82a3c7a9d17e22a4cb6824e051b833670ac56c609436771ba3037)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "namespaceResourcePolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="numberOfNodes")
-    def number_of_nodes(self) -> typing.Optional[jsii.Number]:
-        '''The number of compute nodes in the cluster.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "numberOfNodes"))
-
-    @number_of_nodes.setter
-    def number_of_nodes(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b646aacda3a7612936e7568c66769cf203d6286890366d0346d5c38410b0d8b3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "numberOfNodes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="ownerAccount")
-    def owner_account(self) -> typing.Optional[builtins.str]:
-        '''The AWS account used to create or copy the snapshot.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ownerAccount"))
-
-    @owner_account.setter
-    def owner_account(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52bf6c5c1ccac8e9a203c7d7459384ca20fe2bd847c219060b148ce817130552)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ownerAccount", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="port")
-    def port(self) -> typing.Optional[jsii.Number]:
-        '''The port number on which the cluster accepts incoming connections.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "port"))
-
-    @port.setter
-    def port(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a336566c0c0ca699ff01424a213ca87bb14f46bd413f3548c40bf33f2efa36b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="preferredMaintenanceWindow")
-    def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
-        '''The weekly time range (in UTC) during which automated cluster maintenance can occur.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "preferredMaintenanceWindow"))
-
-    @preferred_maintenance_window.setter
-    def preferred_maintenance_window(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9692ea98b60bb6630f40e5fdbf329c062ea1111b09de0a06388619337bba7451)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="publiclyAccessible")
-    def publicly_accessible(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If ``true`` , the cluster can be accessed from a public network.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "publiclyAccessible"))
-
-    @publicly_accessible.setter
-    def publicly_accessible(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da6f0bb2273ecadf755efeb5a905c9ee82720866a8ce8f61a2c6d3d21eb9300b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "publiclyAccessible", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceAction")
-    def resource_action(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Redshift operation to be performed.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "resourceAction"))
-
-    @resource_action.setter
-    def resource_action(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fb4e2cacc7f73b63f83b3db029d401ee0e2b0f5ba058212b603e71548aac621)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceAction", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="revisionTarget")
-    def revision_target(self) -> typing.Optional[builtins.str]:
-        '''Describes a ``RevisionTarget`` object.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "revisionTarget"))
-
-    @revision_target.setter
-    def revision_target(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a194ca9d86844bb3b3e45b505b5c6b5cfc6e7394cda5b168c597edf84cd5a57)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "revisionTarget", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="rotateEncryptionKey")
-    def rotate_encryption_key(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Rotates the encryption keys for a cluster.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "rotateEncryptionKey"))
-
-    @rotate_encryption_key.setter
-    def rotate_encryption_key(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bf5df20a75b52e1cdb3d7517d4cb1b82f3940133ad5667db9df487314abf2a2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rotateEncryptionKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="snapshotClusterIdentifier")
-    def snapshot_cluster_identifier(self) -> typing.Optional[builtins.str]:
-        '''The name of the cluster the source snapshot was created from.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "snapshotClusterIdentifier"))
-
-    @snapshot_cluster_identifier.setter
-    def snapshot_cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e02d3c6ace6da2f11c5895ef3151ab4e22925463fd7aa7f5ae7818e0ad18d5ed)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotClusterIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="snapshotCopyGrantName")
-    def snapshot_copy_grant_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the snapshot copy grant.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "snapshotCopyGrantName"))
-
-    @snapshot_copy_grant_name.setter
-    def snapshot_copy_grant_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b48178e0c2c9351bf3494f98a7ba9056b7d4796545f2aee976d0338e14e8eb3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotCopyGrantName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="snapshotCopyManual")
-    def snapshot_copy_manual(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether to apply the snapshot retention period to newly copied manual snapshots instead of automated snapshots.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "snapshotCopyManual"))
-
-    @snapshot_copy_manual.setter
-    def snapshot_copy_manual(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88f25e386153f816099eeca0eba6c12a2141a4398dd600a4a5bcfba56a506c9c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotCopyManual", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="snapshotCopyRetentionPeriod")
-    def snapshot_copy_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''The number of days to retain automated snapshots in the destination AWS Region after they are copied from the source AWS Region .'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "snapshotCopyRetentionPeriod"))
-
-    @snapshot_copy_retention_period.setter
-    def snapshot_copy_retention_period(
-        self,
-        value: typing.Optional[jsii.Number],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87d1d0fe426ee03be5f64341988115cbe1d5afd95c0b6861542b95a8abb56740)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotCopyRetentionPeriod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="snapshotIdentifier")
-    def snapshot_identifier(self) -> typing.Optional[builtins.str]:
-        '''The name of the snapshot from which to create the new cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "snapshotIdentifier"))
-
-    @snapshot_identifier.setter
-    def snapshot_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cba9391bc97d92920ae3a792b5478605ed68dd5607ac8946d0f1a69fcb651dfc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tag instances.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5764b8f0fdd9373a15be01abce350629381e233414237e16a244d4691af89468)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="vpcSecurityGroupIds")
-    def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of Virtual Private Cloud (VPC) security groups to be associated with the cluster.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "vpcSecurityGroupIds"))
-
-    @vpc_security_group_ids.setter
-    def vpc_security_group_ids(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__596c101c9c404cca151b1203ca97bd2d503f355f47622224daa47f385e650be8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_redshift.CfnCluster.EndpointProperty",
-        jsii_struct_bases=[],
-        name_mapping={"address": "address", "port": "port"},
-    )
-    class EndpointProperty:
-        def __init__(
-            self,
-            *,
-            address: typing.Optional[builtins.str] = None,
-            port: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Describes a connection endpoint.
-
-            :param address: The DNS address of the cluster. This property is read only.
-            :param port: The port that the database engine is listening on. This property is read only.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-endpoint.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_redshift as redshift
-                
-                endpoint_property = redshift.CfnCluster.EndpointProperty(
-                    address="address",
-                    port="port"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5f4b31c37417a3cee773773bc1a0a140f366a4e0e7ed41054ce4a4eb796ba219)
-                check_type(argname="argument address", value=address, expected_type=type_hints["address"])
-                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if address is not None:
-                self._values["address"] = address
-            if port is not None:
-                self._values["port"] = port
-
-        @builtins.property
-        def address(self) -> typing.Optional[builtins.str]:
-            '''The DNS address of the cluster.
-
-            This property is read only.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-endpoint.html#cfn-redshift-cluster-endpoint-address
-            '''
-            result = self._values.get("address")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def port(self) -> typing.Optional[builtins.str]:
-            '''The port that the database engine is listening on.
-
-            This property is read only.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-endpoint.html#cfn-redshift-cluster-endpoint-port
-            '''
-            result = self._values.get("port")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "EndpointProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_redshift.CfnCluster.LoggingPropertiesProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "bucket_name": "bucketName",
-            "log_destination_type": "logDestinationType",
-            "log_exports": "logExports",
-            "s3_key_prefix": "s3KeyPrefix",
-        },
-    )
-    class LoggingPropertiesProperty:
-        def __init__(
-            self,
-            *,
-            bucket_name: typing.Optional[builtins.str] = None,
-            log_destination_type: typing.Optional[builtins.str] = None,
-            log_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
-            s3_key_prefix: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies logging information, such as queries and connection attempts, for the specified Amazon Redshift cluster.
-
-            :param bucket_name: The name of an existing S3 bucket where the log files are to be stored. Constraints: - Must be in the same region as the cluster - The cluster must have read bucket and put object permissions
-            :param log_destination_type: The log destination type. An enum with possible values of ``s3`` and ``cloudwatch`` .
-            :param log_exports: The collection of exported log types. Possible values are ``connectionlog`` , ``useractivitylog`` , and ``userlog`` .
-            :param s3_key_prefix: The prefix applied to the log file names. Valid characters are any letter from any language, any whitespace character, any numeric character, and the following characters: underscore ( ``_`` ), period ( ``.`` ), colon ( ``:`` ), slash ( ``/`` ), equal ( ``=`` ), plus ( ``+`` ), backslash ( ``\\`` ), hyphen ( ``-`` ), at symbol ( ``@`` ).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-loggingproperties.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_redshift as redshift
-                
-                logging_properties_property = redshift.CfnCluster.LoggingPropertiesProperty(
-                    bucket_name="bucketName",
-                    log_destination_type="logDestinationType",
-                    log_exports=["logExports"],
-                    s3_key_prefix="s3KeyPrefix"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c7aec990e988274953eb37b89aa72be860b6d20fca7dd87507fb1bd44a65b7b9)
-                check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
-                check_type(argname="argument log_destination_type", value=log_destination_type, expected_type=type_hints["log_destination_type"])
-                check_type(argname="argument log_exports", value=log_exports, expected_type=type_hints["log_exports"])
-                check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if bucket_name is not None:
-                self._values["bucket_name"] = bucket_name
-            if log_destination_type is not None:
-                self._values["log_destination_type"] = log_destination_type
-            if log_exports is not None:
-                self._values["log_exports"] = log_exports
-            if s3_key_prefix is not None:
-                self._values["s3_key_prefix"] = s3_key_prefix
-
-        @builtins.property
-        def bucket_name(self) -> typing.Optional[builtins.str]:
-            '''The name of an existing S3 bucket where the log files are to be stored.
-
-            Constraints:
-
-            - Must be in the same region as the cluster
-            - The cluster must have read bucket and put object permissions
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-loggingproperties.html#cfn-redshift-cluster-loggingproperties-bucketname
-            '''
-            result = self._values.get("bucket_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def log_destination_type(self) -> typing.Optional[builtins.str]:
-            '''The log destination type.
-
-            An enum with possible values of ``s3`` and ``cloudwatch`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-loggingproperties.html#cfn-redshift-cluster-loggingproperties-logdestinationtype
-            '''
-            result = self._values.get("log_destination_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def log_exports(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The collection of exported log types.
-
-            Possible values are ``connectionlog`` , ``useractivitylog`` , and ``userlog`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-loggingproperties.html#cfn-redshift-cluster-loggingproperties-logexports
-            '''
-            result = self._values.get("log_exports")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def s3_key_prefix(self) -> typing.Optional[builtins.str]:
-            '''The prefix applied to the log file names.
-
-            Valid characters are any letter from any language, any whitespace character, any numeric character, and the following characters: underscore ( ``_`` ), period ( ``.`` ), colon ( ``:`` ), slash ( ``/`` ), equal ( ``=`` ), plus ( ``+`` ), backslash ( ``\\`` ), hyphen ( ``-`` ), at symbol ( ``@`` ).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-cluster-loggingproperties.html#cfn-redshift-cluster-loggingproperties-s3keyprefix
-            '''
-            result = self._values.get("s3_key_prefix")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "LoggingPropertiesProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, IClusterParameterGroupRef, _ITaggable_36806126)
-class CfnClusterParameterGroup(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_redshift.CfnClusterParameterGroup",
-):
-    '''Describes a parameter group.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clusterparametergroup.html
-    :cloudformationResource: AWS::Redshift::ClusterParameterGroup
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_redshift as redshift
-        
-        cfn_cluster_parameter_group = redshift.CfnClusterParameterGroup(self, "MyCfnClusterParameterGroup",
-            description="description",
-            parameter_group_family="parameterGroupFamily",
-        
-            # the properties below are optional
-            parameter_group_name="parameterGroupName",
-            parameters=[redshift.CfnClusterParameterGroup.ParameterProperty(
-                parameter_name="parameterName",
-                parameter_value="parameterValue"
-            )],
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        description: builtins.str,
-        parameter_group_family: builtins.str,
-        parameter_group_name: typing.Optional[builtins.str] = None,
-        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnClusterParameterGroup.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param description: The description of the parameter group.
-        :param parameter_group_family: The name of the cluster parameter group family that this cluster parameter group is compatible with. You can create a custom parameter group and then associate your cluster with it. For more information, see `Amazon Redshift parameter groups <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-parameter-groups.html>`_ .
-        :param parameter_group_name: The name of the cluster parameter group.
-        :param parameters: An array of parameters to be modified. A maximum of 20 parameters can be modified in a single request. For each parameter to be modified, you must supply at least the parameter name and parameter value; other name-value pairs of the parameter are optional. For the workload management (WLM) configuration, you must supply all the name-value pairs in the wlm_json_configuration parameter.
-        :param tags: The list of tags for the cluster parameter group.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4414ca463de61620f73bf7c02eb829639136d7dcc505964ba4d9e9618286c69)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnClusterParameterGroupProps(
-            description=description,
-            parameter_group_family=parameter_group_family,
-            parameter_group_name=parameter_group_name,
-            parameters=parameters,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33c3f5debe7a54728cc11b0bbd4cd3ef9a8b793416272ffb149cec7294e16c50)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b7d74938a95ad8692c806f56ca7eec2add84b72ad04dfdd43dbf75c8f82078c)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterParameterGroupRef")
-    def cluster_parameter_group_ref(self) -> ClusterParameterGroupReference:
-        '''A reference to a ClusterParameterGroup resource.'''
-        return typing.cast(ClusterParameterGroupReference, jsii.get(self, "clusterParameterGroupRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> builtins.str:
-        '''The description of the parameter group.'''
-        return typing.cast(builtins.str, jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa01b978d978b525b22dfcc1d5e7ed1fdba8f3423e58633da46999cf64b6145e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterGroupFamily")
-    def parameter_group_family(self) -> builtins.str:
-        '''The name of the cluster parameter group family that this cluster parameter group is compatible with.'''
-        return typing.cast(builtins.str, jsii.get(self, "parameterGroupFamily"))
-
-    @parameter_group_family.setter
-    def parameter_group_family(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31d55e60eeba305c90c4c7a8c50b43e6bf8362044925cc46818a03d69862ee99)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameterGroupFamily", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterGroupName")
-    def parameter_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the cluster parameter group.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "parameterGroupName"))
-
-    @parameter_group_name.setter
-    def parameter_group_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71389da0b60c4def288c7b3fb2b371fda4f4162f1eb827248ad420d596ae579c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameterGroupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="parameters")
-    def parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnClusterParameterGroup.ParameterProperty"]]]]:
-        '''An array of parameters to be modified.
-
-        A maximum of 20 parameters can be modified in a single request.
-        '''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnClusterParameterGroup.ParameterProperty"]]]], jsii.get(self, "parameters"))
-
-    @parameters.setter
-    def parameters(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnClusterParameterGroup.ParameterProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f6965bfa88c2fcb264091e20f622accf9bf23be5cacdb3362545db9e6c9696c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The list of tags for the cluster parameter group.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed9d60dbe1f8113e3b7f1c5d9cd93fced6c4ccd359227db112e355b0839bdd7b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_redshift.CfnClusterParameterGroup.ParameterProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "parameter_name": "parameterName",
-            "parameter_value": "parameterValue",
-        },
-    )
-    class ParameterProperty:
-        def __init__(
-            self,
-            *,
-            parameter_name: builtins.str,
-            parameter_value: builtins.str,
-        ) -> None:
-            '''Describes a parameter in a cluster parameter group.
-
-            :param parameter_name: The name of the parameter.
-            :param parameter_value: The value of the parameter. If ``ParameterName`` is ``wlm_json_configuration`` , then the maximum size of ``ParameterValue`` is 8000 characters.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-clusterparametergroup-parameter.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_redshift as redshift
-                
-                parameter_property = redshift.CfnClusterParameterGroup.ParameterProperty(
-                    parameter_name="parameterName",
-                    parameter_value="parameterValue"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__240e23a4f4e09dcaf1a5943661993a46709536c604817503e522b63ccc6ccf48)
-                check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-                check_type(argname="argument parameter_value", value=parameter_value, expected_type=type_hints["parameter_value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "parameter_name": parameter_name,
-                "parameter_value": parameter_value,
-            }
-
-        @builtins.property
-        def parameter_name(self) -> builtins.str:
-            '''The name of the parameter.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-clusterparametergroup-parameter.html#cfn-redshift-clusterparametergroup-parameter-parametername
-            '''
-            result = self._values.get("parameter_name")
-            assert result is not None, "Required property 'parameter_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def parameter_value(self) -> builtins.str:
-            '''The value of the parameter.
-
-            If ``ParameterName`` is ``wlm_json_configuration`` , then the maximum size of ``ParameterValue`` is 8000 characters.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-clusterparametergroup-parameter.html#cfn-redshift-clusterparametergroup-parameter-parametervalue
-            '''
-            result = self._values.get("parameter_value")
-            assert result is not None, "Required property 'parameter_value' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ParameterProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, IClusterSecurityGroupRef, _ITaggable_36806126)
-class CfnClusterSecurityGroup(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_redshift.CfnClusterSecurityGroup",
-):
-    '''Specifies a new Amazon Redshift security group. You use security groups to control access to non-VPC clusters.
-
-    For information about managing security groups, go to `Amazon Redshift Cluster Security Groups <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-security-groups.html>`_ in the *Amazon Redshift Cluster Management Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clustersecuritygroup.html
-    :cloudformationResource: AWS::Redshift::ClusterSecurityGroup
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_redshift as redshift
-        
-        cfn_cluster_security_group = redshift.CfnClusterSecurityGroup(self, "MyCfnClusterSecurityGroup",
-            description="description",
-        
-            # the properties below are optional
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        description: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param description: A description for the security group.
-        :param tags: Specifies an arbitrary set of tags (key–value pairs) to associate with this security group. Use tags to manage your resources.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b22efcbba45de188c12e3a4ec10ac826aa23627c8a9c1ab33ac3ab92f1db7ca)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnClusterSecurityGroupProps(description=description, tags=tags)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf91138ab4de58056c692e7a90e9c37175b85888798658fb335eb1fda9dc46ef)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c67faf71bfcbce5abc9c55181019e84dee71de571bd99a7bb417425f307fe805)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterSecurityGroupRef")
-    def cluster_security_group_ref(self) -> ClusterSecurityGroupReference:
-        '''A reference to a ClusterSecurityGroup resource.'''
-        return typing.cast(ClusterSecurityGroupReference, jsii.get(self, "clusterSecurityGroupRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> builtins.str:
-        '''A description for the security group.'''
-        return typing.cast(builtins.str, jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b860785f063213d814fda288a338005f7a7bdf25187251589ec205640c547a66)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies an arbitrary set of tags (key–value pairs) to associate with this security group.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__defdac711f3e7a77b19ec04bc132d682928b4f21ff6be172e15e2ac9f0cd6e8c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IClusterSecurityGroupIngressRef)
-class CfnClusterSecurityGroupIngress(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_redshift.CfnClusterSecurityGroupIngress",
-):
-    '''Adds an inbound (ingress) rule to an Amazon Redshift security group.
-
-    Depending on whether the application accessing your cluster is running on the Internet or an Amazon EC2 instance, you can authorize inbound access to either a Classless Interdomain Routing (CIDR)/Internet Protocol (IP) range or to an Amazon EC2 security group. You can add as many as 20 ingress rules to an Amazon Redshift security group.
-
-    If you authorize access to an Amazon EC2 security group, specify *EC2SecurityGroupName* and *EC2SecurityGroupOwnerId* . The Amazon EC2 security group and Amazon Redshift cluster must be in the same AWS Region .
-
-    If you authorize access to a CIDR/IP address range, specify *CIDRIP* . For an overview of CIDR blocks, see the Wikipedia article on `Classless Inter-Domain Routing <https://docs.aws.amazon.com/http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing>`_ .
-
-    You must also associate the security group with a cluster so that clients running on these IP addresses or the EC2 instance are authorized to connect to the cluster. For information about managing security groups, go to `Working with Security Groups <https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-security-groups.html>`_ in the *Amazon Redshift Cluster Management Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clustersecuritygroupingress.html
-    :cloudformationResource: AWS::Redshift::ClusterSecurityGroupIngress
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_redshift as redshift
-        
-        cfn_cluster_security_group_ingress = redshift.CfnClusterSecurityGroupIngress(self, "MyCfnClusterSecurityGroupIngress",
-            cluster_security_group_name="clusterSecurityGroupName",
-        
-            # the properties below are optional
-            cidrip="cidrip",
-            ec2_security_group_name="ec2SecurityGroupName",
-            ec2_security_group_owner_id="ec2SecurityGroupOwnerId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        cluster_security_group_name: builtins.str,
-        cidrip: typing.Optional[builtins.str] = None,
-        ec2_security_group_name: typing.Optional[builtins.str] = None,
-        ec2_security_group_owner_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param cluster_security_group_name: The name of the security group to which the ingress rule is added.
-        :param cidrip: The IP range to be added the Amazon Redshift security group.
-        :param ec2_security_group_name: The EC2 security group to be added the Amazon Redshift security group.
-        :param ec2_security_group_owner_id: The AWS account number of the owner of the security group specified by the *EC2SecurityGroupName* parameter. The AWS Access Key ID is not an acceptable value. Example: ``111122223333`` Conditional. If you specify the ``EC2SecurityGroupName`` property, you must specify this property.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41697fee2951713c64e294c4e4850203dbc7d20174c1fed5347f5918875e54ff)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnClusterSecurityGroupIngressProps(
-            cluster_security_group_name=cluster_security_group_name,
-            cidrip=cidrip,
-            ec2_security_group_name=ec2_security_group_name,
-            ec2_security_group_owner_id=ec2_security_group_owner_id,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5daaf061a9776bc828b5e17868e3a5341ceac5a9921dfd313ea5696175e61dc)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d33bff3b3590906995d56f375a2e2ff36b57c39243b7809fae2071ef39734a92)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''Specifies an inbound (ingress) rule for an Amazon Redshift security group.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterSecurityGroupIngressRef")
-    def cluster_security_group_ingress_ref(
-        self,
-    ) -> ClusterSecurityGroupIngressReference:
-        '''A reference to a ClusterSecurityGroupIngress resource.'''
-        return typing.cast(ClusterSecurityGroupIngressReference, jsii.get(self, "clusterSecurityGroupIngressRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterSecurityGroupName")
-    def cluster_security_group_name(self) -> builtins.str:
-        '''The name of the security group to which the ingress rule is added.'''
-        return typing.cast(builtins.str, jsii.get(self, "clusterSecurityGroupName"))
-
-    @cluster_security_group_name.setter
-    def cluster_security_group_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__450127f44d7b9d46222076daeb75aef61dc74ee7b8c0361931cbc378b77f2b61)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterSecurityGroupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="cidrip")
-    def cidrip(self) -> typing.Optional[builtins.str]:
-        '''The IP range to be added the Amazon Redshift security group.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cidrip"))
-
-    @cidrip.setter
-    def cidrip(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc70f827b8b8bd4fd90e9971cafaa821209d83d7fb903364e18ca0bd12bb4fa7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cidrip", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="ec2SecurityGroupName")
-    def ec2_security_group_name(self) -> typing.Optional[builtins.str]:
-        '''The EC2 security group to be added the Amazon Redshift security group.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ec2SecurityGroupName"))
-
-    @ec2_security_group_name.setter
-    def ec2_security_group_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__305455f9fef2cb5c555b60efcd3ef9258c1c90d3a8215d9e5d93dbcc7b9829a2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ec2SecurityGroupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="ec2SecurityGroupOwnerId")
-    def ec2_security_group_owner_id(self) -> typing.Optional[builtins.str]:
-        '''The AWS account number of the owner of the security group specified by the *EC2SecurityGroupName* parameter.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ec2SecurityGroupOwnerId"))
-
-    @ec2_security_group_owner_id.setter
-    def ec2_security_group_owner_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea6866c86f6e401834ff96949921e03d99488382c3dc85fdb956991534d7d684)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ec2SecurityGroupOwnerId", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IClusterSubnetGroupRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IClusterSubnetGroupRef_ee5ee341, _ITaggable_36806126)
 class CfnClusterSubnetGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5262,6 +3570,7 @@ class CfnClusterSubnetGroup(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_redshift as redshift
@@ -5280,14 +3589,15 @@ class CfnClusterSubnetGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         description: builtins.str,
-        subnet_ids: typing.Sequence[builtins.str],
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Redshift::ClusterSubnetGroup``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param description: A description for the subnet group.
@@ -5304,8 +3614,20 @@ class CfnClusterSubnetGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnClusterSubnetGroup")
+    @builtins.classmethod
+    def is_cfn_cluster_subnet_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnClusterSubnetGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__69776a8bb9556bb5fe0ee5710238a52ddcd5b461981eff6427fe95926b055369)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnClusterSubnetGroup", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5350,15 +3672,15 @@ class CfnClusterSubnetGroup(
 
     @builtins.property
     @jsii.member(jsii_name="clusterSubnetGroupRef")
-    def cluster_subnet_group_ref(self) -> ClusterSubnetGroupReference:
+    def cluster_subnet_group_ref(self) -> "_ClusterSubnetGroupReference_8dcb457e":
         '''A reference to a ClusterSubnetGroup resource.'''
-        return typing.cast(ClusterSubnetGroupReference, jsii.get(self, "clusterSubnetGroupRef"))
+        return typing.cast("_ClusterSubnetGroupReference_8dcb457e", jsii.get(self, "clusterSubnetGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -5388,19 +3710,122 @@ class CfnClusterSubnetGroup(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies an arbitrary set of tags (key–value pairs) to associate with this subnet group.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0234790a32423c903d2d0b04af30d14f6232a9d29765580ce78154e1956f53c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IEndpointAccessRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshift.CfnClusterSubnetGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "subnet_ids": "subnetIds",
+        "tags": "tags",
+    },
+)
+class CfnClusterSubnetGroupProps:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnClusterSubnetGroup``.
+
+        :param description: A description for the subnet group.
+        :param subnet_ids: An array of VPC subnet IDs. A maximum of 20 subnets can be modified in a single request.
+        :param tags: Specifies an arbitrary set of tags (key–value pairs) to associate with this subnet group. Use tags to manage your resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clustersubnetgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshift as redshift
+            
+            cfn_cluster_subnet_group_props = redshift.CfnClusterSubnetGroupProps(
+                description="description",
+                subnet_ids=["subnetIds"],
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7629b191964d0b486283403d34c774eed1fd92a00727981a023ae6012064b43)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "subnet_ids": subnet_ids,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''A description for the subnet group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clustersubnetgroup.html#cfn-redshift-clustersubnetgroup-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subnet_ids(
+        self,
+    ) -> typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]:
+        '''An array of VPC subnet IDs.
+
+        A maximum of 20 subnets can be modified in a single request.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clustersubnetgroup.html#cfn-redshift-clustersubnetgroup-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        assert result is not None, "Required property 'subnet_ids' is missing"
+        return typing.cast(typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies an arbitrary set of tags (key–value pairs) to associate with this subnet group.
+
+        Use tags to manage your resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-clustersubnetgroup.html#cfn-redshift-clustersubnetgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnClusterSubnetGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IEndpointAccessRef_4af7d2c6)
 class CfnEndpointAccess(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5431,16 +3856,17 @@ class CfnEndpointAccess(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         cluster_identifier: builtins.str,
         endpoint_name: builtins.str,
-        subnet_group_name: builtins.str,
-        vpc_security_group_ids: typing.Sequence[builtins.str],
+        subnet_group_name: typing.Union[builtins.str, "_IClusterSubnetGroupRef_ee5ee341"],
+        vpc_security_group_ids: typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]],
         resource_owner: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Redshift::EndpointAccess``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param cluster_identifier: The cluster identifier of the cluster associated with the endpoint.
@@ -5463,8 +3889,20 @@ class CfnEndpointAccess(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnEndpointAccess")
+    @builtins.classmethod
+    def is_cfn_endpoint_access(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEndpointAccess.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d0b8106cae8910d12c61954e12b0ce5ca2d35531c4221215e412581bb9063fba)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEndpointAccess", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5531,20 +3969,20 @@ class CfnEndpointAccess(
 
     @builtins.property
     @jsii.member(jsii_name="attrVpcEndpoint")
-    def attr_vpc_endpoint(self) -> _IResolvable_da3f097b:
+    def attr_vpc_endpoint(self) -> "_IResolvable_da3f097b":
         '''The connection endpoint for connecting to an Amazon Redshift cluster through the proxy.
 
         :cloudformationAttribute: VpcEndpoint
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrVpcEndpoint"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrVpcEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="attrVpcEndpointNetworkInterfaces")
-    def attr_vpc_endpoint_network_interfaces(self) -> _IResolvable_da3f097b:
+    def attr_vpc_endpoint_network_interfaces(self) -> "_IResolvable_da3f097b":
         '''
         :cloudformationAttribute: VpcEndpoint.NetworkInterfaces
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrVpcEndpointNetworkInterfaces"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrVpcEndpointNetworkInterfaces"))
 
     @builtins.property
     @jsii.member(jsii_name="attrVpcEndpointVpcEndpointId")
@@ -5566,12 +4004,12 @@ class CfnEndpointAccess(
 
     @builtins.property
     @jsii.member(jsii_name="attrVpcSecurityGroups")
-    def attr_vpc_security_groups(self) -> _IResolvable_da3f097b:
+    def attr_vpc_security_groups(self) -> "_IResolvable_da3f097b":
         '''The security groups associated with the endpoint.
 
         :cloudformationAttribute: VpcSecurityGroups
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrVpcSecurityGroups"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrVpcSecurityGroups"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5580,9 +4018,9 @@ class CfnEndpointAccess(
 
     @builtins.property
     @jsii.member(jsii_name="endpointAccessRef")
-    def endpoint_access_ref(self) -> EndpointAccessReference:
+    def endpoint_access_ref(self) -> "_EndpointAccessReference_b8e22302":
         '''A reference to a EndpointAccess resource.'''
-        return typing.cast(EndpointAccessReference, jsii.get(self, "endpointAccessRef"))
+        return typing.cast("_EndpointAccessReference_b8e22302", jsii.get(self, "endpointAccessRef"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterIdentifier")
@@ -5767,7 +4205,7 @@ class CfnEndpointAccess(
         def __init__(
             self,
             *,
-            network_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpointAccess.NetworkInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            network_interfaces: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpointAccess.NetworkInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             vpc_endpoint_id: typing.Optional[builtins.str] = None,
             vpc_id: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -5813,7 +4251,7 @@ class CfnEndpointAccess(
         @builtins.property
         def network_interfaces(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEndpointAccess.NetworkInterfaceProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointAccess.NetworkInterfaceProperty"]]]]:
             '''One or more network interfaces of the endpoint.
 
             Also known as an interface endpoint.
@@ -5821,7 +4259,7 @@ class CfnEndpointAccess(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-endpointaccess-vpcendpoint.html#cfn-redshift-endpointaccess-vpcendpoint-networkinterfaces
             '''
             result = self._values.get("network_interfaces")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEndpointAccess.NetworkInterfaceProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointAccess.NetworkInterfaceProperty"]]]], result)
 
         @builtins.property
         def vpc_endpoint_id(self) -> typing.Optional[builtins.str]:
@@ -5926,7 +4364,136 @@ class CfnEndpointAccess(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IEndpointAuthorizationRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshift.CfnEndpointAccessProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cluster_identifier": "clusterIdentifier",
+        "endpoint_name": "endpointName",
+        "subnet_group_name": "subnetGroupName",
+        "vpc_security_group_ids": "vpcSecurityGroupIds",
+        "resource_owner": "resourceOwner",
+    },
+)
+class CfnEndpointAccessProps:
+    def __init__(
+        self,
+        *,
+        cluster_identifier: builtins.str,
+        endpoint_name: builtins.str,
+        subnet_group_name: typing.Union[builtins.str, "_IClusterSubnetGroupRef_ee5ee341"],
+        vpc_security_group_ids: typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]],
+        resource_owner: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEndpointAccess``.
+
+        :param cluster_identifier: The cluster identifier of the cluster associated with the endpoint.
+        :param endpoint_name: The name of the endpoint.
+        :param subnet_group_name: The subnet group name where Amazon Redshift chooses to deploy the endpoint.
+        :param vpc_security_group_ids: The security group that defines the ports, protocols, and sources for inbound traffic that you are authorizing into your endpoint.
+        :param resource_owner: The AWS account ID of the owner of the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointaccess.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshift as redshift
+            
+            cfn_endpoint_access_props = redshift.CfnEndpointAccessProps(
+                cluster_identifier="clusterIdentifier",
+                endpoint_name="endpointName",
+                subnet_group_name="subnetGroupName",
+                vpc_security_group_ids=["vpcSecurityGroupIds"],
+            
+                # the properties below are optional
+                resource_owner="resourceOwner"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb4208897e368488438ba6d463b7b2649df77c181ed9a0aabd7edf470cf9972e)
+            check_type(argname="argument cluster_identifier", value=cluster_identifier, expected_type=type_hints["cluster_identifier"])
+            check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
+            check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
+            check_type(argname="argument vpc_security_group_ids", value=vpc_security_group_ids, expected_type=type_hints["vpc_security_group_ids"])
+            check_type(argname="argument resource_owner", value=resource_owner, expected_type=type_hints["resource_owner"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_identifier": cluster_identifier,
+            "endpoint_name": endpoint_name,
+            "subnet_group_name": subnet_group_name,
+            "vpc_security_group_ids": vpc_security_group_ids,
+        }
+        if resource_owner is not None:
+            self._values["resource_owner"] = resource_owner
+
+    @builtins.property
+    def cluster_identifier(self) -> builtins.str:
+        '''The cluster identifier of the cluster associated with the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointaccess.html#cfn-redshift-endpointaccess-clusteridentifier
+        '''
+        result = self._values.get("cluster_identifier")
+        assert result is not None, "Required property 'cluster_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def endpoint_name(self) -> builtins.str:
+        '''The name of the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointaccess.html#cfn-redshift-endpointaccess-endpointname
+        '''
+        result = self._values.get("endpoint_name")
+        assert result is not None, "Required property 'endpoint_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subnet_group_name(
+        self,
+    ) -> typing.Union[builtins.str, "_IClusterSubnetGroupRef_ee5ee341"]:
+        '''The subnet group name where Amazon Redshift chooses to deploy the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointaccess.html#cfn-redshift-endpointaccess-subnetgroupname
+        '''
+        result = self._values.get("subnet_group_name")
+        assert result is not None, "Required property 'subnet_group_name' is missing"
+        return typing.cast(typing.Union[builtins.str, "_IClusterSubnetGroupRef_ee5ee341"], result)
+
+    @builtins.property
+    def vpc_security_group_ids(
+        self,
+    ) -> typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]:
+        '''The security group that defines the ports, protocols, and sources for inbound traffic that you are authorizing into your endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointaccess.html#cfn-redshift-endpointaccess-vpcsecuritygroupids
+        '''
+        result = self._values.get("vpc_security_group_ids")
+        assert result is not None, "Required property 'vpc_security_group_ids' is missing"
+        return typing.cast(typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]], result)
+
+    @builtins.property
+    def resource_owner(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID of the owner of the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointaccess.html#cfn-redshift-endpointaccess-resourceowner
+        '''
+        result = self._values.get("resource_owner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEndpointAccessProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IEndpointAuthorizationRef_458f885b)
 class CfnEndpointAuthorization(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5956,15 +4523,16 @@ class CfnEndpointAuthorization(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         account: builtins.str,
         cluster_identifier: builtins.str,
-        force: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        vpc_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        force: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        vpc_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IVPCRef_f02a11df"]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Redshift::EndpointAuthorization``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param account: The AWS account ID of either the cluster owner (grantor) or grantee. If ``Grantee`` parameter is true, then the ``Account`` value is of the grantor.
@@ -5985,8 +4553,20 @@ class CfnEndpointAuthorization(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnEndpointAuthorization")
+    @builtins.classmethod
+    def is_cfn_endpoint_authorization(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEndpointAuthorization.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89b6a064ff37141de71f59741ca28dfcee22bfe80b3b519a4c3dbe8124081fe8)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEndpointAuthorization", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6017,12 +4597,12 @@ class CfnEndpointAuthorization(
 
     @builtins.property
     @jsii.member(jsii_name="attrAllowedAllVpCs")
-    def attr_allowed_all_vp_cs(self) -> _IResolvable_da3f097b:
+    def attr_allowed_all_vp_cs(self) -> "_IResolvable_da3f097b":
         '''Indicates whether all VPCs in the grantee account are allowed access to the cluster.
 
         :cloudformationAttribute: AllowedAllVPCs
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrAllowedAllVpCs"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrAllowedAllVpCs"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAllowedVpCs")
@@ -6094,9 +4674,9 @@ class CfnEndpointAuthorization(
 
     @builtins.property
     @jsii.member(jsii_name="endpointAuthorizationRef")
-    def endpoint_authorization_ref(self) -> EndpointAuthorizationReference:
+    def endpoint_authorization_ref(self) -> "_EndpointAuthorizationReference_5dbd4723":
         '''A reference to a EndpointAuthorization resource.'''
-        return typing.cast(EndpointAuthorizationReference, jsii.get(self, "endpointAuthorizationRef"))
+        return typing.cast("_EndpointAuthorizationReference_5dbd4723", jsii.get(self, "endpointAuthorizationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="account")
@@ -6128,14 +4708,14 @@ class CfnEndpointAuthorization(
     @jsii.member(jsii_name="force")
     def force(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Indicates whether to force the revoke action.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "force"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "force"))
 
     @force.setter
     def force(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e3418ce19499db041cb3822978572e2eeb561625f2fdc69d4a3663277a760194)
@@ -6156,7 +4736,124 @@ class CfnEndpointAuthorization(
         jsii.set(self, "vpcIds", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IEventSubscriptionRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshift.CfnEndpointAuthorizationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "account": "account",
+        "cluster_identifier": "clusterIdentifier",
+        "force": "force",
+        "vpc_ids": "vpcIds",
+    },
+)
+class CfnEndpointAuthorizationProps:
+    def __init__(
+        self,
+        *,
+        account: builtins.str,
+        cluster_identifier: builtins.str,
+        force: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        vpc_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IVPCRef_f02a11df"]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEndpointAuthorization``.
+
+        :param account: The AWS account ID of either the cluster owner (grantor) or grantee. If ``Grantee`` parameter is true, then the ``Account`` value is of the grantor.
+        :param cluster_identifier: The cluster identifier.
+        :param force: Indicates whether to force the revoke action. If true, the Redshift-managed VPC endpoints associated with the endpoint authorization are also deleted.
+        :param vpc_ids: The virtual private cloud (VPC) identifiers to grant access to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointauthorization.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshift as redshift
+            
+            cfn_endpoint_authorization_props = redshift.CfnEndpointAuthorizationProps(
+                account="account",
+                cluster_identifier="clusterIdentifier",
+            
+                # the properties below are optional
+                force=False,
+                vpc_ids=["vpcIds"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea42c43e99e9da3eea3440151d10e74f104e3b13161b1b46186517cdfb455151)
+            check_type(argname="argument account", value=account, expected_type=type_hints["account"])
+            check_type(argname="argument cluster_identifier", value=cluster_identifier, expected_type=type_hints["cluster_identifier"])
+            check_type(argname="argument force", value=force, expected_type=type_hints["force"])
+            check_type(argname="argument vpc_ids", value=vpc_ids, expected_type=type_hints["vpc_ids"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "account": account,
+            "cluster_identifier": cluster_identifier,
+        }
+        if force is not None:
+            self._values["force"] = force
+        if vpc_ids is not None:
+            self._values["vpc_ids"] = vpc_ids
+
+    @builtins.property
+    def account(self) -> builtins.str:
+        '''The AWS account ID of either the cluster owner (grantor) or grantee.
+
+        If ``Grantee`` parameter is true, then the ``Account`` value is of the grantor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointauthorization.html#cfn-redshift-endpointauthorization-account
+        '''
+        result = self._values.get("account")
+        assert result is not None, "Required property 'account' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cluster_identifier(self) -> builtins.str:
+        '''The cluster identifier.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointauthorization.html#cfn-redshift-endpointauthorization-clusteridentifier
+        '''
+        result = self._values.get("cluster_identifier")
+        assert result is not None, "Required property 'cluster_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def force(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether to force the revoke action.
+
+        If true, the Redshift-managed VPC endpoints associated with the endpoint authorization are also deleted.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointauthorization.html#cfn-redshift-endpointauthorization-force
+        '''
+        result = self._values.get("force")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def vpc_ids(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IVPCRef_f02a11df"]]]:
+        '''The virtual private cloud (VPC) identifiers to grant access to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointauthorization.html#cfn-redshift-endpointauthorization-vpcids
+        '''
+        result = self._values.get("vpc_ids")
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IVPCRef_f02a11df"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEndpointAuthorizationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IEventSubscriptionRef_a40a2567, _ITaggable_36806126)
 class CfnEventSubscription(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6170,6 +4867,7 @@ class CfnEventSubscription(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_redshift as redshift
@@ -6193,19 +4891,20 @@ class CfnEventSubscription(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         subscription_name: builtins.str,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
         severity: typing.Optional[builtins.str] = None,
-        sns_topic_arn: typing.Optional[builtins.str] = None,
+        sns_topic_arn: typing.Optional[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]] = None,
         source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         source_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Redshift::EventSubscription``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param subscription_name: The name of the event subscription to be created. Constraints: - Cannot be null, empty, or blank. - Must contain from 1 to 255 alphanumeric characters or hyphens. - First character must be a letter. - Cannot end with a hyphen or contain two consecutive hyphens.
@@ -6234,8 +4933,20 @@ class CfnEventSubscription(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnEventSubscription")
+    @builtins.classmethod
+    def is_cfn_event_subscription(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEventSubscription.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3ebfdb94d2c46a71d35a476b5aec58c2e35e5a538965b6452b1eedc1d78f801d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEventSubscription", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6332,15 +5043,15 @@ class CfnEventSubscription(
 
     @builtins.property
     @jsii.member(jsii_name="eventSubscriptionRef")
-    def event_subscription_ref(self) -> EventSubscriptionReference:
+    def event_subscription_ref(self) -> "_EventSubscriptionReference_087e2478":
         '''A reference to a EventSubscription resource.'''
-        return typing.cast(EventSubscriptionReference, jsii.get(self, "eventSubscriptionRef"))
+        return typing.cast("_EventSubscriptionReference_087e2478", jsii.get(self, "eventSubscriptionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="subscriptionName")
@@ -6359,14 +5070,14 @@ class CfnEventSubscription(
     @jsii.member(jsii_name="enabled")
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''A boolean value;'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enabled"))
 
     @enabled.setter
     def enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ea0cdf4a4de28abdd520f9b940b88096f2cf47a52a4e567f3499f9de63decbc)
@@ -6443,19 +5154,225 @@ class CfnEventSubscription(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tag instances.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f8d017fb369cae60fd6db670e2d0711cfe832e31a2eb08dc7c90f07ddc39eaa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IIntegrationRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshift.CfnEventSubscriptionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "subscription_name": "subscriptionName",
+        "enabled": "enabled",
+        "event_categories": "eventCategories",
+        "severity": "severity",
+        "sns_topic_arn": "snsTopicArn",
+        "source_ids": "sourceIds",
+        "source_type": "sourceType",
+        "tags": "tags",
+    },
+)
+class CfnEventSubscriptionProps:
+    def __init__(
+        self,
+        *,
+        subscription_name: builtins.str,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
+        severity: typing.Optional[builtins.str] = None,
+        sns_topic_arn: typing.Optional[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]] = None,
+        source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        source_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEventSubscription``.
+
+        :param subscription_name: The name of the event subscription to be created. Constraints: - Cannot be null, empty, or blank. - Must contain from 1 to 255 alphanumeric characters or hyphens. - First character must be a letter. - Cannot end with a hyphen or contain two consecutive hyphens.
+        :param enabled: A boolean value; set to ``true`` to activate the subscription, and set to ``false`` to create the subscription but not activate it.
+        :param event_categories: Specifies the Amazon Redshift event categories to be published by the event notification subscription. Values: configuration, management, monitoring, security, pending
+        :param severity: Specifies the Amazon Redshift event severity to be published by the event notification subscription. Values: ERROR, INFO
+        :param sns_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic used to transmit the event notifications. The ARN is created by Amazon SNS when you create a topic and subscribe to it.
+        :param source_ids: A list of one or more identifiers of Amazon Redshift source objects. All of the objects must be of the same type as was specified in the source type parameter. The event subscription will return only events generated by the specified objects. If not specified, then events are returned for all objects within the source type specified. Example: my-cluster-1, my-cluster-2 Example: my-snapshot-20131010
+        :param source_type: The type of source that will be generating the events. For example, if you want to be notified of events generated by a cluster, you would set this parameter to cluster. If this value is not specified, events are returned for all Amazon Redshift objects in your AWS account . You must specify a source type in order to specify source IDs. Valid values: cluster, cluster-parameter-group, cluster-security-group, cluster-snapshot, and scheduled-action.
+        :param tags: A list of tag instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshift as redshift
+            
+            cfn_event_subscription_props = redshift.CfnEventSubscriptionProps(
+                subscription_name="subscriptionName",
+            
+                # the properties below are optional
+                enabled=False,
+                event_categories=["eventCategories"],
+                severity="severity",
+                sns_topic_arn="snsTopicArn",
+                source_ids=["sourceIds"],
+                source_type="sourceType",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__882750ef34f06482c6644922124100661565513fabbad49eed142788cd66cfa8)
+            check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument event_categories", value=event_categories, expected_type=type_hints["event_categories"])
+            check_type(argname="argument severity", value=severity, expected_type=type_hints["severity"])
+            check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
+            check_type(argname="argument source_ids", value=source_ids, expected_type=type_hints["source_ids"])
+            check_type(argname="argument source_type", value=source_type, expected_type=type_hints["source_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "subscription_name": subscription_name,
+        }
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if event_categories is not None:
+            self._values["event_categories"] = event_categories
+        if severity is not None:
+            self._values["severity"] = severity
+        if sns_topic_arn is not None:
+            self._values["sns_topic_arn"] = sns_topic_arn
+        if source_ids is not None:
+            self._values["source_ids"] = source_ids
+        if source_type is not None:
+            self._values["source_type"] = source_type
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def subscription_name(self) -> builtins.str:
+        '''The name of the event subscription to be created.
+
+        Constraints:
+
+        - Cannot be null, empty, or blank.
+        - Must contain from 1 to 255 alphanumeric characters or hyphens.
+        - First character must be a letter.
+        - Cannot end with a hyphen or contain two consecutive hyphens.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-subscriptionname
+        '''
+        result = self._values.get("subscription_name")
+        assert result is not None, "Required property 'subscription_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''A boolean value;
+
+        set to ``true`` to activate the subscription, and set to ``false`` to create the subscription but not activate it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def event_categories(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Specifies the Amazon Redshift event categories to be published by the event notification subscription.
+
+        Values: configuration, management, monitoring, security, pending
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-eventcategories
+        '''
+        result = self._values.get("event_categories")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def severity(self) -> typing.Optional[builtins.str]:
+        '''Specifies the Amazon Redshift event severity to be published by the event notification subscription.
+
+        Values: ERROR, INFO
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-severity
+        '''
+        result = self._values.get("severity")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sns_topic_arn(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]:
+        '''The Amazon Resource Name (ARN) of the Amazon SNS topic used to transmit the event notifications.
+
+        The ARN is created by Amazon SNS when you create a topic and subscribe to it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-snstopicarn
+        '''
+        result = self._values.get("sns_topic_arn")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]], result)
+
+    @builtins.property
+    def source_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of one or more identifiers of Amazon Redshift source objects.
+
+        All of the objects must be of the same type as was specified in the source type parameter. The event subscription will return only events generated by the specified objects. If not specified, then events are returned for all objects within the source type specified.
+
+        Example: my-cluster-1, my-cluster-2
+
+        Example: my-snapshot-20131010
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-sourceids
+        '''
+        result = self._values.get("source_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def source_type(self) -> typing.Optional[builtins.str]:
+        '''The type of source that will be generating the events.
+
+        For example, if you want to be notified of events generated by a cluster, you would set this parameter to cluster. If this value is not specified, events are returned for all Amazon Redshift objects in your AWS account . You must specify a source type in order to specify source IDs.
+
+        Valid values: cluster, cluster-parameter-group, cluster-security-group, cluster-snapshot, and scheduled-action.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-sourcetype
+        '''
+        result = self._values.get("source_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tag instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-eventsubscription.html#cfn-redshift-eventsubscription-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEventSubscriptionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IIntegrationRef_8879a683, _ITaggableV2_4e6798f8)
 class CfnIntegration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6469,6 +5386,7 @@ class CfnIntegration(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_redshift as redshift
@@ -6492,17 +5410,18 @@ class CfnIntegration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         source_arn: builtins.str,
         target_arn: builtins.str,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
         integration_name: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Redshift::Integration``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param source_arn: The Amazon Resource Name (ARN) of the database used as the source for replication.
@@ -6527,8 +5446,31 @@ class CfnIntegration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForIntegration")
+    @builtins.classmethod
+    def arn_for_integration(cls, resource: "_IIntegrationRef_8879a683") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8c2c48280791381e3f99f0ff1421d99c3f092be4adc1852d4e93aa800feee25d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIntegration", [resource]))
+
+    @jsii.member(jsii_name="isCfnIntegration")
+    @builtins.classmethod
+    def is_cfn_integration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnIntegration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d06df8bb9bdc523bbbbe2b97cd950671cf969519a5e73368449ad2f6d2d479e3)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIntegration", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6577,9 +5519,9 @@ class CfnIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6588,9 +5530,9 @@ class CfnIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="integrationRef")
-    def integration_ref(self) -> IntegrationReference:
+    def integration_ref(self) -> "_IntegrationReference_5a0a4ae7":
         '''A reference to a Integration resource.'''
-        return typing.cast(IntegrationReference, jsii.get(self, "integrationRef"))
+        return typing.cast("_IntegrationReference_5a0a4ae7", jsii.get(self, "integrationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="sourceArn")
@@ -6622,14 +5564,14 @@ class CfnIntegration(
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
         '''The encryption context for the integration.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa11884b39e9757aed26782736b9cc7a1beb8245295ed73bee247717d47e3404)
@@ -6664,19 +5606,170 @@ class CfnIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The list of tags associated with the integration.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aac4f130cef162cff3d53ffc61f9b5174f65de4bbe3fb991ae758426bf75861d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IScheduledActionRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshift.CfnIntegrationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "source_arn": "sourceArn",
+        "target_arn": "targetArn",
+        "additional_encryption_context": "additionalEncryptionContext",
+        "integration_name": "integrationName",
+        "kms_key_id": "kmsKeyId",
+        "tags": "tags",
+    },
+)
+class CfnIntegrationProps:
+    def __init__(
+        self,
+        *,
+        source_arn: builtins.str,
+        target_arn: builtins.str,
+        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        integration_name: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIntegration``.
+
+        :param source_arn: The Amazon Resource Name (ARN) of the database used as the source for replication.
+        :param target_arn: The Amazon Resource Name (ARN) of the Amazon Redshift data warehouse to use as the target for replication.
+        :param additional_encryption_context: The encryption context for the integration. For more information, see `Encryption context <https://docs.aws.amazon.com/>`_ in the *AWS Key Management Service Developer Guide* .
+        :param integration_name: The name of the integration.
+        :param kms_key_id: The AWS Key Management Service ( AWS KMS) key identifier for the key used to encrypt the integration.
+        :param tags: The list of tags associated with the integration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshift as redshift
+            
+            cfn_integration_props = redshift.CfnIntegrationProps(
+                source_arn="sourceArn",
+                target_arn="targetArn",
+            
+                # the properties below are optional
+                additional_encryption_context={
+                    "additional_encryption_context_key": "additionalEncryptionContext"
+                },
+                integration_name="integrationName",
+                kms_key_id="kmsKeyId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0772e4da780df63d61457c13aa77602f5d56797dbd993866c4876270813500e3)
+            check_type(argname="argument source_arn", value=source_arn, expected_type=type_hints["source_arn"])
+            check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
+            check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
+            check_type(argname="argument integration_name", value=integration_name, expected_type=type_hints["integration_name"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "source_arn": source_arn,
+            "target_arn": target_arn,
+        }
+        if additional_encryption_context is not None:
+            self._values["additional_encryption_context"] = additional_encryption_context
+        if integration_name is not None:
+            self._values["integration_name"] = integration_name
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def source_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the database used as the source for replication.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html#cfn-redshift-integration-sourcearn
+        '''
+        result = self._values.get("source_arn")
+        assert result is not None, "Required property 'source_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Amazon Redshift data warehouse to use as the target for replication.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html#cfn-redshift-integration-targetarn
+        '''
+        result = self._values.get("target_arn")
+        assert result is not None, "Required property 'target_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def additional_encryption_context(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        '''The encryption context for the integration.
+
+        For more information, see `Encryption context <https://docs.aws.amazon.com/>`_ in the *AWS Key Management Service Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html#cfn-redshift-integration-additionalencryptioncontext
+        '''
+        result = self._values.get("additional_encryption_context")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def integration_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the integration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html#cfn-redshift-integration-integrationname
+        '''
+        result = self._values.get("integration_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS Key Management Service ( AWS KMS) key identifier for the key used to encrypt the integration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html#cfn-redshift-integration-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The list of tags associated with the integration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-integration.html#cfn-redshift-integration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIntegrationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IScheduledActionRef_c873f019)
 class CfnScheduledAction(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6728,19 +5821,20 @@ class CfnScheduledAction(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         scheduled_action_name: builtins.str,
-        enable: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        enable: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         end_time: typing.Optional[builtins.str] = None,
         iam_role: typing.Optional[builtins.str] = None,
         schedule: typing.Optional[builtins.str] = None,
         scheduled_action_description: typing.Optional[builtins.str] = None,
         start_time: typing.Optional[builtins.str] = None,
-        target_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScheduledAction.ScheduledActionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScheduledAction.ScheduledActionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Redshift::ScheduledAction``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param scheduled_action_name: The name of the scheduled action.
@@ -6769,8 +5863,20 @@ class CfnScheduledAction(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnScheduledAction")
+    @builtins.classmethod
+    def is_cfn_scheduled_action(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnScheduledAction.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e7f9958238e229b8a0986d4e48b59c56492e911bb4c7474a7e841c0fd5fc0d6f)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnScheduledAction", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6826,9 +5932,9 @@ class CfnScheduledAction(
 
     @builtins.property
     @jsii.member(jsii_name="scheduledActionRef")
-    def scheduled_action_ref(self) -> ScheduledActionReference:
+    def scheduled_action_ref(self) -> "_ScheduledActionReference_57ba8aae":
         '''A reference to a ScheduledAction resource.'''
-        return typing.cast(ScheduledActionReference, jsii.get(self, "scheduledActionRef"))
+        return typing.cast("_ScheduledActionReference_57ba8aae", jsii.get(self, "scheduledActionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="scheduledActionName")
@@ -6847,14 +5953,14 @@ class CfnScheduledAction(
     @jsii.member(jsii_name="enable")
     def enable(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''If true, the schedule is enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enable"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enable"))
 
     @enable.setter
     def enable(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d91d9501f12e1db3372aea6023ac844c09772ef705ec20f4e25cb2a1b9febd2)
@@ -6933,14 +6039,14 @@ class CfnScheduledAction(
     @jsii.member(jsii_name="targetAction")
     def target_action(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScheduledAction.ScheduledActionTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledAction.ScheduledActionTypeProperty"]]:
         '''A JSON format string of the Amazon Redshift API operation with input parameters.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScheduledAction.ScheduledActionTypeProperty"]], jsii.get(self, "targetAction"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledAction.ScheduledActionTypeProperty"]], jsii.get(self, "targetAction"))
 
     @target_action.setter
     def target_action(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScheduledAction.ScheduledActionTypeProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledAction.ScheduledActionTypeProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37dee953d9dbcdfb3a7265aa1538c058a9dde8ebabb0b409a0151155cacc75c4)
@@ -7017,7 +6123,7 @@ class CfnScheduledAction(
             self,
             *,
             cluster_identifier: builtins.str,
-            classic: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            classic: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             cluster_type: typing.Optional[builtins.str] = None,
             node_type: typing.Optional[builtins.str] = None,
             number_of_nodes: typing.Optional[jsii.Number] = None,
@@ -7083,7 +6189,7 @@ class CfnScheduledAction(
         @builtins.property
         def classic(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''A boolean value indicating whether the resize operation is using the classic resize process.
 
             If you don't provide this parameter or set the value to ``false`` , the resize type is elastic.
@@ -7091,7 +6197,7 @@ class CfnScheduledAction(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-scheduledaction-resizeclustermessage.html#cfn-redshift-scheduledaction-resizeclustermessage-classic
             '''
             result = self._values.get("classic")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def cluster_type(self) -> typing.Optional[builtins.str]:
@@ -7202,9 +6308,9 @@ class CfnScheduledAction(
         def __init__(
             self,
             *,
-            pause_cluster: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScheduledAction.PauseClusterMessageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            resize_cluster: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScheduledAction.ResizeClusterMessageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            resume_cluster: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScheduledAction.ResumeClusterMessageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            pause_cluster: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScheduledAction.PauseClusterMessageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            resize_cluster: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScheduledAction.ResizeClusterMessageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            resume_cluster: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScheduledAction.ResumeClusterMessageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The action type that specifies an Amazon Redshift API operation that is supported by the Amazon Redshift scheduler.
 
@@ -7255,35 +6361,35 @@ class CfnScheduledAction(
         @builtins.property
         def pause_cluster(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScheduledAction.PauseClusterMessageProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledAction.PauseClusterMessageProperty"]]:
             '''An action that runs a ``PauseCluster`` API operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-scheduledaction-scheduledactiontype.html#cfn-redshift-scheduledaction-scheduledactiontype-pausecluster
             '''
             result = self._values.get("pause_cluster")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScheduledAction.PauseClusterMessageProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledAction.PauseClusterMessageProperty"]], result)
 
         @builtins.property
         def resize_cluster(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScheduledAction.ResizeClusterMessageProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledAction.ResizeClusterMessageProperty"]]:
             '''An action that runs a ``ResizeCluster`` API operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-scheduledaction-scheduledactiontype.html#cfn-redshift-scheduledaction-scheduledactiontype-resizecluster
             '''
             result = self._values.get("resize_cluster")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScheduledAction.ResizeClusterMessageProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledAction.ResizeClusterMessageProperty"]], result)
 
         @builtins.property
         def resume_cluster(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScheduledAction.ResumeClusterMessageProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledAction.ResumeClusterMessageProperty"]]:
             '''An action that runs a ``ResumeCluster`` API operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-scheduledaction-scheduledactiontype.html#cfn-redshift-scheduledaction-scheduledactiontype-resumecluster
             '''
             result = self._values.get("resume_cluster")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScheduledAction.ResumeClusterMessageProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledAction.ResumeClusterMessageProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7295,6 +6401,215 @@ class CfnScheduledAction(
             return "ScheduledActionTypeProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshift.CfnScheduledActionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "scheduled_action_name": "scheduledActionName",
+        "enable": "enable",
+        "end_time": "endTime",
+        "iam_role": "iamRole",
+        "schedule": "schedule",
+        "scheduled_action_description": "scheduledActionDescription",
+        "start_time": "startTime",
+        "target_action": "targetAction",
+    },
+)
+class CfnScheduledActionProps:
+    def __init__(
+        self,
+        *,
+        scheduled_action_name: builtins.str,
+        enable: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        end_time: typing.Optional[builtins.str] = None,
+        iam_role: typing.Optional[builtins.str] = None,
+        schedule: typing.Optional[builtins.str] = None,
+        scheduled_action_description: typing.Optional[builtins.str] = None,
+        start_time: typing.Optional[builtins.str] = None,
+        target_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScheduledAction.ScheduledActionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnScheduledAction``.
+
+        :param scheduled_action_name: The name of the scheduled action.
+        :param enable: If true, the schedule is enabled. If false, the scheduled action does not trigger. For more information about ``state`` of the scheduled action, see ``ScheduledAction`` .
+        :param end_time: The end time in UTC when the schedule is no longer active. After this time, the scheduled action does not trigger.
+        :param iam_role: The IAM role to assume to run the scheduled action. This IAM role must have permission to run the Amazon Redshift API operation in the scheduled action. This IAM role must allow the Amazon Redshift scheduler (Principal scheduler.redshift.amazonaws.com) to assume permissions on your behalf. For more information about the IAM role to use with the Amazon Redshift scheduler, see `Using Identity-Based Policies for Amazon Redshift <https://docs.aws.amazon.com/redshift/latest/mgmt/redshift-iam-access-control-identity-based.html>`_ in the *Amazon Redshift Cluster Management Guide* .
+        :param schedule: The schedule for a one-time (at format) or recurring (cron format) scheduled action. Schedule invocations must be separated by at least one hour. Format of at expressions is " ``at(yyyy-mm-ddThh:mm:ss)`` ". For example, " ``at(2016-03-04T17:27:00)`` ". Format of cron expressions is " ``cron(Minutes Hours Day-of-month Month Day-of-week Year)`` ". For example, " ``cron(0 10 ? * MON *)`` ". For more information, see `Cron Expressions <https://docs.aws.amazon.com//AmazonCloudWatch/latest/events/ScheduledEvents.html#CronExpressions>`_ in the *Amazon CloudWatch Events User Guide* .
+        :param scheduled_action_description: The description of the scheduled action.
+        :param start_time: The start time in UTC when the schedule is active. Before this time, the scheduled action does not trigger.
+        :param target_action: A JSON format string of the Amazon Redshift API operation with input parameters. " ``{\\"ResizeCluster\\":{\\"NodeType\\":\\"ra3.4xlarge\\",\\"ClusterIdentifier\\":\\"my-test-cluster\\",\\"NumberOfNodes\\":3}}`` ".
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshift as redshift
+            
+            cfn_scheduled_action_props = redshift.CfnScheduledActionProps(
+                scheduled_action_name="scheduledActionName",
+            
+                # the properties below are optional
+                enable=False,
+                end_time="endTime",
+                iam_role="iamRole",
+                schedule="schedule",
+                scheduled_action_description="scheduledActionDescription",
+                start_time="startTime",
+                target_action=redshift.CfnScheduledAction.ScheduledActionTypeProperty(
+                    pause_cluster=redshift.CfnScheduledAction.PauseClusterMessageProperty(
+                        cluster_identifier="clusterIdentifier"
+                    ),
+                    resize_cluster=redshift.CfnScheduledAction.ResizeClusterMessageProperty(
+                        cluster_identifier="clusterIdentifier",
+            
+                        # the properties below are optional
+                        classic=False,
+                        cluster_type="clusterType",
+                        node_type="nodeType",
+                        number_of_nodes=123
+                    ),
+                    resume_cluster=redshift.CfnScheduledAction.ResumeClusterMessageProperty(
+                        cluster_identifier="clusterIdentifier"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4b8f33670db3a11840dd3dde7157d6c714dfbdf357d1a2d7ffab1191d271b169)
+            check_type(argname="argument scheduled_action_name", value=scheduled_action_name, expected_type=type_hints["scheduled_action_name"])
+            check_type(argname="argument enable", value=enable, expected_type=type_hints["enable"])
+            check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
+            check_type(argname="argument iam_role", value=iam_role, expected_type=type_hints["iam_role"])
+            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+            check_type(argname="argument scheduled_action_description", value=scheduled_action_description, expected_type=type_hints["scheduled_action_description"])
+            check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
+            check_type(argname="argument target_action", value=target_action, expected_type=type_hints["target_action"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "scheduled_action_name": scheduled_action_name,
+        }
+        if enable is not None:
+            self._values["enable"] = enable
+        if end_time is not None:
+            self._values["end_time"] = end_time
+        if iam_role is not None:
+            self._values["iam_role"] = iam_role
+        if schedule is not None:
+            self._values["schedule"] = schedule
+        if scheduled_action_description is not None:
+            self._values["scheduled_action_description"] = scheduled_action_description
+        if start_time is not None:
+            self._values["start_time"] = start_time
+        if target_action is not None:
+            self._values["target_action"] = target_action
+
+    @builtins.property
+    def scheduled_action_name(self) -> builtins.str:
+        '''The name of the scheduled action.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-scheduledactionname
+        '''
+        result = self._values.get("scheduled_action_name")
+        assert result is not None, "Required property 'scheduled_action_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def enable(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''If true, the schedule is enabled.
+
+        If false, the scheduled action does not trigger. For more information about ``state`` of the scheduled action, see ``ScheduledAction`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-enable
+        '''
+        result = self._values.get("enable")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def end_time(self) -> typing.Optional[builtins.str]:
+        '''The end time in UTC when the schedule is no longer active.
+
+        After this time, the scheduled action does not trigger.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-endtime
+        '''
+        result = self._values.get("end_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def iam_role(self) -> typing.Optional[builtins.str]:
+        '''The IAM role to assume to run the scheduled action.
+
+        This IAM role must have permission to run the Amazon Redshift API operation in the scheduled action. This IAM role must allow the Amazon Redshift scheduler (Principal scheduler.redshift.amazonaws.com) to assume permissions on your behalf. For more information about the IAM role to use with the Amazon Redshift scheduler, see `Using Identity-Based Policies for Amazon Redshift <https://docs.aws.amazon.com/redshift/latest/mgmt/redshift-iam-access-control-identity-based.html>`_ in the *Amazon Redshift Cluster Management Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-iamrole
+        '''
+        result = self._values.get("iam_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schedule(self) -> typing.Optional[builtins.str]:
+        '''The schedule for a one-time (at format) or recurring (cron format) scheduled action.
+
+        Schedule invocations must be separated by at least one hour.
+
+        Format of at expressions is " ``at(yyyy-mm-ddThh:mm:ss)`` ". For example, " ``at(2016-03-04T17:27:00)`` ".
+
+        Format of cron expressions is " ``cron(Minutes Hours Day-of-month Month Day-of-week Year)`` ". For example, " ``cron(0 10 ? * MON *)`` ". For more information, see `Cron Expressions <https://docs.aws.amazon.com//AmazonCloudWatch/latest/events/ScheduledEvents.html#CronExpressions>`_ in the *Amazon CloudWatch Events User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-schedule
+        '''
+        result = self._values.get("schedule")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scheduled_action_description(self) -> typing.Optional[builtins.str]:
+        '''The description of the scheduled action.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-scheduledactiondescription
+        '''
+        result = self._values.get("scheduled_action_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def start_time(self) -> typing.Optional[builtins.str]:
+        '''The start time in UTC when the schedule is active.
+
+        Before this time, the scheduled action does not trigger.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-starttime
+        '''
+        result = self._values.get("start_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def target_action(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledAction.ScheduledActionTypeProperty"]]:
+        '''A JSON format string of the Amazon Redshift API operation with input parameters.
+
+        " ``{\\"ResizeCluster\\":{\\"NodeType\\":\\"ra3.4xlarge\\",\\"ClusterIdentifier\\":\\"my-test-cluster\\",\\"NumberOfNodes\\":3}}`` ".
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-scheduledaction.html#cfn-redshift-scheduledaction-targetaction
+        '''
+        result = self._values.get("target_action")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledAction.ScheduledActionTypeProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnScheduledActionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 __all__ = [
@@ -7318,257 +6633,9 @@ __all__ = [
     "CfnIntegrationProps",
     "CfnScheduledAction",
     "CfnScheduledActionProps",
-    "ClusterParameterGroupReference",
-    "ClusterReference",
-    "ClusterSecurityGroupIngressReference",
-    "ClusterSecurityGroupReference",
-    "ClusterSubnetGroupReference",
-    "EndpointAccessReference",
-    "EndpointAuthorizationReference",
-    "EventSubscriptionReference",
-    "IClusterParameterGroupRef",
-    "IClusterRef",
-    "IClusterSecurityGroupIngressRef",
-    "IClusterSecurityGroupRef",
-    "IClusterSubnetGroupRef",
-    "IEndpointAccessRef",
-    "IEndpointAuthorizationRef",
-    "IEventSubscriptionRef",
-    "IIntegrationRef",
-    "IScheduledActionRef",
-    "IntegrationReference",
-    "ScheduledActionReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__c5c09351f48d96a72274bd7deddd60b35ff3d97dffac06fef8da0c50669179bc(
-    *,
-    description: builtins.str,
-    parameter_group_family: builtins.str,
-    parameter_group_name: typing.Optional[builtins.str] = None,
-    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnClusterParameterGroup.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__88d0d566c2d2524449f4cc4b794952814b68b5dcd5494f1bcdf5b417ee87ed01(
-    *,
-    cluster_type: builtins.str,
-    db_name: builtins.str,
-    master_username: builtins.str,
-    node_type: builtins.str,
-    allow_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    aqua_configuration_status: typing.Optional[builtins.str] = None,
-    automated_snapshot_retention_period: typing.Optional[jsii.Number] = None,
-    availability_zone: typing.Optional[builtins.str] = None,
-    availability_zone_relocation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    availability_zone_relocation_status: typing.Optional[builtins.str] = None,
-    classic: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    cluster_identifier: typing.Optional[builtins.str] = None,
-    cluster_parameter_group_name: typing.Optional[builtins.str] = None,
-    cluster_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cluster_subnet_group_name: typing.Optional[builtins.str] = None,
-    cluster_version: typing.Optional[builtins.str] = None,
-    defer_maintenance: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    defer_maintenance_duration: typing.Optional[jsii.Number] = None,
-    defer_maintenance_end_time: typing.Optional[builtins.str] = None,
-    defer_maintenance_start_time: typing.Optional[builtins.str] = None,
-    destination_region: typing.Optional[builtins.str] = None,
-    elastic_ip: typing.Optional[builtins.str] = None,
-    encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    hsm_client_certificate_identifier: typing.Optional[builtins.str] = None,
-    hsm_configuration_identifier: typing.Optional[builtins.str] = None,
-    iam_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    logging_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.LoggingPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    maintenance_track_name: typing.Optional[builtins.str] = None,
-    manage_master_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
-    master_password_secret_kms_key_id: typing.Optional[builtins.str] = None,
-    master_user_password: typing.Optional[builtins.str] = None,
-    multi_az: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    namespace_resource_policy: typing.Any = None,
-    number_of_nodes: typing.Optional[jsii.Number] = None,
-    owner_account: typing.Optional[builtins.str] = None,
-    port: typing.Optional[jsii.Number] = None,
-    preferred_maintenance_window: typing.Optional[builtins.str] = None,
-    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    resource_action: typing.Optional[builtins.str] = None,
-    revision_target: typing.Optional[builtins.str] = None,
-    rotate_encryption_key: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    snapshot_cluster_identifier: typing.Optional[builtins.str] = None,
-    snapshot_copy_grant_name: typing.Optional[builtins.str] = None,
-    snapshot_copy_manual: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    snapshot_copy_retention_period: typing.Optional[jsii.Number] = None,
-    snapshot_identifier: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3e72baf9a2078a5fc775c4d9a3b9a1dcd173a15a5e17511d8332cdbd8704787a(
-    *,
-    cluster_security_group_name: builtins.str,
-    cidrip: typing.Optional[builtins.str] = None,
-    ec2_security_group_name: typing.Optional[builtins.str] = None,
-    ec2_security_group_owner_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cec630b207d9099c41b9e111a98fa64b023d8033b4d94d7ed94a660cba9bd2d7(
-    *,
-    description: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a7629b191964d0b486283403d34c774eed1fd92a00727981a023ae6012064b43(
-    *,
-    description: builtins.str,
-    subnet_ids: typing.Sequence[builtins.str],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb4208897e368488438ba6d463b7b2649df77c181ed9a0aabd7edf470cf9972e(
-    *,
-    cluster_identifier: builtins.str,
-    endpoint_name: builtins.str,
-    subnet_group_name: builtins.str,
-    vpc_security_group_ids: typing.Sequence[builtins.str],
-    resource_owner: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ea42c43e99e9da3eea3440151d10e74f104e3b13161b1b46186517cdfb455151(
-    *,
-    account: builtins.str,
-    cluster_identifier: builtins.str,
-    force: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    vpc_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__882750ef34f06482c6644922124100661565513fabbad49eed142788cd66cfa8(
-    *,
-    subscription_name: builtins.str,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
-    severity: typing.Optional[builtins.str] = None,
-    sns_topic_arn: typing.Optional[builtins.str] = None,
-    source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    source_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0772e4da780df63d61457c13aa77602f5d56797dbd993866c4876270813500e3(
-    *,
-    source_arn: builtins.str,
-    target_arn: builtins.str,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    integration_name: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4b8f33670db3a11840dd3dde7157d6c714dfbdf357d1a2d7ffab1191d271b169(
-    *,
-    scheduled_action_name: builtins.str,
-    enable: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    end_time: typing.Optional[builtins.str] = None,
-    iam_role: typing.Optional[builtins.str] = None,
-    schedule: typing.Optional[builtins.str] = None,
-    scheduled_action_description: typing.Optional[builtins.str] = None,
-    start_time: typing.Optional[builtins.str] = None,
-    target_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledAction.ScheduledActionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d034d945d45f5eb1de18e5b0b86433f9248e9a3631dea166a3f53fe4d53de3bd(
-    *,
-    parameter_group_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__46a856bb41dfc5bebc0f0bf912039b13ac4eda162b6f24288c5d811036fc752d(
-    *,
-    cluster_identifier: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cdae8c28c68b834753b28dd1a08688ce59da7e5f1f522412c3b5d59af49c5fe7(
-    *,
-    cluster_security_group_ingress_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e8129fb8a20ceda61c5bfbeae979cbc6f959d790cd588f3dfe16605e8cb1e0ea(
-    *,
-    cluster_security_group_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8f5cc7460fd80145b52f6db8caa73f0e98c6c591a2066e5607c3343dd710ffa7(
-    *,
-    cluster_subnet_group_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8eebb12b92cab21a5d3fe5bdc6e5f7a4e7f04e23091d09ee329492dfe4b0f266(
-    *,
-    endpoint_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cc4c5d6df10f061e349f8d3b8ca29032fa6486f5dc4b8c2ffa98a32e0c03d8a2(
-    *,
-    account: builtins.str,
-    cluster_identifier: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__271c721bdf904feae0e278bf551d328966d15f2865d010ed5f746f68e34c405b(
-    *,
-    subscription_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__92b0020afcb20aa639f1b9ad89f42e44b226a181e4ac01dd7d5fe256c1d23954(
-    *,
-    integration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fd0c8fca02bf332733091fbd675b0506e14c5ac6996644a207e25fb3bb2ab69b(
-    *,
-    scheduled_action_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__f6d25f70797e3ae67b635ec776926582ff0be975c8173c4af217f7f6e3bd404b(
     scope: _constructs_77d1e7e8.Construct,
@@ -7586,28 +6653,28 @@ def _typecheckingstub__f6d25f70797e3ae67b635ec776926582ff0be975c8173c4af217f7f6e
     availability_zone_relocation_status: typing.Optional[builtins.str] = None,
     classic: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     cluster_identifier: typing.Optional[builtins.str] = None,
-    cluster_parameter_group_name: typing.Optional[builtins.str] = None,
-    cluster_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cluster_subnet_group_name: typing.Optional[builtins.str] = None,
+    cluster_parameter_group_name: typing.Optional[typing.Union[builtins.str, _IClusterParameterGroupRef_daa0f332]] = None,
+    cluster_security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18, _IClusterSecurityGroupRef_b934aac2]]] = None,
+    cluster_subnet_group_name: typing.Optional[typing.Union[builtins.str, _IClusterSubnetGroupRef_ee5ee341]] = None,
     cluster_version: typing.Optional[builtins.str] = None,
     defer_maintenance: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     defer_maintenance_duration: typing.Optional[jsii.Number] = None,
     defer_maintenance_end_time: typing.Optional[builtins.str] = None,
     defer_maintenance_start_time: typing.Optional[builtins.str] = None,
     destination_region: typing.Optional[builtins.str] = None,
-    elastic_ip: typing.Optional[builtins.str] = None,
+    elastic_ip: typing.Optional[typing.Union[builtins.str, _IEIPRef_60d698bd]] = None,
     encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     hsm_client_certificate_identifier: typing.Optional[builtins.str] = None,
     hsm_configuration_identifier: typing.Optional[builtins.str] = None,
-    iam_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
+    iam_roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IRoleRef_8400221f]]] = None,
+    kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
     logging_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.LoggingPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maintenance_track_name: typing.Optional[builtins.str] = None,
     manage_master_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
-    master_password_secret_kms_key_id: typing.Optional[builtins.str] = None,
+    master_password_secret_kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
     master_user_password: typing.Optional[builtins.str] = None,
     multi_az: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     namespace_resource_policy: typing.Any = None,
@@ -7625,7 +6692,13 @@ def _typecheckingstub__f6d25f70797e3ae67b635ec776926582ff0be975c8173c4af217f7f6e
     snapshot_copy_retention_period: typing.Optional[jsii.Number] = None,
     snapshot_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db2c796415911125c712caed0f3a07ce4f652b4485a75e8a654f778bf118c677(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7985,6 +7058,26 @@ def _typecheckingstub__a4414ca463de61620f73bf7c02eb829639136d7dcc505964ba4d9e961
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ea38799ab30cd9c2507371a51b5c9d00383209b119dc58579f842fdf9f0f8295(
+    resource: _IClusterParameterGroupRef_daa0f332,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4fcc0dd642456f37020bcfe38fd9cfd482cbd79750adda84ea8706f1e6df408(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    parameter_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf0a59d408f5d1eaeef0fa60d503ddb54ebf886fc9fb90ab024e2df3990905c4(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__33c3f5debe7a54728cc11b0bbd4cd3ef9a8b793416272ffb149cec7294e16c50(
     inspector: _TreeInspector_488e0dd5,
 ) -> None:
@@ -8035,12 +7128,87 @@ def _typecheckingstub__240e23a4f4e09dcaf1a5943661993a46709536c604817503e522b63cc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c5c09351f48d96a72274bd7deddd60b35ff3d97dffac06fef8da0c50669179bc(
+    *,
+    description: builtins.str,
+    parameter_group_family: builtins.str,
+    parameter_group_name: typing.Optional[builtins.str] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnClusterParameterGroup.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88d0d566c2d2524449f4cc4b794952814b68b5dcd5494f1bcdf5b417ee87ed01(
+    *,
+    cluster_type: builtins.str,
+    db_name: builtins.str,
+    master_username: builtins.str,
+    node_type: builtins.str,
+    allow_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    aqua_configuration_status: typing.Optional[builtins.str] = None,
+    automated_snapshot_retention_period: typing.Optional[jsii.Number] = None,
+    availability_zone: typing.Optional[builtins.str] = None,
+    availability_zone_relocation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    availability_zone_relocation_status: typing.Optional[builtins.str] = None,
+    classic: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    cluster_identifier: typing.Optional[builtins.str] = None,
+    cluster_parameter_group_name: typing.Optional[typing.Union[builtins.str, _IClusterParameterGroupRef_daa0f332]] = None,
+    cluster_security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18, _IClusterSecurityGroupRef_b934aac2]]] = None,
+    cluster_subnet_group_name: typing.Optional[typing.Union[builtins.str, _IClusterSubnetGroupRef_ee5ee341]] = None,
+    cluster_version: typing.Optional[builtins.str] = None,
+    defer_maintenance: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    defer_maintenance_duration: typing.Optional[jsii.Number] = None,
+    defer_maintenance_end_time: typing.Optional[builtins.str] = None,
+    defer_maintenance_start_time: typing.Optional[builtins.str] = None,
+    destination_region: typing.Optional[builtins.str] = None,
+    elastic_ip: typing.Optional[typing.Union[builtins.str, _IEIPRef_60d698bd]] = None,
+    encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    hsm_client_certificate_identifier: typing.Optional[builtins.str] = None,
+    hsm_configuration_identifier: typing.Optional[builtins.str] = None,
+    iam_roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IRoleRef_8400221f]]] = None,
+    kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    logging_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.LoggingPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_track_name: typing.Optional[builtins.str] = None,
+    manage_master_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
+    master_password_secret_kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    master_user_password: typing.Optional[builtins.str] = None,
+    multi_az: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    namespace_resource_policy: typing.Any = None,
+    number_of_nodes: typing.Optional[jsii.Number] = None,
+    owner_account: typing.Optional[builtins.str] = None,
+    port: typing.Optional[jsii.Number] = None,
+    preferred_maintenance_window: typing.Optional[builtins.str] = None,
+    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    resource_action: typing.Optional[builtins.str] = None,
+    revision_target: typing.Optional[builtins.str] = None,
+    rotate_encryption_key: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    snapshot_cluster_identifier: typing.Optional[builtins.str] = None,
+    snapshot_copy_grant_name: typing.Optional[builtins.str] = None,
+    snapshot_copy_manual: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    snapshot_copy_retention_period: typing.Optional[jsii.Number] = None,
+    snapshot_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9b22efcbba45de188c12e3a4ec10ac826aa23627c8a9c1ab33ac3ab92f1db7ca(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     description: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a40b57bb56e8b5bea40fe944586bf267bf082fd99cba7ddfa1985a6bbf4d6f34(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8081,6 +7249,12 @@ def _typecheckingstub__41697fee2951713c64e294c4e4850203dbc7d20174c1fed5347f59188
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__69014c8f4f09c3b872102b3f597a62546f34fba05dd0a3ea8980fd34bc397a20(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c5daaf061a9776bc828b5e17868e3a5341ceac5a9921dfd313ea5696175e61dc(
     inspector: _TreeInspector_488e0dd5,
 ) -> None:
@@ -8117,13 +7291,37 @@ def _typecheckingstub__ea6866c86f6e401834ff96949921e03d99488382c3dc85fdb95699153
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3e72baf9a2078a5fc775c4d9a3b9a1dcd173a15a5e17511d8332cdbd8704787a(
+    *,
+    cluster_security_group_name: builtins.str,
+    cidrip: typing.Optional[builtins.str] = None,
+    ec2_security_group_name: typing.Optional[builtins.str] = None,
+    ec2_security_group_owner_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cec630b207d9099c41b9e111a98fa64b023d8033b4d94d7ed94a660cba9bd2d7(
+    *,
+    description: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__586021bde6b1b8994209ba685b5235bc28948707297a01dceac93f542c3474a1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     description: builtins.str,
-    subnet_ids: typing.Sequence[builtins.str],
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69776a8bb9556bb5fe0ee5710238a52ddcd5b461981eff6427fe95926b055369(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8158,15 +7356,30 @@ def _typecheckingstub__d0234790a32423c903d2d0b04af30d14f6232a9d29765580ce78154e1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a7629b191964d0b486283403d34c774eed1fd92a00727981a023ae6012064b43(
+    *,
+    description: builtins.str,
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__adead910756274e2bd16ee0b3769d492024abb4cf55d5583a9333d89a1943c75(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     cluster_identifier: builtins.str,
     endpoint_name: builtins.str,
-    subnet_group_name: builtins.str,
-    vpc_security_group_ids: typing.Sequence[builtins.str],
+    subnet_group_name: typing.Union[builtins.str, _IClusterSubnetGroupRef_ee5ee341],
+    vpc_security_group_ids: typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]],
     resource_owner: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d0b8106cae8910d12c61954e12b0ce5ca2d35531c4221215e412581bb9063fba(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8240,6 +7453,17 @@ def _typecheckingstub__23ce7ea4c053267c6ffadf93ea9fe0811193cc5da011801b19256affd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cb4208897e368488438ba6d463b7b2649df77c181ed9a0aabd7edf470cf9972e(
+    *,
+    cluster_identifier: builtins.str,
+    endpoint_name: builtins.str,
+    subnet_group_name: typing.Union[builtins.str, _IClusterSubnetGroupRef_ee5ee341],
+    vpc_security_group_ids: typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]],
+    resource_owner: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a697bf6f03512c68c5e0bbce590548dfbef060e4ff37182e32221fef8c520a4b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8247,7 +7471,13 @@ def _typecheckingstub__a697bf6f03512c68c5e0bbce590548dfbef060e4ff37182e32221fef8
     account: builtins.str,
     cluster_identifier: builtins.str,
     force: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    vpc_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    vpc_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IVPCRef_f02a11df]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89b6a064ff37141de71f59741ca28dfcee22bfe80b3b519a4c3dbe8124081fe8(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8288,6 +7518,16 @@ def _typecheckingstub__13a14605f174b24a5f18a5630ff894d214b1bfc4e05f8b83234828a27
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ea42c43e99e9da3eea3440151d10e74f104e3b13161b1b46186517cdfb455151(
+    *,
+    account: builtins.str,
+    cluster_identifier: builtins.str,
+    force: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    vpc_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IVPCRef_f02a11df]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f2321a5fed3334265b97838abad90fad948fa6670da0259ba7e0d24e88326fdd(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8296,10 +7536,16 @@ def _typecheckingstub__f2321a5fed3334265b97838abad90fad948fa6670da0259ba7e0d24e8
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
     severity: typing.Optional[builtins.str] = None,
-    sns_topic_arn: typing.Optional[builtins.str] = None,
+    sns_topic_arn: typing.Optional[typing.Union[builtins.str, _ITopicRef_29aa9a88]] = None,
     source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     source_type: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ebfdb94d2c46a71d35a476b5aec58c2e35e5a538965b6452b1eedc1d78f801d(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8364,6 +7610,20 @@ def _typecheckingstub__3f8d017fb369cae60fd6db670e2d0711cfe832e31a2eb08dc7c90f07d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__882750ef34f06482c6644922124100661565513fabbad49eed142788cd66cfa8(
+    *,
+    subscription_name: builtins.str,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
+    severity: typing.Optional[builtins.str] = None,
+    sns_topic_arn: typing.Optional[typing.Union[builtins.str, _ITopicRef_29aa9a88]] = None,
+    source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    source_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__195f43b15319a462222fa2f5a73df1bdd50a48d85ec97165e527a5a9511ec709(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8374,6 +7634,18 @@ def _typecheckingstub__195f43b15319a462222fa2f5a73df1bdd50a48d85ec97165e527a5a95
     integration_name: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c2c48280791381e3f99f0ff1421d99c3f092be4adc1852d4e93aa800feee25d(
+    resource: _IIntegrationRef_8879a683,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d06df8bb9bdc523bbbbe2b97cd950671cf969519a5e73368449ad2f6d2d479e3(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8426,6 +7698,18 @@ def _typecheckingstub__aac4f130cef162cff3d53ffc61f9b5174f65de4bbe3fb991ae758426b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0772e4da780df63d61457c13aa77602f5d56797dbd993866c4876270813500e3(
+    *,
+    source_arn: builtins.str,
+    target_arn: builtins.str,
+    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    integration_name: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1b090f5bcac0321af743a2821b9b20cd050f984204fe9b5d4288918250e146d1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8438,6 +7722,12 @@ def _typecheckingstub__1b090f5bcac0321af743a2821b9b20cd050f984204fe9b5d428891825
     scheduled_action_description: typing.Optional[builtins.str] = None,
     start_time: typing.Optional[builtins.str] = None,
     target_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledAction.ScheduledActionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e7f9958238e229b8a0986d4e48b59c56492e911bb4c7474a7e841c0fd5fc0d6f(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8532,6 +7822,20 @@ def _typecheckingstub__d636da52cf59446f020e242a88d41b50e55ef8273a113c78f968a7fe2
     pause_cluster: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledAction.PauseClusterMessageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resize_cluster: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledAction.ResizeClusterMessageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resume_cluster: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledAction.ResumeClusterMessageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b8f33670db3a11840dd3dde7157d6c714dfbdf357d1a2d7ffab1191d271b169(
+    *,
+    scheduled_action_name: builtins.str,
+    enable: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    end_time: typing.Optional[builtins.str] = None,
+    iam_role: typing.Optional[builtins.str] = None,
+    schedule: typing.Optional[builtins.str] = None,
+    scheduled_action_description: typing.Optional[builtins.str] = None,
+    start_time: typing.Optional[builtins.str] = None,
+    target_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledAction.ScheduledActionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

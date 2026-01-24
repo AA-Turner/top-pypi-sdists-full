@@ -50,23 +50,22 @@ def door_cases_is_subhint() -> 'Iterable[Tuple[object, object, bool]]':
     import collections.abc
     import typing
     from abc import ABCMeta
-    from beartype._data.hint.datahinttyping import (
-        S,
-        T,
-    )
     from beartype._util.cls.utilclstest import is_type_subclass_proper
-    from beartype._util.hint.pep.utilpepget import get_hint_pep_typevars
-    from beartype_test.a00_unit.data.hint.pep.proposal.data_pep484 import (
-        T_sequence,
-        T_int_or_str,
-    )
-    from beartype_test.a00_unit.data.hint.pep.proposal.pep484585.data_pep484585generic import (
+    from beartype._util.py.utilpyversion import IS_PYTHON_AT_MOST_3_13
+    from beartype_test.a00_unit.data.pep.generic.data_pep484generic import (
         Pep484GenericT,
         Pep484GenericSubT,
         Pep484GenericST,
         Pep484GenericSInt,
-        # Pep484GenericIntInt,
+    )
+    from beartype_test.a00_unit.data.pep.generic.data_pep585generic import (
         Pep585SequenceT,
+    )
+    from beartype_test.a00_unit.data.pep.data_pep484 import (
+        S,
+        T,
+        T_sequence,
+        T_int_or_str,
     )
     from collections.abc import (
         Collection as CollectionABC,
@@ -79,7 +78,6 @@ def door_cases_is_subhint() -> 'Iterable[Tuple[object, object, bool]]':
         Annotated,
         Any,
         Awaitable,
-        ByteString,
         Callable,
         Collection,
         DefaultDict,
@@ -99,7 +97,6 @@ def door_cases_is_subhint() -> 'Iterable[Tuple[object, object, bool]]':
         Tuple,
         Type,
         TypedDict,
-        # TypeVar,
         Union,
     )
 
@@ -177,7 +174,6 @@ def door_cases_is_subhint() -> 'Iterable[Tuple[object, object, bool]]':
 
         # ..................{ PEP 484 ~ argless : type       }..................
         # PEP 484-compliant argumentless abstract base classes (ABCs).
-        (bytes, ByteString, True),
         (str, Hashable, True),
         (MuhNutherThing, Sized, True),
         (MuhTuple, tuple, True),  # not really types
@@ -404,11 +400,28 @@ def door_cases_is_subhint() -> 'Iterable[Tuple[object, object, bool]]':
         (Annotated[List[int], "metadata"], List[int], True),
     ]
 
+    # ..................{ LISTS ~ cases : version            }..................
+    # If the active Python interpreter targets Python <= 3.13...
+    if IS_PYTHON_AT_MOST_3_13:
+        # "collections.abc.ByteString", "typing.ByteString", and therefore
+        # "beartype.typing.ByteString" itself no longer exist under Python 3.14.
+        from beartype.typing import ByteString
+
+        # Extend this list with...
+        HINT_SUBHINT_CASES.extend((
+            # ..................{ PEP 484 ~ argless : type   }..................
+            # PEP 484-compliant argumentless abstract base classes (ABCs).
+            (bytes, ByteString, True),
+        ))
+
     # ..................{ LISTS ~ typing                     }..................
     # List of the unqualified basenames of all standard ABCs published by
     # the standard "collections.abc" module, initialized to the empty list.
     COLLECTIONS_ABC_BASENAMES = []
 
+    #FIXME: Call the higher-level and *SIGNIFICANTLY* safer
+    #get_object_attrs_name_to_value_explicit() getter instead of manually
+    #iterating over "__dict__.items()", please. *sigh*
     # For the unqualified basename of each attribute and that attribute defined
     # by the standard "collections.abc" submodule...
     for collections_abc_basename, collections_abc in (
@@ -437,7 +450,7 @@ def door_cases_is_subhint() -> 'Iterable[Tuple[object, object, bool]]':
         # List of the unqualified basenames of all ancillary ABCs *NOT*
         # published by the standard "collections.abc" module but nonetheless
         # supported by the standard "typing" module.
-        ['Deque']
+        ['Deque',]
     )
     # print(f'TYPING_ABC_BASENAMES: {TYPING_ABC_BASENAMES}')
 

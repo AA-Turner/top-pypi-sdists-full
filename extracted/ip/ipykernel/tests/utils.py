@@ -2,6 +2,7 @@
 
 # Copyright (c) IPython Development Team.
 # Distributed under the terms of the Modified BSD License.
+from __future__ import annotations
 
 import atexit
 import os
@@ -167,14 +168,19 @@ def new_kernel(argv=None):
     return manager.run_kernel(**kwargs)
 
 
-def assemble_output(get_msg):
+def assemble_output(get_msg, timeout=1, parent_msg_id: str | None = None, raise_error=True):
     """assemble stdout/err from an execution"""
     stdout = ""
     stderr = ""
     while True:
-        msg = get_msg(timeout=1)
+        msg = get_msg(timeout=timeout)
         msg_type = msg["msg_type"]
         content = msg["content"]
+
+        if parent_msg_id is not None and msg["parent_header"]["msg_id"] != parent_msg_id:
+            # Ignore message for wrong parent message
+            continue
+
         if msg_type == "status" and content["execution_state"] == "idle":
             # idle message signals end of output
             break
@@ -185,18 +191,28 @@ def assemble_output(get_msg):
                 stderr += content["text"]
             else:
                 raise KeyError("bad stream: %r" % content["name"])
+        elif raise_error and msg["msg_type"] == "error":
+            tb = "\n".join(msg["content"]["traceback"])
+            msg = f"Execution failed with:\n{tb}"
+            if stderr:
+                msg = f"{msg}\nstderr:\n{stderr}"
+            raise RuntimeError(msg)
         else:
             # other output, ignored
             pass
     return stdout, stderr
 
 
-def wait_for_idle(kc):
+def wait_for_idle(kc, parent_msg_id: str | None = None):
     while True:
         msg = kc.get_iopub_msg(timeout=1)
         msg_type = msg["msg_type"]
         content = msg["content"]
-        if msg_type == "status" and content["execution_state"] == "idle":
+        if (
+            msg_type == "status"
+            and content["execution_state"] == "idle"
+            and (parent_msg_id is None or msg["parent_header"]["msg_id"] == parent_msg_id)
+        ):
             break
 
 

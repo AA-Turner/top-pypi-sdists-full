@@ -13,6 +13,7 @@ from urllib.parse import unquote
 
 import pandas as pd
 import pytz as tz
+
 from seeq.base import util
 from seeq.sdk import *
 from seeq.spy import _common, _login, _datalab
@@ -416,8 +417,8 @@ def dump_pickle(df, path):
 def validate_and_get_next_trigger(session: Session, cron_expression_list) -> Dict[str, str]:
     jobs_api = JobsApi(session.client)
     validate_cron_input = ValidateCronListInputV1()
-    validate_cron_input.timezone = _login.get_fallback_timezone(session)
-    validate_cron_input.next_valid_time_after = datetime.now(tz.timezone(_login.get_fallback_timezone(session))) \
+    validate_cron_input.timezone = session.get_session_timezone()
+    validate_cron_input.next_valid_time_after = datetime.now(tz.timezone(session.get_session_timezone())) \
         .replace(microsecond=0)
     validate_cron_input.schedules = cron_expression_list
     validation_output = jobs_api.validate_cron(body=validate_cron_input)
@@ -439,7 +440,7 @@ def _call_schedule_notebook_api(session: Session, cron_expressions: List[Tuple[A
     schedule_input = ScheduledNotebookInputV1()
     schedule_input.file_path = file_path
     schedule_input.schedules = [ScheduleInputV1(key=idx, cron_schedule=cron) for idx, cron in cron_expressions]
-    schedule_input.timezone = _login.get_fallback_timezone(session)
+    schedule_input.timezone = session.get_session_timezone()
     schedule_input.label = label
     schedule_input.notify_on_skipped_execution = notify_on_skipped_execution
     schedule_input.notify_on_automatic_unschedule = notify_on_automatic_unschedule

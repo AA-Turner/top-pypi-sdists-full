@@ -37,7 +37,7 @@ def test_evaluation_result(client):
     )
 
     predefined_metrics = [
-        types.PrebuiltMetric.GENERAL_QUALITY,
+        types.RubricMetric.GENERAL_QUALITY,
     ]
 
     evaluation_result = client.evals.evaluate(
@@ -58,6 +58,52 @@ def test_evaluation_result(client):
         assert isinstance(case_result, types.EvalCaseResult)
         assert case_result.eval_case_index is not None
         assert case_result.response_candidate_results is not None
+
+
+# TODO: Re-enable this test once the Presubmit replay test bug is fixed.
+
+# def test_evaluation_result_with_autorater_config(client):
+#     """Tests that evaluate() produces a correctly structured EvaluationResult."""
+#     prompts_df = pd.DataFrame(
+#         {
+#             "prompt": ["Explain the concept of machine learning in simple terms."],
+#             "response": [
+#                 "Machine learning is a type of artificial intelligence that allows"
+#                 " computers to learn from data without being explicitly programmed."
+#             ],
+#         }
+#     )
+
+#     eval_dataset = types.EvaluationDataset(
+#         eval_dataset_df=prompts_df,
+#         candidate_name="gemini-2.5-flash",
+#     )
+
+#     predefined_metric_with_autorater_config = types.RubricMetric.GENERAL_QUALITY(
+#         judge_model_generation_config=genai_types.GenerationConfig(
+#             temperature=0.1,
+#             max_output_tokens=1024,
+#         )
+#     )
+
+#     evaluation_result = client.evals.evaluate(
+#         dataset=eval_dataset,
+#         metrics=[predefined_metric_with_autorater_config],
+#     )
+
+#     assert isinstance(evaluation_result, types.EvaluationResult)
+
+#     assert evaluation_result.summary_metrics is not None
+#     for summary in evaluation_result.summary_metrics:
+#         assert isinstance(summary, types.AggregatedMetricResult)
+#         assert summary.metric_name == "general_quality_v1"
+#         assert summary.mean_score is not None
+
+#     assert evaluation_result.eval_case_results is not None
+#     for case_result in evaluation_result.eval_case_results:
+#         assert isinstance(case_result, types.EvalCaseResult)
+#         assert case_result.eval_case_index is not None
+#         assert case_result.response_candidate_results is not None
 
 
 def test_multi_turn_predefined_metric(client):
@@ -195,6 +241,174 @@ def test_multi_turn_predefined_metric(client):
 
     assert evaluation_result.eval_case_results is not None
     assert len(evaluation_result.eval_case_results) > 0
+    for case_result in evaluation_result.eval_case_results:
+        assert isinstance(case_result, types.EvalCaseResult)
+        assert case_result.eval_case_index is not None
+        assert case_result.response_candidate_results is not None
+
+
+def test_evaluation_grounding_metric(client):
+    """Tests that grounding metric produces a correctly structured EvaluationResult."""
+    prompts_df = pd.DataFrame(
+        {
+            "prompt": ["Explain the concept of machine learning in simple terms."],
+            "response": [
+                "Machine learning is a type of artificial intelligence that allows"
+                " computers to learn from data without being explicitly programmed."
+            ],
+            "context": [
+                "Article: 'Intro to AI', Section 2.1\n"
+                "Machine learning (ML) is a subfield of artificial intelligence (AI). "
+                "The core idea of machine learning is that it allows computer systems to "
+                "learn from and adapt to new data without being explicitly programmed. "
+                "Instead of a developer writing code for every possible scenario, the "
+                "system builds a model based on patterns in training data."
+            ],
+        }
+    )
+
+    eval_dataset = types.EvaluationDataset(
+        eval_dataset_df=prompts_df,
+        candidate_name="gemini-2.5-flash",
+    )
+
+    evaluation_result = client.evals.evaluate(
+        dataset=eval_dataset,
+        metrics=[
+            types.RubricMetric.GROUNDING,
+        ],
+    )
+
+    assert isinstance(evaluation_result, types.EvaluationResult)
+
+    assert evaluation_result.summary_metrics is not None
+    for summary in evaluation_result.summary_metrics:
+        assert isinstance(summary, types.AggregatedMetricResult)
+        assert summary.metric_name is not None
+        assert summary.mean_score is not None
+
+    assert evaluation_result.eval_case_results is not None
+    for case_result in evaluation_result.eval_case_results:
+        assert isinstance(case_result, types.EvalCaseResult)
+        assert case_result.eval_case_index is not None
+        assert case_result.response_candidate_results is not None
+
+
+def test_evaluation_gecko_text2image_metric(client):
+    """Tests that Gecko text2image metric produces a correctly structured EvaluationResult."""
+    prompts_df = pd.DataFrame(
+        {
+            "prompt": ["sunset over a calm ocean"],
+            "response": [
+                {
+                    "parts": [
+                        {
+                            "file_data": {
+                                "mime_type": "image/png",
+                                "file_uri": (
+                                    "gs://cloud-samples-data/generative-ai/evaluation/"
+                                    "images/sunset.png"
+                                ),
+                            }
+                        }
+                    ],
+                    "role": "model",
+                },
+            ],
+        }
+    )
+
+    data_with_rubrics = client.evals.generate_rubrics(
+        src=prompts_df,
+        rubric_group_name="gecko_image_rubrics",
+        predefined_spec_name=types.RubricMetric.GECKO_TEXT2IMAGE,
+    )
+
+    assert isinstance(data_with_rubrics, types.EvaluationDataset)
+    assert data_with_rubrics.eval_dataset_df is not None
+    assert len(data_with_rubrics.eval_dataset_df) == 1
+    for _, case in data_with_rubrics.eval_dataset_df.iterrows():
+        assert case.rubric_groups is not None
+        assert "gecko_image_rubrics" in case.rubric_groups
+
+    evaluation_result = client.evals.evaluate(
+        dataset=data_with_rubrics,
+        metrics=[
+            types.RubricMetric.GECKO_TEXT2IMAGE,
+        ],
+    )
+
+    assert isinstance(evaluation_result, types.EvaluationResult)
+
+    assert evaluation_result.summary_metrics is not None
+    for summary in evaluation_result.summary_metrics:
+        assert isinstance(summary, types.AggregatedMetricResult)
+        assert summary.metric_name is not None
+        assert summary.mean_score is not None
+
+    assert evaluation_result.eval_case_results is not None
+    for case_result in evaluation_result.eval_case_results:
+        assert isinstance(case_result, types.EvalCaseResult)
+        assert case_result.eval_case_index is not None
+        assert case_result.response_candidate_results is not None
+
+
+def test_evaluation_gecko_text2video_metric(client):
+    """Tests that Gecko text2video metric produces a correctly structured EvaluationResult."""
+    prompts_df = pd.DataFrame(
+        {
+            "prompt": [
+                "A boat sailing leisurely along the Seine River with the Eiffel Tower "
+                "in background"
+            ],
+            "response": [
+                {
+                    "parts": [
+                        {
+                            "file_data": {
+                                "mime_type": "video/mp4",
+                                "file_uri": (
+                                    "gs://cloud-samples-data/generative-ai/evaluation/"
+                                    "videos/boat.mp4"
+                                ),
+                            }
+                        }
+                    ],
+                    "role": "model",
+                },
+            ],
+        }
+    )
+
+    data_with_rubrics = client.evals.generate_rubrics(
+        src=prompts_df,
+        rubric_group_name="gecko_video_rubrics",
+        predefined_spec_name=types.RubricMetric.GECKO_TEXT2VIDEO,
+    )
+
+    assert isinstance(data_with_rubrics, types.EvaluationDataset)
+    assert data_with_rubrics.eval_dataset_df is not None
+    assert len(data_with_rubrics.eval_dataset_df) == 1
+    for _, case in data_with_rubrics.eval_dataset_df.iterrows():
+        assert case.rubric_groups is not None
+        assert "gecko_video_rubrics" in case.rubric_groups
+
+    evaluation_result = client.evals.evaluate(
+        dataset=data_with_rubrics,
+        metrics=[
+            types.RubricMetric.GECKO_TEXT2VIDEO,
+        ],
+    )
+
+    assert isinstance(evaluation_result, types.EvaluationResult)
+
+    assert evaluation_result.summary_metrics is not None
+    for summary in evaluation_result.summary_metrics:
+        assert isinstance(summary, types.AggregatedMetricResult)
+        assert summary.metric_name is not None
+        assert summary.mean_score is not None
+
+    assert evaluation_result.eval_case_results is not None
     for case_result in evaluation_result.eval_case_results:
         assert isinstance(case_result, types.EvalCaseResult)
         assert case_result.eval_case_index is not None

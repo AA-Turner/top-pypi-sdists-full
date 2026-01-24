@@ -3,7 +3,7 @@ Type annotations for compute-optimizer service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_compute_optimizer/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -104,12 +105,6 @@ from .literals import (
     StatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -299,7 +294,7 @@ AutoScalingGroupConfigurationTypeDef = TypedDict(
         "allocationStrategy": NotRequired[AllocationStrategyType],
         "estimatedInstanceHourReductionPercentage": NotRequired[float],
         "type": NotRequired[AsgTypeType],
-        "mixedInstanceTypes": NotRequired[List[str]],
+        "mixedInstanceTypes": NotRequired[list[str]],
     },
 )
 
@@ -349,7 +344,7 @@ class PaginatorConfigTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -378,9 +373,9 @@ class ECSEstimatedMonthlySavingsTypeDef(TypedDict):
 
 class ECSServiceProjectedMetricTypeDef(TypedDict):
     name: NotRequired[ECSServiceMetricNameType]
-    timestamps: NotRequired[List[datetime]]
-    upperBoundValues: NotRequired[List[float]]
-    lowerBoundValues: NotRequired[List[float]]
+    timestamps: NotRequired[list[datetime]]
+    upperBoundValues: NotRequired[list[float]]
+    lowerBoundValues: NotRequired[list[float]]
 
 class ECSServiceProjectedUtilizationMetricTypeDef(TypedDict):
     name: NotRequired[ECSServiceMetricNameType]
@@ -403,9 +398,9 @@ class TagTypeDef(TypedDict):
 
 class EffectivePreferredResourceTypeDef(TypedDict):
     name: NotRequired[Literal["Ec2InstanceTypes"]]
-    includeList: NotRequired[List[str]]
-    effectiveIncludeList: NotRequired[List[str]]
-    excludeList: NotRequired[List[str]]
+    includeList: NotRequired[list[str]]
+    effectiveIncludeList: NotRequired[list[str]]
+    excludeList: NotRequired[list[str]]
 
 class ExternalMetricsPreferenceTypeDef(TypedDict):
     source: NotRequired[ExternalMetricsSourceType]
@@ -535,8 +530,8 @@ class PreferredResourceTypeDef(TypedDict):
 
 class ProjectedMetricTypeDef(TypedDict):
     name: NotRequired[MetricNameType]
-    timestamps: NotRequired[List[datetime]]
-    values: NotRequired[List[float]]
+    timestamps: NotRequired[list[datetime]]
+    values: NotRequired[list[float]]
 
 class RDSDBUtilizationMetricTypeDef(TypedDict):
     name: NotRequired[RDSDBMetricNameType]
@@ -545,8 +540,8 @@ class RDSDBUtilizationMetricTypeDef(TypedDict):
 
 class RDSDatabaseProjectedMetricTypeDef(TypedDict):
     name: NotRequired[RDSDBMetricNameType]
-    timestamps: NotRequired[List[datetime]]
-    values: NotRequired[List[float]]
+    timestamps: NotRequired[list[datetime]]
+    values: NotRequired[list[float]]
 
 class RDSSavingsEstimationModeTypeDef(TypedDict):
     source: NotRequired[RDSSavingsEstimationModeSourceType]
@@ -634,7 +629,7 @@ class GetEnrollmentStatusResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetEnrollmentStatusesForOrganizationResponseTypeDef(TypedDict):
-    accountEnrollmentStatuses: List[AccountEnrollmentStatusTypeDef]
+    accountEnrollmentStatuses: list[AccountEnrollmentStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -667,7 +662,7 @@ class ECSSavingsOpportunityAfterDiscountsTypeDef(TypedDict):
 class ECSServiceRecommendedOptionProjectedMetricTypeDef(TypedDict):
     recommendedCpuUnits: NotRequired[int]
     recommendedMemorySize: NotRequired[int]
-    projectedMetrics: NotRequired[List[ECSServiceProjectedMetricTypeDef]]
+    projectedMetrics: NotRequired[list[ECSServiceProjectedMetricTypeDef]]
 
 class GetECSServiceRecommendationsRequestTypeDef(TypedDict):
     serviceArns: NotRequired[Sequence[str]]
@@ -686,7 +681,7 @@ class GetEnrollmentStatusesForOrganizationRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 class InferredWorkloadSavingTypeDef(TypedDict):
-    inferredWorkloadTypes: NotRequired[List[InferredWorkloadTypeType]]
+    inferredWorkloadTypes: NotRequired[list[InferredWorkloadTypeType]]
     estimatedMonthlySavings: NotRequired[EstimatedMonthlySavingsTypeDef]
 
 class SavingsOpportunityTypeDef(TypedDict):
@@ -879,7 +874,7 @@ class GetIdleRecommendationsRequestTypeDef(TypedDict):
     orderBy: NotRequired[OrderByTypeDef]
 
 class GpuInfoTypeDef(TypedDict):
-    gpus: NotRequired[List[GpuTypeDef]]
+    gpus: NotRequired[list[GpuTypeDef]]
 
 class IdleSavingsOpportunityAfterDiscountsTypeDef(TypedDict):
     savingsOpportunityPercentage: NotRequired[float]
@@ -908,20 +903,20 @@ class LicenseConfigurationTypeDef(TypedDict):
     licenseName: NotRequired[Literal["SQLServer"]]
     licenseModel: NotRequired[LicenseModelType]
     licenseVersion: NotRequired[str]
-    metricsSource: NotRequired[List[MetricSourceTypeDef]]
+    metricsSource: NotRequired[list[MetricSourceTypeDef]]
 
 class RecommendedOptionProjectedMetricTypeDef(TypedDict):
     recommendedInstanceType: NotRequired[str]
     rank: NotRequired[int]
-    projectedMetrics: NotRequired[List[ProjectedMetricTypeDef]]
+    projectedMetrics: NotRequired[list[ProjectedMetricTypeDef]]
 
 class RDSDatabaseRecommendedOptionProjectedMetricTypeDef(TypedDict):
     recommendedDBInstanceClass: NotRequired[str]
     rank: NotRequired[int]
-    projectedMetrics: NotRequired[List[RDSDatabaseProjectedMetricTypeDef]]
+    projectedMetrics: NotRequired[list[RDSDatabaseProjectedMetricTypeDef]]
 
 class RDSEffectiveRecommendationPreferencesTypeDef(TypedDict):
-    cpuVendorArchitectures: NotRequired[List[CpuVendorArchitectureType]]
+    cpuVendorArchitectures: NotRequired[list[CpuVendorArchitectureType]]
     enhancedInfrastructureMetrics: NotRequired[EnhancedInfrastructureMetricsType]
     lookBackPeriod: NotRequired[LookBackPeriodPreferenceType]
     savingsEstimationMode: NotRequired[RDSSavingsEstimationModeTypeDef]
@@ -937,31 +932,31 @@ class RDSStorageSavingsOpportunityAfterDiscountsTypeDef(TypedDict):
 class SummaryTypeDef(TypedDict):
     name: NotRequired[FindingType]
     value: NotRequired[float]
-    reasonCodeSummaries: NotRequired[List[ReasonCodeSummaryTypeDef]]
+    reasonCodeSummaries: NotRequired[list[ReasonCodeSummaryTypeDef]]
 
 class ServiceConfigurationTypeDef(TypedDict):
     memory: NotRequired[int]
     cpu: NotRequired[int]
-    containerConfigurations: NotRequired[List[ContainerConfigurationTypeDef]]
+    containerConfigurations: NotRequired[list[ContainerConfigurationTypeDef]]
     autoScalingConfiguration: NotRequired[AutoScalingConfigurationType]
     taskDefinitionArn: NotRequired[str]
 
 class EffectiveRecommendationPreferencesTypeDef(TypedDict):
-    cpuVendorArchitectures: NotRequired[List[CpuVendorArchitectureType]]
+    cpuVendorArchitectures: NotRequired[list[CpuVendorArchitectureType]]
     enhancedInfrastructureMetrics: NotRequired[EnhancedInfrastructureMetricsType]
     inferredWorkloadTypes: NotRequired[InferredWorkloadTypesPreferenceType]
     externalMetricsPreference: NotRequired[ExternalMetricsPreferenceTypeDef]
     lookBackPeriod: NotRequired[LookBackPeriodPreferenceType]
-    utilizationPreferences: NotRequired[List[UtilizationPreferenceTypeDef]]
-    preferredResources: NotRequired[List[EffectivePreferredResourceTypeDef]]
+    utilizationPreferences: NotRequired[list[UtilizationPreferenceTypeDef]]
+    preferredResources: NotRequired[list[EffectivePreferredResourceTypeDef]]
     savingsEstimationMode: NotRequired[InstanceSavingsEstimationModeTypeDef]
 
 class GetEffectiveRecommendationPreferencesResponseTypeDef(TypedDict):
     enhancedInfrastructureMetrics: EnhancedInfrastructureMetricsType
     externalMetricsPreference: ExternalMetricsPreferenceTypeDef
     lookBackPeriod: LookBackPeriodPreferenceType
-    utilizationPreferences: List[UtilizationPreferenceTypeDef]
-    preferredResources: List[EffectivePreferredResourceTypeDef]
+    utilizationPreferences: list[UtilizationPreferenceTypeDef]
+    preferredResources: list[EffectivePreferredResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutRecommendationPreferencesRequestTypeDef(TypedDict):
@@ -982,12 +977,12 @@ class RecommendationPreferencesDetailTypeDef(TypedDict):
     inferredWorkloadTypes: NotRequired[InferredWorkloadTypesPreferenceType]
     externalMetricsPreference: NotRequired[ExternalMetricsPreferenceTypeDef]
     lookBackPeriod: NotRequired[LookBackPeriodPreferenceType]
-    utilizationPreferences: NotRequired[List[UtilizationPreferenceTypeDef]]
-    preferredResources: NotRequired[List[EffectivePreferredResourceTypeDef]]
+    utilizationPreferences: NotRequired[list[UtilizationPreferenceTypeDef]]
+    preferredResources: NotRequired[list[EffectivePreferredResourceTypeDef]]
     savingsEstimationMode: NotRequired[SavingsEstimationModeType]
 
 class GetECSServiceRecommendationProjectedMetricsResponseTypeDef(TypedDict):
-    recommendedOptionProjectedMetrics: List[ECSServiceRecommendedOptionProjectedMetricTypeDef]
+    recommendedOptionProjectedMetrics: list[ECSServiceRecommendedOptionProjectedMetricTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ECSServiceRecommendationOptionTypeDef(TypedDict):
@@ -995,8 +990,8 @@ class ECSServiceRecommendationOptionTypeDef(TypedDict):
     cpu: NotRequired[int]
     savingsOpportunity: NotRequired[SavingsOpportunityTypeDef]
     savingsOpportunityAfterDiscounts: NotRequired[ECSSavingsOpportunityAfterDiscountsTypeDef]
-    projectedUtilizationMetrics: NotRequired[List[ECSServiceProjectedUtilizationMetricTypeDef]]
-    containerRecommendations: NotRequired[List[ContainerRecommendationTypeDef]]
+    projectedUtilizationMetrics: NotRequired[list[ECSServiceProjectedUtilizationMetricTypeDef]]
+    containerRecommendations: NotRequired[list[ContainerRecommendationTypeDef]]
 
 class LicenseRecommendationOptionTypeDef(TypedDict):
     rank: NotRequired[int]
@@ -1024,7 +1019,7 @@ class RecommendationExportJobTypeDef(TypedDict):
 class AutoScalingGroupRecommendationOptionTypeDef(TypedDict):
     configuration: NotRequired[AutoScalingGroupConfigurationTypeDef]
     instanceGpuInfo: NotRequired[GpuInfoTypeDef]
-    projectedUtilizationMetrics: NotRequired[List[UtilizationMetricTypeDef]]
+    projectedUtilizationMetrics: NotRequired[list[UtilizationMetricTypeDef]]
     performanceRisk: NotRequired[float]
     rank: NotRequired[int]
     savingsOpportunity: NotRequired[SavingsOpportunityTypeDef]
@@ -1042,16 +1037,16 @@ class IdleRecommendationTypeDef(TypedDict):
     findingDescription: NotRequired[str]
     savingsOpportunity: NotRequired[IdleSavingsOpportunityTypeDef]
     savingsOpportunityAfterDiscounts: NotRequired[IdleSavingsOpportunityAfterDiscountsTypeDef]
-    utilizationMetrics: NotRequired[List[IdleUtilizationMetricTypeDef]]
+    utilizationMetrics: NotRequired[list[IdleUtilizationMetricTypeDef]]
     lookBackPeriodInDays: NotRequired[float]
     lastRefreshTimestamp: NotRequired[datetime]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 class InstanceRecommendationOptionTypeDef(TypedDict):
     instanceType: NotRequired[str]
     instanceGpuInfo: NotRequired[GpuInfoTypeDef]
-    projectedUtilizationMetrics: NotRequired[List[UtilizationMetricTypeDef]]
-    platformDifferences: NotRequired[List[PlatformDifferenceType]]
+    projectedUtilizationMetrics: NotRequired[list[UtilizationMetricTypeDef]]
+    platformDifferences: NotRequired[list[PlatformDifferenceType]]
     performanceRisk: NotRequired[float]
     rank: NotRequired[int]
     savingsOpportunity: NotRequired[SavingsOpportunityTypeDef]
@@ -1061,21 +1056,21 @@ class InstanceRecommendationOptionTypeDef(TypedDict):
 class LambdaFunctionMemoryRecommendationOptionTypeDef(TypedDict):
     rank: NotRequired[int]
     memorySize: NotRequired[int]
-    projectedUtilizationMetrics: NotRequired[List[LambdaFunctionMemoryProjectedMetricTypeDef]]
+    projectedUtilizationMetrics: NotRequired[list[LambdaFunctionMemoryProjectedMetricTypeDef]]
     savingsOpportunity: NotRequired[SavingsOpportunityTypeDef]
     savingsOpportunityAfterDiscounts: NotRequired[LambdaSavingsOpportunityAfterDiscountsTypeDef]
 
 class GetEC2RecommendationProjectedMetricsResponseTypeDef(TypedDict):
-    recommendedOptionProjectedMetrics: List[RecommendedOptionProjectedMetricTypeDef]
+    recommendedOptionProjectedMetrics: list[RecommendedOptionProjectedMetricTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetRDSDatabaseRecommendationProjectedMetricsResponseTypeDef(TypedDict):
-    recommendedOptionProjectedMetrics: List[RDSDatabaseRecommendedOptionProjectedMetricTypeDef]
+    recommendedOptionProjectedMetrics: list[RDSDatabaseRecommendedOptionProjectedMetricTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RDSDBInstanceRecommendationOptionTypeDef(TypedDict):
     dbInstanceClass: NotRequired[str]
-    projectedUtilizationMetrics: NotRequired[List[RDSDBUtilizationMetricTypeDef]]
+    projectedUtilizationMetrics: NotRequired[list[RDSDBUtilizationMetricTypeDef]]
     performanceRisk: NotRequired[float]
     rank: NotRequired[int]
     savingsOpportunity: NotRequired[SavingsOpportunityTypeDef]
@@ -1093,18 +1088,18 @@ class RDSDBStorageRecommendationOptionTypeDef(TypedDict):
     ]
 
 class RecommendationSummaryTypeDef(TypedDict):
-    summaries: NotRequired[List[SummaryTypeDef]]
-    idleSummaries: NotRequired[List[IdleSummaryTypeDef]]
+    summaries: NotRequired[list[SummaryTypeDef]]
+    idleSummaries: NotRequired[list[IdleSummaryTypeDef]]
     recommendationResourceType: NotRequired[RecommendationSourceTypeType]
     accountId: NotRequired[str]
     savingsOpportunity: NotRequired[SavingsOpportunityTypeDef]
     idleSavingsOpportunity: NotRequired[SavingsOpportunityTypeDef]
     aggregatedSavingsOpportunity: NotRequired[SavingsOpportunityTypeDef]
     currentPerformanceRiskRatings: NotRequired[CurrentPerformanceRiskRatingsTypeDef]
-    inferredWorkloadSavings: NotRequired[List[InferredWorkloadSavingTypeDef]]
+    inferredWorkloadSavings: NotRequired[list[InferredWorkloadSavingTypeDef]]
 
 class GetRecommendationPreferencesResponseTypeDef(TypedDict):
-    recommendationPreferencesDetails: List[RecommendationPreferencesDetailTypeDef]
+    recommendationPreferencesDetails: list[RecommendationPreferencesDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1112,16 +1107,16 @@ class ECSServiceRecommendationTypeDef(TypedDict):
     serviceArn: NotRequired[str]
     accountId: NotRequired[str]
     currentServiceConfiguration: NotRequired[ServiceConfigurationTypeDef]
-    utilizationMetrics: NotRequired[List[ECSServiceUtilizationMetricTypeDef]]
+    utilizationMetrics: NotRequired[list[ECSServiceUtilizationMetricTypeDef]]
     lookbackPeriodInDays: NotRequired[float]
     launchType: NotRequired[ECSServiceLaunchTypeType]
     lastRefreshTimestamp: NotRequired[datetime]
     finding: NotRequired[ECSServiceRecommendationFindingType]
-    findingReasonCodes: NotRequired[List[ECSServiceRecommendationFindingReasonCodeType]]
-    serviceRecommendationOptions: NotRequired[List[ECSServiceRecommendationOptionTypeDef]]
+    findingReasonCodes: NotRequired[list[ECSServiceRecommendationFindingReasonCodeType]]
+    serviceRecommendationOptions: NotRequired[list[ECSServiceRecommendationOptionTypeDef]]
     currentPerformanceRisk: NotRequired[CurrentPerformanceRiskType]
     effectiveRecommendationPreferences: NotRequired[ECSEffectiveRecommendationPreferencesTypeDef]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 class LicenseRecommendationTypeDef(TypedDict):
     resourceArn: NotRequired[str]
@@ -1130,25 +1125,25 @@ class LicenseRecommendationTypeDef(TypedDict):
     lookbackPeriodInDays: NotRequired[float]
     lastRefreshTimestamp: NotRequired[datetime]
     finding: NotRequired[LicenseFindingType]
-    findingReasonCodes: NotRequired[List[LicenseFindingReasonCodeType]]
-    licenseRecommendationOptions: NotRequired[List[LicenseRecommendationOptionTypeDef]]
-    tags: NotRequired[List[TagTypeDef]]
+    findingReasonCodes: NotRequired[list[LicenseFindingReasonCodeType]]
+    licenseRecommendationOptions: NotRequired[list[LicenseRecommendationOptionTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 class VolumeRecommendationTypeDef(TypedDict):
     volumeArn: NotRequired[str]
     accountId: NotRequired[str]
     currentConfiguration: NotRequired[VolumeConfigurationTypeDef]
     finding: NotRequired[EBSFindingType]
-    utilizationMetrics: NotRequired[List[EBSUtilizationMetricTypeDef]]
+    utilizationMetrics: NotRequired[list[EBSUtilizationMetricTypeDef]]
     lookBackPeriodInDays: NotRequired[float]
-    volumeRecommendationOptions: NotRequired[List[VolumeRecommendationOptionTypeDef]]
+    volumeRecommendationOptions: NotRequired[list[VolumeRecommendationOptionTypeDef]]
     lastRefreshTimestamp: NotRequired[datetime]
     currentPerformanceRisk: NotRequired[CurrentPerformanceRiskType]
     effectiveRecommendationPreferences: NotRequired[EBSEffectiveRecommendationPreferencesTypeDef]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 class DescribeRecommendationExportJobsResponseTypeDef(TypedDict):
-    recommendationExportJobs: List[RecommendationExportJobTypeDef]
+    recommendationExportJobs: list[RecommendationExportJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1157,19 +1152,19 @@ class AutoScalingGroupRecommendationTypeDef(TypedDict):
     autoScalingGroupArn: NotRequired[str]
     autoScalingGroupName: NotRequired[str]
     finding: NotRequired[FindingType]
-    utilizationMetrics: NotRequired[List[UtilizationMetricTypeDef]]
+    utilizationMetrics: NotRequired[list[UtilizationMetricTypeDef]]
     lookBackPeriodInDays: NotRequired[float]
     currentConfiguration: NotRequired[AutoScalingGroupConfigurationTypeDef]
     currentInstanceGpuInfo: NotRequired[GpuInfoTypeDef]
-    recommendationOptions: NotRequired[List[AutoScalingGroupRecommendationOptionTypeDef]]
+    recommendationOptions: NotRequired[list[AutoScalingGroupRecommendationOptionTypeDef]]
     lastRefreshTimestamp: NotRequired[datetime]
     currentPerformanceRisk: NotRequired[CurrentPerformanceRiskType]
     effectiveRecommendationPreferences: NotRequired[EffectiveRecommendationPreferencesTypeDef]
-    inferredWorkloadTypes: NotRequired[List[InferredWorkloadTypeType]]
+    inferredWorkloadTypes: NotRequired[list[InferredWorkloadTypeType]]
 
 class GetIdleRecommendationsResponseTypeDef(TypedDict):
-    idleRecommendations: List[IdleRecommendationTypeDef]
-    errors: List[IdleRecommendationErrorTypeDef]
+    idleRecommendations: list[IdleRecommendationTypeDef]
+    errors: list[IdleRecommendationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1179,17 +1174,17 @@ class InstanceRecommendationTypeDef(TypedDict):
     instanceName: NotRequired[str]
     currentInstanceType: NotRequired[str]
     finding: NotRequired[FindingType]
-    findingReasonCodes: NotRequired[List[InstanceRecommendationFindingReasonCodeType]]
-    utilizationMetrics: NotRequired[List[UtilizationMetricTypeDef]]
+    findingReasonCodes: NotRequired[list[InstanceRecommendationFindingReasonCodeType]]
+    utilizationMetrics: NotRequired[list[UtilizationMetricTypeDef]]
     lookBackPeriodInDays: NotRequired[float]
-    recommendationOptions: NotRequired[List[InstanceRecommendationOptionTypeDef]]
-    recommendationSources: NotRequired[List[RecommendationSourceTypeDef]]
+    recommendationOptions: NotRequired[list[InstanceRecommendationOptionTypeDef]]
+    recommendationSources: NotRequired[list[RecommendationSourceTypeDef]]
     lastRefreshTimestamp: NotRequired[datetime]
     currentPerformanceRisk: NotRequired[CurrentPerformanceRiskType]
     effectiveRecommendationPreferences: NotRequired[EffectiveRecommendationPreferencesTypeDef]
-    inferredWorkloadTypes: NotRequired[List[InferredWorkloadTypeType]]
+    inferredWorkloadTypes: NotRequired[list[InferredWorkloadTypeType]]
     instanceState: NotRequired[InstanceStateType]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
     externalMetricStatus: NotRequired[ExternalMetricStatusTypeDef]
     currentInstanceGpuInfo: NotRequired[GpuInfoTypeDef]
     idle: NotRequired[InstanceIdleType]
@@ -1200,17 +1195,17 @@ class LambdaFunctionRecommendationTypeDef(TypedDict):
     accountId: NotRequired[str]
     currentMemorySize: NotRequired[int]
     numberOfInvocations: NotRequired[int]
-    utilizationMetrics: NotRequired[List[LambdaFunctionUtilizationMetricTypeDef]]
+    utilizationMetrics: NotRequired[list[LambdaFunctionUtilizationMetricTypeDef]]
     lookbackPeriodInDays: NotRequired[float]
     lastRefreshTimestamp: NotRequired[datetime]
     finding: NotRequired[LambdaFunctionRecommendationFindingType]
-    findingReasonCodes: NotRequired[List[LambdaFunctionRecommendationFindingReasonCodeType]]
+    findingReasonCodes: NotRequired[list[LambdaFunctionRecommendationFindingReasonCodeType]]
     memorySizeRecommendationOptions: NotRequired[
-        List[LambdaFunctionMemoryRecommendationOptionTypeDef]
+        list[LambdaFunctionMemoryRecommendationOptionTypeDef]
     ]
     currentPerformanceRisk: NotRequired[CurrentPerformanceRiskType]
     effectiveRecommendationPreferences: NotRequired[LambdaEffectiveRecommendationPreferencesTypeDef]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 class RDSDBRecommendationTypeDef(TypedDict):
     resourceArn: NotRequired[str]
@@ -1224,62 +1219,62 @@ class RDSDBRecommendationTypeDef(TypedDict):
     idle: NotRequired[IdleType]
     instanceFinding: NotRequired[RDSInstanceFindingType]
     storageFinding: NotRequired[RDSStorageFindingType]
-    instanceFindingReasonCodes: NotRequired[List[RDSInstanceFindingReasonCodeType]]
+    instanceFindingReasonCodes: NotRequired[list[RDSInstanceFindingReasonCodeType]]
     currentInstancePerformanceRisk: NotRequired[RDSCurrentInstancePerformanceRiskType]
     currentStorageEstimatedMonthlyVolumeIOPsCostVariation: NotRequired[
         RDSEstimatedMonthlyVolumeIOPsCostVariationType
     ]
-    storageFindingReasonCodes: NotRequired[List[RDSStorageFindingReasonCodeType]]
-    instanceRecommendationOptions: NotRequired[List[RDSDBInstanceRecommendationOptionTypeDef]]
-    storageRecommendationOptions: NotRequired[List[RDSDBStorageRecommendationOptionTypeDef]]
-    utilizationMetrics: NotRequired[List[RDSDBUtilizationMetricTypeDef]]
+    storageFindingReasonCodes: NotRequired[list[RDSStorageFindingReasonCodeType]]
+    instanceRecommendationOptions: NotRequired[list[RDSDBInstanceRecommendationOptionTypeDef]]
+    storageRecommendationOptions: NotRequired[list[RDSDBStorageRecommendationOptionTypeDef]]
+    utilizationMetrics: NotRequired[list[RDSDBUtilizationMetricTypeDef]]
     effectiveRecommendationPreferences: NotRequired[RDSEffectiveRecommendationPreferencesTypeDef]
     lookbackPeriodInDays: NotRequired[float]
     lastRefreshTimestamp: NotRequired[datetime]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 class GetRecommendationSummariesResponseTypeDef(TypedDict):
-    recommendationSummaries: List[RecommendationSummaryTypeDef]
+    recommendationSummaries: list[RecommendationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetECSServiceRecommendationsResponseTypeDef(TypedDict):
-    ecsServiceRecommendations: List[ECSServiceRecommendationTypeDef]
-    errors: List[GetRecommendationErrorTypeDef]
+    ecsServiceRecommendations: list[ECSServiceRecommendationTypeDef]
+    errors: list[GetRecommendationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetLicenseRecommendationsResponseTypeDef(TypedDict):
-    licenseRecommendations: List[LicenseRecommendationTypeDef]
-    errors: List[GetRecommendationErrorTypeDef]
+    licenseRecommendations: list[LicenseRecommendationTypeDef]
+    errors: list[GetRecommendationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetEBSVolumeRecommendationsResponseTypeDef(TypedDict):
-    volumeRecommendations: List[VolumeRecommendationTypeDef]
-    errors: List[GetRecommendationErrorTypeDef]
+    volumeRecommendations: list[VolumeRecommendationTypeDef]
+    errors: list[GetRecommendationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetAutoScalingGroupRecommendationsResponseTypeDef(TypedDict):
-    autoScalingGroupRecommendations: List[AutoScalingGroupRecommendationTypeDef]
-    errors: List[GetRecommendationErrorTypeDef]
+    autoScalingGroupRecommendations: list[AutoScalingGroupRecommendationTypeDef]
+    errors: list[GetRecommendationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetEC2InstanceRecommendationsResponseTypeDef(TypedDict):
-    instanceRecommendations: List[InstanceRecommendationTypeDef]
-    errors: List[GetRecommendationErrorTypeDef]
+    instanceRecommendations: list[InstanceRecommendationTypeDef]
+    errors: list[GetRecommendationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetLambdaFunctionRecommendationsResponseTypeDef(TypedDict):
-    lambdaFunctionRecommendations: List[LambdaFunctionRecommendationTypeDef]
+    lambdaFunctionRecommendations: list[LambdaFunctionRecommendationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetRDSDatabaseRecommendationsResponseTypeDef(TypedDict):
-    rdsDBRecommendations: List[RDSDBRecommendationTypeDef]
-    errors: List[GetRecommendationErrorTypeDef]
+    rdsDBRecommendations: list[RDSDBRecommendationTypeDef]
+    errors: list[GetRecommendationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

@@ -56,6 +56,7 @@ void add_misc(nb::module_& m) {
         return nb::make_iterator(nb::type<gemmi::CoorFileWalk>(), "iterator", self);
     }, nb::keep_alive<0, 1>());
   m.def("is_pdb_code", &gemmi::is_pdb_code);
+  m.def("path_in_pdb_dir", &gemmi::path_in_pdb_dir);
   m.def("expand_pdb_code_to_path", &gemmi::expand_pdb_code_to_path,
         nb::arg("code"), nb::arg("filetype"), nb::arg("throw_if_unset")=false);
   m.def("expand_if_pdb_code", &gemmi::expand_if_pdb_code,
@@ -162,6 +163,9 @@ NB_MODULE(gemmi_ext, m_) {
   m.doc() = "Python bindings to GEMMI - a library used in macromolecular\n"
              "crystallography and related fields";
   m.attr("__version__") = GEMMI_VERSION;
+#ifdef NDEBUG
+  nb::set_leak_warnings(false);
+#endif
 
   nb::register_exception_translator([](const std::exception_ptr& p, void*) {
     try {
@@ -199,7 +203,6 @@ NB_MODULE(gemmi_ext, m_) {
   add_search(m);
   add_read_structure(m);
   add_scaling(m);
-  add_custom(m);
 
   m.def("set_leak_warnings", nb::set_leak_warnings);
 }

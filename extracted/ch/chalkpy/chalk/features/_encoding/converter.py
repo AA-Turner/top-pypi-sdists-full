@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import types
 import typing
@@ -50,6 +51,7 @@ from chalk.features._encoding.pyarrow import (
     rich_to_pyarrow,
 )
 from chalk.features._encoding.rich import structure_primitive_to_rich, unstructure_rich_to_primitive
+from chalk.features.feature_wrapper import UnresolvedFeature
 from chalk.utils.collections import unwrap_annotated_if_needed, unwrap_optional_and_annotated_if_needed
 from chalk.utils.df_utils import pa_array_to_pl_series
 from chalk.utils.json import JSON, TJSON, is_pyarrow_json_type, pyarrow_json_type
@@ -870,6 +872,79 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
         else:
             raise TypeError(f"Could not convert the pyarrow dtype {dtype} to a protobuf message")
 
+    @classmethod
+    def convert_pa_field_to_proto_field(cls, field: pa.Field) -> pb.Field:
+        """Convert a PyArrow Field to proto Field."""
+        field_proto = pb.Field(
+            name=field.name, arrow_type=cls.convert_pa_dtype_to_proto_dtype(field.type), nullable=field.nullable
+        )
+
+        if field.metadata:
+            # field.metadata is of types dict[bytes, bytes]
+            for k, v in field.metadata.items():
+                field_proto.metadata[k.decode("utf-8")] = v.decode("utf-8")
+
+        return field_proto
+
+    @classmethod
+    def convert_proto_field_to_pa_field(cls, proto_field: pb.Field) -> pa.Field:
+        """Convert a proto Field to PyArrow Field."""
+        arrow_type = cls.convert_proto_dtype_to_pa_dtype(proto_field.arrow_type)
+
+        # don't have to convert back to dict[bytes, bytes] as can initialize with dict[str, str]
+        metadata = dict(proto_field.metadata) if proto_field.metadata else None
+
+        return pa.field(
+            name=proto_field.name,
+            type=arrow_type,
+            nullable=proto_field.nullable,
+            metadata=metadata,
+        )
+
+    @classmethod
+    def convert_pa_schema_to_proto_schema(cls, schema: pa.Schema) -> pb.Schema:
+        schema_proto = pb.Schema(
+            columns=[cls.convert_pa_field_to_proto_field(field) for field in schema],
+        )
+
+        if schema.metadata:
+            # schema.metadata is of types dict[bytes, bytes]
+            for k, v in schema.metadata.items():
+                schema_proto.metadata[k.decode("utf-8")] = v.decode("utf-8")
+
+        return schema_proto
+
+    @classmethod
+    def convert_proto_schema_to_pa_schema(cls, proto_schema: pb.Schema) -> pa.Schema:
+        fields = [cls.convert_proto_field_to_pa_field(proto_field) for proto_field in proto_schema.columns]
+
+        # don't have to convert back to dict[bytes, bytes] as can initialize with dict[str, str]
+        metadata = dict(proto_schema.metadata) if proto_schema.metadata else None
+
+        return pa.schema(fields, metadata=metadata)
+
+    @staticmethod
+    def convert_arrow_table_to_proto(table: pa.Table | pa.RecordBatch) -> pb.TableParquetBytes:
+        if isinstance(table, pa.RecordBatch):
+            table = pa.Table.from_batches([table])
+        elif isinstance(table, pa.Table):
+            pass
+        else:
+            raise TypeError(f"expected pa.Table or pa.RecordBatch, got {type(table)!r}")
+
+        sink = io.BytesIO()
+        import pyarrow.parquet
+
+        pyarrow.parquet.write_table(table, sink)
+        return pb.TableParquetBytes(encoded_parquet_bytes=sink.getvalue())
+
+    @staticmethod
+    def convert_arrow_table_from_proto(proto: pb.TableParquetBytes) -> pa.Table:
+        import pyarrow.parquet
+
+        pf = pyarrow.parquet.ParquetFile(io.BytesIO(proto.encoded_parquet_bytes))
+        return pyarrow.parquet.read_table(pf)
+
     @staticmethod
     def _serialize_pa_decimal_to_pb(value: Union[pa.Decimal128Scalar, pa.Decimal256Scalar]) -> pb.ScalarValue:
         dec_val = value.as_py()
@@ -1183,8 +1258,14 @@ class FeatureConverter(PrimitiveFeatureConverter[_TPrim], Generic[_TPrim, _TRich
         # because it is also used for error handling inside of `from_rich_to_primitive`.
         self._name = name
         if rich_default != ...:
-            # The missing value strategy doesn't really matter because rich_default is not missing
-            primitive_default = self.from_rich_to_primitive(rich_default, missing_value_strategy="allow")
+            # In notebook environments, UnresolvedFeature may be used as a placeholder
+            # for features that can't be resolved due to a stale registry.
+            # Treat these as missing defaults since they're not concrete values.
+            if isinstance(rich_default, UnresolvedFeature):
+                rich_default = ...
+            else:
+                # The missing value strategy doesn't really matter because rich_default is not missing
+                primitive_default = self.from_rich_to_primitive(rich_default, missing_value_strategy="allow")
         super().__init__(
             name, is_nullable=is_nullable, pyarrow_dtype=pyarrow_dtype, primitive_default=primitive_default
         )

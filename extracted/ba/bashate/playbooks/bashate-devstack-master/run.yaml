@@ -1,0 +1,15 @@
+- hosts: all
+  name: Run bashate against devstack master
+  roles:
+    - bindep
+    - role: ensure-tox
+      ensure_global_symlinks: true
+
+  tasks:
+    - shell: 'tox -e bashate'
+      args:
+        executable: /bin/bash
+        chdir: '{{ ansible_user_dir }}/{{ zuul.projects["opendev.org/openstack/devstack"].src_dir }}'
+      environment:
+        BASHATE_INSTALL_PATH: 'file://{{ ansible_user_dir }}/{{ zuul.project.src_dir }}'
+

@@ -140,14 +140,13 @@ def cached_download(
             },
             **kwargs,
         )
+        if hash:
+            _assert_filehash(path=temp_path, hash=hash, quiet=quiet)
         with filelock.FileLock(lock_path):
             shutil.move(temp_path, path)
     except Exception:
         shutil.rmtree(temp_root)
         raise
-
-    if hash:
-        _assert_filehash(path=path, hash=hash, quiet=quiet)
 
     # postprocess
     if postprocess is not None:

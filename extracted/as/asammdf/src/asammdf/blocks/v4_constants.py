@@ -458,6 +458,7 @@ DZ_BLOCK_LZ = 3
 
 
 class CompressionAlgorithm(IntEnum):
+    NOT_AVILABLE = -1
     NO_COMPRESSION = 0
     DEFLATE = 1
     TRANSPOSED_DEFLATE = 2

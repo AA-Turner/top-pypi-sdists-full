@@ -22,6 +22,8 @@
 
 """Generates tarballs for Git trees."""
 
+__all__ = ["ChunkedBytesIO", "tar_stream"]
+
 import posixpath
 import stat
 import struct
@@ -30,7 +32,7 @@ from collections.abc import Generator
 from contextlib import closing
 from io import BytesIO
 from os import SEEK_END
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .object_store import BaseObjectStore
@@ -51,10 +53,23 @@ class ChunkedBytesIO:
     """
 
     def __init__(self, contents: list[bytes]) -> None:
+        """Initialize ChunkedBytesIO.
+
+        Args:
+            contents: List of byte chunks
+        """
         self.contents = contents
         self.pos = (0, 0)
 
-    def read(self, maxbytes: Optional[int] = None) -> bytes:
+    def read(self, maxbytes: int | None = None) -> bytes:
+        """Read bytes from the chunked stream.
+
+        Args:
+            maxbytes: Maximum number of bytes to read (None for all)
+
+        Returns:
+            Bytes read
+        """
         if maxbytes is None or maxbytes < 0:
             remaining = None
         else:
@@ -98,6 +113,7 @@ def tar_stream(
       tree: Tree object for the tree root
       mtime: UNIX timestamp that is assigned as the modification time for
         all files, and the gzip header modification time if format='gz'
+      prefix: Optional prefix to prepend to all paths in the archive
       format: Optional compression format for tarball
     Returns:
       Bytestrings
@@ -121,6 +137,7 @@ def tar_stream(
             buf.seek(0, SEEK_END)
 
         for entry_abspath, entry in _walk_tree(store, tree, prefix):
+            assert entry.sha is not None
             try:
                 blob = store[entry.sha]
             except KeyError:
@@ -137,6 +154,7 @@ def tar_stream(
             # tarfile only works with ascii.
             info.name = entry_abspath.decode("utf-8", "surrogateescape")
             info.size = blob.raw_length()
+            assert entry.mode is not None
             info.mode = entry.mode
             info.mtime = mtime
 
@@ -150,12 +168,13 @@ def tar_stream(
 def _walk_tree(
     store: "BaseObjectStore", tree: "Tree", root: bytes = b""
 ) -> Generator[tuple[bytes, "TreeEntry"], None, None]:
-    """Recursively walk a dulwich Tree, yielding tuples of
-    (absolute path, TreeEntry) along the way.
-    """
+    """Recursively walk a dulwich Tree, yielding tuples of (absolute path, TreeEntry) along the way."""
     for entry in tree.iteritems():
+        assert entry.path is not None
         entry_abspath = posixpath.join(root, entry.path)
+        assert entry.mode is not None
         if stat.S_ISDIR(entry.mode):
+            assert entry.sha is not None
             subtree = store[entry.sha]
             if isinstance(subtree, Tree):
                 yield from _walk_tree(store, subtree, entry_abspath)

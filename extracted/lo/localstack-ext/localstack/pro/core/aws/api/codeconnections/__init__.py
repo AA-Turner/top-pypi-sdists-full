@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -254,15 +254,15 @@ class Connection(TypedDict, total=False):
     \\`AVAILABLE\\` by updating the connection in the console.
     """
 
-    ConnectionName: Optional[ConnectionName]
-    ConnectionArn: Optional[ConnectionArn]
-    ProviderType: Optional[ProviderType]
-    OwnerAccountId: Optional[AccountId]
-    ConnectionStatus: Optional[ConnectionStatus]
-    HostArn: Optional[HostArn]
+    ConnectionName: ConnectionName | None
+    ConnectionArn: ConnectionArn | None
+    ProviderType: ProviderType | None
+    OwnerAccountId: AccountId | None
+    ConnectionStatus: ConnectionStatus | None
+    HostArn: HostArn | None
 
 
-ConnectionList = List[Connection]
+ConnectionList = list[Connection]
 
 
 class Tag(TypedDict, total=False):
@@ -276,23 +276,23 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CreateConnectionInput(ServiceRequest):
-    ProviderType: Optional[ProviderType]
+    ProviderType: ProviderType | None
     ConnectionName: ConnectionName
-    Tags: Optional[TagList]
-    HostArn: Optional[HostArn]
+    Tags: TagList | None
+    HostArn: HostArn | None
 
 
 class CreateConnectionOutput(TypedDict, total=False):
     ConnectionArn: ConnectionArn
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
-SecurityGroupIds = List[SecurityGroupId]
-SubnetIds = List[SubnetId]
+SecurityGroupIds = list[SecurityGroupId]
+SubnetIds = list[SubnetId]
 
 
 class VpcConfiguration(TypedDict, total=False):
@@ -301,28 +301,28 @@ class VpcConfiguration(TypedDict, total=False):
     VpcId: VpcId
     SubnetIds: SubnetIds
     SecurityGroupIds: SecurityGroupIds
-    TlsCertificate: Optional[TlsCertificate]
+    TlsCertificate: TlsCertificate | None
 
 
 class CreateHostInput(ServiceRequest):
     Name: HostName
     ProviderType: ProviderType
     ProviderEndpoint: Url
-    VpcConfiguration: Optional[VpcConfiguration]
-    Tags: Optional[TagList]
+    VpcConfiguration: VpcConfiguration | None
+    Tags: TagList | None
 
 
 class CreateHostOutput(TypedDict, total=False):
-    HostArn: Optional[HostArn]
-    Tags: Optional[TagList]
+    HostArn: HostArn | None
+    Tags: TagList | None
 
 
 class CreateRepositoryLinkInput(ServiceRequest):
     ConnectionArn: ConnectionArn
     OwnerId: OwnerId
     RepositoryName: RepositoryName
-    EncryptionKeyArn: Optional[KmsKeyArn]
-    Tags: Optional[TagList]
+    EncryptionKeyArn: KmsKeyArn | None
+    Tags: TagList | None
 
 
 class RepositoryLinkInfo(TypedDict, total=False):
@@ -332,7 +332,7 @@ class RepositoryLinkInfo(TypedDict, total=False):
     """
 
     ConnectionArn: ConnectionArn
-    EncryptionKeyArn: Optional[KmsKeyArn]
+    EncryptionKeyArn: KmsKeyArn | None
     OwnerId: OwnerId
     ProviderType: ProviderType
     RepositoryLinkArn: RepositoryLinkArn
@@ -351,9 +351,9 @@ class CreateSyncConfigurationInput(ServiceRequest):
     ResourceName: ResourceName
     RoleArn: IamRoleArn
     SyncType: SyncConfigurationType
-    PublishDeploymentStatus: Optional[PublishDeploymentStatus]
-    TriggerResourceUpdateOn: Optional[TriggerResourceUpdateOn]
-    PullRequestComment: Optional[PullRequestComment]
+    PublishDeploymentStatus: PublishDeploymentStatus | None
+    TriggerResourceUpdateOn: TriggerResourceUpdateOn | None
+    PullRequestComment: PullRequestComment | None
 
 
 class SyncConfiguration(TypedDict, total=False):
@@ -362,7 +362,7 @@ class SyncConfiguration(TypedDict, total=False):
     """
 
     Branch: BranchName
-    ConfigFile: Optional[DeploymentFilePath]
+    ConfigFile: DeploymentFilePath | None
     OwnerId: OwnerId
     ProviderType: ProviderType
     RepositoryLinkId: RepositoryLinkId
@@ -370,9 +370,9 @@ class SyncConfiguration(TypedDict, total=False):
     ResourceName: ResourceName
     RoleArn: IamRoleArn
     SyncType: SyncConfigurationType
-    PublishDeploymentStatus: Optional[PublishDeploymentStatus]
-    TriggerResourceUpdateOn: Optional[TriggerResourceUpdateOn]
-    PullRequestComment: Optional[PullRequestComment]
+    PublishDeploymentStatus: PublishDeploymentStatus | None
+    TriggerResourceUpdateOn: TriggerResourceUpdateOn | None
+    PullRequestComment: PullRequestComment | None
 
 
 class CreateSyncConfigurationOutput(TypedDict, total=False):
@@ -417,7 +417,7 @@ class GetConnectionInput(ServiceRequest):
 
 
 class GetConnectionOutput(TypedDict, total=False):
-    Connection: Optional[Connection]
+    Connection: Connection | None
 
 
 class GetHostInput(ServiceRequest):
@@ -425,11 +425,11 @@ class GetHostInput(ServiceRequest):
 
 
 class GetHostOutput(TypedDict, total=False):
-    Name: Optional[HostName]
-    Status: Optional[HostStatus]
-    ProviderType: Optional[ProviderType]
-    ProviderEndpoint: Optional[Url]
-    VpcConfiguration: Optional[VpcConfiguration]
+    Name: HostName | None
+    Status: HostStatus | None
+    ProviderType: ProviderType | None
+    ProviderEndpoint: Url | None
+    VpcConfiguration: VpcConfiguration | None
 
 
 class GetRepositoryLinkInput(ServiceRequest):
@@ -453,12 +453,12 @@ class RepositorySyncEvent(TypedDict, total=False):
     """Information about a repository sync event."""
 
     Event: Event
-    ExternalId: Optional[ExternalId]
+    ExternalId: ExternalId | None
     Time: Timestamp
     Type: Type
 
 
-RepositorySyncEventList = List[RepositorySyncEvent]
+RepositorySyncEventList = list[RepositorySyncEvent]
 
 
 class RepositorySyncAttempt(TypedDict, total=False):
@@ -499,12 +499,12 @@ class ResourceSyncEvent(TypedDict, total=False):
     """
 
     Event: Event
-    ExternalId: Optional[ExternalId]
+    ExternalId: ExternalId | None
     Time: Timestamp
     Type: Type
 
 
-ResourceSyncEventList = List[ResourceSyncEvent]
+ResourceSyncEventList = list[ResourceSyncEvent]
 
 
 class ResourceSyncAttempt(TypedDict, total=False):
@@ -519,8 +519,8 @@ class ResourceSyncAttempt(TypedDict, total=False):
 
 
 class GetResourceSyncStatusOutput(TypedDict, total=False):
-    DesiredState: Optional[Revision]
-    LatestSuccessfulSync: Optional[ResourceSyncAttempt]
+    DesiredState: Revision | None
+    LatestSuccessfulSync: ResourceSyncAttempt | None
     LatestSync: ResourceSyncAttempt
 
 
@@ -536,7 +536,7 @@ class SyncBlockerContext(TypedDict, total=False):
     Value: SyncBlockerContextValue
 
 
-SyncBlockerContextList = List[SyncBlockerContext]
+SyncBlockerContextList = list[SyncBlockerContext]
 
 
 class SyncBlocker(TypedDict, total=False):
@@ -547,20 +547,20 @@ class SyncBlocker(TypedDict, total=False):
     Status: BlockerStatus
     CreatedReason: CreatedReason
     CreatedAt: Timestamp
-    Contexts: Optional[SyncBlockerContextList]
-    ResolvedReason: Optional[ResolvedReason]
-    ResolvedAt: Optional[Timestamp]
+    Contexts: SyncBlockerContextList | None
+    ResolvedReason: ResolvedReason | None
+    ResolvedAt: Timestamp | None
 
 
-LatestSyncBlockerList = List[SyncBlocker]
+LatestSyncBlockerList = list[SyncBlocker]
 
 
 class SyncBlockerSummary(TypedDict, total=False):
     """A summary for sync blockers."""
 
     ResourceName: ResourceName
-    ParentResourceName: Optional[ResourceName]
-    LatestBlockers: Optional[LatestSyncBlockerList]
+    ParentResourceName: ResourceName | None
+    LatestBlockers: LatestSyncBlockerList | None
 
 
 class GetSyncBlockerSummaryOutput(TypedDict, total=False):
@@ -587,51 +587,51 @@ class Host(TypedDict, total=False):
     the console.
     """
 
-    Name: Optional[HostName]
-    HostArn: Optional[HostArn]
-    ProviderType: Optional[ProviderType]
-    ProviderEndpoint: Optional[Url]
-    VpcConfiguration: Optional[VpcConfiguration]
-    Status: Optional[HostStatus]
-    StatusMessage: Optional[HostStatusMessage]
+    Name: HostName | None
+    HostArn: HostArn | None
+    ProviderType: ProviderType | None
+    ProviderEndpoint: Url | None
+    VpcConfiguration: VpcConfiguration | None
+    Status: HostStatus | None
+    StatusMessage: HostStatusMessage | None
 
 
-HostList = List[Host]
+HostList = list[Host]
 
 
 class ListConnectionsInput(ServiceRequest):
-    ProviderTypeFilter: Optional[ProviderType]
-    HostArnFilter: Optional[HostArn]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    ProviderTypeFilter: ProviderType | None
+    HostArnFilter: HostArn | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListConnectionsOutput(TypedDict, total=False):
-    Connections: Optional[ConnectionList]
-    NextToken: Optional[NextToken]
+    Connections: ConnectionList | None
+    NextToken: NextToken | None
 
 
 class ListHostsInput(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListHostsOutput(TypedDict, total=False):
-    Hosts: Optional[HostList]
-    NextToken: Optional[NextToken]
+    Hosts: HostList | None
+    NextToken: NextToken | None
 
 
 class ListRepositoryLinksInput(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[SharpNextToken]
+    MaxResults: MaxResults | None
+    NextToken: SharpNextToken | None
 
 
-RepositoryLinkList = List[RepositoryLinkInfo]
+RepositoryLinkList = list[RepositoryLinkInfo]
 
 
 class ListRepositoryLinksOutput(TypedDict, total=False):
     RepositoryLinks: RepositoryLinkList
-    NextToken: Optional[SharpNextToken]
+    NextToken: SharpNextToken | None
 
 
 class ListRepositorySyncDefinitionsInput(ServiceRequest):
@@ -648,27 +648,27 @@ class RepositorySyncDefinition(TypedDict, total=False):
     Target: Target
 
 
-RepositorySyncDefinitionList = List[RepositorySyncDefinition]
+RepositorySyncDefinitionList = list[RepositorySyncDefinition]
 
 
 class ListRepositorySyncDefinitionsOutput(TypedDict, total=False):
     RepositorySyncDefinitions: RepositorySyncDefinitionList
-    NextToken: Optional[SharpNextToken]
+    NextToken: SharpNextToken | None
 
 
 class ListSyncConfigurationsInput(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[SharpNextToken]
+    MaxResults: MaxResults | None
+    NextToken: SharpNextToken | None
     RepositoryLinkId: RepositoryLinkId
     SyncType: SyncConfigurationType
 
 
-SyncConfigurationList = List[SyncConfiguration]
+SyncConfigurationList = list[SyncConfiguration]
 
 
 class ListSyncConfigurationsOutput(TypedDict, total=False):
     SyncConfigurations: SyncConfigurationList
-    NextToken: Optional[SharpNextToken]
+    NextToken: SharpNextToken | None
 
 
 class ListTagsForResourceInput(ServiceRequest):
@@ -676,10 +676,10 @@ class ListTagsForResourceInput(ServiceRequest):
 
 
 class ListTagsForResourceOutput(TypedDict, total=False):
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceInput(ServiceRequest):
@@ -702,8 +702,8 @@ class UntagResourceOutput(TypedDict, total=False):
 
 class UpdateHostInput(ServiceRequest):
     HostArn: HostArn
-    ProviderEndpoint: Optional[Url]
-    VpcConfiguration: Optional[VpcConfiguration]
+    ProviderEndpoint: Url | None
+    VpcConfiguration: VpcConfiguration | None
 
 
 class UpdateHostOutput(TypedDict, total=False):
@@ -711,8 +711,8 @@ class UpdateHostOutput(TypedDict, total=False):
 
 
 class UpdateRepositoryLinkInput(ServiceRequest):
-    ConnectionArn: Optional[ConnectionArn]
-    EncryptionKeyArn: Optional[KmsKeyArn]
+    ConnectionArn: ConnectionArn | None
+    EncryptionKeyArn: KmsKeyArn | None
     RepositoryLinkId: RepositoryLinkId
 
 
@@ -729,20 +729,20 @@ class UpdateSyncBlockerInput(ServiceRequest):
 
 class UpdateSyncBlockerOutput(TypedDict, total=False):
     ResourceName: ResourceName
-    ParentResourceName: Optional[ResourceName]
+    ParentResourceName: ResourceName | None
     SyncBlocker: SyncBlocker
 
 
 class UpdateSyncConfigurationInput(ServiceRequest):
-    Branch: Optional[BranchName]
-    ConfigFile: Optional[DeploymentFilePath]
-    RepositoryLinkId: Optional[RepositoryLinkId]
+    Branch: BranchName | None
+    ConfigFile: DeploymentFilePath | None
+    RepositoryLinkId: RepositoryLinkId | None
     ResourceName: ResourceName
-    RoleArn: Optional[IamRoleArn]
+    RoleArn: IamRoleArn | None
     SyncType: SyncConfigurationType
-    PublishDeploymentStatus: Optional[PublishDeploymentStatus]
-    TriggerResourceUpdateOn: Optional[TriggerResourceUpdateOn]
-    PullRequestComment: Optional[PullRequestComment]
+    PublishDeploymentStatus: PublishDeploymentStatus | None
+    TriggerResourceUpdateOn: TriggerResourceUpdateOn | None
+    PullRequestComment: PullRequestComment | None
 
 
 class UpdateSyncConfigurationOutput(TypedDict, total=False):
@@ -750,8 +750,8 @@ class UpdateSyncConfigurationOutput(TypedDict, total=False):
 
 
 class CodeconnectionsApi:
-    service = "codeconnections"
-    version = "2023-12-01"
+    service: str = "codeconnections"
+    version: str = "2023-12-01"
 
     @handler("CreateConnection")
     def create_connection(

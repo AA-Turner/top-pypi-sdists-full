@@ -123,7 +123,7 @@ def fill_empty_diagonals(p):
         return _fill_empty_diagonal_2d(p_temp)
     else:
         raise NotImplementedError(
-            "Filling empty diagonals is " "only implemented for 2/3d matrices."
+            "Filling empty diagonals is only implemented for 2/3d matrices."
         )
 
 

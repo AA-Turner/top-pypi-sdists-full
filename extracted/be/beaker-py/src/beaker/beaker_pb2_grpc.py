@@ -196,6 +196,11 @@ class BeakerStub(object):
                 request_serializer=beaker__pb2.DeleteNodeRequest.SerializeToString,
                 response_deserializer=beaker__pb2.DeleteNodeResponse.FromString,
                 _registered_method=True)
+        self.GetJobBind = channel.unary_unary(
+                '/allenai.beaker.Beaker/GetJobBind',
+                request_serializer=beaker__pb2.GetJobBindRequest.SerializeToString,
+                response_deserializer=beaker__pb2.GetJobBindResponse.FromString,
+                _registered_method=True)
         self.CreateNodeEvents = channel.unary_unary(
                 '/allenai.beaker.Beaker/CreateNodeEvents',
                 request_serializer=beaker__pb2.CreateNodeEventsRequest.SerializeToString,
@@ -210,6 +215,11 @@ class BeakerStub(object):
                 '/allenai.beaker.Beaker/ProcessNodeEvent',
                 request_serializer=beaker__pb2.ProcessNodeEventRequest.SerializeToString,
                 response_deserializer=beaker__pb2.ProcessNodeEventResponse.FromString,
+                _registered_method=True)
+        self.RecordGPUHealth = channel.unary_unary(
+                '/allenai.beaker.Beaker/RecordGPUHealth',
+                request_serializer=beaker__pb2.RecordGPUHealthRequest.SerializeToString,
+                response_deserializer=beaker__pb2.RecordGPUHealthResponse.FromString,
                 _registered_method=True)
         self.GetWorkload = channel.unary_unary(
                 '/allenai.beaker.Beaker/GetWorkload',
@@ -406,15 +416,25 @@ class BeakerStub(object):
                 request_serializer=beaker__pb2.DeleteDatasetsRequest.SerializeToString,
                 response_deserializer=beaker__pb2.DeleteDatasetsResponse.FromString,
                 _registered_method=True)
-        self.GetSchedulerRun = channel.unary_unary(
-                '/allenai.beaker.Beaker/GetSchedulerRun',
-                request_serializer=beaker__pb2.GetSchedulerRunRequest.SerializeToString,
-                response_deserializer=beaker__pb2.GetSchedulerRunResponse.FromString,
+        self.GetDatasetStorageReport = channel.unary_unary(
+                '/allenai.beaker.Beaker/GetDatasetStorageReport',
+                request_serializer=beaker__pb2.GetDatasetStorageReportRequest.SerializeToString,
+                response_deserializer=beaker__pb2.GetDatasetStorageReportResponse.FromString,
+                _registered_method=True)
+        self.GetDatasetEgressReport = channel.unary_unary(
+                '/allenai.beaker.Beaker/GetDatasetEgressReport',
+                request_serializer=beaker__pb2.GetDatasetEgressReportRequest.SerializeToString,
+                response_deserializer=beaker__pb2.GetDatasetEgressReportResponse.FromString,
                 _registered_method=True)
         self.GetGPUUsageByBudget = channel.unary_unary(
                 '/allenai.beaker.Beaker/GetGPUUsageByBudget',
                 request_serializer=beaker__pb2.GetGPUUsageByBudgetRequest.SerializeToString,
                 response_deserializer=beaker__pb2.GetGPUUsageByBudgetResponse.FromString,
+                _registered_method=True)
+        self.GetGPUUsageReport = channel.unary_unary(
+                '/allenai.beaker.Beaker/GetGPUUsageReport',
+                request_serializer=beaker__pb2.GetGPUUsageReportRequest.SerializeToString,
+                response_deserializer=beaker__pb2.GetGPUUsageReportResponse.FromString,
                 _registered_method=True)
         self.CreateHealthcheck = channel.unary_unary(
                 '/allenai.beaker.Beaker/CreateHealthcheck',
@@ -435,6 +455,16 @@ class BeakerStub(object):
                 '/allenai.beaker.Beaker/ListBudgets',
                 request_serializer=beaker__pb2.ListBudgetsRequest.SerializeToString,
                 response_deserializer=beaker__pb2.ListBudgetsResponse.FromString,
+                _registered_method=True)
+        self.CreateBudget = channel.unary_unary(
+                '/allenai.beaker.Beaker/CreateBudget',
+                request_serializer=beaker__pb2.CreateBudgetRequest.SerializeToString,
+                response_deserializer=beaker__pb2.CreateBudgetResponse.FromString,
+                _registered_method=True)
+        self.UpdateBudget = channel.unary_unary(
+                '/allenai.beaker.Beaker/UpdateBudget',
+                request_serializer=beaker__pb2.UpdateBudgetRequest.SerializeToString,
+                response_deserializer=beaker__pb2.UpdateBudgetResponse.FromString,
                 _registered_method=True)
         self.CreateQueue = channel.unary_unary(
                 '/allenai.beaker.Beaker/CreateQueue',
@@ -700,6 +730,12 @@ class BeakerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetJobBind(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def CreateNodeEvents(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -713,6 +749,12 @@ class BeakerServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ProcessNodeEvent(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RecordGPUHealth(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -791,7 +833,8 @@ class BeakerServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def StreamJobLogs(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -952,13 +995,25 @@ class BeakerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetSchedulerRun(self, request, context):
+    def GetDatasetStorageReport(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetDatasetEgressReport(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GetGPUUsageByBudget(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetGPUUsageReport(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -983,6 +1038,18 @@ class BeakerServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ListBudgets(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateBudget(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateBudget(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1229,6 +1296,11 @@ def add_BeakerServicer_to_server(servicer, server):
                     request_deserializer=beaker__pb2.DeleteNodeRequest.FromString,
                     response_serializer=beaker__pb2.DeleteNodeResponse.SerializeToString,
             ),
+            'GetJobBind': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetJobBind,
+                    request_deserializer=beaker__pb2.GetJobBindRequest.FromString,
+                    response_serializer=beaker__pb2.GetJobBindResponse.SerializeToString,
+            ),
             'CreateNodeEvents': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateNodeEvents,
                     request_deserializer=beaker__pb2.CreateNodeEventsRequest.FromString,
@@ -1243,6 +1315,11 @@ def add_BeakerServicer_to_server(servicer, server):
                     servicer.ProcessNodeEvent,
                     request_deserializer=beaker__pb2.ProcessNodeEventRequest.FromString,
                     response_serializer=beaker__pb2.ProcessNodeEventResponse.SerializeToString,
+            ),
+            'RecordGPUHealth': grpc.unary_unary_rpc_method_handler(
+                    servicer.RecordGPUHealth,
+                    request_deserializer=beaker__pb2.RecordGPUHealthRequest.FromString,
+                    response_serializer=beaker__pb2.RecordGPUHealthResponse.SerializeToString,
             ),
             'GetWorkload': grpc.unary_unary_rpc_method_handler(
                     servicer.GetWorkload,
@@ -1439,15 +1516,25 @@ def add_BeakerServicer_to_server(servicer, server):
                     request_deserializer=beaker__pb2.DeleteDatasetsRequest.FromString,
                     response_serializer=beaker__pb2.DeleteDatasetsResponse.SerializeToString,
             ),
-            'GetSchedulerRun': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetSchedulerRun,
-                    request_deserializer=beaker__pb2.GetSchedulerRunRequest.FromString,
-                    response_serializer=beaker__pb2.GetSchedulerRunResponse.SerializeToString,
+            'GetDatasetStorageReport': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetDatasetStorageReport,
+                    request_deserializer=beaker__pb2.GetDatasetStorageReportRequest.FromString,
+                    response_serializer=beaker__pb2.GetDatasetStorageReportResponse.SerializeToString,
+            ),
+            'GetDatasetEgressReport': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetDatasetEgressReport,
+                    request_deserializer=beaker__pb2.GetDatasetEgressReportRequest.FromString,
+                    response_serializer=beaker__pb2.GetDatasetEgressReportResponse.SerializeToString,
             ),
             'GetGPUUsageByBudget': grpc.unary_unary_rpc_method_handler(
                     servicer.GetGPUUsageByBudget,
                     request_deserializer=beaker__pb2.GetGPUUsageByBudgetRequest.FromString,
                     response_serializer=beaker__pb2.GetGPUUsageByBudgetResponse.SerializeToString,
+            ),
+            'GetGPUUsageReport': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetGPUUsageReport,
+                    request_deserializer=beaker__pb2.GetGPUUsageReportRequest.FromString,
+                    response_serializer=beaker__pb2.GetGPUUsageReportResponse.SerializeToString,
             ),
             'CreateHealthcheck': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateHealthcheck,
@@ -1468,6 +1555,16 @@ def add_BeakerServicer_to_server(servicer, server):
                     servicer.ListBudgets,
                     request_deserializer=beaker__pb2.ListBudgetsRequest.FromString,
                     response_serializer=beaker__pb2.ListBudgetsResponse.SerializeToString,
+            ),
+            'CreateBudget': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateBudget,
+                    request_deserializer=beaker__pb2.CreateBudgetRequest.FromString,
+                    response_serializer=beaker__pb2.CreateBudgetResponse.SerializeToString,
+            ),
+            'UpdateBudget': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateBudget,
+                    request_deserializer=beaker__pb2.UpdateBudgetRequest.FromString,
+                    response_serializer=beaker__pb2.UpdateBudgetResponse.SerializeToString,
             ),
             'CreateQueue': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateQueue,
@@ -2412,6 +2509,33 @@ class Beaker(object):
             _registered_method=True)
 
     @staticmethod
+    def GetJobBind(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/GetJobBind',
+            beaker__pb2.GetJobBindRequest.SerializeToString,
+            beaker__pb2.GetJobBindResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def CreateNodeEvents(request,
             target,
             options=(),
@@ -2482,6 +2606,33 @@ class Beaker(object):
             '/allenai.beaker.Beaker/ProcessNodeEvent',
             beaker__pb2.ProcessNodeEventRequest.SerializeToString,
             beaker__pb2.ProcessNodeEventResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RecordGPUHealth(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/RecordGPUHealth',
+            beaker__pb2.RecordGPUHealthRequest.SerializeToString,
+            beaker__pb2.RecordGPUHealthResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3546,7 +3697,7 @@ class Beaker(object):
             _registered_method=True)
 
     @staticmethod
-    def GetSchedulerRun(request,
+    def GetDatasetStorageReport(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3559,9 +3710,36 @@ class Beaker(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/allenai.beaker.Beaker/GetSchedulerRun',
-            beaker__pb2.GetSchedulerRunRequest.SerializeToString,
-            beaker__pb2.GetSchedulerRunResponse.FromString,
+            '/allenai.beaker.Beaker/GetDatasetStorageReport',
+            beaker__pb2.GetDatasetStorageReportRequest.SerializeToString,
+            beaker__pb2.GetDatasetStorageReportResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetDatasetEgressReport(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/GetDatasetEgressReport',
+            beaker__pb2.GetDatasetEgressReportRequest.SerializeToString,
+            beaker__pb2.GetDatasetEgressReportResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3589,6 +3767,33 @@ class Beaker(object):
             '/allenai.beaker.Beaker/GetGPUUsageByBudget',
             beaker__pb2.GetGPUUsageByBudgetRequest.SerializeToString,
             beaker__pb2.GetGPUUsageByBudgetResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetGPUUsageReport(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/GetGPUUsageReport',
+            beaker__pb2.GetGPUUsageReportRequest.SerializeToString,
+            beaker__pb2.GetGPUUsageReportResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3697,6 +3902,60 @@ class Beaker(object):
             '/allenai.beaker.Beaker/ListBudgets',
             beaker__pb2.ListBudgetsRequest.SerializeToString,
             beaker__pb2.ListBudgetsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateBudget(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/CreateBudget',
+            beaker__pb2.CreateBudgetRequest.SerializeToString,
+            beaker__pb2.CreateBudgetResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateBudget(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/UpdateBudget',
+            beaker__pb2.UpdateBudgetRequest.SerializeToString,
+            beaker__pb2.UpdateBudgetResponse.FromString,
             options,
             channel_credentials,
             insecure,

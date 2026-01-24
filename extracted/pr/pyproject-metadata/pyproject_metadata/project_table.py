@@ -14,16 +14,12 @@ import sys
 import typing
 from typing import Any, Dict, List, Union
 
-if sys.version_info < (3, 11):
+if sys.version_info < (3, 11):  # pragma: nocover
     from typing_extensions import Required
 else:
     from typing import Required
 
-if sys.version_info < (3, 8):
-    from typing_extensions import Literal, TypedDict
-else:
-    from typing import Literal, TypedDict
-
+from typing import Literal, TypedDict
 
 __all__ = [
     "BuildSystemTable",
@@ -42,11 +38,19 @@ def __dir__() -> list[str]:
 
 
 class ContactTable(TypedDict, total=False):
+    """
+    Can have either name or email.
+    """
+
     name: str
     email: str
 
 
 class LicenseTable(TypedDict, total=False):
+    """
+    Can have either text or file. Legacy.
+    """
+
     text: str
     file: str
 
@@ -72,6 +76,8 @@ Dynamic = Literal[
     "scripts",
     "urls",
     "version",
+    "import-names",
+    "import-namespaces",
 ]
 
 ProjectTable = TypedDict(
@@ -94,6 +100,8 @@ ProjectTable = TypedDict(
         "keywords": List[str],
         "scripts": Dict[str, str],
         "gui-scripts": Dict[str, str],
+        "import-names": List[str],
+        "import-namespaces": List[str],
         "dynamic": List[Dynamic],
     },
     total=False,

@@ -12,8 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from PIL import Image
 
-def apply_lut(im, lut):
+from pilgram.types import LUT256
+
+
+def apply_lut(im: Image.Image, lut: LUT256) -> Image.Image:
     """Apply LUT to an image.
 
     Arguments:
@@ -28,6 +32,6 @@ def apply_lut(im, lut):
     """
 
     if len(lut) != 256:
-        raise ValueError('A size of LUT must be 256: {}'.format(len(lut)))
+        raise ValueError(f"A size of LUT must be 256: {len(lut)}")
 
-    return im.point(lut * len(im.getbands()))
+    return im.point(list(lut) * len(im.getbands()))

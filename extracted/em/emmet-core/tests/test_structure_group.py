@@ -2,7 +2,14 @@ import pytest
 from monty.serialization import loadfn
 from pymatgen.core import Composition
 
+from emmet.core import ARROW_COMPATIBLE
 from emmet.core.structure_group import StructureGroupDoc, _get_id_lexi
+from emmet.core.utils import jsanitize
+
+if ARROW_COMPATIBLE:
+    import pyarrow as pa
+
+    from emmet.core.arrow import arrowize
 
 
 @pytest.fixture(scope="session")
@@ -10,7 +17,7 @@ def entries_lto(test_dir):
     """
     Recycle the test cases from pymatgen
     """
-    entries = loadfn(test_dir / "LiTiO2_batt.json")
+    entries = loadfn(test_dir / "LiTiO2_batt.json.gz")
     for itr, ient in enumerate(entries):
         ient.entry_id = f"mp-{itr}"
     return entries
@@ -21,7 +28,7 @@ def entries_lfeo(test_dir):
     """
     Recycle the test cases from pymatgen
     """
-    entries = loadfn(test_dir / "Li-Fe-O.json")
+    entries = loadfn(test_dir / "Li-Fe-O.json.gz")
     return entries
 
 
@@ -64,3 +71,21 @@ def test_lexi_id():
     )
     assert _get_id_lexi("mp-123") == ("mp", 123)
     assert _get_id_lexi("123") == ("", 123)
+
+
+@pytest.mark.skipif(
+    not ARROW_COMPATIBLE, reason="pyarrow must be installed to run this test."
+)
+def test_arrow(entries_lto):
+    doc = StructureGroupDoc.from_grouped_entries(
+        entries_lto,
+        ignored_specie="Li",
+    )
+    arrow_struct = pa.scalar(
+        doc.model_dump(context={"format": "arrow"}), type=arrowize(StructureGroupDoc)
+    )
+    test_arrow_doc = StructureGroupDoc(**arrow_struct.as_py(maps_as_pydicts="strict"))
+
+    assert jsanitize(doc.model_dump(), allow_bson=True) == jsanitize(
+        test_arrow_doc.model_dump(), allow_bson=True
+    )

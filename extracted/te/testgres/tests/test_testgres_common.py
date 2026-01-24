@@ -5,32 +5,35 @@ from .helpers.global_data import PostgresNodeServices
 from .helpers.global_data import OsOperations
 from .helpers.global_data import PortManager
 
-from testgres.node import PgVer
-from testgres.node import PostgresNode
-from testgres.node import PostgresNodeLogReader
-from testgres.node import PostgresNodeUtils
-from testgres.utils import get_pg_version2
-from testgres.utils import file_tail
-from testgres.utils import get_bin_path2
-from testgres import ProcessType
-from testgres import NodeStatus
-from testgres import IsolationLevel
-from testgres import NodeApp
+from src.node import PgVer
+from src.node import PostgresNode
+from src.node import NodeConnection
+from src.node import PostgresNodeLogReader
+from src.node import PostgresNodeUtils
+from src.node import ProcessProxy
+from src.utils import get_pg_version2
+from src.utils import file_tail
+from src.utils import get_bin_path2
+from src.utils import execute_utility2
+from src import ProcessType
+from src import NodeStatus
+from src import IsolationLevel
+from src import NodeApp
 
 # New name prevents to collect test-functions in TestgresException and fixes
 # the problem with pytest warning.
-from testgres import TestgresException as testgres_TestgresException
+from src import TestgresException as testgres_TestgresException
 
-from testgres import InitNodeException
-from testgres import StartNodeException
-from testgres import QueryException
-from testgres import ExecUtilException
-from testgres import TimeoutException
-from testgres import InvalidOperationException
-from testgres import BackupException
-from testgres import ProgrammingError
-from testgres import scoped_config
-from testgres import First, Any
+from src import InitNodeException
+from src import StartNodeException
+from src import QueryException
+from src import ExecUtilException
+from src import QueryTimeoutException
+from src import InvalidOperationException
+from src import BackupException
+from src import ProgrammingError
+from src import scoped_config
+from src import First, Any
 
 from contextlib import contextmanager
 
@@ -44,6 +47,8 @@ import os
 import re
 import subprocess
 import typing
+import types
+import psutil
 
 
 @contextmanager
@@ -203,18 +208,109 @@ class TestTestgresCommon:
     def test_double_start(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(node_svc).init().start() as node:
-            # can't start node more than once
+        with __class__.helper__get_node(node_svc) as node:
+            node.init()
+            assert not node.is_started
+            assert node.status() == NodeStatus.Stopped
             node.start()
-            assert (node.is_started)
+            assert node.is_started
+            assert node.status() == NodeStatus.Running
+
+            with pytest.raises(expected_exception=StartNodeException) as x:
+                # can't start node more than once
+                node.start()
+
+            assert x is not None
+            assert type(x.value) == StartNodeException  # noqa: E721
+            assert type(x.value.description) == str  # noqa: E721
+            assert type(x.value.message) == str  # noqa: E721
+
+            assert x.value.description == "Cannot start node"
+            assert x.value.message.startswith(x.value.description)
+
+            assert node.is_started
+            assert node.status() == NodeStatus.Running
+
+        return
+
+    def test_start__manually_stop__start_again(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init()
+            assert not node.is_started
+
+            logging.info("Start node")
+            node.start()
+            assert node.is_started
+            assert node.status() == NodeStatus.Running
+
+            logging.info("Stop node manually via pg_ctl")
+            stop_cmd = [
+                node.os_ops.build_path(node.bin_dir, "pg_ctl"),
+                "stop",
+                "-D",
+                node.data_dir,
+            ]
+
+            execute_utility2(
+                node.os_ops,
+                stop_cmd,
+                node.utils_log_file
+            )
+
+            assert node.is_started
+            assert node.status() == NodeStatus.Stopped
+
+            logging.info("Start node again")
+            node.start()
+            assert node.is_started
+            assert node.status() == NodeStatus.Running
+
+        assert not node.is_started
+        assert node.status() == NodeStatus.Uninitialized
+        return
 
     def test_uninitialized_start(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
 
         with __class__.helper__get_node(node_svc) as node:
             # node is not initialized yet
+            assert node.status() == NodeStatus.Uninitialized
+
             with pytest.raises(expected_exception=StartNodeException):
                 node.start()
+
+            assert node.status() == NodeStatus.Uninitialized
+        return
+
+    def test_start2(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init()
+            assert not node.is_started
+            assert node.status() == NodeStatus.Stopped
+            node.start2()
+            assert not node.is_started
+            assert node.status() == NodeStatus.Running
+
+            with pytest.raises(expected_exception=StartNodeException) as x:
+                # can't start node more than once
+                node.start2()
+
+            assert x is not None
+            assert type(x.value) == StartNodeException  # noqa: E721
+            assert type(x.value.description) == str  # noqa: E721
+            assert type(x.value.message) == str  # noqa: E721
+
+            assert x.value.description == "Cannot start node"
+            assert x.value.message.startswith(x.value.description)
+
+            assert not node.is_started
+            assert node.status() == NodeStatus.Running
+
+        return
 
     def test_restart(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -229,10 +325,37 @@ class TestTestgresCommon:
             res = node.execute('select 2')
             assert (res == [(2,)])
 
+            assert node.status() == NodeStatus.Running
+
             # restart, fail
             with pytest.raises(expected_exception=StartNodeException):
                 node.append_conf('pg_hba.conf', 'DUMMY')
                 node.restart()
+
+            assert node.status() == NodeStatus.Stopped
+        return
+
+    def test_double_stop(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init()
+            assert not node.is_started
+            node.start()
+            assert node.is_started
+            node.stop()
+            assert not node.is_started
+
+            with pytest.raises(expected_exception=Exception) as x:
+                # can't start node more than once
+                node.stop()
+
+            assert x is not None
+            assert "Is server running?" in str(x.value)
+
+            assert not node.is_started
+
+        return
 
     def test_reload(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -292,6 +415,262 @@ class TestTestgresCommon:
 
             assert (node.pid == 0)
             assert (node.status() == NodeStatus.Uninitialized)
+
+    def test_kill__is_not_initialized(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            with pytest.raises(expected_exception=InvalidOperationException) as x:
+                node.kill()
+
+            assert x is not None
+            assert str(x.value) == "Can't kill server process. Node is not initialized."
+        return
+
+    def test_kill__is_not_running(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+
+            try:
+                with pytest.raises(expected_exception=InvalidOperationException) as x:
+                    node.kill()
+
+                assert x is not None
+                assert str(x.value) == "Can't kill server process. Node is not running."
+            finally:
+                try:
+                    node.cleanup(release_resources=True)
+                except Exception as e:
+                    logging.error("Exception ({}): {}".format(
+                        type(e).__name__,
+                        e,
+                    ))
+        return
+
+    def test_kill__ok(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+            assert not node.is_started
+            node.slow_start()
+            assert node.is_started
+            node.kill()
+            assert not node.is_started
+
+            attempt = 0
+
+            while True:
+                if attempt == 60:
+                    raise RuntimeError("Node is not stopped.")
+
+                attempt += 1
+
+                if attempt > 1:
+                    time.sleep(1)
+
+                s = node.status()
+
+                logging.info("Node status is {}".format(s.name))
+
+                if s == NodeStatus.Running:
+                    continue
+
+                assert s == NodeStatus.Stopped
+                break
+        return
+
+    def test_kill_backgroud_writer__ok(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+            assert not node.is_started
+            node.slow_start()
+            assert node.is_started
+            node_pid = node.pid
+            assert type(node_pid) == int  # noqa: E721
+            aux_pids = node.auxiliary_pids
+            assert type(aux_pids) == dict  # noqa: E721
+            assert ProcessType.BackgroundWriter in aux_pids
+            bw_pids = aux_pids[ProcessType.BackgroundWriter]
+            assert type(bw_pids) == list  # noqa: E721
+            assert len(bw_pids) == 1
+            bw_pid = bw_pids[0]
+            assert type(bw_pid) == int  # noqa: E721
+            node.kill(ProcessType.BackgroundWriter)
+            assert node.is_started
+
+            attempt = 0
+
+            while True:
+                if attempt == 60:
+                    raise RuntimeError("Node is not stopped.")
+
+                attempt += 1
+
+                if attempt > 1:
+                    time.sleep(1)
+
+                try:
+                    psutil.Process(bw_pid)
+                except psutil.NoSuchProcess:
+                    logging.info("Process is not found")
+                    break
+
+                logging.info("Process is still alive.")
+                continue
+
+            assert node.is_started
+            assert node.pid == node_pid
+        return
+
+    def test_child_processes__is_not_initialized(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            with pytest.raises(expected_exception=InvalidOperationException) as x:
+                node.child_processes
+
+            assert x is not None
+            assert str(x.value) == "Can't enumerate node child processes. Node is not initialized."
+        return
+
+    def test_child_processes__is_not_running(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+
+            try:
+                with pytest.raises(expected_exception=InvalidOperationException) as x:
+                    node.child_processes
+
+                assert x is not None
+                assert str(x.value) == "Can't enumerate node child processes. Node is not running."
+            finally:
+                try:
+                    node.cleanup(release_resources=True)
+                except Exception as e:
+                    logging.error("Exception ({}): {}".format(
+                        type(e).__name__,
+                        e,
+                    ))
+        return
+
+    def test_child_processes__ok(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+
+            try:
+                node.slow_start()
+
+                children = node.child_processes
+                assert children is not None
+                assert type(children) == list  # noqa: E721
+
+                logging.info("Children count is {}".format(len(children)))
+                logging.info("")
+
+                def LOCAL__safe_call_cmdline(p: ProcessProxy) -> str:
+                    assert type(p) == ProcessProxy  # noqa: E721
+                    try:
+                        return p.cmdline()
+                    except Exception as e:
+                        return "Exception ({}): {}".format(
+                            type(e).__name__,
+                            e,
+                        )
+
+                for i in range(len(children)):
+                    logging.info("------ check child [{}]".format(i))
+                    child = children[i]
+
+                    try:
+                        assert child is not None
+                        assert type(child) == ProcessProxy  # noqa: E721
+                        assert hasattr(child, "process")
+                        assert hasattr(child, "ptype")
+                        assert hasattr(child, "pid")
+                        assert hasattr(child, "cmdline")
+                        assert child.process is not None
+                        assert child.ptype is not None
+                        assert child.pid is not None
+                        assert type(child.ptype) == ProcessType  # noqa: E721
+                        assert type(child.pid) == int  # noqa: E721
+                        assert type(child.cmdline) == types.MethodType  # noqa: E721
+
+                        logging.info("ptype is {}".format(child.ptype))
+                        logging.info("pid is {}".format(child.pid))
+                        logging.info("cmdline is [{}]".format(LOCAL__safe_call_cmdline(child)))
+                    except Exception as e:
+                        logging.error("Exception ({}): {}".format(
+                            type(e).__name__,
+                            e,
+                        ))
+                    continue
+            finally:
+                try:
+                    node.cleanup(release_resources=True)
+                except Exception as e:
+                    logging.error("Exception ({}): {}".format(
+                        type(e).__name__,
+                        e,
+                    ))
+        return
 
     def test_child_pids(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -514,7 +893,7 @@ class TestTestgresCommon:
                 expected=None)
 
             # check arbitrary expected value, fail
-            with pytest.raises(expected_exception=TimeoutException):
+            with pytest.raises(expected_exception=QueryTimeoutException):
                 node.poll_query_until(query='select 3',
                                       expected=1,
                                       max_attempts=3,
@@ -524,7 +903,7 @@ class TestTestgresCommon:
             node.poll_query_until(query='select 2', expected=2)
 
             # check timeout
-            with pytest.raises(expected_exception=TimeoutException):
+            with pytest.raises(expected_exception=QueryTimeoutException):
                 node.poll_query_until(query='select 1 > 2',
                                       max_attempts=3,
                                       sleep_time=0.01)
@@ -534,7 +913,7 @@ class TestTestgresCommon:
                 node.poll_query_until(query='dummy1')
 
             # check ProgrammingError, ok
-            with pytest.raises(expected_exception=(TimeoutException)):
+            with pytest.raises(expected_exception=(QueryTimeoutException)):
                 node.poll_query_until(query='dummy2',
                                       max_attempts=3,
                                       sleep_time=0.01,
@@ -897,13 +1276,27 @@ class TestTestgresCommon:
                 raise Exception("PostgresSQL did not start.")
 
             nAttempt += 1
-            logging.info("------------------------ NODE #{}".format(
+            logging.info("------------------------ attempt #{}".format(
                 nAttempt
             ))
 
-            with __class__.helper__get_node(node_svc, port=12345) as node:
-                if self.impl__test_pg_ctl_wait_option(node_svc, node):
-                    break
+            if nAttempt > 1:
+                logging.info("Sleep 3 seconds")
+                time.sleep(3)
+
+            port = node_svc.port_manager.reserve_port()
+            assert type(port) == int  # noqa: E721
+            ok = False
+            try:
+                with __class__.helper__get_node(node_svc, port=port) as node:
+                    if self.impl__test_pg_ctl_wait_option(node_svc, node):
+                        ok = True
+            finally:
+                node_svc.port_manager.release_port(port)
+
+            if ok:
+                break
+
             continue
 
         logging.info("OK. Test is passed. Number of attempts is {}".format(
@@ -922,12 +1315,25 @@ class TestTestgresCommon:
 
         C_MAX_ATTEMPTS = 50
 
+        logging.info("init node")
         node.init()
         assert node.status() == NodeStatus.Stopped
+        logging.info("node is inited")
 
         node_log_reader = PostgresNodeLogReader(node, from_beginnig=True)
 
-        node.start(wait=False)
+        logging.info("start node")
+
+        try:
+            node.start(wait=False)
+        except StartNodeException as e:
+            logging.info("Exception ({}): {}".format(
+                type(e).__name__,
+                e,
+            ))
+            return False
+        logging.info("node is started")
+
         nAttempt = 0
         while True:
             if PostgresNodeUtils.delect_port_conflict(node_log_reader):
@@ -1227,6 +1633,31 @@ class TestTestgresCommon:
                         res = node3.execute(query_select)
                         assert (res == [(1, ), (2, )])
 
+    def test_dump_with_options(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        query_create = 'create table test_options as select generate_series(1, 5) as val'
+
+        with __class__.helper__get_node(node_svc).init().start() as node1:
+            node1.execute(query_create)
+
+            # Test dump with --schema-only option
+            with removing(node_svc.os_ops, node1.dump(options=['--schema-only'])) as dump:
+                with __class__.helper__get_node(node_svc).init().start() as node2:
+                    assert (os.path.isfile(dump))
+                    # restore schema-only dump
+                    node2.restore(filename=dump)
+
+                    # Check that table exists but has no data
+                    res = node2.execute("SELECT COUNT(*) FROM test_options")
+                    assert (res == [(0,)])  # Table exists but empty
+
+                    # Verify table structure exists
+                    res = node2.execute("""
+                        SELECT COUNT(*) FROM information_schema.tables
+                        WHERE table_name = 'test_options'
+                    """)
+                    assert (res == [(1,)])  # Table structure exists
+
     def test_pgbench(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
 
@@ -1281,13 +1712,18 @@ class TestTestgresCommon:
             with __class__.helper__get_node(node_svc, port=node.port) as node2:
                 assert (type(node2.port) == int)  # noqa: E721
                 assert (node2.port == node.port)
-                assert not (node2._should_free_port)
+                assert (not node2._should_free_port)
+                assert (node2.status() == NodeStatus.Uninitialized)
+
+                node2.init()
 
                 with pytest.raises(
                     expected_exception=StartNodeException,
                     match=re.escape("Cannot start node")
                 ):
-                    node2.init().start()
+                    node2.start()
+
+                assert (node2.status() == NodeStatus.Stopped)
 
             # node is still working
             assert (node.port == node_port_copy)
@@ -1425,17 +1861,21 @@ class TestTestgresCommon:
                     assert node2._should_free_port
                     assert node2.port == node1.port
 
+                    node2.init()
+                    assert node2.status() == NodeStatus.Stopped
+
                     with pytest.raises(
                         expected_exception=StartNodeException,
                         match=re.escape("Cannot start node after multiple attempts.")
                     ):
-                        node2.init().start()
+                        node2.start()
 
                     assert node2.port == node1.port
                     assert node2._should_free_port
                     assert proxy.m_DummyPortCurrentUsage == 1
                     assert proxy.m_DummyPortTotalUsage == C_COUNT_OF_BAD_PORT_USAGE
                     assert not node2.is_started
+                    assert node2.status() == NodeStatus.Stopped
 
                 # node2 must release our dummyPort (node1.port)
                 assert (proxy.m_DummyPortCurrentUsage == 0)
@@ -1586,6 +2026,290 @@ class TestTestgresCommon:
                 assert node.os_ops is node_svc.os_ops
         finally:
             node_svc.port_manager.release_port(port)
+
+    class tagTableChecksumTestData:
+        record_count: int
+        checksum: int
+
+        def __init__(
+            self,
+            record_count: int,
+            checksum: int
+        ):
+            assert type(record_count) == int  # noqa: E721
+            assert type(checksum) == int  # noqa: E721
+            self.record_count = record_count  # noqa: E721
+            self.checksum = checksum  # noqa: E721
+            return
+
+    sm_TableCheckSumTestDatas = [
+        tagTableChecksumTestData(0, 0),
+        tagTableChecksumTestData(1, 4602640778579266704),
+        tagTableChecksumTestData(2, 0),
+        tagTableChecksumTestData(3, 0),
+        tagTableChecksumTestData(987, 0),
+        tagTableChecksumTestData(999, 0),
+        tagTableChecksumTestData(1000, 0),
+        tagTableChecksumTestData(1001, 0),
+        tagTableChecksumTestData(1999, 0),
+        tagTableChecksumTestData(19999, 0),
+        tagTableChecksumTestData(199999, 0),
+    ]
+
+    @pytest.fixture(
+        params=sm_TableCheckSumTestDatas,
+        ids=[x.record_count for x in sm_TableCheckSumTestDatas],
+    )
+    def table_checksum_test_data(
+        self,
+        request: pytest.FixtureRequest
+    ) -> tagTableChecksumTestData:
+        assert isinstance(request, pytest.FixtureRequest)
+        assert type(request.param).__name__ == "tagTableChecksumTestData"
+        return request.param
+
+    def test_node__table_checksum(
+        self,
+        node_svc: PostgresNodeService,
+        table_checksum_test_data: tagTableChecksumTestData,
+    ):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(table_checksum_test_data) == __class__.tagTableChecksumTestData  # noqa: E721
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert node is not None
+            assert type(node) == PostgresNode  # noqa: E721
+            assert node.port is not None
+            assert type(node.port) == int  # noqa: E721
+            assert type(table_checksum_test_data.record_count) == int  # noqa: E721
+            assert table_checksum_test_data.record_count >= 0
+
+            node.init()
+            node.slow_start()
+
+            C_DB = "postgres"
+
+            with node.connect(dbname=C_DB) as cn:
+                assert type(cn) == NodeConnection  # noqa: E721
+
+                cn.execute("create table t (id integer, data varchar(32));")
+                cn.commit()
+
+                if table_checksum_test_data.record_count > 0:
+                    cn.execute("insert into t (id, data) select x, x from generate_series(1, {}) x".format(
+                        table_checksum_test_data.record_count
+                    ))
+                    cn.commit()
+
+                with cn.connection.cursor() as cursor:
+                    assert cursor is not None
+                    cursor.execute("SELECT t::text FROM \"t\" as t;")
+
+                    checksum1 = 0
+                    record_count = 0
+                    while True:
+                        row = cursor.fetchone()
+                        if row is None:
+                            break
+                        assert type(row) in [list, tuple]  # noqa: E721
+                        assert len(row) == 1
+                        record_count += 1
+                        checksum1 += hash(row[0])
+                        pass
+
+                    assert record_count == table_checksum_test_data.record_count
+
+                checksum2 = node.table_checksum("t", C_DB)
+                assert type(checksum2) == int  # noqa: E721
+
+                assert checksum1 == checksum2
+                pass
+        return
+
+    def test_node__pgbench_table_checksums__one_table(
+        self,
+        node_svc: PostgresNodeService,
+        table_checksum_test_data: tagTableChecksumTestData,
+    ):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(table_checksum_test_data) == __class__.tagTableChecksumTestData  # noqa: E721
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert node is not None
+            assert type(node) == PostgresNode  # noqa: E721
+            assert node.port is not None
+            assert type(node.port) == int  # noqa: E721
+            assert type(table_checksum_test_data.record_count) == int  # noqa: E721
+            assert table_checksum_test_data.record_count >= 0
+
+            node.init()
+            node.slow_start()
+
+            C_DB = "postgres"
+
+            with node.connect(dbname=C_DB) as cn:
+                assert type(cn) == NodeConnection  # noqa: E721
+
+                cn.execute("create table t (id integer, data varchar(32));")
+                cn.commit()
+
+                if table_checksum_test_data.record_count > 0:
+                    cn.execute("insert into t (id, data) select x, x from generate_series(1, {}) x".format(
+                        table_checksum_test_data.record_count
+                    ))
+                    cn.commit()
+
+                with cn.connection.cursor() as cursor:
+                    assert cursor is not None
+                    cursor.execute("SELECT t::text FROM \"t\" as t;")
+
+                    checksum1 = 0
+                    record_count = 0
+                    while True:
+                        row = cursor.fetchone()
+                        if row is None:
+                            break
+                        assert type(row) in [list, tuple]  # noqa: E721
+                        assert len(row) == 1
+                        record_count += 1
+                        checksum1 += hash(row[0])
+                        pass
+
+                    assert record_count == table_checksum_test_data.record_count
+
+                actual_result = node.pgbench_table_checksums(C_DB, ["t"])
+                assert type(actual_result) == set  # noqa: E721
+                actual1 = actual_result.pop()
+                assert type(actual1) == tuple  # noqa: E721
+                assert len(actual1) == 2
+                assert type(actual1[0]) == str  # noqa: E721
+                assert type(actual1[1]) == int  # noqa: E721
+
+                assert checksum1 == actual1[1]
+                pass
+        return
+
+    def test_node__pgbench_table_checksums__pbckp_2278(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert node is not None
+            assert type(node) == PostgresNode  # noqa: E721
+            assert node.port is not None
+            assert type(node.port) == int  # noqa: E721
+
+            node.init()
+            node.slow_start()
+
+            logging.info("init pgbench database")
+            node.pgbench_init(scale=20)
+
+            nPass = 0
+            while nPass < 3:
+                nPass += 1
+                logging.info("------------------- pass: {}".format(nPass))
+
+                if not __class__.helper__call_and_check_pgbench_table_checksums(node):
+                    raise RuntimeError("pgbench_table_checksums created a problem. Please, check a test log.")
+                continue
+
+        return
+
+    @staticmethod
+    def helper__call_and_check_pgbench_table_checksums(
+        node: PostgresNode
+    ) -> bool:
+        assert node is not None
+        assert type(node) == PostgresNode  # noqa: E721
+        assert node.status() == NodeStatus.Running
+
+        # We will check
+        # 1) the structure of result
+        # 2) the release of cursor locks
+
+        logging.info("run pgbench_table_checksums")
+        full_checksums = node.pgbench_table_checksums()
+        assert full_checksums is not None
+        assert type(full_checksums) == set  # noqa: E721
+        assert len(full_checksums) == 4
+
+        expectedTables: typing.Dict[str, bool] = {
+            'pgbench_branches': False,
+            'pgbench_tellers': False,
+            'pgbench_accounts': False,
+            'pgbench_history': False,
+        }
+
+        ok = True
+
+        for tcs in full_checksums:
+            assert type(tcs) == tuple  # noqa: E721
+            assert len(tcs) == 2
+            assert type(tcs[0]) == str  # noqa: E721
+            assert type(tcs[1]) == int  # noqa: E721
+
+            tableName = tcs[0]
+            if tableName not in expectedTables:
+                ok = False
+                logging.error("pgbench_table_checksums returns unknown table [{}].".format(
+                    tableName
+                ))
+                continue
+
+            if expectedTables[tableName]:
+                ok = False
+                logging.error("pgbench_table_checksums returns table [{}] more than one time.".format(
+                    tableName
+                ))
+                continue
+
+            expectedTables[tableName] = True
+            continue
+
+        C_SQL = """select x.granted, x.mode
+from pg_locks x join pg_class c on x.relation=c.oid
+where c.relname=%s;"""
+
+        cn = node.connect(dbname="postgres")
+        assert type(cn) == NodeConnection  # noqa: E721
+
+        try:
+            for tcs in full_checksums:
+                tableName = tcs[0]
+                recs = cn.execute(C_SQL, tableName)
+                assert type(recs) == list  # noqa: E721
+                if len(recs) == 0:
+                    logging.info("Table [{}] does not have a lock. It is ok.".format(
+                        tableName,
+                    ))
+                else:
+                    ok = False
+                    assert len(recs) == 1
+                    rec = recs[0]
+                    assert type(rec) == tuple  # noqa: E721
+                    assert len(rec) == 2
+                    logging.error("Table [{}] has a lock [granted: {}][mode: {}].".format(
+                        tableName,
+                        rec[0],
+                        rec[1],
+                    ))
+                continue
+        finally:
+            try:
+                cn.close()
+            except Exception as e:
+                logging.error("Can't close connection. Exception ({}): {}".format(
+                    type(e).__name__,
+                    e,
+                ))
+        return ok
 
     class tag_rmdirs_protector:
         _os_ops: OsOperations
@@ -1783,6 +2507,8 @@ class TestTestgresCommon:
         assert node_svc.port_manager is not None
         assert isinstance(node_svc.port_manager, PortManager)
 
+        C_MAX_ATTEMPTS = 5
+
         tmp_dir = node_svc.os_ops.mkdtemp()
         assert tmp_dir is not None
         assert type(tmp_dir) == str  # noqa: E721
@@ -1800,37 +2526,82 @@ class TestTestgresCommon:
         assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
         assert len(node_app.nodes_to_cleanup) == 0
 
-        port = node_app.port_manager.reserve_port()
-        assert type(port) == int  # noqa: E721
-
-        node: PostgresNode = None
+        attempt = 0
+        ports = []
         try:
-            node = node_app.make_simple("node", port=port)
-            assert node is not None
-            assert isinstance(node, PostgresNode)
-            assert node.os_ops is node_svc.os_ops
-            assert node.port_manager is None  # <---------
-            assert node.port == port
-            assert node._should_free_port == False  # noqa: E712
+            while True:
+                if attempt == C_MAX_ATTEMPTS:
+                    raise RuntimeError("Node did not start.")
 
-            assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
-            assert len(node_app.nodes_to_cleanup) == 1
-            assert node_app.nodes_to_cleanup[0] is node
+                attempt += 1
 
-            node.slow_start()
-        finally:
-            if node is not None:
+                logging.info("------------- attempt #{}".format(
+                    attempt
+                ))
+
+                port = node_app.port_manager.reserve_port()
+                assert type(port) == int  # noqa: E721
+                assert port is not ports
+
+                try:
+                    ports.append(port)
+                except:  # noqa: E722
+                    node_app.port_manager.release_port(port)
+                    raise
+
+                assert len(ports) == attempt
+                node_name = "node_{}".format(attempt)
+
+                logging.info("Node [{}] is creating...".format(node_name))
+                node = node_app.make_simple(node_name, port=port)
+                assert node is not None
+                assert isinstance(node, PostgresNode)
+                assert node.os_ops is node_svc.os_ops
+                assert node.port_manager is None  # <---------
+                assert node.port == port
+                assert node._should_free_port == False  # noqa: E712
+
+                assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+                assert len(node_app.nodes_to_cleanup) == attempt
+                assert node_app.nodes_to_cleanup[-1] is node
+
+                assert node.status() == NodeStatus.Stopped
+                logging.info("Node is created")
+
+                logging.info("Try to start a node...")
+                try:
+                    node.slow_start()
+                except StartNodeException as e:
+                    logging.info("Exception ({}): {}".format(
+                        type(e).__name__,
+                        e
+                    ))
+                    assert node.status() == NodeStatus.Stopped
+                    continue
+
+                assert node.status() == NodeStatus.Running
+                logging.info("Node is started")
+
+                logging.info("Stop node")
                 node.stop()
-                node.free_port()
+                assert node.status() == NodeStatus.Stopped
+                logging.info("Node is stopped")
 
-        assert node._port is None
-        assert not node._should_free_port
-
-        node.cleanup(release_resources=True)
+                logging.info("OK. Go home.")
+                assert node is not None
+                assert isinstance(node, PostgresNode)
+                assert node._port is not None
+                assert node._port == port
+                assert not node._should_free_port
+                break
+        finally:
+            while len(ports) > 0:
+                node_app.port_manager.release_port(ports.pop())
 
         # -----------
         logging.info("temp directory [{}] is deleting".format(tmp_dir))
-        node_svc.os_ops.rmdir(tmp_dir)
+        node_svc.os_ops.rmdirs(tmp_dir)
+        return
 
     @staticmethod
     def helper__get_node(

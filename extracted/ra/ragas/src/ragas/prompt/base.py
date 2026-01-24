@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import json
 import logging
+import os
 import typing as t
 from abc import ABC, abstractmethod
 
 from langchain_core.prompt_values import StringPromptValue
 from pydantic import BaseModel
 
+from ragas._version import __version__
 from ragas.utils import camel_to_snake
 
 if t.TYPE_CHECKING:
@@ -61,6 +64,45 @@ class BasePrompt(ABC):
         Generate multiple completions from the prompt.
         """
         pass
+
+    def save(self, file_path: str):
+        """
+        Save the prompt to a file.
+        """
+        data = {
+            "ragas_version": __version__,
+            "language": self.language,
+            "original_hash": self.original_hash,
+        }
+        if os.path.exists(file_path):
+            raise FileExistsError(f"The file '{file_path}' already exists.")
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            print(f"Prompt saved to {file_path}")
+
+    @classmethod
+    def load(cls, file_path: str) -> "BasePrompt":
+        """
+        Load the prompt from a file.
+        """
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        ragas_version = data.get("ragas_version")
+        if ragas_version != __version__:
+            logger.warning(
+                "Prompt was saved with Ragas v%s, but you are loading it with Ragas v%s. "
+                "There might be incompatibilities.",
+                ragas_version,
+                __version__,
+            )
+
+        prompt = cls(
+            language=data.get("language", "english"),
+            original_hash=data.get("original_hash"),
+        )
+
+        return prompt
 
 
 class StringIO(BaseModel):
@@ -144,7 +186,42 @@ class StringPrompt(BasePrompt):
         stop: t.Optional[t.List[str]] = None,
         callbacks: Callbacks = [],
     ) -> t.List[str]:
-        return [
-            await self.generate(llm, data, temperature, stop, callbacks)
-            for _ in range(n)
-        ]
+        """
+        Generate multiple distinct text outputs based on the instruction and provided data.
+
+        Parameters
+        ----------
+        llm : BaseRagasLLM
+            The language model to use for text generation.
+        data : str
+            The data to format the instruction with.
+        n : int, optional
+            The number of completions to generate, by default 1.
+        temperature : Optional[float], optional
+            The temperature for text generation, by default None.
+        stop : Optional[List[str]], optional
+            Stop sequences for text generation, by default None.
+        callbacks : Callbacks, optional
+            Callbacks to use during text generation, by default [].
+
+        Returns
+        -------
+        List[str]
+            A list containing `n` generated outputs.
+
+        Notes
+        -----
+        - When caching is enabled, each output is uniquely cached to prevent duplicates.
+        - This ensures that multiple outputs for the same input are distinct.
+        - Previous issues where caching returned duplicate outputs have been fixed.
+        """
+        llm_result = await llm.agenerate_text(
+            StringPromptValue(text=data),
+            n=n,
+            temperature=temperature,
+            stop=stop,
+            callbacks=callbacks,
+        )
+
+        # flatten the generations
+        return [gen.text for gen in llm_result.generations[0]]

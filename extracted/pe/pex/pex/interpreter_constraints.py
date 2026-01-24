@@ -10,7 +10,6 @@ import itertools
 from pex import pex_warnings
 from pex.common import pluralize
 from pex.compatibility import indent
-from pex.dist_metadata import Requirement, RequirementParseError
 from pex.enum import Enum
 from pex.interpreter import PythonInterpreter
 from pex.interpreter_implementation import InterpreterImplementation
@@ -33,30 +32,46 @@ class UnsatisfiableError(ValueError):
     """Indicates an unsatisfiable interpreter constraint, e.g. `>=3.8,<3.8`."""
 
 
+def _iter_interpreter_implementations():
+    # type: () -> Iterator[Tuple[InterpreterImplementation.Value, str]]
+    for interpreter_implementation in InterpreterImplementation.values():
+        yield interpreter_implementation, interpreter_implementation.value
+        if interpreter_implementation.alias:
+            yield interpreter_implementation, interpreter_implementation.alias
+
+
+_INTERPRETER_IMPLEMENTATIONS = tuple(
+    sorted(_iter_interpreter_implementations(), key=lambda tup: tup[1], reverse=True)
+)
+
+
 @attr.s(frozen=True)
 class InterpreterConstraint(object):
     @classmethod
     def parse(
         cls,
         constraint,  # type: str
-        default_interpreter=None,  # type: Optional[InterpreterImplementation.Value]
+        default_interpreter_implementation=None,  # type: Optional[InterpreterImplementation.Value]
     ):
         # type: (...) -> InterpreterConstraint
+
+        implementation = default_interpreter_implementation
+        specifier = constraint
+
+        for interpreter_implementation, value in _INTERPRETER_IMPLEMENTATIONS:
+            if constraint.startswith(value):
+                implementation = interpreter_implementation
+                specifier = constraint[len(value) :]
+                break
+
         try:
-            requirement = Requirement.parse(constraint)
-            return cls(
-                specifier=requirement.specifier,
-                implementation=InterpreterImplementation.for_value(requirement.name),
-            )
-        except RequirementParseError:
-            try:
-                return cls(specifier=SpecifierSet(constraint), implementation=default_interpreter)
-            except InvalidSpecifier as e:
-                raise ValueError(
-                    "Unparseable interpreter constraint {constraint}: {err}".format(
-                        constraint=constraint, err=e
-                    )
+            return cls(specifier=SpecifierSet(specifier), implementation=implementation)
+        except InvalidSpecifier as e:
+            raise ValueError(
+                "Unparseable interpreter constraint {constraint}: {err}".format(
+                    constraint=constraint, err=e
                 )
+            )
 
     @classmethod
     def matches(
@@ -111,7 +126,7 @@ class InterpreterConstraint(object):
     def __contains__(self, interpreter):
         # type: (PythonInterpreter) -> bool
         python_identity = interpreter.identity
-        if self.implementation and self.implementation is not python_identity.implementation:
+        if self.implementation and not self.implementation.includes(python_identity.implementation):
             return False
         return python_identity.version_str in self.specifier
 
@@ -375,12 +390,13 @@ COMPATIBLE_PYTHON_VERSIONS = (
     PythonVersion(Lifecycle.EOL, 3, 6, 15),
     PythonVersion(Lifecycle.EOL, 3, 7, 17),
     PythonVersion(Lifecycle.EOL, 3, 8, 20),
-    PythonVersion(Lifecycle.STABLE, 3, 9, 23),
-    PythonVersion(Lifecycle.STABLE, 3, 10, 18),
-    PythonVersion(Lifecycle.STABLE, 3, 11, 13),
-    PythonVersion(Lifecycle.STABLE, 3, 12, 11),
-    PythonVersion(Lifecycle.STABLE, 3, 13, 7),
-    PythonVersion(Lifecycle.DEV, 3, 14, 0),
+    PythonVersion(Lifecycle.EOL, 3, 9, 25),
+    PythonVersion(Lifecycle.STABLE, 3, 10, 19),
+    PythonVersion(Lifecycle.STABLE, 3, 11, 14),
+    PythonVersion(Lifecycle.STABLE, 3, 12, 12),
+    PythonVersion(Lifecycle.STABLE, 3, 13, 11),
+    PythonVersion(Lifecycle.STABLE, 3, 14, 2),
+    PythonVersion(Lifecycle.DEV, 3, 15, 0),
 )
 
 

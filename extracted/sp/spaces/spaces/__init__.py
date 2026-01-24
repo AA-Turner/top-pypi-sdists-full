@@ -1,13 +1,9 @@
 """
 """
-from __future__ import annotations
-
 import sys
+from types import FunctionType
 from typing import TYPE_CHECKING
-
-
-if sys.version_info.minor < 8: # pragma: no cover
-    raise RuntimeError("Importing PySpaces requires Python 3.8+")
+from typing import Callable
 
 
 # Prevent gradio from importing spaces
@@ -24,26 +20,56 @@ from .gradio import disable_gradio_auto_wrap
 from .gradio import enable_gradio_auto_wrap
 
 
-def _aoti_capture(*args, **kwargs): # pragma: no cover
+class LazyImported:
+    def __init__(self, import_fn: Callable[[], FunctionType]):
+        self.import_fn = import_fn
+    def __call__(self, *args, **kwargs):
+        return self.import_fn()(*args, **kwargs)
+    @property
+    def __wrapped__(self):
+        return self.import_fn()
+    @property
+    def __doc__(self): # pyright: ignore[reportIncompatibleVariableOverride]
+        return self.import_fn().__doc__
+    @property
+    def __code__(self):
+        return self.import_fn.__code__
+    @property
+    def __class__(self): # pyright: ignore[reportIncompatibleMethodOverride]
+        return FunctionType
+    @property
+    def __name__(self):
+        return self.import_fn.__name__.removeprefix('_')
+
+
+def _aoti_capture():
     from .zero.torch.aoti import aoti_capture
-    return aoti_capture(*args, **kwargs)
+    return aoti_capture
 
-def _aoti_compile(*args, **kwargs): # pragma: no cover
+def _aoti_compile():
     from .zero.torch.aoti import aoti_compile
-    return aoti_compile(*args, **kwargs)
+    return aoti_compile
 
-def _aoti_apply(*args, **kwargs): # pragma: no cover
+def _aoti_apply():
     from .zero.torch.aoti import aoti_apply
-    return aoti_apply(*args, **kwargs)
+    return aoti_apply
+
+def _aoti_blocks_load():
+    from .zero.torch.aoti import aoti_blocks_load
+    return aoti_blocks_load
+
+
+aoti_capture = LazyImported(_aoti_capture)
+aoti_compile = LazyImported(_aoti_compile)
+aoti_apply = LazyImported(_aoti_apply)
+aoti_blocks_load = LazyImported(_aoti_blocks_load)
+
 
 if TYPE_CHECKING:
     from .zero.torch.aoti import aoti_capture
     from .zero.torch.aoti import aoti_compile
     from .zero.torch.aoti import aoti_apply
-else:
-    aoti_capture = _aoti_capture
-    aoti_compile = _aoti_compile
-    aoti_apply = _aoti_apply
+    from .zero.torch.aoti import aoti_blocks_load
 
 
 __all__ = [
@@ -54,4 +80,5 @@ __all__ = [
     'aoti_capture',
     'aoti_compile',
     'aoti_apply',
+    'aoti_blocks_load',
 ]

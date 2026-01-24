@@ -1,11 +1,14 @@
 # mypy: disable-error-code=attr-defined
 from __future__ import annotations
 
-import ast
 import importlib.metadata as importlib_metadata
-from typing import Any, Generator
+from typing import TYPE_CHECKING, Any
 
 from pydoclint.visitor import Visitor
+
+if TYPE_CHECKING:
+    import ast
+    from collections.abc import Generator
 
 
 class Plugin:
@@ -32,7 +35,9 @@ class Plugin:
             action='store',
             default='None',
             parse_from_config=True,
-            help='(Deprecated) Please use --arg-type-hints-in-signature instead',
+            help=(
+                '(Deprecated) Please use --arg-type-hints-in-signature instead'
+            ),
         )
         parser.add_option(
             '-aths',
@@ -40,7 +45,9 @@ class Plugin:
             action='store',
             default='True',
             parse_from_config=True,
-            help='Whether to require argument type hints in function signatures',
+            help=(
+                'Whether to require argument type hints in function signatures'
+            ),
         )
         parser.add_option(
             '-thd',
@@ -48,7 +55,9 @@ class Plugin:
             action='store',
             default='None',
             parse_from_config=True,
-            help='(Deprecated) Please use --arg-type-hints-in-docstring instead',
+            help=(
+                '(Deprecated) Please use --arg-type-hints-in-docstring instead'
+            ),
         )
         parser.add_option(
             '-athd',
@@ -56,7 +65,10 @@ class Plugin:
             action='store',
             default='True',
             parse_from_config=True,
-            help='Whether to require type hints in the argument list in docstrings',
+            help=(
+                'Whether to require type hints in the argument list'
+                ' in docstrings'
+            ),
         )
         parser.add_option(
             '-ao',
@@ -75,7 +87,10 @@ class Plugin:
             action='store',
             default='True',
             parse_from_config=True,
-            help='If True, skip checking if the docstring only has a short summary.',
+            help=(
+                'If True, skip checking if the docstring only has a short'
+                ' summary.'
+            ),
         )
         parser.add_option(
             '-scr',
@@ -83,7 +98,10 @@ class Plugin:
             action='store',
             default='False',
             parse_from_config=True,
-            help='If True, skip checking docstring "Raises" section against "raise" statements',
+            help=(
+                'If True, skip checking docstring "Raises" section against'
+                ' "raise" statements'
+            ),
         )
         parser.add_option(
             '-aid',
@@ -91,7 +109,10 @@ class Plugin:
             action='store',
             default='False',
             parse_from_config=True,
-            help='If True, allow both __init__() and the class def to have docstrings',
+            help=(
+                'If True, allow both __init__() and the class def to have'
+                ' docstrings'
+            ),
         )
         parser.add_option(
             '--require-return-section-when-returning-none',
@@ -122,8 +143,9 @@ class Plugin:
             default='True',
             parse_from_config=True,
             help=(
-                'If True, check that the type(s) in the docstring return section and'
-                ' the return annotation in the function signature are consistent'
+                'If True, check that the type(s) in the docstring return'
+                ' section and the return annotation in the function signature'
+                ' are consistent'
             ),
         )
         parser.add_option(
@@ -144,8 +166,9 @@ class Plugin:
             default='True',
             parse_from_config=True,
             help=(
-                'If True, check that the type(s) in the docstring "yields" section and'
-                ' the return annotation in the function signature are consistent'
+                'If True, check that the type(s) in the docstring "yields"'
+                ' section and the return annotation in the function signature'
+                ' are consistent'
             ),
         )
         parser.add_option(
@@ -155,10 +178,10 @@ class Plugin:
             default='True',
             parse_from_config=True,
             help=(
-                'If True, underscore arguments (such as _, __, ...) in the function'
-                ' signature do not need to appear in the docstring. Note: "underscore'
-                ' arguments" are not the same as "arguments with leading'
-                ' underscores" (such as `_a`).'
+                'If True, underscore arguments (such as _, __, ...) in the'
+                ' function signature do not need to appear in the docstring.'
+                ' Note: "underscore arguments" are not the same as "arguments'
+                ' with leading underscores" (such as `_a`).'
             ),
         )
         parser.add_option(
@@ -203,12 +226,13 @@ class Plugin:
             default='False',
             parse_from_config=True,
             help=(
-                'If True, treat @property methods as class properties. This means'
-                ' that they need to be documented in the "Attributes" section of'
-                ' the class docstring, and there cannot be any docstring under'
-                ' the @property methods. This option is only effective when'
-                ' --check-class-attributes is True. We recommend setting both'
-                ' this option and --check-class-attributes to True.'
+                'If True, treat @property methods as class properties. This'
+                ' means that they need to be documented in the "Attributes"'
+                ' section of the class docstring, and there cannot be any'
+                ' docstring under the @property methods. This option is only'
+                ' effective when --check-class-attributes is True. We'
+                ' recommend setting both this option and'
+                ' --check-class-attributes to True.'
             ),
         )
         parser.add_option(
@@ -218,10 +242,10 @@ class Plugin:
             default='False',
             parse_from_config=True,
             help=(
-                'If True, only the attributes whose type annotations are wrapped'
-                ' within `ClassVar` (where `ClassVar` is imported from `typing`)'
-                ' are treated as class attributes, and all other attributes are'
-                ' treated as instance attributes.'
+                'If True, only the attributes whose type annotations are'
+                ' wrapped within `ClassVar` (where `ClassVar` is imported from'
+                ' `typing`) are treated as class attributes, and all other'
+                ' attributes are treated as instance attributes.'
             ),
         )
         parser.add_option(
@@ -235,6 +259,18 @@ class Plugin:
                 ' **props, etc.) in the function signature should be'
                 ' documented in the docstring. If False, they should not'
                 ' appear in the docstring.'
+            ),
+        )
+        parser.add_option(
+            '-oswdv',
+            '--omit-stars-when-documenting-varargs',
+            action='store',
+            default='False',
+            parse_from_config=True,
+            help=(
+                'If True, docstrings may omit the leading * when'
+                ' documenting *args/**kwargs, and pydoclint will still'
+                ' match them against the function signature.'
             ),
         )
         parser.add_option(
@@ -256,9 +292,10 @@ class Plugin:
             default='False',
             parse_from_config=True,
             help=(
-                'If True, check that style specified in --style matches the detected'
-                ' style of the docstring. If there is a mismatch, DOC003 will be'
-                ' reported. Setting this to False will silence all DOC003 violations.'
+                'If True, check that style specified in --style matches the'
+                ' detected style of the docstring. If there is a mismatch,'
+                ' DOC003 will be reported. Setting this to False will silence'
+                ' all DOC003 violations.'
             ),
         )
         parser.add_option(
@@ -312,6 +349,9 @@ class Plugin:
         )
         cls.should_document_star_arguments = (
             options.should_document_star_arguments
+        )
+        cls.omit_stars_when_documenting_varargs = (
+            options.omit_stars_when_documenting_varargs
         )
         cls.check_style_mismatch = options.check_style_mismatch
         cls.check_arg_defaults = options.check_arg_defaults
@@ -404,6 +444,10 @@ class Plugin:
             '--should-document-star-arguments',
             self.should_document_star_arguments,
         )
+        omitStarsWhenDocumentingVarargs = self._bool(
+            '--omit-stars-when-documenting-varargs',
+            self.omit_stars_when_documenting_varargs,
+        )
         checkStyleMismatch = self._bool(
             '--check-style-mismatch',
             self.check_style_mismatch,
@@ -415,7 +459,8 @@ class Plugin:
 
         if self.style not in {'numpy', 'google', 'sphinx'}:
             raise ValueError(
-                'Invalid value for "--style": must be "numpy", "google", or "sphinx"'
+                'Invalid value for "--style": must be "numpy", "google",'
+                ' or "sphinx"'
             )
 
         v = Visitor(
@@ -446,6 +491,7 @@ class Plugin:
                 onlyAttrsWithClassVarAreTreatedAsClassAttrs
             ),
             shouldDocumentStarArguments=shouldDocumentStarArguments,
+            omitStarsWhenDocumentingVarargs=omitStarsWhenDocumentingVarargs,
             checkStyleMismatch=checkStyleMismatch,
             checkArgDefaults=checkArgDefaults,
             style=self.style,

@@ -3,7 +3,7 @@ Type annotations for odb service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -40,6 +41,7 @@ from .paginator import (
 )
 from .type_defs import (
     AcceptMarketplaceRegistrationInputTypeDef,
+    AssociateIamRoleToResourceInputTypeDef,
     CreateCloudAutonomousVmClusterInputTypeDef,
     CreateCloudAutonomousVmClusterOutputTypeDef,
     CreateCloudExadataInfrastructureInputTypeDef,
@@ -55,6 +57,7 @@ from .type_defs import (
     DeleteCloudVmClusterInputTypeDef,
     DeleteOdbNetworkInputTypeDef,
     DeleteOdbPeeringConnectionInputTypeDef,
+    DisassociateIamRoleFromResourceInputTypeDef,
     GetCloudAutonomousVmClusterInputTypeDef,
     GetCloudAutonomousVmClusterOutputTypeDef,
     GetCloudExadataInfrastructureInputTypeDef,
@@ -72,6 +75,7 @@ from .type_defs import (
     GetOdbNetworkOutputTypeDef,
     GetOdbPeeringConnectionInputTypeDef,
     GetOdbPeeringConnectionOutputTypeDef,
+    InitializeServiceInputTypeDef,
     ListAutonomousVirtualMachinesInputTypeDef,
     ListAutonomousVirtualMachinesOutputTypeDef,
     ListCloudAutonomousVmClustersInputTypeDef,
@@ -108,14 +112,10 @@ from .type_defs import (
     UpdateCloudExadataInfrastructureOutputTypeDef,
     UpdateOdbNetworkInputTypeDef,
     UpdateOdbNetworkOutputTypeDef,
+    UpdateOdbPeeringConnectionInputTypeDef,
+    UpdateOdbPeeringConnectionOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -126,14 +126,14 @@ __all__ = ("OdbClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class OdbClient(BaseClient):
@@ -173,7 +173,7 @@ class OdbClient(BaseClient):
 
     def accept_marketplace_registration(
         self, **kwargs: Unpack[AcceptMarketplaceRegistrationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Registers the Amazon Web Services Marketplace token for your Amazon Web
         Services account to activate your Oracle Database@Amazon Web Services
@@ -181,6 +181,18 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/accept_marketplace_registration.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#accept_marketplace_registration)
+        """
+
+    def associate_iam_role_to_resource(
+        self, **kwargs: Unpack[AssociateIamRoleToResourceInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates an Amazon Web Services Identity and Access Management (IAM) service
+        role with a specified resource to enable Amazon Web Services service
+        integration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/associate_iam_role_to_resource.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#associate_iam_role_to_resource)
         """
 
     def create_cloud_autonomous_vm_cluster(
@@ -227,8 +239,7 @@ class OdbClient(BaseClient):
         self, **kwargs: Unpack[CreateOdbPeeringConnectionInputTypeDef]
     ) -> CreateOdbPeeringConnectionOutputTypeDef:
         """
-        Creates a peering connection between an ODB network and either another ODB
-        network or a customer-owned VPC.
+        Creates a peering connection between an ODB network and a VPC.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/create_odb_peering_connection.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#create_odb_peering_connection)
@@ -236,7 +247,7 @@ class OdbClient(BaseClient):
 
     def delete_cloud_autonomous_vm_cluster(
         self, **kwargs: Unpack[DeleteCloudAutonomousVmClusterInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Autonomous VM cluster.
 
@@ -246,7 +257,7 @@ class OdbClient(BaseClient):
 
     def delete_cloud_exadata_infrastructure(
         self, **kwargs: Unpack[DeleteCloudExadataInfrastructureInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified Exadata infrastructure.
 
@@ -256,7 +267,7 @@ class OdbClient(BaseClient):
 
     def delete_cloud_vm_cluster(
         self, **kwargs: Unpack[DeleteCloudVmClusterInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified VM cluster.
 
@@ -264,7 +275,7 @@ class OdbClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#delete_cloud_vm_cluster)
         """
 
-    def delete_odb_network(self, **kwargs: Unpack[DeleteOdbNetworkInputTypeDef]) -> Dict[str, Any]:
+    def delete_odb_network(self, **kwargs: Unpack[DeleteOdbNetworkInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified ODB network.
 
@@ -274,12 +285,24 @@ class OdbClient(BaseClient):
 
     def delete_odb_peering_connection(
         self, **kwargs: Unpack[DeleteOdbPeeringConnectionInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an ODB peering connection.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/delete_odb_peering_connection.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#delete_odb_peering_connection)
+        """
+
+    def disassociate_iam_role_from_resource(
+        self, **kwargs: Unpack[DisassociateIamRoleFromResourceInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Disassociates an Amazon Web Services Identity and Access Management (IAM)
+        service role from a specified resource to disable Amazon Web Services service
+        integration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/disassociate_iam_role_from_resource.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#disassociate_iam_role_from_resource)
         """
 
     def get_cloud_autonomous_vm_cluster(
@@ -368,7 +391,7 @@ class OdbClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#get_odb_peering_connection)
         """
 
-    def initialize_service(self) -> Dict[str, Any]:
+    def initialize_service(self, **kwargs: Unpack[InitializeServiceInputTypeDef]) -> dict[str, Any]:
         """
         Initializes the ODB service for the first time in an account.
 
@@ -528,7 +551,7 @@ class OdbClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#stop_db_node)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Applies tags to the specified resource.
 
@@ -536,7 +559,7 @@ class OdbClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from the specified resource.
 
@@ -562,6 +585,17 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/update_odb_network.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#update_odb_network)
+        """
+
+    def update_odb_peering_connection(
+        self, **kwargs: Unpack[UpdateOdbPeeringConnectionInputTypeDef]
+    ) -> UpdateOdbPeeringConnectionOutputTypeDef:
+        """
+        Modifies the settings of an Oracle Database@Amazon Web Services peering
+        connection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/update_odb_peering_connection.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#update_odb_peering_connection)
         """
 
     @overload  # type: ignore[override]

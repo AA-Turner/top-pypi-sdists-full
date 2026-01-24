@@ -1,15 +1,18 @@
-use std::fmt::Write;
+use std::{
+    fmt::{Display, Write},
+    sync::Arc,
+};
 
-use arrow2::datatypes::DataType as ArrowType;
+use arrow_schema::IntervalUnit;
 use common_error::{DaftError, DaftResult};
-use derive_more::Display;
+#[allow(deprecated, reason = "arrow2 migration")]
+use daft_arrow::datatypes::DataType as ArrowType;
 use serde::{Deserialize, Serialize};
 
-use crate::{field::Field, image_mode::ImageMode, time_unit::TimeUnit};
-
+use crate::{field::Field, image_mode::ImageMode, media_type::MediaType, time_unit::TimeUnit};
 pub type DaftDataType = DataType;
 
-#[derive(Clone, Debug, Display, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum DataType {
     // ArrowTypes:
     /// Null type
@@ -50,7 +53,6 @@ pub enum DataType {
 
     /// Fixed-precision decimal type.
     /// TODO: allow negative scale once Arrow2 allows it: https://github.com/jorgecarleitao/arrow2/issues/1518
-    #[display("Decimal(precision={_0}, scale={_1})")]
     Decimal128(usize, usize),
 
     /// A [`i64`] representing a timestamp measured in [`TimeUnit`] with an optional timezone.
@@ -67,7 +69,6 @@ pub enum DataType {
     ///
     /// When the timezone is not specified, the timestamp is considered to have no timezone
     /// and is represented _as is_
-    #[display("Timestamp({_0}, {_1:?})")]
     Timestamp(TimeUnit, Option<String>),
 
     /// An [`i32`] representing the elapsed time since UNIX epoch (1970-01-01)
@@ -76,100 +77,147 @@ pub enum DataType {
 
     /// A 64-bit time representing the elapsed time since midnight in the unit of `TimeUnit`.
     /// Only [`TimeUnit::Microsecond`] and [`TimeUnit::Nanosecond`] are supported on this variant.
-    #[display("Time({_0})")]
     Time(TimeUnit),
 
     /// Measure of elapsed time. This elapsed time is a physical duration (i.e. 1s as defined in S.I.)
-    #[display("Duration[{_0}]")]
     Duration(TimeUnit),
 
     /// A duration of **relative** time (year, day, etc).
     /// This is not a physical duration, but a calendar duration.
     /// This differs from `Duration` in that it is not a fixed amount of time, and is affected by calendar events (leap years, daylight savings, etc.)
-    #[display("Interval")]
     Interval,
 
     /// Opaque binary data of variable length whose offsets are represented as [`i64`].
     Binary,
 
     /// Opaque binary data of fixed size. Enum parameter specifies the number of bytes per value.
-    #[display("FixedSizeBinary[{_0}]")]
     FixedSizeBinary(usize),
 
     /// A variable-length UTF-8 encoded string whose offsets are represented as [`i64`].
     Utf8,
 
     /// A list of some logical data type with a fixed number of elements.
-    #[display("FixedSizeList[{_0}; {_1}]")]
     FixedSizeList(Box<DataType>, usize),
 
     /// A list of some logical data type whose offsets are represented as [`i64`].
-    #[display("List[{_0}]")]
     List(Box<DataType>),
 
     /// A nested [`DataType`] with a given number of [`Field`]s.
-    #[display("Struct[{}]", format_struct(_0)?)]
     Struct(Vec<Field>),
 
     /// A nested [`DataType`] that is represented as List<entries: Struct<key: K, value: V>>.
-    #[display("Map[{key}: {value}]")]
     Map {
         key: Box<DataType>,
         value: Box<DataType>,
     },
 
     /// Extension type.
-    #[display("Extension[{_0}; {_1}]")]
     Extension(String, Box<DataType>, Option<String>),
 
     // Non-ArrowTypes:
     /// A logical type for embeddings.
-    #[display("Embedding[{_0}; {_1}]")]
     Embedding(Box<DataType>, usize),
 
     /// A logical type for images with variable shapes.
-    #[display("Image[{}]", _0.map_or_else(|| "MIXED".to_string(), |mode| mode.to_string()))]
     Image(Option<ImageMode>),
 
     /// A logical type for images with the same size (height x width).
-    #[display("Image[{_0}; {_1} x {_2}]")]
     FixedShapeImage(ImageMode, u32, u32),
 
     /// A logical type for tensors with variable shapes.
-    #[display("Tensor({_0})")]
     Tensor(Box<DataType>),
 
     /// A logical type for tensors with the same shape.
-    #[display("FixedShapeTensor[{_0}; {_1:?}]")]
     FixedShapeTensor(Box<DataType>, Vec<u64>),
 
     /// A logical type for sparse tensors with variable shapes.
-    #[display("SparseTensor[{_0}; indices_offset: {_1}]")]
     SparseTensor(Box<DataType>, bool),
 
     /// A logical type for sparse tensors with the same shape.
-    #[display("FixedShapeSparseTensor[{_0}; {_1:?}; indices_offset: {_2}]")]
     FixedShapeSparseTensor(Box<DataType>, Vec<u64>, bool),
 
     #[cfg(feature = "python")]
     Python,
 
     Unknown,
-
-    File,
+    File(MediaType),
 }
 
-fn format_struct(fields: &[Field]) -> std::result::Result<String, std::fmt::Error> {
-    let mut f = String::default();
-    for (index, field) in fields.iter().enumerate() {
-        if index != 0 {
-            write!(&mut f, ", ")?;
-        }
-        if !(field.name.is_empty() && field.dtype.is_null()) {
-            write!(&mut f, "{}: {}", field.name, field.dtype)?;
+impl Display for DataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Null => write!(f, "Null"),
+            Self::Boolean => write!(f, "Bool"),
+            Self::Int8 => write!(f, "Int8"),
+            Self::Int16 => write!(f, "Int16"),
+            Self::Int32 => write!(f, "Int32"),
+            Self::Int64 => write!(f, "Int64"),
+            Self::UInt8 => write!(f, "UInt8"),
+            Self::UInt16 => write!(f, "UInt16"),
+            Self::UInt32 => write!(f, "UInt32"),
+            Self::UInt64 => write!(f, "UInt64"),
+            Self::Float32 => write!(f, "Float32"),
+            Self::Float64 => write!(f, "Float64"),
+            Self::Decimal128(precision, scale) => {
+                write!(f, "Decimal[precision: {precision}, scale: {scale}]")
+            }
+            Self::Timestamp(unit, timezone) => {
+                if let Some(timezone) = timezone {
+                    write!(f, "Timestamp[{unit}; {timezone}]")
+                } else {
+                    write!(f, "Timestamp[{unit}]")
+                }
+            }
+            Self::Date => write!(f, "Date"),
+            Self::Time(unit) => write!(f, "Time[{unit}]"),
+            Self::Duration(unit) => write!(f, "Duration[{unit}]"),
+            Self::Interval => write!(f, "Interval"),
+            Self::Binary => write!(f, "Binary"),
+            Self::FixedSizeBinary(size) => write!(f, "Binary[{size}]"),
+            Self::Utf8 => write!(f, "String"),
+            Self::FixedSizeList(child_dtype, size) => write!(f, "List[{child_dtype}; {size}]"),
+            Self::List(child_dtype) => write!(f, "List[{child_dtype}]"),
+            Self::Struct(fields) => {
+                let mut contents = String::default();
+                for (index, field) in fields.iter().enumerate() {
+                    if index != 0 {
+                        write!(&mut contents, ", ")?;
+                    }
+                    if !(field.name.is_empty() && field.dtype.is_null()) {
+                        write!(&mut contents, "{}: {}", field.name, field.dtype)?;
+                    }
+                }
+
+                write!(f, "Struct[{}]", contents)
+            }
+            Self::Map { key, value } => write!(f, "Map[{key}: {value}]"),
+            Self::Extension(name, dtype, _) => write!(f, "Extension[{name}; {dtype}]"),
+            Self::Embedding(dtype, size) => write!(f, "Embedding[{dtype}; {size}]"),
+            Self::Image(mode) => {
+                if let Some(mode) = mode {
+                    write!(f, "Image[{mode}]")
+                } else {
+                    write!(f, "Image[MIXED]")
+                }
+            }
+            Self::FixedShapeImage(mode, height, width) => {
+                write!(f, "Image[{mode}; {height} x {width}]")
+            }
+            Self::Tensor(dtype) => write!(f, "Tensor[{dtype}]"),
+            Self::FixedShapeTensor(dtype, shape) => write!(f, "Tensor[{dtype}; {shape:?}]"),
+            Self::SparseTensor(dtype, indices_offset) => {
+                write!(f, "SparseTensor[{dtype}; indices_offset: {indices_offset}]")
+            }
+            Self::FixedShapeSparseTensor(dtype, shape, indices_offset) => write!(
+                f,
+                "FixedShapeSparseTensor[{dtype}; {shape:?}; indices_offset: {indices_offset}]"
+            ),
+            #[cfg(feature = "python")]
+            Self::Python => write!(f, "Python"),
+            Self::Unknown => write!(f, "Unknown"),
+            Self::File(format) => write!(f, "File[{format}]"),
         }
     }
-    Ok(f)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -188,7 +236,7 @@ impl DataTypePayload {
         }
     }
 }
-const DAFT_SUPER_EXTENSION_NAME: &str = "daft.super_extension";
+pub(super) const DAFT_SUPER_EXTENSION_NAME: &str = "daft.super_extension";
 
 impl DataType {
     pub fn new_null() -> Self {
@@ -203,7 +251,79 @@ impl DataType {
         Self::FixedSizeList(Box::new(datatype), size)
     }
 
-    pub fn to_arrow(&self) -> DaftResult<ArrowType> {
+    pub fn to_arrow(&self) -> DaftResult<arrow_schema::DataType> {
+        let dtype = match self {
+            Self::Null => arrow_schema::DataType::Null,
+            Self::Boolean => arrow_schema::DataType::Boolean,
+            Self::Int8 => arrow_schema::DataType::Int8,
+            Self::Int16 => arrow_schema::DataType::Int16,
+            Self::Int32 => arrow_schema::DataType::Int32,
+            Self::Int64 => arrow_schema::DataType::Int64,
+            Self::UInt8 => arrow_schema::DataType::UInt8,
+            Self::UInt16 => arrow_schema::DataType::UInt16,
+            Self::UInt32 => arrow_schema::DataType::UInt32,
+            Self::UInt64 => arrow_schema::DataType::UInt64,
+            Self::Float32 => arrow_schema::DataType::Float32,
+            Self::Float64 => arrow_schema::DataType::Float64,
+            Self::Timestamp(unit, tz) => {
+                arrow_schema::DataType::Timestamp(unit.to_arrow(), tz.clone().map(Arc::from))
+            }
+            Self::Duration(unit) => arrow_schema::DataType::Duration(unit.to_arrow()),
+            Self::Interval => {
+                arrow_schema::DataType::Interval(arrow_schema::IntervalUnit::MonthDayNano)
+            }
+            Self::Binary => arrow_schema::DataType::LargeBinary,
+            Self::FixedSizeBinary(size) => arrow_schema::DataType::FixedSizeBinary(*size as _),
+            Self::Utf8 => arrow_schema::DataType::LargeUtf8,
+            Self::List(f) => {
+                let inner_field = Field::new("item", f.as_ref().clone());
+                let arrow_field = Arc::new(inner_field.to_arrow()?);
+                arrow_schema::DataType::LargeList(arrow_field)
+            }
+            Self::FixedSizeList(f, size) => {
+                let inner_field = Field::new("item", f.as_ref().clone());
+                arrow_schema::DataType::FixedSizeList(Arc::new(inner_field.to_arrow()?), *size as _)
+            }
+            Self::Struct(fields) => arrow_schema::DataType::Struct(
+                fields
+                    .iter()
+                    .map(|f| f.to_arrow())
+                    .collect::<DaftResult<Vec<_>>>()?
+                    .into(),
+            ),
+            Self::Map { key, value } => {
+                let key_field = Field::new("key", key.as_ref().clone());
+                let value_field = Field::new("value", value.as_ref().clone());
+
+                let struct_type = arrow_schema::DataType::Struct(
+                    vec![
+                        key_field.to_arrow()?.with_nullable(false),
+                        value_field.to_arrow()?,
+                    ]
+                    .into(),
+                );
+                let struct_field = arrow_schema::Field::new("entries", struct_type, false);
+
+                arrow_schema::DataType::Map(Arc::new(struct_field), false)
+            }
+            Self::Decimal128(precision, scale) => {
+                arrow_schema::DataType::Decimal128(*precision as _, *scale as _)
+            }
+            Self::Date => arrow_schema::DataType::Date32,
+            Self::Time(time_unit) => arrow_schema::DataType::Time64(time_unit.to_arrow()),
+
+            _ => {
+                return Err(DaftError::TypeError(format!(
+                    "Can not convert {self:?} into arrow type"
+                )));
+            }
+        };
+        Ok(dtype)
+    }
+
+    #[deprecated(note = "use `to_arrow` instead")]
+    #[allow(deprecated, reason = "arrow2 migration")]
+    pub fn to_arrow2(&self) -> DaftResult<ArrowType> {
         match self {
             Self::Null => Ok(ArrowType::Null),
             Self::Boolean => Ok(ArrowType::Boolean),
@@ -220,50 +340,50 @@ impl DataType {
             Self::Float64 => Ok(ArrowType::Float64),
             Self::Decimal128(precision, scale) => Ok(ArrowType::Decimal(*precision, *scale)),
             Self::Timestamp(unit, timezone) => {
-                Ok(ArrowType::Timestamp(unit.to_arrow(), timezone.clone()))
+                Ok(ArrowType::Timestamp(unit.to_arrow2(), timezone.clone()))
             }
             Self::Date => Ok(ArrowType::Date32),
-            Self::Time(unit) => Ok(ArrowType::Time64(unit.to_arrow())),
-            Self::Duration(unit) => Ok(ArrowType::Duration(unit.to_arrow())),
+            Self::Time(unit) => Ok(ArrowType::Time64(unit.to_arrow2())),
+            Self::Duration(unit) => Ok(ArrowType::Duration(unit.to_arrow2())),
             Self::Interval => Ok(ArrowType::Interval(
-                arrow2::datatypes::IntervalUnit::MonthDayNano,
+                daft_arrow::datatypes::IntervalUnit::MonthDayNano,
             )),
 
             Self::Binary => Ok(ArrowType::LargeBinary),
             Self::FixedSizeBinary(size) => Ok(ArrowType::FixedSizeBinary(*size)),
             Self::Utf8 => Ok(ArrowType::LargeUtf8),
             Self::FixedSizeList(child_dtype, size) => Ok(ArrowType::FixedSizeList(
-                Box::new(arrow2::datatypes::Field::new(
+                Box::new(daft_arrow::datatypes::Field::new(
                     "item",
-                    child_dtype.to_arrow()?,
+                    child_dtype.to_arrow2()?,
                     true,
                 )),
                 *size,
             )),
             Self::List(field) => Ok(ArrowType::LargeList(Box::new(
-                arrow2::datatypes::Field::new("item", field.to_arrow()?, true),
+                daft_arrow::datatypes::Field::new("item", field.to_arrow2()?, true),
             ))),
             Self::Map { key, value } => {
                 // To comply with the Arrow spec, Neither the "entries" field nor the "key" field may be nullable.
                 // See https://github.com/apache/arrow/blob/apache-arrow-20.0.0/format/Schema.fbs#L138
                 let struct_type = ArrowType::Struct(vec![
-                    arrow2::datatypes::Field::new("key", key.to_arrow()?, false),
-                    arrow2::datatypes::Field::new("value", value.to_arrow()?, true),
+                    daft_arrow::datatypes::Field::new("key", key.to_arrow2()?, false),
+                    daft_arrow::datatypes::Field::new("value", value.to_arrow2()?, true),
                 ]);
-                let struct_field = arrow2::datatypes::Field::new("entries", struct_type, false);
+                let struct_field = daft_arrow::datatypes::Field::new("entries", struct_type, false);
 
                 Ok(ArrowType::map(struct_field, false))
             }
             Self::Struct(fields) => Ok({
                 let fields = fields
                     .iter()
-                    .map(|f| f.to_arrow())
-                    .collect::<DaftResult<Vec<arrow2::datatypes::Field>>>()?;
+                    .map(|f| f.to_arrow2())
+                    .collect::<DaftResult<Vec<daft_arrow::datatypes::Field>>>()?;
                 ArrowType::Struct(fields)
             }),
             Self::Extension(name, dtype, metadata) => Ok(ArrowType::Extension(
                 name.clone(),
-                Box::new(dtype.to_arrow()?),
+                Box::new(dtype.to_arrow2()?),
                 metadata.clone(),
             )),
             Self::Embedding(..)
@@ -272,24 +392,28 @@ impl DataType {
             | Self::Tensor(..)
             | Self::FixedShapeTensor(..)
             | Self::SparseTensor(..)
-            | Self::FixedShapeSparseTensor(..) => {
+            | Self::FixedShapeSparseTensor(..)
+            | Self::File(..) => {
                 let physical = Box::new(self.to_physical());
                 let logical_extension = Self::Extension(
                     DAFT_SUPER_EXTENSION_NAME.into(),
                     physical,
                     Some(self.to_json()?),
                 );
-                logical_extension.to_arrow()
+                logical_extension.to_arrow2()
             }
             #[cfg(feature = "python")]
-            Self::Python => Err(DaftError::TypeError(format!(
-                "Can not convert {self:?} into arrow type"
-            ))),
+            Self::Python => {
+                let physical = Box::new(Self::Binary);
+                let logical_extension = Self::Extension(
+                    DAFT_SUPER_EXTENSION_NAME.into(),
+                    physical,
+                    Some(self.to_json()?),
+                );
+                logical_extension.to_arrow2()
+            }
             Self::Unknown => Err(DaftError::TypeError(format!(
-                "Can not convert {self:?} into arrow type"
-            ))),
-            Self::File => Err(DaftError::TypeError(format!(
-                "Can not convert {self:?} into arrow type"
+                "Can not convert {self:?} into arrow2 type"
             ))),
         }
     }
@@ -355,12 +479,9 @@ impl DataType {
                     Field::new("indices", List(Box::new(minimal_indices_dtype)))
                 },
             ]),
-            File => Struct(vec![
-                Field::new("discriminant", UInt8),
-                Field::new("data", Binary),
+            File(..) => Struct(vec![
                 Field::new("url", Utf8),
-                #[cfg(feature = "python")]
-                Field::new("io_config", Python),
+                Field::new("io_config", Binary),
             ]),
             _ => {
                 assert!(self.is_physical());
@@ -369,9 +490,13 @@ impl DataType {
         }
     }
 
+    /// Check if this datatype can be converted into an Arrow datatype.
+    /// This includes checking if the associated arrays can be converted into Arrow arrays.
     #[inline]
+    /// Is this DataType convertible to Arrow?
     pub fn is_arrow(&self) -> bool {
-        self.to_arrow().is_ok()
+        #[allow(deprecated, reason = "arrow2 migration")]
+        self.to_arrow2().is_ok()
     }
 
     #[inline]
@@ -659,7 +784,7 @@ impl DataType {
     #[inline]
     pub fn is_file(&self) -> bool {
         match self {
-            Self::File => true,
+            Self::File(..) => true,
             Self::Extension(_, inner, _) => inner.is_file(),
             _ => false,
         }
@@ -714,9 +839,29 @@ impl DataType {
             Self::Binary => Some(VARIABLE_TYPE_SIZE),
             Self::FixedSizeBinary(size) => Some(size as f64),
             Self::FixedSizeList(dtype, len) => {
-                dtype.estimate_size_bytes().map(|b| b * (len as f64))
+                const REASONABLE_SIZE_BYTES: f64 = 100_000_000.0; // 100MB
+
+                dtype.estimate_size_bytes().map(|b| {
+                    let estimate = b * (len as f64);
+                    if estimate.is_infinite() || estimate > REASONABLE_SIZE_BYTES {
+                        REASONABLE_SIZE_BYTES
+                    } else {
+                        estimate
+                    }
+                })
             }
-            Self::List(dtype) => dtype.estimate_size_bytes().map(|b| b * DEFAULT_LIST_LEN),
+            Self::List(dtype) => {
+                const REASONABLE_SIZE_BYTES: f64 = 100_000_000.0; // 100MB
+
+                dtype.estimate_size_bytes().map(|b| {
+                    let estimate = b * DEFAULT_LIST_LEN;
+                    if estimate.is_infinite() || estimate > REASONABLE_SIZE_BYTES {
+                        REASONABLE_SIZE_BYTES
+                    } else {
+                        estimate
+                    }
+                })
+            }
             Self::Struct(fields) => Some(
                 fields
                     .iter()
@@ -746,7 +891,7 @@ impl DataType {
                 | Self::SparseTensor(..)
                 | Self::FixedShapeSparseTensor(..)
                 | Self::Map { .. }
-                | Self::File
+                | Self::File(..)
         )
     }
 
@@ -912,6 +1057,7 @@ impl DataType {
     }
 }
 
+#[allow(deprecated, reason = "arrow2 migration")]
 #[expect(
     clippy::fallible_impl_from,
     reason = "https://github.com/Eventual-Inc/Daft/issues/3015"
@@ -996,6 +1142,109 @@ impl From<&ArrowType> for DataType {
     }
 }
 
+impl TryFrom<&arrow_schema::DataType> for DataType {
+    type Error = DaftError;
+
+    fn try_from(value: &arrow_schema::DataType) -> Result<Self, Self::Error> {
+        Ok(match value {
+            arrow_schema::DataType::Null => Self::Null,
+            arrow_schema::DataType::Boolean => Self::Boolean,
+            arrow_schema::DataType::Int8 => Self::Int8,
+            arrow_schema::DataType::Int16 => Self::Int16,
+            arrow_schema::DataType::Int32 => Self::Int32,
+            arrow_schema::DataType::Int64 => Self::Int64,
+            arrow_schema::DataType::UInt8 => Self::UInt8,
+            arrow_schema::DataType::UInt16 => Self::UInt16,
+            arrow_schema::DataType::UInt32 => Self::UInt32,
+            arrow_schema::DataType::UInt64 => Self::UInt64,
+
+            arrow_schema::DataType::Float32 => Self::Float32,
+            arrow_schema::DataType::Float64 => Self::Float64,
+            arrow_schema::DataType::Timestamp(time_unit, tz) => Self::Timestamp(
+                time_unit.into(),
+                tz.clone().map(|tz| tz.as_ref().to_string()),
+            ),
+            arrow_schema::DataType::Date32 => Self::Date,
+            arrow_schema::DataType::Time64(time_unit) => Self::Time(time_unit.into()),
+
+            arrow_schema::DataType::Duration(time_unit) => Self::Duration(time_unit.into()),
+            arrow_schema::DataType::Interval(IntervalUnit::MonthDayNano) => Self::Interval,
+            arrow_schema::DataType::FixedSizeBinary(size) => Self::FixedSizeBinary(*size as _),
+            arrow_schema::DataType::LargeBinary => Self::Binary,
+
+            arrow_schema::DataType::LargeUtf8 => Self::Utf8,
+
+            arrow_schema::DataType::FixedSizeList(field, size) => {
+                Self::FixedSizeList(Box::new(field.as_ref().try_into()?), *size as _)
+            }
+            arrow_schema::DataType::LargeList(field) => {
+                Self::List(Box::new(field.as_ref().try_into()?))
+            }
+
+            arrow_schema::DataType::Struct(fields) => Self::Struct(
+                fields
+                    .into_iter()
+                    .map(|v| v.as_ref().try_into())
+                    .collect::<DaftResult<_>>()?,
+            ),
+
+            arrow_schema::DataType::Decimal128(precision, scale) => {
+                Self::Decimal128(*precision as _, *scale as _)
+            }
+            arrow_schema::DataType::Map(field, _) => {
+                let arrow_schema::DataType::Struct(fields) = &field.data_type() else {
+                    return Err(DaftError::ValueError(
+                        "Map field should contain a struct type".to_string(),
+                    ));
+                };
+
+                let [key_field, value_field] = &**fields else {
+                    return Err(DaftError::ValueError(
+                        "Map should have two fields".to_string(),
+                    ));
+                };
+
+                let key = Self::try_from(key_field.as_ref())?;
+                let value = Self::try_from(value_field.as_ref())?;
+
+                let key = Box::new(key);
+                let value = Box::new(value);
+
+                Self::Map { key, value }
+            }
+            other => {
+                return Err(DaftError::ValueError(format!(
+                    "Unsupported Arrow DataType: {other:?}"
+                )));
+            }
+        })
+    }
+}
+
+impl TryFrom<&arrow_schema::Field> for DataType {
+    type Error = DaftError;
+
+    fn try_from(value: &arrow_schema::Field) -> Result<Self, Self::Error> {
+        if let Some(extension_name) = value.extension_type_name() {
+            if extension_name == DAFT_SUPER_EXTENSION_NAME {
+                let payload = value.extension_type_metadata().expect("metadata");
+                Self::from_json(payload)
+            } else {
+                // Generic extension type
+                let physical = value.data_type().try_into()?;
+                let metadata = value.extension_type_metadata().map(|s| s.to_string());
+                Ok(Self::Extension(
+                    extension_name.to_string(),
+                    Box::new(physical),
+                    metadata,
+                ))
+            }
+        } else {
+            value.data_type().try_into()
+        }
+    }
+}
+
 impl From<&ImageMode> for DataType {
     fn from(mode: &ImageMode) -> Self {
         use ImageMode::*;
@@ -1005,5 +1254,91 @@ impl From<&ImageMode> for DataType {
             RGB32F | RGBA32F => Self::Float32,
             _ => Self::UInt8,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use common_error::DaftResult;
+    use rstest::rstest;
+
+    use crate::{
+        dtype::DataType,
+        field::Field,
+        media_type::MediaType,
+        prelude::{ImageMode, TimeUnit},
+    };
+
+    #[rstest]
+    #[case(DataType::Null)]
+    #[case(DataType::Boolean)]
+    #[case(DataType::Int8)]
+    #[case(DataType::Int16)]
+    #[case(DataType::Int32)]
+    #[case(DataType::Int64)]
+    #[case(DataType::UInt8)]
+    #[case(DataType::UInt16)]
+    #[case(DataType::UInt32)]
+    #[case(DataType::UInt64)]
+    #[case(DataType::Float32)]
+    #[case(DataType::Float64)]
+    #[case(DataType::Timestamp(TimeUnit::Milliseconds, None))]
+    #[case(DataType::Timestamp(TimeUnit::Microseconds, Some("UTC".to_string())))]
+    #[case(DataType::Date)]
+    #[case(DataType::Time(TimeUnit::Microseconds))]
+    #[case(DataType::Duration(TimeUnit::Nanoseconds))]
+    #[case(DataType::Interval)]
+    #[case(DataType::Binary)]
+    #[case(DataType::FixedSizeBinary(16))]
+    #[case(DataType::Utf8)]
+    #[case(DataType::Decimal128(10, 2))]
+    #[case(DataType::List(Box::new(DataType::Int32)))]
+    #[case(DataType::List(Box::new(DataType::Utf8)))]
+    #[case(DataType::FixedSizeList(Box::new(DataType::Float64), 10))]
+    #[case(DataType::List(Box::new(DataType::List(Box::new(DataType::Boolean)))))]
+    #[case(DataType::Struct(vec![
+        Field::new("a", DataType::Int32),
+        Field::new("b", DataType::Utf8),
+    ]))]
+    #[case(DataType::Struct(vec![
+        Field::new("nested", DataType::Struct(vec![
+            Field::new("x", DataType::Float32),
+            Field::new("y", DataType::Float32),
+        ])),
+        Field::new("id", DataType::UInt64),
+    ]))]
+    #[case(DataType::Map {
+        key: Box::new(DataType::Utf8),
+        value: Box::new(DataType::Int32)
+    })]
+    #[case(DataType::Map {
+        key: Box::new(DataType::Int64),
+        value: Box::new(DataType::List(Box::new(DataType::Float64)))
+    })]
+    fn test_non_extension_type_round_trip(#[case] dtype: DataType) -> DaftResult<()> {
+        let arrow_dtype = dtype.to_arrow()?;
+        let round_trip_dtype = DataType::try_from(&arrow_dtype)?;
+        assert_eq!(dtype, round_trip_dtype);
+        Ok(())
+    }
+
+    #[rstest]
+    #[case(DataType::Embedding(Box::new(DataType::Float64), 512))]
+    #[case(DataType::Embedding(Box::new(DataType::Float32), 256))]
+    #[case(DataType::Image(None))]
+    #[case(DataType::Image(Some(ImageMode::RGB)))]
+    #[case(DataType::FixedShapeImage(ImageMode::RGBA, 512, 512))]
+    #[case(DataType::Tensor(Box::new(DataType::Float32)))]
+    #[case(DataType::FixedShapeTensor(Box::new(DataType::Int32), vec![3, 224, 224]))]
+    #[case(DataType::SparseTensor(Box::new(DataType::Float64), true))]
+    #[case(DataType::FixedShapeSparseTensor(Box::new(DataType::Float32), vec![100, 100],true))]
+    #[case(DataType::File(MediaType::Video))]
+    #[case(DataType::File(MediaType::Audio))]
+    #[case(DataType::Extension("custom".to_string(), Box::new(DataType::Binary), None))]
+    #[case(DataType::Extension("custom".to_string(), Box::new(DataType::Int32), Some("meta".to_string())))]
+    // To convert extension types to arrow_rs, you must use `Field::to_arrow`
+    fn test_extension_type_to_arrow_fails(#[case] dtype: DataType) {
+        let result = dtype.to_arrow();
+        assert!(result.is_err());
     }
 }

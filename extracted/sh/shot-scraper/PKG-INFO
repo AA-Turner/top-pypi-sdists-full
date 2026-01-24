@@ -1,35 +1,19 @@
 Metadata-Version: 2.4
 Name: shot-scraper
-Version: 1.8
-Summary: A command-line utility for taking automated screenshots of websites
-Home-page: https://github.com/simonw/shot-scraper
+Version: 1.9
+Summary: A command-line utility for scraping and taking automated screenshots of websites
 Author: Simon Willison
-License: Apache License, Version 2.0
-Project-URL: Issues, https://github.com/simonw/shot-scraper/issues
-Project-URL: CI, https://github.com/simonw/shot-scraper/actions
-Project-URL: Changelog, https://github.com/simonw/shot-scraper/releases
-Requires-Python: >=3.7
-Description-Content-Type: text/markdown
-License-File: LICENSE
+License-Expression: Apache-2.0
 Requires-Dist: click
-Requires-Dist: PyYAML
+Requires-Dist: pyyaml
 Requires-Dist: playwright
 Requires-Dist: click-default-group
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: cogapp; extra == "test"
-Requires-Dist: pytest-mock; extra == "test"
-Dynamic: author
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Python: >=3.10
+Project-URL: CI, https://github.com/simonw/shot-scraper/actions
+Project-URL: Changelog, https://github.com/simonw/shot-scraper/releases
+Project-URL: Homepage, https://shot-scraper.datasette.io/
+Project-URL: Issues, https://github.com/simonw/shot-scraper/issues
+Description-Content-Type: text/markdown
 
 # shot-scraper
 

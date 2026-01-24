@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
- * Copyright (c) 2025 Munich Quantum Software Company GmbH
+ * Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+ * Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
  * All rights reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -14,6 +14,7 @@
 #include <istream>
 #include <ostream>
 #include <string>
+#include <string_view>
 
 namespace qc {
 
@@ -66,6 +67,9 @@ std::string shortName(OpType opType);
   }
 }
 
+/**
+ * @brief Checks if given OpType is a single qubit gate
+ */
 [[nodiscard]] constexpr bool isSingleQubitGate(const OpType type) {
   switch (type) {
   case I:
@@ -87,6 +91,7 @@ std::string shortName(OpType opType);
   case RX:
   case RY:
   case RZ:
+  case R:
     return true;
   default:
     return false;

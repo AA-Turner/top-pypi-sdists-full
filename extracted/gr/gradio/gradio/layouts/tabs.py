@@ -6,13 +6,14 @@ from gradio_client.documentation import document
 
 from gradio.blocks import BlockContext
 from gradio.component_meta import ComponentMeta
-from gradio.events import Events
+from gradio.events import EventListener, Events
 from gradio.i18n import I18nData
 
 
 class Tabs(BlockContext, metaclass=ComponentMeta):
     """
     Tabs is a layout element within Blocks that can contain multiple "Tab" Components.
+    Guides: controlling-layout
     """
 
     EVENTS = [Events.change, Events.select]
@@ -65,7 +66,13 @@ class Tab(BlockContext, metaclass=ComponentMeta):
     Guides: controlling-layout
     """
 
-    EVENTS = [Events.select]
+    EVENTS = [
+        EventListener(
+            "select",
+            callback=lambda block: setattr(block, "_selectable", True),
+            doc="Event listener for when the user selects the Tab. Uses event data gradio.SelectData to carry `value` referring to the label of the Tab, and `selected` to refer to state of the Tab. See https://www.gradio.app/main/docs/gradio/eventdata documentation for more details.",
+        )
+    ]
 
     def __init__(
         self,
@@ -80,6 +87,7 @@ class Tab(BlockContext, metaclass=ComponentMeta):
         render: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         preserved_by_key: list[str] | str | None = None,
+        render_children: bool = False,
     ):
         """
         Parameters:
@@ -91,6 +99,7 @@ class Tab(BlockContext, metaclass=ComponentMeta):
             scale: relative size compared to adjacent elements. 1 or greater indicates the Tab will expand in size.
             visible: If False, Tab will be hidden.
             interactive: If False, Tab will not be clickable.
+            render_children: If True, the children of this Tab will be rendered on the page (but hidden) when the Tab is visible but inactive. This can be useful if you want to ensure that any components (e.g. videos or audio) within the Tab are pre-loaded before the user clicks on the Tab.
         """
         BlockContext.__init__(
             self,
@@ -105,6 +114,7 @@ class Tab(BlockContext, metaclass=ComponentMeta):
         self.visible = visible
         self.scale = scale
         self.interactive = interactive
+        self.render_children = render_children
 
     def get_expected_parent(self) -> type[Tabs]:
         return Tabs

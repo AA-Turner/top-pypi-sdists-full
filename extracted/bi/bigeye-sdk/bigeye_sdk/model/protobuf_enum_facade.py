@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import enum
-from enum import Enum
 from itertools import chain
 from typing import List
 
 import betterproto
-from pydantic_yaml import YamlStrEnum
 
 from bigeye_sdk.functions.casing import snake_case
 from bigeye_sdk.generated.com.bigeye.models.generated import (
@@ -94,6 +92,9 @@ def datawatch_enum_facade(cls):
         raise exception
 
     def from_datawatch_object(member: betterproto.Enum) -> cls:
+        # Handle case where member is an int instead of Enum object
+        if isinstance(member, int):
+            member = cls.__protobuf_enum_cls__(member)
         return cls(
             _remove_protobuf_type(cls.__protobuf_enum_cls__, member.name.__str__())
         )

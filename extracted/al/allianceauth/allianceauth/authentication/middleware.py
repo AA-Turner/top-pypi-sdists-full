@@ -52,4 +52,10 @@ class UserSettingsMiddleware(MiddlewareMixin):
             except Exception as e:
                 logger.exception(e)
 
+        # Minimize Menu
+        try:
+            request.session["MINIMIZE_SIDEBAR"] = request.user.profile.minimize_sidebar
+        except Exception as e:
+            pass  # We don't care that an anonymous user has no profile (not logged in)
+
         return response

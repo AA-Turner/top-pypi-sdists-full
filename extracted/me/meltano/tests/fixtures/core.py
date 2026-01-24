@@ -2033,13 +2033,11 @@ def elt_schedule(
 ):
     try:
         return schedule_service.add_elt(
-            None,
             "elt-schedule-mock",
             extractor=tap.name,
             loader=target.name,
             transform="skip",
             interval="@daily",
-            start_date=datetime.datetime.now(datetime.timezone.utc),
         )
     except ScheduleAlreadyExistsError as err:
         return err.schedule
@@ -2350,7 +2348,7 @@ def state_ids_with_expected_states(
     state_ids: StateIds,
     payloads: Payloads,
     state_ids_with_jobs: dict[str, list[Job]],
-):
+) -> list[tuple[str, dict]]:
     final_state = {}
     for state in payloads.mock_state_payloads:
         merge(state, final_state)

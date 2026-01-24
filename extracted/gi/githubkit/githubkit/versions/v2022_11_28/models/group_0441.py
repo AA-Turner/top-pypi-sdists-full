@@ -16,45 +16,19 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class BillingUsageReportUser(GitHubModel):
-    """BillingUsageReportUser"""
+class TagProtection(GitHubModel):
+    """Tag protection
 
-    usage_items: Missing[list[BillingUsageReportUserPropUsageItemsItems]] = Field(
-        default=UNSET, alias="usageItems"
-    )
+    Tag protection
+    """
 
-
-class BillingUsageReportUserPropUsageItemsItems(GitHubModel):
-    """BillingUsageReportUserPropUsageItemsItems"""
-
-    date: str = Field(description="Date of the usage line item.")
-    product: str = Field(description="Product name.")
-    sku: str = Field(description="SKU name.")
-    quantity: int = Field(description="Quantity of the usage line item.")
-    unit_type: str = Field(
-        alias="unitType", description="Unit type of the usage line item."
-    )
-    price_per_unit: float = Field(
-        alias="pricePerUnit", description="Price per unit of the usage line item."
-    )
-    gross_amount: float = Field(
-        alias="grossAmount", description="Gross amount of the usage line item."
-    )
-    discount_amount: float = Field(
-        alias="discountAmount", description="Discount amount of the usage line item."
-    )
-    net_amount: float = Field(
-        alias="netAmount", description="Net amount of the usage line item."
-    )
-    repository_name: Missing[str] = Field(
-        default=UNSET, alias="repositoryName", description="Name of the repository."
-    )
+    id: Missing[int] = Field(default=UNSET)
+    created_at: Missing[str] = Field(default=UNSET)
+    updated_at: Missing[str] = Field(default=UNSET)
+    enabled: Missing[bool] = Field(default=UNSET)
+    pattern: str = Field()
 
 
-model_rebuild(BillingUsageReportUser)
-model_rebuild(BillingUsageReportUserPropUsageItemsItems)
+model_rebuild(TagProtection)
 
-__all__ = (
-    "BillingUsageReportUser",
-    "BillingUsageReportUserPropUsageItemsItems",
-)
+__all__ = ("TagProtection",)

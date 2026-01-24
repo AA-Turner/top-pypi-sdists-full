@@ -18,7 +18,7 @@ from xmlrpc import client as xmlrpclib
 import zoneinfo
 
 import netaddr
-from oslotest import base as test_base
+from oslotest import base as test_base  # type: ignore
 
 from oslo_serialization import msgpackutils
 from oslo_utils import uuidutils
@@ -42,9 +42,7 @@ class ColorHandler:
 
     @staticmethod
     def serialize(obj):
-        blob = '{}, {}, {}'.format(obj.r, obj.g, obj.b)
-        blob = blob.encode('ascii')
-        return blob
+        return f'{obj.r}, {obj.g}, {obj.b}'.encode('ascii')
 
     @staticmethod
     def deserialize(data):
@@ -78,8 +76,9 @@ class MsgPackUtilsTest(test_base.BaseTestCase):
         self.assertEqual([1, 2, 3], _dumps_loads((1, 2, 3)))
 
     def test_dict(self):
-        self.assertEqual(dict(a=1, b=2, c=3),
-                         _dumps_loads(dict(a=1, b=2, c=3)))
+        self.assertEqual(
+            dict(a=1, b=2, c=3), _dumps_loads(dict(a=1, b=2, c=3))
+        )
 
     def test_empty_dict(self):
         self.assertEqual({}, _dumps_loads({}))
@@ -173,27 +172,32 @@ class MsgPackUtilsTest(test_base.BaseTestCase):
 
     def test_copy_then_register(self):
         registry = msgpackutils.default_registry
-        self.assertRaises(ValueError,
-                          registry.register, MySpecialSetHandler(),
-                          reserved=True, override=True)
+        self.assertRaises(
+            ValueError,
+            registry.register,
+            MySpecialSetHandler(),
+            reserved=True,
+            override=True,
+        )
         registry = registry.copy(unfreeze=True)
-        registry.register(MySpecialSetHandler(),
-                          reserved=True, override=True)
+        registry.register(MySpecialSetHandler(), reserved=True, override=True)  # type: ignore
         h = registry.match(set())
         self.assertIsInstance(h, MySpecialSetHandler)
 
     def test_bad_register(self):
         registry = msgpackutils.default_registry
-        self.assertRaises(ValueError,
-                          registry.register, MySpecialSetHandler(),
-                          reserved=True, override=True)
-        self.assertRaises(ValueError,
-                          registry.register, MySpecialSetHandler())
+        self.assertRaises(
+            ValueError,
+            registry.register,
+            MySpecialSetHandler(),
+            reserved=True,
+            override=True,
+        )
+        self.assertRaises(ValueError, registry.register, MySpecialSetHandler())
         registry = registry.copy(unfreeze=True)
         registry.register(ColorHandler())
 
-        self.assertRaises(ValueError,
-                          registry.register, ColorHandler())
+        self.assertRaises(ValueError, registry.register, ColorHandler())
 
     def test_custom_register(self):
         registry = msgpackutils.default_registry.copy(unfreeze=True)

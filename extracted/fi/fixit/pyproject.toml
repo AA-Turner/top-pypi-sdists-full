@@ -23,9 +23,9 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
 ]
 
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
-    "click >= 8.0",
+    "click >= 8.0, < 8.2",
     "libcst >= 0.3.18",
     "moreorless >= 0.4.0",
     "packaging >= 21",
@@ -38,18 +38,23 @@ description = "A lint framework that writes better Python code for you."
 
 [project.optional-dependencies]
 docs = [
-    "jinja2 == 3.1.2",
-    "sphinx == 7.0.1",
-    "sphinx-mdinclude == 0.5.3",
+    "jinja2 == 3.1.6",
+    "sphinx == 8.0.2",
+    "sphinx-mdinclude == 0.6.2",
 ]
 dev = [
-    "attribution == 1.6.2",
-    "black == 23.9.1",
-    "flake8 == 6.1.0",
-    "flake8-bugbear == 23.9.16",
-    "mypy == 1.5.1",
-    "ufmt == 2.2.0",
-    "usort == 1.0.7",
+    "attribution == 1.8.0",
+    "black == 25.9.0",
+    "build > 1",
+    "flake8 == 7.3.0",
+    "flake8-bugbear == 24.12.12",
+    "mypy == 1.18.2",
+    "ufmt == 2.8.0",
+    "usort == 1.0.8.post1",
+    "pyrefly == 0.39.4",
+]
+lsp = [
+    "pygls[ws] ~= 2.0.0",
 ]
 pretty = [
     "rich >= 12.6.0",
@@ -63,8 +68,24 @@ Home = "https://fixit.rtfd.io"
 Github = "https://github.com/Instagram/Fixit"
 Changelog = "https://github.com/Instagram/Fixit/blob/main/CHANGELOG.md"
 
+[tool.attribution]
+name = "Fixit"
+package = "fixit"
+signed_tags = true
+version_file = false
+ignored_authors = ["dependabot"]
+
 [tool.black]
-target-version = ["py37"]
+target-version = ["py39"]
+
+[tool.fixit]
+enable = ["fixit.rules"]
+python-version = "3.10"
+formatter = "ufmt"
+
+[[tool.fixit.overrides]]
+path = "examples"
+enable = [".examples.noop"]
 
 [tool.hatch.version]
 source = "vcs"
@@ -79,48 +100,18 @@ exclude = [
     "/legacy",
 ]
 
-[tool.hatch.envs.all]
-features = ["dev", "docs", "pretty"]
+[tool.mypy]
+strict = true
+python_version = "3.9"
+ignore_missing_imports = true
+warn_unused_ignores = false
 
-[tool.hatch.envs.default]
-features = ["dev", "pretty"]
-
-[tool.hatch.envs.default.scripts]
-test = "python -m fixit.tests"
-typecheck = "mypy --install-types --non-interactive src/fixit"
-
-[tool.hatch.envs.lint.scripts]
-check = [
-    "flake8 src/fixit scripts",
-    "fixit lint src/fixit scripts",
-    "ufmt check src/fixit scripts",
-    "python scripts/check_copyright.py",
+[tool.pyrefly]
+project_includes = [
+    # Start by adding a single file and we'll expand as we go
+    "src/fixit/util.py"
 ]
-fix = [
-    "fixit fix --automatic src/fixit scripts",
-    "ufmt format src/fixit scripts",
+search_path = [
+    "src"
 ]
-
-[tool.hatch.envs.docs]
-features = ["docs"]
-[tool.hatch.envs.docs.scripts]
-build = [
-    "python scripts/document_rules.py",
-    "sphinx-build -a -b html docs html",
-]
-
-[tool.fixit]
-enable = ["fixit.rules"]
-python-version = "3.10"
-formatter = "ufmt"
-
-[[tool.fixit.overrides]]
-path = "examples"
-enable = [".examples.noop"]
-
-[tool.attribution]
-name = "Fixit"
-package = "fixit"
-signed_tags = true
-version_file = false
-ignored_authors = ["dependabot"]
+python_version = "3.12"

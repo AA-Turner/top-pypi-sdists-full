@@ -31,16 +31,18 @@ from ...utils.pp_option import PaddlePredictorOption
 from .._parallel import AutoParallelImageSimpleInferencePipeline
 from ..base import BasePipeline
 from ..ocr.result import OCRResult
+from ..pp_doctranslation.result import MarkdownResult
 from .layout_objects import LayoutBlock, LayoutRegion
 from .result_v2 import LayoutParsingResultV2
 from .setting import BLOCK_LABEL_MAP, BLOCK_SETTINGS, REGION_SETTINGS
 from .utils import (
-    caculate_bbox_area,
+    calculate_bbox_area,
     calculate_minimum_enclosing_bbox,
     calculate_overlap_ratio,
     convert_formula_res_to_ocr_format,
     gather_imgs,
     get_bbox_intersection,
+    get_seg_flag,
     get_sub_regions_ocr_res,
     remove_overlap_blocks,
     shrink_supplement_region_bbox,
@@ -86,6 +88,10 @@ class _LayoutParsingPipelineV2(BasePipeline):
         self.batch_sampler = ImageBatchSampler(batch_size=config.get("batch_size", 1))
         self.img_reader = ReadImage(format="BGR")
 
+    def close(self):
+        if getattr(self, "chart_recognition_model"):
+            self.chart_recognition_model.close()
+
     def inintial_predictor(self, config: dict) -> None:
         """Initializes the predictor based on the provided configuration.
 
@@ -106,6 +112,7 @@ class _LayoutParsingPipelineV2(BasePipeline):
             self.use_doc_preprocessor = False
         self.use_table_recognition = config.get("use_table_recognition", True)
         self.use_seal_recognition = config.get("use_seal_recognition", True)
+        self.format_block_content = config.get("format_block_content", False)
         self.use_region_detection = config.get(
             "use_region_detection",
             True,
@@ -209,6 +216,18 @@ class _LayoutParsingPipelineV2(BasePipeline):
         )
         self.chart_recognition_model = self.create_model(
             chart_recognition_config,
+        )
+        self.markdown_ignore_labels = config.get(
+            "markdown_ignore_labels",
+            [
+                "number",
+                "footnote",
+                "header",
+                "header_image",
+                "footer",
+                "footer_image",
+                "aside_text",
+            ],
         )
 
         return
@@ -331,7 +350,7 @@ class _LayoutParsingPipelineV2(BasePipeline):
 
             # update the region box and max_block_area according to the layout boxes
             base_region_bbox = update_region_box(box, base_region_bbox)
-            max_block_area = max(max_block_area, caculate_bbox_area(box))
+            max_block_area = max(max_block_area, calculate_bbox_area(box))
 
             # update_layout_order_config_block_index(layout_order_config, label, box_idx)
 
@@ -367,7 +386,7 @@ class _LayoutParsingPipelineV2(BasePipeline):
         # check if there is only one paragraph title and without doc_title
         only_one_paragraph_title = len(paragraph_title_list) == 1 and doc_title_num == 0
         if only_one_paragraph_title:
-            paragraph_title_block_area = caculate_bbox_area(
+            paragraph_title_block_area = calculate_bbox_area(
                 layout_det_res["boxes"][paragraph_title_list[0]]["coordinate"]
             )
             title_area_max_block_threshold = BLOCK_SETTINGS.get(
@@ -505,7 +524,7 @@ class _LayoutParsingPipelineV2(BasePipeline):
         block_bboxes = [box["coordinate"] for box in layout_det_res["boxes"]]
         region_det_res["boxes"] = sorted(
             region_det_res["boxes"],
-            key=lambda item: caculate_bbox_area(item["coordinate"]),
+            key=lambda item: calculate_bbox_area(item["coordinate"]),
         )
         if len(region_det_res["boxes"]) == 0:
             region_det_res["boxes"] = [
@@ -786,6 +805,7 @@ class _LayoutParsingPipelineV2(BasePipeline):
         chart_res_list: list,
         formula_res_list: list,
         text_rec_score_thresh: Union[float, None] = None,
+        markdown_ignore_labels: List[str] = [],
     ) -> list:
         """
         Retrieves the layout parsing result based on the layout detection result, OCR result, and other recognition results.
@@ -830,11 +850,17 @@ class _LayoutParsingPipelineV2(BasePipeline):
 
         parsing_res_list = self.sort_layout_parsing_blocks(layout_parsing_page)
 
-        index = 1
-        for block in parsing_res_list:
-            if block.label in BLOCK_LABEL_MAP["visualize_index_labels"]:
-                block.order_index = index
-                index += 1
+        order_index = 1
+        visualize_order_labels = [
+            label
+            for label in BLOCK_LABEL_MAP["visualize_index_labels"]
+            if label not in markdown_ignore_labels
+        ]
+        for index, block in enumerate(parsing_res_list):
+            block.index = index
+            if block.label in visualize_order_labels:
+                block.order_index = order_index
+                order_index += 1
 
         return parsing_res_list
 
@@ -847,6 +873,8 @@ class _LayoutParsingPipelineV2(BasePipeline):
         use_formula_recognition: Union[bool, None],
         use_chart_recognition: Union[bool, None],
         use_region_detection: Union[bool, None],
+        format_block_content: Union[bool, None],
+        markdown_ignore_labels: Optional[list[str]] = None,
     ) -> dict:
         """
         Get the model settings based on the provided parameters or default values.
@@ -857,6 +885,7 @@ class _LayoutParsingPipelineV2(BasePipeline):
             use_seal_recognition (Union[bool, None]): Enables seal recognition if True. Defaults to system setting if None.
             use_table_recognition (Union[bool, None]): Enables table recognition if True. Defaults to system setting if None.
             use_formula_recognition (Union[bool, None]): Enables formula recognition if True. Defaults to system setting if None.
+            format_block_content (Union[bool, None]): Enables block content formatting if True. Defaults to system setting if None.
 
         Returns:
             dict: A dictionary containing the model settings.
@@ -885,6 +914,12 @@ class _LayoutParsingPipelineV2(BasePipeline):
         if use_chart_recognition is None:
             use_chart_recognition = self.use_chart_recognition
 
+        if format_block_content is None:
+            format_block_content = self.format_block_content
+
+        if markdown_ignore_labels is None:
+            markdown_ignore_labels = self.markdown_ignore_labels
+
         return dict(
             use_doc_preprocessor=use_doc_preprocessor,
             use_seal_recognition=use_seal_recognition,
@@ -892,6 +927,8 @@ class _LayoutParsingPipelineV2(BasePipeline):
             use_formula_recognition=use_formula_recognition,
             use_chart_recognition=use_chart_recognition,
             use_region_detection=use_region_detection,
+            format_block_content=format_block_content,
+            markdown_ignore_labels=markdown_ignore_labels,
         )
 
     def predict(
@@ -905,6 +942,7 @@ class _LayoutParsingPipelineV2(BasePipeline):
         use_formula_recognition: Union[bool, None] = None,
         use_chart_recognition: Union[bool, None] = None,
         use_region_detection: Union[bool, None] = None,
+        format_block_content: Union[bool, None] = None,
         layout_threshold: Optional[Union[float, dict]] = None,
         layout_nms: Optional[bool] = None,
         layout_unclip_ratio: Optional[Union[float, Tuple[float, float], dict]] = None,
@@ -927,6 +965,7 @@ class _LayoutParsingPipelineV2(BasePipeline):
         use_ocr_results_with_table_cells: bool = True,
         use_e2e_wired_table_rec_model: bool = False,
         use_e2e_wireless_table_rec_model: bool = True,
+        markdown_ignore_labels: Optional[list[str]] = None,
         **kwargs,
     ) -> LayoutParsingResultV2:
         """
@@ -942,6 +981,7 @@ class _LayoutParsingPipelineV2(BasePipeline):
             use_table_recognition (Optional[bool]): Whether to use table recognition.
             use_formula_recognition (Optional[bool]): Whether to use formula recognition.
             use_region_detection (Optional[bool]): Whether to use region detection.
+            format_block_content (Optional[bool]): Whether to format block content.
             layout_threshold (Optional[float]): The threshold value to filter out low-confidence predictions. Default is None.
             layout_nms (bool, optional): Whether to use layout-aware NMS. Defaults to False.
             layout_unclip_ratio (Optional[Union[float, Tuple[float, float]]], optional): The ratio of unclipping the bounding box.
@@ -968,6 +1008,7 @@ class _LayoutParsingPipelineV2(BasePipeline):
             use_ocr_results_with_table_cells (bool): Whether to use OCR results processed by table cells.
             use_e2e_wired_table_rec_model (bool): Whether to use end-to-end wired table recognition model.
             use_e2e_wireless_table_rec_model (bool): Whether to use end-to-end wireless table recognition model.
+            markdown_ignore_labels (Optional[list[str]]): The list of ignored markdown labels. Default is None.
             **kwargs (Any): Additional settings to extend functionality.
 
         Returns:
@@ -981,6 +1022,8 @@ class _LayoutParsingPipelineV2(BasePipeline):
             use_formula_recognition,
             use_chart_recognition,
             use_region_detection,
+            format_block_content,
+            markdown_ignore_labels,
         )
 
         if not self.check_model_settings_valid(model_settings):
@@ -1189,6 +1232,7 @@ class _LayoutParsingPipelineV2(BasePipeline):
             for (
                 input_path,
                 page_index,
+                page_count,
                 doc_preprocessor_image,
                 doc_preprocessor_res,
                 layout_det_res,
@@ -1201,6 +1245,7 @@ class _LayoutParsingPipelineV2(BasePipeline):
             ) in zip(
                 batch_data.input_paths,
                 batch_data.page_indexes,
+                batch_data.page_counts,
                 doc_preprocessor_images,
                 doc_preprocessor_results,
                 layout_det_results,
@@ -1237,6 +1282,7 @@ class _LayoutParsingPipelineV2(BasePipeline):
                     chart_res_list=chart_res_list,
                     formula_res_list=formula_res_list,
                     text_rec_score_thresh=text_rec_score_thresh,
+                    markdown_ignore_labels=model_settings["markdown_ignore_labels"],
                 )
 
                 for formula_res in formula_res_list:
@@ -1248,6 +1294,9 @@ class _LayoutParsingPipelineV2(BasePipeline):
                 single_img_res = {
                     "input_path": input_path,
                     "page_index": page_index,
+                    "page_count": page_count,
+                    "width": doc_preprocessor_image.shape[1],
+                    "height": doc_preprocessor_image.shape[0],
                     "doc_preprocessor_res": doc_preprocessor_res,
                     "layout_det_res": layout_det_res,
                     "region_det_res": region_det_res,
@@ -1315,7 +1364,70 @@ class _LayoutParsingPipelineV2(BasePipeline):
                 page_last_element_paragraph_end_flag
             )
 
-        return markdown_texts
+        markdown_result = {"markdown_texts": markdown_texts}
+
+        return MarkdownResult(markdown_result)
+
+    def merge_text_across_page(self, blocks_by_page):
+
+        merged_blocks_by_page = []
+
+        global_prev_block = None
+
+        global_block_id = 0
+
+        for page_index, one_page_blocks in enumerate(blocks_by_page):
+            current_page_new_blocks = []
+
+            prev_block = None
+
+            for block in one_page_blocks:
+
+                setattr(block, "group_id", global_block_id)
+
+                seg_start_flag, seg_end_flag = get_seg_flag(block, prev_block)
+
+                prev_block = block
+
+                is_text = block.label == "text"
+                prev_is_text = (
+                    global_prev_block is not None and global_prev_block.label == "text"
+                )
+
+                if is_text and prev_is_text and not seg_start_flag:
+
+                    prev_text = global_prev_block.content
+                    curr_text = block.content
+
+                    last_char = prev_text[-1] if prev_text else ""
+                    first_char = curr_text[0] if curr_text else ""
+
+                    is_last_chinese = re.match(r"[\u4e00-\u9fff]", last_char)
+                    is_first_chinese = re.match(r"[\u4e00-\u9fff]", first_char)
+
+                    separator = ""
+                    if (
+                        not (is_last_chinese or is_first_chinese)
+                        and last_char
+                        and first_char
+                    ):
+                        separator = " "
+
+                    global_prev_block.content += separator + curr_text
+
+                    setattr(block, "group_id", global_prev_block.group_id)
+
+                else:
+                    # after merge, block don't add to current page
+                    current_page_new_blocks.append(block)
+
+                    global_prev_block = block
+
+                global_block_id += 1
+
+            merged_blocks_by_page.append(current_page_new_blocks)
+
+        return merged_blocks_by_page
 
 
 @pipeline_requires_extra("ocr")

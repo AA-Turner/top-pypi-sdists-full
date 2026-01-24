@@ -7,9 +7,6 @@ import streamlit.components.v1 as components
 import json
 
 _RELEASE = True
-RENDERING_EMBED = "legacy_embed"
-RENDERING_IFRAME = "legacy_iframe"
-RENDERING_UNWRAP = "unwrap"
 
 if not _RELEASE:
     _component_func = components.declare_component(
@@ -33,7 +30,6 @@ def pdf_viewer(
         annotations: List[Dict[str, Union[str, int, float, bool]]] = [],
         pages_vertical_spacing: int = 2,
         annotation_outline_size: int = 1,
-        rendering: str = RENDERING_UNWRAP,
         pages_to_render: List[int] = (),
         render_text: bool = False,
         resolution_boost: int = 1,
@@ -43,6 +39,7 @@ def pdf_viewer(
         scroll_to_page: Optional[int] = None,
         scroll_to_annotation: Optional[int] = None,
         on_annotation_click: Optional[Callable[[dict], None]] = None,
+        allow_clickable_annotations_with_text_rendering: bool = False,
 ):
     """
     pdf_viewer function to display a PDF file in a Streamlit app.
@@ -54,11 +51,7 @@ def pdf_viewer(
     :param annotations: A list of annotations to be overlaid on the PDF. Each annotation should be a dictionary.
     :param pages_vertical_spacing: The vertical space (in pixels) between each page of the PDF. Defaults to 2 pixels.
     :param annotation_outline_size: Size of the outline around each annotation in pixels. Defaults to 1 pixel.
-    :param rendering: Type of rendering. The default is "unwrap", which unwrap the PDF. Other values are
     :param pages_to_render: Optional list of page numbers to render. If None, all pages are rendered. This allows for selective rendering of pages in the PDF.
-    "legacy_iframe" and "legacy_embed" which uses the legacy approach for showing PDF document with streamlit.
-    These methods enable the default pdf viewer of Firefox/Chrome/Edge that contains additional features we are still
-    working to implement for the "unwrap" method.
     :param render_text: Whether to enable selection of text in the PDF viewer. Defaults to False.
     :param resolution_boost: Boost the resolution by a factor from 2 to 10. Defaults to 1.
     :param zoom_level: The zoom level of the PDF viewer. Can be a float (0.1-10.0), "auto" for fit-to-width, "auto-height" for fit-to-height, or None (defaults to auto-fit to width).
@@ -67,6 +60,7 @@ def pdf_viewer(
     :param scroll_to_page: Scroll to a specific page in the PDF. The parameter is an integer, which represent the positional value of the page. E.g. 1, will be the first page. Defaults to None.
     :param scroll_to_annotation: Scroll to a specific annotation in the PDF. The parameter is an integer, which represent the positional value of the annotation. E.g. 1, will be the first annotation. Defaults to None.
     :param on_annotation_click: A callback function that will be called when an annotation is clicked. The function should accept a single argument, which is the annotation that was clicked. Defaults to None.
+    :param allow_clickable_annotations_with_text_rendering: When True, annotations remain clickable even when render_text is enabled. Note that text selection will not work through annotation areas. Defaults to False.
 
     The function reads the PDF file (from a file path, URL, or binary data), encodes it in base64,
     and uses a Streamlit component to render it in the app. It supports optional annotations and adjustable margins.
@@ -117,16 +111,11 @@ def pdf_viewer(
     else:
         binary = input
 
-    if rendering == RENDERING_IFRAME or rendering == RENDERING_EMBED:
-        print(f"{RENDERING_IFRAME} and {RENDERING_EMBED} may not work consistently on all browsers "
-              f"they might disappear in future releases.")
-        if height is None:
-            height = "100%"
-
     if not isinstance(annotations, list):
         raise TypeError("annotations must be a list of dictionaries")
     if any(not isinstance(annotation, dict) for annotation in annotations):
         raise TypeError("annotations must be a list of dictionaries")
+
 
     base64_pdf = base64.b64encode(binary).decode('utf-8')
     component_value = _component_func(
@@ -138,7 +127,6 @@ def pdf_viewer(
         annotations=annotations,
         pages_vertical_spacing=pages_vertical_spacing,
         annotation_outline_size=annotation_outline_size,
-        rendering=rendering,
         pages_to_render=pages_to_render,
         render_text=render_text,
         resolution_boost=resolution_boost,
@@ -146,7 +134,8 @@ def pdf_viewer(
         viewer_align=viewer_align,
         show_page_separator=show_page_separator,
         scroll_to_page=scroll_to_page,
-        scroll_to_annotation=scroll_to_annotation
+        scroll_to_annotation=scroll_to_annotation,
+        allow_clickable_annotations_with_text_rendering=allow_clickable_annotations_with_text_rendering
     )
 
     # Execute the custom callback function

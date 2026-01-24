@@ -1,21 +1,21 @@
 Metadata-Version: 2.4
 Name: unitycatalog-langchain
-Version: 0.2.0
+Version: 0.3.0
 Summary: Support for Unity Catalog functions as LangChain tools
 Author-email: Serena Ruan <serena.ruan@databricks.com>
 License: Apache-2.0
-Requires-Python: >=3.9
-Requires-Dist: langchain-community>=0.2.0
-Requires-Dist: langchain>=0.2.0
+Requires-Python: >=3.10
+Requires-Dist: langchain-community>=0.4.0
+Requires-Dist: langchain>=1.0.0
 Requires-Dist: unitycatalog-ai
 Provides-Extra: databricks
 Requires-Dist: unitycatalog-ai[databricks]; extra == 'databricks'
 Provides-Extra: databricks-dev
-Requires-Dist: langchain-databricks; extra == 'databricks-dev'
+Requires-Dist: databricks-langchain; extra == 'databricks-dev'
 Requires-Dist: langgraph; extra == 'databricks-dev'
 Requires-Dist: unitycatalog-ai[databricks-dev]; extra == 'databricks-dev'
 Provides-Extra: dev
-Requires-Dist: langchain-databricks; extra == 'dev'
+Requires-Dist: databricks-langchain; extra == 'dev'
 Requires-Dist: langgraph; extra == 'dev'
 Requires-Dist: unitycatalog-ai[dev]; extra == 'dev'
 Description-Content-Type: text/markdown
@@ -158,12 +158,12 @@ from unitycatalog.ai.langchain.toolkit import UCFunctionToolkit
 # create a UCFunctionToolkit that includes the above UC function
 toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.python_exec"])
 
-# fetch the tools stored in the toolkit
-tools = toolkit.tools
-python_exec_tool = tools[0]
+# Printing the tool definition will display the configured metadata for the instance.
+print(python_exec_tool)
 
-# execute the tool directly
-python_exec_tool.invoke({"code": "print(1)"})
+# Execute the tool directly
+result = client.execute_function(function_name=f"{CATALOG}.{SCHEMA}.python_exec", parameters={"code": "print(1 + 1)"})
+print(result.value)  # Outputs: 2
 ```
 
 ### Use the tools in a Langchain Agent

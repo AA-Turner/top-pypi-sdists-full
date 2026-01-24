@@ -117,7 +117,7 @@ class UnityCatalogOssStore(BaseRestStore):
 
         """
         [catalog_name, schema_name, model_name] = name.split(".")
-        comment = description if description else ""
+        comment = description or ""
         # RegisteredModelInfo is inlined in the request and the response.
         # https://docs.databricks.com/api/workspace/registeredmodels/create
         # TODO: Update the above reference to UC OSS documentation when it's available
@@ -145,7 +145,7 @@ class UnityCatalogOssStore(BaseRestStore):
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         full_name = get_full_name_from_sc(name, None)
-        comment = description if description else ""
+        comment = description or ""
         req_body = message_to_json(
             UpdateRegisteredModel(
                 full_name=full_name,
@@ -473,7 +473,7 @@ class UnityCatalogOssStore(BaseRestStore):
                     "Unable to download model artifacts from source artifact location "
                     f"'{source}' in order to upload them to Unity Catalog. Please ensure "
                     "the source artifact location exists and that you can download from "
-                    "it via mlflow.artifacts.download_artifacts()"
+                    f"it via mlflow.artifacts.download_artifacts(). Original error: {e}"
                 ) from e
             try:
                 yield local_model_dir

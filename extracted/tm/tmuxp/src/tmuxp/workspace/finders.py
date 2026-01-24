@@ -4,19 +4,21 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
 import typing as t
 
-from colorama import Fore
-
-from tmuxp.cli.utils import tmuxp_echo
+from tmuxp._internal.colors import ColorMode, Colors
+from tmuxp._internal.private_path import PrivatePath
+from tmuxp.log import tmuxp_echo
 from tmuxp.workspace.constants import VALID_WORKSPACE_DIR_FILE_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 
-if t.TYPE_CHECKING:
-    import pathlib
+#: Local workspace file names (dotfiles in project directories)
+LOCAL_WORKSPACE_FILES = [".tmuxp.yaml", ".tmuxp.yml", ".tmuxp.json"]
 
-    from typing_extensions import TypeAlias
+if t.TYPE_CHECKING:
+    from typing import TypeAlias
 
     from tmuxp.types import StrPath
 
@@ -101,6 +103,69 @@ def in_cwd() -> list[str]:
     ]
 
 
+def find_local_workspace_files(
+    start_dir: pathlib.Path | str | None = None,
+    *,
+    stop_at_home: bool = True,
+) -> list[pathlib.Path]:
+    """Find .tmuxp.* files by traversing upward from start directory.
+
+    Searches the start directory and all parent directories up to (but not past):
+    - User home directory (when stop_at_home=True)
+    - Filesystem root
+
+    Parameters
+    ----------
+    start_dir : pathlib.Path | str | None
+        Directory to start searching from. Defaults to current working directory.
+    stop_at_home : bool
+        If True, stops traversal at user home directory. Default True.
+
+    Returns
+    -------
+    list[pathlib.Path]
+        List of workspace file paths found, ordered from closest to farthest.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> import pathlib
+    >>> with tempfile.TemporaryDirectory() as tmpdir:
+    ...     home = pathlib.Path(tmpdir)
+    ...     project = home / "project"
+    ...     project.mkdir()
+    ...     _ = (project / ".tmuxp.yaml").write_text("session_name: test")
+    ...     # Would find .tmuxp.yaml in project dir
+    ...     len(find_local_workspace_files(project, stop_at_home=False)) >= 0
+    True
+    """
+    if start_dir is None:
+        start_dir = os.getcwd()
+
+    current = pathlib.Path(start_dir).resolve()
+    home = pathlib.Path.home().resolve()
+    found: list[pathlib.Path] = []
+
+    while True:
+        # Check for local workspace files in current directory
+        for filename in LOCAL_WORKSPACE_FILES:
+            candidate = current / filename
+            if candidate.is_file():
+                found.append(candidate)
+                break  # Only one per directory (first match wins: .yaml > .yml > .json)
+
+        # Stop conditions
+        parent = current.parent
+        if parent == current:  # Reached filesystem root
+            break
+        if stop_at_home and current == home:
+            break
+
+        current = parent
+
+    return found
+
+
 def get_workspace_dir() -> str:
     """
     Return tmuxp workspace directory.
@@ -132,6 +197,85 @@ def get_workspace_dir() -> str:
     return path
 
 
+def get_workspace_dir_candidates() -> list[dict[str, t.Any]]:
+    """Return all candidate workspace directories with existence status.
+
+    Returns a list of all directories that tmuxp checks for workspaces,
+    in priority order, with metadata about each.
+
+    The priority order is:
+    1. ``TMUXP_CONFIGDIR`` environment variable (if set)
+    2. ``XDG_CONFIG_HOME/tmuxp`` (if XDG_CONFIG_HOME set) OR ``~/.config/tmuxp/``
+    3. ``~/.tmuxp`` (legacy default)
+
+    Returns
+    -------
+    list[dict[str, Any]]
+        List of dicts with:
+        - path: str (privacy-masked via PrivatePath)
+        - source: str (e.g., "$TMUXP_CONFIGDIR", "$XDG_CONFIG_HOME/tmuxp", "Legacy")
+        - exists: bool
+        - workspace_count: int (0 if not exists)
+        - active: bool (True if this is the directory get_workspace_dir() returns)
+
+    Examples
+    --------
+    >>> candidates = get_workspace_dir_candidates()
+    >>> isinstance(candidates, list)
+    True
+    >>> all('path' in c and 'exists' in c for c in candidates)
+    True
+    """
+    # Build list of candidate paths with sources (same logic as get_workspace_dir)
+    # Each entry is (raw_path, source_label)
+    path_sources: list[tuple[str, str]] = []
+    if "TMUXP_CONFIGDIR" in os.environ:
+        path_sources.append((os.environ["TMUXP_CONFIGDIR"], "$TMUXP_CONFIGDIR"))
+    if "XDG_CONFIG_HOME" in os.environ:
+        path_sources.append(
+            (
+                os.path.join(os.environ["XDG_CONFIG_HOME"], "tmuxp"),
+                "$XDG_CONFIG_HOME/tmuxp",
+            )
+        )
+    else:
+        path_sources.append(("~/.config/tmuxp/", "XDG default"))
+    path_sources.append(("~/.tmuxp", "Legacy"))
+
+    # Get the active directory for comparison
+    active_dir = get_workspace_dir()
+
+    candidates: list[dict[str, t.Any]] = []
+    for raw_path, source in path_sources:
+        expanded = os.path.expanduser(raw_path)
+        exists = os.path.isdir(expanded)
+
+        # Count workspace files if directory exists
+        workspace_count = 0
+        if exists:
+            workspace_count = len(
+                [
+                    f
+                    for f in os.listdir(expanded)
+                    if not f.startswith(".")
+                    and os.path.splitext(f)[1].lower()
+                    in VALID_WORKSPACE_DIR_FILE_EXTENSIONS
+                ]
+            )
+
+        candidates.append(
+            {
+                "path": str(PrivatePath(expanded)),
+                "source": source,
+                "exists": exists,
+                "workspace_count": workspace_count,
+                "active": expanded == active_dir,
+            }
+        )
+
+    return candidates
+
+
 def find_workspace_file(
     workspace_file: StrPath,
     workspace_dir: StrPath | None = None,
@@ -154,11 +298,21 @@ def find_workspace_file(
     Parameters
     ----------
     workspace_file : str
-        workspace file, valid examples:
+        Workspace file, valid examples:
 
         - a file name, my_workspace.yaml
         - relative path, ../my_workspace.yaml or ../project
         - a period, .
+
+    Returns
+    -------
+    str
+        Resolved absolute path to workspace file.
+
+    Raises
+    ------
+    FileNotFoundError
+        If workspace file cannot be found.
     """
     if not workspace_dir:
         workspace_dir = get_workspace_dir()
@@ -194,7 +348,7 @@ def find_workspace_file(
             if not candidates:
                 file_error = (
                     "workspace-file not found "
-                    + f"in workspace dir (yaml/yml/json) {workspace_dir} for name"
+                    f"in workspace dir (yaml/yml/json) {workspace_dir} for name"
                 )
         else:
             candidates = [
@@ -207,20 +361,21 @@ def find_workspace_file(
             ]
 
             if len(candidates) > 1:
+                colors = Colors(ColorMode.AUTO)
                 tmuxp_echo(
-                    Fore.RED
-                    + "Multiple .tmuxp.{yml,yaml,json} workspace_files in "
-                    + dirname(workspace_file)
-                    + Fore.RESET,
+                    colors.error(
+                        "Multiple .tmuxp.{yml,yaml,json} workspace_files in "
+                        + dirname(workspace_file)
+                    ),
                 )
                 tmuxp_echo(
                     "This is undefined behavior, use only one. "
                     "Use file names e.g. myproject.json, coolproject.yaml. "
                     "You can load them by filename.",
                 )
-            elif not len(candidates):
+            elif not candidates:
                 file_error = "No tmuxp files found in directory"
-        if len(candidates):
+        if candidates:
             workspace_file = candidates[0]
     elif not exists(workspace_file):
         file_error = "file not found"

@@ -218,6 +218,12 @@ class TestTriangulation:
             rn.adjacency, delaunay.adjacency.loc[rn.adjacency.index]
         )
 
+    def test_sorting(self):
+        delaunay = graph.Graph.build_triangulation(self.gdf)
+        pd.testing.assert_index_equal(
+            pd.Index(self.gdf.index, name="focal"), delaunay.unique_ids
+        )
+
 
 @pytest.mark.network
 class TestKernel:
@@ -228,35 +234,36 @@ class TestKernel:
         self.gdf_str = self.gdf.set_index("placeid")
 
     def test_kernel_precompute(self):
+        pytest.importorskip("pyproj")
         sklearn = pytest.importorskip("sklearn")
         df = gpd.read_file(geodatasets.get_path("nybb"))
         df = df.to_crs(df.estimate_utm_crs())
         distmat = csr_matrix(
             sklearn.metrics.pairwise.euclidean_distances(get_coordinates(df.centroid))
         )
-        g = graph.Graph.build_kernel(distmat, metric="precomputed")
+        g = graph.Graph.build_kernel(distmat, metric="precomputed", taper=False)
         expected = np.array(
             [
-                0.07131664,
-                0.14998932,
-                0.09804811,
-                0.0402638,
-                0.07131664,
-                0.18556845,
-                0.17529176,
-                0.16394507,
-                0.14998932,
-                0.18556845,
-                0.17495794,
-                0.11561449,
-                0.09804811,
-                0.17529176,
-                0.17495794,
-                0.19116432,
-                0.0402638,
-                0.16394507,
-                0.11561449,
-                0.19116432,
+                0.04,
+                0.177,
+                0.076,
+                0.013,
+                0.04,
+                0.271,
+                0.242,
+                0.212,
+                0.177,
+                0.271,
+                0.241,
+                0.105,
+                0.076,
+                0.242,
+                0.241,
+                0.288,
+                0.013,
+                0.212,
+                0.105,
+                0.288,
             ]
         )
 
@@ -289,6 +296,12 @@ class TestKernel:
         assert pd.api.types.is_string_dtype(g._adjacency.index.dtypes["focal"])
         assert pd.api.types.is_string_dtype(g._adjacency.index.dtypes["neighbor"])
         assert pd.api.types.is_numeric_dtype(g._adjacency.dtype)
+
+    def test_code_consistency(self):
+        gdf = gpd.read_file(geodatasets.get_path("geoda guerry"))
+        g = graph.Graph.build_kernel(gdf.centroid, k=2)
+
+        assert g.sparse.shape == (85, 85)
 
 
 @pytest.mark.network

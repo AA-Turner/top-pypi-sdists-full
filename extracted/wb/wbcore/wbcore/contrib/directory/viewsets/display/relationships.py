@@ -4,7 +4,7 @@ from typing import Optional
 from django.utils.translation import gettext as _
 
 from wbcore.contrib.color.enums import WBColor
-from wbcore.contrib.directory.models import ClientManagerRelationship as CMR
+from wbcore.contrib.directory.models import ClientManagerRelationship
 from wbcore.contrib.icons import WBIcon
 from wbcore.metadata.configs import display as dp
 from wbcore.metadata.configs.display.instance_display.shortcuts import (
@@ -15,7 +15,7 @@ from wbcore.metadata.configs.display.instance_display.utils import repeat_field
 from wbcore.metadata.configs.display.view_config import DisplayViewConfig
 
 
-class CMR_Color(Enum):
+class ClientManagerRelationshipColor(Enum):
     DRAFT = WBColor.RED_LIGHT.value
     PENDING = WBColor.YELLOW_LIGHT.value
     APPROVED = WBColor.GREEN_LIGHT.value
@@ -203,29 +203,29 @@ class ClientManagerModelDisplay(DisplayViewConfig):
                     key="status",
                     items=[
                         dp.LegendItem(
-                            icon=CMR_Color.DRAFT.value,
-                            label=CMR.Status.DRAFT.label,
-                            value=CMR.Status.DRAFT.name,
+                            icon=ClientManagerRelationshipColor.DRAFT.value,
+                            label=ClientManagerRelationship.Status.DRAFT.label,
+                            value=ClientManagerRelationship.Status.DRAFT.name,
                         ),
                         dp.LegendItem(
-                            icon=CMR_Color.PENDING.value,
-                            label=CMR.Status.PENDINGADD.label,
-                            value=CMR.Status.PENDINGADD.name,
+                            icon=ClientManagerRelationshipColor.PENDING.value,
+                            label=ClientManagerRelationship.Status.PENDINGADD.label,
+                            value=ClientManagerRelationship.Status.PENDINGADD.name,
                         ),
                         dp.LegendItem(
-                            icon=CMR_Color.APPROVED.value,
-                            label=CMR.Status.APPROVED.label,
-                            value=CMR.Status.APPROVED.name,
+                            icon=ClientManagerRelationshipColor.APPROVED.value,
+                            label=ClientManagerRelationship.Status.APPROVED.label,
+                            value=ClientManagerRelationship.Status.APPROVED.name,
                         ),
                         dp.LegendItem(
-                            icon=CMR_Color.PENDING_REMOVE.value,
-                            label=CMR.Status.PENDINGREMOVE.label,
-                            value=CMR.Status.PENDINGREMOVE.name,
+                            icon=ClientManagerRelationshipColor.PENDING_REMOVE.value,
+                            label=ClientManagerRelationship.Status.PENDINGREMOVE.label,
+                            value=ClientManagerRelationship.Status.PENDINGREMOVE.name,
                         ),
                         dp.LegendItem(
-                            icon=CMR_Color.REMOVED.value,
-                            label=CMR.Status.REMOVED.label,
-                            value=CMR.Status.REMOVED.name,
+                            icon=ClientManagerRelationshipColor.REMOVED.value,
+                            label=ClientManagerRelationship.Status.REMOVED.label,
+                            value=ClientManagerRelationship.Status.REMOVED.name,
                         ),
                     ],
                 ),
@@ -242,23 +242,23 @@ class ClientManagerModelDisplay(DisplayViewConfig):
                     formatting_rules=[
                         dp.FormattingRule(
                             style={"backgroundColor": WBColor.YELLOW_LIGHT.value},
-                            condition=("==", CMR.Status.PENDINGADD.name),
+                            condition=("==", ClientManagerRelationship.Status.PENDINGADD.name),
                         ),
                         dp.FormattingRule(
                             style={"backgroundColor": WBColor.YELLOW_DARK.value},
-                            condition=("==", CMR.Status.PENDINGREMOVE.name),
+                            condition=("==", ClientManagerRelationship.Status.PENDINGREMOVE.name),
                         ),
                         dp.FormattingRule(
                             style={"backgroundColor": WBColor.GREEN_LIGHT.value},
-                            condition=("==", CMR.Status.APPROVED.name),
+                            condition=("==", ClientManagerRelationship.Status.APPROVED.name),
                         ),
                         dp.FormattingRule(
                             style={"backgroundColor": WBColor.RED_LIGHT.value},
-                            condition=("==", CMR.Status.DRAFT.name),
+                            condition=("==", ClientManagerRelationship.Status.DRAFT.name),
                         ),
                         dp.FormattingRule(
                             style={"backgroundColor": WBColor.GREY.value},
-                            condition=("==", CMR.Status.REMOVED.name),
+                            condition=("==", ClientManagerRelationship.Status.REMOVED.name),
                         ),
                     ],
                 )

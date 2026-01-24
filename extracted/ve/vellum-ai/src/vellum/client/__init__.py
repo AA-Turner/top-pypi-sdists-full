@@ -14,8 +14,11 @@ from .resources.container_images.client import AsyncContainerImagesClient, Conta
 from .resources.deployments.client import AsyncDeploymentsClient, DeploymentsClient
 from .resources.document_indexes.client import AsyncDocumentIndexesClient, DocumentIndexesClient
 from .resources.documents.client import AsyncDocumentsClient, DocumentsClient
+from .resources.environments.client import AsyncEnvironmentsClient, EnvironmentsClient
 from .resources.events.client import AsyncEventsClient, EventsClient
 from .resources.folder_entities.client import AsyncFolderEntitiesClient, FolderEntitiesClient
+from .resources.integration_auth_configs.client import AsyncIntegrationAuthConfigsClient, IntegrationAuthConfigsClient
+from .resources.integration_providers.client import AsyncIntegrationProvidersClient, IntegrationProvidersClient
 from .resources.integrations.client import AsyncIntegrationsClient, IntegrationsClient
 from .resources.metric_definitions.client import AsyncMetricDefinitionsClient, MetricDefinitionsClient
 from .resources.ml_models.client import AsyncMlModelsClient, MlModelsClient
@@ -24,6 +27,7 @@ from .resources.prompts.client import AsyncPromptsClient, PromptsClient
 from .resources.sandboxes.client import AsyncSandboxesClient, SandboxesClient
 from .resources.test_suite_runs.client import AsyncTestSuiteRunsClient, TestSuiteRunsClient
 from .resources.test_suites.client import AsyncTestSuitesClient, TestSuitesClient
+from .resources.uploaded_files.client import AsyncUploadedFilesClient, UploadedFilesClient
 from .resources.workflow_deployments.client import AsyncWorkflowDeploymentsClient, WorkflowDeploymentsClient
 from .resources.workflow_executions.client import AsyncWorkflowExecutionsClient, WorkflowExecutionsClient
 from .resources.workflow_sandboxes.client import AsyncWorkflowSandboxesClient, WorkflowSandboxesClient
@@ -41,6 +45,7 @@ from .types.execute_api_request_headers_value import ExecuteApiRequestHeadersVal
 from .types.execute_api_response import ExecuteApiResponse
 from .types.execute_prompt_event import ExecutePromptEvent
 from .types.execute_prompt_response import ExecutePromptResponse
+from .types.execute_workflow_async_response import ExecuteWorkflowAsyncResponse
 from .types.execute_workflow_response import ExecuteWorkflowResponse
 from .types.generate_options_request import GenerateOptionsRequest
 from .types.generate_request import GenerateRequest
@@ -137,7 +142,10 @@ class Vellum:
         self.deployments = DeploymentsClient(client_wrapper=self._client_wrapper)
         self.document_indexes = DocumentIndexesClient(client_wrapper=self._client_wrapper)
         self.documents = DocumentsClient(client_wrapper=self._client_wrapper)
+        self.environments = EnvironmentsClient(client_wrapper=self._client_wrapper)
         self.folder_entities = FolderEntitiesClient(client_wrapper=self._client_wrapper)
+        self.integration_auth_configs = IntegrationAuthConfigsClient(client_wrapper=self._client_wrapper)
+        self.integration_providers = IntegrationProvidersClient(client_wrapper=self._client_wrapper)
         self.metric_definitions = MetricDefinitionsClient(client_wrapper=self._client_wrapper)
         self.ml_models = MlModelsClient(client_wrapper=self._client_wrapper)
         self.organizations = OrganizationsClient(client_wrapper=self._client_wrapper)
@@ -145,6 +153,7 @@ class Vellum:
         self.sandboxes = SandboxesClient(client_wrapper=self._client_wrapper)
         self.test_suite_runs = TestSuiteRunsClient(client_wrapper=self._client_wrapper)
         self.test_suites = TestSuitesClient(client_wrapper=self._client_wrapper)
+        self.uploaded_files = UploadedFilesClient(client_wrapper=self._client_wrapper)
         self.workflow_deployments = WorkflowDeploymentsClient(client_wrapper=self._client_wrapper)
         self.workflow_executions = WorkflowExecutionsClient(client_wrapper=self._client_wrapper)
         self.workflow_sandboxes = WorkflowSandboxesClient(client_wrapper=self._client_wrapper)
@@ -551,6 +560,85 @@ class Vellum:
             external_id=external_id,
             metadata=metadata,
             previous_execution_id=previous_execution_id,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def execute_workflow_async(
+        self,
+        *,
+        inputs: typing.Sequence[WorkflowRequestInputRequest],
+        workflow_deployment_id: typing.Optional[str] = OMIT,
+        workflow_deployment_name: typing.Optional[str] = OMIT,
+        release_tag: typing.Optional[str] = OMIT,
+        external_id: typing.Optional[str] = OMIT,
+        previous_execution_id: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ExecuteWorkflowAsyncResponse:
+        """
+        Executes a deployed Workflow asynchronously and returns the execution ID.
+
+        Parameters
+        ----------
+        inputs : typing.Sequence[WorkflowRequestInputRequest]
+            The list of inputs defined in the Workflow's Deployment with their corresponding values.
+
+        workflow_deployment_id : typing.Optional[str]
+            The ID of the Workflow Deployment. Must provide either this or workflow_deployment_name.
+
+        workflow_deployment_name : typing.Optional[str]
+            The name of the Workflow Deployment. Must provide either this or workflow_deployment_id.
+
+        release_tag : typing.Optional[str]
+            Optionally specify a release tag if you want to pin to a specific release of the Workflow Deployment
+
+        external_id : typing.Optional[str]
+            Optionally include a unique identifier for tracking purposes. Must be unique within a given Workspace.
+
+        previous_execution_id : typing.Optional[str]
+            The ID of a previous Workflow Execution to reference for initial State loading.
+
+        metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+            Arbitrary JSON metadata associated with this request. Can be used to capture additional monitoring data such as user id, session id, etc. for future analysis.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ExecuteWorkflowAsyncResponse
+
+
+        Examples
+        --------
+        from vellum import Vellum, WorkflowRequestStringInputRequest
+
+        client = Vellum(
+            api_version="YOUR_API_VERSION",
+            api_key="YOUR_API_KEY",
+        )
+        client.execute_workflow_async(
+            inputs=[
+                WorkflowRequestStringInputRequest(
+                    name="x",
+                    value="value",
+                ),
+                WorkflowRequestStringInputRequest(
+                    name="x",
+                    value="value",
+                ),
+            ],
+        )
+        """
+        _response = self._raw_client.execute_workflow_async(
+            inputs=inputs,
+            workflow_deployment_id=workflow_deployment_id,
+            workflow_deployment_name=workflow_deployment_name,
+            release_tag=release_tag,
+            external_id=external_id,
+            previous_execution_id=previous_execution_id,
+            metadata=metadata,
             request_options=request_options,
         )
         return _response.data
@@ -1012,7 +1100,10 @@ class AsyncVellum:
         self.deployments = AsyncDeploymentsClient(client_wrapper=self._client_wrapper)
         self.document_indexes = AsyncDocumentIndexesClient(client_wrapper=self._client_wrapper)
         self.documents = AsyncDocumentsClient(client_wrapper=self._client_wrapper)
+        self.environments = AsyncEnvironmentsClient(client_wrapper=self._client_wrapper)
         self.folder_entities = AsyncFolderEntitiesClient(client_wrapper=self._client_wrapper)
+        self.integration_auth_configs = AsyncIntegrationAuthConfigsClient(client_wrapper=self._client_wrapper)
+        self.integration_providers = AsyncIntegrationProvidersClient(client_wrapper=self._client_wrapper)
         self.metric_definitions = AsyncMetricDefinitionsClient(client_wrapper=self._client_wrapper)
         self.ml_models = AsyncMlModelsClient(client_wrapper=self._client_wrapper)
         self.organizations = AsyncOrganizationsClient(client_wrapper=self._client_wrapper)
@@ -1020,6 +1111,7 @@ class AsyncVellum:
         self.sandboxes = AsyncSandboxesClient(client_wrapper=self._client_wrapper)
         self.test_suite_runs = AsyncTestSuiteRunsClient(client_wrapper=self._client_wrapper)
         self.test_suites = AsyncTestSuitesClient(client_wrapper=self._client_wrapper)
+        self.uploaded_files = AsyncUploadedFilesClient(client_wrapper=self._client_wrapper)
         self.workflow_deployments = AsyncWorkflowDeploymentsClient(client_wrapper=self._client_wrapper)
         self.workflow_executions = AsyncWorkflowExecutionsClient(client_wrapper=self._client_wrapper)
         self.workflow_sandboxes = AsyncWorkflowSandboxesClient(client_wrapper=self._client_wrapper)
@@ -1467,6 +1559,93 @@ class AsyncVellum:
             external_id=external_id,
             metadata=metadata,
             previous_execution_id=previous_execution_id,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def execute_workflow_async(
+        self,
+        *,
+        inputs: typing.Sequence[WorkflowRequestInputRequest],
+        workflow_deployment_id: typing.Optional[str] = OMIT,
+        workflow_deployment_name: typing.Optional[str] = OMIT,
+        release_tag: typing.Optional[str] = OMIT,
+        external_id: typing.Optional[str] = OMIT,
+        previous_execution_id: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ExecuteWorkflowAsyncResponse:
+        """
+        Executes a deployed Workflow asynchronously and returns the execution ID.
+
+        Parameters
+        ----------
+        inputs : typing.Sequence[WorkflowRequestInputRequest]
+            The list of inputs defined in the Workflow's Deployment with their corresponding values.
+
+        workflow_deployment_id : typing.Optional[str]
+            The ID of the Workflow Deployment. Must provide either this or workflow_deployment_name.
+
+        workflow_deployment_name : typing.Optional[str]
+            The name of the Workflow Deployment. Must provide either this or workflow_deployment_id.
+
+        release_tag : typing.Optional[str]
+            Optionally specify a release tag if you want to pin to a specific release of the Workflow Deployment
+
+        external_id : typing.Optional[str]
+            Optionally include a unique identifier for tracking purposes. Must be unique within a given Workspace.
+
+        previous_execution_id : typing.Optional[str]
+            The ID of a previous Workflow Execution to reference for initial State loading.
+
+        metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+            Arbitrary JSON metadata associated with this request. Can be used to capture additional monitoring data such as user id, session id, etc. for future analysis.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ExecuteWorkflowAsyncResponse
+
+
+        Examples
+        --------
+        import asyncio
+
+        from vellum import AsyncVellum, WorkflowRequestStringInputRequest
+
+        client = AsyncVellum(
+            api_version="YOUR_API_VERSION",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.execute_workflow_async(
+                inputs=[
+                    WorkflowRequestStringInputRequest(
+                        name="x",
+                        value="value",
+                    ),
+                    WorkflowRequestStringInputRequest(
+                        name="x",
+                        value="value",
+                    ),
+                ],
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.execute_workflow_async(
+            inputs=inputs,
+            workflow_deployment_id=workflow_deployment_id,
+            workflow_deployment_name=workflow_deployment_name,
+            release_tag=release_tag,
+            external_id=external_id,
+            previous_execution_id=previous_execution_id,
+            metadata=metadata,
             request_options=request_options,
         )
         return _response.data

@@ -10,11 +10,12 @@
 
 #include "include/private/base/SkAPI.h"
 #include "include/private/base/SkAssert.h"
+#include "include/private/base/SkDebug.h"
 #include "include/private/base/SkTo.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <initializer_list>
+#include <utility>
 
 class SK_SPI SkTDStorage {
 public:
@@ -152,20 +153,18 @@ public:
     const T* end() const { return this->data() + this->size(); }
 
     T& operator[](int index) {
-        SkASSERT(index < this->size());
-        return this->data()[index];
+        return this->data()[sk_collection_check_bounds(index, this->size())];
     }
     const T& operator[](int index) const {
-        SkASSERT(index < this->size());
-        return this->data()[index];
+        return this->data()[sk_collection_check_bounds(index, this->size())];
     }
 
     const T& back() const {
-        SkASSERT(this->size() > 0);
+        sk_collection_not_empty(this->empty());
         return this->data()[this->size() - 1];
     }
     T& back() {
-        SkASSERT(this->size() > 0);
+        sk_collection_not_empty(this->empty());
         return this->data()[this->size() - 1];
     }
 
@@ -177,10 +176,10 @@ public:
         fStorage.clear();
     }
 
-     // Sets the number of elements in the array.
-     // If the array does not have space for count elements, it will increase
-     // the storage allocated to some amount greater than that required.
-     // It will never shrink the storage.
+    // Sets the number of elements in the array.
+    // If the array does not have space for count elements, it will increase
+    // the storage allocated to some amount greater than that required.
+    // It will never shrink the storage.
     void resize(int count) {
         fStorage.resize(count);
     }

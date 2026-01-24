@@ -60,6 +60,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_company, False, False, "json", shared.AtsCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -76,7 +77,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -152,6 +153,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_company, False, False, "json", shared.AtsCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -168,7 +170,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -244,6 +246,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.crm_company, False, False, "json", shared.CrmCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -260,7 +263,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCrmCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -336,6 +339,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.crm_company, False, False, "json", shared.CrmCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -352,7 +356,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCrmCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -428,6 +432,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.hris_company, False, False, "json", shared.HrisCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -444,7 +449,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createHrisCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -520,6 +525,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.hris_company, False, False, "json", shared.HrisCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -536,7 +542,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createHrisCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -608,6 +614,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -624,7 +631,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -696,6 +703,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -712,7 +720,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -784,6 +792,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -800,7 +809,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCrmCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -872,6 +881,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -888,7 +898,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCrmCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -960,6 +970,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -976,7 +987,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getHrisCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1048,6 +1059,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1064,7 +1076,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getHrisCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1137,6 +1149,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1153,7 +1166,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsCompanies",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1226,6 +1239,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1242,7 +1256,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsCompanies",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1315,6 +1329,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1331,7 +1346,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCrmCompanies",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1404,6 +1419,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1420,7 +1436,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCrmCompanies",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1493,6 +1509,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1509,7 +1526,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listEnrichCompanies",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1582,6 +1599,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1598,7 +1616,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listEnrichCompanies",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1671,6 +1689,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1687,7 +1706,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listHrisCompanies",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1760,6 +1779,7 @@ class Company(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1776,7 +1796,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listHrisCompanies",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1852,6 +1872,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_company, False, False, "json", shared.AtsCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1868,7 +1889,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1944,6 +1965,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_company, False, False, "json", shared.AtsCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1960,7 +1982,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2036,6 +2058,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.crm_company, False, False, "json", shared.CrmCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2052,7 +2075,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCrmCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2128,6 +2151,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.crm_company, False, False, "json", shared.CrmCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2144,7 +2168,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCrmCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2220,6 +2244,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.hris_company, False, False, "json", shared.HrisCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2236,7 +2261,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchHrisCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2312,6 +2337,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.hris_company, False, False, "json", shared.HrisCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2328,7 +2354,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchHrisCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2401,6 +2427,7 @@ class Company(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2417,7 +2444,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2495,6 +2522,7 @@ class Company(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2511,7 +2539,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2589,6 +2617,7 @@ class Company(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2605,7 +2634,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCrmCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2683,6 +2712,7 @@ class Company(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2699,7 +2729,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCrmCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2777,6 +2807,7 @@ class Company(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2793,7 +2824,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeHrisCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2871,6 +2902,7 @@ class Company(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2887,7 +2919,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeHrisCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2968,6 +3000,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_company, False, False, "json", shared.AtsCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2984,7 +3017,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3060,6 +3093,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_company, False, False, "json", shared.AtsCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3076,7 +3110,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3152,6 +3186,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.crm_company, False, False, "json", shared.CrmCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3168,7 +3203,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCrmCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3244,6 +3279,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.crm_company, False, False, "json", shared.CrmCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3260,7 +3296,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCrmCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3336,6 +3372,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.hris_company, False, False, "json", shared.HrisCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3352,7 +3389,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateHrisCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3428,6 +3465,7 @@ class Company(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.hris_company, False, False, "json", shared.HrisCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3444,7 +3482,7 @@ class Company(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateHrisCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

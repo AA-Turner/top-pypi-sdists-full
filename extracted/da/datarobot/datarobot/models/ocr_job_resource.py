@@ -37,10 +37,7 @@ class OCRJobDatasetLanguage(Enum):
         for language in cls:
             if language_str == language.name:
                 return language
-        msg = (
-            f"Language str {language_str} is invalid. "
-            f"Valid values are {[lang.name for lang in cls]}"
-        )
+        msg = f"Language str {language_str} is invalid. Valid values are {[lang.name for lang in cls]}"
         raise ValueError(msg)
 
 
@@ -132,16 +129,10 @@ class StartOCRJobResponse:
         )
 
 
-_engine_specific_parameters_converter = t.Dict(
-    {
-        t.Key("engine_type", optional=True): t.Or(
-            t.Enum(*[e.name for e in DataRobotOCREngineType]), t.Null()
-        ),
-        t.Key("output_format", optional=True): t.Or(
-            t.Enum(*[f.name for f in DataRobotArynOutputFormat]), t.Null()
-        ),
-    }
-).ignore_extra("*")
+_engine_specific_parameters_converter = t.Dict({
+    t.Key("engine_type", optional=True): t.Or(t.Enum(*[e.name for e in DataRobotOCREngineType]), t.Null()),
+    t.Key("output_format", optional=True): t.Or(t.Enum(*[f.name for f in DataRobotArynOutputFormat]), t.Null()),
+}).ignore_extra("*")
 
 
 class OCREngineSpecificParameters:
@@ -159,12 +150,10 @@ class OCREngineSpecificParameters:
     """
 
     def __init__(self, engine_type: Optional[str] = None, output_format: Optional[str] = None):
-        _engine_specific_parameters_converter.check(
-            {
-                "engine_type": engine_type,
-                "output_format": output_format,
-            }
-        )
+        _engine_specific_parameters_converter.check({
+            "engine_type": engine_type,
+            "output_format": output_format,
+        })
         self.engine_type = engine_type
         self.output_format = output_format
 
@@ -208,19 +197,15 @@ class OCRJobResource(APIObject):
 
     _path = "ocrJobResources/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("input_catalog_id"): t.String(),
-            t.Key("output_catalog_id"): t.String(),
-            t.Key("user_id"): t.String(),
-            t.Key("job_started"): t.Bool(),
-            t.Key("language"): t.Enum(*[el.name for el in OCRJobDatasetLanguage]),
-            t.Key(
-                "engine_specific_parameters", optional=True
-            ): _engine_specific_parameters_converter,
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("input_catalog_id"): t.String(),
+        t.Key("output_catalog_id"): t.String(),
+        t.Key("user_id"): t.String(),
+        t.Key("job_started"): t.Bool(),
+        t.Key("language"): t.Enum(*[el.name for el in OCRJobDatasetLanguage]),
+        t.Key("engine_specific_parameters", optional=True): _engine_specific_parameters_converter,
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -281,9 +266,7 @@ class OCRJobResource(APIObject):
         """
         query_params = {"offset": offset, "limit": limit}
         list_of_job_resources = unpaginate(cls._path, query_params, cls._client)
-        return [
-            OCRJobResource.from_server_data(job_resource) for job_resource in list_of_job_resources
-        ]
+        return [OCRJobResource.from_server_data(job_resource) for job_resource in list_of_job_resources]
 
     @classmethod
     def create(

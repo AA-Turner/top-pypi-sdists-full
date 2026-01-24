@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: asynch
-Version: 0.3.0
+Version: 0.3.1
 Summary: An asyncio driver for ClickHouse with native TCP support
 License: Apache License
                                     Version 2.0, January 2004
@@ -203,6 +203,7 @@ License: Apache License
             WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
             See the License for the specific language governing permissions and
             limitations under the License.
+License-File: LICENSE
 Keywords: asyncio,clickhouse,python,driver
 Author: long2ice
 Author-email: long2ice@gmail.com

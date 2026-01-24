@@ -9,6 +9,7 @@ from .conflicting_path import ConflictingPath
 from .deprecated_functions import DeprecatedFunctionUsage
 from .duplicate_package_in_requirements import DuplicatePackagesInRequirements
 from .env_in_bundle import EnvInBundle
+from .file_outside_project import FileOutsideProjectRoot
 from .missing_abstra_in_requirements import MissingAbstraInRequirements
 from .missing_entrypoint import MissingEntrypoint
 from .missing_env import MissingEnv
@@ -16,6 +17,8 @@ from .missing_packages_in_requirements import MissingPackagesInRequirements
 from .new_version_of_abstra_available import NewVersionOfAbstraAvailable
 from .psycopg2 import Psycopg2MustBeBinary
 from .syntax_errors import SyntaxErrors
+
+# from .type_checking import TypeCheckingRule
 from .venv_in_bundle import VenvInBundle
 
 core_rules: List[LinterRule] = [
@@ -32,6 +35,8 @@ core_rules: List[LinterRule] = [
     ConflictingName(),
     DeprecatedFunctionUsage(),
     BigPyFiles(),
+    FileOutsideProjectRoot(),
+    # TypeCheckingRule(),
 ]
 
 conditional_rules: List[LinterRule] = []

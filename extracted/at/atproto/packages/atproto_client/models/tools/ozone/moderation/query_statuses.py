@@ -31,9 +31,9 @@ class Params(base.ParamsModelBase):
         ]
     ] = None  #: If specified, only subjects with the given age assurance state will be returned.
     appealed: t.Optional[bool] = None  #: Get subjects in unresolved appealed status.
-    collections: t.Optional[t.List[string_formats.Nsid]] = Field(
-        default=None, max_length=20
-    )  #: If specified, subjects belonging to the given collections will be returned. When subjectType is set to 'account', this will be ignored.
+    collections: te.Annotated[t.Optional[t.List[string_formats.Nsid]], Field(max_length=20)] = (
+        None  #: If specified, subjects belonging to the given collections will be returned. When subjectType is set to 'account', this will be ignored.
+    )
     comment: t.Optional[str] = None  #: Search subjects by keyword from comments.
     cursor: t.Optional[str] = None  #: Cursor.
     exclude_tags: t.Optional[t.List[str]] = None  #: Exclude tags.
@@ -60,15 +60,18 @@ class Params(base.ParamsModelBase):
     last_reviewed_by: t.Optional[string_formats.Did] = (
         None  #: Get all subject statuses that were reviewed by a specific moderator.
     )
-    limit: t.Optional[int] = Field(default=50, ge=1, le=100)  #: Limit.
+    limit: te.Annotated[t.Optional[int], Field(ge=1, le=100)] = None  #: Limit.
     min_account_suspend_count: t.Optional[int] = (
         None  #: If specified, only subjects that belong to an account that has at least this many suspensions will be returned.
     )
-    min_priority_score: t.Optional[int] = Field(
-        default=None, ge=0, le=100
-    )  #: If specified, only subjects that have priority score value above the given value will be returned.
+    min_priority_score: te.Annotated[t.Optional[int], Field(ge=0, le=100)] = (
+        None  #: If specified, only subjects that have priority score value above the given value will be returned.
+    )
     min_reported_records_count: t.Optional[int] = (
         None  #: If specified, only subjects that belong to an account that has at least this many reported records will be returned.
+    )
+    min_strike_count: te.Annotated[t.Optional[int], Field(ge=1)] = (
+        None  #: If specified, only subjects that belong to an account that has at least this many active strikes will be returned.
     )
     min_takendown_records_count: t.Optional[int] = (
         None  #: If specified, only subjects that belong to an account that has at least this many taken down records will be returned.
@@ -83,7 +86,15 @@ class Params(base.ParamsModelBase):
     queue_seed: t.Optional[str] = None  #: A seeder to shuffle/balance the queue items.
     reported_after: t.Optional[string_formats.DateTime] = None  #: Search subjects reported after a given timestamp.
     reported_before: t.Optional[string_formats.DateTime] = None  #: Search subjects reported before a given timestamp.
-    review_state: t.Optional[str] = None  #: Specify when fetching subjects in a certain state.
+    review_state: t.Optional[
+        t.Union[
+            'models.ToolsOzoneModerationDefs.ReviewOpen',
+            'models.ToolsOzoneModerationDefs.ReviewClosed',
+            'models.ToolsOzoneModerationDefs.ReviewEscalated',
+            'models.ToolsOzoneModerationDefs.ReviewNone',
+            str,
+        ]
+    ] = None  #: Specify when fetching subjects in a certain state.
     reviewed_after: t.Optional[string_formats.DateTime] = None  #: Search subjects reviewed after a given timestamp.
     reviewed_before: t.Optional[string_formats.DateTime] = None  #: Search subjects reviewed before a given timestamp.
     sort_direction: t.Optional[t.Union[t.Literal['asc'], t.Literal['desc']]] = 'desc'  #: Sort direction.
@@ -100,9 +111,9 @@ class Params(base.ParamsModelBase):
     subject_type: t.Optional[t.Union[t.Literal['account'], t.Literal['record'], str]] = (
         None  #: If specified, subjects of the given type (account or record) will be returned. When this is set to 'account' the 'collections' parameter will be ignored. When includeAllUserRecords or subject is set, this will be ignored.
     )
-    tags: t.Optional[t.List[str]] = Field(
-        default=None, max_length=25
-    )  #: Tags. Items in this array are applied with OR filters. To apply AND filter, put all tags in the same string and separate using && characters.
+    tags: te.Annotated[t.Optional[t.List[str]], Field(max_length=25)] = (
+        None  #: Tags. Items in this array are applied with OR filters. To apply AND filter, put all tags in the same string and separate using && characters.
+    )
     takendown: t.Optional[bool] = None  #: Get subjects that were taken down.
 
 
@@ -161,6 +172,9 @@ class ParamsDict(t.TypedDict):
     min_reported_records_count: te.NotRequired[
         t.Optional[int]
     ]  #: If specified, only subjects that belong to an account that has at least this many reported records will be returned.
+    min_strike_count: te.NotRequired[
+        t.Optional[int]
+    ]  #: If specified, only subjects that belong to an account that has at least this many active strikes will be returned.
     min_takendown_records_count: te.NotRequired[
         t.Optional[int]
     ]  #: If specified, only subjects that belong to an account that has at least this many taken down records will be returned.
@@ -180,7 +194,17 @@ class ParamsDict(t.TypedDict):
     reported_before: te.NotRequired[
         t.Optional[string_formats.DateTime]
     ]  #: Search subjects reported before a given timestamp.
-    review_state: te.NotRequired[t.Optional[str]]  #: Specify when fetching subjects in a certain state.
+    review_state: te.NotRequired[
+        t.Optional[
+            t.Union[
+                'models.ToolsOzoneModerationDefs.ReviewOpen',
+                'models.ToolsOzoneModerationDefs.ReviewClosed',
+                'models.ToolsOzoneModerationDefs.ReviewEscalated',
+                'models.ToolsOzoneModerationDefs.ReviewNone',
+                str,
+            ]
+        ]
+    ]  #: Specify when fetching subjects in a certain state.
     reviewed_after: te.NotRequired[
         t.Optional[string_formats.DateTime]
     ]  #: Search subjects reviewed after a given timestamp.

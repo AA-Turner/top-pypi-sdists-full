@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: robotframework-appiumlibrary
-Version: 3.1
+Version: 3.2.1
 Summary: Robot Framework Mobile app testing library for Appium Client Android & iOS & Web
 Author: MarketSquare - Robot Framework community, William Zhang, Serhat Bolsu
 Maintainer-email: Gabriela Simion <gabriela28simion@gmail.com>, Christoph Singer <ch_singer@me.com>, Ed Manlove <emanlove@verizon.net>
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Framework :: Robot Framework
 Classifier: Framework :: Robot Framework :: Library
 Description-Content-Type: text/x-rst
@@ -28,7 +29,6 @@ Requires-Dist: robotframework>=2.6.0
 Requires-Dist: docutils>=0.8.1
 Requires-Dist: selenium>=4.26.0
 Requires-Dist: Appium-Python-Client>=5.1.1
-Requires-Dist: kitchen>=1.2.4
 Requires-Dist: six>=1.10.0
 Requires-Dist: geopy>=2.4.1
 Dynamic: license-file
@@ -189,7 +189,9 @@ Ulhas Deshmukh      Leon Guo               Pramod
 smaspe              eXtReMaL               Erol Selitektay
 Filipe Arruda       Felipe Luiz Tortella   Filipe Henrique Benjamim de Arruda
 Gaja                Gabriela Simion        Christoph Singer
-Eslam Elmishtawy    Ed Manlove
+Eslam Elmishtawy    Oliver Boehmer         Roman Haladej
+Mikko Korpela       Hélio Guilherme        Mark Moberts
+Ed Manlove
 ================    ====================   ==================================
 
 

@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: acme_account_info
 author: "Felix Fontein (@felixfontein)"
@@ -222,9 +221,19 @@ from ansible_collections.community.crypto.plugins.module_utils._acme.utils impor
     process_links,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+
+
+def _collect_next(info: dict[str, t.Any]) -> list[str]:
+    result: list[str] = []
+
+    def f(link: str, relation: str) -> None:
+        if relation == "next":
+            result.append(link)
+
+    process_links(info=info, callback=f)
+    return result
 
 
 def get_orders_list(
@@ -257,12 +266,7 @@ def get_orders_list(
         orders.extend(res["orders"])
         # Extract URL of next part of results list
         new_orders_url: list[str | None] = []
-
-        def f(link: str, relation: str) -> None:
-            if relation == "next":
-                new_orders_url.append(link)
-
-        process_links(info=info, callback=f)
+        new_orders_url.extend(_collect_next(info))
         new_orders_url.append(None)
         previous_orders_url, next_orders_url = next_orders_url, new_orders_url.pop(0)
         if next_orders_url == previous_orders_url:
@@ -320,11 +324,12 @@ def main() -> t.NoReturn:
             result["account_uri"] = client.account_uri
             result["exists"] = True
             # Make sure promised data is there
+            account_data_dict = dict(account_data)
             if "contact" not in account_data:
-                account_data["contact"] = []
+                account_data_dict["contact"] = []
             if client.account_key_data:
-                account_data["public_account_key"] = client.account_key_data["jwk"]
-            result["account"] = account_data
+                account_data_dict["public_account_key"] = client.account_key_data["jwk"]
+            result["account"] = account_data_dict
             # Retrieve orders list
             if (
                 account_data.get("orders")

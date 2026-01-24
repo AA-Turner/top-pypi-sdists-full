@@ -66,759 +66,15 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_resiliencehub.AppReference",
-    jsii_struct_bases=[],
-    name_mapping={"app_arn": "appArn"},
+from ..interfaces.aws_resiliencehub import (
+    AppReference as _AppReference_ee989556,
+    IAppRef as _IAppRef_b94999c1,
+    IResiliencyPolicyRef as _IResiliencyPolicyRef_23883554,
+    ResiliencyPolicyReference as _ResiliencyPolicyReference_c0a99625,
 )
-class AppReference:
-    def __init__(self, *, app_arn: builtins.str) -> None:
-        '''A reference to a App resource.
 
-        :param app_arn: The AppArn of the App resource.
 
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_resiliencehub as resiliencehub
-            
-            app_reference = resiliencehub.AppReference(
-                app_arn="appArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15c01c7e15a8ca8914bf6db3f910bf98df0f7d1ba30bd74349413b8b354292a0)
-            check_type(argname="argument app_arn", value=app_arn, expected_type=type_hints["app_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "app_arn": app_arn,
-        }
-
-    @builtins.property
-    def app_arn(self) -> builtins.str:
-        '''The AppArn of the App resource.'''
-        result = self._values.get("app_arn")
-        assert result is not None, "Required property 'app_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AppReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_resiliencehub.CfnAppProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "app_template_body": "appTemplateBody",
-        "name": "name",
-        "resource_mappings": "resourceMappings",
-        "app_assessment_schedule": "appAssessmentSchedule",
-        "description": "description",
-        "event_subscriptions": "eventSubscriptions",
-        "permission_model": "permissionModel",
-        "resiliency_policy_arn": "resiliencyPolicyArn",
-        "tags": "tags",
-    },
-)
-class CfnAppProps:
-    def __init__(
-        self,
-        *,
-        app_template_body: builtins.str,
-        name: builtins.str,
-        resource_mappings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.ResourceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        app_assessment_schedule: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        event_subscriptions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.EventSubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        permission_model: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.PermissionModelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        resiliency_policy_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApp``.
-
-        :param app_template_body: A JSON string that provides information about your application structure. To learn more about the ``appTemplateBody`` template, see the sample template in `Sample appTemplateBody template <https://docs.aws.amazon.com//resilience-hub/latest/APIReference/API_PutDraftAppVersionTemplate.html#API_PutDraftAppVersionTemplate_Examples>`_ . The ``appTemplateBody`` JSON string has the following structure: - *``resources``* The list of logical resources that needs to be included in the AWS Resilience Hub application. Type: Array .. epigraph:: Don't add the resources that you want to exclude. Each ``resources`` array item includes the following fields: - *``logicalResourceId``* The logical identifier of the resource. Type: Object Each ``logicalResourceId`` object includes the following fields: - ``identifier`` Identifier of the resource. Type: String - ``logicalStackName`` Name of the AWS CloudFormation stack this resource belongs to. Type: String - ``resourceGroupName`` Name of the resource group this resource belongs to. Type: String - ``terraformSourceName`` Name of the Terraform S3 state file this resource belongs to. Type: String - ``eksSourceName`` Name of the Amazon Elastic Kubernetes Service cluster and namespace this resource belongs to. .. epigraph:: This parameter accepts values in "eks-cluster/namespace" format. Type: String - *``type``* The type of resource. Type: string - *``name``* Name of the resource. Type: String - ``additionalInfo`` Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ . .. epigraph:: Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account. Key: ``"failover-regions"`` Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"`` - *``appComponents``* The list of Application Components (AppComponent) that this resource belongs to. If an AppComponent is not part of the AWS Resilience Hub application, it will be added. Type: Array Each ``appComponents`` array item includes the following fields: - ``name`` Name of the AppComponent. Type: String - ``type`` The type of AppComponent. For more information about the types of AppComponent, see `Grouping resources in an AppComponent <https://docs.aws.amazon.com/resilience-hub/latest/userguide/AppComponent.grouping.html>`_ . Type: String - ``resourceNames`` The list of included resources that are assigned to the AppComponent. Type: Array of strings - ``additionalInfo`` Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ . .. epigraph:: Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account. Key: ``"failover-regions"`` Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"`` - *``excludedResources``* The list of logical resource identifiers to be excluded from the application. Type: Array .. epigraph:: Don't add the resources that you want to include. Each ``excludedResources`` array item includes the following fields: - *``logicalResourceIds``* The logical identifier of the resource. Type: Object .. epigraph:: You can configure only one of the following fields: - ``logicalStackName`` - ``resourceGroupName`` - ``terraformSourceName`` - ``eksSourceName`` Each ``logicalResourceIds`` object includes the following fields: - ``identifier`` The identifier of the resource. Type: String - ``logicalStackName`` Name of the AWS CloudFormation stack this resource belongs to. Type: String - ``resourceGroupName`` Name of the resource group this resource belongs to. Type: String - ``terraformSourceName`` Name of the Terraform S3 state file this resource belongs to. Type: String - ``eksSourceName`` Name of the Amazon Elastic Kubernetes Service cluster and namespace this resource belongs to. .. epigraph:: This parameter accepts values in "eks-cluster/namespace" format. Type: String - *``version``* The AWS Resilience Hub application version. - ``additionalInfo`` Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ . .. epigraph:: Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account. Key: ``"failover-regions"`` Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"``
-        :param name: Name for the application.
-        :param resource_mappings: An array of ``ResourceMapping`` objects.
-        :param app_assessment_schedule: Assessment execution schedule with 'Daily' or 'Disabled' values.
-        :param description: Optional description for an application.
-        :param event_subscriptions: The list of events you would like to subscribe and get notification for. Currently, AWS Resilience Hub supports notifications only for *Drift detected* and *Scheduled assessment failure* events.
-        :param permission_model: Defines the roles and credentials that AWS Resilience Hub would use while creating the application, importing its resources, and running an assessment.
-        :param resiliency_policy_arn: The Amazon Resource Name (ARN) of the resiliency policy.
-        :param tags: Tags assigned to the resource. A tag is a label that you assign to an AWS resource. Each tag consists of a key/value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_resiliencehub as resiliencehub
-            
-            cfn_app_props = resiliencehub.CfnAppProps(
-                app_template_body="appTemplateBody",
-                name="name",
-                resource_mappings=[resiliencehub.CfnApp.ResourceMappingProperty(
-                    mapping_type="mappingType",
-                    physical_resource_id=resiliencehub.CfnApp.PhysicalResourceIdProperty(
-                        identifier="identifier",
-                        type="type",
-            
-                        # the properties below are optional
-                        aws_account_id="awsAccountId",
-                        aws_region="awsRegion"
-                    ),
-            
-                    # the properties below are optional
-                    eks_source_name="eksSourceName",
-                    logical_stack_name="logicalStackName",
-                    resource_name="resourceName",
-                    terraform_source_name="terraformSourceName"
-                )],
-            
-                # the properties below are optional
-                app_assessment_schedule="appAssessmentSchedule",
-                description="description",
-                event_subscriptions=[resiliencehub.CfnApp.EventSubscriptionProperty(
-                    event_type="eventType",
-                    name="name",
-            
-                    # the properties below are optional
-                    sns_topic_arn="snsTopicArn"
-                )],
-                permission_model=resiliencehub.CfnApp.PermissionModelProperty(
-                    type="type",
-            
-                    # the properties below are optional
-                    cross_account_role_arns=["crossAccountRoleArns"],
-                    invoker_role_name="invokerRoleName"
-                ),
-                resiliency_policy_arn="resiliencyPolicyArn",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4cbfaccc19fec8c2bd3f0ad17cdc9d5c9a66dbdcc7077312163442e737af125)
-            check_type(argname="argument app_template_body", value=app_template_body, expected_type=type_hints["app_template_body"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument resource_mappings", value=resource_mappings, expected_type=type_hints["resource_mappings"])
-            check_type(argname="argument app_assessment_schedule", value=app_assessment_schedule, expected_type=type_hints["app_assessment_schedule"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument event_subscriptions", value=event_subscriptions, expected_type=type_hints["event_subscriptions"])
-            check_type(argname="argument permission_model", value=permission_model, expected_type=type_hints["permission_model"])
-            check_type(argname="argument resiliency_policy_arn", value=resiliency_policy_arn, expected_type=type_hints["resiliency_policy_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "app_template_body": app_template_body,
-            "name": name,
-            "resource_mappings": resource_mappings,
-        }
-        if app_assessment_schedule is not None:
-            self._values["app_assessment_schedule"] = app_assessment_schedule
-        if description is not None:
-            self._values["description"] = description
-        if event_subscriptions is not None:
-            self._values["event_subscriptions"] = event_subscriptions
-        if permission_model is not None:
-            self._values["permission_model"] = permission_model
-        if resiliency_policy_arn is not None:
-            self._values["resiliency_policy_arn"] = resiliency_policy_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def app_template_body(self) -> builtins.str:
-        '''A JSON string that provides information about your application structure.
-
-        To learn more about the ``appTemplateBody`` template, see the sample template in `Sample appTemplateBody template <https://docs.aws.amazon.com//resilience-hub/latest/APIReference/API_PutDraftAppVersionTemplate.html#API_PutDraftAppVersionTemplate_Examples>`_ .
-
-        The ``appTemplateBody`` JSON string has the following structure:
-
-        - *``resources``*
-
-        The list of logical resources that needs to be included in the AWS Resilience Hub application.
-
-        Type: Array
-        .. epigraph::
-
-           Don't add the resources that you want to exclude.
-
-        Each ``resources`` array item includes the following fields:
-
-        - *``logicalResourceId``*
-
-        The logical identifier of the resource.
-
-        Type: Object
-
-        Each ``logicalResourceId`` object includes the following fields:
-
-        - ``identifier``
-
-        Identifier of the resource.
-
-        Type: String
-
-        - ``logicalStackName``
-
-        Name of the AWS CloudFormation stack this resource belongs to.
-
-        Type: String
-
-        - ``resourceGroupName``
-
-        Name of the resource group this resource belongs to.
-
-        Type: String
-
-        - ``terraformSourceName``
-
-        Name of the Terraform S3 state file this resource belongs to.
-
-        Type: String
-
-        - ``eksSourceName``
-
-        Name of the Amazon Elastic Kubernetes Service cluster and namespace this resource belongs to.
-        .. epigraph::
-
-           This parameter accepts values in "eks-cluster/namespace" format.
-
-        Type: String
-
-        - *``type``*
-
-        The type of resource.
-
-        Type: string
-
-        - *``name``*
-
-        Name of the resource.
-
-        Type: String
-
-        - ``additionalInfo``
-
-        Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ .
-        .. epigraph::
-
-           Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account.
-
-           Key: ``"failover-regions"``
-
-           Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"``
-
-        - *``appComponents``*
-
-        The list of Application Components (AppComponent) that this resource belongs to. If an AppComponent is not part of the AWS Resilience Hub application, it will be added.
-
-        Type: Array
-
-        Each ``appComponents`` array item includes the following fields:
-
-        - ``name``
-
-        Name of the AppComponent.
-
-        Type: String
-
-        - ``type``
-
-        The type of AppComponent. For more information about the types of AppComponent, see `Grouping resources in an AppComponent <https://docs.aws.amazon.com/resilience-hub/latest/userguide/AppComponent.grouping.html>`_ .
-
-        Type: String
-
-        - ``resourceNames``
-
-        The list of included resources that are assigned to the AppComponent.
-
-        Type: Array of strings
-
-        - ``additionalInfo``
-
-        Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ .
-        .. epigraph::
-
-           Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account.
-
-           Key: ``"failover-regions"``
-
-           Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"``
-
-        - *``excludedResources``*
-
-        The list of logical resource identifiers to be excluded from the application.
-
-        Type: Array
-        .. epigraph::
-
-           Don't add the resources that you want to include.
-
-        Each ``excludedResources`` array item includes the following fields:
-
-        - *``logicalResourceIds``*
-
-        The logical identifier of the resource.
-
-        Type: Object
-        .. epigraph::
-
-           You can configure only one of the following fields:
-
-           - ``logicalStackName``
-           - ``resourceGroupName``
-           - ``terraformSourceName``
-           - ``eksSourceName``
-
-        Each ``logicalResourceIds`` object includes the following fields:
-
-        - ``identifier``
-
-        The identifier of the resource.
-
-        Type: String
-
-        - ``logicalStackName``
-
-        Name of the AWS CloudFormation stack this resource belongs to.
-
-        Type: String
-
-        - ``resourceGroupName``
-
-        Name of the resource group this resource belongs to.
-
-        Type: String
-
-        - ``terraformSourceName``
-
-        Name of the Terraform S3 state file this resource belongs to.
-
-        Type: String
-
-        - ``eksSourceName``
-
-        Name of the Amazon Elastic Kubernetes Service cluster and namespace this resource belongs to.
-        .. epigraph::
-
-           This parameter accepts values in "eks-cluster/namespace" format.
-
-        Type: String
-
-        - *``version``*
-
-        The AWS Resilience Hub application version.
-
-        - ``additionalInfo``
-
-        Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ .
-        .. epigraph::
-
-           Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account.
-
-           Key: ``"failover-regions"``
-
-           Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-apptemplatebody
-        '''
-        result = self._values.get("app_template_body")
-        assert result is not None, "Required property 'app_template_body' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''Name for the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource_mappings(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.ResourceMappingProperty"]]]:
-        '''An array of ``ResourceMapping`` objects.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-resourcemappings
-        '''
-        result = self._values.get("resource_mappings")
-        assert result is not None, "Required property 'resource_mappings' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.ResourceMappingProperty"]]], result)
-
-    @builtins.property
-    def app_assessment_schedule(self) -> typing.Optional[builtins.str]:
-        '''Assessment execution schedule with 'Daily' or 'Disabled' values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-appassessmentschedule
-        '''
-        result = self._values.get("app_assessment_schedule")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Optional description for an application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_subscriptions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.EventSubscriptionProperty"]]]]:
-        '''The list of events you would like to subscribe and get notification for.
-
-        Currently, AWS Resilience Hub supports notifications only for *Drift detected* and *Scheduled assessment failure* events.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-eventsubscriptions
-        '''
-        result = self._values.get("event_subscriptions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.EventSubscriptionProperty"]]]], result)
-
-    @builtins.property
-    def permission_model(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.PermissionModelProperty"]]:
-        '''Defines the roles and credentials that AWS Resilience Hub would use while creating the application, importing its resources, and running an assessment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-permissionmodel
-        '''
-        result = self._values.get("permission_model")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.PermissionModelProperty"]], result)
-
-    @builtins.property
-    def resiliency_policy_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the resiliency policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-resiliencypolicyarn
-        '''
-        result = self._values.get("resiliency_policy_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Tags assigned to the resource.
-
-        A tag is a label that you assign to an AWS resource. Each tag consists of a key/value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAppProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_resiliencehub.CfnResiliencyPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "policy": "policy",
-        "policy_name": "policyName",
-        "tier": "tier",
-        "data_location_constraint": "dataLocationConstraint",
-        "policy_description": "policyDescription",
-        "tags": "tags",
-    },
-)
-class CfnResiliencyPolicyProps:
-    def __init__(
-        self,
-        *,
-        policy: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnResiliencyPolicy.FailurePolicyProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        policy_name: builtins.str,
-        tier: builtins.str,
-        data_location_constraint: typing.Optional[builtins.str] = None,
-        policy_description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResiliencyPolicy``.
-
-        :param policy: The resiliency policy.
-        :param policy_name: The name of the policy.
-        :param tier: The tier for this resiliency policy, ranging from the highest severity ( ``MissionCritical`` ) to lowest ( ``NonCritical`` ).
-        :param data_location_constraint: Specifies a high-level geographical location constraint for where your resilience policy data can be stored.
-        :param policy_description: Description of the resiliency policy.
-        :param tags: Tags assigned to the resource. A tag is a label that you assign to an AWS resource. Each tag consists of a key/value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_resiliencehub as resiliencehub
-            
-            cfn_resiliency_policy_props = resiliencehub.CfnResiliencyPolicyProps(
-                policy={
-                    "policy_key": resiliencehub.CfnResiliencyPolicy.FailurePolicyProperty(
-                        rpo_in_secs=123,
-                        rto_in_secs=123
-                    )
-                },
-                policy_name="policyName",
-                tier="tier",
-            
-                # the properties below are optional
-                data_location_constraint="dataLocationConstraint",
-                policy_description="policyDescription",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b51a30718bd8977a8288b1d2934e1722c7b034c5064ff893bb6b2bbb6feb7ba7)
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
-            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
-            check_type(argname="argument data_location_constraint", value=data_location_constraint, expected_type=type_hints["data_location_constraint"])
-            check_type(argname="argument policy_description", value=policy_description, expected_type=type_hints["policy_description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy": policy,
-            "policy_name": policy_name,
-            "tier": tier,
-        }
-        if data_location_constraint is not None:
-            self._values["data_location_constraint"] = data_location_constraint
-        if policy_description is not None:
-            self._values["policy_description"] = policy_description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def policy(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnResiliencyPolicy.FailurePolicyProperty"]]]:
-        '''The resiliency policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html#cfn-resiliencehub-resiliencypolicy-policy
-        '''
-        result = self._values.get("policy")
-        assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnResiliencyPolicy.FailurePolicyProperty"]]], result)
-
-    @builtins.property
-    def policy_name(self) -> builtins.str:
-        '''The name of the policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html#cfn-resiliencehub-resiliencypolicy-policyname
-        '''
-        result = self._values.get("policy_name")
-        assert result is not None, "Required property 'policy_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tier(self) -> builtins.str:
-        '''The tier for this resiliency policy, ranging from the highest severity ( ``MissionCritical`` ) to lowest ( ``NonCritical`` ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html#cfn-resiliencehub-resiliencypolicy-tier
-        '''
-        result = self._values.get("tier")
-        assert result is not None, "Required property 'tier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def data_location_constraint(self) -> typing.Optional[builtins.str]:
-        '''Specifies a high-level geographical location constraint for where your resilience policy data can be stored.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html#cfn-resiliencehub-resiliencypolicy-datalocationconstraint
-        '''
-        result = self._values.get("data_location_constraint")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def policy_description(self) -> typing.Optional[builtins.str]:
-        '''Description of the resiliency policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html#cfn-resiliencehub-resiliencypolicy-policydescription
-        '''
-        result = self._values.get("policy_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Tags assigned to the resource.
-
-        A tag is a label that you assign to an AWS resource. Each tag consists of a key/value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html#cfn-resiliencehub-resiliencypolicy-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResiliencyPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_resiliencehub.IAppRef")
-class IAppRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a App.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="appRef")
-    def app_ref(self) -> AppReference:
-        '''(experimental) A reference to a App resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IAppRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a App.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_resiliencehub.IAppRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="appRef")
-    def app_ref(self) -> AppReference:
-        '''(experimental) A reference to a App resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(AppReference, jsii.get(self, "appRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAppRef).__jsii_proxy_class__ = lambda : _IAppRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_resiliencehub.IResiliencyPolicyRef")
-class IResiliencyPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ResiliencyPolicy.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="resiliencyPolicyRef")
-    def resiliency_policy_ref(self) -> "ResiliencyPolicyReference":
-        '''(experimental) A reference to a ResiliencyPolicy resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IResiliencyPolicyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ResiliencyPolicy.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_resiliencehub.IResiliencyPolicyRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="resiliencyPolicyRef")
-    def resiliency_policy_ref(self) -> "ResiliencyPolicyReference":
-        '''(experimental) A reference to a ResiliencyPolicy resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ResiliencyPolicyReference", jsii.get(self, "resiliencyPolicyRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IResiliencyPolicyRef).__jsii_proxy_class__ = lambda : _IResiliencyPolicyRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_resiliencehub.ResiliencyPolicyReference",
-    jsii_struct_bases=[],
-    name_mapping={"policy_arn": "policyArn"},
-)
-class ResiliencyPolicyReference:
-    def __init__(self, *, policy_arn: builtins.str) -> None:
-        '''A reference to a ResiliencyPolicy resource.
-
-        :param policy_arn: The PolicyArn of the ResiliencyPolicy resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_resiliencehub as resiliencehub
-            
-            resiliency_policy_reference = resiliencehub.ResiliencyPolicyReference(
-                policy_arn="policyArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a4f15d97c0a6f6db98fa8b60a0697a122ce9836115eb05656e3d921f3e715b2)
-            check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy_arn": policy_arn,
-        }
-
-    @builtins.property
-    def policy_arn(self) -> builtins.str:
-        '''The PolicyArn of the ResiliencyPolicy resource.'''
-        result = self._values.get("policy_arn")
-        assert result is not None, "Required property 'policy_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ResiliencyPolicyReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IAppRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IAppRef_b94999c1, _ITaggable_36806126)
 class CfnApp(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -826,7 +82,7 @@ class CfnApp(
 ):
     '''Creates an AWS Resilience Hub application.
 
-    An AWS Resilience Hub application is a collection of AWS resources structured to prevent and recover AWS application disruptions. To describe a AWS Resilience Hub application, you provide an application name, resources from one or more AWS CloudFormation stacks, AWS Resource Groups , Terraform state files, AppRegistry applications, and an appropriate resiliency policy. In addition, you can also add resources that are located on Amazon Elastic Kubernetes Service (Amazon EKS) clusters as optional resources. For more information about the number of resources supported per application, see `Service quotas <https://docs.aws.amazon.com/general/latest/gr/resiliencehub.html#limits_resiliencehub>`_ .
+    An AWS Resilience Hub application is a collection of AWS resources structured to prevent and recover AWS application disruptions. To describe a AWS Resilience Hub application, you provide an application name, resources from one or more AWS CloudFormation stacks, Resource Groups , Terraform state files, AppRegistry applications, and an appropriate resiliency policy. In addition, you can also add resources that are located on Amazon Elastic Kubernetes Service (Amazon EKS) clusters as optional resources. For more information about the number of resources supported per application, see `Service quotas <https://docs.aws.amazon.com/general/latest/gr/resiliencehub.html#limits_resiliencehub>`_ .
 
     After you create an AWS Resilience Hub application, you publish it so that you can run a resiliency assessment on it. You can then use recommendations from the assessment to improve resiliency by running another assessment, comparing results, and then iterating the process until you achieve your goals for recovery time objective (RTO) and recovery point objective (RPO).
 
@@ -887,20 +143,21 @@ class CfnApp(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         app_template_body: builtins.str,
         name: builtins.str,
-        resource_mappings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.ResourceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resource_mappings: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.ResourceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
         app_assessment_schedule: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        event_subscriptions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.EventSubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        permission_model: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.PermissionModelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        event_subscriptions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.EventSubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        permission_model: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.PermissionModelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         resiliency_policy_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ResilienceHub::App``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param app_template_body: A JSON string that provides information about your application structure. To learn more about the ``appTemplateBody`` template, see the sample template in `Sample appTemplateBody template <https://docs.aws.amazon.com//resilience-hub/latest/APIReference/API_PutDraftAppVersionTemplate.html#API_PutDraftAppVersionTemplate_Examples>`_ . The ``appTemplateBody`` JSON string has the following structure: - *``resources``* The list of logical resources that needs to be included in the AWS Resilience Hub application. Type: Array .. epigraph:: Don't add the resources that you want to exclude. Each ``resources`` array item includes the following fields: - *``logicalResourceId``* The logical identifier of the resource. Type: Object Each ``logicalResourceId`` object includes the following fields: - ``identifier`` Identifier of the resource. Type: String - ``logicalStackName`` Name of the AWS CloudFormation stack this resource belongs to. Type: String - ``resourceGroupName`` Name of the resource group this resource belongs to. Type: String - ``terraformSourceName`` Name of the Terraform S3 state file this resource belongs to. Type: String - ``eksSourceName`` Name of the Amazon Elastic Kubernetes Service cluster and namespace this resource belongs to. .. epigraph:: This parameter accepts values in "eks-cluster/namespace" format. Type: String - *``type``* The type of resource. Type: string - *``name``* Name of the resource. Type: String - ``additionalInfo`` Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ . .. epigraph:: Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account. Key: ``"failover-regions"`` Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"`` - *``appComponents``* The list of Application Components (AppComponent) that this resource belongs to. If an AppComponent is not part of the AWS Resilience Hub application, it will be added. Type: Array Each ``appComponents`` array item includes the following fields: - ``name`` Name of the AppComponent. Type: String - ``type`` The type of AppComponent. For more information about the types of AppComponent, see `Grouping resources in an AppComponent <https://docs.aws.amazon.com/resilience-hub/latest/userguide/AppComponent.grouping.html>`_ . Type: String - ``resourceNames`` The list of included resources that are assigned to the AppComponent. Type: Array of strings - ``additionalInfo`` Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ . .. epigraph:: Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account. Key: ``"failover-regions"`` Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"`` - *``excludedResources``* The list of logical resource identifiers to be excluded from the application. Type: Array .. epigraph:: Don't add the resources that you want to include. Each ``excludedResources`` array item includes the following fields: - *``logicalResourceIds``* The logical identifier of the resource. Type: Object .. epigraph:: You can configure only one of the following fields: - ``logicalStackName`` - ``resourceGroupName`` - ``terraformSourceName`` - ``eksSourceName`` Each ``logicalResourceIds`` object includes the following fields: - ``identifier`` The identifier of the resource. Type: String - ``logicalStackName`` Name of the AWS CloudFormation stack this resource belongs to. Type: String - ``resourceGroupName`` Name of the resource group this resource belongs to. Type: String - ``terraformSourceName`` Name of the Terraform S3 state file this resource belongs to. Type: String - ``eksSourceName`` Name of the Amazon Elastic Kubernetes Service cluster and namespace this resource belongs to. .. epigraph:: This parameter accepts values in "eks-cluster/namespace" format. Type: String - *``version``* The AWS Resilience Hub application version. - ``additionalInfo`` Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ . .. epigraph:: Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account. Key: ``"failover-regions"`` Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"``
@@ -931,8 +188,31 @@ class CfnApp(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForApp")
+    @builtins.classmethod
+    def arn_for_app(cls, resource: "_IAppRef_b94999c1") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f5a3898a386ff4c512c39c1ed5aba2e7e6daa59b9eff56f64d178f37191b7ca)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApp", [resource]))
+
+    @jsii.member(jsii_name="isCfnApp")
+    @builtins.classmethod
+    def is_cfn_app(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnApp.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3aad19656a01d7acdecae4bb9b80a2648865a9fc7fee06cd7ffed8c256e75e3e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApp", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -963,9 +243,9 @@ class CfnApp(
 
     @builtins.property
     @jsii.member(jsii_name="appRef")
-    def app_ref(self) -> AppReference:
+    def app_ref(self) -> "_AppReference_ee989556":
         '''A reference to a App resource.'''
-        return typing.cast(AppReference, jsii.get(self, "appRef"))
+        return typing.cast("_AppReference_ee989556", jsii.get(self, "appRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAppArn")
@@ -992,9 +272,9 @@ class CfnApp(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="appTemplateBody")
@@ -1026,14 +306,14 @@ class CfnApp(
     @jsii.member(jsii_name="resourceMappings")
     def resource_mappings(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.ResourceMappingProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.ResourceMappingProperty"]]]:
         '''An array of ``ResourceMapping`` objects.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.ResourceMappingProperty"]]], jsii.get(self, "resourceMappings"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.ResourceMappingProperty"]]], jsii.get(self, "resourceMappings"))
 
     @resource_mappings.setter
     def resource_mappings(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.ResourceMappingProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.ResourceMappingProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7be56e25078fc8e2aedbbef7b1762fc9e3fdb0096405151631ffaeb94832cc34)
@@ -1070,14 +350,14 @@ class CfnApp(
     @jsii.member(jsii_name="eventSubscriptions")
     def event_subscriptions(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.EventSubscriptionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EventSubscriptionProperty"]]]]:
         '''The list of events you would like to subscribe and get notification for.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.EventSubscriptionProperty"]]]], jsii.get(self, "eventSubscriptions"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EventSubscriptionProperty"]]]], jsii.get(self, "eventSubscriptions"))
 
     @event_subscriptions.setter
     def event_subscriptions(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.EventSubscriptionProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EventSubscriptionProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64d302607b7a1dfbffee8d2ab82e294e1d08c27584331ec9bea2e75add9db5b6)
@@ -1088,14 +368,14 @@ class CfnApp(
     @jsii.member(jsii_name="permissionModel")
     def permission_model(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.PermissionModelProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.PermissionModelProperty"]]:
         '''Defines the roles and credentials that AWS Resilience Hub would use while creating the application, importing its resources, and running an assessment.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.PermissionModelProperty"]], jsii.get(self, "permissionModel"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.PermissionModelProperty"]], jsii.get(self, "permissionModel"))
 
     @permission_model.setter
     def permission_model(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.PermissionModelProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.PermissionModelProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e15df41e400e8a9cff1ec67cfe4cdb6224b7e0faa1f84a7164a3aff0b0462f9)
@@ -1487,7 +767,7 @@ class CfnApp(
             self,
             *,
             mapping_type: builtins.str,
-            physical_resource_id: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.PhysicalResourceIdProperty", typing.Dict[builtins.str, typing.Any]]],
+            physical_resource_id: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.PhysicalResourceIdProperty", typing.Dict[builtins.str, typing.Any]]],
             eks_source_name: typing.Optional[builtins.str] = None,
             logical_stack_name: typing.Optional[builtins.str] = None,
             resource_name: typing.Optional[builtins.str] = None,
@@ -1498,7 +778,7 @@ class CfnApp(
             :param mapping_type: Specifies the type of resource mapping.
             :param physical_resource_id: Identifier of the physical resource.
             :param eks_source_name: Name of the Amazon Elastic Kubernetes Service cluster and namespace that this resource is mapped to when the ``mappingType`` is ``EKS`` . .. epigraph:: This parameter accepts values in "eks-cluster/namespace" format.
-            :param logical_stack_name: Name of the AWS CloudFormation stack this resource is mapped to when the ``mappingType`` is ``CfnStack`` .
+            :param logical_stack_name: Name of the CloudFormation stack this resource is mapped to when the ``mappingType`` is ``CfnStack`` .
             :param resource_name: Name of the resource that this resource is mapped to when the ``mappingType`` is ``Resource`` .
             :param terraform_source_name: Name of the Terraform source that this resource is mapped to when the ``mappingType`` is ``Terraform`` .
 
@@ -1563,14 +843,14 @@ class CfnApp(
         @builtins.property
         def physical_resource_id(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnApp.PhysicalResourceIdProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnApp.PhysicalResourceIdProperty"]:
             '''Identifier of the physical resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehub-app-resourcemapping.html#cfn-resiliencehub-app-resourcemapping-physicalresourceid
             '''
             result = self._values.get("physical_resource_id")
             assert result is not None, "Required property 'physical_resource_id' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApp.PhysicalResourceIdProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApp.PhysicalResourceIdProperty"], result)
 
         @builtins.property
         def eks_source_name(self) -> typing.Optional[builtins.str]:
@@ -1587,7 +867,7 @@ class CfnApp(
 
         @builtins.property
         def logical_stack_name(self) -> typing.Optional[builtins.str]:
-            '''Name of the AWS CloudFormation stack this resource is mapped to when the ``mappingType`` is ``CfnStack`` .
+            '''Name of the CloudFormation stack this resource is mapped to when the ``mappingType`` is ``CfnStack`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehub-app-resourcemapping.html#cfn-resiliencehub-app-resourcemapping-logicalstackname
             '''
@@ -1624,7 +904,427 @@ class CfnApp(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IResiliencyPolicyRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_resiliencehub.CfnAppProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_template_body": "appTemplateBody",
+        "name": "name",
+        "resource_mappings": "resourceMappings",
+        "app_assessment_schedule": "appAssessmentSchedule",
+        "description": "description",
+        "event_subscriptions": "eventSubscriptions",
+        "permission_model": "permissionModel",
+        "resiliency_policy_arn": "resiliencyPolicyArn",
+        "tags": "tags",
+    },
+)
+class CfnAppProps:
+    def __init__(
+        self,
+        *,
+        app_template_body: builtins.str,
+        name: builtins.str,
+        resource_mappings: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.ResourceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        app_assessment_schedule: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_subscriptions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.EventSubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        permission_model: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.PermissionModelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resiliency_policy_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApp``.
+
+        :param app_template_body: A JSON string that provides information about your application structure. To learn more about the ``appTemplateBody`` template, see the sample template in `Sample appTemplateBody template <https://docs.aws.amazon.com//resilience-hub/latest/APIReference/API_PutDraftAppVersionTemplate.html#API_PutDraftAppVersionTemplate_Examples>`_ . The ``appTemplateBody`` JSON string has the following structure: - *``resources``* The list of logical resources that needs to be included in the AWS Resilience Hub application. Type: Array .. epigraph:: Don't add the resources that you want to exclude. Each ``resources`` array item includes the following fields: - *``logicalResourceId``* The logical identifier of the resource. Type: Object Each ``logicalResourceId`` object includes the following fields: - ``identifier`` Identifier of the resource. Type: String - ``logicalStackName`` Name of the AWS CloudFormation stack this resource belongs to. Type: String - ``resourceGroupName`` Name of the resource group this resource belongs to. Type: String - ``terraformSourceName`` Name of the Terraform S3 state file this resource belongs to. Type: String - ``eksSourceName`` Name of the Amazon Elastic Kubernetes Service cluster and namespace this resource belongs to. .. epigraph:: This parameter accepts values in "eks-cluster/namespace" format. Type: String - *``type``* The type of resource. Type: string - *``name``* Name of the resource. Type: String - ``additionalInfo`` Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ . .. epigraph:: Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account. Key: ``"failover-regions"`` Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"`` - *``appComponents``* The list of Application Components (AppComponent) that this resource belongs to. If an AppComponent is not part of the AWS Resilience Hub application, it will be added. Type: Array Each ``appComponents`` array item includes the following fields: - ``name`` Name of the AppComponent. Type: String - ``type`` The type of AppComponent. For more information about the types of AppComponent, see `Grouping resources in an AppComponent <https://docs.aws.amazon.com/resilience-hub/latest/userguide/AppComponent.grouping.html>`_ . Type: String - ``resourceNames`` The list of included resources that are assigned to the AppComponent. Type: Array of strings - ``additionalInfo`` Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ . .. epigraph:: Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account. Key: ``"failover-regions"`` Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"`` - *``excludedResources``* The list of logical resource identifiers to be excluded from the application. Type: Array .. epigraph:: Don't add the resources that you want to include. Each ``excludedResources`` array item includes the following fields: - *``logicalResourceIds``* The logical identifier of the resource. Type: Object .. epigraph:: You can configure only one of the following fields: - ``logicalStackName`` - ``resourceGroupName`` - ``terraformSourceName`` - ``eksSourceName`` Each ``logicalResourceIds`` object includes the following fields: - ``identifier`` The identifier of the resource. Type: String - ``logicalStackName`` Name of the AWS CloudFormation stack this resource belongs to. Type: String - ``resourceGroupName`` Name of the resource group this resource belongs to. Type: String - ``terraformSourceName`` Name of the Terraform S3 state file this resource belongs to. Type: String - ``eksSourceName`` Name of the Amazon Elastic Kubernetes Service cluster and namespace this resource belongs to. .. epigraph:: This parameter accepts values in "eks-cluster/namespace" format. Type: String - *``version``* The AWS Resilience Hub application version. - ``additionalInfo`` Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ . .. epigraph:: Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account. Key: ``"failover-regions"`` Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"``
+        :param name: Name for the application.
+        :param resource_mappings: An array of ``ResourceMapping`` objects.
+        :param app_assessment_schedule: Assessment execution schedule with 'Daily' or 'Disabled' values.
+        :param description: Optional description for an application.
+        :param event_subscriptions: The list of events you would like to subscribe and get notification for. Currently, AWS Resilience Hub supports notifications only for *Drift detected* and *Scheduled assessment failure* events.
+        :param permission_model: Defines the roles and credentials that AWS Resilience Hub would use while creating the application, importing its resources, and running an assessment.
+        :param resiliency_policy_arn: The Amazon Resource Name (ARN) of the resiliency policy.
+        :param tags: Tags assigned to the resource. A tag is a label that you assign to an AWS resource. Each tag consists of a key/value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_resiliencehub as resiliencehub
+            
+            cfn_app_props = resiliencehub.CfnAppProps(
+                app_template_body="appTemplateBody",
+                name="name",
+                resource_mappings=[resiliencehub.CfnApp.ResourceMappingProperty(
+                    mapping_type="mappingType",
+                    physical_resource_id=resiliencehub.CfnApp.PhysicalResourceIdProperty(
+                        identifier="identifier",
+                        type="type",
+            
+                        # the properties below are optional
+                        aws_account_id="awsAccountId",
+                        aws_region="awsRegion"
+                    ),
+            
+                    # the properties below are optional
+                    eks_source_name="eksSourceName",
+                    logical_stack_name="logicalStackName",
+                    resource_name="resourceName",
+                    terraform_source_name="terraformSourceName"
+                )],
+            
+                # the properties below are optional
+                app_assessment_schedule="appAssessmentSchedule",
+                description="description",
+                event_subscriptions=[resiliencehub.CfnApp.EventSubscriptionProperty(
+                    event_type="eventType",
+                    name="name",
+            
+                    # the properties below are optional
+                    sns_topic_arn="snsTopicArn"
+                )],
+                permission_model=resiliencehub.CfnApp.PermissionModelProperty(
+                    type="type",
+            
+                    # the properties below are optional
+                    cross_account_role_arns=["crossAccountRoleArns"],
+                    invoker_role_name="invokerRoleName"
+                ),
+                resiliency_policy_arn="resiliencyPolicyArn",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4cbfaccc19fec8c2bd3f0ad17cdc9d5c9a66dbdcc7077312163442e737af125)
+            check_type(argname="argument app_template_body", value=app_template_body, expected_type=type_hints["app_template_body"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument resource_mappings", value=resource_mappings, expected_type=type_hints["resource_mappings"])
+            check_type(argname="argument app_assessment_schedule", value=app_assessment_schedule, expected_type=type_hints["app_assessment_schedule"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument event_subscriptions", value=event_subscriptions, expected_type=type_hints["event_subscriptions"])
+            check_type(argname="argument permission_model", value=permission_model, expected_type=type_hints["permission_model"])
+            check_type(argname="argument resiliency_policy_arn", value=resiliency_policy_arn, expected_type=type_hints["resiliency_policy_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_template_body": app_template_body,
+            "name": name,
+            "resource_mappings": resource_mappings,
+        }
+        if app_assessment_schedule is not None:
+            self._values["app_assessment_schedule"] = app_assessment_schedule
+        if description is not None:
+            self._values["description"] = description
+        if event_subscriptions is not None:
+            self._values["event_subscriptions"] = event_subscriptions
+        if permission_model is not None:
+            self._values["permission_model"] = permission_model
+        if resiliency_policy_arn is not None:
+            self._values["resiliency_policy_arn"] = resiliency_policy_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def app_template_body(self) -> builtins.str:
+        '''A JSON string that provides information about your application structure.
+
+        To learn more about the ``appTemplateBody`` template, see the sample template in `Sample appTemplateBody template <https://docs.aws.amazon.com//resilience-hub/latest/APIReference/API_PutDraftAppVersionTemplate.html#API_PutDraftAppVersionTemplate_Examples>`_ .
+
+        The ``appTemplateBody`` JSON string has the following structure:
+
+        - *``resources``*
+
+        The list of logical resources that needs to be included in the AWS Resilience Hub application.
+
+        Type: Array
+        .. epigraph::
+
+           Don't add the resources that you want to exclude.
+
+        Each ``resources`` array item includes the following fields:
+
+        - *``logicalResourceId``*
+
+        The logical identifier of the resource.
+
+        Type: Object
+
+        Each ``logicalResourceId`` object includes the following fields:
+
+        - ``identifier``
+
+        Identifier of the resource.
+
+        Type: String
+
+        - ``logicalStackName``
+
+        Name of the AWS CloudFormation stack this resource belongs to.
+
+        Type: String
+
+        - ``resourceGroupName``
+
+        Name of the resource group this resource belongs to.
+
+        Type: String
+
+        - ``terraformSourceName``
+
+        Name of the Terraform S3 state file this resource belongs to.
+
+        Type: String
+
+        - ``eksSourceName``
+
+        Name of the Amazon Elastic Kubernetes Service cluster and namespace this resource belongs to.
+        .. epigraph::
+
+           This parameter accepts values in "eks-cluster/namespace" format.
+
+        Type: String
+
+        - *``type``*
+
+        The type of resource.
+
+        Type: string
+
+        - *``name``*
+
+        Name of the resource.
+
+        Type: String
+
+        - ``additionalInfo``
+
+        Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ .
+        .. epigraph::
+
+           Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account.
+
+           Key: ``"failover-regions"``
+
+           Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"``
+
+        - *``appComponents``*
+
+        The list of Application Components (AppComponent) that this resource belongs to. If an AppComponent is not part of the AWS Resilience Hub application, it will be added.
+
+        Type: Array
+
+        Each ``appComponents`` array item includes the following fields:
+
+        - ``name``
+
+        Name of the AppComponent.
+
+        Type: String
+
+        - ``type``
+
+        The type of AppComponent. For more information about the types of AppComponent, see `Grouping resources in an AppComponent <https://docs.aws.amazon.com/resilience-hub/latest/userguide/AppComponent.grouping.html>`_ .
+
+        Type: String
+
+        - ``resourceNames``
+
+        The list of included resources that are assigned to the AppComponent.
+
+        Type: Array of strings
+
+        - ``additionalInfo``
+
+        Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ .
+        .. epigraph::
+
+           Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account.
+
+           Key: ``"failover-regions"``
+
+           Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"``
+
+        - *``excludedResources``*
+
+        The list of logical resource identifiers to be excluded from the application.
+
+        Type: Array
+        .. epigraph::
+
+           Don't add the resources that you want to include.
+
+        Each ``excludedResources`` array item includes the following fields:
+
+        - *``logicalResourceIds``*
+
+        The logical identifier of the resource.
+
+        Type: Object
+        .. epigraph::
+
+           You can configure only one of the following fields:
+
+           - ``logicalStackName``
+           - ``resourceGroupName``
+           - ``terraformSourceName``
+           - ``eksSourceName``
+
+        Each ``logicalResourceIds`` object includes the following fields:
+
+        - ``identifier``
+
+        The identifier of the resource.
+
+        Type: String
+
+        - ``logicalStackName``
+
+        Name of the AWS CloudFormation stack this resource belongs to.
+
+        Type: String
+
+        - ``resourceGroupName``
+
+        Name of the resource group this resource belongs to.
+
+        Type: String
+
+        - ``terraformSourceName``
+
+        Name of the Terraform S3 state file this resource belongs to.
+
+        Type: String
+
+        - ``eksSourceName``
+
+        Name of the Amazon Elastic Kubernetes Service cluster and namespace this resource belongs to.
+        .. epigraph::
+
+           This parameter accepts values in "eks-cluster/namespace" format.
+
+        Type: String
+
+        - *``version``*
+
+        The AWS Resilience Hub application version.
+
+        - ``additionalInfo``
+
+        Additional configuration parameters for an AWS Resilience Hub application. If you want to implement ``additionalInfo`` through the AWS Resilience Hub console rather than using an API call, see `Configure the application configuration parameters <https://docs.aws.amazon.com//resilience-hub/latest/userguide/app-config-param.html>`_ .
+        .. epigraph::
+
+           Currently, this parameter accepts a key-value mapping (in a string format) of only one failover region and one associated account.
+
+           Key: ``"failover-regions"``
+
+           Value: ``"[{"region":"<REGION>", "accounts":[{"id":"<ACCOUNT_ID>"}]}]"``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-apptemplatebody
+        '''
+        result = self._values.get("app_template_body")
+        assert result is not None, "Required property 'app_template_body' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Name for the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_mappings(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.ResourceMappingProperty"]]]:
+        '''An array of ``ResourceMapping`` objects.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-resourcemappings
+        '''
+        result = self._values.get("resource_mappings")
+        assert result is not None, "Required property 'resource_mappings' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.ResourceMappingProperty"]]], result)
+
+    @builtins.property
+    def app_assessment_schedule(self) -> typing.Optional[builtins.str]:
+        '''Assessment execution schedule with 'Daily' or 'Disabled' values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-appassessmentschedule
+        '''
+        result = self._values.get("app_assessment_schedule")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Optional description for an application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_subscriptions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EventSubscriptionProperty"]]]]:
+        '''The list of events you would like to subscribe and get notification for.
+
+        Currently, AWS Resilience Hub supports notifications only for *Drift detected* and *Scheduled assessment failure* events.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-eventsubscriptions
+        '''
+        result = self._values.get("event_subscriptions")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EventSubscriptionProperty"]]]], result)
+
+    @builtins.property
+    def permission_model(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.PermissionModelProperty"]]:
+        '''Defines the roles and credentials that AWS Resilience Hub would use while creating the application, importing its resources, and running an assessment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-permissionmodel
+        '''
+        result = self._values.get("permission_model")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.PermissionModelProperty"]], result)
+
+    @builtins.property
+    def resiliency_policy_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the resiliency policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-resiliencypolicyarn
+        '''
+        result = self._values.get("resiliency_policy_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Tags assigned to the resource.
+
+        A tag is a label that you assign to an AWS resource. Each tag consists of a key/value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAppProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IResiliencyPolicyRef_23883554, _ITaggable_36806126)
 class CfnResiliencyPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1667,17 +1367,18 @@ class CfnResiliencyPolicy(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        policy: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnResiliencyPolicy.FailurePolicyProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        policy: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnResiliencyPolicy.FailurePolicyProperty", typing.Dict[builtins.str, typing.Any]]]]],
         policy_name: builtins.str,
         tier: builtins.str,
         data_location_constraint: typing.Optional[builtins.str] = None,
         policy_description: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ResilienceHub::ResiliencyPolicy``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param policy: The resiliency policy.
@@ -1702,8 +1403,20 @@ class CfnResiliencyPolicy(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnResiliencyPolicy")
+    @builtins.classmethod
+    def is_cfn_resiliency_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResiliencyPolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2aace6c7280f2633c820eabd63b61c37de47ae335cf9e6a60a3de53086ff7fb0)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResiliencyPolicy", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1748,28 +1461,28 @@ class CfnResiliencyPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="resiliencyPolicyRef")
-    def resiliency_policy_ref(self) -> ResiliencyPolicyReference:
+    def resiliency_policy_ref(self) -> "_ResiliencyPolicyReference_c0a99625":
         '''A reference to a ResiliencyPolicy resource.'''
-        return typing.cast(ResiliencyPolicyReference, jsii.get(self, "resiliencyPolicyRef"))
+        return typing.cast("_ResiliencyPolicyReference_c0a99625", jsii.get(self, "resiliencyPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="policy")
     def policy(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnResiliencyPolicy.FailurePolicyProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnResiliencyPolicy.FailurePolicyProperty"]]]:
         '''The resiliency policy.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnResiliencyPolicy.FailurePolicyProperty"]]], jsii.get(self, "policy"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnResiliencyPolicy.FailurePolicyProperty"]]], jsii.get(self, "policy"))
 
     @policy.setter
     def policy(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnResiliencyPolicy.FailurePolicyProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnResiliencyPolicy.FailurePolicyProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c81f492b83bee694a01e4aa4ae84bc7903a84252105f01380996bcf77119a83)
@@ -1916,59 +1629,166 @@ class CfnResiliencyPolicy(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_resiliencehub.CfnResiliencyPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "policy": "policy",
+        "policy_name": "policyName",
+        "tier": "tier",
+        "data_location_constraint": "dataLocationConstraint",
+        "policy_description": "policyDescription",
+        "tags": "tags",
+    },
+)
+class CfnResiliencyPolicyProps:
+    def __init__(
+        self,
+        *,
+        policy: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnResiliencyPolicy.FailurePolicyProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        policy_name: builtins.str,
+        tier: builtins.str,
+        data_location_constraint: typing.Optional[builtins.str] = None,
+        policy_description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResiliencyPolicy``.
+
+        :param policy: The resiliency policy.
+        :param policy_name: The name of the policy.
+        :param tier: The tier for this resiliency policy, ranging from the highest severity ( ``MissionCritical`` ) to lowest ( ``NonCritical`` ).
+        :param data_location_constraint: Specifies a high-level geographical location constraint for where your resilience policy data can be stored.
+        :param policy_description: Description of the resiliency policy.
+        :param tags: Tags assigned to the resource. A tag is a label that you assign to an AWS resource. Each tag consists of a key/value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_resiliencehub as resiliencehub
+            
+            cfn_resiliency_policy_props = resiliencehub.CfnResiliencyPolicyProps(
+                policy={
+                    "policy_key": resiliencehub.CfnResiliencyPolicy.FailurePolicyProperty(
+                        rpo_in_secs=123,
+                        rto_in_secs=123
+                    )
+                },
+                policy_name="policyName",
+                tier="tier",
+            
+                # the properties below are optional
+                data_location_constraint="dataLocationConstraint",
+                policy_description="policyDescription",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b51a30718bd8977a8288b1d2934e1722c7b034c5064ff893bb6b2bbb6feb7ba7)
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
+            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
+            check_type(argname="argument data_location_constraint", value=data_location_constraint, expected_type=type_hints["data_location_constraint"])
+            check_type(argname="argument policy_description", value=policy_description, expected_type=type_hints["policy_description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy": policy,
+            "policy_name": policy_name,
+            "tier": tier,
+        }
+        if data_location_constraint is not None:
+            self._values["data_location_constraint"] = data_location_constraint
+        if policy_description is not None:
+            self._values["policy_description"] = policy_description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def policy(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnResiliencyPolicy.FailurePolicyProperty"]]]:
+        '''The resiliency policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html#cfn-resiliencehub-resiliencypolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnResiliencyPolicy.FailurePolicyProperty"]]], result)
+
+    @builtins.property
+    def policy_name(self) -> builtins.str:
+        '''The name of the policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html#cfn-resiliencehub-resiliencypolicy-policyname
+        '''
+        result = self._values.get("policy_name")
+        assert result is not None, "Required property 'policy_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tier(self) -> builtins.str:
+        '''The tier for this resiliency policy, ranging from the highest severity ( ``MissionCritical`` ) to lowest ( ``NonCritical`` ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html#cfn-resiliencehub-resiliencypolicy-tier
+        '''
+        result = self._values.get("tier")
+        assert result is not None, "Required property 'tier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_location_constraint(self) -> typing.Optional[builtins.str]:
+        '''Specifies a high-level geographical location constraint for where your resilience policy data can be stored.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html#cfn-resiliencehub-resiliencypolicy-datalocationconstraint
+        '''
+        result = self._values.get("data_location_constraint")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def policy_description(self) -> typing.Optional[builtins.str]:
+        '''Description of the resiliency policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html#cfn-resiliencehub-resiliencypolicy-policydescription
+        '''
+        result = self._values.get("policy_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Tags assigned to the resource.
+
+        A tag is a label that you assign to an AWS resource. Each tag consists of a key/value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html#cfn-resiliencehub-resiliencypolicy-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResiliencyPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "AppReference",
     "CfnApp",
     "CfnAppProps",
     "CfnResiliencyPolicy",
     "CfnResiliencyPolicyProps",
-    "IAppRef",
-    "IResiliencyPolicyRef",
-    "ResiliencyPolicyReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__15c01c7e15a8ca8914bf6db3f910bf98df0f7d1ba30bd74349413b8b354292a0(
-    *,
-    app_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d4cbfaccc19fec8c2bd3f0ad17cdc9d5c9a66dbdcc7077312163442e737af125(
-    *,
-    app_template_body: builtins.str,
-    name: builtins.str,
-    resource_mappings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.ResourceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    app_assessment_schedule: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_subscriptions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EventSubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    permission_model: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.PermissionModelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resiliency_policy_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b51a30718bd8977a8288b1d2934e1722c7b034c5064ff893bb6b2bbb6feb7ba7(
-    *,
-    policy: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnResiliencyPolicy.FailurePolicyProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    policy_name: builtins.str,
-    tier: builtins.str,
-    data_location_constraint: typing.Optional[builtins.str] = None,
-    policy_description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2a4f15d97c0a6f6db98fa8b60a0697a122ce9836115eb05656e3d921f3e715b2(
-    *,
-    policy_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__303e76fc3650422653be00dea7484c071f68688b86b0b136d647cee7306c7958(
     scope: _constructs_77d1e7e8.Construct,
@@ -1983,6 +1803,18 @@ def _typecheckingstub__303e76fc3650422653be00dea7484c071f68688b86b0b136d647cee73
     permission_model: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.PermissionModelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resiliency_policy_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f5a3898a386ff4c512c39c1ed5aba2e7e6daa59b9eff56f64d178f37191b7ca(
+    resource: _IAppRef_b94999c1,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3aad19656a01d7acdecae4bb9b80a2648865a9fc7fee06cd7ffed8c256e75e3e(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2093,6 +1925,21 @@ def _typecheckingstub__73ce15c2c4786e2990c8cd30f8becbb71d99cd69d3c1b4c44211c8e6b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d4cbfaccc19fec8c2bd3f0ad17cdc9d5c9a66dbdcc7077312163442e737af125(
+    *,
+    app_template_body: builtins.str,
+    name: builtins.str,
+    resource_mappings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.ResourceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    app_assessment_schedule: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_subscriptions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EventSubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    permission_model: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.PermissionModelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resiliency_policy_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1ca523154c6ed6b81a708c52b134ad763abb59cc66e6b7fc33cf2c8de8bda28b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2103,6 +1950,12 @@ def _typecheckingstub__1ca523154c6ed6b81a708c52b134ad763abb59cc66e6b7fc33cf2c8de
     data_location_constraint: typing.Optional[builtins.str] = None,
     policy_description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2aace6c7280f2633c820eabd63b61c37de47ae335cf9e6a60a3de53086ff7fb0(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2159,6 +2012,18 @@ def _typecheckingstub__1b31c880d8724506ba4025d50fede62d462b847c02406fe66ed0c1b34
     *,
     rpo_in_secs: jsii.Number,
     rto_in_secs: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b51a30718bd8977a8288b1d2934e1722c7b034c5064ff893bb6b2bbb6feb7ba7(
+    *,
+    policy: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnResiliencyPolicy.FailurePolicyProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    policy_name: builtins.str,
+    tier: builtins.str,
+    data_location_constraint: typing.Optional[builtins.str] = None,
+    policy_description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -6,14 +6,12 @@
 This is based on M. Hardt, E. Price, N. Srebro's paper
 "Equality of Opportunity in Supervised Learning" :footcite:`hardt2016equality`
 for binary classification with one categorical sensitive feature.
-
-References
-----------
-.. footbibliography::
-
 """
 
+from __future__ import annotations
+
 import logging
+from typing import Literal
 from warnings import warn
 
 import numpy as np
@@ -35,6 +33,7 @@ from ._constants import (
     SENSITIVE_FEATURE_KEY,
 )
 from ._interpolated_thresholder import InterpolatedThresholder
+from ._relaxed_constraints import maximize_objective_with_tolerance
 from ._tradeoff_curve_utilities import (
     METRIC_DICT,
     _extend_confusion_matrix,
@@ -197,14 +196,16 @@ class ThresholdOptimizer(MetaEstimatorMixin, BaseEstimator):
             From version 0.7, 'predict' is deprecated as the default value and
             the default changes to 'auto' from v0.10.
 
+    tol : float | None, default=None
+        The tolerance for the constraint metric. The range of the constraint metric's values across
+        all the sensitive groups is at most `tol`. If `None`, the constraint is not relaxed.
+        Relaxation is not supported for `equalized_odds`.
+
+
     Notes
     -----
     The procedure is based on the algorithm of
     Hardt et al. :footcite:`hardt2016equality`.
-
-    References
-    ----------
-    .. footbibliography::
 
     Examples
     --------
@@ -231,12 +232,27 @@ class ThresholdOptimizer(MetaEstimatorMixin, BaseEstimator):
         self,
         *,
         estimator=None,
-        constraints="demographic_parity",
-        objective="accuracy_score",
-        grid_size=1000,
-        flip=False,
-        prefit=False,
-        predict_method="auto",
+        constraints: Literal[
+            "demographic_parity",
+            "equalized_odds",
+            "false_negative_rate_parity",
+            "false_positive_rate_parity",
+            "selection_rate_parity",
+            "true_negative_rate_parity",
+            "true_positive_rate_parity",
+        ] = "demographic_parity",
+        objective: Literal[
+            "accuracy_score",
+            "balanced_accuracy_score",
+            "selection_rate",
+            "true_positive_rate",
+            "true_negative_rate",
+        ] = "accuracy_score",
+        grid_size: int = 1000,
+        flip: bool = False,
+        prefit: bool = False,
+        predict_method: Literal["auto", "predict_proba", "decision_function", "predict"] = "auto",
+        tol: float | None = None,
     ):
         self.estimator = estimator
         self.constraints = constraints
@@ -245,6 +261,7 @@ class ThresholdOptimizer(MetaEstimatorMixin, BaseEstimator):
         self.flip = flip
         self.prefit = prefit
         self.predict_method = predict_method
+        self.tol = tol
 
     def fit(self, X, y, *, sensitive_features, **kwargs):
         """Fit the model.
@@ -258,7 +275,7 @@ class ThresholdOptimizer(MetaEstimatorMixin, BaseEstimator):
         X : numpy.ndarray or pandas.DataFrame
             The feature matrix
         y : numpy.ndarray, pandas.DataFrame, pandas.Series, or list
-            The label vector
+            The label vector. This must only contain binary labels (0 and 1).
         sensitive_features : numpy.ndarray, list, pandas.DataFrame, or pandas.Series
             sensitive features to identify groups by
         """
@@ -272,9 +289,12 @@ class ThresholdOptimizer(MetaEstimatorMixin, BaseEstimator):
                         self.constraints
                     )
                 )
+
         elif self.constraints == "equalized_odds":
             if self.objective not in OBJECTIVES_FOR_EQUALIZED_ODDS:
                 raise ValueError(NOT_SUPPORTED_OBJECTIVES_FOR_EQUALIZED_ODDS_ERROR_MESSAGE)
+            if self.tol is not None:
+                raise ValueError("Relaxed constraints are not supported for equalized odds.")
         else:
             raise ValueError(NOT_SUPPORTED_CONSTRAINTS_ERROR_MESSAGE)
 
@@ -372,7 +392,9 @@ class ThresholdOptimizer(MetaEstimatorMixin, BaseEstimator):
             X, sensitive_features=sensitive_features
         )
 
-    def _threshold_optimization_for_simple_constraints(self, sensitive_features, labels, scores):
+    def _threshold_optimization_for_simple_constraints(
+        self, sensitive_features, labels, scores
+    ) -> InterpolatedThresholder:
         """Calculate the objective value across all values of constraints.
 
         These calculations are made at different thresholds over the scores. Subsequently weighs
@@ -408,14 +430,17 @@ class ThresholdOptimizer(MetaEstimatorMixin, BaseEstimator):
             sensitive_features, labels, scores
         )
 
+        sensitive_feature_proportions = {}
+
         for (
             sensitive_feature_value,
             group,
         ) in data_grouped_by_sensitive_feature:
             # Determine probability of current sensitive feature group based on data.
             p_sensitive_feature_value = len(group) / n
+            sensitive_feature_proportions[sensitive_feature_value] = p_sensitive_feature_value
 
-            roc_convex_hull = _tradeoff_curve(
+            metrics_curve_convex_hull = _tradeoff_curve(
                 group,
                 sensitive_feature_value,
                 flip=self.flip,
@@ -424,13 +449,7 @@ class ThresholdOptimizer(MetaEstimatorMixin, BaseEstimator):
             )
 
             self._tradeoff_curve[sensitive_feature_value] = _interpolate_curve(
-                roc_convex_hull, "x", "y", "operation", self._x_grid
-            )
-
-            # Add up objective for the current group multiplied by the probability of the current
-            # group. This will help us in identifying the maximum overall objective.
-            overall_tradeoff_curve += (
-                p_sensitive_feature_value * self._tradeoff_curve[sensitive_feature_value]["y"]
+                metrics_curve_convex_hull, "x", "y", "operation", self._x_grid
             )
 
             logger.debug(OUTPUT_SEPARATOR)
@@ -439,39 +458,70 @@ class ThresholdOptimizer(MetaEstimatorMixin, BaseEstimator):
             logger.debug("DATA")
             logger.debug(group)
             logger.debug("Tradeoff curve")
-            logger.debug(roc_convex_hull)
+            logger.debug(metrics_curve_convex_hull)
 
-        self._overall_tradeoff_curve = pd.DataFrame(
-            {"x": self._x_grid, "y": overall_tradeoff_curve}
-        )
+        if not self.tol:
+            overall_tradeoff_curve = pd.concat(
+                [
+                    p * self._tradeoff_curve[value]["y"]
+                    for value, p in sensitive_feature_proportions.items()
+                ],
+                axis=1,
+            ).sum(axis=1)
 
-        # Find maximum objective point given that at each point the constraint value for each
-        # sensitive feature value is identical by design.
-        i_best = overall_tradeoff_curve.idxmax()
-        self._x_best = self._x_grid[i_best]
+            self._overall_tradeoff_curve = pd.DataFrame(
+                {"x": self._x_grid, "y": overall_tradeoff_curve}
+            )
+
+            # Find maximum objective point given that at each point the constraint value for each
+            # sensitive feature value is identical by design.
+            i_best = overall_tradeoff_curve.idxmax()
+            self._x_best = self._x_grid[i_best]
+            self._x_best_per_group = {
+                group: self._x_best for group in sensitive_feature_proportions.keys()
+            }
+            self._y_best = overall_tradeoff_curve[i_best]
+            optimal_indices = [i_best] * len(sensitive_feature_proportions)
+
+            logger.debug(OUTPUT_SEPARATOR)
+            logger.debug("From tradeoff curves")
+            logger.debug(
+                "Best point (simple constraints): %s=%.3f, %s=%.3f",
+                self.y_metric_,
+                self._y_best,
+                self.x_metric_,
+                self._x_best,
+            )
+            logger.debug(OUTPUT_SEPARATOR)
+
+        else:
+            optimal_indices, self._y_best = maximize_objective_with_tolerance(
+                dataframes=[tradeoff_curve for tradeoff_curve in self._tradeoff_curve.values()],
+                weights=sensitive_feature_proportions.values(),
+                tol=self.tol,
+            )
+
+            self._x_best_per_group = {
+                group: self._x_grid[idx]
+                for group, idx in zip(self._tradeoff_curve.keys(), optimal_indices)
+            }
+
+        max_x = max(self._x_best_per_group.values())
+        min_x = min(self._x_best_per_group.values())
+        self._between_groups = max_x - min_x
 
         # Create the solution as interpolation of multiple points with a separate
         # interpolation per sensitive feature value.
         interpolation_dict = {}
-        for sensitive_feature_value in self._tradeoff_curve.keys():
-            best_interpolation = self._tradeoff_curve[sensitive_feature_value].transpose()[i_best]
+
+        for sensitive_feature_value, idx_best in zip(self._tradeoff_curve, optimal_indices):
+            best_interpolation = self._tradeoff_curve[sensitive_feature_value].iloc[idx_best]
             interpolation_dict[sensitive_feature_value] = Bunch(
                 p0=best_interpolation.p0,
                 operation0=best_interpolation.operation0,
                 p1=best_interpolation.p1,
                 operation1=best_interpolation.operation1,
             )
-
-        logger.debug(OUTPUT_SEPARATOR)
-        logger.debug("From tradeoff curves")
-        logger.debug(
-            "Best point (simple constraints): %s=%.3f, %s=%.3f",
-            self.y_metric_,
-            overall_tradeoff_curve[i_best],
-            self.x_metric_,
-            self._x_best,
-        )
-        logger.debug(OUTPUT_SEPARATOR)
 
         return InterpolatedThresholder(
             self.estimator_,
@@ -552,7 +602,7 @@ class ThresholdOptimizer(MetaEstimatorMixin, BaseEstimator):
         # a) the proportion of negative labels multiplied by x which represents
         #    the conditional probability P[Y_hat=1 | Y=0], i.e. the probability
         #    of a positive prediction given a negative label.
-        # b) the propotion of positive labels multiplied by 1-y_min, where y_min
+        # b) the proportion of positive labels multiplied by 1-y_min, where y_min
         #    represents the conditional probability P[Y_hat=1 | Y=1], i.e. the
         #    probability of a correct prediction of a positive label, so 1-y_min
         #    represents a negative prediction given a positive label.

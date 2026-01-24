@@ -256,7 +256,7 @@ cdef list get_narwhals_column_types(object df, dict missing_user_values, dict va
     dta_str_max_len is the max length for a dta string, 0 if the file format is not dta
     """
 
-    cdef int max_length
+    cdef int max_length, isobject
     cdef bint has_missing
     cdef list result = list()
     cdef int equal, is_missing
@@ -296,6 +296,7 @@ cdef list get_narwhals_column_types(object df, dict missing_user_values, dict va
         
         max_length = 0
         curtype = None
+        equal = True
         # let's deal first with object type, Enum could also be anything
         if col_type == nw.Object or col_type==nw.Enum:
             curtype = type(curseries[0])
@@ -318,24 +319,30 @@ cdef list get_narwhals_column_types(object df, dict missing_user_values, dict va
                     continue
 
         # numeric types: they could contain missing_user_values
-        if col_type in float_types or curtype == float:
+        if equal and (col_type in float_types or curtype == float):
             result.append((PYWRITER_DOUBLE, 0, has_missing, None))
             continue
-        elif col_type in int_types or curtype == int:
+        elif equal and (col_type in int_types or curtype == int):
             result.append((PYWRITER_INTEGER, 0,has_missing, None))
             continue
-        elif col_type == nw.Boolean or curtype == bool:
+        elif equal and (col_type == nw.Boolean or curtype == bool):
             result.append((PYWRITER_LOGICAL, 0,has_missing, None))
             continue
         # these types here should not contain missing_user_values,
         # for string we still check, as later we will raise an error
         elif col_type == nw.String or curtype == str:
-            max_length = get_narwhals_str_series_max_length(curseries, variable_value_labels.get(col_name), 0)
+            isobject = 0
+            if not equal:
+                isobject = 1
+            max_length = get_narwhals_str_series_max_length(curseries, variable_value_labels.get(col_name), isobject)
             if dta_str_max_len and max_length >= dta_str_max_len:
                 result.append((PYWRITER_DTA_STR_REF, max_length, has_missing, None))
                 continue
             else:
-                result.append((PYWRITER_CHARACTER, max_length, has_missing, None))
+                if isobject:
+                    result.append((PYWRITER_OBJECT, max_length, has_missing, None))
+                else:
+                    result.append((PYWRITER_CHARACTER, max_length, has_missing, None))
                 continue
         elif col_type == nw.Datetime:
             if col_type.time_unit == 'us':

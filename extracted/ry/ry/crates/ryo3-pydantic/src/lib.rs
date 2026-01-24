@@ -16,11 +16,18 @@ pub trait GetPydanticCoreSchemaCls {
         _handler: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>>;
 }
+pub trait GetPydanticJsonSchemaCls {
+    fn get_pydantic_json_schema<'py>(
+        cls: &Bound<'py, PyType>,
+        source: &Bound<'py, PyAny>,
+        _handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>>;
+}
 
 pub mod interns {
     /// String interns that are obviously unpaid and over worked...
     ///
-    /// classic millenials... nobody wants to be a string intern anymore...
+    /// classic millennials... nobody wants to be a string intern anymore...
     ///
     /// This keeps the string-interning in one place so we dont have multiple
     /// pydantic based interns who are milling around, presumably not getting
@@ -42,18 +49,29 @@ pub mod interns {
     }
 
     unpaid_intern!(_pydantic_validate);
+    unpaid_intern!(_pydantic_serialize);
     unpaid_intern!(_pydantic_validate_strict);
     unpaid_intern!(json_unless_none, "json-unless-none");
     unpaid_intern!(no_info_wrap_validator_function);
     unpaid_intern!(no_info_plain_validator_function);
+    unpaid_intern!(plain_serializer_function_ser_schema);
     unpaid_intern!(to_string_ser_schema);
     unpaid_intern!(lax_or_strict_schema);
     unpaid_intern!(when_used);
+    // JSON schema related
+    unpaid_intern!(any_of, "anyOf");
+    unpaid_intern!(all_of, "allOf");
+    unpaid_intern!(format);
+    unpaid_intern!(ipv4);
+    unpaid_intern!(ipv6);
+    unpaid_intern!(r#type, "type");
+    unpaid_intern!(string);
     // kwargs
     unpaid_intern!(serialization);
     unpaid_intern!(min_length);
     unpaid_intern!(max_length);
     unpaid_intern!(pattern);
+    unpaid_intern!(info_arg);
     // schemas
     unpaid_intern!(str_schema);
     unpaid_intern!(bytes_schema);

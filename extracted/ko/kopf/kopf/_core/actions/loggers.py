@@ -12,7 +12,7 @@ import copy
 import enum
 import logging
 from collections.abc import MutableMapping
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, TextIO
 
 # Luckily, we do not mock these ones in tests, so we can import them into our namespace.
 try:
@@ -53,7 +53,7 @@ class ObjectJsonFormatter(ObjectFormatter, _pjl_JsonFormatter):
     def __init__(
             self,
             *args: Any,
-            refkey: Optional[str] = None,
+            refkey: str | None = None,
             **kwargs: Any,
     ) -> None:
         # Avoid type checking, as the args are not in the parent consructor.
@@ -177,19 +177,32 @@ class TerseObjectLogger(LocalObjectLogger):
         return super().isEnabledFor(level if level >= logging.WARNING else level - 10)
 
 
+# Used to identify and remove our own handlers on re-runs in e2e tests. Every e2e test injects
+# its own handler, but the previous handlers of preceding tests can have the stream closed,
+# since they stream into an stderr interceptor of Click's runner, not to the real stderr.
+# We have to remove the closed streams either when the test finishes, or when the new one starts.
+if TYPE_CHECKING:
+    class _KopfStreamHandler(logging.StreamHandler[TextIO]):
+        pass
+else:
+    class _KopfStreamHandler(logging.StreamHandler):
+        pass
+
+
 def configure(
-        debug: Optional[bool] = None,
-        verbose: Optional[bool] = None,
-        quiet: Optional[bool] = None,
+        debug: bool | None = None,
+        verbose: bool | None = None,
+        quiet: bool | None = None,
         log_format: LogFormat = LogFormat.FULL,
-        log_prefix: Optional[bool] = False,
-        log_refkey: Optional[str] = None,
+        log_prefix: bool | None = False,
+        log_refkey: str | None = None,
 ) -> None:
     log_level = 'DEBUG' if debug or verbose else 'WARNING' if quiet else 'INFO'
     formatter = make_formatter(log_format=log_format, log_prefix=log_prefix, log_refkey=log_refkey)
-    handler = logging.StreamHandler()
+    handler = _KopfStreamHandler()
     handler.setFormatter(formatter)
     logger = logging.getLogger()
+    logger.handlers[:] = [h for h in logger.handlers if not isinstance(h, _KopfStreamHandler)]
     logger.addHandler(handler)
     logger.setLevel(log_level)
 
@@ -204,24 +217,25 @@ def configure(
 
 def make_formatter(
         log_format: LogFormat = LogFormat.FULL,
-        log_prefix: Optional[bool] = False,
-        log_refkey: Optional[str] = None,
+        log_prefix: bool | None = False,
+        log_refkey: str | None = None,
 ) -> ObjectFormatter:
     log_prefix = log_prefix if log_prefix is not None else bool(log_format is not LogFormat.JSON)
-    if log_format is LogFormat.JSON:
-        if log_prefix:
-            return ObjectPrefixingJsonFormatter(refkey=log_refkey)
-        else:
-            return ObjectJsonFormatter(refkey=log_refkey)
-    elif isinstance(log_format, LogFormat):
-        if log_prefix:
-            return ObjectPrefixingTextFormatter(log_format.value)
-        else:
-            return ObjectTextFormatter(log_format.value)
-    elif isinstance(log_format, str):
-        if log_prefix:
-            return ObjectPrefixingTextFormatter(log_format)
-        else:
-            return ObjectTextFormatter(log_format)
-    else:
-        raise ValueError(f"Unsupported log format: {log_format!r}")
+    match log_format:
+        case LogFormat.JSON:
+            if log_prefix:
+                return ObjectPrefixingJsonFormatter(refkey=log_refkey)
+            else:
+                return ObjectJsonFormatter(refkey=log_refkey)
+        case LogFormat():
+            if log_prefix:
+                return ObjectPrefixingTextFormatter(log_format.value)
+            else:
+                return ObjectTextFormatter(log_format.value)
+        case str():
+            if log_prefix:
+                return ObjectPrefixingTextFormatter(log_format)
+            else:
+                return ObjectTextFormatter(log_format)
+        case _:
+            raise ValueError(f"Unsupported log format: {log_format!r}")

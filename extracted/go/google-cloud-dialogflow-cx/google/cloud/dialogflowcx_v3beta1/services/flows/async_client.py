@@ -54,10 +54,14 @@ from google.protobuf import struct_pb2  # type: ignore
 from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.dialogflowcx_v3beta1.services.flows import pagers
+from google.cloud.dialogflowcx_v3beta1.types import (
+    page,
+    parameter_definition,
+    validation_message,
+)
 from google.cloud.dialogflowcx_v3beta1.types import advanced_settings
 from google.cloud.dialogflowcx_v3beta1.types import flow
 from google.cloud.dialogflowcx_v3beta1.types import flow as gcdc_flow
-from google.cloud.dialogflowcx_v3beta1.types import page, validation_message
 
 from .client import FlowsClient
 from .transports.base import DEFAULT_CLIENT_INFO, FlowsTransport
@@ -93,6 +97,8 @@ class FlowsAsyncClient:
     parse_flow_validation_result_path = staticmethod(
         FlowsClient.parse_flow_validation_result_path
     )
+    generator_path = staticmethod(FlowsClient.generator_path)
+    parse_generator_path = staticmethod(FlowsClient.parse_generator_path)
     intent_path = staticmethod(FlowsClient.intent_path)
     parse_intent_path = staticmethod(FlowsClient.parse_intent_path)
     page_path = staticmethod(FlowsClient.page_path)
@@ -979,10 +985,10 @@ class FlowsAsyncClient:
         The returned ``Operation`` type has the following
         method-specific fields:
 
-        -  ``metadata``: An empty `Struct
-           message <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct>`__
-        -  ``response``: An `Empty
-           message <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#empty>`__
+        - ``metadata``: An empty `Struct
+          message <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct>`__
+        - ``response``: An `Empty
+          message <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#empty>`__
 
         Note: You should always train a flow prior to sending it
         queries. See the `training
@@ -1327,10 +1333,10 @@ class FlowsAsyncClient:
         The returned ``Operation`` type has the following
         method-specific fields:
 
-        -  ``metadata``: An empty `Struct
-           message <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct>`__
-        -  ``response``:
-           [ImportFlowResponse][google.cloud.dialogflow.cx.v3beta1.ImportFlowResponse]
+        - ``metadata``: An empty `Struct
+          message <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct>`__
+        - ``response``:
+          [ImportFlowResponse][google.cloud.dialogflow.cx.v3beta1.ImportFlowResponse]
 
         Note: You should always train a flow prior to sending it
         queries. See the `training
@@ -1442,10 +1448,10 @@ class FlowsAsyncClient:
         The returned ``Operation`` type has the following
         method-specific fields:
 
-        -  ``metadata``: An empty `Struct
-           message <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct>`__
-        -  ``response``:
-           [ExportFlowResponse][google.cloud.dialogflow.cx.v3beta1.ExportFlowResponse]
+        - ``metadata``: An empty `Struct
+          message <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct>`__
+        - ``response``:
+          [ExportFlowResponse][google.cloud.dialogflow.cx.v3beta1.ExportFlowResponse]
 
         Note that resources (e.g. intents, entities, webhooks) that the
         flow references will also be exported.

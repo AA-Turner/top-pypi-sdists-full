@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: securesystemslib
-Version: 1.3.0
+Version: 1.3.1
 Summary: A library that provides cryptographic and general-purpose routines for Secure Systems Lab projects at NYU
 Project-URL: Homepage, https://github.com/secure-systems-lab/securesystemslib
 Project-URL: Source, https://github.com/secure-systems-lab/securesystemslib
@@ -9,7 +9,7 @@ Author-email: "https://www.updateframework.com" <theupdateframework@googlegroups
 License-Expression: MIT
 License-File: LICENSE
 Keywords: cryptography,ecdsa,ed25519,keys,rsa,signatures
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS :: MacOS X

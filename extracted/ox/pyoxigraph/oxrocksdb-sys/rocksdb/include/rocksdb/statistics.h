@@ -443,10 +443,14 @@ enum Tickers : uint32_t {
   // Tiered storage related statistics
   HOT_FILE_READ_BYTES,
   WARM_FILE_READ_BYTES,
+  COOL_FILE_READ_BYTES,
   COLD_FILE_READ_BYTES,
+  ICE_FILE_READ_BYTES,
   HOT_FILE_READ_COUNT,
   WARM_FILE_READ_COUNT,
+  COOL_FILE_READ_COUNT,
   COLD_FILE_READ_COUNT,
+  ICE_FILE_READ_COUNT,
 
   // Last level and non-last level read statistics
   LAST_LEVEL_READ_BYTES,
@@ -541,6 +545,9 @@ enum Tickers : uint32_t {
   // transaction optimization is enabled through
   // TransactionOptions::large_txn_commit_optimize_threshold.
   NUMBER_WBWI_INGEST,
+
+  // Failure to load the UDI during SST table open
+  SST_USER_DEFINED_INDEX_LOAD_FAIL_COUNT,
 
   TICKER_ENUM_MAX
 };

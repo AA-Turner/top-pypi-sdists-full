@@ -32,7 +32,7 @@ from dateutil.parser import parse as parse_date
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PrefixLoader
 from jupyter_events.logger import EventLogger
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
 from tornado import gen, web
 from tornado.httpclient import AsyncHTTPClient
 from tornado.ioloop import IOLoop, PeriodicCallback
@@ -1984,12 +1984,16 @@ class JupyterHub(Application):
 
             # Configure the AsyncHTTPClient. This will affect anything using
             # AsyncHTTPClient.
-            ssl_context = make_ssl_context(
-                self.internal_ssl_key,
-                self.internal_ssl_cert,
-                cafile=self.internal_ssl_ca,
+            # can't use ssl_options in case of pycurl
+            AsyncHTTPClient.configure(
+                AsyncHTTPClient.configured_class(),
+                defaults=dict(
+                    ca_certs=self.internal_ssl_ca,
+                    client_key=self.internal_ssl_key,
+                    client_cert=self.internal_ssl_cert,
+                    validate_cert=True,
+                ),
             )
-            AsyncHTTPClient.configure(None, defaults={"ssl_options": ssl_context})
 
     def init_db(self):
         """Create the database connection"""
@@ -3089,18 +3093,24 @@ class JupyterHub(Application):
         # we are only interested in the ones associated with a Spawner
         check_futures = []
 
-        for orm_user, orm_spawner in (
-            self.db.query(orm.User, orm.Spawner)
-            # join filters out any Users with no Spawners
-            .join(orm.Spawner, orm.User._orm_spawners)
-            # this gets Users with *any* active server
+        for orm_spawner in (
+            self.db.query(orm.Spawner)
+            # filter out spawners that aren't running
             .filter(orm.Spawner.server != None)
             # pre-load relationships to avoid O(N active servers) queries
             .options(
-                joinedload(orm.User._orm_spawners),
-                joinedload(orm.Spawner.server),
+                # needs to be joinedload or selectinload,
+                # not contains_eager to avoid excluding stopped servers servers from the db session
+                # avoid joinedload on user_id which is degenerate,
+                # so selectinload it is
+                # make sure server->user relationship is loaded
+                selectinload(orm.Spawner.user),
+                # make sure users' _other_ spawners are also loaded
+                selectinload(orm.Spawner.user, orm.User._orm_spawners),
             )
+            .populate_existing()
         ):
+            orm_user = orm_spawner.user
             # instantiate Spawner wrapper and check if it's still alive
             # spawner should be running
             user = self.users[orm_user]
@@ -3886,6 +3896,10 @@ class JupyterHub(Application):
             tasks = [t for t in asyncio.all_tasks()]
             for t in tasks:
                 self.log.debug("Task status: %s", t)
+        self._stop_event_loop()
+
+    def _stop_event_loop(self):
+        """In a method to allow tests to not do this"""
         asyncio.get_event_loop().stop()
 
     def stop(self):

@@ -16,8 +16,6 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-from typing_extensions import Literal
-
 from qwak.llmops.generation.base import ModelResponse
 from .chat_completion_message import ChatCompletionMessage
 from .chat_completion_token_logprob import ChatCompletionTokenLogprob
@@ -34,9 +32,7 @@ class ChoiceLogprobs:
 
 @dataclass
 class Choice:
-    finish_reason: Literal[
-        "stop", "length", "tool_calls", "content_filter", "function_call"
-    ]
+    finish_reason: str
     """The reason the model stopped generating tokens.
 
     This will be `stop` if the model hit a natural stop point or a provided stop
@@ -54,6 +50,21 @@ class Choice:
 
     logprobs: Optional[ChoiceLogprobs] = None
     """Log probability information for the choice."""
+
+    def __post_init__(self):
+        """Validates that finish_reason is one of the allowed values."""
+        allowed_reasons = {
+            "stop",
+            "length",
+            "tool_calls",
+            "content_filter",
+            "function_call",
+        }
+        if self.finish_reason not in allowed_reasons:
+            raise ValueError(
+                f"Invalid finish_reason: '{self.finish_reason}'. "
+                f"Must be one of {allowed_reasons}"
+            )
 
 
 @dataclass
@@ -73,7 +84,7 @@ class ChatCompletion(ModelResponse):
     model: str
     """The model used for the chat completion."""
 
-    object: Literal["chat.completion"]
+    object: str
     """The object type, which is always `chat.completion`."""
 
     system_fingerprint: Optional[str] = None
@@ -85,3 +96,10 @@ class ChatCompletion(ModelResponse):
 
     usage: Optional[CompletionUsage] = None
     """Usage statistics for the completion request."""
+
+    def __post_init__(self):
+        """Validates that the object type is correct."""
+        if self.object != "chat.completion":
+            raise ValueError(
+                f"Invalid object type: '{self.object}'. Must be 'chat.completion'"
+            )

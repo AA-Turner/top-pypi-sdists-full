@@ -1,5 +1,4 @@
 import os
-import pathlib
 import re
 from typing import Tuple, Union, List
 import mimetypes
@@ -42,7 +41,7 @@ class PluginNotInitializedException(Exception):
 
 class QasePytestPlugin:
     run = None
-    meta_run_file = pathlib.Path("src.run")
+    meta_run_file = "src.run"
 
     def __init__(
             self,
@@ -70,8 +69,8 @@ class QasePytestPlugin:
 
     @staticmethod
     def drop_run_id():
-        if QasePytestPlugin.meta_run_file.exists():
-            QasePytestPlugin.meta_run_file.unlink()
+        if os.path.exists(QasePytestPlugin.meta_run_file):
+            os.remove(QasePytestPlugin.meta_run_file)
 
     def pytest_collection_modifyitems(self, session, config, items):
         """
@@ -124,7 +123,7 @@ class QasePytestPlugin:
         else:
             self.reporter.complete_worker()
 
-        if not QasePytestPlugin.meta_run_file.exists():
+        if not os.path.exists(QasePytestPlugin.meta_run_file):
             self.reporter.complete_run()
 
     @pytest.hookimpl(hookwrapper=True)
@@ -197,10 +196,16 @@ class QasePytestPlugin:
 
     def _handle_failed_test(self, call):
         """Handle failed test case and set appropriate status."""
-        is_assertion_error = call.excinfo.typename == "AssertionError"
+        is_assertion_error = False
+        error_message = "Test failed"
+        
+        if call.excinfo is not None:
+            is_assertion_error = call.excinfo.typename == "AssertionError"
+            error_message = call.excinfo.exconly()
+        
         status = PYTEST_TO_QASE_STATUS['FAILED'] if is_assertion_error else PYTEST_TO_QASE_STATUS['BROKEN']
         self._set_result_status(status)
-        self.runtime.result.add_message(call.excinfo.exconly())
+        self.runtime.result.add_message(error_message)
 
     def _handle_skipped_test(self, report, call):
         """Handle skipped test case and set appropriate status."""
@@ -340,7 +345,7 @@ class QasePytestPlugin:
         self.runtime.result.add_param(name, value)
 
     def load_run_from_lock(self):
-        if QasePytestPlugin.meta_run_file.exists():
+        if os.path.exists(QasePytestPlugin.meta_run_file):
             with open(QasePytestPlugin.meta_run_file, "r") as lock_file:
                 try:
                     self.run_id = str(lock_file.read())

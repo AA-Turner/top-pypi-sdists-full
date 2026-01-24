@@ -4,4 +4,4 @@ Source of truth for version.
 Copyright 2025 Vlad Emelianov
 """
 
-__version__ = "1.40.23"
+__version__ = "1.42.6"

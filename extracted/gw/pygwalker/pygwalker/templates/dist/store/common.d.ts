@@ -1,4 +1,3 @@
-/// <reference types="node" />
 import { ReactElement } from "react";
 interface IInitModalInfo {
     total: number;

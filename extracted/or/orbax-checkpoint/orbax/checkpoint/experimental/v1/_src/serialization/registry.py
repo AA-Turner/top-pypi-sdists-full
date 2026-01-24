@@ -34,11 +34,11 @@ import typing_extensions
 STANDARD_TYPE_AND_ABSTRACT_TYPE_TO_HANDLER = {
     (
         jax.Array,
-        array_leaf_handler.AbstractArray,
+        types.AbstractShardedArray,
     ): array_leaf_handler.ArrayLeafHandler,
     (
         np.ndarray,
-        numpy_leaf_handler.AbstractNumpy,
+        types.AbstractArray,
     ): numpy_leaf_handler.NumpyLeafHandler,
     (
         int,
@@ -204,8 +204,8 @@ class StandardLeafHandlerRegistry(BaseLeafHandlerRegistry):
   """Default Leaf Handler Registry.
 
   This registry is designed as the default implementation of
-  LeafHandlerRegistry. It also registers the handlers for all the standard types
-  including jax.Array, np.ndarray, int, float, bytes, and np.number.
+  LeafHandlerRegistry.  It also registers the handlers for all the standard
+  types including jax.Array, np.ndarray, int, float, bytes, and np.number.
   """
 
   def __init__(self):

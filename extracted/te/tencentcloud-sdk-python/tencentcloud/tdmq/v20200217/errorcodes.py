@@ -41,6 +41,9 @@ FAILEDOPERATION_CREATEENVIRONMENTROLE = 'FailedOperation.CreateEnvironmentRole'
 # 创建命名空间失败。
 FAILEDOPERATION_CREATENAMESPACE = 'FailedOperation.CreateNamespace'
 
+# 当前地域不支持 sdk 创建
+FAILEDOPERATION_CREATEPROCLUSTERREGIONNOTEXIST = 'FailedOperation.CreateProClusterRegionNotExist'
+
 # 创建producer出错。
 FAILEDOPERATION_CREATEPRODUCERERROR = 'FailedOperation.CreateProducerError'
 
@@ -104,7 +107,7 @@ FAILEDOPERATION_INSTANCENOTREADY = 'FailedOperation.InstanceNotReady'
 # 存量公网禁止修改
 FAILEDOPERATION_INVALIDEXISTPUBLICACCESSPOINTERROR = 'FailedOperation.InvalidExistPublicAccessPointError'
 
-# 参数不合法
+# 白名单列表不合法，格式错误或者数量超限
 FAILEDOPERATION_INVALIDWHITELISTERROR = 'FailedOperation.InvalidWhiteListError'
 
 # 当前集群不支持设置该参数
@@ -169,6 +172,9 @@ FAILEDOPERATION_SETRETENTIONPOLICY = 'FailedOperation.SetRetentionPolicy'
 
 # 设置消息TTL失败。
 FAILEDOPERATION_SETTTL = 'FailedOperation.SetTTL'
+
+# 存储规格选择错误，请选择正确存储规格
+FAILEDOPERATION_STORAGESIZEERROR = 'FailedOperation.StorageSizeError'
 
 # 必须先清除关联主题数据才能继续操作。
 FAILEDOPERATION_TOPICINUSE = 'FailedOperation.TopicInUse'

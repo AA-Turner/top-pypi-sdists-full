@@ -14,13 +14,13 @@ from typing import TYPE_CHECKING, ClassVar, Union, cast
 from fastapi import BackgroundTasks, HTTPException, params
 from fastapi import Request as FastapiRequest
 from fastapi import Response as FastapiResponse
-from fastapi._compat import ModelField, _normalize_errors
+from fastapi._compat import ModelField
 from fastapi.concurrency import run_in_threadpool
 from fastapi.dependencies.models import Dependant
 from fastapi.dependencies.utils import solve_dependencies
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from fastapi.routing import APIRoute, _prepare_response_content
+from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 from starlette._utils import is_async_callable
@@ -58,6 +58,49 @@ _RouteId = int
 PossibleInstructions: TypeAlias = Union[
     AlterSchemaSubInstruction, AlterEndpointSubInstruction, AlterEnumSubInstruction, SchemaHadInstruction, staticmethod
 ]
+
+
+def _prepare_response_content(
+    res: Any,
+    *,
+    exclude_unset: bool,
+    exclude_defaults: bool = False,
+    exclude_none: bool = False,
+) -> Any:
+    """Serialize Pydantic models to dicts for response processing.
+
+    It is much easier to alter dicts and lists than Pydantic models in request/response migrations
+    """
+    if isinstance(res, BaseModel):
+        return res.model_dump(
+            by_alias=True,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+        )
+    elif isinstance(res, list):
+        return [
+            _prepare_response_content(
+                item,
+                exclude_unset=exclude_unset,
+                exclude_defaults=exclude_defaults,
+                exclude_none=exclude_none,
+            )
+            for item in res
+        ]
+    elif isinstance(res, dict):
+        return {
+            k: _prepare_response_content(
+                v,
+                exclude_unset=exclude_unset,
+                exclude_defaults=exclude_defaults,
+                exclude_none=exclude_none,
+            )
+            for k, v in res.items()
+        }
+    return res
+
+
 APIVersionVarType: TypeAlias = Union[ContextVar[Union[VersionType, None]], ContextVar[VersionType]]
 IdentifierPythonPath = str
 
@@ -400,9 +443,7 @@ class VersionBundle:
             background_tasks=background_tasks,
         )
         if result.errors:
-            raise CadwynHeadRequestValidationError(
-                _normalize_errors(result.errors), body=request_info.body, version=current_version
-            )
+            raise CadwynHeadRequestValidationError(result.errors, body=request_info.body, version=current_version)
         return result.values
 
     def _migrate_response(
@@ -694,7 +735,7 @@ class VersionBundle:
 # We use this instead of `.body()` to automatically guess body type and load the correct body, even if it's a form
 async def _get_body(
     request: FastapiRequest, body_field: Union[ModelField, None], exit_stack: AsyncExitStack
-):  # pragma: no cover # This is from fastapi
+):  # pragma: no cover # This is from FastAPI
     is_body_form = body_field and isinstance(body_field.field_info, params.Form)
     try:
         body: Any = None

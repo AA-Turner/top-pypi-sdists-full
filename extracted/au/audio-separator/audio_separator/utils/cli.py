@@ -59,6 +59,7 @@ def main():
     sample_rate_help = "Modify the sample rate of the output audio (default: %(default)s). Example: --sample_rate=44100"
     use_soundfile_help = "Use soundfile to write audio output (default: %(default)s). Example: --use_soundfile"
     use_autocast_help = "Use PyTorch autocast for faster inference (default: %(default)s). Do not use for CPU inference. Example: --use_autocast"
+    chunk_duration_help = "Split audio into chunks of this duration in seconds (default: %(default)s = no chunking). Useful for processing very long audio files on systems with limited memory. Recommended: 600 (10 minutes) for files >1 hour. Chunks are concatenated without overlap/crossfade. Example: --chunk_duration=600"
     custom_output_names_help = 'Custom names for all output files in JSON format (default: %(default)s). Example: --custom_output_names=\'{"Vocals": "vocals_output", "Drums": "drums_output"}\''
 
     common_params = parser.add_argument_group("Common Separation Parameters")
@@ -69,6 +70,7 @@ def main():
     common_params.add_argument("--sample_rate", type=int, default=44100, help=sample_rate_help)
     common_params.add_argument("--use_soundfile", action="store_true", help=use_soundfile_help)
     common_params.add_argument("--use_autocast", action="store_true", help=use_autocast_help)
+    common_params.add_argument("--chunk_duration", type=float, default=None, help=chunk_duration_help)
     common_params.add_argument("--custom_output_names", type=json.loads, default=None, help=custom_output_names_help)
 
     mdx_segment_size_help = "Larger consumes more resources, but may give better results (default: %(default)s). Example: --mdx_segment_size=256"
@@ -179,30 +181,12 @@ def main():
         logger.info(f"Model {args.model_filename} downloaded successfully.")
         sys.exit(0)
 
-    if not hasattr(args, "audio_files"):
+    audio_files = list(getattr(args, "audio_files", []))
+    if not audio_files:
         parser.print_help()
         sys.exit(1)
 
-    # Path processing: if a directory is specified, collect all audio files from it
-    audio_files = []
-    for path in args.audio_files:
-        if os.path.isdir(path):
-            # If the path is a directory, recursively search for all audio files
-            for root, dirs, files in os.walk(path):
-                for file in files:
-                    # Check the file extension to ensure it's an audio file
-                    if file.endswith((".wav", ".flac", ".mp3", ".ogg", ".opus", ".m4a", ".aiff", ".ac3")):  # Add other formats if needed
-                        audio_files.append(os.path.join(root, file))
-        else:
-            # If the path is a file, add it to the list
-            audio_files.append(path)
-
-    # If no audio files are found, log an error and exit the program
-    if not audio_files:
-        logger.error("No valid audio files found in the specified path(s).")
-        sys.exit(1)
-
-    logger.info(f"Separator version {package_version} beginning with input file(s): {', '.join(audio_files)}")
+    logger.info(f"Separator version {package_version} beginning with input path(s): {', '.join(audio_files)}")
 
     separator = Separator(
         log_formatter=log_formatter,
@@ -218,6 +202,7 @@ def main():
         sample_rate=args.sample_rate,
         use_soundfile=args.use_soundfile,
         use_autocast=args.use_autocast,
+        chunk_duration=args.chunk_duration,
         mdx_params={
             "hop_length": args.mdx_hop_length,
             "segment_size": args.mdx_segment_size,
@@ -234,7 +219,12 @@ def main():
             "post_process_threshold": args.vr_post_process_threshold,
             "high_end_process": args.vr_high_end_process,
         },
-        demucs_params={"segment_size": args.demucs_segment_size, "shifts": args.demucs_shifts, "overlap": args.demucs_overlap, "segments_enabled": args.demucs_segments_enabled},
+        demucs_params={
+            "segment_size": args.demucs_segment_size,
+            "shifts": args.demucs_shifts,
+            "overlap": args.demucs_overlap,
+            "segments_enabled": args.demucs_segments_enabled,
+        },
         mdxc_params={
             "segment_size": args.mdxc_segment_size,
             "batch_size": args.mdxc_batch_size,
@@ -246,6 +236,5 @@ def main():
 
     separator.load_model(model_filename=args.model_filename)
 
-    for audio_file in audio_files:
-        output_files = separator.separate(audio_file, custom_output_names=args.custom_output_names)
-        logger.info(f"Separation complete! Output file(s): {' '.join(output_files)}")
+    output_files = separator.separate(audio_files, custom_output_names=args.custom_output_names)
+    logger.info(f"Separation complete! Output file(s): {' '.join(output_files)}")

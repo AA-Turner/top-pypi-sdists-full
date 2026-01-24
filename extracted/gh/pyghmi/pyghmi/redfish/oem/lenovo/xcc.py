@@ -23,7 +23,6 @@ import re
 import socket
 import time
 
-import six
 import zipfile
 
 import pyghmi.constants as pygconst
@@ -261,7 +260,7 @@ class OEMHandler(generic.OEMHandler):
 
     def merge_changeset(self, changeset):
         for key in changeset:
-            if isinstance(changeset[key], six.string_types):
+            if isinstance(changeset[key], str):
                 changeset[key] = {'value': changeset[key]}
             newvalue = changeset[key]['value']
             if self.fwo[key]['is_list'] and not isinstance(newvalue, list):
@@ -416,7 +415,7 @@ class OEMHandler(generic.OEMHandler):
         usbsettings = {}
         secparms = {}
         for key in changeset:
-            if isinstance(changeset[key], six.string_types):
+            if isinstance(changeset[key], str):
                 changeset[key] = {'value': changeset[key]}
             currval = changeset[key].get('value', None)
             if key.lower() in self.rulemap:
@@ -699,33 +698,57 @@ class OEMHandler(generic.OEMHandler):
             for diskent in adp.get('aimDisks', ()):
                 yield self._get_disk_firmware_single(diskent)
 
-    def get_firmware_inventory(self, components, fishclient):
-        sysinf = self.wc.grab_json_response('/api/dataset/sys_info')
-        for item in sysinf.get('items', {}):
-            for firm in item.get('firmware', []):
-                firminfo = {
-                    'version': firm['version'],
-                    'build': firm['build'],
-                    'date': parse_time(firm['release_date']),
-                }
-                if firm['type'] == 5:
-                    yield ('XCC', firminfo)
-                elif firm['type'] == 6:
-                    yield ('XCC Backup', firminfo)
-                elif firm['type'] == 0:
-                    yield ('UEFI', firminfo)
-                elif firm['type'] == 7:
-                    yield ('LXPM', firminfo)
-                elif firm['type'] == 8:
-                    yield ('LXPM Windows Driver Bundle', firminfo)
-                elif firm['type'] == 9:
-                    yield ('LXPM Linux Driver Bundle', firminfo)
-                elif firm['type'] == 10:
-                    yield ('LXUM', firminfo)
-        for adpinfo in self._get_agentless_firmware(components):
-            yield adpinfo
-        for adpinfo in self._get_disk_firmware(components):
-            yield adpinfo
+    def get_firmware_inventory(self, components, fishclient, category=None):
+
+        if components and 'core' in components:
+            category = 'core'
+            components = components - set(['core'])
+        if not category:
+            category = 'all'
+        if category in ('all', 'core'):
+            sysinf = self.wc.grab_json_response('/api/dataset/sys_info')
+            for item in sysinf.get('items', {}):
+                for firm in item.get('firmware', []):
+                    firminfo = {
+                        'version': firm['version'],
+                        'build': firm['build'],
+                        'date': parse_time(firm['release_date']),
+                    }
+                    if firm['type'] == 5:
+                        yield ('XCC', firminfo)
+                    elif firm['type'] == 6:
+                        yield ('XCC Backup', firminfo)
+                    elif firm['type'] == 0:
+                        yield ('UEFI', firminfo)
+                    elif firm['type'] == 7:
+                        yield ('LXPM', firminfo)
+                    elif firm['type'] == 8:
+                        yield ('LXPM Windows Driver Bundle', firminfo)
+                    elif firm['type'] == 9:
+                        yield ('LXPM Linux Driver Bundle', firminfo)
+                    elif firm['type'] == 10:
+                        yield ('LXUM', firminfo)
+        if components:
+            components = set([x.lower() for x in components])
+            components = components - set((
+                'core', 'uefi', 'bios', 'xcc', 'bmc', 'imm', 'fpga',
+                'lxpm'))
+            if not components:
+                return
+        if not components:
+            components = set(('all',))
+        needadapterfirmware = False
+        needdiskfirmware = False
+        if category in ('all', 'adapters'):
+            needadapterfirmware = True
+        if category in ('all', 'disks'):
+            needdiskfirmware = True
+        if needadapterfirmware:
+            for adpinfo in self._get_agentless_firmware(components):
+                yield adpinfo
+        if needdiskfirmware:
+            for adpinfo in self._get_disk_firmware(components):
+                yield adpinfo
         raise pygexc.BypassGenericBehavior()
 
     def get_storage_configuration(self, logout=True):
@@ -1163,6 +1186,10 @@ class OEMHandler(generic.OEMHandler):
                     url = url.replace(':', '')
                     url = 'nfs://' + url
                 yield media.Media(mt['filename'], url)
+        for rdoc in self._list_rdoc():
+            yield rdoc
+    
+    def _list_rdoc(self):
         rt = self.wc.grab_json_response('/api/providers/rp_rdoc_imagelist')
         if 'items' in rt:
             for mt in rt['items']:
@@ -1186,6 +1213,15 @@ class OEMHandler(generic.OEMHandler):
     def upload_media(self, filename, progress=None, data=None):
         wc = self.wc
         self._refresh_token()
+        numrdocs = 0
+        for rdoc in self._list_rdoc():
+            numrdocs += 1
+            if rdoc.name == os.path.basename(filename):
+                raise pygexc.InvalidParameterValue(
+                    'An image with that name already exists')
+        if numrdocs >= 2:
+            raise pygexc.InvalidParameterValue(
+                'Maximum number of uploaded media reached')
         rsp, statu = wc.grab_json_response_with_status('/rdocupload')
         newmode = False
         if statu == 404:
@@ -1210,10 +1246,16 @@ class OEMHandler(generic.OEMHandler):
                     progress({'phase': 'upload',
                             'progress': 100.0 * rsp['received'] / rsp['size']})
             self._refresh_token()
-        rsp = json.loads(uploadthread.rsp)
+        if uploadthread.rsp:
+            rsp = json.loads(uploadthread.rsp)
+        else:
+            rsp = {}
         if progress:
             progress({'phase': 'upload',
                       'progress': 100.0})
+        if 'items' not in rsp or len(rsp['items']) == 0:
+            errmsg = repr(rsp) if rsp else self.wc.lastjsonerror if self.wc.lastjsonerror else repr(uploadthread.rspstatus)
+            raise pygexc.PyghmiException('Failed to upload image: ' + errmsg)
         thepath = rsp['items'][0]['path']
         thename = rsp['items'][0]['name']
         writeable = 1 if filename.lower().endswith('.img') else 0
@@ -1225,7 +1267,7 @@ class OEMHandler(generic.OEMHandler):
         self._refresh_token()
         if rsp.get('return', -1) != 0:
             errmsg = repr(rsp) if rsp else self.wc.lastjsonerror
-            raise Exception('Unrecognized return: ' + errmsg)
+            raise pygexc.PyghmiException('Failed to upload image: ' + errmsg)
         ready = False
         while not ready:
             time.sleep(3)
@@ -1296,14 +1338,15 @@ class OEMHandler(generic.OEMHandler):
             if (uploadthread.rspstatus >= 300
                     or uploadthread.rspstatus < 200):
                 rsp = uploadthread.rsp
-                errmsg = ''
+                errmsg = f'Update attempt resulted in response status {uploadthread.rspstatus}'
                 try:
                     rsp = json.loads(rsp)
                     errmsg = (
                         rsp['error'][
                             '@Message.ExtendedInfo'][0]['Message'])
                 except Exception:
-                    raise Exception(uploadthread.rsp)
+                    errmsg = f'Update attempt resulted in response status {uploadthread.rspstatus}: "{repr(rsp)}"'
+                    raise Exception(errmsg)
                 raise Exception(errmsg)
             rsp = json.loads(uploadthread.rsp)
             monitorurl = rsp['@odata.id']

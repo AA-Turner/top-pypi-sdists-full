@@ -49,7 +49,7 @@ class UnifiedResponse(Sequence):
         Parameters
         ----------
         *results : `sunpy.net.base_client.QueryResponseTable`
-            One or more QueryResponse objects.
+            One or more QueryResponseTable objects.
         """
         self._list = []
         self._numfile = 0
@@ -162,6 +162,13 @@ class UnifiedResponse(Sequence):
         """
         return self._numfile
 
+    @property
+    def errors(self):
+        """
+        Returns a list of errors for each client.
+        """
+        return [res.errors for res in self._list if res.errors]
+
     def _repr_html_(self):
         nprov = len(self)
         if nprov == 1:
@@ -170,6 +177,8 @@ class UnifiedResponse(Sequence):
             ret = f'Results from {len(self)} Providers:</br></br>'
         for block in self:
             ret += f"{len(block)} Results from the {block.client.__class__.__name__}:</br>"
+            if block.errors:
+                ret += f"Errors: {block.errors}</br>"
             ret += block._repr_html_()
             ret += '</br>'
 
@@ -189,8 +198,15 @@ class UnifiedResponse(Sequence):
             if block.client.info_url is not None:
                 ret += f'Source: {block.client.info_url}\n'
             size = block.total_size()
+
+            if hasattr(block.client, '__name__'):
+                if self.errors[block.client.__name__] is not None:
+                    ret += f'Error: {repr(self._errors[block.client.__name__])}\n'
+
             if np.isfinite(size):
                 ret += f'Total estimated size: {size}\n'
+            if block.errors:
+                ret += f'Errors: {block.errors}\n'
             ret += '\n'
             lines = repr(block).split('\n')
             ret += '\n'.join(lines[1:])
@@ -213,6 +229,62 @@ class UnifiedResponse(Sequence):
             A list of tables showing values for specified columns.
         """
         return type(self)(*[i.show(*cols) for i in self._list])
+
+
+    def show_in_notebook(self, *cols, **kwargs):
+        """
+        Display the attrs tables as interactive grids in a Jupyter Notebook.
+
+        This function utilizes the ``itables`` library to render tables as interactive grids.
+
+        .. note::
+            This function requires the optional dependency ``itables``.
+            Ensure it is installed before calling this method.
+
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            Additional keyword arguments to customize the ``itables.show`` function.
+
+        """
+        try:
+            from itables import show
+        except ImportError:
+            raise ImportError(
+                "`itables` is required to display tables. "
+                "Install itables using `pip install itables` or `conda install -c conda-forge itables`."
+            )
+        style = "caption-side: top;"
+        style += kwargs.pop("style", '')
+
+        nprov = len(self)
+        if nprov == 1:
+            print(f'Results from {len(self)} Provider:')
+        else:
+            print(f'Results from {len(self)} Providers:')
+
+        for i , table in enumerate(self._list):
+            block = self[i]
+            caption = f"{len(block)} Results from the {block.client.__class__.__name__}:\n"
+
+            if block.client.info_url is not None:
+                caption += f'Source: {block.client.info_url}\n'
+            size = block.total_size()
+
+            if np.isfinite(size):
+                caption += f'Total estimated size: {size}\n'
+
+            # Identify and exclude multidimensional columns
+            valid_columns = [name for name in table.colnames if len(table[name].shape) <= 1]
+
+            if cols:
+                selected_columns = [col for col in cols if col in valid_columns]
+            else:
+                selected_columns = valid_columns
+            filtered_table = table[selected_columns]
+            df = filtered_table.to_pandas()
+            show(df, caption, style=style, **kwargs)
+
 
     @property
     def all_colnames(self):
@@ -319,7 +391,6 @@ class UnifiedDownloaderFactory(BasicRegistrationFactory):
         # This is because the VSO _can_handle_query is very broad because we
         # don't know the full list of supported values we can search for (yet).
         results = [r for r in results if not isinstance(r, vso.VSOQueryResponseTable) or len(r) > 0]
-
         return UnifiedResponse(*results)
 
     def fetch(self, *query_results, path=None, max_conn=5, progress=True,
@@ -465,6 +536,9 @@ class UnifiedDownloaderFactory(BasicRegistrationFactory):
         """
         Given a query, look up the client and perform the query.
 
+        This method is called by ``search`` and the results are fed into a
+        `~sunpy.net.UnifiedResponse` object.
+
         Parameters
         ----------
         *query : collection of `~sunpy.net.vso.attr` objects
@@ -479,10 +553,12 @@ class UnifiedDownloaderFactory(BasicRegistrationFactory):
         results = []
         for client in candidate_widget_types:
             tmpclient = client()
-            results.append(tmpclient.search(*query))
+            try:
+                res = tmpclient.search(*query)
+            except Exception as err:
+                res = QueryResponseTable([], client=tmpclient, errors=err)
+            results.append(res)
 
-        # This method is called by `search` and the results are fed into a
-        # UnifiedResponse object.
         return results
 
     def __repr__(self):

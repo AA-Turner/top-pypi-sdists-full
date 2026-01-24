@@ -5,8 +5,9 @@ import copy
 import datetime
 import logging
 import time
-from enum import auto, Flag
-from typing import Any, Awaitable, Iterator, List, Optional, Union
+from collections.abc import Awaitable, Iterator
+from enum import Flag, auto
+from typing import Any
 
 from eventkit import Event
 
@@ -48,7 +49,6 @@ from ib_async.order import (
     LimitOrder,
     Order,
     OrderState,
-    OrderStateNumeric,
     OrderStatus,
     StopOrder,
     Trade,
@@ -623,7 +623,7 @@ class IB:
         """List of all executions from this session."""
         return list(fill.execution for fill in self.wrapper.fills.values())
 
-    def ticker(self, contract: Contract) -> Optional[Ticker]:
+    def ticker(self, contract: Contract) -> Ticker | None:
         """
         Get ticker of the given contract. It must have been requested before
         with reqMktData with the same contract object. The ticker may not be
@@ -642,7 +642,7 @@ class IB:
         """Get a list of all tickers that have pending ticks or domTicks."""
         return list(self.wrapper.pendingTickers)
 
-    def realtimeBars(self) -> list[Union[BarDataList, RealTimeBarList]]:
+    def realtimeBars(self) -> list[BarDataList | RealTimeBarList]:
         """
         Get a list of all live updated bars. These can be 5 second realtime
         bars or live updated historical bars.
@@ -815,7 +815,7 @@ class IB:
 
     def cancelOrder(
         self, order: Order, manualCancelOrderTime: str = ""
-    ) -> Optional[Trade]:
+    ) -> Trade | None:
         """
         Cancel the order and return the Trade it belongs to.
 
@@ -957,7 +957,7 @@ class IB:
         """
         return self._run(self.reqCompletedOrdersAsync(apiOnly))
 
-    def reqExecutions(self, execFilter: Optional[ExecutionFilter] = None) -> list[Fill]:
+    def reqExecutions(self, execFilter: ExecutionFilter | None = None) -> list[Fill]:
         """
         It is recommended to use :meth:`.fills`  or
         :meth:`.executions` instead.
@@ -1167,7 +1167,7 @@ class IB:
     def reqHistoricalData(
         self,
         contract: Contract,
-        endDateTime: Union[datetime.datetime, datetime.date, str, None],
+        endDateTime: datetime.datetime | datetime.date | str | None,
         durationStr: str,
         barSizeSetting: str,
         whatToShow: str,
@@ -1250,7 +1250,7 @@ class IB:
         self,
         contract: Contract,
         numDays: int,
-        endDateTime: Union[datetime.datetime, datetime.date, str, None] = "",
+        endDateTime: datetime.datetime | datetime.date | str | None = "",
         useRTH: bool = True,
     ) -> HistoricalSchedule:
         """
@@ -1275,14 +1275,14 @@ class IB:
     def reqHistoricalTicks(
         self,
         contract: Contract,
-        startDateTime: Union[str, datetime.date],
-        endDateTime: Union[str, datetime.date],
+        startDateTime: str | datetime.date,
+        endDateTime: str | datetime.date,
         numberOfTicks: int,
         whatToShow: str,
         useRth: bool,
         ignoreSize: bool = False,
         miscOptions: list[TagValue] = [],
-    ) -> List:
+    ) -> list:
         """
         Request historical ticks. The time resolution of the ticks
         is one second.
@@ -1837,8 +1837,8 @@ class IB:
         self,
         conId: int,
         providerCodes: str,
-        startDateTime: Union[str, datetime.date],
-        endDateTime: Union[str, datetime.date],
+        startDateTime: str | datetime.date,
+        endDateTime: str | datetime.date,
         totalResults: int,
         historicalNewsOptions: list[TagValue] = [],
     ) -> HistoricalNews:
@@ -2029,7 +2029,7 @@ class IB:
         host: str = "127.0.0.1",
         port: int = 7497,
         clientId: int = 1,
-        timeout: Optional[float] = 4,
+        timeout: float | None = 4,
         readonly: bool = False,
         account: str = "",
         raiseSyncErrors: bool = False,
@@ -2276,7 +2276,7 @@ class IB:
         return future
 
     def reqExecutionsAsync(
-        self, execFilter: Optional[ExecutionFilter] = None
+        self, execFilter: ExecutionFilter | None = None
     ) -> Awaitable[list[Fill]]:
         execFilter = execFilter or ExecutionFilter()
         reqId = self.client.getReqId()
@@ -2299,7 +2299,7 @@ class IB:
 
     async def reqMatchingSymbolsAsync(
         self, pattern: str
-    ) -> Optional[list[ContractDescription]]:
+    ) -> list[ContractDescription] | None:
         reqId = self.client.getReqId()
         future = self.wrapper.startReq(reqId)
         self.client.reqMatchingSymbols(reqId, pattern)
@@ -2312,7 +2312,7 @@ class IB:
 
     async def reqMarketRuleAsync(
         self, marketRuleId: int
-    ) -> Optional[list[PriceIncrement]]:
+    ) -> list[PriceIncrement] | None:
         future = self.wrapper.startReq(f"marketRule-{marketRuleId}")
         try:
             self.client.reqMarketRule(marketRuleId)
@@ -2325,7 +2325,7 @@ class IB:
     async def reqHistoricalDataAsync(
         self,
         contract: Contract,
-        endDateTime: Union[datetime.datetime, datetime.date, str, None],
+        endDateTime: datetime.datetime | datetime.date | str | None,
         durationStr: str,
         barSizeSetting: str,
         whatToShow: str,
@@ -2377,7 +2377,7 @@ class IB:
         self,
         contract: Contract,
         numDays: int,
-        endDateTime: Union[datetime.datetime, datetime.date, str, None] = "",
+        endDateTime: datetime.datetime | datetime.date | str | None = "",
         useRTH: bool = True,
     ) -> Awaitable[HistoricalSchedule]:
         reqId = self.client.getReqId()
@@ -2401,14 +2401,14 @@ class IB:
     def reqHistoricalTicksAsync(
         self,
         contract: Contract,
-        startDateTime: Union[str, datetime.date],
-        endDateTime: Union[str, datetime.date],
+        startDateTime: str | datetime.date,
+        endDateTime: str | datetime.date,
         numberOfTicks: int,
         whatToShow: str,
         useRth: bool,
         ignoreSize: bool = False,
         miscOptions: list[TagValue] = [],
-    ) -> Awaitable[List]:
+    ) -> Awaitable[list]:
         reqId = self.client.getReqId()
         future = self.wrapper.startReq(reqId, contract)
         start = util.formatIBDatetime(startDateTime)
@@ -2502,7 +2502,7 @@ class IB:
         optionPrice: float,
         underPrice: float,
         implVolOptions: list[TagValue] = [],
-    ) -> Optional[OptionComputation]:
+    ) -> OptionComputation | None:
         reqId = self.client.getReqId()
         future = self.wrapper.startReq(reqId, contract)
         self.client.calculateImpliedVolatility(
@@ -2523,7 +2523,7 @@ class IB:
         volatility: float,
         underPrice: float,
         optPrcOptions: list[TagValue] = [],
-    ) -> Optional[OptionComputation]:
+    ) -> OptionComputation | None:
         reqId = self.client.getReqId()
         future = self.wrapper.startReq(reqId, contract)
         self.client.calculateOptionPrice(
@@ -2571,11 +2571,11 @@ class IB:
         self,
         conId: int,
         providerCodes: str,
-        startDateTime: Union[str, datetime.date],
-        endDateTime: Union[str, datetime.date],
+        startDateTime: str | datetime.date,
+        endDateTime: str | datetime.date,
         totalResults: int,
         historicalNewsOptions: list[TagValue] = [],
-    ) -> Optional[HistoricalNews]:
+    ) -> HistoricalNews | None:
         reqId = self.client.getReqId()
 
         future = self.wrapper.startReq(reqId)

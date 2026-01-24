@@ -1,19 +1,16 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from .spark_pipeline_reader import SparkPipelineReader
-from ibm_watsonx_ai.libs.repo.mlrepository import MetaNames, MetaProps
-from ibm_watsonx_ai.libs.repo.mlrepository import PipelineArtifact
-from .version_helper import VersionHelper
-from ibm_watsonx_ai.libs.repo.util.library_imports import LibraryChecker
 from ibm_watsonx_ai.libs.repo.base_constants import *
+from ibm_watsonx_ai.libs.repo.mlrepository import MetaNames, MetaProps, PipelineArtifact
+from ibm_watsonx_ai.libs.repo.util.library_imports import LibraryChecker
+
+from .spark_pipeline_reader import SparkPipelineReader
+from .version_helper import VersionHelper
 
 lib_checker = LibraryChecker()
-
-if lib_checker.installed_libs[PYSPARK]:
-    from pyspark.ml import Pipeline
 
 
 class SparkPipelineArtifact(PipelineArtifact):
@@ -29,6 +26,8 @@ class SparkPipelineArtifact(PipelineArtifact):
 
         type_identified = False
         if lib_checker.installed_libs[PYSPARK]:
+            from pyspark.ml import Pipeline
+
             if issubclass(type(ml_pipeline), Pipeline):
                 type_identified = True
 

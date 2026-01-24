@@ -620,6 +620,7 @@ function narrowTypeBasedOnMappingPattern(
                                         );
                                         newNarrowedEntriesMap.set(keySubtype.priv.literalValue as string, {
                                             valueType: valueEntry.valueType,
+                                            declaration: valueEntry.declaration,
                                             isReadOnly: valueEntry.isReadOnly,
                                             isRequired: false,
                                             isProvided: true,
@@ -745,18 +746,35 @@ function narrowTypeBasedOnLiteralPattern(
 
     return evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (expandedSubtype, unexpandedSubtype) => {
         if (evaluator.assignType(expandedSubtype, literalType)) {
-            return literalType;
+            // We have to be careful here because the runtime uses an equality
+            // check, but the expandedSubtype could be a superclass that is not
+            // the literal type. For example, the expanded subtype might be float
+            // and the literal type is Literal[3]. A value of 3.0 will match this
+            // pattern, but we cannot narrow it to Literal[3] in this case.
+            if (
+                !isClassInstance(literalType) ||
+                !isLiteralType(literalType) ||
+                isTypeSame(evaluator.stripLiteralValue(expandedSubtype), evaluator.stripLiteralValue(literalType))
+            ) {
+                return literalType;
+            }
+
+            return expandedSubtype;
         }
 
         // See if the subtype is a subclass of the literal's class. For example,
         // if it's a literal str, see if the subtype is subclass of str.
-        if (
-            isClassInstance(literalType) &&
-            isLiteralType(literalType) &&
-            isClassInstance(expandedSubtype) &&
-            !isLiteralType(expandedSubtype)
-        ) {
-            if (evaluator.assignType(ClassType.cloneWithLiteral(literalType, /* value */ undefined), expandedSubtype)) {
+        if (isClassInstance(literalType) && isClassInstance(expandedSubtype)) {
+            if (isLiteralType(literalType) && !isLiteralType(expandedSubtype)) {
+                if (
+                    evaluator.assignType(
+                        ClassType.cloneWithLiteral(literalType, /* value */ undefined),
+                        expandedSubtype
+                    )
+                ) {
+                    return expandedSubtype;
+                }
+            } else if (evaluator.assignType(literalType, expandedSubtype)) {
                 return expandedSubtype;
             }
         }
@@ -1442,7 +1460,7 @@ function getSequencePatternInfo(
                         { type: UnknownType.create(), isUnbounded: true },
                     ];
 
-                    const tupleIndeterminateIndex = typeArgs.findIndex(
+                    let tupleIndeterminateIndex = typeArgs.findIndex(
                         (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)
                     );
 
@@ -1450,15 +1468,20 @@ function getSequencePatternInfo(
 
                     // If the tuple contains an indeterminate entry, expand or remove that
                     // entry to match the length of the pattern if possible.
+                    let expandedIndeterminate = false;
                     if (tupleIndeterminateIndex >= 0) {
                         tupleDeterminateEntryCount--;
 
                         while (typeArgs.length < patternEntryCount) {
                             typeArgs.splice(tupleIndeterminateIndex, 0, typeArgs[tupleIndeterminateIndex]);
+                            tupleDeterminateEntryCount++;
+                            tupleIndeterminateIndex++;
+                            expandedIndeterminate = true;
                         }
 
                         if (typeArgs.length > patternEntryCount && patternStarEntryIndex === undefined) {
                             typeArgs.splice(tupleIndeterminateIndex, 1);
+                            tupleIndeterminateIndex = -1;
                         }
                     }
 
@@ -1477,6 +1500,20 @@ function getSequencePatternInfo(
                                 (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)
                             ),
                         });
+
+                        tupleDeterminateEntryCount -= entriesToCombine;
+                        if (!typeArgs[patternStarEntryIndex].isUnbounded) {
+                            tupleDeterminateEntryCount++;
+                        }
+
+                        // If the collapsed range included the tupleIndeterminateIndex, adjust
+                        // it to reflect the new collapsed entry.
+                        if (
+                            tupleIndeterminateIndex >= patternStarEntryIndex &&
+                            tupleIndeterminateIndex < patternStarEntryIndex + entriesToCombine
+                        ) {
+                            tupleIndeterminateIndex = patternStarEntryIndex;
+                        }
                     }
 
                     if (typeArgs.length === patternEntryCount) {
@@ -1487,6 +1524,7 @@ function getSequencePatternInfo(
                         // indeterminate-length entry that aligns to the star entry, we can
                         // assume it will always match.
                         if (
+                            !expandedIndeterminate &&
                             patternStarEntryIndex !== undefined &&
                             tupleIndeterminateIndex >= 0 &&
                             pattern.d.entries.length - 1 === tupleDeterminateEntryCount &&
@@ -2031,6 +2069,12 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
                 pattern.d.className
             );
         }
+    } else if (ClassType.isNewTypeClass(exprType)) {
+        evaluator.addDiagnostic(
+            DiagnosticRule.reportGeneralTypeIssues,
+            LocMessage.classPatternNewType().format({ type: evaluator.printType(exprType) }),
+            pattern.d.className
+        );
     } else {
         const isBuiltIn = isClassSpecialCaseForClassPattern(exprType);
 

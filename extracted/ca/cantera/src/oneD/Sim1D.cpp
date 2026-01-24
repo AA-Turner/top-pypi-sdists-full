@@ -32,15 +32,13 @@ Sim1D::Sim1D(vector<shared_ptr<Domain1D>>& domains) :
     for (size_t n = 0; n < nDomains(); n++) {
         domain(n)._getInitialSoln(m_state->data() + start(n));
     }
-
-    // set some defaults
-    m_tstep = 1.0e-5;
-    m_steps = { 10 };
 }
 
 void Sim1D::setInitialGuess(const string& component, vector<double>& locs,
                             vector<double>& vals)
 {
+    warn_deprecated("Sim1D::setInitialGuess", "To be removed after Cantera 3.2. "
+                    "Replaceable by Domain1D::setProfile.");
     for (size_t dom=0; dom<nDomains(); dom++) {
         Domain1D& d = domain(dom);
         size_t ncomp = d.nComponents();
@@ -52,7 +50,7 @@ void Sim1D::setInitialGuess(const string& component, vector<double>& locs,
     }
 }
 
-void Sim1D::setValue(size_t dom, size_t comp, size_t localPoint, double value)
+void Sim1D::_setValue(size_t dom, size_t comp, size_t localPoint, double value)
 {
     size_t iloc = domain(dom).loc() + domain(dom).index(comp, localPoint);
     AssertThrowMsg(iloc < m_state->size(), "Sim1D::setValue",
@@ -60,7 +58,7 @@ void Sim1D::setValue(size_t dom, size_t comp, size_t localPoint, double value)
     (*m_state)[iloc] = value;
 }
 
-double Sim1D::value(size_t dom, size_t comp, size_t localPoint) const
+double Sim1D::_value(size_t dom, size_t comp, size_t localPoint) const
 {
     size_t iloc = domain(dom).loc() + domain(dom).index(comp, localPoint);
     AssertThrowMsg(iloc < m_state->size(), "Sim1D::value",
@@ -68,7 +66,7 @@ double Sim1D::value(size_t dom, size_t comp, size_t localPoint) const
     return (*m_state)[iloc];
 }
 
-double Sim1D::workValue(size_t dom, size_t comp, size_t localPoint) const
+double Sim1D::_workValue(size_t dom, size_t comp, size_t localPoint) const
 {
     size_t iloc = domain(dom).loc() + domain(dom).index(comp, localPoint);
     AssertThrowMsg(iloc < m_state->size(), "Sim1D::workValue",
@@ -79,6 +77,8 @@ double Sim1D::workValue(size_t dom, size_t comp, size_t localPoint) const
 void Sim1D::setProfile(size_t dom, size_t comp,
                        const vector<double>& pos, const vector<double>& values)
 {
+    warn_deprecated("Sim1D::setProfile", "To be removed after Cantera 3.2. "
+                    "Replaceable by Domain1D::setProfile.");
     if (pos.front() != 0.0 || pos.back() != 1.0) {
         throw CanteraError("Sim1D::setProfile",
             "`pos` vector must span the range [0, 1]. Got a vector spanning "
@@ -91,7 +91,7 @@ void Sim1D::setProfile(size_t dom, size_t comp,
         double zpt = d.z(n);
         double frac = (zpt - z0)/(z1 - z0);
         double v = linearInterp(frac, pos, values);
-        setValue(dom, comp, n, v);
+        _setValue(dom, comp, n, v);
     }
 }
 
@@ -102,7 +102,7 @@ void Sim1D::save(const string& fname, const string& name, const string& desc,
     string extension = (dot != npos) ? toLowerCopy(fname.substr(dot+1)) : "";
     if (extension == "csv") {
         for (auto dom : m_dom) {
-            auto arr = dom->asArray(m_state->data() + dom->loc());
+            auto arr = dom->toArray();
             if (dom->size() > 1) {
                 arr->writeEntry(fname, overwrite, basis);
                 break;
@@ -117,7 +117,7 @@ void Sim1D::save(const string& fname, const string& name, const string& desc,
     if (extension == "h5" || extension == "hdf"  || extension == "hdf5") {
         SolutionArray::writeHeader(fname, name, desc, overwrite);
         for (auto dom : m_dom) {
-            auto arr = dom->asArray(m_state->data() + dom->loc());
+            auto arr = dom->toArray();
             arr->writeEntry(fname, name, dom->id(), overwrite, compression);
         }
         return;
@@ -131,7 +131,7 @@ void Sim1D::save(const string& fname, const string& name, const string& desc,
         SolutionArray::writeHeader(data, name, desc, overwrite);
 
         for (auto dom : m_dom) {
-            auto arr = dom->asArray(m_state->data() + dom->loc());
+            auto arr = dom->toArray();
             arr->writeEntry(data, name, dom->id(), overwrite);
         }
 
@@ -257,7 +257,7 @@ AnyMap Sim1D::restore(const string& fname, const string& name)
         header = SolutionArray::readHeader(fname, name);
 
         for (auto dom : m_dom) {
-            auto arr = SolutionArray::create(dom->solution());
+            auto arr = SolutionArray::create(dom->phase());
             try {
                 arr->readEntry(fname, name, dom->id());
             } catch (CanteraError& err) {
@@ -275,7 +275,7 @@ AnyMap Sim1D::restore(const string& fname, const string& name)
         m_xlast_ts.clear();
         for (auto dom : m_dom) {
             try {
-                dom->fromArray(*arrs[dom->id()], m_state->data() + dom->loc());
+                dom->fromArray(arrs[dom->id()]);
             } catch (CanteraError& err) {
                 throw CanteraError("Sim1D::restore",
                     "Encountered exception when restoring domain '{}' from HDF:\n{}",
@@ -289,7 +289,7 @@ AnyMap Sim1D::restore(const string& fname, const string& name)
         header = SolutionArray::readHeader(root, name);
 
         for (auto dom : m_dom) {
-            auto arr = SolutionArray::create(dom->solution());
+            auto arr = SolutionArray::create(dom->phase());
             try {
                 arr->readEntry(root, name, dom->id());
             } catch (CanteraError& err) {
@@ -304,7 +304,7 @@ AnyMap Sim1D::restore(const string& fname, const string& name)
         m_xlast_ts.clear();
         for (auto dom : m_dom) {
             try {
-                dom->fromArray(*arrs[dom->id()], m_state->data() + dom->loc());
+                dom->fromArray(arrs[dom->id()]);
             } catch (CanteraError& err) {
                 throw CanteraError("Sim1D::restore",
                     "Encountered exception when restoring domain '{}' from YAML:\n{}",
@@ -320,21 +320,18 @@ AnyMap Sim1D::restore(const string& fname, const string& name)
     return header;
 }
 
-void Sim1D::setFlatProfile(size_t dom, size_t comp, double v)
+void Sim1D::_restore(const string& fname, const string& name)
 {
-    size_t np = domain(dom).nPoints();
-    for (size_t n = 0; n < np; n++) {
-        setValue(dom, comp, n, v);
-    }
+    restore(fname, name);
 }
 
-void Sim1D::show(ostream& s)
+void Sim1D::setFlatProfile(size_t dom, size_t comp, double v)
 {
-    warn_deprecated("Sim1D::show(ostream&)", "To be removed after Cantera 3.1.");
-    for (size_t n = 0; n < nDomains(); n++) {
-        if (domain(n).type() != "empty") {
-            domain(n).show(s, m_state->data() + start(n));
-        }
+    warn_deprecated("Sim1D::setFlatProfile", "To be removed after Cantera 3.2. "
+                    "Replaceable by Domain1D::setProfile.");
+    size_t np = domain(dom).nPoints();
+    for (size_t n = 0; n < np; n++) {
+        _setValue(dom, comp, n, v);
     }
 }
 
@@ -385,123 +382,38 @@ void Sim1D::finalize()
     }
 }
 
-void Sim1D::setTimeStep(double stepsize, size_t n, const int* tsteps)
-{
-    m_tstep = stepsize;
-    m_steps.resize(n);
-    for (size_t i = 0; i < n; i++) {
-        m_steps[i] = tsteps[i];
-    }
-}
-
-int Sim1D::newtonSolve(int loglevel)
-{
-    int m = OneDim::solve(m_state->data(), m_xnew.data(), loglevel);
-    if (m >= 0) {
-        *m_state = m_xnew;
-        return 0;
-    } else if (m > -10) {
-        return -1;
-    } else {
-        throw CanteraError("Sim1D::newtonSolve",
-                           "ERROR: OneDim::solve returned m = {}", m);
-    }
-}
-
 void Sim1D::solve(int loglevel, bool refine_grid)
 {
     int new_points = 1;
-    double dt = m_tstep;
-    m_nsteps = 0;
+    m_attempt_counter = 0;
     finalize();
-
-    // For debugging outputs
-    int attempt_counter = 0;
-    const int max_history = 10; // Store up to 10 previous solutions
     if (loglevel > 6) {
         clearDebugFile();
     }
 
     while (new_points > 0) {
-        size_t istep = 0;
-        int nsteps = m_steps[istep];
-
-        bool ok = false;
+        SteadyStateSystem::solve(loglevel);
         if (loglevel > 0) {
-            writeline('.', 78, true, true);
-        }
-        while (!ok) {
-             // Keep the attempt_counter in the range of [1, max_history]
-             attempt_counter = (attempt_counter % max_history) + 1;
-
-            // Attempt to solve the steady problem
-            setSteadyMode();
-            newton().setOptions(m_ss_jac_age);
-            debuglog("\nAttempt Newton solution of steady-state problem.", loglevel);
-            int status = newtonSolve(loglevel);
-
-            if (status == 0) {
-                if (loglevel > 0) {
-                    writelog("\nNewton steady-state solve succeeded.\n\n");
-                    writelog("Problem solved on [");
-                    for (size_t mm = 1; mm < nDomains(); mm+=2) {
-                        writelog("{}", domain(mm).nPoints());
-                        if (mm + 2 < nDomains()) {
-                            writelog(", ");
-                        }
-                    }
-                    writelog("] point grid(s).\n");
+            writelog("\nNewton steady-state solve succeeded.\n\n");
+            writelog("Problem solved on [");
+            for (size_t mm = 1; mm < nDomains(); mm+=2) {
+                writelog("{}", domain(mm).nPoints());
+                if (mm + 2 < nDomains()) {
+                    writelog(", ");
                 }
-                if (m_steady_callback) {
-                    m_steady_callback->eval(0);
-                }
-                writeDebugInfo("NewtonSuccess", "After successful Newton solve",
-                               loglevel, attempt_counter);
-
-                ok = true;
-            } else {
-                debuglog("\nNewton steady-state solve failed.\n", loglevel);
-                writeDebugInfo("NewtonFail", "After unsuccessful Newton solve",
-                               loglevel, attempt_counter);
-
-                if (loglevel > 0) {
-                    writelog("\nAttempt {} timesteps.", nsteps);
-                }
-
-                dt = timeStep(nsteps, dt, m_state->data(), m_xnew.data(), loglevel-1);
-                m_xlast_ts = *m_state;
-                writeDebugInfo("Timestepping", "After timestepping", loglevel,
-                               attempt_counter);
-
-                // Repeat the last timestep's data for logging purposes
-                if (loglevel == 1) {
-                    writelog("\nFinal timestep info: dt= {:<10.4g} log(ss)= {:<10.4g}\n", dt,
-                             log10(ssnorm(m_state->data(), m_xnew.data())));
-                }
-                istep++;
-                if (istep >= m_steps.size()) {
-                    nsteps = m_steps.back();
-                } else {
-                    nsteps = m_steps[istep];
-                }
-                dt = std::min(dt, m_tmax);
+            }
+            writelog("] point grid(s).\n");
+            if (loglevel > 3) {
+                show();
             }
         }
-        if (loglevel > 0) {
-            writeline('.', 78, true, true);
+        if (m_steady_callback) {
+            m_steady_callback->eval(0);
         }
-        if (loglevel > 3) {
-            show();
-        }
-
         if (refine_grid) {
             new_points = refine(loglevel);
-            if (new_points) {
-                // If the grid has changed, preemptively reduce the timestep
-                // to avoid multiple successive failed time steps.
-                dt = m_tstep;
-            }
-            writeDebugInfo("Regridding", "After regridding", loglevel, attempt_counter);
+            writeDebugInfo("Regridding", "After regridding", loglevel,
+                           m_attempt_counter);
         } else {
             debuglog("grid refinement disabled.\n", loglevel);
             new_points = 0;
@@ -555,7 +467,7 @@ int Sim1D::refine(int loglevel)
 
                 // do the same for the solution at this point
                 for (size_t i = 0; i < comp; i++) {
-                    xnew.push_back(value(n, i, m));
+                    xnew.push_back(_value(n, i, m));
                 }
 
                 // now check whether a new point is needed in the interval to
@@ -570,7 +482,7 @@ int Sim1D::refine(int loglevel)
                     // for each component, linearly interpolate the solution to this
                     // point
                     for (size_t i = 0; i < comp; i++) {
-                        double xmid = 0.5*(value(n, i, m) + value(n, i, m+1));
+                        double xmid = 0.5*(_value(n, i, m) + _value(n, i, m+1));
                         xnew.push_back(xmid);
                     }
                 }
@@ -644,8 +556,8 @@ int Sim1D::setFixedTemperature(double t)
         if (d_free && d_free->isFree()) {
             for (size_t m = 0; m < npnow - 1; m++) {
                 bool fixedpt = false;
-                double t1 = value(n, c_offset_T, m);
-                double t2 = value(n, c_offset_T, m + 1);
+                double t1 = _value(n, c_offset_T, m);
+                double t2 = _value(n, c_offset_T, m + 1);
                 // threshold to avoid adding new point too close to existing point
                 double thresh = min(1., 1.e-1 * (t2 - t1));
                 z1 = d.z(m);
@@ -677,7 +589,7 @@ int Sim1D::setFixedTemperature(double t)
 
             // do the same for the solution at this point
             for (size_t i = 0; i < comp; i++) {
-                xnew.push_back(value(n, i, m));
+                xnew.push_back(_value(n, i, m));
             }
             if (m == mfixed) {
                 // add new point at zfixed (mfixed is not npos)
@@ -687,7 +599,8 @@ int Sim1D::setFixedTemperature(double t)
                 // for each component, linearly interpolate
                 // the solution to this point
                 for (size_t i = 0; i < comp; i++) {
-                    double xmid = interp_factor*(value(n, i, m) - value(n, i, m+1)) + value(n,i,m+1);
+                    double xmid = interp_factor*(
+                        _value(n, i, m) - _value(n, i, m+1)) + _value(n,i,m+1);
                     xnew.push_back(xmid);
                 }
             }
@@ -762,8 +675,8 @@ void Sim1D::setLeftControlPoint(double temperature)
 
         double current_val, next_val;
         for (size_t m = 0; m < np-1; m++) {
-            current_val = value(n,c_offset_T,m);
-            next_val = value(n,c_offset_T,m+1);
+            current_val = _value(n,c_offset_T,m);
+            next_val = _value(n,c_offset_T,m+1);
             if ((current_val - temperature) * (next_val - temperature) < 0.0) {
                 // Pick the coordinate of the point with the temperature closest
                 // to the desired temperature
@@ -775,7 +688,7 @@ void Sim1D::setLeftControlPoint(double temperature)
                     index = m+1;
                 }
                 d_axis.setLeftControlPointCoordinate(d_axis.z(index));
-                d_axis.setLeftControlPointTemperature(value(n,c_offset_T,index));
+                d_axis.setLeftControlPointTemperature(_value(n,c_offset_T,index));
                 return;
             }
         }
@@ -813,8 +726,8 @@ void Sim1D::setRightControlPoint(double temperature)
 
         double current_val, next_val;
         for (size_t m = np-1; m > 0; m--) {
-            current_val = value(n,c_offset_T,m);
-            next_val = value(n,c_offset_T,m-1);
+            current_val = _value(n,c_offset_T,m);
+            next_val = _value(n,c_offset_T,m-1);
             if ((current_val - temperature) * (next_val - temperature) < 0.0) {
                 // Pick the coordinate of the point with the temperature closest
                 // to the desired temperature
@@ -826,7 +739,7 @@ void Sim1D::setRightControlPoint(double temperature)
                     index = m-1;
                 }
                 d_axis.setRightControlPointCoordinate(d_axis.z(index));
-                d_axis.setRightControlPointTemperature(value(n,c_offset_T,index));
+                d_axis.setRightControlPointTemperature(_value(n,c_offset_T,index));
                 return;
             }
         }
@@ -847,12 +760,10 @@ void Sim1D::setRefineCriteria(int dom, double ratio,
                               double slope, double curve, double prune)
 {
     if (dom >= 0) {
-        Refiner& r = domain(dom).refiner();
-        r.setCriteria(ratio, slope, curve, prune);
+        domain(dom).setRefineCriteria(ratio, slope, curve, prune);
     } else {
         for (size_t n = 0; n < nDomains(); n++) {
-            Refiner& r = domain(n).refiner();
-            r.setCriteria(ratio, slope, curve, prune);
+            domain(n).setRefineCriteria(ratio, slope, curve, prune);
         }
     }
 }
@@ -860,8 +771,7 @@ void Sim1D::setRefineCriteria(int dom, double ratio,
 vector<double> Sim1D::getRefineCriteria(int dom)
 {
    if (dom >= 0) {
-       Refiner& r = domain(dom).refiner();
-       return r.getCriteria();
+       return domain(dom).getRefineCriteria();
    } else {
        throw CanteraError("Sim1D::getRefineCriteria",
            "Must specify domain to get criteria from");
@@ -902,6 +812,7 @@ size_t Sim1D::maxGridPoints(size_t dom)
 
 double Sim1D::jacobian(int i, int j)
 {
+    warn_deprecated("Sim1D::jacobian", "To be removed after Cantera 3.2.");
     return OneDim::jacobian().value(i,j);
 }
 
@@ -920,6 +831,10 @@ void Sim1D::solveAdjoint(const double* b, double* lambda)
         D->forceFullUpdate(false);
     }
 
+    auto multijac = dynamic_pointer_cast<MultiJac>(m_jac);
+    if (!multijac) {
+        throw CanteraError("Sim1D::solveAdjoint", "Banded (MultiJac) required");
+    }
     // Form J^T
     size_t bw = bandwidth();
     BandMatrix Jt(size(), bw, bw);
@@ -927,7 +842,7 @@ void Sim1D::solveAdjoint(const double* b, double* lambda)
         size_t j1 = (i > bw) ? i - bw : 0;
         size_t j2 = (i + bw >= size()) ? size() - 1: i + bw;
         for (size_t j = j1; j <= j2; j++) {
-            Jt(j,i) = m_jac->value(i,j);
+            Jt(j,i) = multijac->value(i,j);
         }
     }
 
@@ -938,6 +853,11 @@ void Sim1D::resize()
 {
     OneDim::resize();
     m_xnew.resize(size(), 0.0);
+}
+
+shared_ptr<Sim1D> newSim1D(vector<shared_ptr<Domain1D>>& domains)
+{
+    return make_shared<Sim1D>(domains);
 }
 
 }

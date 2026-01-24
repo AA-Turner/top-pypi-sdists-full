@@ -1,9 +1,16 @@
 [build-system]
 requires = [
-    # pin setuptools on pypy to workaround this bug: https://github.com/pypa/distutils/issues/283
-    "setuptools<72.2.0; platform_python_implementation == 'PyPy'",
-    "setuptools; platform_python_implementation != 'PyPy'",
+    "setuptools",
     "wheel",
     "setuptools_scm",
-    "cython >= 0.28.4",
+    "cython >= 3.2.0",
 ]
+
+[tool.cibuildwheel]
+# Run abi3audit after the default repair commands to scan for abi3 violations
+# https://github.com/pypa/abi3audit
+# Only on Unix platforms (Linux/macOS) since Windows has no default repair command
+[[tool.cibuildwheel.overrides]]
+select = "cp*-{*linux_*,*macosx_*}"
+inherit.repair-wheel-command = "append"
+repair-wheel-command = "pipx run abi3audit --strict --report {wheel}"

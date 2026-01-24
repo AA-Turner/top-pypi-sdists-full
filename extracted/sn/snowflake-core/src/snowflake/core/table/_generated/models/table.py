@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt, StrictStr, field_validator
 
 from snowflake.core.table._generated.models.constraint import Constraint, ConstraintModel
 from snowflake.core.table._generated.models.table_column import TableColumn, TableColumnModel
@@ -55,33 +55,33 @@ class Table(BaseModel):
     comment : str, optional
         Comment for the table
     created_on : datetime, optional
-        Date and time when the table was created.
+        Date and time when the table was created — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
-        Database in which the table is stored
+        Database in which the table is stored — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str, optional
-        Schema in which the table is stored
+        Schema in which the table is stored — **Read-only:** *any user-provided value will be ignored.*
     rows : int, optional
-        Number of rows in the table. Returns NULL for external tables.
+        Number of rows in the table. Returns NULL for external tables — **Read-only:** *any user-provided value will be ignored.*
     bytes : int, optional
-        Number of bytes that will be scanned if the entire table is scanned in a query. Note that this number may be different than the number of actual physical bytes stored on-disk for the table
+        Number of bytes that will be scanned if the entire table is scanned in a query. Note that this number may be different than the number of actual physical bytes stored on-disk for the table — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the table
+        Role that owns the table — **Read-only:** *any user-provided value will be ignored.*
     dropped_on : datetime, optional
-        Date and time when the table was dropped
+        Date and time when the table was dropped — **Read-only:** *any user-provided value will be ignored.*
     automatic_clustering : bool, optional
-        If Automatic Clustering is enabled for your account, specifies whether it is explicitly enabled or disabled for the table.
+        If Automatic Clustering is enabled for your account, specifies whether it is explicitly enabled or disabled for the table — **Read-only:** *any user-provided value will be ignored.*
     search_optimization : bool, optional
-        If ON, the table has the search optimization service enabled
+        If ON, the table has the search optimization service enabled — **Read-only:** *any user-provided value will be ignored.*
     search_optimization_progress : int, optional
-        Percentage of the table that has been optimized for search.
+        Percentage of the table that has been optimized for search — **Read-only:** *any user-provided value will be ignored.*
     search_optimization_bytes : int, optional
-        Number of additional bytes of storage that the search optimization service consumes for this table
+        Number of additional bytes of storage that the search optimization service consumes for this table — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the object.
+        The type of role that owns the object — **Read-only:** *any user-provided value will be ignored.*
     budget : str, optional
-        Name of the budget if the object is monitored by a budget
+        Name of the budget if the object is monitored by a budget — **Read-only:** *any user-provided value will be ignored.*
     table_type : str, optional
-        Type of the table
+        Type of the table — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: StrictStr
@@ -182,9 +182,10 @@ class Table(BaseModel):
             )
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -226,7 +227,7 @@ class Table(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in columns (list)
         _items = []
@@ -257,9 +258,9 @@ class Table(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Table.parse_obj(obj)
+            return Table.model_validate(obj)
 
-        _obj = Table.parse_obj(
+        _obj = Table.model_validate(
             {
                 "name": obj.get("name"),
                 "kind": obj.get("kind") if obj.get("kind") is not None else "PERMANENT",

@@ -3,7 +3,7 @@ Type annotations for lakeformation service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lakeformation/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -25,6 +26,7 @@ from botocore.response import StreamingBody
 from .literals import (
     ApplicationStatusType,
     ComparisonOperatorType,
+    CredentialsScopeType,
     DataLakeResourceTypeType,
     EnableStatusType,
     FieldNameStringType,
@@ -34,17 +36,13 @@ from .literals import (
     QueryStateStringType,
     ResourceShareTypeType,
     ResourceTypeType,
+    ServiceAuthorizationType,
     TransactionStatusFilterType,
     TransactionStatusType,
     TransactionTypeType,
+    VerificationStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -132,6 +130,8 @@ __all__ = (
     "GetResourceLFTagsResponseTypeDef",
     "GetTableObjectsRequestTypeDef",
     "GetTableObjectsResponseTypeDef",
+    "GetTemporaryDataLocationCredentialsRequestTypeDef",
+    "GetTemporaryDataLocationCredentialsResponseTypeDef",
     "GetTemporaryGluePartitionCredentialsRequestTypeDef",
     "GetTemporaryGluePartitionCredentialsResponseTypeDef",
     "GetTemporaryGlueTableCredentialsRequestTypeDef",
@@ -187,6 +187,8 @@ __all__ = (
     "PutDataLakeSettingsRequestTypeDef",
     "QueryPlanningContextTypeDef",
     "QuerySessionContextTypeDef",
+    "RedshiftConnectTypeDef",
+    "RedshiftScopeUnionTypeDef",
     "RegisterResourceRequestTypeDef",
     "RemoveLFTagsFromResourceRequestTypeDef",
     "RemoveLFTagsFromResourceResponseTypeDef",
@@ -204,6 +206,9 @@ __all__ = (
     "SearchTablesByLFTagsRequestPaginateTypeDef",
     "SearchTablesByLFTagsRequestTypeDef",
     "SearchTablesByLFTagsResponseTypeDef",
+    "ServiceIntegrationUnionOutputTypeDef",
+    "ServiceIntegrationUnionTypeDef",
+    "ServiceIntegrationUnionUnionTypeDef",
     "StartQueryPlanningRequestTypeDef",
     "StartQueryPlanningResponseTypeDef",
     "StartTransactionRequestTypeDef",
@@ -218,6 +223,7 @@ __all__ = (
     "TableWithColumnsResourceUnionTypeDef",
     "TaggedDatabaseTypeDef",
     "TaggedTableTypeDef",
+    "TemporaryCredentialsTypeDef",
     "TimestampTypeDef",
     "TransactionDescriptionTypeDef",
     "UpdateDataCellsFilterRequestTypeDef",
@@ -237,7 +243,7 @@ __all__ = (
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -283,12 +289,12 @@ class CatalogResourceTypeDef(TypedDict):
 
 class LFTagPairOutputTypeDef(TypedDict):
     TagKey: str
-    TagValues: List[str]
+    TagValues: list[str]
     CatalogId: NotRequired[str]
 
 
 class ColumnWildcardOutputTypeDef(TypedDict):
-    ExcludedColumnNames: NotRequired[List[str]]
+    ExcludedColumnNames: NotRequired[list[str]]
 
 
 class ColumnWildcardTypeDef(TypedDict):
@@ -307,7 +313,7 @@ class CreateLFTagRequestTypeDef(TypedDict):
 
 class RowFilterOutputTypeDef(TypedDict):
     FilterExpression: NotRequired[str]
-    AllRowsWildcard: NotRequired[Dict[str, Any]]
+    AllRowsWildcard: NotRequired[dict[str, Any]]
 
 
 class DataCellsFilterResourceTypeDef(TypedDict):
@@ -374,7 +380,7 @@ class DescribeLakeFormationIdentityCenterConfigurationRequestTypeDef(TypedDict):
 
 class ExternalFilteringConfigurationOutputTypeDef(TypedDict):
     Status: EnableStatusType
-    AuthorizedTargets: List[str]
+    AuthorizedTargets: list[str]
 
 
 class DescribeResourceRequestTypeDef(TypedDict):
@@ -388,6 +394,8 @@ class ResourceInfoTypeDef(TypedDict):
     WithFederation: NotRequired[bool]
     HybridAccessEnabled: NotRequired[bool]
     WithPrivilegedAccess: NotRequired[bool]
+    VerificationStatus: NotRequired[VerificationStatusType]
+    ExpectedResourceOwnerAccount: NotRequired[str]
 
 
 class DescribeTransactionRequestTypeDef(TypedDict):
@@ -402,7 +410,7 @@ class TransactionDescriptionTypeDef(TypedDict):
 
 
 class DetailsMapTypeDef(TypedDict):
-    ResourceShare: NotRequired[List[str]]
+    ResourceShare: NotRequired[list[str]]
 
 
 class ExecutionStatisticsTypeDef(TypedDict):
@@ -451,7 +459,7 @@ class GetLFTagExpressionRequestTypeDef(TypedDict):
 
 class LFTagOutputTypeDef(TypedDict):
     TagKey: str
-    TagValues: List[str]
+    TagValues: list[str]
 
 
 class GetLFTagRequestTypeDef(TypedDict):
@@ -475,6 +483,13 @@ class PlanningStatisticsTypeDef(TypedDict):
 
 
 TimestampTypeDef = Union[datetime, str]
+
+
+class TemporaryCredentialsTypeDef(TypedDict):
+    AccessKeyId: NotRequired[str]
+    SecretAccessKey: NotRequired[str]
+    SessionToken: NotRequired[str]
+    Expiration: NotRequired[datetime]
 
 
 class PartitionValueListTypeDef(TypedDict):
@@ -512,7 +527,7 @@ class LFTagExpressionResourceTypeDef(TypedDict):
 
 class LFTagKeyResourceOutputTypeDef(TypedDict):
     TagKey: str
-    TagValues: List[str]
+    TagValues: list[str]
     CatalogId: NotRequired[str]
 
 
@@ -557,7 +572,7 @@ class ListTableStorageOptimizersRequestTypeDef(TypedDict):
 
 class StorageOptimizerTypeDef(TypedDict):
     StorageOptimizerType: NotRequired[OptimizerTypeType]
-    Config: NotRequired[Dict[str, str]]
+    Config: NotRequired[dict[str, str]]
     ErrorMessage: NotRequired[str]
     Warnings: NotRequired[str]
     LastRunDetails: NotRequired[str]
@@ -576,6 +591,10 @@ class TableObjectTypeDef(TypedDict):
     Size: NotRequired[int]
 
 
+class RedshiftConnectTypeDef(TypedDict):
+    Authorization: ServiceAuthorizationType
+
+
 class RegisterResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     UseServiceLinkedRole: NotRequired[bool]
@@ -583,13 +602,14 @@ class RegisterResourceRequestTypeDef(TypedDict):
     WithFederation: NotRequired[bool]
     HybridAccessEnabled: NotRequired[bool]
     WithPrivilegedAccess: NotRequired[bool]
+    ExpectedResourceOwnerAccount: NotRequired[str]
 
 
 class TableResourceOutputTypeDef(TypedDict):
     DatabaseName: str
     CatalogId: NotRequired[str]
     Name: NotRequired[str]
-    TableWildcard: NotRequired[Dict[str, Any]]
+    TableWildcard: NotRequired[dict[str, Any]]
 
 
 class StartTransactionRequestTypeDef(TypedDict):
@@ -615,6 +635,7 @@ class UpdateResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     WithFederation: NotRequired[bool]
     HybridAccessEnabled: NotRequired[bool]
+    ExpectedResourceOwnerAccount: NotRequired[str]
 
 
 class UpdateTableStorageOptimizerRequestTypeDef(TypedDict):
@@ -650,7 +671,7 @@ class GetDataLakePrincipalResponseTypeDef(TypedDict):
 class GetLFTagResponseTypeDef(TypedDict):
     CatalogId: str
     TagKey: str
-    TagValues: List[str]
+    TagValues: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -673,7 +694,7 @@ class GetTemporaryGlueTableCredentialsResponseTypeDef(TypedDict):
     SecretAccessKey: str
     SessionToken: str
     Expiration: datetime
-    VendedS3Path: List[str]
+    VendedS3Path: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -697,9 +718,16 @@ class UpdateTableStorageOptimizerResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetTemporaryDataLocationCredentialsRequestTypeDef(TypedDict):
+    DurationSeconds: NotRequired[int]
+    AuditContext: NotRequired[AuditContextTypeDef]
+    DataLocations: NotRequired[Sequence[str]]
+    CredentialsScope: NotRequired[CredentialsScopeType]
+
+
 class PrincipalPermissionsOutputTypeDef(TypedDict):
     Principal: NotRequired[DataLakePrincipalTypeDef]
-    Permissions: NotRequired[List[PermissionType]]
+    Permissions: NotRequired[list[PermissionType]]
 
 
 class PrincipalPermissionsTypeDef(TypedDict):
@@ -709,7 +737,7 @@ class PrincipalPermissionsTypeDef(TypedDict):
 
 class ColumnLFTagTypeDef(TypedDict):
     Name: NotRequired[str]
-    LFTags: NotRequired[List[LFTagPairOutputTypeDef]]
+    LFTags: NotRequired[list[LFTagPairOutputTypeDef]]
 
 
 class LFTagErrorTypeDef(TypedDict):
@@ -718,7 +746,7 @@ class LFTagErrorTypeDef(TypedDict):
 
 
 class ListLFTagsResponseTypeDef(TypedDict):
-    LFTags: List[LFTagPairOutputTypeDef]
+    LFTags: list[LFTagPairOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -727,7 +755,7 @@ class TableWithColumnsResourceOutputTypeDef(TypedDict):
     DatabaseName: str
     Name: str
     CatalogId: NotRequired[str]
-    ColumnNames: NotRequired[List[str]]
+    ColumnNames: NotRequired[list[str]]
     ColumnWildcard: NotRequired[ColumnWildcardOutputTypeDef]
 
 
@@ -740,7 +768,7 @@ class DataCellsFilterOutputTypeDef(TypedDict):
     TableName: str
     Name: str
     RowFilter: NotRequired[RowFilterOutputTypeDef]
-    ColumnNames: NotRequired[List[str]]
+    ColumnNames: NotRequired[list[str]]
     ColumnWildcard: NotRequired[ColumnWildcardOutputTypeDef]
     VersionId: NotRequired[str]
 
@@ -758,7 +786,7 @@ class DataCellsFilterTypeDef(TypedDict):
 
 class TaggedDatabaseTypeDef(TypedDict):
     Database: NotRequired[DatabaseResourceTypeDef]
-    LFTags: NotRequired[List[LFTagPairOutputTypeDef]]
+    LFTags: NotRequired[list[LFTagPairOutputTypeDef]]
 
 
 class WriteOperationTypeDef(TypedDict):
@@ -774,23 +802,13 @@ class DeleteObjectsOnCancelRequestTypeDef(TypedDict):
     CatalogId: NotRequired[str]
 
 
-class DescribeLakeFormationIdentityCenterConfigurationResponseTypeDef(TypedDict):
-    CatalogId: str
-    InstanceArn: str
-    ApplicationArn: str
-    ExternalFiltering: ExternalFilteringConfigurationOutputTypeDef
-    ShareRecipients: List[DataLakePrincipalTypeDef]
-    ResourceShare: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class DescribeResourceResponseTypeDef(TypedDict):
     ResourceInfo: ResourceInfoTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListResourcesResponseTypeDef(TypedDict):
-    ResourceInfoList: List[ResourceInfoTypeDef]
+    ResourceInfoList: list[ResourceInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -801,7 +819,7 @@ class DescribeTransactionResponseTypeDef(TypedDict):
 
 
 class ListTransactionsResponseTypeDef(TypedDict):
-    Transactions: List[TransactionDescriptionTypeDef]
+    Transactions: list[TransactionDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -821,7 +839,7 @@ class GetLFTagExpressionResponseTypeDef(TypedDict):
     Name: str
     Description: str
     CatalogId: str
-    Expression: List[LFTagOutputTypeDef]
+    Expression: list[LFTagOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -829,13 +847,13 @@ class LFTagExpressionTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
     CatalogId: NotRequired[str]
-    Expression: NotRequired[List[LFTagOutputTypeDef]]
+    Expression: NotRequired[list[LFTagOutputTypeDef]]
 
 
 class LFTagPolicyResourceOutputTypeDef(TypedDict):
     ResourceType: ResourceTypeType
     CatalogId: NotRequired[str]
-    Expression: NotRequired[List[LFTagOutputTypeDef]]
+    Expression: NotRequired[list[LFTagOutputTypeDef]]
     ExpressionName: NotRequired[str]
 
 
@@ -873,6 +891,13 @@ class QuerySessionContextTypeDef(TypedDict):
     AdditionalContext: NotRequired[Mapping[str, str]]
 
 
+class GetTemporaryDataLocationCredentialsResponseTypeDef(TypedDict):
+    Credentials: TemporaryCredentialsTypeDef
+    AccessibleDataLocations: list[str]
+    CredentialsScope: CredentialsScopeType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetTemporaryGluePartitionCredentialsRequestTypeDef(TypedDict):
     TableArn: str
     Partition: PartitionValueListTypeDef
@@ -900,7 +925,7 @@ class ListLFTagsRequestPaginateTypeDef(TypedDict):
 
 class GetWorkUnitsResponseTypeDef(TypedDict):
     QueryId: str
-    WorkUnitRanges: List[WorkUnitRangeTypeDef]
+    WorkUnitRanges: list[WorkUnitRangeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -911,30 +936,34 @@ LFTagUnionTypeDef = Union[LFTagTypeDef, LFTagOutputTypeDef]
 
 
 class ListTableStorageOptimizersResponseTypeDef(TypedDict):
-    StorageOptimizerList: List[StorageOptimizerTypeDef]
+    StorageOptimizerList: list[StorageOptimizerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class PartitionObjectsTypeDef(TypedDict):
-    PartitionValues: NotRequired[List[str]]
-    Objects: NotRequired[List[TableObjectTypeDef]]
+    PartitionValues: NotRequired[list[str]]
+    Objects: NotRequired[list[TableObjectTypeDef]]
+
+
+class RedshiftScopeUnionTypeDef(TypedDict):
+    RedshiftConnect: NotRequired[RedshiftConnectTypeDef]
 
 
 TableResourceUnionTypeDef = Union[TableResourceTypeDef, TableResourceOutputTypeDef]
 
 
 class DataLakeSettingsOutputTypeDef(TypedDict):
-    DataLakeAdmins: NotRequired[List[DataLakePrincipalTypeDef]]
-    ReadOnlyAdmins: NotRequired[List[DataLakePrincipalTypeDef]]
-    CreateDatabaseDefaultPermissions: NotRequired[List[PrincipalPermissionsOutputTypeDef]]
-    CreateTableDefaultPermissions: NotRequired[List[PrincipalPermissionsOutputTypeDef]]
-    Parameters: NotRequired[Dict[str, str]]
-    TrustedResourceOwners: NotRequired[List[str]]
+    DataLakeAdmins: NotRequired[list[DataLakePrincipalTypeDef]]
+    ReadOnlyAdmins: NotRequired[list[DataLakePrincipalTypeDef]]
+    CreateDatabaseDefaultPermissions: NotRequired[list[PrincipalPermissionsOutputTypeDef]]
+    CreateTableDefaultPermissions: NotRequired[list[PrincipalPermissionsOutputTypeDef]]
+    Parameters: NotRequired[dict[str, str]]
+    TrustedResourceOwners: NotRequired[list[str]]
     AllowExternalDataFiltering: NotRequired[bool]
     AllowFullTableExternalDataAccess: NotRequired[bool]
-    ExternalDataFilteringAllowList: NotRequired[List[DataLakePrincipalTypeDef]]
-    AuthorizedSessionTagValueList: NotRequired[List[str]]
+    ExternalDataFilteringAllowList: NotRequired[list[DataLakePrincipalTypeDef]]
+    AuthorizedSessionTagValueList: NotRequired[list[str]]
 
 
 class DataLakeSettingsTypeDef(TypedDict):
@@ -951,26 +980,26 @@ class DataLakeSettingsTypeDef(TypedDict):
 
 
 class GetResourceLFTagsResponseTypeDef(TypedDict):
-    LFTagOnDatabase: List[LFTagPairOutputTypeDef]
-    LFTagsOnTable: List[LFTagPairOutputTypeDef]
-    LFTagsOnColumns: List[ColumnLFTagTypeDef]
+    LFTagOnDatabase: list[LFTagPairOutputTypeDef]
+    LFTagsOnTable: list[LFTagPairOutputTypeDef]
+    LFTagsOnColumns: list[ColumnLFTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class TaggedTableTypeDef(TypedDict):
     Table: NotRequired[TableResourceOutputTypeDef]
-    LFTagOnDatabase: NotRequired[List[LFTagPairOutputTypeDef]]
-    LFTagsOnTable: NotRequired[List[LFTagPairOutputTypeDef]]
-    LFTagsOnColumns: NotRequired[List[ColumnLFTagTypeDef]]
+    LFTagOnDatabase: NotRequired[list[LFTagPairOutputTypeDef]]
+    LFTagsOnTable: NotRequired[list[LFTagPairOutputTypeDef]]
+    LFTagsOnColumns: NotRequired[list[ColumnLFTagTypeDef]]
 
 
 class AddLFTagsToResourceResponseTypeDef(TypedDict):
-    Failures: List[LFTagErrorTypeDef]
+    Failures: list[LFTagErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class RemoveLFTagsFromResourceResponseTypeDef(TypedDict):
-    Failures: List[LFTagErrorTypeDef]
+    Failures: list[LFTagErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -988,7 +1017,7 @@ class GetDataCellsFilterResponseTypeDef(TypedDict):
 
 
 class ListDataCellsFilterResponseTypeDef(TypedDict):
-    DataCellsFilters: List[DataCellsFilterOutputTypeDef]
+    DataCellsFilters: list[DataCellsFilterOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -997,7 +1026,7 @@ DataCellsFilterUnionTypeDef = Union[DataCellsFilterTypeDef, DataCellsFilterOutpu
 
 
 class SearchDatabasesByLFTagsResponseTypeDef(TypedDict):
-    DatabaseList: List[TaggedDatabaseTypeDef]
+    DatabaseList: list[TaggedDatabaseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1010,22 +1039,8 @@ class UpdateTableObjectsRequestTypeDef(TypedDict):
     TransactionId: NotRequired[str]
 
 
-class CreateLakeFormationIdentityCenterConfigurationRequestTypeDef(TypedDict):
-    CatalogId: NotRequired[str]
-    InstanceArn: NotRequired[str]
-    ExternalFiltering: NotRequired[ExternalFilteringConfigurationUnionTypeDef]
-    ShareRecipients: NotRequired[Sequence[DataLakePrincipalTypeDef]]
-
-
-class UpdateLakeFormationIdentityCenterConfigurationRequestTypeDef(TypedDict):
-    CatalogId: NotRequired[str]
-    ShareRecipients: NotRequired[Sequence[DataLakePrincipalTypeDef]]
-    ApplicationStatus: NotRequired[ApplicationStatusType]
-    ExternalFiltering: NotRequired[ExternalFilteringConfigurationUnionTypeDef]
-
-
 class ListLFTagExpressionsResponseTypeDef(TypedDict):
-    LFTagExpressions: List[LFTagExpressionTypeDef]
+    LFTagExpressions: list[LFTagExpressionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1105,9 +1120,17 @@ class UpdateLFTagExpressionRequestTypeDef(TypedDict):
 
 
 class GetTableObjectsResponseTypeDef(TypedDict):
-    Objects: List[PartitionObjectsTypeDef]
+    Objects: list[PartitionObjectsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class ServiceIntegrationUnionOutputTypeDef(TypedDict):
+    Redshift: NotRequired[list[RedshiftScopeUnionTypeDef]]
+
+
+class ServiceIntegrationUnionTypeDef(TypedDict):
+    Redshift: NotRequired[Sequence[RedshiftScopeUnionTypeDef]]
 
 
 class ListDataCellsFilterRequestPaginateTypeDef(TypedDict):
@@ -1130,7 +1153,7 @@ DataLakeSettingsUnionTypeDef = Union[DataLakeSettingsTypeDef, DataLakeSettingsOu
 
 
 class SearchTablesByLFTagsResponseTypeDef(TypedDict):
-    TableList: List[TaggedTableTypeDef]
+    TableList: list[TaggedTableTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1152,9 +1175,9 @@ class BatchPermissionsRequestEntryOutputTypeDef(TypedDict):
     Id: str
     Principal: NotRequired[DataLakePrincipalTypeDef]
     Resource: NotRequired[ResourceOutputTypeDef]
-    Permissions: NotRequired[List[PermissionType]]
+    Permissions: NotRequired[list[PermissionType]]
     Condition: NotRequired[ConditionTypeDef]
-    PermissionsWithGrantOption: NotRequired[List[PermissionType]]
+    PermissionsWithGrantOption: NotRequired[list[PermissionType]]
 
 
 class LakeFormationOptInsInfoTypeDef(TypedDict):
@@ -1169,8 +1192,8 @@ class PrincipalResourcePermissionsTypeDef(TypedDict):
     Principal: NotRequired[DataLakePrincipalTypeDef]
     Resource: NotRequired[ResourceOutputTypeDef]
     Condition: NotRequired[ConditionTypeDef]
-    Permissions: NotRequired[List[PermissionType]]
-    PermissionsWithGrantOption: NotRequired[List[PermissionType]]
+    Permissions: NotRequired[list[PermissionType]]
+    PermissionsWithGrantOption: NotRequired[list[PermissionType]]
     AdditionalDetails: NotRequired[DetailsMapTypeDef]
     LastUpdated: NotRequired[datetime]
     LastUpdatedBy: NotRequired[str]
@@ -1178,6 +1201,22 @@ class PrincipalResourcePermissionsTypeDef(TypedDict):
 
 LFTagPolicyResourceUnionTypeDef = Union[
     LFTagPolicyResourceTypeDef, LFTagPolicyResourceOutputTypeDef
+]
+
+
+class DescribeLakeFormationIdentityCenterConfigurationResponseTypeDef(TypedDict):
+    CatalogId: str
+    InstanceArn: str
+    ApplicationArn: str
+    ExternalFiltering: ExternalFilteringConfigurationOutputTypeDef
+    ShareRecipients: list[DataLakePrincipalTypeDef]
+    ServiceIntegrations: list[ServiceIntegrationUnionOutputTypeDef]
+    ResourceShare: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+ServiceIntegrationUnionUnionTypeDef = Union[
+    ServiceIntegrationUnionTypeDef, ServiceIntegrationUnionOutputTypeDef
 ]
 
 
@@ -1192,19 +1231,19 @@ class BatchPermissionsFailureEntryTypeDef(TypedDict):
 
 
 class ListLakeFormationOptInsResponseTypeDef(TypedDict):
-    LakeFormationOptInsInfoList: List[LakeFormationOptInsInfoTypeDef]
+    LakeFormationOptInsInfoList: list[LakeFormationOptInsInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetEffectivePermissionsForPathResponseTypeDef(TypedDict):
-    Permissions: List[PrincipalResourcePermissionsTypeDef]
+    Permissions: list[PrincipalResourcePermissionsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPermissionsResponseTypeDef(TypedDict):
-    PrincipalResourcePermissions: List[PrincipalResourcePermissionsTypeDef]
+    PrincipalResourcePermissions: list[PrincipalResourcePermissionsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1221,13 +1260,29 @@ class ResourceTypeDef(TypedDict):
     LFTagExpression: NotRequired[LFTagExpressionResourceTypeDef]
 
 
+class CreateLakeFormationIdentityCenterConfigurationRequestTypeDef(TypedDict):
+    CatalogId: NotRequired[str]
+    InstanceArn: NotRequired[str]
+    ExternalFiltering: NotRequired[ExternalFilteringConfigurationUnionTypeDef]
+    ShareRecipients: NotRequired[Sequence[DataLakePrincipalTypeDef]]
+    ServiceIntegrations: NotRequired[Sequence[ServiceIntegrationUnionUnionTypeDef]]
+
+
+class UpdateLakeFormationIdentityCenterConfigurationRequestTypeDef(TypedDict):
+    CatalogId: NotRequired[str]
+    ShareRecipients: NotRequired[Sequence[DataLakePrincipalTypeDef]]
+    ServiceIntegrations: NotRequired[Sequence[ServiceIntegrationUnionUnionTypeDef]]
+    ApplicationStatus: NotRequired[ApplicationStatusType]
+    ExternalFiltering: NotRequired[ExternalFilteringConfigurationUnionTypeDef]
+
+
 class BatchGrantPermissionsResponseTypeDef(TypedDict):
-    Failures: List[BatchPermissionsFailureEntryTypeDef]
+    Failures: list[BatchPermissionsFailureEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchRevokePermissionsResponseTypeDef(TypedDict):
-    Failures: List[BatchPermissionsFailureEntryTypeDef]
+    Failures: list[BatchPermissionsFailureEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

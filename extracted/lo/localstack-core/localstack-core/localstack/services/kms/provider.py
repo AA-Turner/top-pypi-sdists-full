@@ -4,10 +4,13 @@ import datetime
 import logging
 import os
 
+from cbor2 import loads as cbor2_loads
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, keywrap
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from cryptography.hazmat.primitives.serialization import load_der_public_key
 
 from localstack.aws.api import CommonServiceException, RequestContext, handler
 from localstack.aws.api.kms import (
@@ -135,9 +138,11 @@ from localstack.services.kms.utils import (
     validate_alias_name,
 )
 from localstack.services.plugins import ServiceLifecycleHook
+from localstack.state import StateVisitor
 from localstack.utils.aws.arns import get_partition, kms_alias_arn, parse_arn
 from localstack.utils.collections import PaginatedList
 from localstack.utils.common import select_attributes
+from localstack.utils.crypto import pkcs7_envelope_encrypt
 from localstack.utils.strings import short_uid, to_bytes, to_str
 
 LOG = logging.getLogger(__name__)
@@ -196,6 +201,9 @@ class KmsProvider(KmsApi, ServiceLifecycleHook):
     - Verify
     - VerifyMac
     """
+
+    def accept_state_visitor(self, visitor: StateVisitor):
+        visitor.visit(kms_stores)
 
     #
     # Helpers
@@ -518,7 +526,12 @@ class KmsProvider(KmsApi, ServiceLifecycleHook):
 
         self.update_primary_key_with_replica_keys(primary_key, replica_key, replica_region)
 
-        return ReplicateKeyResponse(ReplicaKeyMetadata=replica_key.metadata)
+        # CurrentKeyMaterialId is not returned in the ReplicaKeyMetadata. May be due to not being evaluated until
+        # the key has been successfully replicated as it does not show up in DescribeKey immediately either.
+        replica_key_metadata_response = copy.deepcopy(replica_key.metadata)
+        replica_key_metadata_response.pop("CurrentKeyMaterialId", None)
+
+        return ReplicateKeyResponse(ReplicaKeyMetadata=replica_key_metadata_response)
 
     @staticmethod
     # Adds new multi region replica key to the primary key's metadata.
@@ -1075,6 +1088,25 @@ class KmsProvider(KmsApi, ServiceLifecycleHook):
         self._validate_key_for_encryption_decryption(context, key)
         self._validate_key_state_not_pending_import(key)
 
+        # Handle the recipient field.  This is used by AWS Nitro to re-encrypt the plaintext to the key specified
+        # by the enclave.  Proper support for this will take significant work to figure out how to model enforcing
+        # the attestation measurements; for now, if recipient is specified and has an attestation doc in it including
+        # a public key where it's expected to be, we encrypt to that public key.  This at least allows users to use
+        # localstack as a drop-in replacement for AWS when testing without having to skip the secondary decryption
+        # when using localstack.
+        recipient_pubkey = None
+        if recipient:
+            attestation_document = recipient["AttestationDocument"]
+            # We do all of this in a try/catch and warn if it fails so that if users are currently passing a nonsense
+            # value we don't break it for them.  In the future we could do a breaking change to require a valid attestation
+            # (or at least one that contains the public key).
+            try:
+                recipient_pubkey = self._extract_attestation_pubkey(attestation_document)
+            except Exception as e:
+                logging.warning(
+                    "Unable to extract public key from non-empty attestation document: %s", e
+                )
+
         try:
             # TODO: Extend the implementation to handle additional encryption/decryption scenarios
             # beyond the current support for offline encryption and online decryption using RSA keys if key id exists in
@@ -1088,19 +1120,26 @@ class KmsProvider(KmsApi, ServiceLifecycleHook):
                 plaintext = key.decrypt(ciphertext, encryption_context)
         except InvalidTag:
             raise InvalidCiphertextException()
+
         # For compatibility, we return EncryptionAlgorithm values expected from AWS. But LocalStack currently always
         # encrypts with symmetric encryption no matter the key settings.
         #
         # We return a key ARN instead of KeyId despite the name of the parameter, as this is what AWS does and states
         # in its docs.
-        # TODO add support for "recipient"
         #  https://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html#API_Decrypt_RequestSyntax
         # TODO add support for "dry_run"
-        return DecryptResponse(
+        response = DecryptResponse(
             KeyId=key.metadata.get("Arn"),
-            Plaintext=plaintext,
             EncryptionAlgorithm=encryption_algorithm,
         )
+
+        # Encrypt to the recipient pubkey if specified.  Otherwise, return the actual plaintext
+        if recipient_pubkey:
+            response["CiphertextForRecipient"] = pkcs7_envelope_encrypt(plaintext, recipient_pubkey)
+        else:
+            response["Plaintext"] = plaintext
+
+        return response
 
     def get_parameters_for_import(
         self,
@@ -1176,13 +1215,10 @@ class KmsProvider(KmsApi, ServiceLifecycleHook):
         # TODO check if there was already a key imported for this kms key
         # if so, it has to be identical. We cannot change keys by reimporting after deletion/expiry
         key_material = self._decrypt_wrapped_key_material(import_state, encrypted_key_material)
-
-        if expiration_model:
-            key_to_import_material_to.metadata["ExpirationModel"] = expiration_model
-        else:
-            key_to_import_material_to.metadata["ExpirationModel"] = (
-                ExpirationModelType.KEY_MATERIAL_EXPIRES
-            )
+        key_material_id = key_to_import_material_to.generate_key_material_id(key_material)
+        key_to_import_material_to.metadata["ExpirationModel"] = (
+            expiration_model or ExpirationModelType.KEY_MATERIAL_EXPIRES
+        )
         if (
             key_to_import_material_to.metadata["ExpirationModel"]
             == ExpirationModelType.KEY_MATERIAL_EXPIRES
@@ -1191,12 +1227,42 @@ class KmsProvider(KmsApi, ServiceLifecycleHook):
             raise ValidationException(
                 "A validTo date must be set if the ExpirationModel is KEY_MATERIAL_EXPIRES"
             )
+        if existing_pending_material := key_to_import_material_to.crypto_key.pending_key_material:
+            pending_key_material_id = key_to_import_material_to.generate_key_material_id(
+                existing_pending_material
+            )
+            raise KMSInvalidStateException(
+                f"New key material (id: {key_material_id}) cannot be imported into KMS key "
+                f"{key_to_import_material_to.metadata['Arn']}, because another key material "
+                f"(id: {pending_key_material_id}) is pending rotation."
+            )
+
         # TODO actually set validTo and make the key expire
         key_to_import_material_to.metadata["Enabled"] = True
         key_to_import_material_to.metadata["KeyState"] = KeyState.Enabled
         key_to_import_material_to.crypto_key.load_key_material(key_material)
 
-        return ImportKeyMaterialResponse()
+        # KeyMaterialId / CurrentKeyMaterialId is only exposed for symmetric encryption keys.
+        key_material_id_response = None
+        if key_to_import_material_to.metadata["KeySpec"] == KeySpec.SYMMETRIC_DEFAULT:
+            key_material_id_response = key_to_import_material_to.generate_key_material_id(
+                key_material
+            )
+
+            # If there is no CurrentKeyMaterialId, instantly promote the pending key material to the current.
+            if key_to_import_material_to.metadata.get("CurrentKeyMaterialId") is None:
+                key_to_import_material_to.metadata["CurrentKeyMaterialId"] = (
+                    key_material_id_response
+                )
+                key_to_import_material_to.crypto_key.key_material = (
+                    key_to_import_material_to.crypto_key.pending_key_material
+                )
+                key_to_import_material_to.crypto_key.pending_key_material = None
+
+        return ImportKeyMaterialResponse(
+            KeyId=key_to_import_material_to.metadata["Arn"],
+            KeyMaterialId=key_material_id_response,
+        )
 
     def delete_imported_key_material(
         self,
@@ -1323,7 +1389,7 @@ class KmsProvider(KmsApi, ServiceLifecycleHook):
         key = self._get_kms_key(account_id, region_name, key_id, any_key_state_allowed=True)
 
         response = GetKeyRotationStatusResponse(
-            KeyId=key_id,
+            KeyId=key.metadata["Arn"],
             KeyRotationEnabled=key.is_key_rotation_enabled,
             NextRotationDate=key.next_rotation_date,
         )
@@ -1415,13 +1481,13 @@ class KmsProvider(KmsApi, ServiceLifecycleHook):
 
         if key.metadata["KeySpec"] != KeySpec.SYMMETRIC_DEFAULT:
             raise UnsupportedOperationException()
-        if key.metadata["Origin"] == OriginType.EXTERNAL:
-            raise NotImplementedError("Rotation of imported keys is not supported yet.")
+        self._validate_key_state_not_pending_import(key)
+        self._validate_external_key_has_pending_material(key)
 
         key.rotate_key_on_demand()
 
         return RotateKeyOnDemandResponse(
-            KeyId=key_id,
+            KeyId=key.metadata["Arn"],
         )
 
     @handler("TagResource", expand=False)
@@ -1498,6 +1564,12 @@ class KmsProvider(KmsApi, ServiceLifecycleHook):
         if key.metadata["KeyState"] == KeyState.PendingImport:
             raise KMSInvalidStateException(f"{key.metadata['Arn']} is pending import.")
 
+    def _validate_external_key_has_pending_material(self, key: KmsKey):
+        if key.metadata["Origin"] == "EXTERNAL" and key.crypto_key.pending_key_material is None:
+            raise KMSInvalidStateException(
+                f"No available key material pending rotation for the key: {key.metadata['Arn']}."
+            )
+
     def _validate_key_for_encryption_decryption(self, context: RequestContext, key: KmsKey):
         key_usage = key.metadata["KeyUsage"]
         if key_usage != "ENCRYPT_DECRYPT":
@@ -1558,6 +1630,15 @@ class KmsProvider(KmsApi, ServiceLifecycleHook):
                     f"Value {['Operations']} at 'operations' failed to satisfy constraint: Member must satisfy"
                     f" constraint: [Member must satisfy enum value set: {VALID_OPERATIONS}]"
                 )
+
+    def _extract_attestation_pubkey(self, attestation_document: bytes) -> RSAPublicKey:
+        # The attestation document comes as a COSE (CBOR Object Signing and Encryption) object: the CBOR
+        # attestation is signed and then the attestation and signature are again CBOR-encoded.  For now
+        # we don't bother validating the signature, though in the future we could.
+        cose_document = cbor2_loads(attestation_document)
+        attestation = cbor2_loads(cose_document[2])
+        public_key_bytes = attestation["public_key"]
+        return load_der_public_key(public_key_bytes)
 
     def _decrypt_wrapped_key_material(
         self,

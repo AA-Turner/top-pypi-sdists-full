@@ -2,20 +2,17 @@
 PYTHON=python3
 
 all:
-	@echo "targets: dist, docs, upload, install, clean, test"
+	@echo "targets: dist, docs, upload, clean, test"
 
 docs:
 	sphinx-build docs/source build/docs
 
 dist:
-	$(PYTHON) setup.py sdist bdist_wheel
+	$(PYTHON) -m build --sdist --wheel
 
 upload: dist
 	@echo "Uploading to Pypi using twine...."
 	twine upload dist/*
-
-install:
-	$(PYTHON) setup.py install
 
 test:
 	PYTHONPATH=. python3 -m pytest tests

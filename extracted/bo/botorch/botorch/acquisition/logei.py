@@ -277,7 +277,7 @@ class qLogNoisyExpectedImprovement(
         eta: Tensor | float = 1e-3,
         fat: bool = True,
         prune_baseline: bool = True,
-        cache_root: bool = True,
+        cache_root: bool | None = None,
         tau_max: float = TAU_MAX,
         tau_relu: float = TAU_RELU,
         marginalize_dim: int | None = None,
@@ -387,7 +387,7 @@ class qLogNoisyExpectedImprovement(
         sampler: MCSampler | None = None,
         objective: MCAcquisitionObjective | None = None,
         posterior_transform: PosteriorTransform | None = None,
-        cache_root: bool = True,
+        cache_root: bool | None = None,
     ) -> None:
         CachedCholeskyMCSamplerMixin.__init__(
             self, model=model, cache_root=cache_root, sampler=sampler
@@ -449,7 +449,7 @@ class qLogNoisyExpectedImprovement(
 
     @property
     def X_baseline(self) -> Tensor:
-        """Returns the set of pointsthat should be considered as the incumbent.
+        """Returns the set of points that should be considered as the incumbent.
 
         For incremental EI, this contains the previously evaluated points
         (X_baseline) and pending points (X_pending). For non-incremental

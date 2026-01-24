@@ -1,10 +1,8 @@
 import json
-import logging
 import os
 import pytest
 import string
 import time_machine
-from contextlib import contextmanager
 from os import getcwd, path, remove
 from pathlib import Path
 from shutil import rmtree
@@ -32,16 +30,7 @@ def mock_runtime_env(monkeypatch):
 
 @pytest.fixture(scope="session")
 def runner() -> CliRunner:
-    return CliRunner()
-
-
-@contextmanager
-def disable_logging():
-    logging.disable(logging.CRITICAL)
-    try:
-        yield
-    finally:
-        logging.disable(logging.NOTSET)
+    return CliRunner(env={"COLUMNS": "80"})
 
 
 def create_example_project(temp_dir, template=ProjectTemplate.DEFAULT) -> None:
@@ -795,8 +784,7 @@ def test_run_cron_not_elapsed(runner, tmp_path, caplog):
     init_prod_and_backfill(runner, tmp_path)
 
     # No error if `prod` environment exists and cron has not elapsed
-    with disable_logging():
-        result = runner.invoke(cli, ["--log-file-dir", tmp_path, "--paths", tmp_path, "run"])
+    result = runner.invoke(cli, ["--log-file-dir", tmp_path, "--paths", tmp_path, "run"])
     assert result.exit_code == 0
 
     assert (
@@ -843,18 +831,17 @@ def test_table_name(runner, tmp_path):
     # Create and backfill `prod` environment
     create_example_project(tmp_path)
     init_prod_and_backfill(runner, tmp_path)
-    with disable_logging():
-        result = runner.invoke(
-            cli,
-            [
-                "--log-file-dir",
-                tmp_path,
-                "--paths",
-                tmp_path,
-                "table_name",
-                "sqlmesh_example.full_model",
-            ],
-        )
+    result = runner.invoke(
+        cli,
+        [
+            "--log-file-dir",
+            tmp_path,
+            "--paths",
+            tmp_path,
+            "table_name",
+            "sqlmesh_example.full_model",
+        ],
+    )
     assert result.exit_code == 0
     assert result.output.startswith("db.sqlmesh__sqlmesh_example.sqlmesh_example__full_model__")
 
@@ -1887,7 +1874,9 @@ def test_init_interactive_cli_mode_simple(runner: CliRunner, tmp_path: Path):
     assert "no_diff: true" in config_path.read_text()
 
 
-def test_init_interactive_engine_install_msg(runner: CliRunner, tmp_path: Path):
+def test_init_interactive_engine_install_msg(runner: CliRunner, tmp_path: Path, monkeypatch):
+    monkeypatch.setattr("sqlmesh.utils.rich.console.width", 80)
+
     # Engine install text should not appear for built-in engines like DuckDB
     # Input: 1 (DEFAULT template), 1 (duckdb engine), 1 (DEFAULT CLI mode)
     result = runner.invoke(

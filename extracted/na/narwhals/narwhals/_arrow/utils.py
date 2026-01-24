@@ -7,10 +7,11 @@ import pyarrow as pa
 import pyarrow.compute as pc
 
 from narwhals._compliant import EagerSeriesNamespace
-from narwhals._utils import Version, isinstance_or_issubclass
+from narwhals._utils import Implementation, Version, isinstance_or_issubclass
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
+    from typing import Literal
 
     from typing_extensions import TypeAlias, TypeIs
 
@@ -21,7 +22,9 @@ if TYPE_CHECKING:
         ArrayOrScalarT1,
         ArrayOrScalarT2,
         ChunkedArrayAny,
+        Incomplete,
         NativeIntervalUnit,
+        PromoteOptions,
         ScalarAny,
     )
     from narwhals._duration import IntervalUnit
@@ -56,6 +59,9 @@ else:
         is_list,
         is_timestamp,
     )
+
+BACKEND_VERSION = Implementation.PYARROW._backend_version()
+"""Static backend version for `pyarrow`."""
 
 UNITS_DICT: Mapping[IntervalUnit, NativeIntervalUnit] = {
     "y": "year",
@@ -103,12 +109,29 @@ def nulls_like(n: int, series: ArrowSeries) -> ArrayAny:
     return pa.nulls(n, series.native.type)
 
 
+def repeat(
+    value: PythonLiteral | ScalarAny, n: int, /, dtype: pa.DataType | None = None
+) -> ArrayAny:
+    """Create an Array instance whose slots are the given scalar.
+
+    *Optionally*, casting to `dtype` **before** repeating `n` times.
+    """
+    lit_: Incomplete = lit
+    return pa.repeat(lit_(value, type=dtype), n)
+
+
 def zeros(n: int, /) -> pa.Int64Array:
     return pa.repeat(0, n)
 
 
+def native_to_narwhals_dtype(dtype: pa.DataType, version: Version) -> DType:
+    if isinstance(dtype, pa.ExtensionType):
+        return version.dtypes.Unknown()
+    return native_non_extension_to_narwhals_dtype(dtype, version)
+
+
 @lru_cache(maxsize=16)
-def native_to_narwhals_dtype(dtype: pa.DataType, version: Version) -> DType:  # noqa: C901, PLR0912
+def native_non_extension_to_narwhals_dtype(dtype: pa.DataType, version: Version) -> DType:  # noqa: C901, PLR0912
     dtypes = version.dtypes
     if pa.types.is_int64(dtype):
         return dtypes.Int64()
@@ -227,7 +250,7 @@ def narwhals_to_native_dtype(dtype: IntoDType, version: Version) -> pa.DataType:
 
 def extract_native(
     lhs: ArrowSeries, rhs: ArrowSeries | PythonLiteral | ScalarAny
-) -> tuple[ChunkedArrayAny | ScalarAny, ChunkedArrayAny | ScalarAny]:
+) -> tuple[ChunkedArrayAny, ChunkedArrayAny | ScalarAny]:
     """Extract native objects in binary  operation.
 
     If the comparison isn't supported, return `NotImplemented` so that the
@@ -258,9 +281,15 @@ def extract_native(
 def floordiv_compat(left: ArrayOrScalar, right: ArrayOrScalar, /) -> Any:
     # The following lines are adapted from pandas' pyarrow implementation.
     # Ref: https://github.com/pandas-dev/pandas/blob/262fcfbffcee5c3116e86a951d8b693f90411e68/pandas/core/arrays/arrow/array.py#L124-L154
+    # We modify it to add `safe_mask` so as to align with Polars' behaviour when dividing by zero.
+    safe_mask = pc.not_equal(right, lit(0, type=right.type))
+    safe_right = pc.if_else(safe_mask, right, lit(1, type=right.type))  # Dummy value
+    non_safe_result = lit(None, type=left.type)
 
     if pa.types.is_integer(left.type) and pa.types.is_integer(right.type):
-        divided = pc.divide_checked(left, right)
+        divided = pc.if_else(
+            safe_mask, pc.divide_checked(left, safe_right), non_safe_result
+        )
         # TODO @dangotbanned: Use a `TypeVar` in guards
         # Narrowing to a `Union` isn't interacting well with the rest of the stubs
         # https://github.com/zen-xu/pyarrow-stubs/pull/215
@@ -279,7 +308,7 @@ def floordiv_compat(left: ArrayOrScalar, right: ArrayOrScalar, /) -> Any:
             result = divided  # pragma: no cover
         result = result.cast(left.type)
     else:
-        divided = pc.divide(left, right)
+        divided = pc.if_else(safe_mask, pc.divide(left, safe_right), non_safe_result)
         result = pc.floor(divided)
     return result
 
@@ -417,15 +446,14 @@ def pad_series(
     offset_left = window_size // 2
     # subtract one if window_size is even
     offset_right = offset_left - (window_size % 2 == 0)
-    pad_left = pa.array([None] * offset_left, type=series._type)
-    pad_right = pa.array([None] * offset_right, type=series._type)
-    concat = pa.concat_arrays([pad_left, *series.native.chunks, pad_right])
-    return series._with_native(concat), offset_left + offset_right
+    chunks = series.native.chunks
+    arrays = nulls_like(offset_left, series), *chunks, nulls_like(offset_right, series)
+    return series._with_native(pa.concat_arrays(arrays)), offset_left + offset_right
 
 
 def cast_to_comparable_string_types(
-    *chunked_arrays: ChunkedArrayAny, separator: str
-) -> tuple[Iterator[ChunkedArrayAny], ScalarAny]:
+    *chunked_arrays: ChunkedArrayAny | ScalarAny, separator: str
+) -> tuple[Iterator[ChunkedArrayAny | ScalarAny], ScalarAny]:
     # Ensure `chunked_arrays` are either all `string` or all `large_string`.
     dtype = (
         pa.string()  # (PyArrow default)
@@ -435,4 +463,104 @@ def cast_to_comparable_string_types(
     return (ca.cast(dtype) for ca in chunked_arrays), lit(separator, dtype)
 
 
+if BACKEND_VERSION >= (14,):
+    # https://arrow.apache.org/docs/14.0/python/generated/pyarrow.concat_tables.html
+    _PROMOTE: Mapping[PromoteOptions, Mapping[str, Any]] = {
+        "default": {"promote_options": "default"},
+        "permissive": {"promote_options": "permissive"},
+        "none": {"promote_options": "none"},
+    }
+else:  # pragma: no cover
+    # https://arrow.apache.org/docs/13.0/python/generated/pyarrow.concat_tables.html
+    _PROMOTE = {
+        "default": {"promote": True},
+        "permissive": {"promote": True},
+        "none": {"promote": False},
+    }
+
+
+def concat_tables(
+    tables: Iterable[pa.Table], promote_options: PromoteOptions = "none"
+) -> pa.Table:
+    return pa.concat_tables(tables, **_PROMOTE[promote_options])
+
+
 class ArrowSeriesNamespace(EagerSeriesNamespace["ArrowSeries", "ChunkedArrayAny"]): ...
+
+
+def arange(start: int, end: int, step: int) -> ArrayAny:
+    if BACKEND_VERSION < (21,):
+        import numpy as np  # ignore-banned-import
+
+        return pa.array(np.arange(start, end, step))
+    # NOTE: Added in https://github.com/apache/arrow/pull/46778
+    return pa.arange(start, end, step)  # type: ignore[attr-defined]
+
+
+def list_agg(
+    array: ChunkedArrayAny,
+    func: Literal["min", "max", "mean", "approximate_median", "sum"],
+) -> ChunkedArrayAny:
+    lit_: Incomplete = lit
+    aggregation = (
+        ("values", func, pc.ScalarAggregateOptions(min_count=0))
+        if func == "sum"
+        else ("values", func)
+    )
+    agg = pa.array(
+        pa.Table.from_arrays(
+            [pc.list_flatten(array), pc.list_parent_indices(array)],
+            names=["values", "offsets"],
+        )
+        .group_by("offsets")
+        .aggregate([aggregation])
+        .sort_by("offsets")
+        .column(f"values_{func}")
+    )
+    non_empty_mask = pa.array(pc.not_equal(pc.list_value_length(array), lit(0)))
+    if func == "sum":
+        # Make sure sum of empty list is 0.
+        base_array = pc.if_else(non_empty_mask.is_null(), None, 0)
+    else:
+        base_array = pa.repeat(lit_(None, type=agg.type), len(array))
+    return pa.chunked_array(
+        [
+            pc.replace_with_mask(
+                base_array,
+                non_empty_mask.fill_null(False),  # type: ignore[arg-type]
+                agg,
+            )
+        ]
+    )
+
+
+def list_sort(
+    array: ChunkedArrayAny, *, descending: bool, nulls_last: bool
+) -> ChunkedArrayAny:
+    sort_direction: Literal["ascending", "descending"] = (
+        "descending" if descending else "ascending"
+    )
+    nulls_position: Literal["at_start", "at_end"] = "at_end" if nulls_last else "at_start"
+    idx, v = "idx", "values"
+    is_not_sorted = pc.greater(pc.list_value_length(array), lit(0))
+    indexed = pa.Table.from_arrays(
+        [arange(start=0, end=len(array), step=1), array], names=[idx, v]
+    )
+    not_sorted_part = indexed.filter(is_not_sorted)
+    pass_through = indexed.filter(pc.fill_null(pc.invert(is_not_sorted), lit(True)))  # pyright: ignore[reportArgumentType]
+    exploded = pa.Table.from_arrays(
+        [pc.list_flatten(array), pc.list_parent_indices(array)], names=[v, idx]
+    )
+    sorted_indices = pc.sort_indices(
+        exploded,
+        sort_keys=[(idx, "ascending"), (v, sort_direction)],
+        null_placement=nulls_position,
+    )
+    offsets = not_sorted_part.column(v).combine_chunks().offsets  # type: ignore[attr-defined]
+    sorted_imploded = pa.ListArray.from_arrays(
+        offsets, pa.array(exploded.take(sorted_indices).column(v))
+    )
+    imploded_by_idx = pa.Table.from_arrays(
+        [not_sorted_part.column(idx), sorted_imploded], names=[idx, v]
+    )
+    return pa.concat_tables([imploded_by_idx, pass_through]).sort_by(idx).column(v)

@@ -14,9 +14,7 @@ class QwenCode(OpenaiTemplate):
     needs_auth = True
     active_by_default = True
     default_model = "qwen3-coder-plus"
-    default_vision_model = "qwen-vl-max-latest"
-    models = [default_model, default_vision_model]
-    vision_models = [default_vision_model]
+    models = [default_model]
     client = QwenContentGenerator(QwenOAuth2Client())
 
     @classmethod
@@ -35,7 +33,7 @@ class QwenCode(OpenaiTemplate):
         model: str,
         messages: Messages,
         api_key: str = None,
-        api_base: str = None,
+        base_url: str = None,
         **kwargs
     ) -> AsyncResult:
         try:
@@ -45,12 +43,15 @@ class QwenCode(OpenaiTemplate):
                 model,
                 messages,
                 api_key=creds.get("token", api_key),
-                api_base=creds.get("endpoint", api_base),
+                base_url=creds.get("endpoint", base_url),
                 **kwargs
             ):
-                if chunk != last_chunk:
+                if isinstance(chunk, str):
+                    if chunk != last_chunk:
+                        yield chunk
+                    last_chunk = chunk
+                else:
                     yield chunk
-                last_chunk = chunk
         except TokenManagerError:
             await cls.client.shared_manager.getValidCredentials(cls.client.qwen_client, True)
             creds = await cls.client.get_valid_token()
@@ -59,11 +60,14 @@ class QwenCode(OpenaiTemplate):
                 model,
                 messages,
                 api_key=creds.get("token"),
-                api_base=creds.get("endpoint"),
+                base_url=creds.get("endpoint"),
                 **kwargs
             ):
-                if chunk != last_chunk:
+                if isinstance(chunk, str):
+                    if chunk != last_chunk:
+                        yield chunk
+                    last_chunk = chunk
+                else:
                     yield chunk
-                last_chunk = chunk
         except:
             raise

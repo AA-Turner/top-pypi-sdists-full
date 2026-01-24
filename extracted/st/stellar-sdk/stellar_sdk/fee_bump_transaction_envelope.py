@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Union
+from collections.abc import Sequence
 
 from xdrlib3 import Packer
 
@@ -20,7 +20,7 @@ class FeeBumpTransactionEnvelope(BaseTransactionEnvelope["FeeBumpTransactionEnve
     class handles signing and conversion to and from XDR for usage on Stellar's
     network.
 
-    See `Fee-Bump Transactions <https://developers.stellar.org/docs/glossary/fee-bumps/>`__ for more information.
+    See `Fee-Bump Transactions <https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions>`__ for more information.
     See `CAP-0015 <https://github.com/stellar/stellar-protocol/blob/master/core/cap-0015.md>`__ for more information.
 
     :param transaction: The fee bump transaction that is encapsulated in this envelope.
@@ -33,7 +33,7 @@ class FeeBumpTransactionEnvelope(BaseTransactionEnvelope["FeeBumpTransactionEnve
         self,
         transaction: FeeBumpTransaction,
         network_passphrase: str,
-        signatures: Optional[Sequence[DecoratedSignature]] = None,
+        signatures: Sequence[DecoratedSignature] | None = None,
     ) -> None:
         super().__init__(network_passphrase, signatures)
         self.transaction: FeeBumpTransaction = transaction
@@ -58,7 +58,7 @@ class FeeBumpTransactionEnvelope(BaseTransactionEnvelope["FeeBumpTransactionEnve
         return network_id + packer.get_buffer()
 
     @staticmethod
-    def is_fee_bump_transaction_envelope(xdr: Union[str, bytes]) -> bool:
+    def is_fee_bump_transaction_envelope(xdr: str | bytes) -> bool:
         if isinstance(xdr, str):
             xdr_object = stellar_xdr.TransactionEnvelope.from_xdr(xdr)
         else:

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -140,12 +140,15 @@ class ValidationException(ServiceException):
 
 
 class IdentityCenterConfiguration(TypedDict, total=False):
-    """The IAM Identity Center Configuration that includes the Identify Center
-    instance and application ARNs that provide trusted-identity propagation.
+    """The IAM Identity Center Configuration accepts the Identity Center
+    instance parameter required to enable trusted identity propagation. This
+    configuration allows identity propagation between integrated services
+    and the Identity Center instance.
     """
 
-    identityCenterInstanceArn: Optional[IdentityCenterInstanceArn]
-    identityCenterApplicationArn: Optional[IdentityCenterApplicationArn]
+    identityCenterInstanceArn: IdentityCenterInstanceArn | None
+    identityCenterApplicationArn: IdentityCenterApplicationArn | None
+    userBackgroundSessionsEnabled: Boolean | None
 
 
 class SchedulerConfiguration(TypedDict, total=False):
@@ -153,8 +156,8 @@ class SchedulerConfiguration(TypedDict, total=False):
     application. Supported with release labels emr-7.0.0 and above.
     """
 
-    queueTimeoutMinutes: Optional[Integer]
-    maxConcurrentRuns: Optional[Integer]
+    queueTimeoutMinutes: Integer | None
+    maxConcurrentRuns: Integer | None
 
 
 class InteractiveConfiguration(TypedDict, total=False):
@@ -162,8 +165,8 @@ class InteractiveConfiguration(TypedDict, total=False):
     use cases in an application.
     """
 
-    studioEnabled: Optional[Boolean]
-    livyEndpointEnabled: Optional[Boolean]
+    studioEnabled: Boolean | None
+    livyEndpointEnabled: Boolean | None
 
 
 class PrometheusMonitoringConfiguration(TypedDict, total=False):
@@ -171,11 +174,11 @@ class PrometheusMonitoringConfiguration(TypedDict, total=False):
     Amazon Managed Service for Prometheus for a job run.
     """
 
-    remoteWriteUrl: Optional[PrometheusUrlString]
+    remoteWriteUrl: PrometheusUrlString | None
 
 
-LogTypeList = List[LogTypeString]
-LogTypeMap = Dict[WorkerTypeString, LogTypeList]
+LogTypeList = list[LogTypeString]
+LogTypeMap = dict[WorkerTypeString, LogTypeList]
 
 
 class CloudWatchLoggingConfiguration(TypedDict, total=False):
@@ -184,17 +187,17 @@ class CloudWatchLoggingConfiguration(TypedDict, total=False):
     """
 
     enabled: Boolean
-    logGroupName: Optional[LogGroupName]
-    logStreamNamePrefix: Optional[LogStreamNamePrefix]
-    encryptionKeyArn: Optional[EncryptionKeyArn]
-    logTypes: Optional[LogTypeMap]
+    logGroupName: LogGroupName | None
+    logStreamNamePrefix: LogStreamNamePrefix | None
+    encryptionKeyArn: EncryptionKeyArn | None
+    logTypes: LogTypeMap | None
 
 
 class ManagedPersistenceMonitoringConfiguration(TypedDict, total=False):
     """The managed log persistence configuration for a job run."""
 
-    enabled: Optional[Boolean]
-    encryptionKeyArn: Optional[EncryptionKeyArn]
+    enabled: Boolean | None
+    encryptionKeyArn: EncryptionKeyArn | None
 
 
 class S3MonitoringConfiguration(TypedDict, total=False):
@@ -202,21 +205,21 @@ class S3MonitoringConfiguration(TypedDict, total=False):
     configure your jobs to send log information to Amazon S3.
     """
 
-    logUri: Optional[UriString]
-    encryptionKeyArn: Optional[EncryptionKeyArn]
+    logUri: UriString | None
+    encryptionKeyArn: EncryptionKeyArn | None
 
 
 class MonitoringConfiguration(TypedDict, total=False):
     """The configuration setting for monitoring."""
 
-    s3MonitoringConfiguration: Optional[S3MonitoringConfiguration]
-    managedPersistenceMonitoringConfiguration: Optional[ManagedPersistenceMonitoringConfiguration]
-    cloudWatchLoggingConfiguration: Optional[CloudWatchLoggingConfiguration]
-    prometheusMonitoringConfiguration: Optional[PrometheusMonitoringConfiguration]
+    s3MonitoringConfiguration: S3MonitoringConfiguration | None
+    managedPersistenceMonitoringConfiguration: ManagedPersistenceMonitoringConfiguration | None
+    cloudWatchLoggingConfiguration: CloudWatchLoggingConfiguration | None
+    prometheusMonitoringConfiguration: PrometheusMonitoringConfiguration | None
 
 
-ConfigurationList = List["Configuration"]
-SensitivePropertiesMap = Dict[ConfigurationPropertyKey, ConfigurationPropertyValue]
+ConfigurationList = list["Configuration"]
+SensitivePropertiesMap = dict[ConfigurationPropertyKey, ConfigurationPropertyValue]
 
 
 class Configuration(TypedDict, total=False):
@@ -228,33 +231,33 @@ class Configuration(TypedDict, total=False):
     """
 
     classification: String1024
-    properties: Optional[SensitivePropertiesMap]
-    configurations: Optional[ConfigurationList]
+    properties: SensitivePropertiesMap | None
+    configurations: ConfigurationList | None
 
 
 class ImageConfiguration(TypedDict, total=False):
     """The applied image configuration."""
 
     imageUri: ImageUri
-    resolvedImageDigest: Optional[ImageDigest]
+    resolvedImageDigest: ImageDigest | None
 
 
 class WorkerTypeSpecification(TypedDict, total=False):
     """The specifications for a worker type."""
 
-    imageConfiguration: Optional[ImageConfiguration]
+    imageConfiguration: ImageConfiguration | None
 
 
-WorkerTypeSpecificationMap = Dict[WorkerTypeString, WorkerTypeSpecification]
-SecurityGroupIds = List[SecurityGroupString]
-SubnetIds = List[SubnetString]
+WorkerTypeSpecificationMap = dict[WorkerTypeString, WorkerTypeSpecification]
+SecurityGroupIds = list[SecurityGroupString]
+SubnetIds = list[SubnetString]
 
 
 class NetworkConfiguration(TypedDict, total=False):
     """The network configuration for customer VPC connectivity."""
 
-    subnetIds: Optional[SubnetIds]
-    securityGroupIds: Optional[SecurityGroupIds]
+    subnetIds: SubnetIds | None
+    securityGroupIds: SecurityGroupIds | None
 
 
 class AutoStopConfig(TypedDict, total=False):
@@ -262,8 +265,8 @@ class AutoStopConfig(TypedDict, total=False):
     certain amount of time being idle.
     """
 
-    enabled: Optional[Boolean]
-    idleTimeoutMinutes: Optional[AutoStopConfigIdleTimeoutMinutesInteger]
+    enabled: Boolean | None
+    idleTimeoutMinutes: AutoStopConfigIdleTimeoutMinutesInteger | None
 
 
 class AutoStartConfig(TypedDict, total=False):
@@ -271,10 +274,10 @@ class AutoStartConfig(TypedDict, total=False):
     submission.
     """
 
-    enabled: Optional[Boolean]
+    enabled: Boolean | None
 
 
-TagMap = Dict[TagKey, TagValue]
+TagMap = dict[TagKey, TagValue]
 Date = datetime
 
 
@@ -285,7 +288,7 @@ class MaximumAllowedResources(TypedDict, total=False):
 
     cpu: CpuSize
     memory: MemorySize
-    disk: Optional[DiskSize]
+    disk: DiskSize | None
 
 
 class WorkerResourceConfig(TypedDict, total=False):
@@ -295,8 +298,8 @@ class WorkerResourceConfig(TypedDict, total=False):
 
     cpu: CpuSize
     memory: MemorySize
-    disk: Optional[DiskSize]
-    diskType: Optional[DiskType]
+    disk: DiskSize | None
+    diskType: DiskType | None
 
 
 WorkerCounts = int
@@ -306,59 +309,59 @@ class InitialCapacityConfig(TypedDict, total=False):
     """The initial capacity configuration per worker."""
 
     workerCount: WorkerCounts
-    workerConfiguration: Optional[WorkerResourceConfig]
+    workerConfiguration: WorkerResourceConfig | None
 
 
-InitialCapacityConfigMap = Dict[WorkerTypeString, InitialCapacityConfig]
+InitialCapacityConfigMap = dict[WorkerTypeString, InitialCapacityConfig]
 
 
 class Application(TypedDict, total=False):
     applicationId: ApplicationId
-    name: Optional[ApplicationName]
+    name: ApplicationName | None
     arn: ApplicationArn
     releaseLabel: ReleaseLabel
     type: EngineType
     state: ApplicationState
-    stateDetails: Optional[String256]
-    initialCapacity: Optional[InitialCapacityConfigMap]
-    maximumCapacity: Optional[MaximumAllowedResources]
+    stateDetails: String256 | None
+    initialCapacity: InitialCapacityConfigMap | None
+    maximumCapacity: MaximumAllowedResources | None
     createdAt: Date
     updatedAt: Date
-    tags: Optional[TagMap]
-    autoStartConfiguration: Optional[AutoStartConfig]
-    autoStopConfiguration: Optional[AutoStopConfig]
-    networkConfiguration: Optional[NetworkConfiguration]
-    architecture: Optional[Architecture]
-    imageConfiguration: Optional[ImageConfiguration]
-    workerTypeSpecifications: Optional[WorkerTypeSpecificationMap]
-    runtimeConfiguration: Optional[ConfigurationList]
-    monitoringConfiguration: Optional[MonitoringConfiguration]
-    interactiveConfiguration: Optional[InteractiveConfiguration]
-    schedulerConfiguration: Optional[SchedulerConfiguration]
-    identityCenterConfiguration: Optional[IdentityCenterConfiguration]
+    tags: TagMap | None
+    autoStartConfiguration: AutoStartConfig | None
+    autoStopConfiguration: AutoStopConfig | None
+    networkConfiguration: NetworkConfiguration | None
+    architecture: Architecture | None
+    imageConfiguration: ImageConfiguration | None
+    workerTypeSpecifications: WorkerTypeSpecificationMap | None
+    runtimeConfiguration: ConfigurationList | None
+    monitoringConfiguration: MonitoringConfiguration | None
+    interactiveConfiguration: InteractiveConfiguration | None
+    schedulerConfiguration: SchedulerConfiguration | None
+    identityCenterConfiguration: IdentityCenterConfiguration | None
 
 
 class ApplicationSummary(TypedDict, total=False):
     id: ApplicationId
-    name: Optional[ApplicationName]
+    name: ApplicationName | None
     arn: ApplicationArn
     releaseLabel: ReleaseLabel
     type: EngineType
     state: ApplicationState
-    stateDetails: Optional[String256]
+    stateDetails: String256 | None
     createdAt: Date
     updatedAt: Date
-    architecture: Optional[Architecture]
+    architecture: Architecture | None
 
 
-ApplicationList = List[ApplicationSummary]
-ApplicationStateSet = List[ApplicationState]
+ApplicationList = list[ApplicationSummary]
+ApplicationStateSet = list[ApplicationState]
 
 
 class CancelJobRunRequest(ServiceRequest):
     applicationId: ApplicationId
     jobRunId: JobRunId
-    shutdownGracePeriodInSeconds: Optional[ShutdownGracePeriodInSeconds]
+    shutdownGracePeriodInSeconds: ShutdownGracePeriodInSeconds | None
 
 
 class CancelJobRunResponse(TypedDict, total=False):
@@ -371,59 +374,60 @@ class ConfigurationOverrides(TypedDict, total=False):
     configurations.
     """
 
-    applicationConfiguration: Optional[ConfigurationList]
-    monitoringConfiguration: Optional[MonitoringConfiguration]
+    applicationConfiguration: ConfigurationList | None
+    monitoringConfiguration: MonitoringConfiguration | None
 
 
 class IdentityCenterConfigurationInput(TypedDict, total=False):
-    """Specifies the IAM Identity Center configuration used to enable or
-    disable trusted identity propagation. When provided, this configuration
-    determines how the application interacts with IAM Identity Center for
-    user authentication and access control.
+    """The IAM Identity Center Configuration accepts the Identity Center
+    instance parameter required to enable trusted identity propagation. This
+    configuration allows identity propagation between integrated services
+    and the Identity Center instance.
     """
 
-    identityCenterInstanceArn: Optional[IdentityCenterInstanceArn]
+    identityCenterInstanceArn: IdentityCenterInstanceArn | None
+    userBackgroundSessionsEnabled: Boolean | None
 
 
 class ImageConfigurationInput(TypedDict, total=False):
     """The image configuration."""
 
-    imageUri: Optional[ImageUri]
+    imageUri: ImageUri | None
 
 
 class WorkerTypeSpecificationInput(TypedDict, total=False):
     """The specifications for a worker type."""
 
-    imageConfiguration: Optional[ImageConfigurationInput]
+    imageConfiguration: ImageConfigurationInput | None
 
 
-WorkerTypeSpecificationInputMap = Dict[WorkerTypeString, WorkerTypeSpecificationInput]
+WorkerTypeSpecificationInputMap = dict[WorkerTypeString, WorkerTypeSpecificationInput]
 
 
 class CreateApplicationRequest(TypedDict, total=False):
-    name: Optional[ApplicationName]
+    name: ApplicationName | None
     releaseLabel: ReleaseLabel
     type: EngineType
     clientToken: ClientToken
-    initialCapacity: Optional[InitialCapacityConfigMap]
-    maximumCapacity: Optional[MaximumAllowedResources]
-    tags: Optional[TagMap]
-    autoStartConfiguration: Optional[AutoStartConfig]
-    autoStopConfiguration: Optional[AutoStopConfig]
-    networkConfiguration: Optional[NetworkConfiguration]
-    architecture: Optional[Architecture]
-    imageConfiguration: Optional[ImageConfigurationInput]
-    workerTypeSpecifications: Optional[WorkerTypeSpecificationInputMap]
-    runtimeConfiguration: Optional[ConfigurationList]
-    monitoringConfiguration: Optional[MonitoringConfiguration]
-    interactiveConfiguration: Optional[InteractiveConfiguration]
-    schedulerConfiguration: Optional[SchedulerConfiguration]
-    identityCenterConfiguration: Optional[IdentityCenterConfigurationInput]
+    initialCapacity: InitialCapacityConfigMap | None
+    maximumCapacity: MaximumAllowedResources | None
+    tags: TagMap | None
+    autoStartConfiguration: AutoStartConfig | None
+    autoStopConfiguration: AutoStopConfig | None
+    networkConfiguration: NetworkConfiguration | None
+    architecture: Architecture | None
+    imageConfiguration: ImageConfigurationInput | None
+    workerTypeSpecifications: WorkerTypeSpecificationInputMap | None
+    runtimeConfiguration: ConfigurationList | None
+    monitoringConfiguration: MonitoringConfiguration | None
+    interactiveConfiguration: InteractiveConfiguration | None
+    schedulerConfiguration: SchedulerConfiguration | None
+    identityCenterConfiguration: IdentityCenterConfigurationInput | None
 
 
 class CreateApplicationResponse(TypedDict, total=False):
     applicationId: ApplicationId
-    name: Optional[ApplicationName]
+    name: ApplicationName | None
     arn: ApplicationArn
 
 
@@ -436,7 +440,7 @@ class DeleteApplicationResponse(TypedDict, total=False):
 
 
 Duration = int
-EntryPointArguments = List[EntryPointArgument]
+EntryPointArguments = list[EntryPointArgument]
 
 
 class GetApplicationRequest(ServiceRequest):
@@ -450,18 +454,18 @@ class GetApplicationResponse(TypedDict, total=False):
 class GetDashboardForJobRunRequest(ServiceRequest):
     applicationId: ApplicationId
     jobRunId: JobRunId
-    attempt: Optional[AttemptNumber]
-    accessSystemProfileLogs: Optional[Boolean]
+    attempt: AttemptNumber | None
+    accessSystemProfileLogs: Boolean | None
 
 
 class GetDashboardForJobRunResponse(TypedDict, total=False):
-    url: Optional[Url]
+    url: Url | None
 
 
 class GetJobRunRequest(ServiceRequest):
     applicationId: ApplicationId
     jobRunId: JobRunId
-    attempt: Optional[AttemptNumber]
+    attempt: AttemptNumber | None
 
 
 Long = int
@@ -470,16 +474,16 @@ Long = int
 class RetryPolicy(TypedDict, total=False):
     """The retry policy to use for a job run."""
 
-    maxAttempts: Optional[AttemptNumber]
-    maxFailedAttemptsPerHour: Optional[RetryPolicyMaxFailedAttemptsPerHourInteger]
+    maxAttempts: AttemptNumber | None
+    maxFailedAttemptsPerHour: RetryPolicyMaxFailedAttemptsPerHourInteger | None
 
 
 class ResourceUtilization(TypedDict, total=False):
     """The resource utilization for memory, storage, and vCPU for jobs."""
 
-    vCPUHour: Optional[Double]
-    memoryGBHour: Optional[Double]
-    storageGBHour: Optional[Double]
+    vCPUHour: Double | None
+    memoryGBHour: Double | None
+    storageGBHour: Double | None
 
 
 class TotalResourceUtilization(TypedDict, total=False):
@@ -488,35 +492,35 @@ class TotalResourceUtilization(TypedDict, total=False):
     nearest second.
     """
 
-    vCPUHour: Optional[Double]
-    memoryGBHour: Optional[Double]
-    storageGBHour: Optional[Double]
+    vCPUHour: Double | None
+    memoryGBHour: Double | None
+    storageGBHour: Double | None
 
 
 class Hive(TypedDict, total=False):
     """The configurations for the Hive job driver."""
 
     query: Query
-    initQueryFile: Optional[InitScriptPath]
-    parameters: Optional[HiveCliParameters]
+    initQueryFile: InitScriptPath | None
+    parameters: HiveCliParameters | None
 
 
 class SparkSubmit(TypedDict, total=False):
     """The configurations for the Spark submit job driver."""
 
     entryPoint: EntryPointPath
-    entryPointArguments: Optional[EntryPointArguments]
-    sparkSubmitParameters: Optional[SparkSubmitParameters]
+    entryPointArguments: EntryPointArguments | None
+    sparkSubmitParameters: SparkSubmitParameters | None
 
 
 class JobDriver(TypedDict, total=False):
     """The driver that the job runs on."""
 
-    sparkSubmit: Optional[SparkSubmit]
-    hive: Optional[Hive]
+    sparkSubmit: SparkSubmit | None
+    hive: Hive | None
 
 
-PolicyArnList = List[Arn]
+PolicyArnList = list[Arn]
 
 
 class JobRunExecutionIamPolicy(TypedDict, total=False):
@@ -525,8 +529,8 @@ class JobRunExecutionIamPolicy(TypedDict, total=False):
     job execution role.
     """
 
-    policy: Optional[PolicyDocument]
-    policyArns: Optional[PolicyArnList]
+    policy: PolicyDocument | None
+    policyArns: PolicyArnList | None
 
 
 class JobRun(TypedDict, total=False):
@@ -537,32 +541,32 @@ class JobRun(TypedDict, total=False):
 
     applicationId: ApplicationId
     jobRunId: JobRunId
-    name: Optional[String256]
+    name: String256 | None
     arn: JobArn
     createdBy: RequestIdentityUserArn
     createdAt: Date
     updatedAt: Date
     executionRole: IAMRoleArn
-    executionIamPolicy: Optional[JobRunExecutionIamPolicy]
+    executionIamPolicy: JobRunExecutionIamPolicy | None
     state: JobRunState
     stateDetails: String256
     releaseLabel: ReleaseLabel
-    configurationOverrides: Optional[ConfigurationOverrides]
+    configurationOverrides: ConfigurationOverrides | None
     jobDriver: JobDriver
-    tags: Optional[TagMap]
-    totalResourceUtilization: Optional[TotalResourceUtilization]
-    networkConfiguration: Optional[NetworkConfiguration]
-    totalExecutionDurationSeconds: Optional[Integer]
-    executionTimeoutMinutes: Optional[Duration]
-    billedResourceUtilization: Optional[ResourceUtilization]
-    mode: Optional[JobRunMode]
-    retryPolicy: Optional[RetryPolicy]
-    attempt: Optional[AttemptNumber]
-    attemptCreatedAt: Optional[Date]
-    attemptUpdatedAt: Optional[Date]
-    startedAt: Optional[Date]
-    endedAt: Optional[Date]
-    queuedDurationMilliseconds: Optional[Long]
+    tags: TagMap | None
+    totalResourceUtilization: TotalResourceUtilization | None
+    networkConfiguration: NetworkConfiguration | None
+    totalExecutionDurationSeconds: Integer | None
+    executionTimeoutMinutes: Duration | None
+    billedResourceUtilization: ResourceUtilization | None
+    mode: JobRunMode | None
+    retryPolicy: RetryPolicy | None
+    attempt: AttemptNumber | None
+    attemptCreatedAt: Date | None
+    attemptUpdatedAt: Date | None
+    startedAt: Date | None
+    endedAt: Date | None
+    queuedDurationMilliseconds: Long | None
 
 
 class GetJobRunResponse(TypedDict, total=False):
@@ -572,8 +576,8 @@ class GetJobRunResponse(TypedDict, total=False):
 class JobRunAttemptSummary(TypedDict, total=False):
     applicationId: ApplicationId
     id: JobRunId
-    name: Optional[String256]
-    mode: Optional[JobRunMode]
+    name: String256 | None
+    mode: JobRunMode | None
     arn: JobArn
     createdBy: RequestIdentityUserArn
     jobCreatedAt: Date
@@ -583,19 +587,19 @@ class JobRunAttemptSummary(TypedDict, total=False):
     state: JobRunState
     stateDetails: String256
     releaseLabel: ReleaseLabel
-    type: Optional[JobRunType]
-    attempt: Optional[AttemptNumber]
+    type: JobRunType | None
+    attempt: AttemptNumber | None
 
 
-JobRunAttempts = List[JobRunAttemptSummary]
-JobRunStateSet = List[JobRunState]
+JobRunAttempts = list[JobRunAttemptSummary]
+JobRunStateSet = list[JobRunState]
 
 
 class JobRunSummary(TypedDict, total=False):
     applicationId: ApplicationId
     id: JobRunId
-    name: Optional[String256]
-    mode: Optional[JobRunMode]
+    name: String256 | None
+    mode: JobRunMode | None
     arn: JobArn
     createdBy: RequestIdentityUserArn
     createdAt: Date
@@ -604,51 +608,51 @@ class JobRunSummary(TypedDict, total=False):
     state: JobRunState
     stateDetails: String256
     releaseLabel: ReleaseLabel
-    type: Optional[JobRunType]
-    attempt: Optional[AttemptNumber]
-    attemptCreatedAt: Optional[Date]
-    attemptUpdatedAt: Optional[Date]
+    type: JobRunType | None
+    attempt: AttemptNumber | None
+    attemptCreatedAt: Date | None
+    attemptUpdatedAt: Date | None
 
 
-JobRuns = List[JobRunSummary]
+JobRuns = list[JobRunSummary]
 
 
 class ListApplicationsRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[ListApplicationsRequestMaxResultsInteger]
-    states: Optional[ApplicationStateSet]
+    nextToken: NextToken | None
+    maxResults: ListApplicationsRequestMaxResultsInteger | None
+    states: ApplicationStateSet | None
 
 
 class ListApplicationsResponse(TypedDict, total=False):
     applications: ApplicationList
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListJobRunAttemptsRequest(ServiceRequest):
     applicationId: ApplicationId
     jobRunId: JobRunId
-    nextToken: Optional[NextToken]
-    maxResults: Optional[ListJobRunAttemptsRequestMaxResultsInteger]
+    nextToken: NextToken | None
+    maxResults: ListJobRunAttemptsRequestMaxResultsInteger | None
 
 
 class ListJobRunAttemptsResponse(TypedDict, total=False):
     jobRunAttempts: JobRunAttempts
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListJobRunsRequest(ServiceRequest):
     applicationId: ApplicationId
-    nextToken: Optional[NextToken]
-    maxResults: Optional[ListJobRunsRequestMaxResultsInteger]
-    createdAtAfter: Optional[Date]
-    createdAtBefore: Optional[Date]
-    states: Optional[JobRunStateSet]
-    mode: Optional[JobRunMode]
+    nextToken: NextToken | None
+    maxResults: ListJobRunsRequestMaxResultsInteger | None
+    createdAtAfter: Date | None
+    createdAtBefore: Date | None
+    states: JobRunStateSet | None
+    mode: JobRunMode | None
 
 
 class ListJobRunsResponse(TypedDict, total=False):
     jobRuns: JobRuns
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -656,7 +660,7 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    tags: Optional[TagMap]
+    tags: TagMap | None
 
 
 class StartApplicationRequest(ServiceRequest):
@@ -671,14 +675,14 @@ class StartJobRunRequest(ServiceRequest):
     applicationId: ApplicationId
     clientToken: ClientToken
     executionRoleArn: IAMRoleArn
-    executionIamPolicy: Optional[JobRunExecutionIamPolicy]
-    jobDriver: Optional[JobDriver]
-    configurationOverrides: Optional[ConfigurationOverrides]
-    tags: Optional[TagMap]
-    executionTimeoutMinutes: Optional[Duration]
-    name: Optional[String256]
-    mode: Optional[JobRunMode]
-    retryPolicy: Optional[RetryPolicy]
+    executionIamPolicy: JobRunExecutionIamPolicy | None
+    jobDriver: JobDriver | None
+    configurationOverrides: ConfigurationOverrides | None
+    tags: TagMap | None
+    executionTimeoutMinutes: Duration | None
+    name: String256 | None
+    mode: JobRunMode | None
+    retryPolicy: RetryPolicy | None
 
 
 class StartJobRunResponse(TypedDict, total=False):
@@ -695,7 +699,7 @@ class StopApplicationResponse(TypedDict, total=False):
     pass
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -719,20 +723,20 @@ class UntagResourceResponse(TypedDict, total=False):
 class UpdateApplicationRequest(ServiceRequest):
     applicationId: ApplicationId
     clientToken: ClientToken
-    initialCapacity: Optional[InitialCapacityConfigMap]
-    maximumCapacity: Optional[MaximumAllowedResources]
-    autoStartConfiguration: Optional[AutoStartConfig]
-    autoStopConfiguration: Optional[AutoStopConfig]
-    networkConfiguration: Optional[NetworkConfiguration]
-    architecture: Optional[Architecture]
-    imageConfiguration: Optional[ImageConfigurationInput]
-    workerTypeSpecifications: Optional[WorkerTypeSpecificationInputMap]
-    interactiveConfiguration: Optional[InteractiveConfiguration]
-    releaseLabel: Optional[ReleaseLabel]
-    runtimeConfiguration: Optional[ConfigurationList]
-    monitoringConfiguration: Optional[MonitoringConfiguration]
-    schedulerConfiguration: Optional[SchedulerConfiguration]
-    identityCenterConfiguration: Optional[IdentityCenterConfigurationInput]
+    initialCapacity: InitialCapacityConfigMap | None
+    maximumCapacity: MaximumAllowedResources | None
+    autoStartConfiguration: AutoStartConfig | None
+    autoStopConfiguration: AutoStopConfig | None
+    networkConfiguration: NetworkConfiguration | None
+    architecture: Architecture | None
+    imageConfiguration: ImageConfigurationInput | None
+    workerTypeSpecifications: WorkerTypeSpecificationInputMap | None
+    interactiveConfiguration: InteractiveConfiguration | None
+    releaseLabel: ReleaseLabel | None
+    runtimeConfiguration: ConfigurationList | None
+    monitoringConfiguration: MonitoringConfiguration | None
+    schedulerConfiguration: SchedulerConfiguration | None
+    identityCenterConfiguration: IdentityCenterConfigurationInput | None
 
 
 class UpdateApplicationResponse(TypedDict, total=False):
@@ -740,8 +744,8 @@ class UpdateApplicationResponse(TypedDict, total=False):
 
 
 class EmrServerlessApi:
-    service = "emr-serverless"
-    version = "2021-07-13"
+    service: str = "emr-serverless"
+    version: str = "2021-07-13"
 
     @handler("CancelJobRun")
     def cancel_job_run(

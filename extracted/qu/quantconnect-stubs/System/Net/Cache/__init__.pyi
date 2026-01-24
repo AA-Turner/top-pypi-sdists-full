@@ -1,12 +1,12 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import System
 import System.Net.Cache
 
 
-class RequestCacheLevel(Enum):
+class RequestCacheLevel(IntEnum):
     """This class has no documentation."""
 
     DEFAULT = 0
@@ -22,9 +22,6 @@ class RequestCacheLevel(Enum):
     RELOAD = 5
 
     NO_CACHE_NO_STORE = 6
-
-    def __int__(self) -> int:
-        ...
 
 
 class RequestCachePolicy(System.Object):

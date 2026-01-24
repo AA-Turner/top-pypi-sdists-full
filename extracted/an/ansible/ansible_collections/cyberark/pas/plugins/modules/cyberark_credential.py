@@ -36,6 +36,12 @@ options:
         description:
             - A string containing the base URL of the server hosting the
               Central Credential Provider.
+    path:
+        type: str
+        required: false
+        default: /AIMWebService/api/Accounts
+        description:
+            - A string containing the path for the AIM service Accounts API.
     validate_certs:
         type: bool
         required: false
@@ -223,15 +229,13 @@ def retrieve_credential(module):
     fail_request_on_password_change = module.params["fail_request_on_password_change"]
     client_cert = None
     client_key = None
-    path = "/AIMWebService/api/Accounts"
 
     if "client_cert" in module.params:
         client_cert = module.params["client_cert"]
     if "client_key" in module.params:
         client_key = module.params["client_key"]
 
-    if "path" in module.params:
-        path = module.params["path"]
+    path = module.params["path"]
 
     end_point = (
         "%s?AppId=%s&Query=%s&"
@@ -309,6 +313,7 @@ def main():
 
     fields = {
         "api_base_url": {"required": True, "type": "str"},
+        "path": {"required": False, "type": "str", "default": "/AIMWebService/api/Accounts"},
         "app_id": {"required": True, "type": "str"},
         "query": {"required": True, "type": "str"},
         "reason": {"required": False, "type": "str"},

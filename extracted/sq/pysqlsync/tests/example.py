@@ -6,9 +6,9 @@ import os.path
 import sys
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Annotated, Optional
 
-from strong_typing.auxiliary import Annotated, MaxLength
+from strong_typing.auxiliary import MaxLength
 
 from pysqlsync.base import GeneratorOptions
 from pysqlsync.connection import ConnectionParameters
@@ -98,8 +98,8 @@ async def run() -> None:
     # END
 
     # BLOCK: Example 5
-    field_names = ["id", "uuid", "name", "short_name", "workflow_state", "updated_at"]
-    field_types = [int, uuid.UUID, str, str, str, datetime]
+    field_names = ("id", "uuid", "name", "short_name", "workflow_state", "updated_at")
+    field_types = (int, uuid.UUID, str, str, str, datetime)
     rows = [
         (1, uuid.uuid4(), "Laura Twenty-Four", "Laura", "active", datetime.now()),
         (2, uuid.uuid4(), "Zeta Twelve", "Zeta", "inactive", datetime.now()),
@@ -109,8 +109,8 @@ async def run() -> None:
         table = conn.get_table(UserTable)
         await conn.upsert_rows(
             table,
-            field_names=tuple(field_names),
-            field_types=tuple(field_types),
+            field_names=field_names,
+            field_types=field_types,
             records=rows,
         )
     # END

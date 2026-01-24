@@ -19,6 +19,8 @@ __all__ = [
     'AccessHomeDirectoryMapping',
     'AccessPosixProfile',
     'ConnectorAs2Config',
+    'ConnectorEgressConfig',
+    'ConnectorEgressConfigVpcLattice',
     'ConnectorSftpConfig',
     'ServerEndpointDetails',
     'ServerProtocolDetails',
@@ -28,6 +30,11 @@ __all__ = [
     'ServerWorkflowDetailsOnUpload',
     'UserHomeDirectoryMapping',
     'UserPosixProfile',
+    'WebAppEndpointDetails',
+    'WebAppEndpointDetailsVpc',
+    'WebAppIdentityProviderDetails',
+    'WebAppIdentityProviderDetailsIdentityCenterConfig',
+    'WebAppWebAppUnit',
     'WorkflowOnExceptionStep',
     'WorkflowOnExceptionStepCopyStepDetails',
     'WorkflowOnExceptionStepCopyStepDetailsDestinationFileLocation',
@@ -55,6 +62,8 @@ __all__ = [
     'WorkflowStepTagStepDetails',
     'WorkflowStepTagStepDetailsTag',
     'GetConnectorAs2ConfigResult',
+    'GetConnectorEgressConfigResult',
+    'GetConnectorEgressConfigVpcLatticeResult',
     'GetConnectorSftpConfigResult',
 ]
 
@@ -269,6 +278,91 @@ class ConnectorAs2Config(dict):
         Used as the subject HTTP header attribute in AS2 messages that are being sent with the connector.
         """
         return pulumi.get(self, "message_subject")
+
+
+@pulumi.output_type
+class ConnectorEgressConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "vpcLattice":
+            suggest = "vpc_lattice"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ConnectorEgressConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ConnectorEgressConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ConnectorEgressConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 vpc_lattice: Optional['outputs.ConnectorEgressConfigVpcLattice'] = None):
+        """
+        :param 'ConnectorEgressConfigVpcLatticeArgs' vpc_lattice: VPC Lattice configuration for routing connector traffic through customer VPCs. Fields documented below.
+        """
+        if vpc_lattice is not None:
+            pulumi.set(__self__, "vpc_lattice", vpc_lattice)
+
+    @_builtins.property
+    @pulumi.getter(name="vpcLattice")
+    def vpc_lattice(self) -> Optional['outputs.ConnectorEgressConfigVpcLattice']:
+        """
+        VPC Lattice configuration for routing connector traffic through customer VPCs. Fields documented below.
+        """
+        return pulumi.get(self, "vpc_lattice")
+
+
+@pulumi.output_type
+class ConnectorEgressConfigVpcLattice(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "resourceConfigurationArn":
+            suggest = "resource_configuration_arn"
+        elif key == "portNumber":
+            suggest = "port_number"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ConnectorEgressConfigVpcLattice. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ConnectorEgressConfigVpcLattice.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ConnectorEgressConfigVpcLattice.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 resource_configuration_arn: _builtins.str,
+                 port_number: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str resource_configuration_arn: ARN of the VPC Lattice Resource Configuration that defines the target SFTP server location. Must point to a valid Resource Configuration in a VPC with appropriate network connectivity to the SFTP server.
+        :param _builtins.int port_number: Port number for connecting to the SFTP server through VPC Lattice. Defaults to 22 if not specified. Must match the port on which the target SFTP server is listening. Valid values are between 1 and 65535.
+        """
+        pulumi.set(__self__, "resource_configuration_arn", resource_configuration_arn)
+        if port_number is not None:
+            pulumi.set(__self__, "port_number", port_number)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceConfigurationArn")
+    def resource_configuration_arn(self) -> _builtins.str:
+        """
+        ARN of the VPC Lattice Resource Configuration that defines the target SFTP server location. Must point to a valid Resource Configuration in a VPC with appropriate network connectivity to the SFTP server.
+        """
+        return pulumi.get(self, "resource_configuration_arn")
+
+    @_builtins.property
+    @pulumi.getter(name="portNumber")
+    def port_number(self) -> Optional[_builtins.int]:
+        """
+        Port number for connecting to the SFTP server through VPC Lattice. Defaults to 22 if not specified. Must match the port on which the target SFTP server is listening. Valid values are between 1 and 65535.
+        """
+        return pulumi.get(self, "port_number")
 
 
 @pulumi.output_type
@@ -780,6 +874,207 @@ class UserPosixProfile(dict):
         The secondary POSIX group IDs used for all EFS operations by this user.
         """
         return pulumi.get(self, "secondary_gids")
+
+
+@pulumi.output_type
+class WebAppEndpointDetails(dict):
+    def __init__(__self__, *,
+                 vpc: Optional['outputs.WebAppEndpointDetailsVpc'] = None):
+        """
+        :param 'WebAppEndpointDetailsVpcArgs' vpc: Block defining VPC configuration for hosting the web app endpoint within a VPC. See Vpc below.
+        """
+        if vpc is not None:
+            pulumi.set(__self__, "vpc", vpc)
+
+    @_builtins.property
+    @pulumi.getter
+    def vpc(self) -> Optional['outputs.WebAppEndpointDetailsVpc']:
+        """
+        Block defining VPC configuration for hosting the web app endpoint within a VPC. See Vpc below.
+        """
+        return pulumi.get(self, "vpc")
+
+
+@pulumi.output_type
+class WebAppEndpointDetailsVpc(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "subnetIds":
+            suggest = "subnet_ids"
+        elif key == "vpcId":
+            suggest = "vpc_id"
+        elif key == "securityGroupIds":
+            suggest = "security_group_ids"
+        elif key == "vpcEndpointId":
+            suggest = "vpc_endpoint_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in WebAppEndpointDetailsVpc. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        WebAppEndpointDetailsVpc.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        WebAppEndpointDetailsVpc.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 subnet_ids: Sequence[_builtins.str],
+                 vpc_id: _builtins.str,
+                 security_group_ids: Optional[Sequence[_builtins.str]] = None,
+                 vpc_endpoint_id: Optional[_builtins.str] = None):
+        """
+        :param Sequence[_builtins.str] subnet_ids: List of subnet IDs within the VPC where the web app endpoint will be deployed. These subnets must be in the same VPC specified in the `vpc_id` parameter.
+        :param _builtins.str vpc_id: ID of the VPC where the web app endpoint will be hosted. The VPC must be dual-stack, meaning it supports both IPv4 and IPv6 addressing.
+        :param Sequence[_builtins.str] security_group_ids: List of security group IDs that control access to the web app endpoint. If not specified, the VPC's default security group is used.
+        :param _builtins.str vpc_endpoint_id: ID of the VPC endpoint created for the web app.
+        """
+        pulumi.set(__self__, "subnet_ids", subnet_ids)
+        pulumi.set(__self__, "vpc_id", vpc_id)
+        if security_group_ids is not None:
+            pulumi.set(__self__, "security_group_ids", security_group_ids)
+        if vpc_endpoint_id is not None:
+            pulumi.set(__self__, "vpc_endpoint_id", vpc_endpoint_id)
+
+    @_builtins.property
+    @pulumi.getter(name="subnetIds")
+    def subnet_ids(self) -> Sequence[_builtins.str]:
+        """
+        List of subnet IDs within the VPC where the web app endpoint will be deployed. These subnets must be in the same VPC specified in the `vpc_id` parameter.
+        """
+        return pulumi.get(self, "subnet_ids")
+
+    @_builtins.property
+    @pulumi.getter(name="vpcId")
+    def vpc_id(self) -> _builtins.str:
+        """
+        ID of the VPC where the web app endpoint will be hosted. The VPC must be dual-stack, meaning it supports both IPv4 and IPv6 addressing.
+        """
+        return pulumi.get(self, "vpc_id")
+
+    @_builtins.property
+    @pulumi.getter(name="securityGroupIds")
+    def security_group_ids(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of security group IDs that control access to the web app endpoint. If not specified, the VPC's default security group is used.
+        """
+        return pulumi.get(self, "security_group_ids")
+
+    @_builtins.property
+    @pulumi.getter(name="vpcEndpointId")
+    def vpc_endpoint_id(self) -> Optional[_builtins.str]:
+        """
+        ID of the VPC endpoint created for the web app.
+        """
+        return pulumi.get(self, "vpc_endpoint_id")
+
+
+@pulumi.output_type
+class WebAppIdentityProviderDetails(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "identityCenterConfig":
+            suggest = "identity_center_config"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in WebAppIdentityProviderDetails. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        WebAppIdentityProviderDetails.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        WebAppIdentityProviderDetails.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 identity_center_config: Optional['outputs.WebAppIdentityProviderDetailsIdentityCenterConfig'] = None):
+        """
+        :param 'WebAppIdentityProviderDetailsIdentityCenterConfigArgs' identity_center_config: Block that describes the values to use for the IAM Identity Center settings. See Identity center config below.
+        """
+        if identity_center_config is not None:
+            pulumi.set(__self__, "identity_center_config", identity_center_config)
+
+    @_builtins.property
+    @pulumi.getter(name="identityCenterConfig")
+    def identity_center_config(self) -> Optional['outputs.WebAppIdentityProviderDetailsIdentityCenterConfig']:
+        """
+        Block that describes the values to use for the IAM Identity Center settings. See Identity center config below.
+        """
+        return pulumi.get(self, "identity_center_config")
+
+
+@pulumi.output_type
+class WebAppIdentityProviderDetailsIdentityCenterConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "applicationArn":
+            suggest = "application_arn"
+        elif key == "instanceArn":
+            suggest = "instance_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in WebAppIdentityProviderDetailsIdentityCenterConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        WebAppIdentityProviderDetailsIdentityCenterConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        WebAppIdentityProviderDetailsIdentityCenterConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 application_arn: Optional[_builtins.str] = None,
+                 instance_arn: Optional[_builtins.str] = None,
+                 role: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str instance_arn: ARN of the IAM Identity Center used for the web app.
+        :param _builtins.str role: ARN of an identity bearer role for your web app.
+        """
+        if application_arn is not None:
+            pulumi.set(__self__, "application_arn", application_arn)
+        if instance_arn is not None:
+            pulumi.set(__self__, "instance_arn", instance_arn)
+        if role is not None:
+            pulumi.set(__self__, "role", role)
+
+    @_builtins.property
+    @pulumi.getter(name="applicationArn")
+    def application_arn(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "application_arn")
+
+    @_builtins.property
+    @pulumi.getter(name="instanceArn")
+    def instance_arn(self) -> Optional[_builtins.str]:
+        """
+        ARN of the IAM Identity Center used for the web app.
+        """
+        return pulumi.get(self, "instance_arn")
+
+    @_builtins.property
+    @pulumi.getter
+    def role(self) -> Optional[_builtins.str]:
+        """
+        ARN of an identity bearer role for your web app.
+        """
+        return pulumi.get(self, "role")
+
+
+@pulumi.output_type
+class WebAppWebAppUnit(dict):
+    def __init__(__self__, *,
+                 provisioned: _builtins.int):
+        pulumi.set(__self__, "provisioned", provisioned)
+
+    @_builtins.property
+    @pulumi.getter
+    def provisioned(self) -> _builtins.int:
+        return pulumi.get(self, "provisioned")
 
 
 @pulumi.output_type
@@ -2336,6 +2631,53 @@ class GetConnectorAs2ConfigResult(dict):
     @pulumi.getter(name="singingAlgorithm")
     def singing_algorithm(self) -> _builtins.str:
         return pulumi.get(self, "singing_algorithm")
+
+
+@pulumi.output_type
+class GetConnectorEgressConfigResult(dict):
+    def __init__(__self__, *,
+                 vpc_lattices: Sequence['outputs.GetConnectorEgressConfigVpcLatticeResult']):
+        """
+        :param Sequence['GetConnectorEgressConfigVpcLatticeArgs'] vpc_lattices: VPC Lattice configuration. Contains the following attributes:
+        """
+        pulumi.set(__self__, "vpc_lattices", vpc_lattices)
+
+    @_builtins.property
+    @pulumi.getter(name="vpcLattices")
+    def vpc_lattices(self) -> Sequence['outputs.GetConnectorEgressConfigVpcLatticeResult']:
+        """
+        VPC Lattice configuration. Contains the following attributes:
+        """
+        return pulumi.get(self, "vpc_lattices")
+
+
+@pulumi.output_type
+class GetConnectorEgressConfigVpcLatticeResult(dict):
+    def __init__(__self__, *,
+                 port_number: _builtins.int,
+                 resource_configuration_arn: _builtins.str):
+        """
+        :param _builtins.int port_number: Port number for connecting to the SFTP server through VPC Lattice.
+        :param _builtins.str resource_configuration_arn: ARN of the VPC Lattice Resource Configuration.
+        """
+        pulumi.set(__self__, "port_number", port_number)
+        pulumi.set(__self__, "resource_configuration_arn", resource_configuration_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="portNumber")
+    def port_number(self) -> _builtins.int:
+        """
+        Port number for connecting to the SFTP server through VPC Lattice.
+        """
+        return pulumi.get(self, "port_number")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceConfigurationArn")
+    def resource_configuration_arn(self) -> _builtins.str:
+        """
+        ARN of the VPC Lattice Resource Configuration.
+        """
+        return pulumi.get(self, "resource_configuration_arn")
 
 
 @pulumi.output_type

@@ -50,7 +50,8 @@ class QueuedJob:
         schedule_path (Union[Unset, str]):
         flow_status (Union[Unset, QueuedJobFlowStatus]):
         workflow_as_code_status (Union[Unset, QueuedJobWorkflowAsCodeStatus]):
-        raw_flow (Union[Unset, QueuedJobRawFlow]):
+        raw_flow (Union[Unset, QueuedJobRawFlow]): The flow structure containing modules and optional
+            preprocessor/failure handlers
         language (Union[Unset, QueuedJobLanguage]):
         mem_peak (Union[Unset, int]):
         priority (Union[Unset, int]):

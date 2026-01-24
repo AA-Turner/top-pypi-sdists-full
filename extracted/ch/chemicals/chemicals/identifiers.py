@@ -59,21 +59,34 @@ It is convenient to tag some chemicals with labels like "refrigerant", or in
 a certain database or not. The following chemical groups are available.
 
 .. autodata:: chemicals.identifiers.cryogenics
-.. autodata:: chemicals.identifiers.inerts
+.. autodata:: chemicals.identifiers.common_commercial_gases
 .. autofunction:: chemicals.identifiers.dippr_compounds
 """
 
 
-__all__ = ['check_CAS', 'CAS_from_any', 'MW', 'search_chemical',
-           'mixture_from_any', 'cryogenics', 'inerts', 'dippr_compounds', 'IDs_to_CASs',
-           'get_pubchem_db', 'CAS_to_int', 'sorted_CAS_key', 'int_to_CAS']
+__all__ = [
+    "MW",
+    "CAS_from_any",
+    "CAS_to_int",
+    "IDs_to_CASs",
+    "check_CAS",
+    "common_commercial_gases",
+    "cryogenics",
+    "dippr_compounds",
+    "get_pubchem_db",
+    "int_to_CAS",
+    "mixture_from_any",
+    "search_chemical",
+    "sorted_CAS_key",
+]
 
 import os
+import sqlite3
 
-from chemicals.elements import charge_from_formula, homonuclear_elements_CASs_set, periodic_table, serialize_formula, nested_formula_parser
-from chemicals.utils import PY37, can_load_data, mark_numba_incompatible, os_path_join, source_path, to_num
+from chemicals.elements import charge_from_formula, homonuclear_elements_CASs_set, periodic_table, serialize_formula
+from chemicals.utils import mark_numba_incompatible, os_path_join, source_path, to_num
 
-folder = os_path_join(source_path, 'Identifiers')
+folder = os_path_join(source_path, "Identifiers")
 
 @mark_numba_incompatible
 def check_CAS(CASRN):
@@ -110,14 +123,14 @@ def check_CAS(CASRN):
     False
     """
     try:
-        if CASRN.count('-') != 2:
+        if CASRN.count("-") != 2:
             return False
-        if CASRN[-2] != '-' or CASRN[-5] != '-':
+        if CASRN[-2] != "-" or CASRN[-5] != "-":
             return False
         check = CASRN[-1] # Don't store the int - it is not necessary and is slower
 
         productsum = 0
-        chars = CASRN.replace('-', '')[:-1]
+        chars = CASRN.replace("-", "")[:-1]
         i = len(chars)
         for num in chars:
             productsum += i*int(num)
@@ -128,7 +141,7 @@ def check_CAS(CASRN):
 
 @mark_numba_incompatible
 def CAS_to_int(CASRN):
-    r'''Converts CAS number of a compounds from a string to an int. This is
+    r"""Converts CAS number of a compounds from a string to an int. This is
     helpful when storing large amounts of CAS numbers, as their strings take up
     more memory than their numerical representational. All CAS numbers fit into
     64 bit ints.
@@ -152,12 +165,12 @@ def CAS_to_int(CASRN):
     --------
     >>> CAS_to_int('7704-34-9')
     7704349
-    '''
-    return int(CASRN.replace('-', ''))
+    """
+    return int(CASRN.replace("-", ""))
 
 @mark_numba_incompatible
 def int_to_CAS(CASRN):
-    r'''Converts CAS number of a compounds from an int to an string. This is
+    r"""Converts CAS number of a compounds from an int to an string. This is
     helpful when dealing with int CAS numbers.
 
     Parameters
@@ -179,13 +192,13 @@ def int_to_CAS(CASRN):
     --------
     >>> int_to_CAS(7704349)
     '7704-34-9'
-    '''
+    """
     CASRN = str(CASRN)
-    return CASRN[:-3]+'-'+CASRN[-3:-1]+'-'+CASRN[-1]
+    return CASRN[:-3]+"-"+CASRN[-3:-1]+"-"+CASRN[-1]
 
 @mark_numba_incompatible
 def sorted_CAS_key(CASs):
-    r'''Takes a list of CAS numbers as strings, and returns a tuple of the same
+    r"""Takes a list of CAS numbers as strings, and returns a tuple of the same
     CAS numbers, sorted from smallest to largest. This is very convenient for
     obtaining a unique hash of a set of compounds, so as to see if two
     groups of compounds are the same.
@@ -208,7 +221,7 @@ def sorted_CAS_key(CASs):
     --------
     >>> sorted_CAS_key(['7732-18-5', '64-17-5', '108-88-3', '98-00-0'])
     ('64-17-5', '98-00-0', '108-88-3', '7732-18-5')
-    '''
+    """
     int_CASs = [CAS_to_int(i) for i in CASs]
     return tuple(CAS for _, CAS in sorted(zip(int_CASs, CASs)))
 
@@ -245,8 +258,19 @@ class ChemicalMetadata:
         CAS number of the compound; stored as an int for memory efficiency, [-]
     """
 
-    __slots__ = ('pubchemid', 'formula', 'MW', 'smiles', 'InChI', 'InChI_key',
-                 'iupac_name', 'common_name', 'synonyms', 'CAS', '_charge')
+    __slots__ = (
+        "CAS",
+        "InChI",
+        "InChI_key",
+        "MW",
+        "_charge",
+        "common_name",
+        "formula",
+        "iupac_name",
+        "pubchemid",
+        "smiles",
+        "synonyms",
+    )
 
     def __repr__(self):
         return (f"ChemicalMetadata(pubchemid={self.pubchemid!r}, "
@@ -279,7 +303,7 @@ class ChemicalMetadata:
                     self.CAS,
                     self.formula,
                     self.MW,
-                    self.smiles, 
+                    self.smiles,
                     self.InChI,
                     self.InChI_key,
                     self.iupac_name,
@@ -287,7 +311,7 @@ class ChemicalMetadata:
                     tuple(self.synonyms)))
 
     def __str__(self):
-        return (f'<ChemicalMetadata, name={self.common_name}, formula={self.formula}, smiles={self.smiles}, MW={self.MW:g}>')
+        return (f"<ChemicalMetadata, name={self.common_name}, formula={self.formula}, smiles={self.smiles}, MW={self.MW:g}>")
 
     @property
     def charge(self):
@@ -322,36 +346,35 @@ class ChemicalMetadata:
         self.common_name = common_name
         self.synonyms = synonyms
 
-PUBCHEM_LARGE_DB_NAME = 'chemical identifiers pubchem large.tsv'
-PUBCHEM_SMALL_DB_NAME = 'chemical identifiers pubchem small.tsv'
-PUBCHEM_EXAMPLE_DB_NAME = 'chemical identifiers example user db.tsv'
-PUBCHEM_CATION_DB_NAME = 'Cation db.tsv'
-PUBCHEM_ANION_DB_NAME = 'Anion db.tsv'
-PUBCHEM_IONORGANIC_DB_NAME = 'Inorganic db.tsv'
+PUBCHEM_LARGE_DB_NAME = "chemical identifiers pubchem large.tsv"
+PUBCHEM_SMALL_DB_NAME = "chemical identifiers pubchem small.tsv"
+PUBCHEM_EXAMPLE_DB_NAME = "chemical identifiers example user db.tsv"
+PUBCHEM_CATION_DB_NAME = "Cation db.tsv"
+PUBCHEM_ANION_DB_NAME = "Anion db.tsv"
+PUBCHEM_IONORGANIC_DB_NAME = "Inorganic db.tsv"
 
 # Preference file constants
-ANION_PREFERENCES_FILE = 'anion_preferences.json'
-CATION_PREFERENCES_FILE = 'cation_preferences.json'
-INORGANIC_PREFERENCES_FILE = 'inorganic_preferences.json'
-ORGANIC_PREFERENCES_FILE = 'organic_preferences.json'
+ANION_PREFERENCES_FILE = "anion_preferences.json"
+CATION_PREFERENCES_FILE = "cation_preferences.json"
+INORGANIC_PREFERENCES_FILE = "inorganic_preferences.json"
+ORGANIC_PREFERENCES_FILE = "organic_preferences.json"
 
 def load_chemical_preferences():
-    """Loads preferred and unpreferred CAS numbers from preference files in the 
+    """Loads preferred and unpreferred CAS numbers from preference files in the
     Identifiers folder.
-        
+
     Returns
     -------
     preferred_CAS : set
         Set of preferred CAS numbers from all loaded files
-    unpreferred_CAS : set 
+    unpreferred_CAS : set
         Set of unpreferred CAS numbers from all loaded files
-        
+
     Notes
     -----
-
     Each file should contain 'preferred_cas' and 'unpreferred_cas' lists.
     Missing files are skipped silently.
-    
+
     Examples
     --------
     >>> preferred, unpreferred = load_chemical_preferences()
@@ -359,34 +382,34 @@ def load_chemical_preferences():
     import json
     preferred_CAS = set()
     unpreferred_CAS = set()
-    
+
     # Files to load
     files = [
         ANION_PREFERENCES_FILE,
-        CATION_PREFERENCES_FILE, 
+        CATION_PREFERENCES_FILE,
         INORGANIC_PREFERENCES_FILE,
         ORGANIC_PREFERENCES_FILE
     ]
-    
+
     # Load each file and update the sets
     for filename in files:
         pref_file = os.path.join(folder, filename)
         if os.path.exists(pref_file):
             with open(pref_file) as f:
                 preferences = json.load(f)
-                preferred_CAS.update(preferences.get('preferred_cas', []))
-                unpreferred_CAS.update(preferences.get('unpreferred_cas', []))
-    
+                preferred_CAS.update(preferences.get("preferred_cas", []))
+                unpreferred_CAS.update(preferences.get("unpreferred_cas", []))
+
     return preferred_CAS, unpreferred_CAS
 
 
 class ChemicalMetadataDB:
-    '''Object which holds the main database of chemical metadata.
+    """Object which holds the main database of chemical metadata.
 
     .. warning:: To allow the `chemicals` to grow and improve, the details of
        this class may change in the future without notice!
 
-    '''
+    """
 
     loaded_main_db = False
     def __init__(self,
@@ -397,12 +420,11 @@ class ChemicalMetadataDB:
                            os_path_join(folder, PUBCHEM_CATION_DB_NAME),
                            os_path_join(folder, PUBCHEM_ANION_DB_NAME),
                            os_path_join(folder, PUBCHEM_IONORGANIC_DB_NAME)]):
-                    
-        '''Construct the database from its parameters, loading all of the files in
+        """Construct the database from its parameters, loading all of the files in
         `user_dbs`, the periodic table, and defering loading of `main_db`
         as it is very large until a search doesn't find a chemical in the smaller
         database.
-        '''
+        """
         self.pubchem_index = {}
         self.smiles_index = {}
         self.InChI_index = {}
@@ -420,8 +442,8 @@ class ChemicalMetadataDB:
         self.load_elements()
 
     def load_elements(self):
-        '''Load elements into the indexes.
-        '''
+        """Load elements into the indexes.
+        """
         if not self.elements:
             return None
 
@@ -432,7 +454,7 @@ class ChemicalMetadataDB:
         for ele in periodic_table:
             if ele.CAS in homonuclear_elements_CASs_set:
                 continue
-            CAS = int(ele.CAS.replace('-', '')) # Store as int for easier lookup
+            CAS = int(ele.CAS.replace("-", "")) # Store as int for easier lookup
             ele_lower_name = ele.name.lower()
             obj_old = CAS_index.get(CAS, None)
             synonyms = [ele_lower_name]
@@ -458,14 +480,14 @@ class ChemicalMetadataDB:
 
 
     def load(self, file_name):
-        '''Load a particular file into the indexes.
-        '''
-        f = open(file_name, encoding='utf-8')
+        """Load a particular file into the indexes.
+        """
+        f = open(file_name, encoding="utf-8")
         for line in f:
             # This is effectively the documentation for the file format of the file
-            values = line.rstrip('\n').split('\t')
+            values = line.rstrip("\n").split("\t")
             (pubchemid, CAS, formula, MW, smiles, InChI, InChI_key, iupac_name, common_name) = values[0:9]
-            CAS = int(CAS.replace('-', '')) # Store as int for easier lookup
+            CAS = int(CAS.replace("-", "")) # Store as int for easier lookup
 
             synonyms = values[7:] # include iupac name and common name in this without having to duplicate the names in the file
             pubchemid = int(pubchemid)
@@ -494,19 +516,19 @@ class ChemicalMetadataDB:
 
     @property
     def finished_loading(self):
-        '''Whether or not the database has loaded the main database.
-        '''
+        """Whether or not the database has loaded the main database.
+        """
         return not (not self.loaded_main_db and self.main_db is not None)
 
     def finish_loading(self):
-        '''Complete loading the main database, if it has not been fully loaded.
-        '''
+        """Complete loading the main database, if it has not been fully loaded.
+        """
         if not self.finished_loading:
             self.autoload_main_db()
 
     def autoload_main_db(self):
-        '''Load the main database when needed.
-        '''
+        """Load the main database when needed.
+        """
         if os.path.exists(self.main_db):
             self.load(self.main_db)
         for db in self.user_dbs:
@@ -526,48 +548,49 @@ class ChemicalMetadataDB:
         return False
 
     def search_pubchem(self, pubchem, autoload=True):
-        '''Search for a chemical by its pubchem number. Accepts strings or ints.
-        '''
+        """Search for a chemical by its pubchem number. Accepts strings or ints.
+        """
         return self._search_autoload(int(pubchem), self.pubchem_index, autoload=autoload)
 
     def search_CAS(self, CAS, autoload=True):
-        '''Search for a chemical by its CAS number. Accepts strings or ints.
-        '''
+        """Search for a chemical by its CAS number. Accepts strings or ints.
+        """
         if type(CAS) != int:
             CAS = CAS_to_int(CAS)
         return self._search_autoload(CAS, self.CAS_index, autoload=autoload)
 
     def search_smiles(self, smiles, autoload=True):
-        '''Search for a chemical by its smiles string.
-        '''
+        """Search for a chemical by its smiles string.
+        """
         return self._search_autoload(smiles, self.smiles_index, autoload=autoload)
 
     def search_InChI(self, InChI, autoload=True):
-        '''Search for a chemical by its InChI string.
-        '''
+        """Search for a chemical by its InChI string.
+        """
         return self._search_autoload(InChI, self.InChI_index, autoload=autoload)
 
     def search_InChI_key(self, InChI_key, autoload=True):
-        '''Search for a chemical by its InChI key.
-        '''
+        """Search for a chemical by its InChI key.
+        """
         return self._search_autoload(InChI_key, self.InChI_key_index, autoload=autoload)
 
     def search_name(self, name, autoload=True):
-        '''Search for a chemical by its name.
-        '''
+        """Search for a chemical by its name.
+        """
         return self._search_autoload(name, self.name_index, autoload=autoload)
 
     def search_formula(self, formula, autoload=True):
-        '''Search for a chemical by its serialized formula.
-        '''
+        """Search for a chemical by its serialized formula.
+        """
         return self._search_autoload(formula, self.formula_index, autoload=autoload)
-import sqlite3
+
+
 class ChemicalMetadataDiskDB:
     """SQLite-backed version of ChemicalMetadataDB with preferred ordering support"""
-    
-    def __init__(self, db_path=os_path_join(folder, 'metadata.db')):
+
+    def __init__(self, db_path=os_path_join(folder, "metadata.db")):
         """Initialize connection to the SQLite database
-        
+
         Parameters
         ----------
         db_path : str or Path
@@ -576,50 +599,41 @@ class ChemicalMetadataDiskDB:
         self.db_path = db_path
         self._conn = sqlite3.connect(db_path)
         self._conn.row_factory = sqlite3.Row  # Allow column name access
-        
+
     def _row_to_metadata(self, row):
         """Convert a database row to a ChemicalMetadata object"""
         if row is None:
             return None
-        
-        synonyms = [row['iupac_name'], row['common_name']]
-        if row['raw_synonyms']:
-            synonyms.extend(row['raw_synonyms'].split('\t'))
-        
+
+        synonyms = [row["iupac_name"], row["common_name"]]
+        if row["raw_synonyms"]:
+            synonyms.extend(row["raw_synonyms"].split("\t"))
+
         return ChemicalMetadata(
-            pubchemid=row['pubchemid'],
-            CAS=row['cas'],
-            formula=row['formula'],
-            MW=row['mw'],
-            smiles=row['smiles'],
-            InChI=row['inchi'],
-            InChI_key=row['inchi_key'],
-            iupac_name=row['iupac_name'],
-            common_name=row['common_name'],
+            pubchemid=row["pubchemid"],
+            CAS=row["cas"],
+            formula=row["formula"],
+            MW=row["mw"],
+            smiles=row["smiles"],
+            InChI=row["inchi"],
+            InChI_key=row["inchi_key"],
+            iupac_name=row["iupac_name"],
+            common_name=row["common_name"],
             synonyms=synonyms
         )
-    
-    def search_pubchem(self, pubchem, autoload=True):
-        """Search for a chemical by its pubchem number"""
-        cur = self._conn.cursor()
-        cur.execute(
-            "SELECT * FROM chemicals WHERE pubchemid = ? ORDER BY preferred DESC LIMIT 1",
-            (int(pubchem),)
-        )
-        return self._row_to_metadata(cur.fetchone())
-    
+
     def search_CAS(self, CAS, autoload=True):
         """Search for a chemical by its CAS number"""
         if isinstance(CAS, str):
-            CAS = int(CAS.replace('-', ''))
-        
+            CAS = int(CAS.replace("-", ""))
+
         cur = self._conn.cursor()
         cur.execute(
             "SELECT * FROM chemicals WHERE cas = ? ORDER BY preferred DESC LIMIT 1",
             (CAS,)
         )
         return self._row_to_metadata(cur.fetchone())
-    
+
     def search_smiles(self, smiles, autoload=True):
         """Search for a chemical by its SMILES string"""
         cur = self._conn.cursor()
@@ -628,7 +642,7 @@ class ChemicalMetadataDiskDB:
             (smiles,)
         )
         return self._row_to_metadata(cur.fetchone())
-    
+
     def search_InChI(self, InChI, autoload=True):
         """Search for a chemical by its InChI string"""
         cur = self._conn.cursor()
@@ -637,7 +651,7 @@ class ChemicalMetadataDiskDB:
             (InChI,)
         )
         return self._row_to_metadata(cur.fetchone())
-    
+
     def search_InChI_key(self, InChI_key, autoload=True):
         """Search for a chemical by its InChI key"""
         cur = self._conn.cursor()
@@ -646,7 +660,7 @@ class ChemicalMetadataDiskDB:
             (InChI_key,)
         )
         return self._row_to_metadata(cur.fetchone())
-    
+
     def search_name(self, name, autoload=True):
         """Search for a chemical by its name"""
         cur = self._conn.cursor()
@@ -657,7 +671,7 @@ class ChemicalMetadataDiskDB:
             ORDER BY c.preferred DESC LIMIT 1
         """, (name,))
         return self._row_to_metadata(cur.fetchone())
-    
+
     def search_formula(self, formula, autoload=True):
         """Search for a chemical by its formula"""
         cur = self._conn.cursor()
@@ -666,7 +680,7 @@ class ChemicalMetadataDiskDB:
             (formula,)
         )
         return self._row_to_metadata(cur.fetchone())
-    
+
     def search_pubchem(self, pubchem, autoload=True):
         """Search for a chemical by its pubchem number"""
         cur = self._conn.cursor()
@@ -675,7 +689,7 @@ class ChemicalMetadataDiskDB:
             (int(pubchem),)
         )
         return self._row_to_metadata(cur.fetchone())
-            
+
 
     def __iter__(self):
         """Iterate over all chemicals in the database"""
@@ -687,7 +701,7 @@ class ChemicalMetadataDiskDB:
                 break
             for row in batch:
                 yield self._row_to_metadata(row)
-    
+
     def __len__(self):
         """Return the total number of chemicals in the database"""
         cur = self._conn.cursor()
@@ -697,7 +711,7 @@ class ChemicalMetadataDiskDB:
     @property
     def CAS_index(self):
         """Build and return a dictionary mapping CAS numbers to ChemicalMetadata objects.
-        
+
         Returns
         -------
         dict
@@ -716,7 +730,7 @@ class ChemicalMetadataDiskDB:
     @property
     def smiles_index(self):
         """Build and return a dictionary mapping SMILES strings to ChemicalMetadata objects.
-        
+
         Returns
         -------
         dict
@@ -734,7 +748,7 @@ class ChemicalMetadataDiskDB:
     @property
     def InChI_index(self):
         """Build and return a dictionary mapping InChI strings to ChemicalMetadata objects.
-        
+
         Returns
         -------
         dict
@@ -752,7 +766,7 @@ class ChemicalMetadataDiskDB:
     @property
     def InChI_key_index(self):
         """Build and return a dictionary mapping InChI keys to ChemicalMetadata objects.
-        
+
         Returns
         -------
         dict
@@ -869,10 +883,10 @@ chemical_search_cache = {}
 chemical_search_cache_max_size = 200
 
 FORMULA_SEARCH_BEFORE_SMILES_EXCEPTIONS = {
-    'CO',  # Carbon monoxide vs methanol
-    'CS',  # Carbon monosulfide vs methanethiol
-    'NO',  # Nitric oxide vs hydroxylamine
-    'CNO'  # NCO radical vs n-methylhydroxylamine
+    "CO",  # Carbon monoxide vs methanol
+    "CS",  # Carbon monosulfide vs methanethiol
+    "NO",  # Nitric oxide vs hydroxylamine
+    "CNO"  # NCO radical vs n-methylhydroxylamine
 }
 @mark_numba_incompatible
 def search_chemical(ID, autoload=False, cache=True):
@@ -970,7 +984,7 @@ def _search_chemical(ID, autoload):
 
         if not autoload:
             return search_chemical(ID, autoload=True)
-        raise ValueError(f'A valid CAS number ({ID}) was recognized, but is not in the database')
+        raise ValueError(f"A valid CAS number ({ID}) was recognized, but is not in the database")
 
 
 
@@ -978,9 +992,9 @@ def _search_chemical(ID, autoload):
     if ID_len > 9:
         inchi_search = False
         # normal upper case is 'InChI=1S/'
-        if ID_lower[0:9] == 'inchi=1s/':
+        if ID_lower[0:9] == "inchi=1s/":
             inchi_search = ID[9:]
-        elif ID_lower[0:8] == 'inchi=1/':
+        elif ID_lower[0:8] == "inchi=1/":
             inchi_search = ID[8:]
         if inchi_search:
             inchi_lookup = pubchem_db.search_InChI(inchi_search, autoload)
@@ -989,8 +1003,8 @@ def _search_chemical(ID, autoload):
             else:
                 if not autoload:
                     return search_chemical(ID, autoload=True)
-                raise ValueError(f'A valid InChI name ({inchi_search}) was recognized, but it is not in the database')
-        if ID_lower[0:9] == 'inchikey=':
+                raise ValueError(f"A valid InChI name ({inchi_search}) was recognized, but it is not in the database")
+        if ID_lower[0:9] == "inchikey=":
             inchi_key_lookup = pubchem_db.search_InChI_key(ID[9:], autoload)
             if inchi_key_lookup:
                 return inchi_key_lookup
@@ -998,9 +1012,9 @@ def _search_chemical(ID, autoload):
                 if not autoload:
                     obj = search_chemical(ID, autoload=True)
                     return obj
-                raise ValueError(f'A valid InChI Key ({ID[9:]}) was recognized, but it is not in the database')
+                raise ValueError(f"A valid InChI Key ({ID[9:]}) was recognized, but it is not in the database")
     if ID_len > 8:
-        if ID_lower[0:8] == 'pubchem=':
+        if ID_lower[0:8] == "pubchem=":
             pubchem_lookup = pubchem_db.search_pubchem(ID[8:], autoload)
             if pubchem_lookup:
                 return pubchem_lookup
@@ -1008,16 +1022,16 @@ def _search_chemical(ID, autoload):
             else:
                 if not autoload:
                     return search_chemical(ID, autoload=True)
-                raise ValueError(f'A PubChem integer ({ID[8:]}) identifier was recognized, but it is not in the database.')
+                raise ValueError(f"A PubChem integer ({ID[8:]}) identifier was recognized, but it is not in the database.")
     if ID_len > 7:
-        if ID_lower[0:7] == 'smiles=':
+        if ID_lower[0:7] == "smiles=":
             smiles_lookup = pubchem_db.search_smiles(ID[7:], autoload)
             if smiles_lookup:
                 return smiles_lookup
             else:
                 if not autoload:
                     return search_chemical(ID, autoload=True)
-                raise ValueError(f'A SMILES identifier ({ID[7:]}) was recognized, but it is not in the database.')
+                raise ValueError(f"A SMILES identifier ({ID[7:]}) was recognized, but it is not in the database.")
 
     # Try the smiles lookup by default for all except a few hardcoded cases that the smiles/smarts intersect
     if ID in FORMULA_SEARCH_BEFORE_SMILES_EXCEPTIONS:
@@ -1045,8 +1059,8 @@ def _search_chemical(ID, autoload):
         return name_lookup
 
 #     Permutate through various name options
-    ID_no_space = ID.replace(' ', '')
-    ID_no_space_dash = ID_no_space.replace('-', '')
+    ID_no_space = ID.replace(" ", "")
+    ID_no_space_dash = ID_no_space.replace("-", "")
 
     for name in [ID, ID_no_space, ID_no_space_dash]:
         for name2 in [name, name.lower()]:
@@ -1059,12 +1073,12 @@ def _search_chemical(ID, autoload):
                 if CAS_lookup:
                     return CAS_lookup
 
-    if ID[-1] == ')' and '(' in ID:
+    if ID[-1] == ")" and "(" in ID:
         # Try to match in the form 'water (H2O)'
         # first_identifier, second_identifier = ID[0:-1].split('(', 1)
-        last_open = ID.rindex('(')
+        last_open = ID.rindex("(")
         first_identifier = ID[:last_open].strip()
-        second_identifier = ID[last_open + 1:].rstrip(')')
+        second_identifier = ID[last_open + 1:].rstrip(")")
 
         try:
             CAS1 = search_chemical(first_identifier, autoload)
@@ -1077,7 +1091,7 @@ def _search_chemical(ID, autoload):
     if not autoload:
         return _search_chemical(ID, autoload=True)
 
-    raise ValueError(f'Chemical name ({ID}) not recognized')
+    raise ValueError(f"Chemical name ({ID}) not recognized")
 
 
 
@@ -1098,8 +1112,8 @@ def dippr_compounds():
         A set of CAS numbers from the 2014 edition of the DIPPR database.
     """
     dippr_compounds = set()
-    with open(os.path.join(folder, 'dippr_2014.csv')) as f:
-        dippr_compounds.update(f.read().split('\n'))
+    with open(os.path.join(folder, "dippr_2014.csv")) as f:
+        dippr_compounds.update(f.read().split("\n"))
     return dippr_compounds
 
 class CommonMixtureMetadata:
@@ -1126,10 +1140,18 @@ class CommonMixtureMetadata:
         [-]
     """
 
-    __slots__ = ['name', 'CASs', 'N', 'source', 'names', 'ws', 'zs',
-                 'synonyms']
+    __slots__ = [
+        "CASs",
+        "N",
+        "name",
+        "names",
+        "source",
+        "synonyms",
+        "ws",
+        "zs",
+    ]
     def __repr__(self):
-        return (f'<MixtureMetadata, name={self.name}, N={self.N}, CASs={self.CASs}, ws={self.ws}, zs={self.zs}>')
+        return (f"<MixtureMetadata, name={self.name}, N={self.N}, CASs={self.CASs}, ws={self.ws}, zs={self.zs}>")
 
     def __init__(self, name, CASs, N, source, names, ws, zs,
                  synonyms):
@@ -1177,14 +1199,14 @@ def mixture_from_any(ID):
         if len(ID) == 1:
             ID = ID[0]
         else:
-            raise ValueError('If the input is a list, the list must contain only one item.')
+            raise ValueError("If the input is a list, the list must contain only one item.")
     ID = ID.lower().strip()
-    for i in (ID, ID.replace(' ', ''), ID.replace('-', '')):
+    for i in (ID, ID.replace(" ", ""), ID.replace("-", "")):
         try:
             return common_mixtures_by_synonym[i]
         except KeyError:
             pass
-    raise ValueError('Mixture name not recognized')
+    raise ValueError("Mixture name not recognized")
 
 @mark_numba_incompatible
 def IDs_to_CASs(IDs):
@@ -1215,23 +1237,33 @@ def IDs_to_CASs(IDs):
     >>> IDs_to_CASs(['norflurane', '1,1-difluoroethane'])
     ['811-97-2', '75-37-6']
     """
-    if hasattr(IDs, 'strip') or (isinstance(IDs, list) and len(IDs) == 1):
+    if hasattr(IDs, "strip") or (isinstance(IDs, list) and len(IDs) == 1):
         try:
             # Assume the name was a pre-defined mixture
             mixname = mixture_from_any(IDs)
             return mixname.CASs
         except:
-            if hasattr(IDs, 'strip'): # It it one chemical?
+            if hasattr(IDs, "strip"): # It it one chemical?
                 return [CAS_from_any(IDs)]
     return [CAS_from_any(ID) for ID in IDs]
 
-cryogenics = {'132259-10-0': 'Air', '7440-37-1': 'Argon', '630-08-0':
-'carbon monoxide', '7782-39-0': 'deuterium', '7782-41-4': 'fluorine',
-'7440-59-7': 'helium', '1333-74-0': 'hydrogen', '7439-90-9': 'krypton',
-'74-82-8': 'methane', '7440-01-9': 'neon', '7727-37-9': 'nitrogen',
-'7782-44-7': 'oxygen', '7440-63-3': 'xenon'}
+cryogenics = {
+  "132259-10-0": "Air",
+  "7440-37-1":  "Argon",
+  "630-08-0":   "carbon monoxide",
+  "7782-39-0":  "deuterium",
+  "7782-41-4":  "fluorine",
+  "7440-59-7":  "helium",
+  "1333-74-0":  "hydrogen",
+  "7439-90-9":  "krypton",
+  "74-82-8":    "methane",
+  "7440-01-9":  "neon",
+  "7727-37-9":  "nitrogen",
+  "7782-44-7":  "oxygen",
+  "7440-63-3":  "xenon"
+}
 
-inerts = {"7440-37-1": "Argon", "124-38-9": "Carbon Dioxide", "7440-59-7":
+common_commercial_gases = {"7440-37-1": "Argon", "124-38-9": "Carbon Dioxide", "7440-59-7":
       "Helium", "7440-01-9": "Neon", "7727-37-9": "Nitrogen",
       "7440-63-3": "Xenon", "10102-43-9": "Nitric Oxide", "10102-44-0":
       "Nitrogen Dioxide", "7782-44-7": "Oxygen", "132259-10-0": "Air",
@@ -1263,7 +1295,7 @@ def load_mixture_composition():
     global mixture_composition_loaded, common_mixtures_by_synonym, common_mixtures
     common_mixtures = {}
     common_mixtures_by_synonym = {}
-    with open(os.path.join(folder, 'Mixtures Compositions.tsv')) as f:
+    with open(os.path.join(folder, "Mixtures Compositions.tsv")) as f:
         """Read in a dict of 90 or so mixutres, their components, and synonyms.
 
         Small errors in mole fractions not adding to 1 are known. Errors in
@@ -1272,7 +1304,7 @@ def load_mixture_composition():
         """
         next(f)
         for line in f:
-            values = to_num(line.strip('\n').strip('\t').split('\t'))
+            values = to_num(line.strip("\n").strip("\t").split("\t"))
             name, source, N = values[0:3]
             N = int(N)
             CASs, names, ws, zs = values[3:3+N], values[3+N:3+2*N], values[3+2*N:3+3*N], values[3+3*N:3+4*N]
@@ -1289,15 +1321,10 @@ def load_mixture_composition():
     mixture_composition_loaded = True
 
 
-if PY37:
-    def __getattr__(name):
-        if name == 'pubchem_db':
-            return get_pubchem_db()
-        elif name in ('common_mixtures', 'common_mixtures_by_synonym'):
-            load_mixture_composition()
-            return globals()[name]
-        raise AttributeError(f"module {__name__} has no attribute {name}")  # pragma: no cover
-else:  # pragma: no cover
-    if can_load_data:
-        get_pubchem_db()
+def __getattr__(name):
+    if name == "pubchem_db":
+        return get_pubchem_db()
+    elif name in ("common_mixtures", "common_mixtures_by_synonym"):
         load_mixture_composition()
+        return globals()[name]
+    raise AttributeError(f"module {__name__} has no attribute {name}")  # pragma: no cover

@@ -68,7 +68,7 @@ class ApiObject(
 ):
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         api_version: builtins.str,
@@ -107,7 +107,7 @@ class ApiObject(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, c: _constructs_77d1e7e8.IConstruct) -> "ApiObject":
+    def of(cls, c: "_constructs_77d1e7e8.IConstruct") -> "ApiObject":
         '''Returns the ``ApiObject`` named ``Resource`` which is a child of the given construct.
 
         If ``c`` is an ``ApiObject``, it is returned directly. Throws an
@@ -122,7 +122,7 @@ class ApiObject(
         return typing.cast("ApiObject", jsii.sinvoke(cls, "of", [c]))
 
     @jsii.member(jsii_name="addDependency")
-    def add_dependency(self, *dependencies: _constructs_77d1e7e8.IConstruct) -> None:
+    def add_dependency(self, *dependencies: "_constructs_77d1e7e8.IConstruct") -> None:
         '''Create a dependency between this ApiObject and other constructs.
 
         These can be other ApiObjects, Charts, or custom.
@@ -388,7 +388,7 @@ class ApiObjectMetadataDefinition(
     def __init__(
         self,
         *,
-        api_object: ApiObject,
+        api_object: "ApiObject",
         annotations: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         finalizers: typing.Optional[typing.Sequence[builtins.str]] = None,
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -557,7 +557,7 @@ class ApiObjectMetadataDefinitionOptions(ApiObjectMetadata):
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
         owner_references: typing.Optional[typing.Sequence[typing.Union["OwnerReference", typing.Dict[builtins.str, typing.Any]]]] = None,
-        api_object: ApiObject,
+        api_object: "ApiObject",
     ) -> None:
         '''Options for ``ApiObjectMetadataDefinition``.
 
@@ -707,11 +707,11 @@ class ApiObjectMetadataDefinitionOptions(ApiObjectMetadata):
         return typing.cast(typing.Optional[typing.List["OwnerReference"]], result)
 
     @builtins.property
-    def api_object(self) -> ApiObject:
+    def api_object(self) -> "ApiObject":
         '''Which ApiObject instance is the metadata attached to.'''
         result = self._values.get("api_object")
         assert result is not None, "Required property 'api_object' is missing"
-        return typing.cast(ApiObject, result)
+        return typing.cast("ApiObject", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -736,7 +736,7 @@ class ApiObjectProps:
         *,
         api_version: builtins.str,
         kind: builtins.str,
-        metadata: typing.Optional[typing.Union[ApiObjectMetadata, typing.Dict[builtins.str, typing.Any]]] = None,
+        metadata: typing.Optional[typing.Union["ApiObjectMetadata", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Options for defining API objects.
 
@@ -773,14 +773,14 @@ class ApiObjectProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def metadata(self) -> typing.Optional[ApiObjectMetadata]:
+    def metadata(self) -> typing.Optional["ApiObjectMetadata"]:
         '''Object metadata.
 
         If ``name`` is not specified, an app-unique name will be allocated by the
         framework based on the path of the construct within thes construct tree.
         '''
         result = self._values.get("metadata")
-        return typing.cast(typing.Optional[ApiObjectMetadata], result)
+        return typing.cast(typing.Optional["ApiObjectMetadata"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -830,7 +830,7 @@ class App(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, c: _constructs_77d1e7e8.IConstruct) -> "App":
+    def of(cls, c: "_constructs_77d1e7e8.IConstruct") -> "App":
         '''
         :param c: -
         '''
@@ -1018,7 +1018,7 @@ class Chart(
 ):
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         disable_resource_name_hashes: typing.Optional[builtins.bool] = None,
@@ -1060,7 +1060,7 @@ class Chart(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, c: _constructs_77d1e7e8.IConstruct) -> "Chart":
+    def of(cls, c: "_constructs_77d1e7e8.IConstruct") -> "Chart":
         '''Finds the chart in which a node is defined.
 
         :param c: a construct node.
@@ -1071,7 +1071,7 @@ class Chart(
         return typing.cast("Chart", jsii.sinvoke(cls, "of", [c]))
 
     @jsii.member(jsii_name="addDependency")
-    def add_dependency(self, *dependencies: _constructs_77d1e7e8.IConstruct) -> None:
+    def add_dependency(self, *dependencies: "_constructs_77d1e7e8.IConstruct") -> None:
         '''Create a dependency between this Chart and other constructs.
 
         These can be other ApiObjects, Charts, or custom.
@@ -1084,7 +1084,7 @@ class Chart(
         return typing.cast(None, jsii.invoke(self, "addDependency", [*dependencies]))
 
     @jsii.member(jsii_name="generateObjectName")
-    def generate_object_name(self, api_object: ApiObject) -> builtins.str:
+    def generate_object_name(self, api_object: "ApiObject") -> builtins.str:
         '''Generates a app-unique name for an object given it's construct node path.
 
         Different resource types may have different constraints on names
@@ -1119,9 +1119,9 @@ class Chart(
 
     @builtins.property
     @jsii.member(jsii_name="apiObjects")
-    def api_objects(self) -> typing.List[ApiObject]:
+    def api_objects(self) -> typing.List["ApiObject"]:
         '''Returns all the included API objects.'''
-        return typing.cast(typing.List[ApiObject], jsii.get(self, "apiObjects"))
+        return typing.cast(typing.List["ApiObject"], jsii.get(self, "apiObjects"))
 
     @builtins.property
     @jsii.member(jsii_name="labels")
@@ -1432,7 +1432,7 @@ class DependencyGraph(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.DependencyGraph"
     from a different scope, that relationship is not represented in this graph.
     '''
 
-    def __init__(self, node: _constructs_77d1e7e8.Node) -> None:
+    def __init__(self, node: "_constructs_77d1e7e8.Node") -> None:
         '''
         :param node: -
         '''
@@ -1442,11 +1442,11 @@ class DependencyGraph(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.DependencyGraph"
         jsii.create(self.__class__, self, [node])
 
     @jsii.member(jsii_name="topology")
-    def topology(self) -> typing.List[_constructs_77d1e7e8.IConstruct]:
+    def topology(self) -> typing.List["_constructs_77d1e7e8.IConstruct"]:
         '''
         :see: Vertex.topology ()
         '''
-        return typing.cast(typing.List[_constructs_77d1e7e8.IConstruct], jsii.invoke(self, "topology", []))
+        return typing.cast(typing.List["_constructs_77d1e7e8.IConstruct"], jsii.invoke(self, "topology", []))
 
     @builtins.property
     @jsii.member(jsii_name="root")
@@ -1467,7 +1467,7 @@ class DependencyVertex(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.DependencyVerte
 
     def __init__(
         self,
-        value: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
+        value: typing.Optional["_constructs_77d1e7e8.IConstruct"] = None,
     ) -> None:
         '''
         :param value: -
@@ -1493,9 +1493,9 @@ class DependencyVertex(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.DependencyVerte
         return typing.cast(None, jsii.invoke(self, "addChild", [dep]))
 
     @jsii.member(jsii_name="topology")
-    def topology(self) -> typing.List[_constructs_77d1e7e8.IConstruct]:
+    def topology(self) -> typing.List["_constructs_77d1e7e8.IConstruct"]:
         '''Returns a topologically sorted array of the constructs in the sub-graph.'''
-        return typing.cast(typing.List[_constructs_77d1e7e8.IConstruct], jsii.invoke(self, "topology", []))
+        return typing.cast(typing.List["_constructs_77d1e7e8.IConstruct"], jsii.invoke(self, "topology", []))
 
     @builtins.property
     @jsii.member(jsii_name="inbound")
@@ -1511,12 +1511,12 @@ class DependencyVertex(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.DependencyVerte
 
     @builtins.property
     @jsii.member(jsii_name="value")
-    def value(self) -> typing.Optional[_constructs_77d1e7e8.IConstruct]:
+    def value(self) -> typing.Optional["_constructs_77d1e7e8.IConstruct"]:
         '''Returns the IConstruct this graph vertex represents.
 
         ``null`` in case this is the root of the graph.
         '''
-        return typing.cast(typing.Optional[_constructs_77d1e7e8.IConstruct], jsii.get(self, "value"))
+        return typing.cast(typing.Optional["_constructs_77d1e7e8.IConstruct"], jsii.get(self, "value"))
 
 
 class Duration(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Duration"):
@@ -2010,7 +2010,7 @@ class Include(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         url: builtins.str,
@@ -2030,9 +2030,9 @@ class Include(
 
     @builtins.property
     @jsii.member(jsii_name="apiObjects")
-    def api_objects(self) -> typing.List[ApiObject]:
+    def api_objects(self) -> typing.List["ApiObject"]:
         '''Returns all the included API objects.'''
-        return typing.cast(typing.List[ApiObject], jsii.get(self, "apiObjects"))
+        return typing.cast(typing.List["ApiObject"], jsii.get(self, "apiObjects"))
 
 
 @jsii.data_type(
@@ -2233,7 +2233,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.JsonPatch"):
 class Lazy(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Lazy"):
     @jsii.member(jsii_name="any")
     @builtins.classmethod
-    def any(cls, producer: IAnyProducer) -> typing.Any:
+    def any(cls, producer: "IAnyProducer") -> typing.Any:
         '''
         :param producer: -
         '''
@@ -2365,7 +2365,7 @@ class Names(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Names"):
     @builtins.classmethod
     def to_dns_label(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         *,
         delimiter: typing.Optional[builtins.str] = None,
         extra: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2418,7 +2418,7 @@ class Names(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Names"):
     @builtins.classmethod
     def to_label_value(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         *,
         delimiter: typing.Optional[builtins.str] = None,
         extra: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2626,7 +2626,7 @@ class ResolutionContext(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.ResolutionCont
 
     def __init__(
         self,
-        obj: ApiObject,
+        obj: "ApiObject",
         key: typing.Sequence[builtins.str],
         value: typing.Any,
     ) -> None:
@@ -2663,9 +2663,9 @@ class ResolutionContext(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.ResolutionCont
 
     @builtins.property
     @jsii.member(jsii_name="obj")
-    def obj(self) -> ApiObject:
+    def obj(self) -> "ApiObject":
         '''Which ApiObject is currently being resolved.'''
-        return typing.cast(ApiObject, jsii.get(self, "obj"))
+        return typing.cast("ApiObject", jsii.get(self, "obj"))
 
     @builtins.property
     @jsii.member(jsii_name="value")
@@ -2924,9 +2924,9 @@ class Testing(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Testing"):
         outdir: typing.Optional[builtins.str] = None,
         output_file_extension: typing.Optional[builtins.str] = None,
         record_construct_metadata: typing.Optional[builtins.bool] = None,
-        resolvers: typing.Optional[typing.Sequence[IResolver]] = None,
+        resolvers: typing.Optional[typing.Sequence["IResolver"]] = None,
         yaml_output_type: typing.Optional["YamlOutputType"] = None,
-    ) -> App:
+    ) -> "App":
         '''Returns an app for testing with the following properties: - Output directory is a temp dir.
 
         :param outdir: The directory to output Kubernetes manifests. If you synthesize your application using ``cdk8s synth``, you must also pass this value to the CLI using the ``--output`` option or the ``output`` property in the ``cdk8s.yaml`` configuration file. Otherwise, the CLI will not know about the output directory, and synthesis will fail. This property is intended for internal and testing use. Default: - CDK8S_OUTDIR if defined, otherwise "dist"
@@ -2943,19 +2943,19 @@ class Testing(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Testing"):
             yaml_output_type=yaml_output_type,
         )
 
-        return typing.cast(App, jsii.sinvoke(cls, "app", [props]))
+        return typing.cast("App", jsii.sinvoke(cls, "app", [props]))
 
     @jsii.member(jsii_name="chart")
     @builtins.classmethod
-    def chart(cls) -> Chart:
+    def chart(cls) -> "Chart":
         '''
         :return: a Chart that can be used for tests
         '''
-        return typing.cast(Chart, jsii.sinvoke(cls, "chart", []))
+        return typing.cast("Chart", jsii.sinvoke(cls, "chart", []))
 
     @jsii.member(jsii_name="synth")
     @builtins.classmethod
-    def synth(cls, chart: Chart) -> typing.List[typing.Any]:
+    def synth(cls, chart: "Chart") -> typing.List[typing.Any]:
         '''Returns the Kubernetes manifest synthesized from this chart.
 
         :param chart: -
@@ -3107,7 +3107,7 @@ class Helm(Include, metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Helm"):
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         chart: builtins.str,
@@ -3707,3 +3707,6 @@ def _typecheckingstub__190f4a5d85ecb3182d8df49a55454bd5cce993c692349125ced9593e6
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IAnyProducer, IResolver]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

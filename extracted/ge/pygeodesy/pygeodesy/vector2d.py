@@ -641,7 +641,7 @@ def triaxum5(points, useZ=True):
     A = []
     for i, p in enumerate(ps):
         v = _otherV3d(useZ=useZ, i=i, points=p)
-        A.append(v.x2y2z2)
+        A.append(v.x2y2z23)
 
     with _numpy(triaxum5, n=n) as _np:
         A = _np.array(A)
@@ -884,7 +884,7 @@ def _tri5perturbs(eps, r):
 
 # **) MIT License
 #
-# Copyright (C) 2016-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

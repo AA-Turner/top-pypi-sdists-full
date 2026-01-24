@@ -230,17 +230,17 @@ def rv_size_is_none(size: TensorVariable | Constant | None) -> bool:
 
 
 @singledispatch
-def _change_dist_size(op: Op, dist: TensorVariable, new_size, expand):
+def _change_dist_size(op: Op, dist: Variable, new_size, expand):
     raise NotImplementedError(
         f"Variable {dist} of type {op} has no _change_dist_size implementation."
     )
 
 
 def change_dist_size(
-    dist: TensorVariable,
+    dist: Variable,
     new_size: PotentialShapeType,
     expand: bool = False,
-) -> TensorVariable:
+) -> Variable:
     """Change or expand the size of a Distribution.
 
     Parameters
@@ -409,7 +409,7 @@ def get_support_shape(
         ]
 
     if inferred_support_shape is None and observed is not None:
-        observed = convert_observed_data(observed)
+        observed = cast(TensorVariable | np.ndarray, convert_observed_data(observed))
         if observed.ndim < ndim_supp:
             raise ValueError(
                 f"Number of observed dimensions is too small for ndim_supp of {ndim_supp}"

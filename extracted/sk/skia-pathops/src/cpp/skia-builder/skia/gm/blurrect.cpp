@@ -28,12 +28,16 @@
 #include "include/core/SkTileMode.h"
 #include "include/core/SkTypes.h"
 #include "include/effects/SkGradientShader.h"
-#include "include/gpu/GrRecordingContext.h"
+#include "include/private/base/SkFloatingPoint.h"
 #include "include/private/base/SkTo.h"
 #include "src/core/SkBlurMask.h"
 #include "src/core/SkMask.h"
-#include "src/gpu/ganesh/GrRecordingContextPriv.h"
 #include "tools/timer/TimeUtils.h"
+
+#if defined(SK_GANESH)
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "src/gpu/ganesh/GrRecordingContextPriv.h"
+#endif
 
 #include <vector>
 
@@ -94,8 +98,8 @@ static sk_sp<SkShader> make_radial() {
     scale.setScale(0.5f, 0.5f);
     scale.postTranslate(25.f, 25.f);
     SkPoint center0, center1;
-    center0.set(SkScalarAve(pts[0].fX, pts[1].fX),
-                SkScalarAve(pts[0].fY, pts[1].fY));
+    center0.set(sk_float_midpoint(pts[0].fX, pts[1].fX),
+                sk_float_midpoint(pts[0].fY, pts[1].fY));
     center1.set(SkScalarInterp(pts[0].fX, pts[1].fX, SkIntToScalar(3)/5),
                 SkScalarInterp(pts[0].fY, pts[1].fY, SkIntToScalar(1)/4));
     return SkGradientShader::MakeTwoPointConical(center1, (pts[1].fX - pts[0].fX) / 7,
@@ -122,9 +126,9 @@ private:
         }
     }
 
-    SkString onShortName() override { return SkString(fName); }
+    SkString getName() const override { return SkString(fName); }
 
-    SkISize onISize() override { return {860, 820}; }
+    SkISize getISize() override { return {860, 820}; }
 
     void onDraw(SkCanvas* canvas) override {
         canvas->translate(STROKE_WIDTH*3/2, STROKE_WIDTH*3/2);
@@ -212,13 +216,13 @@ DEF_SIMPLE_GM(blurrect_gallery, canvas, 1200, 1024) {
                 for (size_t k = 0 ; k < std::size(styles) ; k++) {
                     SkBlurStyle style = styles[k];
 
-                    SkMask mask;
+                    SkMaskBuilder mask;
                     if (!SkBlurMask::BlurRect(SkBlurMask::ConvertRadiusToSigma(radius),
                                               &mask, r, style)) {
                         continue;
                     }
 
-                    SkAutoMaskFreeImage amfi(mask.fImage);
+                    SkAutoMaskFreeImage amfi(mask.image());
 
                     SkBitmap bm;
                     bm.installMaskPixels(mask);
@@ -248,20 +252,29 @@ namespace skiagm {
 // Compares actual blur rects with reference masks created by the GM. Animates sigma in viewer.
 class BlurRectCompareGM : public GM {
 protected:
-    SkString onShortName() override { return SkString("blurrect_compare"); }
+    SkString getName() const override { return SkString("blurrect_compare"); }
 
-    SkISize onISize() override { return {900, 1220}; }
+    SkISize getISize() override { return {900, 1220}; }
 
     void onOnceBeforeDraw() override { this->prepareReferenceMasks(); }
 
     DrawResult onDraw(SkCanvas* canvas, SkString* errorMsg) override {
-        if (canvas->imageInfo().colorType() == kUnknown_SkColorType ||
-            (canvas->recordingContext() && !canvas->recordingContext()->asDirectContext())) {
+        if (canvas->imageInfo().colorType() == kUnknown_SkColorType) {
             *errorMsg = "Not supported when recording, relies on canvas->makeSurface()";
             return DrawResult::kSkip;
         }
-        int32_t ctxID = canvas->recordingContext() ? canvas->recordingContext()->priv().contextID()
-                                                   : 0;
+
+        int32_t ctxID = 0;
+#if defined(SK_GANESH)
+        if (auto rc = canvas->recordingContext()) {
+            if (!rc->asDirectContext()) {
+                *errorMsg = "Not supported when recording, relies on canvas->makeSurface()";
+                return DrawResult::kSkip;
+            }
+            ctxID = rc->priv().contextID();
+        }
+#endif
+
         if (fRecalcMasksForAnimation || !fActualMasks[0][0][0] || ctxID != fLastContextUniqueID) {
             if (fRecalcMasksForAnimation) {
                 // Sigma is changing so references must also be recalculated.

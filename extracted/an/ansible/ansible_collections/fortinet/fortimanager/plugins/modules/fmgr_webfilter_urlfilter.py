@@ -16,7 +16,6 @@ short_description: Configure URL filter lists.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -163,6 +165,9 @@ options:
                         choices:
                             - 'block'
                             - 'log'
+                    comment:
+                        type: str
+                        description: Comment.
             id:
                 type: int
                 description: ID.
@@ -213,8 +218,8 @@ EXAMPLES = '''
     - name: Configure URL filter lists.
       fortinet.fortimanager.fmgr_webfilter_urlfilter:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -243,6 +248,7 @@ EXAMPLES = '''
           #     url: <string>
           #     web_proxy_profile: <string>
           #     antiphish_action: <value in [block, log]>
+          #     comment: <string>
           # ip_addr_block: <value in [disable, enable]>
           # name: <string>
           # one_arm_ips_urlfilter: <value in [disable, enable]>
@@ -304,6 +310,7 @@ def main():
     module_primary_key = 'id'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'webfilter_urlfilter': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -328,7 +335,8 @@ def main():
                         'type': {'choices': ['simple', 'regex', 'wildcard'], 'type': 'str'},
                         'url': {'type': 'str'},
                         'web-proxy-profile': {'type': 'str'},
-                        'antiphish-action': {'v_range': [['6.4.0', '']], 'choices': ['block', 'log'], 'type': 'str'}
+                        'antiphish-action': {'v_range': [['6.4.0', '']], 'choices': ['block', 'log'], 'type': 'str'},
+                        'comment': {'v_range': [['7.6.4', '']], 'type': 'str'}
                     },
                     'elements': 'dict'
                 },
@@ -337,7 +345,7 @@ def main():
                 'name': {'type': 'str'},
                 'one-arm-ips-urlfilter': {'choices': ['disable', 'enable'], 'type': 'str'},
                 'ip4-mapped-ip6': {'v_range': [['7.2.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'include-subdomains': {'v_range': [['7.6.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                'include-subdomains': {'v_range': [['7.4.8', '7.4.8'], ['7.6.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
             }
         }
     }

@@ -1,3 +1,4 @@
+import types
 from collections.abc import Callable
 from typing import Any, ClassVar, Final, Generic, Literal, Self, TypeAlias, TypedDict, overload, type_check_only
 from typing_extensions import TypeVar, TypeVarTuple, Unpack, override
@@ -9,7 +10,7 @@ import optype.numpy.compat as npc
 __all__ = ["complex_ode", "ode"]
 
 _Ts = TypeVarTuple("_Ts", default=Unpack[tuple[Any, ...]])
-_Inexact64T_co = TypeVar("_Inexact64T_co", bound=npc.inexact, default=np.float64 | np.complex128, covariant=True)
+_Inexact64T_co = TypeVar("_Inexact64T_co", bound=npc.inexact, default=Any, covariant=True)
 
 _IntegratorReal: TypeAlias = Literal["vode", "dopri5", "dop853", "lsoda"]
 _IntegratorComplex: TypeAlias = Literal["vode", "zvode"]
@@ -30,7 +31,7 @@ class _IntegratorParams(TypedDict, total=False):
     max_hnil: int
     max_order_ns: int
     max_order_s: int
-    method: Literal["adams", "bds"] | None
+    method: Literal["adams", "bdf"] | None
     safety: float
     ifactor: float
     dfactor: float
@@ -38,9 +39,6 @@ class _IntegratorParams(TypedDict, total=False):
     verbosity: int
 
 ###
-
-class IntegratorConcurrencyError(RuntimeError):
-    def __init__(self, /, name: str) -> None: ...
 
 class ode(Generic[_Inexact64T_co, *_Ts]):
     f: Callable[[float, onp.Array1D[_Inexact64T_co], *_Ts], complex | onp.ToComplex1D]
@@ -50,6 +48,10 @@ class ode(Generic[_Inexact64T_co, *_Ts]):
     stiff: Literal[0, 1]
     t: float
 
+    @classmethod
+    def __class_getitem__(cls, arg: type | object, /) -> types.GenericAlias: ...
+
+    #
     def __init__(
         self,
         /,
@@ -64,21 +66,21 @@ class ode(Generic[_Inexact64T_co, *_Ts]):
     #
     @overload
     def set_initial_value(
-        self: ode[np.float64, *_Ts], /, y: float | onp.ToFloat1D, t: float = 0.0
+        self: ode[npc.floating, *_Ts], /, y: float | onp.ToFloat1D, t: float = 0.0
     ) -> ode[_Inexact64T_co, *_Ts]: ...
     @overload
     def set_initial_value(
-        self: ode[np.complex128, *_Ts], /, y: complex | onp.ToComplex1D, t: float = 0.0
+        self: ode[npc.complexfloating, *_Ts], /, y: complex | onp.ToComplex1D, t: float = 0.0
     ) -> ode[_Inexact64T_co, *_Ts]: ...
 
     #
     @overload
     def set_integrator(
-        self: ode[np.float64, *_Ts], /, name: _IntegratorReal, **integrator_params: Unpack[_IntegratorParams]
+        self: ode[npc.floating, *_Ts], /, name: _IntegratorReal, **integrator_params: Unpack[_IntegratorParams]
     ) -> ode[_Inexact64T_co, *_Ts]: ...
     @overload
     def set_integrator(
-        self: ode[np.complex128, *_Ts], /, name: _IntegratorComplex, **integrator_params: Unpack[_IntegratorParams]
+        self: ode[npc.complexfloating, *_Ts], /, name: _IntegratorComplex, **integrator_params: Unpack[_IntegratorParams]
     ) -> ode[_Inexact64T_co, *_Ts]: ...
 
     #
@@ -99,6 +101,11 @@ class complex_ode(ode[np.complex128, *_Ts], Generic[*_Ts]):
     @override
     def set_initial_value(self, /, y: complex | onp.ToComplex1D, t: float = 0.0) -> Self: ...
 
+# undocumented
+class IntegratorConcurrencyError(RuntimeError):
+    def __init__(self, /, name: str) -> None: ...
+
+# undocumented
 class IntegratorBase(Generic[_Inexact64T_co]):
     runner: ClassVar[Callable[..., tuple[Any, ...]] | None]  # fortran function or unavailable
     supports_run_relax: ClassVar[Literal[0, 1] | None] = None
@@ -111,6 +118,10 @@ class IntegratorBase(Generic[_Inexact64T_co]):
     integrator_classes: list[type[IntegratorBase]]
     istate: int | None = None
 
+    @classmethod
+    def __class_getitem__(cls, arg: type | object, /) -> types.GenericAlias: ...
+
+    #
     def acquire_new_handle(self, /) -> None: ...
     def check_handle(self, /) -> None: ...
     def reset(self, /, n: int, has_jac: bool) -> None: ...
@@ -148,6 +159,7 @@ class IntegratorBase(Generic[_Inexact64T_co]):
         jac_params: tuple[object, ...],
     ) -> tuple[_Inexact64T_co, float]: ...
 
+# undocumented
 class vode(IntegratorBase[_Inexact64T_co], Generic[_Inexact64T_co]):
     messages: ClassVar[dict[int, str]] = ...
 
@@ -184,13 +196,19 @@ class vode(IntegratorBase[_Inexact64T_co], Generic[_Inexact64T_co]):
         first_step: float = 0.0,
     ) -> None: ...
 
+# undocumented
 class zvode(vode[np.complex128]):
+    __class_getitem__: ClassVar[None] = None  # type:ignore[assignment]  # pyright:ignore[reportIncompatibleMethodOverride]
+
     active_global_handle: int
     zwork: onp.Array1D[np.complex128]
     call_args: list[float | onp.ArrayND[np.complex128] | onp.ArrayND[np.float64] | onp.ArrayND[np.int32]]  # type: ignore[assignment] # pyright: ignore[reportIncompatibleVariableOverride]
     initialized: bool
 
+# undocumented
 class dopri5(IntegratorBase[np.float64]):
+    __class_getitem__: ClassVar[None] = None  # type:ignore[assignment]  # pyright:ignore[reportIncompatibleMethodOverride]
+
     name: ClassVar[str] = "dopri5"
     messages: ClassVar[dict[int, str]] = ...
 
@@ -229,20 +247,12 @@ class dopri5(IntegratorBase[np.float64]):
     def set_solout(
         self, /, solout: Callable[[float, onp.Array1D[np.float64]], Literal[0, -1]] | None, complex: bool = False
     ) -> None: ...
-    def _solout(
-        self,
-        /,
-        nr: int,  # unused
-        xold: object,  # unused
-        x: float,
-        y: onp.Array1D[np.float64],
-        nd: int,  # unused
-        icomp: int,  # unused
-        con: object,  # unused
-    ) -> Literal[0, -1, 1]: ...
+    def _solout(self, /, x: float, y: onp.Array1D[np.float64]) -> Literal[0, -1, 1]: ...
 
+# undocumented
 class dop853(dopri5):
     name: ClassVar[str] = "dop853"
+
     def __init__(
         self,
         /,
@@ -259,7 +269,10 @@ class dop853(dopri5):
         verbosity: int = -1,
     ) -> None: ...
 
+# undocumented
 class lsoda(IntegratorBase[np.float64]):
+    __class_getitem__: ClassVar[None] = None  # type:ignore[assignment]  # pyright:ignore[reportIncompatibleMethodOverride]
+
     active_global_handle: ClassVar[int] = 0
     messages: ClassVar[dict[int, str]] = ...
 
@@ -280,11 +293,12 @@ class lsoda(IntegratorBase[np.float64]):
     rwork: onp.Array1D[np.float64]
     iwork: onp.Array1D[np.int32]
     call_args: list[float | onp.Array1D[np.float64] | onp.Array1D[np.int32]]
+
     def __init__(
         self,
         /,
         with_jacobian: bool = False,
-        rtol: float = 1e-06,
+        rtol: float = 1e-6,
         atol: float = 1e-12,
         lband: float | None = None,
         uband: float | None = None,
@@ -299,6 +313,7 @@ class lsoda(IntegratorBase[np.float64]):
         method: None = None,  # ignored
     ) -> None: ...
 
+# undocumented
 @overload
 def find_integrator(name: Literal["vode"]) -> type[vode]: ...
 @overload

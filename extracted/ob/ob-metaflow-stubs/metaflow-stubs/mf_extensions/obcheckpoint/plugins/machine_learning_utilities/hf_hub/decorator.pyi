@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.722272                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.889004                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,13 +9,18 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.final_api
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
 
 from ..checkpoints.decorator import CheckpointDecorator as CheckpointDecorator
 from ..checkpoints.decorator import CurrentCheckpointer as CurrentCheckpointer
+from ..checkpoints.final_api import Checkpoint as Checkpoint
 from ..checkpoints.decorator import warning_message as warning_message
 from ......metadata_provider.metadata import MetaDatum as MetaDatum
+from ..card_utils.deco_injection_mixin import CardDecoratorInjector as CardDecoratorInjector
+from .cards.hf_hub_card import HuggingfaceHubListRefresher as HuggingfaceHubListRefresher
+from .cards.hf_hub_card import HuggingfaceHubCollector as HuggingfaceHubCollector
 
 HUGGINGFACE_HUB_ROOT_PREFIX: str
 
@@ -26,6 +31,9 @@ def show_progress():
     ...
 
 def download_model_from_huggingface(**kwargs):
+    ...
+
+def init_hf_checkpoint(checkpoint: metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.final_api.Checkpoint, cache_scope, flow_name):
     ...
 
 class HuggingfaceRegistry(object, metaclass=type):

@@ -12,14 +12,21 @@ pub fn sleep(py: Python<'_>, secs: f64) -> PyResult<f64> {
             .map(PyDuration::from)
             // overflow error here b/c negative handled above
             .map_err(|e| PyOverflowError::new_err(format!("{e}")))?;
-        py_duration.sleep(py, None)?;
+        py_duration.sleep(py, 10)?;
         Ok(py_duration.0.as_secs_f64())
     }
 }
 
+#[must_use]
 #[pyfunction]
 #[pyo3(name = "instant")]
-#[must_use]
 pub fn py_instant() -> PyInstant {
     PyInstant::from(Instant::now())
+}
+
+#[must_use]
+#[pyfunction]
+#[pyo3(name = "duration", signature = (secs = 0, nanos = 0))]
+pub fn py_duration(secs: u64, nanos: u32) -> PyDuration {
+    PyDuration::from(Duration::new(secs, nanos))
 }

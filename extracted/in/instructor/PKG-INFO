@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instructor
-Version: 1.11.3
+Version: 1.14.4
 Summary: structured outputs for llm
 Project-URL: repository, https://github.com/instructor-ai/instructor
 Author-email: Jason Liu <jason@jxnl.co>, Ivan Leo <ivan@jxnl.co>
@@ -11,17 +11,19 @@ Requires-Dist: aiohttp<4.0.0,>=3.9.1
 Requires-Dist: diskcache>=5.6.3
 Requires-Dist: docstring-parser<1.0,>=0.16
 Requires-Dist: jinja2<4.0.0,>=3.1.4
-Requires-Dist: jiter<0.11,>=0.6.1
-Requires-Dist: openai<2.0.0,>=1.70.0
+Requires-Dist: jiter<0.12,>=0.6.1
+Requires-Dist: openai<3.0.0,>=2.0.0
+Requires-Dist: pre-commit>=4.3.0
 Requires-Dist: pydantic-core<3.0.0,>=2.18.0
 Requires-Dist: pydantic<3.0.0,>=2.8.0
 Requires-Dist: requests<3.0.0,>=2.32.3
 Requires-Dist: rich<15.0.0,>=13.7.0
 Requires-Dist: tenacity<10.0.0,>=8.2.3
+Requires-Dist: ty>=0.0.1a23
 Requires-Dist: typer<1.0.0,>=0.9.0
 Provides-Extra: anthropic
-Requires-Dist: anthropic==0.53.0; extra == 'anthropic'
-Requires-Dist: xmltodict<0.15,>=0.13; extra == 'anthropic'
+Requires-Dist: anthropic==0.71.0; extra == 'anthropic'
+Requires-Dist: xmltodict<1.1,>=0.13; extra == 'anthropic'
 Provides-Extra: bedrock
 Requires-Dist: boto3<2.0.0,>=1.34.0; extra == 'bedrock'
 Provides-Extra: cerebras-cloud-sdk
@@ -29,13 +31,12 @@ Requires-Dist: cerebras-cloud-sdk<2.0.0,>=1.5.0; extra == 'cerebras-cloud-sdk'
 Provides-Extra: cohere
 Requires-Dist: cohere<6.0.0,>=5.1.8; extra == 'cohere'
 Provides-Extra: datasets
-Requires-Dist: datasets<4.0.0,>=3.0.1; extra == 'datasets'
+Requires-Dist: datasets<5.0.0,>=3.0.1; extra == 'datasets'
 Provides-Extra: dev
 Requires-Dist: coverage<8.0.0,>=7.3.2; extra == 'dev'
 Requires-Dist: jsonref<2.0.0,>=1.1.0; extra == 'dev'
 Requires-Dist: pre-commit>=4.2.0; extra == 'dev'
-Requires-Dist: pyright<2.0.0; extra == 'dev'
-Requires-Dist: pytest-asyncio<1.0.0,>=0.24.0; extra == 'dev'
+Requires-Dist: pytest-asyncio<2.0.0,>=0.24.0; extra == 'dev'
 Requires-Dist: pytest-examples>=0.0.15; extra == 'dev'
 Requires-Dist: pytest-xdist>=3.8.0; extra == 'dev'
 Requires-Dist: pytest<9.0.0,>=8.3.3; extra == 'dev'
@@ -50,7 +51,7 @@ Requires-Dist: mkdocs-redirects<2.0.0,>=1.2.1; extra == 'docs'
 Requires-Dist: mkdocs-rss-plugin<2.0.0,>=1.12.0; extra == 'docs'
 Requires-Dist: mkdocs<2.0.0,>=1.6.1; extra == 'docs'
 Requires-Dist: mkdocstrings-python<2.0.0,>=1.12.2; extra == 'docs'
-Requires-Dist: mkdocstrings<0.30.0,>=0.27.1; extra == 'docs'
+Requires-Dist: mkdocstrings<0.31.0,>=0.27.1; extra == 'docs'
 Requires-Dist: pytest-examples>=0.0.15; extra == 'docs'
 Provides-Extra: fireworks-ai
 Requires-Dist: fireworks-ai<1.0.0,>=0.15.4; extra == 'fireworks-ai'
@@ -60,13 +61,13 @@ Requires-Dist: jsonref<2.0.0,>=1.1.0; extra == 'google-genai'
 Provides-Extra: graphviz
 Requires-Dist: graphviz<1.0.0,>=0.20.3; extra == 'graphviz'
 Provides-Extra: groq
-Requires-Dist: groq<0.27.0,>=0.4.2; extra == 'groq'
+Requires-Dist: groq<0.34.0,>=0.4.2; extra == 'groq'
 Provides-Extra: litellm
 Requires-Dist: litellm<2.0.0,>=1.35.31; extra == 'litellm'
 Provides-Extra: mistral
 Requires-Dist: mistralai<2.0.0,>=1.5.1; extra == 'mistral'
 Provides-Extra: perplexity
-Requires-Dist: openai<2.0.0,>=1.52.0; extra == 'perplexity'
+Requires-Dist: openai<3.0.0,>=2.0.0; extra == 'perplexity'
 Provides-Extra: phonenumbers
 Requires-Dist: phonenumbers<10.0.0,>=8.13.33; extra == 'phonenumbers'
 Provides-Extra: pydub
@@ -75,12 +76,12 @@ Provides-Extra: sqlmodel
 Requires-Dist: sqlmodel<1.0.0,>=0.0.22; extra == 'sqlmodel'
 Provides-Extra: test-docs
 Requires-Dist: diskcache<6.0.0,>=5.6.3; extra == 'test-docs'
-Requires-Dist: fastapi<0.116.0,>=0.109.2; extra == 'test-docs'
+Requires-Dist: fastapi<0.121.0,>=0.109.2; extra == 'test-docs'
 Requires-Dist: litellm<2.0.0,>=1.35.31; extra == 'test-docs'
 Requires-Dist: mistralai<2.0.0,>=1.5.1; extra == 'test-docs'
 Requires-Dist: pandas<3.0.0,>=2.2.0; extra == 'test-docs'
 Requires-Dist: pydantic-extra-types<3.0.0,>=2.6.0; extra == 'test-docs'
-Requires-Dist: redis<7.0.0,>=5.0.1; extra == 'test-docs'
+Requires-Dist: redis<8.0.0,>=5.0.1; extra == 'test-docs'
 Requires-Dist: tabulate<1.0.0,>=0.9.0; extra == 'test-docs'
 Provides-Extra: trafilatura
 Requires-Dist: trafilatura<3.0.0,>=1.12.2; extra == 'trafilatura'
@@ -126,6 +127,8 @@ print(user)  # User(name='John', age=25)
 [![GitHub Stars](https://img.shields.io/github/stars/instructor-ai/instructor?style=flat-square)](https://github.com/instructor-ai/instructor)
 [![Discord](https://img.shields.io/discord/1192334452110659664?style=flat-square)](https://discord.gg/bD9YE9JArw)
 [![Twitter](https://img.shields.io/twitter/follow/jxnlco?style=flat-square)](https://twitter.com/jxnlco)
+
+> **Use Instructor for fast extraction, reach for PydanticAI when you need agents.** Instructor keeps schema-first flows simple and cheap. If your app needs richer agent runs, built-in observability, or shareable traces, try [PydanticAI](https://ai.pydantic.dev/). PydanticAI is the official agent runtime from the Pydantic team, adding typed tools, replayable datasets, evals, and production dashboards while using the same Pydantic models. Dive into the [PydanticAI docs](https://ai.pydantic.dev/) to see how it extends Instructor-style workflows.
 
 ## Why Instructor?
 

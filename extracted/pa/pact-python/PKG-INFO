@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: pact-python
-Version: 2.3.3
+Version: 3.2.1
 Summary: Tool for creating and verifying consumer-driven contracts using the Pact framework.
-Project-URL: Bug Tracker, https://github.com/pact-foundation/pact-python/issues
-Project-URL: Changelog, https://github.com/pact-foundation/pact-python/blob/main/CHANGELOG.md
-Project-URL: Documentation, https://docs.pact.io
-Project-URL: Homepage, https://pact.io
-Project-URL: Repository, https://github.com/pact-foundation/pact-python
+Project-URL: changelog, https://github.com/pact-foundation/pact-python/blob/main/CHANGELOG.md
+Project-URL: documentation, https://pact-foundation.github.io/pact-python/
+Project-URL: homepage, https://pact.io
+Project-URL: issues, https://github.com/pact-foundation/pact-python/issues
+Project-URL: source, https://github.com/pact-foundation/pact-python
 Author-email: Joshua Ellis <josh@jpellis.me>, Matthew Balvanz <matthew.balvanz@workiva.com>
 Maintainer-email: Joshua Ellis <josh@jpellis.me>
 License: MIT License
@@ -41,86 +41,35 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.9
-Requires-Dist: cffi~=1.0
-Requires-Dist: click~=8.0
-Requires-Dist: fastapi~=0.0
-Requires-Dist: psutil~=7.0
-Requires-Dist: requests~=2.0
-Requires-Dist: six~=1.0
-Requires-Dist: typing-extensions~=4.0; python_version < '3.10'
-Requires-Dist: uvicorn~=0.0
+Requires-Python: >=3.10
+Requires-Dist: pact-python-ffi~=0.4.0
+Requires-Dist: typing-extensions~=4.0; python_version < '3.13'
 Requires-Dist: yarl~=1.0
-Provides-Extra: devel
-Requires-Dist: aiohttp[speedups]~=3.0; extra == 'devel'
-Requires-Dist: coverage[toml]~=7.0; extra == 'devel'
-Requires-Dist: flask[async]~=3.0; extra == 'devel'
-Requires-Dist: grpcio~=1.0; extra == 'devel'
-Requires-Dist: httpx~=0.0; extra == 'devel'
-Requires-Dist: mkdocs-gen-files~=0.5; extra == 'devel'
-Requires-Dist: mkdocs-literate-nav~=0.6; extra == 'devel'
-Requires-Dist: mkdocs-material[imaging]~=9.4; extra == 'devel'
-Requires-Dist: mkdocs-section-index~=0.3; extra == 'devel'
-Requires-Dist: mkdocstrings[python]~=0.23; extra == 'devel'
-Requires-Dist: mkdocs~=1.5; extra == 'devel'
-Requires-Dist: mock~=5.0; extra == 'devel'
-Requires-Dist: mypy==1.17.0; extra == 'devel'
-Requires-Dist: protobuf~=6.0; extra == 'devel'
-Requires-Dist: pytest-asyncio~=1.0; extra == 'devel'
-Requires-Dist: pytest-bdd~=8.0; extra == 'devel'
-Requires-Dist: pytest-cov~=6.0; extra == 'devel'
-Requires-Dist: pytest-rerunfailures~=15.0; extra == 'devel'
-Requires-Dist: pytest-xdist~=3.0; extra == 'devel'
-Requires-Dist: pytest~=8.0; extra == 'devel'
-Requires-Dist: ruff==0.12.3; extra == 'devel'
-Requires-Dist: testcontainers~=4.0; extra == 'devel'
-Requires-Dist: types-cffi~=1.0; extra == 'devel'
-Requires-Dist: types-grpcio~=1.0; extra == 'devel'
-Requires-Dist: types-protobuf~=6.0; extra == 'devel'
-Requires-Dist: types-requests~=2.0; extra == 'devel'
-Requires-Dist: uvicorn[standard]~=0.0; extra == 'devel'
-Provides-Extra: devel-docs
-Requires-Dist: mkdocs-gen-files~=0.5; extra == 'devel-docs'
-Requires-Dist: mkdocs-literate-nav~=0.6; extra == 'devel-docs'
-Requires-Dist: mkdocs-material[imaging]~=9.4; extra == 'devel-docs'
-Requires-Dist: mkdocs-section-index~=0.3; extra == 'devel-docs'
-Requires-Dist: mkdocstrings[python]~=0.23; extra == 'devel-docs'
-Requires-Dist: mkdocs~=1.5; extra == 'devel-docs'
-Provides-Extra: devel-test
-Requires-Dist: aiohttp[speedups]~=3.0; extra == 'devel-test'
-Requires-Dist: coverage[toml]~=7.0; extra == 'devel-test'
-Requires-Dist: flask[async]~=3.0; extra == 'devel-test'
-Requires-Dist: grpcio~=1.0; extra == 'devel-test'
-Requires-Dist: httpx~=0.0; extra == 'devel-test'
-Requires-Dist: mock~=5.0; extra == 'devel-test'
-Requires-Dist: protobuf~=6.0; extra == 'devel-test'
-Requires-Dist: pytest-asyncio~=1.0; extra == 'devel-test'
-Requires-Dist: pytest-bdd~=8.0; extra == 'devel-test'
-Requires-Dist: pytest-cov~=6.0; extra == 'devel-test'
-Requires-Dist: pytest-rerunfailures~=15.0; extra == 'devel-test'
-Requires-Dist: pytest-xdist~=3.0; extra == 'devel-test'
-Requires-Dist: pytest~=8.0; extra == 'devel-test'
-Requires-Dist: testcontainers~=4.0; extra == 'devel-test'
-Requires-Dist: uvicorn[standard]~=0.0; extra == 'devel-test'
-Provides-Extra: devel-types
-Requires-Dist: mypy==1.17.0; extra == 'devel-types'
-Requires-Dist: types-cffi~=1.0; extra == 'devel-types'
-Requires-Dist: types-grpcio~=1.0; extra == 'devel-types'
-Requires-Dist: types-protobuf~=6.0; extra == 'devel-types'
-Requires-Dist: types-requests~=2.0; extra == 'devel-types'
+Provides-Extra: compat-v2
+Requires-Dist: click~=8.0; extra == 'compat-v2'
+Requires-Dist: pact-python-cli~=2.5; extra == 'compat-v2'
+Requires-Dist: psutil~=7.0; extra == 'compat-v2'
+Requires-Dist: requests~=2.0; extra == 'compat-v2'
+Requires-Dist: six~=1.0; extra == 'compat-v2'
 Description-Content-Type: text/markdown
 
 # Pact Python
 
 <!-- markdownlint-disable no-inline-html -->
 <div align="center">
-    <b>Fast, easy and reliable testing for your APIs and microservices.</b>
+    <img src="https://raw.githubusercontent.com/pact-foundation/pact-python/main/docs/img/mascot.svg"
+        alt="Pact Python Mascot"
+        height="250" width="225"
+        align="left" hspace="20">
+    <span>
+        <b>Fast, easy and reliable testing for your APIs and microservices.</b>
+    </span>
 </div>
 
 <div align="center"><table>
@@ -136,16 +85,16 @@ Description-Content-Type: text/markdown
         <td>CI/CD</td>
         <td>
             <a
-                href="https://github.com/pact-foundation/pact-python/actions/workflows/test.yml"><img
+                href="https://github.com/pact-foundation/pact-python/actions/workflows/test.yml?query=branch:main"><img
                 src="https://img.shields.io/github/actions/workflow/status/pact-foundation/pact-python/test.yml?branch=main&label=test"
                 alt="Test Status"></a>
             <a
-                href="https://github.com/pact-foundation/pact-python/actions/workflows/build.yml"><img
+                href="https://github.com/pact-foundation/pact-python/actions/workflows/build.yml?query=branch:main"><img
                 src="https://img.shields.io/github/actions/workflow/status/pact-foundation/pact-python/build.yml?branch=main&label=build"
                 alt="Build Status"></a>
             <a
-                href="https://github.com/pact-foundation/pact-python/actions/workflows/docs.yml"><img
-                src="https://img.shields.io/github/actions/workflow/status/pact-foundation/pact-python/docs.yml?branch=main=docs"
+                href="https://github.com/pact-foundation/pact-python/actions/workflows/docs.yml?query=branch:main"><img
+                src="https://img.shields.io/github/actions/workflow/status/pact-foundation/pact-python/docs.yml?branch=main&label=docs"
                 alt="Build Status"></a>
         </td>
     </tr>
@@ -167,7 +116,7 @@ Description-Content-Type: text/markdown
                 src="https://img.shields.io/badge/types-Mypy-blue.svg"
                 alt="types - Mypy"></a>
             <a
-                href="https://pypi.python.org/pypi/ruff"><img
+                href="https://pypi.python.org/pypi/pact-python"><img
                 src="https://img.shields.io/pypi/l/pact-python.svg"
                 alt="License"></a>
         </td>
@@ -176,16 +125,29 @@ Description-Content-Type: text/markdown
         <td>Community</td>
         <td>
             <a
+                href="https://github.com/pact-foundation/pact-python/issues"><img
+                src="https://img.shields.io/github/issues/pact-foundation/pact-python.svg"
+                alt="Issues"></a>
+            <a
+                href="https://github.com/pact-foundation/pact-python/discussions"><img
+                src="https://img.shields.io/github/discussions/pact-foundation/pact-python.svg"
+                alt="Discussions"></a>
+            <a
+                href="https://github.com/pact-foundation/pact-python"><img
+                src="https://img.shields.io/github/stars/pact-foundation/pact-python.svg?style=flat"
+                alt="GitHub Stars"></a>
+            <br/>
+            <a
                 href="http://slack.pact.io"><img
-                src="https://slack.pact.io/badge.svg"
+                src="https://img.shields.io/badge/slack-pact--foundation-4A154B.svg"
                 alt="Slack"></a>
             <a
                 href="https://stackoverflow.com/questions/tagged/pact"><img
-                src="https://img.shields.io/badge/stackoverflow-pact-orange.svg"
+                src="https://img.shields.io/badge/stackoverflow-pact-F48024.svg"
                 alt="Stack Overflow"></a>
             <a
                 href="https://twitter.com/pact_up"><img
-                src="https://img.shields.io/twitter/follow/pact_up?style=social"
+                src="https://img.shields.io/badge/X-@pact__up-black.svg"
                 alt="Twitter"></a>
         </td>
     </tr>
@@ -233,7 +195,7 @@ This readme provides a high-level overview of the Pact Python library. For detai
 -   [Provider testing](docs/provider.md)
 -   [Examples](examples/README.md)
 
-Documentation for the API is generated from the docstrings in the code which you can view at [`pact-foundation.github.io/pact-python/pact`](https://pact-foundation.github.io/pact-python/pact). Please be aware that only the [`pact.v3` module][pact.v3] is thoroughly documented at this time.
+Documentation for the API is generated from the docstrings in the code which you can view at [`pact-foundation.github.io/pact-python/pact`](https://pact-foundation.github.io/pact-python/api).
 
 ### Need Help
 
@@ -247,20 +209,11 @@ Documentation for the API is generated from the docstrings in the code which you
 [GitHub Discussions]: https://github.com/pact-foundation/pact-python/discussions
 [GitHub Issues]: https://github.com/pact-foundation/pact-python/issues
 
-## V3 Preview
-
-Pact Python is currently undergoing a major rewrite which will be released with the `3.0.0` version. This rewrite will replace the existing Ruby backend with a Rust backend which will provide a significant performance improvement and will allow us to support more features in the future. You can find more information about this rewrite in [this tracking issue on GitHub](https://github.com/pact-foundation/pact-python/issues/396).
-
-You can preview the new version by using the [`pact.v3` module][pact.v3]. The new version is not yet feature complete, and may be subject to changes. Having said that, we would love to get your feedback on the new version:
-
--   For any issues you find, please [raise an issue][GitHub Issues] on GitHub.
--   For any feedback you have, please join the discussion either on [GitHub Discussions] or in the [`#pact-python`](https://pact-foundation.slack.com/archives/C9VECUP6E) channel on the [Pact Foundation Slack].
-
 ## Installation
 
 The latest version of Pact Python can be installed from PyPi:
 
-```sh
+```console
 pip install pact-python
 # 🚀 now write some tests!
 ```
@@ -271,9 +224,9 @@ Pact Python tries to support all versions of Python that are still supported by 
 
 In order to support the broadest range of use cases, Pact Python tries to impose the least restrictions on the versions of libraries that it uses.
 
-### Do Not Track
+### Telemetry
 
-In order to get better statistics as to who is using Pact, we have an anonymous tracking event that triggers when Pact installs for the first time. The only things we [track](https://docs.pact.io/metrics) are your type of OS, and the version information for the package being installed. No personally identifiable information is sent as part of this request. You can disable tracking by setting the environment variable `PACT_DO_NOT_TRACK=1`:
+In order to get better statistics as to who is using Pact, we collect some anonymous telemetry. The only things we [record](https://docs.pact.io/metrics) are your type of OS, and the version information for the package. No personally identifiable information is sent as part of this request. You can disable telemetry by setting the environment variable `PACT_DO_NOT_TRACK=1`:
 
 ## Contributing
 

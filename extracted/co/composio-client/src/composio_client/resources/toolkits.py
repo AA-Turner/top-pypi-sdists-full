@@ -7,7 +7,7 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..types import toolkit_list_params, toolkit_retrieve_categories_params
+from ..types import toolkit_list_params, toolkit_retrieve_params
 from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
@@ -50,6 +50,7 @@ class ToolkitsResource(SyncAPIResource):
         self,
         slug: str,
         *,
+        version: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -65,6 +66,8 @@ class ToolkitsResource(SyncAPIResource):
         Args:
           slug: The unique slug identifier of the toolkit to retrieve
 
+          version: Version of the toolkit
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -78,7 +81,11 @@ class ToolkitsResource(SyncAPIResource):
         return self._get(
             f"/api/v3/toolkits/{slug}",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform({"version": version}, toolkit_retrieve_params.ToolkitRetrieveParams),
             ),
             cast_to=ToolkitRetrieveResponse,
         )
@@ -88,9 +95,10 @@ class ToolkitsResource(SyncAPIResource):
         *,
         category: str | Omit = omit,
         cursor: str | Omit = omit,
-        is_local: Optional[bool] | Omit = omit,
+        include_deprecated: Optional[bool] | Omit = omit,
         limit: Optional[float] | Omit = omit,
         managed_by: Literal["composio", "all", "project"] | Omit = omit,
+        search: str | Omit = omit,
         sort_by: Literal["usage", "alphabetically"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -100,11 +108,11 @@ class ToolkitsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ToolkitListResponse:
         """
-        Retrieves a comprehensive list of toolkits that are available to the
-        authenticated project. Toolkits represent integration points with external
-        services and applications, each containing a collection of tools and triggers.
-        This endpoint supports filtering by category, management type, and local
-        availability, as well as different sorting options.
+        Retrieves a comprehensive list of toolkits of their latest versions that are
+        available to the authenticated project. Toolkits represent integration points
+        with external services and applications, each containing a collection of tools
+        and triggers. This endpoint supports filtering by category and management type,
+        as well as different sorting options.
 
         Args:
           category: Filter toolkits by category
@@ -114,11 +122,13 @@ class ToolkitsResource(SyncAPIResource):
               page. The cursor is used to paginate through the items. The cursor is not
               required for the first page.
 
-          is_local: Whether to include local toolkits in the results
+          include_deprecated: Include deprecated toolkits in the response
 
-          limit: Number of items per page
+          limit: Number of items per page, max allowed is 1000
 
           managed_by: Filter toolkits by who manages them
+
+          search: Search query to filter toolkits by name, slug, or description
 
           sort_by: Sort order for returned toolkits
 
@@ -141,9 +151,10 @@ class ToolkitsResource(SyncAPIResource):
                     {
                         "category": category,
                         "cursor": cursor,
-                        "is_local": is_local,
+                        "include_deprecated": include_deprecated,
                         "limit": limit,
                         "managed_by": managed_by,
+                        "search": search,
                         "sort_by": sort_by,
                     },
                     toolkit_list_params.ToolkitListParams,
@@ -155,7 +166,6 @@ class ToolkitsResource(SyncAPIResource):
     def retrieve_categories(
         self,
         *,
-        cache: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -163,34 +173,16 @@ class ToolkitsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ToolkitRetrieveCategoriesResponse:
-        """Retrieves a comprehensive list of all available toolkit categories.
-
-        These
-        categories can be used to filter toolkits by type or purpose when using the
-        toolkit listing endpoint. Categories help organize toolkits into logical groups
-        based on their functionality or industry focus.
-
-        Args:
-          cache: Cache control parameter
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        Retrieves a comprehensive list of all available toolkit categories from their
+        latest versions. These categories can be used to filter toolkits by type or
+        purpose when using the toolkit listing endpoint. Categories help organize
+        toolkits into logical groups based on their functionality or industry focus.
         """
         return self._get(
             "/api/v3/toolkits/categories",
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=maybe_transform(
-                    {"cache": cache}, toolkit_retrieve_categories_params.ToolkitRetrieveCategoriesParams
-                ),
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=ToolkitRetrieveCategoriesResponse,
         )
@@ -220,6 +212,7 @@ class AsyncToolkitsResource(AsyncAPIResource):
         self,
         slug: str,
         *,
+        version: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -235,6 +228,8 @@ class AsyncToolkitsResource(AsyncAPIResource):
         Args:
           slug: The unique slug identifier of the toolkit to retrieve
 
+          version: Version of the toolkit
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -248,7 +243,11 @@ class AsyncToolkitsResource(AsyncAPIResource):
         return await self._get(
             f"/api/v3/toolkits/{slug}",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform({"version": version}, toolkit_retrieve_params.ToolkitRetrieveParams),
             ),
             cast_to=ToolkitRetrieveResponse,
         )
@@ -258,9 +257,10 @@ class AsyncToolkitsResource(AsyncAPIResource):
         *,
         category: str | Omit = omit,
         cursor: str | Omit = omit,
-        is_local: Optional[bool] | Omit = omit,
+        include_deprecated: Optional[bool] | Omit = omit,
         limit: Optional[float] | Omit = omit,
         managed_by: Literal["composio", "all", "project"] | Omit = omit,
+        search: str | Omit = omit,
         sort_by: Literal["usage", "alphabetically"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -270,11 +270,11 @@ class AsyncToolkitsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ToolkitListResponse:
         """
-        Retrieves a comprehensive list of toolkits that are available to the
-        authenticated project. Toolkits represent integration points with external
-        services and applications, each containing a collection of tools and triggers.
-        This endpoint supports filtering by category, management type, and local
-        availability, as well as different sorting options.
+        Retrieves a comprehensive list of toolkits of their latest versions that are
+        available to the authenticated project. Toolkits represent integration points
+        with external services and applications, each containing a collection of tools
+        and triggers. This endpoint supports filtering by category and management type,
+        as well as different sorting options.
 
         Args:
           category: Filter toolkits by category
@@ -284,11 +284,13 @@ class AsyncToolkitsResource(AsyncAPIResource):
               page. The cursor is used to paginate through the items. The cursor is not
               required for the first page.
 
-          is_local: Whether to include local toolkits in the results
+          include_deprecated: Include deprecated toolkits in the response
 
-          limit: Number of items per page
+          limit: Number of items per page, max allowed is 1000
 
           managed_by: Filter toolkits by who manages them
+
+          search: Search query to filter toolkits by name, slug, or description
 
           sort_by: Sort order for returned toolkits
 
@@ -311,9 +313,10 @@ class AsyncToolkitsResource(AsyncAPIResource):
                     {
                         "category": category,
                         "cursor": cursor,
-                        "is_local": is_local,
+                        "include_deprecated": include_deprecated,
                         "limit": limit,
                         "managed_by": managed_by,
+                        "search": search,
                         "sort_by": sort_by,
                     },
                     toolkit_list_params.ToolkitListParams,
@@ -325,7 +328,6 @@ class AsyncToolkitsResource(AsyncAPIResource):
     async def retrieve_categories(
         self,
         *,
-        cache: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -333,34 +335,16 @@ class AsyncToolkitsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ToolkitRetrieveCategoriesResponse:
-        """Retrieves a comprehensive list of all available toolkit categories.
-
-        These
-        categories can be used to filter toolkits by type or purpose when using the
-        toolkit listing endpoint. Categories help organize toolkits into logical groups
-        based on their functionality or industry focus.
-
-        Args:
-          cache: Cache control parameter
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        Retrieves a comprehensive list of all available toolkit categories from their
+        latest versions. These categories can be used to filter toolkits by type or
+        purpose when using the toolkit listing endpoint. Categories help organize
+        toolkits into logical groups based on their functionality or industry focus.
         """
         return await self._get(
             "/api/v3/toolkits/categories",
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=await async_maybe_transform(
-                    {"cache": cache}, toolkit_retrieve_categories_params.ToolkitRetrieveCategoriesParams
-                ),
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=ToolkitRetrieveCategoriesResponse,
         )

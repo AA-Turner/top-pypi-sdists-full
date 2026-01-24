@@ -1,6 +1,7 @@
 """SOHO Map subclass definitions"""
 
 import numpy as np
+from matplotlib.colors import CenteredNorm
 
 import astropy.units as u
 from astropy.coordinates import CartesianRepresentation, HeliocentricMeanEcliptic
@@ -32,6 +33,16 @@ class EITMap(GenericMap):
     * `SOHO EIT Instrument Page <https://umbra.nascom.nasa.gov/eit/>`__
     * `SOHO EIT User Guide <https://umbra.nascom.nasa.gov/eit/eit_guide/>`__
 
+    Examples
+    --------
+    .. plot::
+        :include-source:
+        :context: reset
+
+        import sunpy.map
+        from sunpy.data.sample import EIT_195_IMAGE
+        eit_map = sunpy.map.Map(EIT_195_IMAGE)
+        eit_map.plot()
     """
 
     def __init__(self, data, header, **kwargs):
@@ -303,7 +314,7 @@ class MDIMap(GenericMap):
         super().__init__(data, header, **kwargs)
         if self.unit is not None and self.unit.is_equivalent(u.T):
             # Magnetic field maps, not intensity maps
-            self._set_symmetric_vmin_vmax()
+            self.plot_settings['norm'] = CenteredNorm()
 
     @property
     def _date_obs(self):

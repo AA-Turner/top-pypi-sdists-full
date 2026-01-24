@@ -26,8 +26,12 @@ __all__ = [
     "InferenceConfigError",
     "InferenceRuntimeError",
     "InferenceOutputError",
+    "InternalError",
+    "InvalidDocumentError",
     "ProviderError",
     "SchemaError",
+    "FormatError",
+    "FormatParseError",
 ]
 
 
@@ -86,9 +90,39 @@ class InferenceOutputError(LangExtractError):
     super().__init__(self.message)
 
 
+class InvalidDocumentError(LangExtractError):
+  """Exception raised when document input is invalid.
+
+  This includes cases like duplicate document IDs or malformed documents.
+  """
+
+
+class InternalError(LangExtractError):
+  """Exception raised for internal invariant violations.
+
+  This indicates a bug in LangExtract itself rather than user error.
+  """
+
+
 class ProviderError(LangExtractError):
   """Provider/backend specific error."""
 
 
 class SchemaError(LangExtractError):
   """Schema validation/serialization error."""
+
+
+class FormatError(LangExtractError):
+  """Base exception for format handling errors."""
+
+
+class FormatParseError(FormatError):
+  """Raised when format parsing fails.
+
+  This consolidates all parsing errors including:
+  - Missing fence markers when required
+  - Multiple fenced blocks
+  - JSON/YAML decode errors
+  - Missing wrapper keys
+  - Invalid structure
+  """

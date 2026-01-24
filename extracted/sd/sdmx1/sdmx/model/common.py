@@ -6,6 +6,7 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from collections import ChainMap
+from collections.abc import Generator, Iterable, Mapping, MutableMapping, Sequence
 from copy import copy
 from dataclasses import InitVar, dataclass, field, fields
 from datetime import date, datetime, timedelta
@@ -13,27 +14,13 @@ from enum import Enum
 from functools import lru_cache
 from itertools import product
 from operator import attrgetter, itemgetter
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    ClassVar,
-    Generator,
-    Generic,
-    Iterable,
-    Mapping,
-    MutableMapping,
-    Optional,
-    Sequence,
-    TypeVar,
-    Union,
-    get_args,
-    get_origin,
-)
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, get_args, get_origin
 
+from sdmx.compare import Comparable
 from sdmx.dictlike import DictLikeDescriptor
 from sdmx.rest import Resource
 from sdmx.urn import URN
-from sdmx.util import compare, direct_fields, only
+from sdmx.util import direct_fields, only, preserve_dunders
 
 from .internationalstring import (
     DEFAULT_LOCALE,
@@ -44,6 +31,7 @@ from .version import Version
 
 if TYPE_CHECKING:
     from dataclasses import Field
+    from typing import Self
 
 __all__ = [
     # Re-exported from other modules
@@ -62,6 +50,7 @@ __all__ = [
     "ConstraintRoleType",
     "FacetValueType",
     "ExtendedFacetValueType",
+    "SubmissionStatusType",
     "UsageStatus",
     "Item",
     "ItemScheme",
@@ -134,6 +123,9 @@ __all__ = [
     "VTLDataflowMapping",
     "VTLMappingScheme",
     "TransformationScheme",
+    "MessageText",
+    "StatusMessage",
+    "SubmissionResult",
 ]
 
 log = logging.getLogger(__name__)
@@ -167,19 +159,19 @@ class ConstrainableArtefact:
 @dataclass
 class BaseAnnotation:
     #: Can be used to disambiguate multiple annotations for one AnnotableArtefact.
-    id: Optional[str] = None
+    id: str | None = None
     #: Title, used to identify an annotation.
-    title: Optional[str] = None
+    title: str | None = None
     #: Specifies how the annotation is processed.
-    type: Optional[str] = None
+    type: str | None = None
     #: A link to external descriptive text.
-    url: Optional[str] = None
+    url: str | None = None
 
     #: Content of the annotation.
     text: InternationalStringDescriptor = InternationalStringDescriptor()
 
     @property
-    def value(self) -> Optional[str]:
+    def value(self) -> str | None:
         """A non-localised version of the Annotation content.
 
         This feature was added by SDMX 3.0.0. In :class:`v30.Annotation`, this can be
@@ -192,8 +184,8 @@ class BaseAnnotation:
         return None
 
 
-@dataclass
-class AnnotableArtefact:
+@dataclass(slots=True)
+class AnnotableArtefact(Comparable):
     #: :class:`Annotations <.Annotation>` of the object.
     #:
     #: :mod:`.sdmx` implementation detail: The IM does not specify the name of this
@@ -252,15 +244,15 @@ class AnnotableArtefact:
             return value
 
 
-@dataclass
+@dataclass(slots=True)
 class IdentifiableArtefact(AnnotableArtefact):
     #: Unique identifier of the object.
     id: str = MissingID
     #: Universal resource identifier that may or may not be resolvable.
-    uri: Optional[str] = None
+    uri: str | None = None
     #: Universal resource name. For use in SDMX registries; all registered objects have
     #: a URN.
-    urn: Optional[str] = None
+    urn: str | None = None
 
     def __post_init__(self):
         # Validate URN, if any
@@ -288,24 +280,6 @@ class IdentifiableArtefact(AnnotableArtefact):
         elif isinstance(other, str):
             return self.id == other
 
-    def compare(self, other, strict=True):
-        """Return :obj:`True` if `self` is the same as `other`.
-
-        Two IdentifiableArtefacts are the same if they have the same :attr:`id`,
-        :attr:`uri`, and :attr:`urn`.
-
-        Parameters
-        ----------
-        strict : bool, optional
-            Passed to :func:`.compare`.
-        """
-        return (
-            compare("id", self, other, strict)
-            and compare("uri", self, other, strict)
-            # Allow non-strict comparison if self.urn is None
-            and compare("urn", self, other, strict and self.urn is not None)
-        )
-
     def __gt__(self, other: Any) -> bool:
         # NB __lt__ handles the case where other is the same type as self
         if isinstance(other, str):
@@ -317,7 +291,7 @@ class IdentifiableArtefact(AnnotableArtefact):
         return id(self) if self.id == MissingID else hash(self.id)
 
     def __lt__(self, other: Any) -> bool:
-        if isinstance(other, type(self)):
+        if isinstance(other, IdentifiableArtefact):
             other_id = other.id
         elif isinstance(other, str):
             other_id = other
@@ -352,34 +326,6 @@ class NameableArtefact(IdentifiableArtefact):
     #: Multi-lingual description of the object.
     description: InternationalStringDescriptor = InternationalStringDescriptor()
 
-    def compare(self, other, strict=True):
-        """Return :obj:`True` if `self` is the same as `other`.
-
-        Two NameableArtefacts are the same if:
-
-        - :meth:`.IdentifiableArtefact.compare` is :obj:`True`, and
-        - they have the same :attr:`name` and :attr:`description`.
-
-        Parameters
-        ----------
-        strict : bool, optional
-            Passed to :func:`.compare` and :meth:`.IdentifiableArtefact.compare`.
-        """
-        if not super().compare(other, strict):
-            pass
-        elif self.name != other.name:
-            log.debug(
-                f"Not identical: name <{repr(self.name)}> != <{repr(other.name)}>"
-            )
-        elif self.description != other.description:
-            log.debug(
-                f"Not identical: description <{repr(self.description)}> != "
-                f"<{repr(other.description)}>"
-            )
-        else:
-            return True
-        return False
-
     def _repr_kw(self) -> MutableMapping[str, str]:
         name = self.name.localized_default()
         return dict(
@@ -393,40 +339,23 @@ class NameableArtefact(IdentifiableArtefact):
 @dataclass
 class VersionableArtefact(NameableArtefact):
     #: A version string following an agreed convention.
-    version: Union[str, Version, None] = None
+    version: str | Version | None = None
     #: Date from which the version is valid.
-    valid_from: Optional[str] = None
+    valid_from: str | None = None
     #: Date from which the version is superseded.
-    valid_to: Optional[str] = None
+    valid_to: str | None = None
 
     def __post_init__(self):
         super().__post_init__()
 
         if not self.version:
-            self.version = self._urn.version
-        elif isinstance(self.version, str) and self.version == "None":
+            self.version = self._urn.version or None
+        elif isinstance(self.version, str) and self.version in ("", "None"):
             self.version = None
         elif self.urn and self.version != self._urn.version:
             raise ValueError(
                 f"Version {self.version!r} does not match URN {self.urn!r}"
             )
-
-    def compare(self, other, strict=True):
-        """Return :obj:`True` if `self` is the same as `other`.
-
-        Two VersionableArtefacts are the same if:
-
-        - :meth:`.NameableArtefact.compare` is :obj:`True`, and
-        - they have the same :attr:`version`.
-
-        Parameters
-        ----------
-        strict : bool, optional
-            Passed to :func:`.compare` and :meth:`.NameableArtefact.compare`.
-        """
-        return super().compare(other, strict) and compare(
-            "version", self, other, strict
-        )
 
     def _repr_kw(self) -> MutableMapping[str, str]:
         return ChainMap(
@@ -438,16 +367,16 @@ class VersionableArtefact(NameableArtefact):
 @dataclass
 class MaintainableArtefact(VersionableArtefact):
     #: True if the object is final; otherwise it is in a draft state.
-    is_final: Optional[bool] = None
+    is_final: bool | None = None
     #: :obj:`True` if the content of the object is held externally; i.e., not
     #: the current :class:`Message`.
-    is_external_reference: Optional[bool] = None
+    is_external_reference: bool | None = None
     #: URL of an SDMX-compliant web service from which the object can be retrieved.
-    service_url: Optional[str] = None
+    service_url: str | None = None
     #: URL of an SDMX-ML document containing the object.
-    structure_url: Optional[str] = None
+    structure_url: str | None = None
     #: Association to the Agency responsible for maintaining the object.
-    maintainer: Optional["Agency"] = None
+    maintainer: "Agency | None" = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -459,23 +388,6 @@ class MaintainableArtefact(VersionableArtefact):
                 )
             else:
                 self.maintainer = Agency(id=self._urn.agency)
-
-    def compare(self, other, strict=True):
-        """Return :obj:`True` if `self` is the same as `other`.
-
-        Two MaintainableArtefacts are the same if:
-
-        - :meth:`.VersionableArtefact.compare` is :obj:`True`, and
-        - they have the same :attr:`maintainer`.
-
-        Parameters
-        ----------
-        strict : bool, optional
-            Passed to :func:`.compare` and :meth:`.VersionableArtefact.compare`.
-        """
-        return super().compare(other, strict) and compare(
-            "maintainer", self, other, strict
-        )
 
     def _repr_kw(self) -> MutableMapping[str, str]:
         return ChainMap(
@@ -557,6 +469,8 @@ ExtendedFacetValueType = Enum(
     keyValues identifiableReference dataSetReference Xhtml""",
 )
 
+#: See :ref:`impl-im-reg`.
+SubmissionStatusType = Enum("SubmissionStatusType", "success failure warning")
 
 UsageStatus = Enum("UsageStatus", "mandatory conditional")
 
@@ -569,7 +483,7 @@ IT = TypeVar("IT", bound="Item")
 @dataclass
 @NameableArtefact._preserve("eq", "hash", "repr")
 class Item(NameableArtefact, Generic[IT]):
-    parent: Optional[Union[IT, "ItemScheme"]] = None
+    parent: IT | "ItemScheme" | None = None
     child: list[IT] = field(default_factory=list)
 
     def __post_init__(self):
@@ -664,7 +578,7 @@ class ItemScheme(MaintainableArtefact, Generic[IT]):
 
     # NB the IM does not specify; this could be True by default, but would need to check
     # against the automatic construction in .reader.*.
-    is_partial: Optional[bool] = None
+    is_partial: bool | None = None
 
     #: Members of the ItemScheme. Both ItemScheme and Item are abstract classes.
     #: Concrete classes are paired: for example, a :class:`.Codelist` contains
@@ -686,6 +600,10 @@ class ItemScheme(MaintainableArtefact, Generic[IT]):
     def __getitem__(self, name: str) -> IT:
         return self.__dict__["items"][name]
 
+    def get(self, id: str, default: str | IT | None = None) -> str | IT:
+        """Get an Item by its `id`; if not present, return `default`."""
+        return self.__dict__["items"].get(id, default)
+
     def get_hierarchical(self, id: str) -> IT:
         """Get an Item by its :attr:`~.Item.hierarchical_id`."""
         if "." not in id:
@@ -696,7 +614,7 @@ class ItemScheme(MaintainableArtefact, Generic[IT]):
                     return item
         raise KeyError(id)
 
-    def __contains__(self, item: Union[str, IT]) -> bool:
+    def __contains__(self, item: str | IT) -> bool:
         """Check containment.
 
         No recursive search on children is performed as these are assumed to be included
@@ -714,7 +632,7 @@ class ItemScheme(MaintainableArtefact, Generic[IT]):
 
         Parameters
         ----------
-        items : iterable of :class:`.Item`
+        items :
             Elements must be of the same class as :attr:`items`.
         """
         for i in items:
@@ -728,44 +646,14 @@ class ItemScheme(MaintainableArtefact, Generic[IT]):
 
         Parameters
         ----------
-        item : same class as :attr:`items`
-            Item to add.
+        item :
+            Item to add. Elements must be of the same class as :attr:`items`.
         """
         if item.id in self.items:
             raise ValueError(f"Item with id {repr(item.id)} already exists")
         self.items[item.id] = item
         if item.parent is None:
             item.parent = self
-
-    def compare(self, other, strict=True):
-        """Return :obj:`True` if `self` is the same as `other`.
-
-        Two ItemSchemes are the same if:
-
-        - :meth:`.MaintainableArtefact.compare` is :obj:`True`, and
-        - their :attr:`items` have the same keys, and corresponding
-          :class:`Items <Item>` compare equal.
-
-        Parameters
-        ----------
-        strict : bool, optional
-            Passed to :func:`.compare` and :meth:`.MaintainableArtefact.compare`.
-        """
-        if not super().compare(other, strict):
-            pass
-        elif set(self.items) != set(other.items):
-            log.debug(
-                f"ItemScheme contents differ: {repr(set(self.items))} != "
-                + repr(set(other.items))
-            )
-        else:
-            for id, item in self.items.items():
-                if not item.compare(other.items[id], strict):
-                    log.debug(f"…for items with id={repr(id)}")
-                    return False
-            return True
-
-        return False
 
     def __repr__(self):
         return "<{cls} {maint}{id}{version} ({N} items){name}>".format(
@@ -808,33 +696,33 @@ class ItemScheme(MaintainableArtefact, Generic[IT]):
 @dataclass
 class FacetType:
     #:
-    is_sequence: Optional[bool] = None
+    is_sequence: bool | None = None
     #:
-    min_length: Optional[int] = None
+    min_length: int | None = None
     #:
-    max_length: Optional[int] = None
+    max_length: int | None = None
     #:
-    min_value: Optional[float] = None
+    min_value: float | None = None
     #:
-    max_value: Optional[float] = None
+    max_value: float | None = None
     #:
-    start_value: Optional[float] = None
+    start_value: float | None = None
     #:
-    end_value: Optional[str] = None
+    end_value: str | None = None
     #:
-    interval: Optional[float] = None
+    interval: float | None = None
     #:
-    time_interval: Optional[timedelta] = None
+    time_interval: timedelta | None = None
     #:
-    decimals: Optional[int] = None
+    decimals: int | None = None
     #:
-    pattern: Optional[str] = None
+    pattern: str | None = None
     #:
-    start_time: Optional[datetime] = None
+    start_time: datetime | None = None
     #:
-    end_time: Optional[datetime] = None
+    end_time: datetime | None = None
     #: SDMX 3.0 only; not present in SDMX 2.1
-    sentinel_values: Optional[str] = None
+    sentinel_values: str | None = None
 
     def __post_init__(self):
         for name in "max_length", "min_length":
@@ -849,15 +737,15 @@ class Facet:
     #:
     type: FacetType = field(default_factory=FacetType)
     #:
-    value: Optional[str] = None
+    value: str | None = None
     #:
-    value_type: Optional[FacetValueType] = None
+    value_type: FacetValueType | None = None
 
 
 @dataclass
 class Representation:
     #:
-    enumerated: Optional[ItemScheme] = None
+    enumerated: ItemScheme | None = None
     #:
     non_enumerated: list[Facet] = field(default_factory=list)
 
@@ -876,6 +764,8 @@ class Code(Item["Code"]):
     """SDMX Code."""
 
 
+@dataclass
+@ItemScheme._preserve("repr")
 class Codelist(ItemScheme[IT]):
     """SDMX Codelist."""
 
@@ -897,11 +787,13 @@ class ISOConceptReference:
 
 class Concept(Item["Concept"]):
     #:
-    core_representation: Optional[Representation] = None
+    core_representation: Representation | None = None
     #:
-    iso_concept: Optional[ISOConceptReference] = None
+    iso_concept: ISOConceptReference | None = None
 
 
+@dataclass
+@ItemScheme._preserve("repr")
 class ConceptScheme(ItemScheme[Concept]):
     _Item = Concept
 
@@ -914,9 +806,9 @@ class ConceptScheme(ItemScheme[Concept]):
 @IdentifiableArtefact._preserve("hash", "repr")
 class Component(IdentifiableArtefact):
     #:
-    concept_identity: Optional[Concept] = None
+    concept_identity: Concept | None = None
     #:
-    local_representation: Optional[Representation] = None
+    local_representation: Representation | None = None
 
     def __contains__(self, value):
         for repr in [
@@ -1030,28 +922,6 @@ class ComponentList(IdentifiableArtefact, Generic[CT]):
     def __hash__(self):
         return super().__hash__()
 
-    def compare(self, other, strict=True):
-        """Return :obj:`True` if `self` is the same as `other`.
-
-        Two ComponentLists are the same if:
-
-        - :meth:`.IdentifiableArtefact.compare` is :obj:`True`, and
-        - corresponding :attr:`components` compare equal.
-
-        Parameters
-        ----------
-        strict : bool, optional
-            Passed to :func:`.compare` and :meth:`.IdentifiableArtefact.compare`.
-        """
-        result = True
-        for c in self.components:
-            try:
-                result &= c.compare(other.get(c.id), strict)
-            except KeyError:
-                # log.debug(f"{other} has no component with ID {c.id!r}")
-                result = False
-        return result and super().compare(other, strict)
-
 
 # §4.5: Category Scheme
 
@@ -1067,9 +937,9 @@ class CategoryScheme(ItemScheme[Category]):
 @dataclass
 class Categorisation(MaintainableArtefact):
     #:
-    category: Optional[Category] = None
+    category: Category | None = None
     #:
-    artefact: Optional[IdentifiableArtefact] = None
+    artefact: IdentifiableArtefact | None = None
 
 
 # §4.6: Organisations
@@ -1095,7 +965,7 @@ class Contact:
     #:
     org_unit: InternationalStringDescriptor = InternationalStringDescriptor()
     #:
-    telephone: Optional[str] = None
+    telephone: str | None = None
     #:
     responsibility: InternationalStringDescriptor = InternationalStringDescriptor()
     #:
@@ -1194,22 +1064,10 @@ class Structure(MaintainableArtefact):
             # Set an instance attribute, e.g. BaseDataStructureDefinition.attributes
             setattr(self, field.name, cl)
 
-    def compare(self, other: "Structure", strict: bool = True) -> bool:
-        def _key(item) -> str:
-            """Key for sorting: item type + its ID."""
-            return f"{type(item)} {item.id}"
-
-        return all(
-            s.compare(o, strict)
-            for s, o in zip(
-                sorted(self.grouping, key=_key), sorted(other.grouping, key=_key)
-            )
-        )
-
 
 class StructureUsage(MaintainableArtefact):
     #:
-    structure: Optional[Structure] = None
+    structure: Structure | None = None
 
 
 @dataclass
@@ -1218,7 +1076,7 @@ class DimensionComponent(Component):
     """SDMX DimensionComponent (abstract class)."""
 
     #:
-    order: Optional[int] = None
+    order: int | None = None
 
 
 @dataclass
@@ -1227,7 +1085,7 @@ class Dimension(DimensionComponent):
     """SDMX Dimension."""
 
     #:
-    concept_role: Optional[Concept] = None
+    concept_role: Concept | None = None
 
 
 class TimeDimension(DimensionComponent):
@@ -1268,7 +1126,7 @@ class DimensionDescriptor(ComponentList[DimensionComponent]):
         result = key.__class__()
         for dim in sorted(self.components, key=attrgetter("order")):
             try:
-                result[dim.id] = key[dim.id]
+                result.values[dim.id] = key[dim.id]
             except KeyError:
                 continue
         return result
@@ -1303,15 +1161,16 @@ class DimensionDescriptor(ComponentList[DimensionComponent]):
 
 class GroupDimensionDescriptor(DimensionDescriptor):
     #:
-    attachment_constraint: Optional[bool] = None
+    attachment_constraint: bool | None = None
     # #:
-    # constraint: Optional[AttachmentConstraint] = None
+    # constraint: AttachmentConstraint | None = None
 
     def assign_order(self):
         """:meth:`assign_order` has no effect for GroupDimensionDescriptor."""
         pass
 
 
+@dataclass
 class AttributeRelationship:
     pass
 
@@ -1321,25 +1180,25 @@ class DimensionRelationship(AttributeRelationship):
     #:
     dimensions: list[DimensionComponent] = field(default_factory=list)
     #: NB the IM says "0..*" here in a diagram, but the text does not match.
-    group_key: Optional["GroupDimensionDescriptor"] = None
+    group_key: "GroupDimensionDescriptor | None" = None
 
 
 @dataclass
 class GroupRelationship(AttributeRelationship):
     #: “Retained for compatibility reasons” in SDMX 2.1 versus 2.0; not used by
     #: :mod:`sdmx`.
-    group_key: Optional["GroupDimensionDescriptor"] = None
+    group_key: "GroupDimensionDescriptor | None" = None
 
 
 @dataclass
 @NameableArtefact._preserve("eq", "hash")
 class DataAttribute(Component):
     #:
-    related_to: Optional[AttributeRelationship] = None
+    related_to: AttributeRelationship | None = None
     #:
-    usage_status: Optional[UsageStatus] = None
+    usage_status: UsageStatus | None = None
     #:
-    concept_role: Optional[Concept] = None
+    concept_role: Concept | None = None
 
 
 class AttributeDescriptor(ComponentList[DataAttribute]):
@@ -1370,7 +1229,7 @@ class BaseDataStructureDefinition(Structure, ConstrainableArtefact):
 
     # Convenience methods
     def iter_keys(
-        self, constraint: Optional[BaseConstraint] = None, dims: list[str] = []
+        self, constraint: BaseConstraint | None = None, dims: list[str] = []
     ) -> Generator["Key", None, None]:
         """Iterate over keys.
 
@@ -1588,14 +1447,19 @@ class BaseDataStructureDefinition(Structure, ConstrainableArtefact):
                 continue
 
             # Reference a Dimension from the DimensionDescriptor. If extend=False and
-            # the Dimension does not exist, this will raise KeyError
-            args = dict(id=id, value=value, value_for=dim(id))
+            # the Dimension does not exist, this will raise KeyError.
+            value_for = dim(id)
 
-            # Retrieve the order
-            order = args["value_for"].order
+            # Use the dimension's order instead of the order in `values`
+            order = value_for.order
+
+            # If an itemscheme is available, convert `value` into an Item
+            if value_for.local_representation:
+                if cl := value_for.local_representation.enumerated:
+                    value = cl.get(value, value)
 
             # Store a KeyValue, to be sorted later
-            keyvalues.append((order, KeyValue(**args)))
+            keyvalues.append((order, KeyValue(id=id, value=value, value_for=value_for)))
 
         # Sort the values according to *order*
         key.values.update({kv.id: kv for _, kv in sorted(keyvalues)})
@@ -1619,7 +1483,7 @@ class BaseDataflow(StructureUsage, ConstrainableArtefact):
             self.structure.is_external_reference = self.is_external_reference
 
     def iter_keys(
-        self, constraint: Optional[BaseConstraint] = None, dims: list[str] = []
+        self, constraint: BaseConstraint | None = None, dims: list[str] = []
     ) -> Generator["Key", None, None]:
         """Iterate over keys.
 
@@ -1661,7 +1525,7 @@ class KeyValue:
     #: The actual value.
     value: Any
     #:
-    value_for: Optional[DimensionComponent] = None
+    value_for: DimensionComponent | None = None
 
     dsd: InitVar[BaseDataStructureDefinition] = None
 
@@ -1712,7 +1576,7 @@ class TimeKeyValue(KeyValue):
 
 
 @dataclass
-class AttributeValue:
+class AttributeValue(Comparable):
     """SDMX AttributeValue.
 
     In the spec, AttributeValue is an abstract class. Here, it serves as both the
@@ -1736,11 +1600,11 @@ class AttributeValue:
     """
 
     #:
-    value: Union[str, Code]
+    value: str | Code
     #:
-    value_for: Optional[DataAttribute] = None
+    value_for: DataAttribute | None = None
     #:
-    start_date: Optional[date] = None
+    start_date: date | None = None
 
     dsd: InitVar[BaseDataStructureDefinition] = None
 
@@ -1762,21 +1626,6 @@ class AttributeValue:
 
     def __repr__(self):
         return "<{}: {}={}>".format(self.__class__.__name__, self.value_for, self.value)
-
-    def compare(self, other, strict=True):
-        """Return :obj:`True` if `self` is the same as `other`.
-
-        Two AttributeValues are equal if their properties are equal.
-
-        Parameters
-        ----------
-        strict : bool, optional
-            Passed to :func:`.compare`.
-        """
-        return all(
-            compare(attr, self, other, strict)
-            for attr in ["start_date", "value", "value_for"]
-        )
 
 
 @dataclass
@@ -1812,11 +1661,11 @@ class Key:
     #:
     attrib: DictLikeDescriptor[str, AttributeValue] = DictLikeDescriptor()
     #:
-    described_by: Optional[DimensionDescriptor] = None
+    described_by: DimensionDescriptor | None = None
     #: Individual KeyValues that describe the key.
     values: DictLikeDescriptor[str, KeyValue] = DictLikeDescriptor()
 
-    def __init__(self, arg: Union[Mapping, Sequence[KeyValue], None] = None, **kwargs):
+    def __init__(self, arg: Mapping | Sequence[KeyValue] | None = None, **kwargs):
         # Handle kwargs corresponding to attributes
         self.attrib.update(kwargs.pop("attrib", {}))
 
@@ -1872,7 +1721,7 @@ class Key:
         yield from self.values.values()
 
     # Convenience access to values by name
-    def __getitem__(self, name):
+    def __getitem__(self, name) -> "KeyValue":
         return self.values[name]
 
     def __setitem__(self, name, value):
@@ -1890,11 +1739,10 @@ class Key:
 
     # Copying
     def __copy__(self):
-        result = Key()
+        result = type(self)()
         if self.described_by:
             result.described_by = self.described_by
-        for kv in self.values.values():
-            result[kv.id] = kv
+        result.values.update_fast(self.values)
         return result
 
     def copy(self, arg=None, **kwargs):
@@ -1904,15 +1752,11 @@ class Key:
         return result
 
     def __add__(self, other):
-        if other is None:
-            other_values = dict()
-        elif not isinstance(other, Key):
+        result = copy(self)
+        if not isinstance(other, Key) and other is not None:
             raise NotImplementedError
         else:
-            other_values = other.values
-        result = copy(self)
-        for id, value in other_values.items():
-            result[id] = value
+            result.values.update_fast(getattr(other, "values", []))
         return result
 
     def __radd__(self, other):
@@ -1941,6 +1785,9 @@ class Key:
         # Hash of the individual KeyValues, in order
         return hash(tuple(hash(kv) for kv in self.values.values()))
 
+    def __lt__(self, other: "Self") -> bool:
+        return sorted(self.values.values()) < sorted(other.values.values())
+
     # Representations
 
     def __str__(self):
@@ -1963,13 +1810,15 @@ class Key:
         return tuple([kv.value for kv in self.values.values()])
 
 
+@dataclass
+@preserve_dunders(Key, "hash")
 class GroupKey(Key):
     #:
-    id: Optional[str] = None
+    id: str | None = None
     #:
-    described_by: Optional[GroupDimensionDescriptor] = None
+    described_by: GroupDimensionDescriptor | None = None
 
-    def __init__(self, arg: Optional[Mapping] = None, **kwargs):
+    def __init__(self, arg: Mapping | None = None, **kwargs):
         # Remove the 'id' keyword argument
         id = kwargs.pop("id", None)
         super().__init__(arg, **kwargs)
@@ -1996,7 +1845,7 @@ class SeriesKey(Key):
 
 
 @dataclass
-class BaseObservation:
+class BaseObservation(Comparable):
     """Common features of SDMX 2.1 and 3.0 Observation.
 
     This class also implements the IM classes ObservationValue, UncodedObservationValue,
@@ -2006,11 +1855,11 @@ class BaseObservation:
     #:
     attached_attribute: DictLikeDescriptor[str, AttributeValue] = DictLikeDescriptor()
     #:
-    series_key: Optional[SeriesKey] = None
+    series_key: SeriesKey | None = None
     #: Key for dimension(s) varying at the observation level.
-    dimension: Optional[Key] = None
+    dimension: Key | None = None
     #: Data value.
-    value: Optional[Union[Any, Code]] = None
+    value: Any | Code | None = None
     #: :mod:`sdmx` extension not in the IM.
     group_keys: set[GroupKey] = field(default_factory=set)
 
@@ -2039,46 +1888,22 @@ class BaseObservation:
     def __str__(self):
         return "{0.key}: {0.value}".format(self)
 
-    def compare(self, other, strict=True):
-        """Return :obj:`True` if `self` is the same as `other`.
-
-        Two Observations are equal if:
-
-        - their :attr:`dimension`, :attr:`value`, :attr:`series_key`, and
-          :attr:`value_for` are all equal,
-        - their corresponding :attr:`attached_attribute` and :attr:`group_keys` are all
-          equal.
-
-        Parameters
-        ----------
-        strict : bool, optional
-            Passed to :func:`.compare`.
-        """
-        return (
-            all(
-                compare(attr, self, other, strict)
-                for attr in ["dimension", "series_key", "value", "value_for"]
-            )
-            and self.attached_attribute.compare(other.attached_attribute)
-            and self.group_keys == other.group_keys
-        )
-
 
 @dataclass
 class BaseDataSet(AnnotableArtefact):
     """Common features of SDMX 2.1 and 3.0 DataSet."""
 
     #: Action to be performed
-    action: Optional[ActionType] = None
+    action: ActionType | None = None
     #:
-    valid_from: Optional[str] = None
+    valid_from: str | None = None
 
     #: Association to the :class:`Dataflow <.BaseDataflow>` that contains the data set.
-    described_by: Optional[BaseDataflow] = None
+    described_by: BaseDataflow | None = None
 
     #: Association to the :class:`DataStructure <.BaseDataStructureDefinition` that
     #: defines the structure of the data set.
-    structured_by: Optional[BaseDataStructureDefinition] = None
+    structured_by: BaseDataStructureDefinition | None = None
 
     #: All observations in the DataSet.
     obs: list[BaseObservation] = field(default_factory=list)
@@ -2097,21 +1922,27 @@ class BaseDataSet(AnnotableArtefact):
     def __len__(self):
         return len(self.obs)
 
-    def _add_group_refs(self, target):
+    def _add_group_refs(self, target) -> None:
         """Associate *target* with groups in this dataset.
 
         *target* may be an instance of SeriesKey or Observation.
         """
+
         for group_key in self.group:
             if group_key in (target if isinstance(target, SeriesKey) else target.key):
                 target.group_keys.add(group_key)
                 if isinstance(target, BaseObservation):
                     self.group[group_key].append(target)
 
-    def add_obs(self, observations, series_key=None):
-        """Add *observations* to a series with *series_key*.
+    def add_obs(
+        self,
+        observations: Iterable[BaseObservation],
+        series_key: SeriesKey | None = None,
+    ) -> None:
+        """Add `observations` to the data set, and to a series with `series_key`.
 
-        Checks consistency and adds group associations."""
+        Checks consistency and adds group associations.
+        """
         if series_key is not None:
             # Associate series_key with any GroupKeys that apply to it
             self._add_group_refs(series_key)
@@ -2143,30 +1974,6 @@ class BaseDataSet(AnnotableArtefact):
             "observations>"
         )
 
-    def compare(self, other, strict=True):
-        """Return :obj:`True` if `self` is the same as `other`.
-
-        Two DataSets are the same if:
-
-        - their :attr:`action`, :attr:`valid_from` compare equal.
-        - all dataset-level attached attributes compare equal.
-        - they have the same number of observations, series, and groups.
-
-        Parameters
-        ----------
-        strict : bool, optional
-            Passed to :func:`.compare`.
-        """
-        return (
-            compare("action", self, other, strict)
-            and compare("valid_from", self, other, strict)
-            and self.attrib.compare(other.attrib, strict)
-            and len(self.obs) == len(other.obs)
-            and len(self.series) == len(other.series)
-            and len(self.group) == len(other.group)
-            and all(o[0].compare(o[1], strict) for o in zip(self.obs, other.obs))
-        )
-
 
 # §7.3: Metadata Structure Definition
 
@@ -2182,11 +1989,11 @@ class AttributeComponent(Component):
 class MetadataAttribute(AttributeComponent):
     """SDMX MetadataAttribute."""
 
-    is_presentational: Optional[bool] = None
-    max_occurs: Optional[int] = None
-    min_occurs: Optional[int] = None
+    is_presentational: bool | None = None
+    max_occurs: int | None = None
+    min_occurs: int | None = None
 
-    parent: Optional["MetadataAttribute"] = None
+    parent: "MetadataAttribute | None" = None
     child: list["MetadataAttribute"] = field(default_factory=list)
 
 
@@ -2219,38 +2026,40 @@ class BaseXHTMLAttributeValue:
 class BaseMetadataSet:
     """ABC for SDMX 2.1 and 3.0 MetadataSet."""
 
-    action: Optional[ActionType] = None
+    action: ActionType | None = None
 
-    reporting_begin: Optional[date] = None
-    reporting_end: Optional[date] = None
+    reporting_begin: date | None = None
+    reporting_end: date | None = None
 
-    publication_period: Optional[date] = None
-    publication_year: Optional[date] = None
+    publication_period: date | None = None
+    publication_year: date | None = None
 
-    described_by: Optional[BaseMetadataflow] = None
+    #: Association to the metadata flow definition of which the metadataset is part.
+    described_by: BaseMetadataflow | None = None
 
     #: Note that the class of this attribute differs from SDMX 2.1 to SDMX 3.0.
     #: Compare :attr:`.v21.MetadataSet.structured_by` and
     #: :attr:`.v30.MetadataSet.structured_by`.
-    structured_by: Optional[IdentifiableArtefact] = None
+    structured_by: IdentifiableArtefact | None = None
 
 
 # SDMX 2.1 §8: Hierarchical Code List
 # SDMX 3.0 §8: Hierarchy
 
 
-class CodingFormat:
+@dataclass
+class CodingFormat(Comparable):
     """SDMX CodingFormat."""
 
-    coding_format: Facet
+    coding_format: Facet = field(default_factory=Facet)
 
 
 @dataclass
 class Level(NameableArtefact):
     """SDMX Level."""
 
-    parent: Optional[Union["Level", Any]] = None  # NB second element is "Hierarchy"
-    child: Optional["Level"] = None
+    parent: "Level | Any" = None  # NB second element is "Hierarchy"
+    child: "Level | None" = None
 
     code_format: CodingFormat = field(default_factory=CodingFormat)
 
@@ -2260,18 +2069,16 @@ class HierarchicalCode(IdentifiableArtefact):
     """SDMX HierarchicalCode."""
 
     #: Date from which the construct is valid.
-    valid_from: Optional[str] = None
+    valid_from: str | None = None
     #: Date from which the construct is superseded.
-    valid_to: Optional[str] = None
+    valid_to: str | None = None
 
     #: The Code that is used at the specific point in the hierarchy.
-    code: Optional[Code] = None
+    code: Code | None = None
 
-    level: Optional[Level] = None
+    level: Level | None = None
 
-    parent: Optional[Union["HierarchicalCode", Any]] = (
-        None  # NB second element is "Hierarchy"
-    )
+    parent: "HierarchicalCode | Any" = None  # NB second element is "Hierarchy"
     child: list["HierarchicalCode"] = field(default_factory=list)
 
 
@@ -2310,7 +2117,7 @@ class BaseMemberValue:
     #:
     value: str
     #:
-    cascade_values: Optional[bool] = None
+    cascade_values: bool | None = None
 
     def __hash__(self):
         return hash(self.value)
@@ -2401,7 +2208,7 @@ class CubeRegion:
     #:
     member: dict[DimensionComponent, BaseMemberSelection] = field(default_factory=dict)
 
-    def __contains__(self, other: Union["Key", "KeyValue"]) -> bool:
+    def __contains__(self, other: Key | KeyValue) -> bool:
         """Membership test.
 
         `other` may be either:
@@ -2499,9 +2306,9 @@ class RESTDatasource(QueryDatasource):
 @MaintainableArtefact._preserve("hash")
 class ProvisionAgreement(MaintainableArtefact, ConstrainableArtefact):
     #:
-    structure_usage: Optional[StructureUsage] = None
+    structure_usage: StructureUsage | None = None
     #:
-    data_provider: Optional[DataProvider] = None
+    data_provider: DataProvider | None = None
 
 
 # SDMX 3.0 §15: Validation and Transformation Language
@@ -2510,11 +2317,11 @@ class ProvisionAgreement(MaintainableArtefact, ConstrainableArtefact):
 @dataclass
 @NameableArtefact._preserve("eq", "hash", "repr")
 class CustomType(Item["CustomType"]):
-    data_type: Optional[str] = None
-    null_value: Optional[str] = None
-    output_format: Optional[str] = None
-    vtl_literal_format: Optional[str] = None
-    vtl_scalar_type: Optional[str] = None
+    data_type: str | None = None
+    null_value: str | None = None
+    output_format: str | None = None
+    vtl_literal_format: str | None = None
+    vtl_scalar_type: str | None = None
 
 
 class CustomTypeScheme(ItemScheme[CustomType]):
@@ -2524,7 +2331,7 @@ class CustomTypeScheme(ItemScheme[CustomType]):
 @dataclass
 @NameableArtefact._preserve("eq", "hash", "repr")
 class NamePersonalisation(Item["NamePersonalisation"]):
-    vtl_default_name: Optional[str] = None
+    vtl_default_name: str | None = None
 
 
 class NamePersonalisationScheme(ItemScheme[NamePersonalisation]):
@@ -2534,9 +2341,9 @@ class NamePersonalisationScheme(ItemScheme[NamePersonalisation]):
 @dataclass
 @NameableArtefact._preserve("eq", "hash", "repr")
 class Ruleset(Item["Ruleset"]):
-    definition: Optional[str] = None
-    scope: Optional[str] = None
-    type: Optional[str] = None
+    definition: str | None = None
+    scope: str | None = None
+    type: str | None = None
 
 
 class RulesetScheme(ItemScheme[Ruleset]):
@@ -2546,14 +2353,14 @@ class RulesetScheme(ItemScheme[Ruleset]):
 @dataclass
 @NameableArtefact._preserve("eq", "hash", "repr")
 class Transformation(Item["Transformation"]):
-    expression: Optional[str] = None
-    result: Optional[str] = None
+    expression: str | None = None
+    result: str | None = None
 
 
 @dataclass
 @NameableArtefact._preserve("eq", "hash", "repr")
 class UserDefinedOperator(Item["UserDefinedOperator"]):
-    definition: Optional[str] = None
+    definition: str | None = None
 
 
 class UserDefinedOperatorScheme(ItemScheme[UserDefinedOperator]):
@@ -2587,16 +2394,16 @@ VTLtoSDMX = Enum("VTLtoSDMX", "basic unpivot m2a")
 @dataclass
 @NameableArtefact._preserve("eq", "hash", "repr")
 class VTLConceptMapping(VTLMapping):
-    concept_alias: Optional[Concept] = None
+    concept_alias: Concept | None = None
 
 
 @dataclass
 @NameableArtefact._preserve("eq", "hash", "repr")
 class VTLDataflowMapping(VTLMapping):
-    dataflow_alias: Optional[BaseDataflow] = None
+    dataflow_alias: BaseDataflow | None = None
     from_vtl_method: Sequence[VTLSpaceKey] = field(default_factory=list)
-    from_vtl_superspace: Optional[VTLSpaceKey] = None
-    to_vtl_method: Optional[SDMXtoVTL] = None
+    from_vtl_superspace: VTLSpaceKey | None = None
+    to_vtl_method: SDMXtoVTL | None = None
     to_vtl_subspace: Sequence[VTLSpaceKey] = field(default_factory=list)
 
 
@@ -2608,11 +2415,11 @@ class VTLMappingScheme(ItemScheme[VTLMapping]):
 class TransformationScheme(ItemScheme[Transformation]):
     _Item = Transformation
 
-    custom_type_scheme: Optional[CustomTypeScheme] = None
-    name_personalisation_scheme: Optional[NamePersonalisationScheme] = None
-    ruleset_scheme: Optional[RulesetScheme] = None
-    user_defined_operator_scheme: Optional[UserDefinedOperatorScheme] = None
-    vtl_mapping_scheme: Optional[VTLMappingScheme] = None
+    custom_type_scheme: CustomTypeScheme | None = None
+    name_personalisation_scheme: NamePersonalisationScheme | None = None
+    ruleset_scheme: RulesetScheme | None = None
+    user_defined_operator_scheme: UserDefinedOperatorScheme | None = None
+    vtl_mapping_scheme: VTLMappingScheme | None = None
 
     def update_ref(self, ref):
         for f in direct_fields(self.__class__):
@@ -2624,6 +2431,44 @@ class TransformationScheme(ItemScheme[Transformation]):
 
 class BaseContentConstraint:
     """ABC for SDMX 2.1 and 3.0 ContentConstraint."""
+
+
+# Section 5 Registry / §7.4.3 Registration Response
+
+
+@dataclass
+class MessageText:
+    """SDMX MessageText.
+
+    See :ref:`impl-im-reg`.
+    """
+
+    code: int = 0
+    text: InternationalStringDescriptor = InternationalStringDescriptor()
+
+
+@dataclass
+class StatusMessage:
+    """SDMX StatusMessage.
+
+    See :ref:`impl-im-reg`.
+    """
+
+    status: SubmissionStatusType
+    text: list[MessageText] = field(default_factory=list)
+
+
+@dataclass
+class SubmissionResult:
+    """SDMX SubmissionResult.
+
+    See :ref:`impl-im-reg`.
+    """
+
+    maintainable_object: MaintainableArtefact
+    action: ActionType
+    status_message: StatusMessage
+    external_dependencies: bool = False
 
 
 # Internal
@@ -2706,7 +2551,7 @@ class ClassFinder:
         self._parent = ChainMap(PARENT, self.parent_map)
 
     @lru_cache()
-    def get_class(self, name: Union[str, Resource], package=None) -> Optional[type]:
+    def get_class(self, name: str | Resource, package=None) -> type | None:
         """Return a class for `name` and (optional) `package` names."""
         if isinstance(name, Resource):
             # Convert a Resource enumeration value to a string
@@ -2764,6 +2609,7 @@ def __getattr__(name: str):
         warn(
             "from sdmx.model.common import Annotation. Use one of sdmx.model.{v21,v30}",
             DeprecationWarning,
+            stacklevel=2,
         )
         return Annotation
     raise AttributeError(name)

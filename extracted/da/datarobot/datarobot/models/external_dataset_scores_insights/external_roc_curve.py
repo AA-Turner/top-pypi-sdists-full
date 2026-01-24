@@ -62,9 +62,7 @@ class ExternalRocCurve(APIObject, RocCurveThresholdMixin):
         self.positive_class_predictions = positive_class_predictions
 
     def __repr__(self) -> str:
-        return "ExternalRocCurve(dataset_id={}, roc_points={})".format(
-            self.dataset_id, self.roc_points
-        )
+        return "ExternalRocCurve(dataset_id={}, roc_points={})".format(self.dataset_id, self.roc_points)
 
     @classmethod
     def list(

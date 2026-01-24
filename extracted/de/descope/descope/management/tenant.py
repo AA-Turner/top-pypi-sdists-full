@@ -1,10 +1,15 @@
 from typing import Any, List, Optional
 
-from descope._auth_base import AuthBase
-from descope.management.common import MgmtV1
+from descope._http_base import HTTPBase
+from descope.management.common import (
+    MgmtV1,
+    SessionExpirationUnit,
+    SSOSetupSuiteSettings,
+    TenantAuthType,
+)
 
 
-class Tenant(AuthBase):
+class Tenant(HTTPBase):
     def create(
         self,
         name: str,
@@ -12,6 +17,8 @@ class Tenant(AuthBase):
         self_provisioning_domains: Optional[List[str]] = None,
         custom_attributes: Optional[dict] = None,
         enforce_sso: Optional[bool] = False,
+        enforce_sso_exclusions: Optional[List[str]] = None,
+        federated_app_ids: Optional[List[str]] = None,
         disabled: Optional[bool] = False,
     ) -> dict:
         """
@@ -25,6 +32,8 @@ class Tenant(AuthBase):
             Users authenticating from these domains will be associated with this tenant.
         custom_attributes (dict): Optional, set the different custom attributes values of the keys that were previously configured in Descope console app
         enforce_sso (bool): Optional, login to the tenant is possible only using the configured sso
+        enforce_sso_exclusions (List[str]): Optional, list of user IDs excluded from SSO enforcement
+        federated_app_ids (List[str]): Optional, list of federated application IDs
         disabled (bool): Optional, login to the tenant will be disabled
 
         Return value (dict):
@@ -38,18 +47,18 @@ class Tenant(AuthBase):
             [] if self_provisioning_domains is None else self_provisioning_domains
         )
 
-        uri = MgmtV1.tenant_create_path
-        response = self._auth.do_post(
-            uri,
-            Tenant._compose_create_update_body(
+        response = self._http.post(
+            MgmtV1.tenant_create_path,
+            body=Tenant._compose_create_update_body(
                 name,
                 id,
                 self_provisioning_domains,
                 custom_attributes,
                 enforce_sso,
+                enforce_sso_exclusions,
+                federated_app_ids,
                 disabled,
             ),
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -60,6 +69,8 @@ class Tenant(AuthBase):
         self_provisioning_domains: Optional[List[str]] = None,
         custom_attributes: Optional[dict] = None,
         enforce_sso: Optional[bool] = False,
+        enforce_sso_exclusions: Optional[List[str]] = None,
+        federated_app_ids: Optional[List[str]] = None,
         disabled: Optional[bool] = False,
     ):
         """
@@ -73,6 +84,8 @@ class Tenant(AuthBase):
             Users authenticating from these domains will be associated with this tenant.
         custom_attributes (dict): Optional, set the different custom attributes values of the keys that were previously configured in Descope console app
         enforce_sso (bool): Optional, login to the tenant is possible only using the configured sso
+        enforce_sso_exclusions (List[str]): Optional, list of user IDs excluded from SSO enforcement
+        federated_app_ids (List[str]): Optional, list of federated application IDs
         disabled (bool): Optional, login to the tenant will be disabled
 
         Raise:
@@ -82,19 +95,96 @@ class Tenant(AuthBase):
             [] if self_provisioning_domains is None else self_provisioning_domains
         )
 
-        uri = MgmtV1.tenant_update_path
-        self._auth.do_post(
-            uri,
-            Tenant._compose_create_update_body(
+        self._http.post(
+            MgmtV1.tenant_update_path,
+            body=Tenant._compose_create_update_body(
                 name,
                 id,
                 self_provisioning_domains,
                 custom_attributes,
                 enforce_sso,
+                enforce_sso_exclusions,
+                federated_app_ids,
                 disabled,
             ),
-            pswd=self._auth.management_key,
         )
+
+    def update_settings(
+        self,
+        id: str,
+        self_provisioning_domains: List[str],
+        domains: Optional[List[str]] = None,
+        auth_type: Optional[TenantAuthType] = None,
+        session_settings_enabled: Optional[bool] = None,
+        refresh_token_expiration: Optional[int] = None,
+        refresh_token_expiration_unit: Optional[SessionExpirationUnit] = None,
+        session_token_expiration: Optional[int] = None,
+        session_token_expiration_unit: Optional[SessionExpirationUnit] = None,
+        stepup_token_expiration: Optional[int] = None,
+        stepup_token_expiration_unit: Optional[SessionExpirationUnit] = None,
+        enable_inactivity: Optional[bool] = None,
+        inactivity_time: Optional[int] = None,
+        inactivity_time_unit: Optional[SessionExpirationUnit] = None,
+        JITDisabled: Optional[bool] = None,
+        sso_setup_suite_settings: Optional[SSOSetupSuiteSettings] = None,
+        enforce_sso: Optional[bool] = None,
+        enforce_sso_exclusions: Optional[List[str]] = None,
+        federated_app_ids: Optional[List[str]] = None,
+    ):
+        """
+        Update an existing tenant's session settings.
+
+        Args:
+            id (str): The ID of the tenant to update.
+            self_provisioning_domains (List[str]): Domains for self-provisioning.
+            domains (Optional[List[str]]): List of domains associated with the tenant.
+            auth_type (Optional[TenantAuthType]): Authentication type for the tenant.
+            session_settings_enabled (Optional[bool]): Whether session settings are enabled.
+            refresh_token_expiration (Optional[int]): Expiration time for refresh tokens.
+            refresh_token_expiration_unit (Optional[SessionExpirationUnit]): Unit for refresh token expiration.
+            session_token_expiration (Optional[int]): Expiration time for session tokens.
+            session_token_expiration_unit (Optional[SessionExpirationUnit]): Unit for session token expiration.
+            stepup_token_expiration (Optional[int]): Expiration time for step-up tokens.
+            stepup_token_expiration_unit (Optional[SessionExpirationUnit]): Unit for step-up token expiration.
+            enable_inactivity (Optional[bool]): Whether inactivity timeout is enabled.
+            inactivity_time (Optional[int]): Inactivity timeout duration.
+            inactivity_time_unit (Optional[SessionExpirationUnit]): Unit for inactivity timeout.
+            JITDisabled (Optional[bool]): Whether JIT is disabled.
+            sso_setup_suite_settings (Optional[SSOSetupSuiteSettings]): SSO Setup Suite configuration.
+            enforce_sso (Optional[bool]): Whether to enforce SSO for the tenant.
+            enforce_sso_exclusions (Optional[List[str]]): List of user IDs excluded from SSO enforcement.
+            federated_app_ids (Optional[List[str]]): List of federated application IDs.
+
+        Raise:
+            AuthException: raised if update operation fails
+        """
+        body: dict[str, Any] = {
+            "tenantId": id,
+            "selfProvisioningDomains": self_provisioning_domains,
+            "domains": domains,
+            "authType": auth_type,
+            "enabled": session_settings_enabled,
+            "refreshTokenExpiration": refresh_token_expiration,
+            "refreshTokenExpirationUnit": refresh_token_expiration_unit,
+            "sessionTokenExpiration": session_token_expiration,
+            "sessionTokenExpirationUnit": session_token_expiration_unit,
+            "stepupTokenExpiration": stepup_token_expiration,
+            "stepupTokenExpirationUnit": stepup_token_expiration_unit,
+            "enableInactivity": enable_inactivity,
+            "inactivityTime": inactivity_time,
+            "inactivityTimeUnit": inactivity_time_unit,
+            "JITDisabled": JITDisabled,
+            "ssoSetupSuiteSettings": (
+                sso_setup_suite_settings.to_dict() if sso_setup_suite_settings else None
+            ),
+            "enforceSSO": enforce_sso,
+            "enforceSSOExclusions": enforce_sso_exclusions,
+            "federatedAppIds": federated_app_ids,
+        }
+
+        body = {k: v for k, v in body.items() if v is not None}
+
+        self._http.post(MgmtV1.tenant_settings_path, body=body, params=None)
 
     def delete(
         self,
@@ -110,9 +200,9 @@ class Tenant(AuthBase):
         Raise:
         AuthException: raised if creation operation fails
         """
-        uri = MgmtV1.tenant_delete_path
-        self._auth.do_post(
-            uri, {"id": id, "cascade": cascade}, pswd=self._auth.management_key
+        self._http.post(
+            MgmtV1.tenant_delete_path,
+            body={"id": id, "cascade": cascade},
         )
 
     def load(
@@ -133,10 +223,38 @@ class Tenant(AuthBase):
         Raise:
         AuthException: raised if load operation fails
         """
-        response = self._auth.do_get(
-            uri=MgmtV1.tenant_load_path,
+        response = self._http.get(
+            MgmtV1.tenant_load_path,
             params={"id": id},
-            pswd=self._auth.management_key,
+        )
+        return response.json()
+
+    def load_settings(
+        self,
+        id: str,
+    ) -> dict:
+        """
+        Load tenant session settings by id.
+
+        Args:
+        id (str): The ID of the tenant to load session settings for.
+
+        Return value (dict):
+        Return dict in the format
+            { "domains":<list[str]>, "selfProvisioningDomains":<list[str]>, "authType":<str>,
+             "enabled":<bool>, "refreshTokenExpiration":<int>, "refreshTokenExpirationUnit":<str>,
+             "sessionTokenExpiration":<int>, "sessionTokenExpirationUnit":<str>,
+             "stepupTokenExpiration":<int>, "stepupTokenExpirationUnit":<str>,
+             "enableInactivity":<bool>, "inactivityTime":<int>, "inactivityTimeUnit":<str>,
+             "JITDisabled":<bool>, "ssoSetupSuiteSettings":<dict> }
+        Containing the loaded tenant session settings.
+
+        Raise:
+        AuthException: raised if load operation fails
+        """
+        response = self._http.get(
+            MgmtV1.tenant_settings_path,
+            params={"id": id},
         )
         return response.json()
 
@@ -154,9 +272,8 @@ class Tenant(AuthBase):
         Raise:
         AuthException: raised if load operation fails
         """
-        response = self._auth.do_get(
-            uri=MgmtV1.tenant_load_all_path,
-            pswd=self._auth.management_key,
+        response = self._http.get(
+            MgmtV1.tenant_load_all_path,
         )
         return response.json()
 
@@ -184,15 +301,14 @@ class Tenant(AuthBase):
         Raise:
         AuthException: raised if load operation fails
         """
-        response = self._auth.do_post(
-            uri=MgmtV1.tenant_search_all_path,
+        response = self._http.post(
+            MgmtV1.tenant_search_all_path,
             body={
                 "tenantIds": ids,
                 "tenantNames": names,
                 "tenantSelfProvisioningDomains": self_provisioning_domains,
                 "customAttributes": custom_attributes,
             },
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -203,6 +319,8 @@ class Tenant(AuthBase):
         self_provisioning_domains: List[str],
         custom_attributes: Optional[dict] = None,
         enforce_sso: Optional[bool] = False,
+        enforce_sso_exclusions: Optional[List[str]] = None,
+        federated_app_ids: Optional[List[str]] = None,
         disabled: Optional[bool] = False,
     ) -> dict:
         body: dict[str, Any] = {
@@ -214,4 +332,8 @@ class Tenant(AuthBase):
         }
         if custom_attributes is not None:
             body["customAttributes"] = custom_attributes
+        if enforce_sso_exclusions is not None:
+            body["enforceSSOExclusions"] = enforce_sso_exclusions
+        if federated_app_ids is not None:
+            body["federatedAppIds"] = federated_app_ids
         return body

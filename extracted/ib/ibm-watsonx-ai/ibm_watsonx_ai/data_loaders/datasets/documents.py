@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -93,44 +93,56 @@ class DocumentsIterableDataset(BaseDocumentsIterableDataset):
 
         .. code-block:: python
 
-            connections = [DataConnection(data_asset_id='5d99c11a-2060-4ef6-83d5-dc593c6455e2')]
+            connections = [
+                DataConnection(data_asset_id="5d99c11a-2060-4ef6-83d5-dc593c6455e2")
+            ]
 
-            iterable_dataset = DocumentsIterableDataset(connections=connections,
-                                                        enable_sampling=True,
-                                                        sampling_type='random',
-                                                        sample_size_limit = 1GB)
+            iterable_dataset = DocumentsIterableDataset(
+                connections=connections,
+                enable_sampling=True,
+                sampling_type="random",
+                sample_size_limit=1073741824,  # 1GB in Bytes
+            )
 
     **Example: read all documents/no subsampling**
 
         .. code-block:: python
 
-            connections = [DataConnection(data_asset_id='5d99c11a-2060-4ef6-83d5-dc593c6455e2')]
+            connections = [
+                DataConnection(data_asset_id="5d99c11a-2060-4ef6-83d5-dc593c6455e2")
+            ]
 
-            iterable_dataset = DocumentsIterableDataset(connections=connections,
-                                                        enable_sampling=False)
+            iterable_dataset = DocumentsIterableDataset(
+                connections=connections, enable_sampling=False
+            )
 
     **Example: context based sampling**
 
             .. code-block:: python
 
-                connections = [DataConnection(data_asset_id='5d99c11a-2060-4ef6-83d5-dc593c6455e2')]
+                connections = [
+                    DataConnection(data_asset_id="5d99c11a-2060-4ef6-83d5-dc593c6455e2")
+                ]
 
-                iterable_dataset = DocumentsIterableDataset(connections=connections,
-                                                            enable_sampling=True,
-                                                            sampling_type='benchmark_driven',
-                                                            sample_size_limit = 1GB,
-                                                            benchmark_dataset=pd.DataFrame(
-                                                                data={
-                                                                    "question": [
-                                                                        "What foundation models are available in watsonx.ai ?"
-                                                                    ],
-                                                                    "correct_answers": [
-                                                                        [
-                                                                            "The following models are available in watsonx.ai: ..."
-                                                                        ]
-                                                                    ],
-                                                                    "correct_answer_document_ids": ["sample_pdf_file.pdf"],
-                                                                }))
+                iterable_dataset = DocumentsIterableDataset(
+                    connections=connections,
+                    enable_sampling=True,
+                    sampling_type="benchmark_driven",
+                    sample_size_limit=1073741824,  # 1GB in Bytes
+                    benchmark_dataset=pd.DataFrame(
+                        data={
+                            "question": [
+                                "What foundation models are available in watsonx.ai ?"
+                            ],
+                            "correct_answers": [
+                                [
+                                    "The following models are available in watsonx.ai: ..."
+                                ]
+                            ],
+                            "correct_answer_document_ids": ["sample_pdf_file.pdf"],
+                        }
+                    ),
+                )
 
     """
 
@@ -145,7 +157,7 @@ class DocumentsIterableDataset(BaseDocumentsIterableDataset):
         total_size_limit: int = DEFAULT_SAMPLE_SIZE_LIMIT,
         total_ndocs_limit: int | None = None,
         benchmark_dataset: pd.DataFrame | None = None,
-        error_callback: Callable[[str, Exception], None] = None,
+        error_callback: Callable[[str, Exception], None] | None = None,
         **kwargs: Any,
     ) -> None:
         BaseDocumentsIterableDataset.__init__(

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# SPDX-FileCopyrightText: Copyright (c) 2025, Kr8s Developers (See LICENSE for list)
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, Kr8s Developers (See LICENSE for list)
 # SPDX-License-Identifier: BSD 3-Clause License
 # /// script
 # requires-python = ">=3.12"
@@ -140,12 +140,37 @@ def extend_versions(versions, extended_versions, provider):
     return versions
 
 
+def dockerhub_auth():
+    if not os.environ.get("DOCKERHUB_USERNAME") or not os.environ.get(
+        "DOCKERHUB_TOKEN"
+    ):
+        return None
+    data = json.dumps(
+        {
+            "identifier": os.environ.get("DOCKERHUB_USERNAME"),
+            "secret": os.environ.get("DOCKERHUB_TOKEN"),
+        }
+    ).encode()
+    req = urllib.request.Request(
+        "https://hub.docker.com/v2/auth/token",
+        data=data,
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req) as resp:
+        return json.load(resp)["access_token"]
+
+
 def get_kind_versions():
     print("Loading Kubernetes tags from https://hub.docker.com/r/kindest/node/tags...")
     container_tags = []
+    headers = {}
+    jwt_token = dockerhub_auth()
+    if jwt_token:
+        headers = {"Authorization": f"Bearer {jwt_token}"}
     next_url = "https://hub.docker.com/v2/repositories/kindest/node/tags"
     while next_url:
-        with urllib.request.urlopen(next_url) as url:
+        req = urllib.request.Request(next_url, headers=headers)
+        with urllib.request.urlopen(req) as url:
             results = json.load(url)
             container_tags += results["results"]
             if "next" in results and results["next"]:
@@ -199,7 +224,9 @@ def update_workflow(versions, workflow_path):
     for version in versions[1:]:
         workflow["jobs"]["test"]["strategy"]["matrix"]["include"].append(
             {
-                "python-version": "3.10",
+                "python-version": workflow["jobs"]["test"]["strategy"]["matrix"][
+                    "python-version"
+                ][-1],
                 "kubernetes-version": version["latest_kind_container"],
             }
         )
@@ -220,6 +247,21 @@ def update_badges(filename, versions):
     Path(filename).write_text(readme)
 
 
+def update_version_support(versions):
+    version_support = Path("kr8s/_constants.py").read_text()
+    version_support = re.sub(
+        r"KUBERNETES_MINIMUM_SUPPORTED_VERSION = .*",
+        f"KUBERNETES_MINIMUM_SUPPORTED_VERSION = parse_version(\"{versions[-1]['cycle']}\")",
+        version_support,
+    )
+    version_support = re.sub(
+        r"KUBERNETES_MAXIMUM_SUPPORTED_VERSION = .*",
+        f"KUBERNETES_MAXIMUM_SUPPORTED_VERSION = parse_version(\"{versions[0]['cycle']}\")",
+        version_support,
+    )
+    Path("kr8s/_constants.py").write_text(version_support)
+
+
 def main():
     versions = get_versions()
     print(f"Latest version: {versions[0]['cycle']}")
@@ -235,6 +277,7 @@ def main():
         update_workflow(versions, ".github/workflows/test-kubectl-ng.yaml")
         update_badges("README.md", versions)
         update_badges("docs/index.md", versions)
+        update_version_support(versions)
     else:
         print("DEBUG env var set, skipping file updates")
 

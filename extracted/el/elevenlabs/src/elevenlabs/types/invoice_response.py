@@ -5,7 +5,9 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .discount_response_model import DiscountResponseModel
 from .invoice_response_model_payment_intent_status import InvoiceResponseModelPaymentIntentStatus
+from .invoice_response_model_payment_intent_statusses_item import InvoiceResponseModelPaymentIntentStatussesItem
 
 
 class InvoiceResponse(UncheckedBaseModel):
@@ -14,14 +16,29 @@ class InvoiceResponse(UncheckedBaseModel):
     The amount due in cents.
     """
 
+    subtotal_cents: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    The subtotal amount in cents before tax (exclusive of tax and discounts).
+    """
+
+    tax_cents: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    The tax amount in cents.
+    """
+
     discount_percent_off: typing.Optional[float] = pydantic.Field(default=None)
     """
-    The discount applied to the invoice. E.g. [20.0f] for 20% off.
+    Deprecated. Use [discounts] instead. The discount applied to the invoice. E.g. [20.0f] for 20% off.
     """
 
     discount_amount_off: typing.Optional[float] = pydantic.Field(default=None)
     """
-    The discount applied to the invoice. E.g. [20.0f] for 20% off.
+    Deprecated. Use [discounts] instead. The discount applied to the invoice. E.g. [20.0f] for 20 cents off.
+    """
+
+    discounts: typing.List[DiscountResponseModel] = pydantic.Field()
+    """
+    The discounts applied to the invoice.
     """
 
     next_payment_attempt_unix: int = pydantic.Field()
@@ -31,7 +48,12 @@ class InvoiceResponse(UncheckedBaseModel):
 
     payment_intent_status: typing.Optional[InvoiceResponseModelPaymentIntentStatus] = pydantic.Field(default=None)
     """
-    The status of this invoice's payment intent. None when there is no payment intent.
+    Deprecated. Use [payment_intent_statusses] instead. The status of this invoice's first payment intent. None when there is no payment intent.
+    """
+
+    payment_intent_statusses: typing.List[InvoiceResponseModelPaymentIntentStatussesItem] = pydantic.Field()
+    """
+    The statuses of this invoice's payment intents. Empty list when there are no payment intents.
     """
 
     if IS_PYDANTIC_V2:

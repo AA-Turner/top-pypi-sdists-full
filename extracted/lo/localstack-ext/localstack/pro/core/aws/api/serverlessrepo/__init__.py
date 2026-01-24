@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -29,7 +29,7 @@ class BadRequestException(ServiceException):
     code: str = "BadRequestException"
     sender_fault: bool = False
     status_code: int = 400
-    ErrorCode: Optional[_string]
+    ErrorCode: _string | None
 
 
 class ConflictException(ServiceException):
@@ -38,7 +38,7 @@ class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 409
-    ErrorCode: Optional[_string]
+    ErrorCode: _string | None
 
 
 class ForbiddenException(ServiceException):
@@ -47,7 +47,7 @@ class ForbiddenException(ServiceException):
     code: str = "ForbiddenException"
     sender_fault: bool = False
     status_code: int = 403
-    ErrorCode: Optional[_string]
+    ErrorCode: _string | None
 
 
 class InternalServerErrorException(ServiceException):
@@ -58,7 +58,7 @@ class InternalServerErrorException(ServiceException):
     code: str = "InternalServerErrorException"
     sender_fault: bool = False
     status_code: int = 500
-    ErrorCode: Optional[_string]
+    ErrorCode: _string | None
 
 
 class NotFoundException(ServiceException):
@@ -69,7 +69,7 @@ class NotFoundException(ServiceException):
     code: str = "NotFoundException"
     sender_fault: bool = False
     status_code: int = 404
-    ErrorCode: Optional[_string]
+    ErrorCode: _string | None
 
 
 class TooManyRequestsException(ServiceException):
@@ -80,32 +80,32 @@ class TooManyRequestsException(ServiceException):
     code: str = "TooManyRequestsException"
     sender_fault: bool = False
     status_code: int = 429
-    ErrorCode: Optional[_string]
+    ErrorCode: _string | None
 
 
-_listOfCapability = List[Capability]
-_listOf__string = List[_string]
+_listOfCapability = list[Capability]
+_listOf__string = list[_string]
 
 
 class ParameterDefinition(TypedDict, total=False):
     """Parameters supported by the application."""
 
-    AllowedPattern: Optional[_string]
-    AllowedValues: Optional[_listOf__string]
-    ConstraintDescription: Optional[_string]
-    DefaultValue: Optional[_string]
-    Description: Optional[_string]
-    MaxLength: Optional[_integer]
-    MaxValue: Optional[_integer]
-    MinLength: Optional[_integer]
-    MinValue: Optional[_integer]
+    AllowedPattern: _string | None
+    AllowedValues: _listOf__string | None
+    ConstraintDescription: _string | None
+    DefaultValue: _string | None
+    Description: _string | None
+    MaxLength: _integer | None
+    MaxValue: _integer | None
+    MinLength: _integer | None
+    MinValue: _integer | None
     Name: _string
-    NoEcho: Optional[_boolean]
+    NoEcho: _boolean | None
     ReferencedByResources: _listOf__string
-    Type: Optional[_string]
+    Type: _string | None
 
 
-_listOfParameterDefinition = List[ParameterDefinition]
+_listOfParameterDefinition = list[ParameterDefinition]
 
 
 class Version(TypedDict, total=False):
@@ -117,8 +117,8 @@ class Version(TypedDict, total=False):
     RequiredCapabilities: _listOfCapability
     ResourcesSupported: _boolean
     SemanticVersion: _string
-    SourceCodeArchiveUrl: Optional[_string]
-    SourceCodeUrl: Optional[_string]
+    SourceCodeArchiveUrl: _string | None
+    SourceCodeUrl: _string | None
     TemplateUrl: _string
 
 
@@ -127,17 +127,17 @@ class Application(TypedDict, total=False):
 
     ApplicationId: _string
     Author: _string
-    CreationTime: Optional[_string]
+    CreationTime: _string | None
     Description: _string
-    HomePageUrl: Optional[_string]
-    IsVerifiedAuthor: Optional[_boolean]
-    Labels: Optional[_listOf__string]
-    LicenseUrl: Optional[_string]
+    HomePageUrl: _string | None
+    IsVerifiedAuthor: _boolean | None
+    Labels: _listOf__string | None
+    LicenseUrl: _string | None
     Name: _string
-    ReadmeUrl: Optional[_string]
-    SpdxLicenseId: Optional[_string]
-    VerifiedAuthorUrl: Optional[_string]
-    Version: Optional[Version]
+    ReadmeUrl: _string | None
+    SpdxLicenseId: _string | None
+    VerifiedAuthorUrl: _string | None
+    Version: Version | None
 
 
 class ApplicationDependencySummary(TypedDict, total=False):
@@ -147,14 +147,14 @@ class ApplicationDependencySummary(TypedDict, total=False):
     SemanticVersion: _string
 
 
-_listOfApplicationDependencySummary = List[ApplicationDependencySummary]
+_listOfApplicationDependencySummary = list[ApplicationDependencySummary]
 
 
 class ApplicationDependencyPage(TypedDict, total=False):
     """A list of application summaries nested in the application."""
 
     Dependencies: _listOfApplicationDependencySummary
-    NextToken: Optional[_string]
+    NextToken: _string | None
 
 
 class ApplicationSummary(TypedDict, total=False):
@@ -162,34 +162,34 @@ class ApplicationSummary(TypedDict, total=False):
 
     ApplicationId: _string
     Author: _string
-    CreationTime: Optional[_string]
+    CreationTime: _string | None
     Description: _string
-    HomePageUrl: Optional[_string]
-    Labels: Optional[_listOf__string]
+    HomePageUrl: _string | None
+    Labels: _listOf__string | None
     Name: _string
-    SpdxLicenseId: Optional[_string]
+    SpdxLicenseId: _string | None
 
 
-_listOfApplicationSummary = List[ApplicationSummary]
+_listOfApplicationSummary = list[ApplicationSummary]
 
 
 class ApplicationPage(TypedDict, total=False):
     """A list of application details."""
 
     Applications: _listOfApplicationSummary
-    NextToken: Optional[_string]
+    NextToken: _string | None
 
 
 class ApplicationPolicyStatement(TypedDict, total=False):
     """Policy statement applied to the application."""
 
     Actions: _listOf__string
-    PrincipalOrgIDs: Optional[_listOf__string]
+    PrincipalOrgIDs: _listOf__string | None
     Principals: _listOf__string
-    StatementId: Optional[_string]
+    StatementId: _string | None
 
 
-_listOfApplicationPolicyStatement = List[ApplicationPolicyStatement]
+_listOfApplicationPolicyStatement = list[ApplicationPolicyStatement]
 
 
 class ApplicationPolicy(TypedDict, total=False):
@@ -204,16 +204,16 @@ class VersionSummary(TypedDict, total=False):
     ApplicationId: _string
     CreationTime: _string
     SemanticVersion: _string
-    SourceCodeUrl: Optional[_string]
+    SourceCodeUrl: _string | None
 
 
-_listOfVersionSummary = List[VersionSummary]
+_listOfVersionSummary = list[VersionSummary]
 
 
 class ApplicationVersionPage(TypedDict, total=False):
     """A list of version summaries for the application."""
 
-    NextToken: Optional[_string]
+    NextToken: _string | None
     Versions: _listOfVersionSummary
 
 
@@ -231,83 +231,83 @@ class CreateApplicationInput(TypedDict, total=False):
 
     Author: _string
     Description: _string
-    HomePageUrl: Optional[_string]
-    Labels: Optional[_listOf__string]
-    LicenseBody: Optional[_string]
-    LicenseUrl: Optional[_string]
+    HomePageUrl: _string | None
+    Labels: _listOf__string | None
+    LicenseBody: _string | None
+    LicenseUrl: _string | None
     Name: _string
-    ReadmeBody: Optional[_string]
-    ReadmeUrl: Optional[_string]
-    SemanticVersion: Optional[_string]
-    SourceCodeArchiveUrl: Optional[_string]
-    SourceCodeUrl: Optional[_string]
-    SpdxLicenseId: Optional[_string]
-    TemplateBody: Optional[_string]
-    TemplateUrl: Optional[_string]
+    ReadmeBody: _string | None
+    ReadmeUrl: _string | None
+    SemanticVersion: _string | None
+    SourceCodeArchiveUrl: _string | None
+    SourceCodeUrl: _string | None
+    SpdxLicenseId: _string | None
+    TemplateBody: _string | None
+    TemplateUrl: _string | None
 
 
 class CreateApplicationRequest(ServiceRequest):
     Author: _string
     Description: _string
-    HomePageUrl: Optional[_string]
-    Labels: Optional[_listOf__string]
-    LicenseBody: Optional[_string]
-    LicenseUrl: Optional[_string]
+    HomePageUrl: _string | None
+    Labels: _listOf__string | None
+    LicenseBody: _string | None
+    LicenseUrl: _string | None
     Name: _string
-    ReadmeBody: Optional[_string]
-    ReadmeUrl: Optional[_string]
-    SemanticVersion: Optional[_string]
-    SourceCodeArchiveUrl: Optional[_string]
-    SourceCodeUrl: Optional[_string]
-    SpdxLicenseId: Optional[_string]
-    TemplateBody: Optional[_string]
-    TemplateUrl: Optional[_string]
+    ReadmeBody: _string | None
+    ReadmeUrl: _string | None
+    SemanticVersion: _string | None
+    SourceCodeArchiveUrl: _string | None
+    SourceCodeUrl: _string | None
+    SpdxLicenseId: _string | None
+    TemplateBody: _string | None
+    TemplateUrl: _string | None
 
 
 class CreateApplicationResponse(TypedDict, total=False):
-    ApplicationId: Optional[_string]
-    Author: Optional[_string]
-    CreationTime: Optional[_string]
-    Description: Optional[_string]
-    HomePageUrl: Optional[_string]
-    IsVerifiedAuthor: Optional[_boolean]
-    Labels: Optional[_listOf__string]
-    LicenseUrl: Optional[_string]
-    Name: Optional[_string]
-    ReadmeUrl: Optional[_string]
-    SpdxLicenseId: Optional[_string]
-    VerifiedAuthorUrl: Optional[_string]
-    Version: Optional[Version]
+    ApplicationId: _string | None
+    Author: _string | None
+    CreationTime: _string | None
+    Description: _string | None
+    HomePageUrl: _string | None
+    IsVerifiedAuthor: _boolean | None
+    Labels: _listOf__string | None
+    LicenseUrl: _string | None
+    Name: _string | None
+    ReadmeUrl: _string | None
+    SpdxLicenseId: _string | None
+    VerifiedAuthorUrl: _string | None
+    Version: Version | None
 
 
 class CreateApplicationVersionInput(TypedDict, total=False):
     """Create a version request."""
 
-    SourceCodeArchiveUrl: Optional[_string]
-    SourceCodeUrl: Optional[_string]
-    TemplateBody: Optional[_string]
-    TemplateUrl: Optional[_string]
+    SourceCodeArchiveUrl: _string | None
+    SourceCodeUrl: _string | None
+    TemplateBody: _string | None
+    TemplateUrl: _string | None
 
 
 class CreateApplicationVersionRequest(ServiceRequest):
     ApplicationId: _string
     SemanticVersion: _string
-    SourceCodeArchiveUrl: Optional[_string]
-    SourceCodeUrl: Optional[_string]
-    TemplateBody: Optional[_string]
-    TemplateUrl: Optional[_string]
+    SourceCodeArchiveUrl: _string | None
+    SourceCodeUrl: _string | None
+    TemplateBody: _string | None
+    TemplateUrl: _string | None
 
 
 class CreateApplicationVersionResponse(TypedDict, total=False):
-    ApplicationId: Optional[_string]
-    CreationTime: Optional[_string]
-    ParameterDefinitions: Optional[_listOfParameterDefinition]
-    RequiredCapabilities: Optional[_listOfCapability]
-    ResourcesSupported: Optional[_boolean]
-    SemanticVersion: Optional[_string]
-    SourceCodeArchiveUrl: Optional[_string]
-    SourceCodeUrl: Optional[_string]
-    TemplateUrl: Optional[_string]
+    ApplicationId: _string | None
+    CreationTime: _string | None
+    ParameterDefinitions: _listOfParameterDefinition | None
+    RequiredCapabilities: _listOfCapability | None
+    ResourcesSupported: _boolean | None
+    SemanticVersion: _string | None
+    SourceCodeArchiveUrl: _string | None
+    SourceCodeUrl: _string | None
+    TemplateUrl: _string | None
 
 
 class Tag(TypedDict, total=False):
@@ -320,7 +320,7 @@ class Tag(TypedDict, total=False):
     Value: _string
 
 
-_listOfTag = List[Tag]
+_listOfTag = list[Tag]
 
 
 class RollbackTrigger(TypedDict, total=False):
@@ -333,7 +333,7 @@ class RollbackTrigger(TypedDict, total=False):
     Type: _string
 
 
-_listOfRollbackTrigger = List[RollbackTrigger]
+_listOfRollbackTrigger = list[RollbackTrigger]
 
 
 class RollbackConfiguration(TypedDict, total=False):
@@ -342,8 +342,8 @@ class RollbackConfiguration(TypedDict, total=False):
     Data Type.
     """
 
-    MonitoringTimeInMinutes: Optional[_integer]
-    RollbackTriggers: Optional[_listOfRollbackTrigger]
+    MonitoringTimeInMinutes: _integer | None
+    RollbackTriggers: _listOfRollbackTrigger | None
 
 
 class ParameterValue(TypedDict, total=False):
@@ -353,62 +353,62 @@ class ParameterValue(TypedDict, total=False):
     Value: _string
 
 
-_listOfParameterValue = List[ParameterValue]
+_listOfParameterValue = list[ParameterValue]
 
 
 class CreateCloudFormationChangeSetInput(TypedDict, total=False):
     """Create an application change set request."""
 
-    Capabilities: Optional[_listOf__string]
-    ChangeSetName: Optional[_string]
-    ClientToken: Optional[_string]
-    Description: Optional[_string]
-    NotificationArns: Optional[_listOf__string]
-    ParameterOverrides: Optional[_listOfParameterValue]
-    ResourceTypes: Optional[_listOf__string]
-    RollbackConfiguration: Optional[RollbackConfiguration]
-    SemanticVersion: Optional[_string]
+    Capabilities: _listOf__string | None
+    ChangeSetName: _string | None
+    ClientToken: _string | None
+    Description: _string | None
+    NotificationArns: _listOf__string | None
+    ParameterOverrides: _listOfParameterValue | None
+    ResourceTypes: _listOf__string | None
+    RollbackConfiguration: RollbackConfiguration | None
+    SemanticVersion: _string | None
     StackName: _string
-    Tags: Optional[_listOfTag]
-    TemplateId: Optional[_string]
+    Tags: _listOfTag | None
+    TemplateId: _string | None
 
 
 class CreateCloudFormationChangeSetRequest(ServiceRequest):
     ApplicationId: _string
-    Capabilities: Optional[_listOf__string]
-    ChangeSetName: Optional[_string]
-    ClientToken: Optional[_string]
-    Description: Optional[_string]
-    NotificationArns: Optional[_listOf__string]
-    ParameterOverrides: Optional[_listOfParameterValue]
-    ResourceTypes: Optional[_listOf__string]
-    RollbackConfiguration: Optional[RollbackConfiguration]
-    SemanticVersion: Optional[_string]
+    Capabilities: _listOf__string | None
+    ChangeSetName: _string | None
+    ClientToken: _string | None
+    Description: _string | None
+    NotificationArns: _listOf__string | None
+    ParameterOverrides: _listOfParameterValue | None
+    ResourceTypes: _listOf__string | None
+    RollbackConfiguration: RollbackConfiguration | None
+    SemanticVersion: _string | None
     StackName: _string
-    Tags: Optional[_listOfTag]
-    TemplateId: Optional[_string]
+    Tags: _listOfTag | None
+    TemplateId: _string | None
 
 
 class CreateCloudFormationChangeSetResponse(TypedDict, total=False):
-    ApplicationId: Optional[_string]
-    ChangeSetId: Optional[_string]
-    SemanticVersion: Optional[_string]
-    StackId: Optional[_string]
+    ApplicationId: _string | None
+    ChangeSetId: _string | None
+    SemanticVersion: _string | None
+    StackId: _string | None
 
 
 class CreateCloudFormationTemplateRequest(ServiceRequest):
     ApplicationId: _string
-    SemanticVersion: Optional[_string]
+    SemanticVersion: _string | None
 
 
 class CreateCloudFormationTemplateResponse(TypedDict, total=False):
-    ApplicationId: Optional[_string]
-    CreationTime: Optional[_string]
-    ExpirationTime: Optional[_string]
-    SemanticVersion: Optional[_string]
-    Status: Optional[Status]
-    TemplateId: Optional[_string]
-    TemplateUrl: Optional[_string]
+    ApplicationId: _string | None
+    CreationTime: _string | None
+    ExpirationTime: _string | None
+    SemanticVersion: _string | None
+    Status: Status | None
+    TemplateId: _string | None
+    TemplateUrl: _string | None
 
 
 class DeleteApplicationRequest(ServiceRequest):
@@ -420,28 +420,28 @@ class GetApplicationPolicyRequest(ServiceRequest):
 
 
 class GetApplicationPolicyResponse(TypedDict, total=False):
-    Statements: Optional[_listOfApplicationPolicyStatement]
+    Statements: _listOfApplicationPolicyStatement | None
 
 
 class GetApplicationRequest(ServiceRequest):
     ApplicationId: _string
-    SemanticVersion: Optional[_string]
+    SemanticVersion: _string | None
 
 
 class GetApplicationResponse(TypedDict, total=False):
-    ApplicationId: Optional[_string]
-    Author: Optional[_string]
-    CreationTime: Optional[_string]
-    Description: Optional[_string]
-    HomePageUrl: Optional[_string]
-    IsVerifiedAuthor: Optional[_boolean]
-    Labels: Optional[_listOf__string]
-    LicenseUrl: Optional[_string]
-    Name: Optional[_string]
-    ReadmeUrl: Optional[_string]
-    SpdxLicenseId: Optional[_string]
-    VerifiedAuthorUrl: Optional[_string]
-    Version: Optional[Version]
+    ApplicationId: _string | None
+    Author: _string | None
+    CreationTime: _string | None
+    Description: _string | None
+    HomePageUrl: _string | None
+    IsVerifiedAuthor: _boolean | None
+    Labels: _listOf__string | None
+    LicenseUrl: _string | None
+    Name: _string | None
+    ReadmeUrl: _string | None
+    SpdxLicenseId: _string | None
+    VerifiedAuthorUrl: _string | None
+    Version: Version | None
 
 
 class GetCloudFormationTemplateRequest(ServiceRequest):
@@ -450,46 +450,46 @@ class GetCloudFormationTemplateRequest(ServiceRequest):
 
 
 class GetCloudFormationTemplateResponse(TypedDict, total=False):
-    ApplicationId: Optional[_string]
-    CreationTime: Optional[_string]
-    ExpirationTime: Optional[_string]
-    SemanticVersion: Optional[_string]
-    Status: Optional[Status]
-    TemplateId: Optional[_string]
-    TemplateUrl: Optional[_string]
+    ApplicationId: _string | None
+    CreationTime: _string | None
+    ExpirationTime: _string | None
+    SemanticVersion: _string | None
+    Status: Status | None
+    TemplateId: _string | None
+    TemplateUrl: _string | None
 
 
 class ListApplicationDependenciesRequest(ServiceRequest):
     ApplicationId: _string
-    MaxItems: Optional[MaxItems]
-    NextToken: Optional[_string]
-    SemanticVersion: Optional[_string]
+    MaxItems: MaxItems | None
+    NextToken: _string | None
+    SemanticVersion: _string | None
 
 
 class ListApplicationDependenciesResponse(TypedDict, total=False):
-    Dependencies: Optional[_listOfApplicationDependencySummary]
-    NextToken: Optional[_string]
+    Dependencies: _listOfApplicationDependencySummary | None
+    NextToken: _string | None
 
 
 class ListApplicationVersionsRequest(ServiceRequest):
     ApplicationId: _string
-    MaxItems: Optional[MaxItems]
-    NextToken: Optional[_string]
+    MaxItems: MaxItems | None
+    NextToken: _string | None
 
 
 class ListApplicationVersionsResponse(TypedDict, total=False):
-    NextToken: Optional[_string]
-    Versions: Optional[_listOfVersionSummary]
+    NextToken: _string | None
+    Versions: _listOfVersionSummary | None
 
 
 class ListApplicationsRequest(ServiceRequest):
-    MaxItems: Optional[MaxItems]
-    NextToken: Optional[_string]
+    MaxItems: MaxItems | None
+    NextToken: _string | None
 
 
 class ListApplicationsResponse(TypedDict, total=False):
-    Applications: Optional[_listOfApplicationSummary]
-    NextToken: Optional[_string]
+    Applications: _listOfApplicationSummary | None
+    NextToken: _string | None
 
 
 class PutApplicationPolicyRequest(ServiceRequest):
@@ -498,7 +498,7 @@ class PutApplicationPolicyRequest(ServiceRequest):
 
 
 class PutApplicationPolicyResponse(TypedDict, total=False):
-    Statements: Optional[_listOfApplicationPolicyStatement]
+    Statements: _listOfApplicationPolicyStatement | None
 
 
 class TemplateDetails(TypedDict, total=False):
@@ -527,46 +527,46 @@ class UnshareApplicationRequest(ServiceRequest):
 class UpdateApplicationInput(TypedDict, total=False):
     """Update the application request."""
 
-    Author: Optional[_string]
-    Description: Optional[_string]
-    HomePageUrl: Optional[_string]
-    Labels: Optional[_listOf__string]
-    ReadmeBody: Optional[_string]
-    ReadmeUrl: Optional[_string]
+    Author: _string | None
+    Description: _string | None
+    HomePageUrl: _string | None
+    Labels: _listOf__string | None
+    ReadmeBody: _string | None
+    ReadmeUrl: _string | None
 
 
 class UpdateApplicationRequest(ServiceRequest):
     ApplicationId: _string
-    Author: Optional[_string]
-    Description: Optional[_string]
-    HomePageUrl: Optional[_string]
-    Labels: Optional[_listOf__string]
-    ReadmeBody: Optional[_string]
-    ReadmeUrl: Optional[_string]
+    Author: _string | None
+    Description: _string | None
+    HomePageUrl: _string | None
+    Labels: _listOf__string | None
+    ReadmeBody: _string | None
+    ReadmeUrl: _string | None
 
 
 class UpdateApplicationResponse(TypedDict, total=False):
-    ApplicationId: Optional[_string]
-    Author: Optional[_string]
-    CreationTime: Optional[_string]
-    Description: Optional[_string]
-    HomePageUrl: Optional[_string]
-    IsVerifiedAuthor: Optional[_boolean]
-    Labels: Optional[_listOf__string]
-    LicenseUrl: Optional[_string]
-    Name: Optional[_string]
-    ReadmeUrl: Optional[_string]
-    SpdxLicenseId: Optional[_string]
-    VerifiedAuthorUrl: Optional[_string]
-    Version: Optional[Version]
+    ApplicationId: _string | None
+    Author: _string | None
+    CreationTime: _string | None
+    Description: _string | None
+    HomePageUrl: _string | None
+    IsVerifiedAuthor: _boolean | None
+    Labels: _listOf__string | None
+    LicenseUrl: _string | None
+    Name: _string | None
+    ReadmeUrl: _string | None
+    SpdxLicenseId: _string | None
+    VerifiedAuthorUrl: _string | None
+    Version: Version | None
 
 
 _long = int
 
 
 class ServerlessrepoApi:
-    service = "serverlessrepo"
-    version = "2017-09-08"
+    service: str = "serverlessrepo"
+    version: str = "2017-09-08"
 
     @handler("CreateApplication")
     def create_application(

@@ -237,6 +237,7 @@ class Project(dbtClassMixin):
     analysis_paths: Optional[List[str]] = None
     docs_paths: Optional[List[str]] = None
     asset_paths: Optional[List[str]] = None
+    function_paths: Optional[List[str]] = None
     target_path: Optional[str] = None
     snapshot_paths: Optional[List[str]] = None
     clean_targets: Optional[List[str]] = None
@@ -260,6 +261,7 @@ class Project(dbtClassMixin):
     semantic_models: Dict[str, Any] = field(default_factory=dict)
     saved_queries: Dict[str, Any] = field(default_factory=dict)
     exposures: Dict[str, Any] = field(default_factory=dict)
+    functions: Dict[str, Any] = field(default_factory=dict)
     vars: Optional[Dict[str, Any]] = field(
         default=None,
         metadata=dict(
@@ -286,6 +288,7 @@ class Project(dbtClassMixin):
             "analysis_paths": "analysis-paths",
             "docs_paths": "docs-paths",
             "asset_paths": "asset-paths",
+            "function_paths": "function-paths",
             "target_path": "target-path",
             "snapshot_paths": "snapshot-paths",
             "clean_targets": "clean-targets",
@@ -363,6 +366,8 @@ class ProjectFlags(ExtensibleDbtClassMixin):
     validate_macro_args: bool = False
     require_all_warnings_handled_by_warn_error: bool = False
     require_generic_test_arguments_property: bool = True
+    require_unique_project_resource_names: bool = False
+    require_ref_searches_node_package_before_root: bool = False
 
     @property
     def project_only_flags(self) -> Dict[str, Any]:
@@ -379,6 +384,8 @@ class ProjectFlags(ExtensibleDbtClassMixin):
             "validate_macro_args": self.validate_macro_args,
             "require_all_warnings_handled_by_warn_error": self.require_all_warnings_handled_by_warn_error,
             "require_generic_test_arguments_property": self.require_generic_test_arguments_property,
+            "require_unique_project_resource_names": self.require_unique_project_resource_names,
+            "require_ref_searches_node_package_before_root": self.require_ref_searches_node_package_before_root,
         }
 
 

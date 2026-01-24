@@ -63,7 +63,8 @@ bool SkPixmap::scalePixels(const SkPixmap& actualDst, const SkSamplingOptions& s
     }
     bitmap.setImmutable();        // Don't copy when we create an image.
 
-    SkMatrix scale = SkMatrix::RectToRect(SkRect::Make(src.bounds()), SkRect::Make(dst.bounds()));
+    SkMatrix scale = SkMatrix::RectToRectOrIdentity(SkRect::Make(src.bounds()),
+                                                    SkRect::Make(dst.bounds()));
 
     sk_sp<SkShader> shader = SkImageShader::Make(bitmap.asImage(),
                                                  SkTileMode::kClamp,
@@ -72,9 +73,8 @@ bool SkPixmap::scalePixels(const SkPixmap& actualDst, const SkSamplingOptions& s
                                                  &scale,
                                                  clampAsIfUnpremul);
 
-    sk_sp<SkSurface> surface = SkSurface::MakeRasterDirect(dst.info(),
-                                                           dst.writable_addr(),
-                                                           dst.rowBytes());
+    sk_sp<SkSurface> surface =
+            SkSurfaces::WrapPixels(dst.info(), dst.writable_addr(), dst.rowBytes());
     if (!shader || !surface) {
         return false;
     }

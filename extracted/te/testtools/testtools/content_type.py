@@ -15,15 +15,13 @@ class ContentType:
     def __init__(self, primary_type, sub_type, parameters=None):
         """Create a ContentType."""
         if None in (primary_type, sub_type):
-            raise ValueError(
-                "None not permitted in {!r}, {!r}".format(primary_type, sub_type)
-            )
+            raise ValueError(f"None not permitted in {primary_type!r}, {sub_type!r}")
         self.type = primary_type
         self.subtype = sub_type
         self.parameters = parameters or {}
 
     def __eq__(self, other):
-        if type(other) != ContentType:
+        if type(other) is not ContentType:
             return False
         return self.__dict__ == other.__dict__
 

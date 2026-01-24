@@ -1,7 +1,9 @@
 import argparse
+import fnmatch
 import glob
 import os
 import re
+import warnings
 from ._wheel_repair import WheelRepair
 from ._version import __version__
 from . import _Config
@@ -24,6 +26,14 @@ def _dll_names(s: str) -> str:
     return s
 
 
+def _dll_patterns(s: str) -> str:
+    """Helper for argument parser for validating a list of DLL patterns"""
+    for dll_pattern in filter(None, map(str.strip, s.split(os.pathsep))):
+        if any(c in r'<>:"/\|?' or ord(c) < 32 for c in dll_pattern):
+            raise argparse.ArgumentTypeError(f'Invalid DLL {"pattern" if "*" in dll_pattern else "name"} {dll_pattern!r}')
+    return s
+
+
 def _namespace_pkgs(s: str) -> str:
     for namespace_pkg in filter(None, s.split(os.pathsep)):
         if any(c in r'<>:"/\|?*' or ord(c) < 32 for c in namespace_pkg) or not re.fullmatch(r'[^.]+(\.[^.]+)*', namespace_pkg):
@@ -34,7 +44,7 @@ def _namespace_pkgs(s: str) -> str:
 def main():
     """Main function"""
     # parse arguments
-    parser = argparse.ArgumentParser(description=f'Delvewheel {__version__}: Create self-contained wheels for Windows')
+    parser = argparse.ArgumentParser(description=f'delvewheel {__version__}: Create self-contained wheels for Windows')
     subparsers = parser.add_subparsers(dest='command', required=True)
     parser_show_description = 'Search a wheel for external DLL dependencies'
     parser_show = subparsers.add_parser('show', help=parser_show_description, description=parser_show_description)
@@ -46,7 +56,7 @@ def main():
         subparser.add_argument('wheel', nargs='+', help='wheel(s) to show or repair')
         subparser.add_argument('--add-path', action='append', default=[], metavar='PATHS', help=f'additional path(s) to search for DLLs, {os.pathsep!r}-delimited')
         subparser.add_argument('--include', '--add-dll', action='append', default=[], metavar='DLLS', type=_dll_names, help=f'force inclusion of DLL name(s), {os.pathsep!r}-delimited')
-        subparser.add_argument('--exclude', '--no-dll', action='append', default=[], metavar='DLLS', type=_dll_names, help=f'force exclusion of DLL name(s), {os.pathsep!r}-delimited')
+        subparser.add_argument('--exclude', '--no-dll', action='append', default=[], metavar='DLLS', type=_dll_patterns, help=f'force exclusion of DLL name(s), {os.pathsep!r}-delimited')
         subparser.add_argument('--ignore-existing', '--ignore-in-wheel', action='store_true', help="don't search for or vendor in DLLs that are already in the wheel")
         subparser.add_argument('--analyze-existing', action='store_true', help='analyze and vendor in dependencies of DLLs that are already in the wheel')
         subparser.add_argument('--analyze-existing-exes', action='store_true', help='analyze and vendor in dependencies of EXEs that are in the wheel')
@@ -54,7 +64,7 @@ def main():
         subparser.add_argument('--extract-dir', help=argparse.SUPPRESS)
         subparser.add_argument('--test', default='', help=argparse.SUPPRESS)  # comma-separated testing options, internal use only
     parser_repair.add_argument('-w', '--wheel-dir', dest='target', default='wheelhouse', help='directory to write repaired wheel')
-    parser_repair.add_argument('--no-mangle', action='append', default=[], metavar='DLLS', type=_dll_names, help=f'DLL names(s) not to mangle, {os.pathsep!r}-delimited')
+    parser_repair.add_argument('--no-mangle', action='append', default=[], metavar='DLLS', type=_dll_patterns, help=f'DLL names(s) not to mangle, {os.pathsep!r}-delimited')
     group = parser_repair.add_mutually_exclusive_group()
     group.add_argument('--no-mangle-all', action='store_true', help="don't mangle any DLL names")
     group.add_argument('--with-mangle', action='store_true', help='mangle the direct dependencies of DLLs that are already in the wheel (with --ignore-existing)')
@@ -71,6 +81,8 @@ def main():
     args = parser.parse_args()
 
     # handle arguments
+    if args.v > 2:
+        warnings.warn(f'Requested verbosity level {args.v} exceeds maximum of 2; using level 2')
     _Config.verbose = args.v
     if args.command in ('show', 'repair'):
         _Config.test = args.test.split(',')
@@ -80,6 +92,11 @@ def main():
 
         if intersection := include & exclude:
             raise ValueError(f'Cannot force both inclusion and exclusion of {intersection}')
+        for exclude_item in exclude:
+            if '*' in exclude_item:
+                for include_item in include:
+                    if fnmatch.fnmatch(include_item, exclude_item):
+                        raise ValueError(f'Cannot force inclusion of {include_item} if {exclude_item} is excluded')
 
         if add_paths:
             os.environ['PATH'] = f'{os.pathsep.join(add_paths)}{os.pathsep}{os.environ["PATH"]}'

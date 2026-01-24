@@ -21,7 +21,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     BinaryIO,
-    Callable,
 )
 from urllib.parse import parse_qsl, urlparse
 
@@ -60,11 +59,11 @@ from flow.record.utils import to_str
 from flow.record.whitelist import WHITELIST, WHITELIST_TREE
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping, Sequence
+    from collections.abc import Callable, Iterator, Mapping, Sequence
 
     from flow.record.adapter import AbstractReader, AbstractWriter
 
-log = logging.getLogger(__package__)
+log = logging.getLogger(__name__)
 _utcnow = functools.partial(datetime.now, timezone.utc)
 
 RECORD_VERSION = 1
@@ -185,6 +184,10 @@ class Record:
             return OrderedDict((k, getattr(self, k)) for k in fields if k in self.__slots__ and k not in exclude)
         return OrderedDict((k, getattr(self, k)) for k in self.__slots__ if k not in exclude)
 
+    if TYPE_CHECKING:
+
+        def __getattr__(self, name: str) -> Any: ...
+
     def __setattr__(self, k: str, v: Any) -> None:
         """Enforce setting the fields to their respective types."""
         # NOTE: This is a HOT code path
@@ -262,9 +265,12 @@ class GroupedRecord(Record):
                 self.fieldname_to_record[fname] = rec
                 if fname not in required_fields:
                     self.flat_fields.append(field)
-        # flat descriptor to maintain compatibility with Record
+        # Flat descriptor to maintain compatibility with Record
 
         self._desc = RecordDescriptor(self.name, [(f.typename, f.name) for f in self.flat_fields])
+
+        # _field_types to maintain compatibility with RecordDescriptor
+        self._field_types = self._desc.recordType._field_types
 
     def get_record_by_type(self, type_name: str) -> Record | None:
         """
@@ -993,7 +999,7 @@ def merge_record_descriptors(
             field_map[fname] = ftype
     if name is None and descriptors:
         name = descriptors[0].name
-    return RecordDescriptor(name, zip(field_map.values(), field_map.keys()))
+    return RecordDescriptor(name, zip(field_map.values(), field_map.keys(), strict=False))
 
 
 def extend_record(

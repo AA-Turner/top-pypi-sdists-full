@@ -9,7 +9,7 @@
 #  Any changes you make to it will be overwritten the next time
 #  the file is generated.
 
-# ruff: noqa: C405, COM812, I001, F401, PLR1702, PLC2801, SIM117
+# ruff: noqa: RUF100, C405, COM812, I001, F401, PLR1702, PLC2801, SIM117
 
 import sys
 from pathlib import Path
@@ -29,14 +29,13 @@ class EBNFBootstrapBuffer(Buffer):
     def __init__(self, text, /, config: ParserConfig | None = None, **settings):
         config = ParserConfig.new(
             config,
-            owner=self,
             whitespace='(?m)\\s+',
             nameguard=None,
             ignorecase=False,
             namechars='',
             parseinfo=True,
             comments='(?sm)[(][*](?:.|\\n)*?[*][)]',
-            eol_comments='(?sm)*#[^\\n]*$',
+            eol_comments='(?m)#[^\\n]*$',
             keywords=KEYWORDS,
             start='start',
         )
@@ -49,8 +48,7 @@ class EBNFBootstrapParser(Parser):
     def __init__(self, /, config: ParserConfig | None = None, **settings):
         config = ParserConfig.new(
             config,
-            owner=self,
-            whitespace='\\s+',
+            whitespace='(?m)\\s+',
             nameguard=None,
             ignorecase=False,
             namechars='',
@@ -172,10 +170,12 @@ class EBNFBootstrapParser(Parser):
                                 self._token('left_recursion')
                             with self._option():
                                 self._token('parseinfo')
+                            with self._option():
+                                self._token('memoization')
                             self._error(
                                 'expecting one of: '
                                 "'ignorecase' 'left_recursion'"
-                                "'nameguard' 'parseinfo'"
+                                "'memoization' 'nameguard' 'parseinfo'"
                             )
                     self.name_last_node('name')
                     self._cut()
@@ -219,8 +219,8 @@ class EBNFBootstrapParser(Parser):
                     'expecting one of: '
                     "'comments' 'eol_comments' 'grammar'"
                     "'ignorecase' 'left_recursion'"
-                    "'namechars' 'nameguard' 'parseinfo'"
-                    "'whitespace'"
+                    "'memoization' 'namechars' 'nameguard'"
+                    "'parseinfo' 'whitespace'"
                 )
         self._cut()
         self._define(['name', 'value'], [])

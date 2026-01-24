@@ -10,11 +10,14 @@ from ...._models import BaseModel
 from .tf_phone_number import TfPhoneNumber
 from .use_case_categories import UseCaseCategories
 from .tf_verification_status import TfVerificationStatus
+from .toll_free_verification_entity_type import TollFreeVerificationEntityType
 
 __all__ = ["VerificationRequestEgress"]
 
 
 class VerificationRequestEgress(BaseModel):
+    """A verification request as it comes out of the database"""
+
     id: str
 
     additional_information: str = FieldInfo(alias="additionalInformation")
@@ -59,7 +62,38 @@ class VerificationRequestEgress(BaseModel):
 
     verification_request_id: str = FieldInfo(alias="verificationRequestId")
 
+    age_gated_content: Optional[bool] = FieldInfo(alias="ageGatedContent", default=None)
+
     business_addr2: Optional[str] = FieldInfo(alias="businessAddr2", default=None)
+
+    business_registration_country: Optional[str] = FieldInfo(alias="businessRegistrationCountry", default=None)
+
+    business_registration_number: Optional[str] = FieldInfo(alias="businessRegistrationNumber", default=None)
+
+    business_registration_type: Optional[str] = FieldInfo(alias="businessRegistrationType", default=None)
+
+    campaign_verify_authorization_token: Optional[str] = FieldInfo(
+        alias="campaignVerifyAuthorizationToken", default=None
+    )
+    """
+    Campaign Verify Authorization Token required for Political use case submissions
+    starting February 17, 2026
+    """
+
+    doing_business_as: Optional[str] = FieldInfo(alias="doingBusinessAs", default=None)
+
+    entity_type: Optional[TollFreeVerificationEntityType] = FieldInfo(alias="entityType", default=None)
+    """Business entity classification"""
+
+    help_message_response: Optional[str] = FieldInfo(alias="helpMessageResponse", default=None)
+
+    opt_in_confirmation_response: Optional[str] = FieldInfo(alias="optInConfirmationResponse", default=None)
+
+    opt_in_keywords: Optional[str] = FieldInfo(alias="optInKeywords", default=None)
+
+    privacy_policy_url: Optional[str] = FieldInfo(alias="privacyPolicyURL", default=None)
+
+    terms_and_condition_url: Optional[str] = FieldInfo(alias="termsAndConditionURL", default=None)
 
     verification_status: Optional[TfVerificationStatus] = FieldInfo(alias="verificationStatus", default=None)
     """Tollfree verification status"""

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling >=1.5"]
+build-backend = "hatchling.build"
+
+[project]
+name = "metakernel_echo"
+authors = [{name = "Douglas Blank", email = "doug.blank@gmail.com"}]
+classifiers = [
+    "Framework :: IPython",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 2",
+    "Topic :: System :: Shells",
+]
+dependencies = ["metakernel"]
+dynamic = ["description", "version"]
+
+[project.readme]
+text = "A simple echo kernel for Jupyter/IPython, based on MetaKernel"
+content-type = "text/plain"
+
+[project.urls]
+Homepage = "https://github.com/calysto/metakernel/tree/main/metakernel_echo"
+
+[tool.hatch.version]
+path = "metakernel_echo.py"

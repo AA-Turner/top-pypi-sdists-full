@@ -1,11 +1,13 @@
 from typing import List, Any, Literal, Optional
 
-from alita_sdk.tools.utils import clean_string, TOOLKIT_SPLITTER, get_max_toolkit_length
+from alita_sdk.tools.utils import clean_string, get_max_toolkit_length
+from alita_sdk.tools.elitea_base import filter_missconfigured_index_tools
 from langchain_community.agent_toolkits.base import BaseToolkit
 from langchain_core.tools import BaseTool
 from pydantic import create_model, BaseModel, ConfigDict, Field
 from pydantic.fields import FieldInfo
 from ..tools.artifact import ArtifactWrapper
+from ..utils.constants import TOOLKIT_NAME_META, TOOLKIT_TYPE_META, TOOL_NAME_META
 from ...tools.base.tool import BaseAction
 from ...configurations.pgvector import PgVectorConfiguration
 
@@ -21,7 +23,10 @@ class ArtifactToolkit(BaseToolkit):
         return create_model(
             "artifact",
             # client = (Any, FieldInfo(description="Client object", required=True, autopopulate=True)),
-            bucket = (str, FieldInfo(description="Bucket name", json_schema_extra={'toolkit_name': True, 'max_toolkit_length': ArtifactToolkit.toolkit_max_length})),
+            bucket=(str, FieldInfo(
+                description="Bucket name",
+                pattern=r'^[a-z][a-z0-9-]*$'
+            )),
             selected_tools=(List[Literal[tuple(selected_tools)]], Field(default=[], json_schema_extra={'args_schemas': selected_tools})),
             # indexer settings
             pgvector_configuration=(Optional[PgVectorConfiguration], Field(default=None, description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
@@ -30,30 +35,41 @@ class ArtifactToolkit(BaseToolkit):
             embedding_model=(Optional[str], Field(default=None, description="Embedding configuration.",
                                                   json_schema_extra={'configuration_model': 'embedding'})),
 
-            __config__=ConfigDict(json_schema_extra={'metadata': {"label": "Artifact", "icon_url": None}})
+            __config__=ConfigDict(json_schema_extra={'metadata': {"label": "Artifact",
+                                                                  "icon_url": None,
+                                                                  "max_length": ArtifactToolkit.toolkit_max_length
+                                                                  }})
         )
     
     @classmethod
+    @filter_missconfigured_index_tools
     def get_toolkit(cls, client: Any, bucket: str, toolkit_name: Optional[str] = None, selected_tools: list[str] = [], **kwargs):
         if selected_tools is None:
             selected_tools = []
+        
         tools = []
         wrapper_payload = {
             **kwargs,
             **(kwargs.get('pgvector_configuration') or {}),
         }
         artifact_wrapper = ArtifactWrapper(alita=client, bucket=bucket, **wrapper_payload)
-        prefix = clean_string(toolkit_name, cls.toolkit_max_length) + TOOLKIT_SPLITTER if toolkit_name else ''
+        # Use clean toolkit name for context (max 1000 chars in description)
+        toolkit_context = f" [Toolkit: {clean_string(toolkit_name, 0)}]" if toolkit_name else ''
         available_tools = artifact_wrapper.get_available_tools()
         for tool in available_tools:
             if selected_tools:
                 if tool["name"] not in selected_tools:
                     continue
+            # Add toolkit context to description with character limit
+            description = tool["description"]
+            if toolkit_context and len(description + toolkit_context) <= 1000:
+                description = description + toolkit_context
             tools.append(BaseAction(
                 api_wrapper=artifact_wrapper,
-                name=prefix + tool["name"],
-                description=tool["description"],
-                args_schema=tool["args_schema"]
+                name=tool["name"],
+                description=description,
+                args_schema=tool["args_schema"],
+                metadata={TOOLKIT_NAME_META: toolkit_name, TOOLKIT_TYPE_META: "artifact", TOOL_NAME_META: tool['name']} if toolkit_name else {}
             ))
         return cls(tools=tools)
     

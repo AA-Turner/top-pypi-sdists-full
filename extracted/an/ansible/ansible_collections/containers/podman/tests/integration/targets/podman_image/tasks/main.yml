@@ -8,7 +8,7 @@
         name: "{{ item }}"
         state: absent
       loop:
-        - quay.io/coreos/alpine-sh
+        - quay.io/sshnaidm1/alpine-sh
         - docker.io/alpine
         - docker.io/library/ubuntu
         - docker.io/library/alpine
@@ -16,13 +16,13 @@
     - name: Pull image
       containers.podman.podman_image:
         executable: "{{ test_executable | default('podman') }}"
-        name: quay.io/coreos/alpine-sh
+        name: quay.io/sshnaidm1/alpine-sh
       register: pull1
 
     - name: Pull image again
       containers.podman.podman_image:
         executable: "{{ test_executable | default('podman') }}"
-        name: quay.io/coreos/alpine-sh
+        name: quay.io/sshnaidm1/alpine-sh
       register: pull2
 
     - name: Pull image from docker.io with short url
@@ -72,20 +72,20 @@
         argv:
           - podman
           - tag
-          - quay.io/coreos/alpine-sh
+          - quay.io/sshnaidm1/alpine-sh
           - quay.io/coreos/library/alpine-sh
 
     - name: Remove image (tag)
       containers.podman.podman_image:
         executable: "{{ test_executable | default('podman') }}"
-        name: quay.io/coreos/alpine-sh
+        name: quay.io/sshnaidm1/alpine-sh
         state: absent
       register: rmi1
 
     - name: Remove image again
       containers.podman.podman_image:
         executable: "{{ test_executable | default('podman') }}"
-        name: quay.io/coreos/alpine-sh
+        name: quay.io/sshnaidm1/alpine-sh
         state: absent
       register: rmi2
 
@@ -245,7 +245,7 @@
         build:
           format: oci
           container_file: |-
-            FROM quay.io/coreos/alpine-sh
+            FROM quay.io/sshnaidm1/alpine-sh
       register: oci_build7
       loop: [0, 1]
 
@@ -338,8 +338,8 @@
         that:
           - "bad_push is failed"
           - "bad_push is not changed"
-          - "'Failed to find image bad_image' in bad_push.msg"
-          - "'image pull set to False' in bad_push.msg"
+          - "'Image bad_image:latest not found' in bad_push.msg"
+          - "'pull is disabled' in bad_push.msg"
 
     - name: Pull an image for a specific CPU architecture
       containers.podman.podman_image:
@@ -400,14 +400,19 @@
         path: /var/tmp/build
       register: build_image2
 
+    - name: Create a temporary directory for custom image
+      file:
+        path: /tmp/containers_test
+        state: directory
+
     - name: Build image from a given Containerfile
       containers.podman.podman_image:
         executable: "{{ test_executable | default('podman') }}"
         name: testimage2:customfile
-        path: "{{ playbook_dir }}"
+        path: /tmp/containers_test
         build:
           container_file: |-
-            FROM quay.io/coreos/alpine-sh
+            FROM quay.io/sshnaidm1/alpine-sh
             RUN echo "Hello World" > /tmp/hello.txt
       register: build_custom1
 
@@ -418,7 +423,7 @@
         state: build
         build:
           container_file: |-
-            FROM quay.io/coreos/alpine-sh
+            FROM quay.io/sshnaidm1/alpine-sh
             RUN echo "Hello2 World" > /tmp/hello2.txt
         force: true
       register: build_custom2
@@ -430,7 +435,7 @@
         state: build
         build:
           container_file: |-
-            FROM quay.io/coreos/alpine-sh
+            FROM quay.io/sshnaidm1/alpine-sh
             RUN echo "Hello2 World" > /tmp/hello2.txt
           file: /var/tmp/build/Dockerfile
         force: true
@@ -581,6 +586,10 @@
           - quad3 is changed
           - "'arm64' in quad3.diff.after"
 
+    - include_tasks: additional_tests.yml
+
+    - include_tasks: test_issue_947.yml
+
   always:
     - name: Cleanup images
       containers.podman.podman_image:
@@ -589,7 +598,7 @@
         state: absent
       loop:
         - docker.io/library/ubuntu
-        - quay.io/coreos/alpine-sh
+        - quay.io/sshnaidm1/alpine-sh
         - quay.io/coreos/etcd:v3.3.11
         - quay.io/coreos/etcd:v3.5.19
         - localhost/testimage

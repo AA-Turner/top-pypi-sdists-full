@@ -3,7 +3,7 @@ Type annotations for globalaccelerator service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_globalaccelerator/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -140,12 +141,6 @@ from .type_defs import (
     WithdrawByoipCidrResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -154,27 +149,27 @@ else:
 __all__ = ("GlobalAcceleratorClient",)
 
 class Exceptions(BaseClientExceptions):
-    AcceleratorNotDisabledException: Type[BotocoreClientError]
-    AcceleratorNotFoundException: Type[BotocoreClientError]
-    AccessDeniedException: Type[BotocoreClientError]
-    AssociatedEndpointGroupFoundException: Type[BotocoreClientError]
-    AssociatedListenerFoundException: Type[BotocoreClientError]
-    AttachmentNotFoundException: Type[BotocoreClientError]
-    ByoipCidrNotFoundException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    EndpointAlreadyExistsException: Type[BotocoreClientError]
-    EndpointGroupAlreadyExistsException: Type[BotocoreClientError]
-    EndpointGroupNotFoundException: Type[BotocoreClientError]
-    EndpointNotFoundException: Type[BotocoreClientError]
-    IncorrectCidrStateException: Type[BotocoreClientError]
-    InternalServiceErrorException: Type[BotocoreClientError]
-    InvalidArgumentException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidPortRangeException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ListenerNotFoundException: Type[BotocoreClientError]
-    TransactionInProgressException: Type[BotocoreClientError]
+    AcceleratorNotDisabledException: type[BotocoreClientError]
+    AcceleratorNotFoundException: type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AssociatedEndpointGroupFoundException: type[BotocoreClientError]
+    AssociatedListenerFoundException: type[BotocoreClientError]
+    AttachmentNotFoundException: type[BotocoreClientError]
+    ByoipCidrNotFoundException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    EndpointAlreadyExistsException: type[BotocoreClientError]
+    EndpointGroupAlreadyExistsException: type[BotocoreClientError]
+    EndpointGroupNotFoundException: type[BotocoreClientError]
+    EndpointNotFoundException: type[BotocoreClientError]
+    IncorrectCidrStateException: type[BotocoreClientError]
+    InternalServiceErrorException: type[BotocoreClientError]
+    InvalidArgumentException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidPortRangeException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ListenerNotFoundException: type[BotocoreClientError]
+    TransactionInProgressException: type[BotocoreClientError]
 
 class GlobalAcceleratorClient(BaseClient):
     """
@@ -677,7 +672,7 @@ class GlobalAcceleratorClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_globalaccelerator/client/#remove_endpoints)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Add tags to an accelerator resource.
 
@@ -685,7 +680,7 @@ class GlobalAcceleratorClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_globalaccelerator/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Remove tags from a Global Accelerator resource.
 

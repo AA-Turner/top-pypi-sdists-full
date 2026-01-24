@@ -18,7 +18,6 @@ from textual._log import LogGroup, LogVerbosity
 from textual.constants import DEVTOOLS_PORT
 
 READY_TIMEOUT = 0.5
-WEBSOCKET_CONNECT_TIMEOUT = 3
 LOG_QUEUE_MAXSIZE = 512
 
 
@@ -116,8 +115,7 @@ class DevtoolsClient:
         self.log_queue = Queue(maxsize=LOG_QUEUE_MAXSIZE)
         try:
             self.websocket = await self.session.ws_connect(
-                f"{self.url}/textual-devtools-websocket",
-                timeout=WEBSOCKET_CONNECT_TIMEOUT,
+                f"{self.url}/textual-devtools-websocket"
             )
         except (ClientConnectorError, ClientResponseError):
             raise DevtoolsConnectionError()

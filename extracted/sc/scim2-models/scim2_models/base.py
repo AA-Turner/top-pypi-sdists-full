@@ -29,12 +29,21 @@ from scim2_models.utils import _normalize_attribute_name
 from scim2_models.utils import _to_camel
 
 
-def _contains_attribute_or_subattributes(
-    attribute_urns: list[str], attribute_urn: str
-) -> bool:
-    return attribute_urn in attribute_urns or any(
-        item.startswith(f"{attribute_urn}.") or item.startswith(f"{attribute_urn}:")
-        for item in attribute_urns
+def _is_attribute_requested(requested_urns: list[str], current_urn: str) -> bool:
+    """Check if an attribute should be included based on the requested URNs.
+
+    Returns True if:
+    - The current attribute is explicitly requested
+    - A sub-attribute of the current attribute is requested
+    - The current attribute is a sub-attribute of a requested attribute
+    """
+    return (
+        current_urn in requested_urns
+        or any(
+            item.startswith(f"{current_urn}.") or item.startswith(f"{current_urn}:")
+            for item in requested_urns
+        )
+        or any(current_urn.startswith(f"{item}.") for item in requested_urns)
     )
 
 
@@ -96,7 +105,7 @@ class BaseModel(PydanticBaseModel):
         return field_annotation
 
     @classmethod
-    def get_field_root_type(cls, attribute_name: str) -> Optional[type]:
+    def get_field_root_type(cls, attribute_name: str) -> type | None:
         """Extract the root type from a model field.
 
         This method unwraps complex type annotations to find the underlying
@@ -244,7 +253,7 @@ class BaseModel(PydanticBaseModel):
             return result
 
         def normalize_value(
-            val: Any, model_class: Optional[type["BaseModel"]] = None
+            val: Any, model_class: type["BaseModel"] | None = None
         ) -> Any:
             """Normalize input value based on model class."""
             if not isinstance(val, dict):
@@ -478,9 +487,7 @@ class BaseModel(PydanticBaseModel):
         if returnability == Returned.default and (
             (
                 included_urns
-                and not _contains_attribute_or_subattributes(
-                    included_urns, attribute_urn
-                )
+                and not _is_attribute_requested(included_urns, attribute_urn)
             )
             or attribute_urn in excluded_urns
         ):
@@ -504,7 +511,7 @@ class BaseModel(PydanticBaseModel):
     def model_validate(
         cls,
         *args: Any,
-        scim_ctx: Optional[Context] = Context.DEFAULT,
+        scim_ctx: Context | None = Context.DEFAULT,
         original: Optional["BaseModel"] = None,
         **kwargs: Any,
     ) -> Self:

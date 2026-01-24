@@ -61,6 +61,8 @@ def run():
         "dom": args.dom_color,
     }
 
+    p.tooltip_template = args.tooltip_template or None
+
     # if special color (Stand with Ukraine) change the color
     if args.stand_with_ukraine:
         p.colors["track"] = "#025DB8"
@@ -108,6 +110,7 @@ def run():
             p.units = args.unit
         else:
             p.units = args.loader.unit
+        p.tooltip_by_date = getattr(loader, "tooltip_by_date_dict", {}) or {}
         p.set_tracks(tracks, years, type_list)
     else:
         if args.unit:
@@ -115,6 +118,7 @@ def run():
         else:
             p.units = args.loader.unit
         p.set_tracks({}, [to_year], type_list)
+        p.tooltip_by_date = {}
 
     # set title
     # we don't know issue content so use name

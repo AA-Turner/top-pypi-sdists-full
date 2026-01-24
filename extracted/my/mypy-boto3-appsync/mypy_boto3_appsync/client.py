@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -176,12 +177,6 @@ from .type_defs import (
     UpdateTypeResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -192,20 +187,20 @@ __all__ = ("AppSyncClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ApiKeyLimitExceededException: Type[BotocoreClientError]
-    ApiKeyValidityOutOfBoundsException: Type[BotocoreClientError]
-    ApiLimitExceededException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    GraphQLSchemaException: Type[BotocoreClientError]
-    InternalFailureException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ApiKeyLimitExceededException: type[BotocoreClientError]
+    ApiKeyValidityOutOfBoundsException: type[BotocoreClientError]
+    ApiLimitExceededException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    GraphQLSchemaException: type[BotocoreClientError]
+    InternalFailureException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
 
 
 class AppSyncClient(BaseClient):
@@ -371,7 +366,7 @@ class AppSyncClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appsync/client/#create_type)
         """
 
-    def delete_api(self, **kwargs: Unpack[DeleteApiRequestTypeDef]) -> Dict[str, Any]:
+    def delete_api(self, **kwargs: Unpack[DeleteApiRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an <code>Api</code> object.
 
@@ -379,7 +374,7 @@ class AppSyncClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appsync/client/#delete_api)
         """
 
-    def delete_api_cache(self, **kwargs: Unpack[DeleteApiCacheRequestTypeDef]) -> Dict[str, Any]:
+    def delete_api_cache(self, **kwargs: Unpack[DeleteApiCacheRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an <code>ApiCache</code> object.
 
@@ -387,7 +382,7 @@ class AppSyncClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appsync/client/#delete_api_cache)
         """
 
-    def delete_api_key(self, **kwargs: Unpack[DeleteApiKeyRequestTypeDef]) -> Dict[str, Any]:
+    def delete_api_key(self, **kwargs: Unpack[DeleteApiKeyRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an API key.
 
@@ -397,7 +392,7 @@ class AppSyncClient(BaseClient):
 
     def delete_channel_namespace(
         self, **kwargs: Unpack[DeleteChannelNamespaceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a <code>ChannelNamespace</code>.
 
@@ -407,7 +402,7 @@ class AppSyncClient(BaseClient):
 
     def delete_data_source(
         self, **kwargs: Unpack[DeleteDataSourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a <code>DataSource</code> object.
 
@@ -417,7 +412,7 @@ class AppSyncClient(BaseClient):
 
     def delete_domain_name(
         self, **kwargs: Unpack[DeleteDomainNameRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a custom <code>DomainName</code> object.
 
@@ -425,7 +420,7 @@ class AppSyncClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appsync/client/#delete_domain_name)
         """
 
-    def delete_function(self, **kwargs: Unpack[DeleteFunctionRequestTypeDef]) -> Dict[str, Any]:
+    def delete_function(self, **kwargs: Unpack[DeleteFunctionRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a <code>Function</code>.
 
@@ -435,7 +430,7 @@ class AppSyncClient(BaseClient):
 
     def delete_graphql_api(
         self, **kwargs: Unpack[DeleteGraphqlApiRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a <code>GraphqlApi</code> object.
 
@@ -443,7 +438,7 @@ class AppSyncClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appsync/client/#delete_graphql_api)
         """
 
-    def delete_resolver(self, **kwargs: Unpack[DeleteResolverRequestTypeDef]) -> Dict[str, Any]:
+    def delete_resolver(self, **kwargs: Unpack[DeleteResolverRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a <code>Resolver</code> object.
 
@@ -451,7 +446,7 @@ class AppSyncClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appsync/client/#delete_resolver)
         """
 
-    def delete_type(self, **kwargs: Unpack[DeleteTypeRequestTypeDef]) -> Dict[str, Any]:
+    def delete_type(self, **kwargs: Unpack[DeleteTypeRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a <code>Type</code> object.
 
@@ -459,7 +454,7 @@ class AppSyncClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appsync/client/#delete_type)
         """
 
-    def disassociate_api(self, **kwargs: Unpack[DisassociateApiRequestTypeDef]) -> Dict[str, Any]:
+    def disassociate_api(self, **kwargs: Unpack[DisassociateApiRequestTypeDef]) -> dict[str, Any]:
         """
         Removes an <code>ApiAssociation</code> object from a custom domain.
 
@@ -509,7 +504,7 @@ class AppSyncClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appsync/client/#evaluate_mapping_template)
         """
 
-    def flush_api_cache(self, **kwargs: Unpack[FlushApiCacheRequestTypeDef]) -> Dict[str, Any]:
+    def flush_api_cache(self, **kwargs: Unpack[FlushApiCacheRequestTypeDef]) -> dict[str, Any]:
         """
         Flushes an <code>ApiCache</code> object.
 
@@ -830,7 +825,7 @@ class AppSyncClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appsync/client/#start_schema_merge)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags a resource with user-supplied tags.
 
@@ -838,7 +833,7 @@ class AppSyncClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appsync/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Untags a resource.
 

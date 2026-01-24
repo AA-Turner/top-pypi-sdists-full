@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "syslog-ng-cfg-helper"
+version = "1.8.1"
+description = "Configuration helper for syslog-ng."
+authors = ["Attila Szakacs <szakacs.attila96@gmail.com>"]
+readme = "README.md"
+license = "GPL-3.0-only"
+homepage = "https://github.com/alltilla/syslog-ng-cfg-helper"
+repository = "https://github.com/alltilla/syslog-ng-cfg-helper"
+keywords = ["syslog-ng", "configuration", "cfg"]
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Topic :: System :: Networking",
+    "Topic :: System :: Systems Administration",
+]
+packages = [{include = "syslog_ng_cfg_helper"}]
+include = [
+    "LICENSE",
+    "syslog_ng_cfg_helper/syslog-ng-cfg-helper.db",
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pyright = "^1.1.322"
+
+[tool.poetry.group.dev.dependencies]
+neologism = "^0.0.8"
+pytest = "^7.2.1"
+mypy = "^1.0.1"
+black = "^23.3.0"
+pylint = "^2.17.4"
+pycodestyle = "^2.10.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+exclude = "tests/module_loader/test_parse_driver.py"
+
+[tool.poetry.scripts]
+syslog-ng-cfg-helper = 'syslog_ng_cfg_helper.console:run'

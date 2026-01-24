@@ -10,12 +10,13 @@ import pytest
 from telnyx import Telnyx, AsyncTelnyx
 from tests.utils import assert_matches_type
 from telnyx.types import (
-    CallControlApplicationListResponse,
+    CallControlApplication,
     CallControlApplicationCreateResponse,
     CallControlApplicationDeleteResponse,
     CallControlApplicationUpdateResponse,
     CallControlApplicationRetrieveResponse,
 )
+from telnyx.pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -39,7 +40,8 @@ class TestCallControlApplications:
             application_name="call-router",
             webhook_event_url="https://example.com",
             active=False,
-            anchorsite_override='"Latency"',
+            anchorsite_override="Latency",
+            call_cost_in_webhooks=True,
             dtmf_type="Inband",
             first_command_timeout=True,
             first_command_timeout_secs=10,
@@ -148,7 +150,8 @@ class TestCallControlApplications:
             application_name="call-router",
             webhook_event_url="https://example.com",
             active=False,
-            anchorsite_override='"Latency"',
+            anchorsite_override="Latency",
+            call_cost_in_webhooks=True,
             dtmf_type="Inband",
             first_command_timeout=True,
             first_command_timeout_secs=10,
@@ -214,7 +217,9 @@ class TestCallControlApplications:
     @parametrize
     def test_method_list(self, client: Telnyx) -> None:
         call_control_application = client.call_control_applications.list()
-        assert_matches_type(CallControlApplicationListResponse, call_control_application, path=["response"])
+        assert_matches_type(
+            SyncDefaultFlatPagination[CallControlApplication], call_control_application, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -245,12 +250,14 @@ class TestCallControlApplications:
                 "after": "after",
                 "before": "before",
                 "limit": 1,
-                "number": 1,
-                "size": 1,
             },
+            page_number=0,
+            page_size=0,
             sort="connection_name",
         )
-        assert_matches_type(CallControlApplicationListResponse, call_control_application, path=["response"])
+        assert_matches_type(
+            SyncDefaultFlatPagination[CallControlApplication], call_control_application, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -260,7 +267,9 @@ class TestCallControlApplications:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         call_control_application = response.parse()
-        assert_matches_type(CallControlApplicationListResponse, call_control_application, path=["response"])
+        assert_matches_type(
+            SyncDefaultFlatPagination[CallControlApplication], call_control_application, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -270,7 +279,9 @@ class TestCallControlApplications:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             call_control_application = response.parse()
-            assert_matches_type(CallControlApplicationListResponse, call_control_application, path=["response"])
+            assert_matches_type(
+                SyncDefaultFlatPagination[CallControlApplication], call_control_application, path=["response"]
+            )
 
         assert cast(Any, response.is_closed) is True
 
@@ -338,7 +349,8 @@ class TestAsyncCallControlApplications:
             application_name="call-router",
             webhook_event_url="https://example.com",
             active=False,
-            anchorsite_override='"Latency"',
+            anchorsite_override="Latency",
+            call_cost_in_webhooks=True,
             dtmf_type="Inband",
             first_command_timeout=True,
             first_command_timeout_secs=10,
@@ -447,7 +459,8 @@ class TestAsyncCallControlApplications:
             application_name="call-router",
             webhook_event_url="https://example.com",
             active=False,
-            anchorsite_override='"Latency"',
+            anchorsite_override="Latency",
+            call_cost_in_webhooks=True,
             dtmf_type="Inband",
             first_command_timeout=True,
             first_command_timeout_secs=10,
@@ -513,7 +526,9 @@ class TestAsyncCallControlApplications:
     @parametrize
     async def test_method_list(self, async_client: AsyncTelnyx) -> None:
         call_control_application = await async_client.call_control_applications.list()
-        assert_matches_type(CallControlApplicationListResponse, call_control_application, path=["response"])
+        assert_matches_type(
+            AsyncDefaultFlatPagination[CallControlApplication], call_control_application, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -544,12 +559,14 @@ class TestAsyncCallControlApplications:
                 "after": "after",
                 "before": "before",
                 "limit": 1,
-                "number": 1,
-                "size": 1,
             },
+            page_number=0,
+            page_size=0,
             sort="connection_name",
         )
-        assert_matches_type(CallControlApplicationListResponse, call_control_application, path=["response"])
+        assert_matches_type(
+            AsyncDefaultFlatPagination[CallControlApplication], call_control_application, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -559,7 +576,9 @@ class TestAsyncCallControlApplications:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         call_control_application = await response.parse()
-        assert_matches_type(CallControlApplicationListResponse, call_control_application, path=["response"])
+        assert_matches_type(
+            AsyncDefaultFlatPagination[CallControlApplication], call_control_application, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -569,7 +588,9 @@ class TestAsyncCallControlApplications:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             call_control_application = await response.parse()
-            assert_matches_type(CallControlApplicationListResponse, call_control_application, path=["response"])
+            assert_matches_type(
+                AsyncDefaultFlatPagination[CallControlApplication], call_control_application, path=["response"]
+            )
 
         assert cast(Any, response.is_closed) is True
 

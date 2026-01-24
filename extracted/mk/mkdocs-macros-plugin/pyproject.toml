@@ -3,7 +3,7 @@ name = "mkdocs-macros-plugin"
 
 # This version number is the REFERENCE for the rest of the project,
 # particularly for update_pypi.sh
-version = "1.4.0"
+version = "1.5.0"
 
 description = "Unleash the power of MkDocs with macros and variables"
 readme = "README.md"
@@ -18,7 +18,11 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.5",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
     "hjson",
@@ -28,7 +32,8 @@ dependencies = [
     "pathspec",
     "python-dateutil",
     "pyyaml",
-    "super-collections >= 0.5.7",
+    "requests",
+    "super-collections >= 0.6.2",
     "termcolor",
 ]
 
@@ -37,10 +42,11 @@ packages = { find = { exclude = ["*.tests"] } }
 
 [project.optional-dependencies]
 test = [
+    "pytest",
     "mkdocs-include-markdown-plugin",
     "mkdocs-macros-test",
     "mkdocs-material>=6.2",
-    "mkdocs-test",
+    "mkdocs-test>=0.6.0",
     "mkdocs-d2-plugin",
 ]
 

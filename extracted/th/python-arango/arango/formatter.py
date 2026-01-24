@@ -116,6 +116,10 @@ def format_index(body: Json, formatter: bool = True) -> Json:
     if "optimizeTopK" in body:
         result["optimizeTopK"] = body["optimizeTopK"]
 
+    # Introduced via Vector Index in 3.12.6
+    if "params" in body:
+        result["params"] = body["params"]
+
     return verify_format(body, result)
 
 
@@ -899,6 +903,10 @@ def format_view_consolidation_policy(body: Json) -> Json:
         result["segments_bytes_floor"] = body["segmentsBytesFloor"]
     if "minScore" in body:
         result["min_score"] = body["minScore"]
+    if "maxSkewThreshold" in body:
+        result["max_skew_threshold"] = body["maxSkewThreshold"]
+    if "minDeletionRatio" in body:
+        result["min_deletion_ratio"] = body["minDeletionRatio"]
 
     return verify_format(body, result)
 

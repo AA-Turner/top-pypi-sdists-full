@@ -42,6 +42,7 @@ class ListCompletedJobsResponse200Item:
         tag (str):
         workspace_id (Union[Unset, str]):
         parent_job (Union[Unset, str]):
+        completed_at (Union[Unset, datetime.datetime]):
         script_path (Union[Unset, str]):
         script_hash (Union[Unset, str]):
         args (Union[Unset, ListCompletedJobsResponse200ItemArgs]): The arguments to pass to the script or flow
@@ -54,7 +55,8 @@ class ListCompletedJobsResponse200Item:
         schedule_path (Union[Unset, str]):
         flow_status (Union[Unset, ListCompletedJobsResponse200ItemFlowStatus]):
         workflow_as_code_status (Union[Unset, ListCompletedJobsResponse200ItemWorkflowAsCodeStatus]):
-        raw_flow (Union[Unset, ListCompletedJobsResponse200ItemRawFlow]):
+        raw_flow (Union[Unset, ListCompletedJobsResponse200ItemRawFlow]): The flow structure containing modules and
+            optional preprocessor/failure handlers
         language (Union[Unset, ListCompletedJobsResponse200ItemLanguage]):
         mem_peak (Union[Unset, int]):
         priority (Union[Unset, int]):
@@ -81,6 +83,7 @@ class ListCompletedJobsResponse200Item:
     tag: str
     workspace_id: Union[Unset, str] = UNSET
     parent_job: Union[Unset, str] = UNSET
+    completed_at: Union[Unset, datetime.datetime] = UNSET
     script_path: Union[Unset, str] = UNSET
     script_hash: Union[Unset, str] = UNSET
     args: Union[Unset, "ListCompletedJobsResponse200ItemArgs"] = UNSET
@@ -124,6 +127,10 @@ class ListCompletedJobsResponse200Item:
         tag = self.tag
         workspace_id = self.workspace_id
         parent_job = self.parent_job
+        completed_at: Union[Unset, str] = UNSET
+        if not isinstance(self.completed_at, Unset):
+            completed_at = self.completed_at.isoformat()
+
         script_path = self.script_path
         script_hash = self.script_hash
         args: Union[Unset, Dict[str, Any]] = UNSET
@@ -188,6 +195,8 @@ class ListCompletedJobsResponse200Item:
             field_dict["workspace_id"] = workspace_id
         if parent_job is not UNSET:
             field_dict["parent_job"] = parent_job
+        if completed_at is not UNSET:
+            field_dict["completed_at"] = completed_at
         if script_path is not UNSET:
             field_dict["script_path"] = script_path
         if script_hash is not UNSET:
@@ -277,6 +286,13 @@ class ListCompletedJobsResponse200Item:
 
         parent_job = d.pop("parent_job", UNSET)
 
+        _completed_at = d.pop("completed_at", UNSET)
+        completed_at: Union[Unset, datetime.datetime]
+        if isinstance(_completed_at, Unset):
+            completed_at = UNSET
+        else:
+            completed_at = isoparse(_completed_at)
+
         script_path = d.pop("script_path", UNSET)
 
         script_hash = d.pop("script_hash", UNSET)
@@ -363,6 +379,7 @@ class ListCompletedJobsResponse200Item:
             tag=tag,
             workspace_id=workspace_id,
             parent_job=parent_job,
+            completed_at=completed_at,
             script_path=script_path,
             script_hash=script_hash,
             args=args,

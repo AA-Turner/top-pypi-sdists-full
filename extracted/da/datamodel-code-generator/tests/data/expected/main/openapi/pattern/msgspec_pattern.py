@@ -4,22 +4,31 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
-from msgspec import Meta, Struct
+from msgspec import UNSET, Meta, Struct, UnsetType
 
 
 class Info(Struct):
-    hostName: Optional[str] = None
-    arn: Optional[
+    hostName: (
+        Annotated[
+            str,
+            Meta(
+                pattern='^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]{0,61}[A-Za-z0-9])$'
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+    arn: (
         Annotated[
             str,
             Meta(pattern='(^arn:([^:]*):([^:]*):([^:]*):(|\\*|[\\d]{12}):(.+)$)|^\\*$'),
         ]
-    ] = None
-    tel: Optional[
-        Annotated[str, Meta(pattern='^(\\([0-9]{3}\\))?[0-9]{3}-[0-9]{4}$')]
-    ] = None
-    comment: Optional[
-        Annotated[str, Meta(pattern='[^\\b\\f\\n\\r\\t\\\\a+.?\'"|()]+$')]
-    ] = None
+        | UnsetType
+    ) = UNSET
+    tel: (
+        Annotated[str, Meta(pattern='^(\\([0-9]{3}\\))?[0-9]{3}-[0-9]{4}$')] | UnsetType
+    ) = UNSET
+    comment: (
+        Annotated[str, Meta(pattern='[^\\x08\\f\\n\\r\\t\\\\a+.?\'"|()]+$')] | UnsetType
+    ) = UNSET

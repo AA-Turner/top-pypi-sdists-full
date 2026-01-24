@@ -24,9 +24,9 @@ class MaternKernel(Kernel):
 
     where
 
-    * :math:`d = (\mathbf{x_1} - \mathbf{x_2})^\top \Theta^{-2} (\mathbf{x_1} - \mathbf{x_2})`
+    * :math:`d = \sqrt{(\mathbf{x_1} - \mathbf{x_2})^\top \Theta^{-2} (\mathbf{x_1} - \mathbf{x_2})}`
       is the distance between
-      :math:`x_1` and :math:`x_2` scaled by the lengthscale parameter :math:`\Theta`.
+      :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}` scaled by the lengthscale parameter :math:`\Theta`.
     * :math:`\nu` is a smoothness parameter (takes values 1/2, 3/2, or 5/2). Smaller values are less smooth.
     * :math:`K_\nu` is a modified Bessel function.
 
@@ -56,8 +56,6 @@ class MaternKernel(Kernel):
     :param lengthscale_constraint: (Default: `Positive`) Set this if you want
         to apply a constraint to the lengthscale parameter.
     :type lengthscale_constraint: ~gpytorch.constraints.Interval, optional
-    :param eps: (Default: 1e-6) The minimum value that the lengthscale can take (prevents divide by zero errors).
-    :type eps: float, optional
 
     Example:
         >>> x = torch.randn(10, 5)

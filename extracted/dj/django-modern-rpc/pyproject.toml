@@ -1,21 +1,20 @@
 # ------------------------------------------------------------------
 # |                        Project config
 # ------------------------------------------------------------------
-[build-system]
-requires = ["poetry_core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry]
+[project]
 name = "django-modern-rpc"
-version = "1.1.0"
-
-authors = ["Antoine Lorence <antoine.lorence@gmail.com>"]
+version = "2.0.0"
 description = "Simple and powerful RPC server for your Django project"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+readme = "README.md"
+
+authors = [
+    { name = "Antoine Lorence", email = "antoine.lorence@gmail.com" }
+]
 repository = "https://github.com/alorence/django-modern-rpc"
 documentation = "https://django-modern-rpc.readthedocs.io"
 
-readme = "README.md"
-license = "MIT"
 classifiers = [
     "Programming Language :: Python",
     "Development Status :: 5 - Production/Stable",
@@ -23,132 +22,178 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Framework :: Django",
-    "Framework :: Django :: 2.2",
-    "Framework :: Django :: 3.0",
-    "Framework :: Django :: 3.1",
     "Framework :: Django :: 3.2",
     "Framework :: Django :: 4.0",
     "Framework :: Django :: 4.1",
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.0",
     "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
 ]
-packages = [
-    { include = "modernrpc" }
+
+requires-python = ">=3.8"
+dependencies = [
+    "django >= 3.2",
+    "defusedxml >= 0.7.1",
+    "typing-extensions >= 4.12.0 ; python_version < '3.11'"
 ]
-include = ["README.md"]
-exclude = ["tests"]
 
-[tool.poetry.urls]
-"Bug Tracker" = "https://github.com/alorence/django-modern-rpc/issues"
-"Demo" = "https://modernrpc.onrender.com"
-
-# ------------------------------------------------------------------
-# |                        Dependencies
-# ------------------------------------------------------------------
-[tool.poetry.dependencies]
-python = "^3.7"
-docutils = { version = "^0.19.0", optional = true }
-markdown = { version = "^3.4.4", optional = true }
-defusedxml = { version = "^0.7.1", optional = true }
-
-# Define "extras" that may be optionally install with django-moder-rpc
-# i.e.: pip install django-modern-rpc[markdown]
-[tool.poetry.extras]
+[project.optional-dependencies]
 docutils = ["docutils"]
 markdown = ["markdown"]
-defusedxml = ["defusedxml"]
+orjson = ["orjson"]
+simplejson = ["simplejson"]
+rapidjson = ["python-rapidjson"]
+xmltodict = ["xmltodict"]
+lxml = ["lxml"]
 
-# Special group 'django' allowing tox to install a specific django version using pip
-# i.e. poetry install --without django
-[tool.poetry.group.django]
-optional = false
-[tool.poetry.group.django.dependencies]
-django = ">=2.2"
+[project.urls]
+"Bug Tracker" = "https://github.com/alorence/django-modern-rpc/issues"
+"Demo" = "https://modernrpc.fly.dev"
 
-[tool.poetry.group.dev]
-optional = false
-[tool.poetry.group.dev.dependencies]
-jsonrpcclient = "^4.0.2"
-requests = "*"
-docutils = "*"
-markdown = "*"
-defusedxml = "*"
+[build-system]
+requires = ["uv_build>=0.9.5,<0.10.0"]
+build-backend = "uv_build"
 
-[tool.poetry.group.tests]
-optional = false
-[tool.poetry.group.tests.dependencies]
-pytest = "^7.4"
-pytest-django = "*"
-pytest-sugar = "^1.0"
-pytest-cov = "*"
-tox = "^4.8"
-
-[tool.poetry.group.code-analysis]
-optional = true
-[tool.poetry.group.code-analysis.dependencies]
-ruff = "^0.8.4"
-# mypy 1.5+ requires Python 3.8+
-mypy = "^1.4.0"
-django-stubs = "^4.2.0"
-types-docutils = "^0.20.0"
-types-Markdown = "^3.5"
-
-[tool.poetry.group.docs]
-optional = true
-[tool.poetry.group.docs.dependencies]
-# sphinx 6.* requires Python 3.8+
-sphinx = "^5.3.0"
-# sphinx-autobuild 2024.* requires Python 3.9+
-sphinx-autobuild = "^2021.3"
-sphinx-book-theme = "^1.0.1"
-myst-parser = "^1.0"
+[tool.uv.build-backend]
+module-root = ""
+module-name = "modernrpc"
 
 # ------------------------------------------------------------------
-# |                        Tools settings
+# |                        Dev dependencies
+# ------------------------------------------------------------------
+[tool.uv]
+default-groups = ["dev", "tests"]
+
+[dependency-groups]
+dev = [
+    "ruff ~= 0.14",
+    "jsonrpcclient ~= 4.0.3",
+    "requests",
+    "docutils >= 0.19",
+    "markdown >= 3.5",
+    "simplejson >= 3.19",
+    "xmltodict < 1.0; python_version <= '3.8'",
+    "xmltodict >= 1.0; python_version > '3.8'",
+    "lxml >= 5.3",
+    "orjson >= 3.10",
+    "python-rapidjson >= 1.20",
+]
+tests = [
+    "pytest",
+    "pytest-django",
+    "pytest-sugar",
+    "pytest-cov",
+    "pytest-xdist",
+    "pytest-benchmark >= 4.0.0",
+    "pytest-asyncio",
+]
+type-checking = [
+    "mypy",
+    "django-stubs",
+    "lxml-stubs",
+    "types-defusedxml",
+    "types-docutils",
+    "types-markdown",
+    "types-requests",
+    "types-simplejson",
+    "types-xmltodict",
+]
+docs = [
+    "sphinx >= 6.2; python_version < '3.11'",
+    "sphinx >= 8.2; python_version >= '3.11'",
+    "sphinx-book-theme ~= 1.0; python_version < '3.9'",
+    "sphinx-book-theme >= 1.1.0; python_version >= '3.9'",
+    "sphinx-autobuild",
+    "sphinx-design>=0.5.0",
+    "sphinx-inline-tabs>=2023.4.21",
+    "myst-parser",
+]
+
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
+
+
+# ------------------------------------------------------------------
+# |                        Pytest settings
 # ------------------------------------------------------------------
 [tool.pytest.ini_options]
-pythonpath = ["tests"]
 testpaths = ["tests"]
-python_files = ["test_*.py"]
+python_files = ["test_*.py", "bench_*.py"]
+addopts = "--benchmark-autosave --benchmark-disable"
 
 # pytest-django settings
-DJANGO_SETTINGS_MODULE = "testsite.settings"
+DJANGO_SETTINGS_MODULE = "tests.project.settings"
 FAIL_INVALID_TEMPLATE_VARS = true
 
+# pytest-asyncio (asyncio is the only async framework for now, set to auto mode)
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+
+# ------------------------------------------------------------------
+# |                      Coverage settings
+# ------------------------------------------------------------------
+[tool.coverage.run]
+branch = true
+parallel = true
+
+source = [
+    "modernrpc/",
+]
+omit = [
+    "modernrpc/apps.py",
+]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+    # Such block is used only when mypy is ran
+    "if TYPE_CHECKING:",
+]
+
+
+# ------------------------------------------------------------------
+# |                        Mypy settings
+# ------------------------------------------------------------------
 [tool.mypy]
 exclude = [
+    'noxfile\.py',
     '^tests/.+$',
     '^docs/.+$',
 ]
-[[tool.mypy.overrides]]
-module = [
-    "defusedxml",
-    "defusedxml.xmlrpc",
-]
-ignore_missing_imports = true
 
+# ------------------------------------------------------------------
+# |                        Ruff settings
+# ------------------------------------------------------------------
 [tool.ruff]
 line-length = 120
-target-version = "py37"
-extend-exclude = [
-    "module_with_syntax_errors.py",
-]
+
 [tool.ruff.format]
 # Use `\n` line endings for all files
 line-ending = "lf"
 quote-style = "double"
+
 [tool.ruff.lint]
 # List of rules currently enabled.
 # Docs: https://beta.ruff.rs/docs/rules/
@@ -198,7 +243,7 @@ select = [
     "PTH", # flake8-use-pathlib
     #    "TD", # flake8-todos
     #    "FIX", # flake8-fixme
-    #    "ERA", # eradicate
+    "ERA", # eradicate
     #    "PD", # pandas-vet
     "PGH", # pygrep-hooks
     "PLC", # PyLint (Convention)
@@ -216,11 +261,10 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Invalid import is expected in this file, this is part of a test
-"tests/testsite/rpc_methods_stub/module_with_invalid_import.py" = ["F401"]
 # Some issues are irrelevant in tests
-"tests/*" = ["PLR2004", "PLR0913", "PLC1901", "S"]
-"tests/unit/test_initialization.py" = ["SLF001"]
+"tests/*" = [
+    "S"  # Disable flake8-bandit in the "tests" directory: all alerts are mainly false positive
+]
 
 [tool.ruff.lint.mccabe]
 # Unlike Flake8, default to a complexity level of 10.

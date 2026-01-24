@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: dj-stripe
-Version: 2.10.1
+Version: 2.10.3
 Summary: Django + Stripe made easy
 License: MIT
+License-File: LICENSE
 Author: Alexander Kavanaugh
 Author-email: alex@kavdev.io
 Requires-Python: >=3.11,<4.0
@@ -17,6 +18,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Office/Business :: Financial
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: mysql

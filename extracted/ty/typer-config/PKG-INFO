@@ -1,42 +1,42 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: typer-config
-Version: 1.4.2
+Version: 1.4.3
 Summary: Utilities for working with configuration files in typer CLIs. 
-Home-page: https://maxb2.github.io/typer-config/
-License: MIT
 Keywords: typer,config,configuration,configuration-file,yaml,toml,json,dotenv,cli
 Author: Matt Anderson
-Author-email: matt@manderscience.com
-Requires-Python: >=3.9,<4.0
-Classifier: Intended Audience :: Developers
+Author-email: Matt Anderson <matt@mandersience.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development
+Classifier: Typing :: Typed
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Topic :: Software Development
-Classifier: Topic :: Software Development :: Libraries
-Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Typing :: Typed
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.14
+Classifier: License :: OSI Approved :: MIT License
+Requires-Dist: typer==0.*
+Requires-Dist: python-dotenv>=0 ; extra == 'all'
+Requires-Dist: toml>=0.10.2,<1 ; extra == 'all'
+Requires-Dist: pyyaml==6.* ; extra == 'all'
+Requires-Dist: python-dotenv>=0 ; extra == 'python-dotenv'
+Requires-Dist: toml>=0.10.2,<1 ; extra == 'toml'
+Requires-Dist: pyyaml==6.* ; extra == 'yaml'
+Requires-Python: >=3.10
 Provides-Extra: all
 Provides-Extra: python-dotenv
 Provides-Extra: toml
 Provides-Extra: yaml
-Requires-Dist: python-dotenv ; extra == "python-dotenv" or extra == "all"
-Requires-Dist: pyyaml (>=6.0,<7.0) ; extra == "yaml" or extra == "all"
-Requires-Dist: toml (>=0.10.2,<0.11.0) ; extra == "toml" or extra == "all"
-Requires-Dist: typer (>=0,<1)
-Project-URL: Documentation, https://maxb2.github.io/typer-config/
-Project-URL: Repository, https://github.com/maxb2/typer-config
 Description-Content-Type: text/markdown
 
 # typer-config

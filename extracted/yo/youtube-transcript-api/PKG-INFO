@@ -1,12 +1,13 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: youtube-transcript-api
-Version: 1.2.2
+Version: 1.2.3
 Summary: This is an python API which allows you to get the transcripts/subtitles for a given YouTube video. It also works for automatically generated subtitles, supports translating subtitles and it does not require a headless browser, like other selenium based solutions do!
 License: MIT
+License-File: LICENSE
 Keywords: cli,subtitle,subtitles,transcript,transcripts,youtube,youtube-api,youtube-subtitles,youtube-transcripts
 Author: Jonas Depoix
 Author-email: jonas.depoix@web.de
-Requires-Python: >=3.8,<3.14
+Requires-Python: >=3.8,<3.15
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
@@ -16,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: defusedxml (>=0.7.1,<0.8.0)
 Requires-Dist: requests
 Project-URL: Homepage, https://github.com/jdepoix/youtube-transcript-api
@@ -76,6 +78,14 @@ Description-Content-Type: text/markdown
       <source media="(prefers-color-scheme: dark)" srcset="https://www.dumplingai.com/logos/logo-dark.svg">
       <source media="(prefers-color-scheme: light)" srcset="https://www.dumplingai.com/logos/logo-light.svg">
       <img alt="Dumpling AI" src="https://www.dumplingai.com/logos/logo-light.svg" height="40px" style="vertical-align: middle;">
+    </picture>
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://vcyon.com">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://vcyon.com/logo/vcyon-logo-text-dark.png">
+      <source media="(prefers-color-scheme: light)" srcset="https://vcyon.com/logo/vcyon-logo-text-light.png">
+      <img alt="VCyon" src="https://vcyon.com/logo/vcyon-logo-text-light.png" height="40px" style="vertical-align: middle;">
     </picture>
   </a>
 </p>

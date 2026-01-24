@@ -112,52 +112,41 @@ class BlocksEndpoint(Endpoint):
 
 
 class DatabasesEndpoint(Endpoint):
-    def list(self, **kwargs: Any) -> SyncAsync[Any]:  # pragma: no cover
-        """List all [Databases](https://developers.notion.com/reference/database) shared with the authenticated integration.
+    def retrieve(self, database_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Retrieves a [database object](https://developers.notion.com/reference/database) for a provided database ID.
 
-        > ⚠️  **Deprecated endpoint**
-
-        *[🔗 Endpoint documentation](https://developers.notion.com/reference/get-databases)*
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/database-retrieve)*
         """  # noqa: E501
         return self.parent.request(
-            path="databases",
+            path=f"databases/{database_id}",
             method="GET",
-            query=pick(kwargs, "start_cursor", "page_size"),
             auth=kwargs.get("auth"),
         )
 
-    def query(self, database_id: str, **kwargs: Any) -> SyncAsync[Any]:
-        """Get a list of [Pages](https://developers.notion.com/reference/page) contained in the database.
+    def update(self, database_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Update the title or properties of an existing database.
 
-        *[🔗 Endpoint documentation](https://developers.notion.com/reference/post-database-query)*
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/update-a-database)*
         """  # noqa: E501
         return self.parent.request(
-            path=f"databases/{database_id}/query",
-            method="POST",
-            query=pick(kwargs, "filter_properties"),
+            path=f"databases/{database_id}",
+            method="PATCH",
             body=pick(
                 kwargs,
-                "filter",
-                "sorts",
-                "start_cursor",
-                "page_size",
-                "archived",
+                "parent",
+                "title",
+                "description",
+                "is_inline",
+                "icon",
+                "cover",
                 "in_trash",
+                "is_locked",
             ),
             auth=kwargs.get("auth"),
         )
 
-    def retrieve(self, database_id: str, **kwargs: Any) -> SyncAsync[Any]:
-        """Retrieve a [Database object](https://developers.notion.com/reference/database) using the ID specified.
-
-        *[🔗 Endpoint documentation](https://developers.notion.com/reference/retrieve-a-database)*
-        """  # noqa: E501
-        return self.parent.request(
-            path=f"databases/{database_id}", method="GET", auth=kwargs.get("auth")
-        )
-
     def create(self, **kwargs: Any) -> SyncAsync[Any]:
-        """Create a database as a subpage in the specified parent page.
+        """Create a new database.
 
         *[🔗 Endpoint documentation](https://developers.notion.com/reference/create-a-database)*
         """  # noqa: E501
@@ -169,33 +158,82 @@ class DatabasesEndpoint(Endpoint):
                 "parent",
                 "title",
                 "description",
-                "properties",
+                "is_inline",
+                "initial_data_source",
                 "icon",
                 "cover",
-                "is_inline",
             ),
             auth=kwargs.get("auth"),
         )
 
-    def update(self, database_id: str, **kwargs: Any) -> SyncAsync[Any]:
-        """Update an existing database as specified by the parameters.
 
-        *[🔗 Endpoint documentation](https://developers.notion.com/reference/update-a-database)*
+class DataSourcesEndpoint(Endpoint):
+    def retrieve(self, data_source_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Retrieve a [data source](https://developers.notion.com/reference/data-source) object for a provided data source ID.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/retrieve-a-data-source)*
         """  # noqa: E501
         return self.parent.request(
-            path=f"databases/{database_id}",
-            method="PATCH",
+            path=f"data_sources/{data_source_id}", method="GET", auth=kwargs.get("auth")
+        )
+
+    def query(self, data_source_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Get a list of [Pages](https://developers.notion.com/reference/page) and/or [Data Sources](https://developers.notion.com/reference/data-source) contained in the data source.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/query-a-data-source)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"data_sources/{data_source_id}/query",
+            method="POST",
+            query=pick(kwargs, "filter_properties"),
             body=pick(
                 kwargs,
-                "properties",
-                "title",
-                "description",
-                "icon",
-                "cover",
-                "is_inline",
+                "sorts",
+                "filter",
+                "start_cursor",
+                "page_size",
                 "archived",
                 "in_trash",
+                "result_type",
             ),
+            auth=kwargs.get("auth"),
+        )
+
+    def create(self, **kwargs: Any) -> SyncAsync[Any]:
+        """Add an additional [data source](https://developers.notion.com/reference/data-source) to an existing [database](https://developers.notion.com/reference/database).
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/create-a-data-source)*
+        """  # noqa: E501
+        return self.parent.request(
+            path="data_sources",
+            method="POST",
+            body=pick(kwargs, "parent", "properties", "title", "icon"),
+            auth=kwargs.get("auth"),
+        )
+
+    def update(self, data_source_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Updates the [data source](https://developers.notion.com/reference/data-source) object of a specified data source under a database.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/update-a-data-source)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"data_sources/{data_source_id}",
+            method="PATCH",
+            body=pick(
+                kwargs, "title", "icon", "properties", "in_trash", "archived", "parent"
+            ),
+            auth=kwargs.get("auth"),
+        )
+
+    def list_templates(self, data_source_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """List page templates that are available for a data source.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/list-data-source-templates)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"data_sources/{data_source_id}/templates",
+            method="GET",
+            query=pick(kwargs, "name", "start_cursor", "page_size"),
             auth=kwargs.get("auth"),
         )
 
@@ -227,7 +265,16 @@ class PagesEndpoint(Endpoint):
         return self.parent.request(
             path="pages",
             method="POST",
-            body=pick(kwargs, "parent", "properties", "children", "icon", "cover"),
+            body=pick(
+                kwargs,
+                "parent",
+                "properties",
+                "icon",
+                "cover",
+                "content",
+                "children",
+                "template",
+            ),
             auth=kwargs.get("auth"),
         )
 
@@ -251,7 +298,17 @@ class PagesEndpoint(Endpoint):
         return self.parent.request(
             path=f"pages/{page_id}",
             method="PATCH",
-            body=pick(kwargs, "in_trash", "archived", "properties", "icon", "cover"),
+            body=pick(
+                kwargs,
+                "properties",
+                "icon",
+                "cover",
+                "is_locked",
+                "template",
+                "erase_content",
+                "archived",
+                "in_trash",
+            ),
             auth=kwargs.get("auth"),
         )
 
@@ -311,19 +368,37 @@ class CommentsEndpoint(Endpoint):
         return self.parent.request(
             path="comments",
             method="POST",
-            body=pick(kwargs, "parent", "discussion_id", "rich_text"),
+            body=pick(
+                kwargs,
+                "rich_text",
+                "attachments",
+                "display_name",
+                "parent",
+                "discussion_id",
+            ),
             auth=kwargs.get("auth"),
         )
 
     def list(self, **kwargs: Any) -> SyncAsync[Any]:
         """Retrieve a list of un-resolved [Comment objects](https://developers.notion.com/reference/comment-object) from the specified block.
 
-        *[🔗 Endpoint documentation](https://developers.notion.com/reference/retrieve-a-comment)*
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/list-comments)*
         """  # noqa: E501
         return self.parent.request(
             path="comments",
             method="GET",
             query=pick(kwargs, "block_id", "start_cursor", "page_size"),
+            auth=kwargs.get("auth"),
+        )
+
+    def retrieve(self, comment_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Retrieve a [Comment object](https://developers.notion.com/reference/comment-object) from its `comment_id`.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/retrieve-comment)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"comments/{comment_id}",
+            method="GET",
             auth=kwargs.get("auth"),
         )
 

@@ -1161,3 +1161,63 @@ releases:
       - 2.21.0.yml
       - 413-deprecation-index.yml
     release_date: '2025-08-10'
+  2.22.0:
+    changes:
+      bugfixes:
+        - Remove unnecessary part from template (https://github.com/ansible-community/antsibull-docs/pull/423).
+      minor_changes:
+        - Declare support for Python 3.14 (https://github.com/ansible-community/antsibull-docs/pull/425).
+        - Uses new logging framework provided by antsibull-core. This currently has
+          no user-observable impact, but that will change with later versions of antsibull-core
+          (https://github.com/ansible-community/antsibull-docs/pull/414).
+        - antsibull-docs now depends on antsibull-core 3.5.0+ (https://github.com/ansible-community/antsibull-docs/pull/414).
+      release_summary: Bugfix and maintenance release.
+    fragments:
+      - 2.22.0.yml
+      - 414-logging.yml
+      - 423-fix.yml
+      - 425-python.yml
+    release_date: '2025-11-02'
+  2.22.1:
+    changes:
+      bugfixes:
+        - Adjust docs.ansible.com URLs to the new ``projects/`` structure (https://github.com/ansible-community/antsibull-docs/pull/428).
+      release_summary: Maintenance release.
+    fragments:
+      - 2.22.1.yml
+      - 428-urls.yml
+    release_date: '2025-11-16'
+  2.23.0:
+    changes:
+      minor_changes:
+        - Add new RST roles ``:ansoptref:`` and ``:ansretvalref:`` which allow to
+          reference options and return values with explicit titles (https://github.com/ansible-community/antsibull-docs/pull/430).
+      release_summary: Feature release.
+    fragments:
+      - 2.23.0.yml
+      - 430-refs.yml
+    release_date: '2025-11-23'
+  2.23.1:
+    changes:
+      bugfixes:
+        - Do not reject role argument specs that use ``mutually_exclusive``, ``required_one_of``,
+          ``required_by``, ``required_if``, or ``required_together`` (https://github.com/ansible-community/antsibull-docs/issues/434,
+          https://github.com/ansible-community/antsibull-docs/pull/435).
+      release_summary: Bugfix release.
+    fragments:
+      - 2.23.1.yml
+      - 435-roles-validation.yml
+    release_date: '2025-12-23'
+  2.24.0:
+    changes:
+      minor_changes:
+        - Allow to output linting results as JSON (https://github.com/ansible-community/antsibull-docs/pull/437).
+        - When copying collections to a temporary directory for reading their documentation
+          with ansible-doc, detect whether they are part of Git repositories, and
+          if yes, do not copy ignored files (https://github.com/ansible-community/antsibull-docs/pull/438).
+      release_summary: Feature release to improve linting.
+    fragments:
+      - 2.24.0.yml
+      - 437-lint-json.yml
+      - 438-lint-copying.yml
+    release_date: '2025-12-24'

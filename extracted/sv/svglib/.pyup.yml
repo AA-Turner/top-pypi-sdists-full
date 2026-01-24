@@ -1,0 +1,9 @@
+# configuration for pyup.io
+
+pin: False
+
+schedule: "every day"
+
+assignees:
+ - claudep
+ - deeplook

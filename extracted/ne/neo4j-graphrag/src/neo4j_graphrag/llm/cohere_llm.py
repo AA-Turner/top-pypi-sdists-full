@@ -20,7 +20,7 @@ from pydantic import ValidationError
 
 from neo4j_graphrag.exceptions import LLMGenerationError
 from neo4j_graphrag.llm.base import LLMInterface
-from neo4j_graphrag.llm.rate_limit import (
+from neo4j_graphrag.utils.rate_limit import (
     RateLimitHandler,
     rate_limit_handler,
     async_rate_limit_handler,
@@ -131,7 +131,7 @@ class CohereLLM(LLMInterface):
         except self.cohere_api_error as e:
             raise LLMGenerationError(e)
         return LLMResponse(
-            content=res.message.content[0].text if res.message.content else "",
+            content=res.message.content[0].text if res.message.content else "",  # type: ignore[union-attr]
         )
 
     @async_rate_limit_handler
@@ -163,5 +163,5 @@ class CohereLLM(LLMInterface):
         except self.cohere_api_error as e:
             raise LLMGenerationError(e)
         return LLMResponse(
-            content=res.message.content[0].text if res.message.content else "",
+            content=res.message.content[0].text if res.message.content else "",  # type: ignore[union-attr]
         )

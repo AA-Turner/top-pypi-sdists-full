@@ -36,9 +36,9 @@ requirements:
   run:
     - python
     - {{ pin_compatible('numpy') }}
-    - formulaic>=0.6
+    - formulaic>=1.2
     - scipy
-    - narwhals
+    - narwhals>=2
 
 test:
   requires:

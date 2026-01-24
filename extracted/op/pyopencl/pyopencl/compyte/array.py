@@ -63,7 +63,7 @@ def equal_strides(
     if len(strides1) != len(strides2) or len(strides2) != len(shape):
         return False
 
-    for s, st1, st2 in zip(shape, strides1, strides2):
+    for s, st1, st2 in zip(shape, strides1, strides2, strict=True):
         if s != 1 and st1 != st2:
             return False
 
@@ -98,30 +98,27 @@ class ArrayIsh(Protocol):
 
 
 class ArrayFlags:
-    f_contiguous: bool
-    c_contiguous: bool
-    forc: bool
-
-    def __init__(self, ary: ArrayIsh):
-        self.f_contiguous = is_f_contiguous_strides(
+    def __init__(self, ary: ArrayIsh) -> None:
+        self.f_contiguous: bool = is_f_contiguous_strides(
             ary.strides, ary.dtype.itemsize, ary.shape)
-        self.c_contiguous = is_c_contiguous_strides(
+        self.c_contiguous: bool = is_c_contiguous_strides(
             ary.strides, ary.dtype.itemsize, ary.shape)
-        self.forc = self.f_contiguous or self.c_contiguous
+        self.forc: bool = self.f_contiguous or self.c_contiguous
 
     @override
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
                 f"  C_CONTIGUOUS : {self.c_contiguous}\n"
                 f"  F_CONTIGUOUS : {self.f_contiguous}"
                 )
 
     @override
-    def __str__(self):
+    def __str__(self) -> str:
         return repr(self)
 
 
-def get_common_dtype(obj1, obj2, allow_double):
+def get_common_dtype(obj1: ArrayIsh, obj2: ArrayIsh,
+                     allow_double: bool) -> np.dtype[Any]:
     # Yes, numpy behaves differently depending on whether
     # we're dealing with arrays or scalars.
 
@@ -141,33 +138,6 @@ def get_common_dtype(obj1, obj2, allow_double):
             result = np.dtype(np.complex64)
 
     return result
-
-
-def bound(a):
-    high = a.bytes
-    low = a.bytes
-
-    for stri, shp in zip(a.strides, a.shape):
-        if stri < 0:
-            low += (stri)*(shp-1)
-        else:
-            high += (stri)*(shp-1)
-    return low, high
-
-
-def may_share_memory(a, b):
-    # When this is called with a an ndarray and b
-    # a sparse matrix, numpy.may_share_memory fails.
-    if a is b:
-        return True
-    if a.__class__ is b.__class__:
-        a_l, a_h = bound(a)
-        b_l, b_h = bound(b)
-        if b_l >= a_h or a_l >= b_h:
-            return False
-        return True
-    else:
-        return False
 
 
 # {{{ as_strided implementation

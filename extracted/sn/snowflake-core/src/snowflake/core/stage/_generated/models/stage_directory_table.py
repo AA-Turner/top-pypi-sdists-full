@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
 
 
 class StageDirectoryTable(BaseModel):
@@ -48,9 +48,10 @@ class StageDirectoryTable(BaseModel):
 
     __properties = ["enable", "refresh_on_create", "auto_refresh", "notification_integration"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -75,7 +76,7 @@ class StageDirectoryTable(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -90,9 +91,9 @@ class StageDirectoryTable(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return StageDirectoryTable.parse_obj(obj)
+            return StageDirectoryTable.model_validate(obj)
 
-        _obj = StageDirectoryTable.parse_obj(
+        _obj = StageDirectoryTable.model_validate(
             {
                 "enable": obj.get("enable") if obj.get("enable") is not None else False,
                 "refresh_on_create": obj.get("refresh_on_create") if obj.get("refresh_on_create") is not None else True,

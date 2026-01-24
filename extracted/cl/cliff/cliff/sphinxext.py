@@ -314,8 +314,8 @@ class AutoprogramCliffDirective(rst.Directive):
             return manager.find_command(command_name.split())[0]
         except ValueError:
             raise self.error(
-                f'"{command_name}" is not a valid command in the "{manager.namespace}" '
-                'namespace'
+                f'"{command_name}" is not a valid command in the '
+                f'"{manager.namespace}" namespace'
             )
 
     def _load_commands(self) -> dict[str, type[command.Command]]:
@@ -359,7 +359,7 @@ class AutoprogramCliffDirective(rst.Directive):
         parser.prog = application_name
 
         source_name = f'<{app.__class__.__name__}>'
-        result: statemachine.ViewList[str] = statemachine.ViewList()
+        result = statemachine.StringList()
         for line in _format_parser(parser):
             result.append(line, source_name)
 
@@ -410,7 +410,7 @@ class AutoprogramCliffDirective(rst.Directive):
         )
 
         source_name = f'<{command.__class__.__name__}>'
-        result: statemachine.ViewList[str] = statemachine.ViewList()
+        result = statemachine.StringList()
 
         for line in _format_parser(parser):
             result.append(line, source_name)
@@ -456,9 +456,9 @@ class AutoprogramCliffDirective(rst.Directive):
 
 def setup(app: sphinx.application.Sphinx) -> dict[str, ty.Any]:
     app.add_directive('autoprogram-cliff', AutoprogramCliffDirective)
-    app.add_config_value('autoprogram_cliff_application', '', True)
-    app.add_config_value('autoprogram_cliff_ignored', ['--help'], True)
-    app.add_config_value('autoprogram_cliff_app_dist_name', None, True)
+    app.add_config_value('autoprogram_cliff_application', '', 'env')
+    app.add_config_value('autoprogram_cliff_ignored', ['--help'], 'env')
+    app.add_config_value('autoprogram_cliff_app_dist_name', None, 'env')
 
     return {
         'parallel_read_safe': True,

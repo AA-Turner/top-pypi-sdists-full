@@ -4,10 +4,15 @@ import os
 from inspect import ismodule
 from warnings import warn
 
+import sphinx
+from packaging.version import Version
 from sphinx.ext.autosummary.generate import find_autosummary_in_docstring
 
 __all__ = ['cleanup_whitespace',
-           'find_mod_objs', 'find_autosummary_in_lines_for_automodsumm']
+           'find_mod_objs',
+           'find_autosummary_in_lines_for_automodsumm']
+
+SPHINX_LT_9 = Version(sphinx.__version__) < Version("9.0")
 
 # We use \n instead of os.linesep because even on Windows, the generated files
 # use \n as the newline character.
@@ -194,7 +199,7 @@ def find_autosummary_in_lines_for_automodsumm(lines, module=None, filename=None)
                     name = name[1:]
                 if current_module and \
                    not name.startswith(current_module + '.'):
-                    name = "%s.%s" % (current_module, name)
+                    name = f"{current_module}.{name}"
                 documented.append((name, toctree, template,
                                    inherited_members, noindex))
                 continue
@@ -227,3 +232,26 @@ def find_autosummary_in_lines_for_automodsumm(lines, module=None, filename=None)
             continue
 
     return documented
+
+
+# sphinx-automodapi used to use sphinx.ext.autosummary.get_documenter()
+# from Sphinx proper, but the function was removed upstream in
+# https://github.com/sphinx-doc/sphinx/pull/13985.
+def get_object_type(app, obj, parent):
+    """Get the object type suitable for documenting the given object.
+
+    *obj* is the Python object to be documented, and *parent* is an
+    another Python object (e.g. a module or a class) to which *obj*
+    belongs to.
+    """
+    if SPHINX_LT_9:
+        from sphinx.ext.autosummary import get_documenter
+
+        documenter = get_documenter(app, obj, parent)
+        obj_type = documenter.objtype
+        return obj_type
+
+    from sphinx.ext.autosummary import _get_documenter
+
+    obj_type = _get_documenter(obj, parent)
+    return obj_type

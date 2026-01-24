@@ -1,33 +1,42 @@
-# TODO: Update crawlee_storage_dir args once the Pydantic bug is fixed
-# https://github.com/apify/crawlee-python/issues/146
-
 from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Callable, Optional, cast
+import warnings
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 from curl_cffi import CurlHttpVersion
+from fakeredis import FakeAsyncRedis
 from proxy import Proxy
 from uvicorn.config import Config
 
 from crawlee import service_locator
-from crawlee.configuration import Configuration
 from crawlee.fingerprint_suite._browserforge_adapter import get_available_header_network
-from crawlee.http_clients import CurlImpersonateHttpClient, HttpxHttpClient
+from crawlee.http_clients import CurlImpersonateHttpClient, HttpxHttpClient, ImpitHttpClient
 from crawlee.proxy_configuration import ProxyInfo
-from crawlee.storage_clients import MemoryStorageClient
-from crawlee.storages import KeyValueStore, _creation_management
+from crawlee.statistics import Statistics
+from crawlee.storages import KeyValueStore
 from tests.unit.server import TestServer, app, serve_in_thread
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Iterator
+    from collections.abc import AsyncGenerator, Callable, Iterator
     from pathlib import Path
 
     from yarl import URL
 
     from crawlee.http_clients._base import HttpClient
+
+
+@pytest.fixture(autouse=True)
+async def suppress_user_warning() -> AsyncGenerator[None, None]:
+    """Suppress user warnings during tests.
+
+    Mostly to suppress warnings about the experimental status of the SqlStorageClient.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', UserWarning)
+        yield
 
 
 @pytest.fixture
@@ -53,30 +62,18 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
         # Set the environment variable for the local storage directory to the temporary path.
         monkeypatch.setenv('CRAWLEE_STORAGE_DIR', str(tmp_path))
 
-        # Reset the flags in the service locator to indicate that no services are explicitly set. This ensures
-        # a clean state, as services might have been set during a previous test and not reset properly.
-        service_locator._configuration_was_retrieved = False
-        service_locator._storage_client_was_retrieved = False
-        service_locator._event_manager_was_retrieved = False
-
         # Reset the services in the service locator.
         service_locator._configuration = None
         service_locator._event_manager = None
         service_locator._storage_client = None
-
-        # Clear creation-related caches to ensure no state is carried over between tests.
-        monkeypatch.setattr(_creation_management, '_cache_dataset_by_id', {})
-        monkeypatch.setattr(_creation_management, '_cache_dataset_by_name', {})
-        monkeypatch.setattr(_creation_management, '_cache_kvs_by_id', {})
-        monkeypatch.setattr(_creation_management, '_cache_kvs_by_name', {})
-        monkeypatch.setattr(_creation_management, '_cache_rq_by_id', {})
-        monkeypatch.setattr(_creation_management, '_cache_rq_by_name', {})
+        service_locator.storage_instance_manager.clear_cache()
 
         # Verify that the test environment was set up correctly.
         assert os.environ.get('CRAWLEE_STORAGE_DIR') == str(tmp_path)
-        assert service_locator._configuration_was_retrieved is False
-        assert service_locator._storage_client_was_retrieved is False
-        assert service_locator._event_manager_was_retrieved is False
+
+        # Reset global class variables to ensure test isolation.
+        KeyValueStore._autosaved_values = {}
+        Statistics._Statistics__next_id = 0  # type:ignore[attr-defined] # Mangled attribute
 
     return _prepare_test_env
 
@@ -96,9 +93,9 @@ def _isolate_test_environment(prepare_test_env: Callable[[], None]) -> None:
 
 @pytest.fixture(autouse=True)
 def _set_crawler_log_level(pytestconfig: pytest.Config, monkeypatch: pytest.MonkeyPatch) -> None:
-    from crawlee import _log_config
+    from crawlee import _log_config  # noqa: PLC0415
 
-    loglevel = cast('Optional[str]', pytestconfig.getoption('--log-level'))
+    loglevel = cast('str | None', pytestconfig.getoption('--log-level'))
     if loglevel is not None:
         monkeypatch.setattr(_log_config, 'get_configured_log_level', lambda: getattr(logging, loglevel.upper()))
 
@@ -149,18 +146,6 @@ async def disabled_proxy(proxy_info: ProxyInfo) -> AsyncGenerator[ProxyInfo, Non
         yield proxy_info
 
 
-@pytest.fixture
-def memory_storage_client(tmp_path: Path) -> MemoryStorageClient:
-    """A fixture for testing the memory storage client and its resource clients."""
-    config = Configuration(
-        persist_storage=True,
-        write_metadata=True,
-        crawlee_storage_dir=str(tmp_path),  # type: ignore[call-arg]
-    )
-
-    return MemoryStorageClient.from_config(config)
-
-
 @pytest.fixture(scope='session')
 def header_network() -> dict:
     return get_available_header_network()
@@ -191,7 +176,17 @@ def server_url(http_server: TestServer) -> URL:
 @pytest.fixture
 def redirect_http_server(unused_tcp_port_factory: Callable[[], int]) -> Iterator[TestServer]:
     """Create and start an HTTP test server."""
-    config = Config(app=app, lifespan='off', loop='asyncio', port=unused_tcp_port_factory())
+    config = Config(
+        app=app,
+        lifespan='off',
+        loop='asyncio',
+        port=unused_tcp_port_factory(),
+        limit_max_requests=100,
+        timeout_graceful_shutdown=10,
+        log_level='error',
+        access_log=False,
+        ws='websockets-sansio',
+    )
     server = TestServer(config=config)
     yield from serve_in_thread(server)
 
@@ -204,11 +199,26 @@ def redirect_server_url(redirect_http_server: TestServer) -> URL:
 
 @pytest.fixture(
     params=[
-        pytest.param('curl', id='curl'),
         pytest.param('httpx', id='httpx'),
+        pytest.param('impit', id='impit'),
+        pytest.param('curl', id='curl'),
     ]
 )
-async def http_client(request: pytest.FixtureRequest) -> HttpClient:
+async def http_client(request: pytest.FixtureRequest) -> AsyncGenerator[HttpClient, None]:
+    class_client: type[HttpClient]
     if request.param == 'curl':
-        return CurlImpersonateHttpClient(http_version=CurlHttpVersion.V1_1)
-    return HttpxHttpClient(http2=False)
+        class_client = CurlImpersonateHttpClient
+        kwargs: dict[str, Any] = {'http_version': CurlHttpVersion.V1_1}
+    elif request.param == 'impit':
+        class_client = ImpitHttpClient
+        kwargs = {'http3': False}
+    else:
+        class_client = HttpxHttpClient
+        kwargs = {'http2': True}
+    async with class_client(**kwargs) as client:
+        yield client
+
+
+@pytest.fixture
+def redis_client() -> FakeAsyncRedis:
+    return FakeAsyncRedis()

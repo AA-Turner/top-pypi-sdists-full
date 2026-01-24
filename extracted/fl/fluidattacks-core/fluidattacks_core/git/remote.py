@@ -3,7 +3,7 @@ from .https_utils import call_https_ls_remote
 from .ssh_utils import call_ssh_ls_remote
 
 
-async def ls_remote(
+async def ls_remote(  # noqa: PLR0913
     repo_url: str,
     repo_branch: str,
     *,

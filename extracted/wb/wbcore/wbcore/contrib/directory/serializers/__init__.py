@@ -36,6 +36,7 @@ from .entries import (
     EntryRepresentationSerializer,
     InternalUserProfileRepresentationSerializer,
     PersonRepresentationSerializer,
+    FullDetailPersonRepresentationSerializer,
     SpecializationModelSerializer,
     SpecializationRepresentationSerializer,
 )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-functions
-Version: 1.23.0
+Version: 1.24.0
 Summary: Python library for Azure Functions.
 Author-email: "Azure Functions team at Microsoft Corp." <azurefunctions@microsoft.com>
 License: MIT License
@@ -32,6 +32,7 @@ Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: azure-functions-durable; extra == "dev"
 Requires-Dist: flake8~=4.0.1; python_version < "3.11" and extra == "dev"
 Requires-Dist: flake8~=7.1.1; python_version >= "3.11" and extra == "dev"
+Requires-Dist: flake8-docstrings; extra == "dev"
 Dynamic: license-file
 
 # <img src="https://raw.githubusercontent.com/Azure/azure-functions-python-worker/dev/docs/Azure.Functions.svg" width = "40" alt="Functions Header Image - Lightning Logo"> Azure Functions Python Library

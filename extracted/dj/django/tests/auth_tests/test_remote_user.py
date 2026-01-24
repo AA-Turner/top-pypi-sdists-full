@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from django.conf import settings
 from django.contrib.auth import aauthenticate, authenticate
@@ -198,7 +198,7 @@ class RemoteUserTest(TestCase):
         # Set last_login to something so we can determine if it changes.
         default_login = datetime(2000, 1, 1)
         if settings.USE_TZ:
-            default_login = default_login.replace(tzinfo=timezone.utc)
+            default_login = default_login.replace(tzinfo=UTC)
         user.last_login = default_login
         user.save()
 
@@ -217,7 +217,7 @@ class RemoteUserTest(TestCase):
         # Set last_login to something so we can determine if it changes.
         default_login = datetime(2000, 1, 1)
         if settings.USE_TZ:
-            default_login = default_login.replace(tzinfo=timezone.utc)
+            default_login = default_login.replace(tzinfo=UTC)
         user.last_login = default_login
         await user.asave()
 
@@ -243,7 +243,8 @@ class RemoteUserTest(TestCase):
         # Known user authenticates
         response = self.client.get("/remote_user/", **{self.header: self.known_user})
         self.assertEqual(response.context["user"].username, "knownuser")
-        # During the session, the REMOTE_USER header disappears. Should trigger logout.
+        # During the session, the REMOTE_USER header disappears. Should trigger
+        # logout.
         response = self.client.get("/remote_user/")
         self.assertTrue(response.context["user"].is_anonymous)
         # verify the remoteuser middleware will not remove a user
@@ -262,7 +263,8 @@ class RemoteUserTest(TestCase):
             "/remote_user/", **{self.header: self.known_user}
         )
         self.assertEqual(response.context["user"].username, "knownuser")
-        # During the session, the REMOTE_USER header disappears. Should trigger logout.
+        # During the session, the REMOTE_USER header disappears. Should trigger
+        # logout.
         response = await self.async_client.get("/remote_user/")
         self.assertTrue(response.context["user"].is_anonymous)
         # verify the remoteuser middleware will not remove a user

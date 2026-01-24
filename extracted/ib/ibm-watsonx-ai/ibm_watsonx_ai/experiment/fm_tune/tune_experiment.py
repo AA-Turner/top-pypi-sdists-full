@@ -1,10 +1,11 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
 from enum import Enum, EnumMeta
+from pathlib import Path
 from typing import TYPE_CHECKING, TypeAlias
 from warnings import catch_warnings, simplefilter, warn
 
@@ -18,10 +19,7 @@ from ibm_watsonx_ai.foundation_models.utils.enums import (
     PromptTuningTypes,
     TuneExperimentTasks,
 )
-from ibm_watsonx_ai.foundation_models.utils.utils import (
-    _check_model_state,
-    get_model_specs_with_prompt_tuning_support,
-)
+from ibm_watsonx_ai.foundation_models.utils.utils import _check_model_state
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 
 from .tune_runs import TuneRuns
@@ -51,7 +49,7 @@ class TuneExperiment(BaseExperiment):
         * the path of directory with certificates of trusted CAs
         * `True` - default path to truststore will be taken
         * `False` - no verification will be made
-    :type verify: bool or str, optional
+    :type verify: bool | str | Path, optional
 
     **Example:**
 
@@ -61,9 +59,8 @@ class TuneExperiment(BaseExperiment):
         from ibm_watsonx_ai.experiment import TuneExperiment
 
         experiment = TuneExperiment(
-            credentials=Credentials(...),
-            project_id="...",
-            space_id="...")
+            credentials=Credentials(...), project_id="...", space_id="..."
+        )
     """
 
     def __init__(
@@ -71,11 +68,12 @@ class TuneExperiment(BaseExperiment):
         credentials: Credentials | dict[str, str],
         project_id: str | None = None,
         space_id: str | None = None,
-        verify: str | bool | None = None,
+        verify: str | Path | bool | None = None,
     ) -> None:
+        if isinstance(verify, Path):
+            verify = str(verify)
+
         self.client = APIClient(credentials, verify=verify)
-        if not self.client.CLOUD_PLATFORM_SPACES and self.client.CPD_version < 4.8:
-            raise WMLClientError(error_msg="Operation is unsupported for this release.")
 
         if project_id:
             self.client.set.default_project(project_id)
@@ -104,7 +102,7 @@ class TuneExperiment(BaseExperiment):
             from ibm_watsonx_ai.experiment import TuneExperiment
 
             experiment = TuneExperiment(...)
-            experiment.runs(filter='prompt tuning name').list()
+            experiment.runs(filter="prompt tuning name").list()
         """
         return TuneRuns(client=self.client, filter=filter)
 
@@ -216,7 +214,7 @@ class TuneExperiment(BaseExperiment):
             prompt_tuner = experiment.prompt_tuner(
                 name="prompt tuning name",
                 task_id=experiment.Tasks.CLASSIFICATION,
-                base_model='google/flan-t5-xl',
+                base_model="google/flan-t5-xl",
                 accumulate_steps=32,
                 batch_size=16,
                 learning_rate=0.2,
@@ -225,7 +223,8 @@ class TuneExperiment(BaseExperiment):
                 num_epochs=6,
                 tuning_type=experiment.PromptTuningTypes.PT,
                 verbalizer="Extract the satisfaction from the comment. Return simple '1' for satisfied customer or '0' for unsatisfied. Input: {{input}} Output: ",
-                auto_update_model=True)
+                auto_update_model=True,
+            )
         """
         if not self.client.CLOUD_PLATFORM_SPACES and self.client.CPD_version >= 5.2:
             with catch_warnings():
@@ -239,14 +238,9 @@ class TuneExperiment(BaseExperiment):
         if isinstance(base_model, Enum):
             base_model = base_model.value
 
-        if self.client._use_fm_ga_api:
-            model_specs = self.client.foundation_models.get_model_specs_with_prompt_tuning_support()
-        else:
-            with catch_warnings():
-                simplefilter("ignore", category=DeprecationWarning)
-                model_specs = get_model_specs_with_prompt_tuning_support(
-                    self.client.credentials.url  # type: ignore[arg-type]
-                )
+        model_specs = (
+            self.client.foundation_models.get_model_specs_with_prompt_tuning_support()
+        )
 
         prompt_tuning_supported_models = [
             model_spec["model_id"]
@@ -383,7 +377,8 @@ class TuneExperiment(BaseExperiment):
                 verbalizer="### Input: {{input}} \\n\\n### Response: {{output}}",
                 response_template="\\n### Response:\\n",
                 auto_update_model=False,
-                gradient_checkpointing=True)
+                gradient_checkpointing=True,
+            )
 
         Example of init FineTuner with LoRA/QLoRA
 
@@ -408,12 +403,13 @@ class TuneExperiment(BaseExperiment):
                 peft_parameters=PeftParameters(
                     type="lora",
                     rank=8,
-                    lora_alpha= 2,
+                    lora_alpha=2,
                     lora_dropout=0.05,
-                    target_modules=['all-linear'],
+                    target_modules=["all-linear"],
                 ),
                 auto_update_model=False,
-                gradient_checkpointing=False)
+                gradient_checkpointing=False,
+            )
         """
 
         if isinstance(task_id, Enum):

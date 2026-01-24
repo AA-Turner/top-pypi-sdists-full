@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import System
@@ -9,16 +9,632 @@ import System.Drawing
 import System.Globalization
 import System.Numerics
 
-System_Drawing_PointF = typing.Any
-System_Drawing_SizeF = typing.Any
-System_Drawing_Point = typing.Any
-System_Drawing_Rectangle = typing.Any
 System_Drawing_RectangleF = typing.Any
-System_Drawing_Color = typing.Any
 System_Drawing_Size = typing.Any
+System_Drawing_Point = typing.Any
+System_Drawing_Color = typing.Any
+System_Drawing_Rectangle = typing.Any
+System_Drawing_SizeF = typing.Any
+System_Drawing_PointF = typing.Any
 
 
-class KnownColor(Enum):
+class PointF(System.IEquatable[System_Drawing_PointF]):
+    """This class has no documentation."""
+
+    EMPTY: System.Drawing.PointF
+
+    @property
+    def is_empty(self) -> bool:
+        ...
+
+    @property
+    def x(self) -> float:
+        ...
+
+    @x.setter
+    def x(self, value: float) -> None:
+        ...
+
+    @property
+    def y(self) -> float:
+        ...
+
+    @y.setter
+    def y(self, value: float) -> None:
+        ...
+
+    @overload
+    def __add__(self, sz: System.Drawing.Size) -> System.Drawing.PointF:
+        ...
+
+    @overload
+    def __add__(self, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
+        ...
+
+    def __eq__(self, right: System.Drawing.PointF) -> bool:
+        ...
+
+    @overload
+    def __iadd__(self, sz: System.Drawing.Size) -> System.Drawing.PointF:
+        ...
+
+    @overload
+    def __iadd__(self, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
+        ...
+
+    @overload
+    def __init__(self, x: float, y: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, vector: System.Numerics.Vector2) -> None:
+        ...
+
+    @overload
+    def __isub__(self, sz: System.Drawing.Size) -> System.Drawing.PointF:
+        ...
+
+    @overload
+    def __isub__(self, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
+        ...
+
+    def __ne__(self, right: System.Drawing.PointF) -> bool:
+        ...
+
+    @overload
+    def __sub__(self, sz: System.Drawing.Size) -> System.Drawing.PointF:
+        ...
+
+    @overload
+    def __sub__(self, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
+        ...
+
+    @staticmethod
+    @overload
+    def add(pt: System.Drawing.PointF, sz: System.Drawing.Size) -> System.Drawing.PointF:
+        ...
+
+    @staticmethod
+    @overload
+    def add(pt: System.Drawing.PointF, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Drawing.PointF) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def subtract(pt: System.Drawing.PointF, sz: System.Drawing.Size) -> System.Drawing.PointF:
+        ...
+
+    @staticmethod
+    @overload
+    def subtract(pt: System.Drawing.PointF, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    def to_vector_2(self) -> System.Numerics.Vector2:
+        ...
+
+
+class SizeF(System.IEquatable[System_Drawing_SizeF]):
+    """This class has no documentation."""
+
+    EMPTY: System.Drawing.SizeF
+
+    @property
+    def is_empty(self) -> bool:
+        ...
+
+    @property
+    def width(self) -> float:
+        ...
+
+    @width.setter
+    def width(self, value: float) -> None:
+        ...
+
+    @property
+    def height(self) -> float:
+        ...
+
+    @height.setter
+    def height(self, value: float) -> None:
+        ...
+
+    def __add__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    def __eq__(self, sz_2: System.Drawing.SizeF) -> bool:
+        ...
+
+    def __iadd__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __imul__(self, right: float) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __init__(self, size: System.Drawing.SizeF) -> None:
+        ...
+
+    @overload
+    def __init__(self, pt: System.Drawing.PointF) -> None:
+        ...
+
+    @overload
+    def __init__(self, vector: System.Numerics.Vector2) -> None:
+        ...
+
+    @overload
+    def __init__(self, width: float, height: float) -> None:
+        ...
+
+    def __isub__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    def __itruediv__(self, right: float) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __mul__(self, right: float) -> System.Drawing.SizeF:
+        ...
+
+    def __ne__(self, sz_2: System.Drawing.SizeF) -> bool:
+        ...
+
+    def __sub__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    def __truediv__(self, right: float) -> System.Drawing.SizeF:
+        ...
+
+    @staticmethod
+    def add(sz_1: System.Drawing.SizeF, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Drawing.SizeF) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def subtract(sz_1: System.Drawing.SizeF, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    def to_point_f(self) -> System.Drawing.PointF:
+        ...
+
+    def to_size(self) -> System.Drawing.Size:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    def to_vector_2(self) -> System.Numerics.Vector2:
+        ...
+
+
+class RectangleF(System.IEquatable[System_Drawing_RectangleF]):
+    """This class has no documentation."""
+
+    EMPTY: System.Drawing.RectangleF
+
+    @property
+    def location(self) -> System.Drawing.PointF:
+        ...
+
+    @location.setter
+    def location(self, value: System.Drawing.PointF) -> None:
+        ...
+
+    @property
+    def size(self) -> System.Drawing.SizeF:
+        ...
+
+    @size.setter
+    def size(self, value: System.Drawing.SizeF) -> None:
+        ...
+
+    @property
+    def x(self) -> float:
+        ...
+
+    @x.setter
+    def x(self, value: float) -> None:
+        ...
+
+    @property
+    def y(self) -> float:
+        ...
+
+    @y.setter
+    def y(self, value: float) -> None:
+        ...
+
+    @property
+    def width(self) -> float:
+        ...
+
+    @width.setter
+    def width(self, value: float) -> None:
+        ...
+
+    @property
+    def height(self) -> float:
+        ...
+
+    @height.setter
+    def height(self, value: float) -> None:
+        ...
+
+    @property
+    def left(self) -> float:
+        ...
+
+    @property
+    def top(self) -> float:
+        ...
+
+    @property
+    def right(self) -> float:
+        ...
+
+    @property
+    def bottom(self) -> float:
+        ...
+
+    @property
+    def is_empty(self) -> bool:
+        ...
+
+    def __eq__(self, right: System.Drawing.RectangleF) -> bool:
+        ...
+
+    @overload
+    def __init__(self, x: float, y: float, width: float, height: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, location: System.Drawing.PointF, size: System.Drawing.SizeF) -> None:
+        ...
+
+    @overload
+    def __init__(self, vector: System.Numerics.Vector4) -> None:
+        ...
+
+    def __ne__(self, right: System.Drawing.RectangleF) -> bool:
+        ...
+
+    @overload
+    def contains(self, x: float, y: float) -> bool:
+        ...
+
+    @overload
+    def contains(self, pt: System.Drawing.PointF) -> bool:
+        ...
+
+    @overload
+    def contains(self, rect: System.Drawing.RectangleF) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Drawing.RectangleF) -> bool:
+        ...
+
+    @staticmethod
+    def from_ltrb(left: float, top: float, right: float, bottom: float) -> System.Drawing.RectangleF:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @overload
+    def inflate(self, x: float, y: float) -> None:
+        ...
+
+    @overload
+    def inflate(self, size: System.Drawing.SizeF) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def inflate(rect: System.Drawing.RectangleF, x: float, y: float) -> System.Drawing.RectangleF:
+        ...
+
+    @overload
+    def intersect(self, rect: System.Drawing.RectangleF) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def intersect(a: System.Drawing.RectangleF, b: System.Drawing.RectangleF) -> System.Drawing.RectangleF:
+        ...
+
+    def intersects_with(self, rect: System.Drawing.RectangleF) -> bool:
+        ...
+
+    @overload
+    def offset(self, pos: System.Drawing.PointF) -> None:
+        ...
+
+    @overload
+    def offset(self, x: float, y: float) -> None:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    def to_vector_4(self) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def union(a: System.Drawing.RectangleF, b: System.Drawing.RectangleF) -> System.Drawing.RectangleF:
+        ...
+
+
+class Point(System.IEquatable[System_Drawing_Point]):
+    """This class has no documentation."""
+
+    EMPTY: System.Drawing.Point
+
+    @property
+    def is_empty(self) -> bool:
+        ...
+
+    @property
+    def x(self) -> int:
+        ...
+
+    @x.setter
+    def x(self, value: int) -> None:
+        ...
+
+    @property
+    def y(self) -> int:
+        ...
+
+    @y.setter
+    def y(self, value: int) -> None:
+        ...
+
+    def __add__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
+        ...
+
+    def __eq__(self, right: System.Drawing.Point) -> bool:
+        ...
+
+    def __iadd__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
+        ...
+
+    @overload
+    def __init__(self, x: int, y: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, sz: System.Drawing.Size) -> None:
+        ...
+
+    @overload
+    def __init__(self, dw: int) -> None:
+        ...
+
+    def __isub__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
+        ...
+
+    def __ne__(self, right: System.Drawing.Point) -> bool:
+        ...
+
+    def __sub__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
+        ...
+
+    @staticmethod
+    def add(pt: System.Drawing.Point, sz: System.Drawing.Size) -> System.Drawing.Point:
+        ...
+
+    @staticmethod
+    def ceiling(value: System.Drawing.PointF) -> System.Drawing.Point:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Drawing.Point) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @overload
+    def offset(self, dx: int, dy: int) -> None:
+        ...
+
+    @overload
+    def offset(self, p: System.Drawing.Point) -> None:
+        ...
+
+    @staticmethod
+    def round(value: System.Drawing.PointF) -> System.Drawing.Point:
+        ...
+
+    @staticmethod
+    def subtract(pt: System.Drawing.Point, sz: System.Drawing.Size) -> System.Drawing.Point:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    @staticmethod
+    def truncate(value: System.Drawing.PointF) -> System.Drawing.Point:
+        ...
+
+
+class Size(System.IEquatable[System_Drawing_Size]):
+    """This class has no documentation."""
+
+    EMPTY: System.Drawing.Size
+
+    @property
+    def is_empty(self) -> bool:
+        ...
+
+    @property
+    def width(self) -> int:
+        ...
+
+    @width.setter
+    def width(self, value: int) -> None:
+        ...
+
+    @property
+    def height(self) -> int:
+        ...
+
+    @height.setter
+    def height(self, value: int) -> None:
+        ...
+
+    def __add__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        ...
+
+    def __eq__(self, sz_2: System.Drawing.Size) -> bool:
+        ...
+
+    def __iadd__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Drawing.Size) -> System.Drawing.Size:
+        ...
+
+    @overload
+    def __imul__(self, right: int) -> System.Drawing.Size:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Drawing.Size) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __imul__(self, right: float) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __init__(self, pt: System.Drawing.Point) -> None:
+        ...
+
+    @overload
+    def __init__(self, width: int, height: int) -> None:
+        ...
+
+    def __isub__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        ...
+
+    @overload
+    def __itruediv__(self, right: int) -> System.Drawing.Size:
+        ...
+
+    @overload
+    def __itruediv__(self, right: float) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Drawing.Size) -> System.Drawing.Size:
+        ...
+
+    @overload
+    def __mul__(self, right: int) -> System.Drawing.Size:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Drawing.Size) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __mul__(self, right: float) -> System.Drawing.SizeF:
+        ...
+
+    def __ne__(self, sz_2: System.Drawing.Size) -> bool:
+        ...
+
+    def __sub__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        ...
+
+    @overload
+    def __truediv__(self, right: int) -> System.Drawing.Size:
+        ...
+
+    @overload
+    def __truediv__(self, right: float) -> System.Drawing.SizeF:
+        ...
+
+    @staticmethod
+    def add(sz_1: System.Drawing.Size, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        ...
+
+    @staticmethod
+    def ceiling(value: System.Drawing.SizeF) -> System.Drawing.Size:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Drawing.Size) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def round(value: System.Drawing.SizeF) -> System.Drawing.Size:
+        ...
+
+    @staticmethod
+    def subtract(sz_1: System.Drawing.Size, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    @staticmethod
+    def truncate(value: System.Drawing.SizeF) -> System.Drawing.Size:
+        ...
+
+
+class KnownColor(IntEnum):
     """This class has no documentation."""
 
     ACTIVE_BORDER = 1
@@ -371,9 +987,6 @@ class KnownColor(Enum):
 
     REBECCA_PURPLE = 174
 
-    def __int__(self) -> int:
-        ...
-
 
 class Color(System.IEquatable[System_Drawing_Color]):
     """This class has no documentation."""
@@ -609,7 +1222,6 @@ class Color(System.IEquatable[System_Drawing_Color]):
     PURPLE: System.Drawing.Color
 
     REBECCA_PURPLE: System.Drawing.Color
-    """Gets a system-defined color that has an ARGB value of #663399."""
 
     RED: System.Drawing.Color
 
@@ -835,972 +1447,15 @@ class SystemColors(System.Object):
     WINDOW_TEXT: System.Drawing.Color
 
     use_alternative_color_set: bool
-    """
-    When true, system KnownColor values will return
-    the alternative color set (as returned by SystemColors statics or
-    Color.FromKnownColor(KnownColor)). This is currently "dark mode"
-    variants of the system colors.
-    """
-
-
-class Size(System.IEquatable[System_Drawing_Size]):
-    """Represents the size of a rectangular region with an ordered pair of width and height."""
-
-    EMPTY: System.Drawing.Size
-    """Initializes a new instance of the System.Drawing.Size class."""
-
-    @property
-    def is_empty(self) -> bool:
-        """Tests whether this System.Drawing.Size has zero width and height."""
-        ...
-
-    @property
-    def width(self) -> int:
-        """Represents the horizontal component of this System.Drawing.Size."""
-        ...
-
-    @width.setter
-    def width(self, value: int) -> None:
-        ...
-
-    @property
-    def height(self) -> int:
-        """Represents the vertical component of this System.Drawing.Size."""
-        ...
-
-    @height.setter
-    def height(self, value: int) -> None:
-        ...
-
-    def __add__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
-        """Performs vector addition of two System.Drawing.Size objects."""
-        ...
-
-    def __eq__(self, sz_2: System.Drawing.Size) -> bool:
-        """Tests whether two System.Drawing.Size objects are identical."""
-        ...
-
-    def __iadd__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
-        """Performs vector addition of two System.Drawing.Size objects."""
-        ...
-
-    @overload
-    def __imul__(self, right: System.Drawing.Size) -> System.Drawing.Size:
-        """
-        Multiplies a Size by an int producing Size.
-        
-        :param left: Multiplier of type int.
-        :param right: Multiplicand of type Size.
-        :returns: Product of type Size.
-        """
-        ...
-
-    @overload
-    def __imul__(self, right: int) -> System.Drawing.Size:
-        """
-        Multiplies Size by an int producing Size.
-        
-        :param left: Multiplicand of type Size.
-        :param right: Multiplier of type int.
-        :returns: Product of type Size.
-        """
-        ...
-
-    @overload
-    def __imul__(self, right: System.Drawing.Size) -> System.Drawing.SizeF:
-        """
-        Multiplies Size by a float producing SizeF.
-        
-        :param left: Multiplier of type float.
-        :param right: Multiplicand of type Size.
-        :returns: Product of type SizeF.
-        """
-        ...
-
-    @overload
-    def __imul__(self, right: float) -> System.Drawing.SizeF:
-        """
-        Multiplies Size by a float producing SizeF.
-        
-        :param left: Multiplicand of type Size.
-        :param right: Multiplier of type float.
-        :returns: Product of type SizeF.
-        """
-        ...
-
-    @overload
-    def __init__(self, pt: System.Drawing.Point) -> None:
-        """
-        Initializes a new instance of the System.Drawing.Size class from the specified
-        System.Drawing.Point.
-        """
-        ...
-
-    @overload
-    def __init__(self, width: int, height: int) -> None:
-        """Initializes a new instance of the System.Drawing.Size class from the specified dimensions."""
-        ...
-
-    def __isub__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
-        """Contracts a System.Drawing.Size by another System.Drawing.Size"""
-        ...
-
-    @overload
-    def __itruediv__(self, right: int) -> System.Drawing.Size:
-        """
-        Divides Size by an int producing Size.
-        
-        :param left: Dividend of type Size.
-        :param right: Divisor of type int.
-        :returns: Result of type Size.
-        """
-        ...
-
-    @overload
-    def __itruediv__(self, right: float) -> System.Drawing.SizeF:
-        """
-        Divides Size by a float producing SizeF.
-        
-        :param left: Dividend of type Size.
-        :param right: Divisor of type int.
-        :returns: Result of type SizeF.
-        """
-        ...
-
-    @overload
-    def __mul__(self, right: System.Drawing.Size) -> System.Drawing.Size:
-        """
-        Multiplies a Size by an int producing Size.
-        
-        :param left: Multiplier of type int.
-        :param right: Multiplicand of type Size.
-        :returns: Product of type Size.
-        """
-        ...
-
-    @overload
-    def __mul__(self, right: int) -> System.Drawing.Size:
-        """
-        Multiplies Size by an int producing Size.
-        
-        :param left: Multiplicand of type Size.
-        :param right: Multiplier of type int.
-        :returns: Product of type Size.
-        """
-        ...
-
-    @overload
-    def __mul__(self, right: System.Drawing.Size) -> System.Drawing.SizeF:
-        """
-        Multiplies Size by a float producing SizeF.
-        
-        :param left: Multiplier of type float.
-        :param right: Multiplicand of type Size.
-        :returns: Product of type SizeF.
-        """
-        ...
-
-    @overload
-    def __mul__(self, right: float) -> System.Drawing.SizeF:
-        """
-        Multiplies Size by a float producing SizeF.
-        
-        :param left: Multiplicand of type Size.
-        :param right: Multiplier of type float.
-        :returns: Product of type SizeF.
-        """
-        ...
-
-    def __ne__(self, sz_2: System.Drawing.Size) -> bool:
-        """Tests whether two System.Drawing.Size objects are different."""
-        ...
-
-    def __sub__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
-        """Contracts a System.Drawing.Size by another System.Drawing.Size"""
-        ...
-
-    @overload
-    def __truediv__(self, right: int) -> System.Drawing.Size:
-        """
-        Divides Size by an int producing Size.
-        
-        :param left: Dividend of type Size.
-        :param right: Divisor of type int.
-        :returns: Result of type Size.
-        """
-        ...
-
-    @overload
-    def __truediv__(self, right: float) -> System.Drawing.SizeF:
-        """
-        Divides Size by a float producing SizeF.
-        
-        :param left: Dividend of type Size.
-        :param right: Divisor of type int.
-        :returns: Result of type SizeF.
-        """
-        ...
-
-    @staticmethod
-    def add(sz_1: System.Drawing.Size, sz_2: System.Drawing.Size) -> System.Drawing.Size:
-        """Performs vector addition of two System.Drawing.Size objects."""
-        ...
-
-    @staticmethod
-    def ceiling(value: System.Drawing.SizeF) -> System.Drawing.Size:
-        """Converts a SizeF to a Size by performing a ceiling operation on all the coordinates."""
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Tests to see whether the specified object is a System.Drawing.Size  with the same dimensions
-        as this System.Drawing.Size.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Drawing.Size) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        """Returns a hash code."""
-        ...
-
-    @staticmethod
-    def round(value: System.Drawing.SizeF) -> System.Drawing.Size:
-        """Converts a SizeF to a Size by performing a round operation on all the coordinates."""
-        ...
-
-    @staticmethod
-    def subtract(sz_1: System.Drawing.Size, sz_2: System.Drawing.Size) -> System.Drawing.Size:
-        """Contracts a System.Drawing.Size by another System.Drawing.Size ."""
-        ...
-
-    def to_string(self) -> str:
-        """Creates a human-readable string that represents this System.Drawing.Size."""
-        ...
-
-    @staticmethod
-    def truncate(value: System.Drawing.SizeF) -> System.Drawing.Size:
-        """Converts a SizeF to a Size by performing a truncate operation on all the coordinates."""
-        ...
-
-
-class SizeF(System.IEquatable[System_Drawing_SizeF]):
-    """Represents the size of a rectangular region with an ordered pair of width and height."""
-
-    EMPTY: System.Drawing.SizeF
-    """Initializes a new instance of the System.Drawing.SizeF class."""
-
-    @property
-    def is_empty(self) -> bool:
-        """Tests whether this System.Drawing.SizeF has zero width and height."""
-        ...
-
-    @property
-    def width(self) -> float:
-        """Represents the horizontal component of this System.Drawing.SizeF."""
-        ...
-
-    @width.setter
-    def width(self, value: float) -> None:
-        ...
-
-    @property
-    def height(self) -> float:
-        """Represents the vertical component of this System.Drawing.SizeF."""
-        ...
-
-    @height.setter
-    def height(self, value: float) -> None:
-        ...
-
-    def __add__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        """Performs vector addition of two System.Drawing.SizeF objects."""
-        ...
-
-    def __eq__(self, sz_2: System.Drawing.SizeF) -> bool:
-        """Tests whether two System.Drawing.SizeF objects are identical."""
-        ...
-
-    def __iadd__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        """Performs vector addition of two System.Drawing.SizeF objects."""
-        ...
-
-    @overload
-    def __imul__(self, right: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        """
-        Multiplies SizeF by a float producing SizeF.
-        
-        :param left: Multiplier of type float.
-        :param right: Multiplicand of type SizeF.
-        :returns: Product of type SizeF.
-        """
-        ...
-
-    @overload
-    def __imul__(self, right: float) -> System.Drawing.SizeF:
-        """
-        Multiplies SizeF by a float producing SizeF.
-        
-        :param left: Multiplicand of type SizeF.
-        :param right: Multiplier of type float.
-        :returns: Product of type SizeF.
-        """
-        ...
-
-    @overload
-    def __init__(self, size: System.Drawing.SizeF) -> None:
-        """
-        Initializes a new instance of the System.Drawing.SizeF class from the specified
-        existing System.Drawing.SizeF.
-        """
-        ...
-
-    @overload
-    def __init__(self, pt: System.Drawing.PointF) -> None:
-        """
-        Initializes a new instance of the System.Drawing.SizeF class from the specified
-        System.Drawing.PointF.
-        """
-        ...
-
-    @overload
-    def __init__(self, vector: System.Numerics.Vector2) -> None:
-        """
-        Initializes a new instance of the System.Drawing.SizeF struct from the specified
-        System.Numerics.Vector2.
-        """
-        ...
-
-    @overload
-    def __init__(self, width: float, height: float) -> None:
-        """Initializes a new instance of the System.Drawing.SizeF class from the specified dimensions."""
-        ...
-
-    def __isub__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        """Contracts a System.Drawing.SizeF by another System.Drawing.SizeF"""
-        ...
-
-    def __itruediv__(self, right: float) -> System.Drawing.SizeF:
-        """
-        Divides SizeF by a float producing SizeF.
-        
-        :param left: Dividend of type SizeF.
-        :param right: Divisor of type int.
-        :returns: Result of type SizeF.
-        """
-        ...
-
-    @overload
-    def __mul__(self, right: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        """
-        Multiplies SizeF by a float producing SizeF.
-        
-        :param left: Multiplier of type float.
-        :param right: Multiplicand of type SizeF.
-        :returns: Product of type SizeF.
-        """
-        ...
-
-    @overload
-    def __mul__(self, right: float) -> System.Drawing.SizeF:
-        """
-        Multiplies SizeF by a float producing SizeF.
-        
-        :param left: Multiplicand of type SizeF.
-        :param right: Multiplier of type float.
-        :returns: Product of type SizeF.
-        """
-        ...
-
-    def __ne__(self, sz_2: System.Drawing.SizeF) -> bool:
-        """Tests whether two System.Drawing.SizeF objects are different."""
-        ...
-
-    def __sub__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        """Contracts a System.Drawing.SizeF by another System.Drawing.SizeF"""
-        ...
-
-    def __truediv__(self, right: float) -> System.Drawing.SizeF:
-        """
-        Divides SizeF by a float producing SizeF.
-        
-        :param left: Dividend of type SizeF.
-        :param right: Divisor of type int.
-        :returns: Result of type SizeF.
-        """
-        ...
-
-    @staticmethod
-    def add(sz_1: System.Drawing.SizeF, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        """Performs vector addition of two System.Drawing.SizeF objects."""
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Tests to see whether the specified object is a System.Drawing.SizeF  with the same dimensions
-        as this System.Drawing.SizeF.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Drawing.SizeF) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    def subtract(sz_1: System.Drawing.SizeF, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        """Contracts a System.Drawing.SizeF by another System.Drawing.SizeF."""
-        ...
-
-    def to_point_f(self) -> System.Drawing.PointF:
-        ...
-
-    def to_size(self) -> System.Drawing.Size:
-        ...
-
-    def to_string(self) -> str:
-        """Creates a human-readable string that represents this System.Drawing.SizeF."""
-        ...
-
-    def to_vector_2(self) -> System.Numerics.Vector2:
-        """Creates a new System.Numerics.Vector2 from this System.Drawing.SizeF."""
-        ...
-
-
-class PointF(System.IEquatable[System_Drawing_PointF]):
-    """Represents an ordered pair of x and y coordinates that define a point in a two-dimensional plane."""
-
-    EMPTY: System.Drawing.PointF
-    """Creates a new instance of the System.Drawing.PointF class with member data left uninitialized."""
-
-    @property
-    def is_empty(self) -> bool:
-        """Gets a value indicating whether this System.Drawing.PointF is empty."""
-        ...
-
-    @property
-    def x(self) -> float:
-        """Gets the x-coordinate of this System.Drawing.PointF."""
-        ...
-
-    @x.setter
-    def x(self, value: float) -> None:
-        ...
-
-    @property
-    def y(self) -> float:
-        """Gets the y-coordinate of this System.Drawing.PointF."""
-        ...
-
-    @y.setter
-    def y(self, value: float) -> None:
-        ...
-
-    @overload
-    def __add__(self, sz: System.Drawing.Size) -> System.Drawing.PointF:
-        """Translates a System.Drawing.PointF by a given System.Drawing.Size ."""
-        ...
-
-    @overload
-    def __add__(self, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
-        """Translates a System.Drawing.PointF by a given System.Drawing.SizeF ."""
-        ...
-
-    def __eq__(self, right: System.Drawing.PointF) -> bool:
-        """
-        Compares two System.Drawing.PointF objects. The result specifies whether the values of the
-        System.Drawing.PointF.X and System.Drawing.PointF.Y properties of the two
-        System.Drawing.PointF objects are equal.
-        """
-        ...
-
-    @overload
-    def __iadd__(self, sz: System.Drawing.Size) -> System.Drawing.PointF:
-        """Translates a System.Drawing.PointF by a given System.Drawing.Size ."""
-        ...
-
-    @overload
-    def __iadd__(self, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
-        """Translates a System.Drawing.PointF by a given System.Drawing.SizeF ."""
-        ...
-
-    @overload
-    def __init__(self, x: float, y: float) -> None:
-        """Initializes a new instance of the System.Drawing.PointF class with the specified coordinates."""
-        ...
-
-    @overload
-    def __init__(self, vector: System.Numerics.Vector2) -> None:
-        """
-        Initializes a new instance of the System.Drawing.PointF struct from the specified
-        System.Numerics.Vector2.
-        """
-        ...
-
-    @overload
-    def __isub__(self, sz: System.Drawing.Size) -> System.Drawing.PointF:
-        """Translates a System.Drawing.PointF by the negative of a given System.Drawing.Size ."""
-        ...
-
-    @overload
-    def __isub__(self, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
-        """Translates a System.Drawing.PointF by the negative of a given System.Drawing.SizeF ."""
-        ...
-
-    def __ne__(self, right: System.Drawing.PointF) -> bool:
-        """
-        Compares two System.Drawing.PointF objects. The result specifies whether the values of the
-        System.Drawing.PointF.X or System.Drawing.PointF.Y properties of the two
-        System.Drawing.PointF objects are unequal.
-        """
-        ...
-
-    @overload
-    def __sub__(self, sz: System.Drawing.Size) -> System.Drawing.PointF:
-        """Translates a System.Drawing.PointF by the negative of a given System.Drawing.Size ."""
-        ...
-
-    @overload
-    def __sub__(self, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
-        """Translates a System.Drawing.PointF by the negative of a given System.Drawing.SizeF ."""
-        ...
-
-    @staticmethod
-    @overload
-    def add(pt: System.Drawing.PointF, sz: System.Drawing.Size) -> System.Drawing.PointF:
-        """Translates a System.Drawing.PointF by a given System.Drawing.Size ."""
-        ...
-
-    @staticmethod
-    @overload
-    def add(pt: System.Drawing.PointF, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
-        """Translates a System.Drawing.PointF by a given System.Drawing.SizeF ."""
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Drawing.PointF) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def subtract(pt: System.Drawing.PointF, sz: System.Drawing.Size) -> System.Drawing.PointF:
-        """Translates a System.Drawing.PointF by the negative of a given System.Drawing.Size ."""
-        ...
-
-    @staticmethod
-    @overload
-    def subtract(pt: System.Drawing.PointF, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
-        """Translates a System.Drawing.PointF by the negative of a given System.Drawing.SizeF ."""
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-    def to_vector_2(self) -> System.Numerics.Vector2:
-        """Creates a new System.Numerics.Vector2 from this System.Drawing.PointF."""
-        ...
-
-
-class Point(System.IEquatable[System_Drawing_Point]):
-    """Represents an ordered pair of x and y coordinates that define a point in a two-dimensional plane."""
-
-    EMPTY: System.Drawing.Point
-    """Creates a new instance of the System.Drawing.Point class with member data left uninitialized."""
-
-    @property
-    def is_empty(self) -> bool:
-        """Gets a value indicating whether this System.Drawing.Point is empty."""
-        ...
-
-    @property
-    def x(self) -> int:
-        """Gets the x-coordinate of this System.Drawing.Point."""
-        ...
-
-    @x.setter
-    def x(self, value: int) -> None:
-        ...
-
-    @property
-    def y(self) -> int:
-        """Gets the y-coordinate of this System.Drawing.Point."""
-        ...
-
-    @y.setter
-    def y(self, value: int) -> None:
-        ...
-
-    def __add__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
-        """Translates a System.Drawing.Point by a given System.Drawing.Size ."""
-        ...
-
-    def __eq__(self, right: System.Drawing.Point) -> bool:
-        """
-        Compares two System.Drawing.Point objects. The result specifies whether the values of the
-        System.Drawing.Point.X and System.Drawing.Point.Y properties of the two
-        System.Drawing.Point objects are equal.
-        """
-        ...
-
-    def __iadd__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
-        """Translates a System.Drawing.Point by a given System.Drawing.Size ."""
-        ...
-
-    @overload
-    def __init__(self, x: int, y: int) -> None:
-        """Initializes a new instance of the System.Drawing.Point class with the specified coordinates."""
-        ...
-
-    @overload
-    def __init__(self, sz: System.Drawing.Size) -> None:
-        """Initializes a new instance of the System.Drawing.Point class from a System.Drawing.Size ."""
-        ...
-
-    @overload
-    def __init__(self, dw: int) -> None:
-        """Initializes a new instance of the Point class using coordinates specified by an integer value."""
-        ...
-
-    def __isub__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
-        """Translates a System.Drawing.Point by the negative of a given System.Drawing.Size ."""
-        ...
-
-    def __ne__(self, right: System.Drawing.Point) -> bool:
-        """
-        Compares two System.Drawing.Point objects. The result specifies whether the values of the
-        System.Drawing.Point.X or System.Drawing.Point.Y properties of the two
-        System.Drawing.Point  objects are unequal.
-        """
-        ...
-
-    def __sub__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
-        """Translates a System.Drawing.Point by the negative of a given System.Drawing.Size ."""
-        ...
-
-    @staticmethod
-    def add(pt: System.Drawing.Point, sz: System.Drawing.Size) -> System.Drawing.Point:
-        """Translates a System.Drawing.Point by a given System.Drawing.Size ."""
-        ...
-
-    @staticmethod
-    def ceiling(value: System.Drawing.PointF) -> System.Drawing.Point:
-        """Converts a PointF to a Point by performing a ceiling operation on all the coordinates."""
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Specifies whether this System.Drawing.Point contains the same coordinates as the specified
-        object.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Drawing.Point) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        """Returns a hash code."""
-        ...
-
-    @overload
-    def offset(self, dx: int, dy: int) -> None:
-        """Translates this System.Drawing.Point by the specified amount."""
-        ...
-
-    @overload
-    def offset(self, p: System.Drawing.Point) -> None:
-        """Translates this System.Drawing.Point by the specified amount."""
-        ...
-
-    @staticmethod
-    def round(value: System.Drawing.PointF) -> System.Drawing.Point:
-        """Converts a PointF to a Point by performing a round operation on all the coordinates."""
-        ...
-
-    @staticmethod
-    def subtract(pt: System.Drawing.Point, sz: System.Drawing.Size) -> System.Drawing.Point:
-        """Translates a System.Drawing.Point by the negative of a given System.Drawing.Size ."""
-        ...
-
-    def to_string(self) -> str:
-        """Converts this System.Drawing.Point to a human readable string."""
-        ...
-
-    @staticmethod
-    def truncate(value: System.Drawing.PointF) -> System.Drawing.Point:
-        """Converts a PointF to a Point by performing a truncate operation on all the coordinates."""
-        ...
-
-
-class RectangleF(System.IEquatable[System_Drawing_RectangleF]):
-    """Stores the location and size of a rectangular region."""
-
-    EMPTY: System.Drawing.RectangleF
-    """Initializes a new instance of the System.Drawing.RectangleF class."""
-
-    @property
-    def location(self) -> System.Drawing.PointF:
-        """
-        Gets or sets the coordinates of the upper-left corner of the rectangular region represented by this
-        System.Drawing.RectangleF.
-        """
-        ...
-
-    @location.setter
-    def location(self, value: System.Drawing.PointF) -> None:
-        ...
-
-    @property
-    def size(self) -> System.Drawing.SizeF:
-        """Gets or sets the size of this System.Drawing.RectangleF."""
-        ...
-
-    @size.setter
-    def size(self, value: System.Drawing.SizeF) -> None:
-        ...
-
-    @property
-    def x(self) -> float:
-        """
-        Gets or sets the x-coordinate of the upper-left corner of the rectangular region defined by this
-        System.Drawing.RectangleF.
-        """
-        ...
-
-    @x.setter
-    def x(self, value: float) -> None:
-        ...
-
-    @property
-    def y(self) -> float:
-        """
-        Gets or sets the y-coordinate of the upper-left corner of the rectangular region defined by this
-        System.Drawing.RectangleF.
-        """
-        ...
-
-    @y.setter
-    def y(self, value: float) -> None:
-        ...
-
-    @property
-    def width(self) -> float:
-        """Gets or sets the width of the rectangular region defined by this System.Drawing.RectangleF."""
-        ...
-
-    @width.setter
-    def width(self, value: float) -> None:
-        ...
-
-    @property
-    def height(self) -> float:
-        """Gets or sets the height of the rectangular region defined by this System.Drawing.RectangleF."""
-        ...
-
-    @height.setter
-    def height(self, value: float) -> None:
-        ...
-
-    @property
-    def left(self) -> float:
-        """
-        Gets the x-coordinate of the upper-left corner of the rectangular region defined by this
-        System.Drawing.RectangleF .
-        """
-        ...
-
-    @property
-    def top(self) -> float:
-        """
-        Gets the y-coordinate of the upper-left corner of the rectangular region defined by this
-        System.Drawing.RectangleF.
-        """
-        ...
-
-    @property
-    def right(self) -> float:
-        """
-        Gets the x-coordinate of the lower-right corner of the rectangular region defined by this
-        System.Drawing.RectangleF.
-        """
-        ...
-
-    @property
-    def bottom(self) -> float:
-        """
-        Gets the y-coordinate of the lower-right corner of the rectangular region defined by this
-        System.Drawing.RectangleF.
-        """
-        ...
-
-    @property
-    def is_empty(self) -> bool:
-        """Tests whether this System.Drawing.RectangleF has a System.Drawing.RectangleF.Width or a System.Drawing.RectangleF.Height of 0."""
-        ...
-
-    def __eq__(self, right: System.Drawing.RectangleF) -> bool:
-        """Tests whether two System.Drawing.RectangleF objects have equal location and size."""
-        ...
-
-    @overload
-    def __init__(self, x: float, y: float, width: float, height: float) -> None:
-        """
-        Initializes a new instance of the System.Drawing.RectangleF class with the specified location
-        and size.
-        """
-        ...
-
-    @overload
-    def __init__(self, location: System.Drawing.PointF, size: System.Drawing.SizeF) -> None:
-        """
-        Initializes a new instance of the System.Drawing.RectangleF class with the specified location
-        and size.
-        """
-        ...
-
-    @overload
-    def __init__(self, vector: System.Numerics.Vector4) -> None:
-        """
-        Initializes a new instance of the System.Drawing.RectangleF struct from the specified
-        System.Numerics.Vector4.
-        """
-        ...
-
-    def __ne__(self, right: System.Drawing.RectangleF) -> bool:
-        """Tests whether two System.Drawing.RectangleF objects differ in location or size."""
-        ...
-
-    @overload
-    def contains(self, x: float, y: float) -> bool:
-        """
-        Determines if the specified point is contained within the rectangular region defined by this
-        System.Drawing.Rectangle .
-        """
-        ...
-
-    @overload
-    def contains(self, pt: System.Drawing.PointF) -> bool:
-        """
-        Determines if the specified point is contained within the rectangular region defined by this
-        System.Drawing.Rectangle .
-        """
-        ...
-
-    @overload
-    def contains(self, rect: System.Drawing.RectangleF) -> bool:
-        """
-        Determines if the rectangular region represented by  is entirely contained within
-        the rectangular region represented by this System.Drawing.Rectangle .
-        """
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Tests whether  is a System.Drawing.RectangleF with the same location and
-        size of this System.Drawing.RectangleF.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Drawing.RectangleF) -> bool:
-        ...
-
-    @staticmethod
-    def from_ltrb(left: float, top: float, right: float, bottom: float) -> System.Drawing.RectangleF:
-        """Creates a new System.Drawing.RectangleF with the specified location and size."""
-        ...
-
-    def get_hash_code(self) -> int:
-        """Gets the hash code for this System.Drawing.RectangleF."""
-        ...
-
-    @overload
-    def inflate(self, x: float, y: float) -> None:
-        """Inflates this System.Drawing.Rectangle by the specified amount."""
-        ...
-
-    @overload
-    def inflate(self, size: System.Drawing.SizeF) -> None:
-        """Inflates this System.Drawing.Rectangle by the specified amount."""
-        ...
-
-    @staticmethod
-    @overload
-    def inflate(rect: System.Drawing.RectangleF, x: float, y: float) -> System.Drawing.RectangleF:
-        """Creates a System.Drawing.Rectangle that is inflated by the specified amount."""
-        ...
-
-    @overload
-    def intersect(self, rect: System.Drawing.RectangleF) -> None:
-        """Creates a Rectangle that represents the intersection between this Rectangle and rect."""
-        ...
-
-    @staticmethod
-    @overload
-    def intersect(a: System.Drawing.RectangleF, b: System.Drawing.RectangleF) -> System.Drawing.RectangleF:
-        """
-        Creates a rectangle that represents the intersection between a and b. If there is no intersection, an
-        empty rectangle is returned.
-        """
-        ...
-
-    def intersects_with(self, rect: System.Drawing.RectangleF) -> bool:
-        """Determines if this rectangle intersects with rect."""
-        ...
-
-    @overload
-    def offset(self, pos: System.Drawing.PointF) -> None:
-        """Adjusts the location of this rectangle by the specified amount."""
-        ...
-
-    @overload
-    def offset(self, x: float, y: float) -> None:
-        """Adjusts the location of this rectangle by the specified amount."""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Converts the System.Drawing.RectangleF.Location and System.Drawing.RectangleF.Size
-        of this System.Drawing.RectangleF to a human-readable string.
-        """
-        ...
-
-    def to_vector_4(self) -> System.Numerics.Vector4:
-        """Creates a new System.Numerics.Vector4 from this System.Drawing.RectangleF."""
-        ...
-
-    @staticmethod
-    def union(a: System.Drawing.RectangleF, b: System.Drawing.RectangleF) -> System.Drawing.RectangleF:
-        """Creates a rectangle that represents the union between a and b."""
-        ...
 
 
 class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
-    """Stores the location and size of a rectangular region."""
+    """This class has no documentation."""
 
     EMPTY: System.Drawing.Rectangle
 
     @property
     def location(self) -> System.Drawing.Point:
-        """
-        Gets or sets the coordinates of the upper-left corner of the rectangular region represented by this
-        System.Drawing.Rectangle.
-        """
         ...
 
     @location.setter
@@ -1809,7 +1464,6 @@ class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
 
     @property
     def size(self) -> System.Drawing.Size:
-        """Gets or sets the size of this System.Drawing.Rectangle."""
         ...
 
     @size.setter
@@ -1818,10 +1472,6 @@ class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
 
     @property
     def x(self) -> int:
-        """
-        Gets or sets the x-coordinate of the upper-left corner of the rectangular region defined by this
-        System.Drawing.Rectangle.
-        """
         ...
 
     @x.setter
@@ -1830,10 +1480,6 @@ class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
 
     @property
     def y(self) -> int:
-        """
-        Gets or sets the y-coordinate of the upper-left corner of the rectangular region defined by this
-        System.Drawing.Rectangle.
-        """
         ...
 
     @y.setter
@@ -1842,7 +1488,6 @@ class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
 
     @property
     def width(self) -> int:
-        """Gets or sets the width of the rectangular region defined by this System.Drawing.Rectangle."""
         ...
 
     @width.setter
@@ -1851,7 +1496,6 @@ class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
 
     @property
     def height(self) -> int:
-        """Gets or sets the width of the rectangular region defined by this System.Drawing.Rectangle."""
         ...
 
     @height.setter
@@ -1860,100 +1504,56 @@ class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
 
     @property
     def left(self) -> int:
-        """
-        Gets the x-coordinate of the upper-left corner of the rectangular region defined by this
-        System.Drawing.Rectangle .
-        """
         ...
 
     @property
     def top(self) -> int:
-        """
-        Gets the y-coordinate of the upper-left corner of the rectangular region defined by this
-        System.Drawing.Rectangle.
-        """
         ...
 
     @property
     def right(self) -> int:
-        """
-        Gets the x-coordinate of the lower-right corner of the rectangular region defined by this
-        System.Drawing.Rectangle.
-        """
         ...
 
     @property
     def bottom(self) -> int:
-        """
-        Gets the y-coordinate of the lower-right corner of the rectangular region defined by this
-        System.Drawing.Rectangle.
-        """
         ...
 
     @property
     def is_empty(self) -> bool:
-        """
-        Tests whether this System.Drawing.Rectangle has a System.Drawing.Rectangle.Width
-        or a System.Drawing.Rectangle.Height of 0.
-        """
         ...
 
     def __eq__(self, right: System.Drawing.Rectangle) -> bool:
-        """Tests whether two System.Drawing.Rectangle objects have equal location and size."""
         ...
 
     @overload
     def __init__(self, x: int, y: int, width: int, height: int) -> None:
-        """
-        Initializes a new instance of the System.Drawing.Rectangle class with the specified location
-        and size.
-        """
         ...
 
     @overload
     def __init__(self, location: System.Drawing.Point, size: System.Drawing.Size) -> None:
-        """Initializes a new instance of the Rectangle class with the specified location and size."""
         ...
 
     def __ne__(self, right: System.Drawing.Rectangle) -> bool:
-        """Tests whether two System.Drawing.Rectangle objects differ in location or size."""
         ...
 
     @staticmethod
     def ceiling(value: System.Drawing.RectangleF) -> System.Drawing.Rectangle:
-        """Converts a RectangleF to a Rectangle by performing a ceiling operation on all the coordinates."""
         ...
 
     @overload
     def contains(self, x: int, y: int) -> bool:
-        """
-        Determines if the specified point is contained within the rectangular region defined by this
-        System.Drawing.Rectangle .
-        """
         ...
 
     @overload
     def contains(self, pt: System.Drawing.Point) -> bool:
-        """
-        Determines if the specified point is contained within the rectangular region defined by this
-        System.Drawing.Rectangle .
-        """
         ...
 
     @overload
     def contains(self, rect: System.Drawing.Rectangle) -> bool:
-        """
-        Determines if the rectangular region represented by  is entirely contained within the
-        rectangular region represented by this System.Drawing.Rectangle .
-        """
         ...
 
     @overload
     def equals(self, obj: typing.Any) -> bool:
-        """
-        Tests whether  is a System.Drawing.Rectangle with the same location
-        and size of this Rectangle.
-        """
         ...
 
     @overload
@@ -1962,7 +1562,6 @@ class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
 
     @staticmethod
     def from_ltrb(left: int, top: int, right: int, bottom: int) -> System.Drawing.Rectangle:
-        """Creates a new System.Drawing.Rectangle with the specified location and size."""
         ...
 
     def get_hash_code(self) -> int:
@@ -1970,103 +1569,82 @@ class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
 
     @overload
     def inflate(self, width: int, height: int) -> None:
-        """Inflates this System.Drawing.Rectangle by the specified amount."""
         ...
 
     @overload
     def inflate(self, size: System.Drawing.Size) -> None:
-        """Inflates this System.Drawing.Rectangle by the specified amount."""
         ...
 
     @staticmethod
     @overload
     def inflate(rect: System.Drawing.Rectangle, x: int, y: int) -> System.Drawing.Rectangle:
-        """Creates a System.Drawing.Rectangle that is inflated by the specified amount."""
         ...
 
     @overload
     def intersect(self, rect: System.Drawing.Rectangle) -> None:
-        """Creates a Rectangle that represents the intersection between this Rectangle and rect."""
         ...
 
     @staticmethod
     @overload
     def intersect(a: System.Drawing.Rectangle, b: System.Drawing.Rectangle) -> System.Drawing.Rectangle:
-        """
-        Creates a rectangle that represents the intersection between a and b. If there is no intersection, an
-        empty rectangle is returned.
-        """
         ...
 
     def intersects_with(self, rect: System.Drawing.Rectangle) -> bool:
-        """Determines if this rectangle intersects with rect."""
         ...
 
     @overload
     def offset(self, pos: System.Drawing.Point) -> None:
-        """Adjusts the location of this rectangle by the specified amount."""
         ...
 
     @overload
     def offset(self, x: int, y: int) -> None:
-        """Adjusts the location of this rectangle by the specified amount."""
         ...
 
     @staticmethod
     def round(value: System.Drawing.RectangleF) -> System.Drawing.Rectangle:
-        """Converts a RectangleF to a Rectangle by performing a round operation on all the coordinates."""
         ...
 
     def to_string(self) -> str:
-        """Converts the attributes of this System.Drawing.Rectangle to a human readable string."""
         ...
 
     @staticmethod
     def truncate(value: System.Drawing.RectangleF) -> System.Drawing.Rectangle:
-        """Converts a RectangleF to a Rectangle by performing a truncate operation on all the coordinates."""
         ...
 
     @staticmethod
     def union(a: System.Drawing.Rectangle, b: System.Drawing.Rectangle) -> System.Drawing.Rectangle:
-        """Creates a rectangle that represents the union between a and b."""
         ...
 
 
 class ColorTranslator(System.Object):
-    """Translates colors to and from GDI+ Color objects."""
+    """This class has no documentation."""
 
     @staticmethod
     def from_html(html_color: str) -> System.Drawing.Color:
-        """Translates an Html color representation to a GDI+ Color."""
         ...
 
     @staticmethod
     def from_ole(ole_color: int) -> System.Drawing.Color:
-        """Translates an Ole color value to a GDI+ Color."""
         ...
 
     @staticmethod
     def from_win_32(win_32_color: int) -> System.Drawing.Color:
-        """Translates an Win32 color value to a GDI+ Color."""
         ...
 
     @staticmethod
     def to_html(c: System.Drawing.Color) -> str:
-        """Translates the specified Color to an Html string color representation."""
         ...
 
     @staticmethod
     def to_ole(c: System.Drawing.Color) -> int:
-        """Translates the specified Color to an Ole color."""
         ...
 
     @staticmethod
     def to_win_32(c: System.Drawing.Color) -> int:
-        """Translates the specified Color to a Win32 color."""
         ...
 
 
-class RectangleConverter(System.ComponentModel.TypeConverter):
+class SizeConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
@@ -2094,32 +1672,7 @@ class RectangleConverter(System.ComponentModel.TypeConverter):
         ...
 
 
-class ColorConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        ...
-
-    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-
-class SizeConverter(System.ComponentModel.TypeConverter):
+class PointConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
@@ -2175,7 +1728,7 @@ class SizeFConverter(System.ComponentModel.TypeConverter):
         ...
 
 
-class PointConverter(System.ComponentModel.TypeConverter):
+class RectangleConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
@@ -2200,6 +1753,31 @@ class PointConverter(System.ComponentModel.TypeConverter):
         ...
 
     def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+
+class ColorConverter(System.ComponentModel.TypeConverter):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+        ...
+
+    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
         ...
 
 

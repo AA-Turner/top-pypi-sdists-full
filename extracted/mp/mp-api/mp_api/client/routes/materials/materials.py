@@ -13,6 +13,7 @@ from mp_api.client.routes.materials import (
     BandStructureRester,
     BondsRester,
     ChemenvRester,
+    ConversionElectrodeRester,
     DielectricRester,
     DosRester,
     ElasticityRester,
@@ -39,7 +40,7 @@ from mp_api.client.routes.materials import (
 _EMMET_SETTINGS = EmmetSettings()  # type: ignore
 
 
-class MaterialsRester(BaseRester[MaterialsDoc]):
+class MaterialsRester(BaseRester):
     suffix = "materials/core"
     document_model = MaterialsDoc  # type: ignore
     supports_versions = True
@@ -62,6 +63,7 @@ class MaterialsRester(BaseRester[MaterialsDoc]):
         "robocrys",
         "synthesis",
         "insertion_electrodes",
+        "conversion_electrodes",
         "electronic_structure",
         "electronic_structure_bandstructure",
         "electronic_structure_dos",
@@ -92,6 +94,7 @@ class MaterialsRester(BaseRester[MaterialsDoc]):
     robocrys: RobocrysRester
     synthesis: SynthesisRester
     insertion_electrodes: ElectrodeRester
+    conversion_electrodes: ConversionElectrodeRester
     electronic_structure: ElectronicStructureRester
     electronic_structure_bandstructure: BandStructureRester
     electronic_structure_dos: DosRester
@@ -123,10 +126,17 @@ class MaterialsRester(BaseRester[MaterialsDoc]):
 
         response = self.search(material_ids=material_id, fields=[field])
 
-        if response:
-            response = (
-                response[0].model_dump() if self.use_document_model else response[0]  # type: ignore
-            )
+        if response and response[0]:
+            response = response[0]
+            # Ensure that return type is a Structure regardless of `monty_decode` or `model_dump` output
+            if isinstance(response[field], dict):
+                response[field] = Structure.from_dict(response[field])
+            elif isinstance(response[field], list) and any(
+                isinstance(struct, dict) for struct in response[field]
+            ):
+                response[field] = [
+                    Structure.from_dict(struct) for struct in response[field]
+                ]
 
         return response[field] if response else response  # type: ignore
 
@@ -294,15 +304,17 @@ class MaterialsRester(BaseRester[MaterialsDoc]):
             use_document_model=False,
         ).get("data")
 
-        if len(results) > 1:  # type: ignore
+        if not results:
+            return []
+
+        material_ids = validate_ids([doc["material_id"] for doc in results])
+
+        if len(material_ids) > 1:  # type: ignore
             if not allow_multiple_results:
                 raise ValueError(
                     "Multiple matches found for this combination of tolerances, but "
                     "`allow_multiple_results` set to False."
                 )
-            return results  # type: ignore
+            return material_ids  # type: ignore
 
-        if results:
-            return results[0]["material_id"]
-        else:
-            return []
+        return material_ids[0]

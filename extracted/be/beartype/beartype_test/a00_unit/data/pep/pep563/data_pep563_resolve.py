@@ -22,12 +22,14 @@ point of this submodule is to explicitly call and thus exercise that resolver!
 from __future__ import annotations
 from beartype.door import die_if_unbearable
 from beartype.typing import Generic
-from beartype._data.hint.datahinttyping import T
+from beartype._data.typing.datatyping import T
+from beartype._util.hint.pep.proposal.pep649 import (
+    get_pep649_hintable_annotations)
 
 # ....................{ CLASSES                            }....................
 class ToAvariceOrPride(Generic[T]):
     '''
-    Arbitrary generic.
+    Arbitrary :pep:`484`-compliant generic.
     '''
 
     pass
@@ -48,12 +50,16 @@ class FrequentWith(object):
         :func:`beartype.peps.resolve_pep563` resolver.
         '''
 
+        # "__annotations__" dunder dictionary of all hints annotating this
+        # class method.
+        until_the_doves_hints = get_pep649_hintable_annotations(
+            FrequentWith.until_the_doves)
+
         # Subscripted generic type alias, resolved to this global attribute that
         # has yet to be defined by the resolve_pep563() function called by the
         # caller.
-        ExpandAbove_resolved = (
-            FrequentWith.until_the_doves.__func__.__annotations__[
-                'and_squirrels_would_partake'])
+        ExpandAbove_resolved = until_the_doves_hints[
+            'and_squirrels_would_partake']
 
         # If this parameter violates this type, raise an exception.
         die_if_unbearable(and_squirrels_would_partake, ExpandAbove_resolved)
@@ -76,17 +82,21 @@ class FrequentWith(object):
             Unconditionally.
         '''
 
+        # "__annotations__" dunder dictionary of all hints annotating this
+        # class method.
+        crystal_column_hints = get_pep649_hintable_annotations(
+            FrequentWith.crystal_column)
+
         # Missing forward reference, defined merely as a placeholder forward
         # reference proxy after the caller passes this method to the
         # resolve_pep563() function.
-        OfPearl_resolved = FrequentWith.crystal_column.__annotations__[
-            'and_clear_shrines']
+        OfPearl_resolved = crystal_column_hints['and_clear_shrines']
 
         # Raise an exception. Since this forward reference is guaranteed to be
         # missing, this call is guaranteed to fail.
         die_if_unbearable(and_clear_shrines, OfPearl_resolved)
 
-        # Return this parameter as is.
+        # Return this parameter as is. Note that this will *NEVER* happen.
         return and_clear_shrines
 
 # ....................{ FUNCTIONS                          }....................
@@ -106,13 +116,18 @@ def their_starry_domes(of_diamond_and_of_gold: ExpandAbove) -> ExpandAbove:
         :func:`beartype.peps.resolve_pep563` resolver.
     '''
 
+    # "__annotations__" dunder dictionary of all hints annotating this function.
+    their_starry_domes_hints = get_pep649_hintable_annotations(
+        their_starry_domes)
+
     # Subscripted generic type alias, resolved to this global attribute that has
     # yet to be defined by the resolve_pep563() function called by the caller.
-    ExpandAbove_resolved = their_starry_domes.__annotations__[
-        'of_diamond_and_of_gold']
+    ExpandAbove_resolved = their_starry_domes_hints['of_diamond_and_of_gold']
 
-    # If this parameter violates this subscripted generic, raise an exception.
+    # If this parameter unexpectedly violates this subscripted generic, raise an
+    # exception.
     die_if_unbearable(of_diamond_and_of_gold, ExpandAbove_resolved)
+    # Else, this parameter satisfies this subscripted generic as expected.
 
     # Return this parameter as is.
     return of_diamond_and_of_gold

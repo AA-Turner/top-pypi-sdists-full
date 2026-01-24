@@ -1,22 +1,22 @@
 [project]
 name = "APIFlask"
-description = "A lightweight web API framework based on Flask and marshmallow-code projects."
+description = "A lightweight web API framework based on Flask."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Grey Li", email = "withlihui@gmail.com" }]
-version = "2.4.0"
+version = "3.0.2"
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Web Environment",
     "Framework :: Flask",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
@@ -25,12 +25,13 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
 dependencies = [
-    "flask >= 2",
+    "flask >= 2.1.0",
     "flask-marshmallow >= 1.0.0",
     "marshmallow >= 3.20",
     "webargs >= 8.3",
-    "flask-httpauth >= 4",
-    "apispec >= 6",
+    "flask-httpauth >= 4.8.0",
+    "apispec >= 6.0.0",
+    "pydantic[email] >= 2.0",
 ]
 
 [project.urls]

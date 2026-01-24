@@ -11,7 +11,15 @@ from typing import Any, NamedTuple
 
 import pytest
 
-from PIL import Image, ImageFilter, ImageOps, TiffImagePlugin, TiffTags, features
+from PIL import (
+    Image,
+    ImageFile,
+    ImageFilter,
+    ImageOps,
+    TiffImagePlugin,
+    TiffTags,
+    features,
+)
 from PIL.TiffImagePlugin import OSUBFILETYPE, SAMPLEFORMAT, STRIPOFFSETS, SUBIFD
 
 from .helper import (
@@ -27,14 +35,13 @@ from .helper import (
 
 @skip_unless_feature("libtiff")
 class LibTiffTestCase:
-    def _assert_noerr(self, tmp_path: Path, im: TiffImagePlugin.TiffImageFile) -> None:
+    def _assert_noerr(self, tmp_path: Path, im: ImageFile.ImageFile) -> None:
         """Helper tests that assert basic sanity about the g4 tiff reading"""
         # 1 bit
         assert im.mode == "1"
 
         # Does the data actually load
         im.load()
-        im.getdata()
 
         assert isinstance(im, TiffImagePlugin.TiffImageFile)
         assert im._compression == "group4"
@@ -256,19 +263,7 @@ class TestFileLibTiff(LibTiffTestCase):
 
             im.save(out, tiffinfo=new_ifd)
 
-    @pytest.mark.parametrize(
-        "libtiff",
-        (
-            pytest.param(
-                True,
-                marks=pytest.mark.skipif(
-                    not getattr(Image.core, "libtiff_support_custom_tags", False),
-                    reason="Custom tags not supported by older libtiff",
-                ),
-            ),
-            False,
-        ),
-    )
+    @pytest.mark.parametrize("libtiff", (True, False))
     def test_custom_metadata(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, libtiff: bool
     ) -> None:
@@ -367,6 +362,57 @@ class TestFileLibTiff(LibTiffTestCase):
             # Should not segfault
             im.save(outfile)
 
+    @pytest.mark.parametrize("tagtype", (TiffTags.SIGNED_RATIONAL, TiffTags.IFD))
+    def test_tag_type(
+        self, tagtype: int, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(TiffImagePlugin, "WRITE_LIBTIFF", True)
+
+        ifd = TiffImagePlugin.ImageFileDirectory_v2()
+        ifd[37000] = 100
+        ifd.tagtype[37000] = tagtype
+
+        out = tmp_path / "temp.tif"
+        im = Image.new("L", (1, 1))
+        im.save(out, tiffinfo=ifd)
+
+        with Image.open(out) as reloaded:
+            assert isinstance(reloaded, TiffImagePlugin.TiffImageFile)
+            assert reloaded.tag_v2[37000] == 100
+
+    def test_inknames_tag(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(TiffImagePlugin, "WRITE_LIBTIFF", True)
+
+        out = tmp_path / "temp.tif"
+        hopper("L").save(out, tiffinfo={333: "name\x00"})
+
+        with Image.open(out) as reloaded:
+            assert isinstance(reloaded, TiffImagePlugin.TiffImageFile)
+            assert reloaded.tag_v2[333] in ("name", "name\x00")
+
+    def test_whitepoint_tag(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(TiffImagePlugin, "WRITE_LIBTIFF", True)
+
+        out = tmp_path / "temp.tif"
+        hopper().save(out, tiffinfo={318: (0.3127, 0.3289)})
+
+        with Image.open(out) as reloaded:
+            assert isinstance(reloaded, TiffImagePlugin.TiffImageFile)
+            assert reloaded.tag_v2[318] == pytest.approx((0.3127, 0.3289))
+
+        # Save tag by default
+        out = tmp_path / "temp2.tif"
+        with Image.open("Tests/images/rdf.tif") as im:
+            im.save(out)
+
+        with Image.open(out) as reloaded:
+            assert isinstance(reloaded, TiffImagePlugin.TiffImageFile)
+            assert reloaded.tag_v2[318] == pytest.approx((0.3127, 0.3289999))
+
     def test_xmlpacket_tag(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
@@ -377,8 +423,7 @@ class TestFileLibTiff(LibTiffTestCase):
 
         with Image.open(out) as reloaded:
             assert isinstance(reloaded, TiffImagePlugin.TiffImageFile)
-            if 700 in reloaded.tag_v2:
-                assert reloaded.tag_v2[700] == b"xmlpacket tag"
+            assert reloaded.tag_v2[700] == b"xmlpacket tag"
 
     def test_int_dpi(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         # issue #1765
@@ -470,12 +515,12 @@ class TestFileLibTiff(LibTiffTestCase):
         # and save to compressed tif.
         out = tmp_path / "temp.tif"
         with Image.open("Tests/images/pport_g4.tif") as im:
-            im = im.convert("L")
+            im_l = im.convert("L")
 
-        im = im.filter(ImageFilter.GaussianBlur(4))
-        im.save(out, compression="tiff_adobe_deflate")
+        im_l = im_l.filter(ImageFilter.GaussianBlur(4))
+        im_l.save(out, compression="tiff_adobe_deflate")
 
-        assert_image_equal_tofile(im, out)
+        assert_image_equal_tofile(im_l, out)
 
     def test_compressions(self, tmp_path: Path) -> None:
         # Test various tiff compressions and assert similar image content but reduced
@@ -564,8 +609,9 @@ class TestFileLibTiff(LibTiffTestCase):
             im.save(out, compression=compression)
 
     def test_fp_leak(self) -> None:
-        im: Image.Image | None = Image.open("Tests/images/hopper_g4_500.tif")
+        im: ImageFile.ImageFile | None = Image.open("Tests/images/hopper_g4_500.tif")
         assert im is not None
+        assert im.fp is not None
         fn = im.fp.fileno()
 
         os.fstat(fn)
@@ -724,8 +770,7 @@ class TestFileLibTiff(LibTiffTestCase):
 
         with Image.open(out) as reloaded:
             assert isinstance(reloaded, TiffImagePlugin.TiffImageFile)
-            if Image.core.libtiff_support_custom_tags:
-                assert reloaded.tag_v2[34665] == 125456
+            assert reloaded.tag_v2[34665] == 125456
 
     def test_crashing_metadata(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -777,19 +822,7 @@ class TestFileLibTiff(LibTiffTestCase):
             assert icc_libtiff is not None
         assert icc == icc_libtiff
 
-    @pytest.mark.parametrize(
-        "libtiff",
-        (
-            pytest.param(
-                True,
-                marks=pytest.mark.skipif(
-                    not getattr(Image.core, "libtiff_support_custom_tags", False),
-                    reason="Custom tags not supported by older libtiff",
-                ),
-            ),
-            False,
-        ),
-    )
+    @pytest.mark.parametrize("libtiff", (True, False))
     def test_write_icc(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, libtiff: bool
     ) -> None:
@@ -898,8 +931,8 @@ class TestFileLibTiff(LibTiffTestCase):
                 assert im.mode == "RGB"
                 assert im.size == (128, 128)
                 assert im.format == "TIFF"
-                im2 = hopper()
-                assert_image_similar(im, im2, 5)
+                with hopper() as im2:
+                    assert_image_similar(im, im2, 5)
         except OSError:
             captured = capfd.readouterr()
             if "LZMA compression support is not configured" in captured.err:
@@ -1054,8 +1087,10 @@ class TestFileLibTiff(LibTiffTestCase):
         data = data[:102] + b"\x02" + data[103:]
 
         with Image.open(io.BytesIO(data)) as im:
-            im = im.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-        assert_image_equal_tofile(im, "Tests/images/old-style-jpeg-compression.png")
+            im_transposed = im.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+        assert_image_equal_tofile(
+            im_transposed, "Tests/images/old-style-jpeg-compression.png"
+        )
 
     def test_open_missing_samplesperpixel(self) -> None:
         with Image.open(
@@ -1122,9 +1157,9 @@ class TestFileLibTiff(LibTiffTestCase):
         with Image.open("Tests/images/g4_orientation_1.tif") as base_im:
             for i in range(2, 9):
                 with Image.open("Tests/images/g4_orientation_" + str(i) + ".tif") as im:
-                    im = ImageOps.exif_transpose(im)
+                    im_transposed = ImageOps.exif_transpose(im)
 
-                    assert_image_similar(base_im, im, 0.7)
+                assert_image_similar(base_im, im_transposed, 0.7)
 
     @pytest.mark.parametrize(
         "test_file",

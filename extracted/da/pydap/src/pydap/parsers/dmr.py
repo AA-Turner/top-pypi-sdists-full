@@ -1,8 +1,9 @@
 """A DMR parser."""
 
 import ast
-import collections
+import copy
 import re
+from collections import OrderedDict
 from xml.etree import ElementTree as ET
 
 import numpy as np
@@ -41,29 +42,42 @@ def dap4_to_numpy_typemap(type_string):
 
 
 def get_variables(node, prefix="") -> dict:
-    variables = collections.OrderedDict()
-    group_name = [
+    variables = OrderedDict()
+    group_name = (
         pydap.lib._quote(node.get("name")) if node.get("name") is not None else None
-    ][0]
+    )
     if group_name is None:
         return variables
     if node.tag != "Dataset":
         prefix = prefix + "/" + group_name
-    for subnode in node:
+    for subnode in copy.deepcopy(node):
         if subnode.tag in dmr_atomic_types + ("String",):
             name = subnode.get("name")
             if prefix != "":
                 name = prefix + "/" + name
-            variables[name] = {"element": subnode, "parent": node.tag}
+            _dims = get_dim_names(copy.deepcopy(subnode))
+            variables[name] = {
+                "name": name,
+                "parent": node.tag,
+                "dims": _dims,
+                "attributes": get_attributes(subnode, {}),
+                "dtype": get_dtype(subnode),
+                "maps": get_maps(subnode),
+                "shape": get_dim_sizes(subnode),
+            }
         variables.update(get_variables(subnode, prefix))
     return variables
 
 
-def get_named_dimensions(node, prefix=""):
-    dimensions = {}
+def get_named_dimensions(node, prefix="", depth=False) -> dict:
+    """returns the (non-fq) dimension names to be used to
+    define dimensions at the container (root or group)
+    level
+    """
+    _dimensions = OrderedDict()  # order matters
     group_name = node.get("name")
     if group_name is None:
-        return dimensions
+        return _dimensions
     if node.tag != "Dataset":
         prefix = prefix + "/" + group_name
     for subnode in node:
@@ -71,9 +85,10 @@ def get_named_dimensions(node, prefix=""):
             name = subnode.get("name")
             if prefix != "":
                 name = prefix + "/" + name
-            dimensions[name] = int(subnode.attrib["size"])
-        dimensions.update(get_named_dimensions(subnode, prefix))
-    return dimensions
+            _dimensions[name] = int(subnode.attrib["size"])
+        if depth:
+            _dimensions.update(get_named_dimensions(subnode, prefix, depth))
+    return _dimensions
 
 
 def get_dtype(element):
@@ -174,19 +189,18 @@ def get_attributes(element, attributes={}):
 
 
 def get_dim_names(element):
-    # Not to be confused with dimensions
-    dimension_elements = element.findall("Dim")
-    dimensions = []
-    for dimension_element in dimension_elements:
-        name = dimension_element.get("name")
-        if name is None:
-            # We might have unnamed dimensions
-            return dimensions
-        if name.find("/", 1) == -1:
-            # If this is a root Dimension, we remove the leading slash
-            name = name.replace("/", "")
-        dimensions.append(name)
-    return dimensions
+    """This is done at the variable level. `Dims` element
+    in the xml document.
+    """
+    _dimensions = [
+        (
+            el.get("name").replace("/", "")
+            if el.get("name") is not None and el.get("name").find("/", 1) == -1
+            else el.get("name")
+        )
+        for el in element.findall("Dim")
+    ]
+    return tuple([item for item in _dimensions if item is not None])
 
 
 def get_dim_sizes(element):
@@ -206,21 +220,21 @@ def get_maps(element):
     return Maps
 
 
-def get_groups(node, prefix="/"):
+def get_groups(node, prefix="/") -> dict:
+    """"""
     groups = node.findall("Group")  # may be seveal elements
     out = {}
     for group in groups:
         fqname = prefix + group.attrib["name"]
-        named_dimensions = get_named_dimensions(group)
-        global_dimensions = []
-        for name, size in named_dimensions.items():
-            global_dimensions.append([name.split("/")[-1], size])
+        global_dimensions = OrderedDict()
+        for name, size in get_named_dimensions(group).items():
+            global_dimensions[name.split("/")[-1]] = size
         out.update(
             {
                 fqname: {
                     "attributes": get_attributes(group, {}),
                     "Maps": get_maps(group),
-                    "dimensions": {k: v for k, v in global_dimensions},
+                    "dimensions": dict(global_dimensions),
                     "path": prefix,
                 }
             }
@@ -235,7 +249,7 @@ def dmr_to_dataset(dmr):
     """Return a dataset object from a DMR representation."""
 
     # Parse the DMR. First dropping the namespace
-    dom_et = DMRParser(dmr).node
+    dom_et = copy.deepcopy(DMRParser(dmr).node)
     # emtpy dataset
     if DMRParser(dmr).Groups:
         split_by = "/"
@@ -244,30 +258,28 @@ def dmr_to_dataset(dmr):
 
     dataset = DMRParser(dmr).init_dataset()
 
+    variables: OrderedDict[str, dict] = OrderedDict()
+    named: dict[str, int] = {}
     variables = get_variables(dom_et)
-    named_dimensions = get_named_dimensions(dom_et)
 
     # Add size entry for dimension variables
-    for name, size in named_dimensions.items():
+    for name, size in get_named_dimensions(dom_et, depth=True).items():
         if name in variables:
             variables[name]["size"] = size
+        else:
+            named.update({name: size})
 
-    # Bootstrap variables
-    for name, variable in variables.items():
-        variable["name"] = name
-        variable["attributes"] = get_attributes(variable["element"], {})
-        variable["dtype"] = get_dtype(variable["element"])
-        variable["dims"] = get_dim_names(variable["element"])
-        variable["maps"] = get_maps(variable["element"])
-        variable["shape"] = get_dim_sizes(variable["element"])
-
-    # Add shape element to variables
-    for name, variable in variables.items():
-        for dim in variable["dims"]:
-            if dim in variables.items():
-                variable["shape"] += (variables[dim]["size"],)
+    for name in variables:
+        for dim in variables[name]["dims"]:
+            if dim in variables:
+                variables[name]["shape"] += (variables[dim]["size"],)
             else:
-                variable["shape"] += (named_dimensions[dim],)
+                try:
+                    variables[name]["shape"] += (named[dim],)
+                except KeyError as e:
+                    print(name, variables[name]["dims"])
+                    raise e
+
     for name, variable in variables.items():
         var_name = variable["name"]
         path = None
@@ -287,7 +299,7 @@ def dmr_to_dataset(dmr):
                 Dims.append("/" + dim)
             else:  # there is a group
                 Dims.append(dim)
-            if len(parts) == len(variable["name"].split(split_by)):
+            if len(parts) == len(name.split(split_by)):
                 # if path to dim is identical to path to variable
                 dim_name = parts[-1]  # only keep the local dim name
                 nqfDims.append(dim_name)
@@ -328,6 +340,8 @@ def dmr_to_dataset(dmr):
             dataset.createVariable(**var_kwargs)
         # assign root to each variable
         dataset.assign_dataset_recursive(dataset)
+
+    del variables, variable
 
     return dataset
 
@@ -370,11 +384,9 @@ class DMRParser(object):
         else:
             split_by = None
 
-        named_dimensions = get_named_dimensions(self.node)
-
         # get Global dimensions at root level
         global_dimensions = []
-        for name, size in named_dimensions.items():
+        for name, size in get_named_dimensions(self.node).items():
             if len(name.split(split_by)) == 1:
                 global_dimensions.append([name, size])
 

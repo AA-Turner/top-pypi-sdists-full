@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import Field, StrictStr, field_validator
+from pydantic import ConfigDict, Field, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.function._generated.models.function import Function
@@ -114,9 +114,10 @@ class ServiceFunction(Function):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -141,7 +142,7 @@ class ServiceFunction(Function):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         _dict["function_type"] = Function.get_child_model_discriminator_value("ServiceFunction")
 
@@ -158,9 +159,9 @@ class ServiceFunction(Function):
             return None
 
         if type(obj) is not dict:
-            return ServiceFunction.parse_obj(obj)
+            return ServiceFunction.model_validate(obj)
 
-        _obj = ServiceFunction.parse_obj(
+        _obj = ServiceFunction.model_validate(
             {
                 "name": obj.get("name"),
                 "arguments": [FunctionArgument.from_dict(_item) for _item in obj.get("arguments")]

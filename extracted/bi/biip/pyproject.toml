@@ -1,6 +1,6 @@
 [project]
 name = "biip"
-version = "4.0.0"
+version = "5.0.0"
 description = "Biip interprets the data in barcodes."
 authors = [{ name = "Stein Magnus Jodal", email = "stein.magnus@jodal.no" }]
 requires-python = ">=3.10"
@@ -11,6 +11,9 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "typing-extensions>=4.1; python_version<'3.11'"
 ]
 
 [project.optional-dependencies]
@@ -45,7 +48,7 @@ docs = [
     { include-group = "ruff" },
 ]
 mypy = ["mypy==1.15.0"]
-pyright = ["pyright==1.1.397"]
+pyright = ["basedpyright>=1.31.7"]
 ruff = ["ruff==0.11.2"]
 scripts = [
     "beautifulsoup4>=4.13.3",
@@ -58,6 +61,15 @@ tests = [
     "pytest-cov>=6.0.0",
     "rich>=13.9.4",
 ]
+
+
+[tool.basedpyright]
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
+# Already covered by tests and careful import ordering:
+reportImportCycles = false
+# Already covered by flake8-self:
+reportPrivateUsage = false
 
 
 [tool.coverage.paths]
@@ -90,15 +102,6 @@ strict_equality = true
 [[tool.mypy.overrides]]
 module = "biip.*"
 disallow_untyped_defs = true
-
-
-[tool.pyright]
-pythonVersion = "3.10"
-typeCheckingMode = "strict"
-# Already covered by tests and careful import ordering:
-reportImportCycles = false
-# Already covered by flake8-self:
-reportPrivateUsage = false
 
 
 [tool.ruff.lint]
@@ -200,7 +203,9 @@ dependency_groups = ["scripts", "tests", "pyright"]
 extras = ["money"]
 commands = [
     [
-        "pyright",
+        "basedpyright",
+        "--venvpath",
+        "{envdir}",
         { replace = "posargs", default = [
             "src",
             "tests",

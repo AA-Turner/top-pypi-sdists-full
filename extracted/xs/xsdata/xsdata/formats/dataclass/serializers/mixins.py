@@ -3,18 +3,15 @@ from abc import ABC
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from enum import Enum
+from io import TextIOBase
 from typing import (
     Any,
     Final,
     Literal,
-    Optional,
-    TextIO,
-    Union,
+    TypeAlias,
 )
 from xml.etree.ElementTree import QName
 from xml.sax.handler import ContentHandler
-
-from typing_extensions import TypeAlias
 
 from xsdata.exceptions import SerializerError, XmlWriterError
 from xsdata.formats.converter import converter
@@ -43,7 +40,7 @@ AttrEvent: TypeAlias = tuple[Literal["attr"], str, Any]
 DataEvent: TypeAlias = tuple[Literal["data"], str]
 EndEvent: TypeAlias = tuple[Literal["end"], str]
 
-EventIterator = Iterator[Union[StartEvent, AttrEvent, DataEvent, EndEvent]]
+EventIterator = Iterator[StartEvent | AttrEvent | DataEvent | EndEvent]
 
 
 class EventHandler(abc.ABC):
@@ -80,10 +77,10 @@ class EventHandler(abc.ABC):
         self.ns_map = ns_map
 
         self.in_tail = False
-        self.tail: Optional[str] = None
+        self.tail: str | None = None
         self.attrs: dict = {}
         self.ns_context: list[dict] = []
-        self.pending_tag: Optional[tuple] = None
+        self.pending_tag: tuple | None = None
         self.pending_prefixes: list[list] = []
 
     def write(self, events: EventIterator) -> None:
@@ -170,7 +167,7 @@ class EventHandler(abc.ABC):
         name_tuple = split_qname(qname)
         self.attrs[name_tuple] = self.encode_data(value)
 
-    def add_namespace(self, uri: Optional[str]) -> None:
+    def add_namespace(self, uri: str | None) -> None:
         """Add the given uri to the current namespace context.
 
          If the uri empty or a prefix already exists, skip silently.
@@ -299,7 +296,7 @@ class EventHandler(abc.ABC):
 
         return False
 
-    def encode_data(self, data: Any) -> Optional[str]:
+    def encode_data(self, data: Any) -> str | None:
         """Encode data for xml rendering.
 
         Args:
@@ -352,7 +349,7 @@ class EventHandler(abc.ABC):
         """
 
     @abc.abstractmethod
-    def start_prefix_mapping(self, prefix: Optional[str], uri: str) -> None:
+    def start_prefix_mapping(self, prefix: str | None, uri: str) -> None:
         """Start namespace prefix notification receiver.
 
         Args:
@@ -446,7 +443,7 @@ class EventContentHandler(EventHandler):
         """
         self.handler.startElementNS(name, qname, attrs)  # type: ignore
 
-    def start_prefix_mapping(self, prefix: Optional[str], uri: str) -> None:
+    def start_prefix_mapping(self, prefix: str | None, uri: str) -> None:
         """Start namespace prefix notification receiver.
 
         Args:
@@ -474,7 +471,7 @@ class XmlWriter(EventContentHandler, ABC):
         pending_prefixes: The pending element namespace prefixes
     """
 
-    def __init__(self, config: SerializerConfig, output: TextIO, ns_map: dict):
+    def __init__(self, config: SerializerConfig, output: TextIOBase, ns_map: dict):
         """Initialize the writer."""
         self.output = output
         super().__init__(config, ns_map)
@@ -520,10 +517,10 @@ class EventGenerator:
     def convert_dataclass(
         self,
         obj: Any,
-        namespace: Optional[str] = None,
-        qname: Optional[str] = None,
+        namespace: str | None = None,
+        qname: str | None = None,
         nillable: bool = False,
-        xsi_type: Optional[str] = None,
+        xsi_type: str | None = None,
     ) -> EventIterator:
         """Convert a model instance to sax events.
 
@@ -547,7 +544,7 @@ class EventGenerator:
         )
         qname = qname or meta.qname
         nillable = nillable or meta.nillable
-        namespace, tag = namespaces.split_qname(qname)
+        namespace, _tag = namespaces.split_qname(qname)
 
         yield XmlWriterEvent.START, qname
 
@@ -571,7 +568,7 @@ class EventGenerator:
         self,
         value: Any,
         var: XmlVar,
-        namespace: Optional[str],
+        namespace: str | None,
     ) -> EventIterator:
         """Convert a xsi:type value to sax events.
 
@@ -606,7 +603,7 @@ class EventGenerator:
             yield from self.convert_dataclass(value, qname=meta.target_qname)
 
     def convert_value(
-        self, value: Any, var: XmlVar, namespace: Optional[str]
+        self, value: Any, var: XmlVar, namespace: str | None
     ) -> EventIterator:
         """Convert any value to sax events according to the var instance.
 
@@ -638,7 +635,7 @@ class EventGenerator:
         self,
         values: Iterable,
         var: XmlVar,
-        namespace: Optional[str],
+        namespace: str | None,
     ) -> EventIterator:
         """Convert an array of values to sax events.
 
@@ -654,7 +651,7 @@ class EventGenerator:
             yield from self.convert_value(value, var, namespace)
 
     def convert_tokens(
-        self, value: Any, var: XmlVar, namespace: Optional[str]
+        self, value: Any, var: XmlVar, namespace: str | None
     ) -> EventIterator:
         """Convert an array of token values to sax events.
 
@@ -677,7 +674,7 @@ class EventGenerator:
         self,
         values: list,
         var: XmlVar,
-        namespace: Optional[str],
+        namespace: str | None,
     ) -> EventIterator:
         """Convert mixed content values to sax events.
 
@@ -693,7 +690,7 @@ class EventGenerator:
             yield from self.convert_any_type(value, var, namespace)
 
     def convert_any_type(
-        self, value: Any, var: XmlVar, namespace: Optional[str]
+        self, value: Any, var: XmlVar, namespace: str | None
     ) -> EventIterator:
         """Convert a value assigned to a xs:anyType field to sax events.
 
@@ -717,7 +714,7 @@ class EventGenerator:
             yield from self.convert_data(value, var)
 
     def convert_derived_element(
-        self, value: Any, namespace: Optional[str]
+        self, value: Any, namespace: str | None
     ) -> EventIterator:
         """Convert a derived element instance to sax events.
 
@@ -745,7 +742,7 @@ class EventGenerator:
             yield XmlWriterEvent.END, value.qname
 
     def convert_any_element(
-        self, value: Any, var: XmlVar, namespace: Optional[str]
+        self, value: Any, var: XmlVar, namespace: str | None
     ) -> EventIterator:
         """Convert a generic any element instance to sax events.
 
@@ -758,7 +755,7 @@ class EventGenerator:
             An iterator of sax events.
         """
         if value.qname:
-            namespace, tag = namespaces.split_qname(value.qname)
+            namespace, _tag = namespaces.split_qname(value.qname)
             yield XmlWriterEvent.START, value.qname
 
         for key, val in value.attributes.items():
@@ -775,9 +772,7 @@ class EventGenerator:
         if value.tail:
             yield XmlWriterEvent.DATA, value.tail
 
-    def xsi_type(
-        self, var: XmlVar, value: Any, namespace: Optional[str]
-    ) -> Optional[str]:
+    def xsi_type(self, var: XmlVar, value: Any, namespace: str | None) -> str | None:
         """Return the xsi:type for the given value and field metadata instance.
 
         If the value type is either a child or parent for one of the var types,
@@ -805,7 +800,7 @@ class EventGenerator:
         )
 
     def convert_elements(
-        self, value: Any, var: XmlVar, namespace: Optional[str]
+        self, value: Any, var: XmlVar, namespace: str | None
     ) -> EventIterator:
         """Convert the value assigned to a compound field to sax events.
 
@@ -824,7 +819,7 @@ class EventGenerator:
             yield from self.convert_choice(value, var, namespace)
 
     def convert_choice(
-        self, value: Any, var: XmlVar, namespace: Optional[str]
+        self, value: Any, var: XmlVar, namespace: str | None
     ) -> EventIterator:
         """Convert a single value assigned to a compound field to sax events.
 
@@ -871,7 +866,7 @@ class EventGenerator:
         self,
         value: Any,
         var: XmlVar,
-        namespace: Optional[str],
+        namespace: str | None,
     ) -> EventIterator:
         """Convert a value assigned to an element field to sax events.
 
@@ -971,7 +966,7 @@ class EventGenerator:
         obj: Any,
         meta: XmlMeta,
         nillable: bool,
-        xsi_type: Optional[str],
+        xsi_type: str | None,
         ignore_optionals: bool,
     ) -> Iterator[tuple[str, Any]]:
         """Produce the next attribute value to convert.
@@ -1040,7 +1035,7 @@ class EventGenerator:
         return converter.serialize(value, format=var.format)
 
     @classmethod
-    def real_xsi_type(cls, qname: str, target_qname: Optional[str]) -> Optional[str]:
+    def real_xsi_type(cls, qname: str, target_qname: str | None) -> str | None:
         """Compare the qname with the target qname and return the real xsi:type.
 
         Args:

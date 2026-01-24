@@ -17,9 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, Optional, Union
-from pydantic.v1 import StrictStr, Field, Field, StrictBool, StrictFloat, StrictInt, StrictStr, constr, validator 
 from lusid.models.compounding import Compounding
 from lusid.models.ex_dividend_configuration import ExDividendConfiguration
 from lusid.models.flow_convention_name import FlowConventionName
@@ -31,24 +33,26 @@ class FloatSchedule(Schedule):
     """
     Schedule for floating rate coupon payments.  # noqa: E501
     """
-    start_date: Optional[datetime] = Field(None, alias="startDate", description="Date from which LUSID starts generating the payment schedule.")
-    maturity_date: Optional[datetime] = Field(None, alias="maturityDate", description="Last date of the payment generation schedule. May not necessarily be the maturity date  of the underlying instrument (e.g. in case the instrument has multiple payment schedules).")
-    flow_conventions: Optional[FlowConventions] = Field(None, alias="flowConventions")
-    convention_name: Optional[FlowConventionName] = Field(None, alias="conventionName")
-    ex_dividend_days: Optional[StrictInt] = Field(None, alias="exDividendDays", description="Optional. Number of calendar days in the ex-dividend period.  If the settlement date falls in the ex-dividend period then the coupon paid is zero and the accrued interest is negative.  If set, this must be a non-negative number.  If not set, or set to 0, then there is no ex-dividend period.                NOTE: This field is deprecated.  If you wish to set the ExDividendDays on a bond, please use the ExDividendConfiguration.")
-    index_convention_name: Optional[FlowConventionName] = Field(None, alias="indexConventionName")
-    index_conventions: Optional[IndexConvention] = Field(None, alias="indexConventions")
-    notional: Optional[Union[StrictFloat, StrictInt]] = Field(None, description="Scaling factor, the quantity outstanding on which the rate will be paid.")
+    start_date: Optional[datetime] = Field(default=None, description="Date from which LUSID starts generating the payment schedule.", alias="startDate")
+    maturity_date: Optional[datetime] = Field(default=None, description="Last date of the payment generation schedule. May not necessarily be the maturity date  of the underlying instrument (e.g. in case the instrument has multiple payment schedules).", alias="maturityDate")
+    flow_conventions: Optional[FlowConventions] = Field(default=None, alias="flowConventions")
+    convention_name: Optional[FlowConventionName] = Field(default=None, alias="conventionName")
+    ex_dividend_days: Optional[StrictInt] = Field(default=None, description="Optional. Number of calendar days in the ex-dividend period.  If the settlement date falls in the ex-dividend period then the coupon paid is zero and the accrued interest is negative.  If set, this must be a non-negative number.  If not set, or set to 0, then there is no ex-dividend period.                NOTE: This field is deprecated.  If you wish to set the ExDividendDays on a bond, please use the ExDividendConfiguration.", alias="exDividendDays")
+    index_convention_name: Optional[FlowConventionName] = Field(default=None, alias="indexConventionName")
+    index_conventions: Optional[IndexConvention] = Field(default=None, alias="indexConventions")
+    notional: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Scaling factor, the quantity outstanding on which the rate will be paid.")
     payment_currency:  StrictStr = Field(...,alias="paymentCurrency", description="Payment currency. This does not have to be the same as the nominal bond or observation/reset currency.") 
-    spread: Optional[Union[StrictFloat, StrictInt]] = Field(None, description="Spread over floating rate given as a fraction.")
+    spread: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Spread over floating rate given as a fraction.")
     stub_type:  Optional[StrictStr] = Field(None,alias="stubType", description="When a payment schedule doesn't have regular payment intervals just because of the  first and/or last coupons of the schedule, we call those irregular coupons stubs.  This configuration specifies what type of stub is used when building the schedule  Supported values are:  None = this is a regular payment schedule with no stubs. DO NOT use it with irregular schedules or you will get incorrect and unexpected behaviour.  ShortFront = this is an irregular payment schedule where only the first coupon is irregular, and covers a payment period that is shorter than the regular payment period.  ShortBack = this is an irregular payment schedule where only the last coupon is irregular, and covers a payment period that is shorter than the regular payment period.  LongFront = this is an irregular payment schedule where only the first coupon is irregular, and covers a payment period that is longer than the regular payment period.  LongBack = this is an irregular payment schedule where only the last coupon is irregular, and covers a payment period that is longer than the regular payment period.  Both = this is an irregular payment schedule where both the first and the last coupons are irregular, and the length of these periods is calculated based on the first coupon payment date that should have been explicitly set.") 
-    ex_dividend_configuration: Optional[ExDividendConfiguration] = Field(None, alias="exDividendConfiguration")
+    ex_dividend_configuration: Optional[ExDividendConfiguration] = Field(default=None, alias="exDividendConfiguration")
     compounding: Optional[Compounding] = None
     reset_convention:  Optional[StrictStr] = Field(None,alias="resetConvention", description="Control how resets are generated relative to payment convention(s).    Supported string (enumeration) values are: [InAdvance, InArrears].  Defaults to \"InAdvance\" if not set.") 
-    use_annualised_direct_rates: Optional[StrictBool] = Field(None, alias="useAnnualisedDirectRates", description="Flag indicating whether to use daily updated annualised interest  rates for calculating the accrued interest. Defaults to false.")
+    use_annualised_direct_rates: Optional[StrictBool] = Field(default=None, description="Flag indicating whether to use daily updated annualised interest  rates for calculating the accrued interest. Defaults to false.", alias="useAnnualisedDirectRates")
+    cap_rate: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The maximum floating rate which a cashflow can accrue.", alias="capRate")
+    floor_rate: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The minimum floating rate which a cashflow can accrue.", alias="floorRate")
     schedule_type:  StrictStr = Field(...,alias="scheduleType", description="The available values are: FixedSchedule, FloatSchedule, OptionalitySchedule, StepSchedule, Exercise, FxRateSchedule, FxLinkedNotionalSchedule, BondConversionSchedule, Invalid") 
     additional_properties: Dict[str, Any] = {}
-    __properties = ["scheduleType", "startDate", "maturityDate", "flowConventions", "conventionName", "exDividendDays", "indexConventionName", "indexConventions", "notional", "paymentCurrency", "spread", "stubType", "exDividendConfiguration", "compounding", "resetConvention", "useAnnualisedDirectRates"]
+    __properties = ["scheduleType", "startDate", "maturityDate", "flowConventions", "conventionName", "exDividendDays", "indexConventionName", "indexConventions", "notional", "paymentCurrency", "spread", "stubType", "exDividendConfiguration", "compounding", "resetConvention", "useAnnualisedDirectRates", "capRate", "floorRate"]
 
     @validator('schedule_type')
     def schedule_type_validate_enum(cls, value):
@@ -98,14 +102,21 @@ class FloatSchedule(Schedule):
                                     'HealthCheckResponse', 
                                     'LuminesceViewResponse', 
                                     'SchedulerJobResponse', 
-                                    'SleepResponse']:
+                                    'SleepResponse',
+                                    'Library',
+                                    'LibraryResponse',
+                                    'DayRegularity',
+                                    'RelativeMonthRegularity',
+                                    'SpecificMonthRegularity',
+                                    'WeekRegularity',
+                                    'YearRegularity']:
            return value
         
         # Only validate the 'type' property of the class
         if "schedule_type" != "type":
             return value
 
-        if value not in ('FixedSchedule', 'FloatSchedule', 'OptionalitySchedule', 'StepSchedule', 'Exercise', 'FxRateSchedule', 'FxLinkedNotionalSchedule', 'BondConversionSchedule', 'Invalid'):
+        if value not in ['FixedSchedule', 'FloatSchedule', 'OptionalitySchedule', 'StepSchedule', 'Exercise', 'FxRateSchedule', 'FxLinkedNotionalSchedule', 'BondConversionSchedule', 'Invalid']:
             raise ValueError("must be one of enum values ('FixedSchedule', 'FloatSchedule', 'OptionalitySchedule', 'StepSchedule', 'Exercise', 'FxRateSchedule', 'FxLinkedNotionalSchedule', 'BondConversionSchedule', 'Invalid')")
         return value
 
@@ -180,6 +191,16 @@ class FloatSchedule(Schedule):
         if self.reset_convention is None and "reset_convention" in self.__fields_set__:
             _dict['resetConvention'] = None
 
+        # set to None if cap_rate (nullable) is None
+        # and __fields_set__ contains the field
+        if self.cap_rate is None and "cap_rate" in self.__fields_set__:
+            _dict['capRate'] = None
+
+        # set to None if floor_rate (nullable) is None
+        # and __fields_set__ contains the field
+        if self.floor_rate is None and "floor_rate" in self.__fields_set__:
+            _dict['floorRate'] = None
+
         return _dict
 
     @classmethod
@@ -207,7 +228,9 @@ class FloatSchedule(Schedule):
             "ex_dividend_configuration": ExDividendConfiguration.from_dict(obj.get("exDividendConfiguration")) if obj.get("exDividendConfiguration") is not None else None,
             "compounding": Compounding.from_dict(obj.get("compounding")) if obj.get("compounding") is not None else None,
             "reset_convention": obj.get("resetConvention"),
-            "use_annualised_direct_rates": obj.get("useAnnualisedDirectRates")
+            "use_annualised_direct_rates": obj.get("useAnnualisedDirectRates"),
+            "cap_rate": obj.get("capRate"),
+            "floor_rate": obj.get("floorRate")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():
@@ -215,3 +238,5 @@ class FloatSchedule(Schedule):
                 _obj.additional_properties[_key] = obj.get(_key)
 
         return _obj
+
+FloatSchedule.update_forward_refs()

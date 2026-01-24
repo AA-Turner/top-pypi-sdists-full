@@ -2,8 +2,7 @@ import logging
 from typing import List
 from ..abstract import ErdReadWriteConverter
 from ..primitives import *
-
-from gehomesdk.erd.values.microwave import ErdMicrowaveCookSetting
+from ...values.microwave import ErdMicrowaveCookSetting
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,4 +31,4 @@ class ErdMicrowaveCookSettingConverter(ErdReadWriteConverter[ErdMicrowaveCookSet
             erd_encode_int(value.cook_minutes, 1),
             erd_encode_int(value.cook_seconds, 1)
         ]
-        return str.join(valList)
+        return ''.join(valList)

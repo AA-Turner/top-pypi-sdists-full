@@ -29,6 +29,7 @@ from montecarlodata.integrations.onboarding.fields import (
     CLICKHOUSE_DATABASE_TYPE,
     CONFLUENT_KAFKA_CONNECT_CONNECTION_TYPE,
     CONFLUENT_KAFKA_CONNECTION_TYPE,
+    DB2_DB_TYPE,
     DREMIO_DATABASE_TYPE,
     EXPECTED_TEST_AZURE_DATA_FACTORY_RESPONSE_FIELD,
     EXPECTED_TEST_CONFLUENT_KAFKA_CONNECT_CRED_RESPONSE_FIELD,
@@ -40,7 +41,7 @@ from montecarlodata.integrations.onboarding.fields import (
     EXPECTED_TEST_SELF_HOSTED_KAFKA_CONNECT_CRED_RESPONSE_FIELD,
     EXPECTED_TEST_SELF_HOSTED_KAFKA_CRED_RESPONSE_FIELD,
     EXPECTED_TEST_TRANSACTIONAL_DB_CREDENTIALS_RESPONSE_FIELD,
-    EXPECTED_TEST_UPDATED_CREDS_TERADATA_RESPONSE_FIELD,
+    EXPECTED_UPDATE_TRANSACTIONAL_DB_CREDS_RESPONSE_FIELD,
     INFORMATICA_CONNECTION_TYPE,
     MARIADB_DB_TYPE,
     MOTHERDUCK_DATABASE_TYPE,
@@ -56,6 +57,8 @@ from montecarlodata.integrations.onboarding.fields import (
     SELF_HOSTED_KAFKA_CONNECT_CONNECTION_TYPE,
     SELF_HOSTED_KAFKA_CONNECTION_TYPE,
     SQL_SERVER_DB_TYPE,
+    STARBURST_ENTERPRISE_DATABASE_TYPE,
+    STARBURST_GALAXY_DATABASE_TYPE,
     TERADATA_DB_TYPE,
     TRANSACTIONAL_CONNECTION_TYPE,
 )
@@ -105,6 +108,9 @@ class CollectorValidationService:
         SALESFORCE_CRM_DATABASE_TYPE: TEST_TRANSACTIONAL_DB_CRED_MUTATION,
         SALESFORCE_DATA_CLOUD_DATABASE_TYPE: TEST_TRANSACTIONAL_DB_CRED_MUTATION,
         CLICKHOUSE_DATABASE_TYPE: TEST_TRANSACTIONAL_DB_CRED_MUTATION,
+        STARBURST_GALAXY_DATABASE_TYPE: TEST_TRANSACTIONAL_DB_CRED_MUTATION,
+        STARBURST_ENTERPRISE_DATABASE_TYPE: TEST_TRANSACTIONAL_DB_CRED_MUTATION,
+        DB2_DB_TYPE: TEST_TRANSACTIONAL_DB_CRED_MUTATION,
     }
 
     _CONNECTION_TYPES_TO_OPERATION_TYPE = {
@@ -132,14 +138,37 @@ class CollectorValidationService:
         SALESFORCE_CRM_DATABASE_TYPE: EXPECTED_TEST_TRANSACTIONAL_DB_CREDENTIALS_RESPONSE_FIELD,
         SALESFORCE_DATA_CLOUD_DATABASE_TYPE: EXPECTED_TEST_TRANSACTIONAL_DB_CREDENTIALS_RESPONSE_FIELD,  # noqa
         CLICKHOUSE_DATABASE_TYPE: EXPECTED_TEST_TRANSACTIONAL_DB_CREDENTIALS_RESPONSE_FIELD,
+        STARBURST_GALAXY_DATABASE_TYPE: EXPECTED_TEST_TRANSACTIONAL_DB_CREDENTIALS_RESPONSE_FIELD,
+        STARBURST_ENTERPRISE_DATABASE_TYPE: EXPECTED_TEST_TRANSACTIONAL_DB_CREDENTIALS_RESPONSE_FIELD,  # noqa
+        DB2_DB_TYPE: EXPECTED_TEST_TRANSACTIONAL_DB_CREDENTIALS_RESPONSE_FIELD,
+    }
+
+    # Transactional DB types that use the same update mutation
+    _TRANSACTIONAL_DB_TYPES = {
+        TERADATA_DB_TYPE,
+        ORACLE_DB_TYPE,
+        MYSQL_DB_TYPE,
+        POSTGRES_DB_TYPE,
+        SQL_SERVER_DB_TYPE,
+        MARIADB_DB_TYPE,
+        AZURE_DEDICATED_SQL_POOL_TYPE,
+        AZURE_SQL_DATABASE_TYPE,
+        SAP_HANA_DATABASE_TYPE,
+        MOTHERDUCK_DATABASE_TYPE,
+        DREMIO_DATABASE_TYPE,
+        SALESFORCE_CRM_DATABASE_TYPE,
+        SALESFORCE_DATA_CLOUD_DATABASE_TYPE,
+        CLICKHOUSE_DATABASE_TYPE,
+        TRANSACTIONAL_CONNECTION_TYPE,
+        DB2_DB_TYPE,
     }
 
     _CONNECTION_TYPES_TO_UPDATE_CREDS_MUTATIONS_MAPPING = {
-        TERADATA_DB_TYPE: UPDATE_TRANSACTIONAL_DB_CREDENTIALS_V2_MUTATION
+        TERADATA_DB_TYPE: UPDATE_TRANSACTIONAL_DB_CREDENTIALS_V2_MUTATION,
     }
 
     _CONNECTION_TYPES_UPDATE_CREDS_OPERATION_TYPE = {
-        TERADATA_DB_TYPE: EXPECTED_TEST_UPDATED_CREDS_TERADATA_RESPONSE_FIELD
+        TERADATA_DB_TYPE: EXPECTED_UPDATE_TRANSACTIONAL_DB_CREDS_RESPONSE_FIELD,
     }
 
     def __init__(
@@ -464,7 +493,9 @@ class CollectorValidationService:
         validate_only: bool = False,
         **kwargs: Any,
     ) -> Optional[str]:
-        dc_id = self._user_service.get_collector(str(dc_id), kwargs.get("agent_id")).uuid
+        dc_id = self._user_service.get_collector(
+            str(dc_id) if dc_id is not None else None, kwargs.get("agent_id")
+        ).uuid
         assert dc_id is not None
 
         kwargs["dc_id"] = str(dc_id)
@@ -506,12 +537,19 @@ class CollectorValidationService:
         self, changes: Dict, connection_id: uuid.UUID, connection_type: str
     ) -> str:
         variables = {"changes": changes, "connection_id": connection_id}
-        operation_name = self._CONNECTION_TYPES_UPDATE_CREDS_OPERATION_TYPE[connection_type]
+
+        # Use fallback for transactional DB types that all use the same mutation
+        if connection_type in self._TRANSACTIONAL_DB_TYPES:
+            query = UPDATE_TRANSACTIONAL_DB_CREDENTIALS_V2_MUTATION
+            operation_name = EXPECTED_UPDATE_TRANSACTIONAL_DB_CREDS_RESPONSE_FIELD
+        else:
+            query = self._CONNECTION_TYPES_TO_UPDATE_CREDS_MUTATIONS_MAPPING[connection_type]
+            operation_name = self._CONNECTION_TYPES_UPDATE_CREDS_OPERATION_TYPE[connection_type]
 
         result = (
             (
                 self._mc_client(
-                    query=self._CONNECTION_TYPES_TO_UPDATE_CREDS_MUTATIONS_MAPPING[connection_type],
+                    query=query,
                     operation_name=operation_name,
                     variables=GqlWrapper.convert_snakes_to_camels(variables),
                 )

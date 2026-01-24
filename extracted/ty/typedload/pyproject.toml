@@ -1,6 +1,6 @@
 [project]
 name = "typedload"
-version = "2.38"
+version = "2.39"
 authors = [
   { name="Salvo 'LtWorf' Tomaselli", email="tiposchi@tiscali.it" },
 ]

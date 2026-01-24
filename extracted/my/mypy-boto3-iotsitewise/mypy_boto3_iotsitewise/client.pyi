@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -254,12 +255,6 @@ from .waiter import (
     PortalNotExistsWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -268,21 +263,21 @@ else:
 __all__ = ("IoTSiteWiseClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictingOperationException: Type[BotocoreClientError]
-    InternalFailureException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    PreconditionFailedException: Type[BotocoreClientError]
-    QueryTimeoutException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictingOperationException: type[BotocoreClientError]
+    InternalFailureException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    PreconditionFailedException: type[BotocoreClientError]
+    QueryTimeoutException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class IoTSiteWiseClient(BaseClient):
     """
@@ -517,7 +512,7 @@ class IoTSiteWiseClient(BaseClient):
 
     def delete_access_policy(
         self, **kwargs: Unpack[DeleteAccessPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an access policy that grants the specified identity access to the
         specified IoT SiteWise Monitor resource.
@@ -577,7 +572,7 @@ class IoTSiteWiseClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/client/#delete_computation_model)
         """
 
-    def delete_dashboard(self, **kwargs: Unpack[DeleteDashboardRequestTypeDef]) -> Dict[str, Any]:
+    def delete_dashboard(self, **kwargs: Unpack[DeleteDashboardRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a dashboard from IoT SiteWise Monitor.
 
@@ -615,7 +610,7 @@ class IoTSiteWiseClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/client/#delete_portal)
         """
 
-    def delete_project(self, **kwargs: Unpack[DeleteProjectRequestTypeDef]) -> Dict[str, Any]:
+    def delete_project(self, **kwargs: Unpack[DeleteProjectRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a project from IoT SiteWise Monitor.
 
@@ -1214,7 +1209,7 @@ class IoTSiteWiseClient(BaseClient):
 
     def put_logging_options(
         self, **kwargs: Unpack[PutLoggingOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sets logging options for IoT SiteWise.
 
@@ -1232,7 +1227,7 @@ class IoTSiteWiseClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/client/#put_storage_configuration)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds tags to an IoT SiteWise resource.
 
@@ -1240,7 +1235,7 @@ class IoTSiteWiseClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from an IoT SiteWise resource.
 
@@ -1250,7 +1245,7 @@ class IoTSiteWiseClient(BaseClient):
 
     def update_access_policy(
         self, **kwargs: Unpack[UpdateAccessPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an existing access policy that specifies an identity's access to an IoT
         SiteWise Monitor portal or project resource.
@@ -1310,7 +1305,7 @@ class IoTSiteWiseClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/client/#update_computation_model)
         """
 
-    def update_dashboard(self, **kwargs: Unpack[UpdateDashboardRequestTypeDef]) -> Dict[str, Any]:
+    def update_dashboard(self, **kwargs: Unpack[UpdateDashboardRequestTypeDef]) -> dict[str, Any]:
         """
         Updates an IoT SiteWise Monitor dashboard.
 
@@ -1359,7 +1354,7 @@ class IoTSiteWiseClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/client/#update_portal)
         """
 
-    def update_project(self, **kwargs: Unpack[UpdateProjectRequestTypeDef]) -> Dict[str, Any]:
+    def update_project(self, **kwargs: Unpack[UpdateProjectRequestTypeDef]) -> dict[str, Any]:
         """
         Updates an IoT SiteWise Monitor project.
 

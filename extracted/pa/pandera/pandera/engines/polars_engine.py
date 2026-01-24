@@ -6,15 +6,15 @@ import datetime
 import decimal
 import inspect
 import warnings
+from collections.abc import Iterable, Mapping, Sequence
 from typing import (
     Any,
     Literal,
     Optional,
-    Union,
     TypedDict,
+    Union,
     overload,
 )
-from collections.abc import Iterable, Mapping, Sequence
 
 import polars as pl
 from packaging import version
@@ -103,7 +103,7 @@ def polars_coerce_failure_cases(
     """
     try:
         is_coercible = polars_object_coercible(data_container, type_)
-    except (TypeError, pl.InvalidOperationError):
+    except (TypeError, pl.exceptions.InvalidOperationError):
         is_coercible = data_container.lazyframe.with_columns(
             **{CHECK_OUTPUT_KEY: pl.lit(False)}
         ).select(CHECK_OUTPUT_KEY)
@@ -136,7 +136,7 @@ class DataType(dtypes.DataType):
         repr=False, init=False
     )
 
-    def __init__(self, dtype: Optional[Any] = None):
+    def __init__(self, dtype: Any | None = None):
         super().__init__()
 
         try:
@@ -220,7 +220,7 @@ class DataType(dtypes.DataType):
     def check(
         self,
         pandera_dtype: dtypes.DataType,
-        data_container: Optional[PolarsDataContainer] = None,
+        data_container: PolarsDataContainer | None = None,
     ) -> Union[bool, Iterable[bool]]:
         try:
             pandera_dtype = Engine.dtype(pandera_dtype)
@@ -384,14 +384,12 @@ class Decimal(DataType, dtypes.Decimal):
 
     type = pl.Decimal
 
-    # polars Decimal doesn't have a rounding attribute
+    # Polars Decimal doesn't have a rounding attribute.
     rounding = None
-
-    _default_precision: int = dtypes.DEFAULT_PYTHON_PREC
 
     def __init__(
         self,
-        precision: int = _default_precision,
+        precision: int = dtypes.DEFAULT_PYTHON_PREC,
         scale: int = 0,
     ) -> None:
         object.__setattr__(self, "precision", precision)
@@ -404,11 +402,11 @@ class Decimal(DataType, dtypes.Decimal):
     def from_parametrized_dtype(cls, polars_dtype: pl.Decimal):
         """Convert a :class:`polars.Decimal` to
         a Pandera :class:`pandera.engines.polars_engine.Decimal`."""
-        # polars precision may be nullable, pandera imposes a default.
+        # Polars precision may be nullable; Pandera imposes a default.
         precision = (
             polars_dtype.precision
             if polars_dtype.precision is not None
-            else cls._default_precision
+            else dtypes.DEFAULT_PYTHON_PREC
         )
         return cls(precision=precision, scale=polars_dtype.scale)
 
@@ -426,13 +424,13 @@ class Decimal(DataType, dtypes.Decimal):
     def check(
         self,
         pandera_dtype: dtypes.DataType,
-        data_container: Optional[PolarsDataContainer] = None,
+        data_container: PolarsDataContainer | None = None,
     ) -> Union[bool, Iterable[bool]]:
         try:
             pandera_dtype = Engine.dtype(pandera_dtype)
-            assert isinstance(
-                pandera_dtype, Decimal
-            ), "The return is expected to be of Decimal class"
+            assert isinstance(pandera_dtype, Decimal), (
+                "The return is expected to be of Decimal class"
+            )
         except TypeError:  # pragma: no cover
             return False
 
@@ -490,10 +488,9 @@ class DateTime(DataType, dtypes.DateTime):
     def __init__(
         self,
         time_zone_agnostic: bool = False,
-        time_zone: Optional[str] = None,
-        time_unit: Optional[Literal["ns", "us", "ms"]] = None,
+        time_zone: str | None = None,
+        time_unit: Literal["ns", "us", "ms"] | None = None,
     ) -> None:
-
         # avoid deprecated warning when initializing pl.Datetime:
         # passing time_unit=None is deprecated.
         if time_unit is not None:
@@ -515,7 +512,7 @@ class DateTime(DataType, dtypes.DateTime):
     def check(
         self,
         pandera_dtype: dtypes.DataType,
-        data_container: Optional[PolarsDataContainer] = None,
+        data_container: PolarsDataContainer | None = None,
     ) -> Union[bool, Iterable[bool]]:
         try:
             pandera_dtype = Engine.dtype(pandera_dtype)
@@ -609,17 +606,16 @@ class Array(DataType):
         inner: PolarsDataType = ...,
         shape: Union[int, tuple[int, ...], None] = ...,
         *,
-        width: Optional[int] = ...,
+        width: int | None = ...,
     ) -> None: ...
 
     def __init__(
         self,
-        inner: Optional[PolarsDataType] = None,
+        inner: PolarsDataType | None = None,
         shape: Union[int, tuple[int, ...], None] = None,
         *,
-        width: Optional[int] = None,
+        width: int | None = None,
     ) -> None:
-
         kwargs: _ArrayKwargs = {}
         if width is not None:
             # width deprecated in polars 0.20.31, replaced by shape
@@ -657,7 +653,7 @@ class List(DataType):
 
     def __init__(
         self,
-        inner: Optional[PolarsDataType] = None,
+        inner: PolarsDataType | None = None,
     ) -> None:
         if inner:
             object.__setattr__(self, "type", pl.List(inner=inner))
@@ -676,7 +672,7 @@ class Struct(DataType):
 
     def __init__(
         self,
-        fields: Optional[Union[Sequence[pl.Field], SchemaDict]] = None,
+        fields: Union[Sequence[pl.Field], SchemaDict] | None = None,
     ) -> None:
         if fields:
             object.__setattr__(self, "type", pl.Struct(fields=fields))
@@ -732,7 +728,7 @@ class Categorical(DataType):
 
     def __init__(
         self,
-        ordering: Optional[Literal["physical", "lexical"]] = "lexical",
+        ordering: Literal["physical", "lexical"] | None = "lexical",
     ) -> None:
         object.__setattr__(self, "ordering", ordering)
         object.__setattr__(self, "type", pl.Categorical())
@@ -775,7 +771,7 @@ class Enum(DataType):
     def check(
         self,
         pandera_dtype: dtypes.DataType,
-        data_container: Optional[PolarsDataContainer] = None,
+        data_container: PolarsDataContainer | None = None,
     ) -> Union[bool, Iterable[bool]]:
         try:
             pandera_dtype = Engine.dtype(pandera_dtype)
@@ -797,7 +793,7 @@ class Category(DataType, dtypes.Category):
 
     type = pl.Utf8
 
-    def __init__(self, categories: Optional[Iterable[Any]] = None):
+    def __init__(self, categories: Iterable[Any] | None = None):
         dtypes.Category.__init__(self, categories, ordered=False)
 
     def coerce(self, data_container: PolarsDataContainer) -> pl.LazyFrame:

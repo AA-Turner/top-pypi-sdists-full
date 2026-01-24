@@ -20,13 +20,13 @@ from beartype._check.logic.logmap import (
 from beartype._check.error.errcause import ViolationCause
 from beartype._check.error._errtype import find_cause_type_instance_origin
 from beartype._check.metadata.hint.hintsane import HINT_SANE_IGNORABLE
-from beartype._data.hint.pep.sign.datapepsigns import HintSignTupleFixed
-from beartype._data.hint.pep.sign.datapepsignmap import (
+from beartype._data.hint.sign.datahintsigns import HintSignPep484585TupleFixed
+from beartype._data.hint.sign.datahintsignmap import (
     HINT_SIGN_ORIGIN_ISINSTANCEABLE_TO_ARGS_LEN_RANGE)
-from beartype._data.hint.pep.sign.datapepsignset import (
+from beartype._data.hint.sign.datahintsignset import (
     HINT_SIGNS_CONTAINER_ARGS_1)
-from beartype._util.hint.pep.proposal.pep484585.pep484585tuple import (
-    is_hint_pep484585_tuple_empty)
+from beartype._util.hint.pep.proposal.pep484585646 import (
+    is_hint_pep484585646_tuple_empty)
 from beartype._util.text.utiltextansi import color_type
 from beartype._util.text.utiltextprefix import prefix_pith_type
 from beartype._util.text.utiltextrepr import represent_pith
@@ -185,8 +185,8 @@ def find_cause_pep484585_tuple_fixed(cause: ViolationCause) -> ViolationCause:
         Output violation cause finder type-checking this input.
     '''
     assert isinstance(cause, ViolationCause), f'{repr(cause)} not cause.'
-    assert cause.hint_sign is HintSignTupleFixed, (
-        f'{repr(cause.hint_sign)} not "HintSignTupleFixed".')
+    assert cause.hint_sign is HintSignPep484585TupleFixed, (
+        f'{repr(cause.hint_sign)} not "HintSignPep484585TupleFixed".')
 
     # Shallow output cause describing the failure of this path to be a shallow
     # instance of the type originating this hint (e.g., "tuple" for the hint
@@ -201,7 +201,7 @@ def find_cause_pep484585_tuple_fixed(cause: ViolationCause) -> ViolationCause:
     #
     # If this hint is the empty fixed-length tuple, validate this pith to be
     # the empty tuple.
-    elif is_hint_pep484585_tuple_empty(cause.hint):
+    elif is_hint_pep484585646_tuple_empty(cause.hint):
         # If this pith is the empty tuple, this path satisfies this hint.
         #
         # Note that this test *CANNOT* safely be optimized away to simply:

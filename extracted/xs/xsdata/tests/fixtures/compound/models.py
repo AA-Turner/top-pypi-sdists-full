@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Union
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Alpha:
     class Meta:
         name = "alpha"
@@ -16,7 +17,7 @@ class Alpha:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Bravo:
     class Meta:
         name = "bravo"
@@ -30,12 +31,12 @@ class Bravo:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Root:
     class Meta:
         name = "root"
 
-    alpha_or_bravo_or_charlie: list[Union[Alpha, Bravo, list[str]]] = field(
+    alpha_or_bravo_or_charlie: list[Alpha | Bravo | list[str]] = field(
         default_factory=list,
         metadata={
             "type": "Elements",

@@ -1,5 +1,6 @@
 import datetime
 import json
+from contextlib import suppress
 from functools import partial
 from typing import Any, Dict
 
@@ -44,7 +45,7 @@ def get_model_factory(model):
             return mfs[0]
 
 
-def get_data_from_factory(instance, viewset, delete=False, update=False, superuser=None, factory=None):
+def get_data_from_factory(instance, viewset, delete=False, update=False, superuser=None, factory=None):  # noqa: C901
     """
     Our goal here is to get the serializer dynamically based on the viewset, use this serializer to generate data for the post and update test.
     """
@@ -103,6 +104,8 @@ def get_data_from_factory(instance, viewset, delete=False, update=False, superus
                 data[key] = document.file.open(mode='rb')
                 """
                 pass  # data[key] = open(value.replace("http://testserver/",""), 'rb')
+            elif isinstance(value, tuple):
+                data[key] = f"{value[0]},{value[1]}"
             else:
                 data[key] = value
             # Related objects with cascading on_delete will be deleted. we create a new related object and override the id of the deleted object
@@ -113,14 +116,12 @@ def get_data_from_factory(instance, viewset, delete=False, update=False, superus
                     and _field.many_to_one
                     and (_related_fields := _field.related_fields)
                 ):
-                    try:
+                    with suppress(Exception):
                         lh_field, rh_field = _related_fields[0]
                         if isinstance(lh_field, models.fields.AutoField) or isinstance(
                             rh_field, models.fields.AutoField
                         ):
                             data[key] = get_model_factory(dict_fields_models[key].related_model).id
-                    except Exception:
-                        pass
     if update or delete:
         _kwargs = {"user": superuser, "obj_factory": obj_factory}
         if delete:
@@ -215,7 +216,7 @@ def get_factory_custom_user():
 
 def format_number(number, is_pourcent=False, decimal=2):
     number = number if number else 0
-    return f'{number:,.{decimal}{"%" if is_pourcent else "f"}}'
+    return f"{number:,.{decimal}{'%' if is_pourcent else 'f'}}"
 
 
 # https://stackoverflow.com/questions/11875770/how-to-overcome-datetime-datetime-not-json-serializable?page=1&tab=votes#tab-top

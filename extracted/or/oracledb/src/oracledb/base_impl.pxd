@@ -43,6 +43,8 @@ from .arrow_impl cimport (
     ArrowTimeUnit,
     ArrowType,
     ArrowArrayImpl,
+    ArrowSchemaImpl,
+    DataFrameImpl,
 )
 
 cdef enum:
@@ -233,6 +235,7 @@ cdef class DbType:
         uint8_t _ora_type_num
         uint8_t _csfrm
         uint8_t _default_py_type_num
+        bint _is_fast
 
     @staticmethod
     cdef DbType _from_num(uint32_t num)
@@ -260,6 +263,45 @@ cdef class DefaultsImpl:
         public str driver_name
 
 cdef DefaultsImpl C_DEFAULTS
+
+
+cdef class BatchLoadManager:
+    cdef:
+        readonly uint32_t num_rows
+        readonly uint64_t message_offset
+        uint64_t offset
+        BaseCursorImpl cursor_impl
+        uint32_t batch_size
+        uint32_t batch_num
+        object type_handler
+        object cursor
+        object conn
+
+    cdef int _calculate_num_rows_in_batch(self, uint64_t total_rows) except -1
+    @staticmethod
+    cdef BatchLoadManager _create(
+        object parameters,
+        uint32_t batch_size,
+        int error_num,
+    )
+    cdef list _get_all_rows(self)
+    cdef list _get_arrow_arrays(self)
+    cdef int _next_batch(self) except -1
+    cdef int _setup_cursor(self) except -1
+    cdef int _verify_metadata(self, list column_metadata) except -1
+    @staticmethod
+    cdef BatchLoadManager create_for_direct_path_load(
+        object parameters,
+        list column_metadata,
+        uint32_t batch_size,
+    )
+    @staticmethod
+    cdef BatchLoadManager create_for_executemany(
+        object cursor,
+        BaseCursorImpl cursor_impl,
+        object parameters,
+        uint32_t batch_size,
+    )
 
 
 cdef class Buffer:
@@ -295,8 +337,9 @@ cdef class Buffer:
     cdef int read_sb4(self, int32_t *value) except -1
     cdef int read_sb8(self, int64_t *value) except -1
     cdef bytes read_null_terminated_bytes(self)
-    cdef int read_oracle_data(self, OracleMetadata metadata,
-                              OracleData* data, bint from_dbobject) except -1
+    cdef object read_oracle_data(self, OracleMetadata metadata,
+                                 OracleData* data, bint from_dbobject,
+                                 bint decode_str)
     cdef object read_str(self, int csfrm, const char* encoding_errors=*)
     cdef object read_str_with_length(self)
     cdef int read_ub1(self, uint8_t *value) except -1
@@ -313,20 +356,17 @@ cdef class Buffer:
     cdef inline int skip_ub2(self) except -1
     cdef inline int skip_ub4(self) except -1
     cdef inline int skip_ub8(self) except -1
-    cdef int write_binary_double(self, double value,
-                                 bint write_length=*) except -1
-    cdef int write_binary_float(self, float value,
-                                bint write_length=*) except -1
+    cdef int write_binary_double(self, double value) except -1
+    cdef int write_binary_float(self, float value) except -1
     cdef int write_bool(self, bint value) except -1
     cdef int write_bytes(self, bytes value) except -1
     cdef int write_bytes_with_length(self, bytes value) except -1
-    cdef int write_interval_ds(self, object value,
-                               bint write_length=*) except -1
-    cdef int write_interval_ym(self, object value,
-                               bint write_length=*) except -1
-    cdef int write_oracle_date(self, object value, uint8_t length,
-                               bint write_length=*) except -1
+    cdef int write_interval_ds(self, object value) except -1
+    cdef int write_interval_ym(self, object value) except -1
+    cdef int write_oracle_date(self, object value, uint8_t length) except -1
     cdef int write_oracle_number(self, bytes num_bytes) except -1
+    cdef int write_oson(self, value, ssize_t max_fname_size,
+                        bint write_length=*) except -1
     cdef int write_raw(self, const char_type *data, ssize_t length) except -1
     cdef int write_sb4(self, int32_t value) except -1
     cdef int write_str(self, str value) except -1
@@ -338,6 +378,7 @@ cdef class Buffer:
     cdef int write_ub2(self, uint16_t value) except -1
     cdef int write_ub4(self, uint32_t value) except -1
     cdef int write_ub8(self, uint64_t value) except -1
+    cdef int write_vector(self, value) except -1
 
 
 cdef class GrowableBuffer(Buffer):
@@ -449,14 +490,19 @@ cdef class OracleMetadata:
         readonly uint32_t vector_dimensions
         readonly uint8_t vector_format
         readonly uint8_t vector_flags
-        ArrowType _arrow_type
+        ArrowSchemaImpl _schema_impl
         uint8_t _py_type_num
 
+    cdef int _create_arrow_schema(self) except -1
     cdef int _finalize_init(self) except -1
-    cdef int _set_arrow_type(self) except -1
+    cdef int _set_arrow_schema(self, ArrowSchemaImpl schema_impl) except -1
+    cdef int check_convert_from_arrow(self,
+                                      ArrowSchemaImpl schema_impl) except -1
+    cdef int check_convert_to_arrow(self,
+                                    ArrowSchemaImpl schema_impl) except -1
     cdef OracleMetadata copy(self)
     @staticmethod
-    cdef OracleMetadata from_arrow_array(ArrowArrayImpl array)
+    cdef OracleMetadata from_arrow_schema(ArrowSchemaImpl schema_impl)
     @staticmethod
     cdef OracleMetadata from_type(object typ)
     @staticmethod
@@ -608,7 +654,7 @@ cdef class PoolParamsImpl(ConnectParamsImpl):
         public uint32_t min
         public uint32_t max
         public uint32_t increment
-        public type connectiontype
+        public object connectiontype
         public uint32_t getmode
         public bint homogeneous
         public uint32_t timeout
@@ -675,6 +721,9 @@ cdef class BaseCursorImpl:
         public object warning
         public bint fetching_arrow
         public bint suspend_on_success
+        public bint fetch_lobs
+        public bint fetch_decimals
+        public ArrowSchemaImpl schema_impl
         uint32_t _buffer_rowcount
         uint32_t _buffer_index
         uint32_t _fetch_array_size
@@ -691,7 +740,6 @@ cdef class BaseCursorImpl:
                                       object params, uint32_t num_rows,
                                       uint32_t row_num,
                                       bint defer_type_assignment) except -1
-    cdef int _check_binds(self, uint32_t num_execs) except -1
     cdef int _close(self, bint in_del) except -1
     cdef BaseVarImpl _create_fetch_var(self, object conn, object cursor,
                                        object type_handler, bint
@@ -708,10 +756,9 @@ cdef class BaseCursorImpl:
     cdef int _perform_binds(self, object conn, uint32_t num_execs) except -1
     cdef int _prepare(self, str statement, str tag,
                       bint cache_statement) except -1
-    cdef int _reset_bind_vars(self, uint32_t num_rows) except -1
+    cdef int _reset_bind_vars(self, uint64_t array_offset,
+                              uint32_t num_rows) except -1
     cdef int _verify_var(self, object var) except -1
-    cdef object bind_arrow_arrays(self, object cursor, list arrays)
-    cdef int bind_many(self, object cursor, list parameters) except -1
     cdef int bind_one(self, object cursor, object parameters) except -1
     cdef object _finish_building_arrow_arrays(self)
     cdef int _create_arrow_arrays(self) except -1
@@ -751,10 +798,9 @@ cdef class BaseVarImpl:
     cdef DbType _get_adjusted_type(self, uint8_t ora_type_num)
     cdef list _get_array_value(self)
     cdef object _get_scalar_value(self, uint32_t pos)
-    cdef int _on_reset_bind(self, uint32_t num_rows) except -1
+    cdef int _on_reset_bind(self, uint64_t array_offset,
+                            uint32_t num_rows) except -1
     cdef int _resize(self, uint32_t new_size) except -1
-    cdef int _set_metadata_from_arrow_array(self,
-                                            ArrowArrayImpl array) except -1
     cdef int _set_metadata_from_type(self, object typ) except -1
     cdef int _set_metadata_from_value(self, object value,
                                       bint is_plsql) except -1
@@ -861,9 +907,6 @@ cdef class BindVar:
         ssize_t pos
         bint has_value
 
-    cdef int _create_var_from_arrow_array(self, object conn,
-                                          BaseCursorImpl cursor_impl,
-                                          ArrowArrayImpl array) except -1
     cdef int _create_var_from_type(self, object conn,
                                    BaseCursorImpl cursor_impl,
                                    object value) except -1
@@ -909,6 +952,9 @@ cdef class PipelineOpImpl:
         readonly uint32_t arraysize
         readonly uint32_t num_rows
         readonly uint8_t op_type
+        readonly bint fetch_lobs
+        readonly bint fetch_decimals
+        BatchLoadManager batch_load_manager
         uint32_t num_execs
 
 
@@ -960,7 +1006,7 @@ cdef struct OracleNumber:
     bint is_integer
     bint is_max_negative_value
     uint8_t num_chars
-    char_type chars[172]
+    char_type chars[173]
 
 
 cdef struct OracleRawBytes:
@@ -987,12 +1033,12 @@ cdef struct OracleData:
 
 cdef object convert_arrow_to_oracle_data(OracleMetadata metadata,
                                          OracleData* data,
-                                         ArrowArrayImpl arrow_array,
+                                         ArrowArrayImpl array_impl,
                                          ssize_t array_index)
 cdef int convert_oracle_data_to_arrow(OracleMetadata from_metadata,
                                       OracleMetadata to_metadatda,
                                       OracleData* data,
-                                      ArrowArrayImpl arrow_array) except -1
+                                      ArrowArrayImpl array_impl) except -1
 cdef object convert_oracle_data_to_python(OracleMetadata from_metadata,
                                           OracleMetadata to_metadatda,
                                           OracleData* data,
@@ -1001,7 +1047,7 @@ cdef object convert_oracle_data_to_python(OracleMetadata from_metadata,
 cdef object convert_python_to_oracle_data(OracleMetadata metadata,
                                           OracleData* data,
                                           object value)
-cdef int convert_vector_to_arrow(ArrowArrayImpl arrow_array,
+cdef int convert_vector_to_arrow(ArrowArrayImpl array_impl,
                                  object vector) except -1
 cdef cydatetime.datetime convert_date_to_python(OracleDataBuffer *buffer)
 cdef uint16_t decode_uint16be(const char_type *buf)

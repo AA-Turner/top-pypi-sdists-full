@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-fsm-2
-Version: 4.0.0
+Version: 4.1.0
 Summary: Django friendly finite state machine support.
-Home-page: http://github.com/django-commons/django-fsm-2
 License: MIT
+License-File: LICENSE
 Author: Mikhail Podgurskiy
 Author-email: kmmbvnr@gmail.com
 Requires-Python: >=3.8,<4.0
@@ -13,6 +13,8 @@ Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -23,16 +25,19 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: django (>=4.2)
 Project-URL: Documentation, http://github.com/django-commons/django-fsm-2
+Project-URL: Homepage, http://github.com/django-commons/django-fsm-2
 Project-URL: Repository, http://github.com/django-commons/django-fsm-2
 Description-Content-Type: text/markdown
 
 # Django friendly finite state machine support
 
 [![CI tests](https://github.com/django-commons/django-fsm-2/actions/workflows/test.yml/badge.svg)](https://github.com/django-commons/django-fsm-2/actions/workflows/test.yml)
-[![codecov](https://codecov.io/github/django-commons/django-fsm-2/branch/master/graph/badge.svg?token=GWGDR6AR6D)](https://codecov.io/github/django-commons/django-fsm-2)
+[![codecov](https://codecov.io/github/django-commons/django-fsm-2/graph/badge.svg?token=gxsNL3cBl3)](https://codecov.io/github/django-commons/django-fsm-2)
 [![Documentation](https://img.shields.io/static/v1?label=Docs&message=READ&color=informational&style=plastic)](https://github.com/django-commons/django-fsm-2#settings)
 [![MIT License](https://img.shields.io/static/v1?label=License&message=MIT&color=informational&style=plastic)](https://github.com/django-commons/anymail-history/LICENSE)
 
@@ -40,11 +45,11 @@ Description-Content-Type: text/markdown
 django-fsm adds simple declarative state management for django models.
 
 > [!IMPORTANT]
-> Django FSM-2 started as a fork of [Django FSM](https://github.com/viewflow/django-fsm).
+> Django FSM-2 is a maintained fork of [Django FSM](https://github.com/viewflow/django-fsm).
 >
 > Big thanks to Mikhail Podgurskiy for starting this awesome project and maintaining it for so many years.
 >
-> Unfortunately, development has stalled for almost 2 years and it was officially announced there will be no new releases. [Viewflow](https://github.com/viewflow/viewflow) is presented as an alternative but the transition is not that easy.
+> Unfortunately, after 2 years without any releases, the project was brutally archived. [Viewflow](https://github.com/viewflow/viewflow) is presented as an alternative but the transition is not that easy.
 >
 > If what you need is just a simple state machine, tailor-made for Django, Django FSM-2 is the successor of Django FSM, with dependencies updates, typing (planned)
 
@@ -60,6 +65,8 @@ Nice introduction is available here: <https://gist.github.com/Nagyman/9502133>
 
 ## Installation
 
+First, install the package with pip.
+
 ``` bash
 $ pip install django-fsm-2
 ```
@@ -69,6 +76,26 @@ Or, for the latest git version
 ``` bash
 $ pip install -e git://github.com/django-commons/django-fsm-2.git#egg=django-fsm
 ```
+
+Register django_fsm in your list of Django applications
+
+```python
+INSTALLED_APPS = (
+    ...,
+    'django_fsm',
+    ...,
+)
+```
+
+## Migration from django-fsm
+
+django-fsm-2 is a drop-in replacement, it's actually the same project but from a different source.
+So all you need to do is to replace `django-fsm` dependency with `django-fsm-2`. And voila!
+
+``` bash
+$ pip install django-fsm-2
+```
+
 
 ## Usage
 
@@ -310,10 +337,10 @@ In your model :
 
 ``` python
 class DbState(models.Model):
-    id = models.CharField(primary_key=True, max_length=50)
-    label = models.CharField(max_length=255)
+    id = models.CharField(primary_key=True)
+    label = models.CharField()
 
-    def __unicode__(self):
+    def __str__(self):
         return self.label
 
 
@@ -418,8 +445,9 @@ practically negating their effect.
 
 Renders a graphical overview of your models states transitions
 
-You need `pip install "graphviz>=0.4"` library and add `django_fsm` to
-your `INSTALLED_APPS`:
+1. You need `pip install "graphviz>=0.4"` library
+
+2. Make sure `django_fsm` is in your `INSTALLED_APPS` settings:
 
 ``` python
 INSTALLED_APPS = (
@@ -429,21 +457,26 @@ INSTALLED_APPS = (
 )
 ```
 
+3. Then you can use `graph_transitions` command:
+
 ``` bash
 # Create a dot file
 $ ./manage.py graph_transitions > transitions.dot
 
 # Create a PNG image file only for specific model
 $ ./manage.py graph_transitions -o blog_transitions.png myapp.Blog
+
+# Exclude some transitions
+$ ./manage.py graph_transitions -e transition_1,transition_2 myapp.Blog
 ```
 
 ## Extensions
 
-You may also take a look at django-fsm-admin project containing a mixin
-and template tags to integrate django-fsm state transitions into the
+You may also take a look at django-fsm-2-admin project containing a mixin
+and template tags to integrate django-fsm-2 state transitions into the
 django admin.
 
-<https://github.com/gadventures/django-fsm-admin>
+<https://github.com/coral-li/django-fsm-2-admin>
 
 Transition logging support could be achieved with help of django-fsm-log
 package

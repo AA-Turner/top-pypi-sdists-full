@@ -8,7 +8,7 @@ with open("README.md") as f:
 
 setup(
     name="argostranslate",
-    version="1.9.6",
+    version="1.10.0",
     description="Open-source neural machine translation library based on OpenNMT's CTranslate2",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -24,8 +24,13 @@ setup(
     python_requires=">=3.5",
     packages=find_packages(),
     install_requires=required_packages,
+    entry_points={
+        "console_scripts": [
+            "argos-translate = argostranslate.cli:main",
+            "argospm = argostranslate.argospm:main",
+        ]
+    },
     include_package_data=True,
-    scripts=["bin/argos-translate", "bin/argospm"],
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",

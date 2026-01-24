@@ -46,6 +46,7 @@ from trulens.core.schema import feedback as feedback_schema
 from trulens.core.schema import record as record_schema
 from trulens.core.schema import select as select_schema
 from trulens.core.schema import types as types_schema
+from trulens.core.utils import deprecation as deprecation_utils
 from trulens.core.utils import json as json_utils
 from trulens.core.utils import pyschema as pyschema_utils
 from trulens.core.utils import python as python_utils
@@ -175,6 +176,10 @@ class Feedback(feedback_schema.FeedbackDefinition):
 
     criteria: Optional[str] = pydantic.Field(None, exclude=True)
     """Criteria for the feedback function."""
+
+    additional_instructions: Optional[str] = pydantic.Field(None, exclude=True)
+    """Additional instructions for the feedback function."""
+
     min_score_val: Optional[int] = pydantic.Field(None, exclude=True)
     """Minimum score value for the feedback function."""
 
@@ -205,6 +210,7 @@ class Feedback(feedback_schema.FeedbackDefinition):
         agg: Optional[Callable] = None,
         examples: Optional[List[Tuple]] = None,
         criteria: Optional[str] = None,
+        additional_instructions: Optional[str] = None,
         min_score_val: Optional[int] = 0,
         max_score_val: Optional[int] = 3,
         temperature: Optional[float] = 0.0,
@@ -212,6 +218,14 @@ class Feedback(feedback_schema.FeedbackDefinition):
         enable_trace_compression: Optional[bool] = None,
         **kwargs,
     ):
+        # Handle deprecated parameter name
+        additional_instructions = deprecation_utils.handle_deprecated_kwarg(
+            kwargs,
+            "custom_instructions",
+            "additional_instructions",
+            additional_instructions,
+        )
+
         # imp is the python function/method while implementation is a serialized
         # json structure. Create the one that is missing based on the one that
         # is provided:
@@ -291,6 +305,8 @@ class Feedback(feedback_schema.FeedbackDefinition):
         # Pass custom parameters to parent class for serialization
         if criteria is not None:
             kwargs["criteria"] = criteria
+        if additional_instructions is not None:
+            kwargs["additional_instructions"] = additional_instructions
         if examples is not None:
             kwargs["examples"] = examples
 
@@ -300,6 +316,7 @@ class Feedback(feedback_schema.FeedbackDefinition):
         self.agg = agg
         self.examples = examples
         self.criteria = criteria
+        self.additional_instructions = additional_instructions
         self.min_score_val = min_score_val
         self.max_score_val = max_score_val
         self.temperature = temperature
@@ -494,6 +511,8 @@ class Feedback(feedback_schema.FeedbackDefinition):
             kwargs["examples"] = self.examples
         if self.criteria is not None:
             kwargs["criteria"] = self.criteria
+        if self.additional_instructions is not None:
+            kwargs["additional_instructions"] = self.additional_instructions
         if self.min_score_val is not None:
             kwargs["min_score_val"] = self.min_score_val
         if self.max_score_val is not None:
@@ -727,6 +746,11 @@ class Feedback(feedback_schema.FeedbackDefinition):
             param_name
             for param_name, param in sig.parameters.items()
             if param.default == inspect.Parameter.empty
+            and param.kind
+            not in (
+                inspect.Parameter.VAR_KEYWORD,
+                inspect.Parameter.VAR_POSITIONAL,
+            )
         ]
         error_msg = ""
         # Check for extra selectors. Technically, this shouldn't happen ever
@@ -1037,13 +1061,13 @@ Feedback function signature:
 
             for ins in input_combinations:
                 try:
-                    result_and_meta, part_cost_tally = (
+                    result_and_meta, get_eval_cost = (
                         core_endpoint.Endpoint.track_all_costs_tally(
                             self, **ins
                         )
                     )
 
-                    cost += part_cost_tally()
+                    cost += get_eval_cost()
 
                 except SkipEval as e:
                     e.feedback = self

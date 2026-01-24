@@ -1,59 +1,85 @@
 import errno
-import itertools
 import os
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
 from contextlib import suppress
 from itertools import chain
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any
 
 from attrs import define, field
 
-from cyclopts.argument import ArgumentCollection
-from cyclopts.exceptions import CycloptsError, UnknownOptionError
-from cyclopts.token import Token
-from cyclopts.utils import is_iterable, to_tuple_converter
+from cyclopts.argument import ArgumentCollection, update_argument_collection
+from cyclopts.exceptions import CycloptsError
+from cyclopts.utils import to_tuple_converter
 
 if TYPE_CHECKING:
     from cyclopts.core import App
 
 
-def _walk_leaves(
-    d,
-    parent_keys: Optional[tuple[str, ...]] = None,
-) -> Iterator[tuple[tuple[str, ...], Any]]:
-    if parent_keys is None:
-        parent_keys = ()
+@define(kw_only=True)
+class ConfigBase(ABC):
+    """Base class for configuration sources.
 
-    if isinstance(d, dict):
-        for key, value in d.items():
-            current_keys = parent_keys + (key,)
-            if isinstance(value, dict):
-                yield from _walk_leaves(value, current_keys)
-            else:
-                yield current_keys, value
-    else:
-        yield (), d
+    Handles the common logic of processing configuration dictionaries
+    and updating ArgumentCollections.
+    """
+
+    root_keys: Iterable[str] = field(default=(), converter=to_tuple_converter)
+    allow_unknown: bool = field(default=False)
+    use_commands_as_keys: bool = field(default=True)
+    _source: str | None = field(default=None, alias="source")
+
+    @property
+    @abstractmethod
+    def config(self) -> dict[str, Any]:
+        """Return the configuration dictionary."""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def source(self) -> str:
+        """Return a string identifying the configuration source for error messages."""
+        raise NotImplementedError
+
+    def __call__(
+        self,
+        app: "App",
+        commands: tuple[str, ...],
+        arguments: ArgumentCollection,
+    ):
+        config: dict[str, Any] = self.config.copy()
+        try:
+            for key in chain(self.root_keys, commands if self.use_commands_as_keys else ()):
+                config = config[key]
+        except KeyError:
+            return
+
+        # Hierarchical config uses current app; flat config uses root app to filter sibling commands
+        if self.use_commands_as_keys:
+            filter_app = app
+        else:
+            filter_app = next((a for a in app.app_stack.current_frame if not a._meta_parent), app)
+        config = {k: v for k, v in config.items() if k not in filter_app}
+
+        update_argument_collection(
+            config,
+            self.source,
+            arguments,
+            app.app_stack.stack[-1],
+            root_keys=self.root_keys,
+            allow_unknown=self.allow_unknown,
+        )
 
 
-def _meta_arguments(apps: Sequence["App"]) -> ArgumentCollection:
-    argument_collection = ArgumentCollection()
-    for i, app in enumerate(apps):
-        if app._meta is None:
-            continue
-        argument_collection.extend(app._meta.assemble_argument_collection(apps=apps[:i]))
-    return argument_collection
-
-
-class CacheKey:
+class FileCacheKey:
     """Abstraction to quickly check if a file needs to be read again.
 
     If a newly instantiated ``CacheKey`` doesn't equal a previously instantiated ``CacheKey``,
     then the file needs to be re-read.
     """
 
-    def __init__(self, path: Union[str, Path]):
+    def __init__(self, path: str | Path):
         self.path = Path(path).absolute()
         if self.path.exists():
             stat = self.path.stat()
@@ -70,99 +96,21 @@ class CacheKey:
         return self._mtime == other._mtime and self._size == other._size and self.path == other.path
 
 
-def to_cli_option_name(*keys: str) -> str:
-    return "--" + ".".join(keys)
-
-
-def update_argument_collection(
-    config: dict,
-    source: str,
-    arguments: ArgumentCollection,
-    apps: Optional[Sequence["App"]] = None,
-    *,
-    root_keys: Iterable[str],
-    allow_unknown: bool,
-):
-    """Updates an argument collection if it doesn't already have tokens.
-
-    Note: it feels bad that we're passing in ``apps`` here.
-    """
-    meta_arguments = _meta_arguments(apps or ())
-
-    do_not_update = {}
-
-    for option_key, option_value in config.items():
-        for subkeys, value in _walk_leaves(option_value):
-            cli_option_name = to_cli_option_name(option_key, *subkeys)
-            complete_keyword = "".join(f"[{k}]" for k in itertools.chain(root_keys, (option_key,), subkeys))
-
-            try:
-                meta_arguments.match(cli_option_name)
-            except ValueError:
-                pass
-            else:
-                continue
-
-            try:
-                argument, remaining_keys, _ = arguments.match(cli_option_name)
-            except ValueError:
-                if allow_unknown:
-                    continue
-                if apps and apps[-1]._meta_parent:
-                    # We're currently in the meta-app portion of the launch process,
-                    # so MOST supplied options will be unmatched, as we haven't gotten
-                    # to the actual command processing yet.
-                    continue
-                raise UnknownOptionError(
-                    token=Token(keyword=complete_keyword, source=source), argument_collection=arguments
-                ) from None
-
-            if do_not_update.setdefault(id(argument), bool(argument.tokens)):
-                # If this argument already has tokens on **first** access, then skip it.
-                # Allows us to add multiple tokens to an argument from a **single** source (config file).
-                continue
-
-            # Convert all values to strings, so that the Cyclopts engine can process them.
-            # This may (eventually) result in converting back to the original dtype.
-            if not is_iterable(value):
-                value = (value,)
-
-            if value:
-                for i, v in enumerate(value):
-                    # TODO: is this index correct? If the source value is a list, it should probably be different
-                    if v is None:
-                        # Pass ``None`` as an implicit_value so it certainly gets interpreted as ``None`` later.
-                        token = Token(
-                            keyword=complete_keyword, implicit_value=None, source=source, index=i, keys=remaining_keys
-                        )
-                    else:
-                        # Convert the value back into a string, so it can be re-converted.
-                        token = Token(
-                            keyword=complete_keyword, value=str(v), source=source, index=i, keys=remaining_keys
-                        )
-                    argument.append(token)
-            else:
-                # E.g. an empty list.
-                token = Token(
-                    keyword=complete_keyword, implicit_value=value, source=source, index=0, keys=remaining_keys
-                )
-                argument.append(token)
-
-
 @define
-class ConfigFromFile(ABC):
-    path: Union[str, Path] = field(converter=Path)
+class ConfigFromFile(ConfigBase):
+    """Configuration source that loads from a file.
 
-    root_keys: Iterable[str] = field(default=(), converter=to_tuple_converter)
+    Supports file caching and parent directory searching.
+    """
+
+    path: str | Path = field(converter=Path)
     must_exist: bool = field(default=False, kw_only=True)
     search_parents: bool = field(default=False, kw_only=True)
-    allow_unknown: bool = field(default=False, kw_only=True)
-    use_commands_as_keys: bool = field(default=True, kw_only=True)
 
-    _config: Optional[dict[str, Any]] = field(default=None, init=False, repr=False)
+    _config: dict[str, Any] | None = field(default=None, init=False, repr=False)
     "Loaded configuration structure (to be loaded by subclassed ``_load_config`` method)."
 
-    _config_cache_key: Optional[CacheKey] = field(default=None, init=False, repr=False)
+    _config_cache_key: FileCacheKey | None = field(default=None, init=False, repr=False)
     "Conditions under which ``_config`` was loaded."
 
     @abstractmethod
@@ -189,7 +137,7 @@ class ConfigFromFile(ABC):
         for parent in self.path.expanduser().resolve().absolute().parents:
             candidate = parent / self.path.name
             if candidate.exists():
-                cache_key = CacheKey(candidate)
+                cache_key = FileCacheKey(candidate)
                 if self._config_cache_key == cache_key:
                     return self._config or {}
 
@@ -222,23 +170,37 @@ class ConfigFromFile(ABC):
 
     @property
     def source(self) -> str:
-        return str(self.path)
-
-    def __call__(self, apps: list["App"], commands: tuple[str, ...], arguments: ArgumentCollection):
-        config: dict[str, Any] = self.config.copy()
-        try:
-            for key in chain(self.root_keys, commands if self.use_commands_as_keys else ()):
-                config = config[key]
-        except KeyError:
-            return
-
-        # Ignore keys that represent subcommands
-        command_app = apps[-1] if self.use_commands_as_keys else apps[0]
-        config = {k: v for k, v in config.items() if k not in command_app}
-
+        """Return a string identifying the configuration source for error messages."""
+        if self._source is not None:
+            return self._source
         assert isinstance(self.path, Path)
-        source = str(self.path.absolute())
+        return str(self.path.absolute())
 
-        update_argument_collection(
-            config, source, arguments, apps, root_keys=self.root_keys, allow_unknown=self.allow_unknown
-        )
+    @source.setter
+    def source(self, value: str) -> None:
+        self._source = value
+
+
+@define
+class Dict(ConfigBase):
+    """Configuration source from an in-memory dictionary.
+
+    Useful for programmatically generated configurations.
+    """
+
+    data: dict[str, Any]
+
+    @property
+    def config(self) -> dict[str, Any]:
+        return self.data
+
+    @property
+    def source(self) -> str:
+        """Return a string identifying the configuration source for error messages."""
+        if self._source is not None:
+            return self._source
+        return "dict"
+
+    @source.setter
+    def source(self, value: str) -> None:
+        self._source = value

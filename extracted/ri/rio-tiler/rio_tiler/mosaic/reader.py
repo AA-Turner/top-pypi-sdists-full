@@ -1,8 +1,9 @@
 """rio_tiler.mosaic: create tile from multiple assets."""
 
 import warnings
+from collections.abc import Callable, Sequence
 from inspect import isclass
-from typing import Any, Callable, List, Optional, Sequence, Tuple, Type, Union, cast
+from typing import Any, cast
 
 import numpy
 from rasterio.crs import CRS
@@ -26,12 +27,12 @@ def mosaic_reader(  # noqa: C901
     mosaic_assets: Sequence,
     reader: Callable[..., ImageData],
     *args: Any,
-    pixel_selection: Union[Type[MosaicMethodBase], MosaicMethodBase] = FirstMethod,
-    chunk_size: Optional[int] = None,
+    pixel_selection: type[MosaicMethodBase] | MosaicMethodBase = FirstMethod,
+    chunk_size: int | None = None,
     threads: int = MAX_THREADS,
-    allowed_exceptions: Tuple = (TileOutsideBounds,),
+    allowed_exceptions: tuple = (TileOutsideBounds,),
     **kwargs,
-) -> Tuple[ImageData, List]:
+) -> tuple[ImageData, list]:
     """Merge multiple assets.
 
     Args:
@@ -65,7 +66,7 @@ def mosaic_reader(  # noqa: C901
 
     """
     if isclass(pixel_selection):
-        pixel_selection = cast(Type[MosaicMethodBase], pixel_selection)
+        pixel_selection = cast(type[MosaicMethodBase], pixel_selection)
 
         if issubclass(pixel_selection, MosaicMethodBase):
             pixel_selection = pixel_selection()
@@ -79,10 +80,10 @@ def mosaic_reader(  # noqa: C901
     if not chunk_size:
         chunk_size = threads if threads > 1 else len(mosaic_assets)
 
-    assets_used: List = []
-    crs: Optional[CRS]
-    bounds: Optional[BBox]
-    band_names: List[str]
+    assets_used: list = []
+    crs: CRS | None
+    bounds: BBox | None
+    band_names: list[str]
 
     for chunks in _chunks(mosaic_assets, chunk_size):
         tasks = create_tasks(reader, chunks, threads, *args, **kwargs)
@@ -95,6 +96,7 @@ def mosaic_reader(  # noqa: C901
                 crs = img.crs
                 bounds = img.bounds
                 band_names = img.band_names
+                band_descriptions = img.band_descriptions
                 pixel_selection.cutline_mask = img.cutline_mask
                 pixel_selection.width = img.width
                 pixel_selection.height = img.height
@@ -135,6 +137,7 @@ def mosaic_reader(  # noqa: C901
                         crs=crs,
                         bounds=bounds,
                         band_names=band_names,
+                        band_descriptions=band_descriptions,
                         metadata={
                             "mosaic_method": pixel_selection.__class__.__name__,
                             "mosaic_assets_count": len(mosaic_assets),
@@ -154,6 +157,7 @@ def mosaic_reader(  # noqa: C901
             crs=crs,
             bounds=bounds,
             band_names=band_names,
+            band_descriptions=band_descriptions,
             metadata={
                 "mosaic_method": pixel_selection.__class__.__name__,
                 "mosaic_assets_count": len(mosaic_assets),
@@ -168,12 +172,12 @@ def mosaic_point_reader(
     mosaic_assets: Sequence,
     reader: Callable[..., PointData],
     *args: Any,
-    pixel_selection: Union[Type[MosaicMethodBase], MosaicMethodBase] = FirstMethod,
-    chunk_size: Optional[int] = None,
+    pixel_selection: type[MosaicMethodBase] | MosaicMethodBase = FirstMethod,
+    chunk_size: int | None = None,
     threads: int = MAX_THREADS,
-    allowed_exceptions: Tuple = (PointOutsideBounds,),
+    allowed_exceptions: tuple = (PointOutsideBounds,),
     **kwargs,
-) -> Tuple[PointData, List]:
+) -> tuple[PointData, list]:
     """Merge multiple assets.
 
     Args:
@@ -199,7 +203,7 @@ def mosaic_point_reader(
 
     """
     if isclass(pixel_selection):
-        pixel_selection = cast(Type[MosaicMethodBase], pixel_selection)
+        pixel_selection = cast(type[MosaicMethodBase], pixel_selection)
 
         if issubclass(pixel_selection, MosaicMethodBase):
             pixel_selection = pixel_selection()
@@ -213,10 +217,10 @@ def mosaic_point_reader(
     if not chunk_size:
         chunk_size = threads if threads > 1 else len(mosaic_assets)
 
-    assets_used: List = []
-    crs: Optional[CRS]
-    coordinates: Optional[Tuple[float, float]]
-    band_names: List[str]
+    assets_used: list = []
+    crs: CRS | None
+    coordinates: tuple[float, float] | None
+    band_names: list[str]
 
     for chunks in _chunks(mosaic_assets, chunk_size):
         tasks = create_tasks(reader, chunks, threads, *args, **kwargs)
@@ -229,6 +233,7 @@ def mosaic_point_reader(
                 crs = pt.crs
                 coordinates = pt.coordinates
                 band_names = pt.band_names
+                band_descriptions = pt.band_descriptions
                 pixel_selection.width = 1
                 pixel_selection.height = 1
                 pixel_selection.count = pt.count
@@ -248,6 +253,7 @@ def mosaic_point_reader(
                         crs=crs,
                         coordinates=coordinates,
                         band_names=band_names,
+                        band_descriptions=band_descriptions,
                         metadata={
                             "mosaic_method": pixel_selection.__class__.__name__,
                             "mosaic_assets_count": len(mosaic_assets),
@@ -267,6 +273,7 @@ def mosaic_point_reader(
             crs=crs,
             coordinates=coordinates,
             band_names=band_names,
+            band_descriptions=band_descriptions,
             metadata={
                 "mosaic_method": pixel_selection.__class__.__name__,
                 "mosaic_assets_count": len(mosaic_assets),

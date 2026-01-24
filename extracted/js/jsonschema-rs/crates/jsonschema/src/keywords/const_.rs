@@ -1,10 +1,14 @@
 use crate::{
-    compiler, error::ValidationError, ext::cmp, keywords::CompilationResult, paths::Location,
-    validator::Validate,
+    compiler,
+    error::ValidationError,
+    ext::cmp,
+    keywords::CompilationResult,
+    paths::Location,
+    validator::{Validate, ValidationContext},
 };
 use serde_json::{Map, Number, Value};
 
-use crate::paths::LazyLocation;
+use crate::paths::{LazyLocation, RefTracker};
 
 struct ConstArrayValidator {
     value: Vec<Value>,
@@ -24,12 +28,15 @@ impl Validate for ConstArrayValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance) {
+        if self.is_valid(instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::constant_array(
                 self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
                 instance,
                 &self.value,
@@ -38,7 +45,7 @@ impl Validate for ConstArrayValidator {
     }
 
     #[inline]
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         if let Value::Array(instance_value) = instance {
             cmp::equal_arrays(&self.value, instance_value)
         } else {
@@ -62,12 +69,15 @@ impl Validate for ConstBooleanValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance) {
+        if self.is_valid(instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::constant_boolean(
                 self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
                 instance,
                 self.value,
@@ -76,7 +86,7 @@ impl Validate for ConstBooleanValidator {
     }
 
     #[inline]
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         if let Value::Bool(instance_value) = instance {
             &self.value == instance_value
         } else {
@@ -99,19 +109,22 @@ impl Validate for ConstNullValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance) {
+        if self.is_valid(instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::constant_null(
                 self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
                 instance,
             ))
         }
     }
     #[inline]
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         instance.is_null()
     }
 }
@@ -119,7 +132,6 @@ impl Validate for ConstNullValidator {
 struct ConstNumberValidator {
     // This is saved in order to ensure that the error message is not altered by precision loss
     original_value: Number,
-    value: f64,
     location: Location,
 }
 
@@ -128,9 +140,6 @@ impl ConstNumberValidator {
     pub(crate) fn compile(original_value: &Number, location: Location) -> CompilationResult<'_> {
         Ok(Box::new(ConstNumberValidator {
             original_value: original_value.clone(),
-            value: original_value
-                .as_f64()
-                .expect("A JSON number will always be representable as f64"),
             location,
         }))
     }
@@ -141,12 +150,15 @@ impl Validate for ConstNumberValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance) {
+        if self.is_valid(instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::constant_number(
                 self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
                 instance,
                 &self.original_value,
@@ -154,9 +166,10 @@ impl Validate for ConstNumberValidator {
         }
     }
 
-    fn is_valid(&self, instance: &Value) -> bool {
+    #[inline]
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         if let Value::Number(item) = instance {
-            (self.value - item.as_f64().expect("Always representable as f64")).abs() < f64::EPSILON
+            crate::ext::cmp::equal_numbers(item, &self.original_value)
         } else {
             false
         }
@@ -183,19 +196,24 @@ impl Validate for ConstObjectValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance) {
+        if self.is_valid(instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::constant_object(
                 self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
                 instance,
                 &self.value,
             ))
         }
     }
-    fn is_valid(&self, instance: &Value) -> bool {
+
+    #[inline]
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         if let Value::Object(item) = instance {
             cmp::equal_objects(&self.value, item)
         } else {
@@ -224,19 +242,24 @@ impl Validate for ConstStringValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance) {
+        if self.is_valid(instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::constant_string(
                 self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
                 instance,
                 &self.value,
             ))
         }
     }
-    fn is_valid(&self, instance: &Value) -> bool {
+
+    #[inline]
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         if let Value::String(item) = instance {
             &self.value == item
         } else {
@@ -276,5 +299,34 @@ mod tests {
     #[test_case(&json!({"const": ""}), &json!(7), "/const")]
     fn location(schema: &Value, instance: &Value, expected: &str) {
         tests_util::assert_schema_location(schema, instance, expected);
+    }
+
+    // Tests for arbitrary-precision const validation
+    #[cfg(feature = "arbitrary-precision")]
+    mod arbitrary_precision {
+        use crate::tests_util;
+        use serde_json::Value;
+        use test_case::test_case;
+
+        fn parse_json(json: &str) -> Value {
+            serde_json::from_str(json).unwrap()
+        }
+
+        #[test_case(r#"{"const": 18446744073709551617}"#, "18446744073709551617", true; "large int exact match")]
+        #[test_case(r#"{"const": 18446744073709551617}"#, "18446744073709551616", false; "large int different by one")]
+        #[test_case(r#"{"const": 18446744073709551617}"#, "18446744073709551618", false; "large int different by one above")]
+        #[test_case(r#"{"const": -9223372036854775809}"#, "-9223372036854775809", true; "large negative int match")]
+        #[test_case(r#"{"const": -9223372036854775809}"#, "-9223372036854775808", false; "large negative int different")]
+        #[test_case(r#"{"const": 0.1}"#, "0.1", true; "decimal exact match")]
+        #[test_case(r#"{"const": 0.1}"#, "0.10000000000000001", false; "decimal precision difference")]
+        fn const_arbitrary_precision(schema_json: &str, instance_json: &str, expected_valid: bool) {
+            let schema = parse_json(schema_json);
+            let instance = parse_json(instance_json);
+            if expected_valid {
+                tests_util::is_valid(&schema, &instance);
+            } else {
+                tests_util::is_not_valid(&schema, &instance);
+            }
+        }
     }
 }

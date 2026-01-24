@@ -1,10 +1,11 @@
 from adam.commands.command import Command
-from adam.commands.deploy.deploy_utils import undeploy_frontend, deleting
+from adam.commands.deploy.deploy_utils import undeploy_frontend
 from adam.config import Config
-from adam.k8s_utils.config_maps import ConfigMaps
-from adam.k8s_utils.deployment import Deployments
-from adam.k8s_utils.pods import Pods
-from adam.k8s_utils.service_accounts import ServiceAccounts
+from adam.utils import ing
+from adam.utils_k8s.config_maps import ConfigMaps
+from adam.utils_k8s.deployment import Deployments
+from adam.utils_k8s.pods import Pods
+from adam.utils_k8s.service_accounts import ServiceAccounts
 from adam.repl_state import ReplState, RequiredState
 
 class UndeployPod(Command):
@@ -29,21 +30,19 @@ class UndeployPod(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state):
+        with self.validate(args, state) as (args, state):
+            label_selector = Config().get('pod.label-selector', 'run=ops')
+            with ing('Deleting service account'):
+                ServiceAccounts.delete(state.namespace, label_selector=label_selector)
+            with ing('Deleting config map'): ConfigMaps.delete_with_selector(state.namespace, label_selector)
+            with ing('Deleting deployment'): Deployments.delete_with_selector(state.namespace, label_selector, grace_period_seconds=0)
+            with ing('Deleting pod'): Pods.delete_with_selector(state.namespace, label_selector, grace_period_seconds=0)
+            undeploy_frontend(state.namespace, label_selector)
+
             return state
-
-        label_selector = Config().get('pod.label-selector', 'run=ops')
-        deleting('service account', lambda: ServiceAccounts.delete(state.namespace, label_selector=label_selector))
-        deleting('config map', lambda: ConfigMaps.delete_with_selector(state.namespace, label_selector))
-        deleting('deployment', lambda: Deployments.delete_with_selector(state.namespace, label_selector, grace_period_seconds=0))
-        deleting('pod', lambda: Pods.delete_with_selector(state.namespace, label_selector, grace_period_seconds=0))
-        undeploy_frontend(state.namespace, label_selector)
-
-        return state
 
     def completion(self, state: ReplState):
         return super().completion(state)
 
-    def help(self, _: ReplState):
-        return f'{UndeployPod.COMMAND}\t undeploy Ops pod'
+    def help(self, state: ReplState):
+        return super().help(state, 'undeploy Ops pod')

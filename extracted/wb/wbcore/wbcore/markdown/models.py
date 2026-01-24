@@ -17,18 +17,21 @@ class Asset(models.Model):
     file = models.FileField(max_length=256, upload_to=upload_to)
     content_type = models.CharField(max_length=32, null=True, blank=True)
     file_url_name = models.CharField(max_length=1024, null=True, blank=True)
+
     # public = models.BooleanField(default=True)
+    class Meta:
+        verbose_name = _("Asset")
+        verbose_name_plural = _("Assets")
+        db_table = "bridger_asset"
+
+    def __str__(self) -> str:
+        return str(self.id)
 
     @property
     def filename(self):
         if suffix := pathlib.Path(self.file.name).suffix:
             return f"{self.id}{suffix}"
         return self.id
-
-    class Meta:
-        verbose_name = _("Asset")
-        verbose_name_plural = _("Assets")
-        db_table = "bridger_asset"
 
 
 @receiver(models.signals.pre_save, sender="wbcore.Asset")

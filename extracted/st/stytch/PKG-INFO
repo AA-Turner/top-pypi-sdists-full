@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stytch
-Version: 13.23.0
+Version: 14.2.0
 Summary: Stytch python client
 Download-URL: https://github.com/stytchauth/stytch-python
 Author: Stytch
@@ -21,7 +21,7 @@ License-File: LICENSE.txt
 Requires-Dist: aiohttp>=3.8.3
 Requires-Dist: requests>=2.7.0
 Requires-Dist: pydantic>=1.10.2
-Requires-Dist: pyjwt[crypto]>=2.4.0
+Requires-Dist: pyjwt[crypto]>=2.9.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

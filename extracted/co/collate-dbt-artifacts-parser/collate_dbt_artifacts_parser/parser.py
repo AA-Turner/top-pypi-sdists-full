@@ -164,7 +164,7 @@ def parse_manifest(
         return ManifestV10(**manifest)
     elif dbt_schema_version == ArtifactTypes.MANIFEST_V11.value.dbt_schema_version:
         return ManifestV11(**manifest)
-    elif dbt_schema_version == ArtifactTypes.MANIFEST_V12.value.dbt_schema_version:
+    elif dbt_schema_version in (ArtifactTypes.MANIFEST_V12.value.dbt_schema_version, ArtifactTypes.MANIFEST_V20.value.dbt_schema_version):
         return _try_parsers(manifest,
                             [ManifestV12, ManifestCLOUDV1, ManifestCLOUDV2])
     raise ValueError("Not a manifest.json")
@@ -266,6 +266,15 @@ def parse_manifest_v12(
         return _try_parsers(manifest,
                             [ManifestV12, ManifestCLOUDV1, ManifestCLOUDV2])
     raise ValueError("Not a manifest.json v12")
+
+def parse_manifest_v20(
+        manifest: dict) -> Union[ManifestV12, ManifestCLOUDV1, ManifestCLOUDV2]:
+    """Parse manifest.json ver.12"""
+    dbt_schema_version = get_dbt_schema_version(artifact_json=manifest)
+    if dbt_schema_version == ArtifactTypes.MANIFEST_V20.value.dbt_schema_version:
+        return _try_parsers(manifest,
+                            [ManifestV12, ManifestCLOUDV1, ManifestCLOUDV2])
+    raise ValueError("Not a manifest.json v20")
 
 
 #

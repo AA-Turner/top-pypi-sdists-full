@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
- * Copyright (c) 2025 Munich Quantum Software Company GmbH
+ * Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+ * Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
  * All rights reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -84,27 +84,9 @@ class NoControlTrait
     : public mlir::OpTrait::TraitBase<ConcreteOp, NoControlTrait> {
 public:
   [[nodiscard]] static mlir::LogicalResult verifyTrait(mlir::Operation* op) {
-    auto unitaryOp = mlir::cast<ConcreteOp>(op);
-    if (!unitaryOp.getPosCtrlInQubits().empty() ||
-        !unitaryOp.getNegCtrlInQubits().empty()) {
+    if (auto unitaryOp = mlir::cast<ConcreteOp>(op); unitaryOp.isControlled()) {
       return op->emitOpError()
              << "Gate marked as NoControl should not have control qubits";
-    }
-    return mlir::success();
-  }
-};
-
-template <typename ConcreteOp>
-class MatchingMeasureInOutsTrait
-    : public mlir::OpTrait::TraitBase<ConcreteOp, MatchingMeasureInOutsTrait> {
-public:
-  [[nodiscard]] static mlir::LogicalResult verifyTrait(mlir::Operation* op) {
-    auto measureOp = mlir::cast<ConcreteOp>(op);
-    if (measureOp.getInQubits().size() != measureOp.getOutBits().size()) {
-      return measureOp->emitOpError()
-             << "number of input qubits (" << measureOp.getInQubits().size()
-             << ") " << "and output bits (" << measureOp.getOutBits().size()
-             << ") must be the same";
     }
     return mlir::success();
   }

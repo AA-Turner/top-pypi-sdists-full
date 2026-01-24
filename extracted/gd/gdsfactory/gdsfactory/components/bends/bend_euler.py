@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__all__ = ["bend_euler", "bend_euler180", "bend_euler_all_angle", "bend_euler_s"]
+
 import warnings
 from functools import partial
 from typing import Literal, overload
@@ -121,9 +123,9 @@ def _bend_euler(
     c.info["dy"] = float(
         np.round(abs(float(path.points[0][0] - path.points[-1][0])), 3)
     )
-    c.info["min_bend_radius"] = min_bend_radius
-    c.info["radius"] = radius
-    c.info["width"] = width or x.width
+    c.info["min_bend_radius"] = float(min_bend_radius)
+    c.info["radius"] = float(radius)
+    c.info["width"] = float(width or x.width)
 
     if not allow_min_radius_violation:
         x.validate_radius(radius)

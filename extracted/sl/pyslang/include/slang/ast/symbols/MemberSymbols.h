@@ -68,6 +68,9 @@ public:
     const PackageSymbol* package() const;
     const Symbol* importedSymbol() const;
 
+    void noteCorrespondingImport() const { correspondingImport = true; }
+    bool sawCorrespondingImport() const { return correspondingImport; }
+
     void serializeTo(ASTSerializer& serializer) const;
 
     static bool isKind(SymbolKind kind) { return kind == SymbolKind::ExplicitImport; }
@@ -76,6 +79,7 @@ private:
     mutable const PackageSymbol* package_ = nullptr;
     mutable const Symbol* import = nullptr;
     mutable bool initialized = false;
+    mutable bool correspondingImport = false;
 };
 
 /// Represents a wildcard import declaration. This symbol is special in
@@ -243,6 +247,7 @@ private:
     mutable bool resolved = false;
 };
 
+/// Represents a primitive port declaration.
 class SLANG_EXPORT PrimitivePortSymbol final : public ValueSymbol {
 public:
     PrimitivePortDirection direction;
@@ -255,6 +260,7 @@ public:
     static bool isKind(SymbolKind kind) { return kind == SymbolKind::PrimitivePort; }
 };
 
+/// Represents a user-defined primitive (UDP) declaration.
 class SLANG_EXPORT PrimitiveSymbol final : public Symbol, public Scope {
 public:
     struct TableEntry {
@@ -359,21 +365,6 @@ public:
     static bool isKind(SymbolKind kind) { return kind == SymbolKind::LetDecl; }
 };
 
-/// Represents a checker declaration.
-class SLANG_EXPORT CheckerSymbol final : public Symbol, public Scope {
-public:
-    std::span<const AssertionPortSymbol* const> ports;
-
-    CheckerSymbol(Compilation& compilation, std::string_view name, SourceLocation loc);
-
-    static CheckerSymbol& fromSyntax(const Scope& scope,
-                                     const syntax::CheckerDeclarationSyntax& syntax);
-
-    void serializeTo(ASTSerializer&) const {}
-
-    static bool isKind(SymbolKind kind) { return kind == SymbolKind::Checker; }
-};
-
 /// Represents a clocking block.
 class SLANG_EXPORT ClockingBlockSymbol final : public Symbol, public Scope {
 public:
@@ -403,6 +394,7 @@ private:
     const syntax::ClockingSkewSyntax* outputSkewSyntax = nullptr;
 };
 
+/// Represents a randsequence production.
 class SLANG_EXPORT RandSeqProductionSymbol final : public Symbol, public Scope {
 public:
     enum class ProdKind { Item, CodeBlock, IfElse, Repeat, Case };
@@ -602,6 +594,7 @@ private:
     mutable std::optional<std::span<const Rule>> rules;
 };
 
+/// Represents an anonymous program.
 class SLANG_EXPORT AnonymousProgramSymbol final : public Symbol, public Scope {
 public:
     AnonymousProgramSymbol(Compilation& compilation, SourceLocation loc);
@@ -614,6 +607,7 @@ public:
     static bool isKind(SymbolKind kind) { return kind == SymbolKind::AnonymousProgram; }
 };
 
+/// Represents a net alias declaration.
 class SLANG_EXPORT NetAliasSymbol final : public Symbol {
 public:
     explicit NetAliasSymbol(SourceLocation loc) : Symbol(SymbolKind::NetAlias, ""sv, loc) {}

@@ -85,6 +85,29 @@ Configuration
 
    Default: ``False``
 
+.. envvar:: DD_DJANGO_TRACING_MINIMAL
+
+   Enables minimal tracing mode for performance-sensitive applications. When enabled, this disables
+   Django ORM, cache, and template instrumentation while keeping middleware instrumentation enabled.
+   This can significantly reduce overhead by removing Django-specific spans while preserving visibility
+   into the underlying database drivers, cache clients, and other integrations.
+
+   This is equivalent to setting:
+   - ``DD_DJANGO_INSTRUMENT_TEMPLATES=false``
+   - ``DD_DJANGO_INSTRUMENT_DATABASES=false``
+   - ``DD_DJANGO_INSTRUMENT_CACHES=false``
+
+   For example, with ``DD_DJANGO_INSTRUMENT_DATABASES=false``, Django ORM query spans are disabled
+   but database driver spans (e.g., psycopg, MySQLdb) will still be created, providing visibility
+   into the actual database queries without the Django ORM overhead.
+
+   Consider using this option if your application is performance-sensitive and the additional
+   Django-layer spans are not required for your observability needs.
+
+   Default: ``True``
+
+   *New in version v3.15.0.*
+
 .. py:data:: ddtrace.config.django['instrument_middleware']
 
    Whether or not to instrument middleware.
@@ -97,40 +120,25 @@ Configuration
 
    Whether or not to instrument template rendering.
 
-   Can also be enabled with the ``DD_DJANGO_INSTRUMENT_TEMPLATES`` environment variable.
+   Can be enabled with the ``DD_DJANGO_INSTRUMENT_TEMPLATES=true`` or ``DD_DJANGO_TRACING_MINIMAL=false`` environment variables.
 
-   Default: ``True``
+   Default: ``False``
 
 .. py:data:: ddtrace.config.django['instrument_databases']
 
    Whether or not to instrument databases.
 
-   Can also be enabled with the ``DD_DJANGO_INSTRUMENT_DATABASES`` environment variable.
+   Can be enabled with the ``DD_DJANGO_INSTRUMENT_DATABASES=true`` or ``DD_DJANGO_TRACING_MINIMAL=false`` environment variables.
 
-   Default: ``True``
-
-.. py:data:: ddtrace.config.django['always_create_database_spans']
-
-   Whether or not to enforce that a Django database span is created regardless of other
-   database instrumentation.
-
-   Enabling this will provide database spans when the database engine is not yet supported
-   by ``ddtrace``, however it may result in duplicate database spans when the database
-   engine is supported and enabled.
-
-   Can also be enabled with the ``DD_DJANGO_ALWAYS_CREATE_DATABASE_SPANS`` environment variable.
-
-   Default: ``True``
-
-   *New in version v3.13.0.*
+   Default: ``False``
 
 .. py:data:: ddtrace.config.django['instrument_caches']
 
    Whether or not to instrument caches.
 
-    Can also be enabled with the ``DD_DJANGO_INSTRUMENT_CACHES`` environment variable.
+   Can be enabled with the ``DD_DJANGO_INSTRUMENT_CACHES=true`` or ``DD_DJANGO_TRACING_MINIMAL=false`` environment variables.
 
-   Default: ``True``
+   Default: ``False``
 
 .. py:data:: ddtrace.config.django.http['trace_query_string']
 

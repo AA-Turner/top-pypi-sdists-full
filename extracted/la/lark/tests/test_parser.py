@@ -379,6 +379,36 @@ class TestParsers(unittest.TestCase):
 
         p = Lark(g, parser='lalr')
 
+    def test_custom_input(self):
+        class TypeLexer(Lexer):
+            def __init__(self, lexer_conf):
+                pass
+
+            def lex(self, data):
+                for obj in data:
+                    t = type(obj).__name__.upper()
+                    yield Token(t, obj)
+
+        parser = Lark("""
+                start: data_item+
+                data_item: STR INT*
+
+                %declare STR INT
+                """, parser='lalr', lexer=TypeLexer)
+
+
+        class ParseToDict(Transformer):
+            @v_args(inline=True)
+            def data_item(self, name, *numbers):
+                return name.value, [n.value for n in numbers]
+
+            start = dict
+
+        data = ['alice', 1, 27, 3, 'bob', 4, 'carrie', 'dan', 8, 6]
+        tree = parser.parse(data)
+        res = ParseToDict().transform(tree)
+        assert res == {'alice': [1, 27, 3], 'bob': [4], 'carrie': [], 'dan': [8, 6]}
+
 
 
 def _make_full_earley_test(LEXER):

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -181,7 +181,7 @@ class AvailabilityZonesMismatch(ServiceException):
     code: str = "AvailabilityZonesMismatch"
     sender_fault: bool = False
     status_code: int = 400
-    ErrorCode: Optional[ErrorCode]
+    ErrorCode: ErrorCode | None
 
 
 class BadRequest(ServiceException):
@@ -203,7 +203,7 @@ class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 409
-    ErrorCode: Optional[ErrorCode]
+    ErrorCode: ErrorCode | None
 
 
 class DependencyTimeout(ServiceException):
@@ -313,7 +313,7 @@ class InvalidPolicyException(ServiceException):
     code: str = "InvalidPolicyException"
     sender_fault: bool = False
     status_code: int = 400
-    ErrorCode: Optional[ErrorCode]
+    ErrorCode: ErrorCode | None
 
 
 class IpAddressInUse(ServiceException):
@@ -382,7 +382,7 @@ class PolicyNotFound(ServiceException):
     code: str = "PolicyNotFound"
     sender_fault: bool = False
     status_code: int = 404
-    ErrorCode: Optional[ErrorCode]
+    ErrorCode: ErrorCode | None
 
 
 class ReplicationAlreadyExists(ServiceException):
@@ -393,7 +393,7 @@ class ReplicationAlreadyExists(ServiceException):
     code: str = "ReplicationAlreadyExists"
     sender_fault: bool = False
     status_code: int = 409
-    ErrorCode: Optional[ErrorCode]
+    ErrorCode: ErrorCode | None
 
 
 class ReplicationNotFound(ServiceException):
@@ -404,7 +404,7 @@ class ReplicationNotFound(ServiceException):
     code: str = "ReplicationNotFound"
     sender_fault: bool = False
     status_code: int = 404
-    ErrorCode: Optional[ErrorCode]
+    ErrorCode: ErrorCode | None
 
 
 class SecurityGroupLimitExceeded(ServiceException):
@@ -454,7 +454,7 @@ class ThrottlingException(ServiceException):
     code: str = "ThrottlingException"
     sender_fault: bool = False
     status_code: int = 429
-    ErrorCode: Optional[ErrorCode]
+    ErrorCode: ErrorCode | None
 
 
 class ThroughputLimitExceeded(ServiceException):
@@ -539,12 +539,12 @@ class RootDirectory(TypedDict, total=False):
     subdirectories.
     """
 
-    Path: Optional[Path]
-    CreationInfo: Optional[CreationInfo]
+    Path: Path | None
+    CreationInfo: CreationInfo | None
 
 
 Gid = int
-SecondaryGids = List[Gid]
+SecondaryGids = list[Gid]
 Uid = int
 
 
@@ -556,7 +556,7 @@ class PosixUser(TypedDict, total=False):
 
     Uid: Uid
     Gid: Gid
-    SecondaryGids: Optional[SecondaryGids]
+    SecondaryGids: SecondaryGids | None
 
 
 class Tag(TypedDict, total=False):
@@ -569,25 +569,25 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-Tags = List[Tag]
+Tags = list[Tag]
 
 
 class AccessPointDescription(TypedDict, total=False):
     """Provides a description of an EFS file system access point."""
 
-    ClientToken: Optional[ClientToken]
-    Name: Optional[Name]
-    Tags: Optional[Tags]
-    AccessPointId: Optional[AccessPointId]
-    AccessPointArn: Optional[AccessPointArn]
-    FileSystemId: Optional[FileSystemId]
-    PosixUser: Optional[PosixUser]
-    RootDirectory: Optional[RootDirectory]
-    OwnerId: Optional[AwsAccountId]
-    LifeCycleState: Optional[LifeCycleState]
+    ClientToken: ClientToken | None
+    Name: Name | None
+    Tags: Tags | None
+    AccessPointId: AccessPointId | None
+    AccessPointArn: AccessPointArn | None
+    FileSystemId: FileSystemId | None
+    PosixUser: PosixUser | None
+    RootDirectory: RootDirectory | None
+    OwnerId: AwsAccountId | None
+    LifeCycleState: LifeCycleState | None
 
 
-AccessPointDescriptions = List[AccessPointDescription]
+AccessPointDescriptions = list[AccessPointDescription]
 
 
 class BackupPolicy(TypedDict, total=False):
@@ -601,39 +601,39 @@ class BackupPolicy(TypedDict, total=False):
 
 
 class BackupPolicyDescription(TypedDict, total=False):
-    BackupPolicy: Optional[BackupPolicy]
+    BackupPolicy: BackupPolicy | None
 
 
 class CreateAccessPointRequest(ServiceRequest):
     ClientToken: ClientToken
-    Tags: Optional[Tags]
+    Tags: Tags | None
     FileSystemId: FileSystemId
-    PosixUser: Optional[PosixUser]
-    RootDirectory: Optional[RootDirectory]
+    PosixUser: PosixUser | None
+    RootDirectory: RootDirectory | None
 
 
 class CreateFileSystemRequest(ServiceRequest):
     CreationToken: CreationToken
-    PerformanceMode: Optional[PerformanceMode]
-    Encrypted: Optional[Encrypted]
-    KmsKeyId: Optional[KmsKeyId]
-    ThroughputMode: Optional[ThroughputMode]
-    ProvisionedThroughputInMibps: Optional[ProvisionedThroughputInMibps]
-    AvailabilityZoneName: Optional[AvailabilityZoneName]
-    Backup: Optional[Backup]
-    Tags: Optional[Tags]
+    PerformanceMode: PerformanceMode | None
+    Encrypted: Encrypted | None
+    KmsKeyId: KmsKeyId | None
+    ThroughputMode: ThroughputMode | None
+    ProvisionedThroughputInMibps: ProvisionedThroughputInMibps | None
+    AvailabilityZoneName: AvailabilityZoneName | None
+    Backup: Backup | None
+    Tags: Tags | None
 
 
-SecurityGroups = List[SecurityGroup]
+SecurityGroups = list[SecurityGroup]
 
 
 class CreateMountTargetRequest(ServiceRequest):
     FileSystemId: FileSystemId
     SubnetId: SubnetId
-    IpAddress: Optional[IpAddress]
-    Ipv6Address: Optional[Ipv6Address]
-    IpAddressType: Optional[IpAddressType]
-    SecurityGroups: Optional[SecurityGroups]
+    IpAddress: IpAddress | None
+    Ipv6Address: Ipv6Address | None
+    IpAddressType: IpAddressType | None
+    SecurityGroups: SecurityGroups | None
 
 
 class DestinationToCreate(TypedDict, total=False):
@@ -672,14 +672,14 @@ class DestinationToCreate(TypedDict, total=False):
        in the *Amazon EFS User Guide*.
     """
 
-    Region: Optional[RegionName]
-    AvailabilityZoneName: Optional[AvailabilityZoneName]
-    KmsKeyId: Optional[KmsKeyId]
-    FileSystemId: Optional[FileSystemId]
-    RoleArn: Optional[RoleArn]
+    Region: RegionName | None
+    AvailabilityZoneName: AvailabilityZoneName | None
+    KmsKeyId: KmsKeyId | None
+    FileSystemId: FileSystemId | None
+    RoleArn: RoleArn | None
 
 
-DestinationsToCreate = List[DestinationToCreate]
+DestinationsToCreate = list[DestinationToCreate]
 
 
 class CreateReplicationConfigurationRequest(ServiceRequest):
@@ -710,10 +710,10 @@ class DeleteMountTargetRequest(ServiceRequest):
 
 class DeleteReplicationConfigurationRequest(ServiceRequest):
     SourceFileSystemId: FileSystemId
-    DeletionMode: Optional[DeletionMode]
+    DeletionMode: DeletionMode | None
 
 
-TagKeys = List[TagKey]
+TagKeys = list[TagKey]
 
 
 class DeleteTagsRequest(ServiceRequest):
@@ -722,23 +722,23 @@ class DeleteTagsRequest(ServiceRequest):
 
 
 class DescribeAccessPointsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
-    AccessPointId: Optional[AccessPointId]
-    FileSystemId: Optional[FileSystemId]
+    MaxResults: MaxResults | None
+    NextToken: Token | None
+    AccessPointId: AccessPointId | None
+    FileSystemId: FileSystemId | None
 
 
 class DescribeAccessPointsResponse(TypedDict, total=False):
-    AccessPoints: Optional[AccessPointDescriptions]
-    NextToken: Optional[Token]
+    AccessPoints: AccessPointDescriptions | None
+    NextToken: Token | None
 
 
 class DescribeAccountPreferencesRequest(ServiceRequest):
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxResults]
+    NextToken: Token | None
+    MaxResults: MaxResults | None
 
 
-Resources = List[Resource]
+Resources = list[Resource]
 
 
 class ResourceIdPreference(TypedDict, total=False):
@@ -746,13 +746,13 @@ class ResourceIdPreference(TypedDict, total=False):
     Web Services account, in the current Amazon Web Services Region.
     """
 
-    ResourceIdType: Optional[ResourceIdType]
-    Resources: Optional[Resources]
+    ResourceIdType: ResourceIdType | None
+    Resources: Resources | None
 
 
 class DescribeAccountPreferencesResponse(TypedDict, total=False):
-    ResourceIdPreference: Optional[ResourceIdPreference]
-    NextToken: Optional[Token]
+    ResourceIdPreference: ResourceIdPreference | None
+    NextToken: Token | None
 
 
 class DescribeBackupPolicyRequest(ServiceRequest):
@@ -764,16 +764,16 @@ class DescribeFileSystemPolicyRequest(ServiceRequest):
 
 
 class DescribeFileSystemsRequest(ServiceRequest):
-    MaxItems: Optional[MaxItems]
-    Marker: Optional[Marker]
-    CreationToken: Optional[CreationToken]
-    FileSystemId: Optional[FileSystemId]
+    MaxItems: MaxItems | None
+    Marker: Marker | None
+    CreationToken: CreationToken | None
+    FileSystemId: FileSystemId | None
 
 
 class FileSystemProtectionDescription(TypedDict, total=False):
     """Describes the protection on a file system."""
 
-    ReplicationOverwriteProtection: Optional[ReplicationOverwriteProtection]
+    ReplicationOverwriteProtection: ReplicationOverwriteProtection | None
 
 
 FileSystemNullableSizeValue = int
@@ -793,10 +793,10 @@ class FileSystemSize(TypedDict, total=False):
     """
 
     Value: FileSystemSizeValue
-    Timestamp: Optional[Timestamp]
-    ValueInIA: Optional[FileSystemNullableSizeValue]
-    ValueInStandard: Optional[FileSystemNullableSizeValue]
-    ValueInArchive: Optional[FileSystemNullableSizeValue]
+    Timestamp: Timestamp | None
+    ValueInIA: FileSystemNullableSizeValue | None
+    ValueInStandard: FileSystemNullableSizeValue | None
+    ValueInArchive: FileSystemNullableSizeValue | None
 
 
 class FileSystemDescription(TypedDict, total=False):
@@ -805,30 +805,30 @@ class FileSystemDescription(TypedDict, total=False):
     OwnerId: AwsAccountId
     CreationToken: CreationToken
     FileSystemId: FileSystemId
-    FileSystemArn: Optional[FileSystemArn]
+    FileSystemArn: FileSystemArn | None
     CreationTime: Timestamp
     LifeCycleState: LifeCycleState
-    Name: Optional[TagValue]
+    Name: TagValue | None
     NumberOfMountTargets: MountTargetCount
     SizeInBytes: FileSystemSize
     PerformanceMode: PerformanceMode
-    Encrypted: Optional[Encrypted]
-    KmsKeyId: Optional[KmsKeyId]
-    ThroughputMode: Optional[ThroughputMode]
-    ProvisionedThroughputInMibps: Optional[ProvisionedThroughputInMibps]
-    AvailabilityZoneName: Optional[AvailabilityZoneName]
-    AvailabilityZoneId: Optional[AvailabilityZoneId]
+    Encrypted: Encrypted | None
+    KmsKeyId: KmsKeyId | None
+    ThroughputMode: ThroughputMode | None
+    ProvisionedThroughputInMibps: ProvisionedThroughputInMibps | None
+    AvailabilityZoneName: AvailabilityZoneName | None
+    AvailabilityZoneId: AvailabilityZoneId | None
     Tags: Tags
-    FileSystemProtection: Optional[FileSystemProtectionDescription]
+    FileSystemProtection: FileSystemProtectionDescription | None
 
 
-FileSystemDescriptions = List[FileSystemDescription]
+FileSystemDescriptions = list[FileSystemDescription]
 
 
 class DescribeFileSystemsResponse(TypedDict, total=False):
-    Marker: Optional[Marker]
-    FileSystems: Optional[FileSystemDescriptions]
-    NextMarker: Optional[Marker]
+    Marker: Marker | None
+    FileSystems: FileSystemDescriptions | None
+    NextMarker: Marker | None
 
 
 class DescribeLifecycleConfigurationRequest(ServiceRequest):
@@ -844,42 +844,42 @@ class DescribeMountTargetSecurityGroupsResponse(TypedDict, total=False):
 
 
 class DescribeMountTargetsRequest(ServiceRequest):
-    MaxItems: Optional[MaxItems]
-    Marker: Optional[Marker]
-    FileSystemId: Optional[FileSystemId]
-    MountTargetId: Optional[MountTargetId]
-    AccessPointId: Optional[AccessPointId]
+    MaxItems: MaxItems | None
+    Marker: Marker | None
+    FileSystemId: FileSystemId | None
+    MountTargetId: MountTargetId | None
+    AccessPointId: AccessPointId | None
 
 
 class MountTargetDescription(TypedDict, total=False):
     """Provides a description of a mount target."""
 
-    OwnerId: Optional[AwsAccountId]
+    OwnerId: AwsAccountId | None
     MountTargetId: MountTargetId
     FileSystemId: FileSystemId
     SubnetId: SubnetId
     LifeCycleState: LifeCycleState
-    IpAddress: Optional[IpAddress]
-    Ipv6Address: Optional[Ipv6Address]
-    NetworkInterfaceId: Optional[NetworkInterfaceId]
-    AvailabilityZoneId: Optional[AvailabilityZoneId]
-    AvailabilityZoneName: Optional[AvailabilityZoneName]
-    VpcId: Optional[VpcId]
+    IpAddress: IpAddress | None
+    Ipv6Address: Ipv6Address | None
+    NetworkInterfaceId: NetworkInterfaceId | None
+    AvailabilityZoneId: AvailabilityZoneId | None
+    AvailabilityZoneName: AvailabilityZoneName | None
+    VpcId: VpcId | None
 
 
-MountTargetDescriptions = List[MountTargetDescription]
+MountTargetDescriptions = list[MountTargetDescription]
 
 
 class DescribeMountTargetsResponse(TypedDict, total=False):
-    Marker: Optional[Marker]
-    MountTargets: Optional[MountTargetDescriptions]
-    NextMarker: Optional[Marker]
+    Marker: Marker | None
+    MountTargets: MountTargetDescriptions | None
+    NextMarker: Marker | None
 
 
 class DescribeReplicationConfigurationsRequest(ServiceRequest):
-    FileSystemId: Optional[FileSystemId]
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxResults]
+    FileSystemId: FileSystemId | None
+    NextToken: Token | None
+    MaxResults: MaxResults | None
 
 
 class Destination(TypedDict, total=False):
@@ -888,13 +888,13 @@ class Destination(TypedDict, total=False):
     Status: ReplicationStatus
     FileSystemId: FileSystemId
     Region: RegionName
-    LastReplicatedTimestamp: Optional[Timestamp]
-    OwnerId: Optional[AwsAccountId]
-    StatusMessage: Optional[StatusMessage]
-    RoleArn: Optional[RoleArn]
+    LastReplicatedTimestamp: Timestamp | None
+    OwnerId: AwsAccountId | None
+    StatusMessage: StatusMessage | None
+    RoleArn: RoleArn | None
 
 
-Destinations = List[Destination]
+Destinations = list[Destination]
 
 
 class ReplicationConfigurationDescription(TypedDict, total=False):
@@ -906,32 +906,32 @@ class ReplicationConfigurationDescription(TypedDict, total=False):
     OriginalSourceFileSystemArn: FileSystemArn
     CreationTime: Timestamp
     Destinations: Destinations
-    SourceFileSystemOwnerId: Optional[AwsAccountId]
+    SourceFileSystemOwnerId: AwsAccountId | None
 
 
-ReplicationConfigurationDescriptions = List[ReplicationConfigurationDescription]
+ReplicationConfigurationDescriptions = list[ReplicationConfigurationDescription]
 
 
 class DescribeReplicationConfigurationsResponse(TypedDict, total=False):
-    Replications: Optional[ReplicationConfigurationDescriptions]
-    NextToken: Optional[Token]
+    Replications: ReplicationConfigurationDescriptions | None
+    NextToken: Token | None
 
 
 class DescribeTagsRequest(ServiceRequest):
-    MaxItems: Optional[MaxItems]
-    Marker: Optional[Marker]
+    MaxItems: MaxItems | None
+    Marker: Marker | None
     FileSystemId: FileSystemId
 
 
 class DescribeTagsResponse(TypedDict, total=False):
-    Marker: Optional[Marker]
+    Marker: Marker | None
     Tags: Tags
-    NextMarker: Optional[Marker]
+    NextMarker: Marker | None
 
 
 class FileSystemPolicyDescription(TypedDict, total=False):
-    FileSystemId: Optional[FileSystemId]
-    Policy: Optional[Policy]
+    FileSystemId: FileSystemId | None
+    Policy: Policy | None
 
 
 class LifecyclePolicy(TypedDict, total=False):
@@ -949,32 +949,32 @@ class LifecyclePolicy(TypedDict, total=False):
     PutLifecycleConfiguration.
     """
 
-    TransitionToIA: Optional[TransitionToIARules]
-    TransitionToPrimaryStorageClass: Optional[TransitionToPrimaryStorageClassRules]
-    TransitionToArchive: Optional[TransitionToArchiveRules]
+    TransitionToIA: TransitionToIARules | None
+    TransitionToPrimaryStorageClass: TransitionToPrimaryStorageClassRules | None
+    TransitionToArchive: TransitionToArchiveRules | None
 
 
-LifecyclePolicies = List[LifecyclePolicy]
+LifecyclePolicies = list[LifecyclePolicy]
 
 
 class LifecycleConfigurationDescription(TypedDict, total=False):
-    LifecyclePolicies: Optional[LifecyclePolicies]
+    LifecyclePolicies: LifecyclePolicies | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
     ResourceId: ResourceId
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
+    MaxResults: MaxResults | None
+    NextToken: Token | None
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[Tags]
-    NextToken: Optional[Token]
+    Tags: Tags | None
+    NextToken: Token | None
 
 
 class ModifyMountTargetSecurityGroupsRequest(ServiceRequest):
     MountTargetId: MountTargetId
-    SecurityGroups: Optional[SecurityGroups]
+    SecurityGroups: SecurityGroups | None
 
 
 class PutAccountPreferencesRequest(ServiceRequest):
@@ -982,7 +982,7 @@ class PutAccountPreferencesRequest(ServiceRequest):
 
 
 class PutAccountPreferencesResponse(TypedDict, total=False):
-    ResourceIdPreference: Optional[ResourceIdPreference]
+    ResourceIdPreference: ResourceIdPreference | None
 
 
 class PutBackupPolicyRequest(ServiceRequest):
@@ -993,7 +993,7 @@ class PutBackupPolicyRequest(ServiceRequest):
 class PutFileSystemPolicyRequest(ServiceRequest):
     FileSystemId: FileSystemId
     Policy: Policy
-    BypassPolicyLockoutSafetyCheck: Optional[BypassPolicyLockoutSafetyCheck]
+    BypassPolicyLockoutSafetyCheck: BypassPolicyLockoutSafetyCheck | None
 
 
 class PutLifecycleConfigurationRequest(ServiceRequest):
@@ -1013,18 +1013,18 @@ class UntagResourceRequest(ServiceRequest):
 
 class UpdateFileSystemProtectionRequest(ServiceRequest):
     FileSystemId: FileSystemId
-    ReplicationOverwriteProtection: Optional[ReplicationOverwriteProtection]
+    ReplicationOverwriteProtection: ReplicationOverwriteProtection | None
 
 
 class UpdateFileSystemRequest(ServiceRequest):
     FileSystemId: FileSystemId
-    ThroughputMode: Optional[ThroughputMode]
-    ProvisionedThroughputInMibps: Optional[ProvisionedThroughputInMibps]
+    ThroughputMode: ThroughputMode | None
+    ProvisionedThroughputInMibps: ProvisionedThroughputInMibps | None
 
 
 class EfsApi:
-    service = "efs"
-    version = "2015-02-01"
+    service: str = "efs"
+    version: str = "2015-02-01"
 
     @handler("CreateAccessPoint")
     def create_access_point(

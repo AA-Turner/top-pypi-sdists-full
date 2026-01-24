@@ -25,7 +25,6 @@ extern "C" {
 
 
 #define OPENSSL_NO_ASYNC
-#define OPENSSL_NO_BF
 #define OPENSSL_NO_BLAKE2
 #define OPENSSL_NO_BUF_FREELISTS
 #define OPENSSL_NO_CAMELLIA
@@ -75,6 +74,7 @@ extern "C" {
 #define OPENSSL_NO_STATIC_ENGINE
 #define OPENSSL_NO_STORE
 #define OPENSSL_NO_TS
+#define OPENSSL_NO_UI_CONSOLE
 #define OPENSSL_NO_WHIRLPOOL
 
 

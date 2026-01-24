@@ -31,12 +31,14 @@ import optax
 from orbax.checkpoint import args as args_lib
 from orbax.checkpoint import test_utils
 from orbax.checkpoint import utils
+from orbax.checkpoint._src.checkpoint_managers import preservation_policy as preservation_policy_lib
 from orbax.checkpoint._src.checkpoint_managers import save_decision_policy as save_decision_policy_lib
 from orbax.checkpoint._src.handlers import pytree_checkpoint_handler
 from orbax.checkpoint._src.multihost import multihost
 from orbax.checkpoint._src.multihost import multislice
 from orbax.checkpoint.experimental.emergency import checkpoint_manager
 from orbax.checkpoint.experimental.emergency import mesh_consistency
+from orbax.checkpoint.experimental.emergency import path as emergency_path_utils
 from orbax.checkpoint.experimental.emergency import process_metadata_checkpoint_handler
 from orbax.checkpoint.experimental.emergency.test_utils import dataset_iterator_checkpoint_handler
 
@@ -596,8 +598,8 @@ class LocalCheckpointManagerTestBase:
       per_process_steps = {
           pid: steps for pid, steps in enumerate(process_steps)
       }
-      result = checkpoint_manager._common_values_per_slice(  # pylint: disable=protected-access
-          per_process_steps, self.global_mesh, replica_axis_index=0
+      result = emergency_path_utils._common_values_per_replica(  # pylint: disable=protected-access
+          per_process_steps, global_mesh=self.global_mesh, replica_axis_index=0
       )
       self.assertSameElements(result, expectation)
 
@@ -751,7 +753,7 @@ class CheckpointManagerTestBase:
         local_host_inputs = [local_host_inputs]
         expectation = [expectation]
       self.assertEqual(
-          checkpoint_manager._global_max(local_host_inputs),
+          multihost.global_max(local_host_inputs),
           expectation,
       )
 
@@ -845,9 +847,7 @@ class CheckpointManagerTestBase:
         manager.save(i, args=get_composite_save_args(pytree))
         manager.wait_until_finished()
 
-      logging.info('all_steps: %s', manager.all_steps(True))
       manager.reload()
-      logging.info('all_steps: %s', manager.all_steps(True))
       self.assertEqual(sorted(manager.all_steps(True)), expectation)
       manager.restore(8)
       manager.restore(9)
@@ -1592,6 +1592,50 @@ class CheckpointManagerTestBase:
                   persistent_save_interval
               ),
               max_to_keep=max_to_keep,
+          ),
+      )
+      manager = CheckpointManager(
+          local_directory=self.local_directory,
+          persistent_directory=self.persistent_directory,
+          global_mesh=global_mesh,
+          abstract_state=abstract_state,
+          options=options,
+      )
+
+      for i in range(total_steps):
+        manager.save(
+            i,
+            args=get_composite_save_args(pytree),
+        )
+        manager.wait_until_finished()
+
+      self.assertSameElements(
+          manager.all_steps(), local_expectation | persistent_expectation
+      )
+
+    def test_preservation_policy(self):
+      """Test case."""
+      total_steps = 10
+      local_keep_n = 2
+      persistent_keep_interval = 4
+      local_expectation = set(range(total_steps - local_keep_n, total_steps))
+      persistent_expectation = set(
+          range(0, total_steps, persistent_keep_interval)
+      )
+      global_mesh, pytree = self.setup_pytree(self.make_global_mesh())
+      abstract_state = jax.tree.map(utils.to_shape_dtype_struct, pytree)
+      options = CheckpointManagerOptions(
+          local=LocalCheckpointOptions(
+              save_interval_steps=1,
+              preservation_policy=preservation_policy_lib.LatestN(
+                  local_keep_n
+              ),
+          ),
+          persistent=PersistentCheckpointOptions(
+              save_interval_steps=1,
+              preservation_policy=preservation_policy_lib.EveryNSteps(
+                  persistent_keep_interval
+              ),
           ),
       )
       manager = CheckpointManager(

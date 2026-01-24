@@ -14,14 +14,13 @@ __all__ = ["NewFloatingPackageWithAllocationPrice", "PackageWithAllocationConfig
 
 
 class PackageWithAllocationConfig(TypedDict, total=False):
+    """Configuration for package_with_allocation pricing"""
+
     allocation: Required[str]
-    """Usage allocation"""
 
     package_amount: Required[str]
-    """Price per package"""
 
     package_size: Required[str]
-    """Package size"""
 
 
 ConversionRateConfig: TypeAlias = Union[UnitConversionRateConfig, TieredConversionRateConfig]

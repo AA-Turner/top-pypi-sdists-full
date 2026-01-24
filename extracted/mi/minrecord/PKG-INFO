@@ -1,62 +1,59 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: minrecord
-Version: 0.1.0
+Version: 0.3.0
+Dynamic: Maintainer
+Dynamic: Maintainer-email
 Summary: Minimalist library to record values in a ML workflow
-Home-page: https://github.com/durandtibo/minrecord
-License: BSD-3-Clause
-Keywords: record,machine learning
-Author: Thibaut Durand
-Author-email: durand.tibo+gh@gmail.com
-Requires-Python: >=3.9,<3.14
-Classifier: Development Status :: 3 - Alpha
+Project-URL: homepage, https://github.com/durandtibo/minrecord
+Project-URL: repository, https://github.com/durandtibo/minrecord
+Project-URL: documentation, https://durandtibo.github.io/minrecord/
+Author-email: Thibaut Durand <durand.tibo+gh@gmail.com>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+Keywords: machine learning,record
+Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.10
+Requires-Dist: coola<2.0,>=1.0
 Provides-Extra: all
-Requires-Dist: coola (>=0.8.4,<1.0)
-Requires-Dist: objectory (>=0.2,<1.0) ; extra == "all"
-Project-URL: Repository, https://github.com/durandtibo/minrecord
+Requires-Dist: objectory<1.0,>=0.3.0; extra == 'all'
+Provides-Extra: objectory
+Requires-Dist: objectory<1.0,>=0.3.0; extra == 'objectory'
 Description-Content-Type: text/markdown
 
 # minrecord
 
 <p align="center">
-    <a href="https://github.com/durandtibo/minrecord/actions">
-        <img alt="CI" src="https://github.com/durandtibo/minrecord/workflows/CI/badge.svg">
+    <a href="https://github.com/durandtibo/minrecord/actions/workflows/ci.yaml">
+        <img alt="CI" src="https://github.com/durandtibo/minrecord/actions/workflows/ci.yaml/badge.svg">
     </a>
-    <a href="https://github.com/durandtibo/minrecord/actions">
-        <img alt="Nightly Tests" src="https://github.com/durandtibo/minrecord/workflows/Nightly%20Tests/badge.svg">
+    <a href="https://github.com/durandtibo/minrecord/actions/workflows/nightly-tests.yaml">
+        <img alt="Nightly Tests" src="https://github.com/durandtibo/minrecord/actions/workflows/nightly-tests.yaml/badge.svg">
     </a>
-    <a href="https://github.com/durandtibo/minrecord/actions">
-        <img alt="Nightly Package Tests" src="https://github.com/durandtibo/minrecord/workflows/Nightly%20Package%20Tests/badge.svg">
+    <a href="https://github.com/durandtibo/minrecord/actions/workflows/nightly-package.yaml">
+        <img alt="Nightly Package Tests" src="https://github.com/durandtibo/minrecord/actions/workflows/nightly-package.yaml/badge.svg">
     </a>
-    <br/>
-    <a href="https://durandtibo.github.io/minrecord/">
-        <img alt="Documentation" src="https://github.com/durandtibo/minrecord/workflows/Documentation%20(stable)/badge.svg">
-    </a>
-    <a href="https://durandtibo.github.io/minrecord/">
-        <img alt="Documentation" src="https://github.com/durandtibo/minrecord/workflows/Documentation%20(unstable)/badge.svg">
-    </a>
-    <br/>
     <a href="https://codecov.io/gh/durandtibo/minrecord">
         <img alt="Codecov" src="https://codecov.io/gh/durandtibo/minrecord/branch/main/graph/badge.svg">
     </a>
-    <a href="https://codeclimate.com/github/durandtibo/minrecord/maintainability">
-        <img src="https://api.codeclimate.com/v1/badges/d6e3047eedfd2e1e0d86/maintainability" />
+    <br/>
+    <a href="https://durandtibo.github.io/minrecord/">
+        <img alt="Documentation" src="https://github.com/durandtibo/minrecord/actions/workflows/docs.yaml/badge.svg">
     </a>
-    <a href="https://codeclimate.com/github/durandtibo/minrecord/test_coverage">
-        <img src="https://api.codeclimate.com/v1/badges/d6e3047eedfd2e1e0d86/test_coverage" />
+    <a href="https://durandtibo.github.io/minrecord/dev/">
+        <img alt="Documentation" src="https://github.com/durandtibo/minrecord/actions/workflows/docs-dev.yaml/badge.svg">
     </a>
     <br/>
     <a href="https://github.com/psf/black">
@@ -98,6 +95,17 @@ In particular, it provides functionalities to track the best value, or the most 
 storing a limiting number of values.
 It is possible to customize the library e.g. it is possible to define a new logic to track the best
 value.
+
+### Key Features
+
+- **📊 Track Best Values**: Automatically track the best value seen during training
+- **🔄 Recent History**: Store only recent values to minimize memory usage
+- **✅ Improvement Detection**: Easily check if your model is still improving
+- **🎯 Flexible Comparators**: Define custom logic to determine what "better" means
+- **🗂️ Record Manager**: Organize and manage multiple metrics efficiently
+- **💾 Serialization**: Save and load record states for checkpointing
+- **🚀 Minimal Dependencies**: Lightweight with only essential dependencies
+
 Below is an example to show how to track the best scalar value when the best value is the maximum
 value and when the best value is the minimum value.
 
@@ -150,7 +158,9 @@ The following is the corresponding `minrecord` versions and tested dependencies.
 
 | `minrecord` | `coola`        | `objectory`              | `python`      |
 |-------------|----------------|--------------------------|---------------|
-| `main`      | `>=0.8.4,<1.0` | `>=0.2,<1.0`<sup>*</sup> | `>=3.9,<3.14` |
+| `main`      | `>=1.0,<2.0`   | `>=0.3,<1.0`<sup>*</sup> | `>=3.10`      |
+| `0.3.0`     | `>=1.0,<2.0`   | `>=0.3,<1.0`<sup>*</sup> | `>=3.10`      |
+| `0.2.0`     | `>=0.10,<1.0`  | `>=0.3,<1.0`<sup>*</sup> | `>=3.10`      |
 | `0.1.0`     | `>=0.8.4,<1.0` | `>=0.2,<1.0`<sup>*</sup> | `>=3.9,<3.14` |
 | `0.0.2`     | `>=0.7.2,<1.0` | `>=0.1,<1.0`<sup>*</sup> | `>=3.9,<3.13` |
 | `0.0.1`     | `>=0.7,<1.0`   | `>=0.1,<1.0`             | `>=3.9,<3.13` |
@@ -182,4 +192,3 @@ was using the old version of `minrecord`.
 `minrecord` is licensed under BSD 3-Clause "New" or "Revised" license available
 in [LICENSE](LICENSE)
 file.
-

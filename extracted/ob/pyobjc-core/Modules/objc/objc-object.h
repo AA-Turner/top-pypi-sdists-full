@@ -12,10 +12,15 @@ NS_ASSUME_NONNULL_BEGIN
 #define PyObjCObject_kBLOCK 0x40
 #define PyObjCObject_kNEW_WRAPPER 0x80
 
+#define PyObjCObject_kALL_FLAGS                                                          \
+    (PyObjCObject_kDEFAULT | PyObjCObject_kDEALLOC_HELPER                                \
+     | PyObjCObject_kSHOULD_NOT_RELEASE | PyObjCObject_kMAGIC_COOKIE                     \
+     | PyObjCObject_kCFOBJECT | PyObjCObject_kBLOCK | PyObjCObject_kNEW_WRAPPER)
+
 typedef struct {
     PyObject_HEAD
 
-    __strong     id objc_object;
+    __strong id  objc_object;
     unsigned int flags;
 } PyObjCObject;
 
@@ -29,7 +34,7 @@ extern PyObjCClassObject PyObjCObject_Type;
 
 extern PyObject* _Nullable PyObjCObject_New(id objc_object, int flags, int retain);
 extern PyObject* _Nullable PyObjCObject_FindSelector(PyObject* cls, SEL selector);
-extern id PyObjCObject_GetObject(PyObject* object);
+extern id           PyObjCObject_GetObject(PyObject* object);
 extern unsigned int PyObjCObject_GetFlags(PyObject* object);
 
 extern void _PyObjCObject_FreeDeallocHelper(PyObject* obj);
@@ -37,15 +42,12 @@ extern PyObject* _Nullable _PyObjCObject_NewDeallocHelper(id objc_object);
 extern bool PyObjCObject_IsBlock(PyObject* object);
 extern bool PyObjCObject_IsMagic(PyObject* object);
 extern PyObjCMethodSignature* _Nullable PyObjCObject_GetBlockSignature(PyObject* object);
-extern PyObjCMethodSignature* _Nullable  PyObjCObject_SetBlockSignature(PyObject* object, PyObjCMethodSignature* methinfo);
+extern PyObjCMethodSignature*
+PyObjCObject_SetBlockSignature(PyObject* object, PyObjCMethodSignature* methinfo);
 
-/*
- * XXX: these defines should be in the .m file
- */
 #define PyObjCObject_FLAGS(object) (((PyObjCObject*)(object))->flags)
 #define PyObjCObject_OBJECT(object) (((PyObjCObject*)(object))->objc_object)
 
-extern PyObject* _Nullable PyObjCObject_GetAttr(PyObject* object, PyObject* key);
 extern PyObject* _Nullable PyObjCObject_GetAttrString(PyObject* object, char* key);
 extern PyObject* _Nullable PyObjCObject_NewTransient(id objc_object, int* cookie);
 extern void PyObjCObject_ReleaseTransient(PyObject* proxy, int cookie);

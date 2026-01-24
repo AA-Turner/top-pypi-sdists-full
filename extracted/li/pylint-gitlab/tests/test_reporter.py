@@ -67,6 +67,7 @@ def test_gitlab_code_climate_reporter(reporter_name):
     linter.set_current_module("0123")
     linter.add_message("line-too-long", line=1, args=(1, 2))
     linter.add_message("line-too-long", line=2, args=(1, 2))
+    linter.add_message("line-too-long", line=3, col_offset=5, args=(1, 2))
 
     # we call this method because we didn't actually run the checkers
     reporter.display_messages(None)
@@ -79,9 +80,12 @@ def test_gitlab_code_climate_reporter(reporter_name):
         "severity": "minor",
         "location": {
             "path": "0123",
-            "lines": {
-                "begin": 1,
-            }
+            "positions": {
+                "begin": {
+                    "line": 1,
+                    "column": 1,
+                },
+            },
         },
         "fingerprint": "9703ca1a3553b7910f69f11f69170187c19b7ea47a3e2c4b086a97f5ab5f098d"
     },
@@ -93,11 +97,31 @@ def test_gitlab_code_climate_reporter(reporter_name):
         "severity": "minor",
         "location": {
             "path": "0123",
-            "lines": {
-                "begin": 2,
-            }
+            "positions": {
+                "begin": {
+                    "line": 2,
+                    "column": 1,
+                },
+            },
         },
         "fingerprint": "94f082bd47cc09000b6902b071b25413e86488a5389f04f579ab92983a74896b"
+    },
+    {
+        "type": "issue",
+        "check_name": "C0301",
+        "description": "C0301: Line too long (1/2)",
+        "categories": ["Style"],
+        "severity": "minor",
+        "location": {
+            "path": "0123",
+            "positions": {
+                "begin": {
+                    "line": 3,
+                    "column": 6,
+                },
+            },
+        },
+        "fingerprint": "9913c9494cd7df30dda7e2c54c7329de0364168f040313b9c09fea3c747a2f90"
     }]
     report_result = json.loads(output.getvalue())
     assert report_result == expected_result
@@ -137,9 +161,12 @@ def test_gitlab_code_climate_reporter_no_hash(reporter_name):
         "severity": "minor",
         "location": {
             "path": "0123",
-            "lines": {
-                "begin": 1,
-            }
+            "positions": {
+                "begin": {
+                    "line": 1,
+                    "column": 1,
+                },
+            },
         },
         "fingerprint": "0123:1:C0301"
     }]

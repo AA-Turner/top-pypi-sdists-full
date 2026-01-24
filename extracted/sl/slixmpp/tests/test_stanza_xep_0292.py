@@ -17,6 +17,7 @@ REF = """
         <nickname>
             <text>some nick</text>
         </nickname>
+        <pronouns><text>he/they</text></pronouns>
         <bday>
             <date>1984-05-21</date>
         </bday>
@@ -52,6 +53,7 @@ class TestVcard(SlixTest):
         iq = Iq()
         x = iq["vcard"]
 
+        x["pronouns"]["text"] = "he/they"
         x["fn"]["text"] = "Full Name"
         x["nickname"]["text"] = "some nick"
         x["n"]["given"] = "Full"
@@ -73,6 +75,7 @@ class TestVcard(SlixTest):
         iq = Iq()
         x: stanza.VCard4 = iq["vcard"]
 
+        x["pronouns"]["text"] = "he/they"
         x["full_name"] = "Full Name"
         x["given"] = "Full"
         x["surname"] = "Name"

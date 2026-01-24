@@ -14,16 +14,16 @@ from pydantic import Field
 from githubkit.compat import GitHubModel, model_rebuild
 
 
-class WebhooksRepositoriesItems(GitHubModel):
-    """WebhooksRepositoriesItems"""
+class CodespacesUserPublicKey(GitHubModel):
+    """CodespacesUserPublicKey
 
-    full_name: str = Field()
-    id: int = Field(description="Unique identifier of the repository")
-    name: str = Field(description="The name of the repository.")
-    node_id: str = Field()
-    private: bool = Field(description="Whether the repository is private or public.")
+    The public key used for setting user Codespaces' Secrets.
+    """
+
+    key_id: str = Field(description="The identifier for the key.")
+    key: str = Field(description="The Base64 encoded public key.")
 
 
-model_rebuild(WebhooksRepositoriesItems)
+model_rebuild(CodespacesUserPublicKey)
 
-__all__ = ("WebhooksRepositoriesItems",)
+__all__ = ("CodespacesUserPublicKey",)

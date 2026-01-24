@@ -826,10 +826,11 @@ pub fn new_s3_storage(
     prefix: Option<String>,
     credentials: Option<S3Credentials>,
 ) -> StorageResult<Arc<dyn Storage>> {
-    if let Some(endpoint) = &config.endpoint_url {
-        if endpoint.contains("fly.storage.tigris.dev") {
-            return Err(StorageError::from(StorageErrorKind::Other("Tigris Storage is not S3 compatible, use the Tigris specific constructor instead".to_string())));
-        }
+    if let Some(endpoint) = &config.endpoint_url
+        && (endpoint.contains("fly.storage.tigris.dev")
+            || endpoint.contains("t3.storage.dev"))
+    {
+        return Err(StorageError::from(StorageErrorKind::Other("Tigris Storage is not S3 compatible, use the Tigris specific constructor instead".to_string())));
     }
 
     let st = S3Storage::new(
@@ -902,26 +903,30 @@ pub fn new_tigris_storage(
 ) -> StorageResult<Arc<dyn Storage>> {
     let config = S3Options {
         endpoint_url: Some(
-            config.endpoint_url.unwrap_or("https://fly.storage.tigris.dev".to_string()),
+            config.endpoint_url.unwrap_or("https://t3.storage.dev".to_string()),
         ),
         ..config
     };
-    let mut extra_write_headers = Vec::with_capacity(1);
-    let mut extra_read_headers = Vec::with_capacity(2);
+    let mut extra_write_headers = Vec::with_capacity(2);
+    let mut extra_read_headers = Vec::with_capacity(3);
 
     if !use_weak_consistency {
         // TODO: Tigris will need more than this to offer good eventually consistent behavior
         // For example: we should use no-cache for branches and config file
         if let Some(region) = config.region.as_ref() {
-            extra_write_headers.push(("X-Tigris-Region".to_string(), region.clone()));
-            extra_read_headers.push(("X-Tigris-Region".to_string(), region.clone()));
+            extra_write_headers.push(("X-Tigris-Regions".to_string(), region.clone()));
+            extra_write_headers
+                .push(("X-Tigris-Consistent".to_string(), "true".to_string()));
+
+            extra_read_headers.push(("X-Tigris-Regions".to_string(), region.clone()));
             extra_read_headers
                 .push(("Cache-Control".to_string(), "no-cache".to_string()));
+            extra_read_headers
+                .push(("X-Tigris-Consistent".to_string(), "true".to_string()));
         } else {
             return Err(StorageErrorKind::Other("Tigris storage requires a region to provide full consistency. Either set the region for the bucket or use the read-only, eventually consistent storage by passing `use_weak_consistency=True` (experts only)".to_string()).into());
         }
     }
-
     let st = S3Storage::new(
         config,
         bucket,
@@ -952,10 +957,11 @@ pub async fn new_s3_object_store_storage(
     prefix: Option<String>,
     credentials: Option<S3Credentials>,
 ) -> StorageResult<Arc<dyn Storage>> {
-    if let Some(endpoint) = &config.endpoint_url {
-        if endpoint.contains("fly.storage.tigris.dev") {
-            return Err(StorageError::from(StorageErrorKind::Other("Tigris Storage is not S3 compatible, use the Tigris specific constructor instead".to_string())));
-        }
+    if let Some(endpoint) = &config.endpoint_url
+        && (endpoint.contains("fly.storage.tigris.dev")
+            || endpoint.contains("t3.storage.dev"))
+    {
+        return Err(StorageError::from(StorageErrorKind::Other("Tigris Storage is not S3 compatible, use the Tigris specific constructor instead".to_string())));
     }
     let storage =
         ObjectStorage::new_s3(bucket, prefix, credentials, Some(config)).await?;
@@ -1068,7 +1074,7 @@ mod tests {
             // the request sizes add up to total size
             prop_assert_eq!(res.iter().map(|range| range.end - range.start).sum::<u64>(), size);
 
-            let sizes: Vec<_> = res.iter().map(|range| (range.end - range.start)).collect();
+            let sizes: Vec<_> = res.iter().map(|range| range.end - range.start).collect();
             if sizes.len() > 1 {
                 // all but last request have the same size
                 assert_eq!(sizes.iter().rev().skip(1).unique().count(), 1);
@@ -1108,7 +1114,7 @@ mod tests {
             prop_assert_eq!(res.iter().map(|range| range.end - range.start).sum::<u64>(), size);
 
             // there are only two request sizes
-            let sizes: HashSet<_> = res.iter().map(|range| (range.end - range.start)).collect();
+            let sizes: HashSet<_> = res.iter().map(|range| range.end - range.start).collect();
             prop_assert!(sizes.len() <= 2); // only last element is smaller
             if sizes.len() > 1 {
                 // the smaller request size is one less than the big ones

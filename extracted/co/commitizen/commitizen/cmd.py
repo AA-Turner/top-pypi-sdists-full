@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import os
 import subprocess
-from collections.abc import Mapping
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 from charset_normalizer import from_bytes
 
 from commitizen.exceptions import CharacterSetDecodeError
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 class Command(NamedTuple):
@@ -22,13 +24,15 @@ def _try_decode(bytes_: bytes) -> str:
     try:
         return bytes_.decode("utf-8")
     except UnicodeDecodeError:
-        charset_match = from_bytes(bytes_).best()
-        if charset_match is None:
-            raise CharacterSetDecodeError()
-        try:
-            return bytes_.decode(charset_match.encoding)
-        except UnicodeDecodeError as e:
-            raise CharacterSetDecodeError() from e
+        pass
+
+    charset_match = from_bytes(bytes_).best()
+    if charset_match is None:
+        raise CharacterSetDecodeError()
+    try:
+        return bytes_.decode(charset_match.encoding)
+    except UnicodeDecodeError as e:
+        raise CharacterSetDecodeError() from e
 
 
 def run(cmd: str, env: Mapping[str, str] | None = None) -> Command:

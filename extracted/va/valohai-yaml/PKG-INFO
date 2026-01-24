@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: valohai-yaml
-Version: 0.49.0
+Version: 0.53.0
 Summary: Valohai.yaml validation and parsing
 Project-URL: Homepage, https://github.com/valohai/valohai-yaml
 Author-email: Valohai <info@valohai.com>
@@ -85,4 +85,12 @@ make lint
 
 # run tests
 make test
+```
+
+## Snapshots
+
+Update [syrupy](https://github.com/tophat/syrupy) snapshots after making changes to the examples.
+
+```bash
+pytest --snapshot-update
 ```

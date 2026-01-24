@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 
 class ServiceRoleGrantTo(BaseModel):
@@ -30,17 +30,17 @@ class ServiceRoleGrantTo(BaseModel):
     Parameters
     __________
     created_on : datetime, optional
-        Date and time when the grant was created
+        Date and time when the grant was created — **Read-only:** *any user-provided value will be ignored.*
     privilege : str, optional
-        The name of the privilege
+        The name of the privilege — **Read-only:** *any user-provided value will be ignored.*
     granted_on : str, optional
-        The type of of the securable
+        The type of of the securable — **Read-only:** *any user-provided value will be ignored.*
     name : str, optional
-        The name of the securable
+        The name of the securable — **Read-only:** *any user-provided value will be ignored.*
     granted_to : str, optional
-        The type of the grantee
+        The type of the grantee — **Read-only:** *any user-provided value will be ignored.*
     grantee_name : str, optional
-        The name of the grantee
+        The name of the grantee — **Read-only:** *any user-provided value will be ignored.*
     """
 
     created_on: Optional[datetime] = None
@@ -57,9 +57,10 @@ class ServiceRoleGrantTo(BaseModel):
 
     __properties = ["created_on", "privilege", "granted_on", "name", "granted_to", "grantee_name"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -93,7 +94,7 @@ class ServiceRoleGrantTo(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -108,9 +109,9 @@ class ServiceRoleGrantTo(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ServiceRoleGrantTo.parse_obj(obj)
+            return ServiceRoleGrantTo.model_validate(obj)
 
-        _obj = ServiceRoleGrantTo.parse_obj(
+        _obj = ServiceRoleGrantTo.model_validate(
             {
                 "created_on": obj.get("created_on"),
                 "privilege": obj.get("privilege"),

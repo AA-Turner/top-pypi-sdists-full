@@ -13,6 +13,30 @@ AVAILABLE_TOOLS = {}
 AVAILABLE_TOOLKITS = {}
 FAILED_IMPORTS = {}
 
+
+def _inject_toolkit_id(tool_conf: dict, toolkit_tools) -> None:
+    """Inject `toolkit_id` into tools that expose `api_wrapper.toolkit_id`.
+
+    This reads 'id' from the tool configuration and, if it is an integer,
+    assigns it to the 'toolkit_id' attribute of the 'api_wrapper' for each
+    tool in 'toolkit_tools' that supports it.
+
+    Args:
+        tool_conf: Raw tool configuration item from 'tools_list'.
+        toolkit_tools: List of instantiated tools produced by a toolkit.
+    """
+    toolkit_id = tool_conf.get('id')
+    if isinstance(toolkit_id, int):
+        for t in toolkit_tools:
+            if hasattr(t, 'api_wrapper') and hasattr(t.api_wrapper, 'toolkit_id'):
+                t.api_wrapper.toolkit_id = toolkit_id
+    else:
+        logger.error(
+            f"Toolkit ID is missing or not an integer for tool "
+            f"`{tool_conf.get('type', '')}` with name `{tool_conf.get('name', '')}`"
+        )
+
+
 def _safe_import_tool(tool_name, module_path, get_tools_name=None, toolkit_class_name=None):
     """Safely import a tool module and register available functions/classes."""
     try:
@@ -21,6 +45,12 @@ def _safe_import_tool(tool_name, module_path, get_tools_name=None, toolkit_class
         imported = {}
         if get_tools_name and hasattr(module, get_tools_name):
             imported['get_tools'] = getattr(module, get_tools_name)
+        
+        if hasattr(module, 'get_toolkit'):
+            imported['get_toolkit'] = getattr(module, 'get_toolkit')
+
+        if hasattr(module, 'get_toolkit_available_tools'):
+            imported['get_toolkit_available_tools'] = getattr(module, 'get_toolkit_available_tools')
 
         if toolkit_class_name and hasattr(module, toolkit_class_name):
             imported['toolkit_class'] = getattr(module, toolkit_class_name)
@@ -34,9 +64,10 @@ def _safe_import_tool(tool_name, module_path, get_tools_name=None, toolkit_class
         FAILED_IMPORTS[tool_name] = str(e)
         logger.debug(f"Failed to import {tool_name}: {e}")
 
+
 # Safe imports for all tools
 _safe_import_tool('github', 'github', 'get_tools', 'AlitaGitHubToolkit')
-_safe_import_tool('openapi', 'openapi', 'get_tools')
+_safe_import_tool('openapi', 'openapi', 'get_tools', 'AlitaOpenAPIToolkit')
 _safe_import_tool('jira', 'jira', 'get_tools', 'JiraToolkit')
 _safe_import_tool('confluence', 'confluence', 'get_tools', 'ConfluenceToolkit')
 _safe_import_tool('service_now', 'servicenow', 'get_tools', 'ServiceNowToolkit')
@@ -71,7 +102,7 @@ _safe_import_tool('k8s', 'cloud.k8s', None, 'KubernetesToolkit')
 _safe_import_tool('elastic', 'elastic', None, 'ElasticToolkit')
 _safe_import_tool('keycloak', 'keycloak', None, 'KeycloakToolkit')
 _safe_import_tool('localgit', 'localgit', None, 'AlitaLocalGitToolkit')
-_safe_import_tool('pandas', 'pandas', 'get_tools', 'PandasToolkit')
+# pandas toolkit removed - use Data Analysis internal tool instead
 _safe_import_tool('azure_search', 'azure_ai.search', 'get_tools', 'AzureSearchToolkit')
 _safe_import_tool('figma', 'figma', 'get_tools', 'FigmaToolkit')
 _safe_import_tool('salesforce', 'salesforce', 'get_tools', 'SalesforceToolkit')
@@ -90,62 +121,91 @@ available_count = len(AVAILABLE_TOOLS)
 total_attempted = len(AVAILABLE_TOOLS) + len(FAILED_IMPORTS)
 logger.info(f"Tool imports completed: {available_count}/{total_attempted} successful")
 
+# Import community module to trigger community toolkit registration
+try:
+    from alita_sdk import community  # noqa: F401
+    logger.debug("Community toolkits registered successfully")
+except ImportError as e:
+    logger.debug(f"Community module not available: {e}")
+
+
 def get_tools(tools_list, alita, llm, store: Optional[BaseStore] = None, *args, **kwargs):
     tools = []
+
     for tool in tools_list:
-        # validate tool name syntax - it cannot be started with _
-        for tool_name in tool.get('settings', {}).get('selected_tools', []):
-            if isinstance(tool_name, str) and tool_name.startswith('_'):
-                raise ValueError(f"Tool name '{tool_name}' from toolkit '{tool.get('type', '')}' cannot start with '_'")
+        toolkit_tools = []
+        settings = tool.get('settings')
 
-        tool['settings']['alita'] = alita
-        tool['settings']['llm'] = llm
-        tool['settings']['store'] = store
+        # Skip tools without settings early
+        if not settings:
+            logger.warning(f"Tool '{tool.get('type', '')}' has no settings, skipping...")
+            continue
+
+        # Validate tool names once
+        selected_tools = settings.get('selected_tools', [])
+        invalid_tools = [name for name in selected_tools if isinstance(name, str) and name.startswith('_')]
+        if invalid_tools:
+            raise ValueError(f"Tool names {invalid_tools} from toolkit '{tool.get('type', '')}' cannot start with '_'")
+
+        # Cache tool type and add common settings
         tool_type = tool['type']
+        settings['alita'] = alita
+        settings['llm'] = llm
+        settings['store'] = store
 
-        # Handle special cases for ADO tools
+        # Set pgvector collection schema if present
+        if settings.get('pgvector_configuration'):
+            # Use tool id if available, otherwise use toolkit_name or type as fallback
+            collection_id = tool.get('id') or tool.get('toolkit_name') or tool_type
+            settings['pgvector_configuration']['collection_schema'] = str(collection_id)
+
+        # Handle ADO special cases
         if tool_type in ['ado_boards', 'ado_wiki', 'ado_plans']:
-            tools.extend(AVAILABLE_TOOLS['ado']['get_tools'](tool_type, tool))
-
-        # Check if tool is available and has get_tools function
+            toolkit_tools.extend(AVAILABLE_TOOLS['ado']['get_tools'](tool_type, tool))
+        elif tool_type in ['ado_repos', 'azure_devops_repos'] and 'ado_repos' in AVAILABLE_TOOLS:
+            try:
+                toolkit_tools.extend(AVAILABLE_TOOLS['ado_repos']['get_tools'](tool))
+            except Exception as e:
+                logger.error(f"Error getting ADO repos tools: {e}")
+        elif tool_type == 'mcp':
+            logger.debug(f"Skipping MCP toolkit '{tool.get('toolkit_name')}' - handled by runtime toolkit system")
+        elif tool_type == 'planning':
+            logger.debug(f"Skipping planning toolkit '{tool.get('toolkit_name')}' - handled by runtime toolkit system")
         elif tool_type in AVAILABLE_TOOLS and 'get_tools' in AVAILABLE_TOOLS[tool_type]:
             try:
-                get_tools_func = AVAILABLE_TOOLS[tool_type]['get_tools']
-                tools.extend(get_tools_func(tool))
-
+                loaded_tools = AVAILABLE_TOOLS[tool_type]['get_tools'](tool)
+                toolkit_tools.extend(loaded_tools)
+                # Detailed logging for debugging tool loading
+                tool_names = [t.name for t in loaded_tools if hasattr(t, 'name')]
+                logger.info(f"[TOOLS_LOAD] Loaded {len(loaded_tools)} tools for {tool_type}: {tool_names}")
+                # Check for indexer tools specifically
+                indexer_tools = [n for n in tool_names if 'index' in n.lower() or 'search_index' in n.lower()]
+                if indexer_tools:
+                    logger.warning(f"[TOOLS_LOAD] Indexer tools present in {tool_type}: {indexer_tools}")
             except Exception as e:
                 logger.error(f"Error getting tools for {tool_type}: {e}")
                 raise ToolException(f"Error getting tools for {tool_type}: {e}")
-
-        # Handle ADO repos special case (it might be requested as azure_devops_repos)
-        elif tool_type in ['ado_repos', 'azure_devops_repos'] and 'ado_repos' in AVAILABLE_TOOLS:
+        elif settings.get("module"):
             try:
-                get_tools_func = AVAILABLE_TOOLS['ado_repos']['get_tools']
-                tools.extend(get_tools_func(tool))
-            except Exception as e:
-                logger.error(f"Error getting ADO repos tools: {e}")
-
-        # Handle custom modules
-        elif tool.get("settings", {}).get("module"):
-            try:
-                settings = tool.get("settings", {})
                 mod = import_module(settings.pop("module"))
                 tkitclass = getattr(mod, settings.pop("class"))
-                #
-                get_toolkit_params = tool["settings"].copy()
+                get_toolkit_params = settings.copy()
                 get_toolkit_params["name"] = tool.get("name")
-                #
                 toolkit = tkitclass.get_toolkit(**get_toolkit_params)
-                tools.extend(toolkit.get_tools())
+                toolkit_tools.extend(toolkit.get_tools())
             except Exception as e:
+                import traceback
                 logger.error(f"Error in getting custom toolkit: {e}")
-
+                logger.error(f"Traceback:\n{traceback.format_exc()}")
         else:
-            # Tool not available or not found
             if tool_type in FAILED_IMPORTS:
                 logger.warning(f"Tool '{tool_type}' is not available: {FAILED_IMPORTS[tool_type]}")
             else:
                 logger.warning(f"Unknown tool type: {tool_type}")
+        #
+        # Always inject toolkit_id to each tool 
+        _inject_toolkit_id(tool, toolkit_tools)
+        tools.extend(toolkit_tools)
 
     return tools
 
@@ -165,6 +225,18 @@ def get_toolkits():
     logger.info(f"Successfully loaded {len(toolkit_configs)} toolkit configurations")
     return toolkit_configs
 
+def instantiate_toolkit(tool_config):
+    """Instantiate a toolkit from its configuration."""
+    tool_type = tool_config.get('type')
+    
+    if tool_type in AVAILABLE_TOOLS:
+        tool_module = AVAILABLE_TOOLS[tool_type]
+        
+        if 'get_toolkit' in tool_module:
+             return tool_module['get_toolkit'](tool_config)
+             
+    raise ValueError(f"Toolkit type '{tool_type}' does not support direct instantiation or is not available.")
+
 def get_available_tools():
     """Return list of available tool types."""
     return list(AVAILABLE_TOOLS.keys())
@@ -180,6 +252,42 @@ def get_available_toolkits():
 def get_available_toolkit_models():
     """Return dict with available toolkit classes."""
     return deepcopy(AVAILABLE_TOOLS)
+
+
+def get_toolkit_available_tools(toolkit_type: str, settings: dict) -> dict:
+    """Return dynamic available tools + per-tool JSON schemas for a toolkit instance.
+
+    This is the single SDK entrypoint used by backend services (e.g. indexer_worker)
+    when the UI needs spec/instance-dependent tool enumeration. Toolkits that don't
+    support dynamic enumeration should return an empty payload.
+
+    Args:
+        toolkit_type: toolkit type string (e.g. 'openapi')
+        settings: persisted toolkit settings
+
+    Returns:
+        {
+          "tools": [{"name": str, "description": str}],
+          "args_schemas": {"tool_name": <json schema dict>}
+        }
+    """
+    toolkit_type = (toolkit_type or '').strip().lower()
+    if not isinstance(settings, dict):
+        settings = {}
+
+    tool_module = AVAILABLE_TOOLS.get(toolkit_type) or {}
+    enumerator = tool_module.get('get_toolkit_available_tools')
+    if not callable(enumerator):
+        return {"tools": [], "args_schemas": {}}
+
+    try:
+        result = enumerator(settings)
+        if not isinstance(result, dict):
+            return {"tools": [], "args_schemas": {}, "error": "Invalid response from toolkit enumerator"}
+        return result
+    except Exception as e:  # pylint: disable=W0718
+        logger.exception("Failed to compute available tools for toolkit_type=%s", toolkit_type)
+        return {"tools": [], "args_schemas": {}, "error": str(e)}
 
 def diagnose_imports():
     """Print diagnostic information about tool imports."""
@@ -217,6 +325,7 @@ def diagnose_imports():
 __all__ = [
     'get_tools',
     'get_toolkits',
+    'get_toolkit_available_tools',
     'get_available_tools',
     'get_failed_imports',
     'get_available_toolkits',

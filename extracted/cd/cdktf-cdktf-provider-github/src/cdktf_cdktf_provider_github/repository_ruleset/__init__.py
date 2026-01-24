@@ -1,7 +1,7 @@
 r'''
 # `github_repository_ruleset`
 
-Refer to the Terraform Registry for docs: [`github_repository_ruleset`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset).
+Refer to the Terraform Registry for docs: [`github_repository_ruleset`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RepositoryRuleset(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.repositoryRuleset.RepositoryRuleset",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset github_repository_ruleset}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset github_repository_ruleset}.'''
 
     def __init__(
         self,
@@ -53,12 +53,12 @@ class RepositoryRuleset(
         *,
         enforcement: builtins.str,
         name: builtins.str,
+        repository: builtins.str,
         rules: typing.Union["RepositoryRulesetRules", typing.Dict[builtins.str, typing.Any]],
         target: builtins.str,
         bypass_actors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RepositoryRulesetBypassActors", typing.Dict[builtins.str, typing.Any]]]]] = None,
         conditions: typing.Optional[typing.Union["RepositoryRulesetConditions", typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
-        repository: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -67,18 +67,18 @@ class RepositoryRuleset(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset github_repository_ruleset} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset github_repository_ruleset} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param enforcement: Possible values for Enforcement are ``disabled``, ``active``, ``evaluate``. Note: ``evaluate`` is currently only supported for owners of type ``organization``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#enforcement RepositoryRuleset#enforcement}
-        :param name: The name of the ruleset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#rules RepositoryRuleset#rules}
-        :param target: Possible values are ``branch`` and ``tag``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#target RepositoryRuleset#target}
-        :param bypass_actors: bypass_actors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#bypass_actors RepositoryRuleset#bypass_actors}
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#conditions RepositoryRuleset#conditions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#id RepositoryRuleset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param repository: Name of the repository to apply rulset to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#repository RepositoryRuleset#repository}
+        :param enforcement: Possible values for Enforcement are ``disabled``, ``active``, ``evaluate``. Note: ``evaluate`` is currently only supported for owners of type ``organization``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#enforcement RepositoryRuleset#enforcement}
+        :param name: The name of the ruleset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        :param repository: Name of the repository to apply ruleset to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#repository RepositoryRuleset#repository}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#rules RepositoryRuleset#rules}
+        :param target: Possible values are ``branch``, ``push`` and ``tag``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#target RepositoryRuleset#target}
+        :param bypass_actors: bypass_actors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#bypass_actors RepositoryRuleset#bypass_actors}
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#conditions RepositoryRuleset#conditions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#id RepositoryRuleset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -94,12 +94,12 @@ class RepositoryRuleset(
         config = RepositoryRulesetConfig(
             enforcement=enforcement,
             name=name,
+            repository=repository,
             rules=rules,
             target=target,
             bypass_actors=bypass_actors,
             conditions=conditions,
             id=id,
-            repository=repository,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -124,7 +124,7 @@ class RepositoryRuleset(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RepositoryRuleset to import.
-        :param import_from_id: The id of the existing RepositoryRuleset that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RepositoryRuleset that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RepositoryRuleset to import is found.
         '''
         if __debug__:
@@ -155,7 +155,7 @@ class RepositoryRuleset(
         ref_name: typing.Union["RepositoryRulesetConditionsRefName", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param ref_name: ref_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#ref_name RepositoryRuleset#ref_name}
+        :param ref_name: ref_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#ref_name RepositoryRuleset#ref_name}
         '''
         value = RepositoryRulesetConditions(ref_name=ref_name)
 
@@ -171,6 +171,10 @@ class RepositoryRuleset(
         committer_email_pattern: typing.Optional[typing.Union["RepositoryRulesetRulesCommitterEmailPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         creation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        file_extension_restriction: typing.Optional[typing.Union["RepositoryRulesetRulesFileExtensionRestriction", typing.Dict[builtins.str, typing.Any]]] = None,
+        file_path_restriction: typing.Optional[typing.Union["RepositoryRulesetRulesFilePathRestriction", typing.Dict[builtins.str, typing.Any]]] = None,
+        max_file_path_length: typing.Optional[typing.Union["RepositoryRulesetRulesMaxFilePathLength", typing.Dict[builtins.str, typing.Any]]] = None,
+        max_file_size: typing.Optional[typing.Union["RepositoryRulesetRulesMaxFileSize", typing.Dict[builtins.str, typing.Any]]] = None,
         merge_queue: typing.Optional[typing.Union["RepositoryRulesetRulesMergeQueue", typing.Dict[builtins.str, typing.Any]]] = None,
         non_fast_forward: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         pull_request: typing.Optional[typing.Union["RepositoryRulesetRulesPullRequest", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -184,23 +188,27 @@ class RepositoryRuleset(
         update_allows_fetch_and_merge: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param branch_name_pattern: branch_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#branch_name_pattern RepositoryRuleset#branch_name_pattern}
-        :param commit_author_email_pattern: commit_author_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#commit_author_email_pattern RepositoryRuleset#commit_author_email_pattern}
-        :param commit_message_pattern: commit_message_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#commit_message_pattern RepositoryRuleset#commit_message_pattern}
-        :param committer_email_pattern: committer_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#committer_email_pattern RepositoryRuleset#committer_email_pattern}
-        :param creation: Only allow users with bypass permission to create matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#creation RepositoryRuleset#creation}
-        :param deletion: Only allow users with bypass permissions to delete matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#deletion RepositoryRuleset#deletion}
-        :param merge_queue: merge_queue block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#merge_queue RepositoryRuleset#merge_queue}
-        :param non_fast_forward: Prevent users with push access from force pushing to branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#non_fast_forward RepositoryRuleset#non_fast_forward}
-        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pull_request RepositoryRuleset#pull_request}
-        :param required_code_scanning: required_code_scanning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_code_scanning RepositoryRuleset#required_code_scanning}
-        :param required_deployments: required_deployments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_deployments RepositoryRuleset#required_deployments}
-        :param required_linear_history: Prevent merge commits from being pushed to matching branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_linear_history RepositoryRuleset#required_linear_history}
-        :param required_signatures: Commits pushed to matching branches must have verified signatures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_signatures RepositoryRuleset#required_signatures}
-        :param required_status_checks: required_status_checks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_status_checks RepositoryRuleset#required_status_checks}
-        :param tag_name_pattern: tag_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#tag_name_pattern RepositoryRuleset#tag_name_pattern}
-        :param update: Only allow users with bypass permission to update matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#update RepositoryRuleset#update}
-        :param update_allows_fetch_and_merge: Branch can pull changes from its upstream repository. This is only applicable to forked repositories. Requires ``update`` to be set to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#update_allows_fetch_and_merge RepositoryRuleset#update_allows_fetch_and_merge}
+        :param branch_name_pattern: branch_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#branch_name_pattern RepositoryRuleset#branch_name_pattern}
+        :param commit_author_email_pattern: commit_author_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#commit_author_email_pattern RepositoryRuleset#commit_author_email_pattern}
+        :param commit_message_pattern: commit_message_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#commit_message_pattern RepositoryRuleset#commit_message_pattern}
+        :param committer_email_pattern: committer_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#committer_email_pattern RepositoryRuleset#committer_email_pattern}
+        :param creation: Only allow users with bypass permission to create matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#creation RepositoryRuleset#creation}
+        :param deletion: Only allow users with bypass permissions to delete matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#deletion RepositoryRuleset#deletion}
+        :param file_extension_restriction: file_extension_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#file_extension_restriction RepositoryRuleset#file_extension_restriction}
+        :param file_path_restriction: file_path_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#file_path_restriction RepositoryRuleset#file_path_restriction}
+        :param max_file_path_length: max_file_path_length block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_file_path_length RepositoryRuleset#max_file_path_length}
+        :param max_file_size: max_file_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_file_size RepositoryRuleset#max_file_size}
+        :param merge_queue: merge_queue block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#merge_queue RepositoryRuleset#merge_queue}
+        :param non_fast_forward: Prevent users with push access from force pushing to branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#non_fast_forward RepositoryRuleset#non_fast_forward}
+        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pull_request RepositoryRuleset#pull_request}
+        :param required_code_scanning: required_code_scanning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_code_scanning RepositoryRuleset#required_code_scanning}
+        :param required_deployments: required_deployments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_deployments RepositoryRuleset#required_deployments}
+        :param required_linear_history: Prevent merge commits from being pushed to matching branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_linear_history RepositoryRuleset#required_linear_history}
+        :param required_signatures: Commits pushed to matching branches must have verified signatures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_signatures RepositoryRuleset#required_signatures}
+        :param required_status_checks: required_status_checks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_status_checks RepositoryRuleset#required_status_checks}
+        :param tag_name_pattern: tag_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#tag_name_pattern RepositoryRuleset#tag_name_pattern}
+        :param update: Only allow users with bypass permission to update matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#update RepositoryRuleset#update}
+        :param update_allows_fetch_and_merge: Branch can pull changes from its upstream repository. This is only applicable to forked repositories. Requires ``update`` to be set to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#update_allows_fetch_and_merge RepositoryRuleset#update_allows_fetch_and_merge}
         '''
         value = RepositoryRulesetRules(
             branch_name_pattern=branch_name_pattern,
@@ -209,6 +217,10 @@ class RepositoryRuleset(
             committer_email_pattern=committer_email_pattern,
             creation=creation,
             deletion=deletion,
+            file_extension_restriction=file_extension_restriction,
+            file_path_restriction=file_path_restriction,
+            max_file_path_length=max_file_path_length,
+            max_file_size=max_file_size,
             merge_queue=merge_queue,
             non_fast_forward=non_fast_forward,
             pull_request=pull_request,
@@ -235,10 +247,6 @@ class RepositoryRuleset(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
-
-    @jsii.member(jsii_name="resetRepository")
-    def reset_repository(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetRepository", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -390,52 +398,41 @@ class RepositoryRuleset(
     jsii_type="@cdktf/provider-github.repositoryRuleset.RepositoryRulesetBypassActors",
     jsii_struct_bases=[],
     name_mapping={
-        "actor_id": "actorId",
         "actor_type": "actorType",
         "bypass_mode": "bypassMode",
+        "actor_id": "actorId",
     },
 )
 class RepositoryRulesetBypassActors:
     def __init__(
         self,
         *,
-        actor_id: jsii.Number,
         actor_type: builtins.str,
         bypass_mode: builtins.str,
+        actor_id: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param actor_id: The ID of the actor that can bypass a ruleset. When ``actor_type`` is ``OrganizationAdmin``, this should be set to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#actor_id RepositoryRuleset#actor_id}
-        :param actor_type: The type of actor that can bypass a ruleset. Can be one of: ``RepositoryRole``, ``Team``, ``Integration``, ``OrganizationAdmin``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#actor_type RepositoryRuleset#actor_type}
-        :param bypass_mode: When the specified actor can bypass the ruleset. pull_request means that an actor can only bypass rules on pull requests. Can be one of: ``always``, ``pull_request``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#bypass_mode RepositoryRuleset#bypass_mode}
+        :param actor_type: The type of actor that can bypass a ruleset. See https://docs.github.com/en/rest/repos/rules for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#actor_type RepositoryRuleset#actor_type}
+        :param bypass_mode: When the specified actor can bypass the ruleset. pull_request means that an actor can only bypass rules on pull requests. Can be one of: ``always``, ``pull_request``, ``exempt``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#bypass_mode RepositoryRuleset#bypass_mode}
+        :param actor_id: The ID of the actor that can bypass a ruleset. When ``actor_type`` is ``OrganizationAdmin``, this should be set to ``1``. Some resources such as DeployKey do not have an ID and this should be omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#actor_id RepositoryRuleset#actor_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b113f8eb65ef947d85bbb9023fc2306f7cd3f8bc22ebdc38135400f20ead774)
-            check_type(argname="argument actor_id", value=actor_id, expected_type=type_hints["actor_id"])
             check_type(argname="argument actor_type", value=actor_type, expected_type=type_hints["actor_type"])
             check_type(argname="argument bypass_mode", value=bypass_mode, expected_type=type_hints["bypass_mode"])
+            check_type(argname="argument actor_id", value=actor_id, expected_type=type_hints["actor_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "actor_id": actor_id,
             "actor_type": actor_type,
             "bypass_mode": bypass_mode,
         }
-
-    @builtins.property
-    def actor_id(self) -> jsii.Number:
-        '''The ID of the actor that can bypass a ruleset.
-
-        When ``actor_type`` is ``OrganizationAdmin``, this should be set to ``1``.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#actor_id RepositoryRuleset#actor_id}
-        '''
-        result = self._values.get("actor_id")
-        assert result is not None, "Required property 'actor_id' is missing"
-        return typing.cast(jsii.Number, result)
+        if actor_id is not None:
+            self._values["actor_id"] = actor_id
 
     @builtins.property
     def actor_type(self) -> builtins.str:
-        '''The type of actor that can bypass a ruleset. Can be one of: ``RepositoryRole``, ``Team``, ``Integration``, ``OrganizationAdmin``.
+        '''The type of actor that can bypass a ruleset. See https://docs.github.com/en/rest/repos/rules for more information.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#actor_type RepositoryRuleset#actor_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#actor_type RepositoryRuleset#actor_type}
         '''
         result = self._values.get("actor_type")
         assert result is not None, "Required property 'actor_type' is missing"
@@ -445,13 +442,24 @@ class RepositoryRulesetBypassActors:
     def bypass_mode(self) -> builtins.str:
         '''When the specified actor can bypass the ruleset.
 
-        pull_request means that an actor can only bypass rules on pull requests. Can be one of: ``always``, ``pull_request``.
+        pull_request means that an actor can only bypass rules on pull requests. Can be one of: ``always``, ``pull_request``, ``exempt``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#bypass_mode RepositoryRuleset#bypass_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#bypass_mode RepositoryRuleset#bypass_mode}
         '''
         result = self._values.get("bypass_mode")
         assert result is not None, "Required property 'bypass_mode' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def actor_id(self) -> typing.Optional[jsii.Number]:
+        '''The ID of the actor that can bypass a ruleset.
+
+        When ``actor_type`` is ``OrganizationAdmin``, this should be set to ``1``. Some resources such as DeployKey do not have an ID and this should be omitted.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#actor_id RepositoryRuleset#actor_id}
+        '''
+        result = self._values.get("actor_id")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -581,6 +589,10 @@ class RepositoryRulesetBypassActorsOutputReference(
             check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
+    @jsii.member(jsii_name="resetActorId")
+    def reset_actor_id(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetActorId", []))
+
     @builtins.property
     @jsii.member(jsii_name="actorIdInput")
     def actor_id_input(self) -> typing.Optional[jsii.Number]:
@@ -662,7 +674,7 @@ class RepositoryRulesetConditions:
         ref_name: typing.Union["RepositoryRulesetConditionsRefName", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param ref_name: ref_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#ref_name RepositoryRuleset#ref_name}
+        :param ref_name: ref_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#ref_name RepositoryRuleset#ref_name}
         '''
         if isinstance(ref_name, dict):
             ref_name = RepositoryRulesetConditionsRefName(**ref_name)
@@ -677,7 +689,7 @@ class RepositoryRulesetConditions:
     def ref_name(self) -> "RepositoryRulesetConditionsRefName":
         '''ref_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#ref_name RepositoryRuleset#ref_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#ref_name RepositoryRuleset#ref_name}
         '''
         result = self._values.get("ref_name")
         assert result is not None, "Required property 'ref_name' is missing"
@@ -723,8 +735,8 @@ class RepositoryRulesetConditionsOutputReference(
         include: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param exclude: Array of ref names or patterns to exclude. The condition will not pass if any of these patterns match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#exclude RepositoryRuleset#exclude}
-        :param include: Array of ref names or patterns to include. One of these patterns must match for the condition to pass. Also accepts ``~DEFAULT_BRANCH`` to include the default branch or ``~ALL`` to include all branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#include RepositoryRuleset#include}
+        :param exclude: Array of ref names or patterns to exclude. The condition will not pass if any of these patterns match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#exclude RepositoryRuleset#exclude}
+        :param include: Array of ref names or patterns to include. One of these patterns must match for the condition to pass. Also accepts ``~DEFAULT_BRANCH`` to include the default branch or ``~ALL`` to include all branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#include RepositoryRuleset#include}
         '''
         value = RepositoryRulesetConditionsRefName(exclude=exclude, include=include)
 
@@ -769,8 +781,8 @@ class RepositoryRulesetConditionsRefName:
         include: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param exclude: Array of ref names or patterns to exclude. The condition will not pass if any of these patterns match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#exclude RepositoryRuleset#exclude}
-        :param include: Array of ref names or patterns to include. One of these patterns must match for the condition to pass. Also accepts ``~DEFAULT_BRANCH`` to include the default branch or ``~ALL`` to include all branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#include RepositoryRuleset#include}
+        :param exclude: Array of ref names or patterns to exclude. The condition will not pass if any of these patterns match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#exclude RepositoryRuleset#exclude}
+        :param include: Array of ref names or patterns to include. One of these patterns must match for the condition to pass. Also accepts ``~DEFAULT_BRANCH`` to include the default branch or ``~ALL`` to include all branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#include RepositoryRuleset#include}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98c4c98adc74312f53208d238205844b70cd80142c1e2b4b2b95d1329cf654c9)
@@ -785,7 +797,7 @@ class RepositoryRulesetConditionsRefName:
     def exclude(self) -> typing.List[builtins.str]:
         '''Array of ref names or patterns to exclude. The condition will not pass if any of these patterns match.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#exclude RepositoryRuleset#exclude}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#exclude RepositoryRuleset#exclude}
         '''
         result = self._values.get("exclude")
         assert result is not None, "Required property 'exclude' is missing"
@@ -797,7 +809,7 @@ class RepositoryRulesetConditionsRefName:
 
         One of these patterns must match for the condition to pass. Also accepts ``~DEFAULT_BRANCH`` to include the default branch or ``~ALL`` to include all branches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#include RepositoryRuleset#include}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#include RepositoryRuleset#include}
         '''
         result = self._values.get("include")
         assert result is not None, "Required property 'include' is missing"
@@ -898,12 +910,12 @@ class RepositoryRulesetConditionsRefNameOutputReference(
         "provisioners": "provisioners",
         "enforcement": "enforcement",
         "name": "name",
+        "repository": "repository",
         "rules": "rules",
         "target": "target",
         "bypass_actors": "bypassActors",
         "conditions": "conditions",
         "id": "id",
-        "repository": "repository",
     },
 )
 class RepositoryRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -919,12 +931,12 @@ class RepositoryRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         enforcement: builtins.str,
         name: builtins.str,
+        repository: builtins.str,
         rules: typing.Union["RepositoryRulesetRules", typing.Dict[builtins.str, typing.Any]],
         target: builtins.str,
         bypass_actors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[RepositoryRulesetBypassActors, typing.Dict[builtins.str, typing.Any]]]]] = None,
         conditions: typing.Optional[typing.Union[RepositoryRulesetConditions, typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
-        repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -934,14 +946,14 @@ class RepositoryRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param enforcement: Possible values for Enforcement are ``disabled``, ``active``, ``evaluate``. Note: ``evaluate`` is currently only supported for owners of type ``organization``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#enforcement RepositoryRuleset#enforcement}
-        :param name: The name of the ruleset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#rules RepositoryRuleset#rules}
-        :param target: Possible values are ``branch`` and ``tag``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#target RepositoryRuleset#target}
-        :param bypass_actors: bypass_actors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#bypass_actors RepositoryRuleset#bypass_actors}
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#conditions RepositoryRuleset#conditions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#id RepositoryRuleset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param repository: Name of the repository to apply rulset to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#repository RepositoryRuleset#repository}
+        :param enforcement: Possible values for Enforcement are ``disabled``, ``active``, ``evaluate``. Note: ``evaluate`` is currently only supported for owners of type ``organization``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#enforcement RepositoryRuleset#enforcement}
+        :param name: The name of the ruleset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        :param repository: Name of the repository to apply ruleset to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#repository RepositoryRuleset#repository}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#rules RepositoryRuleset#rules}
+        :param target: Possible values are ``branch``, ``push`` and ``tag``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#target RepositoryRuleset#target}
+        :param bypass_actors: bypass_actors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#bypass_actors RepositoryRuleset#bypass_actors}
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#conditions RepositoryRuleset#conditions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#id RepositoryRuleset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -960,15 +972,16 @@ class RepositoryRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument enforcement", value=enforcement, expected_type=type_hints["enforcement"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
             check_type(argname="argument bypass_actors", value=bypass_actors, expected_type=type_hints["bypass_actors"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "enforcement": enforcement,
             "name": name,
+            "repository": repository,
             "rules": rules,
             "target": target,
         }
@@ -992,8 +1005,6 @@ class RepositoryRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["conditions"] = conditions
         if id is not None:
             self._values["id"] = id
-        if repository is not None:
-            self._values["repository"] = repository
 
     @builtins.property
     def connection(
@@ -1063,7 +1074,7 @@ class RepositoryRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enforcement(self) -> builtins.str:
         '''Possible values for Enforcement are ``disabled``, ``active``, ``evaluate``. Note: ``evaluate`` is currently only supported for owners of type ``organization``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#enforcement RepositoryRuleset#enforcement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#enforcement RepositoryRuleset#enforcement}
         '''
         result = self._values.get("enforcement")
         assert result is not None, "Required property 'enforcement' is missing"
@@ -1073,17 +1084,27 @@ class RepositoryRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the ruleset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def repository(self) -> builtins.str:
+        '''Name of the repository to apply ruleset to.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#repository RepositoryRuleset#repository}
+        '''
+        result = self._values.get("repository")
+        assert result is not None, "Required property 'repository' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
     def rules(self) -> "RepositoryRulesetRules":
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#rules RepositoryRuleset#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#rules RepositoryRuleset#rules}
         '''
         result = self._values.get("rules")
         assert result is not None, "Required property 'rules' is missing"
@@ -1091,9 +1112,9 @@ class RepositoryRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def target(self) -> builtins.str:
-        '''Possible values are ``branch`` and ``tag``.
+        '''Possible values are ``branch``, ``push`` and ``tag``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#target RepositoryRuleset#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#target RepositoryRuleset#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -1105,7 +1126,7 @@ class RepositoryRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[RepositoryRulesetBypassActors]]]:
         '''bypass_actors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#bypass_actors RepositoryRuleset#bypass_actors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#bypass_actors RepositoryRuleset#bypass_actors}
         '''
         result = self._values.get("bypass_actors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[RepositoryRulesetBypassActors]]], result)
@@ -1114,28 +1135,19 @@ class RepositoryRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def conditions(self) -> typing.Optional[RepositoryRulesetConditions]:
         '''conditions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#conditions RepositoryRuleset#conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#conditions RepositoryRuleset#conditions}
         '''
         result = self._values.get("conditions")
         return typing.cast(typing.Optional[RepositoryRulesetConditions], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#id RepositoryRuleset#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#id RepositoryRuleset#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         result = self._values.get("id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def repository(self) -> typing.Optional[builtins.str]:
-        '''Name of the repository to apply rulset to.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#repository RepositoryRuleset#repository}
-        '''
-        result = self._values.get("repository")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1160,6 +1172,10 @@ class RepositoryRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         "committer_email_pattern": "committerEmailPattern",
         "creation": "creation",
         "deletion": "deletion",
+        "file_extension_restriction": "fileExtensionRestriction",
+        "file_path_restriction": "filePathRestriction",
+        "max_file_path_length": "maxFilePathLength",
+        "max_file_size": "maxFileSize",
         "merge_queue": "mergeQueue",
         "non_fast_forward": "nonFastForward",
         "pull_request": "pullRequest",
@@ -1183,6 +1199,10 @@ class RepositoryRulesetRules:
         committer_email_pattern: typing.Optional[typing.Union["RepositoryRulesetRulesCommitterEmailPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         creation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        file_extension_restriction: typing.Optional[typing.Union["RepositoryRulesetRulesFileExtensionRestriction", typing.Dict[builtins.str, typing.Any]]] = None,
+        file_path_restriction: typing.Optional[typing.Union["RepositoryRulesetRulesFilePathRestriction", typing.Dict[builtins.str, typing.Any]]] = None,
+        max_file_path_length: typing.Optional[typing.Union["RepositoryRulesetRulesMaxFilePathLength", typing.Dict[builtins.str, typing.Any]]] = None,
+        max_file_size: typing.Optional[typing.Union["RepositoryRulesetRulesMaxFileSize", typing.Dict[builtins.str, typing.Any]]] = None,
         merge_queue: typing.Optional[typing.Union["RepositoryRulesetRulesMergeQueue", typing.Dict[builtins.str, typing.Any]]] = None,
         non_fast_forward: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         pull_request: typing.Optional[typing.Union["RepositoryRulesetRulesPullRequest", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1196,23 +1216,27 @@ class RepositoryRulesetRules:
         update_allows_fetch_and_merge: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param branch_name_pattern: branch_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#branch_name_pattern RepositoryRuleset#branch_name_pattern}
-        :param commit_author_email_pattern: commit_author_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#commit_author_email_pattern RepositoryRuleset#commit_author_email_pattern}
-        :param commit_message_pattern: commit_message_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#commit_message_pattern RepositoryRuleset#commit_message_pattern}
-        :param committer_email_pattern: committer_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#committer_email_pattern RepositoryRuleset#committer_email_pattern}
-        :param creation: Only allow users with bypass permission to create matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#creation RepositoryRuleset#creation}
-        :param deletion: Only allow users with bypass permissions to delete matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#deletion RepositoryRuleset#deletion}
-        :param merge_queue: merge_queue block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#merge_queue RepositoryRuleset#merge_queue}
-        :param non_fast_forward: Prevent users with push access from force pushing to branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#non_fast_forward RepositoryRuleset#non_fast_forward}
-        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pull_request RepositoryRuleset#pull_request}
-        :param required_code_scanning: required_code_scanning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_code_scanning RepositoryRuleset#required_code_scanning}
-        :param required_deployments: required_deployments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_deployments RepositoryRuleset#required_deployments}
-        :param required_linear_history: Prevent merge commits from being pushed to matching branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_linear_history RepositoryRuleset#required_linear_history}
-        :param required_signatures: Commits pushed to matching branches must have verified signatures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_signatures RepositoryRuleset#required_signatures}
-        :param required_status_checks: required_status_checks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_status_checks RepositoryRuleset#required_status_checks}
-        :param tag_name_pattern: tag_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#tag_name_pattern RepositoryRuleset#tag_name_pattern}
-        :param update: Only allow users with bypass permission to update matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#update RepositoryRuleset#update}
-        :param update_allows_fetch_and_merge: Branch can pull changes from its upstream repository. This is only applicable to forked repositories. Requires ``update`` to be set to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#update_allows_fetch_and_merge RepositoryRuleset#update_allows_fetch_and_merge}
+        :param branch_name_pattern: branch_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#branch_name_pattern RepositoryRuleset#branch_name_pattern}
+        :param commit_author_email_pattern: commit_author_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#commit_author_email_pattern RepositoryRuleset#commit_author_email_pattern}
+        :param commit_message_pattern: commit_message_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#commit_message_pattern RepositoryRuleset#commit_message_pattern}
+        :param committer_email_pattern: committer_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#committer_email_pattern RepositoryRuleset#committer_email_pattern}
+        :param creation: Only allow users with bypass permission to create matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#creation RepositoryRuleset#creation}
+        :param deletion: Only allow users with bypass permissions to delete matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#deletion RepositoryRuleset#deletion}
+        :param file_extension_restriction: file_extension_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#file_extension_restriction RepositoryRuleset#file_extension_restriction}
+        :param file_path_restriction: file_path_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#file_path_restriction RepositoryRuleset#file_path_restriction}
+        :param max_file_path_length: max_file_path_length block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_file_path_length RepositoryRuleset#max_file_path_length}
+        :param max_file_size: max_file_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_file_size RepositoryRuleset#max_file_size}
+        :param merge_queue: merge_queue block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#merge_queue RepositoryRuleset#merge_queue}
+        :param non_fast_forward: Prevent users with push access from force pushing to branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#non_fast_forward RepositoryRuleset#non_fast_forward}
+        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pull_request RepositoryRuleset#pull_request}
+        :param required_code_scanning: required_code_scanning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_code_scanning RepositoryRuleset#required_code_scanning}
+        :param required_deployments: required_deployments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_deployments RepositoryRuleset#required_deployments}
+        :param required_linear_history: Prevent merge commits from being pushed to matching branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_linear_history RepositoryRuleset#required_linear_history}
+        :param required_signatures: Commits pushed to matching branches must have verified signatures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_signatures RepositoryRuleset#required_signatures}
+        :param required_status_checks: required_status_checks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_status_checks RepositoryRuleset#required_status_checks}
+        :param tag_name_pattern: tag_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#tag_name_pattern RepositoryRuleset#tag_name_pattern}
+        :param update: Only allow users with bypass permission to update matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#update RepositoryRuleset#update}
+        :param update_allows_fetch_and_merge: Branch can pull changes from its upstream repository. This is only applicable to forked repositories. Requires ``update`` to be set to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#update_allows_fetch_and_merge RepositoryRuleset#update_allows_fetch_and_merge}
         '''
         if isinstance(branch_name_pattern, dict):
             branch_name_pattern = RepositoryRulesetRulesBranchNamePattern(**branch_name_pattern)
@@ -1222,6 +1246,14 @@ class RepositoryRulesetRules:
             commit_message_pattern = RepositoryRulesetRulesCommitMessagePattern(**commit_message_pattern)
         if isinstance(committer_email_pattern, dict):
             committer_email_pattern = RepositoryRulesetRulesCommitterEmailPattern(**committer_email_pattern)
+        if isinstance(file_extension_restriction, dict):
+            file_extension_restriction = RepositoryRulesetRulesFileExtensionRestriction(**file_extension_restriction)
+        if isinstance(file_path_restriction, dict):
+            file_path_restriction = RepositoryRulesetRulesFilePathRestriction(**file_path_restriction)
+        if isinstance(max_file_path_length, dict):
+            max_file_path_length = RepositoryRulesetRulesMaxFilePathLength(**max_file_path_length)
+        if isinstance(max_file_size, dict):
+            max_file_size = RepositoryRulesetRulesMaxFileSize(**max_file_size)
         if isinstance(merge_queue, dict):
             merge_queue = RepositoryRulesetRulesMergeQueue(**merge_queue)
         if isinstance(pull_request, dict):
@@ -1242,6 +1274,10 @@ class RepositoryRulesetRules:
             check_type(argname="argument committer_email_pattern", value=committer_email_pattern, expected_type=type_hints["committer_email_pattern"])
             check_type(argname="argument creation", value=creation, expected_type=type_hints["creation"])
             check_type(argname="argument deletion", value=deletion, expected_type=type_hints["deletion"])
+            check_type(argname="argument file_extension_restriction", value=file_extension_restriction, expected_type=type_hints["file_extension_restriction"])
+            check_type(argname="argument file_path_restriction", value=file_path_restriction, expected_type=type_hints["file_path_restriction"])
+            check_type(argname="argument max_file_path_length", value=max_file_path_length, expected_type=type_hints["max_file_path_length"])
+            check_type(argname="argument max_file_size", value=max_file_size, expected_type=type_hints["max_file_size"])
             check_type(argname="argument merge_queue", value=merge_queue, expected_type=type_hints["merge_queue"])
             check_type(argname="argument non_fast_forward", value=non_fast_forward, expected_type=type_hints["non_fast_forward"])
             check_type(argname="argument pull_request", value=pull_request, expected_type=type_hints["pull_request"])
@@ -1266,6 +1302,14 @@ class RepositoryRulesetRules:
             self._values["creation"] = creation
         if deletion is not None:
             self._values["deletion"] = deletion
+        if file_extension_restriction is not None:
+            self._values["file_extension_restriction"] = file_extension_restriction
+        if file_path_restriction is not None:
+            self._values["file_path_restriction"] = file_path_restriction
+        if max_file_path_length is not None:
+            self._values["max_file_path_length"] = max_file_path_length
+        if max_file_size is not None:
+            self._values["max_file_size"] = max_file_size
         if merge_queue is not None:
             self._values["merge_queue"] = merge_queue
         if non_fast_forward is not None:
@@ -1295,7 +1339,7 @@ class RepositoryRulesetRules:
     ) -> typing.Optional["RepositoryRulesetRulesBranchNamePattern"]:
         '''branch_name_pattern block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#branch_name_pattern RepositoryRuleset#branch_name_pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#branch_name_pattern RepositoryRuleset#branch_name_pattern}
         '''
         result = self._values.get("branch_name_pattern")
         return typing.cast(typing.Optional["RepositoryRulesetRulesBranchNamePattern"], result)
@@ -1306,7 +1350,7 @@ class RepositoryRulesetRules:
     ) -> typing.Optional["RepositoryRulesetRulesCommitAuthorEmailPattern"]:
         '''commit_author_email_pattern block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#commit_author_email_pattern RepositoryRuleset#commit_author_email_pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#commit_author_email_pattern RepositoryRuleset#commit_author_email_pattern}
         '''
         result = self._values.get("commit_author_email_pattern")
         return typing.cast(typing.Optional["RepositoryRulesetRulesCommitAuthorEmailPattern"], result)
@@ -1317,7 +1361,7 @@ class RepositoryRulesetRules:
     ) -> typing.Optional["RepositoryRulesetRulesCommitMessagePattern"]:
         '''commit_message_pattern block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#commit_message_pattern RepositoryRuleset#commit_message_pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#commit_message_pattern RepositoryRuleset#commit_message_pattern}
         '''
         result = self._values.get("commit_message_pattern")
         return typing.cast(typing.Optional["RepositoryRulesetRulesCommitMessagePattern"], result)
@@ -1328,7 +1372,7 @@ class RepositoryRulesetRules:
     ) -> typing.Optional["RepositoryRulesetRulesCommitterEmailPattern"]:
         '''committer_email_pattern block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#committer_email_pattern RepositoryRuleset#committer_email_pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#committer_email_pattern RepositoryRuleset#committer_email_pattern}
         '''
         result = self._values.get("committer_email_pattern")
         return typing.cast(typing.Optional["RepositoryRulesetRulesCommitterEmailPattern"], result)
@@ -1339,7 +1383,7 @@ class RepositoryRulesetRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Only allow users with bypass permission to create matching refs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#creation RepositoryRuleset#creation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#creation RepositoryRuleset#creation}
         '''
         result = self._values.get("creation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1350,16 +1394,58 @@ class RepositoryRulesetRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Only allow users with bypass permissions to delete matching refs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#deletion RepositoryRuleset#deletion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#deletion RepositoryRuleset#deletion}
         '''
         result = self._values.get("deletion")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
+    def file_extension_restriction(
+        self,
+    ) -> typing.Optional["RepositoryRulesetRulesFileExtensionRestriction"]:
+        '''file_extension_restriction block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#file_extension_restriction RepositoryRuleset#file_extension_restriction}
+        '''
+        result = self._values.get("file_extension_restriction")
+        return typing.cast(typing.Optional["RepositoryRulesetRulesFileExtensionRestriction"], result)
+
+    @builtins.property
+    def file_path_restriction(
+        self,
+    ) -> typing.Optional["RepositoryRulesetRulesFilePathRestriction"]:
+        '''file_path_restriction block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#file_path_restriction RepositoryRuleset#file_path_restriction}
+        '''
+        result = self._values.get("file_path_restriction")
+        return typing.cast(typing.Optional["RepositoryRulesetRulesFilePathRestriction"], result)
+
+    @builtins.property
+    def max_file_path_length(
+        self,
+    ) -> typing.Optional["RepositoryRulesetRulesMaxFilePathLength"]:
+        '''max_file_path_length block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_file_path_length RepositoryRuleset#max_file_path_length}
+        '''
+        result = self._values.get("max_file_path_length")
+        return typing.cast(typing.Optional["RepositoryRulesetRulesMaxFilePathLength"], result)
+
+    @builtins.property
+    def max_file_size(self) -> typing.Optional["RepositoryRulesetRulesMaxFileSize"]:
+        '''max_file_size block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_file_size RepositoryRuleset#max_file_size}
+        '''
+        result = self._values.get("max_file_size")
+        return typing.cast(typing.Optional["RepositoryRulesetRulesMaxFileSize"], result)
+
+    @builtins.property
     def merge_queue(self) -> typing.Optional["RepositoryRulesetRulesMergeQueue"]:
         '''merge_queue block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#merge_queue RepositoryRuleset#merge_queue}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#merge_queue RepositoryRuleset#merge_queue}
         '''
         result = self._values.get("merge_queue")
         return typing.cast(typing.Optional["RepositoryRulesetRulesMergeQueue"], result)
@@ -1370,7 +1456,7 @@ class RepositoryRulesetRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Prevent users with push access from force pushing to branches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#non_fast_forward RepositoryRuleset#non_fast_forward}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#non_fast_forward RepositoryRuleset#non_fast_forward}
         '''
         result = self._values.get("non_fast_forward")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1379,7 +1465,7 @@ class RepositoryRulesetRules:
     def pull_request(self) -> typing.Optional["RepositoryRulesetRulesPullRequest"]:
         '''pull_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pull_request RepositoryRuleset#pull_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pull_request RepositoryRuleset#pull_request}
         '''
         result = self._values.get("pull_request")
         return typing.cast(typing.Optional["RepositoryRulesetRulesPullRequest"], result)
@@ -1390,7 +1476,7 @@ class RepositoryRulesetRules:
     ) -> typing.Optional["RepositoryRulesetRulesRequiredCodeScanning"]:
         '''required_code_scanning block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_code_scanning RepositoryRuleset#required_code_scanning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_code_scanning RepositoryRuleset#required_code_scanning}
         '''
         result = self._values.get("required_code_scanning")
         return typing.cast(typing.Optional["RepositoryRulesetRulesRequiredCodeScanning"], result)
@@ -1401,7 +1487,7 @@ class RepositoryRulesetRules:
     ) -> typing.Optional["RepositoryRulesetRulesRequiredDeployments"]:
         '''required_deployments block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_deployments RepositoryRuleset#required_deployments}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_deployments RepositoryRuleset#required_deployments}
         '''
         result = self._values.get("required_deployments")
         return typing.cast(typing.Optional["RepositoryRulesetRulesRequiredDeployments"], result)
@@ -1412,7 +1498,7 @@ class RepositoryRulesetRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Prevent merge commits from being pushed to matching branches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_linear_history RepositoryRuleset#required_linear_history}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_linear_history RepositoryRuleset#required_linear_history}
         '''
         result = self._values.get("required_linear_history")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1423,7 +1509,7 @@ class RepositoryRulesetRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Commits pushed to matching branches must have verified signatures.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_signatures RepositoryRuleset#required_signatures}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_signatures RepositoryRuleset#required_signatures}
         '''
         result = self._values.get("required_signatures")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1434,7 +1520,7 @@ class RepositoryRulesetRules:
     ) -> typing.Optional["RepositoryRulesetRulesRequiredStatusChecks"]:
         '''required_status_checks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_status_checks RepositoryRuleset#required_status_checks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_status_checks RepositoryRuleset#required_status_checks}
         '''
         result = self._values.get("required_status_checks")
         return typing.cast(typing.Optional["RepositoryRulesetRulesRequiredStatusChecks"], result)
@@ -1445,7 +1531,7 @@ class RepositoryRulesetRules:
     ) -> typing.Optional["RepositoryRulesetRulesTagNamePattern"]:
         '''tag_name_pattern block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#tag_name_pattern RepositoryRuleset#tag_name_pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#tag_name_pattern RepositoryRuleset#tag_name_pattern}
         '''
         result = self._values.get("tag_name_pattern")
         return typing.cast(typing.Optional["RepositoryRulesetRulesTagNamePattern"], result)
@@ -1456,7 +1542,7 @@ class RepositoryRulesetRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Only allow users with bypass permission to update matching refs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#update RepositoryRuleset#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#update RepositoryRuleset#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1469,7 +1555,7 @@ class RepositoryRulesetRules:
 
         This is only applicable to forked repositories. Requires ``update`` to be set to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#update_allows_fetch_and_merge RepositoryRuleset#update_allows_fetch_and_merge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#update_allows_fetch_and_merge RepositoryRuleset#update_allows_fetch_and_merge}
         '''
         result = self._values.get("update_allows_fetch_and_merge")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1506,10 +1592,10 @@ class RepositoryRulesetRulesBranchNamePattern:
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6feb1dff530932b5e3756f7dcfc468bffd7831f1543acc4b5e4b65b3b1aa2f2d)
@@ -1530,7 +1616,7 @@ class RepositoryRulesetRulesBranchNamePattern:
     def operator(self) -> builtins.str:
         '''The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -1540,7 +1626,7 @@ class RepositoryRulesetRulesBranchNamePattern:
     def pattern(self) -> builtins.str:
         '''The pattern to match with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -1550,7 +1636,7 @@ class RepositoryRulesetRulesBranchNamePattern:
     def name(self) -> typing.Optional[builtins.str]:
         '''How this rule will appear to users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1561,7 +1647,7 @@ class RepositoryRulesetRulesBranchNamePattern:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the rule will fail if the pattern matches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         result = self._values.get("negate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1717,10 +1803,10 @@ class RepositoryRulesetRulesCommitAuthorEmailPattern:
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b8e866ccf8a6ad42901d82b114b73b4848cf5cf2ad07fec0c7623c603e109448)
@@ -1741,7 +1827,7 @@ class RepositoryRulesetRulesCommitAuthorEmailPattern:
     def operator(self) -> builtins.str:
         '''The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -1751,7 +1837,7 @@ class RepositoryRulesetRulesCommitAuthorEmailPattern:
     def pattern(self) -> builtins.str:
         '''The pattern to match with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -1761,7 +1847,7 @@ class RepositoryRulesetRulesCommitAuthorEmailPattern:
     def name(self) -> typing.Optional[builtins.str]:
         '''How this rule will appear to users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1772,7 +1858,7 @@ class RepositoryRulesetRulesCommitAuthorEmailPattern:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the rule will fail if the pattern matches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         result = self._values.get("negate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1928,10 +2014,10 @@ class RepositoryRulesetRulesCommitMessagePattern:
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__691cde6a92b7792c9b04588c4a120b7192ada19c5e0d6572311e0a14d1f22c76)
@@ -1952,7 +2038,7 @@ class RepositoryRulesetRulesCommitMessagePattern:
     def operator(self) -> builtins.str:
         '''The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -1962,7 +2048,7 @@ class RepositoryRulesetRulesCommitMessagePattern:
     def pattern(self) -> builtins.str:
         '''The pattern to match with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -1972,7 +2058,7 @@ class RepositoryRulesetRulesCommitMessagePattern:
     def name(self) -> typing.Optional[builtins.str]:
         '''How this rule will appear to users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1983,7 +2069,7 @@ class RepositoryRulesetRulesCommitMessagePattern:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the rule will fail if the pattern matches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         result = self._values.get("negate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2139,10 +2225,10 @@ class RepositoryRulesetRulesCommitterEmailPattern:
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b7952b3be953684e5186a709819d00dd98fab5560463618879c4bf817eaa640)
@@ -2163,7 +2249,7 @@ class RepositoryRulesetRulesCommitterEmailPattern:
     def operator(self) -> builtins.str:
         '''The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -2173,7 +2259,7 @@ class RepositoryRulesetRulesCommitterEmailPattern:
     def pattern(self) -> builtins.str:
         '''The pattern to match with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -2183,7 +2269,7 @@ class RepositoryRulesetRulesCommitterEmailPattern:
     def name(self) -> typing.Optional[builtins.str]:
         '''How this rule will appear to users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2194,7 +2280,7 @@ class RepositoryRulesetRulesCommitterEmailPattern:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the rule will fail if the pattern matches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         result = self._values.get("negate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2331,6 +2417,386 @@ class RepositoryRulesetRulesCommitterEmailPatternOutputReference(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-github.repositoryRuleset.RepositoryRulesetRulesFileExtensionRestriction",
+    jsii_struct_bases=[],
+    name_mapping={"restricted_file_extensions": "restrictedFileExtensions"},
+)
+class RepositoryRulesetRulesFileExtensionRestriction:
+    def __init__(
+        self,
+        *,
+        restricted_file_extensions: typing.Sequence[builtins.str],
+    ) -> None:
+        '''
+        :param restricted_file_extensions: A list of file extensions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#restricted_file_extensions RepositoryRuleset#restricted_file_extensions}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ced871fdc21dfd717dc456d18f7e5891355bf1ff60c17e17ed22a5b42ffe08e8)
+            check_type(argname="argument restricted_file_extensions", value=restricted_file_extensions, expected_type=type_hints["restricted_file_extensions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "restricted_file_extensions": restricted_file_extensions,
+        }
+
+    @builtins.property
+    def restricted_file_extensions(self) -> typing.List[builtins.str]:
+        '''A list of file extensions.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#restricted_file_extensions RepositoryRuleset#restricted_file_extensions}
+        '''
+        result = self._values.get("restricted_file_extensions")
+        assert result is not None, "Required property 'restricted_file_extensions' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RepositoryRulesetRulesFileExtensionRestriction(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class RepositoryRulesetRulesFileExtensionRestrictionOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-github.repositoryRuleset.RepositoryRulesetRulesFileExtensionRestrictionOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a0bf5ef9492dc5cea87ffb6d8d6fc4491b7f0befc6ff0c4ac9c7a17302208919)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="restrictedFileExtensionsInput")
+    def restricted_file_extensions_input(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "restrictedFileExtensionsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="restrictedFileExtensions")
+    def restricted_file_extensions(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "restrictedFileExtensions"))
+
+    @restricted_file_extensions.setter
+    def restricted_file_extensions(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3363c98545bf1d395a439ef6cca6ac258d72a7acd5e8d3902f6a7298c49d5c06)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "restrictedFileExtensions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[RepositoryRulesetRulesFileExtensionRestriction]:
+        return typing.cast(typing.Optional[RepositoryRulesetRulesFileExtensionRestriction], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[RepositoryRulesetRulesFileExtensionRestriction],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0856b048ac6d309316bcea9dda7571dbc0d021cfc374518550de58325f638794)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-github.repositoryRuleset.RepositoryRulesetRulesFilePathRestriction",
+    jsii_struct_bases=[],
+    name_mapping={"restricted_file_paths": "restrictedFilePaths"},
+)
+class RepositoryRulesetRulesFilePathRestriction:
+    def __init__(self, *, restricted_file_paths: typing.Sequence[builtins.str]) -> None:
+        '''
+        :param restricted_file_paths: The file paths that are restricted from being pushed to the commit graph. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#restricted_file_paths RepositoryRuleset#restricted_file_paths}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c3c43d00e3b4a8cb3fe6bf2781ef6cc6f7be8a4ce23769a8b72ae62d64bfce78)
+            check_type(argname="argument restricted_file_paths", value=restricted_file_paths, expected_type=type_hints["restricted_file_paths"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "restricted_file_paths": restricted_file_paths,
+        }
+
+    @builtins.property
+    def restricted_file_paths(self) -> typing.List[builtins.str]:
+        '''The file paths that are restricted from being pushed to the commit graph.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#restricted_file_paths RepositoryRuleset#restricted_file_paths}
+        '''
+        result = self._values.get("restricted_file_paths")
+        assert result is not None, "Required property 'restricted_file_paths' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RepositoryRulesetRulesFilePathRestriction(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class RepositoryRulesetRulesFilePathRestrictionOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-github.repositoryRuleset.RepositoryRulesetRulesFilePathRestrictionOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26b675c48cf92b1df1cb0f2bd7f1c9e99c556da7c315b4af0f0b829f078e5c24)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="restrictedFilePathsInput")
+    def restricted_file_paths_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "restrictedFilePathsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="restrictedFilePaths")
+    def restricted_file_paths(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "restrictedFilePaths"))
+
+    @restricted_file_paths.setter
+    def restricted_file_paths(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__187ee60def58935a2674efb0912a331f3e0a22e318dd65b4153d2b2eff1a7f50)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "restrictedFilePaths", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[RepositoryRulesetRulesFilePathRestriction]:
+        return typing.cast(typing.Optional[RepositoryRulesetRulesFilePathRestriction], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[RepositoryRulesetRulesFilePathRestriction],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__17adef792d52775f5030123b137f99d9c1b7512cc90362a5dad6af6e44a250ec)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-github.repositoryRuleset.RepositoryRulesetRulesMaxFilePathLength",
+    jsii_struct_bases=[],
+    name_mapping={"max_file_path_length": "maxFilePathLength"},
+)
+class RepositoryRulesetRulesMaxFilePathLength:
+    def __init__(self, *, max_file_path_length: jsii.Number) -> None:
+        '''
+        :param max_file_path_length: The maximum allowed length of a file path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_file_path_length RepositoryRuleset#max_file_path_length}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6fcfd0c18ab6aceb5909d4b73978cc8ba0c1942c308e77303e2bb799a28149d9)
+            check_type(argname="argument max_file_path_length", value=max_file_path_length, expected_type=type_hints["max_file_path_length"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "max_file_path_length": max_file_path_length,
+        }
+
+    @builtins.property
+    def max_file_path_length(self) -> jsii.Number:
+        '''The maximum allowed length of a file path.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_file_path_length RepositoryRuleset#max_file_path_length}
+        '''
+        result = self._values.get("max_file_path_length")
+        assert result is not None, "Required property 'max_file_path_length' is missing"
+        return typing.cast(jsii.Number, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RepositoryRulesetRulesMaxFilePathLength(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class RepositoryRulesetRulesMaxFilePathLengthOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-github.repositoryRuleset.RepositoryRulesetRulesMaxFilePathLengthOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d75229d128a8f0aaadb3c709768f2c2777b10ce091054ee281b0c19553df989)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFilePathLengthInput")
+    def max_file_path_length_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxFilePathLengthInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFilePathLength")
+    def max_file_path_length(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "maxFilePathLength"))
+
+    @max_file_path_length.setter
+    def max_file_path_length(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3258e5df0b81991a4fbd3567c400bf8b041aa887756f683e7155e68fe07b9e60)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxFilePathLength", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[RepositoryRulesetRulesMaxFilePathLength]:
+        return typing.cast(typing.Optional[RepositoryRulesetRulesMaxFilePathLength], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[RepositoryRulesetRulesMaxFilePathLength],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__648e7f12ac4d99bff544314d9c2a997b2fb72a529ef07b47398e222bd7fbd606)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-github.repositoryRuleset.RepositoryRulesetRulesMaxFileSize",
+    jsii_struct_bases=[],
+    name_mapping={"max_file_size": "maxFileSize"},
+)
+class RepositoryRulesetRulesMaxFileSize:
+    def __init__(self, *, max_file_size: jsii.Number) -> None:
+        '''
+        :param max_file_size: The maximum allowed size of a file in megabytes (MB). Valid range is 1-100 MB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_file_size RepositoryRuleset#max_file_size}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a88436c5273818a94aa3df390f8a7585f4e660c8d45ecf9cf7845fde5c7c4cc4)
+            check_type(argname="argument max_file_size", value=max_file_size, expected_type=type_hints["max_file_size"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "max_file_size": max_file_size,
+        }
+
+    @builtins.property
+    def max_file_size(self) -> jsii.Number:
+        '''The maximum allowed size of a file in megabytes (MB). Valid range is 1-100 MB.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_file_size RepositoryRuleset#max_file_size}
+        '''
+        result = self._values.get("max_file_size")
+        assert result is not None, "Required property 'max_file_size' is missing"
+        return typing.cast(jsii.Number, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RepositoryRulesetRulesMaxFileSize(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class RepositoryRulesetRulesMaxFileSizeOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-github.repositoryRuleset.RepositoryRulesetRulesMaxFileSizeOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8fc4c41d7a57941ada209e14dbe52a9ed2efd06fab45c5c23887d5055951b132)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFileSizeInput")
+    def max_file_size_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxFileSizeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFileSize")
+    def max_file_size(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "maxFileSize"))
+
+    @max_file_size.setter
+    def max_file_size(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f9816be4a8313cf35d6f565c475af500d978c365f33daf9e51d7c67105e55d2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxFileSize", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[RepositoryRulesetRulesMaxFileSize]:
+        return typing.cast(typing.Optional[RepositoryRulesetRulesMaxFileSize], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[RepositoryRulesetRulesMaxFileSize],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d078073564f344f41aba8f535ecfdedf4cb52be0dd49cad2ac746e820830189)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-github.repositoryRuleset.RepositoryRulesetRulesMergeQueue",
     jsii_struct_bases=[],
     name_mapping={
@@ -2356,13 +2822,13 @@ class RepositoryRulesetRulesMergeQueue:
         min_entries_to_merge_wait_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param check_response_timeout_minutes: Maximum time for a required status check to report a conclusion. After this much time has elapsed, checks that have not reported a conclusion will be assumed to have failed. Defaults to ``60``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#check_response_timeout_minutes RepositoryRuleset#check_response_timeout_minutes}
-        :param grouping_strategy: When set to ALLGREEN, the merge commit created by merge queue for each PR in the group must pass all required checks to merge. When set to HEADGREEN, only the commit at the head of the merge group, i.e. the commit containing changes from all of the PRs in the group, must pass its required checks to merge. Can be one of: ALLGREEN, HEADGREEN. Defaults to ``ALLGREEN``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#grouping_strategy RepositoryRuleset#grouping_strategy}
-        :param max_entries_to_build: Limit the number of queued pull requests requesting checks and workflow runs at the same time. Defaults to ``5``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#max_entries_to_build RepositoryRuleset#max_entries_to_build}
-        :param max_entries_to_merge: The maximum number of PRs that will be merged together in a group. Defaults to ``5``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#max_entries_to_merge RepositoryRuleset#max_entries_to_merge}
-        :param merge_method: Method to use when merging changes from queued pull requests. Can be one of: MERGE, SQUASH, REBASE. Defaults to ``MERGE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#merge_method RepositoryRuleset#merge_method}
-        :param min_entries_to_merge: The minimum number of PRs that will be merged together in a group. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#min_entries_to_merge RepositoryRuleset#min_entries_to_merge}
-        :param min_entries_to_merge_wait_minutes: The time merge queue should wait after the first PR is added to the queue for the minimum group size to be met. After this time has elapsed, the minimum group size will be ignored and a smaller group will be merged. Defaults to ``5``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#min_entries_to_merge_wait_minutes RepositoryRuleset#min_entries_to_merge_wait_minutes}
+        :param check_response_timeout_minutes: Maximum time for a required status check to report a conclusion. After this much time has elapsed, checks that have not reported a conclusion will be assumed to have failed. Defaults to ``60``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#check_response_timeout_minutes RepositoryRuleset#check_response_timeout_minutes}
+        :param grouping_strategy: When set to ALLGREEN, the merge commit created by merge queue for each PR in the group must pass all required checks to merge. When set to HEADGREEN, only the commit at the head of the merge group, i.e. the commit containing changes from all of the PRs in the group, must pass its required checks to merge. Can be one of: ALLGREEN, HEADGREEN. Defaults to ``ALLGREEN``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#grouping_strategy RepositoryRuleset#grouping_strategy}
+        :param max_entries_to_build: Limit the number of queued pull requests requesting checks and workflow runs at the same time. Defaults to ``5``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_entries_to_build RepositoryRuleset#max_entries_to_build}
+        :param max_entries_to_merge: The maximum number of PRs that will be merged together in a group. Defaults to ``5``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_entries_to_merge RepositoryRuleset#max_entries_to_merge}
+        :param merge_method: Method to use when merging changes from queued pull requests. Can be one of: MERGE, SQUASH, REBASE. Defaults to ``MERGE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#merge_method RepositoryRuleset#merge_method}
+        :param min_entries_to_merge: The minimum number of PRs that will be merged together in a group. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#min_entries_to_merge RepositoryRuleset#min_entries_to_merge}
+        :param min_entries_to_merge_wait_minutes: The time merge queue should wait after the first PR is added to the queue for the minimum group size to be met. After this time has elapsed, the minimum group size will be ignored and a smaller group will be merged. Defaults to ``5``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#min_entries_to_merge_wait_minutes RepositoryRuleset#min_entries_to_merge_wait_minutes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3452775c8f3c793f69f256709e9ddd218d135b4d6fa9c3ca33f61d5df56900d)
@@ -2395,7 +2861,7 @@ class RepositoryRulesetRulesMergeQueue:
 
         After this much time has elapsed, checks that have not reported a conclusion will be assumed to have failed. Defaults to ``60``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#check_response_timeout_minutes RepositoryRuleset#check_response_timeout_minutes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#check_response_timeout_minutes RepositoryRuleset#check_response_timeout_minutes}
         '''
         result = self._values.get("check_response_timeout_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2406,7 +2872,7 @@ class RepositoryRulesetRulesMergeQueue:
 
         When set to HEADGREEN, only the commit at the head of the merge group, i.e. the commit containing changes from all of the PRs in the group, must pass its required checks to merge. Can be one of: ALLGREEN, HEADGREEN. Defaults to ``ALLGREEN``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#grouping_strategy RepositoryRuleset#grouping_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#grouping_strategy RepositoryRuleset#grouping_strategy}
         '''
         result = self._values.get("grouping_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2415,7 +2881,7 @@ class RepositoryRulesetRulesMergeQueue:
     def max_entries_to_build(self) -> typing.Optional[jsii.Number]:
         '''Limit the number of queued pull requests requesting checks and workflow runs at the same time. Defaults to ``5``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#max_entries_to_build RepositoryRuleset#max_entries_to_build}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_entries_to_build RepositoryRuleset#max_entries_to_build}
         '''
         result = self._values.get("max_entries_to_build")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2424,7 +2890,7 @@ class RepositoryRulesetRulesMergeQueue:
     def max_entries_to_merge(self) -> typing.Optional[jsii.Number]:
         '''The maximum number of PRs that will be merged together in a group. Defaults to ``5``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#max_entries_to_merge RepositoryRuleset#max_entries_to_merge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_entries_to_merge RepositoryRuleset#max_entries_to_merge}
         '''
         result = self._values.get("max_entries_to_merge")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2435,7 +2901,7 @@ class RepositoryRulesetRulesMergeQueue:
 
         Can be one of: MERGE, SQUASH, REBASE. Defaults to ``MERGE``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#merge_method RepositoryRuleset#merge_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#merge_method RepositoryRuleset#merge_method}
         '''
         result = self._values.get("merge_method")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2444,7 +2910,7 @@ class RepositoryRulesetRulesMergeQueue:
     def min_entries_to_merge(self) -> typing.Optional[jsii.Number]:
         '''The minimum number of PRs that will be merged together in a group. Defaults to ``1``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#min_entries_to_merge RepositoryRuleset#min_entries_to_merge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#min_entries_to_merge RepositoryRuleset#min_entries_to_merge}
         '''
         result = self._values.get("min_entries_to_merge")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2455,7 +2921,7 @@ class RepositoryRulesetRulesMergeQueue:
 
         After this time has elapsed, the minimum group size will be ignored and a smaller group will be merged. Defaults to ``5``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#min_entries_to_merge_wait_minutes RepositoryRuleset#min_entries_to_merge_wait_minutes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#min_entries_to_merge_wait_minutes RepositoryRuleset#min_entries_to_merge_wait_minutes}
         '''
         result = self._values.get("min_entries_to_merge_wait_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2685,10 +3151,10 @@ class RepositoryRulesetRulesOutputReference(
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         value = RepositoryRulesetRulesBranchNamePattern(
             operator=operator, pattern=pattern, name=name, negate=negate
@@ -2706,10 +3172,10 @@ class RepositoryRulesetRulesOutputReference(
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         value = RepositoryRulesetRulesCommitAuthorEmailPattern(
             operator=operator, pattern=pattern, name=name, negate=negate
@@ -2727,10 +3193,10 @@ class RepositoryRulesetRulesOutputReference(
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         value = RepositoryRulesetRulesCommitMessagePattern(
             operator=operator, pattern=pattern, name=name, negate=negate
@@ -2748,16 +3214,66 @@ class RepositoryRulesetRulesOutputReference(
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         value = RepositoryRulesetRulesCommitterEmailPattern(
             operator=operator, pattern=pattern, name=name, negate=negate
         )
 
         return typing.cast(None, jsii.invoke(self, "putCommitterEmailPattern", [value]))
+
+    @jsii.member(jsii_name="putFileExtensionRestriction")
+    def put_file_extension_restriction(
+        self,
+        *,
+        restricted_file_extensions: typing.Sequence[builtins.str],
+    ) -> None:
+        '''
+        :param restricted_file_extensions: A list of file extensions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#restricted_file_extensions RepositoryRuleset#restricted_file_extensions}
+        '''
+        value = RepositoryRulesetRulesFileExtensionRestriction(
+            restricted_file_extensions=restricted_file_extensions
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putFileExtensionRestriction", [value]))
+
+    @jsii.member(jsii_name="putFilePathRestriction")
+    def put_file_path_restriction(
+        self,
+        *,
+        restricted_file_paths: typing.Sequence[builtins.str],
+    ) -> None:
+        '''
+        :param restricted_file_paths: The file paths that are restricted from being pushed to the commit graph. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#restricted_file_paths RepositoryRuleset#restricted_file_paths}
+        '''
+        value = RepositoryRulesetRulesFilePathRestriction(
+            restricted_file_paths=restricted_file_paths
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putFilePathRestriction", [value]))
+
+    @jsii.member(jsii_name="putMaxFilePathLength")
+    def put_max_file_path_length(self, *, max_file_path_length: jsii.Number) -> None:
+        '''
+        :param max_file_path_length: The maximum allowed length of a file path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_file_path_length RepositoryRuleset#max_file_path_length}
+        '''
+        value = RepositoryRulesetRulesMaxFilePathLength(
+            max_file_path_length=max_file_path_length
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putMaxFilePathLength", [value]))
+
+    @jsii.member(jsii_name="putMaxFileSize")
+    def put_max_file_size(self, *, max_file_size: jsii.Number) -> None:
+        '''
+        :param max_file_size: The maximum allowed size of a file in megabytes (MB). Valid range is 1-100 MB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_file_size RepositoryRuleset#max_file_size}
+        '''
+        value = RepositoryRulesetRulesMaxFileSize(max_file_size=max_file_size)
+
+        return typing.cast(None, jsii.invoke(self, "putMaxFileSize", [value]))
 
     @jsii.member(jsii_name="putMergeQueue")
     def put_merge_queue(
@@ -2772,13 +3288,13 @@ class RepositoryRulesetRulesOutputReference(
         min_entries_to_merge_wait_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param check_response_timeout_minutes: Maximum time for a required status check to report a conclusion. After this much time has elapsed, checks that have not reported a conclusion will be assumed to have failed. Defaults to ``60``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#check_response_timeout_minutes RepositoryRuleset#check_response_timeout_minutes}
-        :param grouping_strategy: When set to ALLGREEN, the merge commit created by merge queue for each PR in the group must pass all required checks to merge. When set to HEADGREEN, only the commit at the head of the merge group, i.e. the commit containing changes from all of the PRs in the group, must pass its required checks to merge. Can be one of: ALLGREEN, HEADGREEN. Defaults to ``ALLGREEN``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#grouping_strategy RepositoryRuleset#grouping_strategy}
-        :param max_entries_to_build: Limit the number of queued pull requests requesting checks and workflow runs at the same time. Defaults to ``5``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#max_entries_to_build RepositoryRuleset#max_entries_to_build}
-        :param max_entries_to_merge: The maximum number of PRs that will be merged together in a group. Defaults to ``5``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#max_entries_to_merge RepositoryRuleset#max_entries_to_merge}
-        :param merge_method: Method to use when merging changes from queued pull requests. Can be one of: MERGE, SQUASH, REBASE. Defaults to ``MERGE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#merge_method RepositoryRuleset#merge_method}
-        :param min_entries_to_merge: The minimum number of PRs that will be merged together in a group. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#min_entries_to_merge RepositoryRuleset#min_entries_to_merge}
-        :param min_entries_to_merge_wait_minutes: The time merge queue should wait after the first PR is added to the queue for the minimum group size to be met. After this time has elapsed, the minimum group size will be ignored and a smaller group will be merged. Defaults to ``5``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#min_entries_to_merge_wait_minutes RepositoryRuleset#min_entries_to_merge_wait_minutes}
+        :param check_response_timeout_minutes: Maximum time for a required status check to report a conclusion. After this much time has elapsed, checks that have not reported a conclusion will be assumed to have failed. Defaults to ``60``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#check_response_timeout_minutes RepositoryRuleset#check_response_timeout_minutes}
+        :param grouping_strategy: When set to ALLGREEN, the merge commit created by merge queue for each PR in the group must pass all required checks to merge. When set to HEADGREEN, only the commit at the head of the merge group, i.e. the commit containing changes from all of the PRs in the group, must pass its required checks to merge. Can be one of: ALLGREEN, HEADGREEN. Defaults to ``ALLGREEN``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#grouping_strategy RepositoryRuleset#grouping_strategy}
+        :param max_entries_to_build: Limit the number of queued pull requests requesting checks and workflow runs at the same time. Defaults to ``5``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_entries_to_build RepositoryRuleset#max_entries_to_build}
+        :param max_entries_to_merge: The maximum number of PRs that will be merged together in a group. Defaults to ``5``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#max_entries_to_merge RepositoryRuleset#max_entries_to_merge}
+        :param merge_method: Method to use when merging changes from queued pull requests. Can be one of: MERGE, SQUASH, REBASE. Defaults to ``MERGE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#merge_method RepositoryRuleset#merge_method}
+        :param min_entries_to_merge: The minimum number of PRs that will be merged together in a group. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#min_entries_to_merge RepositoryRuleset#min_entries_to_merge}
+        :param min_entries_to_merge_wait_minutes: The time merge queue should wait after the first PR is added to the queue for the minimum group size to be met. After this time has elapsed, the minimum group size will be ignored and a smaller group will be merged. Defaults to ``5``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#min_entries_to_merge_wait_minutes RepositoryRuleset#min_entries_to_merge_wait_minutes}
         '''
         value = RepositoryRulesetRulesMergeQueue(
             check_response_timeout_minutes=check_response_timeout_minutes,
@@ -2803,11 +3319,11 @@ class RepositoryRulesetRulesOutputReference(
         require_last_push_approval: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param dismiss_stale_reviews_on_push: New, reviewable commits pushed will dismiss previous pull request review approvals. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#dismiss_stale_reviews_on_push RepositoryRuleset#dismiss_stale_reviews_on_push}
-        :param require_code_owner_review: Require an approving review in pull requests that modify files that have a designated code owner. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#require_code_owner_review RepositoryRuleset#require_code_owner_review}
-        :param required_approving_review_count: The number of approving reviews that are required before a pull request can be merged. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_approving_review_count RepositoryRuleset#required_approving_review_count}
-        :param required_review_thread_resolution: All conversations on code must be resolved before a pull request can be merged. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_review_thread_resolution RepositoryRuleset#required_review_thread_resolution}
-        :param require_last_push_approval: Whether the most recent reviewable push must be approved by someone other than the person who pushed it. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#require_last_push_approval RepositoryRuleset#require_last_push_approval}
+        :param dismiss_stale_reviews_on_push: New, reviewable commits pushed will dismiss previous pull request review approvals. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#dismiss_stale_reviews_on_push RepositoryRuleset#dismiss_stale_reviews_on_push}
+        :param require_code_owner_review: Require an approving review in pull requests that modify files that have a designated code owner. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#require_code_owner_review RepositoryRuleset#require_code_owner_review}
+        :param required_approving_review_count: The number of approving reviews that are required before a pull request can be merged. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_approving_review_count RepositoryRuleset#required_approving_review_count}
+        :param required_review_thread_resolution: All conversations on code must be resolved before a pull request can be merged. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_review_thread_resolution RepositoryRuleset#required_review_thread_resolution}
+        :param require_last_push_approval: Whether the most recent reviewable push must be approved by someone other than the person who pushed it. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#require_last_push_approval RepositoryRuleset#require_last_push_approval}
         '''
         value = RepositoryRulesetRulesPullRequest(
             dismiss_stale_reviews_on_push=dismiss_stale_reviews_on_push,
@@ -2826,7 +3342,7 @@ class RepositoryRulesetRulesOutputReference(
         required_code_scanning_tool: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RepositoryRulesetRulesRequiredCodeScanningRequiredCodeScanningTool", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param required_code_scanning_tool: required_code_scanning_tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_code_scanning_tool RepositoryRuleset#required_code_scanning_tool}
+        :param required_code_scanning_tool: required_code_scanning_tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_code_scanning_tool RepositoryRuleset#required_code_scanning_tool}
         '''
         value = RepositoryRulesetRulesRequiredCodeScanning(
             required_code_scanning_tool=required_code_scanning_tool
@@ -2841,7 +3357,7 @@ class RepositoryRulesetRulesOutputReference(
         required_deployment_environments: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param required_deployment_environments: The environments that must be successfully deployed to before branches can be merged. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_deployment_environments RepositoryRuleset#required_deployment_environments}
+        :param required_deployment_environments: The environments that must be successfully deployed to before branches can be merged. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_deployment_environments RepositoryRuleset#required_deployment_environments}
         '''
         value = RepositoryRulesetRulesRequiredDeployments(
             required_deployment_environments=required_deployment_environments
@@ -2858,9 +3374,9 @@ class RepositoryRulesetRulesOutputReference(
         strict_required_status_checks_policy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param required_check: required_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_check RepositoryRuleset#required_check}
-        :param do_not_enforce_on_create: Allow repositories and branches to be created if a check would otherwise prohibit it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#do_not_enforce_on_create RepositoryRuleset#do_not_enforce_on_create}
-        :param strict_required_status_checks_policy: Whether pull requests targeting a matching branch must be tested with the latest code. This setting will not take effect unless at least one status check is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#strict_required_status_checks_policy RepositoryRuleset#strict_required_status_checks_policy}
+        :param required_check: required_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_check RepositoryRuleset#required_check}
+        :param do_not_enforce_on_create: Allow repositories and branches to be created if a check would otherwise prohibit it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#do_not_enforce_on_create RepositoryRuleset#do_not_enforce_on_create}
+        :param strict_required_status_checks_policy: Whether pull requests targeting a matching branch must be tested with the latest code. This setting will not take effect unless at least one status check is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#strict_required_status_checks_policy RepositoryRuleset#strict_required_status_checks_policy}
         '''
         value = RepositoryRulesetRulesRequiredStatusChecks(
             required_check=required_check,
@@ -2880,10 +3396,10 @@ class RepositoryRulesetRulesOutputReference(
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         value = RepositoryRulesetRulesTagNamePattern(
             operator=operator, pattern=pattern, name=name, negate=negate
@@ -2914,6 +3430,22 @@ class RepositoryRulesetRulesOutputReference(
     @jsii.member(jsii_name="resetDeletion")
     def reset_deletion(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetDeletion", []))
+
+    @jsii.member(jsii_name="resetFileExtensionRestriction")
+    def reset_file_extension_restriction(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetFileExtensionRestriction", []))
+
+    @jsii.member(jsii_name="resetFilePathRestriction")
+    def reset_file_path_restriction(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetFilePathRestriction", []))
+
+    @jsii.member(jsii_name="resetMaxFilePathLength")
+    def reset_max_file_path_length(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMaxFilePathLength", []))
+
+    @jsii.member(jsii_name="resetMaxFileSize")
+    def reset_max_file_size(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMaxFileSize", []))
 
     @jsii.member(jsii_name="resetMergeQueue")
     def reset_merge_queue(self) -> None:
@@ -2986,6 +3518,32 @@ class RepositoryRulesetRulesOutputReference(
         self,
     ) -> RepositoryRulesetRulesCommitterEmailPatternOutputReference:
         return typing.cast(RepositoryRulesetRulesCommitterEmailPatternOutputReference, jsii.get(self, "committerEmailPattern"))
+
+    @builtins.property
+    @jsii.member(jsii_name="fileExtensionRestriction")
+    def file_extension_restriction(
+        self,
+    ) -> RepositoryRulesetRulesFileExtensionRestrictionOutputReference:
+        return typing.cast(RepositoryRulesetRulesFileExtensionRestrictionOutputReference, jsii.get(self, "fileExtensionRestriction"))
+
+    @builtins.property
+    @jsii.member(jsii_name="filePathRestriction")
+    def file_path_restriction(
+        self,
+    ) -> RepositoryRulesetRulesFilePathRestrictionOutputReference:
+        return typing.cast(RepositoryRulesetRulesFilePathRestrictionOutputReference, jsii.get(self, "filePathRestriction"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFilePathLength")
+    def max_file_path_length(
+        self,
+    ) -> RepositoryRulesetRulesMaxFilePathLengthOutputReference:
+        return typing.cast(RepositoryRulesetRulesMaxFilePathLengthOutputReference, jsii.get(self, "maxFilePathLength"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFileSize")
+    def max_file_size(self) -> RepositoryRulesetRulesMaxFileSizeOutputReference:
+        return typing.cast(RepositoryRulesetRulesMaxFileSizeOutputReference, jsii.get(self, "maxFileSize"))
 
     @builtins.property
     @jsii.member(jsii_name="mergeQueue")
@@ -3064,6 +3622,32 @@ class RepositoryRulesetRulesOutputReference(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "deletionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="fileExtensionRestrictionInput")
+    def file_extension_restriction_input(
+        self,
+    ) -> typing.Optional[RepositoryRulesetRulesFileExtensionRestriction]:
+        return typing.cast(typing.Optional[RepositoryRulesetRulesFileExtensionRestriction], jsii.get(self, "fileExtensionRestrictionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="filePathRestrictionInput")
+    def file_path_restriction_input(
+        self,
+    ) -> typing.Optional[RepositoryRulesetRulesFilePathRestriction]:
+        return typing.cast(typing.Optional[RepositoryRulesetRulesFilePathRestriction], jsii.get(self, "filePathRestrictionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFilePathLengthInput")
+    def max_file_path_length_input(
+        self,
+    ) -> typing.Optional[RepositoryRulesetRulesMaxFilePathLength]:
+        return typing.cast(typing.Optional[RepositoryRulesetRulesMaxFilePathLength], jsii.get(self, "maxFilePathLengthInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFileSizeInput")
+    def max_file_size_input(self) -> typing.Optional[RepositoryRulesetRulesMaxFileSize]:
+        return typing.cast(typing.Optional[RepositoryRulesetRulesMaxFileSize], jsii.get(self, "maxFileSizeInput"))
 
     @builtins.property
     @jsii.member(jsii_name="mergeQueueInput")
@@ -3288,11 +3872,11 @@ class RepositoryRulesetRulesPullRequest:
         require_last_push_approval: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param dismiss_stale_reviews_on_push: New, reviewable commits pushed will dismiss previous pull request review approvals. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#dismiss_stale_reviews_on_push RepositoryRuleset#dismiss_stale_reviews_on_push}
-        :param require_code_owner_review: Require an approving review in pull requests that modify files that have a designated code owner. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#require_code_owner_review RepositoryRuleset#require_code_owner_review}
-        :param required_approving_review_count: The number of approving reviews that are required before a pull request can be merged. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_approving_review_count RepositoryRuleset#required_approving_review_count}
-        :param required_review_thread_resolution: All conversations on code must be resolved before a pull request can be merged. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_review_thread_resolution RepositoryRuleset#required_review_thread_resolution}
-        :param require_last_push_approval: Whether the most recent reviewable push must be approved by someone other than the person who pushed it. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#require_last_push_approval RepositoryRuleset#require_last_push_approval}
+        :param dismiss_stale_reviews_on_push: New, reviewable commits pushed will dismiss previous pull request review approvals. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#dismiss_stale_reviews_on_push RepositoryRuleset#dismiss_stale_reviews_on_push}
+        :param require_code_owner_review: Require an approving review in pull requests that modify files that have a designated code owner. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#require_code_owner_review RepositoryRuleset#require_code_owner_review}
+        :param required_approving_review_count: The number of approving reviews that are required before a pull request can be merged. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_approving_review_count RepositoryRuleset#required_approving_review_count}
+        :param required_review_thread_resolution: All conversations on code must be resolved before a pull request can be merged. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_review_thread_resolution RepositoryRuleset#required_review_thread_resolution}
+        :param require_last_push_approval: Whether the most recent reviewable push must be approved by someone other than the person who pushed it. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#require_last_push_approval RepositoryRuleset#require_last_push_approval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ec5710d1fd0fd967e50dd4923d121188f4d457d154e37d24fb94bad9a2eb190d)
@@ -3319,7 +3903,7 @@ class RepositoryRulesetRulesPullRequest:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''New, reviewable commits pushed will dismiss previous pull request review approvals. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#dismiss_stale_reviews_on_push RepositoryRuleset#dismiss_stale_reviews_on_push}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#dismiss_stale_reviews_on_push RepositoryRuleset#dismiss_stale_reviews_on_push}
         '''
         result = self._values.get("dismiss_stale_reviews_on_push")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3330,7 +3914,7 @@ class RepositoryRulesetRulesPullRequest:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Require an approving review in pull requests that modify files that have a designated code owner. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#require_code_owner_review RepositoryRuleset#require_code_owner_review}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#require_code_owner_review RepositoryRuleset#require_code_owner_review}
         '''
         result = self._values.get("require_code_owner_review")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3339,7 +3923,7 @@ class RepositoryRulesetRulesPullRequest:
     def required_approving_review_count(self) -> typing.Optional[jsii.Number]:
         '''The number of approving reviews that are required before a pull request can be merged. Defaults to ``0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_approving_review_count RepositoryRuleset#required_approving_review_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_approving_review_count RepositoryRuleset#required_approving_review_count}
         '''
         result = self._values.get("required_approving_review_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3350,7 +3934,7 @@ class RepositoryRulesetRulesPullRequest:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''All conversations on code must be resolved before a pull request can be merged. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_review_thread_resolution RepositoryRuleset#required_review_thread_resolution}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_review_thread_resolution RepositoryRuleset#required_review_thread_resolution}
         '''
         result = self._values.get("required_review_thread_resolution")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3363,7 +3947,7 @@ class RepositoryRulesetRulesPullRequest:
 
         Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#require_last_push_approval RepositoryRuleset#require_last_push_approval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#require_last_push_approval RepositoryRuleset#require_last_push_approval}
         '''
         result = self._values.get("require_last_push_approval")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3561,7 +4145,7 @@ class RepositoryRulesetRulesRequiredCodeScanning:
         required_code_scanning_tool: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RepositoryRulesetRulesRequiredCodeScanningRequiredCodeScanningTool", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param required_code_scanning_tool: required_code_scanning_tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_code_scanning_tool RepositoryRuleset#required_code_scanning_tool}
+        :param required_code_scanning_tool: required_code_scanning_tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_code_scanning_tool RepositoryRuleset#required_code_scanning_tool}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1432e98853fa6b5b19fea9e2c395654457ae945c965e546ba902f47d4be85d3b)
@@ -3576,7 +4160,7 @@ class RepositoryRulesetRulesRequiredCodeScanning:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RepositoryRulesetRulesRequiredCodeScanningRequiredCodeScanningTool"]]:
         '''required_code_scanning_tool block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_code_scanning_tool RepositoryRuleset#required_code_scanning_tool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_code_scanning_tool RepositoryRuleset#required_code_scanning_tool}
         '''
         result = self._values.get("required_code_scanning_tool")
         assert result is not None, "Required property 'required_code_scanning_tool' is missing"
@@ -3677,9 +4261,9 @@ class RepositoryRulesetRulesRequiredCodeScanningRequiredCodeScanningTool:
         tool: builtins.str,
     ) -> None:
         '''
-        :param alerts_threshold: The severity level at which code scanning results that raise alerts block a reference update. Can be one of: ``none``, ``errors``, ``errors_and_warnings``, ``all``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#alerts_threshold RepositoryRuleset#alerts_threshold}
-        :param security_alerts_threshold: The severity level at which code scanning results that raise security alerts block a reference update. Can be one of: ``none``, ``critical``, ``high_or_higher``, ``medium_or_higher``, ``all``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#security_alerts_threshold RepositoryRuleset#security_alerts_threshold}
-        :param tool: The name of a code scanning tool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#tool RepositoryRuleset#tool}
+        :param alerts_threshold: The severity level at which code scanning results that raise alerts block a reference update. Can be one of: ``none``, ``errors``, ``errors_and_warnings``, ``all``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#alerts_threshold RepositoryRuleset#alerts_threshold}
+        :param security_alerts_threshold: The severity level at which code scanning results that raise security alerts block a reference update. Can be one of: ``none``, ``critical``, ``high_or_higher``, ``medium_or_higher``, ``all``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#security_alerts_threshold RepositoryRuleset#security_alerts_threshold}
+        :param tool: The name of a code scanning tool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#tool RepositoryRuleset#tool}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ddf31c248cb1e451dd84116bc9e9875fa05b80457197d33480397e6eaadca527)
@@ -3698,7 +4282,7 @@ class RepositoryRulesetRulesRequiredCodeScanningRequiredCodeScanningTool:
 
         Can be one of: ``none``, ``errors``, ``errors_and_warnings``, ``all``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#alerts_threshold RepositoryRuleset#alerts_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#alerts_threshold RepositoryRuleset#alerts_threshold}
         '''
         result = self._values.get("alerts_threshold")
         assert result is not None, "Required property 'alerts_threshold' is missing"
@@ -3710,7 +4294,7 @@ class RepositoryRulesetRulesRequiredCodeScanningRequiredCodeScanningTool:
 
         Can be one of: ``none``, ``critical``, ``high_or_higher``, ``medium_or_higher``, ``all``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#security_alerts_threshold RepositoryRuleset#security_alerts_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#security_alerts_threshold RepositoryRuleset#security_alerts_threshold}
         '''
         result = self._values.get("security_alerts_threshold")
         assert result is not None, "Required property 'security_alerts_threshold' is missing"
@@ -3720,7 +4304,7 @@ class RepositoryRulesetRulesRequiredCodeScanningRequiredCodeScanningTool:
     def tool(self) -> builtins.str:
         '''The name of a code scanning tool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#tool RepositoryRuleset#tool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#tool RepositoryRuleset#tool}
         '''
         result = self._values.get("tool")
         assert result is not None, "Required property 'tool' is missing"
@@ -3940,7 +4524,7 @@ class RepositoryRulesetRulesRequiredDeployments:
         required_deployment_environments: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param required_deployment_environments: The environments that must be successfully deployed to before branches can be merged. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_deployment_environments RepositoryRuleset#required_deployment_environments}
+        :param required_deployment_environments: The environments that must be successfully deployed to before branches can be merged. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_deployment_environments RepositoryRuleset#required_deployment_environments}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__69ced12fa2738039b95b9d2609099cf5ab7dc1c0f63a55f09b41d8520aca3793)
@@ -3953,7 +4537,7 @@ class RepositoryRulesetRulesRequiredDeployments:
     def required_deployment_environments(self) -> typing.List[builtins.str]:
         '''The environments that must be successfully deployed to before branches can be merged.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_deployment_environments RepositoryRuleset#required_deployment_environments}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_deployment_environments RepositoryRuleset#required_deployment_environments}
         '''
         result = self._values.get("required_deployment_environments")
         assert result is not None, "Required property 'required_deployment_environments' is missing"
@@ -4049,9 +4633,9 @@ class RepositoryRulesetRulesRequiredStatusChecks:
         strict_required_status_checks_policy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param required_check: required_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_check RepositoryRuleset#required_check}
-        :param do_not_enforce_on_create: Allow repositories and branches to be created if a check would otherwise prohibit it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#do_not_enforce_on_create RepositoryRuleset#do_not_enforce_on_create}
-        :param strict_required_status_checks_policy: Whether pull requests targeting a matching branch must be tested with the latest code. This setting will not take effect unless at least one status check is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#strict_required_status_checks_policy RepositoryRuleset#strict_required_status_checks_policy}
+        :param required_check: required_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_check RepositoryRuleset#required_check}
+        :param do_not_enforce_on_create: Allow repositories and branches to be created if a check would otherwise prohibit it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#do_not_enforce_on_create RepositoryRuleset#do_not_enforce_on_create}
+        :param strict_required_status_checks_policy: Whether pull requests targeting a matching branch must be tested with the latest code. This setting will not take effect unless at least one status check is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#strict_required_status_checks_policy RepositoryRuleset#strict_required_status_checks_policy}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8e47ed9da4ad257544f947f9a0d6f1f595a975b1fa6fbb91de618ff3bd8bc90)
@@ -4072,7 +4656,7 @@ class RepositoryRulesetRulesRequiredStatusChecks:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RepositoryRulesetRulesRequiredStatusChecksRequiredCheck"]]:
         '''required_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#required_check RepositoryRuleset#required_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#required_check RepositoryRuleset#required_check}
         '''
         result = self._values.get("required_check")
         assert result is not None, "Required property 'required_check' is missing"
@@ -4084,7 +4668,7 @@ class RepositoryRulesetRulesRequiredStatusChecks:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Allow repositories and branches to be created if a check would otherwise prohibit it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#do_not_enforce_on_create RepositoryRuleset#do_not_enforce_on_create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#do_not_enforce_on_create RepositoryRuleset#do_not_enforce_on_create}
         '''
         result = self._values.get("do_not_enforce_on_create")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4097,7 +4681,7 @@ class RepositoryRulesetRulesRequiredStatusChecks:
 
         This setting will not take effect unless at least one status check is enabled. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#strict_required_status_checks_policy RepositoryRuleset#strict_required_status_checks_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#strict_required_status_checks_policy RepositoryRuleset#strict_required_status_checks_policy}
         '''
         result = self._values.get("strict_required_status_checks_policy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4248,8 +4832,8 @@ class RepositoryRulesetRulesRequiredStatusChecksRequiredCheck:
         integration_id: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param context: The status check context name that must be present on the commit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#context RepositoryRuleset#context}
-        :param integration_id: The optional integration ID that this status check must originate from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#integration_id RepositoryRuleset#integration_id}
+        :param context: The status check context name that must be present on the commit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#context RepositoryRuleset#context}
+        :param integration_id: The optional integration ID that this status check must originate from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#integration_id RepositoryRuleset#integration_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d7dacbef4f66c4ee0151664295d0cb085b49c39bc9328b15c5f5d7e6a69299e)
@@ -4265,7 +4849,7 @@ class RepositoryRulesetRulesRequiredStatusChecksRequiredCheck:
     def context(self) -> builtins.str:
         '''The status check context name that must be present on the commit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#context RepositoryRuleset#context}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#context RepositoryRuleset#context}
         '''
         result = self._values.get("context")
         assert result is not None, "Required property 'context' is missing"
@@ -4275,7 +4859,7 @@ class RepositoryRulesetRulesRequiredStatusChecksRequiredCheck:
     def integration_id(self) -> typing.Optional[jsii.Number]:
         '''The optional integration ID that this status check must originate from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#integration_id RepositoryRuleset#integration_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#integration_id RepositoryRuleset#integration_id}
         '''
         result = self._values.get("integration_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4487,10 +5071,10 @@ class RepositoryRulesetRulesTagNamePattern:
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f4191059556fd8d13bb47695ed466610498508dbdd5a6b6dba0d8c07fdb2369)
@@ -4511,7 +5095,7 @@ class RepositoryRulesetRulesTagNamePattern:
     def operator(self) -> builtins.str:
         '''The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#operator RepositoryRuleset#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -4521,7 +5105,7 @@ class RepositoryRulesetRulesTagNamePattern:
     def pattern(self) -> builtins.str:
         '''The pattern to match with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#pattern RepositoryRuleset#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -4531,7 +5115,7 @@ class RepositoryRulesetRulesTagNamePattern:
     def name(self) -> typing.Optional[builtins.str]:
         '''How this rule will appear to users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#name RepositoryRuleset#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4542,7 +5126,7 @@ class RepositoryRulesetRulesTagNamePattern:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the rule will fail if the pattern matches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_ruleset#negate RepositoryRuleset#negate}
         '''
         result = self._values.get("negate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4695,6 +5279,14 @@ __all__ = [
     "RepositoryRulesetRulesCommitMessagePatternOutputReference",
     "RepositoryRulesetRulesCommitterEmailPattern",
     "RepositoryRulesetRulesCommitterEmailPatternOutputReference",
+    "RepositoryRulesetRulesFileExtensionRestriction",
+    "RepositoryRulesetRulesFileExtensionRestrictionOutputReference",
+    "RepositoryRulesetRulesFilePathRestriction",
+    "RepositoryRulesetRulesFilePathRestrictionOutputReference",
+    "RepositoryRulesetRulesMaxFilePathLength",
+    "RepositoryRulesetRulesMaxFilePathLengthOutputReference",
+    "RepositoryRulesetRulesMaxFileSize",
+    "RepositoryRulesetRulesMaxFileSizeOutputReference",
     "RepositoryRulesetRulesMergeQueue",
     "RepositoryRulesetRulesMergeQueueOutputReference",
     "RepositoryRulesetRulesOutputReference",
@@ -4724,12 +5316,12 @@ def _typecheckingstub__53279645c069276d4082bf54449f7fa421c295085e74152004c5c9157
     *,
     enforcement: builtins.str,
     name: builtins.str,
+    repository: builtins.str,
     rules: typing.Union[RepositoryRulesetRules, typing.Dict[builtins.str, typing.Any]],
     target: builtins.str,
     bypass_actors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[RepositoryRulesetBypassActors, typing.Dict[builtins.str, typing.Any]]]]] = None,
     conditions: typing.Optional[typing.Union[RepositoryRulesetConditions, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
-    repository: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -4788,9 +5380,9 @@ def _typecheckingstub__ceb5f15dc9e585f322f093627c09fcdde843532f5547c118353fa8aeb
 
 def _typecheckingstub__8b113f8eb65ef947d85bbb9023fc2306f7cd3f8bc22ebdc38135400f20ead774(
     *,
-    actor_id: jsii.Number,
     actor_type: builtins.str,
     bypass_mode: builtins.str,
+    actor_id: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4930,12 +5522,12 @@ def _typecheckingstub__dd935179a0b5de3525aae4445b5b9f9cf2143c7fc2d8eb5b083f539a2
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     enforcement: builtins.str,
     name: builtins.str,
+    repository: builtins.str,
     rules: typing.Union[RepositoryRulesetRules, typing.Dict[builtins.str, typing.Any]],
     target: builtins.str,
     bypass_actors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[RepositoryRulesetBypassActors, typing.Dict[builtins.str, typing.Any]]]]] = None,
     conditions: typing.Optional[typing.Union[RepositoryRulesetConditions, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
-    repository: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4948,6 +5540,10 @@ def _typecheckingstub__9fd5b2598496ce154f58d07f1ccc6b67c083a48a52f2a5e895e5dc19c
     committer_email_pattern: typing.Optional[typing.Union[RepositoryRulesetRulesCommitterEmailPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     creation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    file_extension_restriction: typing.Optional[typing.Union[RepositoryRulesetRulesFileExtensionRestriction, typing.Dict[builtins.str, typing.Any]]] = None,
+    file_path_restriction: typing.Optional[typing.Union[RepositoryRulesetRulesFilePathRestriction, typing.Dict[builtins.str, typing.Any]]] = None,
+    max_file_path_length: typing.Optional[typing.Union[RepositoryRulesetRulesMaxFilePathLength, typing.Dict[builtins.str, typing.Any]]] = None,
+    max_file_size: typing.Optional[typing.Union[RepositoryRulesetRulesMaxFileSize, typing.Dict[builtins.str, typing.Any]]] = None,
     merge_queue: typing.Optional[typing.Union[RepositoryRulesetRulesMergeQueue, typing.Dict[builtins.str, typing.Any]]] = None,
     non_fast_forward: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     pull_request: typing.Optional[typing.Union[RepositoryRulesetRulesPullRequest, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5147,6 +5743,110 @@ def _typecheckingstub__a326fe456228e9d34e700cae6ee0e3cecb4f8cec5b6ec8ef69066cde3
 
 def _typecheckingstub__5ce47b0050125ed3e424603b163faadafbb337ec76f2fd809d4d8c54e49369fd(
     value: typing.Optional[RepositoryRulesetRulesCommitterEmailPattern],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ced871fdc21dfd717dc456d18f7e5891355bf1ff60c17e17ed22a5b42ffe08e8(
+    *,
+    restricted_file_extensions: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0bf5ef9492dc5cea87ffb6d8d6fc4491b7f0befc6ff0c4ac9c7a17302208919(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3363c98545bf1d395a439ef6cca6ac258d72a7acd5e8d3902f6a7298c49d5c06(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0856b048ac6d309316bcea9dda7571dbc0d021cfc374518550de58325f638794(
+    value: typing.Optional[RepositoryRulesetRulesFileExtensionRestriction],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3c43d00e3b4a8cb3fe6bf2781ef6cc6f7be8a4ce23769a8b72ae62d64bfce78(
+    *,
+    restricted_file_paths: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26b675c48cf92b1df1cb0f2bd7f1c9e99c556da7c315b4af0f0b829f078e5c24(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__187ee60def58935a2674efb0912a331f3e0a22e318dd65b4153d2b2eff1a7f50(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17adef792d52775f5030123b137f99d9c1b7512cc90362a5dad6af6e44a250ec(
+    value: typing.Optional[RepositoryRulesetRulesFilePathRestriction],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6fcfd0c18ab6aceb5909d4b73978cc8ba0c1942c308e77303e2bb799a28149d9(
+    *,
+    max_file_path_length: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d75229d128a8f0aaadb3c709768f2c2777b10ce091054ee281b0c19553df989(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3258e5df0b81991a4fbd3567c400bf8b041aa887756f683e7155e68fe07b9e60(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__648e7f12ac4d99bff544314d9c2a997b2fb72a529ef07b47398e222bd7fbd606(
+    value: typing.Optional[RepositoryRulesetRulesMaxFilePathLength],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a88436c5273818a94aa3df390f8a7585f4e660c8d45ecf9cf7845fde5c7c4cc4(
+    *,
+    max_file_size: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8fc4c41d7a57941ada209e14dbe52a9ed2efd06fab45c5c23887d5055951b132(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f9816be4a8313cf35d6f565c475af500d978c365f33daf9e51d7c67105e55d2(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d078073564f344f41aba8f535ecfdedf4cb52be0dd49cad2ac746e820830189(
+    value: typing.Optional[RepositoryRulesetRulesMaxFileSize],
 ) -> None:
     """Type checking stubs"""
     pass

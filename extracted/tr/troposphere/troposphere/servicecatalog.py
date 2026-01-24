@@ -220,8 +220,8 @@ class PortfolioPrincipalAssociation(AWSObject):
 
     props: PropsDictType = {
         "AcceptLanguage": (str, False),
-        "PortfolioId": (str, True),
-        "PrincipalARN": (str, True),
+        "PortfolioId": (str, False),
+        "PrincipalARN": (str, False),
         "PrincipalType": (str, True),
     }
 
@@ -235,8 +235,8 @@ class PortfolioProductAssociation(AWSObject):
 
     props: PropsDictType = {
         "AcceptLanguage": (str, False),
-        "PortfolioId": (str, True),
-        "ProductId": (str, True),
+        "PortfolioId": (str, False),
+        "ProductId": (str, False),
         "SourcePortfolioId": (str, False),
     }
 
@@ -355,6 +355,6 @@ class TagOptionAssociation(AWSObject):
     resource_type = "AWS::ServiceCatalog::TagOptionAssociation"
 
     props: PropsDictType = {
-        "ResourceId": (str, True),
-        "TagOptionId": (str, True),
+        "ResourceId": (str, False),
+        "TagOptionId": (str, False),
     }

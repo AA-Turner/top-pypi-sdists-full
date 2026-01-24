@@ -5,9 +5,9 @@ since your modifications would be overwritten.
 """
 
 
-from keras_tuner.src.engine.tuner import Tuner
-from keras_tuner.src.tuners.bayesian import BayesianOptimization
-from keras_tuner.src.tuners.gridsearch import GridSearch
-from keras_tuner.src.tuners.hyperband import Hyperband
-from keras_tuner.src.tuners.randomsearch import RandomSearch
-from keras_tuner.src.tuners.sklearn_tuner import SklearnTuner
+from keras_tuner.src.engine.tuner import Tuner as Tuner
+from keras_tuner.src.tuners.bayesian import BayesianOptimization as BayesianOptimization
+from keras_tuner.src.tuners.gridsearch import GridSearch as GridSearch
+from keras_tuner.src.tuners.hyperband import Hyperband as Hyperband
+from keras_tuner.src.tuners.randomsearch import RandomSearch as RandomSearch
+from keras_tuner.src.tuners.sklearn_tuner import SklearnTuner as SklearnTuner

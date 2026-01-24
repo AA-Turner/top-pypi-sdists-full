@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "datadog-cdk-constructs-v2",
-    "version": "3.2.1",
+    "version": "3.7.0",
     "description": "CDK Construct Library to automatically instrument Python and Node Lambda functions with Datadog using AWS CDK v2",
     "license": "Apache-2.0",
     "url": "https://github.com/DataDog/datadog-cdk-constructs",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "datadog_cdk_constructs_v2._jsii": [
-            "datadog-cdk-constructs-v2@3.2.1.jsii.tgz"
+            "datadog-cdk-constructs-v2@3.7.0.jsii.tgz"
         ],
         "datadog_cdk_constructs_v2": [
             "py.typed"
@@ -34,11 +34,11 @@ kwargs = json.loads(
     },
     "python_requires": "~=3.9",
     "install_requires": [
-        "aws-cdk-lib>=2.206.0, <3.0.0",
+        "aws-cdk-lib>=2.233.0, <3.0.0",
         "constructs>=10.0.5, <11.0.0",
-        "jsii>=1.113.0, <2.0.0",
+        "jsii>=1.125.0, <2.0.0",
         "publication>=0.0.3",
-        "typeguard>=2.13.3,<4.3.0"
+        "typeguard==2.13.3"
     ],
     "classifiers": [
         "Intended Audience :: Developers",

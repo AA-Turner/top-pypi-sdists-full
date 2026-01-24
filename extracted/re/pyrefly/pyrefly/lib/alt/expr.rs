@@ -10,15 +10,23 @@ use std::fmt;
 use std::fmt::Display;
 
 use dupe::Dupe;
-use num_traits::ToPrimitive;
+use itertools::Either;
+use itertools::Itertools;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
-use pyrefly_types::callable::FuncId;
+use pyrefly_types::callable::FunctionKind;
+use pyrefly_types::literal::LitStyle;
+use pyrefly_types::typed_dict::AnonymousTypedDictInner;
 use pyrefly_types::typed_dict::ExtraItems;
+use pyrefly_types::typed_dict::TypedDict;
+use pyrefly_types::typed_dict::TypedDictField;
+use pyrefly_types::types::Union;
+use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
+use pyrefly_util::suggest::best_suggestion;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
@@ -26,25 +34,25 @@ use ruff_python_ast::Comprehension;
 use ruff_python_ast::DictItem;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
-use ruff_python_ast::ExprDict;
+use ruff_python_ast::ExprGenerator;
 use ruff_python_ast::ExprNumberLiteral;
-use ruff_python_ast::ExprSlice;
 use ruff_python_ast::ExprStarred;
 use ruff_python_ast::ExprStringLiteral;
+use ruff_python_ast::ExprTuple;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::Number;
+use ruff_python_ast::StringLiteralValue;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
+use vec1::Vec1;
+use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
-use crate::alt::call::CallStyle;
 use crate::alt::callable::CallArg;
-use crate::alt::callable::CallKeyword;
-use crate::alt::callable::CallWithTypes;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::unwrap::Hint;
 use crate::alt::unwrap::HintRef;
@@ -57,7 +65,6 @@ use crate::error::context::ErrorContext;
 use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::types::callable::Callable;
-use crate::types::callable::FunctionKind;
 use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Params;
@@ -66,6 +73,7 @@ use crate::types::facet::FacetKind;
 use crate::types::lit_int::LitInt;
 use crate::types::literal::Lit;
 use crate::types::param_spec::ParamSpec;
+use crate::types::quantified::Quantified;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::special_form::SpecialForm;
 use crate::types::tuple::Tuple;
@@ -75,7 +83,6 @@ use crate::types::type_var::Restriction;
 use crate::types::type_var::TypeVar;
 use crate::types::type_var_tuple::TypeVarTuple;
 use crate::types::types::AnyStyle;
-use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 
 #[derive(Debug, Clone, Copy)]
@@ -94,6 +101,8 @@ impl Ranged for TypeOrExpr<'_> {
     }
 }
 
+static ANONYMOUS_TYPED_DICT_MAX_ITEMS: usize = 20;
+
 impl<'a> TypeOrExpr<'a> {
     pub fn infer<Ans: LookupAnswer>(
         self,
@@ -105,6 +114,22 @@ impl<'a> TypeOrExpr<'a> {
             TypeOrExpr::Expr(x) => solver.expr_infer(x, errors),
         }
     }
+
+    pub fn transform<Ans: LookupAnswer>(
+        &self,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+        owner: &'a Owner<Type>,
+        transformation: impl Fn(&Type) -> Type,
+    ) -> (Self, bool) {
+        let ty = self.infer(solver, errors);
+        let transformed = transformation(&ty);
+        let changed = ty != transformed;
+        (
+            TypeOrExpr::Type(owner.push(transformed), self.range()),
+            changed,
+        )
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -115,7 +140,7 @@ enum ConditionRedundantReason {
     BytesLiteral(bool),
     /// Class name + member name
     EnumLiteral(Name, Name),
-    Function(ModuleName, FuncId),
+    Function(ModuleName, FunctionKind),
     Class(Name),
 }
 
@@ -217,18 +242,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Check whether a type corresponds to a deprecated function or method, and if so, log a deprecation warning.
     pub fn check_for_deprecated_call(&self, ty: &Type, range: TextRange, errors: &ErrorCollector) {
-        if !ty.is_deprecated() {
+        let Some(deprecation) = ty.function_deprecation() else {
             return;
-        }
+        };
         let deprecated_function = ty
-            .to_funcid()
-            .map(|func_id| func_id.format(self.module().name()));
+            .to_func_kind()
+            .map(|func_kind| func_kind.format(self.module().name()));
         if let Some(deprecated_function) = deprecated_function {
-            self.error(
-                errors,
+            errors.add(
                 range,
                 ErrorInfo::Kind(ErrorKind::Deprecated),
-                format!("`{deprecated_function}` is deprecated"),
+                deprecation.as_error_message(format!("`{deprecated_function}` is deprecated")),
             );
         }
     }
@@ -244,9 +268,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return self_type_annotation;
         }
         let res = match x {
-            Expr::Name(x) => self
-                .get(&Key::BoundName(ShortIdentifier::expr_name(x)))
-                .arc_clone(),
+            Expr::Name(x) => {
+                if Ast::is_synthesized_empty_name(x) {
+                    TypeInfo::of_ty(Type::any_error())
+                } else {
+                    self.get(&Key::BoundName(ShortIdentifier::expr_name(x)))
+                        .arc_clone()
+                }
+            }
             Expr::Attribute(x) => {
                 let base = self.expr_infer_type_info_with_hint(&x.value, None, errors);
                 self.record_external_attribute_definition_index(
@@ -272,10 +301,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.subscript_infer(&base, &x.slice, x.range(), errors)
             }
             Expr::Named(x) => match &*x.target {
-                Expr::Name(name) => self
+                Expr::Name(name) if !Ast::is_synthesized_empty_name(name) => self
                     .get(&Key::Definition(ShortIdentifier::expr_name(name)))
                     .arc_clone(),
-                _ => TypeInfo::of_ty(Type::any_error()), // syntax error
+                _ => self.expr_infer_type_info_with_hint(&x.value, hint, errors),
             },
             // All other expressions operate at the `Type` level only, so we avoid the overhead of
             // wrapping and unwrapping `TypeInfo` by computing the result as a `Type` and only wrapping
@@ -399,134 +428,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 Type::Callable(Box::new(Callable { params, ret }))
             }
-            Expr::Tuple(x) => {
-                let (hint_ts, default_hint) = if let Some(hint) = &hint
-                    && let Type::Tuple(tup) = hint.ty()
-                {
-                    match tup {
-                        Tuple::Concrete(elts) => {
-                            let elt_hints = elts.map(|ty| HintRef::new(ty, hint.errors()));
-                            (elt_hints, None)
-                        }
-                        Tuple::Unpacked(box (prefix, _, _)) => {
-                            // TODO: We should also contextually type based on the middle and suffix
-                            let prefix_hints = prefix.map(|ty| HintRef::new(ty, hint.errors()));
-                            (prefix_hints, None)
-                        }
-                        Tuple::Unbounded(elt) => {
-                            (Vec::new(), Some(HintRef::new(elt, hint.errors())))
-                        }
-                    }
-                } else {
-                    (Vec::new(), None)
-                };
-                let mut prefix = Vec::new();
-                let mut unbounded = Vec::new();
-                let mut suffix = Vec::new();
-                let mut hint_ts_iter = hint_ts.into_iter();
-                let mut encountered_invalid_star = false;
-                for elt in x.elts.iter() {
-                    match elt {
-                        Expr::Starred(ExprStarred { value, .. }) => {
-                            let ty = self.expr_infer(value, errors);
-                            match ty {
-                                Type::Tuple(Tuple::Concrete(elts)) => {
-                                    if unbounded.is_empty() {
-                                        hint_ts_iter.nth(elts.len() - 1);
-                                        prefix.extend(elts);
-                                    } else {
-                                        suffix.extend(elts)
-                                    }
-                                }
-                                Type::Tuple(Tuple::Unpacked(box (pre, middle, suff)))
-                                    if unbounded.is_empty() =>
-                                {
-                                    prefix.extend(pre);
-                                    suffix.extend(suff);
-                                    unbounded.push(middle);
-                                    hint_ts_iter.nth(usize::MAX);
-                                }
-                                _ => {
-                                    if let Some(iterable_ty) = self.unwrap_iterable(&ty) {
-                                        if !unbounded.is_empty() {
-                                            unbounded.push(Type::Tuple(Tuple::unbounded(
-                                                self.unions(suffix),
-                                            )));
-                                            suffix = Vec::new();
-                                        }
-                                        unbounded.push(Type::Tuple(Tuple::unbounded(iterable_ty)));
-                                        hint_ts_iter.nth(usize::MAX);
-                                    } else {
-                                        self.error(
-                                            errors,
-                                            x.range(),
-                                            ErrorInfo::Kind(ErrorKind::NotIterable),
-                                            format!(
-                                                "Expected an iterable, got `{}`",
-                                                self.for_display(ty)
-                                            ),
-                                        );
-                                        encountered_invalid_star = true;
-                                        hint_ts_iter.nth(usize::MAX); // TODO: missing test
-                                    }
-                                }
-                            }
-                        }
-                        _ => {
-                            let ty = self.expr_infer_type_no_trace(
-                                elt,
-                                if unbounded.is_empty() {
-                                    hint_ts_iter.next().or(default_hint)
-                                } else {
-                                    None
-                                },
-                                errors,
-                            );
-                            if unbounded.is_empty() {
-                                prefix.push(ty)
-                            } else {
-                                suffix.push(ty)
-                            }
-                        }
-                    }
-                }
-                if encountered_invalid_star {
-                    // We already produced the type error, and we can't really roll up a suitable outermost type here.
-                    // TODO(stroxler): should we really be producing a `tuple[Any]` here? We do at least know *something* about the type!
-                    Type::any_error()
-                } else {
-                    match unbounded.as_slice() {
-                        [] => Type::tuple(prefix),
-                        [middle] => Type::Tuple(Tuple::unpacked(prefix, middle.clone(), suffix)),
-                        // We can't precisely model unpacking two unbounded iterables, so we'll keep any
-                        // concrete prefix and suffix elements and merge everything in between into an unbounded tuple
-                        _ => {
-                            let middle_types: Vec<Type> = unbounded
-                                .iter()
-                                .map(|t| {
-                                    self.unwrap_iterable(t)
-                                        .unwrap_or(Type::Any(AnyStyle::Implicit))
-                                })
-                                .collect();
-                            Type::Tuple(Tuple::unpacked(
-                                prefix,
-                                Type::Tuple(Tuple::Unbounded(Box::new(self.unions(middle_types)))),
-                                suffix,
-                            ))
-                        }
-                    }
-                }
-            }
+            Expr::Tuple(x) => self.tuple_infer(x, hint, errors),
             Expr::List(x) => {
                 let elt_hint = hint.and_then(|ty| self.decompose_list(ty));
                 if x.is_empty() {
                     let elem_ty = elt_hint.map_or_else(
                         || {
-                            if !self.solver().infer_with_first_use {
-                                Type::any_implicit()
-                            } else {
-                                self.solver().fresh_contained(self.uniques).to_type()
-                            }
+                            self.solver()
+                                .fresh_partial_contained(self.uniques, x.range)
+                                .to_type()
                         },
                         |hint| hint.to_type(),
                     );
@@ -536,17 +446,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.stdlib.list(self.unions(elem_tys)).to_type()
                 }
             }
-            Expr::Dict(x) => self.dict_infer(x, hint, errors),
+            Expr::Dict(x) => self.dict_infer(&x.items, hint, x.range, errors),
             Expr::Set(x) => {
                 let elem_hint = hint.and_then(|ty| self.decompose_set(ty));
                 if x.is_empty() {
                     let elem_ty = elem_hint.map_or_else(
                         || {
-                            if !self.solver().infer_with_first_use {
-                                Type::any_implicit()
-                            } else {
-                                self.solver().fresh_contained(self.uniques).to_type()
-                            }
+                            self.solver()
+                                .fresh_partial_contained(self.uniques, x.range)
+                                .to_type()
                         },
                         |hint| hint.to_type(),
                     );
@@ -603,9 +511,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         errors,
                     )
                     .into_ty();
-                self.stdlib
-                    .generator(yield_ty, Type::None, Type::None)
-                    .to_type()
+                if self.generator_expr_is_async(x) {
+                    self.stdlib.async_generator(yield_ty, Type::None).to_type()
+                } else {
+                    self.stdlib
+                        .generator(yield_ty, Type::None, Type::None)
+                        .to_type()
+                }
             }
             Expr::Await(x) => {
                 let awaiting_ty = self.expr_infer(&x.value, errors);
@@ -614,7 +526,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None => self.error(
                         errors,
                         x.range,
-                        ErrorInfo::Kind(ErrorKind::AsyncError),
+                        ErrorInfo::Kind(ErrorKind::NotAsync),
                         ErrorContext::Await(self.for_display(ty.clone())).format(),
                     ),
                 })
@@ -623,126 +535,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::YieldFrom(x) => self.get(&KeyYieldFrom(x.range)).return_ty.clone(),
             Expr::Compare(x) => self.compare_infer(x, errors),
             Expr::Call(x) => {
-                let mut callee_ty = self.expr_infer(&x.func, errors);
-                if matches!(&callee_ty, Type::ClassDef(cls) if cls.is_builtin("super")) {
-                    // Because we have to construct a binding for super in order to fill in implicit arguments,
-                    // we can't handle things like local aliases to super. If we hit a case where the binding
-                    // wasn't constructed, fall back to `Any`.
-                    self.get_hashed_opt(Hashed::new(&Key::SuperInstance(x.range)))
-                        .map_or_else(Type::any_implicit, |type_info| type_info.arc_clone_ty())
+                let callee_ty = self.expr_infer(&x.func, errors);
+                if let Some(d) = self.call_to_dict(&callee_ty, &x.arguments) {
+                    self.dict_infer(&d, hint, x.range, errors)
+                } else if let Some((obj_ty, key)) =
+                    self.is_dict_get_with_literal(&x.func, &x.arguments, errors)
+                {
+                    obj_ty
+                        .at_facet(&FacetKind::Key(key.to_string()), || {
+                            self.expr_call_infer(x, callee_ty.clone(), hint, errors)
+                        })
+                        .into_ty()
                 } else {
-                    self.expand_type_mut(&mut callee_ty);
-
-                    let args;
-                    let kws;
-                    let call = CallWithTypes::new();
-                    if callee_ty.is_union() {
-                        // If we have a union we will distribute over it, and end up duplicating each function call.
-                        args = x
-                            .arguments
-                            .args
-                            .map(|x| call.call_arg(&CallArg::expr_maybe_starred(x), self, errors));
-                        kws = x
-                            .arguments
-                            .keywords
-                            .map(|x| call.call_keyword(&CallKeyword::new(x), self, errors));
-                    } else {
-                        args = x.arguments.args.map(CallArg::expr_maybe_starred);
-                        kws = x.arguments.keywords.map(CallKeyword::new);
-                    }
-
-                    self.distribute_over_union(&callee_ty, |ty| match ty.callee_kind() {
-                        Some(CalleeKind::Function(FunctionKind::AssertType)) => self
-                            .call_assert_type(
-                                &x.arguments.args,
-                                &x.arguments.keywords,
-                                x.arguments.range,
-                                hint,
-                                errors,
-                            ),
-                        Some(CalleeKind::Function(FunctionKind::RevealType)) => self
-                            .call_reveal_type(
-                                &x.arguments.args,
-                                &x.arguments.keywords,
-                                x.arguments.range,
-                                hint,
-                                errors,
-                            ),
-                        Some(CalleeKind::Function(FunctionKind::Cast)) => {
-                            // For typing.cast, we have to hard-code a check for whether the first argument
-                            // is a type, so it's simplest to special-case the entire call.
-                            self.call_typing_cast(
-                                &x.arguments.args,
-                                &x.arguments.keywords,
-                                x.arguments.range,
-                                errors,
-                            )
-                        }
-                        // Treat assert_type and reveal_type like pseudo-builtins for convenience. Note that we still
-                        // log a name-not-found error, but we also assert/reveal the type as requested.
-                        None if ty.is_error() && is_special_name(&x.func, "assert_type") => self
-                            .call_assert_type(
-                                &x.arguments.args,
-                                &x.arguments.keywords,
-                                x.arguments.range,
-                                hint,
-                                errors,
-                            ),
-                        None if ty.is_error() && is_special_name(&x.func, "reveal_type") => self
-                            .call_reveal_type(
-                                &x.arguments.args,
-                                &x.arguments.keywords,
-                                x.arguments.range,
-                                hint,
-                                errors,
-                            ),
-                        Some(CalleeKind::Function(FunctionKind::IsInstance))
-                            if self.has_exactly_two_posargs(&x.arguments) =>
-                        {
-                            self.call_isinstance(&x.arguments.args[0], &x.arguments.args[1], errors)
-                        }
-                        Some(CalleeKind::Function(FunctionKind::IsSubclass))
-                            if self.has_exactly_two_posargs(&x.arguments) =>
-                        {
-                            self.call_issubclass(&x.arguments.args[0], &x.arguments.args[1], errors)
-                        }
-                        _ if matches!(ty, Type::ClassDef(cls) if cls == self.stdlib.builtins_type().class_object())
-                            && x.arguments.args.len() == 1 && x.arguments.keywords.is_empty() =>
-                        {
-                            // We may be able to provide a more precise type when the constructor for `builtins.type`
-                            // is called with a single argument.
-                            let arg_ty = self.expr_infer(&x.arguments.args[0], errors);
-                            self.type_of(arg_ty)
-                        }
-                        // Decorators can be applied in two ways:
-                        //   - (common, idiomatic) via `@decorator`:
-                        //     @staticmethod
-                        //     def f(): ...
-                        //   - (uncommon, mostly seen in legacy code) via a function call:
-                        //     def f(): ...
-                        //     f = staticmethod(f)
-                        // Check if this call applies a decorator with known typing effects to a function.
-                        _ if let Some(ret) = self.maybe_apply_function_decorator(ty, &args, &kws, errors) => ret,
-                        _ => {
-                            let callable = self.as_call_target_or_error(
-                                ty.clone(),
-                                CallStyle::FreeForm,
-                                x.func.range(),
-                                errors,
-                                None,
-                            );
-                            self.call_infer(
-                                callable,
-                                &args,
-                                &kws,
-                                x.arguments.range,
-                                errors,
-                                None,
-                                hint,
-                                None,
-                            )
-                        }
-                    })
+                    self.expr_call_infer(x, callee_ty, hint, errors)
                 }
             }
             Expr::FString(x) => {
@@ -755,8 +560,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 });
                 match Lit::from_fstring(x) {
-                    Some(lit) => lit.to_type(),
-                    _ if all_literal_strings => Type::LiteralString,
+                    Some(lit) => lit.to_implicit_type(),
+                    _ if all_literal_strings => Type::LiteralString(LitStyle::Implicit),
                     _ => self.stdlib.str().clone().to_type(),
                 }
             }
@@ -766,14 +571,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ErrorInfo::Kind(ErrorKind::Unsupported),
                 "t-strings are not yet supported".to_owned(),
             ),
-            Expr::StringLiteral(x) => Lit::from_string_literal(x).to_type(),
-            Expr::BytesLiteral(x) => Lit::from_bytes_literal(x).to_type(),
+            Expr::StringLiteral(x) => Lit::from_string_literal(x).to_implicit_type(),
+            Expr::BytesLiteral(x) => Lit::from_bytes_literal(x).to_implicit_type(),
             Expr::NumberLiteral(x) => match &x.value {
-                Number::Int(x) => Lit::from_int(x).to_type(),
+                Number::Int(x) => Lit::from_int(x).to_implicit_type(),
                 Number::Float(_) => self.stdlib.float().clone().to_type(),
                 Number::Complex { .. } => self.stdlib.complex().clone().to_type(),
             },
-            Expr::BooleanLiteral(x) => Lit::from_boolean_literal(x).to_type(),
+            Expr::BooleanLiteral(x) => Lit::from_boolean_literal(x).to_implicit_type(),
             Expr::NoneLiteral(_) => Type::None,
             Expr::EllipsisLiteral(_) => Type::Ellipsis,
             Expr::Starred(ExprStarred { value, .. }) => {
@@ -788,12 +593,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .collect::<Vec<_>>();
                 self.specialize(&self.stdlib.slice_class_object(), elts, x.range(), errors)
             }
-            Expr::IpyEscapeCommand(x) => self.error(
-                errors,
-                x.range,
-                ErrorInfo::Kind(ErrorKind::Unsupported),
-                "IPython escapes are not supported".to_owned(),
-            ),
+            Expr::IpyEscapeCommand(x) => {
+                if self.module().is_notebook() {
+                    Type::any_implicit()
+                } else {
+                    self.error(
+                        errors,
+                        x.range,
+                        ErrorInfo::Kind(ErrorKind::Unsupported),
+                        "IPython escapes are not supported".to_owned(),
+                    )
+                }
+            }
         }
     }
 
@@ -809,14 +620,207 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             want.ty().clone()
         } else {
-            ty.promote_literals(self.stdlib)
+            ty.promote_implicit_literals(self.stdlib)
         }
     }
 
-    fn dict_infer(&self, x: &ExprDict, hint: Option<HintRef>, errors: &ErrorCollector) -> Type {
-        let flattened_items = Ast::flatten_dict_items(&x.items);
+    fn tuple_infer(&self, x: &ExprTuple, hint: Option<HintRef>, errors: &ErrorCollector) -> Type {
+        let owner = Owner::new();
+        let (hint_ts, default_hint) = if let Some(hint) = &hint {
+            let (tuples, nontuples) = self.split_tuple_hint(hint.ty());
+            // Combine hints from multiple tuples.
+            let mut element_hints: Vec<Vec1<&Type>> = Vec::new();
+            let mut default_hint = Vec::new();
+            for tuple in tuples {
+                let (cur_element_hints, cur_default_hint) = self.tuple_to_element_hints(tuple);
+                if let Some(cur_default_hint) = cur_default_hint {
+                    // Use the default hint for any elements that this tuple doesn't provide per-element hints for.
+                    for ts in element_hints.iter_mut().skip(cur_element_hints.len()) {
+                        ts.push(cur_default_hint);
+                    }
+                    default_hint.push(cur_default_hint);
+                }
+                for (i, element_hint) in cur_element_hints.into_iter().enumerate() {
+                    if i < element_hints.len() {
+                        element_hints[i].push(element_hint);
+                    } else {
+                        element_hints.push(vec1![element_hint]);
+                    }
+                }
+            }
+            if !nontuples.is_empty() {
+                // The non-tuple options may contain a type like Sequence[T] that provides an additional default hint.
+                // Filter out top-level Vars: they don't provide any hints, and we don't want to pin them.
+                let nontuple_hint = self.unions(
+                    nontuples
+                        .into_iter()
+                        .filter(|t| !matches!(t, Type::Var(_)))
+                        .cloned()
+                        .collect(),
+                );
+                let nontuple_element_hint =
+                    self.decompose_tuple(HintRef::new(&nontuple_hint, hint.errors()));
+                if let Some(nontuple_element_hint) = nontuple_element_hint {
+                    let nontuple_element_hint = owner.push(nontuple_element_hint.to_type());
+                    for ts in element_hints.iter_mut() {
+                        ts.push(nontuple_element_hint);
+                    }
+                    default_hint.push(nontuple_element_hint);
+                }
+            }
+            (
+                element_hints.into_map(|ts| self.types_to_hint(ts, hint.errors(), &owner)),
+                Vec1::try_from_vec(default_hint)
+                    .ok()
+                    .map(|ts| self.types_to_hint(ts, hint.errors(), &owner)),
+            )
+        } else {
+            (Vec::new(), None)
+        };
+        let mut prefix = Vec::new();
+        let mut unbounded = Vec::new();
+        let mut suffix = Vec::new();
+        let mut hint_ts_iter = hint_ts.into_iter();
+        let mut encountered_invalid_star = false;
+        for elt in x.elts.iter() {
+            match elt {
+                Expr::Starred(ExprStarred { value, .. }) => {
+                    let ty = self.expr_infer(value, errors);
+                    match ty {
+                        Type::Tuple(Tuple::Concrete(elts)) => {
+                            if unbounded.is_empty() {
+                                if !elts.is_empty() {
+                                    hint_ts_iter.nth(elts.len() - 1);
+                                }
+                                prefix.extend(elts);
+                            } else {
+                                suffix.extend(elts)
+                            }
+                        }
+                        Type::Tuple(Tuple::Unpacked(box (pre, middle, suff)))
+                            if unbounded.is_empty() =>
+                        {
+                            prefix.extend(pre);
+                            suffix.extend(suff);
+                            unbounded.push(middle);
+                            hint_ts_iter.nth(usize::MAX);
+                        }
+                        _ => {
+                            if let Some(iterable_ty) = self.unwrap_iterable(&ty) {
+                                if !unbounded.is_empty() {
+                                    unbounded.push(Type::unbounded_tuple(self.unions(suffix)));
+                                    suffix = Vec::new();
+                                }
+                                unbounded.push(Type::unbounded_tuple(iterable_ty));
+                                hint_ts_iter.nth(usize::MAX);
+                            } else {
+                                self.error(
+                                    errors,
+                                    x.range(),
+                                    ErrorInfo::Kind(ErrorKind::NotIterable),
+                                    format!("Expected an iterable, got `{}`", self.for_display(ty)),
+                                );
+                                encountered_invalid_star = true;
+                                hint_ts_iter.nth(usize::MAX); // TODO: missing test
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    let ty = self.expr_infer_type_no_trace(
+                        elt,
+                        if unbounded.is_empty() {
+                            hint_ts_iter.next().or(default_hint)
+                        } else {
+                            None
+                        },
+                        errors,
+                    );
+                    if unbounded.is_empty() {
+                        prefix.push(ty)
+                    } else {
+                        suffix.push(ty)
+                    }
+                }
+            }
+        }
+        if encountered_invalid_star {
+            // We already produced the type error, and we can't really roll up a suitable outermost type here.
+            // TODO(stroxler): should we really be producing a `tuple[Any]` here? We do at least know *something* about the type!
+            Type::any_error()
+        } else {
+            match unbounded.as_slice() {
+                [] => Type::concrete_tuple(prefix),
+                [middle] => Type::unpacked_tuple(prefix, middle.clone(), suffix),
+                // We can't precisely model unpacking two unbounded iterables, so we'll keep any
+                // concrete prefix and suffix elements and merge everything in between into an unbounded tuple
+                _ => {
+                    let middle_types: Vec<Type> = unbounded
+                        .iter()
+                        .map(|t| {
+                            self.unwrap_iterable(t)
+                                .unwrap_or(Type::Any(AnyStyle::Implicit))
+                        })
+                        .collect();
+                    Type::unpacked_tuple(
+                        prefix,
+                        Type::unbounded_tuple(self.unions(middle_types)),
+                        suffix,
+                    )
+                }
+            }
+        }
+    }
+
+    fn split_tuple_hint<'b>(&self, hint: &'b Type) -> (Vec<&'b Tuple>, Vec<&'b Type>) {
+        match hint {
+            Type::Tuple(tuple) => (vec![tuple], Vec::new()),
+            Type::Union(box Union { members, .. }) => members.iter().partition_map(|t| match t {
+                Type::Tuple(tuple) => Either::Left(tuple),
+                _ => Either::Right(t),
+            }),
+            _ => (Vec::new(), vec![hint]),
+        }
+    }
+
+    fn tuple_to_element_hints<'b>(&self, tup: &'b Tuple) -> (Vec<&'b Type>, Option<&'b Type>) {
+        match tup {
+            Tuple::Concrete(elts) => (elts.iter().collect(), None),
+            Tuple::Unpacked(box (prefix, _, _)) => {
+                // TODO: We should also contextually type based on the middle and suffix
+                (prefix.iter().collect(), None)
+            }
+            Tuple::Unbounded(elt) => (Vec::new(), Some(elt)),
+        }
+    }
+
+    fn types_to_hint<'b>(
+        &self,
+        ts: Vec1<&'b Type>,
+        errors: Option<&'b ErrorCollector>,
+        owner: &'b Owner<Type>,
+    ) -> HintRef<'b, 'b> {
+        if ts.len() == 1 {
+            let (t, _) = ts.split_off_first();
+            HintRef::new(t, errors)
+        } else {
+            HintRef::new(
+                owner.push(self.unions(ts.into_iter().cloned().collect())),
+                errors,
+            )
+        }
+    }
+
+    fn dict_infer(
+        &self,
+        items: &[DictItem],
+        hint: Option<HintRef>,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        let flattened_items = Ast::flatten_dict_items(items);
         let hints = hint.as_ref().map_or(Vec::new(), |hint| match hint.ty() {
-            Type::Union(ts) => ts
+            Type::Union(box Union { members: ts, .. }) => ts
                 .iter()
                 .map(|ty| HintRef::new(ty, hint.errors()))
                 .collect(),
@@ -834,7 +838,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &flattened_items,
                 typed_dict,
                 is_update,
-                x.range,
+                range,
                 &check_errors,
                 &item_errors,
             );
@@ -854,12 +858,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         // Note that we don't need to filter out the TypedDict options here; any non-`dict` options
         // are ignored when decomposing the hint.
-        self.dict_items_infer(flattened_items, hint, errors)
+        self.dict_items_infer(range, flattened_items, hint, errors)
     }
 
-    /// Infers a `dict` type for dictionary items. Note: does not handle TypedDict!
+    /// Infers a type for a dictionary literal with the specified items & an optional contextual hint
+    /// In order to preserve information about heterogeneous key/value types, we will infer an anonymous
+    /// typed dict if the following conditions are met:
+    /// - there cannot already be a contextual hint
+    /// - all the keys must be string literals
+    /// - there cannot be any unpackings
+    /// - the dict cannot be empty
     fn dict_items_infer(
         &self,
+        range: TextRange,
         items: Vec<&DictItem>,
         hint: Option<HintRef>,
         errors: &ErrorCollector,
@@ -868,26 +879,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if items.is_empty() {
             let key_ty = key_hint.map_or_else(
                 || {
-                    if !self.solver().infer_with_first_use {
-                        Type::any_implicit()
-                    } else {
-                        self.solver().fresh_contained(self.uniques).to_type()
-                    }
+                    self.solver()
+                        .fresh_partial_contained(self.uniques, range)
+                        .to_type()
                 },
                 |ty| ty.to_type(),
             );
             let value_ty = value_hint.map_or_else(
                 || {
-                    if !self.solver().infer_with_first_use {
-                        Type::any_implicit()
-                    } else {
-                        self.solver().fresh_contained(self.uniques).to_type()
-                    }
+                    self.solver()
+                        .fresh_partial_contained(self.uniques, range)
+                        .to_type()
                 },
                 |ty| ty.to_type(),
             );
             self.stdlib.dict(key_ty, value_ty).to_type()
         } else {
+            let mut typed_dict_fields = Vec::new();
+            let mut can_create_anonymous_typed_dict = hint.is_none();
             let mut key_tys = Vec::new();
             let mut value_tys = Vec::new();
             items.iter().for_each(|x| match &x.key {
@@ -905,11 +914,41 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if !key_t.is_error() {
                         key_tys.push(key_t);
                     }
+                    let maybe_string_lit_key = key.as_string_literal_expr();
+                    if maybe_string_lit_key.is_none() {
+                        can_create_anonymous_typed_dict = false;
+                    }
                     if !value_t.is_error() {
+                        if let Some(string_lit) = maybe_string_lit_key
+                            && can_create_anonymous_typed_dict
+                        {
+                            let key_name = Name::new(string_lit.value.to_str());
+                            typed_dict_fields.push((
+                                key_name,
+                                TypedDictField {
+                                    ty: if value_t == Type::None {
+                                        Type::union(vec![
+                                            Type::None,
+                                            self.solver()
+                                                .fresh_partial_contained(
+                                                    self.uniques,
+                                                    x.value.range(),
+                                                )
+                                                .to_type(),
+                                        ])
+                                    } else {
+                                        value_t.clone()
+                                    },
+                                    required: false,
+                                    read_only_reason: None,
+                                },
+                            ));
+                        }
                         value_tys.push(value_t);
                     }
                 }
                 None => {
+                    can_create_anonymous_typed_dict = false;
                     let ty = self.expr_infer(&x.value, errors);
                     if let Some((key_t, value_t)) = self.unwrap_mapping(&ty) {
                         if !key_t.is_error() {
@@ -940,6 +979,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
             });
+            if can_create_anonymous_typed_dict
+                && typed_dict_fields.len() <= ANONYMOUS_TYPED_DICT_MAX_ITEMS
+                && !typed_dict_fields.is_empty()
+            {
+                return Type::TypedDict(TypedDict::Anonymous(Box::new(AnonymousTypedDictInner {
+                    fields: typed_dict_fields,
+                    value_type: self.unions(value_tys),
+                })));
+            }
             if key_tys.is_empty() {
                 key_tys.push(Type::any_error())
             }
@@ -952,11 +1000,91 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// If this is a `dict` call that can be converted to an equivalent dict literal (e.g., `dict(x=1)` => `{'x': 1}`),
+    /// return the items in the converted dict.
+    fn call_to_dict(&self, callee_ty: &Type, args: &Arguments) -> Option<Vec<DictItem>> {
+        if !matches!(callee_ty, Type::ClassDef(class) if class.is_builtin("dict")) {
+            return None;
+        }
+        if !args.args.is_empty() {
+            // The positional args could contain expressions that are convertible to dict literals,
+            // but this is a less common pattern, so we defer supporting it for now.
+            return None;
+        }
+        Some(args.keywords.map(|kw| {
+            DictItem {
+                key: kw
+                    .arg
+                    .as_ref()
+                    .map(|id| Ast::str_expr(id.as_str(), id.range)),
+                value: kw.value.clone(),
+            }
+        }))
+    }
+
+    // Is this a call to `dict.get` with a single string literal argument
+    fn is_dict_get_with_literal(
+        &self,
+        func: &Expr,
+        args: &Arguments,
+        errors: &ErrorCollector,
+    ) -> Option<(TypeInfo, StringLiteralValue)> {
+        let Expr::Attribute(attr_expr) = func else {
+            return None;
+        };
+        if attr_expr.attr.id.as_str() != "get" {
+            return None;
+        }
+        if args.args.len() != 1 {
+            return None;
+        }
+        let Expr::StringLiteral(ExprStringLiteral { value: key, .. }) = &args.args[0] else {
+            return None;
+        };
+        let obj_ty = self.expr_infer_type_info_with_hint(&attr_expr.value, None, errors);
+        if self.is_dict_like(obj_ty.ty()) {
+            Some((obj_ty, key.clone()))
+        } else {
+            None
+        }
+    }
+
+    // Is this type a `TypedDict` or subtype of `dict`, but not `Any`?
+    pub fn is_dict_like(&self, ty: &Type) -> bool {
+        if ty.is_any() {
+            return false;
+        }
+        if ty.is_typed_dict() {
+            return true;
+        }
+        let dict_type = self
+            .stdlib
+            .dict(Type::any_implicit(), Type::any_implicit())
+            .to_type();
+        self.is_subset_eq(ty, &dict_type)
+    }
+
+    /// Determine the boolean behavior of a type:
+    /// - `Some(true)` or `Some(false)` when it is known to be statically truthy
+    ///   or falsey (as determined by some baked in rules for literals
+    ///   and looking at the `__bool__` method, if it is present).
+    /// - `None` if it's truthiness is not statically known.
     pub fn as_bool(&self, ty: &Type, range: TextRange, errors: &ErrorCollector) -> Option<bool> {
+        if let Type::TypedDict(td) = ty {
+            // If a TypedDict has ANY required keys, it can never be empty.
+            // Therefore, it is always Truthy.
+            if self
+                .typed_dict_fields(td)
+                .values()
+                .any(|field| field.required)
+            {
+                return Some(true);
+            }
+        }
         ty.as_bool().or_else(|| {
             // If the object defines `__bool__`, we can check if it returns a statically known value
             if self
-                .type_of_magic_dunder_attr(ty, &dunder::BOOL, range, errors, None, "as_bool")?
+                .type_of_magic_dunder_attr(ty, &dunder::BOOL, range, errors, None, "as_bool", true)?
                 .is_never()
             {
                 return None;
@@ -987,10 +1115,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         for (i, value) in values.iter().enumerate() {
             // If there isn't a hint for the overall expression, use the preceding branches as a "soft" hint
             // for the next one. Most useful for expressions like `optional_list or []`.
-            let hint = hint.or_else(|| Some(HintRef::new(&t_acc, None)));
+            let hint = hint.or_else(|| {
+                if t_acc.is_never() {
+                    None
+                } else {
+                    Some(HintRef::soft(&t_acc))
+                }
+            });
             let mut t = self.expr_infer_with_hint(value, hint, errors);
-            self.expand_type_mut(&mut t);
-            if should_shortcircuit(&t, value.range()) {
+            self.expand_vars_mut(&mut t);
+            // If this is not the last entry, we have to make a type-dependent decision and also narrow the
+            // result; both operations require us to force `Var` first or they become unpredictable.
+            if i < last_index {
+                t = self.force_for_narrowing(&t, value.range(), errors);
+            }
+            if i < last_index && should_shortcircuit(&t, value.range()) {
                 t_acc = self.union(t_acc, t);
                 break;
             }
@@ -998,13 +1137,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // If we reach the last value, we should always keep it.
                 if i == last_index || !should_discard(&t, value.range()) {
                     let t = if i != last_index && t == self.stdlib.bool().clone().to_type() {
-                        Lit::Bool(target).to_type()
+                        Lit::Bool(target).to_implicit_type()
                     } else if i != last_index && t == self.stdlib.int().clone().to_type() && !target
                     {
-                        Lit::Int(LitInt::new(0)).to_type()
+                        LitInt::new(0).to_implicit_type()
                     } else if i != last_index && t == self.stdlib.str().clone().to_type() && !target
                     {
-                        Lit::Str(Default::default()).to_type()
+                        Lit::Str(Default::default()).to_implicit_type()
                     } else {
                         t
                     };
@@ -1024,6 +1163,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.check_redundant_condition(&ty, if_clause.range(), errors);
             }
         }
+    }
+
+    /// If a comprehension contains `async for` clauses, or if it contains
+    /// `await` expressions or other asynchronous comprehensions anywhere except
+    /// the iterable expression in the leftmost `for` clause, it is treated as an `AsyncGenerator`
+    fn generator_expr_is_async(&self, generator: &ExprGenerator) -> bool {
+        if Ast::contains_await(&generator.elt) {
+            return true;
+        }
+        for (idx, comp) in generator.generators.iter().enumerate() {
+            if comp.is_async
+                || (idx != 0 && Ast::contains_await(&comp.iter))
+                || Ast::contains_await(&comp.target)
+                || comp.ifs.iter().any(Ast::contains_await)
+            {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn attr_infer_for_type(
@@ -1064,21 +1222,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> TypeInfo {
-        match slice {
-            Expr::NumberLiteral(ExprNumberLiteral {
-                value: Number::Int(idx),
-                ..
-            }) if let Some(idx) = idx.as_usize() => {
-                TypeInfo::at_facet(base, &FacetKind::Index(idx), || {
-                    self.subscript_infer_for_type(base.ty(), slice, range, errors)
-                })
+        if let Expr::NumberLiteral(ExprNumberLiteral {
+            value: Number::Int(idx),
+            ..
+        }) = slice
+            && let Some(idx) = idx.as_usize()
+        {
+            TypeInfo::at_facet(base, &FacetKind::Index(idx), || {
+                self.subscript_infer_for_type(base.ty(), slice, range, errors)
+            })
+        } else if let Expr::StringLiteral(ExprStringLiteral { value, .. }) = slice {
+            TypeInfo::at_facet(base, &FacetKind::Key(value.to_string()), || {
+                self.subscript_infer_for_type(base.ty(), slice, range, errors)
+            })
+        } else {
+            let swallower = self.error_swallower();
+            match self.expr_infer(slice, &swallower) {
+                Type::Literal(ref lit) if let Lit::Str(value) = &lit.value => {
+                    TypeInfo::at_facet(base, &FacetKind::Key(value.to_string()), || {
+                        self.subscript_infer_for_type(base.ty(), slice, range, errors)
+                    })
+                }
+                _ => {
+                    TypeInfo::of_ty(self.subscript_infer_for_type(base.ty(), slice, range, errors))
+                }
             }
-            Expr::StringLiteral(ExprStringLiteral { value: key, .. }) => {
-                TypeInfo::at_facet(base, &FacetKind::Key(key.to_string()), || {
-                    self.subscript_infer_for_type(base.ty(), slice, range, errors)
-                })
-            }
-            _ => TypeInfo::of_ty(self.subscript_infer_for_type(base.ty(), slice, range, errors)),
         }
     }
 
@@ -1089,27 +1257,41 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// are gradual if needed (e.g. `list` is treated as `list[Any]` when used as an annotation).
     ///
     /// This function canonicalizes to `Type::ClassType` or `Type::TypedDict`
-    pub fn canonicalize_all_class_types(&self, ty: Type, range: TextRange) -> Type {
+    pub fn canonicalize_all_class_types(
+        &self,
+        ty: Type,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
         ty.transform(&mut |ty| match ty {
             Type::SpecialForm(SpecialForm::Tuple) => {
-                *ty = Type::Tuple(Tuple::unbounded(Type::Any(AnyStyle::Implicit)));
+                Self::add_implicit_any_error(errors, range, "tuple", None);
+                *ty = Type::unbounded_tuple(Type::Any(AnyStyle::Implicit));
             }
             Type::SpecialForm(SpecialForm::Callable) => {
+                Self::add_implicit_any_error(errors, range, "Callable", None);
                 *ty = Type::callable_ellipsis(Type::Any(AnyStyle::Implicit))
             }
             Type::SpecialForm(SpecialForm::Type) => {
+                Self::add_implicit_any_error(errors, range, "type", None);
                 *ty = Type::type_form(Type::Any(AnyStyle::Implicit))
             }
             Type::ClassDef(cls) => {
                 if cls.is_builtin("tuple") {
-                    *ty = Type::type_form(Type::Tuple(Tuple::unbounded(Type::Any(
-                        AnyStyle::Implicit,
-                    ))));
+                    Self::add_implicit_any_error(errors, range, "tuple", None);
+                    *ty = Type::type_form(Type::unbounded_tuple(Type::Any(AnyStyle::Implicit)));
+                } else if cls.is_builtin("type") {
+                    // `type`` is equivalent to `type[Any]`. As a result, the class def itself
+                    // has type `type[type[Any]]`.
+                    *ty = Type::type_form(Type::type_form(Type::Any(AnyStyle::Implicit)));
                 } else if cls.has_toplevel_qname("typing", "Any") {
                     *ty = Type::type_form(Type::any_explicit())
                 } else {
-                    *ty = Type::type_form(self.promote(cls, range));
+                    *ty = Type::type_form(self.promote(cls, range, errors));
                 }
+            }
+            Type::ClassType(cls) if cls.is_builtin("type") => {
+                *ty = Type::type_form(Type::Any(AnyStyle::Implicit));
             }
             _ => {}
         })
@@ -1118,7 +1300,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn literal_bool_infer(&self, x: &Expr, errors: &ErrorCollector) -> bool {
         let ty = self.expr_infer(x, errors);
         match ty {
-            Type::Literal(Lit::Bool(b)) => b,
+            Type::Literal(lit) if let Lit::Bool(b) = lit.value => b,
             _ => {
                 self.error(
                     errors,
@@ -1220,10 +1402,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             kw.value.range(),
                         ))
                     }
-                    "covariant" => try_set_variance(kw, PreInferenceVariance::PCovariant),
-                    "contravariant" => try_set_variance(kw, PreInferenceVariance::PContravariant),
-                    "invariant" => try_set_variance(kw, PreInferenceVariance::PInvariant),
-                    "infer_variance" => try_set_variance(kw, PreInferenceVariance::PUndefined),
+                    "covariant" => try_set_variance(kw, PreInferenceVariance::Covariant),
+                    "contravariant" => try_set_variance(kw, PreInferenceVariance::Contravariant),
+                    "invariant" => try_set_variance(kw, PreInferenceVariance::Invariant),
+                    "infer_variance" => try_set_variance(kw, PreInferenceVariance::Undefined),
                     "name" => {
                         if arg_name {
                             self.error(
@@ -1294,7 +1476,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ));
         }
 
-        let variance = variance.unwrap_or(PreInferenceVariance::PInvariant);
+        let variance = variance.unwrap_or(PreInferenceVariance::Invariant);
 
         TypeVar::new(
             name,
@@ -1530,7 +1712,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         x.range,
-                        ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                        ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                         format!(
                             "TypeAliasType must be assigned to a variable named `{}`",
                             lit.value.to_str()
@@ -1541,7 +1723,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     arg.range(),
-                    ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                    ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                     "Expected first argument of `TypeAliasType` to be a string literal".to_owned(),
                 );
             }
@@ -1557,7 +1739,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 arg.range(),
-                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                 "Unexpected positional argument to `TypeAliasType`".to_owned(),
             );
         }
@@ -1569,7 +1751,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 kw.range,
-                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                                 "Multiple values for argument `name`".to_owned(),
                             );
                         } else {
@@ -1582,7 +1764,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 kw.range,
-                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                                 "Multiple values for argument `value`".to_owned(),
                             );
                         } else {
@@ -1596,7 +1778,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 kw.range,
-                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                                 "Value for argument `type_params` must be a tuple literal"
                                     .to_owned(),
                             );
@@ -1606,7 +1788,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             kw.range,
-                            ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                            ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                             format!("Unexpected keyword argument `{}` to `TypeAliasType`", id.id),
                         );
                     }
@@ -1615,7 +1797,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         kw.range,
-                        ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                        ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                         "Cannot pass unpacked keyword arguments to `TypeAliasType`".to_owned(),
                     );
                 }
@@ -1625,7 +1807,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 x.range,
-                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                 "Missing `name` argument".to_owned(),
             );
         }
@@ -1635,40 +1817,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 x.range,
-                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                 "Missing `value` argument".to_owned(),
             );
             None
         }
-    }
-
-    /// Apply a decorator. This effectively synthesizes a function call.
-    pub fn apply_decorator(
-        &self,
-        decorator: Type,
-        decoratee: Type,
-        range: TextRange,
-        errors: &ErrorCollector,
-    ) -> Type {
-        if matches!(&decoratee, Type::ClassDef(cls) if cls.has_toplevel_qname("typing", "TypeVar"))
-        {
-            // Avoid recursion in TypeVar, which is decorated with `@final`, whose type signature
-            // itself depends on a TypeVar.
-            return decoratee;
-        }
-        if matches!(&decoratee, Type::ClassDef(_)) {
-            // TODO: don't blanket ignore class decorators.
-            return decoratee;
-        }
-        let call_target = self.as_call_target_or_error(
-            decorator.clone(),
-            CallStyle::FreeForm,
-            range,
-            errors,
-            None,
-        );
-        let arg = CallArg::ty(&decoratee, range);
-        self.call_infer(call_target, &[arg], &[], range, errors, None, None, None)
     }
 
     /// Helper to infer element types for a list or set.
@@ -1724,6 +1877,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn is_enum_class_type(&self, ty: &Type) -> bool {
+        match ty {
+            Type::ClassType(cls) | Type::SelfType(cls) => {
+                self.has_superclass(cls.class_object(), self.stdlib.enum_class().class_object())
+            }
+            Type::Union(box Union {
+                members: variants, ..
+            }) => variants
+                .iter()
+                .all(|variant| self.is_enum_class_type(variant)),
+            _ => false,
+        }
+    }
+
+    fn is_restricted_to_enum_class_def_type(&self, quantified: &Quantified) -> bool {
+        match quantified.restriction() {
+            Restriction::Unrestricted => false,
+            Restriction::Bound(bound) => self.is_enum_class_type(bound),
+            Restriction::Constraints(constraints) => {
+                !constraints.is_empty()
+                    && constraints
+                        .iter()
+                        .all(|constraint| self.is_enum_class_type(constraint))
+            }
+        }
+    }
+
     pub fn subscript_infer_for_type(
         &self,
         base: &Type,
@@ -1739,6 +1919,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             if matches!(&base, Type::ClassDef(t) if t.name() == "tuple") {
                 base = Type::type_form(Type::SpecialForm(SpecialForm::Tuple));
+            }
+            if let Type::Intersect(x) = base {
+                // TODO: Handle subscription of intersections properly.
+                base = x.1;
             }
             match base {
                 Type::Forall(forall) => {
@@ -1788,12 +1972,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         && self.get_enum_from_class(cls).is_some() =>
                 {
                     if let Some(member) = self.get_enum_member(cls, &Name::new(key.to_str())) {
-                        Type::Literal(member)
+                        member.to_implicit_type()
                     } else {
                         self.error(
                             errors,
                             slice.range(),
-                            ErrorInfo::Kind(ErrorKind::IndexError),
+                            ErrorInfo::Kind(ErrorKind::BadIndex),
                             format!(
                                 "Enum `{}` does not have a member named `{}`",
                                 cls.name(),
@@ -1812,53 +1996,169 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             slice.range(),
-                            ErrorInfo::Kind(ErrorKind::IndexError),
+                            ErrorInfo::Kind(ErrorKind::BadIndex),
                             format!("Enum `{}` can only be indexed by strings", cls.name()),
                         )
                     }
                 }
-                Type::ClassDef(cls) => Type::type_form(self.specialize(
-                    &cls,
-                    xs.map(|x| self.expr_untype(x, TypeFormContext::TypeArgument, errors)),
-                    range,
-                    errors,
-                )),
+                Type::ClassDef(cls) => {
+                    let metadata = self.get_metadata_for_class(&cls);
+                    let class_getitem_result = if self.get_class_tparams(&cls).is_empty()
+                        && !metadata.has_base_any()
+                        && !metadata.is_new_type()
+                    {
+                        let class_ty = Type::ClassDef(cls.dupe());
+                        // TODO(stroxler): Add a new API, similar to `type_of_attr_get` but returning a
+                        // LookupResult or an Optional type, that we could use here to avoid the double lookup.
+                        if self.has_attr(&class_ty, &dunder::CLASS_GETITEM) {
+                            let cls_value = self.promote_silently(&cls);
+                            let call_args = [CallArg::ty(&cls_value, range), CallArg::expr(slice)];
+                            Some(self.call_method_or_error(
+                                &class_ty,
+                                &dunder::CLASS_GETITEM,
+                                range,
+                                &call_args,
+                                &[],
+                                errors,
+                                Some(&|| ErrorContext::Index(self.for_display(class_ty.clone()))),
+                            ))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+                    if let Some(result) = class_getitem_result {
+                        result
+                    } else {
+                        Type::type_form(self.specialize(
+                            &cls,
+                            xs.map(|x| self.expr_untype(x, TypeFormContext::TypeArgument, errors)),
+                            range,
+                            errors,
+                        ))
+                    }
+                }
+                Type::Type(box Type::Quantified(quantified)) if quantified.is_type_var() => {
+                    let quantified = *quantified;
+                    let base_display_ty =
+                        Type::Type(Box::new(Type::Quantified(Box::new(quantified.clone()))));
+                    if self.is_restricted_to_enum_class_def_type(&quantified) {
+                        if self.is_subset_eq(
+                            &self.expr(slice, None, errors),
+                            &self.stdlib.str().clone().to_type(),
+                        ) {
+                            quantified.to_type()
+                        } else {
+                            self.error(
+                                errors,
+                                slice.range(),
+                                ErrorInfo::Kind(ErrorKind::BadIndex),
+                                format!(
+                                    "Enum type `{}` can only be indexed by strings",
+                                    self.for_display(base_display_ty)
+                                ),
+                            )
+                        }
+                    } else {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::Kind(ErrorKind::UnsupportedOperation),
+                            format!(
+                                "`{}` is not subscriptable",
+                                self.for_display(base_display_ty)
+                            ),
+                        )
+                    }
+                }
+                Type::Type(inner) if self.is_enum_class_type(inner.as_ref()) => {
+                    let base_display_ty = Type::Type(inner.clone());
+                    let enum_value_ty = *inner;
+                    if self.is_subset_eq(
+                        &self.expr(slice, None, errors),
+                        &self.stdlib.str().clone().to_type(),
+                    ) {
+                        enum_value_ty
+                    } else {
+                        self.error(
+                            errors,
+                            slice.range(),
+                            ErrorInfo::Kind(ErrorKind::BadIndex),
+                            format!(
+                                "Enum type `{}` can only be indexed by strings",
+                                self.for_display(base_display_ty)
+                            ),
+                        )
+                    }
+                }
                 Type::Type(box Type::SpecialForm(special)) => {
                     self.apply_special_form(special, slice, range, errors)
                 }
-                Type::Tuple(Tuple::Concrete(ref elts)) if xs.len() == 1 => self.infer_tuple_index(
-                    elts.to_owned(),
-                    &xs[0],
+                Type::Tuple(ref tuple) => self.infer_tuple_subscript(
+                    tuple.clone(),
+                    slice,
                     range,
-                    errors,
-                    Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
-                ),
-                Type::Tuple(_) if xs.len() == 1 => self.call_method_or_error(
-                    &base,
-                    &dunder::GETITEM,
-                    range,
-                    &[CallArg::expr(slice)],
-                    &[],
                     errors,
                     Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
                 ),
                 Type::Any(style) => style.propagate(),
-                Type::Literal(Lit::Bytes(ref bytes)) => self.subscript_bytes_literal(
+                Type::Literal(ref lit) if let Lit::Bytes(ref bytes) = lit.value => self.subscript_bytes_literal(
                     bytes,
                     slice,
                     errors,
                     range,
                     Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
                 ),
-                Type::LiteralString | Type::Literal(Lit::Str(_)) if xs.len() <= 3 => {
+                Type::LiteralString(_) if xs.len() <= 3 => {
                     // We could have a more precise type here, but this matches Pyright.
                     self.stdlib.str().clone().to_type()
                 }
+                Type::Literal(ref lit) if let Lit::Str(ref value) = lit.value && xs.len() <= 3 => {
+                    let base_ty = Lit::Str(value.clone()).to_implicit_type();
+                    let context = || ErrorContext::Index(self.for_display(base_ty.clone()));
+                    self.subscript_str_literal(
+                        value.as_str(),
+                        &base_ty,
+                        slice,
+                        errors,
+                        range,
+                        Some(&context),
+                    )
+                }
+                Type::Args(_) => {
+                    let tuple = Tuple::Unbounded(Box::new(self.stdlib.object().clone().to_type()));
+                    self.infer_tuple_subscript(
+                        tuple,
+                        slice,
+                        range,
+                        errors,
+                        Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
+                    )
+                }
+                Type::Kwargs(_) => {
+                    let kwargs_ty = self
+                        .stdlib
+                        .dict(
+                            self.stdlib.str().clone().to_type(),
+                            self.stdlib.object().clone().to_type(),
+                        )
+                        .to_type();
+                    self.call_method_or_error(
+                        &kwargs_ty,
+                        &dunder::GETITEM,
+                        range,
+                        &[CallArg::expr(slice)],
+                        &[],
+                        errors,
+                        Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
+                    )
+                }
                 Type::ClassType(ref cls) | Type::SelfType(ref cls)
-                    if let Some(Tuple::Concrete(elts)) = self.as_tuple(cls) =>
+                    if let Some(tuple) = self.as_tuple(cls) =>
                 {
-                    self.infer_tuple_index(
-                        elts,
+                    self.infer_tuple_subscript(
+                        tuple,
                         slice,
                         range,
                         errors,
@@ -1874,50 +2174,86 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     errors,
                     Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
                 ),
+                Type::Quantified(ref q) if q.is_type_var() && q.restriction().is_restricted() => {
+                    self.call_method_or_error(
+                        &base,
+                        &dunder::GETITEM,
+                        range,
+                        &[CallArg::expr(slice)],
+                        &[],
+                        errors,
+                        Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
+                    )
+                }
                 Type::TypedDict(typed_dict) => {
                     let key_ty = self.expr_infer(slice, errors);
+                    // Don't warn on anonymous typed dicts
+                    let warn_on_not_required_access = matches!(typed_dict, TypedDict::TypedDict(_));
                     self.distribute_over_union(&key_ty, |ty| match ty {
-                        Type::Literal(Lit::Str(field_name)) => {
-                            if let Some(field) =
-                                self.typed_dict_field(&typed_dict, &Name::new(field_name))
-                            {
+                        Type::Literal(lit) if let Lit::Str(field_name) = &lit.value => {
+                            let fields = self.typed_dict_fields(&typed_dict);
+                            let key_name = Name::new(field_name);
+                            if let Some(field) = fields.get(&key_name) {
+                                if warn_on_not_required_access && !field.required {
+                                    errors.add(
+                                        slice.range(),
+                                        ErrorInfo::Kind(ErrorKind::NotRequiredKeyAccess),
+                                        vec1![format!(
+                                            "TypedDict key `{}` may be absent",
+                                            key_name
+                                        ),
+                                        format!(
+                                            "Hint: guard this access with `'{}' in obj` or `obj.get('{}')`",
+                                            key_name, key_name
+                                        )],
+                                    );
+                                }
                                 field.ty.clone()
                             } else if let ExtraItems::Extra(extra) =
-                                self.typed_dict_extra_items(typed_dict.class_object())
+                                self.typed_dict_extra_items(&typed_dict)
                             {
                                 extra.ty
+                            } else {
+                                let mut msg = vec1![format!(
+                                    "TypedDict `{}` does not have key `{}`",
+                                    typed_dict.name(),
+                                    field_name
+                                )];
+                                if let Some(suggestion) = best_suggestion(
+                                    &key_name,
+                                    fields.keys().map(|candidate| (candidate, 0usize)),
+                                ) {
+                                    msg.push(format!("Did you mean `{suggestion}`?"));
+                                }
+                                errors.add(
+                                    slice.range(),
+                                    ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
+                                    msg,
+                                );
+                                Type::any_error()
+                            }
+                        }
+                        _ => {
+                            if self.is_subset_eq(ty, &self.stdlib.str().clone().to_type())
+                                && !matches!(
+                                    self.typed_dict_extra_items(&typed_dict),
+                                    ExtraItems::Default
+                                )
+                            {
+                                self.get_typed_dict_value_type(&typed_dict)
                             } else {
                                 self.error(
                                     errors,
                                     slice.range(),
-                                    ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                                    ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
                                     format!(
-                                        "TypedDict `{}` does not have key `{}`",
+                                        "Invalid key for TypedDict `{}`, got `{}`",
                                         typed_dict.name(),
-                                        field_name
+                                        self.for_display(ty.clone())
                                     ),
                                 )
                             }
                         }
-                        Type::ClassType(cls)
-                            if cls.is_builtin("str")
-                                && !matches!(
-                                    self.typed_dict_extra_items(typed_dict.class_object()),
-                                    ExtraItems::Default
-                                ) =>
-                        {
-                            self.get_typed_dict_value_type(&typed_dict)
-                        }
-                        _ => self.error(
-                            errors,
-                            slice.range(),
-                            ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
-                            format!(
-                                "Invalid key for TypedDict `{}`, got `{}`",
-                                typed_dict.name(),
-                                self.for_display(ty.clone())
-                            ),
-                        ),
                     })
                 }
                 t => self.error(
@@ -1930,193 +2266,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
-    fn has_exactly_two_posargs(&self, arguments: &Arguments) -> bool {
-        arguments.keywords.is_empty()
-            && arguments.args.len() == 2
-            && arguments
-                .args
-                .iter()
-                .all(|e| !matches!(e, Expr::Starred(_)))
-    }
-
-    /// When indexing/slicing concrete tuples with literals, try to infer a more precise type
-    fn infer_tuple_index(
-        &self,
-        elts: Vec<Type>,
-        index: &Expr,
-        range: TextRange,
-        errors: &ErrorCollector,
-        context: Option<&dyn Fn() -> ErrorContext>,
-    ) -> Type {
-        match index {
-            Expr::Slice(ExprSlice {
-                lower: lower_expr,
-                upper: upper_expr,
-                step: None,
-                ..
-            }) => {
-                let lower_literal = match lower_expr {
-                    Some(expr) => {
-                        let lower_type = self.expr_infer(expr, errors);
-                        match &lower_type {
-                            Type::Literal(lit) => lit.as_index_i64(),
-                            _ => None,
-                        }
-                    }
-                    None => Some(0),
-                };
-                let upper_literal = match upper_expr {
-                    Some(expr) => {
-                        let upper_type = self.expr_infer(expr, errors);
-                        match &upper_type {
-                            Type::Literal(lit) => lit.as_index_i64(),
-                            _ => None,
-                        }
-                    }
-                    None => Some(elts.len() as i64),
-                };
-                match (lower_literal, upper_literal) {
-                    (Some(lower), Some(upper))
-                        if lower <= upper
-                            && lower >= 0
-                            && upper >= 0
-                            && upper <= elts.len() as i64 =>
-                    {
-                        Type::Tuple(Tuple::concrete(
-                            elts[lower as usize..upper as usize].to_vec(),
-                        ))
-                    }
-                    _ => self.call_method_or_error(
-                        &Type::Tuple(Tuple::Concrete(elts)),
-                        &dunder::GETITEM,
-                        range,
-                        &[CallArg::expr(index)],
-                        &[],
-                        errors,
-                        context,
-                    ),
-                }
-            }
-            _ => {
-                let idx_type = self.expr_infer(index, errors);
-                match &idx_type {
-                    Type::Literal(lit) if let Some(idx) = lit.as_index_i64() => {
-                        let elt_idx = if idx >= 0 {
-                            idx
-                        } else {
-                            elts.len() as i64 + idx
-                        } as usize;
-                        if let Some(elt) = elts.get(elt_idx) {
-                            elt.clone()
-                        } else {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::IndexError),
-                                format!(
-                                    "Index {idx} out of range for tuple with {} elements",
-                                    elts.len()
-                                ),
-                            )
-                        }
-                    }
-                    _ => self.call_method_or_error(
-                        &Type::Tuple(Tuple::Concrete(elts)),
-                        &dunder::GETITEM,
-                        range,
-                        &[CallArg::expr(index)],
-                        &[],
-                        errors,
-                        context,
-                    ),
-                }
-            }
-        }
-    }
-
-    fn subscript_bytes_literal(
-        &self,
-        bytes: &[u8],
-        index_expr: &Expr,
-        errors: &ErrorCollector,
-        range: TextRange,
-        context: Option<&dyn Fn() -> ErrorContext>,
-    ) -> Type {
-        let index_ty = self.expr_infer(index_expr, errors);
-        match &index_ty {
-            Type::Literal(lit) => {
-                if let Some(idx) = lit.as_index_i64() {
-                    if idx >= 0
-                        && let Some(byte) = idx.to_usize().and_then(|idx| bytes.get(idx))
-                    {
-                        Type::Literal(Lit::Int(LitInt::new((*byte).into())))
-                    } else if idx < 0
-                        && let Some(byte) = idx
-                            .checked_neg()
-                            .and_then(|idx| idx.to_usize())
-                            .and_then(|idx| bytes.len().checked_sub(idx))
-                            .and_then(|idx| bytes.get(idx))
-                    {
-                        Type::Literal(Lit::Int(LitInt::new((*byte).into())))
-                    } else {
-                        self.error(
-                            errors,
-                            range,
-                            ErrorInfo::Kind(ErrorKind::IndexError),
-                            format!(
-                                "Index `{idx}` out of range for bytes with {} elements",
-                                bytes.len()
-                            ),
-                        )
-                    }
-                } else {
-                    self.call_method_or_error(
-                        &self.stdlib.bytes().clone().to_type(),
-                        &dunder::GETITEM,
-                        range,
-                        &[CallArg::expr(index_expr)],
-                        &[],
-                        errors,
-                        context,
-                    )
-                }
-            }
-            _ => self.call_method_or_error(
-                &self.stdlib.bytes().clone().to_type(),
-                &dunder::GETITEM,
-                range,
-                &[CallArg::expr(index_expr)],
-                &[],
-                errors,
-                context,
-            ),
-        }
-    }
-
     /// Return the reason why we think `ty` is suspicious to use as a branching condition
     fn get_condition_redundant_reason(&self, ty: &Type) -> Option<ConditionRedundantReason> {
         match ty {
-            Type::Literal(Lit::Bool(_)) => None,
-            Type::Literal(Lit::Int(i)) => Some(ConditionRedundantReason::IntLiteral(i.as_bool())),
-            Type::Literal(Lit::Str(s)) => Some(ConditionRedundantReason::StrLiteral(!s.is_empty())),
-            Type::Literal(Lit::Bytes(s)) => {
+            Type::Literal(lit) if let Lit::Bool(_) = lit.value => None,
+            Type::Literal(lit) if let Lit::Int(i) = &lit.value => {
+                Some(ConditionRedundantReason::IntLiteral(i.as_bool()))
+            }
+            Type::Literal(lit) if let Lit::Str(s) = &lit.value => {
+                Some(ConditionRedundantReason::StrLiteral(!s.is_empty()))
+            }
+            Type::Literal(lit) if let Lit::Bytes(s) = &lit.value => {
                 Some(ConditionRedundantReason::BytesLiteral(!s.is_empty()))
             }
-            Type::Literal(Lit::Enum(e)) => Some(ConditionRedundantReason::EnumLiteral(
-                e.class.class_object().name().clone(),
-                e.member.clone(),
-            )),
+            Type::Literal(lit) if let Lit::Enum(e) = &lit.value => {
+                Some(ConditionRedundantReason::EnumLiteral(
+                    e.class.class_object().name().clone(),
+                    e.member.clone(),
+                ))
+            }
             Type::Function(f) => Some(ConditionRedundantReason::Function(
                 self.module().name(),
-                f.metadata.kind.as_func_id(),
+                f.metadata.kind.clone(),
             )),
             Type::Overload(f) => Some(ConditionRedundantReason::Function(
                 self.module().name(),
-                f.metadata.kind.as_func_id(),
+                f.metadata.kind.clone(),
             )),
             Type::BoundMethod(f) => Some(ConditionRedundantReason::Function(
                 self.module().name(),
-                f.func.metadata().kind.as_func_id(),
+                f.func.metadata().kind.clone(),
             )),
             Type::ClassDef(cls) => Some(ConditionRedundantReason::Class(cls.name().clone())),
             _ => None,
@@ -2137,17 +2316,5 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!("{reason}"),
             );
         }
-    }
-}
-
-/// Match on an expression by name. Should be used only for special names that we essentially treat like keywords,
-/// like reveal_type.
-fn is_special_name(x: &Expr, name: &str) -> bool {
-    match x {
-        // Note that this matches on a bare name regardless of whether it's been imported.
-        // It's convenient to be able to call functions like reveal_type in the course of
-        // debugging without scrolling to the top of the file to add an import.
-        Expr::Name(x) => x.id.as_str() == name,
-        _ => false,
     }
 }

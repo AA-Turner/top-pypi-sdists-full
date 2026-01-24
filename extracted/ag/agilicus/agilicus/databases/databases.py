@@ -10,20 +10,24 @@ from agilicus import agilicus_api
 from ..input_helpers import build_updated_model
 from ..input_helpers import update_org_from_input_or_ctx
 from ..input_helpers import strip_none
+from ..pagination import normalize_page_args
 from ..output.table import (
     spec_column,
     format_table,
     metadata_column,
 )
-from ..resource_helpers import map_resource_published
+from ..resource_helpers import map_resource_published, standard_page_fields
 
 PROTOCOLS = ["postgresql"]
+
+page_fields = standard_page_fields
 
 
 def list_database_resources(ctx, **kwargs):
     apiclient = context.get_apiclient_from_ctx(ctx)
     update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
     params = strip_none(kwargs)
+    params = normalize_page_args(params)
     query_results = apiclient.app_services_api.list_database_resources(**params)
     return query_results.database_resources
 

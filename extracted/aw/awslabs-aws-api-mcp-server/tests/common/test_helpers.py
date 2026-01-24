@@ -1,10 +1,16 @@
+import base64
+import json
 import pytest
-import requests
 from awslabs.aws_api_mcp_server.core.common.helpers import (
-    download_embedding_model,
+    as_json,
+    get_requests_session,
+    is_help_operation,
     validate_aws_region,
 )
-from unittest.mock import MagicMock, mock_open, patch
+from botocore.response import StreamingBody
+from io import BytesIO
+from requests.adapters import HTTPAdapter
+from unittest.mock import MagicMock, patch
 
 
 @pytest.mark.parametrize(
@@ -91,134 +97,104 @@ def test_validate_aws_region_invalid_regions(mock_logger: MagicMock, invalid_reg
     mock_logger.error.assert_called_once_with(expected_error_message)
 
 
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.EMBEDDING_MODEL_DIR', '/mock/models')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.zipfile.ZipFile')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.requests.get')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.tempfile.TemporaryDirectory')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.Path')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.logger')
-def test_download_embedding_model_success(
-    mock_logger, mock_path, mock_temp_dir, mock_requests_get, mock_zipfile
-):
-    """Test successful download and extraction of embedding model."""
-    mock_temp_dir_context = MagicMock()
-    mock_temp_dir_context.__enter__.return_value = '/tmp/test_dir'
-    mock_temp_dir_context.__exit__.return_value = None
-    mock_temp_dir.return_value = mock_temp_dir_context
+def test_get_requests_session():
+    """Test that get_requests_session returns a properly configured session."""
+    session = get_requests_session()
 
-    mock_response = MagicMock()
-    mock_response.iter_content.return_value = [b'chunk1', b'chunk2']
-    mock_requests_get.return_value = mock_response
+    https_adapter = session.get_adapter('https://example.com')
+    assert isinstance(https_adapter, HTTPAdapter)
 
-    mock_zip_ref = MagicMock()
-    mock_zipfile.return_value.__enter__.return_value = mock_zip_ref
-
-    mock_path_instance = MagicMock()
-    mock_path.return_value = mock_path_instance
-    mock_path_instance.parent.mkdir = MagicMock()
-
-    with patch('builtins.open', mock_open()) as mock_file:
-        with patch('os.path.join', side_effect=lambda *args: '/'.join(args)):
-            download_embedding_model('test-model')
-
-    mock_requests_get.assert_called_once_with(
-        'https://models.knowledge-mcp.global.api.aws/test-model.zip', stream=True, timeout=30
-    )
-    mock_response.raise_for_status.assert_called_once()
-    mock_file.assert_called_once_with('/tmp/test_dir/test-model.zip', 'wb')
-    handle = mock_file()
-    assert handle.write.call_count == 2
-    handle.write.assert_any_call(b'chunk1')
-    handle.write.assert_any_call(b'chunk2')
-    mock_zip_ref.extractall.assert_called_once_with('/mock/models/test-model')
-    mock_logger.debug.assert_any_call(
-        'Dowloading embedding model {} to {}', 'test-model', '/tmp/test_dir'
-    )
+    retry_config = https_adapter.max_retries
+    assert retry_config.total == 3
+    assert retry_config.backoff_factor == 1
+    assert retry_config.status_forcelist == [429, 500, 502, 503, 504]
+    assert retry_config.allowed_methods == {'HEAD', 'GET', 'OPTIONS', 'POST'}
 
 
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.requests.get')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.tempfile.TemporaryDirectory')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.Path')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.logger')
-def test_download_embedding_model_http_error(
-    mock_logger, mock_path, mock_temp_dir, mock_requests_get
-):
-    """Test download failure due to HTTP error."""
-    mock_temp_dir_context = MagicMock()
-    mock_temp_dir_context.__enter__.return_value = '/tmp/test_dir'
-    mock_temp_dir_context.__exit__.return_value = None
-    mock_temp_dir.return_value = mock_temp_dir_context
+@pytest.mark.parametrize(
+    'args,expected',
+    [
+        (['help'], True),
+        (['--help'], True),
+        (['command', 'help'], True),
+        (['command', '--help'], True),
+        (['help', 'command'], True),
+        (['command', 'arg', 'help'], True),
+        (['command', 'arg'], False),
+        ([], False),
+        (['--region', 'us-east-1'], False),
+        (['HeLp'], True),
+        (['command', 'HELP'], True),
+        ([10, 'Arg', 'HELP'], True),
+        (['--Help'], True),
+        (['command', '--Help'], True),
+        (['--help', 'command'], True),
+        (['--help', '--region', 'us-west-2'], True),
+        (['command', 'help', '--debug'], True),
+        (['command', '--region', 'us-east-1', 'help'], True),
+        (['command', 'helping'], False),
+        (['helping'], False),
+        ([{}, {}], False),
+        (['-h'], False),
+        (['command', '-h'], False),
+        ([{'MaxItems': 10}, ''], False),
+        ([' ', '--help'], True),
+        (['command', ' ', 'help'], True),
+        (['--help', '--help'], True),
+    ],
+)
+def test_is_help_operation(args, expected):
+    """Test is_help_operation identifies help commands correctly."""
+    assert is_help_operation(args) == expected
 
-    mock_path_instance = MagicMock()
-    mock_path.return_value = mock_path_instance
-    mock_path_instance.parent.mkdir = MagicMock()
 
-    mock_response = MagicMock()
-    mock_response.raise_for_status.side_effect = requests.HTTPError('404 Not Found')
-    mock_requests_get.return_value = mock_response
-
-    with patch('os.path.join', side_effect=lambda *args: '/'.join(args)):
-        with pytest.raises(requests.HTTPError):
-            download_embedding_model('nonexistent-model')
-
-    mock_requests_get.assert_called_once_with(
-        'https://models.knowledge-mcp.global.api.aws/nonexistent-model.zip',
-        stream=True,
-        timeout=30,
-    )
-    mock_response.raise_for_status.assert_called_once()
+def test_as_json_basic_dict():
+    """Test that as_json converts a basic dictionary to JSON string."""
+    data = {'key': 'value', 'number': 42}
+    result = as_json(data)
+    assert result == '{"key": "value", "number": 42}'
 
 
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.EMBEDDING_MODEL_DIR', '/mock/models')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.shutil.rmtree')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.os.path.exists')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.zipfile.ZipFile')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.requests.get')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.tempfile.TemporaryDirectory')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.Path')
-@patch('awslabs.aws_api_mcp_server.core.common.helpers.logger')
-def test_download_embedding_model_zip_extraction_failure(
-    mock_logger,
-    mock_path,
-    mock_temp_dir,
-    mock_requests_get,
-    mock_zipfile,
-    mock_exists,
-    mock_rmtree,
-):
-    """Test that directory is cleaned up when zip extraction fails."""
-    mock_temp_dir_context = MagicMock()
-    mock_temp_dir_context.__enter__.return_value = '/tmp/test_dir'
-    mock_temp_dir_context.__exit__.return_value = None
-    mock_temp_dir.return_value = mock_temp_dir_context
+def test_as_json_encodes_streaming_body_with_utf8_content():
+    """Test that StreamingBody with valid UTF-8 content is decoded correctly."""
+    content = b'Hello, world!'
+    raw_stream = BytesIO(content)
+    encoded = as_json({'data': StreamingBody(raw_stream, content_length=len(content))})
+    assert json.loads(encoded) == {'data': 'Hello, world!'}
 
-    mock_response = MagicMock()
-    mock_response.iter_content.return_value = [b'chunk1', b'chunk2']
-    mock_requests_get.return_value = mock_response
 
-    mock_zip_ref = MagicMock()
-    mock_zip_ref.extractall.side_effect = Exception('Zip extraction failed')
-    mock_zipfile.return_value.__enter__.return_value = mock_zip_ref
+def test_as_json_encodes_streaming_body_with_non_utf8_content():
+    """Test that StreamingBody with non-UTF-8 content is base64 encoded."""
+    # 24 bytes of 0x80 (invalid UTF-8 continuation byte) - divisible by 3 for clean base64
+    binary_data = b'\x80' * 24
+    data = base64.b64encode(binary_data)
+    raw_stream = BytesIO(binary_data)
+    encoded = as_json({'data': StreamingBody(raw_stream, content_length=len(binary_data))})
+    assert json.loads(encoded) == {'data': data.decode('utf-8')}
 
-    mock_path_instance = MagicMock()
-    mock_path.return_value = mock_path_instance
-    mock_path_instance.parent.mkdir = MagicMock()
 
-    mock_exists.return_value = True
+def test_as_json_encodes_bytes_with_utf8_content():
+    """Test that bytes with valid UTF-8 content is decoded correctly."""
+    content = b'Hello, world!'
+    encoded = as_json({'data': content})
+    assert json.loads(encoded) == {'data': 'Hello, world!'}
 
-    with patch('builtins.open', mock_open()) as mock_file:
-        with patch('os.path.join', side_effect=lambda *args: '/'.join(args)):
-            with pytest.raises(Exception, match='Zip extraction failed'):
-                download_embedding_model('test-model')
 
-    mock_requests_get.assert_called_once_with(
-        'https://models.knowledge-mcp.global.api.aws/test-model.zip', stream=True, timeout=30
-    )
-    mock_response.raise_for_status.assert_called_once()
-    mock_file.assert_called_once_with('/tmp/test_dir/test-model.zip', 'wb')
-    mock_zip_ref.extractall.assert_called_once_with('/mock/models/test-model')
-    mock_logger.error.assert_called_once_with(
-        'Failed to extract embedding model: {}', 'Zip extraction failed'
-    )
-    mock_exists.assert_called_once_with('/mock/models/test-model')
-    mock_rmtree.assert_called_once_with('/mock/models/test-model')
+def test_as_json_encodes_bytes_with_non_utf8_content():
+    """Test that bytes with non-UTF-8 content is base64 encoded."""
+    # 24 bytes of 0x80 (invalid UTF-8 continuation byte) - divisible by 3 for clean base64
+    binary_data = b'\x80' * 24
+    data = base64.b64encode(binary_data)
+    encoded = as_json({'data': binary_data})
+    assert json.loads(encoded) == {'data': data.decode('utf-8')}
+
+
+def test_as_json_raises_type_error_for_unsupported_type():
+    """Test that as_json raises Exception for non-serializable objects."""
+
+    class CustomObject:
+        pass
+
+    with pytest.raises(Exception) as exc_info:
+        as_json({'data': CustomObject()})
+    assert 'is not JSON serializable' in str(exc_info.value)

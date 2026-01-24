@@ -3,7 +3,7 @@ Type annotations for codebuild service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codebuild/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -157,12 +158,6 @@ from .type_defs import (
     UpdateWebhookOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -171,13 +166,13 @@ else:
 __all__ = ("CodeBuildClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccountLimitExceededException: Type[BotocoreClientError]
-    AccountSuspendedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    OAuthProviderException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    AccountLimitExceededException: type[BotocoreClientError]
+    AccountSuspendedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    OAuthProviderException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 class CodeBuildClient(AioBaseClient):
     """
@@ -356,7 +351,7 @@ class CodeBuildClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codebuild/client/#delete_build_batch)
         """
 
-    async def delete_fleet(self, **kwargs: Unpack[DeleteFleetInputTypeDef]) -> Dict[str, Any]:
+    async def delete_fleet(self, **kwargs: Unpack[DeleteFleetInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a compute fleet.
 
@@ -364,7 +359,7 @@ class CodeBuildClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codebuild/client/#delete_fleet)
         """
 
-    async def delete_project(self, **kwargs: Unpack[DeleteProjectInputTypeDef]) -> Dict[str, Any]:
+    async def delete_project(self, **kwargs: Unpack[DeleteProjectInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a build project.
 
@@ -372,7 +367,7 @@ class CodeBuildClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codebuild/client/#delete_project)
         """
 
-    async def delete_report(self, **kwargs: Unpack[DeleteReportInputTypeDef]) -> Dict[str, Any]:
+    async def delete_report(self, **kwargs: Unpack[DeleteReportInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a report.
 
@@ -382,7 +377,7 @@ class CodeBuildClient(AioBaseClient):
 
     async def delete_report_group(
         self, **kwargs: Unpack[DeleteReportGroupInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a report group.
 
@@ -392,7 +387,7 @@ class CodeBuildClient(AioBaseClient):
 
     async def delete_resource_policy(
         self, **kwargs: Unpack[DeleteResourcePolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a resource policy that is identified by its resource ARN.
 
@@ -410,7 +405,7 @@ class CodeBuildClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codebuild/client/#delete_source_credentials)
         """
 
-    async def delete_webhook(self, **kwargs: Unpack[DeleteWebhookInputTypeDef]) -> Dict[str, Any]:
+    async def delete_webhook(self, **kwargs: Unpack[DeleteWebhookInputTypeDef]) -> dict[str, Any]:
         """
         For an existing CodeBuild build project that has its source code stored in a
         GitHub or Bitbucket repository, stops CodeBuild from rebuilding the source code
@@ -474,7 +469,7 @@ class CodeBuildClient(AioBaseClient):
 
     async def invalidate_project_cache(
         self, **kwargs: Unpack[InvalidateProjectCacheInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Resets the cache for a project.
 
@@ -978,7 +973,7 @@ class CodeBuildClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

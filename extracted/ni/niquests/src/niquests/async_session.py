@@ -22,7 +22,38 @@ from ._constant import (
     READ_DEFAULT_TIMEOUT,
     WRITE_DEFAULT_TIMEOUT,
 )
-from ._typing import (
+from .adapters import AsyncBaseAdapter, AsyncHTTPAdapter
+from .cookies import (
+    RequestsCookieJar,
+    cookiejar_from_dict,
+    extract_cookies_to_jar,
+    merge_cookies,
+)
+from .exceptions import (
+    ChunkedEncodingError,
+    ContentDecodingError,
+    InvalidSchema,
+    TooManyRedirects,
+)
+from .extensions.revocation import DEFAULT_STRATEGY, RevocationConfiguration
+from .extensions.sgi._async import AsyncServerGatewayInterface
+from .extensions.unixsocket._async import AsyncUnixAdapter
+from .hooks import async_dispatch_hook, default_hooks
+from .models import (
+    DEFAULT_REDIRECT_LIMIT,
+    AsyncResponse,
+    PreparedRequest,
+    Request,
+    Response,
+    TransferProgress,
+)
+from .packages.urllib3 import ConnectionInfo
+from .packages.urllib3.contrib.resolver._async import AsyncBaseResolver
+from .packages.urllib3.contrib.webextensions._async import load_extension
+from .sessions import Session, merge_hooks
+from .structures import AsyncQuicSharedCache, CaseInsensitiveDict
+from .typing import (
+    ASGIApp,
     AsyncBodyType,
     AsyncHookType,
     AsyncHttpAuthenticationType,
@@ -42,44 +73,17 @@ from ._typing import (
     TLSClientCertType,
     TLSVerifyType,
 )
-from .adapters import AsyncBaseAdapter, AsyncHTTPAdapter
-from .cookies import (
-    RequestsCookieJar,
-    cookiejar_from_dict,
-    extract_cookies_to_jar,
-    merge_cookies,
-)
-from .exceptions import (
-    ChunkedEncodingError,
-    ContentDecodingError,
-    InvalidSchema,
-    TooManyRedirects,
-)
-from .hooks import async_dispatch_hook, default_hooks
-from .models import (
-    DEFAULT_REDIRECT_LIMIT,
-    AsyncResponse,
-    PreparedRequest,
-    Request,
-    Response,
-    TransferProgress,
-)
-from .packages.urllib3 import ConnectionInfo
-from .packages.urllib3.contrib.resolver._async import AsyncBaseResolver
-from .packages.urllib3.contrib.webextensions._async import load_extension
-from .sessions import Session
-from .structures import AsyncQuicSharedCache
 from .utils import (
     _deepcopy_ci,
     _swap_context,
     create_async_resolver,
     default_headers,
-    is_crl_capable,
-    is_ocsp_capable,
     parse_scheme,
     requote_uri,
     resolve_proxies,
     rewind_body,
+    should_check_crl,
+    should_check_ocsp,
 )
 
 # Preferred clock, based on which one is more accurate on a given system.
@@ -128,6 +132,10 @@ class AsyncSession(Session):
         keepalive_idle_window: float | int | None = 60.0,
         base_url: str | None = None,
         timeout: TimeoutType | None = None,
+        headers: HeadersType | None = None,
+        hooks: AsyncHookType[PreparedRequest | Response | AsyncResponse] | None = None,
+        revocation_configuration: RevocationConfiguration | None = DEFAULT_STRATEGY,
+        app: ASGIApp | None = None,
     ):
         if [disable_ipv4, disable_ipv6].count(True) == 2:
             raise RuntimeError("Cannot disable both IPv4 and IPv6")
@@ -146,7 +154,7 @@ class AsyncSession(Session):
         #: A case-insensitive dictionary of headers to be sent on each
         #: :class:`Request <Request>` sent from this
         #: :class:`Session <Session>`.
-        self.headers = default_headers()
+        self.headers = CaseInsensitiveDict(headers) if headers is not None else default_headers()
 
         #: Default Authentication tuple or object to attach to
         #: :class:`Request <Request>`.
@@ -158,7 +166,11 @@ class AsyncSession(Session):
         self.proxies: ProxyType = {}
 
         #: Event-handling hooks.
-        self.hooks: AsyncHookType[PreparedRequest | Response | AsyncResponse] = default_hooks()  # type: ignore[assignment]
+        self.hooks: AsyncHookType[PreparedRequest | Response | AsyncResponse] = (
+            merge_hooks(default_hooks(), hooks)  # type: ignore[assignment]
+            if hooks is not None
+            else default_hooks()
+        )
 
         #: Dictionary of querystring data to attach to each
         #: :class:`Request <Request>`. The dictionary values may be lists for
@@ -245,6 +257,9 @@ class AsyncSession(Session):
         #: unattended errors.
         self._crl_cache: typing.Any | None = None
 
+        #: How we should handle the revocation check for TLS newly acquired connection.
+        self._revocation_configuration: RevocationConfiguration | None = revocation_configuration
+
         # Default connection adapters.
         self.adapters: OrderedDict[str, AsyncBaseAdapter] = OrderedDict()  # type: ignore[assignment]
         self.mount(
@@ -264,6 +279,7 @@ class AsyncSession(Session):
                 happy_eyeballs=happy_eyeballs,
                 keepalive_delay=keepalive_delay,
                 keepalive_idle_window=keepalive_idle_window,
+                revocation_configuration=revocation_configuration,
             ),
         )
         self.mount(
@@ -282,8 +298,41 @@ class AsyncSession(Session):
                 happy_eyeballs=happy_eyeballs,
                 keepalive_delay=keepalive_delay,
                 keepalive_idle_window=keepalive_idle_window,
+                revocation_configuration=revocation_configuration,
             ),
         )
+        self.mount(
+            "http+unix://",
+            AsyncUnixAdapter(
+                max_retries=retries,
+                disable_http1=disable_http1,
+                disable_http2=disable_http2,
+                disable_http3=disable_http3,
+                resolver=resolver,
+                source_address=source_address,
+                disable_ipv4=disable_ipv4,
+                disable_ipv6=disable_ipv6,
+                pool_connections=pool_connections,
+                pool_maxsize=pool_maxsize,
+                happy_eyeballs=happy_eyeballs,
+                keepalive_delay=keepalive_delay,
+                keepalive_idle_window=keepalive_idle_window,
+                revocation_configuration=revocation_configuration,
+            ),
+        )
+        if app is not None:
+            self.mount(
+                "asgi://default",
+                AsyncServerGatewayInterface(
+                    app=app,
+                    max_retries=retries,
+                ),
+            )
+            if self.base_url is None:
+                self.base_url = "asgi://default"
+
+    def __repr__(self) -> str:
+        return f"<AsyncSession {repr(self.adapters).replace('OrderedDict(', '')[:-1]}>"
 
     def __enter__(self) -> typing.NoReturn:
         raise SyntaxError('You probably meant "async with". Did you forget to prepend the "async" keyword?')
@@ -319,6 +368,7 @@ class AsyncSession(Session):
                 happy_eyeballs=self._happy_eyeballs,
                 keepalive_delay=self._keepalive_delay,
                 keepalive_idle_window=self._keepalive_idle_window,
+                revocation_configuration=self._revocation_configuration,
             ),
         )
         self.mount(
@@ -337,6 +387,26 @@ class AsyncSession(Session):
                 happy_eyeballs=self._happy_eyeballs,
                 keepalive_delay=self._keepalive_delay,
                 keepalive_idle_window=self._keepalive_idle_window,
+                revocation_configuration=self._revocation_configuration,
+            ),
+        )
+        self.mount(
+            "http+unix://",
+            AsyncUnixAdapter(
+                max_retries=self.retries,
+                disable_http1=self._disable_http1,
+                disable_http2=self._disable_http2,
+                disable_http3=self._disable_http3,
+                source_address=self.source_address,
+                disable_ipv4=self._disable_ipv4,
+                disable_ipv6=self._disable_ipv6,
+                resolver=self.resolver,
+                pool_connections=self._pool_connections,
+                pool_maxsize=self._pool_maxsize,
+                happy_eyeballs=self._happy_eyeballs,
+                keepalive_delay=self._keepalive_delay,
+                keepalive_idle_window=self._keepalive_idle_window,
+                revocation_configuration=self._revocation_configuration,
             ),
         )
         for adapter in self.adapters.values():
@@ -423,7 +493,10 @@ class AsyncSession(Session):
             if ptr_request.url and ptr_request.url.startswith("https://") and kwargs["verify"]:
                 strict_ocsp_enabled: bool = os.environ.get("NIQUESTS_STRICT_OCSP", "0") != "0"
 
-                if is_ocsp_capable(conn_info):
+                if not strict_ocsp_enabled and self._revocation_configuration is not None:
+                    strict_ocsp_enabled = self._revocation_configuration.strict_mode
+
+                if should_check_ocsp(conn_info, self._revocation_configuration):
                     try:
                         from .extensions.revocation._ocsp._async import (
                             InMemoryRevocationStatus,
@@ -450,7 +523,8 @@ class AsyncSession(Session):
                             happy_eyeballs=self._happy_eyeballs,
                             cache=self._ocsp_cache,
                         )
-                elif is_crl_capable(conn_info):
+
+                if should_check_crl(conn_info, self._revocation_configuration):
                     try:
                         from .extensions.revocation._crl._async import (
                             InMemoryRevocationList,
@@ -538,6 +612,7 @@ class AsyncSession(Session):
                     happy_eyeballs=self._happy_eyeballs,
                     keepalive_delay=self._keepalive_delay,
                     keepalive_idle_window=self._keepalive_idle_window,
+                    revocation_configuration=self._revocation_configuration,
                 ),
             )
             self.mount(
@@ -556,6 +631,26 @@ class AsyncSession(Session):
                     happy_eyeballs=self._happy_eyeballs,
                     keepalive_delay=self._keepalive_delay,
                     keepalive_idle_window=self._keepalive_idle_window,
+                    revocation_configuration=self._revocation_configuration,
+                ),
+            )
+            self.mount(
+                "http+unix://",
+                AsyncUnixAdapter(
+                    max_retries=self.retries,
+                    disable_http1=self._disable_http1,
+                    disable_http2=self._disable_http2,
+                    disable_http3=self._disable_http3,
+                    resolver=self.resolver,
+                    source_address=self.source_address,
+                    disable_ipv4=self._disable_ipv4,
+                    disable_ipv6=self._disable_ipv6,
+                    pool_connections=self._pool_connections,
+                    pool_maxsize=self._pool_maxsize,
+                    happy_eyeballs=self._happy_eyeballs,
+                    keepalive_delay=self._keepalive_delay,
+                    keepalive_idle_window=self._keepalive_idle_window,
+                    revocation_configuration=self._revocation_configuration,
                 ),
             )
 

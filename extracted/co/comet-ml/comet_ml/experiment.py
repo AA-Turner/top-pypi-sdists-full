@@ -88,7 +88,7 @@ from ._typing import (
     ValidFilePath,
 )
 from .annotations import Layer
-from .api_objects.model import RemoteModel
+from .api_objects.model import ModelStatusConfiguration, RemoteModel
 from .artifacts import Artifact, LoggedArtifact
 from .assets import preprocess as assets_preprocess
 from .cli_args_parse import parse_command_line_arguments
@@ -2945,6 +2945,8 @@ class CometExperiment(CommonExperiment):
         stages: Optional[list] = None,
         status: Optional[str] = None,
         sync: Optional[bool] = False,
+        metadata: Optional[Dict[str, Any]] = None,
+        status_configuration: Optional[Dict[str, Any]] = None,
         timeout: float = 10.0,
     ) -> None:
         """Register an experiment's model to the registry.
@@ -2962,6 +2964,8 @@ class CometExperiment(CommonExperiment):
             stages (list): This argument is deprecated and will be ignored. Please use `tags` instead.
             status (str): A string describing the status of this model version.
             sync (bool): Whether this function is synchronous and will be finished only once the model was registered.
+            metadata (dict): Some additional data to attach to the model. Must be a JSON-encodable plain dict.
+            status_configuration (dict, optional): The status configuration to associate with the model's item version. Must be a JSON-encodable plain dict.
             timeout (float): Maximum time (In seconds) before the function would end if called with sync = True.
 
         Example:
@@ -2991,7 +2995,19 @@ class CometExperiment(CommonExperiment):
             dump(model, "ols_model.pickle")
             exp.log_model("ols_model", "ols_model.pickle")
 
-            exp.register_model(model_name="ols_model", version="1.0.1")
+            status_configuration = {
+                "status": "Production",
+                "is_review_required": True,
+                "status_configuration_items": [
+                    {
+                        "key": "deployment",
+                        "value": "enabled"
+                    }
+                ],
+                "comment": "Enabled deployment for production"
+            }
+
+            exp.register_model(model_name="ols_model", version="1.0.1", status_configuration=status_configuration)
 
             exp.end()
             ```
@@ -3013,11 +3029,16 @@ class CometExperiment(CommonExperiment):
         validator.add_list_parameter(stages, name="stages")
         validator.add_str_parameter(status, name="status")
         validator.add_bool_parameter(sync, name="sync")
+        validator.add_dict_parameter(metadata, name="metadata")
         validator.add_numeric_parameter(timeout, name="timeout")
 
         if not validator.validate():
             validator.print_result(LOGGER)
             return
+
+        # validate status configuration if provided
+        if status_configuration is not None:
+            ModelStatusConfiguration.from_parameters_dict(status_configuration)
 
         if workspace:
             LOGGER.warning(DEPRECATED_WORKSPACE_MODEL_REGISTRY_ARGUMENT)
@@ -3051,6 +3072,8 @@ class CometExperiment(CommonExperiment):
             tags=tags,
             status=status,
             stages=stages,
+            metadata=metadata,
+            status_configuration=status_configuration,
             upload_status_observer_callback=upload_status_observer_callback,
             on_model_register=on_model_register,
             on_failed_model_register=on_failed_model_register,

@@ -111,9 +111,7 @@ AUTOPILOT_MODE = enum(
     COMPREHENSIVE="comprehensive",
 )
 
-PROJECT_STAGE = enum(
-    AIM="aim", EDA="eda", EDA2="eda2", FASTEDA="fasteda", EMPTY="empty", MODELING="modeling"
-)
+PROJECT_STAGE = enum(AIM="aim", EDA="eda", EDA2="eda2", FASTEDA="fasteda", EMPTY="empty", MODELING="modeling")
 PRE_EDA2_STAGES = [PROJECT_STAGE.EDA, PROJECT_STAGE.AIM, PROJECT_STAGE.FASTEDA, PROJECT_STAGE.EMPTY]
 POST_EDA2_STAGES = [PROJECT_STAGE.EDA2, PROJECT_STAGE.MODELING]
 
@@ -657,6 +655,8 @@ SNAPSHOT_POLICY = enum(SPECIFIED="specified", LATEST="latest", DYNAMIC="dynamic"
 
 
 class DataWranglingSnapshotPolicy(StrEnum):
+    """Data wrangling snapshot policy options."""
+
     FIXED = "fixed"
     LATEST = "latest"
 
@@ -701,9 +701,7 @@ class FairnessMetricsSet:
     EQUAL_PARITY = "equalParity"
     PREDICTION_BALANCE = "predictionBalance"
     TRUE_FAVORABLE_AND_UNFAVORABLE_RATE_PARITY = "trueFavorableAndUnfavorableRateParity"
-    FAVORABLE_AND_UNFAVORABLE_PREDICTIVE_VALUE_PARITY = (
-        "favorableAndUnfavorablePredictiveValueParity"
-    )
+    FAVORABLE_AND_UNFAVORABLE_PREDICTIVE_VALUE_PARITY = "favorableAndUnfavorablePredictiveValueParity"
 
     ALL = (
         PROPORTIONAL_PARITY,
@@ -800,9 +798,7 @@ class NonPersistableProjectOptions:
     FAIRNESS_THRESHOLD = "fairness_threshold"
     BIAS_MITIGATION_FEATURE_NAME = "bias_mitigation_feature_name"
     BIAS_MITIGATION_TECHNIQUE = "bias_mitigation_technique"
-    INCLUDE_BIAS_MITIGATION_FEATURE_AS_PREDICTOR_VARIABLE = (
-        "include_bias_mitigation_feature_as_predictor_variable"
-    )
+    INCLUDE_BIAS_MITIGATION_FEATURE_AS_PREDICTOR_VARIABLE = "include_bias_mitigation_feature_as_predictor_variable"
     MODEL_GROUP_ID = "model_group_id"
     MODEL_REGIME_ID = "model_regime_id"
     MODEL_BASELINES = "model_baselines"
@@ -816,48 +812,46 @@ class NonPersistableProjectOptions:
     )
     CHUNK_DEFINITION_ID = "chunk_definition_id"
     INCREMENTAL_LEARNING_EARLY_STOPPING_ROUNDS = "incremental_learning_early_stopping_rounds"
-    ALL = set(
-        [
-            WEIGHTS,
-            RESPONSE_CAP,
-            SEED,
-            MAJORITY_DOWNSAMPLING_RATE,
-            OFFSET,
-            EXPOSURE,
-            SCALEOUT_MODELING_MODE,
-            EVENTS_COUNT,
-            MONOTONIC_INCREASING_FEATURELIST_ID,
-            MONOTONIC_DECREASING_FEATURELIST_ID,
-            ONLY_INCLUDE_MONTONIC_BLUEPRINTS,
-            ALLOWED_PAIRWISE_INTERACTION_GROUPS,
-            SCORING_CODE_ONLY,
-            SHAP_ONLY_MODE,
-            CONSIDER_BLENDERS_IN_RECOMMENDATION,
-            MIN_SECONDARY_VALIDATION_MODEL_COUNT,
-            AUTOPILOT_DATA_SAMPLING_METHOD,
-            EXPONENTIALLY_WEIGHTED_MOVING_ALPHA,
-            EXTERNAL_TIME_SERIES_BASELINE_DATASET_ID,
-            PRIMARY_LOCATION_COLUMN,
-            PROTECTED_FEATURES,
-            PREFERABLE_TARGET_VALUE,
-            FAIRNESS_METRICS_SET,
-            FAIRNESS_THRESHOLD,
-            BIAS_MITIGATION_FEATURE_NAME,
-            BIAS_MITIGATION_TECHNIQUE,
-            INCLUDE_BIAS_MITIGATION_FEATURE_AS_PREDICTOR_VARIABLE,
-            MODEL_GROUP_ID,
-            MODEL_REGIME_ID,
-            MODEL_BASELINES,
-            SERIES_ID,
-            FORECAST_DISTANCE,
-            FORECAST_OFFSETS,
-            INCREMENTAL_LEARNING_ONLY_MODE,
-            INCREMENTAL_LEARNING_ON_BEST_MODEL,
-            NUMBER_OF_INCREMENTAL_LEARNING_ITERATIONS_BEFORE_BEST_MODEL_SELECTION,
-            CHUNK_DEFINITION_ID,
-            INCREMENTAL_LEARNING_EARLY_STOPPING_ROUNDS,
-        ]
-    )
+    ALL = set([
+        WEIGHTS,
+        RESPONSE_CAP,
+        SEED,
+        MAJORITY_DOWNSAMPLING_RATE,
+        OFFSET,
+        EXPOSURE,
+        SCALEOUT_MODELING_MODE,
+        EVENTS_COUNT,
+        MONOTONIC_INCREASING_FEATURELIST_ID,
+        MONOTONIC_DECREASING_FEATURELIST_ID,
+        ONLY_INCLUDE_MONTONIC_BLUEPRINTS,
+        ALLOWED_PAIRWISE_INTERACTION_GROUPS,
+        SCORING_CODE_ONLY,
+        SHAP_ONLY_MODE,
+        CONSIDER_BLENDERS_IN_RECOMMENDATION,
+        MIN_SECONDARY_VALIDATION_MODEL_COUNT,
+        AUTOPILOT_DATA_SAMPLING_METHOD,
+        EXPONENTIALLY_WEIGHTED_MOVING_ALPHA,
+        EXTERNAL_TIME_SERIES_BASELINE_DATASET_ID,
+        PRIMARY_LOCATION_COLUMN,
+        PROTECTED_FEATURES,
+        PREFERABLE_TARGET_VALUE,
+        FAIRNESS_METRICS_SET,
+        FAIRNESS_THRESHOLD,
+        BIAS_MITIGATION_FEATURE_NAME,
+        BIAS_MITIGATION_TECHNIQUE,
+        INCLUDE_BIAS_MITIGATION_FEATURE_AS_PREDICTOR_VARIABLE,
+        MODEL_GROUP_ID,
+        MODEL_REGIME_ID,
+        MODEL_BASELINES,
+        SERIES_ID,
+        FORECAST_DISTANCE,
+        FORECAST_OFFSETS,
+        INCREMENTAL_LEARNING_ONLY_MODE,
+        INCREMENTAL_LEARNING_ON_BEST_MODEL,
+        NUMBER_OF_INCREMENTAL_LEARNING_ITERATIONS_BEFORE_BEST_MODEL_SELECTION,
+        CHUNK_DEFINITION_ID,
+        INCREMENTAL_LEARNING_EARLY_STOPPING_ROUNDS,
+    ])
 
 
 class PersistableProjectOptions:
@@ -879,9 +873,7 @@ class PersistableProjectOptions:
     DISABLE_HOLDOUT = "disable_holdout"
     FEATURE_DERIVATION_WINDOW_END = "feature_derivation_window_end"
     FEATURE_DERIVATION_WINDOW_START = "feature_derivation_window_start"
-    FEATURE_DISCOVERY_SUPERVISED_FEATURE_REDUCTION = (
-        "feature_discovery_supervised_feature_reduction"
-    )
+    FEATURE_DISCOVERY_SUPERVISED_FEATURE_REDUCTION = "feature_discovery_supervised_feature_reduction"
     FEATURE_ENGINEERING_OPTIONS = "feature_engineering_options"
     FEATURELIST_ID = "featurelist_id"
     FEATURE_SETTINGS = "feature_settings"
@@ -908,51 +900,49 @@ class PersistableProjectOptions:
     VALIDATION_DURATION = "validation_duration"
     WINDOW_BASIS_UNIT = "windows_basis_unit"
 
-    ALL = set(
-        [
-            ACCURACY_OPTIMIZED_MB,
-            AUTOPILOT_WITH_FEATURE_DISCOVERY,
-            AUTO_START,
-            BACKTESTS,
-            BLEND_BEST_MODELS,
-            BLUEPRINT_THRESHOLD,
-            CLASS_MAPPING_AGGREGATION_SETTINGS,
-            CLASS_MAPPING_AGGREGATION_SETTINGS_ENABLED,
-            CV_METHOD,
-            DATETIME_PARTITION_COLUMN,
-            DIFFERENCING_METHOD,
-            DISABLE_HOLDOUT,
-            FEATURE_DERIVATION_WINDOW_END,
-            FEATURE_DERIVATION_WINDOW_START,
-            FEATURE_DISCOVERY_SUPERVISED_FEATURE_REDUCTION,
-            FEATURE_ENGINEERING_OPTIONS,
-            FEATURELIST_ID,
-            FEATURE_SETTINGS,
-            FORECAST_WINDOW_END,
-            FORECAST_WINDOW_START,
-            GAP_DURATION,
-            HOLDOUT_DURATION,
-            HOLDOUT_DURATION,
-            HOLDOUT_END_DATE,
-            HOLDOUT_START_DATE,
-            INITIAL_MODE,
-            IS_DIRTY,
-            IS_HOLDOUT_MODIFIED,
-            METRIC,
-            MODEL_SPLITS,
-            NUMBER_OF_BACKTESTS,
-            PREPARE_MODEL_FOR_DEPLOYMENT,
-            RUN_LEAKAGE_REMOVED_FEATURE_LIST,
-            SMART_DOWNSAMPLED,
-            TARGET,
-            TREAT_AS_EXPONENTIAL,
-            UNSUPERVISED_MODE,
-            USE_SUPERVISED_FEATURE_REDUCTION,
-            USE_TIME_SERIES,
-            VALIDATION_DURATION,
-            WINDOW_BASIS_UNIT,
-        ]
-    )
+    ALL = set([
+        ACCURACY_OPTIMIZED_MB,
+        AUTOPILOT_WITH_FEATURE_DISCOVERY,
+        AUTO_START,
+        BACKTESTS,
+        BLEND_BEST_MODELS,
+        BLUEPRINT_THRESHOLD,
+        CLASS_MAPPING_AGGREGATION_SETTINGS,
+        CLASS_MAPPING_AGGREGATION_SETTINGS_ENABLED,
+        CV_METHOD,
+        DATETIME_PARTITION_COLUMN,
+        DIFFERENCING_METHOD,
+        DISABLE_HOLDOUT,
+        FEATURE_DERIVATION_WINDOW_END,
+        FEATURE_DERIVATION_WINDOW_START,
+        FEATURE_DISCOVERY_SUPERVISED_FEATURE_REDUCTION,
+        FEATURE_ENGINEERING_OPTIONS,
+        FEATURELIST_ID,
+        FEATURE_SETTINGS,
+        FORECAST_WINDOW_END,
+        FORECAST_WINDOW_START,
+        GAP_DURATION,
+        HOLDOUT_DURATION,
+        HOLDOUT_DURATION,
+        HOLDOUT_END_DATE,
+        HOLDOUT_START_DATE,
+        INITIAL_MODE,
+        IS_DIRTY,
+        IS_HOLDOUT_MODIFIED,
+        METRIC,
+        MODEL_SPLITS,
+        NUMBER_OF_BACKTESTS,
+        PREPARE_MODEL_FOR_DEPLOYMENT,
+        RUN_LEAKAGE_REMOVED_FEATURE_LIST,
+        SMART_DOWNSAMPLED,
+        TARGET,
+        TREAT_AS_EXPONENTIAL,
+        UNSUPERVISED_MODE,
+        USE_SUPERVISED_FEATURE_REDUCTION,
+        USE_TIME_SERIES,
+        VALIDATION_DURATION,
+        WINDOW_BASIS_UNIT,
+    ])
 
 
 class Locales(StrEnum):
@@ -1038,6 +1028,13 @@ class ApplicationPermissions(StrEnum):
     CAN_VIEW = "CAN_VIEW"
 
 
+class FilesOverwriteStrategy(StrEnum):
+    RENAME = "rename"
+    REPLACE = "replace"
+    SKIP = "skip"
+    ERROR = "error"
+
+
 class CredentialTypes(StrEnum):
     """Credential Types"""
 
@@ -1051,6 +1048,7 @@ class CredentialTypes(StrEnum):
     DATABRICKS_SERVICE_PRINCIPAL = "databricks_service_principal_account"
     AZURE_SERVICE_PRINCIPAL = "azure_service_principal"
     ADLS_OAUTH = "adls_gen2_oauth"
+    EXTERNAL_OAUTH_PROVIDER = "external_oauth_provider"
 
 
 class DriverTypes(StrEnum):
@@ -1596,11 +1594,15 @@ class ReservedSegmentAttributes(StrEnum):
 
 
 class DataWranglingDataSourceTypes(StrEnum):
+    """Data wrangling supported data source types."""
+
     JDBC = "jdbc"
     DR_DATABASE_V1 = "dr-database-v1"
 
 
 class DataWranglingDialect(StrEnum):
+    """Data wrangling supported dialects."""
+
     BIGQUERY = "bigquery"
     DATABRICKS = "databricks"
     POSTGRES = "postgres"
@@ -1609,6 +1611,8 @@ class DataWranglingDialect(StrEnum):
 
 
 class RecipeInputType(StrEnum):
+    """Data wrangling supported recipe input types."""
+
     DATASOURCE = "datasource"
     DATASET = "dataset"
 
@@ -1620,6 +1624,8 @@ class SparkInstanceSizes(StrEnum):
 
 
 class RecipeType(StrEnum):
+    """Data wrangling supported recipe types."""
+
     SQL = "SQL"
     WRANGLING = "WRANGLING"
     FEATURE_DISCOVERY = "FEATURE_DISCOVERY"
@@ -1645,10 +1651,14 @@ class WranglingOperations(StrEnum):
 
 
 class CategoricalStatsMethods(StrEnum):
+    """Supported categorical stats methods for data wrangling."""
+
     MOST_FREQUENT = "most-frequent"
 
 
 class DatetimeSamplingStrategy(StrEnum):
+    """Supported datetime sampling strategies."""
+
     EARLIEST = "earliest"
     LATEST = "latest"
 
@@ -1660,8 +1670,15 @@ class DownsamplingOperations(StrEnum):
     SMART_DOWNSAMPLING = "smart-downsampling"
 
 
+class SmartDownsamplingMethod(StrEnum):
+    """Smart downsampling methods."""
+
+    BINARY = "binary"
+    ZERO_INFLATED = "zero-inflated"
+
+
 class FilterOperationFunctions(StrEnum):
-    """Operations, supported in FilterOperation."""
+    """Operations supported in a FilterCondition."""
 
     EQUALS = "eq"
     NOT_EQUALS = "neq"
@@ -1675,7 +1692,38 @@ class FilterOperationFunctions(StrEnum):
     CONTAINS = "contains"
 
 
+class AggregationFunctions(StrEnum):
+    """Supported aggregation functions for data wrangling."""
+
+    SUM = "sum"
+    COUNT = "count"
+    AVERAGE = "avg"
+    MAX = "max"
+    MIN = "min"
+    COUNT_DISTINCT = "count-distinct"
+    STANDARD_DEVIATION = "stddev"
+    MOST_FREQUENT = "most-frequent"
+    MEDIAN = "median"
+
+
+class JoinType(StrEnum):
+    """Supported join types for data wrangling."""
+
+    LEFT = "left"
+    INNER = "inner"
+    CARTESIAN = "cartesian"
+
+
+class JoinSourceType(StrEnum):
+    """Supported join source types for data wrangling."""
+
+    TABLE = "table"
+    DATASET = "dataset"
+
+
 class NumericStatsMethods(StrEnum):
+    """Supported numeric stats methods for data wrangling."""
+
     MAX = "max"
     MIN = "min"
     AVG = "avg"
@@ -1684,10 +1732,20 @@ class NumericStatsMethods(StrEnum):
 
 
 class SamplingOperations(StrEnum):
-    """Supported data wrangling sampling operations."""
+    """Supported data wrangling sampling operation strategies."""
 
     RANDOM_SAMPLE = "random-sample"
     DATETIME_SAMPLE = "datetime-sample"
+    LIMIT = "limit"
+    TABLE_SAMPLE = "tablesample"
+
+
+class FindAndReplaceMatchMode(StrEnum):
+    """Find and replace modes used when searching for strings to replace."""
+
+    EXACT = "exact"
+    PARTIAL = "partial"
+    REGEX = "regex"
 
 
 class FeedbackSentiment(StrEnum):

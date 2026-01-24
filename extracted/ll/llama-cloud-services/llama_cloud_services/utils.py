@@ -3,11 +3,14 @@ import importlib.metadata
 from contextlib import contextmanager
 from typing import Generator
 import difflib
-from llama_cloud.types import StatusEnum
+from llama_cloud.types import StatusEnum, File
 import httpx
 import packaging.version
 from pydantic import BaseModel
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any, Dict, List, Tuple, Type, Union, Optional
+from io import BufferedIOBase, TextIOWrapper
+from pathlib import Path
+import secrets
 
 # Asyncio error messages
 nest_asyncio_err = "cannot be called from a running event loop"
@@ -104,3 +107,100 @@ def augment_async_errors() -> Generator[None, None, None]:
         if nest_asyncio_err in str(e):
             raise RuntimeError(nest_asyncio_msg)
         raise
+
+
+class SourceText:
+    """
+    A wrapper class for providing text or file input with optional filename specification.
+
+    This class allows you to provide input in multiple ways:
+    - Direct text content via text_content parameter
+    - File paths as strings or Path objects
+    - Raw bytes
+    - File-like objects (BufferedIOBase, TextIOWrapper)
+    - Already-uploaded file ID via file_id parameter
+
+    Args:
+        file: The file input (bytes, file-like object, str path, or Path).
+              Mutually exclusive with text_content and file_id.
+        text_content: Raw text content to process. Mutually exclusive with file and file_id.
+        file_id: ID of an already-uploaded file. Mutually exclusive with file and text_content.
+        filename: Optional filename. Required for bytes/file-like objects without names.
+                  If not provided, will be auto-generated for text_content or inferred from paths.
+
+    Examples:
+        # Direct text input
+        source = SourceText(text_content="Hello world")
+
+        # File path
+        source = SourceText(file="document.pdf")
+
+        # Bytes with filename
+        source = SourceText(file=b"...", filename="document.pdf")
+
+        # File-like object (will read from current position)
+        with open("document.pdf", "rb") as f:
+            source = SourceText(file=f)
+
+        # Already-uploaded file
+        source = SourceText(file_id="file_abc123")
+    """
+
+    def __init__(
+        self,
+        *,
+        file: Union[bytes, BufferedIOBase, TextIOWrapper, str, Path, None] = None,
+        text_content: Optional[str] = None,
+        file_id: Optional[str] = None,
+        filename: Optional[str] = None,
+    ):
+        self.file = file
+        self.filename = filename
+        self.text_content = text_content
+        self.file_id = file_id
+        self._validate()
+
+    def _validate(self) -> None:
+        """Ensure filename is provided when needed."""
+        # Check that exactly one of file, text_content, or file_id is provided
+        provided = sum(
+            [
+                self.file is not None,
+                self.text_content is not None,
+                self.file_id is not None,
+            ]
+        )
+
+        if provided == 0:
+            raise ValueError("One of file, text_content, or file_id must be provided.")
+        elif provided > 1:
+            raise ValueError(
+                "Only one of file, text_content, or file_id can be provided."
+            )
+
+        # If file_id is provided, we don't need filename validation
+        if self.file_id is not None:
+            return
+
+        if self.text_content is not None:
+            if not self.filename:
+                random_hex = secrets.token_hex(4)
+                self.filename = f"text_input_{random_hex}.txt"
+            return
+
+        if isinstance(self.file, (bytes, BufferedIOBase, TextIOWrapper)):
+            if not self.filename and hasattr(self.file, "name"):
+                self.filename = os.path.basename(str(self.file.name))
+            elif self.filename is None and not hasattr(self.file, "name"):
+                raise ValueError(
+                    "filename must be provided when file is bytes or a file-like object without a name"
+                )
+        elif isinstance(self.file, (str, Path)):
+            if not self.filename:
+                self.filename = os.path.basename(str(self.file))
+        else:
+            raise ValueError(f"Unsupported file type: {type(self.file)}")
+
+
+# Type alias for file input that can be used across services
+FileInput = Union[str, Path, BufferedIOBase, SourceText, File]

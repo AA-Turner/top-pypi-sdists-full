@@ -1,11 +1,22 @@
 import importlib
 import inspect
+import itertools
 import os
 import sys
 import traceback
 from contextlib import contextmanager
 from types import ModuleType
-from typing import Callable, Dict, Generator, Iterable, Optional, Set, Tuple
+from typing import (
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    NoReturn,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
 
 
 class SideEffectDetected(Exception):
@@ -21,10 +32,20 @@ def accept(event: str, args: Tuple) -> None:
     pass
 
 
-def reject(event: str, args: Tuple) -> None:
+def explain(event: str, args: Tuple) -> str:
+    argstr = "".join(f":{arg}" for arg in args)
+    parts = [
+        f"It's dangerous to run CrossHair on code with side effects.",
+        f'To allow this operation anyway, use "--unblock={event}{argstr}".',
+    ]
+    if args:
+        parts.append("(or some colon-delimited prefix)")
+    return " ".join(parts)
+
+
+def reject(event: str, args: Tuple) -> NoReturn:
     raise SideEffectDetected(
-        f'A "{event}{args}" operation was detected. '
-        f"CrossHair should not be run on code with side effects"
+        f'A "{event}" operation was detected. ' + explain(event, args)
     )
 
 
@@ -45,7 +66,7 @@ def check_open(event: str, args: Tuple) -> None:
     if flags & _BLOCKED_OPEN_FLAGS:
         raise SideEffectDetected(
             f'We\'ve blocked a file writing operation on "{filename_or_descriptor}". '
-            f"CrossHair should not be run on code with side effects"
+            + explain(event, args)
         )
 
 
@@ -55,7 +76,7 @@ def check_msvcrt_open(event: str, args: Tuple) -> None:
     if flags & _BLOCKED_OPEN_FLAGS:
         raise SideEffectDetected(
             f'We\'ve blocked a file writing operation on "{handle}". '
-            f"CrossHair should not be run on code with side effects"
+            + explain(event, args)
         )
 
 
@@ -80,7 +101,7 @@ def check_subprocess(event: str, args: Tuple) -> None:
         reject(event, args)
 
 
-_SPECIAL_HANDLERS = {
+_SPECIAL_HANDLERS: Dict[str, Callable[[str, Tuple], None]] = {
     "open": check_open,
     "subprocess.Popen": check_subprocess,
     "os.posix_spawn": check_subprocess,
@@ -179,7 +200,51 @@ def opened_auditwall() -> Generator:
         _ENABLED = True
 
 
-def engage_auditwall() -> None:
+def _make_prefix_based_handler(
+    allowed_arg_prefixes: Sequence[Sequence[str]],
+    previous_handler: Optional[Callable[[str, Tuple], None]] = None,
+) -> Callable[[str, Tuple], None]:
+    trie: Dict = {}
+    for prefix in allowed_arg_prefixes:
+        current = trie
+        for part in prefix:
+            current = current.setdefault(part, {})
+        current[None] = True  # Mark the end of a valid prefix
+
+    def handler(event: str, args: Tuple) -> None:
+        current = trie
+        for arg in map(str, args):
+            if arg not in current:
+                break
+            current = current[arg]
+            if None in current:
+                return  # Found a valid prefix
+        if previous_handler:
+            previous_handler(event, args)
+        else:
+            reject(event, args)
+
+    return handler
+
+
+def _update_special_handlers(allow_prefixes: Sequence[str]) -> None:
+    for event, group_itr in itertools.groupby(
+        allow_prefixes, lambda p: p.split(":", 1)[0]
+    ):
+        group = tuple(group_itr)
+        if any(event == g for g in group):
+            _SPECIAL_HANDLERS[event] = accept
+        else:
+            args = tuple(a.split(":")[1:] for a in group)
+            _SPECIAL_HANDLERS[event] = _make_prefix_based_handler(
+                args, _SPECIAL_HANDLERS.get(event)
+            )
+
+
+def engage_auditwall(allow_prefixes: Sequence[str] = ()) -> None:
+    if "EVERYTHING" in allow_prefixes:
+        return
+    _update_special_handlers(allow_prefixes)
     sys.dont_write_bytecode = True  # disable .pyc file writing
     sys.addaudithook(audithook)
 

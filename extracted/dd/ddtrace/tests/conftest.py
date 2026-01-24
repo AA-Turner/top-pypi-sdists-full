@@ -1,6 +1,7 @@
 import ast
 import base64
 import contextlib
+import copy
 import functools
 import http.client as httplib
 import importlib
@@ -19,8 +20,11 @@ from tempfile import NamedTemporaryFile
 from tempfile import gettempdir
 import time
 from typing import Any  # noqa:F401
+from typing import Dict
 from typing import Generator  # noqa:F401
+from typing import List
 from typing import Tuple  # noqa:F401
+from unittest import TestCase
 from unittest import mock
 from urllib import parse
 import warnings
@@ -32,7 +36,6 @@ from ddtrace._trace.provider import _DD_CONTEXTVAR
 from ddtrace.internal.core import crashtracking
 from ddtrace.internal.remoteconfig.client import RemoteConfigClient
 from ddtrace.internal.remoteconfig.worker import remoteconfig_poller
-from ddtrace.internal.runtime import get_runtime_id
 from ddtrace.internal.service import ServiceStatus
 from ddtrace.internal.service import ServiceStatusError
 from ddtrace.internal.telemetry import TelemetryWriter
@@ -45,10 +48,52 @@ from tests.utils import request_token
 from tests.utils import snapshot_context as _snapshot_context
 
 
+try:
+    from pytest import StashKey
+except ImportError:
+    StashKey = None
+
+
 code_to_pyc = getattr(importlib._bootstrap_external, "_code_to_timestamp_pyc")
 
 
 DEFAULT_DDTRACE_SUBPROCESS_TEST_SERVICE_NAME = "ddtrace_subprocess_dir"
+
+# Stash keys for storing original test name and nodeid before Python version suffix is added
+# For pytest >= 7.1.0, use StashKey; for older versions, use attribute names
+if StashKey:
+    original_test_name_key = StashKey[str]()
+    original_test_nodeid_key = StashKey[str]()
+else:
+    # Fallback attribute names for pytest < 7.1.0
+    original_test_name_key = "_ddtrace_original_name"
+    original_test_nodeid_key = "_ddtrace_original_nodeid"
+
+
+def get_original_test_name(request_or_item):
+    """Get the original test name (before Python version suffix was added).
+
+    Works with both pytest >= 7.1.0 (using stash) and older versions (using attributes).
+
+    Args:
+        request_or_item: Either a pytest.FixtureRequest or pytest.Item
+
+    Returns:
+        The original test name string, or the current name if not found
+    """
+    if hasattr(request_or_item, "node"):
+        # It's a FixtureRequest
+        item = request_or_item.node
+    else:
+        # It's an Item
+        item = request_or_item
+
+    if StashKey:
+        # pytest >= 7.1.0: use stash
+        return item.stash.get(original_test_name_key, item.name)
+    else:
+        # pytest < 7.1.0: use attribute
+        return getattr(item, original_test_name_key, item.name)
 
 
 # Hack to try and capture more logging data from pytest failing on `internal` jobs on
@@ -402,7 +447,13 @@ def run_function_from_file(item, params=None):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(session, config, items):
-    """Don't let ITR skip tests that use the subprocess marker because coverage collection in subprocesses is broken"""
+    """
+    Don't let ITR skip tests that use the subprocess marker
+    because coverage collection in subprocesses is broken.
+
+    Also: add py39 - py314 suffix as parametrization in test names
+    """
+    py_tag = f"py{sys.version_info.major}.{sys.version_info.minor}"
     for item in items:
         if item.get_closest_marker("subprocess"):
             if item.get_closest_marker("skipif"):
@@ -410,6 +461,26 @@ def pytest_collection_modifyitems(session, config, items):
                 continue
             unskippable = pytest.mark.skipif(False, reason="datadog_itr_unskippable")
             item.add_marker(unskippable)
+
+        # Store original name and nodeid before modification
+        if StashKey:
+            # pytest >= 7.1.0: use stash
+            item.stash[original_test_name_key] = item.name
+            item.stash[original_test_nodeid_key] = item.nodeid
+        else:
+            # pytest < 7.1.0: use attributes
+            setattr(item, original_test_name_key, item.name)
+            setattr(item, original_test_nodeid_key, item.nodeid)
+
+        name_base = item.name
+        nodeid_base = item.nodeid
+
+        item._nodeid = f"{nodeid_base}[{py_tag}]"
+
+        cls = getattr(item, "cls", None)
+        is_unittest = isinstance(cls, type) and issubclass(cls, TestCase)
+        if not is_unittest:
+            item.name = f"{name_base}[{py_tag}]"
 
 
 def pytest_generate_tests(metafunc):
@@ -580,7 +651,7 @@ class TelemetryTestSession(object):
             pytest.fail("Failed to clear session: %s" % self.token)
         return True
 
-    def get_requests(self, request_type=None, filter_heartbeats=True):
+    def get_requests(self, filter_heartbeats=True):
         """Get a list of the requests sent to the test agent
 
         Results are in reverse order by ``seq_id``
@@ -595,25 +666,42 @@ class TelemetryTestSession(object):
                 # /test/session/requests captures non telemetry payloads, ignore these requests
                 continue
             req["body"] = json.loads(base64.b64decode(req["body"]))
-            # filter heartbeat requests to reduce noise
+
             if req["body"]["request_type"] == "app-heartbeat" and filter_heartbeats:
                 continue
-            if request_type is None or req["body"]["request_type"] == request_type:
-                requests.append(req)
+            requests.append(req)
 
         return sorted(requests, key=lambda r: r["body"]["seq_id"], reverse=True)
 
-    def get_events(self, event_type=None, filter_heartbeats=True, subprocess=False):
+    def get_events(self, event_type=None, filter_heartbeats=True):
         """Get a list of the event payloads sent to the test agent
 
         Results are in reverse order by ``seq_id``
         """
-        requests = self.get_requests(event_type, filter_heartbeats)
-        if subprocess:
-            # Use get_runtime_id to filter telemetry events generated in the current process
-            runtime_id = get_runtime_id()
-            requests = [req for req in requests if req["body"]["runtime_id"] != runtime_id]
-        return [req["body"] for req in requests]
+        requests = self.get_requests()
+        events = []
+        for req in requests:
+            for req_body in self._get_request_bodies(req):
+                if filter_heartbeats and req_body["request_type"] == "app-heartbeat":
+                    # filter heartbeat events to reduce noise
+                    continue
+                if event_type is None or req_body["request_type"] == event_type:
+                    events.append(req_body)
+        return events
+
+    def _get_request_bodies(self, req: Dict[str, Any]) -> List[Dict[str, Any]]:
+        if req["body"]["request_type"] == "message-batch":
+            payloads = req["body"]["payload"]
+        else:
+            payloads = [{"payload": req["body"]["payload"], "request_type": req["body"]["request_type"]}]
+
+        requests = []
+        for payload in payloads:
+            req_body = copy.deepcopy(req["body"])
+            req_body["request_type"] = payload["request_type"]
+            req_body["payload"] = payload["payload"]
+            requests.append(req_body)
+        return requests
 
     def get_metrics(self, name=None):
         metrics = []

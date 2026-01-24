@@ -23,12 +23,13 @@ clients using JSON over HTTP.
 
 import json
 import logging
+import sys
 from argparse import ArgumentParser
 from io import BytesIO
 from urllib import parse
 
 from translate.misc import selector, wsgi
-from translate.storage import base, tmdb
+from translate.storage import base, factory, tmdb
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +47,8 @@ class TMServer:
         prefix="",
         source_lang=None,
         target_lang=None,
-    ):
+    ) -> None:
         if not isinstance(tmdbfile, str):
-            import sys
-
             tmdbfile = tmdbfile.decode(sys.getfilesystemencoding())
 
         self.tmdb = tmdb.TMDB(tmdbfile, max_candidates, min_similarity, max_length)
@@ -75,9 +74,7 @@ class TMServer:
             DELETE=self.forget_store,
         )
 
-    def _load_files(self, tmfiles, source_lang, target_lang):
-        from translate.storage import factory
-
+    def _load_files(self, tmfiles, source_lang, target_lang) -> None:
         if isinstance(tmfiles, list):
             for tmfile in tmfiles:
                 self.tmdb.add_store(factory.getobject(tmfile), source_lang, target_lang)
@@ -88,7 +85,7 @@ class TMServer:
     def translate_unit(self, environ, start_response, uid, slang, tlang):
         start_response("200 OK", [("Content-type", "text/plain")])
         candidates = self.tmdb.translate_unit(uid, slang, tlang)
-        logger.debug("candidates: %s", str(candidates))
+        logger.debug("candidates: %s", candidates)
         response = json.dumps(candidates, indent=4).encode("utf-8")
         params = parse.parse_qs(environ.get("QUERY_STRING", ""))
         try:
@@ -137,14 +134,12 @@ class TMServer:
     @selector.opliant
     def upload_store(self, environ, start_response, sid, slang, tlang):
         """Add units from uploaded file to tmdb."""
-        from translate.storage import factory
-
         start_response("200 OK", [("Content-type", "text/plain")])
         data = BytesIO(environ["wsgi.input"].read(int(environ["CONTENT_LENGTH"])))
         data.name = sid
-        store = factory.getobject(data)
+        store = factory.getobject(data)  # ty:ignore[invalid-argument-type]
         count = self.tmdb.add_store(store, slang, tlang)
-        response = "added %d units from %s" % (count, sid)
+        response = f"added {count} units from {sid}"
         return [response]
 
     @selector.opliant
@@ -153,7 +148,7 @@ class TMServer:
         start_response("200 OK", [("Content-type", "text/plain")])
         units = json.loads(environ["wsgi.input"].read(int(environ["CONTENT_LENGTH"])))
         count = self.tmdb.add_list(units, slang, tlang)
-        response = "added %d units from %s" % (count, sid)
+        response = f"added {count} units from {sid}"
         return [response]
 
     @selector.opliant
@@ -165,7 +160,7 @@ class TMServer:
         return ["FIXME"]
 
 
-def main():
+def main() -> None:
     parser = ArgumentParser()
     parser.add_argument(
         "-d",

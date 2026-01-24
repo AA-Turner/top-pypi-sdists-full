@@ -1,12 +1,12 @@
 use crate::{
     compiler,
     error::{no_error, ErrorIterator, ValidationError},
+    evaluation::Annotations,
     keywords::CompilationResult,
     node::SchemaNode,
-    output::BasicOutput,
-    paths::{LazyLocation, Location},
+    paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
-    validator::{PartialApplication, Validate},
+    validator::{EvaluationResult, Validate, ValidationContext},
 };
 use serde_json::{Map, Value};
 
@@ -17,56 +17,41 @@ pub(crate) struct PropertiesValidator {
 impl PropertiesValidator {
     #[inline]
     pub(crate) fn compile<'a>(ctx: &compiler::Context, schema: &'a Value) -> CompilationResult<'a> {
-        match schema {
-            Value::Object(map) => {
-                let ctx = ctx.new_at_location("properties");
-                let mut properties = Vec::with_capacity(map.len());
-                for (key, subschema) in map {
-                    let ctx = ctx.new_at_location(key.as_str());
-                    properties.push((
-                        key.clone(),
-                        compiler::compile(&ctx, ctx.as_resource_ref(subschema))?,
-                    ));
-                }
-                Ok(Box::new(PropertiesValidator { properties }))
+        if let Value::Object(map) = schema {
+            let ctx = ctx.new_at_location("properties");
+            let mut properties = Vec::with_capacity(map.len());
+            for (key, subschema) in map {
+                let ctx = ctx.new_at_location(key.as_str());
+                properties.push((
+                    key.clone(),
+                    compiler::compile(&ctx, ctx.as_resource_ref(subschema))?,
+                ));
             }
-            _ => Err(ValidationError::single_type_error(
+            Ok(Box::new(PropertiesValidator { properties }))
+        } else {
+            let location = ctx.location().join("properties");
+            Err(ValidationError::single_type_error(
+                location.clone(),
+                location,
                 Location::new(),
-                ctx.location().clone(),
                 schema,
                 JsonType::Object,
-            )),
+            ))
         }
     }
 }
 
 impl Validate for PropertiesValidator {
-    #[allow(clippy::needless_collect)]
-    fn iter_errors<'i>(&self, instance: &'i Value, location: &LazyLocation) -> ErrorIterator<'i> {
+    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
         if let Value::Object(item) = instance {
-            let errors: Vec<_> = self
-                .properties
-                .iter()
-                .flat_map(move |(name, node)| {
-                    let option = item.get(name);
-                    option.into_iter().flat_map(move |item| {
-                        let instance_path = location.push(name.as_str());
-                        node.iter_errors(item, &instance_path)
-                    })
-                })
-                .collect();
-            Box::new(errors.into_iter())
-        } else {
-            no_error()
-        }
-    }
-
-    fn is_valid(&self, instance: &Value) -> bool {
-        if let Value::Object(item) = instance {
-            self.properties.iter().all(move |(name, node)| {
-                let option = item.get(name);
-                option.into_iter().all(move |item| node.is_valid(item))
-            })
+            for (name, node) in &self.properties {
+                if let Some(prop) = item.get(name) {
+                    if !node.is_valid(prop, ctx) {
+                        return false;
+                    }
+                }
+            }
+            true
         } else {
             true
         }
@@ -76,33 +61,63 @@ impl Validate for PropertiesValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Object(item) = instance {
             for (name, node) in &self.properties {
                 if let Some(item) = item.get(name) {
-                    node.validate(item, &location.push(name))?;
+                    node.validate(item, &location.push(name), tracker, ctx)?;
                 }
             }
         }
         Ok(())
     }
 
-    fn apply<'a>(&'a self, instance: &Value, location: &LazyLocation) -> PartialApplication<'a> {
+    #[allow(clippy::needless_collect)]
+    fn iter_errors<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> ErrorIterator<'i> {
+        if let Value::Object(item) = instance {
+            let mut errors = Vec::new();
+            for (name, node) in &self.properties {
+                if let Some(prop) = item.get(name) {
+                    let instance_path = location.push(name.as_str());
+                    errors.extend(node.iter_errors(prop, &instance_path, tracker, ctx));
+                }
+            }
+            ErrorIterator::from_iterator(errors.into_iter())
+        } else {
+            no_error()
+        }
+    }
+
+    fn evaluate(
+        &self,
+        instance: &Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
         if let Value::Object(props) = instance {
-            let mut result = BasicOutput::default();
             let mut matched_props = Vec::with_capacity(props.len());
+            let mut children = Vec::new();
             for (prop_name, node) in &self.properties {
                 if let Some(prop) = props.get(prop_name) {
                     let path = location.push(prop_name.as_str());
                     matched_props.push(prop_name.clone());
-                    result += node.apply_rooted(prop, &path);
+                    children.push(node.evaluate_instance(prop, &path, tracker, ctx));
                 }
             }
-            let mut application: PartialApplication = result.into();
-            application.annotate(Value::from(matched_props).into());
+            let mut application = EvaluationResult::from_children(children);
+            application.annotate(Annotations::new(Value::from(matched_props)));
             application
         } else {
-            PartialApplication::valid_empty()
+            EvaluationResult::valid_empty()
         }
     }
 }

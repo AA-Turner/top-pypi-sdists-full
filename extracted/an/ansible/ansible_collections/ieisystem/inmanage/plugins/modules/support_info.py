@@ -75,7 +75,7 @@ class Support(object):
             argument_spec=self.spec, supports_check_mode=True)
 
     def run_command(self):
-        self.module.params['subcommand'] = 'support_model'
+        self.module.params['subcommand'] = 'support_model_nf'
         self.results = get_connection(self.module)
 
     def show_result(self):

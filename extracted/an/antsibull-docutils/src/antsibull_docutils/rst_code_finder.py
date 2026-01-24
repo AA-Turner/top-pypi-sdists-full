@@ -24,6 +24,7 @@ from .utils import parse_document
 _SPECIAL_ATTRIBUTES = (
     "antsibull-code-language",
     "antsibull-code-block",
+    "antsibull-code-block-text",
     "antsibull-code-content-offset",
     "antsibull-code-lineno",
 )
@@ -47,6 +48,7 @@ def mark_antsibull_code_block(
     line: int | None = None,
     content_offset: int | None = None,
     other: dict[str, t.Any] | None = None,
+    block_text: str | None = None,
 ) -> None:
     """
     Mark a literal block as an Antsibull code block with given language and line number.
@@ -62,6 +64,7 @@ def mark_antsibull_code_block(
     node["antsibull-code-block"] = True
     node["antsibull-code-lineno"] = line
     node["antsibull-code-content-offset"] = content_offset
+    node["antsibull-code-block-text"] = block_text
     if other:
         for key, value in other.items():
             node[f"antsibull-other-{key}"] = value
@@ -98,7 +101,9 @@ class CodeBlockDirective(Directive):
         mark_antsibull_code_block(
             literal,
             language=self.arguments[0] if self.arguments else None,
+            # line=self.lineno,
             content_offset=self.content_offset,
+            block_text=self.block_text,
         )
         return [literal]
 
@@ -150,6 +155,7 @@ def _find_offset(
     lineno: int | None,
     content_offset: int | None,
     content: str,
+    block_text: str | None,  # pylint: disable=unused-argument
     *,
     document_content_lines: list[str],
 ) -> tuple[int, int, bool]:
@@ -222,6 +228,41 @@ def _find_in_code(
     return True
 
 
+def _find_col_offset(
+    content_offset: int,
+    content: str,
+    *,
+    document_content_lines: list[str],
+) -> list[int]:
+    content_lines = content.splitlines()
+    candidates: set[int] | None = None
+    for index, line in enumerate(content_lines):
+        line = line.rstrip()
+        if not line:
+            continue
+        try:
+            document_line = document_content_lines[content_offset + index]
+        except IndexError:
+            return []
+        if candidates is None:
+            candidates = set()
+            column = -1
+            while True:
+                column = document_line.find(line, column + 1)
+                if column < 0:
+                    break
+                candidates.add(column)
+        else:
+            candidates = {
+                candidate
+                for candidate in candidates
+                if document_line.startswith(line, candidate)
+            }
+        if not candidates:
+            return []
+    return sorted(candidates) if candidates else []
+
+
 class CodeBlockVisitor(nodes.SparseNodeVisitor):
     """
     Visitor that calls callbacks for all code blocks.
@@ -232,7 +273,7 @@ class CodeBlockVisitor(nodes.SparseNodeVisitor):
         document: nodes.document,
         content: str,
         callback: t.Callable[
-            [str, int, int, bool, bool, str, nodes.literal_block], None
+            [str | None, int, int, bool, bool, str, nodes.literal_block], None
         ],
         warn_unknown_block: t.Callable[
             [int | str, int, nodes.literal_block, bool], None
@@ -253,7 +294,7 @@ class CodeBlockVisitor(nodes.SparseNodeVisitor):
         """
         Ignore errors.
         """
-        raise nodes.SkipNode
+        raise nodes.SkipNode  # pragma: no cover
 
     def visit_literal_block(self, node: nodes.literal_block) -> None:
         """
@@ -266,13 +307,15 @@ class CodeBlockVisitor(nodes.SparseNodeVisitor):
             )
             raise nodes.SkipNode
 
-        language = node.attributes["antsibull-code-language"]
-        lineno = node.attributes["antsibull-code-lineno"]
-        content_offset = node.attributes["antsibull-code-content-offset"]
+        language: str | None = node.attributes["antsibull-code-language"]
+        lineno: int | None = node.attributes["antsibull-code-lineno"]
+        content_offset: int | None = node.attributes["antsibull-code-content-offset"]
+        block_text: str | None = node.attributes["antsibull-code-block-text"]
         row_offset, col_offset, position_exact = _find_offset(
             lineno,
             content_offset,
             node.rawsource,
+            block_text,
             document_content_lines=self.__content_lines,
         )
         found_in_code = False
@@ -291,9 +334,27 @@ class CodeBlockVisitor(nodes.SparseNodeVisitor):
         if not found_in_code:
             # We were not able to find the code 'the easy way'. This could be because
             # it is inside a table.
-
-            # pylint: disable-next=fixme
-            pass  # TODO search for the content, f.ex. in tables
+            if content_offset is not None:
+                results: list[tuple[int, int]] = []
+                # Apparently content_offset is wrong (off by one) in grid and simple
+                # tables. If these tables are nested, then they are off by one for
+                # every nesting level.
+                # https://sourceforge.net/p/docutils/bugs/517/
+                # The loop allows for up to three nested grid/simple tables.
+                for offset in range(0, 4):
+                    o_col_offsets = _find_col_offset(
+                        content_offset - offset,
+                        node.rawsource,
+                        document_content_lines=self.__content_lines,
+                    )
+                    results.extend(
+                        (content_offset - offset, o_col_offset)
+                        for o_col_offset in o_col_offsets
+                    )
+                # If there is one unique matching code block, take that one.
+                if len(results) == 1:
+                    row_offset, col_offset = results[0]
+                    position_exact = True
         self.__callback(
             language,
             row_offset,
@@ -388,8 +449,8 @@ def find_code_blocks_in_document(
     # using this ugly list
     results = []
 
-    def callback(  # pylint: disable=too-many-arguments,too-many-positional-arguments
-        language: str,
+    def callback(  # pylint: disable=too-many-positional-arguments
+        language: str | None,
         row_offset: int,
         col_offset: int,
         position_exact: bool,
@@ -436,7 +497,7 @@ def find_code_blocks_in_document(
         yield from results
 
 
-def find_code_blocks(  # pylint: disable=too-many-arguments
+def find_code_blocks(
     content: str,
     *,
     path: str | os.PathLike[str] | None = None,

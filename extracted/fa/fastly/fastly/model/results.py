@@ -347,6 +347,11 @@ class Results(ModelNormal):
             'ngwaf_requests_blocked_count': (int,),  # noqa: E501
             'ngwaf_requests_timeout_count': (int,),  # noqa: E501
             'ngwaf_requests_challenged_count': (int,),  # noqa: E501
+            'api_discovery_requests_count': (int,),  # noqa: E501
+            'imgopto_compute_requests': (int,),  # noqa: E501
+            'dns_billable_responses_count': (int,),  # noqa: E501
+            'dns_nonbillable_responses_count': (int,),  # noqa: E501
+            'upgrade': (int,),  # noqa: E501
             'service_id': (str,),  # noqa: E501
             'start_time': (int,),  # noqa: E501
         }
@@ -625,6 +630,11 @@ class Results(ModelNormal):
         'ngwaf_requests_blocked_count': 'ngwaf_requests_blocked_count',  # noqa: E501
         'ngwaf_requests_timeout_count': 'ngwaf_requests_timeout_count',  # noqa: E501
         'ngwaf_requests_challenged_count': 'ngwaf_requests_challenged_count',  # noqa: E501
+        'api_discovery_requests_count': 'api_discovery_requests_count',  # noqa: E501
+        'imgopto_compute_requests': 'imgopto_compute_requests',  # noqa: E501
+        'dns_billable_responses_count': 'dns_billable_responses_count',  # noqa: E501
+        'dns_nonbillable_responses_count': 'dns_nonbillable_responses_count',  # noqa: E501
+        'upgrade': 'upgrade',  # noqa: E501
         'service_id': 'service_id',  # noqa: E501
         'start_time': 'start_time',  # noqa: E501
     }
@@ -939,6 +949,11 @@ class Results(ModelNormal):
             ngwaf_requests_blocked_count (int): Count of Next-Gen WAF (Edge WAF & Core WAF) requests blocked.. [optional]  # noqa: E501
             ngwaf_requests_timeout_count (int): Count of Edge WAF requests timed outcome.. [optional]  # noqa: E501
             ngwaf_requests_challenged_count (int): Count of Edge WAF requests challenged.. [optional]  # noqa: E501
+            api_discovery_requests_count (int): Number of requests processed by the API Discovery engine.. [optional]  # noqa: E501
+            imgopto_compute_requests (int): The number of Image Optimizer requests made from Compute services.. [optional]  # noqa: E501
+            dns_billable_responses_count (int): Number of billable DNS responses (e.g., A, CNAME).. [optional]  # noqa: E501
+            dns_nonbillable_responses_count (int): Number of non-billable DNS responses (e.g., NODATA, NXDOMAIN).. [optional]  # noqa: E501
+            upgrade (int): Number of requests that resulted in a WebSocket upgrade.. [optional]  # noqa: E501
             service_id (str): [optional]  # noqa: E501
             start_time (int): Timestamp for the start of the time period being reported. [optional]  # noqa: E501
         """
@@ -1290,6 +1305,11 @@ class Results(ModelNormal):
             ngwaf_requests_blocked_count (int): Count of Next-Gen WAF (Edge WAF & Core WAF) requests blocked.. [optional]  # noqa: E501
             ngwaf_requests_timeout_count (int): Count of Edge WAF requests timed outcome.. [optional]  # noqa: E501
             ngwaf_requests_challenged_count (int): Count of Edge WAF requests challenged.. [optional]  # noqa: E501
+            api_discovery_requests_count (int): Number of requests processed by the API Discovery engine.. [optional]  # noqa: E501
+            imgopto_compute_requests (int): The number of Image Optimizer requests made from Compute services.. [optional]  # noqa: E501
+            dns_billable_responses_count (int): Number of billable DNS responses (e.g., A, CNAME).. [optional]  # noqa: E501
+            dns_nonbillable_responses_count (int): Number of non-billable DNS responses (e.g., NODATA, NXDOMAIN).. [optional]  # noqa: E501
+            upgrade (int): Number of requests that resulted in a WebSocket upgrade.. [optional]  # noqa: E501
             service_id (str): [optional]  # noqa: E501
             start_time (int): Timestamp for the start of the time period being reported. [optional]  # noqa: E501
         """

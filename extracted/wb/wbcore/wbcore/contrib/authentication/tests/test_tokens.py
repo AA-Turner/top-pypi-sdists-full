@@ -9,7 +9,7 @@ from rest_framework import exceptions
 from rest_framework.test import APIRequestFactory
 
 from wbcore.contrib.authentication.authentication import inject_short_lived_token
-from wbcore.contrib.authentication.models import Token
+from wbcore.contrib.authentication.models import Token, User
 
 fake = Faker()
 now = datetime.now()
@@ -17,9 +17,9 @@ now = datetime.now()
 
 class TestTokenUnitTests:
     @pytest.fixture
-    def request_with_user(user):
+    def request_with_user(self: User):
         request = APIRequestFactory().get("/")
-        request.user = user
+        request.user = self
         return request
 
     def setup_method(self):

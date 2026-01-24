@@ -184,7 +184,7 @@ def stock_financial_analysis_indicator_em(
     """
     东方财富-A股-财务分析-主要指标
     https://emweb.securities.eastmoney.com/pc_hsf10/pages/index.html?type=web&code=SZ301389&color=b#/cwfx
-    :param symbol: 股票代码
+    :param symbol: 股票代码（带市场标识）
     :type symbol: str
     :param indicator: choice of {"按报告期", "按单季度"}
     :type indicator: str
@@ -813,5 +813,7 @@ if __name__ == "__main__":
     stock_main_stock_holder_df = stock_main_stock_holder(stock="600000")
     print(stock_main_stock_holder_df)
 
-    stock_financial_analysis_indicator_em_df = stock_financial_analysis_indicator_em(symbol="301389.SZ", indicator="按报告期")
+    stock_financial_analysis_indicator_em_df = stock_financial_analysis_indicator_em(
+        symbol="301389.SZ", indicator="按报告期"
+    )
     print(stock_financial_analysis_indicator_em_df)

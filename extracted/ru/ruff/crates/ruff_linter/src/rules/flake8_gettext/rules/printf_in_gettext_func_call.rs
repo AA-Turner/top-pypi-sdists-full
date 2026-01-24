@@ -37,9 +37,14 @@ use crate::checkers::ast::Checker;
 /// _("Hello, %s!") % name  # Looks for "Hello, %s!".
 /// ```
 ///
+/// ## Options
+///
+/// - `lint.flake8-gettext.function-names`
+///
 /// ## References
 /// - [Python documentation: `gettext` — Multilingual internationalization services](https://docs.python.org/3/library/gettext.html)
 #[derive(ViolationMetadata)]
+#[violation_metadata(stable_since = "v0.0.260")]
 pub(crate) struct PrintfInGetTextFuncCall;
 
 impl Violation for PrintfInGetTextFuncCall {

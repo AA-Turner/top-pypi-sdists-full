@@ -28,14 +28,15 @@ description = "Google Cloud API client core library"
 # 'Development Status :: 5 - Production/Stable'
 release_status = "Development Status :: 5 - Production/Stable"
 dependencies = [
-    "google-api-core >= 1.31.6, <3.0.0dev,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0",
-    "google-auth >= 1.25.0, < 3.0dev",
+    "google-api-core >= 1.31.6, <3.0.0,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0",
+    "google-auth >= 1.25.0, < 3.0.0",
     "importlib-metadata > 1.0.0; python_version<'3.8'",
 ]
 extras = {
     "grpc": [
-        "grpcio >= 1.38.0, < 2.0dev",
-        "grpcio-status >= 1.38.0, < 2.0.dev0",
+        "grpcio >= 1.38.0, < 2.0.0; python_version < '3.14'",
+        "grpcio >= 1.75.1, < 2.0.0; python_version >= '3.14'",
+        "grpcio-status >= 1.38.0, < 2.0.0",
     ],
 }
 
@@ -82,6 +83,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Operating System :: OS Independent",
         "Topic :: Internet",
     ],

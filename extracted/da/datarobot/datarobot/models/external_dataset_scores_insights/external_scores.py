@@ -71,15 +71,13 @@ class ExternalScores(APIObject):
 
     _path = "projects/{project_id}/externalScores/"
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String(),
-            t.Key("model_id"): String(),
-            t.Key("dataset_id"): String(),
-            t.Key("actual_value_column", optional=True): t.Or(String(), t.Null()),
-            t.Key("scores"): t.List(t.Dict({t.Key("label"): String(), t.Key("value"): t.Float()})),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String(),
+        t.Key("model_id"): String(),
+        t.Key("dataset_id"): String(),
+        t.Key("actual_value_column", optional=True): t.Or(String(), t.Null()),
+        t.Key("scores"): t.List(t.Dict({t.Key("label"): String(), t.Key("value"): t.Float()})),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -204,10 +202,7 @@ class ExternalScores(APIObject):
         return scores[0]
 
     def __repr__(self) -> str:
-        return (
-            "Scores(project_id={}, model_id={}, dataset_id={}, "
-            "scores={}, actual_value_column={})"
-        ).format(
+        return ("Scores(project_id={}, model_id={}, dataset_id={}, scores={}, actual_value_column={})").format(
             self.project_id,
             self.model_id,
             self.dataset_id,

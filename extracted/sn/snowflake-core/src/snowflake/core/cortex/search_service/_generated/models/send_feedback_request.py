@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
 
 
 class SendFeedbackRequest(BaseModel):
@@ -44,9 +44,10 @@ class SendFeedbackRequest(BaseModel):
 
     __properties = ["request_id", "positive", "feedback_message"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -71,7 +72,7 @@ class SendFeedbackRequest(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -86,9 +87,9 @@ class SendFeedbackRequest(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return SendFeedbackRequest.parse_obj(obj)
+            return SendFeedbackRequest.model_validate(obj)
 
-        _obj = SendFeedbackRequest.parse_obj(
+        _obj = SendFeedbackRequest.model_validate(
             {
                 "request_id": obj.get("request_id"),
                 "positive": obj.get("positive"),

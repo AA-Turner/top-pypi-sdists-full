@@ -9,31 +9,20 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
+
+from .group_0067 import CommitCommentEventPropComment
 
 
-class ThreadSubscription(GitHubModel):
-    """Thread Subscription
+class CommitCommentEvent(GitHubModel):
+    """CommitCommentEvent"""
 
-    Thread Subscription
-    """
-
-    subscribed: bool = Field()
-    ignored: bool = Field()
-    reason: Union[str, None] = Field()
-    created_at: Union[datetime, None] = Field()
-    url: str = Field()
-    thread_url: Missing[str] = Field(default=UNSET)
-    repository_url: Missing[str] = Field(default=UNSET)
+    action: str = Field()
+    comment: CommitCommentEventPropComment = Field()
 
 
-model_rebuild(ThreadSubscription)
+model_rebuild(CommitCommentEvent)
 
-__all__ = ("ThreadSubscription",)
+__all__ = ("CommitCommentEvent",)

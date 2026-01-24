@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 from datetime import datetime, timezone
 from textwrap import wrap
 from typing import Any, Literal
@@ -9,31 +8,35 @@ from typing import Any, Literal
 import click
 from click.core import ParameterSource  # type: ignore[attr-defined]
 from rich import print as rprint
+from rich.json import JSON
 from tabulate import tabulate
 
 from together import Together
-from together.cli.api.utils import BOOL_WITH_AUTO, INT_WITH_MAX
-from together.types.finetune import (
-    DownloadCheckpointType,
-    FinetuneEventType,
-    FinetuneTrainingLimits,
-)
+from together.cli.api.utils import BOOL_WITH_AUTO, INT_WITH_MAX, generate_progress_bar
+from together.types.finetune import DownloadCheckpointType, FinetuneTrainingLimits
 from together.utils import (
     finetune_price_to_dollars,
     format_timestamp,
     log_warn,
-    log_warn_once,
     parse_timestamp,
 )
 
 
 _CONFIRMATION_MESSAGE = (
     "You are about to create a fine-tuning job. "
-    "The cost of your job will be determined by the model size, the number of tokens "
+    "The estimated price of this job is {price}. "
+    "The actual cost of your job will be determined by the model size, the number of tokens "
     "in the training file, the number of tokens in the validation file, the number of epochs, and "
-    "the number of evaluations. Visit https://www.together.ai/pricing to get a price estimate.\n"
+    "the number of evaluations. Visit https://www.together.ai/pricing to learn more about fine-tuning pricing.\n"
+    "{warning}"
     "You can pass `-y` or `--confirm` to your command to skip this message.\n\n"
     "Do you want to proceed?"
+)
+
+_WARNING_MESSAGE_INSUFFICIENT_FUNDS = (
+    "The estimated price of this job is significantly greater than your current credit limit and balance combined. "
+    "It will likely get cancelled due to insufficient funds. "
+    "Consider increasing your credit limit at https://api.together.xyz/settings/profile\n"
 )
 
 
@@ -193,6 +196,12 @@ def fine_tuning(ctx: click.Context) -> None:
     "`auto` will automatically determine whether to mask the inputs based on the data format.",
 )
 @click.option(
+    "--train-vision",
+    type=bool,
+    default=False,
+    help="Whether to train the vision encoder. Only supported for multimodal models.",
+)
+@click.option(
     "--from-checkpoint",
     type=str,
     default=None,
@@ -247,6 +256,7 @@ def create(
     lora_dropout: float,
     lora_alpha: float,
     lora_trainable_modules: str,
+    train_vision: bool,
     suffix: str,
     wandb_api_key: str,
     wandb_base_url: str,
@@ -288,6 +298,7 @@ def create(
         lora_dropout=lora_dropout,
         lora_alpha=lora_alpha,
         lora_trainable_modules=lora_trainable_modules,
+        train_vision=train_vision,
         suffix=suffix,
         wandb_api_key=wandb_api_key,
         wandb_base_url=wandb_base_url,
@@ -357,12 +368,40 @@ def create(
             "You have specified a number of evaluation loops but no validation file."
         )
 
-    if confirm or click.confirm(_CONFIRMATION_MESSAGE, default=True, show_default=True):
+    if model_limits.supports_vision:
+        # Don't show price estimation for multimodal models yet
+        confirm = True
+
+    finetune_price_estimation_result = client.fine_tuning.estimate_price(
+        training_file=training_file,
+        validation_file=validation_file,
+        model=model,
+        n_epochs=n_epochs,
+        n_evals=n_evals,
+        training_type="lora" if lora else "full",
+        training_method=training_method,
+    )
+
+    price = click.style(
+        f"${finetune_price_estimation_result.estimated_total_price:.2f}",
+        bold=True,
+    )
+
+    if not finetune_price_estimation_result.allowed_to_proceed:
+        warning = click.style(_WARNING_MESSAGE_INSUFFICIENT_FUNDS, fg="red", bold=True)
+    else:
+        warning = ""
+
+    confirmation_message = _CONFIRMATION_MESSAGE.format(
+        price=price,
+        warning=warning,
+    )
+
+    if confirm or click.confirm(confirmation_message, default=True, show_default=True):
         response = client.fine_tuning.create(
             **training_args,
             verbose=True,
         )
-
         report_string = f"Successfully submitted a fine-tuning job {response.id}"
         if response.created_at is not None:
             created_time = datetime.strptime(
@@ -401,6 +440,9 @@ def list(ctx: click.Context) -> None:
                 "Price": f"""${
                     finetune_price_to_dollars(float(str(i.total_price)))
                 }""",  # convert to string for mypy typing
+                "Progress": generate_progress_bar(
+                    i, datetime.now().astimezone(), use_rich=False
+                ),
             }
         )
     table = tabulate(display_list, headers="keys", tablefmt="grid", showindex=True)
@@ -420,7 +462,15 @@ def retrieve(ctx: click.Context, fine_tune_id: str) -> None:
     # remove events from response for cleaner output
     response.events = None
 
-    click.echo(json.dumps(response.model_dump(exclude_none=True), indent=4))
+    rprint(JSON.from_data(response.model_dump(exclude_none=True)))
+    progress_text = generate_progress_bar(
+        response, datetime.now().astimezone(), use_rich=True
+    )
+    status = "Unknown"
+    if response.status is not None:
+        status = response.status.value
+    prefix = f"Status: [bold]{status}[/bold],"
+    rprint(f"{prefix} {progress_text}")
 
 
 @fine_tuning.command()

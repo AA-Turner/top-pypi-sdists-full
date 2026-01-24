@@ -52,9 +52,7 @@ def test_multiple_types() -> None:
     epydoc2stan.format_docstring(mod.contents['E'])
 
 
-def docstring2html(obj: model.Documentable, docformat: Optional[str] = None) -> str:
-    if docformat:
-        obj.module.docformat = docformat
+def docstring2html(obj: model.Documentable) -> str:
     stan = epydoc2stan.format_docstring(obj)
     assert stan.tagName == 'div', stan
     # We strip off break lines for the sake of simplicity.
@@ -643,6 +641,7 @@ def test_func_starargs_more(capsys: CapSys) -> None:
     ''', modname='<great>')
 
     mod_rst_with_asterixes = fromText(r'''
+    __docformat__ = 'restructuredtext'
     def f(args, kwargs, *a, **kwa) -> None:
         r"""
         Do something with var-positional and var-keyword arguments.
@@ -655,6 +654,7 @@ def test_func_starargs_more(capsys: CapSys) -> None:
     ''', modname='<great>')
 
     mod_rst_without_asterixes = fromText('''
+    __docformat__ = 'restructuredtext'
     def f(args, kwargs, *a, **kwa) -> None:
         """
         Do something with var-positional and var-keyword arguments.
@@ -679,8 +679,8 @@ def test_func_starargs_more(capsys: CapSys) -> None:
     ''', modname='<good>')
 
     epy_with_asterixes_fmt = docstring2html(mod_epy_with_asterixes.contents['f'])
-    rst_with_asterixes_fmt = docstring2html(mod_rst_with_asterixes.contents['f'], docformat='restructuredtext')
-    rst_without_asterixes_fmt = docstring2html(mod_rst_without_asterixes.contents['f'], docformat='restructuredtext')
+    rst_with_asterixes_fmt = docstring2html(mod_rst_with_asterixes.contents['f'])
+    rst_without_asterixes_fmt = docstring2html(mod_rst_without_asterixes.contents['f'])
     epy_without_asterixes_fmt = docstring2html(mod_epy_without_asterixes.contents['f'])
 
     assert epy_with_asterixes_fmt == rst_with_asterixes_fmt == rst_without_asterixes_fmt == epy_without_asterixes_fmt
@@ -1101,7 +1101,7 @@ def test_EpydocLinker_adds_intersphinx_link_css_class() -> None:
     sut = target.docstring_linker
     assert isinstance(sut, linker._EpydocLinker)
 
-    result1 = sut.link_xref('base.module.other', 'base.module.other', 0).children[0] # wrapped in a code tag
+    result1 = sut.link_xref('base.module.other', 'base.module.other', 0)
     result2 = sut.link_to('base.module.other', 'base.module.other')
     
     res = flatten(result2)
@@ -2016,7 +2016,7 @@ def test_not_found_annotation_does_not_create_link() -> None:
 
     mod = fromText(src)
 
-    html = getHTMLOf(mod)
+    html = getHTMLOf(mod, 'base')
 
     assert '<a>NotFound</a>' not in html
 
@@ -2065,8 +2065,7 @@ def test_invalid_epytext_renders_as_plaintext(capsys: CapSys) -> None:
     """
     An invalid epytext docstring will be rederered as plaintext.
     """
-
-    mod = fromText(''' 
+    src = '''
     def func():
         """
             Title
@@ -2078,7 +2077,8 @@ def test_invalid_epytext_renders_as_plaintext(capsys: CapSys) -> None:
         """
         pass
     
-    ''', modname='invalid')
+    '''
+    mod = fromText(src, modname='invalid')
 
     expected = """<div>
 <p class="pre">Title
@@ -2095,7 +2095,8 @@ Hello
                         'invalid:8: bad docstring: Wrong underline character for heading.\n')
     assert actual  == expected
 
-    assert docstring2html(mod.contents['func'], docformat='plaintext') == expected
+    mod = fromText('    __docformat__="plaintext"\n' + src, modname='invalid')
+    assert docstring2html(mod.contents['func']) == expected
     captured = capsys.readouterr().out
     assert captured == ''
 
@@ -2170,9 +2171,44 @@ def test_does_not_loose_type_linenumber(capsys: CapSys) -> None:
     from pydoctor.test.test_templatewriter import getHTMLOf 
     # we use this function as a shortcut to trigger
     # the link not found warnings.
-    getHTMLOf(mod.contents['C'])
+    getHTMLOf(mod.contents['C'], 'base')
     assert capsys.readouterr().out == ('<test>:16: Existing docstring at line 10 is overriden\n'
                                        '<test>:10: Cannot find link target for "bool"\n')
+
+def test_numpydoc_warns_about_unknown_types_in_explicit_references_at_line(capsys: CapSys) -> None:
+    # we don't have a good knowledge of linenumber in numpy or google docstring
+    # because of https://github.com/twisted/pydoctor/issues/807
+    # But this regression test tries to ensure we're not making it worse.
+    # it might need to be adjusted when we fix #807.
+
+    src = '''
+    import numpy as np
+    __docformat__ = 'numpy'
+    def find(a, sub, start=0, end=None):
+        """
+        For each element, return the lowest index in the string where
+        substring ``sub`` is found, such that ``sub`` is contained in the
+        range [``start``, ``end``).
+
+        Parameters
+        ----------
+        a : array_like, with ``StringDType``, ``bytes_`` or ``str_`` dtype
+        sub : array_like, with `np.bytes_` or `np.str_` dtype
+            The substring to search for.
+        """
+    '''
+    system = model.System(model.Options.from_args(['-q']))
+    builder = system.systemBuilder(system)
+    builder.addModuleString('', modname='numpy', is_package=True)
+    builder.addModuleString('', modname='_core', is_package=True, parent_name='numpy')
+    builder.addModuleString(src, modname='strings.py', parent_name='numpy._core')
+    builder.buildModules()
+    for o in system.allobjects.values():
+        docstring2html(o)
+    assert capsys.readouterr().out == ('numpy._core.strings.py:11: Cannot find link target for "array_like"\n'
+        'numpy._core.strings.py:13: Cannot find link target for "array_like"\n'
+        'numpy._core.strings.py:13: Cannot find link target for "numpy.bytes_", resolved from "np.bytes_"\n'
+        'numpy._core.strings.py:13: Cannot find link target for "numpy.str_", resolved from "np.str_"\n')
 
 @pytest.mark.parametrize('signature,expected', (
     ('(*, a: bytes, b=None)', 

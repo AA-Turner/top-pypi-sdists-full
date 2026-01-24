@@ -2,7 +2,7 @@ use itertools::Itertools;
 use tombi_syntax::{SyntaxKind::*, T};
 use tombi_toml_version::TomlVersion;
 
-use crate::{support, AstNode, TombiValueCommentDirective};
+use crate::{AstNode, TombiValueCommentDirective, support};
 
 impl crate::Array {
     #[inline]
@@ -30,7 +30,7 @@ impl crate::Array {
             self.syntax()
                 .children_with_tokens()
                 .skip_while(|node| node.kind() != T!('['))
-                .skip(1) // skip '{'
+                .skip(1) // skip '['
                 .take_while(|node| node.kind() != T!(']')),
         )
     }
@@ -68,14 +68,13 @@ impl crate::Array {
 
     #[inline]
     pub fn should_be_multiline(&self, toml_version: TomlVersion) -> bool {
-        self.has_trailing_comma_after_last_value()
+        self.has_last_value_trailing_comma()
             || self.has_multiline_values(toml_version)
-            // || self.has_only_comments()
             || self.has_inner_comments()
     }
 
     #[inline]
-    pub fn has_trailing_comma_after_last_value(&self) -> bool {
+    pub fn has_last_value_trailing_comma(&self) -> bool {
         self.syntax()
             .children_with_tokens()
             .collect_vec()
@@ -102,11 +101,6 @@ impl crate::Array {
             }
             _ => false,
         })
-    }
-
-    #[inline]
-    pub fn has_only_comments(&self) -> bool {
-        support::node::has_only_comments(self.syntax().children_with_tokens(), T!('['), T!(']'))
     }
 
     #[inline]

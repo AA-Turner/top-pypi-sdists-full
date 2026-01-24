@@ -3,9 +3,14 @@
 # SPDX-FileCopyrightText: 2025 Ilya Egorov <0x42005e1f@gmail.com>
 # SPDX-License-Identifier: CC0-1.0
 
+import os
+import sys
+
 from importlib.metadata import version as get_version
 
 from packaging.version import parse as parse_version
+
+os.environ["SPHINX_AUTODOC_RELOAD_MODULES"] = "1"
 
 project = "aiologic"
 author = "Ilya Egorov"
@@ -16,15 +21,40 @@ version = v.base_version
 release = v.public
 
 extensions = [
+    "myst_parser",
+    "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.napoleon",
     "sphinx_copybutton",
     "sphinx_inline_tabs",
     "sphinx_rtd_theme",
-    "myst_parser",
 ]
 
+if sys.version_info >= (3, 11):
+    extensions.append("sphinxcontrib.autodoc_inherit_overload")
+
+autodoc_class_signature = "separated"
+autodoc_inherit_docstrings = False
+autodoc_preserve_defaults = True
+autodoc_default_options = {
+    "exclude-members": "__init_subclass__,__class_getitem__,__weakref__",
+    "inherited-members": True,
+    "member-order": "bysource",
+    "show-inheritance": True,
+    "special-members": True,
+}
+
 intersphinx_mapping = {
+    "aiohttp": ("https://docs.aiohttp.org/en/stable/", None),
+    "anyio": ("https://anyio.readthedocs.io/en/stable/", None),
+    "curio": ("https://curio.readthedocs.io/en/stable/", None),
+    "eventlet": ("https://eventlet.readthedocs.io/en/stable/", None),
+    "gevent": ("https://www.gevent.org/", None),
+    "greenlet": ("https://greenlet.readthedocs.io/en/stable/", None),
     "python": ("https://docs.python.org/3", None),
+    "sniffio": ("https://sniffio.readthedocs.io/en/stable/", None),
+    "trio": ("https://trio.readthedocs.io/en/stable/", None),
+    "twisted": ("https://docs.twisted.org/en/stable/api/", None),
 }
 
 html_theme = "sphinx_rtd_theme"
@@ -38,3 +68,12 @@ html_context = {
     "github_version": "main",
     "conf_py_path": "/docs/",
 }
+
+
+def enable_api_index(app, docname, source):
+    if docname == "api":
+        source[0] = source[0].replace(":no-index:", "")
+
+
+def setup(app):
+    app.connect("source-read", enable_api_index)

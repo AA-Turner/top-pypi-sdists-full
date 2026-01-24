@@ -493,6 +493,23 @@ class TestNSURLSession(TestCase):
             Foundation.NSURLSessionConfiguration.setUsesClassicLoadingMode_, 0
         )
 
+    @min_os_level("26.0")
+    def testMethods26_0(self):
+        self.assertResultIsBOOL(Foundation.NSURLSessionConfiguration.enablesEarlyData)
+        self.assertArgIsBOOL(
+            Foundation.NSURLSessionConfiguration.setEnablesEarlyData_, 0
+        )
+
+    @min_os_level("26.1")
+    def testMethods26_1(self):
+        self.assertResultIsBOOL(
+            Foundation.NSURLSessionConfiguration.allowsUltraConstrainedNetworkAccess
+        )
+        self.assertArgIsBOOL(
+            Foundation.NSURLSessionConfiguration.setAllowsUltraConstrainedNetworkAccess_,
+            0,
+        )
+
     @min_sdk_level("10.12")
     def testProtocols10_12(self):
         self.assertProtocolExists("NSURLSessionTaskDelegate")

@@ -76,10 +76,10 @@ class Registry:
         # and Dataset.get_<format>/set_<format> methods.
         setattr(Dataset, key, ImportExportSetDescriptor(key, format_or_path))
         try:
-            setattr(Dataset, 'get_%s' % key, partialmethod(Dataset._get_in_format, key))
-            setattr(Dataset, 'set_%s' % key, partialmethod(Dataset._set_in_format, key))
+            setattr(Dataset, f'get_{key}', partialmethod(Dataset._get_in_format, key))
+            setattr(Dataset, f'set_{key}', partialmethod(Dataset._set_in_format, key))
         except AttributeError:
-            setattr(Dataset, 'get_%s' % key, partialmethod(Dataset._get_in_format, key))
+            setattr(Dataset, f'get_{key}', partialmethod(Dataset._get_in_format, key))
 
         self._formats[key] = format_or_path
 
@@ -104,6 +104,7 @@ class Registry:
         if find_spec('pandas'):
             self.register('df', 'tablib.formats._df.DataFrameFormat')
         self.register('rst', 'tablib.formats._rst.ReSTFormat')
+        self.register('sql', 'tablib.formats._sql.SQLFormat')
         if find_spec('tabulate'):
             self.register('cli', 'tablib.formats._cli.CLIFormat')
 
@@ -122,7 +123,7 @@ class Registry:
                         **uninstalled_format_messages[key], key=key
                     )
                 )
-            raise UnsupportedFormat("Tablib has no format '%s' or it is not registered." % key)
+            raise UnsupportedFormat(f"Tablib has no format '{key}' or it is not registered.")
         if isinstance(self._formats[key], str):
             self._formats[key] = load_format_class(self._formats[key])
         return self._formats[key]

@@ -8,7 +8,15 @@
 
 
 # Third party imports
-from qtpy.QtCore import QEvent, QObject, Qt, Signal, Slot, QModelIndex
+from qtpy.QtCore import (
+    QEvent,
+    QItemSelectionModel,
+    QModelIndex,
+    QObject,
+    Qt,
+    Signal,
+    Slot,
+)
 from qtpy.QtGui import QStandardItemModel
 from qtpy.QtWidgets import (QAbstractItemView, QDialog, QLineEdit,
                             QListView, QListWidgetItem, QStyle,
@@ -20,7 +28,6 @@ from spyder.api.fonts import SpyderFontType, SpyderFontsMixin
 from spyder.plugins.switcher.widgets.proxymodel import SwitcherProxyModel
 from spyder.plugins.switcher.widgets.item import (
     SwitcherItem, SwitcherSeparatorItem)
-from spyder.py3compat import to_text_string
 from spyder.utils.palette import SpyderPalette
 from spyder.widgets.helperwidgets import HTMLDelegate
 from spyder.utils.stringmatching import get_search_scores
@@ -220,9 +227,7 @@ class Switcher(QDialog, SpyderFontsMixin):
     def clear(self):
         """Remove all items from the list and clear the search text."""
         self.set_placeholder_text('')
-        self.model.beginResetModel()
         self.model.clear()
-        self.model.endResetModel()
         self.setMinimumHeight(self._MIN_HEIGHT)
 
     def set_placeholder_text(self, text):
@@ -312,8 +317,11 @@ class Switcher(QDialog, SpyderFontsMixin):
             titles.append(title)
 
         search_text = clean_string(search_text)
-        scores = get_search_scores(to_text_string(search_text),
-                                   titles, template=u"<b>{0}</b>")
+        scores = get_search_scores(
+            str(search_text),
+            titles,
+            template=u"<b>{0}</b>"
+        )
 
         for idx, (title, rich_title, score_value) in enumerate(scores):
             item = self.model.item(idx)
@@ -455,7 +463,7 @@ class Switcher(QDialog, SpyderFontsMixin):
     # -------------------------------------------------------------------------
     def search_text(self):
         """Get the normalized (lowecase) content of the search text."""
-        return to_text_string(self.edit.text()).lower()
+        return str(self.edit.text()).lower()
 
     def search_text_without_mode(self):
         """Get search text without mode."""
@@ -530,7 +538,7 @@ class Switcher(QDialog, SpyderFontsMixin):
 
         # https://doc.qt.io/qt-5/qitemselectionmodel.html#SelectionFlag-enum
         selection_model.setCurrentIndex(
-            proxy_index, selection_model.ClearAndSelect
+            proxy_index, QItemSelectionModel.SelectionFlag.ClearAndSelect
         )
 
         # Ensure that the selected item is visible

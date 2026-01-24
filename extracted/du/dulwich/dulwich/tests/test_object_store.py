@@ -21,7 +21,8 @@
 
 """Tests for the object store interface."""
 
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable, Iterator, Sequence
+from typing import TYPE_CHECKING, Any
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -30,15 +31,21 @@ from dulwich.object_store import (
     MemoryObjectStore,
     PackBasedObjectStore,
     find_shallow,
+    iter_commit_contents,
     iter_tree_contents,
     peel_sha,
 )
 from dulwich.objects import (
     Blob,
+    Commit,
+    ObjectID,
+    ShaFile,
+    Tag,
     Tree,
     TreeEntry,
 )
 from dulwich.protocol import DEPTH_INFINITE
+from dulwich.refs import Ref
 
 from .utils import make_commit, make_object, make_tag
 
@@ -50,6 +57,8 @@ testobject = make_object(Blob, data=b"yummy data")
 
 
 class ObjectStoreTests:
+    """Base class for testing object store implementations."""
+
     store: "BaseObjectStore"
 
     assertEqual: Callable[[object, object], None]
@@ -62,19 +71,18 @@ class ObjectStoreTests:
     assertFalse: Callable[[bool], None]
 
     def test_determine_wants_all(self) -> None:
+        """Test determine_wants_all with valid ref."""
         self.assertEqual(
-            [b"1" * 40],
-            self.store.determine_wants_all({b"refs/heads/foo": b"1" * 40}),
-        )
-
-    def test_determine_wants_all_zero(self) -> None:
-        self.assertEqual(
-            [], self.store.determine_wants_all({b"refs/heads/foo": b"0" * 40})
+            [ObjectID(b"1" * 40)],
+            self.store.determine_wants_all(
+                {Ref(b"refs/heads/foo"): ObjectID(b"1" * 40)}
+            ),
         )
 
     def test_determine_wants_all_depth(self) -> None:
+        """Test determine_wants_all with depth parameter."""
         self.store.add_object(testobject)
-        refs = {b"refs/heads/foo": testobject.id}
+        refs = {Ref(b"refs/heads/foo"): testobject.id}
         with patch.object(self.store, "_get_depth", return_value=1) as m:
             self.assertEqual([], self.store.determine_wants_all(refs, depth=0))
             self.assertEqual(
@@ -90,6 +98,7 @@ class ObjectStoreTests:
             )
 
     def test_get_depth(self) -> None:
+        """Test getting object depth."""
         self.assertEqual(0, self.store._get_depth(testobject.id))
 
         self.store.add_object(testobject)
@@ -108,26 +117,29 @@ class ObjectStoreTests:
         )
 
     def test_iter(self) -> None:
+        """Test iterating over empty store."""
         self.assertEqual([], list(self.store))
 
     def test_get_nonexistant(self) -> None:
-        self.assertRaises(KeyError, lambda: self.store[b"a" * 40])
+        """Test getting non-existent object raises KeyError."""
+        self.assertRaises(KeyError, lambda: self.store[ObjectID(b"a" * 40)])
 
     def test_contains_nonexistant(self) -> None:
+        """Test checking for non-existent object."""
         self.assertNotIn(b"a" * 40, self.store)
 
     def test_add_objects_empty(self) -> None:
+        """Test adding empty list of objects."""
         self.store.add_objects([])
 
     def test_add_commit(self) -> None:
+        """Test adding commit objects."""
         # TODO: Argh, no way to construct Git commit objects without
         # access to a serialized form.
         self.store.add_objects([])
 
     def test_store_resilience(self) -> None:
-        """Test if updating an existing stored object doesn't erase the
-        object from the store.
-        """
+        """Test if updating an existing stored object doesn't erase the object from the store."""
         test_object = make_object(Blob, data=b"data")
 
         self.store.add_object(test_object)
@@ -139,6 +151,7 @@ class ObjectStoreTests:
         self.assertEqual(stored_test_object.id, test_object_id)
 
     def test_add_object(self) -> None:
+        """Test adding a single object to store."""
         self.store.add_object(testobject)
         self.assertEqual({testobject.id}, set(self.store))
         self.assertIn(testobject.id, self.store)
@@ -146,6 +159,7 @@ class ObjectStoreTests:
         self.assertEqual(r, testobject)
 
     def test_add_objects(self) -> None:
+        """Test adding multiple objects to store."""
         data = [(testobject, "mypath")]
         self.store.add_objects(data)
         self.assertEqual({testobject.id}, set(self.store))
@@ -154,6 +168,7 @@ class ObjectStoreTests:
         self.assertEqual(r, testobject)
 
     def test_tree_changes(self) -> None:
+        """Test detecting changes between trees."""
         blob_a1 = make_object(Blob, data=b"a1")
         blob_a2 = make_object(Blob, data=b"a2")
         blob_b = make_object(Blob, data=b"b")
@@ -179,6 +194,7 @@ class ObjectStoreTests:
         )
 
     def test_iter_tree_contents(self) -> None:
+        """Test iterating over tree contents."""
         blob_a = make_object(Blob, data=b"a")
         blob_b = make_object(Blob, data=b"b")
         blob_c = make_object(Blob, data=b"c")
@@ -200,6 +216,7 @@ class ObjectStoreTests:
         self.assertEqual([], list(iter_tree_contents(self.store, None)))
 
     def test_iter_tree_contents_include_trees(self) -> None:
+        """Test iterating tree contents including tree objects."""
         blob_a = make_object(Blob, data=b"a")
         blob_b = make_object(Blob, data=b"b")
         blob_c = make_object(Blob, data=b"c")
@@ -229,12 +246,14 @@ class ObjectStoreTests:
         actual = iter_tree_contents(self.store, tree_id, include_trees=True)
         self.assertEqual(expected, list(actual))
 
-    def make_tag(self, name, obj):
+    def make_tag(self, name: bytes, obj: ShaFile) -> Tag:
+        """Helper to create and add a tag object."""
         tag = make_tag(obj, name=name)
         self.store.add_object(tag)
         return tag
 
     def test_peel_sha(self) -> None:
+        """Test peeling SHA to get underlying object."""
         self.store.add_object(testobject)
         tag1 = self.make_tag(b"1", testobject)
         tag2 = self.make_tag(b"2", testobject)
@@ -243,17 +262,20 @@ class ObjectStoreTests:
             self.assertEqual((obj, testobject), peel_sha(self.store, obj.id))
 
     def test_get_raw(self) -> None:
+        """Test getting raw object data."""
         self.store.add_object(testobject)
         self.assertEqual(
             (Blob.type_num, b"yummy data"), self.store.get_raw(testobject.id)
         )
 
     def test_close(self) -> None:
+        """Test closing the object store."""
         # For now, just check that close doesn't barf.
         self.store.add_object(testobject)
         self.store.close()
 
     def test_iter_prefix(self) -> None:
+        """Test iterating objects by prefix."""
         self.store.add_object(testobject)
         self.assertEqual([testobject.id], list(self.store.iter_prefix(testobject.id)))
         self.assertEqual(
@@ -276,7 +298,7 @@ class ObjectStoreTests:
         """Test iterating with missing objects when not allowed."""
         blob1 = make_object(Blob, data=b"blob 1 data")
         self.store.add_object(blob1)
-        missing_sha = b"1" * 40
+        missing_sha = ObjectID(b"1" * 40)
 
         self.assertRaises(
             KeyError,
@@ -287,7 +309,7 @@ class ObjectStoreTests:
         """Test iterating with missing objects when allowed."""
         blob1 = make_object(Blob, data=b"blob 1 data")
         self.store.add_object(blob1)
-        missing_sha = b"1" * 40
+        missing_sha = ObjectID(b"1" * 40)
 
         objects = list(
             self.store.iterobjects_subset([blob1.id, missing_sha], allow_missing=True)
@@ -296,20 +318,25 @@ class ObjectStoreTests:
         self.assertEqual(blob1.id, objects[0].id)
 
     def test_iter_prefix_not_found(self) -> None:
+        """Test iterating with prefix that doesn't match any objects."""
         self.assertEqual([], list(self.store.iter_prefix(b"1" * 40)))
 
 
 class PackBasedObjectStoreTests(ObjectStoreTests):
+    """Tests for pack-based object stores."""
+
     store: PackBasedObjectStore
 
     def tearDown(self) -> None:
-        for pack in self.store.packs:
-            pack.close()
+        """Clean up by closing all packs."""
+        self.store.close()
 
     def test_empty_packs(self) -> None:
+        """Test that new store has no packs."""
         self.assertEqual([], list(self.store.packs))
 
     def test_pack_loose_objects(self) -> None:
+        """Test packing loose objects into packs."""
         b1 = make_object(Blob, data=b"yummy data")
         self.store.add_object(b1)
         b2 = make_object(Blob, data=b"more yummy data")
@@ -324,6 +351,7 @@ class PackBasedObjectStoreTests(ObjectStoreTests):
         self.assertEqual(0, self.store.pack_loose_objects())
 
     def test_repack(self) -> None:
+        """Test repacking multiple packs into one."""
         b1 = make_object(Blob, data=b"yummy data")
         self.store.add_object(b1)
         b2 = make_object(Blob, data=b"more yummy data")
@@ -341,6 +369,7 @@ class PackBasedObjectStoreTests(ObjectStoreTests):
         self.assertEqual(0, self.store.pack_loose_objects())
 
     def test_repack_existing(self) -> None:
+        """Test repacking with existing objects."""
         b1 = make_object(Blob, data=b"yummy data")
         self.store.add_object(b1)
         b2 = make_object(Blob, data=b"more yummy data")
@@ -400,28 +429,187 @@ class PackBasedObjectStoreTests(ObjectStoreTests):
         self.assertNotIn(b1.id, self.store)
 
 
-class FindShallowTests(TestCase):
-    def setUp(self):
-        super().setUp()
+class CommitTestHelper:
+    """Helper for tests which iterate over commits."""
+
+    def setUp(self) -> None:
+        """Set up test fixture."""
+        super().setUp()  # type: ignore[misc]
         self._store = MemoryObjectStore()
 
-    def make_commit(self, **attrs):
+    def make_commit(self, **attrs: Any) -> Commit:  # noqa: ANN401
+        """Helper to create and store a commit."""
         commit = make_commit(**attrs)
         self._store.add_object(commit)
         return commit
 
-    def make_linear_commits(self, n, message=b""):
+
+class IterCommitContentsTests(CommitTestHelper, TestCase):
+    """Tests for iter_commit_contents."""
+
+    def make_commits_with_contents(self) -> Commit:
+        """Helper to prepare test commits."""
+        files = [
+            # (path, contents)
+            (b"foo", b"foo"),
+            (b"bar", b"bar"),
+            (b"dir/baz", b"baz"),
+            (b"dir/subdir/foo", b"subfoo"),
+            (b"dir/subdir/bar", b"subbar"),
+            (b"dir/subdir/baz", b"subbaz"),
+        ]
+        blobs = {contents: make_object(Blob, data=contents) for path, contents in files}
+        for blob in blobs.values():
+            self._store.add_object(blob)
+        commit = self.make_commit(
+            tree=commit_tree(
+                self._store,
+                [(path, blobs[contents].id, 0o100644) for path, contents in files],
+            )
+        )
+
+        return commit
+
+    def assertCommitEntries(
+        self, results: Iterator[TreeEntry], expected: list[tuple[bytes, bytes]]
+    ) -> None:
+        """Assert that iter_commit_contents results are equal to expected."""
+        actual = []
+        for entry in results:
+            assert entry.sha is not None
+            obj = self._store[entry.sha]
+            assert isinstance(obj, Blob)
+            actual.append((entry.path, obj.data))
+        self.assertEqual(actual, expected)
+
+    def test_iter_commit_contents_no_includes(self) -> None:
+        """Test iterating commit contents without includes."""
+        commit = self.make_commits_with_contents()
+
+        # this is the same list as used by make_commits_with_contents,
+        # but ordered to match the actual iter_tree_contents iteration
+        # order
+        all_files = [
+            (b"bar", b"bar"),
+            (b"dir/baz", b"baz"),
+            (b"dir/subdir/bar", b"subbar"),
+            (b"dir/subdir/baz", b"subbaz"),
+            (b"dir/subdir/foo", b"subfoo"),
+            (b"foo", b"foo"),
+        ]
+
+        # No includes
+        self.assertCommitEntries(iter_commit_contents(self._store, commit), all_files)
+
+        # Explicit include=None
+        self.assertCommitEntries(
+            iter_commit_contents(self._store, commit, include=None), all_files
+        )
+
+        # include=[] is not the same as None
+        self.assertCommitEntries(
+            iter_commit_contents(self._store, commit, include=[]), []
+        )
+
+    def test_iter_commit_contents_with_includes(self) -> None:
+        """Test iterating commit contents with includes."""
+        commit = self.make_commits_with_contents()
+
+        include1 = ["foo", "bar"]
+        expected1 = [
+            # Note: iter_tree_contents iterates in name order, but we
+            # listed two separate paths, so they'll keep their order
+            # as specified
+            (b"foo", b"foo"),
+            (b"bar", b"bar"),
+        ]
+
+        include2 = ["foo", "dir/subdir"]
+        expected2 = [
+            # foo
+            (b"foo", b"foo"),
+            # dir/subdir
+            (b"dir/subdir/bar", b"subbar"),
+            (b"dir/subdir/baz", b"subbaz"),
+            (b"dir/subdir/foo", b"subfoo"),
+        ]
+
+        include3 = ["dir"]
+        expected3 = [
+            (b"dir/baz", b"baz"),
+            (b"dir/subdir/bar", b"subbar"),
+            (b"dir/subdir/baz", b"subbaz"),
+            (b"dir/subdir/foo", b"subfoo"),
+        ]
+
+        for include, expected in [
+            (include1, expected1),
+            (include2, expected2),
+            (include3, expected3),
+        ]:
+            self.assertCommitEntries(
+                iter_commit_contents(self._store, commit, include=include), expected
+            )
+
+    def test_iter_commit_contents_overlapping_includes(self) -> None:
+        """Test iterating commit contents with overlaps in includes."""
+        commit = self.make_commits_with_contents()
+
+        include1 = ["dir", "dir/baz"]
+        expected1 = [
+            # dir
+            (b"dir/baz", b"baz"),
+            (b"dir/subdir/bar", b"subbar"),
+            (b"dir/subdir/baz", b"subbaz"),
+            (b"dir/subdir/foo", b"subfoo"),
+            # dir/baz
+            (b"dir/baz", b"baz"),
+        ]
+
+        include2 = ["dir", "dir/subdir", "dir/subdir/baz"]
+        expected2 = [
+            # dir
+            (b"dir/baz", b"baz"),
+            (b"dir/subdir/bar", b"subbar"),
+            (b"dir/subdir/baz", b"subbaz"),
+            (b"dir/subdir/foo", b"subfoo"),
+            # dir/subdir
+            (b"dir/subdir/bar", b"subbar"),
+            (b"dir/subdir/baz", b"subbaz"),
+            (b"dir/subdir/foo", b"subfoo"),
+            # dir/subdir/baz
+            (b"dir/subdir/baz", b"subbaz"),
+        ]
+
+        for include, expected in [
+            (include1, expected1),
+            (include2, expected2),
+        ]:
+            self.assertCommitEntries(
+                iter_commit_contents(self._store, commit, include=include), expected
+            )
+
+
+class FindShallowTests(CommitTestHelper, TestCase):
+    """Tests for finding shallow commits."""
+
+    def make_linear_commits(self, n: int, message: bytes = b"") -> list[Commit]:
+        """Create a linear chain of commits."""
         commits = []
-        parents = []
+        parents: list[bytes] = []
         for _ in range(n):
             commits.append(self.make_commit(parents=parents, message=message))
             parents = [commits[-1].id]
         return commits
 
-    def assertSameElements(self, expected, actual):
+    def assertSameElements(
+        self, expected: Sequence[object], actual: Sequence[object]
+    ) -> None:
+        """Assert that two sequences contain the same elements."""
         self.assertEqual(set(expected), set(actual))
 
-    def test_linear(self):
+    def test_linear(self) -> None:
+        """Test finding shallow commits in a linear history."""
         c1, c2, c3 = self.make_linear_commits(3)
 
         self.assertEqual((set([c3.id]), set([])), find_shallow(self._store, [c3.id], 1))
@@ -438,7 +626,8 @@ class FindShallowTests(TestCase):
             find_shallow(self._store, [c3.id], 4),
         )
 
-    def test_multiple_independent(self):
+    def test_multiple_independent(self) -> None:
+        """Test finding shallow commits with multiple independent branches."""
         a = self.make_linear_commits(2, message=b"a")
         b = self.make_linear_commits(2, message=b"b")
         c = self.make_linear_commits(2, message=b"c")
@@ -449,7 +638,8 @@ class FindShallowTests(TestCase):
             find_shallow(self._store, heads, 2),
         )
 
-    def test_multiple_overlapping(self):
+    def test_multiple_overlapping(self) -> None:
+        """Test finding shallow commits with overlapping branches."""
         # Create the following commit tree:
         # 1--2
         #  \
@@ -464,7 +654,8 @@ class FindShallowTests(TestCase):
             find_shallow(self._store, [c2.id, c4.id], 3),
         )
 
-    def test_merge(self):
+    def test_merge(self) -> None:
+        """Test finding shallow commits with merge commits."""
         c1 = self.make_commit()
         c2 = self.make_commit()
         c3 = self.make_commit(parents=[c1.id, c2.id])
@@ -474,7 +665,8 @@ class FindShallowTests(TestCase):
             find_shallow(self._store, [c3.id], 2),
         )
 
-    def test_tag(self):
+    def test_tag(self) -> None:
+        """Test finding shallow commits with tags."""
         c1, c2 = self.make_linear_commits(2)
         tag = make_tag(c2, name=b"tag")
         self._store.add_object(tag)

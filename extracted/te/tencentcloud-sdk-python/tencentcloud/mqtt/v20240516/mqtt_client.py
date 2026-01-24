@@ -72,6 +72,29 @@ class MqttClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def AddClientSubscription(self, request):
+        r"""为MQTT客户端增加一条订阅
+
+        :param request: Request instance for AddClientSubscription.
+        :type request: :class:`tencentcloud.mqtt.v20240516.models.AddClientSubscriptionRequest`
+        :rtype: :class:`tencentcloud.mqtt.v20240516.models.AddClientSubscriptionResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("AddClientSubscription", params, headers=headers)
+            response = json.loads(body)
+            model = models.AddClientSubscriptionResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ApplyRegistrationCode(self, request):
         r"""申请ca注册码
 
@@ -256,6 +279,29 @@ class MqttClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateMessageEnrichmentRule(self, request):
+        r"""创建一条消息属性增强规则
+
+        :param request: Request instance for CreateMessageEnrichmentRule.
+        :type request: :class:`tencentcloud.mqtt.v20240516.models.CreateMessageEnrichmentRuleRequest`
+        :rtype: :class:`tencentcloud.mqtt.v20240516.models.CreateMessageEnrichmentRuleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateMessageEnrichmentRule", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateMessageEnrichmentRuleResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateTopic(self, request):
         r"""创建主题
 
@@ -417,6 +463,29 @@ class MqttClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DeleteClientSubscription(self, request):
+        r"""删除MQTT客户端下的一条订阅
+
+        :param request: Request instance for DeleteClientSubscription.
+        :type request: :class:`tencentcloud.mqtt.v20240516.models.DeleteClientSubscriptionRequest`
+        :rtype: :class:`tencentcloud.mqtt.v20240516.models.DeleteClientSubscriptionResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteClientSubscription", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteClientSubscriptionResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DeleteDeviceCertificate(self, request):
         r"""删除设备证书
 
@@ -500,6 +569,29 @@ class MqttClient(AbstractClient):
             body = self.call("DeleteInstance", params, headers=headers)
             response = json.loads(body)
             model = models.DeleteInstanceResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteMessageEnrichmentRule(self, request):
+        r"""删除消息属性增强规则
+
+        :param request: Request instance for DeleteMessageEnrichmentRule.
+        :type request: :class:`tencentcloud.mqtt.v20240516.models.DeleteMessageEnrichmentRuleRequest`
+        :rtype: :class:`tencentcloud.mqtt.v20240516.models.DeleteMessageEnrichmentRuleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteMessageEnrichmentRule", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteMessageEnrichmentRuleResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -905,6 +997,29 @@ class MqttClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeMessageEnrichmentRules(self, request):
+        r"""查询消息属性增强规则
+
+        :param request: Request instance for DescribeMessageEnrichmentRules.
+        :type request: :class:`tencentcloud.mqtt.v20240516.models.DescribeMessageEnrichmentRulesRequest`
+        :rtype: :class:`tencentcloud.mqtt.v20240516.models.DescribeMessageEnrichmentRulesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeMessageEnrichmentRules", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeMessageEnrichmentRulesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeMessageList(self, request):
         r"""根据一级Topic查询消息列表
 
@@ -1039,6 +1154,29 @@ class MqttClient(AbstractClient):
             body = self.call("DescribeUserList", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeUserListResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def KickOutClient(self, request):
+        r"""踢出客户端
+
+        :param request: Request instance for KickOutClient.
+        :type request: :class:`tencentcloud.mqtt.v20240516.models.KickOutClientRequest`
+        :rtype: :class:`tencentcloud.mqtt.v20240516.models.KickOutClientResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("KickOutClient", params, headers=headers)
+            response = json.loads(body)
+            model = models.KickOutClientResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1233,6 +1371,30 @@ class MqttClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifyMessageEnrichmentRule(self, request):
+        r"""修改消息属性增强规则
+        注意：需要提交当前规则的所有属性，即使某些字段没有修改。
+
+        :param request: Request instance for ModifyMessageEnrichmentRule.
+        :type request: :class:`tencentcloud.mqtt.v20240516.models.ModifyMessageEnrichmentRuleRequest`
+        :rtype: :class:`tencentcloud.mqtt.v20240516.models.ModifyMessageEnrichmentRuleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyMessageEnrichmentRule", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyMessageEnrichmentRuleResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyTopic(self, request):
         r"""修改主题属性
 
@@ -1385,6 +1547,29 @@ class MqttClient(AbstractClient):
             body = self.call("UpdateAuthorizationPolicyPriority", params, headers=headers)
             response = json.loads(body)
             model = models.UpdateAuthorizationPolicyPriorityResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def UpdateMessageEnrichmentRulePriority(self, request):
+        r"""修改消息属性增强规则优先级
+
+        :param request: Request instance for UpdateMessageEnrichmentRulePriority.
+        :type request: :class:`tencentcloud.mqtt.v20240516.models.UpdateMessageEnrichmentRulePriorityRequest`
+        :rtype: :class:`tencentcloud.mqtt.v20240516.models.UpdateMessageEnrichmentRulePriorityResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("UpdateMessageEnrichmentRulePriority", params, headers=headers)
+            response = json.loads(body)
+            model = models.UpdateMessageEnrichmentRulePriorityResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

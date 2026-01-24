@@ -73,55 +73,270 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_apprunner.AutoScalingConfigurationReference",
-    jsii_struct_bases=[],
-    name_mapping={"auto_scaling_configuration_arn": "autoScalingConfigurationArn"},
+from ..interfaces.aws_apprunner import (
+    AutoScalingConfigurationReference as _AutoScalingConfigurationReference_5973090e,
+    IAutoScalingConfigurationRef as _IAutoScalingConfigurationRef_99168b63,
+    IObservabilityConfigurationRef as _IObservabilityConfigurationRef_fbef63e4,
+    IServiceRef as _IServiceRef_276b8cc6,
+    IVpcConnectorRef as _IVpcConnectorRef_37eb44ed,
+    IVpcIngressConnectionRef as _IVpcIngressConnectionRef_58d73e34,
+    ObservabilityConfigurationReference as _ObservabilityConfigurationReference_802385c5,
+    ServiceReference as _ServiceReference_b4605cef,
+    VpcConnectorReference as _VpcConnectorReference_0d63765c,
+    VpcIngressConnectionReference as _VpcIngressConnectionReference_64b165fb,
 )
-class AutoScalingConfigurationReference:
-    def __init__(self, *, auto_scaling_configuration_arn: builtins.str) -> None:
-        '''A reference to a AutoScalingConfiguration resource.
+from ..interfaces.aws_ec2 import ISecurityGroupRef as _ISecurityGroupRef_efa4ff18
 
-        :param auto_scaling_configuration_arn: The AutoScalingConfigurationArn of the AutoScalingConfiguration resource.
 
-        :exampleMetadata: fixture=_generated
+@jsii.implements(_IInspectable_c2943556, _IAutoScalingConfigurationRef_99168b63, _ITaggableV2_4e6798f8)
+class CfnAutoScalingConfiguration(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_apprunner.CfnAutoScalingConfiguration",
+):
+    '''Specify an AWS App Runner Automatic Scaling configuration by using the ``AWS::AppRunner::AutoScalingConfiguration`` resource in an AWS CloudFormation template.
 
-        Example::
+    The ``AWS::AppRunner::AutoScalingConfiguration`` resource is an AWS App Runner resource type that specifies an App Runner automatic scaling configuration.
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_apprunner as apprunner
-            
-            auto_scaling_configuration_reference = apprunner.AutoScalingConfigurationReference(
-                auto_scaling_configuration_arn="autoScalingConfigurationArn"
-            )
+    App Runner requires this resource to set non-default auto scaling settings for instances used to process the web requests. You can share an auto scaling configuration across multiple services.
+
+    Create multiple revisions of a configuration by calling this action multiple times using the same ``AutoScalingConfigurationName`` . The call returns incremental ``AutoScalingConfigurationRevision`` values. When you create a service and configure an auto scaling configuration resource, the service uses the latest active revision of the auto scaling configuration by default. You can optionally configure the service to use a specific revision.
+
+    Configure a higher ``MinSize`` to increase the spread of your App Runner service over more Availability Zones in the AWS Region . The tradeoff is a higher minimal cost.
+
+    Configure a lower ``MaxSize`` to control your cost. The tradeoff is lower responsiveness during peak demand.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-autoscalingconfiguration.html
+    :cloudformationResource: AWS::AppRunner::AutoScalingConfiguration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_apprunner as apprunner
+        
+        cfn_auto_scaling_configuration = apprunner.CfnAutoScalingConfiguration(self, "MyCfnAutoScalingConfiguration",
+            auto_scaling_configuration_name="autoScalingConfigurationName",
+            max_concurrency=123,
+            max_size=123,
+            min_size=123,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        auto_scaling_configuration_name: typing.Optional[builtins.str] = None,
+        max_concurrency: typing.Optional[jsii.Number] = None,
+        max_size: typing.Optional[jsii.Number] = None,
+        min_size: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::AppRunner::AutoScalingConfiguration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param auto_scaling_configuration_name: The customer-provided auto scaling configuration name. It can be used in multiple revisions of a configuration.
+        :param max_concurrency: The maximum number of concurrent requests that an instance processes. If the number of concurrent requests exceeds this limit, App Runner scales the service up.
+        :param max_size: The maximum number of instances that a service scales up to. At most ``MaxSize`` instances actively serve traffic for your service.
+        :param min_size: The minimum number of instances that App Runner provisions for a service. The service always has at least ``MinSize`` provisioned instances. Some of them actively serve traffic. The rest of them (provisioned and inactive instances) are a cost-effective compute capacity reserve and are ready to be quickly activated. You pay for memory usage of all the provisioned instances. You pay for CPU usage of only the active subset. App Runner temporarily doubles the number of provisioned instances during deployments, to maintain the same capacity for both old and new code.
+        :param tags: A list of metadata items that you can associate with your auto scaling configuration resource. A tag is a key-value pair.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4809a58a6ee3904f0ab4029aca0344380ea2cfa4d7199ffcf7e49ae5cd28de0e)
-            check_type(argname="argument auto_scaling_configuration_arn", value=auto_scaling_configuration_arn, expected_type=type_hints["auto_scaling_configuration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "auto_scaling_configuration_arn": auto_scaling_configuration_arn,
-        }
+            type_hints = typing.get_type_hints(_typecheckingstub__a097973cb063319e04b0f6e6c21b4cfd5c92b8418d4ae98fd7a13b5ef4bed0e8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAutoScalingConfigurationProps(
+            auto_scaling_configuration_name=auto_scaling_configuration_name,
+            max_concurrency=max_concurrency,
+            max_size=max_size,
+            min_size=min_size,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAutoScalingConfiguration")
+    @builtins.classmethod
+    def arn_for_auto_scaling_configuration(
+        cls,
+        resource: "_IAutoScalingConfigurationRef_99168b63",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b07092ed9a3c8f611b357cee86d2b88d22d76e53f344d607685c237ceccda147)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAutoScalingConfiguration", [resource]))
+
+    @jsii.member(jsii_name="isCfnAutoScalingConfiguration")
+    @builtins.classmethod
+    def is_cfn_auto_scaling_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAutoScalingConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18cec198649927ccc038a8e1bf53fc79b383c537c0d1abf4ed2b1d2ce0b6af22)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAutoScalingConfiguration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__543708ceb6604b166bc6eed37718011031e49891f6312bd156560547d85091a3)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5274d724f0f7ae4be497d58f3e9e326d502d1ea6864cfb94650b4339848ad179)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    def auto_scaling_configuration_arn(self) -> builtins.str:
-        '''The AutoScalingConfigurationArn of the AutoScalingConfiguration resource.'''
-        result = self._values.get("auto_scaling_configuration_arn")
-        assert result is not None, "Required property 'auto_scaling_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
+    @jsii.member(jsii_name="attrAutoScalingConfigurationArn")
+    def attr_auto_scaling_configuration_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of this auto scaling configuration.
 
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
+        :cloudformationAttribute: AutoScalingConfigurationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAutoScalingConfigurationArn"))
 
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
+    @builtins.property
+    @jsii.member(jsii_name="attrAutoScalingConfigurationRevision")
+    def attr_auto_scaling_configuration_revision(self) -> jsii.Number:
+        '''The revision of this auto scaling configuration.
 
-    def __repr__(self) -> str:
-        return "AutoScalingConfigurationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+        It's unique among all the active configurations that share the same ``AutoScalingConfigurationName`` .
+
+        :cloudformationAttribute: AutoScalingConfigurationRevision
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrAutoScalingConfigurationRevision"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLatest")
+    def attr_latest(self) -> "_IResolvable_da3f097b":
+        '''It's set to true for the configuration with the highest ``Revision`` among all configurations that share the same ``AutoScalingConfigurationName`` .
+
+        It's set to false otherwise. App Runner temporarily doubles the number of provisioned instances during deployments, to maintain the same capacity for both old and new code.
+
+        :cloudformationAttribute: Latest
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLatest"))
+
+    @builtins.property
+    @jsii.member(jsii_name="autoScalingConfigurationRef")
+    def auto_scaling_configuration_ref(
+        self,
+    ) -> "_AutoScalingConfigurationReference_5973090e":
+        '''A reference to a AutoScalingConfiguration resource.'''
+        return typing.cast("_AutoScalingConfigurationReference_5973090e", jsii.get(self, "autoScalingConfigurationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="autoScalingConfigurationName")
+    def auto_scaling_configuration_name(self) -> typing.Optional[builtins.str]:
+        '''The customer-provided auto scaling configuration name.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "autoScalingConfigurationName"))
+
+    @auto_scaling_configuration_name.setter
+    def auto_scaling_configuration_name(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e356312a777bbadb57bd63f0dfc33fb70c5d8e557376009f249840b11d66bd5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "autoScalingConfigurationName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maxConcurrency")
+    def max_concurrency(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of concurrent requests that an instance processes.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxConcurrency"))
+
+    @max_concurrency.setter
+    def max_concurrency(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__283d39757b13fe904a4b3d64120221a2d431ba2ec1d757638e1c345e78c3f7cf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxConcurrency", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maxSize")
+    def max_size(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of instances that a service scales up to.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxSize"))
+
+    @max_size.setter
+    def max_size(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03b95fc2bf6f77f9647d9a90116b7d9f7e048c77120c45dd9da79cf0fac82b8f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxSize", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="minSize")
+    def min_size(self) -> typing.Optional[jsii.Number]:
+        '''The minimum number of instances that App Runner provisions for a service.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "minSize"))
+
+    @min_size.setter
+    def min_size(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__804986513a4dd9744a0afef975cf1e8a6c7345cb309f071e4ff0a913123c0fcf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "minSize", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of metadata items that you can associate with your auto scaling configuration resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eb90876342a230c9991099f852e8e245b9b8c860b209c3ebdfa443bf9af5660a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -143,7 +358,7 @@ class CfnAutoScalingConfigurationProps:
         max_concurrency: typing.Optional[jsii.Number] = None,
         max_size: typing.Optional[jsii.Number] = None,
         min_size: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAutoScalingConfiguration``.
 
@@ -158,6 +373,7 @@ class CfnAutoScalingConfigurationProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_apprunner as apprunner
@@ -239,7 +455,7 @@ class CfnAutoScalingConfigurationProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of metadata items that you can associate with your auto scaling configuration resource.
 
         A tag is a key-value pair.
@@ -247,7 +463,7 @@ class CfnAutoScalingConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-autoscalingconfiguration.html#cfn-apprunner-autoscalingconfiguration-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -261,1292 +477,7 @@ class CfnAutoScalingConfigurationProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_apprunner.CfnObservabilityConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "observability_configuration_name": "observabilityConfigurationName",
-        "tags": "tags",
-        "trace_configuration": "traceConfiguration",
-    },
-)
-class CfnObservabilityConfigurationProps:
-    def __init__(
-        self,
-        *,
-        observability_configuration_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        trace_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnObservabilityConfiguration.TraceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnObservabilityConfiguration``.
-
-        :param observability_configuration_name: A name for the observability configuration. When you use it for the first time in an AWS Region , App Runner creates revision number ``1`` of this name. When you use the same name in subsequent calls, App Runner creates incremental revisions of the configuration. .. epigraph:: The name ``DefaultConfiguration`` is reserved. You can't use it to create a new observability configuration, and you can't create a revision of it. When you want to use your own observability configuration for your App Runner service, *create a configuration with a different name* , and then provide it when you create or update your service. If you don't specify a name, AWS CloudFormation generates a name for your observability configuration.
-        :param tags: A list of metadata items that you can associate with your observability configuration resource. A tag is a key-value pair.
-        :param trace_configuration: The configuration of the tracing feature within this observability configuration. If you don't specify it, App Runner doesn't enable tracing.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-observabilityconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_apprunner as apprunner
-            
-            cfn_observability_configuration_props = apprunner.CfnObservabilityConfigurationProps(
-                observability_configuration_name="observabilityConfigurationName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                trace_configuration=apprunner.CfnObservabilityConfiguration.TraceConfigurationProperty(
-                    vendor="vendor"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1debdf716fbe9ec809b1573ccbd25ac6c6aa5901a77a6b6c323eb8445dd9cc2)
-            check_type(argname="argument observability_configuration_name", value=observability_configuration_name, expected_type=type_hints["observability_configuration_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument trace_configuration", value=trace_configuration, expected_type=type_hints["trace_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if observability_configuration_name is not None:
-            self._values["observability_configuration_name"] = observability_configuration_name
-        if tags is not None:
-            self._values["tags"] = tags
-        if trace_configuration is not None:
-            self._values["trace_configuration"] = trace_configuration
-
-    @builtins.property
-    def observability_configuration_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the observability configuration.
-
-        When you use it for the first time in an AWS Region , App Runner creates revision number ``1`` of this name. When you use the same name in subsequent calls, App Runner creates incremental revisions of the configuration.
-        .. epigraph::
-
-           The name ``DefaultConfiguration`` is reserved. You can't use it to create a new observability configuration, and you can't create a revision of it.
-
-           When you want to use your own observability configuration for your App Runner service, *create a configuration with a different name* , and then provide it when you create or update your service.
-
-        If you don't specify a name, AWS CloudFormation generates a name for your observability configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-observabilityconfiguration.html#cfn-apprunner-observabilityconfiguration-observabilityconfigurationname
-        '''
-        result = self._values.get("observability_configuration_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of metadata items that you can associate with your observability configuration resource.
-
-        A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-observabilityconfiguration.html#cfn-apprunner-observabilityconfiguration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def trace_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnObservabilityConfiguration.TraceConfigurationProperty"]]:
-        '''The configuration of the tracing feature within this observability configuration.
-
-        If you don't specify it, App Runner doesn't enable tracing.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-observabilityconfiguration.html#cfn-apprunner-observabilityconfiguration-traceconfiguration
-        '''
-        result = self._values.get("trace_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnObservabilityConfiguration.TraceConfigurationProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnObservabilityConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_apprunner.CfnServiceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "source_configuration": "sourceConfiguration",
-        "auto_scaling_configuration_arn": "autoScalingConfigurationArn",
-        "encryption_configuration": "encryptionConfiguration",
-        "health_check_configuration": "healthCheckConfiguration",
-        "instance_configuration": "instanceConfiguration",
-        "network_configuration": "networkConfiguration",
-        "observability_configuration": "observabilityConfiguration",
-        "service_name": "serviceName",
-        "tags": "tags",
-    },
-)
-class CfnServiceProps:
-    def __init__(
-        self,
-        *,
-        source_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        auto_scaling_configuration_arn: typing.Optional[builtins.str] = None,
-        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        health_check_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.HealthCheckConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.InstanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        observability_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.ServiceObservabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        service_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnService``.
-
-        :param source_configuration: The source to deploy to the App Runner service. It can be a code or an image repository.
-        :param auto_scaling_configuration_arn: The Amazon Resource Name (ARN) of an App Runner automatic scaling configuration resource that you want to associate with your service. If not provided, App Runner associates the latest revision of a default auto scaling configuration. Specify an ARN with a name and a revision number to associate that revision. For example: ``arn:aws:apprunner:us-east-1:123456789012:autoscalingconfiguration/high-availability/3`` Specify just the name to associate the latest revision. For example: ``arn:aws:apprunner:us-east-1:123456789012:autoscalingconfiguration/high-availability``
-        :param encryption_configuration: An optional custom encryption key that App Runner uses to encrypt the copy of your source repository that it maintains and your service logs. By default, App Runner uses an AWS managed key .
-        :param health_check_configuration: The settings for the health check that AWS App Runner performs to monitor the health of the App Runner service.
-        :param instance_configuration: The runtime configuration of instances (scaling units) of your service.
-        :param network_configuration: Configuration settings related to network traffic of the web application that the App Runner service runs.
-        :param observability_configuration: The observability configuration of your service.
-        :param service_name: A name for the App Runner service. It must be unique across all the running App Runner services in your AWS account in the AWS Region . If you don't specify a name, AWS CloudFormation generates a name for your service.
-        :param tags: An optional list of metadata items that you can associate with the App Runner service resource. A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_apprunner as apprunner
-            
-            cfn_service_props = apprunner.CfnServiceProps(
-                source_configuration=apprunner.CfnService.SourceConfigurationProperty(
-                    authentication_configuration=apprunner.CfnService.AuthenticationConfigurationProperty(
-                        access_role_arn="accessRoleArn",
-                        connection_arn="connectionArn"
-                    ),
-                    auto_deployments_enabled=False,
-                    code_repository=apprunner.CfnService.CodeRepositoryProperty(
-                        repository_url="repositoryUrl",
-                        source_code_version=apprunner.CfnService.SourceCodeVersionProperty(
-                            type="type",
-                            value="value"
-                        ),
-            
-                        # the properties below are optional
-                        code_configuration=apprunner.CfnService.CodeConfigurationProperty(
-                            configuration_source="configurationSource",
-            
-                            # the properties below are optional
-                            code_configuration_values=apprunner.CfnService.CodeConfigurationValuesProperty(
-                                runtime="runtime",
-            
-                                # the properties below are optional
-                                build_command="buildCommand",
-                                port="port",
-                                runtime_environment_secrets=[apprunner.CfnService.KeyValuePairProperty(
-                                    name="name",
-                                    value="value"
-                                )],
-                                runtime_environment_variables=[apprunner.CfnService.KeyValuePairProperty(
-                                    name="name",
-                                    value="value"
-                                )],
-                                start_command="startCommand"
-                            )
-                        ),
-                        source_directory="sourceDirectory"
-                    ),
-                    image_repository=apprunner.CfnService.ImageRepositoryProperty(
-                        image_identifier="imageIdentifier",
-                        image_repository_type="imageRepositoryType",
-            
-                        # the properties below are optional
-                        image_configuration=apprunner.CfnService.ImageConfigurationProperty(
-                            port="port",
-                            runtime_environment_secrets=[apprunner.CfnService.KeyValuePairProperty(
-                                name="name",
-                                value="value"
-                            )],
-                            runtime_environment_variables=[apprunner.CfnService.KeyValuePairProperty(
-                                name="name",
-                                value="value"
-                            )],
-                            start_command="startCommand"
-                        )
-                    )
-                ),
-            
-                # the properties below are optional
-                auto_scaling_configuration_arn="autoScalingConfigurationArn",
-                encryption_configuration=apprunner.CfnService.EncryptionConfigurationProperty(
-                    kms_key="kmsKey"
-                ),
-                health_check_configuration=apprunner.CfnService.HealthCheckConfigurationProperty(
-                    healthy_threshold=123,
-                    interval=123,
-                    path="path",
-                    protocol="protocol",
-                    timeout=123,
-                    unhealthy_threshold=123
-                ),
-                instance_configuration=apprunner.CfnService.InstanceConfigurationProperty(
-                    cpu="cpu",
-                    instance_role_arn="instanceRoleArn",
-                    memory="memory"
-                ),
-                network_configuration=apprunner.CfnService.NetworkConfigurationProperty(
-                    egress_configuration=apprunner.CfnService.EgressConfigurationProperty(
-                        egress_type="egressType",
-            
-                        # the properties below are optional
-                        vpc_connector_arn="vpcConnectorArn"
-                    ),
-                    ingress_configuration=apprunner.CfnService.IngressConfigurationProperty(
-                        is_publicly_accessible=False
-                    ),
-                    ip_address_type="ipAddressType"
-                ),
-                observability_configuration=apprunner.CfnService.ServiceObservabilityConfigurationProperty(
-                    observability_enabled=False,
-            
-                    # the properties below are optional
-                    observability_configuration_arn="observabilityConfigurationArn"
-                ),
-                service_name="serviceName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37772da8e2081252d29ad212c4bce9ca489c11a77271153d93e81976b37d45aa)
-            check_type(argname="argument source_configuration", value=source_configuration, expected_type=type_hints["source_configuration"])
-            check_type(argname="argument auto_scaling_configuration_arn", value=auto_scaling_configuration_arn, expected_type=type_hints["auto_scaling_configuration_arn"])
-            check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
-            check_type(argname="argument health_check_configuration", value=health_check_configuration, expected_type=type_hints["health_check_configuration"])
-            check_type(argname="argument instance_configuration", value=instance_configuration, expected_type=type_hints["instance_configuration"])
-            check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
-            check_type(argname="argument observability_configuration", value=observability_configuration, expected_type=type_hints["observability_configuration"])
-            check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "source_configuration": source_configuration,
-        }
-        if auto_scaling_configuration_arn is not None:
-            self._values["auto_scaling_configuration_arn"] = auto_scaling_configuration_arn
-        if encryption_configuration is not None:
-            self._values["encryption_configuration"] = encryption_configuration
-        if health_check_configuration is not None:
-            self._values["health_check_configuration"] = health_check_configuration
-        if instance_configuration is not None:
-            self._values["instance_configuration"] = instance_configuration
-        if network_configuration is not None:
-            self._values["network_configuration"] = network_configuration
-        if observability_configuration is not None:
-            self._values["observability_configuration"] = observability_configuration
-        if service_name is not None:
-            self._values["service_name"] = service_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def source_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnService.SourceConfigurationProperty"]:
-        '''The source to deploy to the App Runner service.
-
-        It can be a code or an image repository.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-sourceconfiguration
-        '''
-        result = self._values.get("source_configuration")
-        assert result is not None, "Required property 'source_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnService.SourceConfigurationProperty"], result)
-
-    @builtins.property
-    def auto_scaling_configuration_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of an App Runner automatic scaling configuration resource that you want to associate with your service.
-
-        If not provided, App Runner associates the latest revision of a default auto scaling configuration.
-
-        Specify an ARN with a name and a revision number to associate that revision. For example: ``arn:aws:apprunner:us-east-1:123456789012:autoscalingconfiguration/high-availability/3``
-
-        Specify just the name to associate the latest revision. For example: ``arn:aws:apprunner:us-east-1:123456789012:autoscalingconfiguration/high-availability``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-autoscalingconfigurationarn
-        '''
-        result = self._values.get("auto_scaling_configuration_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def encryption_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.EncryptionConfigurationProperty"]]:
-        '''An optional custom encryption key that App Runner uses to encrypt the copy of your source repository that it maintains and your service logs.
-
-        By default, App Runner uses an AWS managed key .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-encryptionconfiguration
-        '''
-        result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.EncryptionConfigurationProperty"]], result)
-
-    @builtins.property
-    def health_check_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.HealthCheckConfigurationProperty"]]:
-        '''The settings for the health check that AWS App Runner performs to monitor the health of the App Runner service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-healthcheckconfiguration
-        '''
-        result = self._values.get("health_check_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.HealthCheckConfigurationProperty"]], result)
-
-    @builtins.property
-    def instance_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.InstanceConfigurationProperty"]]:
-        '''The runtime configuration of instances (scaling units) of your service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-instanceconfiguration
-        '''
-        result = self._values.get("instance_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.InstanceConfigurationProperty"]], result)
-
-    @builtins.property
-    def network_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.NetworkConfigurationProperty"]]:
-        '''Configuration settings related to network traffic of the web application that the App Runner service runs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-networkconfiguration
-        '''
-        result = self._values.get("network_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.NetworkConfigurationProperty"]], result)
-
-    @builtins.property
-    def observability_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ServiceObservabilityConfigurationProperty"]]:
-        '''The observability configuration of your service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-observabilityconfiguration
-        '''
-        result = self._values.get("observability_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ServiceObservabilityConfigurationProperty"]], result)
-
-    @builtins.property
-    def service_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the App Runner service.
-
-        It must be unique across all the running App Runner services in your AWS account in the AWS Region .
-
-        If you don't specify a name, AWS CloudFormation generates a name for your service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-servicename
-        '''
-        result = self._values.get("service_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An optional list of metadata items that you can associate with the App Runner service resource.
-
-        A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnServiceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_apprunner.CfnVpcConnectorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "subnets": "subnets",
-        "security_groups": "securityGroups",
-        "tags": "tags",
-        "vpc_connector_name": "vpcConnectorName",
-    },
-)
-class CfnVpcConnectorProps:
-    def __init__(
-        self,
-        *,
-        subnets: typing.Sequence[builtins.str],
-        security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_connector_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVpcConnector``.
-
-        :param subnets: A list of IDs of subnets that App Runner should use when it associates your service with a custom Amazon VPC. Specify IDs of subnets of a single Amazon VPC. App Runner determines the Amazon VPC from the subnets you specify. .. epigraph:: App Runner only supports subnets of IP address type *IPv4* and *dual stack* (IPv4 and IPv6).
-        :param security_groups: A list of IDs of security groups that App Runner should use for access to AWS resources under the specified subnets. If not specified, App Runner uses the default security group of the Amazon VPC. The default security group allows all outbound traffic.
-        :param tags: A list of metadata items that you can associate with your VPC connector resource. A tag is a key-value pair. .. epigraph:: A ``VpcConnector`` is immutable, so you cannot update its tags. To change the tags, replace the resource. To replace a ``VpcConnector`` , you must provide a new combination of security groups.
-        :param vpc_connector_name: A name for the VPC connector. If you don't specify a name, AWS CloudFormation generates a name for your VPC connector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcconnector.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_apprunner as apprunner
-            
-            cfn_vpc_connector_props = apprunner.CfnVpcConnectorProps(
-                subnets=["subnets"],
-            
-                # the properties below are optional
-                security_groups=["securityGroups"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpc_connector_name="vpcConnectorName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3874001d469c9a53bc1ebacc92f127d716349bc989287cfb6de624b3a435282)
-            check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
-            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc_connector_name", value=vpc_connector_name, expected_type=type_hints["vpc_connector_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "subnets": subnets,
-        }
-        if security_groups is not None:
-            self._values["security_groups"] = security_groups
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc_connector_name is not None:
-            self._values["vpc_connector_name"] = vpc_connector_name
-
-    @builtins.property
-    def subnets(self) -> typing.List[builtins.str]:
-        '''A list of IDs of subnets that App Runner should use when it associates your service with a custom Amazon VPC.
-
-        Specify IDs of subnets of a single Amazon VPC. App Runner determines the Amazon VPC from the subnets you specify.
-        .. epigraph::
-
-           App Runner only supports subnets of IP address type *IPv4* and *dual stack* (IPv4 and IPv6).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcconnector.html#cfn-apprunner-vpcconnector-subnets
-        '''
-        result = self._values.get("subnets")
-        assert result is not None, "Required property 'subnets' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of IDs of security groups that App Runner should use for access to AWS resources under the specified subnets.
-
-        If not specified, App Runner uses the default security group of the Amazon VPC. The default security group allows all outbound traffic.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcconnector.html#cfn-apprunner-vpcconnector-securitygroups
-        '''
-        result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of metadata items that you can associate with your VPC connector resource.
-
-        A tag is a key-value pair.
-        .. epigraph::
-
-           A ``VpcConnector`` is immutable, so you cannot update its tags. To change the tags, replace the resource. To replace a ``VpcConnector`` , you must provide a new combination of security groups.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcconnector.html#cfn-apprunner-vpcconnector-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpc_connector_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the VPC connector.
-
-        If you don't specify a name, AWS CloudFormation generates a name for your VPC connector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcconnector.html#cfn-apprunner-vpcconnector-vpcconnectorname
-        '''
-        result = self._values.get("vpc_connector_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVpcConnectorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_apprunner.CfnVpcIngressConnectionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ingress_vpc_configuration": "ingressVpcConfiguration",
-        "service_arn": "serviceArn",
-        "tags": "tags",
-        "vpc_ingress_connection_name": "vpcIngressConnectionName",
-    },
-)
-class CfnVpcIngressConnectionProps:
-    def __init__(
-        self,
-        *,
-        ingress_vpc_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnVpcIngressConnection.IngressVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        service_arn: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_ingress_connection_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVpcIngressConnection``.
-
-        :param ingress_vpc_configuration: Specifications for the customer’s Amazon VPC and the related AWS PrivateLink VPC endpoint that are used to create the VPC Ingress Connection resource.
-        :param service_arn: The Amazon Resource Name (ARN) for this App Runner service that is used to create the VPC Ingress Connection resource.
-        :param tags: An optional list of metadata items that you can associate with the VPC Ingress Connection resource. A tag is a key-value pair.
-        :param vpc_ingress_connection_name: The customer-provided VPC Ingress Connection name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcingressconnection.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_apprunner as apprunner
-            
-            cfn_vpc_ingress_connection_props = apprunner.CfnVpcIngressConnectionProps(
-                ingress_vpc_configuration=apprunner.CfnVpcIngressConnection.IngressVpcConfigurationProperty(
-                    vpc_endpoint_id="vpcEndpointId",
-                    vpc_id="vpcId"
-                ),
-                service_arn="serviceArn",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpc_ingress_connection_name="vpcIngressConnectionName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bf477654ff7633b979d8887848a90ba10d61fd01fb42e291521adefbd4d3706)
-            check_type(argname="argument ingress_vpc_configuration", value=ingress_vpc_configuration, expected_type=type_hints["ingress_vpc_configuration"])
-            check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc_ingress_connection_name", value=vpc_ingress_connection_name, expected_type=type_hints["vpc_ingress_connection_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ingress_vpc_configuration": ingress_vpc_configuration,
-            "service_arn": service_arn,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc_ingress_connection_name is not None:
-            self._values["vpc_ingress_connection_name"] = vpc_ingress_connection_name
-
-    @builtins.property
-    def ingress_vpc_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnVpcIngressConnection.IngressVpcConfigurationProperty"]:
-        '''Specifications for the customer’s Amazon VPC and the related AWS PrivateLink VPC endpoint that are used to create the VPC Ingress Connection resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcingressconnection.html#cfn-apprunner-vpcingressconnection-ingressvpcconfiguration
-        '''
-        result = self._values.get("ingress_vpc_configuration")
-        assert result is not None, "Required property 'ingress_vpc_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnVpcIngressConnection.IngressVpcConfigurationProperty"], result)
-
-    @builtins.property
-    def service_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) for this App Runner service that is used to create the VPC Ingress Connection resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcingressconnection.html#cfn-apprunner-vpcingressconnection-servicearn
-        '''
-        result = self._values.get("service_arn")
-        assert result is not None, "Required property 'service_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An optional list of metadata items that you can associate with the VPC Ingress Connection resource.
-
-        A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcingressconnection.html#cfn-apprunner-vpcingressconnection-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpc_ingress_connection_name(self) -> typing.Optional[builtins.str]:
-        '''The customer-provided VPC Ingress Connection name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcingressconnection.html#cfn-apprunner-vpcingressconnection-vpcingressconnectionname
-        '''
-        result = self._values.get("vpc_ingress_connection_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVpcIngressConnectionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_apprunner.IAutoScalingConfigurationRef")
-class IAutoScalingConfigurationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a AutoScalingConfiguration.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="autoScalingConfigurationRef")
-    def auto_scaling_configuration_ref(self) -> AutoScalingConfigurationReference:
-        '''(experimental) A reference to a AutoScalingConfiguration resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IAutoScalingConfigurationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a AutoScalingConfiguration.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_apprunner.IAutoScalingConfigurationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="autoScalingConfigurationRef")
-    def auto_scaling_configuration_ref(self) -> AutoScalingConfigurationReference:
-        '''(experimental) A reference to a AutoScalingConfiguration resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(AutoScalingConfigurationReference, jsii.get(self, "autoScalingConfigurationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAutoScalingConfigurationRef).__jsii_proxy_class__ = lambda : _IAutoScalingConfigurationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_apprunner.IObservabilityConfigurationRef")
-class IObservabilityConfigurationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ObservabilityConfiguration.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="observabilityConfigurationRef")
-    def observability_configuration_ref(self) -> "ObservabilityConfigurationReference":
-        '''(experimental) A reference to a ObservabilityConfiguration resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IObservabilityConfigurationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ObservabilityConfiguration.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_apprunner.IObservabilityConfigurationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="observabilityConfigurationRef")
-    def observability_configuration_ref(self) -> "ObservabilityConfigurationReference":
-        '''(experimental) A reference to a ObservabilityConfiguration resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ObservabilityConfigurationReference", jsii.get(self, "observabilityConfigurationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IObservabilityConfigurationRef).__jsii_proxy_class__ = lambda : _IObservabilityConfigurationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_apprunner.IServiceRef")
-class IServiceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Service.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="serviceRef")
-    def service_ref(self) -> "ServiceReference":
-        '''(experimental) A reference to a Service resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IServiceRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Service.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_apprunner.IServiceRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="serviceRef")
-    def service_ref(self) -> "ServiceReference":
-        '''(experimental) A reference to a Service resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ServiceReference", jsii.get(self, "serviceRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IServiceRef).__jsii_proxy_class__ = lambda : _IServiceRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_apprunner.IVpcConnectorRef")
-class IVpcConnectorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a VpcConnector.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="vpcConnectorRef")
-    def vpc_connector_ref(self) -> "VpcConnectorReference":
-        '''(experimental) A reference to a VpcConnector resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IVpcConnectorRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a VpcConnector.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_apprunner.IVpcConnectorRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="vpcConnectorRef")
-    def vpc_connector_ref(self) -> "VpcConnectorReference":
-        '''(experimental) A reference to a VpcConnector resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("VpcConnectorReference", jsii.get(self, "vpcConnectorRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IVpcConnectorRef).__jsii_proxy_class__ = lambda : _IVpcConnectorRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_apprunner.IVpcIngressConnectionRef")
-class IVpcIngressConnectionRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a VpcIngressConnection.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="vpcIngressConnectionRef")
-    def vpc_ingress_connection_ref(self) -> "VpcIngressConnectionReference":
-        '''(experimental) A reference to a VpcIngressConnection resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IVpcIngressConnectionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a VpcIngressConnection.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_apprunner.IVpcIngressConnectionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="vpcIngressConnectionRef")
-    def vpc_ingress_connection_ref(self) -> "VpcIngressConnectionReference":
-        '''(experimental) A reference to a VpcIngressConnection resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("VpcIngressConnectionReference", jsii.get(self, "vpcIngressConnectionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IVpcIngressConnectionRef).__jsii_proxy_class__ = lambda : _IVpcIngressConnectionRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_apprunner.ObservabilityConfigurationReference",
-    jsii_struct_bases=[],
-    name_mapping={"observability_configuration_arn": "observabilityConfigurationArn"},
-)
-class ObservabilityConfigurationReference:
-    def __init__(self, *, observability_configuration_arn: builtins.str) -> None:
-        '''A reference to a ObservabilityConfiguration resource.
-
-        :param observability_configuration_arn: The ObservabilityConfigurationArn of the ObservabilityConfiguration resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_apprunner as apprunner
-            
-            observability_configuration_reference = apprunner.ObservabilityConfigurationReference(
-                observability_configuration_arn="observabilityConfigurationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ca76f78bf61dba03a724b49d2eb50d5ee9d6fde992f911b10597ced2cf3d9dc)
-            check_type(argname="argument observability_configuration_arn", value=observability_configuration_arn, expected_type=type_hints["observability_configuration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "observability_configuration_arn": observability_configuration_arn,
-        }
-
-    @builtins.property
-    def observability_configuration_arn(self) -> builtins.str:
-        '''The ObservabilityConfigurationArn of the ObservabilityConfiguration resource.'''
-        result = self._values.get("observability_configuration_arn")
-        assert result is not None, "Required property 'observability_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ObservabilityConfigurationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_apprunner.ServiceReference",
-    jsii_struct_bases=[],
-    name_mapping={"service_arn": "serviceArn"},
-)
-class ServiceReference:
-    def __init__(self, *, service_arn: builtins.str) -> None:
-        '''A reference to a Service resource.
-
-        :param service_arn: The ServiceArn of the Service resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_apprunner as apprunner
-            
-            service_reference = apprunner.ServiceReference(
-                service_arn="serviceArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2aaad25f4961235dc073819279f381252bdd5e277bf0ee3cd914319a0023c378)
-            check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "service_arn": service_arn,
-        }
-
-    @builtins.property
-    def service_arn(self) -> builtins.str:
-        '''The ServiceArn of the Service resource.'''
-        result = self._values.get("service_arn")
-        assert result is not None, "Required property 'service_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ServiceReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_apprunner.VpcConnectorReference",
-    jsii_struct_bases=[],
-    name_mapping={"vpc_connector_arn": "vpcConnectorArn"},
-)
-class VpcConnectorReference:
-    def __init__(self, *, vpc_connector_arn: builtins.str) -> None:
-        '''A reference to a VpcConnector resource.
-
-        :param vpc_connector_arn: The VpcConnectorArn of the VpcConnector resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_apprunner as apprunner
-            
-            vpc_connector_reference = apprunner.VpcConnectorReference(
-                vpc_connector_arn="vpcConnectorArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91dbf110d90823f14bf6df0d2e0c02b2da55da7f5c26f828275debb6beca2c4d)
-            check_type(argname="argument vpc_connector_arn", value=vpc_connector_arn, expected_type=type_hints["vpc_connector_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "vpc_connector_arn": vpc_connector_arn,
-        }
-
-    @builtins.property
-    def vpc_connector_arn(self) -> builtins.str:
-        '''The VpcConnectorArn of the VpcConnector resource.'''
-        result = self._values.get("vpc_connector_arn")
-        assert result is not None, "Required property 'vpc_connector_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "VpcConnectorReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_apprunner.VpcIngressConnectionReference",
-    jsii_struct_bases=[],
-    name_mapping={"vpc_ingress_connection_arn": "vpcIngressConnectionArn"},
-)
-class VpcIngressConnectionReference:
-    def __init__(self, *, vpc_ingress_connection_arn: builtins.str) -> None:
-        '''A reference to a VpcIngressConnection resource.
-
-        :param vpc_ingress_connection_arn: The VpcIngressConnectionArn of the VpcIngressConnection resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_apprunner as apprunner
-            
-            vpc_ingress_connection_reference = apprunner.VpcIngressConnectionReference(
-                vpc_ingress_connection_arn="vpcIngressConnectionArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b5d9d20491319c03ab7ae398260a6beab913a6fa4701c804d38b6f6c0373440)
-            check_type(argname="argument vpc_ingress_connection_arn", value=vpc_ingress_connection_arn, expected_type=type_hints["vpc_ingress_connection_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "vpc_ingress_connection_arn": vpc_ingress_connection_arn,
-        }
-
-    @builtins.property
-    def vpc_ingress_connection_arn(self) -> builtins.str:
-        '''The VpcIngressConnectionArn of the VpcIngressConnection resource.'''
-        result = self._values.get("vpc_ingress_connection_arn")
-        assert result is not None, "Required property 'vpc_ingress_connection_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "VpcIngressConnectionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IAutoScalingConfigurationRef, _ITaggableV2_4e6798f8)
-class CfnAutoScalingConfiguration(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_apprunner.CfnAutoScalingConfiguration",
-):
-    '''Specify an AWS App Runner Automatic Scaling configuration by using the ``AWS::AppRunner::AutoScalingConfiguration`` resource in an AWS CloudFormation template.
-
-    The ``AWS::AppRunner::AutoScalingConfiguration`` resource is an AWS App Runner resource type that specifies an App Runner automatic scaling configuration.
-
-    App Runner requires this resource to set non-default auto scaling settings for instances used to process the web requests. You can share an auto scaling configuration across multiple services.
-
-    Create multiple revisions of a configuration by calling this action multiple times using the same ``AutoScalingConfigurationName`` . The call returns incremental ``AutoScalingConfigurationRevision`` values. When you create a service and configure an auto scaling configuration resource, the service uses the latest active revision of the auto scaling configuration by default. You can optionally configure the service to use a specific revision.
-
-    Configure a higher ``MinSize`` to increase the spread of your App Runner service over more Availability Zones in the AWS Region . The tradeoff is a higher minimal cost.
-
-    Configure a lower ``MaxSize`` to control your cost. The tradeoff is lower responsiveness during peak demand.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-autoscalingconfiguration.html
-    :cloudformationResource: AWS::AppRunner::AutoScalingConfiguration
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_apprunner as apprunner
-        
-        cfn_auto_scaling_configuration = apprunner.CfnAutoScalingConfiguration(self, "MyCfnAutoScalingConfiguration",
-            auto_scaling_configuration_name="autoScalingConfigurationName",
-            max_concurrency=123,
-            max_size=123,
-            min_size=123,
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        auto_scaling_configuration_name: typing.Optional[builtins.str] = None,
-        max_concurrency: typing.Optional[jsii.Number] = None,
-        max_size: typing.Optional[jsii.Number] = None,
-        min_size: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param auto_scaling_configuration_name: The customer-provided auto scaling configuration name. It can be used in multiple revisions of a configuration.
-        :param max_concurrency: The maximum number of concurrent requests that an instance processes. If the number of concurrent requests exceeds this limit, App Runner scales the service up.
-        :param max_size: The maximum number of instances that a service scales up to. At most ``MaxSize`` instances actively serve traffic for your service.
-        :param min_size: The minimum number of instances that App Runner provisions for a service. The service always has at least ``MinSize`` provisioned instances. Some of them actively serve traffic. The rest of them (provisioned and inactive instances) are a cost-effective compute capacity reserve and are ready to be quickly activated. You pay for memory usage of all the provisioned instances. You pay for CPU usage of only the active subset. App Runner temporarily doubles the number of provisioned instances during deployments, to maintain the same capacity for both old and new code.
-        :param tags: A list of metadata items that you can associate with your auto scaling configuration resource. A tag is a key-value pair.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a097973cb063319e04b0f6e6c21b4cfd5c92b8418d4ae98fd7a13b5ef4bed0e8)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAutoScalingConfigurationProps(
-            auto_scaling_configuration_name=auto_scaling_configuration_name,
-            max_concurrency=max_concurrency,
-            max_size=max_size,
-            min_size=min_size,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__543708ceb6604b166bc6eed37718011031e49891f6312bd156560547d85091a3)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5274d724f0f7ae4be497d58f3e9e326d502d1ea6864cfb94650b4339848ad179)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrAutoScalingConfigurationArn")
-    def attr_auto_scaling_configuration_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of this auto scaling configuration.
-
-        :cloudformationAttribute: AutoScalingConfigurationArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrAutoScalingConfigurationArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrAutoScalingConfigurationRevision")
-    def attr_auto_scaling_configuration_revision(self) -> jsii.Number:
-        '''The revision of this auto scaling configuration.
-
-        It's unique among all the active configurations that share the same ``AutoScalingConfigurationName`` .
-
-        :cloudformationAttribute: AutoScalingConfigurationRevision
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrAutoScalingConfigurationRevision"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrLatest")
-    def attr_latest(self) -> _IResolvable_da3f097b:
-        '''It's set to true for the configuration with the highest ``Revision`` among all configurations that share the same ``AutoScalingConfigurationName`` .
-
-        It's set to false otherwise. App Runner temporarily doubles the number of provisioned instances during deployments, to maintain the same capacity for both old and new code.
-
-        :cloudformationAttribute: Latest
-        '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrLatest"))
-
-    @builtins.property
-    @jsii.member(jsii_name="autoScalingConfigurationRef")
-    def auto_scaling_configuration_ref(self) -> AutoScalingConfigurationReference:
-        '''A reference to a AutoScalingConfiguration resource.'''
-        return typing.cast(AutoScalingConfigurationReference, jsii.get(self, "autoScalingConfigurationRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="autoScalingConfigurationName")
-    def auto_scaling_configuration_name(self) -> typing.Optional[builtins.str]:
-        '''The customer-provided auto scaling configuration name.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "autoScalingConfigurationName"))
-
-    @auto_scaling_configuration_name.setter
-    def auto_scaling_configuration_name(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e356312a777bbadb57bd63f0dfc33fb70c5d8e557376009f249840b11d66bd5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoScalingConfigurationName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="maxConcurrency")
-    def max_concurrency(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of concurrent requests that an instance processes.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxConcurrency"))
-
-    @max_concurrency.setter
-    def max_concurrency(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__283d39757b13fe904a4b3d64120221a2d431ba2ec1d757638e1c345e78c3f7cf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxConcurrency", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="maxSize")
-    def max_size(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of instances that a service scales up to.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxSize"))
-
-    @max_size.setter
-    def max_size(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03b95fc2bf6f77f9647d9a90116b7d9f7e048c77120c45dd9da79cf0fac82b8f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxSize", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="minSize")
-    def min_size(self) -> typing.Optional[jsii.Number]:
-        '''The minimum number of instances that App Runner provisions for a service.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "minSize"))
-
-    @min_size.setter
-    def min_size(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__804986513a4dd9744a0afef975cf1e8a6c7345cb309f071e4ff0a913123c0fcf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "minSize", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of metadata items that you can associate with your auto scaling configuration resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb90876342a230c9991099f852e8e245b9b8c860b209c3ebdfa443bf9af5660a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IObservabilityConfigurationRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IObservabilityConfigurationRef_fbef63e4, _ITaggable_36806126)
 class CfnObservabilityConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1568,6 +499,7 @@ class CfnObservabilityConfiguration(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_apprunner as apprunner
@@ -1586,17 +518,18 @@ class CfnObservabilityConfiguration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         observability_configuration_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        trace_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnObservabilityConfiguration.TraceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        trace_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnObservabilityConfiguration.TraceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::AppRunner::ObservabilityConfiguration``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param observability_configuration_name: A name for the observability configuration. When you use it for the first time in an AWS Region , App Runner creates revision number ``1`` of this name. When you use the same name in subsequent calls, App Runner creates incremental revisions of the configuration. .. epigraph:: The name ``DefaultConfiguration`` is reserved. You can't use it to create a new observability configuration, and you can't create a revision of it. When you want to use your own observability configuration for your App Runner service, *create a configuration with a different name* , and then provide it when you create or update your service. If you don't specify a name, AWS CloudFormation generates a name for your observability configuration.
+        :param observability_configuration_name: A name for the observability configuration. When you use it for the first time in an AWS Region , App Runner creates revision number ``1`` of this name. When you use the same name in subsequent calls, App Runner creates incremental revisions of the configuration. .. epigraph:: The name ``DefaultConfiguration`` is reserved. You can't use it to create a new observability configuration, and you can't create a revision of it. When you want to use your own observability configuration for your App Runner service, *create a configuration with a different name* , and then provide it when you create or update your service. If you don't specify a name, CloudFormation generates a name for your observability configuration.
         :param tags: A list of metadata items that you can associate with your observability configuration resource. A tag is a key-value pair.
         :param trace_configuration: The configuration of the tracing feature within this observability configuration. If you don't specify it, App Runner doesn't enable tracing.
         '''
@@ -1612,8 +545,34 @@ class CfnObservabilityConfiguration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForObservabilityConfiguration")
+    @builtins.classmethod
+    def arn_for_observability_configuration(
+        cls,
+        resource: "_IObservabilityConfigurationRef_fbef63e4",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd84b25eaccc90a9b1c076d3c7ca8fa5d7ea74d4897284e61f1b4cc1e05e16ca)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForObservabilityConfiguration", [resource]))
+
+    @jsii.member(jsii_name="isCfnObservabilityConfiguration")
+    @builtins.classmethod
+    def is_cfn_observability_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnObservabilityConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ff284e1a609d460abc9b878e675e5f0e40fb8eedf50b6445dd1447f4369a716)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnObservabilityConfiguration", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1644,14 +603,14 @@ class CfnObservabilityConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="attrLatest")
-    def attr_latest(self) -> _IResolvable_da3f097b:
+    def attr_latest(self) -> "_IResolvable_da3f097b":
         '''It's set to ``true`` for the configuration with the highest ``Revision`` among all configurations that share the same ``ObservabilityConfigurationName`` .
 
         It's set to ``false`` otherwise.
 
         :cloudformationAttribute: Latest
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrLatest"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLatest"))
 
     @builtins.property
     @jsii.member(jsii_name="attrObservabilityConfigurationArn")
@@ -1680,15 +639,17 @@ class CfnObservabilityConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="observabilityConfigurationRef")
-    def observability_configuration_ref(self) -> ObservabilityConfigurationReference:
+    def observability_configuration_ref(
+        self,
+    ) -> "_ObservabilityConfigurationReference_802385c5":
         '''A reference to a ObservabilityConfiguration resource.'''
-        return typing.cast(ObservabilityConfigurationReference, jsii.get(self, "observabilityConfigurationRef"))
+        return typing.cast("_ObservabilityConfigurationReference_802385c5", jsii.get(self, "observabilityConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="observabilityConfigurationName")
@@ -1708,12 +669,12 @@ class CfnObservabilityConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of metadata items that you can associate with your observability configuration resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce47e83931668ff51ac71d820c33d01c438549553e61f61b5004c469dc989b24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1723,14 +684,14 @@ class CfnObservabilityConfiguration(
     @jsii.member(jsii_name="traceConfiguration")
     def trace_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnObservabilityConfiguration.TraceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnObservabilityConfiguration.TraceConfigurationProperty"]]:
         '''The configuration of the tracing feature within this observability configuration.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnObservabilityConfiguration.TraceConfigurationProperty"]], jsii.get(self, "traceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnObservabilityConfiguration.TraceConfigurationProperty"]], jsii.get(self, "traceConfiguration"))
 
     @trace_configuration.setter
     def trace_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnObservabilityConfiguration.TraceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnObservabilityConfiguration.TraceConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9bd55266808c4e55e36644c988b23fab8e1251933cfea55aef9c05afb1e4df38)
@@ -1790,7 +751,118 @@ class CfnObservabilityConfiguration(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IServiceRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_apprunner.CfnObservabilityConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "observability_configuration_name": "observabilityConfigurationName",
+        "tags": "tags",
+        "trace_configuration": "traceConfiguration",
+    },
+)
+class CfnObservabilityConfigurationProps:
+    def __init__(
+        self,
+        *,
+        observability_configuration_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        trace_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnObservabilityConfiguration.TraceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnObservabilityConfiguration``.
+
+        :param observability_configuration_name: A name for the observability configuration. When you use it for the first time in an AWS Region , App Runner creates revision number ``1`` of this name. When you use the same name in subsequent calls, App Runner creates incremental revisions of the configuration. .. epigraph:: The name ``DefaultConfiguration`` is reserved. You can't use it to create a new observability configuration, and you can't create a revision of it. When you want to use your own observability configuration for your App Runner service, *create a configuration with a different name* , and then provide it when you create or update your service. If you don't specify a name, CloudFormation generates a name for your observability configuration.
+        :param tags: A list of metadata items that you can associate with your observability configuration resource. A tag is a key-value pair.
+        :param trace_configuration: The configuration of the tracing feature within this observability configuration. If you don't specify it, App Runner doesn't enable tracing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-observabilityconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_apprunner as apprunner
+            
+            cfn_observability_configuration_props = apprunner.CfnObservabilityConfigurationProps(
+                observability_configuration_name="observabilityConfigurationName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                trace_configuration=apprunner.CfnObservabilityConfiguration.TraceConfigurationProperty(
+                    vendor="vendor"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c1debdf716fbe9ec809b1573ccbd25ac6c6aa5901a77a6b6c323eb8445dd9cc2)
+            check_type(argname="argument observability_configuration_name", value=observability_configuration_name, expected_type=type_hints["observability_configuration_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument trace_configuration", value=trace_configuration, expected_type=type_hints["trace_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if observability_configuration_name is not None:
+            self._values["observability_configuration_name"] = observability_configuration_name
+        if tags is not None:
+            self._values["tags"] = tags
+        if trace_configuration is not None:
+            self._values["trace_configuration"] = trace_configuration
+
+    @builtins.property
+    def observability_configuration_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the observability configuration.
+
+        When you use it for the first time in an AWS Region , App Runner creates revision number ``1`` of this name. When you use the same name in subsequent calls, App Runner creates incremental revisions of the configuration.
+        .. epigraph::
+
+           The name ``DefaultConfiguration`` is reserved. You can't use it to create a new observability configuration, and you can't create a revision of it.
+
+           When you want to use your own observability configuration for your App Runner service, *create a configuration with a different name* , and then provide it when you create or update your service.
+
+        If you don't specify a name, CloudFormation generates a name for your observability configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-observabilityconfiguration.html#cfn-apprunner-observabilityconfiguration-observabilityconfigurationname
+        '''
+        result = self._values.get("observability_configuration_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of metadata items that you can associate with your observability configuration resource.
+
+        A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-observabilityconfiguration.html#cfn-apprunner-observabilityconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def trace_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnObservabilityConfiguration.TraceConfigurationProperty"]]:
+        '''The configuration of the tracing feature within this observability configuration.
+
+        If you don't specify it, App Runner doesn't enable tracing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-observabilityconfiguration.html#cfn-apprunner-observabilityconfiguration-traceconfiguration
+        '''
+        result = self._values.get("trace_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnObservabilityConfiguration.TraceConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnObservabilityConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IServiceRef_276b8cc6, _ITaggable_36806126)
 class CfnService(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1806,6 +878,7 @@ class CfnService(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_apprunner as apprunner
@@ -1914,20 +987,21 @@ class CfnService(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        source_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        source_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         auto_scaling_configuration_arn: typing.Optional[builtins.str] = None,
-        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        health_check_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.HealthCheckConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.InstanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        observability_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.ServiceObservabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        health_check_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.HealthCheckConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instance_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.InstanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        observability_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ServiceObservabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         service_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::AppRunner::Service``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param source_configuration: The source to deploy to the App Runner service. It can be a code or an image repository.
@@ -1937,7 +1011,7 @@ class CfnService(
         :param instance_configuration: The runtime configuration of instances (scaling units) of your service.
         :param network_configuration: Configuration settings related to network traffic of the web application that the App Runner service runs.
         :param observability_configuration: The observability configuration of your service.
-        :param service_name: A name for the App Runner service. It must be unique across all the running App Runner services in your AWS account in the AWS Region . If you don't specify a name, AWS CloudFormation generates a name for your service.
+        :param service_name: A name for the App Runner service. It must be unique across all the running App Runner services in your AWS account in the AWS Region . If you don't specify a name, CloudFormation generates a name for your service.
         :param tags: An optional list of metadata items that you can associate with the App Runner service resource. A tag is a key-value pair.
         '''
         if __debug__:
@@ -1958,8 +1032,31 @@ class CfnService(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForService")
+    @builtins.classmethod
+    def arn_for_service(cls, resource: "_IServiceRef_276b8cc6") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c6f8abcf3c751311864f64ca375c6961e4b50cd160a536f5f02bccee469b4f34)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForService", [resource]))
+
+    @jsii.member(jsii_name="isCfnService")
+    @builtins.classmethod
+    def is_cfn_service(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnService.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__76b7035bf29e41568ef40a90ec58591492eff458a87e3f62638e02ddd9b15f2e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnService", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2038,28 +1135,28 @@ class CfnService(
 
     @builtins.property
     @jsii.member(jsii_name="serviceRef")
-    def service_ref(self) -> ServiceReference:
+    def service_ref(self) -> "_ServiceReference_b4605cef":
         '''A reference to a Service resource.'''
-        return typing.cast(ServiceReference, jsii.get(self, "serviceRef"))
+        return typing.cast("_ServiceReference_b4605cef", jsii.get(self, "serviceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="sourceConfiguration")
     def source_configuration(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnService.SourceConfigurationProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnService.SourceConfigurationProperty"]:
         '''The source to deploy to the App Runner service.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnService.SourceConfigurationProperty"], jsii.get(self, "sourceConfiguration"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.SourceConfigurationProperty"], jsii.get(self, "sourceConfiguration"))
 
     @source_configuration.setter
     def source_configuration(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnService.SourceConfigurationProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnService.SourceConfigurationProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f906f3589e623c80d2665ec2f81b5b46a9bfd75fc62158280dc192dc67e9080a)
@@ -2086,14 +1183,14 @@ class CfnService(
     @jsii.member(jsii_name="encryptionConfiguration")
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EncryptionConfigurationProperty"]]:
         '''An optional custom encryption key that App Runner uses to encrypt the copy of your source repository that it maintains and your service logs.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
 
     @encryption_configuration.setter
     def encryption_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.EncryptionConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EncryptionConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01e3a7e233a752aeff40d77129499d66848c13059c089f87f3bb99c5c1252ec2)
@@ -2104,14 +1201,14 @@ class CfnService(
     @jsii.member(jsii_name="healthCheckConfiguration")
     def health_check_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.HealthCheckConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigurationProperty"]]:
         '''The settings for the health check that AWS App Runner performs to monitor the health of the App Runner service.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.HealthCheckConfigurationProperty"]], jsii.get(self, "healthCheckConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigurationProperty"]], jsii.get(self, "healthCheckConfiguration"))
 
     @health_check_configuration.setter
     def health_check_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.HealthCheckConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2852aa3e1fcf08cbe02de00601e5be10bd2bac5a7477e1953199f545c46795cc)
@@ -2122,14 +1219,14 @@ class CfnService(
     @jsii.member(jsii_name="instanceConfiguration")
     def instance_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.InstanceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.InstanceConfigurationProperty"]]:
         '''The runtime configuration of instances (scaling units) of your service.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.InstanceConfigurationProperty"]], jsii.get(self, "instanceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.InstanceConfigurationProperty"]], jsii.get(self, "instanceConfiguration"))
 
     @instance_configuration.setter
     def instance_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.InstanceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.InstanceConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b8ee1f12a50b167c1a9699060f4057c41f5a075862c428087001b8d07a6413b5)
@@ -2140,14 +1237,14 @@ class CfnService(
     @jsii.member(jsii_name="networkConfiguration")
     def network_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.NetworkConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.NetworkConfigurationProperty"]]:
         '''Configuration settings related to network traffic of the web application that the App Runner service runs.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.NetworkConfigurationProperty"]], jsii.get(self, "networkConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.NetworkConfigurationProperty"]], jsii.get(self, "networkConfiguration"))
 
     @network_configuration.setter
     def network_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.NetworkConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.NetworkConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__af223adf09794f1f0c996dedbd19dd70289a9751ee54ff8b7d4b84ca0192e8a9)
@@ -2158,14 +1255,14 @@ class CfnService(
     @jsii.member(jsii_name="observabilityConfiguration")
     def observability_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ServiceObservabilityConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceObservabilityConfigurationProperty"]]:
         '''The observability configuration of your service.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ServiceObservabilityConfigurationProperty"]], jsii.get(self, "observabilityConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceObservabilityConfigurationProperty"]], jsii.get(self, "observabilityConfiguration"))
 
     @observability_configuration.setter
     def observability_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ServiceObservabilityConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceObservabilityConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d5c2cafccb24b7204e32b739f13c908a8446a7a9ff65741a742b58db4fef347)
@@ -2187,12 +1284,12 @@ class CfnService(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An optional list of metadata items that you can associate with the App Runner service resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a6597cd10121d1839d04290eed34b55273823d79529be0202ecac53c9024d8b4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2290,7 +1387,7 @@ class CfnService(
             self,
             *,
             configuration_source: builtins.str,
-            code_configuration_values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.CodeConfigurationValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            code_configuration_values: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.CodeConfigurationValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the configuration that AWS App Runner uses to build and run an App Runner service from a source code repository.
 
@@ -2354,7 +1451,7 @@ class CfnService(
         @builtins.property
         def code_configuration_values(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.CodeConfigurationValuesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.CodeConfigurationValuesProperty"]]:
             '''The basic configuration for building and running the App Runner service.
 
             Use it to quickly launch an App Runner service without providing a ``apprunner.yaml`` file in the source code repository (or ignoring the file if it exists).
@@ -2362,7 +1459,7 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-codeconfiguration.html#cfn-apprunner-service-codeconfiguration-codeconfigurationvalues
             '''
             result = self._values.get("code_configuration_values")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.CodeConfigurationValuesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.CodeConfigurationValuesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2394,8 +1491,8 @@ class CfnService(
             runtime: builtins.str,
             build_command: typing.Optional[builtins.str] = None,
             port: typing.Optional[builtins.str] = None,
-            runtime_environment_secrets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            runtime_environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            runtime_environment_secrets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            runtime_environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             start_command: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes the basic configuration needed for building and running an AWS App Runner service.
@@ -2492,7 +1589,7 @@ class CfnService(
         @builtins.property
         def runtime_environment_secrets(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnService.KeyValuePairProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]]:
             '''An array of key-value pairs representing the secrets and parameters that get referenced to your service as an environment variable.
 
             The supported values are either the full Amazon Resource Name (ARN) of the AWS Secrets Manager secret or the full ARN of the parameter in the AWS Systems Manager Parameter Store.
@@ -2504,12 +1601,12 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-codeconfigurationvalues.html#cfn-apprunner-service-codeconfigurationvalues-runtimeenvironmentsecrets
             '''
             result = self._values.get("runtime_environment_secrets")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnService.KeyValuePairProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]], result)
 
         @builtins.property
         def runtime_environment_variables(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnService.KeyValuePairProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]]:
             '''The environment variables that are available to your running AWS App Runner service.
 
             An array of key-value pairs.
@@ -2517,7 +1614,7 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-codeconfigurationvalues.html#cfn-apprunner-service-codeconfigurationvalues-runtimeenvironmentvariables
             '''
             result = self._values.get("runtime_environment_variables")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnService.KeyValuePairProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]], result)
 
         @builtins.property
         def start_command(self) -> typing.Optional[builtins.str]:
@@ -2554,8 +1651,8 @@ class CfnService(
             self,
             *,
             repository_url: builtins.str,
-            source_code_version: typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.SourceCodeVersionProperty", typing.Dict[builtins.str, typing.Any]]],
-            code_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.CodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_code_version: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.SourceCodeVersionProperty", typing.Dict[builtins.str, typing.Any]]],
+            code_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.CodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             source_directory: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes a source code repository.
@@ -2634,19 +1731,19 @@ class CfnService(
         @builtins.property
         def source_code_version(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnService.SourceCodeVersionProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnService.SourceCodeVersionProperty"]:
             '''The version that should be used within the source code repository.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-coderepository.html#cfn-apprunner-service-coderepository-sourcecodeversion
             '''
             result = self._values.get("source_code_version")
             assert result is not None, "Required property 'source_code_version' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnService.SourceCodeVersionProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.SourceCodeVersionProperty"], result)
 
         @builtins.property
         def code_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.CodeConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.CodeConfigurationProperty"]]:
             '''Configuration for building and running the service from a source code repository.
 
             .. epigraph::
@@ -2656,7 +1753,7 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-coderepository.html#cfn-apprunner-service-coderepository-codeconfiguration
             '''
             result = self._values.get("code_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.CodeConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.CodeConfigurationProperty"]], result)
 
         @builtins.property
         def source_directory(self) -> typing.Optional[builtins.str]:
@@ -2982,8 +2079,8 @@ class CfnService(
             self,
             *,
             port: typing.Optional[builtins.str] = None,
-            runtime_environment_secrets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            runtime_environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            runtime_environment_secrets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            runtime_environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             start_command: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes the configuration that AWS App Runner uses to run an App Runner service using an image pulled from a source image repository.
@@ -3045,7 +2142,7 @@ class CfnService(
         @builtins.property
         def runtime_environment_secrets(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnService.KeyValuePairProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]]:
             '''An array of key-value pairs representing the secrets and parameters that get referenced to your service as an environment variable.
 
             The supported values are either the full Amazon Resource Name (ARN) of the AWS Secrets Manager secret or the full ARN of the parameter in the AWS Systems Manager Parameter Store.
@@ -3057,12 +2154,12 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-imageconfiguration.html#cfn-apprunner-service-imageconfiguration-runtimeenvironmentsecrets
             '''
             result = self._values.get("runtime_environment_secrets")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnService.KeyValuePairProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]], result)
 
         @builtins.property
         def runtime_environment_variables(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnService.KeyValuePairProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]]:
             '''Environment variables that are available to your running App Runner service.
 
             An array of key-value pairs.
@@ -3070,7 +2167,7 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-imageconfiguration.html#cfn-apprunner-service-imageconfiguration-runtimeenvironmentvariables
             '''
             result = self._values.get("runtime_environment_variables")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnService.KeyValuePairProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]], result)
 
         @builtins.property
         def start_command(self) -> typing.Optional[builtins.str]:
@@ -3109,7 +2206,7 @@ class CfnService(
             *,
             image_identifier: builtins.str,
             image_repository_type: builtins.str,
-            image_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.ImageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            image_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ImageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes a source image repository.
 
@@ -3184,13 +2281,13 @@ class CfnService(
         @builtins.property
         def image_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ImageConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ImageConfigurationProperty"]]:
             '''Configuration for running the identified image.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-imagerepository.html#cfn-apprunner-service-imagerepository-imageconfiguration
             '''
             result = self._values.get("image_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ImageConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ImageConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3212,7 +2309,7 @@ class CfnService(
         def __init__(
             self,
             *,
-            is_publicly_accessible: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            is_publicly_accessible: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''Network configuration settings for inbound network traffic.
 
@@ -3241,7 +2338,7 @@ class CfnService(
         @builtins.property
         def is_publicly_accessible(
             self,
-        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Specifies whether your App Runner service is publicly accessible.
 
             To make the service publicly accessible set it to ``True`` . To make the service privately accessible, from only within an Amazon VPC set it to ``False`` .
@@ -3250,7 +2347,7 @@ class CfnService(
             '''
             result = self._values.get("is_publicly_accessible")
             assert result is not None, "Required property 'is_publicly_accessible' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3441,8 +2538,8 @@ class CfnService(
         def __init__(
             self,
             *,
-            egress_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.EgressConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ingress_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.IngressConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            egress_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.EgressConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ingress_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.IngressConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ip_address_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes configuration settings related to network traffic of an AWS App Runner service.
@@ -3491,24 +2588,24 @@ class CfnService(
         @builtins.property
         def egress_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.EgressConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EgressConfigurationProperty"]]:
             '''Network configuration settings for outbound message traffic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-networkconfiguration.html#cfn-apprunner-service-networkconfiguration-egressconfiguration
             '''
             result = self._values.get("egress_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.EgressConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EgressConfigurationProperty"]], result)
 
         @builtins.property
         def ingress_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.IngressConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.IngressConfigurationProperty"]]:
             '''Network configuration settings for inbound message traffic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-networkconfiguration.html#cfn-apprunner-service-networkconfiguration-ingressconfiguration
             '''
             result = self._values.get("ingress_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.IngressConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.IngressConfigurationProperty"]], result)
 
         @builtins.property
         def ip_address_type(self) -> typing.Optional[builtins.str]:
@@ -3544,7 +2641,7 @@ class CfnService(
         def __init__(
             self,
             *,
-            observability_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            observability_enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
             observability_configuration_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes the observability configuration of an AWS App Runner service.
@@ -3583,14 +2680,14 @@ class CfnService(
         @builtins.property
         def observability_enabled(
             self,
-        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''When ``true`` , an observability configuration resource is associated with the service, and an ``ObservabilityConfigurationArn`` is specified.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-serviceobservabilityconfiguration.html#cfn-apprunner-service-serviceobservabilityconfiguration-observabilityenabled
             '''
             result = self._values.get("observability_enabled")
             assert result is not None, "Required property 'observability_enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def observability_configuration_arn(self) -> typing.Optional[builtins.str]:
@@ -3702,10 +2799,10 @@ class CfnService(
         def __init__(
             self,
             *,
-            authentication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.AuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            auto_deployments_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            code_repository: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.CodeRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            image_repository: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.ImageRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            authentication_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.AuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            auto_deployments_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            code_repository: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.CodeRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            image_repository: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ImageRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the source deployed to an AWS App Runner service.
 
@@ -3801,18 +2898,18 @@ class CfnService(
         @builtins.property
         def authentication_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.AuthenticationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.AuthenticationConfigurationProperty"]]:
             '''Describes the resources that are needed to authenticate access to some source repositories.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-sourceconfiguration.html#cfn-apprunner-service-sourceconfiguration-authenticationconfiguration
             '''
             result = self._values.get("authentication_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.AuthenticationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.AuthenticationConfigurationProperty"]], result)
 
         @builtins.property
         def auto_deployments_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''If ``true`` , continuous integration from the source repository is enabled for the App Runner service.
 
             Each repository change (including any source code commit or new image version) starts a deployment.
@@ -3822,12 +2919,12 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-sourceconfiguration.html#cfn-apprunner-service-sourceconfiguration-autodeploymentsenabled
             '''
             result = self._values.get("auto_deployments_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def code_repository(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.CodeRepositoryProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.CodeRepositoryProperty"]]:
             '''The description of a source code repository.
 
             You must provide either this member or ``ImageRepository`` (but not both).
@@ -3835,12 +2932,12 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-sourceconfiguration.html#cfn-apprunner-service-sourceconfiguration-coderepository
             '''
             result = self._values.get("code_repository")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.CodeRepositoryProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.CodeRepositoryProperty"]], result)
 
         @builtins.property
         def image_repository(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ImageRepositoryProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ImageRepositoryProperty"]]:
             '''The description of a source image repository.
 
             You must provide either this member or ``CodeRepository`` (but not both).
@@ -3848,7 +2945,7 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-sourceconfiguration.html#cfn-apprunner-service-sourceconfiguration-imagerepository
             '''
             result = self._values.get("image_repository")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ImageRepositoryProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ImageRepositoryProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3862,7 +2959,312 @@ class CfnService(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IVpcConnectorRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_apprunner.CfnServiceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "source_configuration": "sourceConfiguration",
+        "auto_scaling_configuration_arn": "autoScalingConfigurationArn",
+        "encryption_configuration": "encryptionConfiguration",
+        "health_check_configuration": "healthCheckConfiguration",
+        "instance_configuration": "instanceConfiguration",
+        "network_configuration": "networkConfiguration",
+        "observability_configuration": "observabilityConfiguration",
+        "service_name": "serviceName",
+        "tags": "tags",
+    },
+)
+class CfnServiceProps:
+    def __init__(
+        self,
+        *,
+        source_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        auto_scaling_configuration_arn: typing.Optional[builtins.str] = None,
+        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        health_check_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.HealthCheckConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instance_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.InstanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        observability_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ServiceObservabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        service_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnService``.
+
+        :param source_configuration: The source to deploy to the App Runner service. It can be a code or an image repository.
+        :param auto_scaling_configuration_arn: The Amazon Resource Name (ARN) of an App Runner automatic scaling configuration resource that you want to associate with your service. If not provided, App Runner associates the latest revision of a default auto scaling configuration. Specify an ARN with a name and a revision number to associate that revision. For example: ``arn:aws:apprunner:us-east-1:123456789012:autoscalingconfiguration/high-availability/3`` Specify just the name to associate the latest revision. For example: ``arn:aws:apprunner:us-east-1:123456789012:autoscalingconfiguration/high-availability``
+        :param encryption_configuration: An optional custom encryption key that App Runner uses to encrypt the copy of your source repository that it maintains and your service logs. By default, App Runner uses an AWS managed key .
+        :param health_check_configuration: The settings for the health check that AWS App Runner performs to monitor the health of the App Runner service.
+        :param instance_configuration: The runtime configuration of instances (scaling units) of your service.
+        :param network_configuration: Configuration settings related to network traffic of the web application that the App Runner service runs.
+        :param observability_configuration: The observability configuration of your service.
+        :param service_name: A name for the App Runner service. It must be unique across all the running App Runner services in your AWS account in the AWS Region . If you don't specify a name, CloudFormation generates a name for your service.
+        :param tags: An optional list of metadata items that you can associate with the App Runner service resource. A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_apprunner as apprunner
+            
+            cfn_service_props = apprunner.CfnServiceProps(
+                source_configuration=apprunner.CfnService.SourceConfigurationProperty(
+                    authentication_configuration=apprunner.CfnService.AuthenticationConfigurationProperty(
+                        access_role_arn="accessRoleArn",
+                        connection_arn="connectionArn"
+                    ),
+                    auto_deployments_enabled=False,
+                    code_repository=apprunner.CfnService.CodeRepositoryProperty(
+                        repository_url="repositoryUrl",
+                        source_code_version=apprunner.CfnService.SourceCodeVersionProperty(
+                            type="type",
+                            value="value"
+                        ),
+            
+                        # the properties below are optional
+                        code_configuration=apprunner.CfnService.CodeConfigurationProperty(
+                            configuration_source="configurationSource",
+            
+                            # the properties below are optional
+                            code_configuration_values=apprunner.CfnService.CodeConfigurationValuesProperty(
+                                runtime="runtime",
+            
+                                # the properties below are optional
+                                build_command="buildCommand",
+                                port="port",
+                                runtime_environment_secrets=[apprunner.CfnService.KeyValuePairProperty(
+                                    name="name",
+                                    value="value"
+                                )],
+                                runtime_environment_variables=[apprunner.CfnService.KeyValuePairProperty(
+                                    name="name",
+                                    value="value"
+                                )],
+                                start_command="startCommand"
+                            )
+                        ),
+                        source_directory="sourceDirectory"
+                    ),
+                    image_repository=apprunner.CfnService.ImageRepositoryProperty(
+                        image_identifier="imageIdentifier",
+                        image_repository_type="imageRepositoryType",
+            
+                        # the properties below are optional
+                        image_configuration=apprunner.CfnService.ImageConfigurationProperty(
+                            port="port",
+                            runtime_environment_secrets=[apprunner.CfnService.KeyValuePairProperty(
+                                name="name",
+                                value="value"
+                            )],
+                            runtime_environment_variables=[apprunner.CfnService.KeyValuePairProperty(
+                                name="name",
+                                value="value"
+                            )],
+                            start_command="startCommand"
+                        )
+                    )
+                ),
+            
+                # the properties below are optional
+                auto_scaling_configuration_arn="autoScalingConfigurationArn",
+                encryption_configuration=apprunner.CfnService.EncryptionConfigurationProperty(
+                    kms_key="kmsKey"
+                ),
+                health_check_configuration=apprunner.CfnService.HealthCheckConfigurationProperty(
+                    healthy_threshold=123,
+                    interval=123,
+                    path="path",
+                    protocol="protocol",
+                    timeout=123,
+                    unhealthy_threshold=123
+                ),
+                instance_configuration=apprunner.CfnService.InstanceConfigurationProperty(
+                    cpu="cpu",
+                    instance_role_arn="instanceRoleArn",
+                    memory="memory"
+                ),
+                network_configuration=apprunner.CfnService.NetworkConfigurationProperty(
+                    egress_configuration=apprunner.CfnService.EgressConfigurationProperty(
+                        egress_type="egressType",
+            
+                        # the properties below are optional
+                        vpc_connector_arn="vpcConnectorArn"
+                    ),
+                    ingress_configuration=apprunner.CfnService.IngressConfigurationProperty(
+                        is_publicly_accessible=False
+                    ),
+                    ip_address_type="ipAddressType"
+                ),
+                observability_configuration=apprunner.CfnService.ServiceObservabilityConfigurationProperty(
+                    observability_enabled=False,
+            
+                    # the properties below are optional
+                    observability_configuration_arn="observabilityConfigurationArn"
+                ),
+                service_name="serviceName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__37772da8e2081252d29ad212c4bce9ca489c11a77271153d93e81976b37d45aa)
+            check_type(argname="argument source_configuration", value=source_configuration, expected_type=type_hints["source_configuration"])
+            check_type(argname="argument auto_scaling_configuration_arn", value=auto_scaling_configuration_arn, expected_type=type_hints["auto_scaling_configuration_arn"])
+            check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+            check_type(argname="argument health_check_configuration", value=health_check_configuration, expected_type=type_hints["health_check_configuration"])
+            check_type(argname="argument instance_configuration", value=instance_configuration, expected_type=type_hints["instance_configuration"])
+            check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
+            check_type(argname="argument observability_configuration", value=observability_configuration, expected_type=type_hints["observability_configuration"])
+            check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "source_configuration": source_configuration,
+        }
+        if auto_scaling_configuration_arn is not None:
+            self._values["auto_scaling_configuration_arn"] = auto_scaling_configuration_arn
+        if encryption_configuration is not None:
+            self._values["encryption_configuration"] = encryption_configuration
+        if health_check_configuration is not None:
+            self._values["health_check_configuration"] = health_check_configuration
+        if instance_configuration is not None:
+            self._values["instance_configuration"] = instance_configuration
+        if network_configuration is not None:
+            self._values["network_configuration"] = network_configuration
+        if observability_configuration is not None:
+            self._values["observability_configuration"] = observability_configuration
+        if service_name is not None:
+            self._values["service_name"] = service_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def source_configuration(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnService.SourceConfigurationProperty"]:
+        '''The source to deploy to the App Runner service.
+
+        It can be a code or an image repository.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-sourceconfiguration
+        '''
+        result = self._values.get("source_configuration")
+        assert result is not None, "Required property 'source_configuration' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.SourceConfigurationProperty"], result)
+
+    @builtins.property
+    def auto_scaling_configuration_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an App Runner automatic scaling configuration resource that you want to associate with your service.
+
+        If not provided, App Runner associates the latest revision of a default auto scaling configuration.
+
+        Specify an ARN with a name and a revision number to associate that revision. For example: ``arn:aws:apprunner:us-east-1:123456789012:autoscalingconfiguration/high-availability/3``
+
+        Specify just the name to associate the latest revision. For example: ``arn:aws:apprunner:us-east-1:123456789012:autoscalingconfiguration/high-availability``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-autoscalingconfigurationarn
+        '''
+        result = self._values.get("auto_scaling_configuration_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EncryptionConfigurationProperty"]]:
+        '''An optional custom encryption key that App Runner uses to encrypt the copy of your source repository that it maintains and your service logs.
+
+        By default, App Runner uses an AWS managed key .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-encryptionconfiguration
+        '''
+        result = self._values.get("encryption_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def health_check_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigurationProperty"]]:
+        '''The settings for the health check that AWS App Runner performs to monitor the health of the App Runner service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-healthcheckconfiguration
+        '''
+        result = self._values.get("health_check_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigurationProperty"]], result)
+
+    @builtins.property
+    def instance_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.InstanceConfigurationProperty"]]:
+        '''The runtime configuration of instances (scaling units) of your service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-instanceconfiguration
+        '''
+        result = self._values.get("instance_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.InstanceConfigurationProperty"]], result)
+
+    @builtins.property
+    def network_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.NetworkConfigurationProperty"]]:
+        '''Configuration settings related to network traffic of the web application that the App Runner service runs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-networkconfiguration
+        '''
+        result = self._values.get("network_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.NetworkConfigurationProperty"]], result)
+
+    @builtins.property
+    def observability_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceObservabilityConfigurationProperty"]]:
+        '''The observability configuration of your service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-observabilityconfiguration
+        '''
+        result = self._values.get("observability_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceObservabilityConfigurationProperty"]], result)
+
+    @builtins.property
+    def service_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the App Runner service.
+
+        It must be unique across all the running App Runner services in your AWS account in the AWS Region .
+
+        If you don't specify a name, CloudFormation generates a name for your service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-servicename
+        '''
+        result = self._values.get("service_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An optional list of metadata items that you can associate with the App Runner service resource.
+
+        A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnServiceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IVpcConnectorRef_37eb44ed, _ITaggable_36806126)
 class CfnVpcConnector(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3880,6 +3282,7 @@ class CfnVpcConnector(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_apprunner as apprunner
@@ -3899,21 +3302,22 @@ class CfnVpcConnector(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         subnets: typing.Sequence[builtins.str],
-        security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_connector_name: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::AppRunner::VpcConnector``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param subnets: A list of IDs of subnets that App Runner should use when it associates your service with a custom Amazon VPC. Specify IDs of subnets of a single Amazon VPC. App Runner determines the Amazon VPC from the subnets you specify. .. epigraph:: App Runner only supports subnets of IP address type *IPv4* and *dual stack* (IPv4 and IPv6).
         :param security_groups: A list of IDs of security groups that App Runner should use for access to AWS resources under the specified subnets. If not specified, App Runner uses the default security group of the Amazon VPC. The default security group allows all outbound traffic.
         :param tags: A list of metadata items that you can associate with your VPC connector resource. A tag is a key-value pair. .. epigraph:: A ``VpcConnector`` is immutable, so you cannot update its tags. To change the tags, replace the resource. To replace a ``VpcConnector`` , you must provide a new combination of security groups.
-        :param vpc_connector_name: A name for the VPC connector. If you don't specify a name, AWS CloudFormation generates a name for your VPC connector.
+        :param vpc_connector_name: A name for the VPC connector. If you don't specify a name, CloudFormation generates a name for your VPC connector.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be589026c3fd7633e7cbbae6a2059ec8d285e62b05b7dce52a6d06b534940bf3)
@@ -3928,8 +3332,34 @@ class CfnVpcConnector(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForVpcConnector")
+    @builtins.classmethod
+    def arn_for_vpc_connector(
+        cls,
+        resource: "_IVpcConnectorRef_37eb44ed",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d48e3355ae4016b25937c4573225ac7242b4d9111c8bd0fc755da7d061a66a5e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVpcConnector", [resource]))
+
+    @jsii.member(jsii_name="isCfnVpcConnector")
+    @builtins.classmethod
+    def is_cfn_vpc_connector(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnVpcConnector.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__436fd6424b015a73bbd8d79679748076cc457e3435ed3478642a123aa79a1f3c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVpcConnector", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3988,15 +3418,15 @@ class CfnVpcConnector(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="vpcConnectorRef")
-    def vpc_connector_ref(self) -> VpcConnectorReference:
+    def vpc_connector_ref(self) -> "_VpcConnectorReference_0d63765c":
         '''A reference to a VpcConnector resource.'''
-        return typing.cast(VpcConnectorReference, jsii.get(self, "vpcConnectorRef"))
+        return typing.cast("_VpcConnectorReference_0d63765c", jsii.get(self, "vpcConnectorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="subnets")
@@ -4029,12 +3459,12 @@ class CfnVpcConnector(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of metadata items that you can associate with your VPC connector resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e48b3594376ff2dc2aa341938ae9d299f6aac12ddb2a5b0aeb8fe1a0aff994a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -4054,7 +3484,136 @@ class CfnVpcConnector(
         jsii.set(self, "vpcConnectorName", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IVpcIngressConnectionRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_apprunner.CfnVpcConnectorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "subnets": "subnets",
+        "security_groups": "securityGroups",
+        "tags": "tags",
+        "vpc_connector_name": "vpcConnectorName",
+    },
+)
+class CfnVpcConnectorProps:
+    def __init__(
+        self,
+        *,
+        subnets: typing.Sequence[builtins.str],
+        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_connector_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVpcConnector``.
+
+        :param subnets: A list of IDs of subnets that App Runner should use when it associates your service with a custom Amazon VPC. Specify IDs of subnets of a single Amazon VPC. App Runner determines the Amazon VPC from the subnets you specify. .. epigraph:: App Runner only supports subnets of IP address type *IPv4* and *dual stack* (IPv4 and IPv6).
+        :param security_groups: A list of IDs of security groups that App Runner should use for access to AWS resources under the specified subnets. If not specified, App Runner uses the default security group of the Amazon VPC. The default security group allows all outbound traffic.
+        :param tags: A list of metadata items that you can associate with your VPC connector resource. A tag is a key-value pair. .. epigraph:: A ``VpcConnector`` is immutable, so you cannot update its tags. To change the tags, replace the resource. To replace a ``VpcConnector`` , you must provide a new combination of security groups.
+        :param vpc_connector_name: A name for the VPC connector. If you don't specify a name, CloudFormation generates a name for your VPC connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcconnector.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_apprunner as apprunner
+            
+            cfn_vpc_connector_props = apprunner.CfnVpcConnectorProps(
+                subnets=["subnets"],
+            
+                # the properties below are optional
+                security_groups=["securityGroups"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_connector_name="vpcConnectorName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3874001d469c9a53bc1ebacc92f127d716349bc989287cfb6de624b3a435282)
+            check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
+            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_connector_name", value=vpc_connector_name, expected_type=type_hints["vpc_connector_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "subnets": subnets,
+        }
+        if security_groups is not None:
+            self._values["security_groups"] = security_groups
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc_connector_name is not None:
+            self._values["vpc_connector_name"] = vpc_connector_name
+
+    @builtins.property
+    def subnets(self) -> typing.List[builtins.str]:
+        '''A list of IDs of subnets that App Runner should use when it associates your service with a custom Amazon VPC.
+
+        Specify IDs of subnets of a single Amazon VPC. App Runner determines the Amazon VPC from the subnets you specify.
+        .. epigraph::
+
+           App Runner only supports subnets of IP address type *IPv4* and *dual stack* (IPv4 and IPv6).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcconnector.html#cfn-apprunner-vpcconnector-subnets
+        '''
+        result = self._values.get("subnets")
+        assert result is not None, "Required property 'subnets' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def security_groups(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]]:
+        '''A list of IDs of security groups that App Runner should use for access to AWS resources under the specified subnets.
+
+        If not specified, App Runner uses the default security group of the Amazon VPC. The default security group allows all outbound traffic.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcconnector.html#cfn-apprunner-vpcconnector-securitygroups
+        '''
+        result = self._values.get("security_groups")
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of metadata items that you can associate with your VPC connector resource.
+
+        A tag is a key-value pair.
+        .. epigraph::
+
+           A ``VpcConnector`` is immutable, so you cannot update its tags. To change the tags, replace the resource. To replace a ``VpcConnector`` , you must provide a new combination of security groups.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcconnector.html#cfn-apprunner-vpcconnector-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def vpc_connector_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the VPC connector.
+
+        If you don't specify a name, CloudFormation generates a name for your VPC connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcconnector.html#cfn-apprunner-vpcconnector-vpcconnectorname
+        '''
+        result = self._values.get("vpc_connector_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVpcConnectorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IVpcIngressConnectionRef_58d73e34, _ITaggable_36806126)
 class CfnVpcIngressConnection(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4072,6 +3631,7 @@ class CfnVpcIngressConnection(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_apprunner as apprunner
@@ -4094,15 +3654,16 @@ class CfnVpcIngressConnection(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        ingress_vpc_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnVpcIngressConnection.IngressVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ingress_vpc_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVpcIngressConnection.IngressVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         service_arn: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_ingress_connection_name: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::AppRunner::VpcIngressConnection``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param ingress_vpc_configuration: Specifications for the customer’s Amazon VPC and the related AWS PrivateLink VPC endpoint that are used to create the VPC Ingress Connection resource.
@@ -4123,8 +3684,34 @@ class CfnVpcIngressConnection(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForVpcIngressConnection")
+    @builtins.classmethod
+    def arn_for_vpc_ingress_connection(
+        cls,
+        resource: "_IVpcIngressConnectionRef_58d73e34",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8c87b856f3cb85d608c841ce8d6e4b56eafbf705ac36b1d61858622e6d2db264)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVpcIngressConnection", [resource]))
+
+    @jsii.member(jsii_name="isCfnVpcIngressConnection")
+    @builtins.classmethod
+    def is_cfn_vpc_ingress_connection(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnVpcIngressConnection.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3a0eded22f4136a4a96f2a671ff2024d17d8484517dd7707ab33cfb4dce2d82)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVpcIngressConnection", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -4189,28 +3776,28 @@ class CfnVpcIngressConnection(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="vpcIngressConnectionRef")
-    def vpc_ingress_connection_ref(self) -> VpcIngressConnectionReference:
+    def vpc_ingress_connection_ref(self) -> "_VpcIngressConnectionReference_64b165fb":
         '''A reference to a VpcIngressConnection resource.'''
-        return typing.cast(VpcIngressConnectionReference, jsii.get(self, "vpcIngressConnectionRef"))
+        return typing.cast("_VpcIngressConnectionReference_64b165fb", jsii.get(self, "vpcIngressConnectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="ingressVpcConfiguration")
     def ingress_vpc_configuration(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnVpcIngressConnection.IngressVpcConfigurationProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"]:
         '''Specifications for the customer’s Amazon VPC and the related AWS PrivateLink VPC endpoint that are used to create the VPC Ingress Connection resource.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnVpcIngressConnection.IngressVpcConfigurationProperty"], jsii.get(self, "ingressVpcConfiguration"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"], jsii.get(self, "ingressVpcConfiguration"))
 
     @ingress_vpc_configuration.setter
     def ingress_vpc_configuration(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnVpcIngressConnection.IngressVpcConfigurationProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__abe73cbc5a7819f686471275cf17a497ef6a4bf8e5abc645677efae99b1c050b)
@@ -4232,12 +3819,12 @@ class CfnVpcIngressConnection(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An optional list of metadata items that you can associate with the VPC Ingress Connection resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a0945b23398d82cc256f9ca7475c53f36cd50e0a5efa6f3fba8bcb142420715)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -4328,8 +3915,127 @@ class CfnVpcIngressConnection(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_apprunner.CfnVpcIngressConnectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ingress_vpc_configuration": "ingressVpcConfiguration",
+        "service_arn": "serviceArn",
+        "tags": "tags",
+        "vpc_ingress_connection_name": "vpcIngressConnectionName",
+    },
+)
+class CfnVpcIngressConnectionProps:
+    def __init__(
+        self,
+        *,
+        ingress_vpc_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVpcIngressConnection.IngressVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        service_arn: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_ingress_connection_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVpcIngressConnection``.
+
+        :param ingress_vpc_configuration: Specifications for the customer’s Amazon VPC and the related AWS PrivateLink VPC endpoint that are used to create the VPC Ingress Connection resource.
+        :param service_arn: The Amazon Resource Name (ARN) for this App Runner service that is used to create the VPC Ingress Connection resource.
+        :param tags: An optional list of metadata items that you can associate with the VPC Ingress Connection resource. A tag is a key-value pair.
+        :param vpc_ingress_connection_name: The customer-provided VPC Ingress Connection name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcingressconnection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_apprunner as apprunner
+            
+            cfn_vpc_ingress_connection_props = apprunner.CfnVpcIngressConnectionProps(
+                ingress_vpc_configuration=apprunner.CfnVpcIngressConnection.IngressVpcConfigurationProperty(
+                    vpc_endpoint_id="vpcEndpointId",
+                    vpc_id="vpcId"
+                ),
+                service_arn="serviceArn",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_ingress_connection_name="vpcIngressConnectionName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2bf477654ff7633b979d8887848a90ba10d61fd01fb42e291521adefbd4d3706)
+            check_type(argname="argument ingress_vpc_configuration", value=ingress_vpc_configuration, expected_type=type_hints["ingress_vpc_configuration"])
+            check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_ingress_connection_name", value=vpc_ingress_connection_name, expected_type=type_hints["vpc_ingress_connection_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ingress_vpc_configuration": ingress_vpc_configuration,
+            "service_arn": service_arn,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc_ingress_connection_name is not None:
+            self._values["vpc_ingress_connection_name"] = vpc_ingress_connection_name
+
+    @builtins.property
+    def ingress_vpc_configuration(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"]:
+        '''Specifications for the customer’s Amazon VPC and the related AWS PrivateLink VPC endpoint that are used to create the VPC Ingress Connection resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcingressconnection.html#cfn-apprunner-vpcingressconnection-ingressvpcconfiguration
+        '''
+        result = self._values.get("ingress_vpc_configuration")
+        assert result is not None, "Required property 'ingress_vpc_configuration' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"], result)
+
+    @builtins.property
+    def service_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for this App Runner service that is used to create the VPC Ingress Connection resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcingressconnection.html#cfn-apprunner-vpcingressconnection-servicearn
+        '''
+        result = self._values.get("service_arn")
+        assert result is not None, "Required property 'service_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An optional list of metadata items that you can associate with the VPC Ingress Connection resource.
+
+        A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcingressconnection.html#cfn-apprunner-vpcingressconnection-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def vpc_ingress_connection_name(self) -> typing.Optional[builtins.str]:
+        '''The customer-provided VPC Ingress Connection name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcingressconnection.html#cfn-apprunner-vpcingressconnection-vpcingressconnectionname
+        '''
+        result = self._values.get("vpc_ingress_connection_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVpcIngressConnectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "AutoScalingConfigurationReference",
     "CfnAutoScalingConfiguration",
     "CfnAutoScalingConfigurationProps",
     "CfnObservabilityConfiguration",
@@ -4340,108 +4046,9 @@ __all__ = [
     "CfnVpcConnectorProps",
     "CfnVpcIngressConnection",
     "CfnVpcIngressConnectionProps",
-    "IAutoScalingConfigurationRef",
-    "IObservabilityConfigurationRef",
-    "IServiceRef",
-    "IVpcConnectorRef",
-    "IVpcIngressConnectionRef",
-    "ObservabilityConfigurationReference",
-    "ServiceReference",
-    "VpcConnectorReference",
-    "VpcIngressConnectionReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__4809a58a6ee3904f0ab4029aca0344380ea2cfa4d7199ffcf7e49ae5cd28de0e(
-    *,
-    auto_scaling_configuration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d64ff92813f3f968746f4f41c6f17d2e277154809c684b9c520b7ab47bbcdfb7(
-    *,
-    auto_scaling_configuration_name: typing.Optional[builtins.str] = None,
-    max_concurrency: typing.Optional[jsii.Number] = None,
-    max_size: typing.Optional[jsii.Number] = None,
-    min_size: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c1debdf716fbe9ec809b1573ccbd25ac6c6aa5901a77a6b6c323eb8445dd9cc2(
-    *,
-    observability_configuration_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    trace_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObservabilityConfiguration.TraceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__37772da8e2081252d29ad212c4bce9ca489c11a77271153d93e81976b37d45aa(
-    *,
-    source_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    auto_scaling_configuration_arn: typing.Optional[builtins.str] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    health_check_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.HealthCheckConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.InstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    observability_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceObservabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    service_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b3874001d469c9a53bc1ebacc92f127d716349bc989287cfb6de624b3a435282(
-    *,
-    subnets: typing.Sequence[builtins.str],
-    security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_connector_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2bf477654ff7633b979d8887848a90ba10d61fd01fb42e291521adefbd4d3706(
-    *,
-    ingress_vpc_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVpcIngressConnection.IngressVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    service_arn: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_ingress_connection_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9ca76f78bf61dba03a724b49d2eb50d5ee9d6fde992f911b10597ced2cf3d9dc(
-    *,
-    observability_configuration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2aaad25f4961235dc073819279f381252bdd5e277bf0ee3cd914319a0023c378(
-    *,
-    service_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__91dbf110d90823f14bf6df0d2e0c02b2da55da7f5c26f828275debb6beca2c4d(
-    *,
-    vpc_connector_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0b5d9d20491319c03ab7ae398260a6beab913a6fa4701c804d38b6f6c0373440(
-    *,
-    vpc_ingress_connection_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__a097973cb063319e04b0f6e6c21b4cfd5c92b8418d4ae98fd7a13b5ef4bed0e8(
     scope: _constructs_77d1e7e8.Construct,
@@ -4452,6 +4059,18 @@ def _typecheckingstub__a097973cb063319e04b0f6e6c21b4cfd5c92b8418d4ae98fd7a13b5ef
     max_size: typing.Optional[jsii.Number] = None,
     min_size: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b07092ed9a3c8f611b357cee86d2b88d22d76e53f344d607685c237ceccda147(
+    resource: _IAutoScalingConfigurationRef_99168b63,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18cec198649927ccc038a8e1bf53fc79b383c537c0d1abf4ed2b1d2ce0b6af22(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4498,6 +4117,17 @@ def _typecheckingstub__eb90876342a230c9991099f852e8e245b9b8c860b209c3ebdfa443bf9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d64ff92813f3f968746f4f41c6f17d2e277154809c684b9c520b7ab47bbcdfb7(
+    *,
+    auto_scaling_configuration_name: typing.Optional[builtins.str] = None,
+    max_concurrency: typing.Optional[jsii.Number] = None,
+    max_size: typing.Optional[jsii.Number] = None,
+    min_size: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b238f814243acf19fa88af79842810e60380a88ae9065727ec71a1f3e03c1798(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4505,6 +4135,18 @@ def _typecheckingstub__b238f814243acf19fa88af79842810e60380a88ae9065727ec71a1f3e
     observability_configuration_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     trace_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObservabilityConfiguration.TraceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd84b25eaccc90a9b1c076d3c7ca8fa5d7ea74d4897284e61f1b4cc1e05e16ca(
+    resource: _IObservabilityConfigurationRef_fbef63e4,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ff284e1a609d460abc9b878e675e5f0e40fb8eedf50b6445dd1447f4369a716(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4546,6 +4188,15 @@ def _typecheckingstub__e60603c83c7c60d6c57801b50c84000528fb34ca799fc3840032663ef
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c1debdf716fbe9ec809b1573ccbd25ac6c6aa5901a77a6b6c323eb8445dd9cc2(
+    *,
+    observability_configuration_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    trace_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObservabilityConfiguration.TraceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4f3344ac8fb704588f823f8fe3348e96180ce7161e948774f8ff0039717ac7d1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4559,6 +4210,18 @@ def _typecheckingstub__4f3344ac8fb704588f823f8fe3348e96180ce7161e948774f8ff00397
     observability_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceObservabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6f8abcf3c751311864f64ca375c6961e4b50cd160a536f5f02bccee469b4f34(
+    resource: _IServiceRef_276b8cc6,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76b7035bf29e41568ef40a90ec58591492eff458a87e3f62638e02ddd9b15f2e(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4772,14 +4435,41 @@ def _typecheckingstub__ba4fb6cc4d2a777620eb88ed6607040beb32a47eaf68f2d10e8187935
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__37772da8e2081252d29ad212c4bce9ca489c11a77271153d93e81976b37d45aa(
+    *,
+    source_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    auto_scaling_configuration_arn: typing.Optional[builtins.str] = None,
+    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    health_check_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.HealthCheckConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.InstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    observability_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceObservabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__be589026c3fd7633e7cbbae6a2059ec8d285e62b05b7dce52a6d06b534940bf3(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     subnets: typing.Sequence[builtins.str],
-    security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_connector_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d48e3355ae4016b25937c4573225ac7242b4d9111c8bd0fc755da7d061a66a5e(
+    resource: _IVpcConnectorRef_37eb44ed,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__436fd6424b015a73bbd8d79679748076cc457e3435ed3478642a123aa79a1f3c(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4820,6 +4510,16 @@ def _typecheckingstub__73ecdd2e55710876cadbdcb04b4c04bb7358741703d21df85a608b981
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b3874001d469c9a53bc1ebacc92f127d716349bc989287cfb6de624b3a435282(
+    *,
+    subnets: typing.Sequence[builtins.str],
+    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_connector_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__afbb5f9e033f465b7f8f245446cf2a67c499f7755bf4e573bb4e74c62012e3eb(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4828,6 +4528,18 @@ def _typecheckingstub__afbb5f9e033f465b7f8f245446cf2a67c499f7755bf4e573bb4e74c62
     service_arn: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_ingress_connection_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c87b856f3cb85d608c841ce8d6e4b56eafbf705ac36b1d61858622e6d2db264(
+    resource: _IVpcIngressConnectionRef_58d73e34,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3a0eded22f4136a4a96f2a671ff2024d17d8484517dd7707ab33cfb4dce2d82(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4872,6 +4584,16 @@ def _typecheckingstub__0d93a874adc86f6dd70420bba4844973e5ec9219b31184c142b1e2f96
     *,
     vpc_endpoint_id: builtins.str,
     vpc_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2bf477654ff7633b979d8887848a90ba10d61fd01fb42e291521adefbd4d3706(
+    *,
+    ingress_vpc_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVpcIngressConnection.IngressVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    service_arn: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_ingress_connection_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

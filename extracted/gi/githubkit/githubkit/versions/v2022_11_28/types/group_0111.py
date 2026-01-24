@@ -9,17 +9,25 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import NotRequired, TypedDict
+from typing import Literal
+from typing_extensions import TypedDict
 
 
-class ApiInsightsSummaryStatsType(TypedDict):
-    """Summary Stats
+class ActionsGetDefaultWorkflowPermissionsType(TypedDict):
+    """ActionsGetDefaultWorkflowPermissions"""
 
-    API Insights usage summary stats for an organization
-    """
-
-    total_request_count: NotRequired[int]
-    rate_limited_request_count: NotRequired[int]
+    default_workflow_permissions: Literal["read", "write"]
+    can_approve_pull_request_reviews: bool
 
 
-__all__ = ("ApiInsightsSummaryStatsType",)
+class ActionsGetDefaultWorkflowPermissionsTypeForResponse(TypedDict):
+    """ActionsGetDefaultWorkflowPermissions"""
+
+    default_workflow_permissions: Literal["read", "write"]
+    can_approve_pull_request_reviews: bool
+
+
+__all__ = (
+    "ActionsGetDefaultWorkflowPermissionsType",
+    "ActionsGetDefaultWorkflowPermissionsTypeForResponse",
+)

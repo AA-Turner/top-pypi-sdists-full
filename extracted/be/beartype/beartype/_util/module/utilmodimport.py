@@ -20,7 +20,7 @@ from beartype.typing import (
 from beartype._cave._cavefast import ModuleType
 from beartype._cave._cavemap import NoneTypeOr
 from beartype._data.cls.datacls import TYPE_BUILTIN_NAME_TO_TYPE
-from beartype._data.hint.datahinttyping import TypeException
+from beartype._data.typing.datatyping import TypeException
 from beartype._util.error.utilerrwarn import issue_warning
 from beartype._util.text.utiltextidentifier import die_unless_identifier
 from beartype._data.kind.datakindiota import SENTINEL
@@ -96,12 +96,12 @@ def import_module_or_none(
     ----------
     module_name : str
         Fully-qualified name of the module to be imported.
-    exception_cls : Type[Exception]
+    exception_cls : type[Exception], default: _BeartypeUtilModuleException
         Type of exception to be raised in the event of a fatal error. Defaults
-        to :class:`._BeartypeUtilModuleException`.
-    exception_prefix : str, optional
-        Human-readable label prefixing the representation of this object in the
-        exception message. Defaults to the empty string.
+        to :exc:`._BeartypeUtilModuleException`.
+    exception_prefix : str, default: "Module attribute "
+        Human-readable substring prefixing raised exception messages. Defaults
+        to a reasonably sensible prefix.
 
     Returns
     -------

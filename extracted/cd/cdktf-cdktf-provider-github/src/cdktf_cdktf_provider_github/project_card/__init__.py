@@ -1,7 +1,7 @@
 r'''
 # `github_project_card`
 
-Refer to the Terraform Registry for docs: [`github_project_card`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card).
+Refer to the Terraform Registry for docs: [`github_project_card`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ProjectCard(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.projectCard.ProjectCard",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card github_project_card}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card github_project_card}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class ProjectCard(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card github_project_card} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card github_project_card} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param column_id: The ID of the project column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#column_id ProjectCard#column_id}
-        :param content_id: 'github_issue.issue_id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#content_id ProjectCard#content_id}
-        :param content_type: Must be either 'Issue' or 'PullRequest'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#content_type ProjectCard#content_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#id ProjectCard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param note: The note contents of the card. Markdown supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#note ProjectCard#note}
+        :param column_id: The ID of the project column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#column_id ProjectCard#column_id}
+        :param content_id: 'github_issue.issue_id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#content_id ProjectCard#content_id}
+        :param content_type: Must be either 'Issue' or 'PullRequest'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#content_type ProjectCard#content_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#id ProjectCard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param note: The note contents of the card. Markdown supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#note ProjectCard#note}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class ProjectCard(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ProjectCard to import.
-        :param import_from_id: The id of the existing ProjectCard that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ProjectCard that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ProjectCard to import is found.
         '''
         if __debug__:
@@ -294,11 +294,11 @@ class ProjectCardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param column_id: The ID of the project column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#column_id ProjectCard#column_id}
-        :param content_id: 'github_issue.issue_id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#content_id ProjectCard#content_id}
-        :param content_type: Must be either 'Issue' or 'PullRequest'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#content_type ProjectCard#content_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#id ProjectCard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param note: The note contents of the card. Markdown supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#note ProjectCard#note}
+        :param column_id: The ID of the project column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#column_id ProjectCard#column_id}
+        :param content_id: 'github_issue.issue_id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#content_id ProjectCard#content_id}
+        :param content_type: Must be either 'Issue' or 'PullRequest'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#content_type ProjectCard#content_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#id ProjectCard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param note: The note contents of the card. Markdown supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#note ProjectCard#note}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -410,7 +410,7 @@ class ProjectCardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def column_id(self) -> builtins.str:
         '''The ID of the project column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#column_id ProjectCard#column_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#column_id ProjectCard#column_id}
         '''
         result = self._values.get("column_id")
         assert result is not None, "Required property 'column_id' is missing"
@@ -420,7 +420,7 @@ class ProjectCardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def content_id(self) -> typing.Optional[jsii.Number]:
         ''''github_issue.issue_id'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#content_id ProjectCard#content_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#content_id ProjectCard#content_id}
         '''
         result = self._values.get("content_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -429,14 +429,14 @@ class ProjectCardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def content_type(self) -> typing.Optional[builtins.str]:
         '''Must be either 'Issue' or 'PullRequest'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#content_type ProjectCard#content_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#content_type ProjectCard#content_type}
         '''
         result = self._values.get("content_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#id ProjectCard#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#id ProjectCard#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -448,7 +448,7 @@ class ProjectCardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def note(self) -> typing.Optional[builtins.str]:
         '''The note contents of the card. Markdown supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/project_card#note ProjectCard#note}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/project_card#note ProjectCard#note}
         '''
         result = self._values.get("note")
         return typing.cast(typing.Optional[builtins.str], result)

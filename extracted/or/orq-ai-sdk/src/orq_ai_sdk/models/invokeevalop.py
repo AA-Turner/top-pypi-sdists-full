@@ -11,8 +11,14 @@ from orq_ai_sdk.types import (
     UNSET,
     UNSET_SENTINEL,
 )
-from orq_ai_sdk.utils import FieldMetadata, PathParamMetadata, RequestMetadata
-from pydantic import model_serializer
+from orq_ai_sdk.utils import (
+    FieldMetadata,
+    PathParamMetadata,
+    RequestMetadata,
+    get_discriminator,
+)
+import pydantic
+from pydantic import Discriminator, Tag, model_serializer
 from typing import List, Literal, Optional, Union
 from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
 
@@ -30,110 +36,156 @@ InvokeEvalRole = Literal[
 r"""The role of the prompt message"""
 
 
-InvokeEval2EvalsRequestType = Literal["file",]
+InvokeEval2Type = Literal["file",]
 r"""The type of the content part. Always `file`."""
 
 
-class InvokeEval2FileTypedDict(TypedDict):
-    file_data: str
+class TwoFileTypedDict(TypedDict):
+    file_data: NotRequired[str]
     r"""The file data as a data URI string in the format 'data:<mime-type>;base64,<base64-encoded-data>'. Example: 'data:image/png;base64,iVBORw0KGgoAAAANS...'"""
+    uri: NotRequired[str]
+    r"""URL to the file. Only supported by Anthropic Claude models for PDF files."""
+    mime_type: NotRequired[str]
+    r"""MIME type of the file (e.g., application/pdf, image/png)"""
     filename: NotRequired[str]
     r"""The name of the file, used when passing the file to the model as a string."""
 
 
-class InvokeEval2File(BaseModel):
-    file_data: str
+class TwoFile(BaseModel):
+    file_data: Optional[str] = None
     r"""The file data as a data URI string in the format 'data:<mime-type>;base64,<base64-encoded-data>'. Example: 'data:image/png;base64,iVBORw0KGgoAAAANS...'"""
+
+    uri: Optional[str] = None
+    r"""URL to the file. Only supported by Anthropic Claude models for PDF files."""
+
+    mime_type: Annotated[Optional[str], pydantic.Field(alias="mimeType")] = None
+    r"""MIME type of the file (e.g., application/pdf, image/png)"""
 
     filename: Optional[str] = None
     r"""The name of the file, used when passing the file to the model as a string."""
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["file_data", "uri", "mimeType", "filename"])
+        serialized = handler(self)
+        m = {}
 
-class InvokeEval23TypedDict(TypedDict):
-    type: InvokeEval2EvalsRequestType
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
+
+class ThreeTypedDict(TypedDict):
+    type: InvokeEval2Type
     r"""The type of the content part. Always `file`."""
-    file: InvokeEval2FileTypedDict
+    file: TwoFileTypedDict
 
 
-class InvokeEval23(BaseModel):
-    type: InvokeEval2EvalsRequestType
+class Three(BaseModel):
+    type: InvokeEval2Type
     r"""The type of the content part. Always `file`."""
 
-    file: InvokeEval2File
+    file: TwoFile
 
 
-InvokeEval2EvalsType = Literal["image_url",]
+InvokeEval2EvalsRequestType = Literal["image_url",]
 
 
-class InvokeEval2ImageURLTypedDict(TypedDict):
+class TwoImageURLTypedDict(TypedDict):
     url: str
     r"""Either a URL of the image or the base64 encoded data URI."""
     detail: NotRequired[str]
     r"""Specifies the detail level of the image. Currently only supported with OpenAI models"""
 
 
-class InvokeEval2ImageURL(BaseModel):
+class TwoImageURL(BaseModel):
     url: str
     r"""Either a URL of the image or the base64 encoded data URI."""
 
     detail: Optional[str] = None
     r"""Specifies the detail level of the image. Currently only supported with OpenAI models"""
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["detail"])
+        serialized = handler(self)
+        m = {}
 
-class InvokeEval22TypedDict(TypedDict):
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
+
+class Two2TypedDict(TypedDict):
     r"""The image part of the prompt message. Only supported with vision models."""
 
-    type: InvokeEval2EvalsType
-    image_url: InvokeEval2ImageURLTypedDict
+    type: InvokeEval2EvalsRequestType
+    image_url: TwoImageURLTypedDict
 
 
-class InvokeEval22(BaseModel):
+class Two2(BaseModel):
     r"""The image part of the prompt message. Only supported with vision models."""
 
-    type: InvokeEval2EvalsType
+    type: InvokeEval2EvalsRequestType
 
-    image_url: InvokeEval2ImageURL
-
-
-InvokeEval2Type = Literal["text",]
+    image_url: TwoImageURL
 
 
-class InvokeEval21TypedDict(TypedDict):
+InvokeEval2EvalsType = Literal["text",]
+
+
+class Two1TypedDict(TypedDict):
     r"""Text content part of a prompt message"""
 
-    type: InvokeEval2Type
+    type: InvokeEval2EvalsType
     text: str
 
 
-class InvokeEval21(BaseModel):
+class Two1(BaseModel):
     r"""Text content part of a prompt message"""
 
-    type: InvokeEval2Type
+    type: InvokeEval2EvalsType
 
     text: str
 
 
 InvokeEvalContent2TypedDict = TypeAliasType(
-    "InvokeEvalContent2TypedDict",
-    Union[InvokeEval21TypedDict, InvokeEval22TypedDict, InvokeEval23TypedDict],
+    "InvokeEvalContent2TypedDict", Union[Two1TypedDict, Two2TypedDict, ThreeTypedDict]
 )
 
 
-InvokeEvalContent2 = TypeAliasType(
-    "InvokeEvalContent2", Union[InvokeEval21, InvokeEval22, InvokeEval23]
-)
+InvokeEvalContent2 = Annotated[
+    Union[
+        Annotated[Two1, Tag("text")],
+        Annotated[Two2, Tag("image_url")],
+        Annotated[Three, Tag("file")],
+    ],
+    Discriminator(lambda m: get_discriminator(m, "type", "type")),
+]
 
 
 InvokeEvalContentTypedDict = TypeAliasType(
     "InvokeEvalContentTypedDict", Union[str, List[InvokeEvalContent2TypedDict]]
 )
-r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts."""
+r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts. Can be null for tool messages in certain scenarios."""
 
 
 InvokeEvalContent = TypeAliasType(
     "InvokeEvalContent", Union[str, List[InvokeEvalContent2]]
 )
-r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts."""
+r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts. Can be null for tool messages in certain scenarios."""
 
 
 InvokeEvalType = Literal["function",]
@@ -168,26 +220,67 @@ class InvokeEvalToolCalls(BaseModel):
 
     index: Optional[float] = None
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["id", "index"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 class InvokeEvalMessagesTypedDict(TypedDict):
     role: InvokeEvalRole
     r"""The role of the prompt message"""
-    content: InvokeEvalContentTypedDict
-    r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts."""
+    content: Nullable[InvokeEvalContentTypedDict]
+    r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts. Can be null for tool messages in certain scenarios."""
     tool_calls: NotRequired[List[InvokeEvalToolCallsTypedDict]]
-    tool_call_id: NotRequired[str]
+    tool_call_id: NotRequired[Nullable[str]]
 
 
 class InvokeEvalMessages(BaseModel):
     role: InvokeEvalRole
     r"""The role of the prompt message"""
 
-    content: InvokeEvalContent
-    r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts."""
+    content: Nullable[InvokeEvalContent]
+    r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts. Can be null for tool messages in certain scenarios."""
 
     tool_calls: Optional[List[InvokeEvalToolCalls]] = None
 
-    tool_call_id: Optional[str] = None
+    tool_call_id: OptionalNullable[str] = UNSET
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["tool_calls", "tool_call_id"])
+        nullable_fields = set(["content", "tool_call_id"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
+
+            if val != UNSET_SENTINEL:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
+                    m[k] = val
+
+        return m
 
 
 class InvokeEvalRequestBodyTypedDict(TypedDict):
@@ -219,6 +312,24 @@ class InvokeEvalRequestBody(BaseModel):
     messages: Optional[List[InvokeEvalMessages]] = None
     r"""The messages used to generate the output, without the last user message"""
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            ["query", "output", "reference", "retrievals", "messages"]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 class InvokeEvalRequestTypedDict(TypedDict):
     id: str
@@ -237,12 +348,28 @@ class InvokeEvalRequest(BaseModel):
         FieldMetadata(request=RequestMetadata(media_type="application/json")),
     ] = None
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["RequestBody"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 class InvokeEvalEvalsResponseResponseBodyData(BaseModel):
     message: str
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class InvokeEvalEvalsResponseResponseBody(OrqError):
     r"""Error running the evaluator"""
 
@@ -264,7 +391,7 @@ class InvokeEvalEvalsResponseBodyData(BaseModel):
     message: str
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class InvokeEvalEvalsResponseBody(OrqError):
     r"""Workspace ID is not found on the request"""
 
@@ -319,31 +446,26 @@ class InvokeEvalResponseBodyHTTP(BaseModel):
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = ["value"]
-        nullable_fields = ["value"]
-        null_default_fields = []
-
+        optional_fields = set(["value"])
+        nullable_fields = set(["value"])
         serialized = handler(self)
-
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k)
-            serialized.pop(k, None)
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
 
-            optional_nullable = k in optional_fields and k in nullable_fields
-            is_set = (
-                self.__pydantic_fields_set__.intersection({n})
-                or k in null_default_fields
-            )  # pylint: disable=no-member
-
-            if val is not None and val != UNSET_SENTINEL:
-                m[k] = val
-            elif val != UNSET_SENTINEL and (
-                not k in optional_fields or (optional_nullable and is_set)
-            ):
-                m[k] = val
+            if val != UNSET_SENTINEL:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
+                    m[k] = val
 
         return m
 
@@ -363,46 +485,59 @@ InvokeEvalResponseBodyEvalsResponse200ApplicationJSON7Value = TypeAliasType(
 )
 
 
+OriginalValueTypedDict = TypeAliasType(
+    "OriginalValueTypedDict", Union[float, bool, str]
+)
+
+
+OriginalValue = TypeAliasType("OriginalValue", Union[float, bool, str])
+
+
 class InvokeEvalResponseBodyEvalsResponseValueTypedDict(TypedDict):
     workflow_run_id: str
-    value: InvokeEvalResponseBodyEvalsResponse200ApplicationJSON7ValueTypedDict
+    value: Nullable[
+        InvokeEvalResponseBodyEvalsResponse200ApplicationJSON7ValueTypedDict
+    ]
     explanation: NotRequired[Nullable[str]]
+    original_value: NotRequired[Nullable[OriginalValueTypedDict]]
+    original_explanation: NotRequired[Nullable[str]]
 
 
 class InvokeEvalResponseBodyEvalsResponseValue(BaseModel):
     workflow_run_id: str
 
-    value: InvokeEvalResponseBodyEvalsResponse200ApplicationJSON7Value
+    value: Nullable[InvokeEvalResponseBodyEvalsResponse200ApplicationJSON7Value]
 
     explanation: OptionalNullable[str] = UNSET
 
+    original_value: OptionalNullable[OriginalValue] = UNSET
+
+    original_explanation: OptionalNullable[str] = UNSET
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = ["explanation"]
-        nullable_fields = ["explanation"]
-        null_default_fields = []
-
+        optional_fields = set(["explanation", "original_value", "original_explanation"])
+        nullable_fields = set(
+            ["value", "explanation", "original_value", "original_explanation"]
+        )
         serialized = handler(self)
-
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k)
-            serialized.pop(k, None)
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
 
-            optional_nullable = k in optional_fields and k in nullable_fields
-            is_set = (
-                self.__pydantic_fields_set__.intersection({n})
-                or k in null_default_fields
-            )  # pylint: disable=no-member
-
-            if val is not None and val != UNSET_SENTINEL:
-                m[k] = val
-            elif val != UNSET_SENTINEL and (
-                not k in optional_fields or (optional_nullable and is_set)
-            ):
-                m[k] = val
+            if val != UNSET_SENTINEL:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
+                    m[k] = val
 
         return m
 
@@ -419,30 +554,14 @@ class InvokeEvalResponseBodyLLM(BaseModel):
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = []
-        nullable_fields = ["value"]
-        null_default_fields = []
-
         serialized = handler(self)
-
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k)
-            serialized.pop(k, None)
 
-            optional_nullable = k in optional_fields and k in nullable_fields
-            is_set = (
-                self.__pydantic_fields_set__.intersection({n})
-                or k in null_default_fields
-            )  # pylint: disable=no-member
-
-            if val is not None and val != UNSET_SENTINEL:
-                m[k] = val
-            elif val != UNSET_SENTINEL and (
-                not k in optional_fields or (optional_nullable and is_set)
-            ):
+            if val != UNSET_SENTINEL:
                 m[k] = val
 
         return m
@@ -583,30 +702,14 @@ class ResponseBodyBoolean(BaseModel):
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = []
-        nullable_fields = ["value"]
-        null_default_fields = []
-
         serialized = handler(self)
-
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k)
-            serialized.pop(k, None)
 
-            optional_nullable = k in optional_fields and k in nullable_fields
-            is_set = (
-                self.__pydantic_fields_set__.intersection({n})
-                or k in null_default_fields
-            )  # pylint: disable=no-member
-
-            if val is not None and val != UNSET_SENTINEL:
-                m[k] = val
-            elif val != UNSET_SENTINEL and (
-                not k in optional_fields or (optional_nullable and is_set)
-            ):
+            if val != UNSET_SENTINEL:
                 m[k] = val
 
         return m
@@ -615,9 +718,44 @@ class ResponseBodyBoolean(BaseModel):
 InvokeEvalResponseBodyEvalsType = Literal["number",]
 
 
+FormatOptionsStyle = Literal["currency",]
+
+
+Currency = Literal["USD",]
+
+
+class FormatOptions2TypedDict(TypedDict):
+    style: FormatOptionsStyle
+    currency: Currency
+
+
+class FormatOptions2(BaseModel):
+    style: FormatOptionsStyle
+
+    currency: Currency
+
+
+class FormatOptions1TypedDict(TypedDict):
+    significant_digits: float
+
+
+class FormatOptions1(BaseModel):
+    significant_digits: float
+
+
+FormatOptionsTypedDict = TypeAliasType(
+    "FormatOptionsTypedDict", Union[FormatOptions1TypedDict, FormatOptions2TypedDict]
+)
+
+
+FormatOptions = TypeAliasType("FormatOptions", Union[FormatOptions1, FormatOptions2])
+
+
 class ResponseBodyNumberTypedDict(TypedDict):
     type: InvokeEvalResponseBodyEvalsType
     value: Nullable[float]
+    original_value: NotRequired[Nullable[float]]
+    format_options: NotRequired[FormatOptionsTypedDict]
 
 
 class ResponseBodyNumber(BaseModel):
@@ -625,33 +763,32 @@ class ResponseBodyNumber(BaseModel):
 
     value: Nullable[float]
 
+    original_value: OptionalNullable[float] = UNSET
+
+    format_options: Optional[FormatOptions] = None
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = []
-        nullable_fields = ["value"]
-        null_default_fields = []
-
+        optional_fields = set(["original_value", "format_options"])
+        nullable_fields = set(["original_value", "value"])
         serialized = handler(self)
-
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k)
-            serialized.pop(k, None)
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
 
-            optional_nullable = k in optional_fields and k in nullable_fields
-            is_set = (
-                self.__pydantic_fields_set__.intersection({n})
-                or k in null_default_fields
-            )  # pylint: disable=no-member
-
-            if val is not None and val != UNSET_SENTINEL:
-                m[k] = val
-            elif val != UNSET_SENTINEL and (
-                not k in optional_fields or (optional_nullable and is_set)
-            ):
-                m[k] = val
+            if val != UNSET_SENTINEL:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
+                    m[k] = val
 
         return m
 
@@ -661,41 +798,39 @@ InvokeEvalResponseBodyType = Literal["string",]
 
 class StringTypedDict(TypedDict):
     type: InvokeEvalResponseBodyType
+    original_value: NotRequired[Nullable[str]]
     value: NotRequired[Nullable[str]]
 
 
 class String(BaseModel):
     type: InvokeEvalResponseBodyType
 
+    original_value: OptionalNullable[str] = UNSET
+
     value: OptionalNullable[str] = UNSET
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = ["value"]
-        nullable_fields = ["value"]
-        null_default_fields = []
-
+        optional_fields = set(["original_value", "value"])
+        nullable_fields = set(["original_value", "value"])
         serialized = handler(self)
-
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k)
-            serialized.pop(k, None)
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
 
-            optional_nullable = k in optional_fields and k in nullable_fields
-            is_set = (
-                self.__pydantic_fields_set__.intersection({n})
-                or k in null_default_fields
-            )  # pylint: disable=no-member
-
-            if val is not None and val != UNSET_SENTINEL:
-                m[k] = val
-            elif val != UNSET_SENTINEL and (
-                not k in optional_fields or (optional_nullable and is_set)
-            ):
-                m[k] = val
+            if val != UNSET_SENTINEL:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
+                    m[k] = val
 
         return m
 
@@ -703,30 +838,30 @@ class String(BaseModel):
 InvokeEvalResponseBodyTypedDict = TypeAliasType(
     "InvokeEvalResponseBodyTypedDict",
     Union[
-        StringTypedDict,
-        ResponseBodyNumberTypedDict,
         ResponseBodyBooleanTypedDict,
         StringArrayTypedDict,
         RougeNTypedDict,
         BERTScoreTypedDict,
         InvokeEvalResponseBodyLLMTypedDict,
         InvokeEvalResponseBodyHTTPTypedDict,
+        StringTypedDict,
+        ResponseBodyNumberTypedDict,
     ],
 )
 r"""Returns the result of the evaluator run"""
 
 
-InvokeEvalResponseBody = TypeAliasType(
-    "InvokeEvalResponseBody",
+InvokeEvalResponseBody = Annotated[
     Union[
-        String,
-        ResponseBodyNumber,
-        ResponseBodyBoolean,
-        StringArray,
-        RougeN,
-        BERTScore,
-        InvokeEvalResponseBodyLLM,
-        InvokeEvalResponseBodyHTTP,
+        Annotated[String, Tag("string")],
+        Annotated[ResponseBodyNumber, Tag("number")],
+        Annotated[ResponseBodyBoolean, Tag("boolean")],
+        Annotated[StringArray, Tag("string_array")],
+        Annotated[RougeN, Tag("rouge_n")],
+        Annotated[BERTScore, Tag("bert_score")],
+        Annotated[InvokeEvalResponseBodyLLM, Tag("llm_evaluator")],
+        Annotated[InvokeEvalResponseBodyHTTP, Tag("http_eval")],
     ],
-)
+    Discriminator(lambda m: get_discriminator(m, "type", "type")),
+]
 r"""Returns the result of the evaluator run"""

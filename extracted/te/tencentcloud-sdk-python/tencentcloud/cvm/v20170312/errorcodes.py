@@ -233,6 +233,9 @@ INVALIDPARAMETER_AUTOSNAPSHOTNOTSUPPORTED = 'InvalidParameter.AutoSnapshotNotSup
 # 不支持参数CdcId。
 INVALIDPARAMETER_CDCNOTSUPPORTED = 'InvalidParameter.CdcNotSupported'
 
+# CDZ不支持实例跨区迁移
+INVALIDPARAMETER_CDZNOTSUPPORTED = 'InvalidParameter.CdzNotSupported'
+
 # DataDiskIds不应该传入RootDisk的Id。
 INVALIDPARAMETER_DATADISKIDCONTAINSROOTDISK = 'InvalidParameter.DataDiskIdContainsRootDisk'
 
@@ -404,6 +407,9 @@ INVALIDPARAMETERVALUE_EXTERNALIPQUOTALIMITED = 'InvalidParameterValue.ExternalIp
 # 非GPU实例不允许转为GPU实例。
 INVALIDPARAMETERVALUE_GPUINSTANCEFAMILY = 'InvalidParameterValue.GPUInstanceFamily'
 
+# 非CDC场景不支持HpcClusterBusinessId。
+INVALIDPARAMETERVALUE_HPCCLUSTERBUSINESSIDNOTSUPPORTED = 'InvalidParameterValue.HpcClusterBusinessIdNotSupported'
+
 # 您的高性能计算集群已经绑定其他可用区，不能购买当前可用区机器。
 INVALIDPARAMETERVALUE_HPCCLUSTERIDZONEIDNOTMATCH = 'InvalidParameterValue.HpcClusterIdZoneIdNotMatch'
 
@@ -488,6 +494,9 @@ INVALIDPARAMETERVALUE_INVALIDIMAGESTATE = 'InvalidParameterValue.InvalidImageSta
 # 该实例配置来自免费升配活动，暂不支持3个月内进行降配。
 INVALIDPARAMETERVALUE_INVALIDINSTANCESOURCE = 'InvalidParameterValue.InvalidInstanceSource'
 
+# 该机型不支持周期合约
+INVALIDPARAMETERVALUE_INVALIDINSTANCETYPEPERIODICCONTRACT = 'InvalidParameterValue.InvalidInstanceTypePeriodicContract'
+
 # 指定机型不支持包销付费模式。
 INVALIDPARAMETERVALUE_INVALIDINSTANCETYPEUNDERWRITE = 'InvalidParameterValue.InvalidInstanceTypeUnderwrite'
 
@@ -571,6 +580,9 @@ INVALIDPARAMETERVALUE_LIMITEXCEEDED = 'InvalidParameterValue.LimitExceeded'
 
 # 本地盘的限制范围。
 INVALIDPARAMETERVALUE_LOCALDISKSIZERANGE = 'InvalidParameterValue.LocalDiskSizeRange'
+
+# 专属可用区本地COS集群缺少endpoint配置
+INVALIDPARAMETERVALUE_MISSINGLOCATIONCOSENDPOINT = 'InvalidParameterValue.MissingLocationCosEndpoint'
 
 # 参数值必须为开启DHCP的VPC
 INVALIDPARAMETERVALUE_MUSTDHCPENABLEDVPC = 'InvalidParameterValue.MustDhcpEnabledVpc'
@@ -1130,6 +1142,9 @@ UNSUPPORTEDOPERATION_ONLYFORPREPAIDACCOUNT = 'UnsupportedOperation.OnlyForPrepai
 # 无效的原机型。
 UNSUPPORTEDOPERATION_ORIGINALINSTANCETYPEINVALID = 'UnsupportedOperation.OriginalInstanceTypeInvalid'
 
+# 该机型为周期合约机型不支持手动续费模式
+UNSUPPORTEDOPERATION_PERIODICCONTRACTNOTSUPPORTMANUALRENEW = 'UnsupportedOperation.PeriodicContractNotSupportManualRenew'
+
 # 您的账户不支持镜像预热
 UNSUPPORTEDOPERATION_PREHEATIMAGE = 'UnsupportedOperation.PreheatImage'
 
@@ -1153,6 +1168,9 @@ UNSUPPORTEDOPERATION_REGION = 'UnsupportedOperation.Region'
 
 # 共享镜像不支持导出。
 UNSUPPORTEDOPERATION_SHAREDIMAGEEXPORTUNSUPPORTED = 'UnsupportedOperation.SharedImageExportUnsupported'
+
+# 从其他账号共享的镜像不支持修改属性。
+UNSUPPORTEDOPERATION_SHAREDIMAGEMODIFYUNSUPPORTED = 'UnsupportedOperation.SharedImageModifyUnsupported'
 
 # 请求不支持特殊机型的实例
 UNSUPPORTEDOPERATION_SPECIALINSTANCETYPE = 'UnsupportedOperation.SpecialInstanceType'

@@ -3,7 +3,7 @@ Type annotations for devicefarm service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devicefarm/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -195,12 +196,6 @@ from .type_defs import (
     UpdateVPCEConfigurationResultTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -209,19 +204,19 @@ else:
 __all__ = ("DeviceFarmClient",)
 
 class Exceptions(BaseClientExceptions):
-    ArgumentException: Type[BotocoreClientError]
-    CannotDeleteException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    IdempotencyException: Type[BotocoreClientError]
-    InternalServiceException: Type[BotocoreClientError]
-    InvalidOperationException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    NotEligibleException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ServiceAccountException: Type[BotocoreClientError]
-    TagOperationException: Type[BotocoreClientError]
-    TagPolicyException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
+    ArgumentException: type[BotocoreClientError]
+    CannotDeleteException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    IdempotencyException: type[BotocoreClientError]
+    InternalServiceException: type[BotocoreClientError]
+    InvalidOperationException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    NotEligibleException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ServiceAccountException: type[BotocoreClientError]
+    TagOperationException: type[BotocoreClientError]
+    TagPolicyException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
 
 class DeviceFarmClient(AioBaseClient):
     """
@@ -353,7 +348,7 @@ class DeviceFarmClient(AioBaseClient):
 
     async def delete_device_pool(
         self, **kwargs: Unpack[DeleteDevicePoolRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a device pool given the pool ARN.
 
@@ -363,7 +358,7 @@ class DeviceFarmClient(AioBaseClient):
 
     async def delete_instance_profile(
         self, **kwargs: Unpack[DeleteInstanceProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a profile that can be applied to one or more private device instances.
 
@@ -373,7 +368,7 @@ class DeviceFarmClient(AioBaseClient):
 
     async def delete_network_profile(
         self, **kwargs: Unpack[DeleteNetworkProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a network profile.
 
@@ -381,7 +376,7 @@ class DeviceFarmClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devicefarm/client/#delete_network_profile)
         """
 
-    async def delete_project(self, **kwargs: Unpack[DeleteProjectRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_project(self, **kwargs: Unpack[DeleteProjectRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an AWS Device Farm project, given the project ARN.
 
@@ -391,7 +386,7 @@ class DeviceFarmClient(AioBaseClient):
 
     async def delete_remote_access_session(
         self, **kwargs: Unpack[DeleteRemoteAccessSessionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a completed remote access session and its results.
 
@@ -399,7 +394,7 @@ class DeviceFarmClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devicefarm/client/#delete_remote_access_session)
         """
 
-    async def delete_run(self, **kwargs: Unpack[DeleteRunRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_run(self, **kwargs: Unpack[DeleteRunRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the run, given the run ARN.
 
@@ -409,7 +404,7 @@ class DeviceFarmClient(AioBaseClient):
 
     async def delete_test_grid_project(
         self, **kwargs: Unpack[DeleteTestGridProjectRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Selenium testing project and all content generated under it.
 
@@ -417,7 +412,7 @@ class DeviceFarmClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devicefarm/client/#delete_test_grid_project)
         """
 
-    async def delete_upload(self, **kwargs: Unpack[DeleteUploadRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_upload(self, **kwargs: Unpack[DeleteUploadRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an upload given the upload ARN.
 
@@ -427,7 +422,7 @@ class DeviceFarmClient(AioBaseClient):
 
     async def delete_vpce_configuration(
         self, **kwargs: Unpack[DeleteVPCEConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a configuration for your Amazon Virtual Private Cloud (VPC) endpoint.
 
@@ -912,7 +907,7 @@ class DeviceFarmClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devicefarm/client/#stop_run)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates the specified tags to a resource with the specified
         <code>resourceArn</code>.
@@ -921,7 +916,7 @@ class DeviceFarmClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devicefarm/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified tags from a resource.
 
@@ -1239,7 +1234,7 @@ class DeviceFarmClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

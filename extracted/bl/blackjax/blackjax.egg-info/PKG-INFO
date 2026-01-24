@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: blackjax
-Version: 1.2.5
+Version: 1.3
 Summary: Flexible and fast sampling in Python
 Author-email: The Blackjax team <remi@thetypicalset.com>
 License: Apache License 2.0
@@ -19,8 +19,8 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Education
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
@@ -31,9 +31,10 @@ License-File: LICENSE
 Requires-Dist: fastprogress>=1.0.0
 Requires-Dist: jax>=0.4.16
 Requires-Dist: jaxlib>=0.4.16
-Requires-Dist: jaxopt>=0.8
+Requires-Dist: jaxopt<=0.8.3
 Requires-Dist: optax>=0.1.7
 Requires-Dist: typing-extensions>=4.4.0
+Dynamic: license-file
 
 # BlackJAX
 ![Continuous integration](https://github.com/blackjax-devs/blackjax/actions/workflows/test.yml/badge.svg)

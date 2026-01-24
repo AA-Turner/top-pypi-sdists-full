@@ -19,6 +19,11 @@ from fastapi_cloud_cli.commands.deploy import DeploymentStatus, _should_exclude_
         Path(".venv"),
         Path("__pycache__"),
         Path("module.pyc"),
+        Path("/project/.env"),
+        Path("/project/.env.local"),
+        Path("/project/.env.production"),
+        Path(".env"),
+        Path(".env.development"),
     ],
 )
 def test_excludes_paths(path: Path) -> None:
@@ -37,6 +42,8 @@ def test_excludes_paths(path: Path) -> None:
         Path("/project/src/module.pyx"),  # similar to .pyc but different
         Path("/project/config.json"),
         Path("/project/README.md"),
+        Path("/project/.envrc"),  # not a .env file
+        Path("/project/env.py"),  # not a .env file
     ],
 )
 def test_includes_paths(path: Path) -> None:
@@ -56,6 +63,9 @@ def test_includes_paths(path: Path) -> None:
         (DeploymentStatus.building_image_failed, "Build failed"),
         (DeploymentStatus.deploying, "Deploying"),
         (DeploymentStatus.deploying_failed, "Deploying failed"),
+        (DeploymentStatus.verifying, "Verifying"),
+        (DeploymentStatus.verifying_failed, "Verifying failed"),
+        (DeploymentStatus.verifying_skipped, "Verification skipped"),
         (DeploymentStatus.success, "Success"),
         (DeploymentStatus.failed, "Failed"),
     ],

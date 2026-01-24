@@ -44,6 +44,14 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     GetCloudComponentStorageResponse,
     GetCloudComponentVpcRequest,
     GetCloudComponentVpcResponse,
+    ListCloudComponentClusterRequest,
+    ListCloudComponentClusterResponse,
+    ListCloudComponentStorageRequest,
+    ListCloudComponentStorageResponse,
+    ListCloudComponentVpcRequest,
+    ListCloudComponentVpcResponse,
+    TestClusterConnectionRequest,
+    TestClusterConnectionResponse,
     UpdateCloudComponentClusterRequest,
     UpdateCloudComponentClusterResponse,
 )
@@ -64,6 +72,10 @@ class CloudComponentsServiceStub:
         GetCloudComponentVpcRequest,
         GetCloudComponentVpcResponse,
     ]
+    ListCloudComponentVpc: UnaryUnaryMultiCallable[
+        ListCloudComponentVpcRequest,
+        ListCloudComponentVpcResponse,
+    ]
     DeleteCloudComponentVpc: UnaryUnaryMultiCallable[
         DeleteCloudComponentVpcRequest,
         DeleteCloudComponentVpcResponse,
@@ -80,9 +92,17 @@ class CloudComponentsServiceStub:
         GetCloudComponentClusterRequest,
         GetCloudComponentClusterResponse,
     ]
+    ListCloudComponentCluster: UnaryUnaryMultiCallable[
+        ListCloudComponentClusterRequest,
+        ListCloudComponentClusterResponse,
+    ]
     DeleteCloudComponentCluster: UnaryUnaryMultiCallable[
         DeleteCloudComponentClusterRequest,
         DeleteCloudComponentClusterResponse,
+    ]
+    TestClusterConnection: UnaryUnaryMultiCallable[
+        TestClusterConnectionRequest,
+        TestClusterConnectionResponse,
     ]
     CreateCloudComponentStorage: UnaryUnaryMultiCallable[
         CreateCloudComponentStorageRequest,
@@ -91,6 +111,10 @@ class CloudComponentsServiceStub:
     GetCloudComponentStorage: UnaryUnaryMultiCallable[
         GetCloudComponentStorageRequest,
         GetCloudComponentStorageResponse,
+    ]
+    ListCloudComponentStorage: UnaryUnaryMultiCallable[
+        ListCloudComponentStorageRequest,
+        ListCloudComponentStorageResponse,
     ]
     DeleteCloudComponentStorage: UnaryUnaryMultiCallable[
         DeleteCloudComponentStorageRequest,
@@ -147,6 +171,12 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetCloudComponentVpcResponse: ...
     @abstractmethod
+    def ListCloudComponentVpc(
+        self,
+        request: ListCloudComponentVpcRequest,
+        context: ServicerContext,
+    ) -> ListCloudComponentVpcResponse: ...
+    @abstractmethod
     def DeleteCloudComponentVpc(
         self,
         request: DeleteCloudComponentVpcRequest,
@@ -171,11 +201,23 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetCloudComponentClusterResponse: ...
     @abstractmethod
+    def ListCloudComponentCluster(
+        self,
+        request: ListCloudComponentClusterRequest,
+        context: ServicerContext,
+    ) -> ListCloudComponentClusterResponse: ...
+    @abstractmethod
     def DeleteCloudComponentCluster(
         self,
         request: DeleteCloudComponentClusterRequest,
         context: ServicerContext,
     ) -> DeleteCloudComponentClusterResponse: ...
+    @abstractmethod
+    def TestClusterConnection(
+        self,
+        request: TestClusterConnectionRequest,
+        context: ServicerContext,
+    ) -> TestClusterConnectionResponse: ...
     @abstractmethod
     def CreateCloudComponentStorage(
         self,
@@ -188,6 +230,12 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         request: GetCloudComponentStorageRequest,
         context: ServicerContext,
     ) -> GetCloudComponentStorageResponse: ...
+    @abstractmethod
+    def ListCloudComponentStorage(
+        self,
+        request: ListCloudComponentStorageRequest,
+        context: ServicerContext,
+    ) -> ListCloudComponentStorageResponse: ...
     @abstractmethod
     def DeleteCloudComponentStorage(
         self,

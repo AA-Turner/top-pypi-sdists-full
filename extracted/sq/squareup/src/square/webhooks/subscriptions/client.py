@@ -9,6 +9,7 @@ from ...requests.webhook_subscription import WebhookSubscriptionParams
 from ...types.create_webhook_subscription_response import CreateWebhookSubscriptionResponse
 from ...types.delete_webhook_subscription_response import DeleteWebhookSubscriptionResponse
 from ...types.get_webhook_subscription_response import GetWebhookSubscriptionResponse
+from ...types.list_webhook_subscriptions_response import ListWebhookSubscriptionsResponse
 from ...types.sort_order import SortOrder
 from ...types.test_webhook_subscription_response import TestWebhookSubscriptionResponse
 from ...types.update_webhook_subscription_response import UpdateWebhookSubscriptionResponse
@@ -43,7 +44,7 @@ class SubscriptionsClient:
         sort_order: typing.Optional[SortOrder] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[WebhookSubscription]:
+    ) -> SyncPager[WebhookSubscription, ListWebhookSubscriptionsResponse]:
         """
         Lists all webhook subscriptions owned by your application.
 
@@ -75,7 +76,7 @@ class SubscriptionsClient:
 
         Returns
         -------
-        SyncPager[WebhookSubscription]
+        SyncPager[WebhookSubscription, ListWebhookSubscriptionsResponse]
             Success
 
         Examples
@@ -85,7 +86,12 @@ class SubscriptionsClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.webhooks.subscriptions.list()
+        response = client.webhooks.subscriptions.list(
+            cursor="cursor",
+            include_disabled=True,
+            sort_order="DESC",
+            limit=1,
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -367,7 +373,7 @@ class AsyncSubscriptionsClient:
         sort_order: typing.Optional[SortOrder] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[WebhookSubscription]:
+    ) -> AsyncPager[WebhookSubscription, ListWebhookSubscriptionsResponse]:
         """
         Lists all webhook subscriptions owned by your application.
 
@@ -399,7 +405,7 @@ class AsyncSubscriptionsClient:
 
         Returns
         -------
-        AsyncPager[WebhookSubscription]
+        AsyncPager[WebhookSubscription, ListWebhookSubscriptionsResponse]
             Success
 
         Examples
@@ -414,7 +420,12 @@ class AsyncSubscriptionsClient:
 
 
         async def main() -> None:
-            response = await client.webhooks.subscriptions.list()
+            response = await client.webhooks.subscriptions.list(
+                cursor="cursor",
+                include_disabled=True,
+                sort_order="DESC",
+                limit=1,
+            )
             async for item in response:
                 yield item
 

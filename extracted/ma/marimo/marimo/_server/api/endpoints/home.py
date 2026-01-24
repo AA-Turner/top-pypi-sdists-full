@@ -1,7 +1,9 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
+import asyncio
 import os
+import pathlib
 import tempfile
 from typing import TYPE_CHECKING
 
@@ -11,8 +13,11 @@ from starlette.responses import JSONResponse
 from marimo import _loggers
 from marimo._server.api.deps import AppState
 from marimo._server.api.utils import parse_request
-from marimo._server.file_router import LazyListOfFilesAppFileRouter
-from marimo._server.model import ConnectionState
+from marimo._server.file_router import (
+    LazyListOfFilesAppFileRouter,
+    count_files,
+)
+from marimo._server.files.directory_scanner import DirectoryScanner
 from marimo._server.models.home import (
     MarimoFile,
     OpenTutorialRequest,
@@ -23,11 +28,14 @@ from marimo._server.models.home import (
     WorkspaceFilesResponse,
 )
 from marimo._server.router import APIRouter
+from marimo._session.model import ConnectionState
 from marimo._tutorials import create_temp_tutorial_file  # type: ignore
 from marimo._utils.paths import pretty_path
 
 if TYPE_CHECKING:
     from starlette.requests import Request
+
+MAX_FILES = DirectoryScanner.MAX_FILES
 
 LOGGER = _loggers.marimo_logger()
 
@@ -51,7 +59,12 @@ async def read_code(
                         $ref: "#/components/schemas/RecentFilesResponse"
     """
     app_state = AppState(request)
-    files = app_state.session_manager.recents.get_recents()
+    # Pass the file router's directory to filter and relativize paths
+    directory = None
+    dir_str = app_state.session_manager.file_router.directory
+    if dir_str:
+        directory = pathlib.Path(dir_str)
+    files = app_state.session_manager.recents.get_recents(directory)
     return RecentFilesResponse(files=files)
 
 
@@ -89,11 +102,25 @@ async def workspace_files(
         )
         root = session_manager.file_router.directory
 
-    files = session_manager.file_router.files
-    return WorkspaceFilesResponse(files=files, root=root)
+    # Run file scanning in thread pool to avoid blocking the server
+    files = await asyncio.to_thread(lambda: session_manager.file_router.files)
+
+    file_count = count_files(files)
+    has_more = file_count >= MAX_FILES
+
+    return WorkspaceFilesResponse(
+        files=files,
+        root=root,
+        has_more=has_more,
+        file_count=file_count,
+    )
 
 
 def _get_active_sessions(app_state: AppState) -> list[MarimoFile]:
+    """Get list of active sessions with prettified paths."""
+    # Get directory from file router for path relativization
+    base_dir = app_state.session_manager.file_router.directory
+
     files: list[MarimoFile] = []
     for session_id, session in app_state.session_manager.sessions.items():
         state = session.connection_state()
@@ -103,7 +130,9 @@ def _get_active_sessions(app_state: AppState) -> list[MarimoFile]:
             files.append(
                 MarimoFile(
                     name=(basename or "new notebook"),
-                    path=(pretty_path(filename) if filename else session_id),
+                    path=pretty_path(filename, base_dir)
+                    if filename
+                    else session_id,
                     last_modified=0,
                     session_id=session_id,
                     initialization_id=session.initialization_id,
@@ -191,6 +220,14 @@ async def tutorial(
     import atexit
 
     atexit.register(temp_dir.cleanup)
+
+    # Register the temp directory with the file router so it can be accessed
+    # This is needed for directory-based routers to allow temp tutorial files
+    app_state = AppState(request)
+    if isinstance(
+        app_state.session_manager.file_router, LazyListOfFilesAppFileRouter
+    ):
+        app_state.session_manager.file_router.register_temp_dir(temp_dir.name)
 
     return MarimoFile(
         name=os.path.basename(path.absolute_name),

@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_hyperlinks.py 10211 2025-08-19 20:28:48Z milde $
+# $Id: test_hyperlinks.py 10254 2025-11-02 17:50:57Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -321,10 +321,7 @@ __ URL
         match in this snippet.
     <system_message level="3" line="5" source="test data" type="ERROR">
         <paragraph>
-            Substitution definition contains illegal element <reference>:
-        <literal_block xml:space="preserve">
-            <reference anonymous="1" name="anonymous">
-                anonymous
+            Anonymous references are not supported in a substitution definition.
         <literal_block xml:space="preserve">
             .. |invalid| replace:: anonymous__
     <paragraph>

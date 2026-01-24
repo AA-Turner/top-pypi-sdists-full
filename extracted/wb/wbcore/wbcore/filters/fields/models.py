@@ -33,8 +33,8 @@ class ModelChoiceFilterMixin(WBCoreFilterMixin):
                         "value": value_id,
                         "label": str(queryset.get(id=value_id)),
                     }
-                except ObjectDoesNotExist:
-                    raise ParseError("Filter value invalid")
+                except ObjectDoesNotExist as e:
+                    raise ParseError("Filter value invalid") from e
 
     def get_representation(self, request, name, view):
         representation, lookup_expr = super().get_representation(request, name, view)

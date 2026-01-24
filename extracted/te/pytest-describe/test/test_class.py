@@ -1,8 +1,8 @@
 """Test that classes are ignored"""
 
 
-def test_skip_classes(testdir):
-    testdir.makepyfile(
+def test_skip_classes(pytester):
+    pytester.makepyfile(
         """
         def describe_something():
             def fn():
@@ -10,7 +10,8 @@ def test_skip_classes(testdir):
             class cls:
                 def __call__(self):
                     assert True
-        """)
+        """
+    )
 
-    result = testdir.runpytest()
+    result = pytester.runpytest()
     result.assert_outcomes(passed=1)

@@ -1,6 +1,6 @@
 [build-system]
     build-backend = "setuptools.build_meta"
-    requires      = ["setuptools-scm>=8.0", "setuptools>=60"]
+    requires      = ["setuptools-scm>=7.0", "setuptools>=40"]
 
 [tool.setuptools_scm]
 
@@ -37,7 +37,11 @@ include = ["esptest"]
         "PyYAML",
         "pexpect",
         "pyusb",
+        "pyudev",
+        "esptool",
         "packaging",
+        "rich",
+        "sqlalchemy",
         "typing_extensions; python_version < '3.11'"
     ]
 
@@ -153,6 +157,10 @@ include = ["esptest"]
     warn_no_return           = true                                # Shows errors for missing return statements on some execution paths
     warn_return_any          = true                                # Shows a warning when returning a value with type Any from a function declared with a non- Any return type
     allow_redefinition       = true                                # allow a variable to be redefined with an unrelated type
+    plugins                  = [
+        "sqlalchemy.ext.mypy.plugin"
+    ]
+
 
 [tool.commitizen]
     annotated_tag            = true
@@ -233,9 +241,13 @@ include = ["esptest"]
     log_cli_level    = "INFO"
     log_cli_format   = "%(asctime)s %(levelname)s %(message)s"
     log_cli_date_format = "%Y-%m-%d %H:%M:%S.%f"
+    filterwarnings = [
+        "ignore::pytest.PytestExperimentalApiWarning"
+    ]
 
 [tool.coverage.run]
     omit = [
         "__*__.py",
+        "gen_esp32part.py",
         "*/tests/*"
     ]

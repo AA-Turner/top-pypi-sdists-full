@@ -71,39 +71,29 @@ class ServiceStats(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/serviceStats/"
-    _period = t.Dict(
-        {
-            t.Key("start"): t.String >> dateutil.parser.parse,
-            t.Key("end"): t.String >> dateutil.parser.parse,
-        }
-    )
-    _converter = t.Dict(
-        {
-            t.Key("period"): _period,
-            t.Key("metrics"): t.Dict(
-                {
-                    t.Key(SERVICE_STAT_METRIC.TOTAL_PREDICTIONS): t.Int(),
-                    t.Key(SERVICE_STAT_METRIC.TOTAL_REQUESTS, optional=True): t.Int(),
-                    t.Key(SERVICE_STAT_METRIC.SLOW_REQUESTS, optional=True): t.Int(),
-                    t.Key(SERVICE_STAT_METRIC.EXECUTION_TIME, optional=True): t.Or(
-                        t.Float(), t.Null()
-                    ),
-                    t.Key(SERVICE_STAT_METRIC.RESPONSE_TIME, optional=True): t.Or(
-                        t.Float(), t.Null()
-                    ),
-                    t.Key(SERVICE_STAT_METRIC.USER_ERROR_RATE, optional=True): t.Float(),
-                    t.Key(SERVICE_STAT_METRIC.SERVER_ERROR_RATE, optional=True): t.Float(),
-                    t.Key(SERVICE_STAT_METRIC.NUM_CONSUMERS, optional=True): t.Int(),
-                    t.Key(SERVICE_STAT_METRIC.CACHE_HIT_RATIO, optional=True): t.Float(),
-                    t.Key(SERVICE_STAT_METRIC.MEDIAN_LOAD, optional=True): t.Float(),
-                    t.Key(SERVICE_STAT_METRIC.PEAK_LOAD, optional=True): t.Float(),
-                }
-            ).allow_extra("*", trafaret=t.Or(t.Int(), t.Float(), t.Null())),
-            t.Key("model_id"): t.Or(t.String(), t.Null),
-            t.Key("segment_attribute", optional=True): t.String(),
-            t.Key("segment_value", optional=True): t.Or(t.String(allow_blank=True), t.Null()),
-        }
-    ).allow_extra("*")
+    _period = t.Dict({
+        t.Key("start"): t.String >> dateutil.parser.parse,
+        t.Key("end"): t.String >> dateutil.parser.parse,
+    })
+    _converter = t.Dict({
+        t.Key("period"): _period,
+        t.Key("metrics"): t.Dict({
+            t.Key(SERVICE_STAT_METRIC.TOTAL_PREDICTIONS): t.Int(),
+            t.Key(SERVICE_STAT_METRIC.TOTAL_REQUESTS, optional=True): t.Int(),
+            t.Key(SERVICE_STAT_METRIC.SLOW_REQUESTS, optional=True): t.Int(),
+            t.Key(SERVICE_STAT_METRIC.EXECUTION_TIME, optional=True): t.Or(t.Float(), t.Null()),
+            t.Key(SERVICE_STAT_METRIC.RESPONSE_TIME, optional=True): t.Or(t.Float(), t.Null()),
+            t.Key(SERVICE_STAT_METRIC.USER_ERROR_RATE, optional=True): t.Float(),
+            t.Key(SERVICE_STAT_METRIC.SERVER_ERROR_RATE, optional=True): t.Float(),
+            t.Key(SERVICE_STAT_METRIC.NUM_CONSUMERS, optional=True): t.Int(),
+            t.Key(SERVICE_STAT_METRIC.CACHE_HIT_RATIO, optional=True): t.Float(),
+            t.Key(SERVICE_STAT_METRIC.MEDIAN_LOAD, optional=True): t.Float(),
+            t.Key(SERVICE_STAT_METRIC.PEAK_LOAD, optional=True): t.Float(),
+        }).allow_extra("*", trafaret=t.Or(t.Int(), t.Float(), t.Null())),
+        t.Key("model_id"): t.Or(t.String(), t.Null),
+        t.Key("segment_attribute", optional=True): t.String(),
+        t.Key("segment_value", optional=True): t.Or(t.String(allow_blank=True), t.Null()),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -207,23 +197,19 @@ class ServiceStatsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/serviceStatsOverTime/"
-    _period = t.Dict(
-        {
-            t.Key("start"): String >> dateutil.parser.parse,
-            t.Key("end"): String >> dateutil.parser.parse,
-        }
-    )
+    _period = t.Dict({
+        t.Key("start"): String >> dateutil.parser.parse,
+        t.Key("end"): String >> dateutil.parser.parse,
+    })
     _bucket = t.Dict({t.Key("period"): _period}).allow_extra("*")
-    _converter = t.Dict(
-        {
-            t.Key("buckets"): t.List(_bucket),
-            t.Key("summary", optional=True): t.Or(_bucket, t.Null),
-            t.Key("metric"): String(),
-            t.Key("model_id", optional=True): t.Or(String(), t.Null),
-            t.Key("segment_attribute", optional=True): t.String(),
-            t.Key("segment_value", optional=True): t.Or(t.String(allow_blank=True), t.Null()),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("buckets"): t.List(_bucket),
+        t.Key("summary", optional=True): t.Or(_bucket, t.Null),
+        t.Key("metric"): String(),
+        t.Key("model_id", optional=True): t.Or(String(), t.Null),
+        t.Key("segment_attribute", optional=True): t.String(),
+        t.Key("segment_value", optional=True): t.Or(t.String(allow_blank=True), t.Null()),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -344,9 +330,5 @@ class ServiceStatsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         bucket_values: OrderedDict
         """
 
-        values = [
-            (bucket["period"]["start"], bucket["value"])
-            for bucket in self.buckets
-            if bucket["period"]
-        ]
+        values = [(bucket["period"]["start"], bucket["value"]) for bucket in self.buckets if bucket["period"]]
         return OrderedDict(values)

@@ -1,6 +1,7 @@
 import builtins
 import contextlib
 import functools
+import os
 
 import ml_dtypes
 import numpy as np
@@ -26,7 +27,9 @@ IS_THREAD_SAFE = True
 # Some operators such as 'aten::_foreach_mul_.Scalar'
 # are not currently implemented for the MPS device.
 # check https://github.com/pytorch/pytorch/issues/77764.
-if torch.backends.mps.is_available():
+if "KERAS_TORCH_DEVICE" in os.environ:
+    DEFAULT_DEVICE = os.environ["KERAS_TORCH_DEVICE"]
+elif torch.backends.mps.is_available():
     DEFAULT_DEVICE = "mps"
 elif torch.cuda.is_available():
     DEFAULT_DEVICE = "cuda"
@@ -673,7 +676,9 @@ def remat(f):
     """
 
     def wrapped(*args, **kwargs):
-        return torch.utils.checkpoint.checkpoint(f, *args, use_reentrant=False)
+        return torch.utils.checkpoint.checkpoint(
+            f, *args, use_reentrant=False, **kwargs
+        )
 
     return wrapped
 

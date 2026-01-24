@@ -3,14 +3,13 @@ Internal data structures.
 """
 
 import dataclasses
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from enum import Enum
 from pathlib import Path
 from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Generic,
     Literal,
     NamedTuple,
@@ -21,12 +20,11 @@ from typing import (
     Union,
 )
 
-from ._compat import PY_310
 from .constants import SECRET_REPR
 
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeGuard
+    from typing import TypeGuard
 
 __all__ = [
     "AUTO",
@@ -97,7 +95,7 @@ Sentinel to indicate the lack of a value when ``None`` is ambiguous.
 """
 
 
-def _type2name(value: Union[str, Any]) -> str:
+def _type2name(value: str | Any) -> str:
     """
     Return either *value* if it is a str or else its type name.
     """
@@ -140,7 +138,7 @@ class OptionInfo:
     is_secret: bool = False
 
     #: An optional explicit converter for the option value
-    converter: Optional[Callable[[Any], Any]] = None
+    converter: Callable[[Any], Any] | None = None
 
     #: Additional metadata.
     metadata: dict[Any, Any] = dataclasses.field(default_factory=dict)
@@ -190,7 +188,7 @@ class LoaderMeta:
     target type.
     """
 
-    def __init__(self, name: Union[str, Any], base_dir: Optional[Path] = None):
+    def __init__(self, name: str | Any, base_dir: Path | None = None):
         self._name: str = _type2name(name)
         self._base_dir = base_dir or Path.cwd()
 
@@ -373,10 +371,7 @@ def is_new_type(obj: Any) -> "TypeGuard[NewTypeLike]":
     """
     Return ``True`` if *obj* is a :class:`~typing.NewType`.
     """
-    if PY_310:
-        return isinstance(obj, NewType)
-    else:
-        return hasattr(obj, "__supertype__") and isinstance(obj.__supertype__, type)
+    return isinstance(obj, NewType)
 
 
 SECRETS_TYPES = (Secret, SecretStr)

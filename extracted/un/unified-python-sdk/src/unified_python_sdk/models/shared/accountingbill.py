@@ -5,12 +5,12 @@ from .accountingattachment import AccountingAttachment, AccountingAttachmentType
 from .accountinglineitem import AccountingLineitem, AccountingLineitemTypedDict
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class PaymentCollectionMethod(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -26,6 +26,9 @@ class AccountingBillStatus(str, Enum, metaclass=utils.OpenEnumMeta):
     PARTIALLY_PAID = "PARTIALLY_PAID"
     PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED"
     REFUNDED = "REFUNDED"
+    SUBMITTED = "SUBMITTED"
+    DELETED = "DELETED"
+    OVERDUE = "OVERDUE"
 
 
 class AccountingBillTypedDict(TypedDict):
@@ -86,9 +89,7 @@ class AccountingBill(BaseModel):
 
     paid_at: Optional[datetime] = None
 
-    payment_collection_method: Annotated[
-        Optional[PaymentCollectionMethod], PlainValidator(validate_open_enum(False))
-    ] = None
+    payment_collection_method: Optional[PaymentCollectionMethod] = None
 
     posted_at: Optional[datetime] = None
 
@@ -102,9 +103,7 @@ class AccountingBill(BaseModel):
 
     send: Optional[bool] = None
 
-    status: Annotated[
-        Optional[AccountingBillStatus], PlainValidator(validate_open_enum(False))
-    ] = None
+    status: Optional[AccountingBillStatus] = None
 
     tax_amount: Optional[float] = None
 
@@ -113,3 +112,66 @@ class AccountingBill(BaseModel):
     updated_at: Optional[datetime] = None
 
     url: Optional[str] = None
+
+    @field_serializer("payment_collection_method")
+    def serialize_payment_collection_method(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.PaymentCollectionMethod(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("status")
+    def serialize_status(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.AccountingBillStatus(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "attachments",
+                "balance_amount",
+                "bill_number",
+                "cancelled_at",
+                "contact_id",
+                "created_at",
+                "currency",
+                "discount_amount",
+                "due_at",
+                "id",
+                "lineitems",
+                "notes",
+                "paid_amount",
+                "paid_at",
+                "payment_collection_method",
+                "posted_at",
+                "raw",
+                "refund_amount",
+                "refund_reason",
+                "refunded_at",
+                "send",
+                "status",
+                "tax_amount",
+                "total_amount",
+                "updated_at",
+                "url",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

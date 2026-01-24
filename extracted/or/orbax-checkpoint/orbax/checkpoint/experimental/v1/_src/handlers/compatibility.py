@@ -20,7 +20,6 @@ import abc
 import dataclasses
 from typing import Any
 
-from etils import epath
 from orbax.checkpoint import checkpoint_args
 from orbax.checkpoint._src import asyncio_utils
 from orbax.checkpoint._src.futures import future
@@ -32,7 +31,7 @@ from orbax.checkpoint.experimental.v1._src.synchronization import synchronizatio
 
 
 class _PathAwaitingCreation(path_types.PathAwaitingCreation):
-  """Implementation of `PathAwaitingCreation` that awaits contracted signals."""
+  """Implementation of :py:class:`~.v1.path.PathAwaitingCreation` that awaits contracted signals."""
 
   def __init__(self, path: path_types.Path, operation_id: str):
     self._path = path
@@ -41,8 +40,8 @@ class _PathAwaitingCreation(path_types.PathAwaitingCreation):
   def __truediv__(
       self, other: path_types.PathAwaitingCreation | path_types.PathLike
   ) -> path_types.PathAwaitingCreation:
-    if isinstance(other, path_types.PathAwaitingCreation):
-      other = other.path
+    if not isinstance(other, path_types.PathLike):
+      raise TypeError(f'Expected PathLike, got {type(other)}.')
     return _PathAwaitingCreation(self._path / other, self._operation_id)
 
   async def await_creation(self) -> path_types.Path:
@@ -57,14 +56,14 @@ class _PathAwaitingCreation(path_types.PathAwaitingCreation):
 class CompatibilityCheckpointHandler(
     async_checkpoint_handler.AsyncCheckpointHandler
 ):
-  """A V0 CheckpointHandler that wraps a V1 CheckpointableHandler."""
+  """A V0 :py:class:`~orbax.checkpoint.AsyncCheckpointHandler` that wraps a V1 :py:class:`~.v1.handlers.CheckpointableHandler`."""
 
   def __init__(self, handler: handler_types.CheckpointableHandler):
     self._handler = handler
 
   async def async_save(
       self,
-      directory: epath.Path,
+      directory: path_types.Path,
       args: Args,
   ) -> list[future.Future] | None:
     async_path = _PathAwaitingCreation(
@@ -77,7 +76,7 @@ class CompatibilityCheckpointHandler(
 
     return [future.CommitFuture(_background_save())]
 
-  def save(self, directory: epath.Path, *args, **kwargs):
+  def save(self, directory: path_types.Path, *args, **kwargs):
     async def async_save(*args, **kwargs):
       commit_futures = await self.async_save(*args, **kwargs)  # pytype: disable=bad-return-type
       # Futures are already running, so sequential waiting is equivalent to
@@ -88,7 +87,9 @@ class CompatibilityCheckpointHandler(
 
     asyncio_utils.run_sync(async_save(directory, *args, **kwargs))
 
-  def restore(self, directory: epath.Path, args: Args | None = None) -> Any:
+  def restore(
+      self, directory: path_types.Path, args: Args | None = None
+  ) -> Any:
     abstract_checkpointable = args.checkpointable if args else None
 
     async def _synchronous_load():
@@ -99,10 +100,10 @@ class CompatibilityCheckpointHandler(
 
     return asyncio_utils.run_sync(_synchronous_load())
 
-  def metadata(self, directory: epath.Path) -> Any | None:
+  def metadata(self, directory: path_types.Path) -> Any | None:
     return asyncio_utils.run_sync(self._handler.metadata(directory))
 
-  def finalize(self, directory: epath.Path) -> None:
+  def finalize(self, directory: path_types.Path) -> None:
     pass
 
   def close(self):

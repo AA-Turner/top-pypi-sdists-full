@@ -6,10 +6,11 @@ build-backend = "hatchling.build"
 name = "hepunits"
 description = "Units and constants in the HEP system of units"
 readme = "README.rst"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
     { name = "Eduardo Rodrigues", email = "eduardo.rodrigues@cern.ch" },
 ]
+license = "BSD-3-Clause"
 maintainers = [
     { name = "Scikit-HEP", email = "scikit-hep-admins@googlegroups.com" },
 ]
@@ -23,17 +24,16 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
 ]
 dynamic = ["version"]
@@ -42,14 +42,17 @@ dynamic = ["version"]
 all = [
     "pytest-cov>=2.8.0",
     "pytest>=6",
+    "pint<0.25.1",
 ]
 dev = [
     "pytest-cov>=2.8.0",
     "pytest>=6",
+    "pint<0.25.1",
 ]
 test = [
     "pytest-cov>=2.8.0",
     "pytest>=6",
+    "pint<0.25.1",
 ]
 
 [project.urls]
@@ -75,7 +78,7 @@ addopts = [
     "--strict-config",
 ]
 xfail_strict = true
-log_cli_level = "DEBUG"
+log_level = "DEBUG"
 
 [tool.check-manifest]
 ignore = [
@@ -86,7 +89,7 @@ ignore = [
 
 [tool.mypy]
 warn_unused_configs = true
-python_version = "3.8"
+python_version = "3.13"
 files = ["src"]
 strict = true
 warn_unreachable = true
@@ -112,9 +115,6 @@ extend-select = [
     "T20",         # flake8-print
     "UP",          # pyupgrade
     "YTT",         # flake8-2020
-]
-ignore = [
-  "ISC001",  # Conflicts with formatter
 ]
 
 [tool.ruff.lint.per-file-ignores]

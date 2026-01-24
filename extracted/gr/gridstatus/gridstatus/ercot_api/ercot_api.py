@@ -9,6 +9,7 @@ from zipfile import ZipFile
 
 import numpy as np
 import pandas as pd
+import pytz
 import requests
 import requests.status_codes as status_codes
 from tqdm import tqdm
@@ -70,7 +71,10 @@ AS_PRICES_ENDPOINT = "/np4-188-cd/dam_clear_price_for_cap"
 # We only use the historical API for AS REPORTS because those downloads are easier
 # to parse (all the files are included in one zip file)
 # https://data.ercot.com/data-product-archive/NP3-911-ER
-AS_REPORTS_EMIL_ID = "np3-911-er"
+AS_REPORTS_DAM_EMIL_ID = "np3-911-er"
+
+# https://data.ercot.com/data-product-archive/NP3-906-EX
+AS_REPORTS_SCED_EMIL_ID = "np3-906-ex"
 
 # https://data.ercot.com/data-product-archive/NP4-33-CD
 AS_PLAN_ENDPOINT = "/np4-33-cd/dam_as_plan"
@@ -403,6 +407,7 @@ class ErcotAPI:
             end_date=end,
             verbose=verbose,
             add_post_datetime=True,
+            include_source_filename=True,
         )
 
         return self._handle_wind_actual_and_forecast_hourly(
@@ -411,22 +416,86 @@ class ErcotAPI:
             verbose=verbose,
         )
 
+    def _determine_ambiguous_timezone_for_publish_time(
+        self,
+        post_datetime_series: pd.Series,
+        raw_data: pd.DataFrame = None,
+    ) -> pd.Series:
+        """
+        Determines which ambiguous timestamps should be CDT vs CST for postDatetime values.
+
+        Rule: Find all unique ambiguous timestamps (1:xx AM).
+        - Timestamps associated with rows containing "xhr" in filename/source are CST
+        - All other ambiguous timestamps are CDT
+
+        Returns a boolean Series where True means CDT and False means CST for ambiguous times.
+        """
+        post_datetime_str = post_datetime_series.astype(str)
+        ambiguous_posts = sorted(
+            [p for p in post_datetime_str.unique() if "T01:" in str(p)],
+        )
+
+        if len(ambiguous_posts) == 0:
+            return pd.Series(
+                [True] * len(post_datetime_series),
+                index=post_datetime_series.index,
+            )
+
+        result = pd.Series(
+            [True] * len(post_datetime_series),
+            index=post_datetime_series.index,
+        )
+
+        # Find CST timestamps by checking for "xhr" in filename
+        if raw_data is not None and "postDatetime" in raw_data.columns:
+            if "_source_filename" in raw_data.columns:
+                xhr_mask = (
+                    raw_data["_source_filename"]
+                    .astype(str)
+                    .str.contains("xhr", case=False, na=False)
+                )
+                if xhr_mask.any():
+                    raw_post_datetime_str = (
+                        raw_data.loc[xhr_mask, "postDatetime"].astype(str).unique()
+                    )
+                    # Mark rows in result that match these postDatetime values as CST
+                    for xhr_post in raw_post_datetime_str:
+                        if "T01:" in str(xhr_post):
+                            result[post_datetime_str == xhr_post] = False
+
+        return result
+
     def _handle_wind_actual_and_forecast_hourly(self, data, columns, verbose=False):
+        # Store raw data before parse_doc to check for xhr in filename
+        raw_data = data.copy()
         data = Ercot().parse_doc(data, verbose=verbose)
 
         data.columns = data.columns.str.replace("_", " ")
 
-        data["Publish Time"] = pd.to_datetime(data["postDatetime"]).dt.tz_localize(
-            self.default_timezone,
-        )
+        try:
+            data["Publish Time"] = pd.to_datetime(data["postDatetime"]).dt.tz_localize(
+                self.default_timezone,
+            )
+        # NOTE: ERCOT gives ambiguous Publish Times for the DST transition
+        # Timestamps with "xhr" in filename are CST, all other ambiguous timestamps are CDT
+        except pytz.exceptions.AmbiguousTimeError:
+            ambiguous_array = self._determine_ambiguous_timezone_for_publish_time(
+                data["postDatetime"],
+                raw_data=raw_data,
+            )
+            data["Publish Time"] = pd.to_datetime(data["postDatetime"]).dt.tz_localize(
+                self.default_timezone,
+                ambiguous=ambiguous_array,
+            )
 
         data = (
             utils.move_cols_to_front(
                 data,
                 ["Interval Start", "Interval End", "Publish Time"],
             )
-            .drop(columns=["Time", "postDatetime"])
+            .drop(columns=["Time", "postDatetime", "_source_filename"], errors="ignore")
             .sort_values(["Interval Start", "Publish Time"])
+            .reset_index(drop=True)
         )
 
         data = Ercot()._rename_hourly_wind_or_solar_report(data)
@@ -500,6 +569,7 @@ class ErcotAPI:
             end_date=end,
             verbose=verbose,
             add_post_datetime=True,
+            include_source_filename=True,
         )
 
         return self._handle_solar_actual_and_forecast_hourly(
@@ -509,29 +579,48 @@ class ErcotAPI:
         )
 
     def _handle_solar_actual_and_forecast_hourly(self, data, columns, verbose=False):
+        # Store raw data before parse_doc to check for xhr in filename
+        raw_data = data.copy()
         data = Ercot().parse_doc(data, verbose=verbose)
 
         data.columns = data.columns.str.replace("_", " ")
 
-        data["Publish Time"] = pd.to_datetime(data["postDatetime"]).dt.tz_localize(
-            self.default_timezone,
-        )
+        try:
+            data["Publish Time"] = pd.to_datetime(data["postDatetime"]).dt.tz_localize(
+                self.default_timezone,
+            )
+        # NOTE: ERCOT gives ambiguous Publish Times for the DST transition
+        # Timestamps with "xhr" in filename are CST, all other ambiguous timestamps are CDT
+        except pytz.exceptions.AmbiguousTimeError:
+            ambiguous_array = self._determine_ambiguous_timezone_for_publish_time(
+                data["postDatetime"],
+                raw_data=raw_data,
+            )
+            data["Publish Time"] = pd.to_datetime(data["postDatetime"]).dt.tz_localize(
+                self.default_timezone,
+                ambiguous=ambiguous_array,
+            )
 
         data = (
             utils.move_cols_to_front(
                 data,
                 ["Interval Start", "Interval End", "Publish Time"],
             )
-            .drop(columns=["Time", "postDatetime"])
+            .drop(columns=["Time", "postDatetime", "_source_filename"], errors="ignore")
             .sort_values(["Interval Start", "Publish Time"])
+            .reset_index(drop=True)
         )
 
         data = Ercot()._rename_hourly_wind_or_solar_report(data)
 
         return data[columns]
 
-    @support_date_range(frequency=None)
-    def get_as_prices(self, date, end=None, verbose=False):
+    def get_as_prices(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
         """Get Ancillary Services Prices
 
         Arguments:
@@ -541,18 +630,28 @@ class ErcotAPI:
             verbose (bool, optional): print verbose output. Defaults to False.
 
         Returns:
-            pandas.DataFrame: A DataFrame with ancillary services prices
+            pandas.DataFrame: A DataFrame with ancillary services prices as the columns
         """
+        data = self.get_mcpc_data(date, end=end, verbose=verbose)
+        return self._handle_as_prices(data, verbose=verbose)
+
+    @support_date_range(frequency=None)
+    def get_mcpc_data(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
         if date == "latest":
-            return self.get_as_prices("today", verbose=verbose)
+            return self.get_mcpc_data("today", verbose=verbose)
 
         end = self._handle_end_date(date, end, days_to_add_if_no_end=1)
 
         if self._should_use_historical(date):
             data = self.get_historical_data(
-                # Need to subtract 1 because we filter by posted date and this data
-                # is day-ahead
                 endpoint=AS_PRICES_ENDPOINT,
+                # Need to subtract 1 day because we filter by posted date in thie
+                # historical api and this data is day-ahead
                 start_date=date - pd.Timedelta(days=1),
                 end_date=end - pd.Timedelta(days=1),
                 verbose=verbose,
@@ -560,19 +659,26 @@ class ErcotAPI:
         else:
             api_params = {
                 "deliveryDateFrom": date,
-                "deliveryDateTo": end,
+                # Subtract off one second to avoid including the end date
+                "deliveryDateTo": end - pd.Timedelta(seconds=1),
             }
 
             data = self.hit_ercot_api(
                 endpoint=AS_PRICES_ENDPOINT,
                 page_size=DEFAULT_PAGE_SIZE,
                 verbose=verbose,
+                # We do not need to add 1 day because this API filters by
+                # delivery date
                 **api_params,
             )
 
-        return self._handle_as_prices(data, verbose=verbose)
+        return data
 
-    def _handle_as_prices(self, data, verbose=False):
+    def _handle_as_prices(
+        self,
+        data: pd.DataFrame,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
         data = self.ercot.parse_doc(data, verbose=verbose)
         data = self.ercot._finalize_as_price_df(data, pivot=True)
 
@@ -582,6 +688,42 @@ class ErcotAPI:
             .reset_index(
                 drop=True,
             )
+        )
+
+    def get_mcpc_dam(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get Market Clearing Price for Capacity (MCPC) Day-Ahead Market
+
+        Arguments:
+            date (str): the date to fetch prices for. Can be "latest" to fetch the next
+                day's prices.
+            end (str, optional): the end date to fetch prices for. Defaults to None.
+            verbose (bool, optional): print verbose output. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with MCPC prices in a long format (column for
+             AS Type)
+        """
+        data = self.get_mcpc_data(date, end=end, verbose=verbose)
+        return self._handle_mcpc_data(data, verbose=True)
+
+    def _handle_mcpc_data(
+        self,
+        data: pd.DataFrame,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        data = self.ercot.parse_doc(data, verbose=verbose).rename(
+            columns={"AncillaryType": "AS Type"},
+        )
+
+        return (
+            data[["Interval Start", "Interval End", "AS Type", "MCPC"]]
+            .sort_values(["Interval Start", "AS Type"])
+            .reset_index(drop=True)
         )
 
     @support_date_range(frequency=None)
@@ -596,8 +738,12 @@ class ErcotAPI:
         Returns:
             pandas.DataFrame: A DataFrame with ancillary services reports
         """
-        if date == "latest" or utils.is_today(date, tz=self.default_timezone):
-            raise ValueError("Cannot get AS reports for 'latest' or 'today'")
+        # This method is not supported starting with the file published on 2025-12-08
+        # (with data for 2025-12-06)
+        if date >= pd.Timestamp("2025-12-06", tz=self.default_timezone):
+            raise ValueError(
+                "This method is not supported starting with the file published on 2025-12-08 (with data for 2025-12-06) because the data significantly changed with the launch of ERCOT RTC+B. Please use get_reports_as_dam on or after this date.",
+            )
 
         offset = pd.DateOffset(days=2)
 
@@ -610,7 +756,7 @@ class ErcotAPI:
             end = self._handle_end_date(report_date, end, days_to_add_if_no_end=1)
 
         links_and_posted_datetimes = self._get_historical_data_links(
-            emil_id=AS_REPORTS_EMIL_ID,
+            emil_id=AS_REPORTS_DAM_EMIL_ID,
             start_date=report_date,
             end_date=end,
             verbose=verbose,
@@ -633,6 +779,112 @@ class ErcotAPI:
             .drop(columns=["Time"])
             .sort_values("Interval Start")
         )
+
+    @support_date_range(frequency=None)
+    def get_as_reports_dam(self, date, end=None, verbose=False):
+        """Get Day-Ahead Market Ancillary Services Reports.
+
+        Published with a 2 day delay around 3am central.
+
+        Contains cleared, self-arranged, and bid curve data for each AS product.
+
+        Arguments:
+            date (str): the date to fetch reports for.
+            end (str, optional): the end date to fetch reports for. Defaults to None.
+            verbose (bool, optional): print verbose output. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with DAM ancillary services reports
+        """
+        if date == "latest":
+            date = self.local_start_of_today() - pd.DateOffset(days=2)
+
+        offset = pd.DateOffset(days=2)
+
+        # Published with a 2-day delay
+        report_date = date.normalize() + offset
+
+        if end:
+            end = end + offset
+        else:
+            end = self._handle_end_date(report_date, end, days_to_add_if_no_end=1)
+
+        links_and_posted_datetimes = self._get_historical_data_links(
+            emil_id=AS_REPORTS_DAM_EMIL_ID,
+            start_date=report_date,
+            end_date=end,
+            verbose=verbose,
+        )
+
+        urls = [tup[0] for tup in links_and_posted_datetimes]
+
+        dfs = [
+            self.ercot._handle_as_reports_dam_file(
+                url,
+                verbose=verbose,
+                headers=self.headers(),
+            )
+            for url in urls
+        ]
+
+        return (
+            pd.concat(dfs)
+            .reset_index(drop=True)
+            .drop(columns=["Time"])
+            .sort_values("Interval Start")
+        )
+
+    @support_date_range(frequency=None)
+    def get_as_reports_sced(self, date, end=None, verbose=False):
+        """Get 2-Day SCED Ancillary Service Disclosure Reports.
+
+        Published with a 2 day delay around 3am central.
+
+        Contains offer curves (MW offered and price) for each AS product
+        at each SCED timestamp.
+
+        Output columns: SCED Timestamp, AS Type, Offer Curve
+
+        Arguments:
+            date (str): the date to fetch reports for.
+            end (str, optional): the end date to fetch reports for. Defaults to None.
+            verbose (bool, optional): print verbose output. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with SCED ancillary services offers
+        """
+        if date == "latest":
+            date = self.local_start_of_today() - pd.DateOffset(days=2)
+
+        offset = pd.DateOffset(days=2)
+
+        # Published with a 2-day delay
+        report_date = date.normalize() + offset
+
+        if end:
+            end = end + offset
+        else:
+            end = self._handle_end_date(report_date, end, days_to_add_if_no_end=1)
+
+        links_and_posted_datetimes = self._get_historical_data_links(
+            emil_id=AS_REPORTS_SCED_EMIL_ID,
+            start_date=report_date,
+            end_date=end,
+            verbose=verbose,
+        )
+
+        urls = [tup[0] for tup in links_and_posted_datetimes]
+
+        dfs = [
+            self.ercot._handle_as_reports_sced_file(
+                url,
+                verbose=verbose,
+                headers=self.headers(),
+            )
+            for url in urls
+        ]
+
+        return pd.concat(dfs).reset_index(drop=True).sort_values("SCED Timestamp")
 
     @support_date_range(frequency=None)
     def get_as_plan(self, date, end=None, verbose=False):
@@ -1348,23 +1600,39 @@ class ErcotAPI:
             **api_params,
         )
 
-        data["AGCExecTimeUTC"] = pd.to_datetime(
-            data["AGCExecTimeUTC"],
-            utc=True,
-        ).dt.tz_convert(
+        # During the DST end transition, ERCOT publishes duplicate values like this:
+        # AGCExecTime         DSTFlag AGCExecTimeUTC       SystemDemand ESRChargingMW
+        # 2025-11-02T01:13:33 False   2025-11-02T07:13:33  42476.2188   2192.14233
+        # 2025-11-02T01:13:33 True    2025-11-02T07:13:33  41154.0469   1275.81592
+        # 2025-11-02T01:13:33 False   2025-11-02T06:13:33  42476.2188   2192.14233
+        # Even though the UTC times are different between rows 1 and 3, they have the
+        # same system demand and charging values and must be duplicates because the odds
+        # of these values being the same one hour apart is infinitesimal. So, we drop
+        # one of rows 1 and 3 and don't use the UTC time.
+        if (
+            # DST transition check
+            pd.to_datetime(data["AGCExecTime"].min()).tz
+            != pd.to_datetime(data["AGCExecTime"].max()).tz
+        ):
+            data = data.drop_duplicates(
+                subset=["AGCExecTime", "DSTFlag", "SystemDemand"],
+            )
+
+        data["AGCExecTime"] = pd.to_datetime(data["AGCExecTime"]).dt.tz_localize(
             self.default_timezone,
+            ambiguous=Ercot().ambiguous_based_on_dstflag(data),
         )
 
         data = data.rename(
             columns={
-                "AGCExecTimeUTC": "Time",
+                "AGCExecTime": "Time",
                 "SystemDemand": "System Demand",
                 "ESRChargingMW": "ESR Charging MW",
             },
         )
 
         data = (
-            data.drop(columns=["DSTFlag", "AGCExecTime"])
+            data.drop(columns=["DSTFlag", "AGCExecTimeUTC"])
             .sort_values("Time")
             .reset_index(drop=True)
         )
@@ -1380,6 +1648,7 @@ class ErcotAPI:
         add_post_datetime: bool = False,
         verbose: bool = False,
         bulk_download: bool = True,
+        include_source_filename: bool = False,
         api: APITypeEnum = APITypeEnum.PUBLIC_API,
     ) -> pd.DataFrame:
         """Retrieves historical data from the given emil_id from start to end date.
@@ -1406,6 +1675,9 @@ class ErcotAPI:
             verbose [bool]: if True, will print out status messages
             bulk_download [bool]: if True, will download the data in batches
                 docIds. This is useful for avoiding rate limiting.
+            include_source_filename [bool]: if True, the returned dataframe will
+                include a column with the filename each row came from. Defaults to
+                False.
 
         Returns:
             [pandas.DataFrame]: a dataframe of historical data
@@ -1446,10 +1718,20 @@ class ErcotAPI:
             return files
 
         dfs = []
-        for bytes, posted_datetime in zip(files, posted_datetimes):
-            df = pd.read_csv(bytes, compression="zip")
+        for file_data, posted_datetime, link in zip(files, posted_datetimes, links):
+            # Handle both tuple (bytes, filename) and plain bytes for backward compatibility
+            if isinstance(file_data, tuple):
+                bytes_data, filename = file_data
+            else:
+                bytes_data = file_data
+                filename = None
+
+            df = pd.read_csv(bytes_data, compression="zip")
             if add_post_datetime:
                 df["postDatetime"] = posted_datetime
+            if include_source_filename:
+                # Store filename for xhr detection (prefer filename from zip, fallback to link)
+                df["_source_filename"] = filename if filename else link
             dfs.append(df)
 
         return pd.concat(dfs)
@@ -1506,7 +1788,7 @@ class ErcotAPI:
         doc_ids: list[str],
         emil_id: str,
         api: APITypeEnum = APITypeEnum.PUBLIC_API,
-    ) -> list[pd.io.common.BytesIO]:
+    ) -> list[tuple[pd.io.common.BytesIO, str]]:
         documents = []
         doc_id_batches = [
             doc_ids[i : i + self.batch_size]
@@ -1525,19 +1807,21 @@ class ErcotAPI:
             )
 
             with ZipFile(pd.io.common.BytesIO(response)) as outer_zip:
+                file_list = outer_zip.namelist()
                 logger.debug(
-                    f"Received zip file with {len(outer_zip.namelist())} files",
+                    f"Received zip file with {len(file_list)} files",
                 )
 
-                for inner_zip_name in outer_zip.namelist():
+                for inner_zip_name in file_list:
                     # place the document in the correct index
                     # based of the supplied doc_ids order
                     # since downstream code expects this
                     doc_id = inner_zip_name.split(".")[0]
                     doc_index = doc_ids.index(doc_id)
                     with outer_zip.open(inner_zip_name) as inner_zip_file:
-                        documents[doc_index] = pd.io.common.BytesIO(
-                            inner_zip_file.read(),
+                        documents[doc_index] = (
+                            pd.io.common.BytesIO(inner_zip_file.read()),
+                            inner_zip_name,  # Store filename for xhr detection
                         )
 
         # assert there are no None values in the documents list

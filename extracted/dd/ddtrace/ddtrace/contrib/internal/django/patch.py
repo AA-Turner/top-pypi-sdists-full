@@ -7,7 +7,6 @@ Django internals are instrumented via normal `patch()`.
 specific Django apps like Django Rest Framework (DRF).
 """
 
-import functools
 from inspect import getmro
 from inspect import unwrap
 import os
@@ -19,15 +18,10 @@ from wrapt.importer import when_imported
 
 from ddtrace import config
 from ddtrace._trace.pin import Pin
-from ddtrace.constants import SPAN_KIND
 from ddtrace.contrib import trace_utils
 from ddtrace.contrib.internal.django.user import _DjangoUserInfoRetriever
-from ddtrace.contrib.internal.trace_utils import _get_request_header_user_agent
-from ddtrace.ext import SpanKind
-from ddtrace.ext import SpanTypes
-from ddtrace.ext import http
 from ddtrace.internal import core
-from ddtrace.internal._exceptions import BlockingException
+from ddtrace.internal.compat import is_wrapted
 from ddtrace.internal.constants import COMPONENT
 from ddtrace.internal.core.event_hub import ResultType
 from ddtrace.internal.endpoints import endpoint_collection
@@ -35,19 +29,18 @@ from ddtrace.internal.logger import get_logger
 from ddtrace.internal.schema import schematize_service_name
 from ddtrace.internal.schema import schematize_url_operation
 from ddtrace.internal.schema.span_attribute_schema import SpanDirection
+from ddtrace.internal.settings.asm import config as asm_config
+from ddtrace.internal.settings.integration import IntegrationConfig
 from ddtrace.internal.telemetry import get_config as _get_config
 from ddtrace.internal.utils import get_argument_value
-from ddtrace.internal.utils import get_blocked
-from ddtrace.internal.utils import http as http_utils
-from ddtrace.internal.utils import set_blocked
 from ddtrace.internal.utils.formats import asbool
 from ddtrace.internal.utils.importlib import func_name
-from ddtrace.settings.asm import config as asm_config
-from ddtrace.settings.integration import IntegrationConfig
 from ddtrace.vendor.packaging.version import parse as parse_version
 
 
 log = get_logger(__name__)
+
+DJANGO_TRACING_MINIMAL = asbool(_get_config("DD_DJANGO_TRACING_MINIMAL", default=True))
 
 config._add(
     "django",
@@ -59,10 +52,9 @@ config._add(
         trace_fetch_methods=asbool(os.getenv("DD_DJANGO_TRACE_FETCH_METHODS", default=False)),
         distributed_tracing_enabled=True,
         instrument_middleware=asbool(os.getenv("DD_DJANGO_INSTRUMENT_MIDDLEWARE", default=True)),
-        instrument_templates=asbool(os.getenv("DD_DJANGO_INSTRUMENT_TEMPLATES", default=True)),
-        instrument_databases=asbool(os.getenv("DD_DJANGO_INSTRUMENT_DATABASES", default=True)),
-        always_create_database_spans=asbool(os.getenv("DD_DJANGO_ALWAYS_CREATE_DATABASE_SPANS", default=True)),
-        instrument_caches=asbool(os.getenv("DD_DJANGO_INSTRUMENT_CACHES", default=True)),
+        instrument_templates=asbool(os.getenv("DD_DJANGO_INSTRUMENT_TEMPLATES", default=not DJANGO_TRACING_MINIMAL)),
+        instrument_databases=asbool(os.getenv("DD_DJANGO_INSTRUMENT_DATABASES", default=not DJANGO_TRACING_MINIMAL)),
+        instrument_caches=asbool(os.getenv("DD_DJANGO_INSTRUMENT_CACHES", default=not DJANGO_TRACING_MINIMAL)),
         trace_query_string=None,  # Default to global config
         include_user_name=asm_config._django_include_user_name,
         include_user_email=asm_config._django_include_user_email,
@@ -170,9 +162,10 @@ def traced_populate(django, pin, func, instance, args, kwargs):
 def traced_func(django, name, resource=None, ignored_excs=None):
     def wrapped(django, pin, func, instance, args, kwargs):
         tags = {COMPONENT: config_django.integration_name}
-        with core.context_with_data(
-            "django.func.wrapped", span_name=name, resource=resource, tags=tags, pin=pin
-        ) as ctx, ctx.span:
+        with (
+            core.context_with_data("django.func.wrapped", span_name=name, resource=resource, tags=tags, pin=pin) as ctx,
+            ctx.span,
+        ):
             core.dispatch(
                 "django.func.wrapped",
                 (
@@ -210,146 +203,6 @@ def traced_load_middleware(django, pin, func, instance, args, kwargs):
         wrap_middleware(mw, mw_path)
 
     return func(*args, **kwargs)
-
-
-def _gather_block_metadata(request, request_headers, ctx: core.ExecutionContext):
-    from . import utils
-
-    try:
-        metadata = {http.STATUS_CODE: "403", http.METHOD: request.method}
-        url = utils.get_request_uri(request)
-        query = request.META.get("QUERY_STRING", "")
-        if query and config_django.trace_query_string:
-            metadata[http.QUERY_STRING] = query
-        user_agent = _get_request_header_user_agent(request_headers)
-        if user_agent:
-            metadata[http.USER_AGENT] = user_agent
-    except Exception as e:
-        log.warning("Could not gather some metadata on blocked request: %s", str(e))
-    core.dispatch("django.block_request_callback", (ctx, metadata, config_django, url, query))
-
-
-def _block_request_callable(request, request_headers, ctx: core.ExecutionContext):
-    # This is used by user-id blocking to block responses. It could be called
-    # at any point so it's a callable stored in the ASM context.
-    from django.core.exceptions import PermissionDenied
-
-    set_blocked()
-    _gather_block_metadata(request, request_headers, ctx)
-    raise PermissionDenied()
-
-
-@trace_utils.with_traced_module
-def traced_get_response(django, pin, func, instance, args, kwargs):
-    """Trace django.core.handlers.base.BaseHandler.get_response() (or other implementations).
-
-    This is the main entry point for requests.
-
-    Django requests are handled by a Handler.get_response method (inherited from base.BaseHandler).
-    This method invokes the middleware chain and returns the response generated by the chain.
-    """
-    from ddtrace.contrib.internal.django.compat import get_resolver
-
-    from . import utils
-
-    request = get_argument_value(args, kwargs, 0, "request")
-    if request is None:
-        return func(*args, **kwargs)
-
-    request_headers = utils._get_request_headers(request)
-
-    with core.context_with_data(
-        "django.traced_get_response",
-        remote_addr=request.META.get("REMOTE_ADDR"),
-        headers=request_headers,
-        headers_case_sensitive=True,
-        span_name=schematize_url_operation("django.request", protocol="http", direction=SpanDirection.INBOUND),
-        resource=utils.REQUEST_DEFAULT_RESOURCE,
-        service=trace_utils.int_service(pin, config_django),
-        span_type=SpanTypes.WEB,
-        tags={COMPONENT: config_django.integration_name, SPAN_KIND: SpanKind.SERVER},
-        integration_config=config_django,
-        distributed_headers=request_headers,
-        activate_distributed_headers=True,
-        pin=pin,
-    ) as ctx, ctx.span:
-        core.dispatch(
-            "django.traced_get_response.pre",
-            (
-                functools.partial(_block_request_callable, request, request_headers, ctx),
-                ctx,
-                request,
-                utils._before_request_tags,
-            ),
-        )
-
-        response = None
-
-        def blocked_response():
-            from django.http import HttpResponse
-
-            block_config = get_blocked() or {}
-            desired_type = block_config.get("type", "auto")
-            status = block_config.get("status_code", 403)
-            if desired_type == "none":
-                response = HttpResponse("", status=status)
-                location = block_config.get("location", "")
-                if location:
-                    response["location"] = location
-            else:
-                ctype = block_config.get("content-type", "application/json")
-                content = http_utils._get_blocked_template(ctype)
-                response = HttpResponse(content, content_type=ctype, status=status)
-                response.content = content
-                response["Content-Length"] = len(content.encode())
-            utils._after_request_tags(pin, ctx.span, request, response)
-            return response
-
-        try:
-            if get_blocked():
-                response = blocked_response()
-                return response
-
-            query = request.META.get("QUERY_STRING", "")
-            uri = utils.get_request_uri(request)
-            if uri is not None and query:
-                uri += "?" + query
-            resolver = get_resolver(getattr(request, "urlconf", None))
-            if resolver:
-                try:
-                    path = resolver.resolve(request.path_info).kwargs
-                    log.debug("resolver.pattern %s", path)
-                except Exception:
-                    path = None
-
-            core.dispatch(
-                "django.start_response", (ctx, request, utils._extract_body, utils._remake_body, query, uri, path)
-            )
-            core.dispatch("django.start_response.post", ("Django",))
-
-            if get_blocked():
-                response = blocked_response()
-                return response
-
-            try:
-                response = func(*args, **kwargs)
-            except BlockingException as e:
-                set_blocked(e.args[0])
-                response = blocked_response()
-                return response
-
-            if get_blocked():
-                response = blocked_response()
-                return response
-
-            return response
-        finally:
-            core.dispatch("django.finalize_response.pre", (ctx, utils._after_request_tags, request, response))
-            if not get_blocked():
-                core.dispatch("django.finalize_response", ("Django",))
-                if get_blocked():
-                    response = blocked_response()
-                    return response  # noqa: B012
 
 
 def instrument_view(django, view, path=None):
@@ -398,7 +251,7 @@ def _instrument_view(django, view, path=None):
     for name in list(request_method_list or _DEFAULT_METHODS) + list(lifecycle_methods):
         try:
             func = getattr(view, name, None)
-            if not func or isinstance(func, wrapt.ObjectProxy):
+            if not func or is_wrapted(func):
                 continue
 
             resource = "{0}.{1}".format(func_name(view), name)
@@ -415,7 +268,7 @@ def _instrument_view(django, view, path=None):
             try:
                 func = getattr(response_cls, name, None)
                 # Do not wrap if the method does not exist or is already wrapped
-                if not func or isinstance(func, wrapt.ObjectProxy):
+                if not func or is_wrapted(func):
                     continue
 
                 resource = "{0}.{1}".format(func_name(response_cls), name)
@@ -425,7 +278,7 @@ def _instrument_view(django, view, path=None):
                 log.debug("Failed to instrument Django response %r function %s", response_cls, name, exc_info=True)
 
     # If the view itself is not wrapped, wrap it
-    if not isinstance(view, wrapt.ObjectProxy):
+    if not is_wrapted(view):
         view = utils.DjangoViewProxy(
             view, traced_func(django, "django.view", resource=func_name(view), ignored_excs=[django.http.Http404])
         )
@@ -494,7 +347,7 @@ def traced_get_asgi_application(django, pin, func, instance, args, kwargs):
 
     def django_asgi_modifier(span, scope):
         span.name = schematize_url_operation("django.request", protocol="http", direction=SpanDirection.INBOUND)
-        span.set_tag_str(COMPONENT, config_django.integration_name)
+        span._set_tag_str(COMPONENT, config_django.integration_name)
 
     return TraceMiddleware(func(*args, **kwargs), integration_config=config_django, span_modifier=django_asgi_modifier)
 
@@ -520,7 +373,7 @@ def traced_authenticate(django, pin, func, instance, args, kwargs):
     if mode == "disabled":
         return result_user
     try:
-        result = core.dispatch_with_results(
+        result = core.dispatch_with_results(  # ast-grep-ignore: core-dispatch-with-results
             "django.auth",
             (result_user, mode, kwargs, pin, _DjangoUserInfoRetriever(result_user, credentials=kwargs), config_django),
         ).user
@@ -579,14 +432,9 @@ def _patch(django):
 
     @when_imported("django.core.handlers.base")
     def _(m):
-        import django
+        from .response import instrument_module
 
-        trace_utils.wrap(m, "BaseHandler.get_response", traced_get_response(django))
-        if django.VERSION >= (3, 1):
-            # Have to inline this import as the module contains syntax incompatible with Python 3.5 and below
-            from ._asgi import traced_get_response_async
-
-            trace_utils.wrap(m, "BaseHandler.get_response_async", traced_get_response_async(django))
+        instrument_module(django, m)
 
     @when_imported("django.contrib.auth")
     def _(m):
@@ -625,7 +473,8 @@ def _patch(django):
     def _(m):
         import channels
 
-        channels_version = parse_version(channels.__version__)
+        channels_version_str = getattr(channels, "__version__", "")
+        channels_version = parse_version(channels_version_str)
         if channels_version >= parse_version("3.0"):
             # ASGI3 is only supported in channels v3.0+
             trace_utils.wrap(m, "URLRouter.__init__", unwrap_views)
@@ -636,7 +485,9 @@ def _patch(django):
 
 
 def wrap_wsgi_environ(wrapped, _instance, args, kwargs):
-    result = core.dispatch_with_results("django.wsgi_environ", (wrapped, _instance, args, kwargs)).wrapped_result
+    result = core.dispatch_with_results(  # ast-grep-ignore: core-dispatch-with-results
+        "django.wsgi_environ", (wrapped, _instance, args, kwargs)
+    ).wrapped_result
     # if the callback is registered and runs, return the result
     if result:
         return result.value
@@ -661,8 +512,6 @@ def patch():
 def _unpatch(django):
     trace_utils.unwrap(django.apps.registry.Apps, "populate")
     trace_utils.unwrap(django.core.handlers.base.BaseHandler, "load_middleware")
-    trace_utils.unwrap(django.core.handlers.base.BaseHandler, "get_response")
-    trace_utils.unwrap(django.core.handlers.base.BaseHandler, "get_response_async")
     trace_utils.unwrap(django.template.base.Template, "render")
     trace_utils.unwrap(django.conf.urls.static, "static")
     trace_utils.unwrap(django.conf.urls, "url")
@@ -681,6 +530,10 @@ def _unpatch(django):
         from . import templates
 
         templates.uninstrument_module(django.template.base)
+
+    from .response import uninstrument_module
+
+    uninstrument_module(django, django.core.handlers.base)
 
 
 def unpatch():

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import json as jsonlib
 import logging
 import random
 import string
@@ -110,7 +109,7 @@ class RunClient(ActorJobBaseClient):
             wait_secs: How long does the client wait for run to finish. None for indefinite.
 
         Returns:
-            The Actor run data. If the status on the object is not one of the terminal statuses (SUCEEDED, FAILED,
+            The Actor run data. If the status on the object is not one of the terminal statuses (SUCCEEDED, FAILED,
                 TIMED_OUT, ABORTED), then the run has not yet finished.
         """
         return self._wait_for_finish(wait_secs=wait_secs)
@@ -152,7 +151,7 @@ class RunClient(ActorJobBaseClient):
             params=request_params,
         )
 
-        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
+        return parse_date_fields(pluck_data(response.json()))
 
     def resurrect(
         self,
@@ -162,6 +161,7 @@ class RunClient(ActorJobBaseClient):
         timeout_secs: int | None = None,
         max_items: int | None = None,
         max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
     ) -> dict:
         """Resurrect a finished Actor run.
 
@@ -181,6 +181,8 @@ class RunClient(ActorJobBaseClient):
                 resurrected run uses the same limit as before. Limit can be only increased.
             max_total_charge_usd: Maximum cost for the resurrected pay-per-event run in USD. By default, the
                 resurrected run uses the same limit as before. Limit can be only increased.
+            restart_on_error: Determines whether the resurrected run will be restarted if it fails.
+                By default, the resurrected run uses the same setting as before.
 
         Returns:
             The Actor run data.
@@ -191,6 +193,7 @@ class RunClient(ActorJobBaseClient):
             timeout=timeout_secs,
             maxItems=max_items,
             maxTotalChargeUsd=max_total_charge_usd,
+            restartOnError=restart_on_error,
         )
 
         response = self.http_client.call(
@@ -199,7 +202,7 @@ class RunClient(ActorJobBaseClient):
             params=request_params,
         )
 
-        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
+        return parse_date_fields(pluck_data(response.json()))
 
     def reboot(self) -> dict:
         """Reboot an Actor run. Only runs that are running, i.e. runs with status RUNNING can be rebooted.
@@ -213,7 +216,7 @@ class RunClient(ActorJobBaseClient):
             url=self._url('reboot'),
             method='POST',
         )
-        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
+        return parse_date_fields(pluck_data(response.json()))
 
     def dataset(self) -> DatasetClient:
         """Get the client for the default dataset of the Actor run.
@@ -421,7 +424,7 @@ class RunClientAsync(ActorJobBaseClientAsync):
             wait_secs: How long does the client wait for run to finish. None for indefinite.
 
         Returns:
-            The Actor run data. If the status on the object is not one of the terminal statuses (SUCEEDED, FAILED,
+            The Actor run data. If the status on the object is not one of the terminal statuses (SUCCEEDED, FAILED,
                 TIMED_OUT, ABORTED), then the run has not yet finished.
         """
         return await self._wait_for_finish(wait_secs=wait_secs)
@@ -473,7 +476,7 @@ class RunClientAsync(ActorJobBaseClientAsync):
             params=request_params,
         )
 
-        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
+        return parse_date_fields(pluck_data(response.json()))
 
     async def resurrect(
         self,
@@ -483,6 +486,7 @@ class RunClientAsync(ActorJobBaseClientAsync):
         timeout_secs: int | None = None,
         max_items: int | None = None,
         max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
     ) -> dict:
         """Resurrect a finished Actor run.
 
@@ -502,6 +506,8 @@ class RunClientAsync(ActorJobBaseClientAsync):
                 resurrected run uses the same limit as before. Limit can be only increased.
             max_total_charge_usd: Maximum cost for the resurrected pay-per-event run in USD. By default, the
                 resurrected run uses the same limit as before. Limit can be only increased.
+            restart_on_error: Determines whether the resurrected run will be restarted if it fails.
+                By default, the resurrected run uses the same setting as before.
 
         Returns:
             The Actor run data.
@@ -512,6 +518,7 @@ class RunClientAsync(ActorJobBaseClientAsync):
             timeout=timeout_secs,
             maxItems=max_items,
             maxTotalChargeUsd=max_total_charge_usd,
+            restartOnError=restart_on_error,
         )
 
         response = await self.http_client.call(
@@ -520,7 +527,7 @@ class RunClientAsync(ActorJobBaseClientAsync):
             params=request_params,
         )
 
-        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
+        return parse_date_fields(pluck_data(response.json()))
 
     async def reboot(self) -> dict:
         """Reboot an Actor run. Only runs that are running, i.e. runs with status RUNNING can be rebooted.
@@ -534,7 +541,7 @@ class RunClientAsync(ActorJobBaseClientAsync):
             url=self._url('reboot'),
             method='POST',
         )
-        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
+        return parse_date_fields(pluck_data(response.json()))
 
     def dataset(self) -> DatasetClientAsync:
         """Get the client for the default dataset of the Actor run.

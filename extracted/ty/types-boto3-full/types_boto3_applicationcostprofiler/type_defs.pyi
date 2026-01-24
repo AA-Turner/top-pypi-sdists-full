@@ -3,7 +3,7 @@ Type annotations for applicationcostprofiler service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_applicationcostprofiler/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -21,11 +21,6 @@ from datetime import datetime
 
 from .literals import FormatType, ReportFrequencyType, S3BucketRegionType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -58,7 +53,7 @@ class DeleteReportDefinitionRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -152,6 +147,6 @@ class ListReportDefinitionsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListReportDefinitionsResultTypeDef(TypedDict):
-    reportDefinitions: List[ReportDefinitionTypeDef]
+    reportDefinitions: list[ReportDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

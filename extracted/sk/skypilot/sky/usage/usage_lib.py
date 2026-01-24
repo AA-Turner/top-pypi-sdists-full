@@ -14,6 +14,7 @@ from typing_extensions import ParamSpec
 
 import sky
 from sky import sky_logging
+from sky import skypilot_config
 from sky.adaptors import common as adaptors_common
 from sky.usage import constants
 from sky.utils import common_utils
@@ -167,6 +168,7 @@ class UsageMessageToReport(MessageToReport):
         self.runtimes: Dict[str, float] = {}  # update_runtime
         self.exception: Optional[str] = None  # entrypoint_context
         self.stacktrace: Optional[str] = None  # entrypoint_context
+        self.skypilot_config: Optional[Dict[str, Any]] = None
 
         # Whether API server is deployed remotely.
         self.using_remote_api_server: bool = (
@@ -177,6 +179,7 @@ class UsageMessageToReport(MessageToReport):
             self.client_entrypoint = common_utils.get_current_client_entrypoint(
                 msg)
         self.entrypoint = msg
+        self.skypilot_config = dict(skypilot_config.to_dict())
 
     def set_internal(self):
         self.internal = True
@@ -313,21 +316,30 @@ class MessageCollection:
     """A collection of messages."""
 
     def __init__(self):
-        self._messages = {
+        self._messages: Dict[MessageType, MessageToReport] = {
             MessageType.USAGE: UsageMessageToReport(),
             MessageType.HEARTBEAT: HeartbeatMessageToReport()
         }
 
     @property
     def usage(self) -> UsageMessageToReport:
-        return self._messages[MessageType.USAGE]
+        msg = self._messages[MessageType.USAGE]
+        assert isinstance(msg, UsageMessageToReport)
+        return msg
 
     @property
     def heartbeat(self) -> HeartbeatMessageToReport:
-        return self._messages[MessageType.HEARTBEAT]
+        msg = self._messages[MessageType.HEARTBEAT]
+        assert isinstance(msg, HeartbeatMessageToReport)
+        return msg
 
     def reset(self, message_type: MessageType):
-        self._messages[message_type] = self._messages[message_type].__class__()
+        if message_type == MessageType.USAGE:
+            self._messages[message_type] = UsageMessageToReport()
+        elif message_type == MessageType.HEARTBEAT:
+            self._messages[message_type] = HeartbeatMessageToReport()
+        else:
+            raise ValueError(f'Unknown message type: {message_type}')
 
     def __getitem__(self, key):
         return self._messages[key]

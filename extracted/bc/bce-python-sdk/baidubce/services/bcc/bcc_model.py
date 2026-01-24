@@ -70,11 +70,12 @@ class CreateCdsModel(object):
 	param: encryptKey
 	"""
 
-    def __init__(self, cdsSizeInGB=None, storageType='hp1', snapshotId=None, encryptKey=None):
+    def __init__(self, cdsSizeInGB=None, storageType='hp1', snapshotId=None, encryptKey=None, deleteWithInstance=None):
         self.cdsSizeInGB = cdsSizeInGB
         self.storageType = storageType
         self.snapshotId = snapshotId
         self.encryptKey = encryptKey
+        self.deleteWithInstance = deleteWithInstance
 
 
 class SecurityGroupRuleModel(object):
@@ -141,10 +142,11 @@ class PayTimingChangeReqModel(object):
     """
 
     def __init__(self, instanceId, relationCds=False, cdsList=None, duration=None, autoPay=True,
-                 autoRenew=None, autoRenewPeriod=None):
+                 autoRenew=None, autoRenewPeriod=None, effectiveType=None):
         self.instanceId = instanceId
         self.relationCds = relationCds
         self.cdsList = cdsList
+        self.effectiveType = effectiveType
         self.duration = duration
         self.autoPay = autoPay
         self.autoRenew = autoRenew

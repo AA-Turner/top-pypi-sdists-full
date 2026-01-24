@@ -23,7 +23,7 @@ class File:
         "created_by_bundle_registration_id": None,  # int64 - ID of the Bundle Registration that created the file/folder
         "created_by_inbox_id": None,  # int64 - ID of the Inbox that created the file/folder
         "created_by_remote_server_id": None,  # int64 - ID of the Remote Server that created the file/folder
-        "created_by_remote_server_sync_id": None,  # int64 - ID of the Remote Server Sync that created the file/folder
+        "created_by_sync_id": None,  # int64 - ID of the Sync that created the file/folder
         "custom_metadata": None,  # object - Custom metadata map of keys and values. Limited to 32 keys, 256 characters per key and 1024 characters per value.
         "display_name": None,  # string - File/Folder display name
         "type": None,  # string - Type: `directory` or `file`.
@@ -34,7 +34,7 @@ class File:
         "last_modified_by_automation_id": None,  # int64 - ID of the Automation that last modified the file/folder
         "last_modified_by_bundle_registration_id": None,  # int64 - ID of the Bundle Registration that last modified the file/folder
         "last_modified_by_remote_server_id": None,  # int64 - ID of the Remote Server that last modified the file/folder
-        "last_modified_by_remote_server_sync_id": None,  # int64 - ID of the Remote Server Sync that last modified the file/folder
+        "last_modified_by_sync_id": None,  # int64 - ID of the Sync that last modified the file/folder
         "mtime": None,  # date-time - File last modified date/time, according to the server.  This is the timestamp of the last Files.com operation of the file, regardless of what modified timestamp was sent.
         "provided_mtime": None,  # date-time - File last modified date/time, according to the client who set it.  Files.com allows desktop, FTP, SFTP, and WebDAV clients to set modified at times.  This allows Desktop<->Cloud syncing to preserve modified at times.
         "crc32": None,  # string - File CRC32 checksum. This is sometimes delayed, so if you get a blank response, wait and try again.
@@ -59,6 +59,7 @@ class File:
         "restart": None,  # int64 - File byte offset to restart from.
         "structure": None,  # string - If copying folder, copy just the structure?
         "with_rename": None,  # boolean - Allow file rename instead of overwrite?
+        "buffered_upload": None,  # boolean - If true, and the path refers to a destination not stored on Files.com (such as a remote server mount), the upload will be uploaded first to Files.com before being sent to the remote server mount. This can allow clients to upload using parallel parts to a remote server destination that does not offer parallel parts support natively.
     }
 
     def __init__(self, *args):
@@ -477,6 +478,7 @@ def download(path, params=None, options=None):
 #   size - int64 - Size of file.
 #   structure - string - If copying folder, copy just the structure?
 #   with_rename - boolean - Allow file rename instead of overwrite?
+#   buffered_upload - boolean - If true, and the path refers to a destination not stored on Files.com (such as a remote server mount), the upload will be uploaded first to Files.com before being sent to the remote server mount. This can allow clients to upload using parallel parts to a remote server destination that does not offer parallel parts support natively.
 def create(path, params=None, options=None):
     if not isinstance(params, dict):
         params = {}
@@ -516,6 +518,12 @@ def create(path, params=None, options=None):
     if "with_rename" in params and not isinstance(params["with_rename"], bool):
         raise InvalidParameterError(
             "Bad parameter: with_rename must be an bool"
+        )
+    if "buffered_upload" in params and not isinstance(
+        params["buffered_upload"], bool
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: buffered_upload must be an bool"
         )
     if "path" not in params:
         raise MissingParameterError("Parameter missing: path")

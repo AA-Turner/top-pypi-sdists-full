@@ -2,8 +2,6 @@ services:
   rocketchat:
     image: rocketchat/rocket.chat:${ROCKET_CHAT_VERSION:-latest}
     restart: unless-stopped
-    volumes:
-      - ./uploads:/app/uploads
     environment:
       - PORT=3000
       - ROOT_URL=http://localhost:3000
@@ -14,13 +12,24 @@ services:
       - CREATE_TOKENS_FOR_USERS=true
       - ROCKETCHAT_LICENSE=${ROCKETCHAT_LICENSE}
       - LICENSE_DEBUG=true
+      - CREATE_TOKENS_FOR_USERS_SECRET=1234567890abcdef
     depends_on:
       - mongo
     ports:
       - "3000:3000"
 
   mongo:
-    image: docker.io/bitnami/mongodb:6.0
+    image: docker.io/bitnamilegacy/mongodb:8.0
+    ports:
+      # Normally not needed but if we need to access the interface directly for debugging we'd like to skip the
+      # onboarding/registering wizard. For some reason the flag to disable it does not work so database access it is.
+      # use rocketchat
+      # db.rocketchat_settings.updateOne(
+      #   {"_id": "Show_Setup_Wizard"},
+      #   {$set: {"value": "completed"}},
+      #   {upsert: true}
+      # );
+      - "127.0.0.1:27017:27017"
     restart: always
     environment:
       MONGODB_REPLICA_SET_MODE: primary
@@ -31,3 +40,6 @@ services:
       MONGODB_ADVERTISED_HOSTNAME: mongo
       MONGODB_ENABLE_JOURNAL: true
       ALLOW_EMPTY_PASSWORD: yes
+
+volumes:
+  uploads:

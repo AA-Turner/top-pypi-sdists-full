@@ -10,6 +10,7 @@ class V1NodeStatus:
     conditions: typing.Optional[list[kubernetes.client.V1NodeCondition]]
     config: typing.Optional[kubernetes.client.V1NodeConfigStatus]
     daemon_endpoints: typing.Optional[kubernetes.client.V1NodeDaemonEndpoints]
+    declared_features: typing.Optional[list[str]]
     features: typing.Optional[kubernetes.client.V1NodeFeatures]
     images: typing.Optional[list[kubernetes.client.V1ContainerImage]]
     node_info: typing.Optional[kubernetes.client.V1NodeSystemInfo]
@@ -18,7 +19,7 @@ class V1NodeStatus:
     volumes_attached: typing.Optional[list[kubernetes.client.V1AttachedVolume]]
     volumes_in_use: typing.Optional[list[str]]
     
-    def __init__(self, *, addresses: typing.Optional[list[kubernetes.client.V1NodeAddress]] = ..., allocatable: typing.Optional[dict[str, str]] = ..., capacity: typing.Optional[dict[str, str]] = ..., conditions: typing.Optional[list[kubernetes.client.V1NodeCondition]] = ..., config: typing.Optional[kubernetes.client.V1NodeConfigStatus] = ..., daemon_endpoints: typing.Optional[kubernetes.client.V1NodeDaemonEndpoints] = ..., features: typing.Optional[kubernetes.client.V1NodeFeatures] = ..., images: typing.Optional[list[kubernetes.client.V1ContainerImage]] = ..., node_info: typing.Optional[kubernetes.client.V1NodeSystemInfo] = ..., phase: typing.Optional[str] = ..., runtime_handlers: typing.Optional[list[kubernetes.client.V1NodeRuntimeHandler]] = ..., volumes_attached: typing.Optional[list[kubernetes.client.V1AttachedVolume]] = ..., volumes_in_use: typing.Optional[list[str]] = ...) -> None:
+    def __init__(self, *, addresses: typing.Optional[list[kubernetes.client.V1NodeAddress]] = ..., allocatable: typing.Optional[dict[str, str]] = ..., capacity: typing.Optional[dict[str, str]] = ..., conditions: typing.Optional[list[kubernetes.client.V1NodeCondition]] = ..., config: typing.Optional[kubernetes.client.V1NodeConfigStatus] = ..., daemon_endpoints: typing.Optional[kubernetes.client.V1NodeDaemonEndpoints] = ..., declared_features: typing.Optional[list[str]] = ..., features: typing.Optional[kubernetes.client.V1NodeFeatures] = ..., images: typing.Optional[list[kubernetes.client.V1ContainerImage]] = ..., node_info: typing.Optional[kubernetes.client.V1NodeSystemInfo] = ..., phase: typing.Optional[str] = ..., runtime_handlers: typing.Optional[list[kubernetes.client.V1NodeRuntimeHandler]] = ..., volumes_attached: typing.Optional[list[kubernetes.client.V1AttachedVolume]] = ..., volumes_in_use: typing.Optional[list[str]] = ...) -> None:
         ...
     def to_dict(self) -> V1NodeStatusDict:
         ...
@@ -29,6 +30,7 @@ class V1NodeStatusDict(typing.TypedDict, total=False):
     conditions: typing.Optional[list[kubernetes.client.V1NodeConditionDict]]
     config: typing.Optional[kubernetes.client.V1NodeConfigStatusDict]
     daemonEndpoints: typing.Optional[kubernetes.client.V1NodeDaemonEndpointsDict]
+    declaredFeatures: typing.Optional[list[str]]
     features: typing.Optional[kubernetes.client.V1NodeFeaturesDict]
     images: typing.Optional[list[kubernetes.client.V1ContainerImageDict]]
     nodeInfo: typing.Optional[kubernetes.client.V1NodeSystemInfoDict]

@@ -3,9 +3,19 @@ import threading
 import warnings
 from collections.abc import AsyncIterator, Iterator, Sequence
 from contextlib import asynccontextmanager, contextmanager
-from typing import Any, Optional
+from typing import Any
 
 from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.base import (
+    WRITES_IDX_MAP,
+    ChannelVersions,
+    Checkpoint,
+    CheckpointMetadata,
+    CheckpointTuple,
+    get_serializable_checkpoint_metadata,
+)
+from langgraph.checkpoint.serde.base import SerializerProtocol
+from langgraph.checkpoint.serde.types import TASKS
 from psycopg import (
     AsyncConnection,
     AsyncCursor,
@@ -19,18 +29,8 @@ from psycopg.rows import DictRow, dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import AsyncConnectionPool, ConnectionPool
 
-from langgraph.checkpoint.base import (
-    WRITES_IDX_MAP,
-    ChannelVersions,
-    Checkpoint,
-    CheckpointMetadata,
-    CheckpointTuple,
-    get_checkpoint_metadata,
-)
 from langgraph.checkpoint.postgres import _ainternal, _internal
 from langgraph.checkpoint.postgres.base import BasePostgresSaver
-from langgraph.checkpoint.serde.base import SerializerProtocol
-from langgraph.checkpoint.serde.types import TASKS
 
 """
 To add a new migration, add a new string to the MIGRATIONS list.
@@ -77,7 +77,7 @@ MIGRATIONS = [
     CREATE INDEX CONCURRENTLY IF NOT EXISTS checkpoint_writes_thread_id_idx ON checkpoint_writes(thread_id);
     """,
     """
-    ALTER TABLE checkpoint_writes ADD COLUMN task_path TEXT NOT NULL DEFAULT '';
+    ALTER TABLE checkpoint_writes ADD COLUMN IF NOT EXISTS task_path TEXT NOT NULL DEFAULT '';
     """,
 ]
 
@@ -151,7 +151,7 @@ def _dump_blobs(
     checkpoint_ns: str,
     values: dict[str, Any],
     versions: ChannelVersions,
-) -> list[tuple[str, str, str, str, Optional[bytes]]]:
+) -> list[tuple[str, str, str, str, bytes | None]]:
     if not versions:
         return []
 
@@ -186,12 +186,12 @@ class ShallowPostgresSaver(BasePostgresSaver):
     def __init__(
         self,
         conn: _internal.Conn,
-        pipe: Optional[Pipeline] = None,
-        serde: Optional[SerializerProtocol] = None,
+        pipe: Pipeline | None = None,
+        serde: SerializerProtocol | None = None,
     ) -> None:
         warnings.warn(
             "ShallowPostgresSaver is deprecated as of version 2.0.20 and will be removed in 3.0.0. "
-            "Use PostgresSaver instead, and invoke the graph with `graph.invoke(..., checkpoint_during=False)`.",
+            "Use PostgresSaver instead, and invoke the graph with `graph.invoke(..., durability='exit')`.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -249,19 +249,20 @@ class ShallowPostgresSaver(BasePostgresSaver):
             for v, migration in zip(
                 range(version + 1, len(self.MIGRATIONS)),
                 self.MIGRATIONS[version + 1 :],
+                strict=False,
             ):
                 cur.execute(migration)
-                cur.execute(f"INSERT INTO checkpoint_migrations (v) VALUES ({v})")
+                cur.execute("INSERT INTO checkpoint_migrations (v) VALUES (%s)", (v,))
         if self.pipe:
             self.pipe.sync()
 
     def list(
         self,
-        config: Optional[RunnableConfig],
+        config: RunnableConfig | None,
         *,
-        filter: Optional[dict[str, Any]] = None,
-        before: Optional[RunnableConfig] = None,
-        limit: Optional[int] = None,
+        filter: dict[str, Any] | None = None,
+        before: RunnableConfig | None = None,
+        limit: int | None = None,
     ) -> Iterator[CheckpointTuple]:
         """List checkpoints from the database.
 
@@ -271,10 +272,12 @@ class ShallowPostgresSaver(BasePostgresSaver):
         """
         where, args = self._search_where(config, filter, before)
         query = self.SELECT_SQL + where
-        if limit:
-            query += f" LIMIT {limit}"
+        params = list(args)
+        if limit is not None:
+            query += " LIMIT %s"
+            params.append(int(limit))
         with self._cursor() as cur:
-            cur.execute(self.SELECT_SQL + where, args, binary=True)
+            cur.execute(query, params, binary=True)
             for value in cur:
                 checkpoint: Checkpoint = {
                     **value["checkpoint"],
@@ -299,7 +302,7 @@ class ShallowPostgresSaver(BasePostgresSaver):
                     pending_writes=self._load_writes(value["pending_writes"]),
                 )
 
-    def get_tuple(self, config: RunnableConfig) -> Optional[CheckpointTuple]:
+    def get_tuple(self, config: RunnableConfig) -> CheckpointTuple | None:
         """Get a checkpoint tuple from the database.
 
         This method retrieves a checkpoint tuple from the Postgres database based on the
@@ -309,7 +312,7 @@ class ShallowPostgresSaver(BasePostgresSaver):
             config: The config to use for retrieving the checkpoint.
 
         Returns:
-            Optional[CheckpointTuple]: The retrieved checkpoint tuple, or None if no matching checkpoint was found.
+            The retrieved checkpoint tuple, or None if no matching checkpoint was found.
 
         Examples:
 
@@ -441,7 +444,7 @@ class ShallowPostgresSaver(BasePostgresSaver):
                     thread_id,
                     checkpoint_ns,
                     Jsonb(copy),
-                    Jsonb(get_checkpoint_metadata(config, metadata)),
+                    Jsonb(get_serializable_checkpoint_metadata(config, metadata)),
                 ),
             )
         return next_config
@@ -542,12 +545,12 @@ class AsyncShallowPostgresSaver(BasePostgresSaver):
     def __init__(
         self,
         conn: _ainternal.Conn,
-        pipe: Optional[AsyncPipeline] = None,
-        serde: Optional[SerializerProtocol] = None,
+        pipe: AsyncPipeline | None = None,
+        serde: SerializerProtocol | None = None,
     ) -> None:
         warnings.warn(
             "AsyncShallowPostgresSaver is deprecated as of version 2.0.20 and will be removed in 3.0.0. "
-            "Use AsyncPostgresSaver instead, and invoke the graph with `await graph.ainvoke(..., checkpoint_during=False)`.",
+            "Use AsyncPostgresSaver instead, and invoke the graph with `await graph.ainvoke(..., durability='exit')`.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -570,7 +573,7 @@ class AsyncShallowPostgresSaver(BasePostgresSaver):
         conn_string: str,
         *,
         pipeline: bool = False,
-        serde: Optional[SerializerProtocol] = None,
+        serde: SerializerProtocol | None = None,
     ) -> AsyncIterator["AsyncShallowPostgresSaver"]:
         """Create a new AsyncShallowPostgresSaver instance from a connection string.
 
@@ -610,19 +613,22 @@ class AsyncShallowPostgresSaver(BasePostgresSaver):
             for v, migration in zip(
                 range(version + 1, len(self.MIGRATIONS)),
                 self.MIGRATIONS[version + 1 :],
+                strict=False,
             ):
                 await cur.execute(migration)
-                await cur.execute(f"INSERT INTO checkpoint_migrations (v) VALUES ({v})")
+                await cur.execute(
+                    "INSERT INTO checkpoint_migrations (v) VALUES (%s)", (v,)
+                )
         if self.pipe:
             await self.pipe.sync()
 
     async def alist(
         self,
-        config: Optional[RunnableConfig],
+        config: RunnableConfig | None,
         *,
-        filter: Optional[dict[str, Any]] = None,
-        before: Optional[RunnableConfig] = None,
-        limit: Optional[int] = None,
+        filter: dict[str, Any] | None = None,
+        before: RunnableConfig | None = None,
+        limit: int | None = None,
     ) -> AsyncIterator[CheckpointTuple]:
         """List checkpoints from the database asynchronously.
 
@@ -632,10 +638,12 @@ class AsyncShallowPostgresSaver(BasePostgresSaver):
         """
         where, args = self._search_where(config, filter, before)
         query = self.SELECT_SQL + where
-        if limit:
-            query += f" LIMIT {limit}"
+        params = list(args)
+        if limit is not None:
+            query += " LIMIT %s"
+            params.append(int(limit))
         async with self._cursor() as cur:
-            await cur.execute(self.SELECT_SQL + where, args, binary=True)
+            await cur.execute(query, params, binary=True)
             async for value in cur:
                 checkpoint: Checkpoint = {
                     **value["checkpoint"],
@@ -662,7 +670,7 @@ class AsyncShallowPostgresSaver(BasePostgresSaver):
                     ),
                 )
 
-    async def aget_tuple(self, config: RunnableConfig) -> Optional[CheckpointTuple]:
+    async def aget_tuple(self, config: RunnableConfig) -> CheckpointTuple | None:
         """Get a checkpoint tuple from the database asynchronously.
 
         This method retrieves a checkpoint tuple from the Postgres database based on the
@@ -672,7 +680,7 @@ class AsyncShallowPostgresSaver(BasePostgresSaver):
             config: The config to use for retrieving the checkpoint.
 
         Returns:
-            Optional[CheckpointTuple]: The retrieved checkpoint tuple, or None if no matching checkpoint was found.
+            The retrieved checkpoint tuple, or None if no matching checkpoint was found.
         """
         thread_id = config["configurable"]["thread_id"]
         checkpoint_ns = config["configurable"].get("checkpoint_ns", "")
@@ -774,7 +782,7 @@ class AsyncShallowPostgresSaver(BasePostgresSaver):
                     thread_id,
                     checkpoint_ns,
                     Jsonb(copy),
-                    Jsonb(get_checkpoint_metadata(config, metadata)),
+                    Jsonb(get_serializable_checkpoint_metadata(config, metadata)),
                 ),
             )
         return next_config
@@ -861,11 +869,11 @@ class AsyncShallowPostgresSaver(BasePostgresSaver):
 
     def list(
         self,
-        config: Optional[RunnableConfig],
+        config: RunnableConfig | None,
         *,
-        filter: Optional[dict[str, Any]] = None,
-        before: Optional[RunnableConfig] = None,
-        limit: Optional[int] = None,
+        filter: dict[str, Any] | None = None,
+        before: RunnableConfig | None = None,
+        limit: int | None = None,
     ) -> Iterator[CheckpointTuple]:
         """List checkpoints from the database.
 
@@ -883,7 +891,7 @@ class AsyncShallowPostgresSaver(BasePostgresSaver):
             except StopAsyncIteration:
                 break
 
-    def get_tuple(self, config: RunnableConfig) -> Optional[CheckpointTuple]:
+    def get_tuple(self, config: RunnableConfig) -> CheckpointTuple | None:
         """Get a checkpoint tuple from the database.
 
         This method retrieves a checkpoint tuple from the Postgres database based on the
@@ -893,7 +901,7 @@ class AsyncShallowPostgresSaver(BasePostgresSaver):
             config: The config to use for retrieving the checkpoint.
 
         Returns:
-            Optional[CheckpointTuple]: The retrieved checkpoint tuple, or None if no matching checkpoint was found.
+            The retrieved checkpoint tuple, or None if no matching checkpoint was found.
         """
         try:
             # check if we are in the main thread, only bg threads can block

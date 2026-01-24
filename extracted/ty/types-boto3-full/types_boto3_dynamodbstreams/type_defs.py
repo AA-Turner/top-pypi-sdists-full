@@ -3,7 +3,7 @@ Type annotations for dynamodbstreams service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dynamodbstreams/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -28,11 +28,6 @@ from .literals import (
     StreamViewTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -66,11 +61,11 @@ class AttributeValueTypeDef(TypedDict):
     S: NotRequired[str]
     N: NotRequired[str]
     B: NotRequired[bytes]
-    SS: NotRequired[List[str]]
-    NS: NotRequired[List[str]]
-    BS: NotRequired[List[bytes]]
-    M: NotRequired[Dict[str, Dict[str, Any]]]
-    L: NotRequired[List[Dict[str, Any]]]
+    SS: NotRequired[list[str]]
+    NS: NotRequired[list[str]]
+    BS: NotRequired[list[bytes]]
+    M: NotRequired[dict[str, dict[str, Any]]]
+    L: NotRequired[list[dict[str, Any]]]
     NULL: NotRequired[bool]
     BOOL: NotRequired[bool]
 
@@ -87,7 +82,7 @@ ShardFilterTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -137,9 +132,9 @@ class SequenceNumberRangeTypeDef(TypedDict):
 
 class StreamRecordTypeDef(TypedDict):
     ApproximateCreationDateTime: NotRequired[datetime]
-    Keys: NotRequired[Dict[str, AttributeValueTypeDef]]
-    NewImage: NotRequired[Dict[str, AttributeValueTypeDef]]
-    OldImage: NotRequired[Dict[str, AttributeValueTypeDef]]
+    Keys: NotRequired[dict[str, AttributeValueTypeDef]]
+    NewImage: NotRequired[dict[str, AttributeValueTypeDef]]
+    OldImage: NotRequired[dict[str, AttributeValueTypeDef]]
     SequenceNumber: NotRequired[str]
     SizeBytes: NotRequired[int]
     StreamViewType: NotRequired[StreamViewTypeType]
@@ -158,7 +153,7 @@ class GetShardIteratorOutputTypeDef(TypedDict):
 
 
 class ListStreamsOutputTypeDef(TypedDict):
-    Streams: List[StreamTypeDef]
+    Streams: list[StreamTypeDef]
     LastEvaluatedStreamArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -186,13 +181,13 @@ class StreamDescriptionTypeDef(TypedDict):
     StreamViewType: NotRequired[StreamViewTypeType]
     CreationRequestDateTime: NotRequired[datetime]
     TableName: NotRequired[str]
-    KeySchema: NotRequired[List[KeySchemaElementTypeDef]]
-    Shards: NotRequired[List[ShardTypeDef]]
+    KeySchema: NotRequired[list[KeySchemaElementTypeDef]]
+    Shards: NotRequired[list[ShardTypeDef]]
     LastEvaluatedShardId: NotRequired[str]
 
 
 class GetRecordsOutputTypeDef(TypedDict):
-    Records: List[RecordTypeDef]
+    Records: list[RecordTypeDef]
     NextShardIterator: str
     ResponseMetadata: ResponseMetadataTypeDef
 

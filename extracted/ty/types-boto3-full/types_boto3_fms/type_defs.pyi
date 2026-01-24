@@ -3,7 +3,7 @@ Type annotations for fms service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_fms/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -46,12 +47,6 @@ from .literals import (
     ViolationReasonType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -250,7 +245,7 @@ __all__ = (
 )
 
 class AccountScopeOutputTypeDef(TypedDict):
-    Accounts: NotRequired[List[str]]
+    Accounts: NotRequired[list[str]]
     AllAccountsEnabled: NotRequired[bool]
     ExcludeSpecifiedAccounts: NotRequired[bool]
 
@@ -269,16 +264,16 @@ class AdminAccountSummaryTypeDef(TypedDict):
     Status: NotRequired[OrganizationStatusType]
 
 class OrganizationalUnitScopeOutputTypeDef(TypedDict):
-    OrganizationalUnits: NotRequired[List[str]]
+    OrganizationalUnits: NotRequired[list[str]]
     AllOrganizationalUnitsEnabled: NotRequired[bool]
     ExcludeSpecifiedOrganizationalUnits: NotRequired[bool]
 
 class PolicyTypeScopeOutputTypeDef(TypedDict):
-    PolicyTypes: NotRequired[List[SecurityServiceTypeType]]
+    PolicyTypes: NotRequired[list[SecurityServiceTypeType]]
     AllPolicyTypesEnabled: NotRequired[bool]
 
 class RegionScopeOutputTypeDef(TypedDict):
-    Regions: NotRequired[List[str]]
+    Regions: NotRequired[list[str]]
     AllRegionsEnabled: NotRequired[bool]
 
 class OrganizationalUnitScopeTypeDef(TypedDict):
@@ -313,17 +308,17 @@ class AssociateThirdPartyFirewallRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 class AwsEc2NetworkInterfaceViolationTypeDef(TypedDict):
     ViolationTarget: NotRequired[str]
-    ViolatingSecurityGroups: NotRequired[List[str]]
+    ViolatingSecurityGroups: NotRequired[list[str]]
 
 class PartialMatchTypeDef(TypedDict):
     Reference: NotRequired[str]
-    TargetViolationReasons: NotRequired[List[str]]
+    TargetViolationReasons: NotRequired[list[str]]
 
 class BatchAssociateResourceRequestTypeDef(TypedDict):
     ResourceSetIdentifier: str
@@ -341,7 +336,7 @@ class ComplianceViolatorTypeDef(TypedDict):
     ResourceId: NotRequired[str]
     ViolationReason: NotRequired[ViolationReasonType]
     ResourceType: NotRequired[str]
-    Metadata: NotRequired[Dict[str, str]]
+    Metadata: NotRequired[dict[str, str]]
 
 class DeleteAppsListRequestTypeDef(TypedDict):
     ListId: str
@@ -383,7 +378,7 @@ class DnsRuleGroupPriorityConflictViolationTypeDef(TypedDict):
     ViolationTargetDescription: NotRequired[str]
     ConflictingPriority: NotRequired[int]
     ConflictingPolicyId: NotRequired[str]
-    UnavailablePriorities: NotRequired[List[int]]
+    UnavailablePriorities: NotRequired[list[int]]
 
 class EvaluationResultTypeDef(TypedDict):
     ComplianceStatus: NotRequired[PolicyComplianceStatusTypeType]
@@ -394,8 +389,8 @@ class ExpectedRouteTypeDef(TypedDict):
     IpV4Cidr: NotRequired[str]
     PrefixListId: NotRequired[str]
     IpV6Cidr: NotRequired[str]
-    ContributingSubnets: NotRequired[List[str]]
-    AllowedTargets: NotRequired[List[str]]
+    ContributingSubnets: NotRequired[list[str]]
+    AllowedTargets: NotRequired[list[str]]
     RouteTableId: NotRequired[str]
 
 class FMSPolicyUpdateFirewallCreationConfigActionTypeDef(TypedDict):
@@ -435,19 +430,19 @@ class GetProtocolsListRequestTypeDef(TypedDict):
 
 class ProtocolsListDataOutputTypeDef(TypedDict):
     ListName: str
-    ProtocolsList: List[str]
+    ProtocolsList: list[str]
     ListId: NotRequired[str]
     ListUpdateToken: NotRequired[str]
     CreateTime: NotRequired[datetime]
     LastUpdateTime: NotRequired[datetime]
-    PreviousProtocolsList: NotRequired[Dict[str, List[str]]]
+    PreviousProtocolsList: NotRequired[dict[str, list[str]]]
 
 class GetResourceSetRequestTypeDef(TypedDict):
     Identifier: str
 
 class ResourceSetOutputTypeDef(TypedDict):
     Name: str
-    ResourceTypeList: List[str]
+    ResourceTypeList: list[str]
     Id: NotRequired[str]
     Description: NotRequired[str]
     UpdateToken: NotRequired[str]
@@ -519,7 +514,7 @@ class ProtocolsListDataSummaryTypeDef(TypedDict):
     ListArn: NotRequired[str]
     ListId: NotRequired[str]
     ListName: NotRequired[str]
-    ProtocolsList: NotRequired[List[str]]
+    ProtocolsList: NotRequired[list[str]]
 
 class ListResourceSetResourcesRequestTypeDef(TypedDict):
     Identifier: str
@@ -645,7 +640,7 @@ class WebACLHasIncompatibleConfigurationViolationTypeDef(TypedDict):
 
 class WebACLHasOutOfScopeResourcesViolationTypeDef(TypedDict):
     WebACLArn: NotRequired[str]
-    OutOfScopeResourceList: NotRequired[List[str]]
+    OutOfScopeResourceList: NotRequired[list[str]]
 
 SecurityGroupRuleDescriptionTypeDef = TypedDict(
     "SecurityGroupRuleDescriptionTypeDef",
@@ -732,18 +727,18 @@ class AdminScopeTypeDef(TypedDict):
 
 class AppsListDataOutputTypeDef(TypedDict):
     ListName: str
-    AppsList: List[AppTypeDef]
+    AppsList: list[AppTypeDef]
     ListId: NotRequired[str]
     ListUpdateToken: NotRequired[str]
     CreateTime: NotRequired[datetime]
     LastUpdateTime: NotRequired[datetime]
-    PreviousAppsList: NotRequired[Dict[str, List[AppTypeDef]]]
+    PreviousAppsList: NotRequired[dict[str, list[AppTypeDef]]]
 
 class AppsListDataSummaryTypeDef(TypedDict):
     ListArn: NotRequired[str]
     ListId: NotRequired[str]
     ListName: NotRequired[str]
-    AppsList: NotRequired[List[AppTypeDef]]
+    AppsList: NotRequired[list[AppTypeDef]]
 
 class AppsListDataTypeDef(TypedDict):
     ListName: str
@@ -814,45 +809,45 @@ class GetThirdPartyFirewallAssociationStatusResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAdminAccountsForOrganizationResponseTypeDef(TypedDict):
-    AdminAccounts: List[AdminAccountSummaryTypeDef]
+    AdminAccounts: list[AdminAccountSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListAdminsManagingAccountResponseTypeDef(TypedDict):
-    AdminAccounts: List[str]
+    AdminAccounts: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListMemberAccountsResponseTypeDef(TypedDict):
-    MemberAccounts: List[str]
+    MemberAccounts: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class AwsEc2InstanceViolationTypeDef(TypedDict):
     ViolationTarget: NotRequired[str]
-    AwsEc2NetworkInterfaceViolations: NotRequired[List[AwsEc2NetworkInterfaceViolationTypeDef]]
+    AwsEc2NetworkInterfaceViolations: NotRequired[list[AwsEc2NetworkInterfaceViolationTypeDef]]
 
 class BatchAssociateResourceResponseTypeDef(TypedDict):
     ResourceSetIdentifier: str
-    FailedItems: List[FailedItemTypeDef]
+    FailedItems: list[FailedItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchDisassociateResourceResponseTypeDef(TypedDict):
     ResourceSetIdentifier: str
-    FailedItems: List[FailedItemTypeDef]
+    FailedItems: list[FailedItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PolicyComplianceDetailTypeDef(TypedDict):
     PolicyOwner: NotRequired[str]
     PolicyId: NotRequired[str]
     MemberAccount: NotRequired[str]
-    Violators: NotRequired[List[ComplianceViolatorTypeDef]]
+    Violators: NotRequired[list[ComplianceViolatorTypeDef]]
     EvaluationLimitExceeded: NotRequired[bool]
     ExpiredAt: NotRequired[datetime]
-    IssueInfoMap: NotRequired[Dict[DependentServiceNameType, str]]
+    IssueInfoMap: NotRequired[dict[DependentServiceNameType, str]]
 
 class ListDiscoveredResourcesResponseTypeDef(TypedDict):
-    Items: List[DiscoveredResourceTypeDef]
+    Items: list[DiscoveredResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -861,13 +856,13 @@ class PolicyComplianceStatusTypeDef(TypedDict):
     PolicyId: NotRequired[str]
     PolicyName: NotRequired[str]
     MemberAccount: NotRequired[str]
-    EvaluationResults: NotRequired[List[EvaluationResultTypeDef]]
+    EvaluationResults: NotRequired[list[EvaluationResultTypeDef]]
     LastUpdated: NotRequired[datetime]
-    IssueInfoMap: NotRequired[Dict[DependentServiceNameType, str]]
+    IssueInfoMap: NotRequired[dict[DependentServiceNameType, str]]
 
 class NetworkFirewallMissingExpectedRoutesViolationTypeDef(TypedDict):
     ViolationTarget: NotRequired[str]
-    ExpectedRoutes: NotRequired[List[ExpectedRouteTypeDef]]
+    ExpectedRoutes: NotRequired[list[ExpectedRouteTypeDef]]
     VpcId: NotRequired[str]
 
 class GetProtocolsListResponseTypeDef(TypedDict):
@@ -919,27 +914,27 @@ class ListThirdPartyFirewallFirewallPoliciesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListPoliciesResponseTypeDef(TypedDict):
-    PolicyList: List[PolicySummaryTypeDef]
+    PolicyList: list[PolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListProtocolsListsResponseTypeDef(TypedDict):
-    ProtocolsLists: List[ProtocolsListDataSummaryTypeDef]
+    ProtocolsLists: list[ProtocolsListDataSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListResourceSetResourcesResponseTypeDef(TypedDict):
-    Items: List[ResourceTypeDef]
+    Items: list[ResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListResourceSetsResponseTypeDef(TypedDict):
-    ResourceSets: List[ResourceSetSummaryTypeDef]
+    ResourceSets: list[ResourceSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    TagList: List[TagTypeDef]
+    TagList: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -947,7 +942,7 @@ class TagResourceRequestTypeDef(TypedDict):
     TagList: Sequence[TagTypeDef]
 
 class ListThirdPartyFirewallFirewallPoliciesResponseTypeDef(TypedDict):
-    ThirdPartyFirewallFirewallPolicies: List[ThirdPartyFirewallFirewallPolicyTypeDef]
+    ThirdPartyFirewallFirewallPolicies: list[ThirdPartyFirewallFirewallPolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -968,27 +963,27 @@ class NetworkFirewallBlackHoleRouteDetectedViolationTypeDef(TypedDict):
     ViolationTarget: NotRequired[str]
     RouteTableId: NotRequired[str]
     VpcId: NotRequired[str]
-    ViolatingRoutes: NotRequired[List[RouteTypeDef]]
+    ViolatingRoutes: NotRequired[list[RouteTypeDef]]
 
 class NetworkFirewallInternetTrafficNotInspectedViolationTypeDef(TypedDict):
     SubnetId: NotRequired[str]
     SubnetAvailabilityZone: NotRequired[str]
     RouteTableId: NotRequired[str]
-    ViolatingRoutes: NotRequired[List[RouteTypeDef]]
+    ViolatingRoutes: NotRequired[list[RouteTypeDef]]
     IsRouteTableUsedInDifferentAZ: NotRequired[bool]
     CurrentFirewallSubnetRouteTable: NotRequired[str]
     ExpectedFirewallEndpoint: NotRequired[str]
     FirewallSubnetId: NotRequired[str]
-    ExpectedFirewallSubnetRoutes: NotRequired[List[ExpectedRouteTypeDef]]
-    ActualFirewallSubnetRoutes: NotRequired[List[RouteTypeDef]]
+    ExpectedFirewallSubnetRoutes: NotRequired[list[ExpectedRouteTypeDef]]
+    ActualFirewallSubnetRoutes: NotRequired[list[RouteTypeDef]]
     InternetGatewayId: NotRequired[str]
     CurrentInternetGatewayRouteTable: NotRequired[str]
-    ExpectedInternetGatewayRoutes: NotRequired[List[ExpectedRouteTypeDef]]
-    ActualInternetGatewayRoutes: NotRequired[List[RouteTypeDef]]
+    ExpectedInternetGatewayRoutes: NotRequired[list[ExpectedRouteTypeDef]]
+    ActualInternetGatewayRoutes: NotRequired[list[RouteTypeDef]]
     VpcId: NotRequired[str]
 
 class NetworkFirewallInvalidRouteConfigurationViolationTypeDef(TypedDict):
-    AffectedSubnets: NotRequired[List[str]]
+    AffectedSubnets: NotRequired[list[str]]
     RouteTableId: NotRequired[str]
     IsRouteTableUsedInDifferentAZ: NotRequired[bool]
     ViolatingRoute: NotRequired[RouteTypeDef]
@@ -997,24 +992,24 @@ class NetworkFirewallInvalidRouteConfigurationViolationTypeDef(TypedDict):
     ActualFirewallEndpoint: NotRequired[str]
     ExpectedFirewallSubnetId: NotRequired[str]
     ActualFirewallSubnetId: NotRequired[str]
-    ExpectedFirewallSubnetRoutes: NotRequired[List[ExpectedRouteTypeDef]]
-    ActualFirewallSubnetRoutes: NotRequired[List[RouteTypeDef]]
+    ExpectedFirewallSubnetRoutes: NotRequired[list[ExpectedRouteTypeDef]]
+    ActualFirewallSubnetRoutes: NotRequired[list[RouteTypeDef]]
     InternetGatewayId: NotRequired[str]
     CurrentInternetGatewayRouteTable: NotRequired[str]
-    ExpectedInternetGatewayRoutes: NotRequired[List[ExpectedRouteTypeDef]]
-    ActualInternetGatewayRoutes: NotRequired[List[RouteTypeDef]]
+    ExpectedInternetGatewayRoutes: NotRequired[list[ExpectedRouteTypeDef]]
+    ActualInternetGatewayRoutes: NotRequired[list[RouteTypeDef]]
     VpcId: NotRequired[str]
 
 class NetworkFirewallUnexpectedFirewallRoutesViolationTypeDef(TypedDict):
     FirewallSubnetId: NotRequired[str]
-    ViolatingRoutes: NotRequired[List[RouteTypeDef]]
+    ViolatingRoutes: NotRequired[list[RouteTypeDef]]
     RouteTableId: NotRequired[str]
     FirewallEndpoint: NotRequired[str]
     VpcId: NotRequired[str]
 
 class NetworkFirewallUnexpectedGatewayRoutesViolationTypeDef(TypedDict):
     GatewayId: NotRequired[str]
-    ViolatingRoutes: NotRequired[List[RouteTypeDef]]
+    ViolatingRoutes: NotRequired[list[RouteTypeDef]]
     RouteTableId: NotRequired[str]
     VpcId: NotRequired[str]
 
@@ -1022,15 +1017,15 @@ class RouteHasOutOfScopeEndpointViolationTypeDef(TypedDict):
     SubnetId: NotRequired[str]
     VpcId: NotRequired[str]
     RouteTableId: NotRequired[str]
-    ViolatingRoutes: NotRequired[List[RouteTypeDef]]
+    ViolatingRoutes: NotRequired[list[RouteTypeDef]]
     SubnetAvailabilityZone: NotRequired[str]
     SubnetAvailabilityZoneId: NotRequired[str]
     CurrentFirewallSubnetRouteTable: NotRequired[str]
     FirewallSubnetId: NotRequired[str]
-    FirewallSubnetRoutes: NotRequired[List[RouteTypeDef]]
+    FirewallSubnetRoutes: NotRequired[list[RouteTypeDef]]
     InternetGatewayId: NotRequired[str]
     CurrentInternetGatewayRouteTable: NotRequired[str]
-    InternetGatewayRoutes: NotRequired[List[RouteTypeDef]]
+    InternetGatewayRoutes: NotRequired[list[RouteTypeDef]]
 
 class StatefulRuleGroupTypeDef(TypedDict):
     RuleGroupName: NotRequired[str]
@@ -1062,7 +1057,7 @@ class PutAppsListResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAppsListsResponseTypeDef(TypedDict):
-    AppsLists: List[AppsListDataSummaryTypeDef]
+    AppsLists: list[AppsListDataSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1075,7 +1070,7 @@ class GetComplianceDetailResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListComplianceStatusResponseTypeDef(TypedDict):
-    PolicyComplianceStatusList: List[PolicyComplianceStatusTypeDef]
+    PolicyComplianceStatusList: list[PolicyComplianceStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1087,8 +1082,8 @@ class EntryDescriptionTypeDef(TypedDict):
 class NetworkAclEntrySetOutputTypeDef(TypedDict):
     ForceRemediateForFirstEntries: bool
     ForceRemediateForLastEntries: bool
-    FirstEntries: NotRequired[List[NetworkAclEntryTypeDef]]
-    LastEntries: NotRequired[List[NetworkAclEntryTypeDef]]
+    FirstEntries: NotRequired[list[NetworkAclEntryTypeDef]]
+    LastEntries: NotRequired[list[NetworkAclEntryTypeDef]]
 
 class NetworkAclEntrySetTypeDef(TypedDict):
     ForceRemediateForFirstEntries: bool
@@ -1097,20 +1092,20 @@ class NetworkAclEntrySetTypeDef(TypedDict):
     LastEntries: NotRequired[Sequence[NetworkAclEntryTypeDef]]
 
 class NetworkFirewallPolicyDescriptionTypeDef(TypedDict):
-    StatelessRuleGroups: NotRequired[List[StatelessRuleGroupTypeDef]]
-    StatelessDefaultActions: NotRequired[List[str]]
-    StatelessFragmentDefaultActions: NotRequired[List[str]]
-    StatelessCustomActions: NotRequired[List[str]]
-    StatefulRuleGroups: NotRequired[List[StatefulRuleGroupTypeDef]]
-    StatefulDefaultActions: NotRequired[List[str]]
+    StatelessRuleGroups: NotRequired[list[StatelessRuleGroupTypeDef]]
+    StatelessDefaultActions: NotRequired[list[str]]
+    StatelessFragmentDefaultActions: NotRequired[list[str]]
+    StatelessCustomActions: NotRequired[list[str]]
+    StatefulRuleGroups: NotRequired[list[StatefulRuleGroupTypeDef]]
+    StatefulDefaultActions: NotRequired[list[str]]
     StatefulEngineOptions: NotRequired[StatefulEngineOptionsTypeDef]
 
 class AwsVPCSecurityGroupViolationTypeDef(TypedDict):
     ViolationTarget: NotRequired[str]
     ViolationTargetDescription: NotRequired[str]
-    PartialMatches: NotRequired[List[PartialMatchTypeDef]]
+    PartialMatches: NotRequired[list[PartialMatchTypeDef]]
     PossibleSecurityGroupRemediationActions: NotRequired[
-        List[SecurityGroupRemediationActionTypeDef]
+        list[SecurityGroupRemediationActionTypeDef]
     ]
 
 class PutAdminAccountRequestTypeDef(TypedDict):
@@ -1132,13 +1127,13 @@ class PutResourceSetRequestTypeDef(TypedDict):
 class CreateNetworkAclEntriesActionTypeDef(TypedDict):
     Description: NotRequired[str]
     NetworkAclId: NotRequired[ActionTargetTypeDef]
-    NetworkAclEntriesToBeCreated: NotRequired[List[EntryDescriptionTypeDef]]
+    NetworkAclEntriesToBeCreated: NotRequired[list[EntryDescriptionTypeDef]]
     FMSCanRemediate: NotRequired[bool]
 
 class DeleteNetworkAclEntriesActionTypeDef(TypedDict):
     Description: NotRequired[str]
     NetworkAclId: NotRequired[ActionTargetTypeDef]
-    NetworkAclEntriesToBeDeleted: NotRequired[List[EntryDescriptionTypeDef]]
+    NetworkAclEntriesToBeDeleted: NotRequired[list[EntryDescriptionTypeDef]]
     FMSCanRemediate: NotRequired[bool]
 
 class EntryViolationTypeDef(TypedDict):
@@ -1146,8 +1141,8 @@ class EntryViolationTypeDef(TypedDict):
     ExpectedEvaluationOrder: NotRequired[str]
     ActualEvaluationOrder: NotRequired[str]
     EntryAtExpectedEvaluationOrder: NotRequired[EntryDescriptionTypeDef]
-    EntriesWithConflicts: NotRequired[List[EntryDescriptionTypeDef]]
-    EntryViolationReasons: NotRequired[List[EntryViolationReasonType]]
+    EntriesWithConflicts: NotRequired[list[EntryDescriptionTypeDef]]
+    EntryViolationReasons: NotRequired[list[EntryViolationReasonType]]
 
 class NetworkAclCommonPolicyOutputTypeDef(TypedDict):
     NetworkAclEntrySet: NetworkAclEntrySetOutputTypeDef
@@ -1182,7 +1177,7 @@ class InvalidNetworkAclEntriesViolationTypeDef(TypedDict):
     Subnet: NotRequired[str]
     SubnetAvailabilityZone: NotRequired[str]
     CurrentAssociatedNetworkAcl: NotRequired[str]
-    EntryViolations: NotRequired[List[EntryViolationTypeDef]]
+    EntryViolations: NotRequired[list[EntryViolationTypeDef]]
 
 class PolicyOptionOutputTypeDef(TypedDict):
     NetworkFirewallPolicy: NotRequired[NetworkFirewallPolicyTypeDef]
@@ -1216,7 +1211,7 @@ SecurityServicePolicyDataTypeDef = TypedDict(
 )
 
 class PossibleRemediationActionTypeDef(TypedDict):
-    OrderedRemediationActions: List[RemediationActionWithOrderTypeDef]
+    OrderedRemediationActions: list[RemediationActionWithOrderTypeDef]
     Description: NotRequired[str]
     IsDefaultAction: NotRequired[bool]
 
@@ -1228,12 +1223,12 @@ class PolicyOutputTypeDef(TypedDict):
     RemediationEnabled: bool
     PolicyId: NotRequired[str]
     PolicyUpdateToken: NotRequired[str]
-    ResourceTypeList: NotRequired[List[str]]
-    ResourceTags: NotRequired[List[ResourceTagTypeDef]]
+    ResourceTypeList: NotRequired[list[str]]
+    ResourceTags: NotRequired[list[ResourceTagTypeDef]]
     DeleteUnusedFMManagedResources: NotRequired[bool]
-    IncludeMap: NotRequired[Dict[CustomerPolicyScopeIdTypeType, List[str]]]
-    ExcludeMap: NotRequired[Dict[CustomerPolicyScopeIdTypeType, List[str]]]
-    ResourceSetIds: NotRequired[List[str]]
+    IncludeMap: NotRequired[dict[CustomerPolicyScopeIdTypeType, list[str]]]
+    ExcludeMap: NotRequired[dict[CustomerPolicyScopeIdTypeType, list[str]]]
+    ResourceSetIds: NotRequired[list[str]]
     PolicyDescription: NotRequired[str]
     PolicyStatus: NotRequired[CustomerPolicyStatusType]
     ResourceTagLogicalOperator: NotRequired[ResourceTagLogicalOperatorType]
@@ -1258,7 +1253,7 @@ class PolicyTypeDef(TypedDict):
 
 class PossibleRemediationActionsTypeDef(TypedDict):
     Description: NotRequired[str]
-    Actions: NotRequired[List[PossibleRemediationActionTypeDef]]
+    Actions: NotRequired[list[PossibleRemediationActionTypeDef]]
 
 class GetPolicyResponseTypeDef(TypedDict):
     Policy: PolicyOutputTypeDef
@@ -1337,8 +1332,8 @@ class ViolationDetailTypeDef(TypedDict):
     MemberAccount: str
     ResourceId: str
     ResourceType: str
-    ResourceViolations: List[ResourceViolationTypeDef]
-    ResourceTags: NotRequired[List[TagTypeDef]]
+    ResourceViolations: list[ResourceViolationTypeDef]
+    ResourceTags: NotRequired[list[TagTypeDef]]
     ResourceDescription: NotRequired[str]
 
 class GetViolationDetailsResponseTypeDef(TypedDict):

@@ -3,12 +3,11 @@
 import asyncio
 import logging
 import time
-
 from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, cast, Final, Optional, TYPE_CHECKING, TypeAlias, Union
+from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 
 from ib_async.contract import (
     Contract,
@@ -25,6 +24,7 @@ from ib_async.objects import (
     DepthMktDataDescription,
     Dividends,
     DOMLevel,
+    EfpData,
     Execution,
     FamilyCode,
     Fill,
@@ -63,13 +63,13 @@ from ib_async.objects import (
 from ib_async.order import Order, OrderState, OrderStatus, Trade
 from ib_async.ticker import Ticker
 from ib_async.util import (
+    UNSET_DOUBLE,
+    UNSET_INTEGER,
     dataclassAsDict,
     dataclassUpdate,
     getLoop,
     globalErrorEvent,
     parseIBDatetime,
-    UNSET_DOUBLE,
-    UNSET_INTEGER,
 )
 
 if TYPE_CHECKING:
@@ -101,6 +101,19 @@ PRICE_TICK_MAP: Final[TickDict] = {
     51: "askYield",
     104: "askYield",
     52: "lastYield",
+    57: "lastRthTrade",
+    78: "creditmanMarkPrice",
+    79: "creditmanSlowMarkPrice",
+    92: "etfNavClose",
+    93: "etfNavPriorClose",
+    94: "etfNavBid",
+    95: "etfNavAsk",
+    96: "etfNavLast",
+    97: "etfFrozenNavLast",
+    98: "etfNavHigh",
+    99: "etfNavLow",
+    101: "estimatedIpoMidpoint",
+    102: "finalIpoLast",
 }
 
 
@@ -111,6 +124,7 @@ SIZE_TICK_MAP: Final[TickDict] = {
     64: "volumeRate5Min",
     65: "volumeRate10Min",
     21: "avVolume",
+    22: "openInterest",
     27: "callOpenInterest",
     28: "putOpenInterest",
     29: "callVolume",
@@ -133,6 +147,8 @@ GENERIC_TICK_MAP: Final[TickDict] = {
     55: "tradeRate",
     56: "volumeRate",
     58: "rtHistVolatility",
+    60: "bondFactorMultiplier",
+    90: "delayedHalted",
 }
 
 GREEKS_TICK_MAP: Final[TickDict] = {
@@ -144,6 +160,38 @@ GREEKS_TICK_MAP: Final[TickDict] = {
     82: "lastGreeks",
     13: "modelGreeks",
     83: "modelGreeks",
+    53: "custGreeks",
+}
+
+EFP_TICK_MAP: Final[TickDict] = {
+    38: "bidEfp",
+    39: "askEfp",
+    40: "lastEfp",
+    41: "openEfp",
+    42: "highEfp",
+    43: "lowEfp",
+    44: "closeEfp",
+}
+
+STRING_TICK_MAP: Final[TickDict] = {
+    25: "optionBidExch",
+    26: "optionAskExch",
+    32: "bidExchange",
+    33: "askExchange",
+    84: "lastExchange",
+    85: "lastRegTime",
+    91: "reutersMutualFunds",
+    100: "socialMarketAnalytics",
+}
+
+TIMESTAMP_TICK_MAP: Final[TickDict] = {
+    45: "lastTimestamp",
+    88: "delayedLastTimestamp",
+}
+
+RT_VOLUME_TICK_MAP: Final[TickDict] = {
+    48: "rtVolume",
+    77: "rtTradeVolume",
 }
 
 
@@ -207,7 +255,7 @@ class Wrapper:
     reqId2Ticker: dict[int, Ticker] = field(init=False)
     """ reqId -> Ticker """
 
-    ticker2ReqId: dict[Union[int, str], dict[Ticker, int]] = field(init=False)
+    ticker2ReqId: dict[int | str, dict[Ticker, int]] = field(init=False)
     """ tickType -> Ticker -> reqId """
 
     reqId2Subscriber: dict[int, Any] = field(init=False)
@@ -350,7 +398,7 @@ class Wrapper:
                 else:
                     future.set_exception(result)
 
-    def startTicker(self, reqId: int, contract: Contract, tickType: Union[int, str]):
+    def startTicker(self, reqId: int, contract: Contract, tickType: int | str):
         """
         Start a tick request that has the reqId associated with the contract.
         Return the ticker.
@@ -365,7 +413,7 @@ class Wrapper:
         self.ticker2ReqId[tickType][ticker] = reqId
         return ticker
 
-    def endTicker(self, ticker: Ticker, tickType: Union[int, str]):
+    def endTicker(self, ticker: Ticker, tickType: int | str):
         reqId = self.ticker2ReqId[tickType].pop(ticker, 0)
         self._reqId2Contract.pop(reqId, None)
         return reqId
@@ -417,6 +465,50 @@ class Wrapper:
             self._logger.debug("Timeout")
             self.setTimeout(0)
             self.ib.timeoutEvent.emit(diff)
+
+    # Helper methods for tick processing
+
+    def _processTimestampTick(self, ticker: Ticker, fieldName: str, value: str):
+        """Convert timestamp string to datetime and set on ticker field."""
+        timestamp = int(value)
+        # Only populate if timestamp isn't '0' (we don't want to report "last trade: 20,000 days ago")
+        if timestamp:
+            setattr(
+                ticker,
+                fieldName,
+                datetime.fromtimestamp(timestamp, self.defaultTimezone),
+            )
+
+    def _processRtVolumeTick(
+        self, ticker: Ticker, tickType: int, value: str
+    ) -> tuple[float, float] | None:
+        """
+        Parse RT Volume or RT Trade Volume tick.
+
+        Format: price;size;ms since epoch;total volume;VWAP;single trade
+        Example: 701.28;1;1348075471534;67854;701.46918464;true
+
+        Returns (price, size) tuple if valid, None otherwise.
+        """
+        priceStr, sizeStr, rtTime, volume, vwap, _ = value.split(";")
+
+        if volume:
+            # Set volume field based on tick type
+            volumeField = RT_VOLUME_TICK_MAP[tickType]
+            setattr(ticker, volumeField, float(volume))
+
+        if vwap:
+            ticker.vwap = float(vwap)
+
+        if rtTime:
+            ticker.rtTime = datetime.fromtimestamp(
+                int(rtTime) / 1000, self.defaultTimezone
+            )
+
+        if priceStr == "":
+            return None
+
+        return (float(priceStr), float(sizeStr))
 
     # wrapper methods
 
@@ -657,7 +749,7 @@ class Wrapper:
         key = self.orderKey(clientId, orderId, permId)
         trade = self.trades.get(key)
         if trade:
-            msg: Optional[str]
+            msg: str | None
             oldStatus = trade.orderStatus.status
             new = dict(
                 status=status,
@@ -1107,20 +1199,12 @@ class Wrapper:
             return
 
         try:
-            if tickType == 32:
-                ticker.bidExchange = value
-            elif tickType == 33:
-                ticker.askExchange = value
-            elif tickType == 84:
-                ticker.lastExchange = value
-            elif tickType == 45:
-                timestamp = int(value)
-
-                # only populate if timestamp isn't '0' (we don't want to report "last trade: 20,000 days ago")
-                if timestamp:
-                    ticker.lastTimestamp = datetime.fromtimestamp(
-                        timestamp, self.defaultTimezone
-                    )
+            # Simple string assignments (O(1) dict lookup)
+            if tickType in STRING_TICK_MAP:
+                setattr(ticker, STRING_TICK_MAP[tickType], value)
+            elif tickType in TIMESTAMP_TICK_MAP:
+                # Timestamp conversion (O(1) dict lookup)
+                self._processTimestampTick(ticker, TIMESTAMP_TICK_MAP[tickType], value)
             elif tickType == 47:
                 # https://web.archive.org/web/20200725010343/https://interactivebrokers.github.io/tws-api/fundamental_ratios_tags.html
                 d = dict(
@@ -1135,40 +1219,17 @@ class Wrapper:
                         d[k] = float(v)  # type: ignore
                         d[k] = int(v)  # type: ignore
                 ticker.fundamentalRatios = FundamentalRatios(**d)
-            elif tickType in {48, 77}:
-                # RT Volume or RT Trade Volume string format:
-                # price;size;ms since epoch;total volume;VWAP;single trade
-                # example:
-                # 701.28;1;1348075471534;67854;701.46918464;true
-                priceStr, sizeStr, rtTime, volume, vwap, _ = value.split(";")
-                if volume:
-                    if tickType == 48:
-                        ticker.rtVolume = float(volume)
-                    elif tickType == 77:
-                        ticker.rtTradeVolume = float(volume)
-
-                if vwap:
-                    ticker.vwap = float(vwap)
-
-                if rtTime:
-                    ticker.rtTime = datetime.fromtimestamp(
-                        int(rtTime) / 1000, self.defaultTimezone
-                    )
-
-                if priceStr == "":
-                    return
-
-                price = float(priceStr)
-                size = float(sizeStr)
-
-                ticker.prevLast = ticker.last
-                ticker.prevLastSize = ticker.lastSize
-
-                ticker.last = price
-                ticker.lastSize = size
-
-                tick = TickData(self.lastTime, tickType, price, size)
-                ticker.ticks.append(tick)
+            elif tickType in RT_VOLUME_TICK_MAP:
+                # RT Volume or RT Trade Volume (O(1) dict lookup + helper)
+                result = self._processRtVolumeTick(ticker, tickType, value)
+                if result:
+                    price, size = result
+                    ticker.prevLast = ticker.last
+                    ticker.prevLastSize = ticker.lastSize
+                    ticker.last = price
+                    ticker.lastSize = size
+                    tick = TickData(self.lastTime, tickType, price, size)
+                    ticker.ticks.append(tick)
             elif tickType == 59:
                 # Dividend tick:
                 # https://interactivebrokers.github.io/tws-api/tick_types.html#ib_dividends
@@ -1467,7 +1528,26 @@ class Wrapper:
         dividendImpact: float,
         dividendsToLastTradeDate: float,
     ):
-        pass
+        ticker = self.reqId2Ticker.get(reqId)
+        if not ticker:
+            return
+
+        # Create EFP data object with all available information
+        # Note: totalDividends parameter is actually the implied future price per IBKR docs
+        efpData = EfpData(
+            basisPoints=basisPoints,
+            formattedBasisPoints=formattedBasisPoints,
+            impliedFuture=totalDividends,
+            holdDays=holdDays,
+            futureLastTradeDate=futureLastTradeDate,
+            dividendImpact=dividendImpact,
+            dividendsToLastTradeDate=dividendsToLastTradeDate,
+        )
+
+        # Store in appropriate field based on tick type (O(1) dict lookup)
+        if tickType in EFP_TICK_MAP:
+            setattr(ticker, EFP_TICK_MAP[tickType], efpData)
+            self.pendingTickers.add(ticker)
 
     def historicalSchedule(
         self,

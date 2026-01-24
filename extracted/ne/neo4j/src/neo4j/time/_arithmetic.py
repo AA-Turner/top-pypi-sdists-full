@@ -14,10 +14,7 @@
 # limitations under the License.
 
 
-from typing import (
-    Tuple,
-    TypeVar,
-)
+from .. import _typing as t
 
 
 __all__ = [
@@ -89,12 +86,12 @@ def nano_divmod(x, y):
     return int(q), number(r / 1000000000)
 
 
-_TDividend = TypeVar("_TDividend", int, float)
+_TDividend = t.TypeVar("_TDividend", int, float)
 
 
 def symmetric_divmod(
     dividend: _TDividend, divisor: float
-) -> Tuple[int, _TDividend]:
+) -> tuple[int, _TDividend]:
     number = type(dividend)
     if dividend >= 0:
         quotient, remainder = divmod(dividend, divisor)
@@ -134,4 +131,4 @@ def round_half_to_even(n):
         down = int(n - 0.5)
         return up if up % 2 == 0 else down
     else:
-        return int(round(n))
+        return round(n)

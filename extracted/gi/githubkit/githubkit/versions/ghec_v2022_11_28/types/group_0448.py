@@ -9,67 +9,154 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Literal, Union
 from typing_extensions import NotRequired, TypedDict
 
-from .group_0155 import (
-    SecretScanningLocationCommitType,
-    SecretScanningLocationDiscussionCommentType,
-    SecretScanningLocationDiscussionTitleType,
-    SecretScanningLocationIssueBodyType,
-    SecretScanningLocationPullRequestBodyType,
-    SecretScanningLocationPullRequestReviewType,
-    SecretScanningLocationWikiCommitType,
+
+class TimelineCommittedEventType(TypedDict):
+    """Timeline Committed Event
+
+    Timeline Committed Event
+    """
+
+    event: NotRequired[Literal["committed"]]
+    sha: str
+    node_id: str
+    url: str
+    author: TimelineCommittedEventPropAuthorType
+    committer: TimelineCommittedEventPropCommitterType
+    message: str
+    tree: TimelineCommittedEventPropTreeType
+    parents: list[TimelineCommittedEventPropParentsItemsType]
+    verification: TimelineCommittedEventPropVerificationType
+    html_url: str
+
+
+class TimelineCommittedEventTypeForResponse(TypedDict):
+    """Timeline Committed Event
+
+    Timeline Committed Event
+    """
+
+    event: NotRequired[Literal["committed"]]
+    sha: str
+    node_id: str
+    url: str
+    author: TimelineCommittedEventPropAuthorTypeForResponse
+    committer: TimelineCommittedEventPropCommitterTypeForResponse
+    message: str
+    tree: TimelineCommittedEventPropTreeTypeForResponse
+    parents: list[TimelineCommittedEventPropParentsItemsTypeForResponse]
+    verification: TimelineCommittedEventPropVerificationTypeForResponse
+    html_url: str
+
+
+class TimelineCommittedEventPropAuthorType(TypedDict):
+    """TimelineCommittedEventPropAuthor
+
+    Identifying information for the git-user
+    """
+
+    date: _dt.datetime
+    email: str
+    name: str
+
+
+class TimelineCommittedEventPropAuthorTypeForResponse(TypedDict):
+    """TimelineCommittedEventPropAuthor
+
+    Identifying information for the git-user
+    """
+
+    date: str
+    email: str
+    name: str
+
+
+class TimelineCommittedEventPropCommitterType(TypedDict):
+    """TimelineCommittedEventPropCommitter
+
+    Identifying information for the git-user
+    """
+
+    date: _dt.datetime
+    email: str
+    name: str
+
+
+class TimelineCommittedEventPropCommitterTypeForResponse(TypedDict):
+    """TimelineCommittedEventPropCommitter
+
+    Identifying information for the git-user
+    """
+
+    date: str
+    email: str
+    name: str
+
+
+class TimelineCommittedEventPropTreeType(TypedDict):
+    """TimelineCommittedEventPropTree"""
+
+    sha: str
+    url: str
+
+
+class TimelineCommittedEventPropTreeTypeForResponse(TypedDict):
+    """TimelineCommittedEventPropTree"""
+
+    sha: str
+    url: str
+
+
+class TimelineCommittedEventPropParentsItemsType(TypedDict):
+    """TimelineCommittedEventPropParentsItems"""
+
+    sha: str
+    url: str
+    html_url: str
+
+
+class TimelineCommittedEventPropParentsItemsTypeForResponse(TypedDict):
+    """TimelineCommittedEventPropParentsItems"""
+
+    sha: str
+    url: str
+    html_url: str
+
+
+class TimelineCommittedEventPropVerificationType(TypedDict):
+    """TimelineCommittedEventPropVerification"""
+
+    verified: bool
+    reason: str
+    signature: Union[str, None]
+    payload: Union[str, None]
+    verified_at: Union[str, None]
+
+
+class TimelineCommittedEventPropVerificationTypeForResponse(TypedDict):
+    """TimelineCommittedEventPropVerification"""
+
+    verified: bool
+    reason: str
+    signature: Union[str, None]
+    payload: Union[str, None]
+    verified_at: Union[str, None]
+
+
+__all__ = (
+    "TimelineCommittedEventPropAuthorType",
+    "TimelineCommittedEventPropAuthorTypeForResponse",
+    "TimelineCommittedEventPropCommitterType",
+    "TimelineCommittedEventPropCommitterTypeForResponse",
+    "TimelineCommittedEventPropParentsItemsType",
+    "TimelineCommittedEventPropParentsItemsTypeForResponse",
+    "TimelineCommittedEventPropTreeType",
+    "TimelineCommittedEventPropTreeTypeForResponse",
+    "TimelineCommittedEventPropVerificationType",
+    "TimelineCommittedEventPropVerificationTypeForResponse",
+    "TimelineCommittedEventType",
+    "TimelineCommittedEventTypeForResponse",
 )
-from .group_0156 import (
-    SecretScanningLocationIssueCommentType,
-    SecretScanningLocationIssueTitleType,
-    SecretScanningLocationPullRequestReviewCommentType,
-    SecretScanningLocationPullRequestTitleType,
-)
-from .group_0157 import (
-    SecretScanningLocationDiscussionBodyType,
-    SecretScanningLocationPullRequestCommentType,
-)
-
-
-class SecretScanningLocationType(TypedDict):
-    """SecretScanningLocation"""
-
-    type: NotRequired[
-        Literal[
-            "commit",
-            "wiki_commit",
-            "issue_title",
-            "issue_body",
-            "issue_comment",
-            "discussion_title",
-            "discussion_body",
-            "discussion_comment",
-            "pull_request_title",
-            "pull_request_body",
-            "pull_request_comment",
-            "pull_request_review",
-            "pull_request_review_comment",
-        ]
-    ]
-    details: NotRequired[
-        Union[
-            SecretScanningLocationCommitType,
-            SecretScanningLocationWikiCommitType,
-            SecretScanningLocationIssueTitleType,
-            SecretScanningLocationIssueBodyType,
-            SecretScanningLocationIssueCommentType,
-            SecretScanningLocationDiscussionTitleType,
-            SecretScanningLocationDiscussionBodyType,
-            SecretScanningLocationDiscussionCommentType,
-            SecretScanningLocationPullRequestTitleType,
-            SecretScanningLocationPullRequestBodyType,
-            SecretScanningLocationPullRequestCommentType,
-            SecretScanningLocationPullRequestReviewType,
-            SecretScanningLocationPullRequestReviewCommentType,
-        ]
-    ]
-
-
-__all__ = ("SecretScanningLocationType",)

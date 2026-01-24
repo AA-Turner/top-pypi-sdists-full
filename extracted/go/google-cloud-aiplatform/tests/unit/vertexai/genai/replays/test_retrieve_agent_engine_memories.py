@@ -14,6 +14,10 @@
 #
 # pylint: disable=protected-access,bad-continuation,missing-function-docstring
 
+import datetime
+import pytest
+
+
 from tests.unit.vertexai.genai.replays import pytest_helper
 from vertexai._genai import types
 from google.genai import pagers
@@ -22,7 +26,7 @@ from google.genai import pagers
 def test_retrieve_memories_with_similarity_search_params(client):
     agent_engine = client.agent_engines.create()
     assert not list(
-        client.agent_engines.retrieve_memories(
+        client.agent_engines.memories.retrieve(
             name=agent_engine.api_resource.name,
             scope={"user_id": "123"},
             similarity_search_params=types.RetrieveMemoriesRequestSimilaritySearchParams(
@@ -30,7 +34,7 @@ def test_retrieve_memories_with_similarity_search_params(client):
             ),
         )
     )
-    client.agent_engines.create_memory(
+    client.agent_engines.memories.create(
         name=agent_engine.api_resource.name,
         fact="memory_fact_1",
         scope={"user_id": "123"},
@@ -38,7 +42,7 @@ def test_retrieve_memories_with_similarity_search_params(client):
     assert (
         len(
             list(
-                client.agent_engines.retrieve_memories(
+                client.agent_engines.memories.retrieve(
                     name=agent_engine.api_resource.name,
                     scope={"user_id": "123"},
                 )
@@ -47,12 +51,12 @@ def test_retrieve_memories_with_similarity_search_params(client):
         == 1
     )
     assert not list(
-        client.agent_engines.retrieve_memories(
+        client.agent_engines.memories.retrieve(
             name=agent_engine.api_resource.name,
             scope={"user_id": "456"},
         )
     )
-    client.agent_engines.create_memory(
+    client.agent_engines.memories.create(
         name=agent_engine.api_resource.name,
         fact="memory_fact_2",
         scope={"user_id": "123"},
@@ -60,7 +64,7 @@ def test_retrieve_memories_with_similarity_search_params(client):
     assert (
         len(
             list(
-                client.agent_engines.retrieve_memories(
+                client.agent_engines.memories.retrieve(
                     name=agent_engine.api_resource.name,
                     scope={"user_id": "123"},
                 )
@@ -74,12 +78,12 @@ def test_retrieve_memories_with_similarity_search_params(client):
 
 def test_retrieve_memories_with_simple_retrieval_params(client):
     agent_engine = client.agent_engines.create()
-    client.agent_engines.create_memory(
+    client.agent_engines.memories.create(
         name=agent_engine.api_resource.name,
         fact="memory_fact_1",
         scope={"user_id": "123"},
     )
-    memories = client.agent_engines.retrieve_memories(
+    memories = client.agent_engines.memories.retrieve(
         name=agent_engine.api_resource.name,
         scope={"user_id": "123"},
         simple_retrieval_params=types.RetrieveMemoriesRequestSimpleRetrievalParams(
@@ -89,6 +93,74 @@ def test_retrieve_memories_with_simple_retrieval_params(client):
     assert isinstance(memories, pagers.Pager)
     assert isinstance(memories.page[0], types.RetrieveMemoriesResponseRetrievedMemory)
     assert memories.page_size == 1
+
+    client.agent_engines.memories.create(
+        name=agent_engine.api_resource.name,
+        fact="memory_fact_2",
+        scope={"user_id": "123"},
+    )
+    memories = client.agent_engines.memories.retrieve(
+        name=agent_engine.api_resource.name, scope={"user_id": "123"}
+    )
+    assert memories.page_size == 2
+
+    memories = client.agent_engines.memories.retrieve(
+        name=agent_engine.api_resource.name,
+        scope={"user_id": "123"},
+        config={"filter": 'fact="memory_fact_2"'},
+    )
+    assert memories.page_size == 1
+    assert memories.page[0].memory.fact == "memory_fact_2"
+
+    # Clean up resources.
+    agent_engine.delete(force=True)
+
+
+def test_retrieve_memories_with_metadata(client):
+    agent_engine = client.agent_engines.create()
+    metadata = {
+        "my_string_key": types.MemoryMetadataValue(string_value="my_string_value"),
+        "my_double_key": types.MemoryMetadataValue(double_value=123.456),
+        "my_boolean_key": types.MemoryMetadataValue(bool_value=True),
+        "my_timestamp_key": types.MemoryMetadataValue(
+            timestamp_value=datetime.datetime(
+                2027, 1, 1, 12, 30, 00, tzinfo=datetime.timezone.utc
+            )
+        ),
+    }
+    scope = {"user_id": "123"}
+    client.agent_engines.memories.create(
+        name=agent_engine.api_resource.name,
+        fact="memory_fact_1",
+        scope=scope,
+    )
+    operation = client.agent_engines.memories.create(
+        name=agent_engine.api_resource.name,
+        fact="memory_fact_2",
+        scope=scope,
+        config={"metadata": metadata},
+    )
+    memory_name2 = operation.response.name
+
+    results = client.agent_engines.memories.retrieve(
+        name=agent_engine.api_resource.name,
+        scope=scope,
+        config={
+            "filter_groups": [
+                {
+                    "filters": [
+                        {
+                            "key": "my_string_key",
+                            "value": {"string_value": "my_string_value"},
+                        }
+                    ]
+                }
+            ],
+        },
+    )
+    assert len(results) == 1
+    assert results[0].memory.name == memory_name2
+
     # Clean up resources.
     agent_engine.delete(force=True)
 
@@ -96,5 +168,29 @@ def test_retrieve_memories_with_simple_retrieval_params(client):
 pytestmark = pytest_helper.setup(
     file=__file__,
     globals_for_file=globals(),
-    test_method="agent_engines.create_memory",
+    test_method="agent_engines.memories.retrieve",
 )
+
+
+pytest_plugins = ("pytest_asyncio",)
+
+
+@pytest.mark.asyncio
+async def test_retrieve_memories_async(client):
+    agent_engine = client.agent_engines.create()
+    operation = await client.aio.agent_engines.memories.create(
+        name=agent_engine.api_resource.name,
+        fact="memory_fact",
+        scope={"user_id": "123"},
+    )
+    assert isinstance(operation, types.AgentEngineMemoryOperation)
+    pager = await client.aio.agent_engines.memories.retrieve(
+        name=agent_engine.api_resource.name,
+        scope={"user_id": "123"},
+    )
+    memories = [item async for item in pager]
+    assert len(memories) == 1
+    assert isinstance(memories[0], types.RetrieveMemoriesResponseRetrievedMemory)
+    await client.aio.agent_engines.delete(
+        name=agent_engine.api_resource.name, force=True
+    )

@@ -3,7 +3,7 @@ Type annotations for evidently service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evidently/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -108,12 +109,6 @@ from .type_defs import (
     UpdateProjectResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -124,15 +119,15 @@ __all__ = ("CloudWatchEvidentlyClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class CloudWatchEvidentlyClient(AioBaseClient):
@@ -233,7 +228,7 @@ class CloudWatchEvidentlyClient(AioBaseClient):
 
     async def delete_experiment(
         self, **kwargs: Unpack[DeleteExperimentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Evidently experiment.
 
@@ -241,7 +236,7 @@ class CloudWatchEvidentlyClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evidently/client/#delete_experiment)
         """
 
-    async def delete_feature(self, **kwargs: Unpack[DeleteFeatureRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_feature(self, **kwargs: Unpack[DeleteFeatureRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an Evidently feature.
 
@@ -249,7 +244,7 @@ class CloudWatchEvidentlyClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evidently/client/#delete_feature)
         """
 
-    async def delete_launch(self, **kwargs: Unpack[DeleteLaunchRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_launch(self, **kwargs: Unpack[DeleteLaunchRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an Evidently launch.
 
@@ -257,7 +252,7 @@ class CloudWatchEvidentlyClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evidently/client/#delete_launch)
         """
 
-    async def delete_project(self, **kwargs: Unpack[DeleteProjectRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_project(self, **kwargs: Unpack[DeleteProjectRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an Evidently project.
 
@@ -265,7 +260,7 @@ class CloudWatchEvidentlyClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evidently/client/#delete_project)
         """
 
-    async def delete_segment(self, **kwargs: Unpack[DeleteSegmentRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_segment(self, **kwargs: Unpack[DeleteSegmentRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a segment.
 
@@ -467,7 +462,7 @@ class CloudWatchEvidentlyClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evidently/client/#stop_launch)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags (key-value pairs) to the specified CloudWatch
         Evidently resource.
@@ -487,7 +482,7 @@ class CloudWatchEvidentlyClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evidently/client/#test_segment_pattern)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified resource.
 
@@ -619,7 +614,7 @@ class CloudWatchEvidentlyClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

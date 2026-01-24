@@ -612,7 +612,7 @@ class RecaptchaEnterpriseServiceAsyncClient:
 
                 # Initialize request argument(s)
                 key = recaptchaenterprise_v1.Key()
-                key.web_settings.integration_type = "INVISIBLE"
+                key.web_settings.integration_type = "POLICY_BASED_CHALLENGE"
                 key.display_name = "display_name_value"
 
                 request = recaptchaenterprise_v1.CreateKeyRequest(
@@ -1090,7 +1090,7 @@ class RecaptchaEnterpriseServiceAsyncClient:
 
                 # Initialize request argument(s)
                 key = recaptchaenterprise_v1.Key()
-                key.web_settings.integration_type = "INVISIBLE"
+                key.web_settings.integration_type = "POLICY_BASED_CHALLENGE"
                 key.display_name = "display_name_value"
 
                 request = recaptchaenterprise_v1.UpdateKeyRequest(
@@ -1388,9 +1388,9 @@ class RecaptchaEnterpriseServiceAsyncClient:
     ) -> recaptchaenterprise.AddIpOverrideResponse:
         r"""Adds an IP override to a key. The following restrictions hold:
 
-        -  The maximum number of IP overrides per key is 100.
-        -  For any conflict (such as IP already exists or IP part of an
-           existing IP range), an error is returned.
+        - The maximum number of IP overrides per key is 1000.
+        - For any conflict (such as IP already exists or IP part of an
+          existing IP range), an error is returned.
 
         .. code-block:: python
 
@@ -1519,11 +1519,11 @@ class RecaptchaEnterpriseServiceAsyncClient:
         r"""Removes an IP override from a key. The following restrictions
         hold:
 
-        -  If the IP isn't found in an existing IP override, a
-           ``NOT_FOUND`` error is returned.
-        -  If the IP is found in an existing IP override, but the
-           override type does not match, a ``NOT_FOUND`` error is
-           returned.
+        - If the IP isn't found in an existing IP override, a
+          ``NOT_FOUND`` error is returned.
+        - If the IP is found in an existing IP override, but the
+          override type does not match, a ``NOT_FOUND`` error is
+          returned.
 
         .. code-block:: python
 

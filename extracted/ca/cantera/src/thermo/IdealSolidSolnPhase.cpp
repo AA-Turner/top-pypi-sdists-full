@@ -24,12 +24,6 @@ IdealSolidSolnPhase::IdealSolidSolnPhase(const string& inputFile, const string& 
 
 // Molar Thermodynamic Properties of the Solution
 
-double IdealSolidSolnPhase::enthalpy_mole() const
-{
-    double htp = RT() * mean_X(enthalpy_RT_ref());
-    return htp + (pressure() - m_Pref)/molarDensity();
-}
-
 double IdealSolidSolnPhase::entropy_mole() const
 {
     return GasConstant * (mean_X(entropy_R_ref()) - sum_xlogx());
@@ -170,10 +164,17 @@ void IdealSolidSolnPhase::getPartialMolarVolumes(double* vbar) const
 
 void IdealSolidSolnPhase::getPureGibbs(double* gpure) const
 {
+    warn_deprecated("IdealSolidSolnPhase::getPureGibbs",
+        "To be removed after Cantera 3.2. Use getStandardChemPotentials instead.");
+        getStandardChemPotentials(gpure);
+}
+
+void IdealSolidSolnPhase::getStandardChemPotentials(double* g0) const
+{
     const vector<double>& gibbsrt = gibbs_RT_ref();
     double delta_p = (m_Pcurrent - m_Pref);
     for (size_t k = 0; k < m_kk; k++) {
-        gpure[k] = RT() * gibbsrt[k] + delta_p * m_speciesMolarVolume[k];
+        g0[k] = RT() * gibbsrt[k] + delta_p * m_speciesMolarVolume[k];
     }
 }
 
@@ -353,7 +354,7 @@ void IdealSolidSolnPhase::getSpeciesParameters(const string &name,
                                                AnyMap& speciesNode) const
 {
     ThermoPhase::getSpeciesParameters(name, speciesNode);
-    size_t k = speciesIndex(name);
+    size_t k = speciesIndex(name, true);
     const auto S = species(k);
     auto& eosNode = speciesNode["equation-of-state"].getMapWhere(
         "model", "constant-volume", true);

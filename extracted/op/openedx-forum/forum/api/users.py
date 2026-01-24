@@ -31,7 +31,7 @@ def get_user(
         A response with the users data.
     """
     backend = get_backend(course_id)()
-    user = backend.get_user(user_id)
+    user = backend.get_user(user_id, get_full_dict=False)
     if not user:
         log.error(f"Forumv2RequestError for retrieving user's data for id {user_id}.")
         raise ForumV2RequestError(str(f"user not found with id: {user_id}"))
@@ -197,6 +197,7 @@ def get_user_active_threads(
     page: Optional[int] = FORUM_DEFAULT_PAGE,
     per_page: Optional[int] = FORUM_DEFAULT_PER_PAGE,
     group_id: Optional[str] = None,
+    is_moderator: Optional[bool] = False,
 ) -> dict[str, Any]:
     """Get user active threads."""
     backend = get_backend(course_id)()
@@ -249,6 +250,7 @@ def get_user_active_threads(
         "per_page": per_page,
         "context": "course",
         "raw_query": raw_query,
+        "is_moderator": is_moderator,
     }
     data = backend.handle_threads_query(**params)
 
@@ -296,7 +298,7 @@ def _get_stats_for_usernames(
     for user in users:
         if user["username"] not in usernames:
             continue
-        course_stats = user["course_stats"]
+        course_stats = user.get("course_stats")
         if course_stats:
             for course_stat in course_stats:
                 if course_stat["course_id"] == course_id:

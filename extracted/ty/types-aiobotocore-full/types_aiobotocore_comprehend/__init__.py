@@ -3,7 +3,7 @@ Main interface for comprehend service.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_comprehend/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

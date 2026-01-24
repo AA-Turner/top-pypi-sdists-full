@@ -12,14 +12,25 @@ from __future__ import annotations
 from typing_extensions import TypedDict
 
 
-class CheckAutomatedSecurityFixesType(TypedDict):
-    """Check Dependabot security updates
+class LinkType(TypedDict):
+    """Link
 
-    Check Dependabot security updates
+    Hypermedia Link
     """
 
-    enabled: bool
-    paused: bool
+    href: str
 
 
-__all__ = ("CheckAutomatedSecurityFixesType",)
+class LinkTypeForResponse(TypedDict):
+    """Link
+
+    Hypermedia Link
+    """
+
+    href: str
+
+
+__all__ = (
+    "LinkType",
+    "LinkTypeForResponse",
+)

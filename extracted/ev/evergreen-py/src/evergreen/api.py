@@ -4,6 +4,7 @@ from __future__ import absolute_import
 
 import json
 import re
+import shlex
 import subprocess
 from contextlib import contextmanager
 from datetime import datetime
@@ -33,15 +34,19 @@ from evergreen.build import Build
 from evergreen.commitqueue import CommitQueue
 from evergreen.config import (
     DEFAULT_API_SERVER,
+    DEFAULT_API_SERVER_OIDC,
     DEFAULT_NETWORK_TIMEOUT_SEC,
     EvgAuth,
+    OidcConfig,
     get_auth_from_config,
+    get_oauth_config_from_config,
     read_evergreen_config,
     read_evergreen_from_file,
 )
 from evergreen.distro import Distro
 from evergreen.host import Host
 from evergreen.manifest import Manifest
+from evergreen.oidc import OidcTokenManager
 from evergreen.patch import Patch, PatchCreationDetails
 from evergreen.performance_results import PerformanceData
 from evergreen.project import Project
@@ -98,6 +103,7 @@ class EvergreenApi(object):
         log_on_error: bool = False,
         use_default_logger_factory: bool = True,
         http_retry: Optional[Retry] = None,
+        oidc_config: Optional[OidcConfig] = None,
     ) -> None:
         """
         Create a _BaseEvergreenApi object.
@@ -109,6 +115,7 @@ class EvergreenApi(object):
         :param log_on_error: Flag to use for error logs.
         :param use_default_logger_factory: Indicate if the module should configure the default logger factory.
         :param http_retry: Optional Retry object that can be used to customize http request retries.
+        :param oidc_config: Optional OidcConfig for OIDC authentication.
         """
         self._timeout = timeout
         self._api_server = api_server
@@ -116,6 +123,10 @@ class EvergreenApi(object):
         self._session = session
         self._log_on_error = log_on_error
         self._http_retry = http_retry
+        self._oidc_config = oidc_config
+        self._oidc_token_manager: Optional[OidcTokenManager] = None
+        if oidc_config:
+            self._oidc_token_manager = OidcTokenManager(oidc_config, timeout)
 
         if use_default_logger_factory:
             structlog.configure(logger_factory=LoggerFactory())
@@ -125,7 +136,12 @@ class EvergreenApi(object):
         """Yield an instance of the API client with a shared session."""
         session = self._create_session()
         evg_api = EvergreenApi(
-            self._api_server, self._auth, self._timeout, session, self._log_on_error
+            self._api_server,
+            self._auth,
+            self._timeout,
+            session,
+            self._log_on_error,
+            oidc_config=self._oidc_config,
         )
         yield evg_api
 
@@ -146,9 +162,16 @@ class EvergreenApi(object):
         session = requests.Session()
         adapter = requests.adapters.HTTPAdapter(max_retries=self._http_retry)
         session.mount(f"{urlparse(self._api_server).scheme}://", adapter)
-        auth = self._auth
-        if auth:
-            session.headers.update({"Api-User": auth.username, "Api-Key": auth.api_key})
+
+        # Add authentication headers
+        if self._oidc_token_manager:
+            # Use OIDC Bearer token
+            token = self._oidc_token_manager.get_token()
+            session.headers.update({"Authorization": f"Bearer {token}"})
+        elif self._auth:
+            # Use API key authentication
+            session.headers.update({"Api-User": self._auth.username, "Api-Key": self._auth.api_key})
+
         return session
 
     def _create_url(self, endpoint: str) -> str:
@@ -208,6 +231,12 @@ class EvergreenApi(object):
             data=data,
             method=method,
         )
+
+        # Refresh OIDC bearer token in session headers if expired
+        if self._oidc_token_manager:
+            token = self._oidc_token_manager.get_token()
+            self.session.headers.update({"Authorization": f"Bearer {token}"})
+
         response = self.session.request(
             url=url, params=params, timeout=self._timeout, data=data, method=method
         )
@@ -1009,7 +1038,7 @@ class EvergreenApi(object):
         :return: The patch creation details.
         """
         if author is not None:
-            command = f"{command} --author {author}"
+            command = f"{command} --author {shlex.quote(author)}"
 
         process = subprocess.run(command, shell=True, capture_output=True)
         output = process.stdout.decode("utf-8")
@@ -1047,6 +1076,7 @@ class EvergreenApi(object):
         description: str,
         variant: str,
         author: Optional[str] = None,
+        large: Optional[bool] = None,
     ) -> PatchCreationDetails:
         """
         Start a patch build based on a patch.
@@ -1059,11 +1089,15 @@ class EvergreenApi(object):
         :param description: A description of the build.
         :param variant: The variant(s) to build against.
         :param author: The author to attribute for the build.
+        :param large: Whether the patch is large. (>16MB)
         :raises Exception: If a build URL is not produced we raise an exception with the output included.
         :return: The patch creation details.
         """
-        unpacked_params = " ".join([f"--param '{key}={value}'" for key, value in params.items()])
-        command = f"evergreen patch-file --diff-file {diff_file_path} --description '{description}' --base {base} --tasks {task} --variants {variant} --project {project} {unpacked_params} -y -f"
+        unpacked_params = " ".join(
+            ["--param " + shlex.quote(f"{key}={value}") for key, value in params.items()]
+        )
+        large_flag = "--large" if large else ""
+        command = f"evergreen patch-file --diff-file {shlex.quote(diff_file_path)} --description {shlex.quote(description)} --base {shlex.quote(base)} --tasks {shlex.quote(task)} --variants {shlex.quote(variant)} --project {shlex.quote(project)} {unpacked_params} {large_flag} -y -f"
         return self._execute_patch_file_command(command, author)
 
     def patch_from_patch_id(
@@ -1075,6 +1109,7 @@ class EvergreenApi(object):
         description: str,
         variant: str,
         author: Optional[str] = None,
+        large: Optional[bool] = None,
     ) -> PatchCreationDetails:
         """
         Start a patch build based on a diff.
@@ -1086,11 +1121,15 @@ class EvergreenApi(object):
         :param description: A description of the build.
         :param variant: The variant(s) to build against.
         :param author: The author to attribute for the build.
+        :param large: Whether the patch is large. (>16MB)
         :raises Exception: If a build URL is not produced we raise an exception with the output included.
         :return: The patch creation details.
         """
-        unpacked_params = " ".join([f"--param '{key}={value}'" for key, value in params.items()])
-        command = f"evergreen patch-file --diff-patchId {patch_id} --description '{description}' --tasks {task} --variants {variant} --project {project} {unpacked_params} -y -f"
+        unpacked_params = " ".join(
+            ["--param " + shlex.quote(f"{key}={value}") for key, value in params.items()]
+        )
+        large_flag = "--large" if large else ""
+        command = f"evergreen patch-file --diff-patchId {shlex.quote(patch_id)} --description {shlex.quote(description)} --tasks {shlex.quote(task)} --variants {shlex.quote(variant)} --project {shlex.quote(project)} {unpacked_params} {large_flag} -y -f"
         return self._execute_patch_file_command(command, author)
 
     def repeat_patch(
@@ -1100,6 +1139,7 @@ class EvergreenApi(object):
         project: str,
         description: str,
         author: Optional[str] = None,
+        large: Optional[bool] = None,
     ) -> PatchCreationDetails:
         """
         Start a patch build based on a diff.
@@ -1109,11 +1149,15 @@ class EvergreenApi(object):
         :param project: The project to start the build for.
         :param description: A description of the build.
         :param author: The author to attribute for the build.
+        :param large: Whether the patch is large. (>16MB)
         :raises Exception: If a build URL is not produced we raise an exception with the output included.
         :return: The patch creation details.
         """
-        unpacked_params = " ".join([f"--param '{key}={value}'" for key, value in params.items()])
-        command = f"evergreen patch-file --diff-patchId {patch_id} --repeat-patch {patch_id} --description '{description}' --project {project} {unpacked_params} -y -f"
+        unpacked_params = " ".join(
+            ["--param " + shlex.quote(f"{key}={value}") for key, value in params.items()]
+        )
+        large_flag = "--large" if large else ""
+        command = f"evergreen patch-file --diff-patchId {shlex.quote(patch_id)} --repeat-patch {shlex.quote(patch_id)} --description {shlex.quote(description)} --project {shlex.quote(project)} {unpacked_params} {large_flag} -y -f"
         return self._execute_patch_file_command(command, author)
 
     def task_by_id(
@@ -1619,8 +1663,8 @@ class EvergreenApi(object):
         config_file: Optional[str] = None,
         timeout: Optional[int] = DEFAULT_NETWORK_TIMEOUT_SEC,
         log_on_error: bool = False,
-    ) -> Dict:
-        kwargs = {"auth": auth, "timeout": timeout, "log_on_error": log_on_error}
+    ) -> Dict[str, Any]:
+        kwargs: Dict[str, Any] = {"auth": auth, "timeout": timeout, "log_on_error": log_on_error}
         config = None
         if use_config_file:
             config = read_evergreen_config()
@@ -1630,9 +1674,19 @@ class EvergreenApi(object):
             config = read_evergreen_from_file(config_file)
 
         if config is not None:
-            auth = get_auth_from_config(config)
-            if auth:
-                kwargs["auth"] = auth
+            # Try to get OIDC config first
+            oidc_config = get_oauth_config_from_config(config)
+            if oidc_config:
+                kwargs["oidc_config"] = oidc_config
+                # Use OIDC API server for OIDC auth
+                kwargs["api_server"] = DEFAULT_API_SERVER_OIDC
+            else:
+                # Fall back to API key auth
+                auth = get_auth_from_config(config)
+                if auth:
+                    kwargs["auth"] = auth
+                # Use default API server for API key auth
+                kwargs["api_server"] = DEFAULT_API_SERVER
 
             # If there is a value for api_server_host, then use it.
             if "evergreen" in config and config["evergreen"].get("api_server_host", None):
@@ -1650,10 +1704,11 @@ class CachedEvergreenApi(EvergreenApi):
         auth: Optional[EvgAuth] = None,
         timeout: Optional[int] = None,
         log_on_error: bool = False,
+        oidc_config: Optional[OidcConfig] = None,
     ) -> None:
         """Create an Evergreen Api object."""
         super(CachedEvergreenApi, self).__init__(
-            api_server, auth, timeout, log_on_error=log_on_error
+            api_server, auth, timeout, log_on_error=log_on_error, oidc_config=oidc_config
         )
 
     @lru_cache(maxsize=CACHE_SIZE)  # noqa: B019
@@ -1731,6 +1786,7 @@ class RetryingEvergreenApi(EvergreenApi):
         log_on_error: bool = False,
         use_default_logger_factory: bool = True,
         http_retry: Retry = DEFAULT_HTTP_RETRY,
+        oidc_config: Optional[OidcConfig] = None,
     ) -> None:
         """Create an Evergreen Api object."""
         sticky_session_with_retry = EvergreenApi(
@@ -1740,6 +1796,7 @@ class RetryingEvergreenApi(EvergreenApi):
             log_on_error=log_on_error,
             use_default_logger_factory=use_default_logger_factory,
             http_retry=http_retry,
+            oidc_config=oidc_config,
         )._create_session()
 
         super(RetryingEvergreenApi, self).__init__(
@@ -1750,4 +1807,5 @@ class RetryingEvergreenApi(EvergreenApi):
             log_on_error,
             use_default_logger_factory,
             http_retry,
+            oidc_config,
         )

@@ -1,6 +1,8 @@
 import urllib.error
+from http import HTTPStatus
 from unittest.mock import Mock, patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.urls import reverse
@@ -8,6 +10,8 @@ from django.urls import reverse
 import pytest
 from openid import fetchers
 from openid.consumer import consumer
+from openid.message import InvalidOpenIDNamespace
+from pytest_django.asserts import assertTemplateUsed
 
 from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.providers.openid import views
@@ -19,14 +23,14 @@ class TestFetcher(fetchers.Urllib2Fetcher):
         if url == "https://steamcommunity.com/openid":
             return fetchers.HTTPResponse(
                 final_url="https://steamcommunity.com/openid",
-                status=200,
+                status=HTTPStatus.OK,
                 headers={"content-type": "application/xrds+xml;charset=utf-8"},
                 body='<?xml version="1.0" encoding="UTF-8"?>\n<xrds:XRDS xmlns:xrds="xri://$xrds" xmlns="xri://$xrd*($v*2.0)">\n\t<XRD>\n\t\t<Service priority="0">\n\t\t\t<Type>http://specs.openid.net/auth/2.0/server</Type>\t\t\n\t\t\t<URI>https://steamcommunity.com/openid/login</URI>\n\t\t</Service>\n\t</XRD>\n</xrds:XRDS>',
             )
         if url == "https://steamcommunity.com/openid/login":
             return fetchers.HTTPResponse(
                 final_url="https://steamcommunity.com/openid/login",
-                status=200,
+                status=HTTPStatus.OK,
                 headers={"content-type": "text/plain;charset=utf-8"},
                 body="ns:http://specs.openid.net/auth/2.0\nerror_code:unsupported-type\nerror:Associations not supported\n",
             )
@@ -157,3 +161,35 @@ def test_login_with_extra_attributes(client, db):
                 assert resp["location"] == "/accounts/profile/"
                 socialaccount = SocialAccount.objects.get(user__first_name="raymond")
                 assert socialaccount.extra_data.get("phone") == "123456789"
+
+
+def test_callback_error(client, db):
+    with patch(
+        "allauth.socialaccount.providers.openid.views._openid_consumer"
+    ) as consumer_mock:
+        consumer_client = Mock()
+        complete = Mock()
+        consumer_mock.return_value = consumer_client
+        consumer_client.complete = complete
+
+        def raise_invalid_openid_namespace(*args, **kwargs):
+            raise InvalidOpenIDNamespace("Invalid OpenID Namespace 'http://evil.com'")
+
+        complete.side_effect = raise_invalid_openid_namespace
+        template_ext = getattr(settings, "ACCOUNT_TEMPLATE_EXTENSION", "html")
+        with patch(
+            "allauth.socialaccount.providers.openid.utils.SRegResponse"
+        ) as sr_mock:
+            with patch(
+                "allauth.socialaccount.providers.openid.utils.FetchResponse"
+            ) as fr_mock:
+                sreg_mock = Mock()
+                ax_mock = Mock()
+                sr_mock.fromSuccessResponse = sreg_mock
+                fr_mock.fromSuccessResponse = ax_mock
+                sreg_mock.return_value = {}
+                ax_mock.return_value = {AXAttribute.PERSON_FIRST_NAME: ["raymond"]}
+                resp = client.post(reverse("openid_callback"))
+                assertTemplateUsed(
+                    resp, f"socialaccount/authentication_error.{template_ext}"
+                )

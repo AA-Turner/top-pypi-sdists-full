@@ -49,6 +49,29 @@ class MongodbClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateAccountUser(self, request):
+        r"""This API is used to customize an account to access the instance.
+
+        :param request: Request instance for CreateAccountUser.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.CreateAccountUserRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.CreateAccountUserResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateAccountUser", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateAccountUserResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateBackupDBInstance(self, request):
         r"""This API is used to back up an instance.
 
@@ -96,7 +119,7 @@ class MongodbClient(AbstractClient):
 
 
     def CreateDBInstance(self, request):
-        r"""This API is used to create a monthly subscription TencentDB for MongoDB instance. The purchasable specifications supported by this API can be obtained through the `DescribeSpecInfo` API.
+        r"""This API is used to create a yearly/monthly subscription TencentDB for MongoDB instance. The [DescribeSpecInfo](https://www.tencentcloud.com/document/product/240/35767?from_cn_redirect=1) API can be called to query and obtain the supported sales specifications.
 
         :param request: Request instance for CreateDBInstance.
         :type request: :class:`tencentcloud.mongodb.v20190725.models.CreateDBInstanceRequest`
@@ -141,6 +164,75 @@ class MongodbClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateLogDownloadTask(self, request):
+        r"""This API is used to create a log download task.
+
+        :param request: Request instance for CreateLogDownloadTask.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.CreateLogDownloadTaskRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.CreateLogDownloadTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateLogDownloadTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateLogDownloadTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteAccountUser(self, request):
+        r"""This API is used to delete a custom account of an instance.
+
+        :param request: Request instance for DeleteAccountUser.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.DeleteAccountUserRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.DeleteAccountUserResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteAccountUser", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteAccountUserResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteLogDownloadTask(self, request):
+        r"""This API is used to delete a log download task.
+
+        :param request: Request instance for DeleteLogDownloadTask.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.DeleteLogDownloadTaskRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.DeleteLogDownloadTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteLogDownloadTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteLogDownloadTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeAsyncRequestInfo(self, request):
         r"""This API is used to query the asynchronous task status.
 
@@ -165,7 +257,7 @@ class MongodbClient(AbstractClient):
 
 
     def DescribeBackupDownloadTask(self, request):
-        r"""This API is used to query backup download task information.
+        r"""This API is used to query information about the backup download task.
 
         :param request: Request instance for DescribeBackupDownloadTask.
         :type request: :class:`tencentcloud.mongodb.v20190725.models.DescribeBackupDownloadTaskRequest`
@@ -178,6 +270,29 @@ class MongodbClient(AbstractClient):
             body = self.call("DescribeBackupDownloadTask", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeBackupDownloadTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeBackupRules(self, request):
+        r"""This API is used to obtain the automatic backup configuration information of an instance.
+
+        :param request: Request instance for DescribeBackupRules.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.DescribeBackupRulesRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.DescribeBackupRulesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeBackupRules", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeBackupRulesResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -201,6 +316,29 @@ class MongodbClient(AbstractClient):
             body = self.call("DescribeClientConnections", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeClientConnectionsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeCurrentOp(self, request):
+        r"""This API is used to query the operation currently being performed on a TencentDB for MongoDB instance.
+
+        :param request: Request instance for DescribeCurrentOp.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.DescribeCurrentOpRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.DescribeCurrentOpResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeCurrentOp", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeCurrentOpResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -279,6 +417,29 @@ class MongodbClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeDBInstanceNodeProperty(self, request):
+        r"""This API is used to query node attributes, such as the AZ, node name, address, role, status, delay between primary and secondary nodes, priority, voting right, and tags.
+
+        :param request: Request instance for DescribeDBInstanceNodeProperty.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.DescribeDBInstanceNodePropertyRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.DescribeDBInstanceNodePropertyResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeDBInstanceNodeProperty", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeDBInstanceNodePropertyResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeDBInstances(self, request):
         r"""This API is used to query the list of TencentDB for MongoDB instances. It supports filtering primary instances, disaster recovery instances, and read-only instances by project ID, instance ID, instance status, and other conditions.
 
@@ -302,6 +463,29 @@ class MongodbClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeDetailedSlowLogs(self, request):
+        r"""This API is used to query slow log details of the instance.
+
+        :param request: Request instance for DescribeDetailedSlowLogs.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.DescribeDetailedSlowLogsRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.DescribeDetailedSlowLogsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeDetailedSlowLogs", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeDetailedSlowLogsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeInstanceParams(self, request):
         r"""This API is used to query the list of parameters that can be modified for the current instance.
 
@@ -316,6 +500,75 @@ class MongodbClient(AbstractClient):
             body = self.call("DescribeInstanceParams", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeInstanceParamsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeInstanceSSL(self, request):
+        r"""This API is used to view the enabling status of Secure Sockets Layer (SSL) for an instance.
+
+        :param request: Request instance for DescribeInstanceSSL.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.DescribeInstanceSSLRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.DescribeInstanceSSLResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeInstanceSSL", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeInstanceSSLResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeLogDownloadTasks(self, request):
+        r"""This API is used to query a log download task.
+
+        :param request: Request instance for DescribeLogDownloadTasks.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.DescribeLogDownloadTasksRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.DescribeLogDownloadTasksResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeLogDownloadTasks", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeLogDownloadTasksResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeMongodbLogs(self, request):
+        r"""This API is used to query running logs.
+
+        :param request: Request instance for DescribeMongodbLogs.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.DescribeMongodbLogsRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.DescribeMongodbLogsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeMongodbLogs", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeMongodbLogsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -395,7 +648,7 @@ class MongodbClient(AbstractClient):
 
 
     def DescribeSpecInfo(self, request):
-        r"""This API is used to query the purchasable instance specifications.
+        r"""This API is used to query the sales specification of an instance.
 
         :param request: Request instance for DescribeSpecInfo.
         :type request: :class:`tencentcloud.mongodb.v20190725.models.DescribeSpecInfoRequest`
@@ -408,6 +661,29 @@ class MongodbClient(AbstractClient):
             body = self.call("DescribeSpecInfo", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeSpecInfoResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def EnableTransparentDataEncryption(self, request):
+        r"""This API is used to enable the transparent data encryption (TDE) capability for TencentDB for MongoDB.
+
+        :param request: Request instance for EnableTransparentDataEncryption.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.EnableTransparentDataEncryptionRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.EnableTransparentDataEncryptionResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("EnableTransparentDataEncryption", params, headers=headers)
+            response = json.loads(body)
+            model = models.EnableTransparentDataEncryptionResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -509,8 +785,31 @@ class MongodbClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def InstanceEnableSSL(self, request):
+        r"""This API is used to set the SSL status for an instance.
+
+        :param request: Request instance for InstanceEnableSSL.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.InstanceEnableSSLRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.InstanceEnableSSLResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("InstanceEnableSSL", params, headers=headers)
+            response = json.loads(body)
+            model = models.InstanceEnableSSLResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def IsolateDBInstance(self, request):
-        r"""This API is used to isolate a pay-as-you-go TencentDB for MongoDB instance. An isolated instance is retained in the recycle bin and data can no longer be written to it. After it is isolated for a certain period of time, it will be completely deleted. For the retention period in the recycle bin, please see the terms of service for pay-as-you-go billing. Isolated pay-as-you-go instances cannot be recovered, so please proceed with caution.
+        r"""This API is used to isolate a pay-as-you-go TencentDB for MongoDB instance. After isolation, the instance is retained in the recycle bin, and data cannot be written into it. After a certain period of isolation, the instance is deleted permanently. For the retention time in the recycle bin, see the pay-as-you-go service terms. The deleted pay-as-you-go instance cannot be recovered. Proceed with caution.
 
         :param request: Request instance for IsolateDBInstance.
         :type request: :class:`tencentcloud.mongodb.v20190725.models.IsolateDBInstanceRequest`
@@ -523,6 +822,29 @@ class MongodbClient(AbstractClient):
             body = self.call("IsolateDBInstance", params, headers=headers)
             response = json.loads(body)
             model = models.IsolateDBInstanceResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def KillOps(self, request):
+        r"""This API is used to terminate a specific operation performed on a TencentDB for MongoDB instance.
+
+        :param request: Request instance for KillOps.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.KillOpsRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.KillOpsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("KillOps", params, headers=headers)
+            response = json.loads(body)
+            model = models.KillOpsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -579,7 +901,7 @@ class MongodbClient(AbstractClient):
 
 
     def ModifyDBInstanceSpec(self, request):
-        r"""This API is used to adjust the configuration of a TencentDB for MongoDB instance. Saleable specifications supported for this API can be obtained from the DescribeSpecInfo API for querying saleable TencentDB for MongoDB specifications.
+        r"""This API is used to adjust the TencentDB for MongoDB instance configuration. The [DescribeSpecInfo](https://www.tencentcloud.com/document/product/240/38567?from_cn_redirect=1) API can be called to query and obtain the supported sales specifications.
 
         :param request: Request instance for ModifyDBInstanceSpec.
         :type request: :class:`tencentcloud.mongodb.v20190725.models.ModifyDBInstanceSpecRequest`
@@ -592,6 +914,29 @@ class MongodbClient(AbstractClient):
             body = self.call("ModifyDBInstanceSpec", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyDBInstanceSpecResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyInstanceParams(self, request):
+        r"""This API is used to modify the parameter configuration of a TencentDB for MongoDB instance.
+
+        :param request: Request instance for ModifyInstanceParams.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.ModifyInstanceParamsRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.ModifyInstanceParamsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyInstanceParams", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyInstanceParamsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -671,7 +1016,7 @@ class MongodbClient(AbstractClient):
 
 
     def ResetDBInstancePassword(self, request):
-        r"""This API is used to modify instance password.
+        r"""This API is used to reset the instance access password.
 
         :param request: Request instance for ResetDBInstancePassword.
         :type request: :class:`tencentcloud.mongodb.v20190725.models.ResetDBInstancePasswordRequest`
@@ -684,6 +1029,144 @@ class MongodbClient(AbstractClient):
             body = self.call("ResetDBInstancePassword", params, headers=headers)
             response = json.loads(body)
             model = models.ResetDBInstancePasswordResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SetAccountUserPrivilege(self, request):
+        r"""This API is used to set the account permissions of an instance.
+
+        :param request: Request instance for SetAccountUserPrivilege.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.SetAccountUserPrivilegeRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.SetAccountUserPrivilegeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SetAccountUserPrivilege", params, headers=headers)
+            response = json.loads(body)
+            model = models.SetAccountUserPrivilegeResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SetDBInstanceDeletionProtection(self, request):
+        r"""This API is used to set instance termination protection.
+
+        :param request: Request instance for SetDBInstanceDeletionProtection.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.SetDBInstanceDeletionProtectionRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.SetDBInstanceDeletionProtectionResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SetDBInstanceDeletionProtection", params, headers=headers)
+            response = json.loads(body)
+            model = models.SetDBInstanceDeletionProtectionResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SetInstanceMaintenance(self, request):
+        r"""This API is used to set the instance maintenance window.
+
+        :param request: Request instance for SetInstanceMaintenance.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.SetInstanceMaintenanceRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.SetInstanceMaintenanceResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SetInstanceMaintenance", params, headers=headers)
+            response = json.loads(body)
+            model = models.SetInstanceMaintenanceResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def TerminateDBInstances(self, request):
+        r"""This API is used to terminate monthly subscription billing instances.
+
+        :param request: Request instance for TerminateDBInstances.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.TerminateDBInstancesRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.TerminateDBInstancesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("TerminateDBInstances", params, headers=headers)
+            response = json.loads(body)
+            model = models.TerminateDBInstancesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def UpgradeDBInstanceKernelVersion(self, request):
+        r"""This API is used to upgrade the kernel version of the database instance.
+
+        :param request: Request instance for UpgradeDBInstanceKernelVersion.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.UpgradeDBInstanceKernelVersionRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.UpgradeDBInstanceKernelVersionResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("UpgradeDBInstanceKernelVersion", params, headers=headers)
+            response = json.loads(body)
+            model = models.UpgradeDBInstanceKernelVersionResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def UpgradeDbInstanceVersion(self, request):
+        r"""This API is used to upgrade the database kernel across versions. Currently, it is only supported to upgrade from version 3.6 to 4.0, 4.0 to 4.2, 4.2 to 4.4, and 4.4 to 5.0.
+
+        :param request: Request instance for UpgradeDbInstanceVersion.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.UpgradeDbInstanceVersionRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.UpgradeDbInstanceVersionResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("UpgradeDbInstanceVersion", params, headers=headers)
+            response = json.loads(body)
+            model = models.UpgradeDbInstanceVersionResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

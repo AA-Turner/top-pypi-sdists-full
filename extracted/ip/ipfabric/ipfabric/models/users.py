@@ -55,7 +55,7 @@ class User(BaseModel):
         )
 
     @property
-    def snapshots_settings(self):
+    def snapshots_settings(self) -> Optional[bool]:
         """If the User/Token has access to snapshots/:key/settings Endpoint."""
         return self._snapshots_settings
 

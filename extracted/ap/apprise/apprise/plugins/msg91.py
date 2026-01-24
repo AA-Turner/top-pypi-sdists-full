@@ -74,7 +74,7 @@ class NotifyMSG91(NotifyBase):
     secure_protocol = "msg91"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_msg91"
+    setup_url = "https://appriseit.com/services/msg91/"
 
     # MSG91 uses the http protocol with JSON requests
     notify_url = "https://control.msg91.com/api/v5/flow/"
@@ -231,7 +231,7 @@ class NotifyMSG91(NotifyBase):
             "mobiles": None,
             # Keyword Tokens
             MSG91PayloadField.BODY: body,
-            MSG91PayloadField.MESSAGETYPE: notify_type,
+            MSG91PayloadField.MESSAGETYPE: notify_type.value,
         }
 
         # Prepare Recipient Payload Object
@@ -307,7 +307,9 @@ class NotifyMSG91(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
+
                 return False
 
             else:

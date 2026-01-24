@@ -66,10 +66,3 @@ class ButtonType(Enum):
     HYPERLINK = "hyperlink"
     WIDGET = "widget"
     ACTION = "action"
-
-
-class HyperlinkTarget(Enum):
-    BLANK = "_blank"
-    SELF = "_self"
-    PARENT = "_parent"
-    TOP = "_top"

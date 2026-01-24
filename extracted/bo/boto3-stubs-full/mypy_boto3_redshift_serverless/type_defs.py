@@ -3,7 +3,7 @@ Type annotations for redshift-serverless service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift_serverless/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,10 +17,13 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import (
+    LakehouseIdcRegistrationType,
+    LakehouseRegistrationType,
     LogExportType,
     ManagedWorkgroupStatusType,
     NamespaceStatusType,
@@ -34,12 +37,6 @@ from .literals import (
     WorkgroupStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -95,6 +92,8 @@ __all__ = (
     "GetCustomDomainAssociationResponseTypeDef",
     "GetEndpointAccessRequestTypeDef",
     "GetEndpointAccessResponseTypeDef",
+    "GetIdentityCenterAuthTokenRequestTypeDef",
+    "GetIdentityCenterAuthTokenResponseTypeDef",
     "GetNamespaceRequestTypeDef",
     "GetNamespaceResponseTypeDef",
     "GetRecoveryPointRequestTypeDef",
@@ -201,6 +200,8 @@ __all__ = (
     "UpdateCustomDomainAssociationResponseTypeDef",
     "UpdateEndpointAccessRequestTypeDef",
     "UpdateEndpointAccessResponseTypeDef",
+    "UpdateLakehouseConfigurationRequestTypeDef",
+    "UpdateLakehouseConfigurationResponseTypeDef",
     "UpdateNamespaceRequestTypeDef",
     "UpdateNamespaceResponseTypeDef",
     "UpdateScheduledActionRequestTypeDef",
@@ -241,14 +242,14 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 
 class SnapshotTypeDef(TypedDict):
-    accountsWithProvisionedRestoreAccess: NotRequired[List[str]]
-    accountsWithRestoreAccess: NotRequired[List[str]]
+    accountsWithProvisionedRestoreAccess: NotRequired[list[str]]
+    accountsWithRestoreAccess: NotRequired[list[str]]
     actualIncrementalBackupSizeInMegaBytes: NotRequired[float]
     adminPasswordSecretArn: NotRequired[str]
     adminPasswordSecretKmsKeyId: NotRequired[str]
@@ -289,12 +290,14 @@ class NamespaceTypeDef(TypedDict):
     adminPasswordSecretArn: NotRequired[str]
     adminPasswordSecretKmsKeyId: NotRequired[str]
     adminUsername: NotRequired[str]
+    catalogArn: NotRequired[str]
     creationDate: NotRequired[datetime]
     dbName: NotRequired[str]
     defaultIamRoleArn: NotRequired[str]
-    iamRoles: NotRequired[List[str]]
+    iamRoles: NotRequired[list[str]]
     kmsKeyId: NotRequired[str]
-    logExports: NotRequired[List[LogExportType]]
+    lakehouseRegistrationStatus: NotRequired[str]
+    logExports: NotRequired[list[LogExportType]]
     namespaceArn: NotRequired[str]
     namespaceId: NotRequired[str]
     namespaceName: NotRequired[str]
@@ -407,6 +410,10 @@ class GetCustomDomainAssociationRequestTypeDef(TypedDict):
 
 class GetEndpointAccessRequestTypeDef(TypedDict):
     endpointName: str
+
+
+class GetIdentityCenterAuthTokenRequestTypeDef(TypedDict):
+    workgroupNames: Sequence[str]
 
 
 class GetNamespaceRequestTypeDef(TypedDict):
@@ -674,6 +681,15 @@ class UpdateEndpointAccessRequestTypeDef(TypedDict):
     vpcSecurityGroupIds: NotRequired[Sequence[str]]
 
 
+class UpdateLakehouseConfigurationRequestTypeDef(TypedDict):
+    namespaceName: str
+    catalogName: NotRequired[str]
+    dryRun: NotRequired[bool]
+    lakehouseIdcApplicationArn: NotRequired[str]
+    lakehouseIdcRegistration: NotRequired[LakehouseIdcRegistrationType]
+    lakehouseRegistration: NotRequired[LakehouseRegistrationType]
+
+
 class UpdateNamespaceRequestTypeDef(TypedDict):
     namespaceName: str
     adminPasswordSecretKmsKeyId: NotRequired[str]
@@ -735,7 +751,7 @@ class CreateSnapshotScheduleActionParametersOutputTypeDef(TypedDict):
     namespaceName: str
     snapshotNamePrefix: str
     retentionPeriod: NotRequired[int]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 
 class CreateSnapshotScheduleActionParametersTypeDef(TypedDict):
@@ -774,14 +790,20 @@ class GetCustomDomainAssociationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetIdentityCenterAuthTokenResponseTypeDef(TypedDict):
+    expirationTime: datetime
+    token: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListCustomDomainAssociationsResponseTypeDef(TypedDict):
-    associations: List[AssociationTypeDef]
+    associations: list[AssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -790,6 +812,14 @@ class UpdateCustomDomainAssociationResponseTypeDef(TypedDict):
     customDomainCertificateExpiryTime: datetime
     customDomainName: str
     workgroupName: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateLakehouseConfigurationResponseTypeDef(TypedDict):
+    catalogArn: str
+    lakehouseIdcApplicationArn: str
+    lakehouseRegistrationStatus: str
+    namespaceName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -814,7 +844,7 @@ class GetSnapshotResponseTypeDef(TypedDict):
 
 
 class ListSnapshotsResponseTypeDef(TypedDict):
-    snapshots: List[SnapshotTypeDef]
+    snapshots: list[SnapshotTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -840,7 +870,7 @@ class GetNamespaceResponseTypeDef(TypedDict):
 
 
 class ListNamespacesResponseTypeDef(TypedDict):
-    namespaces: List[NamespaceTypeDef]
+    namespaces: list[NamespaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -898,7 +928,7 @@ class DeleteSnapshotCopyConfigurationResponseTypeDef(TypedDict):
 
 
 class ListSnapshotCopyConfigurationsResponseTypeDef(TypedDict):
-    snapshotCopyConfigurations: List[SnapshotCopyConfigurationTypeDef]
+    snapshotCopyConfigurations: list[SnapshotCopyConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -924,7 +954,7 @@ class GetUsageLimitResponseTypeDef(TypedDict):
 
 
 class ListUsageLimitsResponseTypeDef(TypedDict):
-    usageLimits: List[UsageLimitTypeDef]
+    usageLimits: list[UsageLimitTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -940,6 +970,7 @@ class CreateWorkgroupRequestTypeDef(TypedDict):
     baseCapacity: NotRequired[int]
     configParameters: NotRequired[Sequence[ConfigParameterTypeDef]]
     enhancedVpcRouting: NotRequired[bool]
+    extraComputeForAutomaticOptimization: NotRequired[bool]
     ipAddressType: NotRequired[str]
     maxCapacity: NotRequired[int]
     port: NotRequired[int]
@@ -956,6 +987,7 @@ class UpdateWorkgroupRequestTypeDef(TypedDict):
     baseCapacity: NotRequired[int]
     configParameters: NotRequired[Sequence[ConfigParameterTypeDef]]
     enhancedVpcRouting: NotRequired[bool]
+    extraComputeForAutomaticOptimization: NotRequired[bool]
     ipAddressType: NotRequired[str]
     maxCapacity: NotRequired[int]
     port: NotRequired[int]
@@ -972,7 +1004,7 @@ class GetRecoveryPointResponseTypeDef(TypedDict):
 
 
 class ListRecoveryPointsResponseTypeDef(TypedDict):
-    recoveryPoints: List[RecoveryPointTypeDef]
+    recoveryPoints: list[RecoveryPointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -983,7 +1015,7 @@ class GetReservationOfferingResponseTypeDef(TypedDict):
 
 
 class ListReservationOfferingsResponseTypeDef(TypedDict):
-    reservationOfferingsList: List[ReservationOfferingTypeDef]
+    reservationOfferingsList: list[ReservationOfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1014,7 +1046,7 @@ class GetTableRestoreStatusResponseTypeDef(TypedDict):
 
 
 class ListTableRestoreStatusResponseTypeDef(TypedDict):
-    tableRestoreStatuses: List[TableRestoreStatusTypeDef]
+    tableRestoreStatuses: list[TableRestoreStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1108,26 +1140,26 @@ class ListWorkgroupsRequestPaginateTypeDef(TypedDict):
 
 
 class ListManagedWorkgroupsResponseTypeDef(TypedDict):
-    managedWorkgroups: List[ManagedWorkgroupListItemTypeDef]
+    managedWorkgroups: list[ManagedWorkgroupListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListScheduledActionsResponseTypeDef(TypedDict):
-    scheduledActions: List[ScheduledActionAssociationTypeDef]
+    scheduledActions: list[ScheduledActionAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class VpcEndpointTypeDef(TypedDict):
-    networkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
     vpcEndpointId: NotRequired[str]
     vpcId: NotRequired[str]
 
 
 class ServerlessTrackTypeDef(TypedDict):
     trackName: NotRequired[str]
-    updateTargets: NotRequired[List[UpdateTargetTypeDef]]
+    updateTargets: NotRequired[list[UpdateTargetTypeDef]]
     workgroupVersion: NotRequired[str]
 
 
@@ -1153,7 +1185,7 @@ class GetReservationResponseTypeDef(TypedDict):
 
 
 class ListReservationsResponseTypeDef(TypedDict):
-    reservationsList: List[ReservationTypeDef]
+    reservationsList: list[ReservationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1165,16 +1197,16 @@ class EndpointAccessTypeDef(TypedDict):
     endpointName: NotRequired[str]
     endpointStatus: NotRequired[str]
     port: NotRequired[int]
-    subnetIds: NotRequired[List[str]]
+    subnetIds: NotRequired[list[str]]
     vpcEndpoint: NotRequired[VpcEndpointTypeDef]
-    vpcSecurityGroups: NotRequired[List[VpcSecurityGroupMembershipTypeDef]]
+    vpcSecurityGroups: NotRequired[list[VpcSecurityGroupMembershipTypeDef]]
     workgroupName: NotRequired[str]
 
 
 class EndpointTypeDef(TypedDict):
     address: NotRequired[str]
     port: NotRequired[int]
-    vpcEndpoints: NotRequired[List[VpcEndpointTypeDef]]
+    vpcEndpoints: NotRequired[list[VpcEndpointTypeDef]]
 
 
 class GetTrackResponseTypeDef(TypedDict):
@@ -1183,7 +1215,7 @@ class GetTrackResponseTypeDef(TypedDict):
 
 
 class ListTracksResponseTypeDef(TypedDict):
-    tracks: List[ServerlessTrackTypeDef]
+    tracks: list[ServerlessTrackTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1191,7 +1223,7 @@ class ListTracksResponseTypeDef(TypedDict):
 class ScheduledActionResponseTypeDef(TypedDict):
     endTime: NotRequired[datetime]
     namespaceName: NotRequired[str]
-    nextInvocations: NotRequired[List[datetime]]
+    nextInvocations: NotRequired[list[datetime]]
     roleArn: NotRequired[str]
     schedule: NotRequired[ScheduleOutputTypeDef]
     scheduledActionDescription: NotRequired[str]
@@ -1221,7 +1253,7 @@ class GetEndpointAccessResponseTypeDef(TypedDict):
 
 
 class ListEndpointAccessResponseTypeDef(TypedDict):
-    endpoints: List[EndpointAccessTypeDef]
+    endpoints: list[EndpointAccessTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1233,14 +1265,15 @@ class UpdateEndpointAccessResponseTypeDef(TypedDict):
 
 class WorkgroupTypeDef(TypedDict):
     baseCapacity: NotRequired[int]
-    configParameters: NotRequired[List[ConfigParameterTypeDef]]
+    configParameters: NotRequired[list[ConfigParameterTypeDef]]
     creationDate: NotRequired[datetime]
-    crossAccountVpcs: NotRequired[List[str]]
+    crossAccountVpcs: NotRequired[list[str]]
     customDomainCertificateArn: NotRequired[str]
     customDomainCertificateExpiryTime: NotRequired[datetime]
     customDomainName: NotRequired[str]
     endpoint: NotRequired[EndpointTypeDef]
     enhancedVpcRouting: NotRequired[bool]
+    extraComputeForAutomaticOptimization: NotRequired[bool]
     ipAddressType: NotRequired[str]
     maxCapacity: NotRequired[int]
     namespaceName: NotRequired[str]
@@ -1249,9 +1282,9 @@ class WorkgroupTypeDef(TypedDict):
     port: NotRequired[int]
     pricePerformanceTarget: NotRequired[PerformanceTargetTypeDef]
     publiclyAccessible: NotRequired[bool]
-    securityGroupIds: NotRequired[List[str]]
+    securityGroupIds: NotRequired[list[str]]
     status: NotRequired[WorkgroupStatusType]
-    subnetIds: NotRequired[List[str]]
+    subnetIds: NotRequired[list[str]]
     trackName: NotRequired[str]
     workgroupArn: NotRequired[str]
     workgroupId: NotRequired[str]
@@ -1318,7 +1351,7 @@ class GetWorkgroupResponseTypeDef(TypedDict):
 
 
 class ListWorkgroupsResponseTypeDef(TypedDict):
-    workgroups: List[WorkgroupTypeDef]
+    workgroups: list[WorkgroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

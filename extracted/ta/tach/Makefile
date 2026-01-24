@@ -15,31 +15,11 @@ endif
 
 .PHONY: deps
 deps: ## Install dependencies
-	python -m pip install --upgrade uv
-
-	@if [ ! -d "$(VENV)" ]; then \
-		uv venv $(VENV); \
-		echo "Virtual environment created at $(VENV)"; \
-	else \
-		echo "Virtual environment already exists at $(VENV)"; \
-	fi
-
-	source $(VENV_BIN)/activate && \
-	uv pip install pip maturin
-
-	@unset CONDA_PREFIX && \
-	source $(VENV_BIN)/activate && \
-	maturin develop --profile release -E dev
-
-
-.PHONY: install
-install: ##  Install the crate as module in the current virtualenv
-	maturin develop --uv --release -E dev
-
+	./pw uv sync
 
 .PHONY: profiling
 profiling:
-	maturin develop --uv --profile profiling -E dev
+	maturin develop --uv --profile profiling
 
 
 .PHONY: test
@@ -76,12 +56,25 @@ lint-rust: ## Lint Rust code
 
 .PHONY: type-check
 type-check: ## Run type checking
-	$(VENV_BIN)/pyright
+	$(VENV_BIN)/basedpyright
 
 
-.PHONY: docs
-docs: ## Develop on docs locally
-	cd docs && npx mintlify dev
+.PHONY: docs docs-serve docs-build
+docs: docs-serve ## Alias for docs-serve
+
+docs-serve: ## Serve documentation locally with live reloading
+	./pw uv run --group docs mkdocs serve
+
+docs-build: ## Build the documentation site
+	./pw uv run --group docs mkdocs build --strict
+
+
+docs-check: ## Build the documentation site
+	./pw uv run --group docs mkdocs build
+
+
+ensure-debugging-enabled: ## enable support for attaching debuggers (required for debugging the language server in the vscode extension)
+	./pw uv run scripts/ensure_debugging_enabled.py
 
 
 .PHONY: help

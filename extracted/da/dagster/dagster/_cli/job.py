@@ -2,8 +2,8 @@ import os
 import re
 import sys
 import textwrap
-from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, Callable, Optional, TypeVar
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from typing import Any, Optional, TypeVar
 
 import click
 from dagster_shared.cli import python_pointer_options, workspace_options
@@ -12,6 +12,7 @@ from dagster_shared.yaml_utils import dump_run_config_yaml
 
 import dagster._check as check
 from dagster import __version__ as dagster_version
+from dagster._annotations import superseded
 from dagster._check import checked
 from dagster._cli.config_scaffolder import scaffold_job_config
 from dagster._cli.utils import (
@@ -60,7 +61,6 @@ from dagster._core.remote_representation.external_data import (
     PartitionNamesSnap,
     PartitionSetExecutionParamSnap,
 )
-from dagster._core.remote_representation.handle import RepositoryHandle
 from dagster._core.snap import JobSnap, NodeInvocationSnap
 from dagster._core.storage.dagster_run import DagsterRun
 from dagster._core.storage.tags import (
@@ -301,6 +301,10 @@ _OP_SELECTION_HELP = (
 @job_name_option(name="job_name")
 @run_config_option(name="config", command_name="execute")
 @python_pointer_options
+@superseded(
+    additional_warn_text="Use 'dg launch --job <job_name>' instead.",
+    emit_runtime_warning=True,
+)
 def job_execute_command(
     tags: Optional[str],
     op_selection: Optional[str],
@@ -401,11 +405,16 @@ def execute_execute_command(
             for asset_key in job_def.asset_layer.executable_asset_keys:
                 backfill_policy = job_def.asset_layer.get(asset_key).backfill_policy
                 if (
-                    backfill_policy is not None
-                    and backfill_policy.policy_type != BackfillPolicyType.SINGLE_RUN
+                    backfill_policy is None
+                    or backfill_policy.policy_type != BackfillPolicyType.SINGLE_RUN
                 ):
                     check.failed(
-                        "Provided partition range, but not all assets have a single-run backfill policy."
+                        "Partition ranges with the CLI require all selected assets to have a "
+                        "BackfillPolicy.single_run() policy. This allows the partition range to be "
+                        "executed in a single run. Assets without this policy would require creating "
+                        "a backfill with separate runs per partition, which needs a running daemon "
+                        "process. Consider using the Dagster UI or a running daemon to execute "
+                        "partition ranges for assets without a single-run backfill policy."
                     )
             try:
                 job_def.validate_partition_key(
@@ -835,15 +844,9 @@ def execute_backfill_command(
             raise click.UsageError(f"Job `{remote_job.name}` is not partitioned.")
 
         run_tags = _normalize_cli_tags(tags)
-
-        repo_handle = RepositoryHandle.from_location(
-            repository_name=repo.name,
-            code_location=code_location,
-        )
-
         try:
-            partition_names_or_error = code_location.get_partition_names(
-                repository_handle=repo_handle,
+            partition_names_or_error = workspace.get_partition_names(
+                repository_selector=repo.selector,
                 job_name=remote_job.name,
                 instance=instance,
                 selected_asset_keys=None,
@@ -890,7 +893,7 @@ def execute_backfill_command(
             )
             try:
                 partition_execution_data = code_location.get_partition_set_execution_params(
-                    repository_handle=repo_handle,
+                    repository_handle=repo.handle,
                     partition_set_name=job_partition_set.name,
                     partition_names=partition_names,
                     instance=instance,
@@ -908,6 +911,7 @@ def execute_backfill_command(
 
             for partition_data in partition_execution_data.partition_data:
                 dagster_run = create_backfill_run(
+                    workspace,
                     instance,
                     code_location,
                     remote_job,

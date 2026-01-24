@@ -5,8 +5,14 @@ from typing import Any, NamedTuple
 from ..core import BoundModelBase, Meta, ResourceClientBase
 from .domain import Iso
 
+__all__ = [
+    "BoundIso",
+    "IsosPageResult",
+    "IsosClient",
+]
 
-class BoundIso(BoundModelBase, Iso):
+
+class BoundIso(BoundModelBase[Iso], Iso):
     _client: IsosClient
 
     model = Iso
@@ -99,4 +105,4 @@ class IsosClient(ResourceClientBase):
                Used to get iso by name.
         :return: :class:`BoundIso <hcloud.isos.client.BoundIso>`
         """
-        return self._get_first_by(name=name)
+        return self._get_first_by(self.get_list, name=name)

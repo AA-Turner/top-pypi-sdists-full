@@ -30,7 +30,7 @@ class CustomFieldTextTypeDto(CustomFieldDtoType):
     """ # noqa: E501
     text_value: Optional[StrictStr] = Field(default=None, alias="textValue")
     field_type: Optional[CustomFieldType] = Field(default=None, alias="fieldType")
-    __properties: ClassVar[List[str]] = ["FieldType", "fieldType"]
+    __properties: ClassVar[List[str]] = ["FieldType", "fieldType", "textValue"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -73,6 +73,11 @@ class CustomFieldTextTypeDto(CustomFieldDtoType):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if text_value (nullable) is None
+        # and model_fields_set contains the field
+        if self.text_value is None and "text_value" in self.model_fields_set:
+            _dict['textValue'] = None
+
         return _dict
 
     @classmethod
@@ -86,7 +91,8 @@ class CustomFieldTextTypeDto(CustomFieldDtoType):
 
         _obj = cls.model_validate({
             "FieldType": obj.get("FieldType"),
-            "fieldType": obj.get("fieldType")
+            "fieldType": obj.get("fieldType"),
+            "textValue": obj.get("textValue")
         })
         return _obj
 

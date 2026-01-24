@@ -12,7 +12,7 @@ subclass of PluginMainContainer, if they provide additional widgets like
 status bar widgets or toolbars.
 """
 
-from qtpy import PYQT5, PYQT6
+from qtpy import PYSIDE2
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QWidget
 
@@ -80,14 +80,17 @@ class PluginMainContainer(QWidget, SpyderWidgetMixin):
     ----------
     error_data: dict
         The dictionary containing error data. The expected keys are:
-        >>> error_data= {
-            "text": str,
-            "is_traceback": bool,
-            "repo": str,
-            "title": str,
-            "label": str,
-            "steps": str,
-        }
+
+        .. code-block:: python
+
+            error_data = {
+                "text": str,
+                "is_traceback": bool,
+                "repo": str,
+                "title": str,
+                "label": str,
+                "steps": str,
+            }
 
     Notes
     -----
@@ -108,12 +111,12 @@ class PluginMainContainer(QWidget, SpyderWidgetMixin):
 
     Parameters
     ----------
-    plugin_instance: SpyderDockablePlugin
+    plugin_instance: spyder.api.plugins.SpyderDockablePlugin
         Unmaximize plugin only if it is not `plugin_instance`.
     """
 
     def __init__(self, name, plugin, parent=None):
-        if PYQT5 or PYQT6:
+        if not PYSIDE2:
             super().__init__(parent=parent, class_parent=plugin)
         else:
             QWidget.__init__(self, parent)

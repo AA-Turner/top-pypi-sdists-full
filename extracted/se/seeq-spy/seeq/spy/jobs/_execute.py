@@ -4,10 +4,11 @@ import logging
 import os
 import re
 import subprocess
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Union, Optional
+
+import sys
 
 from seeq import spy, sdk
 from seeq.base import util
@@ -104,10 +105,7 @@ class ExecutionInstance:
             try:
                 from nbclient.exceptions import DeadKernelError
                 if isinstance(e, DeadKernelError):
-                    from cgroupspy import trees
-                    cgroups_tree = trees.Tree()
-                    memory_node = cgroups_tree.get_node_by_path('/memory/')
-                    max_memory = memory_node.controller.max_usage_in_bytes
+                    max_memory = get_memory_usage()
                     message += f' It used {max_memory} bytes of memory.'
             except ImportError:
                 pass  # cgroupspy is not guaranteed to be installed on old data lab
@@ -129,8 +127,8 @@ class ExecutionInstance:
             import nbformat
             from nbformat import NotebookNode
         except ImportError:
-            SPyDependencyNotFound(f'`nbformat` is not installed. Please use `pip install seeq-spy[jobs]` '
-                                  f'to use this feature.')
+            raise SPyDependencyNotFound(f'`nbformat` is not installed. Please use `pip install seeq-spy[jobs]` '
+                                        f'to use this feature.')
 
         # Open the notebook that has been scheduled for execution
         with util.safe_open(self.file_path) as f_notebook_scheduled:
@@ -177,22 +175,39 @@ class ExecutionInstance:
             import nbformat
             from nbformat import NotebookNode
         except ImportError:
-            SPyDependencyNotFound(f'`nbformat` is not installed. Please use `pip install seeq-spy[jobs]` '
-                                  f'to use this feature.')
+            raise SPyDependencyNotFound(f'`nbformat` is not installed. Please use `pip install seeq-spy[jobs]` '
+                                        f'to use this feature.')
+
+        try:
+            from jupyter_client.kernelspec import KernelSpecManager
+        except ImportError:
+            raise SPyDependencyNotFound(f'`jupyter_client` is not installed. Please use `pip install seeq-spy[jobs]` '
+                                        f'to use this feature.')
 
         # Open the notebook for execution
         with util.safe_open(self.merged_notebook_path, 'r+') as f_notebook_merged:
             nb_notebook_merged = nbformat.read(f_notebook_merged, nbformat.NO_CONVERT)
 
+        ksm = KernelSpecManager(ensure_native_kernel=False)
+        kernel_name = nb_notebook_merged.metadata.get("kernelspec", {}).get("name")
+        if kernel_name not in ksm.find_kernel_specs():
+            env_kernel_name = os.getenv("DEFAULT_KERNEL_NAME")
+            if env_kernel_name is not None:
+                kernel_name = env_kernel_name.strip()
+            else:
+                raise RuntimeError(
+                    "DEFAULT_KERNEL_NAME environment variable is not set, and the notebook kernel is not found.")
+
         # Configure the execute processor to allow errors and the output path
         try:
             import nbconvert
         except ImportError:
-            SPyDependencyNotFound(f'`nbconvert` is not installed. Please use `pip install seeq-spy[jobs]` '
-                                  f'to use this feature.')
+            raise SPyDependencyNotFound(f'`nbconvert` is not installed. Please use `pip install seeq-spy[jobs]` '
+                                        f'to use this feature.')
 
         proc = nbconvert.preprocessors.ExecutePreprocessor(timeout=CELL_EXECUTION_TIMEOUT,
-                                                           allow_errors=True)
+                                                           allow_errors=True,
+                                                           kernel_name=kernel_name, )
         proc.preprocess(nb_notebook_merged, {'metadata': {'path': Path(self.file_path).parent}})
 
         # Log to executor
@@ -252,8 +267,8 @@ class ExecutionInstance:
         try:
             import nbformat
         except ImportError:
-            SPyDependencyNotFound(f'`nbformat` is not installed. Please use `pip install seeq-spy[jobs]` '
-                                  f'to use this feature.')
+            raise SPyDependencyNotFound(f'`nbformat` is not installed. Please use `pip install seeq-spy[jobs]` '
+                                        f'to use this feature.')
         # Open the modified notebook that has been scheduled for execution
         with util.safe_open(self.merged_notebook_path) as f_notebook_merged:
             nb_notebook_merged = nbformat.read(f_notebook_merged, nbformat.NO_CONVERT)
@@ -262,8 +277,8 @@ class ExecutionInstance:
         try:
             import nbconvert
         except ImportError:
-            SPyDependencyNotFound(f'`nbconvert` is not installed. Please use `pip install seeq-spy[jobs]` '
-                                  f'to use this feature.')
+            raise SPyDependencyNotFound(f'`nbconvert` is not installed. Please use `pip install seeq-spy[jobs]` '
+                                        f'to use this feature.')
         html_exporter = nbconvert.HTMLExporter()
         job_result_html, _ = html_exporter.from_notebook_node(nb_notebook_merged)
 
@@ -430,3 +445,20 @@ def is_notify_on_skipped_execution() -> bool:
 
 def is_notify_on_automatic_unschedule() -> bool:
     return os.environ.get('SEEQ_SDL_NOTIFY_ON_AUTOMATIC_UNSCHEDULE', '') == 'true'
+
+
+def get_memory_usage() -> int:
+    if util.safe_exists("/sys/fs/cgroup/memory.peak"):
+        # cgroup v2
+        memory_max_usage_path = "/sys/fs/cgroup/memory.peak"
+    elif util.safe_exists("/sys/fs/cgroup/memory/memory.max_usage_in_bytes"):
+        # cgroup v1
+        memory_max_usage_path = "/sys/fs/cgroup/memory/memory.max_usage_in_bytes"
+    else:
+        return 0
+
+    try:
+        with util.safe_open(memory_max_usage_path, "r") as f:
+            return int(f.read().strip())
+    except Exception:
+        return 0

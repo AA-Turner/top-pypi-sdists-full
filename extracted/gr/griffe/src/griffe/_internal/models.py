@@ -1288,7 +1288,6 @@ class Object(ObjectAliasMixin):
                 {
                     "path": self.path,
                     "filepath": self.filepath,
-                    "relative_filepath": self.relative_filepath,
                     "relative_package_filepath": self.relative_package_filepath,
                     "is_public": self.is_public,
                     "is_deprecated": self.is_deprecated,
@@ -1315,6 +1314,9 @@ class Object(ObjectAliasMixin):
                     # "has_docstrings": self.has_docstrings,
                 },
             )
+
+            with suppress(ValueError):
+                base["relative_filepath"] = self.relative_filepath
 
             if "source_link" not in base and (source_link := self.source_link) is not None:
                 base["source_link"] = source_link
@@ -1911,6 +1913,11 @@ class Alias(ObjectAliasMixin):
         return cast("Class", self.final_target).bases
 
     @property
+    def keywords(self) -> dict[str, Expr | str]:
+        """The class keywords."""
+        return cast("Class", self.final_target).keywords
+
+    @property
     def decorators(self) -> list[Decorator]:
         """The class/function decorators.
 
@@ -2354,6 +2361,7 @@ class Class(Object):
         *args: Any,
         bases: Sequence[Expr | str] | None = None,
         decorators: list[Decorator] | None = None,
+        keywords: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize the class.
@@ -2362,6 +2370,7 @@ class Class(Object):
             *args: See [`griffe.Object`][].
             bases: The list of base classes, if any.
             decorators: The class decorators, if any.
+            keywords: The class keywords arguments, if any.
             **kwargs: See [`griffe.Object`][].
         """
         super().__init__(*args, **kwargs)
@@ -2375,6 +2384,9 @@ class Class(Object):
 
         self.decorators: list[Decorator] = decorators or []
         """The class decorators."""
+
+        self.keywords: dict[str, Any] = keywords or {}
+        """The class keywords arguments."""
 
         self.overloads: dict[str, list[Function]] = defaultdict(list)
         """The overloaded signatures declared in this class."""
@@ -2705,7 +2717,7 @@ class TypeAlias(Object):
             value: The type alias value.
             **kwargs: See [`griffe.Object`][].
         """
-        super().__init__(*args, **kwargs, runtime=False)
+        super().__init__(*args, **kwargs)
         self.value: str | Expr | None = value
         """The type alias value."""
 

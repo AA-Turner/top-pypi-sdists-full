@@ -1,4 +1,3 @@
-# ruff: noqa
 # mypy: ignore-errors
 # taken from https://github.com/sklearn-compat/sklearn-compat
 """Ease developer experience to support multiple versions of scikit-learn.
@@ -24,6 +23,8 @@ from typing import Callable, Literal
 
 import sklearn
 from sklearn.utils.fixes import parse_version
+
+from tabpfn.errors import TabPFNValidationError
 
 sklearn_version = parse_version(parse_version(sklearn.__version__).base_version)
 

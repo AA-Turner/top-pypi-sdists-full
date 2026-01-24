@@ -1,6 +1,4 @@
-from typing import Literal
-
-from typing_extensions import TypeGuard
+from typing import Literal, TypeGuard
 
 Operation = Literal[
     "!=",

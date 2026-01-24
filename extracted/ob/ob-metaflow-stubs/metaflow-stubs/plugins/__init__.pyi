@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.673953                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.835349                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,30 +9,31 @@ from __future__ import annotations
 
 from . import test_unbounded_foreach_decorator as test_unbounded_foreach_decorator
 from .test_unbounded_foreach_decorator import InternalTestUnboundedForeachInput as InternalTestUnboundedForeachInput
+from . import cards as cards
+from . import resources_decorator as resources_decorator
+from . import catch_decorator as catch_decorator
 from . import datatools as datatools
 from . import gcp as gcp
 from . import storage_executor as storage_executor
-from . import cards as cards
-from . import environment_decorator as environment_decorator
-from . import catch_decorator as catch_decorator
 from . import parallel_decorator as parallel_decorator
 from . import timeout_decorator as timeout_decorator
 from . import retry_decorator as retry_decorator
-from . import kubernetes as kubernetes
-from . import resources_decorator as resources_decorator
-from . import aws as aws
+from . import environment_decorator as environment_decorator
 from . import frameworks as frameworks
-from . import pypi as pypi
 from . import secrets as secrets
+from . import aws as aws
+from . import kubernetes as kubernetes
 from . import argo as argo
-from . import project_decorator as project_decorator
+from . import pypi as pypi
 from . import events_decorator as events_decorator
 from . import airflow as airflow
 from . import exit_hook as exit_hook
+from . import project_decorator as project_decorator
 from . import uv as uv
 from . import azure as azure
 from . import debug_logger as debug_logger
 from . import debug_monitor as debug_monitor
+from . import parsers as parsers
 from .cards.card_modules.basic import BlankCard as BlankCard
 from .cards.card_modules.basic import DefaultCard as DefaultCard
 from .cards.card_modules.basic import DefaultCardJSON as DefaultCardJSON

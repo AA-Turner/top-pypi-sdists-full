@@ -3,7 +3,7 @@
 ##                                                                          ##
 ##                   Verification Condition Generator                       ##
 ##                                                                          ##
-##              Copyright (C) 2023, Florian Schanda                         ##
+##              Copyright (C) 2023-2026, Florian Schanda                    ##
 ##                                                                          ##
 ##  This file is part of PyVCG.                                             ##
 ##                                                                          ##
@@ -242,6 +242,9 @@ class CVC5_Result_Parser:
         elif isinstance(typ, smt.Record):
             return self.parse_record(typ)
 
+        elif isinstance(typ, smt.Optional):
+            return self.parse_optional(typ)
+
         else:  # pragma: no cover
             raise Parse_Error("unexpected sort class %s" %
                               typ.__class__.__name__)
@@ -338,16 +341,47 @@ class CVC5_Result_Parser:
 
     def parse_record(self, typ):
         assert isinstance(typ, smt.Record)
-        self.match("BRA")
-        self.match("IDENTIFIER")
-        if typ.name + "__cons" != self.ct.value:  # pragma: no cover
-            self.error("unexpected constructor %s (expected %s)" %
-                       (self.ct.value,
-                        typ.name + "__cons"))
-        rv = {}
-        for name, sort in typ.components.items():
-            rv[name] = self.parse_value(sort)
-        self.match("KET")
+        if self.peek("BRA"):
+            self.match("BRA")
+            self.match("IDENTIFIER")
+            if typ.name + "__cons" != self.ct.value:  # pragma: no cover
+                self.error("unexpected constructor %s (expected %s)" %
+                           (self.ct.value,
+                            typ.name + "__cons"))
+            rv = {}
+            for name, sort in typ.components.items():
+                rv[name] = self.parse_value(sort)
+            self.match("KET")
+        else:
+            self.match("IDENTIFIER")
+            if self.ct.value == typ.name + "__null" and typ.is_recursive:
+                rv = None
+            elif self.ct.value == typ.name + "__cons":
+                rv = {}
+            else:  # pragma: no cover
+                self.error("unexpected constructor %s" %
+                           self.ct.value)
+        return rv
+
+    def parse_optional(self, typ):
+        assert isinstance(typ, smt.Optional)
+        if self.peek("BRA"):
+            self.match("BRA")
+            self.match("IDENTIFIER")
+            if typ.name + "__cons" != self.ct.value:  # pragma: no cover
+                self.error("unexpected constructor %s (expected %s)" %
+                           (self.ct.value,
+                            typ.name + "__cons"))
+            rv = self.parse_value(typ.optional_sort)
+            self.match("KET")
+        else:
+            self.match("IDENTIFIER")
+            if self.ct.value == typ.name + "__null":
+                rv = None
+            else:  # pragma: no cover
+                self.error("unexpected constructor %s" %
+                           self.ct.value)
+        # pylint: disable=possibly-used-before-assignment
         return rv
 
 
@@ -375,13 +409,20 @@ class CVC5_File_Solver(SMTLIB_Generator, smt.VC_Solver):
         self.records[node.sort.name] = node.sort
 
     def solve(self):
-        result = subprocess.run([self.binary,
-                                 "--lang=smt2",
-                                 "-"],
-                                input          = self.instance,
-                                capture_output = True,
-                                check          = True,
-                                encoding       = "UTF-8")
+        try:
+            result = subprocess.run([self.binary,
+                                     "--lang=smt2",
+                                     "-"],
+                                    input          = self.instance,
+                                    capture_output = True,
+                                    check          = True,
+                                    encoding       = "UTF-8")
+        except subprocess.CalledProcessError as err:  # pragma: no cover
+            print(self.instance)
+            print(err.stdout)
+            print(err.stderr)
+            raise err
+
         lines = result.stdout.splitlines()
         status, tail = lines[0].strip(), lines[1:]
         assert status in ("sat", "unsat", "unknown"), \

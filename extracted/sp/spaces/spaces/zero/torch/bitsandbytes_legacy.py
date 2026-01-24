@@ -2,21 +2,15 @@
 """
 # pyright: reportPrivateImportUsage=false
 
-from __future__ import annotations
-
 import importlib
 from contextlib import contextmanager
 from contextlib import nullcontext
 from importlib import metadata
 from types import ModuleType
-from typing import TYPE_CHECKING
 from typing import Tuple
 
 import torch
 from packaging import version
-
-if TYPE_CHECKING:
-    import torch as Torch
 
 
 @contextmanager
@@ -95,7 +89,7 @@ if (import_context := maybe_import_bitsandbytes()):
         to_ops_4bit[self] = parsed
         return self
 
-    def _cuda_op_arg_check(device: Torch.device | int | str | None) -> bool:
+    def _cuda_op_arg_check(device: torch.device | int | str | None) -> bool:
         if device is None: # pragma: no cover
             return True
         if isinstance(device, int):
@@ -104,14 +98,14 @@ if (import_context := maybe_import_bitsandbytes()):
             device = torch.device(device)
         return device.type == 'cuda' # pragma: no cover
 
-    def _cuda_op_register_8bit(self: Int8Params, device: Torch.device | int | str | None = None, **kwargs):
+    def _cuda_op_register_8bit(self: Int8Params, device: torch.device | int | str | None = None, **kwargs):
         if not _cuda_op_arg_check(device): # pragma: no cover
             # Let PyTorch handle the fail
             return _param_cuda_8bit(self, device, **kwargs)
         to_ops_8bit[self] = None
         return self
 
-    def _cuda_op_register_4bit(self: Params4bit, device: Torch.device | int | str | None = None, **kwargs):
+    def _cuda_op_register_4bit(self: Params4bit, device: torch.device | int | str | None = None, **kwargs):
         if not _cuda_op_arg_check(device): # pragma: no cover
             # Let PyTorch handle the fail
             return _param_cuda_4bit(self, device, **kwargs)

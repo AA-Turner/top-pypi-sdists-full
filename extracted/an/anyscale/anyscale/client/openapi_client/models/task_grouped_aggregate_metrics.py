@@ -41,7 +41,10 @@ class TaskGroupedAggregateMetrics(object):
         'count_pending_dep': 'int',
         'max_duration_ts_ns': 'int',
         'min_duration_ts_ns': 'int',
-        'avg_duration_ts_ns': 'int'
+        'avg_duration_ts_ns': 'int',
+        'max_execution_ns': 'int',
+        'min_execution_ns': 'int',
+        'avg_execution_ns': 'int'
     }
 
     attribute_map = {
@@ -53,10 +56,13 @@ class TaskGroupedAggregateMetrics(object):
         'count_pending_dep': 'count_pending_dep',
         'max_duration_ts_ns': 'max_duration_ts_ns',
         'min_duration_ts_ns': 'min_duration_ts_ns',
-        'avg_duration_ts_ns': 'avg_duration_ts_ns'
+        'avg_duration_ts_ns': 'avg_duration_ts_ns',
+        'max_execution_ns': 'max_execution_ns',
+        'min_execution_ns': 'min_execution_ns',
+        'avg_execution_ns': 'avg_execution_ns'
     }
 
-    def __init__(self, total=None, count_finished=None, count_failed=None, count_running=None, count_pending_schedule=None, count_pending_dep=None, max_duration_ts_ns=None, min_duration_ts_ns=None, avg_duration_ts_ns=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, total=None, count_finished=None, count_failed=None, count_running=None, count_pending_schedule=None, count_pending_dep=None, max_duration_ts_ns=None, min_duration_ts_ns=None, avg_duration_ts_ns=None, max_execution_ns=None, min_execution_ns=None, avg_execution_ns=None, local_vars_configuration=None):  # noqa: E501
         """TaskGroupedAggregateMetrics - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -71,6 +77,9 @@ class TaskGroupedAggregateMetrics(object):
         self._max_duration_ts_ns = None
         self._min_duration_ts_ns = None
         self._avg_duration_ts_ns = None
+        self._max_execution_ns = None
+        self._min_execution_ns = None
+        self._avg_execution_ns = None
         self.discriminator = None
 
         self.total = total
@@ -82,6 +91,12 @@ class TaskGroupedAggregateMetrics(object):
         self.max_duration_ts_ns = max_duration_ts_ns
         self.min_duration_ts_ns = min_duration_ts_ns
         self.avg_duration_ts_ns = avg_duration_ts_ns
+        if max_execution_ns is not None:
+            self.max_execution_ns = max_execution_ns
+        if min_execution_ns is not None:
+            self.min_execution_ns = min_execution_ns
+        if avg_execution_ns is not None:
+            self.avg_execution_ns = avg_execution_ns
 
     @property
     def total(self):
@@ -289,6 +304,69 @@ class TaskGroupedAggregateMetrics(object):
             raise ValueError("Invalid value for `avg_duration_ts_ns`, must not be `None`")  # noqa: E501
 
         self._avg_duration_ts_ns = avg_duration_ts_ns
+
+    @property
+    def max_execution_ns(self):
+        """Gets the max_execution_ns of this TaskGroupedAggregateMetrics.  # noqa: E501
+
+
+        :return: The max_execution_ns of this TaskGroupedAggregateMetrics.  # noqa: E501
+        :rtype: int
+        """
+        return self._max_execution_ns
+
+    @max_execution_ns.setter
+    def max_execution_ns(self, max_execution_ns):
+        """Sets the max_execution_ns of this TaskGroupedAggregateMetrics.
+
+
+        :param max_execution_ns: The max_execution_ns of this TaskGroupedAggregateMetrics.  # noqa: E501
+        :type: int
+        """
+
+        self._max_execution_ns = max_execution_ns
+
+    @property
+    def min_execution_ns(self):
+        """Gets the min_execution_ns of this TaskGroupedAggregateMetrics.  # noqa: E501
+
+
+        :return: The min_execution_ns of this TaskGroupedAggregateMetrics.  # noqa: E501
+        :rtype: int
+        """
+        return self._min_execution_ns
+
+    @min_execution_ns.setter
+    def min_execution_ns(self, min_execution_ns):
+        """Sets the min_execution_ns of this TaskGroupedAggregateMetrics.
+
+
+        :param min_execution_ns: The min_execution_ns of this TaskGroupedAggregateMetrics.  # noqa: E501
+        :type: int
+        """
+
+        self._min_execution_ns = min_execution_ns
+
+    @property
+    def avg_execution_ns(self):
+        """Gets the avg_execution_ns of this TaskGroupedAggregateMetrics.  # noqa: E501
+
+
+        :return: The avg_execution_ns of this TaskGroupedAggregateMetrics.  # noqa: E501
+        :rtype: int
+        """
+        return self._avg_execution_ns
+
+    @avg_execution_ns.setter
+    def avg_execution_ns(self, avg_execution_ns):
+        """Sets the avg_execution_ns of this TaskGroupedAggregateMetrics.
+
+
+        :param avg_execution_ns: The avg_execution_ns of this TaskGroupedAggregateMetrics.  # noqa: E501
+        :type: int
+        """
+
+        self._avg_execution_ns = avg_execution_ns
 
     def to_dict(self):
         """Returns the model properties as a dict"""

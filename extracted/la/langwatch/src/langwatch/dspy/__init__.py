@@ -5,6 +5,7 @@ import time
 import warnings
 import dspy
 from typing import Callable, List, Optional, Any, Type, Union
+from langwatch.utils.exceptions import better_raise_for_status
 from langwatch.utils.transformation import truncate_object_recursively
 from langwatch.telemetry.tracing import LangWatchTrace
 from typing_extensions import TypedDict
@@ -193,7 +194,7 @@ class LangWatchDSPy:
             raise ValueError(
                 "API key is not valid, please try to login again with langwatch.login()"
             )
-        response.raise_for_status()
+        better_raise_for_status(response)
 
         if optimizer and evaluator:
             raise ValueError("You can only provide an optimizer or an evaluator, not both.")
@@ -386,7 +387,7 @@ class LangWatchDSPy:
             data=json.dumps(data),  # type: ignore
             timeout=60,
         )
-        response.raise_for_status()
+        better_raise_for_status(response)
         self.steps_buffer = []
 
     def tracer(self, trace: LangWatchTrace):
@@ -492,11 +493,7 @@ class LangWatchTrackedBootstrapFewShotWithRandomSearch(
         def patched_evaluate_call(self, program: dspy.Module, *args, **kwargs):
             nonlocal step
 
-            if "return_all_scores" not in kwargs or not kwargs["return_all_scores"]:
-                raise ValueError(
-                    "return_all_scores is not True for some reason, please report it at https://github.com/langwatch/langwatch/issues"
-                )
-            score, subscores = original_evaluate_call(self, program, *args, **kwargs)  # type: ignore
+            result = original_evaluate_call(self, program, *args, **kwargs)
 
             langwatch_dspy.log_step(
                 optimizer=DSPyOptimizer(
@@ -513,7 +510,7 @@ class LangWatchTrackedBootstrapFewShotWithRandomSearch(
                     },
                 ),
                 index=str(step),
-                score=score,
+                score=result.score,
                 label="score",
                 predictors=[
                     DSPyPredictor(name=name, predictor=predictor)
@@ -523,7 +520,7 @@ class LangWatchTrackedBootstrapFewShotWithRandomSearch(
 
             step += 1
 
-            return score, subscores
+            return result
 
         Evaluate.__call__ = patched_evaluate_call
 
@@ -740,10 +737,6 @@ class DSPyTracer:
             dspy.Module.__original_call__ = dspy.Module.__call__  # type: ignore
             dspy.Module.__call__ = self.patched_module_call()
 
-        if not hasattr(dspy.Predict, "__original_forward__"):
-            dspy.Predict.__original_forward__ = dspy.Predict.forward  # type: ignore
-            dspy.Predict.forward = self.patched_predict_forward()
-
         language_model_classes = dspy.LM.__subclasses__()
         for lm in language_model_classes:
             if not hasattr(lm, "__original_basic_request__") and hasattr(
@@ -779,7 +772,7 @@ class DSPyTracer:
     def patched_module_call(self):
         self_ = self
 
-        @langwatch.span(ignore_missing_trace_warning=True, type="module")
+        @langwatch.span(ignore_missing_trace_warning=True, type="module", capture_output=False)
         def __call__(self: dspy.Module, *args, **kwargs):
             span = self_.safe_get_current_span()
             signature = (
@@ -804,34 +797,10 @@ class DSPyTracer:
 
         return __call__
 
-    def patched_predict_forward(self):
-        self_ = self
-
-        @langwatch.span(ignore_missing_trace_warning=True, type="module")
-        def forward(self: dspy.Predict, **kwargs):
-            span = self_.safe_get_current_span()
-            signature = kwargs.get("signature", self.signature)
-
-            if span and signature and hasattr(signature, "__name__"):
-                span.update(name=f"{self.__class__.__name__}({signature.__name__})")
-            elif span:
-                span.update(name=f"{self.__class__.__name__}.forward")
-
-            prediction = self.__class__.__original_forward__(self, **kwargs)  # type: ignore
-
-            if span and isinstance(prediction, dspy.Prediction):
-                span.update(output=prediction._store)  # type: ignore
-            elif span:
-                span.update(output=prediction)  # type: ignore
-
-            return prediction
-
-        return forward
-
     def patched_language_model_call(self):
         self_ = self
 
-        @langwatch.span(ignore_missing_trace_warning=True, type="llm")
+        @langwatch.span(ignore_missing_trace_warning=True, type="llm", capture_output=False)
         def call(self: dspy.LM, prompt=None, messages=None, **kwargs):
             all_kwargs = self.kwargs | kwargs
             model = self.model
@@ -898,7 +867,7 @@ class DSPyTracer:
     def patched_legacy_language_model_request(self):
         self_ = self
 
-        @langwatch.span(ignore_missing_trace_warning=True, type="llm")
+        @langwatch.span(ignore_missing_trace_warning=True, type="llm", capture_output=False)
         def basic_request(self: dspy.LM, prompt, **kwargs):
             all_kwargs = self.kwargs | kwargs
             model = all_kwargs.get("model", None)
@@ -950,7 +919,7 @@ class DSPyTracer:
             ) is not getattr(dspy.Retrieve, "forward", None):
                 return self.__class__.__original_forward__(self, *args, **kwargs)  # type: ignore
 
-            @langwatch.span(ignore_missing_trace_warning=True, type="rag")
+            @langwatch.span(ignore_missing_trace_warning=True, type="rag", capture_output=False)
             def forward(self, *args, **kwargs):
                 result = self.__class__.__original_forward__(self, *args, **kwargs)  # type: ignore
 

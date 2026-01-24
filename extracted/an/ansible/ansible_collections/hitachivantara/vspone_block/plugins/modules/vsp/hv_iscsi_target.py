@@ -81,15 +81,40 @@ options:
         type: str
       port:
         description: Port of the iscsi target.
+          Required for the Create an iSCSI target
+          /Update iSCSI target host mode and host mode options
+          /Add CHAP users to an iSCSI target
+          /Remove a CHAP user from an iSCSI target
+          /Add IQN initiators to an iSCSI target
+          /Remove IQN initiators from an iSCSI target
+          /Attach LDEVs to an iSCSI target
+          /Detach LDEVs from an iSCSI target
+          /Delete an iSCSI target
+          /Rename or unset nickname of an IQN initiator (existing IQN initiator)
+          /Release host reserve status of the LU mapped to all LU mapped paths
+          /Release host reserve status of the LU mapped to a specified LU mapped path tasks.
         required: true
         type: str
       name:
         description: Name of the iscsi target.If not given,
           It will create the name will contain with prefix value "smrha-<10 digit random number>".
+          Optional for the Create an iSCSI target task.
+          Required for the Update iSCSI target host mode and host mode options
+          /Add CHAP users to an iSCSI target
+          /Remove a CHAP user from an iSCSI target
+          /Add IQN initiators to an iSCSI target
+          /Remove IQN initiators from an iSCSI target
+          /Attach LDEVs to an iSCSI target
+          /Detach LDEVs from an iSCSI target
+          /Delete an iSCSI target
+          /Rename or unset nickname of an IQN initiator (existing IQN initiator)
+          /Release host reserve status of the LU mapped to all LU mapped paths
+          /Release host reserve status of the LU mapped to a specified LU mapped path tasks.
         required: false
         type: str
       host_mode:
         description: Host mode of host group.
+          Required for the Update iSCSI target host mode and host mode options task.
         type: str
         required: false
         choices: ['LINUX', 'VMWARE', 'HP', 'OPEN_VMS', 'TRU64', 'SOLARIS',
@@ -98,6 +123,7 @@ options:
       host_mode_options:
         description:
           - List of host group host mode option numbers.
+          - Required for the Update iSCSI target host mode and host mode options task.
           - '0 # RESERVED'
           - '2 # VERITAS_DB_EDITION_ADV_CLUSTER'
           - '6 # TPRLO'
@@ -151,25 +177,42 @@ options:
         required: false
       ldevs:
         description: LDEV ID in decimal or HEX of the LDEV that you want to present or unpresent.
+          Optional for the Create an iSCSI target task.
+          Required for the Attach LDEVs to an iSCSI target
+          /Detach LDEVs from an iSCSI target tasks.
         required: false
         type: list
-        elements: int
+        elements: str
       iqn_initiators:
         description: List of IQN initiators that you want to add or remove.
+          Optional for the Create an iSCSI target
+          /Rename or unset nickname of an IQN initiator (existing IQN initiator) tasks.
+          Required for the Add IQN initiators to an iSCSI target
+          /Remove IQN initiators from an iSCSI target tasks.
         required: false
         type: list
         elements: dict
         suboptions:
           iqn:
             description: IQN of the initiator.
+              Required for the Create an iSCSI target
+              /Add IQN initiators to an iSCSI target
+              /Remove IQN initiators from an iSCSI target
+              /Rename or unset nickname of an IQN initiator (existing IQN initiator) tasks.
             required: true
             type: str
           nick_name:
             description: Nickname of the initiator.
+              Required for the Create an iSCSI target
+              /Add IQN initiators to an iSCSI target
+              /Rename or unset nickname of an IQN initiator (existing IQN initiator) tasks.
             required: false
             type: str
       chap_users:
         description: List of CHAP users that you want to add or remove.
+          Optional for the Create an iSCSI target task.
+          Required for the Add CHAP users to an iSCSI target
+          /Remove a CHAP user from an iSCSI target tasks.
         required: false
         type: list
         elements: dict
@@ -179,10 +222,13 @@ options:
         type: bool
       should_release_host_reserve:
         description: If the value is true, release the host reserve.
+          Required for the Release host reserve status of the LU mapped to all LU mapped paths
+          /Release host reserve status of the LU mapped to a specified LU mapped path tasks.
         required: false
         type: bool
       lun:
         description: LUN ID to releasing host reservation status.
+          Required for the Release host reserve status of the LU mapped to a specified LU mapped path task.
         required: false
         type: int
       iscsi_id:
@@ -298,108 +344,87 @@ EXAMPLES = """
 """
 
 RETURN = r"""
-iscsi_target_info:
-  description: >
-    Dictionary containing the discovered properties of the iSCSI targets.
+iscsi_target:
+  description: Details of the iSCSI target.
   returned: always
   type: dict
   contains:
-    changed:
-      description: Indicates if any changes were made.
-      type: bool
-      sample: true
-    failed:
-      description: Indicates if the operation failed.
-      type: bool
-      sample: false
-    iscsi_target:
-      description: Details of the iSCSI target.
+    auth_param:
+      description: Authentication parameters.
       type: dict
       contains:
-        auth_param:
-          description: Authentication parameters.
-          type: dict
-          contains:
-            authentication_mode:
-              description: Mode of authentication.
-              type: str
-              sample: "BOTH"
-            is_chap_enabled:
-              description: Indicates if CHAP is enabled.
-              type: bool
-              sample: true
-            is_chap_required:
-              description: Indicates if CHAP is required.
-              type: bool
-              sample: false
-            is_mutual_auth:
-              description: Indicates if mutual authentication is enabled.
-              type: bool
-              sample: false
-        chap_users:
-          description: List of CHAP users.
-          type: list
-          elements: str
-          sample: ["chapuser1"]
+        authentication_mode:
+          description: Mode of authentication.
+          type: str
+          sample: "BOTH"
+        is_chap_enabled:
+          description: Indicates if CHAP is enabled.
+          type: bool
+          sample: true
+        is_chap_required:
+          description: Indicates if CHAP is required.
+          type: bool
+          sample: false
+        is_mutual_auth:
+          description: Indicates if mutual authentication is enabled.
+          type: bool
+          sample: false
+    chap_users:
+      description: List of CHAP users.
+      type: list
+      elements: str
+      sample: []
+    host_mode:
+      description: Host mode details.
+      type: dict
+      contains:
         host_mode:
-          description: Host mode details.
-          type: dict
-          contains:
-            host_mode:
-              description: Host mode.
-              type: str
-              sample: "VMWARE"
-            host_mode_options:
-              description: List of host mode options.
-              type: list
-              elements: dict
-              contains:
-                raid_option:
-                  description: RAID option.
-                  type: str
-                  sample: "EXTENDED_COPY"
-                raid_option_number:
-                  description: RAID option number.
-                  type: int
-                  sample: 54
-        iqn:
-          description: IQN of the iSCSI target.
+          description: Host mode.
           type: str
-          sample: "iqn.rest.example.of.iqn.host"
-        iqn_initiators:
-          description: List of IQN initiators.
-          type: list
-          elements: str
-          sample: ["iqn.2014-04.jp.co.hitachi:xxx.h70.i.62510.1a.ff"]
-        iscsi_id:
-          description: ID of the iSCSI target.
-          type: int
-          sample: 1
-        iscsi_name:
-          description: Name of the iSCSI target.
-          type: str
-          sample: "iscsi-name"
-        logical_units:
-          description: List of logical units.
+          sample: "LINUX"
+        host_mode_options:
+          description: List of host mode options.
           type: list
           elements: dict
-          contains:
-            host_lun_id:
-              description: Host LUN ID.
-              type: int
-              sample: 0
-            logical_unit_id:
-              description: Logical unit ID.
-              type: int
-              sample: 1
-        port_id:
-          description: Port ID.
+          sample: []
+    iqn:
+      description: IQN of the iSCSI target.
+      type: str
+      sample: "iqn.1994-04.jp.co.hitachi:rsd.has.t.10050.4c0ee"
+    iqn_initiators:
+      description: List of IQN initiators.
+      type: list
+      elements: dict
+      contains:
+        iqn:
+          description: IQN of the initiator.
           type: str
-          sample: "CL4-C"
-        resource_group_id:
-          description: Resource group ID.
-          type: int
-          sample: 0
+          sample: "iqn.1993-08.org.debian.iscsi:01:107dc7e4254a"
+        nick_name:
+          description: Nickname of the initiator.
+          type: str
+          sample: "iscsi-target-1"
+    iscsi_id:
+      description: ID of the iSCSI target.
+      type: int
+      sample: 238
+    iscsi_name:
+      description: Name of the iSCSI target.
+      type: str
+      sample: "isserver21"
+    logical_units:
+      description: List of logical units.
+      type: list
+      elements: dict
+      sample: []
+    port_id:
+      description: Port ID.
+      type: str
+      sample: "CL4-C"
+    resource_group_id:
+      description: Resource group ID.
+      type: int
+      sample: 0
 """
 
 from dataclasses import asdict

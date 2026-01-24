@@ -5,7 +5,7 @@ from __future__ import annotations
 __all__ = ["PickleShard", "create_pickle_shard"]
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
@@ -17,42 +17,45 @@ from iden.shard.file import FileShard
 if TYPE_CHECKING:
     from pathlib import Path
 
-logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
-class PickleShard(FileShard[Any]):
-    r"""Implement a pickle shard.
+class PickleShard(FileShard[T]):
+    r"""Implement a pickle shard for Python object serialization.
 
-    The data are stored in a pickle file.
+    This shard stores data using Python's pickle protocol, which allows
+    serialization of arbitrary Python objects. The data are stored in a
+    pickle file.
 
     Args:
         uri: The shard's URI.
         path: The path to the pickle file.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.shard import PickleShard
+        >>> from iden.io import save_pickle
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     file = Path(tmpdir).joinpath("data.pkl")
+        ...     save_pickle([1, 2, 3], file)
+        ...     shard = PickleShard(uri="file:///data/1234456789", path=file)
+        ...     shard.get_data()
+        ...
+        [1, 2, 3]
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.shard import PickleShard
-    >>> from iden.io import save_pickle
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     file = Path(tmpdir).joinpath("data.pkl")
-    ...     save_pickle([1, 2, 3], file)
-    ...     shard = PickleShard(uri="file:///data/1234456789", path=file)
-    ...     shard.get_data()
-    ...
-    [1, 2, 3]
-
-    ```
+        ```
     """
 
     def __init__(self, uri: str, path: Path | str) -> None:
         super().__init__(uri, path, loader=PickleLoader())
 
     @classmethod
-    def generate_uri_config(cls, path: Path) -> dict:
+    def generate_uri_config(cls, path: Path) -> dict[str, Any]:
         r"""Generate the minimal config that is used to load the shard
         from its URI.
 
@@ -64,21 +67,19 @@ class PickleShard(FileShard[Any]):
         Returns:
             The minimal config to load the shard from its URI.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> import tempfile
+            >>> from pathlib import Path
+            >>> from iden.shard import PickleShard
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     file = Path(tmpdir).joinpath("data.pkl")
+            ...     PickleShard.generate_uri_config(file)
+            ...
+            {'kwargs': {'path': '.../data.pkl'},
+             'loader': {'_target_': 'iden.shard.loader.PickleShardLoader'}}
 
-        ```pycon
-
-        >>> import tempfile
-        >>> from pathlib import Path
-        >>> from iden.shard import PickleShard
-        >>> with tempfile.TemporaryDirectory() as tmpdir:
-        ...     file = Path(tmpdir).joinpath("data.pkl")
-        ...     PickleShard.generate_uri_config(file)
-        ...
-        {'kwargs': {'path': '.../data.pkl'},
-         'loader': {'_target_': 'iden.shard.loader.PickleShardLoader'}}
-
-        ```
+            ```
         """
         return {
             KWARGS: {"path": sanitize_path(path).as_posix()},
@@ -86,7 +87,7 @@ class PickleShard(FileShard[Any]):
         }
 
 
-def create_pickle_shard(data: Any, uri: str, path: Path | None = None) -> PickleShard:
+def create_pickle_shard(data: T, uri: str, path: Path | None = None) -> PickleShard[T]:
     r"""Create a ``PickleShard`` from data.
 
     Note:
@@ -103,20 +104,18 @@ def create_pickle_shard(data: Any, uri: str, path: Path | None = None) -> Pickle
     Returns:
         The ``PickleShard`` object.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.shard import create_pickle_shard
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     shard = create_pickle_shard([1, 2, 3], uri=Path(tmpdir).joinpath("my_uri").as_uri())
+        ...     shard.get_data()
+        ...
+        [1, 2, 3]
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.shard import create_pickle_shard
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     shard = create_pickle_shard([1, 2, 3], uri=Path(tmpdir).joinpath("my_uri").as_uri())
-    ...     shard.get_data()
-    ...
-    [1, 2, 3]
-
-    ```
+        ```
     """
     if path is None:
         path = sanitize_path(uri + ".pkl")

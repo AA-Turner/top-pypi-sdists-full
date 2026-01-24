@@ -8,11 +8,12 @@
 #ifndef GrMtlPipelineStateBuilder_DEFINED
 #define GrMtlPipelineStateBuilder_DEFINED
 
-#include "include/gpu/GrContextOptions.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
 #include "src/gpu/ganesh/GrPipeline.h"
 #include "src/gpu/ganesh/glsl/GrGLSLProgramBuilder.h"
 #include "src/gpu/ganesh/mtl/GrMtlUniformHandler.h"
 #include "src/gpu/ganesh/mtl/GrMtlVaryingHandler.h"
+#include "src/sksl/codegen/SkSLNativeShader.h"
 #include "src/sksl/ir/SkSLProgram.h"
 
 #import <Metal/Metal.h>
@@ -58,15 +59,16 @@ private:
 
     const GrCaps* caps() const override;
 
-    SkSL::Compiler* shaderCompiler() const override;
-
     void finalizeFragmentSecondaryColor(GrShaderVar& outputColor) override;
 
-    id<MTLLibrary> compileMtlShaderLibrary(const std::string& shader,
-                                           SkSL::Program::Inputs inputs,
+    id<MTLLibrary> compileMtlShaderLibrary(const SkSL::NativeShader& shader,
+                                           SkSL::Program::Interface,
                                            GrContextOptions::ShaderErrorHandler* errorHandler);
-    void storeShadersInCache(const std::string shaders[], const SkSL::Program::Inputs inputs[],
-                             SkSL::ProgramSettings*, sk_sp<SkData>, bool isSkSL);
+    void storeShadersInCache(const SkSL::NativeShader shaders[],
+                             const SkSL::Program::Interface[],
+                             SkSL::ProgramSettings*,
+                             sk_sp<SkData>,
+                             bool isSkSL);
 
     GrGLSLUniformHandler* uniformHandler() override { return &fUniformHandler; }
     const GrGLSLUniformHandler* uniformHandler() const override { return &fUniformHandler; }

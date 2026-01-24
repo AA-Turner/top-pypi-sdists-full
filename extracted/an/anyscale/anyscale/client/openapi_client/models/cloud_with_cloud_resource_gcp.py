@@ -47,6 +47,7 @@ class CloudWithCloudResourceGCP(object):
         'cluster_management_stack_version': 'ClusterManagementStackVersions',
         'is_private_service_cloud': 'bool',
         'auto_add_user': 'bool',
+        'lineage_tracking_enabled': 'bool',
         'external_id': 'str',
         'id': 'str',
         'type': 'CloudTypes',
@@ -57,7 +58,6 @@ class CloudWithCloudResourceGCP(object):
         'version': 'CloudVersion',
         'is_default': 'bool',
         'customer_aggregated_logs_config_id': 'str',
-        'additional_instance_types': 'list[UXInstance]',
         'is_aggregated_logs_enabled': 'bool',
         'system_cluster_config_id': 'str',
         'cloud_resource': 'CloudResourceGCP'
@@ -78,6 +78,7 @@ class CloudWithCloudResourceGCP(object):
         'cluster_management_stack_version': 'cluster_management_stack_version',
         'is_private_service_cloud': 'is_private_service_cloud',
         'auto_add_user': 'auto_add_user',
+        'lineage_tracking_enabled': 'lineage_tracking_enabled',
         'external_id': 'external_id',
         'id': 'id',
         'type': 'type',
@@ -88,13 +89,12 @@ class CloudWithCloudResourceGCP(object):
         'version': 'version',
         'is_default': 'is_default',
         'customer_aggregated_logs_config_id': 'customer_aggregated_logs_config_id',
-        'additional_instance_types': 'additional_instance_types',
         'is_aggregated_logs_enabled': 'is_aggregated_logs_enabled',
         'system_cluster_config_id': 'system_cluster_config_id',
         'cloud_resource': 'cloud_resource'
     }
 
-    def __init__(self, name=None, provider=None, compute_stack=None, region=None, credentials=None, config=None, is_k8s=False, is_aioa=False, availability_zones=None, is_bring_your_own_resource=None, is_private_cloud=False, cluster_management_stack_version=None, is_private_service_cloud=None, auto_add_user=False, external_id=None, id=None, type=None, creator_id=None, created_at=None, status=None, state=None, version=None, is_default=None, customer_aggregated_logs_config_id=None, additional_instance_types=None, is_aggregated_logs_enabled=None, system_cluster_config_id=None, cloud_resource=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, provider=None, compute_stack=None, region=None, credentials=None, config=None, is_k8s=False, is_aioa=False, availability_zones=None, is_bring_your_own_resource=None, is_private_cloud=False, cluster_management_stack_version=None, is_private_service_cloud=None, auto_add_user=False, lineage_tracking_enabled=False, external_id=None, id=None, type=None, creator_id=None, created_at=None, status=None, state=None, version=None, is_default=None, customer_aggregated_logs_config_id=None, is_aggregated_logs_enabled=None, system_cluster_config_id=None, cloud_resource=None, local_vars_configuration=None):  # noqa: E501
         """CloudWithCloudResourceGCP - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -114,6 +114,7 @@ class CloudWithCloudResourceGCP(object):
         self._cluster_management_stack_version = None
         self._is_private_service_cloud = None
         self._auto_add_user = None
+        self._lineage_tracking_enabled = None
         self._external_id = None
         self._id = None
         self._type = None
@@ -124,7 +125,6 @@ class CloudWithCloudResourceGCP(object):
         self._version = None
         self._is_default = None
         self._customer_aggregated_logs_config_id = None
-        self._additional_instance_types = None
         self._is_aggregated_logs_enabled = None
         self._system_cluster_config_id = None
         self._cloud_resource = None
@@ -154,6 +154,8 @@ class CloudWithCloudResourceGCP(object):
             self.is_private_service_cloud = is_private_service_cloud
         if auto_add_user is not None:
             self.auto_add_user = auto_add_user
+        if lineage_tracking_enabled is not None:
+            self.lineage_tracking_enabled = lineage_tracking_enabled
         if external_id is not None:
             self.external_id = external_id
         self.id = id
@@ -168,8 +170,6 @@ class CloudWithCloudResourceGCP(object):
             self.version = version
         self.is_default = is_default
         self.customer_aggregated_logs_config_id = customer_aggregated_logs_config_id
-        if additional_instance_types is not None:
-            self.additional_instance_types = additional_instance_types
         if is_aggregated_logs_enabled is not None:
             self.is_aggregated_logs_enabled = is_aggregated_logs_enabled
         if system_cluster_config_id is not None:
@@ -508,6 +508,29 @@ class CloudWithCloudResourceGCP(object):
         self._auto_add_user = auto_add_user
 
     @property
+    def lineage_tracking_enabled(self):
+        """Gets the lineage_tracking_enabled of this CloudWithCloudResourceGCP.  # noqa: E501
+
+        Whether lineage tracking is enabled for this cloud.  # noqa: E501
+
+        :return: The lineage_tracking_enabled of this CloudWithCloudResourceGCP.  # noqa: E501
+        :rtype: bool
+        """
+        return self._lineage_tracking_enabled
+
+    @lineage_tracking_enabled.setter
+    def lineage_tracking_enabled(self, lineage_tracking_enabled):
+        """Sets the lineage_tracking_enabled of this CloudWithCloudResourceGCP.
+
+        Whether lineage tracking is enabled for this cloud.  # noqa: E501
+
+        :param lineage_tracking_enabled: The lineage_tracking_enabled of this CloudWithCloudResourceGCP.  # noqa: E501
+        :type: bool
+        """
+
+        self._lineage_tracking_enabled = lineage_tracking_enabled
+
+    @property
     def external_id(self):
         """Gets the external_id of this CloudWithCloudResourceGCP.  # noqa: E501
 
@@ -746,29 +769,6 @@ class CloudWithCloudResourceGCP(object):
             raise ValueError("Invalid value for `customer_aggregated_logs_config_id`, must not be `None`")  # noqa: E501
 
         self._customer_aggregated_logs_config_id = customer_aggregated_logs_config_id
-
-    @property
-    def additional_instance_types(self):
-        """Gets the additional_instance_types of this CloudWithCloudResourceGCP.  # noqa: E501
-
-        the list of instance types supported in the UI and through API (SDK/CLI).  # noqa: E501
-
-        :return: The additional_instance_types of this CloudWithCloudResourceGCP.  # noqa: E501
-        :rtype: list[UXInstance]
-        """
-        return self._additional_instance_types
-
-    @additional_instance_types.setter
-    def additional_instance_types(self, additional_instance_types):
-        """Sets the additional_instance_types of this CloudWithCloudResourceGCP.
-
-        the list of instance types supported in the UI and through API (SDK/CLI).  # noqa: E501
-
-        :param additional_instance_types: The additional_instance_types of this CloudWithCloudResourceGCP.  # noqa: E501
-        :type: list[UXInstance]
-        """
-
-        self._additional_instance_types = additional_instance_types
 
     @property
     def is_aggregated_logs_enabled(self):

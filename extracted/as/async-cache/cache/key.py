@@ -5,6 +5,7 @@ class KEY:
     def __init__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
+        kwargs.pop("use_cache", None)
 
     def __eq__(self, obj):
         return hash(self) == hash(obj)
@@ -15,7 +16,7 @@ class KEY:
                 return tuple(map(_hash, param))
             if isinstance(param, dict):
                 return tuple(map(_hash, param.items()))
-            elif hasattr(param, '__dict__'):
+            elif hasattr(param, "__dict__"):
                 return str(vars(param))
             else:
                 return str(param)

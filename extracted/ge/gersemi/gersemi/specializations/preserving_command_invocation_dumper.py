@@ -2,7 +2,6 @@ import re
 from textwrap import indent
 from gersemi.base_dumper import BaseDumper
 
-
 BRACKET_ARGUMENT_REGEX = r"(\[(?P<equal_signs>(=*))\[(?:[\s\S]+?)\](?P=equal_signs)\])"
 QUOTED_ARGUMENT_REGEX = r'("(?:[^\\\"]|\n|(?:\\(?:[^A-Za-z0-9]|[nrt]))|\\\n)*")'
 LINE_COMMENT_BEGIN = "#"
@@ -54,9 +53,7 @@ def indent_segment(segment, indent_symbol):
 
 def safe_indent(string, indent_symbol):
     segments = split_into_segments(string)
-    return "".join(
-        map(lambda segment: indent_segment(segment, indent_symbol), segments)
-    )
+    return "".join(indent_segment(segment, indent_symbol) for segment in segments)
 
 
 def strip_empty_lines_from_edges(s):

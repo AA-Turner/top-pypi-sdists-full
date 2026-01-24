@@ -26,10 +26,6 @@ public:
         return "IdealGasConstPressureMoleReactor";
     };
 
-    size_t componentIndex(const string& nm) const override;
-
-    string componentName(size_t k) override;
-
     void getState(double* y) override;
 
     void initialize(double t0=0.0) override;
@@ -47,9 +43,12 @@ public:
 
     bool preconditionerSupported() const override { return true; };
 
-protected:
-    void setThermo(ThermoPhase& thermo) override;
+    size_t componentIndex(const string& nm) const override;
+    string componentName(size_t k) override;
+    double upperBound(size_t k) const override;
+    double lowerBound(size_t k) const override;
 
+protected:
     vector<double> m_hk; //!< Species molar enthalpies
 };
 

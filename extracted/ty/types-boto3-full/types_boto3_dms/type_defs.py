@@ -3,7 +3,7 @@ Type annotations for dms service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -67,12 +68,6 @@ from .literals import (
     VersionStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -89,6 +84,10 @@ __all__ = (
     "BatchStartRecommendationsRequestTypeDef",
     "BatchStartRecommendationsResponseTypeDef",
     "BlobTypeDef",
+    "CancelMetadataModelConversionMessageTypeDef",
+    "CancelMetadataModelConversionResponseTypeDef",
+    "CancelMetadataModelCreationMessageTypeDef",
+    "CancelMetadataModelCreationResponseTypeDef",
     "CancelReplicationTaskAssessmentRunMessageTypeDef",
     "CancelReplicationTaskAssessmentRunResponseTypeDef",
     "CertificateTypeDef",
@@ -212,14 +211,22 @@ __all__ = (
     "DescribeInstanceProfilesResponseTypeDef",
     "DescribeMetadataModelAssessmentsMessageTypeDef",
     "DescribeMetadataModelAssessmentsResponseTypeDef",
+    "DescribeMetadataModelChildrenMessagePaginateTypeDef",
+    "DescribeMetadataModelChildrenMessageTypeDef",
+    "DescribeMetadataModelChildrenResponseTypeDef",
     "DescribeMetadataModelConversionsMessageTypeDef",
     "DescribeMetadataModelConversionsResponseTypeDef",
+    "DescribeMetadataModelCreationsMessagePaginateTypeDef",
+    "DescribeMetadataModelCreationsMessageTypeDef",
+    "DescribeMetadataModelCreationsResponseTypeDef",
     "DescribeMetadataModelExportsAsScriptMessageTypeDef",
     "DescribeMetadataModelExportsAsScriptResponseTypeDef",
     "DescribeMetadataModelExportsToTargetMessageTypeDef",
     "DescribeMetadataModelExportsToTargetResponseTypeDef",
     "DescribeMetadataModelImportsMessageTypeDef",
     "DescribeMetadataModelImportsResponseTypeDef",
+    "DescribeMetadataModelMessageTypeDef",
+    "DescribeMetadataModelResponseTypeDef",
     "DescribeMigrationProjectsMessageTypeDef",
     "DescribeMigrationProjectsResponseTypeDef",
     "DescribeOrderableReplicationInstancesMessagePaginateTypeDef",
@@ -290,6 +297,8 @@ __all__ = (
     "FleetAdvisorLsaAnalysisResponseTypeDef",
     "FleetAdvisorSchemaObjectResponseTypeDef",
     "GcpMySQLSettingsTypeDef",
+    "GetTargetSelectionRulesMessageTypeDef",
+    "GetTargetSelectionRulesResponseTypeDef",
     "IBMDb2SettingsTypeDef",
     "IbmDb2LuwDataProviderSettingsTypeDef",
     "IbmDb2zOsDataProviderSettingsTypeDef",
@@ -300,10 +309,13 @@ __all__ = (
     "KafkaSettingsTypeDef",
     "KerberosAuthenticationSettingsTypeDef",
     "KinesisSettingsTypeDef",
+    "LakehouseSettingsTypeDef",
     "LimitationTypeDef",
     "ListTagsForResourceMessageTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "MariaDbDataProviderSettingsTypeDef",
+    "MetadataModelPropertiesTypeDef",
+    "MetadataModelReferenceTypeDef",
     "MicrosoftSQLServerSettingsTypeDef",
     "MicrosoftSqlServerDataProviderSettingsTypeDef",
     "MigrationProjectTypeDef",
@@ -346,6 +358,8 @@ __all__ = (
     "PostgreSQLSettingsTypeDef",
     "PostgreSqlDataProviderSettingsTypeDef",
     "PremigrationAssessmentStatusTypeDef",
+    "ProcessedObjectTypeDef",
+    "ProgressTypeDef",
     "ProvisionDataTypeDef",
     "RdsConfigurationTypeDef",
     "RdsRecommendationTypeDef",
@@ -400,6 +414,8 @@ __all__ = (
     "StartMetadataModelAssessmentResponseTypeDef",
     "StartMetadataModelConversionMessageTypeDef",
     "StartMetadataModelConversionResponseTypeDef",
+    "StartMetadataModelCreationMessageTypeDef",
+    "StartMetadataModelCreationResponseTypeDef",
     "StartMetadataModelExportAsScriptMessageTypeDef",
     "StartMetadataModelExportAsScriptResponseTypeDef",
     "StartMetadataModelExportToTargetMessageTypeDef",
@@ -416,6 +432,7 @@ __all__ = (
     "StartReplicationTaskAssessmentRunResponseTypeDef",
     "StartReplicationTaskMessageTypeDef",
     "StartReplicationTaskResponseTypeDef",
+    "StatementPropertiesTypeDef",
     "StopDataMigrationMessageTypeDef",
     "StopDataMigrationResponseTypeDef",
     "StopReplicationMessageTypeDef",
@@ -424,6 +441,7 @@ __all__ = (
     "StopReplicationTaskResponseTypeDef",
     "SubnetTypeDef",
     "SupportedEndpointTypeTypeDef",
+    "SybaseAseDataProviderSettingsTypeDef",
     "SybaseSettingsTypeDef",
     "TableStatisticsTypeDef",
     "TableToReloadTypeDef",
@@ -461,7 +479,7 @@ class ApplyPendingMaintenanceActionMessageTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -479,6 +497,16 @@ class BatchStartRecommendationsErrorEntryTypeDef(TypedDict):
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 
+class CancelMetadataModelConversionMessageTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    RequestIdentifier: str
+
+
+class CancelMetadataModelCreationMessageTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    RequestIdentifier: str
+
+
 class CancelReplicationTaskAssessmentRunMessageTypeDef(TypedDict):
     ReplicationTaskAssessmentRunArn: str
 
@@ -494,6 +522,7 @@ class CertificateTypeDef(TypedDict):
     ValidToDate: NotRequired[datetime]
     SigningAlgorithm: NotRequired[str]
     KeyLength: NotRequired[int]
+    KmsKeyId: NotRequired[str]
 
 
 class CollectorHealthCheckTypeDef(TypedDict):
@@ -522,7 +551,7 @@ class ComputeConfigOutputTypeDef(TypedDict):
     MultiAZ: NotRequired[bool]
     PreferredMaintenanceWindow: NotRequired[str]
     ReplicationSubnetGroupId: NotRequired[str]
-    VpcSecurityGroupIds: NotRequired[List[str]]
+    VpcSecurityGroupIds: NotRequired[list[str]]
 
 
 class ComputeConfigTypeDef(TypedDict):
@@ -868,8 +897,8 @@ class EventSubscriptionTypeDef(TypedDict):
     Status: NotRequired[str]
     SubscriptionCreationTime: NotRequired[str]
     SourceType: NotRequired[str]
-    SourceIdsList: NotRequired[List[str]]
-    EventCategoriesList: NotRequired[List[str]]
+    SourceIdsList: NotRequired[list[str]]
+    EventCategoriesList: NotRequired[list[str]]
     Enabled: NotRequired[bool]
 
 
@@ -890,7 +919,7 @@ class InstanceProfileTypeDef(TypedDict):
     Description: NotRequired[str]
     InstanceProfileCreationTime: NotRequired[datetime]
     SubnetGroupIdentifier: NotRequired[str]
-    VpcSecurityGroups: NotRequired[List[str]]
+    VpcSecurityGroups: NotRequired[list[str]]
 
 
 class DataProviderDescriptorDefinitionTypeDef(TypedDict):
@@ -1045,6 +1074,15 @@ class RedshiftDataProviderSettingsTypeDef(TypedDict):
     S3AccessRoleArn: NotRequired[str]
 
 
+class SybaseAseDataProviderSettingsTypeDef(TypedDict):
+    ServerName: NotRequired[str]
+    Port: NotRequired[int]
+    DatabaseName: NotRequired[str]
+    SslMode: NotRequired[DmsSslModeValueType]
+    EncryptPassword: NotRequired[bool]
+    CertificateArn: NotRequired[str]
+
+
 class DatabaseInstanceSoftwareDetailsResponseTypeDef(TypedDict):
     Engine: NotRequired[str]
     EngineVersion: NotRequired[str]
@@ -1175,7 +1213,7 @@ EndpointSettingTypeDef = TypedDict(
     {
         "Name": NotRequired[str],
         "Type": NotRequired[EndpointSettingTypeValueType],
-        "EnumValues": NotRequired[List[str]],
+        "EnumValues": NotRequired[list[str]],
         "Sensitive": NotRequired[bool],
         "Units": NotRequired[str],
         "Applicability": NotRequired[str],
@@ -1207,19 +1245,19 @@ class EngineVersionTypeDef(TypedDict):
     AutoUpgradeDate: NotRequired[datetime]
     DeprecationDate: NotRequired[datetime]
     ForceUpgradeDate: NotRequired[datetime]
-    AvailableUpgrades: NotRequired[List[str]]
+    AvailableUpgrades: NotRequired[list[str]]
 
 
 class EventCategoryGroupTypeDef(TypedDict):
     SourceType: NotRequired[str]
-    EventCategories: NotRequired[List[str]]
+    EventCategories: NotRequired[list[str]]
 
 
 class EventTypeDef(TypedDict):
     SourceIdentifier: NotRequired[str]
     SourceType: NotRequired[Literal["replication-instance"]]
     Message: NotRequired[str]
-    EventCategories: NotRequired[List[str]]
+    EventCategories: NotRequired[list[str]]
     Date: NotRequired[datetime]
 
 
@@ -1241,6 +1279,25 @@ class FleetAdvisorSchemaObjectResponseTypeDef(TypedDict):
     CodeSize: NotRequired[int]
 
 
+class DescribeMetadataModelChildrenMessageTypeDef(TypedDict):
+    SelectionRules: str
+    MigrationProjectIdentifier: str
+    Origin: OriginTypeValueType
+    Marker: NotRequired[str]
+    MaxRecords: NotRequired[int]
+
+
+class MetadataModelReferenceTypeDef(TypedDict):
+    MetadataModelName: NotRequired[str]
+    SelectionRules: NotRequired[str]
+
+
+class DescribeMetadataModelMessageTypeDef(TypedDict):
+    SelectionRules: str
+    MigrationProjectIdentifier: str
+    Origin: OriginTypeValueType
+
+
 class DescribeOrderableReplicationInstancesMessageTypeDef(TypedDict):
     MaxRecords: NotRequired[int]
     Marker: NotRequired[str]
@@ -1254,7 +1311,7 @@ class OrderableReplicationInstanceTypeDef(TypedDict):
     MaxAllocatedStorage: NotRequired[int]
     DefaultAllocatedStorage: NotRequired[int]
     IncludedAllocatedStorage: NotRequired[int]
-    AvailabilityZones: NotRequired[List[str]]
+    AvailabilityZones: NotRequired[list[str]]
     ReleaseStatus: NotRequired[ReleaseStatusValuesType]
 
 
@@ -1356,11 +1413,15 @@ class DescribeSchemasMessageTypeDef(TypedDict):
     Marker: NotRequired[str]
 
 
+class LakehouseSettingsTypeDef(TypedDict):
+    Arn: str
+
+
 class OracleSettingsOutputTypeDef(TypedDict):
     AddSupplementalLogging: NotRequired[bool]
     ArchivedLogDestId: NotRequired[int]
     AdditionalArchivedLogDestId: NotRequired[int]
-    ExtraArchivedLogDestIds: NotRequired[List[int]]
+    ExtraArchivedLogDestIds: NotRequired[list[int]]
     AllowSelectNestedTables: NotRequired[bool]
     ParallelAsmReadThreads: NotRequired[int]
     ReadAheadBlocks: NotRequired[int]
@@ -1420,9 +1481,18 @@ class ExportSqlDetailsTypeDef(TypedDict):
     ObjectURL: NotRequired[str]
 
 
+class GetTargetSelectionRulesMessageTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    SelectionRules: str
+
+
 class ListTagsForResourceMessageTypeDef(TypedDict):
     ResourceArn: NotRequired[str]
     ResourceArnList: NotRequired[Sequence[str]]
+
+
+class StatementPropertiesTypeDef(TypedDict):
+    Definition: str
 
 
 class ModifyConversionConfigurationMessageTypeDef(TypedDict):
@@ -1531,6 +1601,14 @@ ReplicationTaskAssessmentRunResultStatisticTypeDef = TypedDict(
         "Warning": NotRequired[int],
         "Cancelled": NotRequired[int],
         "Skipped": NotRequired[int],
+    },
+)
+ProcessedObjectTypeDef = TypedDict(
+    "ProcessedObjectTypeDef",
+    {
+        "Name": NotRequired[str],
+        "Type": NotRequired[str],
+        "EndpointType": NotRequired[str],
     },
 )
 
@@ -1762,18 +1840,18 @@ class CreateFleetAdvisorCollectorResponseTypeDef(TypedDict):
 
 
 class DeleteFleetAdvisorDatabasesResponseTypeDef(TypedDict):
-    DatabaseIds: List[str]
+    DatabaseIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeAccountAttributesResponseTypeDef(TypedDict):
-    AccountQuotas: List[AccountQuotaTypeDef]
+    AccountQuotas: list[AccountQuotaTypeDef]
     UniqueAccountIdentifier: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeApplicableIndividualAssessmentsResponseTypeDef(TypedDict):
-    IndividualAssessmentNames: List[str]
+    IndividualAssessmentNames: list[str]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1786,7 +1864,7 @@ class DescribeConversionConfigurationResponseTypeDef(TypedDict):
 
 class DescribeSchemasResponseTypeDef(TypedDict):
     Marker: str
-    Schemas: List[str]
+    Schemas: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1794,8 +1872,13 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetTargetSelectionRulesResponseTypeDef(TypedDict):
+    TargetSelectionRules: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    TagList: List[TagTypeDef]
+    TagList: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1835,6 +1918,11 @@ class StartMetadataModelConversionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class StartMetadataModelCreationResponseTypeDef(TypedDict):
+    RequestIdentifier: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class StartMetadataModelExportAsScriptResponseTypeDef(TypedDict):
     RequestIdentifier: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1862,7 +1950,7 @@ class SubnetTypeDef(TypedDict):
 
 
 class BatchStartRecommendationsResponseTypeDef(TypedDict):
-    ErrorEntries: List[BatchStartRecommendationsErrorEntryTypeDef]
+    ErrorEntries: list[BatchStartRecommendationsErrorEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1871,6 +1959,7 @@ class ImportCertificateMessageTypeDef(TypedDict):
     CertificatePem: NotRequired[str]
     CertificateWallet: NotRequired[BlobTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    KmsKeyId: NotRequired[str]
 
 
 class DeleteCertificateResponseTypeDef(TypedDict):
@@ -1880,7 +1969,7 @@ class DeleteCertificateResponseTypeDef(TypedDict):
 
 class DescribeCertificatesResponseTypeDef(TypedDict):
     Marker: str
-    Certificates: List[CertificateTypeDef]
+    Certificates: list[CertificateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1917,6 +2006,7 @@ class ReplicationConfigTypeDef(TypedDict):
     TableMappings: NotRequired[str]
     ReplicationConfigCreateTime: NotRequired[datetime]
     ReplicationConfigUpdateTime: NotRequired[datetime]
+    IsReadOnly: NotRequired[bool]
 
 
 ComputeConfigUnionTypeDef = Union[ComputeConfigTypeDef, ComputeConfigOutputTypeDef]
@@ -1929,7 +2019,7 @@ class DeleteConnectionResponseTypeDef(TypedDict):
 
 class DescribeConnectionsResponseTypeDef(TypedDict):
     Marker: str
-    Connections: List[ConnectionTypeDef]
+    Connections: list[ConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1950,7 +2040,7 @@ class DeleteEventSubscriptionResponseTypeDef(TypedDict):
 
 class DescribeEventSubscriptionsResponseTypeDef(TypedDict):
     Marker: str
-    EventSubscriptionsList: List[EventSubscriptionTypeDef]
+    EventSubscriptionsList: list[EventSubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1971,7 +2061,7 @@ class DeleteInstanceProfileResponseTypeDef(TypedDict):
 
 class DescribeInstanceProfilesResponseTypeDef(TypedDict):
     Marker: str
-    InstanceProfiles: List[InstanceProfileTypeDef]
+    InstanceProfiles: list[InstanceProfileTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2100,12 +2190,12 @@ class DataMigrationTypeDef(TypedDict):
     MigrationProjectArn: NotRequired[str]
     DataMigrationType: NotRequired[MigrationTypeValueType]
     DataMigrationSettings: NotRequired[DataMigrationSettingsTypeDef]
-    SourceDataSettings: NotRequired[List[SourceDataSettingOutputTypeDef]]
-    TargetDataSettings: NotRequired[List[TargetDataSettingTypeDef]]
+    SourceDataSettings: NotRequired[list[SourceDataSettingOutputTypeDef]]
+    TargetDataSettings: NotRequired[list[TargetDataSettingTypeDef]]
     DataMigrationStatistics: NotRequired[DataMigrationStatisticsTypeDef]
     DataMigrationStatus: NotRequired[str]
-    PublicIpAddresses: NotRequired[List[str]]
-    DataMigrationCidrBlocks: NotRequired[List[str]]
+    PublicIpAddresses: NotRequired[list[str]]
+    DataMigrationCidrBlocks: NotRequired[list[str]]
     LastFailureMessage: NotRequired[str]
     StopReason: NotRequired[str]
 
@@ -2114,8 +2204,8 @@ class MigrationProjectTypeDef(TypedDict):
     MigrationProjectName: NotRequired[str]
     MigrationProjectArn: NotRequired[str]
     MigrationProjectCreationTime: NotRequired[datetime]
-    SourceDataProviderDescriptors: NotRequired[List[DataProviderDescriptorTypeDef]]
-    TargetDataProviderDescriptors: NotRequired[List[DataProviderDescriptorTypeDef]]
+    SourceDataProviderDescriptors: NotRequired[list[DataProviderDescriptorTypeDef]]
+    TargetDataProviderDescriptors: NotRequired[list[DataProviderDescriptorTypeDef]]
     InstanceProfileArn: NotRequired[str]
     InstanceProfileName: NotRequired[str]
     TransformationRules: NotRequired[str]
@@ -2128,6 +2218,7 @@ class DataProviderSettingsTypeDef(TypedDict):
     PostgreSqlSettings: NotRequired[PostgreSqlDataProviderSettingsTypeDef]
     MySqlSettings: NotRequired[MySqlDataProviderSettingsTypeDef]
     OracleSettings: NotRequired[OracleDataProviderSettingsTypeDef]
+    SybaseAseSettings: NotRequired[SybaseAseDataProviderSettingsTypeDef]
     MicrosoftSqlServerSettings: NotRequired[MicrosoftSqlServerDataProviderSettingsTypeDef]
     DocDbSettings: NotRequired[DocDbDataProviderSettingsTypeDef]
     MariaDbSettings: NotRequired[MariaDbDataProviderSettingsTypeDef]
@@ -2143,7 +2234,7 @@ class DatabaseResponseTypeDef(TypedDict):
     NumberOfSchemas: NotRequired[int]
     Server: NotRequired[ServerShortInfoResponseTypeDef]
     SoftwareDetails: NotRequired[DatabaseInstanceSoftwareDetailsResponseTypeDef]
-    Collectors: NotRequired[List[CollectorShortInfoResponseTypeDef]]
+    Collectors: NotRequired[list[CollectorShortInfoResponseTypeDef]]
 
 
 class ErrorDetailsTypeDef(TypedDict):
@@ -2257,6 +2348,13 @@ class DescribeMetadataModelAssessmentsMessageTypeDef(TypedDict):
 
 
 class DescribeMetadataModelConversionsMessageTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    Marker: NotRequired[str]
+    MaxRecords: NotRequired[int]
+
+
+class DescribeMetadataModelCreationsMessageTypeDef(TypedDict):
     MigrationProjectIdentifier: str
     Filters: NotRequired[Sequence[FilterTypeDef]]
     Marker: NotRequired[str]
@@ -2410,6 +2508,19 @@ class DescribeEventsMessagePaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class DescribeMetadataModelChildrenMessagePaginateTypeDef(TypedDict):
+    SelectionRules: str
+    MigrationProjectIdentifier: str
+    Origin: OriginTypeValueType
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeMetadataModelCreationsMessagePaginateTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class DescribeOrderableReplicationInstancesMessagePaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -2508,53 +2619,67 @@ class DescribeReplicationTasksMessageWaitTypeDef(TypedDict):
 
 class DescribeEndpointSettingsResponseTypeDef(TypedDict):
     Marker: str
-    EndpointSettings: List[EndpointSettingTypeDef]
+    EndpointSettings: list[EndpointSettingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeEndpointTypesResponseTypeDef(TypedDict):
     Marker: str
-    SupportedEndpointTypes: List[SupportedEndpointTypeTypeDef]
+    SupportedEndpointTypes: list[SupportedEndpointTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeEngineVersionsResponseTypeDef(TypedDict):
-    EngineVersions: List[EngineVersionTypeDef]
+    EngineVersions: list[EngineVersionTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeEventCategoriesResponseTypeDef(TypedDict):
-    EventCategoryGroupList: List[EventCategoryGroupTypeDef]
+    EventCategoryGroupList: list[EventCategoryGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeEventsResponseTypeDef(TypedDict):
     Marker: str
-    Events: List[EventTypeDef]
+    Events: list[EventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeFleetAdvisorLsaAnalysisResponseTypeDef(TypedDict):
-    Analysis: List[FleetAdvisorLsaAnalysisResponseTypeDef]
+    Analysis: list[FleetAdvisorLsaAnalysisResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeFleetAdvisorSchemaObjectSummaryResponseTypeDef(TypedDict):
-    FleetAdvisorSchemaObjects: List[FleetAdvisorSchemaObjectResponseTypeDef]
+    FleetAdvisorSchemaObjects: list[FleetAdvisorSchemaObjectResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
+class DescribeMetadataModelChildrenResponseTypeDef(TypedDict):
+    Marker: str
+    MetadataModelChildren: list[MetadataModelReferenceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeMetadataModelResponseTypeDef(TypedDict):
+    MetadataModelName: str
+    MetadataModelType: str
+    TargetMetadataModels: list[MetadataModelReferenceTypeDef]
+    Definition: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeOrderableReplicationInstancesResponseTypeDef(TypedDict):
-    OrderableReplicationInstances: List[OrderableReplicationInstanceTypeDef]
+    OrderableReplicationInstances: list[OrderableReplicationInstanceTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeRecommendationLimitationsResponseTypeDef(TypedDict):
-    Limitations: List[LimitationTypeDef]
+    Limitations: list[LimitationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2571,7 +2696,7 @@ class RefreshSchemasResponseTypeDef(TypedDict):
 
 class DescribeReplicationInstanceTaskLogsResponseTypeDef(TypedDict):
     ReplicationInstanceArn: str
-    ReplicationInstanceTaskLogs: List[ReplicationInstanceTaskLogTypeDef]
+    ReplicationInstanceTaskLogs: list[ReplicationInstanceTaskLogTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2579,13 +2704,13 @@ class DescribeReplicationInstanceTaskLogsResponseTypeDef(TypedDict):
 class DescribeReplicationTableStatisticsResponseTypeDef(TypedDict):
     ReplicationConfigArn: str
     Marker: str
-    ReplicationTableStatistics: List[TableStatisticsTypeDef]
+    ReplicationTableStatistics: list[TableStatisticsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeTableStatisticsResponseTypeDef(TypedDict):
     ReplicationTaskArn: str
-    TableStatistics: List[TableStatisticsTypeDef]
+    TableStatistics: list[TableStatisticsTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2593,13 +2718,13 @@ class DescribeTableStatisticsResponseTypeDef(TypedDict):
 class DescribeReplicationTaskAssessmentResultsResponseTypeDef(TypedDict):
     Marker: str
     BucketName: str
-    ReplicationTaskAssessmentResults: List[ReplicationTaskAssessmentResultTypeDef]
+    ReplicationTaskAssessmentResults: list[ReplicationTaskAssessmentResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeReplicationTaskIndividualAssessmentsResponseTypeDef(TypedDict):
     Marker: str
-    ReplicationTaskIndividualAssessments: List[ReplicationTaskIndividualAssessmentTypeDef]
+    ReplicationTaskIndividualAssessments: list[ReplicationTaskIndividualAssessmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2621,6 +2746,7 @@ class EndpointTypeDef(TypedDict):
     ServiceAccessRoleArn: NotRequired[str]
     ExternalTableDefinition: NotRequired[str]
     ExternalId: NotRequired[str]
+    IsReadOnly: NotRequired[bool]
     DynamoDbSettings: NotRequired[DynamoDbSettingsTypeDef]
     S3Settings: NotRequired[S3SettingsTypeDef]
     DmsTransferSettings: NotRequired[DmsTransferSettingsTypeDef]
@@ -2640,6 +2766,7 @@ class EndpointTypeDef(TypedDict):
     RedisSettings: NotRequired[RedisSettingsTypeDef]
     GcpMySQLSettings: NotRequired[GcpMySQLSettingsTypeDef]
     TimestreamSettings: NotRequired[TimestreamSettingsTypeDef]
+    LakehouseSettings: NotRequired[LakehouseSettingsTypeDef]
 
 
 class ExportMetadataModelAssessmentResponseTypeDef(TypedDict):
@@ -2648,12 +2775,16 @@ class ExportMetadataModelAssessmentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class MetadataModelPropertiesTypeDef(TypedDict):
+    StatementProperties: NotRequired[StatementPropertiesTypeDef]
+
+
 OracleSettingsUnionTypeDef = Union[OracleSettingsTypeDef, OracleSettingsOutputTypeDef]
 
 
 class ResourcePendingMaintenanceActionsTypeDef(TypedDict):
     ResourceIdentifier: NotRequired[str]
-    PendingMaintenanceActionDetails: NotRequired[List[PendingMaintenanceActionTypeDef]]
+    PendingMaintenanceActionDetails: NotRequired[list[PendingMaintenanceActionTypeDef]]
 
 
 class PremigrationAssessmentStatusTypeDef(TypedDict):
@@ -2685,6 +2816,13 @@ class ReplicationTaskAssessmentRunTypeDef(TypedDict):
     AssessmentRunName: NotRequired[str]
     IsLatestTaskAssessmentRun: NotRequired[bool]
     ResultStatistic: NotRequired[ReplicationTaskAssessmentRunResultStatisticTypeDef]
+
+
+class ProgressTypeDef(TypedDict):
+    ProgressPercent: NotRequired[float]
+    TotalObjects: NotRequired[int]
+    ProgressStep: NotRequired[str]
+    ProcessedObject: NotRequired[ProcessedObjectTypeDef]
 
 
 class RdsRecommendationTypeDef(TypedDict):
@@ -2753,12 +2891,13 @@ class ReplicationSubnetGroupTypeDef(TypedDict):
     ReplicationSubnetGroupDescription: NotRequired[str]
     VpcId: NotRequired[str]
     SubnetGroupStatus: NotRequired[str]
-    Subnets: NotRequired[List[SubnetTypeDef]]
-    SupportedNetworkTypes: NotRequired[List[str]]
+    Subnets: NotRequired[list[SubnetTypeDef]]
+    SupportedNetworkTypes: NotRequired[list[str]]
+    IsReadOnly: NotRequired[bool]
 
 
 class DescribeFleetAdvisorCollectorsResponseTypeDef(TypedDict):
-    Collectors: List[CollectorResponseTypeDef]
+    Collectors: list[CollectorResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2775,7 +2914,7 @@ class DeleteReplicationConfigResponseTypeDef(TypedDict):
 
 class DescribeReplicationConfigsResponseTypeDef(TypedDict):
     Marker: str
-    ReplicationConfigs: List[ReplicationConfigTypeDef]
+    ReplicationConfigs: list[ReplicationConfigTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2823,7 +2962,7 @@ class DeleteDataMigrationResponseTypeDef(TypedDict):
 
 
 class DescribeDataMigrationsResponseTypeDef(TypedDict):
-    DataMigrations: List[DataMigrationTypeDef]
+    DataMigrations: list[DataMigrationTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2855,7 +2994,7 @@ class DeleteMigrationProjectResponseTypeDef(TypedDict):
 
 class DescribeMigrationProjectsResponseTypeDef(TypedDict):
     Marker: str
-    MigrationProjects: List[MigrationProjectTypeDef]
+    MigrationProjects: list[MigrationProjectTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2894,17 +3033,9 @@ class ModifyDataProviderMessageTypeDef(TypedDict):
 
 
 class DescribeFleetAdvisorDatabasesResponseTypeDef(TypedDict):
-    Databases: List[DatabaseResponseTypeDef]
+    Databases: list[DatabaseResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-
-class SchemaConversionRequestTypeDef(TypedDict):
-    Status: NotRequired[str]
-    RequestIdentifier: NotRequired[str]
-    MigrationProjectArn: NotRequired[str]
-    Error: NotRequired[ErrorDetailsTypeDef]
-    ExportSqlDetails: NotRequired[ExportSqlDetailsTypeDef]
 
 
 class CreateEndpointResponseTypeDef(TypedDict):
@@ -2919,13 +3050,20 @@ class DeleteEndpointResponseTypeDef(TypedDict):
 
 class DescribeEndpointsResponseTypeDef(TypedDict):
     Marker: str
-    Endpoints: List[EndpointTypeDef]
+    Endpoints: list[EndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ModifyEndpointResponseTypeDef(TypedDict):
     Endpoint: EndpointTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartMetadataModelCreationMessageTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    SelectionRules: str
+    MetadataModelName: str
+    Properties: MetadataModelPropertiesTypeDef
 
 
 class CreateEndpointMessageTypeDef(TypedDict):
@@ -3009,7 +3147,7 @@ class ApplyPendingMaintenanceActionResponseTypeDef(TypedDict):
 
 
 class DescribePendingMaintenanceActionsResponseTypeDef(TypedDict):
-    PendingMaintenanceActions: List[ResourcePendingMaintenanceActionsTypeDef]
+    PendingMaintenanceActions: list[ResourcePendingMaintenanceActionsTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3022,9 +3160,9 @@ class ReplicationTypeDef(TypedDict):
     ReplicationType: NotRequired[MigrationTypeValueType]
     Status: NotRequired[str]
     ProvisionData: NotRequired[ProvisionDataTypeDef]
-    PremigrationAssessmentStatuses: NotRequired[List[PremigrationAssessmentStatusTypeDef]]
+    PremigrationAssessmentStatuses: NotRequired[list[PremigrationAssessmentStatusTypeDef]]
     StopReason: NotRequired[str]
-    FailureMessages: NotRequired[List[str]]
+    FailureMessages: NotRequired[list[str]]
     ReplicationStats: NotRequired[ReplicationStatsTypeDef]
     StartReplicationType: NotRequired[str]
     CdcStartTime: NotRequired[datetime]
@@ -3035,6 +3173,7 @@ class ReplicationTypeDef(TypedDict):
     ReplicationUpdateTime: NotRequired[datetime]
     ReplicationLastStopTime: NotRequired[datetime]
     ReplicationDeprovisionTime: NotRequired[datetime]
+    IsReadOnly: NotRequired[bool]
 
 
 class CancelReplicationTaskAssessmentRunResponseTypeDef(TypedDict):
@@ -3049,13 +3188,22 @@ class DeleteReplicationTaskAssessmentRunResponseTypeDef(TypedDict):
 
 class DescribeReplicationTaskAssessmentRunsResponseTypeDef(TypedDict):
     Marker: str
-    ReplicationTaskAssessmentRuns: List[ReplicationTaskAssessmentRunTypeDef]
+    ReplicationTaskAssessmentRuns: list[ReplicationTaskAssessmentRunTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class StartReplicationTaskAssessmentRunResponseTypeDef(TypedDict):
     ReplicationTaskAssessmentRun: ReplicationTaskAssessmentRunTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SchemaConversionRequestTypeDef(TypedDict):
+    Status: NotRequired[str]
+    RequestIdentifier: NotRequired[str]
+    MigrationProjectArn: NotRequired[str]
+    Error: NotRequired[ErrorDetailsTypeDef]
+    ExportSqlDetails: NotRequired[ExportSqlDetailsTypeDef]
+    Progress: NotRequired[ProgressTypeDef]
 
 
 class RecommendationDataTypeDef(TypedDict):
@@ -3078,7 +3226,7 @@ class DeleteReplicationTaskResponseTypeDef(TypedDict):
 
 class DescribeReplicationTasksResponseTypeDef(TypedDict):
     Marker: str
-    ReplicationTasks: List[ReplicationTaskTypeDef]
+    ReplicationTasks: list[ReplicationTaskTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3108,7 +3256,7 @@ class StopReplicationTaskResponseTypeDef(TypedDict):
 
 
 class DescribeFleetAdvisorSchemasResponseTypeDef(TypedDict):
-    FleetAdvisorSchemas: List[SchemaResponseTypeDef]
+    FleetAdvisorSchemas: list[SchemaResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3120,7 +3268,7 @@ class CreateReplicationSubnetGroupResponseTypeDef(TypedDict):
 
 class DescribeReplicationSubnetGroupsResponseTypeDef(TypedDict):
     Marker: str
-    ReplicationSubnetGroups: List[ReplicationSubnetGroupTypeDef]
+    ReplicationSubnetGroups: list[ReplicationSubnetGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3135,7 +3283,7 @@ class ReplicationInstanceTypeDef(TypedDict):
     ReplicationInstanceStatus: NotRequired[str]
     AllocatedStorage: NotRequired[int]
     InstanceCreateTime: NotRequired[datetime]
-    VpcSecurityGroups: NotRequired[List[VpcSecurityGroupMembershipTypeDef]]
+    VpcSecurityGroups: NotRequired[list[VpcSecurityGroupMembershipTypeDef]]
     AvailabilityZone: NotRequired[str]
     ReplicationSubnetGroup: NotRequired[ReplicationSubnetGroupTypeDef]
     PreferredMaintenanceWindow: NotRequired[str]
@@ -3147,9 +3295,9 @@ class ReplicationInstanceTypeDef(TypedDict):
     ReplicationInstanceArn: NotRequired[str]
     ReplicationInstancePublicIpAddress: NotRequired[str]
     ReplicationInstancePrivateIpAddress: NotRequired[str]
-    ReplicationInstancePublicIpAddresses: NotRequired[List[str]]
-    ReplicationInstancePrivateIpAddresses: NotRequired[List[str]]
-    ReplicationInstanceIpv6Addresses: NotRequired[List[str]]
+    ReplicationInstancePublicIpAddresses: NotRequired[list[str]]
+    ReplicationInstancePrivateIpAddresses: NotRequired[list[str]]
+    ReplicationInstanceIpv6Addresses: NotRequired[list[str]]
     PubliclyAccessible: NotRequired[bool]
     SecondaryAvailabilityZone: NotRequired[str]
     FreeUntil: NotRequired[datetime]
@@ -3195,7 +3343,7 @@ class DeleteDataProviderResponseTypeDef(TypedDict):
 
 class DescribeDataProvidersResponseTypeDef(TypedDict):
     Marker: str
-    DataProviders: List[DataProviderTypeDef]
+    DataProviders: list[DataProviderTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3204,45 +3352,9 @@ class ModifyDataProviderResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class DescribeExtensionPackAssociationsResponseTypeDef(TypedDict):
-    Marker: str
-    Requests: List[SchemaConversionRequestTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeMetadataModelAssessmentsResponseTypeDef(TypedDict):
-    Marker: str
-    Requests: List[SchemaConversionRequestTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeMetadataModelConversionsResponseTypeDef(TypedDict):
-    Marker: str
-    Requests: List[SchemaConversionRequestTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeMetadataModelExportsAsScriptResponseTypeDef(TypedDict):
-    Marker: str
-    Requests: List[SchemaConversionRequestTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeMetadataModelExportsToTargetResponseTypeDef(TypedDict):
-    Marker: str
-    Requests: List[SchemaConversionRequestTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeMetadataModelImportsResponseTypeDef(TypedDict):
-    Marker: str
-    Requests: List[SchemaConversionRequestTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class DescribeReplicationsResponseTypeDef(TypedDict):
     Marker: str
-    Replications: List[ReplicationTypeDef]
+    Replications: list[ReplicationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3253,6 +3365,58 @@ class StartReplicationResponseTypeDef(TypedDict):
 
 class StopReplicationResponseTypeDef(TypedDict):
     Replication: ReplicationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CancelMetadataModelConversionResponseTypeDef(TypedDict):
+    Request: SchemaConversionRequestTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CancelMetadataModelCreationResponseTypeDef(TypedDict):
+    Request: SchemaConversionRequestTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeExtensionPackAssociationsResponseTypeDef(TypedDict):
+    Marker: str
+    Requests: list[SchemaConversionRequestTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeMetadataModelAssessmentsResponseTypeDef(TypedDict):
+    Marker: str
+    Requests: list[SchemaConversionRequestTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeMetadataModelConversionsResponseTypeDef(TypedDict):
+    Marker: str
+    Requests: list[SchemaConversionRequestTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeMetadataModelCreationsResponseTypeDef(TypedDict):
+    Marker: str
+    Requests: list[SchemaConversionRequestTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeMetadataModelExportsAsScriptResponseTypeDef(TypedDict):
+    Marker: str
+    Requests: list[SchemaConversionRequestTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeMetadataModelExportsToTargetResponseTypeDef(TypedDict):
+    Marker: str
+    Requests: list[SchemaConversionRequestTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeMetadataModelImportsResponseTypeDef(TypedDict):
+    Marker: str
+    Requests: list[SchemaConversionRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3278,7 +3442,7 @@ class DeleteReplicationInstanceResponseTypeDef(TypedDict):
 
 class DescribeReplicationInstancesResponseTypeDef(TypedDict):
     Marker: str
-    ReplicationInstances: List[ReplicationInstanceTypeDef]
+    ReplicationInstances: list[ReplicationInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3293,6 +3457,6 @@ class RebootReplicationInstanceResponseTypeDef(TypedDict):
 
 
 class DescribeRecommendationsResponseTypeDef(TypedDict):
-    Recommendations: List[RecommendationTypeDef]
+    Recommendations: list[RecommendationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

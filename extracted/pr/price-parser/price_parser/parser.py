@@ -1,8 +1,8 @@
-# -*- coding: utf-8 -*-
 import re
 import string
 from decimal import Decimal, InvalidOperation
-from typing import Callable, List, Optional, Pattern, Tuple
+from re import Pattern
+from typing import Callable, Optional
 
 import attr
 
@@ -22,6 +22,7 @@ class Price:
         """price numeric value, as float"""
         if self.amount is not None:
             return float(self.amount)
+        return None
 
     @classmethod
     def fromstring(
@@ -74,7 +75,7 @@ class Price:
 parse_price = Price.fromstring
 
 
-def or_regex(symbols: List[str]) -> Pattern:
+def or_regex(symbols: list[str]) -> Pattern[str]:
     """Return a regex which matches any of ``symbols``"""
     return re.compile("|".join(re.escape(s) for s in symbols))
 
@@ -223,9 +224,7 @@ _DOLLAR_REGEX = re.compile(
             \$?  # dollar sign to ignore if attached to the currency code
             (?:[\W\d]|$)  # not a letter
         )
-    """.format(
-        "|".join(re.escape(k) for k in DOLLAR_CODES)
-    ),
+    """.format("|".join(re.escape(k) for k in DOLLAR_CODES)),
     re.VERBOSE,
 )
 
@@ -258,7 +257,7 @@ def extract_currency_symbol(
     Guess currency symbol from extracted price and currency strings.
     Return an empty string if symbol is not found.
     """
-    methods: List[Tuple[Callable, Optional[str]]] = [
+    methods: list[tuple[Callable[[str], Optional[re.Match[str]]], Optional[str]]] = [
         (_search_safe_currency, price),
         (_search_safe_currency, currency_hint),
         (_search_unsafe_currency, price),
@@ -280,7 +279,7 @@ def extract_currency_symbol(
 
 
 def extract_price_text(price: str) -> Optional[str]:
-    """
+    r"""
     Extract text of a price from a string which contains price and
     maybe some other text. If multiple price-looking substrings are present,
     the first is returned (FIXME: it is better to return a number
@@ -323,7 +322,7 @@ def extract_price_text(price: str) -> Optional[str]:
     if price.count("€") == 1:
         m = re.search(
             r"""
-        [\d\s.,]*?\d    # number, probably with thousand separators
+        [\d\s.,']*?\d    # number, probably with thousand separators
         \s*?€(\s*?)?    # euro, probably separated by whitespace
         \d(?(1)\d|\d*?)  # if separated by whitespace - search one digit,
                          # multiple digits otherwise
@@ -337,7 +336,7 @@ def extract_price_text(price: str) -> Optional[str]:
 
     m = re.search(
         r"""
-        ([.]?\d[\d\s.,]*)   # number, probably with thousand separators
+        ([.]?\d[\d\s.,']*)   # number, probably with thousand separators
         \s*?                # skip whitespace
         (?:[^%\d]|$)        # capture next symbol - it shouldn't be %
         """,
@@ -347,6 +346,7 @@ def extract_price_text(price: str) -> Optional[str]:
 
     if m:
         price_text = m.group(1).rstrip(",.")
+        price_text = price_text.replace("'", "")
         return (
             price_text.strip()
             if price_text.count(".") == 1
@@ -392,6 +392,7 @@ def get_decimal_separator(price: str) -> Optional[str]:
     m = _search_decimal_sep(price)
     if m:
         return m.group(1)
+    return None
 
 
 def parse_number(

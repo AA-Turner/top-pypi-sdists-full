@@ -14,13 +14,12 @@
 
 """Defines free-function interface for partial saving and finalizing."""
 
-from etils import epath
 from orbax.checkpoint._src import asyncio_utils
 from orbax.checkpoint._src.path import async_path
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 import orbax.checkpoint.experimental.v1._src.handlers.global_registration  # pylint: disable=unused-import
+from orbax.checkpoint.experimental.v1._src.layout import checkpoint_layout
 from orbax.checkpoint.experimental.v1._src.partial import path as partial_path_lib
-from orbax.checkpoint.experimental.v1._src.path import format_utils
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.saving import execution
 from orbax.checkpoint.experimental.v1._src.synchronization import multihost
@@ -28,7 +27,7 @@ from orbax.checkpoint.experimental.v1._src.synchronization import types as async
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
 
 
-PYTREE_CHECKPOINTABLE_KEY = format_utils.PYTREE_CHECKPOINTABLE_KEY
+PYTREE_CHECKPOINTABLE_KEY = checkpoint_layout.PYTREE_CHECKPOINTABLE_KEY
 
 
 def save_pytree(
@@ -48,32 +47,30 @@ def save_pytree(
   partial save will be preserved.
 
   IMPORTANT: The checkpoint is not finalized at the target `path` until
-  `ocp.partial.finalize(path)` is called. The intermediate checkpoints are
+  :py:func:`.finalize` is called. The intermediate checkpoints are
   temporary and should not be used directly.
 
   ### Workflow
 
   A typical partial save workflow involves one or more calls to
-  `partial.save_pytree` followed by a single call to `partial.finalize`.
+  :py:func:`.save_pytree` followed by a single call to :py:func:`~.finalize`::
 
-  ```
-  path = '/path/to/my/checkpoint'
+    path = '/path/to/my/checkpoint'
 
-  # The first call creates a temporary directory:
-  # '/path/to/my/checkpoint.partial_save'
-  # Note: the exact temporary directory name is an implementation detail that
-  # depends on the file system and should not be relied on.
-  ocp.partial.save_pytree(path, {'layer1': ..., 'step': 1})
+    # The first call creates a temporary directory:
+    # '/path/to/my/checkpoint.partial_save'
+    # Note: the exact temporary directory name is an implementation detail that
+    # depends on the file system and should not be relied on.
+    ocp.partial.save_pytree(path, {'layer1': ..., 'step': 1})
 
-  # A subsequent call reads the previous version and applies new updates
-  # to the temporary directory:
-  # '/path/to/my/checkpoint.partial_save'
-  ocp.partial.save_pytree(path, {'layer2': ..., 'metrics': ...})
+    # A subsequent call reads the previous version and applies new updates
+    # to the temporary directory:
+    # '/path/to/my/checkpoint.partial_save'
+    ocp.partial.save_pytree(path, {'layer2': ..., 'metrics': ...})
 
-  # This call commits the latest version to the final destination at
-  # '/path/to/my/checkpoint'.
-  ocp.partial.finalize(path)
-  ```
+    # This call commits the latest version to the final destination at
+    # '/path/to/my/checkpoint'.
+    ocp.partial.finalize(path)
 
   ### Additions vs. Replacements
 
@@ -86,7 +83,8 @@ def save_pytree(
     overlap. Replacements are currently NOT supported. Please reach out to the
     Orbax team if you need this functionality.
 
-  See `ocp.save_pytree` for general PyTree saving documentation.
+  See :py:func:`~.v1.save_pytree` for general
+  PyTree saving documentation.
 
   Args:
     path: The path to save the checkpoint to.
@@ -111,7 +109,8 @@ def save_pytree_async(
 ) -> async_types.AsyncResponse[None]:
   """Partially saves a PyTree asynchronously.
 
-  Unlike `partial.save_pytree`, this function returns an `AsyncResponse`
+  Unlike :py:func:`.save_pytree`, this function returns an
+  :py:class:`.AsyncResponse`
   immediately after scheduling the save operation. The actual writing to disk
   happens in a background thread. You can use `response.result()` to block
   until the operation is complete.
@@ -126,34 +125,33 @@ def save_pytree_async(
   partial save will be preserved.
 
   IMPORTANT: The checkpoint is not finalized at the target `path` until
-  `ocp.partial.finalize(path)` is called. The intermediate checkpoints are
+  :py:func:`.finalize` is called. The intermediate checkpoints are
   temporary and may be garbage collected in certain environments.
 
   ### Workflow
 
   A typical partial save workflow involves one or more calls to
-  `partial.save_pytree_async` followed by a single call to `partial.finalize`.
+  :py:func:`.save_pytree_async` followed by a single call to
+  :py:func:`.finalize`::
 
-  ```
-  path = '/path/to/my/checkpoint'
+    path = '/path/to/my/checkpoint'
 
-  # The first call creates a temporary directory and returns immediately.
-  response1 = ocp.partial.save_pytree_async(path, {'layer1': ..., 'step': 1})
+    # The first call creates a temporary directory and returns immediately.
+    response1 = ocp.partial.save_pytree_async(path, {'layer1': ..., 'step': 1})
 
-  # A subsequent call also returns immediately. Orbax ensures that this
-  # operation waits for the first one to complete before starting.
-  response2 = ocp.partial.save_pytree_async(
-      path, {'layer2': ..., 'metrics': ...}
-  )
+    # A subsequent call also returns immediately. Orbax ensures that this
+    # operation waits for the first one to complete before starting.
+    response2 = ocp.partial.save_pytree_async(
+        path, {'layer2': ..., 'metrics': ...}
+    )
 
-  # Wait for all async partial saves to complete before finalizing.
-  response1.result()
-  response2.result()
+    # Wait for all async partial saves to complete before finalizing.
+    response1.result()
+    response2.result()
 
-  # This call commits the latest version to the final destination at
-  # '/path/to/my/checkpoint'.
-  ocp.partial.finalize(path)
-  ```
+    # This call commits the latest version to the final destination at
+    # '/path/to/my/checkpoint'.
+    ocp.partial.finalize(path)
 
   ### Additions vs. Replacements
 
@@ -164,7 +162,8 @@ def save_pytree_async(
     Replacements are currently NOT supported. Please reach out to the Orbax team
     if you need this functionality.
 
-  See `ocp.save_pytree_async` for general PyTree saving documentation.
+  See :py:func:`~.v1.save_pytree_async` for general
+  PyTree saving documentation.
 
   Args:
     path: The path to save the checkpoint to.
@@ -172,15 +171,25 @@ def save_pytree_async(
       objects registered as PyTrees) consisting of supported leaf types. Default
       supported leaf types include `jax.Array`, `np.ndarray`, simple types like
       `int`, `float`, `str`, and empty nodes. Support for custom leaves is also
-      possible by implementing a `LeafTypeHandler`.
+      possible by implementing a :py:class:`.LeafTypeHandler`.
     custom_metadata: User-provided custom metadata. An arbitrary
       JSON-serializable dictionary the user can use to store additional
       information. The field is treated as opaque by Orbax.
 
   Returns:
-    An `AsyncResponse` that can be used to block until the save is complete.
+    An :py:class:`.AsyncResponse` that can be used to block until the save is
+    complete.
     Blocking can be done using `response.result()`, which returns `None`.
+
+  Raises:
+    FileExistsError: If a finalized checkpoint already exists at `path`. To
+      overwrite, it must be deleted first.
   """
+  ctx = context_lib.get_context()
+  path = ctx.file_options.path_class(path)
+  if path.exists():
+    raise FileExistsError(f'Finalized checkpoint already exists at {path}.')
+
   return execution.save_checkpointables_impl(
       partial_path_lib.add_partial_save_suffix(path),
       {PYTREE_CHECKPOINTABLE_KEY: pytree},
@@ -196,7 +205,7 @@ def finalize(path: path_types.PathLike) -> None:
 
   This function commits all changes made during a partial save session,
   concluding the transaction. It should be called once after all desired
-  `ocp.partial.save_*` operations are complete.
+  :py:func:`.save_pytree` operations are complete.
 
   The finalization process is atomic. It renames the temporary, versioned
   partial save directory to the final target `path`, making the updated
@@ -207,32 +216,29 @@ def finalize(path: path_types.PathLike) -> None:
   This function is what makes those changes permanent.
 
 
-  ### Example
-  ```
-  path = '/path/to/my/checkpoint'
+  ### Example::
+    path = '/path/to/my/checkpoint'
 
-  # These calls write to a temporary, versioned directory, not the final path.
-  ocp.partial.save_pytree(path, {'step': 1})
-  ocp.partial.save_checkpointables(path, {'metrics': ...})
+    # These calls write to a temporary, versioned directory, not the final path.
+    ocp.partial.save_pytree(path, {'step': 1})
+    ocp.partial.save_checkpointables(path, {'metrics': ...})
 
-  # This call performs the atomic rename, making the checkpoint available at
-  # '/path/to/my/checkpoint'.
-  ocp.partial.finalize(path)
-  ```
+    # This call performs the atomic rename, making the checkpoint available at
+    # '/path/to/my/checkpoint'.
+    ocp.partial.finalize(path)
 
   Args:
     path: The final, target path of the checkpoint to be finalized. This should
-      be the same path that was passed to `ocp.partial.save_*` calls.
+      be the same path that was passed to :py:func:`~.save_pytree` calls.
 
   Raises:
     FileExistsError: If a finalized checkpoint already exists at `path`. To
       overwrite, it must be deleted first.
     FileNotFoundError: If no partial save session is found for the given `path`.
-      This can happen if `ocp.partial.save_*` was not called first.
+      This can happen if :py:func:`.save_pytree` was not called first.
   """
   context = context_lib.get_context()
-
-  path = epath.Path(path)
+  path = context.file_options.path_class(path)
   if partial_path_lib.is_partial_save_path(path):
     final_path = partial_path_lib.remove_partial_save_suffix(path)
     partial_path = path
@@ -246,6 +252,7 @@ def finalize(path: path_types.PathLike) -> None:
             'OcpPartialSaving:finalize_path_existence_start',
             prefix=context.multiprocessing_options.barrier_sync_key_prefix,
         ),
+        operation_id=context.operation_id(),
         processes=context.multiprocessing_options.active_processes,
     )
     if await async_path.exists(final_path):
@@ -262,6 +269,7 @@ def finalize(path: path_types.PathLike) -> None:
             'OcpPartialSaving:finalize_path_rename_start',
             prefix=context.multiprocessing_options.barrier_sync_key_prefix,
         ),
+        operation_id=context.operation_id(),
         processes=context.multiprocessing_options.active_processes,
     )
 
@@ -286,6 +294,7 @@ def finalize(path: path_types.PathLike) -> None:
             'OcpPartialSaving:finalize_rename_complete',
             prefix=context.multiprocessing_options.barrier_sync_key_prefix,
         ),
+        operation_id=context.operation_id(),
         processes=context.multiprocessing_options.active_processes,
     )
 

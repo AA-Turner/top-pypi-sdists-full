@@ -2,7 +2,6 @@ mod error;
 
 use itertools::Either;
 use serde::Serialize;
-use tombi_formatter::formatter::definitions::FormatDefinitions;
 use tombi_formatter::FormatOptions;
 use tombi_schema_store::SchemaStore;
 use tombi_toml_version::TomlVersion;
@@ -114,7 +113,6 @@ impl Serializer<'_> {
         let mut toml_text = std::string::String::new();
         document.to_toml_string(&mut toml_text, &[]);
 
-        let format_definitions = FormatDefinitions::default();
         let format_options = FormatOptions::default();
 
         let schema_store = match self.schema_store {
@@ -140,7 +138,6 @@ impl Serializer<'_> {
 
         let formatter = tombi_formatter::Formatter::new(
             TomlVersion::default(),
-            &format_definitions,
             &format_options,
             self.source_path.map(Either::Right),
             schema_store,
@@ -805,7 +802,7 @@ mod tests {
 
     use super::*;
     use chrono::{DateTime, TimeZone, Utc};
-    use indexmap::{indexmap, IndexMap};
+    use indexmap::{IndexMap, indexmap};
     use serde::Serialize;
     use tombi_test_lib::toml_text_assert_eq;
 
@@ -1006,7 +1003,7 @@ updated_at = "2023-07-20T14:45:30Z"
 
     #[tokio::test]
     async fn test_builder_with_schema_store_cargo_dependencies() {
-        // This test verifies that dependencies in a Cargo.toml file
+        // This test verifies that dependencies in a `Cargo.toml` file
         // are sorted alphabetically when the appropriate schema is used
 
         #[derive(Serialize)]
@@ -1021,7 +1018,7 @@ updated_at = "2023-07-20T14:45:30Z"
             version: String,
         }
 
-        // Create a Cargo.toml with unordered dependencies
+        // Create a `Cargo.toml` with unordered dependencies
         let cargo_toml = CargoToml {
             package: Package {
                 name: "test-package".to_string(),

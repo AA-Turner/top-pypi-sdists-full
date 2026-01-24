@@ -25,40 +25,61 @@ Todo:
  * preserve formatting when updating configuration files
 """
 
+__all__ = [
+    "DEFAULT_MAX_INCLUDE_DEPTH",
+    "MAX_INCLUDE_FILE_SIZE",
+    "CaseInsensitiveOrderedMultiDict",
+    "ConditionMatcher",
+    "Config",
+    "ConfigDict",
+    "ConfigFile",
+    "ConfigKey",
+    "ConfigValue",
+    "FileOpener",
+    "StackedConfig",
+    "apply_instead_of",
+    "get_win_legacy_system_paths",
+    "get_win_system_paths",
+    "get_xdg_config_home_path",
+    "iter_instead_of",
+    "lower_key",
+    "match_glob_pattern",
+    "parse_submodules",
+    "read_submodules",
+]
+
 import logging
 import os
 import re
 import sys
 from collections.abc import (
+    Callable,
     ItemsView,
     Iterable,
     Iterator,
     KeysView,
+    Mapping,
     MutableMapping,
     ValuesView,
 )
 from contextlib import suppress
 from pathlib import Path
 from typing import (
-    Any,
-    BinaryIO,
-    Callable,
+    IO,
     Generic,
-    Optional,
     TypeVar,
-    Union,
     overload,
 )
 
-from .file import GitFile
+from .file import GitFile, _GitFile
 
-ConfigKey = Union[str, bytes, tuple[Union[str, bytes], ...]]
-ConfigValue = Union[str, bytes, bool, int]
+ConfigKey = str | bytes | tuple[str | bytes, ...]
+ConfigValue = str | bytes | bool | int
 
 logger = logging.getLogger(__name__)
 
 # Type for file opener callback
-FileOpener = Callable[[Union[str, os.PathLike]], BinaryIO]
+FileOpener = Callable[[str | os.PathLike[str]], IO[bytes]]
 
 # Type for includeIf condition matcher
 # Takes the condition value (e.g., "main" for onbranch:main) and returns bool
@@ -147,6 +168,17 @@ def match_glob_pattern(value: str, pattern: str) -> bool:
 
 
 def lower_key(key: ConfigKey) -> ConfigKey:
+    """Convert a config key to lowercase, preserving subsection case.
+
+    Args:
+      key: Configuration key (str, bytes, or tuple)
+
+    Returns:
+      Key with section names lowercased, subsection names preserved
+
+    Raises:
+      TypeError: If key is not str, bytes, or tuple
+    """
     if isinstance(key, (bytes, str)):
         return key.lower()
 
@@ -168,15 +200,40 @@ _T = TypeVar("_T")  # For get() default parameter
 
 
 class CaseInsensitiveOrderedMultiDict(MutableMapping[K, V], Generic[K, V]):
-    def __init__(self, default_factory: Optional[Callable[[], V]] = None) -> None:
+    """A case-insensitive ordered dictionary that can store multiple values per key.
+
+    This class maintains the order of insertions and allows multiple values
+    for the same key. Keys are compared case-insensitively.
+    """
+
+    def __init__(self, default_factory: Callable[[], V] | None = None) -> None:
+        """Initialize a CaseInsensitiveOrderedMultiDict.
+
+        Args:
+          default_factory: Optional factory function for default values
+        """
         self._real: list[tuple[K, V]] = []
-        self._keyed: dict[Any, V] = {}
+        self._keyed: dict[ConfigKey, V] = {}
         self._default_factory = default_factory
 
     @classmethod
     def make(
-        cls, dict_in=None, default_factory=None
+        cls,
+        dict_in: "MutableMapping[K, V] | CaseInsensitiveOrderedMultiDict[K, V] | None" = None,
+        default_factory: Callable[[], V] | None = None,
     ) -> "CaseInsensitiveOrderedMultiDict[K, V]":
+        """Create a CaseInsensitiveOrderedMultiDict from an existing mapping.
+
+        Args:
+          dict_in: Optional mapping to initialize from
+          default_factory: Optional factory function for default values
+
+        Returns:
+          New CaseInsensitiveOrderedMultiDict instance
+
+        Raises:
+          TypeError: If dict_in is not a mapping or None
+        """
         if isinstance(dict_in, cls):
             return dict_in
 
@@ -194,14 +251,44 @@ class CaseInsensitiveOrderedMultiDict(MutableMapping[K, V], Generic[K, V]):
         return out
 
     def __len__(self) -> int:
+        """Return the number of unique keys in the dictionary."""
         return len(self._keyed)
 
     def keys(self) -> KeysView[K]:
-        return self._keyed.keys()  # type: ignore[return-value]
+        """Return a view of the dictionary's keys."""
+        # Return a view of the original keys (not lowercased)
+        # We need to deduplicate since _real can have duplicates
+        seen = set()
+        unique_keys = []
+        for k, _ in self._real:
+            lower = lower_key(k)
+            if lower not in seen:
+                seen.add(lower)
+                unique_keys.append(k)
+        from collections.abc import KeysView as ABCKeysView
+
+        class UniqueKeysView(ABCKeysView[K]):
+            def __init__(self, keys: list[K]):
+                self._keys = keys
+
+            def __contains__(self, key: object) -> bool:
+                return key in self._keys
+
+            def __iter__(self) -> Iterator[K]:
+                return iter(self._keys)
+
+            def __len__(self) -> int:
+                return len(self._keys)
+
+        return UniqueKeysView(unique_keys)
 
     def items(self) -> ItemsView[K, V]:
+        """Return a view of the dictionary's (key, value) pairs in insertion order."""
+
         # Return a view that iterates over the real list to preserve order
         class OrderedItemsView(ItemsView[K, V]):
+            """Items view that preserves insertion order."""
+
             def __init__(self, mapping: CaseInsensitiveOrderedMultiDict[K, V]):
                 self._mapping = mapping
 
@@ -220,33 +307,67 @@ class CaseInsensitiveOrderedMultiDict(MutableMapping[K, V], Generic[K, V]):
         return OrderedItemsView(self)
 
     def __iter__(self) -> Iterator[K]:
-        return iter(self._keyed)
+        """Iterate over the dictionary's keys."""
+        # Return iterator over original keys (not lowercased), deduplicated
+        seen = set()
+        for k, _ in self._real:
+            lower = lower_key(k)
+            if lower not in seen:
+                seen.add(lower)
+                yield k
 
     def values(self) -> ValuesView[V]:
+        """Return a view of the dictionary's values."""
         return self._keyed.values()
 
-    def __setitem__(self, key, value) -> None:
+    def __setitem__(self, key: K, value: V) -> None:
+        """Set a value for a key, appending to existing values."""
         self._real.append((key, value))
         self._keyed[lower_key(key)] = value
 
-    def set(self, key, value) -> None:
+    def set(self, key: K, value: V) -> None:
+        """Set a value for a key, replacing all existing values.
+
+        Args:
+          key: The key to set
+          value: The value to set
+        """
         # This method replaces all existing values for the key
         lower = lower_key(key)
         self._real = [(k, v) for k, v in self._real if lower_key(k) != lower]
         self._real.append((key, value))
         self._keyed[lower] = value
 
-    def __delitem__(self, key) -> None:
-        key = lower_key(key)
-        del self._keyed[key]
+    def __delitem__(self, key: K) -> None:
+        """Delete all values for a key.
+
+        Raises:
+          KeyError: If the key is not found
+        """
+        lower_k = lower_key(key)
+        del self._keyed[lower_k]
         for i, (actual, unused_value) in reversed(list(enumerate(self._real))):
-            if lower_key(actual) == key:
+            if lower_key(actual) == lower_k:
                 del self._real[i]
 
     def __getitem__(self, item: K) -> V:
+        """Get the last value for a key.
+
+        Raises:
+          KeyError: If the key is not found
+        """
         return self._keyed[lower_key(item)]
 
-    def get(self, key: K, /, default: Union[V, _T, None] = None) -> Union[V, _T, None]:  # type: ignore[override]
+    def get(self, key: K, /, default: V | _T | None = None) -> V | _T | None:  # type: ignore[override]
+        """Get the last value for a key, or a default if not found.
+
+        Args:
+          key: The key to look up
+          default: Default value to return if key not found
+
+        Returns:
+          The value for the key, or default/default_factory result if not found
+        """
         try:
             return self[key]
         except KeyError:
@@ -258,12 +379,32 @@ class CaseInsensitiveOrderedMultiDict(MutableMapping[K, V], Generic[K, V]):
                 return None
 
     def get_all(self, key: K) -> Iterator[V]:
+        """Get all values for a key in insertion order.
+
+        Args:
+          key: The key to look up
+
+        Returns:
+          Iterator of all values for the key
+        """
         lowered_key = lower_key(key)
         for actual, value in self._real:
             if lower_key(actual) == lowered_key:
                 yield value
 
-    def setdefault(self, key: K, default: Optional[V] = None) -> V:
+    def setdefault(self, key: K, default: V | None = None) -> V:
+        """Get value for key, setting it to default if not present.
+
+        Args:
+          key: The key to look up
+          default: Default value to set if key not found
+
+        Returns:
+          The existing value or the newly set default
+
+        Raises:
+          KeyError: If key not found and no default or default_factory
+        """
         try:
             return self[key]
         except KeyError:
@@ -279,11 +420,11 @@ class CaseInsensitiveOrderedMultiDict(MutableMapping[K, V], Generic[K, V]):
 
 
 Name = bytes
-NameLike = Union[bytes, str]
+NameLike = bytes | str
 Section = tuple[bytes, ...]
-SectionLike = Union[bytes, str, tuple[Union[bytes, str], ...]]
+SectionLike = bytes | str | tuple[bytes | str, ...]
 Value = bytes
-ValueLike = Union[bytes, str]
+ValueLike = bytes | str
 
 
 class Config:
@@ -321,17 +462,18 @@ class Config:
     ) -> bool: ...
 
     @overload
-    def get_boolean(self, section: SectionLike, name: NameLike) -> Optional[bool]: ...
+    def get_boolean(self, section: SectionLike, name: NameLike) -> bool | None: ...
 
     def get_boolean(
-        self, section: SectionLike, name: NameLike, default: Optional[bool] = None
-    ) -> Optional[bool]:
+        self, section: SectionLike, name: NameLike, default: bool | None = None
+    ) -> bool | None:
         """Retrieve a configuration setting as boolean.
 
         Args:
           section: Tuple with section name and optional subsection name
           name: Name of the setting, including section and possible
             subsection.
+          default: Default value if setting is not found
 
         Returns:
           Contents of the setting
@@ -347,7 +489,7 @@ class Config:
         raise ValueError(f"not a valid boolean string: {value!r}")
 
     def set(
-        self, section: SectionLike, name: NameLike, value: Union[ValueLike, bool]
+        self, section: SectionLike, name: NameLike, value: ValueLike | bool
     ) -> None:
         """Set a configuration value.
 
@@ -392,10 +534,9 @@ class ConfigDict(Config):
 
     def __init__(
         self,
-        values: Union[
-            MutableMapping[Section, MutableMapping[Name, Value]], None
-        ] = None,
-        encoding: Union[str, None] = None,
+        values: MutableMapping[Section, CaseInsensitiveOrderedMultiDict[Name, Value]]
+        | None = None,
+        encoding: str | None = None,
     ) -> None:
         """Create a new ConfigDict."""
         if encoding is None:
@@ -408,31 +549,49 @@ class ConfigDict(Config):
         )
 
     def __repr__(self) -> str:
+        """Return string representation of ConfigDict."""
         return f"{self.__class__.__name__}({self._values!r})"
 
     def __eq__(self, other: object) -> bool:
+        """Check equality with another ConfigDict."""
         return isinstance(other, self.__class__) and other._values == self._values
 
     def __getitem__(self, key: Section) -> CaseInsensitiveOrderedMultiDict[Name, Value]:
+        """Get configuration values for a section.
+
+        Raises:
+          KeyError: If section not found
+        """
         return self._values.__getitem__(key)
 
-    def __setitem__(self, key: Section, value: MutableMapping[Name, Value]) -> None:
+    def __setitem__(
+        self, key: Section, value: CaseInsensitiveOrderedMultiDict[Name, Value]
+    ) -> None:
+        """Set configuration values for a section."""
         return self._values.__setitem__(key, value)
 
     def __delitem__(self, key: Section) -> None:
+        """Delete a configuration section.
+
+        Raises:
+          KeyError: If section not found
+        """
         return self._values.__delitem__(key)
 
     def __iter__(self) -> Iterator[Section]:
+        """Iterate over configuration sections."""
         return self._values.__iter__()
 
     def __len__(self) -> int:
+        """Return the number of sections."""
         return self._values.__len__()
 
     def keys(self) -> KeysView[Section]:
+        """Return a view of section names."""
         return self._values.keys()
 
     @classmethod
-    def _parse_setting(cls, name: str) -> tuple[str, Optional[str], str]:
+    def _parse_setting(cls, name: str) -> tuple[str, str | None, str]:
         parts = name.split(".")
         if len(parts) == 3:
             return (parts[0], parts[1], parts[2])
@@ -460,6 +619,15 @@ class ConfigDict(Config):
         return checked_section, name
 
     def get_multivar(self, section: SectionLike, name: NameLike) -> Iterator[Value]:
+        """Get multiple values for a configuration setting.
+
+        Args:
+            section: Section name
+            name: Setting name
+
+        Returns:
+            Iterator of configuration values
+        """
         section, name = self._check_section_and_name(section, name)
 
         if len(section) > 1:
@@ -475,6 +643,18 @@ class ConfigDict(Config):
         section: SectionLike,
         name: NameLike,
     ) -> Value:
+        """Get a configuration value.
+
+        Args:
+            section: Section name
+            name: Setting name
+
+        Returns:
+            Configuration value
+
+        Raises:
+            KeyError: if the value is not set
+        """
         section, name = self._check_section_and_name(section, name)
 
         if len(section) > 1:
@@ -489,8 +669,15 @@ class ConfigDict(Config):
         self,
         section: SectionLike,
         name: NameLike,
-        value: Union[ValueLike, bool],
+        value: ValueLike | bool,
     ) -> None:
+        """Set a configuration value.
+
+        Args:
+            section: Section name
+            name: Setting name
+            value: Configuration value
+        """
         section, name = self._check_section_and_name(section, name)
 
         if isinstance(value, bool):
@@ -509,7 +696,7 @@ class ConfigDict(Config):
         self,
         section: SectionLike,
         name: NameLike,
-        value: Union[ValueLike, bool],
+        value: ValueLike | bool,
     ) -> None:
         """Add a value to a configuration setting, creating a multivar if needed."""
         section, name = self._check_section_and_name(section, name)
@@ -522,7 +709,21 @@ class ConfigDict(Config):
 
         self._values.setdefault(section)[name] = value
 
+    def remove(self, section: SectionLike, name: NameLike) -> None:
+        """Remove a configuration setting.
+
+        Args:
+            section: Section name
+            name: Setting name
+
+        Raises:
+            KeyError: If the section or name doesn't exist
+        """
+        section, name = self._check_section_and_name(section, name)
+        del self._values[section][name]
+
     def items(self, section: SectionLike) -> Iterator[tuple[Name, Value]]:
+        """Get items in a section."""
         section_bytes, _ = self._check_section_and_name(section, b"")
         section_dict = self._values.get(section_bytes)
         if section_dict is not None:
@@ -530,6 +731,7 @@ class ConfigDict(Config):
         return iter([])
 
     def sections(self) -> Iterator[Section]:
+        """Get all sections."""
         return iter(self._values.keys())
 
 
@@ -556,16 +758,16 @@ _WHITESPACE_CHARS = [ord(b"\t"), ord(b" ")]
 
 
 def _parse_string(value: bytes) -> bytes:
-    value = bytearray(value.strip())
+    value_array = bytearray(value.strip())
     ret = bytearray()
     whitespace = bytearray()
     in_quotes = False
     i = 0
-    while i < len(value):
-        c = value[i]
+    while i < len(value_array):
+        c = value_array[i]
         if c == ord(b"\\"):
             i += 1
-            if i >= len(value):
+            if i >= len(value_array):
                 # Backslash at end of string - treat as literal backslash
                 if whitespace:
                     ret.extend(whitespace)
@@ -573,7 +775,7 @@ def _parse_string(value: bytes) -> bytes:
                 ret.append(ord(b"\\"))
             else:
                 try:
-                    v = _ESCAPE_TABLE[value[i]]
+                    v = _ESCAPE_TABLE[value_array[i]]
                     if whitespace:
                         ret.extend(whitespace)
                         whitespace = bytearray()
@@ -737,26 +939,31 @@ class ConfigFile(ConfigDict):
 
     def __init__(
         self,
-        values: Union[
-            MutableMapping[Section, MutableMapping[Name, Value]], None
-        ] = None,
-        encoding: Union[str, None] = None,
+        values: MutableMapping[Section, CaseInsensitiveOrderedMultiDict[Name, Value]]
+        | None = None,
+        encoding: str | None = None,
     ) -> None:
+        """Initialize a ConfigFile.
+
+        Args:
+          values: Optional mapping of configuration values
+          encoding: Optional encoding for the file (defaults to system encoding)
+        """
         super().__init__(values=values, encoding=encoding)
-        self.path: Optional[str] = None
+        self.path: str | None = None
         self._included_paths: set[str] = set()  # Track included files to prevent cycles
 
     @classmethod
     def from_file(
         cls,
-        f: BinaryIO,
+        f: IO[bytes],
         *,
-        config_dir: Optional[str] = None,
-        included_paths: Optional[set[str]] = None,
+        config_dir: str | None = None,
+        included_paths: set[str] | None = None,
         include_depth: int = 0,
         max_include_depth: int = DEFAULT_MAX_INCLUDE_DEPTH,
-        file_opener: Optional[FileOpener] = None,
-        condition_matchers: Optional[dict[str, ConditionMatcher]] = None,
+        file_opener: FileOpener | None = None,
+        condition_matchers: Mapping[str, ConditionMatcher] | None = None,
     ) -> "ConfigFile":
         """Read configuration from a file-like object.
 
@@ -777,7 +984,7 @@ class ConfigFile(ConfigDict):
         if included_paths is not None:
             ret._included_paths = included_paths.copy()
 
-        section: Optional[Section] = None
+        section: Section | None = None
         setting = None
         continuation = None
         for lineno, line in enumerate(f.readlines()):
@@ -854,15 +1061,15 @@ class ConfigFile(ConfigDict):
 
     def _handle_include_directive(
         self,
-        section: Optional[Section],
+        section: Section | None,
         setting: bytes,
         value: bytes,
         *,
-        config_dir: Optional[str],
+        config_dir: str | None,
         include_depth: int,
         max_include_depth: int,
-        file_opener: Optional[FileOpener],
-        condition_matchers: Optional[dict[str, ConditionMatcher]],
+        file_opener: FileOpener | None,
+        condition_matchers: Mapping[str, ConditionMatcher] | None,
     ) -> None:
         """Handle include/includeIf directives during config parsing."""
         if (
@@ -888,11 +1095,11 @@ class ConfigFile(ConfigDict):
         section: Section,
         path_value: bytes,
         *,
-        config_dir: Optional[str],
+        config_dir: str | None,
         include_depth: int,
         max_include_depth: int,
-        file_opener: Optional[FileOpener],
-        condition_matchers: Optional[dict[str, ConditionMatcher]],
+        file_opener: FileOpener | None,
+        condition_matchers: Mapping[str, ConditionMatcher] | None,
     ) -> None:
         """Process an include or includeIf directive."""
         path_str = path_value.decode(self.encoding, errors="replace")
@@ -923,9 +1130,10 @@ class ConfigFile(ConfigDict):
         # Load and merge the included file
         try:
             # Use provided file opener or default to GitFile
+            opener: FileOpener
             if file_opener is None:
 
-                def opener(path):
+                def opener(path: str | os.PathLike[str]) -> IO[bytes]:
                     return GitFile(path, "rb")
             else:
                 opener = file_opener
@@ -962,9 +1170,7 @@ class ConfigFile(ConfigDict):
             for key, value in values.items():
                 self._values[section][key] = value
 
-    def _resolve_include_path(
-        self, path: str, config_dir: Optional[str]
-    ) -> Optional[str]:
+    def _resolve_include_path(self, path: str, config_dir: str | None) -> str | None:
         """Resolve an include path to an absolute path."""
         # Expand ~ to home directory
         path = os.path.expanduser(path)
@@ -978,8 +1184,8 @@ class ConfigFile(ConfigDict):
     def _evaluate_includeif_condition(
         self,
         condition: str,
-        config_dir: Optional[str] = None,
-        condition_matchers: Optional[dict[str, ConditionMatcher]] = None,
+        config_dir: str | None = None,
+        condition_matchers: Mapping[str, ConditionMatcher] | None = None,
     ) -> bool:
         """Evaluate an includeIf condition."""
         # Try custom matchers first if provided
@@ -1065,11 +1271,11 @@ class ConfigFile(ConfigDict):
     @classmethod
     def from_path(
         cls,
-        path: Union[str, os.PathLike],
+        path: str | os.PathLike[str],
         *,
         max_include_depth: int = DEFAULT_MAX_INCLUDE_DEPTH,
-        file_opener: Optional[FileOpener] = None,
-        condition_matchers: Optional[dict[str, ConditionMatcher]] = None,
+        file_opener: FileOpener | None = None,
+        condition_matchers: Mapping[str, ConditionMatcher] | None = None,
     ) -> "ConfigFile":
         """Read configuration from a file on disk.
 
@@ -1083,9 +1289,10 @@ class ConfigFile(ConfigDict):
         config_dir = os.path.dirname(abs_path)
 
         # Use provided file opener or default to GitFile
+        opener: FileOpener
         if file_opener is None:
 
-            def opener(p):
+            def opener(p: str | os.PathLike[str]) -> IO[bytes]:
                 return GitFile(p, "rb")
         else:
             opener = file_opener
@@ -1101,18 +1308,18 @@ class ConfigFile(ConfigDict):
             ret.path = abs_path
             return ret
 
-    def write_to_path(self, path: Optional[Union[str, os.PathLike]] = None) -> None:
+    def write_to_path(self, path: str | os.PathLike[str] | None = None) -> None:
         """Write configuration to a file on disk."""
         if path is None:
             if self.path is None:
                 raise ValueError("No path specified and no default path available")
-            path_to_use: Union[str, os.PathLike] = self.path
+            path_to_use: str | os.PathLike[str] = self.path
         else:
             path_to_use = path
         with GitFile(path_to_use, "wb") as f:
             self.write_to_file(f)
 
-    def write_to_file(self, f: BinaryIO) -> None:
+    def write_to_file(self, f: IO[bytes] | _GitFile) -> None:
         """Write configuration to a file-like object."""
         for section, values in self._values.items():
             try:
@@ -1130,6 +1337,14 @@ class ConfigFile(ConfigDict):
 
 
 def get_xdg_config_home_path(*path_segments: str) -> str:
+    """Get a path in the XDG config home directory.
+
+    Args:
+      *path_segments: Path segments to join to the XDG config home
+
+    Returns:
+      Full path in XDG config home directory
+    """
     xdg_config_home = os.environ.get(
         "XDG_CONFIG_HOME",
         os.path.expanduser("~/.config/"),
@@ -1165,24 +1380,46 @@ def _find_git_in_win_reg() -> Iterator[str]:
     else:
         subkey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Git_is1"
 
-    for key in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):  # type: ignore
+    for key in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):  # type: ignore[attr-defined,unused-ignore]
         with suppress(OSError):
-            with winreg.OpenKey(key, subkey) as k:  # type: ignore
-                val, typ = winreg.QueryValueEx(k, "InstallLocation")  # type: ignore
-                if typ == winreg.REG_SZ:  # type: ignore
+            with winreg.OpenKey(key, subkey) as k:  # type: ignore[attr-defined,unused-ignore]
+                val, typ = winreg.QueryValueEx(k, "InstallLocation")  # type: ignore[attr-defined,unused-ignore]
+                if typ == winreg.REG_SZ:  # type: ignore[attr-defined,unused-ignore]
                     yield val
 
 
 # There is no set standard for system config dirs on windows. We try the
 # following:
-#   - %PROGRAMDATA%/Git/config - (deprecated) Windows config dir per CGit docs
 #   - %PROGRAMFILES%/Git/etc/gitconfig - Git for Windows (msysgit) config dir
 #     Used if CGit installation (Git/bin/git.exe) is found in PATH in the
 #     system registry
 def get_win_system_paths() -> Iterator[str]:
+    """Get current Windows system Git config paths.
+
+    Only returns the current Git for Windows config location, not legacy paths.
+    """
+    # Try to find Git installation from PATH first
+    for git_dir in _find_git_in_win_path():
+        yield os.path.join(git_dir, "etc", "gitconfig")
+        return  # Only use the first found path
+
+    # Fall back to registry if not found in PATH
+    for git_dir in _find_git_in_win_reg():
+        yield os.path.join(git_dir, "etc", "gitconfig")
+        return  # Only use the first found path
+
+
+def get_win_legacy_system_paths() -> Iterator[str]:
+    """Get legacy Windows system Git config paths.
+
+    Returns all possible config paths including deprecated locations.
+    This function can be used for diagnostics or migration purposes.
+    """
+    # Include deprecated PROGRAMDATA location
     if "PROGRAMDATA" in os.environ:
         yield os.path.join(os.environ["PROGRAMDATA"], "Git", "config")
 
+    # Include all Git installations found
     for git_dir in _find_git_in_win_path():
         yield os.path.join(git_dir, "etc", "gitconfig")
     for git_dir in _find_git_in_win_reg():
@@ -1193,16 +1430,28 @@ class StackedConfig(Config):
     """Configuration which reads from multiple config files.."""
 
     def __init__(
-        self, backends: list[ConfigFile], writable: Optional[ConfigFile] = None
+        self, backends: list[ConfigFile], writable: ConfigFile | None = None
     ) -> None:
+        """Initialize a StackedConfig.
+
+        Args:
+          backends: List of config files to read from (in order of precedence)
+          writable: Optional config file to write changes to
+        """
         self.backends = backends
         self.writable = writable
 
     def __repr__(self) -> str:
+        """Return string representation of StackedConfig."""
         return f"<{self.__class__.__name__} for {self.backends!r}>"
 
     @classmethod
     def default(cls) -> "StackedConfig":
+        """Create a StackedConfig with default system/user config files.
+
+        Returns:
+          StackedConfig with default configuration files loaded
+        """
         return cls(cls.default_backends())
 
     @classmethod
@@ -1229,16 +1478,21 @@ class StackedConfig(Config):
                 if sys.platform == "win32":
                     paths.extend(get_win_system_paths())
 
+        logger.debug("Loading gitconfig from paths: %s", paths)
+
         backends = []
         for path in paths:
             try:
                 cf = ConfigFile.from_path(path)
+                logger.debug("Successfully loaded gitconfig from: %s", path)
             except FileNotFoundError:
+                logger.debug("Gitconfig file not found: %s", path)
                 continue
             backends.append(cf)
         return backends
 
     def get(self, section: SectionLike, name: NameLike) -> Value:
+        """Get value from configuration."""
         if not isinstance(section, tuple):
             section = (section,)
         for backend in self.backends:
@@ -1249,6 +1503,7 @@ class StackedConfig(Config):
         raise KeyError(name)
 
     def get_multivar(self, section: SectionLike, name: NameLike) -> Iterator[Value]:
+        """Get multiple values from configuration."""
         if not isinstance(section, tuple):
             section = (section,)
         for backend in self.backends:
@@ -1258,13 +1513,15 @@ class StackedConfig(Config):
                 pass
 
     def set(
-        self, section: SectionLike, name: NameLike, value: Union[ValueLike, bool]
+        self, section: SectionLike, name: NameLike, value: ValueLike | bool
     ) -> None:
+        """Set value in configuration."""
         if self.writable is None:
             raise NotImplementedError(self.set)
         return self.writable.set(section, name, value)
 
     def sections(self) -> Iterator[Section]:
+        """Get all sections."""
         seen = set()
         for backend in self.backends:
             for section in backend.sections():
@@ -1274,7 +1531,7 @@ class StackedConfig(Config):
 
 
 def read_submodules(
-    path: Union[str, os.PathLike],
+    path: str | os.PathLike[str],
 ) -> Iterator[tuple[bytes, bytes, bytes]]:
     """Read a .gitmodules file."""
     cfg = ConfigFile.from_path(path)

@@ -20,11 +20,11 @@ import typing as ty
 from cliff import columns as cliff_columns
 from osc_lib.cli import format_columns
 from osc_lib.cli import parseractions
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 from osc_lib.utils import tags as _tag
 
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -44,7 +44,7 @@ def _update_arguments(obj_list, parsed_args_list, option):
             raise exceptions.CommandError(msg)
 
 
-class AllocationPoolsColumn(cliff_columns.FormattableColumn):
+class AllocationPoolsColumn(cliff_columns.FormattableColumn[ty.Any]):
     def human_readable(self):
         pool_formatted = [
             '{}-{}'.format(pool.get('start', ''), pool.get('end', ''))
@@ -53,7 +53,7 @@ class AllocationPoolsColumn(cliff_columns.FormattableColumn):
         return ','.join(pool_formatted)
 
 
-class HostRoutesColumn(cliff_columns.FormattableColumn):
+class HostRoutesColumn(cliff_columns.FormattableColumn[ty.Any]):
     def human_readable(self):
         # Map the host route keys to match --host-route option.
         return utils.format_list_of_dicts(
@@ -61,7 +61,7 @@ class HostRoutesColumn(cliff_columns.FormattableColumn):
         )
 
 
-class UnsortedListColumn(cliff_columns.FormattableColumn):
+class UnsortedListColumn(cliff_columns.FormattableColumn[list[ty.Any]]):
     # format_columns.ListColumn sorts the output, but for things like
     # DNS server addresses the order matters
     def human_readable(self):
@@ -493,7 +493,7 @@ class ListSubnet(command.Lister):
             metavar='<ip-version>',
             dest='ip_version',
             help=_(
-                "List only subnets of given IP version in output. "
+                "List only subnets with the specified IP version. "
                 "Allowed values for IP version are 4 and 6."
             ),
         )
@@ -501,12 +501,12 @@ class ListSubnet(command.Lister):
         dhcp_enable_group.add_argument(
             '--dhcp',
             action='store_true',
-            help=_("List subnets which have DHCP enabled"),
+            help=_("List only subnets which have DHCP enabled"),
         )
         dhcp_enable_group.add_argument(
             '--no-dhcp',
             action='store_true',
-            help=_("List subnets which have DHCP disabled"),
+            help=_("List only subnets which have DHCP disabled"),
         )
         parser.add_argument(
             '--service-type',
@@ -514,7 +514,7 @@ class ListSubnet(command.Lister):
             action='append',
             dest='service_types',
             help=_(
-                "List only subnets of a given service type in output, "
+                "List only subnets with the specified service type, "
                 "for example, network:floatingip_agent_gateway. "
                 "Must be a valid device owner value for a network port "
                 "(repeat option to list multiple service types)."
@@ -524,8 +524,7 @@ class ListSubnet(command.Lister):
             '--project',
             metavar='<project>',
             help=_(
-                "List only subnets which belong to a given project "
-                "in output (name or ID)"
+                "List only subnets with the specified project (name or ID)"
             ),
         )
         identity_common.add_project_domain_option_to_parser(parser)
@@ -533,26 +532,26 @@ class ListSubnet(command.Lister):
             '--network',
             metavar='<network>',
             help=_(
-                "List only subnets which belong to a given network "
-                "in output (name or ID)"
+                "List only subnets which belong to the specified network "
+                "(name or ID)"
             ),
         )
         parser.add_argument(
             '--gateway',
             metavar='<gateway>',
-            help=_("List only subnets of given gateway IP in output"),
+            help=_("List only subnets with the specified gateway IP"),
         )
         parser.add_argument(
             '--name',
             metavar='<name>',
-            help=_("List only subnets of given name in output"),
+            help=_("List only subnets with the specified name"),
         )
         parser.add_argument(
             '--subnet-range',
             metavar='<subnet-range>',
             help=_(
-                "List only subnets of given subnet range "
-                "(in CIDR notation) in output. "
+                "List only subnets with the specified subnet range "
+                "(in CIDR notation). "
                 "For example, --subnet-range 10.10.0.0/16"
             ),
         )
@@ -560,8 +559,8 @@ class ListSubnet(command.Lister):
             '--subnet-pool',
             metavar='<subnet-pool>',
             help=_(
-                "List only subnets which belong to a given subnet pool "
-                "in output (name or ID)"
+                "List only subnets which belong to the specified subnet pool "
+                "(name or ID)"
             ),
         )
         _tag.add_tag_filtering_option_to_parser(parser, _('subnets'))

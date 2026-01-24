@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: py-consul
-Version: 1.6.0
+Version: 1.7.1
 Summary: Python client for Consul (http://www.consul.io/)
 Home-page: https://github.com/criteo-forks/py-consul
 Author: Criteo
@@ -9,12 +9,12 @@ License: MIT
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests>=2.0
@@ -30,16 +30,17 @@ Dynamic: license
 Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
-# py-consul [![PyPi version](https://img.shields.io/pypi/v/py-consul.svg)](https://pypi.python.org/pypi/py-consul/) [![Python version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/) ![Status](https://img.shields.io/badge/status-maintained-green.svg)
+# py-consul [![PyPi version](https://img.shields.io/pypi/v/py-consul.svg)](https://pypi.python.org/pypi/py-consul/) [![Python version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/) ![Status](https://img.shields.io/badge/status-maintained-green.svg)
 
 Status
 -----------
 This project is maintained and actively developed by Criteo.
 We aim at converging towards a full compatibility with the official Consul API.
 
-We're currently supporting consul 1.17 up to 1.20. Due to quite a few changes
+We're currently supporting consul 1.20 up to 1.22. Due to quite a few changes
 since our development started (see section "A bit of history"), some endpoints are 
 still partially handled.
 
@@ -100,6 +101,7 @@ When you create a PR please ensure:
 
 # Change log
 
+Since version 1.5.6, please refer to [Releases](https://github.com/criteo-forks/py-consul/releases)
 
 ## 1.5.5
 

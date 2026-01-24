@@ -1,4 +1,5 @@
-import os
+import gc
+import pathlib
 
 import pytest
 
@@ -12,20 +13,20 @@ from ._util import ROOT_DATA_DIR
     "name_and_expected_shape",
     [["pbmc3k_unprocessed", (2700, 13714)], ["pbmc3k_processed", (2638, 1838)]],
 )
-def test_to_anndata(version, name_and_expected_shape):
+@pytest.mark.medium_runner
+def test_to_anndata(soma_tiledb_context, version, name_and_expected_shape):
     """Checks that experiments written by older versions are still readable,
     in the particular form of doing an outgest."""
 
     name, expected_shape = name_and_expected_shape
     path = ROOT_DATA_DIR / "soma-experiment-versions-2025-04-04" / version / name
     uri = str(path)
-    if not os.path.isdir(uri):
+    if not pathlib.Path(uri).is_dir():
         raise RuntimeError(
-            f"Missing '{uri}' directory. Try running `make data` "
-            "from the TileDB-SOMA project root directory."
+            f"Missing '{uri}' directory. Try running `make data` from the TileDB-SOMA project root directory.",
         )
 
-    with tiledbsoma.Experiment.open(uri) as exp:
+    with tiledbsoma.Experiment.open(uri, context=soma_tiledb_context) as exp:
         adata = tiledbsoma.io.to_anndata(
             exp,
             measurement_name="RNA",
@@ -55,6 +56,9 @@ def test_to_anndata(version, name_and_expected_shape):
 
             assert adata.varm["PCs"].shape == (expected_nvar, 50)
 
+        del adata
+        gc.collect()
+
 
 @pytest.mark.parametrize(
     "version_and_upgraded",
@@ -74,10 +78,9 @@ def test_get_experiment_shapes(version_and_upgraded):
     name = "pbmc3k_processed"
     path = ROOT_DATA_DIR / "soma-experiment-versions-2025-04-04" / version / name
     uri = str(path)
-    if not os.path.isdir(uri):
+    if not pathlib.Path(uri).is_dir():
         raise RuntimeError(
-            f"Missing '{uri}' directory. Try running `make data` "
-            "from the TileDB-SOMA project root directory."
+            f"Missing '{uri}' directory. Try running `make data` from the TileDB-SOMA project root directory.",
         )
 
     # The output includes URIs which vary randomly from one test run to another;
@@ -127,7 +130,7 @@ def test_get_experiment_shapes(version_and_upgraded):
                             "shape": (2147483646, 2147483646),
                             "maxshape": (2147483646, 2147483646),
                             "upgraded": False,
-                        }
+                        },
                     },
                     "obsm": {
                         "X_draw_graph_fr": {
@@ -189,7 +192,7 @@ def test_get_experiment_shapes(version_and_upgraded):
                             "shape": (2147483646, 2147483646),
                             "maxshape": (2147483646, 2147483646),
                             "upgraded": False,
-                        }
+                        },
                     },
                 },
                 "raw": {
@@ -210,7 +213,7 @@ def test_get_experiment_shapes(version_and_upgraded):
                             "shape": (2147483646, 2147483646),
                             "maxshape": (2147483646, 2147483646),
                             "upgraded": False,
-                        }
+                        },
                     },
                 },
             },
@@ -245,7 +248,7 @@ def test_get_experiment_shapes(version_and_upgraded):
                             "shape": (2638, 1838),
                             "maxshape": (9223372036854773759, 9223372036854773759),
                             "upgraded": True,
-                        }
+                        },
                     },
                     "obsm": {
                         "X_draw_graph_fr": {
@@ -307,7 +310,7 @@ def test_get_experiment_shapes(version_and_upgraded):
                             "shape": (1838, 50),
                             "maxshape": (9223372036854773759, 9223372036854773759),
                             "upgraded": True,
-                        }
+                        },
                     },
                 },
                 "raw": {
@@ -328,7 +331,7 @@ def test_get_experiment_shapes(version_and_upgraded):
                             "shape": (2638, 13714),
                             "maxshape": (9223372036854773759, 9223372036854773759),
                             "upgraded": True,
-                        }
+                        },
                     },
                 },
             },

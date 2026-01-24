@@ -10,7 +10,7 @@
 
 #include "src/gpu/ganesh/GrOpsRenderPass.h"
 
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrTypes.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 
 class GrD3DGpu;
@@ -29,7 +29,7 @@ public:
     bool set(GrRenderTarget*, GrSurfaceOrigin, const SkIRect& bounds,
         const GrOpsRenderPass::LoadAndStoreInfo&,
         const GrOpsRenderPass::StencilLoadAndStoreInfo&,
-        const SkTArray<GrSurfaceProxy*, true>& sampledProxies);
+        const skia_private::TArray<GrSurfaceProxy*, true>& sampledProxies);
 
     void submit();
 

@@ -82,6 +82,14 @@ options:
     - The time must be set to the hour.
     type: str
     version_added: "1.9.0"
+  context:
+    description:
+    - Name of fleet member on which to perform the operation.
+    - This requires the array receiving the request is a member of a fleet
+      and the context name to be a member of the same fleet.
+    type: str
+    default: ""
+    version_added: "1.22.0"
 extends_documentation_fragment:
 - purestorage.flashblade.purestorage.fb
 """
@@ -115,143 +123,124 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PURITYFB = True
-try:
-    from purity_fb import PurityFb
-    from purity_fb import ArrayConnection as ArrayConnectionv1
-    from purity_fb import ArrayConnectionPost as ArrayConnectionPostv1
-except ImportError:
-    HAS_PURITYFB = False
-
 HAS_PYPURECLIENT = True
 try:
-    from pypureclient import flashblade
-    from pypureclient.flashblade import ArrayConnection, ArrayConnectionPost
+    from pypureclient.flashblade import (
+        Client,
+        ArrayConnectionPost,
+        TimeWindow,
+        Throttle,
+    )
 except ImportError:
     HAS_PYPURECLIENT = False
 
 from ansible.module_utils.basic import AnsibleModule, human_to_bytes
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
-    get_blade,
     get_system,
     purefb_argument_spec,
 )
 
 
+CONTEXT_API_VERSION = "2.17"
 FAN_IN_MAXIMUM = 5
 FAN_OUT_MAXIMUM = 5
-MIN_REQUIRED_API_VERSION = "1.9"
-THROTTLE_API_VERSION = "2.3"
 
 
-def _convert_to_millisecs(hour):
-    if hour[-2:] == "AM" and hour[:2] == "12":
-        return 0
-    elif hour[-2:] == "AM":
-        return int(hour[:-2]) * 3600000
-    elif hour[-2:] == "PM" and hour[:2] == "12":
-        return 43200000
-    return (int(hour[:-2]) + 12) * 3600000
+def _convert_to_millisecs(hour_str: str) -> int:
+    """Convert a 12-hour formatted time string (e.g., '02AM', '12PM') to milliseconds since midnight."""
+    time_part = int(hour_str[:-2])
+    period = hour_str[-2:]
+
+    if period == "AM":
+        return 0 if time_part == 12 else time_part * 3600000
+    # PM
+    return 12 * 3600000 if time_part == 12 else (time_part + 12) * 3600000
 
 
 def _check_connected(module, blade):
-    connected_blades = blade.array_connections.list_array_connections()
-    for target in range(0, len(connected_blades.items)):
-        if connected_blades.items[target].management_address is None:
-            try:
-                remote_system = PurityFb(module.params["target_url"])
-                remote_system.login(module.params["target_api"])
-                remote_array = remote_system.arrays.list_arrays().items[0].name
-                if connected_blades.items[target].remote.name == remote_array:
-                    return connected_blades.items[target]
-            except Exception:
+    api_version = list(blade.get_versions().items)
+    if CONTEXT_API_VERSION in api_version:
+        connected_blades = list(
+            blade.get_array_connections(context_names=[module.params["context"]]).items
+        )
+    else:
+        connected_blades = list(blade.get_array_connections().items)
+    for target in range(len(connected_blades)):
+        if connected_blades[target].management_address is None:
+            remote_system = Client(
+                target=module.params["target_url"],
+                api_token=module.params["target_api"],
+            )
+            res = remote_system.get_arrays()
+            if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to connect to remote array {0}.".format(
                         module.params["target_url"]
                     )
                 )
-        if connected_blades.items[target].management_address == module.params[
+            remote_array = list(res.items)[0].name
+            if connected_blades[target].remote.name == remote_array:
+                return connected_blades[target]
+        if connected_blades[target].management_address == module.params[
             "target_url"
-        ] and connected_blades.items[target].status in [
+        ] and connected_blades[target].status in [
             "connected",
             "connecting",
             "partially_connected",
         ]:
-            return connected_blades.items[target]
+            return connected_blades[target]
     return None
 
 
 def break_connection(module, blade, target_blade):
     """Break connection between arrays"""
+    api_version = list(blade.get_versions().items)
     changed = True
     if not module.check_mode:
-        source_blade = blade.arrays.list_arrays().items[0].name
-        try:
-            if target_blade.management_address is None:
-                module.fail_json(
-                    msg="Disconnect can only happen from the array that formed the connection"
-                )
-            blade.array_connections.delete_array_connections(
+        if CONTEXT_API_VERSION in api_version:
+            source_blade = (
+                blade.get_arrays(context_names=[module.params["context"]]).items[0].name
+            )
+        else:
+            source_blade = blade.get_arrays().items[0].name
+        if target_blade.management_address is None:
+            module.fail_json(
+                msg="Disconnect can only happen from the array that formed the connection"
+            )
+        if CONTEXT_API_VERSION in api_version:
+            res = blade.delete_array_connections(
+                remote_names=[target_blade.remote.name],
+                context_names=[module.params["context"]],
+            )
+        else:
+            res = blade.delete_array_connections(
                 remote_names=[target_blade.remote.name]
             )
-        except Exception:
+        if res.status_code != 200:
             module.fail_json(
-                msg="Failed to disconnect {0} from {1}.".format(
-                    target_blade.remote.name, source_blade
+                msg="Failed to disconnect {0} from {1}. Error: {2}".format(
+                    target_blade.remote.name, source_blade, res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
 
 
 def create_connection(module, blade):
-    """Create connection between arrays"""
-    changed = True
-    if not module.check_mode:
-        remote_array = module.params["target_url"]
-        try:
-            remote_system = PurityFb(module.params["target_url"])
-            remote_system.login(module.params["target_api"])
-            remote_array = remote_system.arrays.list_arrays().items[0].name
-            remote_conn_cnt = (
-                remote_system.array_connections.list_array_connections().pagination_info.total_item_count
-            )
-            if remote_conn_cnt >= FAN_IN_MAXIMUM:
-                module.fail_json(
-                    msg="Remote array {0} already connected to {1} other array. Fan-In not supported".format(
-                        remote_array, remote_conn_cnt
-                    )
-                )
-            connection_key = (
-                remote_system.array_connections.create_array_connections_connection_keys()
-                .items[0]
-                .connection_key
-            )
-            connection_info = ArrayConnectionPostv1(
-                management_address=module.params["target_url"],
-                encrypted=module.params["encrypted"],
-                connection_key=connection_key,
-            )
-            blade.array_connections.create_array_connections(
-                array_connection=connection_info
-            )
-        except Exception:
-            module.fail_json(
-                msg="Failed to connect to remote array {0}.".format(remote_array)
-            )
-    module.exit_json(changed=changed)
-
-
-def create_v2_connection(module, blade):
     """Create connection between REST 2 capable arrays"""
+    api_version = list(blade.get_versions().items)
     changed = True
-    if blade.get_array_connections().total_item_count >= FAN_OUT_MAXIMUM:
+    if CONTEXT_API_VERSION in api_version:
+        res = blade.get_array_connections(context_names=[module.params["context"]])
+    else:
+        res = blade.get_array_connections()
+    if res.total_item_count >= FAN_OUT_MAXIMUM:
         module.fail_json(
             msg="FlashBlade fan-out maximum of {0} already reached".format(
                 FAN_OUT_MAXIMUM
             )
         )
     try:
-        remote_system = flashblade.Client(
+        remote_system = Client(
             target=module.params["target_url"], api_token=module.params["target_api"]
         )
     except Exception:
@@ -273,47 +262,37 @@ def create_v2_connection(module, blade):
     ].connection_key
 
     if module.params["default_limit"] or module.params["window_limit"]:
-        if THROTTLE_API_VERSION in list(blade.get_versions().items):
-            if THROTTLE_API_VERSION not in list(remote_system.get_versions().items):
-                module.fail_json(msg="Remote array does not support throttling")
-            if module.params["window_limit"]:
-                if not module.params["window_start"]:
-                    module.params["window_start"] = "12AM"
-                if not module.params["window_end"]:
-                    module.params["window_end"] = "12AM"
-                window = flashblade.TimeWindow(
-                    start=_convert_to_millisecs(module.params["window_start"]),
-                    end=_convert_to_millisecs(module.params["window_end"]),
-                )
-            if module.params["window_limit"] and module.params["default_limit"]:
-                throttle = flashblade.Throttle(
-                    default_limit=human_to_bytes(module.params["default_limit"]),
-                    window_limit=human_to_bytes(module.params["window_limit"]),
-                    window=window,
-                )
-            elif module.params["window_limit"] and not module.params["default_limit"]:
-                throttle = flashblade.Throttle(
-                    window_limit=human_to_bytes(module.params["window_limit"]),
-                    window=window,
-                )
-            else:
-                throttle = flashblade.Throttle(
-                    default_limit=human_to_bytes(module.params["default_limit"]),
-                )
-            connection_info = ArrayConnectionPost(
-                management_address=module.params["target_url"],
-                replication_addresses=module.params["target_repl"],
-                encrypted=module.params["encrypted"],
-                connection_key=connection_key,
-                throttle=throttle,
+        if module.params["window_limit"]:
+            if not module.params["window_start"]:
+                module.params["window_start"] = "12AM"
+            if not module.params["window_end"]:
+                module.params["window_end"] = "12AM"
+            window = TimeWindow(
+                start=_convert_to_millisecs(module.params["window_start"]),
+                end=_convert_to_millisecs(module.params["window_end"]),
+            )
+        if module.params["window_limit"] and module.params["default_limit"]:
+            throttle = Throttle(
+                default_limit=human_to_bytes(module.params["default_limit"]),
+                window_limit=human_to_bytes(module.params["window_limit"]),
+                window=window,
+            )
+        elif module.params["window_limit"] and not module.params["default_limit"]:
+            throttle = Throttle(
+                window_limit=human_to_bytes(module.params["window_limit"]),
+                window=window,
             )
         else:
-            connection_info = ArrayConnectionPost(
-                management_address=module.params["target_url"],
-                replication_addresses=module.params["target_repl"],
-                encrypted=module.params["encrypted"],
-                connection_key=connection_key,
+            throttle = Throttle(
+                default_limit=human_to_bytes(module.params["default_limit"]),
             )
+        connection_info = ArrayConnectionPost(
+            management_address=module.params["target_url"],
+            replication_addresses=module.params["target_repl"],
+            encrypted=module.params["encrypted"],
+            connection_key=connection_key,
+            throttle=throttle,
+        )
     else:
         connection_info = ArrayConnectionPost(
             management_address=module.params["target_url"],
@@ -322,7 +301,13 @@ def create_v2_connection(module, blade):
             connection_key=connection_key,
         )
     if not module.check_mode:
-        res = blade.post_array_connections(array_connection=connection_info)
+        if CONTEXT_API_VERSION in api_version:
+            res = blade.post_array_connections(
+                array_connection=connection_info,
+                context_names=[module.params["context"]],
+            )
+        else:
+            res = blade.post_array_connections(array_connection=connection_info)
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to connect to remote array {0}. Error: {1}".format(
@@ -332,42 +317,11 @@ def create_v2_connection(module, blade):
     module.exit_json(changed=changed)
 
 
-def update_connection(module, blade, target_blade):
-    """Update array connection - only encryption currently"""
-    changed = False
-    if target_blade.management_address is None:
-        module.fail_json(
-            msg="Update can only happen from the array that formed the connection"
-        )
-    if module.params["encrypted"] != target_blade.encrypted:
-        if (
-            module.params["encrypted"]
-            and blade.file_system_replica_links.list_file_system_replica_links().pagination_info.total_item_count
-            != 0
-        ):
-            module.fail_json(
-                msg="Cannot turn array connection encryption on if file system replica links exist"
-            )
-        new_attr = ArrayConnectionv1(encrypted=module.params["encrypted"])
-        changed = True
-        if not module.check_mode:
-            try:
-                blade.array_connections.update_array_connections(
-                    remote_names=[target_blade.remote.name],
-                    array_connection=new_attr,
-                )
-            except Exception:
-                module.fail_json(
-                    msg="Failed to change encryption setting for array connection."
-                )
-    module.exit_json(changed=changed)
-
-
-def update_v2_connection(module, blade):
+def update_connection(module, blade):
     """Update REST 2 based array connection"""
     changed = False
-    versions = list(blade.get_versions().items)
-    remote_blade = flashblade.Client(
+    api_version = list(blade.get_versions().items)
+    remote_blade = Client(
         target=module.params["target_url"], api_token=module.params["target_api"]
     )
     remote_name = list(remote_blade.get_arrays().items)[0].name
@@ -379,10 +333,13 @@ def update_v2_connection(module, blade):
             msg="Update can only happen from the array that formed the connection"
         )
     if module.params["encrypted"] != remote_connection.encrypted:
-        if (
-            module.params["encrypted"]
-            and blade.get_file_system_replica_links().total_item_count != 0
-        ):
+        if CONTEXT_API_VERSION in api_version:
+            res = blade.get_file_system_replica_links(
+                context_names=[module.params["context"]]
+            )
+        else:
+            res = blade.get_file_system_replica_links()
+        if module.params["encrypted"] and res.total_item_count != 0:
             module.fail_json(
                 msg="Cannot turn array connection encryption on if file system replica links exist"
             )
@@ -395,19 +352,22 @@ def update_v2_connection(module, blade):
         not remote_connection.throttle.default_limit
         and not remote_connection.throttle.window_limit
     ):
+        if CONTEXT_API_VERSION in api_version:
+            blade.get_bucket_replica_links(context_names=[module.params["context"]])
+        else:
+            blade.get_bucket_replica_links()
         if (
             module.params["default_limit"] or module.params["window_limit"]
-        ) and blade.get_bucket_replica_links().total_item_count != 0:
+        ) and res.total_item_count != 0:
             module.fail_json(
                 msg="Cannot set throttle when bucket replica links already exist"
             )
-    if THROTTLE_API_VERSION in versions:
-        current_connection["throttle"] = {
-            "default_limit": remote_connection.throttle.default_limit,
-            "window_limit": remote_connection.throttle.window_limit,
-            "start": remote_connection.throttle.window.start,
-            "end": remote_connection.throttle.window.end,
-        }
+    current_connection["throttle"] = {
+        "default_limit": remote_connection.throttle.default_limit,
+        "window_limit": remote_connection.throttle.window_limit,
+        "start": remote_connection.throttle.window.start,
+        "end": remote_connection.throttle.window.end,
+    }
     if module.params["encrypted"]:
         encryption = module.params["encrypted"]
     else:
@@ -440,39 +400,39 @@ def update_v2_connection(module, blade):
         "replication_addresses": target_repl,
         "throttle": [],
     }
-    if THROTTLE_API_VERSION in versions:
-        new_connection["throttle"] = {
-            "default_limit": default_limit,
-            "window_limit": window_limit,
-            "start": start,
-            "end": end,
-        }
+    new_connection["throttle"] = {
+        "default_limit": default_limit,
+        "window_limit": window_limit,
+        "start": start,
+        "end": end,
+    }
     if new_connection != current_connection:
         changed = True
         if not module.check_mode:
-            if THROTTLE_API_VERSION in versions:
-                window = flashblade.TimeWindow(
-                    start=new_connection["throttle"]["start"],
-                    end=new_connection["throttle"]["end"],
-                )
-                throttle = flashblade.Throttle(
-                    default_limit=new_connection["throttle"]["default_limit"],
-                    window_limit=new_connection["throttle"]["window_limit"],
-                    window=window,
-                )
-                connection_info = ArrayConnectionPost(
-                    replication_addresses=new_connection["replication_addresses"],
-                    encrypted=new_connection["encrypted"],
-                    throttle=throttle,
+            window = TimeWindow(
+                start=new_connection["throttle"]["start"],
+                end=new_connection["throttle"]["end"],
+            )
+            throttle = Throttle(
+                default_limit=new_connection["throttle"]["default_limit"],
+                window_limit=new_connection["throttle"]["window_limit"],
+                window=window,
+            )
+            connection_info = ArrayConnectionPost(
+                replication_addresses=new_connection["replication_addresses"],
+                encrypted=new_connection["encrypted"],
+                throttle=throttle,
+            )
+            if CONTEXT_API_VERSION in api_version:
+                res = blade.patch_array_connections(
+                    remote_names=[remote_name],
+                    array_connection=connection_info,
+                    context_names=[module.params["context"]],
                 )
             else:
-                connection_info = ArrayConnection(
-                    replication_addresses=new_connection["replication_addresses"],
-                    encrypted=new_connection["encrypted"],
+                res = blade.patch_array_connections(
+                    remote_names=[remote_name], array_connection=connection_info
                 )
-            res = blade.patch_array_connections(
-                remote_names=[remote_name], array_connection=connection_info
-            )
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to update connection to remote array {0}. Error: {1}".format(
@@ -495,6 +455,7 @@ def main():
             window_limit=dict(type="str"),
             window_start=dict(type="str"),
             window_end=dict(type="str"),
+            context=dict(type="str", default=""),
         )
     )
 
@@ -504,68 +465,30 @@ def main():
         argument_spec, required_if=required_if, supports_check_mode=True
     )
 
-    if not HAS_PURITYFB:
-        module.fail_json(msg="purity_fb sdk is required for this module")
+    if not HAS_PYPURECLIENT:
+        module.fail_json(msg="py-pure-client sdk is required for this module")
 
     state = module.params["state"]
-    blade = get_blade(module)
-    versions = blade.api_version.list_versions().versions
+    blade = get_system(module)
 
-    if MIN_REQUIRED_API_VERSION not in versions:
-        module.fail_json(
-            msg="Minimum FlashBlade REST version required: {0}".format(
-                MIN_REQUIRED_API_VERSION
-            )
-        )
-    if "2.0" in versions:
-        bladev2 = get_system(module)
-        if not HAS_PYPURECLIENT:
-            module.fail_json(msg="py-pure-client sdk is required for this module")
-        v2_connection = True
-        if module.params["default_limit"]:
-            if (
-                human_to_bytes(module.params["default_limit"]) != 0
-                and 5242880
-                >= human_to_bytes(module.params["default_limit"])
-                >= 30064771072
-            ):
-                module.fail_json(msg="Default Bandwidth must be between 5MB and 28GB")
-        if module.params["window_limit"]:
-            if (
-                human_to_bytes(module.params["window_limit"]) != 0
-                and 5242880
-                >= human_to_bytes(module.params["window_limit"])
-                >= 30064771072
-            ):
-                module.fail_json(msg="Window Bandwidth must be between 5MB and 28GB")
-    else:
-        if module.params["target_repl"]:
-            module.warn(
-                "Target Replication addresses can only be set for systems"
-                " that support REST 2.0 and higher"
-            )
-        v2_connection = False
+    if module.params["default_limit"]:
+        if (
+            human_to_bytes(module.params["default_limit"]) != 0
+            and 5242880 >= human_to_bytes(module.params["default_limit"]) >= 30064771072
+        ):
+            module.fail_json(msg="Default Bandwidth must be between 5MB and 28GB")
+    if module.params["window_limit"]:
+        if (
+            human_to_bytes(module.params["window_limit"]) != 0
+            and 5242880 >= human_to_bytes(module.params["window_limit"]) >= 30064771072
+        ):
+            module.fail_json(msg="Window Bandwidth must be between 5MB and 28GB")
 
     target_blade = _check_connected(module, blade)
     if state == "present" and not target_blade:
-        # REST 1 does not support fan-out for replication
-        # REST 2 has a limit which we can check
-        if v2_connection:
-            create_v2_connection(module, bladev2)
-        else:
-            if (
-                blade.array_connections.list_array_connections().pagination_info.total_item_count
-                == 1
-            ):
-                module.fail_json(
-                    msg="Source FlashBlade already connected to another array. Fan-Out not supported"
-                )
-            create_connection(module, blade)
+        create_connection(module, blade)
     elif state == "present" and target_blade:
-        if v2_connection:
-            update_v2_connection(module, bladev2)
-        else:
-            update_connection(module, blade, target_blade)
+        update_connection(module, blade)
     elif state == "absent" and target_blade:
         break_connection(module, blade, target_blade)
 

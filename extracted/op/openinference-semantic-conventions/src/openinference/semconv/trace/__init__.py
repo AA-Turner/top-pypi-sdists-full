@@ -20,6 +20,10 @@ class SpanAttributes:
     """
     A list of objects containing embedding data, including the vector and represented piece of text.
     """
+    EMBEDDING_INVOCATION_PARAMETERS = "embedding.invocation_parameters"
+    """
+    Invocation parameters passed to the embedding model or API, such as the model name, encoding format, etc.
+    """
     EMBEDDING_MODEL_NAME = "embedding.model_name"
     """
     The name of the embedding model.
@@ -56,7 +60,15 @@ class SpanAttributes:
     """
     LLM_PROMPTS = "llm.prompts"
     """
-    Prompts provided to a completions API.
+    Prompts provided to a completions API. Use indexed format with nested structure.
+    Maps to the 'prompt' field in the request (e.g., request.prompt or request.prompt[0]).
+    Use format: llm.prompts.N.prompt.text
+    """
+    LLM_CHOICES = "llm.choices"
+    """
+    Text choices returned from a completions API. Use indexed format with nested structure.
+    Maps to the 'choices' array in the response (e.g., response.choices[0].text).
+    Use format: llm.choices.N.completion.text
     """
     LLM_PROMPT_TEMPLATE = "llm.prompt_template.template"
     """
@@ -322,7 +334,7 @@ class ImageAttributes:
 
     IMAGE_URL = "image.url"
     """
-    An http or base64 image url
+    An http or base64 image url.
     """
 
 
@@ -428,6 +440,28 @@ class ToolCallAttributes:
     """
     The JSON string representing the arguments passed to the function
     during a tool call.
+    """
+
+
+class PromptAttributes:
+    """
+    Attributes for a prompt in the completions API
+    """
+
+    PROMPT_TEXT = "prompt.text"
+    """
+    The text of the prompt.
+    """
+
+
+class ChoiceAttributes:
+    """
+    Attributes for a choice in the completions API
+    """
+
+    COMPLETION_TEXT = "completion.text"
+    """
+    The text of the completion choice.
     """
 
 

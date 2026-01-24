@@ -1,3 +1,5 @@
+from kubernetes.utils.quantity import parse_quantity
+
 from adam.checks.check_result import CheckResult
 from adam.checks.cpu import Cpu as CpuCheck
 from adam.columns.column import Column
@@ -14,4 +16,4 @@ class Cpu(Column):
         cpu = r.details[CpuCheck().name()]
         busy = 100.0 - float(cpu['idle'])
 
-        return f'{round(busy)}%'
+        return f'{round(busy)}%/{parse_quantity(cpu["limit"]) * 100}%'

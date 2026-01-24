@@ -57,6 +57,196 @@ class AutoScalingGroupProvider(AWSProperty):
     }
 
 
+class InfrastructureOptimization(AWSProperty):
+    """
+    `InfrastructureOptimization <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-infrastructureoptimization.html>`__
+    """
+
+    props: PropsDictType = {
+        "ScaleInAfter": (integer, False),
+    }
+
+
+class AcceleratorCountRequest(AWSProperty):
+    """
+    `AcceleratorCountRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-acceleratorcountrequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "Max": (integer, False),
+        "Min": (integer, False),
+    }
+
+
+class AcceleratorTotalMemoryMiBRequest(AWSProperty):
+    """
+    `AcceleratorTotalMemoryMiBRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-acceleratortotalmemorymibrequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "Max": (integer, False),
+        "Min": (integer, False),
+    }
+
+
+class BaselineEbsBandwidthMbpsRequest(AWSProperty):
+    """
+    `BaselineEbsBandwidthMbpsRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-baselineebsbandwidthmbpsrequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "Max": (integer, False),
+        "Min": (integer, False),
+    }
+
+
+class MemoryGiBPerVCpuRequest(AWSProperty):
+    """
+    `MemoryGiBPerVCpuRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-memorygibpervcpurequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "Max": (double, False),
+        "Min": (double, False),
+    }
+
+
+class MemoryMiBRequest(AWSProperty):
+    """
+    `MemoryMiBRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-memorymibrequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "Max": (integer, False),
+        "Min": (integer, True),
+    }
+
+
+class NetworkBandwidthGbpsRequest(AWSProperty):
+    """
+    `NetworkBandwidthGbpsRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-networkbandwidthgbpsrequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "Max": (double, False),
+        "Min": (double, False),
+    }
+
+
+class NetworkInterfaceCountRequest(AWSProperty):
+    """
+    `NetworkInterfaceCountRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-networkinterfacecountrequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "Max": (integer, False),
+        "Min": (integer, False),
+    }
+
+
+class TotalLocalStorageGBRequest(AWSProperty):
+    """
+    `TotalLocalStorageGBRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-totallocalstoragegbrequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "Max": (double, False),
+        "Min": (double, False),
+    }
+
+
+class VCpuCountRangeRequest(AWSProperty):
+    """
+    `VCpuCountRangeRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-vcpucountrangerequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "Max": (integer, False),
+        "Min": (integer, True),
+    }
+
+
+class InstanceRequirementsRequest(AWSProperty):
+    """
+    `InstanceRequirementsRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-instancerequirementsrequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "AcceleratorCount": (AcceleratorCountRequest, False),
+        "AcceleratorManufacturers": ([str], False),
+        "AcceleratorNames": ([str], False),
+        "AcceleratorTotalMemoryMiB": (AcceleratorTotalMemoryMiBRequest, False),
+        "AcceleratorTypes": ([str], False),
+        "AllowedInstanceTypes": ([str], False),
+        "BareMetal": (str, False),
+        "BaselineEbsBandwidthMbps": (BaselineEbsBandwidthMbpsRequest, False),
+        "BurstablePerformance": (str, False),
+        "CpuManufacturers": ([str], False),
+        "ExcludedInstanceTypes": ([str], False),
+        "InstanceGenerations": ([str], False),
+        "LocalStorage": (str, False),
+        "LocalStorageTypes": ([str], False),
+        "MaxSpotPriceAsPercentageOfOptimalOnDemandPrice": (integer, False),
+        "MemoryGiBPerVCpu": (MemoryGiBPerVCpuRequest, False),
+        "MemoryMiB": (MemoryMiBRequest, True),
+        "NetworkBandwidthGbps": (NetworkBandwidthGbpsRequest, False),
+        "NetworkInterfaceCount": (NetworkInterfaceCountRequest, False),
+        "OnDemandMaxPricePercentageOverLowestPrice": (integer, False),
+        "RequireHibernateSupport": (boolean, False),
+        "SpotMaxPricePercentageOverLowestPrice": (integer, False),
+        "TotalLocalStorageGB": (TotalLocalStorageGBRequest, False),
+        "VCpuCount": (VCpuCountRangeRequest, True),
+    }
+
+
+class ManagedInstancesNetworkConfiguration(AWSProperty):
+    """
+    `ManagedInstancesNetworkConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-managedinstancesnetworkconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "SecurityGroups": ([str], False),
+        "Subnets": ([str], True),
+    }
+
+
+class ManagedInstancesStorageConfiguration(AWSProperty):
+    """
+    `ManagedInstancesStorageConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-managedinstancesstorageconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "StorageSizeGiB": (integer, True),
+    }
+
+
+class InstanceLaunchTemplate(AWSProperty):
+    """
+    `InstanceLaunchTemplate <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-instancelaunchtemplate.html>`__
+    """
+
+    props: PropsDictType = {
+        "Ec2InstanceProfileArn": (str, True),
+        "InstanceRequirements": (InstanceRequirementsRequest, False),
+        "Monitoring": (str, False),
+        "NetworkConfiguration": (ManagedInstancesNetworkConfiguration, True),
+        "StorageConfiguration": (ManagedInstancesStorageConfiguration, False),
+    }
+
+
+class ManagedInstancesProvider(AWSProperty):
+    """
+    `ManagedInstancesProvider <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-managedinstancesprovider.html>`__
+    """
+
+    props: PropsDictType = {
+        "InfrastructureOptimization": (InfrastructureOptimization, False),
+        "InfrastructureRoleArn": (str, True),
+        "InstanceLaunchTemplate": (InstanceLaunchTemplate, True),
+        "PropagateTags": (str, False),
+    }
+
+
 class CapacityProvider(AWSObject):
     """
     `CapacityProvider <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-capacityprovider.html>`__
@@ -66,6 +256,8 @@ class CapacityProvider(AWSObject):
 
     props: PropsDictType = {
         "AutoScalingGroupProvider": (AutoScalingGroupProvider, False),
+        "ClusterName": (str, False),
+        "ManagedInstancesProvider": (ManagedInstancesProvider, False),
         "Name": (str, False),
         "Tags": (Tags, False),
     }
@@ -190,7 +382,7 @@ class ClusterCapacityProviderAssociations(AWSObject):
     resource_type = "AWS::ECS::ClusterCapacityProviderAssociations"
 
     props: PropsDictType = {
-        "CapacityProviders": ([str], True),
+        "CapacityProviders": ([str], False),
         "Cluster": (str, True),
         "DefaultCapacityProviderStrategy": ([CapacityProviderStrategy], True),
     }
@@ -207,6 +399,17 @@ class PrimaryTaskSet(AWSObject):
         "Cluster": (str, True),
         "Service": (str, True),
         "TaskSetId": (str, True),
+    }
+
+
+class CanaryConfiguration(AWSProperty):
+    """
+    `CanaryConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-canaryconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "CanaryBakeTimeInMinutes": (integer, False),
+        "CanaryPercent": (double, False),
     }
 
 
@@ -239,9 +442,21 @@ class DeploymentLifecycleHook(AWSProperty):
     """
 
     props: PropsDictType = {
+        "HookDetails": (dict, False),
         "HookTargetArn": (str, True),
         "LifecycleStages": ([str], True),
         "RoleArn": (str, True),
+    }
+
+
+class LinearConfiguration(AWSProperty):
+    """
+    `LinearConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-linearconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "StepBakeTimeInMinutes": (integer, False),
+        "StepPercent": (double, False),
     }
 
 
@@ -253,8 +468,10 @@ class DeploymentConfiguration(AWSProperty):
     props: PropsDictType = {
         "Alarms": (DeploymentAlarms, False),
         "BakeTimeInMinutes": (integer, False),
+        "CanaryConfiguration": (CanaryConfiguration, False),
         "DeploymentCircuitBreaker": (DeploymentCircuitBreaker, False),
         "LifecycleHooks": ([DeploymentLifecycleHook], False),
+        "LinearConfiguration": (LinearConfiguration, False),
         "MaximumPercent": (integer, False),
         "MinimumHealthyPercent": (integer, False),
         "Strategy": (str, False),
@@ -376,6 +593,17 @@ class LogConfiguration(AWSProperty):
     }
 
 
+class ServiceConnectAccessLogConfiguration(AWSProperty):
+    """
+    `ServiceConnectAccessLogConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnectaccesslogconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Format": (str, True),
+        "IncludeQueryParameters": (str, False),
+    }
+
+
 class ServiceConnectTestTrafficRulesHeaderValue(AWSProperty):
     """
     `ServiceConnectTestTrafficRulesHeaderValue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnecttesttrafficrulesheadervalue.html>`__
@@ -473,6 +701,7 @@ class ServiceConnectConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
+        "AccessLogConfiguration": (ServiceConnectAccessLogConfiguration, False),
         "Enabled": (boolean, True),
         "LogConfiguration": (LogConfiguration, False),
         "Namespace": (str, False),

@@ -27,6 +27,7 @@ NB_MAKE_OPAQUE(std::vector<Topo::FinalChemComp>)
 
 void add_topo(nb::module_& m) {
   nb::class_<Topo> topo(m, "Topo");
+  m.def("make_chemcomp_with_restraints", &make_chemcomp_with_restraints);
 
   nb::enum_<HydrogenChange>(m, "HydrogenChange")
     .value("NoChange", HydrogenChange::NoChange)
@@ -110,6 +111,7 @@ void add_topo(nb::module_& m) {
     .def_ro("alt1", &Topo::Link::alt1)
     .def_ro("alt2", &Topo::Link::alt2)
     .def_ro("link_rules", &Topo::Link::link_rules)
+    .def_ro("asu", &Topo::Link::asu)
     ;
   nb::bind_vector<std::vector<Topo::Link>, rv_ri>(m, "TopoLinks");
 
@@ -119,7 +121,8 @@ void add_topo(nb::module_& m) {
     .def_ro("mods", &Topo::ResInfo::mods)
     .def_ro("chemcomps", &Topo::ResInfo::chemcomps)
     .def_ro("monomer_rules", &Topo::ResInfo::monomer_rules)
-    .def("get_final_chemcomp", &Topo::ResInfo::get_final_chemcomp)
+    .def("get_final_chemcomp", &Topo::ResInfo::get_final_chemcomp,
+         nb::rv_policy::reference_internal)
     ;
   nb::bind_vector<std::vector<Topo::ResInfo>, rv_ri>(m, "TopoResInfos");
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.0.145
+Version: 0.1.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -33,13 +33,22 @@ Project-URL: Repository, https://github.com/rvben/rumdl.git
 
 ![rumdl Logo](https://raw.githubusercontent.com/rvben/rumdl/main/assets/logo.png)
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/rvben/rumdl/build.yml?branch=main)](https://github.com/rvben/rumdl/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Crates.io](https://img.shields.io/crates/v/rumdl)](https://crates.io/crates/rumdl)
-[![PyPI](https://img.shields.io/pypi/v/rumdl)](https://pypi.org/project/rumdl/) [![GitHub release (latest by date)](https://img.shields.io/github/v/release/rvben/rumdl)](https://github.com/rvben/rumdl/releases/latest) [![GitHub stars](https://img.shields.io/github/stars/rvben/rumdl)](https://github.com/rvben/rumdl/stargazers)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/rvben/rumdl/ci.yml)](https://github.com/rvben/rumdl/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Crates.io](https://img.shields.io/crates/v/rumdl)](https://crates.io/crates/rumdl)
+[![PyPI](https://img.shields.io/pypi/v/rumdl)](https://pypi.org/project/rumdl/)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/rvben/rumdl)](https://github.com/rvben/rumdl/releases/latest)
+[![GitHub stars](https://img.shields.io/github/stars/rvben/rumdl)](https://github.com/rvben/rumdl/stargazers)
+[![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/ADTJFSFUyn)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?logo=github-sponsors)](https://github.com/sponsors/rvben)
 
 ## A modern Markdown linter and formatter, built for speed with Rust
 
-| [**Docs**](https://github.com/rvben/rumdl/blob/main/docs/RULES.md) | [**Rules**](https://github.com/rvben/rumdl/blob/main/docs/RULES.md) | [**Configuration**](#configuration) |
+| [**Docs**](https://rumdl.dev)
+| [**Rules**](https://rumdl.dev/RULES)
+| [**Configuration**](https://rumdl.dev/global-settings)
+| [**Markdown Flavors**](https://rumdl.dev/flavors)
+| [**vs markdownlint**](https://rumdl.dev/markdownlint-comparison) |
 
 </div>
 
@@ -52,9 +61,11 @@ cargo install rumdl
 # Lint Markdown files in the current directory
 rumdl check .
 
-# Format files (automatically fix issues)
+# Format files (exits 0 on success, even if unfixable violations remain)
 rumdl fmt .
-# Alternative: rumdl check --fix .
+
+# Auto-fix and report unfixable violations (exits 0 if all fixed, 1 if violations remain)
+rumdl check --fix .
 
 # Create a default configuration file
 rumdl init
@@ -68,70 +79,90 @@ Python linting, rumdl brings similar speed and developer experience improvements
 It offers:
 
 - ⚡️ **Built for speed** with Rust - significantly faster than alternatives
-- 🔍 **54 lint rules** covering common Markdown issues
+- 🔍 **57 lint rules** covering common Markdown issues
 - 🛠️ **Automatic formatting** with `--fix` for files and stdin/stdout
 - 📦 **Zero dependencies** - single binary with no runtime requirements
 - 🔧 **Highly configurable** with TOML-based config files
+- 🎯 **Multiple Markdown flavors** - [GFM, MkDocs, MDX, Quarto](docs/flavors.md) support with auto-detection
 - 🌐 **Multiple installation options** - Rust, Python, standalone binaries
 - 🐍 **Installable via pip** for Python users
 - 📏 **Modern CLI** with detailed error reporting
 - 🔄 **CI/CD friendly** with non-zero exit code on errors
 
+### Performance
+
+rumdl is designed for speed. Benchmarked on the [Rust Book](https://github.com/rust-lang/book) repository (478 markdown files, October 2025):
+
+![Cold start benchmark comparison](assets/benchmark.svg)
+
+With intelligent caching, subsequent runs are even faster - rumdl only re-lints files that have changed, making it ideal for watch mode and editor integration.
+
 ## Table of Contents
 
-- [rumdl - A high-performance Markdown linter, written in Rust](#rumdl---a-high-performance-markdown-linter-written-in-rust)
-  - [A modern Markdown linter and formatter, built for speed with Rust](#a-modern-markdown-linter-and-formatter-built-for-speed-with-rust)
-  - [Quick Start](#quick-start)
-  - [Overview](#overview)
-  - [Table of Contents](#table-of-contents)
-  - [Installation](#installation)
-    - [Using Homebrew (macOS/Linux)](#using-homebrew-macoslinux)
-    - [Using Cargo (Rust)](#using-cargo-rust)
-    - [Using pip (Python)](#using-pip-python)
-    - [Using uv](#using-uv)
-    - [Download binary](#download-binary)
-    - [VS Code Extension](#vs-code-extension)
-  - [Usage](#usage)
-    - [Stdin/Stdout Formatting](#stdinstdout-formatting)
-    - [Editor Integration](#editor-integration)
-  - [Pre-commit Integration](#pre-commit-integration)
-  - [CI/CD Integration](#cicd-integration)
-    - [GitHub Actions](#github-actions)
-  - [Rules](#rules)
-  - [Command-line Interface](#command-line-interface)
-    - [Commands](#commands)
-      - [`check [PATHS...]`](#check-paths)
-      - [`fmt [PATHS...]`](#fmt-paths)
-      - [`init [OPTIONS]`](#init-options)
-      - [`import <FILE> [OPTIONS]`](#import-file-options)
-      - [`rule [<rule>]`](#rule-rule)
-      - [`config [OPTIONS] [COMMAND]`](#config-options-command)
-      - [`server [OPTIONS]`](#server-options)
-      - [`vscode [OPTIONS]`](#vscode-options)
-      - [`version`](#version)
-    - [Global Options](#global-options)
-    - [Exit Codes](#exit-codes)
-    - [Usage Examples](#usage-examples)
-  - [Configuration](#configuration)
-    - [Configuration Discovery](#configuration-discovery)
-    - [Global Configuration](#global-configuration)
-    - [Markdownlint Migration](#markdownlint-migration)
-    - [Configuration File Example](#configuration-file-example)
-    - [Initializing Configuration](#initializing-configuration)
-    - [Configuration in pyproject.toml](#configuration-in-pyprojecttoml)
-    - [Configuration Output](#configuration-output)
-      - [Effective Configuration (`rumdl config`)](#effective-configuration-rumdl-config)
-      - [Example output](#example-output)
-    - [Defaults Only (`rumdl config --defaults`)](#defaults-only-rumdl-config---defaults)
-  - [Output Style](#output-style)
-    - [Output Format](#output-format)
-      - [Text Output (Default)](#text-output-default)
-      - [JSON Output](#json-output)
-  - [Development](#development)
-    - [Prerequisites](#prerequisites)
-    - [Building](#building)
-    - [Testing](#testing)
-  - [License](#license)
+- [Installation](#installation)
+  - [Using Homebrew (macOS/Linux)](#using-homebrew-macoslinux)
+  - [Using Cargo (Rust)](#using-cargo-rust)
+  - [Using pip (Python)](#using-pip-python)
+  - [Using uv](#using-uv)
+  - [Using mise](#using-mise)
+  - [Using Nix (macOS/Linux)](#using-nix-macoslinux)
+  - [Using Termux User Repository (TUR) (Android)](#using-termux-user-repository-tur-android)
+  - [Using Archlinux User Repository](#using-archlinux-user-repository)
+  - [Download binary](#download-binary)
+  - [VS Code Extension](#vs-code-extension)
+- [Usage](#usage)
+  - [Stdin/Stdout Formatting](#stdinstdout-formatting)
+  - [Editor Integration](#editor-integration)
+- [Pre-commit Integration](#pre-commit-integration)
+  - [Excluding Files in Pre-commit](#excluding-files-in-pre-commit)
+- [CI/CD Integration](#cicd-integration)
+  - [GitHub Actions](#github-actions)
+    - [Inputs](#inputs)
+    - [Examples](#examples)
+- [Rules](#rules)
+- [Flavors](#flavors)
+  - [Supported Flavors](#supported-flavors)
+  - [Configuring Flavors](#configuring-flavors)
+- [Command-line Interface](#command-line-interface)
+  - [Commands](#commands)
+    - [`check [PATHS...]`](#check-paths)
+    - [`fmt [PATHS...]`](#fmt-paths)
+    - [`init [OPTIONS]`](#init-options)
+    - [`import <FILE> [OPTIONS]`](#import-file-options)
+    - [`rule [<rule>]`](#rule-rule)
+    - [`config [OPTIONS] [COMMAND]`](#config-options-command)
+    - [`server [OPTIONS]`](#server-options)
+    - [`vscode [OPTIONS]`](#vscode-options)
+    - [`version`](#version)
+  - [Global Options](#global-options)
+  - [Exit Codes](#exit-codes)
+  - [Usage Examples](#usage-examples)
+- [LSP](#lsp)
+- [Configuration](#configuration)
+  - [Configuration Discovery](#configuration-discovery)
+  - [Editor Support (JSON Schema)](#editor-support-json-schema)
+  - [Global Configuration](#global-configuration)
+  - [Markdownlint Migration](#markdownlint-migration)
+  - [Inline Configuration](#inline-configuration)
+  - [Configuration File Example](#configuration-file-example)
+  - [Style Guide Presets](#style-guide-presets)
+  - [Initializing Configuration](#initializing-configuration)
+  - [Configuration in pyproject.toml](#configuration-in-pyprojecttoml)
+  - [Configuration Output](#configuration-output)
+    - [Effective Configuration (`rumdl config`)](#effective-configuration-rumdl-config)
+    - [Example output](#example-output)
+  - [Defaults Only (`rumdl config --defaults`)](#defaults-only-rumdl-config---defaults)
+  - [Non-Defaults Only (`rumdl config --no-defaults`)](#non-defaults-only-rumdl-config---no-defaults)
+- [Output Style](#output-style)
+  - [Output Format](#output-format)
+    - [Text Output (Default)](#text-output-default)
+    - [JSON Output](#json-output)
+- [Development](#development)
+  - [Prerequisites](#prerequisites)
+  - [Building](#building)
+  - [Testing](#testing)
+  - [JSON Schema Generation](#json-schema-generation)
+- [License](#license)
 
 ## Installation
 
@@ -140,7 +171,6 @@ Choose the installation method that works best for you:
 ### Using Homebrew (macOS/Linux)
 
 ```bash
-brew tap rvben/rumdl
 brew install rumdl
 ```
 
@@ -165,7 +195,65 @@ For faster installation and better dependency management with [uv](https://githu
 uv tool install rumdl
 
 # Or run without installing
-uv tool run rumdl check .
+uvx rumdl check .
+```
+
+### Using mise
+
+For dependency management with [mise](https://github.com/jdx/mise):
+
+```bash
+# List available versions
+mise ls-remote rumdl
+
+# Install the latest version
+mise install rumdl
+
+# Use a specific version for the project
+mise use rumdl@0.1.0
+```
+
+### Using Nix (macOS/Linux)
+
+```bash
+nix-channel --update
+nix-env --install --attr nixpkgs.rumdl
+```
+
+Alternatively, you can use flakes to run it without installation.
+
+```bash
+nix run --extra-experimental-features 'flakes nix-command' nixpkgs/nixpkgs-unstable#rumdl -- --version
+```
+
+### Using Termux User Repository (TUR) (Android)
+
+After enabling the TUR repo using
+
+```bash
+pkg install tur-repo
+```
+
+```bash
+pkg install rumdl
+```
+
+### Using Archlinux User Repository
+
+[![rumdl on AUR](https://img.shields.io/aur/version/rumdl?label=rumdl)](https://aur.archlinux.org/packages/rumdl/)
+[![rumdl-bin on AUR](https://img.shields.io/aur/version/rumdl-bin?label=rumdl-bin)](https://aur.archlinux.org/packages/rumdl-bin/)
+
+rumdl is available on the [AUR](https://wiki.archlinux.org/index.php/Arch_User_Repository):
+
+- [rumdl](https://aur.archlinux.org/packages/rumdl/) (release package)
+- [rumdl-bin](https://aur.archlinux.org/packages/rumdl-bin/) (binary package)
+
+You can install it using your [AUR helper](https://wiki.archlinux.org/index.php/AUR_helpers) of choice.
+
+```bash
+yay -Sy rumdl
+# OR
+yay -Sy rumdl-bin
 ```
 
 ### Download binary
@@ -288,7 +376,7 @@ For editor integration, use stdin/stdout mode with the `--quiet` flag to suppres
 
 ## Pre-commit Integration
 
-You can use `rumdl` as a pre-commit hook to check and fix your Markdown files.
+You can use `rumdl` as a pre-commit hook to check and format your Markdown files.
 
 The recommended way is to use the official pre-commit hook repository:
 
@@ -299,17 +387,16 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.0.99  # Use the latest release tag
+    rev: v0.1.0
     hooks:
-      - id: rumdl
-        # To only check (default):
-        # args: []
-        # To automatically fix issues:
-        # args: [--fix]
+      - id: rumdl      # Lint only (fails on issues)
+      - id: rumdl-fmt  # Auto-format and fail if issues remain
 ```
 
-- By default, the hook will only check for issues.
-- To automatically fix issues, add `args: [--fix]` to the hook configuration.
+Two hooks are available:
+
+- **`rumdl`** — Lints files and fails if any issues are found
+- **`rumdl-fmt`** — Auto-formats files and fails if unfixable violations remain (recommended for CI)
 
 When you run `pre-commit install` or `pre-commit run`, pre-commit will automatically install `rumdl` in an isolated Python environment using pip. You do **not** need to install rumdl manually.
 
@@ -334,7 +421,7 @@ However, for pre-commit workflows where you want to exclude certain files even w
    ```yaml
    repos:
      - repo: https://github.com/rvben/rumdl-pre-commit
-       rev: v0.0.99
+       rev: v0.1.0
        hooks:
          - id: rumdl
            args: [--force-exclude]  # Respect exclude patterns from config
@@ -344,34 +431,105 @@ However, for pre-commit workflows where you want to exclude certain files even w
 
 ### GitHub Actions
 
-rumdl can output annotations directly in GitHub Actions format, making issues appear inline in pull requests:
+We have a companion Action you can use to integrate rumdl directly in your workflow:
 
 ```yaml
-- name: Lint Markdown
-  run: rumdl check --output-format github .
+jobs:
+  rumdl-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: rvben/rumdl@0.1.0v0
 ```
 
-This produces annotations that GitHub automatically displays in the PR's "Files changed" tab. Supports error/warning severity levels and precise issue locations.
+The `v0` tag always points to the latest stable release, following GitHub Actions conventions.
+
+#### Inputs
+
+| Input         | Description                            | Default        |
+| ------------- | -------------------------------------- | -------------- |
+| `version`     | Version of rumdl to install            | latest         |
+| `path`        | Path to lint                           | workspace root |
+| `config`      | Path to config file                    | auto-detected  |
+| `report-type` | Output format: `logs` or `annotations` | `logs`         |
+
+#### Examples
+
+**Lint specific directory with pinned version:**
+
+```yaml
+- uses: rvben/rumdl@0.1.0v0
+  with:
+    version: "0.0.189"
+    path: docs/
+```
+
+**Use custom config and show annotations in PR:**
+
+```yaml
+- uses: rvben/rumdl@0.1.0v0
+  with:
+    config: .rumdl.toml
+    report-type: annotations
+```
+
+The `annotations` report type displays issues directly in the PR's "Files changed" tab with error/warning severity levels and precise locations.
 
 ## Rules
 
 rumdl implements 54 lint rules for Markdown files. Here are some key rule categories:
 
-|  Category | Description | Example Rules |
-|-----------|-------------|---------------|
-| **Headings** | Proper heading structure and formatting | MD001, MD002, MD003 |
-| **Lists** | Consistent list formatting and structure | MD004, MD005, MD007 |
-| **Whitespace** | Proper spacing and line length | MD009, MD010, MD012 |
-| **Code** | Code block formatting and language tags | MD040, MD046, MD048 |
-| **Links** | Proper link and reference formatting | MD034, MD039, MD042 |
-| **Images** | Image alt text and references | MD045, MD052 |
-| **Style** | Consistent style across document | MD031, MD032, MD035 |
+| Category       | Description                              | Example Rules       |
+| -------------- | ---------------------------------------- | ------------------- |
+| **Headings**   | Proper heading structure and formatting  | MD001, MD002, MD003 |
+| **Lists**      | Consistent list formatting and structure | MD004, MD005, MD007 |
+| **Whitespace** | Proper spacing and line length           | MD009, MD010, MD012 |
+| **Code**       | Code block formatting and language tags  | MD040, MD046, MD048 |
+| **Links**      | Proper link and reference formatting     | MD034, MD039, MD042 |
+| **Images**     | Image alt text and references            | MD045, MD052        |
+| **Style**      | Consistent style across document         | MD031, MD032, MD035 |
 
 For a complete list of rules and their descriptions, see our [documentation](https://github.com/rvben/rumdl/blob/main/docs/RULES.md) or run:
 
 ```bash
 rumdl rule
 ```
+
+## Flavors
+
+rumdl supports multiple Markdown flavors to accommodate different documentation systems. Each flavor adjusts rule behavior for syntax specific to that system, reducing false positives.
+
+### Supported Flavors
+
+| Flavor                                              | Use Case                     | Key Features                                      |
+| --------------------------------------------------- | ---------------------------- | ------------------------------------------------- |
+| [standard](docs/flavors/standard.md)                | Default Markdown             | CommonMark + GFM extensions (tables, task lists)  |
+| [gfm](docs/flavors/gfm.md)                          | GitHub Flavored Markdown     | Extended autolinks, security-sensitive HTML       |
+| [mkdocs](docs/flavors/mkdocs.md)                    | MkDocs / Material for MkDocs | Admonitions, content tabs, mkdocstrings           |
+| [mdx](docs/flavors/mdx.md)                          | MDX (JSX in Markdown)        | JSX components, ESM imports, expressions          |
+| [quarto](docs/flavors/quarto.md)                    | Quarto / RMarkdown           | Citations, shortcodes, executable code blocks     |
+
+### Configuring Flavors
+
+Set a global flavor in your configuration:
+
+```toml
+[global]
+flavor = "mkdocs"
+```
+
+Or configure per-file patterns:
+
+```toml
+[per-file-flavor]
+"docs/**/*.md" = "mkdocs"
+"**/*.mdx" = "mdx"
+"**/*.qmd" = "quarto"
+```
+
+When no flavor is configured, rumdl auto-detects based on file extension (`.mdx` → mdx, `.qmd`/`.Rmd` → quarto, `.md` → standard).
+
+For complete flavor documentation, see the [Flavors Guide](docs/flavors.md).
 
 ## Command-line Interface
 
@@ -410,7 +568,7 @@ Lint Markdown files and print warnings/errors (main subcommand)
 
 #### `fmt [PATHS...]`
 
-Format Markdown files (alias for `check --fix`)
+Format Markdown files and output the result. Always exits with code 0 on successful formatting, making it ideal for editor integration.
 
 **Arguments:**
 
@@ -477,6 +635,7 @@ Show configuration or query a specific key
 **Options:**
 
 - `--defaults`: Show only the default configuration values
+- `--no-defaults`: Show only non-default configuration values (exclude defaults)
 - `--output <format>`: Output format (e.g. `toml`, `json`)
 
 **Subcommands:**
@@ -517,13 +676,12 @@ These options are available for all commands:
 
 ### Exit Codes
 
-rumdl uses exit codes following Ruff's convention for easy CI/CD integration:
+- `0`: Success (no violations found, or all violations were fixed)
+- `1`: Violations found (or remain after `--fix`)
+- `2`: Tool error
 
-- `0`: Success - no issues found
-- `1`: Linting violations found
-- `2`: Tool error (configuration error, file access error, invalid arguments, etc.)
-
-This allows scripts and CI/CD systems to distinguish between "the tool found problems in your files" (exit 1) and "the tool couldn't run properly" (exit 2).
+**Note:** `rumdl fmt` exits 0 on successful formatting (even if unfixable violations remain), making it compatible with editor integrations. `rumdl check --fix` exits 0 if all violations are fixed, or
+1 if violations remain after fixing (useful for pre-commit hooks and CI/CD).
 
 ### Usage Examples
 
@@ -531,9 +689,11 @@ This allows scripts and CI/CD systems to distinguish between "the tool found pro
 # Lint all Markdown files in the current directory
 rumdl check .
 
-# Format files (automatically fix issues)
+# Format files (exits 0 on success, even if unfixable violations remain)
 rumdl fmt .
-# Alternative: rumdl check --fix .
+
+# Auto-fix and report unfixable violations (exits 0 if all fixed, 1 if violations remain)
+rumdl check --fix .
 
 # Preview what would be fixed without modifying files
 rumdl check --diff .
@@ -568,6 +728,9 @@ rumdl config file
 # Show configuration as JSON instead of the default format
 rumdl config --output json
 
+# Show only non-default configuration values
+rumdl config --no-defaults
+
 # Lint content from stdin
 echo "# My Heading" | rumdl check --stdin
 
@@ -587,14 +750,22 @@ rumdl check --no-config README.md
 rumdl version
 ```
 
+## LSP
+
+rumdle is also available as LSP server for editor integration.
+
+For editor-specific information on setting up the LSP, refer to our [LSP documentation](https://github.com/rvben/rumdl/blob/main/docs/lsp.md)
+
 ## Configuration
 
 rumdl can be configured in several ways:
 
-1. Using a `.rumdl.toml` file in your project directory or parent directories
-2. Using the `[tool.rumdl]` section in your project's `pyproject.toml` file (for Python projects)
-3. Using command-line arguments
-4. **Automatic markdownlint compatibility**: rumdl automatically discovers and loads existing markdownlint config files (`.markdownlint.json`, `.markdownlint.yaml`, etc.)
+1. Using a `.rumdl.toml` or `rumdl.toml` file in your project directory or parent directories
+2. Using a `<project>/.config/rumdl.toml` file (following the [config-dir convention](https://github.com/pi0/config-dir))
+3. Using the `[tool.rumdl]` section in your project's `pyproject.toml` file (for Python projects)
+4. Using command-line arguments
+5. Using a **global user config** at `~/.config/rumdl/rumdl.toml` (see [Global Configuration](#global-configuration) below)
+6. **Automatic markdownlint compatibility**: rumdl automatically discovers and loads existing markdownlint config files (`.markdownlint.json`, `.markdownlint.yaml`, etc.)
 
 ### Configuration Discovery
 
@@ -603,10 +774,12 @@ run rumdl from any subdirectory of your project and it will find the configurati
 
 The search follows these rules:
 
-- Searches upward for `.rumdl.toml`, `rumdl.toml`, or `pyproject.toml` (with `[tool.rumdl]` section)
+- Searches upward for `.rumdl.toml`, `rumdl.toml`, `<dir>/.config/rumdl.toml`, or `pyproject.toml` (with `[tool.rumdl]` section)
+- Precedence order: `.rumdl.toml` > `rumdl.toml` > `<dir>/.config/rumdl.toml` > `pyproject.toml`
 - Stops at the first configuration file found
 - Stops searching when it encounters a `.git` directory (project boundary)
 - Maximum traversal depth of 100 directories
+- Falls back to markdownlint config files (`.markdownlint.yaml`, etc.) using the same upward traversal
 - Falls back to user configuration if no project configuration is found (see Global Configuration below)
 
 To disable all configuration discovery and use only built-in defaults, use the `--isolated` flag:
@@ -617,6 +790,26 @@ rumdl check .
 
 # Ignore all configuration files
 rumdl check --isolated .
+```
+
+### Editor Support (JSON Schema)
+
+rumdl provides a JSON Schema for `.rumdl.toml` configuration files, enabling autocomplete, validation, and inline documentation in supported editors like VS Code, IntelliJ IDEA, and others.
+
+The schema is available at `https://raw.githubusercontent.com/rvben/rumdl/main/rumdl.schema.json`.
+
+**Automatic Setup (via SchemaStore):**
+
+The schema is registered with [SchemaStore](https://www.schemastore.org/), so editors with TOML support will automatically provide autocomplete and validation for `.rumdl.toml` and `rumdl.toml` files.
+
+**VS Code:** Install the "Even Better TOML" extension - schema association is automatic.
+
+**Manual Schema Association:**
+
+If your editor doesn't support SchemaStore, add this comment to your config file:
+
+```toml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/rvben/rumdl/main/rumdl.schema.json
 ```
 
 ### Global Configuration
@@ -653,11 +846,13 @@ indent = 2
 
 rumdl provides seamless compatibility with existing markdownlint configurations:
 
-** Automatic Discovery**: rumdl automatically detects and loads markdownlint config files:
+**Automatic Discovery**: rumdl automatically detects and loads markdownlint config files by traversing up the directory tree (just like `.rumdl.toml`):
 
 - `.markdownlint.json` / `.markdownlint.jsonc`
 - `.markdownlint.yaml` / `.markdownlint.yml`
 - `markdownlint.json` / `markdownlint.yaml`
+
+This means you can place a `.markdownlint.yaml` at your project root and run rumdl from any subdirectory - it will find and use the config automatically.
 
 ** Explicit Import**: Convert markdownlint configs to rumdl format:
 
@@ -697,9 +892,20 @@ Here's an example `.rumdl.toml` configuration file:
 line-length = 100
 exclude = ["node_modules", "build", "dist"]
 respect-gitignore = true
+flavor = "mkdocs"  # Use MkDocs flavor (see Flavors section)
 
 # Disable specific rules
 disabled-rules = ["MD013", "MD033"]
+
+# Per-file flavor overrides
+[per-file-flavor]
+"**/*.mdx" = "mdx"
+
+# Disable specific rules for specific files
+[per-file-ignores]
+"README.md" = ["MD033"]  # Allow HTML in README
+"SUMMARY.md" = ["MD025"]  # Allow multiple H1 in table of contents
+"docs/api/**/*.md" = ["MD013", "MD041"]  # Relax rules for generated docs
 
 # Configure individual rules
 [MD007]
@@ -709,6 +915,7 @@ indent = 2
 line-length = 100
 code-blocks = false
 tables = false
+reflow = true  # Enable automatic line wrapping (required for --fix)
 
 [MD025]
 level = 1
@@ -720,6 +927,15 @@ names = ["rumdl", "Markdown", "GitHub"]
 [MD048]
 code-fence-style = "backtick"
 ```
+
+### Style Guide Presets
+
+Ready-to-use configurations for popular style guides are available in the [`examples/`](examples/) directory:
+
+- **[Google Style](examples/google-style.rumdl.toml)** - Google's Markdown style guide
+- **[Prettier-compatible](examples/prettier-compatible.rumdl.toml)** - Aligns with Prettier's markdown formatting
+
+Copy one to your project as `.rumdl.toml` to use it.
 
 ### Initializing Configuration
 
@@ -787,6 +1003,27 @@ the `[from ...]` annotation is globally aligned for easy scanning.
 - The `[from ...]` column is aligned across all sections.
 
 ### Defaults Only (`rumdl config --defaults`)
+
+The `rumdl config --defaults` command shows only the default configuration values, useful for understanding what the built-in defaults are.
+
+### Non-Defaults Only (`rumdl config --no-defaults`)
+
+The `rumdl config --no-defaults` command shows only configuration values that differ from defaults, making it easy to see what you've customized. This is particularly useful when you want to see only
+your project-specific or user-specific overrides without the noise of default values.
+
+**Example:**
+
+```bash
+$ rumdl config --no-defaults
+[global]
+disable = ["MD013"]                    [from project config]
+line_length = 100                      [from pyproject.toml]
+
+[MD004]
+style = "asterisk"                     [from project config]
+```
+
+This helps you quickly identify what customizations you've made to the default configuration.
 
 The `--defaults` flag prints only the default configuration as TOML, suitable for copy-paste or reference:
 
@@ -897,7 +1134,7 @@ This produces structured JSON output:
 
 ### Prerequisites
 
-- Rust 1.70 or higher
+- Rust 1.91 or higher
 - Make (for development commands)
 
 ### Building
@@ -911,6 +1148,46 @@ make build
 ```bash
 make test
 ```
+
+### JSON Schema Generation
+
+If you modify the configuration structures in `src/config.rs`, regenerate the JSON schema:
+
+```bash
+# Generate/update the schema
+make schema
+# Or: rumdl schema generate
+
+# Check if schema is up-to-date (useful in CI)
+make check-schema
+# Or: rumdl schema check
+
+# Print schema to stdout
+rumdl schema print
+```
+
+The schema is automatically generated from the Rust types using `schemars` and should be kept in sync with the configuration structures.
+
+## Used By
+
+rumdl is used by these notable open source projects:
+
+| Project                                                           | Stars                                                                                 |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| [PyO3/pyo3](https://github.com/PyO3/pyo3)                         | ![stars](https://img.shields.io/github/stars/PyO3/pyo3?style=flat-square)             |
+| [beeware/toga](https://github.com/beeware/toga)                   | ![stars](https://img.shields.io/github/stars/beeware/toga?style=flat-square)          |
+| [beeware/briefcase](https://github.com/beeware/briefcase)         | ![stars](https://img.shields.io/github/stars/beeware/briefcase?style=flat-square)     |
+| [mikavilpas/yazi.nvim](https://github.com/mikavilpas/yazi.nvim)   | ![stars](https://img.shields.io/github/stars/mikavilpas/yazi.nvim?style=flat-square)  |
+| [matrix-org/matrix.org](https://github.com/matrix-org/matrix.org) | ![stars](https://img.shields.io/github/stars/matrix-org/matrix.org?style=flat-square) |
+
+*Using rumdl? [Let us know!](https://github.com/rvben/rumdl/issues/307)*
+
+## Sponsors
+
+rumdl is free and open source. If it saves you time, consider [sponsoring the project](https://github.com/sponsors/rvben).
+
+<!-- sponsors -->
+<!-- sponsors -->
 
 ## License
 

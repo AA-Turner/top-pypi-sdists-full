@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
- * Copyright (c) 2025 Munich Quantum Software Company GmbH
+ * Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+ * Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
  * All rights reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -12,7 +12,7 @@
 
 #include "ir/Definitions.hpp"
 #include "ir/QuantumComputation.hpp"
-#include "ir/operations/ClassicControlledOperation.hpp"
+#include "ir/operations/IfElseOperation.hpp"
 #include "ir/operations/OpType.hpp"
 
 #include <cmath>
@@ -50,7 +50,7 @@ namespace {
   const std::uint64_t max = 1ULL << (nq + 1);
   auto distribution = std::uniform_int_distribution<std::uint64_t>(0, max - 1);
   std::uint64_t theta = 0;
-  while ((theta & 1) == 0) {
+  while ((theta & 1U) == 0) {
     theta = distribution(mt);
   }
   fp lambda = 0.;
@@ -177,7 +177,7 @@ auto constructIterativeQPECircuit(QuantumComputation& qc, const fp lambda,
     // hybrid quantum-classical inverse QFT
     for (std::size_t j = 0; j < i; j++) {
       auto iQFTLambda = -PI / static_cast<double>(1ULL << (i - j));
-      qc.classicControlled(P, 1, j, 1U, Eq, {iQFTLambda});
+      qc.if_(P, 1, j, true, Eq, {iQFTLambda});
     }
     qc.h(1);
 

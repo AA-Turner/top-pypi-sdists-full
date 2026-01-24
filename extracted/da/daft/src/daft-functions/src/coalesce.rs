@@ -10,7 +10,7 @@ use daft_dsl::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Coalesce;
 
 #[typetag::serde]
@@ -41,7 +41,7 @@ impl ScalarUDF for Coalesce {
                 let len = inputs.iter().map(|s| s.len()).max().unwrap_or(0);
 
                 // the first input is not null, so no work to do
-                if first.validity().is_none() && first.data_type() != &DataType::Null {
+                if first.nulls().is_none() && first.data_type() != &DataType::Null {
                     return inputs[0].cast(&dtype);
                 }
 

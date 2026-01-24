@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -35,12 +36,6 @@ from .literals import (
     TriangulationEventTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -122,7 +117,7 @@ class ClientLocationTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -271,7 +266,7 @@ class GetQueryStatusOutputTypeDef(TypedDict):
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -287,8 +282,8 @@ class UpdateMonitorOutputTypeDef(TypedDict):
 
 
 class GetQueryResultsOutputTypeDef(TypedDict):
-    Fields: List[QueryFieldTypeDef]
-    Data: List[List[str]]
+    Fields: list[QueryFieldTypeDef]
+    Data: list[list[str]]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -356,14 +351,14 @@ class StartQueryInputTypeDef(TypedDict):
 
 
 class ListMonitorsOutputTypeDef(TypedDict):
-    Monitors: List[MonitorTypeDef]
+    Monitors: list[MonitorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class NetworkImpairmentTypeDef(TypedDict):
-    Networks: List[NetworkTypeDef]
-    AsPath: List[NetworkTypeDef]
+    Networks: list[NetworkTypeDef]
+    AsPath: list[NetworkTypeDef]
     NetworkEventType: TriangulationEventTypeType
 
 
@@ -375,7 +370,7 @@ class PerformanceMeasurementTypeDef(TypedDict):
 
 
 class ListInternetEventsOutputTypeDef(TypedDict):
-    InternetEvents: List[InternetEventSummaryTypeDef]
+    InternetEvents: list[InternetEventSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -394,13 +389,13 @@ class CreateMonitorInputTypeDef(TypedDict):
 class GetMonitorOutputTypeDef(TypedDict):
     MonitorName: str
     MonitorArn: str
-    Resources: List[str]
+    Resources: list[str]
     Status: MonitorConfigStateType
     CreatedAt: datetime
     ModifiedAt: datetime
     ProcessingStatus: MonitorProcessingStatusCodeType
     ProcessingStatusInfo: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     MaxCityNetworksToMonitor: int
     InternetMeasurementsLogDelivery: InternetMeasurementsLogDeliveryTypeDef
     TrafficPercentageToMonitor: int
@@ -440,7 +435,7 @@ class ImpactedLocationTypeDef(TypedDict):
     ServiceLocation: NotRequired[str]
     CausedBy: NotRequired[NetworkImpairmentTypeDef]
     InternetHealth: NotRequired[InternetHealthTypeDef]
-    Ipv4Prefixes: NotRequired[List[str]]
+    Ipv4Prefixes: NotRequired[list[str]]
 
 
 class GetHealthEventOutputTypeDef(TypedDict):
@@ -450,7 +445,7 @@ class GetHealthEventOutputTypeDef(TypedDict):
     EndedAt: datetime
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    ImpactedLocations: List[ImpactedLocationTypeDef]
+    ImpactedLocations: list[ImpactedLocationTypeDef]
     Status: HealthEventStatusType
     PercentOfTotalTrafficImpacted: float
     ImpactType: HealthEventImpactTypeType
@@ -463,7 +458,7 @@ class HealthEventTypeDef(TypedDict):
     EventId: str
     StartedAt: datetime
     LastUpdatedAt: datetime
-    ImpactedLocations: List[ImpactedLocationTypeDef]
+    ImpactedLocations: list[ImpactedLocationTypeDef]
     Status: HealthEventStatusType
     ImpactType: HealthEventImpactTypeType
     EndedAt: NotRequired[datetime]
@@ -473,6 +468,6 @@ class HealthEventTypeDef(TypedDict):
 
 
 class ListHealthEventsOutputTypeDef(TypedDict):
-    HealthEvents: List[HealthEventTypeDef]
+    HealthEvents: list[HealthEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

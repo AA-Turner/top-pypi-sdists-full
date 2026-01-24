@@ -22,7 +22,7 @@ class Invitations(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Invitation]:
+    ) -> models.Invitation:
         r"""Create an invitation
 
         Creates a new invitation for the given email address and sends the invitation email.
@@ -71,6 +71,7 @@ class Invitations(BaseSDK):
                 "json",
                 Optional[models.CreateInvitationRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -91,7 +92,7 @@ class Invitations(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateInvitation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -101,7 +102,7 @@ class Invitations(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Invitation], http_res)
+            return unmarshal_json_response(models.Invitation, http_res)
         if utils.match_response(http_res, ["400", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -127,7 +128,7 @@ class Invitations(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Invitation]:
+    ) -> models.Invitation:
         r"""Create an invitation
 
         Creates a new invitation for the given email address and sends the invitation email.
@@ -176,6 +177,7 @@ class Invitations(BaseSDK):
                 "json",
                 Optional[models.CreateInvitationRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -196,7 +198,7 @@ class Invitations(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateInvitation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -206,7 +208,7 @@ class Invitations(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Invitation], http_res)
+            return unmarshal_json_response(models.Invitation, http_res)
         if utils.match_response(http_res, ["400", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -232,17 +234,27 @@ class Invitations(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[List[models.Invitation]]:
+    ) -> List[models.Invitation]:
         r"""List all invitations
 
         Returns all non-revoked invitations for your application, sorted by creation date
 
         :param status: Filter invitations based on their status
         :param query: Filter invitations based on their `email_address` or `id`
-        :param order_by: Allows to return invitations in a particular order. At the moment, you can order the returned invitations either by their `created_at`, `email_address` or `expires_at`. In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by. For example, if you want invitations to be returned in descending order according to their `created_at` property, you can use `-created_at`. If you don't use `+` or `-`, then `+` is implied. Defaults to `-created_at`.
-        :param paginated: Whether to paginate the results. If true, the results will be paginated. If false, the results will not be paginated.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param order_by: Allows to return invitations in a particular order.
+            At the moment, you can order the returned invitations either by their `created_at`, `email_address` or `expires_at`.
+            In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by.
+            For example, if you want invitations to be returned in descending order according to their `created_at` property, you can use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied.
+            Defaults to `-created_at`.
+        :param paginated: Whether to paginate the results.
+            If true, the results will be paginated.
+            If false, the results will not be paginated.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -280,6 +292,7 @@ class Invitations(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -300,7 +313,7 @@ class Invitations(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListInvitations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -309,7 +322,7 @@ class Invitations(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[List[models.Invitation]], http_res)
+            return unmarshal_json_response(List[models.Invitation], http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = utils.stream_to_text(http_res)
             raise models.SDKError("API error occurred", http_res, http_res_text)
@@ -332,17 +345,27 @@ class Invitations(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[List[models.Invitation]]:
+    ) -> List[models.Invitation]:
         r"""List all invitations
 
         Returns all non-revoked invitations for your application, sorted by creation date
 
         :param status: Filter invitations based on their status
         :param query: Filter invitations based on their `email_address` or `id`
-        :param order_by: Allows to return invitations in a particular order. At the moment, you can order the returned invitations either by their `created_at`, `email_address` or `expires_at`. In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by. For example, if you want invitations to be returned in descending order according to their `created_at` property, you can use `-created_at`. If you don't use `+` or `-`, then `+` is implied. Defaults to `-created_at`.
-        :param paginated: Whether to paginate the results. If true, the results will be paginated. If false, the results will not be paginated.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param order_by: Allows to return invitations in a particular order.
+            At the moment, you can order the returned invitations either by their `created_at`, `email_address` or `expires_at`.
+            In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by.
+            For example, if you want invitations to be returned in descending order according to their `created_at` property, you can use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied.
+            Defaults to `-created_at`.
+        :param paginated: Whether to paginate the results.
+            If true, the results will be paginated.
+            If false, the results will not be paginated.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -380,6 +403,7 @@ class Invitations(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -400,7 +424,7 @@ class Invitations(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListInvitations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -409,7 +433,7 @@ class Invitations(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[List[models.Invitation]], http_res)
+            return unmarshal_json_response(List[models.Invitation], http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise models.SDKError("API error occurred", http_res, http_res_text)
@@ -429,13 +453,15 @@ class Invitations(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[List[models.Invitation]]:
+    ) -> List[models.Invitation]:
         r"""Create multiple invitations
 
         Use this API operation to create multiple invitations for the provided email addresses. You can choose to send the
         invitations as emails by setting the `notify` parameter to `true`. There cannot be an existing invitation for any
         of the email addresses you provide unless you set `ignore_existing` to `true` for specific email addresses. Please
         note that there must be no existing user for any of the email addresses you provide, and this rule cannot be bypassed.
+
+        This endpoint is limited to a maximum of 10 invitations per API call. If you need to send more invitations, please make multiple requests.
 
         :param request: The request object to send.
         :param retries: Override the default retry configuration for this method
@@ -473,6 +499,7 @@ class Invitations(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, True, "json", Optional[List[models.RequestBody]]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -493,7 +520,7 @@ class Invitations(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateBulkInvitations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -503,7 +530,7 @@ class Invitations(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[List[models.Invitation]], http_res)
+            return unmarshal_json_response(List[models.Invitation], http_res)
         if utils.match_response(http_res, ["400", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -526,13 +553,15 @@ class Invitations(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[List[models.Invitation]]:
+    ) -> List[models.Invitation]:
         r"""Create multiple invitations
 
         Use this API operation to create multiple invitations for the provided email addresses. You can choose to send the
         invitations as emails by setting the `notify` parameter to `true`. There cannot be an existing invitation for any
         of the email addresses you provide unless you set `ignore_existing` to `true` for specific email addresses. Please
         note that there must be no existing user for any of the email addresses you provide, and this rule cannot be bypassed.
+
+        This endpoint is limited to a maximum of 10 invitations per API call. If you need to send more invitations, please make multiple requests.
 
         :param request: The request object to send.
         :param retries: Override the default retry configuration for this method
@@ -570,6 +599,7 @@ class Invitations(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, True, "json", Optional[List[models.RequestBody]]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -590,7 +620,7 @@ class Invitations(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateBulkInvitations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -600,7 +630,7 @@ class Invitations(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[List[models.Invitation]], http_res)
+            return unmarshal_json_response(List[models.Invitation], http_res)
         if utils.match_response(http_res, ["400", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -621,7 +651,7 @@ class Invitations(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.InvitationRevoked]:
+    ) -> models.InvitationRevoked:
         r"""Revokes an invitation
 
         Revokes the given invitation.
@@ -662,6 +692,7 @@ class Invitations(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -682,7 +713,7 @@ class Invitations(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RevokeInvitation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -692,7 +723,7 @@ class Invitations(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.InvitationRevoked], http_res)
+            return unmarshal_json_response(models.InvitationRevoked, http_res)
         if utils.match_response(http_res, ["400", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -713,7 +744,7 @@ class Invitations(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.InvitationRevoked]:
+    ) -> models.InvitationRevoked:
         r"""Revokes an invitation
 
         Revokes the given invitation.
@@ -754,6 +785,7 @@ class Invitations(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -774,7 +806,7 @@ class Invitations(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RevokeInvitation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -784,7 +816,7 @@ class Invitations(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.InvitationRevoked], http_res)
+            return unmarshal_json_response(models.InvitationRevoked, http_res)
         if utils.match_response(http_res, ["400", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)

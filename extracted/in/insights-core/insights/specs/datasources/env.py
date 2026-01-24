@@ -10,6 +10,7 @@ from insights.core.context import HostContext
 from insights.core.dr import SkipComponent
 from insights.core.plugins import datasource
 from insights.core.spec_factory import DatasourceProvider
+from insights.specs import Specs
 
 
 @datasource(HostContext)
@@ -92,7 +93,11 @@ def ld_library_path_global_conf(broker):
         raise SkipComponent()
 
     return DatasourceProvider(
-        content=json.dumps(data), relative_path='insights_datasources/ld_library_path_global_conf'
+        content=json.dumps(data),
+        relative_path='insights_datasources/ld_library_path_global_conf',
+        ds=Specs.ld_library_path_global_conf,
+        ctx=broker.get(HostContext),
+        cleaner=broker.get("cleaner"),
     )
 
 

@@ -31,7 +31,38 @@ SUPPORTED_ARROW_TYPES = [
     (pa.binary(), pa.large_binary()),
     (pa.large_string(),) * 2,
     (pa.large_binary(),) * 2,
-    (pa.dictionary(pa.int32(), pa.string()),) * 2,
+    *[
+        (pa.dictionary(index_type, value_type, ordered=ordered),) * 2
+        for index_type in (pa.int8(), pa.int16(), pa.int32(), pa.int64())
+        for value_type in (
+            pa.bool_(),
+            pa.int8(),
+            pa.int16(),
+            pa.int32(),
+            pa.int64(),
+            pa.float32(),
+            pa.float64(),
+            pa.large_string(),
+            pa.large_binary(),
+        )
+        for ordered in (True, False)
+    ],
+    *[
+        (
+            pa.dictionary(index_type, pa.string(), ordered=ordered),
+            pa.dictionary(index_type, pa.large_string(), ordered=ordered),
+        )
+        for index_type in (pa.int8(), pa.int16(), pa.int32(), pa.int64())
+        for ordered in (True, False)
+    ],
+    *[
+        (
+            pa.dictionary(index_type, pa.binary(), ordered=ordered),
+            pa.dictionary(index_type, pa.large_binary(), ordered=ordered),
+        )
+        for index_type in (pa.int8(), pa.int16(), pa.int32(), pa.int64())
+        for ordered in (True, False)
+    ],
 ]
 
 
@@ -65,7 +96,7 @@ def test_arrow_types_supported(tmp_path: pathlib.Path, arrow_type_info):
     """Verify round-trip conversion of types which should work "as is" """
     arrow_type, expected_arrow_type = arrow_type_info
     sdf = soma.DataFrame.create(
-        tmp_path.as_posix(), schema=pa.schema([(str(arrow_type), arrow_type)])
+        tmp_path.as_posix(), schema=pa.schema([(str(arrow_type), arrow_type)]), domain=((0, 10),)
     )
     schema = sdf.schema
     assert schema is not None
@@ -78,9 +109,7 @@ def test_arrow_types_unsupported(tmp_path, arrow_type):
     """Verify explicit error for unsupported types"""
 
     with pytest.raises(TypeError, match=r"unsupported type|Unsupported Arrow type"):
-        soma.DataFrame.create(
-            tmp_path.as_posix(), schema=pa.schema([(str(arrow_type), arrow_type)])
-        )
+        soma.DataFrame.create(tmp_path.as_posix(), schema=pa.schema([(str(arrow_type), arrow_type)]), domain=((0, 10),))
 
 
 # ================================================================
@@ -132,7 +161,7 @@ def test_bool_arrays(tmp_path, bool_array):
         [
             ("soma_joinid", pa.int64()),
             ("b", pa.bool_()),
-        ]
+        ],
     )
     index_column_names = ["soma_joinid"]
 

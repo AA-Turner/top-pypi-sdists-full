@@ -5,6 +5,7 @@
 
 #include "slang/ast/Compilation.h"
 #include "slang/ast/EvalContext.h"
+#include "slang/ast/Lookup.h"
 #include "slang/ast/expressions/AssignmentExpressions.h"
 #include "slang/ast/expressions/MiscExpressions.h"
 #include "slang/ast/statements/MiscStatements.h"
@@ -14,7 +15,9 @@
 #include "slang/ast/symbols/ParameterSymbols.h"
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/ast/types/Type.h"
+#include "slang/diagnostics/LookupDiags.h"
 #include "slang/syntax/SyntaxTree.h"
+#include "slang/text/SourceManager.h"
 
 TEST_CASE("Explicit import lookup") {
     auto tree = SyntaxTree::fromText(R"(
@@ -249,6 +252,33 @@ endmodule
     CHECK(diags[2].code == diag::DuplicateImport);
 }
 
+TEST_CASE("Package lookup with path") {
+    auto tree = SyntaxTree::fromText(R"(
+package pkg;
+    parameter int x = 42;
+endpackage
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    const CompilationUnitSymbol* unit = compilation.getRoot().compilationUnits[0];
+
+    LookupResult result;
+    ASTContext context(*unit, LookupLocation::max);
+    Lookup::name(compilation.parseName("pkg::x"), context, LookupFlags::None, result);
+
+    REQUIRE(result.found);
+    CHECK(result.found->kind == SymbolKind::Parameter);
+    CHECK(result.found->as<ParameterSymbol>().getValue().integer() == 42);
+
+    // Verify that the package is in the result.path
+    REQUIRE(result.path.size() == 1);
+    CHECK(result.path[0].symbol->name == "pkg");
+    CHECK(result.path[0].symbol->kind == SymbolKind::Package);
+}
+
 TEST_CASE("Package references 2") {
     auto tree = SyntaxTree::fromText(R"(
 package p;
@@ -329,7 +359,7 @@ module m1;
     end
 
     localparam int j = foo.i;
-    if (foo.i) begin
+    if (foo.i) begin : blk
         int j = asdf;
     end
 
@@ -398,7 +428,7 @@ TEST_CASE("Useful error when lookup before declared in parent scope") {
 module m1;
 
     int i;
-    if (1) begin
+    if (1) begin : blk
         always_comb i = foo;
         type_t something;
     end
@@ -468,6 +498,36 @@ endmodule
     CHECK(block.find<ParameterSymbol>("last").getValue().integer() == 7);
     CHECK(block.find<ParameterSymbol>("count1").getValue().integer() == 3);
     CHECK(block.find<ParameterSymbol>("count2").getValue().integer() == 3);
+}
+
+TEST_CASE("Enum value lookup with different source manager") {
+
+    SourceManager sm;
+    auto tree = SyntaxTree::fromText(R"(
+module m1;
+    typedef enum { FOO = 2, BAR = 6, BAZ = 7 } e;
+
+endmodule
+)",
+                                     sm);
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto& block = compilation.getRoot().topInstances[0]->body;
+
+    // Causes `Assertion 'buffer.getId() < bufferEntries.size()' failed`
+    auto value = block.lookupName("FOO");
+    REQUIRE(value);
+    CHECK(value->kind == SymbolKind::EnumValue);
+
+    // Also causes `Assertion 'buffer.getId() < bufferEntries.size()' failed`
+    LookupResult result;
+    ASTContext context(block, LookupLocation::max);
+    Lookup::name(compilation.parseName("FOO"), context, LookupFlags::None, result);
+    REQUIRE(result.found);
+    CHECK(result.found->kind == SymbolKind::EnumValue);
 }
 
 TEST_CASE("Instance array indexing") {
@@ -576,6 +636,127 @@ endmodule
     REQUIRE(foo);
     CHECK(foo->kind == SymbolKind::Variable);
     CHECK(foo->as<VariableSymbol>().getType().isMatching(compilation.getLogicType()));
+}
+
+TEST_CASE("Unnamed generate array indexing") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    for (genvar i = 1; i < 10; i *= 2) begin
+        logic foo;
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto foo = compilation.getRoot().lookupName("m.genblk1[8].foo", LookupLocation::max,
+                                                LookupFlags::AllowUnnamedGenerate);
+    REQUIRE(foo);
+    CHECK(foo->kind == SymbolKind::Variable);
+    CHECK(foo->as<VariableSymbol>().getType().isMatching(compilation.getLogicType()));
+}
+
+TEST_CASE("Unnamed if generate lookup") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    if (1) begin
+        logic foo;
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto foo = compilation.getRoot().lookupName("m.genblk1.foo", LookupLocation::max,
+                                                LookupFlags::AllowUnnamedGenerate);
+    REQUIRE(foo);
+    CHECK(foo->kind == SymbolKind::Variable);
+    CHECK(foo->as<VariableSymbol>().getType().isMatching(compilation.getLogicType()));
+}
+
+TEST_CASE("Unnamed else generate lookup") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    if (0) begin
+        bit foo;
+    end else begin
+        logic bar;
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto foo = compilation.getRoot().lookupName("m.genblk1.bar", LookupLocation::max,
+                                                LookupFlags::AllowUnnamedGenerate);
+    REQUIRE(foo);
+    CHECK(foo->kind == SymbolKind::Variable);
+    CHECK(foo->as<VariableSymbol>().getType().isMatching(compilation.getLogicType()));
+}
+
+TEST_CASE("Unnamed case generate lookup") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    localparam int switch = 1;
+    case (switch)
+        1: begin
+            logic foo;
+        end
+    endcase
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto foo = compilation.getRoot().lookupName("m.genblk1.foo", LookupLocation::max,
+                                                LookupFlags::AllowUnnamedGenerate);
+    REQUIRE(foo);
+    CHECK(foo->kind == SymbolKind::Variable);
+    CHECK(foo->as<VariableSymbol>().getType().isMatching(compilation.getLogicType()));
+}
+
+TEST_CASE("Unnamed generate not allowed") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    for (genvar i = 1; i < 10; i *= 2) begin
+        logic foo;
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    LookupResult result;
+    ASTContext context(compilation.getRoot(), LookupLocation::max);
+    Lookup::name(compilation.parseName("m.genblk1[8].foo"), context, LookupFlags::None, result);
+    REQUIRE(!result.found);
+}
+
+TEST_CASE("Unnamed generate first not allowed") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    for (genvar i = 1; i < 10; i *= 2) begin
+        logic foo;
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto foo = compilation.getRoot().topInstances[0]->body.lookupName("genblk1[8].foo");
+    REQUIRE(!foo);
 }
 
 TEST_CASE("Generate array indexing errors") {
@@ -952,7 +1133,7 @@ endmodule
     CHECK(result == R"(
 source:64:33: error: reference to 'gen3' by hierarchical name is not allowed in a constant expression
     localparam int blah2 = int'(m_inst.gen3.a[0]);
-                                ^~~~~~~~~~~~~~~~
+                                ^~~~~~~~~~~
 source:66:14: error: multiple imports found for identifier 'foo'
     wire a = foo.bar;           // import collision
              ^~~
@@ -994,7 +1175,7 @@ source:75:21: error: use of undeclared identifier 'bar'
                     ^~~
 source:77:19: error: no member named 'bar' in 'type_t'
     wire l = gen3.bar;          // doesn't find top.gen3.bar because of local variable
-             ~~~~~^~~
+             ~~~~ ^~~
 source:79:20: error: hierarchical scope 'array1' is not indexable
     wire n = array1[0].foo;     // no upward because indexing fails
                    ^~~
@@ -1035,11 +1216,11 @@ module M;
     localparam int bar = foo1();
     localparam int baz = foo2();
 
-    if (bar == 10) begin
+    if (bar == 10) begin : blk1
         localparam int i = 99;
     end
 
-    if (baz == 10) begin
+    if (baz == 10) begin : blk2
         localparam int j = 99;
     end
 
@@ -1699,6 +1880,7 @@ endpackage
 package p9;
     export foo::*;
     export p8::baz;
+    import p1::x;
     export p1::x;
     export p6::x;
     export p1::x;
@@ -1706,7 +1888,7 @@ endpackage
 
 package p10;
     import p1::*;
-    export p6::x;
+    export p1::x;
     int foo = x;
 endpackage
 
@@ -2257,4 +2439,199 @@ endmodule
     auto& arr2 = sym->as<InstanceArraySymbol>();
     CHECK(arr2.elements[0]->getHierarchicalPath() == "m.n1[2][4]");
     CHECK(arr2.elements[1]->getHierarchicalPath() == "m.n1[2][5]");
+}
+
+TEST_CASE("Package export without corresponding candidate for import") {
+    auto tree = SyntaxTree::fromText(R"(
+package P1;
+  integer x;
+  integer y;
+endpackage
+
+package P2;
+  import P1::x;
+  export P1::y; // Should fail, P1::y has not been imported.
+endpackage
+
+module test;
+  initial begin
+    $display("FAILED");
+  end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::PackageExportNotImported);
+}
+
+TEST_CASE("Upwards genblk collision") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    localparam int a = 0;
+endmodule
+
+module top;
+    m genblk1();
+    n n1();
+endmodule
+
+module n;
+    if (1) begin
+        wire a = 1;
+    end
+
+    int b = genblk1.a;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Unqualified genblk collision") {
+    auto tree = SyntaxTree::fromText(R"(
+struct { int a; } genblk1;
+
+module m;
+    if (1) begin end
+
+    int b;
+    always_comb b = genblk1.a;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Genblk access not allowed") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    if (1) begin
+        logic foo;
+    end
+
+    initial $display(genblk1.foo);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
+    auto it = diags.begin();
+    CHECK(compilation.getSourceManager()->getLineNumber(it->location) == 7);
+    CHECK((it++)->code == diag::UnnamedGenerateReference);
+    CHECK(it == diags.end());
+}
+
+TEST_CASE("Allow genblk access") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    if (1) begin
+        logic foo;
+    end
+
+    initial $display(genblk1.foo);
+endmodule
+)");
+
+    CompilationOptions options;
+    options.flags |= CompilationFlags::AllowUnnamedGenerate;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Class scope lookup in package regress") {
+    auto tree = SyntaxTree::fromText(R"(
+package p;
+    class C #(parameter int i = 1);
+        typedef int T;
+    endclass
+endpackage
+
+module m;
+    p::C c;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Recursive package import regress") {
+    auto tree = SyntaxTree::fromText(R"(
+package p1;
+    import p2::*;
+    typedef T T2;
+endpackage
+
+package p2;
+    import p1::*;
+    typedef T2 T;
+endpackage
+
+module m;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::RecursiveDefinition);
+}
+
+TEST_CASE("Used-before-declared flag with parameters") {
+    auto tree = SyntaxTree::fromText(R"(
+module m(
+  input wire clk,
+  output wire [WIDTH-1:0] rd, // use before declaration
+  input wire we,
+  input wire [1:0] delta,
+  input wire [WIDTH-1:0] wd // use before declaration
+);
+
+  parameter DEPTH = 16;
+  parameter WIDTH = 16;
+  localparam BITS = (WIDTH * DEPTH) - 1;
+endmodule
+
+module DFFRAM_4K
+(
+    CLK,
+    WE,
+    EN,
+    Di,
+    Do,
+    A
+);
+    input           CLK;
+    input   [3:0]   WE;
+    input           EN;
+    input   [31:0]  Di;
+    output  [31:0]  Do;
+    input   [7+$clog2(COLS):0]   A;
+
+    //WBD
+    localparam COLS=4;
+endmodule
+)");
+
+    CompilationOptions options;
+    options.flags |= CompilationFlags::AllowUseBeforeDeclare;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
 }

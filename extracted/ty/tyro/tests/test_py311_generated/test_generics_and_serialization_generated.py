@@ -38,6 +38,22 @@ def test_generic_callable() -> None:
     assert tyro.cli(AGenericCallable, args=[]) == AGenericCallable()
 
 
+@dataclasses.dataclass
+class AGenericCallableWithParam(Generic[T]):
+    """Test typing.Callable with generic type parameter."""
+
+    x: Callable[[T], str] = str  # type: ignore
+
+
+def test_generic_callable_with_param() -> None:
+    """Test that typing.Callable with type parameters is resolved correctly."""
+    result = tyro.cli(AGenericCallableWithParam[int], args=[])
+    expected = AGenericCallableWithParam[int](x=str)
+    assert result == expected
+    # Verify the callable works as expected.
+    assert result.x(123) == "123"
+
+
 def test_tuple_generic_variable() -> None:
     @dataclasses.dataclass
     class TupleGenericVariable(Generic[ScalarType]):
@@ -554,12 +570,13 @@ def test_simple_bound_method() -> None:
 
     class Config(Generic[T]):
         def __init__(self, a: T) -> None: ...
+
         def method(self, a: T) -> T:
             return a
 
     assert tyro.cli(Config[int], args="--a 5".split(" ")).method(3) == 3
     assert tyro.cli(Config[int](3).method, args="--a 5".split(" ")) == 5
-    with pytest.raises(tyro.constructors.UnsupportedTypeAnnotationError):
+    with pytest.raises(SystemExit):
         tyro.cli(Config(3).method, args="--a 5".split(" "))
 
 

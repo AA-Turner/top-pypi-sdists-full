@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING
 
 from platformdirs import user_data_path
 
+from virtualenv.info import IS_WIN, fs_path_id
+
 from .discover import Discover
-from .info import IS_WIN, fs_path_id
 from .py_info import PythonInfo
 from .py_spec import PythonSpec
 
@@ -45,8 +46,9 @@ class Builtin(Discover):
             type=str,
             action="append",
             default=[],
-            help="interpreter based on what to create environment (path/identifier) "
-            "- by default use the interpreter where the tool is installed - first found wins",
+            help="interpreter based on what to create environment (path/identifier/version-specifier) "
+            "- by default use the interpreter where the tool is installed - first found wins. "
+            "Version specifiers (e.g., >=3.12, ~=3.11.0, ==3.10) are also supported",
         )
         parser.add_argument(
             "--try-first-with",

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: eradicate
-Version: 3.0.0
+Version: 3.0.1
 Summary: Removes commented-out code.
 Home-page: https://github.com/pycqa/eradicate
 Author: Steven Myint
@@ -13,6 +13,14 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Quality Assurance
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: maintainer
+Dynamic: summary
 
 =========
 eradicate

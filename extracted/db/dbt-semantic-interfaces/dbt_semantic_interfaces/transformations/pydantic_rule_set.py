@@ -10,20 +10,36 @@ from dbt_semantic_interfaces.protocols import ProtocolHint
 from dbt_semantic_interfaces.transformations.add_input_metric_measures import (
     AddInputMetricMeasuresRule,
 )
+from dbt_semantic_interfaces.transformations.boolean_aggregations import (
+    BooleanAggregationRule,
+)
 from dbt_semantic_interfaces.transformations.boolean_measure import (
     BooleanMeasureAggregationRule,
 )
-from dbt_semantic_interfaces.transformations.convert_count import ConvertCountToSumRule
+from dbt_semantic_interfaces.transformations.convert_count import (
+    ConvertCountMetricToSumRule,
+    ConvertCountToSumRule,
+)
 from dbt_semantic_interfaces.transformations.convert_median import (
+    ConvertMedianMetricToPercentile,
     ConvertMedianToPercentileRule,
 )
 from dbt_semantic_interfaces.transformations.cumulative_type_params import (
     SetCumulativeTypeParamsRule,
 )
+from dbt_semantic_interfaces.transformations.fix_proxy_metrics import (
+    FixProxyMetricsRule,
+)
+from dbt_semantic_interfaces.transformations.flatten_simple_metrics_with_measure_inputs import (
+    FlattenSimpleMetricsWithMeasureInputsRule,
+)
 from dbt_semantic_interfaces.transformations.names import LowerCaseNamesRule
 from dbt_semantic_interfaces.transformations.proxy_measure import CreateProxyMeasureRule
 from dbt_semantic_interfaces.transformations.remove_plural_from_window_granularity import (
     RemovePluralFromWindowGranularityRule,
+)
+from dbt_semantic_interfaces.transformations.replace_input_measures_with_simple_metrics_transformation import (
+    ReplaceInputMeasuresWithSimpleMetricsTransformationRule,
 )
 from dbt_semantic_interfaces.transformations.rule_set import (
     SemanticManifestTransformRuleSet,
@@ -45,20 +61,66 @@ class PydanticSemanticManifestTransformRuleSet(
         return self
 
     @property
+    def legacy_measure_update_rules(
+        self,
+    ) -> Sequence[SemanticManifestTransformRule[PydanticSemanticManifest]]:  # noqa: D
+        """Legacy rules - Primarily editing legacy measures."""
+        return (
+            BooleanMeasureAggregationRule(),
+            ConvertCountToSumRule(),
+            ConvertMedianToPercentileRule(),
+        )
+
+    @property
+    def convert_legacy_measures_to_metrics_rules(
+        self,
+    ) -> Sequence[SemanticManifestTransformRule[PydanticSemanticManifest]]:  # noqa: D
+        """Rules that create or update metrics to replace the use of legacy measures.
+
+        Should run after all measures are processed and fixed, but before polishing
+        all metrics (because the metrics need to be created here to be polished later).
+        """
+        return (
+            # CreateProxyMeasureRule should always run FIRST in this sequence.
+            CreateProxyMeasureRule(),  # FIRST, I SAY!
+            # This populates "input_measures" for metric fields.
+            # This does NOT add new metrics or depend on most newly-added metrics, but it must
+            # run after CreateProxyMeasureRule() to ensure we have all the metrics we will need.
+            AddInputMetricMeasuresRule(),
+            FlattenSimpleMetricsWithMeasureInputsRule(),
+            ReplaceInputMeasuresWithSimpleMetricsTransformationRule(),
+            FixProxyMetricsRule(),
+        )
+
+    @property
+    def general_metric_update_rules(
+        self,
+    ) -> Sequence[SemanticManifestTransformRule[PydanticSemanticManifest]]:  # noqa: D
+        """These rules apply once all metrics exist; they apply universally to any metric that meet their criteria.
+
+        These should be run AFTER all metrics exist.
+        """
+        return (
+            SetCumulativeTypeParamsRule(),
+            RemovePluralFromWindowGranularityRule(),
+            ConvertMedianMetricToPercentile(),
+            ConvertCountMetricToSumRule(),
+            BooleanAggregationRule(),
+        )
+
+    @property
     def primary_rules(self) -> Sequence[SemanticManifestTransformRule[PydanticSemanticManifest]]:  # noqa:
         return (LowerCaseNamesRule(),)
 
     @property
     def secondary_rules(self) -> Sequence[SemanticManifestTransformRule[PydanticSemanticManifest]]:  # noqa: D
-        return (
-            CreateProxyMeasureRule(),
-            BooleanMeasureAggregationRule(),
-            ConvertCountToSumRule(),
-            ConvertMedianToPercentileRule(),
-            AddInputMetricMeasuresRule(),
-            SetCumulativeTypeParamsRule(),
-            RemovePluralFromWindowGranularityRule(),
-        )
+        """Secondary rules - Primarily editing, copying, or adapting measures and metrics."""
+        # Order matters here!
+        return [
+            *self.legacy_measure_update_rules,
+            *self.convert_legacy_measures_to_metrics_rules,
+            *self.general_metric_update_rules,
+        ]
 
     @property
     def all_rules(self) -> Sequence[Sequence[SemanticManifestTransformRule[PydanticSemanticManifest]]]:  # noqa: D

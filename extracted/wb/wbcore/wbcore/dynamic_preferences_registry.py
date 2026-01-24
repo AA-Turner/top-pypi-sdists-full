@@ -5,6 +5,7 @@ from dynamic_preferences.types import IntegerPreference, StringPreference
 from dynamic_preferences.users.registries import user_preferences_registry
 
 from wbcore.contrib.dynamic_preferences.types import ChoicePreference, LanguageChoicePreference
+from wbcore.utils.date import get_timezone_choices
 
 wbcore = Section("wbcore")
 
@@ -50,8 +51,21 @@ class LanguagePreference(LanguageChoicePreference):
 
 
 @user_preferences_registry.register
-class DateFormatPreference(ChoicePreference):
+class TimezonePreference(ChoicePreference):
     weight = 0
+    # Value is a IANA timezone name
+    choices = get_timezone_choices()
+    section = wbcore
+    name = "timezone"
+    default = "Europe/Berlin"
+
+    verbose_name = _("Timezone")
+    help_text = _("Pick the timezone in which you want the workbench's dates to be displayed in.")
+
+
+@user_preferences_registry.register
+class DateFormatPreference(ChoicePreference):
+    weight = 1
     choices = [
         ("DD.MM.YYYY", "13.04.2007"),
         ("DD/MM/YYYY", "13/04/2007"),
@@ -77,7 +91,7 @@ class DateFormatPreference(ChoicePreference):
 
 @user_preferences_registry.register
 class TimeFormatPreference(ChoicePreference):
-    weight = 1
+    weight = 2
     choices = [
         ("HH:mm", "14:05"),
         ("hh:mm", "02:05"),
@@ -100,7 +114,7 @@ class TimeFormatPreference(ChoicePreference):
 
 @user_preferences_registry.register
 class NumberFormatPreference(ChoicePreference):
-    weight = 2
+    weight = 3
     # Value is a BCP 47 region subtag
     choices = [
         ("US", "1,234,567.89"),

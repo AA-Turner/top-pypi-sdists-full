@@ -6,7 +6,6 @@ from typing import Dict, List, Optional
 from .Provider import IterListProvider, ProviderType
 from .Provider import (
     ### No Auth Required ###
-    Blackbox,
     Chatai,
     Cloudflare,
     Copilot,
@@ -15,15 +14,12 @@ from .Provider import (
     Grok,
     DeepseekAI_JanusPro7b,
     GLM,
-    Kimi,
     LambdaChat,
-    Mintlify,
     OIVSCodeSer2,
     OIVSCodeSer0501,
     OperaAria,
-    Startnest,
+    Perplexity,
     OpenAIFM,
-    PerplexityLabs,
     PollinationsAI,
     PollinationsImage,
     Qwen,
@@ -50,6 +46,7 @@ from .Provider import (
     OpenaiAccount,
     OpenaiChat,
     OpenRouter,
+    PuterJS,
 )
 
 class ModelRegistry:
@@ -156,19 +153,15 @@ default = Model(
     best_provider = IterListProvider([
         OIVSCodeSer0501,
         OIVSCodeSer2,
-        Blackbox,
         Copilot,
         DeepInfra,
         OperaAria,
-        Startnest,
         GLM,
-        Kimi,
         PollinationsAI,
         Qwen,
         Together,
         Chatai,
         WeWordle,
-        Mintlify,
         TeachAnything,
         OpenaiChat,
         Cloudflare,
@@ -179,13 +172,11 @@ default_vision = VisionModel(
     name = "",
     base_provider = "",
     best_provider = IterListProvider([
-        Blackbox,
         DeepInfra,
         OIVSCodeSer0501,
         OIVSCodeSer2,
         PollinationsAI,
         OperaAria,
-        Startnest,
         Together,
         HuggingSpace,
         GeminiPro,
@@ -200,27 +191,27 @@ default_vision = VisionModel(
 gpt_4 = Model(
     name          = 'gpt-4',
     base_provider = 'OpenAI',
-    best_provider = IterListProvider([Blackbox, Copilot, Yqcloud, WeWordle, OpenaiChat])
+    best_provider = IterListProvider([Copilot, Yqcloud, WeWordle, OpenaiChat])
 )
 
 # gpt-4o
 gpt_4o = VisionModel(
     name          = 'gpt-4o',
     base_provider = 'OpenAI',
-    best_provider = IterListProvider([Blackbox, OpenaiChat])
+    best_provider = IterListProvider([OpenaiChat])
 )
 
 gpt_4o_mini = Model(
     name          = 'gpt-4o-mini',
     base_provider = 'OpenAI',
-    best_provider = IterListProvider([Blackbox, Chatai, OIVSCodeSer2, Startnest, OpenaiChat])
+    best_provider = IterListProvider([Chatai, OIVSCodeSer2, OpenaiChat])
 )
 
-gpt_4o_mini_audio = AudioModel(
-    name          = 'gpt-4o-mini-audio-preview',
-    base_provider = 'OpenAI',
-    best_provider = PollinationsAI
-)
+# gpt_4o_mini_audio = AudioModel(
+#     name          = 'gpt-4o-mini-audio-preview',
+#     base_provider = 'OpenAI',
+#     best_provider = PollinationsAI
+# )
 
 gpt_4o_mini_tts = AudioModel(
     name          = 'gpt-4o-mini-tts',
@@ -277,13 +268,13 @@ gpt_4_1 = Model(
 gpt_4_1_mini = Model(
     name          = 'gpt-4.1-mini',
     base_provider = 'OpenAI',
-    best_provider = IterListProvider([Blackbox, OIVSCodeSer0501])
+    best_provider = IterListProvider([OpenaiChat])
 )
 
 gpt_4_1_nano = Model(
     name          = 'gpt-4.1-nano',
     base_provider = 'OpenAI',
-    best_provider = IterListProvider([Blackbox, PollinationsAI])
+    best_provider = IterListProvider([PollinationsAI])
 )
 
 gpt_4_5 = Model(
@@ -527,6 +518,12 @@ gemini_2_5_pro = Model(
     best_provider = IterListProvider([Gemini, GeminiPro, GeminiCLI])
 )
 
+gemini_3_pro_preview = Model(
+    name          = 'gemini-3-pro-preview',
+    base_provider = 'Google',
+    best_provider = GeminiCLI
+)
+
 # codegemma
 codegemma_7b = Model(
     name          = 'codegemma-7b',
@@ -584,13 +581,6 @@ gemma_3n_e4b = Model(
     name          = 'gemma-3n-e4b',
     base_provider = 'Google',
     best_provider = Together
-)
-
-### Blackbox AI ###
-blackboxai = Model(
-    name = 'blackboxai',
-    base_provider = 'Blackbox AI',
-    best_provider = Blackbox
 )
 
 ### CohereForAI ###
@@ -667,7 +657,7 @@ qwen_2_5_72b = Model(
 qwen_2_5_coder_32b = Model(
     name = 'qwen-2.5-coder-32b',
     base_provider = 'Qwen',
-    best_provider = IterListProvider([PollinationsAI, Together, HuggingChat])
+    best_provider = IterListProvider([Together, HuggingChat])
 )
 
 qwen_2_5_1m = Model(
@@ -813,7 +803,7 @@ deepseek_v3_0324_turbo = Model(
 deepseek_r1_0528 = Model(
     name = 'deepseek-r1-0528',
     base_provider = 'DeepSeek',
-    best_provider = IterListProvider([DeepInfra, PollinationsAI])
+    best_provider = DeepInfra
 )
 
 deepseek_r1_0528_turbo = Model(
@@ -851,7 +841,7 @@ grok_3_r1 = Model(
 kimi = Model(
     name = 'kimi-k2',
     base_provider = 'kimi.com',
-    best_provider = IterListProvider([Kimi, HuggingFace, DeepInfra, Groq]),
+    best_provider = IterListProvider([HuggingFace, DeepInfra, Groq]),
     long_name = "moonshotai/Kimi-K2-Instruct"
 )
 
@@ -859,31 +849,31 @@ kimi = Model(
 sonar = Model(
     name = 'sonar',
     base_provider = 'Perplexity AI',
-    best_provider = PerplexityLabs
+    best_provider = PuterJS
 )
 
 sonar_pro = Model(
     name = 'sonar-pro',
     base_provider = 'Perplexity AI',
-    best_provider = PerplexityLabs
+    best_provider = PuterJS
 )
 
 sonar_reasoning = Model(
     name = 'sonar-reasoning',
     base_provider = 'Perplexity AI',
-    best_provider = PerplexityLabs
+    best_provider = PuterJS
 )
 
 sonar_reasoning_pro = Model(
     name = 'sonar-reasoning-pro',
     base_provider = 'Perplexity AI',
-    best_provider = PerplexityLabs
+    best_provider = PuterJS
 )
 
 r1_1776 = Model(
     name = 'r1-1776',
     base_provider = 'Perplexity AI',
-    best_provider = IterListProvider([Together, PerplexityLabs])
+    best_provider = IterListProvider([Together, PuterJS, Perplexity])
 )
 
 ### Nvidia ### 
@@ -926,13 +916,6 @@ aria = Model(
     name = "aria",
     base_provider = "Opera",
     best_provider = OperaAria
-)
-
-### Uncensored AI ### 
-evil = Model(
-    name = 'evil',
-    base_provider = 'Evil Mode - Experimental',
-    best_provider = PollinationsAI
 )
 
 ### Stability AI ### 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangocms-attributes-field
-Version: 4.1.1
+Version: 4.1.2
 Summary: Adds attributes to Django models.
 Author-email: Divio AG <info@divio.ch>
 Maintainer-email: Django CMS Association and contributors <info@django-cms.org>

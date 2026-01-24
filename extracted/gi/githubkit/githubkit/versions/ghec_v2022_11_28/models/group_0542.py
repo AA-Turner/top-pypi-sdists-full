@@ -9,48 +9,21 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
-
-from .group_0003 import SimpleUser
 
 
-class ProjectsV2Item(GitHubModel):
-    """Projects v2 Item
+class CodespacesUserPublicKey(GitHubModel):
+    """CodespacesUserPublicKey
 
-    An item belonging to a project
+    The public key used for setting user Codespaces' Secrets.
     """
 
-    id: float = Field(description="The unique identifier of the project item.")
-    node_id: Missing[str] = Field(
-        default=UNSET, description="The node ID of the project item."
-    )
-    project_node_id: Missing[str] = Field(
-        default=UNSET, description="The node ID of the project that contains this item."
-    )
-    content_node_id: str = Field(
-        description="The node ID of the content represented by this item."
-    )
-    content_type: Literal["Issue", "PullRequest", "DraftIssue"] = Field(
-        title="Projects v2 Item Content Type",
-        description="The type of content tracked in a project item",
-    )
-    creator: Missing[SimpleUser] = Field(
-        default=UNSET, title="Simple User", description="A GitHub user."
-    )
-    created_at: datetime = Field(description="The time when the item was created.")
-    updated_at: datetime = Field(description="The time when the item was last updated.")
-    archived_at: Union[datetime, None] = Field(
-        description="The time when the item was archived."
-    )
+    key_id: str = Field(description="The identifier for the key.")
+    key: str = Field(description="The Base64 encoded public key.")
 
 
-model_rebuild(ProjectsV2Item)
+model_rebuild(CodespacesUserPublicKey)
 
-__all__ = ("ProjectsV2Item",)
+__all__ = ("CodespacesUserPublicKey",)

@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: sqlalchemy_singlestoredb
-Version: 1.1.2
+Version: 1.2.0
 Summary: SQLAlchemy dialect for the SingleStoreDB database
-Home-page: https://github.com/singlestore-labs/sqlalchemy-singlestoredb
-Author: SingleStore
-Author-email: support@singlestore.com
+Author-email: SingleStore <support@singlestore.com>
 License: Apache-2.0
+Project-URL: Homepage, https://github.com/singlestore-labs/sqlalchemy-singlestoredb
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -14,6 +13,12 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: singlestoredb>=1.0.0
 Requires-Dist: sqlalchemy<3.0.0dev,>=1.4.0
+Provides-Extra: dev
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: docker; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: tomli; python_version < "3.11" and extra == "dev"
 Dynamic: license-file
 
 # <img src="https://raw.githubusercontent.com/singlestore-labs/singlestoredb-python/main/resources/singlestore-logo.png" height="60" valign="middle"/> SingleStoreDB SQLAlchemy Dialect

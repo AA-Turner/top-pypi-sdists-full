@@ -1,29 +1,36 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django_compressor
-Version: 4.5.1
-Summary: ('Compresses linked and inline JavaScript or CSS into single cached files.',)
-Home-page: https://django-compressor.readthedocs.io/en/latest/
+Version: 4.6.0
+Summary: Compresses linked and inline JavaScript or CSS into single cached files.
 Maintainer: Mathieu Pillard
-License: MIT
+License-Expression: MIT
+Project-URL: Homepage, https://django-compressor.readthedocs.io/en/latest/
 Project-URL: Source, https://github.com/django-compressor/django-compressor
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.8
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
+Requires-Dist: django>=4.2
+Requires-Dist: django-appconf>=1.0.3
+Requires-Dist: rcssmin>=1.2.1
+Requires-Dist: rjsmin>=1.2.4
+Dynamic: license-file
 
 Django Compressor
 =================
@@ -104,5 +111,3 @@ The in-development version of Django Compressor can be installed with
 .. _data URIs: http://en.wikipedia.org/wiki/Data_URI_scheme
 .. _django-compressor.readthedocs.org: https://django-compressor.readthedocs.io/en/latest/
 .. _github.com/django-compressor/django-compressor: https://github.com/django-compressor/django-compressor
-
-

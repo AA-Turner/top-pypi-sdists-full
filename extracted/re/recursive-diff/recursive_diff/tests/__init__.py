@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-import importlib.metadata
+import importlib
 
+import numpy as np
+import pandas as pd
 import pytest
-from packaging.version import parse as parse_version
+from packaging.version import Version
 
 
-def _import_or_skip(modname: str, minversion: str | None = None) -> tuple:
+def _import_or_skip(modname: str) -> tuple:
     """Build skip markers for an optional module
 
     :param str modname:
         Name of the optional module
-    :param str minversion:
-        Minimum required version
     :return:
         Tuple of
 
@@ -22,19 +22,13 @@ def _import_or_skip(modname: str, minversion: str | None = None) -> tuple:
             Tests decorated with it will only run if the module is available
             and >= minversion
     """
-    reason = f"requires {modname}"
-    if minversion:
-        reason += f">={minversion}"
-
     try:
-        version = importlib.metadata.version(modname)
+        importlib.import_module(modname)
         has = True
-    except importlib.metadata.PackageNotFoundError:
-        has = False
-    if has and minversion and parse_version(version) < parse_version(minversion):
+    except ImportError:
         has = False
 
-    func = pytest.mark.skipif(not has, reason=reason)
+    func = pytest.mark.skipif(not has, reason=f"requires {modname}")
     return has, func
 
 
@@ -45,3 +39,15 @@ has_scipy, requires_scipy = _import_or_skip("scipy")
 
 has_netcdf = has_h5netcdf or has_netcdf4 or has_scipy
 requires_netcdf = pytest.mark.skipif(not has_netcdf, reason="No NetCDF engine found")
+
+NUMPY_GE_126 = Version(np.__version__) >= Version("1.26")
+PANDAS_GE_200 = Version(pd.__version__) >= Version("2.0")
+
+
+def filter_old_numpy_warnings(testfunc):
+    if NUMPY_GE_126:
+        return testfunc
+    return pytest.mark.filterwarnings(
+        "ignore:elementwise comparison failed:DeprecationWarning",
+        "ignore:elementwise comparison failed:FutureWarning",
+    )(testfunc)

@@ -1,20 +1,23 @@
 # annotate.py -- Annotate files with last changed revision
 # Copyright (C) 2015 Jelmer Vernooij <jelmer@jelmer.uk>
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# or (at your option) a later version of the License.
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+# Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
+# General Public License as published by the Free Software Foundation; version 2.0
+# or (at your option) any later version. You can redistribute it and/or
+# modify it under the terms of either of these two licenses.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-# MA  02110-1301, USA.
+# You should have received a copy of the licenses; if not, see
+# <http://www.gnu.org/licenses/> for a copy of the GNU General Public License
+# and <http://www.apache.org/licenses/LICENSE-2.0> for a copy of the Apache
+# License, Version 2.0.
+#
 
 """Annotate file contents indicating when they were last changed.
 
@@ -26,12 +29,22 @@ but its speed could be improved - in particular because it uses
 Python's difflib.
 """
 
-import difflib
+__all__ = ["annotate_lines", "update_lines"]
 
+import difflib
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
+
+from dulwich.objects import Blob
 from dulwich.walk import (
     ORDER_DATE,
     Walker,
 )
+
+if TYPE_CHECKING:
+    from dulwich.diff_tree import TreeChange
+    from dulwich.object_store import BaseObjectStore
+    from dulwich.objects import Commit, ObjectID, TreeEntry
 
 # Walk over ancestry graph breadth-first
 # When checking each revision, find lines that according to difflib.Differ()
@@ -41,9 +54,13 @@ from dulwich.walk import (
 # graph.
 
 
-def update_lines(annotated_lines, new_history_data, new_blob):
+def update_lines(
+    annotated_lines: Sequence[tuple[tuple["Commit", "TreeEntry"], bytes]],
+    new_history_data: tuple["Commit", "TreeEntry"],
+    new_blob: "Blob",
+) -> list[tuple[tuple["Commit", "TreeEntry"], bytes]]:
     """Update annotation lines with old blob lines."""
-    ret = []
+    ret: list[tuple[tuple[Commit, TreeEntry], bytes]] = []
     new_lines = new_blob.splitlines()
     matcher = difflib.SequenceMatcher(
         a=[line for (h, line) in annotated_lines], b=new_lines
@@ -60,7 +77,14 @@ def update_lines(annotated_lines, new_history_data, new_blob):
     return ret
 
 
-def annotate_lines(store, commit_id, path, order=ORDER_DATE, lines=None, follow=True):
+def annotate_lines(
+    store: "BaseObjectStore",
+    commit_id: "ObjectID",
+    path: bytes,
+    order: str = ORDER_DATE,
+    lines: Sequence[tuple[tuple["Commit", "TreeEntry"], bytes]] | None = None,
+    follow: bool = True,
+) -> list[tuple[tuple["Commit", "TreeEntry"], bytes]]:
     """Annotate the lines of a blob.
 
     :param store: Object store to retrieve objects from
@@ -75,18 +99,25 @@ def annotate_lines(store, commit_id, path, order=ORDER_DATE, lines=None, follow=
     walker = Walker(
         store, include=[commit_id], paths=[path], order=order, follow=follow
     )
-    revs = []
+    revs: list[tuple[Commit, TreeEntry]] = []
     for log_entry in walker:
         for tree_change in log_entry.changes():
-            if type(tree_change) is not list:
-                tree_change = [tree_change]
-            for change in tree_change:
-                if change.new.path == path:
-                    path = change.old.path
+            changes: list[TreeChange]
+            if isinstance(tree_change, list):
+                changes = tree_change
+            else:
+                changes = [tree_change]
+            for change in changes:
+                if change.new is not None and change.new.path == path:
+                    if change.old is not None and change.old.path is not None:
+                        path = change.old.path
                     revs.append((log_entry.commit, change.new))
                     break
 
-    lines = []
+    lines_annotated: list[tuple[tuple[Commit, TreeEntry], bytes]] = []
     for commit, entry in reversed(revs):
-        lines = update_lines(lines, (commit, entry), store[entry.sha])
-    return lines
+        assert entry.sha is not None
+        blob_obj = store[entry.sha]
+        assert isinstance(blob_obj, Blob)
+        lines_annotated = update_lines(lines_annotated, (commit, entry), blob_obj)
+    return lines_annotated

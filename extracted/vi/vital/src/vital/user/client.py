@@ -10,6 +10,7 @@ from ..types.client_facing_insurance import ClientFacingInsurance
 from ..types.client_facing_provider_with_status import ClientFacingProviderWithStatus
 from ..types.client_facing_user import ClientFacingUser
 from ..types.client_facing_user_key import ClientFacingUserKey
+from ..types.create_user_portal_url_response import CreateUserPortalUrlResponse
 from ..types.ethnicity import Ethnicity
 from ..types.gender_identity import GenderIdentity
 from ..types.guarantor_details import GuarantorDetails
@@ -27,6 +28,7 @@ from ..types.vital_core_schemas_db_schemas_lab_test_insurance_person_details imp
     VitalCoreSchemasDbSchemasLabTestInsurancePersonDetails,
 )
 from .raw_client import AsyncRawUserClient, RawUserClient
+from .types.create_user_portal_url_body_context import CreateUserPortalUrlBodyContext
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -74,8 +76,14 @@ class UserClient:
         Examples
         --------
         from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.get_all()
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.get_all(
+            offset=1,
+            limit=1,
+        )
         """
         _response = self._raw_client.get_all(offset=offset, limit=limit, request_options=request_options)
         return _response.data
@@ -124,8 +132,13 @@ class UserClient:
         Examples
         --------
         from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.create(client_user_id='client_user_id', )
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.create(
+            client_user_id="client_user_id",
+        )
         """
         _response = self._raw_client.create(
             client_user_id=client_user_id,
@@ -154,35 +167,13 @@ class UserClient:
         Examples
         --------
         from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
         client.user.get_team_metrics()
         """
         _response = self._raw_client.get_team_metrics(request_options=request_options)
-        return _response.data
-
-    def get_user_sign_in_token(
-        self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> UserSignInTokenResponse:
-        """
-        Parameters
-        ----------
-        user_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        UserSignInTokenResponse
-            Successful Response
-
-        Examples
-        --------
-        from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.get_user_sign_in_token(user_id='user_id', )
-        """
-        _response = self._raw_client.get_user_sign_in_token(user_id, request_options=request_options)
         return _response.data
 
     def get_connected_providers(
@@ -206,116 +197,15 @@ class UserClient:
         Examples
         --------
         from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.get_connected_providers(user_id='user_id', )
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.get_connected_providers(
+            user_id="user_id",
+        )
         """
         _response = self._raw_client.get_connected_providers(user_id, request_options=request_options)
-        return _response.data
-
-    def get(self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> ClientFacingUser:
-        """
-        GET User details given the user_id.
-
-        Parameters
-        ----------
-        user_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ClientFacingUser
-            Successful Response
-
-        Examples
-        --------
-        from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.get(user_id='user_id', )
-        """
-        _response = self._raw_client.get(user_id, request_options=request_options)
-        return _response.data
-
-    def delete(self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> UserSuccessResponse:
-        """
-        Parameters
-        ----------
-        user_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        UserSuccessResponse
-            Successful Response
-
-        Examples
-        --------
-        from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.delete(user_id='user_id', )
-        """
-        _response = self._raw_client.delete(user_id, request_options=request_options)
-        return _response.data
-
-    def patch(
-        self,
-        user_id: str,
-        *,
-        fallback_time_zone: typing.Optional[str] = OMIT,
-        fallback_birth_date: typing.Optional[str] = OMIT,
-        ingestion_start: typing.Optional[str] = OMIT,
-        ingestion_end: typing.Optional[str] = OMIT,
-        client_user_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> None:
-        """
-        Parameters
-        ----------
-        user_id : str
-
-        fallback_time_zone : typing.Optional[str]
-
-                Fallback time zone of the user, in the form of a valid IANA tzdatabase identifier (e.g., `Europe/London` or `America/Los_Angeles`).
-                Used when pulling data from sources that are completely time zone agnostic (e.g., all time is relative to UTC clock, without any time zone attributions on data points).
-
-
-        fallback_birth_date : typing.Optional[str]
-            Fallback date of birth of the user, in YYYY-mm-dd format. Used for calculating max heartrate for providers that don not provide users' age.
-
-        ingestion_start : typing.Optional[str]
-            Starting bound for user [data ingestion bounds](https://docs.tryvital.io/wearables/providers/data-ingestion-bounds).
-
-        ingestion_end : typing.Optional[str]
-            Ending bound for user [data ingestion bounds](https://docs.tryvital.io/wearables/providers/data-ingestion-bounds).
-
-        client_user_id : typing.Optional[str]
-            A unique ID representing the end user. Typically this will be a user ID from your application. Personally identifiable information, such as an email address or phone number, should not be used in the client_user_id.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        None
-
-        Examples
-        --------
-        from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.patch(user_id='user_id', )
-        """
-        _response = self._raw_client.patch(
-            user_id,
-            fallback_time_zone=fallback_time_zone,
-            fallback_birth_date=fallback_birth_date,
-            ingestion_start=ingestion_start,
-            ingestion_end=ingestion_end,
-            client_user_id=client_user_id,
-            request_options=request_options,
-        )
         return _response.data
 
     def get_latest_user_info(
@@ -337,8 +227,13 @@ class UserClient:
         Examples
         --------
         from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.get_latest_user_info(user_id='user_id', )
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.get_latest_user_info(
+            user_id="user_id",
+        )
         """
         _response = self._raw_client.get_latest_user_info(user_id, request_options=request_options)
         return _response.data
@@ -353,6 +248,7 @@ class UserClient:
         insured: VitalCoreSchemasDbSchemasLabTestInsurancePersonDetails,
         group_id: typing.Optional[str] = OMIT,
         guarantor: typing.Optional[GuarantorDetails] = OMIT,
+        is_primary: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ClientFacingInsurance:
         """
@@ -372,6 +268,8 @@ class UserClient:
 
         guarantor : typing.Optional[GuarantorDetails]
 
+        is_primary : typing.Optional[bool]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -382,13 +280,38 @@ class UserClient:
 
         Examples
         --------
-        from vital import Vital
-        from vital import ResponsibleRelationship
-        from vital import VitalCoreSchemasDbSchemasLabTestInsurancePersonDetails
-        from vital import Gender
-        from vital import Address
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.create_insurance(user_id='user_id', payor_code='payor_code', member_id='member_id', relationship=ResponsibleRelationship.SELF, insured=VitalCoreSchemasDbSchemasLabTestInsurancePersonDetails(first_name='first_name', last_name='last_name', gender=Gender.FEMALE, address=Address(first_line='first_line', country='country', zip='zip', city='city', state='state', ), dob='dob', email='email', phone_number='phone_number', ), )
+        from vital import (
+            Address,
+            Gender,
+            ResponsibleRelationship,
+            Vital,
+            VitalCoreSchemasDbSchemasLabTestInsurancePersonDetails,
+        )
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.create_insurance(
+            user_id="user_id",
+            payor_code="payor_code",
+            member_id="member_id",
+            relationship=ResponsibleRelationship.SELF,
+            insured=VitalCoreSchemasDbSchemasLabTestInsurancePersonDetails(
+                first_name="first_name",
+                last_name="last_name",
+                gender=Gender.FEMALE,
+                address=Address(
+                    first_line="first_line",
+                    country="country",
+                    zip="zip",
+                    city="city",
+                    state="state",
+                ),
+                dob="dob",
+                email="email",
+                phone_number="phone_number",
+            ),
+        )
         """
         _response = self._raw_client.create_insurance(
             user_id,
@@ -398,17 +321,24 @@ class UserClient:
             insured=insured,
             group_id=group_id,
             guarantor=guarantor,
+            is_primary=is_primary,
             request_options=request_options,
         )
         return _response.data
 
     def get_latest_insurance(
-        self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        user_id: str,
+        *,
+        is_primary: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> ClientFacingInsurance:
         """
         Parameters
         ----------
         user_id : str
+
+        is_primary : typing.Optional[bool]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -421,10 +351,18 @@ class UserClient:
         Examples
         --------
         from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.get_latest_insurance(user_id='user_id', )
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.get_latest_insurance(
+            user_id="user_id",
+            is_primary=True,
+        )
         """
-        _response = self._raw_client.get_latest_insurance(user_id, request_options=request_options)
+        _response = self._raw_client.get_latest_insurance(
+            user_id, is_primary=is_primary, request_options=request_options
+        )
         return _response.data
 
     def upsert_user_info(
@@ -484,10 +422,27 @@ class UserClient:
 
         Examples
         --------
-        from vital import Vital
-        from vital import Address
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.upsert_user_info(user_id='user_id', first_name='first_name', last_name='last_name', email='email', phone_number='phone_number', gender='gender', dob='dob', address=Address(first_line='first_line', country='country', zip='zip', city='city', state='state', ), )
+        from vital import Address, Vital
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.upsert_user_info(
+            user_id="user_id",
+            first_name="first_name",
+            last_name="last_name",
+            email="email",
+            phone_number="phone_number",
+            gender="gender",
+            dob="dob",
+            address=Address(
+                first_line="first_line",
+                country="country",
+                zip="zip",
+                city="city",
+                state="state",
+            ),
+        )
         """
         _response = self._raw_client.upsert_user_info(
             user_id,
@@ -529,8 +484,13 @@ class UserClient:
         Examples
         --------
         from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.get_by_client_user_id(client_user_id='client_user_id', )
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.get_by_client_user_id(
+            client_user_id="client_user_id",
+        )
         """
         _response = self._raw_client.get_by_client_user_id(client_user_id, request_options=request_options)
         return _response.data
@@ -556,12 +516,136 @@ class UserClient:
 
         Examples
         --------
-        from vital import Vital
-        from vital import Providers
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.deregister_provider(user_id='user_id', provider=Providers.OURA, )
+        from vital import Providers, Vital
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.deregister_provider(
+            user_id="user_id",
+            provider=Providers.OURA,
+        )
         """
         _response = self._raw_client.deregister_provider(user_id, provider, request_options=request_options)
+        return _response.data
+
+    def get(self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> ClientFacingUser:
+        """
+        Parameters
+        ----------
+        user_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ClientFacingUser
+            Successful Response
+
+        Examples
+        --------
+        from vital import Vital
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.get(
+            user_id="user_id",
+        )
+        """
+        _response = self._raw_client.get(user_id, request_options=request_options)
+        return _response.data
+
+    def delete(self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> UserSuccessResponse:
+        """
+        Parameters
+        ----------
+        user_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        UserSuccessResponse
+            Successful Response
+
+        Examples
+        --------
+        from vital import Vital
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.delete(
+            user_id="user_id",
+        )
+        """
+        _response = self._raw_client.delete(user_id, request_options=request_options)
+        return _response.data
+
+    def patch(
+        self,
+        user_id: str,
+        *,
+        fallback_time_zone: typing.Optional[str] = OMIT,
+        fallback_birth_date: typing.Optional[str] = OMIT,
+        ingestion_start: typing.Optional[str] = OMIT,
+        ingestion_end: typing.Optional[str] = OMIT,
+        client_user_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        user_id : str
+
+        fallback_time_zone : typing.Optional[str]
+
+                Fallback time zone of the user, in the form of a valid IANA tzdatabase identifier (e.g., `Europe/London` or `America/Los_Angeles`).
+                Used when pulling data from sources that are completely time zone agnostic (e.g., all time is relative to UTC clock, without any time zone attributions on data points).
+
+
+        fallback_birth_date : typing.Optional[str]
+            Fallback date of birth of the user, in YYYY-mm-dd format. Used for calculating max heartrate for providers that don not provide users' age.
+
+        ingestion_start : typing.Optional[str]
+            Starting bound for user [data ingestion bounds](https://docs.tryvital.io/wearables/providers/data-ingestion-bounds).
+
+        ingestion_end : typing.Optional[str]
+            Ending bound for user [data ingestion bounds](https://docs.tryvital.io/wearables/providers/data-ingestion-bounds).
+
+        client_user_id : typing.Optional[str]
+            A unique ID representing the end user. Typically this will be a user ID from your application. Personally identifiable information, such as an email address or phone number, should not be used in the client_user_id.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        from vital import Vital
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.patch(
+            user_id="user_id",
+        )
+        """
+        _response = self._raw_client.patch(
+            user_id,
+            fallback_time_zone=fallback_time_zone,
+            fallback_birth_date=fallback_birth_date,
+            ingestion_start=ingestion_start,
+            ingestion_end=ingestion_end,
+            client_user_id=client_user_id,
+            request_options=request_options,
+        )
         return _response.data
 
     def undo_delete(
@@ -591,8 +675,14 @@ class UserClient:
         Examples
         --------
         from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.undo_delete()
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.undo_delete(
+            user_id="user_id",
+            client_user_id="client_user_id",
+        )
         """
         _response = self._raw_client.undo_delete(
             user_id=user_id, client_user_id=client_user_id, request_options=request_options
@@ -626,8 +716,14 @@ class UserClient:
         Examples
         --------
         from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.refresh(user_id='user_id', )
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.refresh(
+            user_id="user_id",
+            timeout=1.1,
+        )
         """
         _response = self._raw_client.refresh(user_id, timeout=timeout, request_options=request_options)
         return _response.data
@@ -651,8 +747,13 @@ class UserClient:
         Examples
         --------
         from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.get_devices(user_id='user_id', )
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.get_devices(
+            user_id="user_id",
+        )
         """
         _response = self._raw_client.get_devices(user_id, request_options=request_options)
         return _response.data
@@ -678,10 +779,97 @@ class UserClient:
         Examples
         --------
         from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.user.get_device(user_id='user_id', device_id='device_id', )
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.get_device(
+            user_id="user_id",
+            device_id="device_id",
+        )
         """
         _response = self._raw_client.get_device(user_id, device_id, request_options=request_options)
+        return _response.data
+
+    def get_user_sign_in_token(
+        self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> UserSignInTokenResponse:
+        """
+        Parameters
+        ----------
+        user_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        UserSignInTokenResponse
+            Successful Response
+
+        Examples
+        --------
+        from vital import Vital
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.get_user_sign_in_token(
+            user_id="user_id",
+        )
+        """
+        _response = self._raw_client.get_user_sign_in_token(user_id, request_options=request_options)
+        return _response.data
+
+    def create_portal_url(
+        self,
+        user_id: str,
+        *,
+        context: CreateUserPortalUrlBodyContext,
+        order_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateUserPortalUrlResponse:
+        """
+        Parameters
+        ----------
+        user_id : str
+
+        context : CreateUserPortalUrlBodyContext
+            `launch`: Generates a short-lived (minutes) portal URL that is intended for launching a user from your
+            authenticated web context directly into the Junction User Portal. This URL is not suitable for asynchronous
+            communications due to its verbosity as well as short-lived nature.
+
+            `communications`: Generates a long-lived (weeks) but shortened portal URL that is suitable for Emails, SMS
+            messages and other communication channels. Users may be asked to verify their identity with Email and SMS
+            authentication, e.g., when they open a short link on a new device. ℹ️ This enum is non-exhaustive.
+
+        order_id : typing.Optional[str]
+            If specified, the generated URL will deeplink to the specified Order.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateUserPortalUrlResponse
+            Successful Response
+
+        Examples
+        --------
+        from vital import Vital
+        from vital.user import CreateUserPortalUrlBodyContext
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.user.create_portal_url(
+            user_id="user_id",
+            context=CreateUserPortalUrlBodyContext.LAUNCH,
+        )
+        """
+        _response = self._raw_client.create_portal_url(
+            user_id, context=context, order_id=order_id, request_options=request_options
+        )
         return _response.data
 
 
@@ -726,11 +914,22 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.user.get_all()
+            await client.user.get_all(
+                offset=1,
+                limit=1,
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.get_all(offset=offset, limit=limit, request_options=request_options)
@@ -779,11 +978,21 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.user.create(client_user_id='client_user_id', )
+            await client.user.create(
+                client_user_id="client_user_id",
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.create(
@@ -812,42 +1021,22 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
             await client.user.get_team_metrics()
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.get_team_metrics(request_options=request_options)
-        return _response.data
-
-    async def get_user_sign_in_token(
-        self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> UserSignInTokenResponse:
-        """
-        Parameters
-        ----------
-        user_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        UserSignInTokenResponse
-            Successful Response
-
-        Examples
-        --------
-        from vital import AsyncVital
-        import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
-        async def main() -> None:
-            await client.user.get_user_sign_in_token(user_id='user_id', )
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get_user_sign_in_token(user_id, request_options=request_options)
         return _response.data
 
     async def get_connected_providers(
@@ -870,131 +1059,24 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.user.get_connected_providers(user_id='user_id', )
+            await client.user.get_connected_providers(
+                user_id="user_id",
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.get_connected_providers(user_id, request_options=request_options)
-        return _response.data
-
-    async def get(self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> ClientFacingUser:
-        """
-        GET User details given the user_id.
-
-        Parameters
-        ----------
-        user_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ClientFacingUser
-            Successful Response
-
-        Examples
-        --------
-        from vital import AsyncVital
-        import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
-        async def main() -> None:
-            await client.user.get(user_id='user_id', )
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get(user_id, request_options=request_options)
-        return _response.data
-
-    async def delete(
-        self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> UserSuccessResponse:
-        """
-        Parameters
-        ----------
-        user_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        UserSuccessResponse
-            Successful Response
-
-        Examples
-        --------
-        from vital import AsyncVital
-        import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
-        async def main() -> None:
-            await client.user.delete(user_id='user_id', )
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.delete(user_id, request_options=request_options)
-        return _response.data
-
-    async def patch(
-        self,
-        user_id: str,
-        *,
-        fallback_time_zone: typing.Optional[str] = OMIT,
-        fallback_birth_date: typing.Optional[str] = OMIT,
-        ingestion_start: typing.Optional[str] = OMIT,
-        ingestion_end: typing.Optional[str] = OMIT,
-        client_user_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> None:
-        """
-        Parameters
-        ----------
-        user_id : str
-
-        fallback_time_zone : typing.Optional[str]
-
-                Fallback time zone of the user, in the form of a valid IANA tzdatabase identifier (e.g., `Europe/London` or `America/Los_Angeles`).
-                Used when pulling data from sources that are completely time zone agnostic (e.g., all time is relative to UTC clock, without any time zone attributions on data points).
-
-
-        fallback_birth_date : typing.Optional[str]
-            Fallback date of birth of the user, in YYYY-mm-dd format. Used for calculating max heartrate for providers that don not provide users' age.
-
-        ingestion_start : typing.Optional[str]
-            Starting bound for user [data ingestion bounds](https://docs.tryvital.io/wearables/providers/data-ingestion-bounds).
-
-        ingestion_end : typing.Optional[str]
-            Ending bound for user [data ingestion bounds](https://docs.tryvital.io/wearables/providers/data-ingestion-bounds).
-
-        client_user_id : typing.Optional[str]
-            A unique ID representing the end user. Typically this will be a user ID from your application. Personally identifiable information, such as an email address or phone number, should not be used in the client_user_id.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        None
-
-        Examples
-        --------
-        from vital import AsyncVital
-        import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
-        async def main() -> None:
-            await client.user.patch(user_id='user_id', )
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.patch(
-            user_id,
-            fallback_time_zone=fallback_time_zone,
-            fallback_birth_date=fallback_birth_date,
-            ingestion_start=ingestion_start,
-            ingestion_end=ingestion_end,
-            client_user_id=client_user_id,
-            request_options=request_options,
-        )
         return _response.data
 
     async def get_latest_user_info(
@@ -1015,11 +1097,21 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.user.get_latest_user_info(user_id='user_id', )
+            await client.user.get_latest_user_info(
+                user_id="user_id",
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.get_latest_user_info(user_id, request_options=request_options)
@@ -1035,6 +1127,7 @@ class AsyncUserClient:
         insured: VitalCoreSchemasDbSchemasLabTestInsurancePersonDetails,
         group_id: typing.Optional[str] = OMIT,
         guarantor: typing.Optional[GuarantorDetails] = OMIT,
+        is_primary: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ClientFacingInsurance:
         """
@@ -1054,6 +1147,8 @@ class AsyncUserClient:
 
         guarantor : typing.Optional[GuarantorDetails]
 
+        is_primary : typing.Optional[bool]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1064,15 +1159,45 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
-        from vital import ResponsibleRelationship
-        from vital import VitalCoreSchemasDbSchemasLabTestInsurancePersonDetails
-        from vital import Gender
-        from vital import Address
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import (
+            Address,
+            AsyncVital,
+            Gender,
+            ResponsibleRelationship,
+            VitalCoreSchemasDbSchemasLabTestInsurancePersonDetails,
+        )
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.user.create_insurance(user_id='user_id', payor_code='payor_code', member_id='member_id', relationship=ResponsibleRelationship.SELF, insured=VitalCoreSchemasDbSchemasLabTestInsurancePersonDetails(first_name='first_name', last_name='last_name', gender=Gender.FEMALE, address=Address(first_line='first_line', country='country', zip='zip', city='city', state='state', ), dob='dob', email='email', phone_number='phone_number', ), )
+            await client.user.create_insurance(
+                user_id="user_id",
+                payor_code="payor_code",
+                member_id="member_id",
+                relationship=ResponsibleRelationship.SELF,
+                insured=VitalCoreSchemasDbSchemasLabTestInsurancePersonDetails(
+                    first_name="first_name",
+                    last_name="last_name",
+                    gender=Gender.FEMALE,
+                    address=Address(
+                        first_line="first_line",
+                        country="country",
+                        zip="zip",
+                        city="city",
+                        state="state",
+                    ),
+                    dob="dob",
+                    email="email",
+                    phone_number="phone_number",
+                ),
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.create_insurance(
@@ -1083,17 +1208,24 @@ class AsyncUserClient:
             insured=insured,
             group_id=group_id,
             guarantor=guarantor,
+            is_primary=is_primary,
             request_options=request_options,
         )
         return _response.data
 
     async def get_latest_insurance(
-        self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        user_id: str,
+        *,
+        is_primary: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> ClientFacingInsurance:
         """
         Parameters
         ----------
         user_id : str
+
+        is_primary : typing.Optional[bool]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1105,14 +1237,27 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.user.get_latest_insurance(user_id='user_id', )
+            await client.user.get_latest_insurance(
+                user_id="user_id",
+                is_primary=True,
+            )
+
+
         asyncio.run(main())
         """
-        _response = await self._raw_client.get_latest_insurance(user_id, request_options=request_options)
+        _response = await self._raw_client.get_latest_insurance(
+            user_id, is_primary=is_primary, request_options=request_options
+        )
         return _response.data
 
     async def upsert_user_info(
@@ -1172,12 +1317,34 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
-        from vital import Address
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import Address, AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.user.upsert_user_info(user_id='user_id', first_name='first_name', last_name='last_name', email='email', phone_number='phone_number', gender='gender', dob='dob', address=Address(first_line='first_line', country='country', zip='zip', city='city', state='state', ), )
+            await client.user.upsert_user_info(
+                user_id="user_id",
+                first_name="first_name",
+                last_name="last_name",
+                email="email",
+                phone_number="phone_number",
+                gender="gender",
+                dob="dob",
+                address=Address(
+                    first_line="first_line",
+                    country="country",
+                    zip="zip",
+                    city="city",
+                    state="state",
+                ),
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.upsert_user_info(
@@ -1219,11 +1386,21 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.user.get_by_client_user_id(client_user_id='client_user_id', )
+            await client.user.get_by_client_user_id(
+                client_user_id="client_user_id",
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.get_by_client_user_id(client_user_id, request_options=request_options)
@@ -1250,15 +1427,170 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
-        from vital import Providers
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital, Providers
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.user.deregister_provider(user_id='user_id', provider=Providers.OURA, )
+            await client.user.deregister_provider(
+                user_id="user_id",
+                provider=Providers.OURA,
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.deregister_provider(user_id, provider, request_options=request_options)
+        return _response.data
+
+    async def get(self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> ClientFacingUser:
+        """
+        Parameters
+        ----------
+        user_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ClientFacingUser
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.user.get(
+                user_id="user_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get(user_id, request_options=request_options)
+        return _response.data
+
+    async def delete(
+        self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> UserSuccessResponse:
+        """
+        Parameters
+        ----------
+        user_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        UserSuccessResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.user.delete(
+                user_id="user_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete(user_id, request_options=request_options)
+        return _response.data
+
+    async def patch(
+        self,
+        user_id: str,
+        *,
+        fallback_time_zone: typing.Optional[str] = OMIT,
+        fallback_birth_date: typing.Optional[str] = OMIT,
+        ingestion_start: typing.Optional[str] = OMIT,
+        ingestion_end: typing.Optional[str] = OMIT,
+        client_user_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        user_id : str
+
+        fallback_time_zone : typing.Optional[str]
+
+                Fallback time zone of the user, in the form of a valid IANA tzdatabase identifier (e.g., `Europe/London` or `America/Los_Angeles`).
+                Used when pulling data from sources that are completely time zone agnostic (e.g., all time is relative to UTC clock, without any time zone attributions on data points).
+
+
+        fallback_birth_date : typing.Optional[str]
+            Fallback date of birth of the user, in YYYY-mm-dd format. Used for calculating max heartrate for providers that don not provide users' age.
+
+        ingestion_start : typing.Optional[str]
+            Starting bound for user [data ingestion bounds](https://docs.tryvital.io/wearables/providers/data-ingestion-bounds).
+
+        ingestion_end : typing.Optional[str]
+            Ending bound for user [data ingestion bounds](https://docs.tryvital.io/wearables/providers/data-ingestion-bounds).
+
+        client_user_id : typing.Optional[str]
+            A unique ID representing the end user. Typically this will be a user ID from your application. Personally identifiable information, such as an email address or phone number, should not be used in the client_user_id.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        import asyncio
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.user.patch(
+                user_id="user_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.patch(
+            user_id,
+            fallback_time_zone=fallback_time_zone,
+            fallback_birth_date=fallback_birth_date,
+            ingestion_start=ingestion_start,
+            ingestion_end=ingestion_end,
+            client_user_id=client_user_id,
+            request_options=request_options,
+        )
         return _response.data
 
     async def undo_delete(
@@ -1287,11 +1619,22 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.user.undo_delete()
+            await client.user.undo_delete(
+                user_id="user_id",
+                client_user_id="client_user_id",
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.undo_delete(
@@ -1325,11 +1668,22 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.user.refresh(user_id='user_id', )
+            await client.user.refresh(
+                user_id="user_id",
+                timeout=1.1,
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.refresh(user_id, timeout=timeout, request_options=request_options)
@@ -1353,11 +1707,21 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.user.get_devices(user_id='user_id', )
+            await client.user.get_devices(
+                user_id="user_id",
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.get_devices(user_id, request_options=request_options)
@@ -1383,12 +1747,120 @@ class AsyncUserClient:
 
         Examples
         --------
-        from vital import AsyncVital
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.user.get_device(user_id='user_id', device_id='device_id', )
+            await client.user.get_device(
+                user_id="user_id",
+                device_id="device_id",
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.get_device(user_id, device_id, request_options=request_options)
+        return _response.data
+
+    async def get_user_sign_in_token(
+        self, user_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> UserSignInTokenResponse:
+        """
+        Parameters
+        ----------
+        user_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        UserSignInTokenResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.user.get_user_sign_in_token(
+                user_id="user_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_user_sign_in_token(user_id, request_options=request_options)
+        return _response.data
+
+    async def create_portal_url(
+        self,
+        user_id: str,
+        *,
+        context: CreateUserPortalUrlBodyContext,
+        order_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateUserPortalUrlResponse:
+        """
+        Parameters
+        ----------
+        user_id : str
+
+        context : CreateUserPortalUrlBodyContext
+            `launch`: Generates a short-lived (minutes) portal URL that is intended for launching a user from your
+            authenticated web context directly into the Junction User Portal. This URL is not suitable for asynchronous
+            communications due to its verbosity as well as short-lived nature.
+
+            `communications`: Generates a long-lived (weeks) but shortened portal URL that is suitable for Emails, SMS
+            messages and other communication channels. Users may be asked to verify their identity with Email and SMS
+            authentication, e.g., when they open a short link on a new device. ℹ️ This enum is non-exhaustive.
+
+        order_id : typing.Optional[str]
+            If specified, the generated URL will deeplink to the specified Order.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateUserPortalUrlResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from vital import AsyncVital
+        from vital.user import CreateUserPortalUrlBodyContext
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.user.create_portal_url(
+                user_id="user_id",
+                context=CreateUserPortalUrlBodyContext.LAUNCH,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create_portal_url(
+            user_id, context=context, order_id=order_id, request_options=request_options
+        )
         return _response.data

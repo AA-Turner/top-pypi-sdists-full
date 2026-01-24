@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: asammdf
-Version: 8.6.10
+Version: 8.7.2
 Summary: ASAM MDF measurement data file parser
 Keywords: read,reader,edit,editor,parse,parser,asam,mdf,measurement
 Author-Email: Daniel Hrisca <daniel.hrisca@gmail.com>
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Documentation, https://asammdf.readthedocs.io/en/master
 Project-URL: Issues, https://github.com/danielhrisca/asammdf/issues
 Project-URL: Source, https://github.com/danielhrisca/asammdf
@@ -40,7 +41,7 @@ Provides-Extra: export-matlab-v5
 Requires-Dist: scipy>=1.13.0; extra == "export-matlab-v5"
 Provides-Extra: gui
 Requires-Dist: natsort; extra == "gui"
-Requires-Dist: PySide6>=6.7.0; extra == "gui"
+Requires-Dist: PySide6!=6.9.1,>=6.7.0; extra == "gui"
 Requires-Dist: pyqtgraph>=0.13.4; extra == "gui"
 Requires-Dist: pyqtlet2[PySide6]; extra == "gui"
 Requires-Dist: packaging; extra == "gui"

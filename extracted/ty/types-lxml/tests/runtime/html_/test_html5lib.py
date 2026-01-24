@@ -223,8 +223,12 @@ class TestInputArg:
     @given(thing=_st.all_instances_except_of_type(str, io.BytesIO, io.StringIO, Buffer))
     @pytest.mark.slow
     def test_parse_src_bad(self, thing: Any) -> None:
-        assume(thing is NotImplemented or bool(thing))
-        with pytest.raises((TypeError, AssertionError)):
+        assume(thing is not NotImplemented and bool(thing))
+        # pyrefly: ignore[no-matching-overload]
+        with pytest.raises((
+            TypeError,
+            AssertionError,
+        )):
             _ = h5.parse(thing)
 
     @settings(

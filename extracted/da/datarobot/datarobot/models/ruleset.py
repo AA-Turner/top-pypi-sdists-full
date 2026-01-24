@@ -44,16 +44,14 @@ class Ruleset(APIObject):
 
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String(),
-            t.Key("parent_model_id"): String(),
-            t.Key("model_id", optional=True): String(),
-            t.Key("ruleset_id"): Int(),
-            t.Key("rule_count"): Int(),
-            t.Key("score"): t.Float(),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String(),
+        t.Key("parent_model_id"): String(),
+        t.Key("model_id", optional=True): String(),
+        t.Key("ruleset_id"): Int(),
+        t.Key("rule_count"): Int(),
+        t.Key("score"): t.Float(),
+    }).allow_extra("*")
 
     def __init__(
         self,

@@ -1,6 +1,6 @@
 import datetime
 from logging import getLogger
-from typing import Any, List, Optional
+from typing import Any
 
 from redis.asyncio import BlockingConnectionPool, Redis
 from taskiq import ScheduledTask, ScheduleSource
@@ -19,8 +19,8 @@ class ListRedisScheduleSource(ScheduleSource):
         self,
         url: str,
         prefix: str = "schedule",
-        max_connection_pool_size: Optional[int] = None,
-        serializer: Optional[TaskiqSerializer] = None,
+        max_connection_pool_size: int | None = None,
+        serializer: TaskiqSerializer | None = None,
         buffer_size: int = 50,
         skip_past_schedules: bool = False,
         **connection_kwargs: Any,
@@ -48,7 +48,7 @@ class ListRedisScheduleSource(ScheduleSource):
             serializer = PickleSerializer()
         self._serializer = serializer
         self._is_first_run = True
-        self._previous_schedule_source: Optional[ScheduleSource] = None
+        self._previous_schedule_source: ScheduleSource | None = None
         self._delete_schedules_after_migration: bool = True
         self._skip_past_schedules = skip_past_schedules
 
@@ -85,11 +85,14 @@ class ListRedisScheduleSource(ScheduleSource):
         """Get the key for a cron-based schedule."""
         return f"{self._prefix}:cron"
 
+    def _get_interval_key(self) -> str:
+        return f"{self._prefix}:interval"
+
     def _get_data_key(self, schedule_id: str) -> str:
         """Get the key for a schedule data."""
         return f"{self._prefix}:data:{schedule_id}"
 
-    def _parse_time_key(self, key: str) -> Optional[datetime.datetime]:
+    def _parse_time_key(self, key: str) -> datetime.datetime | None:
         """Get time value from the timed-key."""
         try:
             dt_str = key.split(":", 2)[2]
@@ -130,7 +133,7 @@ class ListRedisScheduleSource(ScheduleSource):
                 if key_time and key_time <= minute_before:
                     time_keys.append(key.decode())
             for key in time_keys:
-                schedules.extend(await redis.lrange(key, 0, -1))
+                schedules.extend(await redis.lrange(key, 0, -1))  # type: ignore[misc]
 
         return schedules
 
@@ -146,10 +149,12 @@ class ListRedisScheduleSource(ScheduleSource):
                 )
                 # We need to remove the schedule from the cron or time list.
                 if schedule.cron is not None:
-                    await redis.lrem(self._get_cron_key(), 0, schedule_id)
+                    await redis.lrem(self._get_cron_key(), 0, schedule_id)  # type: ignore[misc]
                 elif schedule.time is not None:
                     time_key = self._get_time_key(schedule.time)
-                    await redis.lrem(time_key, 0, schedule_id)
+                    await redis.lrem(time_key, 0, schedule_id)  # type: ignore[misc]
+                elif schedule.interval:
+                    await redis.lrem(self._get_interval_key(), 0, schedule_id)  # type: ignore[misc]
 
     async def add_schedule(self, schedule: "ScheduledTask") -> None:
         """Add a schedule to the source."""
@@ -163,10 +168,15 @@ class ListRedisScheduleSource(ScheduleSource):
             # This is an optimization, so we can get all the schedules
             # for the current time much faster.
             if schedule.cron is not None:
-                await redis.rpush(self._get_cron_key(), schedule.schedule_id)
+                await redis.rpush(self._get_cron_key(), schedule.schedule_id)  # type: ignore[misc]
             elif schedule.time is not None:
-                await redis.rpush(
+                await redis.rpush(  # type: ignore[misc]
                     self._get_time_key(schedule.time),
+                    schedule.schedule_id,
+                )
+            elif schedule.interval:
+                await redis.rpush(  # type: ignore[misc]
+                    self._get_interval_key(),
                     schedule.schedule_id,
                 )
 
@@ -175,7 +185,7 @@ class ListRedisScheduleSource(ScheduleSource):
         if task.time is not None:
             await self.delete_schedule(task.schedule_id)
 
-    async def get_schedules(self) -> List["ScheduledTask"]:
+    async def get_schedules(self) -> list["ScheduledTask"]:
         """
         Get all schedules.
 
@@ -195,11 +205,15 @@ class ListRedisScheduleSource(ScheduleSource):
             self._is_first_run = False
         async with Redis(connection_pool=self._connection_pool) as redis:
             buffer = []
-            crons = await redis.lrange(self._get_cron_key(), 0, -1)
+            crons = await redis.lrange(self._get_cron_key(), 0, -1)  # type: ignore[misc]
             logger.debug("Got %d cron schedules", len(crons))
             if crons:
                 buffer.extend(crons)
-            timed.extend(await redis.lrange(self._get_time_key(current_time), 0, -1))
+            intervals = await redis.lrange(self._get_interval_key(), 0, -1)  # type: ignore[misc]
+            logger.debug("Got %d interval schedules", len(intervals))
+            if intervals:
+                buffer.extend(intervals)
+            timed.extend(await redis.lrange(self._get_time_key(current_time), 0, -1))  # type: ignore[misc]
             logger.debug("Got %d timed schedules", len(timed))
             if timed:
                 buffer.extend(timed)

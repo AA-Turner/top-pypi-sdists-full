@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from .. import xdr as stellar_xdr
 from ..asset import Asset
@@ -35,7 +35,7 @@ class CreatePassiveSellOffer(Operation):
 
     Threshold: Medium
 
-    See `Create Passive Sell Offer <https://developers.stellar.org/docs/start/list-of-operations/#create-passive-sell-offer>`_ for more information.
+    See `Create Passive Sell Offer <https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#create-passive-sell-offer>`_ for more information.
 
     :param selling: What you're selling.
     :param buying: What you're buying.
@@ -53,9 +53,9 @@ class CreatePassiveSellOffer(Operation):
         self,
         selling: Asset,
         buying: Asset,
-        amount: Union[str, Decimal],
-        price: Union[Price, str, Decimal],
-        source: Optional[Union[MuxedAccount, str]] = None,
+        amount: str | Decimal,
+        price: Price | str | Decimal,
+        source: MuxedAccount | str | None = None,
     ) -> None:
         super().__init__(source)
         if not isinstance(price, Price):

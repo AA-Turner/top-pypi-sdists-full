@@ -7,9 +7,9 @@ on:
   push:
     tags-ignore:
       - '*'
-    branches:
-      - '*'
+    branches: ['main']
   pull_request:
+    branches: ['main']
   workflow_call:
   workflow_dispatch:
     inputs:
@@ -19,7 +19,9 @@ on:
         default: false
         type: boolean
   schedule:
-    - cron: '0 13 * * *'  # Runs at 6 am pacific every day
+    # Every Sunday at 9:00 AM Los Angeles time.
+    # GitHub cron is UTC; 09:00 PT == 17:00 UTC (PST).
+    - cron: '0 17 * * 0'
 
 
 jobs:
@@ -33,64 +35,46 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14.0-rc.3']
-        postgres-version: ['9.6', '12', 'latest']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        postgres-version: ['12', 'latest']
         psycopg-version: ['psycopg2', 'psycopg3']
         django-version:
-          - '3.2' # LTS April 2024
           - '4.2' # LTS April 2026
           - '5.1' # December 2025
           - '5.2' # LTS April 2028
+          - '6.0rc1' # April 2027
         exclude:
           - django-version: '4.2'
-            postgres-version: '9.6'
-          - python-version: '3.11'
-            django-version: '3.2'
-          - python-version: '3.12'
-            django-version: '3.2'
-          - postgres-version: '12'
-            psycopg-version: 'psycopg3'
-          - django-version: '3.2'
-            psycopg-version: 'psycopg3'
-          - django-version: '3.2'
             postgres-version: 'latest'
+          - python-version: '3.13'
+            django-version: '4.2'
+          - python-version: '3.14'
+            django-version: '4.2'
+          - postgres-version: '12'
+            psycopg-version: 'psycopg3'
           
           - postgres-version: '12'
             django-version: '5.1'
 
-          - postgres-version: '9.6'
-            django-version: '5.1'
-
-          - postgres-version: '9.6'
-            django-version: '5.2'
-
           - postgres-version: '12'
             django-version: '5.2'
-
-          - python-version: '3.9'
-            django-version: '5.1'
-          - python-version: '3.9'
-            django-version: '5.2'
-          - python-version: '3.13'
-            django-version: '3.2'
-          - python-version: '3.13'
-            django-version: '4.2'
           
           # https://github.com/psycopg/psycopg2/pull/1695
           - python-version: '3.13'
             psycopg-version: 'psycopg2'
-
-
-          - python-version: '3.14.0-rc.3'
-            django-version: '3.2'
-          - python-version: '3.14.0-rc.3'
-            django-version: '4.2'
           
-          - python-version: '3.14.0-rc.3'
+          - python-version: '3.14'
             django-version: '5.1'
           # https://github.com/psycopg/psycopg2/pull/1695
-          - python-version: '3.14.0-rc.3'
+          - python-version: '3.14'
             psycopg-version: 'psycopg2'
+          
+          - postgres-version: '12'
+            django-version: '6.0rc1'
+          - python-version: '3.10'
+            django-version: '6.0rc1'
+          - python-version: '3.11'
+            django-version: '6.0rc1'
 
     env:
       RDBMS: postgres
@@ -124,29 +108,38 @@ jobs:
           - 5432:5432
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: Set up Python ${{ matrix.python-version }}
       id: sp
       uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
     - name: Install uv
-      uses: astral-sh/setup-uv@v6
+      uses: astral-sh/setup-uv@v7
       with:
         enable-cache: true
+    - name: Upgrade all dependencies for our weekly runs
+      if: github.event_name == 'schedule'
+      run: uv lock --upgrade
     - name: Setup Just
       uses: extractions/setup-just@v3
     - name: Install Release Dependencies
+      shell: bash
       run: |
         just setup ${{ steps.sp.outputs.python-path }}
-        just test-lock "Django~=${{ matrix.django-version }}.0"
+        if [[ "${{ matrix.django-version }}" =~ (a|b|rc) ]]; then
+          just test-lock Django==${{ matrix.django-version }}
+        else
+          just test-lock Django~=${{ matrix.django-version }}.0
+        fi
     - name: Install Emacs
       if: ${{ github.event.inputs.debug == 'true' }}
       run: |
         sudo apt install emacs
     - name: Setup tmate session
       if: ${{ github.event.inputs.debug == 'true' }}
-      uses: mxschmitt/action-tmate@v3.22
+      uses: mxschmitt/action-tmate@v3.23
       with:
         detached: true
       timeout-minutes: 60
@@ -154,7 +147,7 @@ jobs:
       run: |
         just test-all ${{ matrix.psycopg-version }}
     - name: Store coverage files
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: ${{ env.COVERAGE_FILE }}
         path: ${{ env.COVERAGE_FILE }}
@@ -174,42 +167,60 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ '3.9', '3.13']
+        python-version: ['3.10', '3.12', '3.14']
         django-version:
-          - '3.2' # LTS April 2024
-          - '4.2' # LTS April 2026
-          - '5.2' # LTS April 2028
+          - '4.2'    # LTS April 2024
+          - '5.2'    # LTS April 2028
+          - '6.0rc1' # April 2027
         exclude:
-          - python-version: '3.9'
+          - python-version: '3.12'
+            django-version: '4.2'
+          - python-version: '3.14'
+            django-version: '4.2'
+
+          - python-version: '3.10'
             django-version: '5.2'
-          - python-version: '3.13'
-            django-version: '3.2'
+          - python-version: '3.14'
+            django-version: '5.2'
+
+          - python-version: '3.10'
+            django-version: '6.0rc1'
+          - python-version: '3.12'
+            django-version: '6.0rc1'
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         id: sp
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+      - name: Upgrade all dependencies for our weekly runs
+        if: github.event_name == 'schedule'
+        run: uv lock --upgrade
       - name: Setup Just
         uses: extractions/setup-just@v3
       - name: Install Release Dependencies
         run: |
           just setup ${{ steps.sp.outputs.python-path }}
           just install
-          just test-lock Django~=${{ matrix.django-version }}.0
+          if [[ "${{ matrix.django-version }}" =~ (a|b|rc) ]]; then
+            just test-lock Django==${{ matrix.django-version }}
+          else
+            just test-lock Django~=${{ matrix.django-version }}.0
+          fi
       - name: Install Emacs
         if: ${{ github.event.inputs.debug == 'true' }}
         run: |
           sudo apt install emacs
       - name: Setup tmate session
         if: ${{ github.event.inputs.debug == 'true' }}
-        uses: mxschmitt/action-tmate@v3.22
+        uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
         timeout-minutes: 60
@@ -217,7 +228,7 @@ jobs:
         run: |
           just test-all
       - name: Store coverage files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.COVERAGE_FILE }}
           path: ${{ env.COVERAGE_FILE }}
@@ -231,31 +242,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ '3.9', '3.13']
-        mysql-version: ['5.7', 'latest']
+        python-version: ['3.10', '3.12', '3.14']
+        mysql-version: ['8.0', 'latest']
         mysqlclient-version: ['1.4.3', '']
         django-version:
-          - '3.2' # LTS April 2024
-          - '4.2' # LTS April 2026
-          - '5.2' # LTS April 2028
+          - '4.2'    # LTS April 2024
+          - '5.2'    # LTS April 2028
+          - '6.0rc1' # April 2027
         exclude:
-          - python-version: '3.13'
-            django-version: '3.2'
-          - python-version: '3.9'
-            django-version: '5.2'
-
-
-          - django-version: '3.2'
-            mysql-version: 'latest'
           - django-version: '4.2'
-            mysql-version: '5.7'
-          - django-version: '5.2'
-            mysql-version: '5.7'
+            mysql-version: 'latest'
 
-          - mysql-version: '5.7'
-            mysqlclient-version: ''
+          - django-version: '6.0rc1'
+            mysql-version: '8.0'
+
           - mysql-version: 'latest'
             mysqlclient-version: '1.4.3'
+
+          - python-version: '3.12'
+            django-version: '4.2'
+          - python-version: '3.14'
+            django-version: '4.2'
+
+          - python-version: '3.10'
+            django-version: '5.2'
+          - python-version: '3.14'
+            django-version: '5.2'
+          - django-version: '5.2'
+            mysqlclient-version: '1.4.3'
+
+          - python-version: '3.10'
+            django-version: '6.0rc1'
+          - python-version: '3.12'
+            django-version: '6.0rc1'
   
     env:
       RDBMS: mysql
@@ -285,32 +304,41 @@ jobs:
           - 3306:3306
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         id: sp
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
       - name: Install Emacs
         if: ${{ github.event.inputs.debug == 'true' }}
         run: |
           sudo apt install emacs
       - name: Setup tmate session
         if: ${{ github.event.inputs.debug == 'true' }}
-        uses: mxschmitt/action-tmate@v3.22
+        uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
         timeout-minutes: 60
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+      - name: Upgrade all dependencies for our weekly runs
+        if: github.event_name == 'schedule'
+        run: uv lock --upgrade
       - name: Setup Just
         uses: extractions/setup-just@v3
       - name: Install Release Dependencies
+        shell: bash
         run: |
           just setup ${{ steps.sp.outputs.python-path }}
-          just test-lock Django~=${{ matrix.django-version }}.0
+          if [[ "${{ matrix.django-version }}" =~ (a|b|rc) ]]; then
+            just test-lock Django==${{ matrix.django-version }}
+          else
+            just test-lock Django~=${{ matrix.django-version }}.0
+          fi
       
       - name: Install mysqlclient if needed
         if: ${{ matrix.mysqlclient-version != '' }}
@@ -319,7 +347,7 @@ jobs:
         run: |
           just test-all mysql
       - name: Store coverage files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.COVERAGE_FILE }}
           path: ${{ env.COVERAGE_FILE }}
@@ -340,35 +368,49 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ '3.9', '3.13']
+        python-version: ['3.10', '3.12', '3.14']
         mysqlclient-version: ['1.4.3', '']
-        mariadb-version: ['10.2', 'latest']
+        mariadb-version: ['10.4', 'latest']
         mariadb-healthcheck: ["mysqladmin ping", "healthcheck.sh --connect --innodb_initialized"]
         django-version:
-          - '3.2' # LTS April 2024
-          - '4.2' # LTS April 2026
-          - '5.2' # LTS April 2028
+          - '4.2'    # LTS April 2024
+          - '5.2'    # LTS April 2028
+          - '6.0rc1' # April 2027
         exclude:
-          - python-version: '3.13'
-            django-version: '3.2'
-          - python-version: '3.9'
-            django-version: '5.2'
-
-          - django-version: '3.2'
-            mariadb-version: 'latest'
           - django-version: '4.2'
-            mariadb-version: '10.2'
-          - django-version: '5.2'
-            mariadb-version: '10.2'
+            mariadb-version: 'latest'
 
-          - mariadb-version: '10.2'
-            mysqlclient-version: ''
+          - django-version: '5.2'
+            mariadb-version: '10.4'
+          - django-version: '6.0rc1'
+            mariadb-version: '10.4'
+
           - mariadb-version: 'latest'
             mysqlclient-version: '1.4.3'
 
+          - python-version: '3.12'
+            django-version: '4.2'
+          - python-version: '3.14'
+            django-version: '4.2'
+
+          - python-version: '3.10'
+            django-version: '5.2'
+          - python-version: '3.14'
+            django-version: '5.2'
+          - django-version: '5.2'
+            mysqlclient-version: '1.4.3'
+
+          - python-version: '3.10'
+            django-version: '6.0rc1'
+          - python-version: '3.12'
+            django-version: '6.0rc1'
+
+          - mariadb-version: '10.4'
+            mysqlclient-version: ''
+
           - mariadb-version: 'latest'
             mariadb-healthcheck: "mysqladmin ping"
-          - mariadb-version: '10.2'
+          - mariadb-version: '10.4'
             mariadb-healthcheck: "healthcheck.sh --connect --innodb_initialized"
 
     services:
@@ -390,32 +432,40 @@ jobs:
           - 3306:3306
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         id: sp
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
       - name: Install Emacs
         if: ${{ github.event.inputs.debug == 'true' }}
         run: |
           sudo apt install emacs
       - name: Setup tmate session
         if: ${{ github.event.inputs.debug == 'true' }}
-        uses: mxschmitt/action-tmate@v3.22
+        uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
         timeout-minutes: 60
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+      - name: Upgrade all dependencies for our weekly runs
+        if: github.event_name == 'schedule'
+        run: uv lock --upgrade
       - name: Setup Just
         uses: extractions/setup-just@v3
       - name: Install Release Dependencies
         run: |
           just setup ${{ steps.sp.outputs.python-path }}
-          just test-lock Django~=${{ matrix.django-version }}.0
+          if [[ "${{ matrix.django-version }}" =~ (a|b|rc) ]]; then
+            just test-lock Django==${{ matrix.django-version }}
+          else
+            just test-lock Django~=${{ matrix.django-version }}.0
+          fi
       
       - name: Install mysqlclient if needed
         if: ${{ matrix.mysqlclient-version != '' }}
@@ -424,7 +474,7 @@ jobs:
         run: |
           just test-all mysql
       - name: Store coverage files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.COVERAGE_FILE }}
           path: ${{ env.COVERAGE_FILE }}
@@ -436,7 +486,6 @@ jobs:
       actions: write
     env:
       RDBMS: oracle
-      COVERAGE_FILE: linux-py${{ matrix.python-version }}-dj${{ matrix.django-version }}-oracle${{ matrix.oracle-version }}.coverage
       TEST_PYTHON_VERSION: ${{ matrix.python-version }}
       TEST_DJANGO_VERSION: ${{ matrix.django-version }}
       TEST_DATABASE_VERSION: ${{ matrix.oracle-version }}
@@ -447,37 +496,40 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.9', '3.10', '3.12']
+        python-version: ['3.10', '3.12', '3.14']
         django-version:
-          - '3.2' # LTS April 2024
           - '4.2' # LTS April 2026
           - '5.2' # LTS April 2028
+          - '6.0rc1' # April 2027
         oracle-version:
-          - '18'
-          - 'latest'
+          - 'oracle-xe:21'
+          - 'oracle-free:latest'
         exclude:
-          - python-version: '3.9'
-            django-version: '5.2'
-          - python-version: '3.10'
-            django-version: '5.2'
-          - python-version: '3.10'
-            django-version: '3.2'
-          - python-version: '3.12'
-            django-version: '3.2'
           - python-version: '3.12'
             django-version: '4.2'
-          - python-version: '3.9'
+          - python-version: '3.14'
             django-version: '4.2'
-          - django-version: '3.2'
-            oracle-version: 'latest'
+
+          - python-version: '3.10'
+            django-version: '5.2'
+          - python-version: '3.14'
+            django-version: '5.2'
+
+          - python-version: '3.10'
+            django-version: '6.0rc1'
+          - python-version: '3.12'
+            django-version: '6.0rc1'
+
           - django-version: '4.2'
-            oracle-version: '18'
+            oracle-version: 'oracle-free:latest'
           - django-version: '5.2'
-            oracle-version: '18'
+            oracle-version: 'oracle-xe:21'
+          - django-version: '6.0rc1'
+            oracle-version: 'oracle-xe:21'
 
     services:
       oracle:
-        image: gvenzl/oracle-xe:${{ matrix.oracle-version }}
+        image: gvenzl/${{ matrix.oracle-version }}
         env:
           ORACLE_PASSWORD: password
         # Forward Oracle port
@@ -491,47 +543,73 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v5
+      - name: Set coverage file
+        run: |
+          ORACLE_TAG=$(echo "${{ matrix.oracle-version }}" | cut -d':' -f2)
+          echo "COVERAGE_FILE=linux-py${{ matrix.python-version }}-dj${{ matrix.django-version }}-oracle${ORACLE_TAG}.coverage" >> $GITHUB_ENV
+          if [[ "${{ matrix.django-version }}" == "4.2" ]]; then
+            echo "ORACLE_DATABASE=XEPDB1" >> $GITHUB_ENV
+          else
+            echo "ORACLE_DATABASE=FREEPDB1" >> $GITHUB_ENV
+          fi
+      - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
         id: sp
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
       - name: Install Emacs
         if: ${{ github.event.inputs.debug == 'true' }}
         run: |
           sudo apt install emacs
       - name: Setup tmate session
         if: ${{ github.event.inputs.debug == 'true' }}
-        uses: mxschmitt/action-tmate@v3.22
+        uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
         timeout-minutes: 60
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+      - name: Upgrade all dependencies for our weekly runs
+        if: github.event_name == 'schedule'
+        run: uv lock --upgrade
       - name: Setup Just
         uses: extractions/setup-just@v3
       - name: Install Oracle Client
         # https://askubuntu.com/questions/1512196/libaio1-on-noble
         run: |
-          curl --output oracle-client.rpm https://download.oracle.com/otn_software/linux/instantclient/2116000/oracle-instantclient-basiclite-21.16.0.0.0-1.el8.x86_64.rpm
           sudo apt install alien libaio1t64
-          sudo alien -i oracle-client.rpm
-          sudo sh -c "echo /usr/lib/oracle/21/client64/lib/ > /etc/ld.so.conf.d/oracle.conf"
           sudo ln -s /usr/lib/x86_64-linux-gnu/libaio.so.1t64 /usr/lib/x86_64-linux-gnu/libaio.so.1
+          if [[ "${{ matrix.django-version }}" == "4.2" ]]; then
+            curl --output oracle-client.rpm https://download.oracle.com/otn_software/linux/instantclient/2116000/oracle-instantclient-basiclite-21.16.0.0.0-1.el8.x86_64.rpm
+            sudo alien -i oracle-client.rpm
+            sudo sh -c "echo /usr/lib/oracle/21/client64/lib/ > /etc/ld.so.conf.d/oracle.conf"
+          else
+            curl --output oracle-client.rpm https://download.oracle.com/otn_software/linux/instantclient/2326000/oracle-instantclient-basiclite-23.26.0.0.0-1.el9.x86_64.rpm
+            sudo alien -i oracle-client.rpm
+            sudo sh -c "echo /usr/lib/oracle/23/client64/lib/ > /etc/ld.so.conf.d/oracle.conf"
+          fi
           sudo ldconfig
       - name: Install Release Dependencies
         run: |
           just setup ${{ steps.sp.outputs.python-path }}
-          just test-lock Django~=${{ matrix.django-version }}.0
+          if [[ "${{ matrix.django-version }}" =~ (a|b|rc) ]]; then
+            just test-lock Django==${{ matrix.django-version }}
+          else
+            just test-lock Django~=${{ matrix.django-version }}.0
+          fi
       - name: Run Full Unit Tests
         run: |
-          just test-all oracle
-
+          if [[ "${{ matrix.django-version }}" == "4.2" ]]; then
+            just test-all cx_oracle
+          else
+            just test-all oracledb
+          fi
       - name: Store coverage files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.COVERAGE_FILE }}
           path: ${{ env.COVERAGE_FILE }}
@@ -551,40 +629,62 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ '3.9', '3.13']
+        python-version: ['3.10', '3.12', '3.14']
         django-version:
-          - '3.2' # LTS April 2024
-          - '5.2' # LTS April 2028
+          - '4.2'    # LTS April 2026
+          - '5.2'    # LTS April 2028
+          - '6.0rc1' # April 2027
         exclude:
-          - python-version: '3.9'
+          - python-version: '3.12'
+            django-version: '4.2'
+          - python-version: '3.14'
+            django-version: '4.2'
+
+          - python-version: '3.10'
             django-version: '5.2'
-          - python-version: '3.13'
-            django-version: '3.2'
+          - python-version: '3.14'
+            django-version: '5.2'
+
+          - python-version: '3.10'
+            django-version: '6.0rc1'
+          - python-version: '3.12'
+            django-version: '6.0rc1'
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         id: sp
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+      - name: Upgrade all dependencies for our weekly runs
+        if: github.event_name == 'schedule'
+        run: uv lock --upgrade
       - name: Setup Just
         uses: extractions/setup-just@v3
       - name: Install Release Dependencies
         run: |
           just setup ${{ steps.sp.outputs.python-path }}
           just install
-          just test-lock Django~=${{ matrix.django-version }}.0
+          $version = "${{ matrix.django-version }}"
+
+          if ($version -match "(a|b|rc)") {
+            just test-lock "Django==$version"
+          } else {
+            just test-lock "Django~=$version.0"
+          }
+        shell: pwsh
       - name: install-vim-windows
         if: ${{ github.event.inputs.debug == 'true' }}
         uses: rhysd/action-setup-vim@v1
       - name: Setup tmate session
         if: ${{ github.event.inputs.debug == 'true' }}
-        uses: mxschmitt/action-tmate@v3.22
+        uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
         timeout-minutes: 60
@@ -592,7 +692,7 @@ jobs:
         run: |
           just test-all
       - name: Store coverage files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.COVERAGE_FILE }}
           path: ${{ env.COVERAGE_FILE }}
@@ -612,41 +712,60 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ '3.9', '3.13']
+        python-version: ['3.10', '3.12', '3.14']
         django-version:
-          - '3.2' # LTS April 2024
-          - '5.2' # LTS April 2028
+          - '4.2'    # LTS April 2024
+          - '5.2'    # LTS April 2028
+          - '6.0rc1' # April 2027
         exclude:
-          - python-version: '3.9'
+          - python-version: '3.12'
+            django-version: '4.2'
+          - python-version: '3.14'
+            django-version: '4.2'
+
+          - python-version: '3.10'
             django-version: '5.2'
-          - python-version: '3.13'
-            django-version: '3.2'
+          - python-version: '3.14'
+            django-version: '5.2'
+
+          - python-version: '3.10'
+            django-version: '6.0rc1'
+          - python-version: '3.12'
+            django-version: '6.0rc1'
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         id: sp
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+      - name: Upgrade all dependencies for our weekly runs
+        if: github.event_name == 'schedule'
+        run: uv lock --upgrade
       - name: Setup Just
         uses: extractions/setup-just@v3
       - name: Install Release Dependencies
         run: |
           just setup ${{ steps.sp.outputs.python-path }}
           just install
-          just test-lock Django~=${{ matrix.django-version }}.0
+          if [[ "${{ matrix.django-version }}" =~ (a|b|rc) ]]; then
+            just test-lock Django==${{ matrix.django-version }}
+          else
+            just test-lock Django~=${{ matrix.django-version }}.0
+          fi
       - name: install-emacs-macos
         if: ${{ github.event.inputs.debug == 'true' }}
         run: |
           brew install emacs
       - name: Setup tmate session
         if: ${{ github.event.inputs.debug == 'true' }}
-        uses: mxschmitt/action-tmate@v3.22
+        uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
         timeout-minutes: 60
@@ -654,7 +773,7 @@ jobs:
         run: |
           just test-all
       - name: Store coverage files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.COVERAGE_FILE }}
           path: ${{ env.COVERAGE_FILE }}
@@ -666,15 +785,18 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         id: sp
         with:
           python-version: '3.12'
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+      - name: Upgrade all dependencies for our weekly runs
+        if: github.event_name == 'schedule'
+        run: uv lock --upgrade
       - name: Setup Just
         uses: extractions/setup-just@v3
       - name: Install Release Dependencies
@@ -683,7 +805,7 @@ jobs:
           just install
 
       - name: Get coverage files
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           pattern: "*.coverage"
           merge-multiple: true

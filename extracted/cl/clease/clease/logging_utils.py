@@ -1,7 +1,8 @@
+from collections.abc import Iterator
 from contextlib import contextmanager
 import logging
 import sys
-from typing import Iterator, Optional, TextIO
+from typing import TextIO
 
 __all__ = ("log_stream", "log_stream_context", "get_root_clease_logger")
 
@@ -12,7 +13,7 @@ def get_root_clease_logger() -> logging.Logger:
 
 
 def log_stream(
-    level: Optional[int] = None, stream: TextIO = sys.stdout, fmt: Optional[str] = None
+    level: int | None = None, stream: TextIO = sys.stdout, fmt: str | None = None
 ) -> logging.StreamHandler:
     """Helper function to enable CLEASE logging to a stream. Default stream is stdout.
     This function permanently adjusts the global CLEASE logger. Use ``log_stream_context``
@@ -50,7 +51,7 @@ def log_stream(
 
 @contextmanager
 def log_stream_context(
-    level: Optional[int] = None, stream: TextIO = sys.stdout, fmt: Optional[str] = None
+    level: int | None = None, stream: TextIO = sys.stdout, fmt: str | None = None
 ) -> Iterator[logging.StreamHandler]:
     """Context which temporarily adds a stream handler to the root CLEASE logger.
     Yields the added stream handler, so that it can be adjusted as needed.
@@ -93,7 +94,7 @@ def log_stream_context(
 
 
 def _make_stream_handler(
-    level: Optional[int], stream: TextIO, fmt: Optional[str] = None
+    level: int | None, stream: TextIO, fmt: str | None = None
 ) -> logging.StreamHandler:
     """Helper function to create a stream handler with a specified level and stream.
     If the level is None, use the effective level of the CLEASE root logger.
@@ -112,7 +113,7 @@ def _make_stream_handler(
     return handler
 
 
-def _get_effective_level(level: Optional[int]) -> int:
+def _get_effective_level(level: int | None) -> int:
     """Helper function to get the effective level - if the level is None,
     we use the current level of the CLEASEroot logger, otherwise use the provided level
     """

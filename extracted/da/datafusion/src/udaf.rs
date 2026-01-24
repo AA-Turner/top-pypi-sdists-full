@@ -17,12 +17,6 @@
 
 use std::sync::Arc;
 
-use pyo3::{prelude::*, types::PyTuple};
-
-use crate::common::data_type::PyScalarValue;
-use crate::errors::{py_datafusion_err, to_datafusion_err, PyDataFusionResult};
-use crate::expr::PyExpr;
-use crate::utils::{parse_volatility, validate_pycapsule};
 use datafusion::arrow::array::{Array, ArrayRef};
 use datafusion::arrow::datatypes::DataType;
 use datafusion::arrow::pyarrow::{PyArrowType, ToPyArrow};
@@ -32,22 +26,28 @@ use datafusion::logical_expr::{
     create_udaf, Accumulator, AccumulatorFactoryFunction, AggregateUDF,
 };
 use datafusion_ffi::udaf::{FFI_AggregateUDF, ForeignAggregateUDF};
-use pyo3::types::PyCapsule;
+use pyo3::prelude::*;
+use pyo3::types::{PyCapsule, PyTuple};
+
+use crate::common::data_type::PyScalarValue;
+use crate::errors::{py_datafusion_err, to_datafusion_err, PyDataFusionResult};
+use crate::expr::PyExpr;
+use crate::utils::{parse_volatility, validate_pycapsule};
 
 #[derive(Debug)]
 struct RustAccumulator {
-    accum: PyObject,
+    accum: Py<PyAny>,
 }
 
 impl RustAccumulator {
-    fn new(accum: PyObject) -> Self {
+    fn new(accum: Py<PyAny>) -> Self {
         Self { accum }
     }
 }
 
 impl Accumulator for RustAccumulator {
     fn state(&mut self) -> Result<Vec<ScalarValue>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.accum
                 .bind(py)
                 .call_method0("state")?
@@ -58,7 +58,7 @@ impl Accumulator for RustAccumulator {
     }
 
     fn evaluate(&mut self) -> Result<ScalarValue> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.accum
                 .bind(py)
                 .call_method0("evaluate")?
@@ -69,7 +69,7 @@ impl Accumulator for RustAccumulator {
     }
 
     fn update_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // 1. cast args to Pyarrow array
             let py_args = values
                 .iter()
@@ -88,9 +88,9 @@ impl Accumulator for RustAccumulator {
     }
 
     fn merge_batch(&mut self, states: &[ArrayRef]) -> Result<()> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // // 1. cast states to Pyarrow arrays
-            let py_states: Result<Vec<PyObject>> = states
+            let py_states: Result<Vec<Bound<'_, PyAny>>> = states
                 .iter()
                 .map(|state| {
                     state
@@ -115,7 +115,7 @@ impl Accumulator for RustAccumulator {
     }
 
     fn retract_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // 1. cast args to Pyarrow array
             let py_args = values
                 .iter()
@@ -134,7 +134,7 @@ impl Accumulator for RustAccumulator {
     }
 
     fn supports_retract_batch(&self) -> bool {
-        Python::with_gil(
+        Python::attach(
             |py| match self.accum.bind(py).call_method0("supports_retract_batch") {
                 Ok(x) => x.extract().unwrap_or(false),
                 Err(_) => false,
@@ -143,9 +143,9 @@ impl Accumulator for RustAccumulator {
     }
 }
 
-pub fn to_rust_accumulator(accum: PyObject) -> AccumulatorFactoryFunction {
+pub fn to_rust_accumulator(accum: Py<PyAny>) -> AccumulatorFactoryFunction {
     Arc::new(move |_| -> Result<Box<dyn Accumulator>> {
-        let accum = Python::with_gil(|py| {
+        let accum = Python::attach(|py| {
             accum
                 .call0(py)
                 .map_err(|e| DataFusionError::Execution(format!("{e}")))
@@ -154,8 +154,17 @@ pub fn to_rust_accumulator(accum: PyObject) -> AccumulatorFactoryFunction {
     })
 }
 
+fn aggregate_udf_from_capsule(capsule: &Bound<'_, PyCapsule>) -> PyDataFusionResult<AggregateUDF> {
+    validate_pycapsule(capsule, "datafusion_aggregate_udf")?;
+
+    let udaf = unsafe { capsule.reference::<FFI_AggregateUDF>() };
+    let udaf: ForeignAggregateUDF = udaf.try_into()?;
+
+    Ok(udaf.into())
+}
+
 /// Represents an AggregateUDF
-#[pyclass(name = "AggregateUDF", module = "datafusion", subclass)]
+#[pyclass(frozen, name = "AggregateUDF", module = "datafusion", subclass)]
 #[derive(Debug, Clone)]
 pub struct PyAggregateUDF {
     pub(crate) function: AggregateUDF,
@@ -167,7 +176,7 @@ impl PyAggregateUDF {
     #[pyo3(signature=(name, accumulator, input_type, return_type, state_type, volatility))]
     fn new(
         name: &str,
-        accumulator: PyObject,
+        accumulator: Py<PyAny>,
         input_type: PyArrowType<Vec<DataType>>,
         return_type: PyArrowType<DataType>,
         state_type: PyArrowType<Vec<DataType>>,
@@ -186,22 +195,22 @@ impl PyAggregateUDF {
 
     #[staticmethod]
     pub fn from_pycapsule(func: Bound<'_, PyAny>) -> PyDataFusionResult<Self> {
+        if func.is_instance_of::<PyCapsule>() {
+            let capsule = func.downcast::<PyCapsule>().map_err(py_datafusion_err)?;
+            let function = aggregate_udf_from_capsule(capsule)?;
+            return Ok(Self { function });
+        }
+
         if func.hasattr("__datafusion_aggregate_udf__")? {
             let capsule = func.getattr("__datafusion_aggregate_udf__")?.call0()?;
             let capsule = capsule.downcast::<PyCapsule>().map_err(py_datafusion_err)?;
-            validate_pycapsule(capsule, "datafusion_aggregate_udf")?;
-
-            let udaf = unsafe { capsule.reference::<FFI_AggregateUDF>() };
-            let udaf: ForeignAggregateUDF = udaf.try_into()?;
-
-            Ok(Self {
-                function: udaf.into(),
-            })
-        } else {
-            Err(crate::errors::PyDataFusionError::Common(
-                "__datafusion_aggregate_udf__ does not exist on AggregateUDF object.".to_string(),
-            ))
+            let function = aggregate_udf_from_capsule(capsule)?;
+            return Ok(Self { function });
         }
+
+        Err(crate::errors::PyDataFusionError::Common(
+            "__datafusion_aggregate_udf__ does not exist on AggregateUDF object.".to_string(),
+        ))
     }
 
     /// creates a new PyExpr with the call of the udf

@@ -3,13 +3,8 @@ import copy
 import itertools
 from typing import (
     Any,
-    Dict,
     Generic,
-    List,
-    Optional,
-    Type,
     TypeVar,
-    Union,
     cast,
     overload,
 )
@@ -30,15 +25,15 @@ finder = baker.ModelFinder()
 class Recipe(Generic[M]):
     _T = TypeVar("_T", bound="Recipe[M]")
 
-    def __init__(self, _model: Union[str, Type[M]], **attrs: Any) -> None:
+    def __init__(self, _model: str | type[M], **attrs: Any) -> None:
         self.attr_mapping = attrs
         self._model = _model
         # _iterator_backups will hold values of the form (backup_iterator, usable_iterator).
-        self._iterator_backups = {}  # type: Dict[str, Any]
+        self._iterator_backups = {}  # type: dict[str, Any]
 
     def _mapping(  # noqa: C901
-        self, _using: str, new_attrs: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, _using: str, new_attrs: dict[str, Any]
+    ) -> dict[str, Any]:
         _save_related = new_attrs.get("_save_related", True)
         _quantity = new_attrs.get("_quantity", 1)
         rel_fields_attrs = {k: v for k, v in new_attrs.items() if "__" in k}
@@ -96,7 +91,7 @@ class Recipe(Generic[M]):
         _create_files: bool = False,
         _using: str = "",
         _bulk_create: bool = False,
-        _save_kwargs: Optional[Dict[str, Any]] = None,
+        _save_kwargs: dict[str, Any] | None = None,
         **attrs: Any,
     ) -> M: ...
 
@@ -109,21 +104,21 @@ class Recipe(Generic[M]):
         _create_files: bool = False,
         _using: str = "",
         _bulk_create: bool = False,
-        _save_kwargs: Optional[Dict[str, Any]] = None,
+        _save_kwargs: dict[str, Any] | None = None,
         **attrs: Any,
-    ) -> List[M]: ...
+    ) -> list[M]: ...
 
     def make(
         self,
-        _quantity: Optional[int] = None,
-        make_m2m: Optional[bool] = None,
-        _refresh_after_create: Optional[bool] = None,
-        _create_files: Optional[bool] = None,
+        _quantity: int | None = None,
+        make_m2m: bool | None = None,
+        _refresh_after_create: bool | None = None,
+        _create_files: bool | None = None,
         _using: str = "",
-        _bulk_create: Optional[bool] = None,
-        _save_kwargs: Optional[Dict[str, Any]] = None,
+        _bulk_create: bool | None = None,
+        _save_kwargs: dict[str, Any] | None = None,
         **attrs: Any,
-    ) -> Union[M, List[M]]:
+    ) -> M | list[M]:
         defaults = {}
         if _quantity is not None:
             defaults["_quantity"] = _quantity
@@ -157,15 +152,15 @@ class Recipe(Generic[M]):
         _save_related: bool = False,
         _using: str = "",
         **attrs: Any,
-    ) -> List[M]: ...
+    ) -> list[M]: ...
 
     def prepare(
         self,
-        _quantity: Optional[int] = None,
+        _quantity: int | None = None,
         _save_related: bool = False,
         _using: str = "",
         **attrs: Any,
-    ) -> Union[M, List[M]]:
+    ) -> M | list[M]:
         defaults = {
             "_save_related": _save_related,
         }
@@ -212,7 +207,7 @@ class RecipeForeignKey(Generic[M]):
 
 
 def foreign_key(
-    recipe: Union[Recipe[M], str], one_to_one: bool = False
+    recipe: Recipe[M] | str, one_to_one: bool = False
 ) -> RecipeForeignKey[M]:
     """Return a `RecipeForeignKey`.
 
@@ -235,8 +230,8 @@ def foreign_key(
 
 
 class related(Generic[M]):  # FIXME
-    def __init__(self, *args: Union[str, Recipe[M]]) -> None:
-        self.related = []  # type: List[Recipe[M]]
+    def __init__(self, *args: str | Recipe[M]) -> None:
+        self.related = []  # type: list[Recipe[M]]
         for recipe in args:
             if isinstance(recipe, Recipe):
                 self.related.append(recipe)
@@ -249,6 +244,6 @@ class related(Generic[M]):  # FIXME
             else:
                 raise TypeError("Not a recipe")
 
-    def make(self) -> List[Union[M, List[M]]]:
+    def make(self, **attrs: Any) -> list[M | list[M]]:
         """Persist objects to m2m relation."""
-        return [m.make() for m in self.related]
+        return [m.make(**attrs) for m in self.related]

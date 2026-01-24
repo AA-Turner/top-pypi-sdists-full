@@ -3,6 +3,8 @@ from healpy._query_disc import boundaries
 from healpy._pixelfunc import pix2ring, isnsideok
 import numpy as np
 import unittest
+from healpy._query_disc import query_strip
+from healpy.pixelfunc import ring2nest
 
 
 class TestPixelFunc(unittest.TestCase):
@@ -174,7 +176,7 @@ class TestPixelFunc(unittest.TestCase):
                     )
 
     def test_accept_ma_allows_only_keywords(self):
-        """ Test whether the accept_ma wrapper accepts calls using only keywords."""
+        """Test whether the accept_ma wrapper accepts calls using only keywords."""
         ma = np.zeros(12 * 16 ** 2)
         try:
             ud_grade(map_in=ma, nside_out=32)
@@ -182,10 +184,106 @@ class TestPixelFunc(unittest.TestCase):
             self.fail("IndexError raised")
 
     def test_isnsideok(self):
-        """ Test the isnsideok."""
+        """Test the isnsideok."""
         self.assertTrue(isnsideok(nside=1, nest=False))
         self.assertTrue(isnsideok(nside=16, nest=True))
 
         self.assertTrue(not isnsideok(nside=-16, nest=True))
         self.assertTrue(not isnsideok(nside=-16, nest=False))
         self.assertTrue(not isnsideok(nside=13, nest=True))
+
+    def test_latauto_and_latbounce(self):
+        """Test latauto and latbounce features in lonlat2thetaphi."""
+
+        # Test array input
+        lat = [-100, -90, 0, 90, 100]
+        lon = [0, 60, 90, 0, 180]
+
+        # Test with latauto=False (default)
+        theta, phi = lonlat2thetaphi(lon, lat)
+        self.assertTrue(
+            np.allclose(
+                theta,
+                [
+                    np.pi / 2 - np.deg2rad(-100),
+                    np.pi,
+                    np.pi / 2,
+                    0,
+                    np.pi / 2 - np.deg2rad(100),
+                ],
+            )
+        )
+        self.assertTrue(
+            np.allclose(phi, np.deg2rad([lon[0], lon[1], lon[2], lon[3], lon[4]]))
+        )
+
+        # Test with latauto=True and latbounce=True (default)
+        theta, phi = lonlat2thetaphi(lon, lat, latauto=True)
+        self.assertTrue(
+            np.allclose(
+                theta,
+                [
+                    np.pi / 2 + np.deg2rad(80),
+                    np.pi,
+                    np.pi / 2,
+                    0,
+                    np.pi / 2 - np.deg2rad(80),
+                ],
+            )
+        )
+        self.assertTrue(
+            np.allclose(phi, np.deg2rad([lon[0], lon[1], lon[2], lon[3], lon[4]]))
+        )
+
+        # Test with latauto=True and latbounce=False
+        theta, phi = lonlat2thetaphi(lon, lat, latauto=True, latbounce=False)
+        self.assertTrue(
+            np.allclose(
+                theta,
+                [
+                    np.pi / 2 + np.deg2rad(80),
+                    np.pi / 2 + np.pi / 2,
+                    np.pi / 2,
+                    0,
+                    np.pi / 2 - np.deg2rad(80),
+                ],
+            )
+        )
+        self.assertTrue(np.allclose(phi, np.deg2rad([180, 60, 90, 0, 180 + 180])))
+
+        # Test scalar input
+        lat_scalar = -100
+        lon_scalar = 10
+
+        # Test with latauto=False (default)
+        theta_scalar, phi_scalar = lonlat2thetaphi(lon_scalar, lat_scalar)
+        self.assertTrue(np.allclose(theta_scalar, np.pi / 2 + np.deg2rad(100)))
+        self.assertTrue(np.allclose(phi_scalar, np.deg2rad(lon_scalar)))
+
+        # Test with latauto=True and latbounce=True (default)
+        theta_scalar, phi_scalar = lonlat2thetaphi(lon_scalar, lat_scalar, latauto=True)
+        self.assertTrue(np.allclose(theta_scalar, np.pi / 2 + np.deg2rad(80)))
+        self.assertTrue(np.allclose(phi_scalar, np.radians(lon_scalar)))
+
+        # Test with latauto=True and latbounce=False
+        theta_scalar, phi_scalar = lonlat2thetaphi(
+            lon_scalar, lat_scalar, latauto=True, latbounce=False
+        )
+        self.assertTrue(np.allclose(theta_scalar, np.pi / 2 + np.deg2rad(80)))
+        self.assertTrue(np.allclose(phi_scalar, np.deg2rad(lon_scalar) + np.pi))
+
+    def test_query_strip_nest(self):
+        # Test query_strip with nest=True, which was previously crashing
+        nside = 2
+        theta1 = 1
+        theta2 = 2
+
+        # Expected result using the workaround from the issue description
+        expected_result = ring2nest(
+            nside, query_strip(nside, theta1, theta2, nest=False)
+        )
+
+        # Actual result with nest=True
+        actual_result = query_strip(nside, theta1, theta2, nest=True)
+
+        np.testing.assert_array_equal(actual_result, expected_result)

@@ -1,20 +1,23 @@
 from concurrent.futures import as_completed, ThreadPoolExecutor
 from contextlib import contextmanager
+from errno import ECONNRESET, EPIPE, errorcode
 from functools import partial
 from logging import (DEBUG, ERROR, FileHandler, Formatter, getLogger, INFO,
                      StreamHandler, WARN)
 from os import environ, SEEK_END, utime
-from paramiko import (Agent, hostkeys, SFTPClient, SSHConfig, Transport,
-                      ConfigParseError, PasswordRequiredException,
-                      SSHException, ECDSAKey, Ed25519Key, RSAKey)
+from paramiko import (Agent, ChannelException, ConfigParseError, ECDSAKey,
+                      Ed25519Key, hostkeys, PasswordRequiredException,
+                      SFTPClient, SFTPError, SFTP_FAILURE, SFTP_NO_SUCH_FILE,
+                      SFTP_OP_UNSUPPORTED, SFTP_PERMISSION_DENIED, SSHConfig,
+                      SSHException, RSAKey, Transport)
 from pathlib import Path
 from sftpretty.exceptions import (CredentialException, ConnectionException,
                                   HostKeysException, LoggingException)
 from sftpretty.helpers import _callback, drivedrop, hash, localtree, retry
-from socket import gaierror
+from socket import gaierror, timeout
 from stat import S_ISDIR, S_ISREG
 from tempfile import mkstemp
-from threading import get_ident, local as cache
+from threading import local as cache
 from uuid import uuid4
 
 
@@ -191,7 +194,7 @@ class Connection(object):
                  port=22, private_key=None, private_key_pass=None,
                  timeout=None, username=None):
         self._cache = cache()
-        self._channels = []
+        self._channels = {}
         self._cnopts = cnopts or CnOpts()
         self._config = self._cnopts.get_config(host)
         self._default_path = default_path
@@ -294,34 +297,127 @@ class Connection(object):
     @contextmanager
     def _sftp_channel(self):
         '''Establish new SFTP channel.'''
-        _channel = getattr(self._cache, 'channel', None)
+        channel = None
+        fatal = False
 
         try:
-            if _channel is None or _channel.get_channel().closed:
-                _channel = SFTPClient.from_transport(self._transport)
-                channel = _channel.get_channel()
+            channel_name, data = next(
+                (key, value)
+                for key, value in self._channels.items()
+                if not value['busy']
+            )
+            meta = data['meta']
+            if not meta.closed:
+                channel = data['channel']
+                self._channels[channel_name]['busy'] = True
+                log.debug(f'Cached Channel: [{channel_name}]')
+        except StopIteration:
+            pass
+
+        try:
+            if channel is None:
+                channel = SFTPClient.from_transport(self._transport)
                 channel_name = uuid4().hex
-                channel.set_name(channel_name)
-                channel.settimeout(self._timeout)
+                meta = channel.get_channel()
+                meta.set_name(channel_name)
                 log.debug(f'Channel Name: [{channel_name}]')
+                self._channels[channel_name] = {
+                    'busy': True, 'channel': channel, 'meta': meta
+                }
 
-                if self._default_path is not None:
-                    _channel.chdir(drivedrop(self._default_path))
-                    log.info(('Current Working Directory: '
-                             f'[{self._default_path}]'))
+            meta.settimeout(self._timeout)
+            self._cache.__dict__.setdefault('cwd', self._default_path)
 
-                self._cache.channel = _channel
-                self._channels.append(_channel)
-                log.debug(f'Thread Cached: [{get_ident()}]')
+            if self._cache.cwd:
+                channel.chdir(drivedrop(self._cache.cwd))
             else:
-                channel = _channel.get_channel()
-                channel.settimeout(self._timeout)
+                self._cache.cwd = '/'
+            log.info(f'Current Working Directory: [{self._cache.cwd}]')
 
-            yield _channel
-        except Exception as err:
-            _channel.close()
-            self._cache.channel = None
+            yield channel
+        except timeout:
+            fatal = True
+            _message = (
+                f'Channel [{channel_name}] operation timed out after '
+                f'{self._timeout}s while accessing: [{self._cache.cwd}]'
+            )
+            log.error(_message)
+            raise TimeoutError(_message)
+        except SFTPError as err:
+            _message_map = {
+                SFTP_FAILURE: (
+                    'A generic failure occurred on the SFTP server for path: '
+                    f'[{self._cache.cwd}]'
+                ),
+                SFTP_NO_SUCH_FILE: (
+                    f'Directory or file does not exist: [{self._cache.cwd}]'
+                ),
+                SFTP_OP_UNSUPPORTED: (
+                    'Operation (e.g., chdir) unsupported by server for path: '
+                    f'[{self._cache.cwd}]'
+                ),
+                SFTP_PERMISSION_DENIED: (
+                    f'Permission denied for: [{self._cache.cwd}]'
+                ),
+            }
+            _message = _message_map.get(
+                err.errno,
+                ('Unhandled SFTP error on directory change to '
+                 f'[{self._cache.cwd}] (Code {err.errno}): {err}')
+            )
+            log.error(_message)
             raise err
+        except ChannelException as err:
+            fatal = True
+            log.error(f'Channel [{channel_name}] is invalid or closed: {err}')
+            raise err
+        except SSHException as err:
+            fatal = True
+            log.error(
+                (f'Protocol error occurred during channel [{channel_name}] '
+                 f'setup: {err}')
+            )
+            raise err
+        except OSError as err:
+            fatal = True
+            _message = (f'Channel [{channel_name}] experienced an OS-level '
+                        f'network error (Code: {err.errno} - '
+                        f'{errorcode.get(err.errno)}): {err}')
+
+            if err.errno == ECONNRESET:
+                _message = (
+                    f'Channel [{channel_name}] connection forcefully reset by '
+                    f'the remote host: {err}'
+                )
+            elif err.errno == EPIPE:
+                _message = (
+                    f'Channel [{channel_name}] connection was broken '
+                    f'(broken pipe): {err}'
+                )
+
+            log.error(_message)
+            raise err
+        except Exception as err:
+            err_type = type(err).__name__
+            fatal = True
+            log.error(
+                (f'An unexpected error of type [{err_type}] occurred in '
+                 f'channel [{channel_name}]: {err}')
+            )
+            raise err
+        finally:
+            if fatal and channel:
+                channel.close()
+                log.debug(
+                    (f'Closed compromised channel [{channel_name}] due to '
+                     'fatal error!')
+                )
+                self._channels.pop(channel_name, None)
+            elif channel and not meta.closed:
+                log.debug(
+                    f'Recycling channel [{channel_name}] back to the pool.'
+                )
+                self._channels[channel_name]['busy'] = False
 
     def _start_transport(self, host, port):
         '''Start the transport and set connection options if specified.'''
@@ -547,6 +643,7 @@ class Connection(object):
 
         :raises: Any exception raised by operations will be passed through.
         '''
+        remotedir = Path(self._cache.cwd).joinpath(remotedir).as_posix()
         filelist = self.listdir_attr(remotedir)
 
         if not Path(localdir).is_dir():
@@ -650,10 +747,11 @@ class Connection(object):
 
         :raises: Any exception raised by operations will be passed through.
         '''
-        self.chdir(remotedir)
+        with self._sftp_channel():
+            remotedir = Path(self._cache.cwd).joinpath(remotedir).as_posix()
 
         lwd = Path(localdir).absolute().as_posix()
-        rwd = self._default_path
+        rwd = remotedir
 
         tree = {}
         tree[rwd] = [(rwd, lwd)]
@@ -863,7 +961,7 @@ class Connection(object):
         '''
         localdir = Path(localdir)
 
-        self.mkdir_p(Path(remotedir).joinpath(localdir.stem).as_posix())
+        self.mkdir_p(Path(remotedir).joinpath(localdir.parts[-1]).as_posix())
 
         paths = [
             (localpath.as_posix(),
@@ -1094,7 +1192,7 @@ class Connection(object):
         '''
         with self._sftp_channel() as channel:
             channel.chdir(drivedrop(remotepath))
-            self._default_path = channel.normalize('.')
+            self._cache.cwd = drivedrop(channel.normalize('.'))
 
     def chmod(self, remotepath, mode=700):
         '''Set the permission mode of a remotepath, where mode is an octal.
@@ -1137,15 +1235,15 @@ class Connection(object):
         '''Terminate transport connection and clean up the bits.'''
         try:
             # Close cached channels
-            for channel in self._channels:
-                if not channel.closed:
-                    channel.close()
+            for channel_name, data in self._channels.items():
+                if not data['channel'].sock.closed:
+                    data['channel'].close()
+
             # Close the transport.
             if self._transport and self._transport.is_active():
                 self._transport.close()
 
-            self._cache = cache()
-            self._channels = []
+            self._channels = {}
             self._transport = None
 
             # Clean up any loggers
@@ -1182,7 +1280,7 @@ class Connection(object):
         :returns: (str) Remote current working directory. None, if not set.
         '''
         with self._sftp_channel() as channel:
-            cwd = channel.getcwd()
+            cwd = drivedrop(channel.getcwd())
 
         return cwd
 
@@ -1247,7 +1345,7 @@ class Connection(object):
         return directory
 
     def listdir_attr(self, remotepath='.'):
-        '''Return a non-sorted list of SFTPAttribute objects for the remote
+        '''Return a sorted list of SFTPAttribute objects for the remote
         directory contents. Will not include the special entries '.' and '..'.
 
         The returned SFTPAttributes objects will each have an additional field:
@@ -1311,11 +1409,11 @@ class Connection(object):
                                'already exists.'))
             else:
                 parent = Path(remotedir).parent.as_posix()
-                stem = Path(remotedir).stem
+                stem = Path(remotedir).parts[-1]
                 if parent != remotedir:
                     if not self.isdir(parent):
                         self.mkdir_p(parent, mode=mode)
-                if stem:
+                if stem and stem != Path(remotedir).root:
                     self.mkdir(remotedir, mode=mode)
         except Exception as err:
             raise err
@@ -1334,7 +1432,7 @@ class Connection(object):
         with self._sftp_channel() as channel:
             expanded_path = channel.normalize(drivedrop(remotepath))
 
-        return expanded_path
+        return drivedrop(expanded_path)
 
     def open(self, remotefile, bufsize=-1, mode='r'):
         '''Open a file on the remote server.
@@ -1364,7 +1462,7 @@ class Connection(object):
             remotelink = drivedrop(remotelink)
             link_destination = channel.normalize(channel.readlink(remotelink))
 
-        return link_destination
+        return drivedrop(link_destination)
 
     def remotetree(self, container, remotedir, localdir, recurse=True):
         '''Recursively map remote directory tree to a dictionary container.
@@ -1389,7 +1487,7 @@ class Connection(object):
                     remote = Path(remotedir).joinpath(
                         attribute.filename).as_posix()
                     local = Path(localdir).joinpath(
-                        Path(remote).stem).as_posix()
+                        Path(remote).parts[-1]).as_posix()
                     if remotedir in container.keys():
                         container[remotedir].append((remote, local))
                     else:
@@ -1518,9 +1616,9 @@ class Connection(object):
         :returns: (str) Current working directory.
         '''
         with self._sftp_channel() as channel:
-            pwd = channel.normalize('.')
+            self._cache.cwd = drivedrop(channel.normalize('.'))
 
-        return pwd
+        return self._cache.cwd
 
     @property
     def remote_server_key(self):

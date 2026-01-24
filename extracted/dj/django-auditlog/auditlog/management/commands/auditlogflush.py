@@ -3,7 +3,9 @@ import datetime
 from django.core.management.base import BaseCommand
 from django.db import connection
 
-from auditlog.models import LogEntry
+from auditlog import get_logentry_model
+
+LogEntry = get_logentry_model()
 
 
 class Command(BaseCommand):
@@ -83,7 +85,7 @@ class Command(BaseCommand):
 
 
 class TruncateQuery:
-    SUPPORTED_VENDORS = ("postgresql", "mysql", "sqlite", "oracle", "microsoft")
+    SUPPORTED_VENDORS = ("postgresql", "mysql", "oracle", "microsoft")
 
     @classmethod
     def support_truncate_statement(cls, database_vendor) -> bool:

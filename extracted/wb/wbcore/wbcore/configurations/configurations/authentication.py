@@ -24,7 +24,7 @@ class Authentication:
     JWT_COOKIE_KEY = values.Value("JWT-access", environ_prefix=None)
 
     @property
-    def SIMPLE_JWT(self):
+    def SIMPLE_JWT(self):  # noqa
         return {
             "ACCESS_TOKEN_LIFETIME": timedelta(seconds=self.JWT_ACCESS_TOKEN_LIFETIME),
             "REFRESH_TOKEN_LIFETIME": timedelta(seconds=self.JWT_REFRESH_TOKEN_LIFETIME),

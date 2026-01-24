@@ -26,32 +26,38 @@ class TestStatelessFileSharing(SlixTest):
 
             f.seek(0)
             h = b64encode(sha256(f.read()).digest()).decode()
-            sfs = self.xmpp["xep_0447"].get_sfs(
-                Path(f.name),
-                ["https://xxx.com"],
-                media_type="MEDIA",
-                desc="DESCRIPTION",
-            )
 
-            self.check(
-                sfs,
-                f"""
-                  <file-sharing xmlns='urn:xmpp:sfs:0' disposition='inline'>
-                    <file xmlns='urn:xmpp:file:metadata:0'>
-                      <media-type>MEDIA</media-type>
-                      <name>{Path(f.name).name}</name>
-                      <size>{size}</size>
-                      <hash xmlns='urn:xmpp:hashes:2' algo='sha-256'>{h}</hash>
-                      <desc>DESCRIPTION</desc>
-                      <date>{format_datetime(datetime.fromtimestamp(Path(f.name).stat().st_mtime))}</date>
-                    </file>
-                    <sources>
-                      <url-data xmlns='http://jabber.org/protocol/url-data'
-                                target='https://xxx.com' />
-                    </sources>
-                  </file-sharing>
-                """,
-                use_values=False,
-            )
+            for disposition in None, "inline", "attachment":
+                sfs = self.xmpp["xep_0447"].get_sfs(
+                    Path(f.name),
+                    ["https://xxx.com"],
+                    media_type="MEDIA",
+                    desc="DESCRIPTION",
+                    disposition=disposition,
+                )
+                if disposition:
+                    el = f"disposition='{disposition}'"
+                else:
+                    el = ""
+                self.check(
+                    sfs,
+                    f"""
+                      <file-sharing xmlns='urn:xmpp:sfs:0' {el}>
+                        <file xmlns='urn:xmpp:file:metadata:0'>
+                          <media-type>MEDIA</media-type>
+                          <name>{Path(f.name).name}</name>
+                          <size>{size}</size>
+                          <hash xmlns='urn:xmpp:hashes:2' algo='sha-256'>{h}</hash>
+                          <desc>DESCRIPTION</desc>
+                          <date>{format_datetime(datetime.fromtimestamp(Path(f.name).stat().st_mtime))}</date>
+                        </file>
+                        <sources>
+                          <url-data xmlns='http://jabber.org/protocol/url-data'
+                                    target='https://xxx.com' />
+                        </sources>
+                      </file-sharing>
+                    """,
+                    use_values=False,
+                )
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestStatelessFileSharing)

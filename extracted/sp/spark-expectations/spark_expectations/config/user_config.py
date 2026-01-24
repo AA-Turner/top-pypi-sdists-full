@@ -4,6 +4,7 @@ from dataclasses import dataclass
 @dataclass
 class Constants:
     # declare const user config variables for email notification
+    is_serverless = "spark.expectations.is.serverless"
     se_notifications_enable_smtp_server_auth = "spark.expectations.notifications.email.smtp.server.auth"
     se_notifications_smtp_password = "spark.expectations.notifications.email.smtp.password"
     se_notifications_smtp_creds_dict = "spark.expectations.notifications.smtp.creds.dict"
@@ -49,6 +50,12 @@ class Constants:
     se_notifications_zoom_webhook_url = "spark.expectations.notifications.zoom.webhook.url"
     se_notifications_zoom_token = "spark.expectations.notifications.zoom.token"
 
+    # declare const user configs for pagerduty incidents
+    se_notifications_enable_pagerduty = "spark.expectations.notifications.pagerduty.enabled"
+    # For Pagerduty Services, your integration key is the routing key when making calls to the Events API v2.
+    se_notifications_pagerduty_integration_key = "spark.expectations.notifications.pagerduty.integration.key"
+    se_notifications_pagerduty_webhook_url = "spark.expectations.notifications.pagerduty.webhook.url"
+
     se_notifications_on_start = "spark.expectations.notifications.on.start"
     se_notifications_on_completion = "spark.expectations.notifications.on.completion"
     se_notifications_on_fail = "spark.expectations.notifications.on.fail"
@@ -59,10 +66,14 @@ class Constants:
         "spark.expectations.notifications.on.rules.action.if.failed.set.ignore"
     )
     se_notifications_on_error_drop_threshold = "spark.expectations.notifications.error.drop.threshold"
+    se_notifications_min_priority_slack = "spark.expectations.notifications.slack.min.priority"
 
     se_enable_streaming = "se.streaming.enable"
     se_enable_error_table = "se.enable.error.table"
     se_dq_rules_params = "se.dq.rules.params"
+    se_streaming_stats_kafka_custom_config_enable = "se.streaming.stats.kafka.custom.config.enable"
+    se_streaming_stats_topic_name = "se.streaming.stats.topic.name"
+    se_streaming_stats_kafka_bootstrap_server = "se.streaming.stats.kafka.bootstrap.server"
 
     secret_type = "se.streaming.secret.type"
 

@@ -48,11 +48,7 @@ except ImportError:
 def create_connection(interface):
     session = Session()
     session.interface = interface
-    ipmi = Ipmi()
-    ipmi.interface = interface
-    ipmi.session = session
-    ipmi.requester = NullRequester()
-    return ipmi
+    return Ipmi(interface=interface, session=session)
 
 
 class Requester(object):
@@ -164,13 +160,40 @@ class Ipmi(bmc.Bmc, chassis.Chassis, dcmi.Dcmi, fru.Fru, picmg.Picmg, hpm.Hpm,
            sdr.Sdr, sensor.Sensor, event.Event, sel.Sel, lan.Lan,
            messaging.Messaging):
 
-    def __init__(self):
-        self._interface = None
-        self._session = None
-        self._target = None
+    def __init__(self, interface=None, target=None, session=Session(),
+                 requester=NullRequester()):
+        self._interface = interface
+
+        # we need a session, set if not passed
+        if session is None:
+            session = Session()
+        self._session = session
+        # session needs an interface
+        self._session.interface = interface
+
+        self._target = target
+        self.requester = requester
 
         for base in Ipmi.__bases__:
             base.__init__(self)
+
+    def __enter__(self):
+        self.open()
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        self.close()
+        return False
+
+    def open(self):
+        self.interface.open()
+        if self.session is not None:
+            self.session.establish()
+
+    def close(self):
+        if self.session is not None:
+            self.session.close()
+        self.interface.close()
 
     def is_ipmc_accessible(self):
         return self.interface.is_ipmc_accessible(self.target)

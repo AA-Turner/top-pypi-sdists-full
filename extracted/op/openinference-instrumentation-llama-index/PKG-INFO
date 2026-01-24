@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-llama-index
-Version: 4.3.5
+Version: 4.3.9
 Summary: OpenInference LlamaIndex Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-llama-index
 Author-email: OpenInference Authors <oss@arize.com>
@@ -16,7 +16,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <3.14,>=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <3.15,>=3.10
 Requires-Dist: openinference-instrumentation>=0.1.27
 Requires-Dist: openinference-semantic-conventions>=0.1.17
 Requires-Dist: opentelemetry-api
@@ -25,7 +26,7 @@ Requires-Dist: opentelemetry-semantic-conventions
 Requires-Dist: typing-extensions
 Requires-Dist: wrapt
 Provides-Extra: instruments
-Requires-Dist: llama-index-core>=0.12.3; extra == 'instruments'
+Requires-Dist: llama-index-core>=0.13.1; extra == 'instruments'
 Requires-Dist: llama-index-multi-modal-llms-openai>=0.1.7; extra == 'instruments'
 Description-Content-Type: text/markdown
 

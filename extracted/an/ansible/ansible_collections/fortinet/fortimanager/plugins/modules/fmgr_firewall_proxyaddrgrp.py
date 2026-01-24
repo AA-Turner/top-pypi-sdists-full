@@ -16,7 +16,6 @@ short_description: Web proxy address group configuration.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -176,7 +178,7 @@ EXAMPLES = '''
           selector: "firewall_proxyaddrgrp"
           params:
             adom: "ansible"
-            proxy-addrgrp: "your_value"
+            proxy_addrgrp: "your_value"
 '''
 
 RETURN = '''
@@ -233,6 +235,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_proxyaddrgrp': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -249,7 +252,7 @@ def main():
                 'type': {'choices': ['src', 'dst'], 'type': 'str'},
                 'uuid': {'type': 'str'},
                 'visibility': {'v_range': [['6.0.0', '7.6.2']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'tags': {'v_range': [['6.2.0', '6.4.15']], 'type': 'str'},
+                'tags': {'v_range': [['6.2.0', '6.4.15'], ['7.4.8', '7.4.8']], 'type': 'str'},
                 '_image-base64': {'v_range': [['6.2.2', '']], 'type': 'str'}
             }
         }

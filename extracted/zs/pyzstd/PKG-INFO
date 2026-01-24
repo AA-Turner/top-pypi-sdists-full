@@ -1,29 +1,29 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyzstd
-Version: 0.17.0
-Summary: Python bindings to Zstandard (zstd) compression library.
-Home-page: https://github.com/Rogdham/pyzstd
-Author: Ma Lin
-Author-email: malincns@163.com
-Maintainer: Rogdham
-Maintainer-email: contact@rogdham.net
-License: BSD-3-Clause
-Keywords: zstandard zstd zst compress decompress tar file seekable format
+Version: 0.19.1
+Summary: Support for Zstandard (zstd) compression
+Project-URL: Homepage, https://github.com/Rogdham/pyzstd
+Project-URL: Documentation, https://pyzstd.readthedocs.io/
+Project-URL: Source, https://github.com/Rogdham/pyzstd
+Author-email: Ma Lin <malincns@163.com>, Rogdham <contact@rogdham.net>
+Maintainer-email: Rogdham <contact@rogdham.net>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+Keywords: compress,decompress,file,seek,seekable,tar,zst,zstandard,zstd
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: Topic :: System :: Archiving :: Compression
 Classifier: License :: OSI Approved :: BSD License
-Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.5
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: System :: Archiving :: Compression
+Requires-Python: >=3.10
+Requires-Dist: backports-zstd>=1.0.0; python_version < '3.14'
+Requires-Dist: typing-extensions>=4.13.2; python_version < '3.13'
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: typing-extensions>=4.13.2; python_version < "3.13"
 
 <div align="center" size="15px">
 
@@ -37,20 +37,28 @@ Python bindings to Zstandard (zstd) compression library
 
 ---
 
-[📖 Documentation](https://pyzstd.readthedocs.io/)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[📃 Changelog](./CHANGELOG.md)
+[📖 Documentation][doc]&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[📃 Changelog](./CHANGELOG.md)
 
 </div>
 
 ---
 
-Pyzstd module provides classes and functions for compressing and decompressing data, using Facebook's [Zstandard](http://www.zstd.net) (or zstd as short name) algorithm.
+The `pyzstd` module provides Python support for [Zstandard](http://www.zstd.net), using
+an API style similar to the `bz2`, `lzma`, and `zlib` modules.
 
-The API style is similar to Python's bz2/lzma/zlib modules.
+> [!WARNING]
+>
+> Zstandard is now natively supported in Python’s standard library via the
+> [`compression.zstd` module][compression.zstd]. For older Python versions, use the
+> [`backports.zstd` library][backports.zstd] as a fallback.
+>
+> We recommend new projects to use the standard library, and existing ones to consider
+> migrating.
+>
+> `pyzstd` internally uses `compression.zstd` since version 0.19.0.
+>
+> See [`pyzstd`'s documentation][doc] for details and a migration guide.
 
-- Includes zstd v1.5.6 source code
-- Can also dynamically link to zstd library provided by system, see [this note](https://pyzstd.readthedocs.io/#build-pyzstd).
-- Has a CFFI implementation that can work with PyPy
-- Support sub-interpreter on CPython 3.12+
-- `ZstdFile` class has C language level performance
-- Supports [Zstandard Seekable Format](https://github.com/facebook/zstd/blob/dev/contrib/seekable_format/zstd_seekable_compression_format.md)
-- Has a command line interface: `python -m pyzstd --help`
+[doc]: https://pyzstd.readthedocs.io/
+[compression.zstd]: https://docs.python.org/3.14/library/compression.zstd.html
+[backports.zstd]: https://github.com/Rogdham/backports.zstd

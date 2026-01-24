@@ -10,11 +10,12 @@ import pytest
 from telnyx import Telnyx, AsyncTelnyx
 from tests.utils import assert_matches_type
 from telnyx.types import (
-    DynamicEmergencyAddressListResponse,
+    DynamicEmergencyAddress,
     DynamicEmergencyAddressCreateResponse,
     DynamicEmergencyAddressDeleteResponse,
     DynamicEmergencyAddressRetrieveResponse,
 )
+from telnyx.pagination import SyncDefaultPagination, AsyncDefaultPagination
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -28,7 +29,7 @@ class TestDynamicEmergencyAddresses:
         dynamic_emergency_address = client.dynamic_emergency_addresses.create(
             administrative_area="TX",
             country_code="US",
-            house_number="house_number",
+            house_number="600",
             locality="Austin",
             postal_code="78701",
             street_name="Congress",
@@ -41,7 +42,7 @@ class TestDynamicEmergencyAddresses:
         dynamic_emergency_address = client.dynamic_emergency_addresses.create(
             administrative_area="TX",
             country_code="US",
-            house_number="house_number",
+            house_number="600",
             locality="Austin",
             postal_code="78701",
             street_name="Congress",
@@ -59,7 +60,7 @@ class TestDynamicEmergencyAddresses:
         response = client.dynamic_emergency_addresses.with_raw_response.create(
             administrative_area="TX",
             country_code="US",
-            house_number="house_number",
+            house_number="600",
             locality="Austin",
             postal_code="78701",
             street_name="Congress",
@@ -76,7 +77,7 @@ class TestDynamicEmergencyAddresses:
         with client.dynamic_emergency_addresses.with_streaming_response.create(
             administrative_area="TX",
             country_code="US",
-            house_number="house_number",
+            house_number="600",
             locality="Austin",
             postal_code="78701",
             street_name="Congress",
@@ -135,7 +136,9 @@ class TestDynamicEmergencyAddresses:
     @parametrize
     def test_method_list(self, client: Telnyx) -> None:
         dynamic_emergency_address = client.dynamic_emergency_addresses.list()
-        assert_matches_type(DynamicEmergencyAddressListResponse, dynamic_emergency_address, path=["response"])
+        assert_matches_type(
+            SyncDefaultPagination[DynamicEmergencyAddress], dynamic_emergency_address, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -150,7 +153,9 @@ class TestDynamicEmergencyAddresses:
                 "size": 1,
             },
         )
-        assert_matches_type(DynamicEmergencyAddressListResponse, dynamic_emergency_address, path=["response"])
+        assert_matches_type(
+            SyncDefaultPagination[DynamicEmergencyAddress], dynamic_emergency_address, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -160,7 +165,9 @@ class TestDynamicEmergencyAddresses:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         dynamic_emergency_address = response.parse()
-        assert_matches_type(DynamicEmergencyAddressListResponse, dynamic_emergency_address, path=["response"])
+        assert_matches_type(
+            SyncDefaultPagination[DynamicEmergencyAddress], dynamic_emergency_address, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -170,7 +177,9 @@ class TestDynamicEmergencyAddresses:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             dynamic_emergency_address = response.parse()
-            assert_matches_type(DynamicEmergencyAddressListResponse, dynamic_emergency_address, path=["response"])
+            assert_matches_type(
+                SyncDefaultPagination[DynamicEmergencyAddress], dynamic_emergency_address, path=["response"]
+            )
 
         assert cast(Any, response.is_closed) is True
 
@@ -228,7 +237,7 @@ class TestAsyncDynamicEmergencyAddresses:
         dynamic_emergency_address = await async_client.dynamic_emergency_addresses.create(
             administrative_area="TX",
             country_code="US",
-            house_number="house_number",
+            house_number="600",
             locality="Austin",
             postal_code="78701",
             street_name="Congress",
@@ -241,7 +250,7 @@ class TestAsyncDynamicEmergencyAddresses:
         dynamic_emergency_address = await async_client.dynamic_emergency_addresses.create(
             administrative_area="TX",
             country_code="US",
-            house_number="house_number",
+            house_number="600",
             locality="Austin",
             postal_code="78701",
             street_name="Congress",
@@ -259,7 +268,7 @@ class TestAsyncDynamicEmergencyAddresses:
         response = await async_client.dynamic_emergency_addresses.with_raw_response.create(
             administrative_area="TX",
             country_code="US",
-            house_number="house_number",
+            house_number="600",
             locality="Austin",
             postal_code="78701",
             street_name="Congress",
@@ -276,7 +285,7 @@ class TestAsyncDynamicEmergencyAddresses:
         async with async_client.dynamic_emergency_addresses.with_streaming_response.create(
             administrative_area="TX",
             country_code="US",
-            house_number="house_number",
+            house_number="600",
             locality="Austin",
             postal_code="78701",
             street_name="Congress",
@@ -335,7 +344,9 @@ class TestAsyncDynamicEmergencyAddresses:
     @parametrize
     async def test_method_list(self, async_client: AsyncTelnyx) -> None:
         dynamic_emergency_address = await async_client.dynamic_emergency_addresses.list()
-        assert_matches_type(DynamicEmergencyAddressListResponse, dynamic_emergency_address, path=["response"])
+        assert_matches_type(
+            AsyncDefaultPagination[DynamicEmergencyAddress], dynamic_emergency_address, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -350,7 +361,9 @@ class TestAsyncDynamicEmergencyAddresses:
                 "size": 1,
             },
         )
-        assert_matches_type(DynamicEmergencyAddressListResponse, dynamic_emergency_address, path=["response"])
+        assert_matches_type(
+            AsyncDefaultPagination[DynamicEmergencyAddress], dynamic_emergency_address, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -360,7 +373,9 @@ class TestAsyncDynamicEmergencyAddresses:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         dynamic_emergency_address = await response.parse()
-        assert_matches_type(DynamicEmergencyAddressListResponse, dynamic_emergency_address, path=["response"])
+        assert_matches_type(
+            AsyncDefaultPagination[DynamicEmergencyAddress], dynamic_emergency_address, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -370,7 +385,9 @@ class TestAsyncDynamicEmergencyAddresses:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             dynamic_emergency_address = await response.parse()
-            assert_matches_type(DynamicEmergencyAddressListResponse, dynamic_emergency_address, path=["response"])
+            assert_matches_type(
+                AsyncDefaultPagination[DynamicEmergencyAddress], dynamic_emergency_address, path=["response"]
+            )
 
         assert cast(Any, response.is_closed) is True
 

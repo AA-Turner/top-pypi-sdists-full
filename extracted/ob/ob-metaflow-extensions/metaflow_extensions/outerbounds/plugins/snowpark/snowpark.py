@@ -1,9 +1,11 @@
 import os
+import re
 import shlex
 import atexit
 import json
 import math
 import time
+import hashlib
 
 from metaflow import util
 
@@ -57,21 +59,29 @@ class Snowpark(object):
         atexit.register(lambda: self.job.kill() if hasattr(self, "job") else None)
 
     def _job_name(self, user, flow_name, run_id, step_name, task_id, retry_count):
-        return "{user}-{flow_name}-{run_id}-{step_name}-{task_id}-{retry_count}".format(
-            user=user,
-            flow_name=flow_name,
-            run_id=str(run_id) if run_id is not None else "",
-            step_name=step_name,
-            task_id=str(task_id) if task_id is not None else "",
-            retry_count=str(retry_count) if retry_count is not None else "",
+        unique_str = (
+            "{user}-{flow_name}-{run_id}-{step_name}-{task_id}-{retry_count}".format(
+                user=user,
+                flow_name=flow_name,
+                run_id=str(run_id) if run_id is not None else "",
+                step_name=step_name,
+                task_id=str(task_id) if task_id is not None else "",
+                retry_count=str(retry_count) if retry_count is not None else "",
+            )
         )
+        unique_hash = hashlib.md5(unique_str.encode("utf-8")).hexdigest()[:8]
+        raw_prefix = f"{flow_name}-{step_name}"
+        safe_prefix = re.sub(r"[^a-z0-9]", "-", raw_prefix.lower())
+        safe_prefix = safe_prefix[:54]
+        safe_prefix = safe_prefix.lstrip("-")
+        return f"{safe_prefix}-{unique_hash}"
 
     def _command(self, environment, code_package_url, step_name, step_cmds, task_spec):
         mflog_expr = export_mflog_env_vars(
             datastore_type=self.datastore.TYPE,
             stdout_path=STDOUT_PATH,
             stderr_path=STDERR_PATH,
-            **task_spec
+            **task_spec,
         )
         init_cmds = environment.get_package_commands(
             code_package_url, self.datastore.TYPE

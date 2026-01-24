@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import collections
 import re
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, Union
+from typing import Any, Callable, TypeVar
 
 from bigtree.node import node
+from bigtree.tree.export._stdout import get_attr
 from bigtree.tree.export.stdout import yield_tree
 from bigtree.utils import assertions, constants, exceptions
 
@@ -44,15 +45,15 @@ T = TypeVar("T", bound=node.Node)
 
 @exceptions.optional_dependencies_image("pydot")
 def tree_to_dot(
-    tree: Union[T, List[T]],
+    tree: T | list[T],
     directed: bool = True,
     rankdir: str = "TB",
-    bg_colour: Optional[str] = None,
-    node_colour: Optional[str] = None,
-    node_shape: Optional[str] = None,
-    edge_colour: Optional[str] = None,
-    node_attr: Callable[[T], Dict[str, Any]] | Optional[str] = None,
-    edge_attr: Callable[[T], Dict[str, Any]] | Optional[str] = None,
+    bg_colour: str | None = None,
+    node_colour: str | None = None,
+    node_shape: str | None = None,
+    edge_colour: str | None = None,
+    node_attr: Callable[[T], dict[str, Any]] | str | None = None,
+    edge_attr: Callable[[T], dict[str, Any]] | str | None = None,
 ) -> pydot.Dot:
     r"""Export tree(s) to pydot.Dot object. Object can be converted to other format, such as png, dot file or dot string.
     Dot string can be imported to work with networkx.
@@ -60,13 +61,14 @@ def tree_to_dot(
     Possible node attributes include style, fillcolor, shape.
 
     Examples:
-        >>> from bigtree import Node, tree_to_dot
+        >>> from bigtree import Node, Tree
         >>> root = Node("a", age=90)
         >>> b = Node("b", age=65, parent=root)
         >>> c = Node("c", age=60, parent=root)
         >>> d = Node("d", age=40, parent=b)
         >>> e = Node("e", age=35, parent=b)
-        >>> graph = tree_to_dot(root)
+        >>> tree = Tree(root)
+        >>> graph = tree.to_dot(root)
 
         Display image directly without saving (requires IPython)
 
@@ -113,7 +115,8 @@ def tree_to_dot(
         >>> c = CustomNode("c", edge_label="child", parent=root)
         >>> d = CustomNode("d", node_shape="square", edge_label="child", parent=b)
         >>> e = CustomNode("e", node_shape="square", edge_label="child", parent=b)
-        >>> graph = tree_to_dot(root, node_colour="gold", node_shape="diamond", node_attr="node_attr", edge_attr="edge_attr")
+        >>> tree = Tree(root)
+        >>> graph = tree.to_dot(node_colour="gold", node_shape="diamond", node_attr="node_attr", edge_attr="edge_attr")
         >>> graph.write_png("assets/export_tree_dot.png")
 
         ![Export to dot](https://github.com/kayjan/bigtree/raw/master/assets/export_tree_dot.png)
@@ -131,7 +134,8 @@ def tree_to_dot(
         >>> c = CustomNode("c", parent=root)
         >>> d = CustomNode("d", parent=b)
         >>> e = CustomNode("e", parent=b)
-        >>> graph = tree_to_dot(root, node_colour="gold", node_attr=get_node_attribute)
+        >>> tree = Tree(root)
+        >>> graph = tree.to_dot(node_colour="gold", node_attr=get_node_attribute)
         >>> graph.write_png("assets/export_tree_dot_callable.png")
 
         ![Export to dot (callable)](https://github.com/kayjan/bigtree/raw/master/assets/export_tree_dot_callable.png)
@@ -173,12 +177,12 @@ def tree_to_dot(
     for _tree in tree:
         assertions.assert_tree_type(_tree, node.Node, "Node")
 
-        name_dict: Dict[str, List[str]] = collections.defaultdict(list)
+        name_dict: dict[str, list[str]] = collections.defaultdict(list)
 
         def _recursive_append(
-            parent_name: Optional[str],
+            parent_name: str | None,
             child_node: T,
-            _name_dict: Dict[str, List[str]] = name_dict,
+            _name_dict: dict[str, list[str]],
         ) -> None:
             """Recursively iterate through node and its children to export to dot by creating node and edges.
 
@@ -215,14 +219,14 @@ def tree_to_dot(
                 _graph.add_edge(edge)
             for _child in child_node.children:
                 if _child:
-                    _recursive_append(child_name, _child)
+                    _recursive_append(child_name, _child, _name_dict)
 
-        _recursive_append(None, _tree.root)
+        _recursive_append(None, _tree.root, name_dict)
     return _graph
 
 
 def _load_font(
-    font_family: Optional[str] = None, font_size: int = 12
+    font_family: str | None = None, font_size: int = 12
 ) -> ImageFont.truetype:
     if not font_family:
         from urllib.request import urlopen
@@ -243,18 +247,18 @@ def tree_to_pillow_graph(
     tree: T,
     node_content: str = "{node_name}",
     *,
-    margin: Optional[Dict[str, int]] = None,
-    height_buffer: Union[int, float] = 20,
-    width_buffer: Union[int, float] = 10,
-    font_family: Optional[str] = None,
+    margin: dict[str, int] | None = None,
+    height_buffer: int | float = 20,
+    width_buffer: int | float = 10,
+    font_family: str | None = None,
     font_size: int = 12,
-    font_colour: Union[Tuple[int, int, int], str] = "black",
+    font_colour: tuple[int, int, int] | str = "black",
     text_align: str = "center",
-    bg_colour: Union[Tuple[int, int, int], str] = "white",
-    rect_margin: Optional[Dict[str, int]] = None,
-    rect_fill: Union[Tuple[int, int, int], str, mpl.colors.Colormap] = "white",
-    rect_cmap_attr: Optional[str] = None,
-    rect_outline: Union[Tuple[int, int, int], str] = "black",
+    bg_colour: tuple[int, int, int] | str = "white",
+    rect_margin: dict[str, int] | None = None,
+    rect_fill: tuple[int, int, int] | str | mpl.colors.Colormap = "white",
+    rect_cmap_attr: str | None = None,
+    rect_outline: tuple[int, int, int] | str = "black",
     rect_width: int = 1,
     **kwargs: Any,
 ) -> Image.Image:
@@ -268,13 +272,14 @@ def tree_to_pillow_graph(
         - For more separation between nodes, change `height_buffer` and `width_buffer`
 
     Examples:
-        >>> from bigtree import Node, tree_to_pillow_graph
+        >>> from bigtree import Node, Tree
         >>> root = Node("a", age=90)
         >>> b = Node("b", age=65, parent=root)
         >>> c = Node("c", age=60, parent=root)
         >>> d = Node("d", age=40, parent=b)
         >>> e = Node("e", age=35, parent=b)
-        >>> pillow_image = tree_to_pillow_graph(root, node_content="{node_name}\nAge: {age}")
+        >>> tree = Tree(root)
+        >>> pillow_image = tree.to_pillow_graph(node_content="{node_name}\nAge: {age}")
 
         Export to image (PNG, JPG) file, etc.
 
@@ -334,7 +339,7 @@ def tree_to_pillow_graph(
             )
         return _node_content
 
-    cmap_range: Set[Union[float, int]] = set()
+    cmap_range: set[float | int] = set()
     for _, _, _node in yield_tree(tree, **kwargs):
         l, t, r, b = _draw.multiline_textbbox(
             (0, 0), get_node_text(_node, node_content), font=font
@@ -438,24 +443,25 @@ def tree_to_pillow(
     tree: T,
     width: int = 0,
     height: int = 0,
-    start_pos: Tuple[int, int] = (10, 10),
-    font_family: Optional[str] = None,
+    start_pos: tuple[int, int] = (10, 10),
+    font_family: str | None = None,
     font_size: int = 12,
-    font_colour: Union[Tuple[int, int, int], str] = "black",
-    bg_colour: Union[Tuple[int, int, int], str] = "white",
+    font_colour: tuple[int, int, int] | str = "black",
+    bg_colour: tuple[int, int, int] | str = "white",
     **kwargs: Any,
 ) -> Image.Image:
     """Export tree to PIL.Image.Image object. Object can be converted to other formats, such as jpg, or png. Image will
     be similar format as `print_tree`, accepts additional keyword arguments as input to `yield_tree`.
 
     Examples:
-        >>> from bigtree import Node, tree_to_pillow
+        >>> from bigtree import Node, Tree
         >>> root = Node("a", age=90)
         >>> b = Node("b", age=65, parent=root)
         >>> c = Node("c", age=60, parent=root)
         >>> d = Node("d", age=40, parent=b)
         >>> e = Node("e", age=35, parent=b)
-        >>> pillow_image = tree_to_pillow(root)
+        >>> tree = Tree(root)
+        >>> pillow_image = tree.to_pillow()
 
         Export to image (PNG, JPG) file, etc.
 
@@ -487,8 +493,8 @@ def tree_to_pillow(
 
     # Calculate image dimension from text, otherwise override with argument
     def get_list_of_text_dimensions(
-        text_lines: List[str],
-    ) -> List[Tuple[int, int, int, int]]:
+        text_lines: list[str],
+    ) -> list[tuple[int, int, int, int]]:
         """Get list dimensions.
 
         Args:
@@ -523,19 +529,19 @@ def tree_to_pillow(
 
 def tree_to_mermaid(
     tree: T,
-    title: Optional[str] = None,
-    theme: Optional[str] = None,
+    title: str | None = None,
+    theme: str | None = None,
     rankdir: str = "TB",
     line_shape: str = "basis",
-    node_colour: Optional[str] = None,
-    node_border_colour: Optional[str] = None,
+    node_colour: str | None = None,
+    node_border_colour: str | None = None,
     node_border_width: float = 1,
     node_shape: str = "rounded_edge",
-    node_shape_attr: Callable[[T], str] | Optional[str] = None,
+    node_shape_attr: Callable[[T], str] | str | None = None,
     edge_arrow: str = "normal",
-    edge_arrow_attr: Callable[[T], str] | Optional[str] = None,
-    edge_label: Optional[str] = None,
-    node_attr: Callable[[T], str] | Optional[str] = None,
+    edge_arrow_attr: Callable[[T], str] | str | None = None,
+    edge_label: str | None = None,
+    node_attr: Callable[[T], str] | str | None = None,
     **kwargs: Any,
 ) -> str:
     r"""Export tree to mermaid Markdown text. Accepts additional keyword arguments as input to `yield_tree`.
@@ -626,13 +632,14 @@ def tree_to_mermaid(
         Advanced mermaid flowchart functionalities such as subgraphs and interactions (script, click) are not supported.
 
     Examples:
-        >>> from bigtree import tree_to_mermaid
+        >>> from bigtree import Tree
         >>> root = Node("a", node_shape="rhombus")
         >>> b = Node("b", edge_arrow="bold", edge_label="Child 1", parent=root)
         >>> c = Node("c", edge_arrow="dotted", edge_label="Child 2", parent=root)
         >>> d = Node("d", node_style="fill:yellow, stroke:black", parent=b)
         >>> e = Node("e", parent=b)
-        >>> graph = tree_to_mermaid(root)
+        >>> tree = Tree(root)
+        >>> graph = tree.to_mermaid()
         >>> print(graph)
         ```mermaid
         %%{ init: { 'flowchart': { 'curve': 'basis' } } }%%
@@ -646,8 +653,7 @@ def tree_to_mermaid(
 
         **Customise node shape, edge label, edge arrow, and custom node attributes**
 
-        >>> graph = tree_to_mermaid(
-        ...     root,
+        >>> graph = tree.to_mermaid(
         ...     title="Mermaid Diagram",
         ...     theme="forest",
         ...     node_shape_attr="node_shape",
@@ -769,29 +775,6 @@ def tree_to_mermaid(
                 return "0"
             return f"{self.parent.mermaid_name}-{self.parent.children.index(self)}"
 
-    def _get_attr(
-        _node: T,
-        attr_parameter: str | Callable[[T], str],
-        default_parameter: str,
-    ) -> str:
-        """Get custom attribute if available, otherwise return default parameter.
-
-        Args:
-            _node: node to get custom attribute, can be accessed as node attribute or a callable that takes in the node
-            attr_parameter: custom attribute parameter
-            default_parameter: default parameter if there is no attr_parameter
-
-        Returns:
-            Node attribute
-        """
-        _choice = default_parameter
-        if attr_parameter:
-            if isinstance(attr_parameter, str):
-                _choice = _node.get_attr(attr_parameter, default_parameter)
-            else:
-                _choice = attr_parameter(_node)
-        return _choice
-
     tree_mermaid: T = clone_tree(tree, MermaidNode)  # type: ignore
     for _, _, _node in yield_tree(tree_mermaid, **kwargs):
         if not _node.is_root:
@@ -801,11 +784,11 @@ def tree_to_mermaid(
             if _node.parent.is_root:
                 # Get custom style for root (node_shape_attr, node_attr)
                 _parent_node_name = node_shapes[
-                    _get_attr(_node.parent, node_shape_attr, node_shape)
+                    get_attr(_node.parent, node_shape_attr, node_shape)
                 ].format(label=_node.parent.node_name)
 
-                if _get_attr(_node.parent, node_attr, "") and len(styles) < 2:
-                    _from_style = _get_attr(_node.parent, node_attr, "")
+                if get_attr(_node.parent, node_attr, "") and len(styles) < 2:
+                    _from_style = get_attr(_node.parent, node_attr, "")
                     _from_style_class = (
                         f"""class{_node.parent.get_attr("mermaid_name")}"""
                     )
@@ -816,11 +799,11 @@ def tree_to_mermaid(
                     )
                     _from_style = f":::{_from_style_class}"
             _node_name = node_shapes[
-                _get_attr(_node, node_shape_attr, node_shape)
+                get_attr(_node, node_shape_attr, node_shape)
             ].format(label=_node.node_name)
 
             # Get custom style (edge_arrow_attr, edge_label)
-            _arrow = edge_arrows[_get_attr(_node, edge_arrow_attr, edge_arrow)]
+            _arrow = edge_arrows[get_attr(_node, edge_arrow_attr, edge_arrow)]
             _arrow_label = (
                 f"|{_node.get_attr(edge_label)}|"
                 if edge_label and _node.get_attr(edge_label)
@@ -828,7 +811,7 @@ def tree_to_mermaid(
             )
 
             # Get custom style (node_attr)
-            _to_style = _get_attr(_node, node_attr, "")
+            _to_style = get_attr(_node, node_attr, "")
             if _to_style:
                 _to_style_class = f"""class{_node.get_attr("mermaid_name")}"""
                 styles.append(

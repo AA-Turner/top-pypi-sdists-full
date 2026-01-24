@@ -2,7 +2,7 @@ import logging
 import string
 from typing import Any, Optional, Union, Literal
 
-from httpx import HTTPStatusError
+from niquests import HTTPError
 from pydantic import BaseModel, Field, PrivateAttr
 
 from ipfabric.models.oas import Endpoint
@@ -41,7 +41,7 @@ class Policies(BaseModel):
         :return: List of policies or single policy if name passed
         """
         filters = {"name": ["eq", policy_name]} if policy_name else None
-        policies = list()
+        policies = []
         for policy in self.client.fetch_all("tables/policies", filters=filters, snapshot=False):
             p = Policy(**policy)
             p.api_scopes = [self.client.scope_to_api[_] for _ in p.api_scope_ids if _ in self.client.scope_to_api]
@@ -138,7 +138,7 @@ class Policies(BaseModel):
 
         Returns: Dict of created policies by name.
         """
-        created, policy_names = dict(), set()
+        created, policy_names = {}, set()
         for policy in policies:
             self._check_policy(**policy)
             policy_names.add(policy["name"])
@@ -148,7 +148,7 @@ class Policies(BaseModel):
         for policy in policies:
             try:
                 created[policy["name"]] = self._create_policy(**policy)
-            except HTTPStatusError:
+            except HTTPError:
                 created[policy["name"]] = False
         self.update()
         return created
@@ -172,12 +172,12 @@ class Policies(BaseModel):
         return _
 
     def delete_policies(self, policies: list[Union[int, str, Policy]]) -> dict[str, bool]:
-        deleted = dict()
+        deleted = {}
         for policy in policies:
             policy_id = policy.policy_id if isinstance(policy, Policy) else str(policy)
             try:
                 deleted[policy_id] = self._delete_policy(policy_id)
-            except HTTPStatusError:
+            except HTTPError:
                 deleted[policy_id] = False
         self.update()
         return deleted
@@ -253,7 +253,7 @@ class Roles(BaseModel):
         :return: List of roles or single role if filtered
         """
         filters = {"name": ["ieq", role_name]} if role_name else None
-        roles = list()
+        roles = []
         for role in self.client.fetch_all("tables/roles", filters=filters, snapshot=False):
             roles.append(
                 Role(**role, policies=[self._policies.policies_by_id[_] for _ in role["policyIds"]])
@@ -287,7 +287,7 @@ class Roles(BaseModel):
         policies = self._policies.search_policies_for_endpoint(api_endpoint, method)
         if not policies:
             logger.warning(f"No policies found for API Scope ID {api_endpoint}.")
-            return list()
+            return []
         roles = set()
         for p in policies:
             roles.update(set(self.search_roles_for_policy(policy_id=p.policy_id)))
@@ -315,7 +315,7 @@ class Roles(BaseModel):
 
         Returns: Dict of created roles by name.
         """
-        created, role_names = dict(), set()
+        created, role_names = {}, set()
         for role in roles:
             if set(role.keys()) != {"name", "description", "policy_ids"} or not (
                 isinstance(role["name"], str)
@@ -332,7 +332,7 @@ class Roles(BaseModel):
         for role in roles:
             try:
                 created[role["name"]] = self.create_role(**role)
-            except HTTPStatusError:
+            except HTTPError:
                 created[role["name"]] = False
         return created
 
@@ -353,12 +353,12 @@ class Roles(BaseModel):
         return _
 
     def delete_roles(self, roles: list[Union[int, str, Role]]) -> dict[str, bool]:
-        deleted = dict()
+        deleted = {}
         for role in roles:
             role_id = role.role_id if isinstance(role, Role) else str(role)
             try:
                 deleted[role_id] = self._delete_role(role_id)
-            except HTTPStatusError:
+            except HTTPError:
                 deleted[role_id] = False
         return deleted
 

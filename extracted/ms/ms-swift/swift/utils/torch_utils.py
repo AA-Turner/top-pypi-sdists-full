@@ -262,8 +262,23 @@ def find_all_linears(model, model_arch=None, extra_layers=None, sub_module=None)
     return find_layers(model, _cond, sub_module=sub_module)
 
 
+_DISABLE_USE_BARRIER = False
+
+
+@contextmanager
+def disable_safe_ddp_context_use_barrier():
+    global _DISABLE_USE_BARRIER
+    _DISABLE_USE_BARRIER = True
+    try:
+        yield
+    finally:
+        _DISABLE_USE_BARRIER = False
+
+
 @contextmanager
 def safe_ddp_context(hash_id: Optional[str], use_barrier: bool = True):
+    if _DISABLE_USE_BARRIER:
+        use_barrier = False
     if use_barrier and dist.is_initialized():
         if is_dist():
             if not is_master():
@@ -317,6 +332,17 @@ def get_current_device():
     return current_device
 
 
+def get_torch_device():
+    if is_torch_cuda_available():
+        return torch.cuda
+    elif is_torch_npu_available():
+        return torch.npu
+    elif is_torch_mps_available():
+        return torch.mps
+    else:
+        return torch.cpu
+
+
 def set_device(local_rank: Optional[Union[str, int]] = None):
     if local_rank is None:
         local_rank = max(0, get_dist_setting()[1])
@@ -347,6 +373,57 @@ def empty_cache():
 def gc_collect() -> None:
     gc.collect()
     empty_cache()
+
+
+def get_cu_seqlens_from_position_ids(position_ids: torch.LongTensor):
+    position_ids = position_ids[0]
+    seq_start_indices = torch.where(position_ids == 0)[0]
+    seq_end_indices = torch.cat([seq_start_indices[1:], torch.tensor([len(position_ids)], device=position_ids.device)])
+    seq_lengths = seq_end_indices - seq_start_indices
+    cu_seqlens = torch.cumsum(torch.cat([torch.tensor([0], device=position_ids.device), seq_lengths]), dim=0)
+    return cu_seqlens
+
+
+def get_position_ids_from_cu_seqlens(cu_seqlens: torch.LongTensor):
+    seq_lengths = cu_seqlens[1:] - cu_seqlens[:-1]
+    position_ids = torch.cat([torch.arange(seq_len, device=cu_seqlens.device) for seq_len in seq_lengths], dim=0)
+    return position_ids.unsqueeze(0)
+
+
+def get_last_valid_indices(attention_mask: torch.Tensor) -> torch.Tensor:
+    """
+    Get the last valid (non-padding) token position indices for each sample.
+
+    This function correctly handles sequences with different padding directions (left/right/none)
+    within the same batch by computing the last valid index for each sequence individually.
+
+    Args:
+        attention_mask: Attention mask [batch_size, seq_len] where 1=valid, 0=padding
+
+    Returns:
+        torch.Tensor: Indices of last valid positions [batch_size]
+
+    Examples:
+        >>> # Right padding
+        >>> attention_mask = torch.tensor([[1, 1, 1, 0, 0], [1, 1, 1, 1, 0]])
+        >>> get_last_valid_indices(attention_mask)
+        tensor([2, 3])
+
+        >>> # Left padding
+        >>> attention_mask = torch.tensor([[0, 0, 1, 1, 1], [0, 1, 1, 1, 1]])
+        >>> get_last_valid_indices(attention_mask)
+        tensor([4, 4])
+    """
+    seq_len = attention_mask.shape[1]
+
+    # Flip the mask horizontally to bring the last elements to the front.
+    # `argmax` will then find the index of the first '1', which corresponds to the last valid token.
+    last_valid_indices = torch.fliplr(attention_mask).argmax(dim=1)
+
+    # Convert the index from the right-to-left frame to the original left-to-right frame.
+    indices = seq_len - 1 - last_valid_indices
+
+    return indices
 
 
 class Serializer:
@@ -457,3 +534,25 @@ def unwrap_model_for_generation(
                 add_hooks(model)
     else:
         yield unwrapped_model
+
+
+def get_generative_reranker_logits(tokenizer, logits, attention_mask=None):
+    positive_token = os.environ.get('GENERATIVE_RERANKER_POSITIVE_TOKEN', 'yes')
+    negative_token = os.environ.get('GENERATIVE_RERANKER_NEGATIVE_TOKEN', 'no')
+    positive_token_id = tokenizer.convert_tokens_to_ids(positive_token)
+    negative_token_id = tokenizer.convert_tokens_to_ids(negative_token)
+
+    # Handle right padding by finding the last valid token position
+    if attention_mask is not None:
+        # Extract logits at the last valid (non-padding) token position for each sample
+        batch_size = logits.shape[0]
+        last_valid_indices = get_last_valid_indices(attention_mask)
+        batch_indices = torch.arange(batch_size, device=logits.device)
+        last_valid_logits = logits[batch_indices, last_valid_indices, :]
+        positive_logits = last_valid_logits[:, positive_token_id]
+        negative_logits = last_valid_logits[:, negative_token_id]
+    else:
+        # Fallback to original behavior if attention_mask is not available
+        positive_logits = logits[:, -1, positive_token_id]
+        negative_logits = logits[:, -1, negative_token_id]
+    return (positive_logits - negative_logits)[:, None]

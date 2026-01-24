@@ -9,25 +9,28 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Literal
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
+from .group_0219 import RepositoryRuleWorkflowsPropParameters
 
 
-class ProjectCollaboratorPermission(GitHubModel):
-    """Project Collaborator Permission
+class RepositoryRuleWorkflows(GitHubModel):
+    """workflows
 
-    Project Collaborator Permission
+    Require all changes made to a targeted branch to pass the specified workflows
+    before they can be merged.
     """
 
-    permission: str = Field()
-    user: Union[None, SimpleUser] = Field()
+    type: Literal["workflows"] = Field()
+    parameters: Missing[RepositoryRuleWorkflowsPropParameters] = Field(default=UNSET)
 
 
-model_rebuild(ProjectCollaboratorPermission)
+model_rebuild(RepositoryRuleWorkflows)
 
-__all__ = ("ProjectCollaboratorPermission",)
+__all__ = ("RepositoryRuleWorkflows",)

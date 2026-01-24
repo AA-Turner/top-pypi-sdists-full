@@ -28,7 +28,6 @@ from torch.utils.data.dataset import Subset
 
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
-from ._version import Version
 
 try:
     import torch_geometric
@@ -769,21 +768,6 @@ def _check_f_arguments(caller_name, **kwargs):
             key = 'module_' if key == 'f_params' else key[2:] + '_'
             kwargs_module[key] = val
     return kwargs_module, kwargs_other
-
-
-def get_default_torch_load_kwargs():
-    """Returns the kwargs passed to torch.load that correspond to the current
-    torch version.
-
-    PyTorch switches from weights_only=False to True in version 2.6.0.
-
-    """
-    # TODO: Remove once PyTorch 2.5 is no longer supported
-    version_torch = Version(torch.__version__)
-    version_default_switch = Version('2.6.0')
-    if version_torch >= version_default_switch:
-        return {"weights_only": True}
-    return {"weights_only": False}
 
 
 class _TorchLoadUnpickler(pickle.Unpickler):

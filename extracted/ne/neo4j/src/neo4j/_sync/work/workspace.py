@@ -17,29 +17,27 @@
 from __future__ import annotations
 
 import logging
-import typing as t
 
+from ... import _typing as t
 from ..._async_compat.util import Util
 from ..._auth_management import to_auth_dict
 from ..._conf import WorkspaceConfig
-from ..._meta import (
-    deprecation_warn,
-    unclosed_resource_warn,
-)
+from ..._warnings import unclosed_resource_warn
 from ...api import Bookmarks
 from ...exceptions import (
     ServiceUnavailable,
     SessionError,
-    SessionExpired,
 )
 from .._debug import NonConcurrentMethodChecker
 from ..io import (
+    acquisition_timeout_to_deadline,
     AcquisitionAuth,
     AcquisitionDatabase,
 )
 
 
 if t.TYPE_CHECKING:
+    from ..._deadline import Deadline
     from ...api import _TAuth
     from ...auth_management import AuthManager
     from ..home_db_cache import (
@@ -71,29 +69,15 @@ class Workspace(NonConcurrentMethodChecker):
         self._closed = False
         super().__init__()
 
+    # Copy globals as function locals to make sure that they are available
+    # during Python shutdown when the Session is destroyed.
     def __del__(
         self,
         _unclosed_resource_warn=unclosed_resource_warn,
-        _is_async_code=Util.is_async_code,
-        _deprecation_warn=deprecation_warn,
     ):
         if self._closed:
             return
         _unclosed_resource_warn(self)
-        # TODO: 6.0 - remove this
-        if _is_async_code:
-            return
-        try:
-            _deprecation_warn(
-                "Relying on Session's destructor to close the session "
-                "is deprecated. Please make sure to close the session. Use it "
-                "as a context (`with` statement) or make sure to call "
-                "`.close()` explicitly. Future versions of the driver will "
-                "not close sessions automatically."
-            )
-            self.close()
-        except (OSError, ServiceUnavailable, SessionExpired):
-            pass
 
     def __enter__(self) -> Workspace:
         return self
@@ -124,21 +108,13 @@ class Workspace(NonConcurrentMethodChecker):
         self._config.database = database
 
     def _initialize_bookmarks(self, bookmarks):
-        if isinstance(bookmarks, Bookmarks):
-            prepared_bookmarks = tuple(bookmarks.raw_values)
-        elif hasattr(bookmarks, "__iter__"):
-            deprecation_warn(
-                "Passing an iterable as `bookmarks` to `Session` is "
-                "deprecated. Please use a `Bookmarks` instance.",
-                stack_level=5,
-            )
-            prepared_bookmarks = tuple(bookmarks)
-        elif not bookmarks:
+        if bookmarks is None:
             prepared_bookmarks = ()
+        elif isinstance(bookmarks, Bookmarks):
+            prepared_bookmarks = tuple(bookmarks.raw_values)
         else:
             raise TypeError(
-                "Bookmarks must be an instance of Bookmarks or an "
-                "iterable of raw bookmarks (deprecated)."
+                "Bookmarks must be an instance of Bookmarks or None."
             )
         self._initial_bookmarks = self._bookmarks = prepared_bookmarks
 
@@ -182,13 +158,19 @@ class Workspace(NonConcurrentMethodChecker):
             self._connection.fetch_all()
             self._disconnect()
 
+        acquisition_deadline = acquisition_timeout_to_deadline(
+            acquisition_timeout
+        )
+
         ssr_enabled = self._pool.ssr_enabled
         target_db = self._get_routing_target_database(
-            acquire_auth, ssr_enabled=ssr_enabled
+            acquire_auth,
+            ssr_enabled=ssr_enabled,
+            acquisition_deadline=acquisition_deadline,
         )
         acquire_kwargs_ = {
             "access_mode": access_mode,
-            "timeout": acquisition_timeout,
+            "timeout": acquisition_deadline,
             "database": target_db,
             "bookmarks": self._get_bookmarks(),
             "auth": acquire_auth,
@@ -211,7 +193,9 @@ class Workspace(NonConcurrentMethodChecker):
             )
             self._disconnect()
             target_db = self._get_routing_target_database(
-                acquire_auth, ssr_enabled=False
+                acquire_auth,
+                ssr_enabled=False,
+                acquisition_deadline=acquisition_deadline,
             )
             acquire_kwargs_["database"] = target_db
             self._connection = self._pool.acquire(**acquire_kwargs_)
@@ -221,6 +205,7 @@ class Workspace(NonConcurrentMethodChecker):
         self,
         acquire_auth: AcquisitionAuth,
         ssr_enabled: bool,
+        acquisition_deadline: Deadline,
     ) -> AcquisitionDatabase:
         if (
             self._pinned_database
@@ -255,14 +240,13 @@ class Workspace(NonConcurrentMethodChecker):
                 )
                 return AcquisitionDatabase(cached_db, guessed=True)
 
-        acquisition_timeout = self._config.connection_acquisition_timeout
         log.debug("[#0000]  _: <WORKSPACE> resolve home database")
         self._pool.update_routing_table(
             database=self._config.database,
             imp_user=self._config.impersonated_user,
             bookmarks=self._get_bookmarks(),
             auth=acquire_auth,
-            acquisition_timeout=acquisition_timeout,
+            acquisition_timeout=acquisition_deadline,
             database_callback=self._make_db_resolution_callback(),
         )
         return AcquisitionDatabase(self._config.database)

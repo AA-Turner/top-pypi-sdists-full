@@ -1,0 +1,58 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+"""Query validation functionality for Chronicle."""
+
+from typing import TYPE_CHECKING, Any
+
+from secops.chronicle.models import APIVersion
+from secops.chronicle.utils.request_utils import chronicle_request
+
+if TYPE_CHECKING:
+    from secops.chronicle.client import ChronicleClient
+
+
+def validate_query(client: "ChronicleClient", query: str) -> dict[str, Any]:
+    """Validate a UDM query against the Chronicle API.
+
+    Args:
+        client: ChronicleClient instance
+        query: Query string to validate
+
+    Returns:
+        Dictionary containing query validation results, including:
+        - isValid: Boolean indicating if the query is valid
+        - queryType: Type of query
+            (e.g., QUERY_TYPE_UDM_QUERY, QUERY_TYPE_STATS_QUERY)
+        - validationMessage: Error message if the query is invalid
+
+    Raises:
+        APIError: If the API request fails
+    """
+    # Replace special characters with Unicode escapes
+    encoded_query = query.replace("!", "\\u0021")
+
+    params = {
+        "rawQuery": encoded_query,
+        "dialect": "DIALECT_UDM_SEARCH",
+        "allowUnreplacedPlaceholders": "false",
+    }
+
+    return chronicle_request(
+        client,
+        method="GET",
+        endpoint_path=":validateQuery",
+        api_version=APIVersion.V1ALPHA,
+        params=params,
+    )

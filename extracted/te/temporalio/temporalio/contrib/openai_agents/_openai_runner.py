@@ -1,5 +1,4 @@
 import dataclasses
-import json
 import typing
 from typing import Any, Optional, Union
 
@@ -17,12 +16,60 @@ from agents import (
     TResponseInputItem,
 )
 from agents.run import DEFAULT_AGENT_RUNNER, DEFAULT_MAX_TURNS, AgentRunner
-from pydantic_core import to_json
 
 from temporalio import workflow
 from temporalio.contrib.openai_agents._model_parameters import ModelActivityParameters
 from temporalio.contrib.openai_agents._temporal_model_stub import _TemporalModelStub
 from temporalio.contrib.openai_agents.workflow import AgentsWorkflowError
+
+
+# Recursively replace models in all agents
+def _convert_agent(
+    model_params: ModelActivityParameters,
+    agent: Agent[Any],
+    seen: dict[int, Agent] | None,
+) -> Agent[Any]:
+    if seen is None:
+        seen = dict()
+
+    # Short circuit if this model was already seen to prevent looping from circular handoffs
+    if id(agent) in seen:
+        return seen[id(agent)]
+
+    # This agent has already been processed in some other run
+    if isinstance(agent.model, _TemporalModelStub):
+        return agent
+
+    # Save the new version of the agent so that we can replace loops
+    new_agent = dataclasses.replace(agent)
+    seen[id(agent)] = new_agent
+
+    name = _model_name(agent)
+
+    new_handoffs: list[Agent | Handoff] = []
+    for handoff in agent.handoffs:
+        if isinstance(handoff, Agent):
+            new_handoffs.append(_convert_agent(model_params, handoff, seen))
+        elif isinstance(handoff, Handoff):
+            original_invoke = handoff.on_invoke_handoff
+
+            async def on_invoke(context: RunContextWrapper[Any], args: str) -> Agent:
+                handoff_agent = await original_invoke(context, args)
+                return _convert_agent(model_params, handoff_agent, seen)
+
+            new_handoffs.append(
+                dataclasses.replace(handoff, on_invoke_handoff=on_invoke)
+            )
+        else:
+            raise TypeError(f"Unknown handoff type: {type(handoff)}")
+
+    new_agent.model = _TemporalModelStub(
+        model_name=name,
+        model_params=model_params,
+        agent=agent,
+    )
+    new_agent.handoffs = new_handoffs
+    return new_agent
 
 
 class TemporalOpenAIRunner(AgentRunner):
@@ -40,7 +87,7 @@ class TemporalOpenAIRunner(AgentRunner):
     async def run(
         self,
         starting_agent: Agent[TContext],
-        input: Union[str, list[TResponseInputItem]],
+        input: str | list[TResponseInputItem],
         **kwargs: Any,
     ) -> RunResult:
         """Run the agent in a Temporal workflow."""
@@ -51,9 +98,8 @@ class TemporalOpenAIRunner(AgentRunner):
                 **kwargs,
             )
 
-        tool_types = typing.get_args(Tool)
         for t in starting_agent.tools:
-            if not isinstance(t, tool_types):
+            if callable(t):
                 raise ValueError(
                     "Provided tool is not a tool type. If using an activity, make sure to wrap it with openai_agents.workflow.activity_as_tool."
                 )
@@ -101,54 +147,9 @@ class TemporalOpenAIRunner(AgentRunner):
                 ),
             )
 
-        # Recursively replace models in all agents
-        def convert_agent(agent: Agent[Any], seen: Optional[set[int]]) -> Agent[Any]:
-            if seen is None:
-                seen = set()
-
-            # Short circuit if this model was already seen to prevent looping from circular handoffs
-            if id(agent) in seen:
-                return agent
-            seen.add(id(agent))
-
-            # This agent has already been processed in some other run
-            if isinstance(agent.model, _TemporalModelStub):
-                return agent
-
-            name = _model_name(agent)
-
-            new_handoffs: list[Union[Agent, Handoff]] = []
-            for handoff in agent.handoffs:
-                if isinstance(handoff, Agent):
-                    new_handoffs.append(convert_agent(handoff, seen))
-                elif isinstance(handoff, Handoff):
-                    original_invoke = handoff.on_invoke_handoff
-
-                    async def on_invoke(
-                        context: RunContextWrapper[Any], args: str
-                    ) -> Agent:
-                        handoff_agent = await original_invoke(context, args)
-                        return convert_agent(handoff_agent, seen)
-
-                    new_handoffs.append(
-                        dataclasses.replace(handoff, on_invoke_handoff=on_invoke)
-                    )
-                else:
-                    raise ValueError(f"Unknown handoff type: {type(handoff)}")
-
-            return dataclasses.replace(
-                agent,
-                model=_TemporalModelStub(
-                    model_name=name,
-                    model_params=self.model_params,
-                    agent=agent,
-                ),
-                handoffs=new_handoffs,
-            )
-
         try:
             return await self._runner.run(
-                starting_agent=convert_agent(starting_agent, None),
+                starting_agent=_convert_agent(self.model_params, starting_agent, None),
                 input=input,
                 context=context,
                 max_turns=max_turns,
@@ -172,7 +173,7 @@ class TemporalOpenAIRunner(AgentRunner):
     def run_sync(
         self,
         starting_agent: Agent[TContext],
-        input: Union[str, list[TResponseInputItem]],
+        input: str | list[TResponseInputItem],
         **kwargs: Any,
     ) -> RunResult:
         """Run the agent synchronously (not supported in Temporal workflows)."""
@@ -187,7 +188,7 @@ class TemporalOpenAIRunner(AgentRunner):
     def run_streamed(
         self,
         starting_agent: Agent[TContext],
-        input: Union[str, list[TResponseInputItem]],
+        input: str | list[TResponseInputItem],
         **kwargs: Any,
     ) -> RunResultStreaming:
         """Run the agent with streaming responses (not supported in Temporal workflows)."""
@@ -200,7 +201,7 @@ class TemporalOpenAIRunner(AgentRunner):
         raise RuntimeError("Temporal workflows do not support streaming.")
 
 
-def _model_name(agent: Agent[Any]) -> Optional[str]:
+def _model_name(agent: Agent[Any]) -> str | None:
     name = agent.model
     if name is not None and not isinstance(name, str):
         raise ValueError(

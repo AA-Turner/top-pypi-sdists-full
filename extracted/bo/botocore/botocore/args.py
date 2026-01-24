@@ -170,8 +170,22 @@ class ClientArgsCreator:
             proxies_config=new_config.proxies_config,
         )
 
+        # Emit event to allow service-specific or customer customization of serializer kwargs
+        event_name = f'creating-serializer.{service_name}'
+        serializer_kwargs = {
+            'timestamp_precision': botocore.serialize.TIMESTAMP_PRECISION_DEFAULT
+        }
+        event_emitter.emit(
+            event_name,
+            protocol_name=protocol,
+            service_model=service_model,
+            serializer_kwargs=serializer_kwargs,
+        )
+
         serializer = botocore.serialize.create_serializer(
-            protocol, parameter_validation
+            protocol,
+            parameter_validation,
+            timestamp_precision=serializer_kwargs['timestamp_precision'],
         )
         response_parser = botocore.parsers.create_parser(protocol)
 
@@ -542,13 +556,15 @@ class ClientArgsCreator:
     def _compute_socket_options(self, scoped_config, client_config=None):
         # This disables Nagle's algorithm and is the default socket options
         # in urllib3.
+
         socket_options = [(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)]
         client_keepalive = client_config and client_config.tcp_keepalive
-        scoped_keepalive = scoped_config and self._ensure_boolean(
-            scoped_config.get("tcp_keepalive", False)
-        )
-        # Enables TCP Keepalive if specified in client config object or shared config file.
-        if client_keepalive or scoped_keepalive:
+        if client_keepalive is None:
+            client_keepalive = self._config_store.get_config_variable(
+                'tcp_keepalive'
+            )
+
+        if client_keepalive:
             socket_options.append((socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1))
         return socket_options
 

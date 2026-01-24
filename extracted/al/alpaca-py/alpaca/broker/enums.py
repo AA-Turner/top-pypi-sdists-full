@@ -1,6 +1,32 @@
 from enum import Enum
 
 
+class AccountSubType(str, Enum):
+    """
+    The sub type of account
+    IRA Account only
+
+    see https://docs.alpaca.markets/reference/createaccount
+    """
+
+    TRADITIONAL = "traditional"
+    ROTH = "roth"
+
+
+class AccountType(str, Enum):
+    """
+    The type of account
+
+    see https://docs.alpaca.markets/reference/createaccount
+    """
+
+    TRADING = "trading"
+    CUSTODIAL = "custodial"
+    DONOR_ADVISED = "donor_advised"
+    IRA = "ira"
+    HSA = "hsa"
+
+
 class TaxIdType(str, Enum):
     """The various country specific tax identification numbers
 
@@ -8,6 +34,7 @@ class TaxIdType(str, Enum):
     """
 
     USA_SSN = "USA_SSN"
+    USA_ITIN = "USA_ITIN"
     ARG_AR_CUIT = "ARG_AR_CUIT"
     AUS_TFN = "AUS_TFN"
     AUS_ABN = "AUS_ABN"
@@ -44,6 +71,11 @@ class TaxIdType(str, Enum):
     SWE_TAX_ID = "SWE_TAX_ID"
     URY_RUT = "URY_RUT"
     VEN_RIF = "VEN_RIF"
+    NATIONAL_ID = "NATIONAL_ID"
+    PASSPORT = "PASSPORT"
+    PERMANENT_RESIDENT = "PERMANENT_RESIDENT"
+    DRIVER_LICENSE = "DRIVER_LICENSE"
+    OTHER_GOV_ID = "OTHER_GOV_ID"
     NOT_SPECIFIED = "NOT_SPECIFIED"
 
 

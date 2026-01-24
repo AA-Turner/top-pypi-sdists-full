@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: garminconnect
-Version: 0.2.30
+Version: 0.2.38
 Summary: Python 3 API wrapper for Garmin Connect
 Keywords: garmin connect,api,garmin
 Author-Email: Ron Klinkien <ron@cyberjunky.nl>
@@ -26,6 +26,8 @@ Requires-Dist: ipdb; extra == "dev"
 Requires-Dist: ipykernel; extra == "dev"
 Requires-Dist: pandas; extra == "dev"
 Requires-Dist: matplotlib; extra == "dev"
+Provides-Extra: workout
+Requires-Dist: pydantic>=2.0.0; extra == "workout"
 Provides-Extra: linting
 Requires-Dist: black[jupyter]; extra == "linting"
 Requires-Dist: ruff; extra == "linting"
@@ -43,12 +45,20 @@ Requires-Dist: requests; extra == "example"
 Requires-Dist: readchar; extra == "example"
 Description-Content-Type: text/markdown
 
+[![GitHub Release][releases-shield]][releases]
+[![GitHub Activity][commits-shield]][commits]
+[![License][license-shield]](LICENSE)
+![Project Maintenance][maintenance-shield]
+
+[![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge&logo=paypal)](https://www.paypal.me/cyberjunkynl/)
+[![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-GitHub-red.svg?style=for-the-badge&logo=github)](https://github.com/sponsors/cyberjunky)
+
 # Python: Garmin Connect
 
 The Garmin Connect API library comes with two examples:
 
 - **`example.py`** - Simple getting-started example showing authentication, token storage, and basic API calls
-- **`demo.py`** - Comprehensive demo providing access to **100+ API methods** organized into **11 categories** for easy navigation
+- **`demo.py`** - Comprehensive demo providing access to **105+ API methods** organized into **12 categories** for easy navigation
 
 Note: The demo menu is generated dynamically; exact options may change between releases.
 
@@ -69,6 +79,7 @@ Select a category:
   [9] 🎽 Gear & Equipment
   [0] 💧 Hydration & Wellness
   [a] 🔧 System & Export
+  [b] 📅 Training plans
 
   [q] Exit program
 
@@ -77,19 +88,20 @@ Make your selection:
 
 ## API Coverage Statistics
 
-- **Total API Methods**: 100+ unique endpoints (snapshot)
-- **Categories**: 11 organized sections
+- **Total API Methods**: 105+ unique endpoints (snapshot)
+- **Categories**: 12 organized sections
 - **User & Profile**: 4 methods (basic user info, settings)
-- **Daily Health & Activity**: 8 methods (today's health data)
-- **Advanced Health Metrics**: 10 methods (fitness metrics, HRV, VO2)
-- **Historical Data & Trends**: 6 methods (date range queries)
-- **Activities & Workouts**: 20 methods (comprehensive activity management)
+- **Daily Health & Activity**: 9 methods (today's health data)
+- **Advanced Health Metrics**: 11 methods (fitness metrics, HRV, VO2, training readiness)
+- **Historical Data & Trends**: 9 methods (date range queries, weekly aggregates)
+- **Activities & Workouts**: 28 methods (comprehensive activity and workout management)
 - **Body Composition & Weight**: 8 methods (weight tracking, body composition)
 - **Goals & Achievements**: 15 methods (challenges, badges, goals)
 - **Device & Technical**: 7 methods (device info, settings)
-- **Gear & Equipment**: 6 methods (gear management, tracking)
+- **Gear & Equipment**: 8 methods (gear management, tracking)
 - **Hydration & Wellness**: 9 methods (hydration, blood pressure, menstrual)
 - **System & Export**: 4 methods (reporting, logout, GraphQL)
+- **Training Plans**: 3 methods
 
 ### Interactive Features
 
@@ -109,7 +121,7 @@ A comprehensive Python3 API wrapper for Garmin Connect, providing access to heal
 This library enables developers to programmatically access Garmin Connect data including:
 
 - **Health Metrics**: Heart rate, sleep, stress, body composition, SpO2, HRV
-- **Activity Data**: Workouts, exercises, training status, performance metrics
+- **Activity Data**: Workouts, scheduled workouts, exercises, training status, performance metrics
 - **Device Information**: Connected devices, settings, alarms, solar data
 - **Goals & Achievements**: Personal records, badges, challenges, race predictions
 - **Historical Data**: Trends, progress tracking, date range queries
@@ -255,6 +267,7 @@ pdm install --group :all
 ```
 
 **Run Tests:**
+
 ```bash
 pdm run test        # Run all tests
 pdm run testcov     # Run tests with coverage report
@@ -277,6 +290,7 @@ pdm run test
 For package maintainers:
 
 **Setup PyPI credentials:**
+
 ```bash
 pip install twine
 # Edit with your preferred editor, or create via here-doc:
@@ -286,6 +300,7 @@ pip install twine
 # password = <PyPI_API_TOKEN>
 # EOF
 ```
+
 ```ini
 [pypi]
 username = __token__
@@ -301,11 +316,13 @@ export TWINE_PASSWORD="<PyPI_API_TOKEN>"
 ```
 
 **Publish new version:**
+
 ```bash
 pdm run publish    # Build and publish to PyPI
 ```
 
 **Alternative publishing steps:**
+
 ```bash
 pdm run build      # Build package only
 pdm publish        # Publish pre-built package
@@ -376,7 +393,7 @@ print(f"Resting HR: {hr_data.get('restingHeartRate', 'n/a')}")
 
 ### Additional Resources
 - **Simple Example**: [example.py](https://raw.githubusercontent.com/cyberjunky/python-garminconnect/master/example.py) - Getting started guide
-- **Comprehensive Demo**: [demo.py](https://raw.githubusercontent.com/cyberjunky/python-garminconnect/master/demo.py) - All 101 API methods
+- **Comprehensive Demo**: [demo.py](https://raw.githubusercontent.com/cyberjunky/python-garminconnect/master/demo.py) - All 105+ API methods
 - **API Documentation**: Comprehensive method documentation in source code
 - **Test Cases**: Real-world usage examples in `tests/` directory
 
@@ -414,3 +431,10 @@ If you find this library useful for your projects, please consider supporting it
 - Shows appreciation for hundreds of hours of development
 
 Every contribution, no matter the size, makes a difference and is greatly appreciated! 🙏
+
+[releases-shield]: https://img.shields.io/github/release/cyberjunky/python-garminconnect.svg?style=for-the-badge
+[releases]: https://github.com/cyberjunky/python-garminconnect/releases
+[commits-shield]: https://img.shields.io/github/commit-activity/y/cyberjunky/python-garminconnect.svg?style=for-the-badge
+[commits]: https://github.com/cyberjunky/python-garminconnect/commits/main
+[license-shield]: https://img.shields.io/github/license/cyberjunky/python-garminconnect.svg?style=for-the-badge
+[maintenance-shield]: https://img.shields.io/badge/maintainer-cyberjunky-blue.svg?style=for-the-badge

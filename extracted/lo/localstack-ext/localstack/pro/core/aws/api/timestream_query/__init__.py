@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -162,7 +162,7 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    ScheduledQueryArn: Optional[AmazonResourceName]
+    ScheduledQueryArn: AmazonResourceName | None
 
 
 class ServiceQuotaExceededException(ServiceException):
@@ -198,7 +198,7 @@ class SnsConfiguration(TypedDict, total=False):
 class AccountSettingsNotificationConfiguration(TypedDict, total=False):
     """Configuration settings for notifications related to account settings."""
 
-    SnsConfiguration: Optional[SnsConfiguration]
+    SnsConfiguration: SnsConfiguration | None
     RoleArn: AmazonResourceName
 
 
@@ -207,7 +207,7 @@ class CancelQueryRequest(ServiceRequest):
 
 
 class CancelQueryResponse(TypedDict, total=False):
-    CancellationMessage: Optional[String]
+    CancellationMessage: String | None
 
 
 class ColumnInfo(TypedDict, total=False):
@@ -215,11 +215,11 @@ class ColumnInfo(TypedDict, total=False):
     types, and other attributes.
     """
 
-    Name: Optional["String"]
+    Name: "String | None"
     Type: "Type"
 
 
-ColumnInfoList = List[ColumnInfo]
+ColumnInfoList = list[ColumnInfo]
 
 
 class Type(TypedDict, total=False):
@@ -229,10 +229,10 @@ class Type(TypedDict, total=False):
     supported complex data types are arrays, rows, and timeseries.
     """
 
-    ScalarType: Optional[ScalarType]
-    ArrayColumnInfo: Optional[ColumnInfo]
-    TimeSeriesMeasureValueColumnInfo: Optional[ColumnInfo]
-    RowColumnInfo: Optional[ColumnInfoList]
+    ScalarType: ScalarType | None
+    ArrayColumnInfo: ColumnInfo | None
+    TimeSeriesMeasureValueColumnInfo: ColumnInfo | None
+    RowColumnInfo: ColumnInfoList | None
 
 
 class S3Configuration(TypedDict, total=False):
@@ -241,8 +241,8 @@ class S3Configuration(TypedDict, total=False):
     """
 
     BucketName: S3BucketName
-    ObjectKeyPrefix: Optional[S3ObjectKeyPrefix]
-    EncryptionOption: Optional[S3EncryptionOption]
+    ObjectKeyPrefix: S3ObjectKeyPrefix | None
+    EncryptionOption: S3EncryptionOption | None
 
 
 class ErrorReportConfiguration(TypedDict, total=False):
@@ -262,18 +262,18 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class MultiMeasureAttributeMapping(TypedDict, total=False):
     """Attribute mapping for MULTI value measures."""
 
     SourceColumn: SchemaName
-    TargetMultiMeasureAttributeName: Optional[SchemaName]
+    TargetMultiMeasureAttributeName: SchemaName | None
     MeasureValueType: ScalarMeasureValueType
 
 
-MultiMeasureAttributeMappingList = List[MultiMeasureAttributeMapping]
+MultiMeasureAttributeMappingList = list[MultiMeasureAttributeMapping]
 
 
 class MixedMeasureMapping(TypedDict, total=False):
@@ -281,14 +281,14 @@ class MixedMeasureMapping(TypedDict, total=False):
     mixture of narrow and multi measures in the derived table.
     """
 
-    MeasureName: Optional[SchemaName]
-    SourceColumn: Optional[SchemaName]
-    TargetMeasureName: Optional[SchemaName]
+    MeasureName: SchemaName | None
+    SourceColumn: SchemaName | None
+    TargetMeasureName: SchemaName | None
     MeasureValueType: MeasureValueType
-    MultiMeasureAttributeMappings: Optional[MultiMeasureAttributeMappingList]
+    MultiMeasureAttributeMappings: MultiMeasureAttributeMappingList | None
 
 
-MixedMeasureMappingList = List[MixedMeasureMapping]
+MixedMeasureMappingList = list[MixedMeasureMapping]
 
 
 class MultiMeasureMappings(TypedDict, total=False):
@@ -297,7 +297,7 @@ class MultiMeasureMappings(TypedDict, total=False):
     measures in the derived table.
     """
 
-    TargetMultiMeasureName: Optional[SchemaName]
+    TargetMultiMeasureName: SchemaName | None
     MultiMeasureAttributeMappings: MultiMeasureAttributeMappingList
 
 
@@ -310,7 +310,7 @@ class DimensionMapping(TypedDict, total=False):
     DimensionValueType: DimensionValueType
 
 
-DimensionMappingList = List[DimensionMapping]
+DimensionMappingList = list[DimensionMapping]
 
 
 class TimestreamConfiguration(TypedDict, total=False):
@@ -323,9 +323,9 @@ class TimestreamConfiguration(TypedDict, total=False):
     TableName: ResourceName
     TimeColumn: SchemaName
     DimensionMappings: DimensionMappingList
-    MultiMeasureMappings: Optional[MultiMeasureMappings]
-    MixedMeasureMappings: Optional[MixedMeasureMappingList]
-    MeasureNameColumn: Optional[SchemaName]
+    MultiMeasureMappings: MultiMeasureMappings | None
+    MixedMeasureMappings: MixedMeasureMappingList | None
+    MeasureNameColumn: SchemaName | None
 
 
 class TargetConfiguration(TypedDict, total=False):
@@ -354,11 +354,11 @@ class CreateScheduledQueryRequest(ServiceRequest):
     QueryString: QueryString
     ScheduleConfiguration: ScheduleConfiguration
     NotificationConfiguration: NotificationConfiguration
-    TargetConfiguration: Optional[TargetConfiguration]
-    ClientToken: Optional[ClientToken]
+    TargetConfiguration: TargetConfiguration | None
+    ClientToken: ClientToken | None
     ScheduledQueryExecutionRoleArn: AmazonResourceName
-    Tags: Optional[TagList]
-    KmsKeyId: Optional[StringValue2048]
+    Tags: TagList | None
+    KmsKeyId: StringValue2048 | None
     ErrorReportConfiguration: ErrorReportConfiguration
 
 
@@ -369,14 +369,14 @@ class CreateScheduledQueryResponse(TypedDict, total=False):
 class Datum(TypedDict, total=False):
     """Datum represents a single data point in a query result."""
 
-    ScalarValue: Optional["ScalarValue"]
-    TimeSeriesValue: Optional["TimeSeriesDataPointList"]
-    ArrayValue: Optional["DatumList"]
-    RowValue: Optional["Row"]
-    NullValue: Optional["NullableBoolean"]
+    ScalarValue: "ScalarValue | None"
+    TimeSeriesValue: "TimeSeriesDataPointList | None"
+    ArrayValue: "DatumList | None"
+    RowValue: "Row | None"
+    NullValue: "NullableBoolean | None"
 
 
-DatumList = List[Datum]
+DatumList = list[Datum]
 
 
 class Row(TypedDict, total=False):
@@ -397,7 +397,7 @@ class TimeSeriesDataPoint(TypedDict, total=False):
     Value: Datum
 
 
-TimeSeriesDataPointList = List[TimeSeriesDataPoint]
+TimeSeriesDataPointList = list[TimeSeriesDataPoint]
 
 
 class DeleteScheduledQueryRequest(ServiceRequest):
@@ -413,9 +413,9 @@ class LastUpdate(TypedDict, total=False):
     update, visible only if settings have been updated previously.
     """
 
-    TargetQueryTCU: Optional[QueryTCU]
-    Status: Optional[LastUpdateStatus]
-    StatusMessage: Optional[String]
+    TargetQueryTCU: QueryTCU | None
+    Status: LastUpdateStatus | None
+    StatusMessage: String | None
 
 
 class ProvisionedCapacityResponse(TypedDict, total=False):
@@ -423,9 +423,9 @@ class ProvisionedCapacityResponse(TypedDict, total=False):
     for querying data.
     """
 
-    ActiveQueryTCU: Optional[QueryTCU]
-    NotificationConfiguration: Optional[AccountSettingsNotificationConfiguration]
-    LastUpdate: Optional[LastUpdate]
+    ActiveQueryTCU: QueryTCU | None
+    NotificationConfiguration: AccountSettingsNotificationConfiguration | None
+    LastUpdate: LastUpdate | None
 
 
 class QueryComputeResponse(TypedDict, total=False):
@@ -433,14 +433,14 @@ class QueryComputeResponse(TypedDict, total=False):
     settings for querying data.
     """
 
-    ComputeMode: Optional[ComputeMode]
-    ProvisionedCapacity: Optional[ProvisionedCapacityResponse]
+    ComputeMode: ComputeMode | None
+    ProvisionedCapacity: ProvisionedCapacityResponse | None
 
 
 class DescribeAccountSettingsResponse(TypedDict, total=False):
-    MaxQueryTCU: Optional[MaxQueryCapacity]
-    QueryPricingModel: Optional[QueryPricingModel]
-    QueryCompute: Optional[QueryComputeResponse]
+    MaxQueryTCU: MaxQueryCapacity | None
+    QueryPricingModel: QueryPricingModel | None
+    QueryCompute: QueryComputeResponse | None
 
 
 class DescribeEndpointsRequest(ServiceRequest):
@@ -459,7 +459,7 @@ class Endpoint(TypedDict, total=False):
     CachePeriodInMinutes: Long
 
 
-Endpoints = List[Endpoint]
+Endpoints = list[Endpoint]
 
 
 class DescribeEndpointsResponse(TypedDict, total=False):
@@ -473,8 +473,8 @@ class DescribeScheduledQueryRequest(ServiceRequest):
 class S3ReportLocation(TypedDict, total=False):
     """S3 report location for the scheduled query run."""
 
-    BucketName: Optional[S3BucketName]
-    ObjectKey: Optional[S3ObjectKey]
+    BucketName: S3BucketName | None
+    ObjectKey: S3ObjectKey | None
 
 
 class ErrorReportLocation(TypedDict, total=False):
@@ -482,7 +482,7 @@ class ErrorReportLocation(TypedDict, total=False):
     query call.
     """
 
-    S3ReportLocation: Optional[S3ReportLocation]
+    S3ReportLocation: S3ReportLocation | None
 
 
 class QueryTemporalRangeMax(TypedDict, total=False):
@@ -490,8 +490,8 @@ class QueryTemporalRangeMax(TypedDict, total=False):
     pruning scanned by your query.
     """
 
-    Value: Optional[Long]
-    TableArn: Optional[AmazonResourceName]
+    Value: Long | None
+    TableArn: AmazonResourceName | None
 
 
 class QueryTemporalRange(TypedDict, total=False):
@@ -499,10 +499,10 @@ class QueryTemporalRange(TypedDict, total=False):
     table with the largest (max) time range.
     """
 
-    Max: Optional[QueryTemporalRangeMax]
+    Max: QueryTemporalRangeMax | None
 
 
-PartitionKeyList = List[PartitionKey]
+PartitionKeyList = list[PartitionKey]
 
 
 class QuerySpatialCoverageMax(TypedDict, total=False):
@@ -510,9 +510,9 @@ class QuerySpatialCoverageMax(TypedDict, total=False):
     scanned by your query.
     """
 
-    Value: Optional[Double]
-    TableArn: Optional[AmazonResourceName]
-    PartitionKey: Optional[PartitionKeyList]
+    Value: Double | None
+    TableArn: AmazonResourceName | None
+    PartitionKey: PartitionKeyList | None
 
 
 class QuerySpatialCoverage(TypedDict, total=False):
@@ -532,7 +532,7 @@ class QuerySpatialCoverage(TypedDict, total=False):
        them or clauses, such as ``LIKE``.
     """
 
-    Max: Optional[QuerySpatialCoverageMax]
+    Max: QuerySpatialCoverageMax | None
 
 
 class ScheduledQueryInsightsResponse(TypedDict, total=False):
@@ -540,22 +540,22 @@ class ScheduledQueryInsightsResponse(TypedDict, total=False):
     ``ExecuteScheduledQueryRequest`` that was executed.
     """
 
-    QuerySpatialCoverage: Optional[QuerySpatialCoverage]
-    QueryTemporalRange: Optional[QueryTemporalRange]
-    QueryTableCount: Optional[Long]
-    OutputRows: Optional[Long]
-    OutputBytes: Optional[Long]
+    QuerySpatialCoverage: QuerySpatialCoverage | None
+    QueryTemporalRange: QueryTemporalRange | None
+    QueryTableCount: Long | None
+    OutputRows: Long | None
+    OutputBytes: Long | None
 
 
 class ExecutionStats(TypedDict, total=False):
     """Statistics for a single scheduled query run."""
 
-    ExecutionTimeInMillis: Optional[Long]
-    DataWrites: Optional[Long]
-    BytesMetered: Optional[Long]
-    CumulativeBytesScanned: Optional[Long]
-    RecordsIngested: Optional[Long]
-    QueryResultRows: Optional[Long]
+    ExecutionTimeInMillis: Long | None
+    DataWrites: Long | None
+    BytesMetered: Long | None
+    CumulativeBytesScanned: Long | None
+    RecordsIngested: Long | None
+    QueryResultRows: Long | None
 
 
 Time = datetime
@@ -564,16 +564,16 @@ Time = datetime
 class ScheduledQueryRunSummary(TypedDict, total=False):
     """Run summary for the scheduled query"""
 
-    InvocationTime: Optional[Time]
-    TriggerTime: Optional[Time]
-    RunStatus: Optional[ScheduledQueryRunStatus]
-    ExecutionStats: Optional[ExecutionStats]
-    QueryInsightsResponse: Optional[ScheduledQueryInsightsResponse]
-    ErrorReportLocation: Optional[ErrorReportLocation]
-    FailureReason: Optional[ErrorMessage]
+    InvocationTime: Time | None
+    TriggerTime: Time | None
+    RunStatus: ScheduledQueryRunStatus | None
+    ExecutionStats: ExecutionStats | None
+    QueryInsightsResponse: ScheduledQueryInsightsResponse | None
+    ErrorReportLocation: ErrorReportLocation | None
+    FailureReason: ErrorMessage | None
 
 
-ScheduledQueryRunSummaryList = List[ScheduledQueryRunSummary]
+ScheduledQueryRunSummaryList = list[ScheduledQueryRunSummary]
 
 
 class ScheduledQueryDescription(TypedDict, total=False):
@@ -582,18 +582,18 @@ class ScheduledQueryDescription(TypedDict, total=False):
     Arn: AmazonResourceName
     Name: ScheduledQueryName
     QueryString: QueryString
-    CreationTime: Optional[Time]
+    CreationTime: Time | None
     State: ScheduledQueryState
-    PreviousInvocationTime: Optional[Time]
-    NextInvocationTime: Optional[Time]
+    PreviousInvocationTime: Time | None
+    NextInvocationTime: Time | None
     ScheduleConfiguration: ScheduleConfiguration
     NotificationConfiguration: NotificationConfiguration
-    TargetConfiguration: Optional[TargetConfiguration]
-    ScheduledQueryExecutionRoleArn: Optional[AmazonResourceName]
-    KmsKeyId: Optional[StringValue2048]
-    ErrorReportConfiguration: Optional[ErrorReportConfiguration]
-    LastRunSummary: Optional[ScheduledQueryRunSummary]
-    RecentlyFailedRuns: Optional[ScheduledQueryRunSummaryList]
+    TargetConfiguration: TargetConfiguration | None
+    ScheduledQueryExecutionRoleArn: AmazonResourceName | None
+    KmsKeyId: StringValue2048 | None
+    ErrorReportConfiguration: ErrorReportConfiguration | None
+    LastRunSummary: ScheduledQueryRunSummary | None
+    RecentlyFailedRuns: ScheduledQueryRunSummaryList | None
 
 
 class DescribeScheduledQueryResponse(TypedDict, total=False):
@@ -611,20 +611,20 @@ class ScheduledQueryInsights(TypedDict, total=False):
 class ExecuteScheduledQueryRequest(ServiceRequest):
     ScheduledQueryArn: AmazonResourceName
     InvocationTime: Time
-    ClientToken: Optional[ClientToken]
-    QueryInsights: Optional[ScheduledQueryInsights]
+    ClientToken: ClientToken | None
+    QueryInsights: ScheduledQueryInsights | None
 
 
 class ListScheduledQueriesRequest(ServiceRequest):
-    MaxResults: Optional[MaxScheduledQueriesResults]
-    NextToken: Optional[NextScheduledQueriesResultsToken]
+    MaxResults: MaxScheduledQueriesResults | None
+    NextToken: NextScheduledQueriesResultsToken | None
 
 
 class TimestreamDestination(TypedDict, total=False):
     """Destination for scheduled query."""
 
-    DatabaseName: Optional[ResourceName]
-    TableName: Optional[ResourceName]
+    DatabaseName: ResourceName | None
+    TableName: ResourceName | None
 
 
 class TargetDestination(TypedDict, total=False):
@@ -632,7 +632,7 @@ class TargetDestination(TypedDict, total=False):
     supported data source is Timestream.
     """
 
-    TimestreamDestination: Optional[TimestreamDestination]
+    TimestreamDestination: TimestreamDestination | None
 
 
 class ScheduledQuery(TypedDict, total=False):
@@ -640,32 +640,32 @@ class ScheduledQuery(TypedDict, total=False):
 
     Arn: AmazonResourceName
     Name: ScheduledQueryName
-    CreationTime: Optional[Time]
+    CreationTime: Time | None
     State: ScheduledQueryState
-    PreviousInvocationTime: Optional[Time]
-    NextInvocationTime: Optional[Time]
-    ErrorReportConfiguration: Optional[ErrorReportConfiguration]
-    TargetDestination: Optional[TargetDestination]
-    LastRunStatus: Optional[ScheduledQueryRunStatus]
+    PreviousInvocationTime: Time | None
+    NextInvocationTime: Time | None
+    ErrorReportConfiguration: ErrorReportConfiguration | None
+    TargetDestination: TargetDestination | None
+    LastRunStatus: ScheduledQueryRunStatus | None
 
 
-ScheduledQueryList = List[ScheduledQuery]
+ScheduledQueryList = list[ScheduledQuery]
 
 
 class ListScheduledQueriesResponse(TypedDict, total=False):
     ScheduledQueries: ScheduledQueryList
-    NextToken: Optional[NextScheduledQueriesResultsToken]
+    NextToken: NextScheduledQueriesResultsToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
     ResourceARN: AmazonResourceName
-    MaxResults: Optional[MaxTagsForResourceResult]
-    NextToken: Optional[NextTagsForResourceResultsToken]
+    MaxResults: MaxTagsForResourceResult | None
+    NextToken: NextTagsForResourceResultsToken | None
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
     Tags: TagList
-    NextToken: Optional[NextTagsForResourceResultsToken]
+    NextToken: NextTagsForResourceResultsToken | None
 
 
 class ParameterMapping(TypedDict, total=False):
@@ -675,25 +675,25 @@ class ParameterMapping(TypedDict, total=False):
     Type: Type
 
 
-ParameterMappingList = List[ParameterMapping]
+ParameterMappingList = list[ParameterMapping]
 
 
 class PrepareQueryRequest(ServiceRequest):
     QueryString: QueryString
-    ValidateOnly: Optional[NullableBoolean]
+    ValidateOnly: NullableBoolean | None
 
 
 class SelectColumn(TypedDict, total=False):
     """Details of the column that is returned by the query."""
 
-    Name: Optional[String]
-    Type: Optional[Type]
-    DatabaseName: Optional[ResourceName]
-    TableName: Optional[ResourceName]
-    Aliased: Optional[NullableBoolean]
+    Name: String | None
+    Type: Type | None
+    DatabaseName: ResourceName | None
+    TableName: ResourceName | None
+    Aliased: NullableBoolean | None
 
 
-SelectColumnList = List[SelectColumn]
+SelectColumnList = list[SelectColumn]
 
 
 class PrepareQueryResponse(TypedDict, total=False):
@@ -706,7 +706,7 @@ class ProvisionedCapacityRequest(TypedDict, total=False):
     """A request to update the provisioned capacity settings for querying data."""
 
     TargetQueryTCU: QueryTCU
-    NotificationConfiguration: Optional[AccountSettingsNotificationConfiguration]
+    NotificationConfiguration: AccountSettingsNotificationConfiguration | None
 
 
 class QueryComputeRequest(TypedDict, total=False):
@@ -714,8 +714,8 @@ class QueryComputeRequest(TypedDict, total=False):
     querying data.
     """
 
-    ComputeMode: Optional[ComputeMode]
-    ProvisionedCapacity: Optional[ProvisionedCapacityRequest]
+    ComputeMode: ComputeMode | None
+    ProvisionedCapacity: ProvisionedCapacityRequest | None
 
 
 class QueryInsights(TypedDict, total=False):
@@ -767,22 +767,22 @@ class QueryInsightsResponse(TypedDict, total=False):
     executed.
     """
 
-    QuerySpatialCoverage: Optional[QuerySpatialCoverage]
-    QueryTemporalRange: Optional[QueryTemporalRange]
-    QueryTableCount: Optional[Long]
-    OutputRows: Optional[Long]
-    OutputBytes: Optional[Long]
-    UnloadPartitionCount: Optional[Long]
-    UnloadWrittenRows: Optional[Long]
-    UnloadWrittenBytes: Optional[Long]
+    QuerySpatialCoverage: QuerySpatialCoverage | None
+    QueryTemporalRange: QueryTemporalRange | None
+    QueryTableCount: Long | None
+    OutputRows: Long | None
+    OutputBytes: Long | None
+    UnloadPartitionCount: Long | None
+    UnloadWrittenRows: Long | None
+    UnloadWrittenBytes: Long | None
 
 
 class QueryRequest(ServiceRequest):
     QueryString: QueryString
-    ClientToken: Optional[ClientRequestToken]
-    NextToken: Optional[PaginationToken]
-    MaxRows: Optional[MaxQueryResults]
-    QueryInsights: Optional[QueryInsights]
+    ClientToken: ClientRequestToken | None
+    NextToken: PaginationToken | None
+    MaxRows: MaxQueryResults | None
+    QueryInsights: QueryInsights | None
 
 
 class QueryStatus(TypedDict, total=False):
@@ -790,24 +790,24 @@ class QueryStatus(TypedDict, total=False):
     scanned.
     """
 
-    ProgressPercentage: Optional[Double]
-    CumulativeBytesScanned: Optional[Long]
-    CumulativeBytesMetered: Optional[Long]
+    ProgressPercentage: Double | None
+    CumulativeBytesScanned: Long | None
+    CumulativeBytesMetered: Long | None
 
 
-RowList = List[Row]
+RowList = list[Row]
 
 
 class QueryResponse(TypedDict, total=False):
     QueryId: QueryId
-    NextToken: Optional[PaginationToken]
+    NextToken: PaginationToken | None
     Rows: RowList
     ColumnInfo: ColumnInfoList
-    QueryStatus: Optional[QueryStatus]
-    QueryInsightsResponse: Optional[QueryInsightsResponse]
+    QueryStatus: QueryStatus | None
+    QueryInsightsResponse: QueryInsightsResponse | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -829,15 +829,15 @@ class UntagResourceResponse(TypedDict, total=False):
 
 
 class UpdateAccountSettingsRequest(ServiceRequest):
-    MaxQueryTCU: Optional[MaxQueryCapacity]
-    QueryPricingModel: Optional[QueryPricingModel]
-    QueryCompute: Optional[QueryComputeRequest]
+    MaxQueryTCU: MaxQueryCapacity | None
+    QueryPricingModel: QueryPricingModel | None
+    QueryCompute: QueryComputeRequest | None
 
 
 class UpdateAccountSettingsResponse(TypedDict, total=False):
-    MaxQueryTCU: Optional[MaxQueryCapacity]
-    QueryPricingModel: Optional[QueryPricingModel]
-    QueryCompute: Optional[QueryComputeResponse]
+    MaxQueryTCU: MaxQueryCapacity | None
+    QueryPricingModel: QueryPricingModel | None
+    QueryCompute: QueryComputeResponse | None
 
 
 class UpdateScheduledQueryRequest(ServiceRequest):
@@ -846,8 +846,8 @@ class UpdateScheduledQueryRequest(ServiceRequest):
 
 
 class TimestreamQueryApi:
-    service = "timestream-query"
-    version = "2018-11-01"
+    service: str = "timestream-query"
+    version: str = "2018-11-01"
 
     @handler("CancelQuery")
     def cancel_query(

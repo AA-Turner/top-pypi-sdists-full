@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import string
 from datetime import datetime
 
@@ -6,9 +8,11 @@ from optimade.models import Species, StructureResourceAttributes
 from pydantic import Field
 from pymatgen.core.composition import Composition, formula_double_format
 from pymatgen.core.structure import Structure
+from typing_extensions import TypedDict
 
 from emmet.core.base import EmmetBaseModel
-from emmet.core.mpid import MPID
+from emmet.core.types.typing import IdentifierType
+from emmet.core.utils import arrow_incompatible
 
 letters = "ABCDEFGHIJKLMNOPQRSTUVXYZ"
 
@@ -76,6 +80,14 @@ def hill_formula(comp: Composition) -> str:
     return "".join(formula)
 
 
+class TypedStabilityDict(TypedDict):
+    thermo_id: str
+    energy_above_hull: float
+    formation_energy_per_atom: float
+    last_updated_thermo: datetime
+
+
+@arrow_incompatible
 class OptimadeMaterialsDoc(StructureResourceAttributes, EmmetBaseModel):
     """
     Optimade Structure resource with a few extra MP specific fields for materials
@@ -84,9 +96,11 @@ class OptimadeMaterialsDoc(StructureResourceAttributes, EmmetBaseModel):
     used to perform stability calc, i.e., R2SCAN, GGA_GGA+U_R2SCAN, or GGA_GGA+U
     """
 
-    material_id: MPID | None = Field(None, description="The ID of the material")
+    material_id: IdentifierType | None = Field(
+        None, description="The ID of the material"
+    )
     chemical_system: str
-    stability: dict
+    stability: dict[str, TypedStabilityDict]
 
     @classmethod
     def from_structure(
@@ -94,7 +108,7 @@ class OptimadeMaterialsDoc(StructureResourceAttributes, EmmetBaseModel):
         structure: Structure,
         last_updated_structure: datetime,
         thermo_calcs: dict,
-        material_id: MPID | None = None,
+        material_id: IdentifierType | None = None,
         **kwargs,
     ) -> StructureResourceAttributes:
         structure.remove_oxidation_states()

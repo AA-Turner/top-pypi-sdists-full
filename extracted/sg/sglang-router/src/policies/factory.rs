@@ -1,11 +1,13 @@
 //! Factory for creating load balancing policies
 
+use std::sync::Arc;
+
 use super::{
-    CacheAwareConfig, CacheAwarePolicy, LoadBalancingPolicy, PowerOfTwoPolicy, RandomPolicy,
-    RoundRobinPolicy,
+    BucketConfig, BucketPolicy, CacheAwareConfig, CacheAwarePolicy, ConsistentHashingPolicy,
+    LoadBalancingPolicy, ManualConfig, ManualPolicy, PowerOfTwoPolicy, PrefixHashConfig,
+    PrefixHashPolicy, RandomPolicy, RoundRobinPolicy,
 };
 use crate::config::PolicyConfig;
-use std::sync::Arc;
 
 /// Factory for creating policy instances
 pub struct PolicyFactory;
@@ -33,6 +35,41 @@ impl PolicyFactory {
                 };
                 Arc::new(CacheAwarePolicy::with_config(config))
             }
+            PolicyConfig::Bucket {
+                balance_abs_threshold,
+                balance_rel_threshold,
+                bucket_adjust_interval_secs,
+            } => {
+                let config = BucketConfig {
+                    balance_abs_threshold: *balance_abs_threshold,
+                    balance_rel_threshold: *balance_rel_threshold,
+                    bucket_adjust_interval_secs: *bucket_adjust_interval_secs,
+                };
+                Arc::new(BucketPolicy::with_config(config))
+            }
+            PolicyConfig::Manual {
+                eviction_interval_secs,
+                max_idle_secs,
+                assignment_mode,
+            } => {
+                let config = ManualConfig {
+                    eviction_interval_secs: *eviction_interval_secs,
+                    max_idle_secs: *max_idle_secs,
+                    assignment_mode: *assignment_mode,
+                };
+                Arc::new(ManualPolicy::with_config(config))
+            }
+            PolicyConfig::ConsistentHashing => Arc::new(ConsistentHashingPolicy::new()),
+            PolicyConfig::PrefixHash {
+                prefix_token_count,
+                load_factor,
+            } => {
+                let config = PrefixHashConfig {
+                    prefix_token_count: *prefix_token_count,
+                    load_factor: *load_factor,
+                };
+                Arc::new(PrefixHashPolicy::new(config))
+            }
         }
     }
 
@@ -43,6 +80,12 @@ impl PolicyFactory {
             "round_robin" | "roundrobin" => Some(Arc::new(RoundRobinPolicy::new())),
             "power_of_two" | "poweroftwo" => Some(Arc::new(PowerOfTwoPolicy::new())),
             "cache_aware" | "cacheaware" => Some(Arc::new(CacheAwarePolicy::new())),
+            "bucket" => Some(Arc::new(BucketPolicy::new())),
+            "manual" => Some(Arc::new(ManualPolicy::new())),
+            "consistent_hashing" | "consistenthashing" => {
+                Some(Arc::new(ConsistentHashingPolicy::new()))
+            }
+            "prefix_hash" | "prefixhash" => Some(Arc::new(PrefixHashPolicy::with_defaults())),
             _ => None,
         }
     }
@@ -52,23 +95,19 @@ impl PolicyFactory {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_create_from_config() {
-        // Test Random
+    #[tokio::test]
+    async fn test_create_from_config() {
         let policy = PolicyFactory::create_from_config(&PolicyConfig::Random);
         assert_eq!(policy.name(), "random");
 
-        // Test RoundRobin
         let policy = PolicyFactory::create_from_config(&PolicyConfig::RoundRobin);
         assert_eq!(policy.name(), "round_robin");
 
-        // Test PowerOfTwo
         let policy = PolicyFactory::create_from_config(&PolicyConfig::PowerOfTwo {
             load_check_interval_secs: 60,
         });
         assert_eq!(policy.name(), "power_of_two");
 
-        // Test CacheAware
         let policy = PolicyFactory::create_from_config(&PolicyConfig::CacheAware {
             cache_threshold: 0.7,
             balance_abs_threshold: 10,
@@ -77,10 +116,27 @@ mod tests {
             max_tree_size: 1000,
         });
         assert_eq!(policy.name(), "cache_aware");
+
+        let policy = PolicyFactory::create_from_config(&PolicyConfig::Bucket {
+            balance_abs_threshold: 10,
+            balance_rel_threshold: 1.5,
+            bucket_adjust_interval_secs: 5,
+        });
+        assert_eq!(policy.name(), "bucket");
+
+        let policy = PolicyFactory::create_from_config(&PolicyConfig::Manual {
+            eviction_interval_secs: 60,
+            max_idle_secs: 4 * 3600,
+            assignment_mode: Default::default(),
+        });
+        assert_eq!(policy.name(), "manual");
+
+        let policy = PolicyFactory::create_from_config(&PolicyConfig::ConsistentHashing);
+        assert_eq!(policy.name(), "consistent_hashing");
     }
 
-    #[test]
-    fn test_create_by_name() {
+    #[tokio::test]
+    async fn test_create_by_name() {
         assert!(PolicyFactory::create_by_name("random").is_some());
         assert!(PolicyFactory::create_by_name("RANDOM").is_some());
         assert!(PolicyFactory::create_by_name("round_robin").is_some());
@@ -89,6 +145,12 @@ mod tests {
         assert!(PolicyFactory::create_by_name("PowerOfTwo").is_some());
         assert!(PolicyFactory::create_by_name("cache_aware").is_some());
         assert!(PolicyFactory::create_by_name("CacheAware").is_some());
+        assert!(PolicyFactory::create_by_name("bucket").is_some());
+        assert!(PolicyFactory::create_by_name("Bucket").is_some());
+        assert!(PolicyFactory::create_by_name("manual").is_some());
+        assert!(PolicyFactory::create_by_name("Manual").is_some());
+        assert!(PolicyFactory::create_by_name("consistent_hashing").is_some());
+        assert!(PolicyFactory::create_by_name("ConsistentHashing").is_some());
         assert!(PolicyFactory::create_by_name("unknown").is_none());
     }
 }

@@ -1,14 +1,14 @@
 import inspect
+import sys
 from collections.abc import Mapping
 from enum import Enum
-from typing import Annotated, Any, Literal, Optional, TypeVar, Union
+from typing import Annotated, Any, Literal, Optional, TypeVar, Union, get_args, get_origin
 
 from dagster_shared.dagster_model.pydantic_compat_layer import (
     ModelFieldCompat,
     PydanticUndefined,
     model_fields,
 )
-from typing_extensions import get_args, get_origin
 
 import dagster._check as check
 from dagster._config import (
@@ -34,6 +34,15 @@ from dagster._core.errors import (
     DagsterInvalidPythonicConfigDefinitionError,
 )
 from dagster._utils.typing_api import is_closed_python_optional_type
+
+if sys.version_info >= (3, 10):
+    # Support models being built with the `Foo | Bar` syntax,
+    # not just `Union[Foo, Bar]`
+    from types import UnionType
+
+    _UNION_TYPES = [Union, UnionType]
+else:
+    _UNION_TYPES = [Union]
 
 
 # This is from https://github.com/dagster-io/dagster/pull/11470
@@ -135,12 +144,18 @@ def _convert_pydantic_field(
         if isinstance(default_to_pass, Enum):
             default_to_pass = default_to_pass.name
 
+        # Extract is_secret from json_schema_extra
+        extras = pydantic_field.json_schema_extra or {}
+        is_secret = bool(extras.get("dagster__is_secret", False))
+
         return Field(
             config=config_type,
             description=pydantic_field.description,
             is_required=pydantic_field.is_required()
-            and not is_closed_python_optional_type(field_type),
+            and not is_closed_python_optional_type(field_type)
+            and default_to_pass == FIELD_NO_DEFAULT_PROVIDED,
             default_value=default_to_pass,
+            is_secret=is_secret,
         )
 
 
@@ -250,7 +265,7 @@ def _convert_pydantic_discriminated_union_field(pydantic_field: ModelFieldCompat
     field_type = pydantic_field.annotation
     discriminator = pydantic_field.discriminator if pydantic_field.discriminator else None
 
-    if not get_origin(field_type) == Union:
+    if get_origin(field_type) not in _UNION_TYPES:
         raise DagsterInvalidDefinitionError("Discriminated union must be a Union type.")
 
     sub_fields = get_args(field_type)

@@ -7,9 +7,11 @@ https://gitlab.com/keatontaylor/alexapy
 """
 
 try:
-    from importlib_metadata import PackageNotFoundError, metadata as __load
+    from importlib_metadata import PackageNotFoundError
+    from importlib_metadata import metadata as __load
 except ModuleNotFoundError:
-    from importlib.metadata import PackageNotFoundError, metadata as __load
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import metadata as __load
 
 import logging
 from pathlib import Path
@@ -29,7 +31,6 @@ from .helpers import hide_email, hide_serial, obfuscate
 
 pkg = Path(__file__).absolute().parent.name
 logger = logging.getLogger(pkg)
-metadata = None  # pylint: disable=invalid-name
 try:
     metadata = __load(pkg)
 
@@ -45,12 +46,12 @@ except PackageNotFoundError:  # pragma: no cover
     logger.error("Could not load package metadata for %s. Is it installed?", pkg)
 
 __all__ = [
-    "AlexaLogin",
     "AlexaAPI",
+    "AlexaLogin",
+    "AlexaProxy",
     "AlexapyConnectionError",
     "AlexapyLoginCloseRequested",
     "AlexapyLoginError",
-    "AlexaProxy",
     "AlexapyPyotpInvalidKey",
     "HTTP2EchoClient",
     "WebsocketEchoClient",

@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from githubkit.compat import model_dump, type_validate_python
 from githubkit.typing import Missing, UnsetType
-from githubkit.utils import UNSET, exclude_unset
+from githubkit.utils import UNSET, exclude_unset, parse_query_params
 
 if TYPE_CHECKING:
     from typing import Literal, Union
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from ..types import (
         EnterprisesEnterpriseTeamsPostBodyType,
         EnterprisesEnterpriseTeamsTeamSlugPatchBodyType,
-        EnterpriseTeamType,
+        EnterpriseTeamTypeForResponse,
     )
 
 
@@ -58,7 +58,7 @@ class EnterpriseTeamsClient:
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[EnterpriseTeam], list[EnterpriseTeamType]]:
+    ) -> Response[list[EnterpriseTeam], list[EnterpriseTeamTypeForResponse]]:
         """enterprise-teams/list
 
         GET /enterprises/{enterprise}/teams
@@ -82,7 +82,7 @@ class EnterpriseTeamsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[EnterpriseTeam],
@@ -99,7 +99,7 @@ class EnterpriseTeamsClient:
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[EnterpriseTeam], list[EnterpriseTeamType]]:
+    ) -> Response[list[EnterpriseTeam], list[EnterpriseTeamTypeForResponse]]:
         """enterprise-teams/list
 
         GET /enterprises/{enterprise}/teams
@@ -123,7 +123,7 @@ class EnterpriseTeamsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[EnterpriseTeam],
@@ -140,7 +140,7 @@ class EnterpriseTeamsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: EnterprisesEnterpriseTeamsPostBodyType,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]: ...
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]: ...
 
     @overload
     def create(
@@ -153,8 +153,11 @@ class EnterpriseTeamsClient:
         name: str,
         description: Missing[Union[str, None]] = UNSET,
         sync_to_organizations: Missing[Literal["all", "disabled"]] = UNSET,
+        organization_selection_type: Missing[
+            Literal["disabled", "selected", "all"]
+        ] = UNSET,
         group_id: Missing[Union[str, None]] = UNSET,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]: ...
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]: ...
 
     def create(
         self,
@@ -164,7 +167,7 @@ class EnterpriseTeamsClient:
         stream: bool = False,
         data: Missing[EnterprisesEnterpriseTeamsPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]:
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]:
         """enterprise-teams/create
 
         POST /enterprises/{enterprise}/teams
@@ -206,7 +209,7 @@ class EnterpriseTeamsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: EnterprisesEnterpriseTeamsPostBodyType,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]: ...
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]: ...
 
     @overload
     async def async_create(
@@ -219,8 +222,11 @@ class EnterpriseTeamsClient:
         name: str,
         description: Missing[Union[str, None]] = UNSET,
         sync_to_organizations: Missing[Literal["all", "disabled"]] = UNSET,
+        organization_selection_type: Missing[
+            Literal["disabled", "selected", "all"]
+        ] = UNSET,
         group_id: Missing[Union[str, None]] = UNSET,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]: ...
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]: ...
 
     async def async_create(
         self,
@@ -230,7 +236,7 @@ class EnterpriseTeamsClient:
         stream: bool = False,
         data: Missing[EnterprisesEnterpriseTeamsPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]:
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]:
         """enterprise-teams/create
 
         POST /enterprises/{enterprise}/teams
@@ -271,7 +277,7 @@ class EnterpriseTeamsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]:
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]:
         """enterprise-teams/get
 
         GET /enterprises/{enterprise}/teams/{team_slug}
@@ -305,7 +311,7 @@ class EnterpriseTeamsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]:
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]:
         """enterprise-teams/get
 
         GET /enterprises/{enterprise}/teams/{team_slug}
@@ -411,7 +417,7 @@ class EnterpriseTeamsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: EnterprisesEnterpriseTeamsTeamSlugPatchBodyType,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]: ...
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]: ...
 
     @overload
     def update(
@@ -425,8 +431,11 @@ class EnterpriseTeamsClient:
         name: Missing[Union[str, None]] = UNSET,
         description: Missing[Union[str, None]] = UNSET,
         sync_to_organizations: Missing[Literal["all", "disabled"]] = UNSET,
+        organization_selection_type: Missing[
+            Literal["disabled", "selected", "all"]
+        ] = UNSET,
         group_id: Missing[Union[str, None]] = UNSET,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]: ...
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]: ...
 
     def update(
         self,
@@ -437,7 +446,7 @@ class EnterpriseTeamsClient:
         stream: bool = False,
         data: Missing[EnterprisesEnterpriseTeamsTeamSlugPatchBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]:
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]:
         """enterprise-teams/update
 
         PATCH /enterprises/{enterprise}/teams/{team_slug}
@@ -489,7 +498,7 @@ class EnterpriseTeamsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: EnterprisesEnterpriseTeamsTeamSlugPatchBodyType,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]: ...
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]: ...
 
     @overload
     async def async_update(
@@ -503,8 +512,11 @@ class EnterpriseTeamsClient:
         name: Missing[Union[str, None]] = UNSET,
         description: Missing[Union[str, None]] = UNSET,
         sync_to_organizations: Missing[Literal["all", "disabled"]] = UNSET,
+        organization_selection_type: Missing[
+            Literal["disabled", "selected", "all"]
+        ] = UNSET,
         group_id: Missing[Union[str, None]] = UNSET,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]: ...
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]: ...
 
     async def async_update(
         self,
@@ -515,7 +527,7 @@ class EnterpriseTeamsClient:
         stream: bool = False,
         data: Missing[EnterprisesEnterpriseTeamsTeamSlugPatchBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EnterpriseTeam, EnterpriseTeamType]:
+    ) -> Response[EnterpriseTeam, EnterpriseTeamTypeForResponse]:
         """enterprise-teams/update
 
         PATCH /enterprises/{enterprise}/teams/{team_slug}

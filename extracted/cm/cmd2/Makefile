@@ -2,8 +2,8 @@
 .PHONY: install
 install: ## Install the virtual environment with dependencies
 	@echo "🚀 Creating uv Python virtual environment"
-	@uv python install 3.13
-	@uv sync --python=3.13
+	@uv python install 3.14
+	@uv sync --python=3.14
 	@echo "🚀 Installing Git pre-commit hooks locally"
 	@uv run pre-commit install
 	@echo "🚀 Installing Prettier using npm"
@@ -33,8 +33,7 @@ typecheck: ## Perform type checking
 .PHONY: test
 test: ## Test the code with pytest.
 	@echo "🚀 Testing code: Running pytest"
-	@uv run python -m pytest --cov --cov-config=pyproject.toml --cov-report=xml tests
-	@uv run python -m pytest --cov --cov-config=pyproject.toml --cov-report=xml tests_isolated
+	@uv run python -Xutf8 -m pytest --cov --cov-config=pyproject.toml --cov-report=xml tests
 
 .PHONY: docs-test
 docs-test: ## Test if documentation can be built without warnings or errors
@@ -47,7 +46,7 @@ docs: ## Build and serve the documentation
 .PHONY: build
 build: clean-build ## Build wheel file
 	@echo "🚀 Creating wheel file"
-	@uvx --from build pyproject-build --installer uv
+	@uv build
 
 .PHONY: clean-build
 clean-build: ## Clean build artifacts
@@ -67,14 +66,14 @@ validate-tag: ## Check to make sure that a tag exists for the current HEAD and i
 	@uv run inv validatetag
 
 .PHONY: publish-test
-publish-test: validate-tag build ## Test publishing a release to PyPI.
+publish-test: validate-tag build ## Test publishing a release to PyPI, uses token from ~/.pypirc file.
 	@echo "🚀 Publishing: Dry run."
-	@uvx twine upload --repository testpypi dist/*
+	@uv run uv-publish --repository testpypi
 
 .PHONY: publish
-publish: validate-tag build ## Publish a release to PyPI.
+publish: validate-tag build ## Publish a release to PyPI, uses token from ~/.pypirc file.
 	@echo "🚀 Publishing."
-	@uvx twine upload dist/*
+	@uv run uv-publish
 
 .PHONY: help
 help:

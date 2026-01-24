@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
+from connector_sdk_types.oai.fingerprint import request_fingerprint
 
 
 class ValidateCredentials(BaseModel):
@@ -68,3 +69,6 @@ class ValidateCredentials(BaseModel):
             return cls.model_validate(obj)
         _obj = cls.model_validate({})
         return _obj
+
+    def fingerprint(self) -> str:
+        return request_fingerprint(self)

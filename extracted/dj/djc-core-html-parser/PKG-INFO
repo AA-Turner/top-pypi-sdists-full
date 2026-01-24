@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djc_core_html_parser
-Version: 1.0.2
+Version: 1.0.3
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
@@ -9,6 +9,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -25,6 +26,8 @@ Project-URL: Issues, https://github.com/django-components/djc-core-html-parser/i
 Project-URL: Donate, https://github.com/sponsors/EmilStenstrom
 
 # djc-core-html-parser
+
+[![PyPI - Version](https://img.shields.io/pypi/v/djc-core-html-parser)](https://pypi.org/project/djc-core-html-parser/) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/djc-core-html-parser)](https://pypi.org/project/djc-core-html-parser/) [![PyPI - License](https://img.shields.io/pypi/l/djc-core-html-parser)](https://github.com/django-components/djc-core-html-parser/blob/master/LICENSE/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/djc-core-html-parser)](https://pypistats.org/packages/djc-core-html-parser) [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/django-components/djc-core-html-parser/tests.yml)](https://github.com/django-components/djc-core-html-parser/actions/workflows/tests.yml)
 
 HTML parser used by [django-components](https://github.com/django-components/django-components). Written in Rust, exposed as a Python package with [maturin](https://www.maturin.rs/).
 

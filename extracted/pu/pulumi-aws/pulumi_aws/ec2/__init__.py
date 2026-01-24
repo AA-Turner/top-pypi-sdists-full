@@ -7,6 +7,7 @@ from .. import _utilities
 import typing
 # Export this package's modules as members:
 from ._enums import *
+from .allowed_images_settings import *
 from .ami import *
 from .ami_copy import *
 from .ami_from_instance import *
@@ -28,6 +29,7 @@ from .egress_only_internet_gateway import *
 from .eip import *
 from .eip_association import *
 from .eip_domain_name import *
+from .encryption_control import *
 from .fleet import *
 from .flow_log import *
 from .get_ami import *
@@ -92,6 +94,7 @@ from .get_vpc_ipams import *
 from .get_vpc_peering_connection import *
 from .get_vpc_peering_connections import *
 from .get_vpcs import *
+from .get_vpn_connection import *
 from .get_vpn_gateway import *
 from .image_block_public_access import *
 from .instance import *
@@ -144,6 +147,7 @@ from .vpc_block_public_access_exclusion import *
 from .vpc_block_public_access_options import *
 from .vpc_dhcp_options import *
 from .vpc_dhcp_options_association import *
+from .vpc_encryption_control import *
 from .vpc_endpoint import *
 from .vpc_endpoint_connection_accepter import *
 from .vpc_endpoint_connection_notification import *
@@ -166,6 +170,7 @@ from .vpc_ipv6_cidr_block_association import *
 from .vpc_network_performance_metric_subscription import *
 from .vpc_peering_connection import *
 from .vpc_peering_connection_accepter import *
+from .vpn_concentrator import *
 from .vpn_connection import *
 from .vpn_connection_route import *
 from .vpn_gateway import *

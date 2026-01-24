@@ -108,8 +108,8 @@ class TaskHelper(AsyncTaskLink, Generic[ResponseT]):
             response = cast(ResponseT, EMPTY_TASK_RESPONSE)
         else:
             response = self._response_decoder(task.response.to_dict())
-        errors = None if task.status != AsyncTaskStatus.FAILED else unset_as_none(task.errors)
-        message = None if task.status != AsyncTaskStatus.FAILED else unset_as_none(task.message)
+        errors = None if task.status != AsyncTaskStatus.FAILED else unset_as_none(lambda: task.errors)
+        message = None if task.status != AsyncTaskStatus.FAILED else unset_as_none(lambda:task.message)
         return TaskCompletion(
             success=task.status == AsyncTaskStatus.SUCCEEDED,
             errors=errors,  # type: ignore

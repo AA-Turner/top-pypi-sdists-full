@@ -76,26 +76,24 @@ from spyder.app.utils import (
     set_opengl_implementation)
 from spyder.api.plugin_registration.registry import PLUGIN_REGISTRY
 from spyder.api.shortcuts import SpyderShortcutsMixin
+from spyder.api.translations import _
 from spyder.api.widgets.mixins import SpyderMainWindowMixin
-from spyder.config.base import (_, DEV, get_conf_path, get_debug_level,
+from spyder.config.base import (DEV, get_conf_path, get_debug_level,
                                 get_home_dir, is_conda_based_app,
                                 running_under_pytest, STDERR)
 from spyder.config.gui import is_dark_font_color
 from spyder.config.main import OPEN_FILES_PORT
 from spyder.config.manager import CONF
-from spyder.config.utils import IMPORT_EXT
-from spyder.py3compat import to_text_string
 from spyder.utils import encoding, programs
 from spyder.utils.icon_manager import ima
 from spyder.utils.misc import select_port, getcwd_or_home
 from spyder.utils.palette import SpyderPalette
-from spyder.utils.qthelpers import file_uri, qapplication, start_file
+from spyder.utils.qthelpers import qapplication
 from spyder.utils.stylesheet import APP_STYLESHEET
 
 # Spyder API Imports
 from spyder.api.exceptions import SpyderAPIError
 from spyder.api.plugins import Plugins, SpyderDockablePlugin, SpyderPluginV2
-from spyder.api.plugins._old_api import SpyderPlugin, SpyderPluginWidget
 
 #==============================================================================
 # Windows only local imports
@@ -150,6 +148,17 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
     ----------
     window_state: Qt.WindowStates
         The window state.
+    """
+
+    sig_focused_plugin_changed = Signal(object)
+    """
+    This signal is emitted when another plugin received keyboard focus.
+
+    Parameters
+    ----------
+    plugin: Optional[SpyderDockablePlugin]
+        The plugin that currently has keyboard focus, or None if no dockable
+        plugin has focus.
     """
 
     def __init__(self, splash=None, options=None):
@@ -276,6 +285,7 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
 
         # To keep track of the last focused widget
         self.last_focused_widget = None
+        self.last_focused_plugin = None
         self.previous_focused_widget = None
 
         # Server to open external files on a single instance
@@ -332,7 +342,7 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
         dockable_plugins = []
         for plugin_name in PLUGIN_REGISTRY:
             plugin = PLUGIN_REGISTRY.get_plugin(plugin_name)
-            if isinstance(plugin, (SpyderDockablePlugin, SpyderPluginWidget)):
+            if isinstance(plugin, SpyderDockablePlugin):
                 dockable_plugins.append((plugin_name, plugin))
         return dockable_plugins
 
@@ -420,6 +430,9 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
         self.sig_resized.connect(plugin.sig_mainwindow_resized)
         self.sig_window_state_changed.connect(
             plugin.sig_mainwindow_state_changed)
+        self.sig_focused_plugin_changed.connect(
+            plugin.sig_focused_plugin_changed
+        )
 
         # Register plugin
         plugin._register(omit_conf=omit_conf)
@@ -732,7 +745,8 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
                     # See spyder-ide/spyder#16518
                     # The plugins that require QtWebengine must declare
                     # themselves as needing that dependency
-                    # https://github.com/spyder-ide/spyder/pull/22196#issuecomment-2189377043
+                    # https://github.com/spyder-ide/spyder/pull/
+                    # 22196#issuecomment-2189377043
                     if PluginClass.REQUIRE_WEB_WIDGETS and (
                         not WEBENGINE or
                         self._cli_options.no_web_widgets
@@ -742,23 +756,14 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
                     PLUGIN_REGISTRY.register_plugin(self, PluginClass,
                                                     external=False)
 
-        # Instantiate internal Spyder 4 plugins
-        for plugin_name in internal_plugins:
-            if plugin_name in enabled_plugins:
-                PluginClass = internal_plugins[plugin_name]
-                if issubclass(PluginClass, SpyderPlugin):
-                    plugin_instance = PLUGIN_REGISTRY.register_plugin(
-                        self, PluginClass, external=False)
-                    self.preferences.register_plugin_preferences(
-                        plugin_instance)
-
-        # Instantiate external Spyder 5 plugins
+        # Instantiate external Spyder 5+ plugins
         for plugin_name in external_plugins:
             if plugin_name in enabled_plugins:
                 PluginClass = external_plugins[plugin_name]
                 try:
-                    plugin_instance = PLUGIN_REGISTRY.register_plugin(
-                        self, PluginClass, external=True)
+                    PLUGIN_REGISTRY.register_plugin(
+                        self, PluginClass, external=True
+                    )
                 except Exception as error:
                     print("%s: %s" % (PluginClass, str(error)), file=STDERR)
                     traceback.print_exc(file=STDERR)
@@ -800,10 +805,7 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
 
         for plugin_name in PLUGIN_REGISTRY:
             plugin_instance = PLUGIN_REGISTRY.get_plugin(plugin_name)
-            try:
-                plugin_instance.before_mainwindow_visible()
-            except AttributeError:
-                pass
+            plugin_instance.before_mainwindow_visible()
 
         if self.splash is not None:
             self.splash.hide()
@@ -852,11 +854,8 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
         for plugin_name in PLUGIN_REGISTRY:
             if plugin_name not in (Plugins.Layout, Plugins.Application):
                 plugin = PLUGIN_REGISTRY.get_plugin(plugin_name)
-                try:
-                    plugin.on_mainwindow_visible()
-                    QApplication.processEvents()
-                except AttributeError:
-                    pass
+                plugin.on_mainwindow_visible()
+                QApplication.processEvents()
 
         self.restore_scrollbar_position.emit()
 
@@ -930,10 +929,6 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
             if isinstance(plugin, SpyderDockablePlugin):
                 if plugin.get_conf('undocked_on_window_close', default=False):
                     plugin.create_window()
-            elif isinstance(plugin, SpyderPluginWidget):
-                if plugin.get_option('undocked_on_window_close',
-                                     default=False):
-                    plugin._create_window()
 
     def set_window_title(self):
         """Set window title."""
@@ -952,7 +947,7 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
 
         window_title = self._cli_options.window_title
         if window_title is not None:
-            title += u' -- ' + to_text_string(window_title)
+            title += u' -- ' + str(window_title)
 
         # TODO: Remove self.projects reference once there's an API for setting
         # window title.
@@ -1029,17 +1024,8 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
         """Reimplement Qt method"""
         try:
             for plugin in (self.widgetlist + self.thirdparty_plugins):
-                # TODO: Remove old API
-                try:
-                    # New API
-                    if plugin.get_widget().isAncestorOf(
-                            self.last_focused_widget):
-                        plugin.change_visibility(True)
-                except AttributeError:
-                    # Old API
-                    if plugin.isAncestorOf(self.last_focused_widget):
-                        plugin._visibility_changed(True)
-
+                if plugin.get_widget().isAncestorOf(self.last_focused_widget):
+                    plugin.change_visibility(True)
             QMainWindow.hideEvent(self, event)
         except RuntimeError:
             QMainWindow.hideEvent(self, event)
@@ -1063,21 +1049,51 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
         QApplication.processEvents()
 
     def change_last_focused_widget(self, old, now):
-        """To keep track of to the last focused widget"""
+        """
+        Keep track of widget and plugin that has keyboard focus.
+
+        This function is connected to the app `focusChanged` signal. It keeps
+        track of the widget and plugin that currently has keyboard focus, so
+        that we can give focus to the last focused widget when restoring it
+        after minimization. It also emits `sig_focused_plugin_changed` if the
+        plugin with focus has changed.
+
+        Parameters
+        ----------
+        old : Optional[QWidget]
+            Widget that used to have keyboard focus.
+        now : Optional[QWidget]
+            Widget that currently has keyboard focus.
+        """
         if (now is None and QApplication.activeWindow() is not None):
             QApplication.activeWindow().setFocus()
             self.last_focused_widget = QApplication.focusWidget()
         elif now is not None:
             self.last_focused_widget = now
 
-        self.previous_focused_widget =  old
+        self.previous_focused_widget = old
+
+        if self.last_focused_widget:
+            for plugin_name, plugin in self.get_dockable_plugins():
+                if self.is_plugin_available(plugin_name):
+                    plugin_widget = plugin.get_widget()
+                    if plugin_widget.isAncestorOf(self.last_focused_widget):
+                        focused_plugin = plugin
+                        break
+            else:
+                focused_plugin = None
+
+            if focused_plugin != self.last_focused_plugin:
+                self.last_focused_plugin = focused_plugin
+                self.sig_focused_plugin_changed.emit(focused_plugin)
 
     def closing(self, cancelable=False, close_immediately=False):
         """Exit tasks"""
         if self.already_closed or self.is_starting_up:
             return True
 
-        self.layouts.save_visible_plugins()
+        if self.layouts is not None:
+            self.layouts.save_visible_plugins()
 
         self.plugin_registry = PLUGIN_REGISTRY
 
@@ -1143,18 +1159,10 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
         """
         Add a plugin QDockWidget to the main window.
         """
-        try:
-            # New API
-            if plugin.is_compatible:
-                dockwidget, location = plugin.create_dockwidget(self)
-                self.addDockWidget(location, dockwidget)
-                self.widgetlist.append(plugin)
-        except AttributeError:
-            # Old API
-            if plugin._is_compatible:
-                dockwidget, location = plugin._create_dockwidget()
-                self.addDockWidget(location, dockwidget)
-                self.widgetlist.append(plugin)
+        if plugin.is_compatible:
+            dockwidget, location = plugin.create_dockwidget(self)
+            self.addDockWidget(location, dockwidget)
+            self.widgetlist.append(plugin)
 
     def redirect_internalshell_stdio(self, state):
         console = self.get_plugin(Plugins.Console, error=False)
@@ -1163,27 +1171,6 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
                 console.redirect_stds()
             else:
                 console.restore_stds()
-
-    def open_file(self, fname, external=False):
-        """
-        Open filename with the appropriate application
-        Redirect to the right widget (txt -> editor, spydata -> workspace, ...)
-        or open file outside Spyder (if extension is not supported)
-        """
-        fname = to_text_string(fname)
-        ext = osp.splitext(fname)[1]
-        editor = self.get_plugin(Plugins.Editor, error=False)
-        variableexplorer = self.get_plugin(
-            Plugins.VariableExplorer, error=False)
-
-        if encoding.is_text_file(fname):
-            if editor:
-                editor.load(fname)
-        elif variableexplorer is not None and ext in IMPORT_EXT:
-            variableexplorer.get_widget().import_data(fname)
-        elif not external:
-            fname = file_uri(fname)
-            start_file(fname)
 
     def get_initial_working_directory(self):
         """Return the initial working directory."""
@@ -1209,8 +1196,9 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
         if sys.platform == 'darwin' and 'bin/spyder' in fname:
             return
 
-        if osp.isfile(fpath):
-            self.open_file(fpath, external=True)
+        application = self.get_plugin(Plugins.Application, error=False)
+        if osp.isfile(fpath) and application:
+            application.open_file_in_plugin(fpath)
         elif osp.isdir(fpath):
             QMessageBox.warning(
                 self, _("Error"),
@@ -1236,18 +1224,12 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
         """Update dockwidgets features settings."""
         for plugin in (self.widgetlist + self.thirdparty_plugins):
             features = plugin.dockwidget.FEATURES
-
             plugin.dockwidget.setFeatures(features)
 
-            try:
-                # New API
-                margin = 0
-                if self.get_conf('use_custom_margin'):
-                    margin = self.get_conf('custom_margin')
-                plugin.update_margins(margin)
-            except AttributeError:
-                # Old API
-                plugin._update_margins()
+            margin = 0
+            if self.get_conf('use_custom_margin'):
+                margin = self.get_conf('custom_margin')
+            plugin.update_margins(margin)
 
     @Slot()
     def show_preferences(self):

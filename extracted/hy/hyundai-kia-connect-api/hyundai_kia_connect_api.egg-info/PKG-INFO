@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hyundai_kia_connect_api
-Version: 3.45.3
+Version: 4.3.11
 Summary: Python Boilerplate contains all the boilerplate you need to create a Python package.
 Home-page: https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api
 Author: Fuat Akgun
@@ -18,7 +18,9 @@ License-File: AUTHORS.rst
 Requires-Dist: beautifulsoup4>=4.10.0
 Requires-Dist: requests
 Requires-Dist: certifi>=2024.6.2
-Requires-Dist: geopy>=2.2.0
+Requires-Dist: tzdata>=2025.2
+Provides-Extra: google
+Requires-Dist: geopy>=2.2.0; extra == "google"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -27,6 +29,7 @@ Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
@@ -71,12 +74,25 @@ Python 3.10 or newer is required to use this package. Vehicle manager is the key
 
 Key values for the int exist in the `const.py <https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api/blob/master/hyundai_kia_connect_api/const.py>`_ file as::
 
-    REGIONS = {1: REGION_EUROPE, 2: REGION_CANADA, 3: REGION_USA, 4: REGION_CHINA, 5: REGION_AUSTRALIA, 6: REGION_NZ}
+    REGIONS = {1: REGION_EUROPE, 2: REGION_CANADA, 3: REGION_USA, 4: REGION_CHINA, 5: REGION_AUSTRALIA, 6: REGION_INDIA, 7: REGION_NZ, 8: REGION_BRAZIL}
     BRANDS = {1: BRAND_KIA, 2: BRAND_HYUNDAI, 3: BRAND_GENESIS}
     GEO_LOCATION_PROVIDERS = {1: OPENSTREETMAP, 2: GOOGLE}
 
 
 Once this is done you can now make the following calls against the vehicle manager::
+
+
+ #login
+
+ login(self)
+
+ #OTP Details
+
+ #Sent OTP
+ send_otp(self, method)
+
+ #Verify OTP
+ verify_otp(self, otp_code)
 
  #Checks the token is still valid and updates it if not.  Should be called before anything else if the code has been running for any length of time.
  check_and_refresh_token(self)
